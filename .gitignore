@@ -1,0 +1,8 @@
+node_modules/
+out/
+audio/check/
+audio/stems/
+audio/samples/
+__pycache__/
+*.pyc
+.DS_Store

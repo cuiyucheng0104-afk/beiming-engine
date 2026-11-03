@@ -1,0 +1,19 @@
+{
+  "name": "beiming-engine",
+  "version": "1.0.0",
+  "description": "北冥引擎：代码即影片的三渲二 + 2.5D 风格化渲染管线",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "sh build.sh",
+    "stills": "node engine/render/still.mjs . --range 0:9.5:0.5 --out out/stills",
+    "video": "node engine/render/video.mjs . --out out/video.mp4",
+    "video:4k": "node engine/render/video.mjs . --size 3840x2080 --workers 8 --out out/video_4k.mp4",
+    "setup": "npm install && npx playwright-core install chromium-headless-shell"
+  },
+  "dependencies": {
+    "three": "0.170.0",
+    "playwright-core": "1.63.0"
+  }
+}

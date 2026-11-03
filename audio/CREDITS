@@ -1,0 +1,7 @@
+《北冥》10 秒概念样片 · 声音署名
+
+Music samples / 配乐采样:
+Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+Instruments used / 用到的采样乐器: cellos, contrabass, glockenspiel, harp, horn, sus_cymbal, vibraphone_bowed, violas, violins
+
+Sound effects / 音效：环境声、汽笛、鸽群、触碰、眼镜提示音、鲲鸣、鲲掠过、海草，全部为程序化合成（numpy/scipy，本项目 audio/design.py），未使用任何外部录音素材。
