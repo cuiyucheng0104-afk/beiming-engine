@@ -7,9 +7,9 @@
 一条三渲二 + 2.5D 的风格化渲染管线。<br>
 每一帧都由代码画出：可重渲、可追溯、可以换一种画风重来。
 
-<a href="media/beiming.mp4"><img src="media/preview.gif" width="100%" alt="《北冥》概念样片预览"></a>
+<a href="https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/v1.0"><img src="media/preview.gif" width="100%" alt="《北冥》概念样片预览"></a>
 
-<sub>《北冥》概念样片 · 10 秒 · 点击画面观看有声完整版　｜　<a href="https://github.com/cuiyucheng0104-afk/beiming-engine/releases/latest">原生 4K 版</a></sub>
+<sub>《北冥》概念样片 · 10 秒 · 有声完整版：<a href="https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/v1.0">1080p 与原生 4K</a></sub>
 
 <br>
 
