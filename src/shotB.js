@@ -4,24 +4,23 @@
 // 人物一拍二（girl.js 内部量化）；推镜、天光、光尘 24 fps 平滑。
 import * as THREE from 'three';
 import { drawGirl, drawGirlMotes, girlCamera, GIRL_SHOT } from './girl.js';
-import { cutoutPlane, placeOnScreen, aimCamera, clamp, ss, seg } from './scene.js';
+import { clamp, ss, seg } from '../engine/core/math.js';
+import { canvasLayer, cutoutPlane } from '../engine/stage/plates.js';
+import { aimCamera, fillScreen } from '../engine/stage/camera.js';
 
 export function buildShotB({ W, H, img, K = 1 }) {   // W×H：1040 高的设计尺寸；K：实际像素 / 设计像素（原生 4K 时 2）
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(30, W / H, 1, 1000);
   aimCamera(cam, new THREE.Vector3(0, 0, 0), 0, 0);
 
-  const mk = () => { const c = document.createElement('canvas'); c.width = Math.round(W * K); c.height = Math.round(H * K); return c; };
-  const bg = mk(), bctx = bg.getContext('2d');
-  const fig = mk(), fctx = fig.getContext('2d');
-  const bgTex = new THREE.CanvasTexture(bg); bgTex.colorSpace = THREE.SRGBColorSpace;
-  const figTex = new THREE.CanvasTexture(fig); figTex.colorSpace = THREE.SRGBColorSpace;
+  const { ctx: bctx, tex: bgTex } = canvasLayer(Math.round(W * K), Math.round(H * K));
+  const { ctx: fctx, tex: figTex } = canvasLayer(Math.round(W * K), Math.round(H * K));
 
   const bgPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: bgTex, toneMapped: false, fog: false, depthWrite: false }));
   bgPlane.renderOrder = 0; bgPlane.userData.outline = false;
-  scene.add(bgPlane); placeOnScreen(bgPlane, cam, W, H, W / 2, H / 2, W, 100, H);
+  scene.add(bgPlane); fillScreen(bgPlane, cam, W, H, 100);
   const figPlane = cutoutPlane(figTex, { order: 10, cut: 0.5 });
-  scene.add(figPlane); placeOnScreen(figPlane, cam, W, H, W / 2, H / 2, W, 10, H);
+  scene.add(figPlane); fillScreen(figPlane, cam, W, H, 10);
 
   // 天空：光晕（底板 0.932, 0.882）放在画面右下，脸的前方正对光晕 = 逆光
   const IW = img.width, IH = img.height;

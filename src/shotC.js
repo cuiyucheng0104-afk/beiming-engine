@@ -6,7 +6,13 @@
 import * as THREE from 'three';
 import { createKun } from './kun.js';
 import { setToonGlobals } from './toon.js';
-import { plate, domePlate, cloudPuff, placeOnScreen, glowSprite, aimCamera, dirOf, project, wireOutlines, DEG, lerp, seg, ss, ss5, eo, clamp, hashi } from './scene.js';
+import { lerp, seg, ss, eo } from '../engine/core/math.js';
+import { hold, heldTime } from '../engine/core/clock.js';
+import { plate, plateCopy, cropPlate, glowSprite } from '../engine/stage/plates.js';
+import { domePlate } from '../engine/stage/dome.js';
+import { DEG, ss5, aimCamera, dirOf, yawPitchOf, wrapAngle, placeOnScreen, project, projectAll } from '../engine/stage/camera.js';
+import { headingQuat, integratePath, bezierPoints } from '../engine/stage/motion.js';
+import { wireOutlines } from '../engine/stage/outline.js';
 
 export const C_START = 5.0;
 
@@ -42,7 +48,7 @@ export function buildShotC({ W, H, tex, q }) {
   const cloudsBack = domePlate(tex.clouds_back, 1, 5000, -6 * DEG, 126 * DEG, -7.5 * DEG, 34.5 * DEG); world.add(cloudsBack);
   const pudong = domePlate(tex.skyline_pudong, 2, 3000, -4 * DEG, 30 * DEG, -3 * DEG, 12 * DEG); world.add(pudong);
   const river = domePlate(tex.river, 1.5, 2600, 22 * DEG, 130 * DEG, -16 * DEG, 0.25 * DEG); world.add(river);
-  const mistTex = tex.mist_low.clone(); mistTex.wrapS = THREE.RepeatWrapping; mistTex.repeat.x = 2.2; mistTex.needsUpdate = true;
+  const mistTex = plateCopy(tex.mist_low, { wrap: true }); mistTex.repeat.x = 2.2;
   const mist = domePlate(mistTex, 2.5, 2400, 0, 150 * DEG, -2.2 * DEG, 8.5 * DEG, { opacity: 0.8 }); world.add(mist);
 
   // ── 晨光：地平线辉光（左下远处），片尾 9.0–10.0 涨起来 ──
@@ -86,24 +92,17 @@ export function buildShotC({ W, H, tex, q }) {
   const heading = ts => { const s = ss(seg(ts, T_TURN0, T_TURN1)); return H0.clone().lerp(H1, s).normalize(); };
   const rollAt = ts => lerp(R0, R1, ss(seg(ts, T_TURN0, T_TURN1 - 0.6)));
   const speed = ts => lerp(V0, V1, ss(seg(ts, 6.2, 8.0))) + P('vend', 70) * ss(seg(ts, 8.4, 10.0));   // 片尾加速远去
-  const quatOf = (h, r, out = new THREE.Quaternion()) => {
-    const x = h.clone(), y = new THREE.Vector3(0, 1, 0).addScaledVector(x, -x.y).normalize(), z = new THREE.Vector3().crossVectors(x, y);
-    out.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
-    return out.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), r));
-  };
   // t=5.0 时眼睛在视线中央略偏右上、离相机 EYE_D 米
   const EYE_D = P('eyed', 130), EYE_YAW = P('eyeyaw', -4) * DEG, EYE_PITCH = P('eyepitch', 24) * DEG;
   const E0 = dirOf(EYE_YAW, EYE_PITCH).multiplyScalar(EYE_D).add(c0.pos);
   // 转身以身体后段为支点（PIV），这样头扭向远处时尾巴不会甩到镜头跟前；之后整条鲲沿新航向游走。
   const PIV = new THREE.Vector3(P('piv', -150), 0, 0);
   const kq = new THREE.Quaternion();
-  quatOf(heading(C_START), rollAt(C_START), kq);
-  const pivPath = [E0.clone().sub(eyeL.clone().sub(PIV).applyQuaternion(kq))];   // 每帧积分支点位置
-  for (let k = 1; k <= 130; k++) { const ts = C_START + (k - 0.5) / 24; pivPath.push(pivPath[k - 1].clone().addScaledVector(heading(ts), speed(ts) / 24)); }
-  const pivAt = (t, out = new THREE.Vector3()) => { const k = clamp((t - C_START) * 24, 0, 130), k0 = Math.floor(k), k1 = Math.min(130, k0 + 1); return out.copy(pivPath[k0]).lerp(pivPath[k1], k - k0); };
+  headingQuat(heading(C_START), rollAt(C_START), kq);
+  const pivAt = integratePath(E0.clone().sub(eyeL.clone().sub(PIV).applyQuaternion(kq)), heading, speed, { t0: C_START, steps: 130 });   // 每帧积分支点位置
   const _pp = new THREE.Vector3();
   function kunPose(ts) {
-    quatOf(heading(ts), rollAt(ts), kq);
+    headingQuat(heading(ts), rollAt(ts), kq);
     kun.group.quaternion.copy(kq);
     kun.group.position.copy(pivAt(ts, _pp)).sub(PIV.clone().applyQuaternion(kq));
   }
@@ -122,44 +121,34 @@ export function buildShotC({ W, H, tex, q }) {
     [tex.clouds_front_a, [0.05, 0.45, 0.42, 0.5], 460, -8, 50, 220, -12, 0.85, true],
     [tex.clouds_back, [0.3, 0.25, 0.3, 0.55], 80, 6, 47, 30, -8, 0.9, true],
   ].map(([m, rect, D, yaw, pit, w, v, op, fl], i) => {
-    const p = cloudPuff(m, rect, { order: D < 200 ? 5.5 : 3, opacity: op, soft: 0.5, flip: fl });
+    const p = cropPlate(m, rect, { order: D < 200 ? 5.5 : 3, opacity: op, soft: 0.5, flip: fl });
     scene.add(p);
     return { p, D, yaw: yaw * DEG, pit: pit * DEG, w, v, base: dirOf(yaw * DEG, pit * DEG).multiplyScalar(D).add(c0.pos) };
   });
 
   // ── 导航线（世界坐标）：前方江面 → 弧线升上天空 → 沿鲲游去的方向通向海平线的曙光 ──
-  const NAV = (() => {
-    const S = new THREE.Vector3(-6, 0, -42), C1 = new THREE.Vector3(-70, 150, -175), C2 = new THREE.Vector3(-420, 160, -640);
-    const T = dirOf(DAWN_YAW + 2 * DEG, 2.5 * DEG).multiplyScalar(2600).add(DECK);
-    const pts = [];
-    for (let i = 0; i <= 40; i++) {
-      const u = i / 40, a = (1 - u) ** 3, b = 3 * (1 - u) ** 2 * u, c = 3 * (1 - u) * u * u, d = u ** 3;
-      pts.push(new THREE.Vector3().addScaledVector(S, a).addScaledVector(C1, b).addScaledVector(C2, c).addScaledVector(T, d));
-    }
-    return pts;
-  })();
+  const NAV = bezierPoints(new THREE.Vector3(-6, 0, -42), new THREE.Vector3(-70, 150, -175), new THREE.Vector3(-420, 160, -640),
+    dirOf(DAWN_YAW + 2 * DEG, 2.5 * DEG).multiplyScalar(2600).add(DECK), 40);
 
   const hudState = { eye: null, nav: [], head: { yaw: 0, pitch: 0 } };
-  const _fq = new THREE.Quaternion(), _fx = new THREE.Vector3(1, 0, 0);
   const _e = new THREE.Vector3(), _r = new THREE.Vector3(), _v = new THREE.Vector3();
 
   // 跟拍：瞄准鲲身上一个沿身体往后滑的点（用连续、未量化的姿态 → 镜头 24 fps 平滑；鲲本身一拍三）
   const _aq = new THREE.Quaternion(), _ap = new THREE.Vector3(), _ad = new THREE.Vector3();
   function trackAim(t, pos) {
-    quatOf(heading(t), rollAt(t), _aq);
+    headingQuat(heading(t), rollAt(t), _aq);
     const g = pivAt(t, new THREE.Vector3()).sub(PIV.clone().applyQuaternion(_aq));
     const u = ss(seg(t, 6.3, 8.8)), u2 = ss(seg(t, 8.6, 10.2));
     const ax = lerp(lerp(214, P('ax1', 20), u), P('ax2', -90), u2), ay = lerp(-3, P('ay1', -20), u), az = lerp(-50, P('az1', 0), u);
     _ap.set(ax, ay, az).applyQuaternion(_aq).add(g);
-    _ad.copy(_ap).sub(pos).normalize();
-    return { yaw: Math.atan2(-_ad.x, -_ad.z), pitch: Math.asin(clamp(_ad.y, -1, 1)) };
+    return yawPitchOf(_ad.copy(_ap).sub(pos).normalize());
   }
   function update(t, f) {
     const c = camPose(t);
     const w = ss(seg(t, 6.25, 7.1));
     if (w > 0) {
       const a = trackAim(t, c.pos);
-      let dy = a.yaw - c.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      const dy = wrapAngle(a.yaw - c.yaw);
       const tk = P('tk', 0);
       c.yaw += dy * w * tk; c.pitch += (Math.min(a.pitch + P('poff', -2) * DEG, 52 * DEG) - c.pitch) * w * tk;
     }
@@ -173,7 +162,7 @@ export function buildShotC({ W, H, tex, q }) {
     mistTex.offset.x = (0.2 - t * 0.008) % 1;
 
     // 鲲：一拍三
-    const ts = Math.floor(f / 3) * 3 / 24;
+    const ts = heldTime(f, 3);
     kunPose(ts);
     kun.group.updateMatrixWorld(true);
     const lookAt = t < 7.2 ? cam.position : null;           // 揭眼阶段眼珠看镜头
@@ -202,12 +191,11 @@ export function buildShotC({ W, H, tex, q }) {
     _r.set(1, 0, 0).applyQuaternion(cam.quaternion).multiplyScalar(kun.eyeRadius * P('eyer', 0.85)).add(_e);
     const pr = project(cam, W, H, _r);
     hudState.eye = pe.z > 1 && pe.x > -200 && pe.x < W + 200 && pe.y > -200 && pe.y < H + 200 ? { x: pe.x, y: pe.y, r: Math.hypot(pr.x - pe.x, pr.y - pe.y) } : null;
-    hudState.nav = [];
-    for (const p of NAV) { const s = project(cam, W, H, p); if (s.z > 2) hudState.nav.push({ x: s.x, y: s.y }); }
+    hudState.nav = projectAll(cam, W, H, NAV, 2);
     hudState.head = { yaw: c.swayYaw, pitch: c.swayPitch };
 
     const end = ss(seg(t, 9.0, 10.0));
-    setToonGlobals({ inkTime: Math.floor(f / 2), cityGain: lerp(1.0, 0.62, end), exposure: lerp(1.0, 1.12, end), cityDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray(), skyGain: 1 });
+    setToonGlobals({ inkTime: hold(f, 2), cityGain: lerp(1.0, 0.62, end), exposure: lerp(1.0, 1.12, end), cityDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray(), skyGain: 1 });
   }
 
   const look = t => {

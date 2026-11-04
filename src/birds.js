@@ -1,8 +1,9 @@
 // src/birds.js — 镜头 A 的鸽群（学鸠母题）：2D 剪影，一拍二
 // 0.80 起被汽笛惊起：从画面下方中间（近景、画外）陆续起飞，大多数飞向右上（约 7 成），少数向左上；
-// 越飞越远（变小、变淡、混进雾里）。姿态（位置、扑翼）全部取 floor(t*12)/12，确定性（固定种子）。
+// 越飞越远（变小、变淡、混进雾里）。姿态（位置、扑翼）全部按一拍二取时间（snapTime(t, 12)），确定性（固定种子）。
 // 画法：深蓝灰墨色剪影 + 朝向晨光（画左）一侧的一道粉金亮边 + 翼下浅薰衣草色。
 import { mulberry } from '../engine/core/math.js';
+import { snapTime } from '../engine/core/clock.js';
 
 const INK = '#2A2D52', BELLY = '#4E5888', RIM = 'rgba(255,211,176,0.9)';
 const T0 = 0.8;
@@ -63,7 +64,7 @@ function drawPigeon(ctx, phase, dir, rimOn) {
 
 // 画整群：ctx 是透明画布（w×h 像素）。t 全局秒；返回画了几只
 export function drawBirds(ctx, t, w, h) {
-  const tq = Math.floor(t * 12 + 1e-6) / 12;              // 一拍二时钟
+  const tq = snapTime(t, 12);                             // 一拍二时钟
   let n = 0;
   for (const b of FLOCK) {
     const u = tq - b.t0; if (u < 0 || u > 2.6) continue;
