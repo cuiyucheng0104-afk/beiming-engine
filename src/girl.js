@@ -5,7 +5,8 @@
 //   · 镜片倒影里的鲲一拍三：floor(tl*8)/8（和镜头 C 里的鲲一致）；
 //   · 镜头缓推、镜片内缘光、粉色天光的明暗属于「光与镜头」，24 fps 平滑。
 // 画法：深蓝紫平涂剪影（2–3 档）+ 偏移法求出的硬边边缘光（粉金，只出现在挨着天空的轮廓上）+ 天顶冷边
-//      + engine/core/stroke.js 手绘墨线（有粗细、按一拍二抖动）+ 水彩斑驳纹理。
+//      + 手绘墨线（有粗细、按一拍二抖动）+ 水彩斑驳纹理。通用画法都在 engine/paint/（路径、轮廓光、墨线、
+//      发簇、纹理、离屏层），这里只留角色的形状、色板、动作时间线和绘制顺序。
 // 形状全部是手工设计的贝塞尔曲线。单位 mH = 头高（头顶到下巴）的千分之一；「头部局部」坐标：
 //   x 朝脸的前方（画面右），y 向下，眉骨最前点约在 (0, 410)。
 //   画的是「侧过来约 15°」的近侧脸：近侧镜片在眼前，远侧镜片因为镜框弧度只从鼻梁前探出窄窄一条。
@@ -25,9 +26,15 @@
 //   glowLevel(tl)                      镜片内缘光强度 0–1（给音效、bloom 对齐用）
 //   GIRL_SHOT / GIRL_PAL               镜头时间常量 / 色板
 
-import { inkStroke } from '../engine/core/stroke.js';
 import { createNoise2D } from '../engine/core/noise.js';
 import { mulberry, clamp, lerp, seg, ss, ei } from '../engine/core/math.js';
+import * as M from '../engine/paint/affine.js';
+import { parsePath as P, mapPath as X, toPath2D as path2d, scalePath, samplePath, polyPath, smoothClosed } from '../engine/paint/path.js';
+import { canvasFor, clearLayer, blit } from '../engine/paint/canvas.js';
+import { rimPass, rimBleed, fadeAlong, lightWrap, glowBehind, glassSheen } from '../engine/paint/light.js';
+import { createInk } from '../engine/paint/ink.js';
+import { washTexture, washOver } from '../engine/paint/wash.js';
+import { strandSpine, strandOutline } from '../engine/paint/strand.js';
 
 // ───────────────────────── 色板 ─────────────────────────
 export const GIRL_PAL = {
@@ -70,15 +77,6 @@ const D2R = Math.PI / 180;
 function norm(v) { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; }
 const q12 = t => Math.floor(t * 12 + 1e-6) / 12;   // 一拍二
 const q8 = t => Math.floor(t * 8 + 1e-6) / 8;      // 一拍三
-// 仿射矩阵 [a,b,c,d,e,f]，与 canvas setTransform 同序
-const M = {
-  mul: (m, n) => [m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3], m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]],
-  t: (x, y) => [1, 0, 0, 1, x, y],
-  s: (k) => [k, 0, 0, k, 0, 0],
-  r: (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, s, -s, c, 0, 0]; },
-  ap: (m, p) => [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]],
-};
-const chain = (...ms) => ms.reduce((a, b) => M.mul(a, b));
 
 // 噪声：每个用途一个独立的固定种子
 const nHair = createNoise2D(mulberry(31013));
@@ -86,85 +84,7 @@ const nInk = createNoise2D(mulberry(52511));
 const nTex = createNoise2D(mulberry(70117));
 const nPap = createNoise2D(mulberry(80021));
 
-// ── 路径：只支持绝对坐标 M L C Q Z ──
-function P(str) {
-  const tk = str.match(/[MLCQZ]|-?\d*\.?\d+/gi); const out = []; let i = 0, c = 'M';
-  while (i < tk.length) {
-    const t = tk[i];
-    if (/^[MLCQZ]$/i.test(t)) { c = t.toUpperCase(); i++; if (c === 'Z') { out.push(['Z']); continue; } }
-    const n = c === 'C' ? 6 : c === 'Q' ? 4 : 2, v = [c];
-    for (let k = 0; k < n; k++) v.push(+tk[i++]);
-    out.push(v); if (c === 'M') c = 'L';
-  }
-  return out;
-}
-// 路径整体缩放（设计时微调大小用）
-const scaleAt = (cmds, cx, cy, s) => cmds.map(c => c[0] === 'Z' ? c : [c[0], ...c.slice(1).map((v, i) => i % 2 ? cy + (v - cy) * s : cx + (v - cx) * s)]);
-// 把路径的所有点（含控制点）映射到画面：def 是可选的局部形变（风吹头发）
-function X(cmds, m, def) {
-  return cmds.map(c => {
-    if (c[0] === 'Z') return c;
-    const o = [c[0]];
-    for (let k = 1; k < c.length; k += 2) { const p = M.ap(m, def ? def(c[k], c[k + 1]) : [c[k], c[k + 1]]); o.push(p[0], p[1]); }
-    return o;
-  });
-}
-function path2d(cmds, p = new Path2D()) {
-  for (const c of cmds) {
-    if (c[0] === 'M') p.moveTo(c[1], c[2]);
-    else if (c[0] === 'L') p.lineTo(c[1], c[2]);
-    else if (c[0] === 'C') p.bezierCurveTo(c[1], c[2], c[3], c[4], c[5], c[6]);
-    else if (c[0] === 'Q') p.quadraticCurveTo(c[1], c[2], c[3], c[4]);
-    else p.closePath();
-  }
-  return p;
-}
-// 采样成折线（画面像素空间里每 step 像素一个点），每个子路径一条
-function sample(cmds, step = 3) {
-  const polys = []; let cur = null, x = 0, y = 0, sx = 0, sy = 0;
-  for (const c of cmds) {
-    if (c[0] === 'M') { cur = [[c[1], c[2]]]; polys.push(cur); x = sx = c[1]; y = sy = c[2]; continue; }
-    if (!cur) { cur = [[x, y]]; polys.push(cur); }
-    if (c[0] === 'L' || c[0] === 'Z') {
-      const ex = c[0] === 'Z' ? sx : c[1], ey = c[0] === 'Z' ? sy : c[2];
-      const n = Math.max(1, Math.ceil(Math.hypot(ex - x, ey - y) / step));
-      for (let i = 1; i <= n; i++) cur.push([x + (ex - x) * i / n, y + (ey - y) * i / n]);
-      x = ex; y = ey;
-    } else if (c[0] === 'C') {
-      const L = Math.hypot(c[1] - x, c[2] - y) + Math.hypot(c[3] - c[1], c[4] - c[2]) + Math.hypot(c[5] - c[3], c[6] - c[4]);
-      const n = Math.max(2, Math.ceil(L / step));
-      for (let i = 1; i <= n; i++) {
-        const t = i / n, u = 1 - t, a = u * u * u, b = 3 * u * u * t, d = 3 * u * t * t, e = t * t * t;
-        cur.push([a * x + b * c[1] + d * c[3] + e * c[5], a * y + b * c[2] + d * c[4] + e * c[6]]);
-      }
-      x = c[5]; y = c[6];
-    } else if (c[0] === 'Q') {
-      const L = Math.hypot(c[1] - x, c[2] - y) + Math.hypot(c[3] - c[1], c[4] - c[2]);
-      const n = Math.max(2, Math.ceil(L / step));
-      for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; cur.push([u * u * x + 2 * u * t * c[1] + t * t * c[3], u * u * y + 2 * u * t * c[2] + t * t * c[4]]); }
-      x = c[3]; y = c[4];
-    }
-  }
-  return polys;
-}
-// 点列 → 平滑闭合路径（中点二次贝塞尔）
-function smoothClosed(pts, p = new Path2D()) {
-  const n = pts.length; if (n < 3) return p;
-  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  const m0 = mid(pts[n - 1], pts[0]); p.moveTo(m0[0], m0[1]);
-  for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % n], m = mid(a, b); p.quadraticCurveTo(a[0], a[1], m[0], m[1]); }
-  p.closePath(); return p;
-}
-const polyCmds = pts => [['M', pts[0][0], pts[0][1]], ...pts.slice(1).map(p => ['L', p[0], p[1]]), ['Z']];
-
-// ── 画布缓存（按尺寸复用）──
-const pool = new Map();
-let DPR = 1;   // drawGirl 每次调用时更新
-function canvasFor(key, w, h) {
-  let c = pool.get(key);
-  if (!c || c.width !== w || c.height !== h) { c = document.createElement('canvas'); c.width = w; c.height = h; pool.set(key, c); }
-  return c;
-}
+let DPR = 1;   // drawGirl 每次调用时更新：画布像素 / 用户空间像素
 
 // ───────────────────────── 形状（头部局部 mH）─────────────────────────
 // 脸 + 颅骨（颅骨部分被头发盖住）。轮廓：额 → 眉骨 → 鼻根 → 鼻梁 → 鼻尖 → 人中 → 唇 → 颏 → 下颌下 → 喉
@@ -206,7 +126,7 @@ const NECK_LINE = P(`M -540 742 C -470 842 -380 942 -300 1060`);
 
 // 耳朵（近侧，按 0.86 缩小）
 const EAR_C = [-580, 530], ES = 0.86;
-const EAR = scaleAt(P(`
+const EAR = scalePath(P(`
 M -505 548
 C -512 500 -514 452 -530 418
 C -545 390 -575 380 -603 390
@@ -215,12 +135,12 @@ C -650 556 -626 590 -610 626
 C -598 655 -582 680 -558 676
 C -536 672 -522 650 -516 622
 C -512 600 -506 576 -505 548 Z`), ...EAR_C, ES);
-const EAR_CONCHA = scaleAt(P(`M -532 470 C -562 455 -598 470 -606 510 C -612 548 -598 580 -578 598 C -560 612 -538 600 -532 575 C -526 548 -522 500 -532 470 Z`), ...EAR_C, ES);
+const EAR_CONCHA = scalePath(P(`M -532 470 C -562 455 -598 470 -606 510 C -612 548 -598 580 -578 598 C -560 612 -538 600 -532 575 C -526 548 -522 500 -532 470 Z`), ...EAR_C, ES);
 // 耳轮外沿一圈（盖住镜腿末端：镜腿从耳轮下面穿到耳后）
-const EAR_HELIX = scaleAt(P(`M -528 422 C -545 390 -575 380 -603 390 C -642 404 -662 448 -656 500 C -652 540 -642 568 -628 596 L -606 586 C -622 556 -632 528 -634 498 C -638 456 -622 422 -598 413 C -578 406 -558 412 -544 432 Z`), ...EAR_C, ES);
+const EAR_HELIX = scalePath(P(`M -528 422 C -545 390 -575 380 -603 390 C -642 404 -662 448 -656 500 C -652 540 -642 568 -628 596 L -606 586 C -622 556 -632 528 -634 498 C -638 456 -622 422 -598 413 C -578 406 -558 412 -544 432 Z`), ...EAR_C, ES);
 const INK_EAR = [
-  scaleAt(P(`M -506 560 C -512 500 -514 452 -530 418 C -545 390 -575 380 -603 390 C -642 404 -662 448 -656 500 C -650 556 -626 590 -610 626 C -598 655 -582 680 -558 676 C -536 672 -522 650 -516 622`), ...EAR_C, ES),
-  scaleAt(P(`M -548 446 C -585 438 -620 466 -622 512 C -624 548 -608 574 -592 590`), ...EAR_C, ES),
+  scalePath(P(`M -506 560 C -512 500 -514 452 -530 418 C -545 390 -575 380 -603 390 C -642 404 -662 448 -656 500 C -650 556 -626 590 -610 626 C -598 655 -582 680 -558 676 C -536 672 -522 650 -516 622`), ...EAR_C, ES),
+  scalePath(P(`M -548 446 C -585 438 -620 466 -622 512 C -624 548 -608 574 -592 590`), ...EAR_C, ES),
 ];
 
 // 头发底块：盖住颅骨；轮廓大部分被发簇盖住，只有前额发际和耳后一段露在外面
@@ -290,15 +210,9 @@ const GLINTS = [
   { r: [-460, -48], a: 204, len: 260, b: -16, amp: 20, f: 1.1, ph: 4.2 },
   { r: [-180, 50], a: 236, len: 160, b: -50, amp: 26, f: 1.9, ph: 4.8 },
 ];
-function glintLine(s, tq, wind) {
-  const N = 14, segL = s.len * (1 + 0.1 * wind) / N, pts = []; let x = s.r[0], y = s.r[1];
-  for (let i = 0; i <= N; i++) {
-    const u = i / N, wav = nHair(s.ph * 5.3 + u * 1.5 - tq * s.f * 1.8, s.ph * 2.1 + 40);
-    const ang = (s.a + s.b * u + s.amp * (0.6 + 0.6 * wind) * u * wav) * D2R;
-    pts.push([x, y]); x += Math.cos(ang) * segL; y += Math.sin(ang) * segL;
-  }
-  return pts;
-}
+// 摆动场（engine/paint/strand.js）：发簇粗、摆得慢、带梢部回勾；迎光细丝更轻、被风拉得更长
+const CLUMP_SWAY = { n: 20, stretch: 0.06, wave: [7.1, 1.2, 1.6], drift: [3.3, 0.35, 0], sway: 0.5 };
+const GLINT_SWAY = { n: 14, stretch: 0.1, wave: [5.3, 1.5, 1.8], drift: [2.1, 0, 40], sway: 0.6 };
 
 // 眼睛（近侧，在镜片后面）：上睑睫毛线、下睑、睫毛
 const EYE_UPPER = P(`M -124 486 C -114 472 -98 464 -82 463 C -76 463 -72 465 -68 468`);
@@ -456,13 +370,13 @@ function rig(tl, w, h, opts) {
   const tq = q12(tl);                                    // 一拍二时钟
   const k = SCALE * h / 1000;                            // mH → 像素
   const cam = opts.cam === false ? { zoom: 1, fx: 0.5, fy: 0.5 } : (opts.cam || girlCamera(tl));
-  const C = chain(M.t(cam.fx * w, cam.fy * h), M.s(cam.zoom), M.t(-cam.fx * w, -cam.fy * h));
+  const C = M.zoomAt(cam.fx * w, cam.fy * h, cam.zoom);
   const breath = Math.sin(tq / 3.3 * Math.PI * 2 + 0.6) * 4;      // mH
   const lookUp = ss(seg(tq, 1.0, 1.85));                           // 暗影划过时再微微抬头
   const tilt = (TILT0 - 2.4 * lookUp + 0.4 * Math.sin(tq * 2.1)) * D2R;
   const pv = [PIV_S[0] * w, PIV_S[1] * h];
-  const body = chain(C, M.t(pv[0], pv[1]), M.s(k), M.t(-PIV_H[0], -PIV_H[1] + breath));
-  const head = chain(C, M.t(pv[0], pv[1]), M.s(k), M.r(tilt), M.t(-PIV_H[0], -PIV_H[1] + breath * 0.8));
+  const body = M.chain(C, M.translate(pv[0], pv[1]), M.scale(k), M.translate(-PIV_H[0], -PIV_H[1] + breath));
+  const head = M.chain(C, M.translate(pv[0], pv[1]), M.scale(k), M.rotate(tilt), M.translate(-PIV_H[0], -PIV_H[1] + breath * 0.8));
   const px = k * cam.zoom;                                         // 1 mH 在画面里的像素数
   // 手：0.12 从画面下方抬起 → 0.42 悬停 → 0.50 指腹贴上镜腿（一拍二的这一拍覆盖全局 3.50–3.58，含 3.55）
   //     → 0.55 镜片内缘光亮起 → 0.95 起放下 → 1.42 出画
@@ -471,8 +385,8 @@ function rig(tl, w, h, opts) {
   const dy = lerp(920, 40, rise) - 40 * reach - 4 * press + 940 * down;
   const hand = {
     on: tq > 0.13 && tq < 1.42,
-    m: chain(head, M.t(TOUCH_AT[0] + 50 * (1 - rise) - 40 * down, TOUCH_AT[1] + dy),
-      M.r((5 + 12 * (1 - rise) - 8 * down) * D2R)),
+    m: M.chain(head, M.translate(TOUCH_AT[0] + 50 * (1 - rise) - 40 * down, TOUCH_AT[1] + dy),
+      M.rotate((5 + 12 * (1 - rise) - 8 * down) * D2R)),
   };
   return { tq, tl, k, px, cam, C, body, head, hand, tilt, w, h };
 }
@@ -480,7 +394,7 @@ function rig(tl, w, h, opts) {
 // 主要锚点的画面坐标（给合成代理对齐光效、景深焦点用）
 export function girlAnchors(tl, w, h, opts = {}) {
   const R = rig(tl, w, h, opts);
-  const c = (m, p) => M.ap(m, p);
+  const c = (m, p) => M.apply(m, p);
   return {
     nearLens: c(R.head, [-58, 498]), farLens: c(R.head, [27, 496]), camera: c(R.head, CAM_C),
     touch: c(R.head, TOUCH_AT), noseTip: c(R.head, [86, 642]), chin: c(R.head, [22, 860]), ear: c(R.head, EAR_C),
@@ -489,88 +403,18 @@ export function girlAnchors(tl, w, h, opts = {}) {
 }
 
 // ───────────────────────── 绘制零件 ─────────────────────────
-// 偏移法边缘光：形状 − 朝光反方向平移后的形状 = 迎光一侧的一条硬边光带。
-//   o.spread：再加左右各偏 spread 度的两道（面光源），凸起处（鼻尖、唇、下巴）的光带自然更宽；
-//   o.occ：遮挡物（例如头发挨着脸的一边不该有天光边）——迎光一侧被它挡住的地方不出光；
-//   o.mask：在光带上再做一次 destination-in（渐隐）；o.blur：整体模糊（做内渗光）。
-function rimPass(g, path, dir, d, color, o = {}) {
-  const W = g.canvas.width, H = g.canvas.height, T = g.getTransform();
-  const A = canvasFor('rimA', W, H), a = A.getContext('2d');
-  const B = canvasFor('rimB', W, H), b = B.getContext('2d');
-  a.setTransform(1, 0, 0, 1, 0, 0); a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, W, H);
-  const dirs = o.spread ? [[0, 1], [-o.spread, 0.75], [o.spread, 0.75]] : [[0, 1]];
-  for (const [ang, f] of dirs) {
-    const c = Math.cos(ang * D2R), s = Math.sin(ang * D2R);
-    const dx = (dir[0] * c - dir[1] * s) * d * f, dy = (dir[0] * s + dir[1] * c) * d * f;
-    b.setTransform(1, 0, 0, 1, 0, 0); b.globalCompositeOperation = 'source-over'; b.clearRect(0, 0, W, H);
-    b.setTransform(T); b.fillStyle = color; b.fill(path);
-    b.globalCompositeOperation = 'destination-out'; b.translate(-dx, -dy); b.fill(path); if (o.occ) b.fill(o.occ);
-    a.setTransform(1, 0, 0, 1, 0, 0); a.drawImage(B, 0, 0);
-  }
-  if (o.mask) { a.setTransform(T); a.globalCompositeOperation = 'destination-in'; o.mask(a); a.globalCompositeOperation = 'source-over'; }
-  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = o.alpha ?? 1;
-  if (o.blur > 0) g.filter = `blur(${o.blur * DPR}px)`;
-  g.drawImage(A, 0, 0); g.restore();
-}
-// 软的内渗光：光带模糊后限制在形状内部，像逆光从边缘渗进来
-function rimBleed(g, path, dir, d, color, o) {
-  g.save(); g.clip(path); rimPass(g, path, dir, d, color, o); g.restore();
-}
 // 竖向渐隐遮罩：在 m 坐标系里从 y0（全亮）到 y1（全隐）
 const fadeMask = (m, y0, y1) => fadeAlong(m, [0, y0], [0, y1]);
-const fadeAlong = (m, q0, q1) => a => {
-  const p0 = M.ap(m, q0), p1 = M.ap(m, q1);
-  const gr = a.createLinearGradient(p0[0], p0[1], p1[0], p1[1]); gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-  a.save(); a.setTransform(1, 0, 0, 1, 0, 0); a.fillStyle = gr; a.fillRect(0, 0, a.canvas.width, a.canvas.height); a.restore();
-};
 
-// 手绘墨线（engine/core/stroke.js）：有粗细起伏；每一拍二换一次抖动形状
-function ink(g, poly, o, R) {
-  if (!poly || poly.length < 3) return;
-  const pts = [poly[0]]; let acc = 0;                 // 等距重采样（约 3 像素）
-  for (let i = 1; i < poly.length; i++) {
-    const a = poly[i - 1], b = poly[i]; acc += Math.hypot(b[0] - a[0], b[1] - a[1]);
-    if (acc >= 3 || i === poly.length - 1) { pts.push(b); acc = 0; }
-  }
-  const n = pts.length; if (n < 3) return;
-  const st = Math.floor(R.tq * 12 + 1e-6), sd = o.seed || 0, jit = (o.jit ?? 0.7) * R.h / 1040 * R.cam.zoom;
-  const pp = [];
-  for (let i = 0; i < n; i++) {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
-    let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
-    const j = jit * nInk(i * 0.05 + sd * 3.7, st * 1.37 + sd);
-    const pr = clamp(0.52 + 0.36 * nInk(i * 0.022 + sd * 5.1, 9.3 + sd) + 0.1 * nInk(i * 0.09, st * 0.71 + sd * 2), 0.06, 1);
-    pp.push([pts[i][0] - ty * j, pts[i][1] + tx * j, pr]);
-  }
-  const size = (o.size || 2.6) * R.h / 1040 * R.cam.zoom;
-  const ol = inkStroke(pp, {
-    size, thinning: o.thin ?? 0.62, smoothing: 0.62, streamline: 0.16, simulatePressure: false, last: true,
-    start: { taper: (o.t0 ?? 7) * size, cap: true }, end: { taper: (o.t1 ?? 7) * size, cap: true },
-  });
-  g.globalAlpha = o.alpha ?? 1; g.fillStyle = o.color || PAL.ink; g.fill(smoothClosed(ol)); g.globalAlpha = 1;
-}
-const inkPath = (g, cmds, o, R) => { for (const pl of sample(cmds, 2.5)) ink(g, pl, o, R); };
+// 手绘墨线（engine/paint/ink.js）：线宽以 1040 高的画面为准，随镜头推进变粗；每一拍二换一次抖动形状
+const brush = createInk(nInk);
+const inkOpts = (o, R) => ({ color: PAL.ink, ...o, step: Math.floor(R.tq * 12 + 1e-6), px: v => v * R.h / 1040 * R.cam.zoom });
+const ink = (g, poly, o, R) => brush.line(g, poly, inkOpts(o, R));
+const inkPath = (g, cmds, o, R) => brush.path(g, cmds, inkOpts(o, R));
 
-// 发簇：沿方向积分出中心线（带沿发丝传播的飘动波和发梢回勾），宽度从根部收成尖
-function clumpPoly(s, tq, wind) {
-  const N = 20, segL = s.len * (1 + 0.06 * wind) / N, C = [];
-  let x = s.r[0], y = s.r[1];
-  for (let i = 0; i <= N; i++) {
-    const u = i / N;
-    const wav = nHair(s.ph * 7.1 + u * 1.2 - tq * s.f * 1.6, s.ph * 3.3 + tq * 0.35);
-    const ang = (s.a + s.b * u + (s.fl || 0) * ss(seg(u, 0.55, 1)) + s.amp * (0.5 + 0.6 * wind) * u * wav) * D2R;
-    C.push([x, y, ang]); x += Math.cos(ang) * segL; y += Math.sin(ang) * segL;
-  }
-  const Lp = [], Rp = [];
-  for (let i = 0; i <= N; i++) {
-    const u = i / N, [px, py, a] = C[i];
-    const bulge = s.thin ? 1 : 1 + 0.14 * Math.sin(Math.min(1, u * 1.8) * Math.PI);
-    const wv = s.w * 0.5 * Math.pow(1 - u, s.thin ? 0.75 : 1.45) * bulge;
-    const nx = -Math.sin(a), ny = Math.cos(a);
-    Lp.push([px + nx * wv * 1.08, py + ny * wv * 1.08]); Rp.push([px - nx * wv * 0.92, py - ny * wv * 0.92]);
-  }
-  return Lp.concat(Rp.reverse());
-}
+// 发簇：中心线带沿发丝传播的飘动波和发梢回勾，宽度从根部收成尖
+const clumpPoly = (s, tq, wind) => strandOutline(strandSpine(s, tq, wind, nHair, CLUMP_SWAY), s);
+const glintLine = (s, tq, wind) => strandSpine(s, tq, wind, nHair, GLINT_SWAY);
 // 风吹后脑的头发底块：越靠后、越靠下越自由
 function hairDeform(tq, wind) {
   return (x, y) => {
@@ -582,27 +426,10 @@ function hairDeform(tq, wind) {
     return [x - kk * (10 + 10 * wind + 7 * n1) - tip * (18 + 22 * wind + 12 * n3), y + kk * (7 * n2 - 4 * wind) - tip * (14 * wind + 8 * n2)];
   };
 }
-// 水彩斑驳纹理（一次生成，低分辨率放大成柔和斑块）+ 纸纹
+// 水彩斑驳纹理（engine/paint/wash.js，一次生成）：亮处偏冷紫、暗处深蓝
 let TEX = null;
-function texture() {
-  if (TEX) return TEX;
-  const W = 480, H = 260, c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d'), im = g.createImageData(W, H), d = im.data;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const u = x / W * 4.2, v = y / H * 2.3;
-    let f = 0, a = 1, s = 1; for (let o = 0; o < 4; o++) { f += a * nTex(u * s, v * s); a *= 0.5; s *= 2.1; }
-    const pap = nPap(x * 0.9, y * 0.9) * 0.5 + nPap(x * 0.31 + 50, y * 0.31) * 0.5;   // 细纸纹
-    const i = (y * W + x) * 4, v2 = f * 0.8 + pap * 0.35;
-    if (v2 > 0) { d[i] = 104; d[i + 1] = 110; d[i + 2] = 170; d[i + 3] = Math.min(255, v2 * 120); }
-    else { d[i] = 20; d[i + 1] = 22; d[i + 2] = 52; d[i + 3] = Math.min(255, -v2 * 140); }
-  }
-  g.putImageData(im, 0, 0); TEX = c; return c;
-}
-function applyTexture(g, alpha, clip) {
-  g.save(); if (clip) g.clip(clip);
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = alpha;
-  g.imageSmoothingEnabled = true; g.drawImage(texture(), 0, 0, g.canvas.width, g.canvas.height); g.restore();
-}
+const texture = () => TEX ??= washTexture({ blotch: nTex, grain: nPap, light: [104, 110, 170], dark: [20, 22, 52] });
+const applyTexture = (g, alpha, clip) => washOver(g, texture(), alpha, clip);
 
 // ───────────────────────── 主函数 ─────────────────────────
 // drawGirl(ctx, tl, w, h, opts)
@@ -617,19 +444,18 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
   const R = rig(tl, w, h, opts);
   const { head, body, hand, tq, px } = R;
   const T0 = ctx.getTransform();
-  const L1 = canvasFor('L1', ctx.canvas.width, ctx.canvas.height), g = L1.getContext('2d');
-  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.filter = 'none';
-  g.clearRect(0, 0, L1.width, L1.height); g.setTransform(T0);
+  const L1 = canvasFor('girl.L1', ctx.canvas.width, ctx.canvas.height), g = L1.getContext('2d');
+  clearLayer(g, T0);
 
   const wind = 0.45 + 0.75 * ss(seg(tq, 0.8, 1.15)) * (1 - 0.5 * ss(seg(tq, 1.6, 2.0)));   // 暗影掠过时起一阵风
   const rimD = 8 * px, hot = 2.6 * px, bleedBlur = 6 * px / 0.707;
 
   // ── 1. 皮肤：头 + 脖子 ──
   const headC = X(HEAD, head);
-  const throat = M.ap(head, [-222, 976]), nape = M.ap(head, [-655, 880]);
-  const cf = M.ap(body, [-236, 1192]), cb = M.ap(body, [-700, 1080]);
-  const c1 = M.ap(head, [-224, 1046]), c2 = M.ap(body, [-232, 1140]);
-  const neckC = [['M', ...throat], ['C', ...c1, ...c2, ...cf], ['L', ...M.ap(body, [-240, 1500])], ['L', ...M.ap(body, [-700, 1500])], ['L', ...cb], ['L', ...nape], ['Z']];
+  const throat = M.apply(head, [-222, 976]), nape = M.apply(head, [-655, 880]);
+  const cf = M.apply(body, [-236, 1192]), cb = M.apply(body, [-700, 1080]);
+  const c1 = M.apply(head, [-224, 1046]), c2 = M.apply(body, [-232, 1140]);
+  const neckC = [['M', ...throat], ['C', ...c1, ...c2, ...cf], ['L', ...M.apply(body, [-240, 1500])], ['L', ...M.apply(body, [-700, 1500])], ['L', ...cb], ['L', ...nape], ['Z']];
   const skin = path2d(headC); path2d(neckC, skin);
   g.fillStyle = PAL.skin; g.fill(skin);
   g.save(); g.clip(skin);
@@ -637,7 +463,7 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
   g.globalAlpha = 0.55; g.fillStyle = PAL.skinDeep; g.fill(path2d(X(EYE_SHADE, head)));
   g.globalAlpha = 1; g.restore();
   const neckFade = fadeMask(body, 1060, 1230);
-  rimBleed(g, skin, LIGHT, rimD * 2.6, PAL.rim, { alpha: 0.3, blur: bleedBlur, mask: neckFade });
+  rimBleed(g, skin, LIGHT, rimD * 2.6, PAL.rim, { alpha: 0.3, blur: bleedBlur * DPR, mask: neckFade });
   rimPass(g, skin, LIGHT, rimD, PAL.rim, { spread: 24, mask: neckFade });
   rimPass(g, skin, LIGHT, hot, PAL.rimHot, { spread: 24, alpha: 0.9, mask: neckFade });
   inkPath(g, X(NECK_LINE, head), { size: 1.6, alpha: 0.5, seed: 41, t0: 12, t1: 10 }, R);
@@ -665,23 +491,23 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
   const hdef = hairDeform(tq, wind);
   const baseC = X(HAIR_BASE, head, hdef);
   const hair = path2d(baseC);
-  const clumps = CLUMPS.map(s => clumpPoly(s, tq, wind).map(p => M.ap(head, p)));
+  const clumps = CLUMPS.map(s => clumpPoly(s, tq, wind).map(p => M.apply(head, p)));
   clumps.forEach(cp => smoothClosed(cp, hair));
   g.fillStyle = PAL.hair; g.fill(hair);
   g.save(); g.clip(hair);
   HAIR_FLOW.forEach((f, i) => inkPath(g, X(f, head, hdef), { size: 2.0, color: PAL.hairLift, alpha: 0.7, seed: 70 + i, t0: 10, t1: 14 }, R));
   g.restore();
   const hairFront = fadeAlong(head, [-260, 0], [-520, 0]);
-  rimBleed(g, hair, LIGHT, rimD * 2, PAL.rim, { alpha: 0.22, blur: bleedBlur * 0.8, occ: skin, mask: hairFront });
+  rimBleed(g, hair, LIGHT, rimD * 2, PAL.rim, { alpha: 0.22, blur: bleedBlur * 0.8 * DPR, occ: skin, mask: hairFront });
   rimPass(g, hair, SKY, 6 * px, PAL.skyRim, { alpha: 0.75, occ: skin });
   rimPass(g, hair, LIGHT, rimD * 0.9, PAL.rim, { spread: 22, occ: skin, mask: hairFront });
   rimPass(g, hair, LIGHT, hot * 0.9, PAL.rimHot, { alpha: 0.85, occ: skin, mask: hairFront });
   // 发簇轮廓墨线：底块只描露在外面的前额发际，发簇各自描边
-  clumps.forEach((cp, i) => ink(g, sample(polyCmds(cp), 2.5)[0], { size: CLUMPS[i].thin ? 1.2 : 2.1, seed: 90 + i, t0: 6, t1: 6 }, R));
+  clumps.forEach((cp, i) => ink(g, samplePath(polyPath(cp), 2.5)[0], { size: CLUMPS[i].thin ? 1.2 : 2.1, seed: 90 + i, t0: 6, t1: 6 }, R));
   // 迎光细发丝：暖金色，带一点辉光
   g.save(); g.shadowColor = PAL.rim; g.shadowBlur = 5 * px;
   GLINTS.forEach((s, i) => {
-    const pl = glintLine(s, tq, wind).map(p => M.ap(head, hdef(p[0], p[1])));
+    const pl = glintLine(s, tq, wind).map(p => M.apply(head, hdef(p[0], p[1])));
     const warm = clamp((s.r[0] + 480) / 300);
     ink(g, pl, { size: 1.25, thin: 0.45, seed: 300 + i, t0: 2, t1: 14, jit: 0.25, color: warm > 0.5 ? '#FFDCC2' : '#E6D8F4', alpha: 0.55 + 0.4 * warm }, R);
   });
@@ -699,12 +525,12 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
   inkPath(g, X(EYE_UPPER, head), { size: 3.4, seed: 111, t0: 3, t1: 1.5, color: '#181C3E', thin: 0.4 }, R);
   inkPath(g, X(EYE_LOWER, head), { size: 1.3, seed: 112, color: '#181C3E', alpha: 0.75 }, R);
   LASHES.forEach((l, i) => inkPath(g, X(l, head), { size: 1.6, seed: 113 + i, t0: 1, t1: 4, color: '#181C3E' }, R));
-  { const c = M.ap(head, IRIS), r = 13 * px;
+  { const c = M.apply(head, IRIS), r = 13 * px;
     g.fillStyle = '#161A3A'; g.beginPath(); g.ellipse(c[0], c[1], r * 0.55, r, R.tilt, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#FFE9F2'; g.globalAlpha = 0.85; g.beginPath(); g.arc(c[0] + 1.5 * px, c[1] - 4 * px, 2.2 * px, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
 
   // ── 6. 天顶环境光（上亮下暗）+ 斑驳纹理（只作用于以上人物部分）──
-  { const a0 = M.ap(head, [0, -60]), a1 = M.ap(body, [0, 1300]);
+  { const a0 = M.apply(head, [0, -60]), a1 = M.apply(body, [0, 1300]);
     const ag = g.createLinearGradient(a0[0], a0[1], a1[0], a1[1]);
     ag.addColorStop(0, 'rgba(120,128,206,0.20)'); ag.addColorStop(0.45, 'rgba(120,128,206,0)'); ag.addColorStop(0.75, 'rgba(14,16,44,0)'); ag.addColorStop(1, 'rgba(14,16,44,0.32)');
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = ag;
@@ -715,8 +541,8 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
   const nearLensC = X(NEAR_LENS, head), nearLens = path2d(nearLensC);
   const farLens = path2d(X(FAR_LENS, head));
   {
-    const L0 = canvasFor('L0', L1.width, L1.height), f = L0.getContext('2d');
-    f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, L0.width, L0.height); f.setTransform(T0);
+    const L0 = canvasFor('girl.L0', L1.width, L1.height), f = L0.getContext('2d');
+    clearLayer(f, T0);
     inkPath(f, X(FAR_LASH, head), { size: 2.2, seed: 119, t0: 1, t1: 3, color: '#1A1E40' }, R);
     FAR_LASHES.forEach((l, i) => inkPath(f, X(l, head), { size: 1.4, seed: 120 + i, t0: 1, t1: 4, color: '#1A1E40' }, R));
     if (opts.reflect !== false) lensReflection(f, farLens, R, 1);
@@ -726,7 +552,7 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
     rimPass(f, fr, SKY, 2.6 * px, '#CFC7F2', { alpha: 0.7 });
     if (opts.glow !== false) lensGlowLine(f, farLens, R, 0.5);
     inkPath(f, X(FAR_FRAME, head), { size: 1.8, seed: 121, t0: 2, t1: 2 }, R);
-    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'destination-over'; g.drawImage(L0, 0, 0); g.restore();
+    blit(g, L0, 'destination-over');
   }
 
   // ── 8. 近侧：镜片倒影、镜腿、镜框、摄像头 ──
@@ -752,7 +578,7 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
   inkPath(g, X(HINGE, head), { size: 1.2, seed: 143, color: '#3C4170', t0: 1, t1: 1 }, R);
   const br = path2d(X(BRIDGE, head)); g.fillStyle = PAL.frame; g.fill(br); rimPass(g, br, LIGHT, 2.6 * px, '#FFE4CF', { alpha: 0.9 });
   // 摄像头：镜框正面外侧上角一个小圆窗（侧看成窄椭圆），玻璃里一点天光
-  { const c = M.ap(head, CAM_C), r = 7 * px;
+  { const c = M.apply(head, CAM_C), r = 7 * px;
     g.fillStyle = '#0C0E26'; g.beginPath(); g.ellipse(c[0], c[1], r * 0.5, r, R.tilt, 0, Math.PI * 2); g.fill();
     g.strokeStyle = '#555B8E'; g.lineWidth = Math.max(1, 1.1 * px); g.stroke();
     g.fillStyle = '#F7DCEA'; g.globalAlpha = 0.9; g.beginPath(); g.arc(c[0] + 0.8 * px, c[1] - 2.2 * px, 1.5 * px, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
@@ -761,25 +587,23 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
   // ── 9. 手（最近，单独一层：有自己的纹理）──
   if (hand.on) drawHand(g, R, T0);
 
-  if ((opts.wrap ?? 0.42) > 0) lightWrap(g, L1, R, opts.wrap ?? 0.42, opts.wrapStops);
+  // 光包裹：外沿一圈渗进天空色；画面底边被裁的衣服处不做
+  const wrap = opts.wrap ?? 0.42;
+  if (wrap > 0) lightWrap(g, L1, { amount: wrap, radius: 9 * R.px / 0.707 * (L1.width / (R.w || L1.width)),
+    stops: opts.wrapStops || [[0, '#B9A9EC'], [0.55, '#F4B0B6'], [1, '#FFC490']], foot: 90 * L1.height / 1040 });
 
   // ── 10. 逆光辉光（halo）：迎光边的光带模糊后垫到人物底下，只在剪影外的天空里看得到 ──
   //        合成代理若自己做 bloom，可以传 opts.halo 调小（0 关掉）
   const halo = opts.halo ?? 0.5;
   if (halo > 0) {
-    const Hc = canvasFor('halo', L1.width, L1.height), hq = Hc.getContext('2d');
-    hq.setTransform(1, 0, 0, 1, 0, 0); hq.globalCompositeOperation = 'source-over'; hq.globalAlpha = 1; hq.filter = 'none';
-    hq.clearRect(0, 0, Hc.width, Hc.height); hq.setTransform(T0);
+    const Hc = canvasFor('girl.halo', L1.width, L1.height), hq = Hc.getContext('2d');
+    clearLayer(hq, T0);
     rimPass(hq, skin, LIGHT, rimD * 1.6, PAL.rim, { spread: 24, mask: neckFade });
     rimPass(hq, hair, LIGHT, rimD * 1.4, PAL.rim, { spread: 22, occ: skin, mask: hairFront });
-    const dpr = L1.width / w;
-    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'destination-over';
-    g.globalAlpha = halo; g.filter = `blur(${12 * px / 0.707 * dpr}px)`; g.drawImage(Hc, 0, 0);
-    g.globalAlpha = halo * 0.55; g.filter = `blur(${34 * px / 0.707 * dpr}px)`; g.drawImage(Hc, 0, 0);
-    g.restore();
+    glowBehind(g, Hc, [[halo, 12 * px / 0.707 * DPR], [halo * 0.55, 34 * px / 0.707 * DPR]]);
   }
   if (opts.debug) debugMarks(g, R);
-  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(L1, 0, 0); ctx.restore();
+  blit(ctx, L1);
 }
 
 // 漂浮光尘（逆光里的水汽/尘埃），环境元素：24 fps 平滑，不量化。确定性：位置来自固定种子 + 时间。
@@ -800,22 +624,6 @@ export function drawGirlMotes(ctx, tl, w, h, opts = {}) {
     ctx.fillStyle = gr; ctx.fillRect(x * w - r * 3.2, y * h - r * 3.2, r * 6.4, r * 6.4);
   }
   ctx.restore();
-}
-
-// 光包裹（light wrap）：用整层人物的 alpha 做遮罩，外沿一圈渗进天空色；画面底边被裁的衣服处不做
-function lightWrap(g, L1, R, amt, stops) {
-  const W = L1.width, H = L1.height, Wc = canvasFor('wrap', W, H), q = Wc.getContext('2d');
-  const r = 9 * R.px / 0.707 * (W / (R.w || W));
-  q.setTransform(1, 0, 0, 1, 0, 0); q.globalCompositeOperation = 'source-over'; q.globalAlpha = 1; q.filter = 'none';
-  q.clearRect(0, 0, W, H); q.drawImage(L1, 0, 0);
-  q.globalCompositeOperation = 'source-in';
-  const gr = q.createLinearGradient(0, 0, 0, H);
-  (stops || [[0, '#B9A9EC'], [0.55, '#F4B0B6'], [1, '#FFC490']]).forEach(([o, c]) => gr.addColorStop(o, c));
-  q.fillStyle = gr; q.fillRect(0, 0, W, H);
-  q.globalCompositeOperation = 'destination-out'; q.filter = `blur(${r}px)`; q.drawImage(L1, 0, 0); q.filter = 'none';
-  const fb = q.createLinearGradient(0, H - 90 * H / 1040, 0, H); fb.addColorStop(0, 'rgba(0,0,0,0)'); fb.addColorStop(0.6, '#000');
-  q.fillStyle = fb; q.fillRect(0, 0, W, H);
-  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-atop'; g.globalAlpha = amt; g.drawImage(Wc, 0, 0); g.restore();
 }
 
 // 触碰后的镜片内缘光（平滑）：70 ms 亮起，0.5 s 内回落到常亮的 42%
@@ -841,7 +649,7 @@ function lensReflection(g, lens, R, far) {
   const tl = R.tl, px = R.px, head = R.head;
   const pink = ss(seg(tl, 0.8, 1.15));
   const base = lerp(0.24, 0.74, pink);
-  const top = M.ap(head, [0, 405]), bot = M.ap(head, [0, 595]);
+  const top = M.apply(head, [0, 405]), bot = M.apply(head, [0, 595]);
   g.save(); g.clip(lens);
   const gr = g.createLinearGradient(top[0], top[1], bot[0], bot[1]);
   gr.addColorStop(0, '#9C8FD8'); gr.addColorStop(0.42, '#F2A0A6'); gr.addColorStop(0.78, '#FFB26B'); gr.addColorStop(1, '#FFD9B8');
@@ -851,26 +659,22 @@ function lensReflection(g, lens, R, far) {
   if (kt >= 0.8) {
     const u = clamp((kt - 0.8) / 1.2);
     const cx = lerp(43 + 500 * s, -55 - 600 * s, u);
-    const km = chain(head, M.t(cx, 492 - 10 * u), M.r(-0.05 + 0.04 * u), M.s(s));
+    const km = M.chain(head, M.translate(cx, 492 - 10 * u), M.rotate(-0.05 + 0.04 * u), M.scale(s));
     g.globalAlpha = 0.92 * (0.6 + 0.4 * pink);
     g.filter = `blur(${Math.max(0.6, 1.0 * px) * DPR}px)`;
     g.fillStyle = PAL.kun; g.fill(path2d(X(KUN, km)));
     g.filter = 'none';
   }
   // 表面：边缘菲涅尔提亮 + 上角一小道锐利高光
-  g.globalAlpha = 0.18 + 0.2 * pink; g.strokeStyle = '#FFE9F0'; g.lineWidth = 6 * px; g.filter = `blur(${2.5 * px * DPR}px)`; g.stroke(lens); g.filter = 'none';
-  const h0 = M.ap(head, far ? [20, 430] : [-88, 426]), h1 = M.ap(head, far ? [40, 520] : [-30, 540]);
-  const hg = g.createLinearGradient(h0[0], h0[1], h1[0], h1[1]);
-  hg.addColorStop(0, 'rgba(255,246,250,0)'); hg.addColorStop(0.3, 'rgba(255,246,250,0.0)'); hg.addColorStop(0.38, 'rgba(255,246,250,0.42)');
-  hg.addColorStop(0.47, 'rgba(255,246,250,0.12)'); hg.addColorStop(0.53, 'rgba(255,246,250,0.3)'); hg.addColorStop(0.6, 'rgba(255,246,250,0)'); hg.addColorStop(1, 'rgba(255,246,250,0)');
-  g.globalAlpha = 0.55 + 0.45 * pink; g.fillStyle = hg; g.fill(lens);
+  glassSheen(g, lens, M.apply(head, far ? [20, 430] : [-88, 426]), M.apply(head, far ? [40, 520] : [-30, 540]), {
+    edge: 0.18 + 0.2 * pink, edgeColor: '#FFE9F0', width: 6 * px, blur: 2.5 * px * DPR, streak: 0.55 + 0.45 * pink, tint: [255, 246, 250] });
   g.restore();
 }
 
 function drawHand(g, R, T0) {
   const m = R.hand.m, px = R.px;
-  const L2 = canvasFor('L2', g.canvas.width, g.canvas.height), h = L2.getContext('2d');
-  h.setTransform(1, 0, 0, 1, 0, 0); h.globalCompositeOperation = 'source-over'; h.globalAlpha = 1; h.clearRect(0, 0, L2.width, L2.height); h.setTransform(T0);
+  const L2 = canvasFor('girl.L2', g.canvas.width, g.canvas.height), h = L2.getContext('2d');
+  clearLayer(h, T0);
   // 袖口（深蓝工作服）
   const sleeve = path2d(X(SLEEVE, m));
   h.fillStyle = PAL.cloth; h.fill(sleeve);
@@ -878,15 +682,15 @@ function drawHand(g, R, T0) {
   const handC = X(H_HAND, m), all = path2d(handC);
   h.fillStyle = PAL.hand; h.fill(all);
   h.save(); h.clip(all);                                  // 手背下半渐入暗部
-  const a = M.ap(m, [0, 400]), b = M.ap(m, [0, 700]);
+  const a = M.apply(m, [0, 400]), b = M.apply(m, [0, 700]);
   const sg = h.createLinearGradient(a[0], a[1], b[0], b[1]); sg.addColorStop(0, 'rgba(36,41,80,0)'); sg.addColorStop(1, 'rgba(36,41,80,0.8)');
   h.fillStyle = sg; h.fill(all); h.restore();
-  rimBleed(h, all, LIGHT, 16 * px, PAL.rim, { alpha: 0.26, blur: 5 * px / 0.707 });
+  rimBleed(h, all, LIGHT, 16 * px, PAL.rim, { alpha: 0.26, blur: 5 * px / 0.707 * DPR });
   rimPass(h, all, LIGHT, 7.5 * px, PAL.rim, { spread: 24 });
   rimPass(h, all, LIGHT, 2.6 * px, PAL.rimHot, { alpha: 0.9 });
   rimPass(h, all, SKY, 4 * px, PAL.skyRim, { alpha: 0.45 });
   const gl = glowLevel(R.tl);                             // 指尖挨着镜腿：染一点镜片的青光
-  if (gl > 0) { const tip = M.ap(m, [0, 10]); const rg = h.createRadialGradient(tip[0], tip[1], 0, tip[0], tip[1], 36 * px);
+  if (gl > 0) { const tip = M.apply(m, [0, 10]); const rg = h.createRadialGradient(tip[0], tip[1], 0, tip[0], tip[1], 36 * px);
     rg.addColorStop(0, `rgba(159,232,255,${0.4 * gl})`); rg.addColorStop(1, 'rgba(159,232,255,0)');
     h.save(); h.clip(all); h.fillStyle = rg; h.fillRect(tip[0] - 40 * px, tip[1] - 40 * px, 80 * px, 80 * px); h.restore(); }
   applyTexture(h, 0.3);
@@ -894,12 +698,12 @@ function drawHand(g, R, T0) {
   H_LINES.forEach((p, i) => inkPath(h, X(p, m), { size: i >= 3 && i <= 4 ? 1.0 : 1.4, seed: 250 + i, alpha: 0.7, t0: 5, t1: 5 }, R));
   inkPath(h, X(SLEEVE, m), { size: 2.0, seed: 260 }, R);
   inkPath(h, X(CUFF, m), { size: 1.5, seed: 261, alpha: 0.8 }, R);
-  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(L2, 0, 0); g.restore();
+  blit(g, L2);
 }
 
 function debugMarks(g, R) {
   const pts = { lensN: [-58, 498], lensF: [27, 496], cam: CAM_C, touch: TOUCH_AT, pivot: PIV_H, nose: [86, 642], chin: [24, 880], ear: EAR_C };
   g.save(); g.font = '12px sans-serif';
-  for (const [k, p] of Object.entries(pts)) { const s = M.ap(R.head, p); g.fillStyle = '#0f0'; g.fillRect(s[0] - 3, s[1] - 3, 6, 6); g.fillText(k, s[0] + 5, s[1] - 5); }
+  for (const [k, p] of Object.entries(pts)) { const s = M.apply(R.head, p); g.fillStyle = '#0f0'; g.fillRect(s[0] - 3, s[1] - 3, 6, 6); g.fillText(k, s[0] + 5, s[1] - 5); }
   g.restore();
 }

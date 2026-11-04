@@ -3,6 +3,7 @@
 // 可选参数：&theme=neutral（青白配色）  &boxes=1（画出 TEXTS 报告的文字方框）  &skel=1（片名骨架叠图，校骨架用）  &perf=1（量 JS 侧耗时）
 // 出 8 张静帧：node engine/render/still.mjs . 5.2 5.6 6.3 7.4 8.2 8.95 9.4 9.95 --query test=hud --out out/lab/hud
 import { loadHUDFonts, drawHUD, drawTitle, textsAt, setHUDTheme, __TITLE_SKEL, __titleLayout } from '../src/hud.js';
+import { eio } from '../engine/core/math.js';
 
 const Q = new URLSearchParams(location.search);
 const W = innerWidth, H = innerHeight;
@@ -16,8 +17,6 @@ await loadHUDFonts();
 
 // 背景按 cover 铺满
 const sc = Math.max(W / bg.width, H / bg.height), bw = bg.width * sc, bh = bg.height * sc;
-const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
-const eio = x => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
 
 // 假数据：眼睛 5.0–6.4 停在右上，6.4–8.6 随鲲从右向左滑走
 function fakeS(t) {

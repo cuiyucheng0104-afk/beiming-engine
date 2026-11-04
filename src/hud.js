@@ -17,7 +17,16 @@
 //   s.head = {yaw, pitch}       头部微晃，弧度（与 three.js 的相机旋转同号）；屏幕固定的元素随之轻微反向浮动
 //   s.navCardAt = {x, y}        可选：导航卡中心位置；不给就自动放在导航线起点的另一侧、画面下方
 // 确定性：只依赖参数，不用 Date.now / Math.random，任意帧可单独渲染。
+// 通用部分在 engine/overlay/（辉光字与描线、卡片、文字记录、小部件路径、毛笔写字）和 engine/paint/curve.js（平滑与弧长），
+// 这里只留本片显示层的布局、文案、时间表、配色和片名字的骨架。
 import { inkStroke } from '../engine/core/stroke.js';
+import { clamp, lerp, seg, ss, eo, eio } from '../engine/core/math.js';
+import { catmullRom, pointAt, spanPoints } from '../engine/paint/curve.js';
+import { fillPoly } from '../engine/paint/path.js';
+import { shadowOnly } from '../engine/paint/canvas.js';
+import { loadFonts, fontSpec, rgba, measure as meas, measureContext as mctx, createOverlay } from '../engine/overlay/text.js';
+import { brackets, arcGap, swayOffset } from '../engine/overlay/widgets.js';
+import { buildBrushGlyph, paintBrushGlyph } from '../engine/overlay/brush.js';
 
 // ───────────────────────── 字体 ─────────────────────────
 const FAM_LAT = 'BM HUD Latin';   // Barlow：数字与西文（接近 AI 眼镜界面里 DIN 风格的数字）
@@ -27,28 +36,14 @@ const fontURL = f => new URL(`../fonts/${f}`, import.meta.url).href;
 let fontsReady = false;
 
 export async function loadHUDFonts() {
-  const list = [
-    [FAM_LAT, 'Barlow-300.woff2', '300'], [FAM_LAT, 'Barlow-400.woff2', '400'], [FAM_LAT, 'Barlow-500.woff2', '500'],
-    [FAM_SC, 'NotoSansSC-var.woff2', '300 500'],
-    [FAM_TITLE, 'MaShanZheng-400.woff2', '400'],
-  ];
-  await Promise.all(list.map(async ([fam, file, weight]) => {
-    const f = new FontFace(fam, `url(${fontURL(file)})`, { weight, display: 'block' });
-    await f.load(); document.fonts.add(f);
-  }));
-  await document.fonts.ready;
+  await loadFonts([
+    [FAM_LAT, fontURL('Barlow-300.woff2'), '300'], [FAM_LAT, fontURL('Barlow-400.woff2'), '400'], [FAM_LAT, fontURL('Barlow-500.woff2'), '500'],
+    [FAM_SC, fontURL('NotoSansSC-var.woff2'), '300 500'],
+    [FAM_TITLE, fontURL('MaShanZheng-400.woff2'), '400'],
+  ]);
   fontsReady = true;
 }
-const font = (wt, px, fam = 'ui') => `${wt} ${px.toFixed(2)}px ${fam === 'title' ? `"${FAM_TITLE}"` : `"${FAM_LAT}", "${FAM_SC}"`}, sans-serif`;
-
-// ───────────────────────── 小工具 ─────────────────────────
-const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
-const lerp = (a, b, t) => a + (b - a) * t;
-const seg = (t, a, b) => clamp((t - a) / (b - a));
-const ss = x => { x = clamp(x); return x * x * (3 - 2 * x); };
-const eo = x => 1 - Math.pow(1 - clamp(x), 3);
-const eio = x => { x = clamp(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
-const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a).toFixed(4)})`;
+const font = (wt, px, fam = 'ui') => fontSpec(wt, px, fam === 'title' ? [FAM_TITLE] : [FAM_LAT, FAM_SC]);
 
 // ───────────────────────── 时间轴（全局秒） ─────────────────────────
 export const HUD_T = {
@@ -70,61 +65,13 @@ const THEMES = {
   neutral: { ink: [234, 246, 255], hi: [159, 232, 255], glow: [159, 232, 255], halo: [18, 22, 58], fill: [22, 28, 70], a: 0.86 },
 };
 let TH = THEMES.mono;
-export function setHUDTheme(name) { TH = THEMES[name] || THEMES.mono; }
-
-// ───────────────────────── 绘制 / 记录 两用 ─────────────────────────
-// drawHUD 画图；textsAt 用同一套布局代码只量字、记方框，不画
-let DRAW = true, REC = null;
-let measureCtx = null;
-const mctx = () => (measureCtx ??= document.createElement('canvas').getContext('2d'));
-function rec(id, text, x0, y0, x1, y1, a) { if (REC && a > 0.02) REC.push({ id, text, x0: Math.floor(x0), y0: Math.floor(y0), x1: Math.ceil(x1), y1: Math.ceil(y1) }); }
-
-// 量一段字（左对齐、字母基线）。用模块自己的离屏 ctx，不改调用方 ctx 的状态
-function meas(str, f, ls = 0) {
-  const ctx = mctx();
-  ctx.font = f; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; if ('letterSpacing' in ctx) ctx.letterSpacing = `${ls}px`;
-  const m = ctx.measureText(str);
-  return { w: m.width, asc: m.actualBoundingBoxAscent, desc: m.actualBoundingBoxDescent };
-}
-// 发光字：先画一层模糊的暗晕托底（亮天空上也看得清），再画带细辉光的字
-function glowText(ctx, str, x, y, f, col, a, S, { ls = 0, glow = 0.55, halo = 0.3 } = {}) {
-  if (!DRAW || a <= 0.003) return;
-  ctx.save();
-  ctx.font = f; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; if ('letterSpacing' in ctx) ctx.letterSpacing = `${ls}px`;
-  if (halo > 0) { ctx.filter = `blur(${(4.5 * S).toFixed(2)}px)`; ctx.fillStyle = rgba(TH.halo, halo * a); ctx.fillText(str, x, y + 1 * S); ctx.filter = 'none'; }
-  ctx.shadowColor = rgba(TH.glow, glow * a); ctx.shadowBlur = 7 * S;
-  ctx.fillStyle = rgba(col, a); ctx.fillText(str, x, y);
-  ctx.restore();
-}
-// 发光描线：path 是 (ctx)=>void
-function glowStroke(ctx, path, col, a, lw, S, glow = 0.6) {
-  if (!DRAW || a <= 0.003) return;
-  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = lw;
-  ctx.shadowColor = rgba(TH.glow, glow * a); ctx.shadowBlur = 8 * S;
-  ctx.strokeStyle = rgba(col, a); ctx.beginPath(); path(ctx); ctx.stroke();
-  ctx.restore();
-}
-function roundRect(ctx, x, y, w, h, r) {
-  r = Math.min(r, h / 2, w / 2);
-  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
-}
-// 卡片：半透明暗底 + 细描边（AI 眼镜产品图里的圆角细框）
-function card(ctx, x, y, w, h, r, a, S) {
-  if (!DRAW || a <= 0.003) return;
-  ctx.save();
-  ctx.fillStyle = rgba(TH.fill, 0.36 * a); ctx.beginPath(); roundRect(ctx, x, y, w, h, r); ctx.fill();
-  ctx.restore();
-  glowStroke(ctx, c => roundRect(c, x, y, w, h, r), TH.ink, 0.78 * a, 1.6 * S, S, 0.45);
-}
+const O = createOverlay(TH);   // 显示层画笔：辉光字、辉光描线、卡片、文字方框记录
+const { glowText, glowStroke, card, rec } = O;
+export function setHUDTheme(name) { TH = O.theme = THEMES[name] || THEMES.mono; }
 
 // ───────────────────────── 头部微晃：屏幕固定元素的反向浮动 ─────────────────────────
 // 约 35mm 等效（竖直视场 ~38°）下 1 弧度对应的像素，乘一个小增益：0.5° 晃动 ≈ 2–3 像素
-function headOffset(s, h) {
-  const F = (h / 2) / Math.tan(19 * Math.PI / 180), g = 0.18;
-  const yaw = s?.head?.yaw || 0, pitch = s?.head?.pitch || 0;
-  return { x: yaw * F * g, y: pitch * F * g };
-}
+const headOffset = (s, h) => swayOffset(s?.head, h, { fov: 38, gain: 0.18 });
 const masterAlpha = t => ss(seg(t, HUD_T.on, HUD_T.on + 0.18)) * (1 - ss(seg(t, HUD_T.off, HUD_T.offEnd)));
 
 // ───────────────────────── 1. 左上：时间 + 提醒卡（同一行） ─────────────────────────
@@ -146,7 +93,7 @@ function statusRow(ctx, t, w, h, S, A, off) {
   const padL = 48 * S, padR = 24 * S, cw = padL + tw + padR;
   const pop = eo(seg(t, HUD_T.remindIn, HUD_T.remindIn + 0.16)), unfold = eio(seg(t, HUD_T.remindIn + 0.06, HUD_T.remindIn + 0.36));
   const cwNow = lerp(ch, cw, unfold), sc = lerp(0.6, 1, pop);
-  if (DRAW && aCard > 0.003) {
+  if (O.draw && aCard > 0.003) {
     ctx.save();
     ctx.translate(cx0 + ch / 2, Yc); ctx.scale(sc, sc); ctx.translate(-(cx0 + ch / 2), -Yc);
     card(ctx, cx0, cy0, cwNow, ch, ch / 2, aCard, S);
@@ -163,7 +110,7 @@ function statusRow(ctx, t, w, h, S, A, off) {
   rec('hud-remind', '远洋聘书 · 回复截止 06:00', cx0 + padL, tb - Math.max(...ms.map(m => m.asc)), cx0 + padL + tw, tb + Math.max(...ms.map(m => m.desc)), aCard * ss(seg(unfold, 0.25, 0.9)));
 }
 function bell(ctx, x, y, r, rot, a, S) {
-  if (!DRAW || a <= 0.003) return;
+  if (!O.draw || a <= 0.003) return;
   glowStroke(ctx, c => {
     c.translate(x, y - r * 0.9); c.rotate(rot); c.translate(0, r * 0.9);
     c.moveTo(-r, r * 0.55); c.quadraticCurveTo(-r * 0.86, r * 0.3, -r * 0.82, -r * 0.1);
@@ -190,12 +137,7 @@ function recognition(ctx, t, w, h, S, A, s) {
   const dim = failed ? lerp(1, 0.72, ss(seg(t, HUD_T.fail, HUD_T.fail + 0.2))) : 1;
   const lock = Math.exp(-Math.max(0, t - HUD_T.scanLock) * 9) * (t >= HUD_T.scanLock - 0.04 ? 1 : 0);   // 套住的一瞬间亮一下
   // 四角括号
-  glowStroke(ctx, c => {
-    c.translate(x, y); c.rotate(rot);
-    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-      c.moveTo(sx * H, sy * (H - arm)); c.lineTo(sx * H, sy * H); c.lineTo(sx * (H - arm), sy * H);
-    }
-  }, lock > 0.05 ? TH.hi : TH.ink, a * dim, (2.4 + 1.2 * lock) * S, S, 0.6 + 0.4 * lock);
+  glowStroke(ctx, c => { c.translate(x, y); c.rotate(rot); brackets(c, H, arm); }, lock > 0.05 ? TH.hi : TH.ink, a * dim, (2.4 + 1.2 * lock) * S, S, 0.6 + 0.4 * lock);
   // 进度弧（从正上方顺时针），失败后停住、熄掉。半径取在括号内侧，避开眼周的藤壶
   const p = 0.88 * eio(seg(t, HUD_T.scan + 0.15, HUD_T.fail - 0.03));
   const aArc = a * (1 - ss(seg(t, HUD_T.fail, HUD_T.fail + 0.32))) * ss(seg(t, HUD_T.scanLock - 0.2, HUD_T.scanLock));
@@ -206,20 +148,14 @@ function recognition(ctx, t, w, h, S, A, s) {
     const R = H * 0.92, a0 = -Math.PI / 2, a1 = a0 + p * 2 * Math.PI;
     // 弧线在小脸处断开（像产品图里图标打断卡片边框那样），不用擦除合成，免得伤到下层
     const gc = below ? Math.PI / 2 : -Math.PI / 2, gh = (fr + 5 * S) / R;
-    const arcGap = (c, s0, s1) => {
-      const cuts = [[gc - gh, gc + gh], [gc - gh + 2 * Math.PI, gc + gh + 2 * Math.PI], [gc - gh - 2 * Math.PI, gc + gh - 2 * Math.PI]];
-      let segs = [[s0, s1]];
-      for (const [c0, c1] of cuts) segs = segs.flatMap(([u, v]) => (c1 <= u || c0 >= v) ? [[u, v]] : [[u, Math.max(u, c0)], [Math.min(v, c1), v]].filter(([m, n]) => n - m > 1e-3));
-      for (const [u, v] of segs) { c.moveTo(x + R * Math.cos(u), y + R * Math.sin(u)); c.arc(x, y, R, u, v); }
-    };
-    glowStroke(ctx, c => arcGap(c, a0, a0 + 2 * Math.PI), TH.ink, aArc * 0.16, 1.2 * S, S, 0);   // 弧的底轨
-    glowStroke(ctx, c => arcGap(c, a0, a1), TH.ink, aArc * 0.9, 1.6 * S, S);
-    if (DRAW) { ctx.save(); ctx.shadowColor = rgba(TH.glow, aArc); ctx.shadowBlur = 8 * S; ctx.fillStyle = rgba(TH.hi, aArc);
+    glowStroke(ctx, c => arcGap(c, x, y, R, a0, a0 + 2 * Math.PI, gc, gh), TH.ink, aArc * 0.16, 1.2 * S, S, 0);   // 弧的底轨
+    glowStroke(ctx, c => arcGap(c, x, y, R, a0, a1, gc, gh), TH.ink, aArc * 0.9, 1.6 * S, S);
+    if (O.draw) { ctx.save(); ctx.shadowColor = rgba(TH.glow, aArc); ctx.shadowBlur = 8 * S; ctx.fillStyle = rgba(TH.hi, aArc);
       ctx.beginPath(); ctx.arc(x + R * Math.cos(a1), y + R * Math.sin(a1), 2.6 * S, 0, 7); ctx.fill(); ctx.restore(); }
   }
   // 扫描线：识别中自上而下扫一遍（AI 眼镜购物识别界面的扫描线）
   const ps = seg(t, HUD_T.scanLock - 0.1, HUD_T.fail - 0.05);
-  if (DRAW && ps > 0 && ps < 1) {
+  if (O.draw && ps > 0 && ps < 1) {
     const yy = y - H * 0.85 + ps * H * 1.7, hw = H * 0.86, aS = a * 0.42 * Math.sin(ps * Math.PI);
     ctx.save(); const g = ctx.createLinearGradient(x - hw, 0, x + hw, 0);
     g.addColorStop(0, rgba(TH.ink, 0)); g.addColorStop(0.5, rgba(TH.ink, aS)); g.addColorStop(1, rgba(TH.ink, 0));
@@ -239,14 +175,14 @@ function recognition(ctx, t, w, h, S, A, s) {
     // 省略号三个点依次亮起（字本身不变，TEXTS 始终报完整的「识别中…」）
     for (let i = 0; i < 3; i++) {
       const ph = ((t - HUD_T.scan) * 2.2 - i * 0.22) % 1, k = 0.35 + 0.65 * Math.pow(Math.max(0, Math.sin(ph * Math.PI)), 2);
-      if (DRAW) { ctx.save(); ctx.shadowColor = rgba(TH.glow, aTxt * 0.5); ctx.shadowBlur = 6 * S; ctx.fillStyle = rgba(TH.ink, aTxt * k);
+      if (O.draw) { ctx.save(); ctx.shadowColor = rgba(TH.glow, aTxt * 0.5); ctx.shadowBlur = 6 * S; ctx.fillStyle = rgba(TH.ink, aTxt * k);
         ctx.beginPath(); ctx.arc(tx + mm.w + (5 + i * 8) * S, by - 3 * S, 2 * S, 0, 7); ctx.fill(); ctx.restore(); }
     }
   }
   rec('hud-recog', full, tx, by - m.asc, tx + m.w, by + m.desc, aTxt);
 }
 function face(ctx, x, y, r, failed, a, S, t) {
-  if (!DRAW || a <= 0.003) return;
+  if (!O.draw || a <= 0.003) return;
   ctx.save(); ctx.fillStyle = rgba(TH.fill, 0.45 * a); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.restore();
   glowStroke(ctx, c => c.arc(x, y, r, 0, 2 * Math.PI), TH.ink, a, 1.8 * S, S);
   const ex = r * 0.36, ey = y + r * 0.02, ew = r * 0.2;
@@ -259,27 +195,8 @@ function face(ctx, x, y, r, failed, a, S, t) {
 }
 
 // ───────────────────────── 3. 导航线：沿 s.nav 一笔画出 ─────────────────────────
-// 把稀疏折线做 Catmull-Rom 平滑，再按弧长重采样
-function smoothPath(pts) {
-  const P = pts.map(p => [p.x, p.y]); if (P.length < 2) return null;
-  const out = [];
-  for (let i = 0; i < P.length - 1; i++) {
-    const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
-    for (let k = 0; k < 16; k++) {
-      const u = k / 16, u2 = u * u, u3 = u2 * u;
-      out.push([0, 1].map(d => 0.5 * ((2 * p1[d]) + (-p0[d] + p2[d]) * u + (2 * p0[d] - 5 * p1[d] + 4 * p2[d] - p3[d]) * u2 + (-p0[d] + 3 * p1[d] - 3 * p2[d] + p3[d]) * u3)));
-    }
-  }
-  out.push(P[P.length - 1]);
-  const L = [0]; for (let i = 1; i < out.length; i++) L.push(L[i - 1] + Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1]));
-  return { pts: out, L, total: L[L.length - 1] };
-}
-function pointAt(sp, d) {
-  const { pts, L } = sp; if (d <= 0) return pts[0]; if (d >= sp.total) return pts[pts.length - 1];
-  let i = 1; while (L[i] < d) i++;
-  const u = (d - L[i - 1]) / (L[i] - L[i - 1] || 1);
-  return [lerp(pts[i - 1][0], pts[i][0], u), lerp(pts[i - 1][1], pts[i][1], u)];
-}
+// 稀疏折线 → Catmull-Rom 平滑（每段 16 份），之后按弧长取点
+const smoothPath = pts => pts.length < 2 ? null : catmullRom(pts.map(p => [p.x, p.y]), 16);
 function navLine(ctx, t, w, h, S, A, s) {
   if (!s?.nav || s.nav.length < 2 || t < HUD_T.navIn) return;
   const sp = smoothPath(s.nav); if (!sp || sp.total < 4) return;
@@ -288,14 +205,12 @@ function navLine(ctx, t, w, h, S, A, s) {
   const tail = eio(seg(t, HUD_T.off, HUD_T.offEnd + 0.05));   // 收淡时线尾向终点收回
   const d0 = sp.total * tail, d1 = sp.total * p;
   const a = A * TH.a; if (d1 - d0 < 1 || a <= 0.002) return;
-  if (DRAW) {
+  if (O.draw) {
     // 按弧长每 5px 取一点，压力随「远近」递减：近处（江面）粗，远处（天边）细
     const press = d => Math.pow(1 - d / sp.total, 1.6) * 0.78 + 0.22;   // 压力 1 → 0.22：江面上约 8px，天边约 2px
-    const pts = [];
-    for (let d = d0; d < d1; d += 5 * S) { const q = pointAt(sp, d); pts.push([q[0], q[1], press(d)]); }
-    const q1 = pointAt(sp, d1); pts.push([q1[0], q1[1], press(d1)]);
+    const pts = spanPoints(sp, d0, d1, 5 * S, press);
     if (pts.length >= 2) {
-      const opt = { thinning: 0.8, smoothing: 0.5, streamline: 0, simulatePressure: false, last: true };
+      const opt = { thinning: 0.8, streamline: 0 };
       const outer = inkStroke(pts, { ...opt, size: 4.6 * S }), core = inkStroke(pts, { ...opt, size: 1.7 * S });
       ctx.save();
       ctx.shadowColor = rgba(TH.glow, 0.7 * a); ctx.shadowBlur = 9 * S;
@@ -316,13 +231,6 @@ function navLine(ctx, t, w, h, S, A, s) {
     if (pr > 0 && pr < 1) glowStroke(ctx, c => c.arc(hp[0], hp[1], lerp(5, 24, eo(pr)) * S, 0, 2 * Math.PI), TH.ink, a * 0.8 * (1 - pr), 1.4 * S, S);
   }
 }
-function fillPoly(ctx, poly) {
-  if (poly.length < 3) return;
-  ctx.beginPath(); ctx.moveTo(poly[0][0], poly[0][1]);
-  for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
-  ctx.closePath(); ctx.fill();
-}
-
 // ───────────────────────── 4. 导航卡：导航 · 吴淞口 23 km ─────────────────────────
 function navCard(ctx, t, w, h, S, A, s, off) {
   if (t < HUD_T.navIn) return;
@@ -349,7 +257,7 @@ function navCard(ctx, t, w, h, S, A, s, off) {
   rec('hud-nav', '导航 · 吴淞口 23 km', cx0 + padL, tb - mN.asc, cx0 + padL + mA.w + gap + mN.w + mU.w, tb + Math.max(mA.desc, mN.desc), a);
 }
 function navIcon(ctx, x, y, r, a, S) {      // 导航箭头（朝右上）
-  if (!DRAW || a <= 0.003) return;
+  if (!O.draw || a <= 0.003) return;
   ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4);
   ctx.shadowColor = rgba(TH.glow, 0.5 * a); ctx.shadowBlur = 7 * S;
   ctx.fillStyle = rgba(TH.hi, a);
@@ -372,8 +280,7 @@ export function drawHUD(ctx, t, w, h, s) {
 
 // ───────────────────────── 片名「北冥」：字形 + 按笔顺逐步揭开 ─────────────────────────
 // 骨架是我按马善政楷书的字形手标的笔画中线（em 单位，原点 = 字的中心锚点，textAlign center / textBaseline middle），按笔顺排列。
-// 预计算（每个画面尺寸一次，约 30–50 ms）：用距离变换估每一笔的半宽，字形每个像素归给「笔身包含它的、最先写的那一笔」
-// （都不包含就归最近的一笔），记下它在该笔上的弧长位置和飞白系数；渲染时按时间推进每一笔的「笔锋位置」揭开像素。
+// 书写本身由 engine/overlay/brush.js 完成（每个画面尺寸预计算一次，约 30–50 ms），这里只给骨架、飞白和书写区间。
 const SKEL = {
   '北': [
     [[-0.172, -0.289], [-0.176, -0.167], [-0.189, 0.0], [-0.197, 0.167], [-0.198, 0.344]],                     // 竖
@@ -399,98 +306,10 @@ const SKEL = {
 };
 // 每一笔的飞白强度（0 = 不露白），按笔顺；只给收笔快的笔画（提、撇、长横、钩）
 const DRY = { '北': [0, 0, 0.7, 0.6, 0.45], '冥': [0, 0.4, 0, 0.25, 0, 0, 0, 0.5, 0.7, 0.35] };
-const hash1 = n => { n = Math.sin(n * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
-const vnoise = x => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(hash1(i), hash1(i + 1), u); };
 export const __TITLE_SKEL = SKEL;   // 以下两个只给自测页叠骨架用
 export const __titleLayout = (w, h) => titleLayout(w, h);
-// 把骨架折线加密成平滑曲线（Catmull-Rom）
-function densify(P) {
-  const out = [];
-  for (let i = 0; i < P.length - 1; i++) {
-    const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
-    for (let k = 0; k < 8; k++) {
-      const u = k / 8, u2 = u * u, u3 = u2 * u;
-      out.push([0, 1].map(d => 0.5 * ((2 * p1[d]) + (-p0[d] + p2[d]) * u + (2 * p0[d] - 5 * p1[d] + 4 * p2[d] - p3[d]) * u2 + (-p0[d] + 3 * p1[d] - 3 * p2[d] + p3[d]) * u3)));
-    }
-  }
-  out.push(P[P.length - 1]);
-  const L = [0]; for (let i = 1; i < out.length; i++) L.push(L[i - 1] + Math.hypot(out[i][0] - out[i - 1][0], out[i][1] - out[i - 1][1]));
-  return { pts: out, L, total: L[L.length - 1] };
-}
-// 点到加密骨架的最近距离与投影弧长
-function project(sk, x, y) {
-  let best = 1e9, bs = 0, side = 1;
-  const { pts, L } = sk;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const ax = pts[i][0], ay = pts[i][1], bx = pts[i + 1][0], by = pts[i + 1][1];
-    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1e-9;
-    const u = clamp(((x - ax) * dx + (y - ay) * dy) / l2);
-    const px = ax + u * dx - x, py = ay + u * dy - y, d = px * px + py * py;
-    if (d < best) { best = d; bs = L[i] + u * (L[i + 1] - L[i]); side = dx * (y - ay) - dy * (x - ax) >= 0 ? 1 : -1; }
-  }
-  return [Math.sqrt(best), bs, side];   // 距离、投影弧长、在骨架哪一侧
-}
 const TITLE_CACHE = new Map();
-// 倒角距离变换：字形内每个像素到字形边缘的距离（像素），用来估每一笔的半宽
-function chamfer(inside, W, H) {
-  const d = new Float32Array(W * H), D = Math.SQRT2;
-  for (let i = 0; i < d.length; i++) d[i] = inside[i] ? 1e9 : 0;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = y * W + x; if (!d[i]) continue; let v = d[i];
-    if (x > 0) v = Math.min(v, d[i - 1] + 1);
-    if (y > 0) { v = Math.min(v, d[i - W] + 1); if (x > 0) v = Math.min(v, d[i - W - 1] + D); if (x < W - 1) v = Math.min(v, d[i - W + 1] + D); }
-    d[i] = v;
-  }
-  for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
-    const i = y * W + x; if (!d[i]) continue; let v = d[i];
-    if (x < W - 1) v = Math.min(v, d[i + 1] + 1);
-    if (y < H - 1) { v = Math.min(v, d[i + W] + 1); if (x < W - 1) v = Math.min(v, d[i + W + 1] + D); if (x > 0) v = Math.min(v, d[i + W - 1] + D); }
-    d[i] = v;
-  }
-  return d;
-}
-function buildGlyph(ch, F, span) {
-  const sks = SKEL[ch].map(densify);
-  const size = Math.ceil(F * 1.12), cv = document.createElement('canvas'); cv.width = cv.height = size;
-  const c = cv.getContext('2d', { willReadFrequently: true });
-  c.font = font(400, F, 'title'); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff';
-  c.fillText(ch, size / 2, size / 2);
-  const src = c.getImageData(0, 0, size, size).data;
-  const inside = new Uint8Array(size * size); for (let i = 0; i < inside.length; i++) inside[i] = src[i * 4 + 3] > 127 ? 1 : 0;
-  const dt = chamfer(inside, size, size);
-  // 每一笔的半宽（em）：沿骨架采样距离变换取 70 分位
-  const hw = sks.map(sk => {
-    const v = [];
-    for (const [u, w2] of sk.pts) { const x = Math.round(u * F + size / 2), y = Math.round(w2 * F + size / 2); if (x >= 0 && y >= 0 && x < size && y < size && dt[y * size + x] > 0) v.push(dt[y * size + x]); }
-    v.sort((a, b) => a - b); return (v.length ? v[Math.floor(v.length * 0.7)] : 0.03 * F) / F;
-  });
-  const idx = [], ks = [], sv = [], al = [], dr = [];
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
-    const A = src[(y * size + x) * 4 + 3]; if (!A) continue;
-    const ex = (x + 0.5 - size / 2) / F, ey = (y + 0.5 - size / 2) / F;
-    const res = sks.map(sk => project(sk, ex, ey));
-    // 像素落在哪几笔的笔身里，就归给其中最先写的那一笔（交叉处由先落笔的一画盖住）；都不在就归最近的一笔
-    let k = res.findIndex((r, i) => r[0] <= hw[i] * 1.12 + 1.2 / F);
-    if (k < 0) { let m = 1e9; res.forEach((r, i) => { if (r[0] < m) { m = r[0]; k = i; } }); }
-    idx.push(y * size + x); ks.push(k); sv.push(res[k][1]); al.push(A);
-    // 飞白：笔画收尾处，沿笔势方向出现几道断续的露白（毛笔枯笔）。垂直偏移归一到笔宽 [-1,1]，按「笔毛」分道取值噪声
-    const amt = ((DRY[ch] || [])[k] || 0) * TITLE_CFG.dry;
-    if (amt > 0) {
-      const sk = sks[k], u = res[k][1] / sk.total, pv = res[k][2] * res[k][0] / Math.max(hw[k], 1e-3);
-      const dry = amt * ss(seg(u, 0.5, 0.97)) * (0.65 + 0.35 * vnoise(res[k][1] * F / 26 + k * 3.1));
-      const n = vnoise(pv * 4.6 + k * 7.3 + 11), thr = dry * 0.62;
-      dr.push(Math.round(255 * ss(seg(n, thr - 0.07, thr + 0.07))));
-    } else dr.push(255);
-  }
-  // 每一笔的起止时间：总时长按「笔画长度 + 顿笔常数」分配，笔与笔之间留一点提笔间隙
-  const n = sks.length, gapT = 0.012, wts = sks.map(sk => sk.total + 0.14), sw = wts.reduce((a, b) => a + b, 0);
-  const avail = (span[1] - span[0]) - gapT * (n - 1);
-  let tt = span[0];
-  const strokes = sks.map((sk, i) => { const d = avail * wts[i] / sw, r = { L: sk.total, t0: tt, t1: tt + d }; tt += d + gapT; return r; });
-  const out = document.createElement('canvas'); out.width = out.height = size;
-  const octx = out.getContext('2d');
-  return { size, idx: Int32Array.from(idx), k: Uint8Array.from(ks), s: Float32Array.from(sv), a: Uint8Array.from(al), dry: Uint8Array.from(dr), strokes, out, octx, img: octx.createImageData(size, size) };
-}
+const buildGlyph = (ch, F, span) => buildBrushGlyph(ch, { font: font(400, F, 'title'), size: F, strokes: SKEL[ch], span, dry: DRY[ch] || [], dryScale: TITLE_CFG.dry });
 // 片名版式（画面比例）：x = 片名左缘，y = 字的中线，size = 字号 / 画面高；shade = 字下面加一层冷色暗晕（0–1，背景太亮时用）；
 // dry = 飞白强度倍数（0 = 关掉枯笔露白，1 = 默认）
 const TITLE_CFG = { x: 0.105, y: 0.262, size: 288 / 1040, shade: 0, dry: 1 };
@@ -504,7 +323,7 @@ function titleLayout(w, h) {
 const SUB = 'AI 眼镜 · 品牌短片 · 概念样片';
 // 副标题分段排：字距 4px，「·」两侧留固定空隙（整串带字距会把间隔点拉得太散）
 function subLayout(ctx, S) {
-  const f = `300 ${(25 * S).toFixed(2)}px "${FAM_SC}", sans-serif`, ls = 4 * S, gap = 15 * S;
+  const f = fontSpec(300, 25 * S, [FAM_SC]), ls = 4 * S, gap = 15 * S;
   const parts = ['AI 眼镜', '·', '品牌短片', '·', '概念样片'];
   let x = 0, asc = 0, desc = 0; const out = [];
   for (const p of parts) { const m = meas(p, f, ls); out.push([p, x]); x += m.w - ls + gap; asc = Math.max(asc, m.asc); desc = Math.max(desc, m.desc); }
@@ -515,30 +334,17 @@ export function drawTitle(ctx, t, w, h) {
   const L = titleLayout(w, h), key = [w, h, L.F.toFixed(2), TITLE_CFG.dry, HUD_T.titleA, HUD_T.titleB].join('|');   // 改了 HUD_T 的书写区间也会重算
   if (!fontsReady && !document.fonts.check(font(400, 40, 'title'))) return;
   if (!TITLE_CACHE.has(key)) TITLE_CACHE.set(key, L.glyphs.map(([ch, , , span]) => buildGlyph(ch, L.F, span)));
-  const G = TITLE_CACHE.get(key), ws = 0.035;   // 笔锋前沿的柔边宽度（em）
+  const G = TITLE_CACHE.get(key), far = 4 * w;
   ctx.save();
-  // 只画阴影不画图：图本身挪到画布外，靠 shadowOffset 把阴影送回原位（避免字边被叠画两遍变粗）
-  const shadowOnly = (img, x, y, color, blur) => {
-    const far = 4 * w, m = ctx.getTransform();          // shadowOffset 不受变换影响：按当前缩放换算（只支持缩放/平移的 ctx）
-    ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = blur * m.a; ctx.shadowOffsetX = far * m.a;
-    ctx.drawImage(img, x - far, y); ctx.restore();
-  };
+  // 光晕只画阴影不画图（engine/paint/canvas.js 的 shadowOnly），避免字边被叠画两遍变粗
   L.glyphs.forEach(([, x, y], gi) => {
-    const g = G[gi], d = g.img.data; d.fill(0);
-    const front = g.strokes.map(st => t <= st.t0 ? -1 : t >= st.t1 ? st.L + 1 : st.L * ss((t - st.t0) / (st.t1 - st.t0)));
-    let any = false;
-    for (let j = 0; j < g.idx.length; j++) {
-      const f = front[g.k[j]]; if (f < 0) continue;
-      const v = clamp((f - g.s[j]) / ws + 0.5); if (v <= 0) continue;
-      const o = g.idx[j] * 4; d[o] = 255; d[o + 1] = 252; d[o + 2] = 246; d[o + 3] = g.a[j] * v * g.dry[j] / 255; any = true;
-    }
-    if (!any) return;
-    g.octx.putImageData(g.img, 0, 0);
+    const g = G[gi];
+    if (!paintBrushGlyph(g, t, { edge: 0.035, rgb: [255, 252, 246] })) return;
     const gx = x - g.size / 2, gy = y - g.size / 2;
-    if (TITLE_CFG.shade > 0) shadowOnly(g.out, gx, gy + 4 * L.S, `rgba(28,30,78,${(0.45 * TITLE_CFG.shade).toFixed(3)})`, 26 * L.S);
+    if (TITLE_CFG.shade > 0) shadowOnly(ctx, g.out, gx, gy + 4 * L.S, `rgba(28,30,78,${(0.45 * TITLE_CFG.shade).toFixed(3)})`, 26 * L.S, far);
     // 白字 + 极淡的暖色光晕（外圈大而淡，内圈小）
-    shadowOnly(g.out, gx, gy, 'rgba(255,190,140,0.55)', 38 * L.S);
-    shadowOnly(g.out, gx, gy, 'rgba(255,214,180,0.45)', 10 * L.S);
+    shadowOnly(ctx, g.out, gx, gy, 'rgba(255,190,140,0.55)', 38 * L.S, far);
+    shadowOnly(ctx, g.out, gx, gy, 'rgba(255,214,180,0.45)', 10 * L.S, far);
     ctx.drawImage(g.out, gx, gy);
   });
   // 副标题
@@ -560,9 +366,7 @@ export function textsAt(t, w, h, s) {
   const out = [];
   if (t >= HUD_T.on && t <= HUD_T.offEnd + 0.1) {
     const S = h / 1040, A = masterAlpha(t), off = headOffset(s, h), ctx = mctx();
-    DRAW = false; REC = out;
-    try { recognition(ctx, t, w, h, S, A, s); statusRow(ctx, t, w, h, S, A, off); navCard(ctx, t, w, h, S, A, s, off); }
-    finally { DRAW = true; REC = null; }
+    out.push(...O.collect(() => { recognition(ctx, t, w, h, S, A, s); statusRow(ctx, t, w, h, S, A, off); navCard(ctx, t, w, h, S, A, s, off); }));
   }
   if (t > HUD_T.titleA[0]) {
     const L = titleLayout(w, h);
