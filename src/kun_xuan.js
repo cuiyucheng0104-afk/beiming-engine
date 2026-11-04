@@ -450,7 +450,7 @@ export function createKun(opts = {}) {
   body.name = 'kun-body'; body.frustumCulled = false;
 
   // —— 眼睛（琥珀金虹膜、圆瞳；眼睑压一点，像半垂的丹凤眼）——
-  const makeEyeMat = () => makeXuanMaterial({ ...XUAN_PRESETS.body, color: '#4a3326', shade1: '#2e2020', shade2: '#1d1518', rimAmt: 0.5, cityAmt: 0.0, cityFlat: 0.35, sheenAmt: 0, glossAmt: 0,
+  const makeEyeMat = () => makeXuanMaterial({ ...XUAN_PRESETS.body, color: '#4a3326', shade1: '#2e2020', shade2: '#1d1518', rimAmt: 0.5, fillAmt: 0.0, fillFlat: 0.35, sheenAmt: 0, glossAmt: 0,
     uniforms: {
       uIrisA: { value: 0.98 }, uPupilA: { value: 0.32 },
       uIrisCol: { value: new THREE.Color('#b55a17') }, uIrisCol2: { value: new THREE.Color('#f5c95c') }, uRingCol: { value: new THREE.Color('#3b1a0c') }, uPupilCol: { value: new THREE.Color('#0f0b16') },

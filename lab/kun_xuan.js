@@ -34,8 +34,8 @@ const KEY_DIR = new THREE.Vector3(0.75, 0.1, 0.65).normalize();
 const key = new THREE.DirectionalLight('#ffd3b0', 1);
 key.position.copy(KEY_DIR); key.target.position.set(0, 0, 0);
 scene.add(key, key.target);
-setToonGlobals({ cityDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray() });
-if (q.get('city')) setToonGlobals({ cityGain: +q.get('city') });   // 调试：城市暖光倍率
+setToonGlobals({ fillDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray() });
+if (q.get('city')) setToonGlobals({ fillGain: +q.get('city') });   // 调试：城市暖光倍率
 if (q.get('skyg')) setToonGlobals({ skyGain: +q.get('skyg') });    // 调试：天空冷光倍率
 if (q.get('noshadow')) key.castShadow = false;
 

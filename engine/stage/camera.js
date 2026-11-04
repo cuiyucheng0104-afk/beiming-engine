@@ -2,7 +2,6 @@
 // 2.5D 合成的基本动作是"在起始机位下把底板摆到画面上的 (x, y)、离相机 D 米"——之后相机怎么动，视差都由真实透视产生。
 // 角度约定：yaw 向左为正（与相机 rotation.y 同号），pitch 向上为正，弧度；W×H 是摆镜头用的画面像素尺寸。
 //
-//   DEG / ss5(x)                              度 → 弧度 / 五次 smoothstep（起止比 ss 更柔，镜头运动用）
 //   aimCamera(cam, pos, yaw, pitch, roll)     摆相机：Euler YXZ（先偏航后俯仰，地平线不会歪）并更新世界矩阵
 //   dirOf(yaw, pitch) / yawPitchOf(dir)       角度 ↔ 单位方向
 //   wrapAngle(a)                              角度折回 (-π, π]
@@ -14,10 +13,7 @@
 //   project(cam, W, H, p) / projectAll(cam, W, H, pts, zMin)   世界坐标 → 屏幕 { x, y, z }（z = 到相机平面的距离）；后者只留 z > zMin 的点
 // 调用前相机的世界矩阵要是新的（aimCamera 会更新）。
 import * as THREE from 'three';
-import { clamp } from '../core/math.js';
-
-export const DEG = Math.PI / 180;
-export const ss5 = x => { x = clamp(x); return x * x * x * (x * (x * 6 - 15) + 10); };
+import { clamp, DEG } from '../core/math.js';
 
 export function aimCamera(cam, pos, yaw, pitch, roll = 0) {
   cam.position.copy(pos);

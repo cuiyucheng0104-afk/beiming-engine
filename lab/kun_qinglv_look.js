@@ -24,7 +24,7 @@ scene.add(kun.group);
 const KEY_DIR = new THREE.Vector3(0.75, 0.1, 0.65).normalize();
 const key = new THREE.DirectionalLight('#ffd3b0', 1);
 key.position.copy(KEY_DIR); scene.add(key, key.target);
-setToonGlobals({ cityDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray() });
+setToonGlobals({ fillDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray() });
 kun.fitShadow(key, { size: 4096 });
 
 const VIEWS = {

@@ -11,7 +11,7 @@
 //   toonSoftRim       0..1：边缘光乘的系数（瀑布、云这种自己要控制边缘光的物体）
 // 约定同 toon.js：颜色按色板绝对给定、NoToneMapping、噪声是坐标的纯函数（任意帧单独渲染结果一致）。
 import * as THREE from 'three';
-import { TOON_SHARED, PALETTE, setToonGlobals, tintFrom, filmToon } from './toon.js';
+import { TOON_SHARED, PALETTE, setToonGlobals, tintFrom } from './toon.js';
 import { toonKind } from '../engine/shade/toon.js';
 import { patchLayer } from '../engine/shade/surface.js';
 import { lineGlsl } from '../engine/shade/util.glsl.js';
@@ -30,7 +30,7 @@ export const TOON_DEFAULTS = {
   edgeNoise: 0.03, edgeNoiseScale: 0.06,
   rimColor: PALETTE.pink, rimAmt: 0.6, rimPower: 0.4, rimInside: 0.3, rimDirK: 0.5,
   rimLitColor: PALETTE.kunRim, rimLitAmt: 0.9, rimLitInside: 0.12, rimLitPower: 0.55, rimLitDirK: 0.55,
-  cityColor: PALETTE.kunBelly, cityAmt: 0.6, cityStep: 0.55, cityStep2: 0.9, cityW1: 0.45, cityFlat: 0.5,
+  fillColor: PALETTE.kunBelly, fillAmt: 0.6, fillStep: 0.55, fillStep2: 0.9, fillW1: 0.45, fillFlat: 0.5,
   skyTint: [0.82, 0.92, 1.12], skyAmt: 0.6,
   patchScale: 0.05,
   rustTint: [0.66, 0.72, 0.96], rustAmt: 0, rustThr: 0.1,   // 锈斑：固有色乘这个色调（偏冷偏深，保住色相）
@@ -76,7 +76,7 @@ float toonSoftRim = 1.0;        // 钩子可写：边缘光系数
  *   goldShade / transColor / transPow   见文件头
  *   outlineVertex  { head, body, uniforms }：给 look.js 的 ID 图用的同款顶点形变（bindToon 时挂到 mesh.userData）
  */
-export const makeToonMaterial = (opts = {}) => filmToon(kind, { ...TOON_DEFAULTS, ...opts });
+export const makeToonMaterial = (opts = {}) => kind.make({ ...TOON_DEFAULTS, ...opts });
 export const makeToonDepthMaterial = kind.depth;
 // 挂材质 + 投影深度材质 + 描边标记（同 toon.js；另把 outlineVertex 挂到 userData 给 look.js 用）
 export const bindToon = kind.bind;

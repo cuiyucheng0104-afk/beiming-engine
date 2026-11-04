@@ -10,7 +10,7 @@
 import { createFilm } from '../engine/stage/film.js';
 import { createLook } from './look.js';
 import { loadHUDFonts, drawHUD, drawTitle, textsAt, setHUDTheme, setTitleLayout, HUD_T } from './hud.js';
-import { loadPlates } from './scene.js';
+import { loadPlates } from '../engine/stage/plates.js';
 import { buildShotA } from './shotA.js';
 import { buildShotB } from './shotB.js';
 import { buildShotC } from './shotC.js';
@@ -24,7 +24,7 @@ const hudPx = s => K === 1 ? s : { ...s, eye: s.eye && { x: s.eye.x * K, y: s.ey
 const look = createLook(film.renderer, W, H, { ss: 2, msaa: 4, paperUrl: './assets/plates/paper.png' });
 
 const NAMES = ['sky_dawn', 'sky_tall', 'shotB_sky', 'clouds_back', 'clouds_front_a', 'clouds_front_b', 'skyline_pudong', 'skyline_pudong_reflect', 'skyline_bund', 'river', 'mist_low'];
-const [{ tex }] = await Promise.all([loadPlates(NAMES), loadHUDFonts()]);
+const [{ tex }] = await Promise.all([loadPlates(NAMES, { linear: ['paper'] }), loadHUDFonts()]);
 
 // 显示层：按任务书色板用中性青白（#EAF6FF / #9FE8FF）；片名写得更快一点，让完整片名在画面上多停一会儿
 setHUDTheme(q.get('theme') || 'neutral');

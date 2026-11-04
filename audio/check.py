@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """《北冥》混音自检：ffmpeg 官方响度（ebur128）、模拟 engine/render/mux.sh 的两遍 loudnorm（必须走线性增益）、
-TECHNIQUE §5 频段能量、音高与和声核对、切点无爆音、单声道兼容，并画图（全片总览 + 三段放大），结果写 audio/check/。
+频段能量、音高与和声核对、切点无爆音、单声道兼容，并画图（全片总览 + 三段放大），结果写 audio/check/。
 
 用法：python audio/check.py
 """

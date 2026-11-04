@@ -14,4 +14,4 @@ export const heldTime = (f, n, fps = 24) => Math.floor(f / n) * n / fps;
 export const tick = (t, rate) => Math.floor(t * rate + 1e-6);
 export const snapTime = (t, rate) => tick(t, rate) / rate;
 
-export const hashi = n => { let h = (n | 0) * 374761393 + 668265263; h = (h ^ (h >>> 13)) * 1274126177; h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+export { hashi } from './math.js';

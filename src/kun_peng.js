@@ -15,13 +15,12 @@
 //   · 纹样（鳞、风化斑）用静止形体坐标 aRest 算，不随摆动滑动
 // 确定性：随机只来自 mulberry(固定种子)；没有 Date.now / Math.random；同一 (ts, wingT) 任意顺序渲染结果一致。
 import * as THREE from 'three';
-import { mulberry, monotone, clamp, lerp, ss, seg, TAU } from '../engine/core/math.js';
+import { mulberry, monotone, clamp, lerp, ss, seg, TAU, DEG } from '../engine/core/math.js';
 import { profileBody, sideAngle, axisStations, ringsAt, loftRings, loftWing } from '../engine/form/loft.js';
 import { card } from '../engine/form/props.js';
 import { autoBlink, pickEye } from '../engine/form/eye.js';
 import { makePengMaterial, bindPeng, PENG } from './toon_peng.js';
 
-const DEG = Math.PI / 180;
 const sstep = (a, b, x) => ss(seg(x, a, b));
 const UP = new THREE.Vector3(0, 1, 0), AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1);
 const col3 = h => new THREE.Color(h);
@@ -530,7 +529,7 @@ export function createKun(opts = {}) {
   const BARB_N = 72, BARB_R = 8;
   const barbMat = makePengMaterial({
     rest: true, side: THREE.FrontSide, muralAmt: 0.6, muralScale: 0.25, outlineW: 0.8,
-    shade1Tint: [0.62, 0.6, 0.74], rimAmt: 0.7, cityAmt: 0.6,
+    shade1Tint: [0.62, 0.6, 0.74], rimAmt: 0.7, fillAmt: 0.6,
     uniforms: { uA: { value: col3('#8A3326') }, uB: { value: C('zhusha') }, uC: { value: C('tuhuang') } },
     vertexPars: 'attribute vec2 aBar;\nvarying vec2 vBar;\n', vertexBegin: 'vBar = aBar;',
     fragmentPars: 'varying vec2 vBar;\nuniform vec3 uA, uB, uC;\n',
@@ -575,7 +574,7 @@ export function createKun(opts = {}) {
   // ════════════════ 火焰舌（背鳍冠、背鳍、腹鳍、臀鳍、尾柄）：实例卡片，CPU 跟随脊柱 ════════════════
   const flameGeo = card('flame', 22, 5);
   const flameMat = makePengMaterial({
-    side: THREE.DoubleSide, muralAmt: 0.7, muralScale: 0.12, outlineW: 0.9, rimAmt: 0.75, cityAmt: 0.7,
+    side: THREE.DoubleSide, muralAmt: 0.7, muralScale: 0.12, outlineW: 0.9, rimAmt: 0.75, fillAmt: 0.7,
     shade1Tint: [0.66, 0.58, 0.72], shade2Tint: [0.42, 0.34, 0.52],
     uniforms: { uA: { value: col3('#9E2E26') }, uB: { value: C('zhusha') }, uC: { value: C('zhushaL') }, uHi: { value: col3('#F2D7AE') }, uY: { value: C('tuhuang') } },
     vertexPars: 'attribute vec2 aCard;\nvarying vec2 vCard;\n', vertexBegin: 'vCard = aCard;',
@@ -665,7 +664,7 @@ export function createKun(opts = {}) {
   };
   const featherMat = (extra = {}) => makePengMaterial({
     side: THREE.DoubleSide, muralAmt: 0.75, muralScale: 0.11, fleckThr: 0.42, outlineW: 0.75, castShade: 0.7,
-    rimAmt: 0.7, rimInside: 0.32, cityAmt: 0.75, cityFlat: 0.45, shade1Tint: [0.66, 0.66, 0.8], ...featherHooks, ...extra,
+    rimAmt: 0.7, rimInside: 0.32, fillAmt: 0.75, fillFlat: 0.45, shade1Tint: [0.66, 0.66, 0.8], ...featherHooks, ...extra,
   });
   const lobeMat = (part) => makePengMaterial({
     muralAmt: 0.8, muralScale: 0.08, outlineW: 1,
@@ -818,7 +817,7 @@ export function createKun(opts = {}) {
   const PL_NA = Math.round(lerp(70, 130, lod)), PL_NC = 5;
   const plumeMat = makePengMaterial({
     rest: true, side: THREE.DoubleSide, muralAmt: 0.7, muralScale: 0.1, outlineW: 0.9, castShade: 0.8,
-    rimAmt: 0.75, cityAmt: 0.7, shade1Tint: [0.66, 0.64, 0.8],
+    rimAmt: 0.75, fillAmt: 0.7, shade1Tint: [0.66, 0.64, 0.8],
     uniforms: { uGold: { value: C('gold') }, uTu: { value: C('tuhuang') }, uCream: { value: C('yuebai') }, uTeal: { value: C('shilvD') }, uZhuD: { value: C('zhushaD') }, uPupil: { value: col3('#1F2A3E') } },
     vertexPars: 'attribute vec4 aPl;\nattribute vec3 aCA;\nattribute vec3 aCB;\nattribute vec3 aCC;\nvarying vec4 vPl;\nvarying vec3 vCA;\nvarying vec3 vCB;\nvarying vec3 vCC;\n',
     vertexBegin: 'vPl = aPl; vCA = aCA; vCB = aCB; vCC = aCC;',

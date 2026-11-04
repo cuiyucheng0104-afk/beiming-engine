@@ -5,7 +5,7 @@
 // 坐标：船长约 32 m，船头朝 +X，上为 +Y，原点在水线船中。
 import * as THREE from 'three';
 import { makeToonMaterial, bindToon, TOON_DEFAULTS, PALETTE } from './toon.js';
-import { hashi } from './scene.js';
+import { hashi } from '../engine/core/math.js';
 import { boatHull } from '../engine/form/props.js';
 
 const hdr = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
@@ -16,7 +16,7 @@ const hullGeo = (L, B, Hh) => boatHull(L, B, Hh, 1.0);
 export function createFerry() {
   const L = 32, B = 9;
   const g = new THREE.Group(); g.name = 'ferry';
-  const toonOf = (color, shade1, shade2, extra = {}) => makeToonMaterial({ ...TOON_DEFAULTS, color, shade1, shade2, cityAmt: 0.5, cityFlat: 0.4,
+  const toonOf = (color, shade1, shade2, extra = {}) => makeToonMaterial({ ...TOON_DEFAULTS, color, shade1, shade2, fillAmt: 0.5, fillFlat: 0.4,
     rimColor: PALETTE.kunRim, rimAmt: 0.9, rimInside: 0.36, rimPower: 0.35, rimDirK: 0.35, rustAmt: 0.25, rustThr: 0.25, patchScale: 0.35, ...extra });
 
   const hullMat = toonOf('#C8463C', '#7d2a3a', '#43243f');

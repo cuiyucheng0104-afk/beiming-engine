@@ -9,7 +9,7 @@
 //   · bindPeng 同时写 toon.js 的描边标记（outlineId/outlineWeight）和 look.js 的描边标记（outline/outlineWidth/outlinePerInstance）
 // 约定同 toon.js：主光 = 场景里第一盏投影的平行光，只取方向和投影；颜色全部按色板给定；保色板请用 NoToneMapping。
 import * as THREE from 'three';
-import { TOON_SHARED, setToonGlobals, PALETTE, tintFrom, filmToon } from './toon.js';
+import { TOON_SHARED, setToonGlobals, PALETTE, tintFrom } from './toon.js';
 import { toonKind } from '../engine/shade/toon.js';
 import { muralLayer } from '../engine/shade/surface.js';
 import { HASH13_GLSL } from '../engine/shade/noise.glsl.js';
@@ -41,7 +41,7 @@ export const PENG_DEFAULTS = {
   edgeNoise: 0.03, edgeNoiseScale: 0.06,
   rimColor: PENG.rimPink, rimAmt: 0.6, rimPower: 0.4, rimInside: 0.3, rimDirK: 0.5,
   rimLitColor: PENG.rim, rimLitAmt: 1, rimLitInside: 0.1, rimLitPower: 0.55, rimLitDirK: 0.55,
-  cityColor: PENG.city, cityAmt: 0.85, cityStep: 0.6, cityStep2: 0.94, cityW1: 0.42, cityFlat: 0.5,
+  fillColor: PENG.city, fillAmt: 0.85, fillStep: 0.6, fillStep2: 0.94, fillW1: 0.42, fillFlat: 0.5,
   skyTint: [0.82, 0.9, 1.15], skyAmt: 0.6, skyStep: 0.3,
   // 壁画风化
   muralAmt: 0, muralScale: 0.06, muralGround: PENG.ground, stainTint: [0.62, 0.55, 0.62],
@@ -65,7 +65,7 @@ const kind = toonKind({ name: 'toon-peng', shared: TOON_SHARED, firstId: 501, de
  *   objectId（描边 ID，默认自动递增）
  * 着色器函数区另有 toonHash13、toonLine（细线）、toonFar（远景淡出），给钩子用
  */
-export const makePengMaterial = (opts = {}) => filmToon(kind, { ...PENG_DEFAULTS, ...opts });
+export const makePengMaterial = (opts = {}) => kind.make({ ...PENG_DEFAULTS, ...opts });
 
 // 挂材质 + 描边标记（toon.js 测试页的屏幕描边、look.js 的 ID 图描边两套都认）
 export function bindPeng(mesh, mat, opts) {

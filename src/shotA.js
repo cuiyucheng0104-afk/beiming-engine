@@ -7,10 +7,10 @@ import { createKun } from './kun.js';
 import { setToonGlobals } from './toon.js';
 import { createFerry, createWake, lightStreak } from './ferry.js';
 import { drawBirds } from './birds.js';
-import { clamp, ss } from '../engine/core/math.js';
+import { clamp, ss, DEG } from '../engine/core/math.js';
 import { hold, heldTime, hashi } from '../engine/core/clock.js';
 import { plate, plateCopy, tileRepeat, canvasLayer, cutoutPlane, glowSprite } from '../engine/stage/plates.js';
-import { DEG, aimCamera, placeOnScreen, fillScreen, placeStrip, screenToWorld, screenToPlane } from '../engine/stage/camera.js';
+import { aimCamera, placeOnScreen, fillScreen, placeStrip, screenToWorld, screenToPlane } from '../engine/stage/camera.js';
 import { wireOutlines } from '../engine/stage/outline.js';
 
 export function buildShotA({ W, H, tex }) {
@@ -139,7 +139,7 @@ export function buildShotA({ W, H, tex }) {
     btex.needsUpdate = true;
     fillScreen(birds, cam, W, H, 30);
 
-    setToonGlobals({ inkTime: hold(f, 2), cityGain: 0.55, exposure: 1, cityDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray(), skyGain: 1 });
+    setToonGlobals({ inkTime: hold(f, 2), fillGain: 0.55, exposure: 1, fillDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray(), skyGain: 1 });
   }
 
   const look = t => ({

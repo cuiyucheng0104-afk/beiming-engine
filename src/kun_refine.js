@@ -463,7 +463,7 @@ export function createKun(opts = {}) {
 
   // —— 胸鳍（刚体，CPU 摆位；与 kun.js 相同的根部与基向量）——
   const fins = [];
-  const finMatBase = { side: THREE.DoubleSide, patchScale: 0.05, spotScale: 10, spotAmt: 0.45, rustAmt: 0.7, cityAmt: 0.6, uniforms: finU };
+  const finMatBase = { side: THREE.DoubleSide, patchScale: 0.05, spotScale: 10, spotAmt: 0.45, rustAmt: 0.7, fillAmt: 0.6, uniforms: finU };
   for (const side of [1, -1]) {
     const geo = buildWing({ nS: N(64) + 20, nC: 26, span0: 0, span1: side * FIN_SPAN, plan: t => finPlan(t) });
     const mat = toon('kun', { ...finMatBase, vertexPars: finHook.vertexPars, vertexBegin: finHook.vertexBegin, fragmentPars: finHook.fragmentPars, fragmentAlbedo: finHook.fragmentAlbedo });
@@ -475,7 +475,7 @@ export function createKun(opts = {}) {
   }
 
   // —— 眼睛：金瞳（内浅外深、外缘一圈深赭）、横椭圆瞳孔；眼睑结构与 kun.js 相同 ——
-  const makeSclera = () => makeToonMaterial({ ...TOON_PRESETS.flower, color: '#EDE3CF', shade1: '#ABA0B6', shade2: '#6B6589', rimAmt: 0.6, cityAmt: 0.8, cityFlat: 0.35,
+  const makeSclera = () => makeToonMaterial({ ...TOON_PRESETS.flower, color: '#EDE3CF', shade1: '#ABA0B6', shade2: '#6B6589', rimAmt: 0.6, fillAmt: 0.8, fillFlat: 0.35,
     uniforms: {
       uIrisA: { value: 0.62 }, uPupilA: { value: 0.23 },
       uIrisCol: { value: new THREE.Color(PALETTE.iris) }, uIrisCol2: { value: new THREE.Color(PALETTE.irisIn) }, uRingCol: { value: new THREE.Color(PALETTE.irisRing) }, uPupilCol: { value: new THREE.Color('#150E1C') },

@@ -8,7 +8,7 @@
 // 共享 uniform 直接引用 toon.js 的 TOON_SHARED：正片里 setToonGlobals 切描边通道 / 推墨线时钟，青铜鲲同步生效。
 // 确定性：所有噪声是坐标的纯函数，没有时间和随机数（墨线抖动只跟 uInkTime 走）。
 import * as THREE from 'three';
-import { TOON_SHARED, tintFrom, PALETTE, filmToon } from './toon.js';
+import { TOON_SHARED, tintFrom, PALETTE } from './toon.js';
 import { toonKind } from '../engine/shade/toon.js';
 import { patchLayer } from '../engine/shade/surface.js';
 import { voronoiGlsl } from '../engine/shade/noise.glsl.js';
@@ -45,7 +45,7 @@ export const BRONZE_DEFAULTS = {
   edgeNoise: 0.03, edgeNoiseScale: 0.06,
   rimColor: PALETTE.pink, rimAmt: 0.6, rimPower: 0.4, rimInside: 0.3, rimDirK: 0.5,
   rimLitColor: PALETTE.kunRim, rimLitAmt: 1, rimLitInside: 0.1, rimLitPower: 0.55, rimLitDirK: 0.55,
-  cityColor: PALETTE.kunBelly, cityAmt: 0.92, cityStep: 0.5, cityStep2: 0.9, cityW1: 0.42, cityFlat: 0.55,
+  fillColor: PALETTE.kunBelly, fillAmt: 0.92, fillStep: 0.5, fillStep2: 0.9, fillW1: 0.42, fillFlat: 0.55,
   skyTint: [0.82, 0.92, 1.12], skyAmt: 0.75,
   patchScale: 0.05,
   rustColor: BRONZE.rust, rustAmt: 0, rustThr: 0.1,
@@ -62,13 +62,13 @@ export const BRONZE_PRESETS = {
   bronze: {},
   moss: { color: '#ffffff', shade1Tint: tintFrom('#a3bf55', '#64925a'), shade2Tint: tintFrom('#a3bf55', '#3f6a52'), step1: 0.5, step2: 0.12,
     dabAmt: 0.16, dabScale: 0.9, rimAmt: 0.55, rimInside: 0.38, rimLitAmt: 1, rimLitInside: 0.06, rimLitPower: 0.6, rimLitDirK: 0.45, rimPower: 0.3, rimLitColor: '#fff0c8',
-    cityAmt: 0.5, cityFlat: 0.25, edgeNoise: 0.05, skyAmt: 0.6, skyTint: [0.82, 0.97, 1.0] },
+    fillAmt: 0.5, fillFlat: 0.25, edgeNoise: 0.05, skyAmt: 0.6, skyTint: [0.82, 0.97, 1.0] },
   fern: { color: '#ffffff', shade1Tint: tintFrom('#84b24c', '#76aa5e'), shade2Tint: tintFrom('#84b24c', '#5a8a58'), step1: 0.5, step2: 0.06,
-    rimAmt: 0.45, rimInside: 0.45, rimLitAmt: 1, rimLitInside: 0.12, rimLitColor: '#fff0c8', rimLitPower: 0.5, rimLitDirK: 0.5, cityAmt: 0.45, cityFlat: 0.25, edgeNoise: 0.03, skyAmt: 0.5, skyTint: [0.85, 0.97, 1.0] },
+    rimAmt: 0.45, rimInside: 0.45, rimLitAmt: 1, rimLitInside: 0.12, rimLitColor: '#fff0c8', rimLitPower: 0.5, rimLitDirK: 0.5, fillAmt: 0.45, fillFlat: 0.25, edgeNoise: 0.03, skyAmt: 0.5, skyTint: [0.85, 0.97, 1.0] },
   flower: { color: '#ffffff', shade1Tint: tintFrom('#fff8ee', '#c9bfd2'), shade2Tint: tintFrom('#fff8ee', '#9a8fae'),
-    step1: 0.45, step2: 0.14, rimAmt: 0.35, rimInside: 0.55, cityAmt: 0.55, cityFlat: 0.3, skyAmt: 0.7, skyTint: [0.93, 0.93, 1.0] },
+    step1: 0.45, step2: 0.14, rimAmt: 0.35, rimInside: 0.55, fillAmt: 0.55, fillFlat: 0.3, skyAmt: 0.7, skyTint: [0.93, 0.93, 1.0] },
   jade: { color: BRONZE.jade, shade1: '#c3c9b8', shade2: '#8f9a96', step1: 0.5, step2: 0.12, feather1: 0.05,
-    rimAmt: 0.5, rimInside: 0.45, rimLitAmt: 0.7, rimLitInside: 0.2, cityAmt: 0.75, cityFlat: 0.4, skyAmt: 0.6, skyTint: [0.94, 0.97, 1.02] },
+    rimAmt: 0.5, rimInside: 0.45, rimLitAmt: 0.7, rimLitInside: 0.2, fillAmt: 0.75, fillFlat: 0.4, skyAmt: 0.6, skyTint: [0.94, 0.97, 1.02] },
 };
 
 // —— 本变体在引擎三档卡通上加的钩子：抬档（toonLift）、边缘光法线（toonRimN）、描边通道法线（toonPassN） ——
@@ -94,7 +94,7 @@ vec3 toonRimN = vec3( 0.0, 0.0, 1.0 ); float toonRimUse = 0.0;
  *   fragmentPars / fragmentAlbedo（改 diffuseColor.rgb、toonInk、toonOverlay、toonLift）/ fragmentNormal（改 normal、toonPassN、toonRimN）
  * 着色器函数区另有 bzVor（二维 Voronoi）、bzPerturb（无切线凹凸），给钩子用
  */
-export const makeBronzeToon = (opts = {}) => filmToon(kind, { ...BRONZE_DEFAULTS, ...opts });
+export const makeBronzeToon = (opts = {}) => kind.make({ ...BRONZE_DEFAULTS, ...opts });
 // 阴影深度材质：带同样的顶点形变（弯曲、摆动），投影才跟形体对得上
 export const makeBronzeDepth = kind.depth;
 // 挂材质 + 投影深度材质 + 描边标记（与 toon.js 的 bindToon 约定一致）

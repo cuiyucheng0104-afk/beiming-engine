@@ -36,7 +36,7 @@ const KEY_DIR = new THREE.Vector3(0.75, 0.1, 0.65).normalize();
 const key = new THREE.DirectionalLight('#ffd3b0', 1);
 key.position.copy(KEY_DIR); key.target.position.set(0, 0, 0);   // 只用来定方向，fitShadow 会把灯和阴影相机摆到鲲身上
 scene.add(key, key.target);
-setToonGlobals({ cityDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray() });
+setToonGlobals({ fillDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray() });
 
 // 渲染目标：彩色（MSAA）+ 法线/ID（带深度）
 const rtC = new THREE.WebGLRenderTarget(RW, RH, { type: THREE.HalfFloatType, samples: 4 });

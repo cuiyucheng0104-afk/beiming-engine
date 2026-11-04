@@ -104,7 +104,7 @@ export function finMount(side) {
   return { root, baseQ, x0 };
 }
 // 眼睑材质参数：睑缘一道墨线 + 两道褶（kun_refine.js 共用）
-export const LID = { patchScale: 0.08, spotScale: 5, rustAmt: 0.6, algaeAmt: 0.3, cityAmt: 0.55, side: THREE.DoubleSide,
+export const LID = { patchScale: 0.08, spotScale: 5, rustAmt: 0.6, algaeAmt: 0.3, fillAmt: 0.55, side: THREE.DoubleSide,
   fragmentAlbedo: /* glsl */`
     {
       vec3 d = normalize( vToonObj );
@@ -235,7 +235,7 @@ export function createKun(opts = {}) {
 
   // —— 胸鳍（刚体，CPU 摆位）——
   const fins = [];
-  const finMatBase = { side: THREE.DoubleSide, patchScale: 0.05, spotScale: 10, spotAmt: 0.5, rustAmt: 0.7, cityAmt: 0.6, uniforms: { uFinPale: { value: tintFrom(PALETTE.kunBase, BELLY) } } };
+  const finMatBase = { side: THREE.DoubleSide, patchScale: 0.05, spotScale: 10, spotAmt: 0.5, rustAmt: 0.7, fillAmt: 0.6, uniforms: { uFinPale: { value: tintFrom(PALETTE.kunBase, BELLY) } } };
   for (const side of [1, -1]) {
     const geo = buildWing({ nS: N(64) + 20, nC: 26, span0: 0, span1: side * FIN_SPAN, plan: t => finPlan(t) });
     const mat = toon('kun', { ...finMatBase, vertexPars: finHook.vertexPars, vertexBegin: finHook.vertexBegin, fragmentPars: finHook.fragmentPars, fragmentAlbedo: finHook.fragmentAlbedo });
@@ -247,7 +247,7 @@ export function createKun(opts = {}) {
   }
 
   // —— 眼睛 ——
-  const makeSclera = () => makeToonMaterial({ ...TOON_PRESETS.anemone, color: '#e6dccd', shade1: '#a49ab4', shade2: '#6a6488', rimAmt: 0.6, cityAmt: 0.8, cityFlat: 0.35,
+  const makeSclera = () => makeToonMaterial({ ...TOON_PRESETS.anemone, color: '#e6dccd', shade1: '#a49ab4', shade2: '#6a6488', rimAmt: 0.6, fillAmt: 0.8, fillFlat: 0.35,
     uniforms: {
       uIrisA: { value: 0.6 }, uPupilA: { value: 0.25 },
       uIrisCol: { value: new THREE.Color('#252a5e') }, uIrisCol2: { value: new THREE.Color('#4f7fa8') }, uRingCol: { value: new THREE.Color(PALETTE.apricot) }, uPupilCol: { value: new THREE.Color('#121428') },

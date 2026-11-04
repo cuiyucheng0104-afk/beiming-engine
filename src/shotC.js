@@ -6,11 +6,11 @@
 import * as THREE from 'three';
 import { createKun } from './kun.js';
 import { setToonGlobals } from './toon.js';
-import { lerp, seg, ss, eo } from '../engine/core/math.js';
+import { lerp, seg, ss, ss5, eo, DEG } from '../engine/core/math.js';
 import { hold, heldTime } from '../engine/core/clock.js';
 import { plate, plateCopy, cropPlate, glowSprite } from '../engine/stage/plates.js';
 import { domePlate } from '../engine/stage/dome.js';
-import { DEG, ss5, aimCamera, dirOf, yawPitchOf, wrapAngle, placeOnScreen, project, projectAll } from '../engine/stage/camera.js';
+import { aimCamera, dirOf, yawPitchOf, wrapAngle, placeOnScreen, project, projectAll } from '../engine/stage/camera.js';
 import { headingQuat, integratePath, bezierPoints } from '../engine/stage/motion.js';
 import { wireOutlines } from '../engine/stage/outline.js';
 
@@ -78,7 +78,7 @@ export function buildShotC({ W, H, tex, q }) {
   const kun = createKun({ lod: 1, wisps: false, blinkPeriod: 4, blinkOffset: 2.375 });
   // 腹部城市暖光：仰拍时腹部法线只有约 0.8 朝下，把两档阈值放低，让腹沟一带被映成暖橙（只改本镜头的鲲）
   kun.group.traverse(o => { const u = o.material?.userData?.toon; if (!u || !o.name.match(/kun-(body|fin|flukes)/)) return;
-    u.uCityStep.value = P('cs1', 0.38); u.uCityStep2.value = P('cs2', 0.72); u.uCityW1.value = 0.5; u.uCityAmt.value = P('ca', 1.0); });
+    u.uFillStep.value = P('cs1', 0.38); u.uFillStep2.value = P('cs2', 0.72); u.uFillW1.value = 0.5; u.uFillAmt.value = P('ca', 1.0); });
   wireOutlines(kun.group, { alpha: 1, group: null });
   scene.add(kun.group);
   const eyeL = kun.eyes.find(e => e.side === -1).group.position.clone();   // -Z 侧的眼（朝镜头那侧）
@@ -195,7 +195,7 @@ export function buildShotC({ W, H, tex, q }) {
     hudState.head = { yaw: c.swayYaw, pitch: c.swayPitch };
 
     const end = ss(seg(t, 9.0, 10.0));
-    setToonGlobals({ inkTime: hold(f, 2), cityGain: lerp(1.0, 0.62, end), exposure: lerp(1.0, 1.12, end), cityDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray(), skyGain: 1 });
+    setToonGlobals({ inkTime: hold(f, 2), fillGain: lerp(1.0, 0.62, end), exposure: lerp(1.0, 1.12, end), fillDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray(), skyGain: 1 });
   }
 
   const look = t => {

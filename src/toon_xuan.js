@@ -13,7 +13,7 @@
 // 透明材质（opts.translucent = true）、不进 ID 通道（opts.noId）都是引擎的通用开关。
 // 所有噪声是坐标的纯函数，没有时间和随机数；任意帧单独渲染结果一致。
 import * as THREE from 'three';
-import { TOON_SHARED, PALETTE, tintFrom, setToonGlobals, filmToon } from './toon.js';
+import { TOON_SHARED, PALETTE, tintFrom, setToonGlobals } from './toon.js';
 import { toonKind } from '../engine/shade/toon.js';
 import { patchLayer } from '../engine/shade/surface.js';
 import { NOISE_GLSL as ENGINE_NOISE } from '../engine/shade/noise.glsl.js';
@@ -54,7 +54,7 @@ export const XUAN_DEFAULTS = {
   edgeNoise: 0.03, edgeNoiseScale: 0.06,
   rimColor: PALETTE.pink, rimAmt: 0.6, rimPower: 0.4, rimInside: 0.3, rimDirK: 0.5,
   rimLitColor: PALETTE.kunRim, rimLitAmt: 1, rimLitInside: 0.1, rimLitPower: 0.55, rimLitDirK: 0.55,
-  cityColor: PALETTE.kunBelly, cityAmt: 0.9, cityStep: 0.6, cityStep2: 0.94, cityW1: 0.42, cityFlat: 0.55,
+  fillColor: PALETTE.kunBelly, fillAmt: 0.9, fillStep: 0.6, fillStep2: 0.94, fillW1: 0.42, fillFlat: 0.55,
   skyTint: [0.8, 0.88, 1.18], skyAmt: 0.7,
   patchScale: 0.05,
   rustColor: PALETTE.rust, rustAmt: 0, rustThr: 0.1,
@@ -78,13 +78,13 @@ export const XUAN_DEFAULTS = {
 
 export const XUAN_PRESETS = {
   // 身体：色在片元钩子里按区域给（墨玉 / 烟色 / 月白 / 金），这里只定分档和光
-  body: { step1: 0.53, step2: 0.06, feather1: 0.006, feather2: 0.006, edgeNoise: 0.022, skyAmt: 0.75, cityAmt: 0.92, cityStep: 0.6, cityStep2: 0.94, cityW1: 0.42, cityFlat: 0.55,
+  body: { step1: 0.53, step2: 0.06, feather1: 0.006, feather2: 0.006, edgeNoise: 0.022, skyAmt: 0.75, fillAmt: 0.92, fillStep: 0.6, fillStep2: 0.94, fillW1: 0.42, fillFlat: 0.55,
     rimAmt: 0.6, rimColor: PALETTE.pink, rimPower: 0.4, rimInside: 0.3, rimDirK: 0.5,
     rimLitAmt: 1, rimLitColor: PALETTE.kunRim, rimLitPower: 0.55, rimLitInside: 0.1, rimLitDirK: 0.55,
     sheenAmt: 0.34, sheenThr: 0.72, glossAmt: 0.9 },
-  gold: { step1: 0.5, step2: 0.18, skyAmt: 0.2, cityAmt: 0.7, cityFlat: 0.35, rimAmt: 0.55, rimInside: 0.4, rimLitAmt: 1, rimLitInside: 0.12, rimLitPower: 0.5, rimLitDirK: 0.5, edgeNoise: 0.02 },
+  gold: { step1: 0.5, step2: 0.18, skyAmt: 0.2, fillAmt: 0.7, fillFlat: 0.35, rimAmt: 0.55, rimInside: 0.4, rimLitAmt: 1, rimLitInside: 0.12, rimLitPower: 0.5, rimLitDirK: 0.5, edgeNoise: 0.02 },
   silk: { step1: 0.5, step2: 0.12, shade1Tint: tintFrom(XUAN.silk, '#c4bdd8'), shade2Tint: tintFrom(XUAN.silk, '#968db5'),
-    skyAmt: 0.5, skyTint: [0.9, 0.93, 1.06], cityAmt: 0.75, cityStep: 0.45, cityStep2: 0.85, cityFlat: 0.45,
+    skyAmt: 0.5, skyTint: [0.9, 0.93, 1.06], fillAmt: 0.75, fillStep: 0.45, fillStep2: 0.85, fillFlat: 0.45,
     rimAmt: 0.0, rimLitAmt: 0.6, rimLitInside: 0.2, rimLitPower: 0.5, rimLitDirK: 0.5, edgeNoise: 0.02, edgeNoiseScale: 0.05 },
 };
 
@@ -162,7 +162,7 @@ uniform vec3 uTransA, uTransB; uniform float uTransThr, uTransHot, uTransShadow;
  *   translucent: true  彩色通道半透明（alpha 由钩子写 diffuseColor.a）；法线 / ID 通道自动不透明
  *   noId: true         不进法线 / ID 通道（屏幕描边、雾都不管它；细小物件用自身着色器画边）
  */
-export const makeXuanMaterial = (opts = {}) => filmToon(kind, { ...XUAN_DEFAULTS, ...opts });
+export const makeXuanMaterial = (opts = {}) => kind.make({ ...XUAN_DEFAULTS, ...opts });
 export const makeXuanDepthMaterial = kind.depth;
 // 挂材质 + 投影深度材质 + 描边标记（与 toon.js 的 bindToon 相同约定）
 export const bindXuan = kind.bind;

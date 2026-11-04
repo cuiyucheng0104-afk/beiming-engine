@@ -248,7 +248,7 @@ BUS = {'amb': amb, 'fx': fx, 'kun': kun, 'ui': ui, 'music': mus}
 mix = sum(BUS.values())
 mix = hp(mix, 28, 2)
 
-# TECHNIQUE §5：20–120 Hz 相对最强频段约 −3 dB（留 0.5 dB 余量给后面的限制器）
+# 低频约束：20–120 Hz 相对最强频段约 −3 dB（留 0.5 dB 余量给后面的限制器）
 mix, LOW_SHELF = M.tame_low(mix, '20-120', ceil=-3.5, aim=-3.8, f=115, s=0.7)
 # 不再加母带压缩：试过 thr −24 / 1.5:1 的“胶水”，在顶点会压掉约 3 dB，正好把要的动态对比吃掉；峰值只交给下面的前视限制器
 

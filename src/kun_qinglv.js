@@ -325,7 +325,7 @@ export function createKun(opts = {}) {
   const add = (parent, mesh) => { parent.add(mesh); if (mesh.userData.outline) outlineMeshes.push(mesh); return mesh; };
   const BASE = {
     shade1Tint: [0.6, 0.67, 0.86], shade2Tint: [0.36, 0.41, 0.66], step1: 0.53, step2: 0.2,
-    cityColor: PALETTE.kunBelly, cityAmt: 0.75, cityStep: 0.6, cityStep2: 0.94, cityW1: 0.42, cityFlat: 0.5,
+    fillColor: PALETTE.kunBelly, fillAmt: 0.75, fillStep: 0.6, fillStep2: 0.94, fillW1: 0.42, fillFlat: 0.5,
     skyAmt: 0.7, skyTint: [0.8, 0.92, 1.15],
     rimAmt: 0.6, rimColor: PALETTE.pink, rimPower: 0.4, rimInside: 0.3, rimDirK: 0.5,
     rimLitAmt: 1, rimLitColor: PALETTE.kunRim, rimLitPower: 0.55, rimLitInside: 0.1, rimLitDirK: 0.55,
@@ -464,7 +464,7 @@ export function createKun(opts = {}) {
     const m = toon({
       side: THREE.DoubleSide, transparent: true, depthWrite: false,
       shade1Tint: [0.74, 0.82, 0.94], shade2Tint: [0.56, 0.64, 0.84], step2: 0.15,
-      rimAmt: 0.3, rimLitAmt: 0.55, cityAmt: 0.28, cityFlat: 0.45, skyAmt: 0.35,
+      rimAmt: 0.3, rimLitAmt: 0.55, fillAmt: 0.28, fillFlat: 0.45, skyAmt: 0.35,
       transColor: '#8fe6d6', transPow: 1.6, outlineW: 0.5,
       uniforms: { ...ex, uRays: { value: rays }, uRayW: { value: rayW }, uFinAlpha: { value: alpha }, uFinRoot: { value: col(cols.root) }, uFinMid: { value: col(cols.mid) }, uFinBlue: { value: col(cols.blue) }, uFinEdge: { value: col(cols.edge) }, uGold: { value: col(C.gold) } },
       ...hooks(U, {
@@ -591,7 +591,7 @@ export function createKun(opts = {}) {
     }
   });
   const whiskMat = toon({
-    color: '#f3dea4', shade1: '#d2b06e', shade2: '#a3845a', outlineW: 0.75, rimAmt: 0.55, cityAmt: 0.6,
+    color: '#f3dea4', shade1: '#d2b06e', shade2: '#a3845a', outlineW: 0.75, rimAmt: 0.55, fillAmt: 0.6,
     uniforms: { uGold: { value: col(C.gold) } }, fragmentPars: 'uniform vec3 uGold;\n',
     fragmentAlbedo: 'toonGold = vec4( uGold, 0.42 );',
     ...hooks(U, {
@@ -612,7 +612,7 @@ export function createKun(opts = {}) {
 
   // ═════════════════════════ 眼睛（金眼） ═════════════════════════
   const makeSclera = () => makeToonMaterial({ color: '#f1e3c2', shade1: '#c9b48e', shade2: '#8a7a74', step1: 0.45, step2: 0.16, rimAmt: 0.5, rimInside: 0.5, rimColor: PALETTE.pink,
-    cityAmt: 0.6, cityFlat: 0.35, cityColor: PALETTE.kunBelly, skyAmt: 0.5, outlineW: 1,
+    fillAmt: 0.6, fillFlat: 0.35, fillColor: PALETTE.kunBelly, skyAmt: 0.5, outlineW: 1,
     uniforms: {
       uIrisA: { value: 0.8 }, uPupilA: { value: 0.29 },
       uIrisCol: { value: col('#c97d12') }, uIrisCol2: { value: col('#ffd552') }, uRingCol: { value: col('#4a280c') }, uPupilCol: { value: col('#100b08') },
@@ -655,7 +655,7 @@ export function createKun(opts = {}) {
     }`,
   });
   // 眼睑：和头同色（石青），边缘一道墨线、一道金线
-  const lidMat = toon({ color: C.qingDeep, rustTint: [0.62, 0.7, 1.0], rustAmt: 0.3, patchScale: 0.08, side: THREE.DoubleSide, cityAmt: 0.18, objectId: bodyMat.userData.toon.uObjectId.value,
+  const lidMat = toon({ color: C.qingDeep, rustTint: [0.62, 0.7, 1.0], rustAmt: 0.3, patchScale: 0.08, side: THREE.DoubleSide, fillAmt: 0.18, objectId: bodyMat.userData.toon.uObjectId.value,
     uniforms: { uGold: { value: col(C.gold) } }, fragmentPars: 'uniform vec3 uGold;\n',
     fragmentAlbedo: /* glsl */`
     {
@@ -698,7 +698,7 @@ export function createKun(opts = {}) {
   const rockMat = (mode, blueAt = 0.55, extra = {}) => toon({
     shade1Tint: [0.58, 0.66, 0.86], shade2Tint: [0.34, 0.4, 0.66], step1: 0.52, step2: 0.22,
     rustTint: [0.66, 0.74, 1.0], rustAmt: 0.42, rustThr: 0.14, patchScale: 0.03, dabAmt: 0.1, dabScale: 0.11,
-    cityAmt: 0.5, skyAmt: 0.75, rimAmt: 0.55, edgeNoise: 0.06, edgeNoiseScale: 0.09,
+    fillAmt: 0.5, skyAmt: 0.75, rimAmt: 0.55, edgeNoise: 0.06, edgeNoiseScale: 0.09,
     uniforms: { uMesa: { value: blueAt > 0.8 ? 1 : 0 }, uBlueAt: { value: blueAt }, uRockGreen: { value: col(C.rockGreen) }, uRockBlue: { value: col(C.rockBlue) }, uRockDeep: { value: col(C.rockDeep) }, uRockTop: { value: col(C.rockTop) }, uRockTop2: { value: col(C.rockTop2) }, uRockOchre: { value: col(C.rockOchre) }, uGold: { value: col(C.gold) } },
     ...hooks(U, { mode, varPars: 'attribute vec4 aRock;\nvarying vec4 vRock;\nvarying vec3 vRockN;\n', varBegin: 'vRock = aRock; vRockN = normal;' }),
     fragmentPars: 'varying vec4 vRock;\nvarying vec3 vRockN;\nuniform float uBlueAt, uMesa;\nuniform vec3 uRockGreen, uRockBlue, uRockDeep, uRockTop, uRockTop2, uRockOchre, uGold;\n',
@@ -781,7 +781,7 @@ export function createKun(opts = {}) {
   pavGeo.rotateY(-1.1); pavGeo.translate(PAV.x, PAV.y, PAV.z);      // 石阶朝 +X 偏镜头一侧，下到 T2
   pavGeo.setAttribute('aAnchor', new THREE.BufferAttribute(new Float32Array(pavGeo.attributes.position.count).fill(PAV.x), 1));
   const pavMat = toon({
-    shade1Tint: [0.6, 0.58, 0.78], shade2Tint: [0.38, 0.36, 0.6], step1: 0.5, step2: 0.2, rimAmt: 0.55, cityAmt: 0.5, outlineW: 0.85,
+    shade1Tint: [0.6, 0.58, 0.78], shade2Tint: [0.38, 0.36, 0.6], step1: 0.5, step2: 0.2, rimAmt: 0.55, fillAmt: 0.5, outlineW: 0.85,
     uniforms: { uGold: { value: col(C.gold) } },
     ...hooks(U, { mode: 'rigid', varPars: 'attribute vec3 aCol;\nattribute float aTrim;\nvarying vec3 vCol;\nvarying float vTrim;\n', varBegin: 'vCol = aCol; vTrim = aTrim;' }),
     fragmentPars: 'varying vec3 vCol;\nvarying float vTrim;\nuniform vec3 uGold;\n',
@@ -859,7 +859,7 @@ export function createKun(opts = {}) {
   }
   const waterMat = toon({
     color: '#ffffff', shade1Tint: [0.8, 0.84, 0.95], shade2Tint: [0.62, 0.66, 0.86], step1: 0.45, step2: 0.12,
-    rimAmt: 0.35, rimLitAmt: 0.6, cityAmt: 0.55, cityFlat: 0.6, skyAmt: 0.3, outlineW: 0.55, side: THREE.DoubleSide,
+    rimAmt: 0.35, rimLitAmt: 0.6, fillAmt: 0.55, fillFlat: 0.6, skyAmt: 0.3, outlineW: 0.55, side: THREE.DoubleSide,
     uniforms: { uWater: { value: col(C.water) }, uWaterShade: { value: col(C.waterShade) }, uInkTime: TOON_SHARED.uInkTime },
     ...hooks(U, {
       mode: 'vertex', extraUniforms: { uInkTime: TOON_SHARED.uInkTime },
@@ -948,7 +948,7 @@ export function createKun(opts = {}) {
   }
   const pineMat = toon({
     shade1Tint: [0.58, 0.66, 0.82], shade2Tint: [0.34, 0.4, 0.62], step1: 0.5, step2: 0.18, dabAmt: 0.14, dabScale: 0.35,
-    rimAmt: 0.55, rimLitAmt: 0.9, rimLitInside: 0.15, cityAmt: 0.45, cityFlat: 0.3, skyAmt: 0.6, edgeNoise: 0.05, outlineW: 0.8,
+    rimAmt: 0.55, rimLitAmt: 0.9, rimLitInside: 0.15, fillAmt: 0.45, fillFlat: 0.3, skyAmt: 0.6, edgeNoise: 0.05, outlineW: 0.8,
     uniforms: { uTrunk: { value: col(C.trunk) } },
     ...hooks(U, { mode: 'inst', varPars: 'attribute float aPart;\nvarying float vPart;\n', varBegin: 'vPart = aPart;' }),
     fragmentPars: 'varying float vPart;\nuniform vec3 uTrunk;\n',
@@ -989,7 +989,7 @@ export function createKun(opts = {}) {
   }
   const mossMat = toon({
     shade1Tint: [0.56, 0.66, 0.8], shade2Tint: [0.32, 0.42, 0.6], step1: 0.5, step2: 0.16, dabAmt: 0.16, dabScale: 1.1,
-    rimAmt: 0.5, rimLitAmt: 0.9, rimLitInside: 0.15, rimLitPower: 0.5, rimPower: 0.3, cityAmt: 0.45, cityFlat: 0.25, skyAmt: 0.6, edgeNoise: 0.04,
+    rimAmt: 0.5, rimLitAmt: 0.9, rimLitInside: 0.15, rimLitPower: 0.5, rimPower: 0.3, fillAmt: 0.45, fillFlat: 0.25, skyAmt: 0.6, edgeNoise: 0.04,
     outlineW: 0.45, instanceId: false, ...hooks(U, { mode: 'inst' }),
   });
   add(group, inst(geoClump(), mossMat, mossItems, 'kun-isle-moss'));
@@ -1013,7 +1013,7 @@ export function createKun(opts = {}) {
       flowers.push({ m: place(e.clone().addScaledVector(up, sc.y * 0.62), up, { yaw: R() * TAU, scale: V3(s, s, s), sink: 0 }), c: pick(R(), FLW) });
     }
   }
-  const flowerMat = toon({ color: '#ffffff', shade1Tint: [0.78, 0.74, 0.86], shade2Tint: [0.56, 0.52, 0.7], step1: 0.45, step2: 0.16, rimAmt: 0.4, rimInside: 0.55, cityAmt: 0.55, cityFlat: 0.3, skyAmt: 0.7, skyTint: [0.92, 0.92, 1.0], outlineW: 0.5, ...hooks(U, { mode: 'inst' }) });
+  const flowerMat = toon({ color: '#ffffff', shade1Tint: [0.78, 0.74, 0.86], shade2Tint: [0.56, 0.52, 0.7], step1: 0.45, step2: 0.16, rimAmt: 0.4, rimInside: 0.55, fillAmt: 0.55, fillFlat: 0.3, skyAmt: 0.7, skyTint: [0.92, 0.92, 1.0], outlineW: 0.5, ...hooks(U, { mode: 'inst' }) });
   add(group, inst(geoFlower(), flowerMat, flowers, 'kun-isle-flowers'));
 
   // 云：全部用平面祥云卡片——瀑布落点、峰腰云带、岛两头（2.5D：立体山 + 平面云，青绿山水里云就是画出来的）

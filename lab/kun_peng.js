@@ -34,7 +34,7 @@ const KEY_DIR = new THREE.Vector3(0.75, 0.1, 0.65).normalize();
 const key = new THREE.DirectionalLight('#ffd3b0', 1);
 key.position.copy(KEY_DIR); key.target.position.set(0, 0, 0);
 scene.add(key, key.target);
-setToonGlobals({ cityDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray() });
+setToonGlobals({ fillDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray() });
 
 const rtC = new THREE.WebGLRenderTarget(RW, RH, { type: THREE.HalfFloatType, samples: 4 });
 const rtN = new THREE.WebGLRenderTarget(RW, RH, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(RW, RH, THREE.FloatType) });
