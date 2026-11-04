@@ -1,5 +1,5 @@
-// 鲲 · 青绿仙山版 × 正片后期管线（src/look.js）联调页（?test=kun_qinglv_look）。
-// 目的：确认换进正片时 look.js 的 ID 图能编译 userData.outlineVertex（弯曲、扑动、瀑布边缘），墨线贴着弯过的形体走。
+// 鲲 · 青绿仙山版 × 正片后期管线（src/look.js → engine/look）联调页（?test=kun_qinglv_look）。
+// 目的：确认换进正片时 engine/look/ids.js 的 ID 图能编译 userData.outlineVertex（弯曲、扑动、瀑布边缘），墨线贴着弯过的形体走。
 // 参数：&view=side|hero|under &dbg=id|edge|line（看中间缓冲）
 import * as THREE from 'three';
 import { createKun } from '../src/kun_qinglv.js';
