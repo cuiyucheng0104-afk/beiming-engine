@@ -15,11 +15,14 @@
 //   · 纹样（鳞、风化斑）用静止形体坐标 aRest 算，不随摆动滑动
 // 确定性：随机只来自 mulberry(固定种子)；没有 Date.now / Math.random；同一 (ts, wingT) 任意顺序渲染结果一致。
 import * as THREE from 'three';
-import { mulberry, monotone, clamp, lerp } from '../engine/core/math.js';
+import { mulberry, monotone, clamp, lerp, ss, seg, TAU } from '../engine/core/math.js';
+import { profileBody, sideAngle, axisStations, ringsAt, loftRings, loftWing } from '../engine/form/loft.js';
+import { card } from '../engine/form/props.js';
+import { autoBlink, pickEye } from '../engine/form/eye.js';
 import { makePengMaterial, bindPeng, PENG } from './toon_peng.js';
 
-const TAU = Math.PI * 2, DEG = Math.PI / 180;
-const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const DEG = Math.PI / 180;
+const sstep = (a, b, x) => ss(seg(x, a, b));
 const UP = new THREE.Vector3(0, 1, 0), AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1);
 const col3 = h => new THREE.Color(h);
 
@@ -28,35 +31,27 @@ const PX = [-196, -185, -165, -130, -85, -30, 25, 75, 120, 160, 192, 222, 248, 2
 const PT = [12.5, 11, 14, 24, 35, 46, 55, 60, 61, 60, 57, 52, 45, 37, 28, 19, 11, 3];               // 顶线 y
 const PB = [-12.5, -11, -14, -23, -34, -46, -57, -64, -67, -66, -63, -58, -51, -43, -35, -27, -17, -7]; // 底线 y
 const PW = [6, 7.5, 10.5, 16, 23, 31, 38, 44, 47, 48, 47, 45, 42, 38, 32, 24, 15, 5];           // 半宽 z
-const fT = monotone(PX.map((x, i) => [x, PT[i]])), fB = monotone(PX.map((x, i) => [x, PB[i]])), fW = monotone(PX.map((x, i) => [x, PW[i]]));
 const X_TAIL = -196, X_SNOUT = 318, L_BODY = X_SNOUT - X_TAIL;
 
 // 嘴线（侧面水平线算起的角度，向上为正）：从吻端斜向后下，口角下撇
 const mouthPh = x => lerp(-0.1, -0.5, sstep(316, 266, x)) - 0.16 * sstep(270, 254, x);
-const sideAngle = (c, s) => { const p = Math.atan2(s, c); return c >= 0 ? p : (p >= 0 ? Math.PI - p : -Math.PI - p); };
 
-// 放样点（静止形体）。phi：0 = +Z 侧水平，π/2 = 背中线
-function bodyPoint(x, phi, out = new THREE.Vector3()) {
-  const yT = fT(x), yB = fB(x), W = fW(x), yc = (yT + yB) / 2, a = (yT - yB) / 2;
-  const c = Math.cos(phi), s = Math.sin(phi), e = 2 / (s >= 0 ? 2.1 : 2.4);
-  let z = W * Math.sign(c) * Math.pow(Math.abs(c), e);
-  let y = yc + a * Math.sign(s) * Math.pow(Math.abs(s), e);
-  // 嘴：上唇微鼓、下颌略收，嘴线处形成台阶（描边能抓到）
-  if (x > 248) {
-    const ph = sideAngle(c, s), pm = mouthPh(x);
-    const zone = sstep(250, 262, x) * sstep(319, 314, x);
-    const lip = sstep(pm - 0.012, pm + 0.03, ph) * (1 - sstep(pm + 0.07, pm + 0.17, ph));
-    const jaw = (1 - sstep(pm - 0.02, pm + 0.02, ph)) * sstep(pm - 0.5, pm - 0.12, ph);
-    const k = 1 + zone * (0.032 * lip - 0.026 * jaw);
-    z *= k; y = yc + (y - yc) * k;
-  }
-  return out.set(x, y, z);
-}
-const _p1 = new THREE.Vector3(), _p2 = new THREE.Vector3(), _p3 = new THREE.Vector3(), _p4 = new THREE.Vector3();
-function bodyNormal(x, phi, out = new THREE.Vector3()) {
-  bodyPoint(x + 0.5, phi, _p1); bodyPoint(x - 0.5, phi, _p2); bodyPoint(x, phi + 0.004, _p3); bodyPoint(x, phi - 0.004, _p4);
-  return out.copy(_p1.sub(_p2)).cross(_p3.sub(_p4)).normalize();
-}
+// 放样体（静止形体）：超椭圆截面 + 嘴（上唇微鼓、下颌略收，嘴线处形成台阶，描边能抓到）。phi：0 = +Z 侧水平，π/2 = 背中线
+const body = profileBody({
+  xs: PX, top: PT, bottom: PB, width: PW, exp: [2.1, 2.4],
+  deform(p) {
+    const x = p.x;
+    if (x > 248) {
+      const ph = sideAngle(p.c, p.s), pm = mouthPh(x);
+      const zone = sstep(250, 262, x) * sstep(319, 314, x);
+      const lip = sstep(pm - 0.012, pm + 0.03, ph) * (1 - sstep(pm + 0.07, pm + 0.17, ph));
+      const jaw = (1 - sstep(pm - 0.02, pm + 0.02, ph)) * sstep(pm - 0.5, pm - 0.12, ph);
+      const k = 1 + zone * (0.032 * lip - 0.026 * jaw);
+      p.z *= k; p.y = p.yc + (p.y - p.yc) * k;
+    }
+  },
+});
+const { top: fT, bottom: fB, width: fW, mid: yMid, point: bodyPoint, normal: bodyNormal } = body;
 // 鳞的纵向坐标 ξ(x)：∫ dx / 鳞长，鳞长随体围变小（尾柄的鳞小）
 const scaleLen = x => 3.8 + 0.088 * (fW(x) + (fT(x) - fB(x)) / 2);
 const XI = (() => {
@@ -66,41 +61,8 @@ const XI = (() => {
   return monotone(xs.map((x, i) => [x, vs[i]]));
 })();
 
-// 环状截面放样 → 带索引的几何体（ends 给端点就加扇形封口）
-function loftRings(rings, { startCap, endCap, attrs = {} } = {}) {
-  const nR = rings.length, nV = rings[0].length;
-  const pos = [], idx = [];
-  for (const ring of rings) for (const p of ring) pos.push(p.x, p.y, p.z);
-  for (let j = 0; j < nR - 1; j++) for (let k = 0; k < nV; k++) {
-    const a = j * nV + k, b = (j + 1) * nV + k, c = j * nV + (k + 1) % nV, d = (j + 1) * nV + (k + 1) % nV;
-    idx.push(a, b, c, b, d, c);
-  }
-  const extra = {};
-  for (const n in attrs) extra[n] = attrs[n].data.slice();
-  const cap = (pt, j, rev, capAttr) => {
-    const ci = pos.length / 3; pos.push(pt.x, pt.y, pt.z);
-    for (const n in attrs) extra[n].push(...capAttr[n]);
-    for (let k = 0; k < nV; k++) { const a = j * nV + k, c = j * nV + (k + 1) % nV; rev ? idx.push(a, c, ci) : idx.push(a, ci, c); }
-  };
-  if (startCap) cap(startCap.p, 0, true, startCap.attr || {});
-  if (endCap) cap(endCap.p, nR - 1, false, endCap.attr || {});
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  for (const n in attrs) g.setAttribute(n, new THREE.Float32BufferAttribute(extra[n], attrs[n].size));
-  g.setIndex(idx); g.computeVertexNormals();
-  return g;
-}
-
 function buildBody(NU, NV) {
-  const rings = [], xs = [];
-  for (let j = 0; j < NU; j++) {
-    const u = j / (NU - 1), w = 0.5 - 0.5 * Math.cos(Math.PI * u);
-    const x = lerp(X_TAIL, X_SNOUT - 0.35, lerp(u, w, 0.55));
-    xs.push(x);
-    const ring = [];
-    for (let k = 0; k < NV; k++) ring.push(bodyPoint(x, k / NV * TAU));
-    rings.push(ring);
-  }
+  const xs = axisStations(X_TAIL, X_SNOUT - 0.35, NU, 0.55), rings = ringsAt(bodyPoint, xs, NV);
   // 每圈的弧长坐标 v（从同侧水平线量起，向上为正，左右对称）
   const body = [], eta = [];
   const q = NV / 4;
@@ -116,7 +78,7 @@ function buildBody(NU, NV) {
       body.push(x, ph, v[k], xi); eta.push(v[k] / rh);
     }
   }
-  const yc = x => (fT(x) + fB(x)) / 2;
+  const yc = yMid;
   const g = loftRings(rings, {
     startCap: { p: new THREE.Vector3(X_TAIL - 0.6, yc(X_TAIL), 0), attr: { aBody: [X_TAIL, 0, 0, XI(X_TAIL)], aEta: [0] } },
     endCap: { p: new THREE.Vector3(X_SNOUT + 0.3, yc(X_SNOUT) - 1, 0), attr: { aBody: [X_SNOUT, 0, 0, 0], aEta: [0] } },
@@ -128,75 +90,15 @@ function buildBody(NU, NV) {
 }
 
 // 翼型放样（翅膀的肉鳍基部）。展向沿 ±Z，弦向沿 X（前缘在 +X），厚度沿 Y；带 aW =（展向 t, 弦向 cp, 部位）
-function buildLobe({ nS, nC, span, side, plan, part, s0 = 0 }) {
-  const rings = [], aw = [];
-  for (let j = 0; j < nS; j++) {
-    const sj = lerp(s0, span, j / (nS - 1)), t = Math.max(0, sj / span), z = side * sj, P = plan(sj);
-    const ring = [];
-    for (let k = 0; k < nC; k++) {
-      const al = k / nC * TAU, cp = (1 - Math.cos(al)) / 2, sg = (Math.sin(al) >= 0 ? 1 : -1) * (side > 0 ? -1 : 1);
-      const h = P.th * 0.5 * 2.6 * Math.sqrt(cp) * (1 - cp);
-      ring.push(new THREE.Vector3(P.le - cp * P.c, sg * h + P.camber * Math.sin(Math.PI * cp), z));
-      aw.push(t, cp, part);
-    }
-    rings.push(ring);
-  }
-  const mid = ring => { const c = new THREE.Vector3(); ring.forEach(p => c.add(p)); return c.multiplyScalar(1 / ring.length); };
-  const g = loftRings(rings, { startCap: { p: mid(rings[0]), attr: { aW: [0, 0.5, part] } }, endCap: { p: mid(rings[nS - 1]), attr: { aW: [1, 0.5, part] } }, attrs: { aW: { data: aw, size: 3 } } });
-  return g;
-}
+// 展向 s 从 s0 到 span（side 侧），plan(s) 给平面形
+const buildLobe = ({ nS, nC, span, side, plan, part, s0 = 0 }) => loftWing({
+  nS, nC, span0: side * s0, span1: side * span, plan: (t, z) => plan(side * z),
+  attrs: { aW: { size: 3, at: (t, cp, z) => [Math.max(0, side * z / span), cp, part], start: [0, 0.5, part], end: [1, 0.5, part] } },
+});
 const lobeTop = (P, cp) => P.th * 0.5 * 2.6 * Math.sqrt(cp) * (1 - cp) + P.camber * Math.sin(Math.PI * cp);
 const lobeBot = (P, cp) => -P.th * 0.5 * 2.6 * Math.sqrt(cp) * (1 - cp) + P.camber * Math.sin(Math.PI * cp);
 
-// ───────────────────────── 卡片几何：羽片 / 火焰舌（局部：沿长 +X 0..1，横向 ±Z，法线 +Y） ─────────────────────────
-function cardShape(kind, u, vn) {
-  if (kind === 'round') {          // 覆羽 / 鳞形：根部宽、梢圆
-    const hw = 0.5 * (u < 0.55 ? 0.42 + 0.58 * Math.sin(Math.PI / 2 * u / 0.55) : Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.55) / 0.45, 2))));
-    return [u, 0.17 * (1 - vn * vn) * (0.35 + 0.65 * u) - 0.14 * u * u, vn * hw];
-  }
-  if (kind === 'long') {           // 飞羽：羽柄细，羽片长，梢圆中带尖，略向下弯
-    const base = 0.3 + 0.7 * Math.pow(sstep(0, 0.16, u), 0.7);
-    const tip = u > 0.66 ? Math.pow(Math.max(0, 1 - Math.pow((u - 0.66) / 0.34, 2)), 0.62) : 1;
-    const hw = 0.5 * base * tip;
-    return [u, 0.12 * (1 - vn * vn) - 0.22 * u * u, vn * hw];
-  }
-  // flame：火焰舌（在卡片平面内弯：先外伸，再后掠，梢部回挑）
-  return null;
-}
-function cardGeo(kind, NA, NC) {
-  const pos = [], card = [], idx = [];
-  if (kind === 'flame') {
-    // 中心线：航向角 h（从卡片 +X 转向 +Z），积分得位置；宽度向梢收尖
-    const cl = [], hs = []; let x = 0, z = 0;
-    for (let i = 0; i <= NA; i++) {
-      const u = i / NA, h = 0.22 + 1.55 * Math.pow(u, 1.35) - 1.35 * sstep(0.6, 1.0, u);
-      cl.push([x, z]); hs.push(h);
-      x += Math.cos(h) / NA; z += Math.sin(h) / NA;
-    }
-    for (let i = 0; i <= NA; i++) {
-      const u = i / NA, h = hs[i], nx = -Math.sin(h), nz = Math.cos(h);
-      const hw = 0.21 * Math.pow(1 - u, 0.75) * (0.55 + 0.45 * sstep(0, 0.2, u));
-      for (let j = 0; j < NC; j++) {
-        const vn = -1 + 2 * j / (NC - 1);
-        pos.push(cl[i][0] + nx * vn * hw, 0.05 * (1 - vn * vn), cl[i][1] + nz * vn * hw); card.push(u, vn);
-      }
-    }
-  } else {
-    for (let i = 0; i <= NA; i++) for (let j = 0; j < NC; j++) {
-      const u = i / NA, vn = -1 + 2 * j / (NC - 1), P = cardShape(kind, u, vn);
-      pos.push(P[0], P[1], P[2]); card.push(u, vn);
-    }
-  }
-  for (let i = 0; i < NA; i++) for (let j = 0; j < NC - 1; j++) {
-    const a = i * NC + j, b = a + NC;
-    idx.push(a, a + 1, b, b, a + 1, b + 1);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('aCard', new THREE.Float32BufferAttribute(card, 2));
-  g.setIndex(idx); g.computeVertexNormals();
-  return g;
-}
+// ───────────────────────── 卡片几何：羽片 / 火焰舌（engine/form/props.js 的 card：沿长 +X 0..1，横向 ±Z，法线 +Y） ─────────────────────────
 
 // ───────────────────────── 脊柱波动（CPU；身体、翅根、鳍、尾翎、须、眼都用同一个截面变换） ─────────────────────────
 // BEND 是“当前这只鲲”的参数：setPose 开头按实例的 uniforms 写进来（单线程同步调用，多只鲲互不干扰）
@@ -671,7 +573,7 @@ export function createKun(opts = {}) {
   }
 
   // ════════════════ 火焰舌（背鳍冠、背鳍、腹鳍、臀鳍、尾柄）：实例卡片，CPU 跟随脊柱 ════════════════
-  const flameGeo = cardGeo('flame', 22, 5);
+  const flameGeo = card('flame', 22, 5);
   const flameMat = makePengMaterial({
     side: THREE.DoubleSide, muralAmt: 0.7, muralScale: 0.12, outlineW: 0.9, rimAmt: 0.75, cityAmt: 0.7,
     shade1Tint: [0.66, 0.58, 0.72], shade2Tint: [0.42, 0.34, 0.52],
@@ -725,7 +627,7 @@ export function createKun(opts = {}) {
   });
 
   // ════════════════ 翅膀（臂 + 掌两段刚体；羽片是实例卡片） ════════════════
-  const roundGeo = cardGeo('round', 10, 5), longGeo = cardGeo('long', 16, 5);
+  const roundGeo = card('round', 10, 5), longGeo = card('long', 16, 5);
   const featherHooks = {
     vertexPars: 'attribute vec2 aCard;\nattribute vec4 aFA;\nattribute vec4 aFB;\nattribute vec4 aFC;\nvarying vec2 vCard;\nvarying vec4 vFA;\nvarying vec4 vFB;\nvarying vec4 vFC;\n',
     vertexBegin: 'vCard = aCard; vFA = aFA; vFB = aFB; vFC = aFC;',
@@ -1136,10 +1038,6 @@ export function createKun(opts = {}) {
     return k;
   }
 
-  function autoBlink(ts) {
-    const l = ((ts - o.blinkOffset) % o.blinkPeriod + o.blinkPeriod) % o.blinkPeriod;
-    return l < 0.125 ? 0.6 : l < 0.25 ? 1 : l < 0.375 ? 0.55 : l < 0.5 ? 0.15 : 0;
-  }
   const _inv = new THREE.Matrix4(), _tw = new THREE.Vector3(), _em = new THREE.Matrix4();
   function setPose(ts, po = {}) {
     const tw = po.wingT ?? ts;
@@ -1151,7 +1049,7 @@ export function createKun(opts = {}) {
     poseFlames(ts);
     posePlumes(ts);
     poseWings(ts, tw);
-    const b = po.blink ?? autoBlink(ts);
+    const b = po.blink ?? autoBlink(ts, o.blinkPeriod, o.blinkOffset);
     for (const e of eyes) {
       const tu = e.mat.userData.toon;
       tu.uOpen.value = 1 - b;
@@ -1163,13 +1061,7 @@ export function createKun(opts = {}) {
       }
     }
   }
-  function eyeWorld(target = new THREE.Vector3(), ref = -1) {
-    let e = eyes.find(x => x.side === -1);
-    if (ref && ref.isVector3) { const a = eyes[0].group.getWorldPosition(new THREE.Vector3()), b2 = eyes[1].group.getWorldPosition(new THREE.Vector3()); e = a.distanceTo(ref) < b2.distanceTo(ref) ? eyes[0] : eyes[1]; }
-    else if (ref === 1) e = eyes.find(x => x.side === 1);
-    e.group.updateWorldMatrix(true, false);
-    return target.setFromMatrixPosition(e.group.matrixWorld);
-  }
+  const eyeWorld = (target, ref) => pickEye(eyes, target, ref);
   // 主光阴影相机罩住鲲（含翅膀和尾翎）；光的方向不变。鲲移动后每帧调一次
   function fitShadow(light, { size = 4096, radius = 470 } = {}) {
     group.updateMatrixWorld(true);
