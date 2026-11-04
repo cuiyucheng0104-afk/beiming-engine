@@ -7,7 +7,7 @@
 另写：audio/stems/*.wav（五条总线，已乘母带电平、未过压缩和限制器，合成时可重配比）、audio/CREDITS、audio/check/render.json。
 
 用法：python audio/mix.py            配乐读 audio/score_cache.npz（定稿配乐的渲染缓存）
-      python audio/mix.py --score    用采样库重新渲染配乐（需要 BEIMING_SAMPLES，见 sampler.py）
+      python audio/mix.py --score    用采样库重新渲染配乐（需要 BEIMING_SAMPLES，见 engine/audio/sampler.py）
 确定性：所有随机都有固定种子，重跑结果逐样本一致。
 """
 import os
@@ -17,12 +17,13 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, HERE)
+sys.path[:0] = [HERE, ROOT]          # 同目录的 design / score，仓库根下的 engine.audio
 
 import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
-from dsp import (SR, N, smoothstep, undb, db, place, stereo, width, make_ir, reverb, echoes, hp, lp, shelf,  # noqa: E402
-                 compress, tp_limit, true_peak, loudness_curve, integrated, fade)
+from engine.audio.dsp import SR, N, smoothstep, undb, db, stereo, width, make_ir, reverb, echoes, hp, lp, shelf, fade  # noqa: E402
+from engine.audio.meter import true_peak, integrated, momentary_max, band_energy, onset  # noqa: E402
+from engine.audio import mixing as M, ambience as A, sampler  # noqa: E402
 import design as D  # noqa: E402
 
 T_START = time.time()
@@ -67,45 +68,29 @@ def buf():
 
 def window(a, b, xf=0.012):
     """全局时间轴上的镜头窗：a 处等功率切入、b 处切出（交叉 xf 秒）"""
-    up = np.sin(np.pi / 2 * smoothstep(a - xf / 2, a + xf / 2, tt)) if a > 0 else np.ones(NT)
-    dn = np.cos(np.pi / 2 * smoothstep(b - xf / 2, b + xf / 2, tt)) if b < DUR else np.ones(NT)
-    return (up * dn)[:, None]
+    return M.window(tt, a, b, xf, DUR)
 
 
 def tail_after(b, rel=0.3):
     """镜头切走后，上一镜的尾巴在 rel 秒内收掉（轻微 L-cut，不硬断混响）"""
-    return (1 - smoothstep(b, b + rel, tt))[:, None]
+    return M.tail_after(tt, b, rel)
 
 
 def at(x, t0):
     """把一段（单声道或立体声）放到全长时间轴上"""
-    b = buf()
-    place(b, x if x.ndim == 2 else stereo(x), t0)
-    return b
+    return M.at(x, t0, NT)
 
 
 # ———— 按目标响度定电平 ————
 LEVELS = {}
 
 
-def mom_max(st, t0=0.0, t1=None):
-    tc, L = loudness_curve(st, 0.4, 0.01)
-    m = (tc >= t0) & (tc <= (t1 if t1 is not None else DUR))
-    return float(L[m].max())
-
-
 def level(name, st, t0=0.0, t1=None):
     """把元素 st 调到 TARGET[name]；win 型用 (t0, t1) 区间，mom 型在 (t0, t1) 里找最大瞬时响度"""
     target, how = TARGET[name]
-    if how == 'mom':
-        cur = mom_max(st, t0, t1)
-    elif how == 'win':
-        cur = integrated(st[N(t0):N(t1)])
-    else:
-        cur = float(db(np.abs(st).max()))
-    g = target - cur
+    out, cur, g = M.match_level(st, target, how, t0, DUR if t1 is None else t1)
     LEVELS[name] = {'how': how, 'target': target, 'measured_raw': round(cur, 2), 'gain_db': round(g, 2)}
-    return st * undb(g)
+    return out
 
 
 # ———— 空间（低频衰减都比中频短，混响输入先高通，防浑） ————
@@ -117,25 +102,25 @@ IR_KUN = make_ir(rt=4.4, pre=0.085, tone=(0.75, 1.0, 0.62, 0.32), er=5, er_span=
 ELEM = {}   # 元素（定电平后、进总线前）留着做时间与音高核对
 
 # 触碰镜腿那一下给它让路：发丝和近风在 3.45–3.80 s 轻轻让开 6 dB（听不出在躲，但“嗒”能出来）
-DUCK = (1 - 0.5 * smoothstep(T0('touch') - 0.10, T0('touch') - 0.01, tt) * (1 - smoothstep(T0('touch') + 0.06, T0('touch') + 0.25, tt)))[:, None]
+DUCK = M.duck(tt, T0('touch'), 0.5, pre=(0.10, 0.01), post=(0.06, 0.25))
 
 # ———————————————— 环境 amb ————————————————
 amb = buf()
-a = D.city_hum(3.4, 11, fog=1.25) * 1.0 + D.water(3.4, 12, 'far') * 0.5 + D.wind(3.4, 13, 'far')[0] * 0.55
+a = A.city_hum(3.4, 11, fog=1.25) * 1.0 + A.water(3.4, 12, 'far') * 0.5 + A.wind(3.4, 13, 'far')[0] * 0.55
 a = width(reverb(a, IR_RIVER, wet=0.12), 0.95)
 a = at(a, 0.0) * window(0, CUT_AB)
 a = level('amb_fog', a, 0.05, CUT_AB - 0.05)
 amb += a * G('amb_fog')
 ELEM['amb_fog'] = a
 
-bw, bgust = D.wind(2.4, 22, 'close')
-b = D.city_hum(2.4, 21, fog=2.2) * 0.35 + bw * 0.85
+bw, bgust = A.wind(2.4, 22, 'close')
+b = A.city_hum(2.4, 21, fog=2.2) * 0.35 + bw * 0.85
 b = at(width(b, 0.55), CUT_AB - 0.2) * window(CUT_AB, CUT_BC)
 b = level('amb_close', b, CUT_AB + 0.05, CUT_BC - 0.05) * DUCK
 amb += b * G('amb_close')
 ELEM['amb_close'] = b
 
-c = D.city_hum(5.4, 31, fog=1.1) * 0.55 + D.water(5.4, 32, 'hull') * 0.32 + D.wind(5.4, 33, 'open')[0] * 0.62
+c = A.city_hum(5.4, 31, fog=1.1) * 0.55 + A.water(5.4, 32, 'hull') * 0.32 + A.wind(5.4, 33, 'open')[0] * 0.62
 c = width(reverb(c, IR_SKY, wet=0.10), 1.35)
 c = at(c, CUT_BC - 0.2) * window(CUT_BC, DUR + 1)
 c = level('amb_open', c, CUT_BC + 0.05, DUR - 0.05)
@@ -148,7 +133,7 @@ ob = level('open_bloom', ob)
 amb += ob * G('open')
 ELEM['open_bloom'] = ob
 
-br = at(D.breeze(DUR - T0('breeze') + 0.05, 34), T0('breeze'))
+br = at(A.breeze(DUR - T0('breeze') + 0.05, 34), T0('breeze'))
 br = level('breeze', br)
 amb += br * G('breeze')
 ELEM['breeze'] = br
@@ -180,7 +165,7 @@ gx = level('kun_glimpse', gx, 1.6, 2.9)
 fx += gx * G('kun_glimpse')
 ELEM['kun_glimpse'] = gx
 
-hr = at(width(D.hair(2.4, 23, bgust), 0.7), CUT_AB - 0.2) * window(CUT_AB, CUT_BC)
+hr = at(width(A.hair(2.4, 23, bgust), 0.7), CUT_AB - 0.2) * window(CUT_AB, CUT_BC)
 hr = level('hair', hr, CUT_AB + 0.05, CUT_BC - 0.05)
 hr = hr * DUCK
 fx += hr * G('hair')
@@ -263,37 +248,11 @@ BUS = {'amb': amb, 'fx': fx, 'kun': kun, 'ui': ui, 'music': mus}
 mix = sum(BUS.values())
 mix = hp(mix, 28, 2)
 
-
-def band_rel(st):
-    x = st.mean(1)
-    win = np.hanning(8192)
-    frames = np.lib.stride_tricks.sliding_window_view(x, 8192)[::2048] * win
-    Pw = (np.abs(np.fft.rfft(frames, axis=1)) ** 2).sum(0)
-    f = np.fft.rfftfreq(8192, 1 / SR)
-    bands = {'20-120': (20, 120), '120-500': (120, 500), '500-2k': (500, 2000), '2k-8k': (2000, 8000), '8k+': (8000, 24000)}
-    e = {k: 10 * np.log10(Pw[(f >= lo) & (f < hi)].sum() + 1e-20) for k, (lo, hi) in bands.items()}
-    top = max(e.values())
-    return {k: round(v - top, 2) for k, v in e.items()}
-
-
-LOW_SHELF = 0.0
-for _ in range(4):   # TECHNIQUE §5：20–120 Hz 相对最强频段约 −3 dB（留 0.5 dB 余量给后面的限制器）
-    be = band_rel(mix)
-    if be['20-120'] <= -3.5:
-        break
-    step = -(be['20-120'] + 3.8)
-    mix = shelf(mix, 115, step, 'low', 0.7)
-    LOW_SHELF += step
+# TECHNIQUE §5：20–120 Hz 相对最强频段约 −3 dB（留 0.5 dB 余量给后面的限制器）
+mix, LOW_SHELF = M.tame_low(mix, '20-120', ceil=-3.5, aim=-3.8, f=115, s=0.7)
 # 不再加母带压缩：试过 thr −24 / 1.5:1 的“胶水”，在顶点会压掉约 3 dB，正好把要的动态对比吃掉；峰值只交给下面的前视限制器
 
-g_total = TGT_I - integrated(mix)       # 先粗调到目标，再按“限制后”的实测响度迭代修正
-for _ in range(8):
-    lim, gr = tp_limit(mix * undb(g_total), TGT_TP, look=0.005, rel=0.12)
-    err = TGT_I - integrated(lim)
-    if abs(err) < 0.03:
-        break
-    g_total += err
-mix = lim
+mix, g_total, gr = M.loudness_to(mix, TGT_I, TGT_TP, look=0.005, rel=0.12)   # 先粗调到目标，再按“限制后”的实测响度迭代修正
 mix = fade(mix, 0.006, 0.0)
 mix *= (np.cos(np.pi / 2 * smoothstep(T0('end_fade'), DUR, tt)) ** 2)[:, None]
 mix[-1] = 0.0
@@ -313,7 +272,6 @@ for k, v in BUS.items():
     sf.write(os.path.join(HERE, 'stems', f'{k}.wav'), s.astype(np.float32), SR, subtype='PCM_24')
 
 # 署名
-import sampler  # noqa: E402
 used = USED
 lines = sampler.credits(used)
 with open(os.path.join(HERE, 'CREDITS'), 'w', encoding='utf-8') as f:
@@ -323,20 +281,10 @@ with open(os.path.join(HERE, 'CREDITS'), 'w', encoding='utf-8') as f:
         f.write(ln + '\n')
     f.write('Instruments used / 用到的采样乐器: ' + ', '.join(used) + '\n\n')
     f.write('Sound effects / 音效：环境声、汽笛、鸽群、触碰、眼镜提示音、鲲鸣、鲲掠过、海草，全部为程序化合成'
-            '（numpy/scipy，本项目 audio/design.py），未使用任何外部录音素材。\n')
+            '（numpy/scipy，本项目 audio/design.py 与 engine/audio/），未使用任何外部录音素材。\n')
 
 
 # 渲染记录（元素电平、起音时间核对、各声部在顶点的响度）
-def onset(st, t_hint, rel_db=-30.0, search=0.6):
-    x = np.abs(st).max(1)
-    a, b = max(0, N(t_hint - search)), min(NT, N(t_hint + search))
-    seg = x[a:b]
-    if seg.max() <= 0:
-        return None
-    thr = seg.max() * undb(rel_db)
-    return round((a + int(np.argmax(seg > thr))) / SR, 4)
-
-
 chk = {}
 for cid in ['horn_dry', 'pigeons', 'touch', 'wake_ping', 'kun_dry', 'ui_scan', 'ui_fail', 'ui_nav']:
     key = {'horn_dry': 'horn', 'kun_dry': 'kun_call'}.get(cid, cid)
@@ -346,7 +294,7 @@ for cid in ['horn_dry', 'pigeons', 'touch', 'wake_ping', 'kun_dry', 'ui_scan', '
 sec_lufs = {}
 for k, v in sections.items():
     if np.abs(v).max() > 0:
-        sec_lufs[k] = round(mom_max(v * undb(LEVELS['music']['gain_db'] + g_total), 8.9, 9.6), 1)
+        sec_lufs[k] = round(momentary_max(v * undb(LEVELS['music']['gain_db'] + g_total), 8.9, 9.6), 1)
 
 rep = {
     'out': os.path.join(ROOT, 'out', 'mix.wav'),
@@ -358,7 +306,7 @@ rep = {
     'limiter_gr_over_1db_s': round(float((gr < undb(-1)).sum() / SR), 3),
     'limiter_gr_curve_db_50ms': {f'{i * 0.05:.2f}': round(float(-db(gr[N(i * 0.05):N(i * 0.05 + 0.05)].min())), 2)
                                  for i in range(int(DUR / 0.05)) if gr[N(i * 0.05):N(i * 0.05 + 0.05)].min() < undb(-0.3)},
-    'band_rel_db': band_rel(mix.astype(float)),
+    'band_rel_db': band_energy(mix.astype(float)),
     'levels': LEVELS, 'onsets': chk, 'music_sections_apex_lufs': sec_lufs, 'harmony': harmony,
     'render_seconds': round(time.time() - T_START, 1),
 }

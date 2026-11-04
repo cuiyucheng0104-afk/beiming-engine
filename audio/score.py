@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""《北冥》配乐（5.0–10.0 s）：VSCO 2 CE 弦乐长音为主体（采样器见 sampler.py），竖琴、圆号、钟琴、吊镲渐强点缀。
+"""《北冥》配乐（5.0–10.0 s）：VSCO 2 CE 弦乐长音为主体（采样器与编配工具见 engine/audio/sampler.py、orchestra.py），竖琴、圆号、钟琴、吊镲渐强点缀。
 
 和声（低音一直是 D 持续音，像海平线）：
   5.0  D(add9)  开放五度 + 九音：神秘、打开          vc D3 · va A3 · vn2 E4 · vn1 A4
@@ -12,15 +12,15 @@
 力度：两层采样按力度曲线交叉淡化（弱奏层暗、强奏层亮），音量由同一条曲线控制。
 """
 import os
-import sys
+from functools import partial
+
 import numpy as np
 
-import sampler as S  # noqa: E402
+from engine.audio import sampler as S, orchestra as O
+from engine.audio.dsp import SR, N, smoothstep, undb, db, place, make_ir, reverb, hp, lp, peq, shelf, tp_limit
 
-from dsp import (SR, N, curve, smoothstep, undb, db, rms, place, make_ir, reverb, hp, lp, peq, shelf, fade, tp_limit)  # noqa: E402
-
-USED = set()
-REF = undb(-20.0)
+S.ROOT = S.ROOT or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'samples')
+USED = O.USED
 
 # 音乐强度曲线（全局秒，0..1）
 # 8.88–8.95 顶点前“吸一口气”（略收），9.02 新和弦全力进；9.35 之后往空气里散
@@ -28,42 +28,8 @@ DYN = [(4.9, 0.0), (5.05, 0.16), (5.6, 0.2), (6.4, 0.28), (7.4, 0.42), (8.2, 0.5
        (8.88, 0.69), (8.95, 0.66), (9.02, 1.0), (9.35, 0.92), (9.6, 0.72), (9.8, 0.52), (10.0, 0.38)]
 HORN_DYN = [(8.1, 0.0), (8.3, 0.22), (8.9, 0.6), (9.02, 0.88), (9.4, 0.7), (9.75, 0.25), (10.0, 0.0)]
 
-
-def level(m, rng_db=18.0):
-    return undb(-rng_db * (1 - np.clip(m, 0, 1)))
-
-
-def _pair(inst, pitch, d, attack, release, vels):
-    lo = S.note(inst, pitch, d, vel=vels[0], attack=attack, release=release).astype(float)
-    hi = S.note(inst, pitch, d, vel=vels[1], attack=attack, release=release).astype(float)
-    n = min(len(lo), len(hi))
-    lo, hi = lo[:n], hi[:n]
-    a, b = N(min(0.6, d * 0.4)), N(max(0.8, min(d, 1.8)))
-    lo *= REF / rms(lo[a:b])
-    hi *= REF / rms(hi[a:b])
-    return lo, hi
-
-
-def sus(buf, inst, pitch, t0, t1, pan, gain_db=0.0, attack=0.35, release=0.6, dyn=DYN, vels=(0.3, 0.85),
-        xf=(0.3, 0.85), desks=2, spread=0.22, rng_db=18.0):
-    """长音（t0–t1 全局秒）：两层力度交叉淡化 + 力度曲线控制音量；desks=2 时第二组错开 30 ms、高 5 音分、声像分开，做合奏宽度"""
-    USED.add(inst)
-    for k in range(desks):
-        p = pitch if k == 0 else S.midi(pitch) + 0.05
-        lo, hi = _pair(inst, p, t1 - t0, attack, release, vels)
-        st = t0 + 0.03 * k
-        tt = st + np.arange(len(lo)) / SR
-        m = curve(dyn, tt)
-        w = smoothstep(xf[0], xf[1], m)
-        x = (lo * np.sqrt(1 - w) + hi * np.sqrt(w)) * level(m, rng_db)
-        pk = pan + (spread if k else -spread) * 0.5 if desks > 1 else pan
-        place(buf, x, st, undb(gain_db) / np.sqrt(desks), float(np.clip(pk, -1, 1)))
-
-
-def pluck(buf, inst, pitch, t, vel, pan, gain_db=0.0, dur=1.6, release=None):
-    USED.add(inst)
-    x = S.note(inst, pitch, dur, vel=vel, release=release).astype(float)
-    place(buf, x, t, undb(gain_db), pan)
+sus = partial(O.sus, dyn=DYN)
+pluck = O.pluck
 
 
 def render(dur=10.0, seed=2026):

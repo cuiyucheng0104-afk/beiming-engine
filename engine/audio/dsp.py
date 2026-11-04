@@ -1,9 +1,17 @@
 # -*- coding: utf-8 -*-
-"""《北冥》声音：DSP 工具。
+"""北冥引擎 · 音频 DSP：48 kHz、float64、确定性（随机都从调用方给的种子来，不用全局随机）。
 
-全部 48 kHz、float64 计算、确定性（每个声音自带种子，不用全局随机）。
-内容：时间/包络、噪声源、静态与时变滤波（numba 状态变量滤波器）、立体声摆位、
-多频段衰减的卷积混响、离散回声、压缩、过采样真峰值限制、BS.1770 响度曲线。
+接口：
+  SR / N(秒) / T(秒)                       采样率、秒→样本数、时间轴
+  smoothstep(a, b, x) / curve(点, t) / lin_curve(点, t)   断点包络（smoothstep 或线性过渡）
+  fade(x, fin, fout)                      首尾余弦淡入淡出
+  rng(seed) / norm(x, p) / un_safe(x) / rms / db / undb   随机源、峰值或均方根归一、分贝换算
+  white / pink / brown(n, r) / smooth_random(n, r, rate, lo, hi)   噪声源与慢变随机控制
+  lp / hp / bp(x, f, o) / peq(x, f, g, q) / shelf(x, f, g, kind, s)   静态滤波与 RBJ 均衡
+  svf(x, fc, q, mode)                     时变状态变量滤波（fc/q 可逐样本；立体声逐声道）
+  pan_lr / stereo / place / width / decor_pair   等功率摆位、放进缓冲、M/S 宽度、相关噪声对
+  make_ir(...) / reverb(st, ir, ...) / echoes(st, taps, ...)   多频段衰减的脉冲响应、卷积混响、离散回声
+  compress(st, ...) / tp_limit(st, ceil_db, ...)   RMS 压缩、过采样检测的前视限制器
 """
 import numpy as np
 import numba
@@ -205,7 +213,10 @@ def _arr(v, n):
 
 
 def svf(x, fc, q=0.707, mode='bp'):
+    """mode = 'lp' / 'bp' / 'hp'；x 是立体声时左右各滤一遍（fc、q 共用）"""
     x = np.ascontiguousarray(x, dtype=float)
+    if x.ndim == 2:
+        return np.stack([svf(x[:, c], fc, q, mode) for c in range(x.shape[1])], 1)
     n = len(x)
     m = {'lp': 0, 'bp': 1, 'hp': 2}[mode]
     return _svf(x, _arr(fc, n), _arr(q, n), m, float(SR))
@@ -357,12 +368,6 @@ def _release(g, a):
     return y
 
 
-def true_peak(st, os=4):
-    """过采样真峰值（线性值，所有声道最大）"""
-    up = resample_poly(st, os, 1, axis=0)
-    return float(np.abs(up).max())
-
-
 def tp_limit(st, ceil_db=-1.6, look=0.004, rel=0.10, os=4):
     """过采样检测的前视限制器：保证 os 倍过采样后的峰值不超过 ceil_db"""
     ceil = undb(ceil_db)
@@ -378,46 +383,3 @@ def tp_limit(st, ceil_db=-1.6, look=0.004, rel=0.10, os=4):
     g = uniform_filter1d(g, size=L)
     g = _release(g, np.exp(-1 / (rel * SR)))
     return st * g[:, None], g
-
-
-# ———— 响度（ITU-R BS.1770，48 kHz K 加权系数） ————
-_KB1 = np.array([1.53512485958697, -2.69169618940638, 1.19839281085285])
-_KA1 = np.array([1.0, -1.69065929318241, 0.73248077421585])
-_KB2 = np.array([1.0, -2.0, 1.0])
-_KA2 = np.array([1.0, -1.99004745483398, 0.99007225036621])
-
-
-def kweight(st):
-    return lfilter(_KB2, _KA2, lfilter(_KB1, _KA1, st, axis=0), axis=0)
-
-
-def loudness_curve(st, win=0.4, hop=0.02):
-    """逐窗响度（win=0.4 瞬时 / 3.0 短时），返回 (窗中心时间, LUFS)"""
-    if st.ndim == 1:
-        st = stereo(st) / np.sqrt(2)
-    k = kweight(st)
-    p = np.sum(k ** 2, axis=1)
-    W, H = N(win), N(hop)
-    c = np.concatenate([[0.0], np.cumsum(p)])
-    starts = np.arange(0, len(p) - W + 1, H)
-    ms = (c[starts + W] - c[starts]) / W
-    return (starts + W / 2) / SR, -0.691 + 10 * np.log10(ms + 1e-12)
-
-
-def integrated(st):
-    """BS.1770-4 门限积分响度（400 ms 块、75% 重叠、-70 绝对门限、-10 相对门限）"""
-    if st.ndim == 1:
-        st = stereo(st) / np.sqrt(2)
-    k = kweight(st)
-    p = np.sum(k ** 2, axis=1)
-    W, H = N(0.4), N(0.1)
-    c = np.concatenate([[0.0], np.cumsum(p)])
-    starts = np.arange(0, len(p) - W + 1, H)
-    z = (c[starts + W] - c[starts]) / W
-    lz = -0.691 + 10 * np.log10(z + 1e-12)
-    z1 = z[lz > -70]
-    if len(z1) == 0:
-        return -np.inf
-    rel = -0.691 + 10 * np.log10(z1.mean()) - 10
-    z2 = z[lz > rel]
-    return float(-0.691 + 10 * np.log10(z2.mean()))

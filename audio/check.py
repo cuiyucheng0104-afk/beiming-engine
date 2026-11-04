@@ -7,26 +7,23 @@ TECHNIQUE §5 频段能量、音高与和声核对、切点无爆音、单声道
 import os
 import sys
 import json
-import re
 import subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, HERE)
+sys.path.insert(0, ROOT)          # 仓库根：engine.audio
 import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
-from PIL import Image, ImageDraw, ImageFont  # noqa: E402
-from dsp import SR, N, loudness_curve, db, undb  # noqa: E402
+from PIL import Image, ImageDraw  # noqa: E402
+from engine.audio.dsp import SR, N  # noqa: E402
+from engine.audio.meter import loudness_curve, integrated, band_energy, band_snr, ebur128, loudnorm_linear  # noqa: E402
+from engine.audio.scope import font, spectrogram, waveform, curves, side_mid  # noqa: E402
 
 OUT = os.path.join(ROOT, 'out', 'mix.wav')
 CK = os.path.join(HERE, 'check')
 os.makedirs(CK, exist_ok=True)
 CUES = json.load(open(os.path.join(HERE, 'cues.json'), encoding='utf-8'))
 REP = {}
-
-
-def run(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True)
 
 
 # ———— 1. 文件格式 ————
@@ -36,34 +33,16 @@ REP['format'] = {'sr': sr, 'channels': x.shape[1], 'samples': len(x), 'seconds':
                  'ok': sr == 48000 and x.shape[1] == 2 and len(x) == 480000}
 
 # ———— 2. ffmpeg ebur128 ————
-r = run(['ffmpeg', '-hide_banner', '-nostats', '-i', OUT, '-af', 'ebur128=peak=true', '-f', 'null', '-'])
-s = r.stderr[r.stderr.rfind('Summary:'):]
-num = lambda pat: float(re.search(pat, s).group(1))  # noqa: E731
-REP['ebur128'] = {'I_LUFS': num(r'I:\s+(-?[\d.]+) LUFS'), 'LRA_LU': num(r'LRA:\s+(-?[\d.]+) LU'),
-                  'TP_dBTP': num(r'Peak:\s+(-?[\d.]+) dBFS'),
-                  'LRA_low': num(r'LRA low:\s+(-?[\d.]+) LUFS'), 'LRA_high': num(r'LRA high:\s+(-?[\d.]+) LUFS')}
+REP['ebur128'] = ebur128(OUT)
 
 # ———— 3. 模拟 mux.sh：两遍 loudnorm（I=-14:TP=-1.2:LRA=11, linear=true），看是否走线性 ————
-r1 = run(['ffmpeg', '-hide_banner', '-nostats', '-i', OUT, '-af', 'loudnorm=I=-14:TP=-1.2:LRA=11:print_format=json', '-f', 'null', '-'])
-j1 = json.loads(r1.stderr[r1.stderr.rfind('{'):r1.stderr.rfind('}') + 1])
-ln = ('loudnorm=I=-14:TP=-1.2:LRA=11:measured_I={input_i}:measured_TP={input_tp}:measured_LRA={input_lra}:'
-      'measured_thresh={input_thresh}:offset={target_offset}:linear=true:print_format=json').format(**j1)
-r2 = run(['ffmpeg', '-hide_banner', '-nostats', '-i', OUT, '-af', ln, '-f', 'null', '-'])
-j2 = json.loads(r2.stderr[r2.stderr.rfind('{'):r2.stderr.rfind('}') + 1])
+j1, j2 = loudnorm_linear(OUT, I=-14, TP=-1.2, LRA=11)
 REP['mux_loudnorm'] = {'pass1': {k: j1[k] for k in ['input_i', 'input_tp', 'input_lra', 'input_thresh', 'target_offset']},
                        'normalization_type': j2.get('normalization_type'), 'output_i': j2.get('output_i'),
                        'output_tp': j2.get('output_tp')}
 
 # ———— 4. 频段能量（相对最强频段） ————
-mono = x.mean(1)
-win = np.hanning(8192)
-frames = np.lib.stride_tricks.sliding_window_view(mono, 8192)[::2048] * win
-Pw = (np.abs(np.fft.rfft(frames, axis=1)) ** 2).sum(0)
-fq = np.fft.rfftfreq(8192, 1 / SR)
-bands = {'20-120': (20, 120), '120-500': (120, 500), '500-2k': (500, 2000), '2k-8k': (2000, 8000), '8k+': (8000, 24000)}
-be = {k: 10 * np.log10(Pw[(fq >= lo) & (fq < hi)].sum() + 1e-20) for k, (lo, hi) in bands.items()}
-top = max(be.values())
-REP['band_rel_db'] = {k: round(v - top, 2) for k, v in be.items()}
+REP['band_rel_db'] = band_energy(x)
 REP['band_low_ok'] = REP['band_rel_db']['20-120'] <= -3.0
 REP['band_high_ok'] = REP['band_rel_db']['8k+'] <= -15.0
 
@@ -79,7 +58,7 @@ REP['edges'] = {'first_sample': float(np.abs(x[0]).max()), 'last_sample': float(
                 'dc': [round(float(v), 6) for v in x.mean(0)],
                 'cut_jump_ratio': {str(t): jump_ratio(t) for t in [3.0, 5.0]}}
 corr = float(np.corrcoef(x[:, 0], x[:, 1])[0, 1])
-from dsp import integrated  # noqa: E402
+mono = x.mean(1)
 REP['stereo'] = {'lr_correlation': round(corr, 3),
                  'mono_minus_stereo_LU': round(integrated(np.stack([mono, mono], 1)) - integrated(x), 2)}
 
@@ -89,20 +68,12 @@ try:
     rest = sum(sf.read(os.path.join(HERE, 'stems', f'{k}.wav'), dtype='float64', always_2d=True)[0]
                for k in ['amb', 'fx', 'kun', 'music'])
 
-    def band_snr(t, lo, hi, d):
-        a, b = N(t), N(t + d)
-        u, o = ui_st[a:b].mean(1), rest[a:b].mean(1)
-        U, O = np.abs(np.fft.rfft(u * np.hanning(len(u)))) ** 2, np.abs(np.fft.rfft(o * np.hanning(len(o)))) ** 2
-        fq_ = np.fft.rfftfreq(len(u), 1 / SR)
-        m = (fq_ >= lo) & (fq_ < hi)
-        return round(float(10 * np.log10(U[m].sum() / (O[m].sum() + 1e-20) + 1e-20)), 1)
-
     REP['ui_band_snr_db'] = {
-        'touch_3.55': band_snr(3.55, 2000, 7000, 0.02),
-        'wake_ping_3.60': band_snr(3.60, 1650, 1880, 0.3),
-        'ui_scan_5.45': band_snr(5.45, 1230, 1880, 0.3),
-        'ui_fail_6.25': band_snr(6.25, 1400, 1880, 0.3),
-        'ui_nav_7.00': band_snr(7.00, 1100, 1880, 0.4),
+        'touch_3.55': band_snr(ui_st, rest, 3.55, 2000, 7000, 0.02),
+        'wake_ping_3.60': band_snr(ui_st, rest, 3.60, 1650, 1880, 0.3),
+        'ui_scan_5.45': band_snr(ui_st, rest, 5.45, 1230, 1880, 0.3),
+        'ui_fail_6.25': band_snr(ui_st, rest, 6.25, 1400, 1880, 0.3),
+        'ui_nav_7.00': band_snr(ui_st, rest, 7.00, 1100, 1880, 0.4),
     }
 except Exception as e:  # noqa: BLE001
     REP['ui_snr_error'] = repr(e)
@@ -145,94 +116,14 @@ except Exception as e:  # noqa: BLE001
     REP['pitch_error'] = repr(e)
 
 # ———— 7. 画图 ————
-FONT_CANDS = ['/System/Library/Fonts/STHeiti Medium.ttc', '/System/Library/Fonts/Hiragino Sans GB.ttc']
-
-
-def font(sz):
-    for p in FONT_CANDS:
-        if os.path.exists(p):
-            try:
-                return ImageFont.truetype(p, sz)
-            except OSError:
-                pass
-    return ImageFont.load_default(sz)
-
-
-ANCH = np.array([[8, 8, 24], [48, 18, 92], [120, 28, 120], [190, 55, 95], [240, 110, 60], [252, 185, 70], [252, 250, 200]], float)
-
-
-def cmap(v):
-    v = np.clip(v, 0, 1) * (len(ANCH) - 1)
-    i = np.minimum(v.astype(int), len(ANCH) - 2)
-    f = (v - i)[..., None]
-    return (ANCH[i] * (1 - f) + ANCH[i + 1] * f).astype(np.uint8)
-
-
-def spec_img(sig, t0, t1, w, h, fmin=30, fmax=20000, dbr=(-100, -20), nfft=4096, hop=256):
-    seg = sig[N(t0):N(t1)]
-    seg = seg.mean(1) if seg.ndim == 2 else seg
-    seg = np.pad(seg, (nfft // 2, nfft // 2))
-    fr = np.lib.stride_tricks.sliding_window_view(seg, nfft)[::hop] * np.hanning(nfft)
-    S = 20 * np.log10(np.abs(np.fft.rfft(fr, axis=1)) / (nfft / 4) + 1e-12)
-    fq = np.fft.rfftfreq(nfft, 1 / SR)
-    ys = np.geomspace(fmin, fmax, h)[::-1]
-    idx = np.clip(np.searchsorted(fq, ys), 1, len(fq) - 1)
-    img = S[:, idx].T
-    xs = np.linspace(0, img.shape[1] - 1, w).astype(int)
-    img = img[:, xs]
-    v = (img - dbr[0]) / (dbr[1] - dbr[0])
-    return Image.fromarray(cmap(v)), ys
-
-
-def wave_img(sig, t0, t1, w, h):
-    im = Image.new('RGB', (w, h), (14, 14, 26))
-    dr = ImageDraw.Draw(im)
-    seg = sig[N(t0):N(t1)]
-    col = [(120, 170, 255), (255, 160, 140)]
-    for c in range(2):
-        y0 = h * (c + 0.5) / 2
-        amp = h / 4 * 0.95
-        ch = seg[:, c]
-        n = len(ch)
-        for i in range(w):
-            a, b = int(i * n / w), int((i + 1) * n / w)
-            if b <= a:
-                continue
-            mn, mx = ch[a:b].min(), ch[a:b].max()
-            dr.line([(i, y0 - mx * amp), (i, y0 - mn * amp)], fill=col[c])
-        for g in (-1, 1):   # -1.7 dBTP 线
-            yy = y0 - g * amp * undb(-1.7)
-            dr.line([(0, yy), (w, yy)], fill=(70, 70, 90))
-    return im
-
-
-def curves_panel(series, t0, t1, w, h, lo=-50, hi=0, refs=(-14, -23)):
-    im = Image.new('RGB', (w, h), (14, 14, 26))
-    dr = ImageDraw.Draw(im)
-    f = font(16)
-    for v in range(lo, hi + 1, 10):
-        y = h - (v - lo) / (hi - lo) * h
-        dr.line([(0, y), (w, y)], fill=(40, 40, 60))
-        dr.text((4, y - 18), f'{v}', fill=(110, 110, 140), font=f)
-    for rv in refs:
-        y = h - (rv - lo) / (hi - lo) * h
-        dr.line([(0, y), (w, y)], fill=(90, 90, 60))
-    for name, (tc, L, colr, wd) in series.items():
-        m = (tc >= t0) & (tc <= t1)
-        pts = [((t - t0) / (t1 - t0) * w, h - (np.clip(v, lo, hi) - lo) / (hi - lo) * h) for t, v in zip(tc[m], L[m])]
-        if len(pts) > 1:
-            dr.line(pts, fill=colr, width=wd)
-    return im
-
-
 def figure(path, t0, t1, title, fmax=20000, fmin=30, lanes=True, extra=None):
     W, M = 2400, 70
     f20, f16 = font(24), font(16)
-    wv = wave_img(x, t0, t1, W - M, 260)
-    sp, ys = spec_img(x, t0, t1, W - M, 520, fmin, fmax)
+    wv = waveform(x, t0, t1, W - M, 260, ref_db=-1.7)
+    sp, ys = spectrogram(x, t0, t1, W - M, 520, fmin, fmax)
     tc_m, Lm = loudness_curve(x, 0.4, 0.02)
     tc_s, Ls = loudness_curve(x, 3.0, 0.02)
-    lc = curves_panel({'m': (tc_m, Lm, (120, 220, 255), 2), 's': (tc_s, Ls, (255, 230, 120), 4)}, t0, t1, W - M, 300)
+    lc = curves({'m': (tc_m, Lm, (120, 220, 255), 2), 's': (tc_s, Ls, (255, 230, 120), 4)}, t0, t1, W - M, 300, refs=(-14, -23))
     panels = [('波形 L/R（灰线 = −1.7 dBTP）', wv), (f'频谱（对数频率 {fmin}–{fmax} Hz）', sp),
               ('响度：蓝 = 瞬时 0.4 s，黄 = 短时 3 s（参考线 −14 / −23 LUFS）', lc)]
     if lanes:
@@ -242,15 +133,11 @@ def figure(path, t0, t1, title, fmax=20000, fmin=30, lanes=True, extra=None):
             st, _ = sf.read(os.path.join(HERE, 'stems', f'{k}.wav'), dtype='float64', always_2d=True)
             tcc, LL = loudness_curve(st, 0.4, 0.02)
             ser[k] = (tcc, LL, cc, 3)
-        panels.append(('五条总线的瞬时响度：绿 amb · 橙 fx · 紫 kun · 青 ui · 粉 music', curves_panel(ser, t0, t1, W - M, 300, -60, -5)))
+        panels.append(('五条总线的瞬时响度：绿 amb · 橙 fx · 紫 kun · 青 ui · 粉 music', curves(ser, t0, t1, W - M, 300, -60, -5, refs=(-14, -23))))
     # 声场宽度：侧信号/中信号能量比（dB，0.2 s 窗）。单声道 → 很低；左右完全不相关 → 0 dB
-    hop, wn = N(0.02), N(0.2)
-    mid, side = ((x[:, 0] + x[:, 1]) / 2) ** 2, ((x[:, 0] - x[:, 1]) / 2) ** 2
-    cm, cs = np.concatenate([[0], np.cumsum(mid)]), np.concatenate([[0], np.cumsum(side)])
-    st_ = np.arange(0, len(x) - wn, hop)
-    wdb = 10 * np.log10((cs[st_ + wn] - cs[st_] + 1e-12) / (cm[st_ + wn] - cm[st_] + 1e-12))
+    tw, wdb = side_mid(x, 0.2, 0.02)
     panels.append(('声场宽度：S/M 能量比 dB（越高越宽；参考线 −10 / −20）',
-                   curves_panel({'w': ((st_ + wn / 2) / SR, wdb, (200, 255, 160), 3)}, t0, t1, W - M, 200, -30, 0, refs=(-10, -20))))
+                   curves({'w': (tw, wdb, (200, 255, 160), 3)}, t0, t1, W - M, 200, -30, 0, refs=(-10, -20))))
     H = 60 + sum(p.size[1] + 40 for _, p in panels) + 60
     im = Image.new('RGB', (W, H), (6, 6, 14))
     dr = ImageDraw.Draw(im)
