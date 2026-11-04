@@ -1,4 +1,4 @@
-// lab/look.js — 后期合成管线自测页（?test=look）。
+// lab/look.js — 后期合成管线自测页（?test=look）：engine/look 的各道 pass，套本片默认参数（src/look.js）。
 // 自建一个小场景：几何体拼的「鲲」（MeshToonMaterial：球、圆柱、圆环 + 辐条）、背上实例化的海草/藤壶/海葵小球、
 // 珊瑚、远处的小鲲（测线宽随深度、雾）、半透明云片（测半挡线）、不描边的礁石（测实心挡线）、HDR 窗灯（测 bloom）、
 // 背景平面贴 assets/ref/sky_test.png（底板不描边）。
