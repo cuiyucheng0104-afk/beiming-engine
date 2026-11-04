@@ -10,14 +10,16 @@
 // 坐标：鲲局部空间，长约 600，头朝 +X，上为 +Y，原点在身体中心（吻端 +297，尾柄 -234，飘带再往后约 300）。
 // 确定性：所有随机来自 mulberry(固定种子)；噪声是坐标的纯函数；没有 Date.now / Math.random。
 import * as THREE from 'three';
-import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createNoise3D } from '../engine/core/noise.js';
-import { mulberry, monotone, clamp, lerp } from '../engine/core/math.js';
+import { mulberry, clamp, lerp, ss, seg, TAU } from '../engine/core/math.js';
+import { profileBody, sideAngle, axisStations, ringsAt, loftRings } from '../engine/form/loft.js';
+import { pitchYawLinearWave } from '../engine/form/bend.js';
+import { flake } from '../engine/form/props.js';
+import { weightedSampler, withWeights, placeOnSurface as place, pickFrom as pick, instanced } from '../engine/form/scatter.js';
+import { autoBlink, poseEyes, pickEye, mountEyes, lidShells, eyeFrame } from '../engine/form/eye.js';
 import { makeXuanMaterial, bindXuan, XUAN, XUAN_PRESETS, tintFrom } from './toon_xuan.js';
 
-const TAU = Math.PI * 2;
-const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const sstep = (a, b, x) => ss(seg(x, a, b));
 const UP = new THREE.Vector3(0, 1, 0);
 
 // ───────────────────────── 身体轮廓（x：-234 尾柄末端 … +297 吻端） ─────────────────────────
@@ -26,34 +28,27 @@ const PX = [-222, -206, -185, -150, -105, -50, 10, 70, 125, 172, 212, 243, 264, 
 const PT = [10, 10.5, 14, 23, 37, 52, 64, 72, 75, 73, 67, 58, 47, 35, 22, 8];          // 顶线 y
 const PB = [-9.5, -10, -13, -22, -36, -52, -66, -75, -77, -74, -66, -55, -42, -29, -16, -5]; // 底线 y
 const PW = [4.5, 5, 7.5, 13.5, 23, 35, 45, 52, 55, 55, 52, 46, 38, 28, 17, 6];           // 半宽 z
-const fT = monotone(PX.map((x, i) => [x, PT[i]])), fB = monotone(PX.map((x, i) => [x, PB[i]])), fW = monotone(PX.map((x, i) => [x, PW[i]]));
 const X_TAIL = -222, X_SNOUT = 292;
 
-const sideAngle = (c, s) => { const p = Math.atan2(s, c); return c >= 0 ? p : (p >= 0 ? Math.PI - p : -Math.PI - p); };
 // 嘴线（侧面角：0 = 侧中线，+π/2 = 背中线）：吻前略低于中线，嘴角往下撇
 const mouthPh = x => lerp(-0.52, -0.3, sstep(262, 291, x));
 // 鳃盖后缘（向尾部凸的弧）
 const gillX = ph => 186 + 16 * ph * ph;
 
-function bodyPoint(x, phi, out = new THREE.Vector3()) {
-  const yT = fT(x), yB = fB(x), W = fW(x), yc = (yT + yB) / 2, a = (yT - yB) / 2;
-  const c = Math.cos(phi), s = Math.sin(phi), e = 2 / (s >= 0 ? 2.15 : 2.5);
-  let z = W * Math.sign(c) * Math.pow(Math.abs(c), e);
-  let y = yc + a * Math.sign(s) * Math.pow(Math.abs(s), e);
-  const ph = sideAngle(c, s);
-  let k = 1;
-  // 嘴缝：沿嘴线往里收一道浅沟（描边能抓到唇的厚度）
-  if (x > 256) { const d = Math.abs(ph - mouthPh(x)); k -= 0.03 * (1 - sstep(0.02, 0.07, d)) * sstep(256, 266, x); }
-  // 鳃盖：后缘以后低 1.5%，形成一道台阶
-  if (x < 210 && x > 156 && ph > -1.0 && ph < 0.7) k -= 0.012 * (1 - sstep(gillX(ph) - 2.5, gillX(ph) + 2.5, x)) * sstep(156, 170, x) * sstep(0.7, 0.45, ph) * sstep(-1.0, -0.75, ph);
-  z *= k; y = yc + (y - yc) * k;
-  return out.set(x, y, z);
-}
-const _p1 = new THREE.Vector3(), _p2 = new THREE.Vector3(), _p3 = new THREE.Vector3(), _p4 = new THREE.Vector3();
-function bodyNormal(x, phi, out = new THREE.Vector3()) {
-  bodyPoint(x + 0.5, phi, _p1); bodyPoint(x - 0.5, phi, _p2); bodyPoint(x, phi + 0.004, _p3); bodyPoint(x, phi - 0.004, _p4);
-  return out.copy(_p1.sub(_p2)).cross(_p3.sub(_p4)).normalize();
-}
+// 放样体（未弯曲）：超椭圆截面 + 嘴缝浅沟 + 鳃盖台阶
+const body = profileBody({
+  xs: PX, top: PT, bottom: PB, width: PW, exp: [2.15, 2.5],
+  deform(p) {
+    const x = p.x, ph = sideAngle(p.c, p.s);
+    let k = 1;
+    // 嘴缝：沿嘴线往里收一道浅沟（描边能抓到唇的厚度）
+    if (x > 256) { const d = Math.abs(ph - mouthPh(x)); k -= 0.03 * (1 - sstep(0.02, 0.07, d)) * sstep(256, 266, x); }
+    // 鳃盖：后缘以后低 1.5%，形成一道台阶
+    if (x < 210 && x > 156 && ph > -1.0 && ph < 0.7) k -= 0.012 * (1 - sstep(gillX(ph) - 2.5, gillX(ph) + 2.5, x)) * sstep(156, 170, x) * sstep(0.7, 0.45, ph) * sstep(-1.0, -0.75, ph);
+    p.z *= k; p.y = p.yc + (p.y - p.yc) * k;
+  },
+});
+const { top: fT, bottom: fB, width: fW, point: bodyPoint, normal: bodyNormal } = body;
 // 点是否在（未弯曲的）身体里：超椭圆隐式值 < 1 为内（穿插自检用）
 function insideBody(x, y, z, margin = 0) {
   if (x < X_TAIL || x > X_SNOUT) return false;
@@ -72,44 +67,14 @@ const vbJS = x => {
 // 鳞的大小随粗细变：行高 sy(x)，列宽 1.4·sy
 const scaleSy = hp => 3.0 + 0.026 * hp;
 
-// 环状截面放样 → 带索引几何体（ends 给端点就加扇形封口）
-function loftRings(rings, { startCap, endCap, attrs = {} } = {}) {
-  const nR = rings.length, nV = rings[0].length;
-  const pos = [], idx = [];
-  for (const ring of rings) for (const p of ring) pos.push(p.x, p.y, p.z);
-  for (let j = 0; j < nR - 1; j++) for (let k = 0; k < nV; k++) {
-    const a = j * nV + k, b = (j + 1) * nV + k, c = j * nV + (k + 1) % nV, d = (j + 1) * nV + (k + 1) % nV;
-    idx.push(a, b, c, b, d, c);
-  }
-  const extra = {};
-  for (const n in attrs) extra[n] = attrs[n].data.slice();
-  const cap = (pt, j, rev, capAttr) => {
-    const ci = pos.length / 3; pos.push(pt.x, pt.y, pt.z);
-    for (const n in attrs) extra[n].push(...capAttr[n]);
-    for (let k = 0; k < nV; k++) { const a = j * nV + k, c = j * nV + (k + 1) % nV; rev ? idx.push(a, c, ci) : idx.push(a, ci, c); }
-  };
-  if (startCap) cap(startCap.p, 0, true, startCap.attr || {});
-  if (endCap) cap(endCap.p, nR - 1, false, endCap.attr || {});
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  for (const n in attrs) g.setAttribute(n, new THREE.Float32BufferAttribute(extra[n], attrs[n].size));
-  g.setIndex(idx); g.computeVertexNormals();
-  return g;
-}
-
 // 身体：aLoft = (x, cosφ, sinφ)；aArc = (从背中线量起的弧长 s（两侧对称、无符号）, 半周长 hp, 鳞网格列坐标 F(x), 鳞行高 sy)
 function buildBody(NU, NV) {
-  const rings = [], loft = [], arc = [], ringInfo = [];
-  const xs = [];
-  for (let j = 0; j < NU; j++) {
-    const u = j / (NU - 1), w = 0.5 - 0.5 * Math.cos(Math.PI * u);
-    xs.push(lerp(X_TAIL, X_SNOUT - 0.4, lerp(u, w, 0.5)));
-  }
+  const loft = [], arc = [], ringInfo = [];
+  const xs = axisStations(X_TAIL, X_SNOUT - 0.4, NU), rings = ringsAt(bodyPoint, xs, NV);
   let F = 0;
   const kd = NV / 4;
   for (let j = 0; j < NU; j++) {
-    const x = xs[j], ring = [];
-    for (let k = 0; k < NV; k++) ring.push(bodyPoint(x, k / NV * TAU));
+    const x = xs[j], ring = rings[j];
     // 从背中线（k = NV/4）往 +Z 侧（k 递减）量弧长；两侧对称
     const sA = new Float32Array(NV);
     let acc = 0;
@@ -121,9 +86,9 @@ function buildBody(NU, NV) {
     if (j > 0) F += (x - xs[j - 1]) / (1.4 * sy);
     // 存无符号弧长：带符号的话腹中线两侧从 +hp 跳到 -hp，三角形内插值会穿过 0（被当成背中线，画出一道黑线）
     for (let k = 0; k < NV; k++) { const phi = k / NV * TAU; loft.push(x, Math.cos(phi), Math.sin(phi)); arc.push(Math.abs(sA[k]), hp, F, sy); }
-    rings.push(ring); ringInfo.push({ x, hp, F, sy });
+    ringInfo.push({ x, hp, F, sy });
   }
-  const yc = x => (fT(x) + fB(x)) / 2;
+  const yc = body.mid;
   const r0 = ringInfo[0], r1 = ringInfo[NU - 1];
   const g = loftRings(rings, {
     startCap: { p: new THREE.Vector3(X_TAIL - 0.8, yc(X_TAIL), 0), attr: { aLoft: [X_TAIL, 0, 0], aArc: [r0.hp * 0.5, r0.hp, r0.F, r0.sy] } },
@@ -172,50 +137,9 @@ function layoutClouds() {
 }
 
 // ───────────────────────── 弯曲（GLSL 与 JS 一致）：竖直波（侧面看得见）+ 侧向波（鱼的本行），幅度从头到尾增大 ─────────────────────────
-const BEND_GLSL = /* glsl */`
-uniform float uKunT, uKunAmp, uKunAmpZ, uKunWave, uKunOmega, uKunHalfL, uKunPhZ;
-float kunS( float x ) { return clamp( ( uKunHalfL - x ) / ( 2.0 * uKunHalfL ), 0.0, 1.25 ); }
-float kunE( float x ) { float e = smoothstep( 0.18, 1.0, kunS( x ) ); return e * e; }
-float kunDy( float x ) { return uKunAmp * kunE( x ) * sin( 6.2831853 * kunS( x ) * uKunWave - uKunOmega * uKunT ); }
-float kunDz( float x ) { return uKunAmpZ * kunE( x ) * sin( 6.2831853 * kunS( x ) * uKunWave - uKunOmega * uKunT + uKunPhZ ); }
-vec4 kunBend( float x ) {
-  return vec4( kunDy( x ), atan( ( kunDy( x + 1.0 ) - kunDy( x - 1.0 ) ) * 0.5 ), kunDz( x ), atan( ( kunDz( x + 1.0 ) - kunDz( x - 1.0 ) ) * 0.5 ) );
-}
-vec3 kunBendPos( vec3 p ) {
-  vec4 b = kunBend( p.x ); float cy = cos( b.y ), sy = sin( b.y ), cz = cos( b.w ), sz = sin( b.w );
-  return vec3( p.x - p.y * sy - p.z * sz, b.x + p.y * cy, b.z + p.z * cz );
-}
-vec3 kunBendNormal( vec3 n, float x ) {
-  vec4 b = kunBend( x ); float cy = cos( b.y ), sy = sin( b.y ), cz = cos( b.w ), sz = sin( b.w );
-  vec3 m = vec3( n.x * cy - n.y * sy, n.x * sy + n.y * cy, n.z );
-  return vec3( m.x * cz - m.z * sz, m.y, m.x * sz + m.z * cz );
-}
-mat4 kunBendMatrix( mat4 im ) {
-  float x0 = im[ 3 ].x;
-  vec4 b = kunBend( x0 ); float cy = cos( b.y ), sy = sin( b.y ), cz = cos( b.w ), sz = sin( b.w );
-  mat4 Rv = mat4( cy, sy, 0.0, 0.0,  -sy, cy, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0 );
-  mat4 Rh = mat4( cz, 0.0, sz, 0.0,  0.0, 1.0, 0.0, 0.0,  -sz, 0.0, cz, 0.0,  0.0, 0.0, 0.0, 1.0 );
-  mat4 T1 = mat4( 1.0 ); T1[ 3 ] = vec4( x0, b.x, b.z, 1.0 );
-  mat4 T0 = mat4( 1.0 ); T0[ 3 ] = vec4( - x0, 0.0, 0.0, 1.0 );
-  return T1 * Rh * Rv * T0 * im;
-}
-`;
-const INST_BEND_PARS = /* glsl */`
-#ifdef USE_INSTANCING
-mat4 kunGetIM() { return instanceMatrix; }
-mat4 kunIM;
-#define instanceMatrix kunIM
-#endif
-`;
-function bendHooks({ bend = true, extraPars = '', extraBegin = '' } = {}) {
-  if (!bend) return extraPars || extraBegin ? { vertexPars: extraPars, vertexBegin: extraBegin } : {};
-  return {
-    vertexPars: BEND_GLSL + INST_BEND_PARS + extraPars,
-    vertexMainStart: '#ifdef USE_INSTANCING\nkunIM = kunBendMatrix( kunGetIM() );\n#endif',
-    vertexBegin: extraBegin + '\n#ifndef USE_INSTANCING\ntransformed = kunBendPos( transformed );\n#endif',
-    vertexNormal: '#ifndef USE_INSTANCING\nobjectNormal = kunBendNormal( objectNormal, position.x );\n#endif',
-  };
-}
+const WAVE = pitchYawLinearWave('kun', { e0: 0.18, sMax: 1.25 });
+const bendHooks = WAVE.hooks;
+const CATCH = [[-0.27, 0.24, 0.93, 0.9835], [0.26, -0.2, 0.94, 0.9966]];
 
 // ───────────────────────── 身体花纹（片元） ─────────────────────────
 const BODY_PARS = /* glsl */`
@@ -452,15 +376,6 @@ const BODY_ALBEDO = /* glsl */`
 }
 `;
 
-// ───────────────────────── 装饰几何 ─────────────────────────
-function geoFlake() {                  // 金箔片：不规则六边薄片
-  const R = mulberry(77), pts = [];
-  for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + (R() - 0.5) * 0.5, r = 0.75 + R() * 0.35; pts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r)); }
-  const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: 0.14, bevelEnabled: false });
-  g.rotateX(-Math.PI / 2); g.deleteAttribute('uv');
-  return g;
-}
-
 // ───────────────────────── 飘带（CPU 每拍重算的带状网格） ─────────────────────────
 // 中线按“方向角”沿弧长积分：长度恒定（丝绸不伸长）。角度 = 基础走向 + 跟随身体（时间延迟的跟随者）+ 自身飘动
 // 宽向 = 把“上”投影到垂直于中线的平面，再绕中线扭转（twist）→ 宽面大多朝侧面，扭过来时变窄露出另一面
@@ -535,7 +450,6 @@ export function createKun(opts = {}) {
   body.name = 'kun-body'; body.frustumCulled = false;
 
   // —— 眼睛（琥珀金虹膜、圆瞳；眼睑压一点，像半垂的丹凤眼）——
-  const eyes = [];
   const makeEyeMat = () => makeXuanMaterial({ ...XUAN_PRESETS.body, color: '#4a3326', shade1: '#2e2020', shade2: '#1d1518', rimAmt: 0.5, cityAmt: 0.0, cityFlat: 0.35, sheenAmt: 0, glossAmt: 0,
     uniforms: {
       uIrisA: { value: 0.98 }, uPupilA: { value: 0.32 },
@@ -597,23 +511,16 @@ export function createKun(opts = {}) {
       toonGloss = 1.0 - gline;
       if ( ! gl_FrontFacing ) toonOverlay = vec4( 0.045, 0.035, 0.06, 1.0 );   // 眼睑内侧：眼窝的暗（不吃城市暖光）
     }` });
-  for (const side of [1, -1]) {
-    const ph0 = side > 0 ? EYE_PH : Math.PI - EYE_PH;
-    const sp = bodyPoint(EYE_X, ph0), n = bodyNormal(EYE_X, ph0);
-    const gaze = n.clone().add(new THREE.Vector3(0.3, -0.06, 0)).normalize();
-    const zA = gaze, xA = new THREE.Vector3().crossVectors(UP, zA).normalize(), yA = new THREE.Vector3().crossVectors(zA, xA);
-    const eg = new THREE.Group(); eg.name = 'kun-eye-' + (side > 0 ? 'R' : 'L');
-    eg.position.copy(sp).addScaledVector(n, -0.55 * RE);
-    eg.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA));
+  const eyes = mountEyes({ point: bodyPoint, normal: bodyNormal, x: EYE_X, ph: EYE_PH, inset: 0.55 * RE, gaze: [0.3, -0.06], parent: group, build: (side, eg) => {
+    eg.name = 'kun-eye-' + (side > 0 ? 'R' : 'L');
     const em = makeEyeMat();
     const ball = add(eg, bindXuan(new THREE.Mesh(new THREE.SphereGeometry(RE, 48, 32), em), em, { castShadow: false }));
-    const lidU = new THREE.Group(), lidL = new THREE.Group();
-    add(lidU, bindXuan(new THREE.Mesh(new THREE.SphereGeometry(RE * 1.08, 40, 12, 0, TAU, 0, Math.PI / 2), lidMat), lidMat));
-    add(lidL, bindXuan(new THREE.Mesh(new THREE.SphereGeometry(RE * 1.08, 40, 12, 0, TAU, Math.PI / 2, Math.PI / 2), lidMat), lidMat));
+    const lidU = new THREE.Group(), lidL = new THREE.Group(), [shellU, shellL] = lidShells(RE * 1.08, 40, 12);
+    add(lidU, bindXuan(new THREE.Mesh(shellU, lidMat), lidMat));
+    add(lidL, bindXuan(new THREE.Mesh(shellL, lidMat), lidMat));
     eg.add(lidU, lidL);
-    group.add(eg);
-    eyes.push({ side, group: eg, ball, lidU, lidL, surf: sp, n, mat: em });
-  }
+    return { ball, lidU, lidL, mat: em, frame: eyeFrame(em.userData.toon) };
+  } });
 
   // —— 洒金：金箔片按权重撒在墨玉区（云附近、背脊更密），跟着身体弯 ——
   const pAttr = bodyGeo.attributes.position, nAttr = bodyGeo.attributes.normal, aAttr = bodyGeo.attributes.aArc, lAttr = bodyGeo.attributes.aLoft;
@@ -632,42 +539,24 @@ export function createKun(opts = {}) {
     const nearEye = Math.min(...eyeC.map(c => c.distanceTo(Pv))) / RE;
     wFlake[i] = dark * (0.05 + near * 1.5 + ridge * 0.25) * (0.4 + 0.6 * sstep(-0.3, 0.4, n0)) * sstep(2.0, 3.0, nearEye) * sstep(270, 245, x) * sstep(-215, -190, x);
   }
-  const sGeo = new THREE.BufferGeometry();
-  sGeo.setAttribute('position', pAttr); sGeo.setAttribute('normal', nAttr); sGeo.setIndex(bodyGeo.index);
-  sGeo.setAttribute('wFlake', new THREE.BufferAttribute(wFlake, 1));
-  const sampler = new MeshSurfaceSampler(new THREE.Mesh(sGeo)).setWeightAttribute('wFlake').setRandomGenerator(mulberry(o.seed + 101)).build();
+  const sampler = weightedSampler(withWeights(bodyGeo, { wFlake }), 'wFlake', o.seed + 101);
   const GOLDS = ['#e9c46a', '#d9a441', '#f3d98b', '#c99a3a', '#efc978'];
-  const tp = new THREE.Vector3(), tn = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _c = new THREE.Color();
+  const tp = new THREE.Vector3(), tn = new THREE.Vector3();
   const flakeMat = mat('gold', { outlineW: 1, instanceId: false, objectId: bodyMat.userData.toon.uObjectId.value, fragmentAlbedo: 'toonMetal = 1.0;', ...bendHooks() });
   const nFl = N(420);
-  const flakes = new THREE.InstancedMesh(geoFlake(), flakeMat, nFl);
+  const flakes = [];
   for (let i = 0; i < nFl; i++) {
     sampler.sample(tp, tn);
     const s = (0.38 + Math.pow(R(), 1.8) * 0.75) / Math.sqrt(Math.max(lod, 0.25));
     const tilt = new THREE.Vector3((R() - 0.5) * 0.7, 0, (R() - 0.5) * 0.7);
-    _q.setFromUnitVectors(UP, tn.clone().add(tilt).normalize()); _q2.setFromAxisAngle(UP, R() * TAU); _q.multiply(_q2);
-    flakes.setMatrixAt(i, new THREE.Matrix4().compose(tp.clone().addScaledVector(tn, 0.05), _q, new THREE.Vector3(s, s, s)));
-    flakes.setColorAt(i, _c.set(GOLDS[Math.floor(R() * GOLDS.length) % GOLDS.length]));
+    flakes.push({ m: place(tp, tn, { yaw: R() * TAU, scale: new THREE.Vector3(s, s, s), sink: -0.05, lean: tilt }), c: pick(R(), GOLDS) });
   }
-  flakes.instanceMatrix.needsUpdate = true; flakes.instanceColor.needsUpdate = true;
-  flakes.frustumCulled = false; flakes.name = 'kun-gold-flakes';
-  add(group, bindXuan(flakes, flakeMat, { castShadow: false }));
+  add(group, instanced(flake(77), flakeMat, flakes, 'kun-gold-flakes', { bind: (m, mt) => bindXuan(m, mt, { castShadow: false }) }));   // 金箔片：不规则六边薄片
 
   // —— 弯曲（JS 版，与 GLSL 一致）——
-  const kS = x => clamp((U.uKunHalfL.value - x) / (2 * U.uKunHalfL.value), 0, 1.25);
-  const kE = x => { const e = sstep(0.18, 1, kS(x)); return e * e; };
-  const jsDy = (x, T) => U.uKunAmp.value * kE(x) * Math.sin(TAU * kS(x) * U.uKunWave.value - U.uKunOmega.value * T);
-  const jsDz = (x, T) => U.uKunAmpZ.value * kE(x) * Math.sin(TAU * kS(x) * U.uKunWave.value - U.uKunOmega.value * T + U.uKunPhZ.value);
-  const jsBend = (x, T) => [jsDy(x, T), Math.atan((jsDy(x + 1, T) - jsDy(x - 1, T)) / 2), jsDz(x, T), Math.atan((jsDz(x + 1, T) - jsDz(x - 1, T)) / 2)];
-  function bendPoint(p, T, out = new THREE.Vector3()) {
-    const [by, ty, bz, tz] = jsBend(p.x, T);
-    return out.set(p.x - p.y * Math.sin(ty) - p.z * Math.sin(tz), by + p.y * Math.cos(ty), bz + p.z * Math.cos(tz));
-  }
-  function bendDir(n, x, T, out = new THREE.Vector3()) {
-    const [, ty, , tz] = jsBend(x, T), cy = Math.cos(ty), sy = Math.sin(ty), cz = Math.cos(tz), sz = Math.sin(tz);
-    const mx = n.x * cy - n.y * sy, my = n.x * sy + n.y * cy, mz = n.z;
-    return out.set(mx * cz - mz * sz, my, mx * sz + mz * cz);
-  }
+  const J = WAVE.js(U), jsBend = J.bend;
+  const bendPoint = (p, T, out = new THREE.Vector3()) => J.point(p, T, out);
+  const bendDir = (n, x, T, out = new THREE.Vector3()) => J.dir(n, x, T, out);
 
   // —— 飘带材质：月白绸，金边，根部有鳍条，逆光透亮；彩色通道半透明 ——
   const silkPars = 'varying vec3 vRib;\nuniform vec3 uSilk, uHem, uRay;\nuniform float uRays, uA0, uA1;\n';
@@ -919,11 +808,6 @@ export function createKun(opts = {}) {
   }
 
   // —— 姿态 ——
-  const _e = new THREE.Euler(), _inv = new THREE.Matrix4(), _tw = new THREE.Vector3(), _v = new THREE.Vector3();
-  function autoBlink(ts) {
-    const l = ((ts - o.blinkOffset) % o.blinkPeriod + o.blinkPeriod) % o.blinkPeriod;
-    return l < 0.125 ? 0.6 : l < 0.25 ? 1 : l < 0.375 ? 0.55 : l < 0.5 ? 0.15 : 0;
-  }
   const qTwo = t => Math.floor(Math.round(t * 24) / 2) * 2 / 24;   // 一拍二
   function setPose(ts, po = {}) {
     U.uKunT.value = ts;
@@ -931,32 +815,9 @@ export function createKun(opts = {}) {
     for (const r of ribbons) updateRibbon(r, ts, tr);
     for (const b of barbels) updateBarbel(b, tr);
     updateDorsal(ts, tr);
-    const b = po.blink ?? autoBlink(ts);
-    for (const e of eyes) {
-      e.lidU.rotation.x = lerp(-0.5, 0.03, b);
-      e.lidL.rotation.x = lerp(0.3, -0.03, b);
-      e.ball.quaternion.identity();
-      if (po.look) {
-        group.updateWorldMatrix(true, false); e.group.updateWorldMatrix(false, false);
-        _tw.copy(po.look).applyMatrix4(_inv.copy(e.group.matrixWorld).invert()).normalize();
-        const yaw = clamp(Math.atan2(_tw.x, _tw.z), -0.35, 0.35), pitch = clamp(Math.asin(clamp(_tw.y, -1, 1)), -0.28, 0.28);
-        e.ball.quaternion.setFromEuler(_e.set(-pitch, yaw, 0, 'YXZ'));
-      }
-      const tu = e.mat.userData.toon;
-      _q.copy(e.ball.quaternion).invert();
-      _v.set(-0.27, 0.24, 0.93).normalize().applyQuaternion(_q); tu.uCatch1.value.set(_v.x, _v.y, _v.z, 0.9835);
-      _v.set(0.26, -0.2, 0.94).normalize().applyQuaternion(_q); tu.uCatch2.value.set(_v.x, _v.y, _v.z, 0.9966);
-      const aU = e.lidU.rotation.x, aL = e.lidL.rotation.x;
-      tu.uLidU.value.set(0, Math.cos(aU), Math.sin(aU)).applyQuaternion(_q);
-      tu.uLidL.value.set(0, -Math.cos(aL), -Math.sin(aL)).applyQuaternion(_q);
-    }
+    poseEyes(eyes, po.blink ?? autoBlink(ts, o.blinkPeriod, o.blinkOffset), po.look, group, { lidU: [-0.5, 0.03], lidL: [0.3, -0.03], catches: CATCH });
   }
-  function eyeWorld(target = new THREE.Vector3(), ref = -1) {
-    let e = eyes.find(x => x.side === -1);
-    if (ref && ref.isVector3) { const a = eyes[0].group.getWorldPosition(new THREE.Vector3()), b2 = eyes[1].group.getWorldPosition(new THREE.Vector3()); e = a.distanceTo(ref) < b2.distanceTo(ref) ? eyes[0] : eyes[1]; }
-    else if (ref === 1) e = eyes.find(x => x.side === 1);
-    return e.group.getWorldPosition(target);
-  }
+  const eyeWorld = (target, ref) => pickEye(eyes, target, ref);
   function fitShadow(light, { size = 4096, radius = 420 } = {}) {
     group.updateMatrixWorld(true);
     const c = new THREE.Vector3(-60, -20, 0).applyMatrix4(group.matrixWorld);

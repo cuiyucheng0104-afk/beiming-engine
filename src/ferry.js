@@ -6,28 +6,12 @@
 import * as THREE from 'three';
 import { makeToonMaterial, bindToon, TOON_DEFAULTS, PALETTE } from './toon.js';
 import { hashi } from './scene.js';
+import { boatHull } from '../engine/form/props.js';
 
 const hdr = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
 
-function hullGeo(L, B, Hh) {
-  // 俯视轮廓：船头尖、船尾方；挤出成船身（顶面在 y=Hh）
-  const s = new THREE.Shape();
-  const h = B / 2;
-  s.moveTo(-L / 2, -h * 0.92);
-  s.lineTo(L * 0.22, -h);
-  s.quadraticCurveTo(L * 0.44, -h * 0.75, L / 2, 0);
-  s.quadraticCurveTo(L * 0.44, h * 0.75, L * 0.22, h);
-  s.lineTo(-L / 2, h * 0.92);
-  s.closePath();
-  const g = new THREE.ExtrudeGeometry(s, { depth: Hh, bevelEnabled: false, curveSegments: 10 });
-  g.rotateX(-Math.PI / 2);          // 挤出方向 z → y
-  // 船底收窄一点（船体侧面略斜）
-  const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y < 0.01) { p.setX(i, p.getX(i) * 0.97); p.setZ(i, p.getZ(i) * 0.86); } }
-  g.translate(0, -1.0, 0);          // 吃水 1 m
-  g.computeVertexNormals();
-  return g;
-}
+// 船身：engine/form/props.js 的 boatHull（俯视船头尖、船尾方，挤出，船底收窄，吃水 1 m）
+const hullGeo = (L, B, Hh) => boatHull(L, B, Hh, 1.0);
 
 export function createFerry() {
   const L = 32, B = 9;

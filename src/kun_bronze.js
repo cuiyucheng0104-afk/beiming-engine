@@ -12,14 +12,20 @@
 //       身体、鳍逐顶点弯；植被按实例原点整体跟着弯；鳍另有绕根部的摆动（uFinAng），垂苔、蕨叶自己飘。
 // 确定性：随机全部来自 mulberry(固定种子)、单纯形噪声(固定种子)；没有 Date.now / Math.random。
 import * as THREE from 'three';
-import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
-import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createNoise3D } from '../engine/core/noise.js';
-import { mulberry, monotone, clamp, lerp } from '../engine/core/math.js';
+import { mulberry, clamp, lerp, ss, seg, TAU } from '../engine/core/math.js';
+import { profileBody, sideAngle, axisStations, ringsAt, loftRings, unwrap } from '../engine/form/loft.js';
+import { pitchYawWave } from '../engine/form/bend.js';
+import { clump, petalFan } from '../engine/form/props.js';
+import { fern, strands } from '../engine/form/plants.js';
+import { samplersOn, placeOnSurface as place, pickFrom as pick, instanced } from '../engine/form/scatter.js';
+import { autoBlink, poseEyes, pickEye, mountEyes, lidShells, eyeFrame } from '../engine/form/eye.js';
+import { sdfFromImage, blur5, shapeInside } from '../engine/form/sdf.js';
+import { catmull, spiral as curlPts, withSpiral as withCurl, squareSpiral as rectSpiral, pathShape as shapeFrom } from '../engine/form/curves.js';
 import { makeBronzeToon, bindBronze, BRONZE, BRONZE_PRESETS } from './toon_bronze.js';
 
-const TAU = Math.PI * 2;
-const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const sstep = (a, b, x) => ss(seg(x, a, b));
 const UP = new THREE.Vector3(0, 1, 0);
 
 // ───────────────────────── 身体轮廓（x：-192 尾柄末端 … +303 吻端） ─────────────────────────
@@ -29,16 +35,12 @@ const PX = [-192, -175, -150, -115, -70, -20, 30, 80, 130, 170, 205, 235, 260, 2
 const PT = [25, 27, 32, 42, 56, 68, 78, 85, 87, 84, 71, 58, 45, 34, 25, 15, 5];              // 顶线 y
 const PB = [-24, -26, -31, -41, -55, -68, -80, -88, -91, -91, -87, -79, -67, -53, -39, -24, -7];  // 底线 y
 const PW = [11, 13, 17, 25, 34, 42, 49, 54, 56, 56, 53, 47, 40, 31, 21, 12, 3];              // 半宽 z
-const fT = monotone(PX.map((x, i) => [x, PT[i]])), fB = monotone(PX.map((x, i) => [x, PB[i]])), fW = monotone(PX.map((x, i) => [x, PW[i]]));
-const yMid = x => (fT(x) + fB(x)) / 2;
-
-// 放样点（未弯曲、未位移）。phi：0 = +Z 侧水平，π/2 = 背中线。截面是上下两半不同指数的超椭圆（像铸件，略方）
-function bodyPoint(x, phi, out = new THREE.Vector3()) {
-  const yT = fT(x), yB = fB(x), W = fW(x), c0 = (yT + yB) / 2, a = (yT - yB) / 2;
-  const c = Math.cos(phi), s = Math.sin(phi), e = 2 / (s >= 0 ? 2.35 : 2.6);
-  const k = 1 + headBulge(x, sideAngle(c, s));
-  return out.set(x, c0 + a * Math.sign(s) * Math.pow(Math.abs(s), e) * k, W * Math.sign(c) * Math.pow(Math.abs(c), e) * k);
-}
+// 放样体（未弯曲、未位移）。phi：0 = +Z 侧水平，π/2 = 背中线。截面是上下两半不同指数的超椭圆（像铸件，略方），头部按 headBulge 鼓起
+const body = profileBody({
+  xs: PX, top: PT, bottom: PB, width: PW, exp: [2.35, 2.6],
+  deform(p) { const k = 1 + headBulge(p.x, sideAngle(p.c, p.s)); p.y = p.yc + p.dy * k; p.z = p.dz * k; },
+});
+const { top: fT, bottom: fB, width: fW, mid: yMid, point: bodyPoint, normal: bodyNormal } = body;
 // 头部鼓包（截面半径的相对增量）：眼球所在的圆鼓、眼上的眉弓、颊部
 function headBulge(x, ph) {
   if (x < 140) return 0;
@@ -47,13 +49,7 @@ function headBulge(x, ph) {
   const cx = (x - 232) / 26, cp = (ph + 0.06) / 0.22;
   return 0.055 * Math.exp(-(ex * ex + ep * ep)) + 0.07 * Math.exp(-(bx * bx + bp * bp)) + 0.03 * Math.exp(-(cx * cx + cp * cp));
 }
-const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c3 = new THREE.Vector3(), _d3 = new THREE.Vector3();
-function bodyNormal(x, phi, out = new THREE.Vector3()) {
-  bodyPoint(x + 0.5, phi, _a); bodyPoint(x - 0.5, phi, _b); bodyPoint(x, phi + 0.004, _c3); bodyPoint(x, phi - 0.004, _d3);
-  return out.copy(_a.sub(_b)).cross(_c3.sub(_d3)).normalize();
-}
-// 侧角 ph：把左右两侧折到同一侧（-π/2 腹中线 … 0 体侧中线 … π/2 背中线）
-const sideAngle = (c, s) => { const p = Math.atan2(s, c); return c >= 0 ? p : (p >= 0 ? Math.PI - p : -Math.PI - p); };
+// 侧角 ph：把左右两侧折到同一侧（-π/2 腹中线 … 0 体侧中线 … π/2 背中线），见 engine/form/loft.js 的 sideAngle
 const phiOf = (ph, side) => side > 0 ? ph : Math.PI - ph;
 // 嘴线（侧角，越往后越往下撇）：吻端 -0.03 → 嘴角（x≈203）-0.23
 const MOUTH_X0 = 212;
@@ -61,131 +57,9 @@ const mouthPh = x => -0.02 - 0.22 * Math.pow(clamp((X_SNOUT - x) / (X_SNOUT - MO
 // 眼（白玉眼，大而突出）
 const EYE_X = 196, EYE_PH = 0.36, RE = 15;
 
-// ───────────────────────── (U, s) 展开参数 ─────────────────────────
-const M_S = 160;   // 每条截面半圈的积分步数（偶数）
-function ringTable(x) {
-  const tab = new Float32Array(M_S + 1);
-  bodyPoint(x, -Math.PI / 2, _b); let acc = 0; tab[0] = 0;
-  for (let i = 1; i <= M_S; i++) { bodyPoint(x, -Math.PI / 2 + i * Math.PI / M_S, _a); acc += _a.distanceTo(_b); tab[i] = acc; _b.copy(_a); }
-  const s0 = tab[M_S / 2];
-  for (let i = 0; i <= M_S; i++) tab[i] -= s0;
-  return tab;   // tab[0] = -腹中线弧长，tab[M_S] = +背中线弧长
-}
-const sFromTab = (tab, ph) => { const f = clamp((ph + Math.PI / 2) / Math.PI) * M_S; const i = Math.min(M_S - 1, Math.floor(f)), t = f - i; return tab[i] + (tab[i + 1] - tab[i]) * t; };
-function buildParam() {
-  const xs = [], tabs = [], Us = [];
-  let U = 0; const prev = new THREE.Vector3(), cur = new THREE.Vector3();
-  for (let x = X_TAIL; x <= X_SNOUT + 1e-6; x += 1) {
-    cur.set(x, yMid(x), fW(x));
-    if (xs.length) U += cur.distanceTo(prev);
-    prev.copy(cur); xs.push(x); tabs.push(ringTable(x)); Us.push(U);
-  }
-  const n = xs.length;
-  const at = x => { const f = clamp(x - X_TAIL, 0, n - 1.0001); const i = Math.floor(f); return [i, f - i]; };
-  const Ux = x => { const [i, t] = at(x); return Us[i] + (Us[i + 1] - Us[i]) * t; };
-  const sX = (x, ph) => { const [i, t] = at(x); return lerp(sFromTab(tabs[i], ph), sFromTab(tabs[i + 1], ph), t); };
-  const xU = u => {
-    if (u <= Us[0]) return xs[0]; if (u >= Us[n - 1]) return xs[n - 1];
-    let lo = 0, hi = n - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (Us[m] <= u) lo = m; else hi = m; }
-    return xs[lo] + (u - Us[lo]) / (Us[hi] - Us[lo]);
-  };
-  let smax = 0; for (const t of tabs) smax = Math.max(smax, t[M_S], -t[0]);
-  const st = x => sX(x, Math.PI / 2), sb = x => -sX(x, -Math.PI / 2);
-  // s → 侧角（二分，s 关于 ph 单调）
-  const phOfS = (x, s) => { let lo = -Math.PI / 2, hi = Math.PI / 2; for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (sX(x, m) < s) lo = m; else hi = m; } return (lo + hi) / 2; };
-  return { Ux, sX, xU, st, sb, phOfS, stU: u => st(xU(u)), sbU: u => sb(xU(u)), Ucap: Us[n - 1] + fW(X_SNOUT) + 0.5, smax, P: (x, ph) => [Ux(x), sX(x, ph)] };
-}
-
-// ───────────────────────── 距离变换（Felzenszwalb & Huttenlocher，平方欧氏，线性时间） ─────────────────────────
-const EDT_INF = 1e20;
-function edt1d(f, d, v, z, n) {
-  let k = 0; v[0] = 0; z[0] = -EDT_INF; z[1] = EDT_INF;
-  for (let q = 1; q < n; q++) {
-    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
-    while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
-    k++; v[k] = q; z[k] = s; z[k + 1] = EDT_INF;
-  }
-  k = 0;
-  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; const r = v[k]; d[q] = (q - r) * (q - r) + f[r]; }
-}
-function edt2d(grid, w, h) {
-  const n = Math.max(w, h), f = new Float64Array(n), d = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
-  for (let x = 0; x < w; x++) { for (let y = 0; y < h; y++) f[y] = grid[y * w + x]; edt1d(f, d, v, z, h); for (let y = 0; y < h; y++) grid[y * w + x] = d[y]; }
-  for (let y = 0; y < h; y++) { const o = y * w; for (let x = 0; x < w; x++) f[x] = grid[o + x]; edt1d(f, d, v, z, w); for (let x = 0; x < w; x++) grid[o + x] = d[x]; }
-}
-// 灰度蒙版（RGBA 的某个通道，抗锯齿边当亚像素用）→ 有符号距离（单位：米；外正内负；截到 ±R）
-function sdfFromImage(img, W, H, ch, K, Rr, cropToContent = false) {
-  const out = new Float32Array(W * H).fill(Rr);
-  let x0 = 0, y0 = 0, x1 = W, y1 = H;
-  if (cropToContent) {
-    x0 = W; y0 = H; x1 = 0; y1 = 0;
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (img[(y * W + x) * 4 + ch] > 0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-    if (x1 < x0) return out;
-    const pad = Math.ceil(Rr * K) + 2;
-    x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(W, x1 + pad + 1); y1 = Math.min(H, y1 + pad + 1);
-  }
-  const w = x1 - x0, h = y1 - y0, go = new Float32Array(w * h), gi = new Float32Array(w * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const a = img[((y + y0) * W + x + x0) * 4 + ch] / 255, i = y * w + x;
-    if (a >= 0.999) { go[i] = 0; gi[i] = EDT_INF; } else if (a <= 0.001) { go[i] = EDT_INF; gi[i] = 0; }
-    else { go[i] = Math.max(0, 0.5 - a) ** 2; gi[i] = Math.max(0, a - 0.5) ** 2; }
-  }
-  edt2d(go, w, h); edt2d(gi, w, h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; out[(y + y0) * W + x + x0] = clamp((Math.sqrt(go[i]) - Math.sqrt(gi[i])) / K, -Rr, Rr); }
-  return out;
-}
-
-// 可分离二项式模糊（1-4-6-4-1）：抹掉画布抗锯齿覆盖率在距离场等值线上留下的亚像素抖动（否则凹凸在纹带边上起梳齿）
-function blur5(a, W, H) {
-  const t = new Float32Array(a.length);
-  for (let y = 0; y < H; y++) { const o = y * W; for (let x = 0; x < W; x++) { const xm2 = Math.max(0, x - 2), xm1 = Math.max(0, x - 1), xp1 = Math.min(W - 1, x + 1), xp2 = Math.min(W - 1, x + 2); t[o + x] = (a[o + xm2] + 4 * a[o + xm1] + 6 * a[o + x] + 4 * a[o + xp1] + a[o + xp2]) / 16; } }
-  for (let y = 0; y < H; y++) { const ym2 = Math.max(0, y - 2) * W, ym1 = Math.max(0, y - 1) * W, yp1 = Math.min(H - 1, y + 1) * W, yp2 = Math.min(H - 1, y + 2) * W, o = y * W; for (let x = 0; x < W; x++) a[o + x] = (t[ym2 + x] + 4 * t[ym1 + x] + 6 * t[o + x] + 4 * t[yp1 + x] + t[yp2 + x]) / 16; }
-  return a;
-}
-
-// ───────────────────────── 画纹样用的折线 ─────────────────────────
-function catmull(pts, per = 8, closed = false) {
-  const n = pts.length, out = [];
-  const P = i => closed ? pts[(i + n) % n] : pts[clamp(i, 0, n - 1)];
-  const segs = closed ? n : n - 1;
-  for (let i = 0; i < segs; i++) {
-    const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
-    for (let k = 0; k < per; k++) {
-      const t = k / per, t2 = t * t, t3 = t2 * t;
-      out.push([0, 1].map(j => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
-    }
-  }
-  if (!closed) out.push(pts[n - 1].slice());
-  return out;
-}
-// 圆旋涡：从 (cx,cy) 外半径 r0、角度 a0 起，向内卷 turns 圈；dir = 1 逆时针
-function curlPts(cx, cy, r0, turns, dir = 1, a0 = 0, pitch = null) {
-  const pr = pitch ?? r0 / (turns + 0.55), pts = [], Nn = Math.ceil(turns * 56);
-  for (let i = 0; i <= Nn; i++) {
-    const t = i / Nn * turns * TAU, r = r0 - pr * t / TAU;
-    if (r < pr * 0.3) break;
-    pts.push([cx + r * Math.cos(a0 + dir * t), cy + r * Math.sin(a0 + dir * t)]);
-  }
-  return pts;
-}
-// 一条线收尾卷进旋涡：中心 c，方向按行进方向自动判断（顺着走不打折）
-function withCurl(pts, c, turns, pitch = null) {
-  const e = pts[pts.length - 1], p = pts[pts.length - 2];
-  const rx = e[0] - c[0], ry = e[1] - c[1], tx = e[0] - p[0], ty = e[1] - p[1];
-  const dir = rx * ty - ry * tx > 0 ? 1 : -1;
-  return pts.concat(curlPts(c[0], c[1], Math.hypot(rx, ry), turns, dir, Math.atan2(ry, rx), pitch).slice(1));
-}
-// 方旋涡（雷纹）：盒子 [L,R]×[B,T]（中心线坐标），从上边框 (L,T) 起往下，逐圈向内，圈距 p
-function rectSpiral(L, Rt, B, T, p) {
-  const pts = [[L, T]];
-  let l = L, r = Rt, b = B, t = T - p, x = L, y = T, dir = 0;
-  for (let it = 0; it < 40; it++) {
-    if (dir === 0) { y = b; l += p; } else if (dir === 1) { x = r; b += p; } else if (dir === 2) { y = t; r -= p; } else { x = l; t -= p; }
-    pts.push([x, y]); dir = (dir + 1) % 4;
-    if (r - l < p * 0.55 || t - b < p * 0.55) break;
-  }
-  return pts;
-}
+// ───────────────────────── (U, s) 展开参数：engine/form/loft.js 的 unwrap（U = 沿体侧中线的弧长，s = 截面上离体侧中线的弧长） ─────────────────────────
+const buildParam = () => unwrap(body, X_TAIL, X_SNOUT);
+// 距离变换、模糊：engine/form/sdf.js；画纹样用的折线（样条、圆旋涡、方旋涡）：engine/form/curves.js
 
 // ───────────────────────── 身体纹样（展开图） ─────────────────────────
 function drawBodyPattern(PRM, K) {
@@ -380,54 +254,13 @@ function heightOf(dB, dZ, dJ, dG) {
 }
 
 // ───────────────────────── 弯曲（GLSL 与 JS 一致）：竖向 + 横向两个分量 ─────────────────────────
-const BEND_GLSL = /* glsl */`
-uniform float uKunT, uKunAmp, uKunAmpZ, uKunWave, uKunOmega, uKunHalfL, uKunPhZ;
-vec2 kunD( float x ) {
-  float s = clamp( ( uKunHalfL - x ) / ( 2.0 * uKunHalfL ), 0.0, 1.15 );
-  float e = smoothstep( 0.2, 1.0, s ); e *= e;
-  float ph = 6.2831853 * s * uKunWave - uKunOmega * uKunT;
-  return e * vec2( uKunAmp * sin( ph ), uKunAmpZ * sin( ph + uKunPhZ ) );
-}
-vec4 kunBend( float x ) {           // (dy, dz, 俯仰角, 偏航角)
-  vec2 d0 = kunD( x ), sl = ( kunD( x + 1.0 ) - kunD( x - 1.0 ) ) * 0.5;
-  return vec4( d0, atan( sl.x ), atan( sl.y ) );
-}
-vec3 kunRot( vec3 v, vec4 b ) {     // 先俯仰（XY 平面）再偏航（XZ 平面）
-  float c = cos( b.z ), s = sin( b.z );
-  vec3 r = vec3( v.x * c - v.y * s, v.x * s + v.y * c, v.z );
-  float cy = cos( b.w ), sy = sin( b.w );
-  return vec3( r.x * cy - r.z * sy, r.y, r.x * sy + r.z * cy );
-}
-vec3 kunBendPos( vec3 p ) { vec4 b = kunBend( p.x ); return vec3( p.x, b.x, b.y ) + kunRot( vec3( 0.0, p.y, p.z ), b ); }
-vec3 kunBendNormal( vec3 n, float x ) { return kunRot( n, kunBend( x ) ); }
-mat4 kunBendMatrix( mat4 im ) {
-  float x0 = im[ 3 ].x;
-  vec4 b = kunBend( x0 );
-  float c = cos( b.z ), s = sin( b.z ), cy = cos( b.w ), sy = sin( b.w );
-  mat4 Rp = mat4( c, s, 0.0, 0.0,  -s, c, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0 );
-  mat4 Ry = mat4( cy, 0.0, sy, 0.0,  0.0, 1.0, 0.0, 0.0,  -sy, 0.0, cy, 0.0,  0.0, 0.0, 0.0, 1.0 );
-  mat4 T1 = mat4( 1.0 ); T1[ 3 ] = vec4( x0, b.x, b.y, 1.0 );
-  mat4 T0 = mat4( 1.0 ); T0[ 3 ] = vec4( - x0, 0.0, 0.0, 1.0 );
-  return T1 * Ry * Rp * T0 * im;
-}
-`;
-const INST_BEND_PARS = /* glsl */`
-#ifdef USE_INSTANCING
-mat4 kunGetIM() { return instanceMatrix; }
-mat4 kunIM;
-#define instanceMatrix kunIM
-#endif
-`;
+const WAVE = pitchYawWave('kun', { e0: 0.2, sMax: 1.15 });
+// finFlap：鳍先绕自己的根部转（uFinAng），再跟着脊柱弯
 function bendHooks({ extraPars = '', extraBegin = '', extraNormal = '', finFlap = false } = {}) {
-  const flap = finFlap ? 'transformed = finFlap( transformed );\n' : '';
-  const flapN = finFlap ? 'objectNormal = finFlapN( objectNormal );\n' : '';
-  const bx = finFlap ? 'finFlap( position ).x' : 'position.x';
-  return {
-    vertexPars: BEND_GLSL + INST_BEND_PARS + (finFlap ? FIN_FLAP_GLSL : '') + extraPars,
-    vertexMainStart: '#ifdef USE_INSTANCING\nkunIM = kunBendMatrix( kunGetIM() );\n#endif',
-    vertexBegin: extraBegin + '\n' + flap + '#ifndef USE_INSTANCING\ntransformed = kunBendPos( transformed );\n#endif',
-    vertexNormal: extraNormal + flapN + `#ifndef USE_INSTANCING\nobjectNormal = kunBendNormal( objectNormal, ${bx} );\n#endif`,
-  };
+  return WAVE.hooks({
+    extraPars: (finFlap ? FIN_FLAP_GLSL : '') + extraPars, extraBegin, preBend: finFlap ? 'transformed = finFlap( transformed );\n' : '',
+    extraNormal: extraNormal + (finFlap ? 'objectNormal = finFlapN( objectNormal );\n' : ''), normalX: finFlap ? 'finFlap( position ).x' : 'position.x',
+  });
 }
 // 鳍绕根部转（Rodrigues）：aPiv.xyz 转轴上一点，aPiv.w 鳍号，aAx 转轴方向
 const FIN_FLAP_GLSL = /* glsl */`
@@ -437,19 +270,6 @@ vec3 finRot( vec3 v, vec3 ax, float a ) { float c = cos( a ), s = sin( a ); retu
 vec3 finFlap( vec3 p ) { return finRot( p - aPiv.xyz, aAx, uFinAng[ int( aPiv.w + 0.5 ) ] ) + aPiv.xyz; }
 vec3 finFlapN( vec3 n ) { return finRot( n, aAx, uFinAng[ int( aPiv.w + 0.5 ) ] ); }
 `;
-function jsKunD(x, T, U) {
-  const s = clamp((U.uKunHalfL.value - x) / (2 * U.uKunHalfL.value), 0, 1.15), e0 = sstep(0.2, 1, s), e = e0 * e0;
-  const ph = TAU * s * U.uKunWave.value - U.uKunOmega.value * T;
-  return [U.uKunAmp.value * e * Math.sin(ph), U.uKunAmpZ.value * e * Math.sin(ph + U.uKunPhZ.value)];
-}
-function jsBendPoint(p, T, U, out = new THREE.Vector3()) {
-  const d0 = jsKunD(p.x, T, U), d1 = jsKunD(p.x + 1, T, U), dm = jsKunD(p.x - 1, T, U);
-  const th = Math.atan((d1[0] - dm[0]) / 2), ps = Math.atan((d1[1] - dm[1]) / 2);
-  const c = Math.cos(th), s = Math.sin(th), cy = Math.cos(ps), sy = Math.sin(ps);
-  const rx = -p.y * s, ry = p.y * c, rz = p.z;
-  return out.set(p.x + rx * cy - rz * sy, d0[0] + ry, d0[1] + rx * sy + rz * cy);
-}
-
 // ───────────────────────── 身体材质（纹样、凹凸、墨线） ─────────────────────────
 const BODY_FRAG_PARS = /* glsl */`
 uniform sampler2D uPat;
@@ -572,36 +392,17 @@ const FIN_PATHS = {
     ['C', -81, 70, -75, 38, -62, -5], ['C', -76, -40, -100, -94, -132, -136], ['C', -112, -134, -94, -128, -82, -116],
     ['C', -58, -90, -28, -50, 6, -25], ['L', 6, 25]],
 };
-function shapeFrom(cmds, sx = 1, sy = 1) {
-  const sh = new THREE.Shape();
-  for (const [op, ...a] of cmds) {
-    const p = a.map((v, i) => v * (i % 2 ? sy : sx));
-    if (op === 'M') sh.moveTo(p[0], p[1]); else if (op === 'L') sh.lineTo(p[0], p[1]); else if (op === 'C') sh.bezierCurveTo(p[0], p[1], p[2], p[3], p[4], p[5]);
-  }
-  return sh;
-}
 // 鳍的离缘距离场：形状栅格化 → EDT（内部） → HalfFloat 单通道纹理。另找最深点放旋涡（尾鳍上下两叶各一个）
 function finField(shape, { K = 6, twoLobes = false } = {}) {
-  const pts = shape.getPoints(48);
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const p of pts) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
-  x0 -= 3; y0 -= 3; x1 += 3; y1 += 3;
-  const W = Math.ceil((x1 - x0) * K), H = Math.ceil((y1 - y0) * K);
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d', { willReadFrequently: true });
-  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-  g.setTransform(K, 0, 0, K, -x0 * K, -y0 * K);
-  g.fillStyle = '#fff'; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.closePath(); g.fill();
-  const img = g.getImageData(0, 0, W, H).data;
-  const d = sdfFromImage(img, W, H, 0, K, 40);
+  const { de, W, H, x0, y0, cv } = shapeInside(shape, K, 3, 40);
   const data = new Uint16Array(W * H);
   let best = [-1, 0, 0], best2 = [-1, 0, 0];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = y * W + x, de = Math.max(0, -d[i]);
-    data[i] = THREE.DataUtils.toHalfFloat(de);
+    const i = y * W + x, d = de[i];
+    data[i] = THREE.DataUtils.toHalfFloat(d);
     const px = x0 + (x + 0.5) / K, py = y0 + (y + 0.5) / K;
-    if (twoLobes && py < -20) { if (de > best2[0]) best2 = [de, px, py]; }
-    else if (!twoLobes || py > 20) { if (de > best[0]) best = [de, px, py]; }
+    if (twoLobes && py < -20) { if (d > best2[0]) best2 = [d, px, py]; }
+    else if (!twoLobes || py > 20) { if (d > best[0]) best = [d, px, py]; }
   }
   const tex = new THREE.DataTexture(data, W, H, THREE.RedFormat, THREE.HalfFloatType);
   tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
@@ -670,80 +471,11 @@ const FIN_NORMAL = /* glsl */`
 }
 `;
 
-// ───────────────────────── 植被几何（单位尺寸，实例矩阵再缩放） ─────────────────────────
-function geoClump() {
-  let g = new THREE.IcosahedronGeometry(1, 2); g.deleteAttribute('uv'); g.deleteAttribute('normal'); g = mergeVertices(g, 1e-4);
-  const p = g.attributes.position;
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const k = 1 + 0.14 * Math.sin(x * 5.1 + y * 3.7) * Math.sin(z * 4.3 - x * 2.1) + 0.08 * Math.sin(y * 9.3 + z * 7.1);
-    p.setXYZ(i, x * k, y * k * 0.78, z * k);
-  }
-  g.computeVertexNormals(); return g;
-}
-// 小蕨：一根拱起的叶轴 + 两侧逐渐变短的羽片（羽片是窄三角，尖朝外上）
-function geoFern() {
-  const pos = [], NP = 9, axis = t => new THREE.Vector3(0, t * 0.95, -0.34 * t * t);
-  const tan = t => new THREE.Vector3(0, 0.95, -0.68 * t).normalize();
-  const quad = (a, b, c, d) => pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, a.x, a.y, a.z, c.x, c.y, c.z, d.x, d.y, d.z);
-  for (let i = 0; i < 12; i++) {             // 叶轴：细条
-    const t0 = i / 12, t1 = (i + 1) / 12, w0 = 0.022 * (1 - t0) + 0.006, w1 = 0.022 * (1 - t1) + 0.006;
-    const a = axis(t0), b = axis(t1);
-    quad(a.clone().add(new THREE.Vector3(-w0, 0, 0)), a.clone().add(new THREE.Vector3(w0, 0, 0)), b.clone().add(new THREE.Vector3(w1, 0, 0)), b.clone().add(new THREE.Vector3(-w1, 0, 0)));
-  }
-  for (let i = 0; i < NP; i++) {
-    const t = 0.12 + 0.82 * i / (NP - 1), L = 0.36 * Math.pow(1 - t, 0.7) + 0.05, Wd = 0.075 * (1 - t * 0.5);
-    const c = axis(t), tg = tan(t);
-    for (const sd of [-1, 1]) {
-      const out = new THREE.Vector3(sd, 0.35, 0).normalize();
-      const tip = c.clone().addScaledVector(out, L).addScaledVector(tg, L * 0.35);
-      const b0 = c.clone().addScaledVector(tg, -Wd * 0.5), b1 = c.clone().addScaledVector(tg, Wd * 0.5);
-      const mid = c.clone().addScaledVector(out, L * 0.55).addScaledVector(tg, L * 0.18 + Wd * 0.35);
-      const mid2 = c.clone().addScaledVector(out, L * 0.55).addScaledVector(tg, L * 0.18 - Wd * 0.35);
-      quad(b0, mid2, mid, b1); pos.push(mid2.x, mid2.y, mid2.z, tip.x, tip.y, tip.z, mid.x, mid.y, mid.z);
-    }
-  }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-  return g;
-}
+// ───────────────────────── 植被几何（单位尺寸，实例矩阵再缩放）：engine/form/props.js、plants.js ─────────────────────────
+const geoClump = () => clump({ a1: 0.14, a2: 0.08, flat: 0.78 });
 // 小白花：五瓣（每瓣是扇形小片，略上翘）+ 花心（淡黄，顶点色）
-function geoFlower() {
-  const pos = [], col = [], W0 = [1, 1, 1], CEN = [1.0, 0.86, 0.5];
-  for (let k = 0; k < 5; k++) {
-    const a0 = k / 5 * TAU;
-    const seg = 6;
-    for (let j = 0; j < seg; j++) {
-      const t0 = j / seg, t1 = (j + 1) / seg;
-      const pt = t => { const a = a0 + (t - 0.5) * 1.05, r = 0.95 * Math.sin(Math.PI * Math.min(1, 0.15 + t * 0.85)) * 0.35 + 0.62; return [Math.cos(a) * r, 0.1 + 0.18 * r * r, Math.sin(a) * r]; };
-      const c0 = [0, 0.08, 0];
-      const p0 = pt(t0), p1 = pt(t1);
-      pos.push(...c0, ...p1, ...p0); col.push(...W0, ...W0, ...W0);
-    }
-  }
-  for (let k = 0; k < 8; k++) {
-    const a0 = k / 8 * TAU, a1 = (k + 1) / 8 * TAU, r = 0.24;
-    pos.push(0, 0.2, 0, Math.cos(a1) * r, 0.14, Math.sin(a1) * r, Math.cos(a0) * r, 0.14, Math.sin(a0) * r); col.push(...CEN, ...CEN, ...CEN);
-  }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
-  return g;
-}
-// 垂苔：从挂点往下（-Y）的细带，略打折，旁边两缕短的
-function geoHang() {
-  const pos = [];
-  const strand = (ox, oz, len, w, ph) => {
-    const n = 8;
-    for (let i = 0; i < n; i++) {
-      const t0 = i / n, t1 = (i + 1) / n;
-      const P = t => [ox + 0.08 * Math.sin(t * 7 + ph) * t, -t * len, oz + 0.05 * Math.cos(t * 5 + ph) * t];
-      const w0 = w * (1 - 0.75 * t0), w1 = w * (1 - 0.75 * t1);
-      const a = P(t0), b = P(t1);
-      pos.push(a[0] - w0, a[1], a[2], a[0] + w0, a[1], a[2], b[0] + w1, b[1], b[2], a[0] - w0, a[1], a[2], b[0] + w1, b[1], b[2], b[0] - w1, b[1], b[2]);
-    }
-  };
-  strand(0, 0, 1, 0.12, 0); strand(0.1, 0.06, 0.6, 0.08, 1.7); strand(-0.09, -0.05, 0.45, 0.07, 3.1);
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-  return g;
-}
+const geoFlower = () => petalFan({ petal: [1, 1, 1], heart: [1.0, 0.86, 0.5] });
+const CATCH_REST = [[-0.27, 0.25, 0.93, 0.984], [0.25, -0.2, 0.95, 0.9965]];
 
 // ───────────────────────── 主体 ─────────────────────────
 /**
@@ -792,28 +524,16 @@ export function createKun(opts = {}) {
   // —— 身体：放样（两端加密）→ 法线 → 按纹样高度沿法线位移（法线保留原样，浮雕的明暗交给片元凹凸）——
   const NU = Math.round(lerp(150, 620, lod)), NV = Math.round(lerp(96, 380, lod)) & ~1;
   const bodyGeo = (() => {
-    const pos = [], uvs = [], idx = [];
-    for (let j = 0; j < NU; j++) {
-      const u = j / (NU - 1), w = 0.5 - 0.5 * Math.cos(Math.PI * u);
-      const x = lerp(X_TAIL, X_SNOUT - 0.3, lerp(u, w, 0.45));
-      const tab = ringTable(x), Ux = PRM.Ux(x);
-      for (let k = 0; k < NV; k++) {
-        const phi = k / NV * TAU; bodyPoint(x, phi, _a);
-        pos.push(_a.x, _a.y, _a.z); uvs.push(Ux, sFromTab(tab, sideAngle(Math.cos(phi), Math.sin(phi))));
-      }
+    const xs = axisStations(X_TAIL, X_SNOUT - 0.3, NU, 0.45), uvs = [];
+    for (const x of xs) {
+      const tab = PRM.ring(x), Ux = PRM.Ux(x);
+      for (let k = 0; k < NV; k++) { const phi = k / NV * TAU; uvs.push(Ux, PRM.sOf(tab, sideAngle(Math.cos(phi), Math.sin(phi)))); }
     }
-    for (let j = 0; j < NU - 1; j++) for (let k = 0; k < NV; k++) {
-      const a = j * NV + k, b = (j + 1) * NV + k, c = j * NV + (k + 1) % NV, d = (j + 1) * NV + (k + 1) % NV;
-      idx.push(a, b, c, b, d, c);
-    }
-    const capS = pos.length / 3; pos.push(X_TAIL - 0.6, yMid(X_TAIL), 0); uvs.push(-0.5, 0);
-    for (let k = 0; k < NV; k++) idx.push(k, (k + 1) % NV, capS);
-    const capE = pos.length / 3; pos.push(X_SNOUT + 0.2, yMid(X_SNOUT), 0); uvs.push(PRM.Ucap, 0);
-    const o2 = (NU - 1) * NV; for (let k = 0; k < NV; k++) idx.push(o2 + k, capE, o2 + (k + 1) % NV);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setAttribute('aUV', new THREE.Float32BufferAttribute(uvs, 2));
-    g.setIndex(idx); g.computeVertexNormals();
+    const g = loftRings(ringsAt(bodyPoint, xs, NV), {
+      startCap: { p: new THREE.Vector3(X_TAIL - 0.6, yMid(X_TAIL), 0), attr: { aUV: [-0.5, 0] } },
+      endCap: { p: new THREE.Vector3(X_SNOUT + 0.2, yMid(X_SNOUT), 0), attr: { aUV: [PRM.Ucap, 0] } },
+      attrs: { aUV: { data: uvs, size: 2 } },
+    });
     const P = g.attributes.position, Nn = g.attributes.normal, A = g.attributes.aUV;
     for (let i = 0; i < P.count; i++) {
       const x = P.getX(i), d = sampleD(A.getX(i), A.getY(i));
@@ -924,7 +644,6 @@ export function createKun(opts = {}) {
   mark('fins');
 
   // —— 眼睛：白玉眼珠 + 青铜眼睑（头部不弯，CPU 摆位）——
-  const eyes = [];
   const jadeEyeMat = () => makeBronzeToon({ ...BRONZE_PRESETS.jade,
     uniforms: {
       uIrisA: { value: 0.6 }, uPupilA: { value: 0.22 },
@@ -983,22 +702,16 @@ export function createKun(opts = {}) {
       toonInk = max( toonInk, max( edge * 0.9, max( fold * 0.7, fold2 * 0.5 ) ) );
     }`,
     fragmentPars: 'uniform vec3 uBzCopper;\n' });
-  for (const side of [1, -1]) {
-    const ph0 = phiOf(EYE_PH, side);
-    const sp = bodyPoint(EYE_X, ph0), n = bodyNormal(EYE_X, ph0);
-    const gaze = n.clone().add(new THREE.Vector3(0.3, -0.06, 0)).normalize();
-    const zA = gaze, xA = new THREE.Vector3().crossVectors(UP, zA).normalize(), yA = new THREE.Vector3().crossVectors(zA, xA);
-    const eg = new THREE.Group(); eg.name = 'kun-eye-' + (side > 0 ? 'R' : 'L');
-    eg.position.copy(sp).addScaledVector(n, -0.56 * RE);
-    eg.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA));
+  const eyes = mountEyes({ point: bodyPoint, normal: bodyNormal, x: EYE_X, ph: EYE_PH, inset: 0.56 * RE, gaze: [0.3, -0.06], parent: group, build: (side, eg) => {
+    eg.name = 'kun-eye-' + (side > 0 ? 'R' : 'L');
     const mat = jadeEyeMat();
     const ball = add(eg, bindBronze(new THREE.Mesh(new THREE.SphereGeometry(RE, 56, 36), mat), mat, { castShadow: false }));
-    const lidU = new THREE.Group(), lidL = new THREE.Group();
-    add(lidU, bindBronze(new THREE.Mesh(new THREE.SphereGeometry(RE * 1.045, 48, 14, 0, TAU, 0, Math.PI / 2), lidMat), lidMat, { castShadow: false }));
-    add(lidL, bindBronze(new THREE.Mesh(new THREE.SphereGeometry(RE * 1.045, 48, 14, 0, TAU, Math.PI / 2, Math.PI / 2), lidMat), lidMat, { castShadow: false }));
-    eg.add(lidU, lidL); group.add(eg);
-    eyes.push({ side, group: eg, ball, lidU, lidL, mat });
-  }
+    const lidU = new THREE.Group(), lidL = new THREE.Group(), [shellU, shellL] = lidShells(RE * 1.045, 48, 14);
+    add(lidU, bindBronze(new THREE.Mesh(shellU, lidMat), lidMat, { castShadow: false }));
+    add(lidL, bindBronze(new THREE.Mesh(shellL, lidMat), lidMat, { castShadow: false }));
+    eg.add(lidU, lidL);
+    return { ball, lidU, lidL, mat, frame: eyeFrame(mat.userData.toon) };
+  } });
 
   // —— 植被散布：权重按纹样（纹带脚下的凹缝、背上、鳍根）与朝向算，MeshSurfaceSampler 采样 ——
   const pA = bodyGeo.attributes.position, nA = bodyGeo.attributes.normal, uvA = bodyGeo.attributes.aUV, nv = pA.count;
@@ -1024,25 +737,8 @@ export function createKun(opts = {}) {
     Wt.wCrev[i] = keep * foot * lowerKeep * sstep(-0.35, 0.1, up) * sstep(0.62, 0.45, up) * sstep(0.1, 0.4, patch + 0.1 * noise2(Pp.x * 0.08, Pp.y * 0.08, Pp.z * 0.08));
     Wt.wFern[i] = keep * (back * 0.6 + finBase * 1.5 + foot * 0.15 * sstep(0.3, 0.5, up)) * sstep(0.15, 0.4, noise2(Pp.x * 0.03 + 40, Pp.y * 0.03, Pp.z * 0.03)) * sstep(250, 235, x);
   }
-  const sGeo = new THREE.BufferGeometry();
-  sGeo.setAttribute('position', pA); sGeo.setAttribute('normal', nA); sGeo.setIndex(bodyGeo.index);
-  for (const k in Wt) sGeo.setAttribute(k, new THREE.BufferAttribute(Wt[k], 1));
-  const samplerMesh = new THREE.Mesh(sGeo);
-  const sampler = (wName, seed) => new MeshSurfaceSampler(samplerMesh).setWeightAttribute(wName).setRandomGenerator(mulberry(seed)).build();
-  const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _col = new THREE.Color();
-  const pick = (r, arr) => arr[Math.floor(r * arr.length) % arr.length];
-  function place(p, n, { yaw = 0, scale, sink = 0, lean = null }) {
-    const up = n.clone(); if (lean) up.add(lean).normalize();
-    _q.setFromUnitVectors(UP, up); _q2.setFromAxisAngle(UP, yaw); _q.multiply(_q2);
-    return new THREE.Matrix4().compose(p.clone().addScaledVector(n, -sink), _q.clone(), scale);
-  }
-  function inst(geo, mat, items, name) {
-    const m = new THREE.InstancedMesh(geo, mat, items.length);
-    items.forEach((it, i) => { m.setMatrixAt(i, it.m); if (it.c) m.setColorAt(i, _col.set(it.c)); });
-    m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true;
-    m.frustumCulled = false; m.name = name;
-    return bindBronze(m, mat);
-  }
+  const sampler = samplersOn(bodyGeo, Wt);
+  const inst = (geo, mat, items, name) => instanced(geo, mat, items, name, { bind: bindBronze });
   const tp = new THREE.Vector3(), tn = new THREE.Vector3();
   const back = new THREE.Vector3(-1, 0, 0);
 
@@ -1138,7 +834,7 @@ export function createKun(opts = {}) {
     transformed.z += cos( uKunT * ${freq} * 0.8 + ph * 1.3 ) * ${amp} * 0.6 * h2;
   }`;
   const fernMat = makeBronzeToon({ ...BRONZE_PRESETS.fern, side: THREE.DoubleSide, outlineW: 0.7, uniforms: { ...U }, ...bendHooks({ extraBegin: swayBegin('0.1', '2.3') }) });
-  add(group, inst(geoFern(), fernMat, ferns, 'kun-ferns'));
+  add(group, inst(fern(), fernMat, ferns, 'kun-ferns'));
 
   // 垂苔：从下唇、下颌、鳃盖下沿垂下来（局部 -Y 永远朝下）
   const hangs = [];
@@ -1161,15 +857,10 @@ export function createKun(opts = {}) {
       transformed.x += sin( uKunT * 2.0 + ph ) * 0.16 * h2;
       transformed.z += cos( uKunT * 1.7 + ph * 1.3 ) * 0.12 * h2;
     }` }) });
-  add(group, inst(geoHang(), hangMat, hangs, 'kun-hanging-moss'));
+  add(group, inst(strands(), hangMat, hangs, 'kun-hanging-moss'));
   mark('plants');
 
   // —— 姿态 ——
-  const _v = new THREE.Vector3(), _e = new THREE.Euler(), _inv = new THREE.Matrix4(), _tw = new THREE.Vector3();
-  function autoBlink(ts) {
-    const l = ((ts - o.blinkOffset) % o.blinkPeriod + o.blinkPeriod) % o.blinkPeriod;
-    return l < 0.125 ? 0.6 : l < 0.25 ? 1 : l < 0.375 ? 0.55 : l < 0.5 ? 0.15 : 0;
-  }
   function setPose(ts, po = {}) {
     U.uKunT.value = ts;
     const w = U.uKunOmega.value, A = U.uFinAng.value;
@@ -1177,38 +868,17 @@ export function createKun(opts = {}) {
     A[6] = 0.1 * Math.sin(w * ts - 3.2); A[7] = 0.1 * Math.sin(w * ts - 4.0);              // 臀鳍
     A[8] = 0.13 * Math.sin(w * ts + 0.9); A[9] = -0.13 * Math.sin(w * ts + 0.9);           // 腹鳍（左右对称开合）
     A[10] = 0.2 * Math.sin(w * ts + 0.4); A[11] = -0.2 * Math.sin(w * ts + 0.4);           // 胸鳍：划水
-    const b = po.blink ?? autoBlink(ts);
-    for (const e of eyes) {
-      e.lidU.rotation.x = lerp(-0.5, 0.03, b);
-      e.lidL.rotation.x = lerp(0.66, -0.03, b);
-      e.ball.quaternion.identity();
-      if (po.look) {
-        group.updateWorldMatrix(true, false); e.group.updateWorldMatrix(false, false);
-        _tw.copy(po.look).applyMatrix4(_inv.copy(e.group.matrixWorld).invert()).normalize();
-        const yaw = clamp(Math.atan2(_tw.x, _tw.z), -0.32, 0.32), pitch = clamp(Math.asin(clamp(_tw.y, -1, 1)), -0.26, 0.26);
-        e.ball.quaternion.setFromEuler(_e.set(-pitch, yaw, 0, 'YXZ'));
-      }
-      const tu = e.mat.userData.toon;
-      _q.copy(e.ball.quaternion).invert();
-      if (po.look) {   // 视线方向（眼窝坐标）偏左上一点 → 高光总在看到的瞳孔左上方
-        const vx = _tw.x, vy = _tw.y, vz = _tw.z, sx = e.side > 0 ? 1 : -1;
-        _v.set(vx + 0.24 * sx, vy + 0.3, vz).normalize().applyQuaternion(_q); tu.uCatch1.value.set(_v.x, _v.y, _v.z, 0.9905);
-        _v.set(vx - 0.2 * sx, vy - 0.22, vz).normalize().applyQuaternion(_q); tu.uCatch2.value.set(_v.x, _v.y, _v.z, 0.9976);
-      } else {
-        _v.set(-0.27, 0.25, 0.93).normalize().applyQuaternion(_q); tu.uCatch1.value.set(_v.x, _v.y, _v.z, 0.984);
-        _v.set(0.25, -0.2, 0.95).normalize().applyQuaternion(_q); tu.uCatch2.value.set(_v.x, _v.y, _v.z, 0.9965);
-      }
-      const aU = e.lidU.rotation.x, aL = e.lidL.rotation.x;
-      tu.uLidU.value.set(0, Math.cos(aU), Math.sin(aU)).applyQuaternion(_q);
-      tu.uLidL.value.set(0, -Math.cos(aL), -Math.sin(aL)).applyQuaternion(_q);
-    }
+    // 看镜头时高光跟着视线方向（眼窝坐标）偏左上一点 → 总在看到的瞳孔左上方；不看时固定在眼窝坐标
+    poseEyes(eyes, po.blink ?? autoBlink(ts, o.blinkPeriod, o.blinkOffset), po.look, group, {
+      lidU: [-0.5, 0.03], lidL: [0.66, -0.03], yaw: 0.32, pitch: 0.26,
+      catches: (e, v) => {
+        if (!v) return CATCH_REST;
+        const sx = e.side > 0 ? 1 : -1;
+        return [[v.x + 0.24 * sx, v.y + 0.3, v.z, 0.9905], [v.x - 0.2 * sx, v.y - 0.22, v.z, 0.9976]];
+      },
+    });
   }
-  function eyeWorld(target = new THREE.Vector3(), ref = -1) {
-    let e = eyes.find(x => x.side === -1);
-    if (ref && ref.isVector3) { const a = eyes[0].group.getWorldPosition(new THREE.Vector3()), b2 = eyes[1].group.getWorldPosition(new THREE.Vector3()); e = a.distanceTo(ref) < b2.distanceTo(ref) ? eyes[0] : eyes[1]; }
-    else if (ref === 1) e = eyes.find(x => x.side === 1);
-    return e.group.getWorldPosition(target);
-  }
+  const eyeWorld = (target, ref) => pickEye(eyes, target, ref);
   function fitShadow(light, { size = 4096, radius = 400 } = {}) {
     group.updateMatrixWorld(true);
     const c = new THREE.Vector3(-5, -5, 0).applyMatrix4(group.matrixWorld);
@@ -1228,6 +898,6 @@ export function createKun(opts = {}) {
   mark('done');
   const debug = { timings: tm, pattern: PAT.canvases, finFields: Object.fromEntries(Object.entries(finTypes).map(([k, v]) => [k, v.FF.cv])), PRM, PAT,
     counts: { clumps: clumps.length, flowers: flowers.length, ferns: ferns.length, hangs: hangs.length, gardens: gardens.length, bodyVerts: nv } };
-  void jsBendPoint; void pecRoots;
+  void pecRoots;
   return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, wisps: [], uniforms: U, fins: finMeshes, eyes, debug };
 }
