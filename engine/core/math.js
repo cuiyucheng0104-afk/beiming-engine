@@ -4,6 +4,7 @@
 export const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const TAU = Math.PI * 2;
+export const DEG = Math.PI / 180;
 
 // t 在 [a, b] 里的进度，夹到 0..1
 export const seg = (t, a, b) => clamp((t - a) / (b - a));
@@ -12,6 +13,11 @@ export const ss = t => { t = clamp(t); return t * t * (3 - 2 * t); };
 export const ei = t => Math.pow(clamp(t), 3);
 export const eo = t => 1 - Math.pow(1 - clamp(t), 3);
 export const eio = t => { t = clamp(t); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(2 - 2 * t, 3) / 2; };
+// 五次 smootherstep：起止的速度和加速度都为零，镜头推拉用它更柔
+export const ss5 = t => { t = clamp(t); return t * t * t * (t * (t * 6 - 15) + 10); };
+
+// 整数 → [0, 1) 的确定性哈希（帧号、实例号取随机值用）
+export const hashi = n => { let h = (n | 0) * 374761393 + 668265263; h = (h ^ (h >>> 13)) * 1274126177; h ^= h >>> 16; return (h >>> 0) / 4294967296; };
 
 // 32 位整数种子的伪随机数发生器（Mulberry32）：返回 () => [0, 1)
 export function mulberry(seed) {
