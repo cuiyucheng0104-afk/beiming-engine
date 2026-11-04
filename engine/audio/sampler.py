@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """北冥引擎 · 采样器：从多采样乐器库里取音、移调、延长、包络。
 
-只服务配乐 score.py 用到的几件乐器。采样库本身不随仓库分发，两套都是 CC0（公有领域）：
+采样库不随仓库分发，内置乐器表指向两套 CC0（公有领域）库：
   VSCO 2 Community Edition（Versilian Studios）、Versilian Community Sample Library（VCSL）。
-把它们放在同一个目录下（vsco2ce/、vcsl/ 两个子目录），用环境变量 BEIMING_SAMPLES 指过去。
+把它们放在同一个目录下（vsco2ce/、vcsl/ 两个子目录），用环境变量 BEIMING_SAMPLES 指过去，或由调用方设 ROOT。
+别的乐器：INSTRUMENTS[名字] = (相对 ROOT 的目录, 'sus' 可延长长音 / 'dec' 自然衰减 / 'hit' 无音高, 默认释音秒)。
 
 接口：
   seed(n)                                   重置轮换随机（同一调用顺序 → 同一结果）
   midi('D#4') / midi(62.05)                 音名 → MIDI（允许小数 = 微分音）
-  note(inst, pitch, dur, vel, attack, release) 一个音：返回单声道 float32，长度 ≈ dur + release
+  note(inst, pitch, dur, vel, release, attack) 一个音：返回单声道 float32，长度 ≈ dur + release
   hit(inst, name, vel, dur)                 无音高打击乐（按文件名里的关键字选，如 'cresc'）
   credits(used)                             署名行
 """
@@ -20,10 +21,10 @@ import numpy as np
 import soundfile as sf
 import soxr
 
-SR = 48000
-ROOT = os.environ.get('BEIMING_SAMPLES', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'samples'))
+from .dsp import SR
 
-# 名字 → (相对目录, 类型, 默认释音秒)。sus = 可延长的长音；dec = 自然衰减；hit = 无音高
+ROOT = os.environ.get('BEIMING_SAMPLES', '')
+
 INSTRUMENTS = {
     'violins':          ('vsco2ce/Strings/Violin Section/susVib', 'sus', 0.35),
     'violas':           ('vsco2ce/Strings/Viola Section/susvib', 'sus', 0.35),
