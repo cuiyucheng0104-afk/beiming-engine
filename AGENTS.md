@@ -45,6 +45,8 @@
 - 资产桥改动运行导出、结构验证和动画回读。
 - 渲染路径改动运行相关示例，检查日志、输出帧数、关键帧和完整视频。
 - 报告实际运行的平台；没有重跑 Windows/5090 时，不把 macOS 验证写成新的 5090 验证。
+- 修改案例目录或 `tools/build-showcase.py` 后运行 `python tools/build-showcase.py` 并核对 `showcase/index.html`；再跑 casebook 校验。
+- 不得删除或改写 `LICENSE`、`cases/licenses/`、`cases/vendor/` 内的许可证与署名；整合、改写、调参不改变原作者权利。详见 `THIRD-PARTY.md`。
 
 ## 查找已做过的案例
 

@@ -19,7 +19,8 @@
     "test:routes": "node --test tools/work-plan.test.mjs",
     "cases:check": "python3 tools/casebook.py check",
     "cases:list": "python3 tools/casebook.py list",
-    "test:cases": "python3 -m unittest discover -s tools -p test_casebook.py"
+    "test:cases": "python3 -m unittest discover -s tools -p test_casebook.py",
+    "showcase:build": "python3 tools/build-showcase.py"
   },
   "dependencies": {
     "three": "0.170.0",

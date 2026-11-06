@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>北冥 · 案例馆 / Beiming Engine</title>
+<meta name="description" content="北冥引擎的案例馆：96 个创作与实验工程，66 个纯代码风格，20 + 66 套上游风格基座。">
+<style>
+:root{--bg:#0d1520;--bg2:#111c29;--line:#243449;--ink:#ece7de;--dim:#93a4b8;--gold:#d9b46a;--cyan:#6fb6c9;--bad:#c96b6b}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:linear-gradient(180deg,#0a121b,#0d1520 30%,#0b131d);color:var(--ink);font:16px/1.65 "PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+a{color:var(--cyan);text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1240px;margin:0 auto;padding:0 24px}
+nav{position:sticky;top:0;z-index:30;background:rgba(10,18,27,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:22px;height:58px;font-size:14px}
+nav .brand{font-weight:700;letter-spacing:.14em;color:var(--gold)}
+nav .sp{flex:1}
+.hero{padding:84px 0 46px;border-bottom:1px solid var(--line);background:radial-gradient(900px 320px at 20% 0%,rgba(111,182,201,.10),transparent 70%)}
+.hero .eyebrow{color:var(--gold);letter-spacing:.3em;font-size:12px}
+.hero h1{font-size:clamp(38px,6vw,68px);line-height:1.08;margin:16px 0 14px;font-weight:800}
+.hero h1 span{color:var(--gold)}
+.hero p.lead{max-width:760px;color:var(--dim);font-size:17px}
+.stats{display:flex;flex-wrap:wrap;gap:14px;margin:30px 0 0}
+.stat{border:1px solid var(--line);background:var(--bg2);padding:12px 18px;border-radius:12px;min-width:118px}
+.stat b{display:block;font-size:24px;color:var(--gold)}
+.stat span{font-size:12px;color:var(--dim);letter-spacing:.06em}
+section.block{padding:56px 0;border-bottom:1px solid var(--line)}
+section.block>h2{font-size:26px;margin:0 0 6px}
+section.block>p.sub{color:var(--dim);margin:0 0 26px;max-width:820px}
+.tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.track{display:block;border:1px solid var(--line);background:linear-gradient(180deg,#12202e,#0e1926);border-radius:16px;padding:22px;color:var(--ink)}
+.track:hover{border-color:var(--gold);text-decoration:none}
+.track .key{display:inline-flex;width:30px;height:30px;border:1px solid var(--gold);color:var(--gold);border-radius:50%;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.track h3{margin:14px 0 2px;font-size:19px}
+.track .en{color:var(--dim);font-size:11px;letter-spacing:.18em;margin:0 0 12px}
+.track p{color:var(--dim);font-size:14px;margin:0 0 12px}
+.track .links{color:var(--cyan);font-size:13px;margin:0}
+.toolbar{position:sticky;top:58px;z-index:20;background:rgba(11,19,29,.92);backdrop-filter:blur(8px);padding:14px 0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.chip{border:1px solid var(--line);background:transparent;color:var(--dim);padding:7px 14px;border-radius:999px;cursor:pointer;font-size:13px}
+.chip em{font-style:normal;color:var(--gold);margin-left:4px}
+.chip.on{border-color:var(--gold);color:var(--ink);background:rgba(217,180,106,.10)}
+input[type=search],select{background:#0e1926;border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:8px;font-size:13px}
+input[type=search]{min-width:220px}
+.count{margin-left:auto;color:var(--dim);font-size:13px}
+.group{padding:34px 0 8px}
+.group-head h2{font-size:22px;margin:0 0 4px}.group-head h2 em{font-style:normal;color:var(--gold);font-size:15px;margin-left:6px}
+.group-head p{color:var(--dim);margin:0 0 20px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:16px}
+.card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg2);display:flex;flex-direction:column;transition:transform .15s,border-color .15s}
+.card:hover{transform:translateY(-3px);border-color:#3b5570}
+.thumb{position:relative;aspect-ratio:16/9;background:#05090e;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.noposter{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#2a3d54;font-size:26px;letter-spacing:.3em}
+.play{position:absolute;inset:0;margin:auto;width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.5);background:rgba(6,12,18,.55);color:#fff;font-size:15px;cursor:pointer;opacity:0;transition:opacity .15s}
+.card:hover .play{opacity:1}
+.novideo{position:absolute;right:8px;bottom:8px;font-size:11px;color:#b9c7d6;background:rgba(5,9,14,.65);padding:2px 7px;border-radius:6px}
+.badge{position:absolute;left:8px;top:8px;font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(5,9,14,.72);border:1px solid var(--line);color:#c9d6e4}
+.badge.ok{border-color:rgba(217,180,106,.5);color:var(--gold)}
+.badge.bad{border-color:rgba(201,107,107,.6);color:#e09a9a}
+.badge.wip{border-color:rgba(111,182,201,.5);color:var(--cyan)}
+.body{padding:12px 14px 14px}
+.body h3{font-size:15px;line-height:1.4;margin:0 0 6px;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{margin:0;color:var(--dim);font-size:12px}
+.meta code{color:#8fa7c0;font-size:11px}
+.tag{display:inline-block;border:1px solid var(--line);border-radius:5px;padding:0 5px;margin-left:4px;font-size:11px}
+.vendor{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.vendor .card2{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--bg2)}
+.vendor h3{margin:0 0 4px}.vendor .commit{color:var(--dim);font-size:12px;font-family:ui-monospace,monospace;word-break:break-all}
+.vendor p{color:var(--dim);font-size:14px}
+footer{padding:44px 0 64px;color:var(--dim);font-size:13px}
+footer p{margin:0 0 8px}
+.modal{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(3,6,10,.82);padding:24px}
+.modal.open{display:flex}
+.modal .box{width:min(1080px,100%);background:#0b131d;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.modal video{width:100%;max-height:66vh;background:#000;display:block}
+.modal .mbody{padding:16px 20px 20px}
+.modal h3{margin:0 0 4px}
+.modal .mmeta{color:var(--dim);font-size:13px;margin:0 0 12px}
+.modal .mlinks a{margin-right:16px;font-size:14px}
+.modal .close{float:right;background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:4px 12px;cursor:pointer}
+@media(max-width:640px){.hero{padding:56px 0 34px}.toolbar{position:static}input[type=search]{min-width:0;width:100%}}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <span class="brand">北冥 / BEIMING</span>
+  <a href="#tracks">三条路线</a>
+  <a href="#gallery">案例</a>
+  <a href="#vendor">完整基座</a>
+  <a href="https://github.com/cuiyucheng0104-afk/beiming-engine" target="_blank" rel="noreferrer">GitHub ↗</a>
+  <span class="sp"></span>
+  <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/casebook-2026.11" target="_blank" rel="noreferrer">下载成片与素材 ↗</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">BEIMING ENGINE · CASE ATLAS</div>
+  <h1>代码即影片，<br><span>走过的路都在这里。</span></h1>
+  <p class="lead">96 个创作与实验工程、66 种纯代码风格、7 部 PPT 故事片、6 条发布会动画，以及完整的 20 + 66 套上游风格基座。
+  每张卡片都能观看历史成片、追溯源码，并还原到独立工作区。</p>
+  <div class="stats"><div class="stat"><b>96</b><span>案例记录</span></div><div class="stat"><b>83</b><span>历史成片</span></div><div class="stat"><b>66</b><span>纯代码风格</span></div><div class="stat"><b>2809</b><span>上游基座文件</span></div><div class="stat"><b>3,773s</b><span>可看片长合计</span></div></div>
+</div></header>
+
+<section class="block" id="tracks"><div class="wrap">
+  <h2>一套引擎，三条路线</h2>
+  <p class="sub">同一个仓库里，按画面怎么执行区分路线；路线决定作品组织方式，后端决定画面在哪里跑。三条路线分别验收，不把一处的成绩记到另一处。</p>
+  <div class="tracks"><a class="track" href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/engine" target="_blank" rel="noreferrer">
+  <span class="key">A</span>
+  <h3>北冥风格 · WebGL 三渲二</h3>
+  <p class="en">BEIMING STYLE / WEBGL</p>
+  <p>造型、三色分档卡通着色、ID 墨线、Kuwahara 笔触与 Canvas 2D 人物，全部逐帧确定性绘制；显示层单独合成。</p>
+  <p class="links"><span>引擎九层</span> · <span>《北冥》样片</span> · <span>模块自测页</span></p>
+</a><a class="track" href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/examples/raea" target="_blank" rel="noreferrer">
+  <span class="key">B</span>
+  <h3>RAEA 原生 · RTX 工具链</h3>
+  <p class="en">RAEA NATIVE / RTX</p>
+  <p>同一套鲲、渡船与底板导出为 GLB，走原生运行时与 GPU；与 WebGL 路线分别验收，不把原生加速记在浏览器头上。</p>
+  <p class="links"><span>原生示例</span> · <span>源码对照与集成</span></p>
+</a><a class="track" href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/cases/vendor" target="_blank" rel="noreferrer">
+  <span class="key">C</span>
+  <h3>纯代码风格 · 66 + 20 基座</h3>
+  <p class="en">CODE STYLES / VENDOR</p>
+  <p>SY 的 20 风格 / 100 示例与 Lemo 的 66 风格完整快照，作为画风参照与可复用方法库；它们是外部 MIT 代码，保留原署名。</p>
+  <p class="links"><span>SY 基座</span> · <span>Lemo 基座</span></p>
+</a></div>
+</div></section>
+
+<section class="block" id="gallery"><div class="wrap">
+  <h2>案例馆</h2>
+  <p class="sub">筛选、搜索、点开即播。视频是 Release 中的 960 像素观看副本，由历史成片转码，不是重新渲染；原始画质见各案例卡与 Release。</p>
+  <div class="toolbar">
+    <button class="chip on" data-group="all">全部 <em>96</em></button>
+    <button class="chip" data-group="beiming-labs">北冥画风实验 <em>4</em></button><button class="chip" data-group="ppt-stories">PPT 故事介绍片 <em>7</em></button><button class="chip" data-group="ppt-keynote">发布会动画 <em>7</em></button><button class="chip" data-group="local-films">自研动画与预演 <em>12</em></button><button class="chip" data-group="styles">纯代码风格基座 <em>66</em></button>
+    <select id="status"><option value="all">全部状态</option><option value="historical-render">历史成片 · 未重渲</option><option value="rejected">画面未获认可</option><option value="experiment">画风实验</option><option value="interactive">交互 / 页面实验</option><option value="previs">技术预演</option><option value="support">共用资源</option></select>
+    <input type="search" id="search" placeholder="搜索片名 / 案例 ID">
+    <span class="count" id="count"></span>
+  </div>
+  <section class="group" data-group="beiming-labs">
+  <header class="group-head"><h2>北冥画风实验 <em>4</em></h2><p>北冥引擎的色阶、九景与三维重建试验；画风实验不计为正式成片。</p></header>
+  <div class="grid"><article class="card" data-id="lab-2026-11-05-beiming-nine-3d" data-group="beiming-labs" data-status="experiment" data-title="北冥九景 · 三维重建与画风试验 lab-2026-11-05-beiming-nine-3d">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/lab-2026-11-05-beiming-nine-3d.jpg" alt="北冥九景 · 三维重建与画风试验"><span class="novideo">无预览</span><span class="badge wip">画风实验</span></div>
+  <div class="body">
+    <h3>北冥九景 · 三维重建与画风试验</h3>
+    <p class="meta"><code>lab-2026-11-05-beiming-nine-3d</code> </p>
+  </div>
+</article>
+<article class="card" data-id="lab-2026-11-05-e-paper-15s" data-group="beiming-labs" data-status="rejected" data-title="纸上江山｜北冥 E 组动画试作 lab-2026-11-05-e-paper-15s">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/lab-2026-11-05-e-paper-15s.jpg" alt="纸上江山｜北冥 E 组动画试作"><button class="play" data-id="lab-2026-11-05-e-paper-15s" aria-label="播放预览">▶</button><span class="badge bad">画面未获认可</span></div>
+  <div class="body">
+    <h3>纸上江山｜北冥 E 组动画试作</h3>
+    <p class="meta"><code>lab-2026-11-05-e-paper-15s</code> · 15.0s </p>
+  </div>
+</article>
+<article class="card" data-id="lab-2026-11-05-nine-scenes-360" data-group="beiming-labs" data-status="experiment" data-title="北冥 · 九景画风实验 lab-2026-11-05-nine-scenes-360">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/lab-2026-11-05-nine-scenes-360.jpg" alt="北冥 · 九景画风实验"><span class="novideo">无预览</span><span class="badge wip">画风实验</span></div>
+  <div class="body">
+    <h3>北冥 · 九景画风实验</h3>
+    <p class="meta"><code>lab-2026-11-05-nine-scenes-360</code> </p>
+  </div>
+</article>
+<article class="card" data-id="lab-2026-11-05-tonal-40" data-group="beiming-labs" data-status="experiment" data-title="北冥引擎 · 色阶实验 01 lab-2026-11-05-tonal-40">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/lab-2026-11-05-tonal-40.jpg" alt="北冥引擎 · 色阶实验 01"><span class="novideo">无预览</span><span class="badge wip">画风实验</span></div>
+  <div class="body">
+    <h3>北冥引擎 · 色阶实验 01</h3>
+    <p class="meta"><code>lab-2026-11-05-tonal-40</code> </p>
+  </div>
+</article></div>
+</section><section class="group" data-group="ppt-stories">
+  <header class="group-head"><h2>PPT 故事介绍片 <em>7</em></h2><p>从幻灯片原画、分层、时间轴到代码镜头与混音的七部故事片。</p></header>
+  <div class="grid"><article class="card" data-id="ppt-before-sunset" data-group="ppt-stories" data-status="historical-render" data-title="日落之前 ppt-before-sunset">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/ppt-before-sunset.jpg" alt="日落之前"><button class="play" data-id="ppt-before-sunset" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>日落之前</h3>
+    <p class="meta"><code>ppt-before-sunset</code> · 2:50.8 </p>
+  </div>
+</article>
+<article class="card" data-id="ppt-dance-mentor" data-group="ppt-stories" data-status="historical-render" data-title="她的舞蹈导师 ppt-dance-mentor">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/ppt-dance-mentor.jpg" alt="她的舞蹈导师"><button class="play" data-id="ppt-dance-mentor" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>她的舞蹈导师</h3>
+    <p class="meta"><code>ppt-dance-mentor</code> · 2:42.7 </p>
+  </div>
+</article>
+<article class="card" data-id="ppt-in-sight" data-group="ppt-stories" data-status="historical-render" data-title="目之所及 ppt-in-sight">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/ppt-in-sight.jpg" alt="目之所及"><button class="play" data-id="ppt-in-sight" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>目之所及</h3>
+    <p class="meta"><code>ppt-in-sight</code> · 3:04.1 </p>
+  </div>
+</article>
+<article class="card" data-id="ppt-jianlong" data-group="ppt-stories" data-status="historical-render" data-title="见龙 ppt-jianlong">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/ppt-jianlong.jpg" alt="见龙"><button class="play" data-id="ppt-jianlong" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>见龙</h3>
+    <p class="meta"><code>ppt-jianlong</code> · 3:14.5 </p>
+  </div>
+</article>
+<article class="card" data-id="ppt-new-year-street" data-group="ppt-stories" data-status="historical-render" data-title="这条街照常过年 ppt-new-year-street">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/ppt-new-year-street.jpg" alt="这条街照常过年"><button class="play" data-id="ppt-new-year-street" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>这条街照常过年</h3>
+    <p class="meta"><code>ppt-new-year-street</code> · 2:04.8 </p>
+  </div>
+</article>
+<article class="card" data-id="ppt-painting-treasure" data-group="ppt-stories" data-status="historical-render" data-title="画境追宝 ppt-painting-treasure">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/ppt-painting-treasure.jpg" alt="画境追宝"><button class="play" data-id="ppt-painting-treasure" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>画境追宝</h3>
+    <p class="meta"><code>ppt-painting-treasure</code> · 3:57.0 </p>
+  </div>
+</article>
+<article class="card" data-id="ppt-understands-you" data-group="ppt-stories" data-status="historical-render" data-title="懂你的人 ppt-understands-you">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/ppt-understands-you.jpg" alt="懂你的人"><button class="play" data-id="ppt-understands-you" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>懂你的人</h3>
+    <p class="meta"><code>ppt-understands-you</code> · 3:05.6 </p>
+  </div>
+</article></div>
+</section><section class="group" data-group="ppt-keynote">
+  <header class="group-head"><h2>发布会动画 <em>7</em></h2><p>上影发布会六条工程与一组共用资源。</p></header>
+  <div class="grid"><article class="card" data-id="keynote-B-kaitou" data-group="ppt-keynote" data-status="historical-render" data-title="方案 B《片库之夜》20 秒开头 · 导演阐述（TREATMENT） keynote-B-kaitou">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/keynote-B-kaitou.jpg" alt="方案 B《片库之夜》20 秒开头 · 导演阐述（TREATMENT）"><button class="play" data-id="keynote-B-kaitou" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>方案 B《片库之夜》20 秒开头 · 导演阐述（TREATMENT）</h3>
+    <p class="meta"><code>keynote-B-kaitou</code> · 20.0s </p>
+  </div>
+</article>
+<article class="card" data-id="keynote-C-kaitou" data-group="ppt-keynote" data-status="historical-render" data-title="方案 C《打开》20 秒开头 keynote-C-kaitou">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/keynote-C-kaitou.jpg" alt="方案 C《打开》20 秒开头"><button class="play" data-id="keynote-C-kaitou" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>方案 C《打开》20 秒开头</h3>
+    <p class="meta"><code>keynote-C-kaitou</code> · 20.0s </p>
+  </div>
+</article>
+<article class="card" data-id="keynote-C-quanpian" data-group="ppt-keynote" data-status="historical-render" data-title="方案 C《打开》全片 keynote-C-quanpian">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/keynote-C-quanpian.jpg" alt="方案 C《打开》全片"><button class="play" data-id="keynote-C-quanpian" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>方案 C《打开》全片</h3>
+    <p class="meta"><code>keynote-C-quanpian</code> · 3:00.0 </p>
+  </div>
+</article>
+<article class="card" data-id="keynote-seg1-kaijuan" data-group="ppt-keynote" data-status="historical-render" data-title="片段一「开卷」TREATMENT keynote-seg1-kaijuan">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/keynote-seg1-kaijuan.jpg" alt="片段一「开卷」TREATMENT"><button class="play" data-id="keynote-seg1-kaijuan" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>片段一「开卷」TREATMENT</h3>
+    <p class="meta"><code>keynote-seg1-kaijuan</code> · 33.3s </p>
+  </div>
+</article>
+<article class="card" data-id="keynote-seg2-caizhi" data-group="ppt-keynote" data-status="historical-render" data-title="片段二「材料变奏」TREATMENT keynote-seg2-caizhi">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/keynote-seg2-caizhi.jpg" alt="片段二「材料变奏」TREATMENT"><button class="play" data-id="keynote-seg2-caizhi" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>片段二「材料变奏」TREATMENT</h3>
+    <p class="meta"><code>keynote-seg2-caizhi</code> · 40.0s </p>
+  </div>
+</article>
+<article class="card" data-id="keynote-seg3-ranbiwa" data-group="ppt-keynote" data-status="historical-render" data-title="片段三「燃比娃与揭晓」TREATMENT keynote-seg3-ranbiwa">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/keynote-seg3-ranbiwa.jpg" alt="片段三「燃比娃与揭晓」TREATMENT"><button class="play" data-id="keynote-seg3-ranbiwa" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>片段三「燃比娃与揭晓」TREATMENT</h3>
+    <p class="meta"><code>keynote-seg3-ranbiwa</code> · 35.0s </p>
+  </div>
+</article>
+<article class="card" data-id="keynote-shared" data-group="ppt-keynote" data-status="support" data-title="上影发布会共用资源 keynote-shared">
+  <div class="thumb"><div class="noposter">北冥</div><span class="novideo">无预览</span><span class="badge muted">共用资源</span></div>
+  <div class="body">
+    <h3>上影发布会共用资源</h3>
+    <p class="meta"><code>keynote-shared</code> </p>
+  </div>
+</article></div>
+</section><section class="group" data-group="local-films">
+  <header class="group-head"><h2>自研动画与预演 <em>12</em></h2><p>豹变四版、九分钟试作、机械动画、交互页面与技术预演。</p></header>
+  <div class="grid"><article class="card" data-id="local-anime-pv" data-group="local-films" data-status="historical-render" data-title="AFTERGLOW 动画PV local-anime-pv">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/local-anime-pv.jpg" alt="AFTERGLOW 动画PV"><button class="play" data-id="local-anime-pv" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>AFTERGLOW 动画PV</h3>
+    <p class="meta"><code>local-anime-pv</code> · 30.0s </p>
+  </div>
+</article>
+<article class="card" data-id="local-baobian-film" data-group="local-films" data-status="rejected" data-title="豹变四版 local-baobian-film">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/local-baobian-film.jpg" alt="豹变四版"><button class="play" data-id="local-baobian-film" aria-label="播放预览">▶</button><span class="badge bad">画面未获认可</span></div>
+  <div class="body">
+    <h3>豹变四版</h3>
+    <p class="meta"><code>local-baobian-film</code> · 30.0s </p>
+  </div>
+</article>
+<article class="card" data-id="local-beiming-film-9min" data-group="local-films" data-status="rejected" data-title="北冥九分钟 local-beiming-film-9min">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/local-beiming-film-9min.jpg" alt="北冥九分钟"><button class="play" data-id="local-beiming-film-9min" aria-label="播放预览">▶</button><span class="badge bad">画面未获认可</span></div>
+  <div class="body">
+    <h3>北冥九分钟</h3>
+    <p class="meta"><code>local-beiming-film-9min</code> · 9:00.0 </p>
+  </div>
+</article>
+<article class="card" data-id="local-clapperboard-3d" data-group="local-films" data-status="interactive" data-title="三维场记板 local-clapperboard-3d">
+  <div class="thumb"><div class="noposter">北冥</div><span class="novideo">无预览</span><span class="badge wip">交互 / 页面实验</span></div>
+  <div class="body">
+    <h3>三维场记板</h3>
+    <p class="meta"><code>local-clapperboard-3d</code> </p>
+  </div>
+</article>
+<article class="card" data-id="local-fast5-train-previs" data-group="local-films" data-status="previs" data-title="列车动作预演 local-fast5-train-previs">
+  <div class="thumb"><div class="noposter">北冥</div><span class="novideo">无预览</span><span class="badge wip">技术预演</span></div>
+  <div class="body">
+    <h3>列车动作预演</h3>
+    <p class="meta"><code>local-fast5-train-previs</code> </p>
+  </div>
+</article>
+<article class="card" data-id="local-gsap-demo" data-group="local-films" data-status="interactive" data-title="GSAP动效实验 local-gsap-demo">
+  <div class="thumb"><div class="noposter">北冥</div><span class="novideo">无预览</span><span class="badge wip">交互 / 页面实验</span></div>
+  <div class="body">
+    <h3>GSAP动效实验</h3>
+    <p class="meta"><code>local-gsap-demo</code> </p>
+  </div>
+</article>
+<article class="card" data-id="local-hypit-pipeline-film" data-group="local-films" data-status="historical-render" data-title="每一关都有证据 local-hypit-pipeline-film">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/local-hypit-pipeline-film.jpg" alt="每一关都有证据"><button class="play" data-id="local-hypit-pipeline-film" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>每一关都有证据</h3>
+    <p class="meta"><code>local-hypit-pipeline-film</code> · 3:00.0 </p>
+  </div>
+</article>
+<article class="card" data-id="local-sanda-baigujing" data-group="local-films" data-status="historical-render" data-title="三打白骨精 local-sanda-baigujing">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/local-sanda-baigujing.jpg" alt="三打白骨精"><button class="play" data-id="local-sanda-baigujing" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>三打白骨精</h3>
+    <p class="meta"><code>local-sanda-baigujing</code> · 1:33.0 </p>
+  </div>
+</article>
+<article class="card" data-id="local-tenet-highway-previs" data-group="local-films" data-status="previs" data-title="公路动作预演 local-tenet-highway-previs">
+  <div class="thumb"><div class="noposter">北冥</div><span class="novideo">无预览</span><span class="badge wip">技术预演</span></div>
+  <div class="body">
+    <h3>公路动作预演</h3>
+    <p class="meta"><code>local-tenet-highway-previs</code> </p>
+  </div>
+</article>
+<article class="card" data-id="local-three-demo" data-group="local-films" data-status="interactive" data-title="Three基础实验 local-three-demo">
+  <div class="thumb"><div class="noposter">北冥</div><span class="novideo">无预览</span><span class="badge wip">交互 / 页面实验</span></div>
+  <div class="body">
+    <h3>Three基础实验</h3>
+    <p class="meta"><code>local-three-demo</code> </p>
+  </div>
+</article>
+<article class="card" data-id="local-threejs-demo" data-group="local-films" data-status="interactive" data-title="Three人物实验 local-threejs-demo">
+  <div class="thumb"><div class="noposter">北冥</div><span class="novideo">无预览</span><span class="badge wip">交互 / 页面实验</span></div>
+  <div class="body">
+    <h3>Three人物实验</h3>
+    <p class="meta"><code>local-threejs-demo</code> </p>
+  </div>
+</article>
+<article class="card" data-id="local-v8-blender" data-group="local-films" data-status="historical-render" data-title="V8引擎机械动画 local-v8-blender">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/local-v8-blender.jpg" alt="V8引擎机械动画"><button class="play" data-id="local-v8-blender" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>V8引擎机械动画</h3>
+    <p class="meta"><code>local-v8-blender</code> · 6.0s </p>
+  </div>
+</article></div>
+</section><section class="group" data-group="styles">
+  <header class="group-head"><h2>纯代码风格基座 <em>66</em></h2><p>66 部代码风格实验：笔触、材质、排版与信息图的实现集合。</p></header>
+  <div class="grid"><article class="card" data-id="style-01-crayon-book" data-group="styles" data-status="historical-render" data-title="小纸船遇上大雨 · 处理方案（Treatment） style-01-crayon-book">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-01-crayon-book.jpg" alt="小纸船遇上大雨 · 处理方案（Treatment）"><button class="play" data-id="style-01-crayon-book" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>小纸船遇上大雨 · 处理方案（Treatment）</h3>
+    <p class="meta"><code>style-01-crayon-book</code> · 19.8s <span class="tag">crayon-book</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-02-watercolor" data-group="styles" data-status="historical-render" data-title="一滴颜料变锦鲤 style-02-watercolor">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-02-watercolor.jpg" alt="一滴颜料变锦鲤"><button class="play" data-id="style-02-watercolor" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>一滴颜料变锦鲤</h3>
+    <p class="meta"><code>style-02-watercolor</code> · 19.0s <span class="tag">watercolor</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-03-ink-wash" data-group="styles" data-status="historical-render" data-title="鹤出留白 · 中国水墨风格样片（19.0 s） style-03-ink-wash">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-03-ink-wash.jpg" alt="鹤出留白 · 中国水墨风格样片（19.0 s）"><button class="play" data-id="style-03-ink-wash" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>鹤出留白 · 中国水墨风格样片（19.0 s）</h3>
+    <p class="meta"><code>style-03-ink-wash</code> · 19.0s <span class="tag">ink-wash</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-04-impasto" data-group="styles" data-status="historical-render" data-title="红色自行车 · 油画厚涂风格样片（19.5 秒） style-04-impasto">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-04-impasto.jpg" alt="红色自行车 · 油画厚涂风格样片（19.5 秒）"><button class="play" data-id="style-04-impasto" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>红色自行车 · 油画厚涂风格样片（19.5 秒）</h3>
+    <p class="meta"><code>style-04-impasto</code> · 19.5s <span class="tag">impasto</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-05-one-line" data-group="styles" data-status="historical-render" data-title="一根线的早晨 style-05-one-line">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-05-one-line.jpg" alt="一根线的早晨"><button class="play" data-id="style-05-one-line" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>一根线的早晨</h3>
+    <p class="meta"><code>style-05-one-line</code> · 19.8s <span class="tag">one-line</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-06-whiteboard" data-group="styles" data-status="historical-render" data-title="天为什么是蓝的 · 白板讲解风格样片 TREATMENT style-06-whiteboard">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-06-whiteboard.jpg" alt="天为什么是蓝的 · 白板讲解风格样片 TREATMENT"><button class="play" data-id="style-06-whiteboard" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>天为什么是蓝的 · 白板讲解风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-06-whiteboard</code> · 19.9s <span class="tag">whiteboard</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-07-shadow-puppet" data-group="styles" data-status="historical-render" data-title="渔夫还珠 · 皮影戏风格样片 style-07-shadow-puppet">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-07-shadow-puppet.jpg" alt="渔夫还珠 · 皮影戏风格样片"><button class="play" data-id="style-07-shadow-puppet" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>渔夫还珠 · 皮影戏风格样片</h3>
+    <p class="meta"><code>style-07-shadow-puppet</code> · 18.0s <span class="tag">shadow-puppet</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-08-ukiyoe" data-group="styles" data-status="historical-render" data-title="一伞三景 style-08-ukiyoe">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-08-ukiyoe.jpg" alt="一伞三景"><button class="play" data-id="style-08-ukiyoe" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>一伞三景</h3>
+    <p class="meta"><code>style-08-ukiyoe</code> · 19.8s <span class="tag">ukiyoe</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-09-papercut-red" data-group="styles" data-status="historical-render" data-title="鲤鱼跃龙门 · 红色窗花剪纸风格样片（19.5 s） style-09-papercut-red">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-09-papercut-red.jpg" alt="鲤鱼跃龙门 · 红色窗花剪纸风格样片（19.5 s）"><button class="play" data-id="style-09-papercut-red" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>鲤鱼跃龙门 · 红色窗花剪纸风格样片（19.5 s）</h3>
+    <p class="meta"><code>style-09-papercut-red</code> · 19.5s <span class="tag">papercut-red</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-10-paper-lantern" data-group="styles" data-status="historical-render" data-title="夜班火车回家 · 纸雕灯影风格样片 TREATMENT style-10-paper-lantern">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-10-paper-lantern.jpg" alt="夜班火车回家 · 纸雕灯影风格样片 TREATMENT"><button class="play" data-id="style-10-paper-lantern" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>夜班火车回家 · 纸雕灯影风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-10-paper-lantern</code> · 19.8s <span class="tag">paper-lantern</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-12-risograph" data-group="styles" data-status="historical-render" data-title="跳水 · Risograph 孔版印刷 风格样片 style-12-risograph">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-12-risograph.jpg" alt="跳水 · Risograph 孔版印刷 风格样片"><button class="play" data-id="style-12-risograph" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>跳水 · Risograph 孔版印刷 风格样片</h3>
+    <p class="meta"><code>style-12-risograph</code> · 19.5s <span class="tag">risograph</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-13-halftone-dossier" data-group="styles" data-status="historical-render" data-title="消失的第十三页 style-13-halftone-dossier">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-13-halftone-dossier.jpg" alt="消失的第十三页"><button class="play" data-id="style-13-halftone-dossier" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>消失的第十三页</h3>
+    <p class="meta"><code>style-13-halftone-dossier</code> · 19.6s <span class="tag">halftone-dossier</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-15-woodcut" data-group="styles" data-status="historical-render" data-title="灯塔守夜 · 木刻版画风格样片 TREATMENT style-15-woodcut">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-15-woodcut.jpg" alt="灯塔守夜 · 木刻版画风格样片 TREATMENT"><button class="play" data-id="style-15-woodcut" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>灯塔守夜 · 木刻版画风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-15-woodcut</code> · 19.0s <span class="tag">woodcut</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-16-swiss-motion" data-group="styles" data-status="historical-render" data-title="TEMPO · 节拍 —— 瑞士动态排版风格样片（19.75 秒） style-16-swiss-motion">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-16-swiss-motion.jpg" alt="TEMPO · 节拍 —— 瑞士动态排版风格样片（19.75 秒）"><button class="play" data-id="style-16-swiss-motion" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>TEMPO · 节拍 —— 瑞士动态排版风格样片（19.75 秒）</h3>
+    <p class="meta"><code>style-16-swiss-motion</code> · 19.8s <span class="tag">swiss-motion</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-17-spy-titles" data-group="styles" data-status="historical-render" data-title="零点密码 · 60s 间谍片头风格样片（TREATMENT） style-17-spy-titles">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-17-spy-titles.jpg" alt="零点密码 · 60s 间谍片头风格样片（TREATMENT）"><button class="play" data-id="style-17-spy-titles" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>零点密码 · 60s 间谍片头风格样片（TREATMENT）</h3>
+    <p class="meta"><code>style-17-spy-titles</code> · 19.9s <span class="tag">spy-titles</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-18-art-deco" data-group="styles" data-status="historical-render" data-title="《落成之夜》TREATMENT · 装饰艺术（Art Deco）风格样片 style-18-art-deco">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-18-art-deco.jpg" alt="《落成之夜》TREATMENT · 装饰艺术（Art Deco）风格样片"><button class="play" data-id="style-18-art-deco" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《落成之夜》TREATMENT · 装饰艺术（Art Deco）风格样片</h3>
+    <p class="meta"><code>style-18-art-deco</code> · 19.2s <span class="tag">art-deco</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-19-blueprint" data-group="styles" data-status="historical-render" data-title="19 · 蓝图 / 工程制图 ——《擒纵机构》 style-19-blueprint">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-19-blueprint.jpg" alt="19 · 蓝图 / 工程制图 ——《擒纵机构》"><button class="play" data-id="style-19-blueprint" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>19 · 蓝图 / 工程制图 ——《擒纵机构》</h3>
+    <p class="meta"><code>style-19-blueprint</code> · 19.7s <span class="tag">blueprint</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-20-stained-glass" data-group="styles" data-status="historical-render" data-title="浴火 · 彩色玻璃窗风格样片 TREATMENT style-20-stained-glass">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-20-stained-glass.jpg" alt="浴火 · 彩色玻璃窗风格样片 TREATMENT"><button class="play" data-id="style-20-stained-glass" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>浴火 · 彩色玻璃窗风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-20-stained-glass</code> · 19.2s <span class="tag">stained-glass</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-21-pictogram-motion" data-group="styles" data-status="historical-render" data-title="一天 · ONE DAY — 象形运动图形样片 Treatment style-21-pictogram-motion">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-21-pictogram-motion.jpg" alt="一天 · ONE DAY — 象形运动图形样片 Treatment"><button class="play" data-id="style-21-pictogram-motion" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>一天 · ONE DAY — 象形运动图形样片 Treatment</h3>
+    <p class="meta"><code>style-21-pictogram-motion</code> · 18.5s <span class="tag">pictogram-motion</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-22-ascii-crt" data-group="styles" data-status="historical-render" data-title="whale.exe —— 处理方案（ASCII / CRT 终端） style-22-ascii-crt">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-22-ascii-crt.jpg" alt="whale.exe —— 处理方案（ASCII / CRT 终端）"><button class="play" data-id="style-22-ascii-crt" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>whale.exe —— 处理方案（ASCII / CRT 终端）</h3>
+    <p class="meta"><code>style-22-ascii-crt</code> · 19.9s <span class="tag">ascii-crt</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-23-dataviz" data-group="styles" data-status="historical-render" data-title="地球的一秒 style-23-dataviz">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-23-dataviz.jpg" alt="地球的一秒"><button class="play" data-id="style-23-dataviz" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>地球的一秒</h3>
+    <p class="meta"><code>style-23-dataviz</code> · 19.8s <span class="tag">dataviz</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-24-iso-infographic" data-group="styles" data-status="historical-render" data-title="一封信的旅程 · 等距信息图 风格样片 TREATMENT style-24-iso-infographic">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-24-iso-infographic.jpg" alt="一封信的旅程 · 等距信息图 风格样片 TREATMENT"><button class="play" data-id="style-24-iso-infographic" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>一封信的旅程 · 等距信息图 风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-24-iso-infographic</code> · 19.8s <span class="tag">iso-infographic</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-25-dark-keynote" data-group="styles" data-status="historical-render" data-title="Lumen · 暗色科技发布 风格样片 —— 导演阐述 style-25-dark-keynote">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-25-dark-keynote.jpg" alt="Lumen · 暗色科技发布 风格样片 —— 导演阐述"><button class="play" data-id="style-25-dark-keynote" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>Lumen · 暗色科技发布 风格样片 —— 导演阐述</h3>
+    <p class="meta"><code>style-25-dark-keynote</code> · 19.8s <span class="tag">dark-keynote</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-26-rubber-hose" data-group="styles" data-status="historical-render" data-title="闹钟起床号 style-26-rubber-hose">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-26-rubber-hose.jpg" alt="闹钟起床号"><button class="play" data-id="style-26-rubber-hose" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>闹钟起床号</h3>
+    <p class="meta"><code>style-26-rubber-hose</code> · 19.7s <span class="tag">rubber-hose</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-27-cel-anime-80s" data-group="styles" data-status="historical-render" data-title="追电车的夏天 style-27-cel-anime-80s">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-27-cel-anime-80s.jpg" alt="追电车的夏天"><button class="play" data-id="style-27-cel-anime-80s" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>追电车的夏天</h3>
+    <p class="meta"><code>style-27-cel-anime-80s</code> · 19.5s <span class="tag">cel-anime-80s</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-28-scifi-toon" data-group="styles" data-status="historical-render" data-title="《冷冻柜》 TREATMENT style-28-scifi-toon">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-28-scifi-toon.jpg" alt="《冷冻柜》 TREATMENT"><button class="play" data-id="style-28-scifi-toon" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《冷冻柜》 TREATMENT</h3>
+    <p class="meta"><code>style-28-scifi-toon</code> · 19.8s <span class="tag">scifi-toon</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-29-pixel-rpg" data-group="styles" data-status="historical-render" data-title="宝箱怪 style-29-pixel-rpg">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-29-pixel-rpg.jpg" alt="宝箱怪"><button class="play" data-id="style-29-pixel-rpg" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>宝箱怪</h3>
+    <p class="meta"><code>style-29-pixel-rpg</code> · 19.6s <span class="tag">pixel-rpg</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-31-hd-2d" data-group="styles" data-status="historical-render" data-title="港口集市 · 风格样片 TREATMENT style-31-hd-2d">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-31-hd-2d.jpg" alt="港口集市 · 风格样片 TREATMENT"><button class="play" data-id="style-31-hd-2d" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>港口集市 · 风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-31-hd-2d</code> · 19.0s <span class="tag">hd-2d</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-32-microgame" data-group="styles" data-status="historical-render" data-title="四连关 style-32-microgame">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-32-microgame.jpg" alt="四连关"><button class="play" data-id="style-32-microgame" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>四连关</h3>
+    <p class="meta"><code>style-32-microgame</code> · 19.5s <span class="tag">microgame</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-33-game-show" data-group="styles" data-status="historical-render" data-title="节奏猜动物 style-33-game-show">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-33-game-show.jpg" alt="节奏猜动物"><button class="play" data-id="style-33-game-show" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>节奏猜动物</h3>
+    <p class="meta"><code>style-33-game-show</code> · 19.8s <span class="tag">game-show</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-34-silent-film" data-group="styles" data-status="historical-render" data-title="《追帽子》TREATMENT · 1920s 默片 style-34-silent-film">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-34-silent-film.jpg" alt="《追帽子》TREATMENT · 1920s 默片"><button class="play" data-id="style-34-silent-film" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《追帽子》TREATMENT · 1920s 默片</h3>
+    <p class="meta"><code>style-34-silent-film</code> · 19.9s <span class="tag">silent-film</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-36-backrooms" data-group="styles" data-status="historical-render" data-title="《交接录像》TREATMENT（后室 / 新怪谈 · 风格样片 36） style-36-backrooms">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-36-backrooms.jpg" alt="《交接录像》TREATMENT（后室 / 新怪谈 · 风格样片 36）"><button class="play" data-id="style-36-backrooms" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《交接录像》TREATMENT（后室 / 新怪谈 · 风格样片 36）</h3>
+    <p class="meta"><code>style-36-backrooms</code> · 19.2s <span class="tag">backrooms</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-37-brick-toy" data-group="styles" data-status="historical-render" data-title="37 · 积木玩具《积木小屋变船》— 导演阐述 style-37-brick-toy">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-37-brick-toy.jpg" alt="37 · 积木玩具《积木小屋变船》— 导演阐述"><button class="play" data-id="style-37-brick-toy" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>37 · 积木玩具《积木小屋变船》— 导演阐述</h3>
+    <p class="meta"><code>style-37-brick-toy</code> · 19.2s <span class="tag">brick-toy</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-41-paper-popup" data-group="styles" data-status="historical-render" data-title="《纸龙》TREATMENT style-41-paper-popup">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-41-paper-popup.jpg" alt="《纸龙》TREATMENT"><button class="play" data-id="style-41-paper-popup" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《纸龙》TREATMENT</h3>
+    <p class="meta"><code>style-41-paper-popup</code> · 19.8s <span class="tag">paper-popup</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-42-tilt-shift" data-group="styles" data-status="historical-render" data-title="港口一日 style-42-tilt-shift">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-42-tilt-shift.jpg" alt="港口一日"><button class="play" data-id="style-42-tilt-shift" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>港口一日</h3>
+    <p class="meta"><code>style-42-tilt-shift</code> · 19.8s <span class="tag">tilt-shift</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-43-lowpoly-island" data-group="styles" data-status="historical-render" data-title="风车的一天 style-43-lowpoly-island">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-43-lowpoly-island.jpg" alt="风车的一天"><button class="play" data-id="style-43-lowpoly-island" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>风车的一天</h3>
+    <p class="meta"><code>style-43-lowpoly-island</code> · 19.8s <span class="tag">lowpoly-island</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-44-glass-product" data-group="styles" data-status="historical-render" data-title="棱光 PRISM：处理方案 style-44-glass-product">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-44-glass-product.jpg" alt="棱光 PRISM：处理方案"><button class="play" data-id="style-44-glass-product" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>棱光 PRISM：处理方案</h3>
+    <p class="meta"><code>style-44-glass-product</code> · 19.8s <span class="tag">glass-product</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-45-urban-sketch" data-group="styles" data-status="historical-render" data-title="早餐铺开门 · 钢笔淡彩风格样片 TREATMENT style-45-urban-sketch">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-45-urban-sketch.jpg" alt="早餐铺开门 · 钢笔淡彩风格样片 TREATMENT"><button class="play" data-id="style-45-urban-sketch" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>早餐铺开门 · 钢笔淡彩风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-45-urban-sketch</code> · 19.5s <span class="tag">urban-sketch</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-46-living-screencast" data-group="styles" data-status="historical-render" data-title="《逃跑的周报》处理方案（活体实机录屏 · 风格样片） style-46-living-screencast">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-46-living-screencast.jpg" alt="《逃跑的周报》处理方案（活体实机录屏 · 风格样片）"><button class="play" data-id="style-46-living-screencast" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《逃跑的周报》处理方案（活体实机录屏 · 风格样片）</h3>
+    <p class="meta"><code>style-46-living-screencast</code> · 19.2s <span class="tag">living-screencast</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-48-midcentury-toon" data-group="styles" data-status="historical-render" data-title="明日早晨 style-48-midcentury-toon">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-48-midcentury-toon.jpg" alt="明日早晨"><button class="play" data-id="style-48-midcentury-toon" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>明日早晨</h3>
+    <p class="meta"><code>style-48-midcentury-toon</code> · 19.9s <span class="tag">midcentury-toon</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-52-hologram-hud" data-group="styles" data-status="historical-render" data-title="52 · 科幻全息界面《种子扫描》— 导演阐述 style-52-hologram-hud">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-52-hologram-hud.jpg" alt="52 · 科幻全息界面《种子扫描》— 导演阐述"><button class="play" data-id="style-52-hologram-hud" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>52 · 科幻全息界面《种子扫描》— 导演阐述</h3>
+    <p class="meta"><code>style-52-hologram-hud</code> · 19.4s <span class="tag">hologram-hud</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-53-engraving" data-group="styles" data-status="historical-render" data-title="博物志·鹦鹉螺 · 铜版画风格样片 TREATMENT style-53-engraving">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-53-engraving.jpg" alt="博物志·鹦鹉螺 · 铜版画风格样片 TREATMENT"><button class="play" data-id="style-53-engraving" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>博物志·鹦鹉螺 · 铜版画风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-53-engraving</code> · 20.0s <span class="tag">engraving</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-54-silkscreen-poster" data-group="styles" data-status="historical-render" data-title="岛屿之光 · 丝印旅行海报（风格样片 54） style-54-silkscreen-poster">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-54-silkscreen-poster.jpg" alt="岛屿之光 · 丝印旅行海报（风格样片 54）"><button class="play" data-id="style-54-silkscreen-poster" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>岛屿之光 · 丝印旅行海报（风格样片 54）</h3>
+    <p class="meta"><code>style-54-silkscreen-poster</code> · 19.2s <span class="tag">silkscreen-poster</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-55-satellite-briefing" data-group="styles" data-status="historical-render" data-title="后退的冰川 style-55-satellite-briefing">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-55-satellite-briefing.jpg" alt="后退的冰川"><button class="play" data-id="style-55-satellite-briefing" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>后退的冰川</h3>
+    <p class="meta"><code>style-55-satellite-briefing</code> · 19.5s <span class="tag">satellite-briefing</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-56-briefing-board" data-group="styles" data-status="historical-render" data-title="悬索桥为何不倒 style-56-briefing-board">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-56-briefing-board.jpg" alt="悬索桥为何不倒"><button class="play" data-id="style-56-briefing-board" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>悬索桥为何不倒</h3>
+    <p class="meta"><code>style-56-briefing-board</code> · 19.9s <span class="tag">briefing-board</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-57-lidar-survey" data-group="styles" data-status="historical-render" data-title="火山口 style-57-lidar-survey">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-57-lidar-survey.jpg" alt="火山口"><button class="play" data-id="style-57-lidar-survey" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>火山口</h3>
+    <p class="meta"><code>style-57-lidar-survey</code> · 19.3s <span class="tag">lidar-survey</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-58-white-model" data-group="styles" data-status="historical-render" data-title="涨潮一米 style-58-white-model">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-58-white-model.jpg" alt="涨潮一米"><button class="play" data-id="style-58-white-model" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>涨潮一米</h3>
+    <p class="meta"><code>style-58-white-model</code> · 19.5s <span class="tag">white-model</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-59-data-physical" data-group="styles" data-status="historical-render" data-title="一年的雨 · 处理方案（Treatment） style-59-data-physical">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-59-data-physical.jpg" alt="一年的雨 · 处理方案（Treatment）"><button class="play" data-id="style-59-data-physical" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>一年的雨 · 处理方案（Treatment）</h3>
+    <p class="meta"><code>style-59-data-physical</code> · 19.8s <span class="tag">data-physical</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-60-teardown" data-group="styles" data-status="historical-render" data-title="按一下 style-60-teardown">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-60-teardown.jpg" alt="按一下"><button class="play" data-id="style-60-teardown" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>按一下</h3>
+    <p class="meta"><code>style-60-teardown</code> · 19.8s <span class="tag">teardown</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-61-microscope" data-group="styles" data-status="historical-render" data-title="一滴池塘水 style-61-microscope">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-61-microscope.jpg" alt="一滴池塘水"><button class="play" data-id="style-61-microscope" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>一滴池塘水</h3>
+    <p class="meta"><code>style-61-microscope</code> · 19.7s <span class="tag">microscope</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-62-archive-lighttable" data-group="styles" data-status="historical-render" data-title="十二秒 · 档案灯台（Archive Light Table）风格样片 style-62-archive-lighttable">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-62-archive-lighttable.jpg" alt="十二秒 · 档案灯台（Archive Light Table）风格样片"><button class="play" data-id="style-62-archive-lighttable" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>十二秒 · 档案灯台（Archive Light Table）风格样片</h3>
+    <p class="meta"><code>style-62-archive-lighttable</code> · 19.8s <span class="tag">archive-lighttable</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-63-caption-news" data-group="styles" data-status="historical-render" data-title="会用工具的海獭 style-63-caption-news">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-63-caption-news.jpg" alt="会用工具的海獭"><button class="play" data-id="style-63-caption-news" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>会用工具的海獭</h3>
+    <p class="meta"><code>style-63-caption-news</code> · 19.5s <span class="tag">caption-news</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-64-newsreel" data-group="styles" data-status="historical-render" data-title="64 · 1920s 新闻影片 ·《空中竞速》TREATMENT style-64-newsreel">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-64-newsreel.jpg" alt="64 · 1920s 新闻影片 ·《空中竞速》TREATMENT"><button class="play" data-id="style-64-newsreel" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>64 · 1920s 新闻影片 ·《空中竞速》TREATMENT</h3>
+    <p class="meta"><code>style-64-newsreel</code> · 19.8s <span class="tag">newsreel</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-65-countdown" data-group="styles" data-status="historical-render" data-title="T−15 · 实时倒计时分屏 — 导演阐述 style-65-countdown">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-65-countdown.jpg" alt="T−15 · 实时倒计时分屏 — 导演阐述"><button class="play" data-id="style-65-countdown" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>T−15 · 实时倒计时分屏 — 导演阐述</h3>
+    <p class="meta"><code>style-65-countdown</code> · 19.8s <span class="tag">countdown</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-66-city-symphony" data-group="styles" data-status="historical-render" data-title="城市的一天 style-66-city-symphony">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-66-city-symphony.jpg" alt="城市的一天"><button class="play" data-id="style-66-city-symphony" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>城市的一天</h3>
+    <p class="meta"><code>style-66-city-symphony</code> · 19.9s <span class="tag">city-symphony</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-67-visual-investigation" data-group="styles" data-status="historical-render" data-title="大桥的五十九分钟 style-67-visual-investigation">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-67-visual-investigation.jpg" alt="大桥的五十九分钟"><button class="play" data-id="style-67-visual-investigation" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>大桥的五十九分钟</h3>
+    <p class="meta"><code>style-67-visual-investigation</code> · 19.3s <span class="tag">visual-investigation</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-68-kino-montage" data-group="styles" data-status="historical-render" data-title="《大坝》TREATMENT · 构成主义蒙太奇（kino-montage） style-68-kino-montage">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-68-kino-montage.jpg" alt="《大坝》TREATMENT · 构成主义蒙太奇（kino-montage）"><button class="play" data-id="style-68-kino-montage" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《大坝》TREATMENT · 构成主义蒙太奇（kino-montage）</h3>
+    <p class="meta"><code>style-68-kino-montage</code> · 19.5s <span class="tag">kino-montage</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-69-telestrator" data-group="styles" data-status="historical-render" data-title="《那一脚》 TREATMENT — 体育战术板 Sports Telestrator style-69-telestrator">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-69-telestrator.jpg" alt="《那一脚》 TREATMENT — 体育战术板 Sports Telestrator"><button class="play" data-id="style-69-telestrator" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《那一脚》 TREATMENT — 体育战术板 Sports Telestrator</h3>
+    <p class="meta"><code>style-69-telestrator</code> · 19.8s <span class="tag">telestrator</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-70-news-package" data-group="styles" data-status="historical-render" data-title="《本周天气》 · 电视新闻包装 风格样片（19.75 s） style-70-news-package">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-70-news-package.jpg" alt="《本周天气》 · 电视新闻包装 风格样片（19.75 s）"><button class="play" data-id="style-70-news-package" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《本周天气》 · 电视新闻包装 风格样片（19.75 s）</h3>
+    <p class="meta"><code>style-70-news-package</code> · 19.8s <span class="tag">news-package</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-71-memphis-diorama" data-group="styles" data-status="historical-render" data-title="冰淇淋车 style-71-memphis-diorama">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-71-memphis-diorama.jpg" alt="冰淇淋车"><button class="play" data-id="style-71-memphis-diorama" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>冰淇淋车</h3>
+    <p class="meta"><code>style-71-memphis-diorama</code> · 19.2s <span class="tag">memphis-diorama</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-72-transit-map" data-group="styles" data-status="historical-render" data-title="十年 · TEN YEARS — 地铁线路图风格样片 TREATMENT style-72-transit-map">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-72-transit-map.jpg" alt="十年 · TEN YEARS — 地铁线路图风格样片 TREATMENT"><button class="play" data-id="style-72-transit-map" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>十年 · TEN YEARS — 地铁线路图风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-72-transit-map</code> · 19.7s <span class="tag">transit-map</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-73-chalkboard" data-group="styles" data-status="historical-render" data-title="三个正方形 —— 黑板粉笔 · 风格样片 73 style-73-chalkboard">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-73-chalkboard.jpg" alt="三个正方形 —— 黑板粉笔 · 风格样片 73"><button class="play" data-id="style-73-chalkboard" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>三个正方形 —— 黑板粉笔 · 风格样片 73</h3>
+    <p class="meta"><code>style-73-chalkboard</code> · 19.9s <span class="tag">chalkboard</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-74-isometric-picture-book" data-group="styles" data-status="historical-render" data-title="面包店的早晨 style-74-isometric-picture-book">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-74-isometric-picture-book.jpg" alt="面包店的早晨"><button class="play" data-id="style-74-isometric-picture-book" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>面包店的早晨</h3>
+    <p class="meta"><code>style-74-isometric-picture-book</code> · 19.8s <span class="tag">isometric-picture-book</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-75-printed-long-take" data-group="styles" data-status="historical-render" data-title="雪夜小站 · 印刷长镜头 风格样片 TREATMENT style-75-printed-long-take">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-75-printed-long-take.jpg" alt="雪夜小站 · 印刷长镜头 风格样片 TREATMENT"><button class="play" data-id="style-75-printed-long-take" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>雪夜小站 · 印刷长镜头 风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-75-printed-long-take</code> · 19.9s <span class="tag">printed-long-take</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-76-circuit-board" data-group="styles" data-status="historical-render" data-title="《叮咚》TREATMENT · 电路板风格样片 style-76-circuit-board">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-76-circuit-board.jpg" alt="《叮咚》TREATMENT · 电路板风格样片"><button class="play" data-id="style-76-circuit-board" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>《叮咚》TREATMENT · 电路板风格样片</h3>
+    <p class="meta"><code>style-76-circuit-board</code> · 19.8s <span class="tag">circuit-board</span></p>
+  </div>
+</article>
+<article class="card" data-id="style-77-desktop-flythrough" data-group="styles" data-status="historical-render" data-title="灵感送达 — 桌面穿梭 · 风格样片 TREATMENT style-77-desktop-flythrough">
+  <div class="thumb"><img loading="lazy" src="../cases/previews/style-77-desktop-flythrough.jpg" alt="灵感送达 — 桌面穿梭 · 风格样片 TREATMENT"><button class="play" data-id="style-77-desktop-flythrough" aria-label="播放预览">▶</button><span class="badge ok">历史成片 · 未重渲</span></div>
+  <div class="body">
+    <h3>灵感送达 — 桌面穿梭 · 风格样片 TREATMENT</h3>
+    <p class="meta"><code>style-77-desktop-flythrough</code> · 19.7s <span class="tag">desktop-flythrough</span></p>
+  </div>
+</article></div>
+</section>
+</div></section>
+
+<section class="block" id="vendor"><div class="wrap">
+  <h2>完整基座</h2>
+  <p class="sub">两套外部仓库按固定提交完整收录，保留原始文件、许可证与作者署名；它们作为方法库与画风参照，不冒充北冥原创。</p>
+  <div class="vendor">
+    <div class="card2"><h3>sy-style-100</h3>
+      <p class="commit">331 文件 · 20 风格 / 100 示例 · MIT · XIAOXIONG</p>
+      <p>入口、渲染采样、SDF 光线步进与 18 个 lib 模块；风格命名、构成与复用方法。</p>
+      <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/cases/vendor/sy-style-100">浏览快照 ↗</a></div>
+    <div class="card2"><h3>lemo-opuscar</h3>
+      <p class="commit">2478 文件 · 66 风格 · MIT · LemoLab</p>
+      <p>66 套风格基座、全部 demo、core、导演与技术文档；历史 66 部风格实验的方法来源。</p>
+      <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/cases/vendor/lemo-opuscar">浏览快照 ↗</a></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <p>北冥自有代码与本站点由北冥引擎仓库维护，按 MIT 开放；历史影片、素材与上游快照保留各自原权利范围。</p>
+  <p>SY 与 Lemo 快照的 MIT 许可证与署名见 <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/NOTICES.md">cases/NOTICES.md</a>；外部许可与固定版本见 <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/THIRD-PARTY.md">THIRD-PARTY.md</a>。RAEA 运行时未随仓库分发，按其自身许可使用。</p>
+</div></footer>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true"><div class="box">
+  <video id="player" controls playsinline preload="none"></video>
+  <div class="mbody">
+    <button class="close" id="close">关闭 ✕</button>
+    <h3 id="mtitle"></h3>
+    <p class="mmeta" id="mmeta"></p>
+    <p class="mlinks"><a id="mentry" target="_blank" rel="noreferrer">案例卡与源码映射 ↗</a><a id="mrelease" target="_blank" rel="noreferrer">下载原始影片包 ↗</a></p>
+  </div>
+</div></div>
+
+<script>
+const DATA = {"lab-2026-11-05-beiming-nine-3d": {"title": "北冥九景 · 三维重建与画风试验", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/lab-2026-11-05-beiming-nine-3d.md", "status": "画风实验", "duration": ""}, "lab-2026-11-05-e-paper-15s": {"title": "纸上江山｜北冥 E 组动画试作", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/lab-2026-11-05-e-paper-15s-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/lab-2026-11-05-e-paper-15s.md", "status": "画面未获认可", "duration": "15.0s"}, "lab-2026-11-05-nine-scenes-360": {"title": "北冥 · 九景画风实验", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/lab-2026-11-05-nine-scenes-360.md", "status": "画风实验", "duration": ""}, "lab-2026-11-05-tonal-40": {"title": "北冥引擎 · 色阶实验 01", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/lab-2026-11-05-tonal-40.md", "status": "画风实验", "duration": ""}, "ppt-before-sunset": {"title": "日落之前", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-before-sunset-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/ppt-before-sunset.md", "status": "历史成片 · 未重渲", "duration": "2:50.8"}, "ppt-dance-mentor": {"title": "她的舞蹈导师", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-dance-mentor-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/ppt-dance-mentor.md", "status": "历史成片 · 未重渲", "duration": "2:42.7"}, "ppt-in-sight": {"title": "目之所及", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-in-sight-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/ppt-in-sight.md", "status": "历史成片 · 未重渲", "duration": "3:04.1"}, "ppt-jianlong": {"title": "见龙", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-jianlong-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/ppt-jianlong.md", "status": "历史成片 · 未重渲", "duration": "3:14.5"}, "ppt-new-year-street": {"title": "这条街照常过年", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-new-year-street-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/ppt-new-year-street.md", "status": "历史成片 · 未重渲", "duration": "2:04.8"}, "ppt-painting-treasure": {"title": "画境追宝", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-painting-treasure-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/ppt-painting-treasure.md", "status": "历史成片 · 未重渲", "duration": "3:57.0"}, "ppt-understands-you": {"title": "懂你的人", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-understands-you-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/ppt-understands-you.md", "status": "历史成片 · 未重渲", "duration": "3:05.6"}, "keynote-B-kaitou": {"title": "方案 B《片库之夜》20 秒开头 · 导演阐述（TREATMENT）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/keynote-B-kaitou-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/keynote-B-kaitou.md", "status": "历史成片 · 未重渲", "duration": "20.0s"}, "keynote-C-kaitou": {"title": "方案 C《打开》20 秒开头", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/keynote-C-kaitou-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/keynote-C-kaitou.md", "status": "历史成片 · 未重渲", "duration": "20.0s"}, "keynote-C-quanpian": {"title": "方案 C《打开》全片", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/keynote-C-quanpian-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/keynote-C-quanpian.md", "status": "历史成片 · 未重渲", "duration": "3:00.0"}, "keynote-seg1-kaijuan": {"title": "片段一「开卷」TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/keynote-seg1-kaijuan-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/keynote-seg1-kaijuan.md", "status": "历史成片 · 未重渲", "duration": "33.3s"}, "keynote-seg2-caizhi": {"title": "片段二「材料变奏」TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/keynote-seg2-caizhi-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/keynote-seg2-caizhi.md", "status": "历史成片 · 未重渲", "duration": "40.0s"}, "keynote-seg3-ranbiwa": {"title": "片段三「燃比娃与揭晓」TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/keynote-seg3-ranbiwa-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/keynote-seg3-ranbiwa.md", "status": "历史成片 · 未重渲", "duration": "35.0s"}, "keynote-shared": {"title": "上影发布会共用资源", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/keynote-shared.md", "status": "共用资源", "duration": ""}, "local-anime-pv": {"title": "AFTERGLOW 动画PV", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/local-anime-pv-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-anime-pv.md", "status": "历史成片 · 未重渲", "duration": "30.0s"}, "local-baobian-film": {"title": "豹变四版", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/local-baobian-film-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-baobian-film.md", "status": "画面未获认可", "duration": "30.0s"}, "local-beiming-film-9min": {"title": "北冥九分钟", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/local-beiming-film-9min-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-beiming-film-9min.md", "status": "画面未获认可", "duration": "9:00.0"}, "local-clapperboard-3d": {"title": "三维场记板", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-clapperboard-3d.md", "status": "交互 / 页面实验", "duration": ""}, "local-fast5-train-previs": {"title": "列车动作预演", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-fast5-train-previs.md", "status": "技术预演", "duration": ""}, "local-gsap-demo": {"title": "GSAP动效实验", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-gsap-demo.md", "status": "交互 / 页面实验", "duration": ""}, "local-hypit-pipeline-film": {"title": "每一关都有证据", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/local-hypit-pipeline-film-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-hypit-pipeline-film.md", "status": "历史成片 · 未重渲", "duration": "3:00.0"}, "local-sanda-baigujing": {"title": "三打白骨精", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/local-sanda-baigujing-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-sanda-baigujing.md", "status": "历史成片 · 未重渲", "duration": "1:33.0"}, "local-tenet-highway-previs": {"title": "公路动作预演", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-tenet-highway-previs.md", "status": "技术预演", "duration": ""}, "local-three-demo": {"title": "Three基础实验", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-three-demo.md", "status": "交互 / 页面实验", "duration": ""}, "local-threejs-demo": {"title": "Three人物实验", "video": "", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-threejs-demo.md", "status": "交互 / 页面实验", "duration": ""}, "local-v8-blender": {"title": "V8引擎机械动画", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/local-v8-blender-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/local-v8-blender.md", "status": "历史成片 · 未重渲", "duration": "6.0s"}, "style-01-crayon-book": {"title": "小纸船遇上大雨 · 处理方案（Treatment）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-01-crayon-book-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-01-crayon-book.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-02-watercolor": {"title": "一滴颜料变锦鲤", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-02-watercolor-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-02-watercolor.md", "status": "历史成片 · 未重渲", "duration": "19.0s"}, "style-03-ink-wash": {"title": "鹤出留白 · 中国水墨风格样片（19.0 s）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-03-ink-wash-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-03-ink-wash.md", "status": "历史成片 · 未重渲", "duration": "19.0s"}, "style-04-impasto": {"title": "红色自行车 · 油画厚涂风格样片（19.5 秒）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-04-impasto-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-04-impasto.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-05-one-line": {"title": "一根线的早晨", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-05-one-line-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-05-one-line.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-06-whiteboard": {"title": "天为什么是蓝的 · 白板讲解风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-06-whiteboard-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-06-whiteboard.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-07-shadow-puppet": {"title": "渔夫还珠 · 皮影戏风格样片", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-07-shadow-puppet-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-07-shadow-puppet.md", "status": "历史成片 · 未重渲", "duration": "18.0s"}, "style-08-ukiyoe": {"title": "一伞三景", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-08-ukiyoe-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-08-ukiyoe.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-09-papercut-red": {"title": "鲤鱼跃龙门 · 红色窗花剪纸风格样片（19.5 s）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-09-papercut-red-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-09-papercut-red.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-10-paper-lantern": {"title": "夜班火车回家 · 纸雕灯影风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-10-paper-lantern-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-10-paper-lantern.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-12-risograph": {"title": "跳水 · Risograph 孔版印刷 风格样片", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-12-risograph-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-12-risograph.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-13-halftone-dossier": {"title": "消失的第十三页", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-13-halftone-dossier-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-13-halftone-dossier.md", "status": "历史成片 · 未重渲", "duration": "19.6s"}, "style-15-woodcut": {"title": "灯塔守夜 · 木刻版画风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-15-woodcut-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-15-woodcut.md", "status": "历史成片 · 未重渲", "duration": "19.0s"}, "style-16-swiss-motion": {"title": "TEMPO · 节拍 —— 瑞士动态排版风格样片（19.75 秒）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-16-swiss-motion-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-16-swiss-motion.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-17-spy-titles": {"title": "零点密码 · 60s 间谍片头风格样片（TREATMENT）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-17-spy-titles-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-17-spy-titles.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-18-art-deco": {"title": "《落成之夜》TREATMENT · 装饰艺术（Art Deco）风格样片", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-18-art-deco-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-18-art-deco.md", "status": "历史成片 · 未重渲", "duration": "19.2s"}, "style-19-blueprint": {"title": "19 · 蓝图 / 工程制图 ——《擒纵机构》", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-19-blueprint-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-19-blueprint.md", "status": "历史成片 · 未重渲", "duration": "19.7s"}, "style-20-stained-glass": {"title": "浴火 · 彩色玻璃窗风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-20-stained-glass-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-20-stained-glass.md", "status": "历史成片 · 未重渲", "duration": "19.2s"}, "style-21-pictogram-motion": {"title": "一天 · ONE DAY — 象形运动图形样片 Treatment", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-21-pictogram-motion-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-21-pictogram-motion.md", "status": "历史成片 · 未重渲", "duration": "18.5s"}, "style-22-ascii-crt": {"title": "whale.exe —— 处理方案（ASCII / CRT 终端）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-22-ascii-crt-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-22-ascii-crt.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-23-dataviz": {"title": "地球的一秒", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-23-dataviz-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-23-dataviz.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-24-iso-infographic": {"title": "一封信的旅程 · 等距信息图 风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-24-iso-infographic-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-24-iso-infographic.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-25-dark-keynote": {"title": "Lumen · 暗色科技发布 风格样片 —— 导演阐述", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-25-dark-keynote-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-25-dark-keynote.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-26-rubber-hose": {"title": "闹钟起床号", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-26-rubber-hose-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-26-rubber-hose.md", "status": "历史成片 · 未重渲", "duration": "19.7s"}, "style-27-cel-anime-80s": {"title": "追电车的夏天", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-27-cel-anime-80s-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-27-cel-anime-80s.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-28-scifi-toon": {"title": "《冷冻柜》 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-28-scifi-toon-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-28-scifi-toon.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-29-pixel-rpg": {"title": "宝箱怪", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-29-pixel-rpg-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-29-pixel-rpg.md", "status": "历史成片 · 未重渲", "duration": "19.6s"}, "style-31-hd-2d": {"title": "港口集市 · 风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-31-hd-2d-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-31-hd-2d.md", "status": "历史成片 · 未重渲", "duration": "19.0s"}, "style-32-microgame": {"title": "四连关", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-32-microgame-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-32-microgame.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-33-game-show": {"title": "节奏猜动物", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-33-game-show-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-33-game-show.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-34-silent-film": {"title": "《追帽子》TREATMENT · 1920s 默片", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-34-silent-film-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-34-silent-film.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-36-backrooms": {"title": "《交接录像》TREATMENT（后室 / 新怪谈 · 风格样片 36）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-36-backrooms-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-36-backrooms.md", "status": "历史成片 · 未重渲", "duration": "19.2s"}, "style-37-brick-toy": {"title": "37 · 积木玩具《积木小屋变船》— 导演阐述", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-37-brick-toy-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-37-brick-toy.md", "status": "历史成片 · 未重渲", "duration": "19.2s"}, "style-41-paper-popup": {"title": "《纸龙》TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-41-paper-popup-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-41-paper-popup.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-42-tilt-shift": {"title": "港口一日", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-42-tilt-shift-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-42-tilt-shift.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-43-lowpoly-island": {"title": "风车的一天", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-43-lowpoly-island-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-43-lowpoly-island.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-44-glass-product": {"title": "棱光 PRISM：处理方案", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-44-glass-product-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-44-glass-product.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-45-urban-sketch": {"title": "早餐铺开门 · 钢笔淡彩风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-45-urban-sketch-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-45-urban-sketch.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-46-living-screencast": {"title": "《逃跑的周报》处理方案（活体实机录屏 · 风格样片）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-46-living-screencast-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-46-living-screencast.md", "status": "历史成片 · 未重渲", "duration": "19.2s"}, "style-48-midcentury-toon": {"title": "明日早晨", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-48-midcentury-toon-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-48-midcentury-toon.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-52-hologram-hud": {"title": "52 · 科幻全息界面《种子扫描》— 导演阐述", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-52-hologram-hud-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-52-hologram-hud.md", "status": "历史成片 · 未重渲", "duration": "19.4s"}, "style-53-engraving": {"title": "博物志·鹦鹉螺 · 铜版画风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-53-engraving-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-53-engraving.md", "status": "历史成片 · 未重渲", "duration": "20.0s"}, "style-54-silkscreen-poster": {"title": "岛屿之光 · 丝印旅行海报（风格样片 54）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-54-silkscreen-poster-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-54-silkscreen-poster.md", "status": "历史成片 · 未重渲", "duration": "19.2s"}, "style-55-satellite-briefing": {"title": "后退的冰川", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-55-satellite-briefing-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-55-satellite-briefing.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-56-briefing-board": {"title": "悬索桥为何不倒", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-56-briefing-board-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-56-briefing-board.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-57-lidar-survey": {"title": "火山口", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-57-lidar-survey-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-57-lidar-survey.md", "status": "历史成片 · 未重渲", "duration": "19.3s"}, "style-58-white-model": {"title": "涨潮一米", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-58-white-model-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-58-white-model.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-59-data-physical": {"title": "一年的雨 · 处理方案（Treatment）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-59-data-physical-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-59-data-physical.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-60-teardown": {"title": "按一下", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-60-teardown-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-60-teardown.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-61-microscope": {"title": "一滴池塘水", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-61-microscope-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-61-microscope.md", "status": "历史成片 · 未重渲", "duration": "19.7s"}, "style-62-archive-lighttable": {"title": "十二秒 · 档案灯台（Archive Light Table）风格样片", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-62-archive-lighttable-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-62-archive-lighttable.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-63-caption-news": {"title": "会用工具的海獭", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-63-caption-news-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-63-caption-news.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-64-newsreel": {"title": "64 · 1920s 新闻影片 ·《空中竞速》TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-64-newsreel-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-64-newsreel.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-65-countdown": {"title": "T−15 · 实时倒计时分屏 — 导演阐述", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-65-countdown-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-65-countdown.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-66-city-symphony": {"title": "城市的一天", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-66-city-symphony-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-66-city-symphony.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-67-visual-investigation": {"title": "大桥的五十九分钟", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-67-visual-investigation-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-67-visual-investigation.md", "status": "历史成片 · 未重渲", "duration": "19.3s"}, "style-68-kino-montage": {"title": "《大坝》TREATMENT · 构成主义蒙太奇（kino-montage）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-68-kino-montage-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-68-kino-montage.md", "status": "历史成片 · 未重渲", "duration": "19.5s"}, "style-69-telestrator": {"title": "《那一脚》 TREATMENT — 体育战术板 Sports Telestrator", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-69-telestrator-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-69-telestrator.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-70-news-package": {"title": "《本周天气》 · 电视新闻包装 风格样片（19.75 s）", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-70-news-package-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-70-news-package.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-71-memphis-diorama": {"title": "冰淇淋车", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-71-memphis-diorama-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-71-memphis-diorama.md", "status": "历史成片 · 未重渲", "duration": "19.2s"}, "style-72-transit-map": {"title": "十年 · TEN YEARS — 地铁线路图风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-72-transit-map-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-72-transit-map.md", "status": "历史成片 · 未重渲", "duration": "19.7s"}, "style-73-chalkboard": {"title": "三个正方形 —— 黑板粉笔 · 风格样片 73", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-73-chalkboard-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-73-chalkboard.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-74-isometric-picture-book": {"title": "面包店的早晨", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-74-isometric-picture-book-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-74-isometric-picture-book.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-75-printed-long-take": {"title": "雪夜小站 · 印刷长镜头 风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-75-printed-long-take-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-75-printed-long-take.md", "status": "历史成片 · 未重渲", "duration": "19.9s"}, "style-76-circuit-board": {"title": "《叮咚》TREATMENT · 电路板风格样片", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-76-circuit-board-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-76-circuit-board.md", "status": "历史成片 · 未重渲", "duration": "19.8s"}, "style-77-desktop-flythrough": {"title": "灵感送达 — 桌面穿梭 · 风格样片 TREATMENT", "video": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/style-77-desktop-flythrough-preview.mp4", "entry": "https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/cases/entries/style-77-desktop-flythrough.md", "status": "历史成片 · 未重渲", "duration": "19.7s"}};
+const statusSelect = document.getElementById('status');
+const search = document.getElementById('search');
+const countEl = document.getElementById('count');
+const groups = [...document.querySelectorAll('.group')];
+const cards = [...document.querySelectorAll('.card')];
+let activeGroup = 'all';
+
+function apply() {
+  const q = search.value.trim().toLowerCase();
+  const st = statusSelect.value;
+  let shown = 0;
+  for (const group of groups) {
+    let groupShown = 0;
+    for (const card of group.querySelectorAll('.card')) {
+      const okGroup = activeGroup === 'all' || card.dataset.group === activeGroup;
+      const okStatus = st === 'all' || card.dataset.status === st;
+      const okQuery = !q || card.dataset.title.toLowerCase().includes(q);
+      const show = okGroup && okStatus && okQuery;
+      card.style.display = show ? '' : 'none';
+      if (show) groupShown++;
+    }
+    group.style.display = groupShown ? '' : 'none';
+    shown += groupShown;
+  }
+  countEl.textContent = `显示 ${shown} / ${cards.length}`;
+}
+document.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', b === btn));
+  activeGroup = btn.dataset.group;
+  apply();
+}));
+statusSelect.addEventListener('change', apply);
+search.addEventListener('input', apply);
+apply();
+
+const modal = document.getElementById('modal');
+const player = document.getElementById('player');
+function openModal(id) {
+  const item = DATA[id];
+  if (!item) return;
+  document.getElementById('mtitle').textContent = item.title;
+  document.getElementById('mmeta').textContent = [item.status, item.duration].filter(Boolean).join(' · ');
+  document.getElementById('mentry').href = item.entry;
+  document.getElementById('mrelease').href = 'https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/casebook-2026.11';
+  if (item.video) { player.src = item.video; player.play().catch(() => {}); }
+  modal.classList.add('open');
+}
+function closeModal() { modal.classList.remove('open'); player.pause(); player.removeAttribute('src'); player.load(); }
+document.querySelectorAll('.play').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); openModal(btn.dataset.id); }));
+document.getElementById('close').addEventListener('click', closeModal);
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>
