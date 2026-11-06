@@ -35,8 +35,9 @@ jobs:
         run: python tools/build-showcase.py --out _site/index.html --poster-prefix cases/
       - name: Assemble site
         run: |
-          mkdir -p _site/cases
+          mkdir -p _site/cases _site/media
           cp -r cases/previews _site/cases/previews
+          cp media/shot_1.6.jpg _site/media/shot_1.6.jpg
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
