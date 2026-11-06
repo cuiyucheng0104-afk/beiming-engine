@@ -40,7 +40,7 @@
       "title": "项目记录与结果契约的最小实现",
       "route": "shared",
       "ownerRole": "契约工程师",
-      "status": "planned",
+      "status": "done",
       "dependsOn": [
         "T00"
       ],
@@ -61,7 +61,12 @@
         "拒绝越界路径和不完整输出定义",
         "不把计划 GPU 字段写成已执行 GPU"
       ],
-      "evidence": [],
+      "evidence": [
+        "engine/production/project.js",
+        "tests/production/project.test.mjs",
+        "node --test tests/production/project.test.mjs（13 项通过）",
+        "commit:c16f0b7880ae128ce8ef270395d2d80a7f36f715"
+      ],
       "playbook": "docs/routes/contracts.md"
     },
     {

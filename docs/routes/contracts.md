@@ -1,6 +1,6 @@
 # 数据与模块契约：两条路线如何合作
 
-本页是实施规格。下列 `ProjectSpec / ShotSpec / FrameState / BackendAdapter` **尚未作为引擎 API 实现**。当前可运行入口仍是原 Three 页面与独立 RAEA 示例。JSON 模板供项目记录和实现时参照，现有渲染器不会自动读取它们。
+本页是实施规格。`ProjectSpec` 与 `RenderResult` 的字段校验、路径诊断已在 [`engine/production/project.js`](../../engine/production/project.js) 实现（T01，仅供测试调用，渲染器不读取）；`ShotSpec / FrameState / BackendAdapter` **尚未作为引擎 API 实现**。当前可运行入口仍是原 Three 页面与独立 RAEA 示例。JSON 模板供项目记录和实现时参照，现有渲染器不会自动读取它们。
 
 ## 1. 共用到什么程度
 

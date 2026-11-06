@@ -84,12 +84,13 @@ flowchart LR
 
 ### T01 · 项目记录与结果契约的最小实现
 
-- 路线：`shared`；角色：契约工程师；状态：`planned`。
+- 路线：`shared`；角色：契约工程师；状态：`done`。
 - 依赖：T00。
 - 输入：docs/routes/contracts.md；templates/project-*.json 与 render-result.json。
 - 写入范围：`engine/production/project.js`, `tests/production/project.test.mjs`。
 - 交付：字段校验与路径解析函数；版本不匹配/无效路径诊断。
 - 验收：两条路线均可记录；不强制 RAEA 使用 FrameState；拒绝越界路径和不完整输出定义；不把计划 GPU 字段写成已执行 GPU。
+- 证据：`engine/production/project.js`、`tests/production/project.test.mjs`；`node --test tests/production/project.test.mjs` 13 项通过；实现提交 `c16f0b7`。校验器只在测试中被调用，渲染器仍不读取项目记录。
 - 详细指引：[contracts.md](contracts.md)。
 
 ### T02 · 统一资产身份与可回读验证
