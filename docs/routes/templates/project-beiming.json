@@ -1,0 +1,14 @@
+{
+  "$comment": "设计模板。当前渲染器不读取此文件；不是新的已实现配置API。",
+  "schemaVersion": 1,
+  "projectId": "beiming-style-reference",
+  "route": "beiming",
+  "backend": "three",
+  "entry": "index.html",
+  "runtime": { "three": "0.170.0", "sourceCommit": "21ed1b10164a94a4fc0d7cf3973934d0f21f301f" },
+  "output": { "width": 1920, "height": 1040, "fps": 24, "frameCount": 240, "outputDir": "out/" },
+  "style": { "id": "beiming-original", "version": "v1", "baseline": "media/shot_7.6.jpg" },
+  "assets": { "manifest": "assets/plates/plates.json", "scope": "现有底板清单；完整资产清单待实现" },
+  "audio": { "sampleRate": 48000, "channels": 2, "targetLUFS": -14, "truePeakLimitDbTP": -1.2 },
+  "execution": { "target": "windows-rtx", "graphicsBackend": "ANGLE-vulkan", "evidence": null }
+}

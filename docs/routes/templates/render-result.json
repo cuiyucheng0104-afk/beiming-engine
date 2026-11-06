@@ -1,0 +1,19 @@
+{
+  "$comment": "未执行模板，不能据此声称渲染成功。",
+  "schemaVersion": 1,
+  "projectId": null,
+  "shotId": null,
+  "status": "not-run",
+  "route": null,
+  "backend": null,
+  "sourceCommit": null,
+  "runtimeVersion": null,
+  "assetManifestHash": null,
+  "actualDevice": null,
+  "actualGraphicsBackend": null,
+  "actualEncoder": null,
+  "output": { "file": null, "sha256": null, "width": null, "height": null, "fps": null, "frames": null, "duration": null },
+  "timing": { "setupSeconds": null, "renderSeconds": null, "encodeSeconds": null, "sharedLoad": null },
+  "technicalAcceptance": { "status": "not-run", "evidence": [] },
+  "creativeAcceptance": { "status": "not-reviewed", "events": [], "styleComparison": [], "issues": [] }
+}

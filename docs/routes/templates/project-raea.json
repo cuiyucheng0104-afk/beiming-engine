@@ -1,0 +1,14 @@
+{
+  "$comment": "设计模板。当前独立示例参数仍写在TSX/脚本中，本文件未被渲染器读取。",
+  "schemaVersion": 1,
+  "projectId": "raea-native-reference",
+  "route": "raea",
+  "backend": "raea",
+  "entry": "examples/raea/film.tsx",
+  "runtime": { "package": "0.1.0-canary.2", "sourceSnapshot": "fb3f70844e03cc40185e3a06c394060d26c5cd38" },
+  "output": { "width": 1920, "height": 1040, "fps": 24, "frameCount": 240, "outputDir": "examples/raea/delivery/" },
+  "style": { "id": "native-custom", "version": "v1", "baseline": null },
+  "assets": { "manifest": "examples/raea/media/prepared.json", "scope": "当前示例生成的输入哈希" },
+  "audio": { "sampleRate": 48000, "channels": 2, "targetLUFS": -14, "truePeakLimitDbTP": -1.2 },
+  "execution": { "target": "windows-rtx", "graphicsBackend": "vulkan", "evidence": null }
+}

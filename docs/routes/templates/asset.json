@@ -1,0 +1,18 @@
+{
+  "$comment": "字段模板，null 必须由实际导出/检查填入；不是通过记录。",
+  "id": "actor-main",
+  "file": "media/actor.glb",
+  "sourceVersion": null,
+  "sha256": null,
+  "units": "meters",
+  "upAxis": "+Y",
+  "forwardAxis": "+X",
+  "boundsXYZ": null,
+  "triangles": null,
+  "skinCount": null,
+  "boneCount": null,
+  "clips": [],
+  "morphTargets": null,
+  "materials": { "albedoColorSpace": "sRGB", "bakedLighting": false, "alphaMode": "opaque" },
+  "verification": { "structural": null, "roundTrip": null, "motion": null }
+}

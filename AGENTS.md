@@ -2,6 +2,16 @@
 
 开始制作前先读 [ROUTES.md](ROUTES.md)，选择 **北冥风格路线** 或 **RAEA 原生路线**。路线与渲染后端是两个概念，不要把所有任务统一套进一个已有示例。
 
+详细操作入口在 [docs/routes/README.md](docs/routes/README.md)。北冥风格、原生场景、接口和 QA 各有手册，不能只读本文件就假定所有能力已实现。
+
+## 工程分工与多代理
+
+- 使用 `npm run routes:check` 核对计划，用 `npm run routes:next -- --route beiming` 或 `--route raea` 找到依赖已满足的任务。该工具只读，不执行任务。
+- 用户要求多代理时，按 [工作分解](docs/routes/work-breakdown.md) 分配互不重叠的写入范围。共享契约、根文档和工作状态由集成负责人统一维护。
+- [work-plan.json](docs/routes/work-plan.json) 的 T 编号是跨路线任务状态源；各手册 A/R/V 编号只是局部步骤。完成任务必须填写真实证据，不因文档写完而把代码实现标完成。
+- 子代理返回任务 ID、基线提交、实际改动、运行命令及结果、产物、未完成项。集成者复核后更新状态。
+- 两条路线可以独立推进。RAEA 原生作品不必等待北冥 FrameState 或风格适配器完成。
+
 ## 路线选择
 
 - 延续北冥画风、精确风格控制或参考图风格实验：优先北冥风格路线，先读 `engine/` 的相关模块和原版 `src/`。

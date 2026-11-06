@@ -13,7 +13,10 @@
     "setup": "npm install && npx playwright-core install chromium-headless-shell",
     "raea:prepare": "node examples/raea/tools/prepare.mjs",
     "raea:check": "node examples/raea/tools/render.mjs --check-only",
-    "raea:render": "node examples/raea/tools/render.mjs"
+    "raea:render": "node examples/raea/tools/render.mjs",
+    "routes:check": "node tools/work-plan.mjs --check",
+    "routes:next": "node tools/work-plan.mjs --ready",
+    "test:routes": "node --test tools/work-plan.test.mjs"
   },
   "dependencies": {
     "three": "0.170.0",

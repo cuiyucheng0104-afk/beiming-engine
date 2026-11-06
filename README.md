@@ -135,6 +135,8 @@ docs/            作品说明 · 渲染与 4K 实测 · RTX 工作站指南
 
 路线决定作品怎样组织，后端决定画面怎样执行。未来 agent 从 [路线选择](ROUTES.md) 和 [AGENTS.md](AGENTS.md) 开始；RAEA 原生路线不必套用北冥的现有材质与笔触。
 
+需要具体开工步骤，进入 [双路线工程手册](docs/routes/README.md)：包含模块与参数定位、接口模板、5090 验收和 [21 项可分派任务](docs/routes/work-breakdown.md)。`npm run routes:next -- --route beiming` 或 `--route raea` 可列出依赖已满足的下一项工作。
+
 同一套鲲、渡船与绘画底板，已完成 RAEA / Bevy 原生 10 秒渲染实验。源码对照、资产转换、可运行示例和后续集成步骤现已入库：
 
 | 内容 | 入口 |

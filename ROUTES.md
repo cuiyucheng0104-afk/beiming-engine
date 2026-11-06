@@ -2,6 +2,24 @@
 
 北冥仓库提供两条路线：**北冥风格路线**和 **RAEA 原生路线**。路线决定创作与工程组织方式；后端决定画面在哪里执行。两者分开选择。
 
+## 从路线进入工程
+
+| 工程入口 | 包含什么 |
+|---|---|
+| [双路线工程手册](docs/routes/README.md) | 阅读顺序、现状与可执行命令 |
+| [北冥风格路线详解](docs/routes/beiming-style.md) | 真实模块和参数、变量实验、动作与画风扩展步骤 |
+| [RAEA 原生路线详解](docs/routes/raea-native.md) | 原生 SDK、独立项目、场景/模型/材质、故障与运行步骤 |
+| [数据与模块契约](docs/routes/contracts.md) | 字段、单位、时钟、生命周期和失败语义 |
+| [验收与 5090 执行](docs/routes/validation-and-rtx.md) | 技术、视觉、动作和受控性能验证 |
+| [21 项工作分解](docs/routes/work-breakdown.md) | 负责人、依赖、输入、写入范围、交付和完成条件 |
+
+```sh
+npm run routes:next -- --route beiming
+npm run routes:next -- --route raea
+```
+
+上述命令只列计划，不启动渲染。状态以 [work-plan.json](docs/routes/work-plan.json) 为准，待实现接口明确标注为设计稿。
+
 ## A · 北冥风格路线
 
 以北冥的造型、绘画、色阶、墨线、底板、分层动画和后期体系为基础，继续发展有辨识度的画风。RAEA 的场景组织、角色目标、动画和原生能力用于完善这套体系。

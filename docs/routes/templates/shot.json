@@ -1,0 +1,20 @@
+{
+  "$comment": "拟议人物事件示例，非已渲染镜头。",
+  "id": "S001",
+  "inFrame": 0,
+  "outFrame": 144,
+  "backend": "three",
+  "cameraTrack": "camera.notice-kun",
+  "actorTracks": ["girl.notice", "kun.pass"],
+  "actorClockOrigin": { "girl.notice": "shot", "kun.pass": "film" },
+  "worldTrack": "ferry-dawn",
+  "lookPreset": "beiming-original@v1",
+  "stateBefore": "girl-holds-rail",
+  "stateAfter": "girl-looks-at-kun",
+  "evaluation": "absolute",
+  "visibleEvents": [
+    { "atFrame": 24, "event": "阴影经过，手上动作停住" },
+    { "atFrame": 60, "event": "头与眼睛开始朝向鲲" },
+    { "atFrame": 108, "event": "视线锁定，手指从扶栏放松" }
+  ]
+}
