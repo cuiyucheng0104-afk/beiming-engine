@@ -6,3 +6,5 @@ audio/samples/
 __pycache__/
 *.pyc
 .DS_Store
+examples/raea/media/
+examples/raea/delivery/

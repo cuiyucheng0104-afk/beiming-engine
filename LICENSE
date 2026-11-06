@@ -22,6 +22,9 @@ SOFTWARE.
 
 ---
 
-上述 MIT 许可只覆盖源代码（engine/、src/、lab/、audio/*.py、tools/、构建脚本）。
+上述 MIT 许可覆盖本项目原创源代码与技术文档（engine/、src/、lab/、audio/*.py、tools/、examples/ 中的原创代码、docs/、构建脚本）。
 影片《北冥》及其画面、底板图（assets/）、设定与展示图（media/）保留所有权利，仅供展示与学习参考。
 字体遵循 SIL Open Font License 1.1，见 fonts/LICENSE.md。
+examples/raea/film.tsx 中内嵌的字体数据同样遵循 OFL，不适用 MIT。
+examples/raea 生成的影片、底板副本及艺术资产不因位于示例目录而变更上述权利范围。
+外部 RAEA 运行时与 SDK 未包含在本仓库，其许可独立于本项目 MIT；详见 docs/raea/README.md。

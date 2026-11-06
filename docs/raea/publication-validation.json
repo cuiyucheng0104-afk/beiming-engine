@@ -1,0 +1,44 @@
+{
+  "runtime": "RAEA 0.1.0-canary.2 (package VERSION)",
+  "backend": "runtime default",
+  "gpuBefore": {
+    "available": false,
+    "busy": false
+  },
+  "probe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1040,
+        "r_frame_rate": "24/1",
+        "nb_read_frames": "240"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "r_frame_rate": "0/0",
+        "nb_read_frames": "469"
+      }
+    ],
+    "format": {
+      "duration": "10.000000",
+      "size": "136279194"
+    }
+  },
+  "sha256": "4c34979bd7adfe17e86593aea8c39726235e689eb5ee2720f43290204913f569",
+  "note": "入库后的路径迁移复现；不是5090性能重测。",
+  "validation_date": "2026-11-06",
+  "platform": "macOS",
+  "black_events": 0,
+  "freeze_events_ge_075s": 0,
+  "loudness_LUFS": -14.02,
+  "true_peak_dBTP": -3.06,
+  "asset_hash_match_prior": {
+    "kun.glb": true,
+    "ferry.glb": true
+  }
+}

@@ -1,0 +1,1236 @@
+{
+  "research_date": "2026-11-06",
+  "raea_runtime": "v0.1.0-canary.2",
+  "citations": [
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/Cargo.toml",
+      "line": 26
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "README.md",
+      "line": 13
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "README.md",
+      "line": 77
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "README.md",
+      "line": 83
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "README.md",
+      "line": 88
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/bundle/src/lib.rs",
+      "line": 49
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/bundle/src/lib.rs",
+      "line": 86
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/bundle/src/lib.rs",
+      "line": 118
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "core/k/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/k/src/wgsl.rs",
+      "line": 31
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/react/src/thread.rs",
+      "line": 38
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/jsengine/src/lib.rs",
+      "line": 125
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/react/src/thread.rs",
+      "line": 7
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/react/src/commits.rs",
+      "line": 81
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/react/src/lib.rs",
+      "line": 110
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/src/bevy_page.rs",
+      "line": 64
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/scene/src/lib.rs",
+      "line": 331
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/native/src/lib.rs",
+      "line": 31
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/native/src/lib.rs",
+      "line": 49
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/shared/src/lib.rs",
+      "line": 56
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/shared/src/lib.rs",
+      "line": 222
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/shared/src/lib.rs",
+      "line": 226
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/native/src/lib.rs",
+      "line": 17
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/native/src/lib.rs",
+      "line": 31
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/native/src/node.rs",
+      "line": 17
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "core/program/src/ir.rs",
+      "line": 28
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "core/program/src/timeline.rs",
+      "line": 22
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "core/wire/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "core/scene/src/lib.rs",
+      "line": 17
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "gpu/device/src/lib.rs",
+      "line": 23
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "gpu/device/src/lib.rs",
+      "line": 42
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/media/src/lib.rs",
+      "line": 47
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/bake/src/lib.rs",
+      "line": 15
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/export/src/render.rs",
+      "line": 111
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/render/src/engine/open.rs",
+      "line": 11
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/render/src/engine/open.rs",
+      "line": 41
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/frame/src/lib.rs",
+      "line": 38
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/render/src/engine/raea_plugins.rs",
+      "line": 40
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/render/src/engine/raea_plugins.rs",
+      "line": 40
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/bevy-plugins/src/lib.rs",
+      "line": 15
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/plugins/src/lib.rs",
+      "line": 52
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/plugins/src/lib.rs",
+      "line": 131
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/plugins/src/lib.rs",
+      "line": 160
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/src/bevy_page.rs",
+      "line": 5
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/src/bevy_page.rs",
+      "line": 30
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/page/src/lib.rs",
+      "line": 67
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/page/src/lib.rs",
+      "line": 144
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/page/src/draw.rs",
+      "line": 315
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/export/src/bevy_frame.rs",
+      "line": 156
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/export/src/bevy_frame.rs",
+      "line": 175
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/src/bevy_page.rs",
+      "line": 73
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/page/src/feed.rs",
+      "line": 15
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/page/src/feed.rs",
+      "line": 94
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/filters/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/canvas/src/lib.rs",
+      "line": 26
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/canvas/src/lib.rs",
+      "line": 44
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/src/bevy_page.rs",
+      "line": 83
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/src/bevy_page.rs",
+      "line": 100
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 18
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 45
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/view/src/gpuview/render.rs",
+      "line": 25
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/view/src/gpuview/render.rs",
+      "line": 71
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/view/src/gpuview/render.rs",
+      "line": 95
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/media/src/lib.rs",
+      "line": 47
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/apple/src/lib.rs",
+      "line": 58
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/apple/src/vt.rs",
+      "line": 150
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/apple/src/vt.rs",
+      "line": 205
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/apple/src/vt.rs",
+      "line": 389
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/src/h264.rs",
+      "line": 35
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/av1/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/ffmpeg/src/lib.rs",
+      "line": 295
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/apple/src/vt.rs",
+      "line": 324
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/apple/src/vt.rs",
+      "line": 344
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/view/src/gpuview/composite.rs",
+      "line": 92
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/apple/src/vt.rs",
+      "line": 379
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/lib.rs",
+      "line": 35
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/lib.rs",
+      "line": 55
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 34
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/page/src/feed.rs",
+      "line": 2
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/media/src/lib.rs",
+      "line": 62
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/media/src/lib.rs",
+      "line": 75
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/frame/src/lib.rs",
+      "line": 240
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 43
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/page/src/motion.rs",
+      "line": 87
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/export/src/lib.rs",
+      "line": 84
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 43
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/frame/src/lib.rs",
+      "line": 240
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/cli/Cargo.toml",
+      "line": 25
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/react/Cargo.toml",
+      "line": 19
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/media/Cargo.toml",
+      "line": 15
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/Cargo.toml",
+      "line": 10
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/src/lib.rs",
+      "line": 208
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/src/lib.rs",
+      "line": 255
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/src/h264.rs",
+      "line": 138
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/src/h264.rs",
+      "line": 149
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/src/h264.rs",
+      "line": 166
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/soft/src/h264.rs",
+      "line": 218
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 258
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "gpu/device/src/lib.rs",
+      "line": 39
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/rt/src/lib.rs",
+      "line": 121
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 96
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "io/media/docs/licences.feature",
+      "line": 45
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/material/src/toon.rs",
+      "line": 25
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/material/src/toon.rs",
+      "line": 119
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/material/src/toon.wesl",
+      "line": 113
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/material/src/toon.wesl",
+      "line": 205
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/material/src/toon_outline.wesl",
+      "line": 56
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/post/src/outline.rs",
+      "line": 28
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/post/src/outline.rs",
+      "line": 44
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/material/src/shader_material.rs",
+      "line": 29
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/material/src/shader_material.rs",
+      "line": 51
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/shader/src/lib.rs",
+      "line": 8
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/shader/src/lib.rs",
+      "line": 33
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/shader/src/lib.rs",
+      "line": 43
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/framepass/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/framepass/src/lib.rs",
+      "line": 100
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/compute/src/lib.rs",
+      "line": 31
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/compute/src/lib.rs",
+      "line": 72
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/frame/src/lib.rs",
+      "line": 311
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/rt/src/lib.rs",
+      "line": 52
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/rt/src/lib.rs",
+      "line": 121
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/rt/src/lib.rs",
+      "line": 147
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "core/program/src/ir.rs",
+      "line": 36
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "core/program/src/timeline.rs",
+      "line": 22
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/bake/src/lib.rs",
+      "line": 15
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/export/src/fed.rs",
+      "line": 54
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/plugins/src/lib.rs",
+      "line": 173
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/plugins/src/lib.rs",
+      "line": 193
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/render/src/engine.rs",
+      "line": 263
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/volume/src/lib.rs",
+      "line": 49
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/volume/src/sim.rs",
+      "line": 357
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/compute/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/compute/src/lib.rs",
+      "line": 186
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "core/k/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/jsengine/src/lib.rs",
+      "line": 37
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/react/src/thread.rs",
+      "line": 92
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/bake/Cargo.toml",
+      "line": 13
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 64
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/page/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "engine/modules/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/jsengine/src/lib.rs",
+      "line": 125
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/export/src/render.rs",
+      "line": 111
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/export/src/render.rs",
+      "line": 150
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 26
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/encode/src/render.rs",
+      "line": 121
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "runtime/export/src/bevy_frame.rs",
+      "line": 183
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/page/src/draw.rs",
+      "line": 218
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/post/src/outline.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/rt/src/lib.rs",
+      "line": 121
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/compose/src/compose.rs",
+      "line": 53
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/contact/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/layout/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/light-meter/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/mix/src/lib.rs",
+      "line": 1
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "systems/ml/src/lib.rs",
+      "line": 19
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "LICENSE",
+      "line": 23
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "LICENSE",
+      "line": 32
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "LICENSE",
+      "line": 43
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "LICENSE",
+      "line": 64
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "LICENSE",
+      "line": 89
+    },
+    {
+      "repository": "shinyobjectz/raea",
+      "commit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+      "path": "NOTICE",
+      "line": 6
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "package.json",
+      "line": 15
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "README.md",
+      "line": 68
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/core/noise.js",
+      "line": 28
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/core/noise.js",
+      "line": 50
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/stage/film.js",
+      "line": 19
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/stage/film.js",
+      "line": 35
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "package.json",
+      "line": 15
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/stage/film.js",
+      "line": 23
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/stage/film.js",
+      "line": 42
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/stage/plates.js",
+      "line": 29
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/stage/plates.js",
+      "line": 48
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/stage/plates.js",
+      "line": 78
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/video.mjs",
+      "line": 25
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/video.mjs",
+      "line": 31
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/video.mjs",
+      "line": 48
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/mux.sh",
+      "line": 9
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/mux.sh",
+      "line": 21
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/page.mjs",
+      "line": 47
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/page.mjs",
+      "line": 89
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/shade/toon.js",
+      "line": 101
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/shade/toon.js",
+      "line": 230
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/look/ink.js",
+      "line": 23
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/look/ink.js",
+      "line": 71
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/look/index.js",
+      "line": 121
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/look/kuwahara.js",
+      "line": 24
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/look/kuwahara.js",
+      "line": 78
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/shade/patch.js",
+      "line": 18
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/shade/patch.js",
+      "line": 51
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/core/clock.js",
+      "line": 11
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/core/math.js",
+      "line": 23
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/core/noise.js",
+      "line": 28
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/stage/film.js",
+      "line": 38
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/video.mjs",
+      "line": 28
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/look/index.js",
+      "line": 137
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/video.mjs",
+      "line": 25
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/video.mjs",
+      "line": 38
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/page.mjs",
+      "line": 55
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/page.mjs",
+      "line": 66
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/page.mjs",
+      "line": 83
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "engine/render/video.mjs",
+      "line": 25
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "LICENSE",
+      "line": 5
+    },
+    {
+      "repository": "cuiyucheng0104-afk/beiming-engine",
+      "commit": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+      "path": "LICENSE",
+      "line": 25
+    }
+  ]
+}

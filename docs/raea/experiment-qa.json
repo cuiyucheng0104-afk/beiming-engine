@@ -1,0 +1,90 @@
+{
+  "version": "RAEA v0.1.0-canary.2",
+  "raea_source": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+  "beiming_source": "a65c172246d04351e3e380f2d5925d2a6ff1950a",
+  "video": {
+    "index": 0,
+    "codec_name": "h264",
+    "width": 1920,
+    "height": 1040,
+    "r_frame_rate": "24/1",
+    "nb_read_frames": "240"
+  },
+  "audio": {
+    "index": 1,
+    "codec_name": "aac",
+    "sample_rate": "48000",
+    "channels": 2,
+    "r_frame_rate": "0/0",
+    "nb_read_frames": "469"
+  },
+  "duration": 10.0,
+  "bytes": 19521074,
+  "ffmpeg_loudness_LUFS": -14.02,
+  "ffmpeg_true_peak_dBTP": -3.06,
+  "black_segments": 0,
+  "freeze_segments_ge_075s": 0,
+  "raea_check": {
+    "file": "delivery/beiming-raea-10s.mp4",
+    "issues": [],
+    "passed": [
+      "loudness: -13.6 LUFS, true peak -3.1 dBTP",
+      "sound: no steady sound stops dead",
+      "frozen: nothing holds still for 3 s",
+      "clipped: all 1 texts fit the frame",
+      "safe areas: no text in the UI zones",
+      "reading: every text holds long enough",
+      "contrast: 1 texts at 3:1 or better against their pixels"
+    ]
+  },
+  "gpu": "NVIDIA GeForce RTX 5090",
+  "backend": "Vulkan; default Windows OpenH264 software encoder",
+  "native_render_statistics": {
+    "direct": true,
+    "fed": true,
+    "frames": 240,
+    "fps_incl_encode": 47.74312765030308,
+    "setup_s": 0.1214558,
+    "finish_s": 0.0288171,
+    "sound_s": 0.0019467,
+    "bytes": 19162814,
+    "video": "h264 (openh264)",
+    "times": {
+      "frames": 240,
+      "fps": 47.96145146300113,
+      "ms_per_frame": {
+        "rules": 0.014892916666666707,
+        "overlay": 0.0004779166666666665,
+        "decode_upload": 0.0005345833333333337,
+        "submit": 0.12477166666666667,
+        "wait": 0.030315833333333337,
+        "copy": 0.4364325000000004,
+        "sink": 0.007049999999999998,
+        "fed": 20.119719999999994,
+        "wall": 20.850077916666667
+      },
+      "uploads": 0,
+      "gpu_ms_per_frame": null
+    }
+  },
+  "benchmark_limitation": "Shared GPU had another workload; this is not a controlled cross-engine benchmark.",
+  "visual_review": "Key camera/eye frames and 4fps full-duration contact sheets inspected; final title rechecked after inline TTF fix.",
+  "limitations": [
+    "Water and city/clouds remain painted/2.5D; not rebuilt as a fully modeled city.",
+    "No human character performance is tested.",
+    "No equivalence claim to Beiming original GLSL ID-outline/Kuwahara.",
+    "Kun eyes use baked gaze and highlights; only eyelid movement is animated."
+  ],
+  "sha256": "e928dab4f9432d41428fca10e12df27668b4061e1cdc45f30d7a0a120980dffb",
+  "playback": {
+    "ended": true,
+    "duration": 10,
+    "width": 1920,
+    "height": 1040,
+    "currentTime": 10,
+    "totalVideoFrames": 240,
+    "droppedVideoFrames": 8
+  },
+  "playback_note": "Headless Chrome reached ended at 10s; its display reported 8 dropped frames. Encoded file contains and fully decodes all 240 frames.",
+  "scope": "2026-11-06 原实验的历史验证，不是本次目录迁移后的新跑分。"
+}

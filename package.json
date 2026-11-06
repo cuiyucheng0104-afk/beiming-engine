@@ -10,7 +10,10 @@
     "stills": "node engine/render/still.mjs . --range 0:9.5:0.5 --out out/stills",
     "video": "node engine/render/video.mjs . --out out/video.mp4",
     "video:4k": "node engine/render/video.mjs . --size 3840x2080 --workers 8 --out out/video_4k.mp4",
-    "setup": "npm install && npx playwright-core install chromium-headless-shell"
+    "setup": "npm install && npx playwright-core install chromium-headless-shell",
+    "raea:prepare": "node examples/raea/tools/prepare.mjs",
+    "raea:check": "node examples/raea/tools/render.mjs --check-only",
+    "raea:render": "node examples/raea/tools/render.mjs"
   },
   "dependencies": {
     "three": "0.170.0",
