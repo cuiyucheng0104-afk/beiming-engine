@@ -1,0 +1,22 @@
+《积木小屋变船》—— 第三方素材与许可
+
+画面
+- 胡桃木桌面纹理 american_walnut_veneer — Poly Haven, https://polyhaven.com/a/american_walnut_veneer — CC0
+- 环境光 HDRI photo_studio_loft_hall — Poly Haven, https://polyhaven.com/a/photo_studio_loft_hall — CC0
+- 茶具模型 tea_set_01 — Poly Haven, https://polyhaven.com/a/tea_set_01 — CC0
+- 台灯模型 desk_lamp_arm_01 — Poly Haven, https://polyhaven.com/a/desk_lamp_arm_01 — CC0
+- 房间木地板：用上面同一张胡桃木纹理在代码里切成拼条重排（CC0）
+- 其余（积木、小人、水、书、铅笔、抹灰墙、踢脚线、窗光斑）均为代码生成，无第三方素材
+
+字体
+- ZCOOL KuaiLe（站酷快乐体），仅「家」一字的子集 fonts/ZCOOLKuaiLe-jia.woff2，来自 Google Fonts
+  https://fonts.google.com/specimen/ZCOOL+KuaiLe — SIL Open Font License 1.1
+
+声音
+- 采样乐器（马林巴、木琴、钢片琴、低音提琴/大提琴/小提琴拨弦、定音鼓、吊镲、木鱼、圆号、尤克里里、陶笛）：
+  Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+- 班卓、八音盒：物理建模拨弦合成（代码生成，无许可要求）
+- 全部拟音与环境声：numpy 程序合成（代码生成）
+
+配乐为本片原创，按 118 BPM 拍点网格以代码写成。
+使用者对片中所用素材自行负责。

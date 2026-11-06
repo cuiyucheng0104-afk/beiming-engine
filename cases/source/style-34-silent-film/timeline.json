@@ -1,0 +1,261 @@
+{
+ "fps": 24,
+ "dur": 19.9167,
+ "sec": {
+  "WALK": {
+   "name": "WALK",
+   "bpm": 120,
+   "beats": 5,
+   "beat": 0.5,
+   "t0": 0,
+   "t1": 2.5,
+   "dur": 2.5,
+   "mood": "Allegretto rag（体面散步）"
+  },
+  "CHASE": {
+   "name": "CHASE",
+   "bpm": 144,
+   "beats": 17,
+   "beat": 0.4166666666666667,
+   "t0": 2.5,
+   "t1": 9.583333333333334,
+   "dur": 7.083333333333334,
+   "mood": "Hurry（追逐，b14 起 undercrank）"
+  },
+  "CARD1": {
+   "name": "CARD1",
+   "bpm": 90,
+   "beats": 4,
+   "beat": 0.6666666666666666,
+   "t0": 9.583333333333334,
+   "t1": 12.25,
+   "dur": 2.6666666666666665,
+   "mood": "Misterioso（那顶帽子……）"
+  },
+  "SIL": {
+   "name": "SIL",
+   "bpm": 90,
+   "beats": 1.5,
+   "beat": 0.6666666666666666,
+   "t0": 12.25,
+   "t1": 13.25,
+   "dur": 1,
+   "mood": "静默（只有放映机）"
+  },
+  "REVEAL": {
+   "name": "REVEAL",
+   "bpm": 90,
+   "beats": 3,
+   "beat": 0.6666666666666666,
+   "t0": 13.25,
+   "t1": 15.25,
+   "dur": 2,
+   "mood": "Scherzando 揭晓"
+  },
+  "CARD2": {
+   "name": "CARD2",
+   "bpm": 90,
+   "beats": 4.5,
+   "beat": 0.6666666666666666,
+   "t0": 15.25,
+   "t1": 18.25,
+   "dur": 3,
+   "mood": "Scherzando 主题（原来是猴子的）"
+  },
+  "END": {
+   "name": "END",
+   "bpm": 90,
+   "beats": 2.5,
+   "beat": 0.6666666666666666,
+   "t0": 18.25,
+   "t1": 19.916666666666668,
+   "dur": 1.6666666666666665,
+   "mood": "收束：举帽、光圈合、幕合"
+  }
+ },
+ "hits": {
+  "start": [
+   "WALK",
+   0
+  ],
+  "tip": [
+   "WALK",
+   2
+  ],
+  "gust": [
+   "WALK",
+   3
+  ],
+  "land": [
+   "WALK",
+   4
+  ],
+  "run": [
+   "CHASE",
+   0
+  ],
+  "curb": [
+   "CHASE",
+   2
+  ],
+  "tramIn": [
+   "CHASE",
+   3
+  ],
+  "nearMiss": [
+   "CHASE",
+   4
+  ],
+  "tramOut": [
+   "CHASE",
+   5
+  ],
+  "hatWall": [
+   "CHASE",
+   6
+  ],
+  "rung1": [
+   "CHASE",
+   7
+  ],
+  "rung2": [
+   "CHASE",
+   8
+  ],
+  "rung3": [
+   "CHASE",
+   9
+  ],
+  "grab": [
+   "CHASE",
+   10
+  ],
+  "wobble": [
+   "CHASE",
+   11
+  ],
+  "fall": [
+   "CHASE",
+   12
+  ],
+  "bark": [
+   "CHASE",
+   13
+  ],
+  "crank": [
+   "CHASE",
+   14
+  ],
+  "step2": [
+   "CHASE",
+   15
+  ],
+  "step3": [
+   "CHASE",
+   16
+  ],
+  "card1": [
+   "CARD1",
+   0
+  ],
+  "c1ding": [
+   "CARD1",
+   1
+  ],
+  "c1mao": [
+   "CARD1",
+   2
+  ],
+  "c1zi": [
+   "CARD1",
+   3
+  ],
+  "c1dots1": [
+   "CARD1",
+   3.5
+  ],
+  "c1dots2": [
+   "CARD1",
+   3.75
+  ],
+  "silence": [
+   "SIL",
+   0
+  ],
+  "twitch": [
+   "SIL",
+   1
+  ],
+  "reveal": [
+   "REVEAL",
+   0
+  ],
+  "look": [
+   "REVEAL",
+   1
+  ],
+  "card2": [
+   "CARD2",
+   0
+  ],
+  "settle": [
+   "CARD2",
+   1
+  ],
+  "bow": [
+   "END",
+   0
+  ],
+  "irisShut": [
+   "END",
+   1
+  ],
+  "curtain": [
+   "END",
+   2
+  ]
+ },
+ "hit": {
+  "start": 0,
+  "tip": 1,
+  "gust": 1.5,
+  "land": 2,
+  "run": 2.5,
+  "curb": 3.333333,
+  "tramIn": 3.75,
+  "nearMiss": 4.166667,
+  "tramOut": 4.583333,
+  "hatWall": 5,
+  "rung1": 5.416667,
+  "rung2": 5.833333,
+  "rung3": 6.25,
+  "grab": 6.666667,
+  "wobble": 7.083333,
+  "fall": 7.5,
+  "bark": 7.916667,
+  "crank": 8.333333,
+  "step2": 8.75,
+  "step3": 9.166667,
+  "card1": 9.583333,
+  "c1ding": 10.25,
+  "c1mao": 10.916667,
+  "c1zi": 11.583333,
+  "c1dots1": 11.916667,
+  "c1dots2": 12.083333,
+  "silence": 12.25,
+  "twitch": 12.916667,
+  "reveal": 13.25,
+  "look": 13.916667,
+  "card2": 15.25,
+  "settle": 15.916667,
+  "bow": 18.25,
+  "irisShut": 18.916667,
+  "curtain": 19.583333
+ },
+ "cuts": [
+  "card1",
+  "silence",
+  "card2",
+  "bow"
+ ]
+}

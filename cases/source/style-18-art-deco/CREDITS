@@ -1,0 +1,20 @@
+《落成之夜》· 装饰艺术风格样片 · 第三方素材与许可
+
+画面：全部由代码绘制（Canvas 2D），无图片、无视频素材。
+  绘制引擎 engine/deco.js、type.js、bulbs.js、cam.js 改编自风格库 art-deco 的示范引擎（随库提供）。
+
+字体（SIL Open Font License 1.1，许可文本见 fonts/OFL-*.txt）
+  Italiana — Santiago Orozco，https://github.com/google/fonts/tree/main/ofl/italiana
+  Poiret One — Denis Masharov，https://github.com/google/fonts/tree/main/ofl/poiretone
+  Limelight — Sorkin Type Co（随工程附带，未在画面中使用）
+  ZCOOL XiaoWei 站酷小薇 — 站酷 / 刘兵克，经 Google Fonts CSS API (&text=) 子集化，仅含“天台顶层落成之夜”八字，https://github.com/google/fonts/tree/main/ofl/zcoolxiaowei
+
+配乐与音效：原创（music/score.py、mix.py），用真实采样 + 物理建模 + numpy 合成。
+  Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  Samples (CC0): Karoryfer Samples / sfzinstruments, VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+  采样乐器：小号（开放/弱音/断奏）、长号、大号、单簧管、中音/次中音萨克斯、爵士低音提琴、立式钢琴、木琴、钟琴、管钟、硬槌颤音琴、竖琴、定音鼓、大鼓、军鼓、镲、悬镲、锣、踩镲、架子鼓 ride。
+  班卓：pluck.py 物理建模（Karplus–Strong），纯合成。
+  全部拟音（刀闸、继电器、灯泡、青铜门闩、门轴、弹簧、烟花、哨音、风、人声嗡嗡）：sfx.py / mix.py 程序合成。
+
+真实素材：本片不含任何下载的影像或数据（不属于剪辑与纪实/实证影像类），故无 material/ 与 FACTS.md。
+片中建筑、表盘、“1929”均为虚构，不指向任何真实建筑或机构。

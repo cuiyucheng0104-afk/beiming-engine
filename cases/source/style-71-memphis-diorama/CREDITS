@@ -1,0 +1,23 @@
+冰淇淋车 Ice-Cream Truck — 孟菲斯微缩景观（memphis-diorama）风格样片
+
+画面：全部由代码绘制（three.js 几何体 + 平涂着色器 + 描边后期 + 颗粒画框），无照片、无素材库图像、无 AI 生成图像。
+引擎 memphis.js / people.js 取自风格库 memphis-diorama 的引擎文件（原作者 Eian，https://github.com/YIAN6557），未改动；
+场景、镜头、时间线（main.js、timeline.js、texts.js）为本片原创。广场、车、"方糖广场"均为虚构。
+
+LIBRARIES
+- three.js r170 (MIT), from the library's node_modules.
+- numpy, scipy, soundfile, soxr (BSD / BSD / BSD / LGPL-2.1), from the library's .venv.
+- numba (BSD), used by pluck.py.
+
+MUSIC & SOUND（原创配乐，mix.py）
+- Samples (CC0): Versilian Community Sample Library (Versilian Studios) — marimba, glockenspiel, harp, claps, shaker, hi-hat, crash cymbals (clash), snare drum 2 (roll)。
+  https://github.com/sgossner/VCSL  — CC0 1.0
+- 八音盒：core/audio/pluck.py 物理建模（music_box 预设），无采样。
+- slap bass、Rhodes 电钢（FM）、合成铜管、底鼓、蹲-弹的 boing、全部拟音与环境声：numpy / scipy 合成（core/audio/sfx.py + mix.py）。
+
+FONTS（tools/fonts.py 用 Google Fonts CSS2 API 的 &text= 子集化，许可证原文在 fonts/）
+- Noto Sans SC 400 / 600 / 800 — SIL Open Font License 1.1 (fonts/OFL-notosanssc.txt)
+- Inter Tight 400 / 600 / 800 — SIL Open Font License 1.1 (fonts/OFL-intertight.txt)
+- IBM Plex Mono 400 — SIL Open Font License 1.1 (fonts/OFL-ibmplexmono.txt)
+
+真实素材：无（本片不使用任何外部影像或照片）。

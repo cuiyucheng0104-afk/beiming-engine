@@ -1,0 +1,10463 @@
+[
+ {
+  "id": "A00G",
+  "file": "leopard_sheet_gold.png",
+  "用途": "玄豹身份设定图（金、带环斑、三格：侧立 / 3/4 背坐 / 3/4 头像），不进画面；A00、A01–A03 的身份参考，WP-02 斑型对照",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": false,
+  "提示词": "Character model sheet of one young leopard (the common spotted leopard, Panthera pardus, sub-adult, about one and a half years old) for a contemporary Chinese 2D animated film, three drawings of the SAME animal on a plain flat ivory background, evenly spaced and not overlapping: (1) full side profile standing, facing right; (2) three-quarter rear view sitting on its haunches, facing away from the viewer toward the upper left, so we see its broad back, the back of its round head and a little of its left cheek; (3) three-quarter head close-up facing right. Powerful, stocky leopard anatomy: big round head with small rounded ears set wide apart, short broad muzzle, strong jaw, thick muscular neck, deep chest, heavy shoulders, thick legs of moderate length with large round paws, a very long thick tail of even thickness, about as long as the body, that curls up at the tip. It must read as a leopard, not a cheetah and not a puma: no black tear lines on the face, no long thin legs, no small head. Warm golden-ochre coat with cream chin, throat and belly. Markings: true leopard rosettes on the back, flanks and upper legs, each rosette an irregular broken ring of three to five thick black ink blotches around a centre slightly darker than the surrounding coat, largest on the flanks, irregular in size and spacing; the head, neck and lower legs carry only small solid black spots; the face around the eyes, the muzzle and the chin are clean; the tail has small rosettes near the base turning into broken rings and two or three dark rings toward the tip. Amber eyes whose iris fills almost the whole visible eye, round black pupils, no visible white. Drawn with the same heavy sumi-ink brush contour as the man in the second reference image: dark ink outline with strong thick-and-thin pressure variation, tapered brush-tip ends and occasional dry-brush breaks, simplified slightly angular forms; flat cel colour with exactly one hard-edged cool slate shadow shape, a few short dry-brush fur strokes inside the shadow only, no gradients, no airbrush, no rim light, no ground shadow, no scenery. The first reference image is an old woodcut of the same species: use it only to identify the animal, its big round head and its rosette pattern, not its drawing style or pose. Use the other reference images only for line weight, brushwork and colour, do not copy their characters. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/ref_woodcut_leopard.png（R01 右页木刻豹裁切，只认物种和环斑）",
+   "films/D_wushan/_work/assets_raw/w3/a04_luwei_sheet_v1.png（线的分量）",
+   "films/D_wushan/_work/refcrops/ref_03c.png"
+  ],
+  "状态": "ok",
+  "备注": "侧视格实测（叠网格，_work/w3/asset_check/a00g_v2_side_grid.png）：体长（鼻尖 x≈965 → 尾根 x≈230）≈735 px；头长 ≈185 px → 头长/体长 0.25（≥0.20 ✓）；前臂最粗 ≈100 px / 肩高 ≈475 px = 0.21（≥0.14 ✓）；尾中段粗 ≈70 px / 头高 ≈135 px = 0.52（≥0.22 ✓）；尾长沿曲线 ≈540 px / 体长 = 0.74（目标 ≥0.8，差一点，尾尖上卷）。圆瞳、无眼白、脸上无泪痕（a00g_v2_heads.png 放大看过）。三格间距 >100 px。背景象牙白不透明，不进画面。",
+  "anchors": {
+   "side_view_bbox_px": [
+    130,
+    50,
+    990,
+    640
+   ],
+   "rear_sit_bbox_px": [
+    990,
+    30,
+    1590,
+    690
+   ],
+   "head_bbox_px": [
+    1590,
+    40,
+    2172,
+    680
+   ],
+   "side_nose_tip_px": [
+    965,
+    140
+   ],
+   "side_tail_root_px": [
+    230,
+    300
+   ],
+   "side_body_len_px": 735,
+   "ratios": {
+    "头长/体长": 0.25,
+    "前臂/肩高": 0.21,
+    "尾中段粗/头高": 0.52,
+    "尾长/体长": 0.74
+   }
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a00g_leopard_sheet_gold_v1.png",
+    "结果": "不用",
+    "原因": "线是匀细卡通线，有地面投影；尾长/体长 ≈0.74"
+   },
+   {
+    "版本": "v2",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a00g_leopard_sheet_gold_v2.png",
+    "做法": "加\"和人物设定同样的浓墨毛笔线\"，拿 A04 v1 当线的参考；去地面投影",
+    "结果": "采用",
+    "原因": "浓墨线有粗细和飞白，冷灰硬边暗部，环斑像金钱豹"
+   },
+   {
+    "版本": "v3",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a00g_leopard_sheet_gold_v3.png",
+    "做法": "v1 提示词 + 尾更长",
+    "结果": "不用",
+    "原因": "线仍偏匀细，和陆蔚的线不是一路"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A00",
+  "file": "leopard_sheet.png",
+  "用途": "灰豹无斑设定图（A00G 编辑去斑换灰），不进画面；姿态图的主参考",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": false,
+  "提示词": "Edit the first reference image. Keep every line, every pose, every proportion, the layout and the plain ivory background exactly the same. Repaint the coat as one uniform flat smoky grey (#8C9390) with a lighter grey-cream chin, throat and belly (#B9BDB5), keep the single hard-edged shadow shapes but in darker slate grey (#555F5E), keep the amber eyes with round pupils. Remove ALL spots, rosettes and tail rings completely, leaving clean flat fur colour where they were. Do not change the outline. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a00g_leopard_sheet_gold_v2.png（编辑底图）",
+   "films/D_wushan/_work/refcrops/ref_01c.png"
+  ],
+  "状态": "ok",
+  "备注": "和 A00G 叠剪影：IoU 0.987，A00 外轮廓 97.8% 的像素离 A00G 外轮廓 ≤4 px（中位 1 px），≥95% ✓。身上无斑（Read 看过）。编辑后暗部变浅、干笔毛略被抹平。",
+  "生成记录": [
+   {
+    "版本": "v1edit",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a00_leopard_sheet_grey_v1edit.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A01",
+  "file": "leopard_sit.png",
+  "用途": "豹坐姿两姿态（3/4 背影朝左上）：A 低头静坐（#03、#04、#09、#10、#12 前半），B 坐直昂首（#12 后半、#13）；无斑灰毛，梯度映射灰→金、豹斑全由着色器加",
+  "尺寸": [
+   1563,
+   724
+  ],
+  "是否透明": true,
+  "提示词": "两步出图。第一步（金豹带斑定造型）：Two drawings side by side of the same young leopard as in the first reference image (the golden model sheet with rosettes; look especially at its middle drawing, the three-quarter rear sitting view), same scale, same viewpoint, generous empty space between them, both sitting on its haunches at a three-quarter rear angle facing away from the viewer toward the upper left of the picture, so we see its broad back, the back of its BIG ROUND HEAD (the head is large, about as wide as the shoulders), both small rounded ears and only a little of its left cheek and whiskers; the muzzle stays hidden behind the cheek. Left drawing: patient and perfectly still in the rain, head a little lowered, shoulders slightly hunched, the thick tail lying along the ground beside its paws. Right drawing: the same animal sitting tall and proud, chest lifted, head raised and looking far toward the upper left, the thick tail curled around its front paws. Same stocky leopard anatomy and the same rosette markings as the model sheet: big round head, thick neck, heavy shoulders, thick forelegs, big paws, long thick tail. Bold brush-ink contour with thick-and-thin variation, flat colour with exactly one hard-edged cool slate shadow shape on the lower and far side, a few dry-brush fur strokes inside the shadow only, no gradients, no rim light, isolated on a transparent background, no ground, no scenery. normal body structure, natural proportions, stable clear face, no text, no watermark｜第二步（编辑去斑换灰）：Edit the first reference image. Keep every line, both poses, every proportion, the layout, the position and size of both animals and the transparent background exactly the same. Repaint the coat as one uniform flat smoky grey (#8C9390) with a lighter grey-cream chin, throat and belly (#B9BDB5), keep the single hard-edged shadow shapes but in darker slate grey (#555F5E). Remove ALL spots, rosettes and tail rings completely, leaving clean flat fur colour where they were, as in the second reference image (the grey model sheet). Do not change the outline. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a00g_leopard_sheet_gold_v2.png",
+   "films/D_wushan/_work/assets_raw/w3/a00_leopard_sheet_grey_v1edit.png",
+   "films/D_wushan/_work/refcrops/ref_03c.png",
+   "（第二步）films/D_wushan/_work/assets_raw/w3/a01_leopard_sit_gold_v2.png"
+  ],
+  "状态": "ok",
+  "备注": "两姿态同比例：脚底基线 A 699 / B 716（差 17 px，B 的尾巴压在脚下更低，爪底线差约 ≤6 px）。四档色阶中心相距 ≥0.18（≥0.08 ✓）。无斑、背影看不到眼（eye=null），只露一点左颊和胡须。px_per_cm：A 坐高 604 px / 62 cm ≈ 9.7，B 701 px / 75 cm ≈ 9.3；体长按 100 cm 记 ≈950 px。alpha 已归一（内部 252–254→255），半透明边 RGB 用内部色回填，裁掉空白。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为叠网格目测，误差约 ±10 px，叠点图见 _work/keypoints/w3_*_kp.jpg",
+  "poses": [
+   {
+    "name": "A",
+    "说明": "低头静坐（#02 尾、#03、#04、#09 眼孔内、#10 背景、#12 前半）",
+    "bbox": {
+     "px": [
+      36,
+      95,
+      617,
+      699
+     ],
+     "uv": [
+      0.023,
+      0.1312,
+      0.3948,
+      0.9655
+     ]
+    },
+    "tones": {
+     "centers_Y": {
+      "线": 0.107,
+      "影": 0.349,
+      "毛": 0.548,
+      "腹": 0.731
+     },
+     "thresholds_Y": [
+      0.228,
+      0.449,
+      0.64
+     ],
+     "colors": {
+      "线": "#1B1B19",
+      "影": "#565958",
+      "毛": "#898C89",
+      "腹": "#BBBBB2"
+     },
+     "fraction": {
+      "线": 0.067,
+      "影": 0.075,
+      "毛": 0.802,
+      "腹": 0.055
+     },
+     "说明": "亮度 Y = 0.2126R+0.7152G+0.0722B（sRGB 0–1），alpha≥0.99 且内收 2 px 的像素上一维 k-means（k=4）；阈值取相邻中心的中点，过渡宽建议 0.02"
+    },
+    "keypoints": {
+     "neck_root": {
+      "px": [
+       150,
+       280
+      ],
+      "uv": [
+       0.096,
+       0.3867
+      ]
+     },
+     "head_center": {
+      "px": [
+       110,
+       175
+      ],
+      "uv": [
+       0.0704,
+       0.2417
+      ]
+     },
+     "ear_l": {
+      "px": [
+       80,
+       115
+      ],
+      "uv": [
+       0.0512,
+       0.1588
+      ]
+     },
+     "ear_r": {
+      "px": [
+       225,
+       130
+      ],
+      "uv": [
+       0.144,
+       0.1796
+      ]
+     },
+     "tail_root": {
+      "px": [
+       380,
+       660
+      ],
+      "uv": [
+       0.2431,
+       0.9116
+      ]
+     },
+     "tail_tip": {
+      "px": [
+       595,
+       655
+      ],
+      "uv": [
+       0.3807,
+       0.9047
+      ]
+     },
+     "eye": null,
+     "muzzle": {
+      "center_px": [
+       60,
+       215
+      ],
+      "center_uv": [
+       0.0384,
+       0.297
+      ],
+      "r_px": [
+       35,
+       40
+      ],
+      "r_uv": [
+       0.0224,
+       0.0552
+      ],
+      "tilt_deg": 0.0
+     },
+     "paws": [
+      {
+       "center_px": [
+        60,
+        640
+       ],
+       "center_uv": [
+        0.0384,
+        0.884
+       ],
+       "r_px": [
+        30,
+        15
+       ],
+       "r_uv": [
+        0.0192,
+        0.0207
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        130,
+        640
+       ],
+       "center_uv": [
+        0.0832,
+        0.884
+       ],
+       "r_px": [
+        35,
+        15
+       ],
+       "r_uv": [
+        0.0224,
+        0.0207
+       ],
+       "tilt_deg": 0.0
+      }
+     ],
+     "belly": {
+      "px": [
+       130,
+       450
+      ],
+      "uv": [
+       0.0832,
+       0.6215
+      ]
+     },
+     "spine": {
+      "px": [
+       [
+        160,
+        140
+       ],
+       [
+        230,
+        280
+       ],
+       [
+        300,
+        430
+       ],
+       [
+        370,
+        600
+       ]
+      ],
+      "uv": [
+       [
+        0.1024,
+        0.1934
+       ],
+       [
+        0.1472,
+        0.3867
+       ],
+       [
+        0.1919,
+        0.5939
+       ],
+       [
+        0.2367,
+        0.8287
+       ]
+      ]
+     },
+     "tail_mid": {
+      "px": [
+       [
+        380,
+        660
+       ],
+       [
+        430,
+        662
+       ],
+       [
+        490,
+        655
+       ],
+       [
+        545,
+        640
+       ],
+       [
+        595,
+        655
+       ]
+      ],
+      "uv": [
+       [
+        0.2431,
+        0.9116
+       ],
+       [
+        0.2751,
+        0.9144
+       ],
+       [
+        0.3135,
+        0.9047
+       ],
+       [
+        0.3487,
+        0.884
+       ],
+       [
+        0.3807,
+        0.9047
+       ]
+      ]
+     },
+     "belly_line": {
+      "px": [
+       [
+        110,
+        320
+       ],
+       [
+        120,
+        450
+       ],
+       [
+        130,
+        600
+       ]
+      ],
+      "uv": [
+       [
+        0.0704,
+        0.442
+       ],
+       [
+        0.0768,
+        0.6215
+       ],
+       [
+        0.0832,
+        0.8287
+       ]
+      ]
+     }
+    },
+    "head_r": 75,
+    "body_len_px": 950,
+    "px_per_cm": 9.7,
+    "spot_unit_px": 66,
+    "spot_unit_说明": "环斑格距 = 体长（鼻尖到尾根）× 7%（PLAN w3 5.3 A01）"
+   },
+   {
+    "name": "B",
+    "说明": "坐直昂首（#12 后半、#13 崖顶）",
+    "bbox": {
+     "px": [
+      1071,
+      15,
+      1538,
+      716
+     ],
+     "uv": [
+      0.6852,
+      0.0207,
+      0.984,
+      0.989
+     ]
+    },
+    "tones": {
+     "centers_Y": {
+      "线": 0.107,
+      "影": 0.344,
+      "毛": 0.546,
+      "腹": 0.729
+     },
+     "thresholds_Y": [
+      0.226,
+      0.445,
+      0.637
+     ],
+     "colors": {
+      "线": "#1B1B1A",
+      "影": "#555856",
+      "毛": "#888C89",
+      "腹": "#BABAB2"
+     },
+     "fraction": {
+      "线": 0.071,
+      "影": 0.067,
+      "毛": 0.811,
+      "腹": 0.051
+     },
+     "说明": "亮度 Y = 0.2126R+0.7152G+0.0722B（sRGB 0–1），alpha≥0.99 且内收 2 px 的像素上一维 k-means（k=4）；阈值取相邻中心的中点，过渡宽建议 0.02"
+    },
+    "keypoints": {
+     "neck_root": {
+      "px": [
+       1290,
+       200
+      ],
+      "uv": [
+       0.8253,
+       0.2762
+      ]
+     },
+     "head_center": {
+      "px": [
+       1270,
+       90
+      ],
+      "uv": [
+       0.8125,
+       0.1243
+      ]
+     },
+     "ear_l": {
+      "px": [
+       1240,
+       30
+      ],
+      "uv": [
+       0.7933,
+       0.0414
+      ]
+     },
+     "ear_r": {
+      "px": [
+       1350,
+       60
+      ],
+      "uv": [
+       0.8637,
+       0.0829
+      ]
+     },
+     "tail_root": {
+      "px": [
+       1420,
+       690
+      ],
+      "uv": [
+       0.9085,
+       0.953
+      ]
+     },
+     "tail_tip": {
+      "px": [
+       1085,
+       620
+      ],
+      "uv": [
+       0.6942,
+       0.8564
+      ]
+     },
+     "eye": null,
+     "muzzle": {
+      "center_px": [
+       1205,
+       115
+      ],
+      "center_uv": [
+       0.771,
+       0.1588
+      ],
+      "r_px": [
+       30,
+       35
+      ],
+      "r_uv": [
+       0.0192,
+       0.0483
+      ],
+      "tilt_deg": 0.0
+     },
+     "paws": [
+      {
+       "center_px": [
+        1180,
+        630
+       ],
+       "center_uv": [
+        0.755,
+        0.8702
+       ],
+       "r_px": [
+        35,
+        15
+       ],
+       "r_uv": [
+        0.0224,
+        0.0207
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        1235,
+        630
+       ],
+       "center_uv": [
+        0.7901,
+        0.8702
+       ],
+       "r_px": [
+        35,
+        15
+       ],
+       "r_uv": [
+        0.0224,
+        0.0207
+       ],
+       "tilt_deg": 0.0
+      }
+     ],
+     "belly": {
+      "px": [
+       1230,
+       350
+      ],
+      "uv": [
+       0.7869,
+       0.4834
+      ]
+     },
+     "spine": {
+      "px": [
+       [
+        1290,
+        60
+       ],
+       [
+        1320,
+        220
+       ],
+       [
+        1360,
+        420
+       ],
+       [
+        1420,
+        640
+       ]
+      ],
+      "uv": [
+       [
+        0.8253,
+        0.0829
+       ],
+       [
+        0.8445,
+        0.3039
+       ],
+       [
+        0.8701,
+        0.5801
+       ],
+       [
+        0.9085,
+        0.884
+       ]
+      ]
+     },
+     "tail_mid": {
+      "px": [
+       [
+        1420,
+        690
+       ],
+       [
+        1300,
+        705
+       ],
+       [
+        1180,
+        700
+       ],
+       [
+        1100,
+        670
+       ],
+       [
+        1085,
+        620
+       ]
+      ],
+      "uv": [
+       [
+        0.9085,
+        0.953
+       ],
+       [
+        0.8317,
+        0.9738
+       ],
+       [
+        0.755,
+        0.9669
+       ],
+       [
+        0.7038,
+        0.9254
+       ],
+       [
+        0.6942,
+        0.8564
+       ]
+      ]
+     },
+     "belly_line": {
+      "px": [
+       [
+        1220,
+        250
+       ],
+       [
+        1230,
+        400
+       ],
+       [
+        1235,
+        560
+       ]
+      ],
+      "uv": [
+       [
+        0.7806,
+        0.3453
+       ],
+       [
+        0.7869,
+        0.5525
+       ],
+       [
+        0.7901,
+        0.7735
+       ]
+      ]
+     }
+    },
+    "head_r": 70,
+    "body_len_px": 950,
+    "px_per_cm": 9.3,
+    "spot_unit_px": 66,
+    "spot_unit_说明": "环斑格距 = 体长（鼻尖到尾根）× 7%（PLAN w3 5.3 A01）"
+   }
+  ],
+  "生成记录": [
+   {
+    "版本": "v1（直接出灰豹）",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a01_leopard_sit_v1.png",
+    "结果": "不用",
+    "原因": "头小、读成美洲狮；右姿态转成侧脸露出吻部；没有硬边暗部"
+   },
+   {
+    "版本": "gold_v2 → v2edit",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a01_leopard_sit_gold_v2.png → films/D_wushan/_work/assets_raw/w3/a01_leopard_sit_v2edit.png",
+    "做法": "PLAN 风险 1 的降级：先出带环斑的金豹姿态定造型，再编辑去斑换灰",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A02",
+  "file": "leopard_leap.png",
+  "用途": "豹跃起四姿态 2×2（严格侧面、朝右）：1 蹲伏、2 起跳、3 拉直、4 收腿滑翔；片中朝左飞要水平翻转",
+  "尺寸": [
+   1530,
+   869
+  ],
+  "是否透明": true,
+  "提示词": "两步出图。第一步（金豹带斑）：Four drawings of the same young leopard as in the first reference image (the golden model sheet with rosettes; match the left drawing, the side view, for head size and body thickness) in a leap sequence, all in strict side view facing right, all at the same scale, arranged in a 2 by 2 grid with generous empty space between them: (1) crouched low, coiled to spring, ears flattened back, weight on the hind legs; (2) launching upward and forward, hind legs pushing off fully extended, front legs reaching up and forward; (3) flying at full stretch, body slightly arched, front legs extended forward, hind legs extended back, the long thick tail streaming behind in a gentle curve; (4) gliding calmly with legs tucked under the body, head level and looking ahead, tail trailing in a soft S-curve. Heavy, powerful leopard anatomy even in full stretch: the BIG ROUND HEAD stays as large as in the model sheet (about a quarter of the body length), deep chest, thick neck, thick legs, big paws, the torso as thick as in the model sheet, never the slim build of a cheetah or a puma. Same rosettes and spots as the model sheet, amber eye with a round pupil. Bold brush-ink contour with thick-and-thin variation, flat colour with exactly one hard-edged cool slate shadow shape, sparse dry-brush fur strokes inside the shadow, no gradients, no rim light, transparent background, no ground, no rock, no motion lines. normal body structure, natural proportions, stable clear face, no text, no watermark｜第二步（编辑去斑换灰）：同 A01 第二步，\"both poses\" 改 \"all four poses\"，并保留圆瞳琥珀小眼。",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a00g_leopard_sheet_gold_v2.png",
+   "films/D_wushan/_work/assets_raw/w3/ref_woodcut_leopard.png",
+   "films/D_wushan/_work/refcrops/ref_01c.png",
+   "（第二步）films/D_wushan/_work/assets_raw/w3/a02_leopard_leap_gold_v2.png、films/D_wushan/_work/assets_raw/w3/a00_leopard_sheet_grey_v1edit.png"
+  ],
+  "状态": "ok",
+  "备注": "四姿态互不相连（4 个主连通域）；四档色阶中心相距 ≥0.145。眼睛是圆瞳琥珀小眼（约 18×14 px），梯度映射时按 eye 椭圆排除。体长（鼻尖到尾根）四姿态 435–490 px，比例差 ≤3% 以头宽计（头半径 50–55 px）；姿态 2 弓身较长。片中豹朝左飞：整张水平翻转后 u→1−u。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为叠网格目测，误差约 ±10 px，叠点图见 _work/keypoints/w3_*_kp.jpg",
+  "poses": [
+   {
+    "name": "1",
+    "说明": "蹲伏蓄力（#14 f517–f518）",
+    "bbox": {
+     "px": [
+      42,
+      105,
+      627,
+      420
+     ],
+     "uv": [
+      0.0275,
+      0.1208,
+      0.4098,
+      0.4833
+     ]
+    },
+    "tones": {
+     "centers_Y": {
+      "线": 0.127,
+      "影": 0.358,
+      "毛": 0.556,
+      "腹": 0.705
+     },
+     "thresholds_Y": [
+      0.243,
+      0.457,
+      0.63
+     ],
+     "colors": {
+      "线": "#20201E",
+      "影": "#585C5A",
+      "毛": "#8B8E8B",
+      "腹": "#B4B4AD"
+     },
+     "fraction": {
+      "线": 0.093,
+      "影": 0.071,
+      "毛": 0.74,
+      "腹": 0.097
+     },
+     "说明": "亮度 Y = 0.2126R+0.7152G+0.0722B（sRGB 0–1），alpha≥0.99 且内收 2 px 的像素上一维 k-means（k=4）；阈值取相邻中心的中点，过渡宽建议 0.02"
+    },
+    "keypoints": {
+     "neck_root": {
+      "px": [
+       450,
+       280
+      ],
+      "uv": [
+       0.2941,
+       0.3222
+      ]
+     },
+     "head_center": {
+      "px": [
+       540,
+       265
+      ],
+      "uv": [
+       0.3529,
+       0.3049
+      ]
+     },
+     "ear": {
+      "px": [
+       490,
+       240
+      ],
+      "uv": [
+       0.3203,
+       0.2762
+      ]
+     },
+     "tail_root": {
+      "px": [
+       160,
+       260
+      ],
+      "uv": [
+       0.1046,
+       0.2992
+      ]
+     },
+     "tail_tip": {
+      "px": [
+       150,
+       142
+      ],
+      "uv": [
+       0.098,
+       0.1634
+      ]
+     },
+     "eye": {
+      "center_px": [
+       570,
+       262
+      ],
+      "center_uv": [
+       0.3725,
+       0.3015
+      ],
+      "r_px": [
+       10,
+       7
+      ],
+      "r_uv": [
+       0.0065,
+       0.0081
+      ],
+      "tilt_deg": 0.0
+     },
+     "muzzle": {
+      "center_px": [
+       600,
+       290
+      ],
+      "center_uv": [
+       0.3922,
+       0.3337
+      ],
+      "r_px": [
+       30,
+       25
+      ],
+      "r_uv": [
+       0.0196,
+       0.0288
+      ],
+      "tilt_deg": 0.0
+     },
+     "paws": [
+      {
+       "center_px": [
+        230,
+        400
+       ],
+       "center_uv": [
+        0.1503,
+        0.4603
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        310,
+        400
+       ],
+       "center_uv": [
+        0.2026,
+        0.4603
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        460,
+        400
+       ],
+       "center_uv": [
+        0.3007,
+        0.4603
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        520,
+        400
+       ],
+       "center_uv": [
+        0.3399,
+        0.4603
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      }
+     ],
+     "belly": {
+      "px": [
+       300,
+       350
+      ],
+      "uv": [
+       0.1961,
+       0.4028
+      ]
+     },
+     "spine": {
+      "px": [
+       [
+        160,
+        240
+       ],
+       [
+        260,
+        200
+       ],
+       [
+        380,
+        220
+       ],
+       [
+        460,
+        240
+       ]
+      ],
+      "uv": [
+       [
+        0.1046,
+        0.2762
+       ],
+       [
+        0.1699,
+        0.2301
+       ],
+       [
+        0.2484,
+        0.2532
+       ],
+       [
+        0.3007,
+        0.2762
+       ]
+      ]
+     },
+     "tail_mid": {
+      "px": [
+       [
+        160,
+        260
+       ],
+       [
+        90,
+        260
+       ],
+       [
+        50,
+        200
+       ],
+       [
+        80,
+        130
+       ],
+       [
+        150,
+        142
+       ]
+      ],
+      "uv": [
+       [
+        0.1046,
+        0.2992
+       ],
+       [
+        0.0588,
+        0.2992
+       ],
+       [
+        0.0327,
+        0.2301
+       ],
+       [
+        0.0523,
+        0.1496
+       ],
+       [
+        0.098,
+        0.1634
+       ]
+      ]
+     },
+     "belly_line": {
+      "px": [
+       [
+        200,
+        330
+       ],
+       [
+        300,
+        350
+       ],
+       [
+        420,
+        330
+       ]
+      ],
+      "uv": [
+       [
+        0.1307,
+        0.3797
+       ],
+       [
+        0.1961,
+        0.4028
+       ],
+       [
+        0.2745,
+        0.3797
+       ]
+      ]
+     }
+    },
+    "head_r": 55,
+    "body_len_px": 470,
+    "px_per_cm": 4.6,
+    "spot_unit_px": 33,
+    "spot_unit_说明": "环斑格距 = 体长（鼻尖到尾根）× 7%（PLAN w3 5.3 A01）"
+   },
+   {
+    "name": "2",
+    "说明": "起跳（#13 侧面、#14）",
+    "bbox": {
+     "px": [
+      781,
+      25,
+      1411,
+      437
+     ],
+     "uv": [
+      0.5105,
+      0.0288,
+      0.9222,
+      0.5029
+     ]
+    },
+    "tones": {
+     "centers_Y": {
+      "线": 0.126,
+      "影": 0.367,
+      "毛": 0.555,
+      "腹": 0.709
+     },
+     "thresholds_Y": [
+      0.247,
+      0.461,
+      0.632
+     ],
+     "colors": {
+      "线": "#20201E",
+      "影": "#5A5E5C",
+      "毛": "#8B8E8B",
+      "腹": "#B5B5AD"
+     },
+     "fraction": {
+      "线": 0.081,
+      "影": 0.075,
+      "毛": 0.734,
+      "腹": 0.11
+     },
+     "说明": "亮度 Y = 0.2126R+0.7152G+0.0722B（sRGB 0–1），alpha≥0.99 且内收 2 px 的像素上一维 k-means（k=4）；阈值取相邻中心的中点，过渡宽建议 0.02"
+    },
+    "keypoints": {
+     "neck_root": {
+      "px": [
+       1240,
+       140
+      ],
+      "uv": [
+       0.8105,
+       0.1611
+      ]
+     },
+     "head_center": {
+      "px": [
+       1330,
+       85
+      ],
+      "uv": [
+       0.8693,
+       0.0978
+      ]
+     },
+     "ear": {
+      "px": [
+       1270,
+       40
+      ],
+      "uv": [
+       0.8301,
+       0.046
+      ]
+     },
+     "tail_root": {
+      "px": [
+       910,
+       240
+      ],
+      "uv": [
+       0.5948,
+       0.2762
+      ]
+     },
+     "tail_tip": {
+      "px": [
+       905,
+       80
+      ],
+      "uv": [
+       0.5915,
+       0.0921
+      ]
+     },
+     "eye": {
+      "center_px": [
+       1330,
+       62
+      ],
+      "center_uv": [
+       0.8693,
+       0.0713
+      ],
+      "r_px": [
+       9,
+       7
+      ],
+      "r_uv": [
+       0.0059,
+       0.0081
+      ],
+      "tilt_deg": 0.0
+     },
+     "muzzle": {
+      "center_px": [
+       1370,
+       95
+      ],
+      "center_uv": [
+       0.8954,
+       0.1093
+      ],
+      "r_px": [
+       30,
+       25
+      ],
+      "r_uv": [
+       0.0196,
+       0.0288
+      ],
+      "tilt_deg": 0.0
+     },
+     "paws": [
+      {
+       "center_px": [
+        840,
+        415
+       ],
+       "center_uv": [
+        0.549,
+        0.4776
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        910,
+        415
+       ],
+       "center_uv": [
+        0.5948,
+        0.4776
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        1380,
+        165
+       ],
+       "center_uv": [
+        0.902,
+        0.1899
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        1300,
+        180
+       ],
+       "center_uv": [
+        0.8497,
+        0.2071
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      }
+     ],
+     "belly": {
+      "px": [
+       1130,
+       270
+      ],
+      "uv": [
+       0.7386,
+       0.3107
+      ]
+     },
+     "spine": {
+      "px": [
+       [
+        920,
+        215
+       ],
+       [
+        1050,
+        180
+       ],
+       [
+        1150,
+        140
+       ],
+       [
+        1230,
+        110
+       ]
+      ],
+      "uv": [
+       [
+        0.6013,
+        0.2474
+       ],
+       [
+        0.6863,
+        0.2071
+       ],
+       [
+        0.7516,
+        0.1611
+       ],
+       [
+        0.8039,
+        0.1266
+       ]
+      ]
+     },
+     "tail_mid": {
+      "px": [
+       [
+        910,
+        240
+       ],
+       [
+        830,
+        240
+       ],
+       [
+        790,
+        160
+       ],
+       [
+        830,
+        90
+       ],
+       [
+        905,
+        80
+       ]
+      ],
+      "uv": [
+       [
+        0.5948,
+        0.2762
+       ],
+       [
+        0.5425,
+        0.2762
+       ],
+       [
+        0.5163,
+        0.1841
+       ],
+       [
+        0.5425,
+        0.1036
+       ],
+       [
+        0.5915,
+        0.0921
+       ]
+      ]
+     },
+     "belly_line": {
+      "px": [
+       [
+        1000,
+        270
+       ],
+       [
+        1130,
+        270
+       ],
+       [
+        1230,
+        220
+       ]
+      ],
+      "uv": [
+       [
+        0.6536,
+        0.3107
+       ],
+       [
+        0.7386,
+        0.3107
+       ],
+       [
+        0.8039,
+        0.2532
+       ]
+      ]
+     }
+    },
+    "head_r": 55,
+    "body_len_px": 490,
+    "px_per_cm": 4.6,
+    "spot_unit_px": 34,
+    "spot_unit_说明": "环斑格距 = 体长（鼻尖到尾根）× 7%（PLAN w3 5.3 A01）"
+   },
+   {
+    "name": "3",
+    "说明": "全身拉直飞行（#14、#15）",
+    "bbox": {
+     "px": [
+      25,
+      550,
+      771,
+      845
+     ],
+     "uv": [
+      0.0163,
+      0.6329,
+      0.5039,
+      0.9724
+     ]
+    },
+    "tones": {
+     "centers_Y": {
+      "线": 0.129,
+      "影": 0.373,
+      "毛": 0.558,
+      "腹": 0.709
+     },
+     "thresholds_Y": [
+      0.251,
+      0.465,
+      0.633
+     ],
+     "colors": {
+      "线": "#20211E",
+      "影": "#5C5F5D",
+      "毛": "#8C8F8C",
+      "腹": "#B5B5AD"
+     },
+     "fraction": {
+      "线": 0.082,
+      "影": 0.065,
+      "毛": 0.711,
+      "腹": 0.142
+     },
+     "说明": "亮度 Y = 0.2126R+0.7152G+0.0722B（sRGB 0–1），alpha≥0.99 且内收 2 px 的像素上一维 k-means（k=4）；阈值取相邻中心的中点，过渡宽建议 0.02"
+    },
+    "keypoints": {
+     "neck_root": {
+      "px": [
+       570,
+       630
+      ],
+      "uv": [
+       0.3725,
+       0.725
+      ]
+     },
+     "head_center": {
+      "px": [
+       650,
+       600
+      ],
+      "uv": [
+       0.4248,
+       0.6904
+      ]
+     },
+     "ear": {
+      "px": [
+       605,
+       565
+      ],
+      "uv": [
+       0.3954,
+       0.6502
+      ]
+     },
+     "tail_root": {
+      "px": [
+       270,
+       650
+      ],
+      "uv": [
+       0.1765,
+       0.748
+      ]
+     },
+     "tail_tip": {
+      "px": [
+       40,
+       610
+      ],
+      "uv": [
+       0.0261,
+       0.702
+      ]
+     },
+     "eye": {
+      "center_px": [
+       660,
+       590
+      ],
+      "center_uv": [
+       0.4314,
+       0.6789
+      ],
+      "r_px": [
+       9,
+       6
+      ],
+      "r_uv": [
+       0.0059,
+       0.0069
+      ],
+      "tilt_deg": 0.0
+     },
+     "muzzle": {
+      "center_px": [
+       695,
+       615
+      ],
+      "center_uv": [
+       0.4542,
+       0.7077
+      ],
+      "r_px": [
+       28,
+       22
+      ],
+      "r_uv": [
+       0.0183,
+       0.0253
+      ],
+      "tilt_deg": 0.0
+     },
+     "paws": [
+      {
+       "center_px": [
+        80,
+        790
+       ],
+       "center_uv": [
+        0.0523,
+        0.9091
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        90,
+        820
+       ],
+       "center_uv": [
+        0.0588,
+        0.9436
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        740,
+        690
+       ],
+       "center_uv": [
+        0.4837,
+        0.794
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        730,
+        715
+       ],
+       "center_uv": [
+        0.4771,
+        0.8228
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      }
+     ],
+     "belly": {
+      "px": [
+       450,
+       720
+      ],
+      "uv": [
+       0.2941,
+       0.8285
+      ]
+     },
+     "spine": {
+      "px": [
+       [
+        270,
+        640
+       ],
+       [
+        400,
+        630
+       ],
+       [
+        500,
+        620
+       ],
+       [
+        570,
+        610
+       ]
+      ],
+      "uv": [
+       [
+        0.1765,
+        0.7365
+       ],
+       [
+        0.2614,
+        0.725
+       ],
+       [
+        0.3268,
+        0.7135
+       ],
+       [
+        0.3725,
+        0.702
+       ]
+      ]
+     },
+     "tail_mid": {
+      "px": [
+       [
+        270,
+        650
+       ],
+       [
+        200,
+        640
+       ],
+       [
+        130,
+        615
+       ],
+       [
+        70,
+        600
+       ],
+       [
+        40,
+        610
+       ]
+      ],
+      "uv": [
+       [
+        0.1765,
+        0.748
+       ],
+       [
+        0.1307,
+        0.7365
+       ],
+       [
+        0.085,
+        0.7077
+       ],
+       [
+        0.0458,
+        0.6904
+       ],
+       [
+        0.0261,
+        0.702
+       ]
+      ]
+     },
+     "belly_line": {
+      "px": [
+       [
+        330,
+        720
+       ],
+       [
+        450,
+        720
+       ],
+       [
+        560,
+        690
+       ]
+      ],
+      "uv": [
+       [
+        0.2157,
+        0.8285
+       ],
+       [
+        0.2941,
+        0.8285
+       ],
+       [
+        0.366,
+        0.794
+       ]
+      ]
+     }
+    },
+    "head_r": 50,
+    "body_len_px": 435,
+    "px_per_cm": 4.6,
+    "spot_unit_px": 30,
+    "spot_unit_说明": "环斑格距 = 体长（鼻尖到尾根）× 7%（PLAN w3 5.3 A01）"
+   },
+   {
+    "name": "4",
+    "说明": "收腿滑翔（#15、长卷）",
+    "bbox": {
+     "px": [
+      824,
+      568,
+      1499,
+      815
+     ],
+     "uv": [
+      0.5386,
+      0.6536,
+      0.9797,
+      0.9379
+     ]
+    },
+    "tones": {
+     "centers_Y": {
+      "线": 0.126,
+      "影": 0.361,
+      "毛": 0.552,
+      "腹": 0.697
+     },
+     "thresholds_Y": [
+      0.243,
+      0.457,
+      0.625
+     ],
+     "colors": {
+      "线": "#20201D",
+      "影": "#595C5A",
+      "毛": "#8A8D8A",
+      "腹": "#B2B2AB"
+     },
+     "fraction": {
+      "线": 0.086,
+      "影": 0.059,
+      "毛": 0.768,
+      "腹": 0.087
+     },
+     "说明": "亮度 Y = 0.2126R+0.7152G+0.0722B（sRGB 0–1），alpha≥0.99 且内收 2 px 的像素上一维 k-means（k=4）；阈值取相邻中心的中点，过渡宽建议 0.02"
+    },
+    "keypoints": {
+     "neck_root": {
+      "px": [
+       1350,
+       650
+      ],
+      "uv": [
+       0.8824,
+       0.748
+      ]
+     },
+     "head_center": {
+      "px": [
+       1430,
+       630
+      ],
+      "uv": [
+       0.9346,
+       0.725
+      ]
+     },
+     "ear": {
+      "px": [
+       1390,
+       595
+      ],
+      "uv": [
+       0.9085,
+       0.6847
+      ]
+     },
+     "tail_root": {
+      "px": [
+       1060,
+       660
+      ],
+      "uv": [
+       0.6928,
+       0.7595
+      ]
+     },
+     "tail_tip": {
+      "px": [
+       840,
+       615
+      ],
+      "uv": [
+       0.549,
+       0.7077
+      ]
+     },
+     "eye": {
+      "center_px": [
+       1450,
+       622
+      ],
+      "center_uv": [
+       0.9477,
+       0.7158
+      ],
+      "r_px": [
+       9,
+       6
+      ],
+      "r_uv": [
+       0.0059,
+       0.0069
+      ],
+      "tilt_deg": 0.0
+     },
+     "muzzle": {
+      "center_px": [
+       1480,
+       650
+      ],
+      "center_uv": [
+       0.9673,
+       0.748
+      ],
+      "r_px": [
+       28,
+       22
+      ],
+      "r_uv": [
+       0.0183,
+       0.0253
+      ],
+      "tilt_deg": 0.0
+     },
+     "paws": [
+      {
+       "center_px": [
+        1200,
+        790
+       ],
+       "center_uv": [
+        0.7843,
+        0.9091
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        1300,
+        800
+       ],
+       "center_uv": [
+        0.8497,
+        0.9206
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        1390,
+        760
+       ],
+       "center_uv": [
+        0.9085,
+        0.8746
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      },
+      {
+       "center_px": [
+        1420,
+        740
+       ],
+       "center_uv": [
+        0.9281,
+        0.8516
+       ],
+       "r_px": [
+        25,
+        15
+       ],
+       "r_uv": [
+        0.0163,
+        0.0173
+       ],
+       "tilt_deg": 0.0
+      }
+     ],
+     "belly": {
+      "px": [
+       1250,
+       730
+      ],
+      "uv": [
+       0.817,
+       0.84
+      ]
+     },
+     "spine": {
+      "px": [
+       [
+        1080,
+        640
+       ],
+       [
+        1180,
+        610
+       ],
+       [
+        1280,
+        615
+       ],
+       [
+        1350,
+        630
+       ]
+      ],
+      "uv": [
+       [
+        0.7059,
+        0.7365
+       ],
+       [
+        0.7712,
+        0.702
+       ],
+       [
+        0.8366,
+        0.7077
+       ],
+       [
+        0.8824,
+        0.725
+       ]
+      ]
+     },
+     "tail_mid": {
+      "px": [
+       [
+        1060,
+        660
+       ],
+       [
+        990,
+        690
+       ],
+       [
+        930,
+        680
+       ],
+       [
+        870,
+        650
+       ],
+       [
+        840,
+        615
+       ]
+      ],
+      "uv": [
+       [
+        0.6928,
+        0.7595
+       ],
+       [
+        0.6471,
+        0.794
+       ],
+       [
+        0.6078,
+        0.7825
+       ],
+       [
+        0.5686,
+        0.748
+       ],
+       [
+        0.549,
+        0.7077
+       ]
+      ]
+     },
+     "belly_line": {
+      "px": [
+       [
+        1150,
+        730
+       ],
+       [
+        1250,
+        730
+       ],
+       [
+        1350,
+        700
+       ]
+      ],
+      "uv": [
+       [
+        0.7516,
+        0.84
+       ],
+       [
+        0.817,
+        0.84
+       ],
+       [
+        0.8824,
+        0.8055
+       ]
+      ]
+     }
+    },
+    "head_r": 50,
+    "body_len_px": 440,
+    "px_per_cm": 4.6,
+    "spot_unit_px": 31,
+    "spot_unit_说明": "环斑格距 = 体长（鼻尖到尾根）× 7%（PLAN w3 5.3 A01）"
+   }
+  ],
+  "生成记录": [
+   {
+    "版本": "v1（直接出灰豹）",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a02_leopard_leap_v1.png",
+    "结果": "不用",
+    "原因": "头小、身细，读成美洲狮（和 A01 v1 同样的失败）"
+   },
+   {
+    "版本": "gold_v2 → v2edit",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a02_leopard_leap_gold_v2.png → films/D_wushan/_work/assets_raw/w3/a02_leopard_leap_v2edit.png",
+    "做法": "先出金豹带斑，再编辑去斑换灰",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A03",
+  "file": "leopard_head.png",
+  "用途": "豹头特写（#16；水平翻转成朝左），眼睛对 P*，T2 匹配剪辑前半",
+  "尺寸": [
+   1415,
+   1000
+  ],
+  "是否透明": true,
+  "提示词": "两步出图。第一步（金豹带斑）：Close-up of the same young leopard's head and neck as in the first reference image (the golden model sheet; match its right drawing, the three-quarter head close-up, for the head shape: big round skull, broad short muzzle, strong jaw, thick neck), in three-quarter profile facing right, flying through strong wind: small rounded ears slightly flattened back, cheek fur and whiskers streaming backward, mouth closed and relaxed (a cat's closed muzzle, no human expression), the eye wide open, calm and clear, looking far ahead. The iris is warm amber and fills almost the whole visible eye, with a round black pupil and one small bright catch-light; no white of the eye and no pale ring around the eye, no eyebrow line, no dark line running from the eye down the side of the nose to the mouth. Same small solid black spots on the forehead, crown, cheeks and neck as the model sheet, the face around the eyes, the muzzle and the chin clean. The head fills about 70 percent of the picture width, with empty space above and in front of it for the wind-blown fur. Bold brush-ink contour with thick-and-thin variation, flat colour with exactly one hard-edged cool slate shadow shape, a few dry-brush fur strokes inside the shadow, no gradients, no glow, transparent background. normal body structure, natural proportions, stable clear face, no text, no watermark｜第二步（编辑）：Edit the first reference image. Keep every line, the pose, the framing, the size and position of the head, the wind-blown fur and the transparent background exactly the same. Repaint the coat as one uniform flat smoky grey (#8C9390) with a lighter grey-cream chin, muzzle and throat (#B9BDB5), keep the single hard-edged shadow shape but in darker slate grey (#555F5E), keep the amber eye with its round black pupil and catch-light exactly as it is. Remove ALL black spots completely, leaving clean flat fur colour where they were, as in the second reference image (the grey model sheet). Also remove the short dark stroke under the inner corner of the eye, so that no dark line runs from the eye toward the nose or mouth. Keep the nose, the whiskers and the whisker dots. Do not change the outline. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a00g_leopard_sheet_gold_v2.png",
+   "films/D_wushan/_work/assets_raw/w3/ref_woodcut_leopard.png",
+   "films/D_wushan/_work/refcrops/ref_01c.png",
+   "（第二步）films/D_wushan/_work/assets_raw/w3/a03_leopard_head_gold_v2.png、films/D_wushan/_work/assets_raw/w3/a00_leopard_sheet_grey_v1edit.png"
+  ],
+  "状态": "ok",
+  "备注": "圆瞳（不是竖缝），琥珀虹膜几乎占满可见的眼，一个白色高光，无眼白、无泪痕（_work/w3/asset_check/g_head_eye.png 放大量过）。编辑稿在原斑点处留下了半透明方块洞（alpha≈59），已把剪影内收 6 px 以内的 alpha 补成 255（RGB 本来就是毛色，a03_leopard_head_v2edit_afix.png）；补洞后颊部留一块很淡的软暗斑（原斑点的残影），梯度映射后是毛档内的轻微起伏。头宽约占画宽 62%，上方、前方有风吹的毛。cornea_px 是原图（朝右）坐标，翻转后用 cornea_uv_flipped。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为叠网格目测，误差约 ±10 px，叠点图见 _work/keypoints/w3_*_kp.jpg",
+  "tones": {
+   "centers_Y": {
+    "线": 0.096,
+    "影": 0.387,
+    "毛": 0.525,
+    "腹": 0.714
+   },
+   "thresholds_Y": [
+    0.242,
+    0.456,
+    0.62
+   ],
+   "colors": {
+    "线": "#181816",
+    "影": "#5F6361",
+    "毛": "#828784",
+    "腹": "#B7B6AD"
+   },
+   "fraction": {
+    "线": 0.138,
+    "影": 0.139,
+    "毛": 0.589,
+    "腹": 0.134
+   },
+   "说明": "亮度 Y = 0.2126R+0.7152G+0.0722B（sRGB 0–1），alpha≥0.99 且内收 2 px 的像素上一维 k-means（k=4）；阈值取相邻中心的中点，过渡宽建议 0.02"
+  },
+  "keypoints": {
+   "head_center": {
+    "px": [
+     800,
+     330
+    ],
+    "uv": [
+     0.5654,
+     0.33
+    ]
+   },
+   "neck_root": {
+    "px": [
+     650,
+     850
+    ],
+    "uv": [
+     0.4594,
+     0.85
+    ]
+   },
+   "ear": {
+    "px": [
+     450,
+     130
+    ],
+    "uv": [
+     0.318,
+     0.13
+    ]
+   },
+   "eye": {
+    "center_px": [
+     935,
+     335
+    ],
+    "center_uv": [
+     0.6608,
+     0.335
+    ],
+    "r_px": [
+     62,
+     40
+    ],
+    "r_uv": [
+     0.0438,
+     0.04
+    ],
+    "tilt_deg": 10.0
+   },
+   "iris_center": {
+    "px": [
+     928,
+     340
+    ],
+    "uv": [
+     0.6558,
+     0.34
+    ]
+   },
+   "pupil": {
+    "center_px": [
+     942,
+     322
+    ],
+    "center_uv": [
+     0.6657,
+     0.322
+    ],
+    "r_px": [
+     17,
+     24
+    ],
+    "r_uv": [
+     0.012,
+     0.024
+    ],
+    "tilt_deg": 0.0
+   },
+   "muzzle": {
+    "center_px": [
+     1100,
+     560
+    ],
+    "center_uv": [
+     0.7774,
+     0.56
+    ],
+    "r_px": [
+     150,
+     110
+    ],
+    "r_uv": [
+     0.106,
+     0.11
+    ],
+    "tilt_deg": 0.0
+   },
+   "nose": {
+    "px": [
+     1215,
+     480
+    ],
+    "uv": [
+     0.8587,
+     0.48
+    ]
+   }
+  },
+  "cornea_px": [
+   951,
+   308
+  ],
+  "cornea_uv": [
+   0.6721,
+   0.308
+  ],
+  "cornea_uv_flipped": [
+   0.3279,
+   0.308
+  ],
+  "iris_r": {
+   "px": 43.0,
+   "uv_u": 0.0304,
+   "uv_v": 0.043,
+   "说明": "琥珀区 4026 px，外接框 879–981 × 305–377；瞳孔圆偏竖，约 34×48 px，中心 (942, 322)"
+  },
+  "px_per_cm": 36,
+  "px_per_cm_说明": "眼心到鼻尖 ≈300 px，按青年豹 ≈8.3 cm 估",
+  "生成记录": [
+   {
+    "版本": "v1（直接出灰头）",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a03_leopard_head_v1.png",
+    "结果": "不用",
+    "原因": "吻小、头长，像水獭；眼周一圈浅色读成眼白"
+   },
+   {
+    "版本": "gold_v2 → v2edit → afix",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a03_leopard_head_gold_v2.png → films/D_wushan/_work/assets_raw/w3/a03_leopard_head_v2edit_afix.png",
+    "做法": "先出金豹头带斑，再编辑去斑换灰、去内眼角短线；脚本补 alpha 洞",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A15",
+  "file": "leopard_back.png",
+  "用途": "#11 豹肩背俯视底板（墨滴落点在左肩胛）；身体 alpha 就是斑点遮罩",
+  "尺寸": [
+   1332,
+   1024
+  ],
+  "是否透明": true,
+  "提示词": "Close view looking down at the same grey young leopard as in the first reference image (its left drawing), from above and slightly behind, as it sits hunched in the rain: the back of its big round head and its two small rounded ear tips at the upper left of the picture, the thick neck and the two powerful shoulder blades in the middle, the broad back running diagonally from the upper left to the lower right and leaving the picture at the lower right edge; the spine is a soft clear ridge line; rain-soaked fur drawn with long dry-brush strokes flowing from the spine down the flanks, slightly darker where wet, a few clinging water beads. Uniform smoky-grey coat (#8C9390) with NO markings at all. Bold ink contour only on the outer silhouette, flat colour with exactly one hard-edged slate shadow shape (#555F5E) on the far flank. Transparent background around the animal. Use the reference images only for brushwork and colour. Back of the head only, no face. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a01_leopard_sit_v2edit.png",
+   "films/D_wushan/_work/assets_raw/w3/a00_leopard_sheet_grey_v1edit.png",
+   "refs/D_wushan/ref_06.jpg",
+   "refs/D_wushan/ref_05.jpg"
+  ],
+  "状态": "ok",
+  "备注": "无斑；后脑和两耳尖在左上，背从左上斜到右下、下沿出画；湿毛长干笔、挂水珠。内部 alpha 255（内收 2 px 内 100%）。毛画得偏长偏蓬（像长毛猫），肩胛不够分明；色阶四档中心 0.158/0.402/0.508/0.587，后两档只差 0.079（毛和亮毛接近），这张不走四档梯度映射。主光从左上来，远侧肋部是暗部。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为叠网格目测，误差约 ±10 px，叠点图见 _work/keypoints/w3_*_kp.jpg",
+  "keypoints": {
+   "ear_tips": [
+    {
+     "px": [
+      60,
+      60
+     ],
+     "uv": [
+      0.045,
+      0.0586
+     ]
+    },
+    {
+     "px": [
+      370,
+      40
+     ],
+     "uv": [
+      0.2778,
+      0.0391
+     ]
+    }
+   ],
+   "head_back_center": {
+    "px": [
+     200,
+     150
+    ],
+    "uv": [
+     0.1502,
+     0.1465
+    ]
+   },
+   "drop_point": {
+    "px": [
+     330,
+     450
+    ],
+    "uv": [
+     0.2477,
+     0.4395
+    ]
+   }
+  },
+  "spine": {
+   "px": [
+    [
+     230,
+     200
+    ],
+    [
+     400,
+     330
+    ],
+    [
+     620,
+     480
+    ],
+    [
+     850,
+     650
+    ],
+    [
+     1100,
+     900
+    ]
+   ],
+   "uv": [
+    [
+     0.1727,
+     0.1953
+    ],
+    [
+     0.3003,
+     0.3223
+    ],
+    [
+     0.4655,
+     0.4688
+    ],
+    [
+     0.6381,
+     0.6348
+    ],
+    [
+     0.8258,
+     0.8789
+    ]
+   ]
+  },
+  "light_dir": "左上 → 右下（暗部在远侧右肋）",
+  "px_per_cm": 29.6,
+  "px_per_cm_说明": "画宽 ≈45 cm 实物",
+  "tones": {
+   "centers_Y": {
+    "线": 0.158,
+    "影": 0.402,
+    "毛": 0.508,
+    "腹": 0.587
+   },
+   "thresholds_Y": [
+    0.28,
+    0.455,
+    0.547
+   ],
+   "colors": {
+    "线": "#262828",
+    "影": "#636766",
+    "毛": "#7E8281",
+    "腹": "#939694"
+   },
+   "fraction": {
+    "线": 0.028,
+    "影": 0.231,
+    "毛": 0.579,
+    "腹": 0.161
+   },
+   "说明": "亮度 Y = 0.2126R+0.7152G+0.0722B（sRGB 0–1），alpha≥0.99 且内收 2 px 的像素上一维 k-means（k=4）；阈值取相邻中心的中点，过渡宽建议 0.02"
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a15_leopard_back_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A04",
+  "file": "luwei_sheet.png",
+  "用途": "陆蔚背影设定图（站立全背 / 盘坐 3/4 背 / 后脑与右耳镜腿），不进画面；A05–A08 的参考",
+  "尺寸": [
+   1774,
+   887
+  ],
+  "是否透明": false,
+  "提示词": "Character model sheet of a 28-year-old male ancient-book restorer for a contemporary Chinese 2D animated film, drawn ONLY from behind so the face is never visible, in the bold brush-ink character style of contemporary Chinese action animation (in the spirit of Fog Hill of Five Elements): heavy sumi-ink contour lines with strong thick-and-thin pressure variation, tapered brush-tip ends and occasional dry-brush breaks; simplified, slightly angular forms; hair painted as three or four large solid ink-black masses with a few sharp brush-tip flicks at the nape and crown, no thin anime hair strands, no hair highlights; flat colours with exactly one hard-edged shadow shape per material; garment folds drawn with a few decisive brush strokes. Three drawings of the SAME man on a plain flat ivory background, evenly spaced: (1) standing, full back view; (2) sitting cross-legged on the ground at a three-quarter rear angle, facing away toward the upper left; (3) close view of the back of his head and right ear, with the thin dark metal temple arm of round glasses over the ear. Slim but sturdy build, short black hair, a light pale indigo-grey cotton work shirt (lit colour about #9AA3B4, shadow colour about #646C7E) with sleeves rolled to the forearm, dark charcoal trousers, black cloth shoes. Use the reference images only for line weight, brushwork and colour, do not copy their characters, costumes or props. Back of the head only, no face, no profile. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_03c.png",
+   "films/D_wushan/_work/refcrops/ref_01c.png",
+   "films/D_wushan/_work/refcrops/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "雾山五行式浓墨人物：外轮廓线粗细明显、笔锋收尖、有飞白；头发 3–4 块实心墨块加几笔笔锋，没有日系细发束和高光；衬衫两档平涂、一块硬边暗部。三格都是背面，看不到脸（第三格只露右耳和镜腿、镜片外缘）。三格间距 >100 px。",
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a04_luwei_sheet_v1.png",
+    "结果": "不用",
+    "原因": "画法对，但衬衫偏深偏紫（#73707C，明度 0.49），暗部偏软"
+   },
+   {
+    "版本": "v2",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a04_luwei_sheet_v2.png",
+    "做法": "写明衬衫亮 #9AA3B4 / 暗 #646C7E",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A05",
+  "file": "luwei_sit.png",
+  "用途": "陆蔚盘坐 3/4 背影（#03、#04、#09、#12）",
+  "尺寸": [
+   1052,
+   1312
+  ],
+  "是否透明": true,
+  "提示词": "The same man as in the first reference image, sitting cross-legged on the ground, hands resting on his knees, upright and calm, at a three-quarter rear angle facing away from the viewer toward the upper left, looking far into the distance; the thin temple arm of his round glasses visible over the right ear. Pale indigo-grey work shirt with rolled sleeves, dark charcoal trousers. Same bold brush-ink style: heavy contour with thick-and-thin variation, hair as solid ink masses, flat colours with one hard-edged shadow shape per material, a few decisive fold strokes; transparent background, no ground. One single figure filling most of the picture height. Back of the head only, no face. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a04_luwei_sheet_v2.png",
+   "films/D_wushan/_work/refcrops/ref_03c.png",
+   "films/D_wushan/_work/refcrops/ref_01c.png"
+  ],
+  "状态": "ok",
+  "备注": "人高 1284 px（≥1000 ✓，#04 里约 330 px）。外轮廓线宽中位 10.2 px = 人高 0.79%（0.6–1.2% ✓），线宽 90%/10% 分位比 2.1（≥2:1 ✓）。衬衫两档 Y 0.38/0.57，中间色 1.3%（≤10% ✓）；皮肤 0.53/0.73。背影，看不到脸；镜腿在画面左侧那只耳朵上（头朝左上转）。ground_y 是坐姿底线。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为叠网格目测，误差约 ±10 px，叠点图见 _work/keypoints/w3_*_kp.jpg",
+  "two_tone_Y": {
+   "衬衫": [
+    0.38,
+    0.569
+   ],
+   "皮肤": [
+    0.526,
+    0.73
+   ]
+  },
+  "keypoints": {
+   "head_pivot": {
+    "px": [
+     650,
+     330
+    ],
+    "uv": [
+     0.6179,
+     0.2515
+    ]
+   },
+   "head_center": {
+    "px": [
+     640,
+     200
+    ],
+    "uv": [
+     0.6084,
+     0.1524
+    ]
+   },
+   "shoulder_l": {
+    "px": [
+     420,
+     500
+    ],
+    "uv": [
+     0.3992,
+     0.3811
+    ]
+   },
+   "shoulder_r": {
+    "px": [
+     880,
+     500
+    ],
+    "uv": [
+     0.8365,
+     0.3811
+    ]
+   },
+   "shoulder_axis_center": {
+    "px": [
+     650,
+     480
+    ],
+    "uv": [
+     0.6179,
+     0.3659
+    ]
+   },
+   "glasses_edge": {
+    "px": [
+     520,
+     250
+    ],
+    "uv": [
+     0.4943,
+     0.1905
+    ]
+   },
+   "hand_l": {
+    "px": [
+     100,
+     900
+    ],
+    "uv": [
+     0.0951,
+     0.686
+    ]
+   },
+   "hand_r": {
+    "px": [
+     960,
+     920
+    ],
+    "uv": [
+     0.9125,
+     0.7012
+    ]
+   },
+   "ground_y": {
+    "px": [
+     650,
+     1270
+    ],
+    "uv": [
+     0.6179,
+     0.968
+    ]
+   }
+  },
+  "deform_axes": {
+   "头": "以 head_pivot 为轴转动（抬头/点头），影响区域为 head_center 周围、y<360 的部分",
+   "肩": "沿 shoulder_l→shoulder_r 连线做呼吸起伏（上下 ±0.5%），以 shoulder_axis_center 为中心"
+  },
+  "px_per_cm": 13.5,
+  "px_per_cm_说明": "盘坐高 ≈1260 px，按坐高 ≈93 cm 估",
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a05_luwei_sit_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A06",
+  "file": "luwei_desk.png",
+  "用途": "陆蔚过右肩伏案补书（#17）；右镜片外缘对 P*，T2 匹配剪辑后半；右手食指尖落光斑",
+  "尺寸": [
+   1024,
+   1533
+  ],
+  "是否透明": true,
+  "提示词": "Tall vertical picture. High-angle over-the-shoulder view from behind and above the right shoulder of the same man as in the first reference image, seated at a desk and leaning slightly forward over his work, seen from a little further back so that much of his back is visible: the back of his head with solid ink-mass hair is small, in the upper part of the picture, occupying only the top quarter of the picture height; his right ear with the thin dark metal temple arm of round glasses, a thin sliver of the outer rim of the right glasses lens just visible past his right cheek contour; below the head, his shoulders and his whole back in the pale indigo-grey shirt fill the lower three quarters of the picture, continuing down past his waist and cut off by the bottom edge, the shirt filling the whole width of the bottom edge; his right forearm with rolled sleeve reaches forward to the right holding a fine brush, his left hand presses flat on an invisible surface beside it. The desk, the book and all background are NOT drawn: transparent background. Bold brush-ink contour with thick-and-thin variation, hair as solid ink masses, flat colours with one hard-edged shadow shape per material, a few decisive fold strokes. Back of the head only, no face. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a04_luwei_sheet_v2.png",
+   "films/D_wushan/_work/assets_raw/w3/a06_luwei_desk_v1.png（构图反例，取画法）",
+   "films/D_wushan/_work/refcrops/ref_03c.png"
+  ],
+  "状态": "ok",
+  "备注": "头心 y≈250 到下沿 1533 = 1283 px，头宽 ≈440 px → 2.9 个头宽（≥2.0 ✓）；下沿不透明宽度占比 bottom_opaque = 0.82（≥0.70 ✓）。镜片透明（框内 alpha=0），外缘由叠网格追出 lens_rim_polyline。外轮廓线宽中位 10 px = 人高 0.66%，粗细比 2.8。衬衫两档 0.37/0.55。左手抬在右手旁边按着看不见的面（高度在肩下），不是平放桌面。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为叠网格目测，误差约 ±10 px，叠点图见 _work/keypoints/w3_*_kp.jpg",
+  "two_tone_Y": {
+   "衬衫": [
+    0.372,
+    0.549
+   ],
+   "皮肤": [
+    0.549,
+    0.704
+   ]
+  },
+  "lens_edge_px": [
+   681,
+   370
+  ],
+  "lens_edge_uv": [
+   0.665,
+   0.2414
+  ],
+  "lens_rim_polyline": {
+   "px": [
+    [
+     660,
+     335
+    ],
+    [
+     672,
+     342
+    ],
+    [
+     679,
+     355
+    ],
+    [
+     681,
+     370
+    ],
+    [
+     678,
+     385
+    ],
+    [
+     670,
+     396
+    ],
+    [
+     658,
+     403
+    ],
+    [
+     645,
+     403
+    ]
+   ],
+   "uv": [
+    [
+     0.6445,
+     0.2185
+    ],
+    [
+     0.6562,
+     0.2231
+    ],
+    [
+     0.6631,
+     0.2316
+    ],
+    [
+     0.665,
+     0.2414
+    ],
+    [
+     0.6621,
+     0.2511
+    ],
+    [
+     0.6543,
+     0.2583
+    ],
+    [
+     0.6426,
+     0.2629
+    ],
+    [
+     0.6299,
+     0.2629
+    ]
+   ]
+  },
+  "lens_rim_说明": "右镜框外沿（从上沿经最右点到下沿），叠网格读出；镜腿在 y≈350–360 横过",
+  "bottom_opaque": 0.82,
+  "keypoints": {
+   "head_center": {
+    "px": [
+     500,
+     250
+    ],
+    "uv": [
+     0.4883,
+     0.1631
+    ]
+   },
+   "right_ear": {
+    "px": [
+     600,
+     370
+    ],
+    "uv": [
+     0.5859,
+     0.2414
+    ]
+   },
+   "brush_tip": {
+    "px": [
+     780,
+     580
+    ],
+    "uv": [
+     0.7617,
+     0.3783
+    ]
+   },
+   "right_hand": {
+    "px": [
+     900,
+     480
+    ],
+    "uv": [
+     0.8789,
+     0.3131
+    ]
+   },
+   "right_index_tip": {
+    "px": [
+     850,
+     440
+    ],
+    "uv": [
+     0.8301,
+     0.287
+    ]
+   },
+   "left_hand": {
+    "px": [
+     680,
+     520
+    ],
+    "uv": [
+     0.6641,
+     0.3392
+    ]
+   },
+   "left_fingertips": {
+    "px": [
+     760,
+     520
+    ],
+    "uv": [
+     0.7422,
+     0.3392
+    ]
+   },
+   "lens_inner_bbox": {
+    "px": [
+     640,
+     340,
+     676,
+     400
+    ],
+    "uv": [
+     0.625,
+     0.2218,
+     0.6602,
+     0.2609
+    ]
+   }
+  },
+  "px_per_cm": 27.5,
+  "px_per_cm_说明": "后脑宽（含发）≈440 px，按 16 cm 估，仅供光斑格距参考",
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a06_luwei_desk_v1.png",
+    "结果": "不用",
+    "原因": "头太大：头心到下沿只有 1.45 个头宽（要 ≥2.0），画到腰的要求没达到"
+   },
+   {
+    "版本": "v2",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a06_luwei_desk_v2.png",
+    "做法": "竖幅，写明头只占上部四分之一、背占下部四分之三",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A07",
+  "file": "hands_desk.png",
+  "用途": "第一人称右手两姿态：0 捏（放镊子前）、1 松开（#01）；食指尖是墨渍锚点",
+  "尺寸": [
+   1659,
+   863
+  ],
+  "是否透明": true,
+  "提示词": "Two drawings side by side of the same right hand of the man from the first reference image, seen in first-person view looking down at his own hand over a desk, back of the hand toward the viewer, the pale indigo-grey rolled shirt cuff at the wrist: left, fingers in a precise pinch grip between thumb and index finger as if holding fine tweezers (draw no tweezers); right, the same hand relaxed and slightly open just after letting go, turned a little so that the index fingertip faces the viewer. Clean fingertips. Bold brush-ink contour with thick-and-thin variation and tapered ends, knuckles and nails indicated with a few decisive strokes, flat warm skin colour with exactly one hard-edged shadow shape, no soft shading, transparent background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a04_luwei_sheet_v2.png",
+   "films/D_wushan/_work/refcrops/ref_01c.png",
+   "films/D_wushan/_work/refcrops/ref_03c.png"
+  ],
+  "状态": "ok",
+  "备注": "两姿态互不相连；袖口在下沿。指尖干净（墨渍由代码画在 index_tip）。皮肤两档 0.55/0.73，硬边暗部。姿态 1 的食指没有完全转向观众，是往上伸的松手。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为叠网格目测，误差约 ±10 px，叠点图见 _work/keypoints/w3_*_kp.jpg",
+  "two_tone_Y": {
+   "皮肤": [
+    0.553,
+    0.727
+   ],
+   "袖口": [
+    0.409,
+    0.565
+   ]
+  },
+  "poses": [
+   {
+    "name": "0",
+    "说明": "捏（#01 放镊子）",
+    "bbox": {
+     "px": [
+      18,
+      10,
+      810,
+      845
+     ],
+     "uv": [
+      0.0108,
+      0.0116,
+      0.4882,
+      0.9791
+     ]
+    },
+    "keypoints": {
+     "index_tip": {
+      "px": [
+       795,
+       110
+      ],
+      "uv": [
+       0.4792,
+       0.1275
+      ]
+     },
+     "pinch": {
+      "px": [
+       793,
+       132
+      ],
+      "uv": [
+       0.478,
+       0.153
+      ]
+     },
+     "thumb_tip": {
+      "px": [
+       770,
+       160
+      ],
+      "uv": [
+       0.4641,
+       0.1854
+      ]
+     },
+     "wrist": {
+      "px": [
+       330,
+       620
+      ],
+      "uv": [
+       0.1989,
+       0.7184
+      ]
+     }
+    }
+   },
+   {
+    "name": "1",
+    "说明": "松开（#01 戴眼镜前）",
+    "bbox": {
+     "px": [
+      850,
+      10,
+      1640,
+      845
+     ],
+     "uv": [
+      0.5124,
+      0.0116,
+      0.9885,
+      0.9791
+     ]
+    },
+    "keypoints": {
+     "index_tip": {
+      "px": [
+       1505,
+       65
+      ],
+      "uv": [
+       0.9072,
+       0.0753
+      ]
+     },
+     "index_pad_r_px": 20,
+     "thumb_tip": {
+      "px": [
+       1590,
+       280
+      ],
+      "uv": [
+       0.9584,
+       0.3244
+      ]
+     },
+     "wrist": {
+      "px": [
+       1100,
+       640
+      ],
+      "uv": [
+       0.6631,
+       0.7416
+      ]
+     }
+    }
+   }
+  ],
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a07_hands_desk_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A08",
+  "file": "hands_side.png",
+  "用途": "右手侧面三姿态（拇指侧）：1 前伸、2 蜷指犹豫（#07）、3 掌心朝下食指朝下（#10，墨沿指腹流下）",
+  "尺寸": [
+   2130,
+   609
+  ],
+  "是否透明": true,
+  "提示词": "Three drawings in a row of the same right hand and forearm as in the first reference image, same scale, generous empty space between them, the pale indigo-grey sleeve rolled to mid-forearm: (1) strict side view from the thumb side, reaching forward horizontally to the right, fingers extended and slightly spread, the index fingertip leading; (2) the same hand stopped in mid-air, fingers curling back in hesitation; (3) the hand and forearm coming diagonally down from the upper left, palm facing down, the index finger extended pointing down to the lower right, the other fingers loosely curled, the long sleeve continuing off the upper left edge. Clean fingertips. Bold brush-ink contour with thick-and-thin variation, flat warm skin colour with one hard-edged shadow shape, no gradients, transparent background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/assets_raw/w3/a07_hands_desk_v1.png",
+   "films/D_wushan/_work/assets_raw/w3/a04_luwei_sheet_v2.png",
+   "films/D_wushan/_work/refcrops/ref_01c.png"
+  ],
+  "状态": "ok",
+  "备注": "三姿态互不相连（3 个连通域）。姿态 3 的袖子止于挽起的袖口，没有一直伸出左上画边：接入时把袖口放到画框外或用遮挡盖住。皮肤两档 0.54/0.74。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为叠网格目测，误差约 ±10 px，叠点图见 _work/keypoints/w3_*_kp.jpg",
+  "two_tone_Y": {
+   "皮肤": [
+    0.537,
+    0.741
+   ],
+   "袖口": [
+    0.4,
+    0.545
+   ]
+  },
+  "poses": [
+   {
+    "name": "1",
+    "说明": "前伸（#07 f290–f305）",
+    "bbox": {
+     "px": [
+      0,
+      220,
+      745,
+      470
+     ],
+     "uv": [
+      0.0,
+      0.3612,
+      0.3498,
+      0.7718
+     ]
+    },
+    "keypoints": {
+     "index_tip": {
+      "px": [
+       735,
+       250
+      ],
+      "uv": [
+       0.3451,
+       0.4105
+      ]
+     },
+     "finger_top_tip": {
+      "px": [
+       735,
+       250
+      ],
+      "uv": [
+       0.3451,
+       0.4105
+      ]
+     },
+     "finger_low_tip": {
+      "px": [
+       650,
+       385
+      ],
+      "uv": [
+       0.3052,
+       0.6322
+      ]
+     },
+     "thumb_tip": {
+      "px": [
+       605,
+       455
+      ],
+      "uv": [
+       0.284,
+       0.7471
+      ]
+     },
+     "wrist": {
+      "px": [
+       200,
+       330
+      ],
+      "uv": [
+       0.0939,
+       0.5419
+      ]
+     },
+     "forearm_dir_deg": 0
+    }
+   },
+   {
+    "name": "2",
+    "说明": "蜷指犹豫（#07 f306 起）",
+    "bbox": {
+     "px": [
+      790,
+      190,
+      1395,
+      470
+     ],
+     "uv": [
+      0.3709,
+      0.312,
+      0.6549,
+      0.7718
+     ]
+    },
+    "keypoints": {
+     "index_tip": {
+      "px": [
+       1370,
+       215
+      ],
+      "uv": [
+       0.6432,
+       0.353
+      ]
+     },
+     "finger_top_tip": {
+      "px": [
+       1370,
+       215
+      ],
+      "uv": [
+       0.6432,
+       0.353
+      ]
+     },
+     "finger_low_tip": {
+      "px": [
+       1300,
+       315
+      ],
+      "uv": [
+       0.6103,
+       0.5172
+      ]
+     },
+     "thumb_tip": {
+      "px": [
+       1385,
+       355
+      ],
+      "uv": [
+       0.6502,
+       0.5829
+      ]
+     },
+     "wrist": {
+      "px": [
+       1000,
+       350
+      ],
+      "uv": [
+       0.4695,
+       0.5747
+      ]
+     },
+     "forearm_dir_deg": 0
+    }
+   },
+   {
+    "name": "3",
+    "说明": "掌心朝下、食指朝下（#10）",
+    "bbox": {
+     "px": [
+      1480,
+      10,
+      2110,
+      580
+     ],
+     "uv": [
+      0.6948,
+      0.0164,
+      0.9906,
+      0.9524
+     ]
+    },
+    "keypoints": {
+     "index_tip": {
+      "px": [
+       2090,
+       560
+      ],
+      "uv": [
+       0.9812,
+       0.9195
+      ]
+     },
+     "wrist": {
+      "px": [
+       1700,
+       270
+      ],
+      "uv": [
+       0.7981,
+       0.4433
+      ]
+     },
+     "forearm_dir_deg": 50
+    },
+    "pad_polyline": {
+     "px": [
+      [
+       1900,
+       470
+      ],
+      [
+       1960,
+       505
+      ],
+      [
+       2020,
+       535
+      ],
+      [
+       2070,
+       558
+      ]
+     ],
+     "uv": [
+      [
+       0.892,
+       0.7718
+      ],
+      [
+       0.9202,
+       0.8292
+      ],
+      [
+       0.9484,
+       0.8785
+      ],
+      [
+       0.9718,
+       0.9163
+      ]
+     ]
+    }
+   }
+  ],
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a08_hands_side_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A09",
+  "file": "hand_vendor.png",
+  "用途": "摊主的手（#06、#07、#09）：从右下伸来、掌心朝上托面具下沿",
+  "尺寸": [
+   1469,
+   897
+  ],
+  "是否透明": true,
+  "提示词": "An old gnarled right hand and forearm in a heavy dark teal-black sleeve, reaching up from the lower right toward the viewer, palm up, supporting from below the lower rim of an object held up as an offer (draw no object): the four fingers curl upward side by side along one gentle arc, the thumb on the near side; correct hand anatomy with exactly four fingers and one thumb, five digits in total. Dark weathered skin mostly in shadow with a thin gold rim light along the upper edges, simple bold shapes with only a few wrinkle lines, clean dark brown ink outline of moderate weight, flat colours with exactly one hard-edged shadow tone, no gradients, transparent background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_03c.png",
+   "films/D_wushan/_work/refcrops/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "右缘、下缘贴画框（袖子在画外）。自带一道硬金边（#F0B040 一族）。面具下沿放在 support_line（三根指尖上沿）与 thumb_tip 之间的\"托\"里；画在面具前面的是指尖。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为目测叠图定位，误差约 ±8 px（精灵原图），叠图见 _work/keypoints/",
+  "keypoints": {
+   "support_line": {
+    "px": [
+     [
+      45,
+      70
+     ],
+     [
+      145,
+      105
+     ],
+     [
+      270,
+      140
+     ]
+    ],
+    "uv": [
+     [
+      0.0306,
+      0.078
+     ],
+     [
+      0.0987,
+      0.1171
+     ],
+     [
+      0.1838,
+      0.1561
+     ]
+    ]
+   },
+   "thumb_tip": {
+    "px": [
+     680,
+     35
+    ],
+    "uv": [
+     0.4629,
+     0.039
+    ]
+   },
+   "palm_hollow": {
+    "px": [
+     480,
+     250
+    ],
+    "uv": [
+     0.3268,
+     0.2787
+    ]
+   },
+   "wrist": {
+    "px": [
+     800,
+     400
+    ],
+    "uv": [
+     0.5446,
+     0.4459
+    ]
+   }
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/a09_hand_vendor_v1.png",
+    "做法": "DESIGN 6.3 原提示词",
+    "结果": "不用",
+    "原因": "画成了 5 根手指 + 拇指（6 指）"
+   },
+   {
+    "版本": "v2",
+    "文件": "films/D_wushan/_work/assets_raw/a09_hand_vendor_v2.png",
+    "做法": "写明右手、掌心朝上、四指一拇",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/"
+ },
+ {
+  "id": "A10",
+  "file": "mask_gold.png",
+  "用途": "鎏金青铜豹面具（#05 挂面具实例、#06、#07、#09 眼孔）",
+  "尺寸": [
+   1268,
+   1115
+  ],
+  "是否透明": true,
+  "提示词": "Front view of a single ancient gilded bronze leopard mask, symmetrical and isolated: a stylised leopard face in raised bronze relief, its spots made as perfectly regular round embossed studs in neat rows, deep verdigris green patina in the recesses, polished bright gold on all raised parts, two large almond-shaped eye holes cut right through the mask, small rounded ears. Rich, gaudy and ceremonial. Even lighting from the upper left, clean dark brown ink contour line of moderate weight, flat colour areas with one hard-edged shadow tone plus sharp gold highlights, transparent background, no ribbons, no tassels, no red. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_02c1.png",
+   "films/D_wushan/_work/refcrops/ref_02c2.png",
+   "films/D_wushan/_work/refcrops/ref_03c.png"
+  ],
+  "状态": "ok",
+  "备注": "两个眼孔是真透明（alpha=0，已核对孔内最大 alpha = 0），可以直接当遮罩；DESIGN 5.3 仍建议用代码按下列参数画杏仁形遮罩。眼孔参数由孔区像素主成分分析得到：w/h 为沿长短轴的全长，tilt 为长轴与水平夹角（图像坐标 y 向下，正值 = 向右下倾）。uv 原点左上，u 向右、v 向下（= 像素 / 图尺寸）；Three.js 贴图用 (u, 1−v)；水平翻转使用时 u→1−u。关键点为目测叠图定位，误差约 ±8 px（精灵原图），叠图见 _work/keypoints/",
+  "eye_holes": {
+   "left": {
+    "center": {
+     "px": [
+      385.0,
+      467.0
+     ],
+     "uv": [
+      0.3036,
+      0.4189
+     ]
+    },
+    "w_px": 297.7,
+    "h_px": 135.2,
+    "w_uv": 0.2348,
+    "h_uv": 0.1213,
+    "tilt_deg": 16.0,
+    "bbox": {
+     "px": [
+      246,
+      399,
+      519,
+      544
+     ],
+     "uv": [
+      0.194,
+      0.3578,
+      0.4093,
+      0.4879
+     ]
+    }
+   },
+   "right": {
+    "center": {
+     "px": [
+      879.7,
+      467.5
+     ],
+     "uv": [
+      0.6938,
+      0.4193
+     ]
+    },
+    "w_px": 298.7,
+    "h_px": 136.3,
+    "w_uv": 0.2356,
+    "h_uv": 0.1222,
+    "tilt_deg": -15.8,
+    "bbox": {
+     "px": [
+      744,
+      399,
+      1018,
+      545
+     ],
+     "uv": [
+      0.5868,
+      0.3578,
+      0.8028,
+      0.4888
+     ]
+    }
+   }
+  },
+  "keypoints": {
+   "hang_point": {
+    "px": [
+     634,
+     40
+    ],
+    "uv": [
+     0.5,
+     0.0359
+    ]
+   },
+   "lower_rim_center": {
+    "px": [
+     634,
+     1090
+    ],
+    "uv": [
+     0.5,
+     0.9776
+    ]
+   }
+  },
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/"
+ },
+ {
+  "id": "A11",
+  "file": "desk_top.png",
+  "用途": "修复桌桌面底板（#01、#02 房间段、#17），贴在桌面 3D 平面上",
+  "尺寸": [
+   1672,
+   941
+  ],
+  "是否透明": false,
+  "提示词": "Strict top-down view, looking straight down, of the worn surface of an old dark wooden restoration desk, background painting for a contemporary Chinese 2D animated film; the picture plane is parallel to the desk so there is no perspective. The whole picture is the desk top: broad plain areas of worn dark-brown wood grain in the centre and lower half, left empty for an open book to be added later; along the edges only, a few objects seen from directly above: a stone inkstone with a brush rest at the lower left, a small celadon paste bowl with a flat brush at the right edge, a folded indigo cloth, a neat stack of blank pale mulberry paper along the top edge. Warm late-afternoon light from beyond the top-left edge: the top edge of the desk glows warm gold and the light fades softly toward the bottom; large calm shadow masses in deep teal-umber, broad painterly brushwork, few objects, no clutter, no leaf shadows, no window-lattice shadows, no writing on any paper, no people, no hands. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_03c.png",
+   "films/D_wushan/_work/refcrops/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "正俯视、无透视、纸上无字、无树叶光斑。中央 x 300–1450、y 170–940 是空木面，放书。器物包围盒见 objects。",
+  "objects": {
+   "纸堆": {
+    "px": [
+     560,
+     0,
+     1262,
+     112
+    ],
+    "uv": [
+     0.3349,
+     0.0,
+     0.7548,
+     0.119
+    ]
+   },
+   "靛蓝布": {
+    "px": [
+     1310,
+     0,
+     1620,
+     165
+    ],
+    "uv": [
+     0.7835,
+     0.0,
+     0.9689,
+     0.1753
+    ]
+   },
+   "青瓷浆碗": {
+    "px": [
+     1465,
+     220,
+     1672,
+     430
+    ],
+    "uv": [
+     0.8762,
+     0.2338,
+     1.0,
+     0.457
+    ]
+   },
+   "排刷": {
+    "px": [
+     1575,
+     255,
+     1645,
+     615
+    ],
+    "uv": [
+     0.942,
+     0.271,
+     0.9839,
+     0.6536
+    ]
+   },
+   "砚台": {
+    "px": [
+     20,
+     585,
+     240,
+     900
+    ],
+    "uv": [
+     0.012,
+     0.6217,
+     0.1435,
+     0.9564
+    ]
+   },
+   "笔搁": {
+    "px": [
+     248,
+     780,
+     400,
+     845
+    ],
+    "uv": [
+     0.1483,
+     0.8289,
+     0.2392,
+     0.898
+    ]
+   },
+   "空木面（放书）": {
+    "px": [
+     300,
+     170,
+     1450,
+     940
+    ],
+    "uv": [
+     0.1794,
+     0.1807,
+     0.8672,
+     0.9989
+    ]
+   }
+  },
+  "light": "光从左上画外来：左上角金色最亮，往右下渐暗；右下偏青褐暗部",
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/"
+ },
+ {
+  "id": "A12",
+  "file": "nanshan_pano.png",
+  "用途": "南山青绿长卷远景（九五地平线、#03 #04 #12 远山、#13 金色调色、#14 #15 远景层与长卷画心、#09 眼孔内）",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": false,
+  "提示词": "Wide panoramic background painting for a contemporary Chinese animated film in the blue-green (qinglu) landscape style, composed like a handscroll: ranks of steep mountains in malachite turquoise and azurite blue with touches of warm ochre on a few sunlit slopes, every face textured with long vertical dry-brush streaks running down the slopes, dark ink dots of small pines and moss along the ridgelines, thin long ivory mist ribbons lying across the mountain bases, soft ivory mist swallowing the foot of every range, four receding ranges each paler, bluer and softer than the one in front, a pronounced deep V-shaped notch between the two highest massifs a little right of the middle. The sky above the mountains is one completely flat plain pale ivory colour with no clouds, no sun, no birds and no gradient. Even soft daylight, no rain, no people, no buildings, broad confident painterly brushwork. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_07c.png",
+   "refs/D_wushan/ref_05.jpg",
+   "refs/D_wushan/ref_04.jpg"
+  ],
+  "状态": "ok",
+  "备注": "天空完全平涂：中位色 #FEF8E6，最上 60 行明度标准差 0.4/255，可按色差抠掉（比色板天 #E6EEE6 暖、亮，抠掉后换代码天穹）。四层山、雾吃山脚、竖皴、脊上点苔都有；青色/彩色 96%、平均饱和 0.29（参考 0.17–0.35）。V 形缺口在中线偏右（u≈0.59）。",
+  "sky_color": "#FEF8E6",
+  "sky_key_threshold_rgb": 18,
+  "skyline": {
+   "file": "nanshan_pano_skyline.json",
+   "min_y_px": 90,
+   "median_y_px": 158.0,
+   "max_y_px": 252,
+   "every_16px": [
+    [
+     0,
+     160
+    ],
+    [
+     16,
+     157
+    ],
+    [
+     32,
+     152
+    ],
+    [
+     48,
+     149
+    ],
+    [
+     64,
+     151
+    ],
+    [
+     80,
+     155
+    ],
+    [
+     96,
+     156
+    ],
+    [
+     112,
+     161
+    ],
+    [
+     128,
+     164
+    ],
+    [
+     144,
+     167
+    ],
+    [
+     160,
+     169
+    ],
+    [
+     176,
+     163
+    ],
+    [
+     192,
+     159
+    ],
+    [
+     208,
+     158
+    ],
+    [
+     224,
+     155
+    ],
+    [
+     240,
+     148
+    ],
+    [
+     256,
+     145
+    ],
+    [
+     272,
+     149
+    ],
+    [
+     288,
+     152
+    ],
+    [
+     304,
+     149
+    ],
+    [
+     320,
+     142
+    ],
+    [
+     336,
+     143
+    ],
+    [
+     352,
+     138
+    ],
+    [
+     368,
+     132
+    ],
+    [
+     384,
+     133
+    ],
+    [
+     400,
+     132
+    ],
+    [
+     416,
+     126
+    ],
+    [
+     432,
+     124
+    ],
+    [
+     448,
+     126
+    ],
+    [
+     464,
+     133
+    ],
+    [
+     480,
+     135
+    ],
+    [
+     496,
+     141
+    ],
+    [
+     512,
+     148
+    ],
+    [
+     528,
+     148
+    ],
+    [
+     544,
+     147
+    ],
+    [
+     560,
+     153
+    ],
+    [
+     576,
+     159
+    ],
+    [
+     592,
+     163
+    ],
+    [
+     608,
+     163
+    ],
+    [
+     624,
+     168
+    ],
+    [
+     640,
+     170
+    ],
+    [
+     656,
+     173
+    ],
+    [
+     672,
+     170
+    ],
+    [
+     688,
+     171
+    ],
+    [
+     704,
+     173
+    ],
+    [
+     720,
+     175
+    ],
+    [
+     736,
+     177
+    ],
+    [
+     752,
+     178
+    ],
+    [
+     768,
+     176
+    ],
+    [
+     784,
+     172
+    ],
+    [
+     800,
+     171
+    ],
+    [
+     816,
+     164
+    ],
+    [
+     832,
+     158
+    ],
+    [
+     848,
+     158
+    ],
+    [
+     864,
+     156
+    ],
+    [
+     880,
+     151
+    ],
+    [
+     896,
+     147
+    ],
+    [
+     912,
+     149
+    ],
+    [
+     928,
+     154
+    ],
+    [
+     944,
+     157
+    ],
+    [
+     960,
+     165
+    ],
+    [
+     976,
+     168
+    ],
+    [
+     992,
+     168
+    ],
+    [
+     1008,
+     166
+    ],
+    [
+     1024,
+     172
+    ],
+    [
+     1040,
+     175
+    ],
+    [
+     1056,
+     186
+    ],
+    [
+     1072,
+     189
+    ],
+    [
+     1088,
+     191
+    ],
+    [
+     1104,
+     190
+    ],
+    [
+     1120,
+     197
+    ],
+    [
+     1136,
+     207
+    ],
+    [
+     1152,
+     215
+    ],
+    [
+     1168,
+     216
+    ],
+    [
+     1184,
+     220
+    ],
+    [
+     1200,
+     229
+    ],
+    [
+     1216,
+     237
+    ],
+    [
+     1232,
+     240
+    ],
+    [
+     1248,
+     245
+    ],
+    [
+     1264,
+     248
+    ],
+    [
+     1280,
+     252
+    ],
+    [
+     1296,
+     247
+    ],
+    [
+     1312,
+     241
+    ],
+    [
+     1328,
+     234
+    ],
+    [
+     1344,
+     228
+    ],
+    [
+     1360,
+     221
+    ],
+    [
+     1376,
+     220
+    ],
+    [
+     1392,
+     216
+    ],
+    [
+     1408,
+     208
+    ],
+    [
+     1424,
+     195
+    ],
+    [
+     1440,
+     188
+    ],
+    [
+     1456,
+     191
+    ],
+    [
+     1472,
+     191
+    ],
+    [
+     1488,
+     186
+    ],
+    [
+     1504,
+     184
+    ],
+    [
+     1520,
+     178
+    ],
+    [
+     1536,
+     179
+    ],
+    [
+     1552,
+     182
+    ],
+    [
+     1568,
+     189
+    ],
+    [
+     1584,
+     186
+    ],
+    [
+     1600,
+     177
+    ],
+    [
+     1616,
+     164
+    ],
+    [
+     1632,
+     160
+    ],
+    [
+     1648,
+     157
+    ],
+    [
+     1664,
+     146
+    ],
+    [
+     1680,
+     138
+    ],
+    [
+     1696,
+     138
+    ],
+    [
+     1712,
+     134
+    ],
+    [
+     1728,
+     132
+    ],
+    [
+     1744,
+     138
+    ],
+    [
+     1760,
+     140
+    ],
+    [
+     1776,
+     147
+    ],
+    [
+     1792,
+     146
+    ],
+    [
+     1808,
+     152
+    ],
+    [
+     1824,
+     154
+    ],
+    [
+     1840,
+     156
+    ],
+    [
+     1856,
+     157
+    ],
+    [
+     1872,
+     141
+    ],
+    [
+     1888,
+     132
+    ],
+    [
+     1904,
+     128
+    ],
+    [
+     1920,
+     116
+    ],
+    [
+     1936,
+     103
+    ],
+    [
+     1952,
+     98
+    ],
+    [
+     1968,
+     100
+    ],
+    [
+     1984,
+     92
+    ],
+    [
+     2000,
+     96
+    ],
+    [
+     2016,
+     103
+    ],
+    [
+     2032,
+     104
+    ],
+    [
+     2048,
+     119
+    ],
+    [
+     2064,
+     117
+    ],
+    [
+     2080,
+     119
+    ],
+    [
+     2096,
+     124
+    ],
+    [
+     2112,
+     139
+    ],
+    [
+     2128,
+     145
+    ],
+    [
+     2144,
+     146
+    ],
+    [
+     2160,
+     156
+    ]
+   ]
+  },
+  "v_notch": {
+   "px": [
+    1278,
+    252
+   ],
+   "uv": [
+    0.5884,
+    0.3481
+   ]
+  },
+  "peaks": {
+   "left_massif": {
+    "px": [
+     897,
+     146
+    ],
+    "uv": [
+     0.413,
+     0.2017
+    ]
+   },
+   "right_massif": {
+    "px": [
+     1973,
+     93
+    ],
+    "uv": [
+     0.9084,
+     0.1285
+    ]
+   }
+  },
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/"
+ },
+ {
+  "id": "A13",
+  "file": "market_bg.png",
+  "用途": "面具集市底板（#05–#09；#06/#07 虚化当背景，#08 甩镜拖影）",
+  "尺寸": [
+   1668,
+   943
+  ],
+  "是否透明": false,
+  "提示词": "Background painting for a contemporary Chinese 2D animated film: a mythical night market inside a deep dark teal gorge, one-point perspective down a narrow lane between towering dark rock walls draped with vines, the vanishing point a little right of centre at about 42% of the picture height. Strings of small gilded bronze masks (round ancient Chinese bronze ritual leopard masks with rows of round studs, not Venetian carnival masks) hang in five sagging rows across the lane and on simple wooden racks along both walls, catching gold light. A dense crowd of small dark silhouettes seen only from behind, wearing straw hats and cloaks, fills only the middle distance and stays small in the frame; the lower third of the picture is the empty dark wet stone lane in the foreground with nobody in it. The far end of the lane dissolves into a warm golden haze, brightest at the vanishing point. Big simple masses: the left fifth and the right fifth of the picture are deep teal-black rock walls in shadow; broad painterly brushwork like a hand-painted animation background, simplified shapes, not hyper-detailed; gold rim light only where the light hits, touches of verdigris and a little rust, no red leaves, no lanterns, no shop signs, no lettering, no faces visible. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_08c.png",
+   "films/D_wushan/_work/refcrops/ref_03c.png",
+   "films/D_wushan/_work/refcrops/ref_02c1.png"
+  ],
+  "状态": "ok",
+  "备注": "单点透视，巷尾金雾最亮点（25 px 高斯平滑后）在 (1020, 445)，即 uv (0.612, 0.472)，比 DESIGN 灭点 (1000, 430)/1920×1040 偏右，搭建平移底板对齐。五排挂面具、两侧木架、远处小人群（全是背影、斗笠），前景下三分之一是空的湿石板（留给代码人群剪影）。浓墨 41%、金色高彩 13%、青色/彩色 55%。没有灯笼、招牌、文字、红叶。",
+  "vanishing_glow": {
+   "px": [
+    1020,
+    445
+   ],
+   "uv": [
+    0.6115,
+    0.4719
+   ]
+  },
+  "dark_walls": {
+   "左": "列 0–330 暗像素占 78–98%",
+   "右": "列 1494–1668 暗像素占 83–99%"
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/a13_market_bg_v1.png",
+    "做法": "DESIGN 6.3 原提示词",
+    "结果": "不用",
+    "原因": "过度精细的 AI 插画感；面具是带火焰、犄角的威尼斯式；满屏红橙叶；前景人群太大；青色/彩色只有 17%、平均饱和 0.56"
+   },
+   {
+    "版本": "v2",
+    "文件": "films/D_wushan/_work/assets_raw/a13_market_bg_v2.png",
+    "做法": "改成简化大块面、圆形青铜礼器面具、人群缩小、前景留空、去红叶",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/"
+ },
+ {
+  "id": "R01",
+  "file": "book_spread.png",
+  "用途": "线装书对页（#01、#02 房间段、#17）：左页空栏格当底（代码画卦与字），右页木刻豹直接用",
+  "尺寸": [
+   1536,
+   1024
+  ],
+  "是否透明": true,
+  "提示词": "（复用上一轮资产，未重出）",
+  "所用参考图": [],
+  "状态": "ok",
+  "备注": "复用 films/_archive_sonnet/D_wushan/assets/book_spread.png，验收：无文字、无印章；左页只有界栏和左下旧指纹墨印。处理：alpha 归一（内部 251→255），透明处 RGB 用最近不透明色回填。降饱和 ×0.65、往 #E3D5B8 拉由搭建在着色器里做（DESIGN 3.3f）。书脊订线是红色细线（≤1% 面积）。",
+  "pages": {
+   "左页纸": {
+    "px": [
+     34,
+     34,
+     764,
+     998
+    ],
+    "uv": [
+     0.0221,
+     0.0332,
+     0.4974,
+     0.9746
+    ]
+   },
+   "右页纸": {
+    "px": [
+     765,
+     33,
+     1499,
+     998
+    ],
+    "uv": [
+     0.498,
+     0.0322,
+     0.9759,
+     0.9746
+    ]
+   },
+   "左页版框": {
+    "px": [
+     91,
+     110,
+     719,
+     939
+    ],
+    "uv": [
+     0.0592,
+     0.1074,
+     0.4681,
+     0.917
+    ]
+   },
+   "右页版框（木刻）": {
+    "px": [
+     805,
+     109,
+     1442,
+     943
+    ],
+    "uv": [
+     0.5241,
+     0.1064,
+     0.9388,
+     0.9209
+    ]
+   },
+   "书脊中线_x_px": 765,
+   "左页界栏_x_px": [
+    155.5,
+    233.5,
+    313.5,
+    393.0,
+    473.5,
+    553.5,
+    633.5
+   ],
+   "左页旧指纹墨印": {
+    "px": [
+     125,
+     590,
+     205,
+     690
+    ],
+    "uv": [
+     0.0814,
+     0.5762,
+     0.1335,
+     0.6738
+    ]
+   }
+  },
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/"
+ },
+ {
+  "id": "R02",
+  "file": "deer.png",
+  "用途": "#03 雾中鹿群剪影（5 只）",
+  "尺寸": [
+   2799,
+   724
+  ],
+  "是否透明": true,
+  "提示词": "（复用上一轮资产，未重出）",
+  "所用参考图": [],
+  "状态": "ok",
+  "备注": "复用 films/_archive_sonnet/D_wushan/assets/deer.png（2172×724）。原图 5 只鹿的包围盒互相交叠，已按 alpha 连通域拆开、从左到右重新排成互不重叠的一条（间隔 40 px），尺寸变为 2799×724；像素本身未改。用法按 DESIGN：alpha>0.55 二值化、填 #45545C。从左到右：幼鹿、小鹿、母鹿、母鹿、公鹿（带角），全部朝右。",
+  "deer": [
+   {
+    "n": 1,
+    "bbox": {
+     "px": [
+      86,
+      380,
+      391,
+      646
+     ],
+     "uv": [
+      0.0307,
+      0.5249,
+      0.1397,
+      0.8923
+     ]
+    },
+    "waist_y_px": 574,
+    "waist_v": 0.7928
+   },
+   {
+    "n": 2,
+    "bbox": {
+     "px": [
+      488,
+      319,
+      841,
+      643
+     ],
+     "uv": [
+      0.1743,
+      0.4406,
+      0.3005,
+      0.8881
+     ]
+    },
+    "waist_y_px": 556,
+    "waist_v": 0.768
+   },
+   {
+    "n": 3,
+    "bbox": {
+     "px": [
+      935,
+      229,
+      1411,
+      642
+     ],
+     "uv": [
+      0.334,
+      0.3163,
+      0.5041,
+      0.8867
+     ]
+    },
+    "waist_y_px": 526,
+    "waist_v": 0.7265
+   },
+   {
+    "n": 4,
+    "bbox": {
+     "px": [
+      1554,
+      262,
+      2056,
+      642
+     ],
+     "uv": [
+      0.5552,
+      0.3619,
+      0.7345,
+      0.8867
+     ]
+    },
+    "waist_y_px": 525,
+    "waist_v": 0.7251
+   },
+   {
+    "n": 5,
+    "bbox": {
+     "px": [
+      2152,
+      54,
+      2738,
+      644
+     ],
+     "uv": [
+      0.7688,
+      0.0746,
+      0.9782,
+      0.8895
+     ]
+    },
+    "waist_y_px": 518,
+    "waist_v": 0.7155
+   }
+  ],
+  "deer_说明": "bbox 取 alpha>0.55 的二值剪影；waist_y = 自下而上第一行宽度 ≥ 最大宽 45% 的行（腹线），\"走路\"剪切以它为轴",
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/"
+ },
+ {
+  "id": "A14",
+  "file": "peaks_qinglu.png",
+  "用途": "#15 侧跟近排三座单峰山卡（取代 3D 圆顶峰）；#14 冲出云层后的三座逆光暗峰（压暗）",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": true,
+  "提示词": "Three separate isolated mountain peaks side by side, evenly spaced with generous empty space between them, background painting elements for a contemporary Chinese animated film in the blue-green (qinglu) landscape style. Each one is a single steep, broad, rounded massif with a soft domed summit and a few secondary humps, in malachite turquoise, deep teal and azurite blue, every face textured with long vertical dry-brush streaks running down the slopes, dark ink dots of small pines and moss clustered along the ridgeline and summit, a touch of warm ochre on one sunlit slope, darker blue-green shadow on the other side. The lower third of each peak gradually dissolves into nothing: no ground, no base line, no mist band, the bottom simply fades out to transparent. Broad confident painterly brushwork like a traditional handscroll, soft daylight, transparent background, no sky, no clouds, no people, no buildings, no frame. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "refs/D_wushan/ref_04.jpg",
+   "refs/D_wushan/ref_05.jpg",
+   "_work/refcrops/ref_07c.png",
+   "assets/nanshan_pano.png"
+  ],
+  "状态": "ok",
+  "备注": "返修 3（style-02 / self-04）新出。Read 看过：三座峰互不相连，竖向干笔皴、脊上松点、一侧赭色受光，山脚化成白雾渐隐；透明底，峰体 alpha ≈ 250，山脚雾 alpha 230 → 0 渐隐，叠在灰底、金底上都没有白边或棋盘格。",
+  "生成记录": "Magpie（codex/gpt-image-2.5），3:1，transparent，quality high，一次通过",
+  "peaks": [
+   {
+    "n": 1,
+    "bbox": {
+     "px": [
+      17,
+      74,
+      696,
+      689
+     ],
+     "uv": [
+      0.0078,
+      0.0483,
+      0.3126,
+      0.8494
+     ]
+    }
+   },
+   {
+    "n": 2,
+    "bbox": {
+     "px": [
+      738,
+      74,
+      1426,
+      689
+     ],
+     "uv": [
+      0.3398,
+      0.0483,
+      0.3168,
+      0.8494
+     ]
+    }
+   },
+   {
+    "n": 3,
+    "bbox": {
+     "px": [
+      1473,
+      74,
+      2161,
+      689
+     ],
+     "uv": [
+      0.6782,
+      0.0483,
+      0.3172,
+      0.8494
+     ]
+    }
+   }
+  ],
+  "路径约定": "bbox.px 为原图像素 [x0, y0, x1, y1]（y 自上而下）；bbox.uv 为贴图 uv 裁切 [u0, v0, du, dv]（v 自下而上，three.js flipY）"
+ },
+ {
+  "id": "A16",
+  "file": "gold_sea.png",
+  "用途": "金色云海底板：#13、#14 冲出云层后的金色全景（高处略俯）",
+  "尺寸": [
+   1961,
+   802
+  ],
+  "是否透明": false,
+  "提示词": "Wide panoramic background painting for a contemporary Chinese animated film: an endless sea of clouds at sunset seen from high above it, looking slightly down across it toward the horizon, strongly backlit by a low sun just outside the upper left of the picture; the cloud sea fills the whole lower part of the picture right to the bottom edge and to both side edges, with no foreground rock, no cliff, no tree and no ledge in front; the clouds are heavy rolling masses and long horizontal banks, their sunlit tops glowing warm gold and ivory, their undersides and the hollows between them in deep shadowy teal-grey and umber, thin bright gold rims along the cloud tops facing the sun; a few dark blue-green mountain peaks with tiny pines rise out of the cloud sea in the middle distance and far away, the farthest melting into golden haze; luminous golden mist and soft god rays in the air; the upper quarter is a clean warm gradient from pale gold to amber with no sun disc drawn. Painterly dry-brush texture on the clouds, broad confident brushwork, no birds, no people, no buildings. Use the reference images only for brushwork and colour. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_03c.png",
+   "refs/D_wushan/ref_05.jpg",
+   "films/D_wushan/_work/refcrops/ref_07c.png"
+  ],
+  "状态": "ok",
+  "备注": "不透明。画面上部没有太阳圆盘、没有鸟（Read 看过）；左上角是画外太阳的辉光和几道体积光，代码太阳放在 sun_free_zone。干净天空带 y 0–130（占 16%），130–200 是最远的云线。视角高处略俯，地平线 y≈150，对 #14 冲出云层后俯角 ≤15° 的机位。尺寸 1961×802（Magpie 实际出图，约 2.45:1）。",
+  "anchors": {
+   "horizon_y_px": 150,
+   "clean_sky_px": [
+    0,
+    0,
+    1961,
+    130
+   ],
+   "sun_free_zone_px": [
+    0,
+    0,
+    420,
+    140
+   ],
+   "sun_side": "左上画外",
+   "peaks_bbox_px": [
+    [
+     300,
+     240,
+     620,
+     330
+    ],
+    [
+     1100,
+     180,
+     1600,
+     330
+    ],
+    [
+     1460,
+     300,
+     1720,
+     380
+    ]
+   ],
+   "view": "高处略俯，云海铺到下沿和两侧"
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a16_gold_sea_v1.png",
+    "结果": "不用",
+    "原因": "左下画进一块带松的前景岩台，冲出云层后的镜头里会穿帮"
+   },
+   {
+    "版本": "v2",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a16_gold_sea_v2.png",
+    "做法": "写明云海铺满下部、没有前景岩和树",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A17",
+  "file": "cloud_masses.png",
+  "用途": "四块有体积的云岸卡：#14 三层云、金色全景（代码只管摆放、视差、调色、遮挡）",
+  "尺寸": [
+   1536,
+   1015
+  ],
+  "是否透明": true,
+  "提示词": "Four separate cumulus cloud banks for compositing in an animated film, arranged in a 2 by 2 grid with generous empty space between them, each isolated on a transparent background: large heavy billowing clouds with rounded, rolling, cauliflower-like tops (clouds only: no mountains, no rocks, no trees, no waterfalls), painted in the dry-brush blue-green landscape style and lit from behind and above by warm low sunlight: thin bright gold-ivory rims along the top edges, the sunlit upper third in pale warm ivory and cream, the lower half and undersides in deep teal-grey (#2E4A4E to #3A5E63) with soft umber shadows, edges torn by horizontal dry-brush strokes, the bottom edges dissolving softly into transparent mist; no glow or haze outside the clouds. No flat bottoms, no hard outlines, no cartoon cotton-ball puffs. Use the reference images only for brushwork and colour. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "refs/D_wushan/ref_05.jpg",
+   "films/D_wushan/_work/refcrops/ref_07c.png",
+   "films/D_wushan/_work/refcrops/ref_03c.png"
+  ],
+  "状态": "ok",
+  "备注": "四块互不相连，四周留空 ≥23 px（裁切时 margin 24）。受光方向左上（金边在上沿、偏左）。底边化成透明，不是平底；边缘是横向干笔撕边。clean_sprite 已把 alpha<16 的残雾清零（原图整幅有 alpha 1–15 的淡雾）。云体偏积云团，受光的上部象牙色不多，主要是青灰体 + 金边。",
+  "anchors": {
+   "masses": [
+    {
+     "bbox_px": [
+      23,
+      25,
+      750,
+      470
+     ],
+     "fade_start_y_px": 421,
+     "lit_from": "左上"
+    },
+    {
+     "bbox_px": [
+      798,
+      64,
+      1515,
+      447
+     ],
+     "fade_start_y_px": 405,
+     "lit_from": "左上"
+    },
+    {
+     "bbox_px": [
+      25,
+      540,
+      738,
+      977
+     ],
+     "fade_start_y_px": 929,
+     "lit_from": "左上"
+    },
+    {
+     "bbox_px": [
+      800,
+      540,
+      1515,
+      970
+     ],
+     "fade_start_y_px": 909,
+     "lit_from": "左上"
+    }
+   ]
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a17_cloud_masses_v1.png",
+    "结果": "不用",
+    "原因": "四块读成雾里的山（左上那块有树和瀑布状竖皴），外圈一大圈白雾晕"
+   },
+   {
+    "版本": "v2",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a17_cloud_masses_v2.png",
+    "做法": "写明只画云、圆滚的积云顶、云外不要光晕",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A18",
+  "file": "cloud_ribbons.png",
+  "用途": "八条细长云带 + 两张软纱：#14 速度线与穿层、T1 横带、#16 背景",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": true,
+  "提示词": "On a very wide horizontal canvas, a set of eight long thin horizontal cloud ribbons and two broad soft mist veils for compositing, each isolated on a transparent background, stacked one above another with empty space between them, every element spanning most of the canvas width: the ribbons are long, slender, gently undulating bands of ivory-white mist as in classical blue-green landscape painting, tapering to fine points at both ends, some running in parallel pairs, with soft dry-brush texture along their length and a very faint pale shadow along the lower edge; at the bottom, the two veils are wide translucent sheets of pale ivory mist (mist only, no mountains, no hills) with torn upper edges and soft lower edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_07c.png",
+   "refs/D_wushan/ref_04.jpg",
+   "refs/D_wushan/ref_05.jpg"
+  ],
+  "状态": "ok",
+  "备注": "从上到下第 1–8 条是云带（两端收尖、带一点青灰影），第 9–10 张是软纱（上沿撕边、下沿柔）。成对：1-2、5-6、7-8（间距 ≤11 px）。每条都跨满约 2000 px 宽。半透明多（雾本来就是半透明），alpha<16 已清零。",
+  "anchors": {
+   "items": [
+    {
+     "n": 1,
+     "kind": "ribbon",
+     "bbox_px": [
+      78,
+      11,
+      2100,
+      68
+     ],
+     "centerline_px_every32": [
+      [
+       78,
+       61
+      ],
+      [
+       110,
+       61
+      ],
+      [
+       142,
+       59
+      ],
+      [
+       174,
+       58
+      ],
+      [
+       206,
+       59
+      ],
+      [
+       238,
+       60
+      ],
+      [
+       270,
+       56
+      ],
+      [
+       302,
+       52
+      ],
+      [
+       334,
+       50
+      ],
+      [
+       366,
+       54
+      ],
+      [
+       398,
+       54
+      ],
+      [
+       430,
+       56
+      ],
+      [
+       462,
+       53
+      ],
+      [
+       494,
+       47
+      ],
+      [
+       526,
+       47
+      ],
+      [
+       558,
+       39
+      ],
+      [
+       590,
+       36
+      ],
+      [
+       622,
+       34
+      ],
+      [
+       654,
+       31
+      ],
+      [
+       686,
+       32
+      ],
+      [
+       718,
+       37
+      ],
+      [
+       750,
+       39
+      ],
+      [
+       782,
+       43
+      ],
+      [
+       814,
+       47
+      ],
+      [
+       846,
+       52
+      ],
+      [
+       878,
+       54
+      ],
+      [
+       910,
+       54
+      ],
+      [
+       942,
+       49
+      ],
+      [
+       974,
+       50
+      ],
+      [
+       1006,
+       49
+      ],
+      [
+       1038,
+       52
+      ],
+      [
+       1070,
+       56
+      ],
+      [
+       1102,
+       58
+      ],
+      [
+       1134,
+       57
+      ],
+      [
+       1166,
+       56
+      ],
+      [
+       1198,
+       56
+      ],
+      [
+       1230,
+       55
+      ],
+      [
+       1262,
+       50
+      ],
+      [
+       1294,
+       48
+      ],
+      [
+       1326,
+       50
+      ],
+      [
+       1358,
+       47
+      ],
+      [
+       1390,
+       46
+      ],
+      [
+       1422,
+       49
+      ],
+      [
+       1454,
+       49
+      ],
+      [
+       1486,
+       44
+      ],
+      [
+       1518,
+       43
+      ],
+      [
+       1550,
+       40
+      ],
+      [
+       1582,
+       35
+      ],
+      [
+       1614,
+       34
+      ],
+      [
+       1646,
+       31
+      ],
+      [
+       1678,
+       32
+      ],
+      [
+       1710,
+       35
+      ],
+      [
+       1742,
+       35
+      ],
+      [
+       1774,
+       39
+      ],
+      [
+       1806,
+       44
+      ],
+      [
+       1838,
+       49
+      ],
+      [
+       1870,
+       53
+      ],
+      [
+       1902,
+       56
+      ],
+      [
+       1934,
+       57
+      ],
+      [
+       1966,
+       58
+      ],
+      [
+       1998,
+       57
+      ],
+      [
+       2030,
+       57
+      ],
+      [
+       2062,
+       58
+      ],
+      [
+       2094,
+       58
+      ]
+     ]
+    },
+    {
+     "n": 2,
+     "kind": "ribbon",
+     "bbox_px": [
+      54,
+      79,
+      2112,
+      132
+     ],
+     "centerline_px_every32": [
+      [
+       54,
+       117
+      ],
+      [
+       86,
+       114
+      ],
+      [
+       118,
+       114
+      ],
+      [
+       150,
+       116
+      ],
+      [
+       182,
+       115
+      ],
+      [
+       214,
+       118
+      ],
+      [
+       246,
+       117
+      ],
+      [
+       278,
+       119
+      ],
+      [
+       310,
+       119
+      ],
+      [
+       342,
+       115
+      ],
+      [
+       374,
+       116
+      ],
+      [
+       406,
+       113
+      ],
+      [
+       438,
+       115
+      ],
+      [
+       470,
+       117
+      ],
+      [
+       502,
+       116
+      ],
+      [
+       534,
+       115
+      ],
+      [
+       566,
+       115
+      ],
+      [
+       598,
+       119
+      ],
+      [
+       630,
+       120
+      ],
+      [
+       662,
+       117
+      ],
+      [
+       694,
+       113
+      ],
+      [
+       726,
+       107
+      ],
+      [
+       758,
+       105
+      ],
+      [
+       790,
+       106
+      ],
+      [
+       822,
+       109
+      ],
+      [
+       854,
+       114
+      ],
+      [
+       886,
+       119
+      ],
+      [
+       918,
+       120
+      ],
+      [
+       950,
+       120
+      ],
+      [
+       982,
+       121
+      ],
+      [
+       1014,
+       119
+      ],
+      [
+       1046,
+       116
+      ],
+      [
+       1078,
+       114
+      ],
+      [
+       1110,
+       115
+      ],
+      [
+       1142,
+       112
+      ],
+      [
+       1174,
+       110
+      ],
+      [
+       1206,
+       108
+      ],
+      [
+       1238,
+       104
+      ],
+      [
+       1270,
+       99
+      ],
+      [
+       1302,
+       101
+      ],
+      [
+       1334,
+       104
+      ],
+      [
+       1366,
+       111
+      ],
+      [
+       1398,
+       112
+      ],
+      [
+       1430,
+       111
+      ],
+      [
+       1462,
+       107
+      ],
+      [
+       1494,
+       107
+      ],
+      [
+       1526,
+       104
+      ],
+      [
+       1558,
+       102
+      ],
+      [
+       1590,
+       99
+      ],
+      [
+       1622,
+       101
+      ],
+      [
+       1654,
+       105
+      ],
+      [
+       1686,
+       108
+      ],
+      [
+       1718,
+       111
+      ],
+      [
+       1750,
+       112
+      ],
+      [
+       1782,
+       115
+      ],
+      [
+       1814,
+       120
+      ],
+      [
+       1846,
+       121
+      ],
+      [
+       1878,
+       120
+      ],
+      [
+       1910,
+       118
+      ],
+      [
+       1942,
+       119
+      ],
+      [
+       1974,
+       118
+      ],
+      [
+       2006,
+       117
+      ],
+      [
+       2038,
+       115
+      ],
+      [
+       2070,
+       114
+      ],
+      [
+       2102,
+       115
+      ]
+     ]
+    },
+    {
+     "n": 3,
+     "kind": "ribbon",
+     "bbox_px": [
+      68,
+      153,
+      2110,
+      197
+     ],
+     "centerline_px_every32": [
+      [
+       68,
+       186
+      ],
+      [
+       100,
+       184
+      ],
+      [
+       132,
+       185
+      ],
+      [
+       164,
+       186
+      ],
+      [
+       196,
+       185
+      ],
+      [
+       228,
+       182
+      ],
+      [
+       260,
+       184
+      ],
+      [
+       292,
+       186
+      ],
+      [
+       324,
+       186
+      ],
+      [
+       356,
+       183
+      ],
+      [
+       388,
+       178
+      ],
+      [
+       420,
+       175
+      ],
+      [
+       452,
+       173
+      ],
+      [
+       484,
+       174
+      ],
+      [
+       516,
+       175
+      ],
+      [
+       548,
+       178
+      ],
+      [
+       580,
+       179
+      ],
+      [
+       612,
+       175
+      ],
+      [
+       644,
+       171
+      ],
+      [
+       676,
+       169
+      ],
+      [
+       708,
+       173
+      ],
+      [
+       740,
+       175
+      ],
+      [
+       772,
+       178
+      ],
+      [
+       804,
+       179
+      ],
+      [
+       836,
+       179
+      ],
+      [
+       868,
+       181
+      ],
+      [
+       900,
+       184
+      ],
+      [
+       932,
+       188
+      ],
+      [
+       964,
+       192
+      ],
+      [
+       996,
+       193
+      ],
+      [
+       1028,
+       192
+      ],
+      [
+       1060,
+       189
+      ],
+      [
+       1092,
+       186
+      ],
+      [
+       1124,
+       184
+      ],
+      [
+       1156,
+       181
+      ],
+      [
+       1188,
+       182
+      ],
+      [
+       1220,
+       181
+      ],
+      [
+       1252,
+       184
+      ],
+      [
+       1284,
+       185
+      ],
+      [
+       1316,
+       186
+      ],
+      [
+       1348,
+       185
+      ],
+      [
+       1380,
+       186
+      ],
+      [
+       1412,
+       185
+      ],
+      [
+       1444,
+       183
+      ],
+      [
+       1476,
+       180
+      ],
+      [
+       1508,
+       176
+      ],
+      [
+       1540,
+       172
+      ],
+      [
+       1572,
+       169
+      ],
+      [
+       1604,
+       169
+      ],
+      [
+       1636,
+       170
+      ],
+      [
+       1668,
+       169
+      ],
+      [
+       1700,
+       169
+      ],
+      [
+       1732,
+       173
+      ],
+      [
+       1764,
+       176
+      ],
+      [
+       1796,
+       177
+      ],
+      [
+       1828,
+       179
+      ],
+      [
+       1860,
+       181
+      ],
+      [
+       1892,
+       183
+      ],
+      [
+       1924,
+       186
+      ],
+      [
+       1956,
+       188
+      ],
+      [
+       1988,
+       189
+      ],
+      [
+       2020,
+       189
+      ],
+      [
+       2052,
+       187
+      ],
+      [
+       2084,
+       186
+      ]
+     ]
+    },
+    {
+     "n": 4,
+     "kind": "ribbon",
+     "bbox_px": [
+      53,
+      206,
+      2120,
+      260
+     ],
+     "centerline_px_every32": [
+      [
+       53,
+       244
+      ],
+      [
+       85,
+       242
+      ],
+      [
+       117,
+       243
+      ],
+      [
+       149,
+       244
+      ],
+      [
+       181,
+       244
+      ],
+      [
+       213,
+       244
+      ],
+      [
+       245,
+       246
+      ],
+      [
+       277,
+       249
+      ],
+      [
+       309,
+       251
+      ],
+      [
+       341,
+       253
+      ],
+      [
+       373,
+       251
+      ],
+      [
+       405,
+       248
+      ],
+      [
+       437,
+       247
+      ],
+      [
+       469,
+       244
+      ],
+      [
+       501,
+       241
+      ],
+      [
+       533,
+       237
+      ],
+      [
+       565,
+       236
+      ],
+      [
+       597,
+       238
+      ],
+      [
+       629,
+       236
+      ],
+      [
+       661,
+       229
+      ],
+      [
+       693,
+       228
+      ],
+      [
+       725,
+       226
+      ],
+      [
+       757,
+       224
+      ],
+      [
+       789,
+       225
+      ],
+      [
+       821,
+       227
+      ],
+      [
+       853,
+       232
+      ],
+      [
+       885,
+       234
+      ],
+      [
+       917,
+       237
+      ],
+      [
+       949,
+       237
+      ],
+      [
+       981,
+       238
+      ],
+      [
+       1013,
+       244
+      ],
+      [
+       1045,
+       246
+      ],
+      [
+       1077,
+       247
+      ],
+      [
+       1109,
+       244
+      ],
+      [
+       1141,
+       243
+      ],
+      [
+       1173,
+       241
+      ],
+      [
+       1205,
+       236
+      ],
+      [
+       1237,
+       232
+      ],
+      [
+       1269,
+       232
+      ],
+      [
+       1301,
+       230
+      ],
+      [
+       1333,
+       228
+      ],
+      [
+       1365,
+       226
+      ],
+      [
+       1397,
+       228
+      ],
+      [
+       1429,
+       228
+      ],
+      [
+       1461,
+       228
+      ],
+      [
+       1493,
+       232
+      ],
+      [
+       1525,
+       236
+      ],
+      [
+       1557,
+       240
+      ],
+      [
+       1589,
+       241
+      ],
+      [
+       1621,
+       244
+      ],
+      [
+       1653,
+       247
+      ],
+      [
+       1685,
+       247
+      ],
+      [
+       1717,
+       245
+      ],
+      [
+       1749,
+       243
+      ],
+      [
+       1781,
+       238
+      ],
+      [
+       1813,
+       236
+      ],
+      [
+       1845,
+       239
+      ],
+      [
+       1877,
+       244
+      ],
+      [
+       1909,
+       243
+      ],
+      [
+       1941,
+       243
+      ],
+      [
+       1973,
+       246
+      ],
+      [
+       2005,
+       246
+      ],
+      [
+       2037,
+       245
+      ],
+      [
+       2069,
+       243
+      ],
+      [
+       2101,
+       242
+      ]
+     ]
+    },
+    {
+     "n": 5,
+     "kind": "ribbon",
+     "bbox_px": [
+      69,
+      277,
+      2086,
+      314
+     ],
+     "centerline_px_every32": [
+      [
+       69,
+       301
+      ],
+      [
+       101,
+       298
+      ],
+      [
+       133,
+       296
+      ],
+      [
+       165,
+       295
+      ],
+      [
+       197,
+       296
+      ],
+      [
+       229,
+       299
+      ],
+      [
+       261,
+       302
+      ],
+      [
+       293,
+       304
+      ],
+      [
+       325,
+       301
+      ],
+      [
+       357,
+       297
+      ],
+      [
+       389,
+       296
+      ],
+      [
+       421,
+       297
+      ],
+      [
+       453,
+       297
+      ],
+      [
+       485,
+       297
+      ],
+      [
+       517,
+       293
+      ],
+      [
+       549,
+       289
+      ],
+      [
+       581,
+       290
+      ],
+      [
+       613,
+       288
+      ],
+      [
+       645,
+       285
+      ],
+      [
+       677,
+       283
+      ],
+      [
+       709,
+       284
+      ],
+      [
+       741,
+       289
+      ],
+      [
+       773,
+       293
+      ],
+      [
+       805,
+       294
+      ],
+      [
+       837,
+       294
+      ],
+      [
+       869,
+       294
+      ],
+      [
+       901,
+       294
+      ],
+      [
+       933,
+       297
+      ],
+      [
+       965,
+       298
+      ],
+      [
+       997,
+       297
+      ],
+      [
+       1029,
+       298
+      ],
+      [
+       1061,
+       296
+      ],
+      [
+       1093,
+       301
+      ],
+      [
+       1125,
+       299
+      ],
+      [
+       1157,
+       297
+      ],
+      [
+       1189,
+       295
+      ],
+      [
+       1221,
+       296
+      ],
+      [
+       1253,
+       293
+      ],
+      [
+       1285,
+       293
+      ],
+      [
+       1317,
+       296
+      ],
+      [
+       1349,
+       298
+      ],
+      [
+       1381,
+       296
+      ],
+      [
+       1413,
+       296
+      ],
+      [
+       1445,
+       296
+      ],
+      [
+       1477,
+       296
+      ],
+      [
+       1509,
+       298
+      ],
+      [
+       1541,
+       301
+      ],
+      [
+       1573,
+       301
+      ],
+      [
+       1605,
+       301
+      ],
+      [
+       1637,
+       300
+      ],
+      [
+       1669,
+       298
+      ],
+      [
+       1701,
+       294
+      ],
+      [
+       1733,
+       290
+      ],
+      [
+       1765,
+       290
+      ],
+      [
+       1797,
+       292
+      ],
+      [
+       1829,
+       296
+      ],
+      [
+       1861,
+       297
+      ],
+      [
+       1893,
+       297
+      ],
+      [
+       1925,
+       298
+      ],
+      [
+       1957,
+       298
+      ],
+      [
+       1989,
+       298
+      ],
+      [
+       2021,
+       300
+      ],
+      [
+       2053,
+       302
+      ],
+      [
+       2085,
+       304
+      ]
+     ]
+    },
+    {
+     "n": 6,
+     "kind": "ribbon",
+     "bbox_px": [
+      59,
+      317,
+      2104,
+      371
+     ],
+     "centerline_px_every32": [
+      [
+       59,
+       355
+      ],
+      [
+       91,
+       353
+      ],
+      [
+       123,
+       352
+      ],
+      [
+       155,
+       352
+      ],
+      [
+       187,
+       352
+      ],
+      [
+       219,
+       353
+      ],
+      [
+       251,
+       356
+      ],
+      [
+       283,
+       355
+      ],
+      [
+       315,
+       355
+      ],
+      [
+       347,
+       354
+      ],
+      [
+       379,
+       353
+      ],
+      [
+       411,
+       354
+      ],
+      [
+       443,
+       356
+      ],
+      [
+       475,
+       356
+      ],
+      [
+       507,
+       353
+      ],
+      [
+       539,
+       353
+      ],
+      [
+       571,
+       352
+      ],
+      [
+       603,
+       352
+      ],
+      [
+       635,
+       348
+      ],
+      [
+       667,
+       348
+      ],
+      [
+       699,
+       347
+      ],
+      [
+       731,
+       341
+      ],
+      [
+       763,
+       340
+      ],
+      [
+       795,
+       337
+      ],
+      [
+       827,
+       340
+      ],
+      [
+       859,
+       342
+      ],
+      [
+       891,
+       348
+      ],
+      [
+       923,
+       349
+      ],
+      [
+       955,
+       351
+      ],
+      [
+       987,
+       353
+      ],
+      [
+       1019,
+       356
+      ],
+      [
+       1051,
+       356
+      ],
+      [
+       1083,
+       357
+      ],
+      [
+       1115,
+       358
+      ],
+      [
+       1147,
+       357
+      ],
+      [
+       1179,
+       355
+      ],
+      [
+       1211,
+       352
+      ],
+      [
+       1243,
+       347
+      ],
+      [
+       1275,
+       344
+      ],
+      [
+       1307,
+       343
+      ],
+      [
+       1339,
+       342
+      ],
+      [
+       1371,
+       345
+      ],
+      [
+       1403,
+       348
+      ],
+      [
+       1435,
+       347
+      ],
+      [
+       1467,
+       345
+      ],
+      [
+       1499,
+       347
+      ],
+      [
+       1531,
+       351
+      ],
+      [
+       1563,
+       352
+      ],
+      [
+       1595,
+       353
+      ],
+      [
+       1627,
+       354
+      ],
+      [
+       1659,
+       354
+      ],
+      [
+       1691,
+       352
+      ],
+      [
+       1723,
+       355
+      ],
+      [
+       1755,
+       357
+      ],
+      [
+       1787,
+       356
+      ],
+      [
+       1819,
+       357
+      ],
+      [
+       1851,
+       356
+      ],
+      [
+       1883,
+       353
+      ],
+      [
+       1915,
+       353
+      ],
+      [
+       1947,
+       354
+      ],
+      [
+       1979,
+       353
+      ],
+      [
+       2011,
+       352
+      ],
+      [
+       2043,
+       353
+      ],
+      [
+       2075,
+       355
+      ]
+     ]
+    },
+    {
+     "n": 7,
+     "kind": "ribbon",
+     "bbox_px": [
+      85,
+      386,
+      2107,
+      419
+     ],
+     "centerline_px_every32": [
+      [
+       85,
+       410
+      ],
+      [
+       117,
+       407
+      ],
+      [
+       149,
+       405
+      ],
+      [
+       181,
+       403
+      ],
+      [
+       213,
+       402
+      ],
+      [
+       245,
+       403
+      ],
+      [
+       277,
+       402
+      ],
+      [
+       309,
+       402
+      ],
+      [
+       341,
+       406
+      ],
+      [
+       373,
+       409
+      ],
+      [
+       405,
+       410
+      ],
+      [
+       437,
+       411
+      ],
+      [
+       469,
+       412
+      ],
+      [
+       501,
+       410
+      ],
+      [
+       533,
+       407
+      ],
+      [
+       565,
+       407
+      ],
+      [
+       597,
+       403
+      ],
+      [
+       629,
+       402
+      ],
+      [
+       661,
+       402
+      ],
+      [
+       693,
+       398
+      ],
+      [
+       725,
+       394
+      ],
+      [
+       757,
+       395
+      ],
+      [
+       789,
+       398
+      ],
+      [
+       821,
+       403
+      ],
+      [
+       853,
+       406
+      ],
+      [
+       885,
+       405
+      ],
+      [
+       917,
+       403
+      ],
+      [
+       949,
+       400
+      ],
+      [
+       981,
+       401
+      ],
+      [
+       1013,
+       399
+      ],
+      [
+       1045,
+       403
+      ],
+      [
+       1077,
+       406
+      ],
+      [
+       1109,
+       406
+      ],
+      [
+       1141,
+       404
+      ],
+      [
+       1173,
+       400
+      ],
+      [
+       1205,
+       401
+      ],
+      [
+       1237,
+       402
+      ],
+      [
+       1269,
+       403
+      ],
+      [
+       1301,
+       404
+      ],
+      [
+       1333,
+       402
+      ],
+      [
+       1365,
+       400
+      ],
+      [
+       1397,
+       400
+      ],
+      [
+       1429,
+       401
+      ],
+      [
+       1461,
+       403
+      ],
+      [
+       1493,
+       406
+      ],
+      [
+       1525,
+       408
+      ],
+      [
+       1557,
+       411
+      ],
+      [
+       1589,
+       412
+      ],
+      [
+       1621,
+       411
+      ],
+      [
+       1653,
+       408
+      ],
+      [
+       1685,
+       404
+      ],
+      [
+       1717,
+       402
+      ],
+      [
+       1749,
+       403
+      ],
+      [
+       1781,
+       406
+      ],
+      [
+       1813,
+       410
+      ],
+      [
+       1845,
+       410
+      ],
+      [
+       1877,
+       408
+      ],
+      [
+       1909,
+       409
+      ],
+      [
+       1941,
+       411
+      ],
+      [
+       1973,
+       412
+      ],
+      [
+       2005,
+       412
+      ],
+      [
+       2037,
+       411
+      ],
+      [
+       2069,
+       412
+      ],
+      [
+       2101,
+       414
+      ]
+     ]
+    },
+    {
+     "n": 8,
+     "kind": "ribbon",
+     "bbox_px": [
+      55,
+      424,
+      2122,
+      474
+     ],
+     "centerline_px_every32": [
+      [
+       55,
+       462
+      ],
+      [
+       87,
+       462
+      ],
+      [
+       119,
+       462
+      ],
+      [
+       151,
+       462
+      ],
+      [
+       183,
+       463
+      ],
+      [
+       215,
+       462
+      ],
+      [
+       247,
+       462
+      ],
+      [
+       279,
+       462
+      ],
+      [
+       311,
+       460
+      ],
+      [
+       343,
+       458
+      ],
+      [
+       375,
+       456
+      ],
+      [
+       407,
+       454
+      ],
+      [
+       439,
+       456
+      ],
+      [
+       471,
+       458
+      ],
+      [
+       503,
+       460
+      ],
+      [
+       535,
+       459
+      ],
+      [
+       567,
+       456
+      ],
+      [
+       599,
+       451
+      ],
+      [
+       631,
+       452
+      ],
+      [
+       663,
+       454
+      ],
+      [
+       695,
+       454
+      ],
+      [
+       727,
+       453
+      ],
+      [
+       759,
+       457
+      ],
+      [
+       791,
+       459
+      ],
+      [
+       823,
+       458
+      ],
+      [
+       855,
+       459
+      ],
+      [
+       887,
+       462
+      ],
+      [
+       919,
+       462
+      ],
+      [
+       951,
+       465
+      ],
+      [
+       983,
+       466
+      ],
+      [
+       1015,
+       466
+      ],
+      [
+       1047,
+       463
+      ],
+      [
+       1079,
+       460
+      ],
+      [
+       1111,
+       460
+      ],
+      [
+       1143,
+       463
+      ],
+      [
+       1175,
+       463
+      ],
+      [
+       1207,
+       462
+      ],
+      [
+       1239,
+       459
+      ],
+      [
+       1271,
+       454
+      ],
+      [
+       1303,
+       452
+      ],
+      [
+       1335,
+       446
+      ],
+      [
+       1367,
+       444
+      ],
+      [
+       1399,
+       446
+      ],
+      [
+       1431,
+       448
+      ],
+      [
+       1463,
+       446
+      ],
+      [
+       1495,
+       451
+      ],
+      [
+       1527,
+       454
+      ],
+      [
+       1559,
+       457
+      ],
+      [
+       1591,
+       460
+      ],
+      [
+       1623,
+       460
+      ],
+      [
+       1655,
+       458
+      ],
+      [
+       1687,
+       459
+      ],
+      [
+       1719,
+       460
+      ],
+      [
+       1751,
+       461
+      ],
+      [
+       1783,
+       459
+      ],
+      [
+       1815,
+       458
+      ],
+      [
+       1847,
+       457
+      ],
+      [
+       1879,
+       457
+      ],
+      [
+       1911,
+       459
+      ],
+      [
+       1943,
+       461
+      ],
+      [
+       1975,
+       461
+      ],
+      [
+       2007,
+       461
+      ],
+      [
+       2039,
+       461
+      ],
+      [
+       2071,
+       460
+      ],
+      [
+       2103,
+       457
+      ]
+     ]
+    },
+    {
+     "n": 9,
+     "kind": "veil",
+     "bbox_px": [
+      39,
+      480,
+      2137,
+      587
+     ],
+     "centerline_px_every32": [
+      [
+       39,
+       531
+      ],
+      [
+       71,
+       536
+      ],
+      [
+       103,
+       535
+      ],
+      [
+       135,
+       537
+      ],
+      [
+       167,
+       538
+      ],
+      [
+       199,
+       533
+      ],
+      [
+       231,
+       528
+      ],
+      [
+       263,
+       529
+      ],
+      [
+       295,
+       527
+      ],
+      [
+       327,
+       534
+      ],
+      [
+       359,
+       536
+      ],
+      [
+       391,
+       541
+      ],
+      [
+       423,
+       546
+      ],
+      [
+       455,
+       552
+      ],
+      [
+       487,
+       554
+      ],
+      [
+       519,
+       554
+      ],
+      [
+       551,
+       550
+      ],
+      [
+       583,
+       548
+      ],
+      [
+       615,
+       552
+      ],
+      [
+       647,
+       549
+      ],
+      [
+       679,
+       542
+      ],
+      [
+       711,
+       537
+      ],
+      [
+       743,
+       540
+      ],
+      [
+       775,
+       541
+      ],
+      [
+       807,
+       533
+      ],
+      [
+       839,
+       539
+      ],
+      [
+       871,
+       544
+      ],
+      [
+       903,
+       541
+      ],
+      [
+       935,
+       542
+      ],
+      [
+       967,
+       538
+      ],
+      [
+       999,
+       539
+      ],
+      [
+       1031,
+       546
+      ],
+      [
+       1063,
+       544
+      ],
+      [
+       1095,
+       541
+      ],
+      [
+       1127,
+       534
+      ],
+      [
+       1159,
+       533
+      ],
+      [
+       1191,
+       536
+      ],
+      [
+       1223,
+       537
+      ],
+      [
+       1255,
+       541
+      ],
+      [
+       1287,
+       535
+      ],
+      [
+       1319,
+       529
+      ],
+      [
+       1351,
+       530
+      ],
+      [
+       1383,
+       539
+      ],
+      [
+       1415,
+       546
+      ],
+      [
+       1447,
+       549
+      ],
+      [
+       1479,
+       548
+      ],
+      [
+       1511,
+       551
+      ],
+      [
+       1543,
+       544
+      ],
+      [
+       1575,
+       539
+      ],
+      [
+       1607,
+       530
+      ],
+      [
+       1639,
+       529
+      ],
+      [
+       1671,
+       523
+      ],
+      [
+       1703,
+       532
+      ],
+      [
+       1735,
+       535
+      ],
+      [
+       1767,
+       542
+      ],
+      [
+       1799,
+       540
+      ],
+      [
+       1831,
+       537
+      ],
+      [
+       1863,
+       540
+      ],
+      [
+       1895,
+       537
+      ],
+      [
+       1927,
+       533
+      ],
+      [
+       1959,
+       529
+      ],
+      [
+       1991,
+       524
+      ],
+      [
+       2023,
+       520
+      ],
+      [
+       2055,
+       521
+      ],
+      [
+       2087,
+       525
+      ],
+      [
+       2119,
+       523
+      ]
+     ]
+    },
+    {
+     "n": 10,
+     "kind": "veil",
+     "bbox_px": [
+      46,
+      589,
+      2138,
+      708
+     ],
+     "centerline_px_every32": [
+      [
+       46,
+       645
+      ],
+      [
+       78,
+       651
+      ],
+      [
+       110,
+       651
+      ],
+      [
+       142,
+       649
+      ],
+      [
+       174,
+       654
+      ],
+      [
+       206,
+       653
+      ],
+      [
+       238,
+       650
+      ],
+      [
+       270,
+       643
+      ],
+      [
+       302,
+       643
+      ],
+      [
+       334,
+       641
+      ],
+      [
+       366,
+       648
+      ],
+      [
+       398,
+       652
+      ],
+      [
+       430,
+       650
+      ],
+      [
+       462,
+       653
+      ],
+      [
+       494,
+       663
+      ],
+      [
+       526,
+       664
+      ],
+      [
+       558,
+       659
+      ],
+      [
+       590,
+       657
+      ],
+      [
+       622,
+       661
+      ],
+      [
+       654,
+       668
+      ],
+      [
+       686,
+       669
+      ],
+      [
+       718,
+       666
+      ],
+      [
+       750,
+       664
+      ],
+      [
+       782,
+       665
+      ],
+      [
+       814,
+       661
+      ],
+      [
+       846,
+       657
+      ],
+      [
+       878,
+       657
+      ],
+      [
+       910,
+       655
+      ],
+      [
+       942,
+       645
+      ],
+      [
+       974,
+       645
+      ],
+      [
+       1006,
+       639
+      ],
+      [
+       1038,
+       649
+      ],
+      [
+       1070,
+       656
+      ],
+      [
+       1102,
+       652
+      ],
+      [
+       1134,
+       652
+      ],
+      [
+       1166,
+       662
+      ],
+      [
+       1198,
+       668
+      ],
+      [
+       1230,
+       666
+      ],
+      [
+       1262,
+       662
+      ],
+      [
+       1294,
+       656
+      ],
+      [
+       1326,
+       650
+      ],
+      [
+       1358,
+       646
+      ],
+      [
+       1390,
+       645
+      ],
+      [
+       1422,
+       649
+      ],
+      [
+       1454,
+       650
+      ],
+      [
+       1486,
+       648
+      ],
+      [
+       1518,
+       647
+      ],
+      [
+       1550,
+       648
+      ],
+      [
+       1582,
+       651
+      ],
+      [
+       1614,
+       657
+      ],
+      [
+       1646,
+       655
+      ],
+      [
+       1678,
+       660
+      ],
+      [
+       1710,
+       664
+      ],
+      [
+       1742,
+       661
+      ],
+      [
+       1774,
+       659
+      ],
+      [
+       1806,
+       649
+      ],
+      [
+       1838,
+       647
+      ],
+      [
+       1870,
+       652
+      ],
+      [
+       1902,
+       649
+      ],
+      [
+       1934,
+       653
+      ],
+      [
+       1966,
+       646
+      ],
+      [
+       1998,
+       650
+      ],
+      [
+       2030,
+       649
+      ],
+      [
+       2062,
+       646
+      ],
+      [
+       2094,
+       652
+      ],
+      [
+       2126,
+       652
+      ]
+     ]
+    }
+   ],
+   "pairs": [
+    [
+     1,
+     2
+    ],
+    [
+     5,
+     6
+    ],
+    [
+     7,
+     8
+    ]
+   ]
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a18_cloud_ribbons_v1.png",
+    "结果": "不用",
+    "原因": "要 4:1 实际出成 1199×1312 竖幅，云带只有 1100 px 长；两张\"软纱\"画成了雾里的山"
+   },
+   {
+    "版本": "v2",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a18_cloud_ribbons_v2.png",
+    "做法": "改 3:1，写明每条跨满画宽、软纱只画雾",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A19",
+  "file": "ridges_dark.png",
+  "用途": "深青绿山带（近、中、远三排）：#15 侧跟的山卡",
+  "尺寸": [
+   2172,
+   643
+  ],
+  "是否透明": true,
+  "提示词": "A long horizontal strip of overlapping mountain ridges for an animated film, isolated on a transparent background above the ridgeline, in the blue-green (qinglu) landscape painting style: three rows of steep rounded ridges one behind another, the nearest row very dark deep teal-indigo (#17313C to #2D4F58) with tiny ink pines along the crest and sparse warm ochre touches where low sunlight grazes the tops, the second row deep malachite teal (#2F5856 to #3C7472), every slope textured with long vertical dry-brush streaks running downhill; thin ivory mist ribbons lie across the bases, and the bottom quarter of the strip dissolves into soft white mist that fades to fully transparent at the bottom edge; the left and right ends should join seamlessly. Use the reference images only for brushwork and colour. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "refs/D_wushan/ref_04.jpg",
+   "films/D_wushan/_work/refcrops/ref_07c.png",
+   "refs/D_wushan/ref_05.jpg"
+  ],
+  "状态": "ok",
+  "备注": "近排最深色（最暗 2% 像素均值）#1B3841（≤ #2D4F58 ✓）；青色占彩色 99.5%（≥80% ✓）。下部从 y≈553 开始化成白雾、到下沿透明（下沿雾是亮白的半透明，合成时按深度乘雾色）。左右两端不能无缝衔接：代码做镜像加交叠淡化。要 4:1 实际出 3:1。",
+  "anchors": {
+   "ridge_top_px_every16": [
+    [
+     0,
+     145
+    ],
+    [
+     16,
+     138
+    ],
+    [
+     32,
+     131
+    ],
+    [
+     48,
+     119
+    ],
+    [
+     64,
+     109
+    ],
+    [
+     80,
+     105
+    ],
+    [
+     96,
+     106
+    ],
+    [
+     112,
+     113
+    ],
+    [
+     128,
+     120
+    ],
+    [
+     144,
+     119
+    ],
+    [
+     160,
+     109
+    ],
+    [
+     176,
+     100
+    ],
+    [
+     192,
+     85
+    ],
+    [
+     208,
+     74
+    ],
+    [
+     224,
+     65
+    ],
+    [
+     240,
+     64
+    ],
+    [
+     256,
+     66
+    ],
+    [
+     272,
+     63
+    ],
+    [
+     288,
+     69
+    ],
+    [
+     304,
+     81
+    ],
+    [
+     320,
+     89
+    ],
+    [
+     336,
+     93
+    ],
+    [
+     352,
+     92
+    ],
+    [
+     368,
+     95
+    ],
+    [
+     384,
+     104
+    ],
+    [
+     400,
+     113
+    ],
+    [
+     416,
+     120
+    ],
+    [
+     432,
+     123
+    ],
+    [
+     448,
+     127
+    ],
+    [
+     464,
+     119
+    ],
+    [
+     480,
+     92
+    ],
+    [
+     496,
+     88
+    ],
+    [
+     512,
+     53
+    ],
+    [
+     528,
+     40
+    ],
+    [
+     544,
+     41
+    ],
+    [
+     560,
+     37
+    ],
+    [
+     576,
+     25
+    ],
+    [
+     592,
+     28
+    ],
+    [
+     608,
+     37
+    ],
+    [
+     624,
+     42
+    ],
+    [
+     640,
+     35
+    ],
+    [
+     656,
+     36
+    ],
+    [
+     672,
+     45
+    ],
+    [
+     688,
+     59
+    ],
+    [
+     704,
+     68
+    ],
+    [
+     720,
+     69
+    ],
+    [
+     736,
+     81
+    ],
+    [
+     752,
+     102
+    ],
+    [
+     768,
+     105
+    ],
+    [
+     784,
+     115
+    ],
+    [
+     800,
+     110
+    ],
+    [
+     816,
+     104
+    ],
+    [
+     832,
+     97
+    ],
+    [
+     848,
+     98
+    ],
+    [
+     864,
+     99
+    ],
+    [
+     880,
+     97
+    ],
+    [
+     896,
+     89
+    ],
+    [
+     912,
+     86
+    ],
+    [
+     928,
+     75
+    ],
+    [
+     944,
+     65
+    ],
+    [
+     960,
+     65
+    ],
+    [
+     976,
+     69
+    ],
+    [
+     992,
+     59
+    ],
+    [
+     1008,
+     51
+    ],
+    [
+     1024,
+     52
+    ],
+    [
+     1040,
+     56
+    ],
+    [
+     1056,
+     63
+    ],
+    [
+     1072,
+     64
+    ],
+    [
+     1088,
+     67
+    ],
+    [
+     1104,
+     76
+    ],
+    [
+     1120,
+     90
+    ],
+    [
+     1136,
+     101
+    ],
+    [
+     1152,
+     109
+    ],
+    [
+     1168,
+     101
+    ],
+    [
+     1184,
+     96
+    ],
+    [
+     1200,
+     95
+    ],
+    [
+     1216,
+     98
+    ],
+    [
+     1232,
+     108
+    ],
+    [
+     1248,
+     113
+    ],
+    [
+     1264,
+     110
+    ],
+    [
+     1280,
+     117
+    ],
+    [
+     1296,
+     128
+    ],
+    [
+     1312,
+     134
+    ],
+    [
+     1328,
+     139
+    ],
+    [
+     1344,
+     148
+    ],
+    [
+     1360,
+     153
+    ],
+    [
+     1376,
+     158
+    ],
+    [
+     1392,
+     158
+    ],
+    [
+     1408,
+     135
+    ],
+    [
+     1424,
+     135
+    ],
+    [
+     1440,
+     141
+    ],
+    [
+     1456,
+     128
+    ],
+    [
+     1472,
+     127
+    ],
+    [
+     1488,
+     113
+    ],
+    [
+     1504,
+     112
+    ],
+    [
+     1520,
+     114
+    ],
+    [
+     1536,
+     107
+    ],
+    [
+     1552,
+     99
+    ],
+    [
+     1568,
+     100
+    ],
+    [
+     1584,
+     104
+    ],
+    [
+     1600,
+     110
+    ],
+    [
+     1616,
+     109
+    ],
+    [
+     1632,
+     102
+    ],
+    [
+     1648,
+     89
+    ],
+    [
+     1664,
+     80
+    ],
+    [
+     1680,
+     65
+    ],
+    [
+     1696,
+     57
+    ],
+    [
+     1712,
+     53
+    ],
+    [
+     1728,
+     49
+    ],
+    [
+     1744,
+     55
+    ],
+    [
+     1760,
+     52
+    ],
+    [
+     1776,
+     61
+    ],
+    [
+     1792,
+     74
+    ],
+    [
+     1808,
+     81
+    ],
+    [
+     1824,
+     85
+    ],
+    [
+     1840,
+     96
+    ],
+    [
+     1856,
+     101
+    ],
+    [
+     1872,
+     95
+    ],
+    [
+     1888,
+     98
+    ],
+    [
+     1904,
+     107
+    ],
+    [
+     1920,
+     119
+    ],
+    [
+     1936,
+     128
+    ],
+    [
+     1952,
+     137
+    ],
+    [
+     1968,
+     143
+    ],
+    [
+     1984,
+     149
+    ],
+    [
+     2000,
+     154
+    ],
+    [
+     2016,
+     156
+    ],
+    [
+     2032,
+     164
+    ],
+    [
+     2048,
+     168
+    ],
+    [
+     2064,
+     164
+    ],
+    [
+     2080,
+     148
+    ],
+    [
+     2096,
+     138
+    ],
+    [
+     2112,
+     141
+    ],
+    [
+     2128,
+     130
+    ],
+    [
+     2144,
+     121
+    ],
+    [
+     2160,
+     119
+    ]
+   ],
+   "fade_start_y_px": 553,
+   "rows": "近排最深青靛（带松）、中排孔雀石青、远排淡青",
+   "seamless": false
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a19_ridges_dark_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A20",
+  "file": "rocks_fg03.png",
+  "用途": "前景暗岩条：#03 最近景、T1 落定",
+  "尺寸": [
+   2172,
+   571
+  ],
+  "是否透明": true,
+  "提示词": "A horizontal strip of dark wet boulders and rock ledges seen from slightly above, the nearest foreground of a misty mountain scene for an animated film, painted in deep teal-black (#151B27 to #2B4047) with only a thin pale mist-grey rim of light (#AFC3B6) along the top edges, sparse ink moss dots and long dry-brush streaks; the top edge is an irregular broken silhouette, the bottom edge runs off the picture; transparent above the rocks. Use the reference images only for brushwork and colour. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "refs/D_wushan/ref_06.jpg",
+   "films/D_wushan/_work/refcrops/ref_08c.png",
+   "refs/D_wushan/ref_05.jpg"
+  ],
+  "状态": "ok",
+  "备注": "左右高、中间低的 U 形前景框；下沿出画，下 20% 的 alpha 全部 = 255（脚本把 >200 的拉满，原来最小 253）。上沿一线淡雾灰边光，有苔点、草簇，岩缝里有两三道细小的水流（提示词没要，画出来了，小）。",
+  "anchors": {
+   "top_silhouette_px_every16": [
+    [
+     0,
+     34
+    ],
+    [
+     16,
+     26
+    ],
+    [
+     32,
+     25
+    ],
+    [
+     48,
+     28
+    ],
+    [
+     64,
+     34
+    ],
+    [
+     80,
+     43
+    ],
+    [
+     96,
+     51
+    ],
+    [
+     112,
+     55
+    ],
+    [
+     128,
+     55
+    ],
+    [
+     144,
+     52
+    ],
+    [
+     160,
+     49
+    ],
+    [
+     176,
+     53
+    ],
+    [
+     192,
+     68
+    ],
+    [
+     208,
+     110
+    ],
+    [
+     224,
+     119
+    ],
+    [
+     240,
+     127
+    ],
+    [
+     256,
+     137
+    ],
+    [
+     272,
+     134
+    ],
+    [
+     288,
+     162
+    ],
+    [
+     304,
+     151
+    ],
+    [
+     320,
+     184
+    ],
+    [
+     336,
+     214
+    ],
+    [
+     352,
+     229
+    ],
+    [
+     368,
+     221
+    ],
+    [
+     384,
+     219
+    ],
+    [
+     400,
+     219
+    ],
+    [
+     416,
+     219
+    ],
+    [
+     432,
+     221
+    ],
+    [
+     448,
+     223
+    ],
+    [
+     464,
+     228
+    ],
+    [
+     480,
+     237
+    ],
+    [
+     496,
+     257
+    ],
+    [
+     512,
+     273
+    ],
+    [
+     528,
+     278
+    ],
+    [
+     544,
+     283
+    ],
+    [
+     560,
+     305
+    ],
+    [
+     576,
+     267
+    ],
+    [
+     592,
+     329
+    ],
+    [
+     608,
+     316
+    ],
+    [
+     624,
+     339
+    ],
+    [
+     640,
+     341
+    ],
+    [
+     656,
+     345
+    ],
+    [
+     672,
+     341
+    ],
+    [
+     688,
+     337
+    ],
+    [
+     704,
+     335
+    ],
+    [
+     720,
+     332
+    ],
+    [
+     736,
+     329
+    ],
+    [
+     752,
+     324
+    ],
+    [
+     768,
+     321
+    ],
+    [
+     784,
+     321
+    ],
+    [
+     800,
+     323
+    ],
+    [
+     816,
+     326
+    ],
+    [
+     832,
+     322
+    ],
+    [
+     848,
+     314
+    ],
+    [
+     864,
+     310
+    ],
+    [
+     880,
+     311
+    ],
+    [
+     896,
+     317
+    ],
+    [
+     912,
+     324
+    ],
+    [
+     928,
+     325
+    ],
+    [
+     944,
+     317
+    ],
+    [
+     960,
+     311
+    ],
+    [
+     976,
+     314
+    ],
+    [
+     992,
+     320
+    ],
+    [
+     1008,
+     330
+    ],
+    [
+     1024,
+     333
+    ],
+    [
+     1040,
+     346
+    ],
+    [
+     1056,
+     390
+    ],
+    [
+     1072,
+     395
+    ],
+    [
+     1088,
+     397
+    ],
+    [
+     1104,
+     402
+    ],
+    [
+     1120,
+     407
+    ],
+    [
+     1136,
+     403
+    ],
+    [
+     1152,
+     393
+    ],
+    [
+     1168,
+     385
+    ],
+    [
+     1184,
+     378
+    ],
+    [
+     1200,
+     375
+    ],
+    [
+     1216,
+     363
+    ],
+    [
+     1232,
+     354
+    ],
+    [
+     1248,
+     352
+    ],
+    [
+     1264,
+     355
+    ],
+    [
+     1280,
+     362
+    ],
+    [
+     1296,
+     372
+    ],
+    [
+     1312,
+     376
+    ],
+    [
+     1328,
+     376
+    ],
+    [
+     1344,
+     372
+    ],
+    [
+     1360,
+     370
+    ],
+    [
+     1376,
+     371
+    ],
+    [
+     1392,
+     371
+    ],
+    [
+     1408,
+     373
+    ],
+    [
+     1424,
+     343
+    ],
+    [
+     1440,
+     325
+    ],
+    [
+     1456,
+     299
+    ],
+    [
+     1472,
+     293
+    ],
+    [
+     1488,
+     284
+    ],
+    [
+     1504,
+     278
+    ],
+    [
+     1520,
+     279
+    ],
+    [
+     1536,
+     285
+    ],
+    [
+     1552,
+     291
+    ],
+    [
+     1568,
+     297
+    ],
+    [
+     1584,
+     295
+    ],
+    [
+     1600,
+     294
+    ],
+    [
+     1616,
+     294
+    ],
+    [
+     1632,
+     284
+    ],
+    [
+     1648,
+     283
+    ],
+    [
+     1664,
+     271
+    ],
+    [
+     1680,
+     283
+    ],
+    [
+     1696,
+     260
+    ],
+    [
+     1712,
+     260
+    ],
+    [
+     1728,
+     245
+    ],
+    [
+     1744,
+     230
+    ],
+    [
+     1760,
+     256
+    ],
+    [
+     1776,
+     252
+    ],
+    [
+     1792,
+     252
+    ],
+    [
+     1808,
+     260
+    ],
+    [
+     1824,
+     272
+    ],
+    [
+     1840,
+     200
+    ],
+    [
+     1856,
+     188
+    ],
+    [
+     1872,
+     181
+    ],
+    [
+     1888,
+     178
+    ],
+    [
+     1904,
+     176
+    ],
+    [
+     1920,
+     173
+    ],
+    [
+     1936,
+     168
+    ],
+    [
+     1952,
+     167
+    ],
+    [
+     1968,
+     165
+    ],
+    [
+     1984,
+     164
+    ],
+    [
+     2000,
+     162
+    ],
+    [
+     2016,
+     155
+    ],
+    [
+     2032,
+     147
+    ],
+    [
+     2048,
+     114
+    ],
+    [
+     2064,
+     145
+    ],
+    [
+     2080,
+     144
+    ],
+    [
+     2096,
+     136
+    ],
+    [
+     2112,
+     113
+    ],
+    [
+     2128,
+     159
+    ],
+    [
+     2144,
+     162
+    ],
+    [
+     2160,
+     156
+    ]
+   ],
+   "bottom20_alpha_min": 255
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a20_rocks_fg03_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A21",
+  "file": "cliff_platform03.png",
+  "用途": "右崖壁 + 平台 + 松：#03（另可取平台顶面笔触给 #04、#10 地面）",
+  "尺寸": [
+   1348,
+   923
+  ],
+  "是否透明": true,
+  "提示词": "Painted set piece for a misty mountain scene in an animated film, isolated on a transparent background: on the right a towering dark cliff wall seen at a steep angle along its face, with a gnarled pine growing out of a crack near the top and leaning out to the left; from the cliff a flat-topped rock ledge juts out to the left into a sea of mist, seen from slightly above and from the side at a distance; the top of the ledge is a broad, nearly level slab of weathered grey-green stone (lit #5E7F7B, shadow #2B4047) with moss clusters only along its outer edge, a place where two figures could sit; its side faces drop away with vertical dry-brush streaks and horizontal strata cracks, darkening downward, and the lower 35 percent dissolves into ivory mist that fades to transparent; the cliff wall is deep teal-indigo with vertical dry-brush streaks and horizontal ledges, a thin cool mist-grey rim of light on its edges and a rain-wet sheen. No people, no animals. Use the reference images only for brushwork and colour. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "refs/D_wushan/ref_05.jpg",
+   "refs/D_wushan/ref_06.jpg",
+   "films/D_wushan/_work/refcrops/ref_08c.png",
+   "films/D_wushan/_work/w3/plan_ev/grab/f132.png（构图）"
+  ],
+  "状态": "ok",
+  "备注": "崖壁贴右缘、松从崖缝向左探出、平台向左伸进雾海，和 f132 的构图一致（平台尖在本图左侧 x≈25，放进画面时把图的右缘贴画框右缘、平台尖落在画面中右）。平台顶面近乎水平、外缘有苔，能坐两个人。下部 y≈650 以下化进象牙白雾、到下沿透明。图里画了几道竖直雨丝和水面反光（提示词写了雨湿光泽），和代码雨叠加时可能显密。",
+  "anchors": {
+   "platform_top_polygon_px": [
+    [
+     30,
+     470
+    ],
+    [
+     200,
+     430
+    ],
+    [
+     400,
+     400
+    ],
+    [
+     700,
+     395
+    ],
+    [
+     900,
+     420
+    ],
+    [
+     950,
+     480
+    ],
+    [
+     850,
+     550
+    ],
+    [
+     600,
+     570
+    ],
+    [
+     300,
+     540
+    ],
+    [
+     60,
+     520
+    ]
+   ],
+   "platform_tip_px": [
+    25,
+    480
+   ],
+   "sit_zone_px": [
+    300,
+    420,
+    800,
+    540
+   ],
+   "cliff_left_edge_px": [
+    [
+     900,
+     0
+    ],
+    [
+     860,
+     250
+    ],
+    [
+     830,
+     350
+    ],
+    [
+     800,
+     420
+    ]
+   ],
+   "pine_bbox_px": [
+    300,
+    30,
+    950,
+    310
+   ],
+   "mist_line_y_px": 650
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a21_cliff_platform03_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A22",
+  "file": "ink_stroke.png",
+  "用途": "墨甩笔身：#05（S3 墨甩划像）",
+  "尺寸": [
+   2166,
+   617
+  ],
+  "是否透明": true,
+  "提示词": "A single bold horizontal stroke of black Chinese ink made with a large wet brush, isolated on a transparent background, moving from left to right: a heavy pressed start with a rounded blunt head and a few ink splashes, a long thick body of dense black ink with subtle tonal variation and streaks along the stroke, dry-brush flying-white breaks increasing toward the end, and a tail that splits into many fine bristle trails tapering out; ragged fibrous edges, never smooth. No paper, no other marks. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "refs/D_wushan/ref_05.jpg",
+   "refs/D_wushan/ref_04.jpg"
+  ],
+  "状态": "ok",
+  "备注": "起笔重压圆头带溅点（clean_sprite 用 --minarea 0 保住溅点），笔肚浓墨有丝纹，往右飞白渐多，收笔散成 14 束细鬃（≥8 ✓）。鬃毛开叉从 x≈898 开始。笔路从左下略向右上（起点 y≈373，收笔 y≈122）。墨色是深灰黑带浓淡，不是纯黑。",
+  "anchors": {
+   "start_px": [
+    22,
+    373
+   ],
+   "end_px": [
+    2123,
+    122
+   ],
+   "centerline_px_every32": [
+    [
+     32,
+     373
+    ],
+    [
+     64,
+     335
+    ],
+    [
+     96,
+     356
+    ],
+    [
+     128,
+     346
+    ],
+    [
+     160,
+     333
+    ],
+    [
+     192,
+     334
+    ],
+    [
+     224,
+     346
+    ],
+    [
+     256,
+     358
+    ],
+    [
+     288,
+     362
+    ],
+    [
+     320,
+     328
+    ],
+    [
+     352,
+     348
+    ],
+    [
+     384,
+     331
+    ],
+    [
+     416,
+     342
+    ],
+    [
+     448,
+     334
+    ],
+    [
+     480,
+     344
+    ],
+    [
+     512,
+     353
+    ],
+    [
+     544,
+     353
+    ],
+    [
+     576,
+     355
+    ],
+    [
+     608,
+     358
+    ],
+    [
+     640,
+     365
+    ],
+    [
+     672,
+     367
+    ],
+    [
+     704,
+     379
+    ],
+    [
+     736,
+     391
+    ],
+    [
+     768,
+     403
+    ],
+    [
+     800,
+     392
+    ],
+    [
+     832,
+     395
+    ],
+    [
+     864,
+     395
+    ],
+    [
+     896,
+     379
+    ],
+    [
+     928,
+     385
+    ],
+    [
+     960,
+     376
+    ],
+    [
+     992,
+     373
+    ],
+    [
+     1024,
+     358
+    ],
+    [
+     1056,
+     357
+    ],
+    [
+     1088,
+     361
+    ],
+    [
+     1120,
+     347
+    ],
+    [
+     1152,
+     348
+    ],
+    [
+     1184,
+     352
+    ],
+    [
+     1216,
+     362
+    ],
+    [
+     1248,
+     376
+    ],
+    [
+     1280,
+     380
+    ],
+    [
+     1312,
+     379
+    ],
+    [
+     1344,
+     375
+    ],
+    [
+     1376,
+     366
+    ],
+    [
+     1408,
+     359
+    ],
+    [
+     1440,
+     358
+    ],
+    [
+     1472,
+     366
+    ],
+    [
+     1504,
+     363
+    ],
+    [
+     1536,
+     369
+    ],
+    [
+     1568,
+     353
+    ],
+    [
+     1600,
+     359
+    ],
+    [
+     1632,
+     348
+    ],
+    [
+     1664,
+     328
+    ],
+    [
+     1696,
+     347
+    ],
+    [
+     1728,
+     333
+    ],
+    [
+     1760,
+     348
+    ],
+    [
+     1792,
+     339
+    ],
+    [
+     1824,
+     339
+    ],
+    [
+     1856,
+     347
+    ],
+    [
+     1888,
+     316
+    ],
+    [
+     1920,
+     275
+    ],
+    [
+     1952,
+     236
+    ],
+    [
+     1984,
+     282
+    ],
+    [
+     2016,
+     280
+    ],
+    [
+     2048,
+     242
+    ],
+    [
+     2080,
+     272
+    ],
+    [
+     2112,
+     122
+    ]
+   ],
+   "width_px_every32": [
+    [
+     32,
+     115
+    ],
+    [
+     64,
+     258
+    ],
+    [
+     96,
+     354
+    ],
+    [
+     128,
+     376
+    ],
+    [
+     160,
+     432
+    ],
+    [
+     192,
+     502
+    ],
+    [
+     224,
+     499
+    ],
+    [
+     256,
+     544
+    ],
+    [
+     288,
+     436
+    ],
+    [
+     320,
+     483
+    ],
+    [
+     352,
+     420
+    ],
+    [
+     384,
+     413
+    ],
+    [
+     416,
+     406
+    ],
+    [
+     448,
+     377
+    ],
+    [
+     480,
+     387
+    ],
+    [
+     512,
+     321
+    ],
+    [
+     544,
+     312
+    ],
+    [
+     576,
+     298
+    ],
+    [
+     608,
+     306
+    ],
+    [
+     640,
+     291
+    ],
+    [
+     672,
+     296
+    ],
+    [
+     704,
+     280
+    ],
+    [
+     736,
+     293
+    ],
+    [
+     768,
+     282
+    ],
+    [
+     800,
+     287
+    ],
+    [
+     832,
+     294
+    ],
+    [
+     864,
+     286
+    ],
+    [
+     896,
+     291
+    ],
+    [
+     928,
+     294
+    ],
+    [
+     960,
+     302
+    ],
+    [
+     992,
+     318
+    ],
+    [
+     1024,
+     311
+    ],
+    [
+     1056,
+     306
+    ],
+    [
+     1088,
+     305
+    ],
+    [
+     1120,
+     306
+    ],
+    [
+     1152,
+     291
+    ],
+    [
+     1184,
+     284
+    ],
+    [
+     1216,
+     290
+    ],
+    [
+     1248,
+     283
+    ],
+    [
+     1280,
+     285
+    ],
+    [
+     1312,
+     263
+    ],
+    [
+     1344,
+     259
+    ],
+    [
+     1376,
+     255
+    ],
+    [
+     1408,
+     258
+    ],
+    [
+     1440,
+     257
+    ],
+    [
+     1472,
+     255
+    ],
+    [
+     1504,
+     259
+    ],
+    [
+     1536,
+     294
+    ],
+    [
+     1568,
+     285
+    ],
+    [
+     1600,
+     271
+    ],
+    [
+     1632,
+     257
+    ],
+    [
+     1664,
+     232
+    ],
+    [
+     1696,
+     228
+    ],
+    [
+     1728,
+     235
+    ],
+    [
+     1760,
+     178
+    ],
+    [
+     1792,
+     246
+    ],
+    [
+     1824,
+     251
+    ],
+    [
+     1856,
+     222
+    ],
+    [
+     1888,
+     224
+    ],
+    [
+     1920,
+     253
+    ],
+    [
+     1952,
+     192
+    ],
+    [
+     1984,
+     242
+    ],
+    [
+     2016,
+     238
+    ],
+    [
+     2048,
+     163
+    ],
+    [
+     2080,
+     123
+    ],
+    [
+     2112,
+     1
+    ]
+   ],
+   "bristle_split_x_px": 898,
+   "bristle_count": 14
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a22_ink_stroke_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A23",
+  "file": "ledge_dusk.png",
+  "用途": "崖顶暗岩剪影：#13 侧面起跳机位",
+  "尺寸": [
+   2172,
+   697
+  ],
+  "是否透明": true,
+  "提示词": "A long dark cliff-top rock ledge silhouette for an animated film, seen from a low angle against a bright sunset: a jutting stone ledge with stepped strata and broken edges rising diagonally from the lower left to the right, almost entirely in deep umber-black shadow (#1E1410 to #2A1A10), with a thin bright gold rim of light (#E8C45C) only along the sunlit top edges and a few strata lips, dry-brush texture inside the shadow; transparent above and around the rock. Use the reference images only for brushwork and colour. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/D_wushan/_work/refcrops/ref_03c.png",
+   "films/D_wushan/_work/refcrops/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "岩台从左下斜升到右上、右端探出悬空；几乎全在赭黑暗部，上沿和几道岩层唇口一线金边（偏赭金，不算很亮，代码可再加边光）。下沿、左沿出画。",
+  "anchors": {
+   "top_edge_px_every16": [
+    [
+     0,
+     402
+    ],
+    [
+     16,
+     391
+    ],
+    [
+     32,
+     362
+    ],
+    [
+     48,
+     349
+    ],
+    [
+     64,
+     347
+    ],
+    [
+     80,
+     346
+    ],
+    [
+     96,
+     337
+    ],
+    [
+     112,
+     332
+    ],
+    [
+     128,
+     321
+    ],
+    [
+     144,
+     298
+    ],
+    [
+     160,
+     290
+    ],
+    [
+     176,
+     275
+    ],
+    [
+     192,
+     272
+    ],
+    [
+     208,
+     270
+    ],
+    [
+     224,
+     268
+    ],
+    [
+     240,
+     265
+    ],
+    [
+     256,
+     262
+    ],
+    [
+     272,
+     260
+    ],
+    [
+     288,
+     257
+    ],
+    [
+     304,
+     255
+    ],
+    [
+     320,
+     254
+    ],
+    [
+     336,
+     257
+    ],
+    [
+     352,
+     257
+    ],
+    [
+     368,
+     254
+    ],
+    [
+     384,
+     252
+    ],
+    [
+     400,
+     250
+    ],
+    [
+     416,
+     247
+    ],
+    [
+     432,
+     241
+    ],
+    [
+     448,
+     223
+    ],
+    [
+     464,
+     217
+    ],
+    [
+     480,
+     215
+    ],
+    [
+     496,
+     214
+    ],
+    [
+     512,
+     211
+    ],
+    [
+     528,
+     209
+    ],
+    [
+     544,
+     207
+    ],
+    [
+     560,
+     204
+    ],
+    [
+     576,
+     201
+    ],
+    [
+     592,
+     199
+    ],
+    [
+     608,
+     196
+    ],
+    [
+     624,
+     194
+    ],
+    [
+     640,
+     194
+    ],
+    [
+     656,
+     207
+    ],
+    [
+     672,
+     204
+    ],
+    [
+     688,
+     200
+    ],
+    [
+     704,
+     197
+    ],
+    [
+     720,
+     185
+    ],
+    [
+     736,
+     168
+    ],
+    [
+     752,
+     158
+    ],
+    [
+     768,
+     152
+    ],
+    [
+     784,
+     149
+    ],
+    [
+     800,
+     146
+    ],
+    [
+     816,
+     145
+    ],
+    [
+     832,
+     160
+    ],
+    [
+     848,
+     164
+    ],
+    [
+     864,
+     155
+    ],
+    [
+     880,
+     150
+    ],
+    [
+     896,
+     136
+    ],
+    [
+     912,
+     131
+    ],
+    [
+     928,
+     128
+    ],
+    [
+     944,
+     125
+    ],
+    [
+     960,
+     123
+    ],
+    [
+     976,
+     120
+    ],
+    [
+     992,
+     118
+    ],
+    [
+     1008,
+     116
+    ],
+    [
+     1024,
+     114
+    ],
+    [
+     1040,
+     112
+    ],
+    [
+     1056,
+     111
+    ],
+    [
+     1072,
+     109
+    ],
+    [
+     1088,
+     107
+    ],
+    [
+     1104,
+     108
+    ],
+    [
+     1120,
+     140
+    ],
+    [
+     1136,
+     138
+    ],
+    [
+     1152,
+     136
+    ],
+    [
+     1168,
+     134
+    ],
+    [
+     1184,
+     133
+    ],
+    [
+     1200,
+     131
+    ],
+    [
+     1216,
+     129
+    ],
+    [
+     1232,
+     127
+    ],
+    [
+     1248,
+     125
+    ],
+    [
+     1264,
+     122
+    ],
+    [
+     1280,
+     120
+    ],
+    [
+     1296,
+     118
+    ],
+    [
+     1312,
+     115
+    ],
+    [
+     1328,
+     112
+    ],
+    [
+     1344,
+     110
+    ],
+    [
+     1360,
+     107
+    ],
+    [
+     1376,
+     104
+    ],
+    [
+     1392,
+     102
+    ],
+    [
+     1408,
+     96
+    ],
+    [
+     1424,
+     87
+    ],
+    [
+     1440,
+     82
+    ],
+    [
+     1456,
+     78
+    ],
+    [
+     1472,
+     74
+    ],
+    [
+     1488,
+     70
+    ],
+    [
+     1504,
+     66
+    ],
+    [
+     1520,
+     62
+    ],
+    [
+     1536,
+     58
+    ],
+    [
+     1552,
+     55
+    ],
+    [
+     1568,
+     51
+    ],
+    [
+     1584,
+     50
+    ],
+    [
+     1600,
+     55
+    ],
+    [
+     1616,
+     86
+    ],
+    [
+     1632,
+     91
+    ],
+    [
+     1648,
+     87
+    ],
+    [
+     1664,
+     83
+    ],
+    [
+     1680,
+     80
+    ],
+    [
+     1696,
+     87
+    ],
+    [
+     1712,
+     84
+    ],
+    [
+     1728,
+     81
+    ],
+    [
+     1744,
+     79
+    ],
+    [
+     1760,
+     76
+    ],
+    [
+     1776,
+     73
+    ],
+    [
+     1792,
+     71
+    ],
+    [
+     1808,
+     68
+    ],
+    [
+     1824,
+     65
+    ],
+    [
+     1840,
+     62
+    ],
+    [
+     1856,
+     59
+    ],
+    [
+     1872,
+     55
+    ],
+    [
+     1888,
+     52
+    ],
+    [
+     1904,
+     49
+    ],
+    [
+     1920,
+     45
+    ],
+    [
+     1936,
+     42
+    ],
+    [
+     1952,
+     38
+    ],
+    [
+     1968,
+     35
+    ],
+    [
+     1984,
+     32
+    ],
+    [
+     2000,
+     29
+    ],
+    [
+     2016,
+     26
+    ],
+    [
+     2032,
+     27
+    ],
+    [
+     2048,
+     28
+    ],
+    [
+     2064,
+     68
+    ],
+    [
+     2080,
+     64
+    ],
+    [
+     2096,
+     60
+    ],
+    [
+     2112,
+     57
+    ],
+    [
+     2128,
+     55
+    ],
+    [
+     2144,
+     58
+    ],
+    [
+     2160,
+     null
+    ]
+   ],
+   "gold_rim_x_ranges_px": [
+    [
+     201,
+     201
+    ],
+    [
+     295,
+     373
+    ],
+    [
+     470,
+     513
+    ],
+    [
+     577,
+     666
+    ],
+    [
+     798,
+     852
+    ],
+    [
+     903,
+     2153
+    ]
+   ],
+   "slope": "左下 → 右上，约 −13°",
+   "overhang_tip_px": [
+    2150,
+    60
+   ]
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a23_ledge_dusk_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "A24",
+  "file": "meadow_ridge03.png",
+  "用途": "草坡山脊（鹿走在脊线上）：#03",
+  "尺寸": [
+   2172,
+   691
+  ],
+  "是否透明": true,
+  "提示词": "A gentle grassy mountain ridge receding into rain mist, seen from the side at a distance of about a hundred metres, for an animated film, isolated on a transparent background above the crest: a long low slope of olive and grey-green grass painted with soft dry-brush strokes, a clear darker crest line along the top with a few small ink pines, the lower half dissolving into ivory mist that fades to transparent. Use the reference images only for brushwork and colour. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "refs/D_wushan/ref_05.jpg",
+   "refs/D_wushan/ref_04.jpg",
+   "films/D_wushan/_work/refcrops/ref_00c.png"
+  ],
+  "状态": "ok",
+  "备注": "脊线从左向右缓升，几棵小墨松；下半从 y≈569 起化进象牙白雾、到下沿透明。脊线外侧有一点抗锯齿浅边（clean_sprite 已把 alpha<64 的 RGB 用内部色回填）。",
+  "anchors": {
+   "crest_px_every16": [
+    [
+     0,
+     427
+    ],
+    [
+     16,
+     421
+    ],
+    [
+     32,
+     413
+    ],
+    [
+     48,
+     403
+    ],
+    [
+     64,
+     399
+    ],
+    [
+     80,
+     393
+    ],
+    [
+     96,
+     390
+    ],
+    [
+     112,
+     388
+    ],
+    [
+     128,
+     388
+    ],
+    [
+     144,
+     384
+    ],
+    [
+     160,
+     374
+    ],
+    [
+     176,
+     369
+    ],
+    [
+     192,
+     362
+    ],
+    [
+     208,
+     356
+    ],
+    [
+     224,
+     360
+    ],
+    [
+     240,
+     362
+    ],
+    [
+     256,
+     359
+    ],
+    [
+     272,
+     355
+    ],
+    [
+     288,
+     353
+    ],
+    [
+     304,
+     354
+    ],
+    [
+     320,
+     352
+    ],
+    [
+     336,
+     346
+    ],
+    [
+     352,
+     336
+    ],
+    [
+     368,
+     333
+    ],
+    [
+     384,
+     300
+    ],
+    [
+     400,
+     288
+    ],
+    [
+     416,
+     281
+    ],
+    [
+     432,
+     280
+    ],
+    [
+     448,
+     282
+    ],
+    [
+     464,
+     298
+    ],
+    [
+     480,
+     311
+    ],
+    [
+     496,
+     310
+    ],
+    [
+     512,
+     308
+    ],
+    [
+     528,
+     304
+    ],
+    [
+     544,
+     296
+    ],
+    [
+     560,
+     296
+    ],
+    [
+     576,
+     295
+    ],
+    [
+     592,
+     293
+    ],
+    [
+     608,
+     300
+    ],
+    [
+     624,
+     304
+    ],
+    [
+     640,
+     306
+    ],
+    [
+     656,
+     300
+    ],
+    [
+     672,
+     296
+    ],
+    [
+     688,
+     294
+    ],
+    [
+     704,
+     293
+    ],
+    [
+     720,
+     294
+    ],
+    [
+     736,
+     293
+    ],
+    [
+     752,
+     295
+    ],
+    [
+     768,
+     291
+    ],
+    [
+     784,
+     283
+    ],
+    [
+     800,
+     276
+    ],
+    [
+     816,
+     275
+    ],
+    [
+     832,
+     269
+    ],
+    [
+     848,
+     268
+    ],
+    [
+     864,
+     259
+    ],
+    [
+     880,
+     260
+    ],
+    [
+     896,
+     264
+    ],
+    [
+     912,
+     263
+    ],
+    [
+     928,
+     256
+    ],
+    [
+     944,
+     248
+    ],
+    [
+     960,
+     242
+    ],
+    [
+     976,
+     237
+    ],
+    [
+     992,
+     236
+    ],
+    [
+     1008,
+     235
+    ],
+    [
+     1024,
+     229
+    ],
+    [
+     1040,
+     226
+    ],
+    [
+     1056,
+     227
+    ],
+    [
+     1072,
+     225
+    ],
+    [
+     1088,
+     221
+    ],
+    [
+     1104,
+     191
+    ],
+    [
+     1120,
+     173
+    ],
+    [
+     1136,
+     162
+    ],
+    [
+     1152,
+     164
+    ],
+    [
+     1168,
+     178
+    ],
+    [
+     1184,
+     175
+    ],
+    [
+     1200,
+     189
+    ],
+    [
+     1216,
+     189
+    ],
+    [
+     1232,
+     184
+    ],
+    [
+     1248,
+     181
+    ],
+    [
+     1264,
+     179
+    ],
+    [
+     1280,
+     177
+    ],
+    [
+     1296,
+     178
+    ],
+    [
+     1312,
+     177
+    ],
+    [
+     1328,
+     179
+    ],
+    [
+     1344,
+     180
+    ],
+    [
+     1360,
+     176
+    ],
+    [
+     1376,
+     169
+    ],
+    [
+     1392,
+     164
+    ],
+    [
+     1408,
+     142
+    ],
+    [
+     1424,
+     130
+    ],
+    [
+     1440,
+     127
+    ],
+    [
+     1456,
+     109
+    ],
+    [
+     1472,
+     93
+    ],
+    [
+     1488,
+     94
+    ],
+    [
+     1504,
+     107
+    ],
+    [
+     1520,
+     113
+    ],
+    [
+     1536,
+     145
+    ],
+    [
+     1552,
+     140
+    ],
+    [
+     1568,
+     136
+    ],
+    [
+     1584,
+     129
+    ],
+    [
+     1600,
+     130
+    ],
+    [
+     1616,
+     126
+    ],
+    [
+     1632,
+     127
+    ],
+    [
+     1648,
+     127
+    ],
+    [
+     1664,
+     126
+    ],
+    [
+     1680,
+     123
+    ],
+    [
+     1696,
+     109
+    ],
+    [
+     1712,
+     98
+    ],
+    [
+     1728,
+     97
+    ],
+    [
+     1744,
+     98
+    ],
+    [
+     1760,
+     102
+    ],
+    [
+     1776,
+     66
+    ],
+    [
+     1792,
+     49
+    ],
+    [
+     1808,
+     39
+    ],
+    [
+     1824,
+     33
+    ],
+    [
+     1840,
+     33
+    ],
+    [
+     1856,
+     31
+    ],
+    [
+     1872,
+     32
+    ],
+    [
+     1888,
+     43
+    ],
+    [
+     1904,
+     46
+    ],
+    [
+     1920,
+     50
+    ],
+    [
+     1936,
+     107
+    ],
+    [
+     1952,
+     98
+    ],
+    [
+     1968,
+     91
+    ],
+    [
+     1984,
+     96
+    ],
+    [
+     2000,
+     80
+    ],
+    [
+     2016,
+     80
+    ],
+    [
+     2032,
+     89
+    ],
+    [
+     2048,
+     99
+    ],
+    [
+     2064,
+     129
+    ],
+    [
+     2080,
+     139
+    ],
+    [
+     2096,
+     138
+    ],
+    [
+     2112,
+     138
+    ],
+    [
+     2128,
+     151
+    ],
+    [
+     2144,
+     160
+    ],
+    [
+     2160,
+     175
+    ]
+   ],
+   "mist_line_y_px": 569
+  },
+  "生成记录": [
+   {
+    "版本": "v1",
+    "文件": "films/D_wushan/_work/assets_raw/w3/a24_meadow_ridge03_v1.png",
+    "结果": "采用"
+   }
+  ],
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ },
+ {
+  "id": "D01",
+  "file": "nanshan_pano_rgba.png",
+  "用途": "南山底板的干净 alpha 版（A12 派生）：#15 远排及其他山卡，贴图 alpha 直接用（panoPlate 的 uUseA = 1）",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": true,
+  "提示词": "不生图：由 A12 nanshan_pano.png 用 _work/assets_tools/derive_d01.py --mode decon --erode 1 派生",
+  "所用参考图": [
+   "films/D_wushan/assets/nanshan_pano.png"
+  ],
+  "状态": "ok",
+  "备注": "做法：按 A12 清单天色 #FEF8E6、阈值 18 色差抠天（a = smoothstep(18, 40, d)，和 panoPlate 同一条曲线）→ 已知天色反混色去污 F = (C − (1−a)S)/a → alpha 内收 1 px → a<0.06 的 RGB 用最近内侧像素回填。尺寸、坐标和 A12 完全一致，A12 的 skyline / v_notch / peaks 照用。对 PLAN 的偏离：PLAN 写的是\"内收 3 px + a<0.5 回填\"，实测内收 3 px 会把脊线上几像素宽的小松整排吃掉（对照图 _work/w3/asset_check/d01_skyline_4x_erode3.png），改成反混色去污 + 内收 1 px：小松保留，白描边消失（_work/w3/asset_check/d01_skyline_4x_decon1.png，4 倍放大，中青灰底上左原抠法、右 D01）。halo（PLAN 第七节口径，天际线带外 1–4 px − 外 10–14 px）：浅雾底 −6.4 → −5.7、中青灰底 −9.2 → −12.8，都 <3 级；亮边峰值（每列天际线上方 1–4 px 最大明度 − 底明度，95% 分位）中青灰底 23.3 → 16.7（剩下的是远山本身就亮的像素，不是天色边）。注意：和 A12 现在的抠法一样，山间接近天色的白雾也会变透明。",
+  "derive": {
+   "script": "films/D_wushan/_work/assets_tools/derive_d01.py",
+   "args": "--mode decon --erode 1",
+   "sky_color": "#FEF8E6",
+   "key_threshold_rgb": 18,
+   "key_ramp": 22
+  },
+  "路径约定": "file 相对 films/D_wushan/assets/；所用参考图、生成记录里的路径相对工程根目录 baobian-film/",
+  "轮次": "w3"
+ }
+]

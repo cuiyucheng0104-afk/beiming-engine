@@ -28,3 +28,5 @@ SOFTWARE.
 examples/raea/film.tsx 中内嵌的字体数据同样遵循 OFL，不适用 MIT。
 examples/raea 生成的影片、底板副本及艺术资产不因位于示例目录而变更上述权利范围。
 外部 RAEA 运行时与 SDK 未包含在本仓库，其许可独立于本项目 MIT；详见 docs/raea/README.md。
+
+案例归档 cases/ 的来源与权利以 cases/NOTICES.md 及各工程原有声明为准；vendor/ 的外部代码保持各自MIT和版权声明。历史影片与素材包不因归档而统一改为MIT。

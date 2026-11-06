@@ -1,0 +1,27 @@
+《一年的雨》素材与许可
+
+数据
+- NOAA NCEI, U.S. Climate Normals 1991–2020, monthly normals, station USW00012839 (Miami Intl AP, FL)
+  https://www.ncei.noaa.gov/data/normals-monthly/1991-2020/access/USW00012839.csv
+  https://www.ncei.noaa.gov/data/normals-annualseasonal/1991-2020/access/USW00012839.csv
+  许可：美国联邦政府作品，公有领域。详见 FACTS.md。
+
+采样乐器（core/audio/sampler.py）
+- 木琴、钟琴、弓奏颤音琴、颤音琴、管钟：Versilian Community Sample Library (VCSL), Versilian Studios — CC0 1.0 — https://github.com/sgossner/VCSL
+- 定音鼓、大鼓、圆号：VS Chamber Orchestra: Community Edition (VSCO 2 CE), Versilian Studios / Sam Gossner — CC0 1.0 — https://github.com/sgossner/VSCO-2-CE
+- 玻璃琴：FreePats project — CC0 1.0 — https://freepats.zenvoid.org
+- 拨弦低音与竖琴：core/audio/pluck.py 物理建模（Karplus–Strong），无采样
+- 钢片琴、冲击、空气底、全部玻璃珠/铜珠拟音：numpy 程序合成，无采样
+
+图像与环境
+- 胡桃木贴皮纹理 american_walnut_veneer — Poly Haven — CC0 — https://polyhaven.com/a/american_walnut_veneer
+- HDRI photo_studio_loft_hall — Poly Haven — CC0 — https://polyhaven.com/a/photo_studio_loft_hall
+- three.js r170 RoomEnvironment（玻璃反射用的中性环境）— MIT License — https://threejs.org
+
+字体（Google Fonts，经 CSS2 API 按画面用字子集化，自托管于 fonts/）
+- Noto Sans SC、Noto Serif SC、Inter、JetBrains Mono — SIL Open Font License 1.1
+
+渲染与工具
+- three.js (MIT)、Playwright headless Chromium (Apache-2.0)、ffmpeg (LGPL/GPL)、numpy / scipy / soundfile (BSD)
+
+本片中使用的素材由使用者对其使用负责。

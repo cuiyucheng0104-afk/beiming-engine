@@ -1,0 +1,8 @@
+#!/bin/bash
+R=~/Desktop/见龙/tools/rog_ai.sh; P=~/Desktop/她的舞蹈导师
+$R depth $P/素材/img $P/depth && echo DEPTH_DONE
+$R music "Lo-fi minimal hip-hop beat, 90 BPM. Dusty muted kick and soft rimshot, sparse Rhodes chords, hesitant and stuck, a dancer practicing alone in an empty concrete studio. Instrumental, no vocals." 40 $P/音乐/a_stuck.wav --seed 3 --bpm 90 --structure intro,instrumental,instrumental,outro && echo A_DONE
+$R music "Modern hip-hop groove, 90 BPM. Airy shimmering synth pad opening up, deep sub bass, crisp snare and rolling hi-hats, wonder and discovery, space opening around her. Instrumental, no vocals." 45 $P/音乐/b_open.wav --seed 5 --bpm 90 --structure intro,instrumental,instrumental,outro && echo B_DONE
+$R music "Playful bouncy boom-bap hip-hop, 90 BPM. Punchy kick like a basketball bounce, snappy snare, vinyl scratches, funky bassline, curious and light, walking through the city looking for ideas. Instrumental, no vocals." 45 $P/音乐/c_life.wav --seed 11 --bpm 90 --structure intro,instrumental,instrumental,outro && echo C_DONE
+$R music "Powerful energetic hip-hop dance track, 90 BPM. Heavy hard-hitting drums, big 808 bass, bold brass stabs and bright synth lead, confident and free, a dancer performing her own new choreography. Instrumental, no vocals." 45 $P/音乐/d_dance.wav --seed 7 --bpm 90 --structure intro,instrumental,instrumental,outro && echo D_DONE
+$R music "Warm hopeful hip-hop outro, 90 BPM. Soft Rhodes and gentle pad, light drums fading, breath and calm after the dance, golden light through a doorway. Instrumental, no vocals." 35 $P/音乐/e_outro.wav --seed 9 --bpm 90 --structure intro,instrumental,outro && echo E_DONE

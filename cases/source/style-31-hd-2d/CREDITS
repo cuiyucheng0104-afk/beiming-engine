@@ -1,0 +1,22 @@
+港口集市 — 风格样片（HD-2D 风格）
+
+画面
+- 全部由本目录代码生成：three.js 基本几何体搭成的立体模型、逐像素程序绘制的贴图与人物精灵（engine/）、
+  天空 / 海面 / 光柱 / 景深与移轴后期的自写着色器。没有照片、没有 3D 素材包、没有 AI 生成图像，也没有下载任何实拍素材。
+- engine/px.js、kit.js、fx.js、post_ts.js 的技法改编自风格库 hd-2d 演示片的引擎（只用技法，故事、场景、镜头、时间线均为本片原创）。
+- 故事、地点、人物与界面元素均为原创。
+
+字体（SIL Open Font License 1.1）
+- Noto Serif SC（600 / 900），Google Fonts，按片中用字子集化（第一章港口集市启航）：fonts/NotoSerifSC-600.woff2、fonts/NotoSerifSC-900.woff2
+  https://fonts.google.com/noto/specimen/Noto+Serif+SC  许可：https://openfontlicense.org
+
+音乐（原创配乐，mix.py 用采样器逐音写成）
+- 采样乐器（CC0 1.0）：竖琴、钟琴、管钟、三角铁、吊镲、大鼓、手鼓（frame drum）来自 Versilian Community Sample Library（Versilian Studios，https://github.com/sgossner/VCSL）；
+  长笛、圆号、定音鼓、大提琴、大提琴拨奏、低音提琴拨奏、中提琴拨奏、小提琴拨奏来自 VS Chamber Orchestra: Community Edition（Versilian Studios / Sam Gossner，https://github.com/sgossner/VSCO-2-CE）。
+  许可：CC0 1.0 https://creativecommons.org/publicdomain/zero/1.0/ （无署名要求，此处致谢）
+
+音效与环境声
+- 雨、风、海浪、集市人声、雷、闪电、点灯、灯塔点燃、帆布、船木吱呀等全部在 mix.py 中用 numpy/scipy 程序合成（借助风格库 core/audio/sfx.py），没有录音素材。
+
+工具
+- three.js（MIT），Playwright 无头 Chromium 逐帧截图，ffmpeg 封装与响度标准化（−14 LUFS）。

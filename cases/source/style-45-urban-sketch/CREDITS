@@ -1,0 +1,21 @@
+早餐铺开门 — third-party assets used in this film
+
+Picture
+- Everything drawn in code (pen-and-wash engine in engine.js / poses.js, copied into this project from the style library as technique). No images, footage or generated video.
+
+Fonts (SIL Open Font License 1.1, subset with the Google Fonts CSS API &text=, self-hosted in fonts/)
+- Long Cang — https://fonts.google.com/specimen/Long+Cang (https://github.com/google/fonts/tree/main/ofl/longcang) — corner note, title
+- Ma Shan Zheng — https://fonts.google.com/specimen/Ma+Shan+Zheng (https://github.com/google/fonts/tree/main/ofl/mashanzheng) — shop sign
+
+Music (original score, music/score.py) — sampled instruments, all CC0 1.0
+- Nylon-string guitar (guitar_nylon): FreePats project, freepats.zenvoid.org — CC0 1.0
+- Jazz double bass (jazz_bass, "Sneakybass"): Karoryfer Samples / sfzinstruments, github.com/sfzinstruments — CC0 1.0
+- Clarinet: VS Chamber Orchestra: Community Edition, Versilian Studios / Sam Gossner, github.com/sgossner/VSCO-2-CE — CC0 1.0
+- Snare (brush taps, snares off), hi-hat pedal, woodblock (lid knock layer), glockenspiel (bicycle-bell layer): Versilian Community Sample Library, Versilian Studios, github.com/sgossner/VCSL — CC0 1.0
+- Plucked-guitar physical model (core/audio/pluck.py) and the brushes: synthesized, no third-party material.
+Samples (CC0): FreePats project (freepats.zenvoid.org), Karoryfer Samples / sfzinstruments, VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+
+Sound effects (mix.py)
+- All foley and ambience synthesized procedurally with numpy/scipy (pen on paper, wet brush, water jar, footsteps, bicycle chain and tyre, bicycle bell, bamboo lid, steam, birds, street murmur). No recordings.
+
+No voice, no subtitles, no downloaded footage or images.

@@ -1,0 +1,21 @@
+{
+ "seg": "S06",
+ "_说明": "t = 段内秒。画面动作按这里的 t 走（api.cue(id).t）。pan = 横移穿雾开始（雾最浓在 pan+0.35，此刻图 1 换图 6）；scan2–4 依次锁住三块石；ok1–3 =「一件一件落了地」三块石的角框落定。",
+ "events": [
+  {"id": "rain_far",  "t": 0.0,  "type": "rain_far",  "dur": 9.5, "gain": -18, "fade_in": 0.4, "fade_out": 0.4},
+  {"id": "rain_near", "t": 0.0,  "type": "rain_near", "dur": 9.5, "gain": -22, "fade_in": 0.4, "fade_out": 0.3, "seed": 6},
+  {"id": "in",        "t": 0.0,  "type": "whoosh",    "dur": 0.6, "gain": -26},
+  {"id": "scan1",     "t": 0.55, "type": "scan_beep", "gain": -21, "freq": 2000},
+  {"id": "lab1",      "t": 0.85, "type": "ui_type",   "text": "角 · 鹿角奇石", "cps": 10, "gain": -27},
+  {"id": "pan",       "t": 1.75, "type": "whoosh",    "dur": 0.8, "gain": -21, "pan": 0.3},
+  {"id": "scan2",     "t": 2.3,  "type": "scan_beep", "gain": -21, "freq": 2000, "pan": -0.35},
+  {"id": "scan3",     "t": 2.55, "type": "scan_beep", "gain": -21, "freq": 2200, "pan": 0.05},
+  {"id": "scan4",     "t": 2.8,  "type": "scan_beep", "gain": -21, "freq": 2400, "pan": 0.45},
+  {"id": "lab2",      "t": 3.05, "type": "ui_type",   "text": "爪 · 三块虎掌印石", "cps": 10, "gain": -27},
+  {"id": "kj",        "t": 3.35, "type": "ui_type",   "text": "莫亏心，过三石~", "cps": 9, "gain": -27},
+  {"id": "ok1",       "t": 6.6,  "type": "stone",     "gain": -15, "f": 80, "pan": -0.35},
+  {"id": "ok2",       "t": 6.95, "type": "stone",     "gain": -15, "f": 95, "pan": 0.05},
+  {"id": "ok3",       "t": 7.45, "type": "stone",     "gain": -13, "f": 70, "pan": 0.45},
+  {"id": "gust",      "t": 8.6,  "type": "whoosh",    "dur": 0.9, "gain": -23}
+ ]
+}

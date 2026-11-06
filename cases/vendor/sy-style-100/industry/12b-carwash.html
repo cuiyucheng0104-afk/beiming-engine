@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>12 · 汽车改装洗车 · 霓虹车坊</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/retro.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 12 合成波 VHS · 行业示例：汽车改装洗车 =====
+   Chase cam, Outrun style. We sit behind a wedge-shaped 80s coupe running down the neon valley; it dives
+   into a car-wash tunnel of neon arches - foam, roller brushes, spray - and bursts out the other side
+   gleaming, the whole valley shifting hue, a chrome sweep across the bodywork. A hand-brake slide, and
+   the shop's chrome logo slams in. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#14002b');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '霓虹车坊', script: 'Car Spa & Mods', sub: '改装 · 精洗 · 贴膜 · 镀晶' });
+const R = RETRO.init(stage, { valley: true });
+const { o, K, W, H } = R;
+const hh = Reel.hash;
+const TUN0 = 3.6, TUN1 = 7.0;                       // inside the wash
+function car(t, x, y, sc, yaw, shine, clean) {
+  const c = o; c.save(); c.translate(x * K, y * K); c.scale(sc * K, sc * K); c.rotate(yaw * 0.12);
+  // ground shadow + underglow
+  const ug = c.createRadialGradient(0, 40, 20, 0, 40, 380); ug.addColorStop(0, 'rgba(60,230,255,.55)'); ug.addColorStop(1, 'rgba(60,230,255,0)'); c.fillStyle = ug; c.beginPath(); c.ellipse(0, 46, 380, 60, 0, 0, 7); c.fill();
+  c.fillStyle = 'rgba(0,0,0,.65)'; c.beginPath(); c.ellipse(0, 34, 300, 30, 0, 0, 7); c.fill();
+  // tyres
+  c.fillStyle = '#0a0610'; c.beginPath(); c.roundRect(-290, -40, 82, 78, 14); c.roundRect(208, -40, 82, 78, 14); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.1)'; for (let i = 0; i < 6; i++) { c.fillRect(-282, -34 + i * 12 + (t * 140) % 12, 66, 3); c.fillRect(216, -34 + i * 12 + (t * 140) % 12, 66, 3); }
+  // body (rear): wide lower body, narrower cabin, wedge
+  const body = c.createLinearGradient(0, -260, 0, 20); body.addColorStop(0, '#2a0b3e'); body.addColorStop(0.45, clean ? '#ff4fb8' : '#a12d7a'); body.addColorStop(0.5, '#3a0c40'); body.addColorStop(1, '#140418');
+  c.fillStyle = body; c.beginPath(); c.moveTo(-300, 10); c.lineTo(-305, -110); c.quadraticCurveTo(-300, -150, -250, -158); c.lineTo(250, -158); c.quadraticCurveTo(300, -150, 305, -110); c.lineTo(300, 10); c.closePath(); c.fill();
+  // cabin
+  const cab = c.createLinearGradient(0, -300, 0, -150); cab.addColorStop(0, '#12051c'); cab.addColorStop(1, '#2a0b3e'); c.fillStyle = cab; c.beginPath(); c.moveTo(-230, -158); c.lineTo(-170, -270); c.lineTo(170, -270); c.lineTo(230, -158); c.closePath(); c.fill();
+  const win = c.createLinearGradient(0, -262, 0, -170); win.addColorStop(0, '#120424'); win.addColorStop(0.55, '#5a1a6a'); win.addColorStop(1, '#ff7ac8'); c.fillStyle = win; c.beginPath(); c.moveTo(-205, -166); c.lineTo(-158, -258); c.lineTo(158, -258); c.lineTo(205, -166); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 2; c.beginPath(); c.moveTo(-150, -246); c.lineTo(-110, -246); c.stroke();
+  // spoiler
+  c.fillStyle = '#0d0414'; c.fillRect(-280, -196, 560, 16); c.fillRect(-200, -182, 12, 26); c.fillRect(188, -182, 12, 26);
+  c.fillStyle = 'rgba(255,90,200,.5)'; c.fillRect(-280, -196, 560, 2);
+  // tail-light bar
+  c.save(); c.shadowColor = '#ff1a4a'; c.shadowBlur = 30; c.fillStyle = '#ff2050'; c.fillRect(-286, -120, 572, 30); c.restore();
+  c.fillStyle = 'rgba(255,220,230,.9)'; for (let i = 0; i < 22; i++) c.fillRect(-280 + i * 26, -114, 18, 4);
+  c.fillStyle = '#1a0610'; c.fillRect(-60, -122, 120, 34);
+  // plate
+  c.fillStyle = '#f2ecda'; c.fillRect(-72, -66, 144, 40); c.fillStyle = '#1a1030'; c.font = '800 26px "DejaVu Sans Mono"'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('NEON·88', 0, -45);
+  // exhausts
+  c.fillStyle = '#2a2230'; c.beginPath(); c.arc(-200, -10, 16, 0, 7); c.arc(200, -10, 16, 0, 7); c.fill();
+  // dirt before the wash, chrome sweep after
+  if (!clean) { c.fillStyle = 'rgba(70,50,40,.25)'; for (let i = 0; i < 60; i++) { c.beginPath(); c.arc(-290 + hh(i) * 580, -150 + hh(i * 3) * 150, 2 + hh(i * 7) * 6, 0, 7); c.fill(); } }
+  if (shine > -0.2 && shine < 1.2) { c.save(); c.globalCompositeOperation = 'lighter'; const x0 = -700 + shine * 1400; const sg = c.createLinearGradient(x0, -300, x0 + 160, 40); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,.26)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = sg; c.beginPath(); c.moveTo(-305, 10); c.lineTo(-305, -158); c.lineTo(-170, -270); c.lineTo(170, -270); c.lineTo(305, -158); c.lineTo(305, 10); c.fill(); c.restore(); }
+  c.restore();
+}
+function tunnel(t) {
+  const c = o; const u = t - TUN0; if (u < -0.6 || t > TUN1 + 0.6) return;
+  const inside = clamp((t - TUN0 + 0.2) / 0.4) * (1 - clamp((t - TUN1) / 0.4));
+  c.save(); c.fillStyle = `rgba(6,0,14,${0.82 * inside})`; c.fillRect(0, 0, W, H);
+  const vx = 960, vy = 500, F = 900, travel = (t - TUN0 + 0.6) * 14;
+  const cols = ['#ff3fb4', '#3ff2ff', '#b06bff', '#ffb43f'];
+  const words = ['泡沫精洗', '高压冲水', '镀晶护理', '隐形车衣'];
+  for (let i = 12; i >= 0; i--) {
+    const z = i * 5 - (travel % 5) + 0.3; const gi = i + Math.floor(travel / 5); if (z < 0.6) continue;
+    if (gi * 5 > (TUN1 - TUN0 + 0.6) * 14 + 8) continue;
+    const s = F / z, w = 3.4 * s, h = 2.6 * s, x0 = vx - w, y0 = vy - h * 0.55, a = clamp(1.4 - z / 50) * (gi >= 0 ? 1 : 0);
+    if (a <= 0) continue; const col = cols[gi % 4];
+    c.save(); c.globalAlpha = a; c.lineJoin = 'round'; c.shadowColor = col; c.shadowBlur = 24 * K; c.strokeStyle = col; c.lineWidth = Math.max(2, 0.12 * s) * K;
+    c.beginPath(); c.moveTo(x0 * K, (vy + h * 0.45) * K); c.lineTo(x0 * K, y0 * K); c.lineTo((vx + w) * K, y0 * K); c.lineTo((vx + w) * K, (vy + h * 0.45) * K); c.stroke();
+    c.shadowBlur = 6 * K; c.strokeStyle = '#fff'; c.lineWidth = Math.max(1, 0.04 * s) * K; c.stroke();
+    // roller brushes on the sides
+    for (const side of [-1, 1]) { const bx = vx + side * w * 0.86; for (let k = 0; k < 7; k++) { c.fillStyle = k % 2 ? col : 'rgba(255,255,255,.7)'; const yy = y0 + h * 0.2 + ((k * 0.14 + t * 2.3) % 1) * h * 0.75; c.globalAlpha = a * 0.5; c.fillRect((bx - 0.12 * s) * K, yy * K, 0.24 * s * K, 0.05 * s * K); } }
+    if (z < 18 && z > 4) { c.globalAlpha = a * clamp((18 - z) / 4); c.shadowBlur = 16 * K; c.fillStyle = '#fff'; c.font = `900 ${0.38 * s * K}px "Noto Sans CJK SC"`; c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText(words[gi % 4], vx * K, (y0 - 0.06 * s) * K); }
+    c.restore();
+  }
+  // foam + spray
+  c.globalAlpha = inside; for (let i = 0; i < 70; i++) { const life = (t * 0.8 + hh(i)) % 1, x = 960 + (hh(i * 3) - 0.5) * 1700 * (0.3 + life), y = 480 + (hh(i * 5) - 0.4) * 700 * (0.3 + life), r = (6 + hh(i * 7) * 22) * (0.4 + life * 1.4); c.fillStyle = `rgba(255,255,255,${0.35 * (1 - life)})`; c.beginPath(); c.arc(x * K, y * K, r * K, 0, 7); c.fill(); c.strokeStyle = `rgba(255,255,255,${0.5 * (1 - life)})`; c.lineWidth = 1.5 * K; c.stroke(); }
+  c.strokeStyle = 'rgba(170,230,255,.35)'; c.lineWidth = 2 * K; for (let i = 0; i < 40; i++) { const x = hh(i * 9 + Math.floor(t * 30)) * 1920, y = hh(i * 13 + Math.floor(t * 30)) * 1080; c.beginPath(); c.moveTo(x * K, y * K); c.lineTo((x + (x - 960) * 0.08) * K, (y + 60) * K); c.stroke(); }
+  c.restore();
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 160px Inter', 'italic 700 120px Lora', '500 30px "DejaVu Sans Mono"', '800 26px "DejaVu Sans Mono"', '900 100px "Noto Sans CJK SC"', '700 40px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.1, sfx: 'vhs', gain: 0.6 }, { t: 0.4, sfx: 'whoosh', gain: 0.35 }, { t: TUN0 - 0.2, sfx: 'whoosh', gain: 0.5 }, { t: TUN0, sfx: 'splash', gain: 0.5 }, { t: 4.4, sfx: 'splash', gain: 0.35 }, { t: 5.2, sfx: 'splash', gain: 0.35 }, { t: 6.0, sfx: 'splash', gain: 0.35 },
+    { t: TUN1, sfx: 'whoosh', gain: 0.5 }, { t: 7.3, sfx: 'sparkle', gain: 0.6 }, { t: 9.4, sfx: 'skid', gain: 0.6 }, { t: 10.6, sfx: 'impact', gain: 0.85 }, { t: 10.65, sfx: 'neon', gain: 0.6 }, { t: 11.3, sfx: 'sparkle', gain: 0.5 }],
+  render(t) {
+    const boost = E.inOutSine(clamp((t - 7.0) / 0.8)) * (1 - E.inOutSine(clamp((t - 9.2) / 1.2)));
+    const slow = 1 - 0.85 * E.inOutCubic(clamp((t - 9.4) / 1.4));
+    const z = t * 9 * (t < 9.4 ? 1 : 1) + boost * 10 + (t > 9.4 ? -(t - 9.4) * 9 * (1 - slow) * 0.5 : 0);
+    const hue = E.inOutSine(clamp((t - 7.0) / 1.0));
+    const steer = Math.sin(t * 1.1) * (t < TUN0 ? 1 : 0.3) + (t > 9.4 ? 1.6 * Math.sin(Math.PI * clamp((t - 9.4) / 1.6)) : 0);
+    R.valley(t, { z, sunY: lerp(0.08, 0.03, clamp(t / 15)), bank: -steer * 0.05, boost, roX: steer * 0.5, hue });
+    o.clearRect(0, 0, W, H);
+    tunnel(t);
+    // the car (stays put on screen; the world moves)
+    const cy = 900 + 4 * Math.sin(t * 17) * (t < 10 ? 1 : 0.2), cx = 960 + steer * 60;
+    car(t, cx, cy, 0.95, steer, (t - 7.25) / 0.9, t > TUN1 - 0.2);
+    if (t > 7.2 && t < 8.6) { R.star(o, cx + 220, cy - 230, 40 * E.outBack(clamp((t - 7.3) / 0.25)) * (1 - clamp((t - 8.0) / 0.4)), 1); R.star(o, cx - 250, cy - 120, 28 * E.outBack(clamp((t - 7.5) / 0.25)) * (1 - clamp((t - 8.2) / 0.4)), 1); }
+    // speedo
+    const kmh = Math.round(88 + 40 * boost - 80 * (1 - slow) + 6 * Math.sin(t * 2));
+    if (t < 10.4) { o.save(); o.font = `700 ${54 * K}px "DejaVu Sans Mono"`; o.fillStyle = '#ff3fb4'; o.shadowColor = '#ff3fb4'; o.shadowBlur = 14 * K; o.textAlign = 'right'; o.fillText(String(kmh).padStart(3, '0'), 1820 * K, 930 * K); o.font = `500 ${24 * K}px "DejaVu Sans Mono"`; o.fillText('KM/H', 1820 * K, 965 * K); o.restore(); }
+    // title
+    if (t > 10.6) {
+      const sc = lerp(2.0, 1, E.outCubic(clamp((t - 10.6) / 0.3)));
+      o.save(); o.translate(960 * K, 330 * K); o.scale(sc, sc); o.translate(-960 * K, -330 * K);
+      R.chrome(o, C.brand, 960, 330, 168, clamp((t - 10.6) / 0.12), -0.16, (t - 11.4) * 1.3, '"Noto Sans CJK SC"');
+      o.restore();
+      R.neon(o, C.script, 1180, 470, 86, '#3ff2ff', clamp((t - 11.0) / 0.15), { font: 'Lora', italic: true, wt: 700, lw: 6, rot: -0.1 });
+      const a = clamp((t - 11.6) / 0.3); if (a > 0) { o.save(); o.globalAlpha = a; o.font = `700 ${40 * K}px "Noto Sans CJK SC"`; o.textAlign = 'center'; o.fillStyle = '#fff'; o.shadowColor = '#ff3fb4'; o.shadowBlur = 16 * K; if ('letterSpacing' in o) o.letterSpacing = `${10 * K}px`; o.fillText(C.sub, 960 * K, 590 * K); o.restore(); }
+    }
+    R.osd(o, t, t > TUN0 && t < TUN1 ? 'WASH ◉' : 'PLAY ▶', 'JUL. 04 1986', true, 'SP', 3 * 60 + 12);
+    const glitch = (t > TUN0 - 0.1 && t < TUN0 + 0.08) || (t > TUN1 - 0.05 && t < TUN1 + 0.1) ? 0.8 : (t > 10.6 && t < 10.75 ? 0.6 : 0);
+    R.finish(t, glitch);
+  },
+});
+</script></body></html>

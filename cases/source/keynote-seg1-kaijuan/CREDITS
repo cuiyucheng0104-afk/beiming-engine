@@ -1,0 +1,23 @@
+片段一「开卷」—— 素材、字体与声音来源
+
+IP 图片（只做装裱位遮挡与墨晕显影，像素未改）
+  P01 九色鹿 封面主视觉、P02 孙悟空《大闹天宫》海报、P02《黑猫警长》海报、P02《葫芦兄弟》海报
+  来源：上影元官网（sfi-sh.com），经 PPT《上美影IP全景》整理，RTX 超分
+  权利归上海美术电影制片厂及相关权利方；本片为内部沟通样片，使用者对素材的使用范围负责。
+
+材质
+  宣纸、宣纸_逆光、装裱绫绢：本地 Qwen-Image 生成（共用/材质/）
+
+字体（SIL Open Font License 1.1，按片中用字子集化，存于 fonts/）
+  Ma Shan Zheng — Copyright The Ma Shan Zheng Project Authors（Google Fonts）
+  Noto Serif SC — Copyright Google LLC / Adobe（Google Fonts）
+  fonts/lian.png：用 Ma Shan Zheng 的「草」字头与「连」拼出的简体「莲」（同一 OFL 字体的派生字形，仅用于印文）
+
+声音
+  古琴：物理建模拨弦合成（pluck.py，Karplus–Strong），无录音
+  水滴、墨晕吸纸、毛笔擦纸、印泥压纸、卷轴滑开、甩笔、墨点、算盘珠：numpy 程序化合成，无录音
+  定音鼓、大鼓、大鼓滚奏、锣、木鱼（woodblock 采样变调 + 少量合成木腔）、梆子（claves + woodblock）、板（claves + woodblock）、木击（log drum）采样：
+    Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios / Sam Gossner),
+    Versilian Community Sample Library (Versilian Studios)
+
+笔刷与宣纸合成的技法参照了本机风格库中「中国水墨」风格的笔刷模型，代码为本片自用。

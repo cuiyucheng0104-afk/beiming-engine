@@ -1,0 +1,110 @@
+[
+  {
+    "id": "01",
+    "title": "烛下挥毫",
+    "description": "实体人物、木案、书卷、烛台与窗格投影。人物脸与手仍有生成误差。",
+    "faces": 1012082,
+    "sha256": "e734134ac55a192c3d85026443e3d180930b415fe1f6f96bac69da71c1646717",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  },
+  {
+    "id": "02",
+    "title": "青铜案头",
+    "description": "空腔青铜器、浮雕环带、剑身、书卷和案几，全部为程序几何。",
+    "faces": 28484,
+    "sha256": "4b4d39e348790db1444febd70867b976c60569d037913c607ff3cde84c7bbf2e",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  },
+  {
+    "id": "03",
+    "title": "烟雨舟人",
+    "description": "实体舟人、船板、撑篙、立体树冠及水面反射。人物尚未绑定。",
+    "faces": 2421392,
+    "sha256": "d70e7e494c5dd2ec4665c6939a4c9e89800af17aa55f561f0fecacd662dc80ca",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  },
+  {
+    "id": "04",
+    "title": "云山楼阁",
+    "description": "实体楼阁、曲面瓦脊、栏杆、岛礁和山体；远处天空是北冥水彩底板。",
+    "faces": 1872249,
+    "sha256": "b3a50af69ba69d224c0416e9c33deaade6c913a46d5ba431d5b44e1ef3f9b5ce",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  },
+  {
+    "id": "05",
+    "title": "林间市集",
+    "description": "程序化曲面屋顶、立柱、窗格、摊位与人群，检查群景空间与材质统一。",
+    "faces": 1231052,
+    "sha256": "048f616a04c720e60e1686c7977cbcd24743dcb76bba33d45e428bd3fde03c1f",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  },
+  {
+    "id": "06",
+    "title": "碑林风起",
+    "description": "楼阁实体、碑刻、石板地面和飞纸，检查近中远三维遮挡。",
+    "faces": 3253270,
+    "sha256": "1c99c935d2008238883827aa4baa7fbf8e222a876bf4bfa18a6c48a5e6e101ac",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  },
+  {
+    "id": "07",
+    "title": "仰望藏书楼",
+    "description": "同类建筑世界的仰拍构图，检验屋檐厚度、空间纵深与飞纸透视。",
+    "faces": 3253270,
+    "sha256": "e506732fa32e79587ccac2e9cf3931ad2872e540db8800c2307ff7c74159331d",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  },
+  {
+    "id": "08",
+    "title": "江山云海",
+    "description": "体积山体、实例植被、河道反射与水彩远云；山体重复性仍需进一步设计。",
+    "faces": 2662928,
+    "sha256": "571fbfdf16c73216966dbe12e14fc7ca3b3d893297516e9800071db34faab845",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  },
+  {
+    "id": "09",
+    "title": "暮色江村",
+    "description": "真实房屋、曲面屋顶、枝干、舟船与倒影，蓝紫夜色配暖窗光。",
+    "faces": 1344122,
+    "sha256": "8fad24b89a105192cc94a2ad497fa5da84afe3aec2cfdd5ee890c907120a6821",
+    "size": [
+      3840,
+      2160
+    ],
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  }
+]

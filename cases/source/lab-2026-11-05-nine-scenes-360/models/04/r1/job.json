@@ -1,0 +1,25 @@
+{
+  "scene": "04",
+  "mode": "object",
+  "tag": "r1",
+  "prompt_id": "4840653c-1414-4fef-9ff3-28bf7dc154b2",
+  "started": 1793816491.8663437,
+  "config": {
+    "id": "04",
+    "name": "云山楼阁",
+    "ref": "refs/04.jpg",
+    "width": 1260,
+    "height": 685,
+    "mode": "object",
+    "target_faces": 1000000,
+    "remesh_resolution": 1024,
+    "smooth_iters": 2,
+    "project_back": 0.75,
+    "crease_angle": 70,
+    "texture_size": 4096,
+    "target_resolution": 1536,
+    "seed": 1109
+  },
+  "status": "success",
+  "seconds": 137.405
+}

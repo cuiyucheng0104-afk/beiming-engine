@@ -1,0 +1,17 @@
+闹钟起床号 — third-party assets used in the film
+
+Picture
+- Everything on screen is drawn in code (canvas 2D) for this film. No images, footage or video generation.
+
+Fonts (SIL Open Font License 1.1; subsets self-hosted in fonts/, licence texts alongside)
+- ZCOOL QingKe HuangYou — The ZCOOL QingKe HuangYou Project Authors — https://fonts.google.com/specimen/ZCOOL+QingKe+HuangYou — subset to 起床啦！剧终完 via the Google Fonts CSS API (&text=) — fonts/OFL-zcool-qingke-huangyou.txt
+- ZCOOL KuaiLe — The ZCOOL KuaiLe Project Authors — https://fonts.google.com/specimen/ZCOOL+KuaiLe — subset to 床 via the Google Fonts CSS API (&text=) — fonts/OFL-zcool-kuaile.txt
+- Limelight — Sorkin Type Co — https://fonts.google.com/specimen/Limelight — subset to "THE END" — fonts/OFL-limelight.txt
+
+Music (original score, music/score.py) — sampled instruments, all CC0 1.0
+- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios) — upright piano, clarinet, trumpet (open, muted, staccato), trombone, tuba, snare, crash cymbals, bass drum — https://versilian-studios.com/vsco-community/
+- Samples (CC0): Versilian Community Sample Library (Versilian Studios) — xylophone, glockenspiel, snare (close), crash cymbals 2, gran cassa, hi-hat — https://github.com/sgossner/VCSL
+- Banjo: physical-modelling synthesis (Karplus–Strong), no samples.
+- Slide whistle, trombone smears, alarm bell, all foley, optical-soundtrack noise: synthesised in numpy for this film.
+
+No voice, no narration, no third-party footage or photographs.

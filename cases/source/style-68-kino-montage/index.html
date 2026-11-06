@@ -1,0 +1,503 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>大坝 · 构成主义蒙太奇</title>
+<style>
+@font-face{font-family:SC;src:url(fonts/NotoSansSC-sub.woff2) format('woff2');font-weight:100 900}
+@font-face{font-family:Osw;src:url(fonts/Oswald-latin.woff2) format('woff2');font-weight:200 700}
+@font-face{font-family:Mono;src:url(fonts/SpaceMono-Bold-latin.woff2) format('woff2');font-weight:700}
+html,body{margin:0;background:#141210;overflow:hidden}
+canvas{display:block}
+</style></head><body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script type="module">
+import { clamp, lerp, seg, eo, ei, eio, back, hash, mulberry } from '/core/lib.js';
+import { BPM, BEAT, FPS, b, SEC, CUE, CELLS, FLOORS, DUR } from './timeline.js';
+
+// ============================================================ palette, axis
+const RED = '#D52B1E', INK = '#141210', PAPER = '#EDE4D0';
+const TH = -18 * Math.PI / 180;                 // the constructivist axis
+const W = 1920, H = 1080;
+const S = Object.fromEntries(Object.entries(SEC).map(([k, v]) => [k, b(v)]));
+const C = Object.fromEntries(Object.entries(CUE).map(([k, v]) => [k, b(v)]));
+const CELL_T = CELLS.map(b), FLOOR_T = FLOORS.map(b);
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+
+// ============================================================ assets (material is data: images only)
+const img = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => { console.warn('optional file missing ' + src); r(null); }; i.src = src; });
+const CLIPS = await (await fetch('assets/clips.json')).json();
+const A = { clip: {}, ph: {}, cut: {} };
+const jobs = [];
+for (const [k, m] of Object.entries(CLIPS)) {
+  A.clip[k] = new Array(m.n);
+  for (let i = 0; i < m.n; i++) jobs.push(img(`assets/clip/${k}/${String(i).padStart(3, '0')}.jpg`).then(x => A.clip[k][i] = x));
+}
+for (const k of ['dam', 'apache', 'grouting', 'scalers_az']) jobs.push(img(`assets/ph_${k}.jpg`).then(x => A.ph[k] = x));
+for (const k of ['pair', 'bent', 'hat', 'sit']) jobs.push(img(`assets/cut_${k}.png`).then(x => A.cut[k] = x));
+jobs.push(img('assets/doc.jpg').then(x => A.doc = x));
+await Promise.all(jobs);
+for (const w of ['900', '700']) await document.fonts.load(`${w} 100px SC`, '胡佛水坝米日均人最多一天年月建的总计来源美国垦务局');
+for (const w of ['700', '600', '500']) await document.fonts.load(`${w} 100px Osw`);
+await document.fonts.load('700 20px Mono');
+
+// paper fibre: one seeded texture multiplied over every frame
+const fibre = document.createElement('canvas'); fibre.width = W; fibre.height = H;
+{ const f = fibre.getContext('2d'), d = f.createImageData(W, H), r = mulberry(1931);
+  for (let i = 0; i < W * H; i++) { const v = 236 + r() * 19 - (r() < .002 ? 55 : 0); d.data[i * 4] = v; d.data[i * 4 + 1] = v * .985; d.data[i * 4 + 2] = v * .96; d.data[i * 4 + 3] = 255; }
+  f.putImageData(d, 0, 0); }
+// halftone tile for the unlit grid cells: paper dots on ink, about 15 % cover
+const DOTS = document.createElement('canvas'); DOTS.width = 440; DOTS.height = 318;
+{ const g = DOTS.getContext('2d'); g.fillStyle = 'rgba(237,228,208,.42)';
+  for (let y = 6, r = 0; y < 318; y += 11, r++) for (let x = 6 + (r % 2) * 5.5; x < 440; x += 11) { const k = .55 + .45 * Math.sin(x * .021 + y * .013); g.beginPath(); g.arc(x, y, 1.1 + 1.6 * k, 0, Math.PI * 2); g.fill(); } }
+// mirrored copies of the cut-outs (for figures facing the other way)
+const flipped = {};
+for (const k of ['pair', 'bent', 'hat', 'sit']) { const s = A.cut[k], c = document.createElement('canvas'); c.width = s.width; c.height = s.height; const g = c.getContext('2d'); g.translate(s.width, 0); g.scale(-1, 1); g.drawImage(s, 0, 0); flipped[k] = c; }
+
+// ============================================================ helpers
+let TX = [];
+const frameNo = t => Math.floor(t * FPS + 1e-6);
+function clipImg(name, lt, speed = 1, mode = 'ping') {
+  const fr = A.clip[name]; if (!fr) return null;
+  let i = Math.floor(Math.max(0, lt) * speed * FPS + 1e-6); const n = fr.length;
+  if (mode === 'loop') i = ((i % n) + n) % n;
+  else if (mode === 'ping') { const p = 2 * n - 2; i = ((i % p) + p) % p; if (i >= n) i = p - i; }
+  return fr[clamp(i, 0, n - 1)];
+}
+function cover(im, x, y, w, h, fx = .5, fy = .5, zoom = 1) {
+  if (!im) return;
+  const s = Math.max(w / im.width, h / im.height) * zoom, dw = im.width * s, dh = im.height * s;
+  const ox = clamp(x + w / 2 - fx * dw, x + w - dw, x), oy = clamp(y + h / 2 - fy * dh, y + h - dh, y);
+  cx.drawImage(im, ox, oy, dw, dh);
+}
+function poly(pts) { cx.beginPath(); pts.forEach(([x, y], i) => i ? cx.lineTo(x, y) : cx.moveTo(x, y)); cx.closePath(); }
+function withClip(pts, fn) { cx.save(); poly(pts); cx.clip(); fn(); cx.restore(); }
+function bbox(pts) { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)]; }
+// a band along angle a through centre (x,y): length L, thickness T_
+function band(x, y, L, T_, a, fill) { cx.save(); cx.translate(x, y); cx.rotate(a); cx.fillStyle = fill; cx.fillRect(-L / 2, -T_ / 2, L, T_); cx.restore(); }
+// slam: travels during [t0 − d, t0] and hard-stops ON the beat t0 (the sound sits on t0 too)
+const slam = (t, t0, d = .12) => 1 - eo(seg(t, t0 - d, t0));
+const settled = (t, t0) => t >= t0;
+const after = (t, t0, d = .1) => 1 - eo(seg(t, t0, t0 + d));      // settle after a cut (the cut is the impact)
+// text: draws, and with an id registers its screen box for readcheck
+function txt(id, s, x, y, o = {}) {
+  const size = o.size || 60, font = o.font || 'SC', wt = o.wt || (font === 'SC' ? 900 : 700);
+  cx.save(); cx.translate(x, y); cx.rotate(o.ang || 0); if (o.scale) cx.scale(o.scale, o.scale);
+  cx.font = `${wt} ${size}px ${font}`; cx.textBaseline = 'alphabetic'; cx.letterSpacing = (o.ls || 0) + 'px';
+  const tw = cx.measureText(s).width;
+  const asc = size * (font === 'SC' ? .88 : .8), desc = size * (font === 'SC' ? .12 : .04);
+  const ax = o.align === 'right' ? -tw : o.align === 'center' ? -tw / 2 : 0, pad = o.pad ?? 0;
+  if (o.bg) { cx.fillStyle = o.bg; cx.fillRect(ax - pad, -asc - pad, tw + pad * 2, asc + desc + pad * 2); }
+  cx.fillStyle = o.fill || INK; cx.fillText(s, ax, 0);
+  const tr = cx.getTransform(), pts = [[ax, -asc], [ax + tw, -asc], [ax, desc], [ax + tw, desc]].map(([u, v]) => [tr.a * u + tr.c * v + tr.e, tr.b * u + tr.d * v + tr.f]);
+  cx.restore();
+  const box = { x0: Math.min(...pts.map(p => p[0])), y0: Math.min(...pts.map(p => p[1])), x1: Math.max(...pts.map(p => p[0])), y1: Math.max(...pts.map(p => p[1])), w: tw };
+  if (id) TX.push({ id, text: s, x0: box.x0, y0: box.y0, x1: box.x1, y1: box.y1 });
+  return box;
+}
+function reg(id, text, boxes) { if (TX.some(q => q.id === id)) return; TX.push({ id, text, x0: Math.min(...boxes.map(q => q.x0)), y0: Math.min(...boxes.map(q => q.y0)), x1: Math.max(...boxes.map(q => q.x1)), y1: Math.max(...boxes.map(q => q.y1)) }); }
+function tag(s, x, y, o = {}) { return txt(null, s, x, y, { font: 'Mono, SC', wt: 700, size: o.size || 18, fill: o.fill || PAPER, bg: o.bg || INK, pad: 6, ang: o.ang || 0, ls: 1, align: o.align }); }
+function flicker(t, x, y, w, h, k = .06) {
+  const f = hash(frameNo(t) * 3.1) - .5;
+  cx.fillStyle = f > 0 ? `rgba(237,228,208,${f * k})` : `rgba(20,18,16,${-f * k})`; cx.fillRect(x, y, w, h);
+}
+function flash(t, t0, a = .6) { if (t >= t0 && t < t0 + 1 / FPS) { cx.fillStyle = `rgba(237,228,208,${a})`; cx.fillRect(-50, -50, W + 100, H + 100); } }
+// window cut along the axis: parallelogram, top & bottom edges at angle a
+function slant(x0, x1, yTop, yBot, a = TH) { const k = Math.tan(a); return [[x0, yTop - k * (x1 - x0)], [x1, yTop], [x1, yBot], [x0, yBot - k * (x1 - x0)]]; }
+// a film window: clip to polygon, cover-fit the frame, flicker, frame line
+function filmWin(pts, im, t, o = {}) {
+  withClip(pts, () => { const [x, y, w, h] = bbox(pts); cover(im, x, y, w, h, o.fx ?? .5, o.fy ?? .5, o.zoom || 1); if (o.flick !== false) flicker(t, x, y, w, h); });
+  if (o.stroke) { cx.save(); poly(pts); cx.lineWidth = o.lw || 10; cx.strokeStyle = o.stroke; cx.lineJoin = 'miter'; cx.stroke(); cx.restore(); }
+}
+const HITS = [];
+function shake(t) {
+  let x = 0, y = 0;
+  for (const [th, amp] of HITS) { const d = t - th; if (d < 0 || d > .4) continue; const e = Math.exp(-d * 14) * amp; x += Math.sin(d * 90) * e; y += Math.cos(d * 77) * e * .7; }
+  return [x, y];
+}
+
+// ============================================================ S1 0–3 s: the document is marked
+const DOC = { lx0: 140, lx1: 990, ly0: 996, ly1: 1044, cx: 565, cy: 1020 };   // the line on the scan: "Hoover Dam is …… 726.4 feet high."
+const L1 = { x: 820, y: 470, rot: -7 * Math.PI / 180, s: 1.15 };
+const BAND1 = { x: 370, y: 900, T: 176 };                                       // red band along the axis, lower left
+const onBand = (B, x, d = 0) => [x - Math.sin(TH) * d, B.y + Math.tan(TH) * (x - B.x) + Math.cos(TH) * d];
+const BLOCK1 = { x: 1190, y: 120, w: 520, h: 250 };                            // the red block "221 米" (screen space)
+function docZoom(t) { return (1 + .12 * eio(seg(t, C.docLand, S.chart))) * (t >= C.jump ? 1.2 : 1); }
+function docXf(t) {                                                             // page → screen transform at time t
+  const o = slam(t, C.docLand, .3) * 1700;
+  const z = docZoom(t);
+  return { x: L1.x + o * Math.cos(TH), y: L1.y + o * Math.sin(TH), rot: L1.rot, s: L1.s * z };
+}
+const applyXf = X => { cx.translate(X.x, X.y); cx.rotate(X.rot); cx.scale(X.s, X.s); cx.translate(-DOC.cx, -DOC.cy); };
+const xfPt = (X, u, v) => { const dx = (u - DOC.cx) * X.s, dy = (v - DOC.cy) * X.s, c = Math.cos(X.rot), s = Math.sin(X.rot); return [X.x + dx * c - dy * s, X.y + dx * s + dy * c]; };
+function block1(t) {        // screen-space red block, slams on beat 2, stays through the chart
+  if (t < C.block - .12 || t >= S.count) return;
+  const o = slam(t, C.block, .12), B = BLOCK1, dx = o * 900 * Math.cos(TH), dy = o * 900 * Math.sin(TH);
+  const m = eio(seg(t, C.turn, C.turn + BEAT)), sc = lerp(1, .62, m);            // in the chart: up into the corner, smaller
+  cx.save(); cx.translate(dx + lerp(0, 1880 - B.x - B.w * .62, m), dy + lerp(0, 40 - B.y, m));
+  cx.translate(B.x, B.y); cx.scale(sc, sc); cx.translate(-B.x, -B.y);
+  cx.fillStyle = RED; cx.fillRect(B.x, B.y, B.w, B.h);
+  const n = txt(null, '221', B.x + 34, B.y + 214, { font: 'Osw', wt: 700, size: 230, fill: PAPER });
+  const u = txt(null, '米', B.x + 34 + n.w + 18, B.y + 206, { size: 130, fill: PAPER });
+  tag('726.4 FT', B.x, B.y + B.h + 30, { bg: INK, fill: PAPER });
+  cx.restore();
+  if (settled(t, C.block)) reg('h221', '221 米', [n, u]);
+}
+function S1(t) {
+  cx.fillStyle = INK; cx.fillRect(0, 0, W, H);
+  // the page
+  if (t >= C.docLand - .3) {
+    const X = docXf(t);
+    cx.save(); applyXf(X); cx.drawImage(A.doc, 0, 0);
+    // the red marker, in multiply, over the scan's own line
+    const p = eo(seg(t, C.markA, C.markB));
+    if (p > 0) { cx.globalCompositeOperation = 'multiply'; cx.fillStyle = RED; cx.fillRect(DOC.lx0, DOC.ly0, (DOC.lx1 - DOC.lx0) * p, DOC.ly1 - DOC.ly0); cx.globalCompositeOperation = 'source-over'; }
+    cx.restore();
+    // leader from the marked number to the block
+    if (t >= C.block) {
+      const [ex, ey] = xfPt(X, DOC.lx1, DOC.ly0);
+      cx.save(); cx.strokeStyle = RED; cx.lineWidth = 8; cx.beginPath(); cx.moveTo(ex, ey); cx.lineTo(BLOCK1.x + 40, BLOCK1.y + BLOCK1.h); cx.stroke(); cx.restore();
+    }
+    tag('DOC · USBR "HOOVER DAM" 1946 · P.6', 60, 64, { bg: RED, fill: PAPER });
+  }
+  // red band along the axis, slides in from lower left and locks at 3/4 beat
+  const o = slam(t, b(.75), b(.75)) * 1500;
+  const bx = BAND1.x - o * Math.cos(TH), by = BAND1.y - o * Math.sin(TH);
+  band(bx + 500, by + Math.tan(TH) * 500, 3200, BAND1.T, TH, RED);
+  const B = { x: bx, y: by };
+  const [tx, ty] = onBand(B, BAND1.x - 280, 40);
+  const a = txt(null, '胡佛水坝', tx, ty, { size: 118, fill: PAPER, ang: TH, ls: 6 });
+  const [ex, ey] = onBand(B, BAND1.x + 330, 22);
+  const e = txt(null, 'HOOVER DAM', ex, ey, { font: 'Osw', wt: 600, size: 46, fill: PAPER, bg: INK, pad: 8, ang: TH, ls: 8 });
+  if (t >= b(.75)) { reg('title', '胡佛水坝', [a]); reg('titleEn', 'HOOVER DAM', [e]); }
+  block1(t);
+}
+
+// ============================================================ S2 3–8 s: the document becomes the chart
+const BASE = 900, KPX = 600 / 5218;                         // ground line (chart coords); px per man
+const BAR1 = { x0: 330, x1: 680, v: 3500 }, BAR2 = { x0: 810, x1: 1180, v: 5218 };
+const STRIP = { sx: 120, sy: 990, sw: 890, sh: 60 };      // the marked line, cut from the scan
+const STRIP_END = { x: 175, y: BASE, s: 1.42 };              // where it lies as the ground line
+function chartCam(t) {
+  const p = eio(seg(t, C.tilt, C.tilt + 1)), q = seg(t, C.tilt + 1, S.count);
+  const z = lerp(1, 1.17, p) + .05 * q, fx = lerp(960, 990, p), fy = lerp(540, 440, p) - 18 * q;
+  return { z, fx, fy };
+}
+function S2(t) {
+  cx.fillStyle = PAPER; cx.fillRect(0, 0, W, H);
+  const cam = chartCam(t);
+  cx.save(); cx.translate(960, 540); cx.scale(cam.z, cam.z); cx.translate(-cam.fx, -cam.fy);
+  // ink beam behind, along the axis
+  band(1300, 760, 2600, 120, TH, INK);
+  // the strip: from its pose in S1 (after the jump) to the ground line
+  const p = eio(seg(t, C.turn, C.turn + BEAT));
+  const X0 = docXf(S.chart - 1e-3);
+  // the rest of the page leaves as a printed ghost: it slides off up the axis while the marked line turns down
+  if (p < 1) {
+    const o = ei(p) * 2200, G = { ...X0, x: X0.x + o * Math.cos(TH), y: X0.y + o * Math.sin(TH) * 2.2 };
+    cx.save(); cx.globalAlpha = .55 * (1 - p * .6); cx.globalCompositeOperation = 'multiply'; applyXf(G); cx.drawImage(A.doc, 0, 0); cx.restore();
+  }
+  const [sx0, sy0] = xfPt(X0, STRIP.sx, STRIP.sy);
+  const sx = lerp(sx0, STRIP_END.x, p), sy = lerp(sy0, STRIP_END.y, p), sc = lerp(X0.s, STRIP_END.s, p), rot = lerp(X0.rot, 0, p);
+  cx.save(); cx.translate(sx, sy); cx.rotate(rot); cx.scale(sc, sc);
+  cx.fillStyle = PAPER; cx.fillRect(0, 0, STRIP.sw, STRIP.sh);
+  cx.drawImage(A.doc, STRIP.sx, STRIP.sy, STRIP.sw, STRIP.sh, 0, 0, STRIP.sw, STRIP.sh);
+  cx.globalCompositeOperation = 'multiply'; cx.fillStyle = RED; cx.fillRect(DOC.lx0 - STRIP.sx, DOC.ly0 - STRIP.sy, DOC.lx1 - DOC.lx0, DOC.ly1 - DOC.ly0); cx.globalCompositeOperation = 'source-over';
+  cx.restore();
+  if (p >= 1) { cx.fillStyle = INK; cx.fillRect(STRIP_END.x, BASE - 6, STRIP.sw * STRIP_END.s, 8); }
+  // bars: film windows standing on the line, to scale
+  const bars = [[BAR1, C.bar1, 'forms', INK, 10], [BAR2, C.bar2, 'skipcrowd', RED, 16]];
+  for (const [B, t0, clip, col, lw] of bars) {
+    const g = eo(seg(t, t0, t0 + BEAT)); if (g <= 0) continue;
+    const hFull = B.v * KPX, h = hFull * g;
+    const pts = [[B.x0, BASE - h], [B.x1, BASE - h], [B.x1, BASE - 6], [B.x0, BASE - 6]];
+    withClip(pts, () => { cover(clipImg(clip, t - t0, 1.2), B.x0, BASE - hFull, B.x1 - B.x0, hFull, .5, .5); flicker(t, B.x0, BASE - hFull, B.x1 - B.x0, hFull); });
+    cx.save(); poly(pts); cx.lineWidth = lw; cx.strokeStyle = col; cx.stroke(); cx.restore();
+    if (g >= 1) tag('FILM · BOULDER DAM · USBR', B.x0 + 12, BASE - 20, { size: 15 });
+  }
+  // labels
+  let r1 = null, r2 = null, r3 = null;
+  if (t >= C.bar1 + .25 - .12) {
+    const o = slam(t, C.bar1 + .25), top = BASE - BAR1.v * KPX;
+    cx.save(); cx.translate(-o * 400, 0);
+    const l = txt(null, '日均', BAR1.x0, top - 132, { size: 54, fill: PAPER, bg: INK, pad: 10 });
+    const n = txt(null, '3,500', BAR1.x0, top - 22, { font: 'Osw', wt: 700, size: 112 });
+    const u = txt(null, '人', BAR1.x0 + n.w + 14, top - 26, { size: 72 });
+    cx.restore(); if (settled(t, C.bar1 + .25)) r1 = [l, n, u];
+  }
+  if (t >= C.bar2 - .12) {
+    const o = slam(t, C.bar2), top = BASE - BAR2.v * KPX;
+    cx.save(); cx.translate(o * 500, 0);
+    const l = txt(null, '最多一天 · 1934年6月', BAR2.x0, top - 196, { size: 44, fill: PAPER, bg: INK, pad: 10 });
+    cx.restore(); if (settled(t, C.bar2)) r2 = [l];
+  }
+  if (t >= C.num2 - .1) {
+    const top = BASE - BAR2.v * KPX, sc = 1 + .5 * slam(t, C.num2, .1);
+    const n = txt(null, '5,218', BAR2.x0, top - 26, { font: 'Osw', wt: 700, size: 176, fill: RED, scale: sc });
+    const u = txt(null, '人', BAR2.x0 + (n.w + 16) * sc, top - 30, { size: 104, fill: RED, scale: sc });
+    if (settled(t, C.num2)) r3 = [n, u];
+  }
+  // a third window enters on beat 12: the scalers on the wall (photo)
+  if (t >= b(12) - .14) {
+    const o = slam(t, b(12), .14) * 900;
+    cx.save(); cx.translate(o * Math.cos(TH), o * Math.sin(TH));
+    filmWin(slant(1300, 1840, 470, 1010), A.ph.scalers_az, t, { fy: .45, stroke: INK, lw: 10, flick: false });
+    tag('PHOTO · NARA 1932', 1316, 990, { size: 15 });
+    cx.restore();
+  }
+  cx.restore();
+  if (r1) reg('bar1', '日均 3,500 人', r1);
+  if (r2) reg('bar2l', '最多一天 · 1934年6月', r2);
+  if (r3) reg('bar2n', '5,218 人', r3);
+  tag('来源 · 美国垦务局 USBR', 1880, 1046, { align: 'right', bg: RED });
+  block1(t);
+}
+
+// ============================================================ S3 8–12 s: count the many
+const GRID = { x0: 53, y0: 45, cw: 440, ch: 318, g: 18 };
+const ORDER = [1, 2, 3, 7, 11, 10, 9, 8, 4, 5, 6];          // spiral after the title cell (0)
+const CELLSRC = [['scalers', 0], ['skipcrowd', 0], ['forms', 0], ['hose', 0], ['ph:scalers_az', 0], ['skipground', 0], ['hose2', 0], ['ph:grouting', 0], ['bucket', 0], ['skiphang', 0], ['scalers2', 0]];
+const cellRect = i => { const c = i % 4, r = Math.floor(i / 4); return [GRID.x0 + c * (GRID.cw + GRID.g), GRID.y0 + r * (GRID.ch + GRID.g), GRID.cw, GRID.ch]; };
+const COUNT = { x: 960, y: 640, T: 250 };
+function countBand(t, gnd) {         // "21,000 人": a band across the grid on beat 23, then a block bottom-left in the build
+  if (t < C.count - .12) return;
+  const inBuild = t >= S.build, mv = eio(seg(t, S.build, S.build + .125));
+  const col = gnd === RED ? INK : RED;
+  if (!inBuild || mv < 1) {
+    const o = slam(t, C.count, .12) * 2400, k = 1 - mv;
+    cx.save(); cx.globalAlpha = 1; cx.translate(-o * Math.cos(TH), -o * Math.sin(TH));
+    if (k > 0) { cx.translate(lerp(-520, 0, k), lerp(320, 0, k)); cx.translate(COUNT.x, COUNT.y); cx.scale(lerp(.48, 1, k), lerp(.48, 1, k)); cx.translate(-COUNT.x, -COUNT.y); }
+    band(COUNT.x, COUNT.y, 3400, COUNT.T, TH, col);
+    const [tx, ty] = onBand(COUNT, COUNT.x - 330, 84);
+    const n = txt(null, '21,000', tx, ty, { font: 'Osw', wt: 700, size: 232, fill: PAPER, ang: TH });
+    const [ux, uy] = onBand(COUNT, COUNT.x - 330 + n.w + 24, 76);
+    const u = txt(null, '人', ux, uy, { size: 150, fill: PAPER, ang: TH });
+    cx.restore();
+    if (settled(t, C.count)) reg('count', '21,000 人', [n, u]);
+    if (!inBuild) tag('来源 · 美国垦务局 · 1931–1936 总计', 1880, 1046, { align: 'right', bg: RED });
+  }
+  if (inBuild && mv >= 1) {
+    cx.fillStyle = col; cx.fillRect(36, 880, 560, 170);
+    const n = txt(null, '21,000', 62, 1018, { font: 'Osw', wt: 700, size: 140, fill: PAPER });
+    const u = txt(null, '人', 62 + n.w + 14, 1012, { size: 96, fill: PAPER });
+    reg('count', '21,000 人', [n, u]);
+  }
+}
+function S3(t) {
+  cx.fillStyle = INK; cx.fillRect(0, 0, W, H);
+  const z = 1 + .09 * seg(t, S.count, S.build);
+  cx.save(); cx.translate(960, 540); cx.scale(z, z); cx.translate(-960, -540);
+  // empty cells are printed before they fill: a paper halftone (≈15 %), the frame line and the cell's number
+  const litNow = new Set(CELL_T.map((t0, k) => t >= t0 + .06 ? ORDER[k] : -1));
+  for (let i = 1; i < 12; i++) {
+    if (litNow.has(i)) continue;
+    const [x, y, w, h] = cellRect(i), k = ORDER.indexOf(i);
+    cx.drawImage(DOTS, 0, 0, w, h, x, y, w, h);
+    cx.strokeStyle = 'rgba(237,228,208,.30)'; cx.lineWidth = 2; cx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    txt(null, String(k + 1).padStart(2, '0'), x + w - 22, y + h - 22, { font: 'Osw', wt: 700, size: 120, fill: 'rgba(237,228,208,.16)', align: 'right' });
+    cx.fillStyle = 'rgba(213,43,30,.55)'; cx.fillRect(x + 22, y + 22, 46, 10);
+  }
+  // title cell on beat 16
+  { const [x, y, w, h] = cellRect(0), s = 1 + .12 * after(t, S.count, .12);         // cut in already printed: the cut is the impact
+    cx.save(); cx.translate(x + w / 2, y + h / 2); cx.scale(s, s); cx.translate(-x - w / 2, -y - h / 2);
+    cx.fillStyle = RED; cx.fillRect(x, y, w, h);
+    const a = txt(null, '建坝', x + 30, y + 140, { size: 118, fill: PAPER, ls: 4 });
+    const c = txt(null, '的人', x + 30, y + 276, { size: 118, fill: PAPER, ls: 4 });
+    const lit = CELL_T.filter(c0 => t >= c0).length;
+    txt(null, String(lit).padStart(2, '0'), x + w - 26, y + h - 26, { font: 'Osw', wt: 700, size: 96, fill: INK, align: 'right' });
+    cx.restore();
+    if (s <= 1.001) reg('cellTitle', '建坝的人', [a, c]);
+  }
+  // footage cells, one per beat → half beat → quarter beat
+  CELL_T.forEach((t0, k) => {
+    if (t < t0) return;
+    const i = ORDER[k], [x, y, w, h] = cellRect(i), d = k < 4 ? .1 : k < 8 ? .07 : .05;
+    const s = back(seg(t, t0, t0 + d), 1.5);
+    const [src] = CELLSRC[k];
+    cx.save(); cx.translate(x + w / 2, y + h / 2); cx.scale(s, s); cx.translate(-x - w / 2, -y - h / 2);
+    cx.beginPath(); cx.rect(x, y, w, h); cx.clip();
+    if (src.startsWith('ph:')) { const im = A.ph[src.slice(3)]; cover(im, x, y, w, h, .5, .5, 1.05 + .04 * seg(t, t0, t0 + 3)); }
+    else { cover(clipImg(src, t - t0, 1.5), x, y, w, h); flicker(t, x, y, w, h); }
+    cx.restore();
+    if (t < t0 + 1 / FPS) { cx.fillStyle = 'rgba(237,228,208,.55)'; cx.fillRect(x, y, w, h); }
+  });
+  tag('FILM + PHOTO · USBR / NARA 1932–34', GRID.x0, H - 14, { size: 15, bg: RED });
+  cx.restore();
+  countBand(t, INK);
+}
+
+// ============================================================ S4 12–14 s: people build the structure (A + B)
+const AB = [['skipcrowd', 'A'], ['blocks2', 'B'], ['hose2', 'A'], ['blocks1', 'B'], ['scalers', 'A'], ['face', 'B'], ['forms', 'A'], ['blocks3', 'B']];
+// the section takes the right 56 % of the frame: upstream face vertical at x, downstream face stepping in
+const DAM = { x: 830, base: 1000, fh: 72, w0: 1070, w8: 160 };
+const dw = i => DAM.w0 - (DAM.w0 - DAM.w8) * (i / 8);
+// four different people, none repeated or mirrored: a figure lands on the ledge of every A floor, the pointing man takes the crown
+const FIG = [['bent', false, 0, 170], ['sit', false, 2, 172], ['hat', false, 4, 214]];
+const CROWN = { name: 'pair', h: 380 };
+function damCam(t) {             // crane up the section as it is built, then push in on the man at the top
+  const built = FLOOR_T.reduce((s, f) => s + eo(seg(t, f, f + .12)), 0) / 8;
+  const push = eio(seg(t, FLOOR_T[6], S.silence));
+  const z = lerp(lerp(1.08, 1.0, built), 1.24, push);          // pivot on the section's right edge: nothing of it leaves the frame on the right
+  const fx = lerp(1900, DAM.x + dw(8) / 2 + 60, push), fy = lerp(lerp(700, 540, built), 300, push);
+  const ax = lerp(1900, 1200, push), ay = lerp(540, 470, push);
+  return { z, fx, fy, ax, ay };
+}
+function S4(t) {
+  const k = FLOOR_T.filter(f => t >= f).length - 1;          // current cut
+  const gnd = k % 2 === 0 ? RED : INK, fg = gnd === RED ? INK : RED;
+  cx.fillStyle = gnd; cx.fillRect(0, 0, W, H);
+  // right: the dam's stepped cross-section, one floor per cut, men on the ledges (drawn first: the window cuts across it)
+  const cam = damCam(t);
+  cx.save(); cx.translate(cam.ax, cam.ay); cx.scale(cam.z, cam.z); cx.translate(-cam.fx, -cam.fy);
+  // the plan: the whole stepped profile printed as an outline, filled floor by floor
+  cx.save(); cx.strokeStyle = fg; cx.lineWidth = 4; cx.setLineDash([14, 10]);
+  for (let i = 0; i < 8; i++) { const yb = DAM.base - i * DAM.fh; cx.strokeRect(DAM.x, yb - DAM.fh + 8, dw(i), DAM.fh - 8); }
+  cx.restore();
+  tag('PLAN · DAM SECTION', DAM.x + 6, DAM.base + 36, { size: 15, bg: fg === RED ? RED : INK });
+  for (let i = 0; i < 8 && t >= FLOOR_T[i] - .1; i++) {
+    const t0 = FLOOR_T[i], o = slam(t, t0, .1) * 1400 * (i % 2 ? 1 : -1);
+    const yb = DAM.base - i * DAM.fh, yt = yb - DAM.fh + 8, x1 = DAM.x + dw(i);
+    cx.save(); cx.translate(o, 0);
+    const fp = [[DAM.x, yt], [x1, yt], [x1, yb], [DAM.x, yb]];
+    withClip(fp, () => { cover(clipImg(AB[i][0], t - t0 + .4, 1.3), DAM.x, yt, dw(i), DAM.fh, .5, .5); flicker(t, DAM.x, yt, dw(i), DAM.fh); });
+    cx.fillStyle = INK; cx.fillRect(DAM.x - 8, yb - 2, dw(i) + 16, 12);                       // the ink beam under each floor
+    cx.restore();
+  }
+  // figures land on the ledges (drawn after the floors so the next floor never covers them)
+  for (const [name, flip, i, hh] of FIG) {
+    if (i > k) continue;
+    const t0 = FLOOR_T[i], yb = DAM.base - i * DAM.fh - DAM.fh + 8, xL = DAM.x + dw(i + 1), xR = DAM.x + dw(i);
+    const im = flip ? flipped[name] : A.cut[name], ww = im.width * hh / im.height;
+    const drop = (1 - eo(seg(t, t0, t0 + .125))) * 260;
+    cx.drawImage(im, Math.min((xL + xR) / 2 - ww / 2 + 10, DAM.x + DAM.w0 - ww), yb - hh - drop + 6, ww, hh);
+  }
+  // the crown: the pointing man drops onto the top on the seventh cut and stands there with the last
+  if (k >= 6) {
+    const t0 = FLOOR_T[6], im = A.cut[CROWN.name], hh = CROWN.h, ww = im.width * hh / im.height, yb = DAM.base - 8 * DAM.fh + 8;
+    const drop = (1 - eo(seg(t, t0, FLOOR_T[7]))) * 420;
+    cx.drawImage(im, DAM.x + dw(8) / 2 - ww / 2 + 30, yb - hh - drop + 6, ww, hh);
+  }
+  cx.restore();
+  // left: the window, A (men) or B (concrete), tilted alternately
+  const [clip, kind] = AB[k];
+  const ang = (k % 2 ? 1 : -1) * 4.5 * Math.PI / 180;
+  cx.save(); cx.translate(420, 430); cx.rotate(ang); cx.translate(-420, -430);
+  const pts = [[60, 80], [770, 80], [770, 790], [60, 790]];
+  filmWin(pts, clipImg(clip, t - FLOOR_T[k], 1.3), t, { stroke: fg, lw: 14 });
+  tag(kind === 'A' ? 'FILM · THE MEN' : 'FILM · THE BLOCKS', 76, 774, { size: 15, bg: fg === RED ? RED : INK });
+  cx.restore();
+  countBand(t, gnd);
+}
+
+// ============================================================ S5 14–15 s: silence
+function S5(t) {
+  cx.fillStyle = INK; cx.fillRect(0, 0, W, H);
+  // one red rivet head, cut in with the silence; on the half-beat its paper ring is struck (the only, faint, sound)
+  cx.fillStyle = RED; cx.beginPath(); cx.arc(1090, 500, 150, 0, Math.PI * 2); cx.fill();
+  if (t >= C.rivet) { const s = eo(seg(t, C.rivet, C.rivet + .125)); cx.strokeStyle = PAPER; cx.lineWidth = 6; cx.beginPath(); cx.arc(1090, 500, 150 * (.55 + .2 * s), 0, Math.PI * 2); cx.stroke(); }
+}
+
+// ============================================================ S6 15–19.5 s: the heaviest hit
+const WIN6 = slant(930, 1640, 70, 1040);
+function S6(t) {
+  cx.fillStyle = PAPER; cx.fillRect(0, 0, W, H);
+  // ink wedge along the axis behind everything
+  cx.fillStyle = INK; poly([[600, 1080], [1920, 650], [1920, 1080]]); cx.fill();
+  // tall slanted window: the finished dam, the camera tilts up its face
+  const tl = seg(t, S.hit, DUR);
+  filmWin(WIN6, A.ph.dam, t, { fx: .42, fy: lerp(.40, .36, eio(tl)), zoom: lerp(1.42, 1.72, eio(tl)), stroke: INK, lw: 14, flick: false });
+  tag('PHOTO · ANSEL ADAMS 1941 · NARA', 1618, 118, { size: 15, align: 'right' });
+  // the character
+  const s = 1 + .38 * after(t, S.hit, .1);
+  cx.save(); cx.translate(440, 560); cx.scale(s, s); cx.translate(-440, -560);
+  const z = txt(null, '坝', 70, 930, { size: 780, fill: RED });
+  cx.restore();
+  if (t >= S.hit + .1) reg('ba', '坝', [z]);
+  if (t >= C.eng - .12) {
+    const o = slam(t, C.eng, .12) * 700;
+    const e = txt(null, 'HOOVER DAM · 1931–1935', 84 - o, 1046, { font: 'Osw', wt: 600, size: 44, fill: PAPER, bg: INK, pad: 10, ls: 6 });
+    if (settled(t, C.eng)) reg('eng', 'HOOVER DAM · 1931–1935', [e]);
+  }
+  // numbers on bands crossing the window's foot
+  if (t >= C.numH - .12) {
+    const o = slam(t, C.numH, .12) * 1400, B = { x: 1480, y: 770 };
+    cx.save(); cx.translate(o * Math.cos(TH), o * Math.sin(TH));
+    band(B.x + 400, B.y + Math.tan(TH) * 400, 1700, 168, TH, INK);
+    const [tx, ty] = onBand(B, B.x - 200, 58);
+    const n = txt(null, '221', tx, ty, { font: 'Osw', wt: 700, size: 160, fill: PAPER, ang: TH });
+    const [ux, uy] = onBand(B, B.x - 200 + n.w + 18, 52);
+    const u = txt(null, '米', ux, uy, { size: 104, fill: PAPER, ang: TH });
+    cx.restore();
+    if (settled(t, C.numH)) reg('h221b', '221 米', [n, u]);
+  }
+  if (t >= C.restamp - .1) {
+    const o = slam(t, C.restamp, .1) + .3 * slam(t, C.restamp2, .1) * (t >= C.restamp2 - .1 ? 1 : 0), B = { x: 1540, y: 930 }, sc = 1 + .45 * o;
+    cx.save(); cx.translate(B.x, B.y); cx.scale(sc, sc); cx.translate(-B.x, -B.y);
+    band(B.x + 400, B.y + Math.tan(TH) * 400, 1800, 168, TH, RED);
+    const [tx, ty] = onBand(B, B.x - 250, 54);
+    const n = txt(null, '21,000', tx, ty, { font: 'Osw', wt: 700, size: 148, fill: PAPER, ang: TH });
+    const [ux, uy] = onBand(B, B.x - 250 + n.w + 18, 48);
+    const u = txt(null, '人', ux, uy, { size: 96, fill: PAPER, ang: TH });
+    cx.restore();
+    if (settled(t, C.restamp)) reg('men', '21,000 人', [n, u]);
+  }
+  // beat 36: the window flashes one frame as the red band is struck again
+  if (t >= C.restamp2 && t < C.restamp2 + 1 / FPS) { cx.save(); poly(WIN6); cx.fillStyle = 'rgba(237,228,208,.85)'; cx.fill(); cx.restore(); }
+  // beat 38: one red rivet is driven into the band's end — the last accent, then only the ring-out
+  if (t >= C.end - .1) {
+    const o = slam(t, C.end, .1), R0 = 64 * (1 + 1.6 * o), X = 1820, Y = 660 - o * 260;
+    cx.fillStyle = RED; cx.beginPath(); cx.arc(X, Y, R0, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = INK; cx.lineWidth = 7; cx.beginPath(); cx.arc(X, Y, R0 * .62, 0, Math.PI * 2); cx.stroke();
+    cx.fillStyle = PAPER; cx.beginPath(); cx.arc(X - R0 * .28, Y - R0 * .3, R0 * .14, 0, Math.PI * 2); cx.fill();
+  }
+  flash(t, S.hit, .7);
+}
+
+// ============================================================ shots, wipe, render
+const SHOTS = [[S.doc, S.chart, S1], [S.chart, S.count, S2], [S.count, S.build, S3], [S.build, S.silence, S4], [S.silence, S.hit, S5], [S.hit, DUR + 1, S6]];
+const shotAt = t => SHOTS.find(s => t >= s[0] && t < s[1]) || SHOTS[SHOTS.length - 1];
+const WIPE_A = 72 * Math.PI / 180;
+function wipeRegion(xc) { const dx = Math.cos(WIPE_A) / Math.sin(WIPE_A) * H / 2; return [[xc + dx, 0], [W + 2000, 0], [W + 2000, H], [xc - dx, H]]; }
+HITS.push([C.docLand, 12], [b(.75), 6], [C.block, 9], [C.jump, 6], [C.turn, 5], [C.bar1 + BEAT, 4], [C.bar2 + BEAT, 5], [C.num2, 8], [b(12), 6],
+  [S.count, 5], [C.count, 11], [C.hit, 22], [C.eng, 3], [C.numH, 9], [C.restamp, 11], [C.restamp2, 8], [C.end, 7]);
+CELL_T.forEach(t0 => HITS.push([t0, 2.5]));
+FLOOR_T.forEach((t0, i) => HITS.push([t0, 6 + i * .5]));
+
+function render(t) {
+  TX = [];
+  const [sx, sy] = shake(t);
+  cx.setTransform(1, 0, 0, 1, sx, sy);
+  if (t >= C.wipe && t < S.chart) {                     // red wipe: the band sweeps right → left, the chart already behind it
+    const p = eio(seg(t, C.wipe, S.chart)), xc = lerp(W + 700, -700, p);
+    S1(t);
+    const keep = TX; TX = [];
+    cx.save(); poly(wipeRegion(xc)); cx.clip(); S2(t); cx.restore();
+    TX = keep.filter(q => q.x1 < xc - 300);
+    band(xc, H / 2, 280, 3000, WIPE_A - Math.PI / 2, RED);
+    block1(t);
+  } else shotAt(t)[2](t);
+  if (t >= C.jump && t < C.jump + 1 / FPS) flash(t, C.jump, .55);
+  cx.setTransform(1, 0, 0, 1, 0, 0);
+  cx.globalCompositeOperation = 'multiply'; cx.globalAlpha = .5; cx.drawImage(fibre, 0, 0); cx.globalAlpha = 1;
+  cx.globalCompositeOperation = 'source-over';
+}
+
+// ============================================================ events (sound cues) — exported by events.mjs, read by mix.py and cuecheck.py
+const EV = [];
+const ev = (t, type, o = {}) => EV.push({ t: +t.toFixed(4), type, ...o });
+ev(0, 'roll', { d: b(.75) }); ev(b(.75), 'band');
+ev(C.docLand, 'land'); ev(C.markA, 'marker', { d: C.markB - C.markA }); ev(C.block, 'stamp', { g: 1 });
+ev(C.jump, 'jump'); ev(C.wipe, 'wipe', { d: BEAT });
+ev(C.turn, 'turn'); ev(C.bar1, 'bar', { k: 0, d: BEAT }); ev(C.bar1 + .25, 'type'); ev(C.bar2, 'bar', { k: 1, d: BEAT }); ev(C.num2, 'stamp', { g: .9 });
+ev(C.tilt, 'tilt'); ev(b(12), 'window'); ev(C.rollIn, 'roll', { d: BEAT * 2 });
+ev(S.count, 'cell', { k: -1 }); CELL_T.forEach((t0, k) => ev(t0, 'cell', { k }));
+ev(C.count, 'count');
+FLOOR_T.forEach((t0, i) => ev(t0, 'floor', { i, kind: AB[i][1] }));
+FIG.forEach(([n, f, i]) => ev(FLOOR_T[i] + .125, 'figure', { i })); ev(FLOOR_T[7], 'crown');
+ev(C.silence, 'silence'); ev(C.rivet, 'rivet');
+ev(C.hit, 'hit'); ev(C.eng, 'type'); ev(C.numH, 'stamp', { g: .9 }); ev(C.restamp, 'restamp'); ev(C.restamp2, 'restamp', { k: 2 }); ev(C.end, 'end');
+EV.sort((p, q) => p.t - q.t);
+
+window.DUR = DUR; window.EV = EV; window.BPM = BPM;
+window.render = render;
+window.TEXTS = t => { render(t); return TX; };
+window.READY = true;
+render(0);
+</script></body></html>

@@ -1,0 +1,65 @@
+{
+  "video": {
+    "width": 3840,
+    "height": 2080,
+    "nb_frames": "360",
+    "r_frame_rate": "24/1",
+    "duration": "15.000000"
+  },
+  "black_frames": [],
+  "freeze_events": [],
+  "unexpected_cyan_pixels": {
+    "fold_01.jpg": 0,
+    "fold_02.jpg": 0,
+    "fold_03.jpg": 0,
+    "fold_04.jpg": 0,
+    "fold_05.jpg": 0,
+    "fold_06.jpg": 0,
+    "fold_07.jpg": 0,
+    "fold_08.jpg": 0,
+    "fold_09.jpg": 0,
+    "fold_10.jpg": 0,
+    "fold_11.jpg": 0,
+    "fold_12.jpg": 0
+  },
+  "sha256": "8fba8eb330bd7483ebb930409851060042270a359977780725cb20fe058b966a",
+  "gpu_probe": {
+    "gpu": "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)",
+    "repeatExact": true,
+    "states": [
+      {
+        "t": 2.8,
+        "shot": "书案",
+        "hero": {
+          "x": 0.6024691358024692,
+          "y": 0.4233607681755831,
+          "size": 310.8093278463649
+        },
+        "palette": "E 朱砂玄墨",
+        "fold": 0
+      },
+      {
+        "t": 7.4,
+        "shot": "楼阁",
+        "hero": {
+          "x": 0.5335039412590433,
+          "y": 0.43324802937047835,
+          "size": 329.48817622287004
+        },
+        "palette": "E 朱砂玄墨",
+        "fold": 0.7769633058984913
+      },
+      {
+        "t": 11,
+        "shot": "江山",
+        "hero": {
+          "x": 0.6674074074074074,
+          "y": 0.3611111111111111,
+          "size": 260
+        },
+        "palette": "E 朱砂玄墨",
+        "fold": 1
+      }
+    ]
+  }
+}

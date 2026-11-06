@@ -1,0 +1,17 @@
+港口一日（移轴微缩）· CREDITS
+
+画面
+- 全部画面由代码实时绘制（three.js r170，MIT License，https://github.com/mrdoob/three.js）。无真实素材、无生成视频、无图库素材。
+- 港口、船只、车辆、建筑、招牌均为原创程序化模型；不含任何真实地点、品牌或标志。
+
+字体（均为 SIL Open Font License 1.1，子集化后放在 fonts/，许可证全文见 fonts/OFL-*.txt）
+- Noto Sans SC — Copyright 2014-2021 Adobe，经 Google Fonts CSS API（&text= 子集）获取。https://fonts.google.com/noto/specimen/Noto+Sans+SC
+- Overpass / Overpass Mono — Copyright 2021 The Overpass Project Authors。https://github.com/RedHatOfficial/Overpass
+
+音乐与声音
+- 原创配乐：马林巴、钟琴、颤音琴（软槌/硬槌/弓奏）、管钟、拇指琴、木鱼、吊镲、定音鼓、低音提琴拨弦与弓奏、单簧管断奏、圆号、大号、巴松（采样合成，mix.py）。
+- 采样库（CC0 1.0，无需署名，致谢）：
+  Versilian Community Sample Library（Versilian Studios / Sam Gossner，https://github.com/sgossner/VCSL）
+  VS Chamber Orchestra: Community Edition（Versilian Studios / Sam Gossner，https://github.com/sgossner/VSCO-2-CE）
+  FreePats project（https://freepats.zenvoid.org）
+- 汽笛、柴油机、海水、海鸥、风、集装箱落箱、锁销、继电器、灯箱镇流器、延时颗粒声：numpy 程序化合成（mix.py）。

@@ -1,0 +1,247 @@
+{
+ "bpm": 90,
+ "beat": 0.6666666666666666,
+ "bar": 2.6666666666666665,
+ "s16": 0.16666666666666666,
+ "dur": 19.75,
+ "KB": {
+  "pulse0": 0,
+  "traceGo": 0,
+  "traceEnd": 4,
+  "pullEnd": 6,
+  "revealEnd": 7.95,
+  "lit": 8,
+  "gridGo": 14,
+  "split": 14.5,
+  "snap": 15,
+  "crt": 17.5,
+  "burst": 18,
+  "lockW": 19,
+  "lock0": 19.25,
+  "lockDot": 19.5,
+  "freeze": 20,
+  "hit": 22,
+  "put1": 25,
+  "put2": 25.25,
+  "put3": 25.5,
+  "put4": 25.75,
+  "name": 26,
+  "label": 26.5,
+  "glk1": 27,
+  "glk2": 28
+ },
+ "K": {
+  "pulse0": 0,
+  "traceGo": 0,
+  "traceEnd": 2.666667,
+  "pullEnd": 4,
+  "revealEnd": 5.3,
+  "lit": 5.333333,
+  "gridGo": 9.333333,
+  "split": 9.666667,
+  "snap": 10,
+  "crt": 11.666667,
+  "burst": 12,
+  "lockW": 12.666667,
+  "lock0": 12.833333,
+  "lockDot": 13,
+  "freeze": 13.333333,
+  "hit": 14.666667,
+  "put1": 16.666667,
+  "put2": 16.833333,
+  "put3": 17,
+  "put4": 17.166667,
+  "name": 17.333333,
+  "label": 17.666667,
+  "glk1": 18,
+  "glk2": 18.666667
+ },
+ "notes": [
+  {
+   "b": 8,
+   "t": 5.333333,
+   "inst": "vibraphone",
+   "midi": 71,
+   "n": 1,
+   "upto": 1,
+   "div": 1
+  },
+  {
+   "b": 9,
+   "t": 6,
+   "inst": "vibraphone",
+   "midi": 78,
+   "n": 4,
+   "upto": 5,
+   "div": 1
+  },
+  {
+   "b": 10,
+   "t": 6.666667,
+   "inst": "vibraphone",
+   "midi": 73,
+   "n": 7,
+   "upto": 12,
+   "div": 0.5
+  },
+  {
+   "b": 10.5,
+   "t": 7,
+   "inst": "vibraphone",
+   "midi": 80,
+   "n": 9,
+   "upto": 21,
+   "div": 0.5
+  },
+  {
+   "b": 11,
+   "t": 7.333333,
+   "inst": "vibraphone",
+   "midi": 74,
+   "n": 13,
+   "upto": 34,
+   "div": 0.5
+  },
+  {
+   "b": 11.5,
+   "t": 7.666667,
+   "inst": "vibraphone",
+   "midi": 81,
+   "n": 15,
+   "upto": 49,
+   "div": 0.5
+  },
+  {
+   "b": 12,
+   "t": 8,
+   "inst": "marimba",
+   "midi": 78,
+   "n": 19,
+   "upto": 68,
+   "div": 0.25
+  },
+  {
+   "b": 12.25,
+   "t": 8.166667,
+   "inst": "marimba",
+   "midi": 85,
+   "n": 22,
+   "upto": 90,
+   "div": 0.25
+  },
+  {
+   "b": 12.5,
+   "t": 8.333333,
+   "inst": "marimba",
+   "midi": 80,
+   "n": 26,
+   "upto": 116,
+   "div": 0.25
+  },
+  {
+   "b": 12.75,
+   "t": 8.5,
+   "inst": "marimba",
+   "midi": 86,
+   "n": 28,
+   "upto": 144,
+   "div": 0.25
+  },
+  {
+   "b": 13,
+   "t": 8.666667,
+   "inst": "marimba",
+   "midi": 81,
+   "n": 32,
+   "upto": 176,
+   "div": 0.25
+  },
+  {
+   "b": 13.25,
+   "t": 8.833333,
+   "inst": "marimba",
+   "midi": 88,
+   "n": 36,
+   "upto": 212,
+   "div": 0.25
+  },
+  {
+   "b": 13.5,
+   "t": 9,
+   "inst": "glockenspiel",
+   "midi": 86,
+   "n": 39,
+   "upto": 251,
+   "div": 0.125
+  },
+  {
+   "b": 13.625,
+   "t": 9.083333,
+   "inst": "glockenspiel",
+   "midi": 93,
+   "n": 42,
+   "upto": 293,
+   "div": 0.125
+  },
+  {
+   "b": 13.75,
+   "t": 9.166667,
+   "inst": "glockenspiel",
+   "midi": 88,
+   "n": 45,
+   "upto": 338,
+   "div": 0.125
+  },
+  {
+   "b": 13.875,
+   "t": 9.25,
+   "inst": "glockenspiel",
+   "midi": 95,
+   "n": 50,
+   "upto": 388,
+   "div": 0.125
+  },
+  {
+   "b": 14,
+   "t": 9.333333,
+   "inst": "glockenspiel",
+   "midi": 90,
+   "n": 52,
+   "upto": 440,
+   "div": 0.125
+  },
+  {
+   "b": 14.125,
+   "t": 9.416667,
+   "inst": "glockenspiel",
+   "midi": 97,
+   "n": 56,
+   "upto": 496,
+   "div": 0.125
+  },
+  {
+   "b": 14.25,
+   "t": 9.5,
+   "inst": "glockenspiel",
+   "midi": 93,
+   "n": 60,
+   "upto": 556,
+   "div": 0.125
+  },
+  {
+   "b": 14.375,
+   "t": 9.583333,
+   "inst": "glockenspiel",
+   "midi": 100,
+   "n": 63,
+   "upto": 619,
+   "div": 0.125
+  }
+ ],
+ "gridTicks": [
+  9.333333,
+  9.5,
+  9.666667,
+  9.833333
+ ]
+}

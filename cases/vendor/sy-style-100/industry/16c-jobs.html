@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>16 · 招聘小程序 · 好职通</title>
+<script src="../lib/core.js"></script>
+<style>
+  #stage{font-family:Inter,'Noto Sans CJK SC',sans-serif;perspective:1400px;perspective-origin:50% 42%;overflow:hidden}
+  #bg{position:absolute;inset:0;background:linear-gradient(160deg,#fff6e9 0%,#ffe1c2 55%,#ffc9a3 100%)}
+  #deck{position:absolute;left:660px;top:120px;width:600px;height:760px;transform-style:preserve-3d}
+  .jc{position:absolute;left:0;top:0;width:600px;height:760px;transform-style:preserve-3d}
+  .face{position:absolute;inset:0;border-radius:36px;background:#fff;box-shadow:0 40px 90px rgba(140,70,20,.25);backface-visibility:hidden;overflow:hidden}
+  .back{transform:rotateY(180deg)}
+  .co{display:flex;align-items:center;gap:16px;padding:34px 36px 0}
+  .lg{width:76px;height:76px;border-radius:22px;display:flex;align-items:center;justify-content:center;font:900 34px 'Noto Sans CJK SC';color:#fff}
+  .co b{font:800 26px 'Noto Sans CJK SC';color:#222}
+  .co span{display:block;font:500 17px 'Noto Sans CJK SC';color:#999;margin-top:6px}
+  .role{padding:26px 36px 0;font:900 46px 'Noto Sans CJK SC';color:#1c1c1c}
+  .pay{padding:10px 36px 0;font:900 40px Inter;color:#ff6a2b}
+  .tags{padding:18px 36px 0}
+  .tags i{display:inline-block;font-style:normal;margin:0 10px 10px 0;padding:8px 16px;border-radius:14px;background:#f5f5f2;font:600 18px 'Noto Sans CJK SC';color:#555}
+  .pic{position:absolute;left:36px;right:36px;bottom:36px;height:250px;border-radius:24px;overflow:hidden}
+  .det{padding:34px 36px;font:500 20px/1.75 'Noto Sans CJK SC';color:#444}
+  .det h3{margin:0 0 12px;font:900 30px 'Noto Sans CJK SC';color:#1c1c1c}
+  .det li{list-style:none}
+  .map{position:absolute;left:36px;right:36px;bottom:144px;height:200px;border-radius:24px;overflow:hidden;background:#eef1ec}
+  .send{position:absolute;left:36px;right:36px;bottom:36px;height:84px;border-radius:42px;background:linear-gradient(90deg,#ff8a2b,#ff5a3c);color:#fff;font:900 30px 'Noto Sans CJK SC';display:flex;align-items:center;justify-content:center;box-shadow:0 14px 34px rgba(255,90,60,.4)}
+  .stamp{position:absolute;top:60px;padding:10px 24px;border-radius:14px;font:900 46px 'Noto Sans CJK SC';border:6px solid;opacity:0}
+  #hud{position:absolute;left:60px;top:54px;font:900 40px 'Noto Sans CJK SC';color:#5a2a0c;display:flex;align-items:center;gap:14px}
+  #hud i{width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#ff8a2b,#ff5a3c);display:inline-block}
+  #hand{position:absolute;width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 0 0 4px rgba(255,255,255,.9),0 10px 20px rgba(0,0,0,.15);z-index:20;opacity:0}
+  .bub{position:absolute;padding:20px 28px;border-radius:26px;background:#fff;box-shadow:0 20px 50px rgba(140,70,20,.25);font:700 24px 'Noto Sans CJK SC';color:#333;opacity:0;white-space:nowrap}
+  .bub small{display:block;font:500 16px 'Noto Sans CJK SC';color:#999;margin-top:4px}
+  #plane{position:absolute;left:0;top:0;width:120px;height:90px;opacity:0;z-index:30;filter:drop-shadow(0 18px 24px rgba(140,70,20,.3))}
+  #trail{position:absolute;inset:0;width:1920px;height:1080px;z-index:29;pointer-events:none}
+  #chat{position:absolute;left:1180px;top:150px;width:560px;height:780px;border-radius:44px;background:#fbf8f4;box-shadow:0 50px 110px rgba(140,70,20,.28);overflow:hidden;opacity:0;z-index:25}
+  #chat .hd{height:118px;background:#fff;display:flex;align-items:center;gap:18px;padding:0 30px;border-bottom:1px solid #f0e6dc}
+  #chat .av{width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#7fd3a6,#2ea36b);color:#fff;font:900 30px 'Noto Sans CJK SC';display:flex;align-items:center;justify-content:center}
+  #chat .hd b{font:800 26px 'Noto Sans CJK SC';color:#222}#chat .hd span{display:block;font:500 17px 'Noto Sans CJK SC';color:#2ea36b;margin-top:4px}
+  .msg{position:absolute;max-width:400px;padding:18px 24px;border-radius:24px;font:600 23px/1.5 'Noto Sans CJK SC';color:#333;background:#fff;box-shadow:0 8px 20px rgba(140,70,20,.08);opacity:0}
+  .msg.me{background:linear-gradient(90deg,#ff8a2b,#ff5a3c);color:#fff}
+  .inv{position:absolute;left:30px;right:30px;padding:24px 28px;border-radius:26px;background:#fff;box-shadow:0 12px 30px rgba(140,70,20,.12);opacity:0}
+  .inv b{display:block;font:900 28px 'Noto Sans CJK SC';color:#1c1c1c}.inv p{margin:10px 0 0;font:500 20px/1.6 'Noto Sans CJK SC';color:#666}
+  .inv i{position:absolute;right:26px;top:24px;font-style:normal;padding:8px 16px;border-radius:14px;background:#e3f6ea;color:#2ea36b;font:800 19px 'Noto Sans CJK SC'}
+  #end{position:absolute;left:0;right:0;top:420px;text-align:center;opacity:0}
+  #end b{display:block;font:900 120px 'Noto Sans CJK SC';color:#5a2a0c;letter-spacing:.08em}
+  #end span{font:700 34px 'Noto Sans CJK SC';color:#9a4f1e}
+</style></head>
+<body><div id="stage"></div>
+<script>
+/* ===== 16 真实页面 2.5D · 行业示例：招聘小程序 =====
+   A stack of job cards floating in space, swiped by a thumb like the app is in your hand: the first card is
+   swiped away (not for me), the next flies off with a heart, the third is tapped and flips over in 3D to its
+   details, "一键投递" is pressed, the card folds into a paper plane and HR's replies pop up around it.
+   Real-looking mini-program UI, choreographed in depth. */
+const { E, clamp, lerp, spring } = Reel;
+const stage = Reel.makeStage('#ffe1c2');
+const C = Reel.cfg({ brand: '好职通', sub: '附近好工作 · 一键投递', app: '好职通 · 附近 3 公里' });
+const JOBS = [
+  ['麦', '#f2a71b', '麦香烘焙坊', '城东 · 1.2 km', '烘焙学徒', '¥5-7K', ['包吃住', '有师傅带', '周末双休'], '#ffd9a0'],
+  ['云', '#3a7be0', '云栈物流', '高新区 · 2.4 km', '仓储主管', '¥8-11K', ['五险一金', '年终奖', '班车'], '#bcd6ff'],
+  ['栖', '#2ea36b', '栖木咖啡', '老城区 · 0.8 km', '咖啡师', '¥6-8K', ['可兼职', '免费培训', '饮品自由'], '#c4f0d6'],
+];
+stage.innerHTML = `<div id="bg"></div><div id="hud"><i></i>${C.app}</div><div id="deck"></div><div id="hand"></div><div id="end"><b>${C.brand}</b><span>${C.sub}</span></div>`;
+const deck = stage.querySelector('#deck'), hand = stage.querySelector('#hand');
+function pic(col, k) { const c = document.createElement('canvas'); c.width = 528; c.height = 250; const g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 528, 250);
+  g.fillStyle = 'rgba(255,255,255,.5)'; for (let i = 0; i < 6; i++) g.fillRect(30 + i * 84, 150 - (i % 3) * 30, 60, 100 + (i % 3) * 30);
+  g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(0, 200, 528, 50); g.font = '900 30px "Noto Sans CJK SC"'; g.fillStyle = 'rgba(0,0,0,.45)'; g.fillText(['店内环境', '仓库实景', '门店实拍'][k], 24, 44); return c; }
+const cards = JOBS.map(([l, lc, co, loc, role, pay, tags, pc], k) => {
+  const d = document.createElement('div'); d.className = 'jc';
+  d.innerHTML = `<div class="face"><div class="co"><div class="lg" style="background:${lc}">${l}</div><div><b>${co}</b><span>${loc} · 刚刚活跃</span></div></div><div class="role">${role}</div><div class="pay">${pay}</div><div class="tags">${tags.map((s) => `<i>${s}</i>`).join('')}</div><div class="pic"></div><div class="stamp" style="left:36px;color:#999;border-color:#bbb;transform:rotate(-14deg)">不合适</div><div class="stamp" style="right:36px;color:#ff5a3c;border-color:#ff5a3c;transform:rotate(14deg)">感兴趣 ♥</div></div>
+    <div class="face back"><div class="det"><h3>${role} · ${pay}</h3><li>📍 ${co} · ${loc}</li><li>🕘 早 9 晚 6 · 月休 8 天</li><li>✅ ${tags.join(' · ')}</li><li>📝 无经验可学，会做拉花优先</li><li>👤 店长 · 林小姐 · 回复很快</li></div><div class="map"></div><div class="send">一键投递</div></div>`;
+  d.querySelector('.pic').appendChild(pic(pc, k)); deck.appendChild(d); return d; }).reverse();      // last in DOM = on top
+cards.reverse();
+const chat = document.createElement('div'); chat.id = 'chat';
+chat.innerHTML = `<div class="hd"><div class="av">林</div><div><b>林小姐 · 栖木咖啡店长</b><span>● 在线 · 平均 3 分钟回复</span></div></div>`;
+const MSGS = [['已收到你的简历，看了下很合适 😊', 0, 150], ['方便明天下午来店里聊聊吗？', 0, 262], ['好的，明天见！', 1, 374]];
+const msgs = MSGS.map(([txt, me, y]) => { const d = document.createElement('div'); d.className = 'msg' + (me ? ' me' : ''); d.textContent = txt; d.style.top = y + 'px'; d.style[me ? 'right' : 'left'] = '30px'; chat.appendChild(d); return d; });
+const inv = document.createElement('div'); inv.className = 'inv'; inv.style.top = '486px';
+inv.innerHTML = `<b>面试邀请</b><p>明天 15:00 · 栖木咖啡 老城区店<br>步行 12 分钟 · 带上你的笑容就行</p><i>✓ 已接受</i>`; chat.appendChild(inv);
+stage.appendChild(chat);
+const plane = document.createElement('div'); plane.id = 'plane';
+plane.innerHTML = `<svg viewBox="0 0 120 90" width="120" height="90"><path d="M4 44 L116 6 L70 84 L56 54 Z" fill="#fff"/><path d="M56 54 L116 6 L44 62 Z" fill="#ffd9c2"/><path d="M44 62 L56 54 L50 78 Z" fill="#f2b893"/></svg>`;
+stage.appendChild(plane);
+const trail = document.createElement('canvas'); trail.id = 'trail'; trail.width = 1920; trail.height = 1080; stage.appendChild(trail); const tg = trail.getContext('2d');
+// map strip on the back of the chosen card
+{ const m = deck.querySelectorAll('.map'); m.forEach((el) => { const c = document.createElement('canvas'); c.width = 528; c.height = 200; const g = c.getContext('2d'); g.fillStyle = '#eef1ec'; g.fillRect(0, 0, 528, 200);
+  g.strokeStyle = '#fff'; g.lineWidth = 14; [[0, 60, 528, 90], [0, 150, 528, 130], [120, 0, 170, 200], [380, 0, 340, 200]].forEach(([a, b, c2, d2]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c2, d2); g.stroke(); });
+  g.fillStyle = '#cfe6d6'; g.fillRect(200, 0, 120, 50); g.fillStyle = '#bcd9f2'; g.beginPath(); g.ellipse(470, 30, 80, 40, 0, 0, 7); g.fill();
+  g.fillStyle = '#ff5a3c'; g.beginPath(); g.arc(265, 100, 16, 0, 7); g.fill(); g.beginPath(); g.moveTo(251, 108); g.lineTo(265, 132); g.lineTo(279, 108); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(265, 100, 6, 0, 7); g.fill();
+  g.font = '700 20px "Noto Sans CJK SC"'; g.fillStyle = '#556'; g.fillText('栖木咖啡 · 0.8 km', 290, 92); el.appendChild(c); }); }
+const cue = (t, a, d = 0.6) => E.inOutCubic(clamp((t - a) / d));
+const sp = (t, a, k = 120, c = 13) => spring(Math.max(0, t - a), { k, c });
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 46px "Noto Sans CJK SC"', '700 24px "Noto Sans CJK SC"', '500 20px "Noto Sans CJK SC"', '900 40px Inter', '30px "Noto Color Emoji"'],
+  cues: [{ t: 0.2, sfx: 'whoosh', gain: 0.4 }, { t: 2.3, sfx: 'whoosh', gain: 0.6 }, { t: 2.35, sfx: 'tick', gain: 0.4 }, { t: 4.4, sfx: 'whoosh', gain: 0.6 }, { t: 4.45, sfx: 'heart', gain: 0.6 }, { t: 6.3, sfx: 'click', gain: 0.6 }, { t: 6.45, sfx: 'whoosh', gain: 0.4 }, { t: 8.7, sfx: 'click', gain: 0.7 }, { t: 8.9, sfx: 'paper', gain: 0.6 }, { t: 9.6, sfx: 'whoosh', gain: 0.5 }, { t: 10.3, sfx: 'whoosh', gain: 0.4 }, { t: 10.75, sfx: 'pop', gain: 0.6 }, { t: 11.17, sfx: 'pop', gain: 0.6 }, { t: 11.59, sfx: 'send', gain: 0.5 }, { t: 11.95, sfx: 'check', gain: 0.6 }, { t: 13.3, sfx: 'chime', gain: 0.6 }],
+  render(t) {
+    // the stack: fanned slightly in depth, breathing
+    const swipe = [[2.3, -1], [4.4, 1]];
+    cards.forEach((d, i) => {
+      let x = 0, y = 0, z = -i * 60, rz = (i - 1) * 2.5, ry = 0, rx = 0, s = 1, op = 1;
+      const arrive = sp(t, 0.15 + i * 0.12, 90, 13); y += (1 - clamp(arrive)) * 500; op = clamp(arrive * 2);
+      // promote: once the cards above are gone, a card moves to the front
+      const gone = swipe.filter(([ts], k) => k < i && t > ts + 0.2).length; z += gone * 60 * cue(t, 0, 1) + 0; rz -= gone * 2.5;
+      if (i < 2) { const [ts, dir] = swipe[i]; const drag = cue(t, ts - 0.9, 0.7), fly = E.inCubic(clamp((t - ts) / 0.5)); x = dir * (drag * 120 + fly * 1500); rz += dir * (drag * 6 + fly * 30); y -= fly * 80; z += drag * 40; const st = d.querySelectorAll('.stamp')[dir < 0 ? 0 : 1]; st.style.opacity = clamp(drag * 2 - 0.3); }
+      if (i === 2) { // tap, flip, send, fold into the plane
+        const lift = cue(t, 6.0, 0.4); z += 60 * lift; s = 1 + 0.03 * lift;
+        ry = 180 * E.inOutCubic(clamp((t - 6.35) / 0.8));
+        const fold = E.inCubic(clamp((t - 8.9) / 0.6)); s *= 1 - 0.75 * fold; rx = 40 * fold;
+        x += lerp(0, 760, E.inCubic(clamp((t - 9.4) / 0.7))); y -= lerp(0, 420, E.inCubic(clamp((t - 9.4) / 0.7))); rz += -20 * fold; op *= 1 - clamp((t - 9.9) / 0.2);
+        const btn = d.querySelector('.send'); btn.style.transform = `scale(${t > 8.7 && t < 8.85 ? 0.94 : 1})`; if (t > 8.85) btn.textContent = '✓ 已投递';
+      }
+      z += 10 * Math.sin(t * 1.2 + i);
+      d.style.transform = `translate3d(${x}px, ${y}px, ${z}px) rotateZ(${rz}deg) rotateY(${ry}deg) rotateX(${rx}deg) scale(${s})`; d.style.opacity = op;
+    });
+    deck.style.transform = `rotateX(${8 - 6 * cue(t, 9.5, 1)}deg) rotateY(${-10 * Math.sin(t * 0.35)}deg) translateZ(${-60 * cue(t, 11.8, 1)}px)`;
+    // thumb
+    const moves = [[1.4, 2.35, [980, 560], [860, 560]], [3.5, 4.45, [960, 560], [1100, 560]], [5.8, 6.35, [980, 520], [980, 520]], [8.2, 8.85, [980, 820], [980, 820]]];
+    let hx = 1500, hy = 900, ha = 0, pr = 0;
+    for (const [a, b, p0, p1] of moves) if (t > a - 0.3 && t < b + 0.15) { const k = clamp((t - a) / (b - a)); hx = lerp(p0[0], p1[0], E.inOutCubic(k)); hy = lerp(p0[1], p1[1], E.inOutCubic(k)); ha = clamp((t - a + 0.3) / 0.3) * (1 - clamp((t - b) / 0.15)); pr = t > b - 0.12 && t < b ? 1 : 0; }
+    hand.style.opacity = ha; hand.style.transform = `translate(${hx - 35}px, ${hy - 35}px) scale(${pr ? 0.82 : 1})`;
+    // the folded card becomes a paper plane that loops over to HR's chat, which slides in with the replies
+    const pu = clamp((t - 9.3) / 1.1);
+    const P = (u) => [lerp(960, 1420, u) + 180 * Math.sin(u * Math.PI) * (1 - u), lerp(560, 300, u) - 260 * Math.sin(u * Math.PI)];
+    tg.clearRect(0, 0, 1920, 1080);
+    if (t > 9.3 && t < 10.7) {
+      const [px, py] = P(E.inOutSine(pu)), [qx, qy] = P(E.inOutSine(Math.min(1, pu + 0.02)));
+      plane.style.opacity = clamp((t - 9.3) / 0.12) * (1 - clamp((t - 10.45) / 0.2));
+      plane.style.transform = `translate(${px - 60}px, ${py - 45}px) rotate(${Math.atan2(qy - py, qx - px) * 180 / Math.PI + 20}deg) scale(${1 - 0.3 * pu})`;
+      tg.setLineDash([10, 14]); tg.lineWidth = 4; tg.strokeStyle = `rgba(255,120,60,${0.55 * (1 - clamp((t - 10.4) / 0.3))})`; tg.beginPath();
+      for (let k = 0; k <= 40; k++) { const u = E.inOutSine(pu) * k / 40; const [x, y] = P(u); k ? tg.lineTo(x, y) : tg.moveTo(x, y); } tg.stroke();
+    } else plane.style.opacity = 0;
+    const ca = sp(t, 10.3, 120, 14), cout = cue(t, 13.0, 0.45);
+    chat.style.opacity = clamp(ca * 2) * (1 - cout); chat.style.transform = `translate(${(1 - clamp(ca)) * 140 - 380 * cue(t, 10.3, 0.9)}px, ${(1 - clamp(ca)) * 40}px) rotateY(${-8 + 8 * clamp(ca)}deg) scale(${0.96 + 0.04 * clamp(ca) - 0.06 * cout})`;
+    msgs.forEach((d, i) => { const a = sp(t, 10.75 + i * 0.42, 170, 13); d.style.opacity = clamp(a * 2); d.style.transform = `translateY(${(1 - clamp(a)) * 24}px) scale(${0.9 + 0.1 * clamp(a)})`; });
+    { const a = sp(t, 11.95, 150, 13); inv.style.opacity = clamp(a * 2); inv.style.transform = `translateY(${(1 - clamp(a)) * 30}px)`; }
+    deck.style.opacity = 1 - cue(t, 10.0, 0.5);
+    const ea = cue(t, 13.3, 0.6), end = stage.querySelector('#end'); end.style.opacity = ea; end.style.transform = `translateY(${(1 - ea) * 30}px) scale(${0.95 + 0.05 * ea})`;
+    stage.querySelector('#hud').style.opacity = 1 - cue(t, 13.0, 0.4);
+  },
+});
+</script></body></html>

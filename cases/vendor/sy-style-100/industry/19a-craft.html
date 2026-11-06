@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>19 · 亲子手工坊 · 小泥巴手作</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/clay.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 19 黏土定格 · 行业示例：亲子手工坊 =====
+   An overhead flat-lay on a craft table, shot in stop motion. Balls of plasticine roll in; a rolling pin
+   flattens the yellow one and a star cutter stamps it into a star that blinks awake; four colours are rolled
+   into snakes that hop into a rainbow, clouds puff up at its feet, a heart pops on. A clay plaque with the
+   workshop's name slides up from the bottom and the camera eases down over the finished table. */
+const { E, clamp, lerp, inv } = Reel;
+const stage = Reel.makeStage('#d9b48a');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '小泥巴手作', sub: '亲子黏土课 · 周末开班' });
+let K;
+const PI = Math.PI;
+const D = (t, t0, h, d) => CLAY.drop(t, t0, h, d);
+const RB = [['#e8453c', 0.98], ['#f59a2f', 0.84], ['#5cb85c', 0.7], ['#3d8be0', 0.56]];
+const RC = [0.25, -0.2];                    // rainbow centre (x, z)
+const R0 = 0.17;
+function objs(t) {
+  const O = [];
+  // cutting mat with a printed grid
+  O.push({ t: 1, p: [0, 0.012, 0.1], s: [2.6, 0.012, 1.5, 0.01], c: '#8fd0b8', pat: 5, pc: '#f2fbf6', fp: false, gloss: 0.2 });
+  const Y0 = 0.025;
+  // ---- the yellow ball -> rolled flat -> stamped into a star ----
+  const SX = -1.55, SZ = -0.62;
+  const yIn = E.outQuad(clamp(t / 0.8));
+  const pinZ = lerp(1.9, -1.9, E.inOutSine(inv(0.95, 2.0, t)));
+  const flat = lerp(1, 0.22, E.inOutSine(inv(1.42, 1.78, t)));
+  const rrB = R0 * 1.25, near = clamp(1 - Math.abs(pinZ - SZ) / (rrB / Math.sqrt(flat) + 0.05));
+  if (t >= 2.4 && t < 3.0) { const u = clamp((t - 2.4) / 0.5); O.push({ t: 0, p: [SX - 0.1 - u * 2.4, Y0 + 0.09, SZ + 0.25], s: [0.2, 0.09, 0.15], c: '#f7cf3a', r: [u * 3, 0, 0] }); }
+  if (t < 2.4) { const sq = flat; const x = lerp(-3.4, SX, yIn), z = SZ; const rr = R0 * 1.25;
+    O.push({ t: 0, p: [x, Y0 + rr * sq, z], s: [rr, rr, rr], c: '#f7cf3a', sq, r: [0, 0, -(1 - yIn) * 7] }); }
+  if (t >= 2.4) { const pp = D(t, 2.4, 0.0001, 0.01); O.push({ t: 7, p: [SX, Y0 + 0.055, SZ], s: [0.4, 0.5, 0.04, 0.03], c: '#f7cf3a', r: [0.2, -PI / 2, 0], sq: pp.sq }); }
+  // eyes, cheeks, smile on the star
+  if (t > 2.9) { const blink = (t > 9.5 && t < 9.67) || (t > 12.4 && t < 12.57) || (t > 3.6 && t < 3.77);
+    for (const sx of [-1, 1]) { const ex = SX + sx * 0.08, ez = SZ - 0.02; const e = D(t, 2.9 + (sx > 0 ? 0.08 : 0), 0.4, 0.15);
+      if (blink) O.push({ t: 2, p: [ex, Y0 + 0.13, ez], s: [0.012, 0.032, 1], c: '#1b1410', r: [0, 0, PI / 2], gloss: 1 });
+      else O.push({ t: 0, p: [ex, Y0 + 0.13 + e.y * 0.3, ez], s: [0.032, 0.03 * e.sq, 0.04], c: '#1b1410', gloss: 1, fp: false });
+      if (t > 3.2) O.push({ t: 0, p: [SX + sx * 0.16, Y0 + 0.115, SZ + 0.07], s: [0.04, 0.012, 0.03], c: '#ff8f8f', fp: false }); }
+    if (t > 3.4) O.push({ t: 8, p: [SX, Y0 + 0.12, SZ + 0.06], s: [0.06, 0.011, 0.9], c: '#1b1410', r: [0, PI / 2, PI / 2] }); }
+  // rolling pin
+  if (t > 0.9 && t < 2.2) { const z = pinZ, rot = -z / 0.08;
+    const py = Y0 + 0.08 + Math.max(0, 2 * rrB * flat - 0.02) * near; O.push({ t: 2, p: [SX, py, z], s: [0.08, 0.55, 1], c: '#e2b47c', r: [0, 0, PI / 2], fp: false, g: 1, k: 0.02 });
+    for (const sx of [-1, 1]) O.push({ t: 2, p: [SX + sx * 0.75, py, z], s: [0.04, 0.2, 1], c: '#a86b3c', r: [0, 0, PI / 2], fp: false, g: 1, k: 0.02 }); }
+  // star cutter: comes down, presses, lifts away
+  if (t > 1.9 && t < 3.2) { const down = E.inOutSine(inv(1.9, 2.3, t)), up = E.inQuad(inv(2.55, 3.15, t));
+    const y = lerp(1.4, 0.07, down) + up * 1.6, x = SX + up * 1.2;
+    O.push({ t: 11, p: [x, Y0 + y, SZ], s: [0.42, 0.5, 0.07, 0.012], c: '#c9ced6', r: [0.2, -PI / 2, 0], gloss: 1, fp: false }); }
+  // ---- four balls -> snakes -> rainbow arcs ----
+  RB.forEach(([col, R], i) => {
+    const bx = 1.0 + (i % 2) * 0.55, bz = 0.25 + Math.floor(i / 2) * 0.45 - 0.1 * i;
+    const inU = E.outQuad(clamp((t - 0.15 - i * 0.12) / 0.75));
+    const ts = 2.9 + i * 0.4, ta = ts + 0.42;
+    if (t < ts) { const x = lerp(3.6, bx, inU); O.push({ t: 0, p: [x, Y0 + R0, bz], s: [R0, R0, R0], c: col, r: [0, 0, (1 - inU) * 8] }); }
+    else if (t < ta) { const u = E.outQuad(inv(ts, ts + 0.3, t)); const L = lerp(0.05, 0.85, u); const r = R0 * Math.sqrt((4 / 3 * R0) / (4 / 3 * R0 + 2 * L)) * 1.1;
+      O.push({ t: 2, p: [bx, Y0 + r, bz], s: [r, L, 1], c: col, r: [0.3 * Math.sin(t * 20), 0, PI / 2] }); }
+    else { const d = D(t, ta, 0.5, 0.18); O.push({ t: 8, p: [RC[0], Y0 + 0.062 + d.y * 0.5, RC[1] + 0.25], s: [R, 0.062, 1.35], c: col, r: [PI / 2, PI / 2, 0], sq: d.sq }); }
+  });
+  // clouds at the rainbow's feet
+  for (const [cx, k] of [[RC[0] - 0.96, 0], [RC[0] + 0.96, 1]]) {
+    const t0 = 4.75 + k * 0.25; if (t < t0) continue;
+    [[0, 0, 0.17], [-0.14, 0.05, 0.12], [0.15, 0.04, 0.13], [0.02, -0.09, 0.12]].forEach(([dx, dz, r], j) => { const d = D(t, t0 + j / 12, 0.3, 0.12);
+      O.push({ t: 0, p: [cx + dx, Y0 + r * 0.6 + d.y * 0.4, RC[1] + 0.32 + dz], s: [r, r * 0.62, r], c: '#fbfbf7', g: 10 + k, k: 0.07, sq: d.sq }); });
+  }
+  // a heart pops on, top right
+  { const d = D(t, 5.7, 0.8, 0.2); if (d.on) O.push({ t: 6, p: [1.85, Y0 + 0.06 + d.y, -0.78], s: [0.24, 0.035, 0.03], c: '#ff5a7a', r: [-0.25, -PI / 2, 0], sq: d.sq, gloss: 0.25 }); }
+  // little dots of clay: confetti around
+  for (let i = 0; i < 7; i++) { const t0 = 6.3 + i / 12; if (t < t0) continue; const a = Reel.hash(i * 4.7) * 6.28;
+    const x = [-0.75, -0.3, 1.3, 2.2, -2.2, 0.9, -1.1][i], z = [-1.0, 0.75, -1.05, 0.15, 0.2, 0.7, 0.35][i];
+    O.push({ t: 0, p: [x, Y0 + 0.035, z], s: [0.05, 0.035, 0.05], c: ['#3d8be0', '#f59a2f', '#5cb85c', '#e8453c', '#b98ce8', '#f7cf3a', '#ff8fb0'][i] }); }
+  // the plaque slides up from the bottom of frame
+  { const u = t < 7.6 ? 0 : E.outBack(clamp((t - 7.6) / 0.5)); if (u > 0) { const z = lerp(2.5, 0.92, u);
+    O.push({ t: 10, p: [0.15, Y0 + 0.06, z], s: [0.95, 0.27, 0.05, 0.05], c: '#f1e3c6', r: [0, -PI / 2, 0], matte: true }); } }
+  return O;
+}
+function camAt(t) {
+  const u = E.inOutSine(inv(7.8, 15, t)), h = lerp(5.4, 4.55, u), a = lerp(-0.06, 0.1, E.inOutSine(inv(0, 15, t)));
+  const ta = [lerp(0.0, 0.12, u), 0, lerp(0.05, 0.12, u)];
+  return { p: [ta[0] + Math.sin(a) * 0.9, h, ta[2] + Math.cos(a) * 0.9], a: ta, fov: 3.0 };
+}
+function decal() {
+  const g = K.decal, w = K.decalCv.width, h = K.decalCv.height; g.clearRect(0, 0, w, h);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `900 132px "Noto Sans CJK SC"`; g.fillStyle = '#24160f'; g.fillText(C.brand, w / 2, h * 0.42);
+  g.font = `700 56px "Noto Sans CJK SC"`; g.fillStyle = '#e8453c'; g.fillText(C.sub, w / 2, h * 0.8);
+  K.markDecal();
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 132px "Noto Sans CJK SC"', '700 56px "Noto Sans CJK SC"'],
+  frameKey: (t) => Math.floor(t * 12 + 1e-6),
+  cues: [{ t: 0.1, sfx: 'roll', gain: 0.5 }, { t: 1.0, sfx: 'roll', gain: 0.5 }, { t: 1.35, sfx: 'squish' }, { t: 2.3, sfx: 'thud', gain: 0.6 }, { t: 2.45, sfx: 'pop' }, { t: 2.9, sfx: 'boing', gain: 0.5 },
+    ...RB.map((_, i) => ({ t: 2.9 + i * 0.4, sfx: 'stretch', gain: 0.4 })), ...RB.map((_, i) => ({ t: 3.32 + i * 0.4, sfx: 'pop', gain: 0.45 })),
+    { t: 4.75, sfx: 'squish', gain: 0.5 }, { t: 5.0, sfx: 'squish', gain: 0.5 }, { t: 5.9, sfx: 'boing2' }, { t: 6.3, sfx: 'sparkle', gain: 0.4 }, { t: 7.6, sfx: 'whoosh', gain: 0.5 }, { t: 8.0, sfx: 'land' }, { t: 9.5, sfx: 'chime', gain: 0.35 }],
+  async setup() { K = CLAY.make(stage, { n: 40, decalSize: [1024, 290], rm: { bloom: 0.16, th: 1.5 } }); decal(); },
+  render(tRaw) {
+    const t = Math.floor(tRaw * 12 + 1e-6) / 12;
+    K.set(objs(t));
+    const cam = camAt(t);
+    K.render(t, cam, { floorType: 1, floor: '#d9ae80', sky0: '#e8d6c0', sky1: '#e8d6c0', bulbs: false, backZ: 30, focus: Math.hypot(cam.p[0] - cam.a[0], cam.p[1], cam.p[2] - cam.a[2]), aperture: 60, maxCoc: 10, ldir: CLAY.norm([-0.55, 0.75, -0.35]), key: [2.45, 2.25, 1.95] });
+  },
+});
+</script></body></html>

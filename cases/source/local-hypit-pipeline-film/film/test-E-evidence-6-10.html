@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>每一关都有证据</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: grid; place-items: center; }
+  canvas { max-width: 100vw; max-height: 100vh; width: auto; height: auto; display: block; }
+  #start { position: fixed; inset: 0; display: grid; place-items: center; color: #eee; font: 18px "PingFang SC", sans-serif; background: rgba(0,0,0,.55); cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="start">点击播放（有声）</div>
+<script src="vendor/three-0.186.1.iife.js"></script>
+<script src="frames.js"></script>
+<script src="data.js"></script>
+<script src="core.js"></script>
+<script src="kit-road.js"></script>
+
+<script src="scenes/s4-gates.js"></script>
+<script src="scenes/evidence-b.js"></script>
+<script>
+'use strict';
+F.boot().catch(e => { window.__bootError = String(e && e.stack || e); console.error(e); });
+const params = new URLSearchParams(location.search);
+const FIXED = params.has('t') ? parseFloat(params.get('t')) : null, CAPTURE = params.has('capture');
+const startEl = document.getElementById('start');
+let ac = null, play = null;
+async function startPlay() {
+  if (!ac) ac = new AudioContext();
+  await ac.resume();
+  let buffer = null;
+  if (window.__film.wav) { const b64 = await window.__film.wav(); const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); buffer = await ac.decodeAudioData(bytes.buffer); }
+  const t0 = ac.currentTime + .1; play = { t0 };
+  if (buffer) { const src = ac.createBufferSource(); src.buffer = buffer; src.connect(ac.destination); src.start(t0); }
+  startEl.style.display = 'none';
+}
+startEl.addEventListener('click', startPlay);
+function frame() {
+  if (window.__film.ready) {
+    const t = FIXED !== null ? FIXED : play ? ac.currentTime - play.t0 : (performance.now() / 1000) % F.DURATION;
+    window.__film.seek(Math.max(0, t));
+  }
+  requestAnimationFrame(frame);
+}
+if (FIXED !== null || CAPTURE) startEl.remove();
+if (!CAPTURE) requestAnimationFrame(frame);
+</script>
+</body>
+</html>

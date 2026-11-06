@@ -1,0 +1,24 @@
+一滴颜料变锦鲤 · CREDITS
+
+画面
+- 全部画面由代码绘制（Canvas 2D），无生成视频、无图库素材。
+- 笔触引擎 engine.js 改写自本地风格库「水彩笔刷」示例源码（MIT，见 @@LEMO_ROOT@@/LICENSE）。
+- 纸张纹理 paper.png 由 tools/paper.py 程序生成。
+
+字体（SIL Open Font License 1.1，经 Google Fonts CSS API 子集化后自托管在 fonts/）
+- Long Cang（龙藏体）— https://fonts.google.com/specimen/Long+Cang
+- Noto Serif SC — https://fonts.google.com/noto/specimen/Noto+Serif+SC
+- IBM Plex Mono — https://fonts.google.com/specimen/IBM+Plex+Mono
+  许可：https://openfontlicense.org
+
+音乐（原创配乐，mix.py 由时间轴生成）
+- 采样乐器：竖琴、长笛、钢片琴、手铃、颤音琴（弓奏）、大鼓、悬钹、沙锤、手鼓 —— Versilian Community Sample Library（VCSL，CC0 1.0，https://github.com/sgossner/VCSL）与 VS Chamber Orchestra: Community Edition（Versilian Studios / Sam Gossner，CC0 1.0，https://github.com/sgossner/VSCO-2-CE）
+- 卡林巴 —— FreePats project（freepats.zenvoid.org，CC0 1.0）
+- Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+- 竖琴泛音：pluck.py 物理建模合成（无第三方素材）
+
+音效
+- 全部为 numpy/scipy 程序合成（水滴气泡、毛笔沙沙、铅笔、水花、风、虫鸣、鸟鸣、印章），无第三方录音。
+
+真实素材
+- 本片不含任何外部影像或照片素材，无事实陈述，因此无 FACTS.md。

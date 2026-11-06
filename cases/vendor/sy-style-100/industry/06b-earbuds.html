@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>06 · 蓝牙耳机 · 声屿</title>
+<script src="../lib/core.js"></script><script src="../lib/morph.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 06 形变动画 · 行业示例：蓝牙耳机新品 =====
+   The music IS the image. Eleven thousand particles lie as a sound field seen from a low dolly: every kick
+   pumps the waves. The camera rises, the field lifts and curls up into two earbuds, which then breathe out
+   rings of sound on the beat - and the rings go silent inside a "noise-cancel" bubble. */
+const C = Reel.cfg({ brand: '声屿', en: 'SOUNDISLE', sub: '主动降噪 · 36 小时续航', tag: '新品首发' });
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#04060f');
+MK.init(stage, '#0d1336', '#03040b');
+const GX = 132, GZ = 84, N = GX * GZ;
+let BUD = null;
+const PH = new Float32Array(N);
+const bud = (g, w, h) => {
+  for (const s of [-1, 1]) {
+    g.save(); g.translate(w / 2 + s * 200, h / 2 - 10); g.scale(s, 1); g.rotate(-0.18);
+    g.beginPath(); g.ellipse(0, -60, 92, 104, 0.35, 0, 7); g.fill();                 // the shell
+    g.beginPath(); g.ellipse(-78, -40, 44, 34, 0.5, 0, 7); g.fill();                 // the ear tip (silicone)
+    g.beginPath(); g.moveTo(30, -10); g.quadraticCurveTo(70, 80, 64, 230); g.lineTo(18, 236); g.quadraticCurveTo(14, 90, -18, 20); g.closePath(); g.fill();   // the stem
+    g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.ellipse(18, -84, 24, 14, 0.35, 0, 7); g.fill();  // a sensor window
+    g.restore();
+  }
+};
+const beat = (t) => { const b = (t % 0.5) / 0.5; return Math.exp(-b * 5); };
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 120px "Noto Sans CJK SC"', '300 30px Inter', '700 40px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.0, sfx: 'swell', gain: 0.4 }, { t: 5.8, sfx: 'riser_short', gain: 0.5 }, { t: 7.6, sfx: 'impact', gain: 0.6 }, { t: 7.65, sfx: 'morph', gain: 0.5 },
+    { t: 9.5, sfx: 'whoosh', gain: 0.3 }, { t: 10.0, sfx: 'suck', gain: 0.5 }, { t: 11.6, sfx: 'chime', gain: 0.55 }],
+  setup() {
+    BUD = MK.sample(bud, 0.0098, 0.55, { n: N, edge: 0.45 });
+    for (let i = 0; i < N; i++) PH[i] = MK.rnd();
+  },
+  render(t) {
+    const up = E.inOutCubic(inv(5.6, 7.6, t));          // camera rises to a front view while the field curls up
+    const form = E.inOutCubic(inv(5.9, 7.6, t));
+    const quiet = E.inOutSine(inv(10.0, 10.6, t));      // noise cancel: the rings stop
+    const hold = t > 7.6;
+    const cam = { yaw: lerp(-0.25 + t * 0.03, 0.0, up) + (hold ? 0.32 * Math.sin((t - 7.6) * 0.5) : 0), pitch: lerp(0.32, 0.0, up), z: lerp(6.0, 7.4, up), ty: lerp(0.95, 0, up), tz: lerp(-1.2, 0, up), F: 1150, cy: lerp(560, 540, up) };
+    const bt = beat(t) * (1 - quiet);
+    const m = MK.frame(cam, N, (i, o) => {
+      const gx = i % GX, gz = Math.floor(i / GX);
+      const x0 = (gx / (GX - 1) - 0.5) * 15, z0 = -6 + (gz / (GZ - 1)) * 9.5;
+      const env = Math.exp(-Math.pow(x0 / 6.5, 4));
+      const amp = (0.35 + 0.55 * beat(t)) * env;
+      const y0 = amp * (Math.sin(0.9 * x0 + 2.4 * t) * 0.55 + Math.sin(1.6 * z0 - 1.7 * t + x0 * 0.4) * 0.35 + Math.sin(3.1 * x0 - 4 * t + z0) * 0.12) - 0.2;
+      let x = x0, y = y0, z = z0;
+      if (form > 0) {
+        const bx = BUD[i * 3], by = BUD[i * 3 + 1], bz = BUD[i * 3 + 2];
+        const u = clamp((form - PH[i] * 0.25) / 0.75);
+        const sw = Math.sin(Math.PI * u) * 1.6;
+        x = lerp(x0, bx, u); y = lerp(y0, by, u) + sw * 0.6; z = lerp(z0, bz, u);
+        if (sw > 0.01) { const c = MK.curl(x * 0.5 + t * 0.4, y * 0.5, z * 0.5 + PH[i] * 3); x += c[0] * sw; y += c[1] * sw; z += c[2] * sw; }
+        // sound rings: a fifth of the particles leave the buds on every beat
+        if (hold && PH[i] < 0.2 && quiet < 1) {
+          const ph = ((t - 7.6) / 0.5 + Math.floor(PH[i] * 20) / 4) % 1, side = bx > 0 ? 1 : -1, a = PH[i] * 31.4 * 6;
+          const R = 0.5 + ph * 3.2;
+          const cx = side * 1.86, cy = 0.55;
+          const rx = cx + Math.cos(a) * R, ry = cy + Math.sin(a) * R * 0.9;
+          const k = (1 - quiet) * clamp((t - 7.9) / 0.4);
+          x = lerp(x, rx, k); y = lerp(y, ry, k); z = lerp(z, Math.sin(a * 3) * 0.2, k);
+          o[6] = (1 - ph) * k + (1 - k) * 0.8; o[7] = 1.1;
+        } else o[6] = 0.8;
+        if (hold) { const br = 1 + 0.02 * bt; x *= br; y = (y - 0.2) * br + 0.2; }
+      } else o[6] = 0.35 + 0.55 * clamp((y0 + 0.6) / 1.2) * clamp(t / 0.6);
+      if (t > 11.0) { const e = E.inOutCubic(inv(11.0, 12.0, t)); x *= lerp(1, 0.72, e); y = y * lerp(1, 0.72, e) + 1.0 * e; z *= lerp(1, 0.72, e); }
+      const hc = form > 0.6 ? clamp((y + 3) / 6) : clamp((y0 + 0.7) / 1.4);
+      o[3] = lerp(70, 255, hc) | 0; o[4] = lerp(220, 120, hc) | 0; o[5] = 255;
+      if (hold && quiet > 0) { o[3] = lerp(o[3], 235, quiet * 0.6) | 0; o[4] = lerp(o[4], 240, quiet * 0.6) | 0; }
+      if (!(hold && PH[i] < 0.2 && quiet < 1)) o[7] = 0.55 + PH[i] * 0.9; o[8] = form > 0 && form < 1 ? 1 : 0.5;
+      o[0] = x; o[1] = y; o[2] = z; return true;
+    }, { glow: 0.9, under: (g) => {
+      // noise-cancel bubble
+      if (quiet > 0) { g.save(); g.globalAlpha = 0.5 * quiet; const cxy = [960, 540 - 155 * E.inOutSine(inv(11.0, 12.0, t))]; const r = (470 - 130 * E.inOutSine(inv(11.0, 12.0, t))) + 10 * Math.sin(t * 2);
+        const gr = g.createRadialGradient(cxy[0], cxy[1], r * 0.75, cxy[0], cxy[1], r); gr.addColorStop(0, 'rgba(120,200,255,0)'); gr.addColorStop(0.92, 'rgba(160,220,255,.35)'); gr.addColorStop(1, 'rgba(160,220,255,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(cxy[0], cxy[1], r, 0, 7); g.fill(); g.restore(); }
+    } });
+    // captions
+    const cap = (txt, x, y, a, font, col, ls = '10px', align = 'center') => { if (a <= 0) return; m.save(); m.globalAlpha = a; m.font = font; m.textAlign = align; m.fillStyle = col; if ('letterSpacing' in m) m.letterSpacing = ls; m.fillText(txt, x, y); m.restore(); };
+    const seg = (t0, t1) => E.outCubic(inv(t0, t0 + 0.4, t)) * (1 - E.inCubic(inv(t1 - 0.3, t1, t)));
+    cap('听 见 每 一 拍', 965, 900, seg(1.0, 5.4), '700 46px "Noto Sans CJK SC"', '#cfe6ff', '16px');
+    cap('一键降噪 · 世界安静了', 965, 950, seg(10.0, 11.3), '700 42px "Noto Sans CJK SC"', '#e8f4ff', '8px');
+    const ta = E.outCubic(inv(11.6, 12.4, t));
+    cap(C.brand, 965, 830, ta, '900 120px "Noto Sans CJK SC"', '#ffffff', '24px');
+    cap(C.en, 965, 885, ta, '300 26px Inter', 'rgba(200,220,255,.8)', '18px');
+    cap(C.sub, 965, 960, E.outCubic(inv(12.0, 12.7, t)), '700 38px "Noto Sans CJK SC"', '#b9d6ff', '8px');
+    MK.vignette(m, 0.5);
+    if (t < 0.4) { m.fillStyle = `rgba(3,4,11,${1 - t / 0.4})`; m.fillRect(0, 0, 1920, 1080); }
+  },
+});
+</script></body></html>

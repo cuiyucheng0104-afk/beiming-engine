@@ -1,0 +1,16 @@
+{
+ "seg": "S05",
+ "_说明": "t = 段内秒。檐外大雨两层（S04 末已提前进来）；play 回放提示音、playlab「回放」打出；lyric 口诀标签打出；deer 鹿影显出（t/dur 同时是画面显影的起止）；dscan/dlock 扫描锁住鹿影；deerlab「鹿影」打出；veil 尾段雨势加密交给 S06。",
+ "events": [
+  {"id": "rain_far",  "t": 0.0,  "type": "rain_far",  "dur": 9.5, "gain": -17, "fade_in": 0.3, "fade_out": 0.4, "seed": 8},
+  {"id": "rain_near", "t": 0.0,  "type": "rain_near", "dur": 9.5, "gain": -21, "fade_in": 0.3, "fade_out": 0.4, "seed": 8},
+  {"id": "play",      "t": 2.4,  "type": "rec_beep",  "gain": -19},
+  {"id": "playlab",   "t": 2.5,  "type": "ui_type",   "text": "回放", "cps": 10, "gain": -26},
+  {"id": "lyric",     "t": 3.3,  "type": "ui_type",   "text": "檐抬头，鹿逢生~", "cps": 9, "gain": -25},
+  {"id": "deer",      "t": 5.72, "type": "ink_bleed", "dur": 1.9, "gain": -24},
+  {"id": "dscan",     "t": 6.6,  "type": "ui_stroke", "dur": 0.35, "gain": -26},
+  {"id": "dlock",     "t": 6.95, "type": "scan_beep", "gain": -22},
+  {"id": "deerlab",   "t": 6.95, "type": "ui_type",   "text": "鹿影", "cps": 10, "gain": -24},
+  {"id": "veil",      "t": 8.9,  "type": "whoosh",    "dur": 0.8, "gain": -25}
+ ]
+}

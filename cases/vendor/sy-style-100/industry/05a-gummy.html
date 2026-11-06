@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>05 · 零食 · 果汁软糖</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script>
+<style>
+  #cap{position:absolute;left:140px;top:300px;color:#8a1d3b;font-family:'Noto Sans CJK SC';white-space:nowrap}
+  #cap .b{font-weight:900;font-size:132px;letter-spacing:.04em;line-height:1}
+  #cap .s{font-weight:700;font-size:36px;letter-spacing:.22em;margin-top:28px;color:#a8324f}
+  #cap .t{display:flex;gap:14px;margin-top:40px}
+  #cap .t span{font-weight:700;font-size:22px;letter-spacing:.16em;padding:10px 20px 10px 23px;border-radius:40px;color:#fff;background:#d8355c}
+  #cap .t span:nth-child(2){background:#f08a24}
+  #cap .t span:nth-child(3){background:#7cae2b}
+  #cap .p{margin-top:170px;font:600 20px Inter;letter-spacing:.5em;color:rgba(138,29,59,.55)}
+</style>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 05 · 3D 渲染 · 行业示例：零食（果汁软糖）=====
+   A peach studio. A big strawberry gummy drops in slow motion and lands with a jelly wobble (the "Q弹" hook);
+   cubes, rings and hearts in six flavours rain down around it. Then the brand mascot 啵啵 (a little peach sprite,
+   soft-vinyl toy finish) hops in, takes a bite out of the big gummy - a scalloped bite mark, the gummy jiggles -
+   chews with puffed cheeks, little jelly hearts float up, and it turns to camera for the end card.
+   Gummies: refractive absorbing jelly (Beer-Lambert), glossy, coloured focused shadows. */
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#f3e2da');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '啵啵果', line: '真果汁软糖 · 一口爆汁 Q 弹', tags: '真果汁|六种果味|独立小包', price: 'REAL FRUIT JUICE GUMMIES' });
+
+const NG = 38;
+const rm = Reel.RM(stage, {
+  bloom: 0.2, th: 1.2, expo: 0.92, vig: 0.3, grain: 0.018, ca: 0.3, contrast: 1.1, sat: 1.12, bands: 10,
+  uniforms: `
+uniform vec4 uGP[${NG}];   // pos, size
+uniform vec4 uGQ[${NG}];   // world->local quaternion
+uniform vec4 uGS[${NG}];   // squash, type (0 cube 1 ring 2 heart), flavour, shear
+uniform int uNG, uNP;       // [0,uNP) pile group (bounded by uPB), [uNP,uNG) in the air
+uniform vec4 uPB;
+uniform vec4 uBite;         // bite on gummy 0: local centre, active
+uniform vec4 uMP, uMQ, uMA, uMB;   // mascot: pos+visible, world->local quat, (squash, mouth, eyes, cheek puff), (arms, -, -, -)
+uniform vec3 uRo, uTa; uniform float uFade;`,
+  scene: `
+const float W = 2.3, RC = 1.1;
+const vec3 SIG[6] = vec3[6](vec3(.6,9.,7.), vec3(.5,2.6,11.), vec3(.35,.8,9.), vec3(5.,.9,7.), vec3(3.2,9.,1.4), vec3(.4,3.6,2.4));
+const vec3 BASE[6] = vec3[6](vec3(1.,.1,.14), vec3(1.,.42,.04), vec3(1.,.8,.08), vec3(.42,.86,.08), vec3(.5,.1,.78), vec3(1.,.42,.52));
+const vec3 LB = normalize(vec3(-.45,.78,-.55));   // big backlight, top-left behind
+const vec3 LF = normalize(vec3(.35,.62,.72));     // soft front fill
+vec3 qrot(vec4 q, vec3 v){ return v + 2.*cross(q.xyz, cross(q.xyz, v) + q.w*v); }
+float dot2(vec2 v){ return dot(v,v); }
+float sdHeart(vec2 p){ p.x = abs(p.x);
+  if (p.y + p.x > 1.) return sqrt(dot2(p - vec2(.25,.75))) - sqrt(2.)/4.;
+  return sqrt(min(dot2(p - vec2(0.,1.)), dot2(p - .5*max(p.x + p.y, 0.)))) * sign(p.x - p.y); }
+float hbOf(float ty){ return ty < .5 ? .78 : ty < 1.5 ? .4 : .57; }
+float sdG(vec3 p, int i){
+  vec4 P = uGP[i], S = uGS[i];
+  vec3 q = qrot(uGQ[i], p - P.xyz) / P.w;
+  float bite = 1e3;
+  if (i == 0 && uBite.w > .5) {                    // scalloped bite mark, in the gummy's own frame
+    vec3 c = uBite.xyz, a = normalize(c), v = q - c;
+    vec3 u1 = normalize(cross(a, vec3(0.,1.,0.))), u2 = cross(a, u1);
+    float rim = smoothstep(.25, .45, length(v - a*dot(v, a)));            // tooth scallops only near the rim
+    bite = length(v) - (.47 + .014*rim*sin(atan(dot(v,u2), dot(v,u1)) * 5.));
+  }
+  float hb = hbOf(S.y), sy = S.x;
+  q.x -= S.w * (q.y + hb);                         // jelly shear
+  q.y = (q.y + hb) / sy - hb; q.xz *= sqrt(sy);    // squash about the base, volume kept
+  float d;
+  if (S.y < .5) d = sdRoundBox(q, vec3(1., .78, 1.), .4);
+  else if (S.y < 1.5) d = sdTorus(q, vec2(.78, .4));
+  else { float d2 = sdHeart(vec2(q.x, -q.z)*.6 + vec2(0., .55)) / .6; d = extrude(d2 + .25, q.y, .32) - .25; }
+  d = smax(d, -bite, .06);
+  return d * P.w * min(sy, 1.) * .9;
+}
+float mapG(vec3 p, float dmax, out int id){
+  float d = dmax; id = -1;
+  if (length(p - uPB.xyz) - uPB.w < d)
+    for (int i=0;i<${NG};i++){ if (i >= uNP) break;
+      if (length(p - uGP[i].xyz) - 1.35*uGP[i].w < d) { float g = sdG(p, i); if (g < d) { d = g; id = i; } } }
+  for (int i=0;i<${NG};i++){ int j = uNP + i; if (j >= uNG) break;
+    if (length(p - uGP[j].xyz) - 1.35*uGP[j].w < d) { float g = sdG(p, j); if (g < d) { d = g; id = j; } } }
+  return d;
+}
+/* ---- mascot 啵啵 ---- local frame: feet at origin, facing +z */
+const float MS = .88;
+vec3 mLocal(vec3 p){ vec3 q = qrot(uMQ, p - uMP.xyz) / MS; q.y /= uMA.x; q.xz *= sqrt(uMA.x); return q; }
+float mCav(vec3 q){ float mo = uMA.y; return sdEllipsoid(q - vec3(0., .098, .13), vec3(.02 + .03*mo, .005 + .042*mo, .045)); }
+vec2 sdMq(vec3 q){
+  float d = sdEllipsoid(q - vec3(0., .135, 0.), vec3(.14, .13, .125));
+  if (d > .085) return vec2(d - .075, 100.);       // far away: the body is a safe bound for every feature
+  vec3 qa = vec3(abs(q.x), q.y, q.z);
+  float pf = uMA.w;
+  d = smin(d, sdEllipsoid(qa - vec3(.07, .094, .078 + .012*pf), vec3(.038, .032, .028) * (1. + .5*pf)), .03);   // cheeks
+  d = smin(d, sdEllipsoid(qa - vec3(.056, .021, .042), vec3(.043, .024, .054)), .025);                           // feet
+  d = smin(d, sdCapsule(qa, vec3(.112, .105, .0), vec3(.162, .082 + .075*uMB.x, .03), .02), .02);                // arms
+  if (uMA.y > .01) d = smax(d, -mCav(q), .008);                                                                   // open mouth
+  float e = sdEllipsoid(qa - vec3(.047, .158, .113), vec3(.02, .028*max(uMA.z, .12), .013));                       // eyes
+  vec3 ql = q - vec3(0., .262, 0.);
+  float lf = sdCapsule(ql, vec3(0., -.012, 0.), vec3(.004, .022, 0.), .006);
+  lf = min(lf, sdEllipsoid(rotZ(.55) * (ql - vec3(-.032, .03, 0.)), vec3(.05, .012, .026)));
+  lf = min(lf, sdEllipsoid(rotZ(-.75) * (ql - vec3(.03, .036, .004)), vec3(.042, .011, .022)));
+  vec2 r = vec2(d, 100.);
+  if (e < r.x) r = vec2(e, 102.);
+  if (lf < r.x) r = vec2(lf, 101.);
+  return r;
+}
+vec2 sdM(vec3 p){ vec2 r = sdMq(mLocal(p)); r.x *= min(uMA.x, 1.) * .9 * MS; return r; }
+float mapM(vec3 p, float dmax){
+  if (uMP.w < .5) return 1e3;
+  if (length(p - uMP.xyz - vec3(0., .15, 0.)) - .32 > dmax) return 1e3;
+  return sdM(p).x;
+}
+float sdCyc(vec3 p){ vec2 q = vec2(p.y, p.z + W); if (q.x < RC && q.y < RC) return RC - length(q - vec2(RC)); return min(q.x, q.y); }
+// id: >=0 gummy, -1 cyc, 100.. mascot
+vec2 map(vec3 p){
+  float c = sdCyc(p); int id; float g = mapG(p, c, id);
+  vec2 r = id >= 0 ? vec2(g, float(id)) : vec2(c, -1.);
+  if (uMP.w > .5 && length(p - uMP.xyz - vec3(0., .15, 0.)) - .32 < r.x) { vec2 m = sdM(p); if (m.x < r.x) r = m; }
+  return r;
+}
+vec3 nrmG(vec3 p, int i){ const vec2 k = vec2(1.,-1.)*.0004;
+  return normalize(k.xyy*sdG(p+k.xyy,i) + k.yyx*sdG(p+k.yyx,i) + k.yxy*sdG(p+k.yxy,i) + k.xxx*sdG(p+k.xxx,i)); }
+vec3 nrmM(vec3 p){ const vec2 k = vec2(1.,-1.)*.0005;
+  return normalize(k.xyy*sdM(p+k.xyy).x + k.yyx*sdM(p+k.yyx).x + k.yxy*sdM(p+k.yxy).x + k.xxx*sdM(p+k.xxx).x); }
+vec3 nrmC(vec3 p){ const vec2 k = vec2(1.,-1.)*.001;
+  return normalize(k.xyy*sdCyc(p+k.xyy) + k.yyx*sdCyc(p+k.yyx) + k.yxy*sdCyc(p+k.yxy) + k.xxx*sdCyc(p+k.xxx)); }
+vec2 march(vec3 ro, vec3 rd, int steps, float tmax){
+  float t = .002;
+  for (int i=0;i<160;i++){ if (i >= steps) break; vec2 h = map(ro + rd*t); if (abs(h.x) < .0002 + .0003*t) return vec2(t, h.y); t += h.x*.85; if (t > tmax) break; }
+  return vec2(-1., -2.);
+}
+float thick(vec3 p, vec3 d, int i, out vec3 pe){
+  float t = .003;
+  for (int k=0;k<26;k++){ float h = sdG(p + d*t, i); if (h > -.0004) break; t += max(-h, .0025); }
+  pe = p + d*t; return t;
+}
+float rectL(vec3 r, vec3 c, vec2 hs, float soft){
+  float cz = dot(r, c); if (cz <= 0.) return 0.;
+  vec3 u = normalize(cross(vec3(0.,1.,0.), c)), v = cross(c, u); vec2 q = vec2(dot(r,u), dot(r,v)) / cz;
+  vec2 e = smoothstep(hs + soft, hs - soft, abs(q)); return e.x * e.y;
+}
+vec3 env(vec3 r){
+  vec3 c = mix(vec3(.8,.6,.56), vec3(1.,.9,.86), smoothstep(-.3, .8, r.y)) * .8;
+  c += vec3(1.,.97,.93) * 9. * rectL(r, LB, vec2(.55,.35), .12);
+  c += vec3(1.,.98,.96) * 3.2 * rectL(r, LF, vec2(.7,.4), .25);
+  c += vec3(1.) * 5. * rectL(r, normalize(vec3(.9,.35,-.2)), vec2(.06,.5), .03);   // strip light, camera right
+  return c;
+}
+vec3 cycAlb(vec3 p){ return mix(vec3(.98,.68,.58), vec3(.9,.55,.5), smoothstep(0., 1.6, p.y)) * (.97 + .03*vnoise(p*4.)); }
+// coloured, focused shadow through the jelly; the mascot is opaque
+vec3 tshadow(vec3 ro, vec3 L){
+  vec3 T = vec3(1.); float res = 1., resM = 1., t = .005; bool hit = false;
+  for (int k=0;k<34;k++){
+    vec3 p = ro + L*t; int id; float d = mapG(p, .3, id);
+    float dm = mapM(p, .3);
+    if (dm < .0008) return vec3(0.);
+    resM = min(resM, 9.*dm/t);
+    if (d < .0006 && id >= 0) {
+      vec3 pe; float len = thick(p, L, id, pe);
+      float mx = 2. * hbOf(uGS[id].y) * uGP[id].w * 1.15;
+      float r = len / mx;
+      T *= exp(-SIG[int(uGS[id].z)] * len * 6.) * mix(.45, 1., smoothstep(.0, .3, r)) * (1. + 2.6*smoothstep(.62, 1., r));
+      hit = true; t = dot(pe - ro, L) + .006;
+    } else { if (!hit) res = min(res, 10.*d/t); t += clamp(min(d, dm), .004, .2); }
+    if (t > 2.5 || max(T.r, max(T.g, T.b)) < .01) break;
+  }
+  return (hit ? T : vec3(res)) * clamp(resM, 0., 1.);
+}
+float aoG(vec3 p, vec3 n){ float o = 0., s = 1.; int id;
+  for (int i=0;i<4;i++){ float h = .01 + .05*float(i); vec3 q = p + n*h; o += (h - min(min(mapG(q, .3, id), sdCyc(q)), mapM(q, .3))) * s; s *= .7; } return clamp(1. - 3.*o, 0., 1.); }
+vec3 shadeCyc(vec3 p, vec3 rd, bool full){
+  vec3 n = nrmC(p), a = cycAlb(p);
+  float pool = mix(.42, 1.05, exp(-dot(p.xz - vec2(-.1,-.25), p.xz - vec2(-.1,-.25)) * .9));
+  if (!full) return a * (vec3(1.,.96,.92) * 1.5 * clamp(dot(n, LB), 0., 1.) * pool + vec3(.42,.36,.36));
+  vec3 S = tshadow(p + n*.002, LB);
+  float oc = aoG(p, n), sF = mix(.35, 1., oc);
+  vec3 col = a * vec3(1.,.96,.92) * 1.5 * clamp(dot(n, LB), 0., 1.) * pool * S;
+  col += a * vec3(1.,.97,.95) * .5 * clamp(dot(n, LF), 0., 1.) * sF;
+  col += a * vec3(.42,.36,.36) * oc;
+  return col;
+}
+vec3 mAlb(vec3 q, float m){
+  if (m > 101.5) return vec3(.012,.01,.012);                           // eyes
+  if (m > 100.5) return mix(vec3(.2,.5,.12), vec3(.42,.78,.24), smoothstep(.27, .3, q.y));   // leaves
+  if (uMA.y > .01 && mCav(q) < .006) return q.y < .078 ? vec3(.9,.3,.38) : vec3(.26,.02,.05);   // inside the mouth
+  vec3 c = mix(vec3(1.,.7,.56), vec3(1.,.45,.48), smoothstep(.04, .26, q.y + .03*q.x));       // peach skin
+  vec3 qa = vec3(abs(q.x), q.y, q.z);
+  c = mix(c, vec3(1.,.42,.48), .75 * exp(-dot(qa - vec3(.072,.1,.1), qa - vec3(.072,.1,.1)) / .0006));   // blush
+  float sm = abs(q.y - .101 - 3.2*q.x*q.x);                            // closed smile
+  if (uMA.y < .05 && abs(q.x) < .02 && q.z > .1) c = mix(c, vec3(.42,.1,.12), smoothstep(.0042, .0022, sm));
+  return c;
+}
+vec3 shadeMascot(vec3 p, vec3 rd, float m){
+  vec3 n = nrmM(p), q = mLocal(p), a = mAlb(q, m);
+  vec3 S = tshadow(p + n*.003, LB);
+  float oc = aoG(p, n), sF = mix(.4, 1., oc);
+  float wrap = clamp((dot(n, LB) + .4) / 1.4, 0., 1.);
+  vec3 col = a * vec3(1.,.95,.9) * .8 * wrap * S;
+  col += a * vec3(1.,.97,.95) * .9 * clamp(dot(n, LF), 0., 1.) * sF;
+  col += a * vec3(.55,.46,.46) * .4 * oc;
+  col += a * a * vec3(1.,.5,.4) * .35 * pow(1. - clamp(dot(n, -rd), 0., 1.), 2.) * oc;     // soft vinyl translucency at the rim
+  float F = schlick(clamp(dot(n, -rd), 0., 1.), m > 101.5 ? .08 : .04);
+  vec3 r = reflect(rd, n);
+  col += env(r) * F * (m > 101.5 ? 1.2 : .35) * oc;
+  col += vec3(1.) * (pow(max(dot(r, LF), 0.), m > 101.5 ? 300. : 40.) * (m > 101.5 ? 6. : .5) + pow(max(dot(r, LB), 0.), 60.) * .6) * sF;
+  return col;
+}
+vec3 bgSimple(vec3 ro, vec3 rd){
+  vec2 h = march(ro, rd, 56, 8.);
+  if (h.y < -1.5) return env(rd);
+  vec3 p = ro + rd*h.x;
+  if (h.y < -.5) return shadeCyc(p, rd, false);
+  if (h.y > 99.) return mAlb(mLocal(p), h.y) * .8;
+  int i = int(h.y); vec3 n = nrmG(p, i);
+  return BASE[int(uGS[i].z)] * (.35 + .5*clamp(dot(n, LB), 0., 1.)) + env(reflect(rd, n)) * .06;
+}
+vec3 shadeGummy(vec3 p, vec3 rd, int i){
+  vec3 n = nrmG(p, i);
+  n = normalize(n + .025*(vec3(vnoise(p*70.), vnoise(p*70. + 5.3), vnoise(p*70. + 9.1)) - .5));
+  int f = int(uGS[i].z);
+  float cv = clamp(dot(n, -rd), 0., 1.);
+  float F = schlick(cv, .06);
+  vec3 refl = env(reflect(rd, n));
+  if (reflect(rd, n).y < 0.) refl = cycAlb(p) * .55;
+  vec3 t1 = refract(rd, n, 1./1.45);
+  vec3 pe; float len = thick(p, t1, i, pe);
+  vec3 ne = nrmG(pe, i);
+  vec3 t2 = refract(t1, -ne, 1.45);
+  vec3 bg = dot(t2, t2) < .01 ? env(reflect(t1, -ne)) * .5 : bgSimple(pe + t2*.004, t2);
+  vec3 T = exp(-SIG[f] * len * 6.);
+  float glow = .3 + 1.6 * pow(clamp(dot(rd, LB) * .5 + .5, 0., 1.), 3.);
+  vec3 scat = BASE[f] * (1. - dot(T, vec3(.333))) * glow * .3;
+  scat += BASE[f] * BASE[f] * .5 * pow(1. - cv, 2.5) * glow;
+  vec3 col = bg * T * .96 + scat;
+  vec3 rr = reflect(rd, n);
+  col = mix(col, refl, F);
+  col += vec3(1.,.98,.95) * (pow(max(dot(rr, LB), 0.), 700.) * 14. + pow(max(dot(rr, LF), 0.), 400.) * 5.);
+  return col;
+}
+vec3 render(vec2 fc){
+  vec2 uv = (2.*fc - uRes) / uRes.y;
+  vec3 ro = uRo;
+  vec3 rd = camMat(ro, uTa, 0.) * normalize(vec3(uv, 2.5));
+  vec2 h = march(ro, rd, 160, 12.);
+  vec3 col;
+  if (h.y < -1.5) { col = env(rd); gDepth = 12.; }
+  else {
+    vec3 p = ro + rd*h.x; gDepth = h.x;
+    if (h.y < -.5) col = shadeCyc(p, rd, true);
+    else if (h.y > 99.) col = shadeMascot(p, rd, h.y);
+    else col = shadeGummy(p, rd, int(h.y));
+  }
+  return col * uFade;
+}`,
+});
+
+/* ---------------- layout ---------------- */
+const R = Reel.rng(5);
+const qMul = (a, b) => [a[3]*b[0] + a[0]*b[3] + a[1]*b[2] - a[2]*b[1], a[3]*b[1] - a[0]*b[2] + a[1]*b[3] + a[2]*b[0], a[3]*b[2] + a[0]*b[1] - a[1]*b[0] + a[2]*b[3], a[3]*b[3] - a[0]*b[0] - a[1]*b[1] - a[2]*b[2]];
+const qAxis = (ax, ang) => { const l = Math.hypot(...ax) || 1, s = Math.sin(ang / 2); return [ax[0]/l*s, ax[1]/l*s, ax[2]/l*s, Math.cos(ang / 2)]; };
+const qConj = (q) => [-q[0], -q[1], -q[2], q[3]];
+const cross = (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
+const qRot = (q, v) => { const u = [q[0], q[1], q[2]], c1 = cross(u, v).map((x, i) => x + q[3] * v[i]), c2 = cross(u, c1); return v.map((x, i) => x + 2 * c2[i]); };
+const HB = [0.78, 0.4, 0.57], FOOT = [1.05, 1.2, 1.05];
+const MSPOT = [0.38, 0, 0.1];                    // where the mascot stands to take its bite
+const G = [];
+G.push({ ty: 0, f: 0, s: 0.15, x: 0, z: 0.0, yaw: 0.42, tilt: 0, hero: true });
+let tries = 0;
+while (G.length < 23 && tries < 6000) {
+  tries++;
+  const x = -0.6 + R() * 1.2, z = -0.85 + R() * 0.95;
+  if ((x / 0.56) ** 2 + ((z + 0.33) / 0.5) ** 2 > 1) continue;
+  if (x > 0.08 && z > -0.26) continue;           // keep the mascot's spot and path clear
+  const ty = R() < 0.5 ? 0 : R() < 0.55 ? 1 : 2, s = 0.085 + R() * 0.035;
+  const ok = G.every((g) => Math.hypot(g.x - x, g.z - z) > (g.s * FOOT[g.ty] + s * FOOT[ty]) * 0.98);
+  if (!ok) continue;
+  G.push({ ty, f: (G.length * 5 + 1) % 6, s, x, z, yaw: R() * 6.28, tilt: 0 });
+}
+const NFLOOR = G.length;
+for (let k = 0; k < 10; k++) {
+  const cand = G.slice(1, NFLOOR).filter((g) => Math.hypot(g.x, g.z + 0.35) < 0.42);
+  const base = cand[Math.floor(R() * cand.length)];
+  const ty = R() < 0.4 ? 2 : R() < 0.5 ? 1 : 0, s = 0.08 + R() * 0.03;
+  G.push({ ty, f: (k * 2 + 3) % 6, s, x: base.x + (R() - 0.5) * 0.12, z: base.z + (R() - 0.5) * 0.1, yaw: R() * 6.28, tilt: 0.3 + R() * 0.35, on: base });
+}
+G.forEach((g) => {
+  g.y = g.on ? g.on.s * HB[g.on.ty] * 2 + g.s * HB[g.ty] * 0.8 : g.s * HB[g.ty];
+  g.q = qMul(qAxis([Math.cos(g.yaw * 1.7), 0, Math.sin(g.yaw * 1.7)], g.tilt), qAxis([0, 1, 0], g.yaw));
+  g.ax = [R() - 0.5, R() * 0.5, R() - 0.5]; g.w = 6 + R() * 5;
+});
+const warp = (t) => (t < 1.0 ? t : t < 2.6 ? 1.0 + (t - 1.0) * 0.35 : 1.56 + (t - 2.6));
+const HERO_LAND_W = 1.25, HERO_LAND = 1.0 + (HERO_LAND_W - 1.0) / 0.35;
+const rest = G.slice(1).sort((a, b) => a.z - b.z);
+rest.forEach((g, k) => { g.t1 = k < 3 && !g.on ? -9 : 2.75 + (k - 3) * 0.075 + R() * 0.05 + (g.on ? 0.3 : 0); });
+G[0].t1 = HERO_LAND;
+
+/* ---------------- the bite ---------------- */
+const TBITE = 7.68;
+const HPOS = [0, G[0].s * HB[0], 0];
+const BDIR = [0.75 / Math.hypot(0.75, 0.66), 0.66 / Math.hypot(0.75, 0.66)];          // the bite comes off the front-right corner
+const BITEW = [HPOS[0] + BDIR[0] * 0.2, 0.165, HPOS[2] + BDIR[1] * 0.2];
+const toM = (() => { const v = [MSPOT[0] - BITEW[0], MSPOT[2] - BITEW[2]], l = Math.hypot(...v); return [v[0] / l, v[1] / l]; })();
+const BITEL = qRot(qConj(G[0].q), [BITEW[0] - HPOS[0], BITEW[1] - HPOS[1], BITEW[2] - HPOS[2]]).map((x) => x / G[0].s);
+
+const GR = 9.8;
+function stateOf(g, t) {
+  const hero = !!g.hero;
+  const tau = hero ? warp(t) - HERO_LAND_W : t - g.t1;
+  if (tau < 0) {
+    const s = -tau;
+    return { p: [g.x + g.ax[0] * s * 0.15, g.y + 0.5 * GR * s * s, g.z + g.ax[2] * s * 0.15], q: qMul(g.q, qAxis(g.ax, (hero ? 1.6 : g.w) * s)), sy: 1, sh: 0 };
+  }
+  const A = hero ? 0.42 : 0.26;
+  let sy = 1 - A * Math.exp((hero ? -4.2 : -5.2) * tau) * Math.cos((hero ? 16 : 19) * tau);
+  let sh = (hero ? 0.12 : 0.08) * Math.exp(-4.5 * tau) * Math.sin(15 * tau + 0.6);
+  if (hero && t > TBITE) { const b = t - TBITE; sy -= 0.16 * Math.exp(-5 * b) * Math.sin(17 * b); sh += 0.1 * Math.exp(-4 * b) * Math.sin(14 * b); }
+  return { p: [g.x, g.y, g.z], q: g.q, sy, sh };
+}
+const visible = (g, t) => g.hero ? warp(t) > HERO_LAND_W - 0.62 : t > g.t1 - 0.75;
+
+/* ---------------- mascot 啵啵 ---------------- */
+const yawTo = (from, to) => Math.atan2(to[0] - from[0], to[2] - from[2]);
+const YFACE = yawTo(MSPOT, BITEW) + 0.35;          // cheated a little towards camera
+const HOPS = [[5.85, 6.25, [1.25, 0, 0.13], [0.82, 0, 0.115], 0.12], [6.25, 6.65, [0.82, 0, 0.115], MSPOT, 0.1]];
+const sstep = (a, b, x) => { const u = clamp((x - a) / (b - a)); return u * u * (3 - 2 * u); };
+const land = (t, t0, amp) => (t >= t0 ? amp * Math.exp(-9 * (t - t0)) * Math.cos(16 * (t - t0)) : 0);
+function mascot(t, camP) {
+  if (t < 5.85) return null;
+  let p = MSPOT.slice(), yaw = YFACE, pitch = 0, sy = 1, mouth = 0, eye = 1, puff = 0, arm = 0;
+  let inHop = false;
+  for (const [a, b, f, to, h] of HOPS) if (t >= a && t < b) {
+    const u = (t - a) / (b - a);
+    p = [lerp(f[0], to[0], u), 4 * h * u * (1 - u), lerp(f[2], to[2], u)];
+    sy = 1 + 0.13 * Math.sin(Math.PI * u); yaw = yawTo(f, to); arm = 0.5 * Math.sin(Math.PI * u); inHop = true;
+  }
+  if (!inHop && t < 6.9) yaw = lerp(yawTo(HOPS[1][2], MSPOT), YFACE, sstep(6.65, 6.85, t));
+  sy -= land(t, 6.25, 0.2) + land(t, 6.65, 0.22);
+  // spots the gummy: eyes widen, a curious lean
+  eye = 1 + 0.18 * sstep(6.75, 6.9, t) * (1 - sstep(7.1, 7.2, t));
+  pitch += 0.12 * sstep(6.75, 6.95, t) * (1 - sstep(7.05, 7.2, t));
+  // anticipation: lean back, mouth opens wide
+  const ant = sstep(7.15, 7.48, t) * (1 - sstep(7.5, 7.6, t));
+  pitch -= 0.3 * ant; sy += 0.06 * ant; arm += 0.6 * ant;
+  mouth = sstep(7.18, 7.45, t) * (1 - sstep(TBITE - 0.02, TBITE + 0.04, t));
+  // lunge + little jump into the bite, then recoil
+  const lu = sstep(7.5, TBITE, t) * (1 - sstep(TBITE + 0.02, 7.98, t));
+  p = [p[0] - toM[0] * 0.11 * lu, p[1] + 0.07 * Math.sin(Math.PI * clamp((t - 7.5) / 0.48)) * (t > 7.5 && t < 7.98 ? 1 : 0), p[2] - toM[1] * 0.11 * lu];
+  pitch += 0.16 * lu;
+  sy -= land(t, 7.98, 0.16);
+  // chewing: puffed cheeks, happy squint, bouncy body
+  const ch = sstep(TBITE, TBITE + 0.08, t) * (1 - sstep(8.95, 9.25, t));
+  const cw = Math.abs(Math.sin((t - TBITE) * Math.PI * 3.2));
+  puff = ch * (0.55 + 0.45 * cw);
+  sy -= ch * 0.045 * cw;
+  eye = lerp(eye, 0.22, ch);
+  arm += ch * (0.25 + 0.2 * Math.sin((t - TBITE) * 12));
+  // turn to camera, happy hop, idle
+  const yc = yawTo(MSPOT, camP);
+  yaw = lerp(yaw, yc, sstep(7.95, 8.3, t));
+  if (t >= 9.5 && t < 9.86) { const u = (t - 9.5) / 0.36; p[1] += 4 * 0.075 * u * (1 - u); sy += 0.12 * Math.sin(Math.PI * u); arm = Math.max(arm, Math.sin(Math.PI * u)); eye = lerp(eye, 0.3, Math.sin(Math.PI * u)); }
+  sy -= land(t, 9.86, 0.2);
+  if (t > 10) sy += 0.015 * Math.sin((t - 10) * 5);
+  if (Math.abs(t - 11.3) < 0.07 || Math.abs(t - 13.7) < 0.07) eye = 0.12;     // blinks
+  if (t > 12.6 && t < 13.2) { const u = (t - 12.6) / 0.6; arm = Math.max(arm, Math.sin(Math.PI * u) * 0.9); }
+  const q = qMul(qAxis([0, 1, 0], yaw), qAxis([1, 0, 0], pitch));
+  return { p, q, sy, mouth, eye, puff, arm };
+}
+// little jelly hearts float up while it chews
+const HEARTS = [8.15, 8.45, 8.78].map((t0, k) => ({ t0, k }));
+function heartState(h, t) {
+  const u = (t - h.t0) / 1.3; if (u < 0 || u > 1) return null;
+  const pop = E.outBack(clamp(u / 0.12)) * (1 - sstep(0.8, 1, u));
+  return { p: [MSPOT[0] - 0.03 + h.k * 0.035 + 0.025 * Math.sin(u * 6 + h.k), 0.3 + u * 0.24, MSPOT[2] + 0.02], s: 0.032 * Math.max(pop, 0.001), yaw: 0.4 * Math.sin(u * 4 + h.k) - 0.3 };
+}
+
+/* ---------------- camera ---------------- */
+const KEYS = [
+  { t: 0.0, p: [0.0, 0.13, 0.88], a: [0.0, 0.115, 0.0], ap: 9 },
+  { t: 2.6, p: [0.04, 0.125, 0.64], a: [0.0, 0.1, 0.0], ap: 10 },
+  { t: 4.4, p: [0.12, 0.46, 1.3], a: [-0.06, 0.06, -0.2], ap: 4 },
+  { t: 6.0, p: [0.2, 0.2, 1.05], a: [0.18, 0.12, 0.0], ap: 6 },
+  { t: 9.0, p: [0.22, 0.19, 0.94], a: [0.2, 0.12, 0.0], ap: 6.5 },
+  { t: 10.4, p: [0.02, 0.66, 1.5], a: [-0.38, 0.04, -0.28], ap: 3.8 },
+  { t: 12.5, p: [-0.01, 0.62, 1.4], a: [-0.38, 0.04, -0.28], ap: 3.8 },
+];
+const cr1 = (p0, p1, p2, p3, u) => { const u2 = u * u, u3 = u2 * u; return 0.5 * ((2 * p1) + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 + (-p0 + 3 * p1 - 3 * p2 + p3) * u3); };
+function camAt(t) {
+  let i = 0; while (i < KEYS.length - 2 && t > KEYS[i + 1].t) i++;
+  const k0 = KEYS[Math.max(0, i - 1)], k1 = KEYS[i], k2 = KEYS[i + 1], k3 = KEYS[Math.min(KEYS.length - 1, i + 2)];
+  const u = E.inOutSine(clamp((t - k1.t) / (k2.t - k1.t)));
+  const f = (key) => [0, 1, 2].map((j) => cr1(k0[key][j], k1[key][j], k2[key][j], k3[key][j], u));
+  const r = { p: f('p'), a: f('a'), ap: lerp(k1.ap, k2.ap, u) };
+  if (t > 12.5) { const e = E.inOutSine(clamp((t - 12.5) / 2.5)); r.p = [r.p[0] - 0.02 * e, r.p[1] - 0.02 * e, r.p[2] - 0.07 * e]; }
+  return r;
+}
+
+const cap = document.createElement('div'); cap.id = 'cap';
+cap.innerHTML = `<div class="b">${C.brand}</div><div class="s">${C.line}</div><div class="t">${C.tags.split('|').map((x) => `<span>${x}</span>`).join('')}</div><div class="p">${C.price}</div>`;
+stage.appendChild(cap);
+
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 132px "Noto Sans CJK SC"', '700 36px "Noto Sans CJK SC"', '600 20px Inter'],
+  cues: [{ t: 0.0, sfx: 'swell', gain: 0.4 }, { t: 1.1, sfx: 'whoosh', gain: 0.35 }, { t: +HERO_LAND.toFixed(2), sfx: 'boing', gain: 0.9 }, { t: +HERO_LAND.toFixed(2), sfx: 'squish', gain: 0.9 },
+    ...G.slice(1).filter((g) => g.t1 > 0).map((g, k) => ({ t: +g.t1.toFixed(2), sfx: ['squish', 'blob', 'pop'][k % 3], gain: 0.24 })),
+    { t: 5.85, sfx: 'jump', gain: 0.3 }, { t: 6.25, sfx: 'boing2', gain: 0.3 }, { t: 6.65, sfx: 'pop', gain: 0.35 },
+    { t: 7.2, sfx: 'whoosh_up', gain: 0.25 }, { t: TBITE, sfx: 'squish', gain: 1.0 }, { t: TBITE, sfx: 'pop', gain: 0.6 },
+    { t: 8.05, sfx: 'blob', gain: 0.25 }, { t: 8.36, sfx: 'blob', gain: 0.22 }, { t: 8.67, sfx: 'blob', gain: 0.2 }, { t: 8.15, sfx: 'sparkle', gain: 0.35 },
+    { t: 9.5, sfx: 'jump', gain: 0.3 }, { t: 9.86, sfx: 'boing', gain: 0.4 }, { t: 9.95, sfx: 'chime', gain: 0.55 }, { t: 12.7, sfx: 'boing2', gain: 0.25 }, { t: 13.7, sfx: 'sparkle', gain: 0.25 }],
+  render(t) {
+    const P = new Float32Array(NG * 4), Q = new Float32Array(NG * 4), S = new Float32Array(NG * 4);
+    let n = 0;
+    const put = (p, q, s, sy, ty, f, sh) => { P.set([...p, s], n * 4); Q.set(qConj(q), n * 4); S.set([sy, ty, f, sh], n * 4); n++; };
+    // pile group first (the hero is always index 0, the bite lives on it), then whatever is in the air
+    const pile = [], air = [];
+    G.forEach((g) => { if (!visible(g, t)) return; (g.hero || t >= g.t1 ? pile : air).push(g); });
+    pile.forEach((g) => { const st = stateOf(g, t); put(st.p, st.q, g.s, st.sy, g.ty, g.f, st.sh); });
+    const nP = n;
+    let cx = 0, cy = 0, cz = 0; for (let i = 0; i < nP; i++) { cx += P[i * 4] / nP; cy += P[i * 4 + 1] / nP; cz += P[i * 4 + 2] / nP; }
+    let pr = 0; for (let i = 0; i < nP; i++) pr = Math.max(pr, Math.hypot(P[i * 4] - cx, P[i * 4 + 1] - cy, P[i * 4 + 2] - cz) + 1.4 * P[i * 4 + 3]);
+    air.forEach((g) => { const st = stateOf(g, t); put(st.p, st.q, g.s, st.sy, g.ty, g.f, st.sh); });
+    const cam = camAt(t);
+    HEARTS.forEach((h) => {
+      const hs = heartState(h, t); if (!hs) return;
+      put(hs.p, qMul(qAxis([0, 1, 0], hs.yaw), qAxis([1, 0, 0], Math.PI / 2)), hs.s, 1, 2, 5, 0);
+    });
+    rm.set('uGP', P).set('uGQ', Q).set('uGS', S).set('uNG', { __ints: true, v: n }).set('uNP', { __ints: true, v: nP }).set('uPB', [cx, cy, cz, pr]);
+    rm.set('uBite', [...BITEL, t >= TBITE ? 1 : 0]);
+    const m = mascot(t, cam.p);
+    if (m) rm.set('uMP', [...m.p, 1]).set('uMQ', qConj(m.q)).set('uMA', [m.sy, m.mouth, m.eye, m.puff]).set('uMB', [m.arm, 0, 0, 0]);
+    else rm.set('uMP', [0, -5, 0, 0]).set('uMQ', [0, 0, 0, 1]).set('uMA', [1, 0, 1, 0]).set('uMB', [0, 0, 0, 0]);
+    const hx = 0.002 * Math.sin(t * 1.1) + 0.001 * Math.sin(t * 2.7 + 1), hy = 0.0015 * Math.sin(t * 1.5 + 2);
+    const bump = t > TBITE ? 0.004 * Math.exp(-8 * (t - TBITE)) * Math.sin((t - TBITE) * 40) : 0;
+    const ro = [cam.p[0] + hx, cam.p[1] + hy + bump, cam.p[2]];
+    const fd = Math.hypot(ro[0] - cam.a[0], ro[1] - cam.a[1], ro[2] - cam.a[2]);
+    rm.set('uRo', ro).set('uTa', cam.a).set('uFade', E.outCubic(clamp(t / 0.5)));
+    rm.render(t, { focus: fd, aperture: cam.ap, maxCoc: 16 });
+    const ca = E.outCubic(inv(9.9, 10.7, t));
+    cap.style.opacity = ca; cap.style.transform = `translateX(${(1 - ca) * -30}px)`;
+  },
+});
+</script></body></html>

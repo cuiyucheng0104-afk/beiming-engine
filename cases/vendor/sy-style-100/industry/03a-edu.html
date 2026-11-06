@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>03 · 教育培训 · 小步数学</title>
+<script src="../lib/core.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 03 扁平矢量 · 行业示例：教育培训 =====
+   One continuous zoom: a kid stuck on homework -> the lesson on the tablet -> the animated fraction on the board ->
+   the test score climbing from 62 to 95, where the title lands. */
+const C = Reel.cfg({ title: '小步数学', sub: '一节课一个小进步 · 1 对 1 动画讲题', q: '3/4 + 1/8 = ?' });
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#ffb44c');
+const { ctx, begin, k: K0 } = Reel.canvas2d(stage);
+let BACK = false;
+let PZ = { on: false, Z: 1, Fx: 0, Fy: 0 };
+const PAL = { org: '#ffb44c', org2: '#ff9a2e', orgL: '#ffe2b8', mint: '#22c08a', mint2: '#1aa877', mintL: '#bff0dc', navy: '#18233f', ink: '#2b3655', cream: '#fff7ea', yellow: '#ffd166', coral: '#ff7b6b', blue: '#4d8dff', purple: '#8f7bff', white: '#ffffff', grey: '#eef2f7', skin: '#f6b48d', skin2: '#e0956b' };
+const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
+const circ = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); };
+const fill = (c) => { ctx.fillStyle = c; ctx.fill(); };
+const txt = (s, x, y, font, col, align = 'left') => { ctx.font = font; ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y); };
+const SANS = (w, px) => `${w} ${px}px "Noto Sans CJK SC"`;
+const NUM = (w, px) => `${w} ${px}px Inter`;
+const shadowCard = (x, y, w, h, r, col, sh = 'rgba(16,40,60,.16)', off = 10) => { rr(x, y + off, w, h, r); fill(sh); rr(x, y, w, h, r); fill(col); };
+
+
+// a flat person: x,y = feet centre, s = scale
+function person(x, y, s, o) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const skin = o.skin || PAL.skin, hair = o.hair || PAL.navy, shirt = o.shirt || PAL.blue;
+  rr(-46, -150, 36, 150, 16); fill(o.pants || PAL.navy); rr(10, -150, 36, 150, 16); fill(o.pants || PAL.navy);
+  rr(-70, -330, 140, 200, 56); fill(shirt);
+  const arm = (sd, up) => { ctx.save(); ctx.translate(sd * 58, -300); ctx.rotate(sd * (up ? -2.4 : 0.18)); rr(-17, 0, 34, 150, 17); fill(shirt); circ(0, 150, 20); fill(skin); ctx.restore(); };
+  arm(-1, o.armL); arm(1, o.armR);
+  rr(-16, -360, 32, 40, 10); fill(skin);
+  circ(0, -410, 62); fill(skin);
+  ctx.beginPath(); ctx.arc(0, -420, 64, Math.PI, 0); ctx.lineTo(64, -400); ctx.quadraticCurveTo(10, -470, -64, -400); ctx.closePath(); fill(hair);
+  if (o.long) { rr(-70, -440, 30, 120, 15); fill(hair); rr(40, -440, 30, 120, 15); fill(hair); }
+  const e = o.happy ? 0 : 1;
+  if (o.happy) { ctx.strokeStyle = PAL.navy; ctx.lineWidth = 6; ctx.lineCap = 'round'; for (const sx of [-22, 22]) { ctx.beginPath(); ctx.arc(sx, -405, 9, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
+  else for (const sx of [-22, 22]) { circ(sx, -405, 7); fill(PAL.navy); }
+  ctx.strokeStyle = PAL.navy; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); if (o.happy) ctx.arc(0, -385, 16, 0.15, Math.PI - 0.15); else { ctx.moveTo(-10, -378); ctx.lineTo(10, -378); } ctx.stroke();
+  circ(-38, -385, 10); fill('rgba(255,120,120,.35)'); circ(38, -385, 10); fill('rgba(255,120,120,.35)');
+  ctx.restore();
+}
+const dayTag = (s) => { rr(70, 60, 340, 74, 37); fill('rgba(255,255,255,.95)'); txt(s, 240, 98, SANS(900, 34), PAL.navy, 'center'); };
+
+/* ---------------- Level A: stuck on homework ---------------- */
+const A = { portal: [1000, 300, 560, 315], r: 18 };
+function drawA(t) {
+  ctx.fillStyle = PAL.org; ctx.fillRect(-20, -20, 1960, 1120);
+  circ(960, 560, 640); fill('#ffbe5f'); circ(960, 560, 440); fill('#ffc873');
+  rr(140, 120, 360, 260, 20); fill('#ffd89a'); rr(160, 140, 320, 220, 14); fill('#fff3dc');                 // window
+  ctx.strokeStyle = '#ffd89a'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(320, 140); ctx.lineTo(320, 360); ctx.stroke();
+  person(560, 900, 1.15, { shirt: PAL.blue, hair: '#3b2a20', armR: BACK && Math.sin(t * 8) > -0.2, armL: false, happy: BACK });
+  rr(-20, 760, 1960, 60, 0); fill('#c97a35'); rr(-20, 820, 1960, 300, 0); fill('#b86a2c');                   // desk
+  rr(560, 700, 300, 70, 8); fill(PAL.white); txt(C.q, 710, 735, NUM(800, 34), PAL.navy, 'center');            // worksheet
+  ctx.save(); ctx.translate(900, 730); ctx.rotate(-0.5); rr(0, -8, 160, 16, 8); fill(PAL.yellow); rr(150, -8, 26, 16, 4); fill(PAL.coral); ctx.restore();
+  // tablet on a stand
+  const [px, py, pw, ph] = A.portal;
+  rr(px + pw / 2 - 40, py + ph + 20, 80, 200, 10); fill('#8e98ad');
+  rr(px - 30, py - 30, pw + 60, ph + 60, 40); fill(PAL.navy);
+  // question mark bubble
+  const qa = BACK ? E.outBack(clamp(inv(10.8, 11.2, t)), 2) : E.outBack(clamp(inv(0.2, 0.6, t)), 1.6);
+  if (qa > 0) { ctx.save(); ctx.translate(760, 300); ctx.scale(qa, qa); circ(0, 0, 70); fill(PAL.white); circ(-50, 80, 16); fill(PAL.white); circ(-70, 110, 9); fill(PAL.white); txt(BACK ? '✓' : '?', 0, 6, BACK ? SANS(900, 90) : NUM(900, 96), BACK ? PAL.mint : PAL.coral, 'center'); ctx.restore(); }
+}
+function overA(t) {}
+/* ---------------- Level B: the lesson on the tablet ---------------- */
+const B = { portal: [760, 250, 880, 495], r: 16 };
+function drawB(t) {
+  ctx.fillStyle = '#fff8ec'; ctx.fillRect(-20, -20, 1960, 1120);
+  rr(-20, -20, 1960, 120, 0); fill(PAL.org2); txt('小步数学 · 第 12 课 分数加法', 80, 42, SANS(900, 38), PAL.white);
+  shadowCard(80, 180, 560, 760, 34, PAL.white);
+  circ(360, 420, 150); fill('#ffe2b8');
+  person(360, 720, 0.75, { shirt: PAL.mint, hair: '#2d2d2d', long: true, happy: true, armR: Math.sin(t * 3) > 0 });
+  txt('林老师', 360, 790, SANS(900, 40), PAL.navy, 'center'); txt('动画讲题 · 一对一', 360, 850, SANS(500, 28), '#8a93a8', 'center');
+  const [px, py, pw, ph] = B.portal;
+  shadowCard(px - 30, py - 30, pw + 60, ph + 60, 30, '#2f5d50', 'rgba(0,0,0,.18)', 10);
+  rr(px + 40, py + ph + 70, 320, 80, 40); fill(PAL.org2); txt('我会了！', px + 200, py + ph + 110, SANS(900, 36), PAL.white, 'center');
+  rr(px + 400, py + ph + 70, 400, 80, 40); fill(PAL.grey); txt('再讲一遍', px + 600, py + ph + 110, SANS(700, 34), PAL.ink, 'center');
+}
+function overB(t) {}
+/* ---------------- Level C: the fraction comes alive on the board ---------------- */
+const Cc = { portal: [1360, 690, 448, 252], r: 16 };
+function pie(x, y, R, n, on, col, off = 0) {
+  for (let k = 0; k < n; k++) { const a0 = -Math.PI / 2 + k * Math.PI * 2 / n, a1 = a0 + Math.PI * 2 / n; ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, R, a0, a1); ctx.closePath(); fill(k < on ? col : 'rgba(255,255,255,.12)'); ctx.strokeStyle = '#2f5d50'; ctx.lineWidth = 8; ctx.stroke(); }
+}
+function drawC(t) {
+  ctx.fillStyle = '#2f5d50'; ctx.fillRect(-20, -20, 1960, 1120);
+  const tl = PZ.tl;
+  pie(380, 420, 200, 8, 6, PAL.yellow); txt('3/4 = 6/8', 380, 700, NUM(800, 64), '#fffbe6', 'center');
+  txt('+', 690, 420, NUM(800, 110), '#fffbe6', 'center');
+  pie(980, 420, 200, 8, 1, PAL.coral); txt('1/8', 980, 700, NUM(800, 64), '#fffbe6', 'center');
+  const m = E.inOutCubic(inv(3.2, 4.0, tl));
+  if (m > 0) { ctx.save(); ctx.globalAlpha = m; txt('=', 1260, 420, NUM(800, 110), '#fffbe6', 'center'); ctx.restore(); }
+  pie(1560, 420, 200, 8, Math.round(lerp(0, 7, m)), PAL.yellow);
+  if (m > 0.99) { ctx.beginPath(); ctx.moveTo(1560, 420); ctx.arc(1560, 420, 200, -Math.PI / 2 + 6 * Math.PI / 4, -Math.PI / 2 + 7 * Math.PI / 4); ctx.closePath(); fill(PAL.coral); txt('7/8 ✓', 1560, 700, NUM(800, 64), PAL.mintL, 'center'); }
+  const [px, py, pw, ph] = Cc.portal;
+  shadowCard(px - 20, py - 60, pw + 40, ph + 80, 26, '#fffbe6', 'rgba(0,0,0,.25)', 8); txt('单元测验', px, py - 28, SANS(900, 28), PAL.navy);
+}
+function overC(t) {}
+/* ---------------- Level D: the score climbs ---------------- */
+const D = { portal: null };
+function drawD(t) {
+  ctx.fillStyle = '#fffbe6'; ctx.fillRect(-20, -20, 1960, 1120);
+  const cx = 1340, cy = 470, R = 260;
+  const g = E.outCubic(inv(6.2, 7.6, t)), sc = Math.round(lerp(62, 95, g));
+  ctx.lineWidth = 46; ctx.lineCap = 'round'; ctx.strokeStyle = '#f1e7cf'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = sc > 80 ? PAL.mint : PAL.org2; ctx.beginPath(); ctx.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * sc / 100); ctx.stroke();
+  txt(String(sc), cx, cy - 10, NUM(900, 190), PAL.navy, 'center'); txt('分', cx + 150, cy + 50, SANS(900, 50), PAL.navy, 'center');
+  const b = E.outBack(clamp(inv(7.5, 7.9, t)), 1.5);
+  if (b > 0) { ctx.save(); ctx.translate(cx, 900); ctx.scale(b, b); shadowCard(-200, -48, 400, 96, 48, PAL.coral, 'rgba(120,40,30,.2)', 8); txt('提分 +33', 0, 2, SANS(900, 44), PAL.white, 'center'); ctx.restore();
+    for (let i = 0; i < 3; i++) { const sa = E.outBack(clamp(inv(7.7 + i * 0.12, 8.0 + i * 0.12, t)), 2); if (sa <= 0) continue; ctx.save(); ctx.translate(cx - 140 + i * 140, 140); ctx.scale(sa, sa); ctx.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? 26 : 60; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); fill(PAL.yellow); ctx.restore(); } }
+}
+function overD(t) {}
+const LV = [
+  { draw: drawA, over: overA, P: A.portal, r: A.r },
+  { draw: drawB, over: overB, P: B.portal, r: B.r },
+  { draw: drawC, over: overC, P: Cc.portal, r: Cc.r },
+  { draw: drawD, over: overD, P: null, r: 0 },
+];
+LV.forEach((l) => { if (l.P) { l.s = l.P[2] / 1920; l.log = Math.log(1 / l.s); } else l.log = 0; });
+const TOTAL = LV[0].log + LV[1].log + LV[2].log;
+function drawLevel(i, t, depth, screenScale) {
+  const L = LV[i];
+  const keep = PZ.on; if (depth > 0) PZ.on = false;
+  L.draw(t);
+  if (L.P && i < 3 && depth < 3 && L.P[2] * screenScale > 3) {
+    const [px, py, pw, ph] = L.P;
+    ctx.save(); rr(px, py, pw, ph, L.r); ctx.clip();
+    ctx.translate(px, py); ctx.scale(L.s, L.s);
+    drawLevel(i + 1, t, depth + 1, screenScale * L.s);
+    ctx.restore();
+  }
+  L.over(t);
+  PZ.on = keep;
+}
+const zin = (t, t0, t1, a = 0.7, d = 0.9) => { const c = t1 - t0 - a - d, v = TOTAL / (a / 2 + c + d / 2), u = clamp(t, t0, t1) - t0;
+  return u < a ? v * u * u / (2 * a) : u < a + c ? v * (a / 2 + (u - a)) : TOTAL - v * Math.pow(t1 - t0 - u, 2) / (2 * d); };
+function place(g, ct, rot = 0, zs = 1) {
+  let i = 0, f = clamp(g, 0, TOTAL);
+  while (i < 3 && f > LV[i].log) { f -= LV[i].log; i++; }
+  if (i >= 3) { i = 3; f = 0; }
+  const L = LV[i], Z = Math.exp(f);
+  const Fx = L.P ? L.P[0] / (1 - L.s) : 0, Fy = L.P ? L.P[1] / (1 - L.s) : 0;
+  ctx.setTransform(K0, 0, 0, K0, 0, 0);
+  if (rot || zs !== 1) { ctx.translate(960, 540); ctx.rotate(rot); ctx.scale(zs, zs); ctx.translate(-960, -540); }
+  ctx.transform(Z, 0, 0, Z, Fx * (1 - Z), Fy * (1 - Z));
+  PZ = { on: true, Z, Fx, Fy, tl: ct };
+  drawLevel(i, ct, 0, Z * zs);
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 120px "Noto Sans CJK SC"', '800 34px "Noto Sans CJK SC"', '700 28px "Noto Sans CJK SC"', '800 110px Inter', '700 32px Inter'],
+  cues: [{"t": 0.25, "sfx": "boing", "gain": 0.6}, {"t": 0.7, "sfx": "whoosh_up", "gain": 0.6}, {"t": 3.2, "sfx": "pop", "gain": 0.5}, {"t": 4.0, "sfx": "ding", "gain": 0.6}, {"t": 6.2, "sfx": "ticks", "gain": 0.5}, {"t": 7.5, "sfx": "levelup", "gain": 0.7}, {"t": 7.7, "sfx": "sparkle", "gain": 0.5}, {"t": 8.6, "sfx": "zoom", "gain": 0.6}, {"t": 11.0, "sfx": "pop", "gain": 0.6}, {"t": 11.1, "sfx": "laugh", "gain": 0.4}, {"t": 12.0, "sfx": "chime", "gain": 0.6}],
+  render(t) {
+    begin();
+    let g, ct = t;
+    if (t < 8.6) g = zin(t, 0.6, 6.6);
+    else { const u = E.inOutCubic(clamp((t - 8.6) / 3.0)); g = TOTAL * (1 - u); }
+    BACK = t > 8.9;
+    place(g, ct);
+    PZ.on = false;
+    const tk = E.outBack(clamp(inv(12.0, 12.55, t)), 1.6), ta = clamp(inv(12.0, 12.2, t));
+    if (ta > 0) {
+      begin();
+      ctx.save(); ctx.translate(1060, 150); ctx.scale(tk, tk); ctx.globalAlpha = ta; rr(-40, -95, 820, 250, 36); fill('rgba(255,255,255,.95)');
+      ctx.font = '900 120px "Noto Sans CJK SC"'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = PAL.orgL; ctx.fillText(C.title, 6, 8); ctx.fillStyle = PAL.org2; ctx.fillText(C.title, 0, 0);
+      ctx.font = '700 30px "Noto Sans CJK SC"'; ctx.fillStyle = PAL.ink; ctx.fillText(C.sub, 4, 110);
+      ctx.restore();
+    }
+  },
+});
+</script></body></html>

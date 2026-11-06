@@ -1,0 +1,18 @@
+夜班火车回家 · CREDITS
+
+画面
+- 全部画面由代码绘制（Canvas2D 纸层 + three.js 0.170，MIT License, https://github.com/mrdoob/three.js）。
+- 木纹贴图 american_walnut_veneer（walnut_diff / walnut_nor / walnut_rough），Poly Haven，CC0 1.0 —— https://polyhaven.com/a/american_walnut_veneer
+- 未使用任何真实影像素材（本风格不属剪辑与纪实/实证影像类）。
+
+字体
+- Ma Shan Zheng（马善政楷书），Google Fonts，SIL Open Font License 1.1 —— https://fonts.google.com/specimen/Ma+Shan+Zheng
+  （经 Google Fonts CSS API &text=桐溪站回家归 子集化，存于 fonts/MaShanZheng-sub.woff2）
+
+声音
+- 原创配乐与拟音，numpy 合成 + 物理建模（八音盒：Karplus–Strong/模态合成，无版权要求）。
+- 采样乐器（CC0 1.0）：竖琴、钟琴、弓奏颤音琴、手鼓 —— Versilian Community Sample Library (Versilian Studios), https://github.com/sgossner/VCSL
+- 玻璃琴（CC0 1.0）—— FreePats project, https://freepats.zenvoid.org
+Samples (CC0): FreePats project (freepats.zenvoid.org), Versilian Community Sample Library (Versilian Studios)
+
+素材使用者对片中所用材料负责。

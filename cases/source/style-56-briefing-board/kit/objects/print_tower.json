@@ -1,0 +1,15 @@
+{
+  "id": "print_tower",
+  "w": 1967,
+  "h": 2647,
+  "anchors": {},
+  "print": true,
+  "prep": {
+    "src": "@@CASE_ROOT@@/material/raw/tower.jpg",
+    "id": "print_tower",
+    "crop": "75,135,1880,2620",
+    "w": 1805,
+    "border": 0.045,
+    "sat": 0.85
+  }
+}

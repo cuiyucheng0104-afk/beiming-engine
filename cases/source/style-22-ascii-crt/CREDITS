@@ -1,0 +1,19 @@
+whale.exe —— 第三方素材与许可
+
+画面
+- 全部画面由代码实时绘制（字符网格 + WebGL CRT 后期），没有使用任何外部图片、视频或素材片段。
+
+字体
+- VT323（Peter Hull），SIL Open Font License 1.1
+  来源：https://fonts.google.com/specimen/VT323 （fonts/VT323-latin.woff2，许可全文 fonts/OFL-VT323.txt）
+- Noto Sans SC（Google / Adobe），SIL Open Font License 1.1；按 Google Fonts CSS API 的 &text= 子集化，仅含片中用到的 13 个汉字
+  来源：https://fonts.google.com/noto/specimen/Noto+Sans+SC （fonts/NotoSansSC-400-sub.woff2、fonts/NotoSansSC-900-sub.woff2，许可全文 fonts/OFL-NotoSansSC.txt）
+
+声音
+- 配乐与拟音为原创，numpy / numba 程序合成（PolyBLEP 振荡器、梯形滤波器、Karplus–Strong 拨弦物理建模）。
+- 采样：音乐会大鼓（bass_drum）、锣（gong）
+  Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios)
+  来源：https://github.com/sgossner/VSCO-2-CE ，CC0 1.0
+
+工具
+- 渲染、采样器、拟音与混流工具来自本地风格库的 core/ 目录（构建时调用，未随片分发素材）。

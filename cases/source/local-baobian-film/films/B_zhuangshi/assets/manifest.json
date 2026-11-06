@@ -1,0 +1,4139 @@
+[
+  {
+    "id": "A00",
+    "file": "leo_sheet.png",
+    "用途": "豹设定图（不上屏）；A01–A05、A19 的第一参考图",
+    "尺寸": [
+      2172,
+      724
+    ],
+    "是否透明": false,
+    "提示词": "The first reference image is the current model sheet of this leopard character: keep exactly the same character design, drawing style, colors, line, layout and the same three drawings (a full-body standing side profile facing right, a sitting-upright side profile facing right, and a large head-and-neck side profile facing right), but refine the proportions to be more slender and elegant, like a cheetah and like the white deer of \"Nine-Colored Deer\" (1981) in the other reference images: a noticeably smaller head, only about one sixth of the body length from nose to rump, a slightly longer and more slender neck, a long supple back, long thin straight legs, small rounded cat paws with a tiny teal-green dot at the toe tip, short rounded cat ears with pale pink inside, the long tail ending in one soft upward curl. Keep the cat anatomy: domed forehead, short muzzle, small dark triangular nose, whisker pad, small chin, a large almond-shaped black eye with a single upturned lash stroke, calm noble expression. Pure flat white body with absolutely no shading, no fur texture and no spots or markings of any kind; thin continuous sepia-brown outline of slightly varying weight like iron-wire line drawing; no stray construction lines. Plain warm off-white paper background with generous empty space, hand-inked cel, slight film grain, muted early-1980s film color, no labels. It is a leopard, not a deer: no antlers, no hooves. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_00_c.jpg",
+      "refs/B_zhuangshi/ref_02.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_06_c.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_01_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "设定图（不上屏）。新幼豹（fix1，按主会话 main-01 / story-01 / style-03 重定造型）：大圆头、短方吻 + 胡须点、小圆耳在头顶（耳内赭黄、耳缘深棕）、琥珀眼 + 黑瞳、泪线、额颊实心小墨点、粗长尾尖三道深环、四肢粗壮；白身无影无斑（身色与环斑由着色器给）。站 / 坐 / 头肩三图，A01–A05 都以它为第一参考。",
+    "锚点": {},
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "rejected：鹿/鼠相——大圆粉耳、尖长吻、蹄状青绿脚（DESIGN 原提示词 + 4 张鹿参考）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/leo_sheet_v1.png"
+      },
+      {
+        "版本": "v2",
+        "结论": "猫科解剖成立，但头偏大（头长/鼻—臀 0.29）；作为 v3 的第一参考",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/leo_sheet_v2.png",
+        "提示词": "Model sheet of one young leopard character for a hand-painted cel animation, in the exact drawing style of the 1981 Shanghai Animation Film Studio film \"Nine-Colored Deer\" (Jiu Se Lu), inspired by Dunhuang murals. The reference images show only that film's drawing style (flat white body, thin sepia-brown outline, pale pink inner ear, teal-green accents, calm elegance): copy the style, but give the animal the anatomy of a cat, not of a deer. The character is unmistakably a big cat, a leopard with the slim elegant build of a cheetah: a small rounded cat head with a domed forehead, a short broad muzzle with a small dark triangular cat nose, a soft whisker pad and a small chin, short rounded cat ears set wide at the back of the skull (each ear only about one third of the head length, pale pink inside), a large almond-shaped black eye with a single upturned lash stroke, calm noble expression; a moderately long graceful neck; a lithe feline body with a deep chest, a supple long back and a tucked waist; long thin straight legs ending in small rounded cat paws with soft toes, no hooves, each paw with only a tiny teal-green dot at the toe tip; a long tail as long as the body, ending in one soft upward curl. Pure flat white body with absolutely no shading, no fur texture and no spots or markings of any kind. Thin continuous sepia-brown outline of slightly varying weight like iron-wire line drawing, only a few thin inner lines for the far legs and the belly. Three drawings of the same character arranged left to right with generous empty space on a plain warm off-white paper background: a full-body standing side profile facing right, a sitting-upright side profile facing right, and a larger head-and-neck side profile facing right. Hand-inked cel, slight film grain, muted early-1980s film color, no labels. It is a leopard, not a deer, not a dog, not a mouse: no antlers, no hooves, no big ears, no long snout. normal body structure, natural proportions, stable clear face, no text, no watermark",
+        "参考图": [
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_00_c.jpg",
+          "refs/B_zhuangshi/ref_02.jpg",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_06_c.jpg",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_01_c.jpg"
+        ]
+      },
+      {
+        "版本": "v3",
+        "结论": "ok：头缩小、颈腿更修长，九色鹿式优雅",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/leo_sheet_v3.png"
+      },
+      {
+        "版本": "fix1",
+        "结论": "ok：一眼是猫科幼豹（主会话 main-01）；旧版鹿相设定图存 _work/asset_attempts/pre_fix1/leo_sheet.png",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix1_leo_sheet.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A01",
+    "file": "leo_crouch.png",
+    "用途": "灰豹蹲伏：S2（0.39×）、S4a–c（≤2.2×，背中段特写）、S4d 坐起前",
+    "尺寸": [
+      1835,
+      587
+    ],
+    "是否透明": true,
+    "提示词": "One single leopard: the same leopard as in the first reference image (a slender white cat, not a deer), identical design, proportions, line and color: lying low at rest on the ground in a sphinx-like crouch, strict side profile facing right, forelegs resting forward on the ground under and in front of the chest with the paws together, hind legs tucked under the haunch, the back long and level, head raised on the long neck gazing calmly into the distance, the long tail lying along the ground behind with its curled tip; a calm, patient waiting pose. Small rounded cat paws with a tiny teal-green dot at the toe tips, short rounded cat ears with pale pink inside, small dark cat nose, almond black eye with one upturned lash stroke. Pure flat white body with no shading, no fur texture and no spots, thin sepia-brown iron-wire outline. 1981 Shanghai Animation Film Studio \"Nine-Colored Deer\" cel style. Full body visible, nothing cropped, isolated on a fully transparent background with clean edges. No antlers, no hooves. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/leo_sheet.png",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_06_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "新幼豹（fix1，按主会话 main-01 / story-01 / style-03 重定造型）：大圆头、短方吻 + 胡须点、小圆耳在头顶（耳内赭黄、耳缘深棕）、琥珀眼 + 黑瞳、泪线、额颊实心小墨点、粗长尾尖三道深环、四肢粗壮；白身无影无斑（身色与环斑由着色器给）。透明底处理（_work/asset_tools/alpha_tool.py clean --harden 40,215）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色、按内容裁空白留 8 px。锚点由 _work/fix1/leo_anchors2.py 量出（叠图 _work/fix1/anchors/）。",
+    "锚点": {
+      "pose": "leo_crouch",
+      "file": "leo_crouch.png",
+      "size": [
+        1835,
+        587
+      ],
+      "coord": "像素原点左上，x 右 y 下；uv=(x/W, y/H) 左上原点（three.js 取样 v=1−y/H）",
+      "scale": {
+        "px_per_m": 1174.4,
+        "head_len_px": 434.5,
+        "head_len_m": 0.37,
+        "note": "蹲姿 鼻尖→尾根 = 1.1 m 定比例尺；其他姿态按头长换算。精灵世界宽 = W / px_per_m 米"
+      },
+      "sprite_world_m": [
+        1.5625,
+        0.4998
+      ],
+      "nose_tip_px": [
+        1732,
+        197
+      ],
+      "eye": {
+        "center": [
+          1579.4,
+          154.0
+        ],
+        "width": 89,
+        "height": 52,
+        "bbox": [
+          1533,
+          129,
+          1622,
+          181
+        ],
+        "pupil": [
+          1588.6,
+          153.7
+        ]
+      },
+      "tail_root_px": [
+        472,
+        482
+      ],
+      "spine_len_px": 692.2,
+      "spine_ctrl": [
+        {
+          "s": 0.0,
+          "px": [
+            1238.6,
+            236.0
+          ],
+          "uv": [
+            0.675,
+            0.402
+          ],
+          "normal_in": [
+            0.0,
+            1.0
+          ],
+          "body_thick_px": 331
+        },
+        {
+          "s": 0.25,
+          "px": [
+            1067.1,
+            248.8
+          ],
+          "uv": [
+            0.5815,
+            0.4239
+          ],
+          "normal_in": [
+            -0.091,
+            0.996
+          ],
+          "body_thick_px": 305
+        },
+        {
+          "s": 0.5,
+          "px": [
+            896.7,
+            220.1
+          ],
+          "uv": [
+            0.4887,
+            0.375
+          ],
+          "normal_in": [
+            -0.196,
+            0.981
+          ],
+          "body_thick_px": 365
+        },
+        {
+          "s": 0.75,
+          "px": [
+            725.7,
+            197.0
+          ],
+          "uv": [
+            0.3955,
+            0.3356
+          ],
+          "normal_in": [
+            0.05,
+            0.999
+          ],
+          "body_thick_px": 375
+        },
+        {
+          "s": 1.0,
+          "px": [
+            561.4,
+            243.3
+          ],
+          "uv": [
+            0.3059,
+            0.4144
+          ],
+          "normal_in": [
+            0.494,
+            0.87
+          ],
+          "body_thick_px": 378
+        }
+      ],
+      "spot_R_world_m": 0.0271,
+      "spot_R_px": 31.8,
+      "spot_note": "设计 R=0.045 m 会让上行 7 枚挤到相切；这里取 min(0.045 m, 0.35×斑距)，环 0（idx 0）再 ×1.156；r_px 为最终半径（个别斑为避线略缩，见 R_coef）",
+      "spots": [
+        {
+          "idx": 0,
+          "slot": "U2",
+          "row": "上行",
+          "px": [
+            1006.0,
+            329.0
+          ],
+          "uv": [
+            0.5482,
+            0.5605
+          ],
+          "R_coef": 1.156,
+          "r_px": 36.7,
+          "rot_deg": -18.0,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 0.4,
+          "ideal_px": [
+            1006.1,
+            328.6
+          ]
+        },
+        {
+          "idx": 1,
+          "slot": "L1",
+          "row": "下行",
+          "px": [
+            1049.0,
+            416.0
+          ],
+          "uv": [
+            0.5717,
+            0.7087
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": -42.5,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.4,
+          "ideal_px": [
+            1049.1,
+            415.6
+          ]
+        },
+        {
+          "idx": 2,
+          "slot": "L2",
+          "row": "下行",
+          "px": [
+            939.0,
+            421.0
+          ],
+          "uv": [
+            0.5117,
+            0.7172
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": 95.0,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 0.5,
+          "ideal_px": [
+            939.2,
+            421.4
+          ]
+        },
+        {
+          "idx": 3,
+          "slot": "U1",
+          "row": "上行",
+          "px": [
+            1113.0,
+            336.0
+          ],
+          "uv": [
+            0.6065,
+            0.5724
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": -127.5,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 0.2,
+          "ideal_px": [
+            1113.2,
+            335.8
+          ]
+        },
+        {
+          "idx": 4,
+          "slot": "U3",
+          "row": "上行",
+          "px": [
+            906.0,
+            325.0
+          ],
+          "uv": [
+            0.4937,
+            0.5537
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": 10.0,
+          "color": "#CEA5DD",
+          "color_name": "藕荷",
+          "moved_px": 0.2,
+          "ideal_px": [
+            905.8,
+            325.0
+          ]
+        },
+        {
+          "idx": 5,
+          "slot": "L0",
+          "row": "下行",
+          "px": [
+            1212.0,
+            417.0
+          ],
+          "uv": [
+            0.6605,
+            0.7104
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": 147.5,
+          "color": "#E7969F",
+          "color_name": "粉",
+          "moved_px": 21.9,
+          "ideal_px": [
+            1190.7,
+            422.0
+          ]
+        },
+        {
+          "idx": 6,
+          "slot": "L3",
+          "row": "下行",
+          "px": [
+            859.0,
+            425.0
+          ],
+          "uv": [
+            0.4681,
+            0.724
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": -75.0,
+          "color": "#9BCCF4",
+          "color_name": "天青",
+          "moved_px": 25.0,
+          "ideal_px": [
+            836.6,
+            413.7
+          ]
+        },
+        {
+          "idx": 7,
+          "slot": "U0",
+          "row": "上行",
+          "px": [
+            1218.0,
+            331.0
+          ],
+          "uv": [
+            0.6638,
+            0.5639
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": 62.6,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 0.1,
+          "ideal_px": [
+            1218.0,
+            330.9
+          ]
+        },
+        {
+          "idx": 8,
+          "slot": "U4",
+          "row": "上行",
+          "px": [
+            842.0,
+            283.0
+          ],
+          "uv": [
+            0.4589,
+            0.4821
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": -159.9,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 37.3,
+          "ideal_px": [
+            816.0,
+            309.7
+          ]
+        },
+        {
+          "idx": 9,
+          "slot": "L4",
+          "row": "下行",
+          "px": [
+            768.0,
+            405.0
+          ],
+          "uv": [
+            0.4185,
+            0.6899
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": -22.4,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 0.4,
+          "ideal_px": [
+            767.7,
+            404.8
+          ]
+        },
+        {
+          "idx": 10,
+          "slot": "U5",
+          "row": "上行",
+          "px": [
+            735.0,
+            305.0
+          ],
+          "uv": [
+            0.4005,
+            0.5196
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": 115.1,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 3.1,
+          "ideal_px": [
+            734.9,
+            301.9
+          ]
+        },
+        {
+          "idx": 11,
+          "slot": "L5",
+          "row": "下行",
+          "px": [
+            694.0,
+            404.0
+          ],
+          "uv": [
+            0.3782,
+            0.6882
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": -107.4,
+          "color": "#CEA5DD",
+          "color_name": "藕荷",
+          "moved_px": 24.6,
+          "ideal_px": [
+            718.6,
+            403.8
+          ]
+        },
+        {
+          "idx": 12,
+          "slot": "U6",
+          "row": "上行",
+          "px": [
+            662.0,
+            316.0
+          ],
+          "uv": [
+            0.3608,
+            0.5383
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": 30.1,
+          "color": "#E7969F",
+          "color_name": "粉",
+          "moved_px": 16.0,
+          "ideal_px": [
+            675.6,
+            307.7
+          ]
+        },
+        {
+          "idx": 13,
+          "slot": "H0",
+          "row": "后腿根",
+          "px": [
+            624.0,
+            379.0
+          ],
+          "uv": [
+            0.3401,
+            0.6457
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": 167.6,
+          "color": "#9BCCF4",
+          "color_name": "天青",
+          "moved_px": 66.6,
+          "ideal_px": [
+            690.0,
+            370.0
+          ]
+        },
+        {
+          "idx": 14,
+          "slot": "H1",
+          "row": "后腿根",
+          "px": [
+            674.0,
+            475.0
+          ],
+          "uv": [
+            0.3673,
+            0.8092
+          ],
+          "R_coef": 1.0,
+          "r_px": 31.8,
+          "rot_deg": -54.9,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 64.2,
+          "ideal_px": [
+            735.0,
+            455.0
+          ]
+        },
+        {
+          "idx": 15,
+          "slot": "T0",
+          "row": "尾",
+          "px": [
+            417.0,
+            480.0
+          ],
+          "uv": [
+            0.2272,
+            0.8177
+          ],
+          "R_coef": 0.6,
+          "r_px": 19.1,
+          "rot_deg": 82.6,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.5,
+          "ideal_px": [
+            417.0,
+            480.5
+          ]
+        },
+        {
+          "idx": 16,
+          "slot": "T1",
+          "row": "尾",
+          "px": [
+            362.0,
+            496.0
+          ],
+          "uv": [
+            0.1973,
+            0.845
+          ],
+          "R_coef": 0.5,
+          "r_px": 15.9,
+          "rot_deg": -139.9,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 18.7,
+          "ideal_px": [
+            358.7,
+            477.6
+          ]
+        },
+        {
+          "idx": 17,
+          "slot": "T2",
+          "row": "尾",
+          "px": [
+            298.0,
+            499.0
+          ],
+          "uv": [
+            0.1624,
+            0.8501
+          ],
+          "R_coef": 0.4,
+          "r_px": 12.7,
+          "rot_deg": -2.4,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 23.1,
+          "ideal_px": [
+            300.4,
+            476.0
+          ]
+        }
+      ],
+      "slot_order": [
+        "U2",
+        "L1",
+        "L2",
+        "U1",
+        "U3",
+        "L0",
+        "L3",
+        "U0",
+        "U4",
+        "L4",
+        "U5",
+        "L5",
+        "U6",
+        "H0",
+        "H1",
+        "T0",
+        "T1",
+        "T2"
+      ],
+      "bbox_px": [
+        9,
+        8,
+        1827,
+        579
+      ],
+      "ground_y_px": 578,
+      "foot_pivot_px": [
+        640,
+        562
+      ],
+      "foot_pivot_note": "足底轴心 = 臀部着地点（蹲 A01 → 坐 A02 换姿时两图以此点对齐）",
+      "forepaw_px": [
+        1790,
+        545
+      ],
+      "regions": {
+        "头颈区": {
+          "rect_px": [
+            1270,
+            0,
+            1835,
+            345
+          ],
+          "pivot_px": [
+            1320,
+            330
+          ],
+          "feather_px": 40
+        },
+        "呼吸区": {
+          "rect_px": [
+            430,
+            200,
+            1310,
+            575
+          ],
+          "pivot_y_px": 565,
+          "feather_px": 60,
+          "note": "纵向 ±1.2% 以 pivot_y（腹线/着地线）为轴"
+        },
+        "耳区": {
+          "rect_px": [
+            1300,
+            0,
+            1470,
+            150
+          ],
+          "pivot_px": [
+            1420,
+            140
+          ],
+          "feather_px": 20
+        },
+        "尾区": {
+          "rect_px": [
+            155,
+            426,
+            500,
+            532
+          ],
+          "pivot_px": [
+            472,
+            482
+          ],
+          "feather_px": 40
+        }
+      },
+      "colors": {
+        "body_srgb": [
+          0.98,
+          0.961,
+          0.957
+        ],
+        "line_srgb": [
+          0.392,
+          0.239,
+          0.145
+        ],
+        "note": "着色器按\"线—身\"混合线段重分线与身（离线段 >0.10 的像素算特征色，保留原色）"
+      }
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/leo_crouch_v1.png"
+      },
+      {
+        "版本": "fix1",
+        "结论": "ok：与新设定图一致，透明底半透明 < 2%、边缘无白边",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix1_leo_crouch.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A02",
+    "file": "leo_sit.png",
+    "用途": "坐姿徽记：S4d 坐起后（0.3×）、S5a（0.35×）",
+    "尺寸": [
+      839,
+      1302
+    ],
+    "是否透明": true,
+    "提示词": "One single leopard: the same leopard as in the first reference image (a slender white cat, not a deer), identical design, proportions, line and color: sitting upright with dignity on its haunches, strict side profile facing right, front legs straight and close together, chest lifted, long neck raised, head level looking ahead, the long tail curled neatly around the front paws; an emblematic still pose like a sacred animal in a Dunhuang mural. Small rounded cat paws with a tiny teal-green dot at the toe tips, short rounded cat ears with pale pink inside. Pure flat white body with no shading and no spots, thin sepia-brown iron-wire outline. \"Nine-Colored Deer\" (1981) cel style. Full body visible, nothing cropped, isolated on a fully transparent background with clean edges. No antlers, no hooves. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/leo_sheet.png",
+      "refs/B_zhuangshi/ref_02.jpg"
+    ],
+    "状态": "ok",
+    "备注": "新幼豹（fix1，按主会话 main-01 / story-01 / style-03 重定造型）：大圆头、短方吻 + 胡须点、小圆耳在头顶（耳内赭黄、耳缘深棕）、琥珀眼 + 黑瞳、泪线、额颊实心小墨点、粗长尾尖三道深环、四肢粗壮；白身无影无斑（身色与环斑由着色器给）。透明底处理（_work/asset_tools/alpha_tool.py clean --harden 40,215）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色、按内容裁空白留 8 px。锚点由 _work/fix1/leo_anchors2.py 量出（叠图 _work/fix1/anchors/）。",
+    "锚点": {
+      "pose": "leo_sit",
+      "file": "leo_sit.png",
+      "size": [
+        839,
+        1302
+      ],
+      "coord": "像素原点左上，x 右 y 下；uv=(x/W, y/H) 左上原点（three.js 取样 v=1−y/H）",
+      "scale": {
+        "px_per_m": 1115.4,
+        "head_len_px": 412.7,
+        "head_len_m": 0.37,
+        "note": "蹲姿 鼻尖→尾根 = 1.1 m 定比例尺；其他姿态按头长换算。精灵世界宽 = W / px_per_m 米"
+      },
+      "sprite_world_m": [
+        0.7522,
+        1.1673
+      ],
+      "nose_tip_px": [
+        830,
+        197
+      ],
+      "eye": {
+        "center": [
+          681.3,
+          153.7
+        ],
+        "width": 107,
+        "height": 56,
+        "bbox": [
+          631,
+          129,
+          738,
+          185
+        ],
+        "pupil": [
+          687.9,
+          153.5
+        ]
+      },
+      "tail_root_px": [
+        45,
+        1055
+      ],
+      "spine_len_px": 684.4,
+      "spine_ctrl": [
+        {
+          "s": 0.0,
+          "px": [
+            347.6,
+            421.4
+          ],
+          "uv": [
+            0.4143,
+            0.3236
+          ],
+          "normal_in": [
+            0.939,
+            0.345
+          ],
+          "body_thick_px": 318
+        },
+        {
+          "s": 0.25,
+          "px": [
+            287.8,
+            579.5
+          ],
+          "uv": [
+            0.3431,
+            0.4451
+          ],
+          "normal_in": [
+            0.815,
+            0.58
+          ],
+          "body_thick_px": 368
+        },
+        {
+          "s": 0.5,
+          "px": [
+            171.0,
+            704.0
+          ],
+          "uv": [
+            0.2038,
+            0.5407
+          ],
+          "normal_in": [
+            0.707,
+            0.707
+          ],
+          "body_thick_px": 653
+        },
+        {
+          "s": 0.75,
+          "px": [
+            71.9,
+            842.3
+          ],
+          "uv": [
+            0.0857,
+            0.6469
+          ],
+          "normal_in": [
+            0.91,
+            0.414
+          ],
+          "body_thick_px": 552
+        },
+        {
+          "s": 1.0,
+          "px": [
+            42.6,
+            1008.6
+          ],
+          "uv": [
+            0.0508,
+            0.7747
+          ],
+          "normal_in": [
+            0.991,
+            -0.131
+          ],
+          "body_thick_px": 533
+        }
+      ],
+      "spot_R_world_m": 0.0271,
+      "spot_R_px": 30.2,
+      "spot_note": "设计 R=0.045 m 会让上行 7 枚挤到相切；这里取 min(0.045 m, 0.35×斑距)，环 0（idx 0）再 ×1.156；r_px 为最终半径（个别斑为避线略缩，见 R_coef）",
+      "spots": [
+        {
+          "idx": 0,
+          "slot": "U2",
+          "row": "上行",
+          "px": [
+            346.0,
+            698.0
+          ],
+          "uv": [
+            0.4124,
+            0.5361
+          ],
+          "R_coef": 1.156,
+          "r_px": 34.9,
+          "rot_deg": -18.0,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 0.3,
+          "ideal_px": [
+            346.1,
+            697.7
+          ]
+        },
+        {
+          "idx": 1,
+          "slot": "L1",
+          "row": "下行",
+          "px": [
+            451.0,
+            699.0
+          ],
+          "uv": [
+            0.5375,
+            0.5369
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": -42.5,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.5,
+          "ideal_px": [
+            451.4,
+            698.7
+          ]
+        },
+        {
+          "idx": 2,
+          "slot": "L2",
+          "row": "下行",
+          "px": [
+            432.0,
+            836.0
+          ],
+          "uv": [
+            0.5149,
+            0.6421
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": 95.0,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 17.7,
+          "ideal_px": [
+            414.5,
+            838.7
+          ]
+        },
+        {
+          "idx": 3,
+          "slot": "U1",
+          "row": "上行",
+          "px": [
+            397.0,
+            587.0
+          ],
+          "uv": [
+            0.4732,
+            0.4508
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": -127.5,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 0.3,
+          "ideal_px": [
+            396.7,
+            587.0
+          ]
+        },
+        {
+          "idx": 4,
+          "slot": "U3",
+          "row": "上行",
+          "px": [
+            300.0,
+            758.0
+          ],
+          "uv": [
+            0.3576,
+            0.5822
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": 10.0,
+          "color": "#CEA5DD",
+          "color_name": "藕荷",
+          "moved_px": 31.8,
+          "ideal_px": [
+            301.0,
+            789.8
+          ]
+        },
+        {
+          "idx": 5,
+          "slot": "L0",
+          "row": "下行",
+          "px": [
+            506.0,
+            544.0
+          ],
+          "uv": [
+            0.6031,
+            0.4178
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": 147.5,
+          "color": "#E7969F",
+          "color_name": "粉",
+          "moved_px": 0.5,
+          "ideal_px": [
+            505.5,
+            543.9
+          ]
+        },
+        {
+          "idx": 6,
+          "slot": "L3",
+          "row": "下行",
+          "px": [
+            449.0,
+            950.0
+          ],
+          "uv": [
+            0.5352,
+            0.7296
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": -75.0,
+          "color": "#9BCCF4",
+          "color_name": "天青",
+          "moved_px": 23.8,
+          "ideal_px": [
+            425.7,
+            954.9
+          ]
+        },
+        {
+          "idx": 7,
+          "slot": "U0",
+          "row": "上行",
+          "px": [
+            423.0,
+            472.0
+          ],
+          "uv": [
+            0.5042,
+            0.3625
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": 62.6,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 0.4,
+          "ideal_px": [
+            423.2,
+            472.3
+          ]
+        },
+        {
+          "idx": 8,
+          "slot": "U4",
+          "row": "上行",
+          "px": [
+            269.0,
+            866.0
+          ],
+          "uv": [
+            0.3206,
+            0.6651
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": -159.9,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.4,
+          "ideal_px": [
+            269.0,
+            866.4
+          ]
+        },
+        {
+          "idx": 9,
+          "slot": "L4",
+          "row": "下行",
+          "px": [
+            349.0,
+            960.0
+          ],
+          "uv": [
+            0.416,
+            0.7373
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": -22.4,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 60.8,
+          "ideal_px": [
+            404.2,
+            985.5
+          ]
+        },
+        {
+          "idx": 10,
+          "slot": "U5",
+          "row": "上行",
+          "px": [
+            207.0,
+            900.0
+          ],
+          "uv": [
+            0.2467,
+            0.6912
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": 115.1,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 13.9,
+          "ideal_px": [
+            219.1,
+            893.3
+          ]
+        },
+        {
+          "idx": 11,
+          "slot": "L5",
+          "row": "下行",
+          "px": [
+            309.0,
+            1018.0
+          ],
+          "uv": [
+            0.3683,
+            0.7819
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": -107.4,
+          "color": "#CEA5DD",
+          "color_name": "藕荷",
+          "moved_px": 57.9,
+          "ideal_px": [
+            343.1,
+            971.2
+          ]
+        },
+        {
+          "idx": 12,
+          "slot": "U6",
+          "row": "上行",
+          "px": [
+            188.0,
+            968.0
+          ],
+          "uv": [
+            0.2241,
+            0.7435
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": 30.1,
+          "color": "#E7969F",
+          "color_name": "粉",
+          "moved_px": 20.1,
+          "ideal_px": [
+            194.1,
+            948.9
+          ]
+        },
+        {
+          "idx": 13,
+          "slot": "H0",
+          "row": "后腿根",
+          "px": [
+            136.0,
+            900.0
+          ],
+          "uv": [
+            0.1621,
+            0.6912
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": 167.6,
+          "color": "#9BCCF4",
+          "color_name": "天青",
+          "moved_px": 57.6,
+          "ideal_px": [
+            190.0,
+            880.0
+          ]
+        },
+        {
+          "idx": 14,
+          "slot": "H1",
+          "row": "后腿根",
+          "px": [
+            259.0,
+            968.0
+          ],
+          "uv": [
+            0.3087,
+            0.7435
+          ],
+          "R_coef": 1.0,
+          "r_px": 30.2,
+          "rot_deg": -54.9,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 15.7,
+          "ideal_px": [
+            245.0,
+            975.0
+          ]
+        },
+        {
+          "idx": 15,
+          "slot": "T0",
+          "row": "尾",
+          "px": [
+            63.0,
+            1153.0
+          ],
+          "uv": [
+            0.0751,
+            0.8856
+          ],
+          "R_coef": 0.6,
+          "r_px": 18.1,
+          "rot_deg": 82.6,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.4,
+          "ideal_px": [
+            62.9,
+            1152.6
+          ]
+        },
+        {
+          "idx": 16,
+          "slot": "T1",
+          "row": "尾",
+          "px": [
+            146.0,
+            1211.0
+          ],
+          "uv": [
+            0.174,
+            0.9301
+          ],
+          "R_coef": 0.5,
+          "r_px": 15.1,
+          "rot_deg": -139.9,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 0.4,
+          "ideal_px": [
+            146.4,
+            1211.1
+          ]
+        },
+        {
+          "idx": 17,
+          "slot": "T2",
+          "row": "尾",
+          "px": [
+            249.0,
+            1230.0
+          ],
+          "uv": [
+            0.2968,
+            0.9447
+          ],
+          "R_coef": 0.4,
+          "r_px": 12.1,
+          "rot_deg": -2.4,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 0.1,
+          "ideal_px": [
+            249.1,
+            1230.1
+          ]
+        }
+      ],
+      "slot_order": [
+        "U2",
+        "L1",
+        "L2",
+        "U1",
+        "U3",
+        "L0",
+        "L3",
+        "U0",
+        "U4",
+        "L4",
+        "U5",
+        "L5",
+        "U6",
+        "H0",
+        "H1",
+        "T0",
+        "T1",
+        "T2"
+      ],
+      "bbox_px": [
+        9,
+        8,
+        831,
+        1294
+      ],
+      "ground_y_px": 1293,
+      "foot_pivot_px": [
+        190,
+        1140
+      ],
+      "foot_pivot_note": "足底轴心 = 臀部着地点（蹲 A01 → 坐 A02 换姿时两图以此点对齐）",
+      "forepaw_px": [
+        560,
+        1150
+      ],
+      "regions": {
+        "头颈区": {
+          "rect_px": [
+            300,
+            0,
+            839,
+            340
+          ],
+          "pivot_px": [
+            430,
+            335
+          ],
+          "feather_px": 40
+        },
+        "呼吸区": {
+          "rect_px": [
+            30,
+            330,
+            650,
+            1150
+          ],
+          "pivot_y_px": 1150,
+          "feather_px": 60,
+          "note": "纵向 ±1.2% 以 pivot_y（腹线/着地线）为轴"
+        },
+        "耳区": {
+          "rect_px": [
+            390,
+            0,
+            560,
+            140
+          ],
+          "pivot_px": [
+            500,
+            130
+          ],
+          "feather_px": 20
+        },
+        "尾区": {
+          "rect_px": [
+            -5,
+            1010,
+            450,
+            1290
+          ],
+          "pivot_px": [
+            45,
+            1055
+          ],
+          "feather_px": 40
+        }
+      },
+      "colors": {
+        "body_srgb": [
+          0.992,
+          0.988,
+          0.992
+        ],
+        "line_srgb": [
+          0.376,
+          0.22,
+          0.086
+        ],
+        "note": "着色器按\"线—身\"混合线段重分线与身（离线段 >0.10 的像素算特征色，保留原色）"
+      }
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/leo_sit_v1.png"
+      },
+      {
+        "版本": "fix1",
+        "结论": "ok：与新设定图一致，透明底半透明 < 2%、边缘无白边",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix1_leo_sit.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A03",
+    "file": "leo_takeoff.png",
+    "用途": "起跳：S5a 末 f520 → S5b f525（0.3×）",
+    "尺寸": [
+      1256,
+      1000
+    ],
+    "是否透明": true,
+    "提示词": "One single leopard: the same leopard as in the first reference image (a slender white cat, not a deer), identical design, proportions, line and color: springing upward in a powerful takeoff, strict side profile facing right, the body rising diagonally toward the upper right, hind legs extended down and back still pushing off, forelegs lifted and folded close to the chest, neck stretched forward and up, tail streaming down behind. Small rounded cat paws with a tiny teal-green dot at the toe tips, short rounded cat ears with pale pink inside. Pure flat white body with no shading and no spots, thin sepia-brown iron-wire outline. \"Nine-Colored Deer\" (1981) cel style. Full body visible, nothing cropped, isolated on a fully transparent background with clean edges. No antlers, no hooves. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/leo_sheet.png",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_04_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "新幼豹（fix1，按主会话 main-01 / story-01 / style-03 重定造型）：大圆头、短方吻 + 胡须点、小圆耳在头顶（耳内赭黄、耳缘深棕）、琥珀眼 + 黑瞳、泪线、额颊实心小墨点、粗长尾尖三道深环、四肢粗壮；白身无影无斑（身色与环斑由着色器给）。透明底处理（_work/asset_tools/alpha_tool.py clean --harden 40,215）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色、按内容裁空白留 8 px。锚点由 _work/fix1/leo_anchors2.py 量出（叠图 _work/fix1/anchors/）。",
+    "锚点": {
+      "pose": "leo_takeoff",
+      "file": "leo_takeoff.png",
+      "size": [
+        1256,
+        1000
+      ],
+      "coord": "像素原点左上，x 右 y 下；uv=(x/W, y/H) 左上原点（three.js 取样 v=1−y/H）",
+      "scale": {
+        "px_per_m": 701.8,
+        "head_len_px": 259.6,
+        "head_len_m": 0.37,
+        "note": "蹲姿 鼻尖→尾根 = 1.1 m 定比例尺；其他姿态按头长换算。精灵世界宽 = W / px_per_m 米"
+      },
+      "sprite_world_m": [
+        1.7898,
+        1.425
+      ],
+      "nose_tip_px": [
+        1247,
+        117
+      ],
+      "eye": {
+        "center": [
+          1139.7,
+          96.3
+        ],
+        "width": 82,
+        "height": 37,
+        "bbox": [
+          1096,
+          81,
+          1178,
+          118
+        ],
+        "pupil": [
+          1141.3,
+          95.5
+        ]
+      },
+      "tail_root_px": [
+        442,
+        492
+      ],
+      "spine_len_px": 426.6,
+      "spine_ctrl": [
+        {
+          "s": 0.0,
+          "px": [
+            858.6,
+            263.8
+          ],
+          "uv": [
+            0.6836,
+            0.2638
+          ],
+          "normal_in": [
+            0.525,
+            0.851
+          ],
+          "body_thick_px": 219
+        },
+        {
+          "s": 0.25,
+          "px": [
+            784.6,
+            339.4
+          ],
+          "uv": [
+            0.6247,
+            0.3394
+          ],
+          "normal_in": [
+            0.707,
+            0.707
+          ],
+          "body_thick_px": 186
+        },
+        {
+          "s": 0.5,
+          "px": [
+            694.2,
+            394.1
+          ],
+          "uv": [
+            0.5527,
+            0.3941
+          ],
+          "normal_in": [
+            0.287,
+            0.958
+          ],
+          "body_thick_px": 153
+        },
+        {
+          "s": 0.75,
+          "px": [
+            592.0,
+            423.5
+          ],
+          "uv": [
+            0.4714,
+            0.4235
+          ],
+          "normal_in": [
+            0.401,
+            0.916
+          ],
+          "body_thick_px": 169
+        },
+        {
+          "s": 1.0,
+          "px": [
+            501.4,
+            479.2
+          ],
+          "uv": [
+            0.3992,
+            0.4792
+          ],
+          "normal_in": [
+            0.525,
+            0.851
+          ],
+          "body_thick_px": 210
+        }
+      ],
+      "spot_R_world_m": 0.0271,
+      "spot_R_px": 19.0,
+      "spot_note": "设计 R=0.045 m 会让上行 7 枚挤到相切；这里取 min(0.045 m, 0.35×斑距)，环 0（idx 0）再 ×1.156；r_px 为最终半径（个别斑为避线略缩，见 R_coef）",
+      "spots": [
+        {
+          "idx": 0,
+          "slot": "U2",
+          "row": "上行",
+          "px": [
+            790.0,
+            396.0
+          ],
+          "uv": [
+            0.629,
+            0.396
+          ],
+          "R_coef": 1.156,
+          "r_px": 22.0,
+          "rot_deg": -18.0,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 0.6,
+          "ideal_px": [
+            789.5,
+            395.7
+          ]
+        },
+        {
+          "idx": 1,
+          "slot": "L1",
+          "row": "下行",
+          "px": [
+            877.0,
+            420.0
+          ],
+          "uv": [
+            0.6982,
+            0.42
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": -42.5,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 22.4,
+          "ideal_px": [
+            855.7,
+            413.0
+          ]
+        },
+        {
+          "idx": 2,
+          "slot": "L2",
+          "row": "下行",
+          "px": [
+            781.0,
+            452.0
+          ],
+          "uv": [
+            0.6218,
+            0.452
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": 95.0,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 0.3,
+          "ideal_px": [
+            781.3,
+            451.9
+          ]
+        },
+        {
+          "idx": 3,
+          "slot": "U1",
+          "row": "上行",
+          "px": [
+            858.0,
+            354.0
+          ],
+          "uv": [
+            0.6831,
+            0.354
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": -127.5,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 15.2,
+          "ideal_px": [
+            868.9,
+            364.6
+          ]
+        },
+        {
+          "idx": 4,
+          "slot": "U3",
+          "row": "上行",
+          "px": [
+            729.0,
+            427.0
+          ],
+          "uv": [
+            0.5804,
+            0.427
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": 10.0,
+          "color": "#CEA5DD",
+          "color_name": "藕荷",
+          "moved_px": 0.3,
+          "ideal_px": [
+            729.3,
+            426.9
+          ]
+        },
+        {
+          "idx": 5,
+          "slot": "L0",
+          "row": "下行",
+          "px": [
+            941.0,
+            407.0
+          ],
+          "uv": [
+            0.7492,
+            0.407
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": 147.5,
+          "color": "#E7969F",
+          "color_name": "粉",
+          "moved_px": 6.4,
+          "ideal_px": [
+            939.0,
+            400.9
+          ]
+        },
+        {
+          "idx": 6,
+          "slot": "L3",
+          "row": "下行",
+          "px": [
+            709.0,
+            477.0
+          ],
+          "uv": [
+            0.5645,
+            0.477
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": -75.0,
+          "color": "#9BCCF4",
+          "color_name": "天青",
+          "moved_px": 0.6,
+          "ideal_px": [
+            708.6,
+            477.5
+          ]
+        },
+        {
+          "idx": 7,
+          "slot": "U0",
+          "row": "上行",
+          "px": [
+            885.0,
+            314.0
+          ],
+          "uv": [
+            0.7046,
+            0.314
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": 62.6,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 11.0,
+          "ideal_px": [
+            879.4,
+            323.5
+          ]
+        },
+        {
+          "idx": 8,
+          "slot": "U4",
+          "row": "上行",
+          "px": [
+            666.0,
+            448.0
+          ],
+          "uv": [
+            0.5303,
+            0.448
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": -159.9,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.6,
+          "ideal_px": [
+            665.5,
+            447.7
+          ]
+        },
+        {
+          "idx": 9,
+          "slot": "L4",
+          "row": "下行",
+          "px": [
+            653.0,
+            498.0
+          ],
+          "uv": [
+            0.5199,
+            0.498
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": -22.4,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 0.3,
+          "ideal_px": [
+            652.7,
+            498.2
+          ]
+        },
+        {
+          "idx": 10,
+          "slot": "U5",
+          "row": "上行",
+          "px": [
+            619.0,
+            463.0
+          ],
+          "uv": [
+            0.4928,
+            0.463
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": 115.1,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 0.1,
+          "ideal_px": [
+            618.9,
+            463.0
+          ]
+        },
+        {
+          "idx": 11,
+          "slot": "L5",
+          "row": "下行",
+          "px": [
+            609.0,
+            518.0
+          ],
+          "uv": [
+            0.4849,
+            0.518
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": -107.4,
+          "color": "#CEA5DD",
+          "color_name": "藕荷",
+          "moved_px": 12.7,
+          "ideal_px": [
+            620.8,
+            513.3
+          ]
+        },
+        {
+          "idx": 12,
+          "slot": "U6",
+          "row": "上行",
+          "px": [
+            575.0,
+            484.0
+          ],
+          "uv": [
+            0.4578,
+            0.484
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": 30.1,
+          "color": "#E7969F",
+          "color_name": "粉",
+          "moved_px": 2.7,
+          "ideal_px": [
+            577.1,
+            485.7
+          ]
+        },
+        {
+          "idx": 13,
+          "slot": "H0",
+          "row": "后腿根",
+          "px": [
+            520.0,
+            500.0
+          ],
+          "uv": [
+            0.414,
+            0.5
+          ],
+          "R_coef": 1.0,
+          "r_px": 19.0,
+          "rot_deg": 167.6,
+          "color": "#9BCCF4",
+          "color_name": "天青",
+          "moved_px": 0.0,
+          "ideal_px": [
+            520.0,
+            500.0
+          ]
+        },
+        {
+          "idx": 14,
+          "slot": "H1",
+          "row": "后腿根",
+          "px": [
+            557.0,
+            524.0
+          ],
+          "uv": [
+            0.4435,
+            0.524
+          ],
+          "R_coef": 0.779,
+          "r_px": 14.8,
+          "rot_deg": -54.9,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 74.5,
+          "ideal_px": [
+            585.0,
+            455.0
+          ]
+        },
+        {
+          "idx": 15,
+          "slot": "T0",
+          "row": "尾",
+          "px": [
+            411.0,
+            561.0
+          ],
+          "uv": [
+            0.3272,
+            0.561
+          ],
+          "R_coef": 0.6,
+          "r_px": 11.4,
+          "rot_deg": 82.6,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 23.5,
+          "ideal_px": [
+            393.9,
+            544.9
+          ]
+        },
+        {
+          "idx": 16,
+          "slot": "T1",
+          "row": "尾",
+          "px": [
+            360.0,
+            610.0
+          ],
+          "uv": [
+            0.2866,
+            0.61
+          ],
+          "R_coef": 0.5,
+          "r_px": 9.5,
+          "rot_deg": -139.9,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 21.7,
+          "ideal_px": [
+            341.7,
+            598.3
+          ]
+        },
+        {
+          "idx": 17,
+          "slot": "T2",
+          "row": "尾",
+          "px": [
+            313.0,
+            667.0
+          ],
+          "uv": [
+            0.2492,
+            0.667
+          ],
+          "R_coef": 0.4,
+          "r_px": 7.6,
+          "rot_deg": -2.4,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 28.9,
+          "ideal_px": [
+            288.9,
+            651.1
+          ]
+        }
+      ],
+      "slot_order": [
+        "U2",
+        "L1",
+        "L2",
+        "U1",
+        "U3",
+        "L0",
+        "L3",
+        "U0",
+        "U4",
+        "L4",
+        "U5",
+        "L5",
+        "U6",
+        "H0",
+        "H1",
+        "T0",
+        "T1",
+        "T2"
+      ],
+      "bbox_px": [
+        9,
+        9,
+        1248,
+        991
+      ],
+      "ground_y_px": 990,
+      "cog_px": [
+        781.3,
+        419.3
+      ],
+      "regions": {
+        "头颈区": {
+          "rect_px": [
+            900,
+            0,
+            1256,
+            240
+          ],
+          "pivot_px": [
+            930,
+            240
+          ],
+          "feather_px": 40
+        },
+        "呼吸区": {
+          "rect_px": [
+            440,
+            250,
+            1000,
+            540
+          ],
+          "pivot_y_px": null,
+          "feather_px": 60,
+          "note": "飞行姿态：作躯干整体区（起伏、压扁拉长）"
+        },
+        "尾区": {
+          "rect_px": [
+            150,
+            445,
+            470,
+            785
+          ],
+          "pivot_px": [
+            442,
+            492
+          ],
+          "feather_px": 40
+        }
+      },
+      "colors": {
+        "body_srgb": [
+          0.984,
+          0.965,
+          0.953
+        ],
+        "line_srgb": [
+          0.392,
+          0.243,
+          0.122
+        ],
+        "note": "着色器按\"线—身\"混合线段重分线与身（离线段 >0.10 的像素算特征色，保留原色）"
+      }
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/leo_takeoff_v1.png"
+      },
+      {
+        "版本": "fix1",
+        "结论": "ok：与新设定图一致，透明底半透明 < 2%、边缘无白边",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix1_leo_takeoff.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A04",
+    "file": "leo_leap.png",
+    "用途": "腾跃伸展：S5b f526–f566、S5c、#8（0.2–0.5×）",
+    "尺寸": [
+      2018,
+      509
+    ],
+    "是否透明": true,
+    "提示词": "One single leopard: the same leopard as in the first reference image (a slender white cat, not a deer), identical design, proportions, line and color: flying through the air at full horizontal stretch, strict side profile facing right, exactly like the leaping white deer of \"Nine-Colored Deer\" (1981): body long, level and weightless in one continuous line, both forelegs reaching far forward together, both hind legs stretched straight back together, the long tail streaming behind in a gentle S-curve with a soft curl at the tip, head forward and level. Small rounded cat paws with a tiny teal-green dot at the toe tips, short rounded cat ears with pale pink inside. Pure flat white body with no shading and no spots, thin sepia-brown iron-wire outline. Full body visible, nothing cropped, isolated on a fully transparent background with clean edges. No antlers, no hooves. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/leo_sheet.png",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_03_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "新幼豹（fix1，按主会话 main-01 / story-01 / style-03 重定造型）：大圆头、短方吻 + 胡须点、小圆耳在头顶（耳内赭黄、耳缘深棕）、琥珀眼 + 黑瞳、泪线、额颊实心小墨点、粗长尾尖三道深环、四肢粗壮；白身无影无斑（身色与环斑由着色器给）。透明底处理（_work/asset_tools/alpha_tool.py clean --harden 40,215）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色、按内容裁空白留 8 px。锚点由 _work/fix1/leo_anchors2.py 量出（叠图 _work/fix1/anchors/）。",
+    "锚点": {
+      "pose": "leo_leap",
+      "file": "leo_leap.png",
+      "size": [
+        2018,
+        509
+      ],
+      "coord": "像素原点左上，x 右 y 下；uv=(x/W, y/H) 左上原点（three.js 取样 v=1−y/H）",
+      "scale": {
+        "px_per_m": 898.8,
+        "head_len_px": 332.5,
+        "head_len_m": 0.37,
+        "note": "蹲姿 鼻尖→尾根 = 1.1 m 定比例尺；其他姿态按头长换算。精灵世界宽 = W / px_per_m 米"
+      },
+      "sprite_world_m": [
+        2.2453,
+        0.5663
+      ],
+      "nose_tip_px": [
+        1851,
+        172
+      ],
+      "eye": {
+        "center": [
+          1717.1,
+          138.6
+        ],
+        "width": 79,
+        "height": 41,
+        "bbox": [
+          1680,
+          120,
+          1759,
+          161
+        ],
+        "pupil": [
+          1726.3,
+          139.0
+        ]
+      },
+      "tail_root_px": [
+        684,
+        216
+      ],
+      "spine_len_px": 718.1,
+      "spine_ctrl": [
+        {
+          "s": 0.0,
+          "px": [
+            1418.6,
+            178.3
+          ],
+          "uv": [
+            0.703,
+            0.3502
+          ],
+          "normal_in": [
+            0.167,
+            0.986
+          ],
+          "body_thick_px": 268
+        },
+        {
+          "s": 0.25,
+          "px": [
+            1248.5,
+            230.5
+          ],
+          "uv": [
+            0.6187,
+            0.4529
+          ],
+          "normal_in": [
+            0.091,
+            0.996
+          ],
+          "body_thick_px": 220
+        },
+        {
+          "s": 0.5,
+          "px": [
+            1072.4,
+            201.3
+          ],
+          "uv": [
+            0.5314,
+            0.3954
+          ],
+          "normal_in": [
+            -0.291,
+            0.957
+          ],
+          "body_thick_px": 222
+        },
+        {
+          "s": 0.75,
+          "px": [
+            897.4,
+            164.0
+          ],
+          "uv": [
+            0.4447,
+            0.3222
+          ],
+          "normal_in": [
+            -0.036,
+            0.999
+          ],
+          "body_thick_px": 217
+        },
+        {
+          "s": 1.0,
+          "px": [
+            721.4,
+            192.0
+          ],
+          "uv": [
+            0.3575,
+            0.3772
+          ],
+          "normal_in": [
+            0.0,
+            1.0
+          ],
+          "body_thick_px": 222
+        }
+      ],
+      "spot_R_world_m": 0.0271,
+      "spot_R_px": 24.4,
+      "spot_note": "设计 R=0.045 m 会让上行 7 枚挤到相切；这里取 min(0.045 m, 0.35×斑距)，环 0（idx 0）再 ×1.156；r_px 为最终半径（个别斑为避线略缩，见 R_coef）",
+      "spots": [
+        {
+          "idx": 0,
+          "slot": "U2",
+          "row": "上行",
+          "px": [
+            1192.0,
+            292.0
+          ],
+          "uv": [
+            0.5907,
+            0.5737
+          ],
+          "R_coef": 1.156,
+          "r_px": 28.2,
+          "rot_deg": -18.0,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 0.4,
+          "ideal_px": [
+            1192.0,
+            291.6
+          ]
+        },
+        {
+          "idx": 1,
+          "slot": "L1",
+          "row": "下行",
+          "px": [
+            1256.0,
+            351.0
+          ],
+          "uv": [
+            0.6224,
+            0.6896
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": -42.5,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.6,
+          "ideal_px": [
+            1255.6,
+            351.4
+          ]
+        },
+        {
+          "idx": 2,
+          "slot": "L2",
+          "row": "下行",
+          "px": [
+            1126.0,
+            345.0
+          ],
+          "uv": [
+            0.558,
+            0.6778
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": 95.0,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 0.3,
+          "ideal_px": [
+            1126.2,
+            344.7
+          ]
+        },
+        {
+          "idx": 3,
+          "slot": "U1",
+          "row": "上行",
+          "px": [
+            1319.0,
+            278.0
+          ],
+          "uv": [
+            0.6536,
+            0.5462
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": -127.5,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 0.1,
+          "ideal_px": [
+            1319.0,
+            277.9
+          ]
+        },
+        {
+          "idx": 4,
+          "slot": "U3",
+          "row": "上行",
+          "px": [
+            1087.0,
+            271.0
+          ],
+          "uv": [
+            0.5387,
+            0.5324
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": 10.0,
+          "color": "#CEA5DD",
+          "color_name": "藕荷",
+          "moved_px": 0.5,
+          "ideal_px": [
+            1087.3,
+            271.3
+          ]
+        },
+        {
+          "idx": 5,
+          "slot": "L0",
+          "row": "下行",
+          "px": [
+            1394.0,
+            328.0
+          ],
+          "uv": [
+            0.6908,
+            0.6444
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": 147.5,
+          "color": "#E7969F",
+          "color_name": "粉",
+          "moved_px": 0.4,
+          "ideal_px": [
+            1393.9,
+            327.6
+          ]
+        },
+        {
+          "idx": 6,
+          "slot": "L3",
+          "row": "下行",
+          "px": [
+            1023.0,
+            313.0
+          ],
+          "uv": [
+            0.5069,
+            0.6149
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": -75.0,
+          "color": "#9BCCF4",
+          "color_name": "天青",
+          "moved_px": 0.2,
+          "ideal_px": [
+            1023.1,
+            313.2
+          ]
+        },
+        {
+          "idx": 7,
+          "slot": "U0",
+          "row": "上行",
+          "px": [
+            1400.0,
+            255.0
+          ],
+          "uv": [
+            0.6938,
+            0.501
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": 62.6,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 0.2,
+          "ideal_px": [
+            1400.0,
+            255.2
+          ]
+        },
+        {
+          "idx": 8,
+          "slot": "U4",
+          "row": "上行",
+          "px": [
+            994.0,
+            242.0
+          ],
+          "uv": [
+            0.4926,
+            0.4754
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": -159.9,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.1,
+          "ideal_px": [
+            994.0,
+            242.1
+          ]
+        },
+        {
+          "idx": 9,
+          "slot": "L4",
+          "row": "下行",
+          "px": [
+            941.0,
+            290.0
+          ],
+          "uv": [
+            0.4663,
+            0.5697
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": -22.4,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 0.3,
+          "ideal_px": [
+            941.1,
+            290.3
+          ]
+        },
+        {
+          "idx": 10,
+          "slot": "U5",
+          "row": "上行",
+          "px": [
+            910.0,
+            226.0
+          ],
+          "uv": [
+            0.4509,
+            0.444
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": 115.1,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 0.3,
+          "ideal_px": [
+            909.8,
+            225.8
+          ]
+        },
+        {
+          "idx": 11,
+          "slot": "L5",
+          "row": "下行",
+          "px": [
+            872.0,
+            282.0
+          ],
+          "uv": [
+            0.4321,
+            0.554
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": -107.4,
+          "color": "#CEA5DD",
+          "color_name": "藕荷",
+          "moved_px": 0.2,
+          "ideal_px": [
+            872.0,
+            282.2
+          ]
+        },
+        {
+          "idx": 12,
+          "slot": "U6",
+          "row": "上行",
+          "px": [
+            830.0,
+            227.0
+          ],
+          "uv": [
+            0.4113,
+            0.446
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": 30.1,
+          "color": "#E7969F",
+          "color_name": "粉",
+          "moved_px": 0.5,
+          "ideal_px": [
+            829.6,
+            227.4
+          ]
+        },
+        {
+          "idx": 13,
+          "slot": "H0",
+          "row": "后腿根",
+          "px": [
+            735.0,
+            285.0
+          ],
+          "uv": [
+            0.3642,
+            0.5599
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": 167.6,
+          "color": "#9BCCF4",
+          "color_name": "天青",
+          "moved_px": 0.0,
+          "ideal_px": [
+            735.0,
+            285.0
+          ]
+        },
+        {
+          "idx": 14,
+          "slot": "H1",
+          "row": "后腿根",
+          "px": [
+            800.0,
+            320.0
+          ],
+          "uv": [
+            0.3964,
+            0.6287
+          ],
+          "R_coef": 1.0,
+          "r_px": 24.4,
+          "rot_deg": -54.9,
+          "color": "#4995C6",
+          "color_name": "石青",
+          "moved_px": 0.0,
+          "ideal_px": [
+            800.0,
+            320.0
+          ]
+        },
+        {
+          "idx": 15,
+          "slot": "T0",
+          "row": "尾",
+          "px": [
+            601.0,
+            190.0
+          ],
+          "uv": [
+            0.2978,
+            0.3733
+          ],
+          "R_coef": 0.6,
+          "r_px": 14.6,
+          "rot_deg": 82.6,
+          "color": "#E47049",
+          "color_name": "朱橘",
+          "moved_px": 0.6,
+          "ideal_px": [
+            601.4,
+            190.4
+          ]
+        },
+        {
+          "idx": 16,
+          "slot": "T1",
+          "row": "尾",
+          "px": [
+            515.0,
+            164.0
+          ],
+          "uv": [
+            0.2552,
+            0.3222
+          ],
+          "R_coef": 0.5,
+          "r_px": 12.2,
+          "rot_deg": -139.9,
+          "color": "#75AE9F",
+          "color_name": "石绿",
+          "moved_px": 0.3,
+          "ideal_px": [
+            514.7,
+            164.0
+          ]
+        },
+        {
+          "idx": 17,
+          "slot": "T2",
+          "row": "尾",
+          "px": [
+            425.0,
+            151.0
+          ],
+          "uv": [
+            0.2106,
+            0.2967
+          ],
+          "R_coef": 0.4,
+          "r_px": 9.7,
+          "rot_deg": -2.4,
+          "color": "#EDB730",
+          "color_name": "雌黄",
+          "moved_px": 0.7,
+          "ideal_px": [
+            425.5,
+            151.5
+          ]
+        }
+      ],
+      "slot_order": [
+        "U2",
+        "L1",
+        "L2",
+        "U1",
+        "U3",
+        "L0",
+        "L3",
+        "U0",
+        "U4",
+        "L4",
+        "U5",
+        "L5",
+        "U6",
+        "H0",
+        "H1",
+        "T0",
+        "T1",
+        "T2"
+      ],
+      "bbox_px": [
+        8,
+        8,
+        2009,
+        501
+      ],
+      "ground_y_px": 500,
+      "cog_px": [
+        1061.0,
+        305.1
+      ],
+      "regions": {
+        "头颈区": {
+          "rect_px": [
+            1440,
+            0,
+            2018,
+            300
+          ],
+          "pivot_px": [
+            1460,
+            262
+          ],
+          "feather_px": 40
+        },
+        "呼吸区": {
+          "rect_px": [
+            600,
+            150,
+            1500,
+            445
+          ],
+          "pivot_y_px": null,
+          "feather_px": 60,
+          "note": "飞行姿态：作躯干整体区（起伏、压扁拉长）"
+        },
+        "尾区": {
+          "rect_px": [
+            230,
+            100,
+            710,
+            265
+          ],
+          "pivot_px": [
+            684,
+            216
+          ],
+          "feather_px": 40
+        }
+      },
+      "colors": {
+        "body_srgb": [
+          0.973,
+          0.945,
+          0.925
+        ],
+        "line_srgb": [
+          0.349,
+          0.224,
+          0.149
+        ],
+        "note": "着色器按\"线—身\"混合线段重分线与身（离线段 >0.10 的像素算特征色，保留原色）"
+      }
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/leo_leap_v1.png"
+      },
+      {
+        "版本": "fix1",
+        "结论": "ok：与新设定图一致，透明底半透明 < 2%、边缘无白边",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix1_leo_leap.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A05",
+    "file": "leo_head.png",
+    "用途": "豹头像：#9（0.8×）、T2（≈3.5×，眼由代码重画）",
+    "尺寸": [
+      1159,
+      1161
+    ],
+    "是否透明": true,
+    "提示词": "Close-up of the same leopard's head and upper neck from the first reference image (a slender white cat, not a deer), strict side profile facing right, filling most of the frame, the upper neck running down to the lower left edge: a large almond-shaped black eye with one upturned lash stroke and one tiny white highlight, small short rounded cat ear with pale pink inner ear, domed forehead, short muzzle with a soft whisker pad, small dark triangular cat nose, small chin, calm noble expression. Pure flat white with no shading and no fur texture, thin sepia-brown outline drawn cleanly at this large size, no stray lines on the forehead or muzzle, 1981 \"Nine-Colored Deer\" cel style. Isolated on a fully transparent background with clean edges. No antlers. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/leo_sheet.png",
+      "films/B_zhuangshi/_work/asset_attempts/fix1_leo_crouch.png"
+    ],
+    "状态": "ok",
+    "备注": "新幼豹（fix1，按主会话 main-01 / story-01 / style-03 重定造型）：大圆头、短方吻 + 胡须点、小圆耳在头顶（耳内赭黄、耳缘深棕）、琥珀眼 + 黑瞳、泪线、额颊实心小墨点、粗长尾尖三道深环、四肢粗壮；白身无影无斑（身色与环斑由着色器给）。头像：猫科头骨、短吻须垫、耳在头顶、泪线、直嘴线；细线（约 5 px）。透明底处理（_work/asset_tools/alpha_tool.py clean --harden 40,215）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        1159,
+        1161
+      ],
+      "scale": {
+        "px_per_m": 2757.9,
+        "note": "按虹膜宽与 A01 同一只豹换算"
+      },
+      "eye": {
+        "center_px": [
+          804.3,
+          349.2
+        ],
+        "width_px": 209,
+        "height_px": 102,
+        "bbox_px": [
+          706,
+          299,
+          915,
+          401
+        ],
+        "pupil_px": [
+          838.1,
+          349.6
+        ],
+        "highlight_px": [
+          855.0,
+          333.0
+        ],
+        "note": "eye = 杏仁眼的琥珀虹膜块；highlight 是图里瞳孔上的白点，T2 代码高光叠在这里并对齐 P_g；T2 眼框内保留原色（不换线色）"
+      },
+      "nose_tip_px": [
+        1150,
+        453
+      ],
+      "neck_spots": [
+        {
+          "idx": 0,
+          "px": [
+            405.0,
+            925.0
+          ],
+          "r_px": 74.7,
+          "color": "#4995C6"
+        },
+        {
+          "idx": 1,
+          "px": [
+            560.0,
+            1070.0
+          ],
+          "r_px": 74.7,
+          "color": "#E47049"
+        }
+      ],
+      "colors": {
+        "body_srgb": [
+          0.992,
+          0.988,
+          0.992
+        ],
+        "line_srgb": [
+          0.404,
+          0.231,
+          0.11
+        ],
+        "note": "着色器按\"线—身\"混合线段重分线与身（离线段 >0.10 的像素算特征色，保留原色）"
+      }
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok：额头无杂线",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/leo_head_v1.png"
+      },
+      {
+        "版本": "fix1 v1",
+        "结论": "rejected：颈部中间一大块透明洞（半透明 28%、14 个孤岛）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix1_leo_head.png"
+      },
+      {
+        "版本": "fix1 v2",
+        "结论": "ok：实底、无洞，半透明 2.1% 且偏暗（线色）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix1_leo_head_v2.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A06",
+    "file": "lw_sheet.png",
+    "用途": "陆蔚设定图（不上屏）；A07–A13 的第一参考图",
+    "尺寸": [
+      1536,
+      1024
+    ],
+    "是否透明": false,
+    "提示词": "Character design sheet of a 28-year-old man who restores antique thread-bound books, shown only from behind, on a plain warm off-white paper background, four drawings with generous space: a rear view standing, a rear three-quarter view seated cross-legged, a study of his right hand seen from above pinching delicately as if holding fine tweezers, and the same hand relaxed and open. Slim build, short neat black hair, thin round wire-framed glasses of which only the temple arms show over the ears, a plain loose moon-white shirt with sleeves rolled to the forearm, dark grey-indigo trousers. Seen strictly from behind: the face is completely hidden and never visible. Drawn in the style of the 1983 Shanghai Animation Film Studio film \"The Legend of the Sealed Book\" (Tian Shu Qi Tan): flat cel colors with no shading, clean dark sepia-brown ink outline of even weight, cloth folds drawn with a few single lines like the white-robed figure in that film, slight film grain. Same character in all drawings, no labels. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_11_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "四张都不露脸：站姿背影、盘坐 3/4 背（只见耳与镜腿/镜框边）、捏、张两手。月白衬衫卷袖、灰靛裤、短黑发。",
+    "锚点": {},
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/lw_sheet_v1.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A07",
+    "file": "lw_sit_back.png",
+    "用途": "盘坐背影：S2、S4c 末、S4d（0.3×）",
+    "尺寸": [
+      1087,
+      1447
+    ],
+    "是否透明": true,
+    "提示词": "The same young man as in the first reference image (his character sheet), in exactly the same pose, framing and proportions as the second reference image: sitting cross-legged on the ground, seen from behind and slightly from his left side, his head turned away toward the right as he gazes into a far valley, so that the face is completely hidden and not visible at all; only the thin temple arm of his round glasses shows at the ear. Redraw him in the very simplified flat style of the white-robed immortal in the 1983 Shanghai Animation Film Studio film \"The Legend of the Sealed Book\" (third and fourth reference images): a few large flat shapes; the loose moon-white shirt drawn as one simple flat shape with at most four long fold lines on the back; the dark grey-indigo trousers as two flat shapes with only two or three fold lines; short neat black hair drawn as one smooth flat dark shape with a clean rounded outline and no curls, a little smaller than in the second reference image; thick modulated dark sepia-brown ink outline, thicker on the outer contour and thinner inside, like a brush-drawn iron-wire line. Flat cel colors, no shading, no texture. Full figure, nothing cropped, isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/lw_sheet.png",
+      "films/B_zhuangshi/_work/asset_attempts/pre_fix2/lw_sit_back.png",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_11_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "fix2（style-14）重出：天书奇谭白衣人式的简化平涂——背上 4 道长褶、头发一整块平涂、外轮廓顺滑（不再扇贝卷边）、比原图小一圈；粗细有变化的深赭墨线。只露耳和镜腿，无五官。锚点按新图量（alpha 外接框、最低一行中点、头发块）。",
+    "锚点": {
+      "size": [
+        1087,
+        1447
+      ],
+      "bbox_px": [
+        53,
+        82,
+        1032,
+        1415
+      ],
+      "bottom_pivot_px": [
+        386.5,
+        1412
+      ],
+      "bottom_pivot_note": "底轴心：着地最低线的左右中点（盘腿外沿）",
+      "head_center_px": [
+        565,
+        225
+      ],
+      "head_bbox_px": [
+        430,
+        82,
+        700,
+        420
+      ],
+      "regions": {
+        "肩部呼吸区": {
+          "rect_px": [
+            170,
+            380,
+            820,
+            960
+          ],
+          "pivot_y_px": 960,
+          "feather_px": 70,
+          "note": "纵向 ±0.6%（周期 3 s），以腰线为轴"
+        },
+        "头区": {
+          "rect_px": [
+            400,
+            50,
+            730,
+            430
+          ],
+          "pivot_px": [
+            565,
+            410
+          ],
+          "feather_px": 35,
+          "note": "f240 头微侧 2°、S4d f490 头微抬 2°"
+        }
+      }
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/lw_sit_back_v1.png"
+      },
+      {
+        "版本": "fix1 及以前",
+        "结论": "replaced（fix2：style-14 / style-11 / self-02）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/pre_fix2/lw_sit_back.png"
+      },
+      {
+        "版本": "fix2 v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix2_lw_sit_back_v1.png",
+        "提示词": "The same young man as in the first reference image (his character sheet), in exactly the same pose, framing and proportions as the second reference image: sitting cross-legged on the ground, seen from behind and slightly from his left side, his head turned away toward the right as he gazes into a far valley, so that the face is completely hidden and not visible at all; only the thin temple arm of his round glasses shows at the ear. Redraw him in the very simplified flat style of the white-robed immortal in the 1983 Shanghai Animation Film Studio film \"The Legend of the Sealed Book\" (third and fourth reference images): a few large flat shapes; the loose moon-white shirt drawn as one simple flat shape with at most four long fold lines on the back; the dark grey-indigo trousers as two flat shapes with only two or three fold lines; short neat black hair drawn as one smooth flat dark shape with a clean rounded outline and no curls, a little smaller than in the second reference image; thick modulated dark sepia-brown ink outline, thicker on the outer contour and thinner inside, like a brush-drawn iron-wire line. Flat cel colors, no shading, no texture. Full figure, nothing cropped, isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+        "参考图": [
+          "films/B_zhuangshi/assets/lw_sheet.png",
+          "films/B_zhuangshi/_work/asset_attempts/pre_fix2/lw_sit_back.png",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_11_c.jpg"
+        ]
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A08",
+    "file": "lw_walk_back.png",
+    "用途": "走回雾里的背影：S3c（0.45×），每 6 帧水平镜像一次",
+    "尺寸": [
+      724,
+      2172
+    ],
+    "是否透明": true,
+    "提示词": "The same young man as in the first reference image (his character sheet), in exactly the same pose, framing and proportions as the second reference image: walking away from the viewer in mid-stride, seen strictly from behind, head slightly lowered, arms relaxed at his sides, the face completely hidden and not visible at all. Redraw him in the very simplified flat style of the white-robed immortal in the 1983 Shanghai Animation Film Studio film \"The Legend of the Sealed Book\" (third and fourth reference images): a few large flat shapes; the loose moon-white shirt drawn as one simple flat shape with at most four long fold lines on the back; the dark grey-indigo trousers as two flat shapes with only two or three fold lines; short neat black hair drawn as one smooth flat dark shape with a clean rounded outline and no curls, a little smaller than in the second reference image; thick modulated dark sepia-brown ink outline, thicker on the outer contour and thinner inside, like a brush-drawn iron-wire line. Flat cel colors, no shading, no texture. Full figure from head to feet, nothing cropped, isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/lw_sheet.png",
+      "films/B_zhuangshi/_work/asset_attempts/pre_fix2/lw_walk_back.png",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_11_c.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "fix2（style-14）重出：同 A07 的简化画法（4 道长褶、头发一整块、粗墨线），严格背影、无五官。",
+    "锚点": {
+      "size": [
+        724,
+        2172
+      ],
+      "bbox_px": [
+        45,
+        22,
+        669,
+        2148
+      ],
+      "foot_pivot_px": [
+        363.0,
+        2148
+      ],
+      "foot_pivot_note": "足底轴心：最低点（后脚脚掌）；整张每 6 帧水平镜像一次时以 bbox 中线为镜像轴",
+      "mirror_axis_x_px": 357.0
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok（生图 RGB 通道在透明区有一圈亮晕，已由清理步骤换色消除）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/lw_walk_back_v1.png"
+      },
+      {
+        "版本": "fix1 及以前",
+        "结论": "replaced（fix2：style-14 / style-11 / self-02）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/pre_fix2/lw_walk_back.png"
+      },
+      {
+        "版本": "fix2 v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix2_lw_walk_back_v1.png",
+        "提示词": "The same young man as in the first reference image (his character sheet), in exactly the same pose, framing and proportions as the second reference image: walking away from the viewer in mid-stride, seen strictly from behind, head slightly lowered, arms relaxed at his sides, the face completely hidden and not visible at all. Redraw him in the very simplified flat style of the white-robed immortal in the 1983 Shanghai Animation Film Studio film \"The Legend of the Sealed Book\" (third and fourth reference images): a few large flat shapes; the loose moon-white shirt drawn as one simple flat shape with at most four long fold lines on the back; the dark grey-indigo trousers as two flat shapes with only two or three fold lines; short neat black hair drawn as one smooth flat dark shape with a clean rounded outline and no curls, a little smaller than in the second reference image; thick modulated dark sepia-brown ink outline, thicker on the outer contour and thinner inside, like a brush-drawn iron-wire line. Flat cel colors, no shading, no texture. Full figure from head to feet, nothing cropped, isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+        "参考图": [
+          "films/B_zhuangshi/assets/lw_sheet.png",
+          "films/B_zhuangshi/_work/asset_attempts/pre_fix2/lw_walk_back.png",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_11_c.jpg",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg"
+        ]
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A09",
+    "file": "lw_desk_back.png",
+    "用途": "越右肩背影：S6（0.8×）",
+    "尺寸": [
+      1448,
+      1082
+    ],
+    "是否透明": true,
+    "提示词": "The first reference image is only a rough layout guide: keep its composition exactly, with the same positions and proportions of the head, the ear, the glasses, the shoulders and the right arm. Paint the same young man as in the second reference image, same short black hair, same loose moon-white shirt with rolled sleeves and the same drawing style: a single figure seated at a desk and leaning slightly forward over careful work, seen from behind and above his right shoulder. The face is completely hidden in lost profile: we see only the back of his head with short black hair, his right ear at the right edge of the head, the thin temple arm of his round glasses and the thin outer rim of the right lens just peeking past his cheek line exactly where the small dark arc is in the guide; no eye, no nose, no mouth, no cheek details. Broad shoulders and upper back in the loose moon-white shirt filling the lower part of the picture and running off the bottom edge, the right arm reaching forward and off the right edge of the picture, the left arm hidden by his body. \"The Legend of the Sealed Book\" (1983) cel style: flat colors with no shading, clean dark sepia-brown ink outline, a few single-line cloth folds. No desk, no book, no hands. Everything that is white in the guide is empty and must be fully transparent. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/_work/asset_attempts/layout_desk_back.png",
+      "films/B_zhuangshi/assets/lw_sheet.png",
+      "films/B_zhuangshi/_work/asset_attempts/lw_desk_back_v1_clean.png"
+    ],
+    "状态": "ok",
+    "备注": "用 S6 屏幕契约反推的构图引导图生成（make_layout_desk.py）：后脑居中于双肩、右镜片外缘在头右缘、右臂伸出画右。无五官。精灵按 0.8× 摆且镜片闪点放 P_g=(1040,410) 时，右肩光斑 0 落在屏幕约 (1148,610)，离契约 A=(1188,592) 约 44 px（契约点本身在肩轮廓外 12 px，光斑要整圆落在衬衫上只能内收）。建议以 A 为准摆精灵，P_g 随之移到约 (1080,392)，T2 豹眼高光同步改到这一点（两边都是代码画的，匹配剪辑不受影响）。透明底处理（_work/asset_tools/alpha_tool.py clean）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色（去白/灰边、防双线性渗色）、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        1448,
+        1082
+      ],
+      "bbox_px": [
+        1,
+        9,
+        1448,
+        1082
+      ],
+      "waist_pivot_px": [
+        467.5,
+        1081
+      ],
+      "head_center_px": [
+        674.1,
+        215.3
+      ],
+      "head_height_px": 510,
+      "lens_glint_px": [
+        935.0,
+        359.7
+      ],
+      "lens_note": "右镜片外缘最右点 → S6 f658 对齐 P_g",
+      "shoulder_A_px": [
+        1070.0,
+        610.0
+      ],
+      "shoulder_A_depth_px": 34.5,
+      "shoulder_A_note": "右肩光斑锚点（光斑 0）。若精灵按 0.8× 摆、镜片闪点在 P_g=(1040,410)，此点落在屏幕 (1148, 610)（契约 A=(1188,592)）",
+      "light_spots": [
+        {
+          "idx": 0,
+          "px": [
+            1070.0,
+            610.0
+          ],
+          "uv": [
+            0.739,
+            0.5638
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 1,
+          "px": [
+            1151.0,
+            655.0
+          ],
+          "uv": [
+            0.7949,
+            0.6054
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 2,
+          "px": [
+            951.0,
+            578.0
+          ],
+          "uv": [
+            0.6568,
+            0.5342
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 3,
+          "px": [
+            1022.0,
+            762.0
+          ],
+          "uv": [
+            0.7058,
+            0.7043
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 4,
+          "px": [
+            1242.0,
+            706.0
+          ],
+          "uv": [
+            0.8577,
+            0.6525
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 5,
+          "px": [
+            882.0,
+            732.0
+          ],
+          "uv": [
+            0.6091,
+            0.6765
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 6,
+          "px": [
+            830.0,
+            589.0
+          ],
+          "uv": [
+            0.5732,
+            0.5444
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 7,
+          "px": [
+            1347.0,
+            745.0
+          ],
+          "uv": [
+            0.9302,
+            0.6885
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 8,
+          "px": [
+            739.0,
+            583.0
+          ],
+          "uv": [
+            0.5104,
+            0.5388
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 9,
+          "px": [
+            765.0,
+            745.0
+          ],
+          "uv": [
+            0.5283,
+            0.6885
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 10,
+          "px": [
+            664.0,
+            736.0
+          ],
+          "uv": [
+            0.4586,
+            0.6802
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 11,
+          "px": [
+            597.0,
+            573.0
+          ],
+          "uv": [
+            0.4123,
+            0.5296
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 12,
+          "px": [
+            519.0,
+            732.0
+          ],
+          "uv": [
+            0.3584,
+            0.6765
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 13,
+          "px": [
+            455.0,
+            569.0
+          ],
+          "uv": [
+            0.3142,
+            0.5259
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 14,
+          "px": [
+            375.0,
+            741.0
+          ],
+          "uv": [
+            0.259,
+            0.6848
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 15,
+          "px": [
+            313.0,
+            590.0
+          ],
+          "uv": [
+            0.2162,
+            0.5453
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 16,
+          "px": [
+            235.0,
+            780.0
+          ],
+          "uv": [
+            0.1623,
+            0.7209
+          ],
+          "r_px": 30.0
+        },
+        {
+          "idx": 17,
+          "px": [
+            175.0,
+            630.0
+          ],
+          "uv": [
+            0.1209,
+            0.5823
+          ],
+          "r_px": 30.0
+        }
+      ],
+      "light_spot_note": "18 枚光斑豹纹布局：沿肩线、上背、下背排三行；idx 0 = 右肩 A，其余按到 A 的距离排序（成形延迟用）；r_px 为建议半径（屏幕约 24·K px）"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "rejected：头偏到右肩上方，镜片闪点放到 P_g 时右肩 A 落在人身外，同位母题对不上",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/lw_desk_back_v1.png",
+        "提示词": "The same young man from the first reference image, same moon-white shirt and drawing style, a single figure seated and leaning slightly forward over careful work at a desk, seen from behind and above his right shoulder; the face is completely hidden in lost profile: only the back of his head with short black hair, his right ear, the thin temple arm of his round glasses and the thin outer rim of the right lens just peeking past his cheek line are visible, no eye, no nose, no mouth. Shoulders and upper back in the loose moon-white shirt, both forearms reaching forward out of view; upper body only, cut at the waist, no desk drawn. \"The Legend of the Sealed Book\" (1983) cel style: flat colors with no shading, clean dark sepia-brown ink outline. Isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+        "参考图": [
+          "films/B_zhuangshi/assets/lw_sheet.png",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg"
+        ]
+      },
+      {
+        "版本": "v2",
+        "结论": "ok：按契约引导图出图",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/lw_desk_back_v2.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A10",
+    "file": "hand_pinch.png",
+    "用途": "捏的右手：S1 捏镊子/捏镜腿（0.5–2×）、S3b 手指一蜷（0.9×）",
+    "尺寸": [
+      749,
+      1272
+    ],
+    "是否透明": true,
+    "提示词": "The same man's right hand as in the first reference image, seen from above showing the back of the hand, fingers pointing away from the viewer, thumb and index finger pinching delicately as if holding fine tweezers, middle finger slightly curled, nothing held in the hand, a little of the rolled moon-white shirt cuff at the wrist. Long lean fingers with clean fingertips, fingernails drawn with single lines. Flat warm skin color with no shading, clean dark sepia-brown ink outline, \"The Legend of the Sealed Book\" (1983) cel style. Correct hand anatomy with exactly five fingers. A single hand only, isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/lw_sheet.png",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "生图出来是左手背视（拇指在右），已水平镜像成右手背视（拇指在左、腕在右下），与 S1\"手从右下进画\"一致。无名指、小指蜷在掌下不可见（解剖正确）。三处墨渍位为指尖内切圆。透明底处理（_work/asset_tools/alpha_tool.py clean）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色（去白/灰边、防双线性渗色）、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        749,
+        1272
+      ],
+      "pinch_point": {
+        "px": [
+          24.0,
+          76.0
+        ],
+        "uv": [
+          0.032,
+          0.0597
+        ]
+      },
+      "ink_index_A": {
+        "px": [
+          44.0,
+          62.0
+        ],
+        "uv": [
+          0.0587,
+          0.0487
+        ],
+        "r_px": 22.0,
+        "r_design_px": 22,
+        "tip_px": [
+          22.0,
+          48.0
+        ],
+        "note": "指尖内切圆圆心与可用半径（墨渍整圆落在指尖内）"
+      },
+      "ink_middle": {
+        "px": [
+          185.0,
+          169.0
+        ],
+        "uv": [
+          0.247,
+          0.1329
+        ],
+        "r_px": 20.0,
+        "r_design_px": 20,
+        "tip_px": [
+          165.0,
+          168.0
+        ],
+        "note": "指尖内切圆圆心与可用半径（墨渍整圆落在指尖内）"
+      },
+      "ink_thumb": {
+        "px": [
+          45.0,
+          113.0
+        ],
+        "uv": [
+          0.0601,
+          0.0888
+        ],
+        "r_px": 20.0,
+        "r_design_px": 20,
+        "tip_px": [
+          30.0,
+          112.0
+        ],
+        "note": "指尖内切圆圆心与可用半径（墨渍整圆落在指尖内）"
+      },
+      "wrist": {
+        "px": [
+          470.0,
+          985.0
+        ],
+        "uv": [
+          0.6275,
+          0.7744
+        ]
+      },
+      "bbox_px": [
+        9,
+        9,
+        739,
+        1263
+      ],
+      "note": "原图是左手背视，已水平镜像成右手背视（拇指在左）；ink_index_A = 母题 A 那枚（rot −18°），S1 f36–f44 对齐屏幕 A；墨渍 R≈0.007 m"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok（水平镜像）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/hand_pinch_v1.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A11",
+    "file": "hand_open.png",
+    "用途": "张开的右手：S1 张手（≈0.8×，f36–f44 食指墨渍落在 A）、S3b 抬手（0.9×）",
+    "尺寸": [
+      953,
+      1619
+    ],
+    "是否透明": true,
+    "提示词": "The same man's right hand in the same drawing style as the first reference image, seen from above showing the back of the hand, relaxed and open, fingers slightly spread and gently curved, pointing away from the viewer (up and slightly to the left in the picture), the wrist and a little of the rolled moon-white shirt cuff at the bottom right, the thumb on the left side of the hand because it is a right hand seen from the back, clean fingertips with fingernails drawn with single lines. Flat warm skin color with no shading, clean dark sepia-brown ink outline, \"The Legend of the Sealed Book\" (1983) cel style. Correct hand anatomy with exactly five fingers, all five visible. A single hand only, isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/hand_pinch.png",
+      "films/B_zhuangshi/assets/lw_sheet.png"
+    ],
+    "状态": "ok",
+    "备注": "五指齐全：拇指(左)、食指、中指(最高)、无名指、小指。透明底处理（_work/asset_tools/alpha_tool.py clean）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色（去白/灰边、防双线性渗色）、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        953,
+        1619
+      ],
+      "ink_index_A": {
+        "px": [
+          76.0,
+          198.0
+        ],
+        "uv": [
+          0.0797,
+          0.1223
+        ],
+        "r_px": 24.0,
+        "r_design_px": 24,
+        "tip_px": [
+          45.0,
+          178.0
+        ],
+        "note": "指尖内切圆圆心与可用半径（墨渍整圆落在指尖内）"
+      },
+      "ink_middle": {
+        "px": [
+          167.0,
+          40.0
+        ],
+        "uv": [
+          0.1752,
+          0.0247
+        ],
+        "r_px": 24.0,
+        "r_design_px": 24,
+        "tip_px": [
+          160.0,
+          25.0
+        ],
+        "note": "指尖内切圆圆心与可用半径（墨渍整圆落在指尖内）"
+      },
+      "ink_thumb": {
+        "px": [
+          40.0,
+          471.0
+        ],
+        "uv": [
+          0.042,
+          0.2909
+        ],
+        "r_px": 24.0,
+        "r_design_px": 24,
+        "tip_px": [
+          25.0,
+          465.0
+        ],
+        "note": "指尖内切圆圆心与可用半径（墨渍整圆落在指尖内）"
+      },
+      "index_tip": {
+        "px": [
+          45.0,
+          178.0
+        ],
+        "uv": [
+          0.0472,
+          0.1099
+        ]
+      },
+      "wrist": {
+        "px": [
+          625.0,
+          1295.0
+        ],
+        "uv": [
+          0.6558,
+          0.7999
+        ]
+      },
+      "bbox_px": [
+        8,
+        8,
+        953,
+        1619
+      ]
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/hand_open_v1.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A12",
+    "file": "hand_side.png",
+    "用途": "雨中平伸的右手：S4a（0.9×）",
+    "尺寸": [
+      1968,
+      665
+    ],
+    "是否透明": true,
+    "提示词": "The same man's right hand in the same drawing style as the first reference image, held out horizontally with the palm facing down, fingers relaxed and drooping slightly, seen from the side at fingertip level with the thumb side toward the viewer, the wrist and a little of the rolled moon-white shirt cuff at the right, the fingers pointing to the left, the tip of the index finger is the lowest point of the hand, clean fingertips; no rain, no background. Flat warm skin color with no shading, clean dark sepia-brown ink outline, \"The Legend of the Sealed Book\" (1983) cel style. Correct hand anatomy with exactly five fingers. A single hand only, isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/hand_open.png",
+      "films/B_zhuangshi/assets/lw_sheet.png"
+    ],
+    "状态": "ok",
+    "备注": "掌心向下、拇指侧朝镜头、食指尖最低（墨渍 + 水珠出生点）。侧视只见拇指+三指，第四指被挡（解剖正确）。出图为 3:1 而非 3:2，前臂较长，不影响用法。透明底处理（_work/asset_tools/alpha_tool.py clean）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色（去白/灰边、防双线性渗色）、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        1968,
+        665
+      ],
+      "ink_index_A": {
+        "px": [
+          73.0,
+          618.0
+        ],
+        "uv": [
+          0.0371,
+          0.9293
+        ],
+        "r_px": 29.3,
+        "r_design_px": 40,
+        "tip_px": [
+          32.0,
+          636.0
+        ],
+        "note": "指尖内切圆圆心与可用半径（墨渍整圆落在指尖内）"
+      },
+      "index_tip": {
+        "px": [
+          32.0,
+          636.0
+        ],
+        "uv": [
+          0.0163,
+          0.9564
+        ]
+      },
+      "drop_spawn": {
+        "px": [
+          40.0,
+          640.0
+        ],
+        "uv": [
+          0.0203,
+          0.9624
+        ]
+      },
+      "wrist": {
+        "px": [
+          1690.0,
+          300.0
+        ],
+        "uv": [
+          0.8587,
+          0.4511
+        ]
+      },
+      "bbox_px": [
+        9,
+        9,
+        1960,
+        657
+      ],
+      "note": "掌心向下、拇指侧朝镜头、食指尖最低；drop_spawn = 水珠/墨滴出生点（食指尖下缘），S4a 对齐屏幕 A"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/hand_side_v1.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A13",
+    "file": "hands_mending.png",
+    "用途": "补书的双手：S6（0.5×）",
+    "尺寸": [
+      1413,
+      956
+    ],
+    "是否透明": true,
+    "提示词": "Both hands of the same man in the same drawing style as the reference images, seen from above and slightly behind, mending a page: the left hand on the left pressing down a page corner with spread fingers, the right hand on the right holding a thin writing brush between thumb and fingers with the brush tip pointing down and forward, the forearms coming in from the bottom of the picture, rolled moon-white shirt cuffs at both wrists; hands and brush only, no book and no paper drawn. Flat warm skin color with no shading, clean dark sepia-brown ink outline, \"The Legend of the Sealed Book\" (1983) cel style. Correct hand anatomy with exactly five fingers on each hand. Isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/hand_pinch.png",
+      "films/B_zhuangshi/assets/hand_open.png",
+      "films/B_zhuangshi/assets/lw_sheet.png"
+    ],
+    "状态": "ok",
+    "备注": "左手张开按页、右手执毛笔笔尖朝左下；两只手是两个连通块。透明底处理（_work/asset_tools/alpha_tool.py clean）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色（去白/灰边、防双线性渗色）、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        1413,
+        956
+      ],
+      "wrist_left": {
+        "px": [
+          215.0,
+          745.0
+        ],
+        "uv": [
+          0.1522,
+          0.7793
+        ]
+      },
+      "wrist_right": {
+        "px": [
+          1210.0,
+          735.0
+        ],
+        "uv": [
+          0.8563,
+          0.7688
+        ]
+      },
+      "brush_tip": {
+        "px": [
+          750.0,
+          450.0
+        ],
+        "uv": [
+          0.5308,
+          0.4707
+        ]
+      },
+      "light_spots": [
+        {
+          "idx": 0,
+          "px": [
+            177.0,
+            486.0
+          ],
+          "uv": [
+            0.1253,
+            0.5084
+          ],
+          "r_px": 24
+        },
+        {
+          "idx": 1,
+          "px": [
+            281.0,
+            509.0
+          ],
+          "uv": [
+            0.1989,
+            0.5324
+          ],
+          "r_px": 24
+        },
+        {
+          "idx": 2,
+          "px": [
+            359.0,
+            495.0
+          ],
+          "uv": [
+            0.2541,
+            0.5178
+          ],
+          "r_px": 24
+        },
+        {
+          "idx": 3,
+          "px": [
+            425.0,
+            413.0
+          ],
+          "uv": [
+            0.3008,
+            0.432
+          ],
+          "r_px": 24
+        },
+        {
+          "idx": 4,
+          "px": [
+            1037.0,
+            390.0
+          ],
+          "uv": [
+            0.7339,
+            0.4079
+          ],
+          "r_px": 24
+        }
+      ],
+      "light_spot_note": "手上 5 枚光斑豹纹；r_px 为建议半径",
+      "bbox_px": [
+        8,
+        8,
+        1405,
+        956
+      ]
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/hands_mending_v1.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A14",
+    "file": "vendor_hand.png",
+    "用途": "摊主握杆的手：S3a、S3b、S3c（0.6×）",
+    "尺寸": [
+      515,
+      1490
+    ],
+    "是否透明": true,
+    "提示词": "A market vendor's right hand and forearm in a wide vermilion sleeve with a gold border band, raised from below and gripping a short dark-red lacquered stick that points straight up, the top end of the stick plain and empty. Only the hand, forearm and sleeve, the sleeve cut off at the bottom edge, no body, no face. Drawn in the style of the 1964 Shanghai Animation Film Studio film \"Havoc in Heaven\" (Da Nao Tian Gong) with Zhang Guangyu's decorative character design: flat cel colors, firm dark outline, no shading, slight film grain. Correct hand anatomy with exactly five fingers. Isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "refs/B_zhuangshi/ref_07.jpg"
+    ],
+    "状态": "ok",
+    "备注": "已按 DESIGN 2.4 色板调色（palette_grade.py）：袖 朱砂 #B5402A、杆 #7E2A1E、金边 #E2B93B、线 #3A1A10。杆顶平、空。透明底处理（_work/asset_tools/alpha_tool.py clean）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色（去白/灰边、防双线性渗色）、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        515,
+        1490
+      ],
+      "bbox_px": [
+        9,
+        9,
+        507,
+        1482
+      ],
+      "stick_top_px": [
+        267.5,
+        9
+      ],
+      "stick_top_note": "杆顶中心（接面具下巴）"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok（调色）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/vendor_hand_v1.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A15",
+    "file": "mask_face.png",
+    "用途": "金豹面具贴图：S3a（0.5×）→ S3d（远超 1×，眼孔边靠 alphaTest + 描线）",
+    "尺寸": [
+      1171,
+      1129
+    ],
+    "是否透明": true,
+    "提示词": "Frontal flat design of a gold festival leopard mask for a fairground, in the decorative style of Zhang Guangyu's character designs for the 1964 film \"Havoc in Heaven\" and of Peking opera face painting: a rounded leopard face with small rounded ears, gold base color, symmetrical vermilion and black ornamental patterns on the brow and cheeks, leopard rosettes stylized as small black rings with gold centers, white rims around two large almond-shaped eye holes, flat colors with no 3D shading and no glow, thin dark brown outline, perfectly symmetrical and centered. It is an empty mask that nobody is wearing; the two eye holes are cut out and fully transparent, and the background is fully transparent. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "refs/B_zhuangshi/ref_07.jpg",
+      "refs/B_zhuangshi/ref_02.jpg"
+    ],
+    "状态": "ok",
+    "备注": "两眼孔实测 alpha=0（门户可直接做，不必泛洪兜底）。已按 2.4 色板调色：金 #E2B93B、纹 #B5402A、墨 #2A1E18、眼眶 #F2EDE0（原图为柠檬黄+深红，偏国潮）。透明底处理（_work/asset_tools/alpha_tool.py clean）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色（去白/灰边、防双线性渗色）、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        1171,
+        1129
+      ],
+      "eye_holes": [
+        {
+          "center_px": [
+            359.9,
+            555.1
+          ],
+          "bbox_px": [
+            203,
+            467,
+            508,
+            644
+          ],
+          "rx_px": 152.5,
+          "ry_px": 88.5,
+          "area_px": 37958
+        },
+        {
+          "center_px": [
+            811.3,
+            555.1
+          ],
+          "bbox_px": [
+            665,
+            467,
+            969,
+            644
+          ],
+          "rx_px": 152.0,
+          "ry_px": 88.5,
+          "area_px": 37988
+        }
+      ],
+      "eye_holes_note": "眼孔已实测为透明（alpha=0）；观众看去的左眼孔 = holes[0]（S3d 镜头钻这个）"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok（调色）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/mask_face_v1.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A16",
+    "file": "market_plate.png",
+    "用途": "集市底板：S3a–S3d（≈1.25–1.45×，Kuwahara 抹成水粉）",
+    "尺寸": [
+      1671,
+      941
+    ],
+    "是否透明": false,
+    "提示词": "Repaint the second reference image (a painted market-street background plate) in the exact painting style of the first reference image, which is a background painting from the 1964 Shanghai Animation Film Studio film \"Havoc in Heaven\" (Da Nao Tian Gong). Keep the same layout as the second reference image: the street seen in steep, stage-like diagonal perspective rising toward the right, the great gateway with upswept dragon-tip eaves on the right, vermilion pillars and railings, green glazed tile roofs on the left, pale canvas market awnings along the street. But simplify everything into fewer, larger flat shapes like the first reference image: a big soft airbrushed sky in warm apricot and peach fading to pale lilac, with no detailed clouds; buildings as large flat color masses with only a few decorative details; the crowd reduced to a few loose rows of small simple repeated flat silhouettes seen from behind, with no individual details and no faces at all; muted 1960s gouache colors (dusty vermilion, muted jade green, ochre, soft lilac grey), gentle paper mottling, airbrushed soft gradients. The plaques and banners are completely plain with no writing. Nothing modern, no borders, no frame. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "refs/B_zhuangshi/ref_07.jpg",
+      "films/B_zhuangshi/_work/asset_attempts/pre_fix2/market_plate.png"
+    ],
+    "状态": "ok",
+    "备注": "fix2（style-11 ③ / self-02）按风险 #6 以 ref_07 为第一参考重出：fewer, larger flat shapes, airbrushed sky；人群全为无五官背影剪影，匾、幡无字。右下角草丛里几朵白色小花是花，不是闪光。",
+    "锚点": {
+      "size": [
+        1671,
+        941
+      ],
+      "street_end_px": [
+        1355,
+        500
+      ],
+      "horizon_y_px": 505,
+      "note": "fix2 按 ref_07 为第一参考重出：大块喷绘杏→淡紫天、建筑大块平涂、人群是几排简化的背影剪影；构图沿用旧图（斜向舞台透视、右侧牌楼），视平线与街尾基本不变"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "rejected：摊主有正脸、近景人物侧脸明显、比例 1.35:1",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/market_plate_v1.png",
+        "提示词": "A painted background plate from the 1964 Shanghai Animation Film Studio film \"Havoc in Heaven\" (Da Nao Tian Gong): a crowded fantastical market street seen in steep, stage-like diagonal perspective, vermilion pillars and railings, green glazed tile roofs with upswept curling eaves, plain gold plaques with nothing written on them and hanging vermilion and crimson banners with no writing, dense rows of many small repeated market figures with simple shapes, seen only from behind or as tiny distant silhouettes like the rows of heavenly soldiers in that film, a soft airbrushed pastel sky in warm apricot fading to pale lilac, gouache on paper with gentle mottling, muted 1960s film color, flat painted stage-backdrop layering, nothing modern, no borders, no lanterns covering the sky. normal body structure, natural proportions, stable clear face, no text, no watermark",
+        "参考图": [
+          "refs/B_zhuangshi/ref_07.jpg",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_12_c.jpg"
+        ]
+      },
+      {
+        "版本": "v2",
+        "结论": "ok（抹掉一个 6 px 小人脸）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/market_plate_v2.png"
+      },
+      {
+        "版本": "fix1 及以前",
+        "结论": "replaced（fix2：style-14 / style-11 / self-02）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/pre_fix2/market_plate.png"
+      },
+      {
+        "版本": "fix2 v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/fix2_market_plate_v1.png",
+        "提示词": "Repaint the second reference image (a painted market-street background plate) in the exact painting style of the first reference image, which is a background painting from the 1964 Shanghai Animation Film Studio film \"Havoc in Heaven\" (Da Nao Tian Gong). Keep the same layout as the second reference image: the street seen in steep, stage-like diagonal perspective rising toward the right, the great gateway with upswept dragon-tip eaves on the right, vermilion pillars and railings, green glazed tile roofs on the left, pale canvas market awnings along the street. But simplify everything into fewer, larger flat shapes like the first reference image: a big soft airbrushed sky in warm apricot and peach fading to pale lilac, with no detailed clouds; buildings as large flat color masses with only a few decorative details; the crowd reduced to a few loose rows of small simple repeated flat silhouettes seen from behind, with no individual details and no faces at all; muted 1960s gouache colors (dusty vermilion, muted jade green, ochre, soft lilac grey), gentle paper mottling, airbrushed soft gradients. The plaques and banners are completely plain with no writing. Nothing modern, no borders, no frame. normal body structure, natural proportions, stable clear face, no text, no watermark",
+        "参考图": [
+          "refs/B_zhuangshi/ref_07.jpg",
+          "films/B_zhuangshi/_work/asset_attempts/pre_fix2/market_plate.png"
+        ]
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A17",
+    "file": "cliff_cave.png",
+    "用途": "崖与洞：S2、S4d（≈1:1）；S4a–c 背景（≈2.5×，虚化）",
+    "尺寸": [
+      1774,
+      887
+    ],
+    "是否透明": true,
+    "提示词": "The first reference image is only a rough layout guide: keep its composition exactly, with the same positions and proportions. A painted background element from the 1983 Shanghai Animation Film Studio film \"The Legend of the Sealed Book\" (Tian Shu Qi Tan), in the painting style of the other reference images: a towering rocky cliff mass on the left, its rounded summit fully inside the frame near the top edge, its right flank stepping down in layered ledges to the ground; a large dark natural arched cave mouth at its foot, irregular and tall, exactly where the dark arch is in the guide; in front of it a thin flat pale grey-green stone plateau seen at low eye level, running to the right and ending at a cliff edge at about 87 percent of the image width, where the rock drops away with a few hanging stalactite-like drips under the edge. The rocks are painted in slate blue, blue-grey and muted teal gouache with layered wavy strata, darker same-hue strokes along the layer edges, dry-brush texture and small blue moss dots along the ridges, soft misty white at the base. No figures, no trees, no flat shapes from the guide. Everything that is white in the guide is empty sky and must be fully transparent. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/_work/asset_attempts/layout_cliff_cave.png",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_10_c.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_11_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "用 S2 屏幕契约反推的构图引导图生成（make_layout_cliff.py，图像 = 屏幕 + (160,10)）：崖顶在画内、洞口 x≈322–765、平台顶 y≈794、崖缘 x≈1534，与契约（洞口 200–640+160、平台 780–840+10、崖缘 1380+160）吻合。天空 alpha=0。生图 alpha 原为 252/253，已补成 255。",
+    "锚点": {
+      "size": [
+        1774,
+        887
+      ],
+      "cave_mouth": {
+        "dark_core_center_px": [
+          526.3,
+          504.9
+        ],
+        "dark_core_bbox_px": [
+          322,
+          326,
+          765,
+          688
+        ],
+        "mouth_bbox_px": [
+          322,
+          326,
+          765,
+          794
+        ],
+        "center_px": [
+          543.5,
+          560.0
+        ],
+        "note": "洞口下半被雾吃浅，暗核只到 y≈688；洞口实际下沿就是平台顶 y≈794"
+      },
+      "plateau_top_y_px": 794,
+      "plateau_band_y_px": [
+        790,
+        850
+      ],
+      "cliff_edge_x_px": 1534,
+      "screen_map": "按 S2 f163 契约：屏幕 = 图像 − (160, 10)（1:1 摆放时）。洞口、平台、崖缘与契约一致",
+      "sky": "天空区 alpha=0"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "rejected：画风好但构图不合契约（2.93:1、崖顶被画框截平、洞口小、平台俯视过长）",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/cliff_cave_v1.png",
+        "提示词": "A painted background element from the 1983 Shanghai Animation Film Studio film \"The Legend of the Sealed Book\" (Tian Shu Qi Tan): a towering rocky cliff mass on the left third with a dark arched cave mouth at its foot, opening onto a flat pale grey-green stone plateau that runs to the right and ends at a cliff edge with hanging stalactite-like drips beneath it, the rocks painted in slate blue, blue-grey and muted teal gouache with layered wavy strata, darker same-hue strokes along the layer edges, dry-brush texture and small blue moss dots along the ridges, soft misty white at the base, no figures, no trees, the sky area fully transparent. normal body structure, natural proportions, stable clear face, no text, no watermark",
+        "参考图": [
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_10_c.jpg",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg",
+          "films/B_zhuangshi/_work/design/refcrops_cinema/ref_11_c.jpg"
+        ]
+      },
+      {
+        "版本": "v2",
+        "结论": "ok：按引导图出图",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/cliff_cave_v2.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A18",
+    "file": "deer_walk.png",
+    "用途": "远处鹿群走姿：S2（≈0.06×）",
+    "尺寸": [
+      1507,
+      591
+    ],
+    "是否透明": true,
+    "提示词": "Two walking poses, contact and passing, of a small plain pale deer without antlers for a distant herd, in the exact style of \"Nine-Colored Deer\" (1981, Shanghai Animation Film Studio): slender elegant body, long thin legs, strict side profile walking to the left, flat pale grey-white body with a thin grey-blue outline, no spots and no markings, the two poses side by side with clear empty space between them, isolated on a fully transparent background with clean edges. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_00_c.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_04_c.jpg"
+    ],
+    "状态": "ok",
+    "备注": "朝左走，两姿态（接触/过渡）分列左右，无角无斑。上屏只 45 px 高，alpha 已收窄（harden 104,152）以压半透明占比。透明底处理（_work/asset_tools/alpha_tool.py clean）：alpha ≥240 补成 255、<8 清零、去孤岛、边缘与全透明像素 RGB 换成最近不透明色（去白/灰边、防双线性渗色）、按内容裁空白留 8 px。",
+    "锚点": {
+      "size": [
+        1507,
+        591
+      ],
+      "poses": [
+        {
+          "bbox_px": [
+            8,
+            8,
+            602,
+            583
+          ],
+          "foot_pivot_px": [
+            304.5,
+            582
+          ],
+          "hooves_x_range_px": [
+            8,
+            601
+          ],
+          "pose": "contact（接触）"
+        },
+        {
+          "bbox_px": [
+            889,
+            18,
+            1499,
+            577
+          ],
+          "foot_pivot_px": [
+            1230.5,
+            576
+          ],
+          "hooves_x_range_px": [
+            963,
+            1498
+          ],
+          "pose": "passing（过渡）"
+        }
+      ],
+      "note": "朝左走；两姿态每 6 帧换一次"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "ok",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/deer_walk_v1.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A19",
+    "file": "woodcut_leopard.png",
+    "用途": "书页木刻插图：S1、T1（海报帧左缘）、S6（≈0.25×，转赭墨 #3A2E26 正片叠底）",
+    "尺寸": [
+      1374,
+      975
+    ],
+    "是否透明": true,
+    "提示词": "A Ming dynasty woodblock print illustration as printed in an old thread-bound Chinese classic, like the beast illustrations of Ming editions of the Classic of Mountains and Seas (Shan Hai Jing): the same slender leopard as in the reference image (a slender cat with a small head, long neck, long thin legs and a long tail with a curled tip), walking in strict side profile facing right. Carved woodblock line: bold black lines with lively thick-and-thin variation, slightly rough nicked edges and small breaks, as if printed in black ink from a carved pear-wood block with uneven ink pressure; simple ring-shaped rosettes drawn as small black rings arranged in neat rows on the body; a few short carved strokes for fur at the chest and at the tail tip; very little hatching. Black ink only, no grey tones. The inside of the body and the whole background are fully transparent: no paper, no white fill, no border, no frame, no seal, no ground line. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/leo_sheet.png"
+    ],
+    "状态": "ok",
+    "备注": "就是故事里那只豹（A00 同款造型）+ 一行行环斑。纯黑线、体内与背景全透明；alpha 已二值化到近硬边（harden 118,138），半透明 2.66% 全是黑线 1 px 抗锯齿、不偏白（线稿件的口径说明）。",
+    "锚点": {
+      "size": [
+        1374,
+        975
+      ],
+      "bbox_px": [
+        8,
+        8,
+        1366,
+        967
+      ],
+      "note": "纯黑线稿，体内与背景全透明；上页时转赭墨 #3A2E26 正片叠底"
+    },
+    "尝试记录": [
+      {
+        "版本": "v1",
+        "结论": "rejected：线条均匀光滑，像矢量线稿不像木刻",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/woodcut_leopard_v1.png",
+        "提示词": "A Ming dynasty woodblock print illustration as printed in an old thread-bound Chinese classic, like the illustrations of the Classic of Mountains and Seas: the same slender leopard as in the reference image (a slender cat with a small head, long neck, long thin legs and a long curling tail), walking in side profile facing right, bold even black carved lines, simple stylized ring-shaped rosettes arranged in neat rows on its body, very little hatching, flat black ink only on a fully transparent background; the inside of the body is empty and transparent, no white fill, no border and no frame, no ground line. normal body structure, natural proportions, stable clear face, no text, no watermark",
+        "参考图": [
+          "films/B_zhuangshi/assets/leo_sheet.png"
+        ]
+      },
+      {
+        "版本": "v2",
+        "结论": "ok：刀刻粗细变化、毛边、胸口与尾尖短刻线",
+        "文件": "films/B_zhuangshi/_work/asset_attempts/woodcut_leopard_v2.png"
+      }
+    ],
+    "生成": "Magpie generate_image（codex/gpt-image-2.5），quality high"
+  },
+  {
+    "id": "A05x2",
+    "file": "leo_head_2x.png",
+    "用途": "T2 豹眼大特写（约 3.5 倍）专用：A05 两倍 Lanczos 预放大（去振铃）、鼻头明暗压平",
+    "尺寸": [
+      2318,
+      2322
+    ],
+    "是否透明": true,
+    "提示词": "（派生资产，非生图）脚本 films/B_zhuangshi/_work/fix2/make_head_2x.py",
+    "所用参考图": [
+      "films/B_zhuangshi/assets/leo_head.png"
+    ],
+    "状态": "ok",
+    "备注": "fix2（v1-06）：锚点 = A05 锚点 × 2；鼻头里两道深色明暗笔压成鼻头主色 #683B1C",
+    "锚点": {
+      "scale_from": "A05",
+      "k": 2
+    }
+  },
+  {
+    "id": "A20",
+    "file": "ledge_face.png",
+    "用途": "S2、S4d 平台前缘崖面的本体（cliff.js LEDGE_FS 按 cam0 设计像素铺：图像 1 px ≈ 0.90 设计 px，图顶从平台前沿往下 48 px 起；亮度映到本片灰绿色板、只留一成原色）",
+    "尺寸": [
+      2172,
+      724
+    ],
+    "是否透明": false,
+    "提示词": "A wide horizontal strip of painted rock for an animation background: the steep front face of a mountain ledge seen straight on, in the exact painting style of the 1983 Shanghai Animation Film Studio film \"The Legend of the Sealed Book\" (Tian Shu Qi Tan), like the cliff in the first reference image. Gouache on paper with broad sweeping hemp-fiber texture strokes (pi ma cun) running down the rock face in slightly curved diagonal sweeps toward the lower left, overlapping rounded rock masses, deep blue-green teal in the hollows and crevices, muted grey-green and pale grey-lavender on the ridges, soft gradual transitions between strokes, dry-brush texture, a few tiny blue moss dots just under the top edge. The rock face fills the whole picture from the left edge to the right edge: the very top of the picture is the straight horizontal front edge of a flat stone plateau, and the lower third of the rock gradually dissolves into soft white mist toward the bottom edge. No sky, no icicles, no stalactites, no figures, no trees, no plants, no border, no frame, flat frontal view. normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "所用参考图": [
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_08_c.jpg",
+      "films/B_zhuangshi/_work/design/refcrops_cinema/ref_10_c.jpg",
+      "films/B_zhuangshi/assets/cliff_cave.png"
+    ],
+    "状态": "ok",
+    "备注": "fix3（v2-02）：fix2 的程序生成崖面读成浮空薄石板、密排尖齿，改用这张手绘崖面当本体；下沿打散入雾、右端圆钝岩角与悬挑下的一簇钟乳仍由着色器画。要 4:1，实际出 3:1（2172×724），只用上半部（图 y 48–340）。不透明底图，不需要抠底。生成：Magpie generate_image（codex/gpt-image-2.5），quality high，一次通过；原图 _work/asset_attempts/fix3/ledge_face_v1.png",
+    "锚点": {
+      "top_edge_y_px": 48,
+      "design_px_per_image_px": 0.9,
+      "x_offset_image_px": 60,
+      "note": "设计像素 x = (图像 x − 60) × 0.90 − 220；y = rimY(x) + (图像 y − 48) × 0.90"
+    }
+  }
+]

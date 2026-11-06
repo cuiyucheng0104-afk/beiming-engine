@@ -1,0 +1,16 @@
+天为什么是蓝的 — 第三方素材与许可
+
+字体（仅用于离线提取单线笔画骨架，成片中的字是马克笔笔画）
+- Noto Sans SC (weight 100)，Google Fonts CSS API &text= 子集
+  https://fonts.google.com/noto/specimen/Noto+Sans+SC
+  SIL Open Font License 1.1（全文见 fonts/OFL-NotoSansSC.txt）
+
+乐器采样（全部 CC0 1.0，无需署名，此处致谢）
+- 尤克里里、卡林巴：FreePats project (freepats.zenvoid.org) — CC0 1.0
+- 大提琴拨弦、大提琴长音：VS Chamber Orchestra: Community Edition (Versilian Studios / Sam Gossner) — CC0 1.0
+- 钢片琴、马林巴、木鱼、大鼓、吊镲：Versilian Community Sample Library (Versilian Studios) — CC0 1.0
+Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+
+拟音：全部用 numpy/scipy 程序合成（马克笔、板擦、磁铁、笔帽、挂钟、房间底噪），无第三方录音。
+画面：全部由代码绘制；白板引擎改编自风格库的示例引擎。无旁白，未使用语音引擎。
+无真实影像素材。

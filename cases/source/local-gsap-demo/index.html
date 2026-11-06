@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GSAP Stagger & Ease — 手感演示</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0e14;
+    --panel: #161824;
+    --line: #262a3d;
+    --ink: #e8eaf2;
+    --muted: #8a90a8;
+    --accent: #ff7a3c;
+    --accent2: #4ea1ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.6 -apple-system, "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    padding: 40px 24px 80px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  h1 .dim { color: var(--muted); font-weight: 400; }
+  .lede { color: var(--muted); margin: 8px 0 36px; }
+
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 22px;
+  }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+  h2 { font-size: 17px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 13px; }
+  code {
+    font: 12.5px/1.5 "SF Mono", "JetBrains Mono", Menlo, monospace;
+    background: #0a0b12;
+    border: 1px solid var(--line);
+    color: #c7cceb;
+    padding: 2px 7px; border-radius: 6px;
+  }
+  pre {
+    background: #0a0b12; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; margin: 14px 0 18px; overflow-x: auto;
+    font: 12.5px/1.6 "SF Mono", Menlo, monospace; color: #c7cceb;
+  }
+  pre .k { color: var(--accent2); }
+  pre .s { color: #86e59a; }
+  pre .c { color: var(--muted); }
+
+  button {
+    font: inherit; font-size: 13px; font-weight: 550;
+    color: var(--bg); background: var(--accent);
+    border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer;
+    transition: transform .12s, filter .12s;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: scale(.96); }
+
+  /* stagger stage */
+  .row { display: flex; gap: 12px; align-items: flex-end; height: 120px; padding: 0 4px; }
+  .item {
+    flex: 1; height: 56px; border-radius: 10px;
+    background: linear-gradient(180deg, var(--accent), #e05a1e);
+    box-shadow: 0 6px 18px rgba(255,122,60,.25);
+  }
+
+  /* ease lab */
+  .eases { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; margin-top: 8px; }
+  .ease {
+    background: #0f111b; border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+  }
+  .ease .name { font-family: "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--accent); margin-bottom: 12px; }
+  .track {
+    position: relative; height: 40px; border-radius: 8px;
+    background: repeating-linear-gradient(90deg,#12141f 0 1px,transparent 1px 40px);
+    border: 1px solid var(--line);
+  }
+  .ball {
+    position: absolute; top: 50%; left: 6px; width: 22px; height: 22px; margin-top: -11px;
+    border-radius: 50%; background: var(--accent2);
+    box-shadow: 0 0 14px rgba(78,161,255,.55);
+  }
+  .replay-all { display: inline-flex; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>GSAP <span class="dim">·</span> Stagger 与 Ease 手感演示</h1>
+  <p class="lede">点击每块的按钮即可回放。这些正是你笔记里的代码片段，跑起来看时序。</p>
+
+  <!-- 1. Basic stagger -->
+  <section>
+    <div class="head">
+      <h2>① 数字 stagger — 每个元素错开 0.1 秒</h2>
+      <button data-play="basic">▶ 回放</button>
+    </div>
+    <pre><span class="k">gsap</span>.to(<span class="s">".item"</span>, { y: -20, stagger: <span class="s">0.1</span> });</pre>
+    <div class="row" id="stage-basic">
+      <div class="item"></div><div class="item"></div><div class="item"></div>
+      <div class="item"></div><div class="item"></div><div class="item"></div>
+      <div class="item"></div><div class="item"></div>
+    </div>
+  </section>
+
+  <!-- 2. from center -->
+  <section>
+    <div class="head">
+      <h2>② 对象 stagger — from: "center"</h2>
+      <span class="sub">amount 把总时长在所有元素间分摊 · 从中间向两侧扩散</span>
+    </div>
+    <pre><span class="k">gsap</span>.to(<span class="s">".item"</span>, { y: -20, stagger: { amount: <span class="s">0.3</span>, from: <span class="s">"center"</span> } });</pre>
+    <div style="margin-bottom:14px"><button data-play="center">▶ 回放</button></div>
+    <div class="row" id="stage-center">
+      <div class="item"></div><div class="item"></div><div class="item"></div>
+      <div class="item"></div><div class="item"></div><div class="item"></div>
+      <div class="item"></div><div class="item"></div>
+    </div>
+  </section>
+
+  <!-- 3. ease lab -->
+  <section>
+    <div class="head">
+      <h2>③ Ease 手感对比</h2>
+      <button class="replay-all" data-play="eases">▶ 全部回放</button>
+    </div>
+    <p class="sub" style="margin-bottom:4px">同一段 1 秒平移，不同 ease 的加减速曲线。点击单块可单独回放。</p>
+    <div class="eases" id="ease-lab"></div>
+  </section>
+</div>
+
+<script>
+  const EASES = [
+    ["ease: \"power1.out\"", "power1.out"],   // 默认手感
+    ["ease: \"power3.inOut\"", "power3.inOut"],
+    ["ease: \"back.out(1.7)\"", "back.out(1.7)"],   // 回弹 overshoot
+    ["ease: \"elastic.out(1, 0.3)\"", "elastic.out(1, 0.3)"],
+    ["ease: \"none\"", "none"],   // 线性
+    ["ease: \"bounce.out\"", "bounce.out"],
+  ];
+
+  // build ease lab
+  const lab = document.getElementById("ease-lab");
+  EASES.forEach(([label, ease], i) => {
+    const el = document.createElement("div");
+    el.className = "ease";
+    el.innerHTML = `<div class="name">${label}</div><div class="track"><div class="ball"></div></div>`;
+    el.dataset.ease = ease;
+    lab.appendChild(el);
+  });
+
+  function playBasic() {
+    gsap.fromTo("#stage-basic .item", { y: 0 }, { y: -20, stagger: 0.1, yoyo: true, repeat: 1, ease: "power1.out" });
+  }
+  function playCenter() {
+    gsap.fromTo("#stage-center .item", { y: 0 }, { y: -20, stagger: { amount: 0.3, from: "center" }, yoyo: true, repeat: 1, ease: "power1.out" });
+  }
+  function playEase(trackEl, ease) {
+    const ball = trackEl.querySelector(".ball");
+    const dist = trackEl.clientWidth - 22 - 12;
+    gsap.fromTo(ball, { x: 0 }, { x: dist, duration: 1, ease, yoyo: true, repeat: 1 });
+  }
+  function playAllEases() {
+    document.querySelectorAll("#ease-lab .ease").forEach(el => playEase(el.querySelector(".track"), el.dataset.ease));
+  }
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-play]");
+    if (btn) {
+      const k = btn.dataset.play;
+      if (k === "basic") playBasic();
+      if (k === "center") playCenter();
+      if (k === "eases") playAllEases();
+      return;
+    }
+    const ease = e.target.closest(".ease");
+    if (ease) playEase(ease.querySelector(".track"), ease.dataset.ease);
+  });
+
+  // auto-play once on load
+  window.addEventListener("load", () => {
+    playBasic();
+    setTimeout(playCenter, 400);
+    setTimeout(playAllEases, 900);
+  });
+</script>
+</body>
+</html>

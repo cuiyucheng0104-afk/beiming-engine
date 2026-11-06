@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>05 · 小家电 · 随鲜便携榨汁杯</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script>
+<style>
+  #cap{position:absolute;left:140px;top:300px;color:#1f3b35;font-family:'Noto Sans CJK SC';white-space:nowrap}
+  #cap .b{font-weight:900;font-size:120px;letter-spacing:.04em;line-height:1}
+  #cap .b span{font-weight:700;font-size:44px;letter-spacing:.12em;margin-left:22px;color:#2a9d7f;vertical-align:middle}
+  #cap .s{font-weight:700;font-size:36px;letter-spacing:.2em;margin-top:30px;color:#3e6b61}
+  .co{position:absolute;font-family:'Noto Sans CJK SC';font-weight:800;font-size:28px;color:#1f3b35;white-space:nowrap;opacity:0}
+  .co i{position:absolute;height:2px;background:#1f3b35;transform-origin:0 50%}
+  .co b{display:inline-block;padding:12px 24px;border-radius:30px;background:rgba(255,255,255,.92);box-shadow:0 8px 24px rgba(30,60,50,.18)}
+  .co em{position:absolute;width:14px;height:14px;border-radius:50%;background:#2a9d7f;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+</style>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 05 · 3D 渲染 · 行业示例：小家电（便携榨汁杯）=====
+   Fruit cubes drop into a clear cup, the blades spin up, the chunks swirl and dissolve while a smoothie rises.
+   Then the classic e-commerce move: a 360-degree turntable with three feature callouts. Raymarched: thin clear
+   shell with reflections, brushed steel blades, fruit with soft translucency, creamy smoothie with a vortex. */
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#e8f3ee');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '随鲜', name: '便携榨汁杯', line: '随时随地，一杯鲜果', f1: 'USB-C 充电', f2: '6 叶不锈钢刀头', f3: '一键清洗' });
+const NF = 12;
+const rm = Reel.RM(stage, {
+  bloom: 0.15, th: 1.3, expo: 0.95, vig: 0.22, grain: 0.015, ca: 0.25, contrast: 1.06, sat: 1.06, bands: 10,
+  uniforms: `
+uniform vec4 uF[${NF}];       // fruit cubes: pos, size (0 = gone)
+uniform vec4 uFR[${NF}];      // fruit: rotation angles xyz, kind
+uniform float uLevel, uSpin, uRot, uSwirl;
+uniform vec3 uRo, uTa; uniform float uFade;`,
+  scene: `
+const float W = 2.4, RC = 1.1;
+const vec3 LK = normalize(vec3(-.5,.8,.45));
+mat3 rx(float a){ float c=cos(a), s=sin(a); return mat3(1.,0.,0., 0.,c,s, 0.,-s,c); }
+mat3 ry(float a){ float c=cos(a), s=sin(a); return mat3(c,0.,-s, 0.,1.,0., s,0.,c); }
+mat3 rz(float a){ float c=cos(a), s=sin(a); return mat3(c,s,0., -s,c,0., 0.,0.,1.); }
+float sdCylR(vec3 p, float r, float y0, float y1, float rr){ vec2 d = vec2(length(p.xz) - r + rr, abs(p.y - (y0+y1)*.5) - (y1-y0)*.5 + rr); return min(max(d.x,d.y),0.) + length(max(d,0.)) - rr; }
+float sdCyc(vec3 p){ vec2 q = vec2(p.y, p.z + W); if (q.x < RC && q.y < RC) return RC - length(q - vec2(RC)); return min(q.x, q.y); }
+const float GY0 = .125, GY1 = .43, GR = .096;
+// inside the cup (no glass): 2 base, 3 lid, 4 blades, 5 smoothie, 6.. fruit kinds, 9 button
+vec2 mapIn(vec3 p0){
+  vec3 p = ry(uRot) * p0;
+  vec2 r = vec2(sdCyc(p0), 0.);
+  float base = sdCylR(p, .102, 0., .125, .02);
+  if (base < r.x) r = vec2(base, 2.);
+  float btn = sdCylR(rx(1.5708) * (p - vec3(0., .07, .1)), .018, -.006, .006, .004);
+  if (btn < r.x) r = vec2(btn, 9.);
+  float lid = sdCylR(p, .1, GY1, GY1 + .05, .015);
+  lid = min(lid, length(vec2(length(p.xy - vec2(.0, GY1 + .07)) - .035, p.z)) - .009);
+  if (lid < r.x) r = vec2(lid, 3.);
+  vec3 b = p - vec3(0., .145, 0.);
+  b = ry(uSpin) * b;
+  float bl = 1e3;
+  for (int k=0;k<3;k++){ vec3 q = ry(float(k)*1.0472) * b; q.y -= .006*sign(q.x)*sin(float(k)); bl = min(bl, max(abs(q.y) - .002, max(abs(q.z) - .008 + .004*abs(q.x)/.06, abs(q.x) - .062))); }
+  bl = min(bl, sdCylR(b + vec3(0.,.01,0.), .014, -.01, .012, .003));
+  if (bl < r.x) r = vec2(bl, 4.);
+  if (uLevel > .001){
+    float rho = length(p.xz);
+    float top = GY0 + .01 + uLevel - uSwirl*.03*(1. - smoothstep(0., .08, rho)) + uSwirl*.006*sin(atan(p.z, p.x)*3. + uSpin*.5);
+    float liq = max(rho - GR + .006, max(p.y - top, GY0 + .004 - p.y));
+    if (liq < r.x) r = vec2(liq, 5.);
+  }
+  for (int i=0;i<${NF};i++){ vec4 F = uF[i]; if (F.w < .001) continue;
+    vec3 q = p - F.xyz; if (length(q) - F.w*1.8 > r.x) continue;
+    vec4 R = uFR[i]; q = rx(R.x) * ry(R.y) * rz(R.z) * q;
+    vec3 d = abs(q) - vec3(F.w); float c = length(max(d, 0.)) + min(max(d.x, max(d.y, d.z)), 0.) - F.w*.25;
+    if (c < r.x) r = vec2(c, 6. + R.w); }
+  return r;
+}
+float sdGlass(vec3 p0){ vec3 p = ry(uRot) * p0; return max(abs(length(p.xz) - GR) - .0025, max(p.y - GY1 - .005, GY0 - p.y)); }
+vec2 mapAll(vec3 p){ vec2 r = mapIn(p); float g = sdGlass(p); return g < r.x ? vec2(g, 1.) : r; }
+vec3 nIn(vec3 p){ const vec2 k = vec2(1.,-1.)*.0004; return normalize(k.xyy*mapIn(p+k.xyy).x + k.yyx*mapIn(p+k.yyx).x + k.yxy*mapIn(p+k.yxy).x + k.xxx*mapIn(p+k.xxx).x); }
+vec3 nG(vec3 p){ const vec2 k = vec2(1.,-1.)*.0004; return normalize(k.xyy*sdGlass(p+k.xyy) + k.yyx*sdGlass(p+k.yyx) + k.yxy*sdGlass(p+k.yxy) + k.xxx*sdGlass(p+k.xxx)); }
+vec2 marchIn(vec3 ro, vec3 rd, float tmax){ float t = .002; for (int i=0;i<130;i++){ vec2 h = mapIn(ro + rd*t); if (abs(h.x) < .0002 + .0002*t) return vec2(t, h.y); t += h.x*.9; if (t > tmax) break; } return vec2(-1.); }
+vec2 marchAll(vec3 ro, vec3 rd, float tmax){ float t = .002; for (int i=0;i<140;i++){ vec2 h = mapAll(ro + rd*t); if (abs(h.x) < .0002 + .0002*t) return vec2(t, h.y); t += h.x*.9; if (t > tmax) break; } return vec2(-1.); }
+float shadow(vec3 ro, vec3 L){ float res = 1., t = .01; for (int i=0;i<26;i++){ vec3 q = ro + L*t; float h = min(mapIn(q).x, sdGlass(q) + .01); res = min(res, 8.*h/t); t += clamp(h, .01, .2); if (res < .003 || t > 2.) break; } return clamp(res, .25, 1.); }
+float ao(vec3 p, vec3 n){ float o = 0., s = 1.; for (int i=0;i<4;i++){ float h = .01 + .04*float(i); o += (h - mapIn(p + n*h).x) * s; s *= .7; } return clamp(1. - 3.*o, 0., 1.); }
+float strip(vec3 r, vec3 dir, float w, float h){ float d = dot(r, dir); if (d <= 0.) return 0.; vec3 u = normalize(cross(vec3(0.,1.,0.), dir)); vec2 q = vec2(dot(r,u), r.y)/d; return smoothstep(w, w*.4, abs(q.x)) * smoothstep(h, h*.8, abs(q.y - .1)); }
+vec3 env(vec3 r){ vec3 c = mix(vec3(.75,.85,.8), vec3(.98,1.,.99), smoothstep(-.2,.8,r.y)); c += vec3(1.) * 5. * strip(r, normalize(vec3(-.8,.1,.6)), .06, .8); c += vec3(1.) * 3.5 * strip(r, normalize(vec3(.85,.1,.45)), .05, .8); return c; }
+vec3 albedo(float m, vec3 p){
+  if (m < .5) return mix(vec3(.86,.93,.9), vec3(.8,.9,.86), smoothstep(0., 1.4, p.y));
+  if (m < 2.5) { vec3 q = ry(uRot) * p; return mix(vec3(.96,.97,.96), vec3(.36,.78,.64), smoothstep(.088, .092, q.y) * (1. - smoothstep(.104, .108, q.y))); }
+  if (m < 3.5) return vec3(.95,.96,.95);
+  if (m < 4.5) return vec3(.7);
+  if (m < 5.5) { vec3 q = ry(uRot + uSpin*.05) * p; float sw = sin(atan(q.z, q.x)*2. + q.y*60. - uSpin*.3)*.5 + .5; vec3 c = mix(vec3(.96,.34,.3), vec3(1.,.58,.2), sw*.7); c = mix(c, vec3(.45,.06,.08), step(.985, hash13(floor(q*260.)))*.7); return c; }
+  if (m < 6.5) return vec3(1.,.55,.06);
+  if (m < 7.5) return vec3(.92,.12,.18);
+  if (m < 8.5) return vec3(.42,.78,.2);
+  return vec3(.3,.95,.75);
+}
+vec3 shadeIn(vec3 p, vec3 rd, float m){
+  vec3 n = nIn(p), a = albedo(m, p);
+  float cv = clamp(dot(n, -rd), 0., 1.), sh = shadow(p + n*.002, LK), oc = ao(p, n);
+  vec3 col = a * (1.25 * clamp(dot(n, LK), 0., 1.) * sh + .42 * oc * (.6 + .4*n.y));
+  if (m > 5.5 && m < 8.5) col += a * a * .5 * pow(1. - cv, 2.) + a * .25 * clamp(dot(-n, LK), 0., 1.);     // fruit flesh lets light through
+  if (m > 4.5 && m < 5.5) col += vec3(1.) * .25 * pow(max(dot(reflect(rd, n), LK), 0.), 40.);
+  if (m > 3.5 && m < 4.5) col = env(reflect(rd, n)) * vec3(.75,.77,.8) * (.4 + .6*oc);                       // steel
+  if (m > 8.5) col = vec3(.4,1.,.8) * (1.4 + .4*sin(uSpin));                                                  // the button glows
+  if (m > .5 && m < 3.5) col += env(reflect(rd, n)) * schlick(cv, .04) * .5 * oc;
+  return col;
+}
+vec3 render(vec2 fc){
+  vec2 uv = (2.*fc - uRes) / uRes.y;
+  vec3 ro = uRo, rd = camMat(ro, uTa, 0.) * normalize(vec3(uv, 2.6));
+  vec2 h = marchAll(ro, rd, 8.);
+  vec3 col;
+  if (h.x < 0.) { col = env(rd); gDepth = 8.; }
+  else {
+    vec3 p = ro + rd*h.x; gDepth = h.x;
+    if (h.y > .5 && h.y < 1.5) {                              // clear shell: reflect + see through
+      vec3 n = nG(p); if (dot(n, rd) > 0.) n = -n;
+      float F = schlick(clamp(dot(n, -rd), 0., 1.), .045);
+      vec3 rd2 = normalize(rd + n*.04);
+      vec2 h2 = marchIn(p + rd2*.006, rd2, 8.);
+      vec3 inner = h2.x > 0. ? shadeIn(p + rd2*(h2.x + .006), rd2, h2.y) : env(rd2);
+      float cv2 = clamp(dot(n, -rd), 0., 1.);
+      col = inner * vec3(.93,.97,.96) + env(reflect(rd, n)) * F * 2.6 + vec3(.9,1.,.97) * .22 * pow(1. - cv2, 3.);
+    } else col = shadeIn(p, rd, h.y);
+  }
+  return col * uFade;
+}`,
+});
+// fruit: fall into the cup, swirl, shrink away as the smoothie rises
+const R = Reel.rng(3);
+const FR = Array.from({ length: NF }, (_, i) => ({ k: i % 3, t1: 0.55 + i * 0.11, s: 0.02 + R() * 0.006, ang: R() * 6.28, rho: 0.03 + R() * 0.035, lay: Math.floor(i / 4), rot: [R() * 6, R() * 6, R() * 6], w: [R() - 0.5, R() - 0.5, R() - 0.5] }));
+const TSPIN = 2.5, TEND = 5.2;
+const spinAng = (t) => t < TSPIN ? 0 : 60 * (t - TSPIN) - 50 * Math.max(0, t - 4.8) ** 2 / 0.8 * (t < 5.6 ? 1 : 0) - (t > 5.6 ? 50 * 0.8 / 0.8 * (t - 5.6) * 0 : 0);
+function fruitState(f, t) {
+  const restY = 0.155 + f.lay * 0.04 + f.s;
+  if (t < f.t1 - 0.6) return null;
+  if (t < f.t1) { const s = f.t1 - t; return { p: [Math.cos(f.ang) * f.rho, restY + 4.9 * s * s, Math.sin(f.ang) * f.rho], r: f.rot.map((a, j) => a + f.w[j] * 8 * s), s: f.s }; }
+  const sw = Math.max(0, t - TSPIN), sh = 1 - E.inOutSine(inv(TSPIN + 0.4 + f.k * 0.2, TEND - 0.6 + f.k * 0.15, t));
+  if (sh <= 0.01) return null;
+  const a = f.ang + sw * (6 + 4 * f.lay);
+  return { p: [Math.cos(a) * (f.rho + 0.02 * Math.min(1, sw)), restY + 0.04 * Math.sin(sw * 9 + f.ang) * Math.min(1, sw), Math.sin(a) * (f.rho + 0.02 * Math.min(1, sw))], r: f.rot.map((x, j) => x + sw * 7 * f.w[j]), s: f.s * sh };
+}
+function camAt(t) {
+  const u = E.inOutSine(clamp(t / 11.2));
+  const az = 0.25 + u * Math.PI * 2 * 1.1, el = lerp(0.9, 0.26, E.inOutSine(clamp((t - 0.3) / 10.5))), d = lerp(0.78, 1.0, u);
+  const a = [lerp(0, -0.16, E.inOutSine(clamp((t - 10.2) / 1.4))), lerp(0.2, 0.22, u), 0];
+  const p = [a[0] + Math.sin(az) * Math.cos(el) * d, a[1] + Math.sin(el) * d, a[2] + Math.cos(az) * Math.cos(el) * d];
+  return { p, a, ap: lerp(7, 3, u) };
+}
+const CTM = [[0, 0], [9.0, 5.8], [15, 10.0]];
+const ctOf = (t) => { for (let k = 1; k < CTM.length; k++) if (t <= CTM[k][0]) return lerp(CTM[k - 1][1], CTM[k][1], (t - CTM[k - 1][0]) / (CTM[k][0] - CTM[k - 1][0])); return 10; };
+// screen projection for the callouts (matches camMat + focal 2.6)
+function project(cam, P) {
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const nz = (a) => { const l = Math.hypot(...a); return a.map((x) => x / l); };
+  const w = nz(sub(cam.a, cam.p)), u = nz(cross(w, [0, 1, 0])), v = cross(u, w), d = sub(P, cam.p), z = dot(d, w);
+  return [960 + dot(d, u) / z * 2.6 * 540, 540 - dot(d, v) / z * 2.6 * 540];
+}
+const cap = document.createElement('div'); cap.id = 'cap';
+cap.innerHTML = `<div class="b">${C.brand}<span>${C.name}</span></div><div class="s">${C.line}</div>`; stage.appendChild(cap);
+const CO = [C.f1, C.f2, C.f3].map((s) => { const d = document.createElement('div'); d.className = 'co'; d.innerHTML = `<i></i><em></em><b>${s}</b>`; stage.appendChild(d); return d; });
+const ANCH = [[0.1, 0.05, 0.0, 'r'], [0.0, 0.07, 0.0, 'r'], [0.0, 0.03, 0.1, 'r']];
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 120px "Noto Sans CJK SC"', '700 44px "Noto Sans CJK SC"', '800 28px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.0, sfx: 'swell', gain: 0.4 }, ...FR.map((f) => ({ t: +(f.t1 / 0.6444).toFixed(2), sfx: 'blob', gain: 0.25 })), { t: 3.88, sfx: 'powerup', gain: 0.4 }, { t: 4.19, sfx: 'riser_short', gain: 0.3 }, { t: 8.07, sfx: 'ding', gain: 0.5 }, { t: 10.6, sfx: 'whoosh', gain: 0.3 }, { t: 11.3, sfx: 'pop', gain: 0.45 }, { t: 11.7, sfx: 'pop', gain: 0.45 }, { t: 12.1, sfx: 'pop', gain: 0.45 }, { t: 12.6, sfx: 'chime', gain: 0.55 }],
+  render(rt) {
+    const t = ctOf(rt);
+    const F = new Float32Array(NF * 4), FRR = new Float32Array(NF * 4);
+    FR.forEach((f, i) => { const s = fruitState(f, t); if (!s) return; F.set([...s.p, s.s], i * 4); FRR.set([...s.r, f.k], i * 4); });
+    rm.set('uF', F).set('uFR', FRR);
+    const spin = t < TSPIN ? 0 : 55 * (t - TSPIN) * (1 - 0.5 * E.inOutSine(inv(5.0, 5.8, t)));
+    rm.set('uSpin', spin).set('uSwirl', E.inOutSine(inv(TSPIN, 3.0, t)) * (1 - E.inOutSine(inv(5.2, 6.0, t))));
+    rm.set('uLevel', 0.2 * E.inOutSine(inv(2.9, TEND, t)));
+    const rot = 0;
+    rm.set('uRot', rot);
+    const cam = camAt(rt);
+    const fd = Math.hypot(cam.p[0] - cam.a[0], cam.p[1] - cam.a[1], cam.p[2] - cam.a[2]);
+    rm.set('uRo', cam.p).set('uTa', cam.a).set('uFade', E.outCubic(clamp(rt / 0.5)));
+    rm.render(rt, { focus: fd, aperture: cam.ap, maxCoc: 12 });
+    CO.forEach((d, i) => {
+      const a = E.outBack(clamp(inv(11.3 + i * 0.4, 11.7 + i * 0.4, rt)), 1.4);
+      const [x, y] = project(cam, ANCH[i]);
+      const lx = 300, ly = [10, -130, 120][i];
+      d.style.opacity = clamp(a); d.style.left = `${x}px`; d.style.top = `${y}px`;
+      const ln = d.querySelector('i'), em = d.querySelector('em'), b = d.querySelector('b');
+      em.style.left = '-9px'; em.style.top = '-9px';
+      ln.style.left = '0px'; ln.style.top = '0px'; ln.style.width = `${Math.hypot(lx, ly) * clamp(a)}px`; ln.style.transform = `rotate(${Math.atan2(ly, lx)}rad)`;
+      b.style.transform = `translate(${lx + 10}px, ${ly - 26}px) scale(${Math.max(0.01, a)})`; b.style.transformOrigin = '0 50%';
+    });
+    const ca = E.outCubic(inv(12.6, 13.4, rt));
+    cap.style.opacity = ca; cap.style.transform = `translateX(${(1 - ca) * -30}px)`;
+  },
+});
+</script></body></html>

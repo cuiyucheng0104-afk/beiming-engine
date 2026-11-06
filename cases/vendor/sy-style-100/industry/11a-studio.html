@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>11 · 设计工作室 · 方寸设计</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/plates.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 11 包豪斯 · 行业示例：设计工作室 =====
+   The anamorphic trick, shot as a crane-down. We start almost overhead: painted plates hang at very
+   different heights and all we read is a scatter of coloured shadows on the studio floor. The camera
+   spirals down and round, the pieces slide past each other, and at exactly one point they click into the
+   studio's flat poster. Then the poster is annotated like a design deck: each shape is a service. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#e9e2d4');
+const C = Reel.cfg({ brand: '方寸设计', en: 'FANGCUN DESIGN STUDIO', sub: '小团队 · 大品牌感', s1: '品牌', s2: '包装', s3: '空间' });
+const { Q } = PLATES;
+const FIN = 6.5, F0 = 2.0, CZ = 7.2;
+// poster in final-view uv (y up): [cx, cy, depth, type, p0, p1, p2, colour, flip-in beat]
+const PL = [
+  [-0.62, 0.66, 6.2, 0, 0.66, 0.03, 0, 3, -1], [-0.62, -0.58, 7.6, 0, 0.66, 0.03, 0, 3, -1], [-1.25, 0.04, 5.4, 0, 0.03, 0.65, 0, 3, -1], [0.01, 0.04, 8.3, 0, 0.03, 0.65, 0, 3, -1],   // square frame
+  [-0.78, 0.2, 5.0, 2, 0.34, 0, 0, 0, -1],               // red disc
+  [-0.5, -0.55, 6.9, 1, 0.46, 2, 0, 1, -1],              // yellow half-disc sitting on the frame
+  [0.42, -0.02, 5.6, 0, 0.1, 0.7, 0, 2, -1],             // blue column
+  [0.86, 0.5, 7.9, 5, 0.4, 0, 0, 3, -1],                 // black quarter
+  [1.3, 0.12, 6.4, 3, 0.18, 0, 0, 0, -1],                // red triangle
+  [1.1, -0.66, 8.8, 6, 0.09, 0.024, 0, 3, -1],           // row of dots
+  [-0.3, 0.2, 9.4, 4, 1.02, 0.007, 0, 3, -1],            // big thin ring behind
+  [1.42, -0.12, 5.2, 0, 0.007, 0.5, 0, 3, -1],           // rule
+];
+const pl = PLATES.make(stage, { shapes: PL.map((p) => ({ type: p[3], p: [p[4], p[5], p[6]], col: p[7] })), cyc: { fy: -6.5, wz: -2.7, rc: 2.2 }, rm: { sat: 1.22, contrast: 1.1 } });
+function camera(t) {
+  const u = clamp(t / FIN), e = 1 - Math.pow(1 - u, 2.3);
+  // spiral crane: from nearly overhead and round to the side, down to the single aligned viewpoint
+  const az = 1.25 * (1 - e) * (1 - e * 0.2), el = 1.18 * (1 - e), dist = lerp(10.5, CZ - 0.3, e);
+  const ta = [lerp(-0.6, 0, e), lerp(-1.8, 0, e), lerp(1.4, 0.3, e)];
+  let ro = PLATES.orbit(ta, az, el, dist), f = lerp(1.35, F0, e), roll = 0.18 * (1 - e) * Math.sin(e * 3);
+  if (t > FIN) {
+    f = F0 * (1 + 0.03 * E.inOutSine(clamp((t - FIN) / (15 - FIN))));
+    const k = Math.exp(-(t - FIN) * 18) * Math.sin((t - FIN) * 70) * 0.012; ro = [ro[0] + k, ro[1] - k * 0.6, ro[2]];
+  }
+  return { ro, ta, roll, f };
+}
+function plates(t) {
+  return PL.map(([cx, cy, d], i) => {
+    const sway = (1 - clamp(t / FIN)) * 0.25;                                     // hanging plates turn a little until they align
+    const q = Q.axis(0, 1, 0, sway * Math.sin(t * 1.3 + i * 1.7));
+    return { c: [cx * d / F0, cy * d / F0, CZ - d], q, k: d / F0, th: 0.028, vis: 1 };
+  });
+}
+const ov = Reel.canvas2d(stage);
+const uvPx = (x, y, z) => [960 + x * 540 * z, 540 - y * 540 * z];
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['700 60px "TeX Gyre Adventor"', '900 44px "Noto Sans CJK SC"', '700 20px "Noto Sans CJK SC"', '500 20px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.2, sfx: 'whoosh', gain: 0.3 }, ...[1, 2, 3, 4, 5].map((b) => ({ t: b, sfx: 'block', gain: 0.4 })), { t: 4.8, sfx: 'riser_short', gain: 0.45 }, { t: FIN, sfx: 'impact', gain: 0.9 },
+    { t: 7.5, sfx: 'tick', gain: 0.5 }, { t: 8.5, sfx: 'tick', gain: 0.5 }, { t: 9.5, sfx: 'tick', gain: 0.5 }, { t: 10.6, sfx: 'rim', gain: 0.6 }, { t: 11.1, sfx: 'rim', gain: 0.5 }],
+  render(t) {
+    const cam = camera(t);
+    const ap = 0.75 * (1 - E.inOutSine(clamp((t - (FIN - 1.2)) / 1.2)));
+    pl.frame(t, plates(t), cam, { ap, focus: Math.hypot(cam.ro[0] - cam.ta[0], cam.ro[1] - cam.ta[1], cam.ro[2] - cam.ta[2]) + 0.4 });
+    const { ctx, begin } = ov; begin(); ctx.clearRect(0, 0, 1920, 1080);
+    if (t > FIN) {
+      const z = cam.f / F0;
+      ctx.save(); ctx.strokeStyle = 'rgba(22,22,22,.85)'; ctx.fillStyle = 'rgba(22,22,22,.92)'; ctx.lineWidth = 1.6;
+      // annotations: each shape is a service, lettered straight onto the plate like a design deck
+      const NOTE = [[7.5, C.s1, 'BRANDING', [-0.78, 0.2], '#fff'], [8.5, C.s2, 'PACKAGING', [0.42, 0.02], '#fff', true], [9.5, C.s3, 'SPACE', [-0.5, -0.36], 'rgba(22,22,22,.92)']];
+      for (const [t0, cn, en, at, col, vert] of NOTE) {
+        const a = clamp((t - t0) / 0.25); if (a <= 0) continue; const [x0, y0] = uvPx(at[0], at[1], z);
+        ctx.globalAlpha = a; ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        if (vert) { ctx.font = `900 ${Math.round(44 * z)}px "Noto Sans CJK SC"`; [...cn].forEach((c, k) => ctx.fillText(c, x0, y0 + (k - 0.5) * 52 * z)); }
+        else { ctx.font = `900 ${Math.round(46 * z)}px "Noto Sans CJK SC"`; ctx.fillText(cn, x0, y0 - 8 * z); ctx.font = `700 ${Math.round(14 * z)}px "TeX Gyre Adventor"`; if ('letterSpacing' in ctx) ctx.letterSpacing = '4px'; ctx.fillText(en, x0, y0 + 30 * z); if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'; }
+      }
+      ctx.fillStyle = 'rgba(22,22,22,.92)';
+      ctx.textAlign = 'left';
+      const ba = clamp((t - 10.6) / 0.3);
+      if (ba > 0) {
+        ctx.globalAlpha = ba; let [x, y] = uvPx(0.66, -0.3, z);
+        ctx.font = `900 ${Math.round(64 * z)}px "Noto Sans CJK SC"`; ctx.textBaseline = 'alphabetic'; ctx.fillText(C.brand, x, y);
+        ctx.font = `700 ${Math.round(17 * z)}px "TeX Gyre Adventor"`; if ('letterSpacing' in ctx) ctx.letterSpacing = '5px'; ctx.fillText(C.en, x, y + 36 * z); if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+        ctx.globalAlpha = clamp((t - 11.1) / 0.3); ctx.font = `500 ${Math.round(22 * z)}px "Noto Sans CJK SC"`; ctx.fillText(C.sub, x, y + 74 * z);
+        const m = [[-1.66, 0.94], [1.66, 0.94], [-1.66, -0.94], [1.66, -0.94]];
+        for (const [ux, uy] of m) { const [px, py] = uvPx(ux, uy, z); const sx = Math.sign(ux), sy = -Math.sign(uy); ctx.beginPath(); ctx.moveTo(px - sx * 30, py); ctx.lineTo(px + sx * 4, py); ctx.moveTo(px, py - sy * 30); ctx.lineTo(px, py + sy * 4); ctx.stroke(); }
+      }
+      ctx.restore();
+    }
+  },
+});
+</script></body></html>

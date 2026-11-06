@@ -1,0 +1,33 @@
+《三个正方形》 Three Squares — chalkboard style sample (code-made film)
+
+IMAGES, FOOTAGE, MODELS
+- None. The classroom wall, the two board panels, frame, chalk tray, clock, chalk, cells, wipe and wet streak are drawn in
+  code (js/stage.js, js/chalk.js, js/app.js, js/film.js). No photographs, scans, stock footage or generated images.
+
+CHALK WRITING
+- 勾股定理 is our own stroke data (js/hz.js: a centre line and a stroke type per stroke, GF 0023-2020 stroke order),
+  drawn by the chalk engine. Proportions were checked by eye against LXGW WenKai TC set behind the data on the check page
+  (index.html?lab=hz); no outline was copied or traced, and the font never appears in the film.
+- a, b, c, +, =, 2 are written through the single-line font EMS Delight by the same chalk engine.
+
+FONTS (SIL Open Font License 1.1)
+- EMS Delight and EMS Casual Hand, single-stroke SVG fonts (derivatives of Delius by Natalia Raices and Covered By Your
+  Grace by Kimberly Geswein; SVG conversion by Sheldon B. Michaels and Windell H. Oskay),
+  https://gitlab.com/oskay/svg-fonts — OFL 1.1, fonts/OFL-EMS.txt
+- LXGW WenKai TC (© The LXGW WenKai Project Authors), four-glyph subset 勾股定理 from the Google Fonts CSS API (&text=),
+  fonts/wenkai-ref.woff2 — OFL 1.1, fonts/OFL-LXGWWenKaiTC.txt. Reference for stroke data only.
+
+SOUND
+- Chalk recordings from Wikimedia Commons, cut into grains by tools/foley_lib.py (foley/), stored in material/:
+  - "264944 chalk-on-chalkboard.wav" by fattirewhitey —
+    https://commons.wikimedia.org/wiki/File:264944_chalk-on-chalkboard.wav — CC0 1.0 (Public Domain Dedication)
+  - "Chalkboard-writing.ogg" by Tomproberts —
+    https://commons.wikimedia.org/wiki/File:Chalkboard-writing.ogg — CC0 1.0 (Public Domain Dedication)
+- Music samples (CC0 1.0): FreePats project (freepats.zenvoid.org) — nylon-string guitar; Versilian Community Sample
+  Library (Versilian Studios) — marimba; VS Chamber Orchestra: Community Edition (Versilian Studios / Sam Gossner) —
+  pizzicato double bass and cellos. Played by the library's core/audio/sampler.py.
+- Guitar harmonics and the slide on the chalk paths: physical model (core/audio/pluck.py).
+- Room tone, whoosh, damp cloth, chalk-knock thump and the distant school bell: synthesised in mix.py (numpy).
+
+TOOLS
+- Rendering, sampler, pluck model, sfx and mastering from the film library's core/ (headless Chrome, ffmpeg).

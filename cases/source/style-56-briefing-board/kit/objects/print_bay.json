@@ -1,0 +1,15 @@
+{
+  "id": "print_bay",
+  "w": 2616,
+  "h": 1954,
+  "anchors": {},
+  "print": true,
+  "prep": {
+    "src": "@@CASE_ROOT@@/material/raw/bay.jpg",
+    "id": "print_bay",
+    "crop": "51,107,3627,2697",
+    "w": 2400,
+    "border": 0.045,
+    "sat": 0.85
+  }
+}

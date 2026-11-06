@@ -1,0 +1,26 @@
+T−15 · 实时倒计时分屏（Artemis I 发射最后 15 秒，非官方剪辑）
+Unofficial edit. NASA did not make, review or endorse this film. No agency insignia are used as graphics.
+
+FOOTAGE — U.S. federal government works (NASA), public domain in the U.S.
+- "Artemis I Isolated Launch Views" (KSC-20221116-MH-AJN01-0001), NASA Kennedy Space Center
+  https://images.nasa.gov/details/KSC-20221116-MH-AJN01-0001-Artemis_I_Isolated_Launch_Views-3314595
+  original file: https://images-assets.nasa.gov/video/KSC-20221116-MH-AJN01-0001-Artemis_I_Isolated_Launch_Views-3314595/KSC-20221116-MH-AJN01-0001-Artemis_I_Isolated_Launch_Views-3314595~orig.mp4
+  used: ML PAO PTZ, PAD V8 FULL STACK (933), LT2B V1 FAIRING 2 (920), PER V1 SRM TOP (923), FLAG SHOT, GANTRY PTZ,
+        PAD V4 MLP (929), WTR V1 WIDE ENGINES (913), CS5 V1 WIDE (907) — about 70 s in total (material/sync.json)
+- "Mission Control Houston During Artemis I Launch" (jsc2022m000284), NASA Johnson Space Center
+  https://images.nasa.gov/details/jsc2022m000284-Mission%20Control%20Houston%20During%20Artemis%20I%20Launch
+  used: 13.15 s from 444.4 s (wide shot of the room), shown as "same window · not frame-synced"
+  Licence for both: NASA media usage guidelines — https://www.nasa.gov/nasa-brand-center/images-and-media/
+  (NASA content is generally not subject to copyright in the United States; the camera-number overlays were removed with delogo.)
+
+MUSIC & SOUND — original, written for this film in code (mix.py): numpy synthesis + sampled instruments
+- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios, github.com/sgossner/VSCO-2-CE),
+  Versilian Community Sample Library (Versilian Studios, github.com/sgossner/VCSL)
+  instruments: bass drum, gran cassa, hi-hat, toms, snare, crash, suspended cymbal, timpani, tubular bells, glockenspiel,
+  trombone, tuba, horn, trumpet, contrabass pizzicato
+- Clock ticks, interface foley, ambience, ignition and roar: procedurally synthesised (no recordings)
+
+FONTS — SIL Open Font License 1.1 (fonts/OFL-*.txt)
+- Barlow, Barlow Condensed (Jeremy Tribby) — https://github.com/google/fonts/tree/main/ofl/barlow , .../barlowcondensed
+- IBM Plex Mono (IBM) — https://github.com/google/fonts/tree/main/ofl/ibmplexmono
+- Noto Sans SC (Google), subset via the Google Fonts API — https://fonts.google.com/noto/specimen/Noto+Sans+SC

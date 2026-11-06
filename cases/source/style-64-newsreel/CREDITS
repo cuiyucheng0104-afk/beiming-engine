@@ -1,0 +1,37 @@
+空中竞速 · 1920s 新闻影片风格样片 — 第三方素材与许可
+
+档案影片（美国国家档案馆 NARA，福特汽车公司影片集 Record Group 200-FC；经 Internet Archive "FedFlix" 下载）
+- 200-FC-1956 "Commercial Airplane Reliability Tour" (1929)
+  https://archive.org/details/fc-fc-1956 · NARA https://catalog.archives.gov/id/92067
+  用于：网格发牌 5 张定格（源 66.5/79.5/84.5/88.0/110.5 s）、翻页与空跑道（源 98.0–102.25 s）、报纸里的两张网点照片（源 74.5/93.5 s）
+- 200-FC-1224 "Airplane Reliability Tour" (1927)
+  https://archive.org/details/fc-fc-1224 · NARA https://catalog.archives.gov/id/91699
+  用于：6 号赛机着陆后滑入（源 269.40–270.65 s）、双翼机滑入与定格（源 158.3–159.75 s，定格帧为 159.675 s 单独降噪锐化的一帧）
+  许可：公有领域。两部影片分别出版于 1927、1929 年（美国 1930 年及以前出版的作品已进入公有领域）；
+  福特汽车公司 1962 年已将该影片集的全部权利移交 NARA（"copyright- and royalty-free"）。
+
+报纸
+- The Brownsville Herald (Brownsville, Texas), 1929-10-05, 第 1 版，"FLIERS BEGIN 1929 AIR TOUR"（美联社电稿）一栏
+  Library of Congress, Chronicling America: https://www.loc.gov/resource/sn86063730/1929-10-05/ed-1/?sp=1
+  许可：1931 年前在美国出版，公有领域。只裁用该栏，头条与其他报道未进画面。
+  报纸道具上的 "号外 / EXTRA / 空中竞速！" 排版为本片原创，非任何真实报纸的报头。
+
+地图数据
+- Natural Earth 1:50m Land 与 Lakes（只画海岸线和湖泊，不画任何国界），公有领域
+  https://github.com/nvkelso/natural-earth-vector (geojson/ne_50m_land.geojson, ne_50m_lakes.geojson)
+
+字体（SIL Open Font License 1.1，经 Google Fonts 按用字子集化后自托管于 fonts/）
+- Noto Serif SC 900、Noto Sans SC 600（Google / Adobe）
+- Long Cang（Chen Xiaomin）
+- Oswald 600（Vernon Adams 等）
+- Limelight（Eben Sorkin）
+
+音乐采样（全部 CC0）
+- VS Chamber Orchestra: Community Edition (Versilian Studios)
+- Versilian Community Sample Library (Versilian Studios)
+  乐器：小号（开放/断奏/弱音）、圆号、长号、大号、单簧管、短笛、钟琴、定音鼓、小军鼓、大鼓、镲、悬挂镲、木鱼
+- 班卓：物理建模合成（Karplus–Strong），无采样
+- 所有拟音、放映机声、引擎声、人群声：numpy 程序合成
+
+配乐为原创（120 BPM 降 B 大调进行曲），未引用任何现有曲调。
+厂牌"千里眼"为虚构。本片为非官方风格样片，与 NARA、国会图书馆、任何报社或公司无关。

@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>T−15</title>
+<style>
+  @font-face { font-family: 'BarlowC'; src: url('fonts/BarlowCondensed-SemiBold.ttf'); font-weight: 600; }
+  @font-face { font-family: 'BarlowC'; src: url('fonts/BarlowCondensed-Medium.ttf'); font-weight: 500; }
+  @font-face { font-family: 'Barlow'; src: url('fonts/Barlow-Medium.ttf'); font-weight: 500; }
+  @font-face { font-family: 'Plex'; src: url('fonts/IBMPlexMono-Medium.ttf'); font-weight: 500; }
+  @font-face { font-family: 'Plex'; src: url('fonts/IBMPlexMono-SemiBold.ttf'); font-weight: 600; }
+  @font-face { font-family: 'NotoSC'; src: url('fonts/NotoSansSC-500-sub.woff2'); font-weight: 500; }
+  @font-face { font-family: 'NotoSC'; src: url('fonts/NotoSansSC-700-sub.woff2'); font-weight: 700; }
+  html, body { margin: 0; background: #06080A; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="timeline.js"></script>
+<script>
+// ————————————————————————————————————————————————————————————————
+// T−15 · Live Countdown Split-screen. Artemis I, 16 Nov 2022, LC-39B. Unofficial edit of NASA public-domain footage.
+// Film time t; countdown M = t − T0. Screen time = event time; nothing is sped up, slowed or re-ordered.
+// Each camera's sync is baked into frames/<cam>/<film frame>.jpg by tools/prep.sh (material/sync.json).
+// ————————————————————————————————————————————————————————————————
+const W = 1920, H = 1080, FPS = TL.FPS, T0 = TL.T0, DUR = TL.DUR;
+window.DUR = DUR;
+const cv = document.getElementById('c');
+let g = cv.getContext('2d');
+
+const C = {
+  bg: '#06080A', panel: '#0B0E11', line: 'rgba(222,232,238,0.16)', ink: '#F2F5F7', dim: '#7C878D', faint: 'rgba(242,245,247,0.45)',
+  org: '#FF5B1F', live: '#FF3B30', plate: 'rgba(6,8,10,0.80)', dark: '#0A0B0C'
+};
+const F_NUM = 'BarlowC', F_MONO = 'Plex', F_ZH = 'Barlow, NotoSC';
+
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const eio = t => { t = clamp(t); return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+const eo = t => 1 - Math.pow(1 - clamp(t), 3);
+const lerpR = (a, b, k) => a.map((v, i) => lerp(v, b[i], k));
+// a move on a beat: starts one frame early (still 0 on that frame), so the beat frame itself is the first frame that moves
+const hit = (t, b, d, e = eo) => e(seg(t, b - 1 / TL.FPS, b - 1 / TL.FPS + d));
+
+// ——— frames ———
+const cache = new Map();
+function img(src) {
+  if (!cache.has(src)) cache.set(src, new Promise(res => { const im = new Image(); im.onload = () => im.decode().then(() => res(im), () => res(im)); im.onerror = () => res(null); im.src = src; }));
+  return cache.get(src);
+}
+const pad4 = n => String(n).padStart(4, '0');
+function frameSrc(cam, f) {
+  const [a, b] = TL.CAMS[cam];
+  const n = clamp(f, Math.ceil(a * FPS), Math.floor(b * FPS) - 1);
+  return `frames/${cam}/${pad4(n)}.jpg`;
+}
+
+// ——— camera chips and sync badges ———
+const LABEL = {
+  mcc: ['CAM 1', '休斯敦控制室', 'MCC HOUSTON', 'window'],
+  v8: ['CAM 2', '全箭', 'PAD 933', 'sync'],
+  pao: ['CAM 3', '箭顶', 'ML PTZ', 'sync'],
+  fair: ['CAM 4', '猎户座', '920', 'sync'],
+  srm: ['CAM 5', '助推器顶', '923', 'sync'],
+  flag: ['CAM 6', '观礼人群', 'FLAG', 'sync'],
+  gantry: ['CAM 7', '远景', 'GANTRY', 'sync'],
+  mlp: ['CAM 8', '发动机舱', '929', 'sync'],
+  hero: ['CAM 9', '发动机', '913 · WTR', 'sync'],
+  cs5: ['CAM 10', '远景', '907 · CS5', 'sync']
+};
+const SYNC = { sync: ['实时同步', 'LIVE SYNC'], window: ['同一时段 · 未逐帧同步', 'SAME WINDOW'] };
+
+// ——— geometry ———
+const GX = [24, 651, 1278], GY = [24, 371, 718], GW = 618, GH = 338;
+const gc = (c, r) => [GX[c], GY[r], GW, GH];
+const SLOT = { v8: [0, 0], pao: [1, 0], fair: [2, 0], srm: [2, 1], flag: [2, 2], gantry: [1, 2], mlp: [0, 2], mcc: [0, 1] };
+const CLOCK_OPEN = [40, 40, 1840, 1000];       // T−15: the clock alone on black, filling the frame (digit glyphs ≈ 360 px)
+const S_OPEN = 4;                              // drawn as a 460×250 clock scaled ×4; shrinks to the plate on the first cut
+const CLOCK_GRID = gc(1, 1);
+const HUD = [48, 816, 700, 216];               // clock as a plate over full-frame footage
+const CELL_FULL = [24, 24, 1872, 1032];
+const TILE = (c, r) => [c * 640, r * 360, 640, 360];
+const SWAP_AT = Object.fromEntries(TL.SWAP);
+const SWAP_DUR = id => { const i = TL.SWAP.findIndex(s => s[0] === id); const nx = TL.SWAP[i + 1] ? TL.SWAP[i + 1][1] : 14.0; return Math.min(.24, (nx - TL.SWAP[i][1]) * .9); };
+
+// usable region of each camera (1920×1080 frame coordinates): keeps burned-in camera numbers and the board's timer out of frame
+function camRegion(cam, t) {
+  if (cam === 'mlp') return t >= TL.PUNCH.mlp ? { r: [700, 420, 1800, 1040], fx: .5, fy: .5 } : { r: [0, 0, 1920, 1080], fx: .5, fy: .6 };
+  if (cam === 'pao') return t >= TL.PUNCH.pao ? { r: [520, 0, 1400, 495], fx: .5, fy: .5 } : { r: [0, 0, 1920, 1080], fx: .5, fy: .45 };
+  if (cam === 'v8') return { r: [640, 60, 1920, 1080], fx: .5, fy: .45 };
+  if (cam === 'flag') return { r: [0, 0, 1330, 1080], fx: .42, fy: .55 };
+  if (cam === 'gantry') return { r: [240, 0, 1680, 1080], fx: .5, fy: .5 };
+  return { r: [0, 0, 1920, 1080], fx: .5, fy: .5 };
+}
+function crop(region, aspect, fx = .5, fy = .5) {
+  let [x0, y0, x1, y1] = region, rw = x1 - x0, rh = y1 - y0, w, h;
+  if (rw / rh > aspect) { h = rh; w = h * aspect; } else { w = rw; h = w / aspect; }
+  const x = clamp(x0 + fx * rw - w / 2, x0, x1 - w), y = clamp(y0 + fy * rh - h / 2, y0, y1 - h);
+  return [x, y, w, h];
+}
+function drawCam(im, cam, t, rect, base) {   // base: the cell's full (landed) rect, so an opening cell reveals rather than squashes
+  if (!im) return;
+  const [x, y, w, h] = base || rect; if (w < 2 || h < 2) return;
+  const { r, fx, fy } = camRegion(cam, t);
+  const [sx, sy, sw, sh] = crop(r, w / h, fx, fy);
+  g.drawImage(im, sx, sy, sw, sh, x, y, w, h);
+}
+
+// ——— text recording for readcheck ———
+let REC = null, CLIP = null, XF = null;
+function rec(id, s, x0, y0, x1, y1) {
+  if (!REC || g.globalAlpha < .98) return;
+  if (XF) { const [tx, ty, k] = XF; x0 = tx + x0 * k; x1 = tx + x1 * k; y0 = ty + y0 * k; y1 = ty + y1 * k; }
+  if (CLIP && (x0 < CLIP[0] - .5 || x1 > CLIP[0] + CLIP[2] + .5 || y0 < CLIP[1] - .5 || y1 > CLIP[1] + CLIP[3] + .5)) return;
+  REC.push({ id, text: s, x0, y0, x1, y1 });
+}
+function text(s, x, y, font, color, align = 'left', ls = 0) {
+  g.font = font; g.fillStyle = color; g.textAlign = align; g.textBaseline = 'alphabetic';
+  g.letterSpacing = ls + 'px'; g.fillText(s, x, y); g.letterSpacing = '0px';
+}
+function tw(s, font, ls = 0) { g.font = font; g.letterSpacing = ls + 'px'; const w = g.measureText(s).width; g.letterSpacing = '0px'; return w; }
+function slots(str, x, y, font, color) {   // digits in fixed-width slots: the clock never jitters
+  g.font = font; const dw = Math.max(...'0123456789'.split('').map(d => g.measureText(d).width));
+  g.fillStyle = color; g.textAlign = 'center'; g.textBaseline = 'alphabetic'; let cx = x;
+  for (const ch of str) { const sw = /[0-9]/.test(ch) ? dw : g.measureText(ch).width; g.fillText(ch, cx + sw / 2, y); cx += sw; }
+  g.textAlign = 'left'; return cx - x;
+}
+
+function chip(x, y, id) {
+  const [code, zh, en, sync] = LABEL[id];
+  const f1 = `600 15px ${F_MONO}`, f2 = `700 19px ${F_ZH}`, f3 = `500 13px ${F_MONO}`;
+  const w1 = tw(code, f1), w2 = tw(zh, f2), w3 = tw(en, f3);
+  const w = 14 + 10 + w1 + 12 + w2 + 10 + w3 + 14;
+  g.fillStyle = 'rgba(6,8,10,0.84)'; g.fillRect(x, y, w, 32);
+  g.fillStyle = sync === 'sync' ? C.org : C.dim; g.fillRect(x + 12, y + 12, 8, 8);
+  text(code, x + 28, y + 22, f1, C.org);
+  text(zh, x + 40 + w1, y + 23, f2, C.ink);
+  text(en, x + 50 + w1 + w2, y + 22, f3, C.dim);
+  rec('chip-' + (id === 'hero' || id === 'cs5' ? 'main' : id), `${code} ${zh} ${en}`, x, y, x + w, y + 32);
+  return w;
+}
+function badgeW(kind) { const [zh, en] = SYNC[kind]; return 12 + 12 + tw(zh, `500 15px ${F_ZH}`) + 8 + tw(en, `500 12px ${F_MONO}`) + 12; }
+function syncBadge(x1, y, kind, rid) {
+  const [zh, en] = SYNC[kind];
+  const f2 = `500 15px ${F_ZH}`, f3 = `500 12px ${F_MONO}`;
+  const w = badgeW(kind), x = x1 - w;
+  g.fillStyle = 'rgba(6,8,10,0.84)'; g.fillRect(x, y, w, 28);
+  if (kind === 'window') {
+    g.save(); g.beginPath(); g.rect(x, y, w, 28); g.clip(); g.strokeStyle = 'rgba(124,135,141,0.28)'; g.lineWidth = 2;
+    for (let k = -30; k < w + 30; k += 9) { g.beginPath(); g.moveTo(x + k, y + 28); g.lineTo(x + k + 28, y); g.stroke(); }
+    g.restore(); g.strokeStyle = C.dim; g.lineWidth = 1; g.strokeRect(x + .5, y + .5, w - 1, 27);
+    g.beginPath(); g.arc(x + 15, y + 14, 4.5, 0, 7); g.stroke();
+    text(zh, x + 26, y + 20, f2, C.ink); text(en, x + 34 + tw(zh, f2), y + 19, f3, C.dim);
+  } else {
+    g.fillStyle = C.org; g.beginPath(); g.arc(x + 15, y + 14, 4.5, 0, 7); g.fill();
+    text(zh, x + 26, y + 20, f2, C.ink); text(en, x + 34 + tw(zh, f2), y + 19, f3, C.org);
+  }
+  rec(rid, `${zh} ${en}`, x, y, x + w, y + 28);
+}
+function vignette(r) {
+  const [x, y, w, h] = r;
+  const gr = g.createRadialGradient(x + w / 2, y + h / 2, Math.min(w, h) * .35, x + w / 2, y + h / 2, Math.hypot(w, h) * .62);
+  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.36)');
+  g.fillStyle = gr; g.fillRect(x, y, w, h);
+}
+
+// ——— the clock (with the control strip in its header) ———
+const HANDS = [['地面', 'GLS'], ['箭载', 'ALS'], ['飞行', 'FLIGHT']];
+const INFO = '阿尔忒弥斯 I · 2022.11.16 · LC-39B · 非官方剪辑';
+function drawClock(t, r, over, s = 1) {
+  g.save(); g.translate(r[0], r[1]); g.scale(s, s); XF = [r[0], r[1], s];
+  clockBody(t, [0, 0, r[2] / s, r[3] / s], over);
+  g.restore(); XF = null;
+}
+function clockBody(t, r, over) {
+  const [x, y, w, h] = r, M = t - T0, neg = M < 0, inv = !neg;
+  const flash = inv ? Math.exp(-M * 6) : 0;
+  g.fillStyle = inv ? C.org : (over ? C.plate : C.panel); g.fillRect(x, y, w, h);
+  if (flash > .01) { g.fillStyle = `rgba(255,255,255,${flash * .8})`; g.fillRect(x, y, w, h); }
+  g.strokeStyle = inv ? C.org : C.line; g.lineWidth = 1 / (XF ? XF[2] : 1); g.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  const ink = inv ? C.dark : C.ink, acc = inv ? C.dark : C.org, dim = inv ? 'rgba(10,11,12,0.62)' : C.dim;
+  const hf = `500 15px ${F_ZH}`, head = inv ? '已过时间 ELAPSED' : '倒计时 COUNTDOWN';
+  text(head, x + 20, y + 30, hf, dim); rec(inv ? 'clock-head-up' : 'clock-head', head, x + 20, y + 14, x + 20 + tw(head, hf), y + 34);
+  // control strip: ALS has had control since T−33; FLIGHT fills on T−0. The active segment breathes on every tick.
+  const hi = inv ? 2 : 1, hk = inv ? eo(seg(t, T0, T0 + .3)) : 1;
+  const pulse = neg ? Math.exp(-((t % 1)) * 7) : 0;
+  const PW = HANDS.map(([zh, en]) => tw(zh, `700 15px ${F_ZH}`) + tw(en, `500 10px ${F_MONO}`) + 24);
+  const tot = PW.reduce((a, b) => a + b + 4, 0) - 4, px0 = x + w - 20 - tot;
+  const roomy = px0 - 10 - tw('控制', `500 13px ${F_ZH}`) > x + 20 + tw(head, hf) + 28;   // the big opening clock has no room for the label
+  if (roomy) text('控制', px0 - 10, y + 30, `500 13px ${F_ZH}`, dim, 'right');
+  rec('ctl', '控制 ' + HANDS.map(h => h.join(' ')).join(' '), px0 - 10 - tw('控制', `500 13px ${F_ZH}`), y + 12, px0 + tot, y + 38);
+  HANDS.forEach(([zh, en], i) => {
+    const pw = PW[i], bx = px0 + PW.slice(0, i).reduce((a, b) => a + b + 4, 0), act = i === hi, done = i < hi;
+    g.fillStyle = inv ? 'rgba(10,11,12,0.12)' : 'rgba(255,255,255,0.06)'; g.fillRect(bx, y + 12, pw, 26);
+    if (act) { g.fillStyle = inv ? C.dark : C.org; g.fillRect(bx, y + 12, pw * hk, 26); }
+    if (done && !inv) { g.fillStyle = 'rgba(255,91,31,0.28)'; g.fillRect(bx, y + 35, pw, 3); }
+    if (act && pulse > .02) { g.fillStyle = `rgba(255,248,236,${.45 * pulse})`; g.fillRect(bx, y + 12, pw, 26); }
+    text(zh, bx + 8, y + 31, `700 15px ${F_ZH}`, act ? (inv ? C.org : C.dark) : dim);
+    text(en, bx + pw - 6, y + 30, `500 10px ${F_MONO}`, act ? (inv ? C.org : C.dark) : dim, 'right');
+  });
+  if (inv && M < .6) { g.fillStyle = `rgba(255,248,236,${.35 * (1 - M / .6)})`; g.fillRect(x, y, w, h); }
+  // digits
+  const secs = Math.floor(Math.abs(M) + 1e-9), tenth = Math.floor((Math.abs(M) % 1) * 10 + 1e-9), sub = Math.abs(M) % 1;
+  const shownSecs = secs;
+  const since = neg ? (sub < 1e-9 ? 0 : 1 - sub) : sub;   // time since the last whole second
+  const fs = Math.min(132, (h - 100) * .92, w * .29), sym = fs * .85;
+  const drop = (1 - eo(clamp(since / .12))) * -14 * fs / 132;
+  const base = y + 46 + fs * .98 + Math.max(0, (h - 100 - fs * 1.05) * .4);
+  text(neg ? 'T−' : 'T+', x + 20, base, `600 ${sym}px ${F_NUM}`, acc);
+  const tw0 = tw('T−', `600 ${sym}px ${F_NUM}`);
+  const mm = String(Math.floor(shownSecs / 60)).padStart(2, '0'), s2 = String(shownSecs % 60).padStart(2, '0');
+  g.save(); g.beginPath(); g.rect(x, base - fs * .95, w, fs * 1.05); g.clip();
+  const dw = slots(`${mm}:${s2}`, x + 26 + tw0, base + drop, `600 ${fs}px ${F_NUM}`, ink);
+  g.restore();
+  const tn = tenth;
+  slots('.' + tn, x + 32 + tw0 + dw, base, `500 ${fs * .41}px ${F_NUM}`, dim);
+  // ten-segment sub-second bar: empties before zero, fills after
+  const bx = x + 20, by = base + 16, n = 10, bw = (w - 40 - (n - 1) * 4) / n;
+  for (let i = 0; i < n; i++) {
+    const on = neg ? (sub < 1e-6 || i < Math.ceil(sub * 10 - 1e-6)) : i < Math.floor(sub * 10) + 1;
+    g.fillStyle = on ? acc : (inv ? 'rgba(10,11,12,0.18)' : 'rgba(255,255,255,0.10)');
+    g.fillRect(bx + i * (bw + 4), by, bw, 6);
+  }
+  const inf = `500 14px ${F_ZH}`;
+  text(INFO, x + 20, by + 34, inf, dim); rec('info', INFO, x + 20, by + 20, x + 20 + tw(INFO, inf), by + 38);
+}
+
+// ——— event flag ———
+function drawFlag(f, t, r) {
+  const s = hit(t, f.t0, .26), o = 1 - seg(t, f.t1 - .3, f.t1);
+  const f1 = `700 26px ${F_ZH}`, f2 = `600 15px ${F_MONO}`, w = 36 + tw(f.zh, f1) + 16 + tw(f.en, f2) + 20;
+  const bx = r[0] + 12, by = r[1] + r[3] - 64;
+  g.save(); g.globalAlpha = o; g.beginPath(); g.rect(r[0], r[1], r[2], r[3]); g.clip();
+  g.fillStyle = C.org; g.fillRect(bx, by, w * s, 50);
+  g.beginPath(); g.rect(bx, by, w * s, 50); g.clip();
+  text(f.zh, bx + 18, by + 35, f1, C.dark);
+  text(f.en, bx + 34 + tw(f.zh, f1), by + 32, f2, 'rgba(10,11,12,0.72)');
+  if (s >= .999) { const sv = CLIP; CLIP = r; rec('flag-' + f.id, f.zh + ' ' + f.en, bx, by, bx + w, by + 50); CLIP = sv; }
+  g.restore();
+}
+
+// ——— standby slot (no text: a dashed frame and a waiting ring) ———
+function standby(r, t, a) {
+  const [x, y, w, h] = r;
+  g.globalAlpha = a;
+  g.fillStyle = C.panel; g.fillRect(x, y, w, h);
+  g.strokeStyle = 'rgba(222,232,238,0.22)'; g.lineWidth = 1; g.setLineDash([6, 6]); g.strokeRect(x + .5, y + .5, w - 1, h - 1); g.setLineDash([]);
+  const cx = x + w / 2, cy = y + h / 2, ph = (t % 1);
+  g.strokeStyle = 'rgba(124,135,141,0.55)'; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, 14, 0, 7); g.stroke();
+  g.strokeStyle = 'rgba(124,135,141,0.9)'; g.beginPath(); g.arc(cx, cy, 14, -Math.PI / 2, -Math.PI / 2 + ph * Math.PI * 2); g.stroke();
+  g.fillStyle = 'rgba(124,135,141,0.5)'; g.fillRect(cx - 40, cy + 30, 80, 2);
+  g.globalAlpha = 1;
+}
+
+// ——— the frame model: which cells are where at time t ———
+const GRID_IDS = ['mcc', 'v8', 'pao', 'fair', 'srm', 'flag', 'gantry', 'mlp'];
+function model(t) {
+  const cells = [];   // {id, rect, base, reveal(0..1 width), heroK(0..1 swap wipe), flash}
+  let clock, clockOver = false, full = null, mergeK = 0, gridA = 0, clockS = 1;
+  if (t < TL.MCC_OPEN) { clock = CLOCK_OPEN; clockS = S_OPEN; }
+  else if (t < TL.GRID) {
+    const k = hit(t, TL.MCC_OPEN, .34);
+    clock = lerpR(CLOCK_OPEN, HUD, k); clockS = lerp(S_OPEN, 1, k); clockOver = k > .5;
+    cells.push({ id: 'mcc', rect: [24, 24, 1872 * k, 1032], base: CELL_FULL, open: TL.MCC_OPEN });
+  } else if (t < T0) {
+    const k = hit(t, TL.GRID, .34); gridA = k;
+    clock = lerpR(HUD, CLOCK_GRID, k); clockOver = k < .5;
+    for (const id of GRID_IDS) {
+      const [c, r] = SLOT[id], tgt = gc(c, r);
+      if (id === 'mcc') { const rr = lerpR(CELL_FULL, tgt, k); cells.push({ id, rect: rr, base: rr, open: TL.MCC_OPEN, heroK: swapK(id, t) }); continue; }
+      const o = TL.OPEN[id]; if (t < o) continue;
+      const rk = hit(t, o, .30);
+      cells.push({ id, rect: [tgt[0], tgt[1], tgt[2] * rk, tgt[3]], base: tgt, open: o, heroK: swapK(id, t) });
+    }
+  } else if (t < T0 + .42) {
+    mergeK = eio(seg(t, T0, T0 + .42));
+    clock = lerpR(CLOCK_GRID, HUD, mergeK); clockOver = mergeK > .5;
+    for (const id of GRID_IDS) { const [c, r] = SLOT[id]; cells.push({ id, rect: lerpR(gc(c, r), TILE(c, r), mergeK), heroK: 1, merging: true }); }
+    cells.push({ id: 'centre', rect: lerpR(gc(1, 1), TILE(1, 1), mergeK), heroK: 1, merging: true });
+  } else { clock = HUD; clockOver = true; full = t < TL.CUT ? 'hero' : 'cs5'; }
+  return { cells, clock, clockOver, clockS, full, mergeK, gridA };
+}
+function swapK(id, t) { const s = SWAP_AT[id]; return s === undefined ? 0 : hit(t, s, SWAP_DUR(id)); }
+
+// ——— overlay: everything with text (also used by TEXTS for readcheck) ———
+function drawOverlay(t, m) {
+  // camera chrome on cells
+  for (const c of m.cells) {
+    const r = c.rect; if (r[2] < 2) continue;
+    const chromeA = c.merging ? 1 - seg(m.mergeK, 0, .5) : 1;
+    if (c.id === 'centre') continue;
+    g.globalAlpha = chromeA;
+    g.strokeStyle = C.line; g.lineWidth = 1; g.strokeRect(r[0] + .5, r[1] + .5, r[2] - 1, r[3] - 1);
+    g.save(); g.beginPath(); g.rect(r[0], r[1], r[2], r[3]); g.clip(); CLIP = r;
+    const heroed = (c.heroK || 0) >= 1;
+    if (!heroed || c.id === 'v8') {
+      const cid = heroed ? 'hero' : c.id;
+      if (cid === 'hero') { g.globalAlpha = 1; }
+      const cw = chip(r[0] + 12, r[1] + 12, cid);
+      const kind = LABEL[cid][3];
+      if (cw + badgeW(kind) + 40 < GW) syncBadge(r[0] + (c.base ? c.base[2] : r[2]) - 12, r[1] + 14, kind, 'badge-' + (cid === 'hero' ? 'main' : cid));
+      else syncBadge(r[0] + (c.base ? c.base[2] : r[2]) - 12, r[1] + r[3] - 40, kind, 'badge-' + (cid === 'hero' ? 'main' : cid));
+      g.globalAlpha = chromeA;
+    }
+    CLIP = null; g.restore();
+    // a landing cell flashes a 3 px orange border for ~0.2 s
+    if (c.open !== undefined && !c.merging) {
+      const fl = 1 - seg(t, c.open + .2, c.open + .45);
+      if (t >= c.open + .18 && fl > 0) { g.strokeStyle = `rgba(255,91,31,${fl})`; g.lineWidth = 3; g.strokeRect(r[0] + 1.5, r[1] + 1.5, r[2] - 3, r[3] - 3); }
+    }
+    // a swapped tile flashes too, thinner
+    const s = SWAP_AT[c.id];
+    if (s !== undefined && !c.merging && t >= s) { const fl = 1 - seg(t, s + .05, s + .3); if (fl > 0) { g.strokeStyle = `rgba(255,91,31,${fl})`; g.lineWidth = 2; g.strokeRect(r[0] + 1, r[1] + 1, r[2] - 2, r[3] - 2); } }
+    g.globalAlpha = 1;
+    for (const f of TL.FLAGS) if (f.cell === c.id && t >= f.t0 && t < f.t1 && !(c.heroK >= 1)) drawFlag(f, t, c.base || r);
+  }
+  // full-screen chrome
+  if (m.full) {
+    const ts = m.full === 'hero' ? T0 + .42 : TL.CUT;
+    CLIP = [0, 0, W, H];
+    const cw = chip(24, 24, m.full);
+    syncBadge(24 + cw + 10 + badgeW('sync'), 26, 'sync', 'badge-main');
+    CLIP = null;
+    for (const f of TL.FLAGS) if (f.cell === 'full' && t >= f.t0 && t < f.t1) drawFlag(f, t, [HUD[0] + HUD[2] + 4, 24, W - HUD[0] - HUD[2] - 4 - 48, HUD[1] + HUD[3] - 24]);
+  }
+  drawClock(t, m.clock, m.clockOver, m.clockS);
+}
+
+let LAST_F = -1;
+async function render(t) {
+  const f = Math.round(t * FPS);
+  const m = model(t);
+  // load images
+  const need = new Set();
+  for (const c of m.cells) { if (c.id !== 'centre' && (c.heroK || 0) < 1) need.add(c.id); if ((c.heroK || 0) > 0) need.add('hero'); }
+  if (m.full) need.add(m.full);
+  const ims = {};
+  await Promise.all([...need].map(async id => { ims[id] = await img(frameSrc(id, f)); }));
+  for (let d = 1; d <= 3; d++) for (const id of need) img(frameSrc(id, f + d));
+  if (cache.size > 160) { const ks = [...cache.keys()]; for (const kk of ks.slice(0, cache.size - 120)) cache.delete(kk); }
+
+  g.fillStyle = C.bg; g.fillRect(0, 0, W, H);
+  // standby slots (T−13 until each camera opens)
+  if (m.gridA > 0) for (const id of GRID_IDS) {
+    if (id === 'mcc') continue; const o = TL.OPEN[id];
+    if (t < o + .30) standby(gc(...SLOT[id]), t, m.gridA);
+  }
+  // cells
+  for (const c of m.cells) {
+    const r = c.rect; if (r[2] < 1 || r[3] < 1) continue;
+    g.save(); g.beginPath(); g.rect(r[0], r[1], r[2], r[3]); g.clip();
+    g.fillStyle = '#000'; g.fillRect(r[0], r[1], r[2], r[3]);
+    const hk = c.heroK || 0;
+    if (hk < 1 && c.id !== 'centre') { drawCam(ims[c.id], c.id, t, r, c.base); vignette(c.base || r); }
+    if (hk > 0 && ims.hero) {   // the tile of camera 913 at its place in the full frame, wiped in from the left
+      g.save(); g.beginPath(); g.rect(r[0], r[1], r[2] * hk, r[3]); g.clip();
+      if (c.merging) g.drawImage(ims.hero, 0, 0, W, H);
+      else { g.drawImage(ims.hero, 0, 0, W, H); vignette(r); }
+      g.restore();
+    }
+    g.restore();
+  }
+  if (m.mergeK > 0) {   // gutters close; the centre tile (behind the clock) fills from the same picture
+    g.globalAlpha = eio(seg(m.mergeK, .55, 1)); if (ims.hero) g.drawImage(ims.hero, 0, 0, W, H); g.globalAlpha = 1;
+  }
+  if (m.full && ims[m.full]) g.drawImage(ims[m.full], 0, 0, W, H);
+  // bottom gradient under the plates on full-frame footage
+  const fullA = m.full ? 1 : (m.mergeK > 0 ? m.mergeK : (t >= TL.MCC_OPEN && t < TL.GRID + .34 ? (t < TL.GRID ? hit(t, TL.MCC_OPEN, .34) : 1 - hit(t, TL.GRID, .34)) : 0));
+  if (fullA > 0) { const gr = g.createLinearGradient(0, 700, 0, H); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, `rgba(0,0,0,${.75 * fullA})`); g.fillStyle = gr; g.fillRect(0, 700, W, H - 700); }
+  // T−0 warm white flash (decay τ ≈ 0.11 s)
+  if (t >= T0) { const p = T0 + 1 / FPS, a = .7 * Math.exp(-Math.max(0, t - p) / .11) * Math.min(1, (t - T0 + 1 / FPS) / (2 / FPS)); if (a > .005) { g.fillStyle = `rgba(255,248,236,${a})`; g.fillRect(0, 0, W, H); } }
+  // hard cut thump: one frame of nothing else; the cut itself is the event
+  REC = null; drawOverlay(t, m);
+  LAST_F = f;
+}
+window.render = render;
+
+// ——— readcheck: every text on screen with its box ———
+const off = document.createElement('canvas'); off.width = W; off.height = H;
+window.TEXTS = t => { const keep = g; g = off.getContext('2d'); REC = []; drawOverlay(t, model(t)); const out = REC; REC = null; g = keep; return out; };
+
+// ——— sound events for the mix (all from TL) ———
+const EV = [];
+TL.TICKS.forEach(s => EV.push({ t: s, type: 'tick', n: s, loud: s >= 5 && s < T0, after: s > T0 }));
+EV.push({ t: TL.MCC_OPEN, type: 'open', id: 'mcc' });
+EV.push({ t: TL.GRID, type: 'relayout' });
+for (const [id, o] of Object.entries(TL.OPEN)) EV.push({ t: o, type: 'open', id });
+for (const [id, p] of Object.entries(TL.PUNCH)) EV.push({ t: p, type: 'punch', id });
+TL.SWAP.forEach(([id, s], i) => EV.push({ t: s, type: 'swap', id, i }));
+for (const f of TL.FLAGS) EV.push({ t: f.t0, type: 'flag', id: f.id });
+EV.push({ t: TL.SILENCE[0], type: 'silence', t1: TL.SILENCE[1] });
+EV.push({ t: T0, type: 'merge' }, { t: T0, type: 'flip' }, { t: T0, type: 'ignition' });
+EV.push({ t: TL.CUT, type: 'cut' });
+EV.sort((a, b) => a.t - b.t);
+window.EV = EV;
+
+document.fonts.load(`600 40px BarlowC`).then(() => Promise.all([
+  document.fonts.load(`500 15px Plex`), document.fonts.load(`600 15px Plex`), document.fonts.load(`700 19px NotoSC`, '倒计时'),
+  document.fonts.load(`500 15px NotoSC`, '倒计时'), document.fonts.load(`500 40px BarlowC`), document.fonts.load(`500 15px Barlow`)
+])).then(() => { window.READY = true; });
+</script>
+</body>
+</html>

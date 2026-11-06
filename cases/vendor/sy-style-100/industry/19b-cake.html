@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>19 · 烘焙蛋糕 · 糖果屋烘焙</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/clay.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 19 黏土定格 · 行业示例：烘焙蛋糕 =====
+   A low camera circles a cake stand on a bakery board while a birthday cake is built in stop motion, one
+   drawing at a time: two sponges thump down with a cream layer between, the pink coat creeps up the sides,
+   piped rosettes pop on round the rim one after another, strawberries drop and wobble, sprinkles rain,
+   a candle goes in and its flame starts to flicker. A clay plaque with the bakery's name hops up in front. */
+const { E, clamp, lerp, inv } = Reel;
+const stage = Reel.makeStage('#e8cfc4');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '糖果屋烘焙', sub: '生日蛋糕 · 当日现做' });
+let K;
+const D = (t, t0, h, d) => CLAY.drop(t, t0, h, d);
+const PINK = '#f2a7b8', CREAM = '#fbf1de', SPONGE = '#e9b56e', SPONGE2 = '#f4c6c8', BERRY = '#d8283a', LEAF = '#4f9a3a';
+const ROS = 12, BERRIES = [[0.0, 0.0], [0.26, 0.3], [-0.3, 0.2], [0.18, -0.3], [-0.2, -0.26]];
+const SPR = ['#ffd84a', '#5fc2e8', '#ffffff', '#8bd06a', '#ff8a3d', '#b98ce8'];
+function objs(t) {
+  const O = [];
+  // cake stand: plate + pedestal
+  O.push({ t: 4, p: [0, 0.32, 0], s: [0.98, 0.035, 0.03], c: '#f5f3ee', gloss: 1 });
+  O.push({ t: 5, p: [0, 0.15, 0], s: [0.34, 0.15, 0.12, 0.02], c: '#f5f3ee', g: 1, k: 0.06 });
+  O.push({ t: 4, p: [0, 0.03, 0], s: [0.42, 0.03, 0.025], c: '#f5f3ee', g: 1, k: 0.06 });
+  const base = 0.355;
+  // sponges and cream (stop-motion drops)
+  const s1 = D(t, 0.9, 1.6), c1 = D(t, 1.7, 1.2), s2 = D(t, 2.3, 1.6);
+  if (s1.on) O.push({ t: 4, p: [0, base + 0.16 * s1.sq + s1.y, 0], s: [0.68, 0.16, 0.05], c: SPONGE, sq: s1.sq });
+  if (c1.on) O.push({ t: 4, p: [0, base + 0.32 + 0.04 * c1.sq + c1.y, 0], s: [0.66, 0.04, 0.035], c: CREAM, sq: c1.sq });
+  if (s2.on) O.push({ t: 4, p: [0, base + 0.4 + 0.15 * s2.sq + s2.y, 0], s: [0.66, 0.15, 0.05], c: SPONGE2, sq: s2.sq });
+  // the pink coat creeps up in four drawings, then the top is smoothed over
+  const cu = clamp((Math.floor((t - 3.0) * 12) + 1) / 6, 0, 1);
+  const top = base + 0.7;
+  if (t >= 3.0) { const hh = 0.36 * cu; O.push({ t: 4, p: [0, base + hh, 0], s: [0.73, hh + 0.001, 0.06], c: PINK, gloss: 0.3 }); if (cu >= 1) O.push({ t: 3, p: [0, top - 0.01, 0], s: [0.7, 0.045], c: CREAM }); }
+  // rosettes round the rim, one per drawing
+  for (let i = 0; i < ROS; i++) { const t0 = 3.9 + i * (1 / 6); if (t < t0) continue; const a = i / ROS * Math.PI * 2 + 0.2; const pp = clamp((t - t0) * 12 / 2); const sq = pp < 1 ? 1.25 : 1;
+    O.push({ t: 9, p: [Math.cos(a) * 0.6, top + 0.005, Math.sin(a) * 0.6], s: [0.085 * (0.6 + 0.4 * pp), 0.17 * (0.6 + 0.4 * pp)], c: CREAM, sq, r: [a, 0, 0.12] }); }
+  // strawberries drop on top
+  BERRIES.forEach(([x, z], i) => { const d = D(t, 6.1 + i * 0.25, 1.2, 0.22); if (!d.on) return; const y = top + 0.11 * d.sq + d.y;
+    O.push({ t: 9, p: [x, y + 0.02, z], s: [0.105, 0.2], c: BERRY, pat: 1, pc: '#f7e08a', r: [i * 1.3, Math.PI + (i === 0 ? 0 : 0.35), 0], sq: d.sq, gloss: 0.7, g: 20 + i, k: 0.02 });
+    for (let j = 0; j < 2; j++) { const a = i + j * 3.14; O.push({ t: 0, p: [x + Math.cos(a) * 0.045, y + 0.135, z + Math.sin(a) * 0.045], s: [0.06, 0.012, 0.028], c: LEAF, r: [-a, 0, -0.45], g: 20 + i, k: 0.015, fp: false }); } });
+  // sprinkles rain down in two drawings
+  for (let i = 0; i < 9; i++) { const t0 = 7.4 + (i % 3) * (1 / 12); const d = D(t, t0, 0.9, 0.2); if (!d.on) continue; const a = Reel.hash(i * 3.1) * 6.28, r = 0.15 + 0.4 * Reel.hash(i * 7.7);
+    O.push({ t: 2, p: [Math.cos(a) * r, top + 0.025 + d.y, Math.sin(a) * r], s: [0.017, 0.035, 1], c: SPR[i % SPR.length], r: [a, Math.PI / 2, 0], fp: false }); }
+  // candle and flame
+  const cd = D(t, 8.0, 0.9, 0.2);
+  if (cd.on) { O.push({ t: 2, p: [0.0, top + 0.4 + cd.y, 0.02], s: [0.035, 0.17, 1], c: '#9fd6f0', pat: 2, pc: '#ffffff' }); }
+  if (t > 8.6) { const fl = 1 + 0.12 * Math.sin(Math.floor(t * 12) * 2.7); O.push({ t: 9, p: [0.0, top + 0.63, 0.02], s: [0.04 * fl, 0.11 * fl], c: '#ffb43c', gloss: 4.6, fp: false }); }
+  // the plaque hops up in front
+  const pl = D(t, 9.4, 1.0, 0.24);
+  if (pl.on) { const yaw = 0.5, px = -1.38, pz = 0.6;
+    O.push({ t: 10, p: [px, 0.48 + 0.2 * (pl.sq - 1) + pl.y, pz], s: [0.62, 0.2, 0.05, 0.05], c: CREAM, r: [yaw, -0.14, 0], sq: pl.sq });
+    for (const sx of [-0.35, 0.35]) O.push({ t: 2, p: [px + Math.cos(yaw) * sx, 0.15 + pl.y, pz - Math.sin(yaw) * sx - 0.03], s: [0.03, 0.15, 1], c: '#c98a4b', fp: false }); }
+  return O;
+}
+function camAt(t) {
+  const u = E.inOutSine(inv(0, 11, t)), a = lerp(-1.05, 0.38, u) + 0.06 * E.inOutSine(inv(11, 15, t));
+  const R = lerp(3.5, 3.3, u) - 0.15 * E.inOutSine(inv(10.5, 15, t)), y = lerp(0.85, 1.5, u);
+  return { p: [Math.sin(a) * R, y, Math.cos(a) * R], a: [lerp(0, -0.62, E.inOutSine(inv(9.2, 11.5, t))), lerp(0.62, 0.66, u), 0], fov: 3.0 };
+}
+function decal() {
+  const g = K.decal, w = K.decalCv.width, h = K.decalCv.height; g.clearRect(0, 0, w, h);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `900 150px "Noto Sans CJK SC"`; g.fillStyle = '#7a3442'; g.fillText(C.brand, w / 2, h * 0.43);
+  g.font = `700 60px "Noto Sans CJK SC"`; g.fillStyle = '#c0566b'; g.fillText(C.sub, w / 2, h * 0.8);
+  K.markDecal();
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 150px "Noto Sans CJK SC"', '700 60px "Noto Sans CJK SC"'],
+  frameKey: (t) => Math.floor(t * 12 + 1e-6),
+  cues: [{ t: 1.15, sfx: 'land' }, { t: 1.95, sfx: 'squish' }, { t: 2.55, sfx: 'land' }, { t: 3.0, sfx: 'squish', gain: 0.6 },
+    ...Array.from({ length: ROS }, (_, i) => ({ t: 3.9 + i / 6, sfx: 'pop', gain: 0.35 })),
+    ...BERRIES.map((_, i) => ({ t: 6.33 + i * 0.25, sfx: 'boing', gain: 0.4 })), { t: 7.6, sfx: 'sparkle', gain: 0.5 }, { t: 8.2, sfx: 'pop' }, { t: 8.6, sfx: 'chime', gain: 0.5 }, { t: 9.64, sfx: 'boing2' }],
+  async setup() { K = CLAY.make(stage, { n: 52, decalSize: [1024, 330] }); decal(); },
+  render(tRaw) {
+    const t = Math.floor(tRaw * 12 + 1e-6) / 12;
+    K.set(objs(t));
+    const cam = camAt(t);
+    K.render(t, cam, { floorType: 1, floor: '#b07a4a', sky0: '#f6c9d2', sky1: '#fdebd8', bulb: [1, 0.8, 0.55], backZ: 3.4, bulbY: 1.75, focus: (() => { const u = E.inOutSine(inv(9.4, 11.5, t)); const f = [lerp(0, -0.55, u), lerp(0.8, 0.6, u), lerp(0, 0.3, u)]; return Math.hypot(cam.p[0] - f[0], cam.p[1] - f[1], cam.p[2] - f[2]); })(), aperture: 120, maxCoc: 22, ldir: CLAY.norm([-0.5, 0.8, 0.45]) });
+  },
+});
+</script></body></html>

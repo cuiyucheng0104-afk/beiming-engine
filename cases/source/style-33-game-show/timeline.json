@@ -1,0 +1,721 @@
+{
+ "BPM": 120,
+ "BEAT": 0.5,
+ "BAR": 2,
+ "FPS": 24,
+ "DUR": 19.75,
+ "SCENES": [
+  {
+   "id": "card",
+   "t0": 0,
+   "t1": 4
+  },
+  {
+   "id": "play",
+   "t0": 4,
+   "t1": 10
+  },
+  {
+   "id": "next",
+   "t0": 10,
+   "t1": 16
+  },
+  {
+   "id": "report",
+   "t0": 16,
+   "t1": 19.75
+  }
+ ],
+ "CUTS": [
+  4,
+  10,
+  16
+ ],
+ "QA": [
+  [
+   8,
+   9,
+   "cat"
+  ],
+  [
+   10,
+   11,
+   "dog"
+  ],
+  [
+   12,
+   13,
+   "dog"
+  ],
+  [
+   14,
+   15,
+   "cat"
+  ],
+  [
+   16,
+   16.5,
+   "cat"
+  ],
+  [
+   17,
+   17.5,
+   "dog"
+  ],
+  [
+   18,
+   18.5,
+   "cat"
+  ],
+  [
+   19,
+   19.5,
+   "dog"
+  ]
+ ],
+ "K": {
+  "cardLand": 1,
+  "roundGlyphs": [
+   1,
+   1.25,
+   1.5,
+   1.75
+  ],
+  "titleGlyphs": [
+   2,
+   2.5,
+   3
+  ],
+  "hostDrop": 5,
+  "clap": [
+   6,
+   7
+  ],
+  "cardShrink": 7,
+  "nextLetters": [
+   20,
+   20.25,
+   20.5,
+   20.75,
+   21,
+   21.25,
+   21.5,
+   21.75,
+   22
+  ],
+  "hardSticker": 22,
+  "rattle": [
+   21,
+   22,
+   23,
+   23.5
+  ],
+  "unlock": 24,
+  "sweat": 25,
+  "snapIn": 25,
+  "shout": [
+   26,
+   26.5,
+   27
+  ],
+  "snapOut": 26,
+  "fill": [
+   27.5,
+   27.75
+  ],
+  "collapse": 27.5,
+  "perfect": 28,
+  "celebrate": [
+   29,
+   30,
+   31
+  ],
+  "report": 32,
+  "rows": [
+   [
+    [
+     32.5
+    ],
+    33
+   ],
+   [
+    [
+     33.5
+    ],
+    34
+   ],
+   [
+    [
+     34.25,
+     34.5,
+     34.75
+    ],
+    35
+   ]
+  ],
+  "reportFill": 35.5,
+  "grade": 36,
+  "yay": 37,
+  "button": 38
+ },
+ "SILENCE": [
+  12.25,
+  13
+ ],
+ "ARR": [
+  {
+   "bar": 0,
+   "mode": "jingle",
+   "chord": [
+    "F"
+   ]
+  },
+  {
+   "bar": 1,
+   "mode": "groove",
+   "chord": [
+    "Bb"
+   ]
+  },
+  {
+   "bar": 2,
+   "mode": "groove",
+   "chord": [
+    "F"
+   ]
+  },
+  {
+   "bar": 3,
+   "mode": "groove",
+   "chord": [
+    "Bb"
+   ]
+  },
+  {
+   "bar": 4,
+   "mode": "groove8",
+   "chord": [
+    "Gm7",
+    "Gm7",
+    "C7",
+    "C7"
+   ]
+  },
+  {
+   "bar": 5,
+   "mode": "tease",
+   "chord": [
+    "Dm",
+    "Dm",
+    "Bb",
+    "C"
+   ]
+  },
+  {
+   "bar": 6,
+   "mode": "silence",
+   "chord": []
+  },
+  {
+   "bar": 7,
+   "mode": "finale",
+   "chord": [
+    "G"
+   ]
+  },
+  {
+   "bar": 8,
+   "mode": "report",
+   "chord": [
+    "C"
+   ]
+  },
+  {
+   "bar": 9,
+   "mode": "end",
+   "chord": [
+    "G"
+   ]
+  }
+ ],
+ "EV": [
+  {
+   "t": 0,
+   "beat": 0,
+   "type": "whoosh",
+   "g": 0.7
+  },
+  {
+   "t": 0.5,
+   "beat": 1,
+   "type": "land",
+   "big": 1
+  },
+  {
+   "t": 0.5,
+   "beat": 1,
+   "type": "pip",
+   "m": 77
+  },
+  {
+   "t": 0.625,
+   "beat": 1.25,
+   "type": "pip",
+   "m": 79
+  },
+  {
+   "t": 0.75,
+   "beat": 1.5,
+   "type": "pip",
+   "m": 81
+  },
+  {
+   "t": 0.875,
+   "beat": 1.75,
+   "type": "pip",
+   "m": 84
+  },
+  {
+   "t": 1,
+   "beat": 2,
+   "type": "stamp",
+   "m": 69
+  },
+  {
+   "t": 1.25,
+   "beat": 2.5,
+   "type": "stamp",
+   "m": 72
+  },
+  {
+   "t": 1.5,
+   "beat": 3,
+   "type": "stamp",
+   "m": 77
+  },
+  {
+   "t": 2.25,
+   "beat": 4.5,
+   "type": "whoosh",
+   "g": 0.4
+  },
+  {
+   "t": 2.5,
+   "beat": 5,
+   "type": "land"
+  },
+  {
+   "t": 3,
+   "beat": 6,
+   "type": "clap"
+  },
+  {
+   "t": 3.5,
+   "beat": 7,
+   "type": "clap"
+  },
+  {
+   "t": 3.5,
+   "beat": 7,
+   "type": "whoosh",
+   "g": 0.5
+  },
+  {
+   "t": 4,
+   "beat": 8,
+   "type": "flash"
+  },
+  {
+   "t": 4,
+   "beat": 8,
+   "type": "call",
+   "a": "cat",
+   "i": 0
+  },
+  {
+   "t": 4.5,
+   "beat": 9,
+   "type": "resp",
+   "a": "cat",
+   "i": 0
+  },
+  {
+   "t": 4.5,
+   "beat": 9,
+   "type": "star",
+   "i": 0
+  },
+  {
+   "t": 5,
+   "beat": 10,
+   "type": "call",
+   "a": "dog",
+   "i": 1
+  },
+  {
+   "t": 5.5,
+   "beat": 11,
+   "type": "resp",
+   "a": "dog",
+   "i": 1
+  },
+  {
+   "t": 5.5,
+   "beat": 11,
+   "type": "star",
+   "i": 1
+  },
+  {
+   "t": 6,
+   "beat": 12,
+   "type": "call",
+   "a": "dog",
+   "i": 2
+  },
+  {
+   "t": 6.5,
+   "beat": 13,
+   "type": "resp",
+   "a": "dog",
+   "i": 2
+  },
+  {
+   "t": 6.5,
+   "beat": 13,
+   "type": "star",
+   "i": 2
+  },
+  {
+   "t": 7,
+   "beat": 14,
+   "type": "call",
+   "a": "cat",
+   "i": 3
+  },
+  {
+   "t": 7.5,
+   "beat": 15,
+   "type": "resp",
+   "a": "cat",
+   "i": 3
+  },
+  {
+   "t": 7.5,
+   "beat": 15,
+   "type": "star",
+   "i": 3
+  },
+  {
+   "t": 8,
+   "beat": 16,
+   "type": "call",
+   "a": "cat",
+   "i": 4
+  },
+  {
+   "t": 8.25,
+   "beat": 16.5,
+   "type": "resp",
+   "a": "cat",
+   "i": 4
+  },
+  {
+   "t": 8.25,
+   "beat": 16.5,
+   "type": "star",
+   "i": 4
+  },
+  {
+   "t": 8.5,
+   "beat": 17,
+   "type": "call",
+   "a": "dog",
+   "i": 5
+  },
+  {
+   "t": 8.75,
+   "beat": 17.5,
+   "type": "resp",
+   "a": "dog",
+   "i": 5
+  },
+  {
+   "t": 8.75,
+   "beat": 17.5,
+   "type": "star",
+   "i": 5
+  },
+  {
+   "t": 9,
+   "beat": 18,
+   "type": "call",
+   "a": "cat",
+   "i": 6
+  },
+  {
+   "t": 9.25,
+   "beat": 18.5,
+   "type": "resp",
+   "a": "cat",
+   "i": 6
+  },
+  {
+   "t": 9.25,
+   "beat": 18.5,
+   "type": "star",
+   "i": 6
+  },
+  {
+   "t": 9.5,
+   "beat": 19,
+   "type": "call",
+   "a": "dog",
+   "i": 7
+  },
+  {
+   "t": 9.75,
+   "beat": 19.5,
+   "type": "resp",
+   "a": "dog",
+   "i": 7
+  },
+  {
+   "t": 9.75,
+   "beat": 19.5,
+   "type": "star",
+   "i": 7
+  },
+  {
+   "t": 10,
+   "beat": 20,
+   "type": "flash"
+  },
+  {
+   "t": 10,
+   "beat": 20,
+   "type": "pip",
+   "m": 72
+  },
+  {
+   "t": 10.125,
+   "beat": 20.25,
+   "type": "pip",
+   "m": 74
+  },
+  {
+   "t": 10.25,
+   "beat": 20.5,
+   "type": "pip",
+   "m": 76
+  },
+  {
+   "t": 10.375,
+   "beat": 20.75,
+   "type": "pip",
+   "m": 77
+  },
+  {
+   "t": 10.5,
+   "beat": 21,
+   "type": "pip",
+   "m": 79
+  },
+  {
+   "t": 10.5,
+   "beat": 21,
+   "type": "rattle",
+   "i": 0
+  },
+  {
+   "t": 10.625,
+   "beat": 21.25,
+   "type": "pip",
+   "m": 81
+  },
+  {
+   "t": 10.75,
+   "beat": 21.5,
+   "type": "pip",
+   "m": 83
+  },
+  {
+   "t": 10.875,
+   "beat": 21.75,
+   "type": "pip",
+   "m": 84
+  },
+  {
+   "t": 11,
+   "beat": 22,
+   "type": "pip",
+   "m": 86
+  },
+  {
+   "t": 11,
+   "beat": 22,
+   "type": "stamp",
+   "m": 84
+  },
+  {
+   "t": 11,
+   "beat": 22,
+   "type": "rattle",
+   "i": 1
+  },
+  {
+   "t": 11.5,
+   "beat": 23,
+   "type": "rattle",
+   "i": 2
+  },
+  {
+   "t": 11.75,
+   "beat": 23.5,
+   "type": "rattle",
+   "i": 3
+  },
+  {
+   "t": 12,
+   "beat": 24,
+   "type": "lock"
+  },
+  {
+   "t": 12,
+   "beat": 24,
+   "type": "lid"
+  },
+  {
+   "t": 12,
+   "beat": 24,
+   "type": "servo"
+  },
+  {
+   "t": 12.5,
+   "beat": 25,
+   "type": "sweat"
+  },
+  {
+   "t": 13,
+   "beat": 26,
+   "type": "shout",
+   "word": "platypus"
+  },
+  {
+   "t": 13,
+   "beat": 26,
+   "type": "reveal"
+  },
+  {
+   "t": 13.75,
+   "beat": 27.5,
+   "type": "fillhit"
+  },
+  {
+   "t": 13.75,
+   "beat": 27.5,
+   "type": "squish"
+  },
+  {
+   "t": 13.875,
+   "beat": 27.75,
+   "type": "fillhit"
+  },
+  {
+   "t": 14,
+   "beat": 28,
+   "type": "judge"
+  },
+  {
+   "t": 14,
+   "beat": 28,
+   "type": "confetti"
+  },
+  {
+   "t": 14.5,
+   "beat": 29,
+   "type": "land",
+   "soft": 1
+  },
+  {
+   "t": 15,
+   "beat": 30,
+   "type": "land",
+   "soft": 1
+  },
+  {
+   "t": 15.5,
+   "beat": 31,
+   "type": "land",
+   "soft": 1
+  },
+  {
+   "t": 16,
+   "beat": 32,
+   "type": "flash"
+  },
+  {
+   "t": 16,
+   "beat": 32,
+   "type": "land",
+   "big": 1
+  },
+  {
+   "t": 16.25,
+   "beat": 32.5,
+   "type": "type"
+  },
+  {
+   "t": 16.5,
+   "beat": 33,
+   "type": "check",
+   "i": 0
+  },
+  {
+   "t": 16.75,
+   "beat": 33.5,
+   "type": "type"
+  },
+  {
+   "t": 17,
+   "beat": 34,
+   "type": "check",
+   "i": 1
+  },
+  {
+   "t": 17.125,
+   "beat": 34.25,
+   "type": "type"
+  },
+  {
+   "t": 17.25,
+   "beat": 34.5,
+   "type": "type"
+  },
+  {
+   "t": 17.375,
+   "beat": 34.75,
+   "type": "type"
+  },
+  {
+   "t": 17.5,
+   "beat": 35,
+   "type": "check",
+   "i": 2
+  },
+  {
+   "t": 18,
+   "beat": 36,
+   "type": "grade"
+  },
+  {
+   "t": 18.5,
+   "beat": 37,
+   "type": "yay"
+  },
+  {
+   "t": 19,
+   "beat": 38,
+   "type": "button"
+  }
+ ]
+}

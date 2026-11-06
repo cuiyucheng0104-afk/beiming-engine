@@ -1,0 +1,38 @@
+[
+  {
+    "scene": "01",
+    "tag": "r1",
+    "status": "rejected",
+    "reason": "全景直接生成丢失人物主体"
+  },
+  {
+    "scene": "03",
+    "tag": "r1",
+    "status": "rejected",
+    "reason": "全景直接生成主体丢失，仅背景表面"
+  },
+  {
+    "scene": "01",
+    "tag": "r2",
+    "status": "prototype",
+    "reason": "已提取书生主体，约100万面；发髻、衣物局部变形与手部仍需人工精修"
+  },
+  {
+    "scene": "03",
+    "tag": "r2",
+    "status": "prototype",
+    "reason": "主体提取重建，需结合转角图验收"
+  },
+  {
+    "scene": "02",
+    "tag": "r1",
+    "status": "unreviewed",
+    "reason": "保留生成结果，不作为合格主体资产"
+  },
+  {
+    "scene": "04",
+    "tag": "r1",
+    "status": "prototype",
+    "reason": "楼阁瓦垄、栏杆、台阶体积改善；局部缺口和推断背面仍需修整"
+  }
+]

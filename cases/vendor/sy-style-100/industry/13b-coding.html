@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>13 · 少儿编程 · 小码星球</title>
+<script src="../lib/core.js"></script><script src="../lib/pixel.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 13 像素 · 行业示例：少儿编程 =====
+   A puzzle game, played for real. On the left a kid's program snaps together block by block; on the right
+   a little robot waits on a planet grid. RUN is pressed and the robot executes the program step by step -
+   each block lights up as it runs, the loop counter ticks, stars are collected - until it reaches the flag.
+   Level clear, then the school's title screen. Every pixel drawn by code at 304x171. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#07061a');
+const C = Reel.cfg({ brand: '小码星球', sub: '少儿编程 · 6—12 岁', sub2: '孩子写的第一个程序', cta: '免费试听课' });
+const X = PX.init(stage);
+const { P, put, rect, frame, text, cjk, cw, sprite, box, bay, h1 } = X;
+// ---- program ----
+const BLK = [ // label, colour ramp, indent
+  ['前进 2', 13, 0], ['左转', 12, 0], ['前进 1', 13, 0], ['右转', 12, 0], ['重复 3 次', 2, 0], ['前进 1', 13, 1], ['右转', 12, 0], ['前进 2', 13, 0]];
+const SNAP = BLK.map((_, i) => 0.7 + i * 0.36);
+const RUN = 3.95, STEP = 0.5;
+const ACT = ['F', 'F', 'L', 'F', 'R', 'F', 'F', 'F', 'R', 'F', 'F'], ACTB = [0, 0, 1, 2, 3, 5, 5, 5, 6, 7, 7];
+const GX = 146, GY = 38, CS = 20, START = [0, 3];
+const ROCKS = [[3, 3], [4, 3], [1, 1], [6, 2], [6, 0]], STARS = [[2, 3], [4, 2], [5, 4]], FLAG = [5, 4];
+// robot state after k actions (+ tween)
+function robot(t) {
+  let x = START[0], y = START[1], dir = 0; // 0 right 1 down 2 left 3 up
+  const n = (t - RUN) / STEP; const done = clamp(Math.floor(n), 0, ACT.length), frac = n >= ACT.length ? 0 : clamp(n - Math.floor(n));
+  const DX = [1, 0, -1, 0], DY = [0, 1, 0, -1];
+  for (let i = 0; i < done; i++) { const a = ACT[i]; if (a === 'F') { x += DX[dir]; y += DY[dir]; } else if (a === 'L') dir = (dir + 3) % 4; else dir = (dir + 1) % 4; }
+  let px = x, py = y, hop = 0, cur = n >= 0 && done < ACT.length ? done : -1;
+  if (cur >= 0 && ACT[cur] === 'F') { const e = E.inOutCubic(frac); px = x + DX[dir] * e; py = y + DY[dir] * e; hop = Math.sin(Math.PI * frac) * 3; }
+  return { px, py, dir, hop, cur, done, x, y };
+}
+const ROBO = ['....aa......', '....a.......', '..bbbbbbbb..', '.bccccccccb.', '.bcEcccEccb.', '.bccccccccb.', '.bccmmmmccb.', '..bbbbbbbb..', '...dddddd...', '..dddeeddd..', '..dd.dd.dd..', '..ff....ff..'];
+function drawRobot(x, y, dir, wave = 0, sc = 1) {
+  const map = { a: P(9, 4), b: P(6, 4), c: P(4, 1), E: P(4, 6), m: P(4, 4), d: P(6, 3), e: P(7, 4), f: P(6, 2) };
+  const rows = ROBO.map((r) => (dir === 2 ? r.split('').reverse().join('') : r));
+  if (sc === 1) sprite(rows, map, Math.round(x), Math.round(y), 6, false, P(0, 0));
+  else { for (let j = 0; j < 12; j++) for (let i = 0; i < 12; i++) { const c = map[rows[j][i]]; if (c !== undefined) for (let a = 0; a < sc; a++) for (let b = 0; b < sc; b++) put(x + i * sc + a, y + j * sc + b, c, 6); } }
+  if (wave) { const a = Math.sin(wave) > 0; put(x + 12 * sc, y + (a ? 5 : 7) * sc, P(6, 4), 6); put(x + 13 * sc, y + (a ? 4 : 7) * sc, P(6, 4), 6); }
+}
+function starIcon(x, y, c1 = P(9, 4), c2 = P(9, 2)) { const S = ['..x..', '.xxx.', 'xxxxx', '.xxx.', '.x.x.']; sprite(S, { x: c1 }, x, y, 7, false, P(0, 0)); put(x + 2, y + 1, P(10, 0), 7); }
+function sky(t) {
+  for (let y = 0; y < 171; y++) for (let x = 0; x < 304; x++) put(x, y, bay(x, y) < y / 260 ? P(0, 2) : P(0, 1), 0);
+  for (let i = 0; i < 60; i++) { const x = Math.floor(h1(i) * 304), y = Math.floor(h1(i * 3) * 171); if ((Math.sin(t * 2 + i) + 1) / 2 > 0.3) put(x, y, i % 5 ? P(0, 5) : P(10, 0), 1); }
+}
+function editor(t, st) {
+  box(4, 16, 132, 150, P(0, 1), P(6, 4));
+  rect(5, 17, 130, 11, P(6, 2), 9); cjk('程序', 9, 15, P(10, 0), 12, null);
+  text('RUN', 108, 19, t > RUN - 0.15 && t < RUN + 0.2 ? P(9, 5) : P(3, 6), 1, P(0, 0));
+  BLK.forEach(([lab, ramp, ind], i) => {
+    const u = t - SNAP[i]; if (u < 0) return;
+    const e = E.outBack(clamp(u / 0.3)); const y = 32 + i * 15, x = Math.round(lerp(-120, 10 + ind * 12, e));
+    const active = st.cur >= 0 && ACTB[st.cur] === i || (i === 4 && st.cur >= 5 && st.cur <= 7);
+    const w = i === 4 ? 112 : 96 - ind * 12, lv = active ? 4 : 2;
+    rect(x, y, w, 13, P(ramp, lv), 9); rect(x, y + 12, w, 1, P(ramp, 1), 9); rect(x + 3, y - 1, 6, 1, P(ramp, lv), 9);
+    if (active) frame(x - 1, y - 1, w + 2, 15, P(10, 0), 9);
+    cjk(lab, x + 4, y, P(10, 0), 12, null);
+    if (i === 4) { rect(x, y + 13, 5, 16, P(ramp, lv), 9); rect(x, y + 28, 60, 3, P(ramp, lv), 9); if (st.cur >= 5 && st.cur <= 7) text(`x${st.cur - 4}`, x + 92, y + 3, P(9, 5), 1, P(0, 0)); }
+  });
+  // the cursor dragging the newest block, then pressing RUN
+  let cx = 140, cy = 140; const k = SNAP.findIndex((s) => t < s + 0.3);
+  if (k >= 0 && t > 0.5) { cx = Math.round(lerp(150, 70, clamp((t - SNAP[k]) / 0.3))); cy = 38 + k * 15; }
+  else if (t < RUN + 0.3) { const e = E.inOutCubic(clamp((t - SNAP[7] - 0.3) / 0.5)); cx = Math.round(lerp(70, 114, e)); cy = Math.round(lerp(38 + 7 * 15, 22, e)); }
+  if (t < RUN + 0.6) { const HAND = ['x.....', 'xx....', 'xox...', 'xoox..', 'xooox.', 'xoooox', 'xooxxx', 'xx.ox.', '...xx.']; sprite(HAND, { x: P(0, 0), o: P(10, 0) }, cx, cy + (t > RUN - 0.1 && t < RUN + 0.1 ? 1 : 0), 10); }
+}
+function grid(t, st) {
+  box(140, 16, 160, 150, P(0, 1), P(6, 4));
+  rect(141, 17, 158, 11, P(6, 2), 9); cjk('第 1 关', 145, 15, P(10, 0), 12, null);
+  for (let j = 0; j < 5; j++) for (let i = 0; i < 7; i++) {
+    const x = GX + i * CS, y = GY + j * CS;
+    for (let yy = 0; yy < CS - 1; yy++) for (let xx = 0; xx < CS - 1; xx++) put(x + xx, y + yy, bay(x + xx, y + yy) < 0.18 ? P(1, 3) : P(1, 2), 4);
+    rect(x, y + CS - 2, CS - 1, 1, P(1, 1), 4);
+  }
+  for (const [i, j] of ROCKS) { const x = GX + i * CS + 3, y = GY + j * CS + 3; for (let yy = 0; yy < 13; yy++) for (let xx = 0; xx < 13; xx++) { const d = Math.hypot(xx - 6, (yy - 7) * 1.2); if (d < 6.5) put(x + xx, y + yy, d > 5.5 ? P(0, 0) : (xx + yy < 10 ? P(6, 4) : P(6, 2)), 5); } }
+  // flag
+  { const x = GX + FLAG[0] * CS + 11, y = GY + FLAG[1] * CS + 2; rect(x, y, 1, 16, P(6, 5), 5); const wv = Math.floor(t * 6) % 2; rect(x + 1, y, 7, 5 + wv, P(7, 4), 5); }
+  // stars still to collect
+  STARS.forEach(([i, j], k) => { const tc = RUN + STEP * [1.7, 6.7, 10.7][k]; if (t > tc) { const u = t - tc; if (u < 0.5) for (let q = 0; q < 8; q++) { const a = q / 8 * 6.28, r = 3 + u * 26; put(GX + i * CS + 9 + Math.cos(a) * r, GY + j * CS + 9 + Math.sin(a) * r, q % 2 ? P(9, 5) : P(10, 0), 8); } return; }
+    starIcon(GX + i * CS + 7, GY + j * CS + 6 + Math.round(Math.sin(t * 5 + k))); });
+  // robot
+  drawRobot(GX + st.px * CS + 4, GY + st.py * CS + 4 - st.hop, st.dir);
+  // collected counter
+  const got = STARS.filter((_, k) => t > RUN + STEP * [1.7, 6.7, 10.7][k]).length;
+  starIcon(250, 19, P(9, 4)); text(`${got}/3`, 258, 19, P(10, 0), 1, null);
+}
+function titleScreen(t) {
+  const u = t - 10.9;
+  // planet with rings
+  const cx = 230, cy = 150, r = 62;
+  for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) { const d = Math.hypot(x, y); if (d > r) continue; const l = (-x * 0.5 - y * 0.7) / r + 0.35; put(cx + x, cy + y, bay(cx + x, cy + y) < clamp(l + 0.5) ? P(12, 4) : P(12, 2), 3); }
+  for (let a = 0; a < 6.283; a += 0.004) { const x = cx + Math.cos(a) * 92, y = cy + Math.sin(a) * 16 - 6; if (Math.sin(a) < 0 && Math.hypot(x - cx, y - cy) < r) continue; put(x, y, P(9, 3), 4); put(x, y + 1, P(9, 2), 4); }
+  // big pixel title
+  const sc = 2, w = cw(C.brand, 16, sc), x0 = Math.round(152 - w / 2), y0 = Math.round(28 - (1 - E.outBack(clamp(u / 0.4))) * 40);
+  cjk(C.brand, x0, y0, P(9, 4), 16, P(0, 0), 9, sc);
+  const a1 = u > 0.5; if (a1) cjk(C.sub, Math.round(152 - cw(C.sub) / 2), 70, P(10, 0), 12, P(0, 0));
+  if (u > 0.9) cjk(C.sub2, Math.round(152 - cw(C.sub2) / 2), 87, P(4, 5), 12, P(0, 0));
+  if (u > 1.4 && Math.floor(t * 3) % 2) { const w2 = cw(C.cta) + 12; box(Math.round(152 - w2 / 2) - 6, 112, w2 + 12, 18, P(7, 3), P(10, 0)); cjk(C.cta, Math.round(152 - w2 / 2) + 6, 114, P(10, 0), 12, null); }
+  drawRobot(26, 110, 0, t * 10, 3);
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['700 12px "Noto Sans CJK SC"', '700 16px "Noto Sans CJK SC"'],
+  frameKey: (t) => Math.floor(t * 30),
+  cues: [...SNAP.map((s) => ({ t: +(s + 0.2).toFixed(2), sfx: 'block', gain: 0.5 })), { t: RUN, sfx: 'tick', gain: 0.7 }, ...ACT.map((a, i) => ({ t: +(RUN + i * STEP).toFixed(2), sfx: a === 'F' ? 'jump' : 'tick', gain: a === 'F' ? 0.35 : 0.4 })),
+    { t: RUN + STEP * 1.7, sfx: 'coin', gain: 0.6 }, { t: RUN + STEP * 6.7, sfx: 'coin', gain: 0.6 }, { t: RUN + STEP * 10.7, sfx: 'coin', gain: 0.6 }, { t: 9.55, sfx: 'levelup', gain: 0.7 }, { t: 10.9, sfx: 'powerup', gain: 0.6 }, { t: 12.3, sfx: 'coin', gain: 0.4 }],
+  render(t) {
+    X.clear(); sky(t);
+    if (t < 10.9) {
+      const st = robot(t);
+      editor(t, st); grid(t, st);
+      // level clear banner
+      if (t > 9.55) { const u = t - 9.55, y = Math.round(lerp(-30, 66, E.outBack(clamp(u / 0.4)))); box(60, y, 184, 40, P(0, 1), P(9, 4)); cjk('关卡完成！', 152 - Math.round(cw('关卡完成！', 16) / 2), y + 3, P(9, 4), 16, P(0, 0)); for (let k = 0; k < 3; k++) if (u > 0.3 + k * 0.15) starIcon(136 + k * 12, y + 25); }
+      // iris out to the title screen
+      if (t > 10.4) X.iris(152, 85, lerp(200, 0, E.inCubic(clamp((t - 10.4) / 0.5))));
+    } else {
+      titleScreen(t);
+      if (t < 11.4) X.iris(152, 85, lerp(0, 200, E.outCubic(clamp((t - 10.9) / 0.5))));
+    }
+    X.flush();
+  },
+});
+</script></body></html>

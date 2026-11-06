@@ -1,0 +1,22 @@
+后退的冰川 · CREDITS
+
+影像（公有领域）
+- USGS Landsat Collection 2 Level-2 Surface Reflectance（Landsat 5 TM、Landsat 8 OLI），美国地质调查局（U.S. Geological Survey）。美国政府作品，公有领域。
+  经 Microsoft Planetary Computer 数据 API 按经纬度框渲染真彩（https://planetarycomputer.microsoft.com/api/data/v1/item/bbox/...，collection=landsat-c2-l2）。每次请求的完整 URL 见 material/fetch_log.txt。
+  场景：LT05_L2SP_067017_19860728_02_T1, LT05_L2SP_066017_20050810_02_T1, LT05_L2SP_067017_20100916_02_T1,
+        LC08_L2SP_067017_20150813_02_T1, LC08_L2SP_067017_20200911_02_T1, LC08_L2SP_067017_20260827_02_T1
+  Landsat data courtesy of the U.S. Geological Survey.
+- NASA Blue Marble Next Generation（NASA Earth Observatory / GIBS），公有领域。
+  https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS=BlueMarble_NextGeneration&STYLES=&CRS=EPSG:4326&BBOX=59.0,-152.0,63.5,-141.0&WIDTH=2200&HEIGHT=900&FORMAT=image/jpeg
+- 事实来源：NASA Earth Observatory, World of Change: Columbia Glacier（见 FACTS.md）。
+  本片为利用公有领域影像制作的非官方短片，USGS 与 NASA 未参与制作，也未为其背书。
+
+字体（SIL Open Font License 1.1，fonts/ 内附许可）
+- Barlow Condensed（Jeremy Tribby），https://github.com/google/fonts/tree/main/ofl/barlowcondensed
+- IBM Plex Mono（IBM），https://github.com/google/fonts/tree/main/ofl/ibmplexmono
+- Noto Sans SC、Noto Serif SC（Google），经 Google Fonts CSS API &text= 子集化
+
+声音
+- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+  乐器：timpani, bass_drum, gran_cassa, sus_cymbal, tuba, trombone, horn, vibraphone_bowed, glockenspiel, hand_chimes
+- 其余声音（脉冲低音、pad、FM 提示音、扫描、冰裂、拨弦低音与竖琴泛音的物理建模、底噪）均为本片代码合成。

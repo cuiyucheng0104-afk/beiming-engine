@@ -1,0 +1,56 @@
+{
+ "seg": "S12",
+ "_说明": "t = 段内秒。画面动作按 api.cue(id).t 走（见 src/segs/flashkit.js 顶部的事件说明），声音同源合成。char/seal 的 t = 落定/落纸那一刻；title 与旁白念标题同步。char 对齐配乐古琴低音（music/README.md：S12 段内 2.6 s，其余段首 +1.0 s）。",
+ "events": [
+  {
+   "id": "wash",
+   "t": 0.0,
+   "type": "paper",
+   "dur": 2.0,
+   "gain": -18
+  },
+  {
+   "id": "lensoff",
+   "t": 0.0,
+   "type": "ui_stroke",
+   "dur": 0.7,
+   "gain": -26
+  },
+  {
+   "id": "bloom",
+   "t": 1.1,
+   "type": "ink_bleed",
+   "dur": 1.5,
+   "gain": -21,
+   "fade_in": 0.4
+  },
+  {
+   "id": "char",
+   "t": 2.6,
+   "type": "char_thud",
+   "gain": -10
+  },
+  {
+   "id": "title",
+   "t": 4.15,
+   "type": "brush",
+   "dur": 0.6,
+   "gain": -19
+  },
+  {
+   "id": "seal",
+   "t": 4.9,
+   "type": "seal",
+   "gain": -12
+  },
+  {
+   "id": "develop",
+   "t": 2.6,
+   "type": "ink_bleed",
+   "dur": 1.9,
+   "gain": -23,
+   "seed": 7
+  }
+ ],
+ "_返修": "返修第 4 条：墨洇阶段缩短，显影在旁白起点后约 1.5 s 完成（原来 develop 拖到起点后 4.7 s，叙事句全压在墨团上）。"
+}

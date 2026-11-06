@@ -1,0 +1,5854 @@
+{
+  "count": 360,
+  "uniqueHashes": 360,
+  "gpu": [
+    "ANGLE (NVIDIA, Vulkan 1.4.357 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)"
+  ],
+  "scenes": [
+    {
+      "id": "01",
+      "name": "烛下挥毫",
+      "count": 40,
+      "faces": 1689578,
+      "vertices": 846720,
+      "fovY": 30.375341391337567,
+      "render_seconds": 21.612
+    },
+    {
+      "id": "02",
+      "name": "青铜案头",
+      "count": 40,
+      "faces": 1558642,
+      "vertices": 781200,
+      "fovY": 35.95650723412963,
+      "render_seconds": 21.407
+    },
+    {
+      "id": "03",
+      "name": "烟雨舟人",
+      "count": 40,
+      "faces": 1311878,
+      "vertices": 657720,
+      "fovY": 20.508237380885337,
+      "render_seconds": 16.475
+    },
+    {
+      "id": "04",
+      "name": "云山楼阁",
+      "count": 40,
+      "faces": 1722312,
+      "vertices": 863100,
+      "fovY": 29.36451791883881,
+      "render_seconds": 24.452
+    },
+    {
+      "id": "05",
+      "name": "林间市集",
+      "count": 40,
+      "faces": 1717276,
+      "vertices": 860580,
+      "fovY": 24.663743770657216,
+      "render_seconds": 24.704
+    },
+    {
+      "id": "06",
+      "name": "碑林风起",
+      "count": 40,
+      "faces": 1410080,
+      "vertices": 706860,
+      "fovY": 51.48756288412608,
+      "render_seconds": 20.781
+    },
+    {
+      "id": "07",
+      "name": "仰望藏书楼",
+      "count": 40,
+      "faces": 1581304,
+      "vertices": 792540,
+      "fovY": 59.630475799777,
+      "render_seconds": 21.957
+    },
+    {
+      "id": "08",
+      "name": "江山云海",
+      "count": 40,
+      "faces": 1518354,
+      "vertices": 761040,
+      "fovY": 36.88291091516799,
+      "render_seconds": 22.212
+    },
+    {
+      "id": "09",
+      "name": "暮色江村",
+      "count": 40,
+      "faces": 1427706,
+      "vertices": 715680,
+      "fovY": 25.6103288289215,
+      "render_seconds": 21.084
+    }
+  ],
+  "errors": [],
+  "geometry": "Single-view MoGe-2 depth/normal mesh, baked source colors retained; not complete multi-view assets",
+  "images": [
+    {
+      "scene": "01",
+      "preset": "A1",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "aa473d357b1292a21a7ee28f9108c8b4833b26d1178d4a486d59c33d9dede3ec",
+      "file": "out/frame-renders/01/A1.png",
+      "meanRGB": [
+        60.286,
+        68.855,
+        63.121
+      ],
+      "std": 44.294
+    },
+    {
+      "scene": "01",
+      "preset": "A2",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "73f7836d5d1a94440bb543ef79ba57df73176610822fd4a4dff5eb04c9e6a955",
+      "file": "out/frame-renders/01/A2.png",
+      "meanRGB": [
+        68.066,
+        78.998,
+        73.042
+      ],
+      "std": 26.155
+    },
+    {
+      "scene": "01",
+      "preset": "A3",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "9d6e5764712e2b29e9751d6ae9f59342782023f31d57f16cb7ac98085be2815c",
+      "file": "out/frame-renders/01/A3.png",
+      "meanRGB": [
+        67.556,
+        78.495,
+        72.639
+      ],
+      "std": 25.684
+    },
+    {
+      "scene": "01",
+      "preset": "A4",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "1cd4941dd0c7b74593450b102863b6a4e6fcd49a88260d065a6f70ecc1e8bf65",
+      "file": "out/frame-renders/01/A4.png",
+      "meanRGB": [
+        61.435,
+        71.891,
+        66.821
+      ],
+      "std": 27.762
+    },
+    {
+      "scene": "01",
+      "preset": "A5",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "938fe20fd12860da873d3d5a9908f7acc6e4dbf47ab0d35187c5080ec2f512cb",
+      "file": "out/frame-renders/01/A5.png",
+      "meanRGB": [
+        63.857,
+        74.657,
+        69.393
+      ],
+      "std": 25.408
+    },
+    {
+      "scene": "01",
+      "preset": "B1",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "80b384935b29ec84b16b38de6c04a7cd8c3fdbddf54eb16e9479a57ed1c59878",
+      "file": "out/frame-renders/01/B1.png",
+      "meanRGB": [
+        72.489,
+        81.882,
+        78.763
+      ],
+      "std": 46.149
+    },
+    {
+      "scene": "01",
+      "preset": "B2",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "7c5d3c3b314d5e5f22ea0aabccdd4f802850491d0a2bc19b5e3b38ebd978adab",
+      "file": "out/frame-renders/01/B2.png",
+      "meanRGB": [
+        82.12,
+        93.401,
+        90.096
+      ],
+      "std": 26.655
+    },
+    {
+      "scene": "01",
+      "preset": "B3",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "f7bbed3830bf108db11f806c5dcc3e98b2e4cbf8ff0d2ddcc308b8d5e7ed2d51",
+      "file": "out/frame-renders/01/B3.png",
+      "meanRGB": [
+        81.655,
+        92.906,
+        89.666
+      ],
+      "std": 26.164
+    },
+    {
+      "scene": "01",
+      "preset": "B4",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "6753a15867dd666ce2b1948c821e10952e8f801ef7835b7a1d825af24960d49d",
+      "file": "out/frame-renders/01/B4.png",
+      "meanRGB": [
+        75.36,
+        85.969,
+        83.238
+      ],
+      "std": 28.69
+    },
+    {
+      "scene": "01",
+      "preset": "B5",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "c9586c3a81bd50fb3fe48e0261ff05090de99ff0efcd5c0e3d1851cd5d0fbe22",
+      "file": "out/frame-renders/01/B5.png",
+      "meanRGB": [
+        77.976,
+        88.947,
+        86.081
+      ],
+      "std": 26.086
+    },
+    {
+      "scene": "01",
+      "preset": "C1",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "b5354e5f6056a4e34c4bceea1acde121f303586f3ce7c528885e4a33db9b314e",
+      "file": "out/frame-renders/01/C1.png",
+      "meanRGB": [
+        66.769,
+        67.742,
+        59.848
+      ],
+      "std": 44.296
+    },
+    {
+      "scene": "01",
+      "preset": "C2",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "8fec9abd9531379ef38a0015958677b1f4f04f6f641ede2ce879a80c6c1f815e",
+      "file": "out/frame-renders/01/C2.png",
+      "meanRGB": [
+        76.151,
+        77.552,
+        68.717
+      ],
+      "std": 25.725
+    },
+    {
+      "scene": "01",
+      "preset": "C3",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "6f7a224f2a3243e51c5d8b1ee2774c2c7b4807687372155a40ac05495f6e7b8b",
+      "file": "out/frame-renders/01/C3.png",
+      "meanRGB": [
+        75.672,
+        77.04,
+        68.263
+      ],
+      "std": 25.234
+    },
+    {
+      "scene": "01",
+      "preset": "C4",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "ce3566661a3f9717f82cf8aff529710d3dd9a98f9a968fbc841f688053432dc2",
+      "file": "out/frame-renders/01/C4.png",
+      "meanRGB": [
+        69.423,
+        70.472,
+        62.363
+      ],
+      "std": 27.372
+    },
+    {
+      "scene": "01",
+      "preset": "C5",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "48192ca2573b58673c600f295fb0c6c452a7c8ab93d622f79c0268e33d8c5fec",
+      "file": "out/frame-renders/01/C5.png",
+      "meanRGB": [
+        72.006,
+        73.211,
+        64.85
+      ],
+      "std": 24.941
+    },
+    {
+      "scene": "01",
+      "preset": "D1",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "2b4a659d41353c1a015b98dc7a02c206a76a40476ed33b0bb78988234908a1de",
+      "file": "out/frame-renders/01/D1.png",
+      "meanRGB": [
+        56.835,
+        69.368,
+        67.524
+      ],
+      "std": 44.284
+    },
+    {
+      "scene": "01",
+      "preset": "D2",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "942852e31af3ec15218912146613a2088d1e0e2d4aa6bb95ef2874e8bb3c15c9",
+      "file": "out/frame-renders/01/D2.png",
+      "meanRGB": [
+        64.325,
+        79.477,
+        78.278
+      ],
+      "std": 26.453
+    },
+    {
+      "scene": "01",
+      "preset": "D3",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "cdcc49ed6fbd1cbffffe827df924b68831dce4f585776788f02ac76672e229c6",
+      "file": "out/frame-renders/01/D3.png",
+      "meanRGB": [
+        63.829,
+        78.965,
+        77.88
+      ],
+      "std": 26.005
+    },
+    {
+      "scene": "01",
+      "preset": "D4",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "c0cbdf841a09a85736d127c1a7f5581680dc47465b2899cb01b3d27ee1b36e4f",
+      "file": "out/frame-renders/01/D4.png",
+      "meanRGB": [
+        57.973,
+        72.31,
+        71.884
+      ],
+      "std": 28.101
+    },
+    {
+      "scene": "01",
+      "preset": "D5",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "fa4f88113467755ffeeb8f8a64c344a3d476e3308602fc69ec2aefae979df1cd",
+      "file": "out/frame-renders/01/D5.png",
+      "meanRGB": [
+        60.292,
+        75.09,
+        74.561
+      ],
+      "std": 25.796
+    },
+    {
+      "scene": "01",
+      "preset": "E1",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "defd8de51f05c8c0c2f3c9314641b6685d16341111ffb8cba87b0475294d50e0",
+      "file": "out/frame-renders/01/E1.png",
+      "meanRGB": [
+        64.323,
+        67.658,
+        65.186
+      ],
+      "std": 44.609
+    },
+    {
+      "scene": "01",
+      "preset": "E2",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "308cc2d4cc5b00885c8dd69a34e060325309034ec2e727b57de50dc00ac15a6b",
+      "file": "out/frame-renders/01/E2.png",
+      "meanRGB": [
+        73.278,
+        77.485,
+        74.877
+      ],
+      "std": 25.741
+    },
+    {
+      "scene": "01",
+      "preset": "E3",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "132e00beb60188c9508e3e0e30a5185bb5e636e152507011f14001ffa5aaa3e1",
+      "file": "out/frame-renders/01/E3.png",
+      "meanRGB": [
+        72.788,
+        76.984,
+        74.411
+      ],
+      "std": 25.247
+    },
+    {
+      "scene": "01",
+      "preset": "E4",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "8e24eaaacd7abac8fc20bce625a92ec782533ddd9928369c76aa2f7426c61792",
+      "file": "out/frame-renders/01/E4.png",
+      "meanRGB": [
+        66.577,
+        70.45,
+        68.221
+      ],
+      "std": 27.473
+    },
+    {
+      "scene": "01",
+      "preset": "E5",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "16e10ed879ed41bba182e19553aaed64b0ea3f19d89c70f18dbff1ec516f3828",
+      "file": "out/frame-renders/01/E5.png",
+      "meanRGB": [
+        69.129,
+        73.173,
+        70.862
+      ],
+      "std": 24.981
+    },
+    {
+      "scene": "01",
+      "preset": "F1",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "67051e99c2223852da667cfef905f3645411e4ed8f2b6c6ff89833c741444903",
+      "file": "out/frame-renders/01/F1.png",
+      "meanRGB": [
+        67.259,
+        66.643,
+        64.914
+      ],
+      "std": 44.647
+    },
+    {
+      "scene": "01",
+      "preset": "F2",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "a7238bbc7593b21330c761fa7e63bd26ebbda35f0a740f502de015b2d1d3cf85",
+      "file": "out/frame-renders/01/F2.png",
+      "meanRGB": [
+        76.234,
+        75.953,
+        75.815
+      ],
+      "std": 25.801
+    },
+    {
+      "scene": "01",
+      "preset": "F3",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "c882f8f3736e42a5b3175b3c93b209410d576db32e7ecfa5a37b4ac23ac664bc",
+      "file": "out/frame-renders/01/F3.png",
+      "meanRGB": [
+        75.699,
+        75.413,
+        75.473
+      ],
+      "std": 25.321
+    },
+    {
+      "scene": "01",
+      "preset": "F4",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "36db4bbe2c43222b96869612df4aeeb1a8cc17ce8d0ed32999e99e073aebe747",
+      "file": "out/frame-renders/01/F4.png",
+      "meanRGB": [
+        69.141,
+        68.772,
+        69.794
+      ],
+      "std": 27.619
+    },
+    {
+      "scene": "01",
+      "preset": "F5",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "eb0525b7a22417307e3426d98f2152ce2d8f18174b8be4869bf4328b5fd34f76",
+      "file": "out/frame-renders/01/F5.png",
+      "meanRGB": [
+        71.789,
+        71.486,
+        72.388
+      ],
+      "std": 25.113
+    },
+    {
+      "scene": "01",
+      "preset": "G1",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "e80259b7f4b7abac6717e517108b8faae15edb87f0a33663ce14dd3d574480ef",
+      "file": "out/frame-renders/01/G1.png",
+      "meanRGB": [
+        92.84,
+        93.303,
+        89.215
+      ],
+      "std": 47.4
+    },
+    {
+      "scene": "01",
+      "preset": "G2",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "f843f691749db81ba413ddfad4832e634a5c4ba165e930488c163d1cacee679f",
+      "file": "out/frame-renders/01/G2.png",
+      "meanRGB": [
+        105.097,
+        105.707,
+        101.14
+      ],
+      "std": 26.324
+    },
+    {
+      "scene": "01",
+      "preset": "G3",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "75dd92b84bad7d31efb9ab6f4eab3dc8c07e54fe8956570bc7de54fb134c514c",
+      "file": "out/frame-renders/01/G3.png",
+      "meanRGB": [
+        104.63,
+        105.235,
+        100.695
+      ],
+      "std": 25.78
+    },
+    {
+      "scene": "01",
+      "preset": "G4",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "0f309a8038ce9abd306308f49b7297252b357023c5642bbf0f6df1d1c55e3458",
+      "file": "out/frame-renders/01/G4.png",
+      "meanRGB": [
+        97.64,
+        98.197,
+        93.952
+      ],
+      "std": 28.781
+    },
+    {
+      "scene": "01",
+      "preset": "G5",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "27aff5a8720a335b58c35584e0358643121eef9ca0401a486ab15fff96725985",
+      "file": "out/frame-renders/01/G5.png",
+      "meanRGB": [
+        100.678,
+        101.266,
+        96.89
+      ],
+      "std": 25.839
+    },
+    {
+      "scene": "01",
+      "preset": "H1",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "6fbcb8e09c2c4690d1c4d2178bbb03503aa3d041ddb024ef55ce6c30f88a8db9",
+      "file": "out/frame-renders/01/H1.png",
+      "meanRGB": [
+        52.332,
+        61.849,
+        65.205
+      ],
+      "std": 41.723
+    },
+    {
+      "scene": "01",
+      "preset": "H2",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "b18c447dee8d754ca519e48a7cf421b0fbe24e3fd515b1a16b4a0abe11476d71",
+      "file": "out/frame-renders/01/H2.png",
+      "meanRGB": [
+        59.405,
+        70.816,
+        75.729
+      ],
+      "std": 24.98
+    },
+    {
+      "scene": "01",
+      "preset": "H3",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "0a4b507e25b0a3ef77c4af16a313e896eb5fd42f1caaadc430ea4fb89f473863",
+      "file": "out/frame-renders/01/H3.png",
+      "meanRGB": [
+        58.977,
+        70.325,
+        75.325
+      ],
+      "std": 24.557
+    },
+    {
+      "scene": "01",
+      "preset": "H4",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "a701549a742b5b677c4a48910c5f0df7e5e9c7fdc0f077b074018928a5d2b7e8",
+      "file": "out/frame-renders/01/H4.png",
+      "meanRGB": [
+        53.71,
+        64.139,
+        69.33
+      ],
+      "std": 26.477
+    },
+    {
+      "scene": "01",
+      "preset": "H5",
+      "size": [
+        2400,
+        1280
+      ],
+      "sha256": "e29fadbb2d95bb4651f7515a9682d211069e91c210a5431d3ae266b72cc46b96",
+      "file": "out/frame-renders/01/H5.png",
+      "meanRGB": [
+        55.798,
+        66.693,
+        71.998
+      ],
+      "std": 24.328
+    },
+    {
+      "scene": "02",
+      "preset": "A1",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "b8c1e88a52dc22162f40c303a3be9f263687b991219b7199f30161a8f48b7d29",
+      "file": "out/frame-renders/02/A1.png",
+      "meanRGB": [
+        57.13,
+        56.853,
+        48.981
+      ],
+      "std": 40.755
+    },
+    {
+      "scene": "02",
+      "preset": "A2",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "3c188f3ce69e1138fd2d02e5c82e1a4f421bd5265cb37cc0a28d446051751146",
+      "file": "out/frame-renders/02/A2.png",
+      "meanRGB": [
+        77.866,
+        77.317,
+        66.198
+      ],
+      "std": 35.223
+    },
+    {
+      "scene": "02",
+      "preset": "A3",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "c995ec4087ff97afd77b2ff52a457112781b397eb38b24702852714e4b90baeb",
+      "file": "out/frame-renders/02/A3.png",
+      "meanRGB": [
+        77.468,
+        77.068,
+        66.099
+      ],
+      "std": 34.176
+    },
+    {
+      "scene": "02",
+      "preset": "A4",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "994f166d4594eb11beda2979a25722f4a25477dddcb45ef4e52fbff858663e80",
+      "file": "out/frame-renders/02/A4.png",
+      "meanRGB": [
+        70.892,
+        71.143,
+        61.455
+      ],
+      "std": 32.256
+    },
+    {
+      "scene": "02",
+      "preset": "A5",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "1f0490666e5f3ad17eb296e3d5321acd7d6c5056c067af11021582c6e6f709af",
+      "file": "out/frame-renders/02/A5.png",
+      "meanRGB": [
+        73.921,
+        74.114,
+        63.965
+      ],
+      "std": 31.032
+    },
+    {
+      "scene": "02",
+      "preset": "B1",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "240b56c2be3fd2029bbb7f23853108903cd09bfc43eae0ecff1a269b1ba61c0b",
+      "file": "out/frame-renders/02/B1.png",
+      "meanRGB": [
+        68.797,
+        69.967,
+        65.092
+      ],
+      "std": 41.339
+    },
+    {
+      "scene": "02",
+      "preset": "B2",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "18cac3f1747200c3a48e98a9a8ab83d8b2651b555f8a8c3835cbdb26c4674bcd",
+      "file": "out/frame-renders/02/B2.png",
+      "meanRGB": [
+        90.185,
+        91.665,
+        84.547
+      ],
+      "std": 35.829
+    },
+    {
+      "scene": "02",
+      "preset": "B3",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "1c673f6248a926020cc854364559021eda35593fc3c5cdaaf1ab3563adea969a",
+      "file": "out/frame-renders/02/B3.png",
+      "meanRGB": [
+        89.924,
+        91.499,
+        84.468
+      ],
+      "std": 34.539
+    },
+    {
+      "scene": "02",
+      "preset": "B4",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "d77d299a59390b0a7a3d66a49b6e261b510fd2bf28ec3a84b7ef966f4e08bc49",
+      "file": "out/frame-renders/02/B4.png",
+      "meanRGB": [
+        83.605,
+        85.455,
+        79.268
+      ],
+      "std": 32.161
+    },
+    {
+      "scene": "02",
+      "preset": "B5",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "b69770cb721cd01fdb7f9290fa6dcfa81537cad1cf1dc01741276582bff6950c",
+      "file": "out/frame-renders/02/B5.png",
+      "meanRGB": [
+        86.708,
+        88.595,
+        82.078
+      ],
+      "std": 30.92
+    },
+    {
+      "scene": "02",
+      "preset": "C1",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "1804b97b16fac16248c66eeedf4230002f7026cc6467da062dc695898c0059b0",
+      "file": "out/frame-renders/02/C1.png",
+      "meanRGB": [
+        61.71,
+        56.075,
+        46.225
+      ],
+      "std": 40.742
+    },
+    {
+      "scene": "02",
+      "preset": "C2",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "0145bc4c6050e0746c07b455f2587e88eb827cc50c0ace312cff03f3918f0535",
+      "file": "out/frame-renders/02/C2.png",
+      "meanRGB": [
+        82.641,
+        76.478,
+        63.688
+      ],
+      "std": 35.257
+    },
+    {
+      "scene": "02",
+      "preset": "C3",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "081f4ddcc28cd0f1c1dbde21b4ad6434b92e31635d3434bd1eaec41330601c8b",
+      "file": "out/frame-renders/02/C3.png",
+      "meanRGB": [
+        82.347,
+        76.209,
+        63.483
+      ],
+      "std": 34.194
+    },
+    {
+      "scene": "02",
+      "preset": "C4",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "369856dd78606596a89c2903a6dee0ae01c15b243e770af426b824715ad3e301",
+      "file": "out/frame-renders/02/C4.png",
+      "meanRGB": [
+        76.084,
+        70.223,
+        58.415
+      ],
+      "std": 32.237
+    },
+    {
+      "scene": "02",
+      "preset": "C5",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "103643caced670a57caebe9570008911cc80899a0b2e6b758f2ac151abd91133",
+      "file": "out/frame-renders/02/C5.png",
+      "meanRGB": [
+        79.122,
+        73.186,
+        60.952
+      ],
+      "std": 31.026
+    },
+    {
+      "scene": "02",
+      "preset": "D1",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "19c82abdaa6b6f46cadeec4ad227df75ed703d6729f92d39daf4a5707028c509",
+      "file": "out/frame-renders/02/D1.png",
+      "meanRGB": [
+        53.067,
+        57.519,
+        55.518
+      ],
+      "std": 40.478
+    },
+    {
+      "scene": "02",
+      "preset": "D2",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "6ccf25b7f3a5ceb3d69e104ee87be76f6bd14ab0dde1e975e3f28da612d9c6cd",
+      "file": "out/frame-renders/02/D2.png",
+      "meanRGB": [
+        72.724,
+        78.195,
+        74.057
+      ],
+      "std": 34.786
+    },
+    {
+      "scene": "02",
+      "preset": "D3",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "a71eaa828d4275720ce6bb6e9f56e4f581ddb80fa7b9a4e1c41e92250c3b6b43",
+      "file": "out/frame-renders/02/D3.png",
+      "meanRGB": [
+        72.351,
+        77.936,
+        73.961
+      ],
+      "std": 33.719
+    },
+    {
+      "scene": "02",
+      "preset": "D4",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "bb3e973217f9e4f0a5d01837f441b5b020889675becd6e8ce5d09249b4794f8f",
+      "file": "out/frame-renders/02/D4.png",
+      "meanRGB": [
+        66.129,
+        71.91,
+        69.025
+      ],
+      "std": 31.851
+    },
+    {
+      "scene": "02",
+      "preset": "D5",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "f3d4055967ab9fe2325d433358a311812a58a13448941be8700b2910328238f8",
+      "file": "out/frame-renders/02/D5.png",
+      "meanRGB": [
+        69.001,
+        74.912,
+        71.718
+      ],
+      "std": 30.595
+    },
+    {
+      "scene": "02",
+      "preset": "E1",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "70bd25f1f3156c53fa6d71ca68a86a304c722bf5591ae1c261963cd7d452ad50",
+      "file": "out/frame-renders/02/E1.png",
+      "meanRGB": [
+        58.209,
+        56.359,
+        52.794
+      ],
+      "std": 40.731
+    },
+    {
+      "scene": "02",
+      "preset": "E2",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "3e35b76b45f132bebda2ac875a7209d1fd86e1b31793d9e4400eb5e99bd7bc60",
+      "file": "out/frame-renders/02/E2.png",
+      "meanRGB": [
+        78.637,
+        76.729,
+        71.653
+      ],
+      "std": 34.859
+    },
+    {
+      "scene": "02",
+      "preset": "E3",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "1eb81c056d336b693fadb82fc95db984f5325197cdc05cf8f25fa1812481f55f",
+      "file": "out/frame-renders/02/E3.png",
+      "meanRGB": [
+        78.327,
+        76.466,
+        71.448
+      ],
+      "std": 33.761
+    },
+    {
+      "scene": "02",
+      "preset": "E4",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "ee187cb51ee831684ba46302af254b2e1e16004044d8df25cac4d1ae180fdcc2",
+      "file": "out/frame-renders/02/E4.png",
+      "meanRGB": [
+        72.144,
+        70.503,
+        66.049
+      ],
+      "std": 31.827
+    },
+    {
+      "scene": "02",
+      "preset": "E5",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "6d3206eb76dc7ce98873483ecad65a5c5e7896c3318308e388439321c536e0da",
+      "file": "out/frame-renders/02/E5.png",
+      "meanRGB": [
+        75.117,
+        73.462,
+        68.797
+      ],
+      "std": 30.528
+    },
+    {
+      "scene": "02",
+      "preset": "F1",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "6b0641441c14cb317d203dec93b875fc2c797e40dc9edaf94f5ae6306a846a72",
+      "file": "out/frame-renders/02/F1.png",
+      "meanRGB": [
+        60.093,
+        54.311,
+        55.292
+      ],
+      "std": 40.947
+    },
+    {
+      "scene": "02",
+      "preset": "F2",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "26cc77e640caac0beef9900bfa3813bae021f7e52d4af65dad711784591979b8",
+      "file": "out/frame-renders/02/F2.png",
+      "meanRGB": [
+        81.381,
+        74.659,
+        73.583
+      ],
+      "std": 35.172
+    },
+    {
+      "scene": "02",
+      "preset": "F3",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "6f930f02803b321afaeffd9a5c35457d616042b4883dfc4ca5b4873d3a2890be",
+      "file": "out/frame-renders/02/F3.png",
+      "meanRGB": [
+        81.029,
+        74.35,
+        73.517
+      ],
+      "std": 34.064
+    },
+    {
+      "scene": "02",
+      "preset": "F4",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "f20372421884f669fce654be59f60d286d685bd0a2fdb8490467b95a56b6ae2b",
+      "file": "out/frame-renders/02/F4.png",
+      "meanRGB": [
+        74.489,
+        68.237,
+        68.731
+      ],
+      "std": 32.105
+    },
+    {
+      "scene": "02",
+      "preset": "F5",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "271d0efe513dd3a3fa4ae49265af83cad033b05f32148a268e4abc42be19eb58",
+      "file": "out/frame-renders/02/F5.png",
+      "meanRGB": [
+        77.585,
+        71.195,
+        71.404
+      ],
+      "std": 30.824
+    },
+    {
+      "scene": "02",
+      "preset": "G1",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "fa1eaec0926efe05f3cbedef73490c0b5938e1d80e19066b4d3e7e63d9c75921",
+      "file": "out/frame-renders/02/G1.png",
+      "meanRGB": [
+        83.718,
+        82.697,
+        78.453
+      ],
+      "std": 41.241
+    },
+    {
+      "scene": "02",
+      "preset": "G2",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "2727da2f69702967f435d15e37c0e7bd17cf06b045aa61708b5cd9ba7b08d630",
+      "file": "out/frame-renders/02/G2.png",
+      "meanRGB": [
+        106.194,
+        105.024,
+        99.715
+      ],
+      "std": 35.918
+    },
+    {
+      "scene": "02",
+      "preset": "G3",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "aeb6b99598518bab26325289dce94b8cda866a80092e394bb14c4aa2a27d92c9",
+      "file": "out/frame-renders/02/G3.png",
+      "meanRGB": [
+        106.092,
+        104.944,
+        99.636
+      ],
+      "std": 34.364
+    },
+    {
+      "scene": "02",
+      "preset": "G4",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "b61fdb1b26a74fdf0381da98e70deb92d6f4acce3aafb492cda03a2517f17a0c",
+      "file": "out/frame-renders/02/G4.png",
+      "meanRGB": [
+        99.99,
+        98.925,
+        93.918
+      ],
+      "std": 31.429
+    },
+    {
+      "scene": "02",
+      "preset": "G5",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "17d08428a3aa573b181efd75bde315e93ab0a135c3115aab1d0d34e7b0a11c29",
+      "file": "out/frame-renders/02/G5.png",
+      "meanRGB": [
+        103.227,
+        102.144,
+        96.988
+      ],
+      "std": 30.193
+    },
+    {
+      "scene": "02",
+      "preset": "H1",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "8efa00537ed8326335c00c920cd907ae6424081813b755a1610cf74b8c912db1",
+      "file": "out/frame-renders/02/H1.png",
+      "meanRGB": [
+        48.826,
+        50.472,
+        53.711
+      ],
+      "std": 38.174
+    },
+    {
+      "scene": "02",
+      "preset": "H2",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "6e0c074231ac626ace150e84e822413aab735ae680f4039f4c345c9fb6706515",
+      "file": "out/frame-renders/02/H2.png",
+      "meanRGB": [
+        66.68,
+        69.43,
+        72.456
+      ],
+      "std": 32.759
+    },
+    {
+      "scene": "02",
+      "preset": "H3",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "234be98a30481a45e591f269c6560c39aaf9ff3d719ebaeb780d624f78a55d10",
+      "file": "out/frame-renders/02/H3.png",
+      "meanRGB": [
+        66.352,
+        69.17,
+        72.339
+      ],
+      "std": 31.759
+    },
+    {
+      "scene": "02",
+      "preset": "H4",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "4e6fe5938d2b8b4f79170502941714da86458dc4a7aa0f97e1e6efd011aad6ec",
+      "file": "out/frame-renders/02/H4.png",
+      "meanRGB": [
+        60.715,
+        63.574,
+        67.292
+      ],
+      "std": 30.033
+    },
+    {
+      "scene": "02",
+      "preset": "H5",
+      "size": [
+        2400,
+        1180
+      ],
+      "sha256": "8aba1e0c12b3d7626d327ef48fe75b95639b52afaf432eba83483bdda9b71d9c",
+      "file": "out/frame-renders/02/H5.png",
+      "meanRGB": [
+        63.313,
+        66.336,
+        70.03
+      ],
+      "std": 28.838
+    },
+    {
+      "scene": "03",
+      "preset": "A1",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "193e1c485a8c59f8f687159d01b7b790d5c2b8b5a8bea1d0462614f201078fef",
+      "file": "out/frame-renders/03/A1.png",
+      "meanRGB": [
+        39.821,
+        48.032,
+        42.561
+      ],
+      "std": 35.832
+    },
+    {
+      "scene": "03",
+      "preset": "A2",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "db6cb3828fc832f0b45bac65400670e09eff5228a5335ef485453edf4fd96ed4",
+      "file": "out/frame-renders/03/A2.png",
+      "meanRGB": [
+        51.762,
+        62.594,
+        56.14
+      ],
+      "std": 24.032
+    },
+    {
+      "scene": "03",
+      "preset": "A3",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "ed2bef6a5e59662359bd48765f5031ee8e94023167156a7d7a8d20f72e27280f",
+      "file": "out/frame-renders/03/A3.png",
+      "meanRGB": [
+        51.55,
+        62.414,
+        56.048
+      ],
+      "std": 23.397
+    },
+    {
+      "scene": "03",
+      "preset": "A4",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "358a9168f6af294a13f05551b84899c9067924eec866c21a0cde25ef9ae0d54a",
+      "file": "out/frame-renders/03/A4.png",
+      "meanRGB": [
+        49.023,
+        59.508,
+        53.548
+      ],
+      "std": 24.794
+    },
+    {
+      "scene": "03",
+      "preset": "A5",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "5f31a1eb9e4d4f5768fb536d72842d23dc827bdbfda5fe10fbc7584d3ecaf383",
+      "file": "out/frame-renders/03/A5.png",
+      "meanRGB": [
+        50.398,
+        61.25,
+        55.199
+      ],
+      "std": 22.413
+    },
+    {
+      "scene": "03",
+      "preset": "B1",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "bb5aae869ea613470ddd023b4d29682085fc2a4b8ce295468bf7ab7b5acf84e9",
+      "file": "out/frame-renders/03/B1.png",
+      "meanRGB": [
+        51.606,
+        60.123,
+        56.83
+      ],
+      "std": 37.907
+    },
+    {
+      "scene": "03",
+      "preset": "B2",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "4ad2c8be67f4df2b52f903593118ee73b41e61eb7ce53ea08dbb903c067debcc",
+      "file": "out/frame-renders/03/B2.png",
+      "meanRGB": [
+        65.4,
+        76.278,
+        72.237
+      ],
+      "std": 25.373
+    },
+    {
+      "scene": "03",
+      "preset": "B3",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "35af36c1ead5a6aa868b91f69d80013f41b2094c280805e31106e906ff146e4a",
+      "file": "out/frame-renders/03/B3.png",
+      "meanRGB": [
+        65.266,
+        76.145,
+        72.173
+      ],
+      "std": 24.525
+    },
+    {
+      "scene": "03",
+      "preset": "B4",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "14f71588419649067904a6ff2dcd42b549095cd0105315853382d110c349987e",
+      "file": "out/frame-renders/03/B4.png",
+      "meanRGB": [
+        62.543,
+        73.06,
+        69.376
+      ],
+      "std": 25.958
+    },
+    {
+      "scene": "03",
+      "preset": "B5",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "16eaab8ab9c281d94f0ff6c349f3b8d66c1212eb3cb323ed062d924744e2e016",
+      "file": "out/frame-renders/03/B5.png",
+      "meanRGB": [
+        64.17,
+        74.982,
+        71.219
+      ],
+      "std": 23.361
+    },
+    {
+      "scene": "03",
+      "preset": "C1",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "8ff92dbeb8ad361cabb567f59e5a69886e4d7e418dd35220f6e880443c6cf1c4",
+      "file": "out/frame-renders/03/C1.png",
+      "meanRGB": [
+        45.983,
+        46.934,
+        39.884
+      ],
+      "std": 35.918
+    },
+    {
+      "scene": "03",
+      "preset": "C2",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "95ef464fba70c7257ac363502884876966bf6458bd12350940b4038cd3626abb",
+      "file": "out/frame-renders/03/C2.png",
+      "meanRGB": [
+        59.373,
+        61.215,
+        52.667
+      ],
+      "std": 23.761
+    },
+    {
+      "scene": "03",
+      "preset": "C3",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "a3a9f4372227e78372674de9999006c6e4226ce902514e46e7fc9e99d5d38f4e",
+      "file": "out/frame-renders/03/C3.png",
+      "meanRGB": [
+        59.215,
+        61.028,
+        52.532
+      ],
+      "std": 23.08
+    },
+    {
+      "scene": "03",
+      "preset": "C4",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "df324c8c33cbafc72f9ddf707afa20e5d42e5647e77dc0aa196175aeeef963ad",
+      "file": "out/frame-renders/03/C4.png",
+      "meanRGB": [
+        56.517,
+        58.142,
+        50.039
+      ],
+      "std": 24.513
+    },
+    {
+      "scene": "03",
+      "preset": "C5",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "4850104f424cdfd34b64a42687c1dc26482c5154d1b446f22c4824a51f3d3413",
+      "file": "out/frame-renders/03/C5.png",
+      "meanRGB": [
+        58.107,
+        59.846,
+        51.567
+      ],
+      "std": 22.035
+    },
+    {
+      "scene": "03",
+      "preset": "D1",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "3e8ad076e65a2d63316aed830b276a169a149c6492adda4ced52bbd70b7ae979",
+      "file": "out/frame-renders/03/D1.png",
+      "meanRGB": [
+        37.37,
+        48.3,
+        46.646
+      ],
+      "std": 35.971
+    },
+    {
+      "scene": "03",
+      "preset": "D2",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "10a7a4cd84d3daec4c21edcf5dd88140f6ce1c6b8f8abe2d57961fd46548fde9",
+      "file": "out/frame-renders/03/D2.png",
+      "meanRGB": [
+        48.883,
+        62.881,
+        61.057
+      ],
+      "std": 24.397
+    },
+    {
+      "scene": "03",
+      "preset": "D3",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "6627c6503b9d022f6e36374f82e318625ada4073878e6956a5bab85acf3f254b",
+      "file": "out/frame-renders/03/D3.png",
+      "meanRGB": [
+        48.655,
+        62.695,
+        60.971
+      ],
+      "std": 23.776
+    },
+    {
+      "scene": "03",
+      "preset": "D4",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "52e01dca0342557c9e454c6e28222942dd40c79a5e5f70502f0c660dd8a68553",
+      "file": "out/frame-renders/03/D4.png",
+      "meanRGB": [
+        46.227,
+        59.778,
+        58.35
+      ],
+      "std": 25.141
+    },
+    {
+      "scene": "03",
+      "preset": "D5",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "7cab4a7e38825bb2573897076d66dc44161fa5bf96900906675ea776d28679d1",
+      "file": "out/frame-renders/03/D5.png",
+      "meanRGB": [
+        47.554,
+        61.519,
+        60.099
+      ],
+      "std": 22.814
+    },
+    {
+      "scene": "03",
+      "preset": "E1",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "ad9ef3eaacd039fd876375dbe69397f70a201720f991ee8c8923e66f0c1d3654",
+      "file": "out/frame-renders/03/E1.png",
+      "meanRGB": [
+        43.895,
+        46.889,
+        44.416
+      ],
+      "std": 36.278
+    },
+    {
+      "scene": "03",
+      "preset": "E2",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "c5c8b2929173e408ef5edb7d88f34fda6b7ff702eeae48b4047cc882c1fe55fb",
+      "file": "out/frame-renders/03/E2.png",
+      "meanRGB": [
+        56.915,
+        61.134,
+        58.163
+      ],
+      "std": 23.875
+    },
+    {
+      "scene": "03",
+      "preset": "E3",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "581106f5a5fdc2e4af2c95122e6520980a989db5dddddfdf5caee862b061bcd5",
+      "file": "out/frame-renders/03/E3.png",
+      "meanRGB": [
+        56.751,
+        60.95,
+        58.029
+      ],
+      "std": 23.178
+    },
+    {
+      "scene": "03",
+      "preset": "E4",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "f6cd6cea9b3ca7b31b221d8ead8f9a20af658a0be69c7727755c3fc2c7f282ae",
+      "file": "out/frame-renders/03/E4.png",
+      "meanRGB": [
+        54.092,
+        58.078,
+        55.349
+      ],
+      "std": 24.656
+    },
+    {
+      "scene": "03",
+      "preset": "E5",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "b9bc501a5dee53b67baf6e63cef50e24b8959cddb9c58fe332f361f5dd876e1a",
+      "file": "out/frame-renders/03/E5.png",
+      "meanRGB": [
+        55.642,
+        59.781,
+        57.002
+      ],
+      "std": 22.119
+    },
+    {
+      "scene": "03",
+      "preset": "F1",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "22c46657d8de738479fb5e6a1e31d09c0aa142c898fe50a8e3a1fd6bd17c5e54",
+      "file": "out/frame-renders/03/F1.png",
+      "meanRGB": [
+        45.751,
+        45.709,
+        45.344
+      ],
+      "std": 36.341
+    },
+    {
+      "scene": "03",
+      "preset": "F2",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "c9c66da83b48b8b368488399caec3dd16bfa2cbea1b67ea7a9870d4b5854cf09",
+      "file": "out/frame-renders/03/F2.png",
+      "meanRGB": [
+        59.164,
+        59.647,
+        59.576
+      ],
+      "std": 24.007
+    },
+    {
+      "scene": "03",
+      "preset": "F3",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "abf0dd3a66552fceab30513dd7ea6172496316b50d60df2445c9c0cdfcd1ed7f",
+      "file": "out/frame-renders/03/F3.png",
+      "meanRGB": [
+        58.966,
+        59.441,
+        59.511
+      ],
+      "std": 23.308
+    },
+    {
+      "scene": "03",
+      "preset": "F4",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "164a68631bc8571bc9e52672bfe5b6b5f12e1e2de49e953e6a80635496250f00",
+      "file": "out/frame-renders/03/F4.png",
+      "meanRGB": [
+        56.181,
+        56.551,
+        56.961
+      ],
+      "std": 24.788
+    },
+    {
+      "scene": "03",
+      "preset": "F5",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "61ea5de31d23807758e2eff6d52c6d739016a510c3dfd61ebb67e60ff1cda0f9",
+      "file": "out/frame-renders/03/F5.png",
+      "meanRGB": [
+        57.762,
+        58.216,
+        58.698
+      ],
+      "std": 22.258
+    },
+    {
+      "scene": "03",
+      "preset": "G1",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "0a6ef8c5019dd157c630d4f0ddb7be617581d525f16af36cee3e668fc0736090",
+      "file": "out/frame-renders/03/G1.png",
+      "meanRGB": [
+        70.582,
+        71.113,
+        67.645
+      ],
+      "std": 39.558
+    },
+    {
+      "scene": "03",
+      "preset": "G2",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "dbe01052576104d4ba71d5f5cd178dbd0eed0898b90347f814af70774c2a9f6f",
+      "file": "out/frame-renders/03/G2.png",
+      "meanRGB": [
+        87.475,
+        88.225,
+        84.046
+      ],
+      "std": 26.043
+    },
+    {
+      "scene": "03",
+      "preset": "G3",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "537d5788ca5385df37dae15069ce87bb08e44beb44e35e05a835754287d07b9d",
+      "file": "out/frame-renders/03/G3.png",
+      "meanRGB": [
+        87.398,
+        88.142,
+        83.975
+      ],
+      "std": 24.964
+    },
+    {
+      "scene": "03",
+      "preset": "G4",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "7900d745878128f6923bd0cfc6d395299de56224797bbc93e49cc7b1f3c82769",
+      "file": "out/frame-renders/03/G4.png",
+      "meanRGB": [
+        84.255,
+        84.963,
+        80.948
+      ],
+      "std": 26.436
+    },
+    {
+      "scene": "03",
+      "preset": "G5",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "4eb40640981d227f7d8155a7ebafdd933a11ed8fcacc04b8ada158cdc1ca5621",
+      "file": "out/frame-renders/03/G5.png",
+      "meanRGB": [
+        86.269,
+        86.999,
+        82.913
+      ],
+      "std": 23.552
+    },
+    {
+      "scene": "03",
+      "preset": "H1",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "797d192f351f344bd888a627a0bbfe8a9a9a3580428749ff4091aa3a9b974f26",
+      "file": "out/frame-renders/03/H1.png",
+      "meanRGB": [
+        34.713,
+        42.383,
+        44.728
+      ],
+      "std": 33.807
+    },
+    {
+      "scene": "03",
+      "preset": "H2",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "38ffb2769599e53031559773b57c66a25d46e96794456a1a95374b15e48dfada",
+      "file": "out/frame-renders/03/H2.png",
+      "meanRGB": [
+        45.278,
+        55.58,
+        59.017
+      ],
+      "std": 22.95
+    },
+    {
+      "scene": "03",
+      "preset": "H3",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "b0bb5701b961c805a8f680faf521dcecafaab4c3b86a39d4d4d029ad89f235e6",
+      "file": "out/frame-renders/03/H3.png",
+      "meanRGB": [
+        45.099,
+        55.397,
+        58.923
+      ],
+      "std": 22.356
+    },
+    {
+      "scene": "03",
+      "preset": "H4",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "1db744c95de802ed3a6c49ecbb2b15625ed9a5505e960ceed514ece82201277b",
+      "file": "out/frame-renders/03/H4.png",
+      "meanRGB": [
+        42.885,
+        52.704,
+        56.294
+      ],
+      "std": 23.629
+    },
+    {
+      "scene": "03",
+      "preset": "H5",
+      "size": [
+        2400,
+        994
+      ],
+      "sha256": "646df71cd1008b4e8a4754c076bd6c960b4e396962c42a49197806ebeba12465",
+      "file": "out/frame-renders/03/H5.png",
+      "meanRGB": [
+        44.114,
+        54.274,
+        58.026
+      ],
+      "std": 21.447
+    },
+    {
+      "scene": "04",
+      "preset": "A1",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "7ca8965ee9449eb829cc3861327bc88671b1d3645b417e30db0cff016ab6e963",
+      "file": "out/frame-renders/04/A1.png",
+      "meanRGB": [
+        96.195,
+        98.433,
+        89.354
+      ],
+      "std": 60.981
+    },
+    {
+      "scene": "04",
+      "preset": "A2",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "51539f5f459b45e64a88eb190a48d8db97cf99800339e25b8dcc415c6d75ec94",
+      "file": "out/frame-renders/04/A2.png",
+      "meanRGB": [
+        106.908,
+        110.976,
+        100.784
+      ],
+      "std": 41.145
+    },
+    {
+      "scene": "04",
+      "preset": "A3",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "e130ee943d7e77c09cec823b693870999867565ee03aa524e62e294c71c524c9",
+      "file": "out/frame-renders/04/A3.png",
+      "meanRGB": [
+        106.162,
+        110.24,
+        100.203
+      ],
+      "std": 40.942
+    },
+    {
+      "scene": "04",
+      "preset": "A4",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "d047f4552c055a0b5d04f72c8433f61fe6d583474a8c601fce0313b6bfb65491",
+      "file": "out/frame-renders/04/A4.png",
+      "meanRGB": [
+        101.463,
+        105.48,
+        96.206
+      ],
+      "std": 43.874
+    },
+    {
+      "scene": "04",
+      "preset": "A5",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "d604e2b4abab1d7f1c05e21d1ab832dd6529bc75852d2d0fc298705ed82d69ef",
+      "file": "out/frame-renders/04/A5.png",
+      "meanRGB": [
+        102.845,
+        107.247,
+        97.885
+      ],
+      "std": 39.643
+    },
+    {
+      "scene": "04",
+      "preset": "B1",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "405fe7587c354c9ed3298694231d39c7a639b32fea2ae4b70ea0bfa4cd2dad26",
+      "file": "out/frame-renders/04/B1.png",
+      "meanRGB": [
+        106.923,
+        111.87,
+        106.847
+      ],
+      "std": 61.232
+    },
+    {
+      "scene": "04",
+      "preset": "B2",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "f652e683e18bc03cd6a4b74cd94f924c886c8fe8a7bfefbe00cbce9580d22ce8",
+      "file": "out/frame-renders/04/B2.png",
+      "meanRGB": [
+        119.133,
+        125.521,
+        119.691
+      ],
+      "std": 40.462
+    },
+    {
+      "scene": "04",
+      "preset": "B3",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "86940c025a163ab4a897910cda52eb5c29f04807630d2aa654d4a3b27905d445",
+      "file": "out/frame-renders/04/B3.png",
+      "meanRGB": [
+        118.458,
+        124.819,
+        119.093
+      ],
+      "std": 40.133
+    },
+    {
+      "scene": "04",
+      "preset": "B4",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "99335ea04c1f1140af8e31f727eaaa727149b4a761bd124aa4d691dc37047047",
+      "file": "out/frame-renders/04/B4.png",
+      "meanRGB": [
+        113.748,
+        119.895,
+        114.672
+      ],
+      "std": 43.377
+    },
+    {
+      "scene": "04",
+      "preset": "B5",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "1c0241941334034bc2e58757d3bbecb6166622fadcdb815a2b6ed059ae7dba8f",
+      "file": "out/frame-renders/04/B5.png",
+      "meanRGB": [
+        115.408,
+        121.867,
+        116.551
+      ],
+      "std": 38.977
+    },
+    {
+      "scene": "04",
+      "preset": "C1",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "08aa174a7c9ed72275056323b8ff50cd78e3d2de021dae21e74b68a1a774b593",
+      "file": "out/frame-renders/04/C1.png",
+      "meanRGB": [
+        101.619,
+        97.589,
+        85.993
+      ],
+      "std": 60.994
+    },
+    {
+      "scene": "04",
+      "preset": "C2",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "dc3659bf5d806979fb1781259e99da1d317cccbeba5099510aa2d21bd1d52bc8",
+      "file": "out/frame-renders/04/C2.png",
+      "meanRGB": [
+        113.691,
+        109.824,
+        96.61
+      ],
+      "std": 41.052
+    },
+    {
+      "scene": "04",
+      "preset": "C3",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "2b470d3181f014c71c55aa4e107ebcf86e9db8ee6935c8080c19582c863cd1f6",
+      "file": "out/frame-renders/04/C3.png",
+      "meanRGB": [
+        112.981,
+        109.083,
+        95.971
+      ],
+      "std": 40.833
+    },
+    {
+      "scene": "04",
+      "preset": "C4",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "14972360df649e8e0f7568e1322f9b2b10253e05f507ed343b3525dd67c692a0",
+      "file": "out/frame-renders/04/C4.png",
+      "meanRGB": [
+        108.242,
+        104.342,
+        91.865
+      ],
+      "std": 43.794
+    },
+    {
+      "scene": "04",
+      "preset": "C5",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "5f5b72f5ff8c05d751d298af413dc347c034e4a52410694ca9cdd6d055a99fa2",
+      "file": "out/frame-renders/04/C5.png",
+      "meanRGB": [
+        109.887,
+        106.052,
+        93.364
+      ],
+      "std": 39.542
+    },
+    {
+      "scene": "04",
+      "preset": "D1",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "0cbaddfd2055ffdfec264755b29749c54364b554ee5555b227ed650f82d8c2da",
+      "file": "out/frame-renders/04/D1.png",
+      "meanRGB": [
+        90.343,
+        99.502,
+        96.007
+      ],
+      "std": 60.513
+    },
+    {
+      "scene": "04",
+      "preset": "D2",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "c1e2f9254afe75cf0c4e022e1d9edeca9a94d757a531078ebba040b4d9d15067",
+      "file": "out/frame-renders/04/D2.png",
+      "meanRGB": [
+        100.559,
+        112.057,
+        108.536
+      ],
+      "std": 40.708
+    },
+    {
+      "scene": "04",
+      "preset": "D3",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "f5af68769e0f0eeabbd944d06e20bf29363b51ff05c1fc5bcf0f3ae83daecc5d",
+      "file": "out/frame-renders/04/D3.png",
+      "meanRGB": [
+        99.854,
+        111.31,
+        107.942
+      ],
+      "std": 40.5
+    },
+    {
+      "scene": "04",
+      "preset": "D4",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "32ea87dd18bb1441eb40698238f7c89fb43cfb517accd71e69918e67a9a4d448",
+      "file": "out/frame-renders/04/D4.png",
+      "meanRGB": [
+        95.392,
+        106.503,
+        103.717
+      ],
+      "std": 43.507
+    },
+    {
+      "scene": "04",
+      "preset": "D5",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "3025e6f22e9d87f03cb88746407cf7b12f8aa40b062e34492142578ff0c2a0cf",
+      "file": "out/frame-renders/04/D5.png",
+      "meanRGB": [
+        96.715,
+        108.267,
+        105.568
+      ],
+      "std": 39.304
+    },
+    {
+      "scene": "04",
+      "preset": "E1",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "3fdf7965cb0f4f2ae3c646f6fd75a1e3e673059db644b6093d8e0fed22470bcd",
+      "file": "out/frame-renders/04/E1.png",
+      "meanRGB": [
+        97.672,
+        97.648,
+        93.734
+      ],
+      "std": 61.084
+    },
+    {
+      "scene": "04",
+      "preset": "E2",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "fee11fdcac2012dbef5acd79a6d92097e22d2c001b3285c26953989dbf097939",
+      "file": "out/frame-renders/04/E2.png",
+      "meanRGB": [
+        109.237,
+        109.906,
+        105.43
+      ],
+      "std": 40.682
+    },
+    {
+      "scene": "04",
+      "preset": "E3",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "cff5cd69b0e22475c72cc2da7c4e719f95e9df1802027f7113ca988b5b539d74",
+      "file": "out/frame-renders/04/E3.png",
+      "meanRGB": [
+        108.527,
+        109.169,
+        104.764
+      ],
+      "std": 40.455
+    },
+    {
+      "scene": "04",
+      "preset": "E4",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "de81d33e0bcf6310f00c84eb16500ff2899f35d0e678e21b1b8fce717371e4c8",
+      "file": "out/frame-renders/04/E4.png",
+      "meanRGB": [
+        103.868,
+        104.431,
+        100.371
+      ],
+      "std": 43.536
+    },
+    {
+      "scene": "04",
+      "preset": "E5",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "e2adac738c605fea28c2a6561197ea9eb6f129120fef2315ac6a692693141ddc",
+      "file": "out/frame-renders/04/E5.png",
+      "meanRGB": [
+        105.437,
+        106.146,
+        102.032
+      ],
+      "std": 39.171
+    },
+    {
+      "scene": "04",
+      "preset": "F1",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "32d64c0fe925537b4b5d391ea5b74e3a4c288bfcc75408ca6116981ba3e1c9b7",
+      "file": "out/frame-renders/04/F1.png",
+      "meanRGB": [
+        101.873,
+        96.338,
+        92.808
+      ],
+      "std": 61.159
+    },
+    {
+      "scene": "04",
+      "preset": "F2",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "262899cb2a8abba255ce4d20956b1670f85177fbe329eca9fa1f70fd78adcaf4",
+      "file": "out/frame-renders/04/F2.png",
+      "meanRGB": [
+        113.612,
+        108.085,
+        105.543
+      ],
+      "std": 40.758
+    },
+    {
+      "scene": "04",
+      "preset": "F3",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "16e3050a5e442bd400df929c4e82bffb1914fae83f351c410ee53061333536af",
+      "file": "out/frame-renders/04/F3.png",
+      "meanRGB": [
+        112.845,
+        107.319,
+        105.001
+      ],
+      "std": 40.525
+    },
+    {
+      "scene": "04",
+      "preset": "F4",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "2724d39145a4f454ebe46bdf7fc7051c5113282da038932a887ad2e7e32d8313",
+      "file": "out/frame-renders/04/F4.png",
+      "meanRGB": [
+        107.946,
+        102.543,
+        100.924
+      ],
+      "std": 43.618
+    },
+    {
+      "scene": "04",
+      "preset": "F5",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "1324bc8ae818595015a0f83ef32f431058537d8557ffb86b378da7a23dc2e16b",
+      "file": "out/frame-renders/04/F5.png",
+      "meanRGB": [
+        109.511,
+        104.146,
+        102.843
+      ],
+      "std": 39.266
+    },
+    {
+      "scene": "04",
+      "preset": "G1",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "25887033daee618b36bddcb8d69d95bea8d88ea3b00e3ae78d5923cbf5cb85d3",
+      "file": "out/frame-renders/04/G1.png",
+      "meanRGB": [
+        124.341,
+        123.712,
+        118.325
+      ],
+      "std": 60.912
+    },
+    {
+      "scene": "04",
+      "preset": "G2",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "1ff3ba5bd85f1d0d412cdb2ca33032d7a9bce45eee0d7c098d84dfdb6c290f09",
+      "file": "out/frame-renders/04/G2.png",
+      "meanRGB": [
+        138.54,
+        137.978,
+        131.954
+      ],
+      "std": 39.362
+    },
+    {
+      "scene": "04",
+      "preset": "G3",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "d7c4b668c51c3e177407136edaae297166259716aff4a8238396f180b598f64d",
+      "file": "out/frame-renders/04/G3.png",
+      "meanRGB": [
+        137.898,
+        137.335,
+        131.342
+      ],
+      "std": 38.883
+    },
+    {
+      "scene": "04",
+      "preset": "G4",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "f59bee9fbc50996a4e3d131728a1a5a66fa2d10be7bbf9b1b482a81798249c99",
+      "file": "out/frame-renders/04/G4.png",
+      "meanRGB": [
+        132.98,
+        132.423,
+        126.655
+      ],
+      "std": 42.352
+    },
+    {
+      "scene": "04",
+      "preset": "G5",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "48b0aa415d2b573c241cda828b1867e53e518a27e23da4c8c8f9c2de36c66fb0",
+      "file": "out/frame-renders/04/G5.png",
+      "meanRGB": [
+        135.005,
+        134.465,
+        128.614
+      ],
+      "std": 37.79
+    },
+    {
+      "scene": "04",
+      "preset": "H1",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "ee205fec3fba329a50495ee3736704c52d7b1f99fb193afd701f1b6441c223ab",
+      "file": "out/frame-renders/04/H1.png",
+      "meanRGB": [
+        83.228,
+        89.324,
+        93.344
+      ],
+      "std": 57.025
+    },
+    {
+      "scene": "04",
+      "preset": "H2",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "a4f384d07c3a260d489f22b786735b52f10dec814ab6d6aaaff4b7dbe28b86b5",
+      "file": "out/frame-renders/04/H2.png",
+      "meanRGB": [
+        92.625,
+        100.573,
+        105.763
+      ],
+      "std": 38.41
+    },
+    {
+      "scene": "04",
+      "preset": "H3",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "89391d32b8b400b38843bce1ba4d040cf50936c17f930a4cbd3441f3dfc444ba",
+      "file": "out/frame-renders/04/H3.png",
+      "meanRGB": [
+        91.998,
+        99.871,
+        105.159
+      ],
+      "std": 38.21
+    },
+    {
+      "scene": "04",
+      "preset": "H4",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "8c6a37c1cd9225f5d27912672ec42ca36435c4fe7227eedaafb3aba61e9cde73",
+      "file": "out/frame-renders/04/H4.png",
+      "meanRGB": [
+        87.926,
+        95.433,
+        100.929
+      ],
+      "std": 41.018
+    },
+    {
+      "scene": "04",
+      "preset": "H5",
+      "size": [
+        2400,
+        1304
+      ],
+      "sha256": "fa5452274cd9a2df47e3e1c7fb881d2f1d5439eee53d14409bc4ee0ab13a3d75",
+      "file": "out/frame-renders/04/H5.png",
+      "meanRGB": [
+        89.134,
+        97.007,
+        102.763
+      ],
+      "std": 37.071
+    },
+    {
+      "scene": "05",
+      "preset": "A1",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "b96439ec3ec347535c9e5f2d1c2e92528e307886d5f00e4edff365feba51d6e5",
+      "file": "out/frame-renders/05/A1.png",
+      "meanRGB": [
+        67.45,
+        73.26,
+        66.456
+      ],
+      "std": 50.198
+    },
+    {
+      "scene": "05",
+      "preset": "A2",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "92b498ca233ce77f4f3c1af905f265f468a3bbd47d0ccea5227482d514734d78",
+      "file": "out/frame-renders/05/A2.png",
+      "meanRGB": [
+        77.873,
+        85.937,
+        78.65
+      ],
+      "std": 33.459
+    },
+    {
+      "scene": "05",
+      "preset": "A3",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "70672c0058b2a5d273933c09897151153c74fa8db5d8bb8df332baf0338904e4",
+      "file": "out/frame-renders/05/A3.png",
+      "meanRGB": [
+        77.04,
+        85.148,
+        78.034
+      ],
+      "std": 32.571
+    },
+    {
+      "scene": "05",
+      "preset": "A4",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "6cd740ada76b2911a63370d38db95d13433c4a7210b211b6390a3ff30c722809",
+      "file": "out/frame-renders/05/A4.png",
+      "meanRGB": [
+        72.513,
+        80.62,
+        74.195
+      ],
+      "std": 32.284
+    },
+    {
+      "scene": "05",
+      "preset": "A5",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "1d42480d01ef22042465bf22d66210811de8664937cd4f2fc44bced08d068b75",
+      "file": "out/frame-renders/05/A5.png",
+      "meanRGB": [
+        75.059,
+        83.469,
+        76.807
+      ],
+      "std": 29.676
+    },
+    {
+      "scene": "05",
+      "preset": "B1",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "6eac30453c01d339c521f5ea06856ae4a6d5b7b8bbda03a9f697321f6b8a6b09",
+      "file": "out/frame-renders/05/B1.png",
+      "meanRGB": [
+        79.216,
+        86.287,
+        82.492
+      ],
+      "std": 51.583
+    },
+    {
+      "scene": "05",
+      "preset": "B2",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "f16563a396355323572478833af1c348ebfaa069ff8ddbbb08fb56a348e86eb8",
+      "file": "out/frame-renders/05/B2.png",
+      "meanRGB": [
+        91.377,
+        100.261,
+        96.104
+      ],
+      "std": 34.321
+    },
+    {
+      "scene": "05",
+      "preset": "B3",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "01123d918c1e475595e9a0c1403156e6582f250ffa727b89ae8a59be2c90106e",
+      "file": "out/frame-renders/05/B3.png",
+      "meanRGB": [
+        90.664,
+        99.535,
+        95.49
+      ],
+      "std": 33.208
+    },
+    {
+      "scene": "05",
+      "preset": "B4",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "9cc2f3d52475265f3b8a80a3a0cbb72a7f2a7b75e696d65c0b62bf12a5e6eab1",
+      "file": "out/frame-renders/05/B4.png",
+      "meanRGB": [
+        86.194,
+        94.886,
+        91.275
+      ],
+      "std": 32.978
+    },
+    {
+      "scene": "05",
+      "preset": "B5",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "8910f6554a63132e6584f3e79e99ec3f8feb830e3ebf1c8918c9cae9b432c7fd",
+      "file": "out/frame-renders/05/B5.png",
+      "meanRGB": [
+        88.92,
+        97.91,
+        94.142
+      ],
+      "std": 30.195
+    },
+    {
+      "scene": "05",
+      "preset": "C1",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "643f6b1d66f82a454ef7e21c062ff9f0b9d194a4ff8f8f3411aa92551c2429ce",
+      "file": "out/frame-renders/05/C1.png",
+      "meanRGB": [
+        73.532,
+        72.238,
+        63.133
+      ],
+      "std": 50.341
+    },
+    {
+      "scene": "05",
+      "preset": "C2",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "e39921bbfb261fabe072d6ceee1f097d1f4805499631a3517ebc9c33b26057f9",
+      "file": "out/frame-renders/05/C2.png",
+      "meanRGB": [
+        85.523,
+        84.591,
+        74.238
+      ],
+      "std": 33.452
+    },
+    {
+      "scene": "05",
+      "preset": "C3",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "d73209d9a0b0009876e9863bd13848f121df4297aa3687f454273ad11b20aa1f",
+      "file": "out/frame-renders/05/C3.png",
+      "meanRGB": [
+        84.761,
+        83.785,
+        73.536
+      ],
+      "std": 32.534
+    },
+    {
+      "scene": "05",
+      "preset": "C4",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "c7b014302efb31de1048cd652bd79a62b3ea8f8fd92ec194f5c7ce7fb3ef532c",
+      "file": "out/frame-renders/05/C4.png",
+      "meanRGB": [
+        80.269,
+        79.25,
+        69.542
+      ],
+      "std": 32.235
+    },
+    {
+      "scene": "05",
+      "preset": "C5",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "153e5c2709885689f482b518a4c949e370b642f2a143e0f67ed76fe1963bf553",
+      "file": "out/frame-renders/05/C5.png",
+      "meanRGB": [
+        83.005,
+        82.064,
+        72.043
+      ],
+      "std": 29.596
+    },
+    {
+      "scene": "05",
+      "preset": "D1",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "fa8143eade276a94c4245362ebce07c10b48c32c80a476c1ff11d94a15891020",
+      "file": "out/frame-renders/05/D1.png",
+      "meanRGB": [
+        63.315,
+        73.884,
+        71.837
+      ],
+      "std": 50.073
+    },
+    {
+      "scene": "05",
+      "preset": "D2",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "acf59e790a12d9c3867fa2d00c4ad78326c2da5e436b4e0486470996db356a8a",
+      "file": "out/frame-renders/05/D2.png",
+      "meanRGB": [
+        73.286,
+        86.564,
+        85.004
+      ],
+      "std": 33.587
+    },
+    {
+      "scene": "05",
+      "preset": "D3",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "a0189fb37169c47c78c6de7b93086e3ab283353091301f9f831f27643dd0453f",
+      "file": "out/frame-renders/05/D3.png",
+      "meanRGB": [
+        72.487,
+        85.758,
+        84.391
+      ],
+      "std": 32.698
+    },
+    {
+      "scene": "05",
+      "preset": "D4",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "d0f255636854d641df21491377c5f3adffffa933e21633ad8beb5f0ed11cc52b",
+      "file": "out/frame-renders/05/D4.png",
+      "meanRGB": [
+        68.18,
+        81.179,
+        80.396
+      ],
+      "std": 32.468
+    },
+    {
+      "scene": "05",
+      "preset": "D5",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "ba376f6c1e0f236b8296b5832ac5f3f1472c9a3f96f186ccb7379d15582ed3c3",
+      "file": "out/frame-renders/05/D5.png",
+      "meanRGB": [
+        70.612,
+        84.029,
+        83.16
+      ],
+      "std": 29.886
+    },
+    {
+      "scene": "05",
+      "preset": "E1",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "8f476cebd79dc2a2dc96251250fe0ee4c0c9023f1bb74fd008730e01945ccbef",
+      "file": "out/frame-renders/05/E1.png",
+      "meanRGB": [
+        70.453,
+        72.231,
+        69.275
+      ],
+      "std": 50.566
+    },
+    {
+      "scene": "05",
+      "preset": "E2",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "931383c465816958a630f2679f3edf73aa657bf1ee6638fdbe5ec02c0802be5d",
+      "file": "out/frame-renders/05/E2.png",
+      "meanRGB": [
+        81.946,
+        84.602,
+        81.37
+      ],
+      "std": 33.348
+    },
+    {
+      "scene": "05",
+      "preset": "E3",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "aba72933a7e37058933faff6760bba6542e00a806615aac58276963adc45adc3",
+      "file": "out/frame-renders/05/E3.png",
+      "meanRGB": [
+        81.17,
+        83.806,
+        80.655
+      ],
+      "std": 32.409
+    },
+    {
+      "scene": "05",
+      "preset": "E4",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "2d8ff89b5bb3daef230528ef68a0fcd577091cb03c388925e5eab25b72074e1a",
+      "file": "out/frame-renders/05/E4.png",
+      "meanRGB": [
+        76.728,
+        79.286,
+        76.451
+      ],
+      "std": 32.147
+    },
+    {
+      "scene": "05",
+      "preset": "E5",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "1ef452da4ad212752d8e223b31e95ad8f4d3de1e1c921473a0e538bd75129fe0",
+      "file": "out/frame-renders/05/E5.png",
+      "meanRGB": [
+        79.398,
+        82.101,
+        79.145
+      ],
+      "std": 29.426
+    },
+    {
+      "scene": "05",
+      "preset": "F1",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "459098ec6875754080d4a203108dffb3cf30fb5f8c0006ad8a6e9498b5e8b030",
+      "file": "out/frame-renders/05/F1.png",
+      "meanRGB": [
+        73.399,
+        70.832,
+        69.555
+      ],
+      "std": 50.582
+    },
+    {
+      "scene": "05",
+      "preset": "F2",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "82b53d17558c29b28239f1d673fa714ff256a7c1d559710426d005b765069b8b",
+      "file": "out/frame-renders/05/F2.png",
+      "meanRGB": [
+        85.041,
+        82.665,
+        82.799
+      ],
+      "std": 33.404
+    },
+    {
+      "scene": "05",
+      "preset": "F3",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "259fbeb104a0d03fdd7607b096f14c33b7e71622ff24d7fc5bfb9caeccddedb9",
+      "file": "out/frame-renders/05/F3.png",
+      "meanRGB": [
+        84.193,
+        81.819,
+        82.256
+      ],
+      "std": 32.458
+    },
+    {
+      "scene": "05",
+      "preset": "F4",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "1f37bfef02107b22084685d5faaa19e055ec47bf8332d9e948f02bb95c757a15",
+      "file": "out/frame-renders/05/F4.png",
+      "meanRGB": [
+        79.488,
+        77.212,
+        78.474
+      ],
+      "std": 32.221
+    },
+    {
+      "scene": "05",
+      "preset": "F5",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "e659f40410317b8b4eee011253ff6f426c1e9670e7dd1413714ae87d6be903af",
+      "file": "out/frame-renders/05/F5.png",
+      "meanRGB": [
+        82.243,
+        79.984,
+        81.199
+      ],
+      "std": 29.494
+    },
+    {
+      "scene": "05",
+      "preset": "G1",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "6475619053fb30de4ff14f526ef65c75aaba38b494bf5b08cce53b0461c86abc",
+      "file": "out/frame-renders/05/G1.png",
+      "meanRGB": [
+        97.969,
+        97.974,
+        93.595
+      ],
+      "std": 52.523
+    },
+    {
+      "scene": "05",
+      "preset": "G2",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "44878c4dabc72e25eb7432531a7fc893443a6a4b908167b76512e59eba791b3c",
+      "file": "out/frame-renders/05/G2.png",
+      "meanRGB": [
+        112.588,
+        112.714,
+        107.742
+      ],
+      "std": 34.704
+    },
+    {
+      "scene": "05",
+      "preset": "G3",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "8d82f412e790194d49fc7155118941bf5001183f6030ecaf504aadaba3fd7333",
+      "file": "out/frame-renders/05/G3.png",
+      "meanRGB": [
+        111.952,
+        112.077,
+        107.137
+      ],
+      "std": 33.35
+    },
+    {
+      "scene": "05",
+      "preset": "G4",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "e9c2a2b5b38142a8e2dd9abf04c28d28f66128fc014acb09c92405c5fc65a120",
+      "file": "out/frame-renders/05/G4.png",
+      "meanRGB": [
+        107.299,
+        107.427,
+        102.703
+      ],
+      "std": 33.094
+    },
+    {
+      "scene": "05",
+      "preset": "G5",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "23820748218f35b291b63024609085ba513900f70d52817d47bcc4d315c727ab",
+      "file": "out/frame-renders/05/G5.png",
+      "meanRGB": [
+        110.411,
+        110.557,
+        105.691
+      ],
+      "std": 30.145
+    },
+    {
+      "scene": "05",
+      "preset": "H1",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "3fd271cb7c49e96c9bf472c4028979ca60474f267a09163b6734f094960282c4",
+      "file": "out/frame-renders/05/H1.png",
+      "meanRGB": [
+        58.413,
+        65.79,
+        69.426
+      ],
+      "std": 47.143
+    },
+    {
+      "scene": "05",
+      "preset": "H2",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "c55c2fb1735106d375652e595076aa143cf58ab334dc7d7dd1ed75421b9d09fe",
+      "file": "out/frame-renders/05/H2.png",
+      "meanRGB": [
+        67.624,
+        77.12,
+        82.383
+      ],
+      "std": 31.639
+    },
+    {
+      "scene": "05",
+      "preset": "H3",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "f6bb3f0044ec92ee7c0b83d0bd1b2bbb757c6b3ab0a1f0fbe0458413f073cbbe",
+      "file": "out/frame-renders/05/H3.png",
+      "meanRGB": [
+        66.929,
+        76.358,
+        81.75
+      ],
+      "std": 30.794
+    },
+    {
+      "scene": "05",
+      "preset": "H4",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "2b06ba543a533d112131af9a14afe328fdbc83db2e607d1bf44e1f8c64e425b2",
+      "file": "out/frame-renders/05/H4.png",
+      "meanRGB": [
+        63.009,
+        72.117,
+        77.755
+      ],
+      "std": 30.56
+    },
+    {
+      "scene": "05",
+      "preset": "H5",
+      "size": [
+        2400,
+        1300
+      ],
+      "sha256": "a2d174061722bb42fbe84fa07fcd1b36c2916f9ed85a96b9a4425398ef187e12",
+      "file": "out/frame-renders/05/H5.png",
+      "meanRGB": [
+        65.236,
+        74.708,
+        80.511
+      ],
+      "std": 28.156
+    },
+    {
+      "scene": "06",
+      "preset": "A1",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "286e4490661d910d31da7a9bd365e6dbcc41d79198cbc352020ee754ec3e8d1e",
+      "file": "out/frame-renders/06/A1.png",
+      "meanRGB": [
+        65.795,
+        70.729,
+        65.707
+      ],
+      "std": 54.376
+    },
+    {
+      "scene": "06",
+      "preset": "A2",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "dc3bf1bb72daaa59a23998e182156aaa348581c2c01b2e479eaf7ee6b76c6e7e",
+      "file": "out/frame-renders/06/A2.png",
+      "meanRGB": [
+        76.829,
+        82.176,
+        75.948
+      ],
+      "std": 49.141
+    },
+    {
+      "scene": "06",
+      "preset": "A3",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "9295dd4a3383ebe74a4ecf1d38f601075dacfa78fe6ba2c0aba8fe0247e8da75",
+      "file": "out/frame-renders/06/A3.png",
+      "meanRGB": [
+        76.78,
+        82.306,
+        76.181
+      ],
+      "std": 47.673
+    },
+    {
+      "scene": "06",
+      "preset": "A4",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "8ecdf2fffdfe7cfecf6b5112ac5a06c487ad105afe493dc0e15347ce051b9619",
+      "file": "out/frame-renders/06/A4.png",
+      "meanRGB": [
+        77.875,
+        84.441,
+        78.525
+      ],
+      "std": 40.814
+    },
+    {
+      "scene": "06",
+      "preset": "A5",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "ebc2c62f652b137d0e2500bcf33fe09e0246d35e1a4ec3171fdc0659be1eee52",
+      "file": "out/frame-renders/06/A5.png",
+      "meanRGB": [
+        77.894,
+        84.26,
+        78.309
+      ],
+      "std": 40.921
+    },
+    {
+      "scene": "06",
+      "preset": "B1",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "506fe976b1aced2c54c80a65ad20f2ec50621d37cf82b8f36aa6b66fc3dc872f",
+      "file": "out/frame-renders/06/B1.png",
+      "meanRGB": [
+        77.629,
+        83.634,
+        81.151
+      ],
+      "std": 54.953
+    },
+    {
+      "scene": "06",
+      "preset": "B2",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "287f6b473473ea914807411f3e190b19bc4e4dc82e06cbfab1c858a826ca66e1",
+      "file": "out/frame-renders/06/B2.png",
+      "meanRGB": [
+        89.241,
+        95.733,
+        92.413
+      ],
+      "std": 50.273
+    },
+    {
+      "scene": "06",
+      "preset": "B3",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "4b3f1965669b69b55360108487a7104401aa1d9a258ad6d3e065ada17538bb35",
+      "file": "out/frame-renders/06/B3.png",
+      "meanRGB": [
+        89.401,
+        96.005,
+        92.755
+      ],
+      "std": 48.588
+    },
+    {
+      "scene": "06",
+      "preset": "B4",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "5c0132acac5a9beb703263cee07eed570cd3ff3ce581fc6fdea55d597e2e0cc6",
+      "file": "out/frame-renders/06/B4.png",
+      "meanRGB": [
+        91.268,
+        98.63,
+        95.52
+      ],
+      "std": 40.724
+    },
+    {
+      "scene": "06",
+      "preset": "B5",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "f4e751e780285a414651b5f04063102221d51fc9f1743e798e591685bc129bd0",
+      "file": "out/frame-renders/06/B5.png",
+      "meanRGB": [
+        91.235,
+        98.439,
+        95.288
+      ],
+      "std": 41.136
+    },
+    {
+      "scene": "06",
+      "preset": "C1",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "e103eab4d4cb99f2327fbf641ab7851be89097cd8b5c8399804b73e76e74c0b6",
+      "file": "out/frame-renders/06/C1.png",
+      "meanRGB": [
+        72.093,
+        69.704,
+        61.499
+      ],
+      "std": 54.299
+    },
+    {
+      "scene": "06",
+      "preset": "C2",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "c547384e20adfc982f595de7cf76d4a87d881cf2ae97f66c91e51ca221a0e200",
+      "file": "out/frame-renders/06/C2.png",
+      "meanRGB": [
+        83.661,
+        81.041,
+        71.429
+      ],
+      "std": 49.087
+    },
+    {
+      "scene": "06",
+      "preset": "C3",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "de5cb4116f7ec246cc236c3faedbc0bb87eeca77557c874a1480d39a4051479e",
+      "file": "out/frame-renders/06/C3.png",
+      "meanRGB": [
+        83.755,
+        81.138,
+        71.537
+      ],
+      "std": 47.597
+    },
+    {
+      "scene": "06",
+      "preset": "C4",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "69c8806340c12949d8b1556d242a605ea183aef0098401e68048ad895eee6693",
+      "file": "out/frame-renders/06/C4.png",
+      "meanRGB": [
+        85.538,
+        83.139,
+        73.396
+      ],
+      "std": 40.656
+    },
+    {
+      "scene": "06",
+      "preset": "C5",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "99a7f89d5d8da0e3ea4d94f3041d221bb4547a5bd8b97a0615e7c7c5177b4525",
+      "file": "out/frame-renders/06/C5.png",
+      "meanRGB": [
+        85.48,
+        82.971,
+        73.209
+      ],
+      "std": 40.774
+    },
+    {
+      "scene": "06",
+      "preset": "D1",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "160f2e3414765d748f315b57a750daff8a1984c0acd4a7c43bf01933194ece52",
+      "file": "out/frame-renders/06/D1.png",
+      "meanRGB": [
+        61.621,
+        71.36,
+        71.24
+      ],
+      "std": 54.114
+    },
+    {
+      "scene": "06",
+      "preset": "D2",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "257086a66880827fb2d6c34020d661dc803e0393ef4c58d16d52bf622460b8a8",
+      "file": "out/frame-renders/06/D2.png",
+      "meanRGB": [
+        72.101,
+        82.891,
+        82.272
+      ],
+      "std": 49.043
+    },
+    {
+      "scene": "06",
+      "preset": "D3",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "ae2aed47e12331203efc4b532549118cda9cafd0f8baeff56a1085eb0af076d7",
+      "file": "out/frame-renders/06/D3.png",
+      "meanRGB": [
+        72.054,
+        83.006,
+        82.553
+      ],
+      "std": 47.568
+    },
+    {
+      "scene": "06",
+      "preset": "D4",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "8c3db6927867aff13bca5241aab9d264e31d87635c32aed82f3197c276bc33aa",
+      "file": "out/frame-renders/06/D4.png",
+      "meanRGB": [
+        73.126,
+        85.108,
+        85.139
+      ],
+      "std": 40.678
+    },
+    {
+      "scene": "06",
+      "preset": "D5",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "13a7f4bf75919de226ef98c463fa7af27bab914d90b2d627236d63ec314f136d",
+      "file": "out/frame-renders/06/D5.png",
+      "meanRGB": [
+        73.138,
+        84.935,
+        84.944
+      ],
+      "std": 40.837
+    },
+    {
+      "scene": "06",
+      "preset": "E1",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "f0fe5966fc3bce4a12ebbbe8931f6870b4dbeb39ad7a8c7da18c02f52bc9aa7a",
+      "file": "out/frame-renders/06/E1.png",
+      "meanRGB": [
+        68.737,
+        69.794,
+        67.708
+      ],
+      "std": 54.457
+    },
+    {
+      "scene": "06",
+      "preset": "E2",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "0c48a4d08650f1082e098bd4b9404b39c713ddbf2bcf04e91406b0a146927847",
+      "file": "out/frame-renders/06/E2.png",
+      "meanRGB": [
+        79.919,
+        81.129,
+        78.466
+      ],
+      "std": 49.139
+    },
+    {
+      "scene": "06",
+      "preset": "E3",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "b4c10dff8585580524476a10a823b8ec9749f9736e9d59a76a1bf39631a6ef07",
+      "file": "out/frame-renders/06/E3.png",
+      "meanRGB": [
+        79.981,
+        81.233,
+        78.614
+      ],
+      "std": 47.62
+    },
+    {
+      "scene": "06",
+      "preset": "E4",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "cdea9917e50fa9b6d6e35f63f096f1523c3154377c4d15e7f2a76e0a610c82b1",
+      "file": "out/frame-renders/06/E4.png",
+      "meanRGB": [
+        81.62,
+        83.242,
+        80.707
+      ],
+      "std": 40.516
+    },
+    {
+      "scene": "06",
+      "preset": "E5",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "6c78528437092e07a2c0fa707c2d0912c14b4d397affc35d0201de1803a4f382",
+      "file": "out/frame-renders/06/E5.png",
+      "meanRGB": [
+        81.554,
+        83.077,
+        80.519
+      ],
+      "std": 40.654
+    },
+    {
+      "scene": "06",
+      "preset": "F1",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "f34c5160f931ca560b41c241bca0c0fe111e2ce97150d12ab84ea4bd72cf62de",
+      "file": "out/frame-renders/06/F1.png",
+      "meanRGB": [
+        71.386,
+        68.014,
+        69.198
+      ],
+      "std": 54.552
+    },
+    {
+      "scene": "06",
+      "preset": "F2",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "bade97314ce61540c6987fa3e68fce431af1b977e73503d12d3a055d79a59d9c",
+      "file": "out/frame-renders/06/F2.png",
+      "meanRGB": [
+        82.923,
+        79.141,
+        80.184
+      ],
+      "std": 49.329
+    },
+    {
+      "scene": "06",
+      "preset": "F3",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "10e04a5f069f77137d7930e25dfa65405d4371dfba4eaad290970c8bcd121a75",
+      "file": "out/frame-renders/06/F3.png",
+      "meanRGB": [
+        82.942,
+        79.186,
+        80.504
+      ],
+      "std": 47.801
+    },
+    {
+      "scene": "06",
+      "preset": "F4",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "a36b1fd6d3aa2e3431eae93ee82a6a363d1c7cec25ee5f0eb80ba6ee3943597b",
+      "file": "out/frame-renders/06/F4.png",
+      "meanRGB": [
+        84.511,
+        80.975,
+        83.144
+      ],
+      "std": 40.626
+    },
+    {
+      "scene": "06",
+      "preset": "F5",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "6cb89a7c36a42ef6109610dad5924427cd20a049a6db6139114d966463e19e71",
+      "file": "out/frame-renders/06/F5.png",
+      "meanRGB": [
+        84.432,
+        80.799,
+        82.998
+      ],
+      "std": 40.806
+    },
+    {
+      "scene": "06",
+      "preset": "G1",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "406784423e52ffc301abea05f1aba63127f6aeb79cff9cb1226e4ef817df7823",
+      "file": "out/frame-renders/06/G1.png",
+      "meanRGB": [
+        95.704,
+        95.489,
+        91.359
+      ],
+      "std": 54.783
+    },
+    {
+      "scene": "06",
+      "preset": "G2",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "52fd5582627f949cfb716b966e0cf83c9a6eb3b88912dbf9cd64aaed9de8c097",
+      "file": "out/frame-renders/06/G2.png",
+      "meanRGB": [
+        108.158,
+        107.898,
+        103.219
+      ],
+      "std": 50.654
+    },
+    {
+      "scene": "06",
+      "preset": "G3",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "d6274b6dc808c6bf84a7661738bbc3e56e50aebeaf5a5bbc42a4b0488e4cbdb7",
+      "file": "out/frame-renders/06/G3.png",
+      "meanRGB": [
+        108.55,
+        108.295,
+        103.609
+      ],
+      "std": 48.76
+    },
+    {
+      "scene": "06",
+      "preset": "G4",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "d2ca7ed75a328910b93ac456748ccef5d6ab68762ff1886d852c25a0e0bd280d",
+      "file": "out/frame-renders/06/G4.png",
+      "meanRGB": [
+        111.473,
+        111.295,
+        106.502
+      ],
+      "std": 39.897
+    },
+    {
+      "scene": "06",
+      "preset": "G5",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "448d1bb63d67a3ccbfad93ec285728318f964353dc86ce170e2a40190fdd77fb",
+      "file": "out/frame-renders/06/G5.png",
+      "meanRGB": [
+        111.278,
+        111.075,
+        106.29
+      ],
+      "std": 40.599
+    },
+    {
+      "scene": "06",
+      "preset": "H1",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "96841165baefe430de5b27ff7bcf21d85be44b809ac4fab3255984541416de88",
+      "file": "out/frame-renders/06/H1.png",
+      "meanRGB": [
+        56.833,
+        63.293,
+        68.65
+      ],
+      "std": 50.997
+    },
+    {
+      "scene": "06",
+      "preset": "H2",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "df7d65cf3a9fcf5ce637729843a21ce9dfdaa0d18bdd4591c30a6949d8008df4",
+      "file": "out/frame-renders/06/H2.png",
+      "meanRGB": [
+        66.385,
+        73.755,
+        79.669
+      ],
+      "std": 46.183
+    },
+    {
+      "scene": "06",
+      "preset": "H3",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "48d711a06af1a7770c378d4b29e5eda416f195c5ba3dcd03fa11114c44b0b513",
+      "file": "out/frame-renders/06/H3.png",
+      "meanRGB": [
+        66.377,
+        73.832,
+        79.912
+      ],
+      "std": 44.8
+    },
+    {
+      "scene": "06",
+      "preset": "H4",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "7527baae7c42ffbeace9fd8e6af7a9f6c73a4d0bd3dfe9aa75628127482cefcb",
+      "file": "out/frame-renders/06/H4.png",
+      "meanRGB": [
+        67.484,
+        75.643,
+        82.341
+      ],
+      "std": 38.353
+    },
+    {
+      "scene": "06",
+      "preset": "H5",
+      "size": [
+        2400,
+        1068
+      ],
+      "sha256": "765a82844915d71135b7b67fb5bbfe643df0b3e4e56bc51cfdab9f2cddbe64ad",
+      "file": "out/frame-renders/06/H5.png",
+      "meanRGB": [
+        67.469,
+        75.476,
+        82.167
+      ],
+      "std": 38.483
+    },
+    {
+      "scene": "07",
+      "preset": "A1",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "87a2be8b0e455ca1927b070945a1859906375cfc3e9fe14f25b3604b1d0b6cc0",
+      "file": "out/frame-renders/07/A1.png",
+      "meanRGB": [
+        52.404,
+        59.823,
+        55.396
+      ],
+      "std": 48.479
+    },
+    {
+      "scene": "07",
+      "preset": "A2",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "9a751c18a738d571908bf7423e7ddde71c8577837649d572de51cfa4199cda57",
+      "file": "out/frame-renders/07/A2.png",
+      "meanRGB": [
+        62.062,
+        70.403,
+        64.965
+      ],
+      "std": 47.204
+    },
+    {
+      "scene": "07",
+      "preset": "A3",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "4af6000cf01abccdcbd2eddd6bea711c00aafba217930c15052ca9e288564bf6",
+      "file": "out/frame-renders/07/A3.png",
+      "meanRGB": [
+        62.599,
+        71.229,
+        65.859
+      ],
+      "std": 45.334
+    },
+    {
+      "scene": "07",
+      "preset": "A4",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "1c563b6e07662e5136f34c97ab4d44207e43151c88ed866f126e3a4025d40347",
+      "file": "out/frame-renders/07/A4.png",
+      "meanRGB": [
+        66.207,
+        76.27,
+        70.91
+      ],
+      "std": 38.495
+    },
+    {
+      "scene": "07",
+      "preset": "A5",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "a118ea4b695376c39dc133a46b29a4a2f7e57282ff6aad1f0f879959d5265619",
+      "file": "out/frame-renders/07/A5.png",
+      "meanRGB": [
+        66.564,
+        76.552,
+        71.106
+      ],
+      "std": 38.562
+    },
+    {
+      "scene": "07",
+      "preset": "B1",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "67370e579852b6079ceb722a84276a9f284bf861d131b49ed77e6044482ca80a",
+      "file": "out/frame-renders/07/B1.png",
+      "meanRGB": [
+        64.543,
+        72.335,
+        70.094
+      ],
+      "std": 49.246
+    },
+    {
+      "scene": "07",
+      "preset": "B2",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "e253e757cfd5b95eb33951a6ef9891a4f760ea90416279e1c9eab3a2163b0de3",
+      "file": "out/frame-renders/07/B2.png",
+      "meanRGB": [
+        74.724,
+        83.397,
+        80.458
+      ],
+      "std": 48.801
+    },
+    {
+      "scene": "07",
+      "preset": "B3",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "d1e777a73e448471eec416ec6761fa5958dc28951c0f3e98949ba429962e0a87",
+      "file": "out/frame-renders/07/B3.png",
+      "meanRGB": [
+        75.547,
+        84.443,
+        81.555
+      ],
+      "std": 46.665
+    },
+    {
+      "scene": "07",
+      "preset": "B4",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "ab415a17568d854edbb6daba5878692ab95db8a34742888109abf915566bd6ae",
+      "file": "out/frame-renders/07/B4.png",
+      "meanRGB": [
+        80.077,
+        90.109,
+        87.257
+      ],
+      "std": 38.859
+    },
+    {
+      "scene": "07",
+      "preset": "B5",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "9b330055ae49cc83eb3df2d1efad010ddf74a9ea22a76cdf746b60e116e38429",
+      "file": "out/frame-renders/07/B5.png",
+      "meanRGB": [
+        80.441,
+        90.434,
+        87.508
+      ],
+      "std": 39.003
+    },
+    {
+      "scene": "07",
+      "preset": "C1",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "2d78fa393d08c93039ced74b10ed4623bc4749412dae6e813429d37cfecbcc47",
+      "file": "out/frame-renders/07/C1.png",
+      "meanRGB": [
+        59.441,
+        58.636,
+        51.25
+      ],
+      "std": 48.334
+    },
+    {
+      "scene": "07",
+      "preset": "C2",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "deeefbdb2287ebc2e03071e60993cfd41d4ccc87a1841d45aba0b0b3259ac3b2",
+      "file": "out/frame-renders/07/C2.png",
+      "meanRGB": [
+        69.7,
+        69.083,
+        60.498
+      ],
+      "std": 47.072
+    },
+    {
+      "scene": "07",
+      "preset": "C3",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "fea293357faa2ed3630b136574363cdd281978eebd5210a54ea74e8eed0c8b82",
+      "file": "out/frame-renders/07/C3.png",
+      "meanRGB": [
+        70.459,
+        69.87,
+        61.242
+      ],
+      "std": 45.152
+    },
+    {
+      "scene": "07",
+      "preset": "C4",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "360c32e185a799b4984fb665564e5b558e34326fd737b80118562b246f242345",
+      "file": "out/frame-renders/07/C4.png",
+      "meanRGB": [
+        74.971,
+        74.744,
+        65.74
+      ],
+      "std": 38.125
+    },
+    {
+      "scene": "07",
+      "preset": "C5",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "5c4fe485c46651e3554014bcd511fc2b37264abd68c0c584d46e1c58fb4202c4",
+      "file": "out/frame-renders/07/C5.png",
+      "meanRGB": [
+        75.307,
+        75.023,
+        65.953
+      ],
+      "std": 38.202
+    },
+    {
+      "scene": "07",
+      "preset": "D1",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "debac87fc5e7069d1d15ee302ebd03b4c678eacb32f42c0f40099be84cea1637",
+      "file": "out/frame-renders/07/D1.png",
+      "meanRGB": [
+        49.098,
+        60.216,
+        60.406
+      ],
+      "std": 48.409
+    },
+    {
+      "scene": "07",
+      "preset": "D2",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "3ae4c26ae527376ee64c28104dcd01257a1bfc935539a7c5f0e45e062bc65500",
+      "file": "out/frame-renders/07/D2.png",
+      "meanRGB": [
+        58.316,
+        70.863,
+        70.599
+      ],
+      "std": 47.318
+    },
+    {
+      "scene": "07",
+      "preset": "D3",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "e44951fb3847f65fb9d82a02369d6e9453e3d99194d89a83f06d0d8e67fa8ece",
+      "file": "out/frame-renders/07/D3.png",
+      "meanRGB": [
+        58.832,
+        71.677,
+        71.585
+      ],
+      "std": 45.436
+    },
+    {
+      "scene": "07",
+      "preset": "D4",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "44a8df43693cd74d1ad4e231670640bd5950d26909443cc3d790574a211b264e",
+      "file": "out/frame-renders/07/D4.png",
+      "meanRGB": [
+        62.326,
+        76.698,
+        76.968
+      ],
+      "std": 38.583
+    },
+    {
+      "scene": "07",
+      "preset": "D5",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "174ec6beb01849148d1d38591a86f3e530c24ecf99aef6ffc2632e71d9d0f7ce",
+      "file": "out/frame-renders/07/D5.png",
+      "meanRGB": [
+        62.657,
+        76.98,
+        77.208
+      ],
+      "std": 38.67
+    },
+    {
+      "scene": "07",
+      "preset": "E1",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "9b55b7fea20fc2ef076eb33142d2f7e1f961810777fddbfc0b014732793682cd",
+      "file": "out/frame-renders/07/E1.png",
+      "meanRGB": [
+        56.496,
+        58.691,
+        56.801
+      ],
+      "std": 48.566
+    },
+    {
+      "scene": "07",
+      "preset": "E2",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "883ccf7f8d1ff6a00a693ef17a91d8e019254725fef9bf7b40ea05a0b8e47e11",
+      "file": "out/frame-renders/07/E2.png",
+      "meanRGB": [
+        66.476,
+        69.12,
+        66.746
+      ],
+      "std": 47.273
+    },
+    {
+      "scene": "07",
+      "preset": "E3",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "2ebd726bc94f7d5ba4adf1d6e0b4e7affb5938a8ee34c908f16387052abbf4fa",
+      "file": "out/frame-renders/07/E3.png",
+      "meanRGB": [
+        67.183,
+        69.911,
+        67.567
+      ],
+      "std": 45.318
+    },
+    {
+      "scene": "07",
+      "preset": "E4",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "3b22aa90a6b02566656f4d41f36fb59b99d9ece10fd5a7e0ac6e40dcaa21636f",
+      "file": "out/frame-renders/07/E4.png",
+      "meanRGB": [
+        71.501,
+        74.789,
+        72.447
+      ],
+      "std": 38.138
+    },
+    {
+      "scene": "07",
+      "preset": "E5",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "f5a59c8ee3a8c363546bb4834c58d10259a8fe2bff0960c6f2f524d6debafb75",
+      "file": "out/frame-renders/07/E5.png",
+      "meanRGB": [
+        71.827,
+        75.064,
+        72.681
+      ],
+      "std": 38.21
+    },
+    {
+      "scene": "07",
+      "preset": "F1",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "9d54969a361d2a216b67287e69b7d88f2ae1a8a377f2767a272d29f93bf6ffd9",
+      "file": "out/frame-renders/07/F1.png",
+      "meanRGB": [
+        58.539,
+        56.889,
+        58.846
+      ],
+      "std": 48.669
+    },
+    {
+      "scene": "07",
+      "preset": "F2",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "4c3e9875db9ea9d4e5ddb82bc9281b259a639bb7dbbdca937dba29ad671a0c30",
+      "file": "out/frame-renders/07/F2.png",
+      "meanRGB": [
+        68.883,
+        67.177,
+        68.907
+      ],
+      "std": 47.49
+    },
+    {
+      "scene": "07",
+      "preset": "F3",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "da1054289fcb68e65efb15a3bbe4958cfb78d472d5b07dc11b99088fe1ad5c3d",
+      "file": "out/frame-renders/07/F3.png",
+      "meanRGB": [
+        69.567,
+        67.892,
+        69.9
+      ],
+      "std": 45.518
+    },
+    {
+      "scene": "07",
+      "preset": "F4",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "e69b45825833e399802f47dc51e746744ccf9a07657d9c663ae6d5e6a0c8bc71",
+      "file": "out/frame-renders/07/F4.png",
+      "meanRGB": [
+        73.94,
+        72.547,
+        75.211
+      ],
+      "std": 38.267
+    },
+    {
+      "scene": "07",
+      "preset": "F5",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "e314bbbb143efa8c45cddf6af78bfbe86b8d33df273f1ccafedab16cf1bac1d8",
+      "file": "out/frame-renders/07/F5.png",
+      "meanRGB": [
+        74.264,
+        72.822,
+        75.471
+      ],
+      "std": 38.358
+    },
+    {
+      "scene": "07",
+      "preset": "G1",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "b32f77baa68fd4f653d61612ac25ce74d4ad25d4a334244eafedd83559c88e05",
+      "file": "out/frame-renders/07/G1.png",
+      "meanRGB": [
+        83.572,
+        83.786,
+        80.047
+      ],
+      "std": 49.3
+    },
+    {
+      "scene": "07",
+      "preset": "G2",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "ba58b75b95efe2504d14b0e352141d5c57c334ebdd8f6789c1f04e998bebe1f0",
+      "file": "out/frame-renders/07/G2.png",
+      "meanRGB": [
+        94.734,
+        94.981,
+        90.768
+      ],
+      "std": 49.608
+    },
+    {
+      "scene": "07",
+      "preset": "G3",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "3c114f68c4fad0beeed8e4362d81e2c2c9d8dbbff05777e883652eae57ccf587",
+      "file": "out/frame-renders/07/G3.png",
+      "meanRGB": [
+        95.93,
+        96.19,
+        91.938
+      ],
+      "std": 47.218
+    },
+    {
+      "scene": "07",
+      "preset": "G4",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "fda24523e4a96e37744c80029cbf18485d24de6b7307f9da8a411de83238b7fd",
+      "file": "out/frame-renders/07/G4.png",
+      "meanRGB": [
+        101.895,
+        102.263,
+        97.795
+      ],
+      "std": 38.417
+    },
+    {
+      "scene": "07",
+      "preset": "G5",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "20c81db885ee505de7b48a1273c8bf0ae2302e4b283d080a63391d4b39039410",
+      "file": "out/frame-renders/07/G5.png",
+      "meanRGB": [
+        102.235,
+        102.586,
+        98.102
+      ],
+      "std": 38.628
+    },
+    {
+      "scene": "07",
+      "preset": "H1",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "93af9b30a398cb6b3f8d1aec9b552ba0bb4a1089a78224e00d2175d4e714ed3d",
+      "file": "out/frame-renders/07/H1.png",
+      "meanRGB": [
+        45.759,
+        52.992,
+        57.898
+      ],
+      "std": 45.51
+    },
+    {
+      "scene": "07",
+      "preset": "H2",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "bec830b27841c8470e5bd0124dca2d7cf98d3788d774abe539e3f0dc8c222178",
+      "file": "out/frame-renders/07/H2.png",
+      "meanRGB": [
+        54.113,
+        62.675,
+        68.087
+      ],
+      "std": 44.461
+    },
+    {
+      "scene": "07",
+      "preset": "H3",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "272c19786f4e633e451d21fb692d81e9a94efb8c91d25192eb2a947225e54362",
+      "file": "out/frame-renders/07/H3.png",
+      "meanRGB": [
+        54.651,
+        63.385,
+        69.006
+      ],
+      "std": 42.689
+    },
+    {
+      "scene": "07",
+      "preset": "H4",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "be245789c2a3e97ec30f18f6836443a59d191f34dce1a12199864998028933a1",
+      "file": "out/frame-renders/07/H4.png",
+      "meanRGB": [
+        58.035,
+        67.854,
+        74.17
+      ],
+      "std": 36.246
+    },
+    {
+      "scene": "07",
+      "preset": "H5",
+      "size": [
+        2400,
+        1198
+      ],
+      "sha256": "84ef99dc7ad26a9a71c899dcfac3275dbaf9e7b994eb7cf025ab5d4ccfaade46",
+      "file": "out/frame-renders/07/H5.png",
+      "meanRGB": [
+        58.317,
+        68.121,
+        74.427
+      ],
+      "std": 36.318
+    },
+    {
+      "scene": "08",
+      "preset": "A1",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "67d131c9dcda0bc5b90e78746a652c639fcec6399b5950a479ed1bc2bb7de8b6",
+      "file": "out/frame-renders/08/A1.png",
+      "meanRGB": [
+        94.117,
+        97.597,
+        89.632
+      ],
+      "std": 70.078
+    },
+    {
+      "scene": "08",
+      "preset": "A2",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "1b061e9976a5c8d1c22fcaff0e99674cbf157bf4b18a8c938acb96df19950c27",
+      "file": "out/frame-renders/08/A2.png",
+      "meanRGB": [
+        101.691,
+        106.671,
+        98.358
+      ],
+      "std": 59.758
+    },
+    {
+      "scene": "08",
+      "preset": "A3",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "0e6d80e1b8e691f25ad3e737d89ee5bf969d42348b9a6f02c8a230334136e502",
+      "file": "out/frame-renders/08/A3.png",
+      "meanRGB": [
+        101.93,
+        107.199,
+        99.007
+      ],
+      "std": 57.844
+    },
+    {
+      "scene": "08",
+      "preset": "A4",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "1d793db0029561506bf8319f7c94abf86f8de7ee1c67cf853d8bc5fea863dfc3",
+      "file": "out/frame-renders/08/A4.png",
+      "meanRGB": [
+        101.076,
+        107.701,
+        100.007
+      ],
+      "std": 50.65
+    },
+    {
+      "scene": "08",
+      "preset": "A5",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "7bec6005b41bf26fc1fdada35ac847302bcdd3af30f7ac02909308f1e6de9c23",
+      "file": "out/frame-renders/08/A5.png",
+      "meanRGB": [
+        101.392,
+        107.965,
+        100.277
+      ],
+      "std": 50.018
+    },
+    {
+      "scene": "08",
+      "preset": "B1",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "98326ab769d3242a85972729e3d8b048a76a89a9ea4f6755b7f959c0655ea85a",
+      "file": "out/frame-renders/08/B1.png",
+      "meanRGB": [
+        104.573,
+        110.48,
+        106.411
+      ],
+      "std": 69.749
+    },
+    {
+      "scene": "08",
+      "preset": "B2",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "c23f2eba64e041f1e4e16f6102c01a1c263e6702b63162e264f68cbdaf7fb344",
+      "file": "out/frame-renders/08/B2.png",
+      "meanRGB": [
+        113.08,
+        120.132,
+        115.811
+      ],
+      "std": 59.838
+    },
+    {
+      "scene": "08",
+      "preset": "B3",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "acac450240cdeb68e46aa4fd321151cbc53dd1ea7579c99807a80e06533fd0a3",
+      "file": "out/frame-renders/08/B3.png",
+      "meanRGB": [
+        113.583,
+        120.845,
+        116.604
+      ],
+      "std": 57.659
+    },
+    {
+      "scene": "08",
+      "preset": "B4",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "f2423c9c56c215fbacfedb98d3c4f6e43ccbfe8fa66035bdf36385d9261fd6c2",
+      "file": "out/frame-renders/08/B4.png",
+      "meanRGB": [
+        113.642,
+        121.823,
+        117.912
+      ],
+      "std": 49.606
+    },
+    {
+      "scene": "08",
+      "preset": "B5",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "a2565326107043c812ac1c2a67c5946b6d76f0b49d8d3c77f0e8a31c89839063",
+      "file": "out/frame-renders/08/B5.png",
+      "meanRGB": [
+        113.954,
+        122.063,
+        118.149
+      ],
+      "std": 49.241
+    },
+    {
+      "scene": "08",
+      "preset": "C1",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "ed44372965396c9b4b6bc0839aa2a2eeb15fde4ef1012ac2e4cd40980e232fa1",
+      "file": "out/frame-renders/08/C1.png",
+      "meanRGB": [
+        100.349,
+        96.661,
+        85.765
+      ],
+      "std": 69.882
+    },
+    {
+      "scene": "08",
+      "preset": "C2",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "2c2e78a54361cebeb1a9aa8d6c0894421e3efbe89af85e31a4c648df52a7947d",
+      "file": "out/frame-renders/08/C2.png",
+      "meanRGB": [
+        108.975,
+        105.521,
+        93.737
+      ],
+      "std": 59.518
+    },
+    {
+      "scene": "08",
+      "preset": "C3",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "753e9d42f1dbfba3d5a3b1e13300618f52cadee1d7c581cf24c1fffc395ce324",
+      "file": "out/frame-renders/08/C3.png",
+      "meanRGB": [
+        109.431,
+        106.013,
+        94.219
+      ],
+      "std": 57.558
+    },
+    {
+      "scene": "08",
+      "preset": "C4",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "dcd775b704cbb86822c73f1491839f50830255c05c3bbad43817a7c3112270c3",
+      "file": "out/frame-renders/08/C4.png",
+      "meanRGB": [
+        109.441,
+        106.345,
+        94.629
+      ],
+      "std": 50.208
+    },
+    {
+      "scene": "08",
+      "preset": "C5",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "520e8e7b0ffdbbaab1c6bb02db51970afd8ee5b1ea37f4d6db5ad2e767ac8499",
+      "file": "out/frame-renders/08/C5.png",
+      "meanRGB": [
+        109.749,
+        106.604,
+        94.842
+      ],
+      "std": 49.598
+    },
+    {
+      "scene": "08",
+      "preset": "D1",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "39882ab4961ba7d840ab26ddcdac22eb4eeaff919f6e8d2be639df69994edb04",
+      "file": "out/frame-renders/08/D1.png",
+      "meanRGB": [
+        88.414,
+        98.592,
+        96.148
+      ],
+      "std": 69.626
+    },
+    {
+      "scene": "08",
+      "preset": "D2",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "e9c1bd8d45c18381e97e06628329ae1884654c8bbf728cd08bfb25cd8fc6e023",
+      "file": "out/frame-renders/08/D2.png",
+      "meanRGB": [
+        95.656,
+        107.676,
+        105.574
+      ],
+      "std": 59.488
+    },
+    {
+      "scene": "08",
+      "preset": "D3",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "bc11ef085e26066773576d9946adec6a6961d175ecb54c49ef6468f4e06a0152",
+      "file": "out/frame-renders/08/D3.png",
+      "meanRGB": [
+        95.887,
+        108.192,
+        106.298
+      ],
+      "std": 57.563
+    },
+    {
+      "scene": "08",
+      "preset": "D4",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "6d8f7eb1148a2651fa74f0096c435bde5e983affe87404cc8d8c73ec367578d0",
+      "file": "out/frame-renders/08/D4.png",
+      "meanRGB": [
+        95.137,
+        108.625,
+        107.495
+      ],
+      "std": 50.36
+    },
+    {
+      "scene": "08",
+      "preset": "D5",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "71708dbc61e0e08f1a352605b2dde77de69941b3a66fbd6b82eae5e4d60d8cd7",
+      "file": "out/frame-renders/08/D5.png",
+      "meanRGB": [
+        95.426,
+        108.892,
+        107.814
+      ],
+      "std": 49.797
+    },
+    {
+      "scene": "08",
+      "preset": "E1",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "1fa7166a619488a1c2a637e8137fbfaecdb9d38be507b5cb45cea69133e790c7",
+      "file": "out/frame-renders/08/E1.png",
+      "meanRGB": [
+        96.369,
+        96.741,
+        93.4
+      ],
+      "std": 70.153
+    },
+    {
+      "scene": "08",
+      "preset": "E2",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "84a22b8d1050b4f56866749199f21b1d9194acdaebdd4ad2a0a271bad1b20552",
+      "file": "out/frame-renders/08/E2.png",
+      "meanRGB": [
+        104.63,
+        105.603,
+        102.073
+      ],
+      "std": 59.632
+    },
+    {
+      "scene": "08",
+      "preset": "E3",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "08cbcb2b04e3210e84556f34ed00a2ebe7ff319f6bae4597174e20a4f1602ddc",
+      "file": "out/frame-renders/08/E3.png",
+      "meanRGB": [
+        105.039,
+        106.102,
+        102.62
+      ],
+      "std": 57.637
+    },
+    {
+      "scene": "08",
+      "preset": "E4",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "df52b8f7ddb98e7858bd7865feb64561dea45fcdc77835054a7ed5461285bfce",
+      "file": "out/frame-renders/08/E4.png",
+      "meanRGB": [
+        104.927,
+        106.453,
+        103.181
+      ],
+      "std": 50.155
+    },
+    {
+      "scene": "08",
+      "preset": "E5",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "e4056a6b513a2c3dbfb77145c5d6d6b929a6a40cde0082943f41d1cfc89ba7ba",
+      "file": "out/frame-renders/08/E5.png",
+      "meanRGB": [
+        105.21,
+        106.718,
+        103.447
+      ],
+      "std": 49.548
+    },
+    {
+      "scene": "08",
+      "preset": "F1",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "bed930544946a5cd00378910e8a2b7d54ef53606200512766cb7b0305ea55ae8",
+      "file": "out/frame-renders/08/F1.png",
+      "meanRGB": [
+        100.343,
+        95.224,
+        92.944
+      ],
+      "std": 70.258
+    },
+    {
+      "scene": "08",
+      "preset": "F2",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "0f14e352814320868080edb55620d0ed19b15bcca00cd669c613da5446c2574c",
+      "file": "out/frame-renders/08/F2.png",
+      "meanRGB": [
+        108.736,
+        103.715,
+        102.448
+      ],
+      "std": 59.833
+    },
+    {
+      "scene": "08",
+      "preset": "F3",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "d38163412f201daa4d6b42425caec2c225901d1fd162e138031e253314ccc92e",
+      "file": "out/frame-renders/08/F3.png",
+      "meanRGB": [
+        109.106,
+        104.133,
+        103.207
+      ],
+      "std": 57.823
+    },
+    {
+      "scene": "08",
+      "preset": "F4",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "ff9736ac20f7ac3509358b74f166286ed989892cefe5e548d58c8c917e085252",
+      "file": "out/frame-renders/08/F4.png",
+      "meanRGB": [
+        108.8,
+        104.202,
+        104.557
+      ],
+      "std": 50.3
+    },
+    {
+      "scene": "08",
+      "preset": "F5",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "3e9950d2eba41e238dbeb9a29ad07ef0c7e0568097e4abf3a7ca1e518ebfe191",
+      "file": "out/frame-renders/08/F5.png",
+      "meanRGB": [
+        109.076,
+        104.427,
+        104.922
+      ],
+      "std": 49.727
+    },
+    {
+      "scene": "08",
+      "preset": "G1",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "a9cca81b0a6b19de28340d19566e4ea322f00155978ca951a741e192b7777d00",
+      "file": "out/frame-renders/08/G1.png",
+      "meanRGB": [
+        122.378,
+        121.907,
+        116.74
+      ],
+      "std": 68.804
+    },
+    {
+      "scene": "08",
+      "preset": "G2",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "296760c9726d833a2ba0172df47ac87ab9915ccf61f9ec63fe46cb3b28138e1f",
+      "file": "out/frame-renders/08/G2.png",
+      "meanRGB": [
+        132.18,
+        131.778,
+        126.225
+      ],
+      "std": 59.267
+    },
+    {
+      "scene": "08",
+      "preset": "G3",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "8e1ed14aca375f93dddbc5f060ce01ed6f5778964e788b81986265333fb2b790",
+      "file": "out/frame-renders/08/G3.png",
+      "meanRGB": [
+        133.017,
+        132.63,
+        127.057
+      ],
+      "std": 56.822
+    },
+    {
+      "scene": "08",
+      "preset": "G4",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "9378838cd805246af38feefbd26233360512b76f0bf92b5a7b0ee30448d5618c",
+      "file": "out/frame-renders/08/G4.png",
+      "meanRGB": [
+        134.258,
+        133.977,
+        128.371
+      ],
+      "std": 47.886
+    },
+    {
+      "scene": "08",
+      "preset": "G5",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "72e0279dc0eb7a897bf0d62c0c9f004f4f654e56ce8293f0c248272d1dbe0a95",
+      "file": "out/frame-renders/08/G5.png",
+      "meanRGB": [
+        134.482,
+        134.191,
+        128.577
+      ],
+      "std": 47.745
+    },
+    {
+      "scene": "08",
+      "preset": "H1",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "ac67730d5960b98492d64dc2d4420ac1596efacc80eb4c89ec6ac822e40c598b",
+      "file": "out/frame-renders/08/H1.png",
+      "meanRGB": [
+        81.855,
+        88.357,
+        93.151
+      ],
+      "std": 65.565
+    },
+    {
+      "scene": "08",
+      "preset": "H2",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "e730f054558eb62a15a1f4490ef3d576630f7db5cf662ecce3120570b6d62d6a",
+      "file": "out/frame-renders/08/H2.png",
+      "meanRGB": [
+        88.453,
+        96.491,
+        102.456
+      ],
+      "std": 55.999
+    },
+    {
+      "scene": "08",
+      "preset": "H3",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "6e2fc9543efcfa44d08b631be8284e95e2d0cf85df5c3a6e71ab3566fcdcd959",
+      "file": "out/frame-renders/08/H3.png",
+      "meanRGB": [
+        88.718,
+        96.92,
+        103.122
+      ],
+      "std": 54.188
+    },
+    {
+      "scene": "08",
+      "preset": "H4",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "f61d89840f3d0966a9a9521feebe4bc11dd6d257f504dc5cd6c1b2146b37c11c",
+      "file": "out/frame-renders/08/H4.png",
+      "meanRGB": [
+        88.198,
+        97.166,
+        104.122
+      ],
+      "std": 47.424
+    },
+    {
+      "scene": "08",
+      "preset": "H5",
+      "size": [
+        2400,
+        1150
+      ],
+      "sha256": "cc3a05b8a925e2ed17cbf7d7ba9577d35943365e887d9a83eba16ce891947aeb",
+      "file": "out/frame-renders/08/H5.png",
+      "meanRGB": [
+        88.416,
+        97.381,
+        104.469
+      ],
+      "std": 46.872
+    },
+    {
+      "scene": "09",
+      "preset": "A1",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "7a4728fb27f29c01e320397ead373d1c9f6e187fda8cd84626d27d48c5d46154",
+      "file": "out/frame-renders/09/A1.png",
+      "meanRGB": [
+        64.764,
+        79.451,
+        85.864
+      ],
+      "std": 56.398
+    },
+    {
+      "scene": "09",
+      "preset": "A2",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "5d716e5d79f4adef29b31feb6e018823459782d3d982a752b6fe1ab2aa2da6cd",
+      "file": "out/frame-renders/09/A2.png",
+      "meanRGB": [
+        80.071,
+        98.024,
+        105.088
+      ],
+      "std": 44.205
+    },
+    {
+      "scene": "09",
+      "preset": "A3",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "6216b7dbf54768b6e89476600f15cea9842ab1714494b6a4b446acb518e6da1b",
+      "file": "out/frame-renders/09/A3.png",
+      "meanRGB": [
+        79.574,
+        97.502,
+        104.567
+      ],
+      "std": 44.014
+    },
+    {
+      "scene": "09",
+      "preset": "A4",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "0f67615104903083808a2cddbc629663bae8b71205386614c1e855d0e297da0a",
+      "file": "out/frame-renders/09/A4.png",
+      "meanRGB": [
+        74.137,
+        91.463,
+        98.325
+      ],
+      "std": 44.854
+    },
+    {
+      "scene": "09",
+      "preset": "A5",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "3d5d5f39481128f1d0653c5569233fd7ede3ff4395d6c134ae54c3b4e078e5a8",
+      "file": "out/frame-renders/09/A5.png",
+      "meanRGB": [
+        75.389,
+        93.175,
+        100.131
+      ],
+      "std": 41.792
+    },
+    {
+      "scene": "09",
+      "preset": "B1",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "837113b1b7fa5af56551e914353adb8afa117b36977889e5200c315821a7703f",
+      "file": "out/frame-renders/09/B1.png",
+      "meanRGB": [
+        77.975,
+        92.372,
+        99.091
+      ],
+      "std": 56.9
+    },
+    {
+      "scene": "09",
+      "preset": "B2",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "2ea90dce5851c63db22f6264361f4ffe7216599805e51abc379b574522d67142",
+      "file": "out/frame-renders/09/B2.png",
+      "meanRGB": [
+        94.794,
+        112.091,
+        119.474
+      ],
+      "std": 44.287
+    },
+    {
+      "scene": "09",
+      "preset": "B3",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "57a6c60fe6f6253863c8b1332511297bd4fba801a70540a17197d7219a41a16e",
+      "file": "out/frame-renders/09/B3.png",
+      "meanRGB": [
+        94.359,
+        111.614,
+        118.994
+      ],
+      "std": 43.957
+    },
+    {
+      "scene": "09",
+      "preset": "B4",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "7b51ff7ca614ef544fba63b6c5fd74be3630d02f898f851760b3f9e137085577",
+      "file": "out/frame-renders/09/B4.png",
+      "meanRGB": [
+        88.922,
+        105.48,
+        112.658
+      ],
+      "std": 44.571
+    },
+    {
+      "scene": "09",
+      "preset": "B5",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "8150a13a90ff0edb96e397c64bbbcbf65591218f5f1340ebf886a342cd1f547d",
+      "file": "out/frame-renders/09/B5.png",
+      "meanRGB": [
+        90.442,
+        107.357,
+        114.635
+      ],
+      "std": 41.504
+    },
+    {
+      "scene": "09",
+      "preset": "C1",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "8430c5ab5d906b3a2a95abacfe5e4181c7f652581ad7d55e946e0c69b6c8a2a3",
+      "file": "out/frame-renders/09/C1.png",
+      "meanRGB": [
+        74.461,
+        78.184,
+        78.027
+      ],
+      "std": 55.077
+    },
+    {
+      "scene": "09",
+      "preset": "C2",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "72489cc629d7458dd8f75de4366ce2d28d04e8e25df39a9d6e6bddc196a2e2ac",
+      "file": "out/frame-renders/09/C2.png",
+      "meanRGB": [
+        91.516,
+        96.498,
+        95.982
+      ],
+      "std": 42.347
+    },
+    {
+      "scene": "09",
+      "preset": "C3",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "9821619008cec7e4f7f64ba882556b382356312194218d0db232b3df0344f6d2",
+      "file": "out/frame-renders/09/C3.png",
+      "meanRGB": [
+        91.046,
+        95.969,
+        95.452
+      ],
+      "std": 42.137
+    },
+    {
+      "scene": "09",
+      "preset": "C4",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "69eee7ccb414f4e975ab09eec998b1d34a2b47faf5732836f080f7ee759a37f2",
+      "file": "out/frame-renders/09/C4.png",
+      "meanRGB": [
+        85.455,
+        89.938,
+        89.425
+      ],
+      "std": 43.052
+    },
+    {
+      "scene": "09",
+      "preset": "C5",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "30108ff119797b2cfadfbaf705c2b80280cd531a37afaff475bb090b76a28a7c",
+      "file": "out/frame-renders/09/C5.png",
+      "meanRGB": [
+        87.02,
+        91.602,
+        91.035
+      ],
+      "std": 39.859
+    },
+    {
+      "scene": "09",
+      "preset": "D1",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "329c54d2a06436b990890f28660780dfd31e6741777fb5906c7dfa1292cf39c9",
+      "file": "out/frame-renders/09/D1.png",
+      "meanRGB": [
+        61.48,
+        79.99,
+        88.044
+      ],
+      "std": 56.058
+    },
+    {
+      "scene": "09",
+      "preset": "D2",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "01dcf527f7ad953881f6fb424e2577c64d8af91b0d880ed09659777316fb39dc",
+      "file": "out/frame-renders/09/D2.png",
+      "meanRGB": [
+        76.248,
+        98.647,
+        107.685
+      ],
+      "std": 44.264
+    },
+    {
+      "scene": "09",
+      "preset": "D3",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "982e77db98a9d10fb5b359a2596c99a233ae21274d3cabe5c5089f5c380155ae",
+      "file": "out/frame-renders/09/D3.png",
+      "meanRGB": [
+        75.766,
+        98.115,
+        107.185
+      ],
+      "std": 44.058
+    },
+    {
+      "scene": "09",
+      "preset": "D4",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "be639101de1b8173534ab79a11d29664282e177a3ced43dd73246d9e1ee9d521",
+      "file": "out/frame-renders/09/D4.png",
+      "meanRGB": [
+        70.532,
+        92.021,
+        100.984
+      ],
+      "std": 44.811
+    },
+    {
+      "scene": "09",
+      "preset": "D5",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "90dabb259a8de5c4a210d2c494ab20330e8080ee69d09c0aee16734acea29678",
+      "file": "out/frame-renders/09/D5.png",
+      "meanRGB": [
+        71.743,
+        93.725,
+        102.897
+      ],
+      "std": 41.88
+    },
+    {
+      "scene": "09",
+      "preset": "E1",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "75178e566f30a9973738fb27d833404b725a501a6ff16b8811e9c4383b862d59",
+      "file": "out/frame-renders/09/E1.png",
+      "meanRGB": [
+        71.933,
+        78.075,
+        82.022
+      ],
+      "std": 55.337
+    },
+    {
+      "scene": "09",
+      "preset": "E2",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "dd38688bf35740f2f76e63ab6f28e312a1ee56563d2e9863a4d0597cf8505c51",
+      "file": "out/frame-renders/09/E2.png",
+      "meanRGB": [
+        88.641,
+        96.336,
+        100.722
+      ],
+      "std": 42.641
+    },
+    {
+      "scene": "09",
+      "preset": "E3",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "cd45c2e609a8637fbfe1e5033d58d341f701dee6156bf034903616e4c316bba6",
+      "file": "out/frame-renders/09/E3.png",
+      "meanRGB": [
+        88.163,
+        95.812,
+        100.197
+      ],
+      "std": 42.423
+    },
+    {
+      "scene": "09",
+      "preset": "E4",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "07306ba6888c430f3744dcdd98dbd8c942ba4ef54d3e6c31321296ea481cc215",
+      "file": "out/frame-renders/09/E4.png",
+      "meanRGB": [
+        82.576,
+        89.812,
+        94.055
+      ],
+      "std": 43.315
+    },
+    {
+      "scene": "09",
+      "preset": "E5",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "6c8a1932c1045a7ac503094fd71829f68e62dd70bdc660baf1a86e7a0af96f86",
+      "file": "out/frame-renders/09/E5.png",
+      "meanRGB": [
+        84.064,
+        91.483,
+        95.762
+      ],
+      "std": 40.136
+    },
+    {
+      "scene": "09",
+      "preset": "F1",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "8fe50513de4a49fb8577ba6c000f2e0bbecbc1cbafd4212be6ff2a26453526e2",
+      "file": "out/frame-renders/09/F1.png",
+      "meanRGB": [
+        75.181,
+        76.748,
+        82.579
+      ],
+      "std": 55.346
+    },
+    {
+      "scene": "09",
+      "preset": "F2",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "62fed9dafab9f27f59768e4df7ba84363e4c769537fe1d56045bcb7bb4740d98",
+      "file": "out/frame-renders/09/F2.png",
+      "meanRGB": [
+        92.504,
+        94.793,
+        101.335
+      ],
+      "std": 42.538
+    },
+    {
+      "scene": "09",
+      "preset": "F3",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "98b57f967d5568464bb9e719d937612a3ed6ae8a20deb4ffbb7d17cb9f679771",
+      "file": "out/frame-renders/09/F3.png",
+      "meanRGB": [
+        91.975,
+        94.241,
+        100.892
+      ],
+      "std": 42.316
+    },
+    {
+      "scene": "09",
+      "preset": "F4",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "6b73e6b2bebbcb5beefcff0c2f8e9695a7e5ee226555e942c60ab5bc27a890f1",
+      "file": "out/frame-renders/09/F4.png",
+      "meanRGB": [
+        86.043,
+        88.127,
+        95.169
+      ],
+      "std": 43.244
+    },
+    {
+      "scene": "09",
+      "preset": "F5",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "cf6af8bdcb572d031b7c7546d0f12ebf7bbee68389717ec791f959380fd6c741",
+      "file": "out/frame-renders/09/F5.png",
+      "meanRGB": [
+        87.534,
+        89.717,
+        97.07
+      ],
+      "std": 40.066
+    },
+    {
+      "scene": "09",
+      "preset": "G1",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "59e46c1c2049b70bbb7f94381ddb6e444ca3edfbb5a652995cf12e4483d063e0",
+      "file": "out/frame-renders/09/G1.png",
+      "meanRGB": [
+        102.323,
+        103.493,
+        101.017
+      ],
+      "std": 55.527
+    },
+    {
+      "scene": "09",
+      "preset": "G2",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "a53f8ffe6b9c5b0b26797e242c80427250484bfafc0c4ca2c9bd360b1c16fed3",
+      "file": "out/frame-renders/09/G2.png",
+      "meanRGB": [
+        122.239,
+        123.673,
+        120.686
+      ],
+      "std": 42.262
+    },
+    {
+      "scene": "09",
+      "preset": "G3",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "5eef3f41d595d54487c3aae631e65da7189fc7f8d7b67972315dbd42218026f6",
+      "file": "out/frame-renders/09/G3.png",
+      "meanRGB": [
+        121.822,
+        123.248,
+        120.272
+      ],
+      "std": 41.785
+    },
+    {
+      "scene": "09",
+      "preset": "G4",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "c894707461c09b8176b6f21b4c338731f1593681172391c467ff44b95231e077",
+      "file": "out/frame-renders/09/G4.png",
+      "meanRGB": [
+        115.85,
+        117.216,
+        114.371
+      ],
+      "std": 42.24
+    },
+    {
+      "scene": "09",
+      "preset": "G5",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "547a357d5e8d14b5a7f87f545d53c0dc98a150ab40e8100126ea17ec26081d1d",
+      "file": "out/frame-renders/09/G5.png",
+      "meanRGB": [
+        117.793,
+        119.187,
+        116.298
+      ],
+      "std": 39.088
+    },
+    {
+      "scene": "09",
+      "preset": "H1",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "c97930c48ae01e4affe26163593e7532b79debe043128b738218d1853d59eb9a",
+      "file": "out/frame-renders/09/H1.png",
+      "meanRGB": [
+        57.077,
+        71.408,
+        83.837
+      ],
+      "std": 52.891
+    },
+    {
+      "scene": "09",
+      "preset": "H2",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "c4bde11fa8d2c43ac67aa2c1dcc044dab41b361123328403ca59438aa92f9fb9",
+      "file": "out/frame-renders/09/H2.png",
+      "meanRGB": [
+        70.615,
+        88.394,
+        102.925
+      ],
+      "std": 41.905
+    },
+    {
+      "scene": "09",
+      "preset": "H3",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "8e19ac1d21e398aeb4dafe6da299b81b9d01be6ce11d68e9c9c775332932c190",
+      "file": "out/frame-renders/09/H3.png",
+      "meanRGB": [
+        70.213,
+        87.892,
+        102.413
+      ],
+      "std": 41.702
+    },
+    {
+      "scene": "09",
+      "preset": "H4",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "8b6852fc7a822745bcd06ea4529ac2e1eaf3c7e5ad64769023d25bd662648b4c",
+      "file": "out/frame-renders/09/H4.png",
+      "meanRGB": [
+        65.583,
+        82.226,
+        96.262
+      ],
+      "std": 42.335
+    },
+    {
+      "scene": "09",
+      "preset": "H5",
+      "size": [
+        2400,
+        1082
+      ],
+      "sha256": "ca0798db3289faf9fd6118a953749474aa87694852744323033c7caa5acdf24a",
+      "file": "out/frame-renders/09/H5.png",
+      "meanRGB": [
+        66.747,
+        83.756,
+        98.053
+      ],
+      "std": 39.558
+    }
+  ]
+}

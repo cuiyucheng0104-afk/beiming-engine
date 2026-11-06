@@ -1,0 +1,25 @@
+{
+  "scene": "02",
+  "mode": "scene",
+  "tag": "r1",
+  "prompt_id": "979789d9-82a4-4946-82a9-eff72ce2c952",
+  "started": 1793817043.455748,
+  "config": {
+    "id": "02",
+    "name": "青铜案头",
+    "ref": "refs/02.jpg",
+    "width": 1260,
+    "height": 620,
+    "mode": "scene",
+    "target_faces": 1000000,
+    "remesh_resolution": 1024,
+    "smooth_iters": 2,
+    "project_back": 0.75,
+    "crease_angle": 70,
+    "texture_size": 4096,
+    "target_resolution": 1536,
+    "seed": 1107
+  },
+  "status": "success",
+  "seconds": 181.636
+}

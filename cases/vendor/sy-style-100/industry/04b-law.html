@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>04 · 律所 · 衡正律师事务所</title>
+<script src="../lib/core.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 04 线条动画 · 行业示例：律所 =====
+   Hundreds of hair-thin gold threads drift in, gather and weave a balance: pillar, beam, chains, two pans that
+   rock and settle level. The base line runs out left and right and a city skyline rises from it in single
+   strokes, windows lighting one by one; the firm's name settles in. Canvas 2D, every line computed. */
+const { E, clamp, inv, lerp } = Reel;
+const C = Reel.cfg({ brand: '衡正律师事务所', sub: '专注合同纠纷 15 年', small: 'HENGZHENG  LAW  FIRM' });
+const stage = Reel.makeStage('#070b17');
+const { ctx, begin: begin0 } = Reel.canvas2d(stage);
+let VIEW = { z: 1, fx: 960, fy: 540, rot: 0 }, RT = 0;
+function begin() { begin0(); ctx.fillStyle = '#04060d'; ctx.fillRect(0, 0, 1920, 1080); ctx.translate(960, 540); ctx.rotate(VIEW.rot); ctx.scale(VIEW.z, VIEW.z); ctx.translate(-VIEW.fx, -VIEW.fy); }
+const GOLD = (a) => `rgba(236,201,128,${a})`, GOLD2 = (a) => `rgba(255,232,180,${a})`;
+const SX = 1260, BASE = 860;                        // scale centre x, base line y
+function stroke(build, L, prog, w, alpha, glow = true) {
+  if (prog <= 0) return;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.setLineDash([L * Math.min(prog, 1), L + 10]);
+  if (glow) { ctx.shadowColor = GOLD(0.6 * alpha); ctx.shadowBlur = 14; }
+  ctx.strokeStyle = GOLD(alpha); ctx.lineWidth = w; ctx.beginPath(); build(); ctx.stroke();
+  ctx.shadowBlur = 0; ctx.strokeStyle = GOLD2(alpha * 0.8); ctx.lineWidth = w * 0.42; ctx.beginPath(); build(); ctx.stroke();
+  ctx.restore();
+}
+// drifting threads that converge onto the scale's outline (first 2.6 s)
+const NT = 220;
+const TH = Array.from({ length: NT }, (_, i) => { const r = (k) => Math.abs(Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1; return { x: r(1) * 1920, y: r(2) * 1080, a: r(3) * 6.28, l: 80 + r(4) * 220, k: r(5) }; });
+function outlinePoint(u) {   // a point on the finished scale's silhouette, u in 0..1
+  const segs = [[SX, BASE - 20, SX, BASE - 520], [SX - 300, BASE - 470, SX + 300, BASE - 470], [SX - 160, BASE - 6, SX + 160, BASE - 6]];
+  const s = segs[Math.floor(u * 3) % 3], f = (u * 3) % 1; return [lerp(s[0], s[2], f), lerp(s[1], s[3], f)];
+}
+function scene(t) {
+  begin();
+  const g = ctx.createRadialGradient(SX, 560, 50, SX, 560, 1400); g.addColorStop(0, '#121a31'); g.addColorStop(1, '#04060d');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
+  // threads
+  const conv = E.inOutCubic(inv(0.4, 2.4, t)), fadeT = 1 - E.inOutSine(inv(2.0, 2.8, t));
+  if (fadeT > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const th of TH) { const [ox, oy] = outlinePoint(th.k); const x = lerp(th.x + Math.sin(t * 0.8 + th.a) * 40, ox, conv), y = lerp(th.y + Math.cos(t * 0.7 + th.a) * 30, oy, conv);
+      const ang = th.a + t * 0.5, len = th.l * (1 - conv * 0.85);
+      ctx.strokeStyle = GOLD(0.22 * fadeT); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - Math.cos(ang) * len / 2, y - Math.sin(ang) * len / 2); ctx.quadraticCurveTo(x + Math.sin(ang) * 30, y - Math.cos(ang) * 30, x + Math.cos(ang) * len / 2, y + Math.sin(ang) * len / 2); ctx.stroke(); }
+    ctx.restore(); }
+  // the balance
+  const sp = (a, b) => E.inOutSine(inv(a, b, t));
+  stroke(() => { ctx.moveTo(SX - 170, BASE); ctx.lineTo(SX + 170, BASE); }, 340, sp(1.8, 2.4), 3, 1);
+  stroke(() => { ctx.moveTo(SX - 110, BASE - 16); ctx.lineTo(SX + 110, BASE - 16); }, 220, sp(1.9, 2.5), 2, 0.9);
+  stroke(() => { ctx.moveTo(SX, BASE - 16); ctx.lineTo(SX, BASE - 500); }, 484, sp(2.0, 2.8), 3, 1);
+  stroke(() => { ctx.arc(SX, BASE - 520, 20, 0, Math.PI * 2); }, 126, sp(2.5, 2.9), 2, 1);
+  // beam rocks, then settles level
+  const rock = t < 2.8 ? 0.18 : 0.18 * Math.exp(-(t - 2.8) * 0.9) * Math.cos((t - 2.8) * 3.2);
+  const bx = Math.cos(rock) * 300, by = Math.sin(rock) * 300;
+  const L = [SX - bx, BASE - 470 - by], Rr = [SX + bx, BASE - 470 + by];
+  stroke(() => { ctx.moveTo(L[0], L[1]); ctx.lineTo(Rr[0], Rr[1]); }, 600, sp(2.4, 3.0), 3, 1);
+  for (const [px, py, sgn] of [[L[0], L[1], -1], [Rr[0], Rr[1], 1]]) {
+    const ch = sp(2.8, 3.4), dropY = 230;
+    stroke(() => { ctx.moveTo(px, py); ctx.lineTo(px - 70, py + dropY); ctx.moveTo(px, py); ctx.lineTo(px + 70, py + dropY); }, 2 * 240, ch, 1.4, 0.85, false);
+    stroke(() => { ctx.moveTo(px - 110, py + dropY); ctx.quadraticCurveTo(px, py + dropY + 90, px + 110, py + dropY); ctx.closePath(); }, 520, sp(3.0, 3.6), 2.2, 1);
+  }
+  // base line runs out and the skyline rises from it
+  const run = E.inOutSine(inv(3.8, 4.8, t));
+  if (run > 0) stroke(() => { ctx.moveTo(SX - 170 - 1100 * run, BASE); ctx.lineTo(SX + 170 + 560 * run, BASE); }, 4000, 1, 1.6, 0.8);
+  const B = [];
+  for (let i = 0; i < 24; i++) { const r = (k) => Math.abs(Math.sin(i * 91.7 + k * 13.1) * 9733.13) % 1; const x = 160 + i * 74 + r(1) * 30; if (Math.abs(x - SX) < 440) continue; B.push({ x, w: 44 + r(2) * 50, h: 120 + r(3) * 300 * (1 - Math.abs(x - SX) / 1400), k: r(4) }); }
+  B.forEach((b, i) => { const p = sp(4.4 + Math.abs(b.x - SX) / 1400 * 1.2, 5.4 + Math.abs(b.x - SX) / 1400 * 1.2); if (p <= 0) return;
+    stroke(() => { ctx.moveTo(b.x, BASE); ctx.lineTo(b.x, BASE - b.h); ctx.lineTo(b.x + b.w, BASE - b.h); ctx.lineTo(b.x + b.w, BASE); }, 2 * b.h + b.w, p, 1.3, 0.55, false);
+    const lit = sp(6.0 + b.k * 1.2, 6.3 + b.k * 1.2);
+    if (lit > 0) for (let r = 0; r < Math.floor(b.h / 34); r++) for (let c = 0; c < Math.floor(b.w / 18); c++) { const hh = Math.abs(Math.sin((i * 31 + r * 7 + c * 3) * 12.9898) * 43758.5) % 1; if (hh > 0.45) continue; ctx.fillStyle = GOLD(0.55 * lit * (0.5 + hh)); ctx.fillRect(b.x + 8 + c * 18, BASE - b.h + 14 + r * 34, 6, 10); } });
+  // title
+  const ta = E.outCubic(inv(7.0, 7.7, t));
+  if (ta > 0) {
+    ctx.save(); ctx.globalAlpha = ta; ctx.translate(0, (1 - ta) * 16);
+    ctx.font = '600 92px "Noto Serif CJK SC"'; ctx.fillStyle = GOLD2(1); if ('letterSpacing' in ctx) ctx.letterSpacing = '12px';
+    ctx.shadowColor = GOLD(0.5); ctx.shadowBlur = 24; ctx.fillText(C.brand, 120, 240); ctx.shadowBlur = 0;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '8px';
+    ctx.font = '500 42px "Noto Serif CJK SC"'; ctx.fillStyle = GOLD(0.95); ctx.fillText(C.sub, 126, 330);
+    ctx.font = '500 18px Inter'; ctx.fillStyle = GOLD(0.6); if ('letterSpacing' in ctx) ctx.letterSpacing = '6px'; ctx.fillText(C.small, 128, 386);
+    ctx.restore();
+  }
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['600 92px "Noto Serif CJK SC"', '600 120px "Noto Serif CJK SC"', '500 42px "Noto Serif CJK SC"', '500 18px Inter'],
+  cues: [{"t": 0.2, "sfx": "swell", "gain": 0.5}, {"t": 1.0, "sfx": "pencil", "gain": 0.4}, {"t": 2.8, "sfx": "pencil", "gain": 0.4}, {"t": 4.4, "sfx": "clink", "gain": 0.6}, {"t": 4.8, "sfx": "whoosh", "gain": 0.35}, {"t": 6.0, "sfx": "scribble", "gain": 0.3}, {"t": 7.4, "sfx": "impact_soft", "gain": 0.5}, {"t": 8.4, "sfx": "impact_soft", "gain": 0.5}, {"t": 9.4, "sfx": "impact_soft", "gain": 0.5}, {"t": 9.6, "sfx": "sparkle", "gain": 0.3}, {"t": 10.6, "sfx": "chime", "gain": 0.6}],
+  render(t) {
+    RT = t; const ct = t * 0.66;
+    const rock = ct < 2.8 ? 0.18 : 0.18 * Math.exp(-(ct - 2.8) * 0.9) * Math.cos((ct - 2.8) * 3.2);
+    const pull = E.inOutCubic(inv(4.8, 7.6, t)), slide = E.inOutCubic(inv(10.6, 12.0, t));
+    VIEW = { z: lerp(3.1, 1.0, pull), fx: lerp(SX, 960, pull), fy: lerp(BASE - 470, 540, pull), rot: -rock * 0.55 * (1 - pull) };
+    scene(ct);
+    // practice areas in big type between pull-back and title (screen space)
+    begin0();
+    const W3 = [['合同纠纷', 7.4], ['股权争议', 8.4], ['劳动仲裁', 9.4]];
+    for (const [w, t0] of W3) { const a = E.outCubic(inv(t0, t0 + 0.35, t)) * (1 - E.inCubic(inv(t0 + 0.8, t0 + 1.0, t))); if (a <= 0) continue;
+      ctx.save(); ctx.globalAlpha = a; ctx.font = '600 120px "Noto Serif CJK SC"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; if ('letterSpacing' in ctx) ctx.letterSpacing = '30px';
+      ctx.fillStyle = 'rgba(4,6,13,.55)'; ctx.fillRect(0, 380, 1920, 240); ctx.shadowColor = GOLD(0.6); ctx.shadowBlur = 30; ctx.fillStyle = GOLD2(1); ctx.fillText(w, 960 + (1 - a) * 40, 500); ctx.shadowBlur = 0;
+      ctx.strokeStyle = GOLD(0.8); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(960 - 260 * a, 590); ctx.lineTo(960 + 260 * a, 590); ctx.stroke(); ctx.restore(); }
+  },
+});
+</script></body></html>

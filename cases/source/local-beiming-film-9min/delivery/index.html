@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>北冥 · 完整剧集</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"PingFang SC",sans-serif;background:#15182b;color:#f4ede5}
+*{box-sizing:border-box}body{margin:0}main{max-width:1280px;margin:auto;padding:44px 32px 72px}
+header{display:flex;justify-content:space-between;gap:24px;align-items:end;margin:0 0 24px}.eyebrow{font-size:12px;letter-spacing:.2em;color:#b7aecf}
+h1{font-family:"Songti SC","Noto Serif CJK SC",serif;font-weight:500;font-size:52px;letter-spacing:.18em;margin:10px 0 0}
+.spec{font-size:13px;color:#b7aecf;text-align:right;line-height:1.9}video{width:100%;aspect-ratio:24/13;display:block;background:#080a13;box-shadow:0 16px 60px #0006;border-radius:4px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 0;border-bottom:1px solid #ffffff1a}.group{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button,a{font:inherit;color:inherit}button,.link{padding:9px 14px;border:1px solid #ffffff28;background:transparent;border-radius:4px;cursor:pointer;text-decoration:none;font-size:13px}
+button:hover,.link:hover{background:#ffffff0c;border-color:#f2a0a6}button[aria-pressed=true]{background:#e3bca326;border-color:#e3bca3;color:#ffd3b0}
+.chapters{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:26px 0 32px}.chapter{display:flex;flex-direction:column;text-align:left;gap:8px;padding:16px;min-height:80px}
+.chapter small{color:#b7aecf;font-variant-numeric:tabular-nums}.chapter.active{border-color:#f2a0a6;background:#f2a0a612}
+footer{display:flex;justify-content:space-between;gap:24px;font-size:12px;color:#a8a3ba;line-height:1.8}footer a{color:#cdc4e7;text-underline-offset:4px}
+@media(max-width:700px){main{padding:24px 16px 40px}h1{font-size:38px}.spec{font-size:11px}.chapters{grid-template-columns:repeat(3,1fr)}.toolbar,footer{flex-direction:column;align-items:flex-start}.chapter{padding:11px;font-size:12px}}
+</style>
+<main>
+ <header><div><div class="eyebrow">BEIMING · AN ANIMATED FILM</div><h1>北冥</h1></div><div class="spec">完整剧集 · 09:00<br>北冥引擎 / RTX 5090</div></header>
+ <video id="film" controls playsinline preload="metadata" poster="poster.jpg" src="beiming_9min_1080.mp4"></video>
+ <div class="toolbar"><div class="group"><button id="play">播放正片</button><button data-quality="1080" aria-pressed="true">1080 观看版</button><button data-quality="4k" aria-pressed="false">原生 4K</button></div><a class="link" href="beiming_9min_4k.mp4" download>下载 4K 成片 ↗</a></div>
+ <nav class="chapters" aria-label="影片章节"></nav>
+ <footer><span>有些路，关掉灯才能看见。</span><span><a href="../docs/分镜表.md">分镜与场次</a> · <a href="qa/report.json">交付检查</a> · <a href="../README.md">工程说明</a></span></footer>
+</main>
+<script>
+const v=document.querySelector('#film'),nav=document.querySelector('.chapters');
+const chapters=[[0,'雾中的鸽群'],[15,'末班轮渡'],[60,'云中之眼'],[80,'北冥有鱼'],[120,'撞向灯海'],[170,'改航向'],[200,'随船下江'],[250,'江口掉头'],[280,'老周默许'],[320,'灯不是海'],[360,'关灯出江'],[400,'转身入海'],[455,'化鹏'],[490,'我接受'],[525,'它来过']];
+const time=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+chapters.forEach(([t,title],i)=>{const b=document.createElement('button');b.className='chapter';b.innerHTML='<small>'+String(i+1).padStart(2,'0')+' / '+time(t)+'</small><span>'+title+'</span>';b.onclick=()=>{v.currentTime=t;v.play().catch(()=>{})};nav.append(b)});
+document.querySelector('#play').onclick=()=>{v.paused?v.play():v.pause()};
+v.addEventListener('play',()=>document.querySelector('#play').textContent='暂停');v.addEventListener('pause',()=>document.querySelector('#play').textContent='播放正片');
+v.addEventListener('timeupdate',()=>{[...nav.children].forEach((b,i)=>b.classList.toggle('active',v.currentTime>=chapters[i][0]&&v.currentTime<(chapters[i+1]?.[0]??540)))});
+document.querySelectorAll('[data-quality]').forEach(b=>b.onclick=()=>{if(b.getAttribute('aria-pressed')==='true')return;const t=v.currentTime,playing=!v.paused;document.querySelectorAll('[data-quality]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));v.src='beiming_9min_'+b.dataset.quality+'.mp4';v.addEventListener('loadedmetadata',()=>{v.currentTime=t;if(playing)v.play().catch(()=>{})},{once:true});v.load()});
+</script>
+</html>

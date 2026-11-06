@@ -1,0 +1,57 @@
+{
+ "a_stuck.wav": {
+  "bpm": 86.04,
+  "first_downbeat": 0.12,
+  "dur": 33.518,
+  "lowbeat": [
+   1.97,
+   0.2,
+   0.13,
+   0.25
+  ]
+ },
+ "b_open.wav": {
+  "bpm": 85.14,
+  "first_downbeat": 0.02,
+  "dur": 45.047,
+  "lowbeat": [
+   1.28,
+   0.35,
+   0.15,
+   0.46
+  ]
+ },
+ "c_life.wav": {
+  "bpm": 90.84,
+  "first_downbeat": 0.34,
+  "dur": 23.301,
+  "lowbeat": [
+   1.67,
+   0.13,
+   1.19,
+   0.15
+  ]
+ },
+ "d_dance.wav": {
+  "bpm": 89.96,
+  "first_downbeat": 1.7939,
+  "dur": 27.423,
+  "lowbeat": [
+   0.79,
+   0.76,
+   1.36,
+   0.71
+  ]
+ },
+ "e_outro.wav": {
+  "bpm": 94.16,
+  "first_downbeat": 1.6544,
+  "dur": 35.027,
+  "lowbeat": [
+   2.56,
+   0.52,
+   2.7,
+   0.58
+  ]
+ }
+}

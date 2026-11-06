@@ -1,0 +1,26 @@
+方案 B《片库之夜》20 秒开头 · 素材与许可
+
+【IP 图片】
+P01 九色鹿（封面主视觉）、P02 孙悟空（大闹天宫海报）、P02 黑猫警长（海报）、P02 葫芦兄弟（海报）
+来源：上影元官网（sfi-sh.com），经 PPT《上美影IP全景》整理，RTX 超分。
+用法：原图像素原样绘制（等比缩放、平移；入场时整体刚体旋转并在落定时归 0°），不改色、不变形、不重画、不抠图、不全屏；放大镜内为同一像素的 1.6× 等比放大。
+权利属于上海美术电影制片厂及相关权利方，本片仅作内部沟通样片。
+
+【材质】
+木桌（台外桌面）、宣纸_逆光（看片台扩散板斑驳，4% 以下）、宣纸（数据纸纤维）：本地 Qwen-Image 生成（共用/材质/）。
+
+【字体】（均为 SIL Open Font License 1.1，经 Google Fonts `&text=` 子集化，放在 fonts/）
+- Noto Sans SC 400/700 — Google（https://fonts.google.com/noto/specimen/Noto+Sans+SC）
+- Inter 800 — Rasmus Andersson（https://rsms.me/inter/）
+- Ma Shan Zheng — Ma Shan Zheng（https://fonts.google.com/specimen/Ma+Shan+Zheng）
+
+【音乐采样】
+Piano: "Salamander Grand Piano V3" by Alexander Holm, licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios) — contrabass_pizz; Versilian Community Sample Library (Versilian Studios) — marimba, vibraphone, vibraphone_bowed
+
+【音效】
+灯管启辉、电流嗡、幻灯片与底片套入槽、铅笔、放大镜、纸面等全部为 numpy 程序合成，无第三方录音。
+
+【数据口径】
+「25」= 上影元官网公开的动画分类数；「477」= 资料底稿中的作品、系列及版本记录数；二者都不是 IP 数。
+25 个分类名与 4 个组名取自 PPT《上美影IP全景》P21。477 个点平均分入 25 簇（簇大小不表示数量差异，见 TREATMENT.md §8）。

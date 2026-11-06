@@ -1,0 +1,22 @@
+《宝箱怪》第三方素材与许可
+
+字体
+- Noto Sans SC（500 / 700），SIL Open Font License 1.1。
+  来源：Google Fonts CSS API（&text= 子集化，只含片中用到的汉字），https://fonts.google.com/noto/specimen/Noto+Sans+SC
+  文件：fonts/NotoSansSC-500-sub.woff2、fonts/NotoSansSC-700-sub.woff2（在帧缓冲里二值化成像素字）。
+- 拉丁字母与数字的 5×7 像素字为本片原创（font.js）。
+
+采样乐器（经低通 + 量化处理成卡带采样的质感）
+- 小号（trumpet、trumpet_stac）、圆号（horn、horn_stac）、定音鼓（timpani）：
+  VS Chamber Orchestra: Community Edition（Versilian Studios），CC0 1.0，https://github.com/sgossner/VSCO-2-CE
+- 钟琴（glockenspiel）：Versilian Community Sample Library（Versilian Studios），CC0 1.0，https://github.com/sgossner/VCSL
+
+合成与物理建模
+- 方波 / 三角波 / LFSR 噪声 / wavetable、SNES 式回声、全部拟音：numpy 程序合成（mix.py），无第三方素材。
+- 八音盒：物理模型（core/audio/pluck.py 的 music_box 预设），无采样。
+- 心跳：程序合成（core/audio/sfx.py）。
+
+调色板
+- ENDESGA-32（Endesga 发布的免费调色板），仅取其颜色值。
+
+画面、角色、界面框、旋律全部原创；未使用任何现成游戏的角色、界面、字体、旋律或音效。

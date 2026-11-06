@@ -1,0 +1,16 @@
+《节奏猜动物》CREDITS
+
+== 采样乐器（core/audio/sampler.py）==
+Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+
+== 合成 ==
+八音盒：core/audio/pluck.py 模态合成（纯代码，无许可要求）。
+锯齿铜管层、方波主旋律、三角波垫、底鼓次低频、玩具嗓（共振峰合成）、全部拟音：numpy / core/audio/sfx.py 程序合成，原创。
+
+== 字体（SIL Open Font License 1.1，按 &text= 子集化后放在 fonts/）==
+Noto Sans SC 900 — Google Fonts, https://fonts.google.com/noto/specimen/Noto+Sans+SC — OFL 1.1
+Fredoka 700 — Google Fonts, https://fonts.google.com/specimen/Fredoka — OFL 1.1
+
+== 素材 ==
+无外部图片或影像；画面全部由 index.html 的 Canvas 代码绘制。

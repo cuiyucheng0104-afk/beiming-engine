@@ -1,0 +1,27 @@
+《火山口》 Panum Crater — credits for third-party material
+
+DATA AND IMAGERY
+- Airborne lidar point cloud: USGS 3D Elevation Program (3DEP), project CA_SierraNevada_13_B22, Entwine Point Tiles copy
+  https://s3-us-west-2.amazonaws.com/usgs-lidar-public/CA_SierraNevada_13_B22/ept.json
+  Licence: U.S. Government work, public domain. Subset fetched by box (37.9292 N, 119.0455 W, +-700 m), all octree depths.
+  The U.S. Geological Survey did not make or endorse this film.
+- Aerial photograph: USDA National Agriculture Imagery Program (NAIP), tile m_3711908_se_11_060_20220807 (2022-08-07, 0.6 m),
+  exported through USGS The National Map USGSNAIPImagery ImageServer
+  https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer
+  Licence: public domain (USDA / USGS, U.S. Government work). The USDA did not make or endorse this film.
+- Facts quoted on screen: USGS, Long Valley Caldera Field Guide – Panum Crater (public domain), see FACTS.md
+  https://www.usgs.gov/volcanoes/long-valley-caldera/science/long-valley-caldera-field-guide-panum-crater
+
+MUSIC SAMPLES (score written in code, mix.py)
+- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+  instruments used: vibraphone (hard mallets), glockenspiel, marimba, bowed vibraphone, concert bass drum, gran cassa, timpani, suspended cymbal
+  https://github.com/sgossner/VSCO-2-CE  https://github.com/sgossner/VCSL  — CC0 1.0
+- Everything else (FM blips, pulse bass, pad, granular cloud assembly, wind, foley) is synthesised in numpy.
+
+FONTS (SIL Open Font License 1.1, subset to the characters used, self-hosted in fonts/)
+- Noto Sans SC (Google) — https://fonts.google.com/noto/specimen/Noto+Sans+SC
+- Barlow Condensed (Jeremy Tribby) — https://fonts.google.com/specimen/Barlow+Condensed
+- IBM Plex Mono (IBM) — https://fonts.google.com/specimen/IBM+Plex+Mono
+
+SOFTWARE
+- three.js (MIT), laspy / lazrs (BSD / MIT), numpy, scipy, soundfile, soxr, Pillow, ffmpeg.

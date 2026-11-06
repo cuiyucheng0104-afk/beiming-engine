@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>20 · 工业零件 · 精工机械</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/blueprint.js"></script>
+<style>
+  #cap{position:absolute;left:150px;top:350px;text-align:left;color:#f2f4f8;opacity:0}
+  #cap .zh{font:300 92px 'Noto Sans CJK SC';letter-spacing:.14em;line-height:1.2}
+  #cap .sub{margin-top:22px;font:400 30px 'Noto Sans CJK SC';letter-spacing:.12em;color:rgba(242,244,248,.82)}
+  #cap .en{margin-top:20px;font:400 17px Inter;letter-spacing:.5em;color:rgba(242,244,248,.5)}
+  #cap .rule{width:64px;height:2px;background:#7fb2ff;margin:28px 0 0}
+</style>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 20 蓝图工程图 · 行业示例：工业零件 =====
+   A gear-shaft assembly on a living engineering drawing. The plotter draws the exploded parts along the shaft
+   axis, callouts and tolerances find their parts; then a section plane slides in and cuts the assembly in half,
+   the cut faces hatched like a real section view (A-A). The parts slide home along the shaft, a scan line turns
+   the drawing into machined steel in a dark studio and the gear starts to turn. */
+const C = Reel.cfg({ brand: '精工机械', sub: '非标零件定制 · 图纸到成品 72 小时', en: 'PRECISION PARTS · CNC MACHINING',
+  labels: [['齿轮', 'm=2  Z=24'], ['深沟球轴承', '6204-2RS'], ['传动轴', 'Ø20 h7'], ['法兰座', 'PCD 70'], ['内六角螺栓', 'M8×25'], ['挡圈', 'GB/T 894']],
+  tb: ['齿轮轴组件 · 剖视 A-A', 'DWG. NO. JG-2026-031', 'SCALE  1 : 1', 'DRAWN  XIAOXIONG', 'DATE  2026.10.18'] });
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#0c3480');
+Reel.ownJitter = true;
+const B = BP.make(stage, {
+  foc: 4.0,
+  uniforms: `uniform float uE, uSpin; uniform vec2 uSweep2;`,
+  fns: `
+float sdCylX(vec3 p, float r, float h){ vec2 d = abs(vec2(length(p.yz), p.x)) - vec2(r, h); return min(max(d.x,d.y),0.) + length(max(d,0.)); }
+float sdBox2(vec2 p, vec2 b){ vec2 d = abs(p) - b; return length(max(d,0.)) + min(max(d.x,d.y),0.); }
+vec3 spinX(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(p.x, c*p.y - s*p.z, s*p.y + c*p.z); }
+float gear2(vec2 q){
+  float r = length(q), a = atan(q.y, q.x); const float N = 24., SEC = 6.2831853/24.;
+  float al = mod(a + SEC*.5, SEC) - SEC*.5; vec2 t = vec2(cos(al), sin(al))*r;
+  float tooth = sdBox2(t - vec2(.84, 0.), vec2(.09, .055 - .03*clamp((t.x - .78)/.15, 0., 1.))) - .012;
+  return min(r - .78, tooth);
+}`,
+  map: `
+vec2 obj(vec3 p){
+  float e = uE; vec2 d = vec2(1e3, -1.);
+  // 3 shaft (turns with the gear)
+  vec3 s = spinX(p, uSpin);
+  float sh = min(sdCylX(s, .2, 1.75), sdCylX(s - vec3(.3,0.,0.), .26, .55)) - .01;
+  float key = sdBox(s - vec3(.3, .27, 0.), vec3(.3, .04, .045)) - .005;
+  sh = min(sh, key);
+  if (sh < d.x) d = vec2(sh, 3.);
+  // 1 gear: rim with teeth, recessed web with four lightening holes, bore
+  vec3 g = spinX(p - vec3(.3, 0., 0.), uSpin);
+  float gr = max(gear2(g.yz), abs(g.x) - .18);
+  float web = max(length(g.yz) - .62, abs(g.x) - .08);
+  float rim = max(gr, -(length(g.yz) - .62));
+  float hub = max(length(g.yz) - .38, abs(g.x) - .2);
+  float gg = min(min(rim, web), hub);
+  for (int i=0;i<4;i++){ float a = float(i)*1.5708 + .785; gg = max(gg, -(length(g.yz - vec2(cos(a), sin(a))*.5) - .08)); }
+  gg = max(gg, -(length(g.yz) - .262));
+  if (gg < d.x) d = vec2(gg, 1.);
+  // 2 bearings: outer ring, inner ring, balls
+  for (int k=0;k<2;k++){
+    float sx = k == 0 ? 1. : -1.;
+    vec3 b = p - vec3(sx*(1.15 + .55*e), 0., 0.);
+    float r = length(b.yz);
+    float outer = max(max(abs(b.x) - .1, r - .46), -(r - .36)) - .006;
+    float inner = max(max(abs(b.x) - .1, r - .27), -(r - .2)) - .006;
+    float ang = atan(b.z, b.y), sec = 6.2831853/9.; float al = mod(ang + sec*.5 + uSpin*.4, sec) - sec*.5;
+    float ball = length(vec3(b.x, r*cos(al) - .315, r*sin(al))) - .052;
+    float ring = min(outer, inner);
+    if (ring < d.x) d = vec2(ring, 2.); if (ball < d.x) d = vec2(ball, 7.);
+  }
+  // 4 flange housing (blue anodised) with a boss and four bolt holes
+  vec3 f = p - vec3(1.38 + 1.15*e, 0., 0.);
+  float pl = max(sdBox2(f.yz, vec2(.5, .5)) - .1, abs(f.x - .02) - .06);
+  float boss = max(length(f.yz) - .55, abs(f.x + .06) - .14);
+  float fl = min(pl, boss) - .01;
+  fl = max(fl, -(length(f.yz) - .38));
+  for (int i=0;i<4;i++){ vec2 c = vec2(i < 2 ? .42 : -.42, mod(float(i), 2.) < .5 ? .42 : -.42); fl = max(fl, -(length(f.yz - c) - .06)); }
+  if (fl < d.x) d = vec2(fl, 4.);
+  // 5 bolts: socket heads + shanks
+  for (int i=0;i<4;i++){ vec2 c = vec2(i < 2 ? .42 : -.42, mod(float(i), 2.) < .5 ? .42 : -.42);
+    vec3 q = p - vec3(1.52 + 1.85*e, c.x, c.y);
+    float head = max(sdCylX(q - vec3(.06,0.,0.), .075, .06) - .008, -(max(abs(q.x - .11) - .04, (length(q.yz) - .035))));
+    float shank = sdCylX(q - vec3(-.16,0.,0.), .042, .17);
+    float bo = min(head, shank); if (bo < d.x) d = vec2(bo, 5.); }
+  // 6 retaining collar on the left
+  vec3 cl = p - vec3(-1.42 - .85*e, 0., 0.);
+  float col = max(max(abs(cl.x) - .045, length(cl.yz) - .32), -(length(cl.yz) - .2)) - .006;
+  col = max(col, -sdBox2(vec2(cl.y - .3, cl.z), vec2(.06, .03)));
+  if (col < d.x) d = vec2(col, 6.);
+  return d;
+}`,
+  detail: `float detail(vec3 p, vec3 n, float id, float px){
+  if (id > 4.5 && id < 5.5 && abs(n.x) < .5){ return .5*smoothstep(.1, 0., abs(fract(p.x/.025) - .5)*.025/px - .8); }   // bolt threads
+  return 0.; }`,
+  real: `
+float rectL(vec3 r, vec3 c, vec3 up, vec2 hs, float soft){ float cz = dot(r, c); if (cz <= 0.) return 0.; vec3 u = normalize(cross(up, c)), v = cross(c, u); vec2 q = vec2(dot(r,u), dot(r,v))/cz; vec2 e = smoothstep(hs + soft, hs - soft, abs(q)); return e.x*e.y; }
+vec3 env(vec3 r){
+  vec3 c = mix(vec3(.01,.011,.014), vec3(.03,.032,.04), smoothstep(-.3, .8, r.y));
+  c += vec3(1.,.97,.93)*3.2*rectL(r, normalize(vec3(-.7,.55,.45)), vec3(0.,1.,0.), vec2(.35,.5), .15);
+  c += vec3(.75,.85,1.)*2.2*rectL(r, normalize(vec3(.85,.3,-.4)), vec3(0.,1.,0.), vec2(.05,.7), .04);
+  c += vec3(1.,.8,.6)*1.4*rectL(r, normalize(vec3(.1,.95,-.3)), vec3(0.,0.,1.), vec2(.6,.25), .2);
+  if (uSweep2.y > 0.) c += vec3(1.)*uSweep2.y*rectL(r, normalize(vec3(sin(uSweep2.x),.2,cos(uSweep2.x))), vec3(0.,1.,0.), vec2(.025,1.), .02);
+  return c;
+}
+const vec3 KEY = normalize(vec3(-.7,.55,.45));
+float shadowR(vec3 ro, vec3 L){ float r = 1., t = .02; for (int i=0;i<28;i++){ float h = mapS(ro + L*t); r = min(r, 7.*h/t); t += clamp(h, .02, .3); if (r < .002 || t > 6.) break; } return clamp(r,0.,1.); }
+float aoR(vec3 p, vec3 n){ float o = 0., s = 1.; for (int i=0;i<4;i++){ float h = .015 + .07*float(i); o += (h - mapS(p + n*h))*s; s *= .7; } return clamp(1. - 2.*o, 0., 1.); }
+vec3 shadeReal(vec3 p, vec3 rd, vec3 n, float id){
+  float cosT = max(dot(n,-rd), 0.); vec3 r = reflect(rd, n);
+  float sh = shadowR(p + n*.003, KEY), oc = aoR(p, n), dif = clamp(dot(n, KEY), 0., 1.)*sh;
+  vec3 col;
+  if (id < 1.5){                                      // gear: hardened steel, turned faces with fine rings
+    float rings = .9 + .1*sin(length(p.yz)*700.);
+    col = env(r)*vec3(.78,.79,.82)*mix(.55, 1., schlick(cosT, .55))*(abs(n.x) > .7 ? rings : 1.)*(.45 + .55*oc) + vec3(.09)*dif + vec3(.02)*oc;
+  } else if (id < 2.5 || id > 6.5){                   // bearing rings + balls: polished chrome
+    col = env(r)*(vec3(.92) + .08*pow(1. - cosT, 5.))*(.35 + .65*oc);
+  } else if (id < 3.5){                               // ground shaft: anisotropic streaks along the axis
+    float st = .85 + .15*sin(p.x*900. + 3.*sin(p.x*37.));
+    col = env(normalize(r + vec3(0., (st - .9)*.6, 0.)))*vec3(.8,.81,.84)*(.4 + .6*oc) + vec3(.03)*dif;
+  } else if (id < 4.5){                               // anodised blue aluminium, bead-blasted
+    vec3 a = vec3(.05,.16,.42);
+    col = a*(dif*1.6 + .25*oc) + env(r)*mix(.04, .4, pow(1. - cosT, 4.))*vec3(.6,.75,1.)*.6;
+  } else if (id < 5.5){                               // black-oxide bolts
+    col = vec3(.03)*(dif*2. + .3*oc) + env(r)*mix(.05, .45, pow(1. - cosT, 4.))*.5;
+  } else {                                            // spring-steel collar, blued
+    col = vec3(.04,.05,.08)*(dif*2. + .3*oc) + env(r)*vec3(.5,.6,.9)*mix(.08, .6, pow(1. - cosT, 4.))*.5;
+  }
+  return col;
+}`,
+});
+const O = BP.overlay(stage, B.FOC);
+const cap = document.createElement('div'); cap.id = 'cap'; cap.innerHTML = `<div class="zh">${C.brand}</div><div class="rule"></div><div class="sub">${C.sub}</div><div class="en">${C.en}</div>`; stage.appendChild(cap);
+function camAt(t) {
+  const k = E.inOutSine(clamp(t / 15));
+  const yaw = lerp(0.72, 0.18, E.inOutSine(inv(0, 9.5, t))) + 0.12 * E.inOutSine(inv(9.5, 15, t));
+  const dist = lerp(9.6, 7.0, E.inOutCubic(inv(3.4, 5.2, t))) + lerp(0, 1.6, E.inOutCubic(inv(5.6, 7.4, t))) - 0.1 * E.inOutSine(inv(9, 15, t));
+  const ta = [lerp(0.25, -1.25, E.inOutCubic(inv(8.6, 10.4, t))), lerp(0.05, 0.1, k), 0];
+  const el = lerp(2.6, 1.4, E.inOutSine(inv(2, 9, t)));
+  return { ro: [ta[0] + Math.sin(yaw) * dist, el, Math.cos(yaw) * dist], ta };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['500 26px "Noto Sans CJK SC"', '300 92px "Noto Sans CJK SC"', '400 30px "Noto Sans CJK SC"', '500 24px "Latin Modern Mono"', '400 17px Inter'],
+  cues: [{ t: 0.3, sfx: 'pen' }, { t: 1.8, sfx: 'tick' }, { t: 2.1, sfx: 'tick' }, { t: 2.4, sfx: 'tick' }, { t: 2.7, sfx: 'tick' }, { t: 3.6, sfx: 'zip', gain: 0.6 }, { t: 4.8, sfx: 'data', gain: 0.5 },
+    { t: 6.0, sfx: 'whoosh' }, { t: 7.2, sfx: 'clink' }, { t: 7.4, sfx: 'swell' }, { t: 8.8, sfx: 'sparkle', gain: 0.5 }, { t: 9.6, sfx: 'whoosh_up', gain: 0.4 }, { t: 10.2, sfx: 'chime', gain: 0.5 }],
+  render(t) {
+    const cam = camAt(t); const hx = 0.008 * Math.sin(t * 1.2), hy = 0.006 * Math.sin(t * 1.6 + 1);
+    const ro = [cam.ro[0] + hx, cam.ro[1] + hy, cam.ro[2]];
+    const asm = inv(6.0, 7.2, t); const ex = 1 - (asm < 1 ? E.inOutCubic(asm) : 1) + (asm >= 1 ? 0.02 * Math.exp(-(t - 7.2) * 9) * Math.sin((t - 7.2) * 40) : 0);
+    const cutW = t < 3.6 ? 3 : t < 5.7 ? lerp(3, 0.0, E.inOutCubic(inv(3.6, 4.8, t))) : lerp(0.0, 3, E.inOutCubic(inv(5.7, 6.4, t)));
+    const scan = t < 7.4 ? -1 : t > 8.8 ? 2 : E.inOutSine(inv(7.4, 8.8, t)) * 1.02 - 0.01;
+    const spin = t > 8.4 ? Math.pow(Math.max(0, t - 8.4), 1.6) * 0.5 : 0;
+    const R = 2.05 + 1.9 * ex;
+    B.rm.set('uE', ex).set('uSpin', spin).set('uScan', scan).set('uRo', ro).set('uTa', cam.ta).set('uRoll', 0).set('uBound', [0.15 + 0.3 * ex, 0, 0, R])
+      .set('uRevA', lerp(-3.8, 4.4, E.inOutSine(inv(0.3, 2.7, t)))).set('uRevB', 4.2).set('uRevDir', [1, 0, 0]).set('uCut', [0, 0, 1, cutW]).set('uCutOn', cutW < 2.5 ? 1 : 0)
+      .set('uFloorY', -1.08).set('uFloorOn', 1).set('uT', t).set('uFade', E.outCubic(clamp(t / 0.4)))
+      .set('uSweep2', [lerp(-1.3, 1.3, E.inOutSine(inv(9.4, 11.0, t))), 3 * Math.sin(Math.PI * clamp(inv(9.4, 11.0, t)))]);
+    const focus = Math.hypot(ro[0] - cam.ta[0], ro[1], ro[2]);
+    B.rm.render(t, { focus, aperture: t > 8 ? 10 : 0, maxCoc: t > 8 ? 8 : 0 });
+    // overlay
+    O.begin(); const oc = O.ctx; oc.clearRect(0, 0, 1920, 1080); O.camera(ro, cam.ta, 0);
+    const P = (x, y, z) => O.project([x, y, z]);
+    oc.save(); if (scan >= 0) { oc.beginPath(); oc.rect(0, Math.max(0, scan) * 1080, 1920, 1080); oc.clip(); }
+    O.axis(P(-2.9 - 0.9 * ex, 0, 0), P(2.3 + 2.0 * ex, 0, 0), E.outCubic(inv(0.6, 1.4, t)));
+    const out = 1 - inv(3.5, 3.9, t);
+    const L = [[P(0.3, 0.86, 0), 1, 330, 230, -1], [P(1.15 + 0.55 * ex, 0.45, 0), 2, 1590, 180, 1], [P(-1.1, 0.2, 0), 3, 330, 760, -1], [P(1.38 + 1.15 * ex, 0.55, -0.3), 4, 1590, 400, 1], [P(1.6 + 1.85 * ex, 0.5, 0.42), 5, 1590, 290, 1], [P(-1.42 - 0.85 * ex, 0.32, 0), 6, 330, 620, -1]];
+    L.forEach(([a, num, bx, by, side], i) => O.callout(a, String(num), C.labels[num - 1][0], bx, by, side, E.outCubic(inv(1.7 + i * 0.22, 2.4 + i * 0.22, t)) * out, C.labels[num - 1][1]));
+    const hk = E.outCubic(inv(2.7, 3.4, t)) * out;
+    O.dim(P(0.3, -0.93, 0.0), P(0.3, 0.93, 0.0), 'Ø104', -70, hk);
+    O.dim(P(-1.75, -0.35, 0), P(1.75, -0.35, 0), '320', 60, hk);
+    // section label
+    const sk = E.outCubic(inv(4.6, 5.0, t)) * (1 - inv(5.6, 5.9, t));
+    if (sk > 0) { oc.globalAlpha = sk; oc.fillStyle = O.INK; oc.font = '500 40px "Latin Modern Mono", monospace'; oc.textAlign = 'center'; oc.fillText('A — A', 960, 170); oc.font = '500 24px "Noto Sans CJK SC"'; oc.fillText('剖视图', 960, 210); oc.globalAlpha = 1; }
+    O.title(E.outCubic(inv(0.5, 1.1, t)), C.tb);
+    oc.restore();
+    const ck = E.outCubic(inv(10.0, 10.9, t)); cap.style.opacity = ck; cap.style.transform = `translateY(${(1 - ck) * 16}px)`;
+  },
+});
+</script></body></html>

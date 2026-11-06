@@ -1,0 +1,23 @@
+《Lumen》—— 暗色科技发布 风格样片
+
+画面
+- 所有界面、灯、窗口、字形与排版均由代码绘制（engine.js / film.js），没有生成图像、图库素材或真实影像。
+- "Lumen" 是虚构产品；"0.3 W" 是虚构参数。不出现任何真实品牌、标志或系统界面。
+
+字体（SIL Open Font License 1.1，经 Google Fonts CSS API &text= 子集化，自托管于 fonts/）
+- Inter — Rasmus Andersson — https://fonts.google.com/specimen/Inter
+- Inter Tight — Rasmus Andersson — https://fonts.google.com/specimen/Inter+Tight
+- JetBrains Mono — The JetBrains Mono Project Authors — https://fonts.google.com/specimen/JetBrains+Mono
+- Noto Sans SC（思源黑体 简体）— Google / Adobe — https://fonts.google.com/noto/specimen/Noto+Sans+SC
+
+音乐（原创，mix.py）
+- 采样：Versilian Community Sample Library (VCSL), Versilian Studios — CC0 1.0 — https://github.com/sgossner/VCSL
+  使用：vibraphone（软槌）、vibraphone（弓奏）、marimba、glockenspiel、shaker、gran cassa
+- 拨弦：Karplus–Strong 物理建模（harp 预设），代码合成
+- Pad、sub 冲击、正弦脉冲、glitch、riser：numpy 合成
+
+拟音与环境
+- 全部由 numpy 程序化合成（mix.py；部分滤波/包络工具来自本地风格库 core/audio/sfx.py）
+
+真实素材
+- 无（本风格为代码绘制的界面片，不使用外部影像）。

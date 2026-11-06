@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>18 · 中医馆 · 仁和堂</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/inkwash.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 18 水墨国风 · 行业示例：中医馆 =====
+   A herbal album page (本草图谱), painted stroke by stroke in macro. The camera rides the wet tip of the
+   brush: a ginseng root swells out of one loaded stroke, legs, root hairs, the stem, palmate leaves, a cluster
+   of vermilion berries. A whip pan to a goji branch, berries dropped on one by one; another to a chrysanthemum,
+   petals flicked out round its heart. Then the camera pulls all the way back: the whole page, its frame
+   ruled in, each herb labelled, the clinic's name and seal. */
+const { E, clamp, lerp, inv } = Reel;
+const stage = Reel.makeStage('#f3efe6');
+const C = Reel.cfg({ brand: '仁和堂', sub: '中医馆 · 望闻问切 · 节气调养', seal: '仁和', album: '本草图谱', herbs: ['人参', '枸杞', '菊花'] });
+const SERIF = '"Noto Serif CJK SC"';
+let I;
+const h1 = (x) => Reel.hash(x);
+const bz = (p0, p1, p2, p3, n = 16) => { const P = []; for (let i = 0; i <= n; i++) { const u = i / n, v = 1 - u; P.push([v * v * v * p0[0] + 3 * v * v * u * p1[0] + 3 * v * u * u * p2[0] + u * u * u * p3[0], v * v * v * p0[1] + 3 * v * v * u * p1[1] + 3 * v * u * u * p2[1] + u * u * u * p3[1]]); } return P; };
+function at(pts, p) { const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); const s = L[L.length - 1] * clamp(p); let i = 1; while (i < L.length - 1 && L[i] < s) i++; const u = (s - L[i - 1]) / Math.max(1e-6, L[i] - L[i - 1]); return [lerp(pts[i - 1][0], pts[i][0], u), lerp(pts[i - 1][1], pts[i][1], u)]; }
+/* ---- the painting as a list of timed brush actions; each has a path the brush tip follows ---- */
+const IT = [];
+function add(t0, dur, pts, draw, ease = E.inOutSine) { IT.push({ t0, t1: t0 + dur, pts, draw, ease }); }
+const ink = (pts, w, a, o = {}) => (p) => { I.stroke(pts, w, a, p, o); if (p < 1 && p > 0.02) { const q = at(pts, p); I.dab(q[0], q[1], w * 0.55, 0.35 * a, o.ch || 'r'); } };
+const tint = (pts, w, a, ch, o = {}) => (p) => { I.on('tint'); I.stroke(pts, w, a, p, { ch, ...o }); I.on('ink'); };
+const both = (...f) => (p) => f.forEach((g) => g(p));
+// ---------- 1 · ginseng (x 230-560) ----------
+{
+  const mid = bz([390, 545], [368, 625], [414, 705], [392, 792], 24);
+  const wf = (f) => 16 + 30 * Math.sin(Math.PI * (0.12 + 0.8 * f)) + 6 * Math.sin(f * 17);
+  const off = (side) => mid.map(([x, y], i) => { const a = mid[Math.min(i + 1, mid.length - 1)], b = mid[Math.max(i - 1, 0)]; const dx = a[0] - b[0], dy = a[1] - b[1], l = Math.hypot(dx, dy) || 1; const w = wf(i / (mid.length - 1)); return [x - dy / l * w * side, y + dx / l * w * side]; });
+  const L = off(1), R = off(-1);
+  add(0.0, 0.62, mid, both(tint(mid, 92, 0.75, 'b', { tin: 0.25, tout: 0.25 }), ink(mid, 76, 0.16, { ch: 'g', tin: 0.2, tout: 0.3 })));
+  add(0.08, 0.5, L, ink(L, 6, 0.9, { dry: 0.35, seed: 1, tin: 0.05, tout: 0.15, press: (f) => 0.7 + 0.6 * Math.sin(Math.PI * f) }));
+  add(0.14, 0.5, R, ink(R, 7, 0.9, { dry: 0.35, seed: 2, tin: 0.05, tout: 0.15, press: (f) => 0.7 + 0.6 * Math.sin(Math.PI * f) }));
+  for (let k = 0; k < 8; k++) { const q = at(mid, 0.1 + k * 0.1), y = q[1], w = wf(0.1 + k * 0.1) * 0.8; const cx0 = q[0]; const pts = bz([cx0 - w, y], [cx0 - w * 0.4, y + 7], [cx0 + w * 0.4, y + 6], [cx0 + w * (0.5 + 0.4 * h1(k)), y - 2], 8); add(0.5 + k * 0.03, 0.12, pts, ink(pts, 2.6, 0.75, { seed: 10 + k, tin: 0.2, tout: 0.4 })); }
+  const legL = bz([380, 778], [360, 830], [330, 870], [300, 930]), legR = bz([404, 782], [430, 830], [466, 868], [490, 920]);
+  add(0.72, 0.22, legL, both(tint(legL, 40, 0.75, 'b', { tout: 0.8 }), ink(legL, 30, 0.2, { ch: 'g', tout: 0.8 }), ink(legL.map(([x, y]) => [x - 13, y]), 4, 0.85, { seed: 21, tout: 0.6 })));
+  add(0.9, 0.22, legR, both(tint(legR, 36, 0.75, 'b', { tout: 0.8 }), ink(legR, 28, 0.2, { ch: 'g', tout: 0.8 }), ink(legR.map(([x, y]) => [x + 12, y]), 4, 0.85, { seed: 22, tout: 0.6 })));
+  const armL = bz([378, 640], [340, 660], [310, 690], [282, 730]), armR = bz([404, 650], [440, 670], [470, 700], [500, 750]);
+  add(1.1, 0.16, armL, both(tint(armL, 22, 0.75, 'b', { tout: 0.85 }), ink(armL, 14, 0.5, { seed: 23, tout: 0.85, dry: 0.3 })));
+  add(1.24, 0.16, armR, both(tint(armR, 22, 0.75, 'b', { tout: 0.85 }), ink(armR, 14, 0.5, { seed: 24, tout: 0.85, dry: 0.3 })));
+  const hairs = [[300, 930, 250, 1000], [300, 930, 320, 1010], [490, 920, 540, 990], [490, 920, 470, 1000], [282, 730, 230, 770], [500, 750, 556, 790], [340, 870, 300, 960], [466, 868, 520, 960]];
+  hairs.forEach(([a, b, c, dd], k) => { const pts = bz([a, b], [lerp(a, c, 0.3) + 10, lerp(b, dd, 0.4)], [lerp(a, c, 0.7) - 8, lerp(b, dd, 0.75)], [c, dd], 10); add(1.4 + k * 0.045, 0.12, pts, ink(pts, 1.8, 0.85, { seed: 30 + k, tin: 0.02, tout: 0.6 })); });
+  const neck = [[390, 548], [386, 520], [392, 495], [386, 468]];
+  add(1.8, 0.2, neck, both(ink(neck, 15, 0.75, { seed: 40, dry: 0.4 }), (p) => { for (let k = 0; k < 4; k++) if (p > k / 4) I.stroke([[378, 540 - k * 22], [398, 536 - k * 22]], 3, 0.85, 1, { seed: 41 + k }); }));
+  const stem = bz([386, 468], [384, 400], [392, 330], [388, 262]);
+  add(2.02, 0.4, stem, ink(stem, 5, 0.9, { seed: 45, tin: 0.05, tout: 0.15 }));
+  // three palmate leaves, five leaflets each
+  [[-0.75, 1], [0, 0.95], [0.75, 1]].forEach(([ang, len], j) => {
+    const a0 = -Math.PI / 2 + ang, px = 388 + Math.cos(a0) * 70 * len, py = 262 + Math.sin(a0) * 70 * len; const pet = [[388, 262], [px, py]];
+    add(2.45 + j * 0.32, 0.08, pet, ink(pet, 3, 0.85, { seed: 50 + j }));
+    for (let k = 0; k < 5; k++) { const a = a0 + (k - 2) * 0.48, L2 = (k === 2 ? 92 : k === 1 || k === 3 ? 78 : 52) * len; const lf = bz([px, py], [px + Math.cos(a - 0.15) * L2 * 0.4, py + Math.sin(a - 0.15) * L2 * 0.4], [px + Math.cos(a + 0.1) * L2 * 0.8, py + Math.sin(a + 0.1) * L2 * 0.8], [px + Math.cos(a) * L2, py + Math.sin(a) * L2], 10);
+      add(2.53 + j * 0.32 + k * 0.045, 0.1, lf, both(ink(lf, 32 * len, 0.36, { seed: 55 + j * 5 + k, tin: 0.5, tout: 0.6, dry: 0.15 }), tint(lf, 34, 0.6, 'r', { tin: 0.5, tout: 0.6 }), (p) => { if (p > 0.6) I.stroke(lf, 1.6, 0.6, (p - 0.6) / 0.4, { seed: 60 + k }); })); }
+  });
+  for (let k = 0; k < 13; k++) { const a = h1(k * 3.1) * Math.PI * 2, r = 8 + 22 * Math.sqrt(h1(k * 7.3)); const x = 388 + Math.cos(a) * r, y = 238 + Math.sin(a) * r * 0.8; add(3.5 + k * 0.035, 0.06, [[x, y], [x + 0.1, y]], (p) => { I.dab(x, y, 10 * E.outBack(p), 0.95, 'b'); I.dab(x, y, 9 * E.outBack(p), 0.25, 'r'); }); }
+  { const pts = [[388, 262], [388, 248]]; add(3.48, 0.04, pts, ink(pts, 2, 0.8)); }
+}
+// ---------- 2 · goji branch (x 620-1040) ----------
+{
+  const br = bz([660, 960], [700, 700], [820, 360], [1010, 400], 24);
+  add(4.35, 0.75, br, ink(br, 9, 0.9, { seed: 70, dry: 0.45, tin: 0.03, tout: 0.4, press: (f) => 1.2 - 0.6 * f }));
+  const tw = [bz([742, 640], [790, 640], [840, 660], [880, 700]), bz([790, 500], [840, 520], [880, 560], [900, 620]), bz([900, 380], [930, 420], [960, 460], [980, 520]), bz([700, 760], [660, 720], [640, 700], [610, 690])];
+  tw.forEach((pts, k) => add(5.1 + k * 0.12, 0.16, pts, ink(pts, 4, 0.85, { seed: 71 + k, tout: 0.5 })));
+  const leaves = []; const LP = [[760, 610, 2.4], [770, 600, 0.7], [820, 470, 2.6], [815, 465, 0.9], [880, 395, -2.2], [930, 385, 1.2], [860, 680, 1.4], [890, 590, 1.8], [960, 470, 1.6], [985, 410, 0.4], [640, 700, 3.4], [720, 720, -0.1], [705, 800, 2.8]];
+  LP.forEach(([x, y, a], k) => { const L2 = 54 + 26 * h1(k * 2.2); const lf = bz([x, y], [x + Math.cos(a - 0.2) * L2 * 0.4, y + Math.sin(a - 0.2) * L2 * 0.4], [x + Math.cos(a + 0.1) * L2 * 0.8, y + Math.sin(a + 0.1) * L2 * 0.8], [x + Math.cos(a) * L2, y + Math.sin(a) * L2], 8); leaves.push(lf);
+    add(5.6 + k * 0.05, 0.1, lf, both(ink(lf, 15, 0.4, { seed: 80 + k, tin: 0.35, tout: 0.6 }), tint(lf, 18, 0.55, 'r', { tin: 0.25, tout: 0.7 }))); });
+  const BER = [[880, 728], [905, 652], [985, 560], [1020, 450], [612, 724], [748, 680], [840, 548], [960, 520]];
+  BER.forEach(([x, y], k) => { const ped = [[x, y - 34], [x + 3, y - 12]];
+    add(6.3 + k * 0.085, 0.08, ped, (p) => { I.stroke(ped, 2, 0.8, p, { seed: 90 + k });
+      if (p > 0.5) { const s = E.outBack(clamp((p - 0.5) / 0.5)); const g = I.d0; g.save(); g.translate(x, y + 4); g.rotate(0.15 * (h1(k) - 0.5)); g.scale(s, s);
+        const e = new Path2D(); e.ellipse(0, 0, 11, 17, 0, 0, 7); g.fillStyle = 'rgba(0,0,255,.95)'; g.fill(e); g.fillStyle = 'rgba(255,0,0,.12)'; g.fill(e); g.restore();
+        I.lift(new Path2D(`M${x - 5} ${y - 4} a3.5 5 0 1 0 0.1 0`), 0.7 * s, false); } }); });
+}
+// ---------- 3 · chrysanthemum (x 1080-1460) ----------
+{
+  const [fx, fy] = [1270, 420];
+  for (let k = 0; k < 30; k++) {
+    const ring = k < 14 ? 0 : k < 24 ? 1 : 2, kk = ring === 0 ? k : ring === 1 ? k - 14 : k - 24, n = ring === 0 ? 14 : ring === 1 ? 10 : 6;
+    const a = (kk / n) * Math.PI * 2 + ring * 0.3 + 0.2 * (h1(k) - 0.5), L2 = [120, 86, 54][ring] * (0.85 + 0.3 * h1(k * 3.3)), cv = 0.5 + 0.3 * h1(k * 5.5);
+    const ex = fx + Math.cos(a) * L2, ey = fy + Math.sin(a) * L2 * 0.82;
+    const pts = bz([fx + Math.cos(a) * 14, fy + Math.sin(a) * 12], [fx + Math.cos(a - 0.1) * L2 * 0.5, fy + Math.sin(a - 0.1) * L2 * 0.45], [fx + Math.cos(a + cv * 0.4) * L2 * 0.9, fy + Math.sin(a + cv * 0.4) * L2 * 0.75], [ex, ey], 10);
+    add(7.35 + k * 0.04, 0.14, pts, both(tint(pts, ring === 2 ? 14 : 18, 0.9, 'g', { tin: 0.1, tout: 0.3 }), ink(pts, ring === 2 ? 2.4 : 2.0, 0.62, { seed: 100 + k, tin: 0.1, tout: 0.2 }), (p) => { if (p > 0.9) { const q = at(pts, 1); I.stroke([[q[0], q[1]], [q[0] - Math.cos(a + 1.2) * 9, q[1] - Math.sin(a + 1.2) * 9]], 2.2, 0.8, 1, { seed: k }); } }));
+  }
+  add(8.6, 0.12, [[fx, fy], [fx + 1, fy]], (p) => { I.dab(fx, fy, 22 * p, 0.5); for (let k = 0; k < 9; k++) I.dab(fx + 10 * Math.cos(k * 2.4), fy + 9 * Math.sin(k * 2.4), 4 * p, 0.8); });
+  const st = bz([fx + 4, fy + 40], [fx + 10, fy + 200], [fx - 30, fy + 360], [fx - 10, 960], 20);
+  add(8.72, 0.38, st, ink(st, 7, 0.85, { seed: 130, dry: 0.4, tin: 0.03, tout: 0.3 }));
+  const LV = [[fx + 6, fy + 210, 0.3, 1.1], [fx - 14, fy + 330, 2.8, 1.0], [fx - 20, fy + 450, 0.1, 0.9]];
+  LV.forEach(([x, y, a, s], k) => { const t0 = 9.1 + k * 0.12;
+    [-0.55, 0, 0.5].forEach((da, j) => { const aa = a + da, L2 = (j === 1 ? 120 : 86) * s; const lb = bz([x, y], [x + Math.cos(aa - 0.15) * L2 * 0.4, y + Math.sin(aa - 0.15) * L2 * 0.4], [x + Math.cos(aa + 0.12) * L2 * 0.75, y + Math.sin(aa + 0.12) * L2 * 0.75], [x + Math.cos(aa) * L2, y + Math.sin(aa) * L2], 10);
+      add(t0 + j * 0.04, 0.12, lb, both(ink(lb, 46 * s, 0.32, { seed: 140 + k * 3 + j, tin: 0.35, tout: 0.55, dry: 0.25 }), tint(lb, 50 * s, 0.6, 'r', { tin: 0.35, tout: 0.55 }), (p) => { if (p > 0.6) I.stroke(lb, 1.8, 0.75, (p - 0.6) / 0.4, { seed: 150 + j }); })); });
+  });
+  // a closed bud
+  { const bd = [[fx + 110, fy + 160], [fx + 104, fy + 200], [fx + 60, fy + 270]]; add(9.35, 0.14, bd, both(ink(bd, 4, 0.8, { seed: 150 }), (p) => { if (p > 0.5) { I.dab(fx + 112, fy + 150, 16, 0.45); I.on('tint'); I.dab(fx + 112, fy + 150, 18, 0.9, 'g'); I.on('ink'); } })); }
+}
+const LAST = 9.6;
+function tip(t) {
+  let cur = null, next = null;
+  for (const it of IT) { if (it.t0 <= t) { if (!cur || it.t0 >= cur.t0) cur = it; } else if (!next || it.t0 < next.t0) next = it; }
+  if (!cur) return at(IT[0].pts, 0);
+  if (t < cur.t1) return at(cur.pts, cur.ease(inv(cur.t0, cur.t1, t)));
+  const e = at(cur.pts, 1); if (!next) return e; const s = at(next.pts, 0); const u = E.inOutSine(inv(cur.t1, next.t0, t)); return [lerp(e[0], s[0], u), lerp(e[1], s[1], u)];
+}
+function camAt(t) {
+  let x = 0, y = 0, n = 0; for (let k = 0; k < 10; k++) { const q = tip(Math.min(LAST, t) - k * 0.045); x += q[0]; y += q[1]; n++; } x /= n; y /= n;
+  const u = E.inOutCubic(inv(9.55, 11.7, t)); const z0 = 2.1 + 0.15 * Math.sin(t * 0.8);
+  return { x: lerp(x, 935, u) + 4 * Math.sin(t * 0.7), y: lerp(y, 545, u), z: 1 / lerp(1 / z0, 1 / 0.93, u) };
+}
+function scene(t) {
+  const cam = camAt(t); I.begin(cam);
+  for (const it of IT) { if (t < it.t0) continue; I.on('ink'); it.draw(it.ease(inv(it.t0, it.t1, t))); }
+  I.on('ink');
+  // ---- album frame, labels, title (painting coordinates; ruled in during the pull-back) ----
+  const fr = (a, b) => E.inOutSine(inv(a, b, t));
+  const box = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+  I.stroke(box(150, 120, 1770, 1010), 4.5, 0.85, fr(10.0, 11.3), { tin: 0.005, tout: 0.005, seed: 200 });
+  I.stroke(box(170, 140, 1750, 990), 1.8, 0.75, fr(10.2, 11.5), { tin: 0.005, tout: 0.005, seed: 201 });
+  I.stroke([[1530, 140], [1530, 990]], 1.8, 0.6, fr(10.9, 11.5), { seed: 202 });
+  // herb labels: name in a small column + numbered vermilion tag
+  const LB = [[520, 480], [1060, 760], [1430, 640]];
+  C.herbs.forEach((nm, k) => { const [x, y] = LB[k]; [...nm].forEach((ch, j) => { const t0 = 10.5 + k * 0.28 + j * 0.1; I.text(ch, x, y + j * 50, 42, E.inOutSine(inv(t0, t0 + 0.12, t)), { wt: 700 }); });
+    const ta = E.outQuad(inv(10.7 + k * 0.28, 10.9 + k * 0.28, t)); if (ta > 0) I.seal(['壹', '贰', '叁'][k], x, y - 50, 30, ta * 0.9, 0.02); });
+  [...C.album].forEach((ch, j) => { const t0 = 11.2 + j * 0.08; I.text(ch, 1690, 200 + j * 44, 34, E.inOutSine(inv(t0, t0 + 0.1, t)), { wt: 500 }); });
+  [...C.brand].forEach((ch, j) => { const t0 = 11.6 + j * 0.24; I.text(ch, 1620, 330 + j * 150, 132, E.inOutSine(inv(t0, t0 + 0.26, t)), { wt: 900 }); });
+  if (t > 12.6) { const u = clamp((t - 12.6) / 0.2); const sc = 1 + 0.4 * Math.pow(1 - u, 3); I.d0.save(); I.d0.translate(1640, 820); I.d0.scale(sc, sc); I.seal(C.seal, 0, 0, 92, E.outQuad(u) * 0.95); I.d0.restore(); }
+  { const a = E.outQuad(inv(13.0, 13.8, t)); if (a > 0) { const g = I.d0; g.save(); g.font = `500 28px ${SERIF}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = `rgba(255,0,0,${0.85 * a})`; g.fillText(C.sub, 200, 960); g.restore(); } }
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: [`900 132px ${SERIF}`, `700 42px ${SERIF}`, `500 28px ${SERIF}`],
+  cues: [{ t: 0.0, sfx: 'brush', gain: 0.6 }, { t: 0.7, sfx: 'brush', gain: 0.45 }, { t: 1.4, sfx: 'pencil', gain: 0.35 }, { t: 2.45, sfx: 'brush', gain: 0.45 }, { t: 3.5, sfx: 'pop', gain: 0.35 },
+    { t: 4.0, sfx: 'whoosh', gain: 0.55 }, { t: 4.35, sfx: 'brush', gain: 0.5 }, { t: 6.3, sfx: 'drip', gain: 0.4 }, { t: 6.55, sfx: 'drip', gain: 0.35 }, { t: 6.8, sfx: 'drip', gain: 0.35 },
+    { t: 7.0, sfx: 'whoosh', gain: 0.55 }, { t: 7.35, sfx: 'scribble', gain: 0.4 }, { t: 9.55, sfx: 'swell', gain: 0.5 }, { t: 10.5, sfx: 'scribble', gain: 0.45 }, { t: 11.6, sfx: 'brush', gain: 0.5 }, { t: 12.6, sfx: 'stamp', gain: 0.85 }],
+  async setup() { I = INK.init(stage); },
+  render(t) { scene(t); I.frame(t, { dry: 0.5, bleed: 7, c1: [0.62, 0.8, 0.6], c2: [0.97, 0.84, 0.55], c3: [0.9, 0.82, 0.68] }); },
+});
+</script></body></html>

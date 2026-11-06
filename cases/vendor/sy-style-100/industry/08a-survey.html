@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>08 · 无人机测绘 · 云眸测绘</title>
+<script src="../lib/core.js"></script><script src="../lib/hud.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 08 赛博 HUD · 行业示例：无人机测绘 =====
+   A slow, high orbit around a construction site. A survey drone flies a lawn-mower route and the site
+   appears behind it strip by strip as a LiDAR point cloud; then the whole cloud is recoloured as an
+   elevation map with contour lines, and measurement tags pin themselves to the stockpile and the frames. */
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#02060a');
+const C = Reel.cfg({ brand: '云眸测绘', sub: '无人机航测 · 土方计算 · 三维建模' });
+const ctx = HUD.init(stage); const K = HUD.K, h1 = HUD.h1;
+const hgt = (x, z) => { let h = 7 * Math.sin(x * 0.028 + 0.6) * Math.cos(z * 0.022) + 3.5 * Math.sin(x * 0.07 + z * 0.05) + 2 * Math.cos(z * 0.09 - x * 0.03); const pad = clamp(1 - Math.max(Math.abs(x + 10) / 55, Math.abs(z) / 40)); return lerp(h, 1.5, clamp(pad * 3)); };
+const river = (z) => 72 + 14 * Math.sin(z * 0.03);
+// ---- build the site
+for (let x = -100; x <= 100; x += 2.1) for (let z = -100; z <= 100; z += 2.1) {
+  const rv = Math.abs(x - river(z)); if (rv < 7) { HUD.add(x, hgt(x, z) - 3, z, 4); continue; }
+  HUD.add(x + (h1(x * 3 + z) - 0.5), hgt(x, z), z + (h1(x + z * 7) - 0.5), 2);
+}
+// building frames: columns + slabs
+const BLDS = [[-40, -12, 18, 26, 7], [-12, -14, 16, 22, 5], [12, -10, 14, 18, 3]];
+for (const [bx, bz, bw, bd, fl] of BLDS) for (let f = 0; f <= fl; f++) {
+  const y = 1.5 + f * 3.4;
+  for (let x = bx; x <= bx + bw; x += 1.2) { HUD.add(x, y, bz, 0); HUD.add(x, y, bz + bd, 0); }
+  for (let z = bz; z <= bz + bd; z += 1.2) { HUD.add(bx, y, z, 0); HUD.add(bx + bw, y, z, 0); }
+  if (f < fl) for (let cx = bx; cx <= bx + bw + 0.1; cx += bw / 3) for (let cz = bz; cz <= bz + bd + 0.1; cz += bd / 2) for (let yy = y; yy < y + 3.4; yy += 0.6) HUD.add(cx, yy, cz, 0);
+}
+// tower crane
+for (let y = 1.5; y < 42; y += 0.7) for (const [dx, dz] of [[0, 0], [1.4, 0], [0, 1.4], [1.4, 1.4]]) HUD.add(-26 + dx, y, 22 + dz, 1);
+for (let x = -44; x < 6; x += 0.6) HUD.add(x, 42, 22.7, 1);
+// stockpile (earthwork)
+const SP = [40, 2, 30];
+for (let a = 0; a < 6.283; a += 0.06) for (let r = 0; r < 13; r += 0.9) HUD.add(SP[0] + Math.cos(a) * r, 1.5 + (13 - r) * 0.75, SP[2] + Math.sin(a) * r * 0.8, 5);
+// trees
+for (let i = 0; i < 70; i++) { const x = -95 + h1(i * 3.3) * 60, z = -95 + h1(i * 7.1) * 190; if (Math.abs(x + 10) < 60 && Math.abs(z) < 45) continue; const y0 = hgt(x, z); for (let k = 0; k < 26; k++) { const a = h1(i + k * 1.7) * 6.28, b = h1(i * 2 + k) * 3.14; HUD.add(x + Math.cos(a) * Math.sin(b) * 3, y0 + 5 + Math.cos(b) * 3, z + Math.sin(a) * Math.sin(b) * 3, 3); } }
+const NP = HUD.PX.length;
+// ---- the survey route: 8 strips along z, alternating
+const STRIPS = 8, X0 = -100, SW = 200 / STRIPS, ROUTE0 = 0.8, ROUTE1 = 8.2;
+const routeS = (t) => clamp((t - ROUTE0) / (ROUTE1 - ROUTE0)) * STRIPS;
+function dronePos(s) { const k = Math.min(STRIPS - 1, Math.floor(s)), f = s - k, z = (k % 2 ? 100 - f * 200 : -100 + f * 200); return [X0 + (k + 0.5) * SW, 60, z]; }
+function revealed(x, z, s) { const k = Math.floor((x - X0) / SW); if (k < Math.floor(s)) return 1; if (k > Math.floor(s)) return 0; const f = s - k, zz = k % 2 ? 100 - f * 200 : -100 + f * 200; return k % 2 ? (z >= zz ? 1 : 0) : (z <= zz ? 1 : 0); }
+const heat = (h) => { const u = clamp((h + 10) / 22); const st = [[40, 90, 255], [40, 220, 200], [120, 255, 90], [255, 220, 60], [255, 80, 60]]; const p = u * 4, i = Math.min(3, Math.floor(p)), f = p - i; return st[i].map((v, j) => lerp(v, st[i + 1][j], f) | 0); };
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: [`500 20px ${HUD.MONO}`, '900 84px "Noto Sans CJK SC"', '600 26px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.1, sfx: 'boot', gain: 0.6 }, { t: 0.8, sfx: 'whoosh', gain: 0.4 }, ...Array.from({ length: 8 }, (_, k) => ({ t: +(0.8 + k * 0.925).toFixed(2), sfx: 'beep', gain: 0.35 })), { t: 8.2, sfx: 'ding', gain: 0.5 },
+    { t: 8.6, sfx: 'swell', gain: 0.5 }, { t: 9.8, sfx: 'pop', gain: 0.45 }, { t: 10.3, sfx: 'pop', gain: 0.45 }, { t: 11.75, sfx: 'glitch', gain: 0.5 }, { t: 12.0, sfx: 'impact_soft', gain: 0.6 }],
+  render(t) {
+    const yawO = lerp(0.35, 1.75, E.inOutSine(clamp(t / 15))), R = lerp(205, 165, E.inOutSine(clamp(t / 12))), hh = lerp(150, 105, E.inOutSine(clamp(t / 12)));
+    const fwd = [Math.sin(yawO), Math.cos(yawO)];
+    HUD.cam = { x: -fwd[0] * R, y: hh, z: -fwd[1] * R, yaw: yawO, pitch: -Math.atan2(hh, R) + 0.05, roll: 0, F: 1350, cx: 960, cy: 600 };
+    ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#02050b'; ctx.fillRect(0, 0, HUD.W, HUD.H);
+    const s = routeS(t), dp = dronePos(s);
+    const hm = E.inOutSine(inv(8.6, 9.6, t));
+    HUD.points((i, depth) => {
+      const x = HUD.PX[i], z = HUD.PZ[i], y = HUD.PY[i], k = HUD.PK[i];
+      const r = revealed(x, z, s); if (!r) return null;
+      const near = Math.exp(-Math.pow((x - dp[0]) / 14, 2) - Math.pow((z - dp[2]) / 10, 2)) * (t < ROUTE1 + 0.3 ? 1 : 0);
+      const fog = clamp(1.4 - depth / 600);
+      let col = k === 4 ? [60, 140, 255] : k === 1 ? [255, 190, 60] : k === 0 ? [95, 246, 255] : k === 5 ? [255, 120, 200] : k === 3 ? [80, 255, 160] : [90, 200, 255];
+      let a = (k === 2 ? 0.85 : 0.95) * fog;
+      if (hm > 0 && (k === 2 || k === 3 || k === 4 || k === 5)) { const hc = heat(y); col = col.map((v, j) => lerp(v, hc[j], hm)); const cl = (y + 20) % 2.2 < 0.35 ? 1 : 0; a = lerp(a, 0.5 + 0.5 * cl, hm); }
+      if (near > 0.05) { col = col.map((v) => lerp(v, 255, near)); a += near; }
+      return [`rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},`, a];
+    }, { far: 900, pw: 2.6 });
+    // the drone and its route in the world
+    if (t < ROUTE1 + 0.5) {
+      ctx.save(); ctx.globalAlpha = 0.55; ctx.strokeStyle = HUD.AMB; ctx.lineWidth = 1.5 * K; ctx.setLineDash([6 * K, 6 * K]); ctx.beginPath();
+      for (let q = 0; q <= s; q += 0.02) { const p = HUD.proj(...dronePos(q)); q ? ctx.lineTo(p[0] * K, p[1] * K) : ctx.moveTo(p[0] * K, p[1] * K); }
+      ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+      const p = HUD.proj(...dp); const g = HUD.proj(dp[0], hgt(dp[0], dp[2]), dp[2]);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; const sc = ctx.createLinearGradient(p[0] * K, p[1] * K, g[0] * K, g[1] * K); sc.addColorStop(0, 'rgba(255,230,140,.5)'); sc.addColorStop(1, 'rgba(255,230,140,0)');
+      ctx.fillStyle = sc; ctx.beginPath(); ctx.moveTo(p[0] * K, p[1] * K); ctx.lineTo((g[0] - 70) * K, g[1] * K); ctx.lineTo((g[0] + 70) * K, g[1] * K); ctx.closePath(); ctx.fill(); ctx.restore();
+      HUD.corners(p[0] - 16, p[1] - 16, 32, 32, 8, HUD.AMB, 2); ctx.fillStyle = '#fff'; ctx.fillRect((p[0] - 3) * K, (p[1] - 3) * K, 6 * K, 6 * K);
+      HUD.txt('UAV-02', p[0] + 24, p[1] - 14, 15, HUD.AMB);
+    }
+    // measurement tags pinned to the world
+    const tag = (wp, txt, sub, t0, col) => { const a = E.outCubic(clamp((t - t0) / 0.35)); if (a <= 0) return; const p = HUD.proj(...wp); const ex = p[0] + 120, ey = p[1] - 90;
+      HUD.line(p[0], p[1], ex, ey, col, 1.5, a); HUD.line(ex, ey, ex + 210 * a, ey, col, 1.5, a); ctx.fillStyle = col; ctx.fillRect((p[0] - 4) * K, (p[1] - 4) * K, 8 * K, 8 * K);
+      HUD.txt(txt, ex + 6, ey - 20, 22, '#ffffff', 'left', a, '"Noto Sans CJK SC"', 700); HUD.txt(sub, ex + 6, ey + 20, 16, col, 'left', a); };
+    tag([SP[0], 12, SP[2]], '土方量 3,260 m³', 'VOL ±1.5%', 9.8, HUD.PINK);
+    tag([-31, 25, -12], '3# 楼 · 主体 7 层', 'H 25.3m', 10.3, HUD.CY);
+    // ---- HUD frame
+    const boot = (a, d = 0.35) => E.outCubic(clamp((t - a) / d));
+    HUD.corners(60, 50, 1800, 980, 70 * boot(0.1), HUD.CY, 2, 0.85);
+    const b1 = boot(0.3);
+    if (b1 > 0) {
+      HUD.rect(90, 80, 420, 190, HUD.CY, 0.12 * b1, true); HUD.corners(90, 80, 420, 190, 16, HUD.CY, 2, b1);
+      HUD.txt('MISSION · 航测任务', 110, 108, 17, HUD.CY, 'left', b1, '"Noto Sans CJK SC"', 700);
+      HUD.txt(`航线  ${String(Math.min(8, Math.floor(s) + 1)).padStart(2, '0')} / 08`, 110, 146, 18, '#fff', 'left', b1);
+      HUD.rect(110, 170, 380, 10, HUD.CY, 0.3 * b1, true); HUD.rect(110, 170, 380 * clamp(s / 8), 10, HUD.AMB, b1, true);
+      HUD.txt(`面积  ${(12.6 * clamp(s / 8)).toFixed(1)} 公顷`, 110, 210, 18, '#fff', 'left', b1, '"Noto Sans CJK SC"');
+      HUD.txt('GSD   1.8 cm/px', 110, 244, 18, HUD.CY, 'left', b1);
+    }
+    const b2 = boot(0.6);
+    if (b2 > 0) {        // minimap with strips
+      const mx = 1530, my = 90, ms = 290;
+      HUD.rect(mx, my, ms, ms, HUD.CY, 0.1 * b2, true); HUD.corners(mx, my, ms, ms, 16, HUD.CY, 2, b2);
+      for (let k = 0; k < STRIPS; k++) { const f = clamp(s - k); if (f <= 0) continue; const x = mx + 12 + k * (ms - 24) / STRIPS; const h = (ms - 24) * f; HUD.rect(x + 2, k % 2 ? my + ms - 12 - h : my + 12, (ms - 24) / STRIPS - 4, h, HUD.AMB, 0.35, true); }
+      const dpx = mx + 12 + (dp[0] - X0) / 200 * (ms - 24), dpy = my + 12 + (dp[2] + 100) / 200 * (ms - 24);
+      if (t < ROUTE1) { ctx.fillStyle = '#fff'; ctx.fillRect((dpx - 4) * K, (dpy - 4) * K, 8 * K, 8 * K); }
+      HUD.txt('ROUTE MAP', mx, my - 18, 14, HUD.CY, 'left', b2);
+    }
+    const b3 = boot(0.9);
+    if (b3 > 0) {
+      const tel = [`ALT ${(118 + Math.sin(t) * 2).toFixed(1)}m`, `SPD ${(12 + Math.sin(t * 1.7)).toFixed(1)}m/s`, `BAT ${Math.round(82 - t * 0.6)}%`, `PTS ${Math.floor(NP * clamp(s / 8)).toLocaleString('en')}`, `RTK FIX ±2cm`];
+      tel.forEach((x, i) => HUD.txt(x, 120 + i * 330, 1000, 18, i === 4 ? HUD.GRN : HUD.CY, 'left', b3));
+    }
+    if (t > 8.6 && t < 11.8) HUD.txt('ELEVATION MAP · 高程分析', 960, 130, 22, HUD.AMB, 'center', E.outCubic(clamp((t - 8.6) / 0.4)) * (1 - clamp((t - 11.4) / 0.4)), '"Noto Sans CJK SC"', 700);
+    if (t < 1.4) HUD.txt('SURVEY LINK ONLINE' + (Math.floor(t * 8) % 2 ? '_' : ''), 960, 760, 22, HUD.CY, 'center', clamp(t * 4) * (1 - clamp((t - 1.1) / 0.3)), HUD.MONO, 700);
+    HUD.title(t, 12.0, C.brand, C.sub, 830);
+    let g = 0; for (const [a, d] of [[11.75, 0.25], [0.6, 0.08], [8.55, 0.12]]) if (t > a && t < a + d) g = Math.max(g, 1 - (t - a) / d);
+    HUD.post(t, g);
+  },
+});
+</script></body></html>

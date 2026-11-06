@@ -1,0 +1,21 @@
+灵感送达 — Desktop Flythrough 风格样片（19.733 s，1920×1080，30 fps，无旁白、无字幕）
+
+Code: written for this film (src/film.js, src/shots.js, src/timeline.js, audio/*.py, tools/tl.mjs, tools/cuecheck.py).
+Engine files src/world.js, cards.js, voxel.js, anim.js, camera.js, post.js, main.js, captions.js and tools/camspeed.mjs are adapted
+from the Lemo-Opuscar style library's desktop-flythrough engine (MIT). The page contract, renderer, mux, reading-time check, sampler,
+plucked-string model and procedural foley helpers come from the library's core/ (MIT). three.js r170 (MIT), from the library's node_modules.
+
+Fonts (SIL Open Font License 1.1; licence texts in fonts/):
+  JetBrains Mono (fonts/JetBrainsMono.ttf) — https://github.com/google/fonts/tree/main/ofl/jetbrainsmono
+  Manrope (fonts/Manrope.ttf) — https://github.com/google/fonts/tree/main/ofl/manrope
+  Noto Sans SC 700/900, subset to the characters on screen via the Google Fonts CSS API &text= (fonts/NotoSansSC-700.woff2, -900.woff2; tools/cjk_fonts.sh)
+    — https://fonts.google.com/noto/specimen/Noto+Sans+SC
+
+Music samples (CC0 1.0, no attribution required; acknowledged):
+  VS Chamber Orchestra: Community Edition (Versilian Studios / Sam Gossner) — https://github.com/sgossner/VSCO-2-CE : violins, violas
+  Versilian Community Sample Library (Versilian Studios) — https://github.com/sgossner/VCSL : marimba, vibraphone (soft mallets), claps, shaker, hi-hat
+  Karoryfer Samples, Sneakybass jazz double bass — https://github.com/sfzinstruments : jazz pizzicato bass
+Synthesised in code: the kick (sine sweep), the physically modelled upright bass layer (core/audio/pluck.py), the vinyl bed, all foley.
+
+Pixel art (the bulb), cards, the drawer tower and its miniature city, the paper plane, the stamp, desk props, wood and paper: drawn in code.
+No photographs, no footage, no generated images; no third-party real-world material, so no FACTS.md is needed (the film states no facts).

@@ -1,0 +1,64 @@
+{
+ "BPM": 120,
+ "BEAT": 0.5,
+ "DUR": 19.75,
+ "T": {
+  "press1": 1.25,
+  "ka1": 1.5,
+  "da1": 2,
+  "wide": 3,
+  "labels": [
+   8,
+   8.5,
+   9,
+   9.5
+  ],
+  "dims": [
+   10,
+   10.5
+  ],
+  "stab": 12.5,
+  "lblOut": 12.75,
+  "hush": 13,
+  "gapIn": 14,
+  "teeth": [
+   14,
+   15,
+   16
+  ],
+  "gapNote": 13.75,
+  "pull": 17,
+  "press2": 18.25,
+  "ka2": 18.5,
+  "da2": 19
+ },
+ "UP": {
+  "plunger": 3,
+  "cam": 4,
+  "rear": 5,
+  "front": 5.5,
+  "spring": 6,
+  "refill": 6.25
+ },
+ "LAND": {
+  "refill": 17.25,
+  "spring": 17.25,
+  "front": 17.5,
+  "rear": 17.75,
+  "cam": 18,
+  "plunger": 18
+ },
+ "UPDUR": 1.5,
+ "DOWNDUR": 0.75,
+ "GAP": {
+  "open": [
+   13,
+   14
+  ],
+  "close": [
+   16.5,
+   17.25
+  ],
+  "extra": 5
+ }
+}

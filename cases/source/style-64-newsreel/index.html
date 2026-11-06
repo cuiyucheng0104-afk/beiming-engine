@@ -1,0 +1,522 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>空中竞速</title>
+<style>
+@font-face{font-family:SerifSC;src:url(fonts/serifsc900.woff2) format("woff2");font-weight:900}
+@font-face{font-family:SansSC;src:url(fonts/sanssc600.woff2) format("woff2");font-weight:600}
+@font-face{font-family:LongCang;src:url(fonts/longcang.woff2) format("woff2")}
+@font-face{font-family:Oswald;src:url(fonts/oswald600.woff2) format("woff2");font-weight:600}
+@font-face{font-family:Limelight;src:url(fonts/limelight.woff2) format("woff2")}
+html,body{margin:0;background:#000;overflow:hidden}
+canvas{display:block}
+</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script type="module">
+import { clamp, lerp, seg, ss, eio, eo, ei, back, hash, vnoise, TAU } from '/core/lib.js';
+import { TL } from './timeline.js';
+
+// 1929 sound-newsreel packaging around real archive film. Academy gate 1480 x 1080, black sides.
+const W = 1920, H = 1080, GX = 220, GW = 1480, GH = 1080, FPS = TL.FPS;
+const { HIT, SECS, BEAT, PAGES, DEALS } = TL;
+const SEC = Object.fromEntries(SECS.map(s => [s.id, s]));
+window.DUR = TL.DUR;
+const cv = document.getElementById('c'), X = cv.getContext('2d');
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const PIC = mk(GW, GH), P = PIC.getContext('2d');     // picture layer (gets the film look)
+const TMP = mk(GW, GH), T2 = TMP.getContext('2d');    // incoming scene in a transition
+const FROM = mk(GW, GH), F1 = FROM.getContext('2d');  // outgoing scene
+
+// ---------------------------------------------------------------- assets
+const img = src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => { console.error('missing ' + src); r(null); }; i.src = src; });
+const MAP = await (await fetch('assets/map.json')).json();
+const A = {};
+await Promise.all(['column', 'photo0', 'photo1', 'freeze', ...[0, 1, 2, 3, 4, 5].map(i => 'cell' + i)].map(async n => A[n] = await img(`assets/${n}.jpg`)));
+const CL = {};
+await Promise.all(Object.entries(TL.CLIPS).map(async ([k, c]) => {
+  const n = Math.round(c.dur * FPS);
+  CL[k] = (await Promise.all([...Array(n).keys()].map(i => img(`assets/${k}/${String(i).padStart(3, '0')}.jpg`)))).filter(Boolean);
+}));
+for (const f of ['900 100px SerifSC', '600 30px SansSC', '80px LongCang', '600 40px Oswald', '80px Limelight'])
+  await document.fonts.load(f, '千里眼空中竞速！号外迪尔伯恩蒙特利纽约英里终点全国飞行巡回赛·EXTRA0123456789');
+
+// ---------------------------------------------------------------- helpers
+const frameOf = t => Math.floor(t * FPS + 1e-6);
+const clipAt = (k, s) => { const a = CL[k]; return a[clamp(Math.floor(s * FPS + 1e-6), 0, a.length - 1)]; };
+const cover = (im, w = GW, h = GH) => Math.max(w / im.width, h / im.height);
+function drawFrame(c, im, s = 1, fx = .5, fy = .5, ox = 0, oy = 0) {     // fill the gate, scaled about (fx, fy)
+  const k = cover(im) * s, w = im.width * k, h = im.height * k;
+  let x = GW / 2 - fx * w + ox, y = GH / 2 - fy * h + oy;
+  x = clamp(x, GW - w, 0); y = clamp(y, GH - h, 0);
+  c.fillStyle = '#000'; c.fillRect(0, 0, GW, GH); c.drawImage(im, x, y, w, h);
+}
+const jolt = (t, t0, amp = 16, k = 14, w = 70) => t < t0 ? 0 : Math.exp(-(t - t0) * k) * Math.sin((t - t0) * w) * amp;
+const joltC = (t, t0, amp = 16, k = 14, w = 70) => t < t0 ? 0 : Math.exp(-(t - t0) * k) * Math.cos((t - t0) * w) * amp;   // starts at full throw: the hit is on the beat frame itself
+
+// grease pencil: warm-white waxy stroke with a dark bite under it, drawn up to progress u
+function pencil(c, pts, u, wid = 9) {
+  if (u <= 0 || pts.length < 2) return;
+  const n = Math.max(2, Math.ceil(pts.length * clamp(u)));
+  const pass = (dx, dy, col, lw) => {
+    c.save(); c.strokeStyle = col; c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
+    for (let i = 0; i < n; i++) { const [x, y] = pts[i], j = (hash(i * 1.7 + x * .01) - .5) * 2.2; i ? c.lineTo(x + dx + j, y + dy + j) : c.moveTo(x + dx, y + dy); }
+    c.stroke(); c.restore();
+  };
+  pass(2, 3, 'rgba(8,7,6,.55)', wid + 3);
+  pass(0, 0, 'rgba(250,247,236,.95)', wid);
+  pass(1.8, -1.4, 'rgba(255,255,250,.5)', wid * .45);
+}
+const ringPts = (cx, cy, rx, ry, rot = 0, turns = 1.14) => [...Array(90).keys()].map(i => {
+  const a = -2.4 + i / 89 * TAU * turns, r = 1 + .05 * Math.sin(i * .55) + .03 * (i / 89);
+  return [cx + Math.cos(a) * rx * r * Math.cos(rot) - Math.sin(a) * ry * r * Math.sin(rot), cy + Math.cos(a) * rx * r * Math.sin(rot) + Math.sin(a) * ry * r * Math.cos(rot)];
+});
+const linePts = (x0, y0, x1, y1, n = 26) => [...Array(n).keys()].map(i => { const u = i / (n - 1); return [lerp(x0, x1, u), lerp(y0, y1, u) + Math.sin(u * 8) * 3]; });
+
+function silverText(c, txt, x, y, size, font, ls = 0) {
+  c.font = font; c.textAlign = 'center'; c.textBaseline = 'middle'; c.letterSpacing = ls + 'px';
+  c.lineJoin = 'round'; c.lineWidth = size * .12; c.strokeStyle = '#0c0b0a'; c.strokeText(txt, x + ls / 2, y);
+  const g = c.createLinearGradient(0, y - size * .5, 0, y + size * .5);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(.48, '#d9d4ca'); g.addColorStop(.52, '#9e978a'); g.addColorStop(1, '#efebe2');
+  c.fillStyle = g; c.fillText(txt, x + ls / 2, y);
+}
+
+// ---------------------------------------------------------------- 1. ident ritual
+function globe(c, cx, cy, R, rot) {
+  const g = c.createRadialGradient(cx - R * .35, cy - R * .4, R * .1, cx, cy, R);
+  g.addColorStop(0, '#f4f1ea'); g.addColorStop(.55, '#a9a49a'); g.addColorStop(1, '#2e2b27');
+  c.fillStyle = g; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.fill();
+  const tilt = .42, ct = Math.cos(tilt), st = Math.sin(tilt);
+  const P3 = (la, lo) => { const x = Math.cos(la) * Math.sin(lo + rot), y = Math.sin(la), z = Math.cos(la) * Math.cos(lo + rot); return [cx + R * x, cy - R * (y * ct - z * st), y * st + z * ct]; };
+  const line = pts => { c.beginPath(); let on = false; for (const p of pts) { if (p[2] > 0) { on ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); on = true; } else on = false; } c.stroke(); };
+  c.strokeStyle = 'rgba(20,18,15,.7)'; c.lineWidth = Math.max(1.2, R * .011);
+  for (let k = 0; k < 16; k++) { const pts = []; for (let a = -90; a <= 90; a += 4) pts.push(P3(a * Math.PI / 180, k * TAU / 16)); line(pts); }
+  for (let la = -75; la <= 75; la += 25) { const pts = []; for (let a = 0; a <= 360; a += 4) pts.push(P3(la * Math.PI / 180, a * Math.PI / 180)); line(pts); }
+  // a ring of flight: an orbiting dotted track with a little biplane silhouette (our own emblem)
+  c.save(); c.translate(cx, cy); c.rotate(-.32);
+  c.strokeStyle = 'rgba(245,240,230,.85)'; c.lineWidth = Math.max(2, R * .02); c.setLineDash([R * .06, R * .05]);
+  c.beginPath(); c.ellipse(0, 0, R * 1.32, R * .36, 0, Math.PI * 1.02, Math.PI * 1.98 + TAU, false); c.stroke(); c.setLineDash([]);
+  const pa = rot * 1.6 % TAU, px = Math.cos(pa) * R * 1.32, py = Math.sin(pa) * R * .36;
+  if (Math.sin(pa) > -0.2 || Math.abs(px) > R) {
+    c.translate(px, py); c.fillStyle = '#f6f2e8'; c.strokeStyle = '#0c0b0a'; c.lineWidth = 2;
+    const s = R / 200; c.scale(s, s);
+    c.beginPath(); c.rect(-34, -4, 68, 6); c.rect(-30, 9, 60, 5); c.rect(-6, -10, 34, 12); c.fill(); c.stroke();
+  }
+  c.restore();
+  c.lineWidth = Math.max(2, R * .025); c.strokeStyle = 'rgba(10,9,8,.9)'; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.stroke();
+}
+function sunburst(c, cx, cy, rot, a) {
+  c.save(); c.globalAlpha = a;
+  for (let i = 0; i < 40; i++) { const a0 = rot + i * TAU / 40; c.fillStyle = i % 2 ? '#2b2824' : '#191714'; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, 1700, a0, a0 + TAU / 40); c.closePath(); c.fill(); }
+  c.restore();
+}
+function beams(c, t, on) {
+  if (on <= 0) return;
+  c.save(); c.globalCompositeOperation = 'lighter';
+  for (const side of [-1, 1]) {
+    const ox = GW / 2 + side * 600, oy = GH + 40;
+    const ang = -Math.PI / 2 - side * (.5 * Math.cos(t * 2.2 + (side > 0 ? .9 : 0)) + .05);
+    const L = 1600, sp = .08;
+    const g = c.createLinearGradient(ox, oy, ox + Math.cos(ang) * L, oy + Math.sin(ang) * L);
+    g.addColorStop(0, `rgba(255,252,240,${.6 * on})`); g.addColorStop(.7, `rgba(255,250,235,${.15 * on})`); g.addColorStop(1, 'rgba(255,250,235,0)');
+    c.fillStyle = g; c.beginPath(); c.moveTo(ox, oy); c.lineTo(ox + Math.cos(ang - sp) * L, oy + Math.sin(ang - sp) * L); c.lineTo(ox + Math.cos(ang + sp) * L, oy + Math.sin(ang + sp) * L); c.closePath(); c.fill();
+  }
+  c.restore();
+}
+const LOGO = { cy: GH * .40, ny: GH * .75 };
+function sceneLogo(c, t) {
+  c.fillStyle = '#121110'; c.fillRect(0, 0, GW, GH);
+  const on = clamp(1 - .6 * Math.exp(-t * 9)), flash = Math.exp(-t * 7);
+  sunburst(c, GW / 2, LOGO.cy, t * .14, on);
+  beams(c, t, on);
+  const R = lerp(50, 250, eo(seg(t, 0, 1.0))) * (1 + .03 * Math.exp(-(t - HIT.logo_name) * 10) * (t > HIT.logo_name ? 1 : 0));
+  globe(c, GW / 2, LOGO.cy, R, t * 1.3);
+  const u = seg(t, HIT.logo_name - .2, HIT.logo_name), s = lerp(2.6, 1, back(u, 1.4));
+  if (u > 0) {
+    c.save(); c.translate(GW / 2, LOGO.ny + jolt(t, HIT.logo_name, 10, 12, 60)); c.scale(s, s); c.globalAlpha = clamp(u * 3);
+    silverText(c, '千里眼', 0, 0, 150, '900 150px SerifSC', 46); c.restore();
+  }
+  // a thin deco rule grows under the name
+  const v = seg(t, HIT.logo_name + .1, HIT.logo_name + .6);
+  if (v > 0) { c.fillStyle = '#d9d3c6'; const w = 560 * eo(v); c.fillRect(GW / 2 - w / 2, LOGO.ny + 104, w, 4); c.fillRect(GW / 2 - w / 2 * .7, LOGO.ny + 114, w * .7, 2); }
+  if (flash > 0.01) { c.fillStyle = `rgba(255,255,250,${flash * .55})`; c.fillRect(0, 0, GW, GH); }
+}
+const irisR = t => lerp(1000, 0, ei(seg(t, HIT.logo_iris, SEC.logo.t1 - .01)));
+
+// ---------------------------------------------------------------- 2. the spinning paper (EXTRA)
+const PAPER = (() => {   // the prop: our own EXTRA front, with the real 5 Oct 1929 AP column and two halftoned stills
+  const Wp = 1000, Hp = 1250, c0 = mk(Wp, Hp), c = c0.getContext('2d');
+  c.fillStyle = '#e8e2d4'; c.fillRect(0, 0, Wp, Hp);
+  for (let i = 0; i < 2600; i++) { const x = hash(i * 1.37) * Wp, y = hash(i * 2.71) * Hp; c.fillStyle = `rgba(90,80,60,${.04 + hash(i * 3.3) * .05})`; c.fillRect(x, y, 1 + hash(i) * 2, 1); }
+  c.fillStyle = '#16140f';
+  c.fillRect(30, 26, Wp - 60, 5); c.fillRect(30, 36, Wp - 60, 2);
+  c.font = '900 108px SerifSC'; c.textBaseline = 'alphabetic'; c.textAlign = 'left'; c.letterSpacing = '18px'; c.fillText('号外', 40, 145);
+  c.font = '96px Limelight'; c.textAlign = 'right'; c.letterSpacing = '6px'; c.fillText('EXTRA', Wp - 34, 140);
+  c.fillRect(30, 166, Wp - 60, 2); c.fillRect(30, 172, Wp - 60, 6);
+  c.font = '900 196px SerifSC'; c.textAlign = 'center'; c.letterSpacing = '6px'; c.fillText('空中竞速！', Wp / 2 + 6, 384);
+  c.fillRect(30, 418, Wp - 60, 3);
+  // column (the real print) on the left, photos on the right, column rules between
+  const col = A.column, cw = 456, chh = col.height * cw / col.width;
+  c.save(); c.beginPath(); c.rect(30, 436, cw, Hp - 466); c.clip(); c.drawImage(col, 30, 436, cw, chh); c.restore();
+  c.fillRect(30 + cw + 14, 436, 2, Hp - 466);
+  c.drawImage(A.photo0, 506, 440, 464, 338); c.drawImage(A.photo1, 506, 800, 464, 338);
+  c.lineWidth = 2; c.strokeStyle = '#16140f'; c.strokeRect(506, 440, 464, 338); c.strokeRect(506, 800, 464, 338);
+  c.fillRect(506, 1160, 464, 2); c.fillRect(30, Hp - 26, Wp - 60, 4);
+  c.globalCompositeOperation = 'multiply'; c.fillStyle = '#ece4d2'; c.fillRect(0, 0, Wp, Hp);
+  return c0;
+})();
+const PB = { head: [40, 200, 960, 410], mast: [36, 50, 964, 160] };   // text boxes in paper px
+function bgDesk(c) {
+  const g = c.createRadialGradient(GW / 2, GH * .45, 80, GW / 2, GH / 2, 1000);
+  g.addColorStop(0, '#57534c'); g.addColorStop(1, '#131211'); c.fillStyle = g; c.fillRect(0, 0, GW, GH);
+}
+let paperXf = null;
+function paperView(t) {   // one world -> screen transform for the paper
+  const im = PAPER, sFit = (GH - 70) / im.height, TS = HIT.paper_slam, TP = HIT.paper_punch;
+  if (t < TS) return null;
+  const d = t - TS, jo = jolt(t, TS, 16);
+  const push = ss(seg(t, TS + .1, TP)), pu = t < TP ? 0 : lerp(.62, 1, eo(seg(t, TP, TP + .1)));
+  const s = lerp(lerp(sFit, sFit * 1.16, push), 1.3, pu) * (1 + .025 * seg(t, TP + .12, SEC.paper.t1)) * (1 + Math.exp(-d * 18) * .03 + (t > TP ? Math.exp(-(t - TP) * 20) * .025 : 0));
+  const fx = .5, fy = lerp(lerp(.5, .42, push), .245, pu);
+  return { s, fx, fy, ox: 0, oy: jo };
+}
+function scenePaper(c, t) {
+  bgDesk(c);
+  const im = PAPER;
+  const drawAt = (s, rot, fx, fy, alpha, ox = 0, oy = 0) => {
+    c.save(); c.globalAlpha = alpha; c.translate(GW / 2 + ox, GH / 2 + oy); c.rotate(rot); c.scale(s, s);
+    c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 40 / s; c.shadowOffsetY = 14 / s;
+    c.drawImage(im, -fx * im.width, -fy * im.height); c.restore();
+  };
+  const T0 = HIT.paper_fly, TS = HIT.paper_slam, sFit = (GH - 70) / im.height;
+  const v = paperView(t);
+  if (!v) {
+    for (let k = 3; k >= 0; k--) {
+      const u = clamp((t - k * .018 - T0) / (TS - T0));
+      drawAt(sFit * (.34 + .66 * Math.pow(u, 2.3)), -Math.pow(1 - u, 1.25) * 2.5 * TAU, .5, .5, k ? .22 : 1);
+    }
+    paperXf = null; return;
+  }
+  drawAt(v.s, 0, v.fx, v.fy, 1, v.ox, v.oy);
+  paperXf = v;
+}
+const paperBox = ([x0, y0, x1, y1]) => { const v = paperXf, im = PAPER, sx = x => GX + GW / 2 + v.ox + (x - v.fx * im.width) * v.s, sy = y => GH / 2 + v.oy + (y - v.fy * im.height) * v.s; return [sx(x0), sy(y0), sx(x1), sy(y1)]; };
+
+// ---------------------------------------------------------------- 3. the map spread
+const R = MAP.route;                       // [name, x, y, key?]
+const KEYT = Object.fromEntries(R.filter(r => r[3]).map(r => [r[3], HIT[r[3]]]));
+const ROUTE_T = (() => {                   // arrival time of every stop: key stops on their beats, the rest by distance between keys
+  const out = new Array(R.length); let last = 0;
+  const dist = (a, b) => Math.hypot(R[a][1] - R[b][1], R[a][2] - R[b][2]);
+  for (let i = 1; i < R.length; i++) if (R[i][3]) {
+    let tot = 0; for (let j = last; j < i; j++) tot += dist(j, j + 1);
+    let acc = 0; out[last] = HIT[R[last][3]];
+    for (let j = last + 1; j <= i; j++) { acc += dist(j - 1, j); out[j] = lerp(HIT[R[last][3]], HIT[R[i][3]], acc / tot); }
+    last = i;
+  }
+  return out;
+})();
+window.ROUTE_T = ROUTE_T;
+function routeHead(t) {                   // position of the drawing pen at time t
+  if (t <= ROUTE_T[0]) return [R[0][1], R[0][2], 0];
+  for (let i = 1; i < R.length; i++) if (t < ROUTE_T[i]) {
+    const u = (t - ROUTE_T[i - 1]) / (ROUTE_T[i] - ROUTE_T[i - 1]);
+    return [lerp(R[i - 1][1], R[i][1], u), lerp(R[i - 1][2], R[i][2], u), i - 1 + u];
+  }
+  return [R[R.length - 1][1], R[R.length - 1][2], R.length - 1];
+}
+const HOME = [R[0][1], R[0][2]];
+function mapView(t) {                     // one world -> screen function for the map (slow push + lateral follow, then the map push)
+  const [hx, hy] = routeHead(t);
+  const follow = ss(seg(t, HIT.route0, HIT.home)) * (1 - ss(seg(t, HIT.home, HIT.map_push)));
+  const z0 = lerp(1.0, 1.07, ss(seg(t, SEC.map.t0, HIT.map_push)));
+  const zp = ei(seg(t, HIT.map_push, SEC.map.t1));
+  const z = z0 * lerp(1, 4.2, zp);
+  const cx0 = GW / 2 + (hx - GW / 2) * .12 * follow, cy0 = GH / 2 + (hy - GH / 2) * .12 * follow;
+  const pu = ss(seg(t, HIT.map_push - .25, SEC.map.t1));
+  return { z, fx: lerp(cx0, HOME[0], pu), fy: lerp(cy0, HOME[1], pu) };
+}
+const toScr = (v, x, y) => [GW / 2 + (x - v.fx) * v.z, GH / 2 + (y - v.fy) * v.z];
+const poly = (c, pts) => { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); };
+function star(c, x, y, r, rot) { c.beginPath(); for (let i = 0; i < 10; i++) { const a = rot + i * Math.PI / 5 - Math.PI / 2, rr = i % 2 ? r * .42 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } c.closePath(); }
+function sceneMap(c, t) {
+  c.fillStyle = '#1c1a17'; c.fillRect(0, 0, GW, GH);
+  c.strokeStyle = 'rgba(200,192,176,.10)'; c.lineWidth = 1.5;
+  for (let y = 4; y < GH; y += 9) { c.beginPath(); c.moveTo(0, y); c.lineTo(GW, y); c.stroke(); }
+  const v = mapView(t);
+  c.save(); c.translate(GW / 2, GH / 2); c.scale(v.z, v.z); c.translate(-v.fx, -v.fy);
+  c.save(); c.translate(6, 9); c.fillStyle = 'rgba(0,0,0,.5)'; for (const p of MAP.land) { poly(c, p); c.fill(); } c.restore();
+  const g = c.createLinearGradient(0, 100, 0, 1000); g.addColorStop(0, '#dcd6c9'); g.addColorStop(1, '#a9a297');
+  c.fillStyle = g; c.strokeStyle = 'rgba(30,27,23,.75)'; c.lineWidth = 2 / v.z;
+  for (const p of MAP.land) { poly(c, p); c.fill(); c.stroke(); }
+  // lakes: water hatching, coastline only (no borders are drawn anywhere)
+  for (const p of MAP.lakes) {
+    c.save(); poly(c, p); c.fillStyle = '#2a2723'; c.fill(); c.clip();
+    c.strokeStyle = 'rgba(200,192,176,.14)'; c.lineWidth = 1.2 / v.z; const ys = p.map(q => q[1]), xs = p.map(q => q[0]);
+    for (let y = Math.min(...ys); y < Math.max(...ys); y += 7) { c.beginPath(); c.moveTo(Math.min(...xs), y); c.lineTo(Math.max(...xs), y); c.stroke(); }
+    c.restore(); poly(c, p); c.strokeStyle = 'rgba(30,27,23,.8)'; c.lineWidth = 1.6 / v.z; c.stroke();
+  }
+  c.strokeStyle = 'rgba(40,36,30,.22)'; c.lineWidth = 1.4 / v.z;
+  for (const l of MAP.grat) { c.beginPath(); l.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.stroke(); }
+  // the route: a dotted line drawn city to city, a dot at each stop
+  const [hx, hy, hi] = routeHead(t);
+  if (t > HIT.route0) {
+    c.save(); c.setLineDash([11 / v.z, 8 / v.z]); c.lineWidth = 5 / v.z; c.strokeStyle = '#121010'; c.lineCap = 'round'; c.beginPath();
+    c.moveTo(R[0][1], R[0][2]); for (let i = 1; i <= Math.floor(hi); i++) c.lineTo(R[i][1], R[i][2]); c.lineTo(hx, hy); c.stroke(); c.restore();
+    for (let i = 1; i <= Math.floor(hi); i++) { if (R[i][3]) continue; c.fillStyle = '#121010'; c.beginPath(); c.arc(R[i][1], R[i][2], 6 / v.z, 0, TAU); c.fill(); }
+    if (t < HIT.home) { c.fillStyle = '#121010'; c.beginPath(); c.arc(hx, hy, 10 / v.z, 0, TAU); c.fill(); c.strokeStyle = '#efe9dc'; c.lineWidth = 2 / v.z; c.stroke(); }
+  }
+  // key stops: star + pulses on their beat
+  for (const r of R) {
+    if (!r[3] || r[3] === 'home') continue;
+    const t0 = r[3] === 'route0' ? HIT.map_title : HIT[r[3]];
+    if (t < t0) continue;
+    const u = eo(seg(t, t0, t0 + .18)), big = r[3] === 'route0' ? 1.35 : 1;
+    const pulses = r[3] === 'route0' ? [HIT.map_title, HIT.home] : [t0];
+    for (const p0 of pulses) for (let k = 0; k < 2; k++) { const p = t - p0 - k * .25; if (p > 0 && p < 1) { c.strokeStyle = `rgba(18,16,14,${.75 * (1 - p)})`; c.lineWidth = 3 / v.z; c.beginPath(); c.arc(r[1], r[2], (16 + p * 70) / v.z, 0, TAU); c.stroke(); } }
+    const pop = 1 + (r[3] === 'route0' && t > HIT.home ? .5 * Math.exp(-(t - HIT.home) * 8) : 0);
+    star(c, r[1], r[2], 24 * big * u * pop / v.z, t * .5); c.fillStyle = '#0f0e0c'; c.fill(); c.strokeStyle = '#efe9dc'; c.lineWidth = 2.5 / v.z; c.stroke();
+  }
+  c.restore();
+  return v;
+}
+// map type layer: title (place card), city labels, odometer. Screen space, sharp, fades before the push gets big
+const mapBoxes = [];
+function boxLabel(x, y, txt, a, al = 'left', size = 30) {
+  X.save(); X.globalAlpha = a; X.font = `600 ${size}px SansSC`; X.letterSpacing = '3px'; X.textBaseline = 'middle';
+  const w = X.measureText(txt).width + 30, hh = size + 22, bx = al === 'left' ? x : x - w;
+  X.fillStyle = 'rgba(12,11,10,.86)'; X.fillRect(bx, y - hh / 2, w, hh);
+  X.strokeStyle = 'rgba(243,238,228,.9)'; X.lineWidth = 2; X.strokeRect(bx + 5, y - hh / 2 + 5, w - 10, hh - 10);
+  X.fillStyle = '#f3eee4'; X.textAlign = 'left'; X.fillText(txt, bx + 16, y + 1);
+  X.restore();
+  return [bx, y - hh / 2, bx + w, y + hh / 2];
+}
+function mapType(t, v) {
+  mapBoxes.length = 0;
+  if (t < SEC.map.t0 || t >= SEC.map.t1) return;
+  const fade = 1 - seg(t, HIT.map_push, HIT.map_push + .1);
+  if (fade <= 0) return;
+  // title card, top left of the gate, pulled out left to right in 0.22 s
+  const tu = seg(t, HIT.map_title, HIT.map_title + .22);
+  if (tu > 0) {
+    X.save(); X.beginPath(); X.rect(GX + 48, 40, 640 * eo(tu), 120); X.clip();
+    const b = boxLabel(GX + 48, 92, '全国飞行巡回赛 · 1929', fade, 'left', 34); X.restore();
+    if (tu >= 1 && fade >= 1) mapBoxes.push({ id: 'map-title', text: '全国飞行巡回赛 · 1929', x0: b[0], y0: b[1], x1: b[2], y1: b[3] });
+  }
+  for (const r of R) {
+    const k = r[3]; if (!k || !TL.LABELS[k]) continue;
+    const t0 = k === 'route0' ? HIT.map_title : HIT[k]; if (t < t0) continue;
+    const a = fade;
+    const [sx, sy] = toScr(v, r[1], r[2]);
+    const dx = { route0: -38, montreal: -36, newyork: 30 }[k], dy = { route0: 48, montreal: -48, newyork: 40 }[k];
+    const b = boxLabel(GX + sx + dx, sy + dy, TL.LABELS[k], a, dx < 0 ? 'right' : 'left', 30);
+    if (a >= 1) mapBoxes.push({ id: 'city-' + k, text: TL.LABELS[k], x0: b[0], y0: b[1], x1: b[2], y1: b[3] });
+  }
+  // odometer: miles rolling 0 -> 5107 while the line is drawn
+  if (t >= HIT.route0) {
+    const m = TL.MILES * eio(seg(t, HIT.route0, HIT.home)), bx = GX + GW - 380, by = 46;
+    X.save(); X.globalAlpha = fade;
+    X.fillStyle = 'rgba(12,11,10,.9)'; X.fillRect(bx, by, 330, 104); X.strokeStyle = '#d8d0bf'; X.lineWidth = 2; X.strokeRect(bx + 6, by + 6, 318, 92);
+    X.beginPath(); X.rect(bx + 9, by + 9, 312, 86); X.clip();
+    const s = String(Math.floor(m)).padStart(4, '0'), frac = m - Math.floor(m);
+    X.font = '600 64px Oswald'; X.textAlign = 'center'; X.textBaseline = 'middle'; X.fillStyle = '#f1ece1';
+    for (let i = 0; i < 4; i++) {
+      const roll = i === 3 ? frac : 0, d0 = +s[i];
+      const y = by + 52 - roll * 86;
+      X.fillText(d0, bx + 44 + i * 44, y); if (roll > 0) X.fillText((d0 + 1) % 10, bx + 44 + i * 44, y + 86);
+    }
+    X.font = '600 34px SansSC'; X.textAlign = 'left'; X.fillStyle = '#d6cfc0'; X.fillText('英里', bx + 222, by + 54);
+    X.restore();
+    if (fade >= 1) mapBoxes.push({ id: 'odo', text: `${TL.MILES} 英里`, x0: bx, y0: by, x1: bx + 330, y1: by + 104 });
+  }
+}
+
+// ---------------------------------------------------------------- 4. grid deal -> flip-book
+const CELL = (() => {
+  const out = [], w = 430, h = 314, gx = 34, gy = 40, x0 = (GW - (3 * w + 2 * gx)) / 2, y0 = (GH - (2 * h + gy)) / 2 - 10;
+  for (let i = 0; i < 6; i++) { const r = Math.floor(i / 3), cc = i % 3; out.push({ x: x0 + cc * (w + gx), y: y0 + r * (h + gy), w, h, rot: (hash(i * 3.3 + 1) - .5) * .07 }); }
+  return out;
+})();
+function gridBoard(c, t) {
+  c.fillStyle = '#26231f'; c.fillRect(0, 0, GW, GH);
+  c.fillStyle = 'rgba(255,250,240,.035)'; for (let y = 0; y < GH; y += 4) if (hash(y * .37) > .5) c.fillRect(0, y, GW, 2);
+  for (let i = 0; i < 6; i++) {
+    const T = DEALS[i], u = eo(seg(t, T - .06, T + .1));
+    if (u <= 0) continue;
+    const p = CELL[i], drop = (1 - u) * -90, sc = lerp(1.3, 1, u) * (1 + .04 * Math.exp(-(t - T) * 16) * (t > T ? 1 : 0));
+    c.save(); c.translate(p.x + p.w / 2, p.y + p.h / 2 + drop); c.rotate(p.rot * (1 + (1 - u) * 4)); c.scale(sc, sc);
+    c.globalAlpha = clamp(u * 2.5);
+    c.shadowColor = 'rgba(0,0,0,.65)'; c.shadowBlur = 20; c.shadowOffsetY = 9;
+    c.fillStyle = '#e9e3d6'; c.fillRect(-p.w / 2 - 12, -p.h / 2 - 12, p.w + 24, p.h + 24);
+    c.shadowColor = 'transparent'; c.drawImage(A['cell' + i], -p.w / 2, -p.h / 2, p.w, p.h);
+    c.restore();
+  }
+}
+function gridCam(t) { return lerp(1.05, 1.0, eo(seg(t, SEC.grid.t0, HIT.dive - .1))); }   // pull back to reveal the board
+function sceneGrid(c, t) {
+  const z = gridCam(t);
+  c.save(); c.translate(GW / 2, GH / 2); c.scale(z, z); c.translate(-GW / 2, -GH / 2); gridBoard(c, t); c.restore();
+}
+function flipPage(c, i, kick) {
+  const im = clipAt('takeoff', TL.FLIP_SRC[i]);
+  c.fillStyle = '#0d0c0b'; c.fillRect(0, 0, GW, GH);
+  c.save(); c.translate(GW / 2, GH / 2); c.scale(1.03, 1.03); c.rotate((hash(i * 2.3) - .5) * .012); c.translate(-GW / 2 + (hash(i * 7.1) - .5) * 30, -GH / 2 + (hash(i * 3.9) - .5) * 18);   // hand-held flip-book wobble, per page
+  drawFrame(c, im, 1.02); c.restore();
+}
+function sceneFlip(c, t) {
+  const zi = lerp(.85, 1, eo(seg(t, HIT.dive, HIT.dive + BEAT / 4)));
+  if (zi < 1) {                       // dive into the last cell
+    sceneGrid(c, t);
+    const p = CELL[5], s0 = p.w / GW, s = lerp(s0, 1, zi);
+    c.save(); c.translate(lerp(p.x + p.w / 2, GW / 2, zi), lerp(p.y + p.h / 2, GH / 2, zi)); c.rotate(p.rot * (1 - zi)); c.scale(s, s); c.translate(-GW / 2, -GH / 2);
+    drawFrame(c, A.cell5); c.restore();
+    return;
+  }
+  let i = 0; for (let k = 0; k < PAGES.length; k++) if (t >= PAGES[k] - 1e-6) i = k;
+  flipPage(c, i, Math.exp(-(t - PAGES[i]) * 30));
+  // the page edge flicks past on each turn
+  const e = (t - PAGES[i]) / (BEAT / 4);
+  if (i > 0 && e < 1 / 3) { const x = GW * (.12 + .7 * hash(i * 5.3)); c.fillStyle = 'rgba(235,230,218,.4)'; c.fillRect(x, 0, 20, GH); }   // a page edge, one frame
+}
+function sceneHold(c, t) {     // the band has stopped; the archive runs on in real time, the plane gets small
+  const s = TL.HOLD_SRC0 + (t - HIT.stop);
+  drawFrame(c, clipAt('takeoff', s), 1.02);
+}
+
+// ---------------------------------------------------------------- 5. the return: approach, roll-in, grease-pencil freeze
+function sceneLandA(c, t) {
+  const s = TL.APPROACH_SRC0 + (t - HIT.land_cut);
+  drawFrame(c, clipAt('approach', s), lerp(1.0, 1.04, seg(t, HIT.land_cut, HIT.roll_cut)), .55, .4);
+}
+const FZ = { ring: [352, 214, 158, 104, -.06], label: [1150, 905], arrowFrom: [935, 850], arrowTo: [486, 312] };
+let landXf = null;
+function sceneLandB(c, t) {
+  const tf = HIT.freeze, frozen = t >= tf;
+  const s = TL.ROLL_SRC0 + (Math.min(t, tf) - HIT.roll_cut);
+  const push = frozen ? lerp(1, 1.03, ss(seg(t, tf + .1, TL.DUR))) : 1;
+  const jy = joltC(t, tf, 18, 13, 64) + jolt(t, HIT.da, 7, 16, 70) + jolt(t, HIT.DA, 12, 12, 64);
+  // freeze: push about the ringed pilot; everything (frame + pencil) shares one transform
+  const fx = .26, fy = .22;
+  c.save(); c.translate(GW * fx, GH * fy + jy); c.scale(push, push); c.translate(-GW * fx, -GH * fy);
+  drawFrame(c, frozen && A.freeze ? A.freeze : clipAt('rollin', s));   // the held frame is a separately cleaned + sharpened copy
+  landXf = { push, fx, fy, jy };
+  if (frozen) {
+    const fl = Math.exp(-(t - tf) * 22); if (fl > .02) { c.fillStyle = `rgba(255,252,244,${fl * .6})`; c.fillRect(0, 0, GW, GH); }
+    const [cx, cy, rx, ry, rot] = FZ.ring;
+    pencil(c, ringPts(cx, cy, rx, ry, rot), seg(t, tf + .04, HIT.ring_done - .06), 10);
+    const a0 = HIT.ring_done - .05;
+    pencil(c, linePts(...FZ.arrowFrom, ...FZ.arrowTo), seg(t, a0, a0 + .1), 9);
+    const [ax, ay] = FZ.arrowTo, ang = Math.atan2(FZ.arrowTo[1] - FZ.arrowFrom[1], FZ.arrowTo[0] - FZ.arrowFrom[0]);
+    for (const da of [2.6, -2.6]) pencil(c, linePts(ax, ay, ax + Math.cos(ang + da) * 54, ay + Math.sin(ang + da) * 54, 8), seg(t, a0 + .1, a0 + .16), 9);
+    const lu = seg(t, HIT.ring_done, HIT.ring_done + .08);
+    if (lu > 0) {
+      c.save(); c.translate(...FZ.label); c.rotate(-.06); const sc = lerp(1.35, 1, eo(lu)); c.scale(sc, sc); c.globalAlpha = clamp(lu * 2);
+      c.font = '150px LongCang'; c.letterSpacing = '-34px'; c.textAlign = 'center'; c.textBaseline = 'middle';   // no spacing leaks in from the ident
+      c.lineWidth = 12; c.strokeStyle = 'rgba(8,7,6,.6)'; c.lineJoin = 'round'; c.strokeText('终点！', 4, 6);
+      c.fillStyle = 'rgba(250,247,236,.96)'; c.fillText('终点！', 0, 0); c.restore();
+    }
+  }
+  c.restore();
+}
+
+// ---------------------------------------------------------------- composition, transitions
+const SCN = { logo: sceneLogo, paper: scenePaper, map: sceneMap, grid: sceneGrid, flip: sceneFlip, hold: sceneHold, landA: sceneLandA, landB: sceneLandB };
+const TR = [[HIT.flip_map, 'flip', 0, .25, 'paper', 'map']];   // paper turns edge-on at +1/16, the map turns in by the next eighth
+function secAt(t) { let id = SECS[0].id; for (const s of SECS) if (t >= s.t0) id = s.id; return id; }
+let mapV = null;
+function composeScene(t) {
+  const id = secAt(t);
+  for (const c of [P, F1, T2]) { c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; c.fillStyle = '#000'; c.fillRect(0, 0, GW, GH); }
+  for (const [T, type, a, b, from, to] of TR) {
+    if (t >= T - a && t < T + b) {
+      const u = (t - (T - a)) / (a + b);
+      F1.save(); SCN[from](F1, Math.min(t, T - 1e-3)); F1.restore();
+      T2.save(); mapV = SCN[to](T2, Math.max(t, T)); T2.restore();
+      // vertical-axis flip: the paper turns edge-on, the map turns in from the other side
+      P.fillStyle = '#0b0a09'; P.fillRect(0, 0, GW, GH);
+      const uu = clamp(u + 1 / 12, 0, 1), src = uu < .5 ? FROM : TMP, k = Math.max(.12, Math.abs(Math.cos(uu * Math.PI)));   // offset so no frame is ever edge-on (blank)
+      P.save(); P.translate(GW / 2, GH / 2); P.scale(Math.max(.004, k), 1 - .07 * (1 - k)); P.drawImage(src, -GW / 2, -GH / 2);
+      P.fillStyle = `rgba(0,0,0,${.6 * (1 - k)})`; P.fillRect(-GW / 2, -GH / 2, GW, GH); P.restore();
+      return { id: to, tr: true };
+    }
+  }
+  P.save(); const r = SCN[id](P, t); P.restore();
+  if (id === 'map') mapV = r;
+  if (id === 'logo' && t > HIT.logo_iris) {
+    P.save(); P.globalCompositeOperation = 'destination-in'; P.beginPath(); P.arc(GW / 2, LOGO.cy, Math.max(0, irisR(t)), 0, TAU); P.fill();
+    P.globalCompositeOperation = 'destination-over'; P.fillStyle = '#000'; P.fillRect(0, 0, GW, GH); P.restore();
+  }
+  return { id };
+}
+
+// film look on the picture layer only (STYLE.md §2): warm silver, vignette, scratches, dust; flicker + weave at draw time
+function filmLook(f, strength) {
+  P.save();
+  P.globalCompositeOperation = 'multiply'; P.fillStyle = '#efe7d6'; P.fillRect(0, 0, GW, GH);
+  P.globalCompositeOperation = 'screen'; P.fillStyle = '#17140f'; P.fillRect(0, 0, GW, GH);
+  P.globalCompositeOperation = 'source-over';
+  const g = P.createRadialGradient(GW / 2, GH / 2, GH * .42, GW / 2, GH / 2, GH * .95);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${.5 * strength + .2})`);
+  P.fillStyle = g; P.fillRect(0, 0, GW, GH);
+  if (strength > 0) {
+    for (let k = 0; k < 3; k++) {                       // 0-3 vertical scratches, each lives 9 frames
+      const id = Math.floor((f + k * 5) / 9) * 7 + k;
+      if (hash(id * 1.3) > .5) continue;
+      const x = hash(id * 2.1) * GW + (f % 9) * (hash(id * 3.7) - .5) * 6;
+      P.fillStyle = hash(id) > .5 ? 'rgba(255,250,240,.2)' : 'rgba(0,0,0,.26)';
+      const y0 = hash(id * 5.1) * GH * .4, y1 = GH - hash(id * 6.3) * GH * .3;
+      P.fillRect(x, y0, 1 + hash(id * 8.2) * 1.6, y1 - y0);
+    }
+    const n = Math.floor(hash(f * .91) * 5);             // 0-4 one-frame dust specks
+    for (let k = 0; k < n; k++) {
+      const s = f * 13 + k * 3.1, x = hash(s) * GW, y = hash(s + 1) * GH, r = 1 + hash(s + 2) * 4;
+      P.fillStyle = hash(s + 3) > .35 ? 'rgba(10,8,6,.55)' : 'rgba(255,252,245,.45)';
+      P.beginPath(); P.ellipse(x, y, r, r * (.4 + hash(s + 4)), hash(s + 5) * 3, 0, TAU); P.fill();
+    }
+  }
+  P.restore();
+}
+
+window.render = (t) => {
+  const f = frameOf(t);
+  X.setTransform(1, 0, 0, 1, 0, 0); X.fillStyle = '#000'; X.fillRect(0, 0, W, H);
+  const sc = composeScene(t);
+  const strength = sc.id === 'logo' ? .4 : 1;
+  filmLook(f, strength);
+  const flick = 1 + (hash(f * .37) - .5) * .07 * strength + (vnoise(t * 3) - .5) * .05 * strength;
+  const wx = (vnoise(f * .21) - .5) * 3.2 * strength, wy = (vnoise(f * .17 + 9) - .5) * 4.4 * strength;
+  X.save(); X.beginPath(); X.roundRect(GX, 0, GW, GH, 26); X.clip();
+  X.filter = `brightness(${flick.toFixed(3)})`; X.drawImage(PIC, GX + wx, wy); X.filter = 'none';
+  if (sc.id === 'map' && !sc.tr && mapV) mapType(t, mapV); else if (sc.id === 'map' && mapV) mapType(t, mapV); else mapBoxes.length = 0;
+  X.restore();
+};
+
+// every text on screen, for readcheck
+window.TEXTS = (t) => {
+  window.render(t);
+  const out = [];
+  if (t >= HIT.logo_name + .05 && t < SEC.logo.t1) {
+    const box = [GX + GW / 2 - 300, LOGO.ny - 95, GX + GW / 2 + 300, LOGO.ny + 95];
+    const far = Math.max(...[[box[0], box[1]], [box[2], box[1]], [box[0], box[3]], [box[2], box[3]]].map(([x, y]) => Math.hypot(x - GX - GW / 2, y - LOGO.cy)));
+    if (t < HIT.logo_iris || irisR(t) >= far) out.push({ id: 'logo', text: '千里眼', x0: box[0], y0: box[1], x1: box[2], y1: box[3] });
+  }
+  if (secAt(t) === 'paper' && paperXf && t < HIT.flip_map) {
+    const h = paperBox(PB.head), m = paperBox(PB.mast);
+    out.push({ id: 'headline', text: '空中竞速！', x0: h[0], y0: h[1], x1: h[2], y1: h[3] });
+    out.push({ id: 'masthead', text: '号外 EXTRA', x0: m[0], y0: m[1], x1: m[2], y1: m[3] });
+  }
+  out.push(...mapBoxes);
+  if (t >= HIT.ring_done + .08) {
+    const { push, fx, fy, jy } = landXf, [lx, ly] = FZ.label;
+    const sx = x => GX + GW * fx + (x - GW * fx) * push, sy = y => GH * fy + jy + (y - GH * fy) * push;
+    out.push({ id: 'pencil', text: '终点！', x0: sx(lx - 230), y0: sy(ly - 90), x1: sx(lx + 230), y1: sy(ly + 90) });
+  }
+  return out;
+};
+
+// sound / cue events for the mixer (window.EV -> events.json)
+window.EV = [
+  ...Object.entries(HIT).map(([k, v]) => ({ t: v, type: k })),
+  ...PAGES.map((t, i) => ({ t, type: 'page', i })),
+  ...ROUTE_T.map((t, i) => ({ t, type: 'arrive', i, key: R[i][3] || null })).filter(e => e.i > 0),
+];
+window.render(0);
+window.READY = true;
+</script></body></html>

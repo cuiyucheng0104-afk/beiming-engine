@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>06 · 知识付费 · 一人公司训练营</title>
+<script src="../lib/core.js"></script><script src="../lib/morph.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 06 形变动画 · 行业示例：知识付费 / 线上课 =====
+   First person, flying forward. A tunnel of star-dust streams past; ahead of us the dust condenses into a
+   word just in time for us to read it and fly straight through it - 想法, 工具, 作品, 收入 - each one bursting
+   into sparks as we pass. The camera eases to a stop in front of the course name. */
+const C = Reel.cfg({ words: ['想法', '工具', '作品', '收入'], brand: '一人公司训练营', sub: '用 AI，一个人活成一支团队', tag: '21 天实战 · 第 8 期招生' });
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#04030c');
+MK.init(stage, '#120c2e', '#030209');
+const N = 12600, NG = 5, PER = 2150, BPER = 2800, NW = 4 * PER, DUST = N - NW - BPER;   // 5 targets (4 words + brand), the rest is tunnel dust
+const GZ = [-10, -22, -34, -46, -60];                        // gate depth in the world
+const COLS = [[120, 210, 255], [165, 150, 255], [255, 150, 210], [255, 205, 110], [255, 222, 150]];
+let TG = [], RND = null;
+// camera path: fly forward, slow a touch at each gate, glide to a stop before the brand
+const KEY = [[0, 6], [2.0, -2], [3.4, -12.5], [5.6, -24.5], [7.8, -36.5], [10.0, -48.5], [12.2, -52.5], [15, -53.2]];
+function camZ(t) { for (let k = 1; k < KEY.length; k++) if (t <= KEY[k][0]) { const u = (t - KEY[k - 1][0]) / (KEY[k][0] - KEY[k - 1][0]); return lerp(KEY[k - 1][1], KEY[k][1], k === KEY.length - 1 ? E.outCubic(u) : (k === 1 ? E.inQuad(u) : u)); } return KEY[KEY.length - 1][1]; }
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 300px "Noto Sans CJK SC"', '700 40px "Noto Sans CJK SC"', '300 24px Inter'],
+  cues: [{ t: 0.0, sfx: 'swell', gain: 0.45 }, { t: 0.6, sfx: 'riser_short', gain: 0.35 }, ...[2.95, 5.05, 7.25, 9.45].map((x) => ({ t: x, sfx: "whoosh", gain: 0.5 })), ...[3.07, 5.14, 7.34, 9.54].map((x) => ({ t: x, sfx: 'sparkle', gain: 0.4 })),
+    { t: 10.6, sfx: 'morph', gain: 0.5 }, { t: 11.9, sfx: 'impact_soft', gain: 0.5 }, { t: 12.2, sfx: 'chime', gain: 0.55 }],
+  setup() {
+    TG = C.words.map((w) => MK.sample(MK.word(w, 300), 0.0105, 0.2, { n: PER, edge: 0.3 }));
+    TG.push(MK.sample(MK.word(C.brand, 150), 0.0084, 0.12, { n: BPER, w: 1200, edge: 0.2 }));
+    RND = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) { const a = MK.rnd() * 6.283, r = 2.2 + MK.rnd() * 5.5; RND[i * 4] = Math.cos(a) * r; RND[i * 4 + 1] = Math.sin(a) * r * 0.62; RND[i * 4 + 2] = MK.rnd(); RND[i * 4 + 3] = MK.rnd(); }
+  },
+  render(t) {
+    const Z = camZ(t), vz = (camZ(t + 1 / 30) - camZ(t - 1 / 30)) * 15;   // speed (units/s, negative = forward)
+    const cam = { yaw: 0.04 * Math.sin(t * 0.7), pitch: 0.03 * Math.sin(t * 0.5), roll: 0.05 * Math.sin(t * 0.45), z: Z, F: 1100, cy: 540, focus: 9, dof: 9 };
+    const m = MK.frame(cam, N, (i, o) => {
+      const ph = RND[i * 4 + 3];
+      if (i >= NW + BPER) {                                   // tunnel dust, recycled along the path
+        const span = 40, zz = Z - 2 - (((RND[i * 4 + 2] * span) - (Z - 6)) % span + span) % span;
+        o[0] = RND[i * 4] * 1.3; o[1] = RND[i * 4 + 1] * 1.3; o[2] = zz;
+        const d = Z - zz; o[3] = 150; o[4] = 160; o[5] = 255; o[6] = clamp(d / 6) * clamp((40 - d) / 10) * 0.55 * clamp(t / 0.5); o[7] = 0.5 + ph * 0.8 + Math.min(1.5, Math.abs(vz) * 0.06); o[8] = 0.6;
+        return true;
+      }
+      const g = i < NW ? Math.floor(i / PER) : 4, j = i < NW ? i - g * PER : i - NW, P = TG[g];
+      const gz = GZ[g], dist = Z - gz;                      // how far ahead the gate is
+      // condense when the gate is 4..16 units ahead; burst after we pass it
+      const form = g < 4 ? E.inOutCubic(clamp((19 - dist) / 8)) : E.inOutCubic(clamp((15 - dist) / 7));
+      const pass = clamp(-dist / 1.2);
+      const sx = RND[i * 4] * 1.4, sy = RND[i * 4 + 1] * 1.4, sz = gz - 6 + RND[i * 4 + 2] * 12;
+      const tx = P[j * 3], ty = P[j * 3 + 1] + (g === 4 ? 0.9 : 0), tz = gz + P[j * 3 + 2];
+      let x = lerp(sx, tx, form), y = lerp(sy, ty, form), z = lerp(sz, tz, form);
+      const sw = Math.sin(Math.PI * form) * 1.0;
+      if (sw > 0.01) { const c = MK.curl(x * 0.6 + t * 0.4, y * 0.6, z * 0.3 + ph * 3); x += c[0] * sw; y += c[1] * sw; }
+      if (pass > 0) { const a = ph * 40; x += Math.cos(a) * pass * 5; y += Math.sin(a) * pass * 3.5; z += pass * 3; }
+      const c = COLS[g];
+      o[0] = x; o[1] = y; o[2] = z; o[3] = c[0]; o[4] = c[1]; o[5] = c[2];
+      o[6] = (0.25 + 0.75 * form) * (1 - pass) * (0.85 + 0.15 * Math.sin(t * 3 + ph * 30)); o[7] = (g === 4 ? 1.05 : 0.85) + Math.pow(ph, 3) * 1.2; o[8] = form < 0.95 ? 1 : 0.15;
+      return true;
+    }, { glow: 0.9 });
+    // speed streak tint + captions
+    const cap = (txt, y, a, font, col, ls = '10px') => { if (a <= 0) return; m.save(); m.globalAlpha = a; m.font = font; m.textAlign = 'center'; m.fillStyle = col; if ('letterSpacing' in m) m.letterSpacing = ls; m.fillText(txt, 965, y); m.restore(); };
+    const seg = (t0, t1) => E.outCubic(inv(t0, t0 + 0.3, t)) * (1 - E.inCubic(inv(t1 - 0.25, t1, t)));
+    cap('01  有个想法', 930, seg(1.5, 2.75), '700 40px "Noto Sans CJK SC"', '#bfe1ff');
+    cap('02  学会 AI 工具', 930, seg(3.5, 4.75), '700 40px "Noto Sans CJK SC"', '#cfc8ff');
+    cap('03  做出第一个作品', 930, seg(5.6, 6.9), '700 40px "Noto Sans CJK SC"', '#ffcfe8');
+    cap('04  开始有收入', 930, seg(7.8, 9.1), '700 40px "Noto Sans CJK SC"', '#ffe2b0');
+    cap(C.sub, 790, E.outCubic(inv(12.2, 12.9, t)), '700 46px "Noto Sans CJK SC"', '#fff3dc', '8px');
+    cap(C.tag, 870, E.outCubic(inv(12.6, 13.3, t)), '300 28px "Noto Sans CJK SC"', 'rgba(255,230,190,.8)', '12px');
+    MK.vignette(m, 0.6);
+    if (t < 0.5) { m.fillStyle = `rgba(3,2,9,${1 - t / 0.5})`; m.fillRect(0, 0, 1920, 1080); }
+  },
+});
+</script></body></html>

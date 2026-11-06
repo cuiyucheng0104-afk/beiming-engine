@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>15 · 农产品直播带货 · 橙心果园</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/variety.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 15 综艺花字 · 行业示例：农产品直播带货 =====
+   A livestream, screen-captured. The "camera" is a tripod in the orchard: a crate of navel oranges
+   (ray-marched - dimpled rind, leaves, a wooden crate), one more orange dropped in, then the front one
+   split open to show the flesh. Over it, the whole live-commerce interface - viewer count, scrolling
+   comments, likes floating up, the product card with the slashed price - and the variety captions that
+   drive it: the 3-2-1 countdown and "上链接！！！". */
+const { E, clamp, lerp, inv } = Reel;
+const stage = Reel.makeStage('#0b1208');
+Reel.ownJitter = true;
+const C = Reel.cfg({ shop: '橙心果园', prod: '赣南脐橙 5 斤装', was: '¥59', now: '¥29.9', sub: '产地直发 · 坏果包赔' });
+const NO = 9;
+const rm = Reel.RM(stage, {
+  bloom: 0.25, th: 1.2, expo: 1.0, vig: 0.3, grain: 0.03, ca: 0.3, contrast: 1.06, sat: 1.18, bands: 8,
+  uniforms: `uniform vec3 uRo, uTa; uniform float uZoom; uniform vec4 uO[${NO}]; uniform vec4 uCut;`,
+  scene: `
+const vec3 LDIR = normalize(vec3(-.5,.8,.45));
+const float SGN = -1.2;
+float sdCrate(vec3 p){
+  vec3 q = p - vec3(0., -.05, -.15); vec3 b = vec3(1.25, .32, .75);
+  float outer = sdBox(q, b), inner = sdBox(q - vec3(0., .1, 0.), b - vec3(.06, 0., .06));
+  float d = max(outer, -inner);
+  float gap = smoothstep(.012, .0, abs(fract((q.y + .32)/.215) - .5) - .47);   // slat gaps
+  return d + gap*.01;
+}
+float orange(vec3 p, vec4 o){ float d = length(p - o.xyz) - o.w; return d + (vnoise((p - o.xyz)*60.) - .5)*.004; }
+float halfO(vec3 p, float side){
+  vec3 q = p - uCut.xyz; q = rotY(side*uCut.w*SGN) * (q - vec3(side*uCut.w*.22, 0., 0.));
+  float s = length(q) - .3; s += (vnoise(q*60.) - .5)*.004*step(0., side*q.x);
+  return max(s, -side*q.x);
+}
+vec2 map(vec3 p){
+  vec2 r = vec2(sdCrate(p), 1.);
+  for (int i=0;i<${NO};i++){ vec4 o = uO[i]; if (o.w <= 0.) continue; float d = orange(p, o); if (d < r.x) r = vec2(d, 2.); }
+  // leaves on a couple of oranges
+  { vec3 q = p - vec3(-.35, .52, -.1); q = rotY(.6)*(rotX(.3)*q); float lf = sdEllipsoid(q, vec3(.16, .012, .06)); if (lf < r.x) r = vec2(lf, 3.); }
+  { vec3 q = p - vec3(.55, .48, -.35); q = rotY(-.9)*(rotZ(.4)*q); float lf = sdEllipsoid(q, vec3(.14, .012, .05)); if (lf < r.x) r = vec2(lf, 3.); }
+  if (uCut.y > -5.) { float a = halfO(p, 1.), b = halfO(p, -1.); if (a < r.x) r = vec2(a, 4.); if (b < r.x) r = vec2(b, 5.); }
+  float tb = p.y + .38; if (tb < r.x) r = vec2(tb, 6.);
+  return r;
+}
+float mapS(vec3 p){ return map(p).x; }
+vec3 nrm(vec3 p){ vec2 k = vec2(1.,-1.)*.0007; return normalize(k.xyy*mapS(p+k.xyy) + k.yyx*mapS(p+k.yyx) + k.yxy*mapS(p+k.yxy) + k.xxx*mapS(p+k.xxx)); }
+float shadow(vec3 ro){ float res = 1., t = .01; for (int i=0;i<24;i++){ float h = mapS(ro + LDIR*t); res = min(res, 6.*h/t); t += clamp(h, .01, .2); if (res < .003 || t > 3.) break; } return clamp(res, 0., 1.); }
+vec3 sky(vec3 rd){ vec3 c = mix(vec3(.2,.32,.12), vec3(.55,.72,.9), smoothstep(-.05, .5, rd.y)); c += vec3(.9,.95,.6)*.25*vnoise(vec3(rd.xy*8., 1.)); return c; }
+vec3 shade(vec3 p, vec3 rd, float m){
+  vec3 n = nrm(p); float ndl = dot(n, LDIR), sh = shadow(p + n*.003), fr = pow(1. - max(dot(n, -rd), 0.), 5.);
+  vec3 amb = mix(vec3(.18,.22,.12), vec3(.45,.55,.65), .5 + .5*n.y);
+  if (m < 1.5) { float grain = .8 + .2*vnoise(vec3(p.x*40., p.y*3., p.z*3.)); vec3 a = vec3(.55,.36,.2)*grain; return a*(1.5*max(ndl, 0.)*sh + amb*.7); }
+  if (m < 2.5) { vec3 a = vec3(.95,.3,.015)*(.9 + .2*vnoise(p*20.)); vec3 col = a*(1.15*max(ndl, 0.)*sh + amb*.6) + a*vec3(1.,.5,.1)*.25*smoothstep(-.3, .3, ndl);
+    col += vec3(1.,.95,.85)*pow(max(dot(n, normalize(LDIR - rd)), 0.), 60.)*.5*sh + sky(reflect(rd, n))*fr*.25; return col; }
+  if (m < 3.5) { vec3 a = vec3(.08,.32,.06); return a*(1.4*max(ndl, 0.)*sh + amb) + vec3(1.)*pow(max(dot(n, normalize(LDIR - rd)), 0.), 40.)*.2; }
+  if (m < 5.5) { // half orange: rind outside, flesh on the cut face
+    float side = m < 4.5 ? 1. : -1.; vec3 q = p - uCut.xyz; q = rotY(side*uCut.w*SGN) * (q - vec3(side*uCut.w*.22, 0., 0.));
+    if (abs(q.x) < .003 + .0) {
+      vec2 f = q.yz; float r = length(f), a = atan(f.y, f.x);
+      float seg = abs(fract(a*10./6.2832) - .5); float memb = smoothstep(.04, .0, seg - .44) + smoothstep(.03, .0, abs(r - .03));
+      vec3 flesh = mix(vec3(.95,.38,.03), vec3(1.,.55,.12), vnoise(vec3(f*90., 1.)));
+      vec3 col = mix(flesh, vec3(1.,.8,.55), memb*.6); col = mix(col, vec3(.95,.85,.68), smoothstep(.25, .27, r)); col = mix(col, vec3(.95,.3,.02), smoothstep(.285, .295, r));
+      col *= .7*max(ndl, .35)*(.6 + .4*sh) + .22; col += vec3(1.)*pow(max(dot(n, normalize(LDIR - rd)), 0.), 120.)*1.2*vnoise(vec3(f*200., 3.)); return col;
+    }
+    vec3 a = vec3(.95,.3,.015); return a*(1.15*max(ndl, 0.)*sh + amb*.6);
+  }
+  { float wood = .8 + .2*vnoise(vec3(p.x*2., p.z*30., 1.)); return vec3(.32,.22,.14)*wood*(1.2*max(ndl, 0.)*sh + amb*.6); }
+}
+vec3 render(vec2 fc){
+  vec2 uv = (2.*fc - uRes)/uRes.y;
+  vec3 ro = uRo; vec3 rd = camMat(ro, uTa, 0.)*normalize(vec3(uv, 2.2*uZoom));
+  float t = .3; vec2 h = vec2(0.); bool hit = false;
+  for (int i=0;i<110;i++){ h = map(ro + rd*t); if (abs(h.x) < .0004*t){ hit = true; break; } t += h.x*.9; if (t > 12.) break; }
+  if (!hit){ gDepth = 30.; return sky(rd); }
+  gDepth = t; vec3 col = shade(ro + rd*t, rd, h.y);
+  return mix(col, sky(rd), smoothstep(5., 11., t));
+}`,
+});
+const V = VAR.init(stage);
+const { g, K } = V;
+// oranges in the crate (x, y, z, r); the last one is dropped in on the beat
+const OR = [[-0.75, 0.3, -0.3, 0.27], [-0.2, 0.32, -0.42, 0.28], [0.35, 0.3, -0.38, 0.27], [0.85, 0.29, -0.28, 0.26], [-0.55, 0.28, 0.1, 0.27], [0.05, 0.3, 0.05, 0.29], [0.6, 0.29, 0.12, 0.27], [-0.95, 0.27, 0.25, 0.25]];
+const DROP = 1.6, CUT = 5.3;
+function oranges(t) {
+  const A = new Float32Array(NO * 4); OR.forEach((o, i) => A.set(o, i * 4));
+  const u = t - DROP; if (u > 0) { let y; const tl = 0.45; if (u < tl) y = lerp(2.2, 0.62, (u / tl) * (u / tl)); else { const b = u - tl; y = 0.62 + 0.18 * Math.abs(Math.sin(b * 9)) * Math.exp(-b * 4.5); } A.set([0.2, y, -0.1, 0.27], 8 * 4); }
+  return A;
+}
+const COMMENTS = ['主播多少钱一斤？', '甜不甜啊', '去年买过，真的甜', '给我妈也来一箱', '能发新疆吗', '已下单！', '上链接！！！', '切开看看', '水分好足', '3箱！', '主播好实在', '+1'];
+const NAMES = ['小橘子', 'Lily', '老王', '阿珍', '橙意满满', '张姐', '吃货一号', 'momo', '大鹏', '果果', '阿杰', '星星'];
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 80px "Noto Sans CJK SC"', '700 46px "Noto Sans CJK SC"', '500 30px "Noto Sans CJK SC"', '40px "Noto Color Emoji"', '800 40px Inter'],
+  cues: [{ t: 0.2, sfx: 'pop', gain: 0.4 }, { t: DROP + 0.45, sfx: 'thud', gain: 0.6 }, { t: 2.2, sfx: 'pop', gain: 0.5 }, { t: 3.6, sfx: 'pop', gain: 0.5 }, { t: CUT, sfx: 'take', gain: 0.6 }, { t: CUT + 0.15, sfx: 'splash', gain: 0.4 }, { t: 5.9, sfx: 'sparkle', gain: 0.5 },
+    { t: 8.0, sfx: 'tick', gain: 0.8 }, { t: 8.5, sfx: 'tick', gain: 0.8 }, { t: 9.0, sfx: 'tick', gain: 0.8 }, { t: 9.5, sfx: 'impact', gain: 0.9 }, { t: 9.55, sfx: 'coin', gain: 0.6 }, ...Array.from({ length: 8 }, (_, i) => ({ t: +(10.0 + i * 0.25).toFixed(2), sfx: 'coin', gain: 0.35 })), { t: 12.4, sfx: 'stamp', gain: 0.7 }],
+  render(t) {
+    const cutS = E.outBack(clamp((t - CUT) / 0.5));
+    const zoom = 1 + 0.06 * E.inOutSine(clamp(t / 6)) + 0.12 * E.inOutCubic(clamp((t - CUT + 0.4) / 0.6)) * (1 - E.inOutCubic(clamp((t - 7.6) / 0.6)));
+    const ro = [0.05 + 0.01 * Math.sin(t * 0.9), 1.55, 2.75], ta = [0.02, 0.22, 0.05];
+    rm.set('uRo', ro).set('uTa', ta).set('uZoom', zoom).setArr('uO', oranges(t)); rm.set('uCut', [0.1, 0.27, 0.62, t > CUT ? cutS : 0]);
+    rm.render(t, { focus: Math.hypot(ro[0] - 0.1, ro[1] - 0.3, ro[2] - 0.5), aperture: 16, maxCoc: 12 });
+    // ---- live-commerce UI ----
+    V.clear(); const { popIn, popOut, vText, sticker, burst, spark } = V;
+    // top bar: avatar, name, viewers, LIVE
+    g.save(); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.roundRect(40 * K, 36 * K, 470 * K, 96 * K, 48 * K); g.fill();
+    g.fillStyle = '#ff8a1e'; g.beginPath(); g.arc(88 * K, 84 * K, 38 * K, 0, 7); g.fill(); g.restore(); sticker('🍊', 88, 84, 44, 0, 1);
+    g.save(); g.fillStyle = '#fff'; g.font = `800 ${32 * K}px ${V.FONT}`; g.textBaseline = 'middle'; g.fillText(C.shop + ' 直播间', 140 * K, 68 * K); g.font = `500 ${22 * K}px ${V.FONT}`; g.fillStyle = 'rgba(255,255,255,.85)';
+    const viewers = Math.round(18000 + t * 1700 + (t > 9.5 ? (t - 9.5) * 2600 : 0)); g.fillText(`${(viewers / 10000).toFixed(1)}万 人在看`, 140 * K, 106 * K);
+    g.fillStyle = '#ff2d55'; g.beginPath(); g.roundRect(398 * K, 60 * K, 96 * K, 48 * K, 24 * K); g.fill(); g.fillStyle = '#fff'; g.font = `800 ${24 * K}px ${V.FONT}`; g.fillText('+关注', 414 * K, 85 * K);
+    g.fillStyle = '#ff2d55'; g.beginPath(); g.roundRect(1720 * K, 50 * K, 150 * K, 56 * K, 12 * K); g.fill(); g.fillStyle = '#fff'; g.font = `800 ${30 * K}px Inter`; g.fillText('● LIVE', 1738 * K, 79 * K); g.restore();
+    // comments scrolling up
+    g.save(); g.beginPath(); g.rect(30 * K, 470 * K, 700 * K, 430 * K); g.clip();
+    const rate = 1.6 + (t > 8 ? 2.5 : 0), N = Math.floor(t * rate);
+    for (let k = 0; k < 7; k++) { const idx = N - k; if (idx < 0) continue; const age = t * rate - idx; const y = 860 - k * 62 - clamp(age) * 0; const str = COMMENTS[idx % COMMENTS.length], nm = NAMES[(idx * 7) % NAMES.length];
+      g.font = `700 ${28 * K}px ${V.FONT}`; const w = g.measureText(nm + '：' + str).width + 40 * K; g.globalAlpha = clamp(age * 4) * (1 - k / 8); g.fillStyle = 'rgba(0,0,0,.38)'; g.beginPath(); g.roundRect(40 * K, (y - 24) * K, w, 50 * K, 25 * K); g.fill();
+      g.fillStyle = '#9fd8ff'; g.textBaseline = 'middle'; g.fillText(nm + '：', 60 * K, y * K); g.fillStyle = '#fff'; g.fillText(str, 60 * K + g.measureText(nm + '：').width, y * K); }
+    g.restore();
+    // likes floating up from the heart button
+    g.save(); g.fillStyle = 'rgba(255,45,85,.95)'; g.beginPath(); g.arc(1830 * K, 940 * K, 44 * K, 0, 7); g.fill(); g.restore(); sticker('❤️', 1830, 940, 44, 0, 1);
+    for (let i = 0; i < 16; i++) { const ph = (t * 0.6 + i / 16) % 1, x = 1830 + Math.sin(ph * 9 + i) * 40 - ph * 30, y = 900 - ph * 520; sticker(['❤️', '🧡', '💛', '👍', '🍊'][i % 5], x, y, 34 + 10 * (i % 3), Math.sin(i + t) * 0.3, 0.7 + 0.3 * (1 - ph), 1 - ph); }
+    // product card
+    const pc = popIn(t, 2.6, 0.4);
+    if (pc > 0) {
+      const x = 1290, y = 730; g.save(); g.translate(x * K, y * K); g.scale(pc, pc); g.fillStyle = 'rgba(255,255,255,.97)'; g.beginPath(); g.roundRect(0, 0, 420 * K, 230 * K, 22 * K); g.fill();
+      g.fillStyle = '#ffe9cc'; g.beginPath(); g.roundRect(18 * K, 18 * K, 120 * K, 120 * K, 14 * K); g.fill(); g.restore(); sticker('🍊', x + 78 * pc, y + 78 * pc, 70 * pc, 0, 1);
+      g.save(); g.translate(x * K, y * K); g.scale(pc, pc); g.fillStyle = '#222'; g.font = `800 ${28 * K}px ${V.FONT}`; g.textBaseline = 'middle'; g.fillText(C.prod, 156 * K, 40 * K);
+      g.fillStyle = '#999'; g.font = `500 ${26 * K}px ${V.FONT}`; g.fillText(C.was, 156 * K, 84 * K); g.fillStyle = '#ff2d55'; g.fillRect(150 * K, 84 * K, 70 * K, 3 * K);
+      g.font = `900 ${50 * K}px Inter`; g.fillText(C.now, 236 * K, 86 * K);
+      const sold = clamp((t - 9.5) / 4) * 0.86 + 0.12; g.fillStyle = '#ffd7df'; g.beginPath(); g.roundRect(156 * K, 120 * K, 240 * K, 20 * K, 10 * K); g.fill(); g.fillStyle = '#ff2d55'; g.beginPath(); g.roundRect(156 * K, 120 * K, 240 * sold * K, 20 * K, 10 * K); g.fill(); g.fillStyle = '#ff2d55'; g.font = `700 ${18 * K}px ${V.FONT}`; g.fillText(`已抢 ${Math.round(sold * 100)}%`, 156 * K, 154 * K);
+      const pulse = t > 9.5 ? 1 + 0.06 * Math.sin(t * 12) : 1; g.translate(210 * K, 196 * K); g.scale(pulse, pulse); g.fillStyle = '#ff2d55'; g.beginPath(); g.roundRect(-190 * K, -24 * K, 380 * K, 48 * K, 24 * K); g.fill(); g.fillStyle = '#fff'; g.font = `900 ${28 * K}px ${V.FONT}`; g.textAlign = 'center'; g.fillText(t > 9.5 ? '立即抢购' : '即将开抢', 0, 2 * K); g.restore();
+    }
+    // variety captions
+    { const a = popIn(t, 0.3), o = popOut(t, 2.4); if (a > 0 && o > 0) { vText('现摘现发！', 960, 250, 128, { sc: a * o, rot: -0.05, fill: ['#ffffff', '#ffe58a', '#ff9d00'], s1: '#5a1a00', s2: '#fff', s3: '#ff6b2b', depth: 11, depthCol: '#331000' }); sticker('🌳', 1290, 180, 90, 0.2, a * o); } }
+    { const a = popIn(t, DROP + 0.45, 0.25), o = popOut(t, 3.3); if (a > 0 && o > 0) { burst(1250, 300, 60, 230, 16, t * 0.4, 0.45 * o); vText('咚！', 1250, 300, 130, { sc: a * o, rot: 0.1, fill: ['#ffffff', '#fff3a6', '#ffcf3a'], s1: '#3a2000', s2: '#fff', depth: 8, depthCol: '#201000' }); } }
+    { const a = popIn(t, 3.6), o = popOut(t, 5.2); if (a > 0 && o > 0) { vText('甜度 15°+', 640, 330, 112, { sc: a * o, rot: 0.05, fill: ['#fffde0', '#ffd21e', '#ff8a00'], s1: '#4a1500', s2: '#fff', depth: 9, depthCol: '#2e0800' }); sticker('🍯', 960, 250, 86, -0.2, a * o); } }
+    { const a = popIn(t, CUT + 0.1, 0.3), o = popOut(t, 7.7); if (a > 0 && o > 0) { burst(960, 300, 90, 700, 28, -t * 0.3, 0.4 * o, ['rgba(255,170,40,', 'rgba(255,255,255,']); vText('爆汁了！！', 960, 300, 170, { sc: a * o * (1 + Math.sin(t * 14) * 0.015), rot: -0.05, fill: ['#fffbd0', '#ffb21e', '#ff6a00'], s1: '#4a0f00', s2: '#fff', s3: '#ff3d3d', depth: 14, depthCol: '#2e0800' }); sticker('😍', 420, 230, 120, -0.2 + Math.sin(t * 7) * 0.08, popIn(t, CUT + 0.25) * o); for (let i = 0; i < 9; i++) { const a2 = i / 9 * Math.PI * 2 + t * 0.6; spark(960 + Math.cos(a2) * 480, 300 + Math.sin(a2) * 170, (16 + 12 * Math.sin(t * 9 + i)) * a, i % 2 ? '#fff7b0' : '#fff', t * 2 + i); } } }
+    // countdown 3 2 1 -> 上链接
+    ['3', '2', '1'].forEach((n, i) => { const t0 = 8.0 + i * 0.5, a = popIn(t, t0, 0.2), o = popOut(t, t0 + 0.42, 0.08); if (a > 0 && o > 0) vText(n, 960, 420, 300, { sc: a * o * (1.4 - 0.4 * clamp((t - t0) / 0.4)), fill: ['#ffffff', '#ffe23a', '#ff3d00'], s1: '#2a0a00', s2: '#fff', s3: '#ff3d6e', depth: 16 }); });
+    { const a = popIn(t, 9.5, 0.3), o = popOut(t, 11.6); if (a > 0 && o > 0) { burst(960, 400, 100, 900, 30, t * 0.5, 0.55 * o, ['rgba(255,45,85,', 'rgba(255,240,180,']); vText('上链接！！！', 960, 400, 200, { sc: a * o * (1 + Math.sin(t * 16) * 0.02), rot: -0.06, fill: ['#ffffff', '#ff8aa8', '#ff2d55'], s1: '#3a0010', s2: '#fff', s3: '#ffd21e', depth: 15, depthCol: '#24000a' }); sticker('🛒', 1520, 280, 120, 0.2 + Math.sin(t * 9) * 0.1, a * o); } }
+    if (t > 11.6) { const a = popIn(t, 11.6, 0.35); vText(`已抢 ${Math.round(clamp((t - 9.5) / 4) * 8600 + 300).toLocaleString()} 件`, 960, 300, 120, { sc: a, fill: ['#ffffff', '#ffe58a', '#ffb000'], s1: '#5a1a00', s2: '#fff', depth: 10, depthCol: '#331000' });
+      if (t > 12.0) { const w = 560; V.pill(C.shop + ' · ' + C.sub, 960 - w / 2 - 20, 410, 'rgba(46,140,40,.95)', '🍊', 70, 36); }
+      const sb = popIn(t, 12.4, 0.25); if (sb > 0) { g.save(); g.translate(1500 * K, 230 * K); g.rotate(-0.25); const s = sb * (1 + 0.6 * Math.exp(-(t - 12.4) * 9)); g.scale(s, s); g.strokeStyle = '#ff2b3d'; g.lineWidth = 9 * K; g.beginPath(); g.arc(0, 0, 92 * K, 0, 7); g.stroke(); g.lineWidth = 3 * K; g.beginPath(); g.arc(0, 0, 76 * K, 0, 7); g.stroke(); g.fillStyle = '#ff2b3d'; g.font = `900 ${50 * K}px ${V.FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('爆单', 0, 2 * K); g.restore(); } }
+  },
+});
+</script></body></html>

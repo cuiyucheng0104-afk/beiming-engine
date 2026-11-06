@@ -1,0 +1,10 @@
+import { W, H, inkC, fxC, REG } from './engine.js';
+import { makePaper } from './paper.js';
+import { renderFilm, DUR, EV } from './film.js';
+const out = document.getElementById('c');
+const comp = makePaper(out, W, H);
+await Promise.all(['400 40px Arch', '400 40px LongCang', '400 40px B612M', '500 40px NotoSC', '700 40px NotoSC', '400 40px LJMC'].map(s => document.fonts.load(s)));
+window.render = t => { const o = renderFilm(t); comp(inkC, fxC, o); };
+window.TEXTS = t => { renderFilm(t); return REG.map(r => ({ ...r })); };
+window.DUR = DUR; window.EV = EV;
+window.READY = true;

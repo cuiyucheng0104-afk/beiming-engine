@@ -45,3 +45,11 @@
 - 资产桥改动运行导出、结构验证和动画回读。
 - 渲染路径改动运行相关示例，检查日志、输出帧数、关键帧和完整视频。
 - 报告实际运行的平台；没有重跑 Windows/5090 时，不把 macOS 验证写成新的 5090 验证。
+
+## 查找已做过的案例
+
+- 从 `cases/INDEX.md` / `cases/catalog.json` 找案例，再读 `docs/cases/comparison.md` 和相关案例卡。PPT项目读 `docs/cases/ppt-animation.md`。
+- `cases/vendor/` 是SY100示例与Lemo全部风格的完整固定快照，不就地修改。沿用来源、许可证和版本；共用方法不等于所有影片都由同一引擎实现。
+- 代码和素材已去重，用 `python3 tools/casebook.py restore <id>` 还原到独立工作区。源码里的 `@@...@@` 是显式还原标记，不能直接把归档路径当可执行项目。
+- 已输出、历史声画通过、用户认可分别判断；《豹变》四版及北冥九分钟的后续否定反馈优先于旧文件里的“已完成”。
+- 修改目录/还原工具后运行 `python3 tools/casebook.py check` 和 `python3 -m unittest discover -s tools -p test_casebook.py`。外部快照校验覆盖全部跟踪文件。

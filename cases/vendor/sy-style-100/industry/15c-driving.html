@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>15 · 驾校 · 安心驾校</title>
+<script src="../lib/core.js"></script><script src="../lib/variety.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 15 综艺花字 · 行业示例：驾校 =====
+   Shot like a sports broadcast. Drone footage straight down onto the practice lot: a student pulls past
+   the box, stops, and reverses in one smooth arc ("倒车入库"). Big variety captions on the hit, then an
+   instant REPLAY in slow motion with a telestrator drawing the ideal arc and the exact moments to turn,
+   the score graphic, and the school's card. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#2a2b2c');
+const C = Reel.cfg({ school: '安心驾校', sub: '一人一车 · 周末班 · 不过免费补考', bug: '科目二 · 倒车入库' });
+// footage canvas (drawn first), captions on top via the kit
+const RS = Reel.RS, W = Math.round(1920 * RS), H = Math.round(1080 * RS), K = W / 1920;
+const fc = document.createElement('canvas'); fc.width = W; fc.height = H; fc.style.cssText = 'position:absolute;left:0;top:0;width:1920px;height:1080px'; stage.appendChild(fc);
+const f = fc.getContext('2d');
+const V = VAR.init(stage); const { g } = V;
+// ---- the lot (pre-rendered asphalt, paint, props) ----
+const LOT = (() => { const S = 0.8, c = document.createElement('canvas'); c.width = 3200 * S; c.height = 1500 * S; const q = c.getContext('2d', { willReadFrequently: true }); q.scale(S, S);
+  q.fillStyle = '#4a4b4d'; q.fillRect(0, 0, 3200, 1500);
+  const id = q.getImageData(0, 0, c.width, c.height), d = id.data; for (let i = 0; i < d.length; i += 4) { const n = (Reel.hash(i * 0.0137) - 0.5) * 34 + (Reel.noise2((i / 4 % c.width) * 0.01, Math.floor(i / 4 / c.width) * 0.01) - 0.5) * 14; d[i] += n; d[i + 1] += n; d[i + 2] += n; } q.putImageData(id, 0, 0);
+  q.setTransform(S, 0, 0, S, 400 * S, 0);
+  // oil stains + tyre marks
+  for (let i = 0; i < 30; i++) { q.fillStyle = `rgba(20,20,22,${0.08 + Reel.hash(i) * 0.1})`; q.beginPath(); q.ellipse(Reel.hash(i * 3) * 2400, Reel.hash(i * 5) * 1500, 20 + Reel.hash(i * 7) * 60, 10 + Reel.hash(i * 9) * 30, Reel.hash(i) * 3, 0, 7); q.fill(); }
+  q.strokeStyle = 'rgba(15,15,15,.18)'; q.lineWidth = 14; for (let k = 0; k < 6; k++) { q.beginPath(); q.arc(1250, 1000, 300 + (k % 2 ? 54 : -54) + k * 3, Math.PI, Math.PI * 1.5); q.stroke(); }
+  // lane edges + centre dashes
+  q.fillStyle = '#e9e5d8'; q.fillRect(-400, 590, 3200, 8); q.fillStyle = '#f2c230'; for (let x = -400; x < 2800; x += 90) q.fillRect(x, 698, 50, 6);
+  // parking boxes: the exam box + neighbours
+  const box = (x0, w, col = '#f2c230') => { q.fillStyle = col; q.fillRect(x0, 805, 8, 335); q.fillRect(x0 + w - 8, 805, 8, 335); q.fillRect(x0, 1132, w, 8); };
+  box(872, 156); box(500, 156, '#e9e5d8'); box(1300, 156, '#e9e5d8'); box(1680, 156, '#e9e5d8');
+  q.fillStyle = '#e9e5d8'; q.fillRect(-400, 805, 3200, 6);
+  q.font = '900 46px "Noto Sans CJK SC"'; q.fillStyle = 'rgba(242,194,48,.9)'; q.textAlign = 'center'; q.fillText('库', 950, 1190);
+  // kerb, grass, trees, a booth
+  q.fillStyle = '#5d7f3a'; q.fillRect(-400, 1240, 3200, 260); q.fillStyle = '#9b9a95'; q.fillRect(-400, 1232, 3200, 10); q.fillRect(-400, 0, 3200, 380); q.fillStyle = '#5d7f3a'; q.fillRect(-400, 0, 3200, 372);
+  for (let i = 0; i < 22; i++) { const x = -340 + i * 150 + Reel.hash(i) * 40, y = i % 2 ? 1360 : 190; q.fillStyle = 'rgba(0,0,0,.25)'; q.beginPath(); q.arc(x + 30, y + 30, 70, 0, 7); q.fill(); q.fillStyle = i % 3 ? '#3f6b2a' : '#4c7d33'; q.beginPath(); q.arc(x, y, 66, 0, 7); q.fill(); q.fillStyle = 'rgba(255,255,255,.1)'; q.beginPath(); q.arc(x - 18, y - 18, 34, 0, 7); q.fill(); }
+  q.fillStyle = '#c94d3a'; q.fillRect(2000, 240, 220, 150); q.fillStyle = '#a63c2d'; q.fillRect(2000, 312, 220, 6); q.font = '900 40px "Noto Sans CJK SC"'; q.fillStyle = '#fff'; q.fillText('考场', 2110, 300);
+  // cones
+  for (const [x, y] of [[1460, 620], [1530, 620], [420, 780]]) { q.fillStyle = '#ff6a1a'; q.beginPath(); q.arc(x, y, 16, 0, 7); q.fill(); q.fillStyle = '#fff'; q.beginPath(); q.arc(x, y, 8, 0, 7); q.fill(); }
+  return { c, S };
+})();
+// ---- car (top-down) ----
+function car(x, y, hd, steer, rev, braking, tag) {
+  f.save(); f.translate(x, y); f.rotate(hd);
+  f.fillStyle = 'rgba(0,0,0,.35)'; f.beginPath(); f.roundRect(-130, -46, 276, 108, 30); f.fill();      // shadow (sun from top-left)
+  for (const [wx, wy, s] of [[84, -56, 1], [84, 46, 1], [-80, -56, 0], [-80, 46, 0]]) { f.save(); f.translate(wx + 6, wy + 5); if (s) f.rotate(steer); f.fillStyle = '#151515'; f.fillRect(-20, -6, 40, 12); f.restore(); }
+  const bg = f.createLinearGradient(0, -54, 0, 54); bg.addColorStop(0, '#d9dde2'); bg.addColorStop(0.5, '#ffffff'); bg.addColorStop(1, '#c8ccd2'); f.fillStyle = bg; f.beginPath(); f.roundRect(-138, -54, 276, 108, 32); f.fill();
+  f.strokeStyle = 'rgba(0,0,0,.25)'; f.lineWidth = 2; f.stroke();
+  const wg = f.createLinearGradient(30, 0, 80, 0); wg.addColorStop(0, '#1d2733'); wg.addColorStop(1, '#4b6178'); f.fillStyle = wg; f.beginPath(); f.moveTo(80, -44); f.lineTo(36, -38); f.lineTo(36, 38); f.lineTo(80, 44); f.closePath(); f.fill();
+  f.fillStyle = '#26303b'; f.beginPath(); f.moveTo(-88, -40); f.lineTo(-60, -36); f.lineTo(-60, 36); f.lineTo(-88, 40); f.closePath(); f.fill();
+  f.fillStyle = '#eef0f3'; f.beginPath(); f.roundRect(-60, -38, 96, 76, 12); f.fill(); f.fillStyle = 'rgba(0,0,0,.06)'; f.fillRect(-60, -38, 96, 4);
+  f.fillStyle = '#d6dade'; f.fillRect(30, -62, 12, 10); f.fillRect(30, 52, 12, 10);                                   // mirrors
+  f.fillStyle = '#fff6c8'; f.fillRect(128, -44, 8, 20); f.fillRect(128, 24, 8, 20);                                   // headlights
+  f.fillStyle = braking ? '#ff2a2a' : '#a01818'; f.fillRect(-138, -44, 7, 22); f.fillRect(-138, 22, 7, 22);
+  if (rev) { f.fillStyle = '#ffffff'; f.fillRect(-138, -20, 7, 10); f.fillRect(-138, 10, 7, 10); const lg = f.createRadialGradient(-150, 0, 4, -150, 0, 120); lg.addColorStop(0, 'rgba(255,255,255,.25)'); lg.addColorStop(1, 'rgba(255,255,255,0)'); f.fillStyle = lg; f.fillRect(-270, -120, 130, 240); }
+  // driving-school roof sign
+  f.fillStyle = '#ffd21e'; f.beginPath(); f.roundRect(-34, -18, 52, 36, 6); f.fill(); f.fillStyle = '#1a1a1a'; f.font = '900 26px "Noto Sans CJK SC"'; f.textAlign = 'center'; f.textBaseline = 'middle'; f.save(); f.rotate(Math.PI / 2); f.fillText(tag, 0, 9); f.restore();
+  f.restore();
+}
+// ---- the manoeuvre: forward pass, stop, full-lock reverse arc, straighten ----
+const CEN = [1250, 1000], R = 300;
+function pose(tt) {
+  if (tt < 1.0) return { x: 200 + 84, y: 700, hd: 0, steer: 0, rev: false, brake: false, ra: [200, 700] };
+  if (tt < 3.0) { const x = lerp(200, 1250, E.inOutSine((tt - 1.0) / 2.0)); return { x: x + 84, y: 700, hd: 0, steer: 0, rev: false, brake: tt > 2.7, ra: [x, 700] }; }
+  if (tt < 3.4) return { x: 1250 + 84, y: 700, hd: 0, steer: -0.5 * clamp((tt - 3.1) / 0.3), rev: tt > 3.2, brake: true, ra: [1250, 700] };
+  if (tt < 5.2) { const th = lerp(-Math.PI / 2, -Math.PI, E.inOutSine((tt - 3.4) / 1.8)); const ra = [CEN[0] + R * Math.cos(th), CEN[1] + R * Math.sin(th)]; const hdv = [-Math.sin(th), Math.cos(th)]; return { x: ra[0] + hdv[0] * 84, y: ra[1] + hdv[1] * 84, hd: Math.atan2(hdv[1], hdv[0]), steer: -0.5, rev: true, brake: false, ra }; }
+  const y = lerp(1000, 1040, E.outCubic(clamp((tt - 5.2) / 0.5))); return { x: 950, y: y - 84, hd: -Math.PI / 2, steer: -0.5 * (1 - clamp((tt - 5.2) / 0.3)), rev: tt < 5.75, brake: tt > 5.6, ra: [950, y] };
+}
+const RP0 = 6.4, RP1 = 9.7;                        // replay window
+const footT = (t) => (t < RP0 ? t : t < RP1 ? 3.3 + (t - RP0) * (2.4 / (RP1 - RP0)) : 5.8 + (t - RP1) * 0.0);
+function camera(t, p) {
+  if (t >= RP0 && t < RP1) return { z: 1.25, cx: lerp(p.x, 1100, 0.4), cy: lerp(p.y, 850, 0.4) };
+  const wide = { z: 0.78, cx: 1060, cy: 820 }, close = { z: 1.02, cx: 1080, cy: 880 };
+  const k = E.inOutSine(clamp((t - 2.6) / 1.4)), out = E.inOutSine(clamp((t - RP1 - 0.2) / 1.2));
+  return { z: lerp(lerp(wide.z, close.z, k), 0.8, out), cx: lerp(lerp(wide.cx, close.cx, k), 1000, out), cy: lerp(lerp(wide.cy, close.cy, k), 860, out) };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 80px "Noto Sans CJK SC"', '700 46px "Noto Sans CJK SC"', '40px "Noto Color Emoji"', '800 40px Inter', '700 30px "DejaVu Sans Mono"'],
+  cues: [{ t: 0.2, sfx: 'whoosh', gain: 0.3 }, { t: 1.0, sfx: 'roll', gain: 0.4 }, { t: 3.2, sfx: 'tick', gain: 0.6 }, { t: 3.4, sfx: 'roll', gain: 0.35 }, { t: 5.75, sfx: 'impact', gain: 0.8 }, { t: 5.8, sfx: 'stamp', gain: 0.6 },
+    { t: RP0 - 0.15, sfx: 'whoosh', gain: 0.6 }, { t: RP0, sfx: 'vhs', gain: 0.4 }, { t: 7.0, sfx: 'marker', gain: 0.5 }, { t: 7.9, sfx: 'pop', gain: 0.5 }, { t: 9.0, sfx: 'pop', gain: 0.5 }, { t: 9.95, sfx: 'levelup', gain: 0.7 }, { t: 10.4, sfx: 'laugh', gain: 0.5 }, { t: 11.6, sfx: 'sticker', gain: 0.6 }],
+  render(t) {
+    const ft = footT(t), p = pose(ft), cam = camera(t, p), replay = t >= RP0 && t < RP1;
+    f.setTransform(1, 0, 0, 1, 0, 0); f.fillStyle = '#333'; f.fillRect(0, 0, W, H);
+    f.setTransform(K * cam.z, 0, 0, K * cam.z, 960 * K, 540 * K); f.translate(-cam.cx, -cam.cy);
+    f.drawImage(LOT.c, -400, 0, 3200, 1500);
+    // a parked neighbour
+    car(578, 980, -Math.PI / 2, 0, false, false, '学');
+    // telestrator during the replay: the ideal arc (dashed) and the two key moments
+    if (replay) {
+      const u = clamp((t - RP0 - 0.2) / 1.2);
+      f.save(); f.setLineDash([24, 16]); f.strokeStyle = 'rgba(255,226,58,.95)'; f.lineWidth = 9; f.beginPath(); f.arc(CEN[0], CEN[1], R, -Math.PI / 2, -Math.PI / 2 - u * Math.PI / 2, true); if (u >= 1) f.lineTo(950, 1040); f.stroke(); f.restore();
+      const mk = (x, y, a) => { if (a <= 0) return; f.save(); f.globalAlpha = a; f.strokeStyle = '#ff3d5a'; f.lineWidth = 8; f.beginPath(); f.arc(x, y, 44 * E.outBack(clamp(a)), 0, 7); f.stroke(); f.restore(); };
+      mk(1250, 700, clamp((t - 7.5) / 0.3)); mk(950, 1000, clamp((t - 8.7) / 0.3));
+    }
+    car(p.x, p.y, p.hd, p.steer, p.rev, p.brake, '教');
+    f.setTransform(1, 0, 0, 1, 0, 0);
+    if (replay) { f.fillStyle = 'rgba(20,40,80,.12)'; f.fillRect(0, 0, W, H); }
+    // ---- broadcast graphics + variety captions ----
+    V.clear(); const { popIn, popOut, vText, sticker, burst, spark } = V;
+    // score bug
+    g.save(); g.fillStyle = 'rgba(15,18,25,.88)'; g.beginPath(); g.roundRect(40 * K, 40 * K, 560 * K, 74 * K, 12 * K); g.fill(); g.fillStyle = '#ffd21e'; g.fillRect(40 * K, 40 * K, 10 * K, 74 * K);
+    g.fillStyle = '#fff'; g.font = `800 ${32 * K}px ${V.FONT}`; g.textBaseline = 'middle'; g.fillText(C.bug, 70 * K, 78 * K);
+    g.font = `700 ${30 * K}px "DejaVu Sans Mono"`; g.fillStyle = '#ffd21e'; const clock = Math.min(t, 5.75); g.fillText(`00:${clock.toFixed(1).padStart(4, '0')}`, 440 * K, 78 * K); g.restore();
+    if (replay) { const a = clamp((t - RP0) / 0.2) * (1 - clamp((t - RP1 + 0.2) / 0.2)); g.save(); g.globalAlpha = a; g.fillStyle = '#e8213a'; g.beginPath(); g.roundRect(1560 * K, 50 * K, 310 * K, 70 * K, 10 * K); g.fill(); g.fillStyle = '#fff'; g.font = `900 ${36 * K}px Inter`; g.textBaseline = 'middle'; g.fillText('↺ REPLAY', 1585 * K, 86 * K); g.font = `700 ${22 * K}px ${V.FONT}`; g.fillText('慢镜', 1790 * K, 86 * K); g.restore();
+      // wipe in/out
+      const wi = clamp((t - RP0 + 0.15) / 0.3), wo = clamp((t - RP1 + 0.15) / 0.3); for (const w of [wi, wo]) if (w > 0 && w < 1) { g.save(); g.fillStyle = '#e8213a'; g.beginPath(); const x = lerp(-400, 2300, w); g.moveTo((x - 300) * K, 0); g.lineTo((x + 100) * K, 0); g.lineTo((x - 100) * K, H); g.lineTo((x - 500) * K, H); g.fill(); g.restore(); } }
+    { const a = popIn(t, 1.0), o = popOut(t, 2.7); if (a > 0 && o > 0) vText('学员小李 · 第 3 次练车', 960, 200, 70, { sc: a * o, fill: ['#ffffff', '#e8f4ff', '#a8d4ff'], s1: '#0a2040', s2: '#fff', depth: 5, depthCol: '#061428', gloss: false }); }
+    { const a = popIn(t, 3.2, 0.25), o = popOut(t, 4.6); if (a > 0 && o > 0) { vText('挂倒挡 · 方向打满', 960, 200, 80, { sc: a * o, fill: ['#ffffff', '#fff3a6', '#ffcf3a'], s1: '#2a2000', s2: '#fff', depth: 6, depthCol: '#1a1400' }); sticker('😬', 1360, 170, 80, 0.2, a * o); } }
+    { const a = popIn(t, 5.75, 0.28), o = popOut(t, RP0 - 0.15); if (a > 0 && o > 0) { burst(960, 330, 90, 760, 28, t * 0.4, 0.45 * o); vText('一把进！', 960, 330, 190, { sc: a * o * (1 + Math.sin(t * 14) * 0.015), rot: -0.05, fill: ['#ffffff', '#9dff7a', '#2ea82a'], s1: '#06300a', s2: '#fff', s3: '#ffd21e', depth: 14, depthCol: '#031c06' }); sticker('🎯', 1360, 230, 120, 0.2, popIn(t, 5.9) * o); } }
+    if (replay) {
+      const a1 = popIn(t, 7.6, 0.3), a2 = popIn(t, 8.8, 0.3);
+      if (a1 > 0) vText('车尾过线 → 打满', 640, 300, 64, { sc: a1, fill: ['#ffffff', '#ffe0e6', '#ff8aa0'], s1: '#3a0010', s2: '#fff', depth: 5, depthCol: '#24000a', gloss: false });
+      if (a2 > 0) vText('车身摆正 → 回正', 1340, 860, 64, { sc: a2, fill: ['#ffffff', '#ffe0e6', '#ff8aa0'], s1: '#3a0010', s2: '#fff', depth: 5, depthCol: '#24000a', gloss: false });
+    }
+    { const a = popIn(t, 9.95, 0.3); if (a > 0 && t < 11.5) { vText('科目二 · 100 分', 960, 330, 150, { sc: a * popOut(t, 11.4), fill: ['#fffbd0', '#ffd21e', '#ff8a00'], s1: '#4a1500', s2: '#fff', s3: '#ff3d3d', depth: 12, depthCol: '#2e0800' }); sticker('👍', 1500, 220, 120, -0.2 + Math.sin(t * 8) * 0.1, popIn(t, 10.2) * popOut(t, 11.4)); vText('教练今天没骂我', 960, 490, 66, { sc: popIn(t, 10.4) * popOut(t, 11.4), fill: ['#ffffff', '#ffe0f0', '#ff8cc6'], s1: '#5a1040', s2: '#fff', depth: 5, depthCol: '#3a0828', gloss: false }); for (let i = 0; i < 8; i++) { const a2 = i / 8 * Math.PI * 2 + t; spark(960 + Math.cos(a2) * 520, 330 + Math.sin(a2) * 170, (16 + 12 * Math.sin(t * 9 + i)) * a, '#fff7b0', t * 2 + i); } } }
+    if (t > 11.5) {
+      const a = popIn(t, 11.5, 0.35);
+      g.save(); g.globalAlpha = Math.min(1, a); g.translate(960 * K, 470 * K); g.scale(a, a); g.fillStyle = 'rgba(15,18,25,.9)'; g.beginPath(); g.roundRect(-560 * K, -170 * K, 1120 * K, 340 * K, 26 * K); g.fill(); g.fillStyle = '#ffd21e'; g.fillRect(-560 * K, -170 * K, 1120 * K, 12 * K); g.restore();
+      vText(C.school, 960, 420, 130, { sc: a, fill: ['#ffffff', '#ffe58a', '#ffb000'], s1: '#3a2000', s2: '#fff', depth: 10, depthCol: '#201000' });
+      if (t > 12.0) { g.save(); g.globalAlpha = clamp((t - 12.0) / 0.3); g.font = `800 ${40 * K}px ${V.FONT}`; g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(C.sub, 960 * K, 560 * K); g.restore(); }
+      sticker('🚗', 520, 300, 110, -0.15 + Math.sin(t * 5) * 0.06, popIn(t, 11.8)); sticker('🏆', 1420, 320, 100, 0.2, popIn(t, 12.1));
+    }
+    const subs = [[0.15, 1.0, '来看看驾校学员的倒车入库'], [RP0 + 0.2, RP1 - 0.2, '慢动作回放：两个关键点，一看就懂']];
+    for (const [a, b, str] of subs) if (t >= a && t < b) V.subtitle(str, clamp((t - a) / 0.12) * (1 - clamp((t - b + 0.1) / 0.1)));
+  },
+});
+</script></body></html>

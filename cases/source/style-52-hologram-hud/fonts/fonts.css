@@ -1,0 +1,7 @@
+@font-face { font-family: 'Rajdhani'; font-weight: 300; src: url('Rajdhani-Light.ttf') format('truetype'); }
+@font-face { font-family: 'Rajdhani'; font-weight: 400; src: url('Rajdhani-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Rajdhani'; font-weight: 500; src: url('Rajdhani-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Rajdhani'; font-weight: 600; src: url('Rajdhani-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'ShareTechMono'; font-weight: 400; src: url('ShareTechMono-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'NotoSC'; font-weight: 300 400; src: url('NotoSansSC-400-subset.woff2') format('woff2'); }
+@font-face { font-family: 'NotoSC'; font-weight: 500 700; src: url('NotoSansSC-500-subset.woff2') format('woff2'); }

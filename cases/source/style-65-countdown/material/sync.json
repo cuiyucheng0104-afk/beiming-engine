@@ -1,0 +1,19 @@
+{
+  "_doc": "film time f (s); countdown T = f - 15; reference time ref = f + 6.70 (ref = time in clip 'ML PAO PTZ' of the iso reel, all iso clips aligned to it by audio cross-correlation; T0 = ref 21.70 from the SRB-ignition plume on camera 913, confirmed by the flag-shot countdown board flipping -13 -> -12 between ref 9.3 and 9.7). Source second s = ref + shift for iso clips. mcc is not synced (same window).",
+  "T0_film": 15.0,
+  "ref_offset": 6.70,
+  "iso_url": "https://images-assets.nasa.gov/video/KSC-20221116-MH-AJN01-0001-Artemis_I_Isolated_Launch_Views-3314595/KSC-20221116-MH-AJN01-0001-Artemis_I_Isolated_Launch_Views-3314595~orig.mp4",
+  "mcc_url": "https://images-assets.nasa.gov/video/jsc2022m000284-Mission%20Control%20Houston%20During%20Artemis%20I%20Launch/jsc2022m000284-Mission%20Control%20Houston%20During%20Artemis%20I%20Launch~orig.mp4",
+  "cams": {
+    "mcc":    {"src": "mcc", "s_at_f0": 444.4,  "f0": 0.9,  "f1": 14.05, "w": 1920, "slate": "Mission Control Houston During Artemis I Launch (wide room)", "sync": "window"},
+    "v8":     {"src": "iso", "shift": 1044.245, "f0": 2.9,  "f1": 12.45, "w": 1920, "slate": "PAD V8 FULL STACK (cam 933)"},
+    "pao":    {"src": "iso", "shift": 0.0,      "f0": 3.9,  "f1": 12.95, "w": 1920, "slate": "ML PAO PTZ"},
+    "fair":   {"src": "iso", "shift": 930.264,  "f0": 4.9,  "f1": 13.45, "w": 1920, "slate": "LT2B V1 FAIRING 2 (cam 920)"},
+    "srm":    {"src": "iso", "shift": 958.194,  "f0": 5.9,  "f1": 13.65, "w": 1920, "slate": "PER V1 SRM TOP (cam 923)"},
+    "flag":   {"src": "iso", "shift": 53.437,   "f0": 6.9,  "f1": 13.85, "w": 1920, "slate": "FLAG SHOT"},
+    "gantry": {"src": "iso", "shift": 25.277,   "f0": 7.9,  "f1": 13.95, "w": 1920, "slate": "GANTRY PTZ"},
+    "mlp":    {"src": "iso", "shift": 1018.302, "f0": 8.9,  "f1": 14.05, "w": 1920, "slate": "PAD V4 MLP (cam 929)"},
+    "hero":   {"src": "iso", "shift": 990.569,  "f0": 11.9, "f1": 17.10, "w": 3840, "slate": "WTR V1 WIDE ENGINES (cam 913)"},
+    "cs5":    {"src": "iso", "shift": 1070.389, "f0": 16.9, "f1": 19.90, "w": 3840, "slate": "CS5 V1 WIDE (cam 907)"}
+  }
+}

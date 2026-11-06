@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>10 · 深夜电台播客 · 夜航电台</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/glass.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 10 玻璃拟态 · 行业示例：深夜电台播客 =====
+   Night, rain on the studio window, city bokeh behind it. The glass is the radio: an ON AIR pill, a glass
+   record that turns, and a liquid equaliser - seven capsules that bounce on the beat and fuse into each
+   other when they peak, bending the bokeh as they do. The camera creeps in the whole time like a slow
+   dolly toward the mic, then breathes back out as everything pours into the show's name. */
+const { E, clamp, lerp, spring } = Reel;
+const stage = Reel.makeStage('#0a0a1e');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '夜航电台', sub: '每晚 23:00 · 陪你把今天聊完', topic: '今晚聊：一个人加班到深夜，算不算失败', msg: '听众留言 · 杭州 小周：“听着你们，我把方案改完了”' });
+const g = GLS.init(stage, { ns: 10 });
+const { b, u, K, W, H } = g;
+const sp = (t, t0, k = 150, c = 14) => spring(Math.max(0, t - t0), { k, c });
+const hh = Reel.hash;
+// camera: slow push-in, then breathe back out for the title
+const zoomAt = (t) => 1 + 0.12 * E.inOutSine(clamp(t / 10.2)) - 0.12 * E.inOutCubic(clamp((t - 10.2) / 1.1));
+let Z = 1;
+const X = (x) => 960 + (x - 960) * Z, Y = (y) => 540 + (y - 560) * Z + 20;
+
+function wallpaper(t) {
+  b.setTransform(1, 0, 0, 1, 0, 0);
+  const base = b.createLinearGradient(0, 0, 0, H); base.addColorStop(0, '#0b0d2a'); base.addColorStop(0.6, '#1a1240'); base.addColorStop(1, '#2a0f2e'); b.fillStyle = base; b.fillRect(0, 0, W, H);
+  b.setTransform(K * Z, 0, 0, K * Z, (960 - 960 * Z) * K, (560 - 560 * Z) * K);
+  // city bokeh behind the glass of the window
+  b.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 46; i++) {
+    const x = (hh(i * 3.1) * 2200 - 140 + t * (6 + hh(i) * 10)) % 2200 - 100, y = 380 + hh(i * 7.7) * 700, r = 30 + hh(i * 5.3) * 90;
+    const col = ['255,170,80', '80,220,255', '255,90,170', '255,230,160', '150,120,255'][i % 5], a = 0.18 + 0.25 * hh(i * 9.1) * (0.8 + 0.2 * Math.sin(t * 1.3 + i));
+    const gr = b.createRadialGradient(x, y, r * 0.2, x, y, r); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(0.7, `rgba(${col},${a * 0.6})`); gr.addColorStop(1, `rgba(${col},0)`); b.fillStyle = gr; b.beginPath(); b.arc(x, y, r, 0, 7); b.fill();
+  }
+  b.globalCompositeOperation = 'source-over';
+  // huge faint lettering + a waveform line: crisp detail for the glass to bend
+  b.font = '900 520px "Noto Serif CJK SC"'; b.fillStyle = 'rgba(255,255,255,.05)'; b.textAlign = 'left'; b.textBaseline = 'alphabetic'; b.fillText('夜航', -60, 760);
+  b.strokeStyle = 'rgba(160,200,255,.22)'; b.lineWidth = 2; b.beginPath(); for (let x = -100; x <= 2020; x += 6) { const y = 905 + Math.sin(x * 0.03 + t * 3) * 14 * Math.sin(x * 0.004 + t * 0.7) + Math.sin(x * 0.11 - t * 5) * 5; x > -100 ? b.lineTo(x, y) : b.moveTo(x, y); } b.stroke();
+  // rain on the window: streaks + clinging drops
+  b.strokeStyle = 'rgba(190,210,255,.18)'; b.lineWidth = 1.4;
+  for (let i = 0; i < 120; i++) { const x = hh(i * 1.7) * 2000 - 40, sp2 = 900 + hh(i * 2.3) * 700, y = ((hh(i * 4.1) * 1300 + t * sp2) % 1300) - 120, l = 30 + hh(i) * 50; b.beginPath(); b.moveTo(x, y); b.lineTo(x - l * 0.12, y + l); b.stroke(); }
+  for (let i = 0; i < 70; i++) { const x = hh(i * 6.1) * 1920, y = hh(i * 8.3) * 1080 + Math.max(0, t - hh(i) * 15) * 6 * hh(i * 2.2), r = 3 + hh(i * 3.3) * 7; b.fillStyle = 'rgba(200,220,255,.12)'; b.beginPath(); b.arc(x, y, r, 0, 7); b.fill(); b.fillStyle = 'rgba(255,255,255,.35)'; b.beginPath(); b.arc(x - r * 0.3, y - r * 0.3, r * 0.3, 0, 7); b.fill(); }
+  // end caption in the wallpaper
+  const ca = E.outCubic(clamp((t - 11.6) / 0.6));
+  if (ca > 0) { b.setTransform(1, 0, 0, 1, 0, 0); g.text(b, C.sub, 960, 650, 46, `rgba(255,255,255,${ca})`, { wt: 700, ls: 8 }); g.text(b, 'LATE NIGHT RADIO · PODCAST', 960, 712, 22, `rgba(170,200,255,${0.85 * ca})`, { font: 'Inter', wt: 600, ls: 10 }); }
+  b.setTransform(1, 0, 0, 1, 0, 0);
+}
+// equaliser envelope: hits on the beat (120 BPM) with per-bar weights
+function eq(t, i) {
+  const beat = t / 0.5, ph = beat - Math.floor(beat), n = Math.floor(beat);
+  const hit = Math.exp(-ph * 4.2) * (0.55 + 0.45 * hh(n * 7.1 + i * 3.3));
+  const wav = 0.35 + 0.3 * Math.sin(t * 3.1 + i * 0.9) * Math.sin(t * 1.3 + i * 0.4);
+  const centre = 1 - Math.abs(i - 3) / 4.5;
+  return clamp(hit * centre * 1.1 + wav * 0.5);
+}
+function layout(t) {
+  Z = zoomAt(t);
+  const L = {}, S = [];
+  const fin = E.inOutCubic(clamp((t - 10.0) / 0.8));
+  const pour = (x, y, tx = 960, ty = 450) => [lerp(x, tx, fin), lerp(y, ty, fin)];
+  // on air pill
+  const pd = sp(t, 0.3, 140, 13); L.air = { x: 330, y: lerp(-60, 130, pd), hw: 150, hh: 38 };
+  // record
+  const rd = sp(t, 0.8, 110, 13); L.rec = { x: 640, y: 560, r: 250 * rd, e: rd };
+  // equaliser capsules
+  const en = sp(t, 1.5, 140, 12);
+  L.bars = Array.from({ length: 7 }, (_, i) => { const e = sp(t, 1.5 + i * 0.07, 150, 12); const v = eq(t, i) * clamp((t - 1.8) / 0.6); return { x: 1110 + i * 92, y: 520, hw: 30 * e, hh: (30 + 170 * v) * e, v }; });
+  // topic card (switches to the listener message with a liquid bulge)
+  const cd = sp(t, 3.4, 120, 14); L.card = { x: 1290, y: lerp(1200, 870, cd), hw: 520 * Math.min(1, cd * 1.2), hh: 64, e: cd, bump: Math.sin(Math.PI * clamp((t - 6.6) / 0.5)) };
+  L.card.hh += 18 * L.card.bump;
+  // pour into the title pill
+  const brand = sp(t, 10.6, 120, 14);
+  for (const q of [L.air, L.card, ...L.bars]) { const [x, y] = pour(q.x, q.y); q.x = x; q.y = y; q.hw *= 1 - fin; q.hh *= 1 - fin; }
+  { const [x, y] = pour(L.rec.x, L.rec.y); L.rec.x = x; L.rec.y = y; L.rec.r *= 1 - fin; }
+  L.brand = { x: 960, y: 450, hw: lerp(20, 360, brand) * (t > 10.55 ? 1 : 0), hh: lerp(20, 96, brand) * (t > 10.55 ? 1 : 0), e: brand };
+  const P = (x, y, hx, hy, r, k, frost, bev) => S.push({ c: [X(x), Y(y)], h: [hx * Z, hy * Z], r: r * Z, k: k * Z, frost, bev: bev * Z });
+  P(L.air.x, L.air.y, L.air.hw, L.air.hh, 38, 30, 2, 26);
+  P(L.rec.x, L.rec.y, L.rec.r, L.rec.r, 400, 40, 1, 40);
+  L.bars.forEach((q) => P(q.x, q.y, q.hw, q.hh, 30, 38, 0, 26));
+  P(L.card.x, L.card.y, L.card.hw, L.card.hh, 64, 40, 3, 30);
+  P(L.brand.x, L.brand.y, L.brand.hw, L.brand.hh, 96, 70, 2, 34);
+  // orb lens riding the waveform at the end
+  const on = t > 12.2 ? Math.sin(Math.PI * clamp((t - 12.2) / 2.75)) : 0, ox = lerp(520, 1400, E.inOutSine(clamp((t - 12.2) / 2.75)));
+  L.orb = [ox, 905, 84 * Math.min(1, on * 2.4), on > 0.02 ? 1 : 0];
+  const live = S.filter((s) => s.h[0] > 0.8 && s.h[1] > 0.8);
+  if (L.orb[3]) live.push({ c: [L.orb[0], L.orb[1]], h: [L.orb[2], L.orb[2]], r: 400, k: 0, frost: 0, bev: 34 });
+  return { S: live.slice(0, 10), L, fin };
+}
+function drawUI(t, L, fin) {
+  u.clearRect(0, 0, W, H);
+  const fa = 1 - clamp(fin * 3);
+  const T = (s, x, y, size, col, o = {}) => g.text(u, s, X(x), Y(y), size * Z, col, Object.assign({ a: fa }, o, { a: (o.a ?? 1) * fa }));
+  // on air
+  const aa = clamp((t - 0.55) / 0.3); if (aa > 0) { const pulse = 0.55 + 0.45 * Math.abs(Math.sin(t * 3.14)); u.save(); u.globalAlpha = aa * fa; u.fillStyle = `rgba(255,60,80,${pulse})`; u.beginPath(); u.arc(X(L.air.x - 116) * K, Y(L.air.y) * K, 9 * Z * K, 0, 7); u.fill(); u.restore(); T('ON AIR · 夜航电台', L.air.x + 22, L.air.y + 1, 26, '#fff', { a: aa, wt: 700 }); }
+  // record grooves + label, rotating
+  const R = L.rec; if (R.e > 0.6 && fa > 0) { const a = clamp((R.e - 0.6) / 0.4) * fa, rot = t * 2.2;
+    u.save(); u.translate(X(R.x) * K, Y(R.y) * K); u.scale(Z * K, Z * K); u.globalAlpha = a;
+    for (let r = 90; r < 236; r += 9) { u.strokeStyle = `rgba(255,255,255,${0.05 + 0.05 * (r % 27 === 0)})`; u.lineWidth = 1.2; u.beginPath(); u.arc(0, 0, r, 0, 7); u.stroke(); }
+    u.rotate(rot); const sw = u.createConicGradient ? u.createConicGradient(0, 0, 0) : null; if (sw) { sw.addColorStop(0, 'rgba(255,255,255,0)'); sw.addColorStop(0.08, 'rgba(255,255,255,.22)'); sw.addColorStop(0.16, 'rgba(255,255,255,0)'); sw.addColorStop(0.5, 'rgba(255,255,255,0)'); sw.addColorStop(0.58, 'rgba(255,255,255,.18)'); sw.addColorStop(0.66, 'rgba(255,255,255,0)'); u.fillStyle = sw; u.beginPath(); u.arc(0, 0, 236, 0, 7); u.arc(0, 0, 90, 0, 7, true); u.fill(); }
+    const lg = u.createLinearGradient(-80, -80, 80, 80); lg.addColorStop(0, '#ff6fa8'); lg.addColorStop(1, '#6a5cff'); u.fillStyle = lg; u.beginPath(); u.arc(0, 0, 80, 0, 7); u.fill();
+    u.fillStyle = '#fff'; u.font = '700 26px "Noto Sans CJK SC"'; u.textAlign = 'center'; u.textBaseline = 'middle'; u.fillText('夜航', 0, -14); u.font = '600 18px Inter'; u.fillText('EP.127', 0, 18);
+    u.fillStyle = '#0b0d2a'; u.beginPath(); u.arc(0, 0, 7, 0, 7); u.fill(); u.restore(); }
+  // eq value labels
+  if (L.bars[0].hw > 20) T('LIVE · 1,284 人在听', 1386, 300, 22, 'rgba(255,255,255,.85)', { a: clamp((t - 2.0) / 0.4), font: 'Inter', wt: 600, ls: 3 });
+  // card text
+  const c = L.card, ca = clamp((c.e - 0.75) / 0.25);
+  if (ca > 0) { const sw = clamp((t - 6.75) / 0.2); T(C.topic, c.x - 470, c.y - 12, 28, '#fff', { a: ca * (1 - sw), align: 'left', wt: 700 }); T(C.msg, c.x - 470, c.y - 12, 26, '#ffe0ef', { a: ca * sw, align: 'left', wt: 600 });
+    const p = clamp((t - 3.6) / 7); u.save(); u.globalAlpha = ca * fa; u.fillStyle = 'rgba(255,255,255,.25)'; u.fillRect(X(c.x - 470) * K, Y(c.y + 30) * K, 940 * Z * K, 4 * Z * K); u.fillStyle = '#fff'; u.fillRect(X(c.x - 470) * K, Y(c.y + 30) * K, 940 * p * Z * K, 4 * Z * K); u.restore(); }
+  // brand
+  const ba = clamp((L.brand.e - 0.6) / 0.4); if (ba > 0 && t > 10.6) g.text(u, C.brand, 960, 452, 92, '#fff', { a: ba, wt: 900, ls: 16 });
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 520px "Noto Serif CJK SC"', '900 100px "Noto Sans CJK SC"', '700 40px "Noto Sans CJK SC"', '600 40px "Noto Sans CJK SC"', '700 40px Inter', '600 40px Inter'],
+  cues: [{ t: 0.0, sfx: 'rainloop', gain: 0.35 }, { t: 0.3, sfx: 'blob', gain: 0.55 }, { t: 0.8, sfx: 'expand', gain: 0.5 }, { t: 1.5, sfx: 'stretch', gain: 0.45 }, { t: 3.4, sfx: 'blob', gain: 0.45 }, { t: 6.6, sfx: 'morph', gain: 0.45 }, { t: 6.7, sfx: 'heart', gain: 0.4 },
+    { t: 10.0, sfx: 'morph', gain: 0.6 }, { t: 10.6, sfx: 'expand', gain: 0.5 }, { t: 11.6, sfx: 'chime', gain: 0.6 }, { t: 12.2, sfx: 'glass', gain: 0.35 }],
+  render(t) {
+    Z = zoomAt(t);
+    wallpaper(t);
+    const { S, L, fin } = layout(t);
+    g.draw(t, S, L.orb);
+    drawUI(t, L, fin);
+  },
+});
+</script></body></html>

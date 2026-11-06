@@ -1,0 +1,19 @@
+{
+  "name": "beiming-film-9min",
+  "version": "1.0.0",
+  "description": "北冥：原版十秒样片画风延展的九分钟代码动画",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/full-film.ps1",
+    "stills": "node tools/probe.mjs",
+    "video": "node tools/render-film.mjs --size 3840x2080 --workers 4",
+    "finish": "python tools/finish-film.py",
+    "setup": "npm install && npx playwright-core install chromium-headless-shell"
+  },
+  "dependencies": {
+    "three": "0.170.0",
+    "playwright-core": "1.63.0"
+  }
+}

@@ -1,0 +1,1313 @@
+{
+  "date": "2026-11-07",
+  "repositories": [
+    {
+      "id": "sy",
+      "repository": "xiaoxiong20xx-code/sy-style-100",
+      "commit": "e41dee31a5c05dffa12b2f241378e648d2a22df6",
+      "license": "MIT / 肖雄 XIAOXIONG"
+    },
+    {
+      "id": "lemo",
+      "repository": "lemomo-ai/lemo-opuscar",
+      "commit": "bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00",
+      "license": "MIT / LemoLab"
+    }
+  ],
+  "examples": [
+    {
+      "repository": "lemo",
+      "id": "archive-lighttable",
+      "title": "档案灯台",
+      "category": "实证影像",
+      "demoTitle": "Two Seconds Short",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/archive-lighttable",
+      "localCase": "style-62-archive-lighttable"
+    },
+    {
+      "repository": "lemo",
+      "id": "art-deco",
+      "title": "装饰艺术",
+      "category": "图形与排版",
+      "demoTitle": "Midnight at the Starlight Hotel",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/art-deco",
+      "localCase": "style-18-art-deco"
+    },
+    {
+      "repository": "lemo",
+      "id": "ascii-crt",
+      "title": "ASCII / CRT 终端",
+      "category": "图形与排版",
+      "demoTitle": "Tranquility.log",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/ascii-crt",
+      "localCase": "style-22-ascii-crt"
+    },
+    {
+      "repository": "lemo",
+      "id": "backrooms",
+      "title": "后室 / 新怪谈",
+      "category": "电影与时代",
+      "demoTitle": "Night Shift Orientation",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/backrooms",
+      "localCase": "style-36-backrooms"
+    },
+    {
+      "repository": "lemo",
+      "id": "blueprint",
+      "title": "蓝图 / 工程制图",
+      "category": "图形与排版",
+      "demoTitle": "Patent Pending: The Cloud Catcher",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/blueprint",
+      "localCase": "style-19-blueprint"
+    },
+    {
+      "repository": "lemo",
+      "id": "brick-toy",
+      "title": "积木玩具",
+      "category": "材质与 3D",
+      "demoTitle": "Rocket from Spare Parts",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/brick-toy",
+      "localCase": "style-37-brick-toy"
+    },
+    {
+      "repository": "lemo",
+      "id": "briefing-board",
+      "title": "工程简报板",
+      "category": "实证影像",
+      "demoTitle": "The Ship Decides",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/briefing-board",
+      "localCase": "style-56-briefing-board"
+    },
+    {
+      "repository": "lemo",
+      "id": "caption-news",
+      "title": "字幕新闻",
+      "category": "剪辑与纪实",
+      "demoTitle": "The Bee Ledger",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/caption-news",
+      "localCase": "style-63-caption-news"
+    },
+    {
+      "repository": "lemo",
+      "id": "cel-anime-80s",
+      "title": "80 年代赛璐璐动画",
+      "category": "卡通与动画",
+      "demoTitle": "City Lights, 1987",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/cel-anime-80s",
+      "localCase": "style-27-cel-anime-80s"
+    },
+    {
+      "repository": "lemo",
+      "id": "chalkboard",
+      "title": "黑板粉笔",
+      "category": "手绘与绘画",
+      "demoTitle": "The Story of Chinese Characters",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/chalkboard",
+      "localCase": "style-73-chalkboard"
+    },
+    {
+      "repository": "lemo",
+      "id": "circuit-board",
+      "title": "电路板",
+      "category": "信息与发布",
+      "demoTitle": "Seven Milliseconds",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/circuit-board",
+      "localCase": "style-76-circuit-board"
+    },
+    {
+      "repository": "lemo",
+      "id": "city-symphony",
+      "title": "延时交响",
+      "category": "剪辑与纪实",
+      "demoTitle": "One Day in New York",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/city-symphony",
+      "localCase": "style-66-city-symphony"
+    },
+    {
+      "repository": "lemo",
+      "id": "countdown",
+      "title": "实时倒计时分屏",
+      "category": "剪辑与纪实",
+      "demoTitle": "Counting Itself Down",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/countdown",
+      "localCase": "style-65-countdown"
+    },
+    {
+      "repository": "lemo",
+      "id": "crayon-book",
+      "title": "蜡笔儿童绘本",
+      "category": "手绘与绘画",
+      "demoTitle": "The Moon Can't Sleep",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/crayon-book",
+      "localCase": "style-01-crayon-book"
+    },
+    {
+      "repository": "lemo",
+      "id": "dark-keynote",
+      "title": "暗色科技发布",
+      "category": "信息与发布",
+      "demoTitle": "Room to Think",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/dark-keynote",
+      "localCase": "style-25-dark-keynote"
+    },
+    {
+      "repository": "lemo",
+      "id": "data-physical",
+      "title": "数据实物化",
+      "category": "实证影像",
+      "demoTitle": "Two Spirals",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/data-physical",
+      "localCase": "style-59-data-physical"
+    },
+    {
+      "repository": "lemo",
+      "id": "dataviz",
+      "title": "数据叙事",
+      "category": "信息与发布",
+      "demoTitle": "A Hundred Summers",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/dataviz",
+      "localCase": "style-23-dataviz"
+    },
+    {
+      "repository": "lemo",
+      "id": "desktop-flythrough",
+      "title": "桌面穿梭",
+      "category": "材质与 3D",
+      "demoTitle": "Before the Ding",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/desktop-flythrough",
+      "localCase": "style-77-desktop-flythrough"
+    },
+    {
+      "repository": "lemo",
+      "id": "engraving",
+      "title": "铜版画",
+      "category": "印刷与版画",
+      "demoTitle": "The Honeybee, Plate VII",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/engraving",
+      "localCase": "style-53-engraving"
+    },
+    {
+      "repository": "lemo",
+      "id": "game-show",
+      "title": "综艺节奏扁平",
+      "category": "游戏",
+      "demoTitle": "Rhythm of AI, 1997 → 2026",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/game-show",
+      "localCase": "style-33-game-show"
+    },
+    {
+      "repository": "lemo",
+      "id": "glass-product",
+      "title": "玻璃质感产品",
+      "category": "材质与 3D",
+      "demoTitle": "Aura — Hear the Light",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/glass-product",
+      "localCase": "style-44-glass-product"
+    },
+    {
+      "repository": "lemo",
+      "id": "halftone-dossier",
+      "title": "复古半调案卷",
+      "category": "印刷与版画",
+      "demoTitle": "Case File: Chubby",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/halftone-dossier",
+      "localCase": "style-13-halftone-dossier"
+    },
+    {
+      "repository": "lemo",
+      "id": "hd-2d",
+      "title": "HD-2D",
+      "category": "游戏",
+      "demoTitle": "The Lampbearer",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/hd-2d",
+      "localCase": "style-31-hd-2d"
+    },
+    {
+      "repository": "lemo",
+      "id": "hologram-hud",
+      "title": "科幻全息界面",
+      "category": "信息与发布",
+      "demoTitle": "Volt · Spec Scan",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/hologram-hud",
+      "localCase": "style-52-hologram-hud"
+    },
+    {
+      "repository": "lemo",
+      "id": "impasto",
+      "title": "油画厚涂",
+      "category": "手绘与绘画",
+      "demoTitle": "The Colour of Rain",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/impasto",
+      "localCase": "style-04-impasto"
+    },
+    {
+      "repository": "lemo",
+      "id": "ink-wash",
+      "title": "中国水墨",
+      "category": "手绘与绘画",
+      "demoTitle": "The Swordsman and the River",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/ink-wash",
+      "localCase": "style-03-ink-wash"
+    },
+    {
+      "repository": "lemo",
+      "id": "iso-infographic",
+      "title": "等距信息图",
+      "category": "信息与发布",
+      "demoTitle": "From Bean to Cup",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/iso-infographic",
+      "localCase": "style-24-iso-infographic"
+    },
+    {
+      "repository": "lemo",
+      "id": "isometric-picture-book",
+      "title": "等距绘本",
+      "category": "信息与发布",
+      "demoTitle": "Seventy-Two Seats",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/isometric-picture-book",
+      "localCase": "style-74-isometric-picture-book"
+    },
+    {
+      "repository": "lemo",
+      "id": "kino-montage",
+      "title": "构成主义蒙太奇",
+      "category": "剪辑与纪实",
+      "demoTitle": "410 Days",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/kino-montage",
+      "localCase": "style-68-kino-montage"
+    },
+    {
+      "repository": "lemo",
+      "id": "lidar-survey",
+      "title": "点云测绘",
+      "category": "实证影像",
+      "demoTitle": "The Fields Under the Forest",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/lidar-survey",
+      "localCase": "style-57-lidar-survey"
+    },
+    {
+      "repository": "lemo",
+      "id": "living-screencast",
+      "title": "活体实机录屏",
+      "category": "信息与发布",
+      "demoTitle": "Clawd Moves In",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/living-screencast",
+      "localCase": "style-46-living-screencast"
+    },
+    {
+      "repository": "lemo",
+      "id": "lowpoly-island",
+      "title": "低多边形等距",
+      "category": "材质与 3D",
+      "demoTitle": "The Island That Grew",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/lowpoly-island",
+      "localCase": "style-43-lowpoly-island"
+    },
+    {
+      "repository": "lemo",
+      "id": "memphis-diorama",
+      "title": "孟菲斯微缩景观",
+      "category": "材质与 3D",
+      "demoTitle": "Four Seasons in Pomelo Town",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/memphis-diorama",
+      "localCase": "style-71-memphis-diorama"
+    },
+    {
+      "repository": "lemo",
+      "id": "microgame",
+      "title": "微游戏快闪",
+      "category": "游戏",
+      "demoTitle": "Five-Second Astronaut",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/microgame",
+      "localCase": "style-32-microgame"
+    },
+    {
+      "repository": "lemo",
+      "id": "microscope",
+      "title": "显微叙事",
+      "category": "实证影像",
+      "demoTitle": "Measured Blue",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/microscope",
+      "localCase": "style-61-microscope"
+    },
+    {
+      "repository": "lemo",
+      "id": "midcentury-toon",
+      "title": "50s 扁平卡通",
+      "category": "卡通与动画",
+      "demoTitle": "Meet Pip",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/midcentury-toon",
+      "localCase": "style-48-midcentury-toon"
+    },
+    {
+      "repository": "lemo",
+      "id": "news-package",
+      "title": "电视新闻包装",
+      "category": "剪辑与纪实",
+      "demoTitle": "The Week in AI",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/news-package",
+      "localCase": "style-70-news-package"
+    },
+    {
+      "repository": "lemo",
+      "id": "newsreel",
+      "title": "1920s 新闻影片",
+      "category": "剪辑与纪实",
+      "demoTitle": "Knock-Knee Alert",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/newsreel",
+      "localCase": "style-64-newsreel"
+    },
+    {
+      "repository": "lemo",
+      "id": "one-line",
+      "title": "一笔画",
+      "category": "手绘与绘画",
+      "demoTitle": "The Line That Never Lifted",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/one-line",
+      "localCase": "style-05-one-line"
+    },
+    {
+      "repository": "lemo",
+      "id": "paper-lantern",
+      "title": "纸雕灯影",
+      "category": "东方传统",
+      "demoTitle": "The Last Night Train",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/paper-lantern",
+      "localCase": "style-10-paper-lantern"
+    },
+    {
+      "repository": "lemo",
+      "id": "paper-popup",
+      "title": "纸片立体书",
+      "category": "材质与 3D",
+      "demoTitle": "Pip's Paper Adventure",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/paper-popup",
+      "localCase": "style-41-paper-popup"
+    },
+    {
+      "repository": "lemo",
+      "id": "papercut-red",
+      "title": "红色窗花剪纸",
+      "category": "东方传统",
+      "demoTitle": "Nian Comes to Town",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/papercut-red",
+      "localCase": "style-09-papercut-red"
+    },
+    {
+      "repository": "lemo",
+      "id": "pictogram-motion",
+      "title": "象形运动图形",
+      "category": "图形与排版",
+      "demoTitle": "Left Behind",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/pictogram-motion",
+      "localCase": "style-21-pictogram-motion"
+    },
+    {
+      "repository": "lemo",
+      "id": "pixel-rpg",
+      "title": "16-bit 像素 RPG",
+      "category": "游戏",
+      "demoTitle": "The Last Save Point",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/pixel-rpg",
+      "localCase": "style-29-pixel-rpg"
+    },
+    {
+      "repository": "lemo",
+      "id": "printed-long-take",
+      "title": "印刷长镜头",
+      "category": "印刷与版画",
+      "demoTitle": "Thirty-Three Cranes",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/printed-long-take",
+      "localCase": "style-75-printed-long-take"
+    },
+    {
+      "repository": "lemo",
+      "id": "risograph",
+      "title": "Risograph 孔版印刷",
+      "category": "印刷与版画",
+      "demoTitle": "Sunday Ride",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/risograph",
+      "localCase": "style-12-risograph"
+    },
+    {
+      "repository": "lemo",
+      "id": "rubber-hose",
+      "title": "1930s 橡皮管卡通",
+      "category": "卡通与动画",
+      "demoTitle": "Coffee Cup Chase",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/rubber-hose",
+      "localCase": "style-26-rubber-hose"
+    },
+    {
+      "repository": "lemo",
+      "id": "satellite-briefing",
+      "title": "卫星简报",
+      "category": "实证影像",
+      "demoTitle": "The Map Still Says Sea",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/satellite-briefing",
+      "localCase": "style-55-satellite-briefing"
+    },
+    {
+      "repository": "lemo",
+      "id": "scifi-toon",
+      "title": "科幻情景喜剧卡通",
+      "category": "卡通与动画",
+      "demoTitle": "Coffee Run",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/scifi-toon",
+      "localCase": "style-28-scifi-toon"
+    },
+    {
+      "repository": "lemo",
+      "id": "shadow-puppet",
+      "title": "皮影戏",
+      "category": "东方传统",
+      "demoTitle": "Hou Yi Shoots the Suns",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/shadow-puppet",
+      "localCase": "style-07-shadow-puppet"
+    },
+    {
+      "repository": "lemo",
+      "id": "silent-film",
+      "title": "1920s 默片",
+      "category": "电影与时代",
+      "demoTitle": "The Runaway Loaf",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/silent-film",
+      "localCase": "style-34-silent-film"
+    },
+    {
+      "repository": "lemo",
+      "id": "silkscreen-poster",
+      "title": "丝印旅行海报",
+      "category": "印刷与版画",
+      "demoTitle": "The Long Way Home",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/silkscreen-poster",
+      "localCase": "style-54-silkscreen-poster"
+    },
+    {
+      "repository": "lemo",
+      "id": "spy-titles",
+      "title": "60s 间谍片头",
+      "category": "图形与排版",
+      "demoTitle": "The Velvet Cipher",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/spy-titles",
+      "localCase": "style-17-spy-titles"
+    },
+    {
+      "repository": "lemo",
+      "id": "stained-glass",
+      "title": "彩色玻璃窗",
+      "category": "图形与排版",
+      "demoTitle": "The Dragon of the East Window",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/stained-glass",
+      "localCase": "style-20-stained-glass"
+    },
+    {
+      "repository": "lemo",
+      "id": "swiss-motion",
+      "title": "瑞士动态排版",
+      "category": "图形与排版",
+      "demoTitle": "Five Rules for a Poster",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/swiss-motion",
+      "localCase": "style-16-swiss-motion"
+    },
+    {
+      "repository": "lemo",
+      "id": "teardown",
+      "title": "产品拆解",
+      "category": "实证影像",
+      "demoTitle": "21 Keys, Opened",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/teardown",
+      "localCase": "style-60-teardown"
+    },
+    {
+      "repository": "lemo",
+      "id": "telestrator",
+      "title": "体育战术板",
+      "category": "剪辑与纪实",
+      "demoTitle": "Freeze Frame",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/telestrator",
+      "localCase": "style-69-telestrator"
+    },
+    {
+      "repository": "lemo",
+      "id": "tilt-shift",
+      "title": "移轴微缩",
+      "category": "材质与 3D",
+      "demoTitle": "Toy Town Rush Hour",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/tilt-shift",
+      "localCase": "style-42-tilt-shift"
+    },
+    {
+      "repository": "lemo",
+      "id": "transit-map",
+      "title": "地铁线路图",
+      "category": "信息与发布",
+      "demoTitle": "6 Kilometres",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/transit-map",
+      "localCase": "style-72-transit-map"
+    },
+    {
+      "repository": "lemo",
+      "id": "ukiyoe",
+      "title": "浮世绘",
+      "category": "东方传统",
+      "demoTitle": "Toward the Mountain",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/ukiyoe",
+      "localCase": "style-08-ukiyoe"
+    },
+    {
+      "repository": "lemo",
+      "id": "urban-sketch",
+      "title": "钢笔淡彩",
+      "category": "手绘与绘画",
+      "demoTitle": "Where the Wind Went",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/urban-sketch",
+      "localCase": "style-45-urban-sketch"
+    },
+    {
+      "repository": "lemo",
+      "id": "visual-investigation",
+      "title": "视觉调查",
+      "category": "剪辑与纪实",
+      "demoTitle": "The Hindenburg: Four Minutes, 32 Seconds",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/visual-investigation",
+      "localCase": "style-67-visual-investigation"
+    },
+    {
+      "repository": "lemo",
+      "id": "watercolor",
+      "title": "水彩笔刷",
+      "category": "手绘与绘画",
+      "demoTitle": "Follow the Rain",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/watercolor",
+      "localCase": "style-02-watercolor"
+    },
+    {
+      "repository": "lemo",
+      "id": "white-model",
+      "title": "白模投影",
+      "category": "实证影像",
+      "demoTitle": "How a Flattened City Grew Back",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/white-model",
+      "localCase": "style-58-white-model"
+    },
+    {
+      "repository": "lemo",
+      "id": "whiteboard",
+      "title": "白板讲解",
+      "category": "手绘与绘画",
+      "demoTitle": "Einstein in Your Pocket",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/whiteboard",
+      "localCase": "style-06-whiteboard"
+    },
+    {
+      "repository": "lemo",
+      "id": "woodcut",
+      "title": "木刻版画",
+      "category": "印刷与版画",
+      "demoTitle": "The Bell Founder",
+      "source": "https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00/styles/woodcut",
+      "localCase": "style-15-woodcut"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/01-handdrawn",
+      "title": "01 逐帧手绘 · Frame by Frame",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/01-handdrawn/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/02-isometric",
+      "title": "02 等轴 2.5D · Isometric",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/02-isometric/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/03-flat",
+      "title": "03 扁平矢量 · Flat Vector",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/03-flat/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/04-lineart",
+      "title": "04 线条动画 · Line Art",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/04-lineart/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/05-3d",
+      "title": "05 3D 渲染 · Studio Render",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/05-3d/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/06-morph",
+      "title": "06 形变动画 · Particle Morph",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/06-morph/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/07-sticker",
+      "title": "07 贴纸风科普 · Sticker Explainer",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/07-sticker/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/08-hud",
+      "title": "08 赛博朋克 HUD · Cyberpunk HUD",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/08-hud/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/09-collage",
+      "title": "09 拼贴剪贴 · Collage",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/09-collage/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/10-glass",
+      "title": "10 弥散渐变 · 玻璃拟态",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/10-glass/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/11-bauhaus",
+      "title": "11 几何构成 · 包豪斯",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/11-bauhaus/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/12-synthwave",
+      "title": "12 复古 Synthwave",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/12-synthwave/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/13-pixel",
+      "title": "13 像素风 · Pixel Art",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/13-pixel/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/14-liquid",
+      "title": "14 液态流动 · Liquid Chrome",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/14-liquid/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/15-variety",
+      "title": "15 综艺花字 · Variety Captions",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/15-variety/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/16-pagecam",
+      "title": "16 真实页面 2.5D 推镜 · Page Camera",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/16-pagecam/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/17-editorial",
+      "title": "17 数据新闻编辑风 · Editorial Data",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/17-editorial/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/18-ink",
+      "title": "18 水墨国风 · Ink Wash",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/18-ink/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/19-clay",
+      "title": "19 黏土定格 · Claymation",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/19-clay/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "styles/20-blueprint",
+      "title": "20 蓝图工程图 · Blueprint",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/styles/20-blueprint/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/01-handdrawn",
+      "title": "01 逐帧手绘 · Summer Fireworks",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/01-handdrawn/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/02-isometric",
+      "title": "02 等轴 2.5D · Tiny Tower",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/02-isometric/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/03-flat",
+      "title": "03 扁平矢量 · Chain Reaction",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/03-flat/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/04-lineart",
+      "title": "04 线条动画 · Harmonograph",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/04-lineart/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/05-3d",
+      "title": "05 3D 渲染 · Amber No.5",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/05-3d/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/06-morph",
+      "title": "06 形变动画 · Shape Shift",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/06-morph/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/07-sticker",
+      "title": "07 贴纸风科普 · Coffee Journey",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/07-sticker/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/08-hud",
+      "title": "08 赛博朋克 HUD · Orbital Lock",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/08-hud/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/09-collage",
+      "title": "09 拼贴剪贴 · Collage",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/09-collage/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/10-glass",
+      "title": "10 弥散渐变 玻璃拟态 · Glass Cards",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/10-glass/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/11-bauhaus",
+      "title": "11 几何构成 包豪斯 · On the Beat",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/11-bauhaus/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/12-synthwave",
+      "title": "12 复古 Synthwave · Jet Jump",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/12-synthwave/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/13-pixel",
+      "title": "13 像素风 · Sunset Express",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/13-pixel/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/14-liquid",
+      "title": "14 液态流动 · Marble Pour",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/14-liquid/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/15-variety",
+      "title": "15 综艺花字 · Buzzer Beater",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/15-variety/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/16-pagecam",
+      "title": "16 真实页面 2.5D 推镜 · Product Page",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/16-pagecam/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/17-editorial",
+      "title": "17 数据新闻 编辑风 · Milk Tea Economics",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/17-editorial/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/18-ink",
+      "title": "18 水墨国风 · Ink Bamboo",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/18-ink/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/19-clay",
+      "title": "19 黏土定格 · Clay Rocket",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/19-clay/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "vol2/styles/20-blueprint",
+      "title": "20 蓝图工程图 · Blueprint Bicycle",
+      "category": "style-demo",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/vol2/styles/20-blueprint/index.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/01a-coffee",
+      "title": "01 · 剧情动画 · 巷口咖啡",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/01a-coffee.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/01b-minsu",
+      "title": "01 · 日式手绘动画 · 云栖小院",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/01b-minsu.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/01c-wedding",
+      "title": "01 · 50年代扁平几何动画 · 拾柒婚礼",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/01c-wedding.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/02a-factory",
+      "title": "02 · 工厂数字化 · 恒创精工",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/02a-factory.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/02b-park",
+      "title": "02 · 园区招商 · 青禾产业园",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/02b-park.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/02c-supply",
+      "title": "02 · 供应链 SaaS · 货流通",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/02c-supply.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/03a-edu",
+      "title": "03 · 教育培训 · 小步数学",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/03a-edu.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/03b-onboard",
+      "title": "03 · 企业内训 · 新人七日通",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/03b-onboard.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/03c-app",
+      "title": "03 · AI 做的 App · 每日小账",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/03c-app.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/04a-arch",
+      "title": "04 · 建筑事务所 · 白石建筑",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/04a-arch.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/04b-law",
+      "title": "04 · 律所 · 衡正律师事务所",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/04b-law.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/04c-watch",
+      "title": "04 · 腕表 · ORIN",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/04c-watch.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/05a-gummy",
+      "title": "05 · 零食 · 果汁软糖",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/05a-gummy.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/05b-lipstick",
+      "title": "05 · 美妆 · 绯 FEI 口红",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/05b-lipstick.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/05c-blender",
+      "title": "05 · 小家电 · 随鲜便携榨汁杯",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/05c-blender.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/06a-gym",
+      "title": "06 · 健身工作室 · 燃点健身",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/06a-gym.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/06b-earbuds",
+      "title": "06 · 蓝牙耳机 · 声屿",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/06b-earbuds.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/06c-course",
+      "title": "06 · 知识付费 · 一人公司训练营",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/06c-course.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/07a-clean",
+      "title": "07 · 家政保洁 · 小蜜蜂家政",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/07a-clean.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/07b-pet",
+      "title": "07 · 宠物医院 · 毛孩子宠物医院",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/07b-pet.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/07c-grocery",
+      "title": "07 · 社区生鲜团购 · 邻里鲜",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/07c-grocery.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/08a-survey",
+      "title": "08 · 无人机测绘 · 云眸测绘",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/08a-survey.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/08b-security",
+      "title": "08 · 智能安防 · 守望安防",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/08b-security.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/08c-esports",
+      "title": "08 · 电竞馆 · 零点电竞",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/08c-esports.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/09a-bookshop",
+      "title": "09 · 独立书店 · 慢读书屋",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/09a-bookshop.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/09b-travel",
+      "title": "09 · 定制旅行 · 出逃旅行",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/09b-travel.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/09c-kitchen",
+      "title": "09 · 私房菜 · 阿婆私房菜",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/09c-kitchen.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/10a-beauty",
+      "title": "10 · 美业预约小程序 · 约美",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/10a-beauty.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/10b-home",
+      "title": "10 · 智能家居 · 栖家",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/10b-home.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/10c-radio",
+      "title": "10 · 深夜电台播客 · 夜航电台",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/10c-radio.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/11a-studio",
+      "title": "11 · 设计工作室 · 方寸设计",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/11a-studio.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/11b-furniture",
+      "title": "11 · 几何家居 · 几何物",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/11b-furniture.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/11c-gallery",
+      "title": "11 · 画廊展览 · 白盒子画廊",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/11c-gallery.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/12a-livehouse",
+      "title": "12 · 复古 Livehouse · 午夜磁带",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/12a-livehouse.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/12b-carwash",
+      "title": "12 · 汽车改装洗车 · 霓虹车坊",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/12b-carwash.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/12c-arcade",
+      "title": "12 · 潮玩复古游戏厅 · 星际电玩城",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/12c-arcade.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/13a-studio",
+      "title": "13 · 独立游戏工作室 · 八位元工作室",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/13a-studio.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/13b-coding",
+      "title": "13 · 少儿编程 · 小码星球",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/13b-coding.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/13c-milktea",
+      "title": "13 · 奶茶会员积分 · 茶小满",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/13c-milktea.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/14a-jewelry",
+      "title": "14 · 珠宝首饰 · 素银",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/14a-jewelry.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/14b-serum",
+      "title": "14 · 高端护肤精华 · 澄露",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/14b-serum.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/14c-beer",
+      "title": "14 · 精酿啤酒 · 铁锚精酿",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/14c-beer.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/15a-stirfry",
+      "title": "15 · 街边小炒探店 · 火候小炒",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/15a-stirfry.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/15b-livestream",
+      "title": "15 · 农产品直播带货 · 橙心果园",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/15b-livestream.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/15c-driving",
+      "title": "15 · 驾校 · 安心驾校",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/15c-driving.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/16a-saas",
+      "title": "16 · SaaS 官网 · 客满云 CRM",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/16a-saas.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/16b-ecom",
+      "title": "16 · 电商详情页 · 轻野户外",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/16b-ecom.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/16c-jobs",
+      "title": "16 · 招聘小程序 · 好职通",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/16c-jobs.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/17a-tax",
+      "title": "17 · 财税记账 · 明账财税",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/17a-tax.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/17b-health",
+      "title": "17 · 体检报告 · 安康体检",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/17b-health.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/17c-store",
+      "title": "17 · 门店数据 · 小店参谋",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/17c-store.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/18a-tea",
+      "title": "18 · 茶庄 · 云岫茶庄",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/18a-tea.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/18b-tcm",
+      "title": "18 · 中医馆 · 仁和堂",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/18b-tcm.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/18c-town",
+      "title": "18 · 古镇文旅 · 青溪古镇",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/18c-town.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/19a-craft",
+      "title": "19 · 亲子手工坊 · 小泥巴手作",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/19a-craft.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/19b-cake",
+      "title": "19 · 烘焙蛋糕 · 糖果屋烘焙",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/19b-cake.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/19c-pet",
+      "title": "19 · 宠物用品 · 毛球宠物",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/19c-pet.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/20a-home",
+      "title": "20 · 全屋定制 · 木作家",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/20a-home.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/20b-parts",
+      "title": "20 · 工业零件 · 精工机械",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/20b-parts.html"
+    },
+    {
+      "repository": "sy",
+      "id": "industry/20c-lock",
+      "title": "20 · 智能硬件 · 安心智能锁",
+      "category": "industry",
+      "source": "https://github.com/xiaoxiong20xx-code/sy-style-100/blob/e41dee31a5c05dffa12b2f241378e648d2a22df6/industry/20c-lock.html"
+    }
+  ]
+}

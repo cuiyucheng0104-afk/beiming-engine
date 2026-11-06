@@ -1,0 +1,16 @@
+{
+  "status": "complete",
+  "master": "audio/mix.wav",
+  "dialogue_source": "audio/dialogue.json",
+  "subtitle": "audio/dialogue.srt",
+  "duration": 540,
+  "LUFS": -13.95,
+  "TP_dBTP": -1.45,
+  "sha256": "10d1b227fb35ea82b1ade32a1d4cd568359c14ef5b0c241a326020251d706f26",
+  "silence": [
+    486,
+    488
+  ],
+  "local_verified": true,
+  "note": "35 dialogue WAVs. Four full-length stems. Three original music cues. CPU-only. src/engine untouched."
+}

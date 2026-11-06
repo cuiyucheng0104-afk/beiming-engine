@@ -1,0 +1,13 @@
+import { init, renderFilm, buildEvents, texts } from './film.js';
+import { DUR } from './timeline.js';
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+const loads = [];
+for (const w of [500, 700, 800]) loads.push(document.fonts.load(`${w} 40px Archivo`, 'TEMPO0123456789'));
+for (const w of [500, 700]) loads.push(document.fonts.load(`${w} 40px NotoSC`, '节拍音乐'));
+await Promise.all(loads);
+init(g);
+window.DUR = DUR;
+window.EV = buildEvents();
+window.TEXTS = texts;
+window.render = t => renderFilm(g, t);
+window.READY = true;

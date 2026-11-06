@@ -1,0 +1,21 @@
+小纸船遇上大雨 — credits for third-party material
+
+Picture: drawn entirely in code (no images, footage or generated video). The wax-adhesion / watercolour
+compositor (gl.js) and the crayon stroke engine (crayon.js, rig.js) are adapted from the crayon-book style
+library's demo engine (library: @@LEMO_ROOT@@, LICENSE in that folder).
+
+Font
+- ZCOOL KuaiLe (站酷快乐体) — SIL Open Font License 1.1. Source: Google Fonts,
+  https://fonts.google.com/specimen/ZCOOL+KuaiLe , subset with the css2 API (&text=完) into fonts/zcool-kuaile-wan.woff2
+
+Music samples (all CC0 1.0 — public domain dedication, no attribution required; credited with thanks)
+- Versilian Community Sample Library (VCSL), Versilian Studios — https://github.com/sgossner/VCSL
+  glockenspiel, xylophone, vibraphone, recorder, woodblock, claps, shaker, frame drum, gran cassa, suspended cymbal
+- VS Chamber Orchestra: Community Edition (VSCO 2 CE), Versilian Studios / Sam Gossner — https://github.com/sgossner/VSCO-2-CE
+  bassoon, clarinet
+- FreePats project — https://freepats.zenvoid.org  (ukulele)
+- Karoryfer Samples / sfzinstruments "Sneakybass" — https://github.com/sfzinstruments  (double bass pizzicato)
+
+Synthesised in code (no third-party material): music box (Karplus–Strong / modal pluck model), the hummed
+child voice (formant synthesis), all foley and ambience (crayon stick-slip, wet brush, rain, drip, birds,
+paper turn, crayon set down).

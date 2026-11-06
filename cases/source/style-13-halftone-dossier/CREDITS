@@ -1,0 +1,22 @@
+消失的第十三页 — 复古半调案卷（Halftone Dossier）风格样片 · 第三方素材与许可
+
+画面
+- 全部画面由代码绘制（Canvas 2D：半调网点、纸张、印章、喜鹊角色、证物），无照片、无视频素材、无生成式影像。
+- 字体（均为 SIL Open Font License 1.1，经 Google Fonts CSS API 的 &text= 按片中实际用字子集化，存于 fonts/）：
+  Noto Serif SC 900（标题、打字机）  https://fonts.google.com/noto/specimen/Noto+Serif+SC
+  Noto Sans SC 900（证物签、说明条、印章、名牌）  https://fonts.google.com/noto/specimen/Noto+Sans+SC
+  Bagel Fat One（巨大编号、"13"、No.13）  https://fonts.google.com/specimen/Bagel+Fat+One
+  JetBrains Mono 800（HUD、页数、身高尺）  https://fonts.google.com/specimen/JetBrains+Mono
+  ZCOOL KuaiLe 站酷快乐体（拟声"喳！"）  https://fonts.google.com/specimen/ZCOOL+KuaiLe
+  许可全文：https://openfontlicense.org/open-font-license-official-text/
+
+声音
+- 原创配乐与拟音：numpy 合成（刷子扫/点、响指、马林巴式拨音、合成底鼓/拍手/踩镲、方波低音、三角波垫音、上扬扫频；
+  打字机、回车铃、图钉、红笔、扫粉、羽毛、红线、快门、闪光灯充电、木牌、印章、喜鹊叫、纸页、雨声与房间底噪），
+  物理建模拨弦（core/audio/pluck.py：红线"嘣"= banjo 预设，尾句 = music_box 预设），无第三方录音以外的素材。
+- 真实采样（CC0 1.0，公有领域贡献）：
+  Samples (CC0): Karoryfer Samples / sfzinstruments, VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+  使用：爵士低音提琴拨弦（Karoryfer Sneakybass）、低音提琴拨弦、颤音琴（软槌 / 硬槌 / 弓奏）、军鼓（滚奏 / 近麦）、音乐会大鼓、吊镲
+  Karoryfer：https://github.com/sfzinstruments · VSCO 2 CE：https://github.com/sgossner/VSCO-2-CE · VCSL：https://github.com/sgossner/VCSL
+
+使用者对片中使用的素材自行负责。

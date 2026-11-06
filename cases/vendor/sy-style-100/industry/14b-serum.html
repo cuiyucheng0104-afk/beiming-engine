@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>14 · 高端护肤精华 · 澄露</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/chrome.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 14 液态金属 · 行业示例：高端护肤精华 =====
+   One drop, followed all the way down at a thousand frames a second. Liquid gold swells at the tip of a
+   dropper, necks and lets go; the camera cranes down with it, it hits a still gold pool and throws a crown,
+   the rebound jet pinches off a perfect bead that hangs in the air, and the bead slowly pours itself into
+   the serum bottle. A light bar slides across the glass-smooth gold and the name appears. */
+const { E, clamp, lerp, inv, spring } = Reel;
+const stage = Reel.makeStage('#050403');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '澄露', en: 'CHENGLU  ESSENCE', sub: '24K 金萃修护精华 · 一滴，就够' });
+const rm = CHROME.make(stage, {
+  rm: { sat: 1.0, expo: 1.08 }, warm: true,
+  uniforms: `uniform vec4 uPip, uDrop, uPool, uCr, uJet, uBall; uniform float uM, uYaw;`,
+  map: `
+float crown(vec3 p){
+  float r = length(p.xz), th = atan(p.z, p.x);
+  float top = uCr.y * (.72 + .28*cos(11.*th));
+  float wall = abs(r - uCr.x) - uCr.z * (1.15 - .75*clamp(p.y / max(top, 1e-3), 0., 1.));
+  return max(max(wall, p.y - top), -p.y - .05) * .8;
+}
+float bottle(vec3 p){
+  vec3 q = rotY(uYaw) * (p - vec3(0., .78, 0.));
+  float body = sdCylinder(q, .27, .23) - .06;
+  float neck = sdCylinder(q - vec3(0., .42, 0.), .07, .085);
+  float bulb = sdCapsule(q, vec3(0., .52, 0.), vec3(0., .72, 0.), .085);
+  return smin(smin(body, neck, .08), bulb, .03);
+}
+float mapL(vec3 p){
+  float d = 1e3;
+  if (uPip.x > 0.) { d = sdCapsule(p, vec3(0., uPip.y + .9, 0.), vec3(0., uPip.y, 0.), .07); if (uPip.z > 0.) d = smin(d, sdEllipsoid(p - vec3(0., uPip.y - uPip.z*.9 - uPip.w, 0.), vec3(uPip.z, uPip.z*(1. + uPip.w*2.), uPip.z)), .06 + uPip.w*.1); }
+  if (uDrop.w > 0.) d = min(d, sdEllipsoid(p - uDrop.xyz, vec3(uDrop.w*.86, uDrop.w*1.28, uDrop.w*.86)));
+  if (uPool.x > 0.) { float rho = length(p.xz); float pool = sdEllipsoid(p - vec3(0., -uPool.y*.4, 0.), vec3(uPool.x, uPool.y, uPool.x)) - uPool.z*sin(rho*16. - uPool.w)*smoothstep(1.6, .05, rho); d = smin(d, pool, .1); }
+  if (uCr.w > 0.) d = smin(d, crown(p), .06);
+  if (uJet.w > 0.) d = smin(d, sdCapsule(p, vec3(0., 0., 0.), vec3(0., uJet.x, 0.), uJet.y), .12);
+  if (uBall.w > 0.) { float b = length(p - vec3(0., uBall.x, 0.)) - uBall.y; if (uM > 0.) b = mix(b, bottle(p), uM); d = smin(d, b, .1); }
+  return d;
+}`,
+});
+const ov = Reel.canvas2d(stage);
+const SL = 0.22;                                  // the slow-motion factor while the drop falls and lands
+const TIP = 1.75, G = 9.8;
+function state(t) {
+  const S = { pip: [1, TIP, 0, 0], drop: [0, 0, 0, 0], pool: [0.95, 0.06, 0, 0], cr: [0, 0, 0, 0], jet: [0, 0, 0, 0], ball: [0, 0, 0, 0], m: 0, yaw: 0 };
+  // swelling drop at the tip, necking, release at 2.4
+  const grow = clamp(t / 2.2), neck = clamp((t - 1.7) / 0.7);
+  if (t < 2.4) S.pip = [1, TIP, 0.05 + 0.13 * E.inOutSine(grow), 0.12 * E.inQuad(neck)];
+  else S.pip = [t < 6 ? 1 : 0, TIP + 0.8 * E.inOutCubic(clamp((t - 2.6) / 1.5)), 0.05 * clamp((t - 3.5) / 2), 0];
+  // fall (slow motion)
+  const R0 = 0.18, y0 = TIP - R0 * 0.9 - 0.12;
+  const tf = (t - 2.4) * SL; const tFall = Math.sqrt(2 * (y0 - R0) / G);
+  if (t >= 2.4 && tf < tFall) S.drop = [0, y0 - 0.5 * G * tf * tf, 0, R0];
+  const hit = 2.4 + tFall / SL, h = t - hit;
+  // crown + ripples
+  if (h > 0) {
+    const k = clamp(h / 1.6);
+    if (k < 1) S.cr = [0.12 + 0.55 * E.outCubic(k), 0.34 * Math.sin(Math.PI * Math.min(1, k * 1.1)) * (1 - 0.3 * k), 0.026 * (1 - 0.5 * k), 1];
+    S.pool = [0.95, 0.06, 0.02 * Math.exp(-h * 0.9), h * 6];
+    // rebound jet and the bead it throws off
+    const j = h - 0.9; if (j > 0 && j < 1.6) { const up = spring(j, { k: 60, c: 6 }); S.jet = [0.85 * up * (1 - clamp((j - 1.0) / 0.6)), 0.08 + 0.05 * (1 - up), 0, 1]; }
+    const b = h - 1.7; if (b > 0) { const lift = E.outCubic(clamp(b / 1.2)); S.ball = [lerp(0.8, 0.95, lift) + 0.02 * Math.sin(t * 1.6), lerp(0.1, 0.24, E.outBack(clamp(b / 0.6))), 0, 1]; }
+  }
+  // bead -> bottle
+  S.m = E.inOutCubic(clamp((t - 8.6) / 1.7)); S.yaw = 0.3 * Math.max(0, t - 9) ;
+  return S;
+}
+function camera(t, S) {
+  // crane: start beside the dropper tip, follow the drop down, settle low for the splash, rise to the bottle
+  const tipY = TIP - 0.2, fallY = S.drop[3] > 0 ? S.drop[1] : null;
+  let ty = t < 2.4 ? tipY : fallY !== null ? fallY : 0.1;
+  const after = clamp((t - 5.6) / 2.2); ty = lerp(ty, 0.85, E.inOutSine(after));
+  const dist = lerp(1.35, 2.7, E.inOutSine(clamp((t - 2.4) / 2.5))) + 0.35 * E.inOutSine(clamp((t - 9) / 3));
+  const az = lerp(0.35, -0.25, E.inOutSine(clamp(t / 15))), el = lerp(0.05, 0.16, after);
+  const ta = [0, ty, 0];
+  return { ro: [dist * Math.sin(az) * Math.cos(el), ty + dist * Math.sin(el) + 0.05, dist * Math.cos(az) * Math.cos(el)], ta };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['200 30px "Inter Display"', '300 40px "Noto Serif CJK SC"', '500 30px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.4, sfx: 'swell', gain: 0.3 }, { t: 2.35, sfx: 'drip', gain: 0.8 }, { t: 4.73, sfx: 'splash', gain: 0.7 }, { t: 5.6, sfx: 'stretch', gain: 0.45 }, { t: 6.5, sfx: 'blob', gain: 0.5 }, { t: 8.7, sfx: 'morph', gain: 0.6 }, { t: 10.6, sfx: 'swell', gain: 0.4 }, { t: 11.5, sfx: 'sparkle', gain: 0.5 }],
+  render(t) {
+    const S = state(t), cam = camera(t, S);
+    rm.set('uPip', S.pip).set('uDrop', S.drop).set('uPool', S.pool).set('uCr', S.cr).set('uJet', S.jet).set('uBall', S.ball).set('uM', S.m).set('uYaw', S.yaw);
+    CHROME.common(rm, { ro: cam.ro, ta: cam.ta, f: 2.9, mn: [-1.7, -0.1, -1.7], mx: [1.7, TIP + 1.0, 1.7], metal: [1.0, 0.77, 0.34], sweep: [lerp(-1.4, 1.4, E.inOutSine(inv(10.5, 12.5, t))), 3.0 * Math.sin(Math.PI * clamp((t - 10.5) / 2))], irid: 0.04, fade: E.outCubic(clamp(t / 0.6)), step: S.m > 0 && S.m < 1 ? 0.55 : 0.75 });
+    const fp = cam.ta;
+    rm.render(t, { focus: Math.hypot(cam.ro[0] - fp[0], cam.ro[1] - fp[1], cam.ro[2] - fp[2]), aperture: 30, maxCoc: 16 });
+    const { ctx, begin } = ov; begin(); ctx.clearRect(0, 0, 1920, 1080);
+    const a = E.outCubic(clamp((t - 11.4) / 0.9));
+    if (a > 0) {
+      ctx.save(); ctx.globalAlpha = a; ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,240,210,.96)';
+      ctx.font = '300 96px "Noto Serif CJK SC"'; if ('letterSpacing' in ctx) ctx.letterSpacing = `${lerp(70, 40, a)}px`; ctx.fillText(C.brand, 1180, 470);
+      ctx.font = '200 24px "Inter Display"'; if ('letterSpacing' in ctx) ctx.letterSpacing = '14px'; ctx.fillStyle = 'rgba(240,220,180,.85)'; ctx.fillText(C.en, 1186, 530);
+      ctx.globalAlpha = E.outCubic(clamp((t - 12.0) / 0.8)); ctx.font = '500 26px "Noto Sans CJK SC"'; if ('letterSpacing' in ctx) ctx.letterSpacing = '6px'; ctx.fillText(C.sub, 1184, 590); ctx.restore();
+    }
+  },
+});
+</script></body></html>

@@ -1,0 +1,36 @@
+{
+  "id": "cable",
+  "w": 3840,
+  "h": 2399,
+  "trim": [
+    0,
+    305,
+    3840,
+    2704
+  ],
+  "anchors": {},
+  "prep": {
+    "raw": "material/raw/cable.jpg",
+    "id": "cable",
+    "rotate": 0,
+    "crop": null,
+    "mask": "material/derived/cable_mask.png",
+    "mask_mul": null,
+    "mask_max": null,
+    "thin_region": null,
+    "thin_color": null,
+    "radial": null,
+    "patch": [],
+    "poly": null,
+    "cut": [],
+    "keep_largest": false,
+    "min_island": 0.002,
+    "erode": 1,
+    "sat": 0.85,
+    "contrast": 1.06,
+    "warm": 0.015,
+    "gamma": 1.0,
+    "exposure": 0.0,
+    "max": 3840
+  }
+}

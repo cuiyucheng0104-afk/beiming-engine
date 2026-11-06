@@ -1,0 +1,26 @@
+《本周天气》WX 24 · 电视新闻包装风格样片 — 第三方素材与许可
+
+影像（公有领域，美国联邦政府作品）
+- Super Typhoon Goni (MODIS 2020-10-31) — MODIS Land Rapid Response Team, NASA GSFC. Public domain.
+  https://commons.wikimedia.org/wiki/File:Super_Typhoon_Goni_(MODIS_2020-10-31).jpg  → material/goni_full.jpg
+- Cloud Streets over the Sea of Japan (MODIS 2021-12-24) — MODIS Land Rapid Response Team, NASA GSFC. Public domain.
+  https://commons.wikimedia.org/wiki/File:Cloud_Streets_over_the_Sea_of_Japan_(MODIS_2021-12-24).jpg  → material/coldair.jpg（3840 px 缩略版）
+- iss072e147641 (Nov 9, 2024), aurora from the International Space Station — NASA Johnson Space Center. Public domain.
+  https://commons.wikimedia.org/wiki/File:Iss072e147641_(Nov_9,_2024)_--_A_green_and_red_aurora_streaks_through_Earth%27s_atmosphere_as_the_International_Space_Station_orbited_258_miles_above_Winnipeg.jpg  → material/aurora.jpg（3840 px 缩略版）
+  三张影像均经 tools/prep.py 统一 duotone 调色；极光图裁去上方 19%（空间站机体）与下方 17%（空白夜面），并单独用绿通道转灰、调硬黑白场与 S 曲线，让光带可读。
+
+数据
+- 萨菲尔-辛普森飓风风级 — NOAA National Hurricane Center, https://www.nhc.noaa.gov/aboutsshws.php（美国政府作品，公有领域）
+- GONI 最低中心气压 905 hPa — 日本气象厅最佳路径（事实数据，仅引用数值），经 Digital Typhoon（NII）https://agora.ex.nii.ac.jp/digital-typhoon/summary/wnp/s/202019.html.en
+
+配乐采样（CC0 1.0）
+- VS Chamber Orchestra: Community Edition — Versilian Studios / Sam Gossner, https://github.com/sgossner/VSCO-2-CE
+- Versilian Community Sample Library — Versilian Studios, https://github.com/sgossner/VCSL
+  合成底鼓、16 分锯齿脉冲、合成弦、低频冲击与全部拟音由代码生成（numpy / core/audio/sfx.py）。
+
+字体（SIL Open Font License 1.1，Google Fonts 子集化）
+- Noto Sans SC — Google
+- Barlow Condensed — Jeremy Tribby
+- IBM Plex Mono — IBM
+
+频道名「WX 24」、品牌板与全部包装图形为本片原创虚构，不代表任何真实电视台。

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<!-- three-demo.html：看得见的三角函数 -->
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>看得见的三角函数 · Three.js</title>
+<style>
+  :root { --ink:#e8eaf2; --muted:#9aa0b8; --accent:#ff7a3c; --accent2:#4ea1ff; --panel:rgba(18,20,30,.82); --line:rgba(255,255,255,.09); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#0b0c12; color:var(--ink); font:14px/1.5 -apple-system,"PingFang SC","Segoe UI",system-ui,sans-serif; overflow:hidden; }
+  canvas { display:block; }
+
+  #panel {
+    position:fixed; top:18px; left:18px; width:300px; z-index:10;
+    background:var(--panel); backdrop-filter:blur(14px);
+    border:1px solid var(--line); border-radius:16px; padding:18px 18px 14px;
+  }
+  #panel h1 { font-size:15px; font-weight:650; margin:0 0 2px; letter-spacing:-.01em; }
+  #panel .sub { color:var(--muted); font-size:12px; margin-bottom:16px; }
+
+  .ctrl { margin-bottom:14px; }
+  .ctrl .top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .ctrl .lbl { font-family:"SF Mono",Menlo,monospace; font-size:12.5px; }
+  .ctrl .lbl b { color:var(--accent); }
+  .ctrl .lbl .zh { color:var(--muted); font-family:inherit; margin-left:6px; }
+  .ctrl .val { font-family:"SF Mono",Menlo,monospace; font-size:12.5px; color:var(--accent2); }
+  input[type=range] { width:100%; -webkit-appearance:none; appearance:none; height:4px; border-radius:3px; background:#2a2e42; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 0 0 4px rgba(255,122,60,.18); }
+
+  .formula {
+    font-family:"SF Mono",Menlo,monospace; font-size:12px; color:#c7cceb;
+    background:#0a0b12; border:1px solid var(--line); border-radius:9px;
+    padding:9px 11px; margin-top:4px; line-height:1.7; word-break:break-word;
+  }
+  .formula .hl { color:var(--accent); }
+  #panel .hint { color:var(--muted); font-size:11px; margin-top:10px; }
+  #reset { margin-top:10px; font:inherit; font-size:12px; color:#0b0c12; background:var(--accent); border:none; border-radius:8px; padding:6px 12px; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>看得见的三角函数</h1>
+  <div class="sub">立方体的 y 就是这条正弦曲线 · 拖动即改</div>
+
+  <div class="ctrl">
+    <div class="top"><span class="lbl"><b>A</b> 振幅<span class="zh">跳多高</span></span><span class="val" id="vA">1.5</span></div>
+    <input type="range" id="A" min="0" max="2.5" step="0.05" value="1.5">
+  </div>
+  <div class="ctrl">
+    <div class="top"><span class="lbl"><b>f</b> 频率<span class="zh">跳多快</span></span><span class="val" id="vf">1.0</span></div>
+    <input type="range" id="f" min="0" max="3" step="0.05" value="1.0">
+  </div>
+  <div class="ctrl">
+    <div class="top"><span class="lbl"><b>p</b> 相位<span class="zh">何时起跳</span></span><span class="val" id="vp">0.0</span></div>
+    <input type="range" id="p" min="0" max="6.28" step="0.05" value="0">
+  </div>
+
+  <div class="formula">y = <span class="hl" id="fA">1.5</span> · sin(<span class="hl" id="ff">1.0</span> · t · 2π + <span class="hl" id="fp">0.0</span>)</div>
+  <button id="reset">↺ 复位</button>
+  <div class="hint">白点 = 立方体此刻在曲线上的位置</div>
+</div>
+
+<script type="module">
+  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+  const scene = new THREE.Scene();                       // 舞台
+  const camera = new THREE.PerspectiveCamera(            // 摄像机
+      75, innerWidth/innerHeight, 0.1, 100);
+  camera.position.z = 7;
+
+  const renderer = new THREE.WebGLRenderer({antialias:true}); // 放映机
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  document.body.appendChild(renderer.domElement);
+
+  const cube = new THREE.Mesh(                           // 演员：一个立方体
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshNormalMaterial());
+  scene.add(cube);
+
+  // ↓↓↓ 现场要改的三个数字 ↓↓↓ (现在由滑块驱动)
+  let A = 1.5;   // 振幅：跳多高
+  let f = 1.0;   // 频率：跳多快
+  let p = 0.0;   // 相位：从哪个时刻起跳
+
+  // --- 让正弦曲线本身看得见 ---
+  const T_SPAN = 4;                 // 曲线横向覆盖的秒数
+  const X_SCALE = 1.3;              // 秒 → x 世界坐标
+  const N = 240;                    // 曲线采样点数
+  const cubeX = 0;                  // 立方体固定的 x（曲线"现在"的位置，居中避开面板）
+
+  // y 轴 / 时间轴 参考线
+  const axisMat = new THREE.LineBasicMaterial({ color: 0x3a3f57 });
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(cubeX, -3, 0), new THREE.Vector3(cubeX, 3, 0)]), axisMat)); // 竖轴
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-1, 0, 0), new THREE.Vector3(6, 0, 0)]), axisMat));         // 横轴(y=0)
+
+  // 正弦曲线
+  const curveGeo = new THREE.BufferGeometry();
+  const curvePos = new Float32Array(N * 3);
+  curveGeo.setAttribute('position', new THREE.BufferAttribute(curvePos, 3));
+  const curve = new THREE.Line(curveGeo, new THREE.LineBasicMaterial({ color: 0xff7a3c }));
+  scene.add(curve);
+
+  // 曲线上"当前时刻"的白点
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  scene.add(dot);
+
+  const wave = (tau) => A * Math.sin(f * tau * Math.PI * 2 + p);   // 主角公式
+
+  function animate(time) {
+    const t = time / 1000;                 // 毫秒→秒
+    cube.position.y = A * Math.sin(f * t * Math.PI * 2 + p);  // ★ 主角这一行
+    cube.position.x = cubeX;               // 站在曲线的"现在"端
+    cube.rotation.y = t;
+
+    // 重算曲线：x 越往右 = 越"过去"，让波形从立方体处向右流出
+    for (let i = 0; i < N; i++) {
+      const dt = (i / (N - 1)) * T_SPAN;   // 0..T_SPAN 秒之前
+      curvePos[i*3]   = cubeX + dt * X_SCALE;
+      curvePos[i*3+1] = wave(t - dt);
+      curvePos[i*3+2] = 0;
+    }
+    curveGeo.attributes.position.needsUpdate = true;
+    dot.position.set(cubeX, cube.position.y, 0);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);        // 每帧重画 → 动起来
+  }
+  requestAnimationFrame(animate);
+
+  // --- 滑块联动 ---
+  const bind = (id, setter, fmt) => {
+    const el = document.getElementById(id);
+    const valEl = document.getElementById('v' + id);
+    const fEl = document.getElementById('f' + id);
+    const update = () => { const n = parseFloat(el.value); setter(n); valEl.textContent = fmt(n); fEl.textContent = fmt(n); };
+    el.addEventListener('input', update); update();
+  };
+  const f1 = n => n.toFixed(1), f2 = n => n.toFixed(1);
+  bind('A', n => A = n, f1);
+  bind('f', n => f = n, f1);
+  bind('p', n => p = n, f1);
+
+  document.getElementById('reset').addEventListener('click', () => {
+    const d = { A:'1.5', f:'1.0', p:'0' };
+    for (const k in d) { const el = document.getElementById(k); el.value = d[k]; el.dispatchEvent(new Event('input')); }
+  });
+
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+</script>
+</body>
+</html>

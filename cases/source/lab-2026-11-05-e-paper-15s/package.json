@@ -1,0 +1,10 @@
+{
+  "name": "beiming-e-paper-15s",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "three": "0.170.0",
+    "playwright-core": "1.63.0"
+  }
+}

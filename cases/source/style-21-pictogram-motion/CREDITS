@@ -1,0 +1,16 @@
+一天 · ONE DAY — credits for third-party material used in the film
+
+Picture: drawn entirely in code (Canvas 2D). No photographs, footage or generated imagery.
+Pictograms, pattern motifs, palette and type layout are original to this film.
+
+Fonts (SIL Open Font License 1.1, subset to the characters used, self-hosted in fonts/):
+- Inter Tight 900/700 — The Inter Tight Project Authors — https://fonts.google.com/specimen/Inter+Tight — OFL 1.1
+- Noto Sans SC 900/500 — Google / Adobe (Source Han Sans) — https://fonts.google.com/noto/specimen/Noto+Sans+SC — OFL 1.1
+- DM Mono 500 — Colophon Foundry / Google — https://fonts.google.com/specimen/DM+Mono — OFL 1.1
+  Subsets fetched with the Google Fonts CSS API (&text=) by tools/fetch_fonts.mjs.
+
+Music and sound: original score and procedural foley written for this film (numpy synthesis, Karplus-Strong /
+modal plucks for kalimba and music box). Sampled instruments:
+Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+
+No real-world footage, data or documents are used, so no FACTS.md applies.

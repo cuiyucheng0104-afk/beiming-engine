@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>18 · 茶庄 · 云岫茶庄</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/inkwash.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 18 水墨国风 · 行业示例：茶庄 =====
+   A tall hanging scroll, painted while we watch. Distant blue-grey peaks bloom out of wet washes, a terraced
+   tea hill is brushed in row by row. One leaf lets go of the top row and drifts down; the camera tilts with it
+   through the mist, past a bamboo sprig, down to a celadon cup on the table, and the leaf lands on the tea:
+   ripple rings spread, steam curls up. The line 一叶 一山 一盏茶 is written in, the house name, the seal. */
+const { E, clamp, lerp, inv } = Reel;
+const stage = Reel.makeStage('#f3efe6');
+Reel.ownJitter = false;
+const C = Reel.cfg({ brand: '云岫茶庄', line: '一叶一山一盏茶', sub: '高山云雾茶 · 茶空间 · 品茗预约', seal: '云岫' });
+const SERIF = '"Noto Serif CJK SC"';
+let I;
+const h1 = (x) => Reel.hash(x);
+const sn = (x, s = 0) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(h1(i * 1.31 + s), h1((i + 1) * 1.31 + s), u); };
+// ragged "wet bloom" clip: a circle whose edge creeps out unevenly
+function bloomPath(cx, cy, r, seed) { const p = new Path2D(); for (let i = 0; i <= 64; i++) { const a = i / 64 * Math.PI * 2; const rr = r * (0.82 + 0.3 * sn(a * 2.2 + seed, seed) + 0.08 * sn(a * 9 + seed * 3, seed + 4)); const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr * 0.8; i ? p.lineTo(x, y) : p.moveTo(x, y); } p.closePath(); return p; }
+function ridge(x, peaks, base, seed, rough) { let h = 0; for (const [px, ph, pw] of peaks) { const u = (x - px) / pw; h = Math.max(h, ph * Math.pow(1 + u * u, -1.4)); } return base - h - rough * (sn(x * 0.02, seed) - 0.5) - rough * 0.4 * (sn(x * 0.07, seed + 2) - 0.5); }
+function range(peaks, base, seed, rough, x0, x1) { const pts = []; for (let x = x0; x <= x1; x += 12) pts.push([x, ridge(x, peaks, base, seed, rough)]); return pts; }
+const FAR = range([[180, 260, 260], [720, 330, 300], [1560, 420, 280], [2000, 250, 260]], -760, 3, 40, -300, 2300);
+const MID = range([[420, 560, 240], [820, 380, 200], [1250, 300, 220], [1620, 470, 230]], -640, 7, 60, -300, 2300);
+function massPath(pts, base) { const p = new Path2D(); p.moveTo(pts[0][0], base); for (const q of pts) p.lineTo(q[0], q[1]); p.lineTo(pts[pts.length - 1][0], base); p.closePath(); return p; }
+const FARP = massPath(FAR, -560), MIDP = massPath(MID, -420);
+// terraced hills: dome outline, rows of tea bushes
+const HILLS = [{ cx: 280, top: -470, bot: 330, w: 560, seed: 23 }, { cx: 1450, top: -735, bot: 320, w: 640, seed: 11 }];
+function hw(h, y) { const v = clamp((y - h.top) / (h.bot - h.top)); return (90 + h.w * Math.sqrt(v) + 60 * Math.sin(v * 5.5 + h.seed) * v) * (1 + 0.07 * (sn(y * 0.012, h.seed) - 0.5)); }
+function fadeDown(x0, x1, y0, y1, clip) { for (const g of [I.d0, I.d1]) { g.save(); if (clip) g.clip(clip); g.globalCompositeOperation = 'source-over'; const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)'); g.fillStyle = gr; g.fillRect(x0, y0, x1 - x0, y1 - y0 + 400); g.restore(); } }
+const camY = (t) => lerp(-700, 760, E.inOutSine(inv(3.0, 8.3, t)));
+const camX = (t) => lerp(960, 900, E.inOutSine(inv(3.0, 9, t))) + 6 * Math.sin(t * 0.4);
+const camZ = (t) => lerp(1, 1.12, E.inOutSine(inv(8.0, 15, t)));
+const LAND = 8.0, SURF = [930, 884];
+function leafAt(t) {
+  if (t < 3.4) return { x: 1240, y: camY(3.4) + 20 - 2 * Math.sin(t * 5), r: -0.5 + 0.1 * Math.sin(t * 3.1), fl: 1 };
+  if (t < LAND) { const u = inv(3.4, LAND, t); const yo = lerp(20, SURF[1] - camY(LAND), u) + 170 * Math.sin(Math.PI * u);
+    return { x: lerp(1240, SURF[0], E.inOutSine(u)) + 190 * Math.sin(u * Math.PI * 2.6) * (1 - u), y: camY(t) + yo, r: -0.5 + 1.6 * Math.sin(u * 7.2) * (1 - u * 0.6) + u * 0.4, fl: Math.cos(u * 15) };
+  }
+  const a = t - LAND; return { x: SURF[0] + 14 * (1 - Math.exp(-a)), y: SURF[1] + 2 * Math.sin(a * 2.4) * Math.exp(-a * 0.5), r: 0.1 + 0.25 * (1 - Math.exp(-a * 0.6)), fl: 1, ry: 0.42 };
+}
+function leaf(L, t) {
+  const g = I.d0, s = 1.6; const ry = (L.ry || 1) * s;
+  g.save(); g.translate(L.x, L.y); g.rotate(L.r); g.scale(Math.max(0.15, Math.abs(L.fl)) * s, ry);
+  const p = new Path2D(); p.moveTo(-34, 0); p.bezierCurveTo(-14, -20, 18, -18, 36, 0); p.bezierCurveTo(16, 15, -14, 16, -34, 0); p.closePath();
+  g.fillStyle = 'rgba(255,0,0,.62)'; g.fill(p); g.fillStyle = 'rgba(0,255,0,.4)'; g.fill(p);
+  g.strokeStyle = 'rgba(255,0,0,.7)'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(-40, 2); g.quadraticCurveTo(0, -3, 33, 0); g.stroke();
+  g.restore();
+  const h = I.d1; h.save(); h.translate(L.x, L.y); h.rotate(L.r); h.scale(Math.max(0.15, Math.abs(L.fl)) * s, ry); h.fillStyle = 'rgba(255,0,0,.8)'; h.fill(p); h.restore();
+}
+function mist(x, y, w, h, a) { for (const g of [I.d0, I.d1]) { g.save(); g.globalCompositeOperation = 'source-over'; g.translate(x, y); g.scale(w, h); const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(0.55, `rgba(0,0,0,${a * 0.7})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, 7); g.fill(); g.restore(); } }
+function gradFill(g, path, y0, y1, ch, a0, a1) { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, I.col(ch, a0)); gr.addColorStop(1, I.col(ch, a1)); g.fillStyle = gr; g.fill(path); }
+const bz = (p0, p1, p2, p3, n = 16) => { const P = []; for (let i = 0; i <= n; i++) { const u = i / n, v = 1 - u; P.push([v * v * v * p0[0] + 3 * v * v * u * p1[0] + 3 * v * u * u * p2[0] + u * u * u * p3[0], v * v * v * p0[1] + 3 * v * v * u * p1[1] + 3 * v * u * u * p2[1] + u * u * u * p3[1]]); } return P; };
+function ellPts(cx, cy, rx, ry, a0, a1, n = 40) { const P = []; for (let i = 0; i <= n; i++) { const a = lerp(a0, a1, i / n); P.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return P; }
+function scene(t) {
+  const cam = { x: camX(t), y: camY(t), z: camZ(t) }; I.begin(cam);
+  const vy0 = cam.y - 560 / cam.z, vy1 = cam.y + 560 / cam.z;
+  const vis = (y0, y1) => y1 > vy0 - 80 && y0 < vy1 + 80;
+  const d = I.d0, tn = I.d1;
+  // ---- far peaks: blue-grey wash blooming out of a wet patch ----
+  if (vis(-1250, -500)) {
+    const rf = E.outCubic(inv(0.0, 2.2, t)) * 1500 + 60;
+    d.save(); d.clip(bloomPath(1450, -980, rf, 2)); gradFill(d, FARP, -1200, -560, 'g', 0.75, 0); gradFill(d, FARP, -1200, -700, 'r', 0.16, 0); d.restore();
+    tn.save(); tn.clip(bloomPath(1450, -980, rf, 2)); gradFill(tn, FARP, -1200, -580, 'b', 0.75, 0); tn.restore();
+    // mid range: denser ink, brushed ridge, cun strokes
+    const rm = E.outCubic(inv(0.35, 2.6, t)) * 1700 + 40;
+    d.save(); d.clip(bloomPath(520, -1080, rm, 5)); gradFill(d, MIDP, -1210, -470, 'r', 0.58, 0); gradFill(d, MIDP, -1100, -420, 'g', 0.5, 0); d.restore();
+    tn.save(); tn.clip(bloomPath(520, -1080, rm, 5)); gradFill(tn, MIDP, -1150, -440, 'b', 0.45, 0); tn.restore();
+    I.stroke(MID, 7, 0.9, E.inOutSine(inv(0.5, 2.4, t)), { dry: 0.35, seed: 4, tin: 0.02, tout: 0.04, press: (f) => 0.6 + 0.6 * sn(f * 30, 3) });
+    for (let k = 0; k < 26; k++) {          // hemp-fibre cun strokes down the slopes
+      const x = 120 + k * 64 + 30 * h1(k * 3.3), y = ridge(x, [[420, 560, 240], [820, 380, 200], [1250, 300, 220], [1620, 470, 230]], -640, 7, 60);
+      if (y > -760) continue; const L = 50 + 70 * h1(k * 7.1), dir = (h1(k * 1.7) - 0.5) * 0.6;
+      const pts = []; for (let j = 0; j <= 8; j++) pts.push([x + dir * j * L / 8 + 8 * Math.sin(j * 0.9 + k), y + 10 + j * L / 8]);
+      I.stroke(pts, 6, 0.5, E.outQuad(inv(1.2 + k * 0.04, 1.8 + k * 0.04, t)), { dry: 0.6, seed: k, tin: 0.05, tout: 0.6 });
+    }
+    for (let k = 0; k < 40; k++) { const x = 60 + k * 47 + 20 * h1(k * 9.1); const y = ridge(x, [[420, 560, 240], [820, 380, 200], [1250, 300, 220], [1620, 470, 230]], -640, 7, 60); if (h1(k * 4.4) < 0.45) continue; const a = E.outQuad(inv(2.0 + k * 0.02, 2.3 + k * 0.02, t)); if (a > 0) I.dab(x, y - 2, 5 + 3 * h1(k), 0.9 * a); }
+  }
+  mist(900 + 40 * Math.sin(t * 0.3), -800, 1300, 70, 0.9); mist(400 - 30 * t, -990, 500, 46, 0.55); mist(1500 + 25 * t, -905, 520, 40, 0.5);
+  // ---- terraced tea hills: contour rows of tea bushes that follow each dome; the nearer hill hides the farther ----
+  for (const h of HILLS) {
+    if (!vis(h.top, h.bot)) continue;
+    const dome = new Path2D(); dome.moveTo(h.cx - hw(h, h.bot), h.bot); for (let y = h.bot; y >= h.top; y -= 10) dome.lineTo(h.cx - hw(h, y), y); for (let y = h.top; y <= h.bot; y += 10) dome.lineTo(h.cx + hw(h, y), y); dome.closePath();
+    const t0h = h.seed === 11 ? 0.7 : 1.5;
+    const occ = E.outQuad(inv(t0h, t0h + 0.6, t)); if (occ > 0) I.lift(dome, 0.96 * occ);
+    // body wash, darker on the shady right flank and toward the foot
+    const gw = d.createLinearGradient(h.cx - h.w, 0, h.cx + h.w, 0); gw.addColorStop(0, I.col('g', 0)); gw.addColorStop(0.6, I.col('g', 0.12 * occ)); gw.addColorStop(1, I.col('g', 0.42 * occ));
+    const front = h.top + (h.bot - h.top + 80) * E.inOutSine(inv(t0h, t0h + 2.4, t));
+    d.save(); d.clip(new Path2D(`M-500 ${h.top - 50} L2600 ${h.top - 50} L2600 ${front} L-500 ${front} Z`)); d.fillStyle = gw; d.fill(dome); d.restore();
+    let y = h.top + 22, i = 0;
+    while (y < h.bot - 10) {
+      const v = (y - h.top) / (h.bot - h.top), sp = 30 + 30 * v, bul = 14 + 40 * v;
+      if (vis(y - 60, y + 30)) {
+        const tw = hw(h, y) - 10, x0 = h.cx - tw, x1 = h.cx + tw;
+        const t0 = t0h + 0.15 + i * 0.13, p = E.inOutSine(inv(t0, t0 + 0.6, t));
+        if (p > 0) {
+          const rowY = (f) => y - bul * Math.sin(Math.PI * f) + 6 * (sn(f * 5 + i, h.seed) - 0.5);
+          const n = Math.floor((x1 - x0) / 12), m = Math.floor(n * p);
+          for (let k = 0; k < m; k++) {
+            const f = (k + 0.5) / n; if (sn(f * 9 + i * 3.7, h.seed + 9) < 0.18) continue;            // gaps along the row
+            const x = lerp(x0, x1, f) + 3 * (h1(k * 3.1 + i) - 0.5), yy = rowY(f) - 6;
+            const r = (5 + 3 * h1(k * 2.7 + i)) * (0.7 + 0.5 * v), dk = 0.12 + 0.16 * h1(k * 5.1 + i * 2.3);
+            d.fillStyle = `rgba(255,0,0,${dk})`; d.beginPath(); d.arc(x, yy, r, 0, 7); d.fill();
+            if (h1(k * 7.7 + i) < 0.5) { d.beginPath(); d.arc(x + r * 0.7, yy - r * 0.5, r * 0.7, 0, 7); d.fill(); }
+            tn.fillStyle = 'rgba(255,0,0,.4)'; tn.beginPath(); tn.arc(x, yy - 1, r * 1.6, 0, 7); tn.fill();
+          }
+          const pts = []; for (let k = 0; k <= 20; k++) { const f = k / 20; pts.push([lerp(x0, x1, f), rowY(f) + 2]); }
+          I.stroke(pts, 2.6 + 1.5 * v, 0.42, p, { dry: 0.65, seed: i * 7 + h.seed, tin: 0.06, tout: 0.2 });
+        }
+      }
+      y += sp; i++;
+    }
+    const L = [], R = []; for (let yy = h.top; yy <= h.bot - 120; yy += 20) { L.push([h.cx - hw(h, yy), yy]); R.push([h.cx + hw(h, yy), yy]); }
+    const pr = E.inOutSine(inv(t0h, t0h + 2.0, t));
+    fadeDown(h.cx - h.w - 300, h.cx + h.w + 300, h.bot - 230, h.bot - 10, dome);
+    I.stroke(L, 4, 0.6, pr, { dry: 0.5, seed: h.seed, tin: 0.02, tout: 0.6 }); I.stroke(R, 6, 0.75, pr, { dry: 0.45, seed: h.seed + 1, tin: 0.02, tout: 0.6 });
+  }
+  mist(1000 + 30 * Math.sin(t * 0.25), 300, 1500, 120, 0.9); mist(1300 - 20 * t, 380, 900, 80, 0.7);
+  // ---- a little tea pavilion among pines, half lost in the mist ----
+  if (vis(200, 600)) {
+    const pv = (a, b) => E.inOutSine(inv(a, b, t)), [px, py] = [330, 470];
+    // pines either side: trunks + needle clusters (dabs)
+    for (const [tx0, ty0, hh, sd] of [[130, py + 40, 230, 1], [560, py + 50, 180, 2], [610, py + 60, 120, 3]]) {
+      const pp = pv(4.4 + sd * 0.15, 5.2 + sd * 0.15);
+      I.stroke([[tx0, ty0], [tx0 + 8, ty0 - hh * 0.5], [tx0 - 4, ty0 - hh]], 7, 0.8, pp, { dry: 0.5, seed: 100 + sd, tin: 0.02, tout: 0.4 });
+      for (let k = 0; k < 4; k++) { const cy2 = ty0 - hh * (0.45 + k * 0.17), cx2 = tx0 + (k % 2 ? 26 : -22); const a = pv(4.9 + sd * 0.1 + k * 0.08, 5.3 + sd * 0.1 + k * 0.08); if (a <= 0) continue;
+        for (let j = 0; j < 13; j++) { const ox = (j - 6) * 8 + 4 * h1(j + k * 9 + sd), oy = -Math.abs(j - 6) * 1.4 + 3 * h1(j * 3 + k); d.fillStyle = `rgba(255,0,0,${0.55 * a})`; d.beginPath(); d.ellipse(cx2 + ox, cy2 + oy, 6, 4, (h1(j * 5 + k) - 0.5) * 0.8, 0, 7); d.fill(); }
+        tn.fillStyle = `rgba(255,0,0,${0.28 * a})`; tn.beginPath(); tn.ellipse(cx2, cy2 - 2, 44, 12, 0, 0, 7); tn.fill(); }
+    }
+    const roof = new Path2D(); roof.moveTo(px - 160, py - 60); roof.quadraticCurveTo(px - 50, py - 84, px, py - 124); roof.quadraticCurveTo(px + 50, py - 84, px + 160, py - 60); roof.quadraticCurveTo(px, py - 46, px - 160, py - 60);
+    d.fillStyle = `rgba(0,255,0,${0.55 * pv(4.9, 5.6)})`; d.fill(roof); d.fillStyle = `rgba(255,0,0,${0.18 * pv(4.9, 5.6)})`; d.fill(roof);
+    I.stroke(bz([px - 172, py - 72], [px - 90, py - 50], [px - 30, py - 104], [px, py - 124]).concat(bz([px, py - 124], [px + 30, py - 104], [px + 90, py - 50], [px + 172, py - 72])), 6, 0.9, pv(4.6, 5.3), { dry: 0.3, seed: 90, tin: 0.04, tout: 0.08 });
+    I.stroke(bz([px - 160, py - 60], [px - 100, py - 46], [px + 100, py - 46], [px + 160, py - 60]), 5, 0.75, pv(4.8, 5.4), { seed: 91, dry: 0.4 });
+    for (const xx of [-110, 110]) I.stroke([[px + xx, py - 50], [px + xx + 1, py + 46]], 4.5, 0.8, pv(5.0, 5.4), { seed: 92 + xx, tout: 0.5 });
+    for (const xx of [-40, 40]) I.stroke([[px + xx, py - 48], [px + xx, py + 44]], 2.5, 0.45, pv(5.1, 5.5), { seed: 95 + xx, tout: 0.5 });
+    I.stroke([[px - 150, py + 48], [px + 150, py + 50]], 5, 0.65, pv(5.2, 5.6), { dry: 0.6, seed: 97 });
+    // two figures' worth of hint: a tiny table and a teapot dot inside
+    I.dab(px, py + 10, 7, 0.7 * pv(5.4, 5.7)); I.stroke([[px - 26, py + 20], [px + 26, py + 20]], 3, 0.6, pv(5.4, 5.7), { seed: 99 });
+    mist(px + 40, py + 90, 520, 70, 0.95);
+  }
+  // ---- table, teapot (zisha, ochre) and the celadon cup ----
+  if (vis(560, 1200)) {
+    const pt = (a, b) => E.inOutSine(inv(a, b, t));
+    I.stroke([[-300, 1078], [500, 1074], [1300, 1080], [2300, 1076]], 9, 0.65, pt(5.0, 6.4), { dry: 0.75, seed: 31, tin: 0.01, tout: 0.05 });
+    const tb = new Path2D(); tb.rect(-400, 1080, 2900, 400); gradFill(d, tb, 1080, 1300, 'g', 0.32 * pt(5.6, 6.8), 0);
+    d.save(); tn.save(); d.translate(-70, 0); tn.translate(-70, 0);
+    // teapot: a squat zisha pot, ochre clay, heavier ink on the shadow side
+    const TB = new Path2D(); { const P = bz([310, 1062], [238, 1050], [220, 930], [340, 878]).concat([[460, 878]], bz([460, 878], [580, 930], [562, 1050], [490, 1062])); TB.moveTo(P[0][0], P[0][1]); for (const q of P) TB.lineTo(q[0], q[1]); TB.closePath(); }
+    const pa = pt(5.4, 6.4);
+    tn.fillStyle = `rgba(0,255,0,${0.75 * pa})`; tn.fill(TB);
+    gradFill(d, TB, 880, 1062, 'g', 0.1 * pa, 0.5 * pa);
+    { const gs = d.createLinearGradient(260, 0, 560, 0); gs.addColorStop(0, I.col('r', 0)); gs.addColorStop(0.65, I.col('r', 0)); gs.addColorStop(1, I.col('r', 0.22 * pa)); d.fillStyle = gs; d.fill(TB); }
+    const pr2 = { dry: 0.35, tin: 0.03, tout: 0.12 };
+    I.stroke(bz([340, 878], [220, 930], [238, 1050], [310, 1062]).reverse(), 6, 0.85, pt(4.9, 5.5), { ...pr2, seed: 41, press: (f) => 0.7 + 0.5 * f });
+    I.stroke(bz([460, 878], [580, 930], [562, 1050], [490, 1062]), 9, 0.9, pt(5.0, 5.6), { ...pr2, seed: 42, press: (f) => 0.8 + 0.5 * Math.sin(Math.PI * f) });
+    I.stroke([[300, 1063], [400, 1068], [500, 1063]], 7, 0.8, pt(5.3, 5.6), { seed: 43, dry: 0.5 });
+    I.stroke(bz([346, 878], [356, 846], [444, 846], [454, 878]), 5, 0.8, pt(5.5, 5.9), { seed: 44 });
+    I.stroke([[340, 880], [460, 880]], 3, 0.6, pt(5.5, 5.8), { seed: 45 });
+    I.dab(400, 838, 13, 0.9 * pt(5.8, 6.0));
+    I.stroke(bz([548, 952], [606, 944], [622, 890], [672, 858]), 7, 0.85, pt(5.6, 6.0), { seed: 46, tout: 0.2 });
+    I.stroke(bz([552, 1000], [628, 990], [646, 900], [686, 868]), 7, 0.85, pt(5.7, 6.1), { seed: 47, tout: 0.2 });
+    { const sp = new Path2D(); const P = bz([548, 952], [606, 944], [622, 890], [672, 858]).concat(bz([686, 868], [646, 900], [628, 990], [552, 1000])); sp.moveTo(P[0][0], P[0][1]); for (const q of P) sp.lineTo(q[0], q[1]); sp.closePath(); tn.fillStyle = `rgba(0,255,0,${0.7 * pa})`; tn.fill(sp); d.fillStyle = `rgba(0,255,0,${0.25 * pa})`; d.fill(sp); }
+    I.stroke(bz([278, 906], [168, 886], [156, 1040], [272, 1026]), 12, 0.85, pt(5.8, 6.3), { dry: 0.55, seed: 48, tin: 0.08, tout: 0.25 });
+    I.stroke(bz([270, 930], [200, 918], [194, 1010], [262, 1006]), 4, 0.55, pt(6.0, 6.4), { seed: 49 });
+    d.restore(); tn.restore();
+    // cup: rim, bowl, foot; tea surface
+    const [cx, cy] = [900, 880];
+    const bowl = new Path2D(); bowl.moveTo(cx - 245, cy); bowl.bezierCurveTo(cx - 230, cy + 140, cx - 120, cy + 185, cx - 80, cy + 190); bowl.lineTo(cx + 80, cy + 190); bowl.bezierCurveTo(cx + 120, cy + 185, cx + 230, cy + 140, cx + 245, cy); bowl.ellipse(cx, cy, 245, 54, 0, 0, Math.PI, false); bowl.closePath();
+    tn.fillStyle = `rgba(255,0,0,${0.55 * pt(6.3, 7.2)})`; tn.fill(bowl); tn.fillStyle = `rgba(0,0,255,${0.35 * pt(6.3, 7.2)})`; tn.fill(bowl);
+    gradFill(d, bowl, cy, cy + 190, 'g', 0.05 * pt(6.3, 7.2), 0.45 * pt(6.3, 7.2));
+    I.stroke(ellPts(cx, cy, 245, 54, Math.PI, Math.PI * 3), 5, 0.85, pt(5.6, 6.5), { dry: 0.25, seed: 51, tin: 0.02, tout: 0.08 });
+    I.stroke([[cx - 245, cy + 2], [cx - 236, cy + 70], [cx - 190, cy + 140], [cx - 120, cy + 180], [cx - 80, cy + 190]], 7, 0.85, pt(6.0, 6.6), { dry: 0.4, seed: 52, tout: 0.15 });
+    I.stroke([[cx + 245, cy + 2], [cx + 236, cy + 70], [cx + 190, cy + 140], [cx + 120, cy + 180], [cx + 80, cy + 190]], 7, 0.85, pt(6.1, 6.7), { dry: 0.4, seed: 53, tout: 0.15 });
+    I.stroke([[cx - 92, cy + 192], [cx - 86, cy + 200], [cx + 86, cy + 200], [cx + 92, cy + 192]], 6, 0.8, pt(6.5, 6.9), { seed: 54 });
+    const surf = new Path2D(); surf.ellipse(cx, cy + 8, 226, 42, 0, 0, 7);
+    tn.fillStyle = `rgba(0,255,0,${0.75 * pt(6.8, 7.6)})`; tn.fill(surf); tn.fillStyle = `rgba(255,0,0,${0.35 * pt(6.8, 7.6)})`; tn.fill(surf);
+    d.fillStyle = `rgba(0,255,0,${0.2 * pt(6.8, 7.6)})`; d.fill(surf);
+    // ripples after the leaf lands
+    if (t > LAND) {
+      const a = t - LAND; d.save(); d.clip(surf);
+      for (let k = 0; k < 4; k++) { const ak = a - k * 0.32; if (ak <= 0) continue; const r = 18 + ak * 150; const al = 0.75 * Math.exp(-ak * 0.9); if (al < 0.02) continue;
+        d.strokeStyle = `rgba(255,0,0,${al})`; d.lineWidth = 3.2 * (1 - 0.15 * k); d.beginPath(); d.ellipse(SURF[0], SURF[1], r, r * 0.19, 0, 0, 7); d.stroke(); }
+      d.restore();
+    }
+    // steam: three soft wash curls rising from the tea
+    for (let k = 0; k < 3; k++) {
+      const st = 8.5 + k * 0.5; if (t < st) continue; const age = t - st; const pts = [];
+      for (let j = 0; j <= 28; j++) { const f = j / 28, y = cy - 20 - f * 430; pts.push([cx - 110 + k * 110 + (18 + 50 * f) * Math.sin(f * 5.2 - age * 1.1 + k * 2.1), y]); }
+      I.stroke(pts, 16 - k * 2, 0.32, E.outQuad(clamp(age / 2.2)), { ch: 'g', tin: 0.05, tout: 0.6, fade: 0.9, seed: 60 + k });
+    }
+  }
+  // ---- bamboo sprig in the foreground: passes faster than the scroll (its own depth) ----
+  {
+    const oy = -(cam.y - 180) * 0.95; d.save(); d.translate(0, oy); tn.save(); tn.translate(0, oy);
+    const sx = 1990, sy = 420;
+    I.stroke(bz([sx + 40, sy - 300], [sx - 20, sy - 120], [sx - 70, sy + 60], [sx - 120, sy + 320]), 10, 0.85, 1, { dry: 0.3, seed: 70, tout: 0.4 });
+    for (const [kx, ky] of [[sx - 6, sy - 160], [sx - 52, sy + 10], [sx - 92, sy + 180]]) I.dab(kx, ky, 7, 0.7);
+    const LV = [[sx - 10, sy - 160, 2.55, 250, 0.95], [sx - 12, sy - 150, 2.15, 210, 0.6], [sx - 14, sy - 140, 2.95, 190, 0.85],
+      [sx - 54, sy + 10, 2.7, 280, 0.95], [sx - 56, sy + 20, 2.3, 230, 0.55], [sx - 58, sy + 30, 3.1, 200, 0.8], [sx - 94, sy + 180, 2.8, 260, 0.9], [sx - 96, sy + 190, 2.4, 190, 0.6]];
+    LV.forEach(([x, y, a, L, k], i) => { const pts = []; for (let j = 0; j <= 10; j++) { const f = j / 10; pts.push([x + Math.cos(a + 0.18 * f * f) * L * f, y + Math.sin(a + 0.18 * f * f) * L * f]); }
+      I.stroke(pts, 26 + 10 * h1(i), k, 1, { tin: 0.03, tout: 0.9, seed: 80 + i, dry: 0.2, press: (f) => 0.6 + 0.4 * Math.sin(Math.PI * Math.min(1, f * 1.6)) });
+      tn.fillStyle = 'rgba(255,0,0,.3)'; tn.beginPath(); tn.moveTo(x, y); for (const q of pts) tn.lineTo(q[0], q[1] + 8); tn.closePath(); tn.fill(); });
+    d.restore(); tn.restore();
+  }
+  // ---- the falling leaf ----
+  leaf(leafAt(t), t);
+  // ---- calligraphy, house name and seal (screen space) ----
+  I.screen();
+  const ln = [...C.line]; let yy = 170;
+  ln.forEach((ch, i) => { const t0 = 9.2 + i * 0.27; I.text(ch, 1590, yy, 80, E.inOutSine(inv(t0, t0 + 0.26, t)), { wt: 700 }); yy += 92 + (i === 1 || i === 3 ? 34 : 0); });
+  [...C.brand].forEach((ch, i) => { const t0 = 11.3 + i * 0.22; I.text(ch, 1760, 210 + i * 118, 104, E.inOutSine(inv(t0, t0 + 0.24, t)), { wt: 900 }); });
+  if (t > 12.7) { const u = clamp((t - 12.7) / 0.2); const sc = 1 + 0.4 * Math.pow(1 - u, 3); I.d0.save(); I.d0.translate(1760, 760); I.d0.scale(sc, sc); I.seal(C.seal, 0, 0, 82, E.outQuad(u) * 0.95); I.d0.restore(); }
+  { const a = E.outQuad(inv(13.2, 14.0, t)); if (a > 0) { const g = I.d0; g.save(); g.font = `500 30px ${SERIF}`; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = `rgba(255,0,0,${0.85 * a})`; g.fillText(C.sub, 120, 1000); g.restore(); } }
+  I.world();
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: [`900 100px ${SERIF}`, `700 80px ${SERIF}`, `500 30px ${SERIF}`],
+  cues: [{ t: 0.05, sfx: 'swell', gain: 0.6 }, { t: 0.7, sfx: 'brush', gain: 0.5 }, { t: 1.6, sfx: 'brush', gain: 0.45 }, { t: 3.0, sfx: 'windchime', gain: 0.45 }, { t: 3.4, sfx: 'whoosh', gain: 0.35 },
+    { t: 5.0, sfx: 'brush', gain: 0.5 }, { t: 6.0, sfx: 'brush', gain: 0.45 }, { t: 8.0, sfx: 'drip', gain: 0.8 }, { t: 8.05, sfx: 'splash', gain: 0.25 }, { t: 9.2, sfx: 'scribble', gain: 0.5 }, { t: 11.3, sfx: 'scribble', gain: 0.5 }, { t: 12.7, sfx: 'stamp', gain: 0.8 }],
+  async setup() { I = INK.init(stage); },
+  render(t) { scene(t); I.frame(t, { dry: 0.55, bleed: 7, c1: [0.6, 0.8, 0.62], c2: [0.86, 0.66, 0.48], c3: [0.58, 0.68, 0.82] }); },
+});
+</script></body></html>

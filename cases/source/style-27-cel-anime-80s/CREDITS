@@ -1,0 +1,13 @@
+追电车的夏天（80 年代赛璐璐动画风格样片）—— 第三方素材与许可
+
+| 素材 | 来源 | 许可 |
+|---|---|---|
+| 原创配乐（music/score.py → out/music.wav、stems） | 本片原创：numpy 合成（FM 电钢、slap 贝斯、合成铜管、鼓机底鼓、FM 钟音）+ 采样器 + 拨弦物理建模（竖琴刮奏，core/audio/pluck.py） | 本片原创 |
+| 采样：中音萨克斯、电吉他、电贝斯、弦乐（小提琴组）、拍手、沙锤、钟琴 | FreePats project (freepats.zenvoid.org)、Karoryfer Samples / sfzinstruments、VS Chamber Orchestra: Community Edition (Versilian Studios)、Versilian Community Sample Library (Versilian Studios) | CC0 |
+| 采样：鼓组 | "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) |
+| 拟音与环境声（mix.py：海浪、蝉、风、电车马达、铃、草帽、光带闪光等） | 程序化合成（numpy + core/audio/sfx.py） | 本片原创 |
+| 全部画面（背景板、赛璐璐人物与电车、光效、录像带/CRT 后期） | Canvas 2D + WebGL 代码（本目录） | 本片原创 |
+| 字体：Noto Sans SC（700/900，按 &text= 子集化） | Google Fonts，https://fonts.google.com/noto/specimen/Noto+Sans+SC | SIL OFL 1.1（fonts/OFL-NotoSansSC.txt） |
+| 字体：Kanit Black Italic（子集） | Google Fonts，Cadson Demak，https://github.com/cadsondemak/kanit | SIL OFL 1.1（fonts/OFL-Kanit.txt） |
+
+无真实素材、无旁白、无 TTS。灵感来自 1980 年代日本赛璐璐动画与 city pop 的整体语法；人物、电车、地点（"海岸线"为通用词）与故事均为原创，未复制任何现有作品的角色、旋律、镜头或标志。

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>07 · 家政保洁 · 小蜜蜂家政</title>
+<script src="../lib/core.js"></script><script src="../lib/sticker.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 07 贴纸风科普 · 行业示例：家政保洁 =====
+   One long sideways dolly across a big white fridge door. A little bee flies ahead of the camera and every
+   time it stops, a vinyl sticker slaps onto the enamel: book online -> kitchen degrease -> bathroom descale
+   -> whole-house dust -> inspection. Marker arrows link the steps; at the end the camera pulls back to show
+   the whole door covered, like a family's fridge. */
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#e9ecef');
+const C = Reel.cfg({ brand: '小蜜蜂家政', title: '一次深度保洁，怎么做？', price: '3 小时 · ¥199' });
+const L = Reel.canvas2d(stage); const ctx = L.ctx, K = L.k; ST.setK(K);
+const BW = 4200, BH = 1300;
+const door = document.createElement('canvas');
+function buildDoor() {
+  door.width = Math.round(BW * 0.75 * K); door.height = Math.round(BH * 0.75 * K);
+  const g = door.getContext('2d'); g.scale(0.75 * K, 0.75 * K);
+  const gr = g.createLinearGradient(0, 0, 0, BH); gr.addColorStop(0, '#fbfcfd'); gr.addColorStop(1, '#e9edf1'); g.fillStyle = gr; g.fillRect(0, 0, BW, BH);
+  // brushed enamel + soft reflection bands
+  for (let i = 0; i < 6000; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '120,130,140' : '255,255,255'},${Math.random() * 0.05})`; g.fillRect(Math.random() * BW, Math.random() * BH, 1 + Math.random() * 40, 1); }
+  for (let k = 0; k < 7; k++) { const x = k * 640 + 120; const rg = g.createLinearGradient(x, 0, x + 260, 0); rg.addColorStop(0, 'rgba(255,255,255,0)'); rg.addColorStop(0.5, 'rgba(255,255,255,.55)'); rg.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = rg; g.fillRect(x, 0, 260, BH); }
+  // door seam + handle groove (two fridge doors side by side)
+  for (const x of [2100]) { g.fillStyle = 'rgba(80,90,100,.35)'; g.fillRect(x - 3, 0, 6, BH); }
+  for (const x of [2040, 2160]) { const hg = g.createLinearGradient(x - 18, 0, x + 18, 0); hg.addColorStop(0, '#c9d0d6'); hg.addColorStop(0.5, '#f6f8f9'); hg.addColorStop(1, '#aeb6be'); g.fillStyle = hg; g.beginPath(); g.roundRect(x - 18, 360, 36, 560, 18); g.fill(); }
+  // magnets + a kid's drawing + a shopping list already there (lived-in fridge)
+  const mag = (x, y, c) => { g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.arc(x + 4, y + 6, 24, 0, 7); g.fill(); const mg = g.createRadialGradient(x - 8, y - 8, 2, x, y, 24); mg.addColorStop(0, '#fff'); mg.addColorStop(0.3, c); mg.addColorStop(1, c); g.fillStyle = mg; g.beginPath(); g.arc(x, y, 24, 0, 7); g.fill(); };
+  g.save(); g.translate(3700, 230); g.rotate(0.06); g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(8, 10, 300, 230); g.fillStyle = '#fff'; g.fillRect(0, 0, 300, 230);
+  g.strokeStyle = '#ff8a3d'; g.lineWidth = 8; g.beginPath(); g.arc(150, 120, 60, 0, 7); g.stroke(); g.strokeStyle = '#3b82f6'; g.beginPath(); g.moveTo(40, 200); g.lineTo(260, 200); g.stroke(); g.restore(); mag(3850, 230, '#ff4d6d');
+  g.save(); g.translate(140, 960); g.rotate(-0.05); g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(8, 10, 260, 300); g.fillStyle = '#fffbe6'; g.fillRect(0, 0, 260, 300); g.fillStyle = '#555'; g.font = '700 30px "Noto Serif CJK SC"';
+  ['牛奶', '鸡蛋', '洗洁精', '垃圾袋'].forEach((s, i) => g.fillText('□ ' + s, 30, 70 + i * 56)); g.restore(); mag(270, 960, '#3bb273');
+  mag(1240, 120, '#ffc53d'); mag(2900, 1180, '#7c5cff');
+}
+const XS = [600, 1300, 2000, 2850, 3550];   // step centres along the door
+const STEPS = [['📱', '线上预约', '#3b82f6', '最快 2 小时上门'], ['🍳', '厨房去油', '#f97316', '灶台 · 油烟机'], ['🛁', '卫浴除垢', '#06b6d4', '水垢 · 霉斑'], ['🧹', '全屋除尘', '#a855f7', '死角 · 床底'], ['✅', '验收打分', '#10b981', '不满意免费返工']];
+const T0 = 1.6, DT = 1.75;                  // step i lands at T0 + i*DT
+const SL = [];
+let ready = false;
+function build() {
+  SL.push({ s: ST.make(ST.title(C.title, '#ffde4a', '#1b1b1b'), 760, 140), x: 640, y: 250, rot: -0.03, t0: 0.4 });
+  SL.push({ s: ST.make(ST.label(C.brand, '#1b1b1b', '#ffde4a', 50), 330, 84), x: 1090, y: 360, rot: 0.05, t0: 0.75 });
+  STEPS.forEach(([em, name, col, note], i) => {
+    const x = XS[i], y = i % 2 ? 720 : 640, t0 = T0 + i * DT;
+    SL.push({ s: ST.make(ST.emoji(em, 190), 230, 230), x, y, rot: (i % 2 ? 0.08 : -0.07), t0 });
+    SL.push({ s: ST.make(ST.num(i + 1, '#111827'), 70, 70), x: x - 130, y: y - 125, rot: 0, t0: t0 + 0.12 });
+    SL.push({ s: ST.make(ST.label(name, col, '#fff', 54), 250, 86), x: x + 10, y: y + 185, rot: (i % 2 ? -0.05 : 0.04), t0: t0 + 0.25 });
+    SL.push({ s: ST.make(ST.note(note, i % 2 ? '#ffd1dc' : '#fff3a3', 36), 300, 120), x: x + 20, y: y + 330, rot: (i % 2 ? 0.05 : -0.06), t0: t0 + 0.5 });
+  });
+  SL.push({ s: ST.make(ST.emoji('⭐⭐⭐⭐⭐', 60), 360, 80), x: 3560, y: 1160, rot: -0.04, t0: T0 + 4 * DT + 0.75 });
+  SL.push({ s: ST.make(ST.burst('满意\n再付款', '#ff4d2e', '#fff6d6', 0.2), 330, 330), x: 3980, y: 650, rot: 0.12, t0: 10.0 });
+  SL.push({ s: ST.make(ST.label(C.price, '#111827', '#ffde4a', 48), 380, 86), x: 3980, y: 900, rot: -0.04, t0: 10.3 });
+  ready = true;
+}
+// the bee guide: flies ahead of the camera, hovers where the next sticker lands
+function beePos(t) {
+  const i = clamp(Math.floor((t - T0 + DT * 0.6) / DT), 0, 4);
+  const tA = T0 + (i - 1) * DT - 0.6, u = E.inOutCubic(clamp((t - tA - DT * 0.35) / (DT * 0.55)));
+  const xa = i === 0 ? 300 : XS[i - 1] + 140, xb = XS[i] + 120;
+  const x = lerp(xa, xb, u), y = 470 + Math.sin(t * 7) * 18 - Math.sin(Math.PI * u) * 160 + (i % 2 ? 80 : 0);
+  return [x, y, u];
+}
+function camAt(t) {
+  const end = E.inOutCubic(inv(10.6, 12.2, t));
+  const x = lerp(lerp(900, 3500, E.inOutSine(clamp((t - 0.8) / 9.6))), BW / 2, end);
+  const z = lerp(0.95 + 0.03 * Math.sin(t * 0.9), 0.43, end);
+  const y = lerp(640 + 40 * Math.sin(t * 0.6), BH / 2 + 160, end);
+  const cx = clamp(x, 960 / z, BW - 960 / z), cy = clamp(y, 540 / z, BH - 540 / z);
+  return { x: lerp(cx, x, end), y: lerp(cy, y, end), z };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 80px "Noto Sans CJK SC"', '200px "Noto Color Emoji"', '900 40px Inter', '700 40px "Noto Serif CJK SC"'],
+  setup() { buildDoor(); build(); },
+  cues: [{"t": 0.4, "sfx": "sticker", "gain": 0.7}, {"t": 0.75, "sfx": "sticker", "gain": 0.6}, {"t": 1.0, "sfx": "whoosh", "gain": 0.25}, {"t": 1.6, "sfx": "sticker", "gain": 0.75}, {"t": 1.72, "sfx": "pop", "gain": 0.4}, {"t": 1.85, "sfx": "sticker", "gain": 0.6}, {"t": 2.1, "sfx": "paper", "gain": 0.4}, {"t": 2.6, "sfx": "marker", "gain": 0.5}, {"t": 2.75, "sfx": "whoosh", "gain": 0.25}, {"t": 3.35, "sfx": "sticker", "gain": 0.75}, {"t": 3.47, "sfx": "pop", "gain": 0.4}, {"t": 3.6, "sfx": "sticker", "gain": 0.6}, {"t": 3.85, "sfx": "paper", "gain": 0.4}, {"t": 4.35, "sfx": "marker", "gain": 0.5}, {"t": 4.5, "sfx": "whoosh", "gain": 0.25}, {"t": 5.1, "sfx": "sticker", "gain": 0.75}, {"t": 5.22, "sfx": "pop", "gain": 0.4}, {"t": 5.35, "sfx": "sticker", "gain": 0.6}, {"t": 5.6, "sfx": "paper", "gain": 0.4}, {"t": 6.1, "sfx": "marker", "gain": 0.5}, {"t": 6.25, "sfx": "whoosh", "gain": 0.25}, {"t": 6.85, "sfx": "sticker", "gain": 0.75}, {"t": 6.97, "sfx": "pop", "gain": 0.4}, {"t": 7.1, "sfx": "sticker", "gain": 0.6}, {"t": 7.35, "sfx": "paper", "gain": 0.4}, {"t": 7.85, "sfx": "marker", "gain": 0.5}, {"t": 8.0, "sfx": "whoosh", "gain": 0.25}, {"t": 8.6, "sfx": "sticker", "gain": 0.75}, {"t": 8.72, "sfx": "pop", "gain": 0.4}, {"t": 8.85, "sfx": "sticker", "gain": 0.6}, {"t": 9.1, "sfx": "paper", "gain": 0.4}, {"t": 9.35, "sfx": "sparkle", "gain": 0.5}, {"t": 10.0, "sfx": "impact", "gain": 0.6}, {"t": 10.3, "sfx": "sticker", "gain": 0.6}, {"t": 10.6, "sfx": "whoosh_up", "gain": 0.4}, {"t": 12.0, "sfx": "chime", "gain": 0.5}],
+  render(t) {
+    L.begin();
+    const cam = camAt(t);
+    ctx.fillStyle = '#d9dee3'; ctx.fillRect(0, 0, 1920, 1080);
+    ctx.save(); ctx.translate(960, 540); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+    // kitchen around the fridge (seen when the camera pulls back)
+    if (cam.z < 0.9) {
+      ctx.fillStyle = '#efe7da'; ctx.fillRect(-1400, -1200, BW + 2800, BH + 2400);
+      ctx.strokeStyle = 'rgba(160,145,125,.35)'; ctx.lineWidth = 3;
+      for (let y = -1200; y < BH + 1200; y += 70) { ctx.beginPath(); ctx.moveTo(-1400, y); ctx.lineTo(BW + 1400, y); ctx.stroke(); for (let x = -1400 + ((y / 70) % 2 ? 70 : 0); x < BW + 1400; x += 140) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 70); ctx.stroke(); } }
+      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.roundRect(-40, -380, BW + 140, BH + 1020, 60); ctx.fill();
+      ctx.fillStyle = '#dfe4e9'; ctx.beginPath(); ctx.roundRect(-70, -420, BW + 140, BH + 1020, 60); ctx.fill();
+      ctx.fillStyle = '#f1f4f6'; ctx.fillRect(0, -360, BW, 330); ctx.fillRect(0, BH + 30, BW, 520);
+      ctx.fillStyle = 'rgba(80,90,100,.3)'; ctx.fillRect(0, -30, BW, 30); ctx.fillRect(0, BH, BW, 30);
+      for (const x of [BW * 0.25, BW * 0.75]) { ctx.fillStyle = '#c3cad1'; ctx.beginPath(); ctx.roundRect(x - 300, BH + 90, 600, 30, 15); ctx.fill(); }
+      ctx.fillStyle = '#7aa0c4'; ctx.fillRect(BW / 2 - 200, -300, 400, 120); ctx.fillStyle = '#e8f3ff'; ctx.font = '700 64px Inter'; ctx.textAlign = 'center'; ctx.fillText('4°C', BW / 2, -220);
+    }
+    ctx.drawImage(door, 0, 0, BW, BH);
+    for (let i = 0; i < 4; i++) ST.marker(ctx, [XS[i] + 150, 700, XS[i + 1] - 150, 700, i % 2 ? -110 : 110], clamp((t - (T0 + i * DT + 1.0)) / 0.5), i * 3, 'rgba(40,50,60,.85)', 8);
+    for (const s of SL) ST.draw(ctx, s, t, { shadow: 0.3 });
+    // the bee
+    const [bx, by, bu] = beePos(t);
+    if (t < 10.4) { ctx.save(); ctx.translate(bx, by); ctx.rotate(Math.sin(t * 9) * 0.12 + (bu > 0 && bu < 1 ? 0.3 : 0)); ctx.font = '110px "Noto Color Emoji"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.globalAlpha = 0.22; ctx.filter = `blur(${8 * K}px)`; ctx.fillText('🐝', 30, 90); ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.fillText('🐝', 0, 0);
+      ctx.strokeStyle = 'rgba(40,40,40,.35)'; ctx.setLineDash([10, 14]); ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-60, 10); ctx.quadraticCurveTo(-160, -40 + Math.sin(t * 3) * 20, -260, 20); ctx.stroke(); ctx.setLineDash([]); ctx.restore(); }
+    ctx.restore();
+    // lighting: kitchen window light + vignette
+    const lg = ctx.createRadialGradient(560, 300, 0, 960, 540, 1250); lg.addColorStop(0, 'rgba(255,248,225,.16)'); lg.addColorStop(0.6, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(30,40,50,.28)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, 1920, 1080);
+    if (t < 0.3) { ctx.fillStyle = `rgba(233,236,239,${1 - t / 0.3})`; ctx.fillRect(0, 0, 1920, 1080); }
+  },
+});
+</script></body></html>

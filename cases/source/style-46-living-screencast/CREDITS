@@ -1,0 +1,14 @@
+《逃跑的周报》 第三方素材与许可
+
+画面：全部由代码绘制（HTML/CSS/SVG），无截图、无素材图片、无真实素材影像。
+界面为虚构的待办清单应用「清单」，不对应任何真实产品或品牌。
+
+字体（自托管于 fonts/，按所用字符子集化）
+- Noto Sans SC（思源黑体 SC）— Google Fonts，SIL Open Font License 1.1 — https://fonts.google.com/noto/specimen/Noto+Sans+SC
+- Inter — Rasmus Andersson，Google Fonts，SIL Open Font License 1.1 — https://fonts.google.com/specimen/Inter
+
+配乐采样（经 lemo-opuscar core/audio/sampler.py 调用）
+- Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+- Samples (CC0): Karoryfer Samples / sfzinstruments（jazz_bass），VS Chamber Orchestra: Community Edition（Versilian Studios：小提琴/中提琴/大提琴/低音提琴拨奏、定音鼓、立式钢琴），Versilian Community Sample Library（Versilian Studios：钟琴、弓奏颤音琴、木块、大鼓）
+
+合成：芯片方波声部与全部拟音为 numpy 程序合成（core/audio/sfx.py 与 mix.py），无外部音频素材。

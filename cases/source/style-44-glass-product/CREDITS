@@ -1,0 +1,22 @@
+棱光 PRISM · 玻璃质感产品样片（19.75 s，1920×1080，24 fps）
+
+画面：瓶子、材质、灯光、色散光束、焦散、透镜灯墙、名卡排版与动画全部用代码生成（three.js），产品、名字与造型均为虚构。
+环境：程序化灯条场景每帧烘焙为 PMREM，未使用任何 HDRI 或第三方模型。
+
+音乐：原创配乐 music/score.py（96 BPM，D 小调 → D 大三和弦）
+- numpy 合成：亚低音、808、软底鼓、拍手、滤波滴答、FM 玻璃拨音、高音玻璃叮、暖铺底、颗粒水晶云、上升音
+- 拨弦物理建模（core/audio/pluck.py，Karplus–Strong，harp / music_box 预设）：无采样
+- 真实采样（core/audio/sampler.py）：
+  - glass（glass harp 玻璃竖琴）— FreePats project, https://freepats.zenvoid.org/ — CC0 1.0
+  - glockenspiel、hand_chimes、vibraphone_bowed — Versilian Community Sample Library (VCSL), Versilian Studios, https://github.com/sgossner/VCSL — CC0 1.0
+拟音：全部程序合成（mix.py + core/audio/sfx.py），由页面 window.EV 驱动。
+
+字体（子集化，放在 fonts/）
+- Noto Sans SC — Google, SIL Open Font License 1.1 — https://fonts.google.com/noto/specimen/Noto+Sans+SC
+- Inter Tight — Tim Brown / Rasmus Andersson, SIL Open Font License 1.1 — https://fonts.google.com/specimen/Inter+Tight
+
+库
+- three.js r170 — MIT（MeshPhysicalMaterial 透射/色散、Reflector）
+- core/three/post.js：景深、辉光、调色
+
+无真实素材（material/ 为空，无需 FACTS.md：片中没有陈述事实）。

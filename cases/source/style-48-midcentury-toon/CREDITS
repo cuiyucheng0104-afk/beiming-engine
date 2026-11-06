@@ -1,0 +1,17 @@
+明日早晨 (48-midcentury-toon) · 素材来源与许可
+
+画面      全部由代码绘制（film.js、engine/toon.js、engine/hand.js）：厨房、机器、手套手、标注、奖章、纹样。无生成图像、无照片、无外部影像素材。
+配乐      原创，代码生成（mix.py）。真实采样乐器：
+          Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+          Samples (CC0): FreePats project (freepats.zenvoid.org), Karoryfer Samples / sfzinstruments, VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+          使用的采样：vibraphone / vibraphone_hard / vibraphone_bowed / xylophone / glockenspiel（VCSL, CC0）、jazz_bass（Karoryfer Sneakybass, CC0）、
+          timpani / hihat（VSCO 2 CE, CC0）、world_perc bongo（FreePats, CC0）、drum_kit ride / crash / kick（MuldjordKit, CC BY 4.0，见上）。
+          口哨旋律、刷子鼓、响指：numpy 合成，无采样。
+音效      全部程序合成（mix.py + core/audio/sfx.py），无录音素材。
+字体      SIL Open Font License 1.1，经 Google Fonts CSS API（&text= 子集）下载，存于 fonts/：
+          Alfa Slab One (JM Solé) — https://fonts.google.com/specimen/Alfa+Slab+One
+          Noto Sans SC 700 (Google) — https://fonts.google.com/noto/specimen/Noto+Sans+SC
+          Noto Serif SC 900 (Google) — https://fonts.google.com/noto/specimen/Noto+Serif+SC
+          许可全文：https://openfontlicense.org/open-font-license-official-text/
+真实素材  无（本片不使用实拍或档案素材）。
+风格      语法参考 1950 年代限制动画、课堂教学片与家电说明书；未复制任何角色、图案、字体或音乐。片中无真实品牌、产品或商标。

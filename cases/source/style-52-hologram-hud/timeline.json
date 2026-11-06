@@ -1,0 +1,99 @@
+{
+ "bpm": 96,
+ "fps": 24,
+ "beat": 0.625,
+ "bar": 2.5,
+ "beats": 31,
+ "dur": 19.375,
+ "hit": {
+  "ignite": 0,
+  "hud": 1,
+  "scan": 2,
+  "sprout": 4,
+  "land": 6,
+  "chip1": 6,
+  "chip2": 8,
+  "chip3": 10,
+  "chip4": 11,
+  "whip": 12,
+  "box": 13,
+  "lock": 14,
+  "leader": 15,
+  "explode": 16,
+  "ageRoll": 17,
+  "moist": 18,
+  "close": 20,
+  "freeze": 22,
+  "open": 24,
+  "beam": 26,
+  "crown": 28,
+  "echo": 30
+ },
+ "t": {
+  "ignite": 0,
+  "hud": 0.625,
+  "scan": 1.25,
+  "sprout": 2.5,
+  "land": 3.75,
+  "chip1": 3.75,
+  "chip2": 5,
+  "chip3": 6.25,
+  "chip4": 6.875,
+  "whip": 7.5,
+  "box": 8.125,
+  "lock": 8.75,
+  "leader": 9.375,
+  "explode": 10,
+  "ageRoll": 10.625,
+  "moist": 11.25,
+  "close": 12.5,
+  "freeze": 13.75,
+  "open": 15,
+  "beam": 16.25,
+  "crown": 17.5,
+  "echo": 18.75
+ },
+ "silence": [
+  [
+   13.75,
+   15
+  ]
+ ],
+ "sections": [
+  {
+   "id": "intro",
+   "b0": 0,
+   "b1": 4
+  },
+  {
+   "id": "grow1",
+   "b0": 4,
+   "b1": 8
+  },
+  {
+   "id": "grow2",
+   "b0": 8,
+   "b1": 12
+  },
+  {
+   "id": "lock",
+   "b0": 12,
+   "b1": 16
+  },
+  {
+   "id": "explode",
+   "b0": 16,
+   "b1": 20
+  },
+  {
+   "id": "hold",
+   "b0": 20,
+   "b1": 24
+  },
+  {
+   "id": "open",
+   "b0": 24,
+   "b1": 31
+  }
+ ]
+}

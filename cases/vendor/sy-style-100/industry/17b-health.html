@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>17 · 体检报告 · 安康体检</title>
+<script src="../lib/core.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 17 数据新闻 · 行业示例：体检报告 =====
+   A long-form data story you scroll, the way a news site tells a story: the camera scrolls down one tall
+   editorial page and every graphic plays as it comes into view - a body diagram whose markers pop with
+   leader-line labels, three gauges whose needles swing to the reading, a you-vs-peers bar, a waffle,
+   then the advice checklist being ticked. Ends on the clinic's box. Values are illustrative (labelled). */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#e9e4d8');
+const C = Reel.cfg({ brand: '安康体检', ad: '报告出来，医生 1 对 1 帮你读懂', price: '深度体检套餐 ¥699 起' });
+const RS = Reel.RS, W = Math.round(1920 * RS), H = Math.round(1080 * RS), K = W / 1920;
+const cv = document.createElement('canvas'); cv.width = W; cv.height = H; cv.style.cssText = 'position:absolute;left:0;top:0;width:1920px;height:1080px'; stage.appendChild(cv);
+const ctx = cv.getContext('2d');
+const INK = '#161412', RED = '#c8302b', GRN = '#2f8f5b', GRAY = '#8a8478', PAPER = '#f6f2e9', SERIF = '"Noto Serif CJK SC"', SANS = '"Noto Sans CJK SC"';
+const PWd = 1300, PHd = 4300, X0 = 310;   // page column on screen x 310..1610
+function wrap(g, text, maxW) { const L = []; let l = ''; for (const ch of text) { const s = l + ch; if (g.measureText(s).width > maxW && l) { L.push(l); l = ch; } else l = s; } if (l) L.push(l); return L; }
+const page = document.createElement('canvas'); const PS = 1.0; page.width = PWd * K * PS; page.height = PHd * K * PS; const p = page.getContext('2d'); p.scale(K * PS, K * PS);
+function build() {
+  p.fillStyle = PAPER; p.fillRect(0, 0, PWd, PHd);
+  for (let i = 0; i < 3000; i++) { p.fillStyle = `rgba(90,70,40,${Reel.hash(i * 1.3) * 0.03})`; p.fillRect(Reel.hash(i * 2.1) * PWd, Reel.hash(i * 3.7) * PHd, Reel.hash(i) * 3 + 1, 1); }
+  p.fillStyle = RED; p.font = `700 26px ${SANS}`; p.fillText('健康 · 数据故事', 90, 150);
+  p.fillStyle = INK; p.font = `900 104px ${SERIF}`; p.fillText('你的体检报告，', 80, 300); p.fillText('真的读懂了吗？', 80, 430);
+  p.font = `400 32px ${SERIF}`; p.fillStyle = '#3a3630'; wrap(p, '一份报告几十项指标，箭头一堆，却没人告诉你哪项要紧。我们用一位 38 岁上班族的报告（示意数据）带你读一遍。', 1100).forEach((l, i) => p.fillText(l, 90, 530 + i * 50));
+  p.fillRect(90, 660, 1120, 2);
+  p.font = `700 34px ${SANS}`; p.fillStyle = INK; p.fillText('一、哪里亮了红灯', 90, 760);
+  p.font = `700 34px ${SANS}`; p.fillText('二、三个最常见的数字', 90, 1760);
+  p.font = `700 34px ${SANS}`; p.fillText('三、和同龄人比一比', 90, 2560);
+  p.font = `700 34px ${SANS}`; p.fillText('四、医生的建议', 90, 3260);
+  p.font = `400 20px ${SANS}`; p.fillStyle = GRAY; p.fillText('注：本文数值均为示意数据，不构成医疗建议。', 90, 4230);
+}
+// body silhouette path (page coords, centred at 450, 1200)
+function body(g, a) {
+  g.save(); g.translate(430, 1260); g.globalAlpha = a; g.strokeStyle = INK; g.lineWidth = 4; g.fillStyle = 'rgba(22,20,18,.05)';
+  g.beginPath(); g.arc(0, -330, 62, 0, 7); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(-40, -262); g.quadraticCurveTo(-150, -250, -170, -150); g.lineTo(-200, 60); g.lineTo(-160, 70); g.lineTo(-130, -110); g.lineTo(-110, 120); g.lineTo(-120, 400); g.lineTo(-40, 400); g.lineTo(0, 140); g.lineTo(40, 400); g.lineTo(120, 400); g.lineTo(110, 120); g.lineTo(130, -110); g.lineTo(160, 70); g.lineTo(200, 60); g.lineTo(170, -150); g.quadraticCurveTo(150, -250, 40, -262); g.closePath(); g.fill(); g.stroke();
+  g.restore();
+}
+const MARK = [[430, 1000, '甲状腺', '小结节 · 半年复查', 0], [470, 1110, '血压', '138/88 · 偏高', 1], [400, 1190, '血脂', '甘油三酯 2.3 · 偏高', 1], [460, 1320, '尿酸', '452 · 偏高', 1]];
+function gauge(g, cx, cy, v, lo, hi, val, lab, unit, k, okRange) {
+  const r = 150; g.lineWidth = 26; g.lineCap = 'butt';
+  const seg = (a0, a1, col) => { g.strokeStyle = col; g.beginPath(); g.arc(cx, cy, r, Math.PI + a0 * Math.PI, Math.PI + a1 * Math.PI); g.stroke(); };
+  seg(0, okRange[0], '#d9d3c4'); seg(okRange[0], okRange[1], '#b8dcc6'); seg(okRange[1], 1, '#f0c2bd');
+  const f = clamp((v - lo) / (hi - lo)) * k + 0 * (1 - k); const ang = Math.PI + f * Math.PI + Math.sin(k * 9) * 0.05 * (1 - k);
+  g.strokeStyle = INK; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(ang) * (r - 20), cy + Math.sin(ang) * (r - 20)); g.stroke(); g.fillStyle = INK; g.beginPath(); g.arc(cx, cy, 12, 0, 7); g.fill();
+  g.font = `900 56px Inter`; g.textAlign = 'center'; g.fillStyle = f > okRange[1] ? RED : GRN; g.fillText(k > 0.95 ? val : '—', cx, cy + 74); g.font = `700 26px ${SANS}`; g.fillStyle = INK; g.fillText(lab, cx, cy + 116); g.font = `500 18px ${SANS}`; g.fillStyle = GRAY; g.fillText(unit, cx, cy + 146); g.textAlign = 'left';
+}
+function live(g, t) {
+  // 1. body + markers
+  const ba = clamp((t - 1.6) / 0.5); body(g, ba);
+  MARK.forEach(([x, y, n, d, bad], i) => { const a = E.outBack(clamp((t - 2.2 - i * 0.35) / 0.3)); if (a <= 0) return; g.fillStyle = bad ? RED : '#e59a2b'; g.beginPath(); g.arc(x, y, 16 * a, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke();
+    const lx = 760, ly = 900 + i * 150, p2 = E.outCubic(clamp((t - 2.3 - i * 0.35) / 0.35)); g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.moveTo(x + 16, y); g.lineTo(lerp(x + 16, lx - 20, p2), lerp(y, ly, p2)); g.stroke();
+    if (p2 > 0.9) { g.font = `900 40px ${SANS}`; g.fillStyle = bad ? RED : '#c27a12'; g.fillText(n, lx, ly + 12); g.font = `500 24px ${SANS}`; g.fillStyle = '#3a3630'; g.fillText(d, lx, ly + 52); } });
+  // 2. gauges
+  const G = [[260, 2050, 26.1, 15, 35, '26.1', 'BMI', '体重(kg) ÷ 身高²', [0.17, 0.45]], [650, 2050, 138, 90, 170, '138/88', '血压', 'mmHg', [0.12, 0.5]], [1040, 2050, 5.4, 3, 9, '5.4', '空腹血糖', 'mmol/L', [0.15, 0.6]]];
+  G.forEach(([cx, cy, v, lo, hi, val, lab, unit, ok], i) => { const k = E.outCubic(clamp((t - 6.1 - i * 0.3) / 0.9)); gauge(g, cx, cy, v, lo, hi, val, lab, unit, k, ok); });
+  // 3. you vs peers + waffle
+  const a3 = E.outCubic(clamp((t - 8.7) / 0.7));
+  g.font = `700 26px ${SANS}`; g.fillStyle = INK; g.fillText('异常项目数', 90, 2660);
+  [['你', 3, RED], ['35-40 岁平均', 2.4, '#b5a998'], ['常运动人群', 1.1, GRN]].forEach(([n, v, col], i) => { const y = 2700 + i * 90, w = 700 * v / 3 * a3; g.fillStyle = col; g.fillRect(320, y, w, 54); g.font = `700 24px ${SANS}`; g.fillStyle = INK; g.fillText(n, 90, y + 36); g.font = `800 26px Inter`; g.fillText(a3 > 0.05 ? (v * a3).toFixed(1) : '', 334 + w, y + 37); });
+  const wf = Math.floor(clamp((t - 9.4) / 0.9) * 75); g.font = `700 26px ${SANS}`; g.fillStyle = INK; g.fillText('75% 的 35+ 职场人至少有 1 项异常', 90, 3030);
+  for (let i = 0; i < 100; i++) { const x = 90 + (i % 25) * 44, y = 3060 + Math.floor(i / 25) * 44; g.fillStyle = i < wf ? RED : 'rgba(22,20,18,.12)'; g.beginPath(); g.roundRect(x, y, 34, 34, 6); g.fill(); }
+  // 4. checklist
+  ['半年后复查甲状腺 B 超', '少喝含糖饮料，晚饭七分饱', '每周 3 次、每次 30 分钟快走'].forEach((s, i) => { const y = 3360 + i * 110; g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(90, y - 36, 50, 50); g.font = `600 34px ${SERIF}`; g.fillStyle = INK; g.fillText(s, 170, y); const k = clamp((t - 11.0 - i * 0.35) / 0.25); if (k > 0) { g.strokeStyle = RED; g.lineWidth = 8; g.lineCap = 'round'; g.beginPath(); g.moveTo(98, y - 10); g.lineTo(98 + 16 * Math.min(1, k * 2), y + 6 * Math.min(1, k * 2)); if (k > 0.5) g.lineTo(114 + 34 * (k - 0.5) * 2, y + 6 - 46 * (k - 0.5) * 2); g.stroke(); } });
+  // 5. ad box
+  const ad = E.outBack(clamp((t - 12.6) / 0.4)); if (ad > 0) { g.save(); g.translate(650, 3900); g.scale(ad, ad); g.fillStyle = INK; g.fillRect(-560, -150, 1120, 300); g.fillStyle = PAPER; g.textAlign = 'center'; g.font = `600 18px Inter`; g.fillText('ADVERTISEMENT · 广告', 0, -112); g.font = `900 84px ${SERIF}`; g.fillText(C.brand, 0, -20); g.font = `700 30px ${SANS}`; g.fillText(C.ad, 0, 44); g.font = `500 24px ${SANS}`; g.fillStyle = '#d9b54a'; g.fillText(C.price, 0, 96); g.restore(); g.textAlign = 'left'; }
+}
+// scroll: page y at the top of the screen, by time; slight zooms on the busy bits
+const SC = [[0, 0, 1.14], [1.2, 0, 1.14], [1.9, 680, 1.14], [5.2, 720, 1.14], [5.9, 1700, 1.16], [8.0, 1720, 1.16], [8.6, 2540, 1.14], [10.4, 2580, 1.14], [10.9, 3220, 1.14], [12.3, 3240, 1.14], [12.8, 3560, 1.12], [15, 3580, 1.15]];
+function scroll(t) { let i = 0; while (i < SC.length - 2 && t > SC[i + 1][0]) i++; const [a, ya, za] = SC[i], [b, yb, zb] = SC[i + 1]; const u = E.inOutCubic(clamp((t - a) / (b - a))); return [lerp(ya, yb, u), lerp(za, zb, u)]; }
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: [`900 104px ${SERIF}`, `400 32px ${SERIF}`, `700 34px ${SANS}`, '900 56px Inter', '600 18px Inter'],
+  setup() { build(); },
+  cues: [{ t: 0.3, sfx: 'paper', gain: 0.4 }, { t: 1.2, sfx: 'whoosh', gain: 0.3 }, ...MARK.map((_, i) => ({ t: +(2.2 + i * 0.35).toFixed(2), sfx: 'pop', gain: 0.5 })), { t: 5.2, sfx: 'whoosh', gain: 0.3 }, { t: 6.1, sfx: 'ticks', gain: 0.5 }, { t: 6.4, sfx: 'ticks', gain: 0.4 }, { t: 6.7, sfx: 'ticks', gain: 0.4 }, { t: 8.0, sfx: 'whoosh', gain: 0.3 }, { t: 8.7, sfx: 'data', gain: 0.5 }, { t: 9.4, sfx: 'data', gain: 0.4 }, { t: 10.4, sfx: 'whoosh', gain: 0.3 }, { t: 11.0, sfx: 'marker', gain: 0.5 }, { t: 11.35, sfx: 'marker', gain: 0.5 }, { t: 11.7, sfx: 'marker', gain: 0.5 }, { t: 12.6, sfx: 'impact_soft', gain: 0.6 }],
+  render(t) {
+    const [sy, z] = scroll(t);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); const dg = ctx.createLinearGradient(0, 0, W, 0); dg.addColorStop(0, '#d8d1c1'); dg.addColorStop(0.5, '#e9e4d8'); dg.addColorStop(1, '#d8d1c1'); ctx.fillStyle = dg; ctx.fillRect(0, 0, W, H);
+    ctx.setTransform(K * z, 0, 0, K * z, (960 - 960 * z) * K + X0 * K * z, (540 - 540 * z) * K - sy * K * z);
+    ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 40 * K; ctx.fillStyle = PAPER; ctx.fillRect(0, 0, PWd, PHd); ctx.shadowColor = 'transparent';
+    ctx.drawImage(page, 0, 0, PWd, PHd);
+    live(ctx, t);
+    // reading-progress bar
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(22,20,18,.12)'; ctx.fillRect(0, 0, W, 8 * K); ctx.fillStyle = RED; ctx.fillRect(0, 0, W * clamp(sy / 3640), 8 * K);
+  },
+});
+</script></body></html>

@@ -1,0 +1,21 @@
+《擒纵机构》—— 蓝图 / 工程制图风格样片
+画面、动画、配乐、拟音全部由本工程源码生成（build.sh 一键重建）。无旁白、无字幕、无外部影像素材。
+
+== 采样乐器（core/audio/sampler.py）==
+harpsichord 羽管键琴 / marimba 马林巴 / glockenspiel 钟琴（代钢片琴）/ woodblock 木鱼：
+  Versilian Community Sample Library (VCSL), Versilian Studios — CC0 1.0 — https://github.com/sgossner/VCSL
+bassoon / bassoon_stac 巴松 / cellos_pizz 大提琴拨弦 / contrabass_pizz 低音提琴拨弦：
+  VS Chamber Orchestra: Community Edition (VSCO 2 CE), Versilian Studios / Sam Gossner — CC0 1.0 — https://github.com/sgossner/VSCO-2-CE
+八音盒：core/audio/pluck.py 物理建模（代码合成，无采样）
+低音合成、全部拟音（笔、圆规、丁字尺、排线、纸、擒纵滴答、橡皮章）：numpy 程序化合成（core/audio/sfx.py + mix.py）
+
+== 字体（SIL Open Font License 1.1，经 Google Fonts CSS API &text= 子集化，自托管于 fonts/）==
+Long Cang — Chen Xiaomin — OFL 1.1 — https://fonts.google.com/specimen/Long+Cang
+Architects Daughter — Kimberly Geswein — OFL 1.1 — https://fonts.google.com/specimen/Architects+Daughter
+B612 Mono — PolarSys / Airbus — OFL 1.1 — https://fonts.google.com/specimen/B612+Mono
+Noto Sans SC — Google — OFL 1.1 — https://fonts.google.com/specimen/Noto+Sans+SC
+Liu Jian Mao Cao — Liu Zhengjiang — OFL 1.1 — https://fonts.google.com/specimen/Liu+Jian+Mao+Cao
+
+== 说明 ==
+图中机构为虚构设计；签名"林墨"为虚构人物；图号 QZ-019 为虚构编号。
+摆长 442 mm 由单摆公式 L = g·T²/4π²（T = 1.3333 s，即每分钟 90 拍）推得，与配乐速度一致。

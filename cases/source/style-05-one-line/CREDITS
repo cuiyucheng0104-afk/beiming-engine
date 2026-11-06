@@ -1,0 +1,15 @@
+一根线的早晨 — 素材与许可
+
+音乐采样
+- 竖琴 harp：Versilian Community Sample Library (VCSL), Versilian Studios — CC0 1.0 — https://github.com/sgossner/VCSL
+- 低音提琴拨弦 contrabass_pizz：VS Chamber Orchestra: Community Edition (VSCO 2 CE), Versilian Studios / Sam Gossner — CC0 1.0 — https://github.com/sgossner/VSCO-2-CE
+- 低音提琴拨弦叠层、竖琴泛音：pluck.py 物理建模（Karplus–Strong），纯代码合成，无第三方素材
+- 笔声、拟音、环境声：sfx.py / numpy 程序化合成，无第三方素材
+
+字体
+- Long Cang（落款「早安」），Google Fonts，SIL Open Font License 1.1 — https://fonts.google.com/specimen/Long+Cang — 经 Google Fonts CSS API (&text=) 子集化为 2 个字形，存于 fonts/LongCang-zaoan.woff2
+
+代码
+- 线条引擎（engine/geom.js、ink.js、paper.js、cam.js）改编自本机风格库 one-line 演示片的技法源码；画面、路径、镜头、配乐、混音均为本片原创
+
+无真实影像素材、无旁白、无 TTS。

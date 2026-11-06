@@ -1,0 +1,49 @@
+方案 C《打开》全片 · CREDITS（180.000 s；0–20 s 开头沿用 C-kaitou）
+
+【IP 图片】共 27 张（清单与归属章节见 src/shared/assets.js）
+来源：上影元官网（sfi-sh.com），经 PPT《上美影IP全景》整理，RTX 超分。
+  开头 / 第二章：P02 孙悟空《大闹天宫》海报、黑猫警长海报、葫芦兄弟海报；P05《大闹天宫》剧照；P06 哪吒闹海剧照、葫芦兄弟剧照；P07 黑猫警长剧照；
+                  P08 雪孩子、阿凡提、舒克和贝塔海报，大耳朵图图形象
+  第三章：P04 小蝌蚪找妈妈、P10 牧笛、P09 九色鹿海报、P09 天书奇谭剧照、P11 金色的海螺（剪纸）、P11 阿凡提的故事（木偶）
+  第四章：P12 中国奇谭鲸鱼主视觉；P13 中国奇谭 2《如何成为三条龙》《耳中人》《小雪》《大贵人》；P14 浪浪山小妖怪海报；P15 燃比娃（宣纸手绘）
+  第五章：P17 大闹天宫 × 星巴克、葫芦兄弟 × 古茗、中国奇谭 × 中信出版立体书
+片中全部整张印成带白边的卡片使用（kit.card），未改色、未变形、未重画、未抠图，不全屏。版权归原权利人所有。
+文件：material/*.png（从 共用/IP图_超分/ 复制）；material/ch4/ 是第四章的同一批文件副本（逐字节相同）。
+
+【材质】（material/*.png，来自 共用/材质/，本地 Qwen-Image 生成，不含人物与文字）
+书封布面（开头、全片书脊与包边）、宣纸、宣纸_逆光、壁画土墙、红纸（第三章水墨 / 壁画 / 剪纸三档）、装裱绫绢、棉布幕_透光。
+木桌：Poly Haven "american_walnut_veneer"（walnut_diff / nor / rough），CC0，https://polyhaven.com/a/american_walnut_veneer
+台灯：Poly Haven "desk_lamp_arm_01"，CC0，https://polyhaven.com/a/desk_lamp_arm_01 （灯体改为黑色金属材质）
+环境光 HDRI：Poly Haven "lythwood_lounge"，CC0，https://polyhaven.com/a/lythwood_lounge
+
+【程序生成（代码绘制，无第三方素材）】
+开头：纸舞台、天幕、远山、云幕、浪栏、纸云、纸轨、拉片、纸条标签。
+第二章：日轮纸芒、纸浪 V 折页、夜云与屋檐折页、纸月亮、纸转盘、字牌（src/chapters/ch2_art.js）。
+第三章：纸框舞台、百叶翻板、四档拉片；毛毡、幕布、小舞台框的绒面贴图，墨晕、干笔皴、卷草纹、云纹、窗花、朱文印（src/chapters/ch3_art.js，显影着色器）。
+第四章：纸塔、弧形纸轨、窗棂小门、纸森林、折扇光芒、夜空背板（src/chapters/ch4_art.js）。
+第五章：孟菲斯合作城（约 125 栋楼、树、小车、行人背影）、风琴折纸延展面、广场门楼（src/chapters/ch5.js、ch5_mem.js、ch5_plan.js）。
+第六·七章：洽谈室、三个无脸背影小人、文件夹与立牌、「谈」字笔顺色带、封面叠印（src/chapters/ch67*.js）。
+全片没有用 5090 生成新素材。
+
+【字体】（SIL Open Font License 1.1，Google Fonts，按片中用字子集化，放在 fonts/）
+Inter（Rasmus Andersson）：数字与拉丁字母（fonts/InterF-500/700/800 为 ASCII 子集）—— https://github.com/google/fonts/tree/main/ofl/inter
+Noto Sans SC Bold / Medium（Google / Adobe）：中文标题、纸条标签与小字（fonts/SC-700、SC-500 按 src/shared/texts.js 白名单子集化）—— https://github.com/google/fonts/tree/main/ofl/notosanssc
+
+【声音】
+配乐为本片原创（music.py / music_inst.py），国风电子放克，E 羽五声。
+采样乐器：
+Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Samples (CC0): FreePats project (freepats.zenvoid.org), Karoryfer Samples / sfzinstruments, VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+（用到：双簧管 oboe（唢呐感主奏）、二胡 erhu、长笛 flute、电贝斯 electric_bass、筝 dan_tranh / dan_tranh_trem、钟琴 glockenspiel、马林巴 marimba、颤音琴 vibraphone / vibraphone_bowed、
+ 小号 / 长号 / 圆号断奏 trumpet_stac / trombone_stac / horn_stac、定音鼓 timpani、大鼓 gran_cassa、锣 gong / gong2、木鱼块 woodblock、拍手 claps、沙锤 shaker、铃鼓 tambourine、手鼓 frame_drum、鼓组 drum_kit、踩镲 hihat）
+琵琶、古琴：物理建模合成（Karplus–Strong），无采样。
+拟音与环境声（翻页、纸板、立体书"啵"、铅字、橡皮章、台灯开关与电流、木头摩擦、棘轮、剪刀、门轴、毛笔、矿物颜料、毛毡、追光、合书、房间底噪、灯管嗡声等，见 sfx_kit.py）：全部程序合成。
+
+使用者对片中所用素材（尤其是 IP 图片）的授权负责。
+
+【各章新增素材】
+第二章：无新增外部素材（纸件全部程序化绘制）。
+第三章：宣纸、宣纸_逆光、壁画土墙、红纸、装裱绫绢均来自 共用/材质（本地 Qwen-Image 生成，见上）；毛毡、幕布、小舞台框的绒面贴图、墨晕、卷草纹、云纹、窗花全部在 src/chapters/ch3_art.js 里程序生成，没有新增外部素材，也没有用 5090 生成。
+第四章：无新增外部素材；material/ch4/ 为 7 张 IP 图副本。
+第五章：无新增外部素材。
+第六·七章：无新增外部素材。

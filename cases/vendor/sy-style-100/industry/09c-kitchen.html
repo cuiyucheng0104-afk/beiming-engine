@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>09 · 私房菜 · 阿婆私房菜</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script>
+<script src="../lib/collage.js"></script><script src="../lib/collage-parts.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 09 拼贴 · 行业示例：私房菜 =====
+   Locked-off overhead on a gingham tablecloth, cooked in cut paper. Three blue-and-white plates; each dish
+   piles up one scrap per frame (12 fps stop-motion): tomato-and-egg, braised pork with a glaze that catches
+   the window, greens with garlic. After each dish a hard macro cut lands on the plate as its price tag drops.
+   The whole thing is a time-lapse: the window light swings from morning to dusk across the table, then
+   the name lands in ransom letters and Grandma's seal goes on. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#c9d3de');
+const C = Reel.cfg({ brand: '阿婆私房菜', sub: '预约制 · 每天只做 6 桌 · 提前一天订', note: '阿婆说：番茄要先炒出沙。' });
+const k = CL.init(stage, { seed: 9093 });
+const { R, rr, hsh, mkc, g2, SANS, SERIF } = k;
+const PL = [[470, 610, 205], [1000, 470, 195], [1500, 620, 190]];   // plates: x, y, radius
+const DROP = [[0.9, 2.3], [3.9, 5.3], [6.4, 7.6]];                    // when each dish piles up
+const CUTS = [[2.45, 3.55, 0], [5.45, 6.3, 1], [7.75, 8.6, 2]];       // macro cuts: from, to, plate
+let SEAL;
+
+function build() {
+  k.buildBoard({ w: 2340, h: 1330, x: -210, y: -125, col: '#f3f1ea', tooth: 0.8, gloss: 0.03,
+    tex: { fc: ['rgba(0,0,0,.05)', 'rgba(255,255,255,.2)'], mott: 40, sc: 'rgba(40,40,60,.25)', speck: 200 },
+    paint: (g, W, H) => { // woven gingham: two translucent passes of blue bands + thread texture
+      g.globalCompositeOperation = 'multiply';
+      const P = 64; g.fillStyle = 'rgba(60,110,190,.42)';
+      for (let x = 0; x < W; x += P * 2) g.fillRect(x, 0, P, H);
+      for (let y = 0; y < H; y += P * 2) g.fillRect(0, y, W, P);
+      g.globalCompositeOperation = 'source-over';
+      g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 1; for (let y = 0; y < H; y += 3) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+      g.strokeStyle = 'rgba(20,40,90,.05)'; for (let x = 0; x < W; x += 3) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    } });
+  // ---- plates (blue-and-white rim), already on the table
+  PL.forEach(([x, y, r], i) => {
+    const w = r * 2, h = r * 2;
+    CP.cut(k, w, h, CP.circle(96, 0.8), '#f8f7f2', x, y, 0, -1, { z: 1.4, gloss: 0.45, tooth: 0.08, pad: 14,
+      paint: (g) => {
+        g.strokeStyle = 'rgba(40,70,160,.85)'; g.lineWidth = 3; g.beginPath(); g.arc(r, r, r * 0.9, 0, 7); g.stroke(); g.lineWidth = 1.5; g.beginPath(); g.arc(r, r, r * 0.66, 0, 7); g.stroke();
+        g.lineWidth = 2.2; for (let a = 0; a < 6.283; a += 0.21) { g.beginPath(); for (let u = 0; u <= 1; u += 0.1) { const aa = a + u * 0.21, rr2 = r * (0.78 + 0.05 * Math.sin(u * Math.PI * 2)); const X = r + Math.cos(aa) * rr2, Y = r + Math.sin(aa) * rr2; u ? g.lineTo(X, Y) : g.moveTo(X, Y); } g.stroke(); }
+        const sh = g.createRadialGradient(r * 0.8, r * 0.7, 10, r, r, r); sh.addColorStop(0, 'rgba(255,255,255,.25)'); sh.addColorStop(1, 'rgba(0,0,0,.05)'); g.fillStyle = sh; g.fillRect(0, 0, w, h);
+      },
+      relief: (p) => { const gr = p.createRadialGradient(r, r, r * 0.62, r, r, r); gr.addColorStop(0, 'rgb(0,0,0)'); gr.addColorStop(0.7, `rgb(${Math.round(2.4 * k.ZS)},120,0)`); gr.addColorStop(1, `rgb(${Math.round(0.6 * k.ZS)},120,0)`); p.fillStyle = gr; p.fillRect(0, 0, w, h); } });
+  });
+  // scatter helper: n pieces onto plate i, one per frame from t0
+  const scatter = (i, n, t0, dt, make) => { const [px, py, r] = PL[i]; for (let q = 0; q < n; q++) { const a = rr(0, 6.283), d = Math.sqrt(R()) * r * 0.48; make(px + Math.cos(a) * d, py + Math.sin(a) * d, rr(-3, 3), t0 + q * dt, q); } };
+  const drop = (o = {}) => Object.assign({ from: [rr(-60, 60), -200], frot: rr(-0.6, 0.6), lift: 90, dur: 0.33 }, o);
+  // ---- dish 1: tomato & egg
+  const egg = (x, y, r, t0, q) => CP.cut(k, rr(100, 140), rr(76, 104), CP.blob(28, q * 3.3 + 1, 0.3), '#f7c52e', x, y, r, t0, { z: 0.9 + q * 0.12, tooth: 0.5, paint: (g, w, h) => { g.fillStyle = 'rgba(255,240,150,.55)'; g.beginPath(); g.ellipse(w * 0.45, h * 0.42, w * 0.22, h * 0.18, 0.3, 0, 7); g.fill(); g.fillStyle = 'rgba(200,120,0,.25)'; g.beginPath(); g.ellipse(w * 0.62, h * 0.66, w * 0.18, h * 0.1, -0.4, 0, 7); g.fill(); }, o: drop() });
+  const wedge = (W, H) => { const pts = []; for (let u = 0; u <= 1; u += 0.05) { const a = Math.PI + u * Math.PI; pts.push([W / 2 + Math.cos(a) * W / 2, H + Math.sin(a) * H]); } return pts; };
+  const tomato = (x, y, r, t0, q) => CP.cut(k, 106, 62, wedge, '#d8321f', x, y, r, t0, { z: 1.2 + q * 0.12, tooth: 0.2, gloss: 0.35, paint: (g, w, h) => { g.fillStyle = '#ff6b4e'; g.beginPath(); g.ellipse(w / 2, h, w * 0.36, h * 0.72, 0, Math.PI, 2 * Math.PI); g.fill(); g.fillStyle = '#ffd36a'; for (let s = 0; s < 6; s++) { g.beginPath(); g.ellipse(w * (0.28 + s * 0.09), h * (0.72 - Math.sin(s * 0.6) * 0.08), 3.4, 2.2, 0.5, 0, 7); g.fill(); } }, o: drop() });
+  const scallion = (x, y, r, t0, q) => CP.cut(k, 30, 30, CP.circle(28, 0.4), '#4f9a34', x, y, r, t0, { z: 2.0, tooth: 0.3, paint: (g, w, h) => { g.fillStyle = '#b9e08a'; g.beginPath(); g.arc(w / 2, h / 2, 8, 0, 7); g.fill(); g.fillStyle = '#4f9a34'; g.beginPath(); g.arc(w / 2, h / 2, 4, 0, 7); g.fill(); }, o: drop({ lift: 60 }) });
+  { let q = 0; const t0 = DROP[0][0], dt = 1 / 12; scatter(0, 8, t0, dt * 1.5, (x, y, r, t) => egg(x, y, r, t, q++)); scatter(0, 7, t0 + dt * 0.75, dt * 1.5, (x, y, r, t) => tomato(x, y, r, t, q++)); scatter(0, 9, t0 + 12 * dt, dt, (x, y, r, t) => scallion(x, y, r, t, q++)); }
+  // ---- dish 2: braised pork, glazed
+  const cube = (x, y, r, t0, q) => { const w = rr(70, 86), h = rr(62, 78); const ol = { outer: k.roundRect(w, h, 12), inner: [], fib: [] }; ol.inner = ol.outer;
+    return k.add(k.makePiece({ w, h, pad: 12, ol, z: 2.4 + q * 0.2, gloss: 0.72, tooth: 0.05, edge: 1.2,
+      paint: (g) => { const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#9c3a17'); gr.addColorStop(1, '#5e1f0c'); g.fillStyle = gr; g.fillRect(-5, -5, w + 10, h + 10);
+        g.fillStyle = 'rgba(255,214,170,.55)'; g.fillRect(0, h * 0.32, w, h * 0.12); g.fillStyle = 'rgba(255,230,190,.4)'; g.fillRect(0, h * 0.62, w, h * 0.08); g.fillStyle = 'rgba(255,255,255,.18)'; g.beginPath(); g.ellipse(w * 0.3, h * 0.22, w * 0.18, h * 0.08, -0.4, 0, 7); g.fill(); },
+      relief: (p) => { const gr = p.createRadialGradient(w / 2, h / 2, 4, w / 2, h / 2, w * 0.6); gr.addColorStop(0, `rgb(${Math.round(1.6 * k.ZS)},40,0)`); gr.addColorStop(1, 'rgb(0,0,0)'); p.fillStyle = gr; p.fillRect(0, 0, w, h); } }), x, y, r, t0, drop()); };
+  const star = (W, H) => { const pts = []; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, rr2 = i % 2 ? W * 0.18 : W * 0.5; pts.push([W / 2 + Math.cos(a) * rr2, H / 2 + Math.sin(a) * rr2]); } return pts; };
+  { let q = 0; const t0 = DROP[1][0], dt = 1 / 12; scatter(1, 11, t0, dt * 1.1, (x, y, r, t) => cube(x, y, r, t, q++));
+    CP.cut(k, 74, 74, star, '#4a2412', PL[1][0] + 60, PL[1][1] - 50, 0.3, t0 + 14 * dt, { z: 4.2, tooth: 0.4, o: drop() });
+    scatter(1, 6, t0 + 15 * dt, dt, (x, y, r, t) => scallion(x, y, r, t, 20 + q++)); }
+  // ---- dish 3: greens + garlic
+  const leaf = (x, y, r, t0, q) => CP.cut(k, 150, 70, CP.blob(30, q * 2.1 + 7, 0.2), '#3f8e3a', x, y, r, t0, { z: 0.8 + q * 0.2, tooth: 0.4, gloss: 0.2,
+    paint: (g, w, h) => { g.fillStyle = '#5fb04a'; g.beginPath(); g.ellipse(w * 0.6, h * 0.45, w * 0.3, h * 0.28, 0, 0, 7); g.fill(); g.fillStyle = '#e4efcf'; g.beginPath(); g.ellipse(w * 0.14, h * 0.5, w * 0.16, h * 0.2, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(230,245,210,.7)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(w * 0.18, h * 0.5); g.lineTo(w * 0.92, h * 0.46); g.stroke(); }, o: drop() });
+  const garlic = (x, y, r, t0, q) => CP.cut(k, 34, 28, CP.blob(18, q + 40, 0.15), '#f1e7c6', x, y, r, t0, { z: 3.0, tooth: 0.3, o: drop({ lift: 60 }) });
+  { let q = 0; const t0 = DROP[2][0], dt = 1 / 12; scatter(2, 10, t0, dt, (x, y, r, t) => leaf(x, y, rr(-3, 3), t, q++)); scatter(2, 7, t0 + 10 * dt, dt * 0.8, (x, y, r, t) => garlic(x, y, r, t, q++)); }
+  // ---- price tags (land during the macro cuts)
+  const tag = (txt, price, x, y, r, t0) => { const w = 210, h = 92; const pts = [[22, 0], [w, 0], [w, h], [22, h], [0, h / 2]]; const ol = { outer: pts, inner: pts, fib: [] };
+    return k.add(k.makePiece({ w, h, pad: 10, ol, z: 1.2, gloss: 0.05, tooth: 0.35, edge: 0.4,
+      paint: (g) => { g.fillStyle = '#f0e2bf'; g.fillRect(-5, -5, w + 10, h + 10); k.paperTex(g, w, h, { mott: 4, fib: 60, fl: 4 }); g.fillStyle = '#7a4b2a'; g.beginPath(); g.arc(24, h / 2, 6, 0, 7); g.fill();
+        g.fillStyle = '#2b1d16'; g.font = `700 22px ${SERIF}`; g.fillText(txt, 44, 38); g.fillStyle = '#c3281c'; g.font = '800 34px Inter'; g.fillText(price, 44, 76); } }), x, y, r, t0, { from: [120, -160], frot: 0.3, lift: 80, dur: 0.38 }); };
+  tag('番茄炒蛋', '¥28', 650, 790, 0.12, 2.65);
+  tag('红烧肉', '¥48', 1175, 640, -0.1, 5.6);
+  tag('清炒时蔬', '¥18', 1650, 790, 0.08, 7.9);
+  // ---- chopsticks, recipe note, title
+  const stick = (x, y, r, t0) => { const w = 560, h = 16; const ol = { outer: [[0, 2], [w, 0], [w, h], [0, h - 2]], inner: [], fib: [] }; ol.inner = ol.outer;
+    return k.add(k.makePiece({ w, h, pad: 8, ol, z: 2.6, gloss: 0.35, tooth: 0.1, edge: 1.0, paint: (g) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#c98b4f'); gr.addColorStop(1, '#8b5426'); g.fillStyle = gr; g.fillRect(-4, -4, w + 8, h + 8); g.fillStyle = '#a32a1c'; g.fillRect(w - 120, 0, 120, h); g.fillStyle = 'rgba(255,240,200,.25)'; g.fillRect(0, 3, w, 2); } }), x, y, r, t0, { from: [300, -100], frot: 0.2, lift: 100, dur: 0.4 }); };
+  stick(1180, 900, -0.12, 8.95); stick(1190, 935, -0.09, 9.1);
+  CP.slip(k, [[C.note, 34]], 470, 935, 560, 100, -0.05, 9.4, { y0: 60, x0: 30, ruled: false, bg: '#fbf6e6', o: { from: [-300, 200], frot: -0.1 } });
+  CP.tape(k, 230, 910, -0.9, 110, 9.65);
+  CP.ransom(k, C.brand, 980, 165, 10.9, { scale: 1.4, gap: 10, order: [5, 3, 0, 6, 1], dt: 0.42, seed: 31 });
+  CP.slip(k, [[C.sub, 30]], 1580, 960, 620, 88, 0.03, 13.0, { y0: 54, x0: 28, ruled: false, o: { from: [200, 300], frot: 0.1 } });
+  SEAL = k.makeStamp(116, 116, (g, w, h) => { g.fillStyle = '#c3141c'; g.beginPath(); g.roundRect(3, 3, w - 6, h - 6, 10); g.fill(); g.globalCompositeOperation = 'destination-out'; g.font = `900 44px ${SERIF}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('阿', w / 2, 34); g.fillText('婆', w / 2, 84); g.lineWidth = 2.2; g.beginPath(); g.roundRect(9, 9, w - 18, h - 18, 6); g.stroke(); g.globalCompositeOperation = 'source-over'; }, 4.4, 0.45);
+}
+function cam(t) {
+  for (const [a, b, i] of CUTS) if (t >= a && t < b) { const [x, y] = PL[i]; const u = (t - a) / (b - a); return { z: 2.25 + 0.12 * u, cx: x + 60 + 20 * u, cy: y + 70 }; }
+  const d = E.inOutSine(clamp(t / 15));
+  return { z: 1.0 + 0.02 * d, cx: 960 + 6 * d, cy: 540 + 4 * d };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  frameKey: (t) => Math.floor(t * 12 + 1e-6),
+  fonts: [`900 100px ${SANS}`, `700 100px ${SANS}`, `500 100px ${SANS}`, `400 100px ${SANS}`, `900 100px ${SERIF}`, `700 100px ${SERIF}`, `500 100px ${SERIF}`, `400 100px ${SERIF}`, '400 20px "Courier 10 Pitch"', '700 20px "Courier 10 Pitch"', '700 12px Inter', '800 22px Inter'],
+  async setup() { build(); },
+  cues: [{ t: 0.3, sfx: 'paper', gain: 0.3 },
+    ...Array.from({ length: 8 }, (_, i) => ({ t: +(0.95 + i * 0.18).toFixed(2), sfx: 'slap', gain: 0.4 + 0.05 * (i % 2) })), { t: 2.45, sfx: 'impact_soft', gain: 0.5 }, { t: 2.8, sfx: 'slap', gain: 0.55 },
+    ...Array.from({ length: 7 }, (_, i) => ({ t: +(3.95 + i * 0.18).toFixed(2), sfx: 'slap', gain: 0.45 })), { t: 5.45, sfx: 'impact_soft', gain: 0.5 }, { t: 5.75, sfx: 'slap', gain: 0.55 },
+    ...Array.from({ length: 6 }, (_, i) => ({ t: +(6.45 + i * 0.18).toFixed(2), sfx: 'slap', gain: 0.45 })), { t: 7.75, sfx: 'impact_soft', gain: 0.5 }, { t: 8.05, sfx: 'slap', gain: 0.55 },
+    { t: 9.05, sfx: 'wood', gain: 0.6 }, { t: 9.2, sfx: 'wood', gain: 0.5 }, { t: 9.45, sfx: 'paper', gain: 0.45 }, { t: 9.7, sfx: 'tape', gain: 0.4 },
+    ...[0, 1, 2, 3, 4].map((i) => ({ t: +(11.2 + i * 0.42).toFixed(2), sfx: 'slap', gain: 0.62 })), { t: 13.0, sfx: 'paper', gain: 0.45 }, { t: 13.6, sfx: 'stamp', gain: 0.8 }, { t: 13.9, sfx: 'swell', gain: 0.3 }],
+  render(tRaw) {
+    const f12 = Math.floor(tRaw * 12 + 1e-6), t = f12 / 12;
+    // time-lapse: morning (high, cool, from the left) -> dusk (low, warm, from the right-top)
+    const kk = E.inOutSine(clamp(t / 12.5));
+    const Lt = k.light(kk, { az0: -2.0, az1: -3.0, el0: 0.95, el1: 0.36, c0: [2.3, 2.45, 2.6], c1: [3.4, 2.4, 1.35], gob: 0.2 + 0.7 * kk });
+    k.frame(t, Object.assign(cam(t), { f: f12 }), Lt, {
+      over: (tt) => k.stampAt(SEAL, tt, 13.6, 1835, 945, -0.1, 0.95),
+    }, { gobOff: [-(1 - kk) * 700 + 200 + Math.sin(f12 * 0.9) * 5, Math.cos(f12 * 0.7) * 4] });
+  },
+});
+</script></body></html>

@@ -1,0 +1,20 @@
+《交接录像》(36-backrooms) —— 第三方素材与许可
+
+字体
+- Noto Sans SC（思源黑体简体），Google Fonts，SIL Open Font License 1.1。
+  经 Google Fonts CSS API &text= 子集化为片中用到的字：fonts/NotoSansSC-sub.woff2
+  来源：https://fonts.google.com/noto/specimen/Noto+Sans+SC
+
+采样乐器（经 core/audio/sampler.py 播放）
+- Samples (CC0 1.0): VS Chamber Orchestra: Community Edition (Versilian Studios, github.com/sgossner/VSCO-2-CE) —— bass_drum, timpani
+- Samples (CC0 1.0): Versilian Community Sample Library (Versilian Studios, github.com/sgossner/VCSL) —— vibraphone, sus_cymbal (bow), gran_cassa
+
+物理建模 / 程序合成（无第三方素材）
+- 镇流器"叮"：core/audio/pluck.py 模态合成（music_box 预设）
+- 灯管嗡鸣、低频 drone、低频下滑、拟音（脚步、衣料、对焦、变焦伺服、按键、呼吸）：numpy / core/audio/sfx.py 程序合成
+
+画面
+- 全部由代码生成（three.js r170，MIT License；纹理为 Canvas2D 程序绘制），无外部图像与影像素材。
+- VHS 摄像机通道、OSD 点阵字体、千灯光照着色器沿用本风格库的技法并为本片改写。
+
+本片无旁白、无真实素材、无事实陈述，因此没有 FACTS.md。

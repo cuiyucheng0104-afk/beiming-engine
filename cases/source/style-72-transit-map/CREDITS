@@ -1,0 +1,19 @@
+《十年》 TEN YEARS — third-party assets used in the film
+
+Fonts (SIL Open Font License 1.1, self-hosted in fonts/; licence texts in fonts/OFL-*.txt)
+  Inter — Rasmus Andersson — https://github.com/google/fonts/tree/main/ofl/inter
+  Noto Sans SC — Google — subset to the 73 characters the film prints, via https://fonts.googleapis.com/css2?family=Noto+Sans+SC&text=…
+
+Sampled instruments (CC0 1.0 / public domain dedication)
+  VS Chamber Orchestra: Community Edition (VSCO 2 CE), Versilian Studios — https://github.com/sgossner/VSCO-2-CE
+    violins_pizz, horn, bass_drum, snare, timpani
+  Versilian Community Sample Library (VCSL), Versilian Studios — https://github.com/sgossner/VCSL
+    glockenspiel, marimba, xylophone, vibraphone_hard, vibraphone_bowed, harp, tubular_bells, hand_chimes, sus_cymbal, gran_cassa
+  (sampler.py credits line: Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios))
+
+Synthesised in code (no third-party material): kick, hi-hat, clap and bass of the electronic pulse; every sound effect
+(felt-tip glide, stop clicks, interchange pops, falling whistle, landing thumps, shimmer, ratchet ticks, rail clacks,
+water plunge and bubbles, paper swish, pings, room tone).
+
+Picture: drawn entirely in code. The network, its stations and its years are fictional (printed on the sheet: 虚构线网 /
+A fictional network); no real operator's map, colours scheme, logo or line bullet is used.

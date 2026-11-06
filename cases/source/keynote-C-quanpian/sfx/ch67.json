@@ -1,0 +1,809 @@
+{
+ "chap": "ch67",
+ "note": "第六、七章音效。时刻全部引用 ch67.js 的 events()；合书\"啪\"由共用层自动加（book_close）。地面一个字一下等距印字章（stamp_ink），走路只给领头人脚步，「谈」十笔为 E 羽五声钟琴上行。",
+ "events": [
+  {
+   "ev": "ch67.room.rise",
+   "type": "cascade",
+   "n": 4,
+   "dur": 0.4,
+   "pitch": 1.15,
+   "gain": -4,
+   "name": "洽谈室立起（连击）"
+  },
+  {
+   "ev": "ch67.room.up",
+   "type": "pop",
+   "pitch": 0.85,
+   "gain": -1,
+   "name": "洽谈室立定"
+  },
+  {
+   "ev": "ch67.room.up",
+   "type": "board",
+   "v": 0.7,
+   "gain": -6,
+   "name": "洽谈室落定·纸板"
+  },
+  {
+   "ev": "ch67.step.0",
+   "type": "stamp_ink",
+   "pitch": 0.9,
+   "gain": -2,
+   "pan": -0.15,
+   "name": "第1步·朱红方块"
+  },
+  {
+   "ev": "ch67.step.0.c0",
+   "type": "stamp_ink",
+   "pitch": 1.0,
+   "name": "第1步·第1字"
+  },
+  {
+   "ev": "ch67.step.0.c1",
+   "type": "stamp_ink",
+   "pitch": 1.045,
+   "name": "第1步·第2字"
+  },
+  {
+   "ev": "ch67.step.0.c2",
+   "type": "stamp_ink",
+   "pitch": 1.09,
+   "name": "第1步·第3字"
+  },
+  {
+   "ev": "ch67.step.0.c3",
+   "type": "stamp_ink",
+   "pitch": 1.135,
+   "name": "第1步·第4字"
+  },
+  {
+   "ev": "ch67.step.0.sub",
+   "type": "stamp",
+   "pitch": 1.45,
+   "gain": -4,
+   "name": "第1步·小字"
+  },
+  {
+   "ev": "ch67.walk.0.s0",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第1段·脚步1"
+  },
+  {
+   "ev": "ch67.walk.0.s1",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第1段·脚步2"
+  },
+  {
+   "ev": "ch67.walk.0.s2",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第1段·脚步3"
+  },
+  {
+   "ev": "ch67.walk.0.s3",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第1段·脚步4"
+  },
+  {
+   "ev": "ch67.walk.0.s4",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第1段·脚步5"
+  },
+  {
+   "ev": "ch67.walk.0.s5",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第1段·脚步6"
+  },
+  {
+   "ev": "ch67.walk.0.s6",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第1段·脚步7"
+  },
+  {
+   "ev": "ch67.step.1",
+   "type": "stamp_ink",
+   "pitch": 0.93,
+   "gain": -2,
+   "pan": -0.15,
+   "name": "第2步·朱红方块"
+  },
+  {
+   "ev": "ch67.step.1.c0",
+   "type": "stamp_ink",
+   "pitch": 1.03,
+   "name": "第2步·第1字"
+  },
+  {
+   "ev": "ch67.step.1.c1",
+   "type": "stamp_ink",
+   "pitch": 1.075,
+   "name": "第2步·第2字"
+  },
+  {
+   "ev": "ch67.step.1.c2",
+   "type": "stamp_ink",
+   "pitch": 1.12,
+   "name": "第2步·第3字"
+  },
+  {
+   "ev": "ch67.step.1.c3",
+   "type": "stamp_ink",
+   "pitch": 1.165,
+   "name": "第2步·第4字"
+  },
+  {
+   "ev": "ch67.step.1.sub",
+   "type": "stamp",
+   "pitch": 1.45,
+   "gain": -4,
+   "name": "第2步·小字"
+  },
+  {
+   "ev": "ch67.walk.1.s0",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第2段·脚步1"
+  },
+  {
+   "ev": "ch67.walk.1.s1",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第2段·脚步2"
+  },
+  {
+   "ev": "ch67.walk.1.s2",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第2段·脚步3"
+  },
+  {
+   "ev": "ch67.walk.1.s3",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第2段·脚步4"
+  },
+  {
+   "ev": "ch67.walk.1.s4",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第2段·脚步5"
+  },
+  {
+   "ev": "ch67.walk.1.s5",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第2段·脚步6"
+  },
+  {
+   "ev": "ch67.step.2",
+   "type": "stamp_ink",
+   "pitch": 0.96,
+   "gain": -2,
+   "pan": -0.15,
+   "name": "第3步·朱红方块"
+  },
+  {
+   "ev": "ch67.step.2.c0",
+   "type": "stamp_ink",
+   "pitch": 1.06,
+   "name": "第3步·第1字"
+  },
+  {
+   "ev": "ch67.step.2.c1",
+   "type": "stamp_ink",
+   "pitch": 1.105,
+   "name": "第3步·第2字"
+  },
+  {
+   "ev": "ch67.step.2.c2",
+   "type": "stamp_ink",
+   "pitch": 1.15,
+   "name": "第3步·第3字"
+  },
+  {
+   "ev": "ch67.step.2.c3",
+   "type": "stamp_ink",
+   "pitch": 1.195,
+   "name": "第3步·第4字"
+  },
+  {
+   "ev": "ch67.step.2.sub",
+   "type": "stamp",
+   "pitch": 1.45,
+   "gain": -4,
+   "name": "第3步·小字"
+  },
+  {
+   "ev": "ch67.walk.2.s0",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第3段·脚步1"
+  },
+  {
+   "ev": "ch67.walk.2.s1",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第3段·脚步2"
+  },
+  {
+   "ev": "ch67.walk.2.s2",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第3段·脚步3"
+  },
+  {
+   "ev": "ch67.walk.2.s3",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第3段·脚步4"
+  },
+  {
+   "ev": "ch67.walk.2.s4",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第3段·脚步5"
+  },
+  {
+   "ev": "ch67.walk.2.s5",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第3段·脚步6"
+  },
+  {
+   "ev": "ch67.step.3",
+   "type": "stamp_ink",
+   "pitch": 0.99,
+   "gain": -2,
+   "pan": -0.15,
+   "name": "第4步·朱红方块"
+  },
+  {
+   "ev": "ch67.step.3.c0",
+   "type": "stamp_ink",
+   "pitch": 1.09,
+   "name": "第4步·第1字"
+  },
+  {
+   "ev": "ch67.step.3.c1",
+   "type": "stamp_ink",
+   "pitch": 1.135,
+   "name": "第4步·第2字"
+  },
+  {
+   "ev": "ch67.step.3.c2",
+   "type": "stamp_ink",
+   "pitch": 1.18,
+   "name": "第4步·第3字"
+  },
+  {
+   "ev": "ch67.step.3.c3",
+   "type": "stamp_ink",
+   "pitch": 1.225,
+   "name": "第4步·第4字"
+  },
+  {
+   "ev": "ch67.step.3.c4",
+   "type": "stamp_ink",
+   "pitch": 1.27,
+   "name": "第4步·第5字"
+  },
+  {
+   "ev": "ch67.step.3.sub",
+   "type": "stamp",
+   "pitch": 1.45,
+   "gain": -4,
+   "name": "第4步·小字"
+  },
+  {
+   "ev": "ch67.walk.3.s0",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第4段·脚步1"
+  },
+  {
+   "ev": "ch67.walk.3.s1",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第4段·脚步2"
+  },
+  {
+   "ev": "ch67.walk.3.s2",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第4段·脚步3"
+  },
+  {
+   "ev": "ch67.walk.3.s3",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第4段·脚步4"
+  },
+  {
+   "ev": "ch67.walk.3.s4",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第4段·脚步5"
+  },
+  {
+   "ev": "ch67.walk.3.s5",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第4段·脚步6"
+  },
+  {
+   "ev": "ch67.walk.3.s6",
+   "type": "step",
+   "pitch": 1.06,
+   "gain": -3,
+   "pan": 0.1,
+   "name": "第4段·脚步7"
+  },
+  {
+   "ev": "ch67.walk.3.s7",
+   "type": "step",
+   "pitch": 0.94,
+   "gain": -3,
+   "pan": -0.1,
+   "name": "第4段·脚步8"
+  },
+  {
+   "ev": "ch67.folder",
+   "type": "slide",
+   "dur": 0.45,
+   "gain": -6,
+   "name": "文件夹递上桌"
+  },
+  {
+   "ev": "ch67.folder",
+   "type": "paper_tap",
+   "k": 1,
+   "name": "文件夹落桌"
+  },
+  {
+   "ev": "ch67.folder.open",
+   "offset": -0.1,
+   "type": "flap",
+   "size": 1.0,
+   "name": "文件夹翻开"
+  },
+  {
+   "ev": "ch67.sign",
+   "type": "pop",
+   "pitch": 0.95,
+   "name": "立牌弹起"
+  },
+  {
+   "ev": "ch67.row.0",
+   "type": "pop",
+   "pitch": 1.2,
+   "gain": -1,
+   "name": "纸条1立起"
+  },
+  {
+   "ev": "ch67.row.0.t0",
+   "type": "type",
+   "i": 0,
+   "gain": -3,
+   "name": "纸条1·字1"
+  },
+  {
+   "ev": "ch67.row.0.t1",
+   "type": "type",
+   "i": 1,
+   "gain": -3,
+   "name": "纸条1·字2"
+  },
+  {
+   "ev": "ch67.row.0.t2",
+   "type": "type",
+   "i": 2,
+   "gain": -3,
+   "name": "纸条1·字3"
+  },
+  {
+   "ev": "ch67.row.0.t3",
+   "type": "type",
+   "i": 3,
+   "gain": -3,
+   "name": "纸条1·字4"
+  },
+  {
+   "ev": "ch67.row.0.t4",
+   "type": "type",
+   "i": 4,
+   "gain": -3,
+   "name": "纸条1·字5"
+  },
+  {
+   "ev": "ch67.row.0.t5",
+   "type": "type",
+   "i": 5,
+   "gain": -3,
+   "name": "纸条1·字6"
+  },
+  {
+   "ev": "ch67.row.0.t6",
+   "type": "type",
+   "i": 6,
+   "gain": -3,
+   "name": "纸条1·字7"
+  },
+  {
+   "ev": "ch67.row.0.t7",
+   "type": "type",
+   "i": 7,
+   "gain": -3,
+   "name": "纸条1·字8"
+  },
+  {
+   "ev": "ch67.row.0.t8",
+   "type": "type",
+   "i": 8,
+   "gain": -3,
+   "name": "纸条1·字9"
+  },
+  {
+   "ev": "ch67.row.1",
+   "type": "pop",
+   "pitch": 1.3199999999999998,
+   "gain": -1,
+   "name": "纸条2立起"
+  },
+  {
+   "ev": "ch67.row.1.t0",
+   "type": "type",
+   "i": 0,
+   "gain": -3,
+   "name": "纸条2·字1"
+  },
+  {
+   "ev": "ch67.row.1.t1",
+   "type": "type",
+   "i": 1,
+   "gain": -3,
+   "name": "纸条2·字2"
+  },
+  {
+   "ev": "ch67.row.1.t2",
+   "type": "type",
+   "i": 2,
+   "gain": -3,
+   "name": "纸条2·字3"
+  },
+  {
+   "ev": "ch67.row.1.t3",
+   "type": "type",
+   "i": 3,
+   "gain": -3,
+   "name": "纸条2·字4"
+  },
+  {
+   "ev": "ch67.row.1.t4",
+   "type": "type",
+   "i": 4,
+   "gain": -3,
+   "name": "纸条2·字5"
+  },
+  {
+   "ev": "ch67.row.1.t5",
+   "type": "type",
+   "i": 5,
+   "gain": -3,
+   "name": "纸条2·字6"
+  },
+  {
+   "ev": "ch67.row.1.t6",
+   "type": "type",
+   "i": 6,
+   "gain": -3,
+   "name": "纸条2·字7"
+  },
+  {
+   "ev": "ch67.row.1.t7",
+   "type": "type",
+   "i": 7,
+   "gain": -3,
+   "name": "纸条2·字8"
+  },
+  {
+   "ev": "ch67.row.1.t8",
+   "type": "type",
+   "i": 8,
+   "gain": -3,
+   "name": "纸条2·字9"
+  },
+  {
+   "ev": "ch67.row.1.t9",
+   "type": "type",
+   "i": 9,
+   "gain": -3,
+   "name": "纸条2·字10"
+  },
+  {
+   "ev": "ch67.row.1.t10",
+   "type": "type",
+   "i": 10,
+   "gain": -3,
+   "name": "纸条2·字11"
+  },
+  {
+   "ev": "ch67.row.2",
+   "type": "pop",
+   "pitch": 1.44,
+   "gain": -1,
+   "name": "纸条3立起"
+  },
+  {
+   "ev": "ch67.row.2.t0",
+   "type": "type",
+   "i": 0,
+   "gain": -3,
+   "name": "纸条3·字1"
+  },
+  {
+   "ev": "ch67.row.2.t1",
+   "type": "type",
+   "i": 1,
+   "gain": -3,
+   "name": "纸条3·字2"
+  },
+  {
+   "ev": "ch67.row.2.t2",
+   "type": "type",
+   "i": 2,
+   "gain": -3,
+   "name": "纸条3·字3"
+  },
+  {
+   "ev": "ch67.row.2.t3",
+   "type": "type",
+   "i": 3,
+   "gain": -3,
+   "name": "纸条3·字4"
+  },
+  {
+   "ev": "ch67.row.2.t4",
+   "type": "type",
+   "i": 4,
+   "gain": -3,
+   "name": "纸条3·字5"
+  },
+  {
+   "ev": "ch67.row.2.t5",
+   "type": "type",
+   "i": 5,
+   "gain": -3,
+   "name": "纸条3·字6"
+  },
+  {
+   "ev": "ch67.row.2.t6",
+   "type": "type",
+   "i": 6,
+   "gain": -3,
+   "name": "纸条3·字7"
+  },
+  {
+   "ev": "ch67.row.2.t7",
+   "type": "type",
+   "i": 7,
+   "gain": -3,
+   "name": "纸条3·字8"
+  },
+  {
+   "ev": "ch67.row.2.t8",
+   "type": "type",
+   "i": 8,
+   "gain": -3,
+   "name": "纸条3·字9"
+  },
+  {
+   "ev": "ch67.row.2.t9",
+   "type": "type",
+   "i": 9,
+   "gain": -3,
+   "name": "纸条3·字10"
+  },
+  {
+   "ev": "ch67.row.2.t10",
+   "type": "type",
+   "i": 10,
+   "gain": -3,
+   "name": "纸条3·字11"
+  },
+  {
+   "ev": "ch67.tan.s0",
+   "type": "chime",
+   "note": "E5",
+   "gain": -3,
+   "pan": -0.5,
+   "name": "「谈」第1笔"
+  },
+  {
+   "ev": "ch67.tan.s1",
+   "type": "chime",
+   "note": "G5",
+   "gain": -3,
+   "pan": -0.5,
+   "name": "「谈」第2笔"
+  },
+  {
+   "ev": "ch67.tan.s2",
+   "type": "chime",
+   "note": "A5",
+   "gain": -3,
+   "pan": 0,
+   "name": "「谈」第3笔"
+  },
+  {
+   "ev": "ch67.tan.s3",
+   "type": "chime",
+   "note": "B5",
+   "gain": -3,
+   "pan": 0.4,
+   "name": "「谈」第4笔"
+  },
+  {
+   "ev": "ch67.tan.s4",
+   "type": "chime",
+   "note": "D6",
+   "gain": -3,
+   "pan": 0,
+   "name": "「谈」第5笔"
+  },
+  {
+   "ev": "ch67.tan.s5",
+   "type": "chime",
+   "note": "E6",
+   "gain": -3,
+   "pan": 0.3,
+   "name": "「谈」第6笔"
+  },
+  {
+   "ev": "ch67.tan.s6",
+   "type": "chime",
+   "note": "G6",
+   "gain": -3,
+   "pan": 0,
+   "name": "「谈」第7笔"
+  },
+  {
+   "ev": "ch67.tan.s7",
+   "type": "chime",
+   "note": "A6",
+   "gain": -3,
+   "pan": 0.4,
+   "name": "「谈」第8笔"
+  },
+  {
+   "ev": "ch67.tan.s8",
+   "type": "chime",
+   "note": "B6",
+   "gain": -3,
+   "pan": 0,
+   "name": "「谈」第9笔"
+  },
+  {
+   "ev": "ch67.tan.s9",
+   "type": "chime",
+   "note": "D6",
+   "gain": -3,
+   "pan": 0.3,
+   "name": "「谈」第10笔"
+  },
+  {
+   "ev": "ch67.city.back",
+   "type": "cascade",
+   "n": 8,
+   "dur": 0.9,
+   "pitch": 0.72,
+   "gain": -3,
+   "name": "城收回书页（连击）"
+  },
+  {
+   "ev": "ch67.city.flat",
+   "type": "swish",
+   "dur": 0.8,
+   "gain": -5,
+   "name": "城收平·纸风"
+  },
+  {
+   "ev": "ch67.cover.a",
+   "type": "press",
+   "size": 3,
+   "name": "封面「选定方向」"
+  },
+  {
+   "ev": "ch67.cover.b",
+   "type": "press",
+   "size": 2,
+   "name": "封面「· 开始洽谈」"
+  },
+  {
+   "ev": "ch67.footer",
+   "type": "slide",
+   "dur": 0.5,
+   "gain": -8,
+   "name": "口径小字"
+  },
+  {
+   "ev": "ch67.gate.close",
+   "type": "door",
+   "dur": 0.4,
+   "gain": -9,
+   "pan": 0.1,
+   "name": "门楼三扇门关上（返修）"
+  },
+  {
+   "ev": "ch67.gate.fold",
+   "type": "shuffle",
+   "dur": 0.45,
+   "gain": -8,
+   "name": "门楼折平·沙（止于折平）"
+  },
+  {
+   "ev": "ch67.floor.roll",
+   "type": "shuffle",
+   "dur": 0.5,
+   "gain": -7,
+   "pan": 0.15,
+   "name": "地板铺开·沙（止于铺平）"
+  }
+ ]
+}

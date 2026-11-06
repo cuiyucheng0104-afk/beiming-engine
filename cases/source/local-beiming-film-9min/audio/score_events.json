@@ -1,0 +1,1273 @@
+[
+  {
+    "cue": "river",
+    "instrument": "cellos",
+    "pitch": "D3",
+    "start": 200.0,
+    "duration": 7.7,
+    "velocity": 0.28,
+    "gain_db": -10,
+    "pan": -0.15
+  },
+  {
+    "cue": "river",
+    "instrument": "violas",
+    "pitch": "A3",
+    "start": 200.0,
+    "duration": 7.7,
+    "velocity": 0.28,
+    "gain_db": -12,
+    "pan": 0.2
+  },
+  {
+    "cue": "river",
+    "instrument": "violins",
+    "pitch": "E4",
+    "start": 200.0,
+    "duration": 7.7,
+    "velocity": 0.28,
+    "gain_db": -14,
+    "pan": -0.35
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "D3",
+    "start": 200.1,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "A3",
+    "start": 200.96,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "E4",
+    "start": 201.82,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "A3",
+    "start": 202.68,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "cellos",
+    "pitch": "G2",
+    "start": 208.8,
+    "duration": 7.6,
+    "velocity": 0.28,
+    "gain_db": -10,
+    "pan": -0.15
+  },
+  {
+    "cue": "river",
+    "instrument": "violas",
+    "pitch": "D3",
+    "start": 208.8,
+    "duration": 7.6,
+    "velocity": 0.28,
+    "gain_db": -12,
+    "pan": 0.2
+  },
+  {
+    "cue": "river",
+    "instrument": "violins",
+    "pitch": "B3",
+    "start": 208.8,
+    "duration": 7.6,
+    "velocity": 0.28,
+    "gain_db": -14,
+    "pan": -0.35
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "G2",
+    "start": 208.9,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "D3",
+    "start": 209.76,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "B3",
+    "start": 210.62,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "D3",
+    "start": 211.48,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "cellos",
+    "pitch": "B2",
+    "start": 217.8,
+    "duration": 7.5,
+    "velocity": 0.28,
+    "gain_db": -10,
+    "pan": -0.15
+  },
+  {
+    "cue": "river",
+    "instrument": "violas",
+    "pitch": "F#3",
+    "start": 217.8,
+    "duration": 7.5,
+    "velocity": 0.28,
+    "gain_db": -12,
+    "pan": 0.2
+  },
+  {
+    "cue": "river",
+    "instrument": "violins",
+    "pitch": "D4",
+    "start": 217.8,
+    "duration": 7.5,
+    "velocity": 0.28,
+    "gain_db": -14,
+    "pan": -0.35
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "B2",
+    "start": 217.9,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "F#3",
+    "start": 218.76,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "D4",
+    "start": 219.62,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "F#3",
+    "start": 220.48,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "cellos",
+    "pitch": "A2",
+    "start": 227.1,
+    "duration": 7.8,
+    "velocity": 0.28,
+    "gain_db": -10,
+    "pan": -0.15
+  },
+  {
+    "cue": "river",
+    "instrument": "violas",
+    "pitch": "E3",
+    "start": 227.1,
+    "duration": 7.8,
+    "velocity": 0.28,
+    "gain_db": -12,
+    "pan": 0.2
+  },
+  {
+    "cue": "river",
+    "instrument": "violins",
+    "pitch": "G3",
+    "start": 227.1,
+    "duration": 7.8,
+    "velocity": 0.28,
+    "gain_db": -14,
+    "pan": -0.35
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "A2",
+    "start": 227.2,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "E3",
+    "start": 228.06,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "G3",
+    "start": 228.92,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "E3",
+    "start": 229.78,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "cellos",
+    "pitch": "D3",
+    "start": 237.0,
+    "duration": 8.2,
+    "velocity": 0.28,
+    "gain_db": -10,
+    "pan": -0.15
+  },
+  {
+    "cue": "river",
+    "instrument": "violas",
+    "pitch": "A3",
+    "start": 237.0,
+    "duration": 8.2,
+    "velocity": 0.28,
+    "gain_db": -12,
+    "pan": 0.2
+  },
+  {
+    "cue": "river",
+    "instrument": "violins",
+    "pitch": "F#4",
+    "start": 237.0,
+    "duration": 8.2,
+    "velocity": 0.28,
+    "gain_db": -14,
+    "pan": -0.35
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "D3",
+    "start": 237.1,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "A3",
+    "start": 237.96,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "F#4",
+    "start": 238.82,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "A3",
+    "start": 239.68,
+    "duration": 2.3,
+    "velocity": 0.28,
+    "gain_db": -9,
+    "pan": -0.18
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "A4",
+    "start": 201.5,
+    "duration": 1.1,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "B4",
+    "start": 203.2,
+    "duration": 1.3,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "D5",
+    "start": 205.1,
+    "duration": 2.0,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "E5",
+    "start": 209.9,
+    "duration": 1.1,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "D5",
+    "start": 211.7,
+    "duration": 1.3,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "B4",
+    "start": 213.6,
+    "duration": 2.3,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "flute",
+    "pitch": "F#4",
+    "start": 219.0,
+    "duration": 1.6,
+    "velocity": 0.36,
+    "gain_db": -7,
+    "pan": 0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "flute",
+    "pitch": "A4",
+    "start": 221.5,
+    "duration": 1.3,
+    "velocity": 0.36,
+    "gain_db": -7,
+    "pan": 0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "flute",
+    "pitch": "B4",
+    "start": 223.4,
+    "duration": 1.8,
+    "velocity": 0.36,
+    "gain_db": -7,
+    "pan": 0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "flute",
+    "pitch": "E5",
+    "start": 228.5,
+    "duration": 1.6,
+    "velocity": 0.36,
+    "gain_db": -7,
+    "pan": 0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "flute",
+    "pitch": "F#5",
+    "start": 231.0,
+    "duration": 1.5,
+    "velocity": 0.36,
+    "gain_db": -7,
+    "pan": 0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "flute",
+    "pitch": "A5",
+    "start": 233.3,
+    "duration": 1.8,
+    "velocity": 0.36,
+    "gain_db": -7,
+    "pan": 0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "F#5",
+    "start": 238.1,
+    "duration": 1.9,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "E5",
+    "start": 241.0,
+    "duration": 1.7,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "river",
+    "instrument": "piano",
+    "pitch": "D5",
+    "start": 243.5,
+    "duration": 2.5,
+    "velocity": 0.36,
+    "gain_db": -3,
+    "pan": -0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "contrabass",
+    "pitch": "D2",
+    "start": 455.0,
+    "duration": 5.5,
+    "velocity": 0.32,
+    "gain_db": -8.0,
+    "pan": -0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "cellos",
+    "pitch": "A3",
+    "start": 455.0,
+    "duration": 5.5,
+    "velocity": 0.32,
+    "gain_db": -7.5,
+    "pan": 0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "violas",
+    "pitch": "F4",
+    "start": 455.0,
+    "duration": 5.5,
+    "velocity": 0.32,
+    "gain_db": -7.0,
+    "pan": 0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "A4",
+    "start": 455.0,
+    "duration": 5.5,
+    "velocity": 0.32,
+    "gain_db": -6.5,
+    "pan": -0.4
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "D2",
+    "start": 455.15,
+    "duration": 1.4,
+    "velocity": 0.35,
+    "gain_db": -11,
+    "pan": -0.6
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "A3",
+    "start": 455.57,
+    "duration": 1.4,
+    "velocity": 0.35,
+    "gain_db": -11,
+    "pan": -0.44999999999999996
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "F4",
+    "start": 455.99,
+    "duration": 1.4,
+    "velocity": 0.35,
+    "gain_db": -11,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "A4",
+    "start": 456.41,
+    "duration": 1.4,
+    "velocity": 0.35,
+    "gain_db": -11,
+    "pan": -0.15000000000000002
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "F4",
+    "start": 456.83,
+    "duration": 1.4,
+    "velocity": 0.35,
+    "gain_db": -11,
+    "pan": 0.0
+  },
+  {
+    "cue": "peng",
+    "instrument": "contrabass",
+    "pitch": "Bb2",
+    "start": 461.0,
+    "duration": 5.1,
+    "velocity": 0.44,
+    "gain_db": -8.0,
+    "pan": -0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "cellos",
+    "pitch": "F3",
+    "start": 461.0,
+    "duration": 5.1,
+    "velocity": 0.44,
+    "gain_db": -7.5,
+    "pan": 0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "violas",
+    "pitch": "D4",
+    "start": 461.0,
+    "duration": 5.1,
+    "velocity": 0.44,
+    "gain_db": -7.0,
+    "pan": 0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "Bb4",
+    "start": 461.0,
+    "duration": 5.1,
+    "velocity": 0.44,
+    "gain_db": -6.5,
+    "pan": -0.4
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "Bb2",
+    "start": 461.15,
+    "duration": 1.4,
+    "velocity": 0.42,
+    "gain_db": -11,
+    "pan": -0.6
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "F3",
+    "start": 461.57,
+    "duration": 1.4,
+    "velocity": 0.42,
+    "gain_db": -11,
+    "pan": -0.44999999999999996
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "D4",
+    "start": 461.99,
+    "duration": 1.4,
+    "velocity": 0.42,
+    "gain_db": -11,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "Bb4",
+    "start": 462.41,
+    "duration": 1.4,
+    "velocity": 0.42,
+    "gain_db": -11,
+    "pan": -0.15000000000000002
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "D4",
+    "start": 462.83,
+    "duration": 1.4,
+    "velocity": 0.42,
+    "gain_db": -11,
+    "pan": 0.0
+  },
+  {
+    "cue": "peng",
+    "instrument": "contrabass",
+    "pitch": "G2",
+    "start": 466.7,
+    "duration": 5.1,
+    "velocity": 0.56,
+    "gain_db": -8.0,
+    "pan": -0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "cellos",
+    "pitch": "D4",
+    "start": 466.7,
+    "duration": 5.1,
+    "velocity": 0.56,
+    "gain_db": -7.5,
+    "pan": 0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "violas",
+    "pitch": "B4",
+    "start": 466.7,
+    "duration": 5.1,
+    "velocity": 0.56,
+    "gain_db": -7.0,
+    "pan": 0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "D5",
+    "start": 466.7,
+    "duration": 5.1,
+    "velocity": 0.56,
+    "gain_db": -6.5,
+    "pan": -0.4
+  },
+  {
+    "cue": "peng",
+    "instrument": "horn",
+    "pitch": "D4",
+    "start": 466.9,
+    "duration": 4.8,
+    "velocity": 0.55,
+    "gain_db": -11,
+    "pan": 0.1
+  },
+  {
+    "cue": "peng",
+    "instrument": "horn",
+    "pitch": "B4",
+    "start": 466.9,
+    "duration": 4.8,
+    "velocity": 0.55,
+    "gain_db": -11,
+    "pan": 0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "G2",
+    "start": 466.85,
+    "duration": 1.4,
+    "velocity": 0.49,
+    "gain_db": -11,
+    "pan": -0.6
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "D4",
+    "start": 467.27,
+    "duration": 1.4,
+    "velocity": 0.49,
+    "gain_db": -11,
+    "pan": -0.44999999999999996
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "B4",
+    "start": 467.69,
+    "duration": 1.4,
+    "velocity": 0.49,
+    "gain_db": -11,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "D5",
+    "start": 468.11,
+    "duration": 1.4,
+    "velocity": 0.49,
+    "gain_db": -11,
+    "pan": -0.15000000000000002
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "B4",
+    "start": 468.53,
+    "duration": 1.4,
+    "velocity": 0.49,
+    "gain_db": -11,
+    "pan": 0.0
+  },
+  {
+    "cue": "peng",
+    "instrument": "contrabass",
+    "pitch": "A2",
+    "start": 472.5,
+    "duration": 4.4,
+    "velocity": 0.6799999999999999,
+    "gain_db": -8.0,
+    "pan": -0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "cellos",
+    "pitch": "E4",
+    "start": 472.5,
+    "duration": 4.4,
+    "velocity": 0.6799999999999999,
+    "gain_db": -7.5,
+    "pan": 0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "violas",
+    "pitch": "G4",
+    "start": 472.5,
+    "duration": 4.4,
+    "velocity": 0.6799999999999999,
+    "gain_db": -7.0,
+    "pan": 0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "E5",
+    "start": 472.5,
+    "duration": 4.4,
+    "velocity": 0.6799999999999999,
+    "gain_db": -6.5,
+    "pan": -0.4
+  },
+  {
+    "cue": "peng",
+    "instrument": "horn",
+    "pitch": "E4",
+    "start": 472.7,
+    "duration": 4.1000000000000005,
+    "velocity": 0.65,
+    "gain_db": -11,
+    "pan": 0.1
+  },
+  {
+    "cue": "peng",
+    "instrument": "horn",
+    "pitch": "G4",
+    "start": 472.7,
+    "duration": 4.1000000000000005,
+    "velocity": 0.65,
+    "gain_db": -11,
+    "pan": 0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "A2",
+    "start": 472.65,
+    "duration": 1.4,
+    "velocity": 0.56,
+    "gain_db": -11,
+    "pan": -0.6
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "E4",
+    "start": 473.07,
+    "duration": 1.4,
+    "velocity": 0.56,
+    "gain_db": -11,
+    "pan": -0.44999999999999996
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "G4",
+    "start": 473.49,
+    "duration": 1.4,
+    "velocity": 0.56,
+    "gain_db": -11,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "E5",
+    "start": 473.91,
+    "duration": 1.4,
+    "velocity": 0.56,
+    "gain_db": -11,
+    "pan": -0.15000000000000002
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "G4",
+    "start": 474.33,
+    "duration": 1.4,
+    "velocity": 0.56,
+    "gain_db": -11,
+    "pan": 0.0
+  },
+  {
+    "cue": "peng",
+    "instrument": "contrabass",
+    "pitch": "D2",
+    "start": 477.5,
+    "duration": 7.8,
+    "velocity": 0.8,
+    "gain_db": -8.0,
+    "pan": -0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "cellos",
+    "pitch": "A3",
+    "start": 477.5,
+    "duration": 7.8,
+    "velocity": 0.8,
+    "gain_db": -7.5,
+    "pan": 0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "violas",
+    "pitch": "F#4",
+    "start": 477.5,
+    "duration": 7.8,
+    "velocity": 0.8,
+    "gain_db": -7.0,
+    "pan": 0.05
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "F#5",
+    "start": 477.5,
+    "duration": 7.8,
+    "velocity": 0.8,
+    "gain_db": -6.5,
+    "pan": -0.4
+  },
+  {
+    "cue": "peng",
+    "instrument": "horn",
+    "pitch": "A3",
+    "start": 477.7,
+    "duration": 7.5,
+    "velocity": 0.75,
+    "gain_db": -11,
+    "pan": 0.1
+  },
+  {
+    "cue": "peng",
+    "instrument": "horn",
+    "pitch": "F#4",
+    "start": 477.7,
+    "duration": 7.5,
+    "velocity": 0.75,
+    "gain_db": -11,
+    "pan": 0.25
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "D2",
+    "start": 477.65,
+    "duration": 1.4,
+    "velocity": 0.63,
+    "gain_db": -11,
+    "pan": -0.6
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "A3",
+    "start": 478.07,
+    "duration": 1.4,
+    "velocity": 0.63,
+    "gain_db": -11,
+    "pan": -0.44999999999999996
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "F#4",
+    "start": 478.49,
+    "duration": 1.4,
+    "velocity": 0.63,
+    "gain_db": -11,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "F#5",
+    "start": 478.91,
+    "duration": 1.4,
+    "velocity": 0.63,
+    "gain_db": -11,
+    "pan": -0.15000000000000002
+  },
+  {
+    "cue": "peng",
+    "instrument": "harp",
+    "pitch": "F#4",
+    "start": 479.33,
+    "duration": 1.4,
+    "velocity": 0.63,
+    "gain_db": -11,
+    "pan": 0.0
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "A4",
+    "start": 455.9,
+    "duration": 1.6,
+    "velocity": 0.4,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "D5",
+    "start": 458.1,
+    "duration": 2.0,
+    "velocity": 0.43500000000000005,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "F5",
+    "start": 461.9,
+    "duration": 1.7,
+    "velocity": 0.47000000000000003,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "E5",
+    "start": 464.1,
+    "duration": 1.4,
+    "velocity": 0.505,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "D5",
+    "start": 467.4,
+    "duration": 1.6,
+    "velocity": 0.54,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "G5",
+    "start": 469.5,
+    "duration": 2.0,
+    "velocity": 0.5750000000000001,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "E5",
+    "start": 473.1,
+    "duration": 1.1,
+    "velocity": 0.6100000000000001,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "A5",
+    "start": 474.7,
+    "duration": 1.8,
+    "velocity": 0.645,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "F#5",
+    "start": 477.7,
+    "duration": 2.2,
+    "velocity": 0.68,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "A5",
+    "start": 480.5,
+    "duration": 1.6,
+    "velocity": 0.7150000000000001,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "violins",
+    "pitch": "D6",
+    "start": 482.7,
+    "duration": 2.3,
+    "velocity": 0.75,
+    "gain_db": -3,
+    "pan": -0.3
+  },
+  {
+    "cue": "peng",
+    "instrument": "synthetic_wordless_choir",
+    "pitch": "D4",
+    "start": 477.5,
+    "duration": 8.2
+  },
+  {
+    "cue": "peng",
+    "instrument": "synthetic_wordless_choir",
+    "pitch": "A4",
+    "start": 477.5,
+    "duration": 8.2
+  },
+  {
+    "cue": "peng",
+    "instrument": "synthetic_wordless_choir",
+    "pitch": "F#5",
+    "start": 477.5,
+    "duration": 8.2
+  },
+  {
+    "cue": "morning",
+    "instrument": "cellos",
+    "pitch": "D3",
+    "start": 519.0,
+    "duration": 8.0,
+    "velocity": 0.2,
+    "gain_db": -15,
+    "pan": 0.18
+  },
+  {
+    "cue": "morning",
+    "instrument": "cellos",
+    "pitch": "G3",
+    "start": 527.6,
+    "duration": 5.8,
+    "velocity": 0.2,
+    "gain_db": -15,
+    "pan": 0.18
+  },
+  {
+    "cue": "morning",
+    "instrument": "cellos",
+    "pitch": "D3",
+    "start": 534.1,
+    "duration": 4.0,
+    "velocity": 0.2,
+    "gain_db": -15,
+    "pan": 0.18
+  },
+  {
+    "cue": "morning",
+    "instrument": "piano",
+    "pitch": "F#4",
+    "start": 519.7,
+    "duration": 2.2,
+    "velocity": 0.25,
+    "gain_db": -5,
+    "pan": -0.2
+  },
+  {
+    "cue": "morning",
+    "instrument": "piano",
+    "pitch": "A4",
+    "start": 522.7,
+    "duration": 2.2,
+    "velocity": 0.25,
+    "gain_db": -5,
+    "pan": -0.2
+  },
+  {
+    "cue": "morning",
+    "instrument": "piano",
+    "pitch": "E5",
+    "start": 526.0,
+    "duration": 2.8,
+    "velocity": 0.25,
+    "gain_db": -5,
+    "pan": -0.2
+  },
+  {
+    "cue": "morning",
+    "instrument": "piano",
+    "pitch": "D5",
+    "start": 530.0,
+    "duration": 2.5,
+    "velocity": 0.25,
+    "gain_db": -5,
+    "pan": -0.2
+  },
+  {
+    "cue": "morning",
+    "instrument": "piano",
+    "pitch": "A4",
+    "start": 533.7,
+    "duration": 2.1,
+    "velocity": 0.25,
+    "gain_db": -5,
+    "pan": -0.2
+  },
+  {
+    "cue": "morning",
+    "instrument": "piano",
+    "pitch": "D5",
+    "start": 536.1,
+    "duration": 2.5,
+    "velocity": 0.25,
+    "gain_db": -5,
+    "pan": -0.2
+  },
+  {
+    "cue": "morning",
+    "instrument": "harp",
+    "pitch": "A3",
+    "start": 520.1,
+    "duration": 2.5,
+    "velocity": 0.2,
+    "gain_db": -16,
+    "pan": 0.4
+  },
+  {
+    "cue": "morning",
+    "instrument": "harp",
+    "pitch": "B3",
+    "start": 526.4,
+    "duration": 2.5,
+    "velocity": 0.2,
+    "gain_db": -16,
+    "pan": 0.4
+  },
+  {
+    "cue": "morning",
+    "instrument": "harp",
+    "pitch": "G4",
+    "start": 531.0,
+    "duration": 2.5,
+    "velocity": 0.2,
+    "gain_db": -16,
+    "pan": 0.4
+  },
+  {
+    "cue": "morning",
+    "instrument": "harp",
+    "pitch": "E4",
+    "start": 536.5,
+    "duration": 2.5,
+    "velocity": 0.2,
+    "gain_db": -16,
+    "pan": 0.4
+  }
+]

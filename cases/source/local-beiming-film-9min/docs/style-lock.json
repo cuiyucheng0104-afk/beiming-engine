@@ -1,0 +1,13 @@
+{
+  "reference": "原版北冥10秒样片",
+  "policy": "原有色板、3档材质、后期及角色资产不改；不采用E组配色；新镜头复用A/B/C三组参数",
+  "sha256": {
+    "src/toon.js": "c2b039950ee37f61e7572f7cdd6f70eb2ae340919f29a60e3dbd716ed24e7718",
+    "src/look.js": "83f4fe837de77f6b19ea829121bfe3b52a29215ddcc2f61cb1b83908b65186b9",
+    "src/kun.js": "497a9362bafebc7f9d69122cc2a2b9620c3dc7cd56a2ba9ef3985355662585af",
+    "src/girl.js": "2d340817f80bf326658a9911a38ec50ec5af888c785758ca507790ce71e17f89",
+    "src/shotA.js": "258cb25bc970653966cf26f6618aae45e33f7824281f7c4e99201e9369ece41e",
+    "src/shotB.js": "9db99d3744d3e11ebe81a8d8ef89538ceca554fa88a1db60ca5c22801fb59c0b",
+    "src/shotC.js": "27af741bb4fc0a09ce97308eb5dbd4eeadfd42016c704aba9fac31eaaaf958eb"
+  }
+}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>11 · 画廊展览 · 白盒子画廊</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/plates.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 11 包豪斯 · 行业示例：画廊展览 =====
+   A walk through the white cube. The camera strolls down a gallery corridor at eye height, glancing left
+   and right at the painted-plywood works hung on the walls (each gets its little wall label), then
+   squares up to the end wall, where the exhibition poster assembles itself plate by plate on the beat. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#e9e2d4');
+const C = Reel.cfg({ show: '形与色', en: 'FORM & COLOUR', sub: '包豪斯百年 · 构成艺术展', venue: '白盒子画廊 · 11.08 — 12.31' });
+const { Q } = PLATES;
+const L90 = Q.axis(0, 1, 0, Math.PI / 2), R90 = Q.axis(0, 1, 0, -Math.PI / 2), I = Q.I;
+const WX = 2.5, FY = -1.6, EW = -23.9;
+// [type, p, colour, centre, rotation, half thickness, (poster flip-in time)]
+const PC = [
+  [0, [14.5, 2.4, 0], 4, [-WX - 0.06, FY + 2.4, -9.5], L90, 0.06], [0, [14.5, 2.4, 0], 4, [WX + 0.06, FY + 2.4, -9.5], R90, 0.06],
+  // left wall works (face +x)
+  [2, [0.9, 0, 0], 0, [-WX + 0.05, 0.35, -1.0], L90, 0.03], [0, [0.09, 1.25, 0], 3, [-WX + 0.11, 0.15, -2.05], L90, 0.03],
+  [1, [1.0, 2, 0], 1, [-WX + 0.05, -0.3, -8.5], L90, 0.03], [0, [1.15, 0.13, 0.35], 0, [-WX + 0.11, 0.55, -8.5], L90, 0.03],
+  [6, [0.3, 0.1, 0], 3, [-WX + 0.05, 0.3, -12.0], L90, 0.025],
+  // right wall works (face -x)
+  [0, [0.7, 0.7, 0.3], 2, [WX - 0.05, 0.25, -3.5], R90, 0.03], [3, [0.55, 0, 0], 1, [WX - 0.11, 0.0, -3.0], R90, 0.03],
+  [4, [1.0, 0.05, 0], 3, [WX - 0.05, 0.3, -14.5], R90, 0.025], [2, [0.28, 0, 0], 0, [WX - 0.11, 0.85, -13.95], R90, 0.03],
+  [5, [1.0, 0, 0], 3, [WX - 0.05, -0.2, -7.2], R90, 0.03],
+  // end-wall poster (flips in)
+  [2, [1.2, 0, 0], 1, [-1.1, 1.8, EW + 0.08], I, 0.03, 11.0], [0, [0.16, 1.6, 0], 2, [1.25, 1.2, EW + 0.16], I, 0.03, 11.5], [3, [0.5, 0, 0], 0, [1.95, 2.45, EW + 0.12], I, 0.03, 12.0], [4, [1.6, 0.02, 0], 3, [-1.1, 1.8, EW + 0.22], I, 0.02, 12.5],
+];
+const pl = PLATES.make(stage, {
+  shapes: PC.map(([type, p, col]) => ({ type, p, col })),
+  palette: [[0.6, 0.026, 0.02], [0.8, 0.4, 0.01], [0.007, 0.045, 0.21], [0.012, 0.012, 0.012], [1.25, 1.22, 1.16]],
+  cyc: { fy: FY, wz: EW - 0.12, rc: 0.6, col: [0.6, 0.585, 0.56] },
+  light: { dir: [0.0, 0.85, 0.52], ang: 0.12 },
+  rm: { sat: 1.2, contrast: 1.08, vig: 0.34 },
+  extra: 'col0 += alb * vec3(1.,.97,.92) * .75 * pow(max(dot(n, -rd), 0.), 1.5) * (plate ? 1. : .3);',
+});
+function plates(t) {
+  return PC.map(([, , , c, q, th, tf]) => {
+    if (tf === undefined) return { c, q, k: 1, th, vis: 1 };
+    const u = t - tf; if (u < -0.2) return { vis: 0 };
+    const s = Reel.spring(Math.max(0, u), { k: 170, c: 15 });
+    return { c: [c[0], c[1] + 0.25 * (1 - s), c[2]], q: Q.axis(0, 1, 0, (Math.PI / 2) * (1 - s) * (tf % 1 ? -1 : 1)), k: lerp(0.6, 1, Reel.spring(Math.max(0, u), { k: 200, c: 18 })), th, vis: 1 };
+  });
+}
+const bump = (t, a, b) => Math.sin(Math.PI * clamp((t - a) / (b - a)));
+function camera(t) {
+  const w = E.inOutSine(clamp(t / 11.5)), z = lerp(7.5, -15.5, w);
+  const yaw = 0.52 * bump(t, 1.3, 3.2) - 0.62 * bump(t, 3.4, 5.2) + 0.6 * bump(t, 5.4, 7.3) - 0.62 * bump(t, 7.5, 9.5);
+  const ro = [0.25 * Math.sin(t * 0.4), 0.02 * Math.sin(t * 6.2) * (1 - w) + 0.05 * w, z];
+  const pitch = lerp(0, 0.06, E.inOutSine(clamp((t - 9.5) / 2.5)));
+  const fw = [-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)];
+  return { ro, ta: ro.map((v, i) => v + fw[i] * 6), roll: 0, f: lerp(1.45, 1.9, E.inOutSine(clamp((t - 10) / 4))), yaw };
+}
+const ov = Reel.canvas2d(stage);
+const LABELS = [[1.6, 3.1, '《正午》', '胶合板 · 丙烯 · 2026', [-WX + 0.1, -0.85, 0.2]], [3.7, 5.1, '《转角》', '胶合板 · 丙烯 · 2026', [WX - 0.1, -0.75, -2.4]], [5.7, 7.2, '《地平线》', '胶合板 · 丙烯 · 2026', [-WX + 0.1, -0.95, -7.0]], [7.8, 9.4, '《卫星》', '胶合板 · 丙烯 · 2026', [WX - 0.1, -0.95, -13.2]]];
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['700 60px "TeX Gyre Adventor"', '900 44px "Noto Sans CJK SC"', '700 20px "Noto Sans CJK SC"', '500 20px "Noto Sans CJK SC"', '500 20px "Noto Serif CJK SC"'],
+  cues: [...Array.from({ length: 18 }, (_, i) => ({ t: +(0.3 + i * 0.6).toFixed(2), sfx: 'step_soft', gain: 0.22 })), { t: 1.8, sfx: 'tick', gain: 0.35 }, { t: 3.9, sfx: 'tick', gain: 0.35 }, { t: 5.9, sfx: 'tick', gain: 0.35 }, { t: 8.0, sfx: 'tick', gain: 0.35 },
+    { t: 11.0, sfx: 'block', gain: 0.6 }, { t: 11.5, sfx: 'block', gain: 0.6 }, { t: 12.0, sfx: 'block', gain: 0.6 }, { t: 12.5, sfx: 'block', gain: 0.6 }, { t: 13.0, sfx: 'impact', gain: 0.7 }, { t: 13.4, sfx: 'rim', gain: 0.5 }],
+  render(t) {
+    const cam = camera(t);
+    pl.frame(t, plates(t), cam, { ap: 0.05 });
+    const { ctx, begin } = ov; begin(); ctx.clearRect(0, 0, 1920, 1080);
+    // museum wall labels
+    for (const [t0, t1, title, med, P] of LABELS) {
+      const a = clamp((t - t0) / 0.3) * (1 - clamp((t - t1) / 0.3)); if (a <= 0) continue;
+      const [x, y, z] = PLATES.proj(cam, P); if (z < 0.5) continue; const s = clamp(3.2 / z, 0.5, 1.2);
+      ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = 'rgba(250,248,242,.96)'; ctx.fillRect(x - 6 * s, y - 6 * s, 230 * s, 76 * s); ctx.fillStyle = 'rgba(22,22,22,.92)'; ctx.font = `700 ${Math.round(24 * s)}px "Noto Serif CJK SC"`; ctx.textBaseline = 'top'; ctx.fillText(title, x + 8 * s, y + 6 * s);
+      ctx.font = `500 ${Math.round(15 * s)}px "Noto Sans CJK SC"`; ctx.fillStyle = 'rgba(22,22,22,.7)'; ctx.fillText(med, x + 8 * s, y + 42 * s); ctx.restore();
+    }
+    // exhibition title on the end wall
+    const ta = clamp((t - 13.0) / 0.3);
+    if (ta > 0) {
+      const [x, y] = PLATES.proj(cam, [-2.25, -0.4, EW + 0.05]), [x2] = PLATES.proj(cam, [-2.25 + 1, -0.4, EW + 0.05]); const s = (x2 - x) / 110;
+      ctx.save(); ctx.globalAlpha = ta; ctx.fillStyle = 'rgba(22,22,22,.94)'; ctx.textBaseline = 'alphabetic';
+      ctx.font = `900 ${Math.round(110 * s)}px "Noto Sans CJK SC"`; ctx.fillText(C.show, x, y);
+      ctx.font = `700 ${Math.round(24 * s)}px "TeX Gyre Adventor"`; if ('letterSpacing' in ctx) ctx.letterSpacing = `${8 * s}px`; ctx.fillText(C.en, x + 4 * s, y + 44 * s); if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+      ctx.globalAlpha = clamp((t - 13.4) / 0.3); ctx.font = `700 ${Math.round(28 * s)}px "Noto Sans CJK SC"`; ctx.fillText(C.sub, x + 4 * s, y + 92 * s);
+      ctx.font = `500 ${Math.round(24 * s)}px "Noto Sans CJK SC"`; ctx.fillStyle = '#9a1a12'; ctx.fillText(C.venue, x + 4 * s, y + 132 * s); ctx.restore();
+    }
+  },
+});
+</script></body></html>

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>17 · 门店数据 · 小店参谋</title>
+<script src="../lib/core.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 17 数据新闻 · 行业示例：门店数据分析 =====
+   A data map, newspaper style. The whole city in ink and two greys; 48 shop dots drop in sized by sales.
+   The camera dives into the old town, rings one café, and an editorial callout unfolds beside it: the
+   24-hour x 7-day footfall heatmap fills cell by cell, weekday vs weekend bars, the big +38%. Then back out
+   to the whole map for the brand. Numbers are illustrative (labelled). */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#ece6d8');
+const C = Reel.cfg({ brand: '小店参谋', sub: '门店数据分析 · 一张图看懂你的店', hed: '这座城的小店，周末最忙' });
+const RS = Reel.RS, W = Math.round(1920 * RS), H = Math.round(1080 * RS), K = W / 1920;
+const cv = document.createElement('canvas'); cv.width = W; cv.height = H; cv.style.cssText = 'position:absolute;left:0;top:0;width:1920px;height:1080px'; stage.appendChild(cv);
+const ctx = cv.getContext('2d');
+const INK = '#161412', RED = '#c8302b', GRAY = '#8a8478', PAPER = '#f4efe3', SERIF = '"Noto Serif CJK SC"', SANS = '"Noto Sans CJK SC"';
+const MW = 3200, MH = 1800;
+const map = document.createElement('canvas'); const MS = 0.9; map.width = MW * MS; map.height = MH * MS; const m = map.getContext('2d'); m.scale(MS, MS);
+const h = Reel.hash;
+function buildMap() {
+  m.fillStyle = PAPER; m.fillRect(0, 0, MW, MH);
+  // blocks on a slightly warped grid
+  for (let j = 0; j < 30; j++) for (let i = 0; i < 52; i++) { const x = i * 62 + (j % 2) * 18 + Math.sin(j * 0.4) * 30, y = j * 62 + Math.sin(i * 0.3) * 20; if (h(i * 7 + j * 13) < 0.12) continue; m.fillStyle = h(i + j * 3) > 0.93 ? '#cfe0c3' : `rgba(22,20,18,${0.05 + h(i * 3 + j) * 0.05})`; m.fillRect(x + 6, y + 6, 50, 50); }
+  // river
+  m.strokeStyle = '#b9cfd9'; m.lineWidth = 70; m.lineCap = 'round'; m.beginPath(); m.moveTo(-50, 1250); m.bezierCurveTo(700, 900, 1300, 1600, 1900, 1100); m.bezierCurveTo(2400, 700, 2800, 900, 3300, 600); m.stroke();
+  m.strokeStyle = '#a3bfcc'; m.lineWidth = 3; m.stroke();
+  // ring road + arterials
+  m.strokeStyle = 'rgba(22,20,18,.5)'; m.lineWidth = 10; m.beginPath(); m.ellipse(1600, 880, 1050, 620, -0.08, 0, 7); m.stroke();
+  m.lineWidth = 6; for (const [a, b, c, d] of [[0, 400, 3200, 1300], [300, 1800, 2900, 0], [1600, 0, 1500, 1800], [0, 900, 3200, 820]]) { m.beginPath(); m.moveTo(a, b); m.lineTo(c, d); m.stroke(); }
+  // district labels
+  m.fillStyle = 'rgba(22,20,18,.55)'; m.font = `700 48px ${SERIF}`; m.textAlign = 'center';
+  for (const [s, x, y] of [['老 城 区', 1250, 760], ['高 新 区', 2450, 520], ['大 学 城', 650, 470], ['滨 江 新 城', 2300, 1300], ['火 车 站', 1700, 260]]) m.fillText(s, x, y);
+  m.font = `italic 600 30px ${SERIF}`; m.fillStyle = '#6f93a3'; m.fillText('清 溪 河', 900, 1180);
+}
+// 48 shops: [x, y, sales (0..1), category]
+const SHOPS = Array.from({ length: 48 }, (_, i) => { const cl = [[1250, 820, 260], [2450, 560, 300], [650, 520, 260], [2300, 1240, 300], [1700, 320, 200]][i % 5]; const a = h(i * 3.3) * 6.28, r = Math.sqrt(h(i * 5.7)) * cl[2]; return [cl[0] + Math.cos(a) * r, cl[1] + Math.sin(a) * r * 0.7, 0.2 + h(i * 9.1) * 0.8, i % 4]; });
+const OURS = [1180, 860];
+const CAT = [RED, '#2f6f8f', '#d9a326', '#5a7f3a'];
+function heat(d, hr) { // illustrative footfall: lunch + evening peaks, weekends higher
+  const we = d >= 5 ? 1.38 : 1; const v = Math.exp(-((hr - 12.5) ** 2) / 4) * 0.8 + Math.exp(-((hr - 19) ** 2) / 5) * (d >= 5 ? 1 : 0.7) + (d >= 5 ? Math.exp(-((hr - 15) ** 2) / 6) * 0.5 : 0);
+  return clamp(v * we * (hr < 7 || hr > 22 ? 0.1 : 1) * 0.85);
+}
+function callout(g, t) {
+  const a = E.outCubic(clamp((t - 5.3) / 0.5)); if (a <= 0) return;
+  const x = 1060, y = 120, w = 760, hh = 820;
+  g.save(); g.globalAlpha = a; g.translate((1 - a) * 40, 0);
+  g.shadowColor = 'rgba(0,0,0,.2)'; g.shadowBlur = 30 * K; g.fillStyle = PAPER; g.fillRect(x * K, y * K, w * K, hh * K); g.shadowColor = 'transparent';
+  g.strokeStyle = INK; g.lineWidth = 2 * K; g.strokeRect(x * K, y * K, w * K, hh * K);
+  g.fillStyle = RED; g.font = `700 ${22 * K}px ${SANS}`; g.fillText('案例 · 老城区一家咖啡馆', (x + 40) * K, (y + 60) * K);
+  g.fillStyle = INK; g.font = `900 ${54 * K}px ${SERIF}`; g.fillText('一周 168 个小时，', (x + 40) * K, (y + 130) * K); g.fillText('哪几个最值钱？', (x + 40) * K, (y + 200) * K);
+  // heatmap 24 x 7
+  const hx = x + 110, hy = y + 260, cs = 24; const fill = clamp((t - 5.8) / 1.8) * 168;
+  ['一', '二', '三', '四', '五', '六', '日'].forEach((d, j) => { g.fillStyle = j >= 5 ? RED : GRAY; g.font = `700 ${18 * K}px ${SANS}`; g.fillText('周' + d, (x + 40) * K, (hy + j * (cs + 4) + 18) * K); });
+  for (let j = 0; j < 7; j++) for (let i = 0; i < 24; i++) { const k = j * 24 + i; const v = heat(j, i); g.fillStyle = k < fill ? `rgba(200,48,43,${0.08 + 0.92 * v})` : 'rgba(22,20,18,.06)'; g.fillRect((hx + i * (cs + 2)) * K, (hy + j * (cs + 4)) * K, cs * K, cs * K); }
+  g.fillStyle = GRAY; g.font = `500 ${15 * K}px Inter`; for (let i = 0; i <= 24; i += 6) g.fillText(`${i}:00`, (hx + i * (cs + 2) - 8) * K, (hy + 7 * (cs + 4) + 20) * K);
+  // weekday vs weekend bars + big number
+  const b = E.outCubic(clamp((t - 7.8) / 0.7));
+  g.font = `700 ${22 * K}px ${SANS}`; g.fillStyle = INK; g.fillText('日均客流（人）', (x + 40) * K, (y + 560) * K);
+  [['工作日', 212, GRAY], ['周末', 293, RED]].forEach(([n, v, col], i) => { const yy = y + 590 + i * 70, ww = 270 * v / 293 * b; g.fillStyle = col; g.fillRect((x + 140) * K, yy * K, ww * K, 44 * K); g.fillStyle = INK; g.font = `700 ${22 * K}px ${SANS}`; g.fillText(n, (x + 40) * K, (yy + 30) * K); g.font = `800 ${24 * K}px Inter`; if (b > 0.05) g.fillText(String(Math.round(v * b)), (x + 152 + ww) * K, (yy + 31) * K); });
+  const bn = E.outBack(clamp((t - 8.5) / 0.35)); if (bn > 0) { g.save(); g.translate((x + 615) * K, (y + 660) * K); g.scale(bn, bn); g.fillStyle = RED; g.font = `900 ${92 * K}px Inter`; g.textAlign = 'center'; g.fillText('+38%', 0, 0); g.font = `700 ${22 * K}px ${SANS}`; g.fillStyle = INK; g.fillText('周末比工作日', 0, 40 * K); g.restore(); }
+  g.fillStyle = GRAY; g.font = `500 ${15 * K}px ${SANS}`; g.fillText('注：示意数据', (x + 40) * K, (y + hh - 24) * K);
+  g.restore();
+}
+function camera(t) {
+  const K0 = [[0, 1600, 900, 0.6], [4.0, 1600, 880, 0.62], [5.2, 1330, 860, 1.25], [9.6, 1350, 860, 1.28], [10.8, 1600, 900, 0.6], [15, 1600, 900, 0.62]];
+  let i = 0; while (i < K0.length - 2 && t > K0[i + 1][0]) i++; const [a, ax, ay, az] = K0[i], [b, bx, by, bz] = K0[i + 1]; const u = E.inOutCubic(clamp((t - a) / (b - a)));
+  return { x: lerp(ax, bx, u), y: lerp(ay, by, u), z: Math.exp(lerp(Math.log(az), Math.log(bz), u)) };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: [`900 54px ${SERIF}`, `700 48px ${SERIF}`, `italic 600 30px ${SERIF}`, `700 22px ${SANS}`, '900 110px Inter', '500 15px Inter'],
+  setup() { buildMap(); },
+  cues: [{ t: 0.3, sfx: 'paper', gain: 0.4 }, ...Array.from({ length: 12 }, (_, i) => ({ t: +(1.0 + i * 0.18).toFixed(2), sfx: 'pop', gain: 0.25 })), { t: 4.0, sfx: 'whoosh', gain: 0.5 }, { t: 4.9, sfx: 'tick', gain: 0.5 }, { t: 5.3, sfx: 'paper', gain: 0.5 }, { t: 5.8, sfx: 'data', gain: 0.5 }, { t: 7.8, sfx: 'data', gain: 0.4 }, { t: 8.5, sfx: 'stamp', gain: 0.6 }, { t: 9.6, sfx: 'whoosh', gain: 0.5 }, { t: 11.2, sfx: 'impact_soft', gain: 0.6 }],
+  render(t) {
+    const cam = camera(t);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#ece6d8'; ctx.fillRect(0, 0, W, H);
+    const z = cam.z * K; ctx.setTransform(z, 0, 0, z, (960 - cam.x * cam.z) * K, (540 - cam.y * cam.z) * K);
+    ctx.drawImage(map, 0, 0, MW, MH);
+    // shops drop in, sized by sales
+    SHOPS.forEach(([x, y, s, c], i) => { const a = E.outBack(clamp((t - 1.0 - i * 0.045) / 0.35)); if (a <= 0) return; const r = (16 + 46 * s) * a; ctx.fillStyle = CAT[c]; ctx.globalAlpha = 0.75; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke(); });
+    // our café
+    const oa = E.outBack(clamp((t - 4.6) / 0.4)); if (oa > 0) { const pulse = 1 + 0.15 * Math.sin(t * 6); ctx.strokeStyle = RED; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(OURS[0], OURS[1], 52 * oa * pulse, 0, 7); ctx.stroke(); ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(OURS[0], OURS[1], 22 * oa, 0, 7); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.stroke(); }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // headline block (newspaper style) over the wide map
+    const ha = (1 - clamp((t - 3.9) / 0.4)) * E.outCubic(clamp((t - 0.2) / 0.5)) + E.outCubic(clamp((t - 11.0) / 0.5));
+    if (ha > 0) { const end = t > 10.5; ctx.save(); ctx.globalAlpha = Math.min(1, ha); ctx.fillStyle = 'rgba(244,239,227,.94)'; ctx.fillRect(60 * K, 60 * K, 840 * K, (end ? 300 : 250) * K); ctx.strokeStyle = INK; ctx.lineWidth = 2 * K; ctx.strokeRect(60 * K, 60 * K, 840 * K, (end ? 300 : 250) * K);
+      ctx.fillStyle = RED; ctx.font = `700 ${22 * K}px ${SANS}`; ctx.fillText(end ? '数据工具' : '城市数据 · 第 12 期', 90 * K, 110 * K);
+      ctx.fillStyle = INK; ctx.font = `900 ${end ? 92 : 58}px ${SERIF}`.replace(/(\d+)px/, (m0, n) => `${n * K}px`); ctx.fillText(end ? C.brand : C.hed, 90 * K, (end ? 215 : 190) * K);
+      ctx.font = `500 ${24 * K}px ${SANS}`; ctx.fillStyle = '#3a3630'; ctx.fillText(end ? C.sub : '圆点大小 = 月销售额 · 48 家样本店（示意数据）', 90 * K, (end ? 280 : 260) * K); ctx.restore(); }
+    callout(ctx, t > 9.6 ? 9.6 - (t - 9.6) * 5 : t);
+    // legend
+    ctx.save(); ctx.font = `600 ${18 * K}px ${SANS}`; [['餐饮', 0], ['零售', 1], ['生活服务', 2], ['教育', 3]].forEach(([n, c], i) => { ctx.fillStyle = CAT[c]; ctx.beginPath(); ctx.arc((90 + i * 150) * K, 1020 * K, 10 * K, 0, 7); ctx.fill(); ctx.fillStyle = INK; ctx.fillText(n, (108 + i * 150) * K, 1026 * K); }); ctx.restore();
+  },
+});
+</script></body></html>

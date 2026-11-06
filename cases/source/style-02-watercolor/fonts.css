@@ -1,0 +1,32 @@
+@font-face {
+  font-family: 'Long Cang';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(fonts/g0.woff2) format('woff2');
+  unicode-range: U+4e00, U+51ac, U+590f, U+6625, U+6731, U+6ef4, U+7802, U+79cb, U+9526, U+9ca4;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url(fonts/g1.woff2) format('woff2');
+  unicode-range: U+4e00, U+6731, U+6ef4, U+7ea2, U+9ca4;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url(fonts/g1.woff2) format('woff2');
+  unicode-range: U+4e00, U+6731, U+6ef4, U+7ea2, U+9ca4;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(fonts/g2.woff2) format('woff2');
+  unicode-range: U+20, U+2f-39, U+49, U+56, U+58, U+6d, U+b7, U+d8, U+2013;
+}

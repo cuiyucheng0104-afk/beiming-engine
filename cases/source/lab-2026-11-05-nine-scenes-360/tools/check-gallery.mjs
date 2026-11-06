@@ -1,0 +1,23 @@
+import {chromium} from 'playwright-core';import fs from 'node:fs/promises';import path from 'node:path';import {fileURLToPath,pathToFileURL} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),errors=[];const browser=await chromium.launch({executablePath:process.env.BEIMING_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+try{const page=await browser.newPage({viewport:{width:1440,height:1000}});page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(pathToFileURL(path.join(root,'delivery/index.html')).href);await page.waitForSelector('#grid .card');
+ const eq=(a,b,msg)=>{if(a!==b)throw new Error(`${msg}: ${a} != ${b}`);};
+ eq(await page.locator('#grid .card').count(),40,'initial40');eq(await page.locator('#scenes button').count(),9,'nine scenes');
+ await page.locator('#palette').selectOption('A');eq(await page.locator('#grid .card').count(),5,'palette filter');
+ await page.locator('#profile').selectOption('3');eq(await page.locator('#grid .card').count(),1,'profile filter');
+ await page.locator('.fav').first().click();await page.locator('#onlyFav').check();eq(await page.locator('#grid .card').count(),1,'favorites');
+ const download=page.waitForEvent('download');await page.locator('#export').click();const dl=await download;await dl.saveAs(path.join(root,'logs/favorite-export-test.json'));
+ await page.locator('#onlyFav').uncheck();await page.locator('#crossScene').click();eq(await page.locator('#grid .card').count(),9,'cross scene');
+ await page.locator('#recipe').selectOption('G3');await page.locator('.card img').nth(8).click();await page.waitForSelector('dialog[open]');
+ await page.locator('#toCompare').click();eq(await page.locator('#sceneTitle').textContent(),'09 / 暮色江村','modal to compare');eq(await page.locator('#selB').inputValue(),'G3','chosen recipe');
+ await page.locator('#slider').fill('30');await page.locator('#slider').dispatchEvent('input');eq(await page.locator('#front').evaluate(e=>e.style.clipPath),'inset(0px 70% 0px 0px)','slider');
+ await page.locator('#swap').click();eq(await page.locator('#selA').inputValue(),'G3','swap');
+ await page.locator('#scenes button').first().click();await page.locator('#selA').selectOption('source');await page.locator('#selB').selectOption('A5');await page.locator('#perScene').click();await page.locator('#palette').selectOption('');await page.locator('#profile').selectOption('');
+ await page.evaluate(async()=>{await Promise.all([...document.images].filter(i=>i.loading!=='lazy').map(i=>i.decode().catch(()=>{})));});
+ await page.locator('details summary').click();await page.locator('#qaFrontImg').scrollIntoViewIfNeeded();await page.evaluate(async()=>{await Promise.all([...document.querySelectorAll('.qa img')].map(i=>i.decode()));});
+ const broken=await page.locator('img').evaluateAll(els=>els.filter(e=>e.complete&&e.naturalWidth===0).map(e=>e.src));if(broken.length)throw new Error('Broken images:'+broken.join(','));
+ if(errors.length)throw new Error(errors.join('\n'));
+ await page.evaluate(()=>localStorage.removeItem('beiming-nine360-favs'));await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(root,'delivery/gallery-preview.jpg'),type:'jpeg',quality:90});
+ await fs.writeFile(path.join(root,'delivery/gallery-check.json'),JSON.stringify({passed:true,checks:['9 scene navigation','40 cards','palette/profile filtering','favorite/export','same recipe across nine scenes','modal','comparison slider','image loading'],errors,broken},null,2));console.log('PASS gallery controls and images');
+}finally{await browser.close();}

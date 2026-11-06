@@ -1,0 +1,21 @@
+岛屿之光 · ISLAND LIGHT — credits for third-party material used in this film
+
+Music & sound
+- Original score and foley synthesized in code for this film (score.py, mix.py; procedural sound effects from the style library's core/audio/sfx.py, plucked-string physical model core/audio/pluck.py).
+- Samples (CC0 1.0, https://creativecommons.org/publicdomain/zero/1.0/):
+  - Clean electric guitar, world percussion (bongos) — FreePats project, https://freepats.zenvoid.org/
+  - Upright bass pizzicato "Sneakybass" — Karoryfer Samples / sfzinstruments, https://github.com/sfzinstruments
+  - Congas, frame drum, cajón, bass drum (gran cassa), shaker, claps — Versilian Community Sample Library (Versilian Studios), https://github.com/sgossner/VCSL
+  - Tambourine — VS Chamber Orchestra: Community Edition (Versilian Studios), https://github.com/sgossner/VSCO-2-CE
+  Samples (CC0): FreePats project (freepats.zenvoid.org), Karoryfer Samples / sfzinstruments, VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+
+Fonts (SIL Open Font License 1.1, https://openfontlicense.org), subset via the Google Fonts API and self-hosted in fonts/
+- ZCOOL QingKe HuangYou — ZCOOL (站酷), https://fonts.google.com/specimen/ZCOOL+QingKe+HuangYou
+- Noto Sans SC — Google, https://fonts.google.com/noto/specimen/Noto+Sans+SC
+- Big Shoulders Display — Patric King, https://fonts.google.com/specimen/Big+Shoulders+Display (licence text: fonts/OFL-BigShouldersDisplay.txt)
+
+Code
+- engine/silk.js: the screen-print engine of the style library's silkscreen-poster style, copied unchanged; MIT License, see $LIB/LICENSE.
+- Rendering, mux and checks: the style library's core/ tools (MIT License).
+
+No real footage, photographs or third-party images are used. 白鸥岛 (the island) and every figure on the poster are fictional.

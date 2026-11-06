@@ -1,0 +1,521 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>火山口</title>
+<style>
+@font-face{font-family:"Noto Sans SC";src:url(fonts/NotoSansSC-500.woff2) format("woff2");font-weight:500}
+@font-face{font-family:"Barlow Condensed";src:url(fonts/BarlowCondensed-300.woff2) format("woff2");font-weight:300}
+@font-face{font-family:"Barlow Condensed";src:url(fonts/BarlowCondensed-500.woff2) format("woff2");font-weight:500}
+@font-face{font-family:"Plex Mono";src:url(fonts/IBMPlexMono-400.woff2) format("woff2");font-weight:400}
+html,body{margin:0;background:#05080b;overflow:hidden;width:1920px;height:1080px}
+#gl,#ov{position:absolute;left:0;top:0;width:1920px;height:1080px;display:block}
+</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body><canvas id="gl"></canvas><canvas id="ov" width="1920" height="1080"></canvas>
+<script type="module">
+// 《火山口》 Panum Crater, California - USGS 3DEP airborne lidar + USDA NAIP 2022 photo.
+// render(t) is deterministic: no clocks, no unseeded randomness, no state carried between frames.
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { BEAT, b, T, CAM, DUR } from './timeline.js';
+
+const W = 1920, H = 1080, SS = 2;
+const clamp = (x, a, c) => Math.min(c, Math.max(a, x));
+const lerp = (a, c, t) => a + (c - a) * t;
+const seg = (t, a, c) => clamp((t - a) / (c - a), 0, 1);
+const ss = t => t * t * (3 - 2 * t);
+const eio = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const eo = t => 1 - Math.pow(1 - t, 3);
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+const lin = h => new THREE.Vector3(...hex(h).map(c => Math.pow(c, 2.2)));
+
+const C = {
+  bg: '#05080b', fog: '#0a1114', lo: '#1e3b3a', mid: '#5e9c86', hi: '#e4f1e0', shrub: '#9cc59a',
+  clay: '#bdb4a4', shade: '#28313a', scan: '#d8fff2', amber: '#ffb347', poche: '#28221d',
+  ink: '#eef3f1', dim: '#a9b8b3', faint: '#80918c',
+};
+const ZB = 2000, EX = 1.5, WIN = 560;          // display: y = (z - 2000) * 1.5 ; survey window radius around the summit
+
+const [M, pbuf, dbuf, abuf, cbuf] = await Promise.all([
+  fetch('data/meta.json').then(r => r.json()),
+  fetch('data/pts.bin').then(r => r.arrayBuffer()),
+  fetch('data/dem.bin').then(r => r.arrayBuffer()),
+  fetch('data/ao.bin').then(r => r.arrayBuffer()),
+  fetch('data/crest.bin').then(r => r.arrayBuffer()),
+]);
+const photoTex = await new THREE.TextureLoader().loadAsync('data/photo.jpg');
+photoTex.colorSpace = THREE.SRGBColorSpace; photoTex.anisotropy = 8;
+const HALF = M.frame.half, SUM = M.summit, MS = M.meas, SEC = M.section;
+const SECN = SEC.origin[1], SECE = SEC.origin[0];
+const FLOOR = Math.min(MS.moatW.z, MS.moatE.z), DOME = MS.dome_above_floor;
+
+// ---------------- renderer ----------------
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(SS); renderer.setSize(W, H, false);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
+renderer.setClearColor(new THREE.Color().setRGB(...hex(C.bg).map(c => Math.pow(c, 2.2))), 1);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(34, W / H, 2, 8000);
+camera.rotation.order = 'YXZ';
+
+const U = {
+  uF1: { value: 1e4 }, uR: { value: -1 }, uCutN: { value: -1e4 }, uDim: { value: 0 }, uPx: { value: SS }, uProj: { value: 1 },
+  uTrace: { value: 0 }, uSecL: { value: 0 }, uPhoto: { value: 1 },
+  uSum: { value: new THREE.Vector2(SUM[0], SUM[1]) }, uSecN: { value: SECN }, uSecE: { value: new THREE.Vector2(SECE - SEC.L, SECE + SEC.L) },
+  uFog: { value: lin(C.fog) }, uBg: { value: lin(C.bg) }, uScan: { value: lin(C.scan) }, uAmber: { value: lin(C.amber) },
+};
+
+// ---------------- points: 10 bytes each, u16 e/n/z + u8 hag/class/intensity/seed ----------------
+const NP = pbuf.byteLength / 10;
+const q16 = new THREE.InterleavedBuffer(new Uint16Array(pbuf), 5);
+const q8 = new THREE.InterleavedBuffer(new Uint8Array(pbuf), 10);
+const pg = new THREE.BufferGeometry();
+pg.setAttribute('position', new THREE.InterleavedBufferAttribute(q16, 3, 0));
+pg.setAttribute('extra', new THREE.InterleavedBufferAttribute(q8, 4, 6));
+const pointVS = /* glsl */`
+  attribute vec4 extra;
+  uniform float uQ, uHalf, uZmin, uF1, uR, uCutN, uDim, uPx, uProj;
+  uniform vec2 uSum;
+  uniform vec3 cLo, cMid, cHi, cShrub, uFog, uScan;
+  varying vec3 vCol;
+  void main(){
+    vec3 L = vec3(position.x * uQ - uHalf, position.y * uQ - uHalf, position.z * 0.01 + uZmin);   // east, north, elevation
+    float hag = extra.x * 0.1, cls = extra.y, inten = extra.z / 255.0;
+    float r = distance(L.xy, uSum);
+    float k = step(uF1, L.y);                                   // points exist only where the scan line has passed (north of it)
+    float hot = exp(-max(L.y - uF1, 0.0) / 9.0) * k * step(uF1, 800.0);
+    // condensing front: inside it the returns give way to the solid model
+    float inside = uR - r;
+    k *= 1.0 - smoothstep(0.0, 22.0, inside);
+    hot += exp(-abs(inside) / 5.0) * step(-1.0, uR) * step(r, ${WIN.toFixed(1)} + 20.0);
+    // the section: returns south of the cutting plane lift away and fade
+    float past = uCutN - L.y, lift = 0.0;
+    if (past > 0.0) {
+      float g = exp(-past / 32.0);
+      k = max(k * g, 0.55 * g * step(r, ${WIN.toFixed(1)}));
+      lift = past * 0.55 + past * past * 0.004;
+      hot += g * 0.9;
+    }
+    vec3 P = vec3(L.x, (L.z - ${ZB.toFixed(1)}) * ${EX.toFixed(2)} + lift, -L.y);
+    vec4 mv = modelViewMatrix * vec4(P, 1.0);
+    gl_Position = projectionMatrix * mv;
+    float dist = -mv.z;
+    gl_PointSize = clamp((cls > 1.5 ? 0.24 : 0.30) * uProj / dist, uPx, 5.0 * uPx) * (1.0 + 0.6 * clamp(hot, 0.0, 1.0));
+    if (k < 0.02) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    float u = clamp((L.z - 2006.0) / 140.0, 0.0, 1.0);
+    vec3 c = u < 0.5 ? mix(cLo, cMid, u / 0.5) : mix(cMid, cHi, (u - 0.5) / 0.5);
+    if (cls < 1.5 && hag > 0.3) c = mix(c, cShrub, 0.45);
+    c *= mix(0.5, 1.2, inten) * k;
+    c *= mix(1.0, 0.42, uDim * step(${WIN.toFixed(1)}, r));
+    c = mix(c, uScan * 1.7, clamp(hot, 0.0, 1.0));
+    float fog = 1.0 - exp(-dist / 2600.0);
+    vCol = mix(c, uFog, fog * 0.6);
+  }`;
+const pointFS = /* glsl */`
+  varying vec3 vCol;
+  void main(){ vec2 p = gl_PointCoord * 2.0 - 1.0; float r2 = dot(p, p); if (r2 > 1.0) discard; gl_FragColor = vec4(vCol * (1.0 - 0.3 * r2), 1.0); }`;
+const pmat = new THREE.ShaderMaterial({
+  uniforms: { ...U, uQ: { value: M.frame.qe }, uHalf: { value: HALF }, uZmin: { value: M.frame.zmin },
+    cLo: { value: lin(C.lo) }, cMid: { value: lin(C.mid) }, cHi: { value: lin(C.hi) }, cShrub: { value: lin(C.shrub) } },
+  vertexShader: pointVS, fragmentShader: pointFS });
+const points = new THREE.Points(pg, pmat); points.frustumCulled = false; scene.add(points);
+
+// ---------------- the ground model: 2 m DTM from class-2 returns ----------------
+const G = M.grid, CELL = M.cell;
+const dem = new Float32Array(dbuf), ao = new Uint8Array(abuf), cr = new Uint8Array(cbuf);
+const gx = i => -HALF + (i + 0.5) * CELL, gy = j => HALF - (j + 0.5) * CELL;      // row 0 = north
+const pos = new Float32Array(G * G * 3), nrm = new Float32Array(G * G * 3);
+for (let j = 0, v = 0; j < G; j++) for (let i = 0; i < G; i++, v++) {
+  pos[v * 3] = gx(i); pos[v * 3 + 1] = (dem[v] - ZB) * EX; pos[v * 3 + 2] = -gy(j);
+  const zl = dem[j * G + Math.max(0, i - 1)], zr = dem[j * G + Math.min(G - 1, i + 1)];
+  const zu = dem[Math.max(0, j - 1) * G + i], zd = dem[Math.min(G - 1, j + 1) * G + i];
+  const dx = (zr - zl) * EX / (2 * CELL), dn = (zu - zd) * EX / (2 * CELL);     // slope east, slope north
+  const n = new THREE.Vector3(-dx, 1, dn).normalize();                              // world: x east, y up, z = -north
+  nrm[v * 3] = n.x; nrm[v * 3 + 1] = n.y; nrm[v * 3 + 2] = n.z;
+}
+const idx = new Uint32Array((G - 1) * (G - 1) * 6);
+for (let j = 0, k = 0; j < G - 1; j++) for (let i = 0; i < G - 1; i++) {
+  const a = j * G + i, c1 = a + 1, d = a + G, e = d + 1;
+  idx[k++] = a; idx[k++] = d; idx[k++] = c1; idx[k++] = c1; idx[k++] = d; idx[k++] = e;
+}
+const sg = new THREE.BufferGeometry();
+sg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+sg.setAttribute('nrm', new THREE.BufferAttribute(nrm, 3));
+sg.setAttribute('ao', new THREE.Uint8BufferAttribute(ao, 1, true));
+sg.setAttribute('crest', new THREE.Uint8BufferAttribute(cr, 2, true));
+sg.setIndex(new THREE.BufferAttribute(idx, 1));
+const zAt = (e, n) => {   // DTM elevation (m) at local east/north, bilinear
+  const fi = clamp((e + HALF) / CELL - 0.5, 0, G - 1.001), fj = clamp((HALF - n) / CELL - 0.5, 0, G - 1.001);
+  const i0 = Math.floor(fi), j0 = Math.floor(fj), u = fi - i0, v = fj - j0, g = (i, j) => dem[j * G + i];
+  return lerp(lerp(g(i0, j0), g(i0 + 1, j0), u), lerp(g(i0, j0 + 1), g(i0 + 1, j0 + 1), u), v);
+};
+const yAt = (e, n) => (zAt(e, n) - ZB) * EX;
+const sunAz = 292 * Math.PI / 180, sunEl = 27 * Math.PI / 180;
+const SUN = new THREE.Vector3(Math.sin(sunAz) * Math.cos(sunEl), Math.sin(sunEl), -Math.cos(sunAz) * Math.cos(sunEl)).normalize();
+const surfMat = new THREE.ShaderMaterial({
+  uniforms: { ...U, uSun: { value: SUN }, cClay: { value: lin(C.clay) }, cShade: { value: lin(C.shade) } },
+  vertexShader: /* glsl */`
+    attribute vec3 nrm; attribute float ao; attribute vec2 crest;
+    varying vec3 vN, vW; varying float vAo, vDist; varying vec2 vCr;
+    void main(){ vN = nrm; vAo = ao; vCr = crest; vW = position; vec4 mv = modelViewMatrix * vec4(position, 1.0); vDist = -mv.z; gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: /* glsl */`
+    uniform vec3 uSun, cClay, cShade, uFog, uBg, uScan, uAmber;
+    uniform vec2 uSum, uSecE; uniform float uR, uCutN, uTrace, uSecL, uSecN;
+    varying vec3 vN, vW; varying float vAo, vDist; varying vec2 vCr;
+    void main(){
+      vec2 en = vec2(vW.x, -vW.z);
+      float r = distance(en, uSum);
+      float behind = uR - r;
+      if (behind < 0.0 || r > ${WIN.toFixed(1)}) discard;
+      if (en.y < uCutN) discard;
+      vec3 n = normalize(vN);
+      float ndl = max(dot(n, uSun), 0.0);
+      vec3 col = cClay * (0.95 * ndl + 0.16 * (0.35 + 0.65 * vAo)) + cShade * 0.35 * (1.0 - ndl);
+      col *= 0.5 + 0.5 * vAo;
+      float z = vW.y / ${EX.toFixed(2)} + ${ZB.toFixed(1)};
+      // survey contours: every 5 m, stronger every 25 m (real elevation)
+      float c5 = z / 5.0, w5 = fwidth(c5);
+      float l5 = 1.0 - smoothstep(w5 * 0.5, w5 * 1.5, min(fract(c5), 1.0 - fract(c5)));
+      float c25 = z / 25.0, w25 = fwidth(c25);
+      float l25 = 1.0 - smoothstep(w25 * 0.6, w25 * 1.8, min(fract(c25), 1.0 - fract(c25)));
+      col = mix(col, col * 0.68, l5 * 0.35 * smoothstep(1400.0, 500.0, vDist));
+      col = mix(col, col * 0.55, l25 * 0.55);
+      // condensing seam: a bright line, then the surface fills in over tens of metres
+      col = mix(uScan * 0.10, col, smoothstep(2.0, 46.0, behind));
+      col += uScan * 1.7 * exp(-behind / 1.2);
+      // the traced ring crest: amber hairline lit in order along its length
+      float px = fwidth(en.x) + fwidth(en.y);
+      float wd = vCr.x * 20.0, par = vCr.y;
+      float line = 1.0 - smoothstep(0.35 + px * 0.6, 0.9 + px * 1.3, wd);
+      float on = step(par, uTrace) * step(0.001, uTrace);
+      float head = exp(-abs(uTrace - par) / 0.012) * on * (1.0 - step(1.0, uTrace));
+      col = mix(col, uAmber * 1.1, line * on * 0.85);
+      col += uAmber * (line * head * 2.0 + smoothstep(5.0, 0.6, wd) * on * 0.05);
+      // the section line (W -> E through the summit)
+      float sx = mix(uSecE.x, uSecE.y, uSecL);
+      float sl = 1.0 - smoothstep(0.3 + px * 0.6, 1.0 + px * 1.4, abs(en.y - uSecN));
+      col = mix(col, uAmber * 1.2, sl * step(uSecE.x, en.x) * step(en.x, sx) * step(0.001, uSecL));
+      float fog = 1.0 - exp(-vDist / 2600.0);
+      gl_FragColor = vec4(mix(col, uFog, fog * 0.6), 1.0);
+    }`,
+});
+const surf = new THREE.Mesh(sg, surfMat); surf.frustumCulled = false; scene.add(surf);
+
+// ---------------- the photo, draped on the same ground model ----------------
+const photoMat = new THREE.ShaderMaterial({
+  uniforms: { ...U, tPhoto: { value: photoTex } },
+  vertexShader: `varying vec3 vW; void main(){ vW = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tPhoto; uniform vec3 uScan, uBg; uniform float uF1, uPhoto;
+    varying vec3 vW;
+    void main(){
+      vec2 en = vec2(vW.x, -vW.z);
+      float ahead = uF1 - en.y;                         // the part the scan line hasn't reached (south of it)
+      if (ahead < 0.0 || uPhoto < 0.01) discard;
+      vec2 uv = vec2((en.x + ${HALF.toFixed(1)}) / ${(2 * HALF).toFixed(1)}, (en.y + ${HALF.toFixed(1)}) / ${(2 * HALF).toFixed(1)});
+      vec3 c = pow(texture2D(tPhoto, uv).rgb, vec3(2.2)) * 1.08;
+      c += uScan * 2.6 * exp(-ahead / 2.2) * step(uF1, 800.0);
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+});
+const photo = new THREE.Mesh(sg, photoMat); photo.frustumCulled = false; scene.add(photo);
+
+// ---------------- the cut face (section poché), rebuilt per frame at the cutting plane ----------------
+const NC = 561, BASE = -24;
+const cpos = new Float32Array(NC * 2 * 3), cuv = new Float32Array(NC * 2 * 2);
+const cidx = [];
+for (let i = 0; i < NC - 1; i++) { const a = i * 2; cidx.push(a, a + 1, a + 2, a + 2, a + 1, a + 3); }
+const cg = new THREE.BufferGeometry();
+cg.setAttribute('position', new THREE.BufferAttribute(cpos, 3));
+cg.setAttribute('top', new THREE.BufferAttribute(cuv, 2));
+cg.setIndex(cidx);
+const cutMat = new THREE.ShaderMaterial({
+  uniforms: { ...U, cP: { value: lin(C.poche) } },
+  side: THREE.DoubleSide,
+  vertexShader: `attribute vec2 top; varying vec2 vT; varying vec3 vW; void main(){ vT = top; vW = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform vec3 cP, uAmber, uScan; uniform vec2 uSum; uniform float uCutN;
+    varying vec2 vT; varying vec3 vW;
+    void main(){
+      vec2 en = vec2(vW.x, -vW.z);
+      if (distance(en, uSum) > ${WIN.toFixed(1)}) discard;
+      float below = vT.y - vW.y;                        // metres (display) below the profile
+      if (below < 0.0) discard;
+      // 45-degree hatch in display metres, hairline
+      float h = (vW.x + vW.y) / 6.0, hw = fwidth(h);
+      float hatch = 1.0 - smoothstep(hw * 0.5, hw * 1.5, min(fract(h), 1.0 - fract(h)));
+      vec3 c = cP * (0.9 + 0.25 * smoothstep(60.0, 0.0, below)) + uAmber * hatch * 0.065;
+      float edge = exp(-below / 0.6);
+      c = mix(c, uAmber * 1.6, edge);
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+});
+const cut = new THREE.Mesh(cg, cutMat); cut.frustumCulled = false; scene.add(cut);
+function buildCut(nCut) {
+  for (let i = 0; i < NC; i++) {
+    const e = SUM[0] - WIN + i * (2 * WIN / (NC - 1)), y = yAt(e, nCut);
+    cpos.set([e, y, -nCut, e, BASE, -nCut], i * 6);
+    cuv.set([0, y, 0, y], i * 4);
+  }
+  cg.attributes.position.needsUpdate = true; cg.attributes.top.needsUpdate = true;
+}
+
+// ---------------- post ----------------
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(SS); composer.setSize(W, H);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), 0.55, 0.4, 0.93));
+composer.addPass(new OutputPass());
+composer.addPass(new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uV: { value: 0.36 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uV; varying vec2 vUv;
+    void main(){ vec4 c = texture2D(tDiffuse, vUv); vec2 p = vUv - .5; p.x *= 1.5; c.rgb *= 1.0 - uV * smoothstep(.3, .95, length(p)); gl_FragColor = c; }`,
+}));
+
+// ---------------- camera: monotone cubic Hermite through the keys (C1, holds where a channel turns) ----------------
+function camAt(t) {
+  const K = CAM; let i = 0;
+  while (i < K.length - 2 && t > K[i + 1][0]) i++;
+  const k1 = K[i], k2 = K[i + 1];
+  const u = clamp((t - k1[0]) / (k2[0] - k1[0]), 0, 1), h = k2[0] - k1[0];
+  const slope = (a, c, ch) => (c[ch] - a[ch]) / (c[0] - a[0]);
+  const tan = (j, ch) => {
+    if (j <= 0 || j >= K.length - 1) return 0;
+    const s0 = slope(K[j - 1], K[j], ch), s1 = slope(K[j], K[j + 1], ch);
+    if (s0 * s1 <= 0) return 0;
+    return 2 / (1 / s0 + 1 / s1) * 0.9;
+  };
+  const out = [];
+  for (let c = 1; c < 8; c++) {
+    const p1 = k1[c], p2 = k2[c], m1 = tan(i, c) * h, m2 = tan(i + 1, c) * h;
+    const u2 = u * u, u3 = u2 * u;
+    out.push((2 * u3 - 3 * u2 + 1) * p1 + (u3 - 2 * u2 + u) * m1 + (-2 * u3 + 3 * u2) * p2 + (u3 - u2) * m2);
+  }
+  return { tx: out[0], ty: out[1], tz: out[2], dist: out[3], head: out[4], pitch: out[5], fov: out[6] };
+}
+function placeCamera(t) {
+  const c = camAt(t);
+  const h = c.head * Math.PI / 180, p = c.pitch * Math.PI / 180;
+  const f = new THREE.Vector3(Math.sin(h) * Math.cos(p), -Math.sin(p), -Math.cos(h) * Math.cos(p));
+  camera.position.set(c.tx, c.ty, c.tz).addScaledVector(f, -c.dist);
+  camera.rotation.set(-p, -h, 0, 'YXZ');
+  camera.fov = c.fov; camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+  return c;
+}
+
+// ---------------- the medium over time ----------------
+// the scan starts exactly at the top edge of the frame on b1: march the ray through the top-centre pixel onto the ground model
+const N_TOP = (() => {
+  placeCamera(T.scan);
+  const o = camera.position.clone(), d = new THREE.Vector3(0, 1, 0.5).unproject(camera).sub(o).normalize();
+  let s = 0;
+  for (let i = 0; i < 4000; i++) { const p = o.clone().addScaledVector(d, s); if (p.y <= yAt(p.x, -p.z)) break; s += 1; }
+  const p = o.clone().addScaledVector(d, s);
+  return Math.min(-p.z - 4, 780);                 // 4 m inside the frame, so the seam is on screen from the first scan frame
+})();
+const F1 = t => { if (t < T.scan) return 1e4; if (t >= T.scanEnd) return -1e4;
+  const u = seg(t, T.scan, T.scanEnd); return lerp(N_TOP, -780, 0.3 * u + 0.7 * eio(u)); };
+const RF = t => t < T.cond ? -1 : t >= T.condEnd ? 1e4 : (WIN + 40) * (0.11 * eo(seg(t, T.cond, T.cond + 0.3)) + 0.89 * Math.pow(ss(seg(t, T.cond, T.condEnd)), 1.15));
+const CUTN = t => t < T.cut + BEAT * .25 ? -1e4 : lerp(-720, SECN, eo(seg(t, T.cut + BEAT * .25, T.cutDone)));
+const TRACE = t => t < T.trace ? 0 : t >= T.traceEnd ? 1.01 : (() => {   // four steps, one per half beat, eased
+  const x = (t - T.trace) / (BEAT / 2), k = Math.floor(x); return (k + eo(clamp((x - k) / 0.8, 0, 1))) / 4;
+})();
+
+// ---------------- overlay ----------------
+const ov = document.getElementById('ov'), g2 = ov.getContext('2d');
+const SANS = '"Noto Sans SC"', MONO = '"Plex Mono", "Noto Sans SC"', COND = '"Barlow Condensed"';
+await Promise.all([`500 30px ${SANS}`, `300 120px ${COND}`, `500 30px ${COND}`, `400 20px "Plex Mono"`].map(f => document.fonts.load(f, '火山口 0123 m')));
+const TXT = [];
+const proj = (x, y, z) => { const p = new THREE.Vector3(x, y, z).project(camera); return { x: (p.x * .5 + .5) * W, y: (-p.y * .5 + .5) * H, ok: p.z < 1 }; };
+const projEN = (e, n, up = 0) => proj(e, yAt(e, n) + up, -n);
+const fmt = (n, d = 0) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+function text(id, s, x, y, font, col, a = 1, align = 'left', reg = true, full = null) {
+  if (a <= 0.002) return 0;
+  g2.save(); g2.globalAlpha = a; g2.font = font; g2.fillStyle = col; g2.textAlign = align; g2.textBaseline = 'alphabetic';
+  g2.shadowColor = 'rgba(0,0,0,.75)'; g2.shadowBlur = 8;
+  g2.fillText(s, x, y); const m = g2.measureText(full ?? s); g2.restore();
+  const w = m.width, x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+  if (reg && a > .35) TXT.push({ id, text: full ?? s, x0, y0: y - m.actualBoundingBoxAscent, x1: x0 + w, y1: y + m.actualBoundingBoxDescent });
+  return w;
+}
+function line(pts, col, w, a = 1, halo = true) {
+  if (a <= 0 || pts.length < 2) return;
+  g2.save(); g2.lineCap = 'round'; g2.lineJoin = 'round';
+  if (halo) { g2.globalAlpha = a * .5; g2.strokeStyle = '#000'; g2.lineWidth = w + 3; g2.beginPath(); pts.forEach((p, i) => i ? g2.lineTo(p.x, p.y) : g2.moveTo(p.x, p.y)); g2.stroke(); }
+  g2.globalAlpha = a; g2.strokeStyle = col; g2.lineWidth = w; g2.beginPath(); pts.forEach((p, i) => i ? g2.lineTo(p.x, p.y) : g2.moveTo(p.x, p.y)); g2.stroke(); g2.restore();
+}
+function plate(x, y, rx, ry, a) {
+  if (a <= 0) return;
+  g2.save(); g2.translate(x, y); g2.scale(1, ry / rx);
+  const gr = g2.createRadialGradient(0, 0, 10, 0, 0, rx);
+  gr.addColorStop(0, `rgba(3,6,8,${.7 * a})`); gr.addColorStop(1, 'rgba(3,6,8,0)');
+  g2.fillStyle = gr; g2.fillRect(-rx, -rx, 2 * rx, 2 * rx); g2.restore();
+}
+
+const PROF = SEC.profile, RAW = SEC.raw;
+// the ring label hangs on the stretch of crest that is already lit (amber) when the label appears:
+// candidates are arc points with par below the lit fraction at label onset; pick the one that stays best placed
+// in frame for the label's whole life (same world -> screen function, per frame)
+const LBL0 = T.trace + BEAT * .5, LBL1 = T.cut - .3;
+let ringA = null;
+function RING_ANCHOR() {
+  if (!ringA) {
+    const keep = camera.clone(), lit = TRACE(LBL0) - 0.03, nA = M.arc.length;
+    let best = 1e9;
+    M.arc.forEach(([e, n], i) => {
+      if (i / (nA - 1) > lit) return;
+      let sc = 0;
+      for (let k = 0; k <= 6; k++) {
+        placeCamera(lerp(LBL0, LBL1, k / 6)); const p = projEN(e, n, 2);
+        if (!p.ok || p.y < 330 || p.y > 900 || p.x < 120 || p.x > 1300) { sc = 1e9; break; }
+        sc += Math.abs(p.x - 520) + Math.abs(p.y - 640) * .5;
+      }
+      sc += Math.abs(i / (nA - 1) - lit / 2) * 2000;       // prefer the middle of the lit stretch
+      if (sc < best) { best = sc; ringA = [e, n]; }
+    });
+    if (!ringA) ringA = M.arc[Math.round(lit / 2 * (nA - 1))];
+    camera.copy(keep); camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+  }
+  return projEN(ringA[0], ringA[1], 2);
+}
+// chart geometry (right third): x = distance along the section (m), y = height above the crater floor (m)
+const CH = { x0: 1290, x1: 1850, y0: 440, y1: 200, d0: -440, d1: 440, h0: -15, h1: 110 };
+CH.sx = (CH.x1 - CH.x0) / (CH.d1 - CH.d0); CH.sy = (CH.y0 - CH.y1) / (CH.h1 - CH.h0);
+const cx = d => CH.x0 + (d - CH.d0) * CH.sx, cy = h => CH.y0 - (h - CH.h0) * CH.sy;
+const VEX = CH.sy / CH.sx;
+
+function drawOverlay(t) {
+  g2.clearRect(0, 0, W, H); TXT.length = 0;
+  // ---- instruments, top left: change only when the medium does ----
+  plate(300, 120, 470, 150, 0.85);
+  text('i1', '帕纳姆火山口 · 加州莫诺火山链最北端', 72, 82, `500 26px ${SANS}`, C.ink, 1);
+  text('i2', `${M.frame.lat.toFixed(4)}°N  ${Math.abs(M.frame.lon).toFixed(4)}°W  ·  1.4 × 1.4 km`, 72, 116, `400 20px ${MONO}`, C.dim, 1);
+  if (t < T.scanEnd) text('i3a', '航摄  USDA NAIP · 2022-08-07', 72, 146, `400 20px ${MONO}`, C.dim, 1 - seg(t, T.scanEnd - .15, T.scanEnd));
+  else text('i3b', '激光  USGS 3DEP · CA_SierraNevada_13_B22', 72, 146, `400 20px ${MONO}`, C.dim, seg(t, T.scanEnd, T.scanEnd + .2));
+  if (t >= T.scan) {
+    const u = eio(seg(t, T.scan, T.scanEnd)), n = Math.round(u * M.count);
+    const full = `回波  ${fmt(M.count)} 点`;
+    text('i4', `回波  ${fmt(n)} 点`, 72, 176, `400 20px ${MONO}`, t < T.scanEnd ? C.scan : C.dim, seg(t, T.scan, T.scan + .12), 'left', true, full);
+  }
+  if (t >= T.crane) text('i5', '垂直 ×1.5（仅显示）', 72, 206, `400 20px ${MONO}`, C.faint, seg(t, T.crane, T.crane + .3));
+
+  // ---- the traced crest label ----
+  {
+    const a = seg(t, T.trace + BEAT * .5, T.trace + BEAT * .5 + .25) * (1 - seg(t, T.cut - .3, T.cut));
+    if (a > 0) {
+      const p = RING_ANCHOR();
+      line([{ x: p.x, y: p.y }, { x: p.x, y: p.y - 70 }], C.amber, 1.2, a);
+      text('lblRing', '凝灰环脊线 · 描绘', p.x + 10, p.y - 74, `500 28px ${SANS}`, C.amber, a);
+    }
+  }
+  // ---- the dome label ----
+  {
+    const a = seg(t, T.condEnd, T.condEnd + .25) * (1 - seg(t, T.cut - .3, T.cut));
+    if (a > 0) {
+      const p = projEN(SUM[0], SUM[1], 10);
+      line([{ x: p.x, y: p.y }, { x: p.x, y: p.y - 90 }], C.ink, 1.2, a * .8);
+      text('lblDome', '熔岩穹丘', p.x, p.y - 100, `500 32px ${SANS}`, C.ink, a, 'center');
+    }
+  }
+  drawSection(t);
+}
+
+function drawSection(t) {
+  const a = seg(t, T.cut + BEAT * .5, T.cut + BEAT * .5 + .3);
+  if (a <= 0) return;
+  plate(1570, 470, 560, 420, a);
+  text('secT', '剖面 · 西→东 过穹丘顶', CH.x0, CH.y1 - 52, `500 28px ${SANS}`, C.ink, a);
+  // axes: floor line (0 m) and ticks every 100 m along
+  line([{ x: CH.x0, y: cy(0) }, { x: CH.x1, y: cy(0) }], C.faint, 1, a * .8, false);
+  for (let d = -400; d <= 400; d += 100) line([{ x: cx(d), y: cy(0) }, { x: cx(d), y: cy(0) + 6 }], C.faint, 1, a * .8, false);
+  text('secW', '西', CH.x0 - 6, cy(0) + 8, `500 20px ${SANS}`, C.faint, a, 'right', false);
+  text('secE', '东', CH.x1 + 6, cy(0) + 8, `500 20px ${SANS}`, C.faint, a, 'left', false);
+  // raw ground returns, revealed west -> east with the profile line
+  const grow = eo(seg(t, T.cut + BEAT * .5, T.cutDone));
+  const dx = lerp(CH.d0, CH.d1, grow);
+  g2.save(); g2.globalAlpha = a * .6; g2.fillStyle = '#e8e2d6';
+  for (const [d, z] of RAW) { if (d < CH.d0 || d > dx || d > CH.d1) continue; g2.fillRect(cx(d) - 1, cy(z - FLOOR) - 1, 2, 2); }
+  g2.restore();
+  const med = PROF.filter(p => p[0] >= CH.d0 && p[0] <= dx).map(p => ({ x: cx(p[0]), y: cy(p[1] - FLOOR) }));
+  line(med, C.amber, 2.5, a);
+  text('secS', `地面回波 ${fmt(SEC.n_returns)} 点 · ±2 m 带 · 垂直 ×${VEX.toFixed(1)}`, CH.x0, CH.y0 + 46, `400 20px ${MONO}`, C.dim, a);
+  // dimension: summit to floor
+  const da = seg(t, T.roll, T.roll + .25);
+  if (da > 0) {
+    const ds = MS.summit.d, xd = cx(ds) + 0, hTop = cy(MS.summit.z - FLOOR), hBot = cy(0);
+    const yy = lerp(hBot, hTop, eo(seg(t, T.roll, T.land)));
+    line([{ x: cx(MS.moatE.d), y: hBot }, { x: xd, y: hBot }], C.ink, 1, da * .7, false);
+    line([{ x: xd - 10, y: hTop }, { x: xd + 10, y: hTop }], C.ink, 1.4, da * seg(t, T.land - .1, T.land));
+    line([{ x: xd, y: hBot }, { x: xd, y: yy }], C.ink, 1.4, da);
+    // leader from the chart to the summit on the cut face
+    const p = projEN(SUM[0], SECN, 4);
+    if (p.ok) line([{ x: p.x, y: p.y }, { x: CH.x0 - 30, y: hTop }], C.amber, 1.2, da * .8);
+  }
+  // reading
+  const ra = seg(t, T.cut + BEAT, T.cut + BEAT + .3);
+  if (ra > 0) {
+    const x = CH.x0, y = 720;
+    text('rL', '穹丘顶高出火山口底', x, y - 120, `500 30px ${SANS}`, C.ink, ra);
+    if (t >= T.roll) {
+      const u = eo(seg(t, T.roll, T.land)), v = Math.round(u * DOME);
+      const pop = 1 + .06 * Math.sin(Math.PI * seg(t, T.land, T.land + .3));
+      g2.save(); g2.translate(x, y); g2.scale(pop, pop);
+      const w = text('rVv', `${v}`, 0, 0, `300 124px ${COND}`, C.amber, seg(t, T.roll, T.roll + .15), 'left', false);
+      text('rVu', 'm', w + 10, 0, `500 44px ${COND}`, C.amber, seg(t, T.roll, T.roll + .15), 'left', false);
+      g2.restore();
+      g2.font = `300 124px ${COND}`; const wv = g2.measureText(`${Math.round(DOME)}`).width;
+      if (seg(t, T.roll, T.roll + .15) > .35) TXT.push({ id: 'rV', text: `${Math.round(DOME)} m`, x0: x, y0: y - 95, x1: x + wv + 50, y1: y + 4 });
+    }
+  }
+}
+
+// ---------------- events for the mixer (foley + cues) ----------------
+const EV = [];
+EV.push({ t: T.scan, type: 'scan', to: T.scanEnd });
+EV.push({ t: T.scan, type: 'count', to: T.scanEnd });
+EV.push({ t: T.crane, type: 'crane' });
+EV.push({ t: T.scanEnd, type: 'land' });
+EV.push({ t: T.cond, type: 'condense', to: T.condEnd });
+for (let k = 0; k < 4; k++) EV.push({ t: T.trace + k * BEAT / 2, type: 'trace', i: k });
+EV.push({ t: T.trace + BEAT * .5, type: 'label' });
+EV.push({ t: T.condEnd, type: 'solid' });
+EV.push({ t: T.condEnd, type: 'label' });
+EV.push({ t: T.sil, type: 'silence', to: T.cut });
+EV.push({ t: T.cut, type: 'section', to: T.cutDone });
+EV.push({ t: T.cut + BEAT * .5, type: 'chart', to: T.cutDone });
+EV.push({ t: T.roll, type: 'roll', to: T.land });
+EV.push({ t: T.land, type: 'reading' });
+EV.push({ t: T.land, type: 'pullback', to: DUR });
+EV.push({ t: T.wind, type: 'wind' });
+window.EV = EV;
+
+// ---------------- render ----------------
+window.DUR = DUR;
+window.camAt = camAt;
+let lastT = -1;
+window.render = t => {
+  lastT = t;
+  placeCamera(t);
+  U.uProj.value = (H * SS / 2) / Math.tan(camera.fov * Math.PI / 360);
+  U.uF1.value = F1(t); U.uR.value = RF(t);
+  const cn = CUTN(t); U.uCutN.value = cn;
+  U.uDim.value = ss(seg(t, T.condEnd - BEAT, T.condEnd + BEAT));
+  U.uTrace.value = TRACE(t);
+  U.uSecL.value = t < T.cut ? 0 : eo(seg(t, T.cut, T.cut + BEAT * .5));
+  U.uPhoto.value = t < T.scanEnd ? 1 : 0;
+  photo.visible = t < T.scanEnd;
+  surf.visible = t >= T.cond;
+  cut.visible = cn > -700;
+  if (cut.visible) buildCut(cn);
+  composer.render();
+  drawOverlay(t);
+};
+window.TEXTS = t => { if (Math.abs(t - lastT) > 1e-6) window.render(t); return TXT.slice(); };
+await document.fonts.ready;
+window.render(0);
+window.READY = true;
+</script></body></html>

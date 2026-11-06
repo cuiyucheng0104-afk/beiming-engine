@@ -1,0 +1,7014 @@
+[
+ {
+  "id": "01a",
+  "file": "01a-coffee.html",
+  "episode": 1,
+  "style": "01",
+  "industry": "咖啡烘焙",
+  "brand": "巷口咖啡",
+  "video": "01-咖啡烘焙-巷口咖啡.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": [
+   {
+    "kind": "toon",
+    "start": 0,
+    "dur": 10.0
+   },
+   {
+    "kind": "none",
+    "start": 10.0,
+    "dur": 2.5
+   },
+   {
+    "kind": "toon_end",
+    "start": 12.5,
+    "dur": 2.5
+   }
+  ],
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "harp_up",
+    "gain": 0.55
+   },
+   {
+    "t": 0.75,
+    "sfx": "tip1",
+    "gain": 0.32
+   },
+   {
+    "t": 1,
+    "sfx": "tip2",
+    "gain": 0.32
+   },
+   {
+    "t": 1.25,
+    "sfx": "tip1",
+    "gain": 0.32
+   },
+   {
+    "t": 1.5,
+    "sfx": "tip2",
+    "gain": 0.32
+   },
+   {
+    "t": 1.75,
+    "sfx": "tip1",
+    "gain": 0.32
+   },
+   {
+    "t": 2,
+    "sfx": "tip2",
+    "gain": 0.32
+   },
+   {
+    "t": 2.25,
+    "sfx": "tip1",
+    "gain": 0.32
+   },
+   {
+    "t": 2.5,
+    "sfx": "tip2",
+    "gain": 0.32
+   },
+   {
+    "t": 2.75,
+    "sfx": "tip1",
+    "gain": 0.32
+   },
+   {
+    "t": 3,
+    "sfx": "tip2",
+    "gain": 0.32
+   },
+   {
+    "t": 3.25,
+    "sfx": "tip1",
+    "gain": 0.32
+   },
+   {
+    "t": 3.5,
+    "sfx": "tip2",
+    "gain": 0.32
+   },
+   {
+    "t": 3.75,
+    "sfx": "tip1",
+    "gain": 0.32
+   },
+   {
+    "t": 4,
+    "sfx": "tip2",
+    "gain": 0.32
+   },
+   {
+    "t": 4.95,
+    "sfx": "yawn",
+    "gain": 0.8
+   },
+   {
+    "t": 6.45,
+    "sfx": "snore",
+    "gain": 0.6
+   },
+   {
+    "t": 6.6,
+    "sfx": "ding",
+    "gain": 0.55
+   },
+   {
+    "t": 6.72,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 7.3,
+    "sfx": "lure",
+    "gain": 0.7
+   },
+   {
+    "t": 7.35,
+    "sfx": "snore",
+    "gain": 0.5
+   },
+   {
+    "t": 8,
+    "sfx": "pop",
+    "gain": 0.8
+   },
+   {
+    "t": 8.05,
+    "sfx": "sniff",
+    "gain": 0.7
+   },
+   {
+    "t": 8.2,
+    "sfx": "slide_up",
+    "gain": 0.7
+   },
+   {
+    "t": 9.12,
+    "sfx": "land",
+    "gain": 0.4
+   },
+   {
+    "t": 9.45,
+    "sfx": "gulp",
+    "gain": 0.9
+   },
+   {
+    "t": 9.72,
+    "sfx": "gulp",
+    "gain": 0.9
+   },
+   {
+    "t": 10.32,
+    "sfx": "tick",
+    "gain": 0.5
+   },
+   {
+    "t": 10.56,
+    "sfx": "take",
+    "gain": 0.55
+   },
+   {
+    "t": 10.65,
+    "sfx": "steamwhistle",
+    "gain": 0.6
+   },
+   {
+    "t": 11.6,
+    "sfx": "zip",
+    "gain": 0.85
+   },
+   {
+    "t": 12.25,
+    "sfx": "thud",
+    "gain": 0.35
+   },
+   {
+    "t": 12.55,
+    "sfx": "zip",
+    "gain": 0.6
+   },
+   {
+    "t": 12.62,
+    "sfx": "skid",
+    "gain": 0.7
+   },
+   {
+    "t": 12.95,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 13.95,
+    "sfx": "sparkle",
+    "gain": 0.5
+   },
+   {
+    "t": 14.2,
+    "sfx": "boing",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "01b",
+  "file": "01b-minsu.html",
+  "episode": 1,
+  "style": "01",
+  "industry": "民宿",
+  "brand": "云栖小院",
+  "video": "01-民宿-云栖小院.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": [
+   {
+    "kind": "anime_rain",
+    "start": 0,
+    "dur": 6.0
+   },
+   {
+    "kind": "anime",
+    "start": 6.0,
+    "dur": 4.0
+   },
+   {
+    "kind": "anime_night",
+    "start": 10.0,
+    "dur": 6.0
+   }
+  ],
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "rainloop",
+    "gain": 0.7
+   },
+   {
+    "t": 0.4,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 0.73,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 1.06,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 1.39,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 1.72,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 2.05,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 2.38,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 2.71,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 3.04,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 3.37,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 3.7,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 4.03,
+    "sfx": "step_soft",
+    "gain": 0.35
+   },
+   {
+    "t": 4.72,
+    "sfx": "door_creak",
+    "gain": 0.6
+   },
+   {
+    "t": 5,
+    "sfx": "harp_up",
+    "gain": 0.35
+   },
+   {
+    "t": 5.9,
+    "sfx": "birds",
+    "gain": 0.5
+   },
+   {
+    "t": 6,
+    "sfx": "whoosh",
+    "gain": 0.2
+   },
+   {
+    "t": 7.2,
+    "sfx": "swell",
+    "gain": 0.35
+   },
+   {
+    "t": 7.6,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 7.93,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 8.26,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 8.59,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 8.92,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 9,
+    "sfx": "whoosh",
+    "gain": 0.2
+   },
+   {
+    "t": 9.12,
+    "sfx": "rope",
+    "gain": 0.6
+   },
+   {
+    "t": 9.25,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 9.58,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 9.6,
+    "sfx": "rope",
+    "gain": 0.4
+   },
+   {
+    "t": 9.7,
+    "sfx": "windchime",
+    "gain": 0.55
+   },
+   {
+    "t": 11.6,
+    "sfx": "sparkle",
+    "gain": 0.3
+   },
+   {
+    "t": 12.85,
+    "sfx": "sparkle",
+    "gain": 0.45
+   },
+   {
+    "t": 13.3,
+    "sfx": "chime",
+    "gain": 0.4
+   },
+   {
+    "t": 14.2,
+    "sfx": "stamp",
+    "gain": 0.4
+   }
+  ]
+ },
+ {
+  "id": "01c",
+  "file": "01c-wedding.html",
+  "episode": 1,
+  "style": "01",
+  "industry": "婚礼定制",
+  "brand": "拾柒婚礼",
+  "video": "01-婚礼定制-拾柒婚礼.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": [
+   {
+    "kind": "jazz",
+    "start": 0,
+    "dur": 12.0
+   },
+   {
+    "kind": "jazz_end",
+    "start": 12.0,
+    "dur": 4.0
+   }
+  ],
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 0.15,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 0.3,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 0.55,
+    "sfx": "boing",
+    "gain": 0.5
+   },
+   {
+    "t": 1,
+    "sfx": "heart",
+    "gain": 0.9
+   },
+   {
+    "t": 1.2,
+    "sfx": "knock",
+    "gain": 0.5
+   },
+   {
+    "t": 1.5,
+    "sfx": "heart",
+    "gain": 0.9
+   },
+   {
+    "t": 2,
+    "sfx": "heart",
+    "gain": 0.9
+   },
+   {
+    "t": 2.4,
+    "sfx": "knock",
+    "gain": 0.5
+   },
+   {
+    "t": 2.5,
+    "sfx": "heart",
+    "gain": 0.9
+   },
+   {
+    "t": 3,
+    "sfx": "heart",
+    "gain": 0.9
+   },
+   {
+    "t": 3.5,
+    "sfx": "heart",
+    "gain": 0.9
+   },
+   {
+    "t": 3.5,
+    "sfx": "whoosh",
+    "gain": 0.6
+   },
+   {
+    "t": 3.85,
+    "sfx": "land",
+    "gain": 0.3
+   },
+   {
+    "t": 4,
+    "sfx": "check",
+    "gain": 0.6
+   },
+   {
+    "t": 4.1,
+    "sfx": "blocks",
+    "gain": 0.4
+   },
+   {
+    "t": 4.5,
+    "sfx": "check",
+    "gain": 0.6
+   },
+   {
+    "t": 4.6,
+    "sfx": "ding",
+    "gain": 0.4
+   },
+   {
+    "t": 5,
+    "sfx": "check",
+    "gain": 0.6
+   },
+   {
+    "t": 5.05,
+    "sfx": "roll",
+    "gain": 0.6
+   },
+   {
+    "t": 5.5,
+    "sfx": "check",
+    "gain": 0.6
+   },
+   {
+    "t": 5.6,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 5.68,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 6,
+    "sfx": "whoosh_up",
+    "gain": 0.4
+   },
+   {
+    "t": 6.6,
+    "sfx": "vibe_up",
+    "gain": 0.6
+   },
+   {
+    "t": 7,
+    "sfx": "boing2",
+    "gain": 0.6
+   },
+   {
+    "t": 7.05,
+    "sfx": "heart",
+    "gain": 0.6
+   },
+   {
+    "t": 8.6,
+    "sfx": "thud",
+    "gain": 0.4
+   },
+   {
+    "t": 9,
+    "sfx": "sparkle",
+    "gain": 0.7
+   },
+   {
+    "t": 9,
+    "sfx": "chime",
+    "gain": 0.5
+   },
+   {
+    "t": 9.2,
+    "sfx": "jump",
+    "gain": 0.3
+   },
+   {
+    "t": 10.2,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 10.4,
+    "sfx": "fireworks",
+    "gain": 0.4
+   },
+   {
+    "t": 10.45,
+    "sfx": "pop",
+    "gain": 0.6
+   },
+   {
+    "t": 11,
+    "sfx": "honk",
+    "gain": 0.6
+   },
+   {
+    "t": 11.1,
+    "sfx": "check",
+    "gain": 0.5
+   },
+   {
+    "t": 12.5,
+    "sfx": "whoosh_up",
+    "gain": 0.5
+   },
+   {
+    "t": 13.1,
+    "sfx": "stamp",
+    "gain": 0.5
+   },
+   {
+    "t": 14.4,
+    "sfx": "check",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "02a",
+  "file": "02a-factory.html",
+  "episode": 1,
+  "style": "02",
+  "industry": "工厂数字化",
+  "brand": "恒创精工",
+  "video": "02-工厂数字化-恒创精工.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "02",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 0.6,
+    "sfx": "blocks",
+    "gain": 0.6
+   },
+   {
+    "t": 1.1,
+    "sfx": "blocks",
+    "gain": 0.6
+   },
+   {
+    "t": 1.6,
+    "sfx": "blocks",
+    "gain": 0.5
+   },
+   {
+    "t": 2.4,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 3,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 3.3,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 4.4,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 6.3,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 7.9,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 8.3,
+    "sfx": "riser_short",
+    "gain": 0.5
+   },
+   {
+    "t": 9.05,
+    "sfx": "beep",
+    "gain": 0.6
+   },
+   {
+    "t": 9.1,
+    "sfx": "ding",
+    "gain": 0.6
+   },
+   {
+    "t": 11.2,
+    "sfx": "whoosh_up",
+    "gain": 0.5
+   },
+   {
+    "t": 12.2,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 12.4,
+    "sfx": "data",
+    "gain": 0.5
+   },
+   {
+    "t": 13.2,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "02b",
+  "file": "02b-park.html",
+  "episode": 1,
+  "style": "02",
+  "industry": "园区招商",
+  "brand": "青禾产业园",
+  "video": "02-园区招商-青禾产业园.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "02",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 0.5,
+    "sfx": "ticks",
+    "gain": 0.4
+   },
+   {
+    "t": 1.8,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 1.8,
+    "sfx": "click",
+    "gain": 0.5
+   },
+   {
+    "t": 2.2,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 2.6,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 3,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 4.2,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 4.2,
+    "sfx": "click",
+    "gain": 0.5
+   },
+   {
+    "t": 4.6,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 5,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 6,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 6,
+    "sfx": "click",
+    "gain": 0.5
+   },
+   {
+    "t": 6.4,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 6.8,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 7.2,
+    "sfx": "blocks",
+    "gain": 0.45
+   },
+   {
+    "t": 8.4,
+    "sfx": "click",
+    "gain": 0.5
+   },
+   {
+    "t": 8.4,
+    "sfx": "swell",
+    "gain": 0.5
+   },
+   {
+    "t": 10,
+    "sfx": "sparkle",
+    "gain": 0.4
+   },
+   {
+    "t": 10.6,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 10.85,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 11.1,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 11.35,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 11.6,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 12.5,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "02c",
+  "file": "02c-supply.html",
+  "episode": 1,
+  "style": "02",
+  "industry": "供应链SaaS",
+  "brand": "货流通",
+  "video": "02-供应链SaaS-货流通.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "02",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 0.5,
+    "sfx": "pop",
+    "gain": 0.6
+   },
+   {
+    "t": 0.8,
+    "sfx": "data",
+    "gain": 0.5
+   },
+   {
+    "t": 1.2,
+    "sfx": "beep",
+    "gain": 0.5
+   },
+   {
+    "t": 2.9,
+    "sfx": "beep",
+    "gain": 0.6
+   },
+   {
+    "t": 2.5,
+    "sfx": "zoom",
+    "gain": 0.6
+   },
+   {
+    "t": 4,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   },
+   {
+    "t": 4,
+    "sfx": "shutter",
+    "gain": 0.5
+   },
+   {
+    "t": 5.6,
+    "sfx": "shutter",
+    "gain": 0.5
+   },
+   {
+    "t": 5.6,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 7.4,
+    "sfx": "shutter",
+    "gain": 0.5
+   },
+   {
+    "t": 8,
+    "sfx": "land",
+    "gain": 0.3
+   },
+   {
+    "t": 8.2,
+    "sfx": "ding",
+    "gain": 0.6
+   },
+   {
+    "t": 9.6,
+    "sfx": "whoosh_up",
+    "gain": 0.5
+   },
+   {
+    "t": 10.8,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 10.9,
+    "sfx": "data",
+    "gain": 0.5
+   },
+   {
+    "t": 12.2,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "03a",
+  "file": "03a-edu.html",
+  "episode": 1,
+  "style": "03",
+  "industry": "教育培训",
+  "brand": "小步数学",
+  "video": "03-教育培训-小步数学.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "03",
+  "cues": [
+   {
+    "t": 0.25,
+    "sfx": "boing",
+    "gain": 0.6
+   },
+   {
+    "t": 0.7,
+    "sfx": "whoosh_up",
+    "gain": 0.6
+   },
+   {
+    "t": 3.2,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 4,
+    "sfx": "ding",
+    "gain": 0.6
+   },
+   {
+    "t": 6.2,
+    "sfx": "ticks",
+    "gain": 0.5
+   },
+   {
+    "t": 7.5,
+    "sfx": "levelup",
+    "gain": 0.7
+   },
+   {
+    "t": 7.7,
+    "sfx": "sparkle",
+    "gain": 0.5
+   },
+   {
+    "t": 8.6,
+    "sfx": "zoom",
+    "gain": 0.6
+   },
+   {
+    "t": 11,
+    "sfx": "pop",
+    "gain": 0.6
+   },
+   {
+    "t": 11.1,
+    "sfx": "laugh",
+    "gain": 0.4
+   },
+   {
+    "t": 12,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "03b",
+  "file": "03b-onboard.html",
+  "episode": 1,
+  "style": "03",
+  "industry": "企业内训",
+  "brand": "新人七日通",
+  "video": "03-企业内训-新人七日通.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "03",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "stamp",
+    "gain": 0.7
+   },
+   {
+    "t": 1,
+    "sfx": "click",
+    "gain": 0.5
+   },
+   {
+    "t": 2.4,
+    "sfx": "zoom",
+    "gain": 0.6
+   },
+   {
+    "t": 3.4,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   },
+   {
+    "t": 3.45,
+    "sfx": "stamp",
+    "gain": 0.7
+   },
+   {
+    "t": 5.2,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 6.2,
+    "sfx": "zoom",
+    "gain": 0.6
+   },
+   {
+    "t": 7.2,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   },
+   {
+    "t": 7.25,
+    "sfx": "stamp",
+    "gain": 0.7
+   },
+   {
+    "t": 8.6,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 10,
+    "sfx": "zoom",
+    "gain": 0.6
+   },
+   {
+    "t": 11,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   },
+   {
+    "t": 11.05,
+    "sfx": "stamp",
+    "gain": 0.7
+   },
+   {
+    "t": 11.5,
+    "sfx": "stamp",
+    "gain": 0.6
+   },
+   {
+    "t": 12.1,
+    "sfx": "levelup",
+    "gain": 0.7
+   },
+   {
+    "t": 12.3,
+    "sfx": "sparkle",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "03c",
+  "file": "03c-app.html",
+  "episode": 1,
+  "style": "03",
+  "industry": "AI做的App",
+  "brand": "每日小账",
+  "video": "03-AI做的App-每日小账.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "03",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 0.8,
+    "sfx": "riser_short",
+    "gain": 0.6
+   },
+   {
+    "t": 2.8,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 5.4,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 6.3,
+    "sfx": "shutter",
+    "gain": 0.5
+   },
+   {
+    "t": 8.4,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 11.2,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   },
+   {
+    "t": 11.7,
+    "sfx": "coin",
+    "gain": 0.6
+   },
+   {
+    "t": 12.5,
+    "sfx": "levelup",
+    "gain": 0.6
+   },
+   {
+    "t": 12.7,
+    "sfx": "sparkle",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "04a",
+  "file": "04a-arch.html",
+  "episode": 1,
+  "style": "04",
+  "industry": "建筑事务所",
+  "brand": "白石建筑",
+  "video": "04-建筑事务所-白石建筑.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "04",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "swell",
+    "gain": 0.5
+   },
+   {
+    "t": 0.6,
+    "sfx": "pencil",
+    "gain": 0.4
+   },
+   {
+    "t": 1.6,
+    "sfx": "pencil",
+    "gain": 0.35
+   },
+   {
+    "t": 2.6,
+    "sfx": "riser_short",
+    "gain": 0.5
+   },
+   {
+    "t": 4.8,
+    "sfx": "scribble",
+    "gain": 0.3
+   },
+   {
+    "t": 6.4,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 7.4,
+    "sfx": "whoosh_up",
+    "gain": 0.4
+   },
+   {
+    "t": 10,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 11.9,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "04b",
+  "file": "04b-law.html",
+  "episode": 1,
+  "style": "04",
+  "industry": "律所",
+  "brand": "衡正律所",
+  "video": "04-律所-衡正律所.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "04",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "swell",
+    "gain": 0.5
+   },
+   {
+    "t": 1,
+    "sfx": "pencil",
+    "gain": 0.4
+   },
+   {
+    "t": 2.8,
+    "sfx": "pencil",
+    "gain": 0.4
+   },
+   {
+    "t": 4.4,
+    "sfx": "clink",
+    "gain": 0.6
+   },
+   {
+    "t": 4.8,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 6,
+    "sfx": "scribble",
+    "gain": 0.3
+   },
+   {
+    "t": 7.4,
+    "sfx": "impact_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 8.4,
+    "sfx": "impact_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 9.4,
+    "sfx": "impact_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 9.6,
+    "sfx": "sparkle",
+    "gain": 0.3
+   },
+   {
+    "t": 10.6,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "04c",
+  "file": "04c-watch.html",
+  "episode": 1,
+  "style": "04",
+  "industry": "腕表",
+  "brand": "ORIN",
+  "video": "04-腕表-ORIN.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "04",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "swell",
+    "gain": 0.5
+   },
+   {
+    "t": 0.4,
+    "sfx": "pencil",
+    "gain": 0.4
+   },
+   {
+    "t": 2,
+    "sfx": "shutter",
+    "gain": 0.4
+   },
+   {
+    "t": 2.1,
+    "sfx": "pencil",
+    "gain": 0.35
+   },
+   {
+    "t": 3.6,
+    "sfx": "shutter",
+    "gain": 0.4
+   },
+   {
+    "t": 3.7,
+    "sfx": "ticks",
+    "gain": 0.6
+   },
+   {
+    "t": 5.2,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 8.6,
+    "sfx": "whoosh_up",
+    "gain": 0.4
+   },
+   {
+    "t": 10,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 10.3,
+    "sfx": "ticks",
+    "gain": 0.4
+   },
+   {
+    "t": 11.4,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "05a",
+  "file": "05a-gummy.html",
+  "episode": 1,
+  "style": "05",
+  "industry": "零食",
+  "brand": "果汁软糖",
+  "video": "05-零食-果汁软糖.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "19",
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 1.1,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 1.71,
+    "sfx": "boing",
+    "gain": 0.9
+   },
+   {
+    "t": 1.71,
+    "sfx": "squish",
+    "gain": 0.9
+   },
+   {
+    "t": 3.96,
+    "sfx": "squish",
+    "gain": 0.24
+   },
+   {
+    "t": 2.83,
+    "sfx": "blob",
+    "gain": 0.24
+   },
+   {
+    "t": 3.31,
+    "sfx": "pop",
+    "gain": 0.24
+   },
+   {
+    "t": 3.6,
+    "sfx": "squish",
+    "gain": 0.24
+   },
+   {
+    "t": 3.69,
+    "sfx": "blob",
+    "gain": 0.24
+   },
+   {
+    "t": 3.02,
+    "sfx": "pop",
+    "gain": 0.24
+   },
+   {
+    "t": 4.1,
+    "sfx": "squish",
+    "gain": 0.24
+   },
+   {
+    "t": 3.15,
+    "sfx": "blob",
+    "gain": 0.24
+   },
+   {
+    "t": 4.06,
+    "sfx": "pop",
+    "gain": 0.24
+   },
+   {
+    "t": 3.89,
+    "sfx": "squish",
+    "gain": 0.24
+   },
+   {
+    "t": 4.05,
+    "sfx": "blob",
+    "gain": 0.24
+   },
+   {
+    "t": 3.74,
+    "sfx": "pop",
+    "gain": 0.24
+   },
+   {
+    "t": 3.24,
+    "sfx": "squish",
+    "gain": 0.24
+   },
+   {
+    "t": 3.69,
+    "sfx": "blob",
+    "gain": 0.24
+   },
+   {
+    "t": 3.07,
+    "sfx": "pop",
+    "gain": 0.24
+   },
+   {
+    "t": 3.84,
+    "sfx": "squish",
+    "gain": 0.24
+   },
+   {
+    "t": 3,
+    "sfx": "blob",
+    "gain": 0.24
+   },
+   {
+    "t": 3.36,
+    "sfx": "pop",
+    "gain": 0.24
+   },
+   {
+    "t": 4.11,
+    "sfx": "squish",
+    "gain": 0.24
+   },
+   {
+    "t": 3.51,
+    "sfx": "blob",
+    "gain": 0.24
+   },
+   {
+    "t": 5.85,
+    "sfx": "jump",
+    "gain": 0.3
+   },
+   {
+    "t": 6.25,
+    "sfx": "boing2",
+    "gain": 0.3
+   },
+   {
+    "t": 6.65,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 7.2,
+    "sfx": "whoosh_up",
+    "gain": 0.25
+   },
+   {
+    "t": 7.68,
+    "sfx": "squish",
+    "gain": 1
+   },
+   {
+    "t": 7.68,
+    "sfx": "pop",
+    "gain": 0.6
+   },
+   {
+    "t": 8.05,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 8.36,
+    "sfx": "blob",
+    "gain": 0.22
+   },
+   {
+    "t": 8.67,
+    "sfx": "blob",
+    "gain": 0.2
+   },
+   {
+    "t": 8.15,
+    "sfx": "sparkle",
+    "gain": 0.35
+   },
+   {
+    "t": 9.5,
+    "sfx": "jump",
+    "gain": 0.3
+   },
+   {
+    "t": 9.86,
+    "sfx": "boing",
+    "gain": 0.4
+   },
+   {
+    "t": 9.95,
+    "sfx": "chime",
+    "gain": 0.55
+   },
+   {
+    "t": 12.7,
+    "sfx": "boing2",
+    "gain": 0.25
+   },
+   {
+    "t": 13.7,
+    "sfx": "sparkle",
+    "gain": 0.25
+   }
+  ]
+ },
+ {
+  "id": "05b",
+  "file": "05b-lipstick.html",
+  "episode": 1,
+  "style": "05",
+  "industry": "美妆口红",
+  "brand": "绯FEI",
+  "video": "05-美妆口红-绯FEI.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "05",
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 2.4,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 2.5,
+    "sfx": "suck",
+    "gain": 0.5
+   },
+   {
+    "t": 4.4,
+    "sfx": "clink",
+    "gain": 0.4
+   },
+   {
+    "t": 4.6,
+    "sfx": "roll",
+    "gain": 0.35
+   },
+   {
+    "t": 7,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 7.1,
+    "sfx": "brush",
+    "gain": 0.55
+   },
+   {
+    "t": 9.2,
+    "sfx": "impact_soft",
+    "gain": 0.4
+   },
+   {
+    "t": 9.8,
+    "sfx": "chime",
+    "gain": 0.55
+   }
+  ]
+ },
+ {
+  "id": "05c",
+  "file": "05c-blender.html",
+  "episode": 1,
+  "style": "05",
+  "industry": "小家电",
+  "brand": "随鲜榨汁杯",
+  "video": "05-小家电-随鲜榨汁杯.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "05",
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 0.85,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 1.02,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 1.19,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 1.37,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 1.54,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 1.71,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 1.88,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 2.05,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 2.22,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 2.39,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 2.56,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 2.73,
+    "sfx": "blob",
+    "gain": 0.25
+   },
+   {
+    "t": 3.88,
+    "sfx": "powerup",
+    "gain": 0.4
+   },
+   {
+    "t": 4.19,
+    "sfx": "riser_short",
+    "gain": 0.3
+   },
+   {
+    "t": 8.07,
+    "sfx": "ding",
+    "gain": 0.5
+   },
+   {
+    "t": 10.6,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 11.3,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 11.7,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 12.1,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 12.6,
+    "sfx": "chime",
+    "gain": 0.55
+   }
+  ]
+ },
+ {
+  "id": "06a",
+  "file": "06a-gym.html",
+  "episode": 2,
+  "style": "06",
+  "industry": "健身工作室",
+  "brand": "燃点健身",
+  "video": "06-健身工作室-燃点健身.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "06",
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 1.18,
+    "sfx": "impact",
+    "gain": 0.75
+   },
+   {
+    "t": 3.58,
+    "sfx": "impact",
+    "gain": 0.75
+   },
+   {
+    "t": 5.98,
+    "sfx": "impact",
+    "gain": 0.75
+   },
+   {
+    "t": 8.38,
+    "sfx": "impact",
+    "gain": 0.75
+   },
+   {
+    "t": 10.18,
+    "sfx": "impact",
+    "gain": 0.75
+   },
+   {
+    "t": 11.98,
+    "sfx": "impact",
+    "gain": 0.75
+   },
+   {
+    "t": 1.2,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 3.6,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 6,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 8.4,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 10.2,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 12,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 7,
+    "sfx": "beep",
+    "gain": 0.4
+   },
+   {
+    "t": 7.6,
+    "sfx": "beep",
+    "gain": 0.4
+   },
+   {
+    "t": 12.6,
+    "sfx": "sparkle",
+    "gain": 0.5
+   },
+   {
+    "t": 13,
+    "sfx": "chime",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "06b",
+  "file": "06b-earbuds.html",
+  "episode": 2,
+  "style": "06",
+  "industry": "蓝牙耳机",
+  "brand": "声屿",
+  "video": "06-蓝牙耳机-声屿.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "06",
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 5.8,
+    "sfx": "riser_short",
+    "gain": 0.5
+   },
+   {
+    "t": 7.6,
+    "sfx": "impact",
+    "gain": 0.6
+   },
+   {
+    "t": 7.65,
+    "sfx": "morph",
+    "gain": 0.5
+   },
+   {
+    "t": 9.5,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 10,
+    "sfx": "suck",
+    "gain": 0.5
+   },
+   {
+    "t": 11.6,
+    "sfx": "chime",
+    "gain": 0.55
+   }
+  ]
+ },
+ {
+  "id": "06c",
+  "file": "06c-course.html",
+  "episode": 2,
+  "style": "06",
+  "industry": "线上课程",
+  "brand": "一人公司训练营",
+  "video": "06-线上课程-一人公司训练营.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "06",
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "swell",
+    "gain": 0.45
+   },
+   {
+    "t": 0.6,
+    "sfx": "riser_short",
+    "gain": 0.35
+   },
+   {
+    "t": 2.95,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 5.05,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 7.25,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 9.45,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 3.07,
+    "sfx": "sparkle",
+    "gain": 0.4
+   },
+   {
+    "t": 5.14,
+    "sfx": "sparkle",
+    "gain": 0.4
+   },
+   {
+    "t": 7.34,
+    "sfx": "sparkle",
+    "gain": 0.4
+   },
+   {
+    "t": 9.54,
+    "sfx": "sparkle",
+    "gain": 0.4
+   },
+   {
+    "t": 10.6,
+    "sfx": "morph",
+    "gain": 0.5
+   },
+   {
+    "t": 11.9,
+    "sfx": "impact_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 12.2,
+    "sfx": "chime",
+    "gain": 0.55
+   }
+  ]
+ },
+ {
+  "id": "07a",
+  "file": "07a-clean.html",
+  "episode": 2,
+  "style": "07",
+  "industry": "家政保洁",
+  "brand": "小蜜蜂家政",
+  "video": "07-家政保洁-小蜜蜂家政.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "07",
+  "cues": [
+   {
+    "t": 0.4,
+    "sfx": "sticker",
+    "gain": 0.7
+   },
+   {
+    "t": 0.75,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 1,
+    "sfx": "whoosh",
+    "gain": 0.25
+   },
+   {
+    "t": 1.6,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 1.72,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 1.85,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 2.1,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 2.6,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 2.75,
+    "sfx": "whoosh",
+    "gain": 0.25
+   },
+   {
+    "t": 3.35,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 3.47,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 3.6,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 3.85,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 4.35,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 4.5,
+    "sfx": "whoosh",
+    "gain": 0.25
+   },
+   {
+    "t": 5.1,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 5.22,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 5.35,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 5.6,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 6.1,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 6.25,
+    "sfx": "whoosh",
+    "gain": 0.25
+   },
+   {
+    "t": 6.85,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 6.97,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 7.1,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 7.35,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 7.85,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 8,
+    "sfx": "whoosh",
+    "gain": 0.25
+   },
+   {
+    "t": 8.6,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 8.72,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 8.85,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 9.1,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 9.35,
+    "sfx": "sparkle",
+    "gain": 0.5
+   },
+   {
+    "t": 10,
+    "sfx": "impact",
+    "gain": 0.6
+   },
+   {
+    "t": 10.3,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 10.6,
+    "sfx": "whoosh_up",
+    "gain": 0.4
+   },
+   {
+    "t": 12,
+    "sfx": "chime",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "07b",
+  "file": "07b-pet.html",
+  "episode": 2,
+  "style": "07",
+  "industry": "宠物医院",
+  "brand": "毛孩子宠物医院",
+  "video": "07-宠物医院-毛孩子宠物医院.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "07",
+  "cues": [
+   {
+    "t": 0.5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 0.5,
+    "sfx": "pop",
+    "gain": 0.3
+   },
+   {
+    "t": 1,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 1.5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 1.5,
+    "sfx": "pop",
+    "gain": 0.3
+   },
+   {
+    "t": 2,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 2.5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 2.5,
+    "sfx": "pop",
+    "gain": 0.3
+   },
+   {
+    "t": 2.5,
+    "sfx": "shutter",
+    "gain": 0.4
+   },
+   {
+    "t": 3,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 3.5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 3.5,
+    "sfx": "pop",
+    "gain": 0.3
+   },
+   {
+    "t": 4,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 4.5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 4.5,
+    "sfx": "pop",
+    "gain": 0.3
+   },
+   {
+    "t": 4.5,
+    "sfx": "shutter",
+    "gain": 0.4
+   },
+   {
+    "t": 5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 5.5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 5.5,
+    "sfx": "pop",
+    "gain": 0.3
+   },
+   {
+    "t": 6,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 6.5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 6.5,
+    "sfx": "pop",
+    "gain": 0.3
+   },
+   {
+    "t": 6.5,
+    "sfx": "shutter",
+    "gain": 0.4
+   },
+   {
+    "t": 7,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 7.5,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 7.5,
+    "sfx": "pop",
+    "gain": 0.3
+   },
+   {
+    "t": 8,
+    "sfx": "sticker",
+    "gain": 0.8
+   },
+   {
+    "t": 8.5,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 9,
+    "sfx": "riser_short",
+    "gain": 0.4
+   },
+   {
+    "t": 9.5,
+    "sfx": "impact",
+    "gain": 0.9
+   },
+   {
+    "t": 9.52,
+    "sfx": "stamp",
+    "gain": 0.7
+   },
+   {
+    "t": 10,
+    "sfx": "sticker",
+    "gain": 0.7
+   },
+   {
+    "t": 10.4,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 10.8,
+    "sfx": "chime",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "07c",
+  "file": "07c-grocery.html",
+  "episode": 2,
+  "style": "07",
+  "industry": "社区生鲜",
+  "brand": "邻里鲜",
+  "video": "07-社区生鲜-邻里鲜.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "07",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 1.4,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 1.45,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 2.4,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 2.52,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 2.7,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 3.15,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 3.2,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 4.1,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 4.22,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 4.4,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 4.7,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 4.75,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 5.6,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 5.72,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 5.9,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 6.05,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 6.1,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 6.6,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 6.72,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 6.8,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 6.85,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 6.9,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 7.3,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 7.42,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 7.5,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 7.55,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 7.6,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 7.95,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 8.07,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 8.15,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 8.2,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 8.25,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 8.6,
+    "sfx": "sticker",
+    "gain": 0.75
+   },
+   {
+    "t": 8.72,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 8.9,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 9,
+    "sfx": "whoosh_up",
+    "gain": 0.4
+   },
+   {
+    "t": 10.2,
+    "sfx": "sticker",
+    "gain": 0.7
+   },
+   {
+    "t": 10.6,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 10.9,
+    "sfx": "chime",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "08a",
+  "file": "08a-survey.html",
+  "episode": 2,
+  "style": "08",
+  "industry": "无人机测绘",
+  "brand": "云眸测绘",
+  "video": "08-无人机测绘-云眸测绘.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "08",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "boot",
+    "gain": 0.6
+   },
+   {
+    "t": 0.8,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 0.8,
+    "sfx": "beep",
+    "gain": 0.35
+   },
+   {
+    "t": 1.73,
+    "sfx": "beep",
+    "gain": 0.35
+   },
+   {
+    "t": 2.65,
+    "sfx": "beep",
+    "gain": 0.35
+   },
+   {
+    "t": 3.58,
+    "sfx": "beep",
+    "gain": 0.35
+   },
+   {
+    "t": 4.5,
+    "sfx": "beep",
+    "gain": 0.35
+   },
+   {
+    "t": 5.42,
+    "sfx": "beep",
+    "gain": 0.35
+   },
+   {
+    "t": 6.35,
+    "sfx": "beep",
+    "gain": 0.35
+   },
+   {
+    "t": 7.28,
+    "sfx": "beep",
+    "gain": 0.35
+   },
+   {
+    "t": 8.2,
+    "sfx": "ding",
+    "gain": 0.5
+   },
+   {
+    "t": 8.6,
+    "sfx": "swell",
+    "gain": 0.5
+   },
+   {
+    "t": 9.8,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 10.3,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 11.75,
+    "sfx": "glitch",
+    "gain": 0.5
+   },
+   {
+    "t": 12,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "08b",
+  "file": "08b-security.html",
+  "episode": 2,
+  "style": "08",
+  "industry": "智能安防",
+  "brand": "守望安防",
+  "video": "08-智能安防-守望安防.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "08",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "boot",
+    "gain": 0.6
+   },
+   {
+    "t": 0.5,
+    "sfx": "click",
+    "gain": 0.4
+   },
+   {
+    "t": 4.6,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 5.2,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 5.6,
+    "sfx": "glitch",
+    "gain": 0.5
+   },
+   {
+    "t": 5.6,
+    "sfx": "beep",
+    "gain": 0.6
+   },
+   {
+    "t": 5.95,
+    "sfx": "beep",
+    "gain": 0.6
+   },
+   {
+    "t": 6.3,
+    "sfx": "beep",
+    "gain": 0.6
+   },
+   {
+    "t": 6.2,
+    "sfx": "zoom",
+    "gain": 0.5
+   },
+   {
+    "t": 7.2,
+    "sfx": "type",
+    "gain": 0.4
+   },
+   {
+    "t": 7.8,
+    "sfx": "type",
+    "gain": 0.4
+   },
+   {
+    "t": 8.4,
+    "sfx": "lock",
+    "gain": 0.6
+   },
+   {
+    "t": 8.45,
+    "sfx": "neon",
+    "gain": 0.5
+   },
+   {
+    "t": 10.3,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 10.6,
+    "sfx": "blocks",
+    "gain": 0.4
+   },
+   {
+    "t": 11.75,
+    "sfx": "glitch",
+    "gain": 0.5
+   },
+   {
+    "t": 12,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "08c",
+  "file": "08c-esports.html",
+  "episode": 2,
+  "style": "08",
+  "industry": "电竞馆",
+  "brand": "零点电竞",
+  "video": "08-电竞馆-零点电竞.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "08",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "boot",
+    "gain": 0.6
+   },
+   {
+    "t": 0.6,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 0.9,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 1.42,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 1.94,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 2.46,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 2.98,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 3.5,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 4.02,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 4.54,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 5.06,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 5.58,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 6.1,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 6.62,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 7.14,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 7.66,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 8.18,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 8.7,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 9.22,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 9.74,
+    "sfx": "step_soft",
+    "gain": 0.3
+   },
+   {
+    "t": 3,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 4.6,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 6,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 7.4,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 8.8,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 10.4,
+    "sfx": "beep",
+    "gain": 0.4
+   },
+   {
+    "t": 10.8,
+    "sfx": "beep",
+    "gain": 0.5
+   },
+   {
+    "t": 11.2,
+    "sfx": "lock",
+    "gain": 0.7
+   },
+   {
+    "t": 11.35,
+    "sfx": "neon",
+    "gain": 0.7
+   },
+   {
+    "t": 12,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "09a",
+  "file": "09a-bookshop.html",
+  "episode": 2,
+  "style": "09",
+  "industry": "独立书店",
+  "brand": "慢读书屋",
+  "video": "09-独立书店-慢读书屋.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "09",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "paper",
+    "gain": 0.5
+   },
+   {
+    "t": 0.55,
+    "sfx": "slap",
+    "gain": 0.5
+   },
+   {
+    "t": 0.6,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 0.92,
+    "sfx": "slap",
+    "gain": 0.5
+   },
+   {
+    "t": 0.95,
+    "sfx": "tape",
+    "gain": 0.4
+   },
+   {
+    "t": 1.05,
+    "sfx": "tape",
+    "gain": 0.4
+   },
+   {
+    "t": 1,
+    "sfx": "marker",
+    "gain": 0.4
+   },
+   {
+    "t": 1.25,
+    "sfx": "marker",
+    "gain": 0.4
+   },
+   {
+    "t": 1.5,
+    "sfx": "stamp",
+    "gain": 0.6
+   },
+   {
+    "t": 1.75,
+    "sfx": "stamp",
+    "gain": 0.6
+   },
+   {
+    "t": 2,
+    "sfx": "stamp",
+    "gain": 0.65
+   },
+   {
+    "t": 2.2,
+    "sfx": "whoosh",
+    "gain": 0.25
+   },
+   {
+    "t": 3.05,
+    "sfx": "paper",
+    "gain": 0.45
+   },
+   {
+    "t": 3.4,
+    "sfx": "slap",
+    "gain": 0.5
+   },
+   {
+    "t": 3.75,
+    "sfx": "paper",
+    "gain": 0.3
+   },
+   {
+    "t": 4,
+    "sfx": "paper",
+    "gain": 0.3
+   },
+   {
+    "t": 4.15,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 4.5,
+    "sfx": "slap",
+    "gain": 0.5
+   },
+   {
+    "t": 4.5,
+    "sfx": "tape",
+    "gain": 0.4
+   },
+   {
+    "t": 4.75,
+    "sfx": "marker",
+    "gain": 0.45
+   },
+   {
+    "t": 6.1,
+    "sfx": "whoosh",
+    "gain": 0.25
+   },
+   {
+    "t": 6.7,
+    "sfx": "paper",
+    "gain": 0.5
+   },
+   {
+    "t": 7.05,
+    "sfx": "slap",
+    "gain": 0.5
+   },
+   {
+    "t": 7.15,
+    "sfx": "tape",
+    "gain": 0.4
+   },
+   {
+    "t": 7.3,
+    "sfx": "tape",
+    "gain": 0.4
+   },
+   {
+    "t": 8.62,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 9.12,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 9.62,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 10.12,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 9.8,
+    "sfx": "marker",
+    "gain": 0.4
+   },
+   {
+    "t": 10,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 10.3,
+    "sfx": "paper",
+    "gain": 0.45
+   },
+   {
+    "t": 10.75,
+    "sfx": "paper",
+    "gain": 0.45
+   },
+   {
+    "t": 11.2,
+    "sfx": "slap",
+    "gain": 0.4
+   },
+   {
+    "t": 11.5,
+    "sfx": "stamp",
+    "gain": 0.8
+   },
+   {
+    "t": 11.9,
+    "sfx": "swell",
+    "gain": 0.3
+   }
+  ]
+ },
+ {
+  "id": "09b",
+  "file": "09b-travel.html",
+  "episode": 2,
+  "style": "09",
+  "industry": "定制旅行",
+  "brand": "出逃旅行",
+  "video": "09-定制旅行-出逃旅行.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "09",
+  "cues": [
+   {
+    "t": 0.25,
+    "sfx": "paper",
+    "gain": 0.5
+   },
+   {
+    "t": 0.55,
+    "sfx": "slap",
+    "gain": 0.5
+   },
+   {
+    "t": 0.62,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 0.95,
+    "sfx": "stamp",
+    "gain": 0.75
+   },
+   {
+    "t": 1.3,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 1.4,
+    "sfx": "marker",
+    "gain": 0.4
+   },
+   {
+    "t": 2.4,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 3.6,
+    "sfx": "slap",
+    "gain": 0.3
+   },
+   {
+    "t": 3.75,
+    "sfx": "paper",
+    "gain": 0.45
+   },
+   {
+    "t": 4.05,
+    "sfx": "slap",
+    "gain": 0.55
+   },
+   {
+    "t": 4.2,
+    "sfx": "tape",
+    "gain": 0.45
+   },
+   {
+    "t": 5.1,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 5.2,
+    "sfx": "marker",
+    "gain": 0.4
+   },
+   {
+    "t": 6.4,
+    "sfx": "marker",
+    "gain": 0.35
+   },
+   {
+    "t": 7.6,
+    "sfx": "slap",
+    "gain": 0.3
+   },
+   {
+    "t": 7.75,
+    "sfx": "paper",
+    "gain": 0.45
+   },
+   {
+    "t": 8.05,
+    "sfx": "slap",
+    "gain": 0.55
+   },
+   {
+    "t": 8.5,
+    "sfx": "stamp",
+    "gain": 0.8
+   },
+   {
+    "t": 9.3,
+    "sfx": "swell",
+    "gain": 0.35
+   },
+   {
+    "t": 10.75,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 11.25,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 11.75,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 12.25,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 12.45,
+    "sfx": "paper",
+    "gain": 0.5
+   },
+   {
+    "t": 12.75,
+    "sfx": "slap",
+    "gain": 0.45
+   }
+  ]
+ },
+ {
+  "id": "09c",
+  "file": "09c-kitchen.html",
+  "episode": 2,
+  "style": "09",
+  "industry": "私房菜",
+  "brand": "阿婆私房菜",
+  "video": "09-私房菜-阿婆私房菜.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "09",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "paper",
+    "gain": 0.3
+   },
+   {
+    "t": 0.95,
+    "sfx": "slap",
+    "gain": 0.4
+   },
+   {
+    "t": 1.13,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 1.31,
+    "sfx": "slap",
+    "gain": 0.4
+   },
+   {
+    "t": 1.49,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 1.67,
+    "sfx": "slap",
+    "gain": 0.4
+   },
+   {
+    "t": 1.85,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 2.03,
+    "sfx": "slap",
+    "gain": 0.4
+   },
+   {
+    "t": 2.21,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 2.45,
+    "sfx": "impact_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 2.8,
+    "sfx": "slap",
+    "gain": 0.55
+   },
+   {
+    "t": 3.95,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 4.13,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 4.31,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 4.49,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 4.67,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 4.85,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 5.03,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 5.45,
+    "sfx": "impact_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 5.75,
+    "sfx": "slap",
+    "gain": 0.55
+   },
+   {
+    "t": 6.45,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 6.63,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 6.81,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 6.99,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 7.17,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 7.35,
+    "sfx": "slap",
+    "gain": 0.45
+   },
+   {
+    "t": 7.75,
+    "sfx": "impact_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 8.05,
+    "sfx": "slap",
+    "gain": 0.55
+   },
+   {
+    "t": 9.05,
+    "sfx": "wood",
+    "gain": 0.6
+   },
+   {
+    "t": 9.2,
+    "sfx": "wood",
+    "gain": 0.5
+   },
+   {
+    "t": 9.45,
+    "sfx": "paper",
+    "gain": 0.45
+   },
+   {
+    "t": 9.7,
+    "sfx": "tape",
+    "gain": 0.4
+   },
+   {
+    "t": 11.2,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 11.62,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 12.04,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 12.46,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 12.88,
+    "sfx": "slap",
+    "gain": 0.62
+   },
+   {
+    "t": 13,
+    "sfx": "paper",
+    "gain": 0.45
+   },
+   {
+    "t": 13.6,
+    "sfx": "stamp",
+    "gain": 0.8
+   },
+   {
+    "t": 13.9,
+    "sfx": "swell",
+    "gain": 0.3
+   }
+  ]
+ },
+ {
+  "id": "10a",
+  "file": "10a-beauty.html",
+  "episode": 2,
+  "style": "10",
+  "industry": "美业预约",
+  "brand": "约美",
+  "video": "10-美业预约-约美.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "10",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "blob",
+    "gain": 0.7
+   },
+   {
+    "t": 1.25,
+    "sfx": "stretch",
+    "gain": 0.6
+   },
+   {
+    "t": 1.4,
+    "sfx": "blob",
+    "gain": 0.4
+   },
+   {
+    "t": 1.55,
+    "sfx": "blob",
+    "gain": 0.4
+   },
+   {
+    "t": 1.7,
+    "sfx": "blob",
+    "gain": 0.4
+   },
+   {
+    "t": 2.6,
+    "sfx": "tick",
+    "gain": 0.7
+   },
+   {
+    "t": 3.05,
+    "sfx": "stretch",
+    "gain": 0.6
+   },
+   {
+    "t": 3.5,
+    "sfx": "blob",
+    "gain": 0.45
+   },
+   {
+    "t": 3.65,
+    "sfx": "blob",
+    "gain": 0.45
+   },
+   {
+    "t": 3.8,
+    "sfx": "blob",
+    "gain": 0.45
+   },
+   {
+    "t": 4.85,
+    "sfx": "tick",
+    "gain": 0.7
+   },
+   {
+    "t": 5.85,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 6.25,
+    "sfx": "blob",
+    "gain": 0.32
+   },
+   {
+    "t": 6.34,
+    "sfx": "blob",
+    "gain": 0.32
+   },
+   {
+    "t": 6.43,
+    "sfx": "blob",
+    "gain": 0.32
+   },
+   {
+    "t": 6.52,
+    "sfx": "blob",
+    "gain": 0.32
+   },
+   {
+    "t": 6.61,
+    "sfx": "blob",
+    "gain": 0.32
+   },
+   {
+    "t": 6.7,
+    "sfx": "blob",
+    "gain": 0.32
+   },
+   {
+    "t": 7.45,
+    "sfx": "tick",
+    "gain": 0.7
+   },
+   {
+    "t": 7.7,
+    "sfx": "stretch",
+    "gain": 0.6
+   },
+   {
+    "t": 7.95,
+    "sfx": "expand",
+    "gain": 0.5
+   },
+   {
+    "t": 8.85,
+    "sfx": "tick",
+    "gain": 0.7
+   },
+   {
+    "t": 9.1,
+    "sfx": "morph",
+    "gain": 0.6
+   },
+   {
+    "t": 9.8,
+    "sfx": "chime",
+    "gain": 0.7
+   },
+   {
+    "t": 10.9,
+    "sfx": "expand",
+    "gain": 0.5
+   },
+   {
+    "t": 11.6,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 12.1,
+    "sfx": "glass",
+    "gain": 0.4
+   }
+  ]
+ },
+ {
+  "id": "10b",
+  "file": "10b-home.html",
+  "episode": 2,
+  "style": "10",
+  "industry": "智能家居",
+  "brand": "栖家",
+  "video": "10-智能家居-栖家.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "10",
+  "cues": [
+   {
+    "t": 0.35,
+    "sfx": "blob",
+    "gain": 0.6
+   },
+   {
+    "t": 1,
+    "sfx": "expand",
+    "gain": 0.5
+   },
+   {
+    "t": 1.5,
+    "sfx": "blob",
+    "gain": 0.45
+   },
+   {
+    "t": 1.9,
+    "sfx": "stretch",
+    "gain": 0.45
+   },
+   {
+    "t": 2,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 2.25,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 2.5,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 2.75,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 3,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 3.25,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 4.4,
+    "sfx": "morph",
+    "gain": 0.5
+   },
+   {
+    "t": 4.7,
+    "sfx": "blob",
+    "gain": 0.45
+   },
+   {
+    "t": 5,
+    "sfx": "zip",
+    "gain": 0.45
+   },
+   {
+    "t": 7.3,
+    "sfx": "morph",
+    "gain": 0.45
+   },
+   {
+    "t": 7.4,
+    "sfx": "blob",
+    "gain": 0.5
+   },
+   {
+    "t": 7.9,
+    "sfx": "stretch",
+    "gain": 0.55
+   },
+   {
+    "t": 8.55,
+    "sfx": "tick",
+    "gain": 0.7
+   },
+   {
+    "t": 8.7,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 10.9,
+    "sfx": "morph",
+    "gain": 0.55
+   },
+   {
+    "t": 11.3,
+    "sfx": "expand",
+    "gain": 0.5
+   },
+   {
+    "t": 11.9,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "10c",
+  "file": "10c-radio.html",
+  "episode": 2,
+  "style": "10",
+  "industry": "深夜电台",
+  "brand": "夜航电台",
+  "video": "10-深夜电台-夜航电台.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "jazz",
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "rainloop",
+    "gain": 0.35
+   },
+   {
+    "t": 0.3,
+    "sfx": "blob",
+    "gain": 0.55
+   },
+   {
+    "t": 0.8,
+    "sfx": "expand",
+    "gain": 0.5
+   },
+   {
+    "t": 1.5,
+    "sfx": "stretch",
+    "gain": 0.45
+   },
+   {
+    "t": 3.4,
+    "sfx": "blob",
+    "gain": 0.45
+   },
+   {
+    "t": 6.6,
+    "sfx": "morph",
+    "gain": 0.45
+   },
+   {
+    "t": 6.7,
+    "sfx": "heart",
+    "gain": 0.4
+   },
+   {
+    "t": 10,
+    "sfx": "morph",
+    "gain": 0.6
+   },
+   {
+    "t": 10.6,
+    "sfx": "expand",
+    "gain": 0.5
+   },
+   {
+    "t": 11.6,
+    "sfx": "chime",
+    "gain": 0.6
+   },
+   {
+    "t": 12.2,
+    "sfx": "glass",
+    "gain": 0.35
+   }
+  ]
+ },
+ {
+  "id": "11a",
+  "file": "11a-studio.html",
+  "episode": 3,
+  "style": "11",
+  "industry": "设计工作室",
+  "brand": "方寸设计",
+  "video": "11-设计工作室-方寸设计.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "11",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 1,
+    "sfx": "block",
+    "gain": 0.4
+   },
+   {
+    "t": 2,
+    "sfx": "block",
+    "gain": 0.4
+   },
+   {
+    "t": 3,
+    "sfx": "block",
+    "gain": 0.4
+   },
+   {
+    "t": 4,
+    "sfx": "block",
+    "gain": 0.4
+   },
+   {
+    "t": 5,
+    "sfx": "block",
+    "gain": 0.4
+   },
+   {
+    "t": 4.8,
+    "sfx": "riser_short",
+    "gain": 0.45
+   },
+   {
+    "t": 6.5,
+    "sfx": "impact",
+    "gain": 0.9
+   },
+   {
+    "t": 7.5,
+    "sfx": "tick",
+    "gain": 0.5
+   },
+   {
+    "t": 8.5,
+    "sfx": "tick",
+    "gain": 0.5
+   },
+   {
+    "t": 9.5,
+    "sfx": "tick",
+    "gain": 0.5
+   },
+   {
+    "t": 10.6,
+    "sfx": "rim",
+    "gain": 0.6
+   },
+   {
+    "t": 11.1,
+    "sfx": "rim",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "11b",
+  "file": "11b-furniture.html",
+  "episode": 3,
+  "style": "11",
+  "industry": "几何家居",
+  "brand": "几何物",
+  "video": "11-几何家居-几何物.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "11",
+  "cues": [
+   {
+    "t": 0.5,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 0.9,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 1.3,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 1.8,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 3.5,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 3.9,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 4.4,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 6.3,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 6.6,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 7,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 7.3,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 7.6,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 7.9,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 8.3,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 8.6,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 8.9,
+    "sfx": "block",
+    "gain": 0.55
+   },
+   {
+    "t": 2.3,
+    "sfx": "tick",
+    "gain": 0.4
+   },
+   {
+    "t": 4.9,
+    "sfx": "tick",
+    "gain": 0.4
+   },
+   {
+    "t": 9.3,
+    "sfx": "tick",
+    "gain": 0.4
+   },
+   {
+    "t": 9.6,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 11,
+    "sfx": "rim",
+    "gain": 0.6
+   },
+   {
+    "t": 11.5,
+    "sfx": "rim",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "11c",
+  "file": "11c-gallery.html",
+  "episode": 3,
+  "style": "11",
+  "industry": "画廊展览",
+  "brand": "白盒子画廊",
+  "video": "11-画廊展览-白盒子画廊.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "11",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 0.9,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 1.5,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 2.1,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 2.7,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 3.3,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 3.9,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 4.5,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 5.1,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 5.7,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 6.3,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 6.9,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 7.5,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 8.1,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 8.7,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 9.3,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 9.9,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 10.5,
+    "sfx": "step_soft",
+    "gain": 0.22
+   },
+   {
+    "t": 1.8,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 3.9,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 5.9,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 8,
+    "sfx": "tick",
+    "gain": 0.35
+   },
+   {
+    "t": 11,
+    "sfx": "block",
+    "gain": 0.6
+   },
+   {
+    "t": 11.5,
+    "sfx": "block",
+    "gain": 0.6
+   },
+   {
+    "t": 12,
+    "sfx": "block",
+    "gain": 0.6
+   },
+   {
+    "t": 12.5,
+    "sfx": "block",
+    "gain": 0.6
+   },
+   {
+    "t": 13,
+    "sfx": "impact",
+    "gain": 0.7
+   },
+   {
+    "t": 13.4,
+    "sfx": "rim",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "12a",
+  "file": "12a-livehouse.html",
+  "episode": 3,
+  "style": "12",
+  "industry": "复古Livehouse",
+  "brand": "午夜磁带",
+  "video": "12-复古Livehouse-午夜磁带.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "12",
+  "cues": [
+   {
+    "t": 0.15,
+    "sfx": "vhs",
+    "gain": 0.7
+   },
+   {
+    "t": 1,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 1.5,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 2,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 4.15,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 4.65,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 6.6,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 7,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 7.4,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 8,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 10.1,
+    "sfx": "neon",
+    "gain": 0.55
+   },
+   {
+    "t": 3.5,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 6,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 8.9,
+    "sfx": "vhs",
+    "gain": 0.4
+   },
+   {
+    "t": 9.3,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 10.1,
+    "sfx": "impact",
+    "gain": 0.8
+   },
+   {
+    "t": 10.6,
+    "sfx": "sparkle",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "12b",
+  "file": "12b-carwash.html",
+  "episode": 3,
+  "style": "12",
+  "industry": "汽车改装洗车",
+  "brand": "霓虹车坊",
+  "video": "12-汽车改装洗车-霓虹车坊.mp4",
+  "duration": 15.0,
+  "mb": 3,
+  "music": "12",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "vhs",
+    "gain": 0.6
+   },
+   {
+    "t": 0.4,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 3.4,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 3.6,
+    "sfx": "splash",
+    "gain": 0.5
+   },
+   {
+    "t": 4.4,
+    "sfx": "splash",
+    "gain": 0.35
+   },
+   {
+    "t": 5.2,
+    "sfx": "splash",
+    "gain": 0.35
+   },
+   {
+    "t": 6,
+    "sfx": "splash",
+    "gain": 0.35
+   },
+   {
+    "t": 7,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 7.3,
+    "sfx": "sparkle",
+    "gain": 0.6
+   },
+   {
+    "t": 9.4,
+    "sfx": "skid",
+    "gain": 0.6
+   },
+   {
+    "t": 10.6,
+    "sfx": "impact",
+    "gain": 0.85
+   },
+   {
+    "t": 10.65,
+    "sfx": "neon",
+    "gain": 0.6
+   },
+   {
+    "t": 11.3,
+    "sfx": "sparkle",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "12c",
+  "file": "12c-arcade.html",
+  "episode": 3,
+  "style": "12",
+  "industry": "潮玩复古游戏厅",
+  "brand": "星际电玩城",
+  "video": "12-潮玩复古游戏厅-星际电玩城.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "12",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "vhs",
+    "gain": 0.6
+   },
+   {
+    "t": 2.3,
+    "sfx": "coin",
+    "gain": 0.8
+   },
+   {
+    "t": 2.65,
+    "sfx": "tick",
+    "gain": 0.5
+   },
+   {
+    "t": 3,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 3.8,
+    "sfx": "powerup",
+    "gain": 0.6
+   },
+   {
+    "t": 4.5,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 5,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 5.5,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 6,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 6.5,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 7,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 7.5,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 8,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 8.5,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 9.4,
+    "sfx": "levelup",
+    "gain": 0.6
+   },
+   {
+    "t": 10.9,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 11.9,
+    "sfx": "impact",
+    "gain": 0.85
+   },
+   {
+    "t": 11.950000000000001,
+    "sfx": "neon",
+    "gain": 0.6
+   },
+   {
+    "t": 12.6,
+    "sfx": "sparkle",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "13a",
+  "file": "13a-studio.html",
+  "episode": 3,
+  "style": "13",
+  "industry": "独立游戏工作室",
+  "brand": "八位元工作室",
+  "video": "13-独立游戏工作室-八位元工作室.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "13",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 0.55,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 0.8,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 1.05,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 1.3,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 1.55,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 3.7,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 3.95,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 4.2,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 4.45,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 4.7,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 4.95,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 7.2,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 7.45,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 7.7,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 7.95,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 8.2,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 8.45,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 10.7,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 10.95,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 11.2,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 1.8,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 1.95,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 2.07,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 2.19,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 2.31,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 2.43,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 2.55,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 5.4,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 5.55,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 5.67,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 5.79,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 5.91,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 6.03,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 6.15,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 8.9,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 9.05,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 9.17,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 9.29,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 9.41,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 9.53,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 9.65,
+    "sfx": "type",
+    "gain": 0.3
+   },
+   {
+    "t": 11.5,
+    "sfx": "powerup",
+    "gain": 0.6
+   },
+   {
+    "t": 12.1,
+    "sfx": "levelup",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "13b",
+  "file": "13b-coding.html",
+  "episode": 3,
+  "style": "13",
+  "industry": "少儿编程",
+  "brand": "小码星球",
+  "video": "13-少儿编程-小码星球.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "13",
+  "cues": [
+   {
+    "t": 0.9,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 1.26,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 1.62,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 1.98,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 2.34,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 2.7,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 3.06,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 3.42,
+    "sfx": "block",
+    "gain": 0.5
+   },
+   {
+    "t": 3.95,
+    "sfx": "tick",
+    "gain": 0.7
+   },
+   {
+    "t": 3.95,
+    "sfx": "jump",
+    "gain": 0.35
+   },
+   {
+    "t": 4.45,
+    "sfx": "jump",
+    "gain": 0.35
+   },
+   {
+    "t": 4.95,
+    "sfx": "tick",
+    "gain": 0.4
+   },
+   {
+    "t": 5.45,
+    "sfx": "jump",
+    "gain": 0.35
+   },
+   {
+    "t": 5.95,
+    "sfx": "tick",
+    "gain": 0.4
+   },
+   {
+    "t": 6.45,
+    "sfx": "jump",
+    "gain": 0.35
+   },
+   {
+    "t": 6.95,
+    "sfx": "jump",
+    "gain": 0.35
+   },
+   {
+    "t": 7.45,
+    "sfx": "jump",
+    "gain": 0.35
+   },
+   {
+    "t": 7.95,
+    "sfx": "tick",
+    "gain": 0.4
+   },
+   {
+    "t": 8.45,
+    "sfx": "jump",
+    "gain": 0.35
+   },
+   {
+    "t": 8.95,
+    "sfx": "jump",
+    "gain": 0.35
+   },
+   {
+    "t": 4.8,
+    "sfx": "coin",
+    "gain": 0.6
+   },
+   {
+    "t": 7.300000000000001,
+    "sfx": "coin",
+    "gain": 0.6
+   },
+   {
+    "t": 9.3,
+    "sfx": "coin",
+    "gain": 0.6
+   },
+   {
+    "t": 9.55,
+    "sfx": "levelup",
+    "gain": 0.7
+   },
+   {
+    "t": 10.9,
+    "sfx": "powerup",
+    "gain": 0.6
+   },
+   {
+    "t": 12.3,
+    "sfx": "coin",
+    "gain": 0.4
+   }
+  ]
+ },
+ {
+  "id": "13c",
+  "file": "13c-milktea.html",
+  "episode": 3,
+  "style": "13",
+  "industry": "奶茶会员积分",
+  "brand": "茶小满",
+  "video": "13-奶茶会员积分-茶小满.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "13",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 0.55,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 0.8,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 1.05,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 1.3,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 1.55,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 1.8,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 2.05,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 2.3,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 2.55,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 2.8,
+    "sfx": "step_soft",
+    "gain": 0.25
+   },
+   {
+    "t": 3.5,
+    "sfx": "door_creak",
+    "gain": 0.5
+   },
+   {
+    "t": 4.3,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 4.39,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 4.48,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 4.57,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 4.66,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 4.75,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 4.84,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 4.93,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 5.1,
+    "sfx": "splash",
+    "gain": 0.45
+   },
+   {
+    "t": 6.199999999999999,
+    "sfx": "clink",
+    "gain": 0.5
+   },
+   {
+    "t": 6.6,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 7.1499999999999995,
+    "sfx": "stamp",
+    "gain": 0.6
+   },
+   {
+    "t": 7.8,
+    "sfx": "jump",
+    "gain": 0.4
+   },
+   {
+    "t": 8.05,
+    "sfx": "levelup",
+    "gain": 0.5
+   },
+   {
+    "t": 8.4,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 8.46,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 8.52,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 8.58,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 8.64,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 8.7,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 8.9,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 10.5,
+    "sfx": "powerup",
+    "gain": 0.7
+   },
+   {
+    "t": 11.4,
+    "sfx": "fireworks",
+    "gain": 0.5
+   },
+   {
+    "t": 12.75,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "14a",
+  "file": "14a-jewelry.html",
+  "episode": 3,
+  "style": "14",
+  "industry": "珠宝首饰",
+  "brand": "素银",
+  "video": "14-珠宝首饰-素银.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "14",
+  "cues": [
+   {
+    "t": 2.35,
+    "sfx": "drip",
+    "gain": 0.7
+   },
+   {
+    "t": 2.4,
+    "sfx": "splash",
+    "gain": 0.6
+   },
+   {
+    "t": 3.2,
+    "sfx": "stretch",
+    "gain": 0.6
+   },
+   {
+    "t": 4.6,
+    "sfx": "blob",
+    "gain": 0.5
+   },
+   {
+    "t": 6.25,
+    "sfx": "clink",
+    "gain": 0.8
+   },
+   {
+    "t": 8.1,
+    "sfx": "stretch",
+    "gain": 0.45
+   },
+   {
+    "t": 9.55,
+    "sfx": "clink",
+    "gain": 0.7
+   },
+   {
+    "t": 10.6,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 11.6,
+    "sfx": "sparkle",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "14b",
+  "file": "14b-serum.html",
+  "episode": 3,
+  "style": "14",
+  "industry": "高端护肤精华",
+  "brand": "澄露",
+  "video": "14-高端护肤精华-澄露.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "14",
+  "cues": [
+   {
+    "t": 0.4,
+    "sfx": "swell",
+    "gain": 0.3
+   },
+   {
+    "t": 2.35,
+    "sfx": "drip",
+    "gain": 0.8
+   },
+   {
+    "t": 4.73,
+    "sfx": "splash",
+    "gain": 0.7
+   },
+   {
+    "t": 5.6,
+    "sfx": "stretch",
+    "gain": 0.45
+   },
+   {
+    "t": 6.5,
+    "sfx": "blob",
+    "gain": 0.5
+   },
+   {
+    "t": 8.7,
+    "sfx": "morph",
+    "gain": 0.6
+   },
+   {
+    "t": 10.6,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 11.5,
+    "sfx": "sparkle",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "14c",
+  "file": "14c-beer.html",
+  "episode": 3,
+  "style": "14",
+  "industry": "精酿啤酒",
+  "brand": "铁锚精酿",
+  "video": "14-精酿啤酒-铁锚精酿.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "14",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 1.8,
+    "sfx": "riser_short",
+    "gain": 0.4
+   },
+   {
+    "t": 2.6,
+    "sfx": "clink",
+    "gain": 0.9
+   },
+   {
+    "t": 2.62,
+    "sfx": "splash",
+    "gain": 0.7
+   },
+   {
+    "t": 4.4,
+    "sfx": "drip",
+    "gain": 0.5
+   },
+   {
+    "t": 5.2,
+    "sfx": "morph",
+    "gain": 0.6
+   },
+   {
+    "t": 6.6,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 7.3,
+    "sfx": "clink",
+    "gain": 0.8
+   },
+   {
+    "t": 7.5,
+    "sfx": "tick",
+    "gain": 0.4
+   },
+   {
+    "t": 10.8,
+    "sfx": "swell",
+    "gain": 0.35
+   },
+   {
+    "t": 11.6,
+    "sfx": "sparkle",
+    "gain": 0.45
+   }
+  ]
+ },
+ {
+  "id": "15a",
+  "file": "15a-stirfry.html",
+  "episode": 3,
+  "style": "15",
+  "industry": "街边小炒探店",
+  "brand": "火候小炒",
+  "video": "15-街边小炒探店-火候小炒.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "15",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "sizzle",
+    "gain": 0.4
+   },
+   {
+    "t": 1.05,
+    "sfx": "splash",
+    "gain": 0.5
+   },
+   {
+    "t": 1.1,
+    "sfx": "sizzle",
+    "gain": 0.8
+   },
+   {
+    "t": 2,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 2.05,
+    "sfx": "pop",
+    "gain": 0.6
+   },
+   {
+    "t": 3,
+    "sfx": "sizzle",
+    "gain": 0.6
+   },
+   {
+    "t": 4,
+    "sfx": "whoosh",
+    "gain": 0.6
+   },
+   {
+    "t": 4.05,
+    "sfx": "impact",
+    "gain": 0.6
+   },
+   {
+    "t": 4.75,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 5.15,
+    "sfx": "vhs",
+    "gain": 0.5
+   },
+   {
+    "t": 5.6,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 6,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 6.4,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 7.15,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 7.9,
+    "sfx": "stamp",
+    "gain": 0.6
+   },
+   {
+    "t": 10.6,
+    "sfx": "sticker",
+    "gain": 0.6
+   },
+   {
+    "t": 11.4,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 12.4,
+    "sfx": "stamp",
+    "gain": 0.8
+   },
+   {
+    "t": 12.8,
+    "sfx": "laugh",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "15b",
+  "file": "15b-livestream.html",
+  "episode": 3,
+  "style": "15",
+  "industry": "农产品直播带货",
+  "brand": "橙心果园",
+  "video": "15-农产品直播带货-橙心果园.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "15",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 2.0500000000000003,
+    "sfx": "thud",
+    "gain": 0.6
+   },
+   {
+    "t": 2.2,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 3.6,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 5.3,
+    "sfx": "take",
+    "gain": 0.6
+   },
+   {
+    "t": 5.45,
+    "sfx": "splash",
+    "gain": 0.4
+   },
+   {
+    "t": 5.9,
+    "sfx": "sparkle",
+    "gain": 0.5
+   },
+   {
+    "t": 8,
+    "sfx": "tick",
+    "gain": 0.8
+   },
+   {
+    "t": 8.5,
+    "sfx": "tick",
+    "gain": 0.8
+   },
+   {
+    "t": 9,
+    "sfx": "tick",
+    "gain": 0.8
+   },
+   {
+    "t": 9.5,
+    "sfx": "impact",
+    "gain": 0.9
+   },
+   {
+    "t": 9.55,
+    "sfx": "coin",
+    "gain": 0.6
+   },
+   {
+    "t": 10,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 10.25,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 10.5,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 10.75,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 11,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 11.25,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 11.5,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 11.75,
+    "sfx": "coin",
+    "gain": 0.35
+   },
+   {
+    "t": 12.4,
+    "sfx": "stamp",
+    "gain": 0.7
+   }
+  ]
+ },
+ {
+  "id": "15c",
+  "file": "15c-driving.html",
+  "episode": 3,
+  "style": "15",
+  "industry": "驾校",
+  "brand": "安心驾校",
+  "video": "15-驾校-安心驾校.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "15",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 1,
+    "sfx": "roll",
+    "gain": 0.4
+   },
+   {
+    "t": 3.2,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 3.4,
+    "sfx": "roll",
+    "gain": 0.35
+   },
+   {
+    "t": 5.75,
+    "sfx": "impact",
+    "gain": 0.8
+   },
+   {
+    "t": 5.8,
+    "sfx": "stamp",
+    "gain": 0.6
+   },
+   {
+    "t": 6.25,
+    "sfx": "whoosh",
+    "gain": 0.6
+   },
+   {
+    "t": 6.4,
+    "sfx": "vhs",
+    "gain": 0.4
+   },
+   {
+    "t": 7,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 7.9,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 9,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 9.95,
+    "sfx": "levelup",
+    "gain": 0.7
+   },
+   {
+    "t": 10.4,
+    "sfx": "laugh",
+    "gain": 0.5
+   },
+   {
+    "t": 11.6,
+    "sfx": "sticker",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "16a",
+  "file": "16a-saas.html",
+  "episode": 4,
+  "style": "16",
+  "industry": "SaaS官网",
+  "brand": "客满云 CRM",
+  "video": "16-SaaS官网-客满云CRM.mp4",
+  "duration": 15.0,
+  "mb": 3,
+  "music": "16",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 1.3,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 2.6,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 3.3,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 4.3,
+    "sfx": "pop",
+    "gain": 0.6
+   },
+   {
+    "t": 4.4,
+    "sfx": "coin",
+    "gain": 0.5
+   },
+   {
+    "t": 6,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 6.25,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 6.5,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 8,
+    "sfx": "tick",
+    "gain": 0.5
+   },
+   {
+    "t": 9.8,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 11.2,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 12.4,
+    "sfx": "click",
+    "gain": 0.7
+   },
+   {
+    "t": 12.5,
+    "sfx": "sparkle",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "16b",
+  "file": "16b-ecom.html",
+  "episode": 4,
+  "style": "16",
+  "industry": "电商详情页",
+  "brand": "轻野户外",
+  "video": "16-电商详情页-轻野户外.mp4",
+  "duration": 15.0,
+  "mb": 3,
+  "music": "16",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 2.2,
+    "sfx": "swell",
+    "gain": 0.4
+   },
+   {
+    "t": 3,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 4.6,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 4.65,
+    "sfx": "morph",
+    "gain": 0.5
+   },
+   {
+    "t": 5.9,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 5.95,
+    "sfx": "morph",
+    "gain": 0.5
+   },
+   {
+    "t": 7,
+    "sfx": "click",
+    "gain": 0.5
+   },
+   {
+    "t": 8.2,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 8.45,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 8.7,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 8.95,
+    "sfx": "pop",
+    "gain": 0.4
+   },
+   {
+    "t": 11,
+    "sfx": "click",
+    "gain": 0.7
+   },
+   {
+    "t": 11.1,
+    "sfx": "chime",
+    "gain": 0.6
+   },
+   {
+    "t": 12.2,
+    "sfx": "whoosh",
+    "gain": 0.3
+   }
+  ]
+ },
+ {
+  "id": "16c",
+  "file": "16c-jobs.html",
+  "episode": 4,
+  "style": "16",
+  "industry": "招聘小程序",
+  "brand": "好职通",
+  "video": "16-招聘小程序-好职通.mp4",
+  "duration": 15.0,
+  "mb": 3,
+  "music": "16",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 2.3,
+    "sfx": "whoosh",
+    "gain": 0.6
+   },
+   {
+    "t": 2.35,
+    "sfx": "tick",
+    "gain": 0.4
+   },
+   {
+    "t": 4.4,
+    "sfx": "whoosh",
+    "gain": 0.6
+   },
+   {
+    "t": 4.45,
+    "sfx": "heart",
+    "gain": 0.6
+   },
+   {
+    "t": 6.3,
+    "sfx": "click",
+    "gain": 0.6
+   },
+   {
+    "t": 6.45,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 8.7,
+    "sfx": "click",
+    "gain": 0.7
+   },
+   {
+    "t": 8.9,
+    "sfx": "paper",
+    "gain": 0.6
+   },
+   {
+    "t": 9.6,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 10.3,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 10.75,
+    "sfx": "pop",
+    "gain": 0.6
+   },
+   {
+    "t": 11.17,
+    "sfx": "pop",
+    "gain": 0.6
+   },
+   {
+    "t": 11.59,
+    "sfx": "send",
+    "gain": 0.5
+   },
+   {
+    "t": 11.95,
+    "sfx": "check",
+    "gain": 0.6
+   },
+   {
+    "t": 13.3,
+    "sfx": "chime",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "17a",
+  "file": "17a-tax.html",
+  "episode": 4,
+  "style": "17",
+  "industry": "财税记账",
+  "brand": "明账财税",
+  "video": "17-财税记账-明账财税.mp4",
+  "duration": 15.0,
+  "mb": 4,
+  "music": "17",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "paper",
+    "gain": 0.5
+   },
+   {
+    "t": 1.2,
+    "sfx": "ticks",
+    "gain": 0.6
+   },
+   {
+    "t": 2,
+    "sfx": "data",
+    "gain": 0.5
+   },
+   {
+    "t": 3.2,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 4.6,
+    "sfx": "paper",
+    "gain": 0.8
+   },
+   {
+    "t": 5.8,
+    "sfx": "data",
+    "gain": 0.5
+   },
+   {
+    "t": 7.4,
+    "sfx": "stamp",
+    "gain": 0.5
+   },
+   {
+    "t": 7.9,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 9.2,
+    "sfx": "paper",
+    "gain": 0.8
+   },
+   {
+    "t": 10.3,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 10.42,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 10.54,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 10.66,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 10.78,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 10.9,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 11.02,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 11.14,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 11.26,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 11.38,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 11.5,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 11.62,
+    "sfx": "tick",
+    "gain": 0.3
+   },
+   {
+    "t": 11.8,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "17b",
+  "file": "17b-health.html",
+  "episode": 4,
+  "style": "17",
+  "industry": "体检报告",
+  "brand": "安康体检",
+  "video": "17-体检报告-安康体检.mp4",
+  "duration": 15.0,
+  "mb": 4,
+  "music": "17",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 1.2,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 2.2,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 2.55,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 2.9,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 3.25,
+    "sfx": "pop",
+    "gain": 0.5
+   },
+   {
+    "t": 5.2,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 6.1,
+    "sfx": "ticks",
+    "gain": 0.5
+   },
+   {
+    "t": 6.4,
+    "sfx": "ticks",
+    "gain": 0.4
+   },
+   {
+    "t": 6.7,
+    "sfx": "ticks",
+    "gain": 0.4
+   },
+   {
+    "t": 8,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 8.7,
+    "sfx": "data",
+    "gain": 0.5
+   },
+   {
+    "t": 9.4,
+    "sfx": "data",
+    "gain": 0.4
+   },
+   {
+    "t": 10.4,
+    "sfx": "whoosh",
+    "gain": 0.3
+   },
+   {
+    "t": 11,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 11.35,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 11.7,
+    "sfx": "marker",
+    "gain": 0.5
+   },
+   {
+    "t": 12.6,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "17c",
+  "file": "17c-store.html",
+  "episode": 4,
+  "style": "17",
+  "industry": "门店数据",
+  "brand": "小店参谋",
+  "video": "17-门店数据-小店参谋.mp4",
+  "duration": 15.0,
+  "mb": 4,
+  "music": "17",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "paper",
+    "gain": 0.4
+   },
+   {
+    "t": 1,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 1.18,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 1.36,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 1.54,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 1.72,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 1.9,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 2.08,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 2.26,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 2.44,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 2.62,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 2.8,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 2.98,
+    "sfx": "pop",
+    "gain": 0.25
+   },
+   {
+    "t": 4,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 4.9,
+    "sfx": "tick",
+    "gain": 0.5
+   },
+   {
+    "t": 5.3,
+    "sfx": "paper",
+    "gain": 0.5
+   },
+   {
+    "t": 5.8,
+    "sfx": "data",
+    "gain": 0.5
+   },
+   {
+    "t": 7.8,
+    "sfx": "data",
+    "gain": 0.4
+   },
+   {
+    "t": 8.5,
+    "sfx": "stamp",
+    "gain": 0.6
+   },
+   {
+    "t": 9.6,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 11.2,
+    "sfx": "impact_soft",
+    "gain": 0.6
+   }
+  ]
+ },
+ {
+  "id": "18a",
+  "file": "18a-tea.html",
+  "episode": 4,
+  "style": "18",
+  "industry": "茶庄",
+  "brand": "云岫茶庄",
+  "video": "18-茶庄-云岫茶庄.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "18",
+  "cues": [
+   {
+    "t": 0.05,
+    "sfx": "swell",
+    "gain": 0.6
+   },
+   {
+    "t": 0.7,
+    "sfx": "brush",
+    "gain": 0.5
+   },
+   {
+    "t": 1.6,
+    "sfx": "brush",
+    "gain": 0.45
+   },
+   {
+    "t": 3,
+    "sfx": "windchime",
+    "gain": 0.45
+   },
+   {
+    "t": 3.4,
+    "sfx": "whoosh",
+    "gain": 0.35
+   },
+   {
+    "t": 5,
+    "sfx": "brush",
+    "gain": 0.5
+   },
+   {
+    "t": 6,
+    "sfx": "brush",
+    "gain": 0.45
+   },
+   {
+    "t": 8,
+    "sfx": "drip",
+    "gain": 0.8
+   },
+   {
+    "t": 8.05,
+    "sfx": "splash",
+    "gain": 0.25
+   },
+   {
+    "t": 9.2,
+    "sfx": "scribble",
+    "gain": 0.5
+   },
+   {
+    "t": 11.3,
+    "sfx": "scribble",
+    "gain": 0.5
+   },
+   {
+    "t": 12.7,
+    "sfx": "stamp",
+    "gain": 0.8
+   }
+  ]
+ },
+ {
+  "id": "18b",
+  "file": "18b-tcm.html",
+  "episode": 4,
+  "style": "18",
+  "industry": "中医馆",
+  "brand": "仁和堂",
+  "video": "18-中医馆-仁和堂.mp4",
+  "duration": 15.0,
+  "mb": 3,
+  "music": "18",
+  "cues": [
+   {
+    "t": 0,
+    "sfx": "brush",
+    "gain": 0.6
+   },
+   {
+    "t": 0.7,
+    "sfx": "brush",
+    "gain": 0.45
+   },
+   {
+    "t": 1.4,
+    "sfx": "pencil",
+    "gain": 0.35
+   },
+   {
+    "t": 2.45,
+    "sfx": "brush",
+    "gain": 0.45
+   },
+   {
+    "t": 3.5,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 4,
+    "sfx": "whoosh",
+    "gain": 0.55
+   },
+   {
+    "t": 4.35,
+    "sfx": "brush",
+    "gain": 0.5
+   },
+   {
+    "t": 6.3,
+    "sfx": "drip",
+    "gain": 0.4
+   },
+   {
+    "t": 6.55,
+    "sfx": "drip",
+    "gain": 0.35
+   },
+   {
+    "t": 6.8,
+    "sfx": "drip",
+    "gain": 0.35
+   },
+   {
+    "t": 7,
+    "sfx": "whoosh",
+    "gain": 0.55
+   },
+   {
+    "t": 7.35,
+    "sfx": "scribble",
+    "gain": 0.4
+   },
+   {
+    "t": 9.55,
+    "sfx": "swell",
+    "gain": 0.5
+   },
+   {
+    "t": 10.5,
+    "sfx": "scribble",
+    "gain": 0.45
+   },
+   {
+    "t": 11.6,
+    "sfx": "brush",
+    "gain": 0.5
+   },
+   {
+    "t": 12.6,
+    "sfx": "stamp",
+    "gain": 0.85
+   }
+  ]
+ },
+ {
+  "id": "18c",
+  "file": "18c-town.html",
+  "episode": 4,
+  "style": "18",
+  "industry": "古镇文旅",
+  "brand": "青溪古镇",
+  "video": "18-古镇文旅-青溪古镇.mp4",
+  "duration": 15.0,
+  "mb": 4,
+  "music": "18",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "paper",
+    "gain": 0.7
+   },
+   {
+    "t": 0.4,
+    "sfx": "roll",
+    "gain": 0.4
+   },
+   {
+    "t": 1.2,
+    "sfx": "splash",
+    "gain": 0.2
+   },
+   {
+    "t": 2.4,
+    "sfx": "paper",
+    "gain": 0.35
+   },
+   {
+    "t": 3.6,
+    "sfx": "windchime",
+    "gain": 0.35
+   },
+   {
+    "t": 4.4,
+    "sfx": "splash",
+    "gain": 0.2
+   },
+   {
+    "t": 5.6,
+    "sfx": "paper",
+    "gain": 0.35
+   },
+   {
+    "t": 8.5,
+    "sfx": "wood",
+    "gain": 0.5
+   },
+   {
+    "t": 8.7,
+    "sfx": "swell",
+    "gain": 0.5
+   },
+   {
+    "t": 10.9,
+    "sfx": "brush",
+    "gain": 0.55
+   },
+   {
+    "t": 12.1,
+    "sfx": "scribble",
+    "gain": 0.4
+   },
+   {
+    "t": 13,
+    "sfx": "stamp",
+    "gain": 0.85
+   }
+  ]
+ },
+ {
+  "id": "19a",
+  "file": "19a-craft.html",
+  "episode": 4,
+  "style": "19",
+  "industry": "亲子手工坊",
+  "brand": "小泥巴手作",
+  "video": "19-亲子手工坊-小泥巴手作.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "19",
+  "cues": [
+   {
+    "t": 0.1,
+    "sfx": "roll",
+    "gain": 0.5
+   },
+   {
+    "t": 1,
+    "sfx": "roll",
+    "gain": 0.5
+   },
+   {
+    "t": 1.35,
+    "sfx": "squish"
+   },
+   {
+    "t": 2.3,
+    "sfx": "thud",
+    "gain": 0.6
+   },
+   {
+    "t": 2.45,
+    "sfx": "pop"
+   },
+   {
+    "t": 2.9,
+    "sfx": "boing",
+    "gain": 0.5
+   },
+   {
+    "t": 2.9,
+    "sfx": "stretch",
+    "gain": 0.4
+   },
+   {
+    "t": 3.3,
+    "sfx": "stretch",
+    "gain": 0.4
+   },
+   {
+    "t": 3.7,
+    "sfx": "stretch",
+    "gain": 0.4
+   },
+   {
+    "t": 4.1,
+    "sfx": "stretch",
+    "gain": 0.4
+   },
+   {
+    "t": 3.32,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 3.7199999999999998,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 4.12,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 4.52,
+    "sfx": "pop",
+    "gain": 0.45
+   },
+   {
+    "t": 4.75,
+    "sfx": "squish",
+    "gain": 0.5
+   },
+   {
+    "t": 5,
+    "sfx": "squish",
+    "gain": 0.5
+   },
+   {
+    "t": 5.9,
+    "sfx": "boing2"
+   },
+   {
+    "t": 6.3,
+    "sfx": "sparkle",
+    "gain": 0.4
+   },
+   {
+    "t": 7.6,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 8,
+    "sfx": "land"
+   },
+   {
+    "t": 9.5,
+    "sfx": "chime",
+    "gain": 0.35
+   }
+  ]
+ },
+ {
+  "id": "19b",
+  "file": "19b-cake.html",
+  "episode": 4,
+  "style": "19",
+  "industry": "烘焙蛋糕",
+  "brand": "糖果屋烘焙",
+  "video": "19-烘焙蛋糕-糖果屋烘焙.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "19",
+  "cues": [
+   {
+    "t": 1.15,
+    "sfx": "land"
+   },
+   {
+    "t": 1.95,
+    "sfx": "squish"
+   },
+   {
+    "t": 2.55,
+    "sfx": "land"
+   },
+   {
+    "t": 3,
+    "sfx": "squish",
+    "gain": 0.6
+   },
+   {
+    "t": 3.9,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 4.066666666666666,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 4.233333333333333,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 4.4,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 4.566666666666666,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 4.733333333333333,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 4.9,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 5.066666666666666,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 5.233333333333333,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 5.4,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 5.566666666666666,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 5.733333333333333,
+    "sfx": "pop",
+    "gain": 0.35
+   },
+   {
+    "t": 6.33,
+    "sfx": "boing",
+    "gain": 0.4
+   },
+   {
+    "t": 6.58,
+    "sfx": "boing",
+    "gain": 0.4
+   },
+   {
+    "t": 6.83,
+    "sfx": "boing",
+    "gain": 0.4
+   },
+   {
+    "t": 7.08,
+    "sfx": "boing",
+    "gain": 0.4
+   },
+   {
+    "t": 7.33,
+    "sfx": "boing",
+    "gain": 0.4
+   },
+   {
+    "t": 7.6,
+    "sfx": "sparkle",
+    "gain": 0.5
+   },
+   {
+    "t": 8.2,
+    "sfx": "pop"
+   },
+   {
+    "t": 8.6,
+    "sfx": "chime",
+    "gain": 0.5
+   },
+   {
+    "t": 9.64,
+    "sfx": "boing2"
+   }
+  ]
+ },
+ {
+  "id": "19c",
+  "file": "19c-pet.html",
+  "episode": 4,
+  "style": "19",
+  "industry": "宠物用品",
+  "brand": "毛球宠物",
+  "video": "19-宠物用品-毛球宠物.mp4",
+  "duration": 15.0,
+  "mb": 1,
+  "music": "19",
+  "cues": [
+   {
+    "t": 0.2,
+    "sfx": "step_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 0.65,
+    "sfx": "step_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 1.1,
+    "sfx": "step_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 1.55,
+    "sfx": "step_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 2,
+    "sfx": "step_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 2.45,
+    "sfx": "step_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 2.9,
+    "sfx": "step_soft",
+    "gain": 0.5
+   },
+   {
+    "t": 3.1,
+    "sfx": "sniff"
+   },
+   {
+    "t": 3.45,
+    "sfx": "coin",
+    "gain": 0.25
+   },
+   {
+    "t": 3.6,
+    "sfx": "ticks",
+    "gain": 0.5
+   },
+   {
+    "t": 4.5,
+    "sfx": "gulp",
+    "gain": 0.5
+   },
+   {
+    "t": 5,
+    "sfx": "gulp",
+    "gain": 0.4
+   },
+   {
+    "t": 5.75,
+    "sfx": "boing",
+    "gain": 0.4
+   },
+   {
+    "t": 6.3,
+    "sfx": "laugh",
+    "gain": 0.3
+   },
+   {
+    "t": 7.4,
+    "sfx": "roll",
+    "gain": 0.5
+   },
+   {
+    "t": 8.5,
+    "sfx": "jump"
+   },
+   {
+    "t": 9,
+    "sfx": "jump"
+   },
+   {
+    "t": 9.8,
+    "sfx": "whoosh",
+    "gain": 0.4
+   },
+   {
+    "t": 10.25,
+    "sfx": "land"
+   },
+   {
+    "t": 10.5,
+    "sfx": "chime",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "20a",
+  "file": "20a-home.html",
+  "episode": 4,
+  "style": "20",
+  "industry": "全屋定制",
+  "brand": "木作家",
+  "video": "20-全屋定制-木作家.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "20",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "pen"
+   },
+   {
+    "t": 1.4,
+    "sfx": "pencil",
+    "gain": 0.5
+   },
+   {
+    "t": 2.6,
+    "sfx": "whoosh"
+   },
+   {
+    "t": 3,
+    "sfx": "riser_short",
+    "gain": 0.5
+   },
+   {
+    "t": 5.4,
+    "sfx": "tick"
+   },
+   {
+    "t": 5.7,
+    "sfx": "tick"
+   },
+   {
+    "t": 6,
+    "sfx": "tick"
+   },
+   {
+    "t": 6.3,
+    "sfx": "tick"
+   },
+   {
+    "t": 7.2,
+    "sfx": "swell"
+   },
+   {
+    "t": 8.6,
+    "sfx": "sparkle",
+    "gain": 0.5
+   },
+   {
+    "t": 10.2,
+    "sfx": "door_creak",
+    "gain": 0.5
+   },
+   {
+    "t": 11,
+    "sfx": "chime",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "20b",
+  "file": "20b-parts.html",
+  "episode": 4,
+  "style": "20",
+  "industry": "工业零件",
+  "brand": "精工机械",
+  "video": "20-工业零件-精工机械.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "20",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "pen"
+   },
+   {
+    "t": 1.8,
+    "sfx": "tick"
+   },
+   {
+    "t": 2.1,
+    "sfx": "tick"
+   },
+   {
+    "t": 2.4,
+    "sfx": "tick"
+   },
+   {
+    "t": 2.7,
+    "sfx": "tick"
+   },
+   {
+    "t": 3.6,
+    "sfx": "zip",
+    "gain": 0.6
+   },
+   {
+    "t": 4.8,
+    "sfx": "data",
+    "gain": 0.5
+   },
+   {
+    "t": 6,
+    "sfx": "whoosh"
+   },
+   {
+    "t": 7.2,
+    "sfx": "clink"
+   },
+   {
+    "t": 7.4,
+    "sfx": "swell"
+   },
+   {
+    "t": 8.8,
+    "sfx": "sparkle",
+    "gain": 0.5
+   },
+   {
+    "t": 9.6,
+    "sfx": "whoosh_up",
+    "gain": 0.4
+   },
+   {
+    "t": 10.2,
+    "sfx": "chime",
+    "gain": 0.5
+   }
+  ]
+ },
+ {
+  "id": "20c",
+  "file": "20c-lock.html",
+  "episode": 4,
+  "style": "20",
+  "industry": "智能硬件",
+  "brand": "安心智能锁",
+  "video": "20-智能硬件-安心智能锁.mp4",
+  "duration": 15.0,
+  "mb": 2,
+  "music": "20",
+  "cues": [
+   {
+    "t": 0.3,
+    "sfx": "pen"
+   },
+   {
+    "t": 2.6,
+    "sfx": "whoosh",
+    "gain": 0.5
+   },
+   {
+    "t": 3,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 3.75,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 4.5,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 5.25,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 6,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 6.7,
+    "sfx": "tick",
+    "gain": 0.6
+   },
+   {
+    "t": 6.9,
+    "sfx": "whoosh"
+   },
+   {
+    "t": 8,
+    "sfx": "lock",
+    "gain": 0.6
+   },
+   {
+    "t": 8.3,
+    "sfx": "swell"
+   },
+   {
+    "t": 10,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 10.22,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 10.44,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 10.66,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 10.88,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 11.1,
+    "sfx": "beep",
+    "gain": 0.45
+   },
+   {
+    "t": 11.5,
+    "sfx": "chime",
+    "gain": 0.6
+   },
+   {
+    "t": 12,
+    "sfx": "click",
+    "gain": 0.7
+   },
+   {
+    "t": 12.1,
+    "sfx": "lock",
+    "gain": 0.5
+   }
+  ]
+ }
+]

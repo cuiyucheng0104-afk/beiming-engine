@@ -1,0 +1,16 @@
+{
+ "seg": "S09",
+ "_说明": "t = 段内秒。stone = 扫描锁住白石；lab = 标签「白石」；wake = 老人醒（角框收到头上、对焦）；point = 手指到白石的引线；rec/reclab = 录音中；blur = 推向白石并失焦（交给 S10）。",
+ "events": [
+  {"id": "rain_far",  "t": 0.0,  "type": "rain_far",  "dur": 5.0, "gain": -21, "fade_in": 0.3, "fade_out": 3.0},
+  {"id": "fogin",     "t": 0.0,  "type": "whoosh",    "dur": 0.7, "gain": -29},
+  {"id": "steps",     "t": 0.5,  "type": "footsteps", "n": 4, "rate": 1.5, "gain": -24},
+  {"id": "stone",     "t": 1.4,  "type": "scan_beep", "gain": -21, "freq": 2100, "pan": 0.3},
+  {"id": "lab",       "t": 1.55, "type": "ui_type",   "text": "白石", "cps": 8, "gain": -27, "pan": 0.3},
+  {"id": "wake",      "t": 3.1,  "type": "lens_focus","gain": -21, "pan": -0.15},
+  {"id": "point",     "t": 5.9,  "type": "ui_stroke", "dur": 0.8, "gain": -25},
+  {"id": "rec",       "t": 7.2,  "type": "rec_beep",  "gain": -21, "pan": -0.6},
+  {"id": "reclab",    "t": 7.25, "type": "ui_type",   "text": "录音中", "cps": 10, "gain": -28, "pan": -0.6},
+  {"id": "blur",      "t": 8.6,  "type": "lens_focus","gain": -22}
+ ]
+}

@@ -1,0 +1,7 @@
+纸上江山 · E组 / 2026-11-05
+
+画面基础：用户提供的九张素材中的书案、楼阁、山水；选用既有 E3 实验的处理结果。素材未向第三方图像生成服务上传。
+动画、纸面绘画、飞纸/纸鹤几何、音效与配乐：为本次任务编写的代码。
+运行引擎：用户的北冥引擎，基线 a65c172；three.js（MIT）、playwright-core（Apache-2.0）、FFmpeg（按工作站安装构建许可）、Python 音频/图像依赖。
+制作方法参考：lemo-opuscar skill / DIRECTOR.md / TECHNIQUE.md / cel-anime-80s 和 watercolor 风格说明，本地版本 bebbbe1；没有使用示例影片资产、剧情或音乐。
+没有使用苔藓巨人原片资产、BotW 模型、MJ/GPT 新生成视频或图片，也没有使用 TRELLIS 生成本片主体。

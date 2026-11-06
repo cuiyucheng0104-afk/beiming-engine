@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>16 · 电商详情页 · 轻野户外</title>
+<script src="../lib/core.js"></script>
+<style>
+  #stage{font-family:Inter,'Noto Sans CJK SC',sans-serif;perspective:1100px;perspective-origin:50% 48%;overflow:hidden}
+  #bg{position:absolute;inset:0;background:radial-gradient(1200px 800px at 50% 40%,#2b3a33 0%,#121a17 70%)}
+  #floor{position:absolute;left:-200px;right:-200px;top:820px;height:600px;background:radial-gradient(closest-side,rgba(120,200,160,.18),rgba(0,0,0,0));transform:rotateX(80deg)}
+  #rig{position:absolute;left:860px;top:110px;width:400px;height:820px;transform-style:preserve-3d}
+  #phone{position:absolute;inset:0;border-radius:58px;background:#0c0e10;box-shadow:0 0 0 3px #3a3f44,0 60px 120px rgba(0,0,0,.6);transform-style:preserve-3d}
+  #scr{position:absolute;left:14px;top:14px;right:14px;bottom:14px;border-radius:46px;overflow:hidden;background:#f6f6f4}
+  #notch{position:absolute;left:50%;top:22px;width:110px;height:30px;margin-left:-55px;border-radius:15px;background:#000;z-index:5}
+  #pg{position:absolute;left:0;top:0;width:372px}
+  .t1{font:800 22px/1.35 'Noto Sans CJK SC';color:#1c1f22;padding:0 18px}
+  .pr{padding:10px 18px 4px;font:900 34px Inter;color:#e8442e}
+  .pr small{font:600 15px 'Noto Sans CJK SC';color:#999;margin-left:8px;text-decoration:line-through}
+  .chip{display:inline-block;margin:6px 4px 0 0;padding:4px 10px;border-radius:12px;background:#fff1ec;color:#e8442e;font:700 13px 'Noto Sans CJK SC'}
+  .row{padding:14px 18px;font:700 15px 'Noto Sans CJK SC';color:#444;border-top:8px solid #efefec}
+  .sw{display:inline-block;width:38px;height:38px;border-radius:50%;margin:10px 10px 0 0;box-shadow:0 0 0 2px #fff,0 0 0 4px transparent}
+  .sz{display:inline-block;width:52px;height:36px;margin:10px 8px 0 0;border-radius:8px;background:#f0f0ee;text-align:center;line-height:36px;font:800 14px Inter;color:#444}
+  .rv{position:absolute;width:300px;padding:16px 18px;box-sizing:border-box;border-radius:18px;background:#fff;box-shadow:0 20px 50px rgba(0,0,0,.35);font:600 15px/1.5 'Noto Sans CJK SC';color:#333}
+  .rv b{color:#f2a900}
+  #bar{position:absolute;left:0;right:0;bottom:0;height:86px;background:#fff;box-shadow:0 -1px 0 #e6e6e2;display:flex;align-items:center;gap:10px;padding:0 16px 10px;box-sizing:border-box;z-index:4}
+  #bar span{flex:1;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;font:900 17px 'Noto Sans CJK SC';color:#fff}
+  #pop{position:absolute;left:-90px;top:120px;width:560px;height:520px;transform-style:preserve-3d;pointer-events:none}
+  #toast{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);padding:16px 28px;border-radius:16px;background:rgba(20,20,20,.85);color:#fff;font:800 20px 'Noto Sans CJK SC';opacity:0;z-index:6;white-space:nowrap}
+  #tag{position:absolute;left:0;right:0;top:930px;text-align:center;font:900 46px 'Noto Sans CJK SC';color:#eafff2;opacity:0;letter-spacing:.06em}
+  #tag small{display:block;font:600 20px 'Noto Sans CJK SC';color:#9fd4b8;margin-top:10px;letter-spacing:.2em}
+  #finger{position:absolute;width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.35);box-shadow:0 0 0 3px rgba(255,255,255,.8);z-index:7;opacity:0}
+</style></head>
+<body><div id="stage"></div>
+<script>
+/* ===== 16 真实页面 2.5D · 行业示例：电商详情页 =====
+   The product page lives in a phone, and the phone turns in space like a product shot. Then the page comes
+   out of the glass: the jacket floats up out of the screen and turns, a finger taps the colour swatches and
+   the jacket re-dyes, the size row lifts, buyer reviews fan out around the phone in depth, and "立即购买"
+   is tapped. A real-looking detail page, shot like hardware. */
+const { E, clamp, lerp, spring } = Reel;
+const stage = Reel.makeStage('#121a17');
+const C = Reel.cfg({ brand: '轻野户外', title: '三合一冲锋衣 · 防水透气 · 可拆抓绒内胆', now: '¥299', was: '¥399', tag: '城市到山野，一件就够', tagSub: '轻野户外 · 官方旗舰店' });
+stage.innerHTML = `<div id="bg"></div><div id="floor"></div><div id="rig"><div id="phone"><div id="scr"><div id="notch"></div><div id="pg"></div><div id="bar"><span style="background:#ffa21f;flex:.8">加入购物车</span><span style="background:#e8442e">立即购买</span></div><div id="toast">✓ 已下单 · 预计明天送达</div></div></div><div id="pop"></div></div><div id="tag">${C.tag}<small>${C.tagSub}</small></div><div id="finger"></div>`;
+const rig = stage.querySelector('#rig'), pg = stage.querySelector('#pg'), pop = stage.querySelector('#pop');
+// jacket illustration (canvas), recoloured by swatch
+const COLS = [['#2f8f83', '#226a61', '#56b3a6'], ['#e8762e', '#b9561c', '#f39a5a'], ['#2b2f36', '#1a1d22', '#4a505a']];
+function jacket(cv, col) {
+  const g = cv.getContext('2d'); const w = cv.width, h = cv.height; g.clearRect(0, 0, w, h); g.save(); g.scale(w / 400, h / 400);
+  const [m, d, l] = col;
+  const body = new Path2D('M140 70 Q200 40 260 70 L320 100 Q352 120 356 170 L372 300 Q374 318 356 320 L330 322 L318 190 L310 360 Q200 378 90 360 L82 190 L70 322 L44 320 Q26 318 28 300 L44 170 Q48 120 80 100 Z');
+  const gr = g.createLinearGradient(40, 0, 360, 0); gr.addColorStop(0, d); gr.addColorStop(0.45, m); gr.addColorStop(0.6, l); gr.addColorStop(1, d); g.fillStyle = gr; g.fill(body);
+  g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 3; g.stroke(body);
+  // hood + collar
+  g.fillStyle = d; g.beginPath(); g.moveTo(150, 70); g.quadraticCurveTo(200, 14, 250, 70); g.quadraticCurveTo(200, 92, 150, 70); g.fill();
+  // zip + pockets + seams
+  g.strokeStyle = '#d9d9d9'; g.lineWidth = 4; g.beginPath(); g.moveTo(200, 82); g.lineTo(200, 368); g.stroke();
+  g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 3; g.beginPath(); g.moveTo(110, 250); g.lineTo(160, 236); g.moveTo(290, 250); g.lineTo(240, 236); g.moveTo(90, 160); g.quadraticCurveTo(200, 180, 310, 160); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.14)'; g.beginPath(); g.ellipse(250, 150, 40, 90, -0.2, 0, 7); g.fill();
+  g.fillStyle = '#f2f2f2'; g.font = '900 18px Inter'; g.fillText('QINGYE', 222, 128);
+  g.restore();
+}
+const heroCv = document.createElement('canvas'); heroCv.width = 744; heroCv.height = 744;
+const add = (html, css = '', parent = pg) => { const d = document.createElement('div'); d.innerHTML = html; d.style.cssText = css; parent.appendChild(d); return d; };
+const heroBox = add('', 'position:relative;height:372px;background:linear-gradient(180deg,#e9efe9,#f6f6f4)'); heroCv.style.cssText = 'position:absolute;left:30px;top:40px;width:312px;height:312px'; heroBox.appendChild(heroCv);
+add(`<div style="position:absolute;right:14px;bottom:10px;padding:2px 10px;border-radius:10px;background:rgba(0,0,0,.35);color:#fff;font:600 12px Inter">1/6</div>`, 'position:absolute;inset:0', heroBox);
+add(`<div class="pr">${C.now}<small>${C.was}</small></div><div style="padding:0 18px"><span class="chip">券后价</span><span class="chip">包邮</span><span class="chip">7 天无理由</span></div><div class="t1" style="margin-top:10px">${C.brand} | ${C.title}</div><div style="padding:8px 18px 14px;font:600 13px 'Noto Sans CJK SC';color:#999">月销 1.2 万+ · 好评率 98%</div>`);
+const swRow = add(`颜色 <span style="color:#999;font-weight:500">· <span id="cn">松石绿</span></span><br>${COLS.map((c, i) => `<span class="sw" style="background:${c[0]}"></span>`).join('')}`); swRow.className = 'row';
+const szRow = add(`尺码<br>${['S', 'M', 'L', 'XL', 'XXL'].map((s, i) => `<span class="sz" style="${i === 2 ? 'background:#1c1f22;color:#fff' : ''}">${s}</span>`).join('')}`); szRow.className = 'row';
+add(`评价 (2,318) <span style="float:right;color:#e8442e">好评率 98% ›</span>`).className = 'row';
+add('', 'height:300px;background:#f6f6f4');
+// pop-out layer: the floating jacket + reviews
+const popCv = document.createElement('canvas'); popCv.width = 900; popCv.height = 900; popCv.style.cssText = 'position:absolute;left:-380px;top:-30px;width:440px;height:440px;filter:drop-shadow(0 40px 40px rgba(0,0,0,.45))'; pop.appendChild(popCv);
+const RV = [['★★★★★', '下雨天骑车一点没湿，内胆单穿也好看', 520, 60], ['★★★★★', '175/70kg 穿 L 刚好，袖子够长', 560, 230], ['★★★★☆', '颜色比图片还正，松石绿很显白', 520, 400], ['★★★★★', '爬山出汗不闷，透气真的可以', 560, 570]];
+const rvEls = RV.map(([s, txt, x, y]) => { const d = document.createElement('div'); d.className = 'rv'; d.innerHTML = `<b>${s}</b><br>${txt}`; d.style.left = x + 'px'; d.style.top = y + 'px'; pop.appendChild(d); return d; });
+const finger = stage.querySelector('#finger'), toast = stage.querySelector('#toast');
+const NAMES = ['松石绿', '日落橙', '曜石黑'];
+const cue = (t, a, d = 0.6) => E.inOutCubic(clamp((t - a) / d));
+const sp = (t, a, k = 140, c = 13) => spring(Math.max(0, t - a), { k, c });
+let lastCol = -1;
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 34px Inter', '800 22px "Noto Sans CJK SC"', '600 15px "Noto Sans CJK SC"', '900 46px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.2, sfx: 'whoosh', gain: 0.4 }, { t: 2.2, sfx: 'swell', gain: 0.4 }, { t: 3.0, sfx: 'pop', gain: 0.5 }, { t: 4.6, sfx: 'click', gain: 0.6 }, { t: 4.65, sfx: 'morph', gain: 0.5 }, { t: 5.9, sfx: 'click', gain: 0.6 }, { t: 5.95, sfx: 'morph', gain: 0.5 }, { t: 7.0, sfx: 'click', gain: 0.5 }, { t: 8.2, sfx: 'pop', gain: 0.4 }, { t: 8.45, sfx: 'pop', gain: 0.4 }, { t: 8.7, sfx: 'pop', gain: 0.4 }, { t: 8.95, sfx: 'pop', gain: 0.4 }, { t: 11.0, sfx: 'click', gain: 0.7 }, { t: 11.1, sfx: 'chime', gain: 0.6 }, { t: 12.2, sfx: 'whoosh', gain: 0.3 }],
+  render(t) {
+    // colour state: tapped at 4.6 (orange), 5.9 (black), back to green at 7.0
+    const ci = t < 4.6 ? 0 : t < 5.9 ? 1 : t < 7.0 ? 2 : 0;
+    if (ci !== lastCol) { jacket(heroCv, COLS[ci]); jacket(popCv, COLS[ci]); stage.querySelector('#cn').textContent = NAMES[ci]; [...swRow.querySelectorAll('.sw')].forEach((s, i) => s.style.boxShadow = `0 0 0 2px #fff,0 0 0 4px ${i === ci ? '#e8442e' : 'transparent'}`); lastCol = ci; }
+    // the phone: turns in from the side, sits at a 3/4 angle while things pop out, squares up at the end
+    const inn = sp(t, 0.1, 70, 12);
+    const ry = lerp(-75, -30, clamp(inn)) + 30 * cue(t, 10.6, 0.8) + 4 * Math.sin(t * 0.6) * (1 - cue(t, 10.6, 0.8));
+    const rx = lerp(12, 6, clamp(inn)) - 6 * cue(t, 10.6, 0.8);
+    rig.style.transform = `translateY(${(1 - clamp(inn)) * 120}px) scale(${1.0 - 0.06 * cue(t, 12.0, 1.0)}) rotateX(${rx}deg) rotateY(${ry}deg)`;
+    // page scroll inside the screen
+    const scroll = lerp(0, 280, cue(t, 3.9, 0.8)) - lerp(0, 280, cue(t, 9.9, 0.7));
+    pg.style.transform = `translateY(${-scroll}px)`;
+    // the jacket lifts out of the screen and turns
+    const out = sp(t, 2.8, 90, 11) * (1 - cue(t, 10.0, 0.9));
+    popCv.style.transform = `translateZ(${260 * out}px) rotateY(${25 * Math.sin(t * 0.9) * out}deg) scale(${0.75 + 0.35 * clamp(out)})`;
+    popCv.style.opacity = clamp(out * 3);
+    heroCv.style.opacity = 1 - 0.85 * clamp(out);
+    // swatches + sizes lift
+    swRow.style.transform = `translateZ(${90 * sp(t, 4.2) * (1 - cue(t, 7.6, 0.6))}px)`; swRow.style.position = 'relative'; swRow.style.background = '#fff';
+    szRow.style.transform = `translateZ(${80 * sp(t, 7.0) * (1 - cue(t, 8.6, 0.6))}px)`; szRow.style.position = 'relative'; szRow.style.background = '#fff';
+    // reviews fan out in depth around the phone
+    rvEls.forEach((d, i) => { const a = sp(t, 8.2 + i * 0.25, 120, 12) * (1 - cue(t, 10.4, 0.6)); d.style.opacity = clamp(a * 2); d.style.transform = `translateX(${lerp(-200, 0, a)}px) translateZ(${lerp(0, 120 + (i % 2) * 80, a)}px) scale(${0.6 + 0.4 * clamp(a)})`; });
+    // finger taps (screen coords): swatch 2, swatch 3, size, buy
+    const sr = stage.getBoundingClientRect(), at = (el) => { const r = el.getBoundingClientRect(); return [(r.left + r.width / 2 - sr.left) * 1920 / sr.width, (r.top + r.height / 2 - sr.top) * 1080 / sr.height]; };
+    const sws = swRow.querySelectorAll('.sw'), szs = szRow.querySelectorAll('.sz'), buy = stage.querySelectorAll('#bar span')[1];
+    const taps = [[4.6, sws[1]], [5.9, sws[2]], [7.0, szs[3]], [11.0, buy]];
+    let fx = 1300, fy = 900, fa = 0, press = 0;
+    for (const [tt, el] of taps) { if (t > tt - 0.6 && t < tt + 0.35) { const [x, y] = at(el); const k = clamp((t - tt + 0.6) / 0.5); fx = lerp(1300, x, E.outCubic(k)); fy = lerp(950, y, E.outCubic(k)); fa = clamp(k * 3) * (1 - clamp((t - tt - 0.2) / 0.15)); press = t > tt && t < tt + 0.12 ? 1 : 0; } }
+    finger.style.opacity = fa; finger.style.transform = `translate(${fx - 32}px, ${fy - 32}px) scale(${press ? 0.8 : 1})`;
+    // order toast + tagline
+    const ta = clamp((t - 11.1) / 0.2) * (1 - clamp((t - 12.6) / 0.3)); toast.style.opacity = ta; toast.style.transform = `translate(-50%,-50%) scale(${0.9 + 0.1 * ta})`;
+    const tg = cue(t, 12.3, 0.6), tag = stage.querySelector('#tag'); tag.style.opacity = tg; tag.style.transform = `translateY(${(1 - tg) * 20}px)`;
+  },
+});
+</script></body></html>

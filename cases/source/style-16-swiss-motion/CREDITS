@@ -1,0 +1,18 @@
+TEMPO · 节拍 —— 第三方素材与许可
+
+画面
+- 全部图形由代码绘制（film.js），未使用任何照片、视频或图片素材。
+- 字体 Archivo（Omnibus-Type），SIL Open Font License 1.1 —— https://fonts.google.com/specimen/Archivo
+  通过 Google Fonts css2 API 的 &text= 子集下载到 fonts/（tools/fonts.sh）。
+- 字体 Noto Sans SC（Google），SIL Open Font License 1.1 —— https://fonts.google.com/noto/specimen/Noto+Sans+SC
+  同上，只含片中用到的汉字。
+
+声音
+- Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  （底鼓采样，与 numpy 合成底鼓叠加）
+- Samples (CC0): Versilian Community Sample Library (Versilian Studios)
+  （拍手、闭镲、军鼓、马林巴、钟琴、弓奏颤音琴）
+- 合成 stab、贝斯、红点正弦、噪声上扬与全部拟音：numpy/scipy 程序合成，无第三方素材。
+
+渲染工具链：本地风格库 core/（render、audio），不随成片分发。
+本片不含旁白、字幕、真实影像或真实机构名称；"节拍音乐节""旧纺织厂 4 号车间"均为虚构。

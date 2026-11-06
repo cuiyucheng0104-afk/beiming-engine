@@ -1,0 +1,240 @@
+{
+ "marks": [
+  {
+   "name": "stroke_sweep",
+   "beat": 1,
+   "t": 0.8333333333333334
+  },
+  {
+   "name": "stroke_drum",
+   "beat": 1,
+   "t": 0.8333333333333334
+  },
+  {
+   "name": "far_pluck",
+   "beat": 2,
+   "t": 1.6666666666666667
+  },
+  {
+   "name": "fall_slide",
+   "beat": 3,
+   "t": 2.5
+  },
+  {
+   "name": "moss1",
+   "beat": 4,
+   "t": 3.3333333333333335
+  },
+  {
+   "name": "moss2",
+   "beat": 4.5,
+   "t": 3.75
+  },
+  {
+   "name": "moss3",
+   "beat": 4.75,
+   "t": 3.9583333333333335
+  },
+  {
+   "name": "pan_xiao",
+   "beat": 5,
+   "t": 4.166666666666667
+  },
+  {
+   "name": "pan_low",
+   "beat": 5,
+   "t": 4.166666666666667
+  },
+  {
+   "name": "wash_harm",
+   "beat": 6,
+   "t": 5.0
+  },
+  {
+   "name": "wing1",
+   "beat": 7,
+   "t": 5.833333333333333
+  },
+  {
+   "name": "wing2",
+   "beat": 7.5,
+   "t": 6.25
+  },
+  {
+   "name": "neck_slide",
+   "beat": 8,
+   "t": 6.666666666666667
+  },
+  {
+   "name": "crown_harm",
+   "beat": 8.5,
+   "t": 7.083333333333333
+  },
+  {
+   "name": "raise_muyu",
+   "beat": 9,
+   "t": 7.5
+  },
+  {
+   "name": "leap_low",
+   "beat": 9.5,
+   "t": 7.916666666666667
+  },
+  {
+   "name": "cry",
+   "beat": 11,
+   "t": 9.166666666666666
+  },
+  {
+   "name": "pulse_wb_12",
+   "beat": 12,
+   "t": 10.0
+  },
+  {
+   "name": "pulse_qin_12",
+   "beat": 12,
+   "t": 10.0
+  },
+  {
+   "name": "pulse_wb_13",
+   "beat": 13,
+   "t": 10.75
+  },
+  {
+   "name": "pulse_qin_13",
+   "beat": 13,
+   "t": 10.75
+  },
+  {
+   "name": "pulse_wb_14",
+   "beat": 14,
+   "t": 11.416666666666666
+  },
+  {
+   "name": "pulse_qin_14",
+   "beat": 14,
+   "t": 11.416666666666666
+  },
+  {
+   "name": "pulse_wb_15",
+   "beat": 15,
+   "t": 12.041666666666666
+  },
+  {
+   "name": "pulse_qin_15",
+   "beat": 15,
+   "t": 12.041666666666666
+  },
+  {
+   "name": "pulse_wb_16",
+   "beat": 16,
+   "t": 12.541666666666666
+  },
+  {
+   "name": "pulse_qin_16",
+   "beat": 16,
+   "t": 12.541666666666666
+  },
+  {
+   "name": "pulse_wb_17",
+   "beat": 17,
+   "t": 13.041666666666666
+  },
+  {
+   "name": "pulse_qin_17",
+   "beat": 17,
+   "t": 13.041666666666666
+  },
+  {
+   "name": "pulse_wb_18",
+   "beat": 18,
+   "t": 13.541666666666666
+  },
+  {
+   "name": "pulse_qin_18",
+   "beat": 18,
+   "t": 13.541666666666666
+  },
+  {
+   "name": "drop_harm",
+   "beat": 16,
+   "t": 12.541666666666666
+  },
+  {
+   "name": "bloom_wb_17",
+   "beat": 17,
+   "t": 13.041666666666666
+  },
+  {
+   "name": "bloom_qin_17",
+   "beat": 17,
+   "t": 13.041666666666666
+  },
+  {
+   "name": "bloom_wb_18",
+   "beat": 18,
+   "t": 13.541666666666666
+  },
+  {
+   "name": "bloom_qin_18",
+   "beat": 18,
+   "t": 13.541666666666666
+  },
+  {
+   "name": "full_drum",
+   "beat": 19,
+   "t": 14.041666666666666
+  },
+  {
+   "name": "full_gong",
+   "beat": 19,
+   "t": 14.041666666666666
+  },
+  {
+   "name": "full_sweep",
+   "beat": 19,
+   "t": 14.041666666666666
+  },
+  {
+   "name": "branch_slide",
+   "beat": 20,
+   "t": 14.666666666666666
+  },
+  {
+   "name": "land_drum",
+   "beat": 21,
+   "t": 15.416666666666666
+  },
+  {
+   "name": "land_qin",
+   "beat": 21,
+   "t": 15.416666666666666
+  },
+  {
+   "name": "seal_gong",
+   "beat": 22,
+   "t": 16.416666666666668
+  },
+  {
+   "name": "turn_qin",
+   "beat": 22.5,
+   "t": 17.041666666666668
+  },
+  {
+   "name": "last_harm",
+   "beat": 23,
+   "t": 17.666666666666668
+  }
+ ],
+ "instruments": [
+  "flute",
+  "woodblock",
+  "log_drum",
+  "gran_cassa",
+  "timpani",
+  "frame_drum",
+  "glass",
+  "gong",
+  "gong2"
+ ]
+}

@@ -1,0 +1,40 @@
+{
+  "duration_seconds": 540.0,
+  "frames": 25920000,
+  "sample_rate": 48000,
+  "channels": 2,
+  "subtype": "PCM_24",
+  "integrated_LUFS": -13.95,
+  "true_peak_dBTP": -1.45,
+  "LRA_LU": 8.4,
+  "silence_486_488_nonzero_samples": 0,
+  "silence_frames": 96000,
+  "dialogue_count": 35,
+  "min_subtitle_seconds": 2.5,
+  "seed": 20261105,
+  "normalization": {
+    "input_i": "-26.33",
+    "input_tp": "-4.84",
+    "input_lra": "11.10",
+    "input_thresh": "-36.47",
+    "output_i": "-13.94",
+    "output_tp": "-1.50",
+    "output_lra": "8.40",
+    "output_thresh": "-24.03",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.06"
+  },
+  "premix_measurement": {
+    "input_i": "-26.33",
+    "input_tp": "-4.84",
+    "input_lra": "11.10",
+    "input_thresh": "-36.47",
+    "output_i": "-13.91",
+    "output_tp": "-1.50",
+    "output_lra": "8.30",
+    "output_thresh": "-23.99",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.09"
+  },
+  "mix_sha256": "10d1b227fb35ea82b1ade32a1d4cd568359c14ef5b0c241a326020251d706f26"
+}

@@ -1,0 +1,15 @@
+《冷冻柜》CREDITS
+
+画面：全部为代码绘制（Canvas 2D，engine/toon.js、chars.js、scenes.js、main.js），无外部图像素材。
+配乐与拟音：全部为代码生成（mix.py：numpy 合成特雷门琴 / slap bass / 方波琶音 / 鼓机 / 罐头笑声；pluck.py Karplus–Strong 尼龙吉他模型；sfx.py 拟音）。
+
+采样乐器（core/audio/sampler.py）：
+- vibraphone、vibraphone_hard、vibraphone_bowed、glockenspiel、hand_chimes、shaker、sus_cymbal、glass、claps
+- Samples (CC0): FreePats project (freepats.zenvoid.org), Versilian Community Sample Library (Versilian Studios)
+
+字体（SIL Open Font License 1.1，经 Google Fonts &text= 子集化，见 fonts/）：
+- Noto Sans SC Black（Google），https://fonts.google.com/noto/specimen/Noto+Sans+SC
+- VT323（Peter Hull），https://fonts.google.com/specimen/VT323
+
+无真实影像素材，无旁白，无配音引擎。
+风格参考：inspired by adult-swim-era sci-fi sitcom cartoons（只借语法，角色、道具、配色均为原创）。

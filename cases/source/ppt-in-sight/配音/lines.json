@@ -1,0 +1,191 @@
+[
+ {
+  "id": "n01",
+  "zh": "圣迭戈郊外，太平洋海岸公路。开车的人叫 Jack，眼镜就架在他的鼻梁上。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n02",
+  "zh": "路边饮料摊的老板 Ray，是三个老战友共同的朋友。一阵车风，把他的假发掀上了天。Jack 停稳车，抬手拍了一张。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "d_ray",
+  "zh": "You'd better delete that.",
+  "cn": "你最好把那张删了。",
+  "who": "RAY",
+  "voice": "Spanish_Jovialman",
+  "lang": "English"
+ },
+ {
+  "id": "n03",
+  "zh": "副驾上坐着 Ryan，Jack 的老战友。这一趟，他们只买了两瓶饮料。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n04",
+  "zh": "电话来了，是第三个战友，Vex。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "d_vex1",
+  "zh": "They're already inside, Jack. I'm not waiting.",
+  "cn": "他们已经进去了，Jack。我不等了。",
+  "who": "VEX",
+  "voice": "Spanish_PowerfulVeteran",
+  "lang": "English",
+  "speed": 0.95
+ },
+ {
+  "id": "n05",
+  "zh": "雇佣兵闯进了海边的 Triton 研究设施，要抢里面的核心资料。Vex 不肯再等撤离，打算提前引爆。可设施下层，还困着四个人。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n06",
+  "zh": "眼镜只提示前方的路口。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n07",
+  "zh": "雇佣兵首领的越野车从高处岔道飞落，横在路中间。这一刻，镜片上什么也没有。刹车、转向，全凭 Jack 自己。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n08",
+  "zh": "冲上直道，Jack 左手握着方向盘，右手把饮料抛给 Ryan。记住这一抛。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "d_guard",
+  "zh": "El enlace remoto está caído. Vex tiene la llave.",
+  "cn": "远程连接断了，钥匙在 Vex 手里。",
+  "who": "警卫",
+  "voice": "Spanish_Deep-tonedMan",
+  "lang": "Spanish"
+ },
+ {
+  "id": "n09",
+  "zh": "设施门口，警卫说的是西班牙语。眼镜把它译成 Jack 看得懂的话。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n10",
+  "zh": "墙上的路线图，把路分成了两条。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "d_jack1",
+  "zh": "I'll get the key. You get them out.",
+  "cn": "我去拿钥匙，你把他们救出去。",
+  "who": "JACK",
+  "voice": "English_Trustworthy_Man",
+  "lang": "English"
+ },
+ {
+  "id": "d_ryan1",
+  "zh": "See you upstairs.",
+  "cn": "上面见。",
+  "who": "RYAN",
+  "voice": "Arnold",
+  "lang": "English",
+  "speed": 0.95
+ },
+ {
+  "id": "n11",
+  "zh": "这是 Jack 的老习惯：每过一个节点，都要对方回一句。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n12",
+  "zh": "楼顶上，Jack 找到了 Vex。六年前，三个人一起折返去救同伴，却丢了目标。同一段过去，让他们走向了不同的判断。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "d_jack2",
+  "zh": "There are still people down there.",
+  "cn": "下面还有人。",
+  "who": "JACK",
+  "voice": "English_Trustworthy_Man",
+  "lang": "English",
+  "speed": 0.95
+ },
+ {
+  "id": "d_vex2",
+  "zh": "And if the data gets out?",
+  "cn": "那资料流出去怎么办？",
+  "who": "VEX",
+  "voice": "Spanish_PowerfulVeteran",
+  "lang": "English",
+  "speed": 0.92
+ },
+ {
+  "id": "n13",
+  "zh": "答案在下层。Ryan 亲手砸毁了存储模块，又带着四个人走了出来。救人和任务，可以同时成立。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n14",
+  "zh": "可他的耳机，在路上坏了。这一切，Jack 都不知道。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n15",
+  "zh": "楼顶的争执变成了扭打。Jack 夺下钥匙，Vex 脚下的边缘却碎了。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n16",
+  "zh": "Jack 一只手抓住 Vex，空出的那只手，把钥匙抛了出去。他看不见接的人在不在。他选择相信。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n17",
+  "zh": "Ryan 接住了。同一条抛物线，这一次，重量不一样。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n18",
+  "zh": "Ryan 用手机重新拨通 Jack，把手机放在台面上，腾出手转动钥匙。爆破，终止。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "n19",
+  "zh": "Jack 把 Vex 拉了回来。两个人坐在地上，呼吸还没有平。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 1.02
+ },
+ {
+  "id": "d_vex3",
+  "zh": "Why did you save me?",
+  "cn": "你为什么救我？",
+  "who": "VEX",
+  "voice": "Spanish_PowerfulVeteran",
+  "lang": "English",
+  "speed": 0.85
+ },
+ {
+  "id": "n20",
+  "zh": "目之所及，眼镜帮他看清。目之所及之外，他只能选择相信。",
+  "voice": "Chinese (Mandarin)_Gentleman",
+  "speed": 0.95
+ }
+]

@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>01 · 剧情动画 · 巷口咖啡</title>
+<script src="../lib/core.js"></script>
+<script src="../lib/toon.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 01 剧情动画 · 巷口咖啡 =====
+   Golden-age theatrical cartoon: gouache background, inked cels, animated on twos, film gate weave.
+   A sleepwalking bear drifts to the coffee hatch, yawns, falls asleep standing; the steam curls into a finger,
+   tickles his nose, he floats to the cup, gulps - TAKE (eyes pop, fur bristles, cap flies) - zips off, zips back:
+   "再来一杯！". Iris out on a wink, title card. */
+const { E, clamp, inv, lerp, hash, noise1 } = Reel;
+const T = Toon;
+const stage = Reel.makeStage('#0c0807');
+const C = Reel.cfg({ brand: '巷口咖啡', tag: '每天第一杯 · 叫醒整条街', say: '再来一杯！', sig: '肖雄 2026' });
+const L = Reel.canvas2d(stage);
+const ctx = L.ctx, K = L.k;
+const WW = 2100;                                   // painted background width (world units)
+let BG = null, FILM = null;
+
+// ---------------------------------------------------------------- palette
+const P = {
+  fur: '#9b6541', furS: '#71452a', cream: '#f5ddb2', creamS: '#d9b585', nose: '#2b1a14',
+  scarf: '#d4473a', scarfS: '#a1312a', stripe: '#f7e8c8', cap: '#4d76b3', capS: '#34588d', pom: '#fbf4e2', pomS: '#d9cfb8',
+  cat: '#e8944a', catS: '#bf6f30', cuff: '#f4efe3', cuffS: '#c9c0ad',
+};
+
+// ---------------------------------------------------------------- painted background
+function paintBG() {
+  const w = Math.round(WW * K), h = Math.round(1080 * K);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.setTransform(K, 0, 0, K, 0, 0);
+  const R = (x, y, ww, hh) => { const p = new Path2D(); p.rect(x, y, ww, hh); return p; };
+  // sky + distant alley in the gap
+  T.wash(g, R(0, 0, WW, 1080), '#f3d7a6', '#f8ead0', { edge: 0 });
+  // far rooftops (aerial perspective)
+  for (let i = 0; i < 6; i++) {
+    const x = 840 + i * 48, top = 300 + hash(i * 3.3) * 120;
+    T.wash(g, T.poly([[x, 900], [x, top], [x + 26, top - 30], [x + 56, top], [x + 56, 900]]), i % 2 ? '#d9b9a0' : '#cfae98', '#c9a58c', { edge: 0.12, edgeW: 6 });
+  }
+  T.wash(g, R(840, 680, 280, 220), '#bfa086', '#a88a70', { edge: 0.1 });       // far alley steps
+  for (let i = 0; i < 6; i++) T.wash(g, R(840, 720 + i * 30, 280, 6), 'rgba(120,90,70,.35)', null, { edge: 0 });
+
+  // ---- left building (peach plaster)
+  const LB = T.poly([[-10, -10], [880, -10], [880, 892], [-10, 892]]);
+  T.wash(g, LB, '#efc095', '#d9966a', { edge: 0.3, edgeW: 26, blur: 14 });
+  // plaster patches & stains
+  g.save(); g.clip(LB);
+  for (let i = 0; i < 9; i++) { const x = hash(i * 7.1) * 860, y = hash(i * 2.9) * 700 + 60; g.fillStyle = 'rgba(150,80,40,.10)'; g.fill(T.blob(x, y, 60 + hash(i) * 70, 30 + hash(i + 3) * 40, (a) => 1 + 0.25 * Math.sin(a * 3 + i), 24)); }
+  const st = g.createLinearGradient(0, 700, 0, 892); st.addColorStop(0, 'rgba(120,60,30,0)'); st.addColorStop(1, 'rgba(120,60,30,.28)'); g.fillStyle = st; g.fillRect(0, 700, 880, 192);
+  g.restore();
+  // windows with teal shutters + geraniums
+  for (const [x, y] of [[120, 150], [500, 150]]) {
+    T.wash(g, R(x - 64, y, 60, 230), '#3f8c86', '#2d6e6a', { edge: 0.25 });          // shutters
+    T.wash(g, R(x + 200, y, 60, 230), '#3f8c86', '#2d6e6a', { edge: 0.25 });
+    for (let k = 0; k < 7; k++) { g.fillStyle = 'rgba(20,50,50,.35)'; g.fillRect(x - 60, y + 14 + k * 31, 52, 5); g.fillRect(x + 204, y + 14 + k * 31, 52, 5); }
+    T.wash(g, R(x, y, 196, 230), '#f4e2c4', '#ead2ab', { edge: 0.2 });               // frame
+    T.wash(g, R(x + 14, y + 14, 168, 200), '#4b6f8f', '#2f4a63', { edge: 0.3 });     // glass
+    g.fillStyle = 'rgba(255,240,210,.32)'; g.fill(T.poly([[x + 30, y + 14], [x + 80, y + 14], [x + 30, y + 120]]));
+    g.fillStyle = '#ead2ab'; g.fillRect(x + 94, y + 14, 8, 200); g.fillRect(x + 14, y + 110, 168, 8);
+    T.wash(g, R(x - 10, y + 230, 216, 34), '#8a5236', '#6e3e28', { edge: 0.2 });     // flower box
+    for (let k = 0; k < 9; k++) { const fx = x + 4 + k * 24, fy = y + 222 - hash(k + x) * 16; g.fillStyle = '#4f7d3a'; g.fill(T.ell(fx, fy + 10, 16, 10)); g.fillStyle = k % 3 ? '#d8423a' : '#ee6b5e'; g.fill(T.ell(fx + 4, fy - 4, 9, 8)); }
+  }
+  // arched green door + steps
+  const door = new Path2D(); door.moveTo(250, 892); door.lineTo(250, 640); door.arc(345, 640, 95, Math.PI, 0); door.lineTo(440, 892); door.closePath();
+  T.wash(g, door, '#2f5c4c', '#22443a', { edge: 0.35, edgeW: 16 });
+  g.strokeStyle = 'rgba(15,35,28,.5)'; g.lineWidth = 5; g.beginPath(); g.moveTo(345, 560); g.lineTo(345, 892); g.stroke();
+  for (let k = 0; k < 3; k++) { g.strokeRect(266 + k * 0, 0, 0, 0); }
+  g.fillStyle = '#d8b25a'; g.fill(T.ell(372, 760, 7, 7));
+  T.wash(g, R(225, 880, 240, 16), '#b79f84', '#a58c70', { edge: 0.2 });
+  // drainpipe
+  T.wash(g, R(852, -10, 18, 900), '#7c8a86', '#5d6966', { edge: 0.2 });
+  // laundry line
+  g.strokeStyle = 'rgba(60,40,30,.6)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, 70); g.quadraticCurveTo(450, 140, 900, 80); g.stroke();
+  const cloth = [['#f3efe6', 110, 70, 64], ['#d9675a', 260, 92, 52], ['#7fa7c9', 420, 102, 70], ['#f2d36b', 600, 98, 44], ['#f3efe6', 730, 86, 58]];
+  for (const [col, x, y, ww] of cloth) { T.wash(g, T.poly([[x, y], [x + ww, y + 2], [x + ww - 4, y + ww * 0.9], [x + 4, y + ww * 0.95]]), col, null, { edge: 0.25, edgeW: 8 }); }
+
+  // ---- café building
+  const CB = R(1060, -10, 1060, 902);
+  T.wash(g, CB, '#f2e2c2', '#e5cda3', { edge: 0.25, edgeW: 22, blur: 12 });
+  g.save(); g.clip(CB); for (let i = 0; i < 7; i++) { const x = 1080 + hash(i * 5.7) * 1000, y = 40 + hash(i * 1.3) * 260; g.fillStyle = 'rgba(160,110,60,.09)'; g.fill(T.blob(x, y, 70, 36, (a) => 1 + 0.2 * Math.sin(a * 4 + i), 24)); } g.restore();
+  // upper window
+  T.wash(g, R(1460, 60, 230, 200), '#f8ecd2', '#ecd9b6', { edge: 0.2 });
+  T.wash(g, R(1476, 76, 198, 168), '#5b7ea0', '#3c5a78', { edge: 0.3 });
+  g.fillStyle = 'rgba(255,240,210,.3)'; g.fill(T.poly([[1490, 76], [1560, 76], [1490, 190]]));
+  g.fillStyle = '#ecd9b6'; g.fillRect(1571, 76, 8, 168);
+  // shop front (deep green wood)
+  T.wash(g, R(1100, 440, 990, 452), '#2f5f52', '#24493f', { edge: 0.3, edgeW: 18 });
+  // hatch interior (warm)
+  const HX = 1290, HY = 470, HW = 380, HH = 222;
+  const hatch = R(HX, HY, HW, HH);
+  T.wash(g, hatch, '#6a3a20', '#b9733a', { edge: 0.45, edgeW: 30, blur: 18, y0: HY, y1: HY + HH });
+  g.save(); g.clip(hatch);
+  const lg = g.createRadialGradient(1500, 500, 10, 1500, 520, 260); lg.addColorStop(0, 'rgba(255,214,140,.75)'); lg.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = lg; g.fillRect(HX, HY, HW, HH);
+  for (let s = 0; s < 2; s++) { g.fillStyle = '#4a2814'; g.fillRect(HX + 10, HY + 70 + s * 64, 150, 7); for (let j = 0; j < 5; j++) { g.fillStyle = ['#d9b47a', '#9c5a2e', '#e9d7b0', '#7a4628', '#c98d4e'][(j + s * 2) % 5]; g.fill(T.rrect(HX + 18 + j * 28, HY + 36 + s * 64, 20, 34, 5)); } }
+  // espresso machine (domed, chrome)
+  T.wash(g, T.rrect(1470, 575, 170, 95, 12), '#cfc9bb', '#8d887c', { edge: 0.3, y0: 575, y1: 670 });
+  const dome = new Path2D(); dome.moveTo(1490, 578); dome.quadraticCurveTo(1555, 500, 1620, 578); dome.closePath();
+  T.wash(g, dome, '#e2dccd', '#a7a193', { edge: 0.3, y0: 520, y1: 580 });
+  g.fillStyle = '#b8863c'; g.fill(T.ell(1555, 524, 9, 9));
+  g.fillStyle = '#3a2c22'; for (const gx of [1510, 1598]) { g.fillRect(gx - 14, 640, 28, 14); g.fillRect(gx - 4, 616, 8, 26); }
+  g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(1480, 590, 10, 70);
+  g.fillStyle = '#3a2618'; g.fillRect(1470, 668, 170, 8);
+  g.restore();
+  // hatch frame + gold lettering
+  g.strokeStyle = '#1d3a32'; g.lineWidth = 16; g.strokeRect(HX - 8, HY - 8, HW + 16, HH + 16);
+  g.fillStyle = 'rgba(230,190,90,.95)'; g.font = '700 30px "Noto Serif CJK SC"'; g.textAlign = 'center'; g.fillText('COFFEE · 手冲 · 拿铁', HX + HW / 2, HY - 26);
+  // counter ledge (wood)
+  T.wash(g, R(1262, 690, 436, 14), '#d7a067', '#c28650', { edge: 0.15 });
+  T.wash(g, R(1262, 704, 436, 26), '#9a5f34', '#7b4624', { edge: 0.3 });
+  g.fillStyle = 'rgba(30,15,8,.35)'; g.fillRect(1270, 730, 420, 12);
+  // panels under ledge
+  for (let i = 0; i < 3; i++) { g.strokeStyle = 'rgba(15,35,30,.55)'; g.lineWidth = 6; g.strokeRect(1290 + i * 130, 760, 110, 110); g.strokeStyle = 'rgba(120,170,150,.25)'; g.lineWidth = 3; g.strokeRect(1296 + i * 130, 766, 98, 98); }
+  // glass door
+  T.wash(g, R(1790, 480, 200, 412), '#4e6f68', '#3a5650', { edge: 0.3 });
+  T.wash(g, R(1812, 500, 156, 250), '#e3b373', '#9d6438', { edge: 0.35, y0: 500, y1: 750 });
+  g.fillStyle = 'rgba(255,245,220,.28)'; g.fill(T.poly([[1820, 500], [1870, 500], [1820, 600]]));
+  g.fillStyle = '#d8b25a'; g.fillRect(1950, 690, 10, 40);
+  T.wash(g, T.rrect(1840, 560, 100, 40, 6), '#f6ecd2', null, { edge: 0.2 }); g.fillStyle = '#2f5f52'; g.font = '700 22px "Noto Sans CJK SC"'; g.fillText('营业中', 1890, 588);
+  // striped awning (perspective trapezoid + scalloped valance)
+  const A0 = 1110, A1 = 2080, AT = 320, AB = 420;
+  const aw = T.poly([[A0 + 30, AT], [A1 - 30, AT], [A1, AB], [A0, AB]]);
+  g.save(); g.clip(aw);
+  for (let i = 0; i < 16; i++) {
+    const u0 = i / 16, u1 = (i + 1) / 16;
+    const xt0 = lerp(A0 + 30, A1 - 30, u0), xt1 = lerp(A0 + 30, A1 - 30, u1), xb0 = lerp(A0, A1, u0), xb1 = lerp(A0, A1, u1);
+    T.wash(g, T.poly([[xt0, AT], [xt1, AT], [xb1, AB], [xb0, AB]]), i % 2 ? '#f4e6c8' : '#c9452f', i % 2 ? '#e2cca3' : '#a8341f', { edge: 0, y0: AT, y1: AB });
+  }
+  g.restore();
+  g.save(); g.clip(aw); g.fillStyle = 'rgba(255,240,200,.22)'; g.fillRect(A0, AT, A1 - A0, 18); g.restore();
+  for (let i = 0; i < 16; i++) {
+    const x0 = lerp(A0, A1, i / 16), x1 = lerp(A0, A1, (i + 1) / 16);
+    const sc = new Path2D(); sc.moveTo(x0, AB - 2); sc.lineTo(x1, AB - 2); sc.lineTo(x1, AB + 18); sc.quadraticCurveTo((x0 + x1) / 2, AB + 52, x0, AB + 18); sc.closePath();
+    T.wash(g, sc, i % 2 ? '#efdcb8' : '#b93c27', i % 2 ? '#d8bf94' : '#962f1d', { edge: 0.2, edgeW: 6, y0: AB, y1: AB + 50 });
+  }
+  // shadow under awning on the wall
+  const sh = g.createLinearGradient(0, AB + 30, 0, AB + 140); sh.addColorStop(0, 'rgba(40,20,10,.38)'); sh.addColorStop(1, 'rgba(40,20,10,0)');
+  g.fillStyle = sh; g.fillRect(A0 + 10, AB + 30, A1 - A0 - 20, 110);
+  // wall lantern
+  g.strokeStyle = '#1f1a16'; g.lineWidth = 6; g.beginPath(); g.moveTo(1730, 470); g.lineTo(1730, 500); g.stroke();
+  T.wash(g, T.poly([[1712, 500], [1748, 500], [1756, 560], [1704, 560]]), '#f2c46a', '#e09a3e', { edge: 0.35, y0: 500, y1: 560 });
+  // blade sign hanging over the alley gap
+  g.strokeStyle = '#1f1a16'; g.lineWidth = 9; g.beginPath(); g.moveTo(1062, 170); g.lineTo(900, 170); g.stroke();
+  g.lineWidth = 3; g.beginPath(); g.moveTo(1062, 150); g.quadraticCurveTo(990, 150, 960, 172); g.stroke();
+  for (const x of [920, 1040]) { g.beginPath(); g.moveTo(x, 172); g.lineTo(x, 196); g.stroke(); }
+  const sg = T.rrect(866, 196, 228, 112, 18);
+  T.wash(g, sg, '#2f5f52', '#244a40', { edge: 0.3, y0: 196, y1: 308 });
+  g.strokeStyle = '#d7b15e'; g.lineWidth = 5; g.stroke(T.rrect(876, 206, 208, 92, 12));
+  g.fillStyle = '#f3dfae'; g.font = '900 50px "Noto Sans CJK SC"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(C.brand, 980, 254);
+  // pavement
+  const PV = R(-10, 886, WW + 20, 200);
+  T.wash(g, PV, '#d7c3a2', '#b9a07c', { edge: 0, y0: 886, y1: 1080 });
+  g.save(); g.clip(PV);
+  for (let r = 0; r < 7; r++) {
+    const y = 892 + r * r * 4.2 + r * 14, hh = 10 + r * 6;
+    for (let i = -1; i < 40; i++) {
+      const ww = 70 + r * 14, x = i * ww + (r % 2) * ww * 0.5 + hash(r * 9 + i) * 8;
+      g.fillStyle = `rgba(${150 + hash(i + r * 3) * 40 | 0},${125 + hash(i * 2 + r) * 30 | 0},${100 + hash(i + r) * 25 | 0},.42)`;
+      g.fill(T.rrect(x + 3, y + 2, ww - 6, hh - 3, hh * 0.4));
+    }
+  }
+  const gs = g.createLinearGradient(0, 886, 0, 930); gs.addColorStop(0, 'rgba(60,35,20,.45)'); gs.addColorStop(1, 'rgba(60,35,20,0)'); g.fillStyle = gs; g.fillRect(0, 886, WW, 44);
+  g.restore();
+  // A-frame chalkboard + potted plant
+  T.wash(g, T.poly([[1800, 760], [1880, 760], [1900, 960], [1780, 960]]), '#6d4a30', '#58391f', { edge: 0.3 });
+  T.wash(g, T.poly([[1808, 772], [1872, 772], [1886, 940], [1794, 940]]), '#2c302c', '#232624', { edge: 0.2 });
+  g.fillStyle = 'rgba(245,240,225,.85)'; g.font = '700 24px "Noto Sans CJK SC"'; g.fillText('今日', 1840, 812); g.font = '700 22px "Noto Sans CJK SC"'; g.fillText('手冲', 1840, 852); g.fillText('¥18', 1840, 892);
+  T.wash(g, T.poly([[1975, 880], [2075, 880], [2060, 965], [1990, 965]]), '#b8653b', '#93482a', { edge: 0.3 });
+  for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.32; g.fillStyle = i % 2 ? '#4f7d3a' : '#3f6a2e'; g.fill(T.ell(2025 + Math.cos(a) * 70, 880 + Math.sin(a) * 80, 22, 50, a + Math.PI / 2)); }
+  // morning light: soft diagonal shafts + long shadows
+  g.save(); g.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 4; i++) {
+    const x = 120 + i * 430; g.fillStyle = 'rgba(255,230,180,.16)';
+    g.fill(T.poly([[x, -20], [x + 120 + i * 20, -20], [x + 620 + i * 20, 1090], [x + 420, 1090]]));
+  }
+  g.restore();
+  // texture + softening
+  const tex = T.paintTex(w >> 1, h >> 1, 3.7, { blot: 0.55, grain: 0.6, streak: 0.5 });
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'multiply'; g.globalAlpha = 0.5; g.drawImage(tex, 0, 0, w, h);
+  g.globalCompositeOperation = 'overlay'; g.globalAlpha = 0.35; g.drawImage(tex, 0, 0, w, h);
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
+  const soft = document.createElement('canvas'); soft.width = w; soft.height = h;
+  const sg2 = soft.getContext('2d'); sg2.filter = `blur(${0.7 * K}px)`; sg2.drawImage(c, 0, 0);
+  return soft;
+}
+
+// ---------------------------------------------------------------- props
+function cup(x, y, rot = 0, s = 1, steam = 0, t = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+  const body = T.poly([[-27, 0], [27, 0], [35, -88], [-35, -88]]);
+  T.ink(ctx, body, { fill: '#fbf6ea', shade: '#dcd2bd', sh: [-10, 0], lw: 4.5 });
+  const slv = T.poly([[-31, -28], [31, -28], [34, -66], [-34, -66]]);
+  T.ink(ctx, slv, { fill: '#2f5f52', shade: '#234a40', sh: [-9, 0], lw: 4 });
+  ctx.fillStyle = '#f3dfae'; ctx.fill(T.ell(0, -47, 11, 11)); ctx.fillStyle = '#2f5f52'; ctx.fill(T.ell(0, -47, 5, 6));
+  const lid = new Path2D(); lid.moveTo(-40, -86); lid.lineTo(40, -86); lid.lineTo(36, -98); lid.quadraticCurveTo(0, -112, -36, -98); lid.closePath();
+  T.ink(ctx, lid, { fill: '#e9e1d0', shade: '#bdb39e', sh: [-8, 0], lw: 4.5 });
+  ctx.restore();
+}
+function steamRibbon(x, y, t, seed, hgt = 120, a = 0.6) {
+  const pts = [];
+  for (let i = 0; i <= 18; i++) { const u = i / 18; pts.push([x + Math.sin(u * 5 + t * 3 + seed) * 12 * u + seed * 4, y - u * hgt]); }
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#fffaf0'; ctx.fill(T.tube(pts, (u) => 14 * Math.sin(Math.PI * u) * (1 - u * 0.5))); ctx.restore();
+}
+// the luring steam: from cup top (x0,y0) to target (x1,y1); grows with g in [0,1]; ends in a beckoning finger
+function lure(x0, y0, x1, y1, g, t) {
+  if (g <= 0) return;
+  const pts = [], n = 40;
+  for (let i = 0; i <= n; i++) {
+    const u = (i / n) * g;
+    const bx = lerp(x0, x1, u), by = lerp(y0, y1, u) - Math.sin(u * Math.PI) * 120 - u * (1 - u) * 60;
+    pts.push([bx + Math.sin(u * 9 - t * 6) * 10, by + Math.cos(u * 7 - t * 5) * 14]);
+  }
+  ctx.save(); ctx.globalAlpha = 0.85;
+  ctx.fillStyle = '#fffaf0'; ctx.fill(T.tube(pts, (u) => 22 * (0.6 + 0.4 * Math.sin(u * 3)) * (1 - 0.35 * u)));
+  // finger curl at tip
+  const e = pts[pts.length - 1], wig = Math.sin(t * 16) * 0.5;
+  const f = T.qbez(e, [e[0] - 30, e[1] - 34 - wig * 10], [e[0] - 48 + wig * 12, e[1] - 6], 10);
+  ctx.fill(T.tube(f, (u) => 16 * (1 - u * 0.4)));
+  ctx.globalAlpha = 0.5; ctx.strokeStyle = '#e6dccb'; ctx.lineWidth = 2.5; ctx.stroke(T.tube(pts, (u) => 22 * (0.6 + 0.4 * Math.sin(u * 3)) * (1 - 0.35 * u)));
+  ctx.restore();
+}
+function catPaw(px, py) {
+  // the barista's arm reaching out of the hatch (from inside, upper right)
+  const a = [1700, 600], c = [lerp(1700, px, 0.5), py - 30];
+  T.limb(ctx, a, c, [px + 30, py], 50, 44, { fill: P.cuff, shade: P.cuffS, sh: [-6, -8], lw: 5 });
+  ctx.save(); ctx.fillStyle = 'rgba(80,120,170,.6)'; for (let i = 0; i < 4; i++) { const u = 0.2 + i * 0.2, q = T.qbez(a, c, [px + 30, py], 10)[Math.round(u * 10)]; ctx.fillRect(q[0] - 2, q[1] - 22, 4, 44); } ctx.restore();
+  T.ink(ctx, T.blob(px, py, 32, 26, (a2) => 1 + 0.08 * Math.cos(a2 * 4), 32), { fill: P.cat, shade: P.catS, sh: [6, -6], lw: 5 });
+  for (let i = 0; i < 3; i++) T.taper(ctx, [[px - 22 + i * 4, py - 14 + i * 12], [px - 32 + i * 4, py - 12 + i * 12]], 3.5);
+}
+
+// ---------------------------------------------------------------- the bear (local coords: feet at 0,0, facing +x, up = -y)
+const DEF = { x: 0, y: 0, s: 1, dir: 1, sq: 1, lean: 0, walk: 0, stride: 0, float: 0, tilt: 0, hy: 0,
+  open: 1, pop: 0, px: 0, py: 0, ps: 1, happy: 0, wink: 0, spark: 0, browY: 0, browA: 0,
+  mo: 0, ms: 0, mr: 0, teeth: 0, hN: [90, -170], hF: [-80, -170], armFront: 0, finger: 0, cap: 1, capSw: 0,
+  bristle: 0, snot: 0, cup: null, shake: [0, 0], smear: 0 };
+function bear(o) {
+  const p = Object.assign({}, DEF, o);
+  const fur = { fill: P.fur, shade: P.furS };
+  // ground shadow (not squashed)
+  ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = 0.28 * (1 - clamp(p.float * 0.6)); ctx.fillStyle = '#3a2416';
+  ctx.fill(T.ell(0, 4, 120 * p.s * (1 - p.float * 0.3), 20 * p.s)); ctx.restore();
+  ctx.save();
+  ctx.translate(p.x + p.shake[0], p.y + p.shake[1] - p.float * 60 * p.s);
+  ctx.scale(p.s * p.dir, p.s); ctx.rotate(p.lean);
+  ctx.scale(1 / Math.sqrt(p.sq) * (1 + p.smear * 1.4), p.sq);
+  const br = p.bristle;
+  // legs (feet)
+  const legs = (side) => {
+    const ph = p.walk + (side > 0 ? 0 : Math.PI);
+    const fx = side * 38 + Math.cos(ph) * 34 * p.stride, lift = Math.max(0, Math.sin(ph)) * 22 * p.stride;
+    const hip = [side * 40, -84], ank = [fx + p.float * 6, -18 - lift + p.float * 8];
+    T.limb(ctx, hip, [lerp(hip[0], ank[0], 0.5) - 6, -50], ank, 56, 50, Object.assign({ sh: [-10, -10], lw: 5 }, fur));
+    T.ink(ctx, T.ell(ank[0] + 16, ank[1] + 2, 42, 20, p.float * 0.9), { fill: P.fur, shade: P.furS, sh: [-8, -8], lw: 5 });
+    if (p.float < 0.3) for (let k = 0; k < 2; k++) T.taper(ctx, [[ank[0] + 40 + k * 0, ank[1] - 6 + k * 10], [ank[0] + 50, ank[1] - 2 + k * 10]], 3);
+  };
+  const arm = (near) => {
+    const sh = near ? [58, -258] : [-60, -262], h = near ? p.hN : p.hF;
+    const mid = [lerp(sh[0], h[0], 0.5) + (near ? -6 : 6), lerp(sh[1], h[1], 0.5) + 26];
+    T.limb(ctx, sh, mid, h, 46, 38, Object.assign({ sh: [-10, -12], lw: 5 }, near ? fur : { fill: '#8a5838', shade: '#653d24' }));
+    if (near && p.cup) cup(h[0] + p.cup[0], h[1] + p.cup[1], p.cup[2], 1, 0, 0);
+    T.ink(ctx, T.ell(h[0], h[1], 26, 24), { fill: near ? P.fur : '#8a5838', shade: near ? P.furS : '#653d24', sh: [-8, -8], lw: 5 });
+    if ((near ? p.finger : p.oneUp)) T.ink(ctx, T.tube([[h[0] + 4, h[1] - 18], [h[0] + 8, h[1] - 52]], () => 16), { fill: P.fur, shade: P.furS, sh: [-5, 0], lw: 4.5 });
+  };
+  arm(false);
+  legs(-1); legs(1);
+  // body
+  const bodyP = T.blob(0, -182, 106, 118, (a, i) => (1 + 0.1 * Math.sin(a)) * (1 + br * (i % 2 ? 0.13 : -0.03)), br > 0.01 ? 56 : 48);
+  T.ink(ctx, bodyP, { fill: P.fur, shade: P.furS, sh: [-22, -20], lw: 6 });
+  ctx.save(); ctx.clip(bodyP); T.ink(ctx, T.ell(30, -166, 62, 80), { fill: P.cream, shade: P.creamS, sh: [-12, -14], lw: 4, noLine: true }); ctx.restore();
+  // scarf
+  const sc = T.blob(10, -284, 90, 26, null, 32);
+  T.ink(ctx, sc, { fill: P.scarf, shade: P.scarfS, sh: [-10, -8], lw: 5 });
+  ctx.save(); ctx.clip(sc); ctx.fillStyle = P.stripe; for (let i = -4; i < 6; i++) ctx.fillRect(10 + i * 30, -320, 9, 80); ctx.restore(); T.line(ctx, sc, 3.6);
+  for (let k = 0; k < 2; k++) {
+    const fl = Math.sin(p.walk * 0.5 + k * 1.3 + (p.flap || 0)) * 10;
+    const tail = T.qbez([-58, -282 + k * 8], [-100, -270 + k * 20 + fl], [-128 - k * 6, -244 + k * 26 - fl], 10);
+    T.ink(ctx, T.tube(tail, (u) => 26 - u * 6), { fill: P.scarf, shade: P.scarfS, sh: [0, -6], lw: 4.5 });
+  }
+  if (!p.armFront) arm(true);
+  // head (rotates about the neck)
+  ctx.save(); ctx.translate(10, -290 - p.hy); ctx.scale(Math.sqrt(p.sq) * Math.pow(p.sq, 0.12), Math.pow(p.sq, -0.8)); ctx.rotate(p.tilt); ctx.translate(-10, 290);
+  const earP = (x, y, r) => { T.ink(ctx, T.blob(x, y, r, r, (a, i) => 1 + br * (i % 2 ? 0.12 : 0), 24), fur); T.ink(ctx, T.ell(x + 2, y + 3, r * 0.5, r * 0.5), { fill: P.cream, shade: P.creamS, sh: [-4, -4], lw: 3.5 }); };
+  earP(-60, -456, 34); earP(58, -468, 36);
+  const headP = T.blob(10, -372, 117, 104, (a, i) => 1 + br * (i % 2 ? 0.12 : -0.02), br > 0.01 ? 60 : 48);
+  T.ink(ctx, headP, { fill: P.fur, shade: P.furS, sh: [-22, -18], lw: 6 });
+  // muzzle
+  T.ink(ctx, T.ell(66, -334, 60, 42, -0.08), { fill: P.cream, shade: P.creamS, sh: [-10, -10], lw: 4.5 });
+  // eyes
+  const pop = p.pop, es = 1 + pop * 1.5;
+  const eF = { x: 20, y: -396 - pop * 30, rx: 15 * es, ry: 22 * es, open: p.open, px: p.px, py: p.py, ps: p.ps, lid: P.fur, happy: p.happy, spark: p.spark };
+  const eN = { x: 82 + pop * 12, y: -398 - pop * 34, rx: 19 * es, ry: 26 * es, open: p.wink ? 0 : p.open, px: p.px, py: p.py, ps: p.ps, lid: P.fur, happy: p.happy || p.wink, spark: p.spark };
+  T.eye(ctx, eF); T.eye(ctx, eN);
+  // brows
+  const bY = -430 - p.browY * 26 - pop * 70;
+  T.taper(ctx, T.qbez([2, bY + 6 + p.browA * 8], [20, bY - 6], [36, bY + 2 - p.browA * 8]), 7);
+  T.taper(ctx, T.qbez([64 + pop * 12, bY + 2 - p.browA * 8], [84 + pop * 12, bY - 8], [104 + pop * 12, bY + 4 + p.browA * 8]), 8);
+  // nose
+  T.ink(ctx, T.blob(116, -356, 22, 15, (a) => 1 - 0.12 * Math.sin(a), 24), { fill: P.nose, lw: 4 });
+  ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fill(T.ell(108, -362, 7, 4, -0.3));
+  // mouth
+  T.mouth(ctx, 80, -308, { w: 44 + p.mo * 10, open: p.mo, smile: p.ms, round: p.mr, teeth: p.teeth });
+  // snot bubble
+  if (p.snot > 1) {
+    const r = p.snot, bx = 136 + r * 0.7, by = -346 + r * 0.25;
+    ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = '#cfeaf2'; ctx.fill(T.ell(bx, by, r, r * 0.95)); ctx.restore();
+    ctx.strokeStyle = 'rgba(40,70,90,.8)'; ctx.lineWidth = 2.6; ctx.stroke(T.ell(bx, by, r, r * 0.95));
+    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill(T.ell(bx - r * 0.35, by - r * 0.4, r * 0.22, r * 0.14, -0.6));
+  }
+  // nightcap
+  if (p.cap) nightcap(0, 0, p.capSw, 1);
+  ctx.restore();
+  if (p.armFront) arm(true);
+  ctx.restore();
+}
+function nightcap(x, y, sw, s, rot = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+  const tipX = -176 + sw * 30, tipY = -452 + Math.abs(sw) * 18;
+  const cone = new Path2D(); cone.moveTo(-84, -446); cone.bezierCurveTo(-86, -540, -40, -560, 10, -548); cone.bezierCurveTo(-60, -560, tipX + 40, tipY - 80, tipX, tipY);
+  cone.bezierCurveTo(tipX + 50, tipY - 50, -10, -520, 76, -470); cone.closePath();
+  T.ink(ctx, cone, { fill: P.cap, shade: P.capS, sh: [10, -10], lw: 5 });
+  ctx.save(); ctx.clip(cone); ctx.fillStyle = 'rgba(255,255,255,.18)'; for (let i = 0; i < 5; i++) ctx.fill(T.ell(-60 + i * 30, -510 + (i % 2) * 20, 6, 6)); ctx.restore();
+  const cuffP = T.tube(T.qbez([-90, -440], [0, -488], [82, -466], 14), () => 30);
+  T.ink(ctx, cuffP, { fill: P.pom, shade: P.pomS, sh: [-6, -8], lw: 5 });
+  T.ink(ctx, T.blob(tipX, tipY, 24, 24, (a) => 1 + 0.1 * Math.sin(a * 7), 28), { fill: P.pom, shade: P.pomS, sh: [-6, -6], lw: 5 });
+  ctx.restore();
+}
+function zzz(x, y, t, a = 1) {
+  for (let k = 0; k < 3; k++) {
+    const u = ((t * 0.7 + k / 3) % 1);
+    T.letter(ctx, 'Z', x + u * 90 + Math.sin(u * 6 + k) * 14, y - u * 150, { size: 30 + u * 34, fill: '#f6f0e0', line: '#2a1f1a', drop: 'rgba(0,0,0,0)', lw: 0.2, alpha: a * Math.sin(u * Math.PI), rot: -0.2 + u * 0.3 });
+  }
+}
+function balloon(x, y, s, txt, tx, ty, a) {
+  if (s <= 0.01) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); ctx.scale(s, s);
+  const b = T.blob(0, 0, 210, 92, (ang) => 1 + 0.05 * Math.sin(ang * 6), 40);
+  const tail = T.poly([[-60, 60], [-10, 70], [tx - x, ty - y]]);
+  T.ink(ctx, tail, { fill: '#fffaf0', lw: 5 }); T.ink(ctx, b, { fill: '#fffaf0', shade: '#eadfca', sh: [8, 10], lw: 6 });
+  ctx.fillStyle = '#fffaf0'; ctx.fill(T.poly([[-58, 50], [-12, 58], [-30, 30]]));
+  T.letter(ctx, txt, 0, 4, { size: 76, fill: '#d4473a', line: '#2a1611', drop: 'rgba(0,0,0,0)', lw: 0.12 });
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- timeline
+const CZ = 1.14, CY = 585;             // camera zoom / centre y
+const camX = (t) => T.trk(t, [[0.6, 1000], [4.6, 1200, E.inOutSine], [8.3, 1200], [9.1, 1250, E.inOutSine]]);
+const toScr = (t, x, y) => [(x - camX(t)) * CZ + 960, (y - CY) * CZ + 540];
+const HATCHCUP = 1560, CTOP = 692;     // cup rest position on the ledge
+function bearPose(t) {
+  const q = T.on2(t);                  // character animation on twos
+  const o = {};
+  // ----- path
+  o.x = T.trk(q, [[0.5, -80], [4.4, 1160, E.outSine], [8.2, 1160], [9.0, 1420, E.inOutSine], [11.62, 1420], [11.7, -600, E.linear], [12.55, -600], [12.85, 1390, E.outCubic]]);
+  o.y = 966;
+  // sleepwalk
+  if (q < 4.6) {
+    Object.assign(o, { open: 0, walk: q * Math.PI * 4, stride: q > 0.5 && q < 4.4 ? 0.8 : 0, tilt: -0.08, lean: -0.04 + Math.sin(q * 4 * Math.PI) * 0.02,
+      hN: [150, -270 + Math.sin(q * 6) * 6], hF: [120, -280 + Math.cos(q * 6) * 6], mo: 0.18, mr: 0.6, browY: -0.4 });
+    o.y -= Math.abs(Math.sin(q * Math.PI * 4)) * 8;
+    if (q > 4.4) o.lean = Math.sin((q - 4.4) * 18) * 0.06 * (1 - (q - 4.4) / 0.4);
+  }
+  // yawn
+  else if (q < 6.4) {
+    const sq = T.trk(q, [[4.6, 1], [4.95, 0.88, E.outQuad], [5.35, 1.14, E.outBack], [5.95, 1.1], [6.35, 1, E.inOutQuad]]);
+    const up = clamp(T.trk(q, [[4.6, 0], [4.95, -0.2], [5.35, 1, E.outQuad], [5.95, 1], [6.35, 0]]), -0.3, 1);
+    Object.assign(o, { sq, open: 0, tilt: lerp(0.08, -0.32, clamp(up)), mo: clamp(up) * 1.55, mr: 0.25, browY: -0.6 + up * 0.4, browA: -0.6 * up,
+      hN: [lerp(80, 150, clamp(up)), lerp(-160, -500, clamp(up))], hF: [lerp(-70, -150, clamp(up)), lerp(-160, -480, clamp(up))] });
+    if (q > 5.35 && q < 5.95) o.shake = [Math.sin(t * 90) * 2.5, 0];
+  }
+  // asleep standing, then lured
+  else if (q < 8.2) {
+    const br = Math.sin((q - 6.4) * 7) * 0.012;
+    Object.assign(o, { sq: 1 + br, open: 0, tilt: 0.16, mo: 0.12, mr: 0.6, browY: -0.5, hN: [70, -150], hF: [-60, -150] });
+    const sn = (q - 6.45) / 0.9; o.snot = q < 8.0 ? 6 + 24 * (0.5 - 0.5 * Math.cos(sn * Math.PI * 2)) * clamp((q - 6.45) * 3) : 0;
+    if (q >= 8.0) Object.assign(o, { tilt: T.trk(q, [[8.0, 0.16], [8.1, 0.02], [8.2, 0.08]]), open: 0.35, browY: 0.3, mo: 0, ms: 0.4 });
+  }
+  // float to the cup, dreamy
+  else if (q < 9.0) {
+    const f = Math.sin(clamp((q - 8.2) / 0.8) * Math.PI);
+    Object.assign(o, { float: f, open: 0.2, ms: 0.9, browY: 0.5, browA: 0.5, tilt: -0.06, hN: [150, -300], hF: [100, -310], lean: 0.1 });
+  }
+  // grab + gulp
+  else if (q < 10.0) {
+    const g = clamp((q - 9.15) / 0.25);
+    const gx = lerp(140, 112, g), gy = lerp(-230, -340, g), rot = lerp(0, -2.1, E.inOutQuad(g));
+    Object.assign(o, { open: g > 0.2 ? 0 : 0.6, tilt: -0.28 * g, hN: [gx, gy], hF: [lerp(-60, 90, g), lerp(-160, -330, g)], cup: [0, 26, rot], armFront: 1, ms: 0.2,
+      mo: g > 0.5 ? 0.25 : 0, mr: 1, browY: 0.2 });
+    o.sq = 1 + (Math.abs(Math.sin((q - 9.4) * Math.PI * 4)) * 0.03) * (q > 9.4 ? 1 : 0);
+  }
+  // freeze ... TAKE
+  else if (q < 11.62) {
+    Object.assign(o, { hN: [100, -200], hF: [-70, -170], cup: [0, 26, 0], armFront: 1 });
+    if (t < 10.42) Object.assign(o, { open: 1, ps: 0.28, mo: 0, ms: -0.1, browY: 0 });
+    else if (t < 10.58) Object.assign(o, { sq: T.trk(t, [[10.42, 1], [10.58, 0.8, E.outQuad]]), open: 0.6, ps: 0.3, browY: -0.6, browA: 0.3, mo: 0, ms: -0.3 });
+    else {
+      const k = clamp((t - 10.58) / 0.12);
+      const sq = T.trk(t, [[10.58, 0.8], [10.7, 1.42, E.outQuad], [10.95, 1.3], [11.4, 1.34]]);
+      Object.assign(o, { sq, pop: E.outBack(k), open: 1, ps: 0.32, bristle: 1, mo: 0.95, mr: 0.55, teeth: 1, browY: 1.2, cap: 0,
+        hN: [230, -400], hF: [-230, -420], cup: [0, 26, -0.6] });
+      o.shake = [(hash(Math.floor(t * 30) * 1.3) - 0.5) * 16, (hash(Math.floor(t * 30) * 2.7) - 0.5) * 10];
+      if (t > 11.4) Object.assign(o, { pop: 0.25, sq: 0.92, lean: -0.45, mo: 0.4, ms: 1, mr: 0, open: 1, ps: 1, spark: 1, bristle: 0.6, hN: [-40, -260], hF: [-140, -250], shake: [0, 0] });
+    }
+  }
+  // zip away / back
+  else if (q < 12.85) {
+    Object.assign(o, { cap: 0, bristle: 0.5, open: 1, spark: 1, ms: 1, mo: 0.4, teeth: 1, hN: [140, -230], hF: [-120, -260], cup: [0, 26, 0], armFront: 1, lean: -0.3, smear: q > 12.55 ? 0.6 : 0, dir: 1 });
+    if (q > 12.6) { o.lean = 0.42; o.walk = q * 40; o.stride = 1; }
+  }
+  // "one more!"
+  else {
+    const k = clamp((q - 12.85) / 0.3);
+    Object.assign(o, { cap: 0, bristle: 0.35, open: 1, spark: 1, ms: 1, mo: 0.42, teeth: 1, browY: 0.6,
+      lean: lerp(0.42, 0, E.outBack(k)), hN: [lerp(140, 170, k), lerp(-230, -310, k)], hF: [lerp(-120, -170, k), lerp(-260, -470, k)], finger: 0, cup: [0, 26, 0.25], armFront: 1 });
+    // far hand shows "1": draw finger on far hand via separate flag (near holds cup)
+    o.oneUp = k > 0.6;
+    o.wink = t > 13.95 && t < 14.3 ? 1 : 0;
+    o.px = 0.6; o.py = -0.1;
+  }
+  return o;
+}
+
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 100px "Noto Sans CJK SC"', '700 30px "Noto Serif CJK SC"'],
+  async setup() { BG = paintBG(); FILM = T.film(ctx.canvas.width, ctx.canvas.height); },
+  cues: [{"t": 0.0, "sfx": "harp_up", "gain": 0.55}, {"t": 0.75, "sfx": "tip1", "gain": 0.32}, {"t": 1.0, "sfx": "tip2", "gain": 0.32}, {"t": 1.25, "sfx": "tip1", "gain": 0.32}, {"t": 1.5, "sfx": "tip2", "gain": 0.32}, {"t": 1.75, "sfx": "tip1", "gain": 0.32}, {"t": 2.0, "sfx": "tip2", "gain": 0.32}, {"t": 2.25, "sfx": "tip1", "gain": 0.32}, {"t": 2.5, "sfx": "tip2", "gain": 0.32}, {"t": 2.75, "sfx": "tip1", "gain": 0.32}, {"t": 3.0, "sfx": "tip2", "gain": 0.32}, {"t": 3.25, "sfx": "tip1", "gain": 0.32}, {"t": 3.5, "sfx": "tip2", "gain": 0.32}, {"t": 3.75, "sfx": "tip1", "gain": 0.32}, {"t": 4.0, "sfx": "tip2", "gain": 0.32}, {"t": 4.95, "sfx": "yawn", "gain": 0.8}, {"t": 6.45, "sfx": "snore", "gain": 0.6}, {"t": 6.6, "sfx": "ding", "gain": 0.55}, {"t": 6.72, "sfx": "whoosh", "gain": 0.35}, {"t": 7.3, "sfx": "lure", "gain": 0.7}, {"t": 7.35, "sfx": "snore", "gain": 0.5}, {"t": 8.0, "sfx": "pop", "gain": 0.8}, {"t": 8.05, "sfx": "sniff", "gain": 0.7}, {"t": 8.2, "sfx": "slide_up", "gain": 0.7}, {"t": 9.12, "sfx": "land", "gain": 0.4}, {"t": 9.45, "sfx": "gulp", "gain": 0.9}, {"t": 9.72, "sfx": "gulp", "gain": 0.9}, {"t": 10.32, "sfx": "tick", "gain": 0.5}, {"t": 10.56, "sfx": "take", "gain": 0.55}, {"t": 10.65, "sfx": "steamwhistle", "gain": 0.6}, {"t": 11.6, "sfx": "zip", "gain": 0.85}, {"t": 12.25, "sfx": "thud", "gain": 0.35}, {"t": 12.55, "sfx": "zip", "gain": 0.6}, {"t": 12.62, "sfx": "skid", "gain": 0.7}, {"t": 12.95, "sfx": "pop", "gain": 0.5}, {"t": 13.95, "sfx": "sparkle", "gain": 0.5}, {"t": 14.2, "sfx": "boing", "gain": 0.5}],
+  render(t) {
+    L.begin();
+    const wv = FILM.weave(t);
+    // camera shake on the take
+    let shx = 0, shy = 0;
+    if (t > 10.58 && t < 11.1) { const a = (1 - (t - 10.58) / 0.52) * 12; shx = (hash(Math.floor(t * 30)) - 0.5) * a; shy = (hash(Math.floor(t * 30) + 9) - 0.5) * a; }
+    ctx.save();
+    ctx.translate(wv[0] + shx, wv[1] + shy);
+    ctx.translate(960, 540); ctx.scale(CZ, CZ); ctx.translate(-camX(t), -CY);
+    // background
+    ctx.drawImage(BG, 0, 0, WW, 1080);
+    // floating dust motes in the light
+    for (let i = 0; i < 26; i++) { const x = (hash(i * 3.1) * 2000 + t * (8 + hash(i) * 14)) % 2000, y = 120 + hash(i * 7.7) * 760 + Math.sin(t * 0.8 + i) * 18; ctx.fillStyle = 'rgba(255,240,205,.5)'; ctx.fill(T.ell(x, y, 2.4, 2.4)); }
+    const q = T.on2(t);
+    // steam from cup on the ledge
+    const cupOnLedge = q >= 6.7 && q < 9.25;
+    const cupX = T.trk(q, [[6.7, 1660], [7.05, HATCHCUP, E.outBack]]);
+    const pawX = T.trk(q, [[6.6, 1720], [6.72, 1700], [7.05, HATCHCUP + 40, E.outBack], [7.25, HATCHCUP + 40], [7.5, 1740, E.inQuad]]);
+    if (q > 6.6 && q < 7.5) catPaw(pawX, 640);
+    if (cupOnLedge) {
+      cup(cupX, CTOP, 0, 1);
+      for (let k = 0; k < 2; k++) steamRibbon(cupX - 10 + k * 18, CTOP - 112, t, k * 2.3, 90, 0.45);
+      const nose = [1160 + 120, 966 - 360];
+      const lg = T.trk(q, [[7.3, 0], [7.95, 1, E.outQuad], [8.15, 1], [8.5, 0, E.inQuad]]);
+      if (q < 8.5) lure(cupX, CTOP - 110, nose[0] + 30, nose[1] - 10, lg, t);
+    }
+    // bear
+    const bp = bearPose(t);
+    bear(bp);
+    // Z's
+    if (q > 0.6 && q < 4.6) zzz(bp.x + 70, bp.y - 500, t, clamp((q - 0.6) * 2));
+    if (q > 6.6 && q < 8.0) zzz(bp.x + 60, bp.y - 520, t, clamp((8.0 - q) * 3));
+    // bubble pop
+    if (q >= 8.0 && q < 8.2) { const c = [bp.x + 150, bp.y - 350]; for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; T.taper(ctx, [[c[0] + Math.cos(a) * 24, c[1] + Math.sin(a) * 24], [c[0] + Math.cos(a) * 46, c[1] + Math.sin(a) * 46]], 5); } }
+    // take: flying nightcap + ear steam
+    if (t > 10.58 && t < 12.4) {
+      const u = t - 10.58;
+      const cx = 1420 + 60 + u * 100, cy = 966 - 560 - (u * 1500 - u * u * 1500 * 1.25);
+      if (cy < 966) nightcap(cx, Math.min(cy + 470, 966 + 440) - 470, Math.sin(u * 20) * 0.6, 0.9, u * 9);
+    }
+    if (t > 12.4) nightcap(1560, 966 + 395, 0.2, 0.9, 0.12);
+    if (t > 10.62 && t < 11.4) {
+      for (let k = 0; k < 2; k++) for (let i = 0; i < 4; i++) {
+        const u = ((t * 3 + i / 4) % 1), ex = 1420 + (k ? 70 : -60), ey = 966 - 640 * 1.4;
+        T.puff(ctx, ex + (k ? 1 : -1) * u * 60, ey - u * 160, 14 + u * 26, i + k * 5, 1 - u, '#fbf7ee', '#d9d2c4');
+      }
+    }
+    // zip: dust cloud in his shape + speed lines
+    if (t > 11.62 && t < 12.6) {
+      const u = (t - 11.62) / 0.98;
+      // dust cloud keeps his silhouette for a beat, then crumbles
+      const hold = clamp(1 - (u - 0.3) / 0.25), crumble = clamp((u - 0.3) / 0.7);
+      if (hold > 0) {
+        ctx.save(); ctx.globalAlpha = hold; ctx.translate(1420, 966);
+        const bump = (k) => (ang) => 1 + 0.07 * Math.sin(ang * 11 + k) + 0.04 * Math.sin(ang * 23 + k * 2);
+        for (const [x, y, r] of [[-60, -456, 38], [58, -468, 40]]) T.ink(ctx, T.blob(x, y, r, r, bump(x), 40), { fill: '#eadfc9', shade: '#cdbb9b', sh: [-8, -8], lw: 5 });
+        T.ink(ctx, T.blob(0, -182, 112, 124, bump(1), 64), { fill: '#eadfc9', shade: '#cdbb9b', sh: [-20, -18], lw: 6 });
+        T.ink(ctx, T.blob(10, -372, 122, 108, bump(2), 64), { fill: '#eadfc9', shade: '#cdbb9b', sh: [-20, -18], lw: 6 });
+        for (const x of [-40, 40]) T.ink(ctx, T.blob(x, -40, 40, 44, bump(x + 3), 30), { fill: '#eadfc9', shade: '#cdbb9b', sh: [-8, -8], lw: 5 });
+        ctx.restore();
+      }
+      if (crumble > 0) for (let n = 0; n < 34; n++) {
+        const sx = (hash(n * 3.1) - 0.5) * 220, sy = -40 - hash(n * 7.7) * 460, fall = E.inQuad(crumble);
+        T.puff(ctx, 1420 + sx + (hash(n) - 0.5) * fall * 160, 966 + sy + fall * (966 - (966 + sy)) * 0.9, (20 + hash(n * 5.3) * 18) * (1 - fall * 0.6), n, 1 - E.inQuad(clamp((crumble - 0.4) / 0.6)), '#eadfc9', '#cdbb9b');
+      }
+      for (let i = 0; i < 7; i++) { const y = 966 - 80 - i * 60, len = 600 * (1 - u); ctx.globalAlpha = 1 - u; T.taper(ctx, [[1300 - len, y], [1300, y]], 6); ctx.globalAlpha = 1; }
+    }
+    // skid in
+    if (t > 12.55 && t < 13.6) {
+      const u = (t - 12.55) / 1.05;
+      for (let i = 0; i < 5; i++) T.puff(ctx, 1390 - 120 - i * 50 - u * 40, 966 - 20 - hash(i) * 30 - u * 20, 26 + i * 6 + u * 20, i + 3, 1 - u);
+      if (u < 0.5) for (let i = 0; i < 4; i++) T.taper(ctx, [[1390 - 500 * (1 - u * 2), 966 - 60 - i * 70], [1300, 966 - 60 - i * 70]], 5);
+    }
+    // speech balloon
+    const bs = T.trk(t, [[12.95, 0], [13.15, 1, E.outBack], [13.75, 1], [13.95, 0, E.inQuad]]);
+    balloon(1330, 290, bs, C.say, 1440, 520, 1);
+    ctx.restore();
+    // iris in / out
+    const [headX, headY] = toScr(t, 1390 + 40, 966 - 380);
+    const sgn = toScr(t, 980, 250);
+    if (t < 0.9) T.iris(ctx, sgn[0], sgn[1], T.trk(t, [[0, 0], [0.9, 1500, E.inQuad]]));
+    if (t > 13.55) T.iris(ctx, headX, headY, T.trk(t, [[13.55, 1500], [14.3, 270, E.inOutQuad]]));
+    // title card on black, left of the iris
+    if (t > 14.15) {
+      const chars = [...C.brand];
+      chars.forEach((ch, i) => {
+        const k = clamp((t - 14.2 - i * 0.07) / 0.28);
+        if (k > 0) T.letter(ctx, ch, 270 + i * 150, 470 - (1 - E.outBack(k)) * 80, { size: 140, sx: E.outBack(k), sy: E.outBack(k), rot: (i % 2 ? 0.05 : -0.05) * (1 - k), fill: '#ffe9b8', line: '#3a1d12', drop: 'rgba(200,80,40,.85)' });
+      });
+      const k2 = clamp((t - 14.55) / 0.3);
+      if (k2 > 0) T.letter(ctx, C.tag, 495, 620, { size: 44, weight: 700, fill: '#f6e7c8', line: 'rgba(0,0,0,0)', drop: 'rgba(0,0,0,0)', lw: 0, alpha: k2 });
+      ctx.save(); ctx.globalAlpha = clamp((t - 14.5) / 0.3) * 0.55; ctx.fillStyle = '#e8d8b8'; ctx.font = '500 20px "Noto Sans CJK SC"'; ctx.textAlign = 'right'; ctx.fillText(C.sig, 1880, 1050); ctx.restore();
+    }
+    FILM.finish(ctx, t);
+  },
+});
+</script></body></html>

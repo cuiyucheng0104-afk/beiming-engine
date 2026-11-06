@@ -1,0 +1,17 @@
+{
+  "id": "print_elev",
+  "w": 2616,
+  "h": 1010,
+  "anchors": {},
+  "print": true,
+  "prep": {
+    "src": "material/raw/elev.jpg",
+    "id": "print_elev",
+    "crop": "64,1400,3690,2600",
+    "w": 2400,
+    "border": 0.045,
+    "sat": 0.85,
+    "levels": "1.5,99.7",
+    "gamma": 1.4
+  }
+}

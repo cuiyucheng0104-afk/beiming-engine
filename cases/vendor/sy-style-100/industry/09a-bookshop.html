@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>09 · 独立书店 · 慢读书屋</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script>
+<script src="../lib/collage.js"></script><script src="../lib/collage-parts.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 09 拼贴 · 行业示例：独立书店 =====
+   A reading journal laid out along a long green bookcloth desk; the camera dollies sideways across it in
+   three stops, shot as stop-motion at 12 fps. Stop 1: a torn book page and the library card gets its due
+   dates stamped. Stop 2: a riso print of the shelves, ginkgo leaves, a reading-club ticket by a coffee ring.
+   Stop 3: the shop's name in ransom letters, a Dymo label, the typed address, the red seal - while the
+   window light walks from afternoon to golden hour across the whole desk. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#22342a');
+const C = Reel.cfg({ brand: '慢读书屋', addr: '梧桐路 12 号 · 每天 10:00 – 22:00', sub: '旧书 · 手冲咖啡 · 周六读书会' });
+const k = CL.init(stage, { seed: 9091 });
+const { R, rr, hsh, mkc, g2, SANS, SERIF } = k;
+const STOPS = [1000, 2240, 3480];
+let SEAL, DUE;
+
+// the shelf picture that gets riso-printed
+function shelfPic() {
+  const w = 640, h = 480, c = mkc(w, h), g = g2(c);
+  const bg = g.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#6b4a33'); bg.addColorStop(1, '#3a2618'); g.fillStyle = bg; g.fillRect(0, 0, w, h);
+  const cols = ['#c9452f', '#e7c35a', '#2f5d8a', '#e9e2cf', '#6d8f4e', '#1f1c1a', '#b7744a', '#8a3b5a', '#d9d2c2'];
+  for (let row = 0; row < 3; row++) {
+    const y1 = 150 + row * 150; g.fillStyle = '#2a1a10'; g.fillRect(0, y1, w, 14);
+    let x = 14;
+    while (x < w - 20) {
+      const bw = rr(16, 34), bh = rr(90, 132), lean = R() < 0.08 ? rr(-0.25, 0.25) : 0;
+      g.save(); g.translate(x + bw / 2, y1); g.rotate(lean); g.fillStyle = cols[(R() * cols.length) | 0]; g.fillRect(-bw / 2, -bh, bw, bh);
+      g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(-bw / 2 + 2, -bh + 10, bw - 4, 3); g.fillRect(-bw / 2 + 2, -18, bw - 4, 3); g.restore();
+      x += bw + (R() < 0.1 ? rr(10, 30) : 1);
+      if (R() < 0.04 && x < w - 90) { g.fillStyle = '#4c7a3a'; g.beginPath(); g.ellipse(x + 30, y1 - 40, 30, 36, 0, 0, 7); g.fill(); g.fillStyle = '#b2603b'; g.fillRect(x + 14, y1 - 26, 32, 26); x += 64; }
+    }
+  }
+  const lamp = g.createRadialGradient(470, 60, 10, 470, 60, 260); lamp.addColorStop(0, 'rgba(255,230,160,.65)'); lamp.addColorStop(1, 'rgba(255,230,160,0)'); g.fillStyle = lamp; g.fillRect(0, 0, w, h);
+  return c;
+}
+
+function build() {
+  k.buildBoard({ w: 4700, h: 1360, x: -160, y: -140, s: 0.66, col: '#2c6046',
+    tex: { fc: ['rgba(20,40,28,.3)', 'rgba(90,130,100,.18)', 'rgba(10,25,16,.2)', 'rgba(150,180,150,.08)'], sc: 'rgba(10,20,14,.5)', ma: 0.07 },
+    paint: (g, W, H) => { g.strokeStyle = 'rgba(160,200,170,.05)'; g.lineWidth = 1; for (let y = 0; y < H; y += 3) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y + rr(-1, 1)); g.stroke(); } for (let x = 0; x < W; x += 3) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + rr(-1, 1), H); g.stroke(); } },
+    tooth: 0.7 });
+  const B = 160;   // board offset (x of the board origin is -160)
+  // ---- stop 1: torn book page + library card
+  { const w = 640, h = 780, ol = k.outline(w, h, { sides: 'cctc', amp: 9, seed: 3, band: 4 });
+    k.add(k.makePiece({ w, h, pad: 20, ol, core: '#f3eedf', fibCol: 'rgba(244,240,226,.55)', z: 0.35, gloss: 0.04, tooth: 0.32, edge: 0.3, cockle: [0.5, 16, 60, 170], relief: k.curl(w, h, 170, 2.0),
+      paint: (g) => {
+        g.fillStyle = '#ece3cc'; g.fillRect(-10, -10, w + 20, h + 20);
+        k.paperTex(g, w, h, { mott: 14, ma: 0.06, fib: 300, fl: 7, fc: ['rgba(140,110,60,.08)', 'rgba(255,255,255,.18)'] });
+        const fox = g.createRadialGradient(w, 0, 20, w, 0, 520); fox.addColorStop(0, 'rgba(150,100,40,.16)'); fox.addColorStop(1, 'rgba(150,100,40,0)'); g.fillStyle = fox; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#5a5246'; g.font = `500 15px ${SERIF}`; g.textAlign = 'center'; g.fillText('第 三 章　·　慢', w / 2, 58); g.textAlign = 'left';
+        k.textBlock(g, 56, 96, w - 112, 200, 17, 30, 'rgba(36,32,26,.82)');
+        g.fillStyle = '#1d1a16'; g.font = `900 64px ${SERIF}`; g.fillText('慢一点，', 70, 380); g.fillText('也没关系。', 70, 462);
+        k.textBlock(g, 56, 510, w - 112, 220, 17, 30, 'rgba(36,32,26,.82)');
+        g.fillStyle = '#5a5246'; g.font = `400 15px ${SERIF}`; g.textAlign = 'center'; g.fillText('— 37 —', w / 2, h - 26); g.textAlign = 'left';
+      } }), 760, 560, -0.035, 0.2, { from: [-200, -420], frot: -0.1 });
+    // highlighter swipe over the quote (drawn on top as a doodle in translucent yellow)
+    k.doodle([[505, 566], [778, 556]], 1.0, 0.25, { col: 'rgba(255,214,40,.42)', col2: null, lw: 30, z: 0.05 });
+    k.doodle([[505, 646], [842, 634]], 1.25, 0.25, { col: 'rgba(255,214,40,.42)', col2: null, lw: 30, z: 0.05 });
+  }
+  { const w = 380, h = 560, ol = k.outline(w, h, { sides: 'cccc', cj: 2 });
+    k.add(k.makePiece({ w, h, pad: 14, ol, z: 0.9, gloss: 0.05, tooth: 0.36, edge: 0.4, relief: k.curl(0, 0, 110, 1.4),
+      paint: (g) => {
+        g.fillStyle = '#efe0b8'; g.fillRect(-5, -5, w + 10, h + 10); k.paperTex(g, w, h, { mott: 10, fib: 200, fl: 6, fc: ['rgba(140,100,40,.1)', 'rgba(255,255,255,.2)'] });
+        g.fillStyle = '#7b2a22'; g.font = `900 30px ${SERIF}`; g.textAlign = 'center'; g.fillText('借 书 卡', w / 2, 52); g.font = `500 15px ${SANS}`; g.fillText(C.brand + ' · No.0207', w / 2, 80); g.textAlign = 'left';
+        g.strokeStyle = 'rgba(123,42,34,.65)'; g.lineWidth = 1.4; g.strokeRect(20, 98, w - 40, h - 120);
+        g.beginPath(); g.moveTo(20, 136); g.lineTo(w - 20, 136); g.moveTo(190, 98); g.lineTo(190, h - 22); g.stroke();
+        g.lineWidth = 0.8; for (let y = 136 + 56; y < h - 22; y += 56) { g.beginPath(); g.moveTo(20, y); g.lineTo(w - 20, y); g.stroke(); }
+        g.fillStyle = '#7b2a22'; g.font = `700 16px ${SANS}`; g.fillText('还书日期', 60, 124); g.fillText('借阅人', 250, 124);
+        const names = ['林 小 满', '阿 杰', '周 周'];
+        names.forEach((n, i) => { g.fillStyle = 'rgba(30,40,90,.82)'; g.font = `500 22px ${SERIF}`; g.fillText(n, 222, 172 + i * 56); });
+      } }), 1340, 520, 0.05, 0.6, { from: [380, -120], frot: 0.12 });
+  }
+  CP.tape(k, 520, 186, -0.62, 150, 0.9);
+  CP.tape(k, 1450, 236, 0.5, 130, 1.0);
+  // ---- stop 2: riso shelves, ginkgo, ticket, coffee ring
+  { const w = 540, h = 430, ol = k.outline(w, h, { sides: 'cccc', cj: 2.5 }), pic = shelfPic();
+    k.add(k.makePiece({ w, h, pad: 14, ol, z: 1.2, gloss: 0.06, tooth: 0.4, edge: 0.4, relief: k.curl(w, 0, 130, 1.6),
+      paint: (g) => {
+        g.fillStyle = '#f2ead8'; g.fillRect(-10, -10, w + 20, h + 20); k.paperTex(g, w, h, { mott: 8, fib: 160, fl: 6 });
+        k.halftone(g, pic, 22, 22, w - 44, 300, 'riso');
+        g.globalCompositeOperation = 'multiply';
+        g.fillStyle = 'rgba(36,78,206,.9)'; g.font = '800 26px Inter'; g.textBaseline = 'alphabetic'; g.fillText('3,000+ USED BOOKS', 22, 362);
+        g.fillStyle = 'rgba(255,72,130,.9)'; g.font = `700 20px ${SANS}`; g.fillText('三千本旧书，等一个慢下来的人', 23, 396);
+        g.globalCompositeOperation = 'source-over';
+      } }), 2080, 440, -0.04, 3.05, { from: [-300, -360], frot: -0.12 });
+  }
+  const ginkgo = (w, h) => { const pts = []; for (let i = 0; i <= 40; i++) { const a = Math.PI * (1.08 + i / 40 * 0.84); const notch = Math.abs(i - 20) < 2 ? 0.8 : 1; const r = h * 0.92 * notch * (1 + 0.04 * Math.sin(i * 1.7)); pts.push([w / 2 + Math.cos(a) * r * 0.85, h + Math.sin(a) * r]); } pts.push([w / 2 + 3, h]); pts.push([w / 2 + 4, h + 0]); pts.push([w / 2 - 3, h]); return pts; };
+  const leafPaint = (g, w, h) => { g.strokeStyle = 'rgba(160,110,0,.35)'; g.lineWidth = 1; for (let i = 0; i < 18; i++) { const a = Math.PI * (1.1 + i / 17 * 0.8); g.beginPath(); g.moveTo(w / 2, h); g.lineTo(w / 2 + Math.cos(a) * h * 0.8, h + Math.sin(a) * h * 0.86); g.stroke(); } };
+  CP.cut(k, 170, 140, ginkgo, '#f2b81c', 2470, 760, 0.5, 3.6, { z: 0.6, paint: leafPaint, o: { from: [200, -300], frot: 0.6, lift: 140, dur: 0.6 } });
+  CP.cut(k, 130, 106, ginkgo, '#e9a514', 2560, 250, -0.9, 3.85, { z: 0.6, paint: leafPaint, o: { from: [260, -200], frot: -0.7, lift: 140, dur: 0.6 } });
+  // reading-club ticket with perforated stub
+  { const w = 470, h = 170, ol = k.outline(w, h, { sides: 'cccc', cj: 1.5 });
+    k.add(k.makePiece({ w, h, pad: 12, ol, z: 1.0, gloss: 0.1, tooth: 0.25, edge: 0.35,
+      paint: (g) => {
+        g.fillStyle = '#e8533c'; g.fillRect(-5, -5, w + 10, h + 10); k.paperTex(g, w, h, { mott: 6, fib: 120, fl: 5 });
+        g.fillStyle = '#f7ead2'; g.fillRect(12, 12, w - 132, h - 24);
+        g.fillStyle = '#e8533c'; for (let y = 8; y < h; y += 12) { g.beginPath(); g.arc(w - 110, y, 3, 0, 7); g.fill(); }
+        g.fillStyle = '#2b1d16'; g.font = `900 40px ${SERIF}`; g.fillText('读 书 会', 34, 66); g.font = `500 19px ${SANS}`; g.fillText('每周六 19:00 · 免费入场', 34, 104); g.fillText('本周：《慢的哲学》', 34, 134);
+        g.save(); g.translate(w - 56, h / 2); g.rotate(-Math.PI / 2); g.fillStyle = '#f7ead2'; g.font = '800 22px Inter'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('ADMIT ONE', 0, 0); g.restore();
+      } }), 2180, 860, 0.06, 4.15, { from: [0, 380], frot: -0.1 });
+  }
+  CP.tape(k, 1880, 240, -0.7, 140, 4.45);
+  k.doodle((() => { const p = []; for (let i = 0; i <= 30; i++) { const u = i / 30; p.push([2440 + u * 160 + Math.sin(u * 3) * 10, 860 - u * 40 - Math.sin(u * Math.PI) * 50]); } p.push([2588, 806], [2600, 818]); p.push([2600, 818], [2582, 828]); return p; })(), 4.75, 0.3);
+  // ---- stop 3: the shop
+  { const w = 1180, h = 620, ol = k.outline(w, h, { sides: 'tttt', amp: 10, seed: 31, band: 6 });
+    k.add(k.makePiece({ w, h, pad: 22, ol, core: '#f6f1e2', fibCol: 'rgba(246,241,226,.6)', z: 0.4, gloss: 0.04, tooth: 0.4, edge: 0.3, cockle: [0.6, 24, 60, 180],
+      paint: (g) => { g.fillStyle = '#efe6d0'; g.fillRect(-10, -10, w + 20, h + 20); k.paperTex(g, w, h, { mott: 20, ma: 0.05, fib: 900, fl: 8, fc: ['rgba(150,120,70,.08)', 'rgba(255,255,255,.2)'] }); } }),
+      STOPS[2], 520, 0.015, 6.7, { from: [600, -100], frot: 0.06 });
+  }
+  CP.ransom(k, C.brand, STOPS[2] - 30, 430, 8.3, { scale: 1.45, gap: 14, order: [3, 1, 7, 4], dt: 0.5, seed: 12 });
+  CP.dymo(k, 'BOOKS · COFFEE · SLOW READING', STOPS[2] - 40, 640, -0.025, 10.3);
+  CP.slip(k, [[C.addr, 24], [C.sub, 21]], STOPS[2] - 120, 805, 640, 120, 0.02, 10.75, { y0: 52, ruled: false, o: { from: [0, 340], frot: -0.08 } });
+  CP.tape(k, STOPS[2] - 560, 260, -0.75, 150, 7.1);
+  CP.tape(k, STOPS[2] + 560, 770, -0.6, 150, 7.25);
+  k.doodle((() => { const p = [], cx = STOPS[2] - 470, cy = 300, s = 30; for (let q = 0; q <= 5; q++) { const a = -Math.PI / 2 + q * 4 * Math.PI / 5; p.push([cx + Math.cos(a) * s, cy + Math.sin(a) * s]); } return p; })(), 10.0, 0.2);
+  k.doodle((() => { const p = []; for (let q = 0; q <= 40; q++) { const u = q / 40; p.push([STOPS[2] - 300 + u * 520, 532 + Math.sin(u * Math.PI * 5) * 7]); } return p; })(), 9.8, 0.3);
+  // stamps: blue due-date stamp (used three times on the card) + red seal
+  DUE = k.makeStamp(150, 40, (g, w, h) => { g.strokeStyle = '#2e3aa6'; g.fillStyle = '#2e3aa6'; g.lineWidth = 2.4; g.beginPath(); g.roundRect(3, 3, w - 6, h - 6, 6); g.stroke(); g.font = '700 22px "Courier 10 Pitch"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('2026·10·24', w / 2, h / 2 + 1); }, 7.7, 0.3);
+  SEAL = k.makeStamp(120, 120, (g, w, h) => { g.fillStyle = '#c3141c'; g.beginPath(); g.roundRect(3, 3, w - 6, h - 6, 6); g.fill(); g.globalCompositeOperation = 'destination-out'; g.font = `900 46px ${SERIF}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('慢', w / 2, 36); g.fillText('读', w / 2, 86); g.lineWidth = 2.2; g.beginPath(); g.roundRect(9, 9, w - 18, h - 18, 3); g.stroke(); g.globalCompositeOperation = 'source-over'; }, 3.1, 0.45);
+}
+const CUP = [2410, 520];
+function cam(t) {
+  let cx = STOPS[0] - 40 + 40 * clamp(t / 2.15);
+  cx += (STOPS[1] - STOPS[0]) * E.inOutCubic(clamp((t - 2.15) / 1.0));
+  cx += 30 * clamp((t - 3.15) / 2.95);
+  cx += (STOPS[2] - STOPS[1] - 30) * E.inOutCubic(clamp((t - 6.1) / 1.4));
+  const z = 1 + 0.07 * E.inOutSine(clamp((t - 11.4) / 3.4));
+  return { z, cx, cy: 540 + 10 * E.inOutSine(clamp((t - 11.4) / 3.4)) };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  frameKey: (t) => Math.floor(t * 12 + 1e-6),
+  fonts: [`900 100px ${SANS}`, `700 100px ${SANS}`, `500 100px ${SANS}`, `400 100px ${SANS}`, `900 100px ${SERIF}`, `700 100px ${SERIF}`, `500 100px ${SERIF}`, `400 100px ${SERIF}`, '700 24px "TeX Gyre Heros Cn"', '400 36px "TeX Gyre Chorus"', '400 20px "Courier 10 Pitch"', '700 20px "Courier 10 Pitch"', '700 12px Inter', '800 22px Inter'],
+  async setup() { build(); },
+  cues: [{ t: 0.2, sfx: 'paper', gain: 0.5 }, { t: 0.55, sfx: 'slap', gain: 0.5 }, { t: 0.6, sfx: 'paper', gain: 0.4 }, { t: 0.92, sfx: 'slap', gain: 0.5 }, { t: 0.95, sfx: 'tape', gain: 0.4 }, { t: 1.05, sfx: 'tape', gain: 0.4 }, { t: 1.0, sfx: 'marker', gain: 0.4 }, { t: 1.25, sfx: 'marker', gain: 0.4 },
+    { t: 1.5, sfx: 'stamp', gain: 0.6 }, { t: 1.75, sfx: 'stamp', gain: 0.6 }, { t: 2.0, sfx: 'stamp', gain: 0.65 }, { t: 2.2, sfx: 'whoosh', gain: 0.25 },
+    { t: 3.05, sfx: 'paper', gain: 0.45 }, { t: 3.4, sfx: 'slap', gain: 0.5 }, { t: 3.75, sfx: 'paper', gain: 0.3 }, { t: 4.0, sfx: 'paper', gain: 0.3 }, { t: 4.15, sfx: 'paper', gain: 0.4 }, { t: 4.5, sfx: 'slap', gain: 0.5 }, { t: 4.5, sfx: 'tape', gain: 0.4 }, { t: 4.75, sfx: 'marker', gain: 0.45 },
+    { t: 6.1, sfx: 'whoosh', gain: 0.25 }, { t: 6.7, sfx: 'paper', gain: 0.5 }, { t: 7.05, sfx: 'slap', gain: 0.5 }, { t: 7.15, sfx: 'tape', gain: 0.4 }, { t: 7.3, sfx: 'tape', gain: 0.4 },
+    ...[0, 1, 2, 3].map((i) => ({ t: +(8.62 + i * 0.5).toFixed(2), sfx: 'slap', gain: 0.62 })), { t: 9.8, sfx: 'marker', gain: 0.4 }, { t: 10.0, sfx: 'marker', gain: 0.35 }, { t: 10.3, sfx: 'paper', gain: 0.45 }, { t: 10.75, sfx: 'paper', gain: 0.45 }, { t: 11.2, sfx: 'slap', gain: 0.4 },
+    { t: 11.5, sfx: 'stamp', gain: 0.8 }, { t: 11.9, sfx: 'swell', gain: 0.3 }],
+  render(tRaw) {
+    const f12 = Math.floor(tRaw * 12 + 1e-6), t = f12 / 12;
+    const Lt = k.light(E.inOutSine(clamp((t - 1) / 12)), { gob: 0.25 + 0.75 * E.inOutSine(clamp((t - 5) / 7)) });
+    const c = cam(t);
+    k.frame(t, Object.assign(c, { f: f12 }), Lt, {
+      under: () => { // coffee ring stain soaked into the cloth
+        const g = k.ga; g.save(); g.globalCompositeOperation = 'multiply'; for (let i = 0; i < 3; i++) { g.strokeStyle = `rgba(120,80,40,${0.22 - i * 0.05})`; g.lineWidth = 5 - i; g.beginPath(); g.ellipse(CUP[0] + i * 3, CUP[1] - i * 2, 92 - i * 3, 90 - i * 2, 0.2, 0.2 + i, 5.9 + i * 0.2); g.stroke(); } g.restore(); },
+      over: (tt) => {
+        [1.5, 1.75, 2.0].forEach((t0, i) => { const y = 404 + i * 56; k.stampAt(DUE, tt, t0, 1255 - (y - 520) * 0.05, y, 0.05 + (hsh(i) - 0.5) * 0.08, 0.92); });
+        k.stampAt(SEAL, tt, 11.5, STOPS[2] + 430, 790, -0.08, 1.15);
+      },
+    }, { gobOff: [-2350 + Math.sin(f12 * 0.9) * 5, Math.cos(f12 * 0.7) * 4] });
+  },
+});
+</script></body></html>

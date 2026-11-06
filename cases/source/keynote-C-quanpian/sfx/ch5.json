@@ -1,0 +1,474 @@
+{
+ "chap": "ch5",
+ "note": "第五章 合作城。全部用 ev 引用 ch5.js 的事件（画面改了声音跟着走）。摊平的唰/纸板落定、台灯由共用层自动加。钟琴音高取 E 羽五声（B5 D6 E6 / E6 G6 A6），与桥段 glockenspiel 同调。分镜与声音表见 notes/ch5.md。",
+ "events": [
+  {
+   "ev": "ch5.unfold.side",
+   "type": "shuffle",
+   "dur": 0.36,
+   "gain": -2,
+   "name": "两侧折纸展开·沙"
+  },
+  {
+   "ev": "ch5.unfold.side",
+   "type": "paper_tap",
+   "k": 0,
+   "gain": -2,
+   "pan": -0.35,
+   "name": "左折纸落桌"
+  },
+  {
+   "ev": "ch5.unfold.side",
+   "type": "paper_tap",
+   "k": 1,
+   "gain": -3,
+   "pan": 0.45,
+   "name": "右折纸落桌"
+  },
+  {
+   "ev": "ch5.unfold.front",
+   "type": "shuffle",
+   "dur": 0.36,
+   "gain": -3,
+   "name": "前沿折纸展开·沙"
+  },
+  {
+   "ev": "ch5.unfold.front",
+   "type": "board",
+   "v": 0.6,
+   "gain": -4,
+   "name": "前沿折纸落桌"
+  },
+  {
+   "ev": "ch5.grow.0",
+   "type": "pop",
+   "pitch": 0.8,
+   "gain": -5,
+   "pan": -0.4,
+   "name": "城·第1圈"
+  },
+  {
+   "ev": "ch5.grow.0",
+   "type": "board",
+   "v": 0.5,
+   "gain": -9,
+   "name": "城·拍头纸板1"
+  },
+  {
+   "ev": "ch5.grow.1",
+   "type": "pop",
+   "pitch": 0.858,
+   "gain": -7,
+   "pan": 0.3,
+   "name": "城·第2圈"
+  },
+  {
+   "ev": "ch5.grow.2",
+   "type": "pop",
+   "pitch": 0.917,
+   "gain": -5,
+   "pan": 0.1,
+   "name": "城·第3圈"
+  },
+  {
+   "ev": "ch5.grow.3",
+   "type": "pop",
+   "pitch": 0.975,
+   "gain": -7,
+   "pan": -0.1,
+   "name": "城·第4圈"
+  },
+  {
+   "ev": "ch5.grow.4",
+   "type": "pop",
+   "pitch": 1.033,
+   "gain": -5,
+   "pan": -0.3,
+   "name": "城·第5圈"
+  },
+  {
+   "ev": "ch5.grow.4",
+   "type": "board",
+   "v": 0.5,
+   "gain": -9,
+   "name": "城·拍头纸板2"
+  },
+  {
+   "ev": "ch5.grow.5",
+   "type": "pop",
+   "pitch": 1.092,
+   "gain": -7,
+   "pan": 0.4,
+   "name": "城·第6圈"
+  },
+  {
+   "ev": "ch5.grow.6",
+   "type": "pop",
+   "pitch": 1.15,
+   "gain": -5,
+   "pan": 0.2,
+   "name": "城·第7圈"
+  },
+  {
+   "ev": "ch5.grow.7",
+   "type": "pop",
+   "pitch": 1.208,
+   "gain": -7,
+   "pan": 0.0,
+   "name": "城·第8圈"
+  },
+  {
+   "ev": "ch5.grow.8",
+   "type": "pop",
+   "pitch": 1.267,
+   "gain": -5,
+   "pan": -0.2,
+   "name": "城·第9圈"
+  },
+  {
+   "ev": "ch5.grow.8",
+   "type": "board",
+   "v": 0.5,
+   "gain": -9,
+   "name": "城·拍头纸板3"
+  },
+  {
+   "ev": "ch5.grow.9",
+   "type": "pop",
+   "pitch": 1.325,
+   "gain": -7,
+   "pan": -0.4,
+   "name": "城·第10圈"
+  },
+  {
+   "ev": "ch5.grow.10",
+   "type": "pop",
+   "pitch": 1.383,
+   "gain": -5,
+   "pan": 0.3,
+   "name": "城·第11圈"
+  },
+  {
+   "ev": "ch5.grow.11",
+   "type": "pop",
+   "pitch": 1.442,
+   "gain": -7,
+   "pan": 0.1,
+   "name": "城·第12圈"
+  },
+  {
+   "ev": "ch5.grow.12",
+   "type": "pop",
+   "pitch": 1.5,
+   "gain": -5,
+   "pan": -0.1,
+   "name": "城·第13圈"
+  },
+  {
+   "ev": "ch5.grow.12",
+   "type": "board",
+   "v": 0.5,
+   "gain": -9,
+   "name": "城·拍头纸板4"
+  },
+  {
+   "ev": "ch5.grow.13",
+   "type": "pop",
+   "pitch": 1.558,
+   "gain": -7,
+   "pan": -0.3,
+   "name": "城·第14圈"
+  },
+  {
+   "ev": "ch5.grow.14",
+   "type": "pop",
+   "pitch": 1.617,
+   "gain": -5,
+   "pan": 0.4,
+   "name": "城·第15圈"
+  },
+  {
+   "ev": "ch5.grow.15",
+   "type": "pop",
+   "pitch": 1.675,
+   "gain": -7,
+   "pan": 0.2,
+   "name": "城·第16圈"
+  },
+  {
+   "ev": "ch5.grow.16",
+   "type": "pop",
+   "pitch": 1.733,
+   "gain": -5,
+   "pan": 0.0,
+   "name": "城·第17圈"
+  },
+  {
+   "ev": "ch5.grow.16",
+   "type": "board",
+   "v": 0.5,
+   "gain": -9,
+   "name": "城·拍头纸板5"
+  },
+  {
+   "ev": "ch5.grow.17",
+   "type": "pop",
+   "pitch": 1.792,
+   "gain": -7,
+   "pan": -0.2,
+   "name": "城·第18圈"
+  },
+  {
+   "ev": "ch5.grow.18",
+   "type": "pop",
+   "pitch": 1.85,
+   "gain": -5,
+   "pan": -0.4,
+   "name": "城·第19圈"
+  },
+  {
+   "ev": "ch5.grow.18",
+   "type": "chime",
+   "note": "E6",
+   "gain": -6,
+   "name": "城长成"
+  },
+  {
+   "ev": "ch5.life",
+   "type": "tick",
+   "pitch": 1.6,
+   "gain": -12,
+   "pan": 0.3,
+   "name": "小车出发"
+  },
+  {
+   "ev": "ch5.title.up",
+   "type": "pop",
+   "pitch": 1.15,
+   "name": "标题纸条立起"
+  },
+  {
+   "ev": "ch5.title.type.0",
+   "type": "type",
+   "i": 0,
+   "gain": -2,
+   "name": "标题打字1"
+  },
+  {
+   "ev": "ch5.title.type.1",
+   "type": "type",
+   "i": 1,
+   "gain": -2,
+   "name": "标题打字2"
+  },
+  {
+   "ev": "ch5.title.type.2",
+   "type": "type",
+   "i": 2,
+   "gain": -2,
+   "name": "标题打字3"
+  },
+  {
+   "ev": "ch5.title.type.3",
+   "type": "type",
+   "i": 3,
+   "gain": -2,
+   "name": "标题打字4"
+  },
+  {
+   "ev": "ch5.title.type.4",
+   "type": "type",
+   "i": 4,
+   "gain": -2,
+   "name": "标题打字5"
+  },
+  {
+   "ev": "ch5.title.type.5",
+   "type": "type",
+   "i": 5,
+   "gain": -2,
+   "name": "标题打字6"
+  },
+  {
+   "ev": "ch5.title.type.6",
+   "type": "type",
+   "i": 6,
+   "gain": -2,
+   "name": "标题打字7"
+  },
+  {
+   "ev": "ch5.title.type.7",
+   "type": "type",
+   "i": 7,
+   "gain": -2,
+   "name": "标题打字8"
+  },
+  {
+   "ev": "ch5.coffee.card",
+   "type": "pop",
+   "pitch": 1.0,
+   "pan": -0.2,
+   "name": "coffee 案例卡翻起"
+  },
+  {
+   "ev": "ch5.coffee.card",
+   "type": "chime",
+   "note": "B5",
+   "gain": -3,
+   "pan": -0.2,
+   "name": "coffee 钟琴"
+  },
+  {
+   "ev": "ch5.coffee.cap",
+   "type": "paper_tap",
+   "k": 1,
+   "gain": -3,
+   "pan": -0.2,
+   "name": "coffee 说明纸条立起"
+  },
+  {
+   "ev": "ch5.tea.card",
+   "type": "pop",
+   "pitch": 1.0,
+   "pan": 0.25,
+   "name": "tea 案例卡翻起"
+  },
+  {
+   "ev": "ch5.tea.card",
+   "type": "chime",
+   "note": "D6",
+   "gain": -3,
+   "pan": 0.25,
+   "name": "tea 钟琴"
+  },
+  {
+   "ev": "ch5.tea.cap",
+   "type": "paper_tap",
+   "k": 1,
+   "gain": -3,
+   "pan": 0.25,
+   "name": "tea 说明纸条立起"
+  },
+  {
+   "ev": "ch5.book.card",
+   "type": "pop",
+   "pitch": 1.0,
+   "pan": 0.0,
+   "name": "book 案例卡翻起"
+  },
+  {
+   "ev": "ch5.book.card",
+   "type": "chime",
+   "note": "E6",
+   "gain": -3,
+   "pan": 0.0,
+   "name": "book 钟琴"
+  },
+  {
+   "ev": "ch5.book.cap",
+   "type": "paper_tap",
+   "k": 1,
+   "gain": -3,
+   "pan": 0.0,
+   "name": "book 说明纸条立起"
+  },
+  {
+   "ev": "ch5.move.1",
+   "type": "whoosh",
+   "dur": 0.9,
+   "gain": -9,
+   "pan": 0.2,
+   "name": "飞向茶饮店"
+  },
+  {
+   "ev": "ch5.move.2",
+   "type": "whoosh",
+   "dur": 0.9,
+   "gain": -9,
+   "pan": -0.2,
+   "name": "飞向书店"
+  },
+  {
+   "ev": "ch5.move.3",
+   "type": "whoosh",
+   "dur": 0.6,
+   "gain": -7,
+   "name": "升起拉回广场"
+  },
+  {
+   "ev": "ch5.title.fold",
+   "type": "flap",
+   "size": 0.7,
+   "gain": -4,
+   "name": "标题纸条扣下"
+  },
+  {
+   "ev": "ch5.gate.up",
+   "type": "cascade",
+   "n": 4,
+   "dur": 0.22,
+   "pitch": 0.75,
+   "gain": -3,
+   "name": "门楼弹起"
+  },
+  {
+   "ev": "ch5.gate.up",
+   "type": "board",
+   "v": 1.0,
+   "gain": -1,
+   "name": "门楼落定"
+  },
+  {
+   "ev": "ch5.door.0",
+   "type": "door",
+   "dur": 0.45,
+   "pan": -0.4,
+   "name": "门1"
+  },
+  {
+   "ev": "ch5.door.0",
+   "type": "chime",
+   "note": "E6",
+   "gain": -2,
+   "pan": -0.4,
+   "name": "门1钟琴"
+  },
+  {
+   "ev": "ch5.door.1",
+   "type": "door",
+   "dur": 0.45,
+   "pan": 0.0,
+   "name": "门2"
+  },
+  {
+   "ev": "ch5.door.1",
+   "type": "chime",
+   "note": "G6",
+   "gain": -2,
+   "pan": 0.0,
+   "name": "门2钟琴"
+  },
+  {
+   "ev": "ch5.door.2",
+   "type": "door",
+   "dur": 0.45,
+   "pan": 0.4,
+   "name": "门3"
+  },
+  {
+   "ev": "ch5.door.2",
+   "type": "chime",
+   "note": "A6",
+   "gain": -2,
+   "pan": 0.4,
+   "name": "门3钟琴"
+  },
+  {
+   "ev": "ch5.leave",
+   "type": "whoosh",
+   "dur": 1.0,
+   "gain": -8,
+   "name": "镜头升起·交给第六章"
+  }
+ ]
+}

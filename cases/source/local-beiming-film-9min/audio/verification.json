@@ -1,0 +1,482 @@
+{
+  "dialogue_files": [
+    {
+      "id": "d01",
+      "duration": 4.0,
+      "peak_dbfs": -10.76,
+      "bytes": 576044
+    },
+    {
+      "id": "d02",
+      "duration": 3.0,
+      "peak_dbfs": -10.82,
+      "bytes": 432044
+    },
+    {
+      "id": "d03",
+      "duration": 6.5,
+      "peak_dbfs": -10.34,
+      "bytes": 936044
+    },
+    {
+      "id": "d04",
+      "duration": 2.5,
+      "peak_dbfs": -11.06,
+      "bytes": 360044
+    },
+    {
+      "id": "d05",
+      "duration": 2.8,
+      "peak_dbfs": -11.11,
+      "bytes": 403244
+    },
+    {
+      "id": "d06",
+      "duration": 2.5,
+      "peak_dbfs": -11.04,
+      "bytes": 360044
+    },
+    {
+      "id": "d07",
+      "duration": 5.0,
+      "peak_dbfs": -11.61,
+      "bytes": 720044
+    },
+    {
+      "id": "d08",
+      "duration": 5.0,
+      "peak_dbfs": -11.18,
+      "bytes": 720044
+    },
+    {
+      "id": "d09",
+      "duration": 5.0,
+      "peak_dbfs": -11.37,
+      "bytes": 720044
+    },
+    {
+      "id": "d10",
+      "duration": 5.0,
+      "peak_dbfs": -9.95,
+      "bytes": 720044
+    },
+    {
+      "id": "d11",
+      "duration": 5.0,
+      "peak_dbfs": -9.25,
+      "bytes": 720044
+    },
+    {
+      "id": "d12",
+      "duration": 3.5,
+      "peak_dbfs": -8.53,
+      "bytes": 504044
+    },
+    {
+      "id": "d13",
+      "duration": 3.0,
+      "peak_dbfs": -8.35,
+      "bytes": 432044
+    },
+    {
+      "id": "d14",
+      "duration": 3.5,
+      "peak_dbfs": -10.29,
+      "bytes": 504044
+    },
+    {
+      "id": "d15",
+      "duration": 4.5,
+      "peak_dbfs": -8.92,
+      "bytes": 648044
+    },
+    {
+      "id": "d16",
+      "duration": 4.0,
+      "peak_dbfs": -11.53,
+      "bytes": 576044
+    },
+    {
+      "id": "d17",
+      "duration": 3.0,
+      "peak_dbfs": -10.64,
+      "bytes": 432044
+    },
+    {
+      "id": "d18",
+      "duration": 3.0,
+      "peak_dbfs": -9.31,
+      "bytes": 432044
+    },
+    {
+      "id": "d19",
+      "duration": 3.5,
+      "peak_dbfs": -11.73,
+      "bytes": 504044
+    },
+    {
+      "id": "d20",
+      "duration": 3.0,
+      "peak_dbfs": -11.75,
+      "bytes": 432044
+    },
+    {
+      "id": "d21",
+      "duration": 3.5,
+      "peak_dbfs": -7.24,
+      "bytes": 504044
+    },
+    {
+      "id": "d22",
+      "duration": 2.5,
+      "peak_dbfs": -8.74,
+      "bytes": 360044
+    },
+    {
+      "id": "d23",
+      "duration": 5.0,
+      "peak_dbfs": -10.31,
+      "bytes": 720044
+    },
+    {
+      "id": "d24",
+      "duration": 4.5,
+      "peak_dbfs": -9.7,
+      "bytes": 648044
+    },
+    {
+      "id": "d25",
+      "duration": 5.5,
+      "peak_dbfs": -8.97,
+      "bytes": 792044
+    },
+    {
+      "id": "d26",
+      "duration": 3.5,
+      "peak_dbfs": -12.77,
+      "bytes": 504044
+    },
+    {
+      "id": "d27",
+      "duration": 6.0,
+      "peak_dbfs": -9.99,
+      "bytes": 864044
+    },
+    {
+      "id": "d28",
+      "duration": 3.5,
+      "peak_dbfs": -10.72,
+      "bytes": 504044
+    },
+    {
+      "id": "d29",
+      "duration": 3.5,
+      "peak_dbfs": -12.97,
+      "bytes": 504044
+    },
+    {
+      "id": "d30",
+      "duration": 3.0,
+      "peak_dbfs": -11.95,
+      "bytes": 432044
+    },
+    {
+      "id": "d31",
+      "duration": 3.0,
+      "peak_dbfs": -10.21,
+      "bytes": 432044
+    },
+    {
+      "id": "d32",
+      "duration": 4.0,
+      "peak_dbfs": -11.0,
+      "bytes": 576044
+    },
+    {
+      "id": "d33",
+      "duration": 5.5,
+      "peak_dbfs": -9.78,
+      "bytes": 792044
+    },
+    {
+      "id": "d34",
+      "duration": 2.8,
+      "peak_dbfs": -10.67,
+      "bytes": 403244
+    },
+    {
+      "id": "d35",
+      "duration": 2.5,
+      "peak_dbfs": -11.07,
+      "bytes": 360044
+    }
+  ],
+  "master": {
+    "seconds": 540.0,
+    "sample_rate": 48000,
+    "channels": 2,
+    "frames": 25920000,
+    "subtype": "PCM_24",
+    "sha256": "10d1b227fb35ea82b1ade32a1d4cd568359c14ef5b0c241a326020251d706f26",
+    "zero_interval_seconds": [
+      486,
+      488
+    ],
+    "nonzero_samples_in_interval": 0
+  },
+  "independent_ebur128": {
+    "I_LUFS": -13.9,
+    "TP_dBTP": -1.5,
+    "LRA_LU": 8.4
+  },
+  "premaster_300_4000Hz_active_speech_separation": [
+    {
+      "id": "d01",
+      "speech_band_snr_db": 20.62
+    },
+    {
+      "id": "d02",
+      "speech_band_snr_db": 19.06
+    },
+    {
+      "id": "d03",
+      "speech_band_snr_db": 22.06
+    },
+    {
+      "id": "d04",
+      "speech_band_snr_db": 21.9
+    },
+    {
+      "id": "d05",
+      "speech_band_snr_db": 20.54
+    },
+    {
+      "id": "d06",
+      "speech_band_snr_db": 22.11
+    },
+    {
+      "id": "d07",
+      "speech_band_snr_db": 16.54
+    },
+    {
+      "id": "d08",
+      "speech_band_snr_db": 20.08
+    },
+    {
+      "id": "d09",
+      "speech_band_snr_db": 22.04
+    },
+    {
+      "id": "d10",
+      "speech_band_snr_db": 22.49
+    },
+    {
+      "id": "d11",
+      "speech_band_snr_db": 19.11
+    },
+    {
+      "id": "d12",
+      "speech_band_snr_db": 19.47
+    },
+    {
+      "id": "d13",
+      "speech_band_snr_db": 19.03
+    },
+    {
+      "id": "d14",
+      "speech_band_snr_db": 17.67
+    },
+    {
+      "id": "d15",
+      "speech_band_snr_db": 18.94
+    },
+    {
+      "id": "d16",
+      "speech_band_snr_db": 19.67
+    },
+    {
+      "id": "d17",
+      "speech_band_snr_db": 19.23
+    },
+    {
+      "id": "d18",
+      "speech_band_snr_db": 19.55
+    },
+    {
+      "id": "d19",
+      "speech_band_snr_db": 21.94
+    },
+    {
+      "id": "d20",
+      "speech_band_snr_db": 19.34
+    },
+    {
+      "id": "d21",
+      "speech_band_snr_db": 22.43
+    },
+    {
+      "id": "d22",
+      "speech_band_snr_db": 21.45
+    },
+    {
+      "id": "d23",
+      "speech_band_snr_db": 20.78
+    },
+    {
+      "id": "d24",
+      "speech_band_snr_db": 20.97
+    },
+    {
+      "id": "d25",
+      "speech_band_snr_db": 23.38
+    },
+    {
+      "id": "d26",
+      "speech_band_snr_db": 18.23
+    },
+    {
+      "id": "d27",
+      "speech_band_snr_db": 21.74
+    },
+    {
+      "id": "d28",
+      "speech_band_snr_db": 21.1
+    },
+    {
+      "id": "d29",
+      "speech_band_snr_db": 22.97
+    },
+    {
+      "id": "d30",
+      "speech_band_snr_db": 24.23
+    },
+    {
+      "id": "d31",
+      "speech_band_snr_db": 15.58
+    },
+    {
+      "id": "d32",
+      "speech_band_snr_db": 20.51
+    },
+    {
+      "id": "d33",
+      "speech_band_snr_db": 23.06
+    },
+    {
+      "id": "d34",
+      "speech_band_snr_db": 20.22
+    },
+    {
+      "id": "d35",
+      "speech_band_snr_db": 21.77
+    }
+  ],
+  "minimum_speech_band_snr_db": 15.58,
+  "music_spans_seconds": [
+    [
+      200,
+      249
+    ],
+    [
+      455,
+      486
+    ],
+    [
+      519,
+      540
+    ]
+  ],
+  "unexpected_music_samples": 0,
+  "scenes": [
+    {
+      "start": 0,
+      "end": 15,
+      "rms_dbfs": -17.98,
+      "peak_dbfs": -1.84
+    },
+    {
+      "start": 15,
+      "end": 60,
+      "rms_dbfs": -18.11,
+      "peak_dbfs": -1.48
+    },
+    {
+      "start": 60,
+      "end": 80,
+      "rms_dbfs": -16.47,
+      "peak_dbfs": -1.51
+    },
+    {
+      "start": 80,
+      "end": 120,
+      "rms_dbfs": -16.28,
+      "peak_dbfs": -1.49
+    },
+    {
+      "start": 120,
+      "end": 170,
+      "rms_dbfs": -18.23,
+      "peak_dbfs": -1.49
+    },
+    {
+      "start": 170,
+      "end": 200,
+      "rms_dbfs": -17.67,
+      "peak_dbfs": -1.49
+    },
+    {
+      "start": 200,
+      "end": 250,
+      "rms_dbfs": -15.37,
+      "peak_dbfs": -1.46
+    },
+    {
+      "start": 250,
+      "end": 280,
+      "rms_dbfs": -19.19,
+      "peak_dbfs": -1.5
+    },
+    {
+      "start": 280,
+      "end": 320,
+      "rms_dbfs": -19.69,
+      "peak_dbfs": -1.49
+    },
+    {
+      "start": 320,
+      "end": 360,
+      "rms_dbfs": -20.44,
+      "peak_dbfs": -1.5
+    },
+    {
+      "start": 360,
+      "end": 400,
+      "rms_dbfs": -21.02,
+      "peak_dbfs": -1.49
+    },
+    {
+      "start": 400,
+      "end": 455,
+      "rms_dbfs": -16.12,
+      "peak_dbfs": -1.49
+    },
+    {
+      "start": 455,
+      "end": 490,
+      "rms_dbfs": -14.87,
+      "peak_dbfs": -1.49
+    },
+    {
+      "start": 490,
+      "end": 525,
+      "rms_dbfs": -19.22,
+      "peak_dbfs": -1.48
+    },
+    {
+      "start": 525,
+      "end": 540,
+      "rms_dbfs": -20.75,
+      "peak_dbfs": -1.49
+    }
+  ]
+}

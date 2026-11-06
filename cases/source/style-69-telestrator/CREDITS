@@ -1,0 +1,22 @@
+《那一脚》 Sports telestrator style sample — credits and licences
+
+PICTURE
+- No third-party footage, photos or logos. The "broadcast footage" (pitch, stands, players, ball, four cameras) is rendered in code
+  (index.html, play.js). Teams (港湾 / 城南), players, the show "复盘 MATCH REVIEW" and the 89th-minute score are fictional.
+- Material search (2026-11-01, Wikimedia Commons API, filetype:video, licence field checked file by file): the only CC0 football clips
+  were two spectator-shot beach-soccer penalties (2021 FIFA Beach Soccer World Cup, Commons uploads), and the public-domain hits were
+  unrelated US-government news items or pre-1929 film at 640 px. None shows an open-play attack from a wide camera, so per the brief
+  the match was rendered in code instead. Nothing was downloaded; material/ is empty.
+
+FONTS (SIL Open Font License 1.1, subset via the Google Fonts CSS API, self-hosted in fonts/)
+- Noto Sans SC 500 / 700 / 900 — Google
+- Barlow Condensed 600 / 800 Italic — Jeremy Tribby
+- IBM Plex Mono 500 — IBM
+
+MUSIC (original score, sampled instruments)
+- Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+- Samples (CC0): FreePats project (freepats.zenvoid.org) — electric bass; VS Chamber Orchestra: Community Edition (Versilian Studios) —
+  trumpet, trombone, horn, tuba, timpani; Versilian Community Sample Library (Versilian Studios) — glockenspiel
+
+SOUND EFFECTS AND CROWD
+- Synthesized procedurally with numpy/scipy (tools/mix.py and the library's sfx helpers). No recordings.

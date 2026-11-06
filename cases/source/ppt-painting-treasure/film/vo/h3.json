@@ -1,0 +1,24 @@
+{
+ "data": {
+  "audio": "<h3.wav>",
+  "status": 2,
+  "ced": "",
+  "subtitle_file": "https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/audio%2Ftts-20261103115756-VKPhWkciZMeuWZHg.titles?Expires=1793764677&OSSAccessKeyId=LTAI5t6b6ytykqLxpkHbMvhN&Signature=n1%2BACdDn%2F31ln0k8lir7l0ISvgQ%3D"
+ },
+ "extra_info": {
+  "audio_length": 4005,
+  "audio_sample_rate": 44100,
+  "audio_size": 354444,
+  "bitrate": 128000,
+  "word_count": 17,
+  "invisible_character_ratio": 0,
+  "usage_characters": 33,
+  "audio_format": "wav",
+  "audio_channel": 1
+ },
+ "trace_id": "07388ec4b8b0ac11b6dcf7592a92c07d",
+ "base_resp": {
+  "status_code": 0,
+  "status_msg": "success"
+ }
+}

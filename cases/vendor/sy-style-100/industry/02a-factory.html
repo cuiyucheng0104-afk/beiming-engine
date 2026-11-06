@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>02 · 工厂数字化 · 恒创精工</title>
+<script src="../lib/core.js"></script>
+<style>
+  #cap{position:absolute;left:96px;top:84px;font-family:'Noto Sans CJK SC';font-weight:900;font-size:62px;color:#fff;letter-spacing:.06em;text-shadow:0 4px 24px rgba(20,10,60,.35)}
+  #cap small{display:block;font:700 28px 'Noto Sans CJK SC';letter-spacing:.3em;color:rgba(255,255,255,.92);margin-top:18px}
+  #cap{font-size:76px !important;color:#fff;background:rgba(24,34,66,.62);padding:30px 40px 30px 44px;border-radius:24px;backdrop-filter:blur(6px)}
+  #dash{position:absolute;right:120px;top:120px;width:430px;padding:30px 34px;border-radius:26px;background:rgba(255,255,255,.94);box-shadow:0 18px 50px rgba(30,40,80,.25);font-family:'Noto Sans CJK SC';color:#1f2a44;transform-origin:100% 0}
+  #dash .h{font-size:22px;font-weight:700;letter-spacing:.12em;color:#5b6785;display:flex;align-items:center;gap:10px}
+  #dash .h i{width:12px;height:12px;border-radius:50%;background:#2fbf71;display:inline-block;box-shadow:0 0 0 6px rgba(47,191,113,.18)}
+  #dash .k{display:flex;justify-content:space-between;margin-top:22px}
+  #dash .k div{font-size:18px;color:#7a86a3;letter-spacing:.08em}
+  #dash .k b{display:block;font:800 52px Inter;color:#1f2a44;letter-spacing:0;margin-top:4px}
+  #dash .k b em{font-style:normal;font-size:26px;margin-left:4px;color:#2fbf71}
+  #dash .bars{display:flex;align-items:flex-end;gap:12px;height:96px;margin-top:22px;border-bottom:2px solid #e6eaf2}
+  #dash .bars span{flex:1;border-radius:8px 8px 0 0;background:linear-gradient(#5aa9ff,#3a7bff)}
+</style>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 02 等轴 2.5D · ISOMETRIC CITY =====
+   A floating diorama city drawn with an orthographic box renderer in 2D canvas: roads draw themselves,
+   buildings spring up in a wave from the centre, cars run, clouds drift with their shadows. The sun sets,
+   windows and street lamps come on one by one, and the camera slowly orbits - which flat iso art can't do. */
+const { E, clamp, inv, lerp, spring } = Reel;
+const stage = Reel.makeStage('#cfe6f2');
+const C = Reel.cfg({ cap: '恒创精工', capEn: '数字化车间 · 每一件都可追溯', dash: '车间实时看板', k1: '良品率', k2: '今日产量（件）' });
+const RS = Reel.RS;
+const W = Math.round(1920 * RS), H = Math.round(1080 * RS), K = W / 1920;
+const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+cv.style.cssText = 'position:absolute;left:0;top:0;width:1920px;height:1080px';
+stage.appendChild(cv);
+const ctx = cv.getContext('2d');
+const glowC = document.createElement('canvas'); glowC.width = W >> 1; glowC.height = H >> 1;
+const gctx = glowC.getContext('2d');
+
+// ---------- helpers ----------
+const h1 = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+const mixc = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+const rgb = (c, k = 1) => `rgb(${clamp(c[0] * k, 0, 255) | 0},${clamp(c[1] * k, 0, 255) | 0},${clamp(c[2] * k, 0, 255) | 0})`;
+
+// ---------- camera / projection ----------
+let AZ = Math.PI / 4, EL = 0.52, SC = 50, CX = 960, CY = 560;
+function P(x, y, z) {
+  const xx = x - 7, yy = y - 7;
+  const c = Math.cos(AZ), s = Math.sin(AZ);
+  const rx = xx * c - yy * s, ry = xx * s + yy * c;
+  return [(CX + rx * SC) * K, (CY + ry * SC * Math.sin(EL) - z * SC * Math.cos(EL)) * K, ry];
+}
+function poly(pts, fill) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); }
+// lighting state
+let SUN = [-0.6, -0.35, 0.72], NIGHT = 0, DUSK = 0;
+function shadeFace(nx, ny, nz) {
+  // directional sun + ambient; returns a brightness factor
+  const sl = Math.hypot(...SUN), d = (nx * SUN[0] + ny * SUN[1] + nz * SUN[2]) / sl;
+  return 0.62 + 0.42 * Math.max(0, d);
+}
+const DAYT = hex('#ffffff'), DUSKT = hex('#ffb38a'), NIGHTT = hex('#6068c0');
+function tint(c, k) {
+  const tt = NIGHT > 0 ? mixc(DUSKT, NIGHTT, NIGHT) : mixc(DAYT, DUSKT, DUSK);
+  const m = 1 - NIGHT * 0.42;
+  return rgb([c[0] * tt[0] / 255 * m, c[1] * tt[1] / 255 * m, c[2] * tt[2] / 255 * m], k);
+}
+// draws an axis-aligned box [x0,x1]x[y0,y1]x[z0,z1] with optional window grid
+const lights = [];
+function box(x0, y0, z0, x1, y1, z1, col, opt = {}) {
+  const v = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  const top = v.map(([x, y]) => P(x, y, z1)), bot = v.map(([x, y]) => P(x, y, z0));
+  // side faces: (v[i] -> v[i+1]) with outward normals
+  const normals = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const c = Math.cos(AZ), s = Math.sin(AZ);
+  for (let i = 0; i < 4; i++) {
+    const [nx, ny] = normals[i];
+    const nry = nx * s + ny * c;                    // toward the viewer if > 0
+    if (nry <= 0.001) continue;
+    const j = (i + 1) % 4;
+    const k = shadeFace(nx, ny, 0) * (0.86 + 0.14 * nry);
+    poly([bot[i], bot[j], top[j], top[i]], tint(col, k));
+    if (opt.floors) { const m1 = lerpPt(bot[i], top[i], Math.min(0.5, 0.18 / Math.max(z1 - z0, 0.2))), m2 = lerpPt(bot[j], top[j], Math.min(0.5, 0.18 / Math.max(z1 - z0, 0.2))); const g = ctx.createLinearGradient(0, bot[i][1], 0, m1[1]); ctx.globalAlpha = 0.28; poly([bot[i], bot[j], m2, m1], '#1b1f3a'); ctx.globalAlpha = 1; }
+    if (opt.floors && opt.windows !== false) windows(v[i], v[j], z0, z1, opt, i, k);
+  }
+  poly(top, tint(col, shadeFace(0, 0, 1) * 1.03));
+  if (opt.floors) { ctx.strokeStyle = `rgba(255,255,255,${0.55 * (1 - NIGHT * 0.8)})`; ctx.lineWidth = 1.2 * K; ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); for (let q = 1; q < 4; q++) ctx.lineTo(top[q][0], top[q][1]); ctx.closePath(); ctx.stroke(); }
+  if (opt.roof) opt.roof(top);
+}
+function windows(a, b, z0, z1, o, face, k) {
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const cols = Math.max(1, Math.round(len * 1.6)), fl = o.floors;
+  const fh = (z1 - z0) / fl;
+  for (let f = 0; f < fl; f++) for (let q = 0; q < cols; q++) {
+    const u0 = (q + 0.3) / cols, u1 = (q + 0.7) / cols, zz0 = z0 + f * fh + fh * 0.32, zz1 = z0 + f * fh + fh * 0.74;
+    const pa = [lerp(a[0], b[0], u0), lerp(a[1], b[1], u0)], pb = [lerp(a[0], b[0], u1), lerp(a[1], b[1], u1)];
+    // push the window a hair out of the wall along the face normal
+    const quad = [P(pa[0], pa[1], zz0), P(pb[0], pb[1], zz0), P(pb[0], pb[1], zz1), P(pa[0], pa[1], zz1)];
+    const hs = h1(o.seed * 13 + f * 7 + q * 3 + face * 31);
+    const on = NIGHT > 0 && hs < 0.82 && NIGHT > (hs * 0.75 + 0.05);
+    if (on) {
+      const wc = hs < 0.15 ? hex('#bfe9ff') : (hs < 0.55 ? hex('#ffd88a') : hex('#ffe9c2'));
+      poly(quad, rgb(wc, 0.9 + 0.1 * Math.sin(T * 3 + hs * 40)));
+      if (hs < 0.08) lights.push([(quad[0][0] + quad[2][0]) / 2, (quad[0][1] + quad[2][1]) / 2, 9 * K, wc, 0.25]);
+    } else {
+      const day = hex('#a9cdea');
+      poly(quad, tint(mixc(day, hex('#2a3460'), NIGHT * 0.6), k * 0.95));
+      if (NIGHT < 0.5) { ctx.globalAlpha = 0.35 * (1 - NIGHT * 2); poly([quad[0], lerpPt(quad[0], quad[1], 0.35), lerpPt(quad[3], quad[2], 0.55), quad[3]], '#ffffff'); ctx.globalAlpha = 1; }
+    }
+  }
+}
+const lerpPt = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+
+// ---------- scene pieces ----------
+function sky(t) {
+  const day = [hex('#bfe3f5'), hex('#f1f7ea')], dusk = [hex('#7d7fd6'), hex('#ffb38a')], night = [hex('#0c1033'), hex('#2a2160')];
+  let top, bot;
+  if (NIGHT > 0) { top = mixc(dusk[0], night[0], NIGHT); bot = mixc(dusk[1], night[1], NIGHT); } else { top = mixc(day[0], dusk[0], DUSK); bot = mixc(day[1], dusk[1], DUSK); }
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bot));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (NIGHT > 0.2) for (let i = 0; i < 90; i++) { const x = h1(i * 3.3) * W, y = h1(i * 7.1) * H * 0.7, a = (NIGHT - 0.2) * (0.5 + 0.5 * Math.sin(t * 2 + i)); ctx.fillStyle = `rgba(255,255,255,${a * 0.8})`; ctx.fillRect(x, y, 2 * K, 2 * K); }
+}
+function slab(t) {
+  // floating ground chunk: dirt layers on the sides, grass on top
+  const z0 = -1.1;
+  const layers = [[-1.1, -0.75, '#8a5a3c'], [-0.75, -0.35, '#a8704a'], [-0.35, -0.12, '#c58b5b'], [-0.12, 0, '#7cc06a']];
+  for (const [a, b, c] of layers) box(-0.15, -0.15, a, N + 0.15, N + 0.15, b, hex(c));
+  // grass top
+  const g = [P(-0.15, -0.15, 0), P(N + 0.15, -0.15, 0), P(N + 0.15, N + 0.15, 0), P(-0.15, N + 0.15, 0)];
+  poly(g, tint(hex('#9bd47a'), 1.02));
+}
+function roads(t) {
+  const rv = E.outCubic(inv(0.35, 1.25, t));
+  const road = hex('#596075'), walk = hex('#ddd8cb');
+  // sidewalks then asphalt, revealed along their length
+  for (const y of roadX) {
+    const L = N * rv;
+    poly([P(0, y - 0.08, 0.01), P(L, y - 0.08, 0.01), P(L, y + 1.08, 0.01), P(0, y + 1.08, 0.01)], tint(walk, 1));
+    poly([P(0, y + 0.06, 0.02), P(L, y + 0.06, 0.02), P(L, y + 0.94, 0.02), P(0, y + 0.94, 0.02)], tint(road, 1));
+    for (let x = 0.3; x < L - 0.4; x += 0.8) poly([P(x, y + 0.48, 0.025), P(x + 0.4, y + 0.48, 0.025), P(x + 0.4, y + 0.52, 0.025), P(x, y + 0.52, 0.025)], tint(hex('#f2f2f2'), 1));
+  }
+  for (const x of roadY) {
+    const L = N * rv;
+    poly([P(x - 0.08, 0, 0.011), P(x + 1.08, 0, 0.011), P(x + 1.08, L, 0.011), P(x - 0.08, L, 0.011)], tint(walk, 1));
+    poly([P(x + 0.06, 0, 0.021), P(x + 0.94, 0, 0.021), P(x + 0.94, L, 0.021), P(x + 0.06, L, 0.021)], tint(road, 1));
+    for (let y = 0.3; y < L - 0.4; y += 0.8) poly([P(x + 0.48, y, 0.026), P(x + 0.52, y, 0.026), P(x + 0.52, y + 0.4, 0.026), P(x + 0.48, y + 0.4, 0.026)], tint(hex('#f2f2f2'), 1));
+  }
+  // crossings
+  for (const y of roadX) for (const x of roadY) poly([P(x, y, 0.03), P(x + 1, y, 0.03), P(x + 1, y + 1, 0.03), P(x, y + 1, 0.03)], tint(road, 1));
+}
+function shadows(items) {
+  if (NIGHT > 0.6) return;
+  ctx.save();
+  const sl = [P(-0.15, -0.15, 0), P(N + 0.15, -0.15, 0), P(N + 0.15, N + 0.15, 0), P(-0.15, N + 0.15, 0)];
+  ctx.beginPath(); ctx.moveTo(sl[0][0], sl[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(sl[i][0], sl[i][1]); ctx.closePath(); ctx.clip();
+  ctx.globalAlpha = 0.16 * (1 - NIGHT / 0.6) * (1 - DUSK * 0.3);
+  const sx = -SUN[0] / SUN[2], sy = -SUN[1] / SUN[2];
+  for (const it of items) {
+    if (!it.h) continue;
+    const { x0, y0, x1, y1, h } = it;
+    const pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    const proj = pts.map(([x, y]) => [x + sx * h, y + sy * h]);
+    const all = pts.concat(proj).map(([x, y]) => P(x, y, 0.035));
+    // convex hull of the 8 points
+    all.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [], up = [];
+    for (const p of all) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+    for (let i = all.length - 1; i >= 0; i--) { const p = all[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    poly(lo.slice(0, -1).concat(up.slice(0, -1)), '#1d2a52');
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+function tree(x, y, r, s, sway) {
+  if (s <= 0) return;
+  box(x - 0.04, y - 0.04, 0, x + 0.04, y + 0.04, 0.28 * s, hex('#8a5a3c'), { windows: false });
+  const c = P(x + sway, y, 0.28 * s + r * s);
+  const rr = r * SC * K * s;
+  const g = ctx.createRadialGradient(c[0] - rr * 0.35, c[1] - rr * 0.4, rr * 0.1, c[0], c[1], rr);
+  const base = hex(h1(x * 13) > 0.5 ? '#5cbf6a' : '#7bcf62');
+  g.addColorStop(0, tint(base, 1.25)); g.addColorStop(0.7, tint(base, 1.0)); g.addColorStop(1, tint(base, 0.75));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], rr, 0, Math.PI * 2); ctx.fill();
+}
+
+// ---------- factory layout (14 x 14 tiles) ----------
+const N = 14;
+const PALLETS = [];
+for (let i = 0; i < 6; i++) PALLETS.push({ x: 1.0 + (i % 2) * 1.05, y: 2.0 + Math.floor(i / 2) * 1.05, n: 2 + (i % 3), t0: 1.0 + i * 0.08 });
+const ROBOTS = [{ x: 5.2, ph: 0 }, { x: 7.4, ph: 1.3 }, { x: 10.6, ph: 2.6 }];
+const BELT = { x0: 3.4, x1: 12.4, y0: 6.55, y1: 7.35, h: 0.34 };
+const SPEED = 1.15, GAP = 0.42;
+const BELT2 = { x0: 4.2, x1: 11.2, y0: 9.65, y1: 10.45, h: 0.34 };
+const ROBOTS2 = [{ x: 6.4, ph: 0.7 }, { x: 9.0, ph: 2.0 }];
+const RACKS = [0, 1, 2, 3].map((i) => ({ x: 1.1, y: 7.2 + i * 1.25 }));
+let T = 0;
+function belt(t, s) {
+  if (s <= 0) return;
+  const { x0, x1, y0, y1, h } = BELT, xe = lerp(x0, x1, Math.min(s, 1));
+  box(x0, y0, 0, xe, y1, h * 0.85, hex('#8e9ab0'), { windows: false });
+  poly([P(x0, y0, h * 0.85), P(xe, y0, h * 0.85), P(xe, y1, h * 0.85), P(x0, y1, h * 0.85)], tint(hex('#3c4356'), 1));
+  for (let x = x0 + ((t * SPEED) % 0.3); x < xe; x += 0.3) poly([P(x, y0 + 0.04, h * 0.85 + 0.002), P(x + 0.05, y0 + 0.04, h * 0.85 + 0.002), P(x + 0.05, y1 - 0.04, h * 0.85 + 0.002), P(x, y1 - 0.04, h * 0.85 + 0.002)], tint(hex('#555d73'), 1));
+  for (let x = x0 + 0.4; x < xe - 0.2; x += 1.5) box(x, y0 - 0.06, 0, x + 0.08, y0, h * 0.85, hex('#6c778e'), { windows: false });
+}
+function belt2(t, s) {
+  if (s <= 0) return;
+  const { x0, x1, y0, y1, h } = BELT2, xe = lerp(x0, x1, Math.min(s, 1));
+  box(x0, y0, 0, xe, y1, h * 0.85, hex('#8e9ab0'), { windows: false });
+  poly([P(x0, y0, h * 0.85), P(xe, y0, h * 0.85), P(xe, y1, h * 0.85), P(x0, y1, h * 0.85)], tint(hex('#3c4356'), 1));
+  for (let x = x0 + ((t * SPEED) % 0.3); x < xe; x += 0.3) poly([P(x, y0 + 0.04, h * 0.85 + 0.002), P(x + 0.05, y0 + 0.04, h * 0.85 + 0.002), P(x + 0.05, y1 - 0.04, h * 0.85 + 0.002), P(x, y1 - 0.04, h * 0.85 + 0.002)], tint(hex('#555d73'), 1));
+}
+function products2(t) {
+  const out = []; if (t < 2.7) return out;
+  const n0 = Math.floor((t - 2.7) * SPEED / 0.5);
+  for (let k = Math.max(0, n0 - 18); k <= n0; k++) { const x = BELT2.x0 + 0.1 + (t - 2.7 - k * 0.5 / SPEED) * SPEED; if (x < BELT2.x1 - 0.2) out.push({ x, y: (BELT2.y0 + BELT2.y1) / 2 }); }
+  return out;
+}
+function rack(r, s) {
+  if (s <= 0) return;
+  const { x, y } = r, hh = 1.25 * s;
+  for (const [dx, dy] of [[-0.4, -0.5], [0.4, -0.5], [-0.4, 0.5], [0.4, 0.5]]) box(x + dx - 0.04, y + dy - 0.04, 0, x + dx + 0.04, y + dy + 0.04, hh, hex('#3a7bff'), { windows: false });
+  for (let k = 0; k < 3; k++) { const z = (0.12 + k * 0.4) * s; box(x - 0.44, y - 0.54, z, x + 0.44, y + 0.54, z + 0.04, hex('#f28b2b'), { windows: false }); if (s > 0.9) for (let j = 0; j < 2; j++) crate(x, y - 0.24 + j * 0.48, z + 0.04, 0.17, ['#e9c48a', '#dcb27a', '#f0d29c'][(k + j) % 3]); }
+}
+function agv(t, ph) {
+  const u = (t * 0.22 + ph) % 1, a = u < 0.5 ? u * 2 : 2 - u * 2, e = a * a * (3 - 2 * a);
+  const x = lerp(3.0, 3.3, e), y = lerp(5.6, 9.2, e);
+  return { x, y, loaded: u < 0.5 };
+}
+function products(t) {
+  const out = [];
+  if (t < 2.4) return out;
+  const n0 = Math.floor((t - 2.4) * SPEED / GAP);
+  for (let k = Math.max(0, n0 - 26); k <= n0; k++) {
+    const age = t - 2.4 - k * GAP / SPEED, x = BELT.x0 + 0.1 + age * SPEED;
+    if (x > BELT.x1 - 0.25) continue;
+    out.push({ x, y: (BELT.y0 + BELT.y1) / 2, k, scanned: x > 9.0 });
+  }
+  return out;
+}
+function robot(r, t, s) { robotAt(r, t, s, 8.05); }
+function robotAt(r, t, s, by) {
+  if (s <= 0) return;
+  const bx = r.x;
+  box(bx - 0.28, by - 0.28, 0, bx + 0.28, by + 0.28, 0.16 * s, hex('#5b6478'), { windows: false });
+  const a = Math.sin(t * 2.6 + r.ph), b2 = Math.cos(t * 2.6 + r.ph);
+  const j0 = [bx, by, 0.16 * s], j1 = [bx + 0.15 * a, by - 0.25 - 0.2 * Math.max(0, b2), (0.85 + 0.12 * b2) * s];
+  const j2 = [bx + 0.25 * a, by - 1.05 + 0.1 * b2, (0.62 + 0.18 * Math.max(0, -b2)) * s];
+  const seg = (A, B, w, col) => { const p = P(...A), q = P(...B); ctx.strokeStyle = col; ctx.lineWidth = w * K; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke(); };
+  seg(j0, j1, 22, tint(hex('#f28b2b'), 0.92)); seg(j0, j1, 14, tint(hex('#ffa64d'), 1.05));
+  seg(j1, j2, 16, tint(hex('#f28b2b'), 0.92)); seg(j1, j2, 9, tint(hex('#ffb062'), 1.08));
+  for (const J of [j0, j1]) { const p = P(...J); ctx.fillStyle = tint(hex('#3c4356'), 1); ctx.beginPath(); ctx.arc(p[0], p[1], 9 * K, 0, Math.PI * 2); ctx.fill(); }
+  const g = P(...j2); ctx.fillStyle = tint(hex('#3c4356'), 1); ctx.fillRect(g[0] - 9 * K, g[1] - 2 * K, 18 * K, 10 * K);
+}
+function scanner(t, s) {
+  if (s <= 0) return;
+  const x = 9.0, { y0, y1, h } = BELT;
+  box(x - 0.1, y0 - 0.25, 0, x + 0.1, y0 - 0.1, (h + 0.55) * s, hex('#dfe6ee'), { windows: false });
+  box(x - 0.1, y1 + 0.1, 0, x + 0.1, y1 + 0.25, (h + 0.55) * s, hex('#dfe6ee'), { windows: false });
+  box(x - 0.12, y0 - 0.25, (h + 0.5) * s, x + 0.12, y1 + 0.25, (h + 0.62) * s, hex('#dfe6ee'), { windows: false });
+  if (t > 2.6) { const on = 0.6 + 0.4 * Math.sin(t * 9); const a = P(x, y0, (h + 0.48) * s), b = P(x, y1, (h + 0.48) * s); ctx.strokeStyle = `rgba(60,230,140,${on})`; ctx.lineWidth = 4 * K; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); const m = P(x, (y0 + y1) / 2, h * 0.85); lights.push([m[0], m[1], 26 * K, hex('#3ce68c'), 0.5 * on]); }
+}
+function walls(s) {
+  if (s <= 0) return;
+  const hh = 0.55 * s;
+  box(0.3, 0.3, 0, 13.7, 0.5, hh, hex('#e8edf3'), { windows: false });
+  box(0.3, 0.3, 0, 0.5, 13.7, hh, hex('#dfe5ee'), { windows: false });
+}
+function floorZones(t) {
+  const a = E.outCubic(inv(0.5, 1.2, t));
+  if (a <= 0) return;
+  ctx.globalAlpha = a;
+  poly([P(0.5, 0.5, 0.004), P(13.5, 0.5, 0.004), P(13.5, 13.5, 0.004), P(0.5, 13.5, 0.004)], tint(hex('#d5dde6'), 1));
+  const zone = (x0, y0, x1, y1, c) => poly([P(x0, y0, 0.008), P(x1, y0, 0.008), P(x1, y1, 0.008), P(x0, y1, 0.008)], tint(hex(c), 1));
+  zone(0.8, 1.6, 3.2, 5.2, '#e9e1c9'); zone(3.2, 6.2, 12.8, 7.7, '#c9d5e3'); zone(11.6, 9.4, 13.5, 13.3, '#f0dcc4');
+  const stripe = (x0, y0, x1, y1) => poly([P(x0, y0, 0.012), P(x1, y0, 0.012), P(x1, y1, 0.012), P(x0, y1, 0.012)], tint(hex('#f5c242'), 1));
+  stripe(3.2, 6.05, 12.8, 6.15); stripe(3.2, 7.75, 12.8, 7.85); stripe(0.8, 5.25, 3.2, 5.35);
+  ctx.globalAlpha = 1;
+}
+const crate = (x, y, z, sz, col) => box(x - sz, y - sz, z, x + sz, y + sz, z + sz * 1.6, hex(col), { windows: false });
+function truck(t) {
+  const go = E.inCubic(inv(7.2, 9.4, t));
+  const x = 12.2 + go * 4.5;
+  if (x > 15.5) return null;
+  return { x0: x - 0.0, y0: 11.2, x1: x + 1.5, y1: 11.95, h: 0.6 };
+}
+
+// ---------- frame ----------
+const dash = document.createElement('div'); dash.id = 'dash';
+dash.innerHTML = `<div class="h"><i></i>${C.dash}</div><div class="k"><div>${C.k1}<b id="k1">0<em>%</em></b></div><div>${C.k2}<b id="k2">0</b></div></div><div class="bars">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div>`;
+stage.appendChild(dash);
+const K1 = dash.querySelector('#k1'), K2 = dash.querySelector('#k2'), BARS = [...dash.querySelectorAll('.bars span')];
+const BH = [0.55, 0.62, 0.58, 0.7, 0.74, 0.8, 0.86, 0.95];
+// ---------- camera helpers: look at a world point ----------
+function look(wx, wy, wz, sx = 960, sy = 540) { CX = 0; CY = 0; const p = P(wx, wy, wz); CX = sx - p[0] / K; CY = sy - p[1] / K; }
+// speed ramp: story time runs at 40% around the scanner
+const RAMP0 = 8.3, RAMP1 = 9.9, RAMPK = 0.4;
+const story = (t) => t < RAMP0 ? t : t < RAMP1 ? RAMP0 + (t - RAMP0) * RAMPK : RAMP0 + (RAMP1 - RAMP0) * RAMPK + (t - RAMP1);
+const HERO_K = 2, HERO_T0 = 2.4 + HERO_K * GAP / SPEED;
+const heroX = (s) => BELT.x0 + 0.1 + (s - HERO_T0) * SPEED;
+const HERO_END = HERO_T0 + (BELT.x1 - 0.25 - BELT.x0 - 0.1) / SPEED;
+function tag(px, py, txt, a, col = '#1f2a44', bg = 'rgba(255,255,255,.95)', sub = '') {
+  if (a <= 0.01) return;
+  ctx.save(); ctx.translate(px, py); ctx.scale(a * 1.55, a * 1.55);
+  ctx.font = `800 ${26 * K}px "Noto Sans CJK SC"`; const w = Math.max(ctx.measureText(txt).width, sub ? ctx.measureText(sub).width * 0.75 : 0) + 40 * K, h = (sub ? 78 : 50) * K;
+  ctx.fillStyle = 'rgba(20,30,60,.25)'; ctx.beginPath(); ctx.roundRect(-w / 2 + 3 * K, -h - 14 * K + 6 * K, w, h, 14 * K); ctx.fill();
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(-w / 2, -h - 14 * K, w, h, 14 * K); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-10 * K, -14 * K); ctx.lineTo(10 * K, -14 * K); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, 0, -h - 14 * K + 25 * K);
+  if (sub) { ctx.font = `700 ${19 * K}px "Noto Sans CJK SC"`; ctx.fillStyle = '#6b7690'; ctx.fillText(sub, 0, -h - 14 * K + 56 * K); }
+  ctx.restore();
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 84px "Noto Sans CJK SC"', '700 28px "Noto Sans CJK SC"', '700 22px "Noto Sans CJK SC"', '800 26px "Noto Sans CJK SC"', '800 52px Inter'],
+  cues: [{"t": 0.2, "sfx": "whoosh", "gain": 0.5}, {"t": 0.6, "sfx": "blocks", "gain": 0.6}, {"t": 1.1, "sfx": "blocks", "gain": 0.6}, {"t": 1.6, "sfx": "blocks", "gain": 0.5}, {"t": 2.4, "sfx": "whoosh", "gain": 0.4}, {"t": 3.0, "sfx": "click", "gain": 0.6}, {"t": 3.3, "sfx": "pop", "gain": 0.5}, {"t": 4.4, "sfx": "click", "gain": 0.6}, {"t": 6.3, "sfx": "click", "gain": 0.6}, {"t": 7.9, "sfx": "click", "gain": 0.6}, {"t": 8.3, "sfx": "riser_short", "gain": 0.5}, {"t": 9.05, "sfx": "beep", "gain": 0.6}, {"t": 9.1, "sfx": "ding", "gain": 0.6}, {"t": 11.2, "sfx": "whoosh_up", "gain": 0.5}, {"t": 12.2, "sfx": "pop", "gain": 0.5}, {"t": 12.4, "sfx": "data", "gain": 0.5}, {"t": 13.2, "sfx": "chime", "gain": 0.6}],
+  render(t) {
+    const st = story(t); T = st;
+    DUSK = 0.12 * E.inOutSine(inv(11, 15, t)); NIGHT = 0;
+    SUN = [-0.6, -0.35, 0.72];
+    // ---- camera: macro on the loading bay → lock onto the hero part → speed-ramped scan → crane up to the whole floor
+    const hx = clamp(heroX(st), BELT.x0 + 0.1, BELT.x1 - 0.25), hy = (BELT.y0 + BELT.y1) / 2, hz = BELT.h * 0.85;
+    const lockA = E.inOutSine(inv(2.3, 3.4, t));                       // ease from the pallets to the hero
+    const crane = E.inOutCubic(inv(11.2, 13.4, t));
+    const fx = lerp(lerp(2.2, BELT.x0 + 0.2, E.inOutSine(inv(0.4, 2.3, t))), hx, lockA), fy = lerp(lerp(3.2, hy, E.inOutSine(inv(0.4, 2.3, t))), hy, lockA);
+    AZ = Math.PI / 4 + lerp(-0.22, 0.12, E.inOutSine(inv(0, 11, t))) + crane * 0.35;
+    EL = lerp(0.46, 0.6, crane);
+    SC = lerp(lerp(270, 245, lockA), 96, crane) * (1 + 0.06 * E.inOutSine(inv(RAMP0, RAMP1, t)) * (1 - crane));
+    look(lerp(fx, 7.2, crane), lerp(fy, 7.4, crane), lerp(hz, 0, crane), lerp(980, 900, crane), lerp(560, 600, crane));
+    lights.length = 0;
+    sky(st); slab(st); floorZones(st);
+    const sp = (t0, k = 200, c = 15) => clamp(spring(st - t0, { k, c }), 0, 1.1);
+    const items = [];
+    items.push({ kind: 'walls', ry: -99 });
+    PALLETS.forEach((p) => items.push({ kind: 'pal', p, s: sp(p.t0 - 0.6), ry: P(p.x, p.y, 0)[2] }));
+    items.push({ kind: 'belt', s: E.outCubic(inv(1.1, 2.3, st)), ry: P(5, 6.55, 0)[2] });
+    items.push({ kind: 'belt2', s: E.outCubic(inv(1.5, 2.5, st)), ry: P(5.5, 9.65, 0)[2] });
+    ROBOTS2.forEach((r, i) => items.push({ kind: 'rob2', r, s: sp(1.8 + i * 0.15), ry: P(r.x, 11.15, 0)[2] }));
+    RACKS.forEach((r, i) => items.push({ kind: 'rack', r, s: sp(1.1 + i * 0.1), ry: P(r.x, r.y, 0)[2] }));
+    for (const pr of products2(st)) items.push({ kind: 'prod2', pr, ry: P(pr.x, pr.y, 0)[2] + 0.01 });
+    if (st > 2.2) [0, 0.5].forEach((ph) => { const a = agv(st, ph); items.push({ kind: 'agv', a, ry: P(a.x, a.y, 0)[2] }); });
+    ROBOTS.forEach((r, i) => items.push({ kind: 'rob', r, s: sp(1.6 + i * 0.15), ry: P(r.x, 8.05, 0)[2] }));
+    items.push({ kind: 'scan', s: sp(1.9), ry: P(9.0, 7.6, 0)[2] });
+    for (const pr of products(st)) items.push({ kind: 'prod', pr, hero: pr.k === HERO_K, ry: P(pr.x, pr.y, 0)[2] + 0.01 });
+    const done = st < 2.4 ? 0 : Math.max(0, Math.floor(((st - 2.4) * SPEED - (BELT.x1 - BELT.x0 - 0.35)) / GAP) + 1);
+    for (let i = 0; i < Math.min(done, 12); i++) items.push({ kind: 'carton', i, ry: P(12.9 + (i % 2) * 0.42, 5.4 + Math.floor(i / 4) * 0.42, 0)[2] });
+    const go = E.inCubic(inv(12.6, 14.6, t)), trx = 12.2 + go * 4.5;
+    if (trx < 15.5) items.push({ kind: 'truck', tr: { x0: trx, y0: 11.2, x1: trx + 1.5, y1: 11.95, h: 0.6 }, s: sp(1.2), ry: P(trx + 0.75, 11.6, 0)[2] });
+    const fk = { x: 2.2 + 1.0 * Math.sin(st * 0.9), y: 5.7 };
+    items.push({ kind: 'fork', ry: P(fk.x, fk.y, 0)[2] });
+    shadows([{ x0: BELT.x0, y0: BELT.y0, x1: BELT.x1, y1: BELT.y1, h: BELT.h }, ...PALLETS.map((p) => ({ x0: p.x - 0.4, y0: p.y - 0.4, x1: p.x + 0.4, y1: p.y + 0.4, h: 0.3 * p.n * Math.min(1, sp(p.t0 - 0.6)) }))]);
+    items.sort((a, b) => a.ry - b.ry);
+    let heroScr = null;
+    for (const it of items) {
+      if (it.kind === 'walls') walls(sp(0.8));
+      else if (it.kind === 'pal') { if (it.s <= 0) continue; box(it.p.x - 0.42, it.p.y - 0.42, 0, it.p.x + 0.42, it.p.y + 0.42, 0.06, hex('#c79a62'), { windows: false }); for (let k = 0; k < it.p.n; k++) if (it.s > 0.3 + k * 0.2) crate(it.p.x, it.p.y, 0.06 + k * 0.29, 0.36, ['#e9c48a', '#dcb27a', '#f0d29c'][k % 3]); }
+      else if (it.kind === 'belt') belt(st, it.s);
+      else if (it.kind === 'belt2') belt2(st, it.s);
+      else if (it.kind === 'rob2') robotAt(it.r, st, it.s, 11.15);
+      else if (it.kind === 'rack') rack(it.r, it.s);
+      else if (it.kind === 'prod2') crate(it.pr.x, it.pr.y, BELT2.h * 0.85, 0.13, '#8fc4ff');
+      else if (it.kind === 'agv') { const { x, y, loaded } = it.a; box(x - 0.3, y - 0.22, 0.02, x + 0.3, y + 0.22, 0.12, hex('#2ec4b6'), { windows: false }); if (loaded) crate(x, y, 0.12, 0.17, '#e9c48a'); }
+      else if (it.kind === 'rob') robot(it.r, st, it.s);
+      else if (it.kind === 'scan') scanner(st, it.s);
+      else if (it.kind === 'prod') {
+        const z = BELT.h * 0.85;
+        if (it.hero) {
+          const passed = it.pr.x > 9.0;
+          const ring = P(it.pr.x, it.pr.y, z + 0.01); ctx.strokeStyle = passed ? 'rgba(47,191,113,.9)' : 'rgba(58,123,255,.85)'; ctx.lineWidth = 3 * K; ctx.beginPath(); ctx.ellipse(ring[0], ring[1], 0.32 * SC * K, 0.32 * SC * K * Math.sin(EL), 0, 0, 7); ctx.stroke();
+          crate(it.pr.x, it.pr.y, z, 0.15, passed ? '#5fd39a' : '#5aa9ff');
+          heroScr = P(it.pr.x, it.pr.y, z + 0.32);
+        } else crate(it.pr.x, it.pr.y, z, 0.15, it.pr.scanned ? '#ffd27a' : '#f2c46d');
+      }
+      else if (it.kind === 'carton') crate(12.9 + (it.i % 2) * 0.42, 5.4 + Math.floor(it.i / 4) * 0.42, Math.floor((it.i % 4) / 2) * 0.3, 0.19, it.i === 0 && st > HERO_END ? '#5fd39a' : '#e2b877');
+      else if (it.kind === 'truck') { if (it.s <= 0) continue; const { x0, y0, x1, y1, h } = it.tr; box(x0, y0, 0.05, x1 - 0.45, y1, h * it.s, hex('#f4f6fa'), { windows: false }); box(x1 - 0.42, y0 + 0.05, 0.05, x1, y1 - 0.05, h * 0.75 * it.s, hex('#3a7bff'), { windows: false }); }
+      else if (it.kind === 'fork') { box(fk.x - 0.25, fk.y - 0.18, 0.02, fk.x + 0.25, fk.y + 0.18, 0.25, hex('#ffcf3d'), { windows: false }); box(fk.x - 0.2, fk.y - 0.15, 0.25, fk.x + 0.05, fk.y + 0.15, 0.45, hex('#3c4356'), { windows: false }); }
+    }
+    if (lights.length) {
+      gctx.clearRect(0, 0, glowC.width, glowC.height); gctx.globalCompositeOperation = 'lighter';
+      for (const [x, y, r, c, a] of lights) { const g = gctx.createRadialGradient(x / 2, y / 2, 0, x / 2, y / 2, r * 1.6); g.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${0.55 * a})`); g.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`); gctx.fillStyle = g; gctx.fillRect(x / 2 - r * 1.6, y / 2 - r * 1.6, r * 3.2, r * 3.2); }
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.filter = `blur(${3 * K}px)`; ctx.drawImage(glowC, 0, 0, W, H); ctx.filter = 'none'; ctx.restore();
+    }
+    // station tags along the tracking shot + the hero's own tag
+    const stations = [[4.2, '01 上料', 3.0], [5.6, '02 机器人装配', 4.4], [7.8, '03 精密焊接', 6.3], [9.0, '04 视觉质检', 7.9]];
+    for (const [x, txt, t0] of stations) { const a = clamp(spring(t - t0, { k: 220, c: 16 }), 0, 1.1) * (1 - E.inQuad(inv(t0 + 2.2, t0 + 2.6, t))) * (1 - crane); if (a > 0.01) { const p = P(x, BELT.y0 - 0.5, 1.45); tag(p[0], p[1], txt, a, '#1f2a44', 'rgba(255,255,255,.95)'); } }
+    if (heroScr && crane < 0.5) {
+      const passed = heroX(st) > 9.0;
+      const a = clamp(spring(t - 3.3, { k: 200, c: 15 }), 0, 1.1) * (1 - crane * 2);
+      tag(heroScr[0], heroScr[1], passed ? '✓ 质检通过' : '批次 A-0921', a * (passed ? 1 + 0.12 * Math.max(0, 1 - (t - 9.1) * 3) : 1), passed ? '#ffffff' : '#1f2a44', passed ? '#2fbf71' : 'rgba(255,255,255,.95)', passed ? '尺寸误差 0.02mm · 已入库' : '待检测');
+    }
+    // scan flash during the speed ramp
+    const fl = Math.max(0, 1 - Math.abs(t - 9.05) * 4);
+    if (fl > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(80,255,170,${0.18 * fl})`; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+    // live dashboard after the crane-up
+    const da = clamp(spring(t - 12.2, { k: 160, c: 14 }), 0, 1.1);
+    dash.style.opacity = Math.min(1, da * 1.5); dash.style.transform = `scale(${0.85 + 0.15 * da})`;
+    const cnt = E.outCubic(inv(12.4, 14.2, t));
+    K1.innerHTML = `${(lerp(91.2, 98.6, cnt)).toFixed(1)}<em>%</em>`;
+    K2.textContent = Math.round(lerp(3200, 12480, cnt)).toLocaleString('en-US');
+    BARS.forEach((b, i) => { b.style.height = `${BH[i] * 100 * E.outCubic(inv(12.5 + i * 0.1, 13.1 + i * 0.1, t))}%`; });
+    cap.style.opacity = E.outCubic(inv(13.2, 13.9, t)); cap.style.transform = `translateY(${(1 - E.outCubic(inv(13.2, 13.9, t))) * 14}px)`;
+  },
+});
+const cap = document.createElement('div'); cap.id = 'cap'; cap.innerHTML = `${C.cap}<small>${C.capEn}</small>`; stage.appendChild(cap);
+</script></body></html>

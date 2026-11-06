@@ -1,0 +1,25 @@
+《零点密码》—— 60s 间谍片头风格样片  第三方素材与许可
+
+字体
+- ZCOOL QingKe HuangYou（站酷庆科黄油体），SIL Open Font License 1.1。
+  来源：Google Fonts（https://fonts.google.com/specimen/ZCOOL+QingKe+HuangYou），
+  经 https://fonts.googleapis.com/css2?family=ZCOOL+QingKe+HuangYou&text=… 子集化，仅含片中用字，存于 fonts/ZCOOLQingKeHuangYou.ttf。
+  OFL 全文：https://openfontlicense.org
+- 片名「零点密码」为自制几何剪纸字（title.js），不来自任何字体。
+
+代码库
+- opentype.js（字形轮廓提取），MIT License，vendor/opentype.min.js，许可见 vendor/opentype-LICENSE.txt。
+
+音色采样（全部 CC0 1.0，无署名要求，致谢如下）
+Samples (CC0): FreePats project (freepats.zenvoid.org), Karoryfer Samples / sfzinstruments, VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+- 用到：trombone_stac / trumpet_stac / horn_stac / trombone / trumpet / horn / tuba / trumpet_mute / timpani / gong / bass_drum / flute_stac（VSCO 2 CE）；
+  hihat / snare2 / clash / woodblock / vibraphone_hard（VCSL）；electric_guitar / world_perc（FreePats）；jazz_bass（Karoryfer）；contrabass_pizz（VSCO 2 CE）。
+
+拟音与弹簧混响
+- 全部为程序合成（numpy/scipy），无第三方录音。
+
+真实素材
+- 无（本风格不需要实拍素材）。
+
+画面
+- 全部由代码绘制（Canvas 2D），无图片素材、无生成视频。

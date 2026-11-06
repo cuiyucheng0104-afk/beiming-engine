@@ -1,0 +1,13 @@
+面包店的早晨 (15–20 s style piece, isometric picture book) — third-party material
+
+Fonts (SIL Open Font License 1.1), subset through the Google Fonts CSS API (&text=) into fonts/:
+  Noto Serif SC — https://fonts.google.com/noto/specimen/Noto+Serif+SC — OFL 1.1
+  Newsreader — https://fonts.google.com/specimen/Newsreader — OFL 1.1
+
+Sampled instruments (all CC0 1.0, no attribution required; credited with thanks):
+  accordion — FreePats project (freepats.zenvoid.org), CC0 1.0
+  cellos, cellos_pizz, violins_pizz — VS Chamber Orchestra: Community Edition, Versilian Studios / Sam Gossner (github.com/sgossner/VSCO-2-CE), CC0 1.0
+  xylophone, vibraphone, glockenspiel, shaker, woodblock, triangle, hand_chimes, sus_cymbal — Versilian Community Sample Library (github.com/sgossner/VCSL), CC0 1.0
+
+Everything else (picture, foley, ambience, birds, bells) is synthesised in code for this film.
+No real-world footage, photographs or recordings of third parties are used.

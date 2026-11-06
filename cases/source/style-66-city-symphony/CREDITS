@@ -1,0 +1,49 @@
+城市的一天 · CREDITS
+所有第三方素材只用公有领域 / CC0。每个文件都读过 Wikimedia Commons 文件页的许可模板（2026-11-01）。
+素材当作不可信数据：只用 ffmpeg 解码，不执行其中任何内容。画面处理：裁切、缩放、变速与帧融合、调色、泛光、颗粒；S15 的路灯熄灭是对原画面做的光照遮罩（逐组压暗），不是生成的图像。
+
+影像（Wikimedia Commons）
+S1  柏林日出      "Time-lapse sunrise Berlin Drachenberg.webm" — NutzerAusBerlin, 2026 — CC0 1.0（{{self|cc-zero}}）
+    https://commons.wikimedia.org/wiki/File:Time-lapse_sunrise_Berlin_Drachenberg.webm
+S2/网格 香港铜锣湾 "Causeway Bay Time-lapse videos (afternoon).ogv" — 鄒延, 2016 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Causeway_Bay_Time-lapse_videos_(afternoon).ogv
+S3  达拉斯快速路  "Hyperlapse Dallas North Tollway, Dallas Pkwy, & Legacy Dr view South - July 2026.webm" — Ranch9613, 2026 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Hyperlapse_Dallas_North_Tollway,_Dallas_Pkwy,_%26_Legacy_Dr_view_South_-_July_2026.webm
+S4  圣彼得堡地铁  "Прибытие поезда метро на станцию Невский проспект (2019).ogv" — Alex Alex Lep, 2019 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Прибытие_поезда_метро_на_станцию_Невский_проспект_(2019).ogv
+（备用，本版未上画面）奥尔伯里街道 "Kiewa Street timelapse Albury NSW.webm" — Thennicke, 2014 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Kiewa_Street_timelapse_Albury_NSW.webm
+S6  加尔各答地铁  "Dakshineswar bound Kolkata Metro train arriving Mahatma Gandhi Road station.webm" — Projjalm, 2025 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Dakshineswar_bound_Kolkata_Metro_train_arriving_Mahatma_Gandhi_Road_station.webm
+S7  弗里斯科主街  "Hyperlapse Frisco main St and Coleman Blvd - July 2026.webm" — Ranch9613, 2026 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Hyperlapse_Frisco_main_St_and_Coleman_Blvd_-_July_2026.webm
+S5/网格 涩谷路口   "Shibuya crossing time-lapse 2019-01-05.webm" — Asanagi, 2019 — CC0 1.0（只取路口下半，三个不同入点）
+    https://commons.wikimedia.org/wiki/File:Shibuya_crossing_time-lapse_2019-01-05.webm
+网格 纽卡斯尔渡轮  "Newcastle Harbour ferry crossing (sped up).webm" — JaredMcKenzie, 2026 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Newcastle_Harbour_ferry_crossing_(sped_up).webm
+S9  赫尔辛基南港  "Eteläsatama timelapse 1.webm" — MKFI, 2023 — 公有领域（{{self|PD-self}}）
+    https://commons.wikimedia.org/wiki/File:Etel%C3%A4satama_timelapse_1.webm
+S10 上海陆家嘴    "Timelapse de nuit de la vue du quartier de Lujiazui.webm" — Tomtoom03, 2025 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Timelapse_de_nuit_de_la_vue_du_quartier_de_Lujiazui.webm
+S11 麦金尼车流    "Traffic slow S Central Expy North and Sam Johnson south after fireworks ended Mckinney TX 2026 (Hyperlapse).webm" — Ranch9613, 2026 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Traffic_slow_S_Central_Expy_North_and_Sam_Johnson_south_after_fireworks_ended_Mckinney_TX_2026_(Hyperlapse).webm
+S12 卡波夜路      "A quick drive through Cabo San Lucas at night. Timelapse.webm" — Kissmykumbaya, 2019 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:A_quick_drive_through_Cabo_San_Lucas_at_night._Timelapse.webm
+S13 林茨美术馆    "Zeitraffer Lentos.webm" — TheRo, 2007 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Zeitraffer_Lentos.webm
+S15 奥尔伯里夜街  "Dean Street timelapse Albury NSW.webm" — Thennicke, 2014 — CC0 1.0
+    https://commons.wikimedia.org/wiki/File:Dean_Street_timelapse_Albury_NSW.webm
+
+文字
+引文：William Wordsworth, "Composed upon Westminster Bridge, Sept. 3, 1803", Poems, in Two Volumes, vol. 1 (London, 1807), p. 118 — 公有领域。
+     扫描本转录：https://en.wikisource.org/wiki/Page:Poems,_in_two_volumes_(IA_poemsintwovolume01word).pdf/130
+     中文"那颗伟大的心 已静卧"为本片自译。
+
+字体（SIL Open Font License 1.1，Google Fonts，已子集化，许可全文见 fonts/OFL-*.txt）
+Michroma — The Michroma Project Authors
+Noto Sans SC — Google（Adobe 合作设计）
+
+配乐采样（CC0 1.0）
+Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+马林巴、小提琴拨奏/跳弓/持续、大提琴持续/跳弓/拨奏、管风琴（全/柔/踏板）、圆号、长笛、大鼓、gran cassa、吊镲、镲、钟琴。
+竖琴拨弦为物理建模合成（pluck.py），电子脉冲与全部拟音、环境声为 numpy 合成，无第三方素材。

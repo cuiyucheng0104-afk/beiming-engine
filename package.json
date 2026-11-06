@@ -16,7 +16,10 @@
     "raea:render": "node examples/raea/tools/render.mjs",
     "routes:check": "node tools/work-plan.mjs --check",
     "routes:next": "node tools/work-plan.mjs --ready",
-    "test:routes": "node --test tools/work-plan.test.mjs"
+    "test:routes": "node --test tools/work-plan.test.mjs",
+    "cases:check": "python3 tools/casebook.py check",
+    "cases:list": "python3 tools/casebook.py list",
+    "test:cases": "python3 -m unittest discover -s tools -p test_casebook.py"
   },
   "dependencies": {
     "three": "0.170.0",

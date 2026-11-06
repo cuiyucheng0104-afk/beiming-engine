@@ -1,0 +1,25 @@
+雪夜小站 · Printed Long Take — third-party assets used in the film
+
+Picture
+- Everything in the picture is drawn by code in this folder (three.js scene, canvas sprites, shaders). No footage, no photographs.
+- Print-kit techniques (print pass, sky in direction space, billboard material, carved-face material, knife-cut stroke,
+  steam-wisp and pine atlases, moon) adapted from the printed-long-take style kit of the film library at
+  @@LEMO_ROOT@@ (style kit, MIT; see its LICENSE).
+- three.js r170 (MIT) — https://github.com/mrdoob/three.js
+
+Font
+- Noto Serif SC Bold, subset to the single character 归 via the Google Fonts css2 API (&text=).
+  Source: https://fonts.google.com/noto/specimen/Noto+Serif+SC — SIL Open Font License 1.1 (fonts/OFL-NotoSerifSC.txt)
+
+Music (samples)
+- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios / Sam Gossner) — https://github.com/sgossner/VSCO-2-CE — CC0 1.0
+  (contrabass, contrabass pizzicato, horn, timpani, gong, sleigh bells)
+- Versilian Community Sample Library (Versilian Studios) — https://github.com/sgossner/VCSL — CC0 1.0
+  (tubular bells, hand chimes, glockenspiel, bowed vibraphone, harp, gran cassa)
+- Plucked harp: physically modelled (Karplus–Strong) in code, no samples.
+
+Sound effects
+- All foley and ambience (wind, snow, wires, boiler, chuffs, poles, paper, match, knife, block, press) synthesised in mix.py
+  with numpy/scipy. No recordings.
+
+No real-world material (footage, photos, archive) is used, so there is no FACTS.md: the film states no facts.

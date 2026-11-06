@@ -1,0 +1,24 @@
+《叮咚》Ding-Dong · 电路板风格样片 — CREDITS
+
+画面
+- 全部画面由代码绘制（src/*.js）：门铃电路板、芯片内部的嵌套小板、丝印文字都是为本片原创的，没有临摹真实电路板，也没有使用照片或视频素材。
+- 画面内的汉字（按下 / 芯片 / 扬声器 / 叮 / 咚）按 0/45/90° 走线规则手工绘制（src/hanzi.js），不是字体渲染。
+
+字体（仅用于校对字形，不出现在成片里）
+- Noto Sans SC 子集：fonts/NotoSansSC-sub.woff2（只含 按 下 芯 片 扬 声 器 叮 咚 九个字）
+  来源：Google Fonts，https://fonts.google.com/noto/specimen/Noto+Sans+SC
+  （子集请求：https://fonts.googleapis.com/css2?family=Noto+Sans+SC&text=按下芯片扬声器叮咚）
+  许可：SIL Open Font License 1.1，https://openfontlicense.org/
+  用途：src/proof.js 的校样页把手绘汉字叠在它上面核对结构（index.html?proof）。
+
+声音
+- 采样乐器：Versilian Community Sample Library（VCSL），Versilian Studios / Sam Gossner
+  来源：https://github.com/sgossner/VCSL
+  许可：CC0 1.0 公有领域贡献，https://creativecommons.org/publicdomain/zero/1.0/
+  本片用到：glockenspiel（钟琴）、tubular bells（管钟）、vibraphone（颤音琴，硬槌与拉弓）、hand chimes（手铃）。
+- 拨弦：八音盒（music_box，模态合成）与拨奏低音提琴（upright_bass_pizz，Karplus-Strong 波导模型）均由代码实时合成，没有采样。
+- 其余全部是 numpy 原创合成：方波琶音、锯齿直流音、门控交流音、FM 钟、市电嗡声（调到 G）、软底鼓、16 分音符 tick、继电器咔哒、滤波噪声、丝印刮擦颗粒（mix.py）。
+- 作曲、拟音与混音：原创（mix.py），120 BPM，G 大调。
+
+真实素材
+- 无。本片不含任何下载的影像、照片或录音素材，因此没有 material/ 目录和 FACTS.md。

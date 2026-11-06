@@ -1,0 +1,27 @@
+片段三「燃比娃与揭晓」 素材与许可
+
+IP 图片（仅用于内部提案样片）
+- 《中国奇谭》鲸鱼主视觉、《中国奇谭2》如何成为三条龙 / 耳中人 / 小雪 / 大贵人、《浪浪山小妖怪》海报、《燃比娃》宣纸手绘主视觉：
+  来源 上影元官网（sfi-sh.com），经 PPT《上美影IP全景》整理，RTX 超分。原图像素未改动（只有整体明暗与窗框遮边）。
+
+材质
+- 宣纸、宣纸逆光、棉布幕透光、装裱绫绢、书封布面：本地 Qwen-Image 生成（共用/材质/）。
+- 木桌面：Poly Haven「american_walnut_veneer」CC0（https://polyhaven.com/a/american_walnut_veneer）。
+- 台灯模型：Poly Haven「desk_lamp_arm_01」CC0（https://polyhaven.com/a/desk_lamp_arm_01）。
+- 茶杯茶碟：Poly Haven「tea_set_01」CC0（https://polyhaven.com/a/tea_set_01）。
+- 环境光 HDRI：Poly Haven「lythwood_lounge」CC0（https://polyhaven.com/a/lythwood_lounge）。
+
+字体（SIL Open Font License 1.1，按用到的字子集化，放在 fonts/）
+- Ma Shan Zheng（马善政楷书）— Google Fonts，OFL
+- Noto Serif SC 500 — Google Fonts，OFL
+
+声音
+- Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios / Sam Gossner), Versilian Community Sample Library (Versilian Studios)
+  用到：手钟、颤音琴（弓奏/硬槌）、钟琴、管钟、木鱼、大鼓、低音鼓、定音鼓、铙钹、大锣、小锣、通鼓、大提琴、低音提琴、中提琴、小提琴。
+- 古琴：物理建模合成（Karplus–Strong），无录音素材。
+- 其余音效（开灯、火苗、火星噼啪、纸条、翻页、纸门"啵"、台灯嗡鸣、电子低频脉冲）：numpy 程序化合成。
+
+软件
+- three.js r170（MIT）、headless Chromium、ffmpeg。
+
+使用者对片中使用的 IP 图片与资料负责；合作方向为内部讨论建议。

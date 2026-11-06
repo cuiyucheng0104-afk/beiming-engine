@@ -1,0 +1,18 @@
+{
+  "name": "beiming-nine-3d-study",
+  "version": "1.0.0",
+  "description": "北冥九景：真实几何与原片三渲二配方的4K画风实验",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "pilot": "node tools/render.mjs --pilot --tag latest",
+    "render": "node tools/render.mjs --tag latest",
+    "clay": "node tools/render.mjs --qa --tag latest",
+    "gallery": "python tools/deliver.py"
+  },
+  "dependencies": {
+    "three": "0.170.0",
+    "playwright-core": "1.63.0"
+  }
+}

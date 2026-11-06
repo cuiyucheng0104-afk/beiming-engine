@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>03 · AI 做的 App · 每日小账</title>
+<script src="../lib/core.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 03 扁平矢量 · 行业示例：AI 做的记账 App =====
+   One continuous zoom: a hand holding a phone -> the app's home screen -> its camera scanning a receipt ->
+   the monthly report, where the title lands. Every frame is drawn as flat vectors. */
+const C = Reel.cfg({ title: '每日小账', sub: '拍一下，账就记好了 · 一个普通人用 AI 做的 App', save: '本月比上月省下 ¥680' });
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#22c08a');
+const { ctx, begin, k: K0 } = Reel.canvas2d(stage);
+let PZ = { on: false, Z: 1, Fx: 0, Fy: 0 };
+const PAL = { mint: '#22c08a', mint2: '#1aa877', mintL: '#bff0dc', navy: '#18233f', ink: '#2b3655', cream: '#fff7ea', yellow: '#ffd166', coral: '#ff7b6b', blue: '#4d8dff', purple: '#8f7bff', white: '#ffffff', grey: '#eef2f7', skin: '#f6b48d', skin2: '#e0956b' };
+const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
+const circ = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); };
+const fill = (c) => { ctx.fillStyle = c; ctx.fill(); };
+const txt = (s, x, y, font, col, align = 'left') => { ctx.font = font; ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y); };
+const SANS = (w, px) => `${w} ${px}px "Noto Sans CJK SC"`;
+const NUM = (w, px) => `${w} ${px}px Inter`;
+const shadowCard = (x, y, w, h, r, col, sh = 'rgba(16,40,60,.16)', off = 10) => { rr(x, y + off, w, h, r); fill(sh); rr(x, y, w, h, r); fill(col); };
+
+/* ---------------- Level A: a hand holding a phone ---------------- */
+const A = { portal: [820, 300, 640, 360], r: 26 };
+function drawA(t) {
+  ctx.fillStyle = PAL.mint; ctx.fillRect(-20, -20, 1960, 1120);
+  circ(1140, 480, 620); fill('#2acb94'); circ(1140, 480, 430); fill('#35d39e');
+  // floating money icons
+  const fl = (i, x, y) => [x + Math.sin(t * 1.3 + i * 2) * 14, y + Math.sin(t * 1.7 + i) * 18];
+  let [x, y] = fl(0, 330, 290); shadowCard(x - 70, y - 90, 140, 180, 18, PAL.white); for (let k = 0; k < 4; k++) { rr(x - 46, y - 52 + k * 30, 92 - (k % 2) * 30, 12, 6); fill(PAL.grey); } rr(x - 46, y + 62, 92, 14, 7); fill(PAL.mint);
+  [x, y] = fl(1, 420, 720); circ(x, y + 8, 66); fill('rgba(16,40,60,.16)'); circ(x, y, 66); fill(PAL.yellow); txt('¥', x, y + 4, NUM(800, 70), '#b8860b', 'center');
+  [x, y] = fl(2, 1680, 200); circ(x, y + 8, 62); fill('rgba(16,40,60,.16)'); circ(x, y, 62); fill(PAL.white); ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, 46, -1.57, 1.2); ctx.closePath(); fill(PAL.coral); ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, 46, 1.2, 3.4); ctx.closePath(); fill(PAL.blue); ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, 46, 3.4, 4.71); ctx.closePath(); fill(PAL.yellow);
+  // hands behind the phone, then the phone, then thumbs over the bezel
+  const [px, py, pw, ph] = A.portal;
+  const hand = (sd, part) => {
+    const ex = sd < 0 ? px - 30 : px + pw + 30, cy = py + ph * 0.62;
+    ctx.save(); ctx.translate(ex, cy); ctx.scale(sd, 1);
+    if (part === 0) { ctx.save(); ctx.rotate(-0.35); rr(-40, 40, 190, 520, 95); fill(PAL.skin2); ctx.restore(); rr(-30, -150, 170, 300, 80); fill(PAL.skin2); rr(-24, -158, 170, 300, 80); fill(PAL.skin); }
+    else { rr(-74, -128, 120, 54, 27); fill(PAL.skin2); rr(-78, -136, 120, 54, 27); fill(PAL.skin); rr(-72, -130, 28, 38, 13); fill('#f9cdb0'); }
+    ctx.restore();
+  };
+  hand(-1, 0); hand(1, 0);
+  rr(px - 40, py - 34 + 22, pw + 80, ph + 68, 64); fill('rgba(10,40,40,.22)');
+  rr(px - 40, py - 34, pw + 80, ph + 68, 64); fill(PAL.navy);
+  rr(px - 28, py - 22, pw + 56, ph + 44, 54); fill('#26314f');
+  circ(px - 18, py + ph / 2, 7); fill('#3a4668');
+  A.thumbs = () => { hand(-1, 1); hand(1, 1); };
+}
+function overA(t) {
+  const [px, py, pw, ph] = A.portal; rr(px, py, pw, ph, A.r); ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 3; ctx.stroke();
+  if (A.thumbs) A.thumbs();
+}
+
+/* ---------------- Level B: the app's home screen ---------------- */
+const B = { portal: [1180, 330, 576, 324], r: 22 };
+function drawB(t) {
+  ctx.fillStyle = PAL.cream; ctx.fillRect(-20, -20, 1960, 1120);
+  rr(-20, -20, 1960, 120, 0); fill(PAL.mint);
+  txt('每日小账', 90, 42, SANS(900, 40), PAL.white); txt('10月', 1820, 42, SANS(700, 30), 'rgba(255,255,255,.9)', 'right');
+  // spending card
+  shadowCard(90, 150, 980, 380, 34, PAL.white);
+  txt('本月支出', 150, 215, SANS(700, 30), '#7a86a3');
+  const sp = Math.round(lerp(1860, 3286, E.outCubic(inv(1.0, 2.6, t))));
+  txt('¥' + sp.toLocaleString('en-US'), 150, 310, NUM(800, 110), PAL.navy);
+  rr(150, 400, 860, 26, 13); fill(PAL.grey); rr(150, 400, 860 * lerp(0.42, 0.66, E.outCubic(inv(1.0, 2.6, t))), 26, 13); fill(PAL.mint);
+  txt('预算 ¥5,000', 150, 470, SANS(500, 26), '#7a86a3'); txt('还可以花 ¥1,714', 1010, 470, SANS(700, 26), PAL.mint2, 'right');
+  // recent records
+  const REC = [['咖啡', '¥28', PAL.coral], ['地铁', '¥4', PAL.blue], ['午餐', '¥32', PAL.yellow], ['水果', '¥19', PAL.purple]];
+  REC.forEach((r, i) => { const y = 590 + i * 112; shadowCard(90, y, 980, 92, 24, PAL.white, 'rgba(16,40,60,.08)', 6); circ(150, y + 46, 28); fill(r[2]); txt(r[0], 200, y + 46, SANS(700, 30), PAL.ink); txt(r[1], 1020, y + 46, NUM(800, 34), PAL.navy, 'right'); });
+  // camera card around the portal
+  const [px, py, pw, ph] = B.portal;
+  shadowCard(px - 40, py - 160, pw + 80, ph + 330, 40, PAL.navy, 'rgba(16,40,60,.2)', 12);
+  txt('拍小票记账', px + pw / 2, py - 90, SANS(900, 44), PAL.white, 'center');
+  rr(px + pw / 2 - 90, py + ph + 50, 180, 70, 35); fill(PAL.mint); txt('AI 识别', px + pw / 2, py + ph + 86, SANS(800, 28), PAL.white, 'center');
+}
+function overB(t) {
+  const [px, py, pw, ph] = B.portal;
+  ctx.strokeStyle = PAL.mint; ctx.lineWidth = 8; ctx.lineCap = 'round';
+  const c = 46; [[px, py, 1, 1], [px + pw, py, -1, 1], [px, py + ph, 1, -1], [px + pw, py + ph, -1, -1]].forEach(([x, y, sx, sy]) => { ctx.beginPath(); ctx.moveTo(x, y + sy * c); ctx.lineTo(x, y); ctx.lineTo(x + sx * c, y); ctx.stroke(); });
+}
+
+/* ---------------- Level C: scanning a receipt ---------------- */
+const Cc = { portal: [1290, 700, 480, 270], r: 18 };
+function drawC(t) {
+  ctx.fillStyle = '#1b2440'; ctx.fillRect(-20, -20, 1960, 1120);
+  for (let i = 0; i < 9; i++) { circ(200 + i * 210, 980, 140); fill('#202b4b'); }
+  // the receipt
+  ctx.save(); ctx.translate(560, 520); ctx.rotate(-0.04);
+  const W2 = 520, H2 = 820;
+  ctx.beginPath(); ctx.moveTo(-W2 / 2, -H2 / 2); for (let i = 0; i <= 20; i++) ctx.lineTo(-W2 / 2 + i * W2 / 20, -H2 / 2 + (i % 2 ? 14 : 0)); ctx.lineTo(W2 / 2, H2 / 2); for (let i = 20; i >= 0; i--) ctx.lineTo(-W2 / 2 + i * W2 / 20, H2 / 2 - (i % 2 ? 14 : 0)); ctx.closePath(); fill('#fffdf8');
+  txt('街角咖啡', 0, -320, SANS(900, 40), PAL.ink, 'center'); txt('2026-10-13  09:12', 0, -270, NUM(500, 24), '#8a93a8', 'center');
+  const IT = [['拿铁', '28.00'], ['可颂', '16.00'], ['燕麦奶', '+3.00']];
+  IT.forEach((it, i) => { const y = -170 + i * 80; txt(it[0], -200, y, SANS(700, 32), PAL.ink); txt(it[1], 200, y, NUM(700, 32), PAL.ink, 'right'); });
+  ctx.setLineDash([10, 10]); ctx.strokeStyle = '#c9cfdc'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-200, 90); ctx.lineTo(200, 90); ctx.stroke(); ctx.setLineDash([]);
+  txt('合计', -200, 160, SANS(900, 38), PAL.navy); txt('47.00', 200, 160, NUM(800, 44), PAL.navy, 'right');
+  for (let i = 0; i < 18; i++) { rr(-200 + i * 22, 260, i % 3 ? 8 : 14, 90, 2); fill(PAL.ink); }
+  // scanning line
+  const sy = -380 + ((t * 0.55) % 1) * 760;
+  ctx.fillStyle = 'rgba(34,192,138,.18)'; ctx.fillRect(-W2 / 2, sy - 60, W2, 60);
+  ctx.fillStyle = PAL.mint; ctx.fillRect(-W2 / 2 - 20, sy - 3, W2 + 40, 6);
+  ctx.restore();
+  // recognised chips flying out to the right
+  const CH = [['餐饮 · 拿铁', '¥28', PAL.coral], ['餐饮 · 可颂', '¥16', PAL.coral], ['加料', '¥3', PAL.yellow]];
+  CH.forEach((c, i) => { const a = E.outBack(clamp(inv(3.2 + i * 0.25, 3.6 + i * 0.25, PZ.tl)), 1.4); if (a <= 0) return; const x = lerp(700, 1000, a), y = 210 + i * 120;
+    ctx.save(); ctx.globalAlpha = clamp(a); shadowCard(x, y, 520, 92, 46, PAL.white, 'rgba(0,0,0,.25)', 8); circ(x + 48, y + 46, 24); fill(c[2]); txt(c[0], x + 90, y + 46, SANS(800, 30), PAL.ink); txt(c[1], x + 490, y + 46, NUM(800, 32), PAL.navy, 'right'); ctx.restore(); });
+  // report thumbnail card around the portal
+  const [px, py, pw, ph] = Cc.portal;
+  shadowCard(px - 24, py - 70, pw + 48, ph + 94, 30, PAL.white, 'rgba(0,0,0,.3)', 10);
+  txt('月度报告', px, py - 36, SANS(900, 30), PAL.navy);
+}
+function overC(t) {}
+
+/* ---------------- Level D: the monthly report ---------------- */
+const D = { portal: null };
+function drawD(t) {
+  ctx.fillStyle = '#f6f8fc'; ctx.fillRect(-20, -20, 1960, 1120);
+  // donut chart
+  const cx = 1320, cy = 470, R = 250, cats = [['餐饮', 0.38, PAL.coral], ['购物', 0.26, PAL.blue], ['交通', 0.12, PAL.yellow], ['其他', 0.24, PAL.purple]];
+  const g = 1;
+  let a0 = -Math.PI / 2;
+  cats.forEach(([n, v, c]) => { const a1 = a0 + v * Math.PI * 2 * Math.max(g, 0.001); ctx.beginPath(); ctx.arc(cx, cy, R, a0, a1); ctx.arc(cx, cy, R * 0.6, a1, a0, true); ctx.closePath(); fill(c); a0 = a1; });
+  txt('¥3,286', cx, cy - 12, NUM(800, 64), PAL.navy, 'center'); txt('本月支出', cx, cy + 46, SANS(700, 26), '#7a86a3', 'center');
+  cats.forEach(([n, v, c], i) => { const y = 800 + Math.floor(i / 2) * 70, x = 1080 + (i % 2) * 280; circ(x, y, 14); fill(c); txt(`${n} ${Math.round(v * 100)}%`, x + 30, y, SANS(700, 28), PAL.ink); });
+  // savings banner
+  const b = E.outBack(clamp(inv(7.0, 7.5, t)), 1.4);
+  if (b > 0) { ctx.save(); ctx.translate(1320, 1000); ctx.scale(b, b); shadowCard(-330, -46, 660, 92, 46, PAL.mint, 'rgba(16,80,60,.25)', 8); txt(C.save, 0, 2, SANS(900, 34), PAL.white, 'center'); ctx.restore(); }
+}
+function overD(t) {}
+
+const LV = [
+  { draw: drawA, over: overA, P: A.portal, r: A.r },
+  { draw: drawB, over: overB, P: B.portal, r: B.r },
+  { draw: drawC, over: overC, P: Cc.portal, r: Cc.r },
+  { draw: drawD, over: overD, P: null, r: 0 },
+];
+LV.forEach((l) => { if (l.P) { l.s = l.P[2] / 1920; l.log = Math.log(1 / l.s); } else l.log = 0; });
+const TOTAL = LV[0].log + LV[1].log + LV[2].log;
+function drawLevel(i, t, depth, screenScale) {
+  const L = LV[i];
+  const keep = PZ.on; if (depth > 0) PZ.on = false;
+  L.draw(t);
+  if (L.P && i < 3 && depth < 3 && L.P[2] * screenScale > 3) {
+    const [px, py, pw, ph] = L.P;
+    ctx.save(); rr(px, py, pw, ph, L.r); ctx.clip();
+    ctx.translate(px, py); ctx.scale(L.s, L.s);
+    drawLevel(i + 1, t, depth + 1, screenScale * L.s);
+    ctx.restore();
+  }
+  L.over(t);
+  PZ.on = keep;
+}
+const zin = (t, t0, t1, a = 0.7, d = 0.9) => { const c = t1 - t0 - a - d, v = TOTAL / (a / 2 + c + d / 2), u = clamp(t, t0, t1) - t0;
+  return u < a ? v * u * u / (2 * a) : u < a + c ? v * (a / 2 + (u - a)) : TOTAL - v * Math.pow(t1 - t0 - u, 2) / (2 * d); };
+function place(g, ct, rot = 0, zs = 1) {
+  let i = 0, f = clamp(g, 0, TOTAL);
+  while (i < 3 && f > LV[i].log) { f -= LV[i].log; i++; }
+  if (i >= 3) { i = 3; f = 0; }
+  const L = LV[i], Z = Math.exp(f);
+  const Fx = L.P ? L.P[0] / (1 - L.s) : 0, Fy = L.P ? L.P[1] / (1 - L.s) : 0;
+  ctx.setTransform(K0, 0, 0, K0, 0, 0);
+  if (rot || zs !== 1) { ctx.translate(960, 540); ctx.rotate(rot); ctx.scale(zs, zs); ctx.translate(-960, -540); }
+  ctx.transform(Z, 0, 0, Z, Fx * (1 - Z), Fy * (1 - Z));
+  PZ = { on: true, Z, Fx, Fy, tl: ct };
+  drawLevel(i, ct, 0, Z * zs);
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 120px "Noto Sans CJK SC"', '800 34px "Noto Sans CJK SC"', '700 28px "Noto Sans CJK SC"', '800 110px Inter', '700 32px Inter'],
+  cues: [{"t": 0.3, "sfx": "pop", "gain": 0.5}, {"t": 0.8, "sfx": "riser_short", "gain": 0.6}, {"t": 2.8, "sfx": "whoosh", "gain": 0.5}, {"t": 5.4, "sfx": "whoosh", "gain": 0.5}, {"t": 6.3, "sfx": "shutter", "gain": 0.5}, {"t": 8.4, "sfx": "whoosh", "gain": 0.5}, {"t": 11.2, "sfx": "impact_soft", "gain": 0.6}, {"t": 11.7, "sfx": "coin", "gain": 0.6}, {"t": 12.5, "sfx": "levelup", "gain": 0.6}, {"t": 12.7, "sfx": "sparkle", "gain": 0.5}],
+  render(t) {
+    begin();
+    const ct = t * 0.6;
+    const g = zin(t, 0.8, 11.6, 1.8, 1.8);
+    const p = g / TOTAL, rot = Math.sin(Math.PI * p) * 0.55 + Math.sin(Math.PI * 2 * p) * 0.12;
+    place(g, ct, rot, 1 + Math.abs(Math.sin(Math.PI * p)) * 0.32);
+    t = ct;
+    PZ.on = false;
+    const tk = E.outBack(clamp(inv(7.5, 8.05, t)), 1.6), ta = clamp(inv(7.5, 7.7, t));
+    if (ta > 0) {
+      begin();
+      ctx.save(); ctx.translate(120, 380); ctx.scale(tk, tk); ctx.globalAlpha = ta;
+      ctx.font = '900 120px "Noto Sans CJK SC"'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = PAL.mintL; ctx.fillText(C.title, 6, 8); ctx.fillStyle = PAL.mint2; ctx.fillText(C.title, 0, 0);
+      ctx.font = '700 30px "Noto Sans CJK SC"'; ctx.fillStyle = PAL.ink; ctx.fillText(C.sub, 4, 110);
+      ctx.restore();
+    }
+  },
+});
+</script></body></html>

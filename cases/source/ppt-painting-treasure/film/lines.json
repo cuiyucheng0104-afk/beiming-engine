@@ -1,0 +1,672 @@
+[
+{
+"id": "a1",
+"who": "林砚",
+"zh": "乐奇，打开第一视角录像。",
+"say": "乐奇，打开第一视角录像。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "a2",
+"who": "乐奇",
+"zh": "记录已开启。提醒：这位公爵的私人收藏，几乎没有公开资料。",
+"say": "记录已开启。提醒：这位公爵的私人收藏，几乎没有公开资料。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "a3",
+"who": "林砚",
+"zh": "越神秘，越值得来看看。",
+"say": "越神秘，越值得来看看。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "a4",
+"who": "乐奇",
+"zh": "这通常也意味着更危险。",
+"say": "这通常也意味着更危险。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "a5",
+"who": "林砚",
+"zh": "你就不能说句，欢迎来到英国？",
+"say": "你就不能说句，欢迎来到英国？",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "b1",
+"who": "乐奇",
+"zh": "多件展品与历史失踪档案的外观特征相符。真伪尚需核验。",
+"say": "多件展品与历史失踪档案的外观特征相符。真伪尚需核验。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "b2",
+"who": "林砚",
+"zh": "这儿是私人博物馆，还是全球失物招领处？",
+"say": "这儿是私人博物馆，还是全球失物招领处？",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "b3",
+"who": "乐奇",
+"zh": "暂未检索到失物招领服务。",
+"say": "暂未检索到失物招领服务。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "b4",
+"who": "公爵",
+"zh": "世人说它们消失了。其实，它们只是换了一位懂得欣赏的主人。",
+"say": "The world says they vanished. They simply found an owner who truly appreciates them.",
+"voice": "English_Trustworthy_Man",
+"speed": 0.9,
+"pitch": -4,
+"lang": "English"
+},
+{
+"id": "b5",
+"who": "林砚",
+"zh": "懂得欣赏，不等于有权占有。",
+"say": "懂得欣赏，不等于有权占有。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "c1",
+"who": "乐奇",
+"zh": "历史影像比对高度吻合，建议继续核验铸造特征。",
+"say": "历史影像比对高度吻合，建议继续核验铸造特征。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "c2",
+"who": "林砚",
+"zh": "这次……是真的。",
+"say": "这次……是真的。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 0.93,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "c3",
+"who": "公爵",
+"zh": "太好了。签了报告，明天有一场只邀请少数买家的私人交易。",
+"say": "Splendid. Sign the report. Tomorrow, a private sale, for a very few buyers.",
+"voice": "English_Trustworthy_Man",
+"speed": 0.9,
+"pitch": -4,
+"lang": "English"
+},
+{
+"id": "c4",
+"who": "林砚",
+"zh": "这样的东西，不应该成为交易筹码。",
+"say": "这样的东西，不应该成为交易筹码。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "c5",
+"who": "公爵",
+"zh": "林博士，这世上什么东西没有价码？",
+"say": "Doctor Lin, what in this world does not have a price?",
+"voice": "English_Trustworthy_Man",
+"speed": 0.9,
+"pitch": -4,
+"lang": "English"
+},
+{
+"id": "d1",
+"who": "乐奇",
+"zh": "检测到异常警报，建议立即撤离。",
+"say": "检测到异常警报，建议立即撤离。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "d2",
+"who": "林砚",
+"zh": "你这建议，有一点点晚。",
+"say": "你这建议，有一点点晚。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "d3",
+"who": "乐奇",
+"zh": "左侧有人接近。",
+"say": "左侧有人接近。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "d4",
+"who": "林砚",
+"zh": "看到了！",
+"say": "看到了！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.12,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "d5",
+"who": "乐奇",
+"zh": "右后方还有两人。",
+"say": "右后方还有两人。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "d6",
+"who": "林砚",
+"zh": "你能说哪里没人吗？",
+"say": "你能说哪里没人吗？",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "d7",
+"who": "乐奇",
+"zh": "目前没有。",
+"say": "目前没有。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "e1",
+"who": "晚餐",
+"zh": "桌上十三位……现在是十五位。这两位是谁？",
+"say": "Tredici a tavola... e adesso quindici. Chi sono questi due?",
+"voice": "Italian_Narrator",
+"speed": 0.92,
+"pitch": 0,
+"lang": "Italian"
+},
+{
+"id": "e2",
+"who": "乐奇",
+"zh": "根据原作构图，这里本应有十三位人物。现在多了两位。",
+"say": "根据原作构图，这里本应有十三位人物。现在多了两位。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "e3",
+"who": "林砚",
+"zh": "多的就是我和那个抢包的，别给我数人头了！",
+"say": "多的就是我和那个抢包的，别给我数人头了！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "e4",
+"who": "林砚",
+"zh": "不好意思，各位继续……我就找个包。",
+"say": "不好意思，各位继续……我就找个包。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "e5",
+"who": "乐奇",
+"zh": "提醒：您遗落了一件个人物品。",
+"say": "提醒：您遗落了一件个人物品。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "e6",
+"who": "林砚",
+"zh": "我知道，是鞋！",
+"say": "我知道，是鞋！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.12,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "f1",
+"who": "骑士",
+"zh": "站住！你是何人，外乡人？",
+"say": "Halt! Wie zijt gij, vreemdeling?",
+"voice": "Dutch_bossy_leader",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Dutch"
+},
+{
+"id": "f2",
+"who": "林砚",
+"zh": "乐奇，翻译！",
+"say": "乐奇，翻译！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.12,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "f3",
+"who": "乐奇",
+"zh": "他在问您的身份。",
+"say": "他在问您的身份。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "f4",
+"who": "林砚",
+"zh": "告诉他，我走错展厅了！",
+"say": "告诉他，我走错展厅了！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "f5",
+"who": "乐奇",
+"zh": "建议降低上身重心，保持平衡。",
+"say": "建议降低上身重心，保持平衡。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "f6",
+"who": "林砚",
+"zh": "我又不是在骑共享单车！",
+"say": "我又不是在骑共享单车！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "f7",
+"who": "乐奇",
+"zh": "前方右转。",
+"say": "前方右转。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "f8",
+"who": "林砚",
+"zh": "右边是牛！",
+"say": "右边是牛！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.12,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "f9",
+"who": "乐奇",
+"zh": "正在重新规划。骑马，不是标准导航交通方式。",
+"say": "正在重新规划。骑马，不是标准导航交通方式。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "g1",
+"who": "林砚",
+"zh": "这是什么地方？！",
+"say": "这是什么地方？！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "g2",
+"who": "乐奇",
+"zh": "向左。",
+"say": "向左。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "g3",
+"who": "林砚",
+"zh": "这儿有三个左边！",
+"say": "这儿有三个左边！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.12,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "g4",
+"who": "乐奇",
+"zh": "请根据标记的箭头，而非画面透视判断。",
+"say": "请根据标记的箭头，而非画面透视判断。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "g5",
+"who": "乐奇",
+"zh": "足部装备状态不对称。",
+"say": "足部装备状态不对称。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "g6",
+"who": "林砚",
+"zh": "你再提醒一次，我就给你换个主人。",
+"say": "你再提醒一次，我就给你换个主人。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "h1",
+"who": "公爵",
+"zh": "封锁所有出口！",
+"say": "Seal every exit! Now!",
+"voice": "English_Trustworthy_Man",
+"speed": 0.9,
+"pitch": -4,
+"lang": "English"
+},
+{
+"id": "h2",
+"who": "林砚",
+"zh": "完了！门关了！",
+"say": "完了！门关了！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.12,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "h3",
+"who": "乐奇",
+"zh": "检测到车辆具有实验性短距升力模式。",
+"say": "检测到车辆具有实验性短距升力模式。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "h4",
+"who": "林砚",
+"zh": "什么意思？",
+"say": "什么意思？",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "h5",
+"who": "乐奇",
+"zh": "通俗地说，这辆车能短暂离地。",
+"say": "通俗地说，这辆车能短暂离地。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "h6",
+"who": "林砚",
+"zh": "那就——飞过去！",
+"say": "那就——飞过去！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.12,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "h7",
+"who": "乐奇",
+"zh": "飞跃完成。应急升力储备已耗尽。",
+"say": "飞跃完成。应急升力储备已耗尽。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "h8",
+"who": "林砚",
+"zh": "早知道能飞，我刚才还跟画里的人较什么劲！",
+"say": "早知道能飞，我刚才还跟画里的人较什么劲！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "h9",
+"who": "乐奇",
+"zh": "您刚才没有车。",
+"say": "您刚才没有车。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "i1",
+"who": "林砚",
+"zh": "乐奇，打电话给许岚，开免提！",
+"say": "乐奇，打电话给许岚，开免提！",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "i2",
+"who": "许岚",
+"zh": "原定地面接应点已封锁，启用B计划。坐标发给乐奇了。",
+"say": "原定地面接应点已封锁，启用B计划。坐标发给乐奇了。",
+"voice": "Chinese (Mandarin)_Warm_Bestie",
+"speed": 1.05,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "i3",
+"who": "乐奇",
+"zh": "坐标已接收，位置共享开启。",
+"say": "坐标已接收，位置共享开启。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "i4",
+"who": "公爵",
+"zh": "哈！林博士，这下你真是无路可逃了。",
+"say": "Ha! Doctor Lin. There is nowhere left to run.",
+"voice": "English_Trustworthy_Man",
+"speed": 0.9,
+"pitch": -4,
+"lang": "English"
+},
+{
+"id": "i5",
+"who": "林砚",
+"zh": "你有很多收藏。可你看见的世界，实在太小。",
+"say": "你有很多收藏。可你看见的世界，实在太小。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "i6",
+"who": "公爵",
+"zh": "你笑什么？",
+"say": "What are you smiling at?",
+"voice": "English_Trustworthy_Man",
+"speed": 0.9,
+"pitch": -4,
+"lang": "English"
+},
+{
+"id": "i7",
+"who": "林砚",
+"zh": "谁告诉你……我一定要从陆地上走？",
+"say": "谁告诉你……我一定要从陆地上走？",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 0.93,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "i8",
+"who": "林砚",
+"zh": "拜拜。",
+"say": "拜拜。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 0.9,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "j1",
+"who": "公爵",
+"zh": "疯子。",
+"say": "Madman.",
+"voice": "English_Trustworthy_Man",
+"speed": 0.9,
+"pitch": -4,
+"lang": "English"
+},
+{
+"id": "j2",
+"who": "林砚",
+"zh": "乐奇，导航不错。",
+"say": "乐奇，导航不错。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "j3",
+"who": "乐奇",
+"zh": "目的地从来不是悬崖。……而是回家的路。",
+"say": "目的地从来不是悬崖。……而是回家的路。",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 0.93,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "j4",
+"who": "许岚",
+"zh": "你另一只鞋呢？",
+"say": "你另一只鞋呢？",
+"voice": "Chinese (Mandarin)_Warm_Bestie",
+"speed": 1.05,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "j5",
+"who": "林砚",
+"zh": "留在达·芬奇那儿了。",
+"say": "留在达·芬奇那儿了。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 1.06,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "k1",
+"who": "乐奇",
+"zh": "林先生，需要我识别这件文物吗？",
+"say": "林先生，需要我识别这件文物吗？",
+"voice": "Chinese (Mandarin)_News_Anchor",
+"speed": 1.0,
+"pitch": 0,
+"lang": "Chinese"
+},
+{
+"id": "k2",
+"who": "林砚",
+"zh": "不用。……它回家了。",
+"say": "不用。……它回家了。",
+"voice": "Chinese (Mandarin)_Reliable_Executive",
+"speed": 0.93,
+"pitch": 0,
+"lang": "Chinese"
+}
+]

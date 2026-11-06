@@ -1,0 +1,26 @@
+涨潮一米 · 白模投影 — CREDITS
+
+DATA (all public domain)
+- Building footprints and heights: "Building Footprints" (ynuv-fyni), City and County of San Francisco, DataSF
+  https://data.sfgov.org/d/ynuv-fyni — Open Data Commons Public Domain Dedication and License (PDDL 1.0)
+  downloaded via https://data.sfgov.org/resource/ynuv-fyni.geojson (within_box 37.8350,-122.3860 / 37.8020,-122.3530)
+  -> material/ti_buildings.geojson
+- Elevation and bathymetry: USGS 3D Elevation Program (3DEP), 3DEPElevation ImageServer exportImage
+  https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer — U.S. Government work, public domain
+  -> material/dem.tif, material/dem.json
+- Tidal datums, station 9414290 San Francisco: NOAA CO-OPS
+  https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/9414290/datums.json — U.S. Government work, public domain
+- Solar position: NOAA Solar Calculator equations (Meeus), implemented in tools/prep.py
+This film is made from open data; the City and County of San Francisco, USGS and NOAA did not make or endorse it.
+
+FONTS (SIL Open Font License 1.1, subset and self-hosted in fonts/, licence texts alongside)
+- Noto Sans SC (Google), Inter Tight (Rasmus Andersson et al.), IBM Plex Mono (IBM) — via Google Fonts
+
+MUSIC SAMPLES (CC0 1.0)
+- Versilian Studios VSCO 2 CE (Sam Gossner): contrabass, contrabass pizzicato, cellos, tuba, trombone, timpani, gong, bass drum
+- Versilian Community Sample Library (VCSL): vibraphone, bowed vibraphone, marimba, glockenspiel, hand chimes, woodblock, gran cassa
+- FreePats: glass harp
+All other sounds (room tone, projector fan, relays, lamp strike, light-wash air, water, risers) are synthesised in mix.py.
+
+SOFTWARE
+- three.js (MIT), headless Chromium, ffmpeg, numpy / scipy / soundfile / soxr

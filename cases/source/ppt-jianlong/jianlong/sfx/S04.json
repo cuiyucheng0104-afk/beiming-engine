@@ -1,0 +1,15 @@
+{
+ "seg": "S04",
+ "_说明": "t = 段内秒。focus 对焦落在手上；grab 抓胳膊（衣料一抓，画面一帧冲击）；gscan/glock 扫描角框锁手；屋里只有隔窗远雨，4.3 s 后退掉留出静默；yao = 旁白「要」字时刻（5.511），一声闷响 + 一帧冲击，四字逐字压进；rain_j/rain_jn 是下一场的雨声提前进来；veil 雨帘起交给 S05。",
+ "events": [
+  {"id": "room",    "t": 0.0,   "type": "rain_far",    "dur": 4.5, "gain": -30, "fade_in": 0.2, "fade_out": 1.1, "seed": 6},
+  {"id": "focus",   "t": 0.42,  "type": "lens_focus",  "gain": -15},
+  {"id": "grab",    "t": 1.2,   "type": "window_paper","dur": 0.3, "gain": -16, "seed": 9},
+  {"id": "gscan",   "t": 1.5,   "type": "ui_stroke",   "dur": 0.35, "gain": -26},
+  {"id": "glock",   "t": 1.85,  "type": "scan_beep",   "gain": -23},
+  {"id": "yao",     "t": 5.511, "type": "char_thud",   "gain": -9},
+  {"id": "rain_j",  "t": 6.9,   "type": "rain_far",    "dur": 1.1, "gain": -19, "fade_in": 1.0, "fade_out": 0.05, "seed": 7},
+  {"id": "rain_jn", "t": 7.2,   "type": "rain_near",   "dur": 0.8, "gain": -22, "fade_in": 0.7, "fade_out": 0.05, "seed": 7},
+  {"id": "veil",    "t": 7.35,  "type": "whoosh",      "dur": 0.8, "gain": -25}
+ ]
+}

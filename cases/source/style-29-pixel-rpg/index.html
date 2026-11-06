@@ -1,0 +1,11 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>宝箱怪</title>
+<style>
+@font-face{font-family:NotoSC5;src:url(fonts/NotoSansSC-500-sub.woff2) format('woff2');font-weight:500}
+@font-face{font-family:NotoSC7;src:url(fonts/NotoSansSC-700-sub.woff2) format('woff2');font-weight:700}
+html,body{margin:0;background:#181425}canvas{display:block;image-rendering:pixelated}</style>
+</head><body><canvas id="c" width="1920" height="1080"></canvas>
+<script type="module">
+const q = new URLSearchParams(location.search);
+if (q.has('test')) import('./test.js'); else import('./main.js');
+</script></body></html>

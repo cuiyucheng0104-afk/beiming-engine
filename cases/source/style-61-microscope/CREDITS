@@ -1,0 +1,21 @@
+一滴池塘水 · Microscope Story — credits for third-party material
+
+Photomicrographs (Wikimedia Commons, CC0 1.0 Public Domain Dedication)
+  Field A: "Cymbella sp. - Botanical Garden Dimitrie Branzda.jpg" by Dionaea-muscipula-meow
+           https://commons.wikimedia.org/wiki/File:Cymbella_sp._-_Botanical_Garden_Dimitrie_Branzda.jpg  (CC0 1.0)
+  Field B: "Pinnularia sp.jpg" by Dionaea-muscipula-meow
+           https://commons.wikimedia.org/wiki/File:Pinnularia_sp.jpg  (CC0 1.0)
+  Processing: white balance to one warm-white glass, a little chroma and density (tools/plates.py); nothing on the
+  specimens was drawn, retouched or generated. Downloaded copies in material/.
+
+Music samples (CC0 1.0)
+  Samples (CC0): FreePats project (freepats.zenvoid.org) — glass harp;
+  VS Chamber Orchestra: Community Edition (Versilian Studios) — timpani, bass drum;
+  Versilian Community Sample Library (Versilian Studios) — vibraphone (soft, hard, bowed), marimba, glockenspiel,
+  gran cassa, suspended cymbal.
+  Water drops, pulse bass, foley and room tone: synthesised in mix.py (numpy).
+
+Fonts (SIL Open Font License 1.1, self-hosted in fonts/)
+  Barlow Condensed — Jeremy Tribby — https://github.com/google/fonts/tree/main/ofl/barlowcondensed
+  IBM Plex Mono — IBM Corp. — https://github.com/google/fonts/tree/main/ofl/ibmplexmono
+  Noto Sans SC, Noto Serif SC — Google / Adobe — https://fonts.google.com/noto (CJK subsets via the Google Fonts CSS2 API &text=)

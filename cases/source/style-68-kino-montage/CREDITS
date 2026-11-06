@@ -1,0 +1,40 @@
+《大坝》CREDITS —— 片中使用的全部第三方素材、来源与许可
+
+== 影片 ==
+"Boulder Dam" (Parts III and IV)，U.S. Bureau of Reclamation（美国垦务局）与 Six Companies, Inc.、Babcock & Wilcox Co. 合作摄制，默片，B&W
+  来源：https://archive.org/details/BoulderD1931_2 （Prelinger Archives）
+  许可：Internet Archive 条目 licenseurl = http://creativecommons.org/licenses/publicdomain/（公有领域）；美国联邦机构作品
+  使用片段（源秒）：144–146 高空撬石工；166–168 撬石工；452–454 上工的人登吊斗；537–539 悬在峡谷壁上的吊斗；644–646.5 浇筑模板上的工人；
+  706–708、712–714 混凝土班组；788–790 八码料斗旁的工人；871.5–873.5、925.5–927.5、1176–1178 坝体块；1074.5–1077 挤满工人的吊斗；1190–1192.5 坝体下游面模板；1410–1412 进水塔；
+  713.0 单帧用于剪影"弯腰的工人"。全部转为本片统一的墨/纸双色印刷调色。
+
+== 文件 ==
+U.S. Bureau of Reclamation, "Hoover Dam"（1946 年修订，U.S. Government Printing Office），PDF 第 6 页 "If Statistics Interest You"
+  来源：https://archive.org/details/hooverdam00unit_3 （Columbia University Libraries 缩微胶片数字化）
+  许可：美国联邦政府出版物，公有领域（17 U.S.C. §105）
+  红色标记的是扫描件上的原句："Hoover Dam is …… 726.4 feet high."
+
+== 照片（Wikimedia Commons，文件页均标注 Public domain；美国国家档案馆 NARA 藏联邦作品）==
+- Ansel Adams, "Boulder Dam"（1941，美国内政部委托，NARA 79-AAB-01），终场大坝
+  https://commons.wikimedia.org/wiki/File:Ansel_Adams_-_National_Archives_79-AAB-01.jpg — Public domain
+- "Apache Indians employed as high-scalers on the construction of Hoover Dam."（1932-10-05，NARA 293746），剪影"指向峡谷的人"（坝顶）和"戴帽的撬石工"（台阶）
+  https://commons.wikimedia.org/wiki/File:%22Apache_Indians_employed_as_high-scalers_on_the_construction_of_Hoover_Dam.%22_-_NARA_-_293746.jpg — Public domain
+- "Grouting crew at work on upper levels of Arizona abutment …"（1933-08-05，NARA 293937），格子墙，及剪影"坐着打钻的灌浆工"（台阶）
+  https://commons.wikimedia.org/wiki/File:Grouting_crew_at_work_on_upper_levels_of_Arizona_abutment._The_grout_mixture_is_being_introduced_into_50-foot_holes..._-_NARA_-_293937.jpg — Public domain
+- "High-scalers working on Arizona abutment"（1932-11-18，NARA 293766），图表右窗与格子墙
+  https://commons.wikimedia.org/wiki/File:High-scalers_working_on_Arizona_abutment_-_NARA_-_293766.jpg — Public domain
+
+== 字体（SIL Open Font License 1.1，见 fonts/OFL-*.txt）==
+- Noto Sans SC（Google Fonts，按片中用字 &text= 子集化）
+- Oswald（Google Fonts，latin 子集）
+- Space Mono Bold（Google Fonts，latin 子集）
+
+== 音乐采样（CC0 1.0）==
+Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+（cellos_spic, bassoon_stac, tuba_stac, tuba, trombone_stac, trombone, horn_stac, horn, trumpet_stac, timpani, gran_cassa, bass_drum, gong, clash, sus_cymbal, snare2, xylophone）
+铁砧、钢构件、铆钉枪、马克笔、纸张、风声与合唱式合成器均为代码合成（numpy / scipy），无第三方录音。
+
+== 工具模型 ==
+u2net_human_seg.onnx（rembg 发布，MIT License，https://github.com/danielgatis/rembg）——仅用于把照片中的人剪成剪影，不出现在片中。
+
+片中所有素材为公有领域；使用者需自行对所用素材负责。

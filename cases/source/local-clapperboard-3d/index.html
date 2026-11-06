@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>电影场记板 · Clapperboard 3D</title>
+  <style>
+    :root { color-scheme: light; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, "Helvetica Neue", "PingFang SC", Arial, sans-serif;
+      background: radial-gradient(circle at 50% 35%, #ffffff 0%, #eceef1 55%, #dfe2e6 100%);
+    }
+    #app { position: fixed; inset: 0; }
+    canvas { display: block; }
+
+    .ui {
+      position: fixed; left: 24px; bottom: 22px; z-index: 10;
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      user-select: none;
+    }
+    .btn {
+      appearance: none; border: none; cursor: pointer;
+      background: #18181b; color: #fff;
+      font-size: 14px; font-weight: 600; letter-spacing: .02em;
+      padding: 11px 18px; border-radius: 10px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.18);
+      transition: transform .12s ease, background .2s ease;
+    }
+    .btn:hover { background: #000; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn.ghost { background: #fff; color: #18181b; box-shadow: 0 4px 14px rgba(0,0,0,.10); }
+    .btn.ghost.on { background: #2563eb; color: #fff; }
+
+    .title {
+      position: fixed; left: 26px; top: 22px; z-index: 10; user-select: none;
+    }
+    .title h1 { font-size: 18px; font-weight: 700; color: #1f2225; letter-spacing: .01em; }
+    .title p  { font-size: 12.5px; color: #6b7178; margin-top: 3px; }
+
+    .hint {
+      position: fixed; right: 22px; bottom: 24px; z-index: 10;
+      font-size: 12px; color: #8a9099; text-align: right; line-height: 1.55; user-select: none;
+    }
+    .loader {
+      position: fixed; inset: 0; display: grid; place-items: center; z-index: 50;
+      background: #f1f3f5; transition: opacity .5s ease; font-size: 14px; color: #8a9099;
+    }
+    .loader.hide { opacity: 0; pointer-events: none; }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div class="title">
+    <h1>电影场记板 · Clapperboard</h1>
+    <p>Three.js 3D 模型 — 拖拽旋转 · 滚轮缩放</p>
+  </div>
+
+  <div class="ui">
+    <button class="btn" id="clap">🎬 打板 (Clap)</button>
+    <button class="btn ghost" id="spin">自动旋转</button>
+    <button class="btn ghost on" id="sun">☀️ 自然光</button>
+    <button class="btn ghost" id="sunspeed">速度 1×</button>
+    <button class="btn ghost" id="cartoon">🎨 卡通</button>
+    <button class="btn ghost" id="reset">复位视角</button>
+  </div>
+
+  <div class="hint">鼠标左键拖拽 = 旋转<br>滚轮 = 缩放 · 右键 = 平移</div>
+
+  <div class="loader" id="loader">加载 3D 模型中…</div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+    // ---------------------------------------------------------------------
+    // Renderer
+    // ---------------------------------------------------------------------
+    const app = document.getElementById("app");
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+    app.appendChild(renderer.domElement);
+
+    // ---------------------------------------------------------------------
+    // Scene + camera
+    // ---------------------------------------------------------------------
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+      36, window.innerWidth / window.innerHeight, 0.1, 100
+    );
+    const CAM_START = new THREE.Vector3(3.0, 1.7, 11.4);
+    camera.position.copy(CAM_START);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 3.5;
+    controls.maxDistance = 22;
+    controls.maxPolarAngle = Math.PI * 0.92;
+    const TARGET = new THREE.Vector3(0.1, 0.95, 0);
+    controls.target.copy(TARGET);
+
+    // Image-based lighting for realistic plastic + metal
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    // ---------------------------------------------------------------------
+    // Lights (soft studio look on white)
+    // ---------------------------------------------------------------------
+    scene.add(new THREE.AmbientLight(0xffffff, 0.28));
+
+    const hemi = new THREE.HemisphereLight(0xeaf2ff, 0xc6ccd2, 0.45);
+    scene.add(hemi);
+
+    const key = new THREE.DirectionalLight(0xfff4e8, 2.4);   // warm key, brighter
+    key.position.set(5.5, 9, 6.5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(4096, 4096);
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 32;
+    key.shadow.camera.left = -9;
+    key.shadow.camera.right = 9;
+    key.shadow.camera.top = 9;
+    key.shadow.camera.bottom = -9;
+    key.shadow.bias = -0.00015;
+    key.shadow.normalBias = 0.03;
+    key.shadow.radius = 3.5;       // crisp studio penumbra
+    scene.add(key);
+
+    const fill = new THREE.DirectionalLight(0xeef4ff, 0.5);  // cool, softened
+    fill.position.set(-6, 3, 4);
+    scene.add(fill);
+
+    // Cool/strong rim-back light: grazes band tops + ignites the fresnel rim.
+    const rimLight = new THREE.DirectionalLight(0xcfe0ff, 1.8);
+    rimLight.position.set(-4, 5, -6.5);
+    scene.add(rimLight);
+
+    // ---------------------------------------------------------------------
+    // Rotating natural daylight (orbiting sun) — reuses `key` as the sun.
+    // Gentle dawn↔noon↔dusk arc (never below the horizon) keeps the white
+    // product-shot look clean; only ONE shadow caster for performance.
+    // ---------------------------------------------------------------------
+    let sunOn = true;          // natural-light toggle (default on)
+    let sunSpeed = 1;          // speed multiplier (1× / 2× / 0.5×)
+
+    const PERIOD     = 24;     // seconds for one full day cycle
+    const SUN_RADIUS = 14;     // sun orbit radius
+    const ELEV_BASE  = 0.62;   // base elevation (rad ≈ 35.5°)
+    const ELEV_AMP   = 0.42;   // rise/set amplitude (rad ≈ 24°)
+    const ELEV_MIN   = 0.20, ELEV_MAX = 1.04;   // normalize → daylight factor
+    const RIM_R      = 11, RIM_ELEV = 0.85;      // opposed cool rim-back light
+    const SUN_CENTER = new THREE.Vector3(0, 0.6, 0);
+
+    // Sun always targets the prop centre; tighten bias for grazing low light.
+    scene.add(key.target);
+    key.target.position.copy(SUN_CENTER);
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.05;
+
+    // Reused scratch + colour stops (zero per-frame allocation).
+    const _sunCol = new THREE.Color(), _hemiSky = new THREE.Color(), _hemiGnd = new THREE.Color();
+    const SUN_LOW = new THREE.Color(0xffb066), SUN_HIGH = new THREE.Color(0xfff4e8);
+    const SKY_LOW = new THREE.Color(0xffd9b3), SKY_HIGH = new THREE.Color(0xbfd6ff);
+    const GND_LOW = new THREE.Color(0xd8c2ad), GND_HIGH = new THREE.Color(0xc6ccd2);
+
+    // Static fallback = the file's original studio key pose (when sun is off).
+    const STATIC_KEY_POS = new THREE.Vector3(5.5, 9, 6.5);
+    const STATIC_KEY_COL = new THREE.Color(0xfff4e8);
+
+    const _smooth = (x) => x * x * (3 - 2 * x);
+    const _lerp = (a, b, k) => a + (b - a) * k;
+
+    function updateSun(t) {
+      const phase = (t * sunSpeed / PERIOD) * Math.PI * 2;
+      const azim = phase;
+      const elev = ELEV_BASE + ELEV_AMP * Math.sin(phase);
+      const ce = Math.cos(elev), se = Math.sin(elev);
+      key.position.set(
+        SUN_CENTER.x + SUN_RADIUS * ce * Math.cos(azim),
+        SUN_CENTER.y + SUN_RADIUS * se,
+        SUN_CENTER.z + SUN_RADIUS * ce * Math.sin(azim)
+      );
+      const dRaw = Math.min(1, Math.max(0, (elev - ELEV_MIN) / (ELEV_MAX - ELEV_MIN)));
+      const day = _smooth(dRaw);
+      key.color.copy(_sunCol.lerpColors(SUN_LOW, SUN_HIGH, day));
+      key.intensity = _lerp(0.6, 2.6, day);
+      hemi.color.copy(_hemiSky.lerpColors(SKY_LOW, SKY_HIGH, day));
+      hemi.groundColor.copy(_hemiGnd.lerpColors(GND_LOW, GND_HIGH, day));
+      hemi.intensity = _lerp(0.55, 0.40, day);
+      // Cool rim-back light opposes the sun (position only) → travelling edge glow.
+      const re = Math.cos(RIM_ELEV), rs = Math.sin(RIM_ELEV), a2 = azim + Math.PI;
+      rimLight.position.set(
+        SUN_CENTER.x + RIM_R * re * Math.cos(a2),
+        SUN_CENTER.y + RIM_R * rs,
+        SUN_CENTER.z + RIM_R * re * Math.sin(a2)
+      );
+    }
+
+    function restoreStaticLighting() {
+      key.position.copy(STATIC_KEY_POS);
+      key.color.copy(STATIC_KEY_COL);
+      key.intensity = 2.4;
+      hemi.color.set(0xeaf2ff); hemi.groundColor.set(0xc6ccd2); hemi.intensity = 0.45;
+      rimLight.position.set(-4, 5, -6.5);
+    }
+
+    // ---------------------------------------------------------------------
+    // Ground + soft contact shadow
+    // ---------------------------------------------------------------------
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(80, 80),
+      new THREE.ShadowMaterial({ opacity: 0.30 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -2.55;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Soft baked contact-shadow blob directly under the prop (procedural canvas).
+    function makeBlobTex() {
+      const s = 512;
+      const c = document.createElement("canvas"); c.width = c.height = s;
+      const x = c.getContext("2d");
+      const g = x.createRadialGradient(s / 2, s / 2, 10, s / 2, s / 2, s / 2);
+      g.addColorStop(0.0, "rgba(0,0,0,0.38)");
+      g.addColorStop(0.6, "rgba(0,0,0,0.12)");
+      g.addColorStop(1.0, "rgba(0,0,0,0.0)");
+      x.fillStyle = g; x.fillRect(0, 0, s, s);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    const blob = new THREE.Mesh(
+      new THREE.PlaneGeometry(7.5, 5.0),
+      new THREE.MeshBasicMaterial({ map: makeBlobTex(), transparent: true, depthWrite: false })
+    );
+    blob.rotation.x = -Math.PI / 2;
+    blob.position.set(0, -2.50, 0.3);   // just above the ShadowMaterial plane
+    blob.renderOrder = -1;
+    scene.add(blob);
+
+    // ---------------------------------------------------------------------
+    // Procedural textures (canvas)
+    // ---------------------------------------------------------------------
+
+    // Diagonal black/white stripes for the clapper sticks.
+    function makeStripeTexture() {
+      const w = 1024, h = 110;
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fafafa";
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "#15171a";
+      ctx.lineWidth = 78;
+      const step = 156;
+      for (let x = -h; x < w + h; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, h);          // bottom-left ...
+        ctx.lineTo(x + h, 0);      // ... to top-right  → "/" slant
+        ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return tex;
+    }
+
+    // (The fine printed form was removed — the slate face now carries bold
+    //  raised black/white bands built later, near the model assembly.)
+
+    // ---------------------------------------------------------------------
+    // Materials
+    // ---------------------------------------------------------------------
+    const stripeTex = makeStripeTexture();
+
+    const matStripe = new THREE.MeshPhysicalMaterial({
+      map: stripeTex, roughness: 0.4, metalness: 0.0,
+      clearcoat: 0.65, clearcoatRoughness: 0.3,
+    });
+    const matBlack = new THREE.MeshStandardMaterial({
+      color: 0x1a1c1f, roughness: 0.5, metalness: 0.05,
+    });
+    const matMetal = new THREE.MeshStandardMaterial({
+      color: 0xc9ccd1, roughness: 0.28, metalness: 0.95,
+    });
+    const matBoardEdge = new THREE.MeshStandardMaterial({
+      color: 0xf3f3f1, roughness: 0.6, metalness: 0.0,
+    });
+
+    // ---------------------------------------------------------------------
+    // Rounded-box helper (board with soft corners)
+    // ---------------------------------------------------------------------
+    function roundedBoxShape(w, h, r) {
+      const s = new THREE.Shape();
+      const x = -w / 2, y = -h / 2;
+      s.moveTo(x + r, y);
+      s.lineTo(x + w - r, y);
+      s.quadraticCurveTo(x + w, y, x + w, y + r);
+      s.lineTo(x + w, y + h - r);
+      s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      s.lineTo(x + r, y + h);
+      s.quadraticCurveTo(x, y + h, x, y + h - r);
+      s.lineTo(x, y + r);
+      s.quadraticCurveTo(x, y, x + r, y);
+      return s;
+    }
+
+    // ---------------------------------------------------------------------
+    // Build the clapperboard
+    // ---------------------------------------------------------------------
+    const board = new THREE.Group();      // whole prop
+    scene.add(board);
+
+    const W = 4.0;          // slate width
+    const H = 3.3;          // slate height
+    const D = 0.30;         // slate thickness (chunkier for more depth)
+
+    // --- Slate (white writing board) ---
+    const slateGeo = new THREE.ExtrudeGeometry(roundedBoxShape(W, H, 0.18), {
+      depth: D, bevelEnabled: true, bevelThickness: 0.05,
+      bevelSize: 0.05, bevelSegments: 4, steps: 1, curveSegments: 12,
+    });
+    slateGeo.center();
+    // ExtrudeGeometry emits world-space UVs on the caps; renormalize to 0..1
+    // across the face bounds so the slate texture covers the whole front.
+    slateGeo.computeBoundingBox();
+    {
+      const bb = slateGeo.boundingBox;
+      const sx = 1 / (bb.max.x - bb.min.x);
+      const sy = 1 / (bb.max.y - bb.min.y);
+      const pos = slateGeo.attributes.position;
+      const uv = slateGeo.attributes.uv;
+      for (let i = 0; i < pos.count; i++) {
+        uv.setXY(i, (pos.getX(i) - bb.min.x) * sx, (pos.getY(i) - bb.min.y) * sy);
+      }
+      uv.needsUpdate = true;
+    }
+    const matSlateFront = new THREE.MeshPhysicalMaterial({
+      color: 0xf4f3ef, roughness: 0.5, metalness: 0.0,
+      clearcoat: 0.6, clearcoatRoughness: 0.35,
+    });
+    // ExtrudeGeometry groups: 0 = front/back caps, 1 = sides.
+    const slate = new THREE.Mesh(slateGeo, [matSlateFront, matBoardEdge]);
+    // The +Z cap already faces the camera and reads correctly — no flip.
+    slate.position.set(0, -0.15, 0);
+    slate.castShadow = true;
+    slate.receiveShadow = true;
+    board.add(slate);
+
+    // ---------------------------------------------------------------------
+    // Bold raised black/white bands on the slate face (replace printed text)
+    // ---------------------------------------------------------------------
+
+    // Big bold label decal (transparent bg → sits on a band's front cap).
+    function makeLabelTexture(items, opts = {}) {
+      const { bg = null, fg = "#f7f7f5", weight = 800,
+              fontFrac = 0.6, align = "spread", pad = 0.06, aspect = 4 } = opts;
+      const h = 256;
+      const w = Math.max(256, Math.round(h * aspect));   // match the band's aspect → no text stretch
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const ctx = c.getContext("2d");
+      if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h); }
+      else ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = fg;
+      ctx.font = `${weight} ${Math.round(h * fontFrac)}px "Helvetica Neue", Arial, sans-serif`;
+      ctx.textBaseline = "middle";
+      if (align === "spread") {
+        ctx.textAlign = "center";
+        const n = items.length;
+        items.forEach((t, i) => ctx.fillText(t, w * (i + 0.5) / n, h * 0.54));
+      } else if (align === "left") {
+        ctx.textAlign = "left";
+        ctx.fillText(items[0], w * pad, h * 0.54);
+      } else {
+        ctx.textAlign = "center";
+        ctx.fillText(items[0], w * 0.5, h * 0.54);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return tex;
+    }
+
+    // Raised rounded-band factory. ExtrudeGeometry adds the bevel ON TOP of
+    // `depth`, so the true front-cap z = depth/2 + bevelThickness after center();
+    // expose it via geo.userData.frontZ so labels sit flush.
+    function makeBand(bw, bh, proud, faceMat, sideMat) {
+      const bevel = proud * 0.45;
+      const geo = new THREE.ExtrudeGeometry(roundedBoxShape(bw, bh, bh * 0.16), {
+        depth: proud, bevelEnabled: true, bevelThickness: bevel,
+        bevelSize: bevel, bevelSegments: 3, steps: 1, curveSegments: 8,
+      });
+      geo.center();
+      geo.computeBoundingBox();
+      geo.userData.frontZ = geo.boundingBox.max.z;
+      const m = new THREE.Mesh(geo, [faceMat, sideMat]);  // grp0 caps, grp1 sides
+      m.castShadow = true; m.receiveShadow = true;
+      return m;
+    }
+
+    // Flat label decal sitting just in front of a band's real front cap.
+    function labelOnBand(band, tex, w, h, lift = 0.003, dx = 0) {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
+      );
+      m.position.set(dx, 0, band.geometry.userData.frontZ + lift);
+      m.renderOrder = 2;
+      band.add(m);
+      return m;
+    }
+
+    // Band materials (physical clearcoat plastic).
+    const matBandBlack = new THREE.MeshPhysicalMaterial({
+      color: 0x101113, roughness: 0.42, metalness: 0.0, clearcoat: 0.7, clearcoatRoughness: 0.3,
+    });
+    const matBandSide  = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, roughness: 0.55 });
+    const matCellWhite = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, roughness: 0.45, metalness: 0.0, clearcoat: 0.7, clearcoatRoughness: 0.28,
+    });
+    const matCellSide  = new THREE.MeshStandardMaterial({ color: 0x16181b, roughness: 0.5 });
+
+    const faceZ  = D / 2 + 0.001;     // front plane of the slate
+    const PROUD  = 0.07;              // relief height
+    const innerW = W * 0.86;
+
+    const faceGroup = new THREE.Group();
+    faceGroup.position.copy(slate.position);   // align with slate offset
+    board.add(faceGroup);
+
+    const placeBandZ = (band) => faceZ + band.geometry.userData.frontZ;
+
+    // 1) HEADER black band: ROLL / SCENE / TAKE
+    const header = makeBand(innerW, 0.62, PROUD, matBandBlack, matBandSide);
+    header.position.set(0, H * 0.20, placeBandZ(header));
+    faceGroup.add(header);
+    labelOnBand(header,
+      makeLabelTexture(["ROLL", "SCENE", "TAKE"],
+        { fontFrac: 0.5, fg: "#f7f7f5", aspect: (innerW * 0.94) / 0.40 }),
+      innerW * 0.94, 0.40);
+
+    // 2) Three big WHITE value cells (raised, dark-sided for separation)
+    const cellVals = ["A12", "047", "03"];
+    const cellW = innerW / 3 - 0.10;
+    cellVals.forEach((v, i) => {
+      const cell = makeBand(cellW, 1.0, PROUD * 1.15, matCellWhite, matCellSide);
+      const cx = -innerW / 2 + cellW / 2 + i * (innerW / 3) + 0.05;
+      cell.position.set(cx, -H * 0.05, placeBandZ(cell));
+      faceGroup.add(cell);
+      labelOnBand(cell,
+        makeLabelTexture([v],
+          { align: "center", weight: 800, fontFrac: 0.5, fg: "#101113",
+            aspect: (cellW * 0.78) / 0.68 }),
+        cellW * 0.78, 0.68);
+    });
+
+    // 3) BOTTOM black production band: DIRECTOR + a white write-in strip
+    const prod = makeBand(innerW, 0.52, PROUD, matBandBlack, matBandSide);
+    prod.position.set(0, -H * 0.34, placeBandZ(prod));
+    faceGroup.add(prod);
+    labelOnBand(prod,
+      makeLabelTexture(["DIRECTOR"],
+        { align: "left", weight: 800, fontFrac: 0.5, fg: "#f7f7f5",
+          aspect: (innerW * 0.42) / 0.34 }),
+      innerW * 0.42, 0.34, 0.003, -innerW * 0.26);
+
+    const writeStrip = new THREE.Mesh(
+      new THREE.BoxGeometry(innerW * 0.46, 0.30, 0.05), matCellWhite);
+    // Sit the white strip ON TOP of the raised black band's front face.
+    writeStrip.position.set(innerW * 0.16, -H * 0.34,
+      placeBandZ(prod) + prod.geometry.userData.frontZ + 0.026);
+    writeStrip.castShadow = true; writeStrip.receiveShadow = true;
+    faceGroup.add(writeStrip);
+
+    // ---------------------------------------------------------------------
+    // Shader: world-space fresnel rim injected into the lit physical materials
+    // (r160: inject at <opaque_fragment>, the lit-output chunk).
+    // ---------------------------------------------------------------------
+    function addRim(mat, { color = new THREE.Color(0xffffff), power = 2.6,
+                           strength = 0.35 } = {}) {
+      const prev = mat.onBeforeCompile;
+      mat.onBeforeCompile = (shader, rndr) => {
+        if (typeof prev === "function") prev(shader, rndr);
+        shader.uniforms.uRimColor = { value: color };
+        shader.uniforms.uRimPower = { value: power };
+        shader.uniforms.uRimStr   = { value: strength };
+        shader.vertexShader = shader.vertexShader
+          .replace("#include <common>",
+            "#include <common>\nvarying vec3 vRimWN;\nvarying vec3 vRimWP;")
+          .replace("#include <begin_vertex>",
+            "#include <begin_vertex>\n"
+            + "  vRimWN = normalize( mat3( modelMatrix ) * normal );\n"
+            + "  vRimWP = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;");
+        shader.fragmentShader = shader.fragmentShader
+          .replace("#include <common>",
+            "#include <common>\n"
+            + "varying vec3 vRimWN;\nvarying vec3 vRimWP;\n"
+            + "uniform vec3 uRimColor;\nuniform float uRimPower;\nuniform float uRimStr;")
+          .replace("#include <opaque_fragment>",
+            "  {\n"
+            + "    vec3  rimV = normalize( cameraPosition - vRimWP );\n"
+            + "    float rimF = pow( 1.0 - clamp( dot( normalize( vRimWN ), rimV ), 0.0, 1.0 ), uRimPower );\n"
+            + "    outgoingLight += uRimColor * rimF * uRimStr;\n"
+            + "  }\n"
+            + "#include <opaque_fragment>");
+      };
+      mat.customProgramCacheKey = () => "rim-" + power.toFixed(2);
+      mat.needsUpdate = true;
+    }
+
+    // Cool subtle rim on whites; brighter white rim on blacks for "pop".
+    addRim(matSlateFront, { color: new THREE.Color(0xdfe6ff), power: 3.0, strength: 0.22 });
+    addRim(matCellWhite,  { color: new THREE.Color(0xdfe6ff), power: 3.0, strength: 0.20 });
+    addRim(matBandBlack,  { color: new THREE.Color(0xffffff), power: 2.2, strength: 0.55 });
+    addRim(matStripe,     { color: new THREE.Color(0xffffff), power: 2.4, strength: 0.40 });
+
+    const slateTopY = -0.15 + H / 2;     // world Y of slate top edge
+    const stickFrontZ = D / 2 + 0.02;    // sticks sit just proud of the slate face
+
+    // --- Stick factory (a striped clapper bar) ---
+    const stickLen = W;
+    const stickH = 0.52;       // taller, chunkier bar
+    const stickD = 0.34;       // deeper
+    stripeTex.wrapS = THREE.RepeatWrapping;
+    stripeTex.needsUpdate = true;
+    function makeStick() {
+      // Rounded-profile bar (length × height) extruded along depth — more 3D.
+      const geo = new THREE.ExtrudeGeometry(roundedBoxShape(stickLen, stickH, 0.12), {
+        depth: stickD, bevelEnabled: true, bevelThickness: 0.04,
+        bevelSize: 0.04, bevelSegments: 3, steps: 1, curveSegments: 8,
+      });
+      geo.center();
+      // Renormalize cap UVs to 0..1, then tile the diagonal stripe ×6 along length.
+      geo.computeBoundingBox();
+      const bb = geo.boundingBox;
+      const su = 1 / (bb.max.x - bb.min.x), sv = 1 / (bb.max.y - bb.min.y);
+      const p = geo.attributes.position, uv = geo.attributes.uv;
+      for (let i = 0; i < p.count; i++)
+        uv.setXY(i, (p.getX(i) - bb.min.x) * su * 6.0, (p.getY(i) - bb.min.y) * sv);
+      uv.needsUpdate = true;
+      // ExtrudeGeometry groups: 0 = caps (striped), 1 = sides/walls (dark).
+      const m = new THREE.Mesh(geo, [matStripe, matBlack]);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      return m;
+    }
+
+    // --- Lower (fixed) stick: glued to the slate top edge ---
+    const lowerStick = makeStick();
+    lowerStick.position.set(0, slateTopY + stickH / 2 - 0.04, stickFrontZ);
+    board.add(lowerStick);
+
+    // --- Hinge pivot at the left end ---
+    const pivotX = -W / 2 + 0.18;
+    const pivot = new THREE.Group();
+    pivot.position.set(pivotX, slateTopY + stickH / 2 - 0.04, stickFrontZ);
+    board.add(pivot);
+
+    // --- Upper (hinged) stick: child of pivot, extends to the right ---
+    const upperStick = makeStick();
+    upperStick.position.set(stickLen / 2 - 0.18, stickH + 0.02, 0);
+    pivot.add(upperStick);
+
+    // --- Black hinge bracket + rivets ---
+    function rivet(x, y, z) {
+      const g = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.10, 0.11, 0.10, 28), matMetal
+      );
+      g.rotation.x = Math.PI / 2;        // face the viewer (+Z)
+      g.position.set(x, y, z);
+      g.castShadow = true;
+      return g;
+    }
+
+    // bracket on the fixed lower-left corner
+    const bracketL = new THREE.Mesh(
+      new THREE.BoxGeometry(0.70, stickH + 0.16, stickD + 0.10), matBlack
+    );
+    bracketL.position.set(-W / 2 + 0.31, slateTopY + stickH / 2 - 0.04, stickFrontZ + 0.03);
+    bracketL.castShadow = true;
+    board.add(bracketL);
+    board.add(rivet(-W / 2 + 0.17, slateTopY + 0.04, stickFrontZ + 0.13));
+    board.add(rivet(-W / 2 + 0.45, slateTopY + 0.04, stickFrontZ + 0.13));
+
+    // bracket riding on the hinged upper stick (rotates with pivot)
+    const bracketU = new THREE.Mesh(
+      new THREE.BoxGeometry(0.62, stickH + 0.16, stickD + 0.10), matBlack
+    );
+    bracketU.position.set(0.18, stickH + 0.02, 0.02);
+    bracketU.castShadow = true;
+    pivot.add(bracketU);
+    const rivetU = rivet(0.05, stickH + 0.02, 0.13);
+    pivot.add(rivetU);
+    const rivetU2 = rivet(0.32, stickH + 0.02, 0.13);
+    pivot.add(rivetU2);
+
+    // The shiny hinge pin
+    const hingePin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.14, stickD + 0.18, 32), matMetal
+    );
+    hingePin.rotation.x = Math.PI / 2;
+    hingePin.position.set(pivotX + 0.02, slateTopY + stickH / 2 + 0.20, stickFrontZ + 0.04);
+    hingePin.castShadow = true;
+    board.add(hingePin);
+
+    // Give the whole prop a tasteful resting pose.
+    board.rotation.y = -0.18;
+    board.position.y = 0.1;
+
+    // ---------------------------------------------------------------------
+    // Clap animation state
+    // ---------------------------------------------------------------------
+    const OPEN_ANGLE = 0.52;   // radians, "open" rest pose
+    pivot.rotation.z = OPEN_ANGLE;
+
+    let clapState = "idle";    // idle | closing | opening
+    let clapT = 0;
+
+    function triggerClap() {
+      if (clapState === "idle") { clapState = "closing"; clapT = 0; }
+    }
+    function updateClap(dt) {
+      if (clapState === "idle") return;
+      const speed = clapState === "closing" ? 9.0 : 4.2;
+      clapT += dt * speed;
+      const k = Math.min(clapT, 1);
+      if (clapState === "closing") {
+        // ease-in toward the snap
+        pivot.rotation.z = OPEN_ANGLE * (1 - k * k);
+        if (k >= 1) { pivot.rotation.z = 0; clapState = "opening"; clapT = 0; }
+      } else {
+        // ease-out back open
+        const e = 1 - Math.pow(1 - k, 3);
+        pivot.rotation.z = OPEN_ANGLE * e;
+        if (k >= 1) { pivot.rotation.z = OPEN_ANGLE; clapState = "idle"; }
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // UI
+    // ---------------------------------------------------------------------
+    let autoSpin = false;
+    document.getElementById("clap").addEventListener("click", triggerClap);
+    const spinBtn = document.getElementById("spin");
+    spinBtn.addEventListener("click", () => {
+      autoSpin = !autoSpin;
+      spinBtn.classList.toggle("on", autoSpin);
+    });
+    document.getElementById("reset").addEventListener("click", () => {
+      camera.position.copy(CAM_START);
+      controls.target.copy(TARGET);
+    });
+    const sunBtn = document.getElementById("sun");
+    sunBtn.addEventListener("click", () => {
+      sunOn = !sunOn;
+      sunBtn.classList.toggle("on", sunOn);
+      if (!sunOn) restoreStaticLighting();   // back to the static studio pose
+    });
+    const SPEEDS = [1, 2, 0.5];
+    let speedIdx = 0;
+    document.getElementById("sunspeed").addEventListener("click", (e) => {
+      speedIdx = (speedIdx + 1) % SPEEDS.length;
+      sunSpeed = SPEEDS[speedIdx];
+      e.currentTarget.textContent = `速度 ${sunSpeed}×`;
+    });
+
+    // ---------------------------------------------------------------------
+    // 卡通 (Toon / 赛璐珞) 风格切换 —— 运行时把 PBR 材质换成 MeshToonMaterial
+    // ---------------------------------------------------------------------
+    // 分级渐变贴图：用 Nearest 让明暗分成几档 → 卡通"色块感"
+    const _toonGrad = new THREE.DataTexture(
+      new Uint8Array([55, 120, 190, 240]), 4, 1, THREE.RedFormat);
+    _toonGrad.minFilter = _toonGrad.magFilter = THREE.NearestFilter;
+    _toonGrad.needsUpdate = true;
+
+    const toonWhite  = new THREE.MeshToonMaterial({ color: 0xf4f3ef, gradientMap: _toonGrad });
+    const toonCell   = new THREE.MeshToonMaterial({ color: 0xffffff, gradientMap: _toonGrad });
+    const toonBlack  = new THREE.MeshToonMaterial({ color: 0x161616, gradientMap: _toonGrad });
+    const toonStripe = new THREE.MeshToonMaterial({ map: stripeTex, gradientMap: _toonGrad });
+    const toonMetal  = new THREE.MeshToonMaterial({ color: 0xb9bdc4, gradientMap: _toonGrad });
+    const toonEdge   = new THREE.MeshToonMaterial({ color: 0xeeece8, gradientMap: _toonGrad });
+
+    // 原 PBR 材质 → 对应卡通材质
+    const toonMap = new Map([
+      [matSlateFront, toonWhite], [matBoardEdge, toonEdge],
+      [matCellWhite, toonCell],
+      [matBandBlack, toonBlack], [matBandSide, toonBlack], [matCellSide, toonBlack],
+      [matStripe, toonStripe], [matBlack, toonBlack], [matMetal, toonMetal],
+    ]);
+
+    // 记录每个网格的原始材质（含多材质数组），标签/阴影等不在表里 → 保持不变
+    const _origMats = new Map();
+    board.traverse((o) => { if (o.isMesh && o.material) _origMats.set(o, o.material); });
+    const _toToon = (mat) =>
+      Array.isArray(mat) ? mat.map((m) => toonMap.get(m) || m) : (toonMap.get(mat) || mat);
+
+    let cartoon = false;
+    function setCartoon(on) {
+      cartoon = on;
+      board.traverse((o) => {
+        if (!o.isMesh) return;
+        const orig = _origMats.get(o);
+        if (orig) o.material = on ? _toToon(orig) : orig;
+      });
+    }
+    const cartoonBtn = document.getElementById("cartoon");
+    cartoonBtn.addEventListener("click", () => {
+      setCartoon(!cartoon);
+      cartoonBtn.classList.toggle("on", cartoon);
+    });
+    // Click the model itself to clap.
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      const ndc = new THREE.Vector2(
+        (e.clientX / window.innerWidth) * 2 - 1,
+        -(e.clientY / window.innerHeight) * 2 + 1
+      );
+      const rc = new THREE.Raycaster();
+      rc.setFromCamera(ndc, camera);
+      if (rc.intersectObjects(board.children, true).length) triggerClap();
+    });
+
+    // ---------------------------------------------------------------------
+    // Loop
+    // ---------------------------------------------------------------------
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      updateClap(dt);
+      if (autoSpin) board.rotation.y += dt * 0.5;
+      if (sunOn) updateSun(clock.getElapsedTime());   // orbiting natural light
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Hide loader once the scene is built (setTimeout fires even if the tab
+    // isn't actively painting, unlike a lone requestAnimationFrame).
+    setTimeout(() => document.getElementById("loader").classList.add("hide"), 200);
+  </script>
+</body>
+</html>

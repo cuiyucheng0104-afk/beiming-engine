@@ -1,0 +1,14 @@
+{
+ "seg": "S08",
+ "_说明": "t = 段内秒。lamp = 头灯开关；snake = 描蛇颈（项横生）；rabbit = 描兔形；eye = 兔眼一圈落定（眼朝东）；fog = 出段进山雾。",
+ "events": [
+  {"id": "rain_far",  "t": 0.0,  "type": "rain_far",  "dur": 5.0, "gain": -19, "fade_in": 0.3, "fade_out": 0.5},
+  {"id": "rain_near", "t": 0.0,  "type": "rain_near", "dur": 4.6, "gain": -25, "fade_in": 0.3, "fade_out": 1.2, "seed": 8},
+  {"id": "lamp",      "t": 0.3,  "type": "headlamp",  "gain": -18, "pan": -0.4},
+  {"id": "steps",     "t": 0.45, "type": "footsteps", "n": 8, "rate": 1.9, "gain": -21, "pan": -0.3},
+  {"id": "snake",     "t": 0.55, "type": "ui_stroke", "dur": 0.95, "gain": -24},
+  {"id": "rabbit",    "t": 2.15, "type": "ui_stroke", "dur": 0.85, "gain": -24, "pan": 0.4},
+  {"id": "eye",       "t": 2.55, "type": "scan_beep", "gain": -20, "freq": 2600, "pan": 0.45},
+  {"id": "fog",       "t": 3.9,  "type": "whoosh",    "dur": 1.1, "gain": -27}
+ ]
+}

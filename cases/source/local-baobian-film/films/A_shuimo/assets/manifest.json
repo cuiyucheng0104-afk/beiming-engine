@@ -1,0 +1,3696 @@
+[
+ {
+  "id": "A01",
+  "file": "cub_sit_v2.png",
+  "用途": "S2 小豹（朝右、3/4 背侧，wet 湿斑由代码画）；S4 全段（斑点表在其花纹区里泊松采样）；S5a 水平镜像朝左",
+  "尺寸": [
+   1071,
+   1415
+  ],
+  "是否透明": true,
+  "Lp": 0.8078,
+  "Li": 0.1798,
+  "合成类别": "B",
+  "提示词": "A young leopard cub sitting upright on its haunches, seen from behind at three-quarter view: its back and left flank face the viewer, the body turned away toward the right, the head turned in profile looking right into the distance, the long thick tail curled forward around its front paws. It is clearly a big-cat cub, not a domestic kitten: a long sturdy body, broad shoulders, thick legs with big round paws, a broad head with a short muzzle and small rounded ears set wide apart. Boneless freehand ink-wash animal painting (xieyi) in the manner of Qi Baishi, exactly like the ink-painting animation film Where Is Mama (Shanghai Animation Film Studio, 1960): the whole body is built from five or six large wet brush masses, each laid with one broad stroke of a big soft brush — a medium grey back and flank, a darker grey shoulder and haunch, the back of the head in darker grey, a pale grey chest left almost as bare paper. Inside each mass the ink is uneven and wet, slightly darker where the stroke ends and the ink pooled; the outer edges bleed a little into the raw xuan paper in small irregular feathered blooms — no hard vector edges, no airbrush blur, no fluffy fur texture, no contour lines at all. Only a few touches of dense black ink: the nose tip, the eyelid line, the ear tips, the claw tips and the tail tip. One small amber eye. The coat is dull and plain: no spots, no rosettes, no pattern of any kind. Isolated figure on a plain flat white background, no ground, no rock, no shadow, generous empty margin around the cub. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/assets/cub_head_cu.png",
+   "films/A_shuimo/assets/cub_poses.png",
+   "films/A_shuimo/_work/design/refcrop/det_frog.png",
+   "films/A_shuimo/assets/cub_sit.png"
+  ],
+  "状态": "ok",
+  "备注": "返修第 1 轮起用 cub_sit_v2.png（旧 cub_sit.png 保留不用）：头型、墨块结构与 A03 一致。素毛无斑（斑全部由代码 rosette() 画），代码琥珀眼点对齐锚点 eye。",
+  "原图": "films/A_shuimo/_work/asset_raw/cub_sit_v2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "参考": "det_frog, det_fawn, det_herd, ref_00c（DESIGN 原提示词）",
+    "结论": "弃：像通用\"国风萌猫\"——喷枪式绒毛边、墨阶太浅（Li 0.22）、边是糊的不是洇的；与 ref_00/det_frog 并排比不像齐白石写意"
+   },
+   {
+    "轮次": "r2",
+    "参考": "同 r1",
+    "结论": "弃：改了提示词后墨块出来了，但仍偏家猫幼崽、毛边发绒"
+   },
+   {
+    "轮次": "r3",
+    "参考": "det_frog, det_buffalo, det_herd, ref_00c",
+    "结论": "采用：五六团湿墨块（深肩、深臀、深后脑、浅胸）、边缘洇开、大猫体量；无轮廓线、无斑"
+   },
+   {
+    "轮次": "fix1（返修第 1 轮）",
+    "参考": "A03 成品 cub_head_cu（第一位）、A02 旧表、det_frog、A01 旧图",
+    "结论": "采用：按 style-03 / story-06 重出——圆脸短吻、小圆耳宽距、粗颈、大爪、尾粗长尾尖焦墨；身体是三四团湿墨（深头耳、深肩背、深臀、深尾，浅胸腹），与 T2 的 A03 豹头同一张脸。同一 3/4 背侧坐姿，锚点全部重量"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px（A06 留 16px）；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "S2 约 0.18（高 250）；S4 近景约 1.0；S5a 约 0.165（镜像，高 230）",
+  "锚点": {
+   "points": {
+    "eye": [
+     963,
+     189
+    ],
+    "nose": [
+     1033,
+     257
+    ],
+    "neck": [
+     773,
+     382
+    ],
+    "shoulder": [
+     673,
+     462
+    ],
+    "P0_spine_mid": [
+     313,
+     622
+    ],
+    "tail_root": [
+     133,
+     1182
+    ],
+    "tail_tip": [
+     888,
+     1187
+    ],
+    "paw_front_near": [
+     753,
+     1132
+    ],
+    "paw_front_far": [
+     863,
+     1072
+    ],
+    "paws_contact": [
+     763,
+     1162
+    ],
+    "bbox_bottom_center": [
+     535,
+     1372
+    ]
+   },
+   "circles": {
+    "eye_amber": [
+     963,
+     189,
+     9
+    ],
+    "eye_outer": [
+     963,
+     189,
+     16
+    ],
+    "ear_back": [
+     673,
+     87,
+     55
+    ],
+    "ear_front": [
+     888,
+     77,
+     50
+    ]
+   },
+   "lines": {
+    "spine": [
+     [
+      623,
+      362
+     ],
+     [
+      543,
+      402
+     ],
+     [
+      443,
+      462
+     ],
+     [
+      343,
+      542
+     ],
+     [
+      243,
+      642
+     ],
+     [
+      153,
+      762
+     ],
+     [
+      93,
+      882
+     ],
+     [
+      63,
+      982
+     ],
+     [
+      83,
+      1082
+     ]
+    ],
+    "tail": [
+     [
+      133,
+      1182
+     ],
+     [
+      233,
+      1282
+     ],
+     [
+      383,
+      1332
+     ],
+     [
+      533,
+      1322
+     ],
+     [
+      683,
+      1282
+     ],
+     [
+      803,
+      1222
+     ],
+     [
+      888,
+      1182
+     ]
+    ]
+   },
+   "polys": {
+    "pattern_region": [
+     [
+      583,
+      382
+     ],
+     [
+      703,
+      402
+     ],
+     [
+      743,
+      482
+     ],
+     [
+      683,
+      582
+     ],
+     [
+      623,
+      682
+     ],
+     [
+      583,
+      782
+     ],
+     [
+      543,
+      882
+     ],
+     [
+      523,
+      982
+     ],
+     [
+      463,
+      1082
+     ],
+     [
+      333,
+      1162
+     ],
+     [
+      183,
+      1162
+     ],
+     [
+      83,
+      1092
+     ],
+     [
+      53,
+      982
+     ],
+     [
+      83,
+      862
+     ],
+     [
+      153,
+      722
+     ],
+     [
+      253,
+      582
+     ],
+     [
+      383,
+      472
+     ]
+    ],
+    "head_spot_region": [
+     [
+      623,
+      112
+     ],
+     [
+      743,
+      72
+     ],
+     [
+      863,
+      92
+     ],
+     [
+      933,
+      142
+     ],
+     [
+      943,
+      232
+     ],
+     [
+      883,
+      312
+     ],
+     [
+      783,
+      352
+     ],
+     [
+      663,
+      332
+     ],
+     [
+      603,
+      262
+     ],
+     [
+      593,
+      182
+     ]
+    ],
+    "leg_spot_region": [
+     [
+      683,
+      622
+     ],
+     [
+      773,
+      582
+     ],
+     [
+      843,
+      682
+     ],
+     [
+      863,
+      882
+     ],
+     [
+      843,
+      1032
+     ],
+     [
+      743,
+      1082
+     ],
+     [
+      683,
+      982
+     ],
+     [
+      673,
+      782
+     ]
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）",
+  "旧版": {
+   "file": "cub_sit.png",
+   "尺寸": [
+    761,
+    992
+   ],
+   "Lp": 0.7963,
+   "Li": 0.1417,
+   "锚点": {
+    "points": {
+     "eye": [
+      679,
+      139
+     ],
+     "nose": [
+      726,
+      188
+     ],
+     "neck": [
+      505,
+      262
+     ],
+     "shoulder": [
+      455,
+      330
+     ],
+     "P0_spine_mid": [
+      190,
+      430
+     ],
+     "tail_root": [
+      75,
+      765
+     ],
+     "tail_tip": [
+      645,
+      805
+     ],
+     "paw_front_near": [
+      500,
+      785
+     ],
+     "paw_front_far": [
+      610,
+      740
+     ],
+     "paws_contact": [
+      560,
+      800
+     ],
+     "bbox_bottom_center": [
+      380,
+      968
+     ]
+    },
+    "circles": {
+     "eye_amber": [
+      679,
+      139,
+      6
+     ],
+     "eye_outer": [
+      680,
+      138,
+      11
+     ],
+     "ear_back": [
+      485,
+      70,
+      44
+     ],
+     "ear_front": [
+      612,
+      58,
+      42
+     ]
+    },
+    "lines": {
+     "spine": [
+      [
+       420,
+       250
+      ],
+      [
+       330,
+       300
+      ],
+      [
+       240,
+       365
+      ],
+      [
+       160,
+       430
+      ],
+      [
+       95,
+       500
+      ],
+      [
+       60,
+       580
+      ],
+      [
+       45,
+       660
+      ],
+      [
+       60,
+       730
+      ]
+     ],
+     "tail": [
+      [
+       75,
+       765
+      ],
+      [
+       130,
+       860
+      ],
+      [
+       250,
+       905
+      ],
+      [
+       400,
+       912
+      ],
+      [
+       520,
+       882
+      ],
+      [
+       600,
+       832
+      ],
+      [
+       645,
+       805
+      ]
+     ]
+    },
+    "polys": {
+     "pattern_region": [
+      [
+       420,
+       245
+      ],
+      [
+       520,
+       270
+      ],
+      [
+       545,
+       330
+      ],
+      [
+       530,
+       420
+      ],
+      [
+       470,
+       470
+      ],
+      [
+       380,
+       520
+      ],
+      [
+       360,
+       600
+      ],
+      [
+       390,
+       690
+      ],
+      [
+       330,
+       770
+      ],
+      [
+       220,
+       785
+      ],
+      [
+       110,
+       760
+      ],
+      [
+       60,
+       700
+      ],
+      [
+       45,
+       600
+      ],
+      [
+       70,
+       500
+      ],
+      [
+       130,
+       440
+      ],
+      [
+       220,
+       370
+      ],
+      [
+       320,
+       300
+      ]
+     ],
+     "head_spot_region": [
+      [
+       440,
+       95
+      ],
+      [
+       560,
+       80
+      ],
+      [
+       645,
+       100
+      ],
+      [
+       670,
+       175
+      ],
+      [
+       640,
+       230
+      ],
+      [
+       560,
+       245
+      ],
+      [
+       455,
+       225
+      ],
+      [
+       425,
+       160
+      ]
+     ],
+     "leg_spot_region": [
+      [
+       365,
+       525
+      ],
+      [
+       475,
+       475
+      ],
+      [
+       545,
+       520
+      ],
+      [
+       550,
+       690
+      ],
+      [
+       470,
+       705
+      ],
+      [
+       390,
+       685
+      ]
+     ]
+    }
+   }
+  }
+ },
+ {
+  "id": "A02",
+  "file": "cub_poses_v2.png",
+  "用途": "S5a 伏身（姿态1）、S5b 腾起（姿态2）/凌空（姿态3）、S5b–S5c 滑翔（姿态3、4 每 4 帧交替）",
+  "尺寸": [
+   2172,
+   514
+  ],
+  "是否透明": true,
+  "Lp": 0.8736,
+  "Li": 0.2207,
+  "合成类别": "B",
+  "提示词": "Animation model sheet of the SAME leopard cub as in the first reference image — copy its exact brushwork and tonal structure: the same large wet grey brush masses with bled, feathered edges, the darker grey shoulder, haunch and back of the head, the pale chest and belly left almost as bare paper, the same broad head with small rounded dark-tipped ears, the same thick legs and big round paws, the same long thick tail with a dense-ink tip, plain coat with no spots. Four poses in one row, evenly spaced and all at the same scale. In EVERY pose the cub faces and travels toward the LEFT: its head is always at the left end of its body and its tail at the right end. Each pose separated by empty white space: (1) crouching low and coiled, ready to spring, front paws forward on the left; (2) launching upward toward the upper left, body stretched diagonally with the head at the upper left, hind legs pushing off at the lower right; (3) fully airborne and outstretched toward the left, front paws reaching forward to the left, hind legs trailing to the right, tail streaming behind; (4) gliding calmly in the air toward the left, body level, legs loosely tucked under, tail curving. Dense black ink only at the nose, eye line, ear tips and claws, one small amber eye. Not fluffy, no fine fur texture. Plain flat white background, no ground, no motion lines. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/assets/cub_sit_v2.png",
+   "films/A_shuimo/assets/cub_head_cu.png",
+   "films/A_shuimo/assets/cub_poses.png"
+  ],
+  "状态": "ok",
+  "备注": "返修第 1 轮起用 cub_poses_v2.png 及拆件 cub_poses_v2_pose1–4.png（旧图保留不用）。零件坐标 = 表坐标 − offset_in_sheet。",
+  "原图": "films/A_shuimo/_work/asset_raw/cub_poses_v2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "弃：四姿态朝左正确，但比 A01 浅一大截、更绒，墨块结构对不上 A01"
+   },
+   {
+    "轮次": "r2",
+    "结论": "弃：墨块结构对上了，但姿态1、2 画成朝右"
+   },
+   {
+    "轮次": "r3",
+    "结论": "采用：提示词写死\"每个姿态头在左、尾在右\"，四个都朝左，深肩深臀结构与 A01 一致"
+   },
+   {
+    "轮次": "fix1（返修第 1 轮）",
+    "参考": "新 A01 cub_sit_v2（第一位）、A03、A02 旧表",
+    "结论": "采用：按 style-03 用新 A01 重出四姿态——与 A01/A03 同一张圆脸短吻；四个都朝左、互不重叠；姿态 4 头回转向镜头（S5c 回望用）。眼心按琥珀像素、鼻按焦墨点自动量"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px（A06 留 16px）；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "≤0.5（S5 里豹只有 140–260px）",
+  "锚点": {
+   "boxes": {
+    "pose1_crouch": [
+     14,
+     178,
+     470,
+     480
+    ],
+    "pose2_launch": [
+     439,
+     15,
+     975,
+     499
+    ],
+    "pose3_airborne": [
+     911,
+     32,
+     1579,
+     396
+    ],
+    "pose4_glide": [
+     1627,
+     73,
+     2163,
+     401
+    ]
+   },
+   "points": {
+    "pose1_eye": [
+     62,
+     247
+    ],
+    "pose1_nose": [
+     30,
+     269
+    ],
+    "pose1_tail_root": [
+     432,
+     345
+    ],
+    "pose2_eye": [
+     489,
+     72
+    ],
+    "pose2_nose": [
+     457,
+     88
+    ],
+    "pose2_tail_root": [
+     822,
+     330
+    ],
+    "pose3_eye": [
+     1014,
+     93
+    ],
+    "pose3_nose": [
+     984,
+     111
+    ],
+    "pose3_tail_root": [
+     1410,
+     218
+    ],
+    "pose4_eye": [
+     1706,
+     157
+    ],
+    "pose4_eye_far": [
+     1748,
+     152
+    ],
+    "pose4_nose": [
+     1743,
+     181
+    ],
+    "pose4_tail_root": [
+     2115,
+     250
+    ]
+   },
+   "polys": {
+    "pose1_body": [
+     [
+      150,
+      252
+     ],
+     [
+      230,
+      232
+     ],
+     [
+      330,
+      226
+     ],
+     [
+      400,
+      250
+     ],
+     [
+      440,
+      300
+     ],
+     [
+      430,
+      360
+     ],
+     [
+      380,
+      392
+     ],
+     [
+      300,
+      402
+     ],
+     [
+      220,
+      396
+     ],
+     [
+      165,
+      372
+     ],
+     [
+      140,
+      312
+     ]
+    ],
+    "pose2_body": [
+     [
+      545,
+      142
+     ],
+     [
+      620,
+      150
+     ],
+     [
+      680,
+      200
+     ],
+     [
+      740,
+      262
+     ],
+     [
+      790,
+      312
+     ],
+     [
+      800,
+      362
+     ],
+     [
+      760,
+      392
+     ],
+     [
+      700,
+      382
+     ],
+     [
+      640,
+      332
+     ],
+     [
+      592,
+      272
+     ],
+     [
+      552,
+      212
+     ],
+     [
+      532,
+      172
+     ]
+    ],
+    "pose3_body": [
+     [
+      1072,
+      132
+     ],
+     [
+      1170,
+      136
+     ],
+     [
+      1280,
+      166
+     ],
+     [
+      1380,
+      202
+     ],
+     [
+      1418,
+      242
+     ],
+     [
+      1400,
+      290
+     ],
+     [
+      1330,
+      310
+     ],
+     [
+      1240,
+      292
+     ],
+     [
+      1150,
+      252
+     ],
+     [
+      1090,
+      212
+     ],
+     [
+      1062,
+      172
+     ]
+    ],
+    "pose4_body": [
+     [
+      1790,
+      170
+     ],
+     [
+      1880,
+      155
+     ],
+     [
+      1960,
+      152
+     ],
+     [
+      2040,
+      172
+     ],
+     [
+      2110,
+      215
+     ],
+     [
+      2118,
+      268
+     ],
+     [
+      2060,
+      298
+     ],
+     [
+      1950,
+      302
+     ],
+     [
+      1840,
+      292
+     ],
+     [
+      1780,
+      262
+     ],
+     [
+      1770,
+      215
+     ]
+    ]
+   }
+  },
+  "零件": {
+   "pose1_crouch": {
+    "file": "cub_poses_v2_pose1.png",
+    "offset_in_sheet": [
+     7,
+     171
+    ],
+    "size": [
+     470,
+     316
+    ]
+   },
+   "pose2_launch": {
+    "file": "cub_poses_v2_pose2.png",
+    "offset_in_sheet": [
+     432,
+     8
+    ],
+    "size": [
+     550,
+     498
+    ]
+   },
+   "pose3_airborne": {
+    "file": "cub_poses_v2_pose3.png",
+    "offset_in_sheet": [
+     904,
+     25
+    ],
+    "size": [
+     682,
+     378
+    ]
+   },
+   "pose4_glide": {
+    "file": "cub_poses_v2_pose4.png",
+    "offset_in_sheet": [
+     1620,
+     66
+    ],
+    "size": [
+     550,
+     342
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）",
+  "旧版": {
+   "file": "cub_poses.png",
+   "尺寸": [
+    2170,
+    509
+   ],
+   "Lp": 0.8386,
+   "Li": 0.2084,
+   "锚点": {
+    "boxes": {
+     "pose1_crouch": [
+      15,
+      177,
+      469,
+      472
+     ],
+     "pose2_launch": [
+      442,
+      15,
+      966,
+      494
+     ],
+     "pose3_airborne": [
+      908,
+      32,
+      1565,
+      390
+     ],
+     "pose4_glide": [
+      1601,
+      80,
+      2158,
+      392
+     ]
+    },
+    "points": {
+     "pose1_eye": [
+      60,
+      242
+     ],
+     "pose1_nose": [
+      30,
+      266
+     ],
+     "pose1_tail_root": [
+      425,
+      330
+     ],
+     "pose2_eye": [
+      487,
+      68
+     ],
+     "pose2_nose": [
+      458,
+      88
+     ],
+     "pose2_tail_root": [
+      770,
+      290
+     ],
+     "pose3_eye": [
+      1006,
+      88
+     ],
+     "pose3_nose": [
+      978,
+      108
+     ],
+     "pose3_tail_root": [
+      1400,
+      195
+     ],
+     "pose4_eye": [
+      1640,
+      139
+     ],
+     "pose4_nose": [
+      1614,
+      161
+     ],
+     "pose4_tail_root": [
+      2040,
+      200
+     ]
+    },
+    "polys": {
+     "pose1_body": [
+      [
+       130,
+       230
+      ],
+      [
+       230,
+       220
+      ],
+      [
+       330,
+       225
+      ],
+      [
+       400,
+       260
+      ],
+      [
+       440,
+       320
+      ],
+      [
+       400,
+       380
+      ],
+      [
+       300,
+       400
+      ],
+      [
+       200,
+       390
+      ],
+      [
+       150,
+       360
+      ],
+      [
+       120,
+       290
+      ]
+     ],
+     "pose2_body": [
+      [
+       540,
+       120
+      ],
+      [
+       600,
+       130
+      ],
+      [
+       660,
+       170
+      ],
+      [
+       730,
+       240
+      ],
+      [
+       790,
+       300
+      ],
+      [
+       820,
+       360
+      ],
+      [
+       790,
+       400
+      ],
+      [
+       720,
+       390
+      ],
+      [
+       660,
+       340
+      ],
+      [
+       600,
+       280
+      ],
+      [
+       560,
+       220
+      ],
+      [
+       530,
+       160
+      ]
+     ],
+     "pose3_body": [
+      [
+       1080,
+       110
+      ],
+      [
+       1180,
+       120
+      ],
+      [
+       1300,
+       160
+      ],
+      [
+       1400,
+       190
+      ],
+      [
+       1450,
+       240
+      ],
+      [
+       1450,
+       290
+      ],
+      [
+       1390,
+       310
+      ],
+      [
+       1300,
+       280
+      ],
+      [
+       1200,
+       240
+      ],
+      [
+       1120,
+       220
+      ],
+      [
+       1080,
+       170
+      ]
+     ],
+     "pose4_body": [
+      [
+       1690,
+       150
+      ],
+      [
+       1800,
+       140
+      ],
+      [
+       1920,
+       150
+      ],
+      [
+       2010,
+       175
+      ],
+      [
+       2060,
+       220
+      ],
+      [
+       2050,
+       270
+      ],
+      [
+       1990,
+       290
+      ],
+      [
+       1880,
+       285
+      ],
+      [
+       1760,
+       275
+      ],
+      [
+       1700,
+       240
+      ]
+     ]
+    }
+   },
+   "零件": {
+    "pose1_crouch": {
+     "file": "cub_poses_pose1.png",
+     "offset_in_sheet": [
+      8,
+      170
+     ],
+     "size": [
+      468,
+      309
+     ]
+    },
+    "pose2_launch": {
+     "file": "cub_poses_pose2.png",
+     "offset_in_sheet": [
+      435,
+      8
+     ],
+     "size": [
+      538,
+      493
+     ]
+    },
+    "pose3_airborne": {
+     "file": "cub_poses_pose3.png",
+     "offset_in_sheet": [
+      901,
+      25
+     ],
+     "size": [
+      671,
+      372
+     ]
+    },
+    "pose4_glide": {
+     "file": "cub_poses_pose4.png",
+     "offset_in_sheet": [
+      1594,
+      73
+     ],
+     "size": [
+      571,
+      326
+     ]
+    }
+   }
+  }
+ },
+ {
+  "id": "A03",
+  "file": "cub_head_cu.png",
+  "用途": "T2 豹眼特写（正片叠底在长卷纸色上；代码眼盖在近眼上）",
+  "尺寸": [
+   1672,
+   941
+  ],
+  "是否透明": false,
+  "Lp": 1.0,
+  "Li": 0.1521,
+  "合成类别": "A（叠底）",
+  "提示词": "Wide 16:9 landscape picture. Close-up of the head and neck of the SAME leopard cub as in the first reference image, painted with the same few broad wet brush masses: the head turned back over its shoulder to look toward the viewer, three-quarter view, the head filling most of the picture, slightly left of centre; the near eye placed at about one third from the left edge and one third from the top, drawn as a simple almond shape with a thin dense-ink rim, a flat amber iris and a round dark pupil, no glossy highlights. Boneless freehand ink-wash (xieyi) in the manner of Qi Baishi: the fur in a few soft wet grey masses — darker grey on the back of the head and the neck, a very pale grey muzzle and chin — with only a few dry-brush strokes at the cheeks, small rounded ears with dense-ink tips, scorched-ink dots at the nose and the whisker roots, no whisker lines, a few small solid dark spots on the forehead and the cheeks, soft bleeding edges as on raw xuan paper, no contour lines, no realistic fur detail. Plain flat white background around the head. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/cub_sit_ref.png（= assets/cub_sit.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/det_frog.png",
+   "films/A_shuimo/_work/design/refcrop/ref_00c.png"
+  ],
+  "状态": "ok",
+  "备注": "16:9（1672×941）。近眼（画面左那只）瞳心 (638,409)、虹膜半径约 59、瞳孔半径约 25、杏仁眼框约 x535–740。画面左边和下边是豹颈与肩的墨块、一直画到图边：要把眼心放到 P=(650,372) 又不露出左/下图边，缩放须 ≥1.26（此时图左缘在 x≈−154、下缘在 y≈1040 以下）；上边、右边是纸白（≥250），叠底无缝。远眼保留原画（扁平琥珀+圆瞳+焦墨眼框，风格与代码眼一致）。头上、颊上有小实斑，身上无斑，符合 T2 在豹变之后。",
+  "原图": "films/A_shuimo/_work/asset_raw/a03_cub_head_cu_r2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "弃：写实厚涂（细毛、长胡须、玻璃高光眼）像通用国风插画；画幅竖 1199×1312，不合 16:9"
+   },
+   {
+    "轮次": "r2",
+    "结论": "采用：几团湿墨、无胡须线、扁平琥珀圆瞳；16:9"
+   }
+  ],
+  "后处理": "取亮度前 10% 像素的逐通道中位作纸色，逐通道增益把纸拉到 255（叠底不出灰框）",
+  "上屏建议": "≥1.26（见备注；DESIGN 原估 1.15）",
+  "锚点": {
+   "points": {
+    "eye_near_center": [
+     638,
+     409
+    ],
+    "eye_far_center": [
+     959,
+     352
+    ],
+    "nose": [
+     940,
+     585
+    ]
+   },
+   "circles": {
+    "eye_near_iris": [
+     638,
+     409,
+     59
+    ],
+    "eye_near_pupil": [
+     638,
+     409,
+     25
+    ]
+   },
+   "boxes": {
+    "eye_near_almond": [
+     535,
+     370,
+     740,
+     462
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A04",
+  "file": "luwei_sit_back.png",
+  "用途": "S2 陆蔚背影坐姿；S4（f326–f354、f440–f503）",
+  "尺寸": [
+   725,
+   831
+  ],
+  "是否透明": true,
+  "Lp": 0.8672,
+  "Li": 0.1375,
+  "合成类别": "B",
+  "提示词": "A slender young man in his late twenties seen strictly from behind, sitting on a ledge that is not drawn, knees drawn up and forearms resting on his knees, head slightly lowered, looking into the misty distance; his face is completely hidden, only the back of his head shows. Plain white collarless cotton shirt, dark loose trousers, black cloth shoes. Short black hair painted as one soft wet blob of dense ink, no individual strands. Drawn exactly like the figures of the Shanghai Animation Film Studio ink-painting film Feelings of Mountains and Waters (1988): fine, slightly trembling dark ink contour lines drawn with a thin soft brush, gently swelling and tapering like calligraphy, thinner and more delicate than comic-book lines; flat pale grey washes for the shirt folds, a medium grey wash for the trousers, no modelling, no realistic shading, no highlights. Isolated on a plain flat white background, no ground, no shadow. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_06c.png",
+   "films/A_shuimo/_work/design/refcrop/det_seated.png",
+   "films/A_shuimo/_work/design/refcrop/det_boy_hair.png"
+  ],
+  "状态": "ok",
+  "备注": "严格背面，不见脸（只见后脑、两耳轮廓与后颈）。人物线画在资产里（细墨线+平涂，按 DESIGN 线条政策，待主会话复核；如否决须换没骨版重出）。头发是一团带洇边的浓墨（略蓬），A05/A11 与之一致。白衬衫是纸色浅灰，B 类合成时按墨色归一铺当段纸色。",
+  "原图": "films/A_shuimo/_work/asset_raw/a04_luwei_sit_back_r2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "备选未用：可用，但线条偏粗偏匀像漫画线，衬衫下摆外有一圈浅边"
+   },
+   {
+    "轮次": "r2",
+    "结论": "采用：线条有提按、更像山水情人物线"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px（A06 留 16px）；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "S2 约 0.38（高 317）",
+  "锚点": {
+   "points": {
+    "head_top": [
+     305,
+     28
+    ],
+    "bbox_bottom_center": [
+     362,
+     800
+    ],
+    "seat_point": [
+     240,
+     795
+    ],
+    "nape": [
+     300,
+     215
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A05",
+  "file": "luwei_walk_back.png",
+  "用途": "S3d 陆蔚转身走回雾里（3 张原画：刚转身 / 左脚在前 / 右脚在前）",
+  "尺寸": [
+   1429,
+   809
+  ],
+  "是否透明": true,
+  "Lp": 0.8983,
+  "Li": 0.177,
+  "合成类别": "B",
+  "提示词": "Three drawings in one row of the SAME young man as in the first reference image, seen strictly from behind, his face never visible: (1) standing, having just turned away, weight on the left leg, arms hanging; (2) walking away from the viewer, left foot forward; (3) walking away, right foot forward. Same white collarless shirt, dark loose trousers and ink-blob hair, same fine ink contour lines and flat pale washes, same scale for all three, evenly spaced with empty white space between them. Plain flat white background, no ground, no shadow. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/luwei_sit_back_ref.png（= assets/luwei_sit_back.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_06c.png"
+  ],
+  "状态": "ok",
+  "备注": "三张都严格背面、不见脸，衣着发型与 A04 一致。三张外接框不重叠，也给了拆好的单张 luwei_walk_d1–d3.png。脚底：d1 双脚并立 (155,778)；d2 着地的是左脚 (680,752)、右脚掌翻起；d3 着地的是右脚 (1290,776)。走路时把\"着地脚\"对齐地面路径，另加 ±2K 起伏。",
+  "原图": "films/A_shuimo/_work/asset_raw/a05_luwei_walk_back_r1.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "采用"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px（A06 留 16px）；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "约 0.38（高 300→120）",
+  "锚点": {
+   "boxes": {
+    "d1_turned": [
+     15,
+     11,
+     268,
+     792
+    ],
+    "d2_walk_left_fwd": [
+     564,
+     13,
+     844,
+     792
+    ],
+    "d3_walk_right_fwd": [
+     1143,
+     18,
+     1414,
+     794
+    ]
+   },
+   "points": {
+    "d1_head_top": [
+     150,
+     20
+    ],
+    "d1_ground": [
+     155,
+     778
+    ],
+    "d2_head_top": [
+     720,
+     25
+    ],
+    "d2_ground": [
+     680,
+     752
+    ],
+    "d3_head_top": [
+     1285,
+     28
+    ],
+    "d3_ground": [
+     1290,
+     776
+    ]
+   }
+  },
+  "零件": {
+   "d1_turned": {
+    "file": "luwei_walk_d1.png",
+    "offset_in_sheet": [
+     8,
+     4
+    ],
+    "size": [
+     267,
+     795
+    ]
+   },
+   "d2_walk_left_fwd": {
+    "file": "luwei_walk_d2.png",
+    "offset_in_sheet": [
+     557,
+     6
+    ],
+    "size": [
+     294,
+     793
+    ]
+   },
+   "d3_walk_right_fwd": {
+    "file": "luwei_walk_d3.png",
+    "offset_in_sheet": [
+     1136,
+     11
+    ],
+    "size": [
+     285,
+     790
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A06",
+  "file": "hands_sheet.png",
+  "用途": "S1（格1–4）、S3b/S3d 卖家手（格6）、S3c（格3）、S6 双手补书（格5）",
+  "尺寸": [
+   1430,
+   942
+  ],
+  "是否透明": true,
+  "Lp": 0.9353,
+  "Li": 0.1689,
+  "合成类别": "B",
+  "提示词": "Animation model sheet of six hand drawings in a 3 by 2 grid, all at the same scale, each hand isolated with wide empty white space around it, nothing else drawn: (1) a young man's right hand pinching a pair of thin tweezers, seen from above, the tweezer tips pointing down to the left; (2) the same right hand turned palm up toward the viewer, fingers loosely curled, the thumb touching the pad of the index finger, the pads of the fingertips facing the viewer and clearly visible; (3) the same right hand reaching forward, palm down, fingers relaxed and half curled, hesitant; (4) the same right hand pinching a very thin rod between the thumb and the middle finger, the index finger lifted away from it, the other fingers curled; (5) the same young man's two hands and forearms seen from above and slightly behind, the left hand lying flat pressing down, the right hand holding thin tweezers, both white shirt cuffs running out of the bottom of the cell — only the hands, forearms, cuffs and tweezers, no paper, no book, no table, no other object; (6) an older stranger's right hand and forearm in a wide sleeve painted as one mass of rich black ink, the sleeve coming in from the lower left corner, the hand open and palm up reaching up to the right as if offering something from below, with slightly coarser knuckles. Drawn like the characters of Shanghai Animation Film Studio ink-painting films: fine, thin dark ink contour lines drawn with a soft brush, with gentle pressure variation; a very pale, thin ochre wash for the skin (pale beige, barely tinted, never orange); white shirt cuffs with a few pale grey wash folds for hands 1 to 5; no realistic shading, no nail detail, clean fingertips with no ink stains. Plain flat white background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_12c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "六格同一比例，拆好的单张 hands_c1–c6.png。注意三件事：①格1–4 的袖口在格内截断（袖子没有画出画框），S1 主观视角里前臂应从画右下出画，用格1–4 需要代码接一段白袖或改用下面的 A06-S1 四张；②朝向和 DESIGN 动画表的假设不同：格1 镊尖朝左下、袖口朝右上，S1 主观要\"袖口在右下、指尖朝左上\"，需顺时针转约 90°；格2 掌心朝上但指尖朝下、袖口在上，需转约 180°；格3 袖口右上、指尖朝左，需顺时针转约 90°；格4 袖口已在右下，基本不用转（方向向量见锚点 dirs）；③格高约 370px，S1 手高 520–560 时要放大约 1.4–1.5 倍，线会变粗变软（约 4K）。格5 两只袖口都从格底出画，正好给 S6；格6 卖家大袖从左下角出格、掌心朝上，掌心锚点 c6_palm_center 是面具下巴落点。格3 是手背朝镜头，食指指肚朝下看不见，S3c 的墨渍只能画在指尖可见处。",
+  "原图": "films/A_shuimo/_work/asset_raw/a06_hands_sheet_r2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "弃：格5 多画了一张纸和一片叶子；肤色橙黄饱和像赛璐珞；线偏粗"
+   },
+   {
+    "轮次": "r2",
+    "结论": "采用：去掉纸，肤色淡赭，线细有提按，格6 大袖从左下进"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px（A06 留 16px）；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "S1 约 1.4–1.5（格高 370 → 手高 520–560）；S3/S6 约 1.0",
+  "锚点": {
+   "boxes": {
+    "c1_tweezers": [
+     13,
+     8,
+     385,
+     379
+    ],
+    "c2_palm_up": [
+     524,
+     1,
+     833,
+     368
+    ],
+    "c3_reach": [
+     995,
+     6,
+     1412,
+     337
+    ],
+    "c4_pinch": [
+     1,
+     519,
+     360,
+     922
+    ],
+    "c5_two_hands": [
+     384,
+     544,
+     923,
+     929
+    ],
+    "c6_seller": [
+     929,
+     518,
+     1429,
+     941
+    ]
+   },
+   "points": {
+    "c1_index_tip": [
+     80,
+     258
+    ],
+    "c1_index_pad": [
+     90,
+     245
+    ],
+    "c1_thumb_tip": [
+     112,
+     234
+    ],
+    "c1_tweezer_tip": [
+     32,
+     352
+    ],
+    "c2_index_tip": [
+     583,
+     290
+    ],
+    "c2_index_pad": [
+     585,
+     283
+    ],
+    "c2_thumb_tip": [
+     575,
+     240
+    ],
+    "c3_index_tip": [
+     1070,
+     302
+    ],
+    "c3_index_pad": [
+     1076,
+     288
+    ],
+    "c3_middle_tip": [
+     1015,
+     258
+    ],
+    "c3_thumb_tip": [
+     1172,
+     300
+    ],
+    "c4_pinch": [
+     160,
+     630
+    ],
+    "c4_index_tip_lifted": [
+     128,
+     538
+    ],
+    "c4_rod_end": [
+     22,
+     628
+    ],
+    "c5_right_index_tip": [
+     742,
+     592
+    ],
+    "c5_tweezer_grip": [
+     725,
+     610
+    ],
+    "c5_tweezer_tip": [
+     652,
+     655
+    ],
+    "c5_left_palm": [
+     510,
+     700
+    ],
+    "c6_palm_center": [
+     1240,
+     650
+    ]
+   },
+   "lines": {
+    "c1_cuff_cut": [
+     [
+      298,
+      26
+     ],
+     [
+      368,
+      118
+     ]
+    ],
+    "c2_cuff_cut": [
+     [
+      665,
+      35
+     ],
+     [
+      805,
+      75
+     ]
+    ],
+    "c3_cuff_cut": [
+     [
+      1300,
+      25
+     ],
+     [
+      1390,
+      112
+     ]
+    ],
+    "c4_cuff_cut": [
+     [
+      205,
+      895
+     ],
+     [
+      335,
+      870
+     ]
+    ],
+    "c5_cuff_cut_left": [
+     [
+      400,
+      900
+     ],
+     [
+      560,
+      905
+     ]
+    ],
+    "c5_cuff_cut_right": [
+     [
+      770,
+      905
+     ],
+     [
+      905,
+      900
+     ]
+    ]
+   },
+   "dirs": {
+    "c1_wrist_to_sleeve": [
+     0.72,
+     -0.69
+    ],
+    "c1_wrist_to_fingers": [
+     -0.88,
+     0.47
+    ],
+    "c2_wrist_to_sleeve": [
+     0.45,
+     -0.89
+    ],
+    "c2_wrist_to_fingers": [
+     -0.5,
+     0.87
+    ],
+    "c3_wrist_to_sleeve": [
+     0.75,
+     -0.66
+    ],
+    "c3_wrist_to_fingers": [
+     -0.85,
+     0.5
+    ],
+    "c4_wrist_to_sleeve": [
+     0.45,
+     0.89
+    ],
+    "c4_wrist_to_fingers": [
+     -0.45,
+     -0.89
+    ]
+   }
+  },
+  "零件": {
+   "c1_tweezers": {
+    "file": "hands_c1.png",
+    "offset_in_sheet": [
+     12,
+     7
+    ],
+    "size": [
+     374,
+     373
+    ]
+   },
+   "c2_palm_up": {
+    "file": "hands_c2.png",
+    "offset_in_sheet": [
+     523,
+     0
+    ],
+    "size": [
+     311,
+     369
+    ]
+   },
+   "c3_reach": {
+    "file": "hands_c3.png",
+    "offset_in_sheet": [
+     994,
+     5
+    ],
+    "size": [
+     419,
+     333
+    ]
+   },
+   "c4_pinch": {
+    "file": "hands_c4.png",
+    "offset_in_sheet": [
+     0,
+     518
+    ],
+    "size": [
+     361,
+     405
+    ]
+   },
+   "c5_two_hands": {
+    "file": "hands_c5.png",
+    "offset_in_sheet": [
+     383,
+     543
+    ],
+    "size": [
+     541,
+     387
+    ]
+   },
+   "c6_seller": {
+    "file": "hands_c6.png",
+    "offset_in_sheet": [
+     928,
+     517
+    ],
+    "size": [
+     502,
+     425
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A06-S1a",
+  "file": "hand_s1_tweezers.png",
+  "用途": "S1 f0–f30 持镊压补纸（可选，替代 A06 格1）",
+  "尺寸": [
+   1363,
+   1007
+  ],
+  "是否透明": true,
+  "Lp": 0.9423,
+  "Li": 0.5385,
+  "合成类别": "B",
+  "提示词": "A young man's RIGHT hand seen from his own eyes as he looks down at his desk: the hand in the upper left part of the picture, his forearm in a white shirt sleeve running diagonally down to the lower right and out of the picture at the bottom right corner. The hand pinches a pair of thin tweezers between the thumb and the index and middle fingers, the tweezer tips pointing further up and to the left beyond the fingertips, pressing down; the index fingertip is the uppermost part of the hand. Drawn in exactly the same style as the hands in the first reference image, like the characters of Shanghai Animation Film Studio ink-painting films: fine, thin dark ink contour lines drawn with a soft brush, with gentle pressure variation; a very pale, thin ochre wash for the skin (pale beige, barely tinted, never orange); the white shirt cuff and sleeve with a few pale grey wash folds; no realistic shading, no nail detail, clean fingertips with no ink stains; no paper, no desk, no other object. Plain flat white background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/hands_sheet_ref.png（= assets/hands_sheet.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "DESIGN 清单外的可选加强版（不替代 A06，用不用由搭建/主会话定）：手在左上，前臂和白袖斜着从图的右下角出画，正是 S1 主观视角的方向，不用转、不用代码接袖子（把图的右下角放到画框外即可）；手部约 600px，S1 手高 520–560 时约 0.9 倍，线比 A06 格1–4 清楚。以 A06 成品为第一参考图出，画法、肤色、袖口与 A06 一致。镊子画在图里（镊尖 tweezer_tip 朝左上），f32 镊子落桌时换成代码镊子。食指在镊子上方、拇指在下，食指指肚贴着镊子，墨渍只能画在可见的指尖侧。",
+  "原图": "films/A_shuimo/_work/asset_raw/a06s1_tweezers_r1.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "采用"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "S1 约 0.9",
+  "锚点": {
+   "points": {
+    "index_tip": [
+     185,
+     112
+    ],
+    "index_pad": [
+     205,
+     128
+    ],
+    "thumb_tip": [
+     188,
+     205
+    ],
+    "tweezer_tip": [
+     30,
+     65
+    ],
+    "tweezer_grip": [
+     300,
+     205
+    ],
+    "wrist": [
+     650,
+     560
+    ]
+   },
+   "dirs": {
+    "wrist_to_fingers": [
+     -0.82,
+     -0.57
+    ],
+    "wrist_to_sleeve": [
+     0.74,
+     0.67
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A06-S1b",
+  "file": "hand_s1_palm.png",
+  "用途": "S1 f34–f45 翻掌看指尖墨渍（可选，替代 A06 格2）",
+  "尺寸": [
+   1159,
+   979
+  ],
+  "是否透明": true,
+  "Lp": 0.942,
+  "Li": 0.5273,
+  "合成类别": "B",
+  "提示词": "A young man's RIGHT hand seen from his own eyes as he looks down at it: the hand in the upper left part of the picture, his forearm in a white shirt sleeve running diagonally down to the lower right and out of the picture at the bottom right corner. The hand is turned palm up toward his face, fingers loosely curled up, the thumb resting on the pad of the index finger, the pads of the fingertips facing the viewer and clearly visible, the index fingertip pad in the middle of the hand's upper edge. Drawn in exactly the same style as the hands in the first reference image, like the characters of Shanghai Animation Film Studio ink-painting films: fine, thin dark ink contour lines drawn with a soft brush, with gentle pressure variation; a very pale, thin ochre wash for the skin (pale beige, barely tinted, never orange); the white shirt cuff and sleeve with a few pale grey wash folds; no realistic shading, no nail detail, clean fingertips with no ink stains; no other object. Plain flat white background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/hands_sheet_ref.png（= assets/hands_sheet.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "DESIGN 清单外的可选加强版（不替代 A06，用不用由搭建/主会话定）：手在左上，前臂和白袖斜着从图的右下角出画，正是 S1 主观视角的方向，不用转、不用代码接袖子（把图的右下角放到画框外即可）；手部约 600px，S1 手高 520–560 时约 0.9 倍，线比 A06 格1–4 清楚。以 A06 成品为第一参考图出，画法、肤色、袖口与 A06 一致。掌心朝镜头，拇指压在食指指肚上（index_pad 在拇指尖下方），f36/f40 拇指搓指肚可用拇指控制柄在 thumb_tip 附近做。中、无名、小指的指肚都朝镜头可见。",
+  "原图": "films/A_shuimo/_work/asset_raw/a06s1_palm_r1.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "采用"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "S1 约 0.9",
+  "锚点": {
+   "points": {
+    "thumb_tip": [
+     225,
+     60
+    ],
+    "index_tip": [
+     180,
+     145
+    ],
+    "index_pad": [
+     195,
+     158
+    ],
+    "middle_pad": [
+     75,
+     345
+    ],
+    "ring_pad": [
+     140,
+     430
+    ],
+    "little_pad": [
+     230,
+     490
+    ],
+    "wrist": [
+     600,
+     560
+    ]
+   },
+   "dirs": {
+    "wrist_to_fingers": [
+     -0.75,
+     -0.66
+    ],
+    "wrist_to_sleeve": [
+     0.74,
+     0.67
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A06-S1c",
+  "file": "hand_s1_reach.png",
+  "用途": "S1 f32、f46–f51 伸手（可选，替代 A06 格3；S3c 也可用）",
+  "尺寸": [
+   1273,
+   954
+  ],
+  "是否透明": true,
+  "Lp": 0.9375,
+  "Li": 0.5715,
+  "合成类别": "B",
+  "提示词": "A young man's RIGHT hand seen from his own eyes as he looks down at his desk: the hand in the upper left part of the picture, his forearm in a white shirt sleeve running diagonally down to the lower right and out of the picture at the bottom right corner. The hand reaches forward and up, palm down, the back of the hand toward the viewer, fingers relaxed and half curled, hesitant, the fingertips pointing up and to the left. Drawn in exactly the same style as the hands in the first reference image, like the characters of Shanghai Animation Film Studio ink-painting films: fine, thin dark ink contour lines drawn with a soft brush, with gentle pressure variation; a very pale, thin ochre wash for the skin (pale beige, barely tinted, never orange); the white shirt cuff and sleeve with a few pale grey wash folds; no realistic shading, no nail detail, clean fingertips with no ink stains; no other object. Plain flat white background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/hands_sheet_ref.png（= assets/hands_sheet.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "DESIGN 清单外的可选加强版（不替代 A06，用不用由搭建/主会话定）：手在左上，前臂和白袖斜着从图的右下角出画，正是 S1 主观视角的方向，不用转、不用代码接袖子（把图的右下角放到画框外即可）；手部约 600px，S1 手高 520–560 时约 0.9 倍，线比 A06 格1–4 清楚。以 A06 成品为第一参考图出，画法、肤色、袖口与 A06 一致。手背朝镜头。手指前后关系不够清楚（领先的是 lead_tip 那根，拇指在左下），锚点用 lead_tip；这一姿态只在运动中出现约 0.3 秒。",
+  "原图": "films/A_shuimo/_work/asset_raw/a06s1_reach_r1.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "采用"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "S1 约 0.9",
+  "锚点": {
+   "points": {
+    "lead_tip": [
+     60,
+     28
+    ],
+    "second_tip": [
+     40,
+     200
+    ],
+    "thumb_tip": [
+     70,
+     296
+    ],
+    "wrist": [
+     560,
+     470
+    ]
+   },
+   "dirs": {
+    "wrist_to_fingers": [
+     -0.78,
+     -0.62
+    ],
+    "wrist_to_sleeve": [
+     0.74,
+     0.67
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A06-S1d",
+  "file": "hand_s1_pinch.png",
+  "用途": "S1 f52–f70 捏镜腿、食指翘起（可选，替代 A06 格4）",
+  "尺寸": [
+   1355,
+   1010
+  ],
+  "是否透明": true,
+  "Lp": 0.9392,
+  "Li": 0.5335,
+  "合成类别": "B",
+  "提示词": "A young man's RIGHT hand seen from his own eyes as he looks down at his desk: the hand in the upper left part of the picture, his forearm in a white shirt sleeve running diagonally down to the lower right and out of the picture at the bottom right corner. The back of the hand faces the viewer; the hand pinches a very thin straight dark rod between the thumb and the middle finger, the index finger deliberately lifted up away from the rod, the ring and little fingers curled. Drawn in exactly the same style as the hands in the first reference image, like the characters of Shanghai Animation Film Studio ink-painting films: fine, thin dark ink contour lines drawn with a soft brush, with gentle pressure variation; a very pale, thin ochre wash for the skin (pale beige, barely tinted, never orange); the white shirt cuff and sleeve with a few pale grey wash folds; no realistic shading, no nail detail, clean fingertips with no ink stains; no other object. Plain flat white background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/hands_sheet_ref.png（= assets/hands_sheet.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "DESIGN 清单外的可选加强版（不替代 A06，用不用由搭建/主会话定）：手在左上，前臂和白袖斜着从图的右下角出画，正是 S1 主观视角的方向，不用转、不用代码接袖子（把图的右下角放到画框外即可）；手部约 600px，S1 手高 520–560 时约 0.9 倍，线比 A06 格1–4 清楚。以 A06 成品为第一参考图出，画法、肤色、袖口与 A06 一致。拇指与中指捏住细杆（rod 折线，捏点 pinch），食指高高翘起（index_tip_lifted），无名指、小指蜷起。图里的细杆可当镜腿用，也可盖掉换成代码镜腿。",
+  "原图": "films/A_shuimo/_work/asset_raw/a06s1_pinch_r1.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "采用"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "S1 约 0.9",
+  "锚点": {
+   "points": {
+    "index_tip_lifted": [
+     265,
+     45
+    ],
+    "pinch": [
+     190,
+     280
+    ],
+    "middle_tip": [
+     175,
+     255
+    ],
+    "thumb_tip": [
+     180,
+     302
+    ],
+    "rod_end": [
+     25,
+     280
+    ],
+    "wrist": [
+     720,
+     560
+    ]
+   },
+   "lines": {
+    "rod": [
+     [
+      25,
+      280
+     ],
+     [
+      285,
+      282
+     ]
+    ]
+   },
+   "dirs": {
+    "wrist_to_fingers": [
+     -0.8,
+     -0.6
+    ],
+    "wrist_to_sleeve": [
+     0.74,
+     0.67
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A07",
+  "file": "hand_rain_cu.png",
+  "用途": "S4 ①–⑤ 手特写（雨冲墨、指尖长墨滴、墨滴离指）",
+  "尺寸": [
+   877,
+   879
+  ],
+  "是否透明": true,
+  "Lp": 0.9277,
+  "Li": 0.4623,
+  "合成类别": "B",
+  "提示词": "Close-up of a young man's LEFT hand reaching in from the upper right corner, the back of the hand facing the viewer; the wrist and white shirt cuff at the top right; the hand relaxed, fingers pointing downward to the lower left in their natural anatomical order: the thumb along the upper-left side of the hand, next to it the index finger, extended and pointing down, its fingertip the lowest point of the whole hand, then the middle, ring and little fingers, slightly more curled behind it. Only this one hand and its cuff in the picture, drawn in exactly the same style as the hands in the first reference image. Drawn like the characters of Shanghai Animation Film Studio ink-painting films: fine dark ink contour lines with gentle pressure variation, a flat pale ochre skin wash slightly cooled with grey, the white cuff with a few pale grey wash folds, no realistic shading, no nail detail, no water drops, clean fingertips with no ink stains. Large empty white space toward the lower left. Plain flat white background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/hands_sheet_ref.png（= assets/hands_sheet.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "按 DESIGN 画的是左手：手背朝镜头，拇指在左上，食指伸得最长、指尖 (48,842) 是全手最低点；袖口从图的上边和右边出画（K1 手占 x900–1920、y0–560，正好贴画框右上）。没画水珠（雨与水流全部由代码画，沿 index_mid / middle_mid / ring_mid 三条折线流）。连续性提醒：S1、S3c 的墨渍（种子 7）在右手食指，S6 光斑也落在\"同一根手指\"；S4 若用左手，墨渍就不在同一只手上——另备右手版 A07-R，请主会话定。",
+  "原图": "films/A_shuimo/_work/asset_raw/a07_hand_rain_cu_r2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "弃：实际画成了右手且手指顺序错（外侧两指最长、食指中指蜷在里面），还画了卡通水珠"
+   },
+   {
+    "轮次": "r2",
+    "结论": "采用：左手，拇指在左上，食指最低，手指顺序正确，无水珠"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px（A06 留 16px）；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "约 0.85–1.0",
+  "锚点": {
+   "points": {
+    "index_tip": [
+     48,
+     842
+    ],
+    "index_pad": [
+     60,
+     815
+    ],
+    "thumb_tip": [
+     30,
+     510
+    ],
+    "middle_tip": [
+     222,
+     805
+    ],
+    "ring_tip": [
+     287,
+     765
+    ],
+    "little_tip": [
+     372,
+     745
+    ]
+   },
+   "lines": {
+    "index_mid": [
+     [
+      200,
+      560
+     ],
+     [
+      140,
+      680
+     ],
+     [
+      80,
+      790
+     ],
+     [
+      48,
+      842
+     ]
+    ],
+    "middle_mid": [
+     [
+      300,
+      580
+     ],
+     [
+      250,
+      690
+     ],
+     [
+      222,
+      800
+     ]
+    ],
+    "ring_mid": [
+     [
+      380,
+      600
+     ],
+     [
+      320,
+      690
+     ],
+     [
+      290,
+      760
+     ]
+    ],
+    "cuff_line": [
+     [
+      545,
+      225
+     ],
+     [
+      600,
+      195
+     ],
+     [
+      700,
+      230
+     ],
+     [
+      760,
+      310
+     ]
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A07-R",
+  "file": "hand_rain_cu_right.png",
+  "用途": "S4 手特写的右手备选（与 S1/S3c/S6 墨渍在右手食指的连续性一致）",
+  "尺寸": [
+   885,
+   884
+  ],
+  "是否透明": true,
+  "Lp": 0.9347,
+  "Li": 0.4321,
+  "合成类别": "B",
+  "提示词": "Close-up of a young man's RIGHT hand reaching in from the upper right corner, the back of the hand facing the viewer; the wrist and white shirt cuff at the top right; the hand relaxed, fingers pointing downward to the lower left in their natural anatomical order: the thumb along the lower-right side of the hand, next to it the index finger, extended and pointing down, its fingertip the lowest point of the whole hand, then the middle, ring and little fingers, slightly more curled, higher up toward the upper left. Only this one hand and its cuff in the picture, drawn in exactly the same style as the hands in the first reference image. Drawn like the characters of Shanghai Animation Film Studio ink-painting films: fine dark ink contour lines with gentle pressure variation, a flat pale ochre skin wash slightly cooled with grey, the white cuff with a few pale grey wash folds, no realistic shading, no nail detail, no water drops, clean fingertips with no ink stains. Large empty white space toward the lower left. Plain flat white background. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/hands_sheet_ref.png（= assets/hands_sheet.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_08c.png"
+  ],
+  "状态": "ok",
+  "备注": "DESIGN 清单外的备选。右手：手背朝镜头，拇指在右下，食指紧挨拇指、指尖 (212,850) 是全手最低点，构图、尺寸、袖口方向与 A07 相同，可直接互换。",
+  "原图": "films/A_shuimo/_work/asset_raw/a07_hand_rain_cu_right_r1.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "采用"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px（A06 留 16px）；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "约 0.85–1.0",
+  "锚点": {
+   "points": {
+    "index_tip": [
+     212,
+     850
+    ],
+    "index_pad": [
+     222,
+     822
+    ],
+    "thumb_tip": [
+     422,
+     760
+    ],
+    "middle_tip": [
+     145,
+     750
+    ],
+    "ring_tip": [
+     88,
+     700
+    ],
+    "little_tip": [
+     35,
+     590
+    ]
+   },
+   "lines": {
+    "index_mid": [
+     [
+      400,
+      560
+     ],
+     [
+      300,
+      680
+     ],
+     [
+      240,
+      790
+     ],
+     [
+      212,
+      848
+     ]
+    ],
+    "middle_mid": [
+     [
+      330,
+      500
+     ],
+     [
+      230,
+      600
+     ],
+     [
+      160,
+      700
+     ],
+     [
+      145,
+      748
+     ]
+    ],
+    "ring_mid": [
+     [
+      300,
+      450
+     ],
+     [
+      190,
+      540
+     ],
+     [
+      110,
+      640
+     ],
+     [
+      88,
+      698
+     ]
+    ],
+    "cuff_line": [
+     [
+      545,
+      225
+     ],
+     [
+      600,
+      205
+     ],
+     [
+      700,
+      240
+     ],
+     [
+      770,
+      310
+     ]
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A08",
+  "file": "market_crowd.png",
+  "用途": "S3a 集市底板（D14，显示 2600×1300）；S3b–S3d 虚背景",
+  "尺寸": [
+   1774,
+   887
+  ],
+  "是否透明": false,
+  "Lp": 0.9997,
+  "Li": 0.261,
+  "合成类别": "A（墨色归一后铺底）",
+  "提示词": "A long, wide panoramic picture, twice as wide as it is tall, of a crowded old Chinese market street seen from slightly above, painted like a Shanghai Animation Film Studio ink-wash animation background, loose and wet rather than detailed: dozens of small townspeople, every single one seen from behind or from the back three-quarter with the head turned away — nobody faces the viewer, no faces or facial features are drawn on anyone, many wear wide straw hats or head cloths; they are drawn with a few fine ink lines and flat grey washes; stalls with cloth awnings, baskets and wooden racks, tall poles with completely blank cloth banners, round paper lanterns painted in pale grey ink, rising steam; dense and busy in the lower two thirds, the far end of the street dissolving into blank misty paper at the top. Monochrome ink only, from scorched black to pale grey, on grey rice paper, no colour at all. All banners, flags and signboards are completely blank. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/design/refcrop/ref_12c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_01c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_07c.png"
+  ],
+  "状态": "ok",
+  "备注": "2:1（1774×887），显示 2600×1300 约放大 1.47，S3a 在快移+手持中、S3b 起虚焦，可接受。所有人都是背影或背侧、看不到脸；旗幡、灯笼全空白，无字、无印。纸色原为灰宣 (218,215,215)，已拉到 255。上 1/3 是雾纸，金面具（代码）举在右中正好落在空处。画里有一头驮筐的驴，是集市的一部分。",
+  "原图": "films/A_shuimo/_work/asset_raw/a08_market_crowd_r2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "弃：多人画出正脸（左侧老人、熬汤妇人、蒸笼摊主、抱孩子的妇人），违反\"小人物脸留白或背对\"；画幅 4:3"
+   },
+   {
+    "轮次": "r2",
+    "结论": "采用：全部背影、草帽头巾，2:1"
+   }
+  ],
+  "后处理": "取亮度前 10% 像素的逐通道中位作纸色，逐通道增益把纸拉到 255（叠底不出灰框）",
+  "上屏建议": "约 1.47",
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A09",
+  "file": "woodcut_leopard.png",
+  "用途": "S1、T1 前半、S6 书页右页木刻豹（阈值化后叠底进页面画布）",
+  "尺寸": [
+   1536,
+   1024
+  ],
+  "是否透明": false,
+  "Lp": 1.0,
+  "Li": 0.0557,
+  "合成类别": "A（叠底）",
+  "提示词": "A Ming-dynasty woodblock-print book illustration of a leopard walking in profile to the right, exactly in the style of the animal illustrations of the illustrated encyclopedia Sancai Tuhui (1609): a naive, stylized, flat decorative drawing rather than a naturalistic one — simplified anatomy, a slightly elongated body, a small rounded head with a round eye, a long tail curving up in an S; bold black knife-carved contour lines of even weight with blunt cut ends, simple flat white areas, the coat covered evenly with rosette spots, each spot a broken ring of four or five black dabs with a blank centre; a few stylized carved grass tufts and a short ground line of small strokes under its feet; black ink printed on plain white paper, slightly uneven broken ink of an old print with tiny white specks in the black lines. The leopard centred with wide empty margins. No border, no frame, no seal, no title, no characters. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [],
+  "状态": "ok",
+  "备注": "3:2（1536×1024），明代版刻风格的稚拙线描：粗刻线、S 形尾、环斑是 4–5 笔断环、留白心；纸白已是 255。补纸位置给了多边形 patch_flank（腹胁，中心约 (805,550)），盖住后里面原有环斑；原图环斑直径约 50–60px，按 560px 宽上页时约 R 10–11K，与 DESIGN 新墨斑 R 11K 相当。无边框、无印章、无题字。；返修第 2 轮（style-17）：拿上一版当构图参考重出刻本版（粗细不匀的刀刻线、刀口崩缺、实心不规则斑与断环、神情不萌），构图与上一版重合（墨框 48–1478 × 96–919），补纸多边形照用；上一版存 _work/asset_rejected/fix2/woodcut_leopard_round1.png",
+  "原图": "films/A_shuimo/_work/asset_raw/a09_woodcut_leopard_r2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "备选未用：能用，但更像现代铜版/写实线描（细毛、胡须、写实解剖），画幅 2:1"
+   },
+   {
+    "轮次": "r2",
+    "结论": "采用：三才图会式稚拙平面化，3:2 合 DESIGN 的 560×370 版位"
+   },
+   "_work/asset_raw/fix2_woodcut_a.png"
+  ],
+  "后处理": "取亮度前 10% 像素的逐通道中位作纸色，逐通道增益把纸拉到 255（叠底不出灰框）",
+  "上屏建议": "≤0.5（页面上约 560 宽）",
+  "锚点": {
+   "polys": {
+    "patch_flank": [
+     [
+      610,
+      450
+     ],
+     [
+      760,
+      430
+     ],
+     [
+      920,
+      445
+     ],
+     [
+      1010,
+      500
+     ],
+     [
+      1000,
+      600
+     ],
+     [
+      930,
+      650
+     ],
+     [
+      800,
+      665
+     ],
+     [
+      660,
+      640
+     ],
+     [
+      590,
+      570
+     ]
+    ]
+   },
+   "points": {
+    "patch_center": [
+     805,
+     550
+    ],
+    "eye": [
+     1345,
+     340
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A10",
+  "file": "scroll_mid.png",
+  "用途": "S5b（f570 后）、S5c 长卷底板（正片叠底，D30，显示 2240×560）",
+  "尺寸": [
+   2172,
+   543
+  ],
+  "是否透明": false,
+  "Lp": 1.0,
+  "Li": 0.2023,
+  "合成类别": "A（叠底）",
+  "提示词": "A very long horizontal handscroll landscape, four times as wide as it is tall, painted exactly like the ink-wash backgrounds of the Shanghai Animation Film Studio film Feelings of Mountains and Waters (1988), as in the reference images: big, wet, dark grey ink masses for the nearer mountain ranges — dense scorched ink at their tops and ridges, the ink spreading and dissolving downward into blank wet paper mist (solid peaks, empty feet); distant ranges as flat pale grey washes; one thin waterfall; a few small pine clusters as dark fan-shaped needle strokes on the ridges; only a faint touch of pale ochre on a few nearer slopes and a faint indigo-grey in the distance, mostly greyscale ink; broad bands of empty white paper between the ranges, more than half of the picture empty paper; soft bleeding wet edges everywhere, very little fine texture, no tidy detail. No people, no buildings, no boats, no animals, no seal, no inscription. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/design/refcrop/ref_03c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_05c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_13c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_01c.png"
+  ],
+  "状态": "ok",
+  "备注": "Magpie 只给 3:1（2172×724），已裁成 4:1（2172×543，取原图 y84–627），上边 10px、下边 64px 渐变到纸白，叠底时上下边不出灰线（右侧山体下沿顺势化进雾里）；左右缘照 DESIGN 始终在画外，没做渐变。纸色已拉白；近纸色 69%，几乎是纯墨色（彩色像素 0.02%），淡彩由着色器按 S5 色板加。构图：左右各一大团湿墨山（左带瀑布），中间大片雾和淡远山——小豹在 (860,330) 正好落在中间的空处；尾迹七墨点若落在右侧山体上会变暗，可微调底板位置让墨点走雾区。备选：上一轮 r2（蓝赭浅绛、更\"国风插画\"）已同样裁好放在 _work/asset_qc/scroll_mid_r2_final_backup.png。",
+  "原图": "films/A_shuimo/_work/asset_raw/a10_scroll_mid_r3.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "弃：细节过密、像通用国风山水壁纸，赭色偏黄绿"
+   },
+   {
+    "轮次": "r2",
+    "结论": "备选未用：湿、松、留白过半，但蓝赭色重，和山水情参考并排比更像通用国风插画"
+   },
+   {
+    "轮次": "r3",
+    "结论": "采用：灰墨湿笔、山头实山脚虚、中间大留白，和 ref_03/ref_01 并排比最接近"
+   }
+  ],
+  "后处理": "取亮度前 10% 像素的逐通道中位作纸色，逐通道增益把纸拉到 255（叠底不出灰框）；再裁 4:1 并上下边渐变到纸白（_work/asset_tools/scroll_crop.py，参数 y0=84、上 10、下 64）",
+  "上屏建议": "约 1.03（2172→2240）",
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "A11",
+  "file": "luwei_ots.png",
+  "用途": "S6 过肩：后脑、右耳、右肩与上臂",
+  "尺寸": [
+   704,
+   1079
+  ],
+  "是否透明": true,
+  "Lp": 0.8846,
+  "Li": 0.1333,
+  "合成类别": "B",
+  "提示词": "Over-the-shoulder view from behind the right shoulder of the SAME young man as in the first reference image: large in the left half of the picture, the whole back of his head fully inside the picture with a little empty white space above the hair, his short black hair painted as one soft wet blob of dense ink with softly bleeding edges, the same haircut as in the first reference image; his right ear drawn with a fine line; the collar, right shoulder and upper right arm in a plain white collarless shirt with a few pale grey wash folds, the arm going down out of the picture at the lower left. His face is completely hidden behind his head. No glasses, no hands. Fine ink contour lines and flat washes as in Shanghai Animation Film Studio ink-painting films. Plain flat white background, nothing else in the picture. normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/luwei_sit_back_ref.png（= assets/luwei_sit_back.png 垫白底）",
+   "films/A_shuimo/_work/design/refcrop/det_boy_hair.png",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png"
+  ],
+  "状态": "ok",
+  "备注": "头完整在画内（头顶上方留空），右耳细线；肩臂从左边和下边出画（alpha 贴左、下图边，按 DESIGN 这两边本来就在画框外）。不见脸、无眼镜。眼镜（镜腿、右镜片外框细弧）由代码画：镜腿搭在 ear_temple_rest，铰链建议点 hinge_suggest 在头轮廓右外侧。DESIGN 要求耳在屏幕 (520,330)、头 x140–640；按耳点对齐时本图头约宽 480px，缩放约 1.0。发型与 A04 一致（一团带洇边的浓墨），放大到 500px 宽时显得偏蓬。",
+  "原图": "films/A_shuimo/_work/asset_raw/a11_luwei_ots_r2.png",
+  "历次生成": [
+   {
+    "轮次": "r1",
+    "结论": "弃：头顶被画幅上边裁掉（alpha 贴上边），S6 设计要头完整在画内 y30–540"
+   },
+   {
+    "轮次": "r2",
+    "结论": "采用：头完整、上方留白"
+   }
+  ],
+  "后处理": "alpha<0.02（A06/A07 为 <0.03）置 0 去底雾；去边：alpha<0.98 的像素 RGB 换成 3px 内完全不透明邻点的中位色，更远处补最近不透明色，再去饱和 70%；按 alpha>0.02 外接框裁掉空白、四周留 24px（A06 留 16px）；黑底/白底/雾灰底各合成一次检查",
+  "上屏建议": "约 1.0",
+  "锚点": {
+   "points": {
+    "ear_center": [
+     545,
+     415
+    ],
+    "ear_temple_rest": [
+     530,
+     380
+    ],
+    "hinge_suggest": [
+     668,
+     432
+    ]
+   },
+   "polys": {
+    "head_outline": [
+     [
+      125,
+      200
+     ],
+     [
+      150,
+      120
+     ],
+     [
+      210,
+      70
+     ],
+     [
+      300,
+      30
+     ],
+     [
+      400,
+      30
+     ],
+     [
+      480,
+      60
+     ],
+     [
+      540,
+      110
+     ],
+     [
+      590,
+      180
+     ],
+     [
+      605,
+      260
+     ],
+     [
+      585,
+      330
+     ],
+     [
+      560,
+      360
+     ],
+     [
+      510,
+      470
+     ],
+     [
+      470,
+      520
+     ],
+     [
+      330,
+      500
+     ],
+     [
+      210,
+      470
+     ],
+     [
+      160,
+      400
+     ],
+     [
+      125,
+      300
+     ]
+    ]
+   }
+  },
+  "口径": "锚点与尺寸都是 assets/ 成品像素（原点左上，x 右 y 下）；亮度 L=0.2126R+0.7152G+0.0722B（sRGB 编码值 0–1）；Lp=不透明像素（透明图取 alpha≥0.98）亮度 95 分位、Li=1 分位，供 DESIGN 3.2 墨色归一 D=clamp((Lp−L)/(Lp−Li),0,1)；拆件（零件）坐标 = 原表坐标 − offset_in_sheet；合成 A=正片叠底（白即透明），B=alpha 作遮罩、遮罩内先铺当段纸色再叠墨；生成 mcp__magpie-image__generate_image（codex/gpt-image-2.5，quality high）"
+ },
+ {
+  "id": "R2-CLIFF",
+  "file": "cliff_wall.png",
+  "用途": "S2、S4、T1 末：崖壁（B 类墨画面片，D 9.5）+ 石台（同一张画按投影机位 CG 投到 3D 石台上）",
+  "尺寸": [
+   1448,
+   1086
+  ],
+  "是否透明": false,
+  "Lp": 0.963,
+  "Li": 0.0784,
+  "合成类别": "B（墨色归一；A 通道 = 崖体整块遮罩）",
+  "提示词": "见 NOTES 返修记录 style-02：按 CG 机位（C2 位置朝向、vfov 42°、16:9）的素描稿 _work/asset_ref/fix2/sketch_cliff.png 重画成山水情笔墨（斧劈/披麻皴、苔点、焦墨洞口、石台断成三级、崖面化进雾）",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/fix2/sketch_cliff.png",
+   "films/A_shuimo/_work/design/refcrop/ref_01c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_05c.png"
+  ],
+  "状态": "ok",
+  "备注": "画在 CG 画面像素框 [28,37]–[1372,1045] 里（4:3）。后处理：墨浓 D=(Lp−L)/(Lp−Li)，色调曲线 D′=clamp((D−0.22)/0.68)（少中灰、深墨成块），石台唇口下 y≥770（原画像素）按列起伏地化进纸；A 通道 = D 模糊后阈值、闭运算、填洞、石台以下按列往下填满、2.5 px 羽化",
+  "原图": "_work/asset_raw/fix2_cliff_a.png",
+  "历次生成": [
+   "_work/asset_raw/fix2_cliff_a.png"
+  ],
+  "后处理": "见备注",
+  "上屏建议": "",
+  "锚点": {},
+  "口径": "返修第 2 轮新增（Magpie / codex gpt-image-2.5）"
+ },
+ {
+  "id": "R2-PEAK",
+  "file": "peak_rock.png",
+  "用途": "S5a、S5b 前半：崖顶石峰（B 类墨画面片，D 5.0，小豹坐在它顶上）",
+  "尺寸": [
+   1774,
+   887
+  ],
+  "是否透明": false,
+  "Lp": 0.9653,
+  "Li": 0.1134,
+  "合成类别": "B",
+  "提示词": "按 C5a 投影机位（vfov 56°、16:9）的素描稿 _work/asset_ref/fix2/sketch_peak.png 重画：两三个交叠的墨块、受光面留飞白、斧劈皴、顶沿苔点、底部化进雾",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/fix2/sketch_peak.png",
+   "films/A_shuimo/_work/design/refcrop/ref_03c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_01c.png"
+  ],
+  "状态": "ok",
+  "备注": "画在 CG5 画面像素框 [940,603]–[1880,1073]（2:1）。色调曲线 lo 0.18 / hi 0.92；A 通道同崖体",
+  "原图": "_work/asset_raw/fix2_peak_a.png",
+  "历次生成": [
+   "_work/asset_raw/fix2_peak_a.png"
+  ],
+  "后处理": "见备注",
+  "上屏建议": "",
+  "锚点": {},
+  "口径": "返修第 2 轮新增（Magpie / codex gpt-image-2.5）"
+ },
+ {
+  "id": "R2-PINE5",
+  "file": "pine_s5.png",
+  "用途": "S5a、S5b：崖顶松（B 类面片，D 4.6，画在石峰之前一层、层序在它后面）",
+  "尺寸": [
+   1254,
+   1254
+  ],
+  "是否透明": true,
+  "Lp": 0.9039,
+  "Li": 0.1529,
+  "合成类别": "B",
+  "提示词": "照 _work/asset_ref/fix2/sketch_pine5.png 的构图：干与枝是两条不对称笔线 + 鳞皴枯笔，针是半扇形浓墨针叠在淡墨湿团上、成组排布",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/fix2/sketch_pine5.png",
+   "films/A_shuimo/_work/design/refcrop/ref_05c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_09c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_04c.png"
+  ],
+  "状态": "ok",
+  "备注": "透明底，CG5 像素框 [1060,30]–[1900,870]。去边：alpha<0.98 的像素 RGB 换成最近的实心像素色",
+  "原图": "_work/asset_raw/fix2_pine5_a.png",
+  "历次生成": [
+   "_work/asset_raw/fix2_pine5_a.png"
+  ],
+  "后处理": "见备注",
+  "上屏建议": "",
+  "锚点": {},
+  "口径": "返修第 2 轮新增（Magpie / codex gpt-image-2.5）"
+ },
+ {
+  "id": "R2-PINE2",
+  "file": "pine_s2.png",
+  "用途": "S2：右上前景松枝（B 类面片，D 2.25）",
+  "尺寸": [
+   1774,
+   887
+  ],
+  "是否透明": true,
+  "Lp": 0.9804,
+  "Li": 0.056,
+  "合成类别": "B",
+  "提示词": "照 _work/asset_ref/fix2/sketch_pine2.png：枝从右缘入画，两处转折一处分叉，梢头收尖；针同上",
+  "所用参考图": [
+   "films/A_shuimo/_work/asset_ref/fix2/sketch_pine2.png",
+   "films/A_shuimo/_work/design/refcrop/ref_04c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_05c.png"
+  ],
+  "状态": "ok",
+  "备注": "透明底，CG 像素框 [1180,0]–[1920,370]；去边后预乘 alpha 模糊 2.2 px（前景虚）",
+  "原图": "_work/asset_raw/fix2_pine2_a.png",
+  "历次生成": [
+   "_work/asset_raw/fix2_pine2_a.png"
+  ],
+  "后处理": "见备注",
+  "上屏建议": "",
+  "锚点": {},
+  "口径": "返修第 2 轮新增（Magpie / codex gpt-image-2.5）"
+ },
+ {
+  "id": "R2-MASK",
+  "file": "mask_gold.png",
+  "用途": "S3 全段：金面具与 24 张灰面具（贴在圆柱面一段上，面具着色器按原画上色）",
+  "尺寸": [
+   1302,
+   1086
+  ],
+  "是否透明": true,
+  "Lp": 0.7594,
+  "Li": 0.1017,
+  "合成类别": "自定（墨骨归集市墨阶、泥金朱砂留色相）",
+  "提示词": "先出 fix2_mask_a（豹面：颧宽、下颌收、杏仁眼外角上挑、耳小靠后、墨骨笔线、泥金两档、朱砂假斑），再拿它当参考出 fix2_mask_b：假斑改成\"四五块焦墨小块围一圈淡朱砂心\"的豹斑、刻意等距对称",
+  "所用参考图": [
+   "films/A_shuimo/_work/design/refcrop/ref_12c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png"
+  ],
+  "状态": "弃用（返修第 3 轮 style-07：换成 mask_gold_v3.png 没骨水墨淡彩原画；旧图存 _work/asset_rejected/fix3/）",
+  "备注": "裁 x 72–1374（1302 宽，宽高比 1.199 = 圆柱面一段的展开比）。眼孔：填洞后的脸 − 原 alpha，取最大两块；右眼孔心 UV (0.39, 0.046)、半宽 0.229、半高 0.163。配套 mask_gold_sdf.png",
+  "原图": "_work/asset_raw/fix2_mask_b.png",
+  "历次生成": [
+   "_work/asset_raw/fix2_mask_b.png"
+  ],
+  "后处理": "见备注",
+  "上屏建议": "",
+  "锚点": {},
+  "口径": "返修第 2 轮新增（Magpie / codex gpt-image-2.5）"
+ },
+ {
+  "id": "R2-MASK-SDF",
+  "file": "mask_gold_sdf.png",
+  "用途": "S3：面具轮廓与眼孔的有符号距离场（R 脸 ±64 px，G 眼孔 ±64 px，B 眼孔 ±600 px）",
+  "尺寸": [
+   1302,
+   1086
+  ],
+  "是否透明": false,
+  "Lp": 1.0,
+  "Li": 0.0,
+  "合成类别": "数据贴图",
+  "提示词": "由 mask_gold.png 计算（scipy distance_transform_edt），不是生成图",
+  "所用参考图": [],
+  "状态": "弃用（返修第 3 轮 style-07：换成 mask_gold_v3.png 没骨水墨淡彩原画；旧图存 _work/asset_rejected/fix3/）",
+  "备注": "0.5 = 边界；外正内负",
+  "原图": "—",
+  "历次生成": [
+   "—"
+  ],
+  "后处理": "见备注",
+  "上屏建议": "",
+  "锚点": {},
+  "口径": "返修第 2 轮新增（Magpie / codex gpt-image-2.5）"
+ },
+ {
+  "id": "R2-FGCROWD",
+  "file": "market_fg.png",
+  "用途": "S3a：前景四个人的头肩背影（B 类面片，D 3，从画面两侧扫过）",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": true,
+  "Lp": 0.85,
+  "Li": 0.114,
+  "合成类别": "B",
+  "提示词": "四个人从背后看的头肩（斗笠、发髻、包头、短发），湿墨团、边洇开、不露脸",
+  "所用参考图": [
+   "films/A_shuimo/_work/design/refcrop/ref_02c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_07c.png"
+  ],
+  "状态": "ok",
+  "备注": "去边后预乘 alpha 模糊 3 px；Lp 取 0.85（让最浅处也是淡墨）",
+  "原图": "_work/asset_raw/fix2_fgcrowd_a.png",
+  "历次生成": [
+   "_work/asset_raw/fix2_fgcrowd_a.png"
+  ],
+  "后处理": "见备注",
+  "上屏建议": "",
+  "锚点": {},
+  "口径": "返修第 2 轮新增（Magpie / codex gpt-image-2.5）"
+ },
+ {
+  "id": "R3-MASK",
+  "file": "mask_gold_v3.png",
+  "用途": "S3 全段：金面具与 24 张灰面具（贴在圆柱面一段上；外轮廓用原画 alpha，眼孔用解析折线距离场）",
+  "尺寸": [
+   1373,
+   1145
+  ],
+  "是否透明": true,
+  "Lp": 0.7686,
+  "Li": 0.1569,
+  "合成类别": "自定（墨归集市墨阶、泥金朱砂留色相；灰面具同一张画按墨阶上灰）",
+  "提示词": "A single ceremonial leopard-face mask seen straight from the front, perfectly left-right symmetric ... painted in the boneless ink-wash manner of the Shanghai Animation Film Studio ink-painting films, with exactly the brushwork of the ink-and-ochre bird in the first reference image and the ochre ground wash in the second ... soft, wet, watery washes of pale mud-gold (translucent yellow-ochre, not metallic) that bloom softly and darken into grey-black ink toward the outer edge, darker water-stain rims ... no closed outline: the outer edge is a broken wet ink edge of varying width that bleeds into the paper ... two almond-shaped eye openings cut through as transparent holes, rimmed by one wet stroke of dense ink ... two small rounded ears of soft round ink-wash blots ... fake leopard spots deliberately too regular: rows of identical rosettes in a rigid, evenly spaced, mirror-symmetric grid, each four or five small wet black ink dabs around a pale vermilion wash centre ... about twenty tiny flecks of gold leaf ... no shading, no highlights, no bevel, no gradient lighting, no plastic look, no thick black border. Isolated on a transparent background ... normal body structure, natural proportions, stable clear face, no text, no watermark（全文见 NOTES 返修第 3 轮）",
+  "所用参考图": [
+   "films/A_shuimo/_work/design/refcrop/ref_10c.png",
+   "films/A_shuimo/_work/design/refcrop/ref_04c.png",
+   "films/A_shuimo/assets/mask_gold.png（上一版，只借构图）"
+  ],
+  "状态": "ok",
+  "备注": "1373×1145（宽高比 1.1991 = 圆柱面一段的展开比，未裁）。眼孔：射线法在 alpha=0.5 处取亚像素边、圆周平滑、按弧长重采样 96 点（与画的孔边平均差 3.5 px）；原画孔比折线大出的细缝在着色器里补成浓墨眼眶。透明底黑底 / 白底检查：_work/asset_qc/fix3_mask_v3_bw.jpg",
+  "原图": "_work/asset_raw/fix3_mask_a.png",
+  "历次生成": [
+   "_work/asset_raw/fix3_mask_a.png（一次即用）"
+  ],
+  "后处理": "无（原样使用）",
+  "上屏建议": "S3b 约 0.6，S3d 推近到 8 倍（眼孔外由 T1 墨晕盖住）",
+  "锚点": {
+   "eye_poly_q": {
+    "left": [
+     [
+      -0.25005,
+      -0.00422
+     ],
+     [
+      -0.24174,
+      -0.01594
+     ],
+     [
+      -0.23221,
+      -0.02671
+     ],
+     [
+      -0.22332,
+      -0.03802
+     ],
+     [
+      -0.21607,
+      -0.05043
+     ],
+     [
+      -0.20974,
+      -0.06335
+     ],
+     [
+      -0.2036,
+      -0.07635
+     ],
+     [
+      -0.19816,
+      -0.08967
+     ],
+     [
+      -0.19356,
+      -0.1033
+     ],
+     [
+      -0.18995,
+      -0.11722
+     ],
+     [
+      -0.18691,
+      -0.13128
+     ],
+     [
+      -0.18469,
+      -0.14549
+     ],
+     [
+      -0.18332,
+      -0.15981
+     ],
+     [
+      -0.18381,
+      -0.17405
+     ],
+     [
+      -0.19635,
+      -0.1778
+     ],
+     [
+      -0.21016,
+      -0.17383
+     ],
+     [
+      -0.2235,
+      -0.16846
+     ],
+     [
+      -0.23666,
+      -0.16266
+     ],
+     [
+      -0.24979,
+      -0.15676
+     ],
+     [
+      -0.26301,
+      -0.15111
+     ],
+     [
+      -0.27649,
+      -0.14609
+     ],
+     [
+      -0.2903,
+      -0.14206
+     ],
+     [
+      -0.3044,
+      -0.13928
+     ],
+     [
+      -0.31856,
+      -0.13676
+     ],
+     [
+      -0.33253,
+      -0.13336
+     ],
+     [
+      -0.34687,
+      -0.13273
+     ],
+     [
+      -0.36123,
+      -0.1335
+     ],
+     [
+      -0.37559,
+      -0.13444
+     ],
+     [
+      -0.3899,
+      -0.13588
+     ],
+     [
+      -0.40414,
+      -0.13781
+     ],
+     [
+      -0.41841,
+      -0.13652
+     ],
+     [
+      -0.43247,
+      -0.13351
+     ],
+     [
+      -0.44681,
+      -0.13283
+     ],
+     [
+      -0.46094,
+      -0.13024
+     ],
+     [
+      -0.47408,
+      -0.12444
+     ],
+     [
+      -0.48798,
+      -0.12076
+     ],
+     [
+      -0.50183,
+      -0.11692
+     ],
+     [
+      -0.51594,
+      -0.11485
+     ],
+     [
+      -0.52733,
+      -0.10623
+     ],
+     [
+      -0.54102,
+      -0.10189
+     ],
+     [
+      -0.55331,
+      -0.09457
+     ],
+     [
+      -0.56537,
+      -0.08679
+     ],
+     [
+      -0.57794,
+      -0.07979
+     ],
+     [
+      -0.59009,
+      -0.07211
+     ],
+     [
+      -0.60151,
+      -0.06338
+     ],
+     [
+      -0.61169,
+      -0.05323
+     ],
+     [
+      -0.62168,
+      -0.04292
+     ],
+     [
+      -0.63314,
+      -0.03423
+     ],
+     [
+      -0.64406,
+      -0.02488
+     ],
+     [
+      -0.65399,
+      -0.01448
+     ],
+     [
+      -0.66284,
+      -0.00315
+     ],
+     [
+      -0.66979,
+      0.00943
+     ],
+     [
+      -0.67713,
+      0.0218
+     ],
+     [
+      -0.68429,
+      0.03427
+     ],
+     [
+      -0.68972,
+      0.04758
+     ],
+     [
+      -0.69479,
+      0.06104
+     ],
+     [
+      -0.69958,
+      0.0746
+     ],
+     [
+      -0.70354,
+      0.08843
+     ],
+     [
+      -0.70715,
+      0.10235
+     ],
+     [
+      -0.71076,
+      0.11628
+     ],
+     [
+      -0.71416,
+      0.13025
+     ],
+     [
+      -0.70921,
+      0.14257
+     ],
+     [
+      -0.69527,
+      0.14565
+     ],
+     [
+      -0.68089,
+      0.14595
+     ],
+     [
+      -0.66652,
+      0.14531
+     ],
+     [
+      -0.65216,
+      0.14461
+     ],
+     [
+      -0.63778,
+      0.1451
+     ],
+     [
+      -0.62342,
+      0.14581
+     ],
+     [
+      -0.60911,
+      0.14723
+     ],
+     [
+      -0.5948,
+      0.14858
+     ],
+     [
+      -0.58042,
+      0.14883
+     ],
+     [
+      -0.56608,
+      0.14971
+     ],
+     [
+      -0.55185,
+      0.14768
+     ],
+     [
+      -0.53781,
+      0.14457
+     ],
+     [
+      -0.52367,
+      0.14195
+     ],
+     [
+      -0.50944,
+      0.13984
+     ],
+     [
+      -0.49548,
+      0.13641
+     ],
+     [
+      -0.48164,
+      0.13251
+     ],
+     [
+      -0.46791,
+      0.12823
+     ],
+     [
+      -0.45416,
+      0.12399
+     ],
+     [
+      -0.44025,
+      0.12043
+     ],
+     [
+      -0.42697,
+      0.11494
+     ],
+     [
+      -0.41386,
+      0.10905
+     ],
+     [
+      -0.40066,
+      0.10333
+     ],
+     [
+      -0.38761,
+      0.09733
+     ],
+     [
+      -0.37529,
+      0.08991
+     ],
+     [
+      -0.3628,
+      0.08277
+     ],
+     [
+      -0.34997,
+      0.0763
+     ],
+     [
+      -0.33728,
+      0.06958
+     ],
+     [
+      -0.32695,
+      0.05959
+     ],
+     [
+      -0.31534,
+      0.05111
+     ],
+     [
+      -0.30311,
+      0.04354
+     ],
+     [
+      -0.29144,
+      0.03517
+     ],
+     [
+      -0.2809,
+      0.02538
+     ],
+     [
+      -0.26933,
+      0.01684
+     ],
+     [
+      -0.2585,
+      0.00739
+     ]
+    ],
+    "right": [
+     [
+      0.63646,
+      -0.00674
+     ],
+     [
+      0.62698,
+      -0.01769
+     ],
+     [
+      0.61663,
+      -0.0278
+     ],
+     [
+      0.60605,
+      -0.03768
+     ],
+     [
+      0.59553,
+      -0.04763
+     ],
+     [
+      0.58503,
+      -0.0576
+     ],
+     [
+      0.57446,
+      -0.06748
+     ],
+     [
+      0.56282,
+      -0.07608
+     ],
+     [
+      0.55117,
+      -0.08465
+     ],
+     [
+      0.53969,
+      -0.09344
+     ],
+     [
+      0.52681,
+      -0.09995
+     ],
+     [
+      0.51357,
+      -0.10567
+     ],
+     [
+      0.50119,
+      -0.11313
+     ],
+     [
+      0.48765,
+      -0.11826
+     ],
+     [
+      0.47387,
+      -0.12261
+     ],
+     [
+      0.4601,
+      -0.12706
+     ],
+     [
+      0.44592,
+      -0.12998
+     ],
+     [
+      0.43182,
+      -0.13329
+     ],
+     [
+      0.41752,
+      -0.13498
+     ],
+     [
+      0.40307,
+      -0.1342
+     ],
+     [
+      0.38859,
+      -0.13426
+     ],
+     [
+      0.37411,
+      -0.13412
+     ],
+     [
+      0.35968,
+      -0.13312
+     ],
+     [
+      0.34523,
+      -0.1322
+     ],
+     [
+      0.3308,
+      -0.13221
+     ],
+     [
+      0.31649,
+      -0.13434
+     ],
+     [
+      0.30209,
+      -0.13313
+     ],
+     [
+      0.28762,
+      -0.13356
+     ],
+     [
+      0.27323,
+      -0.13503
+     ],
+     [
+      0.25923,
+      -0.13867
+     ],
+     [
+      0.24574,
+      -0.14392
+     ],
+     [
+      0.23256,
+      -0.14991
+     ],
+     [
+      0.21951,
+      -0.15617
+     ],
+     [
+      0.20643,
+      -0.1624
+     ],
+     [
+      0.19325,
+      -0.16837
+     ],
+     [
+      0.17982,
+      -0.17377
+     ],
+     [
+      0.16584,
+      -0.17736
+     ],
+     [
+      0.15579,
+      -0.17022
+     ],
+     [
+      0.15672,
+      -0.15581
+     ],
+     [
+      0.15976,
+      -0.14166
+     ],
+     [
+      0.16384,
+      -0.12777
+     ],
+     [
+      0.16741,
+      -0.11374
+     ],
+     [
+      0.16977,
+      -0.09946
+     ],
+     [
+      0.17411,
+      -0.08567
+     ],
+     [
+      0.18033,
+      -0.0726
+     ],
+     [
+      0.18728,
+      -0.0599
+     ],
+     [
+      0.19371,
+      -0.04693
+     ],
+     [
+      0.20018,
+      -0.03398
+     ],
+     [
+      0.20758,
+      -0.02154
+     ],
+     [
+      0.21612,
+      -0.00986
+     ],
+     [
+      0.22496,
+      0.00159
+     ],
+     [
+      0.2339,
+      0.01293
+     ],
+     [
+      0.24409,
+      0.02322
+     ],
+     [
+      0.25457,
+      0.03321
+     ],
+     [
+      0.26599,
+      0.04211
+     ],
+     [
+      0.27758,
+      0.05078
+     ],
+     [
+      0.28997,
+      0.05826
+     ],
+     [
+      0.30278,
+      0.065
+     ],
+     [
+      0.31592,
+      0.07107
+     ],
+     [
+      0.32892,
+      0.07743
+     ],
+     [
+      0.34163,
+      0.08437
+     ],
+     [
+      0.3545,
+      0.09096
+     ],
+     [
+      0.36812,
+      0.0958
+     ],
+     [
+      0.38146,
+      0.10129
+     ],
+     [
+      0.39388,
+      0.10871
+     ],
+     [
+      0.40717,
+      0.11444
+     ],
+     [
+      0.42078,
+      0.11934
+     ],
+     [
+      0.43441,
+      0.1242
+     ],
+     [
+      0.44849,
+      0.12752
+     ],
+     [
+      0.46278,
+      0.12956
+     ],
+     [
+      0.47695,
+      0.12732
+     ],
+     [
+      0.49112,
+      0.12531
+     ],
+     [
+      0.505,
+      0.12924
+     ],
+     [
+      0.51849,
+      0.1345
+     ],
+     [
+      0.53141,
+      0.14103
+     ],
+     [
+      0.54521,
+      0.14503
+     ],
+     [
+      0.55958,
+      0.14349
+     ],
+     [
+      0.57398,
+      0.14204
+     ],
+     [
+      0.58829,
+      0.13986
+     ],
+     [
+      0.60274,
+      0.13918
+     ],
+     [
+      0.61716,
+      0.14042
+     ],
+     [
+      0.63157,
+      0.1398
+     ],
+     [
+      0.64573,
+      0.1369
+     ],
+     [
+      0.6602,
+      0.13637
+     ],
+     [
+      0.67462,
+      0.13526
+     ],
+     [
+      0.68871,
+      0.13203
+     ],
+     [
+      0.69867,
+      0.12253
+     ],
+     [
+      0.6959,
+      0.10856
+     ],
+     [
+      0.68868,
+      0.09603
+     ],
+     [
+      0.68101,
+      0.08375
+     ],
+     [
+      0.67418,
+      0.07099
+     ],
+     [
+      0.6686,
+      0.05763
+     ],
+     [
+      0.66289,
+      0.04433
+     ],
+     [
+      0.65708,
+      0.03107
+     ],
+     [
+      0.6523,
+      0.01744
+     ],
+     [
+      0.64475,
+      0.00509
+     ]
+    ]
+   },
+   "eye_bbox_px": {
+    "left": [
+     276,
+     487,
+     582,
+     685
+    ],
+    "right": [
+     775,
+     490,
+     1088,
+     689
+    ]
+   },
+   "说明": "q 空间：原点在图心，x 右 y 上，单位 = 图高的一半（q.x = UV.x×1.1991）"
+  },
+  "口径": "返修第 3 轮新增（Magpie / codex gpt-image-2.5）"
+ }
+]

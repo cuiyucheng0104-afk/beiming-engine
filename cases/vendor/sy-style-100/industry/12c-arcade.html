@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>12 · 潮玩复古游戏厅 · 星际电玩城</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/retro.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 12 合成波 VHS · 行业示例：潮玩复古游戏厅 =====
+   Into the machine and back out. A dark arcade, one cabinet in attract mode; a coin drops, and the camera
+   dives straight through the glass into its vector game - wireframe enemies bursting on the beat, a combo
+   counter, the high-score table with the hall's name on top - then pulls back out as every cabinet in the
+   room lights up and the chrome logo lands. All of it through a camcorder VHS pass. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#06020c');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '星际电玩城', script: 'Retro Arcade', sub: '200+ 台经典街机 · 畅玩卡 ¥99 / 天', game: 'NEON RAIDERS' });
+const R = RETRO.init(stage);
+const { s, o, K, W, H } = R;
+const hh = Reel.hash;
+// the cabinet screen in room design coords
+const SX = 760, SY = 250, SW = 400, SH = 300;
+const scr = document.createElement('canvas'); scr.width = 1200; scr.height = 900; const g = scr.getContext('2d');
+const GS = 3;                                        // screen canvas px per screen design px
+const DIVE0 = 3.0, DIVE1 = 3.9, OUT0 = 10.9, OUT1 = 11.9;
+// carpet (pre-rendered)
+const CARPET = (() => { const c = document.createElement('canvas'); c.width = 1400; c.height = 500; const q = c.getContext('2d'); q.fillStyle = '#07030d'; q.fillRect(0, 0, 1400, 500);
+  const cols = ['#ff3fb4', '#3ff2ff', '#ffe23f', '#7a5cff']; q.lineWidth = 4;
+  for (let i = 0; i < 160; i++) { q.strokeStyle = cols[i % 4]; q.globalAlpha = 0.5; const x = hh(i) * 1400, y = hh(i * 3) * 500, r = 10 + hh(i * 7) * 16; q.beginPath(); if (i % 3 === 0) { q.moveTo(x - r, y + r); q.lineTo(x, y - r); q.lineTo(x + r, y + r); q.closePath(); } else if (i % 3 === 1) { for (let k = 0; k < 4; k++) q.lineTo(x - r * 1.5 + k * r, y + (k % 2 ? -r : r) * 0.6); } else q.arc(x, y, r * 0.6, 0, 7); q.stroke(); }
+  return c; })();
+// ---- vector game ----
+function proj3(p, f = 520) { return [600 + p[0] / p[2] * f, 430 - p[1] / p[2] * f]; }
+const OCT = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]], OE = [[0, 2], [0, 3], [0, 4], [0, 5], [1, 2], [1, 3], [1, 4], [1, 5], [2, 4], [2, 5], [3, 4], [3, 5]];
+function line(a, b, col, w = 3) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+function game(t, mode) {
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#020306'; g.fillRect(0, 0, 1200, 900);
+  g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.shadowBlur = 14;
+  const CY = '#3ff2ff', PK = '#ff3fb4', YL = '#ffe23f', GN = '#5bff8f';
+  if (mode === 'attract') {
+    // slow demo: rotating title + grid
+    g.shadowColor = CY; for (let i = 0; i < 12; i++) { const z = 1 + ((i - t * 2) % 12 + 12) % 12; const a = proj3([-3, -1.2, z]), b = proj3([3, -1.2, z]); line(a, b, `rgba(63,242,255,${0.6 - z / 24})`, 2); }
+    for (let i = -4; i <= 4; i++) line(proj3([i * 0.8, -1.2, 1]), proj3([i * 0.8, -1.2, 13]), 'rgba(63,242,255,.35)', 2);
+    g.shadowColor = PK; g.fillStyle = PK; g.font = '900 120px "DejaVu Sans Mono"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.strokeStyle = PK; g.lineWidth = 4; g.strokeText(C.game.split(' ')[0], 600, 250); g.strokeStyle = CY; g.shadowColor = CY; g.strokeText(C.game.split(' ')[1] || '', 600, 380);
+    const credit = t > 2.6; g.shadowColor = YL; g.fillStyle = YL; g.font = '700 54px "DejaVu Sans Mono"';
+    if (credit ? Math.floor(t * 6) % 2 : Math.floor(t * 2) % 2) g.fillText(credit ? 'PRESS START' : 'INSERT COIN', 600, 640);
+    g.font = '500 38px "DejaVu Sans Mono"'; g.fillStyle = '#fff'; g.shadowColor = '#fff'; g.fillText(`CREDIT ${credit ? '01' : '00'}`, 600, 820);
+  } else if (mode === 'play') {
+    const u = t - DIVE1;
+    // tunnel rings + floor grid
+    g.shadowColor = PK; for (let i = 0; i < 14; i++) { const z = 0.6 + ((i - u * 4) % 14 + 14) % 14; const r = 2.6, a = z < 1 ? 0 : 0.8 - z / 18; if (a <= 0) continue; const P4 = [[-r, -r * 0.7], [r, -r * 0.7], [r, r * 0.7], [-r, r * 0.7]].map(([x, y]) => proj3([x, y, z])); g.strokeStyle = `rgba(255,63,180,${Math.min(1, a * 1.4)})`; g.lineWidth = 4; g.beginPath(); P4.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.stroke(); }
+    for (const [x, y] of [[-2.6, -1.82], [2.6, -1.82], [-2.6, 1.82], [2.6, 1.82]]) line(proj3([x, y, 1]), proj3([x, y, 14]), 'rgba(255,63,180,.4)', 2);
+    // enemies: wireframe octahedra that burst on the beat
+    for (let i = 0; i < 9; i++) {
+      const tb = DIVE1 + 0.6 + i * 0.5, appear = tb - 1.4, ex = (hh(i * 3.3) - 0.5) * 3.2, ey = (hh(i * 5.1) - 0.5) * 1.8;
+      if (t < appear) continue; const v = t - appear, z = lerp(12, 4.5, clamp(v / 1.4));
+      if (t < tb) { const rot = v * 3 + i; g.shadowColor = GN; const P6 = OCT.map(([x, y, zz]) => { const xr = x * Math.cos(rot) - zz * Math.sin(rot), zr = x * Math.sin(rot) + zz * Math.cos(rot); const yr = y * Math.cos(rot * 0.7) - zr * Math.sin(rot * 0.7), z2 = y * Math.sin(rot * 0.7) + zr * Math.cos(rot * 0.7); return proj3([ex + xr * 0.75, ey + yr * 0.75, z + z2 * 0.75]); }); for (const [a, b] of OE) line(P6[a], P6[b], GN, 4);
+        // laser from the ship just before the hit
+        if (tb - t < 0.12) { g.shadowColor = YL; line([600, 820], proj3([ex, ey, z]), YL, 5); }
+      } else if (t < tb + 0.7) { const p = (t - tb) / 0.7, c0 = proj3([ex, ey, z]); g.shadowColor = YL; for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283 + i, r0 = 20 + p * 260, r1 = r0 + 30 * (1 - p); line([c0[0] + Math.cos(a) * r0, c0[1] + Math.sin(a) * r0], [c0[0] + Math.cos(a) * r1, c0[1] + Math.sin(a) * r1], `rgba(255,226,63,${1 - p})`, 4); } g.font = '700 44px "DejaVu Sans Mono"'; g.fillStyle = `rgba(255,255,255,${1 - p})`; g.textAlign = 'center'; g.fillText('+1000', c0[0], c0[1] - 40 - p * 60); }
+    }
+    // ship
+    g.shadowColor = CY; const sx = 600 + Math.sin(t * 2.3) * 120; const sh = [[sx, 780], [sx - 60, 860], [sx, 838], [sx + 60, 860]]; g.strokeStyle = CY; g.lineWidth = 4; g.beginPath(); sh.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.stroke();
+    // HUD
+    const hits = clamp(Math.floor((t - DIVE1 - 0.6) / 0.5) + 1, 0, 9);
+    g.shadowColor = '#fff'; g.fillStyle = '#fff'; g.font = '700 42px "DejaVu Sans Mono"'; g.textAlign = 'left'; g.fillText(`SCORE ${String(hits * 1000 + 980000).padStart(6, '0')}`, 40, 60); g.textAlign = 'right'; g.fillText('HI 999990', 1160, 60);
+    if (hits >= 3) { g.fillStyle = YL; g.shadowColor = YL; g.font = '900 64px "DejaVu Sans Mono"'; g.textAlign = 'center'; g.fillText(`COMBO x${hits}`, 600, 150 + 6 * Math.sin(t * 12)); }
+  } else {
+    // high score table
+    const u = t - 9.4; g.shadowColor = PK; g.fillStyle = PK; g.textAlign = 'center'; g.font = '900 64px "Noto Sans CJK SC"'; g.fillText(C.brand, 600, 120); g.font = '700 40px "DejaVu Sans Mono"'; g.fillStyle = CY; g.shadowColor = CY; g.fillText('HALL OF FAME', 600, 195);
+    const rows = [['1ST', 'YOU', '999990'], ['2ND', 'ACE', '871200'], ['3RD', 'KIT', '760050'], ['4TH', 'MAX', '655300'], ['5TH', 'ZOE', '540880']];
+    rows.forEach((r, k) => { const a = clamp((u - 0.15 * k) / 0.15); if (a <= 0) return; const y = 300 + k * 110; g.globalAlpha = a; g.fillStyle = k === 0 ? (Math.floor(t * 8) % 2 ? YL : '#fff') : ['#fff', CY, GN, PK][k % 4]; g.shadowColor = g.fillStyle; g.font = '700 58px "DejaVu Sans Mono"'; g.textAlign = 'left'; g.fillText(r[0], 150, y); g.fillText(r[1], 420, y); g.textAlign = 'right'; g.fillText(r[2], 1050, y); g.globalAlpha = 1; });
+  }
+  g.shadowBlur = 0; g.globalCompositeOperation = 'source-over';
+  // CRT: scanlines + rounded vignette
+  g.fillStyle = 'rgba(0,0,0,.28)'; for (let y = 0; y < 900; y += 4) g.fillRect(0, y, 1200, 2);
+  const vg = g.createRadialGradient(600, 450, 300, 600, 450, 820); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.75)'); g.fillStyle = vg; g.fillRect(0, 0, 1200, 900);
+}
+// ---- the room ----
+function cabinet(c, x, base, sc, col, on, hero, label) {
+  c.save(); c.translate(x, base); c.scale(sc, sc);
+  const bw = 520, bh = 1050;
+  c.fillStyle = '#120a1c'; c.beginPath(); c.moveTo(-bw / 2, 0); c.lineTo(-bw / 2, -bh + 120); c.lineTo(-bw / 2 + 40, -bh); c.lineTo(bw / 2 - 40, -bh); c.lineTo(bw / 2, -bh + 120); c.lineTo(bw / 2, 0); c.closePath(); c.fill();
+  c.strokeStyle = col; c.globalAlpha = 0.35 + 0.65 * on; c.lineWidth = 6; c.stroke(); c.globalAlpha = 1;
+  // marquee
+  const mg = c.createLinearGradient(-bw / 2, 0, bw / 2, 0); mg.addColorStop(0, col); mg.addColorStop(1, '#ffffff'); c.globalAlpha = 0.25 + 0.75 * on; c.fillStyle = mg; c.fillRect(-bw / 2 + 40, -bh + 20, bw - 80, 100); c.globalAlpha = 1;
+  c.fillStyle = '#1a0f26'; c.font = '900 52px "DejaVu Sans Mono"'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(hero ? C.game : label, 0, -bh + 72);
+  // control panel + coin door
+  c.fillStyle = '#1d1230'; c.beginPath(); c.moveTo(-bw / 2, -420); c.lineTo(bw / 2, -420); c.lineTo(bw / 2 + 30, -330); c.lineTo(-bw / 2 - 30, -330); c.fill();
+  c.fillStyle = '#e8304a'; c.beginPath(); c.arc(-120, -380, 18, 0, 7); c.fill(); c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(60, -380, 16, 0, 7); c.arc(120, -380, 16, 0, 7); c.fill();
+  c.fillStyle = '#0c0614'; c.fillRect(-70, -250, 140, 120); c.fillStyle = on > 0.5 ? '#ff3f5a' : '#401020'; c.fillRect(-14, -230, 28, 50);
+  if (!hero) { const sg = c.createLinearGradient(0, -900, 0, -500); sg.addColorStop(0, col); sg.addColorStop(1, '#05030a'); c.globalAlpha = 0.15 + 0.7 * on; c.fillStyle = sg; c.fillRect(-200, -880, 400, 330); c.globalAlpha = 1; }
+  c.restore();
+}
+function room(t, allOn) {
+  // floor
+  s.save(); s.globalAlpha = 0.9; s.drawImage(CARPET, -300, 820, 2520, 500); s.restore();
+  const cols = ['#ff3fb4', '#3ff2ff', '#ffe23f', '#7a5cff', '#5bff8f'];
+  // side rows of cabinets in perspective
+  for (let i = 5; i >= 1; i--) for (const side of [-1, 1]) { const sc = 0.95 - i * 0.12, x = 960 + side * (380 + i * 120) * (1.4 - i * 0.12), on = allOn > 0 ? clamp(allOn * 6 - i * 0.5 - (side > 0 ? 0.3 : 0)) : 0.25; cabinet(s, x, 980 - i * 30, sc * 0.8, cols[(i + (side > 0 ? 2 : 0)) % 5], on, false, ['STAR WAR', 'BLOCKS', 'PONG 2', 'RALLY', 'GALAXY', 'DRAGON'][(i * 2 + (side > 0 ? 1 : 0)) % 6]); }
+  // hero cabinet
+  cabinet(s, 960, 1080, 1.0, '#ff3fb4', 1, true);
+  s.drawImage(scr, SX, SY, SW, SH);
+  // glass glare + bezel
+  s.strokeStyle = '#05020a'; s.lineWidth = 26; s.strokeRect(SX - 13, SY - 13, SW + 26, SH + 26);
+  const gl = s.createLinearGradient(SX, SY, SX + SW, SY + SH); gl.addColorStop(0, 'rgba(255,255,255,.08)'); gl.addColorStop(0.5, 'rgba(255,255,255,0)'); s.fillStyle = gl; s.fillRect(SX, SY, SW, SH);
+  // screen light spilling into the room
+  s.globalCompositeOperation = 'lighter'; const sp = s.createRadialGradient(960, 400, 40, 960, 500, 700); sp.addColorStop(0, 'rgba(120,200,255,.18)'); sp.addColorStop(1, 'rgba(120,200,255,0)'); s.fillStyle = sp; s.fillRect(0, 0, 1920, 1300);
+  if (allOn > 0) { const ceil = s.createLinearGradient(0, 0, 0, 300); ceil.addColorStop(0, `rgba(255,63,180,${0.35 * clamp(allOn * 2)})`); ceil.addColorStop(1, 'rgba(255,63,180,0)'); s.fillStyle = ceil; s.fillRect(-200, 0, 2320, 300); }
+  s.globalCompositeOperation = 'source-over';
+  // coin
+  if (t > 2.2 && t < 2.75) { const p = (t - 2.2) / 0.55, y = lerp(-80, -240, 0) ; s.save(); s.translate(960, 1080 - 250 + lerp(-160, 0, E.inQuad(p))); s.scale(Math.abs(Math.cos(p * 12)) * 0.9 + 0.1, 1); s.fillStyle = '#ffd23f'; s.shadowColor = '#ffd23f'; s.shadowBlur = 20; s.beginPath(); s.arc(0, 0, 22, 0, 7); s.fill(); s.restore(); }
+}
+function camera(t) {
+  // zoom z on the room; the screen centre is (960, 400)
+  const scrZ = 3.55, cx0 = 960, cy0 = 640, z0 = 0.86;
+  let z = z0 * (1 + 0.06 * E.inOutSine(clamp(t / DIVE0))), cx = cx0, cy = lerp(cy0, 600, clamp(t / DIVE0));
+  const d = E.inOutCubic(clamp((t - DIVE0) / (DIVE1 - DIVE0))), b = E.inOutCubic(clamp((t - OUT0) / (OUT1 - OUT0)));
+  const inZ = lerp(z, scrZ, d); z = lerp(inZ, 0.8, b); cx = lerp(cx, 960, d); cy = lerp(lerp(cy, 400, d), 560, b);
+  if (t > OUT1) { z *= 1 + 0.04 * E.inOutSine(clamp((t - OUT1) / 3)); }
+  return { z, cx, cy };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 160px Inter', 'italic 700 120px Lora', '500 30px "DejaVu Sans Mono"', '900 52px "DejaVu Sans Mono"', '900 100px "Noto Sans CJK SC"', '700 40px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.1, sfx: 'vhs', gain: 0.6 }, { t: 2.3, sfx: 'coin', gain: 0.8 }, { t: 2.65, sfx: 'tick', gain: 0.5 }, { t: DIVE0, sfx: 'whoosh', gain: 0.5 }, { t: DIVE1 - 0.1, sfx: 'powerup', gain: 0.6 },
+    ...Array.from({ length: 9 }, (_, i) => ({ t: +(DIVE1 + 0.6 + i * 0.5).toFixed(2), sfx: 'block', gain: 0.5 })), { t: 9.4, sfx: 'levelup', gain: 0.6 }, { t: OUT0, sfx: 'whoosh', gain: 0.5 }, { t: OUT1, sfx: 'impact', gain: 0.85 }, { t: OUT1 + 0.05, sfx: 'neon', gain: 0.6 }, { t: 12.6, sfx: 'sparkle', gain: 0.5 }],
+  render(t) {
+    const mode = t < DIVE1 + 0.05 ? 'attract' : t < 9.4 ? 'play' : 'score';
+    game(t, mode);
+    const cam = camera(t);
+    s.setTransform(1, 0, 0, 1, 0, 0); s.fillStyle = '#05020a'; s.fillRect(0, 0, W, H);
+    s.setTransform(K * cam.z, 0, 0, K * cam.z, 960 * K, 540 * K); s.translate(-cam.cx, -cam.cy);
+    room(t, t > OUT0 + 0.3 ? clamp((t - OUT0 - 0.3) / 1.2) : 0);
+    s.setTransform(1, 0, 0, 1, 0, 0);
+    o.clearRect(0, 0, W, H);
+    if (t > OUT1) {
+      const sc = lerp(2.0, 1, E.outCubic(clamp((t - OUT1) / 0.3)));
+      o.save(); o.translate(960 * K, 170 * K); o.scale(sc, sc); o.translate(-960 * K, -170 * K);
+      R.chrome(o, C.brand, 960, 170, 150, clamp((t - OUT1) / 0.12), -0.14, (t - 12.6) * 1.3, '"Noto Sans CJK SC"'); o.restore();
+      R.neon(o, C.script, 1230, 285, 70, '#3ff2ff', clamp((t - 12.3) / 0.15), { font: 'Lora', italic: true, wt: 700, lw: 5, rot: -0.08 });
+      const a = clamp((t - 12.8) / 0.3); if (a > 0) { o.save(); o.globalAlpha = a; o.font = `700 ${36 * K}px "Noto Sans CJK SC"`; o.textAlign = 'center'; o.fillStyle = '#fff'; o.shadowColor = '#ff3fb4'; o.shadowBlur = 16 * K; o.fillText(C.sub, 960 * K, 1010 * K); o.restore(); }
+    }
+    R.osd(o, t, 'PLAY ▶', 'DEC. 24 1988', true, 'SP', 47 * 60 + 2);
+    const glitch = (t > DIVE1 - 0.08 && t < DIVE1 + 0.08) || (t > OUT1 - 0.05 && t < OUT1 + 0.12) ? 0.7 : 0;
+    R.finish(t, glitch, { useCanvas: true });
+  },
+});
+</script></body></html>

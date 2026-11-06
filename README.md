@@ -42,6 +42,14 @@
 
 <sub>六个造型都在 [src/](src) 里，各有一张自测页：`?test=kun_qinglv`、`?test=kun_bronze` ……</sub>
 
+## 案例与完整风格基座
+
+66个本机风格实验、7部PPT故事介绍片、6个发布会动画工程、4组北冥画风实验及其他动画/预演，已经整理为可查源码、可看成片、可还原素材的[案例库](cases/README.md)。旧版、手机版和未获认可的试验分别标注。
+
+**完整基座也在仓库中**：[SY的20风格 / 100示例](cases/vendor/sy-style-100/)与[Lemo的全部66风格、demo和core](cases/vendor/lemo-opuscar/)，共2809个上游跟踪文件，保留固定版本与署名。
+
+[看全部案例](cases/INDEX.md) · [源码对比与去重](docs/cases/comparison.md) · [PPT怎样变成动画](docs/cases/ppt-animation.md) · [成片与素材下载](https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/casebook-2026.11)
+
 ## 管线
 
 ```

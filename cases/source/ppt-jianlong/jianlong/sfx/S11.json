@@ -1,0 +1,22 @@
+{
+ "seg": "S11",
+ "_说明": "t = 段内秒。open = 图 11 化开完；pc1–pc6 = 六块碎片落定（飞行 1.05 s，落定那一下木石碰撞）；kj1–kj5 = 五块口诀浮标逐字亮起（n 字、cps，box=0：第 j 字在 t+j/cps）；lit = 整幅提亮；whole = 大扫描框；off = 镜片退去开始。",
+ "events": [
+  {"id": "open",  "t": 0.8,  "type": "whoosh",    "dur": 0.9, "gain": -27},
+  {"id": "pc1",   "t": 1.1,  "type": "assemble",  "times": [0], "gain": -12, "pan": -0.7, "seed": 1},
+  {"id": "pc2",   "t": 1.35, "type": "assemble",  "times": [0], "gain": -13, "pan": -0.3, "seed": 2},
+  {"id": "pc3",   "t": 1.6,  "type": "assemble",  "times": [0], "gain": -11, "pan": 0.1, "seed": 3},
+  {"id": "pc4",   "t": 1.85, "type": "assemble",  "times": [0], "gain": -13, "pan": 0.35, "seed": 4},
+  {"id": "pc5",   "t": 2.06, "type": "assemble",  "times": [0], "gain": -12, "pan": 0.3, "seed": 5},
+  {"id": "pc6",   "t": 2.4,  "type": "assemble",  "times": [0], "gain": -10, "pan": 0.75, "seed": 6},
+  {"id": "thud",  "t": 2.4,  "type": "stone",     "gain": -16, "f": 65, "pan": 0.5},
+  {"id": "kj1",   "t": 2.3,  "type": "ui_type",   "n": 8, "cps": 7, "box": 0, "gain": -28, "pan": -0.8},
+  {"id": "kj2",   "t": 2.62, "type": "ui_type",   "n": 8, "cps": 7, "box": 0, "gain": -28, "pan": -0.5},
+  {"id": "kj3",   "t": 2.94, "type": "ui_type",   "n": 9, "cps": 7, "box": 0, "gain": -28, "pan": 0.5},
+  {"id": "kj4",   "t": 3.26, "type": "ui_type",   "n": 9, "cps": 7, "box": 0, "gain": -28, "pan": 0.2},
+  {"id": "kj5",   "t": 3.58, "type": "ui_type",   "n": 8, "cps": 7, "box": 0, "gain": -28, "pan": 0.8},
+  {"id": "lit",   "t": 4.5,  "type": "ui_stroke", "dur": 1.6, "gain": -31},
+  {"id": "whole", "t": 7.6,  "type": "scan_beep", "gain": -21, "freq": 1800},
+  {"id": "off",   "t": 9.3,  "type": "ui_stroke", "dur": 1.0, "gain": -30}
+ ]
+}

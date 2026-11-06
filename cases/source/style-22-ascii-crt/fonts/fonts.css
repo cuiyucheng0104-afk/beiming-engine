@@ -1,0 +1,5 @@
+/* VT323 — SIL Open Font License 1.1 (OFL-VT323.txt) */
+@font-face { font-family: 'VT323'; src: url(VT323-latin.woff2) format('woff2'); font-weight: 400; font-display: block; }
+/* Noto Sans SC 子集（Google Fonts &text=）— SIL Open Font License 1.1 (OFL-NotoSansSC.txt) */
+@font-face { font-family: 'SC'; src: url(NotoSansSC-400-sub.woff2) format('woff2'); font-weight: 400; font-display: block; }
+@font-face { font-family: 'SC'; src: url(NotoSansSC-900-sub.woff2) format('woff2'); font-weight: 900; font-display: block; }

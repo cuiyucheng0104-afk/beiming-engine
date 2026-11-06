@@ -1,0 +1,19 @@
+灯塔守夜 · CREDITS
+
+画面
+- 全部画面由代码实时绘制（Canvas 2D + WebGL2 印刷着色），无生成视频、无图库素材、无真实影像素材。
+- 木刻引擎（engine/、trans.js）改编自 lemo-opuscar 风格库的木刻风格示例代码，MIT License。
+
+字体
+- Noto Serif SC（Weight 900，仅「灯塔守夜」四字子集），Google Fonts，SIL Open Font License 1.1
+  来源：https://fonts.google.com/noto/specimen/Noto+Serif+SC
+
+声音
+- 配乐为本片原创，用 numpy 合成与以下 CC0 真实采样演奏：
+  Cellos, Contrabass, Cellos spiccato, Contrabass pizzicato, Timpani, Gong, French horn, Trombone, Tuba, Log drum —
+  "VS Chamber Orchestra: Community Edition" by Versilian Studios / Sam Gossner, CC0 1.0 (https://github.com/sgossner/VSCO-2-CE)
+  Gran cassa, Suspended cymbal, Crash cymbals 2, Woodblock —
+  "Versilian Community Sample Library" by Versilian Studios, CC0 1.0 (https://github.com/sgossner/VCSL)
+- 全部拟音与环境声（刻刀、木屑、刺刀、压印、浪、风、雨、铁梯、点火、光束刀声、滚筒、揭纸、铅字）为 numpy/scipy 程序合成，无第三方录音。
+
+本片未使用任何真实人物、品牌、标志或第三方影像素材。

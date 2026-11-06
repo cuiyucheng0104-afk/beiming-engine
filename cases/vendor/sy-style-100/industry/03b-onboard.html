@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>03 · 企业内训 · 新人七日通</title>
+<script src="../lib/core.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 03 扁平矢量 · 行业示例：企业内训 =====
+   One continuous zoom through a new hire's first week: day 1 the badge and the laptop -> day 3 the training
+   system -> day 5 learning from a mentor at the whiteboard -> day 7 the first signed deal, where the title lands. */
+const C = Reel.cfg({ title: '新人七日通', sub: '7 天，从新人到第一单 · 企业培训定制', name: '小林', d1: '第 1 天 · 领工牌', d3: '第 3 天 · 学系统', d5: '第 5 天 · 跟导师', d7: '第 7 天 · 第一单' });
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#4d6bff');
+const { ctx, begin, k: K0 } = Reel.canvas2d(stage);
+let PZ = { on: false, Z: 1, Fx: 0, Fy: 0 };
+const PAL = { org: '#ffb44c', org2: '#ff9a2e', orgL: '#ffe2b8', mint: '#22c08a', mint2: '#1aa877', mintL: '#bff0dc', navy: '#18233f', ink: '#2b3655', cream: '#fff7ea', yellow: '#ffd166', coral: '#ff7b6b', blue: '#4d8dff', purple: '#8f7bff', white: '#ffffff', grey: '#eef2f7', skin: '#f6b48d', skin2: '#e0956b' };
+const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); };
+const circ = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); };
+const fill = (c) => { ctx.fillStyle = c; ctx.fill(); };
+const txt = (s, x, y, font, col, align = 'left') => { ctx.font = font; ctx.fillStyle = col; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(s, x, y); };
+const SANS = (w, px) => `${w} ${px}px "Noto Sans CJK SC"`;
+const NUM = (w, px) => `${w} ${px}px Inter`;
+const shadowCard = (x, y, w, h, r, col, sh = 'rgba(16,40,60,.16)', off = 10) => { rr(x, y + off, w, h, r); fill(sh); rr(x, y, w, h, r); fill(col); };
+
+
+// a flat person: x,y = feet centre, s = scale
+function person(x, y, s, o) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const skin = o.skin || PAL.skin, hair = o.hair || PAL.navy, shirt = o.shirt || PAL.blue;
+  rr(-46, -150, 36, 150, 16); fill(o.pants || PAL.navy); rr(10, -150, 36, 150, 16); fill(o.pants || PAL.navy);
+  rr(-70, -330, 140, 200, 56); fill(shirt);
+  const arm = (sd, up) => { ctx.save(); ctx.translate(sd * 58, -300); ctx.rotate(sd * (up ? -2.4 : 0.18)); rr(-17, 0, 34, 150, 17); fill(shirt); circ(0, 150, 20); fill(skin); ctx.restore(); };
+  arm(-1, o.armL); arm(1, o.armR);
+  rr(-16, -360, 32, 40, 10); fill(skin);
+  circ(0, -410, 62); fill(skin);
+  ctx.beginPath(); ctx.arc(0, -420, 64, Math.PI, 0); ctx.lineTo(64, -400); ctx.quadraticCurveTo(10, -470, -64, -400); ctx.closePath(); fill(hair);
+  if (o.long) { rr(-70, -440, 30, 120, 15); fill(hair); rr(40, -440, 30, 120, 15); fill(hair); }
+  const e = o.happy ? 0 : 1;
+  if (o.happy) { ctx.strokeStyle = PAL.navy; ctx.lineWidth = 6; ctx.lineCap = 'round'; for (const sx of [-22, 22]) { ctx.beginPath(); ctx.arc(sx, -405, 9, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); } }
+  else for (const sx of [-22, 22]) { circ(sx, -405, 7); fill(PAL.navy); }
+  ctx.strokeStyle = PAL.navy; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); if (o.happy) ctx.arc(0, -385, 16, 0.15, Math.PI - 0.15); else { ctx.moveTo(-10, -378); ctx.lineTo(10, -378); } ctx.stroke();
+  circ(-38, -385, 10); fill('rgba(255,120,120,.35)'); circ(38, -385, 10); fill('rgba(255,120,120,.35)');
+  ctx.restore();
+}
+const dayTag = (s) => { rr(70, 60, 340, 74, 37); fill('rgba(255,255,255,.95)'); txt(s, 240, 98, SANS(900, 34), PAL.navy, 'center'); };
+
+
+/* ---------------- Level A: day 1, badge + laptop ---------------- */
+const A = { portal: [900, 250, 640, 360], r: 14 };
+function drawA(t) {
+  ctx.fillStyle = '#4d6bff'; ctx.fillRect(-20, -20, 1960, 1120);
+  circ(1220, 430, 600); fill('#5a77ff'); circ(1220, 430, 420); fill('#6683ff');
+  rr(-20, 760, 1960, 360, 0); fill('#e9edf7'); rr(-20, 760, 1960, 24, 0); fill('#d5dbea');           // desk
+  const [px, py, pw, ph] = A.portal;
+  rr(px - 26, py - 26, pw + 52, ph + 52, 26); fill(PAL.navy);                                      // laptop lid
+  ctx.beginPath(); ctx.moveTo(px - 120, py + ph + 40); ctx.lineTo(px + pw + 120, py + ph + 40); ctx.lineTo(px + pw + 170, py + ph + 110); ctx.lineTo(px - 170, py + ph + 110); ctx.closePath(); fill('#c7cede');
+  rr(px + pw / 2 - 120, py + ph + 70, 240, 22, 11); fill('#b3bbcf');
+  // mug + plant
+  rr(1700, 640, 110, 130, 20); fill(PAL.yellow); ctx.strokeStyle = PAL.yellow; ctx.lineWidth = 16; ctx.beginPath(); ctx.arc(1815, 700, 30, -1.2, 1.2); ctx.stroke();
+  rr(160, 600, 150, 170, 26); fill(PAL.coral); for (let k = 0; k < 5; k++) { ctx.save(); ctx.translate(235, 600); ctx.rotate(-0.9 + k * 0.45); rr(-18, -170, 36, 160, 18); fill(PAL.mint); ctx.restore(); }
+  // the badge on its lanyard
+  const sw = Math.sin(t * 1.6) * 0.05;
+  ctx.save(); ctx.translate(560, 120); ctx.rotate(sw);
+  ctx.strokeStyle = PAL.coral; ctx.lineWidth = 18; ctx.beginPath(); ctx.moveTo(-90, -140); ctx.lineTo(0, 300); ctx.lineTo(90, -140); ctx.stroke();
+  shadowCard(-150, 300, 300, 400, 30, PAL.white, 'rgba(10,20,60,.25)', 12);
+  rr(-150, 300, 300, 90, 30); fill(PAL.navy); rr(-150, 360, 300, 30, 0); fill(PAL.navy); txt('NEW STAR', 0, 345, NUM(800, 30), PAL.white, 'center');
+  circ(0, 470, 62); fill('#dfe6ff'); circ(0, 452, 26); fill(PAL.skin); rr(-40, 482, 80, 40, 20); fill(PAL.blue);
+  txt(C.name, 0, 580, SANS(900, 44), PAL.navy, 'center'); txt('销售部 · 新同事', 0, 632, SANS(500, 24), '#8a93a8', 'center');
+  ctx.restore();
+  dayTag(C.d1);
+}
+function overA(t) {}
+/* ---------------- Level B: day 3, the training system ---------------- */
+const B = { portal: [700, 200, 1000, 562.5], r: 16 };
+function drawB(t) {
+  ctx.fillStyle = '#f4f6fc'; ctx.fillRect(-20, -20, 1960, 1120);
+  rr(-20, -20, 560, 1140, 0); fill(PAL.navy);
+  txt('新人学院', 80, 215, SANS(900, 48), PAL.white);
+  const D = ['入职报到', '产品知识', '系统上手', '客户沟通', '跟岗实战', '模拟谈单', '独立开单'];
+  D.forEach((d, i) => { const y = 290 + i * 100, done = i < 3; rr(70, y, 400, 80, 40); fill(done ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.04)'); circ(112, y + 40, 22); fill(done ? PAL.mint : '#3a4668');
+    if (done) { ctx.strokeStyle = PAL.white; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(101, y + 40); ctx.lineTo(110, y + 49); ctx.lineTo(124, y + 31); ctx.stroke(); }
+    txt(`Day ${i + 1}  ${d}`, 150, y + 40, SANS(700, 28), done ? PAL.white : 'rgba(255,255,255,.45)'); });
+  const [px, py, pw, ph] = B.portal;
+  shadowCard(px - 20, py - 20, pw + 40, ph + 40, 24, PAL.navy, 'rgba(10,20,60,.18)', 10);
+  rr(px, py + ph + 70, pw, 18, 9); fill('#dfe4f1'); rr(px, py + ph + 70, pw * lerp(0.2, 0.62, E.inOutSine(inv(1.4, 3.2, t))), 18, 9); fill(PAL.blue);
+  txt('第 3 课 · 一分钟上手客户系统', px, py + ph + 140, SANS(800, 34), PAL.navy);
+  dayTag(C.d3);
+}
+function overB(t) {}
+/* ---------------- Level C: day 5, mentor at the whiteboard ---------------- */
+const Cc = { portal: [1100, 300, 560, 315], r: 12 };
+function drawC(t) {
+  ctx.fillStyle = '#ffe9c7'; ctx.fillRect(-20, -20, 1960, 1120);
+  rr(-20, 860, 1960, 260, 0); fill('#f2d3a5');
+  const [px, py, pw, ph] = Cc.portal;
+  shadowCard(px - 400, py - 120, pw + 460, ph + 230, 20, PAL.white, 'rgba(100,60,20,.15)', 10);     // whiteboard
+  const steps = ['了解需求', '给出方案', '促成签约'];
+  steps.forEach((s2, i) => { const y = py - 40 + i * 120, a = E.outBack(clamp(inv(4.0 + i * 0.3, 4.3 + i * 0.3, PZ.tl)), 1.5); if (a <= 0) return; ctx.save(); ctx.translate(px - 210, y + 40); ctx.scale(a, a); rr(-150, -40, 300, 80, 40); fill([PAL.yellow, PAL.mint, PAL.coral][i]); txt(s2, 0, 2, SANS(900, 32), PAL.navy, 'center'); ctx.restore(); });
+  person(420, 900, 1.05, { shirt: PAL.navy, hair: '#2d2d2d', armR: true, happy: true });             // mentor
+  person(760, 900, 0.95, { shirt: PAL.blue, hair: '#3b2a20', long: true, happy: false });           // the new hire
+  rr(870, 660, 70, 90, 8); fill(PAL.white);
+  dayTag(C.d5);
+}
+function overC(t) {}
+/* ---------------- Level D: day 7, the first deal ---------------- */
+const D = { portal: null };
+function drawD(t) {
+  ctx.fillStyle = '#f5f7ff'; ctx.fillRect(-20, -20, 1960, 1120);
+  for (let i = 0; i < 40; i++) { const x = (i * 197) % 1920, y = ((i * 131) % 1080 + t * 160 * (0.6 + (i % 5) * 0.2)) % 1180 - 60; ctx.save(); ctx.translate(x, y); ctx.rotate(t * 2 + i); rr(-8, -14, 16, 28, 4); fill([PAL.coral, PAL.yellow, PAL.mint, PAL.blue][i % 4]); ctx.restore(); }
+  shadowCard(1000, 130, 640, 820, 26, PAL.white, 'rgba(20,30,80,.15)', 12);
+  txt('合作协议', 1320, 230, SANS(900, 52), PAL.navy, 'center');
+  for (let k = 0; k < 7; k++) { rr(1080, 320 + k * 56, 480 - (k % 3) * 70, 16, 8); fill('#e6eaf4'); }
+  txt('乙方签字：' + C.name, 1080, 790, SANS(700, 30), PAL.ink);
+  const st = E.outBack(clamp(inv(6.9, 7.2, t)), 2.2);
+  if (st > 0) { ctx.save(); ctx.translate(1460, 760); ctx.rotate(-0.25); ctx.scale(2.2 - 1.2 * Math.min(st, 1), 2.2 - 1.2 * Math.min(st, 1)); ctx.globalAlpha = Math.min(1, st); ctx.strokeStyle = '#e03b3b'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(0, 0, 110, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 92, 0, Math.PI * 2); ctx.stroke(); txt('成交', 0, 4, SANS(900, 64), '#e03b3b', 'center'); ctx.restore(); }
+  dayTag(C.d7);
+}
+function overD(t) {}
+const LV = [
+  { draw: drawA, over: overA, P: A.portal, r: A.r },
+  { draw: drawB, over: overB, P: B.portal, r: B.r },
+  { draw: drawC, over: overC, P: Cc.portal, r: Cc.r },
+  { draw: drawD, over: overD, P: null, r: 0 },
+];
+LV.forEach((l) => { if (l.P) { l.s = l.P[2] / 1920; l.log = Math.log(1 / l.s); } else l.log = 0; });
+const TOTAL = LV[0].log + LV[1].log + LV[2].log;
+function drawLevel(i, t, depth, screenScale) {
+  const L = LV[i];
+  const keep = PZ.on; if (depth > 0) PZ.on = false;
+  L.draw(t);
+  if (L.P && i < 3 && depth < 3 && L.P[2] * screenScale > 3) {
+    const [px, py, pw, ph] = L.P;
+    ctx.save(); rr(px, py, pw, ph, L.r); ctx.clip();
+    ctx.translate(px, py); ctx.scale(L.s, L.s);
+    drawLevel(i + 1, t, depth + 1, screenScale * L.s);
+    ctx.restore();
+  }
+  L.over(t);
+  PZ.on = keep;
+}
+const zin = (t, t0, t1, a = 0.7, d = 0.9) => { const c = t1 - t0 - a - d, v = TOTAL / (a / 2 + c + d / 2), u = clamp(t, t0, t1) - t0;
+  return u < a ? v * u * u / (2 * a) : u < a + c ? v * (a / 2 + (u - a)) : TOTAL - v * Math.pow(t1 - t0 - u, 2) / (2 * d); };
+function place(g, ct, rot = 0, zs = 1) {
+  let i = 0, f = clamp(g, 0, TOTAL);
+  while (i < 3 && f > LV[i].log) { f -= LV[i].log; i++; }
+  if (i >= 3) { i = 3; f = 0; }
+  const L = LV[i], Z = Math.exp(f);
+  const Fx = L.P ? L.P[0] / (1 - L.s) : 0, Fy = L.P ? L.P[1] / (1 - L.s) : 0;
+  ctx.setTransform(K0, 0, 0, K0, 0, 0);
+  if (rot || zs !== 1) { ctx.translate(960, 540); ctx.rotate(rot); ctx.scale(zs, zs); ctx.translate(-960, -540); }
+  ctx.transform(Z, 0, 0, Z, Fx * (1 - Z), Fy * (1 - Z));
+  PZ = { on: true, Z, Fx, Fy, tl: ct };
+  drawLevel(i, ct, 0, Z * zs);
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 120px "Noto Sans CJK SC"', '800 34px "Noto Sans CJK SC"', '700 28px "Noto Sans CJK SC"', '800 110px Inter', '700 32px Inter'],
+  cues: [{"t": 0.3, "sfx": "stamp", "gain": 0.7}, {"t": 1.0, "sfx": "click", "gain": 0.5}, {"t": 2.4, "sfx": "zoom", "gain": 0.6}, {"t": 3.4, "sfx": "impact_soft", "gain": 0.6}, {"t": 3.45, "sfx": "stamp", "gain": 0.7}, {"t": 5.2, "sfx": "pop", "gain": 0.5}, {"t": 6.2, "sfx": "zoom", "gain": 0.6}, {"t": 7.2, "sfx": "impact_soft", "gain": 0.6}, {"t": 7.25, "sfx": "stamp", "gain": 0.7}, {"t": 8.6, "sfx": "pop", "gain": 0.5}, {"t": 10.0, "sfx": "zoom", "gain": 0.6}, {"t": 11.0, "sfx": "impact_soft", "gain": 0.6}, {"t": 11.05, "sfx": "stamp", "gain": 0.7}, {"t": 11.5, "sfx": "stamp", "gain": 0.6}, {"t": 12.1, "sfx": "levelup", "gain": 0.7}, {"t": 12.3, "sfx": "sparkle", "gain": 0.5}],
+  render(t) {
+    begin();
+    // holds and hops: [real time start, end] of each hop; content time is remapped so every level plays during its hold
+    const HOPS = [[2.4, 3.4], [6.2, 7.2], [10.0, 11.0]];
+    const CT = [[0, 0], [2.4, 1.2], [3.4, 1.8], [6.2, 3.4], [7.2, 4.2], [10.0, 6.0], [11.0, 6.6], [15, 10.0]];
+    let ct = 0; for (let k = 1; k < CT.length; k++) if (t <= CT[k][0]) { ct = lerp(CT[k - 1][1], CT[k][1], (t - CT[k - 1][0]) / (CT[k][0] - CT[k - 1][0])); break; }
+    let g = 0, sh = 0;
+    HOPS.forEach(([a, b], k) => { const base = LV.slice(0, k).reduce((s2, l) => s2 + l.log, 0); const u = clamp((t - a) / (b - a)); if (t >= a) g = base + LV[k].log * (u < 1 ? E.inOutExpo(u) : 1); const land = t - b; if (land > 0 && land < 0.35) sh = Math.sin(land * 40) * (0.35 - land) * 0.03; });
+    place(g, ct, sh, 1 + Math.max(0, sh) * 0.5);
+    // day stamp landing on each hold
+    const stamps = [[0.3, C.d1], [3.45, C.d3], [7.25, C.d5], [11.05, C.d7]];
+    for (const [ts, txt0] of stamps) { const u = t - ts; if (u < 0 || u > 1.4) continue; const s2 = u < 0.15 ? lerp(2.2, 1, E.outQuad(u / 0.15)) : 1, al = 1 - clamp((u - 1.1) / 0.3);
+      ctx.setTransform(K0, 0, 0, K0, 0, 0); ctx.save(); ctx.translate(1580, 160); ctx.rotate(-0.08); ctx.scale(s2, s2); ctx.globalAlpha = al;
+      ctx.strokeStyle = '#ff4d5e'; ctx.lineWidth = 8; ctx.beginPath(); ctx.roundRect(-210, -62, 420, 124, 18); ctx.stroke(); ctx.font = '900 54px "Noto Sans CJK SC"'; ctx.fillStyle = '#ff4d5e'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt0.split(' · ')[0], 0, -6); ctx.font = '700 26px "Noto Sans CJK SC"'; ctx.fillText(txt0.split(' · ')[1] || '', 0, 40); ctx.restore(); }
+    t = ct;
+    PZ.on = false;
+    const tk = E.outBack(clamp(inv(7.5, 8.05, t)), 1.6), ta = clamp(inv(7.5, 7.7, t));
+    if (ta > 0) {
+      begin();
+      ctx.save(); ctx.translate(110, 470); ctx.scale(tk, tk); ctx.globalAlpha = ta;
+      ctx.font = '900 120px "Noto Sans CJK SC"'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#dfe6ff'; ctx.fillText(C.title, 6, 8); ctx.fillStyle = '#3b55e6'; ctx.fillText(C.title, 0, 0);
+      ctx.font = '700 30px "Noto Sans CJK SC"'; ctx.fillStyle = PAL.ink; ctx.fillText(C.sub, 4, 110);
+      ctx.restore();
+    }
+  },
+});
+</script></body></html>

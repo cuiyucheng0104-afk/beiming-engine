@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><title>C-quanpian</title>
+<style>
+@font-face{font-family:Inter;font-weight:800;src:url(/@film/fonts/Inter-800-sub.woff2) format('woff2')}
+@font-face{font-family:Inter;font-weight:700;src:url(/@film/fonts/Inter-700-sub.woff2) format('woff2')}
+@font-face{font-family:NSC;font-weight:700;src:url(/@film/fonts/NotoSansSC-700-sub.woff2) format('woff2')}
+/* 全片字体（tools/fonts.sh 按 src/shared/texts.js 子集化）：SC = Noto Sans SC 700，SCM = Noto Sans SC 500，InterF = Inter 500/700/800 */
+@font-face{font-family:SC;font-weight:700;src:url(/@film/fonts/SC-700.woff2) format('woff2')}
+@font-face{font-family:SCM;font-weight:500;src:url(/@film/fonts/SC-500.woff2) format('woff2')}
+@font-face{font-family:InterF;font-weight:500;src:url(/@film/fonts/InterF-500.woff2) format('woff2')}
+@font-face{font-family:InterF;font-weight:700;src:url(/@film/fonts/InterF-700.woff2) format('woff2')}
+@font-face{font-family:InterF;font-weight:800;src:url(/@film/fonts/InterF-800.woff2) format('woff2')}
+html,body{margin:0;background:#000;overflow:hidden}#stage{position:absolute;left:0;top:0;width:1920px;height:1080px}canvas{display:block;width:1920px;height:1080px}
+</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body><div id="stage"></div>
+<script type="module" src="/@film/src/main.js"></script></body></html>

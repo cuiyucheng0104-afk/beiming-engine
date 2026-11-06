@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>18 · 古镇文旅 · 青溪古镇</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/inkwash.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 18 水墨国风 · 行业示例：古镇文旅 =====
+   A handscroll on a walnut table. The roller turns and the scroll unrolls to the right; the camera trucks
+   along with it, and the painted water town is alive as it comes out from under the roll: a covered boat
+   poled along the canal keeps pace with us, ripples drift, willow strands sway, red lanterns bloom under the
+   eaves, the boat slides under a stone arch bridge whose reflection closes the circle. At the end panel the
+   camera lifts off the table to see the whole scroll; the town's name is written in and sealed. */
+const { E, clamp, lerp, inv } = Reel;
+const stage = Reel.makeStage('#1c120b');
+const C = Reel.cfg({ brand: '青溪古镇', sub: '江南水乡 · 夜游 · 民宿', seal: '青溪' });
+const SERIF = '"Noto Serif CJK SC"';
+const SW = 3400, SH = 1080, WL = 610;           // scroll width/height (world px), waterline
+let I, ov, og;
+const h1 = (x) => Reel.hash(x);
+const sn = (x, s = 0) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(h1(i * 1.31 + s), h1((i + 1) * 1.31 + s), u); };
+const rollX = (t) => lerp(250, SW, E.inOutSine(inv(0.35, 8.6, t)));
+function camAt(t) { const u = E.inOutCubic(inv(8.5, 10.9, t)); const z0 = 1.15; return { x: lerp(rollX(t) - 520, SW / 2, u), y: lerp(560, 540, u) + 6 * Math.sin(t * 0.5), z: 1 / lerp(1 / z0, 1 / 0.52, u) }; }
+const boatX = (t) => lerp(-60, 2620, E.inOutSine(inv(0.6, 9.0, t)));
+/* ---------- painting pieces ---------- */
+const HOUSES = [[120, 260, 230, 0], [400, 200, 190, 1], [620, 300, 260, 0], [960, 220, 210, 1], [1190, 180, 180, 0], [2010, 240, 230, 1], [2270, 280, 250, 0], [2580, 210, 200, 1], [2820, 170, 180, 0]];
+function house(x, w, h, ty, k, a, mirror) {
+  const d = I.d0, base = WL - 8, top = base - h, ro = mirror ? 0.3 : 1;
+  const ink = (pts, wd, al, o = {}) => { if (!mirror) I.stroke(pts, wd, al * a, 1, { seed: k * 13 + (o.s || 0), tin: 0.03, tout: 0.08, dry: 0.3, ...o }); };
+  // white wall with a damp stain at its foot
+  const wall = new Path2D(); wall.rect(x, top + 30, w, base - top - 30);
+  const gw = d.createLinearGradient(0, base - 90, 0, base); gw.addColorStop(0, I.col('g', 0)); gw.addColorStop(1, I.col('g', 0.32 * a * ro)); d.fillStyle = gw; d.fill(wall);
+  d.fillStyle = `rgba(0,255,0,${0.07 * a * ro})`; d.fill(wall);
+  ink([[x, top + 30], [x + 1, base]], 2.6, 0.8, { dry: 0.5 }); ink([[x + w, top + 30], [x + w - 1, base]], 3.2, 0.85, { s: 1, dry: 0.5 });
+  // eave: dark tiles, curved ridge, upturned corners
+  const ev = new Path2D(); ev.moveTo(x - 26, top + 40); ev.quadraticCurveTo(x + w / 2, top + 30, x + w + 26, top + 40); ev.lineTo(x + w + 4, top + 4); ev.quadraticCurveTo(x + w / 2, top + 10, x - 4, top + 4); ev.closePath();
+  const ge = d.createLinearGradient(0, top, 0, top + 40); ge.addColorStop(0, I.col('r', 0.78 * a * ro)); ge.addColorStop(1, I.col('r', 0.45 * a * ro)); d.fillStyle = ge; d.fill(ev);
+  if (!mirror) for (let j = 0; j < w / 8; j++) ink([[x - 2 + j * 8, top + 9], [x - 8 + j * 8.4, top + 36]], 1.2, 0.45, { s: j + 5, dry: 0.6 });
+  ink([[x - 34, top + 34], [x - 24, top + 40], [x + w / 2, top + 31], [x + w + 24, top + 40], [x + w + 34, top + 34]], 3.4, 0.9, { s: 2 });
+  // horse-head gables: stepped wall caps
+  if (ty === 0) for (const side of [0, 1]) {
+    // a stepped firewall rising above the roof at each gable end
+    const gx = side ? x + w - 34 : x - 8, ys = [top + 6, top - 26, top - 56];
+    for (let st = 0; st < 2; st++) {
+      const x0 = side ? gx - (1 - st) * 10 : gx + (1 - st) * 0, x1 = x0 + 42 - st * 6, yy = ys[st + 1];
+      const wl = new Path2D(); wl.rect(x0, yy + 10, x1 - x0, ys[st] - yy - 6); d.fillStyle = `rgba(0,255,0,${0.06 * a * ro})`; d.fill(wl);
+      ink([[x0, yy + 12], [x0, ys[st] + 2]], 2, 0.75, { s: 50 + st + side * 2 }); ink([[x1, yy + 12], [x1, ys[st] + 2]], 2, 0.75, { s: 54 + st + side * 2 });
+      const cap = new Path2D(); cap.moveTo(x0 - 8, yy + 12); cap.lineTo(x1 + 8, yy + 12); cap.lineTo(x1 + 4, yy + 1); cap.lineTo(x0 - 4, yy + 1); cap.closePath(); d.fillStyle = `rgba(255,0,0,${0.8 * a * ro})`; d.fill(cap);
+      ink([[x0 - 12, yy + 9], [x0 - 8, yy + 12], [x1 + 8, yy + 12], [x1 + 12, yy + 9]], 2.4, 0.85, { s: 30 + st + side * 2 });
+    }
+  }
+  // lattice windows (dark wood), a door to the water steps
+  const nw = Math.max(1, Math.floor(w / 80));
+  for (let j = 0; j < nw; j++) { const wx = x + (j + 0.5) * w / nw - 20, wy = top + 70 + (h < 200 ? -14 : 0);
+    d.fillStyle = `rgba(255,0,0,${0.5 * a * ro})`; d.fillRect(wx, wy, 40, 44); d.fillStyle = `rgba(0,0,0,${0.6})`; d.fillRect(wx + 5, wy + 5, 13, 15); d.fillRect(wx + 22, wy + 5, 13, 15); d.fillRect(wx + 5, wy + 24, 13, 15); d.fillRect(wx + 22, wy + 24, 13, 15); }
+  if (h > 200) { ink([[x + 10, top + 150], [x + w - 10, top + 150]], 2, 0.7, { s: 40 }); for (let j = 0; j < w / 22; j++) ink([[x + 14 + j * 22, top + 150], [x + 14 + j * 22, top + 172]], 1.4, 0.6, { s: 41 + j }); ink([[x + 10, top + 172], [x + w - 10, top + 172]], 2, 0.7, { s: 60 }); }
+  const dw = new Path2D(); dw.rect(x + w * 0.5 - 22, base - 64, 44, 64); d.fillStyle = `rgba(255,0,0,${0.6 * a * ro})`; d.fill(dw);
+  // water steps under the door
+  ink([[x + w * 0.5 - 34, base + 4], [x + w * 0.5 + 34, base + 4]], 2.2, 0.7, { s: 70 }); ink([[x + w * 0.5 - 44, base + 14], [x + w * 0.5 + 44, base + 14]], 2.2, 0.6, { s: 71 });
+}
+function lantern(x, y, glow, a) { I.stroke([[x, y - 30], [x, y - 14]], 1.6, 0.8 * a); const e = new Path2D(); e.ellipse(x, y, 12, 15, 0, 0, 7); I.d0.fillStyle = `rgba(0,0,255,${0.95 * a})`; I.d0.fill(e); I.stroke([[x - 8, y - 15], [x + 8, y - 15]], 3, 0.9 * a); I.stroke([[x - 8, y + 15], [x + 8, y + 15]], 3, 0.9 * a); I.stroke([[x, y + 16], [x, y + 30]], 1.4, 0.7 * a); if (glow > 0) { I.dab(x, y, 34 + 14 * glow, 0.3 * glow * a, 'b'); I.dab(x, y + 2 * (WL - y), 18, 0.25 * glow * a, 'b'); } }
+const BACK = [[300, 180, 200, 1], [820, 200, 230, 1], [2160, 170, 210, 1], [2460, 200, 220, 1]];
+const LANTERNS = [[180, 420], [460, 460], [700, 392], [860, 392], [1030, 440], [1250, 468], [2070, 412], [2330, 396], [2640, 440], [2870, 470]];
+function bridge(a, mirror) {
+  const cx = 1660, r = 150, ro = mirror ? 0.3 : 1;
+  const arc = []; for (let i = 0; i <= 30; i++) { const q = Math.PI + i / 30 * Math.PI; arc.push([cx + Math.cos(q) * r, WL + Math.sin(q) * r]); }
+  I.stroke(arc, 6, 0.9 * a * ro, 1, { seed: 300, dry: 0.3 });
+  const arc2 = arc.map(([x, y]) => [cx + (x - cx) * 1.18, WL + (y - WL) * 1.18]); I.stroke(arc2, 3, 0.75 * a * ro, 1, { seed: 301 });
+  const deck = [[1380, WL - 20], [1470, WL - 120], [1560, WL - 186], [1660, WL - 204], [1760, WL - 186], [1850, WL - 120], [1940, WL - 20]];
+  I.stroke(deck, 5, 0.9 * a * ro, 1, { seed: 302, dry: 0.35 }); I.stroke(deck.map(([x, y]) => [x, y - 36]), 3, 0.8 * a * ro, 1, { seed: 303 });
+  for (let k = 0; k < 9; k++) { const q = deck[1][0] + k * 52; const yy = WL - 204 + Math.pow((q - 1660) / 280, 2) * 184; I.stroke([[q, yy - 4], [q, yy - 36]], 2.4, 0.75 * a * ro, 1, { seed: 304 + k }); }
+  // stone courses on the spandrels
+  const sp = new Path2D(); sp.moveTo(1380, WL - 20); for (const [x, y] of deck) sp.lineTo(x, y); sp.lineTo(1940, WL - 20); sp.lineTo(cx + r * 1.18, WL); for (let i = 30; i >= 0; i--) sp.lineTo(arc2[i][0], arc2[i][1]); sp.lineTo(cx - r * 1.18, WL); sp.closePath();
+  I.d0.fillStyle = `rgba(0,255,0,${0.22 * a * ro})`; I.d0.fill(sp); if (!mirror) { I.d1.fillStyle = `rgba(0,0,255,${0.35 * a})`; I.d1.fill(sp); }
+}
+function willow(x, y, hgt, t, k, a) {
+  const tr = [[x, y], [x + 14, y - hgt * 0.4], [x - 12, y - hgt * 0.75], [x + 22, y - hgt]];
+  I.stroke(tr, 18, 0.88 * a, 1, { seed: 400 + k, dry: 0.6, tin: 0.02, tout: 0.5 });
+  const BR = [[-120, 0.72, -60], [40, 0.82, 70], [120, 0.95, 40], [-40, 1.0, -30]];
+  BR.forEach(([dx, fy, up], b) => I.stroke([[x + 6, y - hgt * (fy - 0.12)], [x + dx * 0.5, y - hgt * fy - up * 0.3], [x + dx, y - hgt * fy - up * 0.5]], 6 - b, 0.8 * a, 1, { seed: 410 + b + k, tout: 0.6 }));
+  for (let s = 0; s < 38; s++) {
+    const br = BR[s % 4], f0 = h1(s * 2.3 + k); const sx = x + br[0] * f0 + 10 * (h1(s + k * 7) - 0.5), sy = y - hgt * br[1] - br[2] * 0.5 * f0 + 6, L = 150 + 170 * h1(s * 5.1 + k);
+    const pts = []; for (let j = 0; j <= 12; j++) { const f = j / 12; pts.push([sx + (Math.sin(t * 1.2 + s * 0.5 + k) * 14 + 8) * f * f, sy + L * f]); }
+    I.stroke(pts, 1.6, 0.55 * a, 1, { seed: 420 + s + k, tin: 0.02, tout: 0.7 });
+    I.on('tint'); I.stroke(pts, 9, 0.5 * a, 1, { ch: 'r', tin: 0.1, tout: 0.6 }); I.on('ink');
+    for (let j = 3; j < 12; j += 2) { const q = pts[j]; I.d0.fillStyle = `rgba(255,0,0,${0.3 * a})`; I.d0.beginPath(); I.d0.ellipse(q[0] + 3, q[1], 4, 1.5, 1.1, 0, 7); I.d0.fill(); }
+  }
+}
+function boat(x, y, t, k, a, poled) {
+  const bob = 2 * Math.sin(t * 2.2 + k);
+  const hull = [[x - 120, y - 14 + bob], [x - 60, y + 6 + bob], [x + 60, y + 6 + bob], [x + 120, y - 18 + bob]];
+  I.stroke(hull, 14, 0.95 * a, 1, { seed: 500 + k, tin: 0.06, tout: 0.1, press: (f) => 0.7 + 0.5 * Math.sin(Math.PI * f) });
+  const cp = new Path2D(); cp.moveTo(x - 60, y - 6 + bob); cp.bezierCurveTo(x - 56, y - 70 + bob, x + 40, y - 74 + bob, x + 44, y - 8 + bob); cp.closePath();
+  I.d0.fillStyle = `rgba(255,0,0,${0.7 * a})`; I.d0.fill(cp); I.d0.fillStyle = `rgba(0,255,0,${0.4 * a})`; I.d0.fill(cp);
+  for (let j = 0; j < 5; j++) I.stroke([[x - 46 + j * 20, y - 60 + Math.abs(j - 2) * 6 + bob], [x - 50 + j * 21, y - 10 + bob]], 1.6, 0.35 * a, 1, { seed: 510 + j });
+  if (poled) {
+    const ph = t * 1.4; const lean = 0.3 + 0.12 * Math.sin(ph);
+    const fx = x + 86, fy = y - 18 + bob;
+    I.stroke([[fx, fy], [fx - 4, fy - 46]], 7, 0.9 * a, 1, { seed: 520 });
+    const hat = new Path2D(); hat.moveTo(fx - 22, fy - 50); hat.lineTo(fx - 2, fy - 66); hat.lineTo(fx + 18, fy - 50); hat.closePath(); I.d0.fillStyle = `rgba(255,0,0,${0.85 * a})`; I.d0.fill(hat);
+    I.stroke([[fx + 30 + Math.sin(lean) * 140, fy - 130], [fx - 20 - Math.sin(lean) * 80, y + 90]], 2.4, 0.85 * a, 1, { seed: 521 });
+    I.stroke([[fx - 4, fy - 34], [fx + 16, fy - 52]], 3, 0.8 * a, 1, { seed: 522 });
+  }
+  // wake and reflection
+  for (let j = 0; j < 3; j++) I.stroke([[x - 130 - j * 60, y + 16 + j * 6], [x - 190 - j * 60, y + 18 + j * 6]], 2, 0.4 * a, 1, { seed: 530 + j, tin: 0.3, tout: 0.3 });
+  I.d0.save(); I.d0.translate(0, 2 * (y + 6)); I.d0.scale(1, -1); I.d0.globalAlpha = 0.2; I.d0.fill(cp); I.d0.restore();
+}
+function scene(t) {
+  const cam = camAt(t); I.begin(cam);
+  const vx0 = cam.x - 1000 / cam.z, vx1 = cam.x + 1000 / cam.z, vis = (a, b) => b > vx0 - 100 && a < vx1 + 100;
+  const d = I.d0, tn = I.d1;
+  // far hills across the top: blue-grey wash
+  { const P = new Path2D(); P.moveTo(-40, 520); for (let x = -40; x <= SW + 40; x += 20) P.lineTo(x, 470 - 230 * Math.pow(sn(x * 0.0024, 3), 1.6) - 40 * sn(x * 0.01, 5)); P.lineTo(SW + 40, 520); P.closePath();
+    const g = d.createLinearGradient(0, 200, 0, 520); g.addColorStop(0, I.col('g', 0.55)); g.addColorStop(1, I.col('g', 0)); d.fillStyle = g; d.fill(P);
+    const g2 = tn.createLinearGradient(0, 200, 0, 520); g2.addColorStop(0, I.col('b', 0.6)); g2.addColorStop(1, I.col('b', 0)); tn.fillStyle = g2; tn.fill(P); }
+  // back bank
+  I.stroke([[-40, WL - 4], [SW + 40, WL - 4]], 3, 0.55, 1, { dry: 0.6, seed: 1 });
+  // reflections first (mirrored about the waterline, broken by ripple bands), then the town
+  d.save(); d.beginPath(); for (let yy = WL; yy < WL + 300; yy += 14) d.rect(vx0 - 200 + 30 * Math.sin(yy * 0.13 + t * 1.2), yy, vx1 - vx0 + 400, 9); d.clip();
+  d.translate(0, 2 * WL); d.scale(1, -1);
+  for (const [x, w, hh, ty] of HOUSES) if (vis(x, x + w)) house(x, w, hh, ty, x, 1, true);
+  if (vis(1380, 1940)) bridge(1, true);
+  d.restore();
+  for (const [x, w, hh, ty] of BACK) if (vis(x - 40, x + w + 40)) { d.save(); d.translate(0, -70); house(x, w, hh, ty, x + 7, 0.45, false); d.restore(); }
+  for (const [x, w, hh, ty] of HOUSES) if (vis(x - 40, x + w + 40)) { I.lift(new Path2D(`M${x - 2} ${WL - 8 - hh + 8} h${w + 4} v${hh - 8} h${-w - 4} Z`), 0.9, false); house(x, w, hh, ty, x, 1, false); }
+  if (vis(1380, 1940)) bridge(1, false);
+  // lanterns bloom as the camera passes
+  LANTERNS.forEach(([x, y], k) => { if (!vis(x, x)) return; const sx = 960 + (x - cam.x) * cam.z; const g = clamp(1 - Math.abs(sx - 900) / 700) * (0.7 + 0.3 * Math.sin(t * 3 + k)); lantern(x, y, g, 1); });
+  // water: a soft tone darkening toward the near bank, and sparse long ripple strokes drifting
+  { const wb = new Path2D(); wb.rect(-40, WL, SW + 80, 290); const gq = d.createLinearGradient(0, WL, 0, WL + 290); gq.addColorStop(0, I.col('g', 0.04)); gq.addColorStop(1, I.col('g', 0.2)); d.fillStyle = gq; d.fill(wb);
+    const gt = tn.createLinearGradient(0, WL, 0, WL + 290); gt.addColorStop(0, I.col('b', 0.15)); gt.addColorStop(1, I.col('b', 0.4)); tn.fillStyle = gt; tn.fill(wb); }
+  for (let r = 0; r < 9; r++) { const yy = WL + 40 + r * 28 + r * r * 0.8; for (let j = 0; j < 16; j++) { const x = j * 230 + 160 * h1(r * 9 + j) + (t * 16 * (1 + r * 0.06)) % 230 - 115; if (!vis(x, x + 160)) continue; if (h1(r * 3.3 + j * 7.1) < 0.5) continue; const L = 70 + 110 * h1(j + r * 5); I.stroke([[x, yy], [x + L * 0.5, yy - 2.5], [x + L, yy]], 1.6 + r * 0.12, 0.28, 1, { seed: r * 30 + j, tin: 0.35, tout: 0.4 }); } }
+  // boats: one poled along with us, two moored
+  if (vis(2860, 3120)) boat(2990, 760, t, 2, 0.9, false);
+  if (vis(760, 1020)) boat(890, 700, t, 3, 0.9, false);
+  const bx = boatX(t); boat(bx, 790, t, 1, 1, true);
+  // near bank: stone embankment, steps, grass, and willows leaning over the water
+  { const g = d; const top = 890; I.stroke([[-40, top], [SW + 40, top]], 5, 0.8, 1, { dry: 0.5, seed: 7 });
+    for (let j = 0; j < SW / 70; j++) { const x = j * 70 + 20 * h1(j); if (!vis(x, x + 70)) continue; I.stroke([[x, top + 4], [x + 4, top + 44]], 2, 0.5, 1, { seed: 700 + j, dry: 0.6 }); if (j % 3 === 0) I.stroke([[x - 30, top + 46], [x + 70, top + 46]], 2, 0.45, 1, { seed: 760 + j, dry: 0.6 }); }
+    for (let j = 0; j < 90; j++) { const x = j * 38 + 30 * h1(j * 3); if (!vis(x, x)) continue; const y = 960 + 50 * h1(j * 7); for (let q = 0; q < 3; q++) I.stroke([[x + q * 5, y], [x + q * 5 + (q - 1) * 8, y - 20 - 10 * h1(j + q)]], 1.6, 0.6, 1, { seed: 800 + j * 3 + q, tout: 0.7 }); }
+    tn.fillStyle = 'rgba(255,0,0,.28)'; tn.fillRect(-40, top + 50, SW + 80, 120); }
+  for (const [x, hh, k] of [[340, 520, 0], [1280, 560, 1], [2460, 540, 2], [2740, 470, 3]]) if (vis(x - 200, x + 200)) willow(x, 980, hh, t, k, 1);
+  // ---- end panel: the name, written once the camera has lifted off ----
+  const tx = 3245;
+  [...C.brand].forEach((ch, i) => { const t0 = 10.9 + i * 0.28; I.text(ch, tx, 250 + i * 178, 168, E.inOutSine(inv(t0, t0 + 0.3, t)), { wt: 900 }); });
+  [...C.sub].forEach((ch, i) => { if (ch === ' ') return; const t0 = 12.1 + i * 0.05; I.text(ch, 3105, 236 + i * 50, 44, E.inOutSine(inv(t0, t0 + 0.08, t)), { wt: 500 }); });
+  if (t > 13.0) { const u = clamp((t - 13.0) / 0.2); const sc = 1 + 0.4 * Math.pow(1 - u, 3); d.save(); d.translate(tx, 950); d.scale(sc, sc); I.seal(C.seal, 0, 0, 96, E.outQuad(u) * 0.95); d.restore(); }
+  return cam;
+}
+// the roller (and the scroll's starting rod) drawn as real objects over the shaded painting
+function roller(t, cam) {
+  const K = I.K; og.setTransform(1, 0, 0, 1, 0, 0); og.clearRect(0, 0, ov.width, ov.height); og.setTransform(K, 0, 0, K, 0, 0);
+  const S = (x, y) => [960 + (x - cam.x) * cam.z, 540 + (y - cam.y) * cam.z], z = cam.z;
+  const rx = rollX(t), prog = (rx - 250) / (SW - 250), r = (16 + 30 * (1 - prog)) * z;
+  const [sx, sy0] = S(rx, -6), [, sy1] = S(rx, SH + 6);
+  // shadow on the table and on the paper
+  let g = og.createLinearGradient(sx + r * 0.6, 0, sx + r * 3.2, 0); g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); og.fillStyle = g; og.fillRect(sx + r * 0.6, sy0 - 30 * z, r * 2.6, sy1 - sy0 + 60 * z);
+  g = og.createLinearGradient(sx - r - 22 * z, 0, sx - r, 0); g.addColorStop(0, 'rgba(40,30,20,0)'); g.addColorStop(1, 'rgba(40,30,20,.28)'); og.fillStyle = g; og.fillRect(sx - r - 22 * z, sy0, 22 * z, sy1 - sy0);
+  // the roll of paper: a lit cylinder seen from above, silk bands at its ends
+  const cyl = (y0, y1, c0, c1, c2) => { const gg = og.createLinearGradient(sx - r, 0, sx + r, 0); gg.addColorStop(0, c1); gg.addColorStop(0.32, c0); gg.addColorStop(0.55, c0); gg.addColorStop(1, c2); og.fillStyle = gg; og.fillRect(sx - r, y0, 2 * r, y1 - y0); };
+  const mt = 44 * z;
+  cyl(sy0 + 6 * z + mt, sy1 - 6 * z - mt, '#f3eee3', '#cfc6b4', '#8d8270');
+  cyl(sy0 + 6 * z, sy0 + 6 * z + mt, '#aab3b6', '#878f92', '#585e60'); cyl(sy1 - 6 * z - mt, sy1 - 6 * z, '#aab3b6', '#878f92', '#585e60');
+  og.strokeStyle = 'rgba(90,80,64,.35)'; og.lineWidth = 1; for (let k = 1; k < 4; k++) { const x = sx - r + 2 * r * k / 4 + 0.6 * r * Math.sin(t * 2 + k) * 0.1; og.beginPath(); og.moveTo(x, sy0 + mt + 10 * z); og.lineTo(x, sy1 - mt - 10 * z); og.stroke(); }
+  // wooden knobs at both ends
+  const knob = (y0, y1) => { const gg = og.createLinearGradient(sx - r * 0.7, 0, sx + r * 0.7, 0); gg.addColorStop(0, '#3a2414'); gg.addColorStop(0.35, '#8a5a34'); gg.addColorStop(0.55, '#6b4325'); gg.addColorStop(1, '#24150b'); og.fillStyle = gg; og.beginPath(); og.roundRect(sx - r * 0.7, y0, r * 1.4, y1 - y0, 4 * z); og.fill(); };
+  knob(sy0 - 30 * z, sy0 + 6 * z); knob(sy1 - 6 * z, sy1 + 30 * z);
+  // the starting rod at the scroll's left edge
+  const [qx, q0] = S(-10, -24), [, q1] = S(-10, SH + 24); const w = 12 * z; const gg = og.createLinearGradient(qx - w, 0, qx + w, 0); gg.addColorStop(0, '#2a180c'); gg.addColorStop(0.4, '#7a4e2c'); gg.addColorStop(1, '#1f1209'); og.fillStyle = gg; og.beginPath(); og.roundRect(qx - w, q0, 2 * w, q1 - q0, 5 * z); og.fill();
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: [`900 168px ${SERIF}`, `500 44px ${SERIF}`],
+  cues: [{ t: 0.3, sfx: 'paper', gain: 0.7 }, { t: 0.4, sfx: 'roll', gain: 0.4 }, { t: 1.2, sfx: 'splash', gain: 0.2 }, { t: 2.4, sfx: 'paper', gain: 0.35 }, { t: 3.6, sfx: 'windchime', gain: 0.35 }, { t: 4.4, sfx: 'splash', gain: 0.2 },
+    { t: 5.6, sfx: 'paper', gain: 0.35 }, { t: 8.5, sfx: 'wood', gain: 0.5 }, { t: 8.7, sfx: 'swell', gain: 0.5 }, { t: 10.9, sfx: 'brush', gain: 0.55 }, { t: 12.1, sfx: 'scribble', gain: 0.4 }, { t: 13.0, sfx: 'stamp', gain: 0.85 }],
+  async setup() { I = INK.init(stage); ov = document.createElement('canvas'); ov.width = I.W; ov.height = I.H; ov.style.cssText = 'position:absolute;left:0;top:0;width:1920px;height:1080px'; stage.appendChild(ov); og = ov.getContext('2d'); },
+  render(t) { const cam = scene(t); I.frame(t, { dry: 0.45, bleed: 6, scroll: [0, 0, rollX(t), SH], c1: [0.62, 0.8, 0.62], c2: [0.9, 0.7, 0.5], c3: [0.6, 0.68, 0.8] }); roller(t, cam); },
+});
+</script></body></html>

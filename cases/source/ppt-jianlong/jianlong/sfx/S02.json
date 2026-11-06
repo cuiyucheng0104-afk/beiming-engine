@@ -1,0 +1,14 @@
+{
+ "seg": "S02",
+ "_说明": "t = 段内秒。画面动作按这里的 t 走（api.cue(id).t）。雨床接 S01 的雨，「暴雨初歇」后近层雨收掉，远层留着；车声 + 脚步 = 调查队抵达。",
+ "events": [
+  {"id": "rain_far",  "t": 0.0,  "type": "rain_far",  "dur": 9.5, "gain": -18, "fade_in": 0.4, "fade_out": 0.5, "seed": 2},
+  {"id": "rain_near", "t": 0.0,  "type": "rain_near", "dur": 3.8, "gain": -21, "fade_in": 0.4, "fade_out": 2.6, "seed": 2},
+  {"id": "car",       "t": 0.9,  "type": "car_sweep", "dur": 3.2, "gain": -23, "pan_from": 0.9, "pan_to": 0.25},
+  {"id": "steps",     "t": 2.1,  "type": "footsteps", "n": 6, "rate": 1.7, "gain": -25, "pan": 0.15},
+  {"id": "scan",      "t": 6.1,  "type": "ui_stroke", "dur": 0.35, "gain": -26},
+  {"id": "lock",      "t": 6.45, "type": "scan_beep", "gain": -22},
+  {"id": "win",       "t": 6.55, "type": "ui_type",   "text": "一扇窗还亮着", "cps": 10, "gain": -24},
+  {"id": "push",      "t": 8.3,  "type": "whoosh",    "dur": 1.4, "gain": -27}
+ ]
+}

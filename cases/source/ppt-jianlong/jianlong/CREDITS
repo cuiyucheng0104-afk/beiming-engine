@@ -1,0 +1,28 @@
+《见龙》故事提案片（印刷水墨版）  194.5 秒  1920×1080  30 fps
+
+原画
+  全部 19 张画面原画来自用户提供的《见龙v3》。
+  现在段（图 1–12、19）在原画上做了亮度均衡、刻线版画转换和分层纵深，构图未改；
+  闪回段（图 13–18）为水墨原画原样使用。
+  图 5 去掉了原画里糊成一团的口诀浮标（只去掉绿色像素），改由画面代码写出同一句口诀。
+  图 11 原画里的提示框「前方两米，有心跳声。」按原画原样贴回（不做刻线），保证读得出。
+  图 10、11、12、19 的红色与大片金黄按规范去成墨与纸（红只给灯笼门联，黄只给灯光；图 19 龙眼的黄光保留）。
+
+旁白
+  MiniMax 语音合成，音色「沉稳高管」，speed 0.85，pitch −5。
+
+音乐
+  代码配乐（采样器 + 物理建模），未使用生成式音乐模型。
+  Samples (CC0): FreePats project (freepats.zenvoid.org), Karoryfer Samples / sfzinstruments,
+  VS Chamber Orchestra: Community Edition (Versilian Studios),
+  Versilian Community Sample Library (Versilian Studios)
+  古琴为物理建模合成，无许可要求。
+
+音效
+  全部为程序合成（雨、车声、窗纸、录音提示、扫描、干扰、泥石流、脚步、石响、心跳、纸、墨洇、毛笔、印章等）。
+
+字体
+  Noto Serif SC、Noto Sans SC（Google Fonts，SIL Open Font License 1.1），按画面用字子集化。
+
+宣纸纹理
+  用户工程素材（上影ppt 共用材质「宣纸.png」）。

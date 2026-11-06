@@ -1,0 +1,14 @@
+{
+ "seg": "S01",
+ "_说明": "t = 段内秒。画面动作按这里的 t 走（api.cue(id).t），声音由 tools/sfx_kit.py 按 type 合成，两边同源。",
+ "events": [
+  {"id": "rain_far",  "t": 0.0,  "type": "rain_far",  "dur": 9.5, "gain": -17, "fade_in": 1.2},
+  {"id": "rain_near", "t": 1.4,  "type": "rain_near", "dur": 8.1, "gain": -21, "fade_in": 1.6},
+  {"id": "lens",      "t": 1.0,  "type": "ui_stroke", "dur": 1.0, "gain": -24},
+  {"id": "corner",    "t": 2.0,  "type": "ui_tick",   "gain": -22},
+  {"id": "focus",     "t": 2.85, "type": "lens_focus","gain": -16},
+  {"id": "title",     "t": 3.7,  "type": "title_cut", "gain": -9},
+  {"id": "rule",      "t": 4.3,  "type": "ui_stroke", "dur": 0.4, "gain": -28},
+  {"id": "veil",      "t": 8.7,  "type": "whoosh",    "dur": 0.8, "gain": -22}
+ ]
+}

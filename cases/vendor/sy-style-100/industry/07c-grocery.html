@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>07 · 社区生鲜团购 · 邻里鲜</title>
+<script src="../lib/core.js"></script><script src="../lib/sticker.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 07 贴纸风科普 · 行业示例：社区生鲜团购 =====
+   A weekly planner on the kitchen table and a sheet of die-cut stickers beside it. The camera follows each
+   sticker as it is peeled off the sheet and flies to its day - slow, close tracking shots for Monday to
+   Wednesday, then the rhythm speeds up into a quick montage - and finally pulls back to the whole week. */
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#d9cbb4');
+const C = Reel.cfg({ brand: '邻里鲜', title: '每天一样特价菜', sub: '小区团购 · 今天下单 明早到家' });
+const L = Reel.canvas2d(stage); const ctx = L.ctx, K = L.k; ST.setK(K);
+const BW = 3100, BH = 1700;
+const DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const ITEMS = [['🥬', '青菜', '¥2.9'], ['🥚', '土鸡蛋', '¥9.9'], ['🍓', '草莓', '¥15.8'], ['🐟', '鲈鱼', '¥19.9'], ['🍉', '西瓜', '¥1.5/斤'], ['🥩', '猪肋排', '¥29'], ['🎁', '会员福利', '满 59 送']];
+const COLX = (i) => 260 + i * 300, CELLY = 650;
+const SHEET = { x: 2380, y: 230, w: 560, h: 1300 };
+const fromOf = (i) => [SHEET.x + 140 + (i % 2) * 280, SHEET.y + 170 + Math.floor(i / 2) * 300];
+const LAND = [2.4, 4.1, 5.6, 6.6, 7.3, 7.95, 8.6];
+const FLY = [1.0, 0.95, 0.9, 0.55, 0.5, 0.45, 0.45];
+const paper = document.createElement('canvas');
+function buildPaper() {
+  paper.width = Math.round(BW * 0.7 * K); paper.height = Math.round(BH * 0.7 * K);
+  const g = paper.getContext('2d'); g.scale(0.7 * K, 0.7 * K);
+  // wooden table
+  const wg = g.createLinearGradient(0, 0, 0, BH); wg.addColorStop(0, '#b98a5e'); wg.addColorStop(1, '#a7774c'); g.fillStyle = wg; g.fillRect(0, 0, BW, BH);
+  for (let y = 0; y < BH; y += 4) { g.fillStyle = `rgba(90,55,25,${0.04 + 0.05 * Math.abs(Math.sin(y * 0.031) * Math.sin(y * 0.007))})`; g.fillRect(0, y, BW, 2); }
+  // planner page
+  g.fillStyle = 'rgba(60,35,15,.3)'; g.fillRect(118, 128, 2200, 1480);
+  g.fillStyle = '#fdfaf2'; g.fillRect(100, 100, 2200, 1480);
+  g.strokeStyle = 'rgba(120,150,190,.25)'; g.lineWidth = 2; for (let y = 160; y < 1560; y += 46) { g.beginPath(); g.moveTo(100, y); g.lineTo(2300, y); g.stroke(); }
+  g.fillStyle = '#2b2b2b'; g.font = '900 72px "Noto Serif CJK SC"'; g.fillText('本周菜单', 160, 250); g.font = '500 34px Inter'; g.fillStyle = '#8a7f6e'; g.fillText('WEEK 42  ·  OCT', 520, 248);
+  DAYS.forEach((d, i) => {
+    const x = COLX(i) - 140;
+    g.strokeStyle = 'rgba(60,60,60,.55)'; g.lineWidth = 3; g.strokeRect(x, 330, 280, 720);
+    g.fillStyle = i >= 5 ? '#ffe3e3' : '#eef3ff'; g.fillRect(x + 2, 332, 276, 80);
+    g.fillStyle = i >= 5 ? '#d9485f' : '#33507a'; g.font = '900 46px "Noto Sans CJK SC"'; g.textAlign = 'center'; g.fillText(d, x + 140, 390); g.textAlign = 'left';
+  });
+  // spiral binding
+  for (let y = 140; y < 1560; y += 60) { g.fillStyle = 'rgba(40,40,40,.5)'; g.beginPath(); g.arc(100, y, 12, 0, 7); g.fill(); g.strokeStyle = '#9aa3ad'; g.lineWidth = 7; g.beginPath(); g.arc(78, y, 22, -1.2, 1.2); g.stroke(); }
+  // sticker sheet backing (glossy white, with die-cut outlines)
+  g.fillStyle = 'rgba(60,35,15,.3)'; g.fillRect(SHEET.x + 14, SHEET.y + 16, SHEET.w, SHEET.h);
+  g.fillStyle = '#f6f6f2'; g.fillRect(SHEET.x, SHEET.y, SHEET.w, SHEET.h);
+  g.fillStyle = 'rgba(0,0,0,.05)'; g.fillRect(SHEET.x, SHEET.y, SHEET.w, 70); g.fillStyle = '#9a9a9a'; g.font = '700 30px "Noto Sans CJK SC"'; g.fillText('邻里鲜 · 每日特价贴纸', SHEET.x + 40, SHEET.y + 46);
+  ITEMS.forEach((_, i) => { const [x, y] = fromOf(i); g.strokeStyle = 'rgba(0,0,0,.12)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 118, 0, 7); g.stroke(); });
+  // a pen and a coffee ring on the table
+  g.save(); g.translate(2050, 1640); g.rotate(-0.2); g.fillStyle = '#1f2937'; g.beginPath(); g.roundRect(0, 0, 600, 34, 17); g.fill(); g.fillStyle = '#d4af37'; g.fillRect(60, 6, 60, 22); g.restore();
+  g.strokeStyle = 'rgba(80,45,15,.25)'; g.lineWidth = 14; g.beginPath(); g.arc(2700, 1600, 110, 0.3, 5.6); g.stroke();
+}
+const SL = [];
+function build() {
+  ITEMS.forEach(([em, name, price], i) => {
+    const s = ST.make((g, w, h) => {
+      g.fillStyle = ['#e9f8e4', '#fff6dc', '#ffe6ea', '#e3f2ff', '#ffe9e0', '#ffe3e0', '#f2e8ff'][i]; g.beginPath(); g.arc(w / 2, h / 2, w / 2, 0, 7); g.fill();
+      g.font = '120px "Noto Color Emoji"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(em, w / 2, h / 2 - 22);
+      g.fillStyle = '#1b1b1b'; g.font = '900 34px "Noto Sans CJK SC"'; g.fillText(name, w / 2, h / 2 + 62);
+    }, 220, 220, 16);
+    const p = ST.make(ST.label(price, '#e11d48', '#fff', 44), 200, 70, 12);
+    const [fx, fy] = fromOf(i);
+    SL.push({ s, x: COLX(i), y: CELLY, rot: (i % 2 ? 0.06 : -0.05), t0: LAND[i] - FLY[i], land: FLY[i], from: [fx, fy], big: 1.25, spin: 0.6 });
+    SL.push({ s: p, x: COLX(i) + 30, y: CELLY + 210, rot: (i % 2 ? -0.06 : 0.05), t0: LAND[i] + 0.12, big: 1.5 });
+  });
+  SL.push({ s: ST.make(ST.title(C.brand + ' · ' + C.title, '#16a34a', '#ffffff'), 980, 150), x: 1200, y: 1210, rot: -0.025, t0: 10.2, big: 1.5 });
+  SL.push({ s: ST.make(ST.label(C.sub, '#111827', '#ffde4a', 44), 640, 84), x: 1260, y: 1380, rot: 0.02, t0: 10.6, big: 1.5 });
+}
+// camera follows the sticker in flight; pulls back for the end
+function camAt(t) {
+  let i = 0; while (i < 6 && t > LAND[i] + 0.25) i++;
+  const st = SL[i * 2];
+  const u = E.outCubic(clamp((t - st.t0) / st.land));
+  const sx = lerp(st.from[0], st.x, u), sy = lerp(st.from[1], st.y, u);
+  const prev = i ? [SL[(i - 1) * 2].x, SL[(i - 1) * 2].y] : [1500, 800];
+  const lead = E.inOutSine(clamp((t - (st.t0 - 0.55)) / 0.55));         // glide from last cell to the sheet before the peel
+  let x = t < st.t0 ? lerp(prev[0], st.from[0], lead) : sx, y = t < st.t0 ? lerp(prev[1], st.from[1], lead) : sy;
+  let z = i < 3 ? 1.55 : 1.2;
+  if (t < 1.2) { const k = E.inOutCubic(clamp(t / 1.2)); x = lerp(1500, x, k); y = lerp(820, y, k); z = lerp(0.66, z, k); }
+  const end = E.inOutCubic(inv(9.0, 10.3, t));
+  return { x: lerp(x, BW / 2 - 60, end), y: lerp(y, BH / 2 - 20, end), z: lerp(z, 0.64, end) + 0.03 * E.inOutSine(inv(10.3, 15, t)) };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 80px "Noto Sans CJK SC"', '120px "Noto Color Emoji"', '900 40px Inter', '900 72px "Noto Serif CJK SC"'],
+  setup() { buildPaper(); build(); },
+  cues: [{"t": 0.1, "sfx": "paper", "gain": 0.4}, {"t": 1.4, "sfx": "tape", "gain": 0.45}, {"t": 1.45, "sfx": "whoosh", "gain": 0.3}, {"t": 2.4, "sfx": "sticker", "gain": 0.75}, {"t": 2.52, "sfx": "pop", "gain": 0.4}, {"t": 2.7, "sfx": "marker", "gain": 0.35}, {"t": 3.15, "sfx": "tape", "gain": 0.45}, {"t": 3.2, "sfx": "whoosh", "gain": 0.3}, {"t": 4.1, "sfx": "sticker", "gain": 0.75}, {"t": 4.22, "sfx": "pop", "gain": 0.4}, {"t": 4.4, "sfx": "marker", "gain": 0.35}, {"t": 4.7, "sfx": "tape", "gain": 0.45}, {"t": 4.75, "sfx": "whoosh", "gain": 0.3}, {"t": 5.6, "sfx": "sticker", "gain": 0.75}, {"t": 5.72, "sfx": "pop", "gain": 0.4}, {"t": 5.9, "sfx": "marker", "gain": 0.35}, {"t": 6.05, "sfx": "tape", "gain": 0.45}, {"t": 6.1, "sfx": "whoosh", "gain": 0.3}, {"t": 6.6, "sfx": "sticker", "gain": 0.75}, {"t": 6.72, "sfx": "pop", "gain": 0.4}, {"t": 6.8, "sfx": "tape", "gain": 0.45}, {"t": 6.85, "sfx": "whoosh", "gain": 0.3}, {"t": 6.9, "sfx": "marker", "gain": 0.35}, {"t": 7.3, "sfx": "sticker", "gain": 0.75}, {"t": 7.42, "sfx": "pop", "gain": 0.4}, {"t": 7.5, "sfx": "tape", "gain": 0.45}, {"t": 7.55, "sfx": "whoosh", "gain": 0.3}, {"t": 7.6, "sfx": "marker", "gain": 0.35}, {"t": 7.95, "sfx": "sticker", "gain": 0.75}, {"t": 8.07, "sfx": "pop", "gain": 0.4}, {"t": 8.15, "sfx": "tape", "gain": 0.45}, {"t": 8.2, "sfx": "whoosh", "gain": 0.3}, {"t": 8.25, "sfx": "marker", "gain": 0.35}, {"t": 8.6, "sfx": "sticker", "gain": 0.75}, {"t": 8.72, "sfx": "pop", "gain": 0.4}, {"t": 8.9, "sfx": "marker", "gain": 0.35}, {"t": 9.0, "sfx": "whoosh_up", "gain": 0.4}, {"t": 10.2, "sfx": "sticker", "gain": 0.7}, {"t": 10.6, "sfx": "sticker", "gain": 0.6}, {"t": 10.9, "sfx": "chime", "gain": 0.5}],
+  render(t) {
+    L.begin();
+    const cam = camAt(t);
+    ctx.fillStyle = '#8f6440'; ctx.fillRect(0, 0, 1920, 1080);
+    ctx.save(); ctx.translate(960, 540); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+    ctx.drawImage(paper, 0, 0, BW, BH);
+    // stickers still waiting on the sheet
+    SL.forEach((s) => { if (s.from && t < s.t0) ST.draw(ctx, { ...s, x: s.from[0], y: s.from[1], t0: -10, from: null, rot: 0, peel: null }, t, { shadow: 0.18 }); });
+    // peel: the sticker lifts off the sheet in the first part of its flight
+    for (const s of SL) { if (s.from) { const u = clamp((t - s.t0) / s.land); s.peel = u > 0 && u < 1 ? Math.sin(Math.PI * u) * 0.8 : null; } ST.draw(ctx, s, t, { shadow: 0.36 }); }
+    // check marks drawn on each finished day
+    SL.forEach((s, k) => { if (!s.from) return; const i = k / 2; const p = clamp((t - LAND[i] - 0.3) / 0.25); if (p <= 0) return; ST.marker(ctx, [COLX(i) - 60, 480, COLX(i) + 70, 470, -20], p, i, 'rgba(22,163,74,.9)', 10, false); });
+    const NOTES = ['早上 7 点到', '散养 30 枚', '限量 200 份', '现杀现发', '甜过初恋', '团长推荐', '全场包邮'];
+    NOTES.forEach((n, i) => { const a = clamp((t - LAND[i] - 0.35) / 0.3); if (a <= 0) return; ctx.save(); ctx.globalAlpha = a; ctx.font = '700 34px "Noto Serif CJK SC"'; ctx.fillStyle = '#3b3b3b'; ctx.textAlign = 'center'; ctx.translate(COLX(i), 990); ctx.rotate(-0.04); ctx.fillText(n, 0, 0); ctx.restore(); });
+    ctx.restore();
+    const lg = ctx.createRadialGradient(700, 300, 0, 960, 540, 1250); lg.addColorStop(0, 'rgba(255,245,220,.16)'); lg.addColorStop(0.6, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(50,25,5,.38)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, 1920, 1080);
+    if (t < 0.25) { ctx.fillStyle = `rgba(143,100,64,${1 - t / 0.25})`; ctx.fillRect(0, 0, 1920, 1080); }
+  },
+});
+</script></body></html>

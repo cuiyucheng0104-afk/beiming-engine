@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "checks": [
+    "9 scene navigation",
+    "40 cards",
+    "palette/profile filtering",
+    "favorite/export",
+    "same recipe across nine scenes",
+    "modal",
+    "comparison slider",
+    "image loading"
+  ],
+  "errors": [],
+  "broken": []
+}

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>10 · 智能家居 · 栖家</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/glass.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 10 玻璃拟态 · 行业示例：智能家居 =====
+   The glass controls float over the living room they control. The room is the wallpaper (painted live,
+   panning slowly behind the glass for parallax), and every gesture on the glass changes it: a liquid knob
+   drags round the light dial and the floor lamp warms the room, a bead slides down the curtain track and
+   the curtains draw across the dusk window, the scene pill splits into four buttons and "movie" dims
+   the lights and throws a projector image on the wall. Then all controls pour into one pill. */
+const { E, clamp, lerp, spring } = Reel;
+const stage = Reel.makeStage('#1d1a22');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '栖家', sub: '全屋智能', sub2: '一句话，整个家都听你的' });
+const g = GLS.init(stage, { ns: 10 });
+const { b, u, K, W, H } = g;
+const sp = (t, t0, k = 150, c = 14) => spring(Math.max(0, t - t0), { k, c });
+const out = (t, t0, d = 0.35) => 1 - E.inOutCubic(clamp((t - t0) / d));
+const mix3 = (a, c, k) => a.map((v, i) => Math.round(lerp(v, c[i], k)));
+const rgb = (a, al = 1) => `rgba(${a[0]},${a[1]},${a[2]},${al})`;
+
+// ---- room state over time
+function state(t) {
+  const lamp = lerp(0.12, 0.88, E.inOutSine(clamp((t - 1.9) / 1.7)));
+  const curtain = E.inOutSine(clamp((t - 5.0) / 1.8));
+  const movie = E.inOutCubic(clamp((t - 8.7) / 0.6)) * (1 - E.inOutCubic(clamp((t - 11.0) / 0.8)));
+  const dusk = clamp(0.35 + t / 20);
+  return { lamp: lerp(lamp, 0.12, movie), curtain: lerp(curtain, 1, movie) * (1 - 0.6 * E.inOutCubic(clamp((t - 11.0) / 1.0))), movie, dusk };
+}
+function room(t, s) {
+  const camX = 220 * E.inOutSine(clamp(t / 15));
+  b.setTransform(K, 0, 0, K, -camX * K, 0);
+  // wall
+  const wall = b.createLinearGradient(0, 0, 0, 760); wall.addColorStop(0, '#d9cbb8'); wall.addColorStop(1, '#c4b29b'); b.fillStyle = wall; b.fillRect(-100, 0, 2400, 780);
+  // picture frame (abstract print) - crisp detail for the glass
+  b.fillStyle = '#2d2a2a'; b.fillRect(430, 200, 330, 230); b.fillStyle = '#efe6d6'; b.fillRect(446, 216, 298, 198);
+  b.fillStyle = '#d96c3f'; b.beginPath(); b.arc(540, 320, 58, 0, 7); b.fill(); b.fillStyle = '#2f5d7a'; b.fillRect(600, 250, 110, 140); b.fillStyle = '#e7b93f'; b.fillRect(470, 360, 160, 26);
+  // window: sky by dusk, skyline, curtains
+  const wx0 = 1180, wx1 = 1700, wy0 = 120, wy1 = 640;
+  const sky = b.createLinearGradient(0, wy0, 0, wy1); sky.addColorStop(0, rgb(mix3([120, 170, 220], [40, 40, 90], s.dusk))); sky.addColorStop(1, rgb(mix3([240, 220, 190], [250, 140, 90], s.dusk))); b.fillStyle = sky; b.fillRect(wx0, wy0, wx1 - wx0, wy1 - wy0);
+  b.fillStyle = rgb(mix3([120, 130, 150], [40, 36, 60], s.dusk)); for (let i = 0; i < 12; i++) { const x = wx0 + i * 44, hgt = 90 + 140 * Math.abs(Math.sin(i * 2.7)); b.fillRect(x, wy1 - hgt, 40, hgt); }
+  b.fillStyle = `rgba(255,220,140,${0.8 * s.dusk})`; for (let i = 0; i < 40; i++) { const x = wx0 + (Math.sin(i * 12.9) * 0.5 + 0.5) * 500, y = wy1 - (Math.sin(i * 7.3) * 0.5 + 0.5) * 200; if (y > wy1 - 90 - 140 * Math.abs(Math.sin(Math.floor((x - wx0) / 44) * 2.7))) b.fillRect(x, y, 5, 7); }
+  b.strokeStyle = '#efe7da'; b.lineWidth = 16; b.strokeRect(wx0, wy0, wx1 - wx0, wy1 - wy0); b.lineWidth = 8; b.beginPath(); b.moveTo((wx0 + wx1) / 2, wy0); b.lineTo((wx0 + wx1) / 2, wy1); b.stroke();
+  const cw = lerp(70, (wx1 - wx0) / 2 + 30, s.curtain);
+  for (const [x, dir] of [[wx0 - 50, 1], [wx1 + 50, -1]]) { const x2 = x + dir * (cw + 50); const cg = b.createLinearGradient(Math.min(x, x2), 0, Math.max(x, x2), 0); for (let k = 0; k <= 8; k++) cg.addColorStop(k / 8, k % 2 ? '#8a7a64' : '#a39278'); b.fillStyle = cg; b.fillRect(Math.min(x, x2), wy0 - 40, Math.abs(x2 - x), wy1 - wy0 + 130); }
+  b.fillStyle = '#4a4036'; b.fillRect(wx0 - 90, wy0 - 52, wx1 - wx0 + 180, 12);
+  // floor
+  const fl = b.createLinearGradient(0, 760, 0, 1080); fl.addColorStop(0, '#9a6d48'); fl.addColorStop(1, '#6e4a2e'); b.fillStyle = fl; b.fillRect(-100, 760, 2400, 340);
+  b.strokeStyle = 'rgba(40,24,12,.35)'; b.lineWidth = 2; for (let y = 790; y < 1080; y += 46) { b.beginPath(); b.moveTo(-100, y); b.lineTo(2300, y); b.stroke(); } for (let i = 0; i < 40; i++) { const y = 760 + Math.floor(i / 8) * 46, x = (i * 397) % 2300; b.beginPath(); b.moveTo(x, y); b.lineTo(x, y + 46); b.stroke(); }
+  // window light on the floor
+  const wl = (1 - s.curtain) * (1 - 0.55 * s.dusk);
+  if (wl > 0.01) { b.fillStyle = `rgba(255,214,160,${0.35 * wl})`; b.beginPath(); b.moveTo(wx0 - 60, 780); b.lineTo(wx1 + 40, 780); b.lineTo(wx1 - 260, 1080); b.lineTo(wx0 - 520, 1080); b.fill(); }
+  // rug, sofa, coffee table
+  b.fillStyle = '#c9b79a'; b.beginPath(); b.ellipse(720, 930, 520, 110, 0, 0, 7); b.fill(); b.strokeStyle = 'rgba(120,90,60,.4)'; b.lineWidth = 6; b.beginPath(); b.ellipse(720, 930, 470, 90, 0, 0, 7); b.stroke();
+  b.fillStyle = '#4f6a64'; b.beginPath(); b.roundRect(250, 560, 760, 170, 40); b.fill(); b.fillStyle = '#5d7c75'; for (let i = 0; i < 3; i++) { b.beginPath(); b.roundRect(280 + i * 240, 600, 220, 120, 26); b.fill(); }
+  b.fillStyle = '#44605a'; b.beginPath(); b.roundRect(220, 690, 820, 110, 30); b.fill(); b.fillStyle = '#e3a35a'; b.beginPath(); b.roundRect(330, 610, 110, 90, 20); b.fill(); b.fillStyle = '#e8dccb'; b.beginPath(); b.roundRect(790, 615, 120, 85, 20); b.fill();
+  b.fillStyle = '#3a2a1e'; b.fillRect(260, 790, 20, 30); b.fillRect(980, 790, 20, 30);
+  b.fillStyle = '#d8c7ad'; b.beginPath(); b.ellipse(720, 900, 170, 38, 0, 0, 7); b.fill(); b.fillStyle = '#7d5a3c'; b.fillRect(700, 900, 40, 60);
+  // floor lamp
+  b.fillStyle = '#2a2420'; b.fillRect(1086, 340, 8, 470); b.fillRect(1050, 806, 80, 10);
+  b.fillStyle = rgb(mix3([200, 190, 170], [255, 214, 140], s.lamp)); b.beginPath(); b.moveTo(1030, 340); b.lineTo(1150, 340); b.lineTo(1125, 250); b.lineTo(1055, 250); b.fill();
+  // plant
+  b.fillStyle = '#b8653c'; b.beginPath(); b.moveTo(1830, 690); b.lineTo(1950, 690); b.lineTo(1930, 800); b.lineTo(1850, 800); b.fill();
+  b.fillStyle = '#3f6e3a'; for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.28; b.save(); b.translate(1890, 690); b.rotate(a + Math.PI / 2); b.beginPath(); b.ellipse(0, -110, 28, 110, 0, 0, 7); b.fill(); b.restore(); }
+  // lighting: darken by dusk / curtains, then the lamp pool and window glow
+  b.setTransform(K, 0, 0, K, 0, 0);
+  const dark = clamp(0.18 + 0.42 * s.dusk + 0.25 * s.curtain - 0.35 * s.lamp + 0.15 * s.movie);
+  b.fillStyle = `rgba(14,16,40,${dark})`; b.fillRect(0, 0, 1920, 1080);
+  b.setTransform(K, 0, 0, K, -camX * K, 0);
+  // projector image on the wall (movie mode)
+  if (s.movie > 0.01) { const f = Math.floor(t * 3); const cols = [['#1a2a6c', '#b21f1f', '#fdbb2d'], ['#0f2027', '#2c5364', '#a8e063'], ['#41295a', '#2f0743', '#f7797d']][f % 3];
+    const pg = b.createLinearGradient(380, 120, 960, 480); cols.forEach((c, i) => pg.addColorStop(i / 2, c)); b.globalAlpha = s.movie * 0.92; b.fillStyle = pg; b.fillRect(380, 110, 600, 340); b.fillStyle = 'rgba(255,240,200,.85)'; b.beginPath(); b.arc(820 - (f % 3) * 120, 230, 34, 0, 7); b.fill(); b.fillStyle = '#0c0c14'; b.beginPath(); b.moveTo(380, 450); for (let x = 380; x <= 980; x += 20) b.lineTo(x, 380 - 50 * Math.abs(Math.sin(x * 0.012 + f))); b.lineTo(980, 450); b.fill(); b.fillRect(380, 110, 600, 34); b.fillRect(380, 416, 600, 34); b.globalAlpha = 1; }
+  b.globalCompositeOperation = 'screen';
+  const lp = b.createRadialGradient(1090, 330, 10, 1090, 420, 760); lp.addColorStop(0, `rgba(255,190,110,${0.75 * s.lamp})`); lp.addColorStop(0.4, `rgba(255,150,70,${0.28 * s.lamp})`); lp.addColorStop(1, 'rgba(255,150,70,0)'); b.fillStyle = lp; b.fillRect(-100, 0, 2400, 1080);
+  if (s.movie > 0.01) { const fl2 = 0.8 + 0.2 * Math.sin(t * 23) * Math.sin(t * 7); const pg = b.createRadialGradient(680, 280, 30, 680, 300, 700); pg.addColorStop(0, `rgba(120,150,255,${0.35 * s.movie * fl2})`); pg.addColorStop(1, 'rgba(120,150,255,0)'); b.fillStyle = pg; b.fillRect(-100, 0, 2400, 1080); }
+  b.globalCompositeOperation = 'source-over';
+  b.setTransform(1, 0, 0, 1, 0, 0);
+  // end caption in the wallpaper
+  const ca = E.outCubic(clamp((t - 11.9) / 0.6));
+  if (ca > 0) { b.fillStyle = `rgba(10,10,20,${0.35 * ca})`; b.fillRect(0, 0, W, H); g.text(b, C.sub, 960, 640, 60, `rgba(255,255,255,${ca})`, { wt: 900, ls: 18 }); g.text(b, C.sub2, 960, 718, 32, `rgba(255,236,210,${0.9 * ca})`, { wt: 500, ls: 6 }); }
+}
+
+const SCN = ['回家', '观影', '睡眠', '离家'];
+function layout(t) {
+  const L = {}, S = [];
+  const fin = E.inOutCubic(clamp((t - 10.9) / 0.7));            // everything pours into the brand pill
+  const toC = (x, y) => [lerp(x, 960, fin), lerp(y, 430, fin)];
+  // status pill
+  const pd = sp(t, 0.35, 140, 13); L.stat = { x: 290, y: lerp(-80, 90, pd), hw: 210, hh: 40 };
+  // light dial + liquid knob
+  const dd = sp(t, 1.0, 120, 13), dOut = sp(t, 4.5, 120, 15);
+  L.dial = { x: lerp(1500, 1680, dOut), y: lerp(560, 230, dOut), r: lerp(lerp(0, 175, dd), 78, dOut), e: dd, small: dOut };
+  const val = lerp(0.12, 0.88, E.inOutSine(clamp((t - 1.9) / 1.7))); L.val = val;
+  const ang = -Math.PI * 1.25 + val * Math.PI * 1.5, kn = sp(t, 1.5, 160, 12) * (1 - dOut);
+  L.knob = { x: L.dial.x + Math.cos(ang) * (L.dial.r + 36), y: L.dial.y + Math.sin(ang) * (L.dial.r + 36), r: 30 * kn };
+  // curtain slider
+  const se = sp(t, 4.4, 130, 13), sOut = sp(t, 7.3, 120, 15);
+  L.track = { x: 300, y: 560, hw: 42 * se, hh: lerp(10, 230, se) * (1 - sOut) + 42 * sOut * se };
+  const cv = E.inOutSine(clamp((t - 5.0) / 1.8)); L.cv = cv;
+  L.bead = { x: 300, y: lerp(560 - 190, 560 + 190, cv) * (1 - sOut) + 560 * sOut, r: 34 * sp(t, 4.7, 160, 12) * (1 - sOut) };
+  if (sOut > 0) { L.track.x = lerp(300, 240, sOut); L.track.y = lerp(560, 230, sOut); L.track.hw = lerp(L.track.hw, 70, sOut); L.track.hh = lerp(L.track.hh, 70, sOut); }
+  // scene pill -> four buttons
+  const sc = sp(t, 7.4, 130, 13), split = sp(t, 7.9, 110, 11);
+  L.scn = SCN.map((_, i) => { const x = lerp(960, 690 + i * 180, split); const pick = i === 1 ? 1 + 0.12 * Math.sin(Math.PI * clamp((t - 8.6) / 0.3)) : 1; return { x, y: lerp(1180, 900, sc), r: lerp(lerp(40, 360, 1) * 0 + 64, 64, split) * pick * (t > 7.35 ? 1 : 0), split }; });
+  L.scnPill = { x: 960, y: lerp(1180, 900, sc), hw: lerp(360, 0, split) * (t > 7.35 ? 1 : 0), hh: lerp(56, 0, clamp(split * 1.4 - 0.4)) * (t > 7.35 ? 1 : 0) };
+  // pour into the brand pill
+  const all = [L.stat, L.dial, L.knob, L.track, L.bead, L.scnPill, ...L.scn];
+  for (const q of all) { const [x, y] = toC(q.x, q.y); q.x = x; q.y = y; if (q.r !== undefined) q.r *= (1 - fin * 0.85); if (q.hw !== undefined) { q.hw *= (1 - fin * 0.85); q.hh *= (1 - fin * 0.85); } }
+  const bp = sp(t, 11.3, 120, 14);
+  L.brand = { x: 960, y: 430, hw: lerp(10, 300, bp) * (t > 11.2 ? 1 : 0), hh: lerp(10, 92, bp) * (t > 11.2 ? 1 : 0), e: bp };
+  S.push({ c: [L.stat.x, L.stat.y], h: [L.stat.hw, L.stat.hh], r: 40, k: 40, frost: 3, bev: 26 });
+  S.push({ c: [L.dial.x, L.dial.y], h: [L.dial.r, L.dial.r], r: 400, k: 46, frost: 3, bev: 34 });
+  S.push({ c: [L.knob.x, L.knob.y], h: [L.knob.r, L.knob.r], r: 400, k: 46, frost: 0, bev: 30 });
+  S.push({ c: [L.track.x, L.track.y], h: [L.track.hw, L.track.hh], r: 42, k: 40, frost: 3, bev: 30 });
+  S.push({ c: [L.bead.x, L.bead.y], h: [L.bead.r, L.bead.r], r: 400, k: 30, frost: 0, bev: 30 });
+  S.push({ c: [L.scnPill.x, L.scnPill.y], h: [L.scnPill.hw, L.scnPill.hh], r: 56, k: 60, frost: 2, bev: 30 });
+  L.scn.forEach((q) => S.push({ c: [q.x, q.y], h: [q.r, q.r], r: 400, k: lerp(60, 22, q.split), frost: 2, bev: 32 }));
+  S.push({ c: [L.brand.x, L.brand.y], h: [L.brand.hw, L.brand.hh], r: 92, k: 70, frost: 2, bev: 34 });
+  return { S: S.filter((s) => s.h[0] > 0.8 && s.h[1] > 0.8).slice(0, 10), L, fin };
+}
+function drawUI(t, L, fin, s) {
+  u.clearRect(0, 0, W, H);
+  const fa = 1 - clamp(fin * 3);
+  // status
+  const sa = clamp((t - 0.6) / 0.3) * fa; if (sa > 0) { u.save(); u.globalAlpha = sa; u.fillStyle = '#7dffb0'; u.beginPath(); u.arc((L.stat.x - 168) * K, L.stat.y * K, 7 * K, 0, 7); u.fill(); u.restore(); g.text(u, `栖家 · 18:${String(42 + Math.floor(t / 4)).padStart(2, '0')} · 室内 24°C`, L.stat.x - 148, L.stat.y + 1, 26, '#fff', { a: sa, align: 'left', wt: 600 }); }
+  // dial
+  const D = L.dial; const da = clamp((D.e - 0.7) / 0.3) * fa;
+  if (da > 0) {
+    if (D.small < 0.5) { const a0 = -Math.PI * 1.25, a1 = a0 + L.val * Math.PI * 1.5; u.save(); u.globalAlpha = da * (1 - D.small * 2); u.lineCap = 'round'; u.lineWidth = 12 * K; u.strokeStyle = 'rgba(255,255,255,.25)'; u.beginPath(); u.arc(D.x * K, D.y * K, (D.r - 34) * K, a0, a0 + Math.PI * 1.5); u.stroke();
+      const ag = u.createLinearGradient((D.x - D.r) * K, 0, (D.x + D.r) * K, 0); ag.addColorStop(0, '#ffe1a8'); ag.addColorStop(1, '#ff9a4a'); u.strokeStyle = ag; u.beginPath(); u.arc(D.x * K, D.y * K, (D.r - 34) * K, a0, a1); u.stroke(); u.restore();
+      g.text(u, `${Math.round(L.val * 100)}%`, D.x, D.y - 8, 64, '#fff', { a: da * (1 - D.small * 2), font: 'Inter', wt: 700 }); g.text(u, '客厅灯光 · 暖光', D.x, D.y + 48, 24, 'rgba(255,255,255,.85)', { a: da * (1 - D.small * 2), wt: 600 }); }
+    else g.text(u, `灯 ${Math.round(s.lamp * 100)}%`, D.x, D.y + 2, 26, '#fff', { a: da * clamp((D.small - 0.6) / 0.3), wt: 700 });
+  }
+  // curtain
+  const T = L.track, ta = clamp((T.hh - 120) / 60) * fa;
+  if (ta > 0) { g.text(u, '窗帘', T.x, T.y - 270, 26, '#fff', { a: ta, wt: 700 }); g.text(u, `${Math.round(L.cv * 100)}%`, T.x, T.y + 272, 26, '#fff', { a: ta, font: 'Inter', wt: 700 }); }
+  else if (T.hw > 50 && fin < 0.3) g.text(u, '窗帘 关', T.x, T.y + 2, 24, '#fff', { a: clamp((T.hw - 50) / 15) * fa, wt: 700 });
+  // scenes
+  L.scn.forEach((q, i) => { const a = clamp((q.split - 0.6) / 0.4) * fa; if (a <= 0 || q.r < 20) return; const on = i === 1 && t > 8.6; if (on) { u.save(); u.globalAlpha = a * 0.5; u.fillStyle = '#9fb4ff'; u.beginPath(); u.arc(q.x * K, q.y * K, (q.r - 10) * K, 0, 7); u.fill(); u.restore(); } g.text(u, SCN[i], q.x, q.y + 2, 28, '#fff', { a, wt: 700 }); });
+  if (L.scnPill.hw > 200) g.text(u, '场景模式', L.scnPill.x, L.scnPill.y + 2, 28, '#fff', { a: clamp((L.scnPill.hw - 200) / 100) * fa, wt: 700, ls: 6 });
+  // taps
+  const ripple = (x, y, t0) => { const p = clamp((t - t0) / 0.5); if (p <= 0 || p >= 1) return; u.save(); u.globalAlpha = (1 - p) * 0.9; u.strokeStyle = '#fff'; u.lineWidth = 3 * K; u.beginPath(); u.arc(x * K, y * K, (20 + 70 * p) * K, 0, 7); u.stroke(); u.restore(); };
+  ripple(870, 900, 8.55);
+  // brand
+  const ba = clamp((L.brand.e - 0.6) / 0.4); if (ba > 0 && t > 11.2) g.text(u, C.brand, 960, 432, 100, '#fff', { a: ba, wt: 900, ls: 20 });
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 100px "Noto Sans CJK SC"', '700 40px "Noto Sans CJK SC"', '600 40px "Noto Sans CJK SC"', '500 40px "Noto Sans CJK SC"', '700 40px Inter'],
+  cues: [{ t: 0.35, sfx: 'blob', gain: 0.6 }, { t: 1.0, sfx: 'expand', gain: 0.5 }, { t: 1.5, sfx: 'blob', gain: 0.45 }, { t: 1.9, sfx: 'stretch', gain: 0.45 }, ...[0, 1, 2, 3, 4, 5].map((i) => ({ t: +(2.0 + i * 0.25).toFixed(2), sfx: 'tick', gain: 0.35 })),
+    { t: 4.4, sfx: 'morph', gain: 0.5 }, { t: 4.7, sfx: 'blob', gain: 0.45 }, { t: 5.0, sfx: 'zip', gain: 0.45 }, { t: 7.3, sfx: 'morph', gain: 0.45 }, { t: 7.4, sfx: 'blob', gain: 0.5 }, { t: 7.9, sfx: 'stretch', gain: 0.55 },
+    { t: 8.55, sfx: 'tick', gain: 0.7 }, { t: 8.7, sfx: 'whoosh', gain: 0.35 }, { t: 10.9, sfx: 'morph', gain: 0.55 }, { t: 11.3, sfx: 'expand', gain: 0.5 }, { t: 11.9, sfx: 'chime', gain: 0.6 }],
+  render(t) {
+    const s = state(t);
+    room(t, s);
+    const { S, L, fin } = layout(t);
+    g.draw(t, S, [0, 0, 0, 0]);
+    drawUI(t, L, fin, s);
+  },
+});
+</script></body></html>

@@ -1,0 +1,28 @@
+方案 C《打开》20 秒开头 · CREDITS
+
+【IP 图片】
+孙悟空《大闹天宫》海报、黑猫警长海报、葫芦兄弟海报、《大闹天宫》剧照：
+来源 上影元官网（sfi-sh.com），经 PPT《上美影IP全景》整理，RTX 超分。
+片中整张印成带白边的卡片使用，未改色、未变形、未重画、未抠图。版权归原权利人所有。
+
+【材质】
+书封布面（material/书封布面.png）：本地 Qwen-Image 生成。
+木桌：Poly Haven "american_walnut_veneer"（walnut_diff / nor / rough），CC0，https://polyhaven.com/a/american_walnut_veneer
+台灯：Poly Haven "desk_lamp_arm_01"，CC0，https://polyhaven.com/a/desk_lamp_arm_01 （灯体改为黑色金属材质）
+环境光 HDRI：Poly Haven "lythwood_lounge"，CC0，https://polyhaven.com/a/lythwood_lounge
+纸舞台、天幕、远山、云幕、浪栏、纸云、纸轨、拉片、纸条标签：全部为代码绘制（Canvas2D），无第三方素材。
+
+【字体】（SIL Open Font License 1.1，Google Fonts，按片中用字子集化，放在 fonts/）
+Inter（Rasmus Andersson）：数字 —— https://github.com/google/fonts/tree/main/ofl/inter
+Noto Sans SC Bold（Google / Adobe）：中文标题与纸条标签 —— https://github.com/google/fonts/tree/main/ofl/notosanssc
+
+【声音】
+采样乐器：
+Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Samples (CC0): FreePats project (freepats.zenvoid.org), Karoryfer Samples / sfzinstruments, VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+（用到：双簧管 oboe、二胡 erhu、电贝斯 electric_bass、鼓组 drum_kit、拍手 claps、踩镲 hihat、筝 dan_tranh / dan_tranh_trem、长笛 flute、小锣 gong2、木鱼块 woodblock、钟琴 glockenspiel）
+琵琶：物理建模合成（Karplus–Strong），无采样。
+拟音与环境声（纸、铅字、橡皮章、台灯开关、纸板、木头摩擦、棘轮、房间底噪、灯管嗡声）：全部程序合成。
+配乐为本片原创。
+
+使用者对片中所用素材（尤其是 IP 图片）的授权负责。

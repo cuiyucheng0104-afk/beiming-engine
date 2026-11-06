@@ -1,0 +1,24 @@
+博物志·鹦鹉螺 (copperplate engraving style sample) — third-party assets used in the film
+
+Picture
+  Everything on screen is drawn in code (Canvas 2D): the shell, the section, washes and lettering. No images or footage.
+  Engraving line engine (burin.js / plate.js / wash.js) copied from the style library into engine/.
+
+Fonts (SIL Open Font License 1.1, text in fonts/OFL.txt), subset via the Google Fonts CSS API (&text=) into fonts/
+  Noto Serif SC (600)          — Google / Adobe, https://fonts.google.com/noto/specimen/Noto+Serif+SC — OFL 1.1
+  Bodoni Moda (roman, italic)  — Owen Earl (indestructible type*), https://fonts.google.com/specimen/Bodoni+Moda — OFL 1.1
+
+Music (original score written in code, mix.py) — sampled instruments
+  Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios),
+  Versilian Community Sample Library (Versilian Studios)
+    harpsichord — VCSL (CC0 1.0)
+    cellos_pizz, contrabass_pizz, cellos, contrabass, violin, organ_soft — VSCO 2 CE (CC0 1.0; organ by Ivy Audio / Simon Dalzell)
+    glass (glass harp) — FreePats (CC0 1.0)
+
+Sound effects
+  All foley (burin hiss, scratches, ticks, scribe, burnish, water drop, brush, clock, rooms) synthesised procedurally with numpy/scipy; no recordings.
+
+Facts on the plate
+  Nautilus pompilius Linnaeus, 1758 — the chambered (pearly) nautilus; camerae (chambers) divided by septa and linked by the siphuncle (体管).
+  Source: Encyclopaedia Britannica, "Nautilus" (https://www.britannica.com/animal/nautilus-cephalopod-genus);
+  World Register of Marine Species (https://www.marinespecies.org), entry "Nautilus pompilius Linnaeus, 1758".

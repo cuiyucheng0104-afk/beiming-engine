@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>06 · 健身工作室 · 燃点健身</title>
+<script src="../lib/core.js"></script><script src="../lib/morph.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 06 形变动画 · 行业示例：健身工作室 =====
+   Cut on the beat. Embers rise, then every hit EXPLODES the particles outward and they slam back together
+   into the next shape, with a hard camera-angle change each time: a runner (two poses flicking = running),
+   a dumbbell that spins, a heartbeat line with a pulse racing along it, "30天", "-8kg", the studio name. */
+const C = Reel.cfg({ brand: '燃点健身', sub: '私教小班 · 首课免费', w1: '30天', w2: '-8kg' });
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#0a0503');
+MK.init(stage, '#2a0e06', '#070302');
+const N = 11000;
+let SH = null, EMB = null;
+const runner = (pose) => (g, w, h) => {
+  g.save(); g.translate(w / 2, h / 2 + 10); g.lineCap = 'round'; g.lineJoin = 'round'; g.lineWidth = 46;
+  const L = (pts) => { g.beginPath(); g.moveTo(...pts[0]); for (let i = 1; i < pts.length; i++) g.lineTo(...pts[i]); g.stroke(); };
+  g.beginPath(); g.arc(30, -190, 48, 0, 7); g.fill();
+  L([[10, -130], [-20, 10]]);                                         // torso
+  if (pose === 0) { L([[-20, 10], [60, 90], [20, 200]]); L([[-20, 10], [-90, 80], [-170, 60]]); L([[0, -100], [90, -50], [140, -110]]); L([[0, -100], [-80, -40], [-120, 20]]); }
+  else { L([[-20, 10], [-40, 110], [-110, 190]]); L([[-20, 10], [80, 60], [100, 170]]); L([[0, -100], [-80, -50], [-140, -100]]); L([[0, -100], [70, -30], [120, 30]]); }
+  g.restore();
+};
+const dumbbell = (g, w, h) => { g.save(); g.translate(w / 2, h / 2); g.fillRect(-200, -22, 400, 44);
+  for (const s of [-1, 1]) { g.beginPath(); g.roundRect(s * 200 - (s > 0 ? 0 : 70), -130, 70, 260, 18); g.fill(); g.beginPath(); g.roundRect(s * 280 - (s > 0 ? 0 : 50), -95, 50, 190, 14); g.fill(); }
+  g.restore(); };
+const ecg = (g, w, h) => { g.save(); g.lineWidth = 26; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath();
+  const pts = [[60, 300], [300, 300], [360, 250], [420, 300], [470, 300], [510, 120], [560, 460], [610, 300], [680, 300], [730, 230], [800, 300], [940, 300]];
+  g.moveTo(...pts[0]); pts.slice(1).forEach((p) => g.lineTo(...p)); g.stroke(); g.restore(); };
+// beats: [time, shape index, camera yaw, pitch, zoom]
+const BEATS = [[1.2, 0, -0.12, 0.04, 1.0], [3.6, 2, 0.5, -0.12, 1.08], [6.0, 3, -0.15, 0.1, 1.0], [8.4, 4, 0.32, -0.06, 1.05], [10.2, 5, -0.25, 0.04, 1.0], [12.0, 6, 0.0, 0.0, 1.0]];
+const EXP = 0.42;          // explode → reform duration
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 300px "Noto Sans CJK SC"', '900 300px Inter', '700 40px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.0, sfx: 'swell', gain: 0.4 }, ...BEATS.map(([t]) => ({ t: t - 0.02, sfx: 'impact', gain: 0.75 })), ...BEATS.map(([t]) => ({ t, sfx: 'whoosh', gain: 0.35 })),
+    { t: 7.0, sfx: 'beep', gain: 0.4 }, { t: 7.6, sfx: 'beep', gain: 0.4 }, { t: 12.6, sfx: 'sparkle', gain: 0.5 }, { t: 13.0, sfx: 'chime', gain: 0.5 }],
+  setup() {
+    SH = [MK.sample(runner(0), 0.0105, 0.25, { n: N }), MK.sample(runner(1), 0.0105, 0.25, { n: N }), MK.sample(dumbbell, 0.0105, 0.5, { n: N }), MK.sample(ecg, 0.011, 0.12, { n: N, edge: 0.1 }),
+      MK.sample(MK.word(C.w1, 300), 0.0115, 0.2, { n: N }), MK.sample(MK.word(C.w2, 300, 'Inter'), 0.0115, 0.2, { n: N }), MK.sample(MK.word(C.brand, 230), 0.0112, 0.18, { n: N })];
+    EMB = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) { EMB[i * 4] = (MK.rnd() - 0.5) * 14; EMB[i * 4 + 1] = MK.rnd() * 9; EMB[i * 4 + 2] = (MK.rnd() - 0.5) * 6; EMB[i * 4 + 3] = MK.rnd(); }
+  },
+  render(t) {
+    let b = -1; for (let i = 0; i < BEATS.length; i++) if (t >= BEATS[i][0]) b = i;
+    const bt = b >= 0 ? t - BEATS[b][0] : 0;
+    // shape for beat b; the runner flicks between two poses every 0.25 s
+    const shapeOf = (k) => { const s = BEATS[k][1]; return s === 0 ? (Math.floor((t - BEATS[0][0]) / 0.25) % 2 ? 1 : 0) : s; };
+    const cur = b >= 0 ? SH[shapeOf(b)] : null, prev = b >= 1 ? SH[BEATS[b - 1][1] === 0 ? 0 : BEATS[b - 1][1]] : null;
+    const runFlick = b === 0 && bt > EXP ? clamp(((t - BEATS[0][0]) % 0.25) / 0.09) : 1;
+    const flickFrom = b === 0 ? SH[Math.floor((t - BEATS[0][0]) / 0.25) % 2 ? 0 : 1] : null;
+    // camera: hard cut each beat + punch-in, slow drift inside the shot
+    const cb = b >= 0 ? BEATS[b] : [0, 0, 0.2, 0.1, 0.9];
+    const punch = 1 + 0.1 * Math.exp(-bt * 5);
+    let yaw = cb[2] + bt * 0.05, pitch = cb[3];
+    if (b >= 0 && BEATS[b][1] === 2) yaw += E.inOutSine(clamp(bt / 2.0)) * Math.PI * 2;        // the dumbbell spins
+    const shake = Math.exp(-bt * 9) * 0.03;
+    const cam = { yaw, pitch, roll: shake * Math.sin(t * 80), z: 7.2 / (cb[4] * punch), F: 1150, cy: 520 };
+    const pulseX = b >= 0 && BEATS[b][1] === 3 ? lerp(-5.2, 5.2, clamp((bt - 0.4) / 1.6)) : 99;
+    const m = MK.frame(cam, N, (i, o) => {
+      let x, y, z;
+      const ph = EMB[i * 4 + 3];
+      if (b < 0) {                                  // rising embers
+        const u = (t * 0.25 + ph) % 1; x = EMB[i * 4] * 0.8 + Math.sin(t + ph * 30) * 0.3; y = -4.5 + u * 9; z = EMB[i * 4 + 2];
+        o[3] = 255; o[4] = 120 + 100 * u | 0; o[5] = 40; o[6] = (0.3 + 0.7 * Math.sin(Math.PI * u)) * clamp(t / 0.6); o[7] = 0.5 + ph; o[8] = 1; return set(o, x, y, z);
+      }
+      // explode from the previous shape outward, then slam into the new one
+      const ex = clamp(bt / EXP), outK = Math.sin(Math.PI * clamp(ex * 1.15)) * (1 - ex * 0.3);
+      const src = prev || null, dst = b === 0 && bt > EXP ? null : cur;
+      let ax, ay, az;
+      if (src) { ax = src[i * 3]; ay = src[i * 3 + 1]; az = src[i * 3 + 2]; } else { const u = (BEATS[0][0] * 0.25 + ph) % 1; ax = EMB[i * 4] * 0.8; ay = -4.5 + u * 9; az = EMB[i * 4 + 2]; }
+      if (b === 0 && bt > EXP) {                    // running: flick between poses
+        const A = flickFrom, B = cur; const u = E.outQuad(runFlick);
+        x = lerp(A[i * 3], B[i * 3], u); y = lerp(A[i * 3 + 1], B[i * 3 + 1], u); z = lerp(A[i * 3 + 2], B[i * 3 + 2], u);
+      } else {
+        const u = E.inQuart(ex);
+        const bx = cur[i * 3], by = cur[i * 3 + 1], bz = cur[i * 3 + 2];
+        x = lerp(ax, bx, u); y = lerp(ay, by, u); z = lerp(az, bz, u);
+        const dir = [Math.cos(ph * 40), Math.sin(ph * 40) * 0.8, Math.sin(ph * 71)];
+        const pr = outK * (3 + ph * 4);
+        x += dir[0] * pr; y += dir[1] * pr; z += dir[2] * pr;
+        if (ex >= 1) { const st = bt - EXP; const k = Math.exp(-st * 9) * Math.sin(st * 30) * 0.06; x *= 1 + k; y *= 1 + k; }
+      }
+      // shimmer
+      x += Math.sin(t * 2 + ph * 20) * 0.01; y += Math.cos(t * 1.7 + ph * 13) * 0.01;
+      // colour: fire gradient by height, hot white at impact
+      const hot = Math.exp(-bt * 6) * 0.8;
+      const hx = clamp((y + 3) / 6);
+      let r = 255, g = lerp(90, 190, hx), bb = lerp(30, 70, hx);
+      if (b >= 0 && BEATS[b][1] === 3) { const dpx = Math.abs(x - pulseX); const p = Math.exp(-dpx * dpx * 3); g = lerp(g, 255, p); bb = lerp(bb, 220, p); y += p * 0.15; }
+      if (b >= 0 && BEATS[b][1] === 6) { g = lerp(150, 210, hx); bb = lerp(60, 120, hx); }
+      o[3] = r; o[4] = lerp(g, 245, hot) | 0; o[5] = lerp(bb, 220, hot) | 0; o[6] = 0.75 + 0.25 * Math.sin(t * 3 + ph * 30); o[7] = 0.6 + Math.pow(ph, 3) * 1.4;
+      o[8] = ex < 1 ? 1 : 0.35;
+      return set(o, x, y, z);
+    }, { glow: 0.95 });
+    // impact flash
+    if (b >= 0 && bt < 0.12) { m.fillStyle = `rgba(255,190,120,${0.25 * (1 - bt / 0.12)})`; m.fillRect(0, 0, 1920, 1080); }
+    // overlays: beat captions
+    const cap = (txt, y, a, size = 48, col = '#ffd9b0') => { if (a <= 0) return; m.save(); m.globalAlpha = a; m.font = `700 ${size}px "Noto Sans CJK SC"`; m.textAlign = 'center'; m.fillStyle = col; if ('letterSpacing' in m) m.letterSpacing = '12px'; m.fillText(txt, 965, y); m.restore(); };
+    const seg = (t0, t1) => E.outCubic(inv(t0, t0 + 0.3, t)) * (1 - E.inCubic(inv(t1 - 0.25, t1, t)));
+    cap('每周 3 练 · 教练全程盯', 900, seg(1.8, 3.55));
+    cap('小班 6 人 · 器械不排队', 900, seg(4.2, 5.95));
+    cap('心率实时监测 · 安全燃脂', 900, seg(6.6, 8.35));
+    cap('学员平均 30 天', 900, seg(8.9, 10.15));
+    cap('体脂率同步下降', 900, seg(10.6, 11.95));
+    cap(C.sub, 880, E.outCubic(inv(12.6, 13.2, t)), 46, '#fff1de');
+    MK.vignette(m, 0.55);
+    if (t < 0.3) { m.fillStyle = `rgba(7,3,2,${1 - t / 0.3})`; m.fillRect(0, 0, 1920, 1080); }
+  },
+});
+function set(o, x, y, z) { o[0] = x; o[1] = y; o[2] = z; return true; }
+</script></body></html>

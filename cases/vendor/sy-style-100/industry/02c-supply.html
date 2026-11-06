@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>02 · 供应链 SaaS · 货流通</title>
+<script src="../lib/core.js"></script>
+<style>
+  #cap{position:absolute;left:96px;top:84px;font-family:'Noto Sans CJK SC';font-weight:900;font-size:62px;color:#fff;letter-spacing:.06em;text-shadow:0 4px 24px rgba(20,10,60,.35)}
+  #cap small{display:block;font:700 28px 'Noto Sans CJK SC';letter-spacing:.3em;color:rgba(255,255,255,.92);margin-top:18px}
+  #cap{font-size:76px !important;color:#fff;background:rgba(24,34,66,.62);padding:30px 40px 30px 44px;border-radius:24px;backdrop-filter:blur(6px)}
+  #dash{position:absolute;right:120px;top:120px;width:430px;padding:30px 34px;border-radius:26px;background:rgba(255,255,255,.94);box-shadow:0 18px 50px rgba(30,40,80,.25);font-family:'Noto Sans CJK SC';color:#1f2a44;transform-origin:100% 0}
+  #dash .h{font-size:22px;font-weight:700;letter-spacing:.12em;color:#5b6785;display:flex;align-items:center;gap:10px}
+  #dash .h i{width:12px;height:12px;border-radius:50%;background:#2fbf71;display:inline-block;box-shadow:0 0 0 6px rgba(47,191,113,.18)}
+  #dash .k{display:flex;justify-content:space-between;margin-top:22px}
+  #dash .k div{font-size:18px;color:#7a86a3;letter-spacing:.08em}
+  #dash .k b{display:block;font:800 52px Inter;color:#1f2a44;letter-spacing:0;margin-top:4px}
+  #dash .k b em{font-style:normal;font-size:26px;margin-left:4px;color:#2fbf71}
+  #dash .bars{display:flex;align-items:flex-end;gap:12px;height:96px;margin-top:22px;border-bottom:2px solid #e6eaf2}
+  #dash .bars span{flex:1;border-radius:8px 8px 0 0;background:linear-gradient(#5aa9ff,#3a7bff)}
+  #lt{position:absolute;left:96px;bottom:90px;display:flex;align-items:center;gap:18px;font-family:'Noto Sans CJK SC';transition:none}
+  #lt b{font:800 58px Inter;color:#fff;background:#3a7bff;padding:6px 18px;border-radius:14px}
+  #lt span{font-size:40px;font-weight:800;color:#1f2a44;background:rgba(255,255,255,.94);padding:14px 26px;border-radius:16px;box-shadow:0 12px 30px rgba(20,30,60,.2)}
+  #maptag{position:absolute;left:96px;top:84px;font-family:'Noto Sans CJK SC';font-size:34px;font-weight:800;color:#1f2a44;background:rgba(255,255,255,.94);padding:16px 26px;border-radius:16px;box-shadow:0 12px 30px rgba(20,30,60,.2)}
+</style>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 02 等轴 2.5D · ISOMETRIC CITY =====
+   A floating diorama city drawn with an orthographic box renderer in 2D canvas: roads draw themselves,
+   buildings spring up in a wave from the centre, cars run, clouds drift with their shadows. The sun sets,
+   windows and street lamps come on one by one, and the camera slowly orbits - which flat iso art can't do. */
+const { E, clamp, inv, lerp, spring } = Reel;
+const stage = Reel.makeStage('#cfe6f2');
+const C = Reel.cfg({ cap: '货流通', capEn: '订单 · 库存 · 配送，一张图看清', dash: '今日运营', k1: '准时送达', k2: '今日订单', wh: '中心仓', low: '库存不足', ok: '已补货' });
+const RS = Reel.RS;
+const W = Math.round(1920 * RS), H = Math.round(1080 * RS), K = W / 1920;
+const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+cv.style.cssText = 'position:absolute;left:0;top:0;width:1920px;height:1080px';
+stage.appendChild(cv);
+const ctx = cv.getContext('2d');
+const glowC = document.createElement('canvas'); glowC.width = W >> 1; glowC.height = H >> 1;
+const gctx = glowC.getContext('2d');
+
+// ---------- helpers ----------
+const h1 = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+const mixc = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+const rgb = (c, k = 1) => `rgb(${clamp(c[0] * k, 0, 255) | 0},${clamp(c[1] * k, 0, 255) | 0},${clamp(c[2] * k, 0, 255) | 0})`;
+
+
+
+// ---------- supply network on a 14 x 14 slab ----------
+const N = 14;
+const roadX = new Set([6]), roadY = new Set([4, 10]);
+const isRoad = (x, y) => roadX.has(y) || roadY.has(x);
+let T = 0;
+const WH = { x0: 0.5, y0: 7.6, x1: 3.5, y1: 12.6, h: 0.95 };
+const STORES = [
+  { x: 11.3, y: 1.4, col: '#ff9f85' }, { x: 11.4, y: 8.2, col: '#6fb4ee', low: true }, { x: 6.2, y: 1.6, col: '#ffcf4a' },
+  { x: 6.4, y: 8.4, col: '#8fe0c4' }, { x: 12.0, y: 11.6, col: '#b3a2f5' }, { x: 1.6, y: 2.0, col: '#ff7e6b' },
+];
+const DOOR = (st) => [st.x < 10 && st.x > 4 ? (st.x < 7 ? 5.0 : st.x) : (st.x > 10 ? 11.0 : 3.6), st.y + 0.6];
+// a route = list of points along road centrelines
+function route(st) {
+  const ex = [3.6, 6.5];
+  const cx = st.x > 10 ? 10.5 : (st.x > 4 ? 4.5 : 4.5);
+  return [ex, [cx, 6.5], [cx, st.y + 0.6], [st.x - (st.x > 10 ? 0.9 : -0.2), st.y + 0.6]];
+}
+function along(pts, u) {
+  const L = []; let tot = 0; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); L.push(l); tot += l; }
+  let d = clamp(u) * tot, i = 0; while (i < L.length - 1 && d > L[i]) { d -= L[i]; i++; }
+  const a = pts[i], b = pts[i + 1], f = L[i] ? d / L[i] : 0;
+  return [lerp(a[0], b[0], f), lerp(a[1], b[1], f), b[0] - a[0], b[1] - a[1]];
+}
+const TREES = [];
+for (let i = 0; i < 40; i++) { const x = 0.3 + h1(i * 3.1) * 13.4, y = 0.3 + h1(i * 7.3) * 13.4;
+  if (isRoad(Math.floor(x), Math.floor(y)) || (x < 3.9 && y > 7.2) || STORES.some((s) => Math.hypot(s.x - x, s.y - y) < 1.4)) continue;
+  TREES.push({ x, y, r: 0.22 + h1(i) * 0.12, t0: 2.0 + h1(i * 9) * 0.5 }); }
+// ---------- camera / projection ----------
+let AZ = Math.PI / 4, EL = 0.52, SC = 50, CX = 960, CY = 560;
+function P(x, y, z) {
+  const xx = x - 7, yy = y - 7;
+  const c = Math.cos(AZ), s = Math.sin(AZ);
+  const rx = xx * c - yy * s, ry = xx * s + yy * c;
+  return [(CX + rx * SC) * K, (CY + ry * SC * Math.sin(EL) - z * SC * Math.cos(EL)) * K, ry];
+}
+function poly(pts, fill) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); }
+// lighting state
+let SUN = [-0.6, -0.35, 0.72], NIGHT = 0, DUSK = 0;
+function shadeFace(nx, ny, nz) {
+  // directional sun + ambient; returns a brightness factor
+  const sl = Math.hypot(...SUN), d = (nx * SUN[0] + ny * SUN[1] + nz * SUN[2]) / sl;
+  return 0.62 + 0.42 * Math.max(0, d);
+}
+const DAYT = hex('#ffffff'), DUSKT = hex('#ffb38a'), NIGHTT = hex('#6068c0');
+function tint(c, k) {
+  const tt = NIGHT > 0 ? mixc(DUSKT, NIGHTT, NIGHT) : mixc(DAYT, DUSKT, DUSK);
+  const m = 1 - NIGHT * 0.42;
+  return rgb([c[0] * tt[0] / 255 * m, c[1] * tt[1] / 255 * m, c[2] * tt[2] / 255 * m], k);
+}
+// draws an axis-aligned box [x0,x1]x[y0,y1]x[z0,z1] with optional window grid
+const lights = [];
+function box(x0, y0, z0, x1, y1, z1, col, opt = {}) {
+  const v = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+  const top = v.map(([x, y]) => P(x, y, z1)), bot = v.map(([x, y]) => P(x, y, z0));
+  // side faces: (v[i] -> v[i+1]) with outward normals
+  const normals = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const c = Math.cos(AZ), s = Math.sin(AZ);
+  for (let i = 0; i < 4; i++) {
+    const [nx, ny] = normals[i];
+    const nry = nx * s + ny * c;                    // toward the viewer if > 0
+    if (nry <= 0.001) continue;
+    const j = (i + 1) % 4;
+    const k = shadeFace(nx, ny, 0) * (0.86 + 0.14 * nry);
+    poly([bot[i], bot[j], top[j], top[i]], tint(col, k));
+    if (opt.floors) { const m1 = lerpPt(bot[i], top[i], Math.min(0.5, 0.18 / Math.max(z1 - z0, 0.2))), m2 = lerpPt(bot[j], top[j], Math.min(0.5, 0.18 / Math.max(z1 - z0, 0.2))); const g = ctx.createLinearGradient(0, bot[i][1], 0, m1[1]); ctx.globalAlpha = 0.28; poly([bot[i], bot[j], m2, m1], '#1b1f3a'); ctx.globalAlpha = 1; }
+    if (opt.floors && opt.windows !== false) windows(v[i], v[j], z0, z1, opt, i, k);
+  }
+  poly(top, tint(col, shadeFace(0, 0, 1) * 1.03));
+  if (opt.floors) { ctx.strokeStyle = `rgba(255,255,255,${0.55 * (1 - NIGHT * 0.8)})`; ctx.lineWidth = 1.2 * K; ctx.beginPath(); ctx.moveTo(top[0][0], top[0][1]); for (let q = 1; q < 4; q++) ctx.lineTo(top[q][0], top[q][1]); ctx.closePath(); ctx.stroke(); }
+  if (opt.roof) opt.roof(top);
+}
+function windows(a, b, z0, z1, o, face, k) {
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const cols = Math.max(1, Math.round(len * 1.6)), fl = o.floors;
+  const fh = (z1 - z0) / fl;
+  for (let f = 0; f < fl; f++) for (let q = 0; q < cols; q++) {
+    const u0 = (q + 0.3) / cols, u1 = (q + 0.7) / cols, zz0 = z0 + f * fh + fh * 0.32, zz1 = z0 + f * fh + fh * 0.74;
+    const pa = [lerp(a[0], b[0], u0), lerp(a[1], b[1], u0)], pb = [lerp(a[0], b[0], u1), lerp(a[1], b[1], u1)];
+    // push the window a hair out of the wall along the face normal
+    const quad = [P(pa[0], pa[1], zz0), P(pb[0], pb[1], zz0), P(pb[0], pb[1], zz1), P(pa[0], pa[1], zz1)];
+    const hs = h1(o.seed * 13 + f * 7 + q * 3 + face * 31);
+    const on = NIGHT > 0 && hs < 0.82 && NIGHT > (hs * 0.75 + 0.05);
+    if (on) {
+      const wc = hs < 0.15 ? hex('#bfe9ff') : (hs < 0.55 ? hex('#ffd88a') : hex('#ffe9c2'));
+      poly(quad, rgb(wc, 0.9 + 0.1 * Math.sin(T * 3 + hs * 40)));
+      if (hs < 0.08) lights.push([(quad[0][0] + quad[2][0]) / 2, (quad[0][1] + quad[2][1]) / 2, 9 * K, wc, 0.25]);
+    } else {
+      const day = hex('#a9cdea');
+      poly(quad, tint(mixc(day, hex('#2a3460'), NIGHT * 0.6), k * 0.95));
+      if (NIGHT < 0.5) { ctx.globalAlpha = 0.35 * (1 - NIGHT * 2); poly([quad[0], lerpPt(quad[0], quad[1], 0.35), lerpPt(quad[3], quad[2], 0.55), quad[3]], '#ffffff'); ctx.globalAlpha = 1; }
+    }
+  }
+}
+const lerpPt = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+
+// ---------- scene pieces ----------
+function sky(t) {
+  const day = [hex('#bfe3f5'), hex('#f1f7ea')], dusk = [hex('#7d7fd6'), hex('#ffb38a')], night = [hex('#0c1033'), hex('#2a2160')];
+  let top, bot;
+  if (NIGHT > 0) { top = mixc(dusk[0], night[0], NIGHT); bot = mixc(dusk[1], night[1], NIGHT); } else { top = mixc(day[0], dusk[0], DUSK); bot = mixc(day[1], dusk[1], DUSK); }
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bot));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (NIGHT > 0.2) for (let i = 0; i < 90; i++) { const x = h1(i * 3.3) * W, y = h1(i * 7.1) * H * 0.7, a = (NIGHT - 0.2) * (0.5 + 0.5 * Math.sin(t * 2 + i)); ctx.fillStyle = `rgba(255,255,255,${a * 0.8})`; ctx.fillRect(x, y, 2 * K, 2 * K); }
+}
+function slab(t) {
+  // floating ground chunk: dirt layers on the sides, grass on top
+  const z0 = -1.1;
+  const layers = [[-1.1, -0.75, '#8a5a3c'], [-0.75, -0.35, '#a8704a'], [-0.35, -0.12, '#c58b5b'], [-0.12, 0, '#7cc06a']];
+  for (const [a, b, c] of layers) box(-0.15, -0.15, a, N + 0.15, N + 0.15, b, hex(c));
+  // grass top
+  const g = [P(-0.15, -0.15, 0), P(N + 0.15, -0.15, 0), P(N + 0.15, N + 0.15, 0), P(-0.15, N + 0.15, 0)];
+  poly(g, tint(hex('#9bd47a'), 1.02));
+}
+function roads(t) {
+  const rv = E.outCubic(inv(0.35, 1.25, t));
+  const road = hex('#596075'), walk = hex('#ddd8cb');
+  // sidewalks then asphalt, revealed along their length
+  for (const y of roadX) {
+    const L = N * rv;
+    poly([P(0, y - 0.08, 0.01), P(L, y - 0.08, 0.01), P(L, y + 1.08, 0.01), P(0, y + 1.08, 0.01)], tint(walk, 1));
+    poly([P(0, y + 0.06, 0.02), P(L, y + 0.06, 0.02), P(L, y + 0.94, 0.02), P(0, y + 0.94, 0.02)], tint(road, 1));
+    for (let x = 0.3; x < L - 0.4; x += 0.8) poly([P(x, y + 0.48, 0.025), P(x + 0.4, y + 0.48, 0.025), P(x + 0.4, y + 0.52, 0.025), P(x, y + 0.52, 0.025)], tint(hex('#f2f2f2'), 1));
+  }
+  for (const x of roadY) {
+    const L = N * rv;
+    poly([P(x - 0.08, 0, 0.011), P(x + 1.08, 0, 0.011), P(x + 1.08, L, 0.011), P(x - 0.08, L, 0.011)], tint(walk, 1));
+    poly([P(x + 0.06, 0, 0.021), P(x + 0.94, 0, 0.021), P(x + 0.94, L, 0.021), P(x + 0.06, L, 0.021)], tint(road, 1));
+    for (let y = 0.3; y < L - 0.4; y += 0.8) poly([P(x + 0.48, y, 0.026), P(x + 0.52, y, 0.026), P(x + 0.52, y + 0.4, 0.026), P(x + 0.48, y + 0.4, 0.026)], tint(hex('#f2f2f2'), 1));
+  }
+  // crossings
+  for (const y of roadX) for (const x of roadY) poly([P(x, y, 0.03), P(x + 1, y, 0.03), P(x + 1, y + 1, 0.03), P(x, y + 1, 0.03)], tint(road, 1));
+}
+function shadows(items) {
+  if (NIGHT > 0.6) return;
+  ctx.save();
+  const sl = [P(-0.15, -0.15, 0), P(N + 0.15, -0.15, 0), P(N + 0.15, N + 0.15, 0), P(-0.15, N + 0.15, 0)];
+  ctx.beginPath(); ctx.moveTo(sl[0][0], sl[0][1]); for (let i = 1; i < 4; i++) ctx.lineTo(sl[i][0], sl[i][1]); ctx.closePath(); ctx.clip();
+  ctx.globalAlpha = 0.16 * (1 - NIGHT / 0.6) * (1 - DUSK * 0.3);
+  const sx = -SUN[0] / SUN[2], sy = -SUN[1] / SUN[2];
+  for (const it of items) {
+    if (!it.h) continue;
+    const { x0, y0, x1, y1, h } = it;
+    const pts = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    const proj = pts.map(([x, y]) => [x + sx * h, y + sy * h]);
+    const all = pts.concat(proj).map(([x, y]) => P(x, y, 0.035));
+    // convex hull of the 8 points
+    all.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [], up = [];
+    for (const p of all) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+    for (let i = all.length - 1; i >= 0; i--) { const p = all[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+    poly(lo.slice(0, -1).concat(up.slice(0, -1)), '#1d2a52');
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+function tree(x, y, r, s, sway) {
+  if (s <= 0) return;
+  box(x - 0.04, y - 0.04, 0, x + 0.04, y + 0.04, 0.28 * s, hex('#8a5a3c'), { windows: false });
+  const c = P(x + sway, y, 0.28 * s + r * s);
+  const rr = r * SC * K * s;
+  const g = ctx.createRadialGradient(c[0] - rr * 0.35, c[1] - rr * 0.4, rr * 0.1, c[0], c[1], rr);
+  const base = hex(h1(x * 13) > 0.5 ? '#5cbf6a' : '#7bcf62');
+  g.addColorStop(0, tint(base, 1.25)); g.addColorStop(0.7, tint(base, 1.0)); g.addColorStop(1, tint(base, 0.75));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c[0], c[1], rr, 0, Math.PI * 2); ctx.fill();
+}
+
+function store(st, s, t) {
+  if (s <= 0) return;
+  const x0 = st.x - 0.6, x1 = st.x + 0.6, y0 = st.y - 0.5, y1 = st.y + 0.5, h = 0.62 * s;
+  box(x0, y0, 0, x1, y1, h, hex('#fbf7ef'), { floors: 1, seed: Math.round(st.x * 13 + st.y) });
+  // striped awning on the street side
+  for (let k = 0; k < 6; k++) { const a = x0 + k * 0.2; poly([P(a, y1, h * 0.72), P(a + 0.2, y1, h * 0.72), P(a + 0.2, y1 + 0.3, h * 0.5), P(a, y1 + 0.3, h * 0.5)], tint(hex(k % 2 ? '#ffffff' : st.col), 1.02)); }
+  poly([P(x0 + 0.05, y0 + 0.05, h + 0.001), P(x1 - 0.05, y0 + 0.05, h + 0.001), P(x1 - 0.05, y1 - 0.05, h + 0.001), P(x0 + 0.05, y1 - 0.05, h + 0.001)], tint(hex(st.col), 0.95));
+}
+function stock(st, t) {
+  // floating stock gauge above the shop
+  let lv = 0.72 + 0.12 * Math.sin(st.x);
+  if (st.low) lv = t < 3.2 ? 0.7 : (t < 6.6 ? lerp(0.7, 0.12, E.inOutSine(inv(3.2, 4.0, t))) : lerp(0.12, 0.92, E.outCubic(inv(6.6, 7.2, t))));
+  const a = E.outCubic(inv(2.3, 2.7, t)); if (a <= 0) return;
+  const c = P(st.x, st.y, 1.25);
+  const w = 64 * K, hh = 12 * K;
+  ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.roundRect(c[0] - w / 2 - 6 * K, c[1] - hh / 2 - 6 * K, w + 12 * K, hh + 12 * K, 10 * K); ctx.fill();
+  ctx.fillStyle = '#e6eaf2'; ctx.beginPath(); ctx.roundRect(c[0] - w / 2, c[1] - hh / 2, w, hh, 6 * K); ctx.fill();
+  ctx.fillStyle = lv < 0.25 ? '#ff4d4f' : (lv < 0.5 ? '#ffb020' : '#2fbf71'); ctx.beginPath(); ctx.roundRect(c[0] - w / 2, c[1] - hh / 2, Math.max(hh, w * lv), hh, 6 * K); ctx.fill();
+  ctx.globalAlpha = 1;
+  if (st.low) {
+    const warn = t > 3.8 && t < 6.7, okk = t > 6.9;
+    if (warn || okk) {
+      const pa = clamp(spring(t - (warn ? 3.8 : 6.9), { k: 200, c: 13 }), 0, 1.1);
+      const txt = warn ? C.low : C.ok, col = warn ? '#ff4d4f' : '#2fbf71';
+      ctx.save(); ctx.translate(c[0], c[1] - 26 * K); ctx.scale(pa, pa); ctx.font = `700 ${22 * K}px "Noto Sans CJK SC"`;
+      const tw = ctx.measureText(txt).width; ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(-tw / 2 - 18 * K, -38 * K, tw + 36 * K, 38 * K, 19 * K); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, 0, -18 * K); ctx.restore();
+      if (warn) lights.push([c[0], c[1], 30 * K, hex('#ff4d4f'), 0.5 + 0.4 * Math.sin(t * 10)]);
+    }
+  }
+}
+function warehouse(s, t) {
+  if (s <= 0) return;
+  const { x0, y0, x1, y1, h } = WH;
+  box(x0, y0, 0, x1, y1, h * s, hex('#e9eef5'), { floors: 2, seed: 7 });
+  box(x0, y0, h * s * 0.82, x1, y0 + 0.02, h * s * 0.9, hex('#3a7bff'), { windows: false });
+  for (let k = 0; k < 4; k++) { const yy = y0 + 0.7 + k * 1.15; box(x0 + 0.5, yy, h * s, x1 - 0.5, yy + 0.35, h * s + 0.06, hex('#bcd6f2'), { windows: false }); }
+  for (let k = 0; k < 3; k++) { const yy = y0 + 0.9 + k * 1.4; box(x1, yy, 0, x1 + 0.05, yy + 0.8, 0.5 * s, hex('#5b6478'), { windows: false }); }
+}
+function truckAt(px, py, dx, dy, col) {
+  const hor = Math.abs(dx) > Math.abs(dy);
+  const L = 0.5, Wd = 0.2;
+  const x0 = hor ? px - L : px - Wd, x1 = hor ? px + L : px + Wd, y0 = hor ? py - Wd : py - L, y1 = hor ? py + Wd : py + L;
+  box(x0, y0, 0.04, x1, y1, 0.42, hex('#ffffff'), { windows: false });
+  const sx = hor ? Math.sign(dx) : 0, sy = hor ? 0 : Math.sign(dy);
+  const cx = px + sx * (L + 0.18), cy = py + sy * (L + 0.18);
+  box(cx - (hor ? 0.18 : Wd), cy - (hor ? Wd : 0.18), 0.04, cx + (hor ? 0.18 : Wd), cy + (hor ? Wd : 0.18), 0.32, hex(col), { windows: false });
+}
+
+// ---------- frame ----------
+const dash = document.createElement('div'); dash.id = 'dash';
+dash.innerHTML = `<div class="h"><i></i>${C.dash}</div><div class="k"><div>${C.k1}<b id="k1">0<em>%</em></b></div><div>${C.k2}<b id="k2">0</b></div></div><div class="bars">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div>`;
+stage.appendChild(dash);
+const K1 = dash.querySelector('#k1'), K2 = dash.querySelector('#k2'), BARS = [...dash.querySelectorAll('.bars span')];
+const BH = [0.48, 0.6, 0.52, 0.66, 0.7, 0.62, 0.84, 0.95];
+const ORDERS = [];
+for (let i = 0; i < 26; i++) ORDERS.push({ st: STORES[i % STORES.length], t0: 2.5 + i * 0.17 + h1(i) * 0.1 });
+function look(wx, wy, wz, sx = 960, sy = 540) { CX = 0; CY = 0; const p = P(wx, wy, wz); CX = sx - p[0] / K; CY = sy - p[1] / K; }
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 76px "Noto Sans CJK SC"', '700 28px "Noto Sans CJK SC"', '700 22px "Noto Sans CJK SC"', '800 52px Inter'],
+  cues: [{"t": 0.1, "sfx": "whoosh", "gain": 0.4}, {"t": 0.5, "sfx": "pop", "gain": 0.6}, {"t": 0.8, "sfx": "data", "gain": 0.5}, {"t": 1.2, "sfx": "beep", "gain": 0.5}, {"t": 2.9, "sfx": "beep", "gain": 0.6}, {"t": 2.5, "sfx": "zoom", "gain": 0.6}, {"t": 4.0, "sfx": "impact_soft", "gain": 0.6}, {"t": 4.0, "sfx": "shutter", "gain": 0.5}, {"t": 5.6, "sfx": "shutter", "gain": 0.5}, {"t": 5.6, "sfx": "whoosh", "gain": 0.4}, {"t": 7.4, "sfx": "shutter", "gain": 0.5}, {"t": 8.0, "sfx": "land", "gain": 0.3}, {"t": 8.2, "sfx": "ding", "gain": 0.6}, {"t": 9.6, "sfx": "whoosh_up", "gain": 0.5}, {"t": 10.8, "sfx": "pop", "gain": 0.5}, {"t": 10.9, "sfx": "data", "gain": 0.5}, {"t": 12.2, "sfx": "chime", "gain": 0.6}],
+  render(t) {
+    const rt = t; t = 2.2 + rt * 0.55; T = t; DUSK = 0; NIGHT = 0; SUN = [-0.6, -0.35, 0.72];
+    // ---- camera: top-down map → tilt up into 2.5D → three jump-cut close-ups → pull back
+    const tilt = E.inOutCubic(inv(2.5, 4.0, rt));
+    let cutA = 0;
+    const R1 = route(STORES[1]);
+    if (rt < 4.0) {
+      AZ = lerp(0, Math.PI / 4, tilt); EL = lerp(Math.PI / 2, 0.52, tilt); SC = lerp(74, 92, tilt) * (1 + 0.04 * rt / 4); look(7, 7, 0, 960, 545);
+    } else if (rt < 5.6) {             // cut 1: the warehouse loading bay
+      const u = (rt - 4.0) / 1.6; AZ = Math.PI / 4 - 0.35 + u * 0.08; EL = 0.5; SC = 250 + u * 20; look(3.4, 8.6, 0.4, 960, 560); cutA = 4.0;
+    } else if (rt < 7.4) {             // cut 2: low dramatic angle, riding along with the truck
+      const [px, py] = along(R1, E.inOutSine(inv(4.4, 6.6, t))); AZ = Math.PI / 4 + 0.55; EL = 0.36; SC = 230; look(px, py, 0.3, 900, 600); cutA = 5.6;
+    } else if (rt < 9.6) {             // cut 3: the shop that was running out
+      const u = (rt - 7.4) / 2.2; AZ = Math.PI / 4 + 0.1 - u * 0.06; EL = 0.55; SC = 235 - u * 15; look(STORES[1].x - 0.4, STORES[1].y + 0.2, 0.6, 960, 600); cutA = 7.4;
+    } else {                           // pull back to the whole network
+      const u = E.inOutCubic(inv(9.6, 11.2, rt)); AZ = lerp(Math.PI / 4 + 0.1, Math.PI / 4 + 0.3, u); EL = lerp(0.55, 0.52, u); SC = lerp(220, 86, u);
+      look(lerp(STORES[1].x - 0.4, 7.4, u), lerp(STORES[1].y + 0.2, 7.2, u), lerp(0.6, 0, u), lerp(960, 900, u), lerp(600, 600, u));
+    }
+    lights.length = 0;
+    sky(t); slab(t); roads(t);
+    const sp = (t0, k = 200, c = 15) => clamp(spring(t - t0, { k, c }), 0, 1.1);
+    const items = [];
+    items.push({ kind: 'wh', s: sp(0.9), ry: P(2, 10, 0)[2] });
+    STORES.forEach((st, i) => items.push({ kind: 'st', st, s: sp(1.1 + i * 0.12), ry: P(st.x, st.y, 0)[2] }));
+    for (const tr of TREES) { const s = sp(tr.t0, 260, 14); items.push({ kind: 't', tr, s, ry: P(tr.x, tr.y, 0)[2] }); }
+    // the replenishment truck + two regular delivery runs
+    const runs = [{ st: STORES[1], t0: 4.4, t1: 6.6, col: '#3a7bff' }, { st: STORES[0], t0: 2.6, t1: 5.2, col: '#2ec4b6' }, { st: STORES[3], t0: 5.0, t1: 7.4, col: '#ff9f43' }];
+    for (const r of runs) { if (t < r.t0) continue; const u = E.inOutSine(inv(r.t0, r.t1, t)); const pts = route(r.st); const back = t > r.t1 + 0.6; const [px, py, dx, dy] = along(back ? pts.slice().reverse() : pts, back ? E.inOutSine(inv(r.t1 + 0.6, r.t1 + 2.6, t)) : u); items.push({ kind: 'truck', px, py, dx, dy, col: r.col, ry: P(px, py, 0)[2] }); }
+    shadows([{ ...WH, h: WH.h * Math.min(1, sp(0.9)) }, ...STORES.map((st) => ({ x0: st.x - 0.6, y0: st.y - 0.5, x1: st.x + 0.6, y1: st.y + 0.5, h: 0.62 }))]);
+    items.sort((a, b) => a.ry - b.ry);
+    for (const it of items) {
+      if (it.kind === 'wh') warehouse(it.s, t);
+      else if (it.kind === 'st') store(it.st, it.s, t);
+      else if (it.kind === 't') tree(it.tr.x, it.tr.y, it.tr.r, it.s, Math.sin(t * 2 + it.tr.x) * 0.012);
+      else if (it.kind === 'truck') truckAt(it.px, it.py, it.dx, it.dy, it.col);
+    }
+    { const ma = 1 - tilt * 0.6; ctx.save(); ctx.setLineDash([16 * K, 10 * K]); ctx.lineWidth = 8 * K; ctx.lineCap = 'round';
+      STORES.forEach((st, i) => { const pts = route(st); ctx.strokeStyle = i === 1 ? `rgba(255,77,79,${ma})` : `rgba(58,123,255,${0.75 * ma})`; ctx.beginPath(); pts.forEach((p, j) => { const q = P(p[0], p[1], 0.05); j ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.stroke(); });
+      ctx.restore();
+      const pa = clamp(spring(rt - 0.5, { k: 180, c: 12 }), 0, 1.1); const c = P(2, 10, WH.h + 0.05); ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(pa, pa);
+      ctx.fillStyle = '#3a7bff'; ctx.beginPath(); ctx.arc(0, -46 * K, 22 * K, Math.PI * 0.8, Math.PI * 2.2); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, -46 * K, 9 * K, 0, 7); ctx.fill(); ctx.restore(); }
+    // orders: glowing dots flowing from every shop to the warehouse
+    for (const o of ORDERS) { const u = inv(o.t0, o.t0 + 1.6, t); if (u <= 0 || u >= 1) continue; const [x, y] = along(route(o.st).slice().reverse(), E.inOutSine(u)); const p = P(x, y, 0.12); ctx.fillStyle = '#5aa9ff'; ctx.beginPath(); ctx.arc(p[0], p[1], 6 * K, 0, Math.PI * 2); ctx.fill(); lights.push([p[0], p[1], 16 * K, hex('#5aa9ff'), 0.9]); }
+    STORES.forEach((st) => stock(st, t));
+    // warehouse label
+    { const a = clamp(spring(t - 2.2, { k: 170, c: 13 }), 0, 1.1); if (a > 0.01) { const c = P(2, 10, WH.h + 0.1); ctx.save(); ctx.translate(c[0], c[1] - 40 * K); ctx.scale(a, a); ctx.font = `700 ${24 * K}px "Noto Sans CJK SC"`; const tw = ctx.measureText(C.wh).width; ctx.fillStyle = '#1f2a44'; ctx.beginPath(); ctx.roundRect(-tw / 2 - 20 * K, -42 * K, tw + 40 * K, 42 * K, 21 * K); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(C.wh, 0, -20 * K); ctx.restore(); } }
+    if (lights.length) {
+      gctx.clearRect(0, 0, glowC.width, glowC.height); gctx.globalCompositeOperation = 'lighter';
+      for (const [x, y, r, c, a] of lights) { const g = gctx.createRadialGradient(x / 2, y / 2, 0, x / 2, y / 2, r * 1.6); g.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${0.55 * a})`); g.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`); gctx.fillStyle = g; gctx.fillRect(x / 2 - r * 1.6, y / 2 - r * 1.6, r * 3.2, r * 3.2); }
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.filter = `blur(${3 * K}px)`; ctx.drawImage(glowC, 0, 0, W, H); ctx.filter = 'none'; ctx.restore();
+    }
+    // cut flash
+    if (cutA && rt - cutA < 0.1) { ctx.fillStyle = `rgba(255,255,255,${0.8 * (1 - (rt - cutA) / 0.1)})`; ctx.fillRect(0, 0, W, H); }
+    // shot labels (lower third) for the three close-ups
+    const shot = rt >= 4.0 && rt < 5.6 ? ['01', '中心仓出库 · 312 单'] : rt >= 5.6 && rt < 7.4 ? ['02', '实时轨迹 · 预计 18 分钟送达'] : rt >= 7.4 && rt < 9.6 ? ['03', t < 6.9 ? '门店库存不足 · 自动补货' : '补货完成 · 已上架'] : null;
+    lt.style.opacity = shot ? 1 : 0; if (shot) { LT_N.textContent = shot[0]; LT_T.textContent = shot[1]; }
+    mapTag.style.opacity = rt < 2.6 ? clamp(rt / 0.4) : 1 - clamp((rt - 2.6) / 0.3);
+    const da = clamp(spring(rt - 10.8, { k: 160, c: 14 }), 0, 1.1);
+    dash.style.opacity = Math.min(1, da * 1.5); dash.style.transform = `scale(${0.85 + 0.15 * da})`;
+    const cnt = E.outCubic(inv(10.9, 12.6, rt));
+    K1.innerHTML = `${(lerp(95.1, 99.2, cnt)).toFixed(1)}<em>%</em>`;
+    K2.textContent = Math.round(lerp(312, 1284, cnt)).toLocaleString('en-US');
+    BARS.forEach((b, i) => { b.style.height = `${BH[i] * 100 * E.outCubic(inv(11.0 + i * 0.1, 11.6 + i * 0.1, rt))}%`; });
+    cap.style.opacity = E.outCubic(inv(12.2, 12.9, rt)); cap.style.transform = `translateY(${(1 - E.outCubic(inv(12.2, 12.9, rt))) * 14}px)`;
+  },
+});
+const lt = document.createElement('div'); lt.id = 'lt'; lt.innerHTML = '<b></b><span></span>'; stage.appendChild(lt); const LT_N = lt.querySelector('b'), LT_T = lt.querySelector('span');
+const mapTag = document.createElement('div'); mapTag.id = 'maptag'; mapTag.textContent = '实时订单地图 · 6 家门店'; stage.appendChild(mapTag);
+const cap = document.createElement('div'); cap.id = 'cap'; cap.innerHTML = `${C.cap}<small>${C.capEn}</small>`; stage.appendChild(cap);
+</script></body></html>

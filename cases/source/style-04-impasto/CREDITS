@@ -1,0 +1,13 @@
+红色自行车 (Impasto palette-knife study) — credits
+
+Picture: painted entirely in code (WebGL2 palette-knife stroke renderer, deterministic). No photographs, footage or images.
+Music: original score written for this film; procedural foley and ambience synthesized in numpy.
+
+Sampled instruments used in the score (all CC0 1.0):
+- accordion — FreePats project, https://freepats.zenvoid.org/ — CC0 1.0
+- contrabass, contrabass pizzicato, cellos, violins, violins pizzicato, glockenspiel, harp, timpani —
+  VS Chamber Orchestra: Community Edition (Versilian Studios), https://github.com/sgossner/VSCO-2-CE — CC0 1.0
+- suspended cymbal — Versilian Community Sample Library (Versilian Studios), https://github.com/sgossner/VCSL — CC0 1.0
+Brushed snare, bicycle bell, brakes, gravel, wind, palette-knife scrapes: synthesized (no samples).
+
+Fonts: none (the film has no on-screen text).

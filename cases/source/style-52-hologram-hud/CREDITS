@@ -1,0 +1,22 @@
+种子扫描 · Seed Scan — 第三方素材与许可
+
+画面
+- 全部画面由代码实时绘制（Canvas 2D）：橡子与橡树为程序化生成的线框模型（model.js），无任何照片、影片或外部图像素材。
+- 线框 / HUD 引擎改编自所用风格库中 hologram-hud 风格的引擎（engine/holo.js、engine/hud.js），本片做了生长键扫描、整体缩放、景深雾与近裁剪的修改。
+
+字体（均为 SIL Open Font License 1.1，许可全文见 fonts/OFL-*.txt）
+- Rajdhani（Light / Regular / Medium / SemiBold）— Indian Type Foundry — https://github.com/google/fonts/tree/main/ofl/rajdhani — OFL 1.1
+- Share Tech Mono — Carrois Type Design, Ralph du Carrois — https://github.com/google/fonts/tree/main/ofl/sharetechmono — OFL 1.1
+- Noto Sans SC（400 / 500，按片中用字经 Google Fonts CSS API &text= 子集化）— Adobe / Google — https://github.com/google/fonts/tree/main/ofl/notosanssc — OFL 1.1
+
+声音
+- 配乐与拟音为原创：numpy 合成（锯齿/方波琶音、脉冲低音、合成鼓、pad、808、宽锯齿和弦、FM 提示音、扫频、伺服、气动等）。
+- pluck.py 物理建模拨弦（kalimba、harp）：纯合成，无许可要求。
+- 采样乐器（CC0 1.0，无署名要求，致谢如下）：
+  Samples (CC0): FreePats project (freepats.zenvoid.org), Versilian Community Sample Library (Versilian Studios)
+  - glass（玻璃琴，FreePats，CC0 1.0）
+  - gran_cassa（大鼓，VCSL，CC0 1.0）
+  - sus_cymbal（悬钹渐强，VCSL，CC0 1.0）
+  - vibraphone_bowed（弓奏颤音琴，VCSL，CC0 1.0）
+
+无旁白、无字幕、无真实素材（故无 FACTS.md）；片中数值（树高、冠幅、根深、含水率、树龄）为虚构样本的设定值。

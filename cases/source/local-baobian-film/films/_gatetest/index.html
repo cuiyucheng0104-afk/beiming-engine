@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8"><link rel="icon" href="data:,">
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{position:absolute;left:0;top:0}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+<script type="module">
+// 门禁自测片：3D 卡通体 + 底板 + 书法字，按 H/1040 缩放
+import * as THREE from 'three';
+const W = innerWidth, H = innerHeight, K = H / 1040;
+const r = new THREE.WebGLRenderer({ preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(W, H); document.body.appendChild(r.domElement);
+const s = new THREE.Scene(), c = new THREE.PerspectiveCamera(40, W / H, .1, 100); c.position.z = 6;
+const tex = await new THREE.TextureLoader().loadAsync('./assets/bg.png'); tex.colorSpace = THREE.SRGBColorSpace;
+const bg = new THREE.Mesh(new THREE.PlaneGeometry(16, 10.7), new THREE.MeshBasicMaterial({ map: tex })); bg.position.z = -6; s.add(bg);
+const m = new THREE.Mesh(new THREE.TorusKnotGeometry(1, .3, 200, 32), new THREE.MeshToonMaterial({ color: '#c96' })); s.add(m);
+const L = new THREE.DirectionalLight('#fff', 3); L.position.set(2, 3, 4); s.add(L);
+const hud = document.createElement('canvas'); hud.width = W; hud.height = H; document.body.appendChild(hud); const g = hud.getContext('2d');
+const ff = new FontFace('BB', 'url(/fonts/MaShanZheng-baobian.woff2)'); await ff.load(); document.fonts.add(ff);
+window.DUR = 30;
+window.render = t => {
+  const f = Math.round(t * 24);
+  m.rotation.set(t * .7, t * .9, 0); c.position.x = Math.sin(t * .2) * .8; c.lookAt(0, 0, 0); r.render(s, c);
+  g.clearRect(0, 0, W, H); g.fillStyle = 'rgba(30,25,20,.9)'; g.font = `${64 * K}px BB`; g.textBaseline = 'top';
+  [...'君子豹变'].forEach((ch, i) => g.fillText(ch, W - 140 * K, (180 + i * 80) * K));
+  g.font = `${28 * K}px sans-serif`; g.fillText(`f=${f}`, 40 * K, 40 * K);
+};
+window.render(0); window.READY = true;
+</script>

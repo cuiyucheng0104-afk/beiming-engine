@@ -1,0 +1,31 @@
+会用工具的海獭（字幕新闻风格样片）— 素材与授权
+
+画面素材（全部为美国联邦政府雇员作品，公有领域；经 Wikimedia Commons 获取，逐页核对过授权栏）
+- 照片 David Ledig / BLM（美国土地管理局）：Sea Otter (37795895835).jpg — 公有领域
+  https://commons.wikimedia.org/wiki/File:Sea_Otter_(37795895835).jpg
+- 照片 David Ledig / BLM：Sea Otter (24810604978).jpg — 公有领域
+  https://commons.wikimedia.org/wiki/File:Sea_Otter_(24810604978).jpg
+- 照片 Lilian Carswell / USFWS Pacific Southwest Region：Sea otter float (48749714078).jpg（2018-06-13 摄于加州 Moss Landing）— 公有领域（2.5–4.0 s 与片尾 17.5–19.5 s）
+  https://commons.wikimedia.org/wiki/File:Sea_otter_float_(48749714078).jpg
+- 照片 Lilian Carswell / USFWS：Weaning age (15103737217).jpg — 公有领域
+  https://commons.wikimedia.org/wiki/File:Weaning_age_(15103737217).jpg
+- 视频截帧 Lara Drizd / USFWS：Southern sea otter mom and pup (48749569073).jpg — 公有领域
+  https://commons.wikimedia.org/wiki/File:Southern_sea_otter_mom_and_pup_(48749569073).jpg
+- 文献 Kenyon, K. W. (1969) The sea otter in the eastern Pacific Ocean. North American Fauna 68, U.S. Fish and Wildlife Service — 第 84 页及图 45（KWK 本人摄）— 公有领域
+  https://commons.wikimedia.org/wiki/File:The_sea_otter_in_the_eastern_Pacific_Ocean_(IA_seaotterineaster68keny).pdf
+- 文献 Riedman, M. L. & Estes, J. A. (1990) The Sea Otter (Enhydra lutris): Behavior, Ecology, and Natural History. Biological Report 90(14), U.S. Department of the Interior, Fish and Wildlife Service — 第 33、35 页 — 公有领域
+  https://commons.wikimedia.org/wiki/File:The_Sea_Otter_(Enhydra_Lutris)-_Behavior,_Ecology,_and_Natural_History..._Biological_Report_90(14)..._U.S._Department_of_the_Interior..._September_1990_(IA_doi-report_i-4989-290-14).pdf
+（以上机构未参与、也未认可本片。频道名“潮汐速报 TIDE WIRE”为虚构。）
+
+已下载但未用于成片（material/raw 中保留以备查）：
+- broll_elkhorn.webm：USFWS 埃尔克霍恩湿地 B-roll 视频，公有领域，https://commons.wikimedia.org/wiki/File:Broll_-_Southern_sea_otters_at_Elkhorn_Slough_in_Moss_Landing,_California_Video_by_USFWS_(28833083527).webm（返修时换下：海獭在画面里只占 10–15% 高，1.5× 上限内放不大）
+- nursing.jpg、crab_prep.png、octopus_nps.jpg（均为 USFWS/NPS 公有领域）、savvy_tools.jpg（USFWS 上传，但画面带第三方 © 水印，故弃用）。
+
+字体（SIL Open Font License 1.1，Google Fonts 子集，见 fonts/OFL-*.txt）
+- Noto Sans SC（900 / 500）— https://fonts.google.com/noto/specimen/Noto+Sans+SC
+- Inter Tight（800 / 500）— https://fonts.google.com/specimen/Inter+Tight
+
+配乐采样（core/audio/sampler.py）
+- Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+- Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+- 拨弦为 core/audio/pluck.py 物理建模合成；低音脉冲、riser、水声、纸面底噪与全部拟音为 numpy 程序合成（无第三方素材）。

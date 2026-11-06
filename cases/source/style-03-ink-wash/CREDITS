@@ -1,0 +1,30 @@
+鹤出留白 · CREDITS
+==================
+
+本片画面、配乐、拟音全部由代码生成（Canvas2D + WebGL 合成、numpy 合成与采样回放），未使用任何素材影像或现成音乐。
+
+字体
+- Ma Shan Zheng（马善政毛笔楷书），作者 Ma ShanZheng；SIL Open Font License 1.1。
+  来源：https://fonts.google.com/specimen/Ma+Shan+Zheng （经 Google Fonts CSS API &text= 子集化为片中 6 个字：鹤出留白墨戏）
+  许可全文：fonts/OFL-MaShanZheng.txt
+  用法：只作题款与印文的"骨架"（细化出中心线后用笔刷引擎重写），不直接排字。
+
+采样乐器（均为 CC0 1.0）
+- Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+  - VS Chamber Orchestra: Community Edition（Versilian Studios，CC0）：flute（箫的采样层）、log_drum、timpani、gong
+    https://github.com/sgossner/VSCO-2-CE
+  - Versilian Community Sample Library（Versilian Studios，CC0）：woodblock（木鱼）、gran_cassa（大鼓）、frame_drum（手鼓）、gong2（小锣）
+    https://github.com/sgossner/VCSL
+  - FreePats project（CC0）：glass（墨滴的"叮"）
+    https://freepats.zenvoid.org/
+
+合成部分
+- 古琴：物理建模拨弦（扩展 Karplus–Strong 波导），风格库 core/audio/pluck.py。
+- 箫的气声管、全部拟音与环境声：numpy / scipy 程序合成（风格库 core/audio/sfx.py 的滤波与混音工具 + 本工程 mix.py）。
+
+代码
+- 笔刷引擎 engine/ink.js、宣纸合成器 engine/comp.js、山体 engine/land.js：改编自风格库 ink-wash 风格的示例源码（技法复用，故事、镜头、时间线均为本片原创）。
+- 白鹤 engine/crane.js、骨架书写 engine/glyph.js、全片 film.js / timeline.js / music/score.py / mix.py：本片原创。
+
+本片未使用真实影像素材，故无 FACTS.md。
+使用者对片中自行添加的任何材料负责。

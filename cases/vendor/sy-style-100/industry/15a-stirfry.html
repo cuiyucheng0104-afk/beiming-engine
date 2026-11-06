@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>15 · 街边小炒探店 · 火候小炒</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/variety.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 15 综艺花字 · 行业示例：街边小炒探店 =====
+   Food-vlog footage of a wok over a roaring flame (ray-marched: carbon-steel wok with an oil sheen, beef
+   and chillies that are really tossed - launched, tumbling, falling back), cut like a variety show: the
+   beat-hit captions, a mid-toss FREEZE FRAME where the picture stops and every ingredient gets an arrow
+   label, then the plate-up and the rating card. */
+const { E, clamp, lerp, inv } = Reel;
+const stage = Reel.makeStage('#0d0806');
+Reel.ownJitter = true;
+const C = Reel.cfg({ shop: '火候小炒', tag: '探店 · 第 37 家', addr: '老城菜市场 2 号门 · 人均 ¥35' });
+const NF = 20;
+const rm = Reel.RM(stage, {
+  bloom: 0.5, th: 1.0, expo: 1.0, vig: 0.45, grain: 0.04, ca: 0.5, contrast: 1.1, sat: 1.15, lift: [0.008, 0.004, 0.0], gain: [1.02, 1.0, 0.96], bands: 8,
+  uniforms: `uniform vec3 uRo, uTa; uniform float uZoom, uT, uFire, uGray; uniform vec4 uFP[${NF}]; uniform vec4 uFR[${NF}]; uniform vec3 uWok;`,
+  scene: `
+const vec3 LDIR = normalize(vec3(-.4,.8,.35));
+vec3 FCOL(float m){ return m < .5 ? vec3(.13,.045,.022) : m < 1.5 ? vec3(.07,.38,.03) : m < 2.5 ? vec3(.7,.03,.02) : vec3(.95,.9,.75); }
+float sdWok(vec3 p){
+  vec3 q = p - uWok; float R = 1.25; vec3 c = vec3(0., R - .02, 0.);
+  float d = abs(length(q - c) - R) - .022; d = max(d, q.y - .42);
+  // rolled rim + handle
+  d = min(d, length(vec2(length(q.xz) - sqrt(R*R - (R - .42 - .02)*(R - .42 - .02)) - .0, q.y - .42)) - .03);
+  d = min(d, sdCapsule(q, vec3(-1.05, .4, 0.), vec3(-1.9, .62, 0.), .05));
+  return d;
+}
+float sdFood(vec3 p, out float m){
+  float d = 1e3; m = 0.;
+  for (int i=0;i<${NF};i++){
+    vec4 a = uFP[i], b = uFR[i]; if (b.w < .5) continue;
+    vec3 q = p - a.xyz; q = rotY(b.x) * (rotX(b.y) * q);
+    vec3 r = b.z < .5 ? vec3(a.w*1.2, a.w*.28, a.w*.8) : b.z < 2.5 ? vec3(a.w*1.35, a.w*.35, a.w*.35) : vec3(a.w*.6, a.w*.3, a.w*.6);
+    float e = sdEllipsoid(q, r) + (vnoise(q*16. + float(i)*3.1) - .5)*.022; if (e < d) { d = e; m = b.z; }
+  }
+  return d;
+}
+vec2 map(vec3 p){
+  vec2 r = vec2(sdWok(p), 10.);
+  float st = p.y + .35; if (st < r.x) r = vec2(st, 11.);
+  float m; float f = sdFood(p, m); if (f < r.x) r = vec2(f, m);
+  return r;
+}
+float mapS(vec3 p){ return map(p).x; }
+vec3 nrm(vec3 p){ vec2 k = vec2(1.,-1.)*.0007; return normalize(k.xyy*mapS(p+k.xyy) + k.yyx*mapS(p+k.yyx) + k.yxy*mapS(p+k.yxy) + k.xxx*mapS(p+k.xxx)); }
+float shadow(vec3 ro){ float res = 1., t = .01; for (int i=0;i<22;i++){ float h = mapS(ro + LDIR*t); res = min(res, 8.*h/t); t += clamp(h, .01, .2); if (res < .003 || t > 2.5) break; } return clamp(res, 0., 1.); }
+float rect(vec3 r, vec3 c, vec2 hs, float soft){ float cz = dot(r, c); if (cz <= 0.) return 0.; vec3 u = normalize(cross(vec3(0.,1.,0.), c)), v = cross(c, u); vec2 q = vec2(dot(r,u), dot(r,v))/cz; vec2 e = smoothstep(hs + soft, hs - soft, abs(q)); return e.x*e.y; }
+vec3 env(vec3 r){
+  vec3 c = mix(vec3(.03,.022,.018), vec3(.09,.07,.055), smoothstep(-.2, .6, r.y));
+  c += vec3(1.,.9,.75)*7.*rect(r, LDIR, vec2(.35,.12), .06);                         // fluorescent tube over the stove
+  c += vec3(1.,.5,.15)*.7*uFire*smoothstep(.0, -.6, r.y);                             // the fire below
+  return c;
+}
+vec3 shade(vec3 p, vec3 rd, float m){
+  vec3 n = nrm(p); float ndl = dot(n, LDIR); float sh = shadow(p + n*.003);
+  float fr = pow(1. - max(dot(n, -rd), 0.), 5.); vec3 refl = env(reflect(rd, n));
+  vec3 fireL = vec3(1.,.45,.12)*uFire*1.6*clamp(-n.y*.8 + .2, 0., 1.)*exp(-max(p.y - uWok.y, 0.)*2.);
+  if (m > 9.5 && m < 10.5) {                                                          // carbon-steel wok, seasoned, oily
+    vec3 nb = normalize(n + .01*(vec3(vnoise(p*30.), vnoise(p*30.+3.), vnoise(p*30.+7.)) - .5));
+    vec3 col = vec3(.03,.026,.024)*(.3 + .7*clamp(ndl, 0., 1.)*sh) + fireL*.15;
+    col += env(reflect(rd, nb))*(.06 + .94*fr)*.55;
+    float heat = smoothstep(.25, .0, length((p - uWok).xz))*smoothstep(.15, .0, p.y - uWok.y);
+    col += vec3(.9,.35,.08)*heat*.08*uFire;
+    return col;
+  }
+  if (m > 10.5) { float burner = smoothstep(.12, .0, abs(length(p.xz - uWok.xz) - .5))*uFire; return vec3(.025,.02,.02) + vec3(1.,.4,.1)*burner*.6 + refl*.03; }
+  vec3 a = FCOL(m); if (m < .5) { float sear = vnoise(p*34.); a = mix(a, vec3(.07,.025,.012), .5*smoothstep(.5, .85, sear)); a *= .85 + .3*vnoise(p*90.); }
+  float wrap = clamp((ndl + .4)/1.4, 0., 1.);
+  vec3 col = a*(vec3(1.,.95,.88)*1.45*wrap*(.45 + .55*sh) + vec3(.25,.22,.2)*.45) + a*fireL*.2;
+  col += refl*(.04 + .9*fr)*.7 + vec3(1.,.95,.85)*pow(max(dot(n, normalize(LDIR - rd)), 0.), 160.)*1.6*sh;   // oil gloss
+  return col;
+}
+vec3 render(vec2 fc){
+  vec2 uv = (2.*fc - uRes)/uRes.y;
+  vec3 ro = uRo; vec3 rd = camMat(ro, uTa, 0.)*normalize(vec3(uv, 2.1*uZoom));
+  float t = .3; vec2 h = vec2(0.); bool hit = false;
+  for (int i=0;i<120;i++){ h = map(ro + rd*t); if (abs(h.x) < .0004*t){ hit = true; break; } t += h.x*.85; if (t > 9.) break; }
+  vec3 col;
+  if (!hit){ gDepth = 9.; col = vec3(.02,.014,.012); }
+  else { gDepth = t; col = shade(ro + rd*t, rd, h.y); }
+  float l = dot(col, vec3(.3,.59,.11)); col = mix(col, vec3(l)*vec3(1.,.97,.92), uGray);
+  return col;
+}`,
+});
+const V = VAR.init(stage);
+const { g, K } = V;
+// ---- footage: pieces in the wok, tossed on the beats ----
+const PIECES = Array.from({ length: NF }, (_, i) => ({ mat: i < 10 ? 0 : i < 14 ? 1 : i < 18 ? 2 : 3, size: i < 10 ? 0.13 : i < 18 ? 0.11 : 0.06, t0: i < 10 ? 1.0 + i * 0.04 : 2.95 + (i - 10) * 0.05, ax: (Reel.hash(i) - 0.5) * 0.8, az: (Reel.hash(i * 3) - 0.5) * 0.7 }));
+const TOSS = [2.0, 4.0, 4.75];
+const FREEZE = [5.15, 7.15];
+const ftime = (t) => (t < FREEZE[0] ? t : t < FREEZE[1] ? FREEZE[0] : t - (FREEZE[1] - FREEZE[0]));   // footage clock stops during the freeze
+function piece(i, ft) {
+  const P = PIECES[i]; if (ft < P.t0) return null;
+  // resting spot in the bowl
+  const rx = P.ax * 0.9, rz = P.az * 0.9, ry = 0.05 + 0.22 * (rx * rx + rz * rz);
+  // falling in
+  const fin = clamp((ft - P.t0) / 0.35);
+  let x = rx, y = lerp(1.6, ry, E.inQuad(fin)) , z = rz, a = ft * 2 + i, b = i;
+  for (const ts of TOSS) {
+    const u = ft - ts - (Reel.hash(i * 7) * 0.05); if (u <= 0 || u > 0.9) continue;
+    const v = 2.6 + Reel.hash(i * 5 + ts) * 1.1, s = Math.sin(Math.PI * clamp(u / 0.9));
+    y = ry + v * u - 0.5 * 2 * v / 0.9 * u * u; x = rx + (Reel.hash(i * 11 + ts) - 0.5) * 0.5 * s - 0.25 * s; z = rz + (Reel.hash(i * 13 + ts) - 0.5) * 0.4 * s;
+    a += u * 9; b += u * 7;
+  }
+  return [x, Math.max(ry, y), z, P.size, a, b, P.mat];
+}
+function wokPos(ft) { let x = 0, y = 0; for (const ts of TOSS) { const u = ft - ts + 0.12; if (u > 0 && u < 0.5) { const s = Math.sin(Math.PI * u / 0.5); x += -0.12 * s; y += 0.08 * s; } } return [x, y, 0]; }
+function flames(t, ft, k) {
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 26; i++) {
+    const ph = (ft * (1.4 + Reel.hash(i) * 0.8) + Reel.hash(i * 3)) % 1, side = i % 2 ? 1 : -1;
+    const x = 960 + side * (520 + Reel.hash(i * 5) * 220) + Math.sin(ft * 6 + i) * 20, y = 760 - ph * 420 * k, r = (50 + 70 * (1 - ph)) * (0.6 + 0.6 * k);
+    const gr = g.createRadialGradient(x * K, y * K, 0, x * K, y * K, r * K); gr.addColorStop(0, `rgba(255,220,120,${0.55 * (1 - ph) * k})`); gr.addColorStop(0.4, `rgba(255,110,20,${0.35 * (1 - ph) * k})`); gr.addColorStop(1, 'rgba(255,60,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(x * K, y * K, r * 0.6 * K, r * K, 0, 0, 7); g.fill();
+  }
+  g.restore();
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 80px "Noto Sans CJK SC"', '700 46px "Noto Sans CJK SC"', '40px "Noto Color Emoji"'],
+  cues: [{ t: 0.2, sfx: 'sizzle', gain: 0.4 }, { t: 1.05, sfx: 'splash', gain: 0.5 }, { t: 1.1, sfx: 'sizzle', gain: 0.8 }, { t: 2.0, sfx: 'whoosh', gain: 0.5 }, { t: 2.05, sfx: 'pop', gain: 0.6 }, { t: 3.0, sfx: 'sizzle', gain: 0.6 }, { t: 4.0, sfx: 'whoosh', gain: 0.6 }, { t: 4.05, sfx: 'impact', gain: 0.6 },
+    { t: 4.75, sfx: 'whoosh', gain: 0.5 }, { t: FREEZE[0], sfx: 'vhs', gain: 0.5 }, { t: 5.6, sfx: 'pop', gain: 0.5 }, { t: 6.0, sfx: 'pop', gain: 0.5 }, { t: 6.4, sfx: 'pop', gain: 0.5 }, { t: FREEZE[1], sfx: 'whoosh', gain: 0.5 }, { t: 7.9, sfx: 'stamp', gain: 0.6 }, { t: 10.6, sfx: 'sticker', gain: 0.6 }, { t: 11.4, sfx: 'pop', gain: 0.5 }, { t: 12.4, sfx: 'stamp', gain: 0.8 }, { t: 12.8, sfx: 'laugh', gain: 0.5 }],
+  render(t) {
+    const ft = ftime(t), frozen = t > FREEZE[0] && t < FREEZE[1];
+    const FP = new Float32Array(NF * 4), FR = new Float32Array(NF * 4);
+    for (let i = 0; i < NF; i++) { const p = piece(i, ft); const w = wokPos(ft); if (p) { FP.set([p[0] + w[0], p[1] + w[1], p[2], p[3]], i * 4); FR.set([p[4], p[5], p[6], 1], i * 4); } }
+    const fire = 0.7 + 0.3 * Math.sin(ft * 13) * Math.sin(ft * 7) + V.punch(ft, 4.0, 1.2);
+    // handheld vlog camera, push in at the hits, settle for the rating card
+    const push = 1 + V.punch(t, 1.05, 0.08) + V.punch(t, 4.0, 0.12) + 0.06 * E.inOutSine(clamp((t - 9) / 2));
+    const hx = 0.03 * Math.sin(t * 1.1) + 0.012 * Math.sin(t * 2.9), hy = 0.02 * Math.sin(t * 1.4 + 1);
+    const ro = [0.3 + hx, 1.75 + hy, 1.85], ta = [0, 0.12, 0];
+    rm.set('uRo', ro).set('uTa', ta).set('uZoom', push).set('uT', ft).set('uFire', frozen ? 0.4 : fire).set('uGray', frozen ? 0.75 : 0).set('uWok', wokPos(ft)).setArr('uFP', FP); rm.setArr('uFR', FR);
+    rm.render(t, { focus: Math.hypot(ro[0], ro[1] - 0.2, ro[2]), aperture: 26, maxCoc: 14, expo: 1 + 0.4 * V.punch(t, 4.0, 1) });
+    // ---- captions ----
+    V.clear();
+    if (!frozen) flames(t, ft, clamp(fire, 0, 1.6));
+    // steam
+    if (t > 7.6) { g.save(); g.filter = `blur(${16 * K}px)`; g.globalCompositeOperation = 'screen'; for (let i = 0; i < 6; i++) { const ph = (t * 0.35 + i / 6) % 1, x = 760 + i * 80 + Math.sin(t + i) * 40, y = 560 - ph * 480; g.fillStyle = `rgba(255,255,255,${0.15 * Math.sin(ph * Math.PI)})`; g.beginPath(); g.ellipse(x * K, y * K, (60 + ph * 90) * K, (40 + ph * 50) * K, 0, 0, 7); g.fill(); } g.restore(); }
+    V.pill(C.tag, 64, 58, 'rgba(255,92,72,.95)', '📍');
+    const { popIn, popOut, vText, sticker, burst, spark, arrowLabel } = V;
+    { const a = popIn(t, 1.05, 0.28), o = popOut(t, 1.9); if (a > 0 && o > 0) { burst(1300, 330, 70, 280, 18, t * 0.4, 0.5 * o); vText('滋啦——', 1300, 330, 150, { sc: a * o, rot: -0.1, fill: ['#ffffff', '#ffe23a', '#ff8a00'], s1: '#2a0a4a', s2: '#fff', s3: '#ff3d6e', depth: 12 }); } }
+    { const a = popIn(t, 2.0, 0.25), o = popOut(t, 2.85); if (a > 0 && o > 0) { vText('颠勺！', 560, 300, 140, { sc: a * o, rot: 0.08, fill: ['#e6fff8', '#56f0c8', '#12a88a'], s1: '#06343a', s2: '#fff', depth: 9, depthCol: '#04262a' }); sticker('💪', 800, 220, 92, 0.2 + Math.sin(t * 8) * 0.1, a * o); } }
+    { const a = popIn(t, 3.0), o = popOut(t, 3.9); if (a > 0 && o > 0) { vText('二荆条 + 小米辣', 1340, 220, 84, { sc: a * o, rot: -0.04, fill: ['#ffffff', '#c6ff9a', '#3fae2a'], s1: '#0b2a05', s2: '#fff', depth: 6, depthCol: '#071f03' }); sticker('🌶️', 1720, 160, 80, 0.3, a * o); } }
+    { const a = popIn(t, 4.0, 0.25), o = popOut(t, 5.1); if (a > 0 && o > 0) { burst(960, 330, 90, 760, 28, -t * 0.3, 0.45 * o, ['rgba(255,140,40,', 'rgba(255,240,180,']); vText('锅气拉满！', 960, 330, 176, { sc: a * o * (1 + Math.sin(t * 14) * 0.015), rot: -0.05, fill: ['#fffbd0', '#ffb21e', '#ff4d00'], s1: '#4a0f00', s2: '#fff', s3: '#ff3d3d', depth: 14, depthCol: '#2e0800' }); sticker('🔥', 1560, 220, 120, 0.2 + Math.sin(t * 10) * 0.08, a * o); } }
+    // FREEZE FRAME
+    if (frozen) {
+      const u = t - FREEZE[0];
+      g.save(); g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, 0, V.W, V.H); g.restore();
+      vText('暂停一下', 260, 170, 70, { sc: popIn(t, FREEZE[0] + 0.05), fill: ['#ffffff', '#e8e8e8', '#bdbdbd'], s1: '#111', s2: '#fff', depth: 5, depthCol: '#000', gloss: false, align: 'left' });
+      g.save(); g.fillStyle = '#fff'; const bl = Math.floor(t * 3) % 2 ? 1 : 0.4; g.globalAlpha = bl; g.fillRect(1760 * K, 70 * K, 22 * K, 70 * K); g.fillRect(1800 * K, 70 * K, 22 * K, 70 * K); g.restore();
+      arrowLabel('现切黄牛肉', 900, 470, 520, 420, clamp((u - 0.35) / 0.5), '#ffe23a');
+      arrowLabel('二荆条', 1080, 420, 1400, 330, clamp((u - 0.75) / 0.5), '#9dff7a');
+      arrowLabel('猛火 30 秒', 980, 760, 1380, 820, clamp((u - 1.15) / 0.5), '#ff9b5a');
+    }
+    { const a = popIn(t, 7.85, 0.3), o = popOut(t, 9.4); if (a > 0 && o > 0) { vText('出锅！', 960, 300, 170, { sc: a * o, rot: 0.04, fill: ['#ffffff', '#ffe58a', '#ffb000'], s1: '#5a1a00', s2: '#fff', s3: '#ff6b2b', depth: 12, depthCol: '#331000' }); for (let i = 0; i < 8; i++) { const a2 = i / 8 * Math.PI * 2 + t; spark(960 + Math.cos(a2) * 420, 300 + Math.sin(a2) * 150, (16 + 12 * Math.sin(t * 9 + i)) * a, i % 2 ? '#fff7b0' : '#fff', t * 2 + i); } } }
+    // rating card
+    if (t > 10.5) {
+      const a = popIn(t, 10.5, 0.35);
+      g.save(); g.globalAlpha = Math.min(1, a); g.translate(1360 * K, 560 * K); g.scale(a, a); g.rotate(0.03);
+      g.fillStyle = 'rgba(255,250,236,.97)'; g.strokeStyle = '#2a1a10'; g.lineWidth = 6 * K; g.beginPath(); g.roundRect(-380 * K, -260 * K, 760 * K, 520 * K, 30 * K); g.fill(); g.stroke(); g.restore();
+      vText(C.shop, 1360, 400, 96, { sc: a, fill: ['#ffffff', '#ff8a5a', '#e0301e'], s1: '#3a0a00', s2: '#fff', depth: 8, depthCol: '#200500' });
+      [['锅气', 5], ['分量', 5], ['价格', 5]].forEach(([k, n], i) => { const b = popIn(t, 11.0 + i * 0.25, 0.25); if (b <= 0) return; g.save(); g.globalAlpha = b; g.font = `900 ${44 * K}px ${V.FONT}`; g.fillStyle = '#2a1a10'; g.textBaseline = 'middle'; g.fillText(k, 1060 * K, (520 + i * 70) * K); g.fillStyle = '#ffb000'; g.fillText('★★★★★'.slice(0, n), 1200 * K, (520 + i * 70) * K); g.restore(); });
+      const sb = popIn(t, 12.4, 0.25); if (sb > 0) { g.save(); g.translate(1600 * K, 620 * K); g.rotate(-0.25); const s = sb * (1 + 0.6 * Math.exp(-(t - 12.4) * 9)); g.scale(s, s); g.strokeStyle = '#ff2b3d'; g.lineWidth = 9 * K; g.beginPath(); g.arc(0, 0, 92 * K, 0, 7); g.stroke(); g.lineWidth = 3 * K; g.beginPath(); g.arc(0, 0, 76 * K, 0, 7); g.stroke(); g.fillStyle = '#ff2b3d'; g.font = `900 ${58 * K}px ${V.FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('必吃', 0, 2 * K); g.restore(); }
+      if (t > 12.0) V.pill(C.addr, 990, 760, 'rgba(30,30,30,.92)', null, 60, 30);
+      sticker('🤤', 640, 300, 140, -0.2 + Math.sin(t * 5) * 0.08, popIn(t, 11.6));
+    }
+    const subs = [[0.15, 2.0, '这家小炒藏在菜市场里，开了二十年'], [2.0, 4.0, '老板单手颠勺，火苗窜起半米高'], [7.2, 9.6, '三十秒出锅，牛肉还是嫩的'], [9.6, 12.0, '老板说：火候，就是灵魂']];
+    for (const [a, b, str] of subs) if (t >= a && t < b) V.subtitle(str, clamp((t - a) / 0.12) * (1 - clamp((t - b + 0.1) / 0.1)));
+  },
+});
+</script></body></html>

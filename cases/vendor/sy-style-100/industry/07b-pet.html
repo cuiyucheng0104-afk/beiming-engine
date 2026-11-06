@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>07 · 宠物医院 · 毛孩子宠物医院</title>
+<script src="../lib/core.js"></script><script src="../lib/sticker.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 07 贴纸风科普 · 行业示例：宠物医院 =====
+   Sticker-bombing, cut to the beat. A kraft cardboard pet-supply box fills the frame; a sticker slaps on on
+   every beat (vaccines, desexing, check-ups, grooming...), each hit punches the camera in, and every four
+   beats we cut to a new framing. At the drop the clinic's round badge slams into the middle and everything
+   around it rattles. */
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#c89a62');
+const C = Reel.cfg({ brand: '毛孩子', brand2: '宠物医院', er: '24 小时急诊', tel: '犬猫专科 · 预约 0571-8888 6666' });
+const L = Reel.canvas2d(stage); const ctx = L.ctx, K = L.k; ST.setK(K);
+const BW = 2600, BH = 1500;
+const box = document.createElement('canvas');
+function buildBox() {
+  box.width = Math.round(BW * 0.7 * K); box.height = Math.round(BH * 0.7 * K);
+  const g = box.getContext('2d'); g.scale(0.7 * K, 0.7 * K);
+  const gr = g.createLinearGradient(0, 0, BW, BH); gr.addColorStop(0, '#d6a86c'); gr.addColorStop(1, '#c08d55'); g.fillStyle = gr; g.fillRect(0, 0, BW, BH);
+  for (let x = 0; x < BW; x += 9) { g.fillStyle = `rgba(90,55,20,${0.05 + 0.03 * Math.sin(x * 0.7)})`; g.fillRect(x, 0, 3, BH); }   // corrugation
+  for (let i = 0; i < 5000; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '70,40,10' : '255,230,190'},${Math.random() * 0.08})`; g.fillRect(Math.random() * BW, Math.random() * BH, 1 + Math.random() * 3, 1 + Math.random() * 2); }
+  // box flaps seam + brown packing tape
+  g.fillStyle = 'rgba(70,40,15,.35)'; g.fillRect(0, 300, BW, 5);
+  g.fillStyle = 'rgba(150,100,45,.75)'; g.fillRect(BW / 2 - 110, 0, 220, 310); for (let y = 0; y < 310; y += 7) { g.fillStyle = 'rgba(255,240,200,.08)'; g.fillRect(BW / 2 - 110, y, 220, 2); }
+  // printed handling marks
+  g.fillStyle = 'rgba(40,25,10,.55)'; g.font = '900 70px "Noto Sans CJK SC"'; g.fillText('↑↑', 120, 160); g.font = '700 44px "Noto Sans CJK SC"'; g.fillText('此面向上 · 宠物用品', 300, 150);
+  g.strokeStyle = 'rgba(40,25,10,.5)'; g.lineWidth = 6; g.strokeRect(BW - 520, 70, 400, 170); g.font = '700 40px Inter'; g.fillText('PET CARE', BW - 480, 145); g.font = '500 30px Inter'; g.fillText('No. 0571-26', BW - 480, 200);
+  // dents + edge darkening
+  const vg = g.createRadialGradient(BW / 2, BH / 2, BH * 0.4, BW / 2, BH / 2, BW * 0.7); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(60,30,5,.35)'); g.fillStyle = vg; g.fillRect(0, 0, BW, BH);
+}
+// beats every 0.5 s from 0.5 to 9.0; the badge drops at 9.5
+const ITEMS = [
+  ['emoji', '🐶', 260, 560, 560, -0.12], ['label', '疫苗接种', '#3b82f6', 980, 430, 0.06], ['emoji', '🐱', 240, 1470, 600, 0.1], ['label', '绝育手术', '#f97316', 1890, 440, -0.05],
+  ['emoji', '💉', 200, 2230, 760, 0.18], ['label', '全面体检', '#10b981', 520, 900, -0.04], ['emoji', '🩺', 210, 950, 1060, -0.1], ['label', '洗护美容', '#ec4899', 1460, 1220, 0.05],
+  ['emoji', '🦴', 190, 1880, 1060, 0.3], ['label', '驱虫', '#a855f7', 2240, 1200, -0.07], ['emoji', '🐾', 170, 320, 1250, 0.15], ['note', '猫咪友好\n诊室', '#fff3a3', 700, 1310, -0.06],
+  ['emoji', '🐰', 190, 2380, 420, -0.12], ['label', '异宠门诊', '#0ea5e9', 380, 360, 0.05], ['emoji', '❤️', 150, 1180, 760, -0.08], ['note', '持证兽医\n12 位', '#ffd1dc', 1700, 820, 0.07],
+];
+const SL = [], BEATS = [];
+let BADGE = null, ER = null, TEL = null;
+function build() {
+  ITEMS.forEach((it, i) => {
+    const t0 = 0.5 + i * 0.5;
+    let s;
+    if (it[0] === 'emoji') s = ST.make(ST.emoji(it[1], it[2]), it[2] * 1.18, it[2] * 1.18);
+    else if (it[0] === 'label') s = ST.make(ST.label(it[1], it[2], '#fff', 62), 300, 96);
+    else s = ST.make(ST.note(it[1], it[2], 44), 280, 200);
+    const [x, y, r] = it[0] === 'emoji' ? [it[3], it[4], it[5]] : [it[3], it[4], it[5]];
+    SL.push({ s, x, y, rot: r, t0, big: 1.6 });
+    BEATS.push(t0);
+  });
+  BADGE = { s: ST.make(ST.round(C.brand, C.brand2, '#ff5a3c'), 660, 660, 24), x: BW / 2, y: BH / 2 + 30, rot: -0.06, t0: 9.5, big: 2.4, land: 0.28 };
+  ER = { s: ST.make(ST.label(C.er, '#111827', '#ffde4a', 60), 440, 100), x: BW / 2 + 40, y: BH / 2 + 420, rot: 0.04, t0: 10.0, big: 1.8 };
+  TEL = { s: ST.make(ST.title(C.tel, '#ffffff', '#1b1b1b', 18), 900, 90, 12), x: BW / 2, y: BH / 2 + 560, rot: -0.02, t0: 10.4, big: 1.4 };
+}
+// framings: [x, y, zoom] — cut every 4 beats
+const FR = [[1300, 750, 0.74], [700, 620, 1.25], [1750, 800, 1.2], [1100, 1050, 1.15], [1300, 750, 0.74]];
+function camAt(t) {
+  const blk = t < 8.5 ? clamp(Math.floor((t - 0.5) / 2), 0, 3) : 4;
+  const f = t < 0.5 ? [1300, 750, 0.82] : FR[blk];
+  // punch on the most recent beat
+  let last = -9; for (const b of BEATS) if (t >= b) last = b; if (t >= 9.5) last = 9.5;
+  const bt = t - last, punch = 1 + (t >= 9.5 && bt < 1 ? 0.12 : 0.05) * Math.exp(-bt * 8);
+  const drift = 0.02 * (t % 2);
+  const push = E.inOutSine(inv(10.8, 15, t));
+  return { x: lerp(f[0] + drift * 200, BW / 2, push), y: lerp(f[1], BH / 2 + 200, push), z: lerp(f[2] * punch * (1 + drift * 0.15), 0.98, push), bt, big: t >= 9.5 && bt < 1 };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 80px "Noto Sans CJK SC"', '200px "Noto Color Emoji"', '900 40px Inter', '700 44px "Noto Serif CJK SC"'],
+  setup() { buildBox(); build(); },
+  cues: [{"t": 0.5, "sfx": "sticker", "gain": 0.8}, {"t": 0.5, "sfx": "pop", "gain": 0.3}, {"t": 1.0, "sfx": "sticker", "gain": 0.8}, {"t": 1.5, "sfx": "sticker", "gain": 0.8}, {"t": 1.5, "sfx": "pop", "gain": 0.3}, {"t": 2.0, "sfx": "sticker", "gain": 0.8}, {"t": 2.5, "sfx": "sticker", "gain": 0.8}, {"t": 2.5, "sfx": "pop", "gain": 0.3}, {"t": 2.5, "sfx": "shutter", "gain": 0.4}, {"t": 3.0, "sfx": "sticker", "gain": 0.8}, {"t": 3.5, "sfx": "sticker", "gain": 0.8}, {"t": 3.5, "sfx": "pop", "gain": 0.3}, {"t": 4.0, "sfx": "sticker", "gain": 0.8}, {"t": 4.5, "sfx": "sticker", "gain": 0.8}, {"t": 4.5, "sfx": "pop", "gain": 0.3}, {"t": 4.5, "sfx": "shutter", "gain": 0.4}, {"t": 5.0, "sfx": "sticker", "gain": 0.8}, {"t": 5.5, "sfx": "sticker", "gain": 0.8}, {"t": 5.5, "sfx": "pop", "gain": 0.3}, {"t": 6.0, "sfx": "sticker", "gain": 0.8}, {"t": 6.5, "sfx": "sticker", "gain": 0.8}, {"t": 6.5, "sfx": "pop", "gain": 0.3}, {"t": 6.5, "sfx": "shutter", "gain": 0.4}, {"t": 7.0, "sfx": "sticker", "gain": 0.8}, {"t": 7.5, "sfx": "sticker", "gain": 0.8}, {"t": 7.5, "sfx": "pop", "gain": 0.3}, {"t": 8.0, "sfx": "sticker", "gain": 0.8}, {"t": 8.5, "sfx": "whoosh", "gain": 0.4}, {"t": 9.0, "sfx": "riser_short", "gain": 0.4}, {"t": 9.5, "sfx": "impact", "gain": 0.9}, {"t": 9.52, "sfx": "stamp", "gain": 0.7}, {"t": 10.0, "sfx": "sticker", "gain": 0.7}, {"t": 10.4, "sfx": "sticker", "gain": 0.6}, {"t": 10.8, "sfx": "chime", "gain": 0.5}],
+  render(t) {
+    L.begin();
+    const cam = camAt(t);
+    ctx.fillStyle = '#7a5a36'; ctx.fillRect(0, 0, 1920, 1080);
+    const shake = cam.big ? Math.exp(-cam.bt * 7) * 14 : 0;
+    ctx.save(); ctx.translate(960 + Math.sin(t * 70) * shake, 540 + Math.cos(t * 63) * shake); ctx.scale(cam.z, cam.z); ctx.translate(-cam.x, -cam.y);
+    ctx.drawImage(box, 0, 0, BW, BH);
+    // stickers rattle when the badge slams in
+    for (const s of SL) { const r = s.rot; if (cam.big) s.rot = r + Math.sin(t * 60 + s.x) * 0.06 * Math.exp(-cam.bt * 6); ST.draw(ctx, s, t, { shadow: 0.42 }); s.rot = r; }
+    ST.draw(ctx, BADGE, t, { shadow: 0.5 }); ST.draw(ctx, ER, t, { shadow: 0.45 }); ST.draw(ctx, TEL, t, { shadow: 0.4 });
+    ctx.restore();
+    // flash on the slam + warm vignette
+    if (t >= 9.5 && t < 9.65) { ctx.fillStyle = `rgba(255,250,235,${0.45 * (1 - (t - 9.5) / 0.15)})`; ctx.fillRect(0, 0, 1920, 1080); }
+    const lg = ctx.createRadialGradient(800, 380, 0, 960, 540, 1250); lg.addColorStop(0, 'rgba(255,240,210,.18)'); lg.addColorStop(0.6, 'rgba(0,0,0,0)'); lg.addColorStop(1, 'rgba(40,20,5,.4)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, 1920, 1080);
+    if (t < 0.25) { ctx.fillStyle = `rgba(122,90,54,${1 - t / 0.25})`; ctx.fillRect(0, 0, 1920, 1080); }
+  },
+});
+</script></body></html>

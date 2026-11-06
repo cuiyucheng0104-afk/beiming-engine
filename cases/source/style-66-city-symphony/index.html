@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>城市的一天</title>
+<style>
+  @font-face { font-family: 'NSC'; src: url('fonts/NotoSansSC-300-subset.woff2') format('woff2'); font-weight: 300; }
+  @font-face { font-family: 'Michroma'; src: url('fonts/Michroma-subset.woff2') format('woff2'); }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script type="module">
+import * as TL from './timeline.js';
+import { clamp, lerp, ss, eo, ei, mulberry, vnoise } from '/core/lib.js';
+const { FPS, W, H, NF, F, T, SHOTS, GRID_STAGES, GRID_RECUT, GRID_END, FLASH, FLASH_END, TEXT, LIGHTS_OFF } = TL;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const SHOT = Object.fromEntries(SHOTS.map(s => [s.id, s]));
+const LB = Math.round((H - W / 1.85) / 2);          // 1.85:1 遮幅，上下各 21 px
+const C = { type: '#EDE8DF', sec: '#B0AAA0', sodium: '#D9772F' };
+
+// ── 图片缓存（确定性：同一帧只依赖 t）──
+const cache = new Map();
+function load(url) {
+  if (cache.has(url)) return cache.get(url);
+  const p = new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('missing ' + url)); im.src = url; });
+  cache.set(url, p);
+  if (cache.size > 160) cache.delete(cache.keys().next().value);
+  return p;
+}
+const pad = n => String(n).padStart(4, '0');
+const plateURL = (id, k) => `work/plates/${id}/${pad(clamp(k, 0, SHOT[id].f1 - SHOT[id].f0 - 1))}.jpg`;
+const poolURL = (src, k) => `work/pool/${src}/${pad(((k % TL.POOL_N) + TL.POOL_N) % TL.POOL_N)}.jpg`;
+
+// ── 片门晃动 ±0.5 px ──
+const weave = f => [ (vnoise(f * .37 + 11) - .5) * 1.0, (vnoise(f * .41 + 47) - .5) * 1.0 ];
+
+// ── 颗粒（预生成 6 张，半分辨率上采样）──
+const GRAIN = [];
+{ const r = mulberry(1907);
+  for (let k = 0; k < 6; k++) {
+    const g = document.createElement('canvas'); g.width = W / 2; g.height = H / 2;
+    const gx = g.getContext('2d'), id = gx.createImageData(W / 2, H / 2);
+    for (let i = 0; i < id.data.length; i += 4) {
+      let n = 0; for (let j = 0; j < 4; j++) n += r(); n = (n - 2) * 1.73;      // ≈ 高斯
+      const v = 128 + n * 26; id.data[i] = id.data[i + 1] = id.data[i + 2] = v; id.data[i + 3] = 255;
+    }
+    gx.putImageData(id, 0, 0); GRAIN.push(g);
+  } }
+
+// ── 运镜：返回 0..1 的进度 ──
+function moveP(m, f, s) {
+  const n = s.f1 - s.f0, u = clamp((f - s.f0) / n);
+  if (m.ease === 'out') return eo(u);
+  if (m.ease === 'fall') {                       // 坠落推：0.35 s 内 ease-out 走 75%，之后加速走完
+    const ts = (f - s.f0) / FPS, D = n / FPS;
+    return ts < .35 ? .75 * eo(ts / .35) : .75 + .25 * ei((ts - .35) / (D - .35));
+  }
+  return u;
+}
+function drawFull(im, scale, dx, dy, f) {
+  const [wx, wy] = weave(f), sw = W * scale, sh = H * scale;
+  ctx.drawImage(im, (W - sw) / 2 + dx * W + wx, (H - sh) / 2 + dy * H + wy, sw, sh);
+}
+async function drawShot(id, f, k = null) {
+  const s = SHOT[id], m = s.move || {}, p = moveP(m, f, s);
+  const im = await load(plateURL(id, k ?? (f - s.f0)));
+  drawFull(im, lerp(m.s0 ?? 1, m.s1 ?? 1, p), lerp(m.dx0 ?? 0, m.dx1 ?? 0, p), lerp(m.dy0 ?? 0, m.dy1 ?? 0, p), f);
+}
+
+// ── 网格 ──
+function cellRect(st, i) {
+  const c = i % st.cols, r = Math.floor(i / st.cols), cw = W / st.cols, ch = H / st.rows, g = 3;
+  return [c * cw + g, r * ch + g, cw - 2 * g, ch - 2 * g];
+}
+async function drawStage(s, f, all) {
+  const st = GRID_STAGES[s], n = st.cols * st.rows;
+  const recut = s === GRID_STAGES.length - 1 ? GRID_RECUT.filter(x => x <= f).length : 0;
+  const ims = await Promise.all([...Array(n)].map((_, i) => load(poolURL(TL.cellSrc(s, i, recut), f - T.grid + i * 5))));
+  for (let i = 0; i < n; i++) {
+    if (!all && f - st.f < TL.cellDelay(s, i)) continue;
+    const [x, y, w, h] = cellRect(st, i);
+    ctx.fillStyle = '#000'; ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+    const im = ims[i], a = im.width / im.height, b = w / h;
+    let sw = im.width, sh = im.height; if (a > b) sw = sh * b; else sh = sw / a;
+    ctx.drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, x, y, w, h);
+  }
+}
+async function drawGrid(f) {
+  let s = 0; GRID_STAGES.forEach((st, i) => { if (st.f <= f) s = i; });
+  if (s === 0) await drawShot('S7', f); else await drawStage(s - 1, f, true);   // 上一级垫底，永不回黑
+  await drawStage(s, f, false);
+}
+
+// ── 日环（24 小时，图形不是钟面读数）──
+function ring(f) {
+  let a = clamp(f / 12);
+  if (f >= T.brake && f < T.night) a *= .35;                 // 刹车：冻结变暗
+  if (f >= T.stop) a *= 1 - clamp((f - T.stop) / 8);
+  if (a <= 0) return;
+  const cx = W - 176, cy = H - LB - 92, R = 34, h = TL.ringHour(f), ang = h / 24 * Math.PI * 2 - Math.PI / 2;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.strokeStyle = C.type; ctx.globalAlpha = a * .55; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+  for (let k = 0; k < 24; k += 6) { const q = k / 24 * Math.PI * 2 - Math.PI / 2; ctx.beginPath(); ctx.moveTo(cx + Math.cos(q) * (R - 5), cy + Math.sin(q) * (R - 5)); ctx.lineTo(cx + Math.cos(q) * R, cy + Math.sin(q) * R); ctx.stroke(); }
+  ctx.globalAlpha = a * .9; ctx.strokeStyle = C.sodium; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, cy, R, ang - Math.PI / 4, ang); ctx.stroke();          // 3 小时弧
+  ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ang) * (R - 3), cy + Math.sin(ang) * (R - 3)); ctx.stroke();
+  ctx.fillStyle = C.sodium; ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// ── 文字（左对齐，左边距 180，只用柔和椭圆压暗）──
+const TX = 180;
+function soft(x, y, w, h, a) {
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(.6, `rgba(0,0,0,${a * .55})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.scale(w / 2, h / 2); ctx.fillStyle = g; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
+}
+function txt(s, x, y, font, color, track, a) {
+  ctx.save(); ctx.globalAlpha = a; ctx.font = font; ctx.letterSpacing = track; ctx.fillStyle = color; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(s, x, y); const w = ctx.measureText(s).width; ctx.restore(); return w;
+}
+const LAYOUT = {
+  title: { zh: [TX, 452, '300 64px NSC', '0.12em'], en: [TX + 4, 506, '18px Michroma', '0.3em'] },
+  quote: { zh: [TX, 806, '300 60px NSC', '0.1em'], en: [TX + 3, 858, '20px Michroma', '0.12em'], src: [TX + 3, 894, '14px Michroma', '0.2em'] },
+};
+function texts(f) {
+  const out = [];
+  const T1 = TEXT.title, T2 = TEXT.quote;
+  if (f >= T1.f0 && f < T1.f1) {
+    const a = clamp((f - T1.f0) / 6);
+    soft(TX - 160, 360, 900, 220, .32 * a);
+    const L = LAYOUT.title;
+    out.push(['title_zh', T1.zh, ...L.zh, C.type, a], ['title_en', T1.en, ...L.en, C.sec, a]);
+  }
+  if (f >= T2.f0 && f < T2.f1) {
+    const a = f === T2.f0 ? .7 : 1;                    // 随第 9 小节强拍的剪切直接落定（不压在闪回的亮帧上淡入）
+    soft(TX - 190, 690, 1500, 300, .62 * a);
+    const L = LAYOUT.quote;
+    out.push(['quote_zh', T2.zh, ...L.zh, C.type, a], ['quote_en', T2.en, ...L.en, C.sec, a], ['quote_src', T2.src, ...L.src, C.sodium, a]);
+  }
+  return out;
+}
+function drawTexts(f) {
+  for (const [, s, x, y, font, tr, col, a] of texts(f)) txt(s, x, y, font, col, tr, a);
+}
+
+// ── 一帧 ──
+let lastF = -1;
+async function frame(f) {
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  const fl = FLASH.filter(x => x.f <= f).pop();
+  if (f >= T.grid && f < GRID_END) await drawGrid(f);
+  else if (fl && f < FLASH_END) {                     // 倒放闪回：被引用的镜头倒着放，4 倍速
+    const k = f - fl.f;
+    if (fl.shot === 'GRID') await drawGrid(GRID_END - 1 - k * 4);
+    else { const s = SHOT[fl.shot], n = s.f1 - s.f0; await drawShot(fl.shot, s.f1 - 1 - k * 4, n - 1 - k * 4 - 2); }
+  } else {
+    const s = SHOTS.filter(s => f >= s.f0 && f < s.f1 && s.id !== 'S7' || (s.id === 'S7' && f >= s.f0 && f < T.grid)).pop();
+    if (s) await drawShot(s.id, f);
+  }
+  // 颗粒（中间调最明显：overlay）
+  ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = .22;
+  ctx.drawImage(GRAIN[(f * 7) % GRAIN.length], 0, 0, W, H);
+  // 暗角
+  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 1;
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, H * 1.05);
+  v.addColorStop(0, '#fff'); v.addColorStop(1, '#a8a8a8'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+  ring(f); drawTexts(f);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, LB); ctx.fillRect(0, H - LB, W, LB);
+}
+
+window.DUR = TL.DUR;
+window.render = async t => { const f = Math.min(NF - 1, Math.round(t * FPS)); await frame(f); };
+
+// readcheck：每段字从第一帧就报全文
+window.TEXTS = t => {
+  const f = Math.round(t * FPS), out = [];
+  ctx.save();
+  for (const [id, s, x, y, font, tr] of texts(f)) {
+    ctx.font = font; ctx.letterSpacing = tr; const w = ctx.measureText(s).width, size = parseInt(font.match(/(\d+)px/)[1]);
+    out.push({ id, text: s, x0: x, y0: y - size, x1: x + w, y1: y + size * .3 });
+  }
+  ctx.restore(); return out;
+};
+
+// ── 声音事件：全部取自 timeline 的拍点 ──
+const EV = [];
+const ev = (f, type, o = {}) => EV.push({ t: f / FPS, f, type, ...o });
+ev(0, 'hit', { what: 'open' }); ev(T.title, 'title');
+ev(0, 'bed', { kind: 'dawn', f1: T.rush }); ev(T.jcut, 'bed', { kind: 'city', f1: T.brake });       // J-cut：城市底噪提前一拍
+for (const s of SHOTS) if (s.f0 > 0 && s.id !== 'S15') ev(s.f0, 'cut', { shot: s.id });
+ev(SHOT.S4.f0, 'whoosh', { what: 'train', dur: .55 }); ev(SHOT.S6.f0, 'whoosh', { what: 'train_in', dur: .5 });
+GRID_STAGES.forEach((st, s) => {
+  ev(st.f, 'cut', { shot: `GRID${st.cols}x${st.rows}` });
+  for (let i = 0; i < st.cols * st.rows; i++) ev(st.f + TL.cellDelay(s, i), 'cell', { i, stage: s });
+});
+for (const r of GRID_RECUT) ev(r, 'cut', { shot: 'GRID-recut' });
+ev(T.brake, 'brake'); ev(T.brake, 'ring_freeze'); ev(T.hush, 'hush');
+ev(T.night, 'hit', { what: 'night' }); ev(T.night, 'laser'); ev(T.night, 'bed', { kind: 'night', f1: F(9, 3) });
+ev(SHOT.S11.f0, 'whoosh', { what: 'river', dur: .9 }); ev(SHOT.S12.f0, 'whoosh', { what: 'drive', dur: .45 });
+ev(SHOT.S13.f0, 'lights_on');
+ev(T.flash, 'ring_rewind');
+for (const x of FLASH) ev(x.f, 'cut', { shot: 'FLASH-' + x.shot, flash: true });
+ev(T.dean, 'cut', { shot: 'S15' }); ev(T.dean, 'quote');
+ev(F(8, 4) + 6, 'whoosh', { what: 'lcut', dur: 1.2 });                                                 // L-cut：呼啸拖进熄灯镜头
+for (const o of LIGHTS_OFF) ev(o.f, o.group === 3 ? 'stop' : o.group === 4 ? 'last' : 'light_off', { group: o.group });
+window.EV = EV.sort((a, b) => a.f - b.f);
+
+await document.fonts.load('300 60px NSC', '城市的一天那颗伟大的心已静卧'); await document.fonts.load('20px Michroma', 'A');
+await frame(0);
+window.READY = true;
+</script>
+</body>
+</html>

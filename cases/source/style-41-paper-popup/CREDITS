@@ -1,0 +1,26 @@
+《纸龙》第三方素材与许可
+
+字体
+- Noto Serif SC（思源宋体）900 字重，按画面用字子集化（fonts/NotoSerifSC-900-sub.woff2）——Google Fonts，SIL Open Font License 1.1
+  https://fonts.google.com/noto/specimen/Noto+Serif+SC
+- ZCOOL KuaiLe（站酷快乐体），按画面用字子集化（fonts/ZCOOLKuaiLe-sub.woff2，用于城门牌匾「龙城」与拉片「拉」）——Google Fonts，SIL Open Font License 1.1
+  https://fonts.google.com/specimen/ZCOOL+KuaiLe
+
+三维素材（Poly Haven，CC0）
+- HDRI lythwood_lounge —— https://polyhaven.com/a/lythwood_lounge
+- 木纹 american_walnut_veneer（漫反射/法线/粗糙度）—— https://polyhaven.com/a/american_walnut_veneer
+- 台灯 desk_lamp_arm_01 —— https://polyhaven.com/a/desk_lamp_arm_01
+- 茶具 tea_set_01（只用小杯与碟）—— https://polyhaven.com/a/tea_set_01
+
+乐器采样（CC0）
+- VS Chamber Orchestra: Community Edition（Versilian Studios）：小提琴组拨弦、大提琴组拨弦、低音提琴拨弦、定音鼓 —— https://github.com/sgossner/VSCO-2-CE
+- Versilian Community Sample Library（Versilian Studios）：竖琴、钟琴、颤音琴、三角铁、木鱼 —— https://github.com/sgossner/VCSL
+
+程序合成（无第三方素材）
+- 钢片琴（numpy 模态合成）、八音盒（Karplus–Strong/模态物理建模）、全部纸张拟音与环境声（程序合成）。
+
+代码
+- three.js r170 —— MIT License —— https://threejs.org
+- 书本、剪纸材质、景深后期等引擎代码改编自所用风格库的纸片立体书示范源码（仅技法）。
+
+本片无旁白、无真实影像素材。

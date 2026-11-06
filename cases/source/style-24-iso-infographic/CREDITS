@@ -1,0 +1,18 @@
+一封信的旅程 — 第三方素材与许可
+
+画面
+- 全部画面由代码绘制（Canvas 2D），无照片、无素材影像、无生成视频。
+- 等距绘制引擎 engine.js 改编自本地风格库 iso-infographic 风格的示例源码（仅取技法：投影、三色面、标签针、剖切线、插图圆框）。
+
+字体（SIL Open Font License 1.1，见 fonts/OFL-*.txt）
+- Jost — Indestructible Type*（Owen Earl），https://github.com/google/fonts/tree/main/ofl/jost
+- Noto Sans SC 500 / 700（按片中所用汉字子集化）— Google，https://fonts.google.com/noto/specimen/Noto+Sans+SC
+
+音乐与声音
+- 原创配乐，用代码写成（mix.py）。采样乐器：木琴、马林巴、钟琴、木鱼、沙锤、响棒、吊镲、通鼓（Versilian Community Sample Library，CC0 1.0，https://github.com/sgossner/VCSL）；卡林巴（FreePats project，CC0 1.0，https://freepats.zenvoid.org）；部分打击乐来自 VS Chamber Orchestra: Community Edition（Versilian Studios，CC0 1.0，https://github.com/sgossner/VSCO-2-CE）。
+  Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+- 拨弦低音提琴：Karplus–Strong 物理建模（pluck.py），无采样。
+- 全部拟音与环境声（邮戳、投信口翻板、发动机、喷气、鸟叫、风、纸张……）由 numpy 程序合成，无录音素材。
+
+真实素材 / 事实
+- 本片不使用真实影像素材；“2 天 · 1,200 公里”与城市“北城”“南港”均为虚构示意，画面标注“示意 · 不按比例”。

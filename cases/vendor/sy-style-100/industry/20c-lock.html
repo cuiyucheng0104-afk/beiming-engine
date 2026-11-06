@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>20 · 智能硬件 · 安心智能锁</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/rm.js"></script><script src="../lib/blueprint.js"></script>
+<style>
+  #cap{position:absolute;left:130px;top:380px;text-align:left;color:#26221f;opacity:0}
+  #cap .zh{font:300 90px 'Noto Sans CJK SC';letter-spacing:.14em;line-height:1.2}
+  #cap .sub{margin-top:20px;font:400 29px 'Noto Sans CJK SC';letter-spacing:.1em;color:rgba(38,34,31,.82)}
+  #cap .en{margin-top:18px;font:400 16px Inter;letter-spacing:.5em;color:rgba(38,34,31,.5)}
+  #cap .rule{width:64px;height:2px;background:#2fa866;margin:26px 0 0}
+</style>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 20 蓝图工程图 · 行业示例：智能硬件 =====
+   A smart door lock pulled apart into its layers in front of the door. The camera trucks down the stack from
+   the glass to the chassis, each layer called out as it passes; then it swings round to the front while the
+   layers snap together onto the door. A scan line turns the drawing into the real thing: black glass, the
+   keypad lights up digit by digit, the fingerprint ring turns green and the lever drops. Unlocked. */
+const C = Reel.cfg({ brand: '安心智能锁', sub: '指纹 · 密码 · 远程开锁 · 上门安装', en: 'SMART LOCK · FACE · FINGERPRINT',
+  labels: [['钢化玻璃面板', '2.5D · 防指纹'], ['前面板 · 指纹头', '半导体活体识别'], ['主控板', 'BLE + Wi-Fi'], ['静音电机', '< 40 dB'], ['锂电池组', '8000 mAh'], ['后底板', '304 不锈钢']],
+  tb: ['智能锁 · 爆炸视图', 'DWG. NO. AX-2026-077', 'SCALE  1 : 2', 'DRAWN  XIAOXIONG', 'DATE  2026.10.18'] });
+const { E, clamp, inv, lerp } = Reel;
+const stage = Reel.makeStage('#0c3480');
+Reel.ownJitter = true;
+const LZ = [[0.46, 1.7], [0.40, 1.3], [0.33, 0.95], [0.26, 0.62], [0.2, 0.33], [0.12, 0.08]];   // layer z = a + b*E
+const B = BP.make(stage, {
+  foc: 4.0,
+  uniforms: `uniform float uE, uLever, uRing, uDoorOn; uniform vec4 uKeys[3];`,
+  fns: `
+float bx(vec3 p, vec3 c, vec3 h, float r){ vec3 q = abs(p - c) - h + r; return length(max(q,0.)) + min(max(q.x,max(q.y,q.z)),0.) - r; }
+float cylY(vec3 p, float r, float h){ vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(r, h); return min(max(d.x,d.y),0.) + length(max(d,0.)); }
+float cylZ(vec3 p, float r, float h){ return cylY(p.xzy, r, h); }
+float LZ(int i){ ${LZ.map(([a, b], i) => `if (i == ${i}) return ${a.toFixed(2)} + ${b.toFixed(2)}*uE;`).join(' ')} return 0.; }`,
+  map: `
+vec2 obj(vec3 p){
+  vec2 d = vec2(1e3, -1.);
+  // door + wall behind (context)
+  if (uDoorOn > .5){
+    float dr = bx(p, vec3(0.,1.05,-.05), vec3(.5,1.05,.05), .004); if (dr < d.x) d = vec2(dr, 9.);
+    float fr = max(bx(p, vec3(0.,1.08,-.08), vec3(.58,1.12,.05), .004), -bx(p, vec3(0.,1.05,-.08), vec3(.505,1.06,.2), 0.)); if (fr < d.x) d = vec2(fr, 11.);
+    float wl = p.z + .13; if (wl < d.x) d = vec2(wl, 10.);
+  }
+  // 1 glass
+  float g = bx(p, vec3(0.,1.05,LZ(0)), vec3(.165,.5,.006), .03); if (g < d.x) d = vec2(g, 1.);
+  // 2 front panel: housing with keypad dimples and fingerprint window; lever on its boss
+  float zp = LZ(1);
+  float pn = bx(p, vec3(0.,1.05,zp), vec3(.18,.52,.04), .045);
+  vec2 kc = vec2(p.x, p.y - 1.27); vec2 ki = clamp(floor(kc/vec2(.075,.075) + vec2(1.5, 2.)), vec2(0.), vec2(2., 3.)); vec2 kp = kc - (ki - vec2(1., 1.5))*.075;
+  pn = max(pn, -max(length(kp) - .022, -(p.z - zp - .036)));
+  pn = max(pn, -max(length(p.xy - vec2(0.,.93)) - .034, -(p.z - zp - .034)));
+  if (pn < d.x) d = vec2(pn, 2.);
+  float fp = cylZ(p - vec3(0.,.93,zp + .028), .03, .006); if (fp < d.x) d = vec2(fp, 7.);
+  // lever: boss + bar, pivots about the boss axis
+  vec3 lq = p - vec3(0.,.72,zp + .06);
+  float boss = cylZ(lq, .04, .03);
+  float a = -uLever*.7; float c = cos(a), s = sin(a); vec2 lx = mat2(c, s, -s, c)*lq.xy;
+  float bar = sdCapsule(vec3(lx, lq.z - .03), vec3(0.), vec3(.24, -.01, 0.), .022);
+  float lev = min(boss, bar) - .002; if (lev < d.x) d = vec2(lev, 8.);
+  // 3 PCB with chips
+  float zb = LZ(2);
+  float pcb = bx(p, vec3(0.,1.05,zb), vec3(.15,.45,.006), .004);
+  float ch = min(bx(p, vec3(-.05,1.25,zb + .012), vec3(.045,.045,.007), .002), bx(p, vec3(.06,1.1,zb + .01), vec3(.03,.06,.005), .002));
+  ch = min(ch, bx(p, vec3(0.,.85,zb + .01), vec3(.06,.025,.005), .002)); ch = min(ch, bx(p, vec3(-.07,1.45,zb + .01), vec3(.03,.02,.006), .002));
+  if (pcb < d.x) d = vec2(pcb, 3.); if (ch < d.x) d = vec2(ch, 12.);
+  // 4 motor + gearbox
+  float zm = LZ(3);
+  float mo = min(cylY(p - vec3(.05,.86,zm), .045, .09) - .004, bx(p, vec3(-.04,.84,zm), vec3(.06,.07,.04), .01));
+  mo = min(mo, cylZ(p - vec3(-.04,.84,zm + .05), .02, .02));
+  if (mo < d.x) d = vec2(mo, 4.);
+  // 5 battery pack: four cells in a holder
+  float zt = LZ(4);
+  float bh = bx(p, vec3(0.,1.28,zt), vec3(.12,.13,.035), .01);
+  bh = max(bh, -(p.z - zt - .012));
+  for (int i=0;i<4;i++){ float x = -.09 + float(i)*.06; float cell = cylY(p - vec3(x, 1.28, zt + .018), .028, .11) - .003; if (cell < d.x) d = vec2(cell, 13.); }
+  if (bh < d.x) d = vec2(bh, 5.);
+  // 6 chassis
+  float zc = LZ(5);
+  float cs = bx(p, vec3(0.,1.05,zc), vec3(.17,.5,.02), .03);
+  cs = max(cs, -cylZ(p - vec3(0.,.72,zc), .03, .1));
+  if (cs < d.x) d = vec2(cs, 6.);
+  return d;
+}`,
+  real: `
+float rectL(vec3 r, vec3 c, vec3 up, vec2 hs, float soft){ float cz = dot(r, c); if (cz <= 0.) return 0.; vec3 u = normalize(cross(up, c)), v = cross(c, u); vec2 q = vec2(dot(r,u), dot(r,v))/cz; vec2 e = smoothstep(hs + soft, hs - soft, abs(q)); return e.x*e.y; }
+vec3 env(vec3 r){
+  vec3 c = mix(vec3(.02,.018,.016), vec3(.06,.055,.05), smoothstep(-.3, .8, r.y));
+  c += vec3(1.,.95,.88)*2.6*rectL(r, normalize(vec3(-.6,.5,.62)), vec3(0.,1.,0.), vec2(.3,.6), .15);
+  c += vec3(.8,.88,1.)*1.8*rectL(r, normalize(vec3(.75,.25,.6)), vec3(0.,1.,0.), vec2(.04,.8), .04);
+  c += vec3(.95,.93,.9)*.55*rectL(r, normalize(vec3(.22,.35,1.)), vec3(0.,1.,0.), vec2(.5,.16), .3);      // soft hallway window
+  return c;
+}
+const vec3 KEY = normalize(vec3(-.55,.5,.67));
+float shadowR(vec3 ro, vec3 L){ float r = 1., t = .01; for (int i=0;i<30;i++){ float h = mapS(ro + L*t); r = min(r, 9.*h/t); t += clamp(h, .008, .2); if (r < .002 || t > 3.) break; } return clamp(r,0.,1.); }
+float aoR(vec3 p, vec3 n){ float o = 0., s = 1.; for (int i=0;i<4;i++){ float h = .01 + .04*float(i); o += (h - mapS(p + n*h))*s; s *= .7; } return clamp(1. - 2.5*o, 0., 1.); }
+vec3 shadeReal(vec3 p, vec3 rd, vec3 n, float id){
+  float cosT = max(dot(n,-rd), 0.); vec3 r = reflect(rd, n);
+  float sh = shadowR(p + n*.002, KEY), oc = aoR(p, n), dif = clamp(dot(n, KEY), 0., 1.)*sh;
+  vec3 col;
+  if (id < 2.5){                                     // black glass front / housing
+    col = vec3(.012)*(dif + .3*oc) + env(r)*mix(.04, 1., pow(1. - cosT, 5.))*(id < 1.5 ? 1. : .6)*(.5 + .5*oc);
+    if (n.z > .7 && abs(p.x) < .16){
+      vec2 kc = vec2(p.x, p.y - 1.27); vec2 ki = clamp(floor(kc/vec2(.075,.075) + vec2(1.5, 2.)), vec2(0.), vec2(2., 3.)); vec2 kp = kc - (ki - vec2(1., 1.5))*.075;
+      int k = int(ki.y*3. + ki.x + .5); float lit = k < 4 ? uKeys[0][k] : (k < 8 ? uKeys[1][k - 4] : uKeys[2][k - 8]);
+      float ring = smoothstep(.004, .0, abs(length(kp) - .016))*.25 + smoothstep(.007, .0, length(kp) - .004);
+      col += vec3(.75,.88,1.)*ring*(.15 + 2.6*lit);
+      col += vec3(.4,.7,1.)*.25*lit*exp(-length(kp)*40.)*smoothstep(.037, .022, length(kp));
+      float rr = length(p.xy - vec2(0.,.93)); vec3 rc = mix(vec3(.3,.6,1.), vec3(.25,1.,.5), uRing);
+      col += rc*(.5 + 2.5*uRing)*smoothstep(.004, .0, abs(rr - .031)) + rc*.05*(1. + 2.*uRing)*smoothstep(.03, .0, rr);
+      float ey = length(p.xy - vec2(0.,1.5)); col += vec3(.02,.03,.05)*smoothstep(.022, .018, ey) + vec3(.3,.4,.6)*.5*smoothstep(.006, .0, abs(ey - .014));
+    }
+  } else if (id < 3.5) col = vec3(.04,.22,.12)*(dif*1.6 + .3*oc) + env(r)*.05;
+  else if (id < 4.5 || id > 5.5 && id < 6.5) col = env(r)*vec3(.62,.64,.68)*mix(.35, .9, pow(1. - cosT, 3.))*(.4 + .6*oc) + vec3(.06)*dif;
+  else if (id < 5.5) col = vec3(.03)*(dif*2. + .3*oc) + env(r)*.08;
+  else if (id < 7.5){ float rr = length(p.xy - vec2(0.,.93)); vec3 rc = mix(vec3(.3,.6,1.), vec3(.25,1.,.5), uRing);
+    col = vec3(.02)*dif + env(r)*.15 + rc*(1.6 + 1.5*uRing)*smoothstep(.004, .0, abs(rr - .031)) + rc*.08*(1. + uRing); }
+  else if (id < 8.5){ float st = .9 + .1*sin(dot(p.xy, vec2(1.,.1))*900.); col = env(r)*vec3(.86,.76,.62)*st*mix(.45, 1., pow(1. - cosT, 2.))*(.4 + .6*oc) + vec3(.1,.08,.06)*dif; }
+  else if (id < 9.5){ float gr = sin(p.x*70. + 3.*vnoise(vec3(p.x*4., p.y*1.5, 1.))); vec3 a = mix(vec3(.2,.11,.06), vec3(.26,.15,.085), .5 + .5*gr);
+    col = a*(vec3(1.,.9,.8)*2.2*dif + vec3(.5,.55,.6)*.5*oc) + env(r)*.03; }
+  else if (id < 10.5) col = vec3(.62,.6,.57)*(vec3(1.,.9,.8)*1.9*dif + vec3(.5,.55,.6)*.55*oc);
+  else if (id < 11.5) col = vec3(.85,.84,.8)*(vec3(1.,.9,.8)*2.*dif + vec3(.5,.55,.6)*.55*oc);
+  else if (id < 12.5) col = vec3(.02)*(dif + .3*oc) + env(r)*.1;
+  else col = vec3(.05,.4,.25)*(dif*1.6 + .3*oc) + env(r)*.12;
+  return col;
+}`,
+  bg: `vec3(.03,.028,.026)`,
+  floor: `return bg;`,
+});
+const O = BP.overlay(stage, B.FOC);
+const cap = document.createElement('div'); cap.id = 'cap'; cap.innerHTML = `<div class="zh">${C.brand}</div><div class="rule"></div><div class="sub">${C.sub}</div><div class="en">${C.en}</div>`; stage.appendChild(cap);
+const lz = (i, e) => LZ[i][0] + LZ[i][1] * e;
+function camAt(t, ex) {
+  // 1: wide 3/4 on the exploded stack; 2: truck down the layers; 3: swing to the front; 4: slow push for the real lock
+  const wide = { ro: [-1.9, 1.55, 4.6], ta: [0, 1.0, 0.95] };
+  const zc = lerp(2.0, 0.15, E.inOutSine(inv(2.6, 7.0, t)));
+  const truck = { ro: [1.0, 1.22, zc + 1.0], ta: [0, 1.02, zc - 0.05] };
+  const front = { ro: [0.62, 1.15, 3.6], ta: [-0.34, 1.04, 0.0] };
+  const u1 = E.inOutCubic(inv(2.2, 3.0, t)), u2 = E.inOutCubic(inv(6.8, 8.0, t)), k = E.inOutSine(inv(9.5, 15, t));
+  const mix3 = (a, b, u) => a.map((v, i) => lerp(v, b[i], u));
+  let ro = mix3(wide.ro, truck.ro, u1), ta = mix3(wide.ta, truck.ta, u1);
+  ro = mix3(ro, front.ro, u2); ta = mix3(ta, front.ta, u2);
+  ro = mix3(ro, [0.5, 1.12, 3.15], k); ta = mix3(ta, [-0.36, 1.04, 0.0], k);
+  return { ro, ta };
+}
+const SEQ = [9, 3, 7, 5, 1, 11];   // key indices lit in order (bottom row first index = 0)
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['500 26px "Noto Sans CJK SC"', '300 90px "Noto Sans CJK SC"', '400 29px "Noto Sans CJK SC"', '500 24px "Latin Modern Mono"', '400 16px Inter'],
+  cues: [{ t: 0.3, sfx: 'pen' }, { t: 2.6, sfx: 'whoosh', gain: 0.5 }, ...[3.0, 3.75, 4.5, 5.25, 6.0, 6.7].map((t) => ({ t, sfx: 'tick', gain: 0.6 })), { t: 6.9, sfx: 'whoosh' }, { t: 8.0, sfx: 'lock', gain: 0.6 },
+    { t: 8.3, sfx: 'swell' }, ...SEQ.map((_, i) => ({ t: 10.0 + i * 0.22, sfx: 'beep', gain: 0.45 })), { t: 11.5, sfx: 'chime', gain: 0.6 }, { t: 12.0, sfx: 'click', gain: 0.7 }, { t: 12.1, sfx: 'lock', gain: 0.5 }],
+  render(t) {
+    const asm = inv(6.9, 8.0, t); const ex = 1 - (asm < 1 ? E.inOutCubic(asm) : 1) + (asm >= 1 ? 0.015 * Math.exp(-(t - 8.0) * 9) * Math.sin((t - 8.0) * 40) : 0);
+    const cam = camAt(t, ex); const hx = 0.004 * Math.sin(t * 1.2), hy = 0.003 * Math.sin(t * 1.6 + 1);
+    const ro = [cam.ro[0] + hx, cam.ro[1] + hy, cam.ro[2]];
+    const scan = t < 8.3 ? -1 : t > 9.6 ? 2 : E.inOutSine(inv(8.3, 9.6, t)) * 1.02 - 0.01;
+    const keys = new Float32Array(12); SEQ.forEach((k, i) => { const t0 = 10.0 + i * 0.22; keys[k] = t > t0 ? Math.max(0.25, Math.exp(-(t - t0) * 2.5)) * (t < 11.5 ? 1 : Math.max(0, 1 - (t - 11.5) * 2)) : 0; });
+    const ring = E.outCubic(inv(11.5, 11.8, t)), lever = E.inOutSine(inv(12.0, 12.4, t)) * (1 - E.inOutSine(inv(13.6, 14.2, t)));
+    B.rm.set('uE', ex).set('uLever', lever).set('uRing', ring).set('uKeys', keys).set('uDoorOn', t > 7.0 ? 1 : 0).set('uScan', scan).set('uRo', ro).set('uTa', cam.ta).set('uRoll', 0)
+      .set('uBound', t > 7.0 ? [0, 1.05, 0, 9.0] : [0, 1.05, 0.25 + 0.9 * ex, 0.75 + 0.95 * ex]).set('uRevA', lerp(-2.4, 0.5, E.inOutSine(inv(0.3, 2.4, t)))).set('uRevB', 0.45).set('uRevDir', [0, 0, -1])
+      .set('uCutOn', 0).set('uCut', [0, 0, 1, 9]).set('uFloorY', -5).set('uFloorOn', 0).set('uT', t).set('uFade', E.outCubic(clamp(t / 0.4)));
+    B.rm.render(t, { focus: Math.hypot(ro[0], ro[1] - 1.0, ro[2] - (t < 7 ? lerp(2.0, 0.15, inv(2.6, 7, t)) : 0.3)), aperture: t > 9 ? 14 : 0, maxCoc: t > 9 ? 10 : 0 });
+    O.begin(); const oc = O.ctx; oc.clearRect(0, 0, 1920, 1080); O.camera(ro, cam.ta, 0);
+    const P = (x, y, z) => O.project([x, y, z]);
+    oc.save(); if (scan >= 0) { oc.beginPath(); oc.rect(0, Math.max(0, scan) * 1080, 1920, 1080); oc.clip(); }
+    O.axis(P(0, 1.05, 2.6 * ex + 0.6), P(0, 1.05, -0.2), E.outCubic(inv(0.6, 1.4, t)) * (1 - inv(6.9, 7.3, t)));
+    // wide shot: all six callouts; truck: one per layer as we pass
+    const zc = lerp(2.0, 0.15, E.inOutSine(inv(2.6, 7.0, t)));
+    const anchors = [[0.12, 1.4, 0], [0.15, 0.9, 0], [0.1, 1.25, 0.01], [0.08, 0.86, 0], [0.1, 1.38, 0.03], [0.15, 0.7, 0]];
+    anchors.forEach(([x, y, dz], i) => {
+      const z = lz(i, ex) + dz;
+      const wideK = E.outCubic(inv(1.2 + i * 0.15, 1.8 + i * 0.15, t)) * (1 - inv(2.3, 2.6, t));
+      const passK = t > 2.6 && t < 7.0 ? clamp(1 - Math.abs(zc - z) / 0.3) : 0;
+      const k = Math.max(wideK, E.outCubic(passK));
+      if (k <= 0) return;
+      const wideB = [[300, 220], [300, 400], [300, 580], [1620, 260], [1620, 440], [1620, 620]][i];
+      const bxy = t < 2.6 ? wideB : [1500, 380 + (i % 2) * 40];
+      O.callout(P(x, y, z), String(i + 1), C.labels[i][0], bxy[0], bxy[1], bxy[0] < 960 ? -1 : 1, k, C.labels[i][1]);
+    });
+    const dk = E.outCubic(inv(1.9, 2.4, t)) * (1 - inv(2.4, 2.7, t));
+    O.dim(P(-0.18, 0.5, lz(1, ex)), P(-0.18, 1.6, lz(1, ex)), '1100', -50, dk);
+    O.title(E.outCubic(inv(0.5, 1.1, t)) * (1 - inv(6.9, 7.3, t)), C.tb);
+    oc.restore();
+    const ck = E.outCubic(inv(12.4, 13.2, t)); cap.style.opacity = ck; cap.style.transform = `translateY(${(1 - ck) * 16}px)`;
+  },
+});
+</script></body></html>

@@ -1,0 +1,19 @@
+《按一下》— 产品拆解（Exploded Teardown）风格样片 · 致谢与许可
+
+画面
+- 全部几何、材质、动画为代码生成（three.js r170，MIT License，https://github.com/mrdoob/three.js）。
+- 主体是一支代码建模的通用按动圆珠笔，不对应任何真实品牌或产品；画面数字全部来自本模型参数表 src/dims.js（见 FACTS.md）。
+- 环境光照 HDRI：photo_studio_loft_hall_2k.hdr，Poly Haven（https://polyhaven.com/a/photo_studio_loft_hall），CC0 1.0。
+
+字体（SIL Open Font License 1.1，经 Google Fonts CSS API 按用字子集化，存于 fonts/）
+- Noto Sans SC — Google（https://fonts.google.com/noto/specimen/Noto+Sans+SC），OFL 1.1
+- JetBrains Mono — JetBrains（https://fonts.google.com/specimen/JetBrains+Mono），OFL 1.1
+
+声音（配乐与拟音均为原创代码合成/编排）
+- 采样乐器（CC0 1.0）：马林巴、颤音琴（硬槌/弓奏）、钟琴、木块 — Versilian Community Sample Library（Versilian Studios，https://github.com/sgossner/VCSL）；
+  响棒 — VS Chamber Orchestra: Community Edition（Versilian Studios / Sam Gossner，https://github.com/sgossner/VSCO-2-CE）；
+  玻璃 — FreePats project（https://freepats.zenvoid.org）；
+  爵士低音拨弦（Sneakybass）— Karoryfer Samples / sfzinstruments（https://github.com/sfzinstruments）。
+- 合成底鼓、金属 tick、所有拟音（按钮 click、锁定 thock、气流、螺纹、弹簧、笔 hiss、内部"咔"）：numpy/scipy 程序化合成，无第三方素材。
+
+无旁白、无字幕、无外部影像素材。

@@ -1,0 +1,42 @@
+{
+  "lod1": {
+    "triangles": 276528,
+    "meshes": 98
+  },
+  "nominalWingspan": 600,
+  "length": 359.35322490397107,
+  "checks": [
+    "600-unit neutral wingspan at two LODs",
+    "stateless seek / caller transform preserved",
+    "24 fps pose sampling",
+    "original TOON_SHARED / three-band thresholds",
+    "closed feather: every mesh edge has exactly two incident faces",
+    "spread / flap / flight endpoint combinations",
+    "841 finite poses / bounded adjacent-frame motion",
+    "shadow frustum contains transformed model",
+    "seeded swarm / deterministic reverse seek / zero count & amount",
+    "actual WebGL + shadow + screen-space outlines; shader programs runnable"
+  ],
+  "lod025": {
+    "triangles": 152616,
+    "meshes": 98
+  },
+  "maxWristStepPerFrame": 5.251542451541031,
+  "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+  "renders": [
+    "@@CASE_ROOT@@/tools/test_peng/peng-hero.png"
+  ],
+  "programs": 16,
+  "availableImages": [
+    "@@CASE_ROOT@@/tools/test_peng/peng-downstroke.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-feather.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-furled.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-head.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-hero.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-swarm.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-underside.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-upstroke.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-wide.png",
+    "@@CASE_ROOT@@/tools/test_peng/peng-world.png"
+  ]
+}

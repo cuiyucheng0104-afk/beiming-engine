@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>12 · 复古 Livehouse · 午夜磁带</title>
+<script src="../lib/core.js"></script><script src="../lib/gl.js"></script><script src="../lib/retro.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 12 合成波 VHS · 行业示例：复古酒吧 Livehouse =====
+   Found footage from a camcorder on a night out. A brick wall full of dead neon; the tape rolls and the
+   signs stutter on one by one (OPEN, a guitar, LIVE MUSIC), the handheld camera wanders, then the tape
+   fast-forwards to the bar's cocktail sign, rewinds to the weekly line-up, pauses with the classic jitter,
+   and finally pulls wide as the big sign over the stage ignites. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#0a0510');
+Reel.ownJitter = true;
+const C = Reel.cfg({ brand: '午夜磁带', en: 'MIDNIGHT TAPE', sub: '每晚 20:00 开门 · 老城区 18 号', l1: '周五  乐队夜', l2: '周六  爵士夜', l3: '周日  黑胶 DJ' });
+const R = RETRO.init(stage);
+const { s, o, K, W, H } = R;
+const hh = Reel.hash;
+// ---- brick wall (pre-rendered, 3200x1800 design px at half res)
+const WALL = (() => { const S = 0.5, c = document.createElement('canvas'); c.width = 3200 * S; c.height = 1800 * S; const g = c.getContext('2d'); g.scale(S, S);
+  g.fillStyle = '#1a1012'; g.fillRect(0, 0, 3200, 1800);
+  for (let r = 0; r < 1800 / 46; r++) for (let i = -1; i < 3200 / 110 + 1; i++) {
+    const x = i * 110 + (r % 2) * 55, y = r * 46, v = hh(r * 31 + i * 7);
+    g.fillStyle = `rgb(${Math.round(58 + v * 30)},${Math.round(30 + v * 14)},${Math.round(28 + v * 10)})`; g.fillRect(x + 3, y + 3, 104, 40);
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(x + 3, y + 36, 104, 7); g.fillStyle = 'rgba(255,220,200,.05)'; g.fillRect(x + 3, y + 3, 104, 4);
+    for (let k = 0; k < 6; k++) { g.fillStyle = `rgba(0,0,0,${0.15 * hh(r + i + k * 3)})`; g.fillRect(x + 3 + hh(i * k + r) * 100, y + 3 + hh(i + k * r) * 36, 3, 2); }
+  }
+  // counter + bottles silhouette at the bottom
+  g.fillStyle = '#07040a'; g.fillRect(0, 1560, 3200, 240);
+  for (let i = 0; i < 46; i++) { const x = 80 + i * 68 + hh(i) * 20, h = 70 + hh(i * 3) * 60; g.fillStyle = '#0b070e'; g.fillRect(x, 1560 - h, 26, h); g.fillRect(x + 8, 1560 - h - 30, 10, 30); }
+  return { c, S };
+})();
+// signs: [t on, colour, glow centre, glow radius, draw(c, on)]
+const PINK = '#ff3fb4', CYAN = '#3ff2ff', AMB = '#ffb43f', GRN = '#5bff8f', VIO = '#b06bff';
+const path = (c, fn) => { c.beginPath(); fn(c); };
+function neonPath(c, fn, col, on, lw = 9) {
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+  path(c, fn); c.lineWidth = lw * K; c.strokeStyle = 'rgba(80,60,80,.6)'; c.stroke();
+  if (on > 0) { c.globalAlpha = on; c.shadowColor = col; c.shadowBlur = 28 * K; c.strokeStyle = col; c.lineWidth = lw * 1.5 * K; path(c, fn); c.stroke(); c.shadowBlur = 8 * K; c.lineWidth = lw * 0.45 * K; c.strokeStyle = '#fff6fb'; path(c, fn); c.stroke(); }
+  c.restore();
+}
+const P = (x, y) => [x * K, y * K];
+const SIGNS = [
+  [1.0, GRN, [560, 480], 380, (c, on) => { neonPath(c, (g) => { g.roundRect(...P(400, 400), 320 * K, 160 * K, 30 * K); }, GRN, on, 8); R.neon(c, 'OPEN', 560, 484, 96, GRN, on, { font: 'Inter', wt: 900, lw: 7 }); }],
+  [1.5, PINK, [600, 900], 420, (c, on) => neonPath(c, (g) => { // guitar
+    g.save(); g.translate(...P(600, 920)); g.rotate(-0.6); const k = K; g.moveTo(0, 90 * k); g.bezierCurveTo(-120 * k, 90 * k, -120 * k, -10 * k, -50 * k, -20 * k); g.bezierCurveTo(-80 * k, -80 * k, -40 * k, -120 * k, 0, -90 * k); g.bezierCurveTo(40 * k, -120 * k, 80 * k, -80 * k, 50 * k, -20 * k); g.bezierCurveTo(120 * k, -10 * k, 120 * k, 90 * k, 0, 90 * k);
+    g.moveTo(-14 * k, -90 * k); g.lineTo(-14 * k, -330 * k); g.lineTo(14 * k, -330 * k); g.lineTo(14 * k, -90 * k); g.moveTo(-24 * k, -330 * k); g.lineTo(24 * k, -330 * k); g.lineTo(18 * k, -400 * k); g.lineTo(-18 * k, -400 * k); g.closePath(); g.moveTo(26 * k, 20 * k); g.arc(0, 20 * k, 26 * k, 0, 7); g.restore(); }, PINK, on, 8)],
+  [2.0, CYAN, [980, 1220], 420, (c, on) => R.neon(c, 'LIVE MUSIC', 980, 1220, 120, CYAN, on, { font: 'Lora', italic: true, wt: 700, lw: 7, rot: -0.06 })],
+  [4.15, AMB, [2350, 520], 420, (c, on) => neonPath(c, (g) => { const k = K, x0 = 2350 * k, y0 = 520 * k; g.moveTo(x0 - 150 * k, y0 - 150 * k); g.lineTo(x0 + 150 * k, y0 - 150 * k); g.lineTo(x0, y0 + 20 * k); g.closePath(); g.moveTo(x0, y0 + 20 * k); g.lineTo(x0, y0 + 190 * k); g.moveTo(x0 - 80 * k, y0 + 190 * k); g.lineTo(x0 + 80 * k, y0 + 190 * k); g.moveTo(x0 + 70 * k, y0 - 110 * k); g.arc(x0 + 50 * k, y0 - 110 * k, 20 * k, 0, 7); g.moveTo(x0 + 50 * k, y0 - 110 * k); g.lineTo(x0 + 140 * k, y0 - 240 * k); }, AMB, on, 9)],
+  [4.65, PINK, [2380, 880], 360, (c, on) => R.neon(c, '精酿 · 特调', 2380, 880, 92, PINK, on, { font: '"Noto Sans CJK SC"', wt: 700, lw: 6, ls: 8 })],
+  [6.6, CYAN, [2250, 1160], 320, (c, on) => R.neon(c, C.l1, 2250, 1160, 78, CYAN, on, { font: '"Noto Sans CJK SC"', wt: 700, lw: 5, ls: 6 })],
+  [7.0, VIO, [2250, 1280], 320, (c, on) => R.neon(c, C.l2, 2250, 1280, 78, VIO, on, { font: '"Noto Sans CJK SC"', wt: 700, lw: 5, ls: 6 })],
+  [7.4, AMB, [2250, 1400], 320, (c, on) => R.neon(c, C.l3, 2250, 1400, 78, AMB, on, { font: '"Noto Sans CJK SC"', wt: 700, lw: 5, ls: 6 })],
+  [8.0, PINK, [1500, 1250], 300, (c, on) => neonPath(c, (g) => { const k = K, x0 = 1500 * k, y0 = 1250 * k; g.roundRect(x0 - 170 * k, y0 - 105 * k, 340 * k, 210 * k, 22 * k); g.moveTo(x0 - 60 * k + 34 * k, y0 - 20 * k); g.arc(x0 - 60 * k, y0 - 20 * k, 34 * k, 0, 7); g.moveTo(x0 + 60 * k + 34 * k, y0 - 20 * k); g.arc(x0 + 60 * k, y0 - 20 * k, 34 * k, 0, 7); g.moveTo(x0 - 110 * k, y0 + 105 * k); g.lineTo(x0 - 80 * k, y0 + 50 * k); g.lineTo(x0 + 80 * k, y0 + 50 * k); g.lineTo(x0 + 110 * k, y0 + 105 * k); }, PINK, on, 7)],
+  [10.1, PINK, [1500, 620], 900, (c, on) => { R.neon(c, C.brand, 1500, 590, 230, PINK, on, { font: '"Noto Sans CJK SC"', wt: 900, lw: 10, ls: 30 }); R.neon(c, C.en, 1500, 790, 90, CYAN, on, { font: 'Lora', italic: true, wt: 700, lw: 6, ls: 10 }); }],
+];
+function flick(t, t0) { const u = t - t0; if (u < 0) return 0; if (u < 0.45) { const f = Math.floor(t * 30); return hh(f * 7.3 + t0) > 0.45 ? 1 : 0.08; } return 0.93 + 0.07 * Math.sin(t * 50 + t0); }
+// camera on the wall: [from, to, cx, cy, z]; tape jumps between shots
+const SHOTS = [[0, 3.6, 820, 800, 1.28], [3.6, 6.1, 2330, 700, 1.36], [6.1, 9.3, 2280, 1260, 1.5], [9.3, 15, 1600, 900, 0.62]];
+function camera(t) {
+  let sh = SHOTS.find((q) => t >= q[0] && t < q[1]) || SHOTS[3];
+  let { 2: cx, 3: cy, 4: z } = sh; const u = t - sh[0];
+  // camcorder: slow digital zoom, handheld wander, the last shot zooms out with a pump
+  if (sh === SHOTS[0]) { z *= 1 + 0.08 * E.inOutSine(clamp(u / 3)); cx -= 60 * E.inOutSine(clamp(u / 3)); }
+  if (sh === SHOTS[1]) { z *= 1 + 0.05 * u / 2.5; }
+  if (sh === SHOTS[2]) { cy -= 40 * E.inOutSine(clamp(u / 3)); }
+  if (sh === SHOTS[3]) { const k = E.inOutCubic(clamp(u / 1.0)); z = lerp(1.5, 0.62, k) * (1 + 0.05 * E.inOutSine(clamp((u - 1.2) / 4.5))); cx = lerp(2280, 1600, k); cy = lerp(1220, 900, k); }
+  const pause = t > 8.9 && t < 9.3;
+  const tt = pause ? 8.9 : t;
+  cx += 14 * Reel.noise1(tt * 0.9) + 6 * Reel.noise1(tt * 3.1 + 5); cy += 10 * Reel.noise1(tt * 0.8 + 9) + 5 * Reel.noise1(tt * 2.7 + 2);
+  return { cx, cy, z, rot: 0.012 * Reel.noise1(tt * 0.7 + 3) };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['900 160px Inter', 'italic 700 120px Lora', '500 30px "DejaVu Sans Mono"', '900 100px "Noto Sans CJK SC"', '700 60px "Noto Sans CJK SC"', '500 30px "Noto Sans CJK SC"'],
+  cues: [{ t: 0.15, sfx: 'vhs', gain: 0.7 }, ...SIGNS.map(([t0]) => ({ t: t0, sfx: 'neon', gain: 0.55 })), { t: 3.5, sfx: 'whoosh', gain: 0.4 }, { t: 6.0, sfx: 'whoosh', gain: 0.4 }, { t: 8.9, sfx: 'vhs', gain: 0.4 }, { t: 9.3, sfx: 'whoosh', gain: 0.35 }, { t: 10.1, sfx: 'impact', gain: 0.8 }, { t: 10.6, sfx: 'sparkle', gain: 0.5 }],
+  render(t) {
+    const cam = camera(t);
+    const pause = t > 8.9 && t < 9.3, tt = pause ? 8.9 : t;
+    // ---- the wall, lit by whatever neon is on
+    s.setTransform(1, 0, 0, 1, 0, 0); s.fillStyle = '#000'; s.fillRect(0, 0, W, H);
+    s.setTransform(K * cam.z * Math.cos(cam.rot), K * cam.z * Math.sin(cam.rot), -K * cam.z * Math.sin(cam.rot), K * cam.z * Math.cos(cam.rot), 960 * K, 540 * K); s.translate(-cam.cx, -cam.cy);
+    s.drawImage(WALL.c, 0, 0, 3200, 1800);
+    s.fillStyle = 'rgba(0,0,0,.55)'; s.fillRect(0, 0, 3200, 1800);
+    s.globalCompositeOperation = 'lighter';
+    for (const [t0, col, [gx, gy], gr] of SIGNS) { const on = flick(tt, t0); if (on <= 0.05) continue; const g = s.createRadialGradient(gx, gy, 10, gx, gy, gr * 1.6); g.addColorStop(0, col + '55'); g.addColorStop(0.4, col + '22'); g.addColorStop(1, col + '00'); s.globalAlpha = on; s.fillStyle = g; s.fillRect(gx - gr * 1.6, gy - gr * 1.6, gr * 3.2, gr * 3.2); }
+    s.globalAlpha = 1; s.globalCompositeOperation = 'source-over';
+    // signs are drawn in device px with K baked in, so switch to a transform without K
+    s.setTransform(cam.z * Math.cos(cam.rot), cam.z * Math.sin(cam.rot), -cam.z * Math.sin(cam.rot), cam.z * Math.cos(cam.rot), 960 * K, 540 * K); s.translate(-cam.cx * K, -cam.cy * K);
+    for (const [t0, , , , draw] of SIGNS) draw(s, flick(tt, t0));
+    s.setTransform(1, 0, 0, 1, 0, 0);
+    // ---- overlay: OSD + tape transport states
+    o.clearRect(0, 0, W, H);
+    const ff = t > 3.45 && t < 3.6, rew = t > 5.95 && t < 6.1;
+    if (ff || rew) { o.fillStyle = 'rgba(255,255,255,.08)'; for (let i = 0; i < 14; i++) o.fillRect(0, hh(i + Math.floor(t * 30)) * H, W, (4 + hh(i * 3) * 20) * K); }
+    let label = 'PLAY ▶'; if (ff) label = '▶▶ FF'; if (rew) label = '◀◀ REW'; if (pause) label = '❚❚ PAUSE';
+    R.osd(o, t, label, 'NOV. 15 1987', !(ff || rew || pause), 'SP', 21 * 60 + 47);
+    if (t > 10.7) { const a = clamp((t - 10.7) / 0.3); o.save(); o.globalAlpha = a; o.font = `700 ${34 * K}px "Noto Sans CJK SC"`; o.textAlign = 'center'; o.fillStyle = '#fff'; o.shadowColor = '#ff3fb4'; o.shadowBlur = 16 * K; o.fillText(C.sub, 960 * K, 905 * K); o.restore(); }
+    const glitch = ff || rew ? 0.9 : pause ? 0.35 * (Math.floor(t * 30) % 2) : (t > 10.1 && t < 10.25 ? 0.6 : 0);
+    R.finish(t, glitch, { useCanvas: true });
+  },
+});
+</script></body></html>

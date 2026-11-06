@@ -1,0 +1,6 @@
+{
+  "_说明": "verify.py 的门禁阈值。known_physics_frames 是已知、已记录的物理问题帧（README「已知局限」），只允许这些帧超限；出现新的超限帧就判失败。",
+  "median_px": 6.0,
+  "max_px": 30.0,
+  "known_physics_frames": [98, 105, 144, 145, 146]
+}

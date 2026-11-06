@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>04 · 建筑事务所 · 白石建筑</title>
+<script src="../lib/core.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 04 线条动画 · 行业示例：建筑事务所 =====
+   Gold hairlines draft a cantilevered house in perspective - edges first, then mullions, ground and trees.
+   The camera drifts round it; the volumes fill with glass and stone, windows warm up, a light sweep crosses the
+   facade, and the studio's name settles in. Canvas 2D, every line projected from a 3D model. */
+const { E, clamp, inv, lerp } = Reel;
+const C = Reel.cfg({ brand: '白石建筑', sub: '建筑设计 · 室内 · 景观', small: 'BAISHI  ARCHITECTS  ·  SINCE 2011' });
+const stage = Reel.makeStage('#070b17');
+const { ctx, begin } = Reel.canvas2d(stage);
+const GOLD = (a) => `rgba(236,201,128,${a})`, GOLD2 = (a) => `rgba(255,232,180,${a})`;
+// boxes: [x0,y0,z0,x1,y1,z1, glass?]
+const BOX = [
+  { b: [-4.2, 0, -2.2, 3.0, 1.7, 2.0], glass: true, t0: 0.4 },
+  { b: [-1.6, 1.7, -1.6, 6.4, 3.2, 1.5], glass: true, t0: 1.0 },
+  { b: [-3.6, 3.2, -1.9, 0.8, 4.3, 1.2], glass: false, t0: 1.6 },
+];
+let CAM;
+let EXT = 1, RT = 0;
+function camAt(t) {
+  const k = E.inOutCubic(inv(0.6, 6.4, RT));
+  const el = lerp(1.5, 0.17, k), az = lerp(0.0, 1.15, E.inOutSine(inv(0, 15, RT))), d = lerp(15, 15.5, E.inOutSine(inv(0, 9, RT)));
+  const tgt = [1.0, lerp(0, 2.0, k), 0];
+  const ro = [tgt[0] + Math.sin(az) * Math.cos(el) * d, tgt[1] + Math.sin(el) * d, tgt[2] + Math.cos(az) * Math.cos(el) * d];
+  const up = [-Math.sin(az) * Math.sin(el), Math.cos(el), -Math.cos(az) * Math.sin(el)];
+  const w = norm(sub(tgt, ro)), u = norm(cross(w, norm(up))), v = cross(u, w);
+  return { ro, u, v, w, f: lerp(1500, 1400, k), cx: lerp(1000, 1180, k), cy: lerp(560, 600, k) };
+}
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = (a) => { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+function P(p) { const d = sub(p, CAM.ro), z = dot(d, CAM.w); return [CAM.cx + dot(d, CAM.u) / z * CAM.f, CAM.cy - dot(d, CAM.v) / z * CAM.f, z]; }
+function seg(a, b, prog, w, alpha, glow = true) {
+  if (prog <= 0) return;
+  const p = P(a), q0 = P(b), q = [lerp(p[0], q0[0], Math.min(prog, 1)), lerp(p[1], q0[1], Math.min(prog, 1))];
+  ctx.save(); ctx.lineCap = 'round';
+  if (glow) { ctx.shadowColor = GOLD(0.55 * alpha); ctx.shadowBlur = 10; }
+  ctx.strokeStyle = GOLD(alpha); ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+  ctx.shadowBlur = 0; ctx.strokeStyle = GOLD2(alpha * 0.7); ctx.lineWidth = w * 0.4; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+  ctx.restore();
+}
+function faces(b) {
+  const [x0, y0, z0, x1, y1, z1] = b;
+  const V = (x, y, z) => [x, y * EXT, z];
+  return [
+    { n: [0, 0, 1], q: [V(x0, y0, z1), V(x1, y0, z1), V(x1, y1, z1), V(x0, y1, z1)] },
+    { n: [0, 0, -1], q: [V(x1, y0, z0), V(x0, y0, z0), V(x0, y1, z0), V(x1, y1, z0)] },
+    { n: [1, 0, 0], q: [V(x1, y0, z1), V(x1, y0, z0), V(x1, y1, z0), V(x1, y1, z1)] },
+    { n: [-1, 0, 0], q: [V(x0, y0, z0), V(x0, y0, z1), V(x0, y1, z1), V(x0, y1, z0)] },
+    { n: [0, 1, 0], q: [V(x0, y1, z1), V(x1, y1, z1), V(x1, y1, z0), V(x0, y1, z0)] },
+    { n: [0, -1, 0], q: [V(x0, y0, z0), V(x1, y0, z0), V(x1, y0, z1), V(x0, y0, z1)] },
+  ];
+}
+const centre = (q) => [0, 1, 2].map((k) => q.reduce((s, p) => s + p[k], 0) / q.length);
+function scene(t) {
+  begin();
+  CAM = camAt(t);
+  const g = ctx.createRadialGradient(1150, 600, 50, 1150, 600, 1400); g.addColorStop(0, '#121a31'); g.addColorStop(1, '#04060d');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1920, 1080);
+  // ground lines and a reflecting pool
+  const gl = E.outCubic(inv(0.1, 1.2, t));
+  for (let k = -6; k <= 6; k++) seg([-12, 0, k * 1.2], [16, 0, k * 1.2], gl, 0.8, 0.12, false);
+  for (let k = -8; k <= 12; k++) seg([k * 1.4, 0, -8], [k * 1.4, 0, 8], gl, 0.8, 0.07, false);
+  seg([-9, 0, 3.4], [12, 0, 3.4], E.outCubic(inv(0.3, 1.4, t)), 1.6, 0.6);
+  const fill = E.inOutSine(inv(4.6, 6.2, t)), warm = E.inOutSine(inv(5.6, 7.0, t));
+  // boxes far to near
+  const order = BOX.map((B, i) => ({ B, i, d: dot(sub(centre(faces(B.b)[0].q), CAM.ro), CAM.w) })).sort((a, b) => b.d - a.d);
+  for (const { B } of order) {
+    const F = faces(B.b);
+    for (const f of F) {
+      const c = centre(f.q), vis = dot(f.n, sub(CAM.ro, c)) > 0;
+      if (!vis) continue;
+      const pts = f.q.map(P);
+      if (fill > 0) {
+        ctx.save(); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath();
+        const lg = ctx.createLinearGradient(pts[0][0], pts[3][1], pts[1][0], pts[0][1]);
+        if (B.glass && f.n[1] === 0) { lg.addColorStop(0, `rgba(14,20,36,${0.97 * fill})`); lg.addColorStop(1, `rgba(34,44,68,${0.97 * fill})`); }
+        else { const shade = f.n[1] > 0 ? 0.92 : (f.n[0] > 0 ? 0.62 : 0.78); lg.addColorStop(0, `rgba(${226 * shade | 0},${214 * shade | 0},${190 * shade | 0},${fill})`); lg.addColorStop(1, `rgba(${240 * shade | 0},${230 * shade | 0},${206 * shade | 0},${fill})`); }
+        ctx.fillStyle = lg; ctx.fill();
+        ctx.restore();
+      }
+      // edges of this face
+      for (let k = 0; k < 4; k++) { const a = f.q[k], b2 = f.q[(k + 1) % 4]; seg(a, b2, E.inOutSine(inv(B.t0 + k * 0.12, B.t0 + k * 0.12 + 0.8, t)), 1.6, 0.95); }
+      // mullions on glazed walls
+      if (B.glass && f.n[1] === 0) {
+        const [a, b2, c2, d] = f.q, n = Math.max(3, Math.round(Math.hypot(b2[0] - a[0], b2[2] - a[2]) / 0.8));
+        const at = (u, y) => P([lerp(a[0], b2[0], u), lerp(a[1], d[1], y), lerp(a[2], b2[2], u)]);
+        if (warm > 0) for (let k = 0; k < n; k++) { const h = Math.abs(Math.sin((k + 1) * 12.9898 + B.t0 * 78.233) * 43758.5453) % 1; if (h < 0.42) continue;
+          const u0 = (k + 0.08) / n, u1 = (k + 0.92) / n, q = [at(u0, 0.12), at(u1, 0.12), at(u1, 0.9), at(u0, 0.9)];
+          ctx.save(); ctx.beginPath(); q.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath();
+          const wg = ctx.createLinearGradient(0, q[2][1], 0, q[0][1]); wg.addColorStop(0, `rgba(255,214,150,${0.75 * warm * (0.6 + 0.4 * h)})`); wg.addColorStop(1, `rgba(255,170,90,${0.55 * warm})`);
+          ctx.fillStyle = wg; ctx.fill(); ctx.restore(); }
+        for (let k = 1; k < n; k++) { const u = k / n, p0 = [lerp(a[0], b2[0], u), a[1], lerp(a[2], b2[2], u)], p1 = [lerp(d[0], c2[0], u), d[1], lerp(d[2], c2[2], u)]; seg(p0, p1, E.inOutSine(inv(3.0 + k * 0.04, 3.6 + k * 0.04, t)), 0.9, 0.55, false); }
+      }
+    }
+  }
+  // trees: line-drawn spheres on sticks
+  [[-7, 1.5], [8.4, -0.8], [9.6, 2.2], [-6, -2.6]].forEach(([x, z], i) => { const tp = E.inOutSine(inv(3.6 + i * 0.15, 4.4 + i * 0.15, t)); if (tp <= 0) return;
+    seg([x, 0, z], [x, 1.4, z], tp, 1.2, 0.7); const c = P([x, 2.3, z]), r = 0.95 * CAM.f / c[2];
+    ctx.save(); ctx.strokeStyle = GOLD(0.75); ctx.lineWidth = 1.2; ctx.shadowColor = GOLD(0.5); ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(c[0], c[1], r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * tp); ctx.stroke(); ctx.beginPath(); ctx.arc(c[0] + r * 0.2, c[1] + r * 0.1, r * 0.62, 0, Math.PI * 2 * tp); ctx.stroke(); ctx.restore(); });
+  // light sweep
+  const sw = inv(6.2, 7.6, t);
+  if (sw > 0 && sw < 1) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const sx = lerp(300, 2000, sw); const lg = ctx.createLinearGradient(sx - 220, 0, sx + 220, 0); lg.addColorStop(0, 'rgba(255,230,170,0)'); lg.addColorStop(0.5, 'rgba(255,230,170,0.14)'); lg.addColorStop(1, 'rgba(255,230,170,0)'); ctx.fillStyle = lg; ctx.fillRect(0, 0, 1920, 1080); ctx.restore(); }
+  // drawing annotations while we're overhead: plan title + dimension lines
+  const pa = (1 - E.inOutSine(inv(2.2, 3.0, RT))) * E.outCubic(inv(0.3, 0.9, RT));
+  if (pa > 0) { ctx.save(); ctx.globalAlpha = pa; ctx.font = '500 26px "Noto Serif CJK SC"'; ctx.fillStyle = GOLD(0.85); if ('letterSpacing' in ctx) ctx.letterSpacing = '8px'; ctx.fillText('一层平面图  1 : 100', 140, 150); ctx.font = '500 16px Inter'; ctx.fillStyle = GOLD(0.55); ctx.fillText('PLAN  LEVEL 01', 142, 186); ctx.restore(); }
+  // title
+  const ta = E.outCubic(inv(7.4, 8.4, t));
+  if (ta > 0) {
+    ctx.save(); ctx.globalAlpha = ta; ctx.translate(0, (1 - ta) * 16);
+    ctx.font = '600 104px "Noto Serif CJK SC"'; ctx.fillStyle = GOLD2(1); if ('letterSpacing' in ctx) ctx.letterSpacing = '18px';
+    ctx.shadowColor = GOLD(0.5); ctx.shadowBlur = 24; ctx.fillText(C.brand, 130, 230); ctx.shadowBlur = 0;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '8px';
+    ctx.font = '500 36px "Noto Serif CJK SC"'; ctx.fillStyle = GOLD(0.95); ctx.fillText(C.sub, 136, 312);
+    ctx.font = '500 18px Inter'; ctx.fillStyle = GOLD(0.6); if ('letterSpacing' in ctx) ctx.letterSpacing = '6px'; ctx.fillText(C.small, 138, 366);
+    ctx.restore();
+  }
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['600 104px "Noto Serif CJK SC"', '500 36px "Noto Serif CJK SC"', '500 18px Inter'],
+  cues: [{"t": 0.2, "sfx": "swell", "gain": 0.5}, {"t": 0.6, "sfx": "pencil", "gain": 0.4}, {"t": 1.6, "sfx": "pencil", "gain": 0.35}, {"t": 2.6, "sfx": "riser_short", "gain": 0.5}, {"t": 4.8, "sfx": "scribble", "gain": 0.3}, {"t": 6.4, "sfx": "whoosh", "gain": 0.35}, {"t": 7.4, "sfx": "whoosh_up", "gain": 0.4}, {"t": 10.0, "sfx": "whoosh", "gain": 0.3}, {"t": 11.9, "sfx": "chime", "gain": 0.6}],
+  render(t) { RT = t; EXT = Math.max(0.002, E.inOutCubic(inv(2.6, 6.0, t))); scene(t * 0.62); },
+});
+</script></body></html>

@@ -1,0 +1,1743 @@
+[
+ {
+  "id": "A01",
+  "file": "assets/leopard_sheet.png",
+  "用途": "豹的设定图（变前/变后共用：灰态由着色器 uDesat 得到，斑由代码画），只当 A02–A06、A22 的参考，不进画面",
+  "尺寸": [
+   1774,
+   887
+  ],
+  "是否透明": false,
+  "提示词": "Character model sheet for a 2D animated short film: a small round chubby leopard cub designed like a handmade Chinese cloth toy, oversized round head, tiny rounded ears with the tip of one ear slightly bent, big round pale yellow eyes with round black pupils and a heavy dark upper eyelid line, the eyes set slightly too far apart so it looks cute and a little odd, small cream muzzle, a faint orange blush on the cheeks, cream white chin and belly, short stubby legs with round paws, a long thick tail ending in a dark tip like a calligraphy brush, plain warm golden ochre fur with NO spots, NO rosettes and NO stripes, soft airbrushed volume shading that darkens toward the silhouette edges like softly lit clay, flat muted colors, thin dark brown ink outline, contemporary Chinese animated short film style, three poses evenly spaced on a plain warm paper background: sitting side view facing right, sitting three-quarter back view, sitting front view, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_10a.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_08c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_05c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过（提示词与 DESIGN 逐字相同）。三视图：右侧面坐、3/4 背面回头、正面坐；无斑、尾尖墨色笔锋、一耳尖折。生图返回的是半透明底，已压到暖纸色 #D6C4A0 上存成不透明图。实际比例 2:1（Magpie 不按 size 出图）。",
+  "生成记录": "v1 采用；返修 fix1：重出（main-02/story-01：加猫科特征——略宽扁的猫脸、须垫与胡须点、白须、三角猫鼻、耳朵移到头顶两侧、尾巴粗长），v1 作参考，_work/assets_gen/fix1/A01_leopard_sheet_f1.png"
+ },
+ {
+  "id": "A02",
+  "file": "assets/leopard_sit.png",
+  "用途": "S2a（灰）、S4c（灰→金，豹斑级联在这张上做）、S5a 起首 f482–f488",
+  "尺寸": [
+   656,
+   1135
+  ],
+  "是否透明": true,
+  "提示词": "The same leopard cub toy character as in the model sheet, full body sitting upright on its haunches, side view facing right with the body turned slightly toward the viewer, head level, front paws together, the long tail curled around the feet with its dark brush tip, big round pale yellow eye, plain warm golden ochre fur without any spots, cream belly, faint orange blush, soft airbrushed volume shading darker at the edges, thin dark brown ink outline, flat muted colors, 2D hand-drawn contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/leopard_sheet.png",
+   "films/C_qitan/_work/design/refcrops/ref_10a.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_03c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过，和 A01 侧面一致；无斑（R1 未触发）。头略上扬约 5°（眼看右上方），S2a 要\"看山下的鹿\"时可绕 neck 锚点把头压低 3–5°。透明底干净：单连通块、内部 alpha=255、无白边/灰边、无残留棋盘格。灰态模拟见 _work/assets_check/leopard_grey_state_sim.jpg。",
+  "锚点": {
+   "脊柱锚点_px": {
+    "neck": [
+     346,
+     520
+    ],
+    "shoulder": [
+     335,
+     640
+    ],
+    "hip": [
+     200,
+     800
+    ],
+    "tail_root": [
+     45,
+     900
+    ],
+    "tail_tip": [
+     470,
+     1042
+    ]
+   },
+   "站位半宽_px": {
+    "neck": 137,
+    "shoulder": 165,
+    "hip": 165,
+    "tail_root": 48,
+    "tail_tip": 58
+   },
+   "眼椭圆": {
+    "cx": 494.0,
+    "cy": 230.4,
+    "rx": 66.5,
+    "ry": 57.1,
+    "tilt": -52.1
+   },
+   "眼排除椭圆": {
+    "cx": 480,
+    "cy": 228,
+    "rx": 110,
+    "ry": 88,
+    "tilt": 10
+   },
+   "口鼻排除椭圆": {
+    "cx": 592,
+    "cy": 278,
+    "rx": 62,
+    "ry": 58,
+    "tilt": 0
+   },
+   "尾巴折线_px": [
+    [
+     45,
+     900
+    ],
+    [
+     40,
+     975
+    ],
+    [
+     95,
+     1050
+    ],
+    [
+     220,
+     1090
+    ],
+    [
+     360,
+     1078
+    ],
+    [
+     470,
+     1042
+    ]
+   ],
+   "弧长": {
+    "各段_px": [
+     120.5,
+     209.3,
+     184.5,
+     448.1
+    ],
+    "尾段占比": 0.466,
+    "尾根处的s（按全长归一）": 0.534
+   },
+   "椭圆约定": "cx,cy,rx,ry 为像素；tilt 为度，逆时针为正，屏幕 y 向下"
+  },
+  "生成记录": "v1 采用；返修 fix1：以新 A01 + 旧图（锁姿态与构图）重出，配准回旧画布（_work/fix1/register.py，alpha IoU≥0.945），脊柱锚点核对仍在解剖位置（_work/fix1/leo_anchor_check.jpg），眼椭圆按新图重量（_work/eyes.py）",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.638,
+   "半透明像素占比": 0.0082,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A03",
+  "file": "assets/leopard_coil.png",
+  "用途": "S5a 蓄力 f488–f495",
+  "尺寸": [
+   1924,
+   662
+  ],
+  "是否透明": true,
+  "提示词": "The same leopard cub toy character crouching low and coiled like a spring just before a leap, side view facing right, hind legs folded under the body, chest low, head forward and tilted up toward the sky, tail stretched straight back, plain warm golden ochre fur without spots, cream belly, soft airbrushed volume shading, thin dark brown ink outline, 2D hand-drawn contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/leopard_sheet.png",
+   "assets/leopard_sit.png（压在纸色上作参考）"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过。伏低、尾巴平伸、头抬向天，和 A02 同一角色。换姿态时按眼椭圆 rx 对齐大小：相对 A02 缩放 ×0.926。",
+  "锚点": {
+   "脊柱锚点_px": {
+    "neck": [
+     1310,
+     380
+    ],
+    "shoulder": [
+     1150,
+     400
+    ],
+    "hip": [
+     860,
+     390
+    ],
+    "tail_root": [
+     640,
+     330
+    ],
+    "tail_tip": [
+     80,
+     400
+    ]
+   },
+   "站位半宽_px": {
+    "neck": 115,
+    "shoulder": 148,
+    "hip": 230,
+    "tail_root": 50,
+    "tail_tip": 65
+   },
+   "眼椭圆": {
+    "cx": 1733.1,
+    "cy": 181.5,
+    "rx": 72.7,
+    "ry": 59.9,
+    "tilt": -18.4
+   },
+   "眼排除椭圆": {
+    "cx": 1718,
+    "cy": 180,
+    "rx": 118,
+    "ry": 92,
+    "tilt": 8
+   },
+   "口鼻排除椭圆": {
+    "cx": 1868,
+    "cy": 212,
+    "rx": 62,
+    "ry": 62,
+    "tilt": 0
+   },
+   "尾巴折线_px": [
+    [
+     640,
+     330
+    ],
+    [
+     480,
+     325
+    ],
+    [
+     300,
+     345
+    ],
+    [
+     160,
+     375
+    ],
+    [
+     80,
+     400
+    ]
+   ],
+   "弧长": {
+    "各段_px": [
+     161.2,
+     290.2,
+     228.0,
+     564.4
+    ],
+    "尾段占比": 0.454,
+    "尾根处的s（按全长归一）": 0.546
+   },
+   "椭圆约定": "cx,cy,rx,ry 为像素；tilt 为度，逆时针为正，屏幕 y 向下"
+  },
+  "生成记录": "v1 采用；返修 fix1：以新 A01 + 旧图（锁姿态与构图）重出，配准回旧画布（_work/fix1/register.py，alpha IoU≥0.945），脊柱锚点核对仍在解剖位置（_work/fix1/leo_anchor_check.jpg），眼椭圆按新图重量（_work/eyes.py）",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.505,
+   "半透明像素占比": 0.0077,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A04",
+  "file": "assets/leopard_launch.png",
+  "用途": "S5a 起跳 f495–f502",
+  "尺寸": [
+   1462,
+   995
+  ],
+  "是否透明": true,
+  "提示词": "The same leopard cub toy character leaping upward with joy, side view moving up and to the right, body fully stretched on a diagonal, front paws reaching forward, hind legs extended back, tail streaming behind, ears back, plain warm golden ochre fur without spots, soft airbrushed volume shading, thin dark brown ink outline, 2D hand-drawn contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/leopard_sheet.png",
+   "assets/leopard_sit.png"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过。身体拉得很长（起跳的\"拉伸帧\"，比 A02 瘦长），张嘴笑。只显示 7 帧，和 A03 的\"压缩\"成对，按动画惯例接受。按眼椭圆对齐大小：相对 A02 ×1.096。",
+  "锚点": {
+   "脊柱锚点_px": {
+    "neck": [
+     950,
+     430
+    ],
+    "shoulder": [
+     870,
+     480
+    ],
+    "hip": [
+     520,
+     650
+    ],
+    "tail_root": [
+     425,
+     560
+    ],
+    "tail_tip": [
+     70,
+     585
+    ]
+   },
+   "站位半宽_px": {
+    "neck": 110,
+    "shoulder": 125,
+    "hip": 130,
+    "tail_root": 45,
+    "tail_tip": 72
+   },
+   "眼椭圆": {
+    "cx": 1100.1,
+    "cy": 141.3,
+    "rx": 60.5,
+    "ry": 51.3,
+    "tilt": -5.0
+   },
+   "眼排除椭圆": {
+    "cx": 1085,
+    "cy": 125,
+    "rx": 108,
+    "ry": 82,
+    "tilt": 15
+   },
+   "口鼻排除椭圆": {
+    "cx": 1200,
+    "cy": 188,
+    "rx": 58,
+    "ry": 72,
+    "tilt": 0
+   },
+   "尾巴折线_px": [
+    [
+     425,
+     560
+    ],
+    [
+     330,
+     520
+    ],
+    [
+     220,
+     500
+    ],
+    [
+     130,
+     530
+    ],
+    [
+     70,
+     585
+    ]
+   ],
+   "弧长": {
+    "各段_px": [
+     94.3,
+     389.1,
+     130.9,
+     355.9
+    ],
+    "尾段占比": 0.367,
+    "尾根处的s（按全长归一）": 0.633
+   },
+   "椭圆约定": "cx,cy,rx,ry 为像素；tilt 为度，逆时针为正，屏幕 y 向下"
+  },
+  "生成记录": "v1 采用；返修 fix1：以新 A01 + 旧图（锁姿态与构图）重出，配准回旧画布（_work/fix1/register.py，alpha IoU≥0.945），脊柱锚点核对仍在解剖位置（_work/fix1/leo_anchor_check.jpg），眼椭圆按新图重量（_work/eyes.py）",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.315,
+   "半透明像素占比": 0.0052,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A05",
+  "file": "assets/leopard_glide.png",
+  "用途": "S5a f502 起、S5b、S5c f628–f631",
+  "尺寸": [
+   1510,
+   723
+  ],
+  "是否透明": true,
+  "提示词": "The same leopard cub toy character floating and gliding through the air like a flying cloth toy, side view moving to the right, the same chubby round body and oversized round head as in the model sheet, legs relaxed and gently tucked, body softly curved, long tail flowing behind in an S curve with its dark brush tip, calm happy half-closed eyes, plain warm golden ochre fur without spots, cream belly, faint orange blush, soft airbrushed volume shading, thin dark brown ink outline, 2D hand-drawn contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/leopard_sheet.png",
+   "assets/leopard_launch.png",
+   "assets/leopard_sit.png"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过（在 DESIGN 提示词里加了\"同 A01 的圆胖身体\"以免像 A04 那样拉长）。半闭眼，神情满足。尾巴是一道上拱的弧，不是完整的 S 形，S 摆由网格形变做。\"眼椭圆\"给的是整个眼眶的估计，\"可见虹膜椭圆\"是半闭时露出的黄色部分。S5c f631 换 A06 时按眼心对齐。",
+  "锚点": {
+   "脊柱锚点_px": {
+    "neck": [
+     1000,
+     470
+    ],
+    "shoulder": [
+     900,
+     520
+    ],
+    "hip": [
+     590,
+     540
+    ],
+    "tail_root": [
+     470,
+     420
+    ],
+    "tail_tip": [
+     70,
+     425
+    ]
+   },
+   "站位半宽_px": {
+    "neck": 110,
+    "shoulder": 135,
+    "hip": 130,
+    "tail_root": 40,
+    "tail_tip": 65
+   },
+   "眼椭圆": {
+    "cx": 1365,
+    "cy": 240,
+    "rx": 62,
+    "ry": 42,
+    "tilt": 5
+   },
+   "眼排除椭圆": {
+    "cx": 1360,
+    "cy": 228,
+    "rx": 112,
+    "ry": 72,
+    "tilt": 8
+   },
+   "口鼻排除椭圆": {
+    "cx": 1470,
+    "cy": 228,
+    "rx": 56,
+    "ry": 60,
+    "tilt": 0
+   },
+   "尾巴折线_px": [
+    [
+     470,
+     420
+    ],
+    [
+     400,
+     340
+    ],
+    [
+     320,
+     300
+    ],
+    [
+     230,
+     330
+    ],
+    [
+     150,
+     390
+    ],
+    [
+     70,
+     425
+    ]
+   ],
+   "可见虹膜椭圆": {
+    "cx": 1374.2,
+    "cy": 251.8,
+    "rx": 50.4,
+    "ry": 19.6,
+    "tilt": 2.6
+   },
+   "弧长": {
+    "各段_px": [
+     111.8,
+     310.6,
+     169.7,
+     400.0
+    ],
+    "尾段占比": 0.403,
+    "尾根处的s（按全长归一）": 0.597
+   },
+   "椭圆约定": "cx,cy,rx,ry 为像素；tilt 为度，逆时针为正，屏幕 y 向下"
+  },
+  "生成记录": "v1 采用；返修 fix1：以新 A01 + 旧图（锁姿态与构图）重出，配准回旧画布（_work/fix1/register.py，alpha IoU≥0.945），脊柱锚点核对仍在解剖位置（_work/fix1/leo_anchor_check.jpg），眼椭圆按新图重量（_work/eyes.py）",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.428,
+   "半透明像素占比": 0.0077,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A06",
+  "file": "assets/leopard_head.png",
+  "用途": "S2b（灰，头宽 560K）、S5c 与 T2（金）",
+  "尺寸": [
+   1042,
+   1442
+  ],
+  "是否透明": true,
+  "提示词": "Close-up portrait of the same leopard cub toy character in side profile facing right: the whole head, the neck, the upper chest and the front shoulder, the chest and shoulder continue down past the bottom edge of the picture, the head occupies the upper two thirds of the picture, head level looking straight ahead to the right, one big round pale yellow eye with a heavy dark upper eyelid line, the iris drawn as an even flat yellow disc, small rounded ear, cream chin and cream chest, faint orange blush, plain warm golden ochre fur without spots, soft airbrushed volume shading darker at the edges, thin dark brown ink outline, 2D hand-drawn contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "_work/refs_flat/A06_v1_flat.png（v1 压纸色）",
+   "assets/leopard_sheet.png",
+   "assets/leopard_sit.png"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "v1 只画到肩，按 S2b 构图（头心 (900,600)、头宽 560K）放上去，图的下边缘会在画面 y≈969 处露出硬切边，所以重出 v2 带上颈和胸。v2 按头宽 560K 放置时图底在 y≈1165，盖得住画框。画出来的瞳孔已用虹膜色 RGB(252,199,95) 填平（DESIGN 第六节要求，瞳孔由代码画）。下边缘是贴图边的硬切（身体延伸出画），放置时保证切边在画框外。头仍略上扬。髋和尾不在画内，豹斑只会落在头颈肩上。",
+  "锚点": {
+   "脊柱锚点_px": {
+    "neck": [
+     500,
+     905
+    ],
+    "shoulder": [
+     420,
+     1200
+    ]
+   },
+   "站位半宽_px": {
+    "neck": 190,
+    "shoulder": 330
+   },
+   "眼椭圆": {
+    "cx": 775.1,
+    "cy": 428.3,
+    "rx": 123.0,
+    "ry": 110.3,
+    "tilt": -39.8
+   },
+   "眼排除椭圆": {
+    "cx": 735,
+    "cy": 400,
+    "rx": 215,
+    "ry": 150,
+    "tilt": 12
+   },
+   "口鼻排除椭圆": {
+    "cx": 955,
+    "cy": 515,
+    "rx": 100,
+    "ry": 88,
+    "tilt": 0
+   },
+   "耳根": [
+    330,
+    220
+   ],
+   "椭圆约定": "cx,cy,rx,ry 为像素；tilt 为度，逆时针为正，屏幕 y 向下"
+  },
+  "生成记录": "v1 不用（下边缘不够）→ v2 采用；返修 fix1：以新 A01 + 旧图（锁姿态与构图）重出，配准回旧画布（_work/fix1/register.py，alpha IoU≥0.945），脊柱锚点核对仍在解剖位置（_work/fix1/leo_anchor_check.jpg），眼椭圆按新图重量（_work/eyes.py）",
+  "硬切边": [
+   "下（757px）"
+  ],
+  "alpha检查": {
+   "不透明像素占比": 0.657,
+   "半透明像素占比": 0.005,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A07",
+  "file": "assets/luwei_sheet.png",
+  "用途": "陆蔚设定图，只当 A08–A12 的参考，不进画面",
+  "尺寸": [
+   1774,
+   887
+  ],
+  "是否透明": false,
+  "提示词": "Seen from behind, back of the head only, face not visible: character model sheet for a 2D animated short film, a slim young Chinese man about 28 years old who restores ancient books, shown ONLY from behind: standing seen strictly from behind; sitting cross-legged on the ground seen from three-quarter rear left with the right arm extended sideways and the hand palm-down; seated at a desk seen from behind and to his right, leaning forward; short slightly messy black hair, the thin dark-bronze temple arms of round wire glasses visible over his ears, plain off-white linen shirt with a mandarin collar and sleeves rolled to the forearm, dark grey loose trousers, cloth shoes, simple rounded shapes with soft volume like a softly lit clay figure, soft airbrushed shading, thin dark brown ink outline, muted warm earth palette, contemporary Chinese animated short film style, plain warm paper background, his face is never shown, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_03c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_07c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_02c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过。三个姿态全是背面，没有正脸；书桌姿态带了椅子和桌子（只作参考，不进画面）。",
+  "生成记录": "v1 采用；返修 fix1（style-01）：重出为极简软陶体块（参考 ref_02c、ref_06a、ref_10a）：头发一整块喷枪暗团、衬衫两色平涂 ≤3 褶线、身体圆筒体块、管状手指无指甲；f1 出成发髻+红带，f2 改短发，采用 f2"
+ },
+ {
+  "id": "A08",
+  "file": "assets/luwei_sit_shelter.png",
+  "用途": "S2a、S4c 全身；S2b 手部裁切（×4.2）；S3b 上半身裁切",
+  "尺寸": [
+   1066,
+   995
+  ],
+  "是否透明": true,
+  "提示词": "Seen from behind, back of the head only, face not visible: the same young man from the model sheet, drawn as a single isolated 2D animation character with nothing else in the picture. He sits cross-legged, seen from behind at a three-quarter rear-left angle with his back to the viewer, facing right toward a distant valley that is not drawn, back slightly bent, head bowed a little toward his right, his right arm extended sideways to the right and a little forward at shoulder height with the hand held flat and palm-down, as if shielding something small below his hand from the rain, his left hand resting on his left knee, damp short slightly messy black hair, the thin dark-bronze temple arm of his round glasses visible over his right ear, damp off-white linen shirt with a mandarin collar and sleeves rolled to the forearm, dark grey loose trousers, cloth shoes, soft overcast backlight with a cool rim light on hair and shoulders, simple rounded shapes with soft volume like a softly lit clay figure, soft airbrushed shading, thin dark brown ink outline, flat muted colors, 2D hand-drawn contemporary Chinese animation style. Draw ONLY the man: no animal, no rock, no ground, no grass, no landscape, no rain, no cast shadow, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/luwei_sheet.png",
+   "films/C_qitan/_work/design/refcrops/ref_02c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "v1（DESIGN 原提示词）画进了岩台、山谷、一只花猫，只有天空部分透明，判不合格；v2 去掉\"岩台\"\"小动物\"的字样并明令只画人，干净。无正脸（只露右侧镜腿和镜框边）。衬衫有雨湿痕。手臂在肩高平伸：S2a 里手掌离豹背约 40K（设计要 20K），可绕 shoulder_r 把前臂下压 2–3°。",
+  "锚点": {
+   "坐点": [
+    310,
+    988
+   ],
+   "头心": [
+    395,
+    175
+   ],
+   "右肩（手臂转轴）": [
+    520,
+    380
+   ],
+   "右手掌心": [
+    960,
+    458
+   ],
+   "指尖滴水点": [
+    1045,
+    468
+   ]
+  },
+  "生成记录": "v1 不合格（画了场景和猫）→ v2 采用；返修 fix1（style-01）：以新 A07 + 旧图重出（f1 衬衫有湿斑、头发有雨痕，f2 以 f1 为构图参考去掉），配准回旧画布，锚点核对见 _work/fix1/ppl_anchor3_0.jpg（头心、肩、掌心、指尖、坐点仍在原位）",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.376,
+   "半透明像素占比": 0.0092,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A09",
+  "file": "assets/luwei_walk_sheet.png",
+  "用途": "S3d 转身走远（3 个姿态，一拍二轮换 1,2,3,2,3,2）",
+  "尺寸": [
+   873,
+   724
+  ],
+  "是否透明": true,
+  "提示词": "Seen from behind, back of the head only, face not visible: sprite sheet of three poses of the same young man as flat deep umber-black silhouettes with only a faint warm rim light along the edges, evenly spaced, identical scale, all seen from behind, left to right: three-quarter rear view turning away and starting to walk; walking away seen strictly from behind with the left foot forward; walking away seen strictly from behind with the right foot forward; the glasses are not visible, simple elegant shape language of contemporary Chinese animated shorts, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/luwei_sheet.png",
+   "films/C_qitan/_work/design/refcrops/ref_07c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "生图的第 3 个姿态和第 2 个是同一步相（都是右脚在后露鞋底），交替会像原地蹭步；已用\"姿态 2 水平镜像\"替换姿态 3（背面剪影左右对称，镜像即换脚），原图的姿态 3 留在 _work/assets_gen/A09_v1_pose3_original.png。三个姿态脚底对齐同一基线 y=701，切换时不跳。",
+  "锚点": {
+   "姿态": [
+    {
+     "名": "pose1_turn",
+     "包围盒": [
+      30,
+      25,
+      261,
+      704
+     ],
+     "着地脚": [
+      99,
+      701
+     ],
+     "抬起脚（鞋底）": [
+      167,
+      665
+     ]
+    },
+    {
+     "名": "pose2_left_foot_fwd",
+     "包围盒": [
+      330,
+      20,
+      543,
+      704
+     ],
+     "前脚（左，着地，较远）": [
+      417,
+      687
+     ],
+     "后脚（右，脚尖点地，较近）": [
+      459,
+      701
+     ]
+    },
+    {
+     "名": "pose3_right_foot_fwd（= pose2 镜像）",
+     "包围盒": [
+      621,
+      20,
+      834,
+      704
+     ],
+     "后脚（左）": [
+      704,
+      701
+     ],
+     "前脚（右）": [
+      746,
+      687
+     ]
+    }
+   ],
+   "统一基线_y": 701
+  },
+  "生成记录": "v1 采用 + 姿态 3 镜像替换；返修 fix1（style-01 连带）：以新 A07 + 旧图重出（头是光滑的圆团、没有发丝），配准回旧画布，三个姿态仍在原包围盒内、基线 y≈700",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.361,
+   "半透明像素占比": 0.0332,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A10",
+  "file": "assets/luwei_desk_back.png",
+  "用途": "S1b 头肩裁切（×1.8 虚的暗剪影）；S6 全身",
+  "尺寸": [
+   957,
+   1396
+  ],
+  "是否透明": true,
+  "提示词": "Seen from behind, back of the head only, face not visible: the same young man as in the reference images, seated at a desk that is not drawn, seen from behind, slightly to his right and from above, shown from the top of his head down to his hips so his whole back is visible, the figure is cut off just below the hips by the bottom edge of the picture; he leans slightly forward over his work; his right arm reaches forward, away from the viewer, toward the desk in front of him, strongly foreshortened, so that his right hand holding a fine brush appears just beyond the right side of his body, a little lower than his right shoulder, the brush tip pointing down to the page; his left arm rests forward and is mostly hidden by his body; the right ear and the thin dark-bronze temple arm of his round glasses visible over the right ear, only the thin outer edge of the right round lens peeking out beyond his cheek, no facial features visible, short slightly messy black hair, off-white linen shirt with a mandarin collar and soft folds, sleeves rolled to the forearm, warm soft side light from the right, soft airbrushed volume shading, thin dark brown ink outline, flat muted colors, 2D hand-drawn contemporary Chinese animation style, only the man is drawn: no desk, no book, no chair, no objects, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "_work/refs_flat/A07_desk_pose_crop.png（A07 书桌姿态裁切）",
+   "_work/refs_flat/A10_v2_flat.png"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "出了 4 版，问题都在 S6 构图（index_tip 必须在 (1180,600)、背影要盖到画框下沿、左 28% 留给字幕）：v1 只到腰，放上去下沿露在 y≈871；v2 手太低（头→指尖方向 66°）；v3 手臂侧伸太远，下沿盖不住。v4 改成\"手臂朝前远离镜头、强透视缩短\"，是唯一同时满足三条的：建议 S6 终态缩放 ×0.70、index_tip 对 (1180,600)，此时头心约 (1043,289)、背影 x 582–1228、下沿 y≈1075（盖住画框）、左侧 0–540 空出来给字幕。比 DESIGN 写的头心 (820,330) 偏右上约 220px，属于\"以构图目标为准微调\"。无正脸，只露右耳、镜腿和右镜片外缘。",
+  "锚点": {
+   "头心": [
+    650,
+    250
+   ],
+   "ear_r": [
+    760,
+    405
+   ],
+   "lens_r": [
+    795,
+    420
+   ],
+   "镜腿路径（3点，耳后→铰链）": [
+    [
+     710,
+     342
+    ],
+    [
+     768,
+     337
+    ],
+    [
+     800,
+     393
+    ]
+   ],
+   "index_tip": [
+    840,
+    656
+   ],
+   "笔尖": [
+    826,
+    720
+   ],
+   "S6终态建议": {
+    "缩放": 0.7,
+    "index_tip落点": [
+     1180,
+     600
+    ],
+    "预计头心": [
+     1043,
+     289
+    ]
+   }
+  },
+  "生成记录": "v1/v2/v3 构图不合 → v4 采用（重出 3 次）；返修 fix1（style-01）：以新 A07 + 旧图（锁姿态与构图）重出为极简软陶画法（管状手指、无指甲和指节纹、掌背一块喷枪渐暗），配准回旧画布（_work/fix1/register.py），锚点核对见 _work/fix1/ppl_anchor_*.jpg",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.545,
+   "半透明像素占比": 0.0102,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A10b",
+  "file": "assets/luwei_desk_back_noglasses.png",
+  "用途": "S1b f54 之前的头肩卡（还没戴眼镜；返修 self-08）",
+  "尺寸": [
+   957,
+   1396
+  ],
+  "是否透明": true,
+  "提示词": "Edit this image: remove the glasses completely — no temple arm over the ear, no lens, no frame — and keep everything else exactly the same ...",
+  "所用参考图": [
+   "assets/luwei_desk_back.png"
+  ],
+  "状态": "ok（fix1 新增）",
+  "备注": "Magpie 以 A10 为底去掉眼镜，配准回 A10 画布（IoU .983），锚点同 A10",
+  "锚点": "同 A10",
+  "生成记录": "fix1 v1 采用，_work/assets_gen/fix1/A10b_noglasses_f1.png"
+ },
+ {
+  "id": "A11",
+  "file": "assets/hand_tweezers.png",
+  "用途": "S1a 手持镊子（前景，0.62 m）",
+  "尺寸": [
+   1449,
+   891
+  ],
+  "是否透明": true,
+  "提示词": "A slender young man's right hand seen from above at a three-quarter angle, holding thin brass tweezers between thumb and index finger, the tweezers pointing down to the left, the side of the index fingertip clearly visible, off-white linen shirt cuff at the wrist, clean skin with no ink drawn, soft airbrushed volume shading, thin dark brown ink outline, muted warm skin tone, 2D hand-drawn contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/luwei_sheet.png",
+   "films/C_qitan/_work/design/refcrops/ref_10a.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_08c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过。手背朝上、食指压镊子、拇指在下；袖口在右缘被图边切断（S1a 从右下入画，切边放在画框外）。皮肤偏橙粉，段光色 (1,.93,.82) 相乘后接近 DESIGN 的 #D7B98E。墨渍由代码画在 index_tip。",
+  "锚点": {
+   "index_tip（食指侧面）": [
+    155,
+    590
+   ],
+   "中指尖": [
+    400,
+    700
+   ],
+   "拇指尖": [
+    262,
+    600
+   ],
+   "镊子尖": [
+    33,
+    876
+   ]
+  },
+  "生成记录": "v1 采用；返修 fix1（style-01）：以新 A07 + 旧图（锁姿态与构图）重出为极简软陶画法（管状手指、无指甲和指节纹、掌背一块喷枪渐暗），配准回旧画布（_work/fix1/register.py），锚点核对见 _work/fix1/ppl_anchor_*.jpg",
+  "硬切边": [
+   "右（566px）"
+  ],
+  "alpha检查": {
+   "不透明像素占比": 0.421,
+   "半透明像素占比": 0.0067,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A11b",
+  "file": "assets/hand_tweezers_free.png",
+  "用途": "S1a f14 起：放下镊子以后的手（返修 story-06）",
+  "尺寸": [
+   1449,
+   891
+  ],
+  "是否透明": true,
+  "提示词": "Edit this image: remove the brass tweezers completely, keep everything else exactly the same — the same right hand in the same pose, position, scale, framing and colours ... (见 _work/assets_gen/fix1/A11b_hand_open_f1.png 的生成记录)",
+  "所用参考图": [
+   "assets/hand_tweezers.png"
+  ],
+  "状态": "ok（fix1 新增）",
+  "备注": "Magpie 以 A11 为底去掉镊子，配准回 A11 画布（IoU .937），A11 的锚点通用",
+  "锚点": "同 A11",
+  "生成记录": "fix1 v1 采用"
+ },
+ {
+  "id": "A11c",
+  "file": "assets/tweezers_only.png",
+  "用途": "S1a f14 起：从指间滑落的镊子（返修 story-06）",
+  "尺寸": [
+   1449,
+   891
+  ],
+  "是否透明": true,
+  "提示词": "（派生图）A11 原图减去 A11b，沿镊子轴线取 46 px 带、去掉碎块，靠近拇指的一端在轴向 0.7 处羽化截断",
+  "所用参考图": [
+   "assets/hand_tweezers.png",
+   "assets/hand_tweezers_free.png"
+  ],
+  "状态": "ok（fix1 新增，派生）",
+  "备注": "与 A11 同画布，锚点用 A11 的「镊子尖」",
+  "锚点": "同 A11",
+  "生成记录": "fix1 Python 派生"
+ },
+ {
+  "id": "A12",
+  "file": "assets/hand_glasses.png",
+  "用途": "S1b 拿眼镜的手（从镜头前划过，又大又虚）",
+  "尺寸": [
+   1538,
+   959
+  ],
+  "是否透明": true,
+  "提示词": "The same right hand seen from behind and slightly below, raising a pair of thin round dark-bronze wire glasses toward the face, pinching the right temple arm between thumb and index finger, the glasses open with two round clear lenses, a plain frame without any logo, the lenses catching warm window light, only the hand, wrist, rolled off-white sleeve and the glasses are drawn, clean skin with no ink drawn, soft airbrushed volume shading, thin dark brown ink outline, warm muted palette, 2D hand-drawn contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/hand_tweezers.png（压纸色）",
+   "assets/luwei_sheet.png",
+   "films/C_qitan/_work/design/refcrops/ref_08c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过，无 logo。镜片原本是 55–75% 不透明的奶白色，深底上像磨砂玻璃；已把镜片内部 alpha 统一乘 0.6（羽化遮罩，镜框处无接缝），保留窗格反光。袖口在右下角被图边切断。",
+  "锚点": {
+   "index_tip": [
+    790,
+    150
+   ],
+   "拇指尖": [
+    765,
+    205
+   ],
+   "左镜片中心": [
+    349.2,
+    296.3
+   ],
+   "右镜片中心": [
+    655.8,
+    247.3
+   ],
+   "右镜腿走向（铰链→尾端）": [
+    [
+     745,
+     180
+    ],
+    [
+     900,
+     175
+    ],
+    [
+     955,
+     265
+    ]
+   ],
+   "左镜腿走向（铰链→尾端）": [
+    [
+     215,
+     262
+    ],
+    [
+     110,
+     330
+    ],
+    [
+     20,
+     470
+    ]
+   ]
+  },
+  "生成记录": "v1 采用 + 镜片 alpha×0.6；返修 fix1（style-01）：以新 A07 + 旧图（锁姿态与构图）重出为极简软陶画法（管状手指、无指甲和指节纹、掌背一块喷枪渐暗），配准回旧画布（_work/fix1/register.py），锚点核对见 _work/fix1/ppl_anchor_*.jpg",
+  "硬切边": [
+   "下（521px）",
+   "右（28px）"
+  ],
+  "alpha检查": {
+   "不透明像素占比": 0.274,
+   "半透明像素占比": 0.0557,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    255
+   ]
+  }
+ },
+ {
+  "id": "A12d",
+  "file": "assets/hand_release.png",
+  "用途": "S1b f56 起：眼镜挂上耳朵以后松开的空手（返修 v2-01，第 3 轮），往左下退到头肩后面出画",
+  "尺寸": [
+   1538,
+   959
+  ],
+  "是否透明": true,
+  "提示词": "Edit this image: remove the glasses completely — no lenses, no round frames, no bridge, no nose pads, no temple arms, no hinge, no bronze wire anywhere. Keep everything else exactly the same: the same right hand in the same pose, position, scale, framing, line weight and colours, the same rolled off-white sleeve cuff cut by the bottom-right edge. The thumb and index finger stay where they are but have just let go: their tips are now slightly apart with a small gap between them, holding nothing. Where the bronze temple arm used to cross the fingers, draw the skin and the thin dark brown finger outlines continuing naturally, so the hand is complete and clean. Empty transparent background everywhere else. Soft airbrushed volume shading, thin dark brown ink outline, muted warm skin tone, 2D hand-drawn contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/hand_glasses.png"
+  ],
+  "状态": "ok（fix3 新增）",
+  "备注": "Magpie（codex/gpt-image-2.5）以 A12 为底去掉眼镜、手指微张；一次通过。按手的区域（x ≥ 780，避开眼镜）做 alpha 交并比配准回 A12 画布（缩放 .995、dx +4、IoU .9785，_work/fix3/register_hand.py），再按两张图手部的平均色做逐通道增益 (1.006, .993, .958) 对齐肤色；透明底查过，半透明边缘是深褐描线（平均亮度 43），没有白边、没有棋盘格。锚点同 A12（index_tip (790,150)，代码里裁 [700,0,838,959]）",
+  "锚点": "同 A12",
+  "生成记录": "fix3 v1 采用，原图 _work/assets_gen/fix3/A12d_hand_release_f1.png；配准核对 _work/fix3/hand_release_check.jpg、底色核对 _work/fix3/hand_release_asset_check.jpg"
+ },
+ {
+  "id": "A13",
+  "file": "assets/hand_open_side.png",
+  "用途": "S3c（水平镜像，朝左伸向假斑）、S4a（灰态，顺时针转 25°，墨从食指尖滴下）",
+  "尺寸": [
+   1928,
+   680
+  ],
+  "是否透明": true,
+  "提示词": "The same right hand in pure side view from the thumb side, reaching forward to the right, relaxed and slightly open, fingers gently curved and drooping a little, the index finger a little extended in front of the other fingers and its fingertip is the lowest and most forward point, the thumb resting along the top, palm facing down, off-white sleeve cuff at the wrist, clean skin with no ink drawn, soft airbrushed volume shading, thin dark brown ink outline, muted warm skin tone, 2D hand-drawn contemporary Chinese animation style, only the hand, wrist and cuff are drawn, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/hand_tweezers.png（压纸色）",
+   "films/C_qitan/_work/design/refcrops/ref_07c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "DESIGN 原句\"拇指在上\"和\"掌心朝下\"互相矛盾，改写为\"从拇指一侧看、食指尖是最前最低点\"后一次通过。五指齐全，食指最靠前。袖口在左缘被图边切断。",
+  "锚点": {
+   "index_tip": [
+    1914,
+    443
+   ],
+   "腕": [
+    411,
+    310
+   ]
+  },
+  "生成记录": "v1 采用；返修 fix1（style-01）：以新 A07 + 旧图（锁姿态与构图）重出为极简软陶画法（管状手指、无指甲和指节纹、掌背一块喷枪渐暗），配准回旧画布（_work/fix1/register.py），锚点核对见 _work/fix1/ppl_anchor_*.jpg",
+  "硬切边": [
+   "左（634px）"
+  ],
+  "alpha检查": {
+   "不透明像素占比": 0.544,
+   "半透明像素占比": 0.0071,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A14",
+  "file": "assets/hand_fist.png",
+  "用途": "S3c f325 换成握拳（同样水平镜像）后退出画",
+  "尺寸": [
+   1785,
+   737
+  ],
+  "是否透明": true,
+  "提示词": "The same right hand as in the reference image, same viewing angle, same scale and same off-white sleeve cuff, seen from the side with the thumb on top, pointing to the right, fingers curled into a loose fist and slightly withdrawn, clean skin with no ink drawn, soft airbrushed volume shading, thin dark brown ink outline, muted warm skin tone, 2D hand-drawn contemporary Chinese animation style, only the hand, wrist and cuff are drawn, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/hand_open_side.png（压纸色）",
+   "assets/hand_tweezers.png（压纸色）"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过，和 A13 同角度同袖口。换图时按\"腕\"锚点对齐。index_tip 指卷起的食指中节前端（墨环随它走，握拳后大部分被拇指挡住是对的）。",
+  "锚点": {
+   "index_tip（卷起的食指前端）": [
+    1695,
+    330
+   ],
+   "拇指尖": [
+    1771,
+    192
+   ],
+   "腕": [
+    448,
+    340
+   ]
+  },
+  "生成记录": "v1 采用；返修 fix1（style-01）：以新 A07 + 旧图（锁姿态与构图）重出为极简软陶画法（管状手指、无指甲和指节纹、掌背一块喷枪渐暗），配准回旧画布（_work/fix1/register.py），锚点核对见 _work/fix1/ppl_anchor_*.jpg",
+  "硬切边": [
+   "左（691px）"
+  ],
+  "alpha检查": {
+   "不透明像素占比": 0.618,
+   "半透明像素占比": 0.006,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A15",
+  "file": "assets/vendor_hand.png",
+  "用途": "S3b 摊主递面具的手（签头上接 3D 面具）；S3c 左下虚手指",
+  "尺寸": [
+   653,
+   1505
+  ],
+  "是否透明": true,
+  "提示词": "A strange, elegant market spirit's hand and forearm emerging from a wide dark indigo silk sleeve with a thin gold trim, the sleeve coming in from the bottom of the picture, long slender pale grey fingers, eerie but beautiful, holding a short slender bamboo stick upright as if offering something fixed on its top, the top of the stick left bare, warm amber lantern light from below with a golden rim light, flat colors with soft airbrushed volume, thin dark outline, 2D hand-drawn contemporary Chinese animation style, only the hand, sleeve and stick are drawn, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_09c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_07a.jpg"
+  ],
+  "状态": "ok",
+  "备注": "一次通过。长指、粉色长甲，妖而雅；袖子偏紫靛（比 DESIGN 的 #1F2A44 更紫、明度 0.44，不算\"鲜亮色\"），S3 段光色和暗部混 #26463F 后会往靛青靠。袖子从下缘入画（图底是硬切），签头留空。",
+  "锚点": {
+   "stick_top": [
+    360,
+    14
+   ],
+   "竹签轴线（上→下）": [
+    [
+     360,
+     24
+    ],
+    [
+     359,
+     304
+    ]
+   ],
+   "竹签宽_px": 37
+  },
+  "生成记录": "v1 采用",
+  "硬切边": [
+   "下（627px）"
+  ],
+  "alpha检查": {
+   "不透明像素占比": 0.349,
+   "半透明像素占比": 0.0099,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A16",
+  "file": "assets/deer_walk_sheet.png",
+  "用途": "S2a 鹿群（6 只，4 姿态步态，每姿态 2 帧）",
+  "尺寸": [
+   2020,
+   482
+  ],
+  "是否透明": true,
+  "提示词": "Sprite sheet of four consecutive walk-cycle poses of the same small deer in pure side view walking to the left, evenly spaced, same scale, left to right: contact, down, passing, up; simple elegant silhouette with soft airbrushed volume, misty desaturated warm grey tones as if seen through fog, slightly lighter belly, small antlers, clean readable shapes, 2D contemporary Chinese animation style, isolated on transparent background, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_02c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_07b.jpg"
+  ],
+  "状态": "ok",
+  "备注": "一次通过。4 只都是 4 条腿、朝左、同尺度；背上带几点白色梅花鹿斑（在 46K 高、混雾 30% 时基本看不见；若评审觉得和豹斑母题打架，可在着色器里对鹿整体轻微模糊/提亮）。地面基线 y≈468。",
+  "锚点": {
+   "姿态": [
+    {
+     "名": "pose1",
+     "包围盒": [
+      12,
+      24,
+      442,
+      469
+     ],
+     "蹄着地点（各腿最低点）": [
+      [
+       15,
+       468
+      ],
+      [
+       202,
+       468
+      ],
+      [
+       241,
+       468
+      ],
+      [
+       418,
+       468
+      ]
+     ]
+    },
+    {
+     "名": "pose2",
+     "包围盒": [
+      532,
+      48,
+      978,
+      469
+     ],
+     "蹄着地点（各腿最低点）": [
+      [
+       613,
+       468
+      ],
+      [
+       773,
+       468
+      ],
+      [
+       973,
+       453
+      ]
+     ]
+    },
+    {
+     "名": "pose3",
+     "包围盒": [
+      1062,
+      22,
+      1433,
+      469
+     ],
+     "蹄着地点（各腿最低点）": [
+      [
+       1183,
+       468
+      ],
+      [
+       1291,
+       439
+      ],
+      [
+       1394,
+       468
+      ]
+     ]
+    },
+    {
+     "名": "pose4",
+     "包围盒": [
+      1582,
+      12,
+      2008,
+      470
+     ],
+     "蹄着地点（各腿最低点）": [
+      [
+       1696,
+       469
+      ],
+      [
+       1791,
+       467
+      ],
+      [
+       2004,
+       431
+      ]
+     ]
+    }
+   ],
+   "地面基线_y": 468
+  },
+  "生成记录": "v1 采用",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.19,
+   "半透明像素占比": 0.0236,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A17",
+  "file": "assets/bg_room.png",
+  "用途": "S1a 上缘一小条、S1b 窗散景（右半，虚）、S6 墙与窗（亮，虚约 10K）",
+  "尺寸": [
+   1825,
+   862
+  ],
+  "是否透明": false,
+  "提示词": "Background painting for a stylized 2D animated short film, not photorealistic: the back wall of a quiet old rare-book restoration room in warm late afternoon light, seen straight on; a plain dark umber plaster wall fills the left two thirds, completely plain and calm, painted with soft airbrushed gradients and a faint paper texture; one small simple wooden shelf with three indigo thread-bound books near the middle of the wall; a simple wooden lattice window in the right quarter of the picture from the top edge down to about two thirds of the height, the outside seen as soft glowing golden-green blobs of leaves without detail; warm amber sunlight falls through it as two or three soft dusty light beams going diagonally to the lower left, with a few soft rounded leaf-shaped light spots on the wall; the far edge of a dark walnut desk along the bottom; simplified rounded shapes, very little detail, large calm empty areas, low saturation warm sepia and ochre palette with deep brown shadows, gentle volumetric light like a softly lit miniature set, subtle film grain, no people, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_08c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_10a.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_01c.jpg"
+  ],
+  "状态": "ok",
+  "备注": "v1（DESIGN 原提示词）是写实暖光插画（和上一轮被否的 workshop.png 同路），而且书架在最左边，正好压在 S6 左 28% 的字幕区；v2 带了 v1 当参考，书架挪到中间但画风没变；v3 去掉 v1 参考、强调\"简化软体积的动画背景\"，画风贴近 ref_08c 的暖褐软光，左侧是素墙，窗在右侧约 28%，墙上有圆润的叶影光斑（和 S6 光斑母题呼应）。S6 建议：底板按画高放大 ×1.21，让窗的左沿落在 x≈1600（窗有一半出画），书架约在 x 940–1300，被背影挡住。",
+  "锚点": {
+   "窗_px": [
+    1320,
+    0,
+    1825,
+    615
+   ],
+   "书架_px": [
+    775,
+    210,
+    1072,
+    420
+   ],
+   "桌沿_y": 790
+  },
+  "生成记录": "v1、v2 不用 → v3 采用（重出 2 次）"
+ },
+ {
+  "id": "A18",
+  "file": "assets/bg_nanshan_grey.png",
+  "用途": "T1 门内、S2a、S2b、S4c 翻色前",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": false,
+  "提示词": "Wide misty valley in light rain painted in monochrome silver grey airbrush, a 2:1 landscape composition: one tall smooth triangular mountain with gently concave sides, its peak at about 72 percent of the picture width and 28 percent of the picture height, the whole mountain including both slopes is inside the picture and both slopes sink into the fog before reaching the picture edges; low layered ridges fading into fog near the horizon at about 62 percent of the picture height; several horizontal wavy fog bands across the lower third of the valley floor, each with a thin slightly darker contour line on its upper edge; soft glowing white halos where the fog touches the mountain base; a large empty pale silver-grey sky, light and even, only slightly darker at the very top, smooth clean airbrush without any streaks or lines; the left forty percent of the picture is only soft empty fog; subtle film grain, cinematic, background painting of a contemporary Chinese animated film, no people, no animals, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_02c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_07b.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_06b.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "v1（DESIGN 原提示词）画风极好但出成 3:1，峰在 0.80W/0.11H、山体右半出画，还画了静止的雨丝（会和代码雨打架）；v2 写明构图后出成 2:1，峰在 0.755W/0.31H，雾带上缘细线、山脚辉光都有，无雨丝。按画高放置（×1.172）时峰落在屏幕约 (1430,319)，接近 DESIGN 的 (1430,300)。右坡在图右缘出画（约 y=520）。",
+  "锚点": {
+   "主峰顶_px": [
+    1672,
+    87
+   ],
+   "地平线_y（雾与山脚交界，目测）": 565,
+   "建议放置": "S2：屏幕中心 (825, 567)、宽 2500K（主峰约在 (1500, 250)，雾脚约在 y 800）"
+  },
+  "生成记录": "v1 不用 → v2 采用（重出 1 次）；返修 fix1（main-01）：远山改成中国山水的多峰不对称山形（主峰嶙峋带崖壁、次峰平顶、侧峰倾斜，两三层错落），保持灰段喷枪平滑渐变；f1 带雨丝和写实岩纹、f2 仍偏圆锥，采用 f3（3:1）"
+ },
+ {
+  "id": "A19",
+  "file": "assets/bg_nanshan_color.png",
+  "用途": "S4c 翻色后、S5a 远景",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": false,
+  "提示词": "Keep exactly the same composition as the first reference image (the grey misty valley): the same triangular mountain silhouette at the same place with its peak at 75 percent of the width and 31 percent of the height, the same horizon and the same wavy mist bands; only the season of light, the colors and the brushwork change. The same valley right after the fog clears on the seventh day: the mountain now teal blue-green painted with expressive dry-brush ink strokes and dark moss dots along the ridges, layered ridges in blue-green and grey-green, cream white mist bands in the valley, warm golden sunlight from the upper right, a soft teal sky fading to cream near the horizon, the left forty percent is soft open sky and mist, low saturation earthy palette with one golden highlight, landscape background painting of a contemporary Chinese animated film, no people, no animals, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/bg_nanshan_grey.png（锁构图）",
+   "films/C_qitan/_work/design/refcrops/ref_00c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_03c.jpg"
+  ],
+  "状态": "ok（fix1 重出）",
+  "备注": "一次通过。峰顶 x 与 A18 只差 1px（1339 vs 1340），翻色前沿扫过时山不跳位。干笔皴擦、苔点、右上金光都在；天空有斜向笔触。青色饱和度中位 0.28，鲜亮色占 1.1%，符合\"低饱和、一处金\"。",
+  "锚点": {
+   "主峰顶_px": [
+    1672,
+    87
+   ],
+   "地平线_y（目测）": 565,
+   "与A18对位": "同尺寸 2172×724，同放置参数"
+  },
+  "生成记录": "v1 采用；返修 fix1（main-01）：以新 A18 锁构图重出彩态（青绿干笔皴擦、苔点、右上金光），与 A18 同尺寸同峰位"
+ },
+ {
+  "id": "A20",
+  "file": "assets/bg_scroll_qinglv.png",
+  "用途": "S5b 长卷（含前景浮岛卡）、S5c 虚背景",
+  "尺寸": [
+   2172,
+   724
+  ],
+  "是否透明": false,
+  "提示词": "An extremely wide horizontal handscroll landscape seen from high above the clouds: a long diagonal sweep of soft teal-green ink wash like water across the lower part, descending from the left to the right, floating mountain islands with teal green cliffs and coral red maple foliage on their tops, thin waterfalls, layered pale mist and soft clouds between them, a thin golden line running along the upper edge of the wash, a bright high-key misty sky, wet watercolor bleeding edges, gentle low saturation, background painting of a contemporary Chinese animated film, no seals, no calligraphy, no people, no animals, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_04c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_00c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_05c.jpg"
+  ],
+  "状态": "ok",
+  "备注": "一次通过，无印章无字。实测青色饱和度中位 0.42（DESIGN 要 0.35–0.45），鲜亮青占 21%（≤25%），枫红 0.7%（≤3%），金线 0.5%。按画高放大 ×1.436 后宽 3120，可横移约 1200px，够 S5b 的约 1040px。",
+  "锚点": {
+   "最大浮岛矩形_px": [
+    413,
+    160,
+    765,
+    415
+   ],
+   "右侧浮岛群矩形_px（备选，贴右边）": [
+    1790,
+    300,
+    2172,
+    570
+   ],
+   "金线": "从左上 (0,280) 斜到右下 (2172,640) 附近",
+   "对角边曲线_y（x=0,16,32,…，每 16px 一个，共 140 个）": [
+    283.0,
+    286.5,
+    292.4,
+    296.4,
+    296.5,
+    296.1,
+    297.3,
+    301.9,
+    310.1,
+    321.9,
+    328.3,
+    336.2,
+    338.4,
+    339.7,
+    344.2,
+    347.9,
+    353.9,
+    358.9,
+    364.9,
+    369.0,
+    372.9,
+    376.8,
+    379.8,
+    382.5,
+    387.1,
+    391.5,
+    394.7,
+    397.9,
+    401.4,
+    404.2,
+    406.0,
+    407.0,
+    409.4,
+    414.0,
+    418.7,
+    420.0,
+    422.4,
+    426.5,
+    430.0,
+    432.0,
+    435.9,
+    439.1,
+    441.7,
+    443.8,
+    446.7,
+    448.9,
+    450.3,
+    453.7,
+    457.4,
+    459.3,
+    460.3,
+    462.1,
+    464.1,
+    466.6,
+    469.2,
+    472.0,
+    475.7,
+    478.3,
+    481.0,
+    482.0,
+    482.3,
+    484.7,
+    487.1,
+    489.8,
+    492.1,
+    495.7,
+    498.3,
+    501.0,
+    503.4,
+    505.7,
+    504.2,
+    507.7,
+    509.4,
+    512.0,
+    514.8,
+    516.9,
+    517.3,
+    520.0,
+    523.6,
+    528.1,
+    530.8,
+    532.9,
+    534.9,
+    536.7,
+    538.0,
+    539.0,
+    540.0,
+    541.2,
+    543.7,
+    545.6,
+    552.9,
+    554.9,
+    556.7,
+    559.0,
+    558.1,
+    559.4,
+    559.7,
+    555.9,
+    554.4,
+    556.4,
+    559.8,
+    561.6,
+    565.4,
+    567.8,
+    570.8,
+    573.0,
+    575.4,
+    578.1,
+    580.8,
+    582.9,
+    585.2,
+    587.2,
+    589.6,
+    592.0,
+    594.7,
+    596.9,
+    599.2,
+    601.7,
+    604.1,
+    606.4,
+    608.6,
+    610.1,
+    612.2,
+    614.8,
+    617.3,
+    619.2,
+    621.0,
+    623.0,
+    624.9,
+    626.9,
+    628.8,
+    630.9,
+    632.7,
+    635.3,
+    637.3,
+    639.3,
+    640.0,
+    640.0,
+    640.0,
+    640.0
+   ],
+   "对角边曲线说明": "返修 v1-01（第 2 轮）：在旧直线 280+360x/2172 上下 −90…+110px 内，按\"上亮下暗的梯度 + 金线（R−B）\"打分，用动态规划求一条逐列 |Δy|≤3 的连续路径（不会跳到浮岛的边上），再 σ2.5 平滑；金线的中心就在这条线上"
+  },
+  "生成记录": "v1 采用"
+ },
+ {
+  "id": "A21",
+  "file": "assets/fx_mist_bank.png",
+  "用途": "T1 门内、S2a 雾团、S4c 散雾、S5a 近云、S5b 远雾",
+  "尺寸": [
+   2150,
+   634
+  ],
+  "是否透明": true,
+  "提示词": "A long soft bank of white mist and cloud painted with feathered streaky dry-brush edges, layered wisps of different thickness, cream white with faint cool grey shadows, isolated on transparent background, Chinese ink-wash painting style of a contemporary Chinese animated film, no mountains, no people, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_00c.jpg",
+   "films/C_qitan/_work/design/refcrops/ref_04c.jpg"
+  ],
+  "状态": "ok",
+  "备注": "一次通过。边缘是丝状干笔羽化，四边 alpha 都是 0（没有被裁成方块）。中心约 1/3 的像素 alpha=255，当雾团用时整体乘不透明度。未做边缘去污（本来就是白的）。",
+  "锚点": {
+   "内容包围盒_px": [
+    17,
+    16,
+    2133,
+    617
+   ]
+  },
+  "生成记录": "v1 采用",
+  "硬切边": "无（四周都有透明留白）",
+  "alpha检查": {
+   "不透明像素占比": 0.316,
+   "半透明像素占比": 0.1864,
+   "四角alpha": [
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ {
+  "id": "A22",
+  "file": "assets/page_woodcut.png",
+  "用途": "右页木刻插图：S1a、S1b、T1 画边、S6（含新斑）。墨量图，在页面着色器里 multiply",
+  "尺寸": [
+   1086,
+   1448
+  ],
+  "是否透明": false,
+  "提示词": "A single portrait-format page illustration from an old Chinese Ming dynasty woodblock-printed book, printed in black ink only on aged warm cream paper, the picture fills the page inside a thin double-line printed border with only a narrow paper margin outside it: a small round leopard cub, the same character as the cub in the reference model sheet, sitting at the mouth of a cave on a cliff ledge in the lower left, small in the picture, beneath a twisted pine tree whose branches reach across the top; horizontal mist bands drawn as calm curling outline bands, and one tall triangular mountain in the distance on the right; carved in the Chinese woodblock manner: bold even carved outlines, flat solid black areas, rocks drawn with short outline texture strokes, pine needles as small radiating strokes, very little hatching and no engraving-style parallel shading, slightly broken printed edges; the leopard's body is drawn with outlines only and left completely plain with no spots; no characters, no seals and no writing anywhere on the page, flat evenly lit scan, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "films/C_qitan/_work/design/refcrops/ref_02c.jpg",
+   "assets/leopard_sheet.png"
+  ],
+  "状态": "第 2 轮重出（返修 v1-06）",
+  "备注": "v1（DESIGN 原提示词）出成横幅 3:2，放不进竖的书页版框（380×470K），山和雾用的是西式铜版排线（上一轮 book.png 就因此被否）；v2 写明竖幅和中式刻法后一次合格：粗匀刻线、实黑洞口、祥云式雾带、松针放射短笔、无字无印，豹只有轮廓、无斑。page_woodcut.png 是 L 模式墨量图（255=纸、0=满墨，已用大半径闭运算去掉纸色、黄斑和光照，可直接 multiply）；原色扫描版另存 page_woodcut_src.png。洞口实黑区带纸纹颗粒（印刷感）。",
+  "锚点": {
+   "版框外框_px": [
+    12,
+    16,
+    1073,
+    1435
+   ],
+   "版框内框_px（画心）": [
+    26,
+    30,
+    1060,
+    1420
+   ],
+   "木刻豹身体多边形_px": [
+    [
+     195,
+     1130
+    ],
+    [
+     178,
+     1180
+    ],
+    [
+     175,
+     1240
+    ],
+    [
+     190,
+     1268
+    ],
+    [
+     340,
+     1268
+    ],
+    [
+     345,
+     1230
+    ],
+    [
+     330,
+     1170
+    ],
+    [
+     300,
+     1125
+    ],
+    [
+     250,
+     1120
+    ]
+   ],
+   "木刻豹头椭圆": {
+    "cx": 262,
+    "cy": 1068,
+    "rx": 88,
+    "ry": 78,
+    "tilt": 0
+   },
+   "木刻豹五官排除椭圆": {
+    "cx": 285,
+    "cy": 1085,
+    "rx": 55,
+    "ry": 42,
+    "tilt": 0
+   },
+   "木刻豹尾巴多边形_px": [
+    [
+     70,
+     1205
+    ],
+    [
+     95,
+     1195
+    ],
+    [
+     150,
+     1205
+    ],
+    [
+     185,
+     1235
+    ],
+    [
+     185,
+     1262
+    ],
+    [
+     120,
+     1262
+    ],
+    [
+     80,
+     1250
+    ]
+   ],
+   "原色版": "assets/page_woodcut_src.png"
+  },
+  "生成记录": [
+   "v1 不用 → v2 采用（重出 1 次）",
+   {
+    "轮次": "fix2",
+    "日期": "2026-11-04",
+    "原因": "v1-06：旧木刻里的小豹是圆头\"小熊\"造型、远山是孤立的锥形山，和新的猫科小豹（A01）、多峰南山（A18）对不上",
+    "提示词": "A single page illustration from an old Ming dynasty woodblock-printed book, printed in black ink only on aged warm cream paper: a small round cat-like leopard cub exactly like the character in the model sheet (slightly wide flat cat face, small whisker pads, rounded ears set on top of the head, big round eyes, short stubby legs, a long thick tail with a dark tip) sitting at the mouth of a cave on a cliff ledge beneath a twisted pine tree, horizontal mist bands and in the distance on the right a Chinese landscape mountain range of several craggy peaks with cliffs and a flat-topped mesa like the grey mountain reference, not a single cone, clean carved black ink lines with characteristic woodcut hatching and slightly broken printed edges, simple flat areas, a thin double-line printed border around the picture, the leopard's body is drawn with outlines only and left completely plain with no spots, no characters or writing anywhere on the page, flat evenly lit scan, normal body structure, natural proportions, stable clear face, no text, no watermark",
+    "参考图": [
+     "assets/page_woodcut_src.png（旧版，锁构图和刻法）",
+     "assets/leopard_sheet.png（A01）",
+     "assets/bg_nanshan_grey.png（A18）"
+    ],
+    "结果": "一次合格：猫脸、耳在头顶、长尾深色尾尖；远山多峰带崖壁和平顶台；无字无印；豹身无斑。墨量图按原流程做（亮度 / 41px 灰度闭运算的背景 → 0.35–0.86 拉到 0–255）。旧版另存 _work/assets_gen/fix2/old_page_woodcut*.png",
+    "原图": "_work/assets_gen/fix2/A22_page_woodcut_f1.png"
+   }
+  ]
+ },
+ {
+  "id": "A23",
+  "file": "assets/tex_rock_paint.png",
+  "用途": "S4c 翻色后、S5a 崖石的笔触贴图（返修 style-04）：三向投影、镜像平铺，按全图平均色归一后乘到卡通明暗上，只借笔触和冷暖",
+  "尺寸": "1254×1254（方形，非无缝，代码里镜像平铺）",
+  "是否透明": false,
+  "提示词": "A square texture swatch filling the whole frame edge to edge: the surface of a weathered mossy rock cliff face seen straight on, painted with expressive dry-brush strokes and scumbled broken color exactly like the mountain painting in the reference, mostly muted teal green and grey-blue with olive green and a few warm ochre-gold dry-brush highlights, tiny dark moss dots in clusters, short vertical and diagonal brush marks, uneven texture everywhere, evenly lit with no strong shading gradient, no sky, no horizon, no mountains silhouette, no objects, background painting texture of a contemporary Chinese animated film, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/bg_nanshan_color.png（A19）",
+   "_work/design/refcrops/ref_00c.jpg"
+  ],
+  "状态": "第 2 轮新增",
+  "备注": "全图平均色（线性）[.1601, .2409, .1669]，写在 world.js 的 paintMean",
+  "生成记录": [
+   {
+    "轮次": "fix2",
+    "日期": "2026-11-04",
+    "结果": "一次合格，Read 看过",
+    "原图": "_work/assets_gen/fix2/tex_rock_paint.png"
+   }
+  ],
+  "锚点": {}
+ },
+ {
+  "id": "A24",
+  "file": "assets/tex_desk_paint.png",
+  "用途": "S1、S6 书桌的笔触贴图（返修 style-11）：画出来的胡桃木纹、浓淡和旧墨点，按全图平均色归一后乘到书桌的卡通明暗上",
+  "尺寸": "1254×1254（方形，非无缝，代码里镜像平铺）",
+  "是否透明": false,
+  "提示词": "A square texture swatch filling the whole frame edge to edge: the top surface of an old dark walnut wooden work desk seen straight down, long horizontal wood grain painted with soft painterly brush strokes, warm umber and dark brown with a few lighter honey-colored grain streaks, subtle worn spots, faint ink stains and old scratches, gentle watercolor-like color pooling, evenly lit with no shading gradient and no objects on it, background painting texture of a contemporary Chinese animated film interior, normal body structure, natural proportions, stable clear face, no text, no watermark",
+  "所用参考图": [
+   "assets/bg_room.png（A17）",
+   "_work/design/refcrops/ref_08c.jpg"
+  ],
+  "状态": "第 2 轮新增",
+  "备注": "全图平均色（线性）[.0941, .0246, .0062]，写在 room.js 的 paintMean",
+  "生成记录": [
+   {
+    "轮次": "fix2",
+    "日期": "2026-11-04",
+    "结果": "一次合格，Read 看过",
+    "原图": "_work/assets_gen/fix2/tex_desk_paint.png"
+   }
+  ],
+  "锚点": {}
+ }
+]

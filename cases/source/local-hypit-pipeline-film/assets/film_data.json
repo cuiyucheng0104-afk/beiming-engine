@@ -1,0 +1,621 @@
+{
+ "_说明": "讲解片用的实测数据；每组都注明来源。2026-10-01 汇总。",
+ "shots": {
+  "_来源": "ffmpeg 解码 30fps 画面区 1280x640，逐镜统计（stats.py）；motion=相邻帧平均绝对差",
+  "cut_frames": [
+   0,
+   27,
+   42,
+   66,
+   88,
+   104,
+   114,
+   128,
+   135,
+   147,
+   161,
+   171,
+   191,
+   249
+  ],
+  "src": [
+   {
+    "shot": "A",
+    "frames": 27,
+    "motion": 7.0,
+    "sat": 0.361,
+    "luma": 71.1,
+    "contrast": 59.2,
+    "rgb": [
+     61,
+     75,
+     79
+    ],
+    "edge": 27.6
+   },
+   {
+    "shot": "B",
+    "frames": 15,
+    "motion": 5.8,
+    "sat": 0.387,
+    "luma": 63.3,
+    "contrast": 46.8,
+    "rgb": [
+     57,
+     64,
+     73
+    ],
+    "edge": 13.4
+   },
+   {
+    "shot": "C",
+    "frames": 24,
+    "motion": 3.0,
+    "sat": 0.466,
+    "luma": 56.1,
+    "contrast": 50.1,
+    "rgb": [
+     44,
+     60,
+     66
+    ],
+    "edge": 21.0
+   },
+   {
+    "shot": "D",
+    "frames": 22,
+    "motion": 3.2,
+    "sat": 0.261,
+    "luma": 74.9,
+    "contrast": 56.6,
+    "rgb": [
+     82,
+     73,
+     66
+    ],
+    "edge": 13.2
+   },
+   {
+    "shot": "E",
+    "frames": 16,
+    "motion": 12.9,
+    "sat": 0.382,
+    "luma": 41.4,
+    "contrast": 33.8,
+    "rgb": [
+     31,
+     44,
+     54
+    ],
+    "edge": 8.3
+   },
+   {
+    "shot": "F",
+    "frames": 10,
+    "motion": 2.5,
+    "sat": 0.271,
+    "luma": 65.8,
+    "contrast": 45.8,
+    "rgb": [
+     63,
+     67,
+     69
+    ],
+    "edge": 12.8
+   },
+   {
+    "shot": "G",
+    "frames": 14,
+    "motion": 1.7,
+    "sat": 0.477,
+    "luma": 45.3,
+    "contrast": 37.9,
+    "rgb": [
+     34,
+     49,
+     57
+    ],
+    "edge": 22.5
+   },
+   {
+    "shot": "H",
+    "frames": 7,
+    "motion": 6.9,
+    "sat": 0.297,
+    "luma": 36.7,
+    "contrast": 35.0,
+    "rgb": [
+     32,
+     38,
+     42
+    ],
+    "edge": 10.0
+   },
+   {
+    "shot": "I",
+    "frames": 12,
+    "motion": 29.2,
+    "sat": 0.35,
+    "luma": 62.8,
+    "contrast": 48.2,
+    "rgb": [
+     56,
+     65,
+     71
+    ],
+    "edge": 11.7
+   },
+   {
+    "shot": "J",
+    "frames": 14,
+    "motion": 9.9,
+    "sat": 0.287,
+    "luma": 80.5,
+    "contrast": 51.4,
+    "rgb": [
+     95,
+     76,
+     67
+    ],
+    "edge": 7.1
+   },
+   {
+    "shot": "K",
+    "frames": 10,
+    "motion": 7.3,
+    "sat": 0.414,
+    "luma": 35.8,
+    "contrast": 22.9,
+    "rgb": [
+     29,
+     37,
+     47
+    ],
+    "edge": 3.2
+   },
+   {
+    "shot": "L",
+    "frames": 20,
+    "motion": 19.3,
+    "sat": 0.353,
+    "luma": 70.7,
+    "contrast": 56.4,
+    "rgb": [
+     60,
+     74,
+     82
+    ],
+    "edge": 11.3
+   },
+   {
+    "shot": "M",
+    "frames": 58,
+    "motion": 20.9,
+    "sat": 0.264,
+    "luma": 50.9,
+    "contrast": 43.9,
+    "rgb": [
+     44,
+     53,
+     58
+    ],
+    "edge": 15.1
+   }
+  ],
+  "clone": [
+   {
+    "shot": "A",
+    "frames": 27,
+    "motion": 1.0,
+    "sat": 0.45,
+    "luma": 55.3,
+    "contrast": 47.8,
+    "rgb": [
+     54,
+     56,
+     55
+    ],
+    "edge": 12.0
+   },
+   {
+    "shot": "B",
+    "frames": 15,
+    "motion": 3.9,
+    "sat": 0.476,
+    "luma": 51.4,
+    "contrast": 43.4,
+    "rgb": [
+     49,
+     52,
+     55
+    ],
+    "edge": 11.0
+   },
+   {
+    "shot": "C",
+    "frames": 24,
+    "motion": 7.0,
+    "sat": 0.381,
+    "luma": 62.6,
+    "contrast": 46.0,
+    "rgb": [
+     55,
+     65,
+     71
+    ],
+    "edge": 28.2
+   },
+   {
+    "shot": "D",
+    "frames": 22,
+    "motion": 3.4,
+    "sat": 0.45,
+    "luma": 66.9,
+    "contrast": 53.1,
+    "rgb": [
+     70,
+     66,
+     63
+    ],
+    "edge": 6.5
+   },
+   {
+    "shot": "E",
+    "frames": 16,
+    "motion": 13.1,
+    "sat": 0.549,
+    "luma": 34.1,
+    "contrast": 42.9,
+    "rgb": [
+     31,
+     35,
+     36
+    ],
+    "edge": 6.9
+   },
+   {
+    "shot": "F",
+    "frames": 10,
+    "motion": 0.8,
+    "sat": 0.334,
+    "luma": 61.7,
+    "contrast": 37.8,
+    "rgb": [
+     56,
+     63,
+     68
+    ],
+    "edge": 15.4
+   },
+   {
+    "shot": "G",
+    "frames": 14,
+    "motion": 3.6,
+    "sat": 0.451,
+    "luma": 50.2,
+    "contrast": 42.8,
+    "rgb": [
+     44,
+     52,
+     58
+    ],
+    "edge": 22.0
+   },
+   {
+    "shot": "H",
+    "frames": 7,
+    "motion": 11.6,
+    "sat": 0.471,
+    "luma": 56.6,
+    "contrast": 51.9,
+    "rgb": [
+     48,
+     60,
+     64
+    ],
+    "edge": 9.7
+   },
+   {
+    "shot": "I",
+    "frames": 12,
+    "motion": 13.9,
+    "sat": 0.474,
+    "luma": 52.8,
+    "contrast": 55.9,
+    "rgb": [
+     48,
+     54,
+     57
+    ],
+    "edge": 16.6
+   },
+   {
+    "shot": "J",
+    "frames": 14,
+    "motion": 2.3,
+    "sat": 0.546,
+    "luma": 43.2,
+    "contrast": 46.4,
+    "rgb": [
+     41,
+     44,
+     44
+    ],
+    "edge": 7.4
+   },
+   {
+    "shot": "K",
+    "frames": 10,
+    "motion": 14.5,
+    "sat": 0.416,
+    "luma": 54.9,
+    "contrast": 55.7,
+    "rgb": [
+     52,
+     56,
+     57
+    ],
+    "edge": 9.3
+   },
+   {
+    "shot": "L",
+    "frames": 20,
+    "motion": 7.2,
+    "sat": 0.448,
+    "luma": 63.0,
+    "contrast": 57.5,
+    "rgb": [
+     52,
+     67,
+     72
+    ],
+    "edge": 10.9
+   },
+   {
+    "shot": "M",
+    "frames": 58,
+    "motion": 18.0,
+    "sat": 0.443,
+    "luma": 42.3,
+    "contrast": 41.3,
+    "rgb": [
+     42,
+     43,
+     41
+    ],
+    "edge": 16.5
+   }
+  ]
+ },
+ "boundaries": {
+  "_来源": "hypit media boundaries --rate 30，原片前 8.3 s 与复刻成片",
+  "src_candidates": [
+   {
+    "at": 0.067,
+    "score": 0.133
+   },
+   {
+    "at": 0.767,
+    "score": 0.131
+   },
+   {
+    "at": 0.9,
+    "score": 0.186
+   },
+   {
+    "at": 1.4,
+    "score": 0.162
+   },
+   {
+    "at": 2.2,
+    "score": 0.189
+   },
+   {
+    "at": 2.933,
+    "score": 0.219
+   },
+   {
+    "at": 3.467,
+    "score": 0.165
+   },
+   {
+    "at": 3.8,
+    "score": 0.141
+   },
+   {
+    "at": 4.267,
+    "score": 0.122
+   },
+   {
+    "at": 4.5,
+    "score": 0.146
+   },
+   {
+    "at": 4.833,
+    "score": 0.101
+   },
+   {
+    "at": 4.9,
+    "score": 0.206
+   },
+   {
+    "at": 5.367,
+    "score": 0.177
+   },
+   {
+    "at": 5.7,
+    "score": 0.155
+   },
+   {
+    "at": 6.367,
+    "score": 0.168
+   },
+   {
+    "at": 7.4,
+    "score": 0.101
+   }
+  ],
+  "clone_candidates": [
+   {
+    "at": 0.9,
+    "score": 0.144
+   },
+   {
+    "at": 1.4,
+    "score": 0.163
+   },
+   {
+    "at": 2.2,
+    "score": 0.172
+   },
+   {
+    "at": 2.933,
+    "score": 0.206
+   },
+   {
+    "at": 3.467,
+    "score": 0.18
+   },
+   {
+    "at": 3.8,
+    "score": 0.17
+   },
+   {
+    "at": 4.267,
+    "score": 0.196
+   },
+   {
+    "at": 4.5,
+    "score": 0.21
+   },
+   {
+    "at": 4.9,
+    "score": 0.152
+   },
+   {
+    "at": 5.367,
+    "score": 0.196
+   },
+   {
+    "at": 5.4,
+    "score": 0.144
+   },
+   {
+    "at": 5.467,
+    "score": 0.124
+   },
+   {
+    "at": 5.7,
+    "score": 0.224
+   },
+   {
+    "at": 6.367,
+    "score": 0.168
+   }
+  ],
+  "real_cuts_s": [
+   0.9,
+   1.4,
+   2.2,
+   2.933,
+   3.467,
+   3.8,
+   4.267,
+   4.5,
+   4.9,
+   5.367,
+   5.7,
+   6.367
+  ],
+  "src_non_cut_events": {
+   "0.067": "第2帧字幕黑条出现（版式变化，已逐帧核对）",
+   "0.767": "第23帧闪电（已逐帧核对）",
+   "4.833": "I 镜内冲锋运动（已逐帧核对）",
+   "7.4": "M 镜内甩镜（已逐帧核对）"
+  },
+  "clone_extra": {
+   "5.4": "K 镜裁剪跨过 H3 内部切点",
+   "5.467": "同上"
+  }
+ },
+ "market": {
+  "_来源": "AutoDL.Art 市场 result 接口（只查状态）",
+  "workflow": "minimax_h3_z0903 1088p",
+  "tasks": [
+   {
+    "id": "611b08c1",
+    "queue_min": 0.0,
+    "run_min": 6.3
+   },
+   {
+    "id": "934940c6",
+    "queue_min": 8.2,
+    "run_min": 7.5
+   },
+   {
+    "id": "ce76264d",
+    "queue_min": 0.1,
+    "run_min": 9.2
+   },
+   {
+    "id": "e42e888a",
+    "queue_min": 0.0,
+    "run_min": 7.0
+   }
+  ],
+  "submitted": "2026-10-01 00:42:32",
+  "wall_min": 15.7,
+  "gpu_total_min": 30.0,
+  "price": {
+   "peak_yuan_per_s": 0.07,
+   "offpeak_yuan_per_s": 0.05,
+   "offpeak_hours": "00-08 北京时间"
+  }
+ },
+ "ledger": {
+  "_来源": "~/.config/autodl/market-ledger.json",
+  "first_attempt_yuan": 0.45,
+  "redo_yuan": 1.0,
+  "redo_seconds": 20,
+  "total_yuan": 1.45,
+  "cap_yuan": 30
+ },
+ "claude": {
+  "_来源": "会话 transcript usage 字段，Opus 5.5 API 价 $/MTok 输入4 输出20 缓存读0.20 缓存写1h 8；session_cost.py",
+  "redo_window": "2026-10-01 00:33:00-01:01:30 北京",
+  "redo": {
+   "wall_min": 28.5,
+   "claude_active_min": 28.1,
+   "usd": 13.66
+  },
+  "s01_window": "2026-09-30 23:40:00 - 2026-10-01 01:01:30 北京",
+  "s01": {
+   "wall_min": 81.5,
+   "claude_active_min": 64.6,
+   "waiting_user_min": 16.9,
+   "usd": 25.13,
+   "tokens": {
+    "cache_read": 95561874,
+    "write_1h": 416642,
+    "output": 133927,
+    "input": 432
+   },
+   "usd_split": {
+    "cache_read": 19.11,
+    "write_1h": 3.33,
+    "output": 2.68
+   },
+   "share_pct": {
+    "cache_read": 76.1,
+    "write_1h": 13.3,
+    "output": 10.7
+   }
+  },
+  "usd_to_cny": 7.1,
+  "note": "Max 套餐计入额度，美元为 API 等价参考"
+ },
+ "local_hypit_min": {
+  "preview": 0.6,
+  "assemble": 0.6
+ }
+}

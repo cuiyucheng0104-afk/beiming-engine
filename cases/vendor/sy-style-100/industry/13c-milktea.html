@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>13 · 奶茶会员积分 · 茶小满</title>
+<script src="../lib/core.js"></script><script src="../lib/pixel.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 13 像素 · 行业示例：奶茶店会员积分 =====
+   Three scenes joined by classic iris wipes. A side-scrolling street at dusk: our customer walks past the
+   shopfronts to the tea shop and steps in. Inside, a close-up at the counter: the cup is built pixel by
+   pixel - pearls bounce in, milk tea pours, ice drops, the sealing machine stamps the lid, a straw pops in,
+   and +10 points fly up into the member card. Then the member-card screen levels up like an RPG. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#07061a');
+const C = Reel.cfg({ brand: '茶小满', sub: '集点换好茶 · 会员积分小程序', reward: '第 10 杯免费' });
+const X = PX.init(stage);
+const { P, put, rect, frame, text, cjk, cw, sprite, box, bay, h1 } = X;
+const A1 = 4.1, B1 = 8.9;
+// ---- customer (side view) ----
+const GUY = ['...hhhh...', '..hhhhhh..', '..hsssss..', '..sseses..', '..sssss...', '...ss.....', '..cccccc..', '.cccccccc.', '.sccccccs.', '..cccccc..', '..cccccc..', '..pp..pp..', '..pp..pp..', '..ff..ff..'];
+function guy(x, y, walk, t) { const fr = walk ? Math.floor(t * 8) % 2 : 0; const rows = GUY.map((r, j) => (j >= 11 && fr ? ['..pp.pp...', '.pp...pp..', '.ff...ff..'][j - 11] : r)); sprite(rows, { h: P(5, 1), s: P(8, 3), e: P(0, 0), c: P(12, 3), p: P(13, 2), f: P(0, 1) }, Math.round(x), Math.round(y) - (walk && fr ? 1 : 0), 6, false, P(0, 0)); }
+function street(t) {
+  const walk = clamp((t - 0.2) / 2.6), sx = lerp(0, 330, E.inOutSine(walk));      // camera scroll
+  for (let y = 0; y < 171; y++) for (let x = 0; x < 304; x++) put(x, y, bay(x, y) < y / 150 ? P(2, 3) : (y < 60 ? P(1, 3) : P(1, 4)), 0);
+  for (let x = 0; x < 304; x++) { const wx = x + sx * 0.3; const h = 40 + Math.floor(X.n1(wx * 0.05) * 30) + (Math.floor(wx / 26) % 3) * 8; for (let y = 120 - h; y < 120; y++) put(x, y, P(1, 2), 1); if ((Math.floor(wx / 6) + Math.floor((120 - h) / 7)) % 5 === 0 && h1(Math.floor(wx / 6) * 7 + Math.floor(t)) > 0.4) for (let y = 125 - h; y < 128 - h + 2; y++) put(x, y, P(9, 4), 2); }
+  // shopfronts (foreground layer) - the tea shop at world x 420
+  for (let k = 0; k < 6; k++) { const wx = k * 120 - sx, tea = k === 3; if (wx < -120 || wx > 310) continue;
+    rect(wx, 50, 110, 90, tea ? P(11, 4) : [P(6, 3), P(5, 3), P(13, 2)][k % 3], 3); rect(wx, 50, 110, 4, P(0, 1), 3);
+    // awning
+    for (let i = 0; i < 110; i++) for (let j = 0; j < 10; j++) put(wx + i, 62 + j + (j === 9 && i % 10 < 5 ? 1 : 0), Math.floor(i / 10) % 2 ? P(10, 0) : (tea ? P(12, 3) : P(7, 3)), 4);
+    rect(wx + 8, 80, 50, 40, P(4, tea ? 5 : 2), 3); frame(wx + 8, 80, 50, 40, P(5, 1), 3); rect(wx + 68, 84, 30, 56, P(5, 2), 3); put(wx + 93, 112, P(9, 4), 3);
+    if (tea) { box(wx + 14, 38, 82, 18, P(12, 2), P(10, 0)); cjk(C.brand, wx + 22, 40, P(10, 0), 12, null); const glow = 0.5 + 0.5 * Math.sin(t * 6); for (let i = -2; i < 84; i++) if (bay(wx + 14 + i, 36) < glow * 0.5) put(wx + 14 + i, 36, P(12, 5), 4);
+      // a tiny cup in the window
+      rect(wx + 26, 98, 8, 12, P(11, 3), 4); rect(wx + 25, 97, 10, 2, P(14, 5), 4); rect(wx + 30, 91, 1, 6, P(12, 4), 4); }
+    else { cjk(['面包', '花店', '书店', '', '鞋铺', '超市'][k], wx + 20, 40, P(10, 0), 12, P(0, 0)); }
+  }
+  rect(0, 140, 304, 31, P(6, 2), 3); for (let x = 0; x < 304; x += 20) rect(x - (sx % 20), 140, 1, 31, P(6, 1), 3); rect(0, 140, 304, 1, P(6, 4), 3);
+  // customer walks to the tea-shop door (world 420 + 80)
+  const gx = lerp(30, 108, E.inOutSine(walk));
+  guy(gx, 126, t > 0.2 && t < 3.4, t);
+  return [gx + 5, 128];
+}
+// ---- counter close-up ----
+function counter(t) {
+  const u = t - A1;
+  for (let y = 0; y < 171; y++) for (let x = 0; x < 304; x++) put(x, y, bay(x, y) < 0.15 ? P(11, 5) : P(11, 4), 0);
+  for (let x = 0; x < 304; x += 32) rect(x, 0, 1, 120, P(11, 3), 1);
+  // menu board behind
+  box(10, 10, 96, 66, P(0, 1), P(5, 3)); cjk('菜单', 16, 12, P(9, 4), 12, null); ['珍珠奶茶 12', '芋泥波波 15', '杨枝甘露 16'].forEach((s, i) => cjk(s, 16, 30 + i * 15, P(10, 0), 12, null));
+  rect(0, 120, 304, 51, P(5, 3), 2); rect(0, 120, 304, 3, P(5, 5), 2); for (let x = 0; x < 304; x += 40) rect(x, 123, 1, 48, P(5, 2), 2);
+  // sealing machine
+  const mx = 220; rect(mx - 26, 20, 52, 18, P(6, 3), 3); rect(mx - 4, 38, 8, 6, P(6, 2), 3); const press = u > 3.0 && u < 3.5 ? Math.sin(Math.PI * (u - 3.0) / 0.5) * 22 : 0; rect(mx - 18, 44 + press, 36, 6, P(6, 4), 3); rect(mx - 22, 116, 44, 4, P(6, 2), 3);
+  text('SEAL', mx - 12, 25, P(9, 5), 1, null, 3);
+  // the cup slides from the station to the sealer
+  const slide = E.inOutCubic(clamp((u - 2.5) / 0.4)), cx0 = Math.round(lerp(120, mx, slide)), base = 116, ch = 52, cwid = 34;
+  const fill = clamp((u - 1.0) / 1.0), pearls = Math.min(8, Math.floor(clamp(u / 0.8) * 9));
+  // cup body
+  for (let j = 0; j < ch; j++) { const half = Math.round(cwid / 2 - j * 0.08); for (let i = -half; i <= half; i++) { const yy = base - j; let c = P(14, 5); const lvl = fill * (ch - 6); if (j < lvl) c = (j > lvl - 3 + Math.round(Math.sin(i * 0.5 + t * 8))) ? P(11, 5) : (bay(cx0 + i, yy) < 0.2 ? P(11, 3) : P(11, 4)); if (Math.abs(i) === half) c = P(14, 4); put(cx0 + i, yy, c, 4); } }
+  // pearls (bounce in)
+  for (let k = 0; k < pearls; k++) { const tk = k * 0.09, v = clamp((u - tk) / 0.35); const px = cx0 - 12 + (k % 4) * 8 + (k > 3 ? 4 : 0), py = Math.round(lerp(base - 70, base - 4 - (k > 3 ? 6 : 0), E.outBounce ? E.outBounce(v) : v)); for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) if (a * a + b * b <= 5) put(px + a, py + b, a + b < -1 ? P(6, 3) : P(0, 0), 5); }
+  // pouring stream
+  if (u > 0.95 && u < 2.0) { rect(cx0 - 2, 0, 4, base - Math.round(fill * (ch - 6)), P(11, 4), 5); rect(cx0 - 1, 0, 1, base - Math.round(fill * (ch - 6)), P(11, 5), 5); }
+  // ice cubes
+  for (let k = 0; k < 3; k++) { const v = clamp((u - 2.05 - k * 0.12) / 0.3); if (v <= 0) continue; const ix = cx0 - 10 + k * 9, iy = Math.round(lerp(0, base - ch + 12 + k % 2 * 3, E.outCubic(v))); rect(ix, iy, 7, 7, P(4, 6), 6); frame(ix, iy, 7, 7, P(4, 5), 6); put(ix + 1, iy + 1, P(10, 0), 6); }
+  // lid + straw
+  if (u > 3.25) { rect(cx0 - cwid / 2 - 1, base - ch - 1, cwid + 3, 3, P(12, 4), 6); cjk('满', cx0 - 6, base - ch + 14, P(12, 2), 12, null, 6); }
+  if (u > 3.7) { const v = E.outBack(clamp((u - 3.7) / 0.25)); const sy = Math.round(lerp(0, base - ch - 20, v)); rect(cx0 + 6, sy, 4, 26, P(12, 3), 7); rect(cx0 + 6, sy, 1, 26, P(12, 5), 7); }
+  // done + points
+  if (u > 3.95) { const w = cw('完成！', 16); cjk('完成！', Math.round(cx0 - w / 2), Math.round(lerp(40, 28, clamp((u - 3.95) / 0.2))), P(9, 4), 16, P(0, 0)); }
+  const pts = u > 4.1 ? Math.min(100, 90 + Math.floor(clamp((u - 4.3) / 0.4) * 10)) : 90;
+  for (let k = 0; k < 6; k++) { const v = clamp((u - 4.1 - k * 0.06) / 0.4); if (v <= 0 || v >= 1) continue; const x = Math.round(lerp(cx0, 268, E.inCubic(v))), y = Math.round(lerp(base - 60, 14, E.inCubic(v)) - Math.sin(Math.PI * v) * 20); for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) if (a * a + b * b <= 5) put(x + a, y + b, a < 0 ? P(9, 5) : P(9, 3), 8); }
+  if (u > 4.1 && u < 4.8) text('+10', cx0 + 20, Math.round(lerp(60, 40, clamp((u - 4.1) / 0.6))), P(9, 5), 2, P(0, 0));
+  // member card HUD
+  box(228, 4, 72, 22, P(12, 2), P(10, 0)); cjk('积分', 232, 5, P(10, 0), 12, null); text(String(pts), 262, 11, u > 4.3 && u < 4.9 && Math.floor(t * 12) % 2 ? P(9, 5) : P(10, 0), 1, null);
+}
+// ---- member card / level up ----
+function card(t) {
+  const u = t - B1;
+  for (let y = 0; y < 171; y++) for (let x = 0; x < 304; x++) put(x, y, bay(x, y) < 0.5 + 0.3 * Math.sin((x + y) * 0.05 + t) ? P(12, 1) : P(12, 2), 0);
+  // the card
+  const cy = Math.round(lerp(171, 22, E.outBack(clamp(u / 0.45))));
+  const gold = u > 1.6;
+  for (let j = 0; j < 80; j++) for (let i = 0; i < 180; i++) { const x = 62 + i, y = cy + j; const edge = (i < 2 || j < 2 || i > 177 || j > 77); const sheen = gold && Math.abs(i - ((u - 1.6) * 260 % 400) + j * 0.5) < 6; put(x, y, edge ? P(0, 0) : sheen ? P(10, 0) : (gold ? (bay(x, y) < 0.3 ? P(9, 4) : P(9, 3)) : (bay(x, y) < 0.3 ? P(14, 5) : P(14, 4))), 5); }
+  cjk(C.brand + ' 会员卡', 70, cy + 6, P(0, 0), 12, null);
+  text(gold ? 'LV.3 GOLD' : 'LV.2', 70, cy + 26, gold ? P(7, 2) : P(6, 2), 1, null);
+  // progress bar
+  const prog = clamp((u - 0.5) / 1.0);
+  rect(70, cy + 44, 164, 10, P(0, 1), 6); rect(71, cy + 45, Math.round(162 * (gold ? 1 : prog)), 8, gold ? P(7, 4) : P(3, 5), 6); frame(70, cy + 44, 164, 10, P(0, 0), 6);
+  text(gold ? 'MAX' : `${90 + Math.round(prog * 10)}/100`, 70, cy + 60, P(0, 0), 1, null);
+  if (u > 1.6 && u < 2.4) { const v = (u - 1.6) / 0.8; text('LEVEL UP!', 152 - 54, Math.round(lerp(20, 4, v)), Math.floor(t * 10) % 2 ? P(9, 5) : P(10, 0), 2, P(0, 0)); }
+  // gift box opens with confetti
+  if (u > 2.4) {
+    const v = clamp((u - 2.4) / 0.4), gx = 152, gy = 140;
+    rect(gx - 14, gy - 14, 28, 18, P(7, 3), 6); rect(gx - 2, gy - 14, 4, 18, P(9, 4), 6);
+    const lid = Math.round(lerp(0, -16, E.outBack(v))); rect(gx - 16, gy - 20 + lid, 32, 6, P(7, 4), 7); rect(gx - 2, gy - 20 + lid, 4, 6, P(9, 4), 7);
+    for (let k = 0; k < 30; k++) { const a = -Math.PI / 2 + (h1(k) - 0.5) * 2.2, sp = 30 + h1(k * 3) * 60, w2 = u - 2.55; if (w2 <= 0) continue; const x = gx + Math.cos(a) * sp * w2, y = gy - 18 + Math.sin(a) * sp * w2 + 60 * w2 * w2; put(x, y, [P(9, 5), P(12, 5), P(4, 5), P(10, 0), P(3, 6)][k % 5], 8); put(x + 1, y, [P(9, 5), P(12, 5), P(4, 5), P(10, 0), P(3, 6)][k % 5], 8); }
+    if (u > 2.7) { const w = cw(C.reward, 12) + 10; box(Math.round(gx - w / 2), 104, w, 16, P(0, 1), P(9, 4)); cjk(C.reward, Math.round(gx - w / 2) + 5, 105, P(9, 4), 12, null); }
+  }
+  // brand lockup
+  if (u > 3.6) { const v = clamp((u - 3.6) / 0.3); for (let y = 0; y < 171; y++) for (let x = 0; x < 304; x++) if (bay(x, y) < v) put(x, y, bay(x, y) < 0.3 ? P(11, 4) : P(11, 5), 9);
+    if (u > 3.85) { const sc = 3, w = cw(C.brand, 16, sc); cjk(C.brand, Math.round(152 - w / 2), Math.round(lerp(-60, 34, E.outBack(clamp((u - 3.85) / 0.4)))), P(12, 3), 16, P(0, 0), 9, sc);
+      if (u > 4.3) cjk(C.sub, Math.round(152 - cw(C.sub) / 2), 94, P(5, 1), 12, P(14, 5));
+      // cup mascot
+      const bx = 140, by = 132 + Math.round(Math.sin(t * 6) * 2); rect(bx, by, 24, 30, P(11, 3), 9); rect(bx - 2, by - 2, 28, 3, P(12, 4), 9); rect(bx + 15, by - 14, 3, 13, P(12, 3), 9); put(bx + 7, by + 10, P(0, 0), 9); put(bx + 16, by + 10, P(0, 0), 9); rect(bx + 9, by + 15, 6, 1, P(7, 2), 9); for (let k = 0; k < 4; k++) rect(bx + 3 + k * 5, by + 24, 3, 3, P(0, 0), 9); }
+  }
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: ['700 12px "Noto Sans CJK SC"', '700 16px "Noto Sans CJK SC"'],
+  cues: [...Array.from({ length: 11 }, (_, i) => ({ t: +(0.3 + i * 0.25).toFixed(2), sfx: 'step_soft', gain: 0.25 })), { t: 3.5, sfx: 'door_creak', gain: 0.5 },
+    ...Array.from({ length: 8 }, (_, i) => ({ t: +(A1 + 0.2 + i * 0.09).toFixed(2), sfx: 'tick', gain: 0.3 })), { t: A1 + 1.0, sfx: 'splash', gain: 0.45 }, { t: A1 + 2.1, sfx: 'clink', gain: 0.5 }, { t: A1 + 2.5, sfx: 'whoosh', gain: 0.3 }, { t: A1 + 3.05, sfx: 'stamp', gain: 0.6 }, { t: A1 + 3.7, sfx: 'jump', gain: 0.4 }, { t: A1 + 3.95, sfx: 'levelup', gain: 0.5 },
+    ...Array.from({ length: 6 }, (_, i) => ({ t: +(A1 + 4.3 + i * 0.06).toFixed(2), sfx: 'coin', gain: 0.35 })), { t: B1, sfx: 'whoosh', gain: 0.4 }, { t: B1 + 1.6, sfx: 'powerup', gain: 0.7 }, { t: B1 + 2.5, sfx: 'fireworks', gain: 0.5 }, { t: B1 + 3.85, sfx: 'impact_soft', gain: 0.6 }],
+  render(t) {
+    X.clear();
+    if (t < A1) { const [dx, dy] = street(t); if (t > 3.5) X.iris(dx, dy - 8, lerp(220, 0, E.inCubic(clamp((t - 3.5) / 0.6)))); }
+    else if (t < B1) { counter(t); if (t < A1 + 0.5) X.iris(120, 90, lerp(0, 220, E.outCubic(clamp((t - A1) / 0.5)))); if (t > B1 - 0.45) X.iris(120, 80, lerp(220, 0, E.inCubic(clamp((t - B1 + 0.45) / 0.45)))); }
+    else { card(t); if (t < B1 + 0.4) X.iris(152, 85, lerp(0, 220, E.outCubic(clamp((t - B1) / 0.4)))); }
+    X.flush();
+  },
+});
+</script></body></html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>一天 · ONE DAY</title>
+<style>
+@font-face { font-family: "Inter Tight"; src: url(fonts/InterTight-900.woff2) format("woff2"); font-weight: 900; }
+@font-face { font-family: "Inter Tight"; src: url(fonts/InterTight-700.woff2) format("woff2"); font-weight: 700; }
+@font-face { font-family: "Noto Sans SC"; src: url(fonts/NotoSansSC-900.woff2) format("woff2"); font-weight: 900; }
+@font-face { font-family: "Noto Sans SC"; src: url(fonts/NotoSansSC-500.woff2) format("woff2"); font-weight: 500; }
+@font-face { font-family: "DM Mono"; src: url(fonts/DMMono-500.woff2) format("woff2"); font-weight: 500; }
+html, body { margin: 0; background: #000; overflow: hidden; }
+canvas { display: block; width: 1920px; height: 1080px; }
+</style></head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="engine.js"></script>
+<script src="poses.js"></script>
+<script type="module">
+import { DUR, events } from './timeline.js';
+import { renderFrame, texts } from './scenes.js';
+const ctx = document.getElementById('c').getContext('2d');
+window.DUR = DUR;
+window.EV = events();
+window.render = (t) => renderFrame(ctx, t);
+window.TEXTS = (t) => texts(t);
+await Promise.all(['900 40px "Inter Tight"', '700 40px "Inter Tight"', '900 40px "Noto Sans SC"', '500 40px "Noto Sans SC"', '500 20px "DM Mono"']
+  .map((f) => document.fonts.load(f, '起床一天ONE DAY0123')));
+render(0); window.READY = true;
+</script>
+</body></html>

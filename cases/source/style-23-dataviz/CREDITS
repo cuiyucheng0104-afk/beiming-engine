@@ -1,0 +1,26 @@
+地球的一秒 · CREDITS
+
+画面与声音全部由代码生成（Canvas 2D 绘制；numpy 合成、物理建模拨弦、真实乐器采样）。片中未使用任何外部影像或影片素材。
+
+【事实来源（数字，见 FACTS.md）】
+- 全球每秒出生 4.2（2025 年 1 月）：U.S. Census Bureau, "Census Bureau Projects U.S. and World Populations on New Year's Day" (2024-12-30)
+  https://www.census.gov/newsroom/press-releases/2024/population-new-years-day.html — 美国联邦政府作品，公有领域
+- 全球每秒闪电 44 ± 5：Christian, H. J. et al. (2003), JGR 108(D1), doi:10.1029/2002JD002347；NASA GHRC 存档
+  https://ghrc.nsstc.nasa.gov/pub/doc/preservation/lis/documents/otd/instrument_description/GlobalFreqDistLightningObsfromSpacebyOTD.pdf — 仅引用数字（事实不受版权保护）
+
+【乐器采样】（core/audio/sampler.py）
+- bass_drum、timpani、gong：VS Chamber Orchestra: Community Edition (Versilian Studios) — CC0 1.0
+  https://github.com/sgossner/VSCO-2-CE
+- hihat、shaker、sus_cymbal、glockenspiel、woodblock、claves：Versilian Community Sample Library (Versilian Studios) — CC0 1.0
+  https://github.com/sgossner/VCSL
+- 出生音 kalimba：core/audio/pluck.py 物理建模（无采样）
+- 闪电 plonk、pad、sub、riser、拟音、雨、雷：numpy 程序化合成（无采样）
+
+【字体】（Google Fonts，SIL Open Font License 1.1，按用到的字符子集化，许可文本在 fonts/OFL-*.txt）
+- Noto Serif SC（标题）— https://github.com/notofonts/noto-cjk
+- Noto Sans SC（泳道与单位）— https://github.com/notofonts/noto-cjk
+- Ma Shan Zheng 马善政（中文手写注释）— https://github.com/googlefonts/mashanzheng
+- Caveat（手写数字）— https://github.com/googlefonts/caveat
+- IBM Plex Mono（刻度与计数）— https://github.com/IBM/plex
+
+使用者自行负责其在片中使用的任何素材。

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8"><title>17 · 财税记账 · 明账财税</title>
+<script src="../lib/core.js"></script>
+</head><body><div id="stage"></div>
+<script>
+/* ===== 17 数据新闻 · 行业示例：财税记账 =====
+   A printed magazine feature, read on a desk and flipped by hand. Spread 1: the headline and a counter
+   racing to the yearly over-paid tax, with a bar chart. The page turns (a real curling turn with the
+   shadow running across the gutter). Spread 2: a donut chart of where the money goes, annotated. Turn
+   again. Spread 3: the tax calendar, deadlines ticked off, a pull quote and the firm's advert box.
+   Numbers are illustrative and say so on the page. */
+const { E, clamp, lerp } = Reel;
+const stage = Reel.makeStage('#2a2722');
+const C = Reel.cfg({ mag: '小店经济', brand: '明账财税', ad: '代理记账 ¥199/月 起 · 报税不再踩坑' });
+const RS = Reel.RS, W = Math.round(1920 * RS), H = Math.round(1080 * RS), K = W / 1920;
+const cv = document.createElement('canvas'); cv.width = W; cv.height = H; cv.style.cssText = 'position:absolute;left:0;top:0;width:1920px;height:1080px'; stage.appendChild(cv);
+const ctx = cv.getContext('2d');
+const INK = '#161412', RED = '#c8302b', GRAY = '#8a8478', PAPER = '#f4f0e6', HL = 'rgba(255,214,51,.85)', SERIF = '"Noto Serif CJK SC"', SANS = '"Noto Sans CJK SC"';
+const PW = 800, PH = 1040;              // one page (design px); a spread is 1600 x 1040
+function wrap(g, text, maxW) { const L = []; let l = ''; for (const ch of text) { const s = l + ch; if (g.measureText(s).width > maxW && l) { L.push(l); l = ch; } else l = s; } if (l) L.push(l); return L; }
+function paper(g, w, h, seed) { g.fillStyle = PAPER; g.fillRect(0, 0, w, h); for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(90,70,40,${Reel.hash(i * 1.7 + seed) * 0.035})`; g.fillRect(Reel.hash(i * 3.1 + seed) * w, Reel.hash(i * 5.3 + seed) * h, Reel.hash(i) * 3 + 1, 1); } }
+function body(g, x, y, w, n, seed, lh = 34) {
+  const POOL = '记账报税发票成本利润现金流水小店老板每月进货房租人工社保个税增值税申报抵扣优惠政策年度汇算清缴核定征收小规模纳税人税负测算财务规范票据管理';
+  g.font = `400 20px ${SERIF}`; g.fillStyle = '#26231f';
+  for (let i = 0; i < n; i++) { let s = ''; const len = Math.floor(w / 20) - (Reel.hash(i + seed) < 0.15 ? 6 : 0); for (let k = 0; k < len; k++) s += POOL[Math.floor(Reel.hash(i * 31 + k * 7 + seed) * POOL.length)]; g.fillText((i % 6 === 0 ? '　　' : '') + s.slice(0, i % 6 === 0 ? len - 2 : len), x, y + i * lh); }
+}
+// static page art (pre-rendered); live graphics are drawn per frame on top
+const mk = () => { const c = document.createElement('canvas'); c.width = PW * 1.25; c.height = PH * 1.25; const g = c.getContext('2d'); g.scale(1.25, 1.25); return [c, g]; };
+const PAGES = [];
+function header(g, n, side) { g.font = `600 15px Inter`; g.fillStyle = GRAY; g.textAlign = side ? 'right' : 'left'; g.fillText(`${C.mag} · 2026.10 · ${n}`, side ? PW - 60 : 60, 50); g.textAlign = 'left'; g.fillStyle = INK; g.fillRect(60, 64, PW - 120, 1.2); }
+// p0 left: headline
+{ const [c, g] = mk(); paper(g, PW, PH, 1); header(g, 12, 0); g.fillStyle = RED; g.font = `700 22px ${SANS}`; g.fillText('封面故事 · 小店财税', 60, 150);
+  g.fillStyle = INK; g.font = `900 92px ${SERIF}`; g.fillText('一家小店，', 52, 290); g.fillText('一年多交了', 52, 400); g.fillText('多少冤枉税？', 52, 510);
+  g.font = `400 26px ${SERIF}`; g.fillStyle = '#3a3630'; wrap(g, '我们拿 320 家小店的账本算了一笔账：不记账、乱记账，最贵的往往不是罚款，而是本来能省下的钱。', 660).forEach((l, i) => g.fillText(l, 60, 590 + i * 42));
+  g.font = `500 17px ${SANS}`; g.fillStyle = GRAY; g.fillText('文 / 本刊记者　　数据图 / 编辑部', 60, 720); g.fillRect(60, 745, PW - 120, 1); body(g, 60, 800, 680, 6, 3); PAGES.push(c); }
+// p1 right: counter + bars (live)
+{ const [c, g] = mk(); paper(g, PW, PH, 2); header(g, 13, 1); g.font = `700 26px ${SANS}`; g.fillStyle = INK; g.fillText('平均每家店每年多交', 60, 160); g.font = `400 18px ${SANS}`; g.fillStyle = GRAY; g.fillText('* 示意数据，按小规模纳税人测算', 60, 470); g.fillRect(60, 500, PW - 120, 1); g.font = `700 24px ${SANS}`; g.fillStyle = INK; g.fillText('同样营收，全年税费对比（元）', 60, 560); body(g, 60, 960, 680, 2, 9); PAGES.push(c); }
+// p2 left: donut (live) + caption
+{ const [c, g] = mk(); paper(g, PW, PH, 3); header(g, 14, 0); g.fillStyle = RED; g.font = `700 22px ${SANS}`; g.fillText('第二部分 · 钱去哪儿了', 60, 150); g.fillStyle = INK; g.font = `900 64px ${SERIF}`; g.fillText('每 100 元营收', 52, 250); g.fillText('落到口袋的只有 18 元', 52, 330); body(g, 60, 880, 680, 4, 11); PAGES.push(c); }
+// p3 right: body + quote (live)
+{ const [c, g] = mk(); paper(g, PW, PH, 4); header(g, 15, 1); body(g, 60, 130, 680, 11, 13); g.fillRect(60, 520, PW - 120, 1); body(g, 60, 820, 680, 6, 17); PAGES.push(c); }
+// p4 left: calendar (live)
+{ const [c, g] = mk(); paper(g, PW, PH, 5); header(g, 16, 0); g.fillStyle = RED; g.font = `700 22px ${SANS}`; g.fillText('第三部分 · 报税日历', 60, 150); g.fillStyle = INK; g.font = `900 64px ${SERIF}`; g.fillText('一年 12 次申报', 52, 250); g.fillText('错过一次就是滞纳金', 52, 330); body(g, 60, 900, 680, 3, 19); PAGES.push(c); }
+// p5 right: advert
+{ const [c, g] = mk(); paper(g, PW, PH, 6); header(g, 17, 1); body(g, 60, 130, 680, 8, 23); PAGES.push(c); }
+const SPREADS = [[0, 1], [2, 3], [4, 5]];
+const TURN = [4.6, 9.2];                       // page turns, each 0.9 s
+function live(g, pi, t) {
+  if (pi === 1) {
+    const n = Math.round(18600 * E.outCubic(clamp((t - 1.2) / 1.6)));
+    g.font = `900 150px Inter`; g.fillStyle = RED; g.fillText('¥' + n.toLocaleString(), 52, 360);
+    const bars = [['不记账', 46800, GRAY], ['乱记账', 39200, '#b5a998'], ['规范记账', 28200, RED]];
+    bars.forEach(([lab, v, col], i) => { const k = E.outCubic(clamp((t - 2.0 - i * 0.25) / 0.7)); const y = 610 + i * 100, w = 520 * v / 46800 * k; g.fillStyle = col; g.fillRect(170, y, w, 56); g.font = `700 22px ${SANS}`; g.fillStyle = INK; g.fillText(lab, 60, y + 36); g.font = `800 22px Inter`; g.fillText(k > 0.05 ? Math.round(v * k).toLocaleString() : '', 180 + w, y + 36); });
+    const an = clamp((t - 3.2) / 0.3); if (an > 0) { g.globalAlpha = an; g.strokeStyle = INK; g.lineWidth = 1.5; g.beginPath(); g.moveTo(690, 646); g.lineTo(720, 600); g.lineTo(720, 830); g.lineTo(560, 830); g.stroke(); g.font = `700 20px ${SANS}`; g.fillStyle = RED; g.fillText('差 18,600', 600, 820); g.globalAlpha = 1; }
+  }
+  if (pi === 2) {
+    const cx = 330, cy = 600, r = 190, segs = [['进货', 42, '#3b3a36'], ['房租', 18, '#8a8478'], ['人工', 16, '#b5a998'], ['税费', 6, RED], ['落袋', 18, '#d9b54a']];
+    const k = E.inOutCubic(clamp((t - 5.8) / 1.4)); let a0 = -Math.PI / 2;
+    segs.forEach(([lab, v, col], i) => { const a1 = a0 + v / 100 * Math.PI * 2 * k; g.beginPath(); g.arc(cx, cy, r, a0, a1); g.arc(cx, cy, r - 70, a1, a0, true); g.closePath(); g.fillStyle = col; g.fill();
+      const mid = (a0 + a1) / 2; if (k > 0.98) { const lx = cx + Math.cos(mid) * (r + 60), ly = cy + Math.sin(mid) * (r + 40); g.font = `700 20px ${SANS}`; g.fillStyle = INK; g.textAlign = lx < cx ? 'right' : 'left'; g.fillText(`${lab} ${v}%`, lx, ly); g.textAlign = 'left'; } a0 = a1; });
+    g.font = `900 64px Inter`; g.fillStyle = INK; g.textAlign = 'center'; g.fillText('100', cx, cy + 10); g.font = `500 18px ${SANS}`; g.fillStyle = GRAY; g.fillText('元营收', cx, cy + 44); g.textAlign = 'left';
+  }
+  if (pi === 3) {
+    const a = E.outCubic(clamp((t - 7.4) / 0.5)); if (a > 0) { g.globalAlpha = a; g.fillStyle = RED; g.font = `900 120px ${SERIF}`; g.fillText('“', 50, 650); g.fillStyle = INK; g.font = `900 40px ${SERIF}`; g.fillText('账记清楚了，', 120, 630); g.fillText('才知道钱该省在哪。', 120, 690); g.fillRect(60, 740, PW - 120, 2); g.globalAlpha = 1; }
+    const u = E.inOutSine(clamp((t - 7.9) / 0.45)); if (u > 0) { g.save(); g.globalCompositeOperation = 'multiply'; g.fillStyle = HL; g.fillRect(118, 650, 350 * u, 50); g.restore(); }
+  }
+  if (pi === 4) {
+    const M = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    M.forEach((m, i) => { const x = 60 + (i % 4) * 172, y = 400 + Math.floor(i / 4) * 150; g.strokeStyle = 'rgba(22,20,18,.3)'; g.lineWidth = 1.5; g.strokeRect(x, y, 156, 130); g.font = `800 24px ${SANS}`; g.fillStyle = INK; g.fillText(m, x + 14, y + 36); g.font = `500 16px ${SANS}`; g.fillStyle = GRAY; g.fillText(i % 3 === 0 ? '季度申报 · 15 日前' : '月度申报 · 15 日前', x + 14, y + 66);
+      const k = clamp((t - 10.3 - i * 0.12) / 0.2); if (k > 0) { g.strokeStyle = RED; g.lineWidth = 6; g.lineCap = 'round'; g.beginPath(); g.moveTo(x + 100, y + 96); g.lineTo(x + 100 + 14 * Math.min(1, k * 2), y + 96 + 14 * Math.min(1, k * 2)); if (k > 0.5) g.lineTo(x + 114 + 26 * (k - 0.5) * 2, y + 110 - 34 * (k - 0.5) * 2); g.stroke(); } });
+  }
+  if (pi === 5) {
+    const a = E.outBack(clamp((t - 11.8) / 0.4)); if (a > 0) { g.save(); g.translate(400, 700); g.scale(a, a); g.fillStyle = INK; g.fillRect(-340, -230, 680, 460); g.fillStyle = PAPER; g.font = `600 18px Inter`; g.textAlign = 'center'; g.fillText('ADVERTISEMENT · 广告', 0, -190);
+      g.font = `900 92px ${SERIF}`; g.fillText(C.brand, 0, -70); g.fillStyle = '#d9b54a'; g.fillRect(-120, -40, 240, 4); g.fillStyle = PAPER; g.font = `700 28px ${SANS}`; g.fillText(C.ad, 0, 30); g.font = `500 22px ${SANS}`; g.fillStyle = '#c9c2b2'; g.fillText('扫码免费测一测：你的店一年能省多少', 0, 90);
+      g.fillStyle = PAPER; g.fillRect(-60, 120, 120, 90); g.fillStyle = INK; for (let i = 0; i < 64; i++) if (Reel.hash(i * 7.7) > 0.5) g.fillRect(-56 + (i % 8) * 14, 124 + Math.floor(i / 8) * 10.5, 12, 9); g.restore(); }
+  }
+}
+const LIVE = PAGES.map(() => { const c = document.createElement('canvas'); c.width = PW * 1.25; c.height = PH * 1.25; return c; });
+function pageImage(pi, t) { const c = LIVE[pi], g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(PAGES[pi], 0, 0); g.setTransform(1.25, 0, 0, 1.25, 0, 0); live(g, pi, t); return c; }
+function camera(t) {
+  const K0 = [[0, 1000, 520, 0.95], [1.0, 980, 540, 0.95], [1.6, 1240, 480, 1.25], [4.0, 1250, 520, 1.2], [4.5, 960, 560, 0.86], [5.6, 960, 560, 0.86], [6.2, 600, 600, 1.15], [8.6, 760, 620, 1.1], [9.1, 960, 560, 0.86], [10.0, 960, 560, 0.86], [10.4, 600, 640, 1.08], [11.5, 700, 640, 1.05], [12.2, 1240, 620, 1.05], [15, 1200, 600, 0.98]];
+  let i = 0; while (i < K0.length - 2 && t > K0[i + 1][0]) i++; const [a, ax, ay, az] = K0[i], [b, bx, by, bz] = K0[i + 1]; const u = E.inOutCubic(clamp((t - a) / (b - a)));
+  return { x: lerp(ax, bx, u), y: lerp(ay, by, u), z: lerp(az, bz, u) };
+}
+Reel.scene({
+  duration: 15, fps: 30,
+  fonts: [`900 92px ${SERIF}`, `400 26px ${SERIF}`, `700 24px ${SANS}`, '900 150px Inter', '600 15px Inter'],
+  cues: [{ t: 0.3, sfx: 'paper', gain: 0.5 }, { t: 1.2, sfx: 'ticks', gain: 0.6 }, { t: 2.0, sfx: 'data', gain: 0.5 }, { t: 3.2, sfx: 'pop', gain: 0.5 }, { t: TURN[0], sfx: 'paper', gain: 0.8 }, { t: 5.8, sfx: 'data', gain: 0.5 }, { t: 7.4, sfx: 'stamp', gain: 0.5 }, { t: 7.9, sfx: 'marker', gain: 0.5 }, { t: TURN[1], sfx: 'paper', gain: 0.8 }, ...Array.from({ length: 12 }, (_, i) => ({ t: +(10.3 + i * 0.12).toFixed(2), sfx: 'tick', gain: 0.3 })), { t: 11.8, sfx: 'impact_soft', gain: 0.6 }],
+  render(t) {
+    const cam = camera(t);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); const dg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.75); dg.addColorStop(0, '#3a362f'); dg.addColorStop(1, '#1a1815'); ctx.fillStyle = dg; ctx.fillRect(0, 0, W, H);
+    const z = cam.z * K; ctx.setTransform(z, 0, 0, z, (960 - cam.x * cam.z) * K, (540 - cam.y * cam.z) * K);
+    // spread origin: page area x 160..1760, y 40..1080 in "desk" coords
+    const X0 = 160, Y0 = 40;
+    const turnIdx = t < TURN[0] ? -1 : t < TURN[0] + 0.9 ? 0 : t < TURN[1] ? -2 : t < TURN[1] + 0.9 ? 1 : -3;
+    const cur = t < TURN[0] + 0.9 ? 0 : t < TURN[1] + 0.9 ? 1 : 2;
+    ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 50 * z; ctx.shadowOffsetY = 18 * z; ctx.fillStyle = PAPER; ctx.fillRect(X0, Y0, PW * 2, PH); ctx.shadowColor = 'transparent';
+    const [L, Rr] = SPREADS[cur];
+    if (turnIdx >= 0) {
+      // during a turn: left = old left, right base = next right; the turning leaf shows old right then new left
+      const [oL, oR] = SPREADS[turnIdx], [nL, nR] = SPREADS[turnIdx + 1];
+      const u = E.inOutSine(clamp((t - TURN[turnIdx]) / 0.9));
+      ctx.drawImage(pageImage(oL, t), X0, Y0, PW, PH); ctx.drawImage(pageImage(nR, t), X0 + PW, Y0, PW, PH);
+      const ang = u * Math.PI, w = Math.cos(ang) * PW;           // leaf width projected (positive = on the right)
+      const img = pageImage(w > 0 ? oR : nL, t);
+      ctx.save(); ctx.translate(X0 + PW, Y0);
+      if (w > 0) { ctx.transform(w / PW, -0.08 * Math.sin(ang), 0, 1, 0, 0); ctx.drawImage(img, 0, 0, PW, PH); const sh = ctx.createLinearGradient(0, 0, PW, 0); sh.addColorStop(0, `rgba(0,0,0,${0.25 * Math.sin(ang)})`); sh.addColorStop(1, `rgba(255,255,255,${0.15 * Math.sin(ang)})`); ctx.fillStyle = sh; ctx.fillRect(0, 0, PW, PH); }
+      else { ctx.translate(w, 0); ctx.transform(-w / PW, -0.08 * Math.sin(ang), 0, 1, 0, 0); ctx.drawImage(img, 0, 0, PW, PH); const sh = ctx.createLinearGradient(0, 0, PW, 0); sh.addColorStop(1, `rgba(0,0,0,${0.3 * Math.sin(ang)})`); sh.addColorStop(0, 'rgba(0,0,0,0)'); ctx.fillStyle = sh; ctx.fillRect(0, 0, PW, PH); }
+      ctx.restore();
+      // cast shadow of the lifted leaf
+      const sw = Math.abs(w) * 0.25 * Math.sin(ang); const sg = ctx.createLinearGradient(X0 + PW + (w > 0 ? w : 0), 0, X0 + PW + (w > 0 ? w + sw : -sw), 0); sg.addColorStop(0, `rgba(0,0,0,${0.3 * Math.sin(ang)})`); sg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = sg; ctx.fillRect(Math.min(X0 + PW + w, X0 + PW + w + sw), Y0, Math.abs(sw) + 1, PH);
+    } else { ctx.drawImage(pageImage(L, t), X0, Y0, PW, PH); ctx.drawImage(pageImage(Rr, t), X0 + PW, Y0, PW, PH); }
+    // gutter shading
+    const gg = ctx.createLinearGradient(X0 + PW - 60, 0, X0 + PW + 60, 0); gg.addColorStop(0, 'rgba(0,0,0,0)'); gg.addColorStop(0.5, 'rgba(0,0,0,.22)'); gg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gg; ctx.fillRect(X0 + PW - 60, Y0, 120, PH);
+    // headline highlighter on spread 1
+    if (cur === 0 && turnIdx < 0) { const u = E.inOutSine(clamp((t - 0.7) / 0.45)); if (u > 0) { ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = HL; ctx.fillRect(X0 + 50, Y0 + 445, 520 * u, 80); ctx.restore(); } }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(0,0,0,.025)'; for (let i = 0; i < 200; i++) ctx.fillRect((Math.sin(i * 12.9 + Math.floor(t * 24)) * 0.5 + 0.5) * W, (Math.sin(i * 78.2 + Math.floor(t * 24) * 3.1) * 0.5 + 0.5) * H, 2 * K, 2 * K);
+  },
+});
+</script></body></html>

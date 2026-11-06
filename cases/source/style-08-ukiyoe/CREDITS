@@ -1,0 +1,14 @@
+一伞三景 · CREDITS
+
+Picture: drawn entirely in code (Canvas 2D) for this film. No third-party images or footage.
+
+Fonts (SIL Open Font License 1.1, subset to the characters used, self-hosted in fonts/):
+  Ma Shan Zheng — https://fonts.google.com/specimen/Ma+Shan+Zheng (OFL 1.1)
+  Noto Serif SC (600, 900) — https://fonts.google.com/noto/specimen/Noto+Serif+SC (OFL 1.1)
+
+Music: original score written in code for this film (shamisen and koto by physical modelling; shakuhachi, drums,
+clappers and chime built from the samples below plus synthesis). Foley and ambience synthesized in code.
+Samples (CC0): FreePats project (freepats.zenvoid.org), VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+  used: recorder, flute, hand_chimes, gran_cassa, toms, frame_drum, world_perc (claves), woodblock
+
+No real material (archival footage or photographs) is used, so there is no FACTS.md.

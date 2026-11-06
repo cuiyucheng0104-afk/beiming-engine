@@ -1,0 +1,11 @@
+{
+  "cards": 40,
+  "filters": true,
+  "favorites": true,
+  "export": true,
+  "modal": true,
+  "compare": true,
+  "slider": true,
+  "errors": [],
+  "broken": []
+}

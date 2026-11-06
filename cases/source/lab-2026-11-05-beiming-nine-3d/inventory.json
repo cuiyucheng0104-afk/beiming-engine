@@ -1,0 +1,370 @@
+[
+  {
+    "file": "engine/audio/__init__.py",
+    "sha256": "95e94b2e236d2c32b50f4ca068bb34edbbb1829b7aa266c6be1d6c96e28ae114"
+  },
+  {
+    "file": "engine/audio/ambience.py",
+    "sha256": "a25bd33352ab941b71c5a29dd0ce4105468bc59148be403614e58eb75a1b1894"
+  },
+  {
+    "file": "engine/audio/dsp.py",
+    "sha256": "33771e6bd535dc8d9710a305a9268133bc66bdfc8e3c3d53d7bcef90ffe03baf"
+  },
+  {
+    "file": "engine/audio/meter.py",
+    "sha256": "b256342c7b6d901fe4d7593a6e4c18a37a7eacdf21a200f8b36c4bc0fb57f219"
+  },
+  {
+    "file": "engine/audio/mixing.py",
+    "sha256": "1f260975c193d6afedd8a09cc0a14c97394aab8a29d18ab4b5934a5e2415a82d"
+  },
+  {
+    "file": "engine/audio/orchestra.py",
+    "sha256": "3a160fb64e8af57aa82aa21efeebb377a95c0192ecdeee283a814f757c953af6"
+  },
+  {
+    "file": "engine/audio/sampler.py",
+    "sha256": "361fc9dba9625da64f5c8200c8d6ea63a0b214f590486ec6155aff52aa7a15d6"
+  },
+  {
+    "file": "engine/audio/scope.py",
+    "sha256": "a02e27b3ba671c893faf5e6f7bf1ed6face3e0584a07318bcb27f086d295bd16"
+  },
+  {
+    "file": "engine/audio/synth.py",
+    "sha256": "a923c196b18b7ada8c0def49f39c1657a32a6b77e888c8e68b99a4f2cf10ef01"
+  },
+  {
+    "file": "engine/core/clock.js",
+    "sha256": "d75d985d7ada2b43e73a271efdecbf3533dc7c39b1090fdcb3e41a03390d8e7a"
+  },
+  {
+    "file": "engine/core/math.js",
+    "sha256": "bd814669e89e6733f901b7da69ee232756c60fae902e1302d6a20c70517053c8"
+  },
+  {
+    "file": "engine/core/noise.js",
+    "sha256": "fb5af1b0b7664bc877de4278368c3594342a4cb67b23c57bf2b328b1fb1954c7"
+  },
+  {
+    "file": "engine/core/stroke.js",
+    "sha256": "610ff513bb67ef7b0478363cf36be6dd5209d20fbb93b5f848249e8676d269f1"
+  },
+  {
+    "file": "engine/form/bend.js",
+    "sha256": "a0b64f3681296465c6acf418d457d844db5129c76b8e2c6e048f57c580b7affa"
+  },
+  {
+    "file": "engine/form/curves.js",
+    "sha256": "97617bf206e9a37018fc03329b00eef92dcb9a47214da8ded00bc821e1a653d3"
+  },
+  {
+    "file": "engine/form/eye.js",
+    "sha256": "ada77c54c44defaa2622bacf8bd9d8e002e930b3205500d3f6238fba43fe9029"
+  },
+  {
+    "file": "engine/form/loft.js",
+    "sha256": "b97b11914f176ebcde4a9981c405b08b727f2b7bac15bf290ba9e84543ad19dd"
+  },
+  {
+    "file": "engine/form/plants.js",
+    "sha256": "5b8140e163dbfe85630cdc9678e9551036e281fac6afb3b777cbbb1a03fc53cf"
+  },
+  {
+    "file": "engine/form/props.js",
+    "sha256": "07bf6af8152306e1e4c9857ac0b3081d30569e21435a96138672d5ce0660ab00"
+  },
+  {
+    "file": "engine/form/rock.js",
+    "sha256": "aa686937551b4cc8dfd208f9aa01152d9207768f545802459e0dd738cb14585f"
+  },
+  {
+    "file": "engine/form/scatter.js",
+    "sha256": "d28b20a3d1953c09360e7229ea488c5101a0c77948ec147f3d18e94c13813a44"
+  },
+  {
+    "file": "engine/form/sdf.js",
+    "sha256": "d5721ff001af37d24b175fc1bacbdb89616fe4abbaa893bb2c72322b30e929c2"
+  },
+  {
+    "file": "engine/look/bloom.js",
+    "sha256": "1d853e28742d677d9a3a4ae34780197328639fe13e53540066b80b5049c09667"
+  },
+  {
+    "file": "engine/look/compose.js",
+    "sha256": "3ead1c635d9f47afe171cbe98778460ce2afc8b84e73ea61f581d40bcf23ed53"
+  },
+  {
+    "file": "engine/look/debug.js",
+    "sha256": "d8b59620eb0b5b8d3dd8a94c68baed6538e01d58061b37cee0e61e095cece21f"
+  },
+  {
+    "file": "engine/look/fog.js",
+    "sha256": "5af49acd682d188508eb510babd164fba5ee8e99370058e21fc12110b9333229"
+  },
+  {
+    "file": "engine/look/glsl.js",
+    "sha256": "1236999732b65dcf5d028a82a3af49e75a5016584f6b981e01514703729ce552"
+  },
+  {
+    "file": "engine/look/grade.js",
+    "sha256": "66d49df99b75a35302da44289d979b118affd848cb4b7be9b1cdf13518df17c2"
+  },
+  {
+    "file": "engine/look/ids.js",
+    "sha256": "405ffbce7d01f0db2eda812b5ca455ce0d9b89dc956985ff060454a3e811668b"
+  },
+  {
+    "file": "engine/look/index.js",
+    "sha256": "f2e4850cd4612c5616f9db4549d51589875f636e171785960cc518da086d3f57"
+  },
+  {
+    "file": "engine/look/ink.js",
+    "sha256": "44a68555fbfbd16e400216101a09094a2ee64299abfc7ae819941e6c8aa7b96e"
+  },
+  {
+    "file": "engine/look/kuwahara.js",
+    "sha256": "c3f31bae0dece433acf41f8e8cc08c7adb7dbef38009922fb5995853273959a7"
+  },
+  {
+    "file": "engine/look/paper.js",
+    "sha256": "502a551994a7b58ed33a6e15a06820bdcbc5ace6d80918c57cc2856aeac3796b"
+  },
+  {
+    "file": "engine/look/params.js",
+    "sha256": "ecadd624d4fe2521b7b49f97a8fa8d6233c0d6d246d7c04ff684a57892570280"
+  },
+  {
+    "file": "engine/look/pass.js",
+    "sha256": "6ab361afb525f301e731e11726ec43fb595f073ce6031a6a586c120c471c435e"
+  },
+  {
+    "file": "engine/overlay/brush.js",
+    "sha256": "7b50f95ab2a700a8c97fa5bab334b3cd349fa8739e5c9ffa5355a444f5dadaf5"
+  },
+  {
+    "file": "engine/overlay/text.js",
+    "sha256": "b6576219ec80241710cf695bae5a29e75cd298a11446ec13bc8af496be8d23dd"
+  },
+  {
+    "file": "engine/overlay/widgets.js",
+    "sha256": "3d0ce50ff84976a42473477615146625c67b21b3bd557560cf59e2dca42ae61f"
+  },
+  {
+    "file": "engine/paint/affine.js",
+    "sha256": "b987cc41fe69905e68789075156b6c1be0010a75421af3a9cf840b3cd954422f"
+  },
+  {
+    "file": "engine/paint/canvas.js",
+    "sha256": "b2d702e792f15cbf0f21774faa68f09d6cec5ab12caa1f63061f84ad2372397e"
+  },
+  {
+    "file": "engine/paint/curve.js",
+    "sha256": "3c150f341fda17843c268da47559d161754e76236606d5a14a4d92cb14a439d6"
+  },
+  {
+    "file": "engine/paint/ink.js",
+    "sha256": "be68dc16c144db07b485472c024d7e6e92718d31b835df827ee43954f1071eda"
+  },
+  {
+    "file": "engine/paint/light.js",
+    "sha256": "3fd60e41c70004177b44dc6ee4cfc2e518ac7ec736ae881ed723d8bbc10f187d"
+  },
+  {
+    "file": "engine/paint/path.js",
+    "sha256": "fd5f461060eb6edc183169c05a5a570096694259fedbbaa82bd85dcbae71f9f2"
+  },
+  {
+    "file": "engine/paint/strand.js",
+    "sha256": "f0141b03439350c5c99b7492e25961ea8b598b417151ddb89f1cd42e6a650470"
+  },
+  {
+    "file": "engine/paint/wash.js",
+    "sha256": "8c2fbe67dd8d98b488e43147b1da84b0f88e2837b162087893da73043952ebba"
+  },
+  {
+    "file": "engine/render/mux.sh",
+    "sha256": "dc1cf597f1fd2dc46683a9ed5406f35063559bb5d44f40a22714bc9145ed6cf6"
+  },
+  {
+    "file": "engine/render/page.mjs",
+    "sha256": "1e0e24fae6bb9f4dfe7eed9f8b1950e424d028731e85f4a033150f619a6a332e"
+  },
+  {
+    "file": "engine/render/still.mjs",
+    "sha256": "35d40852e829f7498d9b4214b135b6a578384642b3d5951257e74e8c20ef75c2"
+  },
+  {
+    "file": "engine/render/video.mjs",
+    "sha256": "60902806177ed3f4f4b742beb6be7f36a7139b517105af9d0a1ff6d73acc3815"
+  },
+  {
+    "file": "engine/shade/noise.glsl.js",
+    "sha256": "ae390324baca590a75da209ee7d9dbb6739f9d37cc26a1b3675fd52369b32b93"
+  },
+  {
+    "file": "engine/shade/patch.js",
+    "sha256": "06677ac230e22b210071a11d002e5378b7846a84f52c9aeb5ab5de75b15952fe"
+  },
+  {
+    "file": "engine/shade/surface.js",
+    "sha256": "862453f331a0ab2b455ddbdd352752a1df0ede7b1fb377bc3f9e25c3b828b3e8"
+  },
+  {
+    "file": "engine/shade/toon.js",
+    "sha256": "1936ac68ed522336581bdf66a89c4463fe0e3ad9758656abbe1efc17f883e5f8"
+  },
+  {
+    "file": "engine/shade/util.glsl.js",
+    "sha256": "27f06804c5f5e8c08273923b3de6d9b505c4d06685e8e0f5e6b00003a9eca2aa"
+  },
+  {
+    "file": "engine/stage/camera.js",
+    "sha256": "55f1a46dc7e70dc77ff9550f9f665ce9c8cef9635fe05e96a59ffc120c864a59"
+  },
+  {
+    "file": "engine/stage/dome.js",
+    "sha256": "c9d1d91232f54b54cfab59a734e91db8e29a9c4aef95549d0085c0733d9d1330"
+  },
+  {
+    "file": "engine/stage/film.js",
+    "sha256": "c343ec3f302a78cf9522fb0bd58d2cba08885df56ded1c2e92b5087d4e12a083"
+  },
+  {
+    "file": "engine/stage/motion.js",
+    "sha256": "e7a60b80aacb8cb9da661ac0980a3b1e9cf4ffe5fee4cc0ee92686605c1cc977"
+  },
+  {
+    "file": "engine/stage/outline.js",
+    "sha256": "3b38f60c46d240a027ff00e508764954dd4a94c9e3ff52ba4f4a3af1d11c4751"
+  },
+  {
+    "file": "engine/stage/plates.js",
+    "sha256": "a4f484ab692d9dfe14632e464ae6a4143af19168195591d43c1b1c9261ae8fca"
+  },
+  {
+    "file": "src/look.js",
+    "sha256": "83f4fe837de77f6b19ea829121bfe3b52a29215ddcc2f61cb1b83908b65186b9"
+  },
+  {
+    "file": "src/toon.js",
+    "sha256": "c2b039950ee37f61e7572f7cdd6f70eb2ae340919f29a60e3dbd716ed24e7718"
+  },
+  {
+    "file": "lab/index.html",
+    "sha256": "4f425cae32d841e778335de408e1f283f4e7275ae4815fbbcf671a450dca5489"
+  },
+  {
+    "file": "lab/main.js",
+    "sha256": "7255f57d50112c038a11205371d995e0a10c27cf895a7877eb9ee66bc3d9fbc4"
+  },
+  {
+    "file": "lab/scenes.js",
+    "sha256": "9edc78a13b668c00f2d65686e17b4f7dd02e733d67413fdf7fb74d6a229d019c"
+  },
+  {
+    "file": "lab/world.js",
+    "sha256": "967bca475028844d8fc82bba96955985694d685d8af7312a6e574a9c8173405e"
+  },
+  {
+    "file": "tools/deliver.py",
+    "sha256": "d23ea7be7a23c80456e8a5d83b32cfb9cde2417f6af2d49ede10957337d3cbf5"
+  },
+  {
+    "file": "tools/render.mjs",
+    "sha256": "eccddd2670d42a8075e5d766bf9cd3d826ccbe1d8455eea54051760c3d003ba6"
+  },
+  {
+    "file": "tools/render.ps1",
+    "sha256": "eb61316617716a884acfa33f4a5e79a2a00f66facdfff0b91c2c084e24960932"
+  },
+  {
+    "file": "models/boatman.glb",
+    "sha256": "1a90a2619f9f51f9ac66a5888924705c7d5f148c1393279858cd3145986bdc42"
+  },
+  {
+    "file": "models/pavilion.glb",
+    "sha256": "7a012993b34ace875d5a1ab4102ccec8376af6f05849908c378265f820be2166"
+  },
+  {
+    "file": "models/scholar.glb",
+    "sha256": "021ebcdb7eea03da9c8a2fe50451046b723f277ca3a244ff8ddf15a2df4663f4"
+  },
+  {
+    "file": "assets/clouds_back.png",
+    "sha256": "86c44b80d485708ebebfbeae9a588ec218400d7fa5c2e18993edd7752585683f"
+  },
+  {
+    "file": "assets/paper.png",
+    "sha256": "3c4a651d00953aa5ac8adf50891bfbf60e5b0cb4fb0b14a6dc4dda39ff2e0fed"
+  },
+  {
+    "file": "assets/sky_dawn.png",
+    "sha256": "a55afb992dcd8c1780609eeb7c818d7878e13d118a6479d8ee4b5515b3c3cf4e"
+  },
+  {
+    "file": "refs/01.jpg",
+    "sha256": "f507007a7616bce14e68e507f663b5c3274b98e4c186aeb258d3fb51e5347139"
+  },
+  {
+    "file": "refs/02.jpg",
+    "sha256": "8eb689e085b6547a7d91ab7863d16c9c6b9d1afd48ec782303d0f02255034ecc"
+  },
+  {
+    "file": "refs/03.jpg",
+    "sha256": "d5a3efda93e8f6a546da9e2e2d9d3c6cc87bc9105cdd4038f90f22e1f136f2df"
+  },
+  {
+    "file": "refs/04.jpg",
+    "sha256": "7a7e915faac43308b286e2b982f1a4d3a6f3984b27b94a5a06b22113a39b569d"
+  },
+  {
+    "file": "refs/05.jpg",
+    "sha256": "ed1d985a8edda0881ae937798ef77f147a45bb8a1f2d333a088a917dd022bf50"
+  },
+  {
+    "file": "refs/06.jpg",
+    "sha256": "e761e92d5055d6d82b37040be36ca7d583db946064b55a419bed0896efabedbb"
+  },
+  {
+    "file": "refs/07.jpg",
+    "sha256": "e7414ba1028008955efb4092732fee78cc4ca9402144b8bd499cf91f9eb9b1b3"
+  },
+  {
+    "file": "refs/08.jpg",
+    "sha256": "1e8735f7a7fcd7e65abb5d4e98754e65d0005627862a6724618c81e788f6ca0a"
+  },
+  {
+    "file": "refs/09.jpg",
+    "sha256": "ba67ac925a67d380ceb143b165cf2afc2314506b7645295140339f4a11fb6c97"
+  },
+  {
+    "file": "refs/manifest.json",
+    "sha256": "9695e60a9dd9457aaf0cd7c5ea3251b7a04915f3078b426b6048702a84caaa2d"
+  },
+  {
+    "file": "docs/画风与几何说明.md",
+    "sha256": "090bb59f7e23a15e89400e025bdb02ba05673913152fbb3f466358afe92febff"
+  },
+  {
+    "file": "README.md",
+    "sha256": "ef39c08cdd9808411bab5f30e881d3e07cb6be29d901dbfd4c0b59a5bac14d2a"
+  },
+  {
+    "file": "LICENSE",
+    "sha256": "5d126297d8177180adb1473e375fabb3d9c304a0cf2440cc2db13c267ed5a31c"
+  },
+  {
+    "file": "WORKLOG.md",
+    "sha256": "6696d1166aa6e38d79a6557037934859c92b080dd908833c82be90ca23c2e03e"
+  },
+  {
+    "file": "package.json",
+    "sha256": "99c51bc3b1f2c614dd85aba1b44149f1a281d65cc8c00afd8eb0818da0c0fe21"
+  },
+  {
+    "file": "package-lock.json",
+    "sha256": "74461e7cb0fd424572c3b83b4c8157a1bcc6bc8a3d0ceced162395a23c43e863"
+  }
+]

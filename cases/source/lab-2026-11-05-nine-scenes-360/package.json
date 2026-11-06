@@ -1,0 +1,19 @@
+{
+  "name": "beiming-tonal-lab-01",
+  "version": "0.1.0",
+  "description": "北冥引擎：5090三渲二色阶实验，40组参数与同机位验证",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "render": "node tools/render-grid.mjs",
+    "render:detail": "node tools/render-grid.mjs --detail",
+    "render:probe": "node tools/render-grid.mjs --probe",
+    "render:qa": "node tools/render-grid.mjs --qa",
+    "setup": "npm install && npx playwright-core install chromium-headless-shell"
+  },
+  "dependencies": {
+    "three": "0.170.0",
+    "playwright-core": "1.63.0"
+  }
+}

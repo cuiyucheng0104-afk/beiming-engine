@@ -1,0 +1,16 @@
+《追帽子》1920s 默片风格样片 · 第三方素材与许可
+
+配乐采样（全部 CC0 1.0）
+- 立式钢琴 upright：VS Chamber Orchestra: Community Edition（Versilian Studios，https://github.com/sgossner/VSCO-2-CE），CC0 1.0
+- 木鱼 woodblock、三角铁 triangle：Versilian Community Sample Library（Versilian Studios，https://github.com/sgossner/VCSL），CC0 1.0
+- 酒馆钢琴 honky_tonk：FreePats project（https://freepats.zenvoid.org），CC0 1.0
+- 班卓：物理建模合成（Karplus–Strong，代码生成，无采样）
+- 滑哨、电车铃、风声机、狗吠效果、放映机声、幕布声：numpy 程序合成（原创）
+
+字体
+- Noto Serif SC（思源宋体）Black，按片中用字子集化，来源 Google Fonts（https://fonts.google.com/noto/specimen/Noto+Serif+SC），SIL Open Font License 1.1
+
+代码
+- 画面引擎（ink / redraw / film / cards / figure / heads）与 sets.js 改编自本地风格库 silent-film 风格的示例引擎，仅作技法使用；故事、角色、镜头、配乐均为本片原创。
+
+本片无真实影像素材、无旁白人声。使用者对片中所用素材自行负责。

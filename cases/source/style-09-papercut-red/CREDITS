@@ -1,0 +1,20 @@
+鲤鱼跃龙门 · 红色窗花剪纸风格样片 — 第三方素材与许可
+
+画面
+- 全部画面由代码实时绘制（canvas 2D），无照片、无视频素材、无生成式影像。
+- 纸张/剪纸引擎（engine/paper.js、motifs.js、rig.js）改写自本地风格库的同风格示例引擎，属工具代码，不含任何素材。
+
+字体
+- Noto Serif SC Black（思源宋体 900），SIL Open Font License 1.1。来源：https://fonts.google.com/noto/specimen/Noto+Serif+SC
+  经 Google Fonts CSS API `&text=龙门福` 子集化，仅含片中 3 个字：fonts/notoserifsc900.woff2
+- fonts/ 中另有两份试用子集（Ma Shan Zheng、ZCOOL XiaoWei，均为 OFL 1.1），未在成片中使用。
+
+音乐与音效
+- 配乐为本片原创，代码合成（mix.py）。
+- 采样（CC0 1.0，无署名义务，致谢）：
+  Samples (CC0): Karoryfer Samples / sfzinstruments（二胡 erhu），VS Chamber Orchestra: Community Edition — Versilian Studios / Sam Gossner（长笛代笛 flute、大鼓 bass_drum），Versilian Community Sample Library — Versilian Studios（越南筝代古筝 dan_tranh、木鱼代梆子 woodblock、锣 gong2、框鼓 frame_drum）
+  来源：https://github.com/sgossner/VSCO-2-CE · https://github.com/sgossner/VCSL · https://github.com/sfzinstruments
+- 琵琶：Karplus–Strong 物理建模（纯合成，无许可要求）；笙：numpy 加法合成的簧片音色（原创）。
+- 全部拟音（剪刀、折纸、展开、揭纸、纸板闷声、碎纸、鞭炮等）为 numpy 程序合成，无录音素材。
+
+无旁白、无字幕；无真实素材（本风格不属于剪辑/纪实类），因此无 FACTS.md。

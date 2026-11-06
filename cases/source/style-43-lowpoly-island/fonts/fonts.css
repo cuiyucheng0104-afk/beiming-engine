@@ -1,0 +1,3 @@
+/* 子集化字体（Google Fonts &text=，OFL）：Noto Sans SC Light 只含「风车的一天」；Josefin Sans Light 只含副标题字母 */
+@font-face { font-family: 'Noto Sans SC'; font-weight: 300; font-style: normal; font-display: block; src: url(notosanssc-300-sub.woff2) format('woff2'); }
+@font-face { font-family: 'Josefin Sans'; font-weight: 300; font-style: normal; font-display: block; src: url(josefin-300-sub.woff2) format('woff2'); }

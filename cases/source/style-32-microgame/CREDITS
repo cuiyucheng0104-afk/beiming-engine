@@ -1,0 +1,17 @@
+四连关 · 第三方素材与许可
+
+本片画面全部由代码绘制（Canvas 2D），没有使用任何外部图片、视频或素材影像。
+
+配乐采样
+- Drums: "MuldjordKit" by Lars Muldjord (drumgizmo.org), FreePats version, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+- VS Chamber Orchestra: Community Edition (Versilian Studios) — CC0 1.0：小号/长号/圆号/大号断奏与长音、颤音琴、定音鼓、镲
+- Versilian Community Sample Library (Versilian Studios) — CC0 1.0：拍手、小军鼓、木鱼、锣、木琴、钟琴
+- 八音盒与古琴：物理建模合成（Karplus–Strong / 模态合成），无采样
+- 芯片底鼓、脉冲贝斯、方波主奏与琶音、全部拟音：numpy 程序合成，无采样
+
+字体（均为 SIL Open Font License 1.1，按 Google Fonts CSS API &text= 子集化后存于 fonts/）
+- ZCOOL QingKe HuangYou（站酷庆科黄油体）— https://fonts.google.com/specimen/ZCOOL+QingKe+HuangYou
+- Noto Sans SC Black — https://fonts.google.com/noto/specimen/Noto+Sans+SC
+- Titan One — https://fonts.google.com/specimen/Titan+One
+
+类型语法参照（只学语法，不取任何角色、界面、关卡、旋律）：派对小游戏合集类电子游戏。

@@ -1,0 +1,42 @@
+悬索桥为何不倒 — CREDITS
+
+== 照片（全部为美国政府作品 / 公有领域，Historic American Engineering Record, HAER CA-31, Library of Congress）==
+- print_tower（开场落墙的桥面塔身照片）
+  标题：DETAIL VIEW, LOOKING NORTH, SHOWING TOWER - Golden Gate Bridge, Spanning mouth of San Francisco Bay, San Francisco, San Francisco County, CA HAER CAL,38-SANFRA,140-11.tif
+  文件页：https://commons.wikimedia.org/wiki/File:DETAIL_VIEW,_LOOKING_NORTH,_SHOWING_TOWER_-_Golden_Gate_Bridge,_Spanning_mouth_of_San_Francisco_Bay,_San_Francisco,_San_Francisco_County,_CA_HAER_CAL,38-SANFRA,140-11.tif
+  下载：https://thumb.wikimedia.org/wikipedia/commons/thumb/d/df/DETAIL_VIEW%2C_LOOKING_NORTH%2C_SHOWING_TOWER_-_Golden_Gate_Bridge%2C_Spanning_mouth_of_San_Francisco_Bay%2C_San_Francisco%2C_San_Francisco_County%2C_CA_HAER_CAL%2C38-SANFRA%2C140-11.tif/lossy-page1-1920px-thumbnail.tif.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail
+  许可：Public domain（Wikimedia Commons 标注 Public domain；LOC 来源 https://www.loc.gov/pictures/item/ca1355.photos.016333p）
+- print_bay（塔与主缆、海湾一侧）
+  标题：GENERAL VIEW, LOOKING SOUTH, SHOWING THE 'BAY SIDE' OF THE BRIDGE - Golden Gate Bridge, Spanning mouth of San Francisco Bay, San Francisco, San Francisco County, CA HAER CAL,38-SANFRA,140-5.tif
+  文件页：https://commons.wikimedia.org/wiki/File:GENERAL_VIEW,_LOOKING_SOUTH,_SHOWING_THE_%27BAY_SIDE%27_OF_THE_BRIDGE_-_Golden_Gate_Bridge,_Spanning_mouth_of_San_Francisco_Bay,_San_Francisco,_San_Francisco_County,_CA_HAER_CAL,38-SANFRA,140-5.tif
+  下载：https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2f/GENERAL_VIEW%2C_LOOKING_SOUTH%2C_SHOWING_THE_%27BAY_SIDE%27_OF_THE_BRIDGE_-_Golden_Gate_Bridge%2C_Spanning_mouth_of_San_Francisco_Bay%2C_San_Francisco%2C_San_Francisco_County%2C_CA_HAER_CAL%2C38-SANFRA%2C140-5.tif/lossy-page1-3840px-thumbnail.tif.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail
+  许可：Public domain（Wikimedia Commons 标注 Public domain；LOC 来源 https://www.loc.gov/pictures/item/ca1355.photos.016327p）
+- cable（主缆索夹与吊索，抠像）
+  标题：Golden Gate Bridge cable, CA-31-15.jpg
+  文件页：https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_cable,_CA-31-15.jpg
+  下载：https://thumb.wikimedia.org/wikipedia/commons/thumb/9/9e/Golden_Gate_Bridge_cable%2C_CA-31-15.jpg/3840px-Golden_Gate_Bridge_cable%2C_CA-31-15.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail
+  许可：Public domain（Wikimedia Commons 标注 Public domain；LOC 来源 https://www.loc.gov/pictures/item/ca1355/）
+- print_elev（总立面远景，仅结尾整墙出现）
+  标题：GENERAL ELEVATION VIEW, LOOKING EAST - Golden Gate Bridge, Spanning mouth of San Francisco Bay, San Francisco, San Francisco County, CA HAER CAL,38-SANFRA,140-19.tif
+  文件页：https://commons.wikimedia.org/wiki/File:GENERAL_ELEVATION_VIEW,_LOOKING_EAST_-_Golden_Gate_Bridge,_Spanning_mouth_of_San_Francisco_Bay,_San_Francisco,_San_Francisco_County,_CA_HAER_CAL,38-SANFRA,140-19.tif
+  下载：https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7a/GENERAL_ELEVATION_VIEW%2C_LOOKING_EAST_-_Golden_Gate_Bridge%2C_Spanning_mouth_of_San_Francisco_Bay%2C_San_Francisco%2C_San_Francisco_County%2C_CA_HAER_CAL%2C38-SANFRA%2C140-19.tif/lossy-page1-3840px-thumbnail.tif.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail
+  许可：Public domain（Wikimedia Commons 标注 Public domain；LOC 来源 https://www.loc.gov/pictures/item/ca1355.photos.016341p）
+  处理：裁去 HAER 编号与黑边；cable 由 kit/tools/cable_mask.py 天空抠像（material/derived/cable_mask.png）；统一调色（降饱和、微暖）。
+  print_elev 另做色阶拉伸：原片雾重，裁切保留前景山头（64,1400–3690,2600），按 1.5%/99.7% 分位拉伸、gamma 1.4（make_print.py --levels），黑位仍抬到 5%。
+
+== 字体（SIL Open Font License 1.1，见 fonts/OFL-*.txt）==
+- LXGW Marker Gothic（马克笔字，Google Fonts CSS API &text= 子集化）
+- Noto Sans SC 500/700/900（子集化）
+- IBM Plex Mono Medium / SemiBold
+- Archivo（可变字体）
+
+== 采样乐器（CC0 1.0）==
+- Samples (CC0): Karoryfer Samples / sfzinstruments (jazz double bass "Sneakybass"), VS Chamber Orchestra: Community Edition (Versilian Studios / Sam Gossner: trombone, tuba, horn, contrabass, timpani, bass drum, marimba via VCSL), Versilian Community Sample Library (Versilian Studios: snare2, hihat, woodblock, claves, log drum, marimba, xylophone, gran cassa, suspended cymbal)
+- 合成低音、金属敲击、全部拟音与房间底噪：numpy 程序合成（audio/mix.py），无第三方素材。
+
+== 代码 ==
+- kit/board.js、kit/batch.mjs、kit/tools/prep_object.py / make_print.py / fetch_fonts.py：取自本地风格库 briefing-board 示例的绘制与抠像工具（本片有改动：擦除残影透明度、擦除雾化形状）。
+- 渲染、合成与母带工具：本地风格库 core/（$LIB）。
+
+== 事实 ==
+- 见 FACTS.md。

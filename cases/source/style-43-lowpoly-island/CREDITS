@@ -1,0 +1,15 @@
+风车的一天 — 第三方素材与许可
+
+音乐采样（CC0）
+- FreePats project — https://freepats.zenvoid.org/ （卡林巴 kalimba、拇指琴 mbira 等）— CC0
+- Versilian Community Sample Library (VCSL), Versilian Studios — https://github.com/sgossner/VCSL （马林巴、手铃、管钟、钟琴、木鱼、沙锤、弓奏颤音琴）— CC0
+- 拨弦模态合成（pluck.py）、软 pad、低音、风、海浪、鸟鸣、蟋蟀与全部拟音均为本片代码合成，无第三方录音。
+
+字体（SIL Open Font License 1.1，经 Google Fonts CSS API &text= 子集化后自托管于 fonts/）
+- Noto Sans SC Light — https://fonts.google.com/noto/specimen/Noto+Sans+SC — OFL 1.1（仅含「风车的一天」五字）
+- Josefin Sans Light — https://fonts.google.com/specimen/Josefin+Sans — OFL 1.1（仅含副标题字母）
+
+渲染库
+- three.js — https://threejs.org — MIT License
+
+画面全部由代码实时绘制，无照片、无影片素材、无生成式图像。

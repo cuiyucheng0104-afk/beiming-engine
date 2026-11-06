@@ -1,0 +1,16 @@
+跳水 — Risograph 孔版印刷 风格样片 · 第三方素材与许可
+
+画面
+- 全部画面由代码绘制（Canvas 2D + WebGL2 印刷着色器），无照片、无视频素材、无生成式影像。
+- 字体：Noto Sans SC Black（900），SIL Open Font License 1.1
+  来源：Google Fonts（https://fonts.google.com/noto/specimen/Noto+Sans+SC），按所用 4+3 个汉字子集化（fonts/NotoSansSC-900-subset.woff2）
+  许可全文：fonts/OFL.txt（https://github.com/notofonts/noto-cjk/blob/main/Sans/LICENSE）
+
+声音
+- 原创配乐与拟音：numpy 合成（鼓机底鼓、合成贝斯、FM 电钢琴、所有水/纸/印刷机拟音）、Karplus–Strong/模态合成拨奏（卡林巴），无第三方录音素材。
+- 真实采样（CC0 1.0，公有领域贡献）：
+  Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+  使用：拍手、军鼓（近麦）、踩镲、沙锤、响棒、对镲、吊镲、三角铁、颤音琴（软槌/硬槌/弓奏）
+  VSCO 2 CE：https://github.com/sgossner/VSCO-2-CE · VCSL：https://github.com/sgossner/VCSL
+
+使用者对片中使用的素材自行负责。

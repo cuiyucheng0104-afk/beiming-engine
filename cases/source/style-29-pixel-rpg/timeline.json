@@ -1,0 +1,56 @@
+{
+ "FPS": 24,
+ "A": {
+  "f0": 0,
+  "bpm": 96,
+  "meter": 3,
+  "fpb": 15,
+  "beats": 6
+ },
+ "B": {
+  "f0": 90,
+  "bpm": 144,
+  "meter": 4,
+  "fpb": 10,
+  "bars": 10
+ },
+ "NFRAMES": 470,
+ "DUR": 19.583333333333332,
+ "CUE": {
+  "open": 0,
+  "step1": 15,
+  "step2": 30,
+  "step3": 45,
+  "stop": 60,
+  "push": 75,
+  "chomp": 90,
+  "swirl": 100,
+  "battle": 130,
+  "msg1": 140,
+  "cursor": 170,
+  "tremble": 210,
+  "cur1": 220,
+  "cur2": 230,
+  "select": 240,
+  "heart": 270,
+  "line": 290,
+  "spit": 290,
+  "catch": 310,
+  "status": 330,
+  "hush": 360,
+  "levelup": 370,
+  "phrase2": 410,
+  "mosaic": 430,
+  "final": 450
+ },
+ "SILENCE": [
+  [
+   243,
+   270
+  ],
+  [
+   360,
+   370
+  ]
+ ]
+}

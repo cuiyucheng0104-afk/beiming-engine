@@ -1,0 +1,16 @@
+三打白骨精 · 皮影戏 — 素材与许可
+
+画面：全部由代码逐帧绘制（Canvas 2D + WebGL2），无视频生成、无图库素材。
+  - 驴皮刻工工具 carve.js、舞台木框 / 观众 / 立柱 stage.js、幕后剪影 backstage.js：
+    取自 Lemo-Opuscar 风格库 styles/shadow-puppet/demo（MIT License），直接引用未修改。
+  - 幕布合成器 gl.js：取自同一 demo（MIT），本片加了"只有热点的小灯"。
+  - 角色、布景、表演、镜头、音效设计：本片原创。
+
+字体：Ma Shan Zheng（马善政楷书）— SIL Open Font License 1.1。
+
+声音：仅音效，无配音、无旋律配乐。
+  - 锣鼓击节采样（大锣 / 小锣 / 吊镲 / 对镲 / 木块 / 木鱼鼓 / 框鼓 / 大鼓）：
+    Samples (CC0): VS Chamber Orchestra: Community Edition (Versilian Studios), Versilian Community Sample Library (Versilian Studios)
+  - 其余拟音（醒木、火柴、皮片、竹杆、骨响、纸、风、妖气底）：numpy 程序合成，本片原创。
+
+故事：取材于《西游记》第二十七回（公版）。
