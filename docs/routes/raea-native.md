@@ -45,10 +45,10 @@
 
 ## 3. 新建一个非北冥画风工程
 
-以下 `projects/native-orbit/` 是**建议新目录**，本次未创建。例子取独立的蓝灰工业演示：6 秒、1280×720、24fps、144 帧，不导入北冥底板、配色、片名或后期。目录名不影响路线判定。
+以下 `examples/raea-starter/` 是**建议新目录**，本次未创建。例子取独立的蓝灰工业演示：6 秒、1280×720、24fps、144 帧，不导入北冥底板、配色、片名或后期。目录名不影响路线判定。
 
 ```text
-projects/native-orbit/
+examples/raea-starter/
   project.json             # 按共用项目模板记录；目前无自动运行时消费
   film.tsx                 # registerRoot 与 Composition
   settings.mjs             # 本工程自有常量，由 TSX 和将来的包装脚本显式 import
@@ -125,7 +125,7 @@ const actorFrame = globalFrame - actorClockOrigin;
 const actorSeconds = Math.floor(actorFrame / 3) * 3 / fps;
 ```
 
-`startFrame` 与 `actorClockOrigin` 是本工程参数，不是 Hook 返回值。若动作从影片起点连续播放，`actorClockOrigin = 0`；若需要重启动作，显式指定起始帧。相机通常每帧更新；一拍三只用于角色轨道。Model 未给 `time` 时使用当前局部帧／fps，因此跨 Sequence 的同一角色应显式传入连续的 `actorSeconds`，避免切镜头重播。
+`startFrame` 与 `actorClockOrigin` 是本工程参数，不是 Hook 返回值；这里的 `actorClockOrigin` 应取镜头映射中的当前轨道值（非负整数全局帧号），不是整个映射对象。若动作从影片起点连续播放，`actorClockOrigin = 0`；若需要重启动作，显式指定起始帧。相机通常每帧更新；一拍三只用于角色轨道。Model 未给 `time` 时使用当前局部帧／fps，因此跨 Sequence 的同一角色应显式传入连续的 `actorSeconds`，避免切镜头重播。
 
 本例可分 `[0,72)`、`[72,144)` 两镜；重点检查 71、72、73 帧。未来接入物理、Compute 或运动匹配时，先比较顺序播放、直接跳帧、逆序取帧和重复取同帧；有历史状态的求解不能直接按镜头并行。按[共用采样契约](contracts.md)记录 `absolute / baked / sequential`。
 
@@ -244,7 +244,7 @@ npm run raea:render
 独立工程未接入新包装前，可以直接调用外部 RAEA。先完成静态输入检查与共享 GPU 占用确认；下面直接 CLI **不会执行旧包装的占用检查**，单帧 PNG 同样会启动 GPU。
 
 ```sh
-cd projects/native-orbit
+cd examples/raea-starter
 mkdir -p out delivery
 "$RAEA_BIN" render film.tsx --frame 0 -o out/frame-000.png
 "$RAEA_BIN" render film.tsx --frame 72 -o out/frame-072.png
@@ -289,20 +289,20 @@ ffmpeg -v error -i delivery/native-orbit.mp4 -f null -
 
 **R 编号只定位本手册步骤，不是新的全局任务或状态机。** 跨路线分派、负责人、依赖、写入范围与完成证据统一归入 `docs/routes/work-plan.json` 的 T00…任务；分派时在对应 T 任务中注明本页 R 编号。同一个全局任务可以覆盖多个 R 步骤。下表为待实施建议，不因文档完成而标记实现完成。
 
-路径缩写 `P = projects/native-orbit`；均指未来所属任务的写入范围，**不是本次获准创建的文件**。分派者以 work-plan.json 的实际 `writeScope` 为准；共享 `film.tsx` 和项目设置只由集成人员改，其他人员交付独立组件。
+路径与全局任务卡保持一致。6 秒 `examples/raea-starter/` 用于 T09 的独立起步验证；后续能力放在各自夹具目录，最后在 T19 的 `examples/raea-sequence/` 集成 30 秒作品。不要让各代理都改起步工程的 `film.tsx`，也不要为每个项目复制一套准备／预检／渲染包装。
 
-| 步骤／责任 | 输入 | 文件／具体工作 | 产物 | 验收 | 依赖 |
-|---|---|---|---|---|---|
-| R01 工程骨架与时钟 | 6 秒独立视觉说明、24fps／144 帧、项目与镜头模板 | `P/project.json`、`settings.mjs`、`film.board`、`film.tsx`；建立两镜范围和显式角色起点；记录 canary.2 与源码提交 | 无资产可渲染入口、项目记录、0／71／72／73／143 帧的预期事件表 | TSX 与记录输出字段一致；镜头无缝覆盖 `[0,144)`；无私有绝对路径；此阶段不宣称 GPU 成功 | 无；先归属全局 T 任务 |
-| R02 独立准备／预检／输出包装 | R01 设置、现有 prepare／render 的职责清单 | `P/tools/prepare.mjs`、`check.mjs`、`render.mjs`；只消费本工程输入；按 settings 计算时长和帧数；版本、缺素材、设备占用与失败退出分开处理 | 输入哈希、无 GPU 检查命令、参数化渲染命令及日志结构 | 缺文件和错版本能在渲染前失败；check 不启动 GPU；6 秒与另一个短规格都不依赖旧 10 秒常量；渲染分支以后另行实测 | R01 |
-| R03 二维／分层与字体 | 一款字体、透明卡片、中文测试句、相机边界 | `P/shots/layers.tsx`、`P/media/layers/`、`P/out/layers/`；单独处理页面层级、卡片边界、字体，交资产清单条目给集成人员 | 深浅背景诊断帧、字体样张、图层说明 | 目标平台无缺字、错误替代、矩形边缘和字幕遮挡；输入截图与生成结果分别标明 | R01；实际渲染依赖 R02 |
-| R04 GLB 与材质 | 自有测试模型、单位／轴向／材质名、可用 clip | `P/shots/model.tsx`、`P/media/models/`、`P/out/model/`；结构检查、独立回读，先 StandardMaterial 后可选 Toon；提交资产清单条目 | GLB 检查报告、同机位材质／阴影诊断帧 | 比例正确，贴图可重载，clip 局部形变可见，接触阴影正确；不移植北冥专用导出器当通用工具 | R01；实际渲染依赖 R02 |
-| R05 程序材质与后期 | 无纹理基础几何、固定种子、目标颜色和效果时码 | `P/shaders/`、`P/shots/procedural.tsx`、`P/out/procedural/`；单独验证 ShaderMesh、纹理路径和 FramePass 阶段，再测试 prepass | 最小 shader、正常／故障日志、首中末帧与同帧重复记录 | 无 shader 错误，时间变化正确，保留 alpha；区分场景与页面后期；未验证动态 uniform 明确写待验证 | R01；实际渲染依赖 R02 |
-| R06 骨骼与人物接触 | 专用 Skeleton／GLB、姿态或动作片段、可达手部／视线目标 | `P/shots/character.tsx`、`P/media/characters/`、`P/out/character/`；先静止对齐，再单目标，再接触／停留／释放；验证跳帧 | 骨架检查、姿态数据、接触误差与事件帧、短演示 | 同帧重放符合约定容差，关节与皮肤一致；手触点、视线、脚底可见；数值／视觉验收都通过才声明人物能力 | R01、R04；实际渲染依赖 R02 |
-| R07 整片与声音集成 | 已通过的 R03–R06 组件、镜头记录、声音素材 | 集成人员改 `P/film.tsx / film.board / asset-manifest.json` 与声音处理文件；显式续接角色时间、封装音轨 | 144 帧影片、mix.wav、输入清单与原生／封装日志 | 切点与声音同步，完整解码 144 帧；无非预期黑场／静帧，响度达到项目目标；整片人工观看 | R02；采用的 R03–R06 模块全部验收，未采用项在项目范围说明 |
-| R08 目标平台验收与交付 | R07 成片、设备信息、项目验收事件 | `P/delivery/technical.json`、`review.md`、检查帧；按 RenderResult 分开写技术与创作结果，回填对应 T 任务证据 | 版本／GPU／后端／编码器证据、SHA256、全解码报告、人工问题表 | 目标平台确实运行；技术与创作两项通过才 accepted；未测平台不标通过，遗留问题有帧号 | R07 |
+| 步骤／全局任务 | 输入 | 写入位置与具体工作 | 产物与验收 | 前置 |
+|---|---|---|---|---|
+| R01 起步工程／T09 | 6 秒蓝灰视觉目标、24fps／144 帧、固定运行包 | `examples/raea-starter/`；建立本页 settings、TSX、项目记录与两镜时间窗 | 无资产工程首中末及切点帧；输出字段一致。能直接用原生 CLI 完成初次渲染，不等待通用包装 | T00 |
+| R02 项目运行包装／T13 | 起步工程、T01 契约、已有 prepare/render 的职责 | `engine/backends/raea/run.mjs`、`tests/backends/raea/`；从项目设置取得入口、帧数与音轨，复用已有检查逻辑 | 缺资源和错版本会失败；6 秒及另一个短规格均不受旧 10 秒常量限制；Windows 执行另留证据 | T09、T01 |
+| R03 分层与字体／T10 | 自有字体、透明卡片、相机边界 | `examples/raea-fixtures/layers/`；独立入口、media 与输出，测试层级/Alpha/字体 | 深浅背景诊断帧，无缺字、替代字体和矩形边缘；当前可用原生 CLI 验证，不等待 R02 | T09 |
+| R04 GLB 与材质／T11 | 自有模型、单位／轴向／clip、现有资产检查方法 | `examples/raea-fixtures/materials/`；结构回读、StandardMaterial、可选 Toon 与阴影对照。通用资产清单代码归 T02，不在本任务越界重写 | 比例正确、局部 clip 形变可见、贴图与接触阴影可复现 | T10 |
+| R05 程序材质与后期／T11 | 基础几何、固定种子、目标效果时码 | 同一 materials 目录，复用 R04 工程；检查 ShaderMesh、纹理绑定、FramePass 插入阶段与 prepass | 首中末和重复帧，无未处理 shader 错误；区分场景后期与页面叠层 | T10；与 R04 同一负责人或串行 |
+| R06 人物接触／T12 | T02 资产记录、匹配 Skeleton／GLB、可达手部与视线目标 | `examples/raea-fixtures/character/`；先静态对齐，再单目标、接触、停留、释放，检查跳帧 | 姿态、手部接触、脚底和视线可见；数值与视觉分别验收。没有匹配资产就记录阻塞 | T09、T02 |
+| R07 段落集成／T19 | 已通过的分层、人物与运行包装；至少两个事件 | 单一负责人写 `examples/raea-sequence/`；复用夹具组件、续接角色时间并混音 | 30 秒独立原生作品；24fps 时为 720 帧，按项目参数验证，不沿用起步工程 144 帧断言 | T10、T12、T13、T15、T16 |
+| R08 交付复核／T19 | R07 成片与实际设备／编码日志 | 在同一作品目录保存 technical、review、抽帧与哈希；共用 QA 工具归 T15，视觉检查规则归 T16 | 全解码计数、音画、关键事件与完整观看通过；未测平台不标通过；证据交回 T19，汇总发布归 T20 | R07 |
 
-并行顺序：R01 完成后，R02 与 R03／R04／R05 的 CPU 编写可并行；R06 等 R04 的资产规范落实。GPU 实测按实际共享设备排队，不能因为代码任务可并行就同时占用 GPU。R03–R06 各自输出目录，R07 单一负责人收口，共用资产清单通过提交条目汇总，避免多人改同一文件。
+并行范围按全局 T 任务分派。R04/R05 共用同一任务目录，不能拆给两个同时写入的代理；R03/R06 的独立夹具可在各自前置满足后推进。代码编写可并行，GPU 运行仍需协调共享设备。RAEA 起步工程不依赖北冥 FrameState，也不要求先完成所有原生能力夹具。
 
 ## 8. 完成定义
 

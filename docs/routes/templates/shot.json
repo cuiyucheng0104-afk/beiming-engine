@@ -6,15 +6,15 @@
   "backend": "three",
   "cameraTrack": "camera.notice-kun",
   "actorTracks": ["girl.notice", "kun.pass"],
-  "actorClockOrigin": { "girl.notice": "shot", "kun.pass": "film" },
+  "actorClockOrigin": { "girl.notice": 0, "kun.pass": 0 },
   "worldTrack": "ferry-dawn",
   "lookPreset": "beiming-original@v1",
   "stateBefore": "girl-holds-rail",
   "stateAfter": "girl-looks-at-kun",
   "evaluation": "absolute",
   "visibleEvents": [
-    { "atFrame": 24, "event": "阴影经过，手上动作停住" },
-    { "atFrame": 60, "event": "头与眼睛开始朝向鲲" },
-    { "atFrame": 108, "event": "视线锁定，手指从扶栏放松" }
+    { "atFrame": 24, "event": "手上动作已停住，阴影掠过，眼神先移再抬头" },
+    { "atFrame": 60, "event": "视线落到鲲眼，鲲开始回应，手指逐渐松开" },
+    { "atFrame": 108, "event": "回应结束，保持注视和松开的手部姿态" }
   ]
 }

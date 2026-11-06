@@ -32,7 +32,7 @@ export function validatePlan(plan) {
     for (const field of ['inputs', 'writeScope', 'outputs', 'acceptance']) if (Array.isArray(task[field]) && !task[field].length) errors.push(`${task.id}: ${field} cannot be empty`);
     if (Array.isArray(task.writeScope) && task.writeScope.some(p => !safePath(p))) errors.push(`${task.id}: writeScope must stay inside the repository`);
     if (task.status === 'done' && (!Array.isArray(task.evidence) || !task.evidence.length)) errors.push(`${task.id}: done requires evidence`);
-    if (task.status === 'blocked' && !task.blocker) errors.push(`${task.id}: blocked requires blocker`);
+    if (task.status === 'blocked' && (typeof task.blocker !== 'string' || !task.blocker.trim())) errors.push(`${task.id}: blocked requires a nonempty blocker`);
     if (task.playbook && !safePath(task.playbook)) errors.push(`${task.id}: invalid playbook path`);
   }
   for (const task of plan.tasks.filter(t => t && typeof t === 'object')) {
@@ -53,7 +53,8 @@ export function validatePlan(plan) {
   return errors;
 }
 
-function scopeRoot(p) { return p.replace(/\*.*$/, '').replace(/\/$/, ''); }
+// Conservatively treat case/Unicode aliases as conflicts on the shared Mac/Windows workflow.
+function scopeRoot(p) { return p.normalize('NFC').toLowerCase().replace(/\*.*$/, '').replace(/\/$/, ''); }
 function scopesOverlap(a, b) {
   const x = scopeRoot(a), y = scopeRoot(b);
   return !x || !y || x === y || x.startsWith(y + '/') || y.startsWith(x + '/');
@@ -72,8 +73,8 @@ export function inspectPlan(plan, route) {
       return { id, route: dep.route, status: dep.status, title: dep.title };
     }),
   })).filter(t => t.dependencies.length || t.status === 'blocked');
-  // Active owners across both routes matter even when listing just one route.
-  const candidates = [...ready, ...plan.tasks.filter(t => t.status === 'in-progress')];
+  // Waiting for input does not release files already assigned to a task.
+  const candidates = [...ready, ...plan.tasks.filter(t => t.status === 'in-progress' || t.status === 'blocked')];
   const conflicts = [];
   for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) {
     const overlap = candidates[i].writeScope.flatMap(a => candidates[j].writeScope.filter(b => scopesOverlap(a, b)).map(b => [a, b]));

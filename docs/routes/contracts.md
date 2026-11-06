@@ -60,11 +60,13 @@ flowchart TD
 - `inFrame` 含起始，`outFrame` 不含结束；240 帧的整片范围是 `[0, 240)`。
 - 同一轨道镜头必须无意外空隙/重叠。转场单独声明重叠区，不能用时间舍入掩盖。
 - `globalFrame` 是影片时间，`localFrame = globalFrame - inFrame`。
-- `actorClockOrigin` 决定切镜头后是否续接动作；默认不能每镜从零启动同一只鲲。
+- `actorClockOrigin` 是“角色轨道 ID → 非负整数全局帧号”的映射。连续动作保留原起点（如 0），本镜新动作填 `inFrame`；不接受 `"shot" / "film"` 字符串别名。当前镜头使用的动作起点不得晚于 `inFrame`，需要延迟启动时由轨道内事件表达。
+- 角色时间为 `(globalFrame - actorClockOrigin[trackId]) / fps`；如需一拍三，先将角色帧向下量化到 3 的倍数。切镜头不能默认从零启动同一只鲲。
 - `stateBefore / stateAfter` 是世界或角色状态引用，描述可计算变化；`visibleEvents` 存需要人工验收的画面事实。
+- `visibleEvents[].atFrame` 使用全局整数帧号，落在 `[inFrame, outFrame)`；移动镜头起点时同步更新事件帧，不能把局部帧直接填入。
 - `cameraTrack / actorTracks / worldTrack / lookPreset` 引用稳定 ID，缺失应失败，不能静默换成默认镜头。
 
-24fps 的一拍三角色时间为 `floor(globalFrame / 3) * 3 / 24`。镜头通常保留 `globalFrame / 24`。动作是否量化由轨道决定，不能把所有参数统一降帧。
+角色起点为 0 时，24fps 的一拍三时间为 `floor(globalFrame / 3) * 3 / 24`；非零起点先按上式减去该角色的起点帧。镜头通常保留 `globalFrame / 24`。动作是否量化由轨道决定，不能把所有参数统一降帧。
 
 ## 4. FrameState：使用单位和快照，不传运行时对象
 
