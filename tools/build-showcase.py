@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""生成 showcase/index.html：把 cases/catalog.json 的 96 条案例渲染成一个零依赖画廊页。
+"""生成案例馆页面：把 cases/catalog.json 的 96 条案例渲染成一个零依赖单页。
 
-用法：python3 tools/build-showcase.py
-产物：showcase/index.html（提交进仓库，由 GitHub Pages 从 main 根目录提供）
+用法：
+  python3 tools/build-showcase.py                      # 仓库内预览：showcase/index.html，海报走 ../cases/
+  python3 tools/build-showcase.py --out _site/index.html --poster-prefix cases/   # GitHub Pages 站点根
 不联网、不执行影片；预览视频指向 casebook-2026.11 Release，海报指向 cases/previews。
 """
 from __future__ import annotations
 
+import argparse
 import html
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / 'cases' / 'catalog.json'
-OUT = ROOT / 'showcase' / 'index.html'
+DEFAULT_OUT = ROOT / 'showcase' / 'index.html'
 
 REPO = 'https://github.com/cuiyucheng0104-afk/beiming-engine'
 RELEASE = f'{REPO}/releases/tag/casebook-2026.11'
@@ -76,9 +78,9 @@ def esc(value) -> str:
     return html.escape('' if value is None else str(value), quote=True)
 
 
-def poster_url(case: dict) -> str:
+def poster_url(case: dict, prefix: str) -> str:
     poster = case.get('poster')
-    return f'../cases/{poster}' if poster else ''
+    return f'{prefix}{poster}' if poster else ''
 
 
 def duration_of(case: dict) -> float | None:
@@ -92,7 +94,7 @@ def duration_of(case: dict) -> float | None:
     return None
 
 
-def load_cases() -> list[dict]:
+def load_cases(poster_prefix: str) -> list[dict]:
     manifest = json.loads(CATALOG.read_text(encoding='utf-8'))
     cases = []
     for case in manifest['cases']:
@@ -104,7 +106,7 @@ def load_cases() -> list[dict]:
             'statusText': STATUS_CN.get(case['status'], case['status']),
             'statusClass': STATUS_CLASS.get(case['status'], 'muted'),
             'title': case['title'],
-            'poster': poster_url(case),
+            'poster': poster_url(case, poster_prefix),
             'video': preview.get('url') or '',
             'duration': duration_of(case),
             'entry': f'{REPO}/blob/main/cases/entries/{case["id"]}.md',
@@ -142,8 +144,8 @@ def card_html(case: dict) -> str:
 </article>'''
 
 
-def build() -> str:
-    cases = load_cases()
+def build(out_path: Path, poster_prefix: str) -> str:
+    cases = load_cases(poster_prefix)
     groups = {g: [c for c in cases if c['group'] == g] for g in GROUP_ORDER}
     durations = [c['duration'] for c in cases if c['duration']]
     stats = [
@@ -392,11 +394,15 @@ document.addEventListener('keydown', e => {{ if (e.key === 'Escape') closeModal(
 </body>
 </html>
 '''
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(html_doc, encoding='utf-8')
-    return str(OUT)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(html_doc, encoding='utf-8')
+    return str(out_path)
 
 
 if __name__ == '__main__':
-    path = build()
+    parser = argparse.ArgumentParser(description='生成北冥案例馆单页')
+    parser.add_argument('--out', type=Path, default=DEFAULT_OUT, help='输出 HTML 路径')
+    parser.add_argument('--poster-prefix', default='../cases/', help='海报相对前缀（站点根部署用 cases/）')
+    options = parser.parse_args()
+    path = build(options.out, options.poster_prefix)
     print(f'wrote {path}')

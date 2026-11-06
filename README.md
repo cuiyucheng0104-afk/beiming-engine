@@ -7,7 +7,7 @@
 三渲二 + 2.5D 的逐帧确定性渲染管线：画面由代码画出，可重渲、可追溯、可换一种画风重来。<br>
 同一个仓库里同时收纳 WebGL 风格化合成、RAEA 原生渲染工具链，以及 20 + 66 套纯代码风格基座与 96 个历史案例。
 
-<a href="https://cuiyucheng0104-afk.github.io/beiming-engine/showcase/"><img src="media/preview.gif" width="100%" alt="《北冥》概念样片预览 · 进入案例馆"></a>
+<a href="https://cuiyucheng0104-afk.github.io/beiming-engine/"><img src="media/preview.gif" width="100%" alt="《北冥》概念样片预览 · 进入案例馆"></a>
 
 <sub>《北冥》概念样片 · 10 秒 · 有声完整版：<a href="https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/v1.0">1080p 与原生 4K</a></sub>
 
@@ -19,7 +19,7 @@
 ![RTX](https://img.shields.io/badge/NVIDIA-RTX-1d2140?style=flat-square)
 ![License](https://img.shields.io/badge/code-MIT-1d2140?style=flat-square)
 
-[**案例馆**](https://cuiyucheng0104-afk.github.io/beiming-engine/showcase/) · [三条路线](docs/TRACKS.md) · [案例库](cases/INDEX.md) · [成片与素材下载](https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/casebook-2026.11)
+[**案例馆**](https://cuiyucheng0104-afk.github.io/beiming-engine/) · [三条路线](docs/TRACKS.md) · [案例库](cases/INDEX.md) · [成片与素材下载](https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/casebook-2026.11)
 
 </div>
 
@@ -104,7 +104,7 @@ python tools/build-showcase.py                      # 重建案例馆页面 show
 
 ## 案例馆
 
-[**进入案例馆 →**](https://cuiyucheng0104-afk.github.io/beiming-engine/showcase/)（GitHub Pages，86 个观看预览可直接播放）
+[**进入案例馆 →**](https://cuiyucheng0104-afk.github.io/beiming-engine/)（GitHub Pages，86 个观看预览可直接播放）
 
 | 内容 | 数量 | 说明 |
 |---|---:|---|
