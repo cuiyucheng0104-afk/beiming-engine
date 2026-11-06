@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Build case atlas
-        run: python tools/build-showcase.py --out _site/index.html --poster-prefix cases/
+        run: python tools/build-showcase.py --out _site/index.html --poster-prefix cases/ --media-prefix media/
       - name: Assemble site
         run: |
           mkdir -p _site/cases _site/media
