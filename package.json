@@ -20,7 +20,11 @@
     "cases:check": "python3 tools/casebook.py check",
     "cases:list": "python3 tools/casebook.py list",
     "test:cases": "python3 -m unittest discover -s tools -p test_casebook.py",
-    "showcase:build": "python3 tools/build-showcase.py"
+    "showcase:build": "python3 tools/build-showcase.py",
+    "c:styles": "node tools/c-styles.mjs",
+    "c:styles:check": "node tools/c-styles.mjs --check",
+    "c:events": "node engine/render/events.mjs",
+    "c:build": "node engine/render/build.mjs"
   },
   "dependencies": {
     "three": "0.170.0",

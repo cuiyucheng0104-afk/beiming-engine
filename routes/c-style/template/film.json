@@ -1,0 +1,9 @@
+{
+  "route": "c",
+  "title": "{{TITLE}}",
+  "dur": 3,
+  "fps": 24,
+  "size": [1920, 1080],
+  "poster": 2.75,
+  "cuecheck": { "grid": 2, "tolMs": 0.5 }
+}
