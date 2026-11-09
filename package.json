@@ -22,7 +22,9 @@
     "test:cases": "python3 -m unittest discover -s tools -p test_casebook.py",
     "site:build": "python3 tools/build-showcase.py",
     "site:serve": "python3 -m http.server 8090 -d out/site",
-    "site:qa": "node tools/site-qa.mjs"
+    "site:qa": "node tools/site-qa.mjs",
+    "new": "node tools/new-film.mjs",
+    "check:repo": "node tools/repo-check.mjs"
   },
   "dependencies": {
     "gsap": "3.15.1",
