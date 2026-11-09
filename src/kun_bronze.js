@@ -6,8 +6,9 @@
 //         · CPU：顶点按纹样高度沿法线位移（侧影上能看到浮雕起伏）
 //         · GPU：同一高度函数做屏幕导数凹凸（纹带一侧受光、一侧压暗）；纹带两沿画抖动墨线；绿松石马赛克、玉、铜锈、紫锈、地衣
 //       鳍：THREE.Shape 挤出成带倒角的厚片；鳍面纹样用「离外缘的距离场」现算（外圈纹带、绿松石通道、内圈纹带、阿基米德旋涡）。
-// 坐标：鲲局部空间，长约 600，头朝 +X，上为 +Y，原点在身体中心（与 kun.js 相同，换进正片只改 import）。
-// 动画：setPose(ts) 的 ts 由调用方量化（一拍三：f = Math.round(t*24); ts = Math.floor(f/3)*3/24）。
+// 坐标：鲲局部空间，长约 600，头朝 +X，上为 +Y，原点在身体中心（与 kun.js 相同）。
+// 换进正片镜头 C：buildShotC({ makeKun: createKun })（或改 shotC.js 的 import）。
+// 动画：setPose(ts) 的 ts 由调用方量化（一拍三：ts = heldTime(frameOf(t), 3)，engine/core/clock.js）。
 //       脊柱行波在 GPU 顶点着色器里做：竖向起伏 + 横向摆尾（鱼是左右摆；鲲在天上也要上下起伏，两个分量错相位）。
 //       身体、鳍逐顶点弯；植被按实例原点整体跟着弯；鳍另有绕根部的摆动（uFinAng），垂苔、蕨叶自己飘。
 // 确定性：随机全部来自 mulberry(固定种子)、单纯形噪声(固定种子)；没有 Date.now / Math.random。
@@ -24,6 +25,8 @@ import { autoBlink, poseEyes, pickEye, mountEyes, lidShells, eyeFrame } from '..
 import { sdfFromImage, blur5, shapeInside } from '../engine/form/sdf.js';
 import { catmull, spiral as curlPts, withSpiral as withCurl, squareSpiral as rectSpiral, pathShape as shapeFrom } from '../engine/form/curves.js';
 import { makeBronzeToon, bindBronze, BRONZE, BRONZE_PRESETS } from './toon_bronze.js';
+import { fitShadowTo } from './shadow.js';
+import { EYE_GLSL } from './eye_shade.js';
 
 const sstep = (a, b, x) => ss(seg(x, a, b));
 const UP = new THREE.Vector3(0, 1, 0);
@@ -479,8 +482,10 @@ const CATCH_REST = [[-0.27, 0.25, 0.93, 0.984], [0.25, -0.2, 0.95, 0.9965]];
 
 // ───────────────────────── 主体 ─────────────────────────
 /**
- * createKun(opts) → { group, setPose(ts, o), eyeWorld(target, ref), fitShadow(light, o), outlineMeshes, length, eyeRadius, wisps, uniforms, fins, eyes, debug }
- * 与 kun.js 的 createKun 接口一致（wisps 恒为空数组：青铜鲲不拖云丝）。
+ * createKun(opts) → { group, setPose(ts, o), eyeWorld(target, ref), fitShadow(light, o), outlineMeshes, length, eyeRadius, wisps, uniforms, fins（空）, finMeshes, eyes, debug }
+ * 镜头 C 用到的接口与 kun.js 的 createKun 一致（wisps 恒为空数组：青铜鲲不拖云丝）。
+ * fins 为空：各类鳍是合并后的网格（finMeshes：背鳍、腹鳍、胸鳍、尾鳍各一个），摆动在着色器里（uFinAng），
+ *   没有 kun.js 那种 { side, pivot } 刚体胸鳍，镜头 C 的「收远侧胸鳍」对它不做。
  * opts.lod   0.1–1：网格密度、纹样分辨率、植被数量的倍率（大远景 0.35–0.5）
  * opts.seed  散布种子（默认 20261103）
  * opts.blinkPeriod / blinkOffset：自动眨眼的周期 / 首次时刻（秒，默认 4 / 1.5）
@@ -613,7 +618,6 @@ export function createKun(opts = {}) {
     finTypes.ventral = { FF };
   }
   // 胸鳍一对：贴着体侧向后下方伸出，外撇约 25°
-  const pecRoots = [];
   {
     const shp = shapeFrom(FIN_PATHS.pectoral), FF = finField(shp);
     const geos = [];
@@ -626,7 +630,6 @@ export function createKun(opts = {}) {
       const ey = new THREE.Vector3().crossVectors(ez0, ex).normalize(), ez = new THREE.Vector3().crossVectors(ex, ey).normalize();
       const axis = ey.clone().multiplyScalar(0.75).addScaledVector(ez, 0.66 * side).normalize();
       geos.push(finGeo(shp, 3.6, [ex, ey, ez], root, root, axis, side > 0 ? 10 : 11));
-      pecRoots.push({ side, root: root.clone() });
     }
     const mat = finMat(FF, true, spiralFor(FF, FF.deep), new THREE.Vector4(0, 0, 0, 1));
     const mesh = add(group, bindBronze(new THREE.Mesh(mergeGeometries(geos), mat), mat)); mesh.name = 'kun-pectoral-fins'; mesh.frustumCulled = false; finMeshes.push(mesh);
@@ -652,7 +655,7 @@ export function createKun(opts = {}) {
       uCatch1: { value: new THREE.Vector4(0, 0, 1, 0.985) }, uCatch2: { value: new THREE.Vector4(0, 0, 1, 0.997) }, uCatchCol: { value: new THREE.Color('#fffdf6') },
       uLidU: { value: new THREE.Vector3(0, 1, 0) }, uLidL: { value: new THREE.Vector3(0, -1, 0) },
     },
-    fragmentPars: 'uniform float uIrisA, uPupilA;\nuniform vec3 uIrisCol, uPupilCol, uJade2, uCatchCol, uLidU, uLidL, uSkyRefl, uCityRefl;\nuniform vec4 uCatch1, uCatch2;\n',
+    fragmentPars: 'uniform float uIrisA, uPupilA;\nuniform vec3 uIrisCol, uPupilCol, uJade2, uCatchCol, uLidU, uLidL, uSkyRefl, uCityRefl;\nuniform vec4 uCatch1, uCatch2;\n' + EYE_GLSL,
     fragmentAlbedo: /* glsl */`
     {
       vec3 d = normalize( vToonObj );
@@ -672,12 +675,10 @@ export function createKun(opts = {}) {
       toonInk = max( toonInk, ( 1.0 - smoothstep( 0.7 * fa, 2.0 * fa, abs( ang - uIrisA ) ) ) * 0.9 );
       toonInk = max( toonInk, ( 1.0 - smoothstep( 0.7 * fa, 1.6 * fa, abs( ang - uIrisA * 0.58 ) ) ) * 0.45 );   // 刻出来的一道同心圈
       toonInk = max( toonInk, ( 1.0 - smoothstep( 0.7 * fa, 1.7 * fa, abs( ang - uPupilA ) ) ) * 0.7 );
-      float c1 = dot( d, uCatch1.xyz ), c2 = dot( d, uCatch2.xyz ), fcc = max( fwidth( c1 ), 1e-5 );
-      float k = max( smoothstep( uCatch1.w - fcc, uCatch1.w + fcc, c1 ), smoothstep( uCatch2.w - fcc, uCatch2.w + fcc, c2 ) );
-      float du = dot( d, uLidU ), dl = dot( d, uLidL ), fd = max( fwidth( du ), 1e-5 );
+      float k = eyeCatch( d, uCatch1, uCatch2 );
+      float du = dot( d, uLidU ), dl = dot( d, uLidL );
       float front = smoothstep( 0.1, 0.6, d.z );
-      float lash = ( 1.0 - smoothstep( 0.1 * front + 0.02 - fd, 0.1 * front + 0.02 + fd, - du ) ) * front;
-      float low = ( 1.0 - smoothstep( 0.03 - fd, 0.03 + fd, - dl ) ) * front;
+      vec2 lid = eyeLidLines( du, dl, front, 0.1, 0.03 ); float lash = lid.x, low = lid.y;
       toonInk = max( toonInk, max( lash * 0.7, low * 0.5 ) );
       // 倒影：上沿一道薰衣草色天光、下沿一道杏色城市光（固定在眼窝坐标）
       float sky = smoothstep( -0.48, -0.38, du ) * ( 1.0 - smoothstep( -0.26, -0.18, du ) ) * smoothstep( 0.3, 0.7, d.z );
@@ -879,25 +880,10 @@ export function createKun(opts = {}) {
     });
   }
   const eyeWorld = (target, ref) => pickEye(eyes, target, ref);
-  function fitShadow(light, { size = 4096, radius = 400 } = {}) {
-    group.updateMatrixWorld(true);
-    const c = new THREE.Vector3(-5, -5, 0).applyMatrix4(group.matrixWorld);
-    const sc = group.matrixWorld.getMaxScaleOnAxis(), Rr = radius * sc;
-    const dir = light.position.clone().sub(light.target.position);
-    if (dir.lengthSq() < 1e-9) dir.set(0.75, 0.1, 0.65); dir.normalize();
-    light.target.position.copy(c); light.target.updateMatrixWorld();
-    light.position.copy(c).addScaledVector(dir, Rr * 3);
-    const cam = light.shadow.camera;
-    Object.assign(cam, { left: -Rr, right: Rr, top: Rr, bottom: -Rr, near: Rr * 0.5, far: Rr * 5.5 });
-    cam.updateProjectionMatrix();
-    if (light.shadow.mapSize.x !== size) { light.shadow.mapSize.set(size, size); light.shadow.map?.dispose(); light.shadow.map = null; }
-    light.shadow.normalBias = 1.5 * sc; light.shadow.bias = -0.0005; light.shadow.radius = 2;
-    light.castShadow = true;
-  }
+  const fitShadow = (light, { size = 4096, radius = 400 } = {}) => fitShadowTo(light, group, { center: [-5, -5, 0], radius, size });
   setPose(0);
   mark('done');
   const debug = { timings: tm, pattern: PAT.canvases, finFields: Object.fromEntries(Object.entries(finTypes).map(([k, v]) => [k, v.FF.cv])), PRM, PAT,
     counts: { clumps: clumps.length, flowers: flowers.length, ferns: ferns.length, hangs: hangs.length, gardens: gardens.length, bodyVerts: nv } };
-  void pecRoots;
-  return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, wisps: [], uniforms: U, fins: finMeshes, eyes, debug };
+  return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, wisps: [], uniforms: U, fins: [], finMeshes, eyes, debug };
 }

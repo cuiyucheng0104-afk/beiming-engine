@@ -232,6 +232,7 @@ html.stage-paused .hero-live .live-dot::after,
   color: var(--mist-mute);
   font-size: var(--step--2);
 }
+@media (hover: none) { .film-close .key { display: none; } }   /* 触屏没有 Esc 键，不显示键帽 */
 
 /* 笔记本常见的可视高度（去掉浏览器工具栏后 650–760px）：标题跟着高度收，行距收紧，两个按钮留在第一屏里 */
 @media (min-width: 900px) and (max-height: 760px) {
@@ -388,6 +389,59 @@ html.motion:not(.use-stills) .step-plate { display: none; }
   letter-spacing: 0.03em;
 }
 .step-body { margin-top: var(--space-4); max-width: var(--measure); }
+
+/* “时”这一步的帧条：1 秒 = 24 帧，每 3 格一个金格（鲲换姿态的那一帧，--lamp-deep 实心），其余是镜头在动、姿态不动的帧。
+ * 静态版就是这 24 格；实时画面在跑时 main.js 加 .is-running，并把当前这一拍的金格标成 .is-now：
+ * 格子下面一条墨线盖住这一拍的 3 帧，随 stage:beat 一拍前进一个金格（8 拍 = 24 帧 = 1 秒）。只换不透明度，不动布局 */
+.frames { margin-top: var(--space-5); }
+.frames-cells {
+  --gap: 3px;
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: var(--gap);
+  width: min(100%, 22rem);
+  padding-bottom: 8px;                 /* 墨线的位置一直留着，跑起来时不跳 */
+}
+.frames-cells i {
+  position: relative;
+  height: 1rem;
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 1px var(--ink-mute);
+}
+.frames-cells i:nth-child(3n+1) { background-color: var(--lamp-deep); }
+.frames-cells i::after {
+  content: "";
+  position: absolute;
+  left: 0; right: calc(-1 * var(--gap) - 0.5px);   /* 连上格间距（多盖半像素，免得小数宽度留缝）：一拍的 3 格下面是一整段线 */
+  top: calc(100% + 5px);
+  height: 2px;
+  background-color: var(--ink);
+  opacity: 0;
+}
+.frames-cells i:nth-child(3n+1)::after { border-radius: 1px 0 0 1px; }
+.frames-cells i:nth-child(3n)::after { right: 0; border-radius: 0 1px 1px 0; }
+.frames.is-running .frames-cells i.is-now::after,
+.frames.is-running .frames-cells i.is-now + i::after,
+.frames.is-running .frames-cells i.is-now + i + i::after { opacity: 1; }
+.frames-cap {
+  margin-top: var(--space-2);
+  display: block;
+  color: var(--fg-mute);
+  font-size: var(--step--1);
+  line-height: 1.5;
+}
+.frames-cap .num { color: var(--fg); font-weight: 600; }
+.frames-sep { margin: 0 0.55em; }
+.frames-key {
+  display: inline-block;
+  width: 0.55em;
+  height: 0.8em;
+  margin-right: 0.4em;
+  vertical-align: -0.06em;
+  border-radius: 1px;
+  background-color: var(--lamp-deep);
+  box-shadow: inset 0 0 0 1px var(--ink-mute);
+}
 
 .rest-text { font-size: var(--step-1); line-height: 1.8; max-width: 26em; }
 .rest-text .f-brush { font-size: 1.32em; margin: 0 0.06em; font-weight: 400; vertical-align: -0.08em; }
@@ -566,6 +620,7 @@ html.is-live .engine.is-pinned .step-plate { display: none; }   /* 实时画面�
   }
   .engine.is-pinned .step-glyph { font-size: 3rem; }
   .engine.is-pinned .step-body { margin-top: var(--space-3); }
+  .engine.is-pinned .frames { margin-top: var(--space-4); }
   .engine.is-pinned .engine-title { font-size: var(--step-3); }
   .engine.is-pinned .engine-lede { font-size: var(--step-0); margin-top: var(--space-4); }
   .engine.is-pinned .rest-text { font-size: var(--step-0); line-height: 1.75; }

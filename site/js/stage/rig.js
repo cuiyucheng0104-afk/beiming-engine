@@ -6,7 +6,7 @@
 //   fov           参考画幅的竖直视角（度）
 //   ax, ay        鲲的视觉中心落在参考画幅的哪个位置（NDC，-1..1；用镜头平移实现，不改透视）
 //   ref           参考画幅宽高比；实际画布宽高比不同时按 CSS object-fit: cover（居中）裁切，
-//                 这样首屏海报（16:9 / 9:16）用 cover 铺满时与实时画面逐像素对齐
+//                 这样首屏海报（横 16:9、竖 3:4）用 cover 铺满时与实时画面逐像素对齐（天空也按同样的方式裁，见 stage.js）
 // 场景函数 (aspect, progress, t) → shot；t 是舞台时钟（秒），用于缓慢漂移（t = 0 时漂移为 0，首帧与海报一致）。
 import * as THREE from 'three';
 
@@ -19,12 +19,17 @@ const smooth = k => k * k * (3 - 2 * k);
 // 从 0 起、初速度为 0 的缓慢漂移（首帧位置与速度都是 0，之后在 ±1 附近慢慢摆）
 const drift = (t, w, ph = 0) => (Math.sin(w * t + ph) - Math.sin(ph)) * (1 - Math.exp(-t * 0.8));
 
-// —— 首屏：鲲在右上大半、头朝左，缓慢游动；参考画幅 16:9（竖屏 9:16），与海报一致 ——
+// —— 首屏：鲲在右上大半、头朝左，缓慢游动；参考画幅横屏 16:9、竖屏 3:4，与两张海报一致 ——
+// 竖屏参考画幅是 3:4（FINAL-15）：比它窄的画面（所有手机、竖拿的平板）按 cover 只裁左右，竖直方向的构图不变，
+// 鲲在画高里的位置对每台竖屏设备都一样。以前是 9:16：比 9:16 宽的竖屏（360×640 一类、平板）会裁上下，
+// 鲲按宽高比放大、往上下两头撑开，须子压到题签（首屏文案在矮手机上从 42% 高度起排），平板上仙山顶进导航栏。
+// 现在鲲（含仙岛、须子，漂移与游动全程）落在画高约 10%–40% 之间：上面让开 56px 的导航，下面让开 42% 处的题签。
+// 比 3:4 还宽的竖屏（0.75–1：拉窄的桌面窗口、展开的折叠屏）仍按 cover 裁上下，宽高比 0.9 时仙山顶到画面 2.4% 处，进了导航栏
 function hero(aspect, p, t) {
-  const portrait = aspect <= 1;   // 与海报的 CSS 媒体查询 (max-aspect-ratio: 1/1) 一致
+  const portrait = aspect <= 0.999;   // 与首屏海报 <source media="(max-aspect-ratio: 999/1000)"> 一致
   const k = smooth(Math.min(1, Math.max(0, p)));   // 往下滚出首屏时，相机略微抬高后退
   const base = portrait
-    ? { ref: 9 / 16, fov: 34, size: 0.9, ax: 0.05, ay: 0.42, yaw: 28.5 * DEG, pitch: 5.7 * DEG, roll: 1.7 * DEG }
+    ? { ref: 3 / 4, fov: 34, size: 0.614, ax: 0.0375, ay: 0.532, yaw: 28.5 * DEG, pitch: 5.7 * DEG, roll: 1.7 * DEG }
     : { ref: 16 / 9, fov: 30, size: 0.67, ax: 0.43, ay: 0.25, yaw: 27.5 * DEG, pitch: 5.7 * DEG, roll: 1.7 * DEG };
   return {
     ...base,

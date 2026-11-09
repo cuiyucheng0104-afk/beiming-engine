@@ -12,8 +12,9 @@ import { hold, heldTime, hashi } from '../engine/core/clock.js';
 import { plate, plateCopy, tileRepeat, canvasLayer, cutoutPlane, glowSprite } from '../engine/stage/plates.js';
 import { aimCamera, placeOnScreen, fillScreen, placeStrip, screenToWorld, screenToPlane } from '../engine/stage/camera.js';
 import { wireOutlines } from '../engine/stage/outline.js';
+import { TIMELINE } from './timeline.js';
 
-export function buildShotA({ W, H, tex }) {
+export function buildShotA({ W, H, tex, K = 1 }) {   // W×H：1040 高的设计尺寸；K：实际像素 / 设计像素（原生 4K 时 2）
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2('#A99BD9', 0.000195);   // 只作用于 3D 物体（鲲、渡船）；底板自带空气透视
   const cam = new THREE.PerspectiveCamera(16, W / H, 5, 40000);
@@ -81,14 +82,14 @@ export function buildShotA({ W, H, tex }) {
   const FERRY_YAW = Math.PI + 0.55;                         // 船头朝 -X 并偏向镜头（+Z）：航向 (cosψ, 0, -sinψ)
   const FERRY_V = 4.2;                                      // 米/秒
 
-  // ── 鸽群：2D 画布 → 贴在相机前的面片 ──
-  const { ctx: bctx, tex: btex } = canvasLayer(W, H);
+  // ── 鸽群：2D 画布 → 贴在相机前的面片（画布按实际像素建，原生 4K 时是 2 倍，绘制仍用设计坐标，同镜头 B）──
+  const { ctx: bctx, tex: btex } = canvasLayer(Math.round(W * K), Math.round(H * K));
   const birds = cutoutPlane(btex, { order: 9, cut: 0.45 });
   scene.add(birds);
 
   const _v = new THREE.Vector3(), _q = new THREE.Quaternion();
   function update(t, f) {
-    const u = clamp(t / 3);
+    const u = clamp((t - TIMELINE.A) / (TIMELINE.B - TIMELINE.A));   // 镜头 A 全长（到镜头 B 开始）
     const push = PUSH * (u * (1.18 - 0.18 * u));            // 几乎匀速的缓推，尾部略收
     aimCamera(cam, _v.set(CAM0.x - 4 * u, CAM0.y + 1.2 * u, CAM0.z - push), 0, PITCH);
 
@@ -133,7 +134,7 @@ export function buildShotA({ W, H, tex }) {
     }
 
     // 鸽群
-    bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, W, H);
+    bctx.setTransform(K, 0, 0, K, 0, 0); bctx.clearRect(0, 0, W, H);
     const nb = drawBirds(bctx, t, W, H);
     birds.visible = nb > 0;
     btex.needsUpdate = true;

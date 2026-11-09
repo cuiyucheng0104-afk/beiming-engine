@@ -30,7 +30,10 @@ const pinScreens = () => (matchMedia('(pointer: coarse)').matches ? 4.5 : 5);
 // 手机横屏、放大 200% 这类又矮又横的视口走静态版（五张静帧在文档流里依次排开，不会被裁）。
 // 另外每一步的文字都要在固定版的面板里装得下（pinnedFits），装不下也走静态版；视口变化时自动切换
 const PIN_QUERY = '(min-height: 600px) and (min-width: 900px), (min-height: 600px) and (max-aspect-ratio: 1/1)';
+// 竖屏（与 sections.css、舞台 rig.js 的竖构图判断一致）：鲲在上，纸页在下
+const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)');
 const STEPS = ['intro', 'form', 'shade', 'look', 'stage', 'time', 'rest'];
+const TIME_STEP = STEPS.indexOf('time');
 // 每一步文字出现的位置：相邻两层交叉过渡的正中再提前 0.012（新字要等旧字淡出才进来），文字与着色器里的层同时到位
 const STEP_AT = [0, 0.058, 0.248, 0.408, 0.568, 0.728, 0.878];
 // 画面层（Stage.setLayer，0 形 / 1 光 / 2 笔 / 3 景 / 4 时）的关键点：先从 4 快速退回 0，再一层层画回去，
@@ -69,7 +72,7 @@ const BRUSH_WAIT = 160;         // 来得早时，开演前最多等毛笔字形
 const S = {
   stage: null, live: false, playing: undefined,
   scene: 'hero', heroP: 0, engineQ: 0, layer: 4, step: 0,
-  inRange: true, filmOpen: false, works: null,
+  inRange: true, sunk: false, filmOpen: false, filmHeld: undefined, works: null,
   userPaused: false, greeted: false,
   geo: { heroH: 1, heroCopyTop: 1e9, engineTop: 1e9, engineBottom: 1e9, worksTop: 1e9, methodTop: 1e9 },
 };
@@ -179,11 +182,18 @@ const LIVE_TEXT = {
   loading: '实时画面准备中',
   reduced: '引擎渲染的静帧（已按系统设置减少动态）',
   nowebgl: '引擎渲染的静帧（这台设备不支持实时画面）',
+  // 舞台在 createStage 返回 null 之前派发 stage:skipped，按原因分开写（FINAL-9）：
+  software: '引擎渲染的静帧（浏览器没有开启显卡加速）',          // 软件渲染：能跑，但没有显卡加速
+  cpu: '引擎渲染的静帧（这台设备较慢，没有启动实时画面）',        // 预估建鲲太久：设备慢，不是不支持
   saveData: '引擎渲染的静帧（省流量模式）',
   slow: '引擎渲染的静帧（这台设备跑实时画面太吃力，已停下）',
   paused: '已暂停 · 引擎渲染的静帧',
+  film: '实时画面已暂停，正在放映样片',
 };
 let fpsNode = null, triNode = null, lastStats = null;
+
+// 首屏放映样片时把 GPU 让给视频，舞台暂停；滚离首屏就不再算（updatePlay 与读数共用这个判断）
+const filmHolds = () => S.filmOpen && S.scene === 'hero';
 
 function setLiveState(state) {
   if (state !== 'live' && state !== 'loading') useStills();      // 没有实时画面：拆层改用五张静帧
@@ -192,19 +202,21 @@ function setLiveState(state) {
   if (state !== 'live') { fpsNode = triNode = null; if (el.liveState) el.liveState.textContent = LIVE_TEXT[state] ?? LIVE_TEXT.poster; }
   renderLive();
 }
-// 读数与暂停按钮：只有实时画面在跑时才有按钮；暂停时读数写明“已暂停”，点不再脉冲
+// 读数与暂停按钮：只有实时画面在跑时才有按钮；暂停时读数写明“已暂停”，点不再脉冲。
+// 放映样片时舞台也停着：读数换成“已暂停，正在放映样片”，暂停按钮先收起（收起样片后舞台自己接着跑）
 function renderLive() {
   if (!el.live || !el.liveState) return;
   const live = el.live.dataset.state === 'live';
-  const paused = live && S.userPaused;
+  const film = live && filmHolds();
+  const paused = live && (S.userPaused || film);
   if (el.toggle) {
-    el.toggle.hidden = !live;
+    el.toggle.hidden = !live || film;
     const label = $('.live-toggle-label', el.toggle);
-    if (label) label.textContent = paused ? '继续' : '暂停';
+    if (label) label.textContent = S.userPaused ? '继续' : '暂停';
   }
   el.live.classList.toggle('is-paused', paused);
   if (!live) return;
-  if (paused) { fpsNode = triNode = null; el.liveState.textContent = LIVE_TEXT.paused; return; }
+  if (paused) { fpsNode = triNode = null; el.liveState.textContent = film ? LIVE_TEXT.film : LIVE_TEXT.paused; return; }
   if (!fpsNode) {
     if (!lastStats) { el.liveState.textContent = '实时渲染中'; return; }   // 刚继续、帧率还没到手：先不写空着的数字
     el.liveState.textContent = '';
@@ -218,7 +230,7 @@ function renderLive() {
 // 访客之前按过暂停（刷新后从 sessionStorage 读回）时，画面一接管就换成“已暂停”，并露出“继续”
 function showLiveStats() {
   if (!S.live || !el.live || el.live.dataset.state === 'live') return;
-  if (!lastStats && !S.userPaused) return;
+  if (!lastStats && !S.userPaused && !filmHolds()) return;
   setLiveState('live');
 }
 function onStats(s) {
@@ -269,12 +281,22 @@ async function bootStage() {
   if (typeof mod?.createStage !== 'function') { warn('stage.js 没有导出 createStage，保持海报'); return setLiveState('poster'); }
   // 构建鲲会占主线程：等“北冥”写完再建（最多等 2.6 秒），期间海报一直在
   await Promise.race([titleDone, wait(2600)]);
+  // 舞台放弃时先派发 stage:skipped 说明原因：'software'（软件渲染，没有显卡加速）或 'cpu'（这台设备建鲲太慢）。
+  // 不支持 WebGL2 时不派发，读数仍写“不支持”
+  let skipped = null;
+  const onSkipped = e => { skipped = e.detail?.reason || null; };
+  el.canvas.addEventListener('stage:skipped', onSkipped);
   let stage = null;
   try {
     stage = await mod.createStage(el.canvas, { reducedMotion: false, quality: 'auto', onStats });
   } catch (e) { warn('舞台初始化失败，保持海报', e); }
-  if (!stage) { html.classList.add('no-stage'); return setLiveState('nowebgl'); }
+  el.canvas.removeEventListener('stage:skipped', onSkipped);
+  if (!stage) {
+    html.classList.add('no-stage');
+    return setLiveState(skipped === 'software' || skipped === 'cpu' ? skipped : 'nowebgl');
+  }
   S.stage = stage;
+  applied.scene = null; applied.layer = NaN;
   applyStage();
   updatePlay();
   bindPointer();
@@ -292,10 +314,13 @@ async function bootStage() {
     gsap.killTweensOf(el.stage, '--live');
     html.classList.remove('is-live');
     setStageVar('--live', 0);
+    updateSink(window.scrollY, innerHeight);
+    stopFrames();
     if (slow) { S.stage = null; S.playing = undefined; html.classList.remove('stage-paused'); }
     setLiveState(slow ? 'slow' : 'poster');
   });
-  el.canvas.addEventListener('stage:restored', () => { if (!S.live) goLive(); });
+  el.canvas.addEventListener('stage:restored', () => { applied.scene = null; if (!S.live) goLive(); });
+  el.canvas.addEventListener('stage:beat', onBeat);
   goLive();
 }
 
@@ -310,6 +335,7 @@ function goLive() {
     greet();
   } });
   if (pinST && plates.length) gsap.to(plates, { opacity: 0, duration: 0.6, overwrite: 'auto' });
+  updateSink(window.scrollY, innerHeight);
   showLiveStats();
   updatePlay();
 }
@@ -338,22 +364,30 @@ function greet() {
     .to(p, { x: 0, y: 0, duration: 1.2, ease: 'expo.out' }, '+=0.1');
 }
 
+// 场景、进度或层真的变了才调舞台：舞台暂停时每调一次 setScene / setLayer 都会补画一帧静帧，
+// 滚过作品区（idle）或纸页沉进夜色之后（舞台已停、看不见）不该每个滚动帧都画一遍
+const applied = { scene: null, p: NaN, layer: NaN };
 function applyStage() {
   const st = S.stage;
   if (!st) return;
+  const scene = S.scene;
+  const p = scene === 'layers' ? S.engineQ : scene === 'hero' ? S.heroP : 0;
   try {
-    if (S.scene === 'layers') { st.setScene('layers', S.engineQ); st.setLayer(S.layer); }
-    else if (S.scene === 'hero') { st.setScene('hero', S.heroP); st.setLayer(4); }
-    else st.setScene('idle', 0);
+    if (scene !== applied.scene || p !== applied.p) { st.setScene(scene, p); applied.scene = scene; applied.p = p; }
+    if (scene !== 'idle') {
+      const layer = scene === 'layers' ? S.layer : 4;
+      if (layer !== applied.layer) { st.setLayer(layer); applied.layer = layer; }
+    }
   } catch (e) { warn('Stage 调用出错', e); }
 }
 
 function updatePlay() {
+  const film = filmHolds();                             // 首屏放映样片时把 GPU 让给视频；滚离首屏就不再算
+  if (film !== S.filmHeld) { S.filmHeld = film; renderLive(); }
   const st = S.stage;
   if (!st) return;
   const userHold = S.userPaused && S.live;              // 访客按了暂停（实时画面接上之后才生效：第一帧要先画出来）
-  const filmHold = S.filmOpen && S.scene === 'hero';    // 首屏放映样片时把 GPU 让给视频；滚离首屏就不再算
-  const want = !document.hidden && S.inRange && !userHold && !filmHold;
+  const want = !document.hidden && S.inRange && !S.sunk && !userHold && !film;
   html.classList.toggle('stage-paused', !want);
   if (want === S.playing) return;
   S.playing = want;
@@ -495,8 +529,33 @@ function dropPin() {
   rail.forEach(li => li.classList.remove('is-lit', 'is-on'));
   el.engine.classList.remove('is-pinned');
   S.layer = 4; S.step = 0; S.engineQ = 0;
+  stopFrames();
   useStills();
   applyStage();
+}
+
+// ───────────────────────── “时”这一步的帧条：1 秒 = 24 帧，每 3 格一个金格（鲲换姿态的那一帧） ─────────────────────────
+// 静态版（无脚本、减少动态、无 WebGL、实时画面没接上）就是标记里的 24 格，金格由 CSS 按 3n+1 画出。
+// 实时画面在跑、停在“时”这一步时，跟着舞台派发的 stage:beat（一拍三换姿态的那一帧，约每秒 8 次）走：
+// 每一拍前进一格金格（3 帧），格子下面一条墨线标出这一拍覆盖的 3 帧（同一个姿态），8 拍走完 24 格正好 1 秒，与画面同速
+const frames = { el: $('#frames'), cells: [], now: -1 };
+frames.cells = frames.el ? $$('.frames-cells > i', frames.el) : [];
+function onBeat(e) {
+  if (!frames.el || !pinST || !S.live || S.step !== TIME_STEP) return;
+  const beat = Math.floor(Number(e.detail?.beat));
+  if (!Number.isFinite(beat)) return;
+  const k = (((beat % 8) + 8) % 8) * 3;               // 这一拍的金格：0, 3, … 21
+  if (k === frames.now) return;
+  frames.cells[frames.now]?.classList.remove('is-now');
+  frames.cells[k]?.classList.add('is-now');
+  frames.now = k;
+  frames.el.classList.add('is-running');
+}
+function stopFrames() {
+  if (!frames.el || frames.now < 0) return;
+  frames.cells[frames.now]?.classList.remove('is-now');
+  frames.now = -1;
+  frames.el.classList.remove('is-running');
 }
 
 function renderEngine(q) {
@@ -516,6 +575,7 @@ function renderEngine(q) {
 function setStep(i) {
   const prev = S.step;
   S.step = i;
+  if (i !== TIME_STEP) stopFrames();
   const dir = i > prev ? 1 : -1;
   const texts = eng.texts;
   eng.steps.forEach((s, k) => s.classList.toggle('is-current', k === i));
@@ -575,12 +635,24 @@ function onScroll() {
   dusk = 1 - clamp((y - (g.engineTop - vh)) / (vh * 0.8));
   if (!S.live && y > g.engineTop - vh * 0.6) useStills();          // 引擎篇章升进视口过半，实时画面还没接上：先用静帧
   setStageVar('--dusk', dusk);
+  updateSink(y, vh);
   updateShade();
   // 开着样片往下滚走了：收起（焦点在片子里才把它送回按钮），舞台恢复
   if (S.filmOpen && S.heroP > 0.6) filmShut?.({ restoreFocus: false });
   applyStage();
   updatePlay();
   updateNav(y);
+}
+
+// 竖屏拆层收尾（FINAL-13）：纸页在鲲下面，固定段一结束纸页往上滚，先从下往上盖住鲲身，等纸页下沿升过去，
+// 又会从纸页底下单独露出鳍和须子。所以舞台跟着纸页沉进夜色：纸页上滚 4% 屏起淡，40% 屏时整块是夜色
+// （这时纸页下沿还在鲲的下面），之后舞台停下不画，夜色接着作品区。横屏鲲在纸页右边，不受影响，照旧
+let sinking = false;
+function updateSink(y, vh) {
+  const sink = pinST && S.live && PORTRAIT.matches ? smooth((y - pinST.end - vh * 0.04) / (vh * 0.36)) : 0;
+  S.sunk = sink >= 1;
+  setStageVar('--sink', sink);
+  if ((sink > 0) !== sinking) { sinking = sink > 0; html.classList.toggle('sinking', sinking); }
 }
 
 // 画面顶部那层压导航浅色字的夜色：首屏跟着黄昏走；拆层里天空在画布里铺满时也要
@@ -647,19 +719,48 @@ function updateNavTheme(y) {
 function setupFilm() {
   const btn = $('#film-open'), fig = $('#hero-film'), video = $('#film-video'), close = $('#film-close');
   if (!btn || !fig || !video) return;
+  // 片源：<source> 两条，窄屏（≤ 900px）用 1280 宽的转码，其余用 1080p 原片（浏览器按 media 挑第一条合适的）。
+  // 没有 <source> 时退回 video 自己的 src
+  const sources = $$('source', video).map(s => [s, s.getAttribute('src')]).filter(([, src]) => src);
   const SRC = video.getAttribute('src');
-  let resumeAt = 0;
+  let attached = true, resumeAt = 0;
   btn.setAttribute('role', 'button');
   btn.setAttribute('aria-controls', 'hero-film');
   btn.setAttribute('aria-expanded', 'false');
 
-  // 收起后不再下载剩下的部分（样片约 11.6 MB）：还没下完就记下播放位置、撤掉 src，浏览器随即断开连接
+  // 片签上的分辨率按实际放的那一条写（窄屏放的是 1280 宽的转码）
+  const res = $('#film-res');
+  video.addEventListener('loadedmetadata', () => {
+    if (res && video.videoWidth && video.videoHeight) res.textContent = `${video.videoWidth} × ${video.videoHeight}`;
+  });
+
+  // 收起后不再下载剩下的部分（样片约 11 MB）：还没下完就记下播放位置、撤掉片源，浏览器随即断开连接
   const stopDownload = () => {
     const b = video.buffered, end = b.length ? b.end(b.length - 1) : 0;
-    if (!video.getAttribute('src') || (video.duration && end >= video.duration - 0.25)) return;
+    if (!attached || (video.duration && end >= video.duration - 0.25)) return;
     resumeAt = video.currentTime || 0;
+    for (const [s] of sources) s.removeAttribute('src');
     video.removeAttribute('src');
+    attached = false;
     try { video.load(); } catch { /* 没关系 */ }
+  };
+  // 上次收起时停了下载：把片源接回来重新选源（load），从停下的地方接着放
+  const reattach = () => {
+    if (attached) return;
+    for (const [s, src] of sources) s.setAttribute('src', src);
+    if (!sources.length && SRC) video.setAttribute('src', SRC);
+    attached = true;
+    const at = resumeAt;
+    if (at > 0) video.addEventListener('loadedmetadata', () => { try { video.currentTime = at; } catch { /* 从头放也行 */ } }, { once: true });
+    try { video.load(); } catch { /* play() 也会选源 */ }
+  };
+
+  // 放映框整块露出来：按钮在首屏下沿，手机上往下滚过一点再点时，放映框（首屏上方）在视口外。
+  // 不在视口里就滚到刚好露出它（block: 'nearest'，scroll-padding-top 给导航留了位置）；减少动态时不平滑
+  const reveal = () => {
+    const r = fig.getBoundingClientRect();
+    const top = parseFloat(getComputedStyle(html).scrollPaddingTop) || 0;
+    if (r.top < top - 1 || r.bottom > innerHeight + 1) fig.scrollIntoView({ block: 'nearest', behavior: RM ? 'auto' : 'smooth' });
   };
 
   const open = () => {
@@ -668,11 +769,8 @@ function setupFilm() {
     fig.hidden = false;
     html.classList.add('film-open');
     btn.setAttribute('aria-expanded', 'true');
-    if (!video.getAttribute('src') && SRC) {          // 上次收起时停了下载：接回来，从停下的地方接着放
-      video.setAttribute('src', SRC);
-      const at = resumeAt;
-      if (at > 0) video.addEventListener('loadedmetadata', () => { try { video.currentTime = at; } catch { /* 从头放也行 */ } }, { once: true });
-    }
+    reveal();                                           // 在入场动画的位移之前量
+    reattach();
     video.preload = 'auto';
     video.play()?.catch(() => { /* 浏览器拦了自动播放：控件还在，用户自己点 */ });
     if (MOTION) {
