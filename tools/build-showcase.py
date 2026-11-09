@@ -1,96 +1,157 @@
 #!/usr/bin/env python3
-"""生成北冥案例馆页面（投资人向的作品站）。
+"""北冥作品站 · 整站构建器（works 角色维护）。
 
-数据来自 cases/catalog.json。策展规则写在 CURATION 里：
-  · 只保留有观看预览的成片（无案例展示的不上站）
-  · 下掉「自研动画与预演」整组
-  · 下掉状态为 rejected / support / interactive / previs 的记录
-仓库里的完整档案（96 条）不变，本站只是对外展示的策展版本。
+把 site/ 装配成可以直接发布的静态站，按 site/CONTRACT.md 第 5 节的七步执行：
+
+  1. 读 cases/catalog.json + 策展规则 CURATION + site/data/works-meta.json，得到作品列表（79 部：66 / 7 / 6）
+  2. 复制 site/（不含 *.md、dev/、data/works-meta.json）到输出目录；作品区标记填进 <!-- @works -->；写 data/works.json
+  3. 从 site/js/ 下每一个 .js 出发解析 import 图（静态、动态、new URL(…, import.meta.url)），
+     只复制用到的 engine/、src/、three 与 three/addons 文件；缺文件就报错退出
+  4. 复制 GSAP（gsap、ScrollTrigger、Flip）到 vendor/gsap/
+  5. 字体：按页面上 .f-brush 的字与引擎层名取 Ma Shan Zheng 子集，Barlow 取 ASCII 子集（Google Fonts CSS2 API），
+     写 css/fonts.css；联网失败只打印警告，退回仓库自带子集与系统字体，构建不失败
+  6. 复制作品海报、预览视频（默认软链接，--copy-previews 时复制）与样片 media/beiming.mp4；
+     有本地预览且有 ffmpeg 时，另剪悬停短循环 media/hover/<id>-hover.mp4（在第 1 步之后剪好、缓存在 out/.cache/hover/）
+  7. 校验：输出目录里所有本地 src / href / poster / srcset / CSS url() 都能解析到文件，
+     页内锚点都存在，页面可见文字里没有破折号、内部代号和工程残留
 
 用法：
-  python3 tools/build-showcase.py                                   # 仓库内预览
-  python3 tools/build-showcase.py --out _site/index.html \
-      --poster-prefix cases/ --media-prefix media/                  # GitHub Pages 站点根
-不联网、不执行影片。
+  npm run site:build                                         # = python3 tools/build-showcase.py → out/site/
+  python3 tools/build-showcase.py --out out/dev-works \\
+      --previews-dir ~/beiming-case-audit-20261107/release    # 本地：预览视频软链接进 media/previews/
+  python3 tools/build-showcase.py --out _site --previews-dir _previews --copy-previews   # CI（GitHub Pages）
+
+不给 --previews-dir 时，作品预览直接用 GitHub Release 的下载地址。
+开发选项：--template 换模板（默认 <site>/index.html）、--site 换源目录（默认 site/）、
+--offline 不联网取字、--no-hover-clips 不剪悬停短循环、--lenient 把校验错误降为警告（只用于并行开发，CI 不用）。
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
+import os
+import posixpath
+import re
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / 'cases' / 'catalog.json'
-DEFAULT_OUT = ROOT / 'showcase' / 'index.html'
+NODE = ROOT / 'node_modules'
+FONTS_DIR = ROOT / 'fonts'
+FILM = ROOT / 'media' / 'beiming.mp4'
+DEFAULT_SITE = ROOT / 'site'
+DEFAULT_OUT = ROOT / 'out' / 'site'
+FONT_CACHE = ROOT / 'out' / '.cache' / 'fonts'
+BUILD_MARK = '.site-build.json'
 
 REPO = 'https://github.com/cuiyucheng0104-afk/beiming-engine'
-RELEASE = f'{REPO}/releases/tag/casebook-2026.11'
-FILM_1080 = f'{REPO}/releases/download/v1.0/beiming.mp4'
-FILM_4K = f'{REPO}/releases/download/v1.0/beiming_4k.mp4'
+RELEASE_TAG = 'casebook-2026.11'
+RELEASE_PAGE = f'{REPO}/releases/tag/{RELEASE_TAG}'
+CASES_PAGE = f'{REPO}/tree/main/cases'
 
-# 对外品牌名（不出现上游仓库名；许可与来源见仓库 THIRD-PARTY.md）
-TRACKS = [
-    {
-        'key': 'A',
-        'name': '北冥风格 · WebGL 三渲二',
-        'en': 'BEIMING STYLE / WEBGL',
-        'body': '造型、三色分档卡通着色、ID 墨线、Kuwahara 笔触与 Canvas 2D 人物，全部在无头浏览器里逐帧绘制；'
-                '1080p 与原生 4K 出自同一份代码。',
-        'points': ['九层引擎模块', '确定性逐帧', '一条命令出片'],
-        'href': f'{REPO}/tree/main/engine',
-    },
-    {
-        'key': 'B',
-        'name': '北冥原生 · BNE',
-        'en': 'BEIMING NATIVE ENGINE / RTX',
-        'body': '同一套鲲、渡船与底板导出为 GLB，交给原生运行时与独立 GPU。速度与画质分别记录，'
-                '不把浏览器的 Vulkan 数据写成原生 GPU 成绩。',
-        'points': ['GLB 资产桥', '原生 GPU 执行', '独立验收'],
-        'href': f'{REPO}/blob/main/docs/TRACKS.md',
-    },
-    {
-        'key': 'C',
-        'name': '北冥代码动画风格 · 86 式',
-        'en': 'BEIMING CODE-MOTION STYLES',
-        'body': '86 式代码画法，已产出 66 部成片：笔触、材质、排版、信息图与剪辑节奏都写成代码，'
-                '可逐部对照、可直接复用为新片的风格底稿。',
-        'points': ['86 式画法', '66 部成片', '逐部可还原'],
-        'href': f'{REPO}/tree/main/cases',
-    },
-]
-
-GROUPS = {
-    'styles': {
-        'title': '北冥代码动画风格',
-        'en': 'CODE-MOTION STYLES',
-        'desc': '66 部风格样片，每部 18–20 秒。同一套代码骨架，换笔触与材质就是另一种画风。',
-    },
-    'ppt-stories': {
-        'title': 'PPT 故事介绍片',
-        'en': 'STORY FILMS',
-        'desc': '7 部品牌故事片，2–4 分钟。从原画分层、时间线到代码镜头与混音，完整链路交付。',
-    },
-    'ppt-keynote': {
-        'title': '发布会动画',
-        'en': 'KEYNOTE FILMS',
-        'desc': '6 条发布会工程，20 秒到 3 分钟。开场、段落与落版，同一套管线批量出片。',
-    },
-}
-GROUP_ORDER = ['styles', 'ppt-stories', 'ppt-keynote']
-
+# 策展规则（与旧版作品站一致；仓库里 96 条完整档案不变，站上只展示策展版本）
+#   · 只保留有观看预览的成片
+#   · 下掉「自研动画与预演」整组
+#   · 下掉状态为 rejected / support / interactive / previs 的记录
 CURATION = {
     'excludeGroups': {'local-films'},
     'excludeStatuses': {'rejected', 'support', 'interactive', 'previs'},
     'requirePreview': True,
 }
 
-FORBIDDEN_ON_PAGE = ['RAEA', 'raea', 'Lemo', 'lemo', 'Opuscar', 'opuscar', 'SY100', 'sy-style-100', '外部仓库', '上游']
+# 作品分组：标题与说明照 site/DESIGN.md 第 7 节定稿文案；范围用 durationRange 校验，文案和数据对不上就报错
+GROUPS = [
+    {'key': 'styles', 'title': '北冥代码动画风格', 'layout': 'sheet',
+     'desc': '每部 18 到 20 秒。同一套代码骨架，换一组笔触与材质，就是另一种画风。',
+     'durationRange': (17.5, 20.5)},
+    {'key': 'ppt-stories', 'title': 'PPT 故事介绍片', 'layout': 'strip',
+     'desc': '2 到 4 分钟的品牌故事片。原画来自提案，分层、时间线、镜头与混音由代码完成。',
+     'durationRange': (120, 240)},
+    {'key': 'ppt-keynote', 'title': '发布会动画', 'layout': 'strip',
+     'desc': '开场、段落与落版，20 秒到 3 分钟，同一套管线批量出片。',
+     'durationRange': (19.5, 181)},
+]
+# 站上多处文案写死了这些数字（DESIGN.md 第 7 节）；策展结果变了必须先改文案再改这里
+EXPECTED_COUNTS = {'styles': 66, 'ppt-stories': 7, 'ppt-keynote': 6}
+
+LEDE = '{all} 部成片，每一部都由代码合成出片：镜头、版式、笔触与混音都写在程序里。'
+NOTE = '注：部分作品以提案原画、AI 生成的画面或公有领域影像为素材，来源写在每部的案例卡里。站内播放的是历史成片的 960 宽转码；原始画质与素材包在 {release}，每部的归档源码与案例卡在 {cases}。'
+
+# 站点可见文字里不能出现的内容（AGENTS.md 对外名称、DESIGN.md 第 7 节文案规则）
+FORBIDDEN_TERMS = ['RAEA', 'raea', 'Lemo', 'lemo', 'Opuscar', 'opuscar', 'SY100', 'sy-style-100',
+                   'TREATMENT', 'Treatment', '导演阐述', '处理方案', '风格样片']
+FORBIDDEN_DASHES = ['—', '--']          # 包括「——」
+WARN_DASHES = ['–']                      # 连接号：不算破折号，只提醒
+
+# Google Fonts（CSS2 API 按 text= 子集化）
+GF_CSS = 'https://fonts.googleapis.com/css2'
+UA = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36')
+BRUSH_SAFETY = '北冥形光景笔人界时声片作品方法'   # 页面上一定会用到的毛笔字，抓不到元素时也带上
+BARLOW_TEXT = ''.join(chr(c) for c in range(0x20, 0x7F)) + '·×−°…'
+BARLOW_WEIGHTS = (300, 400, 500, 600)
+
+GSAP_FILES = ('gsap.min.js', 'ScrollTrigger.min.js', 'Flip.min.js')
+GSAP_VERSION = '3.15.1'
+
+# 悬停短循环：从海报那一帧（previewStart）起剪 4 秒、480 宽、无音轨、最高 30 帧，每段约 100–300 KB。
+# 悬停只播它，不用为几秒悬停下载整部预览（几 MB）；点开放映台才用完整预览。参数一变缓存就失效
+HOVER = {'seconds': 4, 'width': 480, 'crf': 30, 'fpsmax': 30}
+HOVER_CACHE = ROOT / 'out' / '.cache' / 'hover'
+
+WEB_EXT = {'.js', '.mjs', '.json', '.css', '.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif', '.svg',
+           '.woff', '.woff2', '.ttf', '.otf', '.mp4', '.webm', '.mp3', '.wav', '.ogg', '.glb', '.gltf',
+           '.bin', '.ktx2', '.hdr', '.wasm', '.txt'}
+
+
+class BuildError(Exception):
+    pass
+
+
+class Log:
+    def __init__(self, lenient: bool = False):
+        self.lenient = lenient
+        self.warnings: list[str] = []
+        self.errors: list[str] = []
+
+    def info(self, msg: str) -> None:
+        print(msg, flush=True)
+
+    def warn(self, msg: str) -> None:
+        self.warnings.append(msg)
+        print(f'  警告：{msg}', file=sys.stderr, flush=True)
+
+    def error(self, msg: str) -> None:
+        """可降级的错误：--lenient 时只当警告。"""
+        if self.lenient:
+            self.warn(msg)
+        else:
+            self.errors.append(msg)
+            print(f'  错误：{msg}', file=sys.stderr, flush=True)
+
+    def check(self, step: str) -> None:
+        if self.errors:
+            raise BuildError(f'{step}失败，共 {len(self.errors)} 处问题（见上方）')
 
 
 def esc(value) -> str:
     return html.escape('' if value is None else str(value), quote=True)
 
+
+def rel_posix(path: Path, base: Path) -> str:
+    return path.relative_to(base).as_posix()
+
+
+# ───────────────────────── 1. 作品数据 ─────────────────────────
 
 def keep_case(case: dict) -> bool:
     if case['group'] in CURATION['excludeGroups']:
@@ -114,554 +175,960 @@ def duration_of(case: dict) -> float | None:
 
 
 def fmt_duration(seconds: float | None) -> str:
+    """20 秒 / 2 分 51 秒 / 3 分。四舍五入到整秒（旧站的「2 分 0051 秒」就是这里格式写错了）。"""
     if seconds is None:
         return ''
-    if seconds < 60:
-        return f'{seconds:.0f} 秒' if seconds >= 10 else f'{seconds:.1f} 秒'
-    return f'{int(seconds // 60)} 分 {seconds % 60:04.0f} 秒'
+    total = int(seconds + 0.5)
+    if total < 60:
+        return f'{total} 秒'
+    minutes, secs = divmod(total, 60)
+    return f'{minutes} 分' if secs == 0 else f'{minutes} 分 {secs} 秒'
 
 
-def load_cases(poster_prefix: str) -> list[dict]:
-    manifest = json.loads(CATALOG.read_text(encoding='utf-8'))
-    cases = []
-    for case in manifest['cases']:
-        if not keep_case(case):
-            continue
+TITLE_RESIDUE = [
+    (re.compile(r'\d+(?:\.\d+)?\s*(?:s|秒)(?![\w])', re.I), '秒数'),
+    (re.compile(r'^\s*\d{1,3}\s*[·.、]'), '编号'),
+    (re.compile(r'[（(]\s*(?:treatment|TREATMENT)'), 'TREATMENT'),
+]
+
+
+def check_text(label: str, text: str, log: Log, *, limit: int | None = None) -> None:
+    for term in FORBIDDEN_TERMS:
+        if term in text:
+            log.error(f'{label} 含有不该出现的「{term}」：{text}')
+    for dash in FORBIDDEN_DASHES:
+        if dash in text:
+            log.error(f'{label} 含有破折号「{dash}」：{text}')
+    if limit is not None and len(text) > limit:
+        log.error(f'{label} 超过 {limit} 字（{len(text)} 字）：{text}')
+
+
+def load_works(site: Path, previews_dir: Path | None, log: Log) -> dict:
+    catalog = json.loads(CATALOG.read_text(encoding='utf-8'))
+    meta_path = site / 'data' / 'works-meta.json'
+    if not meta_path.exists():
+        raise BuildError(f'缺少策展数据 {meta_path}')
+    meta = json.loads(meta_path.read_text(encoding='utf-8'))
+    families = meta.get('families') or []
+    family_keys = [f['key'] for f in families]
+    entries = meta.get('works') or {}
+
+    kept = [c for c in catalog['cases'] if keep_case(c)]
+    kept_ids = {c['id'] for c in kept}
+    for missing in sorted(kept_ids - set(entries)):
+        log.error(f'works-meta.json 缺少 {missing} 的策展条目')
+    for stale in sorted(set(entries) - kept_ids):
+        log.error(f'works-meta.json 有多余条目 {stale}（它不在策展结果里）')
+    if not 6 <= len(families) <= 9:
+        log.error(f'画风家族应为 6–9 个，现在是 {len(families)} 个')
+    if len(set(family_keys)) != len(family_keys):
+        log.error('画风家族的 key 有重复')
+    log.check('读取策展数据')
+
+    order = {g['key']: i for i, g in enumerate(GROUPS)}
+    for case in kept:
+        if case['group'] not in order:
+            raise BuildError(f'{case["id"]} 属于未知分组 {case["group"]}')
+
+    position = {c['id']: i for i, c in enumerate(catalog['cases'])}
+
+    def sort_key(case):   # 分组 → works-meta 里可选的 order → catalog.json 的原有顺序（风格样片按编号，其余按制作先后）
+        m = entries[case['id']]
+        return (order[case['group']], m.get('order', 0), position[case['id']])
+
+    kept.sort(key=sort_key)
+    works = []
+    counters = {g['key']: 0 for g in GROUPS}
+    for case in kept:
+        m = entries[case['id']]
+        group = case['group']
+        counters[group] += 1
+        label = f'works-meta.json · {case["id"]}'
+        title = (m.get('title') or '').strip()
+        style_name = (m.get('styleName') or '').strip()
+        blurb = (m.get('blurb') or '').strip()
+        family = m.get('family')
+        if not title or not style_name or not blurb:
+            log.error(f'{label} 缺 title / styleName / blurb')
+        check_text(f'{label} 片名', title, log)
+        check_text(f'{label} 画风名', style_name, log)
+        check_text(f'{label} 简介', blurb, log, limit=40)
+        for pattern, what in TITLE_RESIDUE:
+            if pattern.search(title):
+                log.error(f'{label} 片名里还有{what}残留：{title}')
+        if group == 'styles':
+            if family not in family_keys:
+                log.error(f'{label} 的画风家族 {family!r} 不在 families 里')
+        elif family is not None:
+            log.error(f'{label} 不是风格样片，family 应为 null')
+
         preview = case.get('preview') or {}
-        poster = f'{poster_prefix}{case["poster"]}' if case.get('poster') else ''
-        cases.append({
+        filename = preview.get('filename') or f'{case["id"]}-preview.mp4'
+        poster_src = ROOT / 'cases' / case['poster'] if case.get('poster') else None
+        # 海报覆盖：works-meta 的 poster 是 site/data/ 下的相对路径（从预览视频里另取的一帧，见 _说明）
+        if m.get('poster'):
+            override = (site / 'data' / m['poster']).resolve()
+            if not override.is_relative_to((site / 'data' / 'posters').resolve()) or override.suffix.lower() != '.jpg':
+                log.error(f'{label} 的 poster 应是 posters/ 下的 .jpg：{m["poster"]!r}')
+            poster_src = override
+        if poster_src is None or not poster_src.exists():
+            log.error(f'{case["id"]} 缺少海报 {poster_src}')
+        duration = duration_of(case)
+        lo, hi = next(g['durationRange'] for g in GROUPS if g['key'] == group)
+        if duration is None or not lo <= duration <= hi:
+            log.error(f'{case["id"]} 时长 {duration} 不在本组文案写的范围 {lo}–{hi} 秒内，请核对 DESIGN.md 文案')
+        # 悬停预览的起播点：海报就是从预览视频这一刻截的，从这里播，海报到视频没有跳变
+        start = m.get('previewStart', 0)
+        if not isinstance(start, (int, float)) or start < 0 or (duration and start >= duration):
+            log.error(f'{label} 的 previewStart={start!r} 不在 0 到时长之间')
+            start = 0
+        works.append({
             'id': case['id'],
-            'group': case['group'],
-            'title': case['title'],
-            'poster': poster,
-            'video': preview.get('url') or '',
-            'duration': duration_of(case),
-            'entry': f'{REPO}/blob/main/cases/entries/{case["id"]}.md',
-            'style': case.get('upstreamStyle') or '',
+            'group': group,
+            'family': family if group == 'styles' else None,
+            'n': counters[group],
+            'title': title,
+            'styleName': style_name,
+            'blurb': blurb,
+            'duration': round(duration, 3) if duration is not None else None,
+            'durationLabel': fmt_duration(duration),
+            'poster': f'media/posters/{case["id"]}.jpg',
+            'preview': f'media/previews/{filename}' if previews_dir else preview['url'],
+            'previewBytes': preview.get('size'),
+            'previewStart': round(float(start), 2),
+            'caseUrl': f'{REPO}/blob/main/cases/entries/{case["id"]}.md',
+            'sourceUrl': f'{REPO}/tree/main/cases/source/{case["id"]}',
+            '_posterSrc': poster_src,
+            '_previewFile': filename,
+            '_previewSha': preview.get('sha256'),
         })
-    order = {g: i for i, g in enumerate(GROUP_ORDER)}
-    cases.sort(key=lambda c: (order.get(c['group'], 99), c['id']))
-    return cases
+    log.check('整理作品数据')
+
+    counts = {g['key']: counters[g['key']] for g in GROUPS}
+    for key, expected in EXPECTED_COUNTS.items():
+        if counts.get(key) != expected:
+            log.error(f'{key} 策展结果是 {counts.get(key)} 部，文案写的是 {expected} 部；先改 DESIGN.md 与页面文案，再改 EXPECTED_COUNTS')
+    log.check('核对作品数量')
+    fam_count = {k: 0 for k in family_keys}
+    for w in works:
+        if w['family']:
+            fam_count[w['family']] += 1
+    for key, n in fam_count.items():
+        if n == 0:
+            log.error(f'画风家族 {key} 一部作品都没有')
+    log.check('核对画风家族')
+
+    return {
+        'counts': {'all': len(works), **counts, 'archived': len(catalog['cases'])},
+        'groups': [{'key': g['key'], 'title': g['title'], 'count': counts[g['key']]} for g in GROUPS],
+        'families': [{'key': f['key'], 'title': f['title'], 'count': fam_count[f['key']]} for f in families],
+        'works': works,
+    }
 
 
-def card_html(case: dict) -> str:
-    title = esc(case['title'])
-    img = (f'<img loading="lazy" src="{esc(case["poster"])}" alt="{title}" '
-           f'width="640" height="360">' if case['poster'] else '')
-    dur = fmt_duration(case['duration'])
-    style = f'<span class="card-style">{esc(case["style"])}</span>' if case['style'] else ''
-    return f'''<article class="card" data-group="{esc(case['group'])}" data-title="{title} {esc(case['id'])}">
-  <button class="card-hit" data-id="{esc(case['id'])}" aria-label="播放预览：{title}">
-    <span class="poster">{img}<span class="veil"></span>
-      <span class="play" aria-hidden="true">▶</span>
-      <span class="card-meta">{dur}{(' · ' + esc(case['style'])) if case['style'] else ''}</span>
-    </span>
-    <span class="card-title">{title}</span>
-  </button>
-  <a class="card-link" href="{esc(case['entry'])}" target="_blank" rel="noreferrer">案例卡与源码 ↗</a>
-</article>'''
+def prepare_hover_clips(data: dict, previews_dir: Path | None, enabled: bool, log: Log) -> dict:
+    """剪悬停短循环到 out/.cache/hover/（按预览文件、起播点与参数缓存），给每部作品记上 hover 路径。
+    要在生成作品区标记之前跑：标记里的 data-hover 指向它。没有本地预览或没有 ffmpeg 时跳过，悬停退回整部预览。"""
+    stats = {'mode': 'off', 'clips': 0, 'made': 0, 'bytes': 0}
+    if not enabled:
+        return stats
+    if not previews_dir:
+        log.info('  没给 --previews-dir：不剪悬停短循环，悬停直接播 Release 上的整部预览')
+        return stats
+    ffmpeg = shutil.which('ffmpeg')
+    if not ffmpeg:
+        log.warn('找不到 ffmpeg：不剪悬停短循环，悬停直接播整部预览（每次几 MB）')
+        return stats
+    stats['mode'] = 'clips'
+    HOVER_CACHE.mkdir(parents=True, exist_ok=True)
+    params = json.dumps(HOVER, sort_keys=True)
+    for w in data['works']:
+        src = previews_dir / w['_previewFile']
+        if not src.is_file():
+            continue                      # 第 6 步会报缺文件
+        ident = w['_previewSha'] or f'{src.stat().st_size}'
+        key = hashlib.sha256(f'{ident}|{w["previewStart"]}|{params}'.encode()).hexdigest()[:12]
+        cached = HOVER_CACHE / f'{w["id"]}-{key}.mp4'
+        if not cached.is_file():
+            tmp = cached.with_suffix('.tmp.mp4')
+            cmd = [ffmpeg, '-v', 'error', '-y', '-ss', f'{w["previewStart"]:g}', '-i', str(src),
+                   '-t', str(HOVER['seconds']), '-an', '-sn', '-dn', '-map_metadata', '-1',
+                   '-vf', f'scale={HOVER["width"]}:-2:flags=lanczos,format=yuv420p', '-fpsmax', str(HOVER['fpsmax']),
+                   '-c:v', 'libx264', '-preset', 'slow', '-crf', str(HOVER['crf']), '-profile:v', 'main',
+                   '-movflags', '+faststart', str(tmp)]
+            try:
+                subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+                tmp.replace(cached)
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as exc:
+                detail = getattr(exc, 'stderr', b'') or b''
+                log.warn(f'{w["id"]} 的悬停短循环没剪成（{exc.__class__.__name__} {detail.decode("utf-8", "replace").strip()[:120]}），悬停退回整部预览')
+                tmp.unlink(missing_ok=True)
+                continue
+            stats['made'] += 1
+        w['hover'] = f'media/hover/{w["id"]}-hover.mp4'
+        w['_hoverSrc'] = cached
+        stats['clips'] += 1
+        stats['bytes'] += cached.stat().st_size
+    return stats
 
 
-def build(out_path: Path, poster_prefix: str, media_prefix: str) -> str:
-    cases = load_cases(poster_prefix)
-    groups = {g: [c for c in cases if c['group'] == g] for g in GROUP_ORDER}
-    total = len(cases)
-    total_seconds = sum(c['duration'] or 0 for c in cases)
-    stats = [
-        (str(total), '部成片'),
-        ('3', '条渲染路线'),
-        ('9', '层引擎模块'),
-        ('原生 4K', '平台输出'),
-    ]
+def public_works_json(data: dict) -> str:
+    works = [{k: v for k, v in w.items() if not k.startswith('_')} for w in data['works']]
+    payload = {'counts': data['counts'], 'groups': data['groups'], 'families': data['families'], 'works': works}
+    return json.dumps(payload, ensure_ascii=False, indent=1) + '\n'
 
-    data = json.dumps({c['id']: {'title': c['title'], 'video': c['video'],
-                                 'entry': c['entry'], 'duration': fmt_duration(c['duration'])}
-                       for c in cases}, ensure_ascii=False)
 
-    filters = ''.join(
-        f'<button class="tab{" is-on" if i == 0 else ""}" data-group="all">全部 <em>{total}</em></button>'
-        for i in [0]
-    ) + ''.join(
-        f'<button class="tab" data-group="{g}">{esc(GROUPS[g]["title"])} <em>{len(groups[g])}</em></button>'
-        for g in GROUP_ORDER
-    )
+# ───────────────────────── 作品区标记 ─────────────────────────
 
-    sections = []
-    for g in GROUP_ORDER:
-        meta = GROUPS[g]
-        cards = '\n'.join(card_html(c) for c in groups[g])
-        sections.append(f'''<section class="work-group" data-group="{esc(g)}" aria-labelledby="g-{esc(g)}">
-  <header class="group-head">
-    <p class="eyebrow">{esc(meta['en'])}</p>
-    <h2 id="g-{esc(g)}">{esc(meta['title'])}<span class="count">{len(groups[g])} 部</span></h2>
-    <p class="group-desc">{esc(meta['desc'])}</p>
+EXT_MARK = '<span class="wk-sr">（新标签页）</span>'
+ICON_PREV = ('<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">'
+             '<path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>')
+ICON_NEXT = ('<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">'
+             '<path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>')
+
+
+def ext_link(href: str, text: str, cls: str = '') -> str:
+    c = f' class="{cls}"' if cls else ''
+    return f'<a{c} href="{esc(href)}" target="_blank" rel="noopener">{esc(text)}{EXT_MARK}</a>'
+
+
+# 作品链接的读屏名：「《片名》，画风，时长，动作」。没有 JS 时链接直接打开预览视频；
+# works.js 接管后把最后一段换成「原地放映」。简介不进名字，用 aria-describedby 指过去。
+LINK_ACTION = '预览视频'
+
+
+def frame_html(w: dict, wide: bool) -> str:
+    """一格作品。印样（wide=False）：画面 + 片边一行小字（编号、片名、时长），画风名悬停才出现；
+    胶片条（wide=True）：胶片框里的画面 + 下方片名、画风、时长与简介。"""
+    n = f'{w["n"]:02d}'
+    attrs = {
+        'class': 'wk-frame' + (' wk-frame--wide' if wide else ''),
+        'data-id': w['id'],
+        'data-group': w['group'],
+        'data-family': w['family'] or '',
+        'data-n': n,
+        'data-preview': w['preview'],
+        'data-start': f'{w["previewStart"]:g}',
+        'data-case': w['caseUrl'],
+        'data-source': w['sourceUrl'],
+        'data-duration': '' if w['duration'] is None else f'{w["duration"]:.2f}',
+        'data-bytes': w['previewBytes'] or '',
+    }
+    if w.get('hover'):
+        attrs['data-hover'] = w['hover']
+    attr_html = ' '.join(f'{k}="{esc(v)}"' for k, v in attrs.items())
+    desc_id = f'wk-d-{w["id"]}'
+    label = f'《{w["title"]}》，{w["styleName"]}，{w["durationLabel"]}，{LINK_ACTION}'
+    title, style, dur, blurb = (esc(w['title']), esc(w['styleName']), esc(w['durationLabel']), esc(w['blurb']))
+    img = (f'<img src="{esc(w["poster"])}" alt="{blurb}" '
+           f'width="640" height="360" loading="lazy" decoding="async">')
+    if wide:
+        cap = f'''<span class="wk-cap">
+        <span class="wk-name">{title}</span>
+        <span class="wk-meta"><span class="wk-style">{style}</span><span class="wk-dur">{dur}</span></span>
+        <span class="wk-blurb" id="{desc_id}" aria-hidden="true">{blurb}</span>
+      </span>'''
+        pic = f'<span class="wk-film"><span class="wk-pic">{img}<span class="wk-n" aria-hidden="true">{n}</span></span></span>'
+    else:
+        cap = (f'<span class="wk-cap"><span class="wk-n" aria-hidden="true">{n}</span>'
+               f'<span class="wk-name">{title}</span><span class="wk-dur">{dur}</span>'
+               f'<span class="wk-sr" id="{desc_id}" aria-hidden="true">{blurb}</span></span>')
+        pic = f'<span class="wk-pic">{img}<span class="wk-style" aria-hidden="true">{style}</span></span>'
+    return f'''<li {attr_html}>
+    <a class="wk-link" href="{esc(w['preview'])}" type="video/mp4" aria-label="{esc(label)}" aria-describedby="{desc_id}">
+      {cap}
+      {pic}
+    </a>
+  </li>'''
+
+
+def works_markup(data: dict) -> str:
+    counts = data['counts']
+    by_group = {g['key']: [w for w in data['works'] if w['group'] == g['key']] for g in GROUPS}
+    toc = ''.join(
+        f'<li><a href="#works-{g["key"]}"><span class="wk-toc-name">{esc(g["title"])}</span>'
+        f'<span class="wk-toc-n">{len(by_group[g["key"]])}</span></a></li>'
+        for g in GROUPS)
+    parts = [f'''<div class="wk" data-works>
+<header class="wk-head">
+  <p class="wk-label" lang="en">WORKS</p>
+  <h2 class="wk-title f-brush" id="works-title">作品</h2>
+  <div class="wk-intro">
+    <p class="wk-lede">{esc(LEDE.format(all=counts['all']))}</p>
+    <nav class="wk-toc" aria-label="作品分组"><ol>{toc}</ol></nav>
+  </div>
+</header>''']
+    for g in GROUPS:
+        items = by_group[g['key']]
+        gid = f'works-{g["key"]}'
+        head = f'''<header class="wk-group-head">
+    <h3 class="wk-group-title" id="{gid}-title">{esc(g['title'])}<span class="wk-group-n">{len(items)} 部</span></h3>
+    <p class="wk-group-desc">{esc(g['desc'])}</p>'''
+        if g['layout'] == 'sheet':
+            chips = [f'<button type="button" class="wk-chip" data-family="all" aria-pressed="true">'
+                     f'全部<span class="wk-chip-n">{len(items)}</span></button>']
+            chips += [f'<button type="button" class="wk-chip" data-family="{esc(f["key"])}" aria-pressed="false">'
+                      f'{esc(f["title"])}<span class="wk-chip-n">{f["count"]}</span></button>'
+                      for f in data['families']]
+            frames = '\n  '.join(frame_html(w, wide=False) for w in items)
+            parts.append(f'''<section class="wk-group wk-group--sheet" id="{gid}" data-group="{g['key']}" aria-labelledby="{gid}-title">
+  {head}
   </header>
-  <div class="grid">{cards}</div>
+  <div class="wk-filter" role="group" aria-label="按画风家族筛选" hidden>
+    {''.join(chips)}
+  </div>
+  <p class="wk-sr" data-filter-status aria-live="polite"></p>
+  <ol class="wk-sheet" data-sheet>
+  {frames}
+  </ol>
 </section>''')
-
-    tracks = ''.join(f'''<article class="route">
-  <span class="route-key" aria-hidden="true">{t['key']}</span>
-  <p class="eyebrow">{esc(t['en'])}</p>
-  <h3>{esc(t['name'])}</h3>
-  <p class="route-body">{esc(t['body'])}</p>
-  <ul class="route-points">{''.join(f'<li>{esc(p)}</li>' for p in t['points'])}</ul>
-  <a class="route-link" href="{esc(t['href'])}" target="_blank" rel="noreferrer">查看工程 ↗</a>
-</article>''' for t in TRACKS)
-
-    stats_html = ''.join(f'<div class="stat"><b>{esc(v)}</b><span>{esc(k)}</span></div>' for v, k in stats)
-
-    page = f'''<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>北冥引擎 · 代码即影片</title>
-<meta name="description" content="北冥引擎：用代码逐帧画出的三渲二 / 2.5D 动画管线。1080p 与原生 4K 同源，{total} 部成片按风格归档。">
-<meta property="og:title" content="北冥引擎 · 代码即影片">
-<meta property="og:description" content="用代码逐帧画出的三渲二 / 2.5D 动画管线。{total} 部成片按风格归档。">
-<meta property="og:image" content="{media_prefix}shot_7.6.jpg">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' fill='%23070d12'/><text x='32' y='44' font-size='38' text-anchor='middle' fill='%23c7a46a' font-family='serif'>北</text></svg>">
-<style>
-:root {{
-  --ink: #080d14;
-  --ink-soft: #0d1723;
-  --paper: #f1e9dc;
-  --muted: #9aa4b8;
-  --gold: #d9a36c;
-  --gold-dim: #a8754c;
-  --lilac: #b9a7d6;
-  --line: rgba(217,163,108,.20);
-  --line-soft: rgba(241,233,220,.10);
-  --serif: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
-  --sans: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, sans-serif;
-  --mono: "SF Mono", "Cascadia Mono", "Consolas", ui-monospace, monospace;
-  --pad: clamp(20px, 5vw, 72px);
-}}
-* {{ box-sizing: border-box; }}
-html {{ scroll-behavior: smooth; }}
-body {{
-  margin: 0; background: var(--ink); color: var(--paper);
-  font: 16px/1.75 var(--sans);
-  -webkit-font-smoothing: antialiased;
-}}
-::selection {{ background: var(--gold); color: var(--ink); }}
-a {{ color: inherit; text-decoration: none; }}
-img {{ max-width: 100%; display: block; }}
-button {{ font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }}
-:focus-visible {{ outline: 2px solid var(--gold); outline-offset: 3px; }}
-.skip {{ position: absolute; left: -999px; top: 0; background: var(--gold); color: var(--ink); padding: 10px 16px; z-index: 100; }}
-.skip:focus {{ left: 12px; top: 12px; }}
-
-/* ---------- nav ---------- */
-.nav {{
-  position: fixed; inset: 0 0 auto 0; z-index: 40;
-  display: flex; align-items: center; gap: 28px;
-  padding: 0 var(--pad); height: 66px;
-  background: linear-gradient(180deg, rgba(7,13,18,.92), rgba(7,13,18,.55) 70%, transparent);
-}}
-.nav .brand {{ font-family: var(--serif); font-size: 19px; letter-spacing: .28em; color: var(--gold); }}
-.nav .mark {{ font-family: var(--mono); font-size: 10px; letter-spacing: .22em; color: var(--muted); }}
-.nav .links {{ display: flex; gap: 26px; margin-left: auto; font-size: 13px; letter-spacing: .1em; }}
-.nav .links a {{ color: var(--muted); transition: color .2s; }}
-.nav .links a:hover {{ color: var(--paper); }}
-.nav .gh {{ border: 1px solid var(--line); padding: 6px 14px; border-radius: 2px; color: var(--gold); }}
-.nav .gh:hover {{ background: rgba(199,164,106,.12); }}
-
-/* ---------- hero ---------- */
-.hero {{ position: relative; min-height: 100svh; padding: 120px var(--pad) 0; display: flex; flex-direction: column; overflow: hidden; }}
-.hero-still {{ position: absolute; inset: 0; background: url("{media_prefix}shot_1.6.jpg") center 34%/cover no-repeat; opacity: 1; }}
-.hero-still::after {{ content: ""; position: absolute; inset: 0; background:
-  linear-gradient(96deg, var(--ink) 0%, rgba(8,13,20,.95) 30%, rgba(8,13,20,.55) 52%, rgba(8,13,20,.12) 78%, rgba(8,13,20,.42) 100%),
-  linear-gradient(0deg, var(--ink) 0%, rgba(8,13,20,.72) 16%, rgba(8,13,20,.05) 46%, rgba(8,13,20,.28) 82%, rgba(8,13,20,.86) 100%); }}
-.hero-inner {{ position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: center;
-  max-width: 1240px; width: 100%; margin: 0 auto; padding-bottom: 40px; }}
-.hero .eyebrow {{ color: var(--lilac); letter-spacing: .34em; }}
-.hero h1 {{ font-family: var(--serif); font-weight: 500; letter-spacing: .06em; line-height: .94;
-  font-size: clamp(104px, 18vw, 244px); margin: 16px 0 24px; text-shadow: 0 8px 60px rgba(8,13,20,.55); }}
-.hero h1 .en {{ display: block; font-family: var(--mono); font-size: clamp(11px, 1.2vw, 14px);
-  letter-spacing: .62em; color: var(--muted); margin-top: 24px; }}
-.hero .lede {{ max-width: 620px; font-size: clamp(16px, 1.4vw, 20px); line-height: 1.95; color: #efe5d4; text-shadow: 0 2px 26px rgba(8,13,20,.6); }}
-.hero .cta {{ display: flex; flex-wrap: wrap; gap: 14px; margin: 36px 0 0; }}
-.btn {{ display: inline-flex; align-items: center; gap: 10px; padding: 14px 26px; font-size: 14px; letter-spacing: .12em; border: 1px solid var(--gold); color: var(--gold); transition: background .2s, color .2s; }}
-.btn:hover {{ background: var(--gold); color: var(--ink); }}
-.btn.ghost {{ border-color: rgba(241,233,220,.35); color: var(--paper); }}
-.btn.ghost:hover {{ border-color: var(--gold); background: transparent; color: var(--gold); }}
-.hero-data {{ position: relative; z-index: 2; margin: 0 auto; max-width: 1240px; width: 100%;
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; border-top: 1px solid var(--line);
-  padding: 24px 0 26px; background: linear-gradient(180deg, rgba(8,13,20,.0), rgba(8,13,20,.55)); }}
-.stat b {{ display: block; font-family: var(--serif); font-size: clamp(20px, 2vw, 28px); font-weight: 500; color: var(--paper); }}
-.stat span {{ font-size: 11px; letter-spacing: .2em; color: var(--muted); }}
-.tide {{ display: none; }}
-.scroll-note {{ position: relative; z-index: 2; display: flex; justify-content: center; padding: 0 0 22px; }}
-.scroll-note span {{ font-family: var(--mono); font-size: 10px; letter-spacing: .3em; color: var(--gold-dim); }}
-
-/* ---------- shared ---------- */
-main {{ counter-reset: none; }}
-.section {{ padding: clamp(84px, 12vh, 150px) var(--pad); }}
-.section-inner {{ max-width: 1240px; margin: 0 auto; }}
-.eyebrow {{ margin: 0 0 18px; font-family: var(--mono); font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: var(--gold-dim); }}
-h2 {{ font-family: var(--serif); font-weight: 500; font-size: clamp(32px, 4.4vw, 62px); line-height: 1.18; letter-spacing: .03em; margin: 0 0 22px; }}
-.lede {{ color: #d5cab6; font-size: 17px; line-height: 1.95; max-width: 660px; }}
-.rule {{ height: 1px; background: var(--line-soft); margin: 0 var(--pad); }}
-
-/* ---------- engine ---------- */
-.engine {{ display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 6vw, 96px); }}
-.layers {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line-soft); border: 1px solid var(--line-soft); }}
-.layer {{ background: var(--ink); padding: 22px 20px; min-height: 132px; }}
-.layer b {{ font-family: var(--serif); font-size: 27px; font-weight: 500; color: var(--gold); display: block; }}
-.layer span {{ display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .26em; color: var(--muted); margin: 8px 0 4px; }}
-.layer p {{ margin: 0; font-size: 13px; line-height: 1.7; color: #c8bda9; }}
-.proof {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 54px; border-top: 1px solid var(--line); padding-top: 26px; }}
-.proof b {{ display: block; font-family: var(--serif); font-size: clamp(24px, 2.6vw, 34px); font-weight: 500; }}
-.proof span {{ display: block; font-size: 12px; color: var(--muted); margin-top: 6px; }}
-
-/* ---------- routes ---------- */
-.routes {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; margin-top: 56px; }}
-.route {{ position: relative; border: 1px solid var(--line-soft); background: linear-gradient(170deg, rgba(12,26,34,.9), rgba(7,13,18,.4)); padding: 34px 28px 30px; display: flex; flex-direction: column; gap: 14px; transition: border-color .25s, transform .25s; }}
-.route:hover {{ border-color: var(--line); transform: translateY(-4px); }}
-.route-key {{ position: absolute; right: 20px; top: 6px; font-family: var(--serif); font-size: clamp(64px, 7vw, 96px); line-height: 1; color: transparent; -webkit-text-stroke: 1px rgba(199,164,106,.28); }}
-.route .eyebrow {{ margin: 0; }}
-.route h3 {{ margin: 0; font-family: var(--serif); font-weight: 500; font-size: clamp(20px, 1.7vw, 25px); line-height: 1.4; max-width: 100%; text-wrap: balance; word-break: keep-all; }}
-.route-body {{ margin: 0; font-size: 14px; line-height: 1.85; color: #c8bda9; flex: 1; }}
-.route-points {{ list-style: none; margin: 0; padding: 16px 0 0; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: .16em; color: var(--muted); }}
-.route-points li::before {{ content: "— "; color: var(--gold-dim); }}
-.route-link {{ font-size: 12px; letter-spacing: .14em; color: var(--gold); margin-top: 8px; }}
-
-/* ---------- works ---------- */
-.works-head {{ display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }}
-.toolbar {{ display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 44px 0 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line-soft); }}
-.tab {{ font-family: var(--mono); font-size: 11px; letter-spacing: .14em; color: var(--muted); padding: 9px 16px; border: 1px solid transparent; }}
-.tab em {{ font-style: normal; color: var(--gold-dim); margin-left: 6px; }}
-.tab:hover {{ color: var(--paper); }}
-.tab.is-on {{ border-color: var(--line); color: var(--gold); }}
-.search {{ margin-left: auto; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line-soft); padding: 6px 2px; }}
-.search input {{ background: none; border: 0; color: var(--paper); font-family: var(--mono); font-size: 12px; letter-spacing: .06em; width: 210px; }}
-.search input::placeholder {{ color: #62747b; }}
-.search input:focus {{ outline: none; }}
-.search svg {{ width: 13px; height: 13px; stroke: var(--muted); fill: none; }}
-.work-group {{ padding-top: 56px; }}
-.group-head {{ max-width: 680px; margin-bottom: 30px; }}
-.group-head h2 {{ font-size: clamp(24px, 2.6vw, 34px); margin-bottom: 10px; }}
-.count {{ font-family: var(--mono); font-size: 11px; letter-spacing: .2em; color: var(--gold-dim); margin-left: 14px; vertical-align: middle; }}
-.group-desc {{ margin: 0; color: var(--muted); font-size: 14px; line-height: 1.8; }}
-.grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 30px 22px; }}
-.card {{ min-width: 0; }}
-.card-hit {{ display: block; width: 100%; text-align: left; }}
-.poster {{ position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; background: #05090d; }}
-.poster img {{ width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.2,.7,.2,1); }}
-.card-hit:hover .poster img {{ transform: scale(1.045); }}
-.veil {{ position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(5,9,13,.82)); opacity: .9; transition: opacity .3s; }}
-.card-hit:hover .veil {{ opacity: 1; }}
-.play {{ position: absolute; inset: 0; margin: auto; width: 46px; height: 46px; display: grid; place-items: center; border: 1px solid rgba(237,228,211,.55); border-radius: 50%; color: var(--paper); font-size: 13px; background: rgba(7,13,18,.35); opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; }}
-.card-hit:hover .play, .card-hit:focus-visible .play {{ opacity: 1; transform: none; }}
-.card-meta {{ position: absolute; left: 12px; bottom: 10px; font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: rgba(237,228,211,.82); }}
-.card-title {{ display: block; margin: 14px 0 6px; font-family: var(--serif); font-size: 16.5px; line-height: 1.55; letter-spacing: .01em; min-height: 2.9em; }}
-.card-hit:hover .card-title {{ color: var(--gold); }}
-.card-link {{ font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; color: #5f7178; }}
-.card-link:hover {{ color: var(--gold); }}
-.empty {{ padding: 60px 0; color: var(--muted); font-family: var(--mono); font-size: 12px; letter-spacing: .14em; }}
-
-/* ---------- method ---------- */
-.method {{ display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: clamp(32px, 6vw, 90px); align-items: start; }}
-.quote {{ font-family: var(--serif); font-size: clamp(24px, 2.6vw, 36px); line-height: 1.7; margin: 0; color: var(--paper); }}
-.quote span {{ display: block; margin-top: 20px; font-family: var(--mono); font-size: 10px; letter-spacing: .26em; color: var(--gold-dim); }}
-.method ul {{ list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-soft); }}
-.method li {{ display: grid; grid-template-columns: 92px 1fr; gap: 18px; padding: 20px 0; border-bottom: 1px solid var(--line-soft); }}
-.method li b {{ font-family: var(--mono); font-size: 10px; letter-spacing: .2em; color: var(--gold); padding-top: 4px; }}
-.method li p {{ margin: 0; font-size: 14.5px; line-height: 1.85; color: #cfc4b0; }}
-
-/* ---------- footer ---------- */
-footer {{ padding: 56px var(--pad) 40px; border-top: 1px solid var(--line-soft); }}
-.foot {{ max-width: 1240px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; flex-wrap: wrap; }}
-.foot .brand {{ font-family: var(--serif); font-size: 26px; letter-spacing: .18em; color: var(--paper); }}
-.foot p {{ margin: 8px 0 0; font-family: var(--mono); font-size: 10px; letter-spacing: .16em; color: #5f7178; line-height: 1.9; }}
-.foot .right {{ text-align: right; }}
-.foot a {{ color: var(--gold-dim); }}
-.foot a:hover {{ color: var(--gold); }}
-
-/* ---------- modal ---------- */
-.modal {{ position: fixed; inset: 0; z-index: 80; display: none; align-items: center; justify-content: center; padding: clamp(12px, 4vw, 48px); }}
-.modal.is-open {{ display: flex; }}
-.modal-scrim {{ position: absolute; inset: 0; background: rgba(4,8,11,.9); backdrop-filter: blur(3px); }}
-.modal-box {{ position: relative; width: min(1120px, 100%); }}
-.modal video {{ width: 100%; max-height: 68svh; background: #000; border: 1px solid var(--line-soft); }}
-.modal-bar {{ display: flex; align-items: baseline; justify-content: space-between; gap: 18px; margin-top: 16px; flex-wrap: wrap; }}
-.modal-title {{ font-family: var(--serif); font-size: 19px; }}
-.modal-meta {{ font-family: var(--mono); font-size: 10px; letter-spacing: .16em; color: var(--muted); }}
-.modal-close {{ border: 1px solid var(--line); padding: 9px 18px; font-family: var(--mono); font-size: 10px; letter-spacing: .2em; color: var(--gold); }}
-.modal-close:hover {{ background: rgba(199,164,106,.12); }}
-
-/* ---------- responsive ---------- */
-@media (max-width: 1080px) {{
-  .engine, .method {{ grid-template-columns: 1fr; }}
-  .routes {{ grid-template-columns: 1fr; }}
-  .hero-still {{ inset: 0 0 0 20%; opacity: .55; }}
-}}
-@media (max-width: 760px) {{
-  :root {{ --pad: 20px; }}
-  .nav {{ gap: 14px; height: 58px; }}
-  .nav .links {{ gap: 12px; }}
-  .nav .links a:not(.gh) {{ display: none; }}
-  .hero {{ padding-top: 96px; align-items: flex-start; min-height: auto; padding-bottom: 0; }}
-  .hero h1 {{ font-size: clamp(84px, 30vw, 132px); }}
-  .hero-data {{ grid-template-columns: repeat(2, 1fr); gap: 22px 12px; }}
-  .layers {{ grid-template-columns: repeat(2, 1fr); }}
-  .proof {{ grid-template-columns: 1fr; gap: 18px; }}
-  .grid {{ grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px 12px; }}
-  .card-title {{ font-size: 14.5px; min-height: 0; }}
-  .card-meta {{ display: none; }}
-  .play {{ opacity: .92; transform: none; width: 40px; height: 40px; }}
-  .search {{ margin-left: 0; width: 100%; }}
-  .search input {{ width: 100%; }}
-  .foot .right {{ text-align: left; }}
-}}
-@media (prefers-reduced-motion: reduce) {{
-  html {{ scroll-behavior: auto; }}
-  .poster img, .route, .play {{ transition: none; }}
-  .card-hit:hover .poster img {{ transform: none; }}
-}}
-</style>
-</head>
-<body>
-<a class="skip" href="#works">跳到作品</a>
-
-<nav class="nav" aria-label="主导航">
-  <span class="brand">北冥</span>
-  <span class="mark">BEIMING ENGINE · 2026</span>
-  <span class="links">
-    <a href="#engine">引擎</a>
-    <a href="#routes">路线</a>
-    <a href="#works">作品</a>
-    <a href="#method">方法</a>
-    <a class="gh" href="{REPO}" target="_blank" rel="noreferrer">GitHub ↗</a>
-  </span>
-</nav>
-
-<header class="hero">
-  <div class="hero-still" role="img" aria-label="《北冥》样片第 3 镜：鲲在雾江之上"></div>
-  <div class="hero-inner">
-    <p class="eyebrow">BEIMING ENGINE · 北冥引擎</p>
-    <h1>北冥<span class="en">CODE IS THE FILM</span></h1>
-    <p class="lede">一条用代码逐帧画出的三渲二 / 2.5D 渲染管线。造型、光照、墨线与人物都在代码里，同一帧永远画出同一张图——1080p 与原生 4K 出自同一份源码。</p>
-    <div class="cta">
-      <button class="btn" id="filmBtn">▶ 观看《北冥》样片 · 10 秒</button>
-      <a class="btn ghost" href="#works">79 部作品 ↓</a>
+        else:
+            frames = '\n  '.join(frame_html(w, wide=True) for w in items)
+            parts.append(f'''<section class="wk-group wk-group--strip" id="{gid}" data-group="{g['key']}" aria-labelledby="{gid}-title">
+  {head}
+    <div class="wk-strip-nav" hidden>
+      <button type="button" class="wk-strip-btn" data-dir="-1" aria-controls="{gid}-track"><span class="wk-sr">向左翻看</span>{ICON_PREV}</button>
+      <button type="button" class="wk-strip-btn" data-dir="1" aria-controls="{gid}-track"><span class="wk-sr">向右翻看</span>{ICON_NEXT}</button>
     </div>
+  </header>
+  <div class="wk-strip">
+  <ol class="wk-track" id="{gid}-track" data-track>
+  {frames}
+  </ol>
   </div>
-  <div class="tide" aria-hidden="true"></div>
-  <div class="scroll-note"><span>SCROLL</span></div>
-  <div class="hero-data">{stats_html}</div>
-</header>
+</section>''')
+    note = NOTE.format(release=ext_link(RELEASE_PAGE, 'GitHub Release'), cases=ext_link(CASES_PAGE, '案例库'))
+    parts.append(f'<p class="wk-note">{note}</p>\n</div>')
+    return '\n'.join(parts)
 
-<main>
-  <section class="section" id="engine">
-    <div class="section-inner engine">
-      <div>
-        <p class="eyebrow">01 · ENGINE</p>
-        <h2>把画风<br>写成代码</h2>
-        <p class="lede">画风不锁在素材里，而由造型、着色与后期三处代码共同决定。同一条鲲，换一组着色器，就是另一种气质。九个模块各管一件事，任何一层都能单独替换、单独验收。</p>
-      </div>
-      <div>
-        <div class="layers">
-          <div class="layer"><b>形</b><span>FORM</span><p>轮廓放样、翼型与鳍、沿脊游动弯曲，程序化道具确定性散布。</p></div>
-          <div class="layer"><b>光</b><span>SHADE</span><p>三色分档卡通着色、量化阴影、边缘光与表面层。</p></div>
-          <div class="layer"><b>景</b><span>STAGE</span><p>手绘底板分层进三维空间，按设计像素摆位，视差自然产生。</p></div>
-          <div class="layer"><b>笔</b><span>LOOK</span><p>ID 墨线、空气透视、Kuwahara 笔触、纸纹与颗粒。</p></div>
-          <div class="layer"><b>人</b><span>PAINT</span><p>Canvas 2D 逐笔绘制：可变宽墨线、轮廓光、水彩渗色。</p></div>
-          <div class="layer"><b>界</b><span>OVERLAY</span><p>显示层与片名最后合成；毛笔字按笔顺落笔。</p></div>
-          <div class="layer"><b>时</b><span>TIME</span><p>分层时钟：角色一拍二、鲲一拍三，镜头每帧都动。</p></div>
-          <div class="layer"><b>声</b><span>AUDIO</span><p>程序化音效、采样编配、混音与响度，全部确定性。</p></div>
-          <div class="layer"><b>片</b><span>RENDER</span><p>无头浏览器逐帧截图，多路并行，FFmpeg 编码封装。</p></div>
-        </div>
-        <div class="proof">
-          <div><b>0.52 ms</b><span>重着色器单帧（RTX 5090 · Vulkan）</span></div>
-          <div><b>31 秒</b><span>原生 4K 整片 240 帧</span></div>
-          <div><b>SSIM 0.973</b><span>工作站与 Mac 4K 成片一致性</span></div>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <div class="rule" role="presentation"></div>
+WORKS_MARKER = re.compile(r'<!--\s*@works\s*-->')
 
-  <section class="section" id="routes">
-    <div class="section-inner">
-      <p class="eyebrow">02 · ROUTES</p>
-      <h2>一套引擎，三条路线</h2>
-      <p class="lede">画面在哪里执行，决定了它的速度、分辨率与验收方式。三条路线分开记录证据，不把一处成绩记到另一处。</p>
-      <div class="routes">{tracks}</div>
-    </div>
-  </section>
 
-  <div class="rule" role="presentation"></div>
+# ───────────────────────── 2. 复制 site/ ─────────────────────────
 
-  <section class="section" id="works">
-    <div class="section-inner">
-      <div class="works-head">
-        <div>
-          <p class="eyebrow">03 · WORKS</p>
-          <h2>作品</h2>
-        </div>
-        <p class="lede" style="max-width:420px;font-size:14.5px;margin:0 0 6px">全部由代码逐帧渲染，不是素材剪辑。点开即播；原始画质与素材包在 GitHub Release。</p>
-      </div>
-      <div class="toolbar" role="tablist" aria-label="按类别筛选">
-        {filters}
-        <label class="search">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-          <input id="q" type="search" placeholder="搜索片名" aria-label="搜索片名">
-        </label>
-      </div>
-      <div id="groups">{''.join(sections)}</div>
-      <p class="empty" id="empty" hidden>没有匹配的作品，换个关键词。</p>
-    </div>
-  </section>
+def site_files(site: Path):
+    for path in sorted(site.rglob('*')):
+        if not path.is_file():
+            continue
+        rel = rel_posix(path, site)
+        if rel.startswith('dev/') or path.suffix.lower() == '.md' or path.name == '.DS_Store':
+            continue
+        if rel == 'data/works-meta.json' or rel.startswith('data/posters/'):
+            continue          # 策展源数据与海报覆盖只给构建器用；海报由第 6 步放进 media/posters/
+        yield rel, path
 
-  <div class="rule" role="presentation"></div>
 
-  <section class="section" id="method">
-    <div class="section-inner method">
-      <div>
-        <p class="eyebrow">04 · METHOD</p>
-        <blockquote class="quote">「代码不是素材的替代品，<br>而是画风的来源。」<span>BEIMING ENGINE · 制作原则</span></blockquote>
-      </div>
-      <div>
-        <ul>
-          <li><b>确定性</b><p>没有 Date.now，没有无种子随机。任何一个时刻都能单独重渲，第 137 帧永远和第 137 帧一样。</p></li>
-          <li><b>整数帧</b><p>全局帧、镜头局部帧与动作相位分开计算；预演与成片用同一套时间轴，不靠剪辑凑时长。</p></li>
-          <li><b>原始分辨率</b><p>镜头按设计尺寸摆位，4K 是直接算出来的，不是放大出来的；超分只用于拿不到原生分辨率的素材。</p></li>
-          <li><b>可复刻</b><p>每一部旧片都能从归档源码还原重建；同一部片换一组参数，就是新的画风试验。</p></li>
-        </ul>
-      </div>
-    </div>
-  </section>
-</main>
+def copy_file(src: Path, dst: Path) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
 
-<footer>
-  <div class="foot">
-    <div>
-      <div class="brand">北冥</div>
-      <p>BEIMING ENGINE · 代码即影片<br>代码 MIT · 影片、底板与展示图保留所有权利<br>第三方许可与完整来源见仓库 THIRD-PARTY.md</p>
-    </div>
-    <div class="right">
-      <p><a href="{REPO}" target="_blank" rel="noreferrer">GitHub 仓库 ↗</a><br>
-      <a href="{RELEASE}" target="_blank" rel="noreferrer">下载成片与素材 ↗</a><br>
-      <a href="{REPO}/blob/main/LICENSE" target="_blank" rel="noreferrer">LICENSE ↗</a></p>
-    </div>
-  </div>
-</footer>
 
-<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-  <div class="modal-scrim" data-close></div>
-  <div class="modal-box">
-    <video id="player" controls playsinline preload="none"></video>
-    <div class="modal-bar">
-      <span class="modal-title" id="modalTitle"></span>
-      <span class="modal-meta" id="modalMeta"></span>
-      <button class="modal-close" data-close>关闭 ✕</button>
-    </div>
-  </div>
-</div>
+def prepare_out(out: Path, site: Path) -> None:
+    out = out.resolve()
+    forbidden = {ROOT.resolve(), site.resolve(), (ROOT / 'cases').resolve(), Path.home().resolve(), Path('/')}
+    if out in forbidden or out in ROOT.resolve().parents or site.resolve() in out.parents:
+        raise BuildError(f'拒绝把站点写到 {out}')
+    if out.exists():
+        if not out.is_dir():
+            raise BuildError(f'{out} 不是目录')
+        entries = [p for p in out.iterdir() if p.name != '.DS_Store']
+        if entries and not (out / BUILD_MARK).exists():
+            raise BuildError(f'{out} 非空且不是本构建器的产物（缺 {BUILD_MARK}），拒绝覆盖')
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    # 先写标记：构建中途失败，下次也能放心清掉重来
+    (out / BUILD_MARK).write_text('{"builder": "tools/build-showcase.py", "status": "building"}\n', encoding='utf-8')
 
-<script>
-const ITEMS = {data};
-const FEATURED = {{ title: '《北冥》概念样片', meta: '10 秒 · 1920×1040 · 有声', video: '{FILM_1080}' }};
-const modal = document.getElementById('modal');
-const player = document.getElementById('player');
-const titleEl = document.getElementById('modalTitle');
-const metaEl = document.getElementById('modalMeta');
-let lastFocus = null;
 
-function openItem(item) {{
-  lastFocus = document.activeElement;
-  titleEl.textContent = item.title;
-  metaEl.textContent = item.meta || '';
-  player.src = item.video;
-  modal.classList.add('is-open');
-  document.documentElement.style.overflow = 'hidden';
-  player.play().catch(() => {{}});
-  document.querySelector('.modal-close').focus();
-}}
-function close() {{
-  modal.classList.remove('is-open');
-  document.documentElement.style.overflow = '';
-  player.pause(); player.removeAttribute('src'); player.load();
-  if (lastFocus) lastFocus.focus();
-}}
-document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', close));
-document.addEventListener('keydown', e => {{ if (e.key === 'Escape' && modal.classList.contains('is-open')) close(); }});
-document.getElementById('filmBtn').addEventListener('click', () => openItem(FEATURED));
-document.querySelectorAll('.card-hit').forEach(btn => btn.addEventListener('click', () => {{
-  const item = ITEMS[btn.dataset.id];
-  if (item) openItem({{ title: item.title, meta: item.duration, video: item.video }});
-}}));
+# ───────────────────────── 3. import 图 ─────────────────────────
 
-const tabs = [...document.querySelectorAll('.tab')];
-const groups = [...document.querySelectorAll('.work-group')];
-const q = document.getElementById('q');
-const empty = document.getElementById('empty');
-let activeGroup = 'all';
+JS_TOKENS = re.compile(r'''
+    (?P<str>"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)
+  | (?P<block>/\*.*?\*/)
+  | (?P<line>//[^\n]*)
+''', re.S | re.X)
+STATIC_IMPORT = re.compile(r'''(?<![\w$.])(?:import|export)\s*(?:[\w$*{}\s,]+?\s*from\s*)?(["'])([^"'\n]+)\1''')
+DYNAMIC_LITERAL = re.compile(r'''(?<![\w$.])import\s*\(\s*(["'`])([^"'`]*)\1\s*[,)]''')
+DYNAMIC_ANY = re.compile(r'''(?<![\w$.])import\s*\(''')
+URL_META = re.compile(r'''new\s+URL\s*\(\s*(["'`])([^"'`]*)\1\s*,\s*import\.meta\.url\s*\)''')
 
-function apply() {{
-  const term = q.value.trim().toLowerCase();
-  let shown = 0;
-  for (const group of groups) {{
-    let groupShown = 0;
-    for (const card of group.querySelectorAll('.card')) {{
-      const okGroup = activeGroup === 'all' || card.dataset.group === activeGroup;
-      const okTerm = !term || card.dataset.title.toLowerCase().includes(term);
-      const show = okGroup && okTerm;
-      card.hidden = !show;
-      if (show) groupShown++;
-    }}
-    group.hidden = groupShown === 0;
-    shown += groupShown;
-  }}
-  empty.hidden = shown !== 0;
-}}
-tabs.forEach(tab => tab.addEventListener('click', () => {{
-  tabs.forEach(t => {{
-    t.classList.toggle('is-on', t === tab);
-    t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
-  }});
-  activeGroup = tab.dataset.group;
-  apply();
-}}));
-q.addEventListener('input', apply);
-apply();
+BARE = [('three/addons/', 'vendor/three/addons/'), ('@engine/', 'engine/'), ('@film/', 'src/')]
+IMPORTMAP = {'three': './vendor/three/three.module.min.js', 'three/addons/': './vendor/three/addons/',
+             '@engine/': './engine/', '@film/': './src/'}
 
-// 滚动淡入（尊重 reduced-motion）
-if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {{
-  const targets = document.querySelectorAll('.section-inner > *, .work-group, .route');
-  targets.forEach(el => {{ el.style.opacity = '0'; el.style.transform = 'translateY(18px)'; el.style.transition = 'opacity .7s ease, transform .7s ease'; }});
-  const io = new IntersectionObserver(entries => {{
-    for (const entry of entries) {{
-      if (!entry.isIntersecting) continue;
-      entry.target.style.opacity = '1';
-      entry.target.style.transform = 'none';
-      io.unobserve(entry.target);
-    }}
-  }}, {{ rootMargin: '0px 0px -8% 0px' }});
-  targets.forEach(el => io.observe(el));
-}}
-</script>
-</body>
-</html>
-'''
 
-    for term in FORBIDDEN_ON_PAGE:
-        if term in page:
-            raise SystemExit(f'showcase copy still mentions forbidden upstream name: {term!r}')
+def strip_comments(code: str) -> str:
+    return JS_TOKENS.sub(lambda m: m.group('str') if m.group('str') else ' ', code)
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(page, encoding='utf-8')
-    return str(out_path)
+
+class Graph:
+    """从入口模块出发，按页面上的 importmap 规则把依赖映射到输出目录并复制。"""
+
+    def __init__(self, out: Path, site: Path, log: Log):
+        self.out, self.site, self.log = out, site, log
+        self.done: dict[str, Path] = {}          # 输出相对路径 → 源文件
+        self.bare_used: set[str] = set()
+        self.unresolved: list[str] = []
+
+    def source_of(self, rel: str) -> Path | None:
+        if rel == 'vendor/three/three.module.min.js':
+            return NODE / 'three' / 'build' / 'three.module.min.js'
+        if rel.startswith('vendor/three/addons/'):
+            return NODE / 'three' / 'examples' / 'jsm' / rel[len('vendor/three/addons/'):]
+        if rel.startswith(('engine/', 'src/', 'fonts/')):
+            return ROOT / rel
+        return self.site / rel
+
+    def resolve(self, spec: str, base_rel: str, where: str) -> str | None:
+        clean = spec.split('?', 1)[0].split('#', 1)[0]
+        if re.match(r'^[a-z][a-z0-9+.-]*:', clean, re.I) or clean.startswith('//'):
+            self.log.error(f'{where} 引用了站外模块 {spec}（只允许 three、three/addons、@engine、@film 与相对路径）')
+            return None
+        if clean.startswith('/'):
+            self.log.error(f'{where} 用了以 / 开头的绝对路径 {spec}；Pages 站点在子路径下，请改成相对路径')
+            return None
+        if clean.startswith(('./', '../')):
+            rel = posixpath.normpath(posixpath.join(posixpath.dirname(base_rel), clean))
+        elif clean == 'three':
+            self.bare_used.add('three')
+            rel = 'vendor/three/three.module.min.js'
+        else:
+            for prefix, target in BARE:
+                if clean.startswith(prefix):
+                    self.bare_used.add(prefix)
+                    rel = target + clean[len(prefix):]
+                    break
+            else:
+                hint = '（three/examples/jsm 请改写成 three/addons/）' if clean.startswith('three/') else ''
+                self.log.error(f'{where} 引用了 importmap 里没有的模块 {spec}{hint}')
+                return None
+        if rel.startswith('../') or rel == '..':
+            self.log.error(f'{where} 的 {spec} 解析到了站点根目录之外')
+            return None
+        return rel
+
+    def add(self, rel: str, where: str, parse: bool = True) -> None:
+        if rel in self.done:
+            return
+        src = self.source_of(rel)
+        if src is None or not src.is_file():
+            self.log.error(f'{where} 需要 {rel}，但找不到源文件 {src}')
+            return
+        self.done[rel] = src
+        dst = self.out / rel
+        if not dst.exists():
+            copy_file(src, dst)
+        if parse and src.suffix in ('.js', '.mjs'):
+            self.scan(src.read_text(encoding='utf-8'), rel)
+
+    def scan(self, code: str, base_rel: str) -> None:
+        clean = strip_comments(code)
+        where = base_rel
+        for m in STATIC_IMPORT.finditer(clean):
+            target = self.resolve(m.group(2), base_rel, where)
+            if target:
+                self.add(target, where)
+        literal_dyn = 0
+        for m in DYNAMIC_LITERAL.finditer(clean):
+            literal_dyn += 1
+            spec = m.group(2)
+            if '${' in spec:
+                self.unresolved.append(f'{where}: import(`{spec}`)')
+                literal_dyn -= 1
+                continue
+            target = self.resolve(spec, base_rel, where)
+            if target:
+                self.add(target, where)
+        total_dyn = len(DYNAMIC_ANY.findall(clean))
+        if total_dyn > literal_dyn:
+            self.unresolved.append(f'{where}: {total_dyn - literal_dyn} 处动态 import 不是字面量')
+        for m in URL_META.finditer(clean):
+            spec = m.group(2)
+            if '${' in spec:
+                self.asset_prefix(spec, base_rel, where)
+                continue
+            target = self.resolve(spec if spec.startswith(('./', '../')) else './' + spec, base_rel, where)
+            if target:
+                self.add(target, where, parse=False)
+
+    def asset_prefix(self, spec: str, base_rel: str, where: str) -> None:
+        """new URL(`../fonts/${f}`, import.meta.url) 这类模板地址：把前缀目录里同后缀的网页资源整目录带上。"""
+        prefix, _, rest = spec.partition('${')
+        suffix = rest.rsplit('}', 1)[-1]
+        if not prefix.endswith('/'):
+            self.unresolved.append(f'{where}: new URL(`{spec}`)')
+            return
+        rel_dir = posixpath.normpath(posixpath.join(posixpath.dirname(base_rel), prefix))
+        src_dir = self.source_of(rel_dir + '/x')
+        src_dir = src_dir.parent if src_dir else None
+        if not src_dir or not src_dir.is_dir():
+            self.unresolved.append(f'{where}: new URL(`{spec}`)（目录 {rel_dir} 不存在）')
+            return
+        n = 0
+        for f in sorted(src_dir.iterdir()):
+            if f.is_file() and f.suffix.lower() in WEB_EXT and f.name.endswith(suffix):
+                self.add(f'{rel_dir}/{f.name}', where, parse=False)
+                n += 1
+        self.log.info(f'  {where}：模板地址 {spec} → 带上 {rel_dir}/ 下 {n} 个文件')
+
+
+# ───────────────────────── HTML 解析 ─────────────────────────
+
+VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'}
+REF_ATTRS = {'src', 'href', 'poster', 'data-preview', 'data-hover', 'data-src', 'data-poster'}
+TEXT_ATTRS = {'alt', 'title', 'aria-label', 'placeholder'}
+
+
+class PageScan(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stack: list[tuple[str, bool, bool]] = []   # (tag, 在 .f-brush 里, 在不可见元素里)
+        self.brush: list[str] = []
+        self.text: list[str] = []
+        self.refs: list[tuple[str, str]] = []           # (属性, 值)
+        self.ids: set[str] = set()
+        self.modules: list[str] = []                    # 内联 module 脚本
+        self.importmaps: list[str] = []
+        self._script_kind: str | None = None
+
+    def handle_starttag(self, tag, attrs):
+        a = {k: (v or '') for k, v in attrs}
+        parent_brush = self.stack[-1][1] if self.stack else False
+        parent_hidden = self.stack[-1][2] if self.stack else False
+        brush = parent_brush or 'f-brush' in a.get('class', '').split()
+        hidden = parent_hidden or tag in ('script', 'style', 'template')
+        if 'id' in a:
+            self.ids.add(a['id'])
+        for key, value in a.items():
+            if key in REF_ATTRS and value:
+                self.refs.append((key, value))
+            elif key == 'srcset' and value:
+                for cand in value.split(','):
+                    url = cand.strip().split(' ')[0]
+                    if url:
+                        self.refs.append(('srcset', url))
+            elif key in TEXT_ATTRS and value and not hidden:
+                self.text.append(value)
+        if tag == 'meta' and a.get('content') and (a.get('name') in ('description',) or
+                                                   a.get('property', '').startswith('og:') and
+                                                   a.get('property') in ('og:title', 'og:description')):
+            self.text.append(a['content'])
+        if tag == 'script':
+            t = a.get('type', '').strip().lower()
+            self._script_kind = 'module' if (t == 'module' and 'src' not in a) else ('importmap' if t == 'importmap' else None)
+        if tag not in VOID:
+            self.stack.append((tag, brush, hidden))
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag not in VOID and self.stack and self.stack[-1][0] == tag:
+            self.stack.pop()
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                break
+        if tag == 'script':
+            self._script_kind = None
+
+    def handle_data(self, data):
+        if self._script_kind == 'module':
+            self.modules.append(data)
+            return
+        if self._script_kind == 'importmap':
+            self.importmaps.append(data)
+            return
+        brush = self.stack[-1][1] if self.stack else False
+        hidden = self.stack[-1][2] if self.stack else False
+        if brush:
+            self.brush.append(data)
+        if not hidden and data.strip():
+            self.text.append(data)
+
+
+def scan_page(path: Path) -> PageScan:
+    scan = PageScan()
+    scan.feed(path.read_text(encoding='utf-8'))
+    scan.close()
+    return scan
+
+
+# ───────────────────────── 5. 字体 ─────────────────────────
+
+def http_get(url: str, timeout: float = 20) -> bytes:
+    req = urllib.request.Request(url, headers={'User-Agent': UA, 'Accept': 'text/css,*/*;q=0.1'})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read()
+
+
+def cached_get(url: str, offline: bool, log: Log) -> bytes | None:
+    FONT_CACHE.mkdir(parents=True, exist_ok=True)
+    cache = FONT_CACHE / hashlib.sha256(url.encode()).hexdigest()[:24]
+    if cache.exists():
+        return cache.read_bytes()
+    if offline:
+        return None
+    try:
+        data = http_get(url)
+    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        log.warn(f'取字体失败：{exc}')
+        return None
+    cache.write_bytes(data)
+    return data
+
+
+FACE_RE = re.compile(r'@font-face\s*{(.*?)}', re.S)
+
+
+def google_faces(query: str, text: str, offline: bool, log: Log) -> list[dict] | None:
+    url = f'{GF_CSS}?{query}&text={urllib.parse.quote(text)}&display=swap'
+    css = cached_get(url, offline, log)
+    if css is None:
+        return None
+    faces = []
+    for block in FACE_RE.findall(css.decode('utf-8', 'replace')):
+        fam = re.search(r"font-family:\s*['\"]?([^;'\"]+)", block)
+        weight = re.search(r'font-weight:\s*(\d+)', block)
+        style = re.search(r'font-style:\s*(\w+)', block)
+        src = re.search(r'url\(([^)]+)\)\s*format\([\'"]?woff2', block)
+        if not (fam and src):
+            continue
+        data = cached_get(src.group(1).strip('\'"'), offline, log)
+        if data is None:
+            return None
+        faces.append({'family': fam.group(1).strip(), 'weight': int(weight.group(1)) if weight else 400,
+                      'style': style.group(1) if style else 'normal', 'data': data})
+    return faces or None
+
+
+def font_face(family: str, weight: int, url: str, extra: str = '') -> str:
+    return (f'@font-face {{ font-family: "{family}"; font-style: normal; font-weight: {weight}; '
+            f'font-display: swap; src: url("{url}") format("woff2");{extra} }}')
+
+
+def build_fonts(out: Path, page: PageScan, site: Path, offline: bool, log: Log) -> dict:
+    # 仓库自带子集只带用得到的：「北冥」两字的毛笔子集（首屏预载、js/brush-title.js 写字都用它）与许可。
+    # Barlow 数字子集只在联网取字失败、退回时才写进 fonts.css，那时才复制；其余（如显示层用的思源黑体子集）不进站点。
+    # 第 7 步会校验页面与 CSS 的每一处引用，漏带就构建失败。
+    copy_file(FONTS_DIR / 'MaShanZheng-400.woff2', out / 'fonts' / 'MaShanZheng-400.woff2')
+    if (FONTS_DIR / 'LICENSE.md').exists():
+        copy_file(FONTS_DIR / 'LICENSE.md', out / 'fonts' / 'LICENSE.md')
+
+    glyphs = set(''.join(page.brush))
+    for js in sorted((site / 'js').rglob('*.js')) if (site / 'js').exists() else []:
+        for m in re.finditer(r'''glyph\s*:\s*['"]([^'"]+)['"]''', js.read_text(encoding='utf-8')):
+            glyphs.update(m.group(1))
+    glyphs.update(BRUSH_SAFETY)
+    brush_text = ''.join(sorted(ch for ch in glyphs if not ch.isspace()))
+
+    lines = ['/* 由 tools/build-showcase.py 生成，不要手改。',
+             ' * 字体：Ma Shan Zheng（马善政毛笔楷书）与 Barlow，SIL Open Font License 1.1，许可全文见 fonts/LICENSE.md。',
+             f' * Ma Shan Zheng 只含页面上 .f-brush 与引擎层名用到的 {len(brush_text)} 个字；Barlow 只含 ASCII 与少量符号。 */']
+    report = {'brushChars': len(brush_text), 'mode': 'google'}
+    site_fonts = out / 'fonts' / 'site'
+
+    brush = google_faces('family=Ma+Shan+Zheng', brush_text, offline, log)
+    barlow = google_faces('family=Barlow:wght@' + ';'.join(map(str, BARLOW_WEIGHTS)), BARLOW_TEXT, offline, log)
+    if brush:
+        for face in brush:
+            name = f'ma-shan-zheng-{face["weight"]}.{hashlib.sha256(face["data"]).hexdigest()[:8]}.woff2'
+            (site_fonts).mkdir(parents=True, exist_ok=True)
+            (site_fonts / name).write_bytes(face['data'])
+            lines.append(font_face('Ma Shan Zheng', face['weight'], f'../fonts/site/{name}'))
+    else:
+        report['mode'] = 'fallback'
+        log.warn('Ma Shan Zheng 子集没取到：退回仓库自带的「北冥」两字子集，其余毛笔字用系统楷体')
+        lines.append('/* 联网取字失败：毛笔字只保证「北冥」两字（仓库自带子集），其余退回系统楷体。 */')
+        lines.append(font_face('Ma Shan Zheng', 400, '../fonts/MaShanZheng-400.woff2', ' unicode-range: U+5317, U+51A5;'))
+    if barlow:
+        for face in sorted(barlow, key=lambda f: f['weight']):
+            name = f'barlow-{face["weight"]}.{hashlib.sha256(face["data"]).hexdigest()[:8]}.woff2'
+            site_fonts.mkdir(parents=True, exist_ok=True)
+            (site_fonts / name).write_bytes(face['data'])
+            lines.append(font_face('Barlow', face['weight'], f'../fonts/site/{name}'))
+    else:
+        report['mode'] = 'fallback'
+        log.warn('Barlow 子集没取到：数字退回仓库自带子集，西文退回系统字体')
+        lines.append('/* 联网取字失败：Barlow 只覆盖数字与少量符号（仓库自带子集），西文退回系统字体。 */')
+        for weight in (300, 400, 500):
+            if (FONTS_DIR / f'Barlow-{weight}.woff2').exists():
+                copy_file(FONTS_DIR / f'Barlow-{weight}.woff2', out / 'fonts' / f'Barlow-{weight}.woff2')
+                lines.append(font_face('Barlow', weight, f'../fonts/Barlow-{weight}.woff2',
+                                       ' unicode-range: U+0025, U+002E, U+0030-003A, U+00B7, U+2026;'))
+    css = '\n'.join(lines) + '\n'
+    (out / 'css').mkdir(parents=True, exist_ok=True)
+    (out / 'css' / 'fonts.css').write_text(css, encoding='utf-8')
+    report['brushText'] = brush_text
+    return report
+
+
+# ───────────────────────── 6. 媒体 ─────────────────────────
+
+def place_media(out: Path, data: dict, previews_dir: Path | None, copy_previews: bool, log: Log) -> dict:
+    stats = {'posters': 0, 'previews': 0, 'previewMode': 'release'}
+    for w in data['works']:
+        copy_file(w['_posterSrc'], out / w['poster'])
+        stats['posters'] += 1
+    if previews_dir:
+        stats['previewMode'] = 'copy' if copy_previews else 'symlink'
+        for w in data['works']:
+            src = previews_dir / w['_previewFile']
+            dst = out / w['preview']
+            if not src.is_file():
+                log.error(f'--previews-dir 里缺少 {w["_previewFile"]}')
+                continue
+            if w['previewBytes'] and src.stat().st_size != w['previewBytes']:
+                log.error(f'{src.name} 大小 {src.stat().st_size} 与 catalog.json 记录的 {w["previewBytes"]} 不符')
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if copy_previews:
+                shutil.copy2(src, dst)
+            else:
+                os.symlink(src.resolve(), dst)
+            stats['previews'] += 1
+    for w in data['works']:          # 悬停短循环：跟预览视频一样，本地软链接、CI 复制
+        if not w.get('_hoverSrc'):
+            continue
+        dst = out / w['hover']
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if copy_previews:
+            shutil.copy2(w['_hoverSrc'], dst)
+        else:
+            os.symlink(w['_hoverSrc'].resolve(), dst)
+        stats['hover'] = stats.get('hover', 0) + 1
+    if FILM.is_file():
+        copy_file(FILM, out / 'media' / 'beiming.mp4')
+    else:
+        log.error(f'缺少样片 {FILM}')
+    return stats
+
+
+# ───────────────────────── 7. 校验 ─────────────────────────
+
+SKIP_REF = re.compile(r'^(?:[a-z][a-z0-9+.-]*:|//|#$|javascript:)', re.I)
+CSS_URL = re.compile(r'''url\(\s*(['"]?)([^'")]+)\1\s*\)''')
+CSS_IMPORT = re.compile(r'''@import\s+(?:url\()?\s*['"]([^'"]+)['"]''')
+
+
+def check_local(out: Path, owner: Path, ref: str, what: str, log: Log, ids: set[str] | None = None) -> None:
+    if not ref or SKIP_REF.match(ref):
+        return
+    if ref.startswith('#'):
+        if ids is not None and ref[1:] and urllib.parse.unquote(ref[1:]) not in ids:
+            log.error(f'{rel_posix(owner, out)} 的 {what}="{ref}" 指向不存在的锚点')
+        return
+    path = urllib.parse.unquote(ref.split('#', 1)[0].split('?', 1)[0])
+    if not path:
+        return
+    if path.startswith('/'):
+        log.error(f'{rel_posix(owner, out)} 的 {what}="{ref}" 是以 / 开头的绝对路径（Pages 在子路径下会 404）')
+        return
+    target = (owner.parent / path)
+    try:
+        target.resolve().relative_to(out.resolve())
+        inside = True
+    except ValueError:
+        inside = target.is_symlink() and target.parent.resolve().is_relative_to(out.resolve())
+    if not inside:
+        log.error(f'{rel_posix(owner, out)} 的 {what}="{ref}" 指到了输出目录之外')
+        return
+    if not target.exists():
+        log.error(f'{rel_posix(owner, out)} 的 {what}="{ref}" 找不到文件')
+
+
+def validate(out: Path, log: Log) -> None:
+    for page in sorted(out.rglob('*.html')):
+        scan = scan_page(page)
+        for attr, ref in scan.refs:
+            check_local(out, page, ref, attr, log, scan.ids)
+        for raw in scan.importmaps:
+            try:
+                imap = json.loads(raw).get('imports', {})
+            except json.JSONDecodeError as exc:
+                log.error(f'{rel_posix(page, out)} 的 importmap 不是合法 JSON：{exc}')
+                continue
+            for target in imap.values():
+                if target.endswith('/'):
+                    if not (page.parent / target).is_dir():
+                        log.error(f'{rel_posix(page, out)} 的 importmap 目录 {target} 不存在')
+                else:
+                    check_local(out, page, target, 'importmap', log)
+    for css in sorted(out.rglob('*.css')):
+        code = css.read_text(encoding='utf-8')
+        for m in CSS_URL.finditer(code):
+            check_local(out, css, m.group(2).strip(), 'url()', log)
+        for m in CSS_IMPORT.finditer(code):
+            check_local(out, css, m.group(1), '@import', log)
+
+
+def check_copy(out: Path, page: PageScan, log: Log) -> None:
+    text = '\n'.join(page.text)
+    for term in FORBIDDEN_TERMS:
+        if term in text:
+            hit = next(t for t in page.text if term in t)
+            log.error(f'页面可见文字里有「{term}」：{hit.strip()[:60]}')
+    for dash in FORBIDDEN_DASHES:
+        if dash in text:
+            hit = next(t for t in page.text if dash in t)
+            log.error(f'页面可见文字里有破折号「{dash}」：{hit.strip()[:60]}')
+    for dash in WARN_DASHES:
+        if dash in text:
+            hit = next(t for t in page.text if dash in t)
+            log.warn(f'页面可见文字里有连接号「{dash}」，确认不是当破折号用：{hit.strip()[:60]}')
+
+
+def check_importmap(page: PageScan, graph: Graph, log: Log) -> None:
+    if not graph.bare_used:
+        return
+    imap = {}
+    for raw in page.importmaps:
+        try:
+            imap.update(json.loads(raw).get('imports', {}))
+        except json.JSONDecodeError:
+            pass
+    for key in sorted(graph.bare_used):
+        want = IMPORTMAP[key]
+        have = imap.get(key)
+        norm = lambda s: s[2:] if s and s.startswith('./') else s
+        if norm(have) != norm(want):
+            log.error(f'模块用了 "{key}"，页面 importmap 应映射到 "{want}"，现在是 {have!r}')
+
+
+def dir_size(path: Path, skip: tuple[str, ...] = ()) -> int:
+    total = 0
+    for f in path.rglob('*'):
+        rel = rel_posix(f, path)
+        if f.is_file() and not f.is_symlink() and not rel.startswith(skip):
+            total += f.stat().st_size
+    return total
+
+
+# ───────────────────────── 主流程 ─────────────────────────
+
+def build(args) -> int:
+    log = Log(lenient=args.lenient)
+    site = args.site.resolve()
+    out = args.out.resolve()
+    template = (args.template or site / 'index.html').resolve()
+    previews_dir = args.previews_dir.expanduser().resolve() if args.previews_dir else None
+    if previews_dir and not previews_dir.is_dir():
+        raise BuildError(f'--previews-dir {previews_dir} 不是目录')
+    if args.copy_previews and not previews_dir:
+        raise BuildError('--copy-previews 需要同时给 --previews-dir')
+    if not template.is_file():
+        raise BuildError(f'模板 {template} 不存在（site/index.html 还没写好时用 --template 指定临时模板）')
+
+    log.info('[1/7] 作品数据')
+    data = load_works(site, previews_dir, log)
+    c = data['counts']
+    log.info(f'  {c["all"]} 部：风格 {c["styles"]} · 故事 {c["ppt-stories"]} · 发布会 {c["ppt-keynote"]}（档案共 {c["archived"]} 条）')
+    hover = prepare_hover_clips(data, previews_dir, not args.no_hover_clips, log)
+    if hover['mode'] == 'clips':
+        log.info(f'  悬停短循环 {hover["clips"]} 段（新剪 {hover["made"]} 段，其余用缓存），共 {hover["bytes"] / 1e6:.1f} MB')
+
+    log.info(f'[2/7] 复制 site/ → {out}')
+    prepare_out(out, site)
+    n_site = 0
+    for rel, path in site_files(site):
+        copy_file(path, out / rel)
+        n_site += 1
+    tpl = template.read_text(encoding='utf-8')
+    markers = WORKS_MARKER.findall(tpl)
+    if len(markers) != 1:
+        raise BuildError(f'模板里应有且只有一个 <!-- @works -->，现在有 {len(markers)} 个')
+    page_html = WORKS_MARKER.sub(lambda _: works_markup(data), tpl, count=1)
+    (out / 'index.html').write_text(page_html, encoding='utf-8')
+    (out / 'data').mkdir(parents=True, exist_ok=True)
+    (out / 'data' / 'works.json').write_text(public_works_json(data), encoding='utf-8')
+    log.info(f'  复制 {n_site} 个文件；作品区 {c["all"]} 部已填入；写 data/works.json')
+
+    log.info('[3/7] 模块依赖')
+    graph = Graph(out, site, log)
+    entries = sorted((site / 'js').rglob('*.js')) if (site / 'js').exists() else []
+    for js in entries:
+        rel = 'js/' + rel_posix(js, site / 'js')
+        graph.done.setdefault(rel, js)
+        graph.scan(js.read_text(encoding='utf-8'), rel)
+    page = scan_page(out / 'index.html')
+    for i, code in enumerate(page.modules):
+        graph.scan(code, 'index.html')
+    check_importmap(page, graph, log)
+    for item in graph.unresolved:
+        log.warn(f'无法静态解析，没有自动带上：{item}')
+    log.check('解析模块依赖')
+    groups = {}
+    for rel in graph.done:
+        key = rel.split('/', 2)[0] if not rel.startswith('vendor/three') else 'vendor/three'
+        groups[key] = groups.get(key, 0) + 1
+    log.info(f'  入口 {len(entries)} 个；复制依赖：' + '，'.join(f'{k} {v}' for k, v in sorted(groups.items())))
+
+    log.info('[4/7] GSAP')
+    pkg = NODE / 'gsap' / 'package.json'
+    if not pkg.exists():
+        raise BuildError('缺少 node_modules/gsap，先运行 npm ci')
+    version = json.loads(pkg.read_text(encoding='utf-8')).get('version')
+    if version != GSAP_VERSION:
+        log.warn(f'node_modules 里的 GSAP 是 {version}，package.json 锁定的是 {GSAP_VERSION}；请重新 npm ci')
+    for name in GSAP_FILES:
+        src = NODE / 'gsap' / 'dist' / name
+        if not src.exists():
+            raise BuildError(f'缺少 {src}')
+        copy_file(src, out / 'vendor' / 'gsap' / name)
+    log.info(f'  gsap {version}：' + '、'.join(GSAP_FILES))
+
+    log.info('[5/7] 字体')
+    fonts = build_fonts(out, page, site, args.offline, log)
+    log.info(f'  毛笔字 {fonts["brushChars"]} 个（{fonts["brushText"]}）；方式：'
+             + ('Google Fonts 子集' if fonts['mode'] == 'google' else '退回仓库子集与系统字体'))
+
+    log.info('[6/7] 媒体')
+    media = place_media(out, data, previews_dir, args.copy_previews, log)
+    log.check('放置媒体')
+    mode = {'release': '用 Release 地址', 'symlink': '软链接', 'copy': '复制'}[media['previewMode']]
+    log.info(f'  海报 {media["posters"]} 张；预览视频 {media["previews"]} 个（{mode}）；悬停短循环 {media.get("hover", 0)} 段；样片 media/beiming.mp4')
+
+    log.info('[7/7] 校验')
+    validate(out, log)
+    check_copy(out, page, log)
+    log.check('校验')
+
+    (out / BUILD_MARK).write_text(json.dumps({
+        'builder': 'tools/build-showcase.py',
+        'counts': data['counts'],
+        'previews': media['previewMode'],
+        'hoverClips': media.get('hover', 0),
+        'fonts': fonts['mode'],
+        'gsap': version,
+    }, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    size = dir_size(out, skip=('media/',))
+    log.info(f'  通过。除 media/ 外站点共 {size / 1e6:.2f} MB')
+    if log.warnings:
+        log.info(f'完成（{len(log.warnings)} 条警告）：{out}')
+    else:
+        log.info(f'完成：{out}')
+    return 0
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description='构建北冥作品站（整站）')
+    parser.add_argument('--out', type=Path, default=DEFAULT_OUT, help='输出目录（默认 out/site）')
+    parser.add_argument('--previews-dir', type=Path, help='本地预览视频目录（<id>-preview.mp4）')
+    parser.add_argument('--copy-previews', action='store_true', help='复制预览视频（默认软链接）')
+    parser.add_argument('--template', type=Path, help='页面模板（默认 <site>/index.html）')
+    parser.add_argument('--site', type=Path, default=DEFAULT_SITE, help='站点源目录（默认 site/）')
+    parser.add_argument('--offline', action='store_true', help='不联网取字体（有缓存用缓存，没有就退回）')
+    parser.add_argument('--lenient', action='store_true', help='校验错误只警告（仅限并行开发时本地自测）')
+    parser.add_argument('--no-hover-clips', action='store_true',
+                        help='不剪悬停短循环（默认有本地预览且有 ffmpeg 就剪，缓存在 out/.cache/hover/）')
+    args = parser.parse_args(argv)
+    try:
+        return build(args)
+    except BuildError as exc:
+        print(f'构建失败：{exc}', file=sys.stderr)
+        return 1
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='生成北冥作品站')
-    parser.add_argument('--out', type=Path, default=DEFAULT_OUT, help='输出 HTML 路径')
-    parser.add_argument('--poster-prefix', default='../cases/', help='海报相对前缀（站点根用 cases/）')
-    parser.add_argument('--media-prefix', default='../media/', help='样片剧照前缀（站点根用 media/）')
-    options = parser.parse_args()
-    path = build(options.out, options.poster_prefix, options.media_prefix)
-    print(f'wrote {path}')
+    sys.exit(main())

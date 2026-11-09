@@ -1,0 +1,752 @@
+/* 北冥作品站 · 篇章样式（shell）
+ * 首屏（黄昏）→ 引擎（纸上，静态版与固定滚动版）→ 作品容器（入夜）→ 方法与页脚（星）。
+ * 引擎篇章默认是静态版（无脚本、减少动态时用）；main.js 建好固定滚动后给 #engine 加 .is-pinned。
+ */
+
+/* ================================ 首屏 · 黄昏 ================================ */
+.hero {
+  position: relative;
+  z-index: var(--z-content);
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: calc(var(--nav-h) + var(--space-6)) var(--gutter) calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
+  color: var(--fg);
+}
+/* 地平线方向的一团暖光：垫在文字后面，墨色小字在任何画面上都压得住 */
+.hero::before {
+  content: "";
+  position: absolute;
+  left: 0; bottom: 0;
+  width: min(100%, 66rem);
+  height: 84%;
+  background: radial-gradient(ellipse 88% 78% at 0% 100%,
+    color-mix(in oklab, var(--sky-apricot) 74%, transparent) 0%,
+    color-mix(in oklab, var(--sky-cloudlit) 46%, transparent) 46%,
+    transparent 74%);
+  pointer-events: none;
+  transition: opacity 0.6s var(--ease-out);
+}
+/* 开场时天空还没晕开，这团暖光先别出现（不然纸色底上像一块茶渍）：天空晕开之后再淡入 */
+html.intro .hero::before,
+html.blooming .hero::before { opacity: 0; }
+.hero-copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 50rem;
+  /* 横屏时鲲占右上大半，鲲吻（最左点）约在 min(39vw, 50vw − 19.5vh)：舞台 hero 机位体长占参考画幅 0.66、中心偏右 0.30，
+     侧身透视缩短约 0.79，比参考画幅窄时按 cover 裁切放大（实测 1440×900 鲲吻在 545px）。
+     文字栏只用鲲吻以左的宽度，标题字号也按它收，免得压到鲲头 */
+  --hero-col: 100%;
+}
+/* 小标签做成一枚“题签”：一小条纸贴在天上。天空中段对墨色小字只有约 3:1，压在纸上才有 11:1 */
+.eyebrow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2em 0.6em;
+  margin-bottom: var(--space-3);
+  padding: 0.28em 0.75em 0.3em;
+  border-radius: 1px;
+  background-color: var(--paper);
+  background-image: url("../assets/ui-paper.jpg");
+  background-size: 512px 512px;
+  background-blend-mode: multiply;
+  box-shadow: 0 1px 0 var(--rule-ink), 0 0.6rem 1.2rem -0.8rem color-mix(in oklab, var(--night) 45%, transparent);
+  color: var(--ink);
+  font-size: var(--step--1);
+  font-weight: 500;
+}
+.eyebrow .label { font-size: inherit; font-weight: 600; }
+.eyebrow .sep { opacity: 0.6; }
+
+.hero-title {
+  position: relative;
+  margin: 0 0 var(--space-4) -0.05em;
+  font-weight: 400;
+  line-height: 1;
+}
+.hero-glyphs {
+  display: block;
+  font-size: var(--step-6);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.hero-brush { position: absolute; max-width: none; pointer-events: none; }    /* brush-title.js 插入的书写画布（比字框大，四周留飞白余量，不能被 max-width 压扁） */
+.hero-title.is-brushed .hero-glyphs { color: transparent; }
+
+.hero-claim {
+  font-size: var(--step-3);
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: 0.01em;
+  max-width: 8.6em;               /* 两行：“一条鲲，由代码 / 一帧一帧画出来。” */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+/* 实时读数：一条夜色小签。桌面一行；手机两行（第二行是状态），宽度都只随内容，不撑满整行 */
+.hero-live {
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: start;
+  gap: 0.1em 0.55em;
+  max-width: 100%;
+  margin-top: var(--space-4);
+  padding: 0.38em 0.85em 0.38em 0.75em;
+  border-radius: var(--radius);
+  background-color: var(--night);
+  color: var(--mist);
+  font-size: var(--step--1);
+  line-height: 1.55;
+  --focus-halo: var(--night);
+}
+.live-dot {
+  position: relative;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background-color: var(--mist-mute);
+}
+.live-dot::after {                     /* 脉冲环：只动 transform 与 opacity（走合成层，不占主线程） */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-color: var(--hud);
+  opacity: 0;
+}
+.live-sep { color: var(--mist-mute); }
+.live-state { font-variant-numeric: tabular-nums; }
+.hero-live[data-state="live"] .live-dot { background-color: var(--hud); }
+.hero-live[data-state="live"] .live-dot::after { animation: live-ring 2.4s var(--ease-out) infinite; }
+.hero-live[data-state="live"] .live-state { color: var(--hud); }
+.hero-live .num { font-weight: 500; }
+/* 实时画面暂停（访客按了暂停、或舞台离开视口）：脉冲停下 */
+html.stage-paused .hero-live .live-dot::after,
+.hero-live.is-paused .live-dot::after { animation: none; }
+.hero-live.is-paused .live-dot { background-color: var(--mist-mute); }
+.hero-live.is-paused .live-state { color: var(--mist); }
+/* 实时画面接上的那一刻，读数的点跳一下 */
+.hero-live.is-blip .live-dot { animation: live-blip 0.9s var(--ease-out) 1; }
+@keyframes live-ring {
+  0% { transform: scale(1); opacity: 0.55; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes live-blip {
+  0% { transform: scale(1); }
+  28% { transform: scale(2.1); }
+  100% { transform: scale(1); }
+}
+/* 暂停 / 继续实时画面（WCAG 2.2.2：持续超过 5 秒的动态画面要能停下） */
+.live-toggle {
+  position: relative;
+  margin-left: 0.2em;
+  padding: 0 0 0 0.75em;
+  border-left: 1px solid var(--rule-mist);
+  color: var(--mist);
+  font-size: inherit;
+  font-weight: 500;
+  line-height: inherit;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+  text-underline-offset: 0.24em;
+}
+.live-toggle::before {                 /* 点按范围放大到约 44px 高（字本身很小） */
+  content: "";
+  position: absolute;
+  inset: -0.75em -0.85em -0.75em 0;
+}
+.live-toggle:hover { color: var(--lamp); text-decoration-color: currentColor; }
+.live-toggle[hidden] { display: none; }
+
+.hero-sub {
+  margin-top: var(--space-5);
+  max-width: 30em;
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+@media (min-aspect-ratio: 6/5) and (min-width: 900px) {
+  .hero-copy { --hero-col: clamp(20rem, calc(min(39vw, 50vw - 19.5vh) - var(--gutter) - 2rem), 34rem); }
+  .hero-glyphs { font-size: clamp(5.5rem, min(var(--hero-col) / 2.05, 24vh), var(--step-6)); }   /* 也按高度收：矮屏上按钮不被挤出第一屏 */
+  .hero-sub { max-width: min(30em, var(--hero-col)); word-break: keep-all; overflow-wrap: anywhere; }   /* 窄栏里只在标点与空格处断行，不拆“代码”“原生”（手机上按中文常规断行） */
+}
+
+/* 原地放映：首屏右上的一块放映屏（不是模态框），下面一条夜色片签带关闭按钮 */
+.hero-film {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--nav-h) + var(--space-5));
+  right: var(--gutter);
+  width: min(58vw, calc((100svh - var(--nav-h) - 25rem) * 1.846), 66rem);
+  min-width: min(100% - 2 * var(--gutter), 30rem);
+  margin: 0;
+  filter: drop-shadow(0 1.6rem 2.4rem color-mix(in oklab, var(--night) 45%, transparent));
+}
+.hero-film[hidden] { display: none; }
+.hero-film-frame {
+  aspect-ratio: 1920 / 1040;
+  overflow: hidden;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background-color: var(--night);
+}
+.hero-film video { width: 100%; height: 100%; object-fit: contain; background-color: var(--night); }
+.hero-film-cap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+  border-radius: 0 0 var(--radius) var(--radius);
+  background-color: var(--night);
+  color: var(--mist);
+  font-size: var(--step--1);
+  --focus-halo: var(--night);
+}
+.cap-title { font-weight: 600; }
+.cap-meta { margin-right: auto; color: var(--mist-mute); }
+.film-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius);
+  color: var(--mist);
+  font-weight: 500;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+.film-close:hover { background-color: var(--night-3); }
+.film-close .key {
+  padding: 0.05em 0.4em;
+  border: 1px solid var(--rule-mist);
+  border-radius: 2px;
+  color: var(--mist-mute);
+  font-size: var(--step--2);
+}
+
+/* 笔记本常见的可视高度（去掉浏览器工具栏后 650–760px）：标题跟着高度收，行距收紧，两个按钮留在第一屏里 */
+@media (min-width: 900px) and (max-height: 760px) {
+  .hero { padding-top: calc(var(--nav-h) + var(--space-4)); padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); }
+  .hero-title { margin-bottom: var(--space-3); }
+  .hero-claim { font-size: var(--step-2); }
+  .hero-live { margin-top: var(--space-3); }
+  .hero-sub { margin-top: var(--space-4); }
+  .hero-actions { margin-top: var(--space-4); }
+}
+
+/* 手机：鲲在上半屏，文字收紧一点，整块落在下半屏 */
+@media (max-width: 899px) {
+  .hero { padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); }
+  .eyebrow { margin-bottom: var(--space-2); }
+  .hero-title { margin-bottom: var(--space-3); }
+  .hero-glyphs { font-size: clamp(4.25rem, 19vw, 5.5rem); }
+  /* 读数两行：点、“你看到的不是视频”、暂停按钮一行，状态另起一行；宽度随内容，不做成通栏 */
+  .hero-live { grid-auto-flow: row; grid-template-columns: auto 1fr auto; }   /* 第二行比第一行宽时，多出来的宽度给中间一栏，点和字不被拉开 */
+  .live-dot { grid-area: 1 / 1; }
+  .live-lead { grid-area: 1 / 2; }
+  .live-toggle { grid-area: 1 / 3; justify-self: end; margin-left: 0.6em; }
+  .live-sep { display: none; }
+  .live-state { grid-area: 2 / 1 / 3 / 4; }
+  .hero-sub { margin-top: var(--space-4); }
+  .hero-actions { margin-top: var(--space-5); }
+}
+/* 矮的竖屏手机（360×640、375×667、320×568 这一档）：文案块整体收小，从画面 42% 高度以下开始排，
+   不压到上半屏的鲲；放不下时首屏变高、往下滚就能看到，副句排到按钮后面，保证主按钮先露出来 */
+@media (max-width: 899px) and (max-aspect-ratio: 1/1) and (max-height: 700px) {
+  .hero { padding-top: 42svh; padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px)); }
+  .eyebrow { margin-bottom: var(--space-1); }
+  .hero-title { margin-bottom: var(--space-2); }
+  .hero-glyphs { font-size: clamp(3rem, 14vw, 4rem); }
+  .hero-claim { font-size: var(--step-2); }
+  .hero-live { margin-top: var(--space-3); }
+  .hero-sub { order: 5; margin-top: var(--space-3); font-size: var(--step--1); line-height: 1.7; }
+  .hero-actions { margin-top: var(--space-4); }
+}
+@media (max-width: 899px) {
+  .hero-film { left: var(--gutter); right: var(--gutter); width: auto; min-width: 0; top: calc(var(--nav-h) + var(--space-3)); }
+  .cap-meta { display: none; }
+  .hero-film-cap { justify-content: space-between; }
+}
+/* 手机横过来看片：放映框按高度收，控件条和“收起”都留在屏内 */
+@media (max-width: 899px) and (orientation: landscape) {
+  .hero-film { width: min(100% - 2 * var(--gutter), (100svh - var(--nav-h) - 4.5rem) * 1.846); left: auto; right: var(--gutter); }
+}
+
+/* ================================ 引擎 · 纸上 ================================ */
+.engine {
+  position: relative;
+  z-index: var(--z-content);
+  color: var(--fg);
+  background-color: var(--paper);
+  background-image: url("../assets/ui-paper.jpg");
+  background-size: 512px 512px;
+  background-blend-mode: multiply;
+}
+
+/* —— 静态版（无脚本 / 减少动态）：标题、九字轨，然后五张静帧依次排列 —— */
+.engine-pin {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--grid-gap);
+  row-gap: var(--space-8);
+  padding: var(--space-10) var(--gutter) var(--space-9);
+}
+.engine-sheet { display: none; }
+.step-intro { grid-column: 1 / span 8; }
+.step-rest { grid-column: 1 / span 7; }
+.step-layer {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--grid-gap);
+  align-items: center;
+}
+.step-layer .step-text { grid-column: 1 / span 5; }
+.step-layer .step-plate { grid-column: 6 / -1; }
+.step-plate {
+  margin: 0;
+  background-color: var(--paper-deep);
+  box-shadow: 0 0 0 1px var(--rule-ink);
+}
+/* 动态模式下静帧先不出现（display:none 的懒加载图不会下载）：实时画面接得上就永远不用它们；
+   舞台失败、或滚到引擎篇章时实时画面还没就绪，main.js 加 .use-stills 再放出来。无脚本与减少动态时照常显示 */
+html.motion:not(.use-stills) .step-plate { display: none; }
+.step-plate img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+
+/* 篇章小标签（ENGINE / METHOD）：与作品区的 WORKS 同款（Barlow 500、--fg-mute、字距 0.12em） */
+.chapter-label {
+  margin: 0 0 var(--space-4);
+  font: 500 var(--step--2)/1 var(--font-num);
+  letter-spacing: var(--track-label);
+  color: var(--fg-mute);
+}
+.engine-title { font-size: var(--step-4); letter-spacing: 0.01em; word-break: keep-all; overflow-wrap: anywhere; }   /* 只在“把画风 / 写成代码”之间断行 */
+.engine-lede {
+  margin-top: var(--space-5);
+  max-width: 24em;
+  font-size: var(--step-1);
+  line-height: 1.7;
+}
+.engine-lede em {
+  background-image: linear-gradient(color-mix(in oklab, var(--lamp) 78%, transparent), color-mix(in oklab, var(--lamp) 78%, transparent));
+  background-repeat: no-repeat;
+  background-position: 0 90%;
+  background-size: var(--mark, 100%) 0.34em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.rail {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.rail li {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.6rem;
+}
+.rail-glyph { font-size: 1.45rem; transition: opacity var(--dur-3) var(--ease-out), color var(--dur-3) var(--ease-out); }
+@media (max-width: 480px) {           /* 窄手机上九个字排成一行，不折成两行（九层是一个整体） */
+  .rail { gap: 0; justify-content: space-between; flex-wrap: nowrap; }
+  .rail li { width: 2rem; }
+}
+.rail li::after {                      /* 当前一层：一粒窗灯 */
+  content: "";
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background-color: var(--lamp-deep);
+  box-shadow: 0 0 0 1.5px var(--ink);
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-3) var(--ease-out);
+}
+
+.step-head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+.step-glyph { font-size: var(--step-5); font-weight: 400; line-height: 0.92; }
+.step-lead { font-size: var(--step-2); font-weight: 600; line-height: 1.3; }
+.step-mod {
+  margin-top: var(--space-2);
+  color: var(--fg-mute);
+  font-size: var(--step--1);
+  letter-spacing: 0.03em;
+}
+.step-body { margin-top: var(--space-4); max-width: var(--measure); }
+
+.rest-text { font-size: var(--step-1); line-height: 1.8; max-width: 26em; }
+.rest-text .f-brush { font-size: 1.32em; margin: 0 0.06em; font-weight: 400; vertical-align: -0.08em; }
+.engine-note {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  max-width: 34em;
+  border-top: 1px solid var(--rule);
+  color: var(--fg-soft);
+  font-size: var(--step--1);
+  line-height: 1.85;
+}
+.engine-note .num { color: var(--fg); font-weight: 600; font-size: 1.1em; }
+
+.engine-dusk {                         /* 入夜：纸面与画面一起沉进夜色，再接作品 */
+  position: relative;
+  height: clamp(12rem, 40vh, 28rem);
+  background: linear-gradient(180deg,
+    transparent 0%,
+    color-mix(in oklab, var(--night) 22%, transparent) 30%,
+    color-mix(in oklab, var(--night) 70%, transparent) 68%,
+    var(--night) 100%);
+  pointer-events: none;
+}
+
+@media (max-width: 899px) {
+  .step-intro, .step-rest { grid-column: 1 / -1; }
+  .step-layer { row-gap: var(--space-5); }
+  .step-layer .step-text, .step-layer .step-plate { grid-column: 1 / -1; }
+  .step-layer .step-plate { order: -1; }
+  .step-head { flex-direction: row; align-items: center; gap: var(--space-4); }
+}
+
+/* —— 固定滚动版：左 5 栏一张纸（右缘毛边），右 7 栏是鲲；手机上鲲在上 55%，纸在下 —— */
+.engine.is-pinned { background: transparent; }
+.engine.is-pinned .engine-pin {
+  position: relative;
+  display: block;
+  height: 100vh;
+  height: 100svh;
+  padding: 0;
+  --sheet: calc(100% * 5 / 12);
+  --rail-w: 3.25rem;
+}
+/* 纸页：上、右、下三边是毛边。上下各伸出视口 14px：固定时看不见，升上来、滚走时露出撕边。
+   遮罩 = 整页减去三条“撕掉的边”（ui-deckle-*.svg 画的是撕掉的那一侧）：第一层整块，subtract 掉下面三层的并集。
+   角上同时减去两条边，纸角就收在两道撕口里面，不会再有一条边的直角纸片顶出另一条边 */
+.engine.is-pinned .engine-sheet {
+  display: block;
+  position: absolute;
+  left: 0; top: -14px; bottom: -14px;
+  width: var(--sheet);
+  background-color: var(--paper);
+  background-image: url("../assets/ui-paper.jpg");
+  background-size: 512px 512px;
+  background-blend-mode: multiply;
+  -webkit-mask:
+    linear-gradient(#000 0 0),
+    url("../assets/ui-deckle-h.svg") left top / 320px 14px repeat-x,
+    url("../assets/ui-deckle-v.svg") right top / 14px 320px repeat-y,
+    url("../assets/ui-deckle-b.svg") left bottom / 320px 14px repeat-x;
+  -webkit-mask-composite: source-out, source-over, source-over, source-over;
+  mask:
+    linear-gradient(#000 0 0),
+    url("../assets/ui-deckle-h.svg") left top / 320px 14px repeat-x,
+    url("../assets/ui-deckle-v.svg") right top / 14px 320px repeat-y,
+    url("../assets/ui-deckle-b.svg") left bottom / 320px 14px repeat-x;
+  mask-composite: subtract, add, add, add;
+}
+/* main.js 量“固定版装不装得下”时临时套上 .is-pinned：量的那一下不能触发过渡 */
+.engine.is-measuring, .engine.is-measuring * { transition: none !important; }
+.engine.is-pinned .step { position: absolute; inset: 0; display: block; pointer-events: none; }
+.engine.is-pinned .step-layer .step-text,
+.engine.is-pinned .step-layer .step-plate { grid-column: auto; }   /* 不再按静态版的栅格定位 */
+.engine.is-pinned .step-text {
+  position: absolute;
+  top: var(--nav-h);
+  bottom: var(--space-6);
+  left: calc(var(--gutter) + var(--rail-w) + var(--space-5));
+  width: min(calc(var(--sheet) - var(--gutter) - var(--rail-w) - var(--space-5) - var(--space-7)), 31rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+}
+.engine.is-pinned .step-intro .step-text { opacity: 1; }
+.engine.is-pinned .step-plate {
+  position: absolute;
+  top: calc(var(--nav-h) + var(--space-5));
+  bottom: var(--space-7);
+  left: calc(var(--sheet) + var(--space-6));
+  right: var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  box-shadow: none;
+  opacity: 0;
+}
+.engine.is-pinned .step-plate img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
+  box-shadow: 0 0 0 1px var(--rule-ink), 0 1.4rem 2.4rem -1.6rem color-mix(in oklab, var(--ink) 40%, transparent);
+}
+html.is-live .engine.is-pinned .step-plate { display: none; }   /* 实时画面接管后不再加载静帧 */
+
+.engine.is-pinned .rail {
+  position: absolute;
+  z-index: 2;
+  left: var(--gutter);
+  top: 50%;
+  translate: 0 -50%;
+  width: var(--rail-w);
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0;
+  border: 0;
+}
+.engine.is-pinned .rail li { width: 2.5rem; height: 2.55rem; }
+.engine.is-pinned .rail li::after { right: -0.5rem; top: 50%; margin-top: -3px; }
+.engine.is-pinned .rail-glyph { font-size: 1.6rem; opacity: 0.55; }   /* 未点亮的字也要 3:1 以上（低视力访客能读出九层是什么）；点亮与当前靠不透明度 1 和窗灯圆点区分 */
+.engine.is-pinned .rail li.is-lit .rail-glyph { opacity: 1; }
+.engine.is-pinned .rail li.is-on .rail-glyph { opacity: 1; }
+.engine.is-pinned .rail li.is-on::after { opacity: 1; transform: none; }
+
+/* 竖屏（宽高比 ≤ 1，与舞台 rig.js 的竖构图判断一致）：鲲在上，纸在下。横着的窄屏（手机横屏、放大 200%）
+   不走固定滚动（main.js 的 PIN_QUERY 与“装不装得下”检查会退回静态版），所以这里不再按宽度判断 */
+@media (max-aspect-ratio: 1/1) {
+  .engine.is-pinned .engine-pin { --top: 55%; }
+  .engine.is-pinned .engine-sheet {
+    top: var(--top);
+    right: 0;
+    width: auto;
+    -webkit-mask:
+      linear-gradient(#000 0 0),
+      url("../assets/ui-deckle-h.svg") left top / 320px 14px repeat-x,
+      url("../assets/ui-deckle-b.svg") left bottom / 320px 14px repeat-x;
+    -webkit-mask-composite: source-out, source-over, source-over;
+    mask:
+      linear-gradient(#000 0 0),
+      url("../assets/ui-deckle-h.svg") left top / 320px 14px repeat-x,
+      url("../assets/ui-deckle-b.svg") left bottom / 320px 14px repeat-x;
+    mask-composite: subtract, add, add;
+  }
+  .engine.is-pinned .rail {
+    top: calc(var(--top) + 1.15rem);
+    left: var(--gutter);
+    right: var(--gutter);
+    width: auto;
+    translate: none;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  .engine.is-pinned .rail li { width: 2rem; height: 2.2rem; }
+  .engine.is-pinned .rail li::after { right: auto; top: auto; left: 50%; bottom: -0.3rem; margin: 0 0 0 -3px; }
+  .engine.is-pinned .rail-glyph { font-size: 1.25rem; }
+  .engine.is-pinned .step-text {
+    top: calc(var(--top) + 4.3rem);
+    bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+    left: var(--gutter);
+    right: var(--gutter);
+    width: auto;
+    justify-content: flex-start;
+  }
+  .engine.is-pinned .step-plate {
+    top: calc(var(--nav-h) + var(--space-3));
+    bottom: calc(100% - var(--top) + var(--space-4));
+    left: var(--gutter);
+    right: var(--gutter);
+  }
+  .engine.is-pinned .step-glyph { font-size: 3rem; }
+  .engine.is-pinned .step-body { margin-top: var(--space-3); }
+  .engine.is-pinned .engine-title { font-size: var(--step-3); }
+  .engine.is-pinned .engine-lede { font-size: var(--step-0); margin-top: var(--space-4); }
+  .engine.is-pinned .rest-text { font-size: var(--step-0); line-height: 1.75; }
+  .engine.is-pinned .engine-note { margin-top: var(--space-4); padding-top: var(--space-3); line-height: 1.7; }
+  .engine.is-pinned .chapter-label { margin-bottom: var(--space-3); }
+}
+/* 矮的竖屏手机（360×640、375×667）：纸页往上挪一点，给文字多留一截；还装不下的设备由 main.js 退回静态版 */
+@media (max-aspect-ratio: 1/1) and (max-height: 700px) {
+  .engine.is-pinned .engine-pin { --top: 48%; }
+  .engine.is-pinned .rail { top: calc(var(--top) + 0.9rem); }
+  .engine.is-pinned .step-text { top: calc(var(--top) + 3.85rem); bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px)); }
+  .engine.is-pinned .step-head { gap: var(--space-3); }
+  .engine.is-pinned .step-glyph { font-size: 2.6rem; }
+  .engine.is-pinned .step-mod { margin-top: var(--space-1); }
+  .engine.is-pinned .engine-lede { margin-top: var(--space-3); }
+  .engine.is-pinned .engine-note { margin-top: var(--space-3); padding-top: var(--space-2); line-height: 1.65; }
+}
+
+/* ================================ 作品 · 入夜（容器；内部归作品区） ================================ */
+/* 夜里也是纸：ui-paper-night.jpg 是纸面那张纤维图反过来（黑底上很淡的亮纤维），用 screen 叠在夜色上，
+   没有纤维的地方底色不变（平均只亮约 1 级），小字对比度不受影响 */
+.works {
+  position: relative;
+  z-index: 2;
+  background-color: var(--night);
+  background-image: url("../assets/ui-paper-night.jpg");
+  background-size: 512px 512px;
+  background-blend-mode: screen;
+  color: var(--fg);
+}
+
+/* ================================ 方法 · 星 ================================ */
+.method,
+.site-foot { --bg: oklch(19.5% 0.058 279); }      /* 比夜再深一档 */
+.method {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--grid-gap);
+  row-gap: var(--space-9);
+  padding: var(--space-10) var(--gutter) var(--space-9);
+  background-color: var(--bg);
+  background-image: url("../assets/ui-stars.svg"), url("../assets/ui-paper-night.jpg"), linear-gradient(180deg, var(--night) 0, transparent 22rem);   /* 星、夜纸纹，夜一点点变深 */
+  background-size: 1600px 900px, 512px 512px, 100% 100%;
+  background-position: 50% 0, 0 0, 0 0;
+  background-repeat: repeat, repeat, no-repeat;
+  background-blend-mode: normal, screen, normal;
+  color: var(--fg);
+  line-height: calc(var(--leading-body) + 0.05);
+}
+.method-head {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--grid-gap);
+  align-items: end;
+}
+.method-head .chapter-label { grid-column: 1 / -1; margin-bottom: var(--space-5); }
+.method-title { grid-column: 1 / span 3; font-size: var(--step-5); font-weight: 400; line-height: 1; }
+.method-quote {
+  grid-column: 4 / -1;
+  max-width: 14em;
+  font-size: var(--step-4);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  word-break: keep-all;           /* 只在“替代品，/ 而是”处断行 */
+  overflow-wrap: anywhere;
+}
+.principles { grid-column: 4 / -1; border-bottom: 1px solid var(--rule); }
+.principle {
+  display: grid;
+  grid-template-columns: minmax(7rem, 2fr) minmax(0, 7fr);
+  column-gap: var(--grid-gap);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--rule);
+}
+.principle dt { font-size: var(--step-1); font-weight: 600; line-height: 1.5; }
+.principle dd { max-width: 32em; color: var(--fg-soft); padding-top: 0.12em; }
+.principle .num { color: var(--fg); font-weight: 500; }
+
+.routes {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--grid-gap);
+}
+.routes-title { grid-column: 1 / span 3; padding-top: var(--space-5); font-size: var(--step-1); }
+/* 三行共用一套列宽（subgrid）：最后一列的链接长短不一，说明列也上下对齐；不支持 subgrid 的浏览器用固定的末列宽 */
+.route-list {
+  grid-column: 4 / -1;
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  column-gap: var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+.route {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1.5fr) minmax(0, 1fr) 6.5em;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+  column-gap: var(--space-5);
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--rule);
+}
+.route-key { color: var(--lamp); font-size: var(--step-2); font-weight: 500; line-height: 1; }
+.route-name { font-size: var(--step-1); font-weight: 600; line-height: 1.45; }
+.route-note { color: var(--fg-soft); }
+.route-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--fg);
+  font-size: var(--step--1);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+  transition: color var(--dur-2) var(--ease-out), text-decoration-color var(--dur-2) var(--ease-out);
+}
+.route-link:hover { color: var(--lamp); text-decoration-color: currentColor; }
+
+@media (max-width: 899px) {
+  .method { row-gap: var(--space-8); }
+  .method-head, .routes { row-gap: var(--space-4); }
+  .method-title, .method-quote, .principles, .routes-title, .route-list { grid-column: 1 / -1; }
+  .method-quote { font-size: clamp(1.4rem, calc((100vw - 2 * var(--gutter)) / 11.4), var(--step-3)); }   /* 前半句 11 个字放得下一行 */
+  .principle { grid-template-columns: 1fr; row-gap: var(--space-2); }
+  .route { grid-template-columns: 2rem minmax(0, 1fr); row-gap: var(--space-1); }
+  .route-note, .route-link { grid-column: 2; }
+  .routes-title { padding-top: 0; }
+}
+
+/* ================================ 页脚 ================================ */
+.site-foot {
+  position: relative;
+  z-index: 2;
+  padding: 0 var(--gutter) calc(var(--space-7) + env(safe-area-inset-bottom, 0px));
+  background-color: var(--bg);
+  background-image: url("../assets/ui-paper-night.jpg");
+  background-size: 512px 512px;
+  background-blend-mode: screen;
+  color: var(--fg);
+}
+.foot-inner {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--grid-gap);
+  row-gap: var(--space-4);
+  padding-top: var(--space-7);
+  border-top: 1px solid var(--rule);
+}
+.foot-brand { grid-column: 1 / span 3; display: flex; align-items: center; gap: var(--space-3); }
+.foot-brand .f-brush { font-size: 2rem; }
+.foot-brand .label { color: var(--fg-mute); }
+.foot-links { grid-column: 4 / -1; display: flex; flex-wrap: wrap; gap: 0 var(--space-6); }
+.foot-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.foot-links a:hover { color: var(--lamp); }
+.foot-legal {
+  grid-column: 4 / -1;
+  max-width: 46em;
+  color: var(--fg-mute);
+  font-size: var(--step--1);
+  line-height: 1.85;
+}
+.foot-legal a { color: var(--fg-soft); }
+.foot-legal a:hover { color: var(--lamp); }
+
+@media (max-width: 899px) {
+  .foot-brand, .foot-links, .foot-legal { grid-column: 1 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-live[data-state="live"] .live-dot::after, .hero-live.is-blip .live-dot { animation: none; }
+  .hero::before { transition: none; }
+  .rail-glyph, .rail li::after, .film-close, .route-link { transition: none; }
+}

@@ -1,6 +1,8 @@
 # 10 秒原生实验：结果与边界
 
-2026-11-06，RAEA `v0.1.0-canary.2`，RTX 5090 / Vulkan。实际影片代码已整理到 [examples/raea/film.tsx](../../examples/raea/film.tsx)。下面是原实验的测量；目录迁移后的验证另行记录，不混作同一次跑分。
+> 读者：要复现或引用原生实验结果的人｜状态：实测记录｜依据：2026-11-06，RTX 5090 · Vulkan，运行包 `v0.1.0-canary.2`；另有入库后的 macOS 复现
+
+实际影片代码已整理到 [examples/raea/film.tsx](../../examples/raea/film.tsx)。下面是原实验的测量；目录迁移后的验证另行记录，不混作同一次跑分。
 
 ## 实际做了什么
 

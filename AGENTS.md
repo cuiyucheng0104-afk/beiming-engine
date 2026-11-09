@@ -1,6 +1,6 @@
 # 北冥仓库：给创作与工程 agent 的入口
 
-对外品牌名：**北冥风格路线 · WebGL 三渲二**、**北冥原生路线 · BNE**、**北冥代码动画风格 · 86 式**。工程内部目录与 npm 命令（如 `raea:*`、`cases/vendor`）沿用历史代号，只用于追溯，不是对外名称，也不要写进对外物料。
+对外品牌名：**北冥风格路线 · WebGL 三渲二**、**北冥原生路线 · BNE**、**北冥代码动画风格 · 86 式**。工程内部目录与 npm 命令（如 `raea:*`、`cases/vendor`）沿用历史代号，只用于追溯，不是对外名称，也不要写进对外物料（作品站、README、发布说明）。名称与目录的对照见 [docs/README.md](docs/README.md#对外名称与工程代号)。
 
 开始制作前先读 [ROUTES.md](ROUTES.md)，选择 **北冥风格路线** 或 **北冥原生路线**。路线与渲染后端是两个概念，不要把所有任务统一套进一个已有示例。
 
@@ -12,14 +12,14 @@
 - 用户要求多代理时，按 [工作分解](docs/routes/work-breakdown.md) 分配互不重叠的写入范围。共享契约、根文档和工作状态由集成负责人统一维护。
 - [work-plan.json](docs/routes/work-plan.json) 的 T 编号是跨路线任务状态源；各手册 A/R/V 编号只是局部步骤。完成任务必须填写真实证据，不因文档写完而把代码实现标完成。
 - 子代理返回任务 ID、基线提交、实际改动、运行命令及结果、产物、未完成项。集成者复核后更新状态。
-- 两条路线可以独立推进。RAEA 原生作品不必等待北冥 FrameState 或风格适配器完成。
+- 两条路线可以独立推进。北冥原生路线的作品不必等待北冥 FrameState 或风格适配器完成。
 - 先复用现有入口完成小样；21 项任务不是每部作品的前置清单。按实际需求引入契约和适配层，不提前实现整套框架。
 - `blocked` 不释放写入范围；移交由集成人员调整。修改 work-plan.json 时同步任务卡，运行 `npm run test:routes` 验证内容一致。
 
 ## 路线选择
 
 - 延续北冥画风、精确风格控制或参考图风格实验：优先北冥风格路线，先读 `engine/` 的相关模块和原版 `src/`。
-- 用户明确要求直接使用 RAEA，或作品不依赖北冥美术规则：走 RAEA 原生路线，先读 `examples/raea/README.md` 和 `docs/raea/architecture.md`。
+- 用户明确要求直接使用 RAEA，或作品不依赖北冥美术规则：走北冥原生路线，先读 `examples/raea/README.md` 和 `docs/raea/architecture.md`。
 - 北冥画风结合 RAEA 能力：仍属于北冥风格路线，按 `docs/raea/integration.md` 实现对应适配，保留风格对照。
 - 说明所选路线和理由；已有用户决定优先。不要只因内部架构命名而重复要求用户确认。
 
@@ -27,6 +27,7 @@
 
 - Three 主线：`npm run build`、`npm run stills`、`npm run video`。
 - 独立原生实验：`npm run raea:prepare`、`npm run raea:check`、`npm run raea:render`。
+- 作品站：源码在 `site/`（设计与契约见 `site/PRODUCT.md`、`site/DESIGN.md`、`site/CONTRACT.md`），`npm run site:build` 用 `tools/build-showcase.py` 构建到 `out/site/`，`npm run site:serve` 在 8090 端口预览；GitHub Pages 由 `.github/workflows/pages.yml` 构建同一份产物。旧的 `showcase/` 已删除。
 - `docs/raea/integration.md` 的 `FrameState`、production/performance/style/backends 目录是架构方案，不能报告成已经存在的 API。
 - 目前的原生例片验证资产转换和渲染；它不证明原版 ID 墨线/Kuwahara 已移植，也不证明完整人物表演已经实现。
 
@@ -47,7 +48,8 @@
 - 资产桥改动运行导出、结构验证和动画回读。
 - 渲染路径改动运行相关示例，检查日志、输出帧数、关键帧和完整视频。
 - 报告实际运行的平台；没有重跑 Windows/5090 时，不把 macOS 验证写成新的 5090 验证。
-- 修改案例目录或 `tools/build-showcase.py` 后运行 `python tools/build-showcase.py` 并核对 `showcase/index.html`；再跑 casebook 校验。
+- 修改案例目录、`site/` 或 `tools/build-showcase.py` 后运行 `npm run site:build`（构建器会校验产物里的本地引用与页内锚点，并检查可见文字里的破折号、内部代号和工程残留，出错即失败），再 `npm run site:serve` 在浏览器里核对页面；改了案例目录再跑 casebook 校验。
+- 作品站可见文字只用对外名称、不用破折号，数字与 `site/DESIGN.md` 第 7 节一致；说“能交付”之前要真的构建并在浏览器里看过。
 - 不得删除或改写 `LICENSE`、`cases/licenses/`、`cases/vendor/` 内的许可证与署名；整合、改写、调参不改变原作者权利。详见 `THIRD-PARTY.md`。
 
 ## 查找已做过的案例

@@ -1,0 +1,310 @@
+/* 北冥作品站 · 全局样式（shell）
+ * 重置、字体角色、焦点、按钮、导航、舞台层（海报 / 实时画布 / CSS 天空）、纸纹。
+ * 颜色与字号全部取自 tokens.css；这里只定义 shell 自己的几个运行时变量。
+ * 下面四个只在舞台 #stage 里用到：main.js 把它们写在 #stage 上（不写在根元素上，免得每帧重算整页样式），
+ * :root 里的值是无脚本时的默认值：
+ *   --dusk      0..1  黄昏天空与海报的可见度（首屏到引擎篇章之间 scrub）
+ *   --live      0..1  实时画布的可见度（引擎就绪后交叉淡入，海报同时淡出）
+ *   --bloom     0..1  开场时天空从地平线往上晕开的进度（只在开场期间生效）
+ *   --navshade  0..1  画面顶部那层压导航浅色字的夜色（首屏跟 --dusk；拆层里天空铺满时也要它）
+ */
+
+:root {
+  --nav-h: 56px;
+  --grid-gap: clamp(12px, 2vw, 32px);
+  --dusk: 1;
+  --live: 0;
+  --bloom: 1;
+  --focus-halo: var(--ink);
+}
+@media (min-width: 900px) { :root { --nav-h: 64px; } }
+[data-theme="night"] { --focus-halo: var(--night); }
+
+/* —— 重置 —— */
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background-color: var(--night);          /* 页面上下回弹露出的底色：夜 */
+  color-scheme: light;
+  scroll-padding-top: calc(var(--nav-h) + 12px);   /* 锚点跳转、键盘焦点滚动都给固定导航留出位置 */
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: clip;
+  font-family: var(--font-sans);
+  font-size: var(--step-0);
+  line-height: var(--leading-body);
+  color: var(--fg);
+  background-color: var(--paper);
+  background-image: url("../assets/ui-paper.jpg");   /* 纸纹：近白的纤维图，正片叠底 */
+  background-size: 512px 512px;
+  background-blend-mode: multiply;
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4, p, figure, blockquote, dl, dd, ol, ul { margin: 0; }
+ol, ul { padding: 0; list-style: none; }
+h1, h2, h3, h4 { font-weight: 600; line-height: var(--leading-tight); text-wrap: balance; }
+p, dd, li { text-wrap: pretty; }
+img, video, canvas, svg { display: block; max-width: 100%; }
+img { height: auto; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.24em; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+em { font-style: normal; font-weight: 600; }           /* 中文不用斜体，强调靠字重 */
+b, strong { font-weight: 600; }
+::selection { background: var(--lamp); color: var(--ink); }
+
+/* —— 字体角色 —— */
+.f-brush { font-family: var(--font-brush); font-weight: 400; font-style: normal; line-height: 1; letter-spacing: 0; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums lining-nums; }
+.label {
+  font-family: var(--font-num);
+  font-size: var(--step--2);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+.ext { display: inline-block; margin-left: 0.18em; font-family: var(--font-num); font-weight: 400; }
+
+.sr-only {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* —— 焦点：窗灯金 2px 外描边，内衬一圈墨色（纸面上也看得清） —— */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--lamp);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--focus-halo);
+}
+main:focus-visible, main:focus,
+section[tabindex="-1"]:focus, section[tabindex="-1"]:focus-visible { outline: none; box-shadow: none; }
+
+.skip-link {
+  position: fixed;
+  z-index: calc(var(--z-nav) + 5);
+  top: var(--space-3);
+  left: var(--gutter);
+  padding: var(--space-2) var(--space-4);
+  background: var(--ink);
+  color: var(--paper-light);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transform: translateY(-160%);
+}
+.skip-link:focus-visible { transform: none; }
+
+/* —— 按钮 —— */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  min-height: 48px;
+  padding: 0.62em 1.2em;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: var(--step-0);
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
+}
+.btn:active { transform: translateY(1px); }
+.btn-icon { width: 0.72em; height: auto; flex: none; }
+.btn-lamp { background-color: var(--lamp); color: var(--ink); }
+.btn-lamp:hover { background-color: color-mix(in oklab, var(--lamp) 84%, var(--kun-rim)); }
+.btn-lamp[aria-expanded="true"] { background-color: var(--ink); color: var(--lamp); }
+.btn-line { border-color: color-mix(in oklab, currentColor 55%, transparent); color: var(--fg); }
+.btn-line:hover { background-color: color-mix(in oklab, currentColor 9%, transparent); border-color: currentColor; }
+
+/* —— 导航：随篇章换色，往下滚收起、往上滚出现。配色（data-nav，main.js 按滚动位置切换）：
+ *   sky    首屏页顶：透明底、近白字，压在画面顶部那层夜色上
+ *   dusk   首屏里导航压到首屏文字时：夜色实底（不用毛玻璃）
+ *   sheet  拆层固定期间：透明底，左边就是那张纸，品牌用墨色；右边链接跟着画面走（data-sky：天空铺满后换近白字）
+ *   paper  纸面（静态版拆层）：纸底墨字
+ *   night  入夜：夜底月白字
+ * 关掉脚本时没人来换配色：导航一直是夜色实底（支持滚动驱动动画的浏览器在页顶仍透明），见文件末尾 html.no-js —— */
+.nav {
+  --nav-fg: var(--paper-light);
+  --nav-bg: transparent;
+  --nav-rule: transparent;
+  position: fixed;
+  z-index: var(--z-nav);
+  top: 0; left: 0; right: 0;
+  height: calc(var(--nav-h) + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) var(--gutter) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  color: var(--nav-fg);
+  background-color: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-rule);
+  transition:
+    color var(--dur-3) var(--ease-out),
+    background-color var(--dur-3) var(--ease-out),
+    border-color var(--dur-3) var(--ease-out),
+    transform var(--dur-3) var(--ease-out);
+}
+.nav[data-nav="paper"] { --nav-fg: var(--ink); --nav-bg: var(--paper); --nav-rule: var(--rule-ink); --focus-halo: var(--ink); }
+.nav[data-nav="night"],
+.nav[data-nav="dusk"] { --nav-fg: var(--mist); --nav-bg: var(--night); --nav-rule: var(--rule-mist); --focus-halo: var(--night); }
+.nav[data-nav="sky"] { --focus-halo: var(--ink); }
+/* 拆层：左 5 栏是纸页，导航不铺底色（纸就是底）；右边的链接压在画面上，天空没铺满时画面是纸色（墨字），铺满后是天空（近白字） */
+.nav[data-nav="sheet"] { --nav-fg: var(--ink); --focus-halo: var(--ink); }
+.nav[data-nav="sheet"] .nav-links { transition: color var(--dur-3) var(--ease-out); }
+.nav[data-nav="sheet"][data-sky] .nav-links { color: var(--paper-light); }
+@media (max-aspect-ratio: 1/1) {            /* 竖屏拆层上下排：整条导航都压在画面上，品牌也跟着换色 */
+  .nav[data-nav="sheet"][data-sky] { --nav-fg: var(--paper-light); }
+}
+.nav.is-tucked { transform: translateY(-101%); }
+.nav:focus-within { transform: none; }
+
+.nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  text-decoration: none;
+}
+.nav-mark { font-size: 1.6rem; line-height: 1; transform: translateY(-0.04em); }
+.nav-word { display: none; opacity: 0.9; }
+@media (min-width: 900px) { .nav-word { display: inline; } }
+.nav[data-nav="sky"] .nav-word { display: none; }   /* 首屏的题签里已经有 BEIMING ENGINE，导航不再重复 */
+
+.nav-links { display: flex; align-items: center; gap: clamp(0.9rem, 2.2vw, 2.25rem); }
+.nav-links a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--step--1);
+  font-weight: 500;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+.nav-links a::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 9px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.nav-links a:hover::after,
+.nav-links a[aria-current="true"]::after { transform: scaleX(1); }
+.nav-links a[aria-current="true"]::before {           /* 当前篇章：一粒窗灯 */
+  content: "";
+  position: absolute;
+  left: 50%; bottom: 2px;
+  width: 4px; height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--lamp);
+}
+
+/* —— 舞台：固定铺满视口；CSS 天空 → 海报 → 实时画布，三层叠放 —— */
+.stage {
+  position: fixed;
+  z-index: var(--z-stage);
+  left: 0; top: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100lvh;                    /* 手机地址栏伸缩时画布不跟着改尺寸 */
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.stage::before {                     /* 黄昏天空（海报到之前、或海报缺失时就是它） */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    var(--sky-zenith) 0%,
+    var(--sky-cloud) 30%,
+    var(--sky-lavender) 50%,
+    var(--sky-pink) 74%,
+    var(--sky-cloudlit) 86%,
+    var(--sky-apricot) 100%);
+  opacity: var(--dusk);
+}
+.stage-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 50% 50%;          /* 与舞台的 cover 居中裁切一致，交叉淡入时逐像素对齐 */
+  opacity: var(--dusk);              /* 实时画布不透明地盖上来（交叉淡入），淡完再藏起海报，免得中途透出 CSS 天空 */
+}
+#stage-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  opacity: var(--live);
+}
+.stage::after {                      /* 顶部一层很淡的夜色，让导航的浅色字压得住（首屏，以及拆层里天空铺满时） */
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: calc(var(--nav-h) * 2.6);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--night) 42%, transparent), transparent);
+  opacity: var(--navshade, var(--dusk));
+}
+html.is-live .stage-poster { visibility: hidden; }
+html.film-open .stage { filter: brightness(0.72) saturate(0.92); transition: filter var(--dur-3) var(--ease-out); }
+
+/* 开场：天空从地平线往上晕开（带柔边的遮罩）。intro 由 <head> 里的脚本在首帧前加上，main.js 接手 */
+html.intro .stage { --bloom: 0; }
+html.intro .stage,
+html.blooming .stage {
+  -webkit-mask-image: linear-gradient(0deg, #000 calc(var(--bloom) * 135% - 35%), transparent calc(var(--bloom) * 135%));
+  mask-image: linear-gradient(0deg, #000 calc(var(--bloom) * 135% - 35%), transparent calc(var(--bloom) * 135%));
+}
+html.intro .nav,
+html.intro .hero-copy > :not(.hero-title) { opacity: 0; }
+html.intro .hero-glyphs { color: transparent; }
+
+/* 关掉脚本：没有脚本按篇章给导航换配色，导航就一直用夜色实底、月白字（任何篇章上都看得清，也不会和正文叠字）。
+   支持滚动驱动动画的浏览器在页顶仍是透明底，往下滚一小段再渐变成夜色实底 */
+html.no-js .nav { --nav-fg: var(--mist); --nav-bg: var(--night); --nav-rule: var(--rule-mist); --focus-halo: var(--night); }
+@supports (animation-timeline: scroll()) {
+  html.no-js .nav {
+    animation: nojs-nav linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 40vh;
+  }
+  @keyframes nojs-nav {
+    from { background-color: transparent; border-bottom-color: transparent; color: var(--paper-light); }
+    to { background-color: var(--night); border-bottom-color: var(--rule-mist); color: var(--mist); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .nav, .btn, .nav-links a::after, .nav[data-nav="sheet"] .nav-links { transition: none; }
+}

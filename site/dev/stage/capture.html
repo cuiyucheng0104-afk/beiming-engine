@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>舞台出图页 · 北冥作品站</title>
+<!-- 出图页：render-assets.mjs 用无头 Chromium + GPU 打开它，用实时舞台的同一套代码渲首屏海报、拆层静帧和分享图。
+     参数：scene、layer、progress、lod（同 index.html）。window.__capture 见下方。 -->
+<script type="importmap">{ "imports": {
+  "three": "/node_modules/three/build/three.module.js",
+  "three/addons/": "/node_modules/three/examples/jsm/",
+  "@engine/": "/engine/",
+  "@film/": "/src/"
+} }</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #F3EAD9; overflow: hidden; }
+  #stage-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<canvas id="stage-canvas"></canvas>
+<script type="module">
+  import { createStage } from '../../js/stage.js';
+  import { loadHUDFonts, drawTitle, setTitleLayout, HUD_T } from '@film/hud.js';
+  const q = new URLSearchParams(location.search);
+  const canvas = document.getElementById('stage-canvas');
+  const stage = await createStage(canvas, { quality: q.get('quality') || 'auto', lod: q.get('lod') ? +q.get('lod') : null, defer: false });
+  window.__stage = stage;
+  if (!stage) { window.__ready = 'null'; throw new Error('舞台不可用'); }
+  stage.setScene(q.get('scene') || 'hero', +(q.get('progress') || 0));
+  stage.setLayer(+(q.get('layer') ?? 4));
+  await stage.firstFrame;
+  stage.pause();
+
+  const PAPER = '#F3EAD9';
+  const grab = () => {                                   // 同一个任务里读画布（不需要 preserveDrawingBuffer）
+    const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
+    c.getContext('2d').drawImage(canvas, 0, 0); return c;
+  };
+  const render = (t, { layer, scene, progress, tune, pointer = [0, 0], timeFx = null } = {}) => {
+    if (scene) stage.setScene(scene, progress ?? 0);
+    if (layer !== undefined) stage.setLayer(layer);
+    stage.debug.tune(tune || null);
+    stage.debug.timeFx(timeFx || { boost: null, flicks: [] });
+    stage.debug.renderAt(t, { pointer });
+    return grab();
+  };
+  const flatten = (c, bg) => {                           // 透明层压到纸色上
+    const o = document.createElement('canvas'); o.width = c.width; o.height = c.height;
+    const g = o.getContext('2d'); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, o.width, o.height); } g.drawImage(c, 0, 0); return o;
+  };
+
+  window.__capture = {
+    info: () => ({ ...stage.debug.info, canvas: [canvas.width, canvas.height] }),
+    // 一帧：layer 0–2 压到纸色上（JPG 没有透明）
+    frame(t, o = {}) { const c = render(t, o); return flatten(c, (o.layer ?? 4) < 2.5 ? PAPER : null).toDataURL('image/png'); },
+    // 时：洋葱皮。当前姿态完整画出；往前几个姿态（各隔 step 帧，取整拍）淡淡地叠在鲲身后。
+    // timeFx 让“时”这一步的放大动作（起伏、侧倾、摆尾）在出图时也确定：{ boost: 1, flicks: [摆尾开始时刻] }
+    onion(t, o = {}) {
+      const step = o.step ?? 3, ghosts = o.ghosts ?? [0.34, 0.16];
+      const base = render(t, { ...o, layer: 4 });
+      const cur = render(t, { ...o, layer: 2 });          // 当前鲲的透明剪影，用来把重影挖到鲲身后
+      const G = document.createElement('canvas'); G.width = base.width; G.height = base.height;
+      const g = G.getContext('2d');
+      ghosts.forEach((a, i) => { const c = render(t - (i + 1) * step / 24, { ...o, layer: 2 }); g.globalAlpha = a; g.drawImage(c, 0, 0); });
+      g.globalAlpha = 1; g.globalCompositeOperation = 'destination-out'; g.drawImage(cur, 0, 0);
+      const out = flatten(base); out.getContext('2d').drawImage(G, 0, 0);
+      render(t, { ...o, layer: 4 });
+      return out.toDataURL('image/png');
+    },
+    // 分享图：首屏画面 + 影片片名“北冥”（src/hud.js 的 drawTitle → engine/overlay/brush.js 按笔顺写完的样子）
+    async og(t, o = {}) {
+      await loadHUDFonts();
+      HUD_T.subIn = HUD_T.subFull = 1e9;                  // 影片的副标题（样片用语）不画
+      setTitleLayout({ x: o.titleX ?? 0.07, y: o.titleY ?? 0.3, size: o.titleSize ?? 0.3, dry: 1, shade: o.shade ?? 0.35 });
+      const c = render(t, { ...o, layer: 4 });
+      const out = flatten(c), g = out.getContext('2d');
+      drawTitle(g, 30, out.width, out.height);
+      // 小标签（Barlow 大写 + 中文），近白、带暖色光晕，同影片片名的副标题处理
+      if (o.label) {
+        const S = out.height / 630, x = (o.titleX ?? 0.07) * out.width + 6 * S, y = (o.labelY ?? 0.56) * out.height;
+        g.save();
+        g.font = `500 ${Math.round(19 * S)}px "BM HUD Latin", "PingFang SC", sans-serif`;
+        if ('letterSpacing' in g) g.letterSpacing = `${(2.6 * S).toFixed(1)}px`;
+        g.shadowColor = 'rgba(28,30,78,0.45)'; g.shadowBlur = 14 * S; g.fillStyle = 'rgba(255,250,244,0.95)';
+        g.fillText(o.label, x, y);
+        g.restore();
+      }
+      return out.toDataURL('image/png');
+    },
+  };
+  window.__ready = true;
+</script>
+</body>
+</html>

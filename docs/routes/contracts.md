@@ -1,10 +1,12 @@
 # 数据与模块契约：两条路线如何合作
 
+> 读者：设计两条路线共用数据与接口的工程师｜状态：实施规格；`ProjectSpec` 与 `RenderResult` 的校验已实现（T01），其余是设计｜依据：2026-11-06
+
 本页是实施规格。`ProjectSpec` 与 `RenderResult` 的字段校验、路径诊断已在 [`engine/production/project.js`](../../engine/production/project.js) 实现（T01，仅供测试调用，渲染器不读取）；`ShotSpec / FrameState / BackendAdapter` **尚未作为引擎 API 实现**。当前可运行入口仍是原 Three 页面与独立 RAEA 示例。JSON 模板供项目记录和实现时参照，现有渲染器不会自动读取它们。
 
 ## 1. 共用到什么程度
 
-| 内容 | 北冥风格路线 | RAEA 原生路线 | 共享方式 |
+| 内容 | 北冥风格路线 | 北冥原生路线 | 共享方式 |
 |---|---|---|---|
 | 项目与交付信息 | 必需 | 必需 | 相同字段语义，可各自保存 |
 | 资产身份与版本 | 必需 | 必需 | 相对路径、哈希、单位、坐标轴、clip 名 |
@@ -13,12 +15,12 @@
 | 动作 | 二维姿态或三维 clip/目标约束 | RAEA 原生角色与动画能力 | 可共享 clip、世界目标与动作事件 |
 | GPU 与编码 | 浏览器/未来原生适配 | 原生运行时 | 统一记录实际执行证据 |
 
-RAEA 原生路线必须保留直接使用其 SDK 的空间。统一层第一版只表达已有北冥镜头需要的内容，不尝试把所有 RAEA 功能重新封装一遍。
+北冥原生路线必须保留直接使用 RAEA SDK 的空间。统一层第一版只表达已有北冥镜头需要的内容，不尝试把所有 RAEA 功能重新封装一遍。
 
 ```mermaid
 flowchart TD
   P[项目目标与资产版本] --> A[北冥风格路线]
-  P --> B[RAEA 原生路线]
+  P --> B[北冥原生路线]
   A --> S[风格规范 + 镜头状态 + 动作事件]
   S --> F[FrameState：待实现]
   F --> T[Three 兼容适配：待实现]
@@ -35,7 +37,7 @@ flowchart TD
 
 ## 2. ProjectSpec
 
-模板：[北冥项目](templates/project-beiming.json)、[RAEA 项目](templates/project-raea.json)。
+模板：[北冥风格路线项目](templates/project-beiming.json)、[北冥原生路线项目](templates/project-raea.json)。
 
 | 字段 | 类型/约束 | 含义与校验 |
 |---|---|---|
@@ -46,7 +48,7 @@ flowchart TD
 | `entry` | 仓库相对文件路径 | Three 为影片目录的 `index.html`，RAEA 为 TSX |
 | `runtime` | 版本对象 | Three/浏览器或 RAEA 包版本；另记源码提交 |
 | `output` | 宽高、fps、frameCount | 时间总长由整数帧推导；H.264 yuv420p 的宽高为偶数 |
-| `style` | id/version/baseline | 北冥路线需基准；RAEA 路线可独立定义目标 |
+| `style` | id/version/baseline | 北冥风格路线需基准；北冥原生路线可独立定义目标 |
 | `assets` | 资产清单位置 | 初期清单也可内嵌；不能只记录文件名不记内容版本 |
 | `audio` | 采样率/声道/目标响度 | 目标与实测分开；响度不等同峰值 |
 | `execution` | 目标平台/GPU/图形后端 | 计划值，不能直接当成已执行证据 |
@@ -128,7 +130,7 @@ type FrameState = {
 | `finish()` | 镜头产物和 manifest | 排空编码器，关闭文件，确认帧数 |
 | `dispose()` | 资源释放结果 | 释放场景、纹理、进程，避免长片累积 |
 
-Three 适配器先包装现有镜头，不直接改写其全局 `update(t,f)` 语义。RAEA 原生作品可直接使用运行时生命周期；只有北冥跨后端需求才实现上述包装。
+Three 适配器先包装现有镜头，不直接改写其全局 `update(t,f)` 语义。北冥原生路线的作品可直接使用运行时生命周期；只有北冥跨后端需求才实现上述包装。
 
 **有状态模拟：** 资产或镜头记录 `evaluation: absolute | baked | sequential`。前两者经过验证后可按帧并行；顺序模拟需缓存、warm-up/checkpoint 或从起点回放。单帧 render 接口的存在不意味着模拟已经可随机访问。
 
@@ -156,7 +158,7 @@ Three 适配器先包装现有镜头，不直接改写其全局 `update(t,f)` �
 
 ## 8. 按什么顺序实现这些契约
 
-1. 先统一项目、资产和结果记录，不阻塞 RAEA 原生路线开工。
+1. 先统一项目、资产和结果记录，不阻塞北冥原生路线开工。
 2. 在北冥路线用原三镜头实现最小 FrameState 适配，保持旧版关键帧基准。
 3. 做一个跨后端镜头，验证尺度、颜色、时间、alpha 和输出一致性。
 4. 再扩展人物约束和有状态模拟，按能力显式选择适配方式。
