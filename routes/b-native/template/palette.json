@@ -1,0 +1,9 @@
+{
+  "$note": "{{TITLE}} 的色板：film.tsx 只按名字取色",
+  "sky": "#8E86C9",
+  "ambient": "#B3A8E0",
+  "key": "#FFD6B0",
+  "rim": "#FFE2C2",
+  "ink": "#232647",
+  "caption": "#FFF6EC"
+}

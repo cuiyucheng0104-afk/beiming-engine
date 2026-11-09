@@ -1,0 +1,11 @@
+{
+  "$note": "《北冥》10 秒原生例片的色板；film.tsx 只按名字取色",
+  "sky": "#9C8FD8",
+  "ink": "#2A2D52",
+  "warm": "#FFD3B0",
+  "ambient": "#A99BD9",
+  "weed": "#9CAED8",
+  "weedShade": "#424B68",
+  "rail": "#343D69",
+  "title": "#FFF4EA"
+}

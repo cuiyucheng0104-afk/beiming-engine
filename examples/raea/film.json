@@ -1,0 +1,39 @@
+{
+  "route": "b",
+  "title": "北冥",
+  "dur": 10,
+  "fps": 24,
+  "size": [1920, 1040],
+  "native": {
+    "entry": "film.tsx",
+    "output": "delivery/beiming-raea-10s.mp4",
+    "images": [
+      { "to": "sky_dawn.png", "from": "../../assets/plates/sky_dawn.png" },
+      { "to": "clouds_back.png", "from": "../../assets/plates/clouds_back.png" },
+      { "to": "skyline_pudong.png", "from": "../../assets/plates/skyline_pudong.png" },
+      { "to": "clouds_front_a.png", "from": "../../assets/plates/clouds_front_a.png" },
+      { "to": "clouds_front_b.png", "from": "../../assets/plates/clouds_front_b.png" },
+      { "to": "river.png", "from": "../../assets/plates/river.png" },
+      { "to": "FONT-LICENSE.md", "from": "../../fonts/LICENSE.md" }
+    ],
+    "models": [
+      {
+        "to": "kun.glb", "recipe": "tools/export-kun-browser.mjs", "lod": 0.5,
+        "report": "kun-report.json", "preview": "kun-preview.png",
+        "sources": ["../../src/kun.js", "../../engine/form/bend.js"],
+        "validate": {
+          "animated": true, "clip": "Swim", "duration": 10, "skinnedMin": 2,
+          "nodes": ["kun-fin-R", "kun-fin-L", "kun-eyelid-upper-R", "kun-eyelid-lower-L"],
+          "skinnedNodes": ["kun-flukes"], "notAnimated": ["kun"]
+        }
+      },
+      {
+        "to": "ferry.glb", "module": "../../src/ferry.js", "export": "createFerry", "length": 2,
+        "prefix": "ferry", "names": { "lights": "ferry-light-" },
+        "meta": { "forward": "+X", "up": "+Y", "lights": "Original emissive window and navigation-light meshes; no source punctual lights" },
+        "report": "ferry-report.json"
+      }
+    ],
+    "audio": { "script": "tools/sound.py", "out": "mix.wav" }
+  }
+}
