@@ -1,92 +1,76 @@
-# 北冥 × RAEA：可运行的 10 秒资产桥示例
+# 《北冥》10 秒原生例片（北冥原生 · BNE）
 
-这是已在 RTX 5090 上完成原生渲染的实验源码，整理为仓库内独立示例。默认北冥构建继续使用 Three.js；本示例不安装、打包或替换 RAEA 运行时。
+已在 RTX 5090 与 macOS 上完成原生渲染的实验片，现在是 `engine/native` 组件库的完整用法示范：`film.tsx` 只写这 10 秒的编排，镜头、面片视差、卡通材质、片名、后期、水面 / 尾迹着色器、确定性数学都来自 `engine/native/`；准备与出片用通用入口。路线手册见 [routes/b-native/README.md](../../routes/b-native/README.md)。
 
 ## 文件与调用关系
 
 ```text
-原版 src/kun.js、src/ferry.js
-  → tools/export-kun.mjs / export-kun-browser.mjs
-  → GLB + 结构检查 + 动画回读
-原版 assets/plates → media/ 绘画底板
-tools/sound.py → sound.wav → 两遍 loudnorm → mix.wav
-film.tsx + media/ → 外部 RAEA → 原生视频
-tools/render.mjs → FFmpeg 复制视频轨并封装 AAC → delivery/
+film.json（素材清单）
+  → engine/native/prepare.mjs
+      images     assets/plates 的 6 张底板 + 字体许可 → media/
+      models     鲲：配方 tools/export-kun-browser.mjs（GPU 弯曲 → 骨骼 / morph，反照率烘焙）
+                 渡船：通用「模块 + 导出名」src/ferry.js:createFerry
+                 → engine/native/bridge/export.mjs → GLB + 结构检查 + 回读报告
+      audio      tools/sound.py（engine/audio）→ media/mix.wav
+film.tsx + media/ → engine/render/native.mjs → 原生运行时 → out/native.mp4 → engine/render/mux.sh → delivery/
 ```
 
 | 文件 | 作用 |
 |---|---|
-| [film.tsx](film.tsx) | 三个镜头、分层背景、Toon 材质、水面/尾迹 WESL、片名 |
+| [film.tsx](film.tsx) | 编排：三个镜头、站位与运动、材质分组、片名时间 |
+| [film.json](film.json) | 片长 / 帧率 / 尺寸与 native 素材清单（唯一配置源） |
+| [palette.json](palette.json) | 色板 |
+| [title-font.ts](title-font.ts) | 片名字体（「北冥」两字子集，内嵌 data URL，OFL） |
 | [film.board](film.board) | 时间、画面、摄影和声音安排 |
-| [tools/prepare.mjs](tools/prepare.mjs) | 整理底板、生成 GLB、声音和输入哈希 |
-| [tools/export-kun-browser.mjs](tools/export-kun-browser.mjs) | 程序形变到骨骼/morph、反照率烘焙和回读 |
-| [tools/export-kun-validate.mjs](tools/export-kun-validate.mjs) | GLB 二进制与动作结构检查 |
-| [tools/render.mjs](tools/render.mjs) | 版本预检、共享 GPU 检查、原生渲染、封装与输出检查 |
+| [tools/export-kun-browser.mjs](tools/export-kun-browser.mjs) | 鲲的资产桥配方 |
+| [tools/sound.py](tools/sound.py) | 片中声音事件（环境声、摆位、母带用 engine/audio） |
+| [tools/prepare.mjs](tools/prepare.mjs) / [tools/render.mjs](tools/render.mjs) / [tools/export-kun.mjs](tools/export-kun.mjs) / [tools/export-kun-validate.mjs](tools/export-kun-validate.mjs) | 原命令的薄入口，分别转到 engine/native 与 engine/render 的通用实现 |
 
 ## 1. 环境
 
-在仓库根目录安装原项目依赖：
-
 ```sh
 npm run setup
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt     # 或把 PYTHON 指向已有 numpy / scipy / soundfile / numba 的解释器
 ```
 
-另需 FFmpeg / ffprobe 和 **RAEA v0.1.0-canary.2**。从 [上游发行页](https://github.com/shinyobjectz/raea/releases/tag/v0.1.0-canary.2) 获取对应平台包，完整保留 `bin` 与 `share` 目录。先阅读其 [许可](https://github.com/shinyobjectz/raea/blob/fb3f70844e03cc40185e3a06c394060d26c5cd38/LICENSE)。`raea/*` 导入由该运行时解析，不通过 npm 安装同名包。
+另需 FFmpeg / ffprobe、`sh`（封装脚本；Windows 用 Git Bash）和原生运行时 **v0.1.0-canary.2**：从 [上游发行页](https://github.com/shinyobjectz/raea/releases/tag/v0.1.0-canary.2) 获取对应平台包，完整保留 `bin` 与 `share` 目录，先读其 [许可](https://github.com/shinyobjectz/raea/blob/fb3f70844e03cc40185e3a06c394060d26c5cd38/LICENSE)。TSX 里的 `raea/*` 导入由运行时解析，不通过 npm 安装。Node.js 需要 20+。
 
-Windows 的 Python 命令通常为 `python`；已建虚拟环境时，将 `PYTHON` 指向解释器即可。Node.js 需要 20+。
-
-## 2. 准备资产
+## 2. 准备素材
 
 ```sh
-npm run raea:prepare
+npm run raea:prepare        # = node engine/native/prepare.mjs examples/raea；加 -- --preview 另存 kun-preview.png
 ```
 
-生成内容在 `examples/raea/media/`，不提交 Git：6 张现有底板、鲲与渡船 GLB、音频及检查记录。导出默认使用 Chromium 的软件图形路径进行反照率烘焙，目的是资产转换；最终影片由外部原生运行时渲染。
-
-可配置 `PYTHON`、`FFMPEG`、`BEIMING_CHROME`。导出工具单独运行时可用 `BEIMING_SOURCE` 指向另一个北冥检出目录；通常无需设置。
+产物在 `examples/raea/media/`（不提交）：底板、`kun.glb` / `ferry.glb` 与 `kun-report.json` / `ferry-report.json`、`mix.wav`、`prepared.json`（全部 SHA256）。资产桥用 Chromium 的软件 GL 做转换与烘焙，不占独显。细节见 [ASSET-BRIDGE.md](ASSET-BRIDGE.md)。
 
 ## 3. 原生渲染
 
-macOS / Linux shell（本实验已验证 macOS，未验证 Linux）：
-
 ```sh
 export RAEA_BIN="/absolute/path/to/raea/bin/raea"
-npm run raea:check
-npm run raea:render
+npm run raea:check          # 版本、工具、素材预检，不启动 GPU
+npm run raea:render         # = node engine/render/native.mjs examples/raea
 ```
 
-Windows PowerShell 示例路径：
+Windows PowerShell：`$env:RAEA_BIN = 'D:\北冥\tools\raea-canary2\raea\bin\raea.exe'`；`WGPU_BACKEND` 默认设为 `vulkan`；工具不在 PATH 时设 `FFMPEG`、`FFPROBE`、`PYTHON`。新入口尚未在 Windows / 5090 上重跑。
 
-```powershell
-$env:RAEA_BIN = 'D:\北冥\tools\raea-canary2\raea\bin\raea.exe'
-$env:WGPU_BACKEND = 'vulkan'
-# 如工具不在 PATH，将 FFMPEG、FFPROBE、PYTHON 分别设为完整可执行文件路径。
-npm run raea:check
-npm run raea:render
-```
+渲染前查询 ComfyUI 队列和 `nvidia-smi` 利用率，有任务就退出，不停止其他进程。输出：
 
-`raea:check` 仅检查版本、命令与素材；它不启动 GPU 渲染。渲染前会查询 ComfyUI 队列和可用的 `nvidia-smi` 利用率：已有任务时退出，不停止其他进程。运行中开始的新任务仍可能影响速度，因此结果不自动作为性能基准。
-
-输出：
-
-- `examples/raea/delivery/beiming-raea-10s.mp4`
-- `examples/raea/delivery/technical.json`
-- `examples/raea/out/render.json` 与标准输出/错误日志
-
-尺寸 1920×1040、24fps、240 帧；脚本验证完整解码帧数和 AAC 音轨。还需查看整片、检查黑场/静帧与响度。原实验完整验证见 [实测记录](../../docs/raea/experiment.md)。
+- `examples/raea/delivery/beiming-raea-10s.mp4`（默认经 `engine/render/mux.sh`：x264 重编码 + −14 LUFS；`npm run raea:render -- --mux copy` 则逐位保留原生画面）
+- `examples/raea/delivery/technical.json`（帧数 / 尺寸 / 帧率 / AAC / 时长核对结果）
+- `examples/raea/out/native.mp4`、`out/render.json` 与标准输出 / 错误日志
+- `npm run raea:render -- --at 0,84,200` 只渲三帧 PNG 到 `out/stills/`
 
 ## 4. 如何修改
 
-- 改摄影：`Piece` 中按 3.5 秒 / 6 秒划分的 `eye / at / fov` 曲线。
-- 改角色动作：`Model animation="Swim" time=...`；`q` 控制一拍三。若需新的动作，重新导出 clip，而非只调模型整体位置。
-- 改灯光/色阶：`AmbientLight`、`DirectionalLight` 与分材质 `ToonMaterial`。
-- 改水面/尾迹：`WATER`、`WAKE` WESL 字符串；纹理路径为项目相对路径。
-- 改屏幕后期：`PAPER` / `FramePass`；当前只是轻颗粒与暗角，没有实现原版 Kuwahara。
-- 改时长或分辨率：同时修改 Composition、时间曲线、音频生成和渲染脚本中的输出契约。当前示例专为 10 秒编排，并非任意时长模板。
+- 改摄影：`film.tsx` 的 `SHOTS`（每段 `until / eye / at / fov`，可加 `ease`）。
+- 改角色动作：`ToonModel animation="Swim" time=…`；`heldTime(f, 3, FPS)` 是一拍三。要新动作就改配方重导 clip，不要只挪模型整体。
+- 改材质：`KUN_PARTS` 按材质名分组覆盖；带贴图 / 顶点色的部位不要写 `base_color`。
+- 改水面 / 尾迹：`waterWesl` / `ribbonWesl` 的参数；纹理路径写 `media/river.png`。
+- 改颜色：`palette.json`。改后期：`paperPass`（当前只是轻颗粒与暗角，没有 A 路的 Kuwahara）。
+- 改时长或分辨率：改 `film.json` 的 `dur / size`，同时调整 `SHOTS` 与声音事件时间；渲染入口按 film.json 自动核对。
 
 ## 5. 已知限制与许可
 
-本例没有真人物表演；鲲的视线/高光已烘焙，仅眼睑有动画；城市/云为 2.5D。它证明资产与运行路径可迁移，不证明原版笔触已完整复现。
+没有真人物表演；鲲的视线 / 高光已烘焙，只有眼睑有动画；城市 / 云是 2.5D 绘画面片（原稿里一段未接入画面的程序化城市已在重构时删除）。它证明资产与运行路径可迁移，不证明 A 路笔触已完整复现。
 
-本目录原创代码遵循仓库 MIT。片名中嵌入的马善政字体数据遵循 [fonts/LICENSE.md](../../fonts/LICENSE.md) 中的 OFL；影片、底板和艺术资产沿用仓库保留权利的范围。外部 RAEA 及其 SDK 由上游许可约束，不包含在本仓库 MIT 授权内。
+本目录原创代码遵循仓库 MIT。片名嵌入的马善政字体数据遵循 [fonts/LICENSE.md](../../fonts/LICENSE.md) 中的 OFL；影片、底板和艺术资产沿用仓库保留权利的范围。外部原生运行时及其 SDK 由上游许可约束，不包含在本仓库 MIT 授权内。

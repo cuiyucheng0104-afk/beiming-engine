@@ -1,17 +1,17 @@
-# 北冥 → RAEA GLB 资产
+# 北冥 → 原生 GLB 资产（鲲与渡船）
 
-入口：`node examples/raea/tools/export-kun.mjs`
+入口：`node examples/raea/tools/export-kun.mjs [--preview] [--lod=0.5]`（等同 `node engine/native/bridge/export.mjs examples/raea`；`npm run raea:prepare` 会顺带执行）。
 
-复用 `仓库根目录的 node_modules` 中的 three r170 和 playwright-core，无安装步骤。脚本只读原仓库，以随机 loopback 端口做短暂离线烘焙与回读，不使用 5090，不渲染视频；退出时关闭 Chromium 和 HTTP 服务。可用 `BEIMING_SOURCE` 指定原仓库位置，`--no-preview` 跳过预览，`--lod=0.5` 指定 LOD（允许 0.4–0.6，输出始终受十进制 20 MB 上限检查）。
+通用资产桥在 `engine/native/bridge/`：`export.mjs` 起只读的随机回环端口服务（根目录 = 仓库根）和无头 Chromium（SwiftShader 软件 GL），加载 `browser.mjs`；`bake.mjs`（engine/shade 反照率烘焙）、`geometry.mjs`（放样 UV、站点权重、实例合并与 morph）、`rig.mjs`（engine/form/bend 弯曲波 → 骨骼）、`validate.mjs`（GLB 结构检查）都与具体生物无关。本目录只留鲲的配方 `tools/export-kun-browser.mjs`；渡船走通用的「模块 + 导出名」路径（`film.json` 里 `module: ../../src/ferry.js, export: createFerry, length: 2`）。复用仓库根 `node_modules` 的 three r170 与 playwright-core，不占独显，不渲视频，退出时关闭 Chromium 和服务。`--lod` 允许 0.4–0.6，输出受十进制 20 MB 上限检查。
 
-写入仅限 `examples/raea/media/kun.glb`、`kun-report.json`、`kun-preview.png` 和 `ferry.glb`。脚本都位于 `examples/raea/tools/export*`。
+写入仅限 film.json 声明的文件：`examples/raea/media/kun.glb`、`ferry.glb`、`kun-report.json`、`ferry-report.json`，`--preview` 时另有 `kun-preview.png`。重构为通用资产桥后，两件 GLB 的 SHA256 与重构前逐字节一致（`75b00f72…41dd`、`1c627f59…173e`，2026-11-09 macOS 实测）。
 
 ## 鲲
 
 - 18,062,776 bytes（18.06 MB / 17.23 MiB），489,858 个三角面，322,699 顶点，20 个网格节点、16 个普通 PBR 材质、6 张内嵌 PNG，无必需扩展及外部依赖。
 - 直接调用原版 `createKun({lod:0.5,seed:20261103,wisps:false})`。原版身体、胸鳍、尾鳍、眼珠、眼睑几何保留；3,748 个装饰实例的位置、尺寸和配色保留，仅小装饰单体降面后合并。原版 LOD 0.5 为 1,198,662 三角面。
 - 原坐标缩小 20 倍并烘入顶点和动画，不需加载后再缩小。前向 +X，上方 +Y；零时刻包围盒约 **29.614 × 9.208 × 16.933**（X/Y/Z），名义长度 30 米。原点仍在身体中央。
-- 身体斑纹、白腹、嘴线、腹褶、眼睛虹膜/瞳孔/高光、眼睑褶线直接用原 GLSL 反照率钩子烘焙；植被和装饰配色烘入线性 `COLOR_0`。灯光和 Toon 阶调由 RAEA 决定。
+- 身体斑纹、白腹、嘴线、腹褶、眼睛虹膜/瞳孔/高光、眼睑褶线直接用原 GLSL 反照率钩子烘焙；植被和装饰配色烘入线性 `COLOR_0`。灯光和 Toon 阶调由原生运行时决定。
 
 `Swim` 是 10 秒、30 Hz 的真实形变循环：
 
@@ -23,7 +23,7 @@
 - 73 个 glTF 通道：34 translation、38 rotation、1 weights。根模型不做整体漂浮运动。
 - 为十秒无缝循环：脊柱保持原 5 秒周期；胸鳍从 6 秒改为 5 秒；眨眼从 4 秒改为 5 秒；海草两频率量化为每 10 秒 3/4 周期。所有通道首尾值完全一致。
 
-RAEA 用模型的 **`Swim`** clip，并开启循环播放。glTF 格式自身没有循环标志。覆盖为 ToonMaterial 时须保留各 primitive 的 **baseColorTexture、COLOR_0 和 doubleSided**；统一纯色覆盖会丢掉体色、眼睛和苔藓。
+原生端用模型的 **`Swim`** clip，并开启循环播放。glTF 格式自身没有循环标志。覆盖为 ToonMaterial 时须保留各 primitive 的 **baseColorTexture、COLOR_0 和 doubleSided**；统一纯色覆盖会丢掉体色、眼睛和苔藓。
 
 ## 渡船
 
@@ -44,4 +44,4 @@ node examples/raea/tools/export-kun-validate.mjs examples/raea/media/ferry.glb -
 
 验证结果：尾端 Y 总摆幅 **1.497**，右胸鳍尖 Y 总摆幅 **1.786**，吻端位移 **0**，闭眼旋转 **0.630 rad**，回读首尾误差 **0**。对原 JS 波形的 43,040 个采样，骨骼近似误差最大 **0.00244 米**、RMS **0.000673 米**。详细数据和源文件 SHA256 见 `kun-report.json`。
 
-导出工具执行 three 的 GLB 回读和结构验证。导出资产随后已在 RAEA/5090 原生渲染，见 [实测记录](../../docs/raea/experiment.md)。原 Toon 光照、屏幕描边、墨线抖动和鳍尖云丝不属于 GLB；眼睛保留中立视线下的烘焙高光，不含程序化视线追踪。装饰降面、骨骼插值、8 位线性顶点色与皮肤权重有轻微近似。预览中的普通 PBR 灯光不是最终 RAEA Toon 灯光。
+导出工具执行 three 的 GLB 回读和结构验证。导出资产随后已在 5090 与 macOS 上原生渲染，见 [实测记录](../../docs/raea/experiment.md)。原 Toon 光照、屏幕描边、墨线抖动和鳍尖云丝不属于 GLB；眼睛保留中立视线下的烘焙高光，不含程序化视线追踪。装饰降面、骨骼插值、8 位线性顶点色与皮肤权重有轻微近似。预览中的普通 PBR 灯光不是最终原生 Toon 灯光。
