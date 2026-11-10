@@ -8,6 +8,12 @@
   "true_peak_dbtp": -1.7,
   "说明": "直接按 engine/render/mux.sh 的 −14 LUFS 目标出；峰值留够余量，保证 mux.sh 的 loudnorm 走线性增益（不压动态）"
  },
+ "qa": {
+  "说明": "audio/check.py --strict（sh audio/build.sh、python audio/build.py 默认）的门槛：混音积分响度 = target.integrated_lufs ± mix_tol_lu；真峰值 ≤ target.true_peak_dbtp（测量容差 0.05 dB）；五个眼镜提示音在各自频带里比其余四条总线至少高 ui_band_snr_min_db；汽笛与鲲鸣的音高偏差超过 pitch_tol_cents 音分只告警。成片（经 mux.sh）响度另按 ±0.3 LU、−1.0 dBTP 判。",
+  "mix_tol_lu": 0.5,
+  "ui_band_snr_min_db": 3.0,
+  "pitch_tol_cents": 50
+ },
  "shots": [
   {
    "id": "A",

@@ -17,6 +17,7 @@
   chunks(n, size) → [(a, b), …]
   Loudness()                            BS.1770-4 累加器（K 加权的滤波状态跨块延续）：.feed(块)；.integrated() / .momentary_max() /
                                         .short_term_max() / .lra()；空或全静音时 integrated() 返回 −inf
+  TruePeak(os=4)                        推入式逐样本过采样峰值：.feed(块) / .finish() 返回峰值数组，.value 是最大值（线性）
   peaks(blocks, os=4)                   逐样本过采样峰值的生成器（块与块之间用 64 个样本的上下文接缝，结果与整段计算一致）
   measure(x, chunk_s=10, os=4) → {integrated, momentaryMax, shortTermMax, lra, truePeak, samplePeak, seconds}
                                         x 是 ndarray 或音频文件路径（按块读盘）
@@ -184,33 +185,57 @@ def _block_peaks(seg, os):
     return up
 
 
-def peaks(blocks, os=4):
-    """blocks 是 (m, C) 块的可迭代对象；逐块产出这些样本的过采样峰值（与 dsp.tp_limit 的 pk 同义：max(过采样峰值, 样本峰值)）"""
-    ctx = None          # 已经算过的、最后 MARGIN 个样本（给下一段当左侧上下文）
-    pend = None         # 还缺右侧上下文、没算的样本
-    for blk in blocks:
+class TruePeak:
+    """推入式的逐样本过采样峰值：.feed(块) 返回这一次能算的样本的峰值（缺右侧上下文的留到下一块），.finish() 返回剩下的；
+    .value 是到目前为止的最大值（线性）。与 dsp.tp_limit 的 pk 同义：max(过采样峰值, 样本峰值)"""
+
+    def __init__(self, os=4):
+        self.os, self.value = os, 0.0
+        self.ctx = None          # 已经算过的、最后 MARGIN 个样本（给下一段当左侧上下文）
+        self.pend = None         # 还缺右侧上下文、没算的样本
+
+    def _eval(self, buf, lc, stop):
+        up = _block_peaks(buf, self.os)
+        u = up[lc * self.os:stop * self.os].reshape(stop - lc, self.os).max(axis=1)
+        p = np.maximum(u, np.abs(buf[lc:stop]).max(axis=1))
+        if len(p):
+            self.value = max(self.value, float(p.max()))
+        return p
+
+    def feed(self, blk):
         blk = _as2d(np.asarray(blk, dtype=np.float64))
         if not len(blk):
-            continue
-        parts = [p for p in (ctx, pend, blk) if p is not None]
+            return np.zeros(0)
+        parts = [p for p in (self.ctx, self.pend, blk) if p is not None]
         buf = np.concatenate(parts) if len(parts) > 1 else blk
-        lc = 0 if ctx is None else len(ctx)
+        lc = 0 if self.ctx is None else len(self.ctx)
         stop = len(buf) - MARGIN
-        if stop > lc:
-            up = _block_peaks(buf, os)
-            u = up[lc * os:stop * os].reshape(stop - lc, os).max(axis=1)
-            yield np.maximum(u, np.abs(buf[lc:stop]).max(axis=1))
-            ctx = buf[max(0, stop - MARGIN):stop]
-            pend = buf[stop:]
-        else:
-            pend = buf[lc:]
-    if pend is not None and len(pend):
-        lc = 0 if ctx is None else len(ctx)
-        buf = pend if ctx is None else np.concatenate([ctx, pend])
-        up = _block_peaks(buf, os)
-        m = len(buf) - lc
-        u = up[lc * os:(lc + m) * os].reshape(m, os).max(axis=1)
-        yield np.maximum(u, np.abs(buf[lc:]).max(axis=1))
+        if stop <= lc:
+            self.pend = buf[lc:]
+            return np.zeros(0)
+        p = self._eval(buf, lc, stop)
+        self.ctx, self.pend = buf[max(0, stop - MARGIN):stop], buf[stop:]
+        return p
+
+    def finish(self):
+        if self.pend is None or not len(self.pend):
+            return np.zeros(0)
+        lc = 0 if self.ctx is None else len(self.ctx)
+        buf = self.pend if self.ctx is None else np.concatenate([self.ctx, self.pend])
+        self.pend = None
+        return self._eval(buf, lc, len(buf))
+
+
+def peaks(blocks, os=4):
+    """blocks 是 (m, C) 块的可迭代对象；逐块产出这些样本的过采样峰值（按顺序、每个样本恰好一次）"""
+    tp = TruePeak(os)
+    for blk in blocks:
+        p = tp.feed(blk)
+        if len(p):
+            yield p
+    p = tp.finish()
+    if len(p):
+        yield p
 
 
 def _blocks_of(x, chunk_s):
