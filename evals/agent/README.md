@@ -33,7 +33,9 @@
 ## 一次评测怎么跑
 
 每道题的每一次尝试叫一次「运行」，全部状态放在仓库外的运行目录 `<评测根>/<题号>/<运行号>/`。评测根默认
-`~/.cache/beiming/evals`，可用 `BEIMING_EVAL_ROOT` 或 `--root` 改。
+`~/.cache/beiming/evals`，可用 `BEIMING_EVAL_ROOT` 或 `--root` 改。家目录里有 `~/.claude/CLAUDE.md` 或 `~/AGENTS.md`
+时（多数评测机都有），隔离会话会沿父目录加载它们，`prepare` 会以 exit 3 拒绝默认位置：把评测根放到家目录之外，
+例如 macOS / Linux 的 `/var/tmp/beiming-evals`、Windows 的 `C:\beiming-evals`。
 
 ```sh
 # bash / zsh（Linux、macOS）
