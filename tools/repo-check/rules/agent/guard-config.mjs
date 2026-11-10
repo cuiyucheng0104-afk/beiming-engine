@@ -3,7 +3,7 @@
 //   - hooks.PreToolUse 让写文件、Shell、PowerShell、Skill、MCP 工具都经过 .claude/hooks/guard.mjs，脚本存在
 //   - enabledPlugins 在项目级关掉会抢先触发的全局风格库插件（lemo-opuscar@lemolab）
 //   - claudeMdExcludes 屏蔽 cases/vendor、cases/source 里上游 CLAUDE.md / AGENTS.md 的自动加载
-import { finding, readOrNull } from './_shared.mjs';
+import { existsCommitted, finding, readCommitted } from './_shared.mjs';
 
 const FILE = '.claude/settings.json';
 const GUARD = '.claude/hooks/guard.mjs';
@@ -22,7 +22,7 @@ export default {
   id: 'agent.guard-config',
   title: '.claude/settings.json 的护栏完整（拒绝规则、钩子接线、插件开关、上游 CLAUDE.md 排除）',
   run(ctx) {
-    const text = readOrNull(ctx, FILE);
+    const text = readCommitted(ctx, FILE);
     if (text === null) return [finding('error', FILE, `缺 ${FILE}：仓库级权限与 PreToolUse 钩子都靠它`, `从版本库恢复：git checkout -- ${FILE}`)];
     let j;
     try { j = JSON.parse(text); } catch (e) {
@@ -40,7 +40,7 @@ export default {
     });
     const unguarded = GUARDED_TOOLS.filter(t => !guarded(t));
     if (unguarded.length) out.push(finding('error', FILE, `hooks.PreToolUse 没有让 ${unguarded.map(t => (t.startsWith('mcp__') ? 'MCP 工具' : t)).join('、')} 无条件经过 ${GUARD}`, '恢复 matcher "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell|Skill|mcp__.*" 的那一条'));
-    if (!ctx.exists(GUARD)) out.push(finding('error', GUARD, `钩子脚本 ${GUARD} 不存在：每次工具调用都会报钩子错误，护栏失效`, `从版本库恢复：git checkout -- .claude/hooks`));
+    if (!existsCommitted(ctx, GUARD)) out.push(finding('error', GUARD, `钩子脚本 ${GUARD} 不存在：每次工具调用都会报钩子错误，护栏失效`, `从版本库恢复：git checkout -- .claude/hooks`));
     for (const p of DISABLED_PLUGINS) {
       if (j?.enabledPlugins?.[p] !== false) out.push(finding('error', FILE, `enabledPlugins 没有把 ${p} 设为 false`, '全局风格库插件会抢先触发，把作品带出仓库：在项目级关掉它'));
     }

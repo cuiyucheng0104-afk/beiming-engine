@@ -124,6 +124,31 @@ test('agent.instruction-files：--staged（提交前检查）只看索引，不�
   assert.deepEqual(ids(await check(dir, ['agent.instruction-files'], { staged })), ['agent.instruction-files'], '暂存了就要报');
 });
 
+test('--staged（提交前检查）时 agent 域全部读索引：工作区里没暂存的改动与删除不算，暂存了才算', async () => {
+  const dir = fixture();
+  const staged = new Set(['README.md']);
+  // 工作区里删掉 skill 引用的文件、削弱 settings.json、删掉 .ignore 与 vendor README，都不暂存
+  fs.rmSync(path.join(dir, 'AGENTS.md'));
+  const base = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'));
+  put(dir, '.claude/settings.json', JSON.stringify({ ...base, permissions: { deny: [] } }));
+  fs.rmSync(path.join(dir, '.ignore'));
+  put(dir, 'cases/vendor/README.md', '# 没有警示\n');
+  put(dir, '.githooks/pre-commit', '#!/bin/sh\r\necho 坏了\r\n');
+  assert.deepEqual(errors(await check(dir, null, { staged })), [], '索引里这次要提交的版本都合格，不该拦');
+  assert.deepEqual(ids(await check(dir)), ['agent.githooks', 'agent.guard-config', 'agent.search-scope', 'agent.skills', 'agent.vendor-warning'], '全量检查照常按工作区判');
+  // 把这些改动暂存进提交后，--staged 也要报（删掉的 AGENTS.md 还登记在白名单里，instruction-files 一并报）
+  git(dir, ['add', '--', '.claude/settings.json', '.ignore', 'cases/vendor/README.md', '.githooks/pre-commit', 'AGENTS.md']);
+  const f = await check(dir, null, { staged });
+  assert.deepEqual(ids(f), ['agent.githooks', 'agent.guard-config', 'agent.instruction-files', 'agent.search-scope', 'agent.skills', 'agent.vendor-warning']);
+  assert.match(text(f), /引用的 AGENTS\.md 不存在/);
+  assert.match(text(f), /白名单登记了 AGENTS\.md/);
+  // 未跟踪的新 skill 目录不算这次提交的 skill
+  const dir2 = fixture();
+  put(dir2, '.claude/skills/beiming-x/SKILL.md', '没有头\n');
+  assert.deepEqual(errors(await check(dir2, ['agent.skills'], { staged })), []);
+  assert.match(text(await check(dir2, ['agent.skills'])), /beiming-x\/SKILL\.md 缺 YAML 头/);
+});
+
 test('agent.guard-config：拒绝规则、钩子接线、插件禁用、排除项缺一不可', async () => {
   const base = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude', 'settings.json'), 'utf8'));
   const mutate = [
