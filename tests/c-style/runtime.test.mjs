@@ -15,7 +15,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const TOOL = path.join(ROOT, 'tools/c-runtime.mjs');
 const run = (args, env = {}) => spawnSync(process.execPath, [TOOL, ...args], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, ...env } });
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'c-runtime-test-'));
-const envOf = r => JSON.parse(r.stdout.trim().split('\n').pop());
+const envOf = r => JSON.parse(r.stdout);   // --json：stdout 只有一个信封对象（可能跨多行）
 
 test('--help：退出码 0、打印用法、不建运行时目录', () => {
   const d = tmp(), out = path.join(d, 'rt');
@@ -26,16 +26,28 @@ test('--help：退出码 0、打印用法、不建运行时目录', () => {
   fs.rmSync(d, { recursive: true, force: true });
 });
 
-test('用法错误退出码 2，--json 信封 error.code = usage', () => {
-  assert.equal(run(['bogus']).status, 2);
-  assert.equal(run(['setup', '--nope']).status, 2);
-  assert.equal(run(['--out', 'x', 'setup']).status, 2);
-  assert.equal(run(['build']).status, 2);
-  assert.equal(run(['build', '/no/such/dir']).status, 2);
-  assert.equal(run(['sy', '99']).status, 2);
-  assert.equal(run(['build', 'a', 'b']).status, 2);
-  const e = envOf(run(['setup', '--timeout', '3', '--json']));
-  assert.equal(e.ok, false); assert.equal(e.exitCode, 2); assert.equal(e.error.code, 'usage');
+test('用法错误退出码 2，--json 信封 error.code 以 usage. 开头并带下一步', () => {
+  for (const [args, code] of [
+    [['bogus'], 'usage.unknown-subcommand'],
+    [['setup', '--nope'], 'usage.unknown-option'],
+    [['setup', '--out'], 'usage.missing-value'],
+    [['build'], 'usage.c-runtime'],
+    [['build', '/no/such/dir'], 'usage.c-runtime'],
+    [['sy', '99'], 'usage.c-runtime'],
+    [['build', 'a', 'b'], 'usage.extra-argument'],
+    [['setup', 'x'], 'usage.extra-argument'],
+    [['setup', '--timeout', '3'], 'usage.option-not-for-subcommand'],
+    [['status', '--video'], 'usage.option-not-for-subcommand'],
+    [['build', 'x', '--timeout', '-1'], 'usage.bad-value'],
+    [[], 'usage.missing-argument'],
+  ]) {
+    const r = run([...args, '--json']);
+    assert.equal(r.status, 2, args.join(' '));
+    const e = envOf(r);
+    assert.equal(e.schemaVersion, 1);
+    assert.equal(e.ok, false); assert.equal(e.exitCode, 2);
+    assert.equal(e.error.code, code, args.join(' '));
+  }
 });
 
 test('运行时目录不许放在 cases/ 下、家目录或 ~/lemo-opuscar', () => {
@@ -49,7 +61,7 @@ test('status：运行时不存在时退出码 3，--json 信封可解析', () =>
   const r = run(['status', '--out', path.join(d, 'none'), '--json']);
   assert.equal(r.status, 3);
   const e = envOf(r);
-  assert.equal(e.error.code, 'environment');
+  assert.match(e.error.code, /^env\./);
   assert.match(e.error.hint, /setup/);
   fs.rmSync(d, { recursive: true, force: true });
 });
@@ -142,4 +154,50 @@ test('parse：assets 收集包名，build / sy 只收一个目标', () => {
   assert.equal(parse(['build', 'out/x', '--timeout', '0']).timeout, 0);
   assert.deepEqual(parse(['sy', '18', '--still', '0.5,2']).still, ['0.5', '2']);
   assert.throws(() => parse(['sy', '18', '--still', 'a']), e => e.exitCode === 2);
+});
+
+// ───── 子进程整组结束：超时与 SIGTERM 都不留残留进程（POSIX；Windows 走 taskkill /T，另测） ─────
+const hasFfmpeg = ['ffmpeg', 'ffprobe'].every(b => spawnSync(b, ['-version'], { stdio: 'ignore' }).status === 0);
+function fakeRestore(script) {
+  const d = tmp(), rt = path.join(d, 'rt'), film = path.join(d, 'film');
+  const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'cases/vendor/lock.json'), 'utf8')).repositories.find(x => x.name === 'lemo-opuscar');
+  fs.mkdirSync(rt, { recursive: true }); fs.mkdirSync(film, { recursive: true });
+  fs.writeFileSync(path.join(rt, 'runtime.json'), JSON.stringify({ commit: lock.commit, files: 0, python: { executable: process.execPath, version: 'x' } }));
+  fs.writeFileSync(path.join(film, 'ARCHIVE-RESTORED.json'), JSON.stringify({ case: 'style-02-watercolor', sourceOnly: false }));
+  fs.writeFileSync(path.join(film, 'build.sh'), `LIB=/x\n${script}\n`);
+  return { d, rt, film };
+}
+const alive = marker => spawnSync('pgrep', ['-f', marker], { encoding: 'utf8' }).stdout.trim();
+const skipKill = process.platform === 'win32' ? 'POSIX 进程组；Windows 另测' : !hasFfmpeg ? '没有 ffmpeg / ffprobe' : false;
+
+test('build --timeout：超时退出 124，历史脚本整组结束（不留 sleep）', { skip: skipKill }, () => {
+  const marker = 'sleep 47.25';
+  const { d, rt, film } = fakeRestore(`${marker} & ${marker}`);
+  try {
+    const t0 = Date.now();
+    const r = run(['build', film, '--out', rt, '--timeout', '1', '--json']);
+    assert.equal(r.status, 124, r.stderr);
+    assert.equal(envOf(r).error.code, 'timeout');
+    assert.ok(Date.now() - t0 < 15000, '超时后应在几秒内结束');
+    assert.equal(alive(marker), '', '超时后历史脚本的子进程应全部结束');
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('build 收到 SIGTERM：退出 143，信封照样输出，历史脚本整组结束', { skip: skipKill }, async () => {
+  const marker = 'sleep 53.75';
+  const { d, rt, film } = fakeRestore(`${marker} & ${marker}`);
+  try {
+    const { spawn } = await import('node:child_process');
+    const child = spawn(process.execPath, [TOOL, 'build', film, '--out', rt, '--json'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    child.stdout.on('data', x => { out += x; });
+    for (let i = 0; i < 100 && !alive(marker); i++) await new Promise(res => setTimeout(res, 100));
+    assert.ok(alive(marker), '历史脚本应已在运行');
+    child.kill('SIGTERM');
+    const code = await new Promise(res => child.on('close', c => res(c)));
+    assert.equal(code, 143);
+    assert.equal(JSON.parse(out).exitCode, 143);
+    await new Promise(res => setTimeout(res, 300));
+    assert.equal(alive(marker), '', 'SIGTERM 后历史脚本的子进程应全部结束');
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
 });

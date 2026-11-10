@@ -4,8 +4,9 @@
 //   node tools/c-styles.mjs --check         只核对：两个文件是否与快照、案例目录一致；数据本身有矛盾也报（不写文件）
 //   node tools/c-styles.mjs find <关键词…> [--tech canvas2d|webgl|svg|dom] [--contract render|seek] [--made] [--top 5]
 //                                           按题材 / 名称 / 画面描述打分排序，给出候选（关键词中英文都行，多个词取并集打分）
-//   通用：--json 只在 stdout 输出一个结果对象（C2 信封）；--help 打印用法、不碰任何文件
-// 退出码（docs/CLI 的 C1）：0 成功；2 用法错误；3 缺数据源（快照或目录不在）；4 核对不通过（文件过期或数据矛盾）。
+//   通用：命令约定见 docs/CLI.md（tools/lib/cli.mjs）——--json 时 stdout 只有一个信封对象，结果在 data 里；--help 打印用法、不碰任何文件；
+//         不认识的选项退出 2 并提示最像的写法
+// 退出码（附录 C1）：0 成功；2 用法错误；3 缺数据源（快照或目录不在）；4 核对不通过（文件过期或数据矛盾）。
 //
 // 数据来源（只读）：
 //   cases/vendor/lock.json                                       两套风格库的仓库、固定提交与逐文件 sha256（"来源@提交"一列）
@@ -18,27 +19,18 @@
 //   自包含     我们那部的页面源码（.html / .js / .mjs，tools/ 除外）里没有以 /core/ 开头的绝对路径；有就只能在 Lemo 库根目录下服务
 //   节奏       我们那部源码里写的速度（BPM 40–220 之间的值）＋成片帧率；多个值是多个段落
 // 输出不含时间戳：同一份快照重跑逐字节一致。
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { CliError, defineCommand, isMain, runCli, sha256 } from './lib/cli.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const OUT_MD = 'routes/c-style/STYLES.md';
 export const OUT_JSON = 'routes/c-style/styles.json';
 const SY_DIR = 'cases/vendor/sy-style-100', LEMO_DIR = 'cases/vendor/lemo-opuscar';
 
-const USAGE = `用法：
-  node tools/c-styles.mjs                重写 ${OUT_MD} 与 ${OUT_JSON}
-  node tools/c-styles.mjs --check        只核对，不写文件（过期或数据矛盾时退出码 4）
-  node tools/c-styles.mjs find <关键词…> [--tech canvas2d|webgl|svg|dom] [--contract render|seek] [--made] [--top 5]
-                                         按题材、名称、画面描述给候选排序（--made：只要我们做过成片的）
-通用选项：--json（stdout 只输出一个结果对象）、--help
-退出码：0 成功；2 用法错误；3 缺数据源；4 核对不通过`;
-
-class Fail extends Error {
-  constructor(code, message, hint = '') { super(message); this.exitCode = code; this.hint = hint; }
-}
-const errCode = { 2: 'usage', 3: 'missing-source', 4: 'check-failed', 1: 'failed' };
+/** 缺数据源（退出码 3）。数据矛盾、文件过期是核对不通过（退出码 4），在命令里抛。 */
+const missing = (message, hint) => new CliError('env.missing-source', message, hint);
 
 // ———————————————————————————— 读数据 ————————————————————————————
 const abs = r => path.join(ROOT, r);
@@ -48,7 +40,7 @@ const posix = p => p.split(path.sep).join('/');
 const json = r => JSON.parse(read(r));
 
 function need(r) {
-  if (!fs.existsSync(abs(r))) throw new Fail(3, `缺少数据源 ${r}`, '这份索引从风格库快照与案例目录生成：确认在完整检出的仓库根目录运行，且没有删掉 cases/vendor 或 cases/catalog.json');
+  if (!fs.existsSync(abs(r))) throw missing(`缺少数据源 ${r}`, '这份索引从风格库快照与案例目录生成：确认在完整检出的仓库根目录运行，且没有删掉 cases/vendor 或 cases/catalog.json');
 }
 
 // 执行面检测：顺着引用读页面用到的脚本
@@ -92,7 +84,7 @@ function lockInfo() {
   for (const r of lock.repositories || []) {
     out[r.name] = { repository: r.repository, commit: r.commit, short: String(r.commit).slice(0, 7), files: new Map((r.files || []).map(f => [f.path, f.sha256])) };
   }
-  for (const k of ['lemo-opuscar', 'sy-style-100']) if (!out[k]) throw new Fail(3, `cases/vendor/lock.json 里没有 ${k}`, '风格库快照的锁文件不完整：不要手改 lock.json，按 cases/vendor/README.md 的流程重新导入快照');
+  for (const k of ['lemo-opuscar', 'sy-style-100']) if (!out[k]) throw missing(`cases/vendor/lock.json 里没有 ${k}`, '风格库快照的锁文件不完整：不要手改 lock.json，按 cases/vendor/README.md 的流程重新导入快照');
   return out;
 }
 
@@ -369,80 +361,74 @@ export function find(styles, words, { tech = null, contract = null, made = false
   return rows.slice(0, top);
 }
 
-// ———————————————————————————— 命令行 ————————————————————————————
-function parse(argv) {
-  const o = { cmd: 'write', json: false, help: false, words: [], tech: null, contract: null, made: false, top: 5 };
-  const a = [...argv];
-  if (a[0] === 'find') { o.cmd = 'find'; a.shift(); }
-  while (a.length) {
-    const x = a.shift();
-    if (x === '--json') o.json = true;
-    else if (x === '--help' || x === '-h') o.help = true;
-    else if (x === '--check') { if (o.cmd === 'find') throw new Fail(2, 'find 不接受 --check'); o.cmd = 'check'; }
-    else if (x === '--made') o.made = true;
-    else if (x === '--tech' || x === '--contract' || x === '--top') {
-      const v = a.shift();
-      if (v === undefined || v.startsWith('--')) throw new Fail(2, `选项 ${x} 缺少取值`);
-      if (x === '--tech') { if (!TECH[v.toLowerCase()]) throw new Fail(2, `--tech 只能是 ${Object.keys(TECH).join(' / ')}（收到 ${v}）`); o.tech = v.toLowerCase(); }
-      if (x === '--contract') { if (!['render', 'seek'].includes(v)) throw new Fail(2, `--contract 只能是 render 或 seek（收到 ${v}）`); o.contract = v; }
-      if (x === '--top') { if (!/^\d+$/.test(v) || +v < 1) throw new Fail(2, `--top 要正整数（收到 ${v}）`); o.top = +v; }
-    } else if (x.startsWith('-')) throw new Fail(2, `不认识的选项 ${x}`);
-    else if (o.cmd === 'find') o.words.push(x);
-    else throw new Fail(2, `多余的参数 ${x}（查候选要写成 find <关键词…>）`);
-  }
-  if (o.cmd !== 'find' && (o.tech || o.contract || o.made || o.top !== 5)) throw new Fail(2, '--tech / --contract / --made / --top 只用于 find');
-  return o;
-}
+// ———————————————————————————— 命令行（docs/CLI.md，tools/lib/cli.mjs） ————————————————————————————
+const FIND_ONLY = ['tech', 'contract', 'made', 'top'];
 
-const sha256 = async buf => (await import('crypto')).createHash('sha256').update(buf).digest('hex');
-
-async function main(argv) {
-  const env = { ok: true, exitCode: 0, command: `c-styles ${argv.join(' ')}`.trim(), error: null, outputs: [], runJson: null, warnings: [] };
-  let o;
-  try {
-    o = parse(argv);
-    if (o.help) { process.stdout.write(USAGE + '\n'); return 0; }
+export const command = defineCommand({
+  name: 'c-styles',
+  summary: '86 式风格索引：生成、核对（--check）、按题材查候选（find）',
+  usage: [
+    'node tools/c-styles.mjs [--check]',
+    'node tools/c-styles.mjs find <关键词…> [--tech canvas2d|webgl|svg|dom|three] [--contract render|seek] [--made] [--top 5]',
+  ],
+  description: [
+    `不带参数：按快照与案例目录重写 ${OUT_MD} 与 ${OUT_JSON}（生成物，别手改）。`,
+    '--check：只核对两个文件是否最新、数据有没有矛盾，不写文件。',
+    'find：按题材、名称、画面描述给候选打分排序（关键词中英文都行，多个词取并集）；--made 只要我们做过成片的。',
+  ],
+  positionals: [{ name: 'words', label: '[find <关键词…>]', describe: '查候选：第一个词写 find，后面是关键词', required: false, variadic: true }],
+  options: {
+    check: { type: 'boolean', describe: '只核对，不写文件（过期或数据矛盾时退出码 4）' },
+    tech: { type: 'string', arg: '<执行面>', choices: Object.keys(TECH), describe: 'find：只要用到这种执行面的' },
+    contract: { type: 'string', arg: '<契约>', choices: ['render', 'seek'], describe: 'find：页面契约 render(t) 或 __seek(t)' },
+    made: { type: 'boolean', describe: 'find：只要我们做过成片的' },
+    top: { type: 'integer', arg: '<数>', min: 1, default: 5, example: 5, describe: 'find：最多给几个候选（默认 5）' },
+  },
+  exitCodes: { 0: '成功', 2: '用法错误', 3: '缺数据源（快照或案例目录不在）', 4: '核对不通过（文件过期或数据矛盾）' },
+  examples: [
+    'node tools/c-styles.mjs --check',
+    'node tools/c-styles.mjs find brand event typography',
+    'node tools/c-styles.mjs find poetry --tech canvas2d --made --json',
+  ],
+  async run(ctx) {
+    const o = ctx.opts, words = ctx.args.words;
+    const isFind = words[0] === 'find';
+    if (!isFind && words.length) throw new CliError('usage.extra-argument', `多余的参数：${words.map(w => `「${w}」`).join(' ')}`, '查候选要写成 node tools/c-styles.mjs find <关键词…>');
+    if (isFind && o.check) throw new CliError('usage.conflict', 'find 不接受 --check', '核对索引：node tools/c-styles.mjs --check');
+    const findOnly = FIND_ONLY.filter(k => (k === 'top' ? o.top !== 5 : k === 'made' ? o.made : o[k] !== null));
+    if (!isFind && findOnly.length) throw new CliError('usage.find-only', `${findOnly.map(k => `--${k}`).join(' / ')} 只用于 find`, '写成 node tools/c-styles.mjs find <关键词…> --tech …');
     const data = collect();
-    if (o.cmd === 'find') {
-      const res = find(data.styles, o.words, o);
-      env.result = res;
-      if (!o.json) {
-        if (!res.length) console.log('没有匹配的风格：换个说法（中英文都试试），或去掉 --tech / --contract / --made');
-        for (const [i, r] of res.entries()) {
-          console.log(`${i + 1}. ${r.id}（${r.code}）${r.name}  分 ${r.score}  命中：${r.matched.join('、') || '—'}`);
-          console.log(`   题材：${r.uses.join(', ')}；执行面：${r.surfaces.join(' + ')}；${r.contract} · ${RENDERER[r.renderer].replace(/`/g, '')}；${r.case ? `我们做过 ${r.case.id}（${r.case.status}，认可${r.case.acceptance || '未记录'}）` : '我们没出过片'}`);
-          console.log(`   方法：${r.method}（${r.source}，MIT）`);
-        }
+    if (isFind) {
+      const res = find(data.styles, words.slice(1), o);
+      if (!res.length) ctx.out('没有匹配的风格：换个说法（中英文都试试），或去掉 --tech / --contract / --made');
+      for (const [i, r] of res.entries()) {
+        ctx.out(`${i + 1}. ${r.id}（${r.code}）${r.name}  分 ${r.score}  命中：${r.matched.join('、') || '—'}`);
+        ctx.out(`   题材：${r.uses.join(', ')}；执行面：${r.surfaces.join(' + ')}；${r.contract} · ${RENDERER[r.renderer].replace(/`/g, '')}；${r.case ? `我们做过 ${r.case.id}（${r.case.status}，认可${r.case.acceptance || '未记录'}）` : '我们没出过片'}`);
+        ctx.out(`   方法：${r.method}（${r.source}，MIT）`);
       }
-    } else {
-      const { md, json: js } = render(data);
-      if (data.problems.length) {
-        throw Object.assign(new Fail(4, `数据有 ${data.problems.length} 处矛盾：\n  - ${data.problems.join('\n  - ')}`, '先按提示核对快照（cases/vendor/lock.json）与案例目录（cases/catalog.json），矛盾不消除就不生成索引'), { problems: data.problems });
-      }
-      const targets = [[OUT_MD, md, 'styles-index'], [OUT_JSON, js, 'styles-json']];
-      if (o.cmd === 'check') {
-        // 按 LF 比：仓库 .gitattributes 要求 LF，万一按 CRLF 检出也不误报过期
-        const stale = targets.filter(([f, txt]) => !fs.existsSync(abs(f)) || fs.readFileSync(abs(f), 'utf8').replace(/\r\n/g, '\n') !== txt).map(([f]) => f);
-        if (stale.length) throw new Fail(4, `${stale.join('、')} 不是最新（与快照或案例目录不一致）`, '运行 node tools/c-styles.mjs 重新生成，再提交生成物；不要手改');
-        for (const [f, txt, kind] of targets) env.outputs.push({ path: f, sha256: await sha256(txt), kind });
-        if (!o.json) console.log(`${OUT_MD} 与 ${OUT_JSON} 已是最新（${data.styles.length} 式：Lemo ${data.counts.lemo} + SY ${data.counts.sy}，做过 ${data.counts.made}）`);
-      } else {
-        for (const [f, txt, kind] of targets) {
-          fs.mkdirSync(path.dirname(abs(f)), { recursive: true });
-          fs.writeFileSync(abs(f), txt);
-          env.outputs.push({ path: f, sha256: await sha256(txt), kind });
-        }
-        if (!o.json) console.error(`写入 ${OUT_MD}、${OUT_JSON}：${data.styles.length} 式（Lemo ${data.counts.lemo} + SY ${data.counts.sy}），做过 ${data.counts.made}`);
-      }
+      return { data: { candidates: res } };
     }
-  } catch (e) {
-    const code = e instanceof Fail ? e.exitCode : 1;
-    env.ok = false; env.exitCode = code;
-    env.error = { code: errCode[code] || 'failed', message: e.message, hint: e.hint || '' };
-    if (!o?.json) { console.error(`c-styles：${e.message}`); if (e.hint) console.error(`下一步：${e.hint}`); if (code === 2) console.error(USAGE); }
-  }
-  if (o?.json || (!o && argv.includes('--json'))) process.stdout.write(JSON.stringify(env) + '\n');
-  return env.exitCode;
-}
+    const { md, json: js } = render(data);
+    if (data.problems.length) {
+      throw new CliError('contract.data', `数据有 ${data.problems.length} 处矛盾：${data.problems.join('；')}`, { hint: '先按提示核对快照（cases/vendor/lock.json）与案例目录（cases/catalog.json），矛盾不消除就不生成索引', data: { problems: data.problems } });
+    }
+    const targets = [[OUT_MD, md, 'styles-index'], [OUT_JSON, js, 'styles-json']];
+    const outputs = targets.map(([f, txt, kind]) => ({ path: f, sha256: sha256(txt), kind }));
+    const summary = { styles: data.styles.length, lemo: data.counts.lemo, sy: data.counts.sy, made: data.counts.made };
+    if (o.check) {
+      // 按 LF 比：仓库 .gitattributes 要求 LF，万一按 CRLF 检出也不误报过期
+      const stale = targets.filter(([f, txt]) => !fs.existsSync(abs(f)) || fs.readFileSync(abs(f), 'utf8').replace(/\r\n/g, '\n') !== txt).map(([f]) => f);
+      if (stale.length) throw new CliError('contract.stale', `${stale.join('、')} 不是最新（与快照或案例目录不一致，或被手改过）`, '运行 node tools/c-styles.mjs 重新生成，再提交生成物；不要手改');
+      ctx.out(`${OUT_MD} 与 ${OUT_JSON} 已是最新（${summary.styles} 式：Lemo ${summary.lemo} + SY ${summary.sy}，做过 ${summary.made}）`);
+      return { data: summary, outputs };
+    }
+    for (const [f, txt] of targets) {
+      fs.mkdirSync(path.dirname(abs(f)), { recursive: true });
+      fs.writeFileSync(abs(f), txt);
+    }
+    ctx.log.info(`写入 ${OUT_MD}、${OUT_JSON}：${summary.styles} 式（Lemo ${summary.lemo} + SY ${summary.sy}），做过 ${summary.made}`);
+    return { data: summary, outputs };
+  },
+});
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) process.exitCode = await main(process.argv.slice(2));
+if (isMain(import.meta.url)) runCli(command);

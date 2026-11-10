@@ -11,7 +11,8 @@
 //         3 Node 依赖   上游 package-lock 锁的 playwright-core / three 与仓库根 node_modules 里的版本一致时，链接过去
 //                       （Windows 用目录联接，不需要管理员）；不一致或仓库根没装就停（退出码 3）
 //         4 Python      必需 numpy、scipy、soundfile；建议 soxr、PIL、fontTools，--music 时 numba 也必需。
-//                       解释器按 --python → $PYTHON → $BEIMING_PY → python3 → python 找；--venv 时在运行时目录建 .venv，
+//                       解释器：--python 指定的优先；否则按仓库统一的顺序（tools/env/py.mjs：BEIMING_PYTHON → BEIMING_PY → PYTHON
+//                       → 仓库 .venv → python3 → python → py -3.12 → py -3）。--venv 时在运行时目录建 .venv，
 //                       按上游 requirements.txt（--music 再加 requirements-music.txt）pip 安装（要联网）
 //         5 写 .venv/bin/python 小脚本（转到选定的解释器，历史 build.sh 写死了这个路径）与 runtime.json
 //   node tools/c-runtime.mjs status [--out <运行时目录>] [--verify]
@@ -28,15 +29,20 @@
 //   node tools/c-runtime.mjs sy <编号|目录名> [--still 0.5,2] [--video] [--out <目录>]
 //       SY 风格（__seek 契约）：在 out/runtime/sy-<提交前 8 位>/<目录>/ 生成适配页——<base> 指回只读快照，强制 ?render=1，
 //       把 __duration / __fps / __seek 挂成 window.DUR / FPS / render，就绪后置 READY——再用 engine/render 渲静帧或整片
-//   通用：--json 只在 stdout 输出一个结果对象（C2 信封）；--help 打印用法、不碰任何文件
-// 退出码：0 成功；1 运行失败（历史脚本或渲染出错）；2 用法错误；3 环境或依赖缺失；4 核对不通过；5 运行时目录正被占用；
-//         124 超时；130 / 143 收到 SIGINT / SIGTERM（子进程已结束）
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import crypto from 'crypto';
-import { spawn, spawnSync } from 'child_process';
-import { fileURLToPath, pathToFileURL } from 'url';
+//   通用：命令约定见 docs/CLI.md（tools/lib/cli.mjs）——--json 时 stdout 只有一个信封对象，结果在 data 里；--help 打印用法、不碰任何文件；
+//         不认识的选项、写给别的子命令的选项都退出 2
+// 退出码（附录 C1）：0 成功；1 运行失败（历史脚本或渲染出错）；2 用法错误；3 环境或依赖缺失；4 核对不通过；5 运行时目录正被占用；
+//         124 超时；130 / 143 收到 SIGINT / SIGTERM（子进程整组已结束）
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { spawn, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { CliError, defineCommand, isMain, parseArgs, runCli } from './lib/cli.mjs';
+import { resolvePython } from './env/py.mjs';
+import { findSh, shFix } from './env/lib/sh.mjs';
+import { ffmpegBins } from './env/lib/ffmpeg.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VENDOR = { lemo: 'cases/vendor/lemo-opuscar', sy: 'cases/vendor/sy-style-100' };
@@ -45,24 +51,18 @@ const REQUIRED = ['numpy', 'scipy', 'soundfile'], RECOMMENDED = ['soxr', 'PIL', 
 const KEEP_ON_REBUILD = ['core/audio/instruments', 'core/assets/polyhaven', 'core/tts/kokoro-v1.0.onnx', 'core/tts/voices-v1.0.bin'];
 const IS_WIN = process.platform === 'win32';
 
-const USAGE = `用法：
-  node tools/c-runtime.mjs setup [--python <解释器>] [--venv] [--music] [--force] [--dry-run] [--out <运行时目录>]
-  node tools/c-runtime.mjs status [--out <运行时目录>] [--verify]
-  node tools/c-runtime.mjs assets <包…> [--out <运行时目录>]      例：assets instruments-vcsl instruments-vsco2ce
-  node tools/c-runtime.mjs build <还原目录> [--timeout 秒] [--dry-run] [--out <运行时目录>]
-  node tools/c-runtime.mjs sy <编号|目录名> [--still 0.5,2] [--video] [--out <目录>]
-通用：--json（stdout 只输出一个结果对象）、--help
-退出码：0 成功；1 运行失败；2 用法错误；3 环境或依赖缺失；4 核对不通过；5 运行时正被占用；124 超时；130/143 被中断
-完整步骤见 routes/c-style/REPLICATE.md`;
-
-export class Fail extends Error {
-  constructor(code, message, hint = '') { super(message); this.exitCode = code; this.hint = hint; }
+/** 预期错误：退出码 → 命令约定库的错误码前缀（usage.* → 2、env.* → 3、contract.* → 4 ……），一定带「下一步」。 */
+const PREFIX = { 1: 'failure', 2: 'usage', 3: 'env', 4: 'contract', 5: 'busy', 124: 'timeout', 130: 'signal.sigint', 143: 'signal.sigterm' };
+export class Fail extends CliError {
+  constructor(exitCode, message, hint = null, name = 'c-runtime') {
+    const p = PREFIX[exitCode] ?? 'failure';
+    super(/\.|^timeout$/.test(p) ? p : `${p}.${name}`, message, { hint: hint || null, exitCode });
+  }
 }
-const CODE_NAME = { 1: 'failed', 2: 'usage', 3: 'environment', 4: 'check-failed', 5: 'busy', 124: 'timeout', 130: 'interrupted', 143: 'terminated' };
 
 const posix = p => p.split(path.sep).join('/');
 const rel = p => posix(path.relative(ROOT, p)) || '.';
-const log = (...a) => console.error(...a);
+let log = (...a) => console.error(...a);   // run(ctx) 里换成 ctx.log.info（--quiet 时不打印进度）
 const sha256File = f => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const sha256Text = t => crypto.createHash('sha256').update(t).digest('hex');
 
@@ -145,21 +145,23 @@ for m in sys.argv[1:]:
     except Exception:
         mods[m] = None
 print(json.dumps({'executable': sys.executable, 'version': sys.version.split()[0], 'modules': mods}))`;
-function probePython(exe) {
-  const r = spawnSync(exe, ['-I', '-c', PROBE, ...REQUIRED, ...RECOMMENDED, ...MUSIC], { encoding: 'utf8', timeout: 120000 });
+function probePython(exe, args = []) {
+  const r = spawnSync(exe, [...args, '-I', '-c', PROBE, ...REQUIRED, ...RECOMMENDED, ...MUSIC], { encoding: 'utf8', timeout: 120000, windowsHide: true });
   if (r.status !== 0 || !r.stdout) return null;
   try { return JSON.parse(r.stdout.trim().split('\n').pop()); } catch { return null; }
 }
-function findPython(explicit) {
-  const tried = [];
-  for (const c of [explicit, process.env.PYTHON, process.env.BEIMING_PY, IS_WIN ? 'python' : 'python3', IS_WIN ? 'py' : 'python'].filter(Boolean)) {
-    if (tried.includes(c)) continue;
-    tried.push(c);
-    const p = probePython(c);
-    if (p) return { exe: c, info: p, tried };
-    if (c === explicit) throw new Fail(3, `--python ${c} 运行不了（不存在或不是 Python）`, '写 Python 解释器的完整路径，例如 /path/to/.venv/bin/python');
+// 解释器：--python 指定的优先；否则用仓库统一的查找顺序（tools/env/py.mjs，与 npm run setup、doctor 一致）
+async function findPython(explicit, env = process.env) {
+  if (explicit) {
+    const p = probePython(explicit);
+    if (!p) throw new Fail(3, `--python ${explicit} 运行不了（不存在或不是 Python）`, '写 Python 解释器的完整路径，例如 .venv/bin/python（Windows：.venv\\Scripts\\python.exe）');
+    return { exe: p.executable, info: p, source: '--python' };
   }
-  throw new Fail(3, `找不到可用的 Python（试过：${tried.join('、')}）`, '装 Python 3.11+，或用 --python 指定解释器，或设 PYTHON 环境变量');
+  const r = await resolvePython({ env });
+  if (!r.ok) throw new Fail(3, r.error, r.hint || '在仓库根运行 npm run setup 建 .venv，或用 --python 指定解释器');
+  const p = probePython(r.cmd, r.args);
+  if (!p) throw new Fail(3, `${r.source} 选中的 ${[r.cmd, ...r.args].join(' ')} 运行不了`, '用 node tools/env/py.mjs --which 看选中了哪个；或用 --python 指定解释器');
+  return { exe: p.executable, info: p, source: r.source };
 }
 const missingModules = (info, music) => ({
   required: [...REQUIRED, ...(music ? MUSIC : [])].filter(m => !info.modules[m]),
@@ -181,6 +183,7 @@ function linkDir(target, at) {
 }
 
 // ———————————————————————————— setup / status ————————————————————————————
+// 每个子命令：(o 解析后的选项, env { warnings, outputs, data, runJson, onCleanup }) → 退出码；结果写进 env，run(ctx) 统一交给信封
 async function setup(o, env) {
   const { lemo } = readLock();
   const dir = runtimeDir(lemo, o.out);
@@ -191,15 +194,15 @@ async function setup(o, env) {
     'cases/vendor 是只读快照：用 git checkout -- cases/vendor 恢复，再跑 python3 tools/casebook.py check');
   const nm = nodeModulesPlan(lemo);
   if (nm.problems.length) throw new Fail(3, `Node 依赖与上游锁定的版本不一致：${nm.problems.join('；')}`, '在仓库根运行 npm ci（或 npm run setup）装好依赖；版本确实不同就等仓库升级后再复刻');
-  const py = o.venv ? null : findPython(o.python);
+  const py = o.venv ? null : await findPython(o.python, env.processEnv);
   if (py) {
     const miss = missingModules(py.info, o.music);
-    if (miss.required.length) throw new Fail(3, `${py.exe}（Python ${py.info.version}）缺少 ${miss.required.join('、')}`,
-      `换一个装好这些包的解释器（--python），或加 --venv 在运行时目录里建虚拟环境并按上游 requirements 安装（要联网）`);
-    if (miss.recommended.length) env.warnings.push(`Python 缺少建议的包 ${miss.recommended.join('、')}：用到它们的历史脚本会失败（${miss.recommended.includes('numba') ? '拨弦乐器 pluck.py 要 numba；' : ''}字体子集化要 fontTools）`);
+    if (miss.required.length) throw new Fail(3, `${py.exe}（Python ${py.info.version}，来自 ${py.source}）缺少 ${miss.required.join('、')}`,
+      `在仓库根运行 npm run setup（按锁文件装好仓库 .venv），或换一个装好这些包的解释器（--python），或加 --venv 在运行时目录里建虚拟环境并按上游 requirements 安装（要联网）`);
+    if (miss.recommended.length) env.warnings.push({ code: 'env.python-recommended', message: `Python 缺少建议的包 ${miss.recommended.join('、')}：用到它们的历史脚本会失败（${miss.recommended.includes('numba') ? '拨弦乐器 pluck.py 要 numba；' : ''}字体子集化要 fontTools）`, hint: '需要时 setup --music 一并检查，或换解释器' });
   }
-  const plan = { runtime: rel(dir), commit: lemo.commit, files: lemo.files.length, manifest, node: nm.have, python: py ? { executable: py.info.executable, version: py.info.version } : { venv: true } };
-  env.result = plan;
+  const plan = { runtime: rel(dir), commit: lemo.commit, files: lemo.files.length, manifest, node: nm.have, python: py ? { executable: py.info.executable, version: py.info.version, source: py.source } : { venv: true } };
+  env.data = plan;
   if (o.dryRun) { log('（--dry-run：只核对，不写文件）'); return 0; }
 
   // 只会删、重建自己建的运行时：目录已在却没有 runtime.json（也不是空目录），多半是别人的东西，停下
@@ -238,7 +241,7 @@ async function setup(o, env) {
     let pyInfo = py?.info, pyExe = py?.info.executable;
     if (o.venv) {
       log('▶ 4/5 建虚拟环境并安装上游 requirements（要联网）');
-      const base = findPython(o.python);
+      const base = await findPython(o.python, env.processEnv);
       const venv = path.join(dir, '.venv');
       const mk = spawnSync(base.exe, ['-m', 'venv', venv], { stdio: ['ignore', 2, 2] });
       if (mk.status !== 0) throw new Fail(3, `${base.exe} -m venv 失败`, '换一个 Python 3.11+（--python），或不用 --venv、直接指定装好依赖的解释器');
@@ -260,7 +263,7 @@ async function setup(o, env) {
     fs.writeFileSync(path.join(dir, 'runtime.json'), JSON.stringify(record, null, 1) + '\n');
     log(`▶ 5/5 写好 ${rel(path.join(dir, 'runtime.json'))}`);
     env.outputs.push({ path: rel(path.join(dir, 'runtime.json')), sha256: sha256File(path.join(dir, 'runtime.json')), kind: 'runtime-record' });
-    log(`\n运行时就绪：${rel(dir)}\n下一步：python3 tools/casebook.py restore <案例> --download --lemo ${rel(dir)}\n        node tools/c-runtime.mjs build <还原目录>`);
+    env.say(`运行时就绪：${rel(dir)}\n下一步：node tools/env/py.mjs tools/casebook.py restore <案例> --download --lemo ${rel(dir)}\n        node tools/c-runtime.mjs build <还原目录>`);
     return 0;
   } finally { unlock(); }
 }
@@ -269,7 +272,7 @@ function status(o, env) {
   const { lemo } = readLock();
   const dir = runtimeDir(lemo, o.out), rt = readRuntime(dir);
   const res = { runtime: rel(dir), exists: Boolean(rt), commit: rt?.commit || null, problems: [] };
-  env.result = res;
+  env.data = res;
   if (!rt) throw new Fail(3, `运行时不存在：${rel(dir)}`, '先运行 node tools/c-runtime.mjs setup');
   if (rt.commit !== lemo.commit) res.problems.push(`运行时的提交 ${rt.commit} 与 lock.json 的 ${lemo.commit} 不同`);
   if (rt.manifest !== manifestOf(lemo.files)) res.problems.push('运行时的文件清单与 lock.json 不同');
@@ -285,46 +288,50 @@ function status(o, env) {
   if (!py) res.problems.push(`记录的 Python ${rt.python.executable} 运行不了`);
   else if (res.python.missing.required.length) res.problems.push(`Python 缺少 ${res.python.missing.required.join('、')}`);
   if (res.problems.length) throw new Fail(4, `运行时不可用：${res.problems.join('；')}`, '运行 node tools/c-runtime.mjs setup --force 重建');
-  log(`运行时可用：${rel(dir)}（lemo-opuscar@${rt.commit.slice(0, 7)}，${rt.files} 个文件；Python ${py.version} ${py.executable}）`);
+  env.say(`运行时可用：${rel(dir)}（lemo-opuscar@${rt.commit.slice(0, 7)}，${rt.files} 个文件；Python ${py.version} ${py.executable}）`);
   return 0;
 }
 
 // ———————————————————————————— 子进程：超时、信号、整组结束 ————————————————————————————
-function runChild(cmd, args, { cwd, env, timeout }) {
+// 子进程单独成组（POSIX detached），超时或收到 Ctrl+C / SIGTERM 时整组结束（Windows 用 taskkill /T），不留浏览器与 ffmpeg。
+// 信号由命令约定库（runCli）接住：它依次执行 onCleanup 登记的清理——这里登记"结束整组并等它退出"，再以 130 / 143 退出。
+function runChild(cmd, args, { cwd, env, timeout, onCleanup = null }) {
   return new Promise(resolve => {
     const child = spawn(cmd, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'], detached: !IS_WIN, windowsHide: true });
     child.stdout.on('data', d => process.stderr.write(d));
     child.stderr.on('data', d => process.stderr.write(d));
-    let reason = null, timer = null;
+    let reason = null, timer = null, closed = false;
     const kill = sig => {
-      if (child.exitCode !== null) return;
-      if (IS_WIN) spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      if (closed || child.exitCode !== null || child.signalCode !== null) return;
+      if (IS_WIN) spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
       else { try { process.kill(-child.pid, sig); } catch { /* 已退出 */ } }
     };
-    const onSig = sig => () => { reason = sig; kill('SIGTERM'); setTimeout(() => kill('SIGKILL'), 5000).unref(); };
-    const hInt = onSig('SIGINT'), hTerm = onSig('SIGTERM');
-    process.on('SIGINT', hInt); process.on('SIGTERM', hTerm);
-    if (timeout > 0) timer = setTimeout(() => { reason = 'timeout'; kill('SIGTERM'); setTimeout(() => kill('SIGKILL'), 5000).unref(); }, timeout * 1000);
-    child.on('error', e => { reason = reason || 'spawn'; resolve({ code: 1, reason, error: e }); });
-    child.on('close', code => {
-      clearTimeout(timer); process.off('SIGINT', hInt); process.off('SIGTERM', hTerm);
-      resolve({ code: code ?? 1, reason });
+    const stop = why => new Promise(done => {
+      reason = reason || why;
+      if (closed) return done();
+      child.once('close', () => done());
+      kill('SIGTERM');
+      setTimeout(() => { kill('SIGKILL'); done(); }, 4000).unref();
     });
+    const unregister = onCleanup ? onCleanup(() => stop('signal')) : () => {};
+    if (timeout > 0) timer = setTimeout(() => { stop('timeout'); }, timeout * 1000);
+    child.on('error', e => { closed = true; clearTimeout(timer); unregister(); reason = reason || 'spawn'; resolve({ code: 1, reason, error: e }); });
+    child.on('close', code => { closed = true; clearTimeout(timer); unregister(); resolve({ code: code ?? 1, reason }); });
   });
 }
-const exitFor = r => (r.reason === 'timeout' ? 124 : r.reason === 'SIGINT' ? 130 : r.reason === 'SIGTERM' ? 143 : r.code === 0 ? 0 : 1);
+const exitFor = r => (r.reason === 'timeout' ? 124 : r.code === 0 && !r.reason ? 0 : 1);
 
-function findSh() {
-  if (!IS_WIN) return 'sh';
-  const w = spawnSync('where', ['sh'], { encoding: 'utf8' });
-  const hit = (w.stdout || '').split(/\r?\n/).find(Boolean);
-  if (hit) return hit.trim();
-  for (const p of ['C:\\Program Files\\Git\\bin\\sh.exe', 'C:\\Program Files\\Git\\usr\\bin\\sh.exe']) if (fs.existsSync(p)) return p;
-  throw new Fail(3, '找不到 sh：历史作品的 build.sh 是 POSIX shell 脚本', '装 Git for Windows（自带 sh），或在 WSL 里运行；新片不需要 sh');
+// sh 与 FFmpeg 按仓库统一的口径找（tools/env/lib：BEIMING_SH、FFMPEG / FFPROBE；Windows 自动找 Git for Windows 的 bin\sh.exe）
+function locateSh(env = process.env) {
+  const r = findSh({ env });
+  if (r.path) return r.path;
+  throw new Fail(3, `找不到 sh：历史作品的 build.sh 是 POSIX shell 脚本（${(r.tried || []).join('；')}）`, `${shFix()}；新片不需要 sh`);
 }
-function need(tool, args = ['-version']) {
-  const r = spawnSync(tool, args, { stdio: 'ignore' });
-  if (r.status !== 0) throw new Fail(3, `找不到 ${tool}`, `装好 ${tool} 并放进 PATH（FFmpeg ≥ 7，带 libx264、aac）`);
+function need(tool, env = process.env) {
+  const bin = ffmpegBins(env)[tool];
+  const r = spawnSync(bin, ['-version'], { stdio: 'ignore', windowsHide: true });
+  if (r.status !== 0) throw new Fail(3, `找不到 ${tool}（${bin}）`, `装好 FFmpeg ≥ 7（带 libx264、aac）并放进 PATH，或设 ${tool.toUpperCase()} 为完整路径；见 docs/ENVIRONMENT.md`);
+  return bin;
 }
 
 // ———————————————————————————— assets：上游大素材包 ————————————————————————————
@@ -373,24 +380,25 @@ async function assets(o, env) {
   if (!o.packs.length) throw new Fail(2, `assets 要给包名（可选：${Object.keys(packs).join('、')}）`);
   const bad = o.packs.filter(p => !packs[p]);
   if (bad.length) throw new Fail(2, `快照的 tools/assets.json 里没有 ${bad.join('、')}（可选：${Object.keys(packs).join('、')}）`);
-  const sh = findSh();
-  env.result = { runtime: rel(rtDir), packs: [] };
+  const sh = locateSh(env.processEnv);
+  env.data = { runtime: rel(rtDir), packs: [] };
   for (const name of o.packs) {
     const p = packs[name];
-    if (packInstalled(rtDir, name)) { log(`✓ ${name} 已在运行时里`); env.result.packs.push({ name, status: 'present' }); continue; }
+    if (packInstalled(rtDir, name)) { log(`✓ ${name} 已在运行时里`); env.data.packs.push({ name, status: 'present' }); continue; }
     log(`▶ ${name}（${(p.size / 1e6).toFixed(0)} MB，sha256 ${p.sha256.slice(0, 12)}…）`);
     const args = name.startsWith('instruments-') ? ['instruments', name.slice(12)] : [name];
-    const r = await runChild(sh, ['tools/fetch.sh', ...args], { cwd: rtDir, env: { ...process.env, LEMO_OPUSCAR_HOME: rtDir }, timeout: o.timeout });
+    const r = await runChild(sh, ['tools/fetch.sh', ...args], { cwd: rtDir, env: { ...env.processEnv, LEMO_OPUSCAR_HOME: rtDir }, timeout: o.timeout, onCleanup: env.onCleanup });
     const code = exitFor(r);
-    if (code) throw new Fail(code === 1 ? 3 : code, `${name} 没有装好（退出码 ${r.code}）`, '多半是网络中断：重跑同一条命令会接着下载；校验不过说明上游换了包，这个快照的素材就取不到了。不要按提示去跑上游 setup.sh');
-    env.result.packs.push({ name, status: 'installed', sha256: p.sha256 });
+    if (code) throw new Fail(code === 1 ? 3 : code, code === 124 ? `${name} 超过 ${o.timeout} 秒没下完，已停下` : `${name} 没有装好（退出码 ${r.code}）`, '多半是网络中断：重跑同一条命令会接着下载；校验不过说明上游换了包，这个快照的素材就取不到了。不要按提示去跑上游 setup.sh');
+    env.data.packs.push({ name, status: 'installed', sha256: p.sha256 });
   }
+  env.say(`采样与素材包：${env.data.packs.map(x => `${x.name}（${x.status === 'present' ? '已在' : '已装'}）`).join('、')}`);
   return 0;
 }
 
 // ———————————————————————————— build ————————————————————————————
-function probeVideo(file) {
-  const r = spawnSync('ffprobe', ['-v', 'error', '-count_packets', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,r_frame_rate,nb_read_packets', '-of', 'json', file], { encoding: 'utf8' });
+function probeVideo(file, ffprobe = 'ffprobe') {
+  const r = spawnSync(ffprobe, ['-v', 'error', '-count_packets', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,r_frame_rate,nb_read_packets', '-of', 'json', file], { encoding: 'utf8' });
   if (r.status !== 0) return null;
   const s = JSON.parse(r.stdout).streams?.[0]; if (!s) return null;
   const [a, b = 1] = String(s.r_frame_rate).split('/').map(Number);
@@ -414,13 +422,13 @@ export function rewriteBuild(text, runtime) {
 }
 
 async function build(o, env) {
-  if (!o.target) throw new Fail(2, 'build 要给还原目录', '先 python3 tools/casebook.py restore <案例> --download --lemo out/runtime/lemo-bebbbe1a，再把打印出的目录传给 build');
+  if (!o.target) throw new Fail(2, 'build 要给还原目录', '先 node tools/env/py.mjs tools/casebook.py restore <案例> --download --lemo out/runtime/lemo-bebbbe1a，再把打印出的目录传给 build');
   const dir = path.resolve(o.target);
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) throw new Fail(2, `还原目录不存在：${o.target}`);
   const reportF = path.join(dir, 'ARCHIVE-RESTORED.json'), buildF = path.join(dir, 'build.sh');
-  if (!fs.existsSync(reportF) || !fs.existsSync(buildF)) throw new Fail(4, `${o.target} 不是 casebook 还原出的作品目录（缺 ARCHIVE-RESTORED.json 或 build.sh）`, '用 python3 tools/casebook.py restore <案例> --download 还原');
+  if (!fs.existsSync(reportF) || !fs.existsSync(buildF)) throw new Fail(4, `${o.target} 不是 casebook 还原出的作品目录（缺 ARCHIVE-RESTORED.json 或 build.sh）`, '用 node tools/env/py.mjs tools/casebook.py restore <案例> --download 还原');
   const report = JSON.parse(fs.readFileSync(reportF, 'utf8'));
-  if (report.sourceOnly) throw new Fail(4, `${report.case} 是 --source-only 还原的：缺图片、字体等二进制素材，不能出片`, `换个目录用 --download 重新还原：python3 tools/casebook.py restore ${report.case} --download --lemo out/runtime/lemo-bebbbe1a --out <新目录>`);
+  if (report.sourceOnly) throw new Fail(4, `${report.case} 是 --source-only 还原的：缺图片、字体等二进制素材，不能出片`, `换个目录用 --download 重新还原：node tools/env/py.mjs tools/casebook.py restore ${report.case} --download --lemo out/runtime/lemo-bebbbe1a --out <新目录>`);
   if (report.unreplacedTokens?.length) throw new Fail(4, `还原时有标记没替换：${report.unreplacedTokens.map(u => `${u.file}（${u.tokens.join('、')}）`).join('；')}`, '这类作品依赖仓库外的机器或服务，按 ARCHIVE-RESTORED.json 的说明准备');
   const { lemo } = readLock();
   const rtDir = runtimeDir(lemo, o.out), rt = readRuntime(rtDir);
@@ -430,34 +438,34 @@ async function build(o, env) {
   const c = catalog.cases.find(x => x.id === report.case);
   const master = c?.artifacts?.find(a => a.role === 'master' && a.video);
   const { text, notes } = rewriteBuild(fs.readFileSync(buildF, 'utf8'), rtDir);
-  const sh = findSh(); need('ffmpeg'); need('ffprobe');
+  const sh = locateSh(env.processEnv); need('ffmpeg', env.processEnv); const ffprobe = need('ffprobe', env.processEnv);
   const sampler = samplerNeeds(dir, rtDir);
   const lack = sampler.libs.filter(l => !fs.existsSync(path.join(instrumentsDir(rtDir), l)));
   if (lack.length) throw new Fail(3, `${report.case} 的配乐用到采样乐器 ${sampler.instruments.join('、')}，运行时里还没有采样库 ${lack.join('、')}`,
     `先装：node tools/c-runtime.mjs assets ${lack.map(l => `instruments-${l}`).join(' ')}（每个几百 MB，sha256 锁在快照里）`);
   const py = rt.python.executable;
   const res = { case: report.case, dir: rel(dir), runtime: rel(rtDir), notes, expected: master ? { file: master.filename, ...master.video } : null };
-  env.result = res;
+  env.data = res;
   for (const n of notes) log(`注意：${n}`);
   if (o.dryRun) { res.script = text; log('（--dry-run：只核对与改写预览，不运行）'); return 0; }
   const script = path.join(dir, 'build.c-runtime.sh');
   fs.writeFileSync(script, text.endsWith('\n') ? text : text + '\n');
   log(`▶ 运行 ${rel(script)}（LIB=${rel(rtDir)}，Python ${py}）`);
   const t0 = Date.now();
-  const childEnv = { ...process.env, LEMO_OPUSCAR_HOME: rtDir, C_RUNTIME_PY: py, PYTHONDONTWRITEBYTECODE: '1',
-    RENDER_SLOT_DIR: process.env.RENDER_SLOT_DIR || path.join(rtDir, '.render-slots') };
+  const childEnv = { ...env.processEnv, LEMO_OPUSCAR_HOME: rtDir, C_RUNTIME_PY: py, PYTHONDONTWRITEBYTECODE: '1',
+    RENDER_SLOT_DIR: env.processEnv.RENDER_SLOT_DIR || path.join(rtDir, '.render-slots') };
   delete childEnv.LIB_OVERRIDE;   // 个别历史脚本用它改 LIB；复刻一律用隔离运行时
-  const r = await runChild(sh, [posix(path.basename(script))], { cwd: dir, env: childEnv, timeout: o.timeout });
+  const r = await runChild(sh, [posix(path.basename(script))], { cwd: dir, env: childEnv, timeout: o.timeout, onCleanup: env.onCleanup });
   const code = exitFor(r);
   res.seconds = +((Date.now() - t0) / 1000).toFixed(1);
   if (code) {
-    throw new Fail(code, code === 124 ? `历史脚本超过 ${o.timeout} 秒没结束，已停下` : code >= 130 ? '收到中断信号，历史脚本已停下' : `历史脚本以 ${r.code} 退出（${r.error ? r.error.message : '见上方日志'}）`,
-      code === 1 ? '看日志里第一处报错：缺 Python 包就用 setup --python 换解释器；缺素材就确认还原时带了 --download；网络或外部服务相关的步骤按 ARCHIVE-RESTORED.json 的说明准备' : '');
+    throw new Fail(code, code === 124 ? `历史脚本超过 ${o.timeout} 秒没结束，已停下（整组子进程已结束）` : `历史脚本以 ${r.code} 退出（${r.error ? r.error.message : '见上方日志'}）`,
+      code === 124 ? '加大 --timeout 重跑（0 = 不限）' : '看日志里第一处报错：缺 Python 包就用 setup --python 换解释器；缺素材就确认还原时带了 --download；网络或外部服务相关的步骤按 ARCHIVE-RESTORED.json 的说明准备');
   }
   // 核对成片：案例目录记录的规格
   const film = master ? path.join(dir, master.filename) : null;
   if (!film || !fs.existsSync(film)) throw new Fail(4, `脚本跑完但没找到成片 ${master ? master.filename : '（案例目录没记录成片文件名）'}`, '看 build.sh 最后几步写到了哪里');
-  const got = probeVideo(film), want = master.video;
+  const got = probeVideo(film, ffprobe), want = master.video;
   const wantFps = (() => { const [a, b = 1] = String(want.fps).split('/').map(Number); return +(a / b).toFixed(3); })();
   res.output = { path: rel(film), sha256: sha256File(film), ...got };
   env.outputs.push({ path: rel(film), sha256: res.output.sha256, kind: 'video' });
@@ -475,7 +483,7 @@ async function build(o, env) {
   fs.writeFileSync(runJson, JSON.stringify(record, null, 1) + '\n');
   env.runJson = rel(runJson);
   if (diffs.length) throw new Fail(4, `成片与案例目录记录的规格不符：${diffs.join('；')}`, '对照 ARCHIVE-RESTORED.json 与 build.sh，看是不是换了帧率或尺寸');
-  log(`\n复刻完成：${rel(film)}  ${got.width}×${got.height}  ${got.fps} fps  ${got.frames} 帧（与案例目录一致），用时 ${res.seconds} 秒`);
+  env.say(`复刻完成：${rel(film)}  ${got.width}×${got.height}  ${got.fps} fps  ${got.frames} 帧（与案例目录一致），用时 ${res.seconds} 秒`);
   return 0;
 }
 
@@ -513,82 +521,121 @@ async function sy(o, env) {
   fs.writeFileSync(path.join(page, 'ADAPTER.md'), `# SY ${dir} 的适配页（生成物）\n\n由 \`node tools/c-runtime.mjs sy ${dir}\` 生成：页面原样取自只读快照 \`${VENDOR.sy}/styles/${dir}/\`（sy-style-100@${lock.commit.slice(0, 7)}，MIT，肖雄 XIAOXIONG），只加了 \`<base>\`、强制 \`?render=1\` 和把 \`__seek\` 挂成 \`render(t)\` 的两段脚本。不要提交；方法与署名见 routes/c-style/STYLES.md。\n`);
   env.outputs.push({ path: rel(path.join(page, 'index.html')), sha256: sha256File(path.join(page, 'index.html')), kind: 'adapter-page' });
   const res = { style: `sy/${dir}`, page: rel(page), source: `sy-style-100@${lock.commit.slice(0, 7)}`, license: 'MIT' };
-  env.result = res;
-  env.warnings.push('SY 页面用本机字体名（Noto CJK、Inter 等），不随库分发：换机器字形会变；也未经北冥的确定性核对');
+  env.data = res;
+  env.warnings.push({ code: 'contract.sy-fonts', message: 'SY 页面用本机字体名（Noto CJK、Inter 等），不随库分发：换机器字形会变；也未经北冥的确定性核对', hint: '只取方法，或在作品里换成带许可的网页字体' });
   log(`适配页：${rel(page)}/index.html`);
   const node = process.execPath, size = ['--size', '1920x1080'];
   if (o.still.length) {
-    const r1 = await runChild(node, [path.join(ROOT, 'engine/render/still.mjs'), page, ...o.still.map(String), ...size, '--out', path.join(page, 'out', 'stills')], { cwd: ROOT, env: process.env, timeout: o.timeout });
+    const r1 = await runChild(node, [path.join(ROOT, 'engine/render/still.mjs'), page, ...o.still.map(String), ...size, '--out', path.join(page, 'out', 'stills')], { cwd: ROOT, env: env.processEnv, timeout: o.timeout, onCleanup: env.onCleanup });
     if (exitFor(r1)) throw new Fail(exitFor(r1), `静帧渲染失败（退出码 ${r1.code}）`, '看上方日志；WebGL 风格在软件渲染下会很慢，检查 BEIMING_ANGLE');
     for (const t of o.still) { const f = fs.readdirSync(path.join(page, 'out', 'stills')).find(x => x === `s_${t}.jpg`); if (f) env.outputs.push({ path: rel(path.join(page, 'out', 'stills', f)), sha256: sha256File(path.join(page, 'out', 'stills', f)), kind: 'still' }); }
   }
   if (o.video) {
     const vid = path.join(page, 'out', 'video.mp4');
-    const r2 = await runChild(node, [path.join(ROOT, 'engine/render/video.mjs'), page, ...size, '--out', vid], { cwd: ROOT, env: process.env, timeout: o.timeout });
+    const r2 = await runChild(node, [path.join(ROOT, 'engine/render/video.mjs'), page, ...size, '--out', vid], { cwd: ROOT, env: env.processEnv, timeout: o.timeout, onCleanup: env.onCleanup });
     if (exitFor(r2)) throw new Fail(exitFor(r2), `整片渲染失败（退出码 ${r2.code}）`, '看上方日志');
-    res.output = { path: rel(vid), ...probeVideo(vid) };
+    res.output = { path: rel(vid), ...probeVideo(vid, ffmpegBins(env.processEnv).ffprobe) };
     env.outputs.push({ path: rel(vid), sha256: sha256File(vid), kind: 'video' });
   }
   if (!o.still.length && !o.video) log(`下一步：node engine/render/still.mjs ${rel(page)} 0.5 --size 1920x1080，或 node tools/c-runtime.mjs sy ${dir} --video`);
   return 0;
 }
 
-// ———————————————————————————— 命令行 ————————————————————————————
+// ———————————————————————————— 命令行（docs/CLI.md，tools/lib/cli.mjs） ————————————————————————————
+// 每个子命令认哪些选项；写给别的子命令的选项按用法错误（退出 2）处理，不悄悄忽略
+const ALLOW = {
+  setup: ['python', 'venv', 'music', 'force', 'dry-run', 'out'],
+  status: ['out', 'verify'],
+  assets: ['out', 'timeout'],
+  build: ['timeout', 'dry-run', 'out'],
+  sy: ['still', 'video', 'out', 'timeout'],
+};
+const SUBS = Object.keys(ALLOW);
+
+export const command = defineCommand({
+  name: 'c-runtime',
+  summary: 'C 路线历史复刻：按固定快照建隔离运行时、装大素材包、重跑还原出的作品、给 SY 风格生成适配页',
+  usage: [
+    'node tools/c-runtime.mjs setup [--python <解释器>] [--venv] [--music] [--force] [--dry-run] [--out <运行时目录>]',
+    'node tools/c-runtime.mjs status [--out <运行时目录>] [--verify]',
+    'node tools/c-runtime.mjs assets <包…> [--out <运行时目录>] [--timeout 秒]',
+    'node tools/c-runtime.mjs build <还原目录> [--timeout 秒] [--dry-run] [--out <运行时目录>]',
+    'node tools/c-runtime.mjs sy <编号|目录名> [--still 0.5,2] [--video] [--out <目录>] [--timeout 秒]',
+  ],
+  description: [
+    'setup   在 out/runtime/lemo-<提交前 8 位>/ 建 Lemo 运行时（核对快照 → 复制锁里的文件 → 链接根 node_modules → 选 Python → 写 runtime.json）',
+    'status  只读核对运行时；--verify 逐文件重算 sha256',
+    'assets  按快照里锁好的 sha256 下载采样乐器等大素材包（例：assets instruments-vcsl instruments-vsco2ce）',
+    'build   重跑 casebook 还原出的作品（改写成 build.c-runtime.sh 再运行），按案例目录核对成片规格，运行记录写 out/c-runtime-run.json',
+    'sy      SY 风格（__seek 契约）生成能交给 engine/render 的适配页，可顺带渲静帧或整片',
+    '不联网拉代码、不改 cases/vendor 与 cases/source、不读写家目录；不要运行 vendor 自带的 setup.sh。完整步骤见 routes/c-style/REPLICATE.md',
+  ],
+  positionals: [
+    { name: 'sub', label: '<子命令>', describe: `${SUBS.join(' / ')}`, required: true },
+    { name: 'rest', label: '[目标…]', describe: 'build 的还原目录、sy 的风格编号、assets 的包名', required: false, variadic: true },
+  ],
+  options: {
+    python: { type: 'string', arg: '<解释器>', describe: 'setup：指定 Python（默认按 tools/env/py.mjs 的顺序找）' },
+    venv: { type: 'boolean', describe: 'setup：在运行时目录建 .venv，按上游 requirements 安装（要联网）' },
+    music: { type: 'boolean', describe: 'setup：把 numba（拨弦乐器 pluck.py）也当必需' },
+    force: { type: 'boolean', describe: 'setup：清单一致也重建（已下载的素材包保留）' },
+    'dry-run': { type: 'boolean', describe: 'setup / build：只核对与预览，不写文件、不运行' },
+    out: { type: 'string', arg: '<目录>', describe: '运行时目录（默认 out/runtime/lemo-<提交>/；sy 是适配页的上级目录）' },
+    verify: { type: 'boolean', describe: 'status：逐文件重算 sha256' },
+    timeout: { type: 'integer', arg: '<秒>', min: 0, example: 3600, describe: 'assets / build / sy：子进程上限（默认 3600，0 不限），超时整组结束、退出 124' },
+    still: { type: 'string', arg: '<秒,秒…>', describe: 'sy：渲这几个时刻的静帧' },
+    video: { type: 'boolean', describe: 'sy：渲整片' },
+  },
+  exitCodes: { 0: '成功', 1: '历史脚本或渲染出错', 2: '用法错误', 3: '环境或依赖缺失', 4: '核对不通过', 5: '运行时目录正被占用', 124: '超时', 130: '收到 SIGINT（已清理）', 143: '收到 SIGTERM（已清理）' },
+  examples: [
+    'node tools/c-runtime.mjs setup --dry-run',
+    'node tools/c-runtime.mjs build out/casebook/style-test-66/76-circuit-board --dry-run',
+    'node tools/c-runtime.mjs sy 18-ink --still 2,8.5 --json',
+  ],
+  run,
+});
+
+const given = (opts, name) => {
+  const o = command.options[name];
+  return o.type === 'boolean' ? opts[name] === true : opts[name] !== null && opts[name] !== undefined;
+};
+
+/** 解析结果 → 子命令用的选项对象；子命令、目标个数、选项与子命令不配都在这里报用法错误（退出 2）。 */
+function toOptions({ opts, args }) {
+  const sub = args.sub, rest = args.rest || [];
+  if (!ALLOW[sub]) throw new CliError('usage.unknown-subcommand', `不认识的子命令 ${sub}（可用：${SUBS.join('、')}）`, '用法见 --help');
+  const wrong = Object.keys(command.options).filter(n => !['json', 'quiet', 'help', 'version'].includes(n) && given(opts, n) && !ALLOW[sub].includes(n));
+  if (wrong.length) throw new CliError('usage.option-not-for-subcommand', `${sub} 不认识选项 ${wrong.map(n => `--${n}`).join(' ')}（可用：${ALLOW[sub].map(n => `--${n}`).join(' ')}）`, '每个子命令的选项见 --help');
+  if ((sub === 'setup' || sub === 'status') && rest.length) throw new CliError('usage.extra-argument', `多余的参数：${rest.join(' ')}`, `${sub} 不带位置参数`);
+  if ((sub === 'build' || sub === 'sy') && rest.length > 1) throw new CliError('usage.extra-argument', `多余的参数：${rest.slice(1).join(' ')}`, `${sub} 只接一个目标`);
+  let still = [];
+  if (given(opts, 'still')) {
+    still = String(opts.still).split(',').map(s => s.trim()).filter(Boolean);
+    if (!still.length || still.some(s => !/^\d+(\.\d+)?$/.test(s))) throw new CliError('usage.bad-value', `--still 要写成逗号分隔的秒数，例如 0.5,2（收到 ${opts.still}）`, '例：--still 0.5,2');
+  }
+  return {
+    cmd: sub, target: sub === 'build' || sub === 'sy' ? rest[0] ?? null : null, packs: sub === 'assets' ? rest : [],
+    python: opts.python, venv: opts.venv, music: opts.music, force: opts.force, dryRun: opts['dry-run'], out: opts.out,
+    verify: opts.verify, timeout: opts.timeout ?? 3600, still, video: opts.video, json: opts.json,
+  };
+}
+
+/** 只解析不运行（给测试与别的工具用）：返回选项对象；用法错误抛 CliError（exitCode 2）。 */
 export function parse(argv) {
-  const o = { cmd: null, json: false, help: false, target: null, python: null, venv: false, music: false, force: false, dryRun: false,
-    out: null, verify: false, timeout: 3600, still: [], video: false, packs: [] };
-  const a = [...argv];
-  const val = x => { const v = a.shift(); if (v === undefined || v.startsWith('--')) throw new Fail(2, `选项 ${x} 缺少取值`); return v; };
-  const allow = { setup: ['--python', '--venv', '--music', '--force', '--dry-run', '--out'], status: ['--out', '--verify'], assets: ['--out', '--timeout'],
-    build: ['--timeout', '--dry-run', '--out'], sy: ['--still', '--video', '--out', '--timeout'] };
-  while (a.length) {
-    const x = a.shift();
-    if (x === '--json') { o.json = true; continue; }
-    if (x === '--help' || x === '-h') { o.help = true; continue; }
-    if (!x.startsWith('-')) {
-      if (!o.cmd) { if (!allow[x]) throw new Fail(2, `不认识的子命令 ${x}（可用：${Object.keys(allow).join('、')}）`); o.cmd = x; continue; }
-      if ((o.cmd === 'build' || o.cmd === 'sy') && !o.target) { o.target = x; continue; }
-      if (o.cmd === 'assets') { o.packs.push(x); continue; }
-      throw new Fail(2, `多余的参数 ${x}`);
-    }
-    if (!o.cmd) { if (o.help) continue; throw new Fail(2, `选项 ${x} 要写在子命令后面`); }
-    if (!allow[o.cmd].includes(x)) throw new Fail(2, `${o.cmd} 不认识选项 ${x}（可用：${allow[o.cmd].join(' ')}）`);
-    if (x === '--python') o.python = val(x);
-    else if (x === '--out') o.out = val(x);
-    else if (x === '--timeout') { const v = val(x); if (!/^\d+$/.test(v)) throw new Fail(2, `--timeout 要非负整数（秒），收到 ${v}`); o.timeout = +v; }
-    else if (x === '--still') {
-      const v = val(x);
-      o.still = v.split(',').map(s => s.trim()).filter(Boolean);
-      if (!o.still.length || o.still.some(s => !/^\d+(\.\d+)?$/.test(s))) throw new Fail(2, `--still 要写成逗号分隔的秒数，例如 0.5,2（收到 ${v}）`);
-    } else if (x === '--venv') o.venv = true;
-    else if (x === '--music') o.music = true;
-    else if (x === '--force') o.force = true;
-    else if (x === '--dry-run') o.dryRun = true;
-    else if (x === '--verify') o.verify = true;
-    else if (x === '--video') o.video = true;
-  }
-  if (!o.cmd && !o.help) throw new Fail(2, '缺少子命令');
-  if (o.venv && o.python && o.cmd === 'setup') { /* --venv 时 --python 是建虚拟环境用的基础解释器 */ }
-  return o;
+  return toOptions(parseArgs(command, argv));
 }
 
-export async function main(argv) {
-  const env = { ok: true, exitCode: 0, command: `c-runtime ${argv.join(' ')}`.trim(), error: null, outputs: [], runJson: null, warnings: [] };
-  let o = null;
-  try {
-    o = parse(argv);
-    if (o.help) { process.stdout.write(USAGE + '\n'); return 0; }
-    const fn = { setup, status, assets, build, sy }[o.cmd];
-    env.exitCode = await fn(o, env);
-  } catch (e) {
-    const code = e instanceof Fail ? e.exitCode : 1;
-    env.ok = false; env.exitCode = code;
-    env.error = { code: CODE_NAME[code] || 'failed', message: e.message, hint: e.hint || '' };
-    if (!o?.json) { log(`c-runtime：${e.message}`); if (e.hint) log(`下一步：${e.hint}`); if (code === 2) log(USAGE); }
-  }
-  for (const w of env.warnings) if (!o?.json) log(`提示：${w}`);
-  if (o?.json || (!o && argv.includes('--json'))) process.stdout.write(JSON.stringify(env) + '\n');
-  return env.exitCode;
+async function run(ctx) {
+  const o = toOptions(ctx);
+  log = msg => ctx.log.info(msg);
+  const env = {
+    processEnv: ctx.env, onCleanup: ctx.onCleanup, outputs: [], data: null, runJson: null,
+    warnings: { push: w => ctx.warn(w.code ?? 'warning', w.message ?? String(w), w.hint ?? null) },
+    say: text => ctx.out(text),
+  };
+  const fn = { setup, status, assets, build, sy }[o.cmd];
+  const exitCode = await fn(o, env);
+  return { exitCode, data: env.data, outputs: env.outputs, runJson: env.runJson };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) process.exitCode = await main(process.argv.slice(2));
+if (isMain(import.meta.url)) runCli(command);
