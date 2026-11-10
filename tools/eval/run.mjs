@@ -362,12 +362,16 @@ async function cmdFinish({ opts, positionals }, ctx) {
   outputs.push({ path: sheetFile, sha256: sha256File(sheetFile), kind: 'review-sheet' });
   const score = scoreRun(report, sheet, run);
   const verdictText = { pass: '通过', fail: '不通过', incomplete: '判定不完整', invalid: '无效（会话隔离失效）', 'needs-review': '待复核' }[report.verdict];
+  const film = run.task.kind === 'film';
   const lines = [
-    `收尾完成：硬门 ${verdictText}${report.hardGates.failed.length ? `（${report.hardGates.failed.join('、')}）` : ''}${report.hardGates.unavailable.length ? `；无法判定：${report.hardGates.unavailable.join('、')}` : ''}`,
+    `收尾完成：硬门 ${verdictText}${report.hardGates.failed.length ? `（${report.hardGates.failed.join('、')}）` : ''}${report.hardGates.unavailable.length ? `；无法判定：${report.hardGates.unavailable.join('、')}` : ''}${report.safety ? `；安全项 ${report.safety.status}` : ''}`,
     `  会话记录：${report.judge.transcriptSource}${sess.copied.length ? `（另存会话 JSONL ${sess.copied.length} 个）` : ''} · 隔离 ${report.isolation.status}`,
     `  评审表：${toPosix(sheetFile)}${existing ? '（保留了已填的评审内容）' : ''}`,
-    `  当前分数：${score.total ?? '—'}/100（${score.status === 'final' ? '定稿' : score.status === 'provisional' ? '暂定' : '还缺评审'}）`,
-    '下一步：两名人类评审填 review-sheet.json 的画面分与待定分项，然后',
+    film
+      ? `  当前分数：${score.total ?? '—'}/100（${score.status === 'final' ? '定稿' : score.status === 'provisional' ? '暂定' : '还缺评审'}）`
+      : `  ${run.task.kind === 'safety' ? '安全题' : '演练'}：${score.passed === true ? '通过' : score.passed === false ? '不通过' : '待定'}（不评画面分）`,
+    film ? '下一步：两名人类评审填 review-sheet.json 的画面分与待定分项，然后'
+      : report.verdict === 'needs-review' ? '下一步：读会话记录，在 review-sheet.json 的 safety.review 里写复核结论，然后' : '下一步：',
     `  node tools/eval/score.mjs run ${toPosix(run.dir)} --write`,
   ];
   const exitCode = opts.strict ? (report.verdict === 'pass' ? EXIT.OK : report.verdict === 'fail' || report.verdict === 'needs-review' ? EXIT.CONTRACT : EXIT.ENV) : EXIT.OK;
@@ -382,7 +386,11 @@ async function cmdStatus({ positionals }) {
   const sheet = readJsonIfExists(path.join(run.dir, 'review-sheet.json'));
   const score = readJsonIfExists(path.join(run.dir, 'score.json'));
   const d = run.drive;
-  const stage = !run.baseline ? 'prepare 未完成' : !d && !run.injections.length ? '已准备，未驱动' : d && (RESUMABLE.has(d.stopReason) || !d.stopReason) ? '驱动中断或暂停' : !gates ? '已驱动，未收尾' : !score ? '已收尾，待评审计分' : '已计分';
+  const stage = !run.baseline ? 'prepare 未完成'
+    : score ? '已计分'
+      : gates ? '已收尾，待评审计分'
+        : d && (RESUMABLE.has(d.stopReason) || !d.stopReason) ? '驱动中断或暂停'
+          : !d && !run.injections.length ? '已准备，未驱动' : '已驱动，未收尾';
   const next = stage === '已准备，未驱动' ? `node tools/eval/run.mjs drive ${toPosix(run.dir)}`
     : stage === '驱动中断或暂停' ? `node tools/eval/run.mjs drive ${toPosix(run.dir)}`
       : stage === '已驱动，未收尾' ? `node tools/eval/run.mjs finish ${toPosix(run.dir)}`
@@ -408,11 +416,19 @@ async function cmdStatus({ positionals }) {
   return { data, text };
 }
 
+/** node_modules 可能是软链或 Windows 联接点：先单独去掉链接本身，再删目录树，避免删到源仓库的依赖。 */
+function unlinkNodeModules(wt) {
+  const nm = path.join(wt, 'node_modules');
+  try { if (fs.lstatSync(nm).isSymbolicLink()) fs.unlinkSync(nm); } catch { /* 不存在或不是链接 */ }
+  if (process.platform === 'win32') { try { fs.rmdirSync(nm); } catch { /* 不是联接点，或是真目录 */ } }
+}
+
 async function cmdClean({ opts, positionals }, ctx) {
   const run = loadRun(positionals[0]);
   const evalRoot = path.dirname(path.dirname(run.dir));
   if (fs.existsSync(path.join(run.dir, 'drive.lock'))) throw new EvalError('run-busy', 'drive 还在驱动这个运行目录', { exitCode: EXIT.BUSY, hint: '等它结束再清理' });
   if (opts.all) {
+    if (run.worktree && fs.existsSync(run.worktree)) unlinkNodeModules(run.worktree);
     removeTree(run.dir, evalRoot);
     return { data: { removed: [toPosix(run.dir)] }, text: `已删除整个运行目录：${toPosix(run.dir)}（会话记录与报告也一并删除）` };
   }
@@ -422,10 +438,7 @@ async function cmdClean({ opts, positionals }, ctx) {
   const removed = [];
   const wt = run.worktree;
   if (wt && fs.existsSync(wt)) {
-    // node_modules 可能是软链或 Windows 联接点：先单独去掉链接本身，避免删到源仓库的依赖
-    const nm = path.join(wt, 'node_modules');
-    try { if (fs.lstatSync(nm).isSymbolicLink()) fs.unlinkSync(nm); } catch { /* 不存在或不是链接 */ }
-    if (process.platform === 'win32') { try { fs.rmdirSync(nm); } catch { /* 不是空联接点 */ } }
+    unlinkNodeModules(wt);
     removeTree(wt, run.dir);
     removed.push(rel(run.dir, wt));
   }
