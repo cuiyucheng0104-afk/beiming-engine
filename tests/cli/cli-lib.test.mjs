@@ -217,3 +217,39 @@ await runCli(cmd);
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('信号的清理杀掉了 run() 等着的子进程：run() 随后报错也只输出一个信封，退出 143', { skip: process.platform === 'win32' ? 'Windows 没有 POSIX 信号' : false }, async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-cli-'));
+  const script = path.join(dir, 'race.mjs');
+  fs.writeFileSync(script, `
+import { spawn } from 'node:child_process';
+import { CliError, defineCommand, runCli } from ${JSON.stringify(pathToFileURL(path.join(ROOT, 'tools/lib/cli.mjs')).href)};
+const cmd = defineCommand({ name: 'race', summary: 's', run: async ctx => {
+  ctx.onCleanup(() => new Promise(r => setTimeout(r, 400)));   // 后登记的先执行：先杀子进程，再在这里慢慢收尾，子进程的退出恰好落在收尾期间
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)'], { stdio: 'ignore' });
+  ctx.onCleanup(() => child.kill('SIGKILL'));
+  process.stderr.write('READY\\n');
+  const code = await new Promise(r => child.on('close', c => r(c)));
+  throw new CliError('failure.child', '子进程被杀了：' + code, null);
+} });
+await runCli(cmd);
+`);
+  try {
+    const child = spawn(process.execPath, [script, '--json'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '', err = '';
+    child.stdout.on('data', d => { out += d; });
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('子进程没有就绪')), 10000);
+      child.stderr.on('data', d => { err += d; if (err.includes('READY')) { clearTimeout(t); resolve(); } });
+    });
+    child.kill('SIGTERM');
+    const code = await new Promise(r => child.on('close', c => r(c)));
+    assert.equal(code, 143);
+    const j = JSON.parse(out);
+    assert.equal(j.exitCode, 143, '只有信号处理写的那一个信封');
+    assert.equal(j.error.code, 'signal.sigterm');
+    assert.doesNotMatch(err, /failure\.child/, 'run() 之后的报错不再打印');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

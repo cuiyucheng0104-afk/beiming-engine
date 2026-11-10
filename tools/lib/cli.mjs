@@ -336,8 +336,11 @@ export async function runCli(cmd, argv = process.argv.slice(2), io = {}) {
   const warnings = [];
   const cleanups = [];
   let finished = false;
+  let signalled = null;   // 收到信号后的退出码：之后 run() 再结束（例如清理杀掉了它等着的子进程）也不再写结果，由信号处理写唯一的信封
 
-  const finish = (code, { error = null, data = null, outputs = [], runJson = null, humanError = true } = {}) => {
+  const finish = (code, { error = null, data = null, outputs = [], runJson = null, humanError = true } = {}, { fromSignal = false } = {}) => {
+    if (finished) return code;
+    if (signalled !== null && !fromSignal) return signalled;
     finished = true;
     if (error && humanError) {
       writeSafe(stderr, `错误[${error.code}]：${error.message}\n`);
@@ -398,9 +401,10 @@ export async function runCli(cmd, argv = process.argv.slice(2), io = {}) {
   if (signals) {
     for (const [sig, code] of [['SIGINT', EXIT.SIGINT], ['SIGTERM', EXIT.SIGTERM]]) {
       const h = async () => {
-        if (finished) return;
+        if (finished || signalled !== null) return;
+        signalled = code;
         await runCleanups();
-        finish(code, { error: new CliError(`signal.${sig.toLowerCase()}`, `收到 ${sig}，已停止并清理`, { hint: null }) });
+        finish(code, { error: new CliError(`signal.${sig.toLowerCase()}`, `收到 ${sig}，已停止并清理`, { hint: null }) }, { fromSignal: true });
         // 管道上的 stdout 在 macOS 是异步写：等信封写完再退出，最多等 1 秒
         const bye = () => process.exit(code);
         setTimeout(bye, 1000);

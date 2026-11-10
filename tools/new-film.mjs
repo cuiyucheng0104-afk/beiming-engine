@@ -19,7 +19,7 @@
 //      校验器自身出错退出 1（不放过没校验的作品）；--dry-run 不写任何文件，也就不调用校验器。
 //   6. 下一步命令取模版 film.json 的 next，没有就取注册表这条路线的 next（生成的 film.json 里不保留 next）。
 // 不改模版、不渲染、不覆盖已有目录；--dry-run 不写仓库里的任何文件。
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -217,22 +217,39 @@ function parseValidator(r, fromRel, toRel) {
 }
 
 /**
- * 调作品描述校验器。target 是仓库相对的暂存目录（films/.new-*）；诊断里的暂存路径换回最终的 films/<名字>。
- * 返回 { status: passed|failed|error|skipped, … }，只读，不改任何文件。
+ * 调作品描述校验器（异步子进程：收到 Ctrl+C / SIGTERM 时由登记的清理先杀掉它，再删暂存目录）。
+ * target 是仓库相对的暂存目录（films/.new-*）；诊断里的暂存路径换回最终的 films/<名字>。
+ * 返回 Promise<{ status: passed|failed|error|skipped, … }>，只读，不改任何文件。
  */
-function runValidator({ target, fromRel, toRel, scope }) {
+function runValidator({ target, fromRel, toRel, scope, onCleanup }) {
   const command = ['node', VALIDATOR, 'check', toRel, '--json'];
-  if (!fs.existsSync(path.join(ROOT, VALIDATOR))) return { status: 'skipped', scope, reason: `${VALIDATOR} 还没有（作品描述包落地后自动启用）`, command, diagnostics: [] };
-  const r = spawnSync(process.execPath, [path.join(ROOT, VALIDATOR), 'check', target, '--json'], {
-    cwd: ROOT, encoding: 'utf8', timeout: VALIDATOR_TIMEOUT_MS, maxBuffer: 16 << 20, env: { ...process.env, NO_COLOR: '1' },
+  if (!fs.existsSync(path.join(ROOT, VALIDATOR))) return Promise.resolve({ status: 'skipped', scope, reason: `${VALIDATOR} 还没有（作品描述包落地后自动启用）`, command, diagnostics: [] });
+  return new Promise(settle => {
+    const child = spawn(process.execPath, [path.join(ROOT, VALIDATOR), 'check', target, '--json'], {
+      cwd: ROOT, env: { ...process.env, NO_COLOR: '1' }, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    });
+    let stdout = '', stderr = '', timedOut = false, done = false;
+    const cap = (acc, d) => (acc.length > 16 << 20 ? acc : acc + d);
+    child.stdout.setEncoding('utf8').on('data', d => { stdout = cap(stdout, d); });
+    child.stderr.setEncoding('utf8').on('data', d => { stderr = cap(stderr, d); });
+    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, VALIDATOR_TIMEOUT_MS);
+    const unregister = onCleanup(() => { if (!done) child.kill('SIGKILL'); });
+    const finish = (status, error = null) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      unregister();
+      const { env, diagnostics } = parseValidator({ stdout }, fromRel, toRel);
+      const base = { scope, command, exitCode: status, diagnostics };
+      if (error || timedOut) return settle({ ...base, status: 'error', reason: timedOut ? `超过 ${VALIDATOR_TIMEOUT_MS / 1000} 秒没有返回` : `没跑起来（${error.code ?? error.message}）` });
+      if (status === 0) return settle({ ...base, status: 'passed' });
+      if (status === 4) return settle({ ...base, status: 'failed', message: env?.error?.message ?? null });
+      const tail = `${stdout}${stderr}`.trim().split('\n').slice(-8).join('\n');
+      return settle({ ...base, status: 'error', reason: `退出码 ${status}${env?.error?.message ? `：${env.error.message}` : tail ? `：${tail}` : ''}` });
+    };
+    child.on('error', e => finish(null, e));
+    child.on('close', code => finish(code));
   });
-  const { env, diagnostics } = parseValidator(r, fromRel, toRel);
-  const base = { scope, command, exitCode: r.status, diagnostics };
-  if (r.error) return { ...base, status: 'error', reason: r.error.code === 'ETIMEDOUT' ? `超过 ${VALIDATOR_TIMEOUT_MS / 1000} 秒没有返回` : `没跑起来（${r.error.code ?? r.error.message}）` };
-  if (r.status === 0) return { ...base, status: 'passed' };
-  if (r.status === 4) return { ...base, status: 'failed', message: env?.error?.message ?? null };
-  const tail = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim().split('\n').slice(-8).join('\n');
-  return { ...base, status: 'error', reason: `退出码 ${r.status}${env?.error?.message ? `：${env.error.message}` : tail ? `：${tail}` : ''}` };
 }
 
 const fmtDiag = x => `[${x.code}] ${x.path ? `${x.path}：` : ''}${x.message}${x.hint ? `（${x.hint}）` : ''}`;
@@ -406,7 +423,7 @@ async function run(ctx) {
       throw new CliError('failure.io', `写 ${dirRel} 失败：${e.message}`, '检查磁盘空间与目录权限后重跑（这次没有留下半个目录）');
     }
     // 5 作品描述校验器（在暂存目录上，文件、路径、页面时间常量一起查）
-    data.validation = runValidator({ target: `films/${stagingName}`, fromRel: `films/${stagingName}`, toRel: dirRel, scope: 'full' });
+    data.validation = await runValidator({ target: `films/${stagingName}`, fromRel: `films/${stagingName}`, toRel: dirRel, scope: 'full', onCleanup: ctx.onCleanup });
     settleValidation(data.validation, ctx, data);
     try { fs.renameSync(tmp, dst); } catch (e) {
       if (['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(e.code) && fs.existsSync(dst)) throw new CliError('usage.exists', `${dirRel} 刚被别的进程建好了：不覆盖`, '换个名字重跑');

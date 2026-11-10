@@ -4,7 +4,7 @@
 // 仓库里已有作品描述校验器 engine/production/film.js 时，三条路线各生成一部并用它复核（联调）。
 //   node --test tests/cli/new-film.test.mjs
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -319,6 +319,31 @@ test('作品描述校验器在暂存目录上跑：通过才落盘；不过退�
   assert.equal(crash.json.error.code, 'failure.film-check');
   assert.match(crash.json.error.message, /退出码 1：校验器崩了/);
   assert.deepEqual(listFilms(dir).sort(), ['v1']);
+});
+
+test('校验中途收到 SIGTERM：先杀掉校验器、删掉暂存目录，再以 143 退出，只输出一个信封', { skip: process.platform === 'win32' ? 'Windows 没有 POSIX 信号' : false }, async () => {
+  const dir = sandbox();
+  const pidFile = path.join(dir, 'validator.pid');
+  fakeValidator(dir, { exit: 0, raw: `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setTimeout(() => {}, 30000);\n` });
+  const child = spawn(process.execPath, [path.join(dir, 'tools/new-film.mjs'), 'a', 'sig', '--json'], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '';
+  child.stdout.on('data', d => { out += d; });
+  const started = Date.now();
+  while (!fs.existsSync(pidFile)) {
+    assert.ok(Date.now() - started < 15000, '校验器没有启动');
+    await new Promise(r => setTimeout(r, 50));
+  }
+  const vpid = Number(fs.readFileSync(pidFile, 'utf8'));
+  assert.ok(listFilms(dir).some(n => n.startsWith('.new-sig-')), '校验时暂存目录在');
+  child.kill('SIGTERM');
+  const code = await new Promise(r => child.on('close', c => r(c)));
+  assert.equal(code, 143);
+  const env = JSON.parse(out);
+  assert.equal(env.exitCode, 143);
+  assert.equal(env.error.code, 'signal.sigterm');
+  assert.deepEqual(listFilms(dir) ?? [], [], '暂存目录与新建的 films/ 都清掉');
+  await new Promise(r => setTimeout(r, 100));
+  assert.throws(() => process.kill(vpid, 0), e => e.code === 'ESRCH', '校验器进程不能残留');
 });
 
 test('模版 .gitignore 列出的生成物与符号链接不复制', { skip: process.platform === 'win32' ? '建符号链接要管理员权限' : false }, () => {
