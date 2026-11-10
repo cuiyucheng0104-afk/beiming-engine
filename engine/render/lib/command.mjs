@@ -75,7 +75,7 @@ export const RENDER_OPTIONS = Object.freeze({
   'lenient-assets': { type: 'boolean', describe: '非脚本类的本地 404 只记提示（页面自己有回退时用）' },
   'allow-gl-errors': { type: 'boolean', describe: '着色器错误只记提示（调试用，产物不能交付）' },
   'ready-timeout': { type: 'number', arg: '<秒>', describe: '等 window.READY 的上限（默认 BEIMING_READY_TIMEOUT，再默认 180）' },
-  'frame-timeout': { type: 'number', arg: '<秒>', describe: '单帧 render(t) 的上限（默认 BEIMING_FRAME_TIMEOUT，再默认 120）' },
+  'frame-timeout': { type: 'number', arg: '<秒>', describe: '单帧 render(t) 的上限（默认 BEIMING_FRAME_TIMEOUT，再默认 60）' },
   settle: { type: 'string', choices: ['auto', 'none', 'raf2'], default: 'auto', arg: '<方式>', describe: 'render 后截图前：raf2 再等两帧（Vulkan 显示层残留的对策）；auto 只在 vulkan 时用 raf2' },
   progress: { type: 'string', choices: ['text', 'ndjson', 'none'], default: 'text', arg: '<格式>', describe: '进度：text（默认）| ndjson（stderr 每行一个 JSON 事件）| none' },
   slots: { type: 'integer', min: 1, max: 256, arg: '<n>', describe: '机器级渲染槽位（默认 RENDER_SLOTS；不设不限）' },

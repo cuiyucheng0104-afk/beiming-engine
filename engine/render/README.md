@@ -43,7 +43,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 
 禁止：渲染路径里用 `Math.random`、`Date.now`、`performance.now`（计时除外）；渲染时读回 GPU 画布（会把画布从 GPU 光栅切到 CPU 光栅，破坏分段一致）；访问外网（默认拦截并判失败，`--allow-network` 放行并记进运行记录）。
 
-判为致命、立即停下的页面问题：未捕获的异常、`render(t)` 抛错或返回 reject、页面崩溃、着色器编译失败（控制台 `Shader Error` / `VALIDATE_STATUS false`，three.js 的写法）、WebGL 上下文丢失（每个 WebGL 画布的 `webglcontextlost` 都被监测）、任何本地文件返回 ≥ 400 或请求失败（`--lenient-assets` 只放行非脚本类的 404）、单帧超过 120 秒（`--frame-timeout`）。
+判为致命、立即停下的页面问题：未捕获的异常、`render(t)` 抛错或返回 reject、页面崩溃、着色器编译失败（控制台 `Shader Error` / `VALIDATE_STATUS false`，three.js 的写法）、WebGL 上下文丢失（每个 WebGL 画布的 `webglcontextlost` 都被监测）、任何本地文件返回 ≥ 400 或请求失败（`--lenient-assets` 只放行非脚本类的 404）、单帧超过 60 秒（`--frame-timeout`）。
 
 ## 3. 帧、时间与区间
 
@@ -182,7 +182,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `BEIMING_GPU` | `--gpu` 的默认值：required / any / software-ok |
 | `BEIMING_ANGLE` | `--angle` 的默认值 |
 | `BEIMING_CHROME` | 换浏览器可执行文件（默认锁定的 headless shell） |
-| `BEIMING_READY_TIMEOUT`、`BEIMING_FRAME_TIMEOUT` | 等 READY、单帧的上限（秒） |
+| `BEIMING_READY_TIMEOUT`、`BEIMING_FRAME_TIMEOUT` | 等 READY、单帧 `render(t)` 的上限（秒，默认 180、60） |
 | `FFMPEG`、`FFPROBE` | FFmpeg / ffprobe 的完整路径（`tools/env/lib/ffmpeg.mjs` 的 `ffmpegBins`） |
 | `RENDER_SLOTS`、`BEIMING_SLOT_DIR`、`BEIMING_SLOT_HELD` | 机器级渲染槽位数、槽位目录（默认系统临时目录下 `beiming-render-slots-<用户>`）；外层调度已替这次渲染占了槽位时设 `BEIMING_SLOT_HELD=1` |
 | `BEIMING_GPU_BUSY_UTIL`、`BEIMING_GPU_MIN_FREE_MB`、`COMFY_URL` | 共享 GPU 守卫的阈值与 ComfyUI 地址 |

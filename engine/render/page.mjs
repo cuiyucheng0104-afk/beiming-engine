@@ -359,7 +359,7 @@ export async function finalFaultCheck(film) {
 
 export const frameTimeoutMs = () => {
   const s = Number(process.env.BEIMING_FRAME_TIMEOUT);
-  return Number.isFinite(s) && s > 0 ? s * 1000 : 120000;
+  return Number.isFinite(s) && s > 0 ? s * 1000 : 60000;   // 默认 60 秒（审计 TOOLS-01）：4K 软件渲染的重帧也只要几秒，卡死要尽快判失败
 };
 
 export { stderrLog };
