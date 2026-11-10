@@ -1,31 +1,37 @@
-// 字形覆盖：片名用到的字是不是都在字体里。缺字时浏览器会静默换成系统字体，换一台机器字形就变（交付一票否决项）。
+// 字形覆盖：片名、印文用到的字是不是都在字体里。缺字时浏览器会静默换成系统字体，换一台机器字形就变（交付一票否决项）。
+//   loadProbes(fonts) → Promise   fonts 同 film.js 的 FONTS（[族名, 地址, 字重]）：每个字体再按 50% 字号（size-adjust）
+//                                 登记一份"探针"副本。main.js 在 setup 之前 await 它
 //   missingGlyphs(text, family, weight) → [缺的字]
-//       做法：同一个字、同一字号，分别用「目标字体, serif」和「不存在的字体, serif」画到小画布上逐像素比较；
-//       两张一样，说明目标字体里没有这个字（画出来的是同一个系统回退字体）。与平台装了哪些字体无关。
-//       必须左对齐、字母基线对齐：居中或 middle 基线会按"第一个字体"的度量摆位置，回退字形的位置就不同，比较会失灵。
+//       做法：同一个字分别用「字体」和「它的 50% 探针」量宽度。字体里有这个字时，探针画出来只有一半宽；
+//       没有这个字时两边都退到同一个系统字体，宽度一样——于是"宽度相等"就是缺字。与平台装了哪些字体无关。
+//       （不能拿"不存在的字体"当对照：实测无头 Chrome 里，网页字体缺字时退到的系统字体与未知字体名退到的不是同一个，
+//         那种比法会把缺字误判成"有"。）
 //   pickFont(text, families, weight) → { family, missing, tried }
 //       按顺序取第一个"全部字都有"的字体；都不全时取缺字最少的那个（同样少取靠前的），missing 是它缺的字。
-// 只在 setup 里调用（每个字两次 48×48 绘制，十个字以内约 1 ms）。
-const NO_SUCH = '__bm_no_such_font__';
-let cv = null;
+// 只在 setup 里调用（每个字量两次宽度，十个字以内远不到 1 ms）。
+const PROBE = ' ·probe';
+let ctx = null;
 
-function pixels(font, ch) {
-  cv ??= document.createElement('canvas');
-  cv.width = cv.height = 56;
-  const g = cv.getContext('2d', { willReadFrequently: true });
-  g.clearRect(0, 0, 56, 56); g.font = font; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#000';
-  g.fillText(ch, 4, 44);
-  return g.getImageData(0, 0, 56, 56).data;
+export async function loadProbes(fonts) {
+  await Promise.all(fonts.map(async ([family, url, weight]) => {
+    const f = new FontFace(family + PROBE, `url("${String(url).replace(/["\\]/g, '\\$&')}")`, { weight, sizeAdjust: '50%', display: 'block' });
+    document.fonts.add(f);
+    await f.load();
+  }));
 }
+
+const width = (font, ch) => {
+  ctx ??= document.createElement('canvas').getContext('2d');
+  ctx.font = font;
+  return ctx.measureText(ch).width;
+};
 
 export function missingGlyphs(text, family, weight = 400) {
   const miss = [];
   for (const ch of new Set([...text])) {
     if (/\s/u.test(ch)) continue;
-    const a = pixels(`${weight} 44px "${family}", serif`, ch), b = pixels(`${weight} 44px "${NO_SUCH}", serif`, ch);
-    let same = true;
-    for (let i = 3; i < a.length; i += 4) if (a[i] !== b[i]) { same = false; break; }
-    if (same) miss.push(ch);
+    const a = width(`${weight} 64px "${family}", serif`, ch), b = width(`${weight} 64px "${family + PROBE}", serif`, ch);
+    if (Math.abs(a - b) < 0.25) miss.push(ch);
   }
   return miss;
 }

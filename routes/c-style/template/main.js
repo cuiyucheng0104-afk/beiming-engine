@@ -3,8 +3,10 @@
 import { loadFonts } from '../../engine/overlay/text.js';
 import { FPS, DUR, TIMELINE, buildEvents } from './timeline.js';
 import { setup, render, TEXTS, scene, FONTS, TITLE, SEAL_TEXT } from './film.js';
+import { loadProbes } from './type.js';
 
 await loadFonts(FONTS);
+await loadProbes(FONTS);        // 缺字检查用的探针字体（type.js）
 const report = setup(document.getElementById('c'));
 for (const [role, text] of [['title', TITLE], ['seal', SEAL_TEXT]]) {
   const r = report.fonts[role];
