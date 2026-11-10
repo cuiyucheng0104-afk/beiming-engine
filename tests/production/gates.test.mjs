@@ -156,6 +156,35 @@ test('豁免：用户原话可以跳过 look / animatic，final 不能豁免', (
   } finally { t.cleanup(); }
 });
 
+test('下一步分两种：可选的结构确认是建议（next 里以「（建议）」开头），卡住交付的那一步单列 nextRequired；gate deliver 的提示指向后者', () => {
+  const t = tempFilm(minimalFilm());
+  try {
+    let s = filmStatus(t.dir);
+    assert.equal(s.gates.structure.status, 'missing');
+    assert.match(s.next[0], /^（建议）⛔1/);
+    assert.match(s.nextRequired, /^⛔2 风格/);
+    assert.deepEqual(s.next, [s.next[0], s.nextRequired]);
+
+    record(t.dir, 'look', 'waive', { quote: '不用看风格帧了，直接按北冥原版来。' });
+    record(t.dir, 'animatic', 'waive', { quote: '预演也跳过，直接出成片。' });
+    s = filmStatus(t.dir);
+    assert.equal(s.state, 'animatic-approved');
+    assert.match(s.nextRequired, /^终渲/);
+    assert.throws(() => assertDelivered(t.dir), e => e instanceof GateError && /^终渲/.test(e.hint));
+    const r = runFilm(['gate', t.dir, 'deliver', '--json']);
+    assert.equal(r.status, 4);
+    assert.match(r.json.error.hint, /^终渲：/, '提示是该做的终渲，不是可选的结构确认');
+
+    writeRun(t.dir, { status: 'rendered' });
+    assert.match(filmStatus(t.dir).nextRequired, /^机器 QA/);
+    writeRun(t.dir, { status: 'passed', qa: { ok: true } });
+    s = filmStatus(t.dir);
+    assert.equal(s.state, 'qa-passed');
+    assert.match(s.nextRequired, /^⛔4 成片/);
+    assert.match(runFilm(['gate', t.dir, 'deliver', '--json']).json.error.hint, /^⛔4 成片/);
+  } finally { t.cleanup(); }
+});
+
 test('认可之后改了切点：animatic 认可自动失效（stale），终渲被拒并说出差异；只改事件只提示', () => {
   const t = tempFilm(minimalFilm(), { 'p.mp4': 'P' });
   try {

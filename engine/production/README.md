@@ -94,14 +94,16 @@
 
 | 函数 | 用途 |
 |---|---|
-| `filmStatus(target)` | 现算状态 `{ state, label, gates, run, qa, canFinal, diagnostics, next }` |
+| `filmStatus(target)` | 现算状态 `{ state, label, gates, run, qa, canFinal, diagnostics, next, nextRequired }`：`next` 按制作顺序列出全部下一步（只记录不阻断的 ⛔1 结构确认以「（建议）」开头）；`nextRequired` 是卡住状态往上走的那一步（accepted 时为 `null`） |
 | `assertFinalAllowed(target)` | 终渲前调用：look 与 animatic 认可或豁免才放行，否则抛 `GateError`（`exitCode` 4） |
-| `assertDelivered(target)` | 写「已交付」之前调用：只有 accepted 放行 |
+| `assertDelivered(target)` | 写「已交付」之前调用：只有 accepted 放行；拒绝时 `hint` 是 `nextRequired`（终渲、机器 QA 或 ⛔4） |
 | `deliveryLabel(state)` / `findUnbackedClaims(text, state)` | 状态的对外文字；查出没有 accepted 撑腰的「已交付」「用户已认可」 |
 | `recordReview(target, input)` | 记一条审片结论（命令行 `film.js review` 与出片编排共用）：拼记录、算所看文件 sha256、校验，合格才原子地写 |
 | `creativeAcceptanceOf(target, { runShas })` | 给 run.json 的 `creativeAcceptance`：由看过这次成片的 final 记录生成（`accepted` / `rejected` / `ai-reviewed` / `not-reviewed`） |
 | `buildReview` / `validateReview` / `writeReview` / `readReviews` / `gateVerdict` | 审片记录（字段 `gate`、`decision`、`quote`、`source`、`at` 与验收题库 H6 同名；另认 `review/waivers.json`） |
 | `validateRunRecord(run, { film, runDir, repoRoot })` / `validateQaReport(report, { film, runShas })` | 运行记录（附录 C8 严格口径）与 QA 报告（结构用 `tools/qa/lib/report.mjs` 的 `validateReport`，再核对作品、产物 sha256、档位） |
+
+机器 QA 的报告校验器按需加载（`state.js` 的 `QA_VALIDATOR.available`）：只装了引擎的检出（没有 `tools/qa`）里，`check`、`expect`、`retime`、`status`、`gate`、`review` 照常可用，只是判不了 QA 报告——凡要认 QA 报告的地方一律不放行（诊断 `qa-validator-missing`，状态停在 `rendered`；`validate-result` 退出 3），不会误判通过。`check` 等不涉及闸门的子命令连 `state.js` 都不加载。
 
 运行目录：`films/<名>/out/<run-id>/`（run-id 为 `YYYYMMDD-HHMMSS-<短提交>[-dirty]`），`out/latest` 是写着 run-id 的指针文件（不用符号链接）。渲染器写 `run.json` 的 `kind`（final / animatic / preview / still）与 `status: rendered`、`technicalAcceptance.status: not-run`；QA 写 `qa/report.json`。
 
@@ -125,6 +127,6 @@ node engine/production/film.js <子命令> [参数] [--json]
   profiles                                                   列出交付档位
 ```
 
-命令约定用 `tools/lib/cli.mjs`（[docs/CLI.md](../../docs/CLI.md)）。退出码（附录 C1）：0 成功；1 运行失败；2 用法错误或找不到文件；4 契约 / 闸门不通过；130 / 143 收到中断信号（已删掉未写完的临时文件）。`--json` 时 stdout 只有一个信封 `{ schemaVersion, ok, exitCode, command, error: { code, message, hint } | null, outputs, runJson, warnings: [{ code, message, hint }], data }`，命令的结果在 `data`（`check` 的诊断在 `data.diagnostics`）；错误码带退出码前缀（`usage.*`、`contract.*`、`failure.*`）。未知选项与未知子命令给「是不是想写」的建议；`--help` 输出到 stdout、exit 0、不读写作品文件。写文件一律原子写（同目录临时文件 + rename）。
+命令约定用 `tools/lib/cli.mjs`（[docs/CLI.md](../../docs/CLI.md)）。退出码（附录 C1）：0 成功；1 运行失败；2 用法错误或找不到文件；3 环境缺失（`validate-result` 有 QA 报告要判、检出里却没有 `tools/qa`）；4 契约 / 闸门不通过；130 / 143 收到中断信号（已删掉未写完的临时文件）。`--json` 时 stdout 只有一个信封 `{ schemaVersion, ok, exitCode, command, error: { code, message, hint } | null, outputs, runJson, warnings: [{ code, message, hint }], data }`，命令的结果在 `data`（`check` 的诊断在 `data.diagnostics`）；错误码带退出码前缀（`usage.*`、`env.*`、`contract.*`、`failure.*`）。未知选项与未知子命令给「是不是想写」的建议；`--help` 输出到 stdout、exit 0、不读写作品文件。写文件一律原子写（同目录临时文件 + rename）。
 
 测试：`node --test "tests/production/**/*.test.mjs" "tests/assets/**/*.test.mjs"`（Node 22 起支持 glob；直接给目录名不会展开）。

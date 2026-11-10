@@ -2,7 +2,7 @@
 // 状态不写进任何文件，每次由三样东西现算：film.json、review/ 里的审片记录、最近一次运行 out/latest → <run-id>/run.json 与 qa/report.json。
 // 只有连续满足的阶段才算数：没过 animatic 就出的终渲、QA 报告对不上成片的、用户认可的不是这一版成片的，都不往上走。
 //
-//   filmStatus(target)               → { state, label, film, gates, run, qa, canFinal, diagnostics, next }
+//   filmStatus(target)               → { state, label, film, gates, run, qa, canFinal, diagnostics, next, nextRequired }
 //   assertFinalAllowed(target)       终渲前调用：look 与 animatic 都已认可或豁免才放行，否则抛 GateError（退出码 4）
 //   assertDelivered(target)          只有 accepted 才放行（生成「已交付」字样之前调用）
 //   recordReview(target, input)      记一条审片结论：拼记录、算所看文件 sha256、校验，合格才原子地写 review/<闸>-<日期>.json
@@ -11,18 +11,27 @@
 //   validateRunRecord(run, { film, runDir, repoRoot }) 运行记录（附录 C8，RenderResult 严格口径）
 //   validateQaReport(report, { film, runShas })       QA 报告：结构用机器 QA 自己的 validateReport（tools/qa/lib/report.mjs，同一把尺子），
 //                                                    再核对它查的是这次运行的成片、档位在作品的交付清单里
+//   QA_VALIDATOR                     { available, path }：这份检出里有没有机器 QA 的报告校验器（没有时 QA 报告一律判不合格，见下）
 //   qaReportIds(report)              QA 报告里的作品 id 与档位 id（报告写成对象 { id, … }，附录 C8 的最小写法是字符串，两种都认）
 //   readLatestRun(loaded)            按 latest 指针文件找最近一次运行（不跟符号链接）
 //   creativeAcceptanceOf(target, { runShas }) → run.json 的 creativeAcceptance { status, reviews[] }：由 review/ 里看过这次成片
 //                                    （reviewed 的 sha256 对得上）的 final 记录生成，给出片编排写运行记录用；与状态机同一来源，不另判
+// filmStatus 的 next 是按制作顺序排的全部下一步（可选的建议以「（建议）」开头）；nextRequired 是其中真正卡住状态往上走的那一步。
 // 运行目录：普通作品 films/<名>/out/<run-id>/；镜像作品用 film.json 的 mirror.outDir（如 out/beiming/<run-id>/）。
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { FilmError, loadFilm } from './film.js';
 import { REPO_ROOT, readJsonFile } from './io.js';
 import { validateRenderResult } from './project.js';
-import { validateReport as validateQaReportShape } from '../../tools/qa/lib/report.mjs';
 import { GATES, HUMAN_DECISIONS, buildReview, gateVerdict, readReviews, recordTime, validateReview, writeReview } from './review.js';
+
+// 机器 QA 的报告校验器（tools/qa/lib/report.mjs，P07 维护）按需加载：这份检出没有 tools/qa 时（例如只复制了 engine/ 与 tools/lib 的
+// 沙盒、只装了引擎的检出），本模块与 film.js 的各命令照常可用，只是判不了 QA 报告——凡要认 QA 报告的地方一律不放行
+// （诊断 qa-validator-missing），不会因为少了校验器而误判通过，也不另写一套口径。
+// 以文件在不在为准，不吞导入错误：report.mjs 在但坏了，照样报错。没有循环依赖（report.mjs 不 import 本包），顶层 await 安全。
+const QA_REPORT_LIB = new URL('../../tools/qa/lib/report.mjs', import.meta.url);
+const qaReportLib = existsSync(QA_REPORT_LIB) ? await import(QA_REPORT_LIB.href) : null;
+export const QA_VALIDATOR = Object.freeze({ available: qaReportLib !== null, path: 'tools/qa/lib/report.mjs' });
 
 export const STATES = Object.freeze(['draft', 'look-approved', 'animatic-approved', 'rendered', 'qa-passed', 'accepted']);
 export const STATE_LABELS = Object.freeze({
@@ -121,7 +130,10 @@ export function validateQaReport(report, { film = null, runShas = null } = {}) {
   const diagnostics = [];
   const err = (code, path, message, hint = '') => diagnostics.push({ level: 'error', code, path, message, hint });
   if (!isObj(report)) { err('qa-invalid', '$', 'qa/report.json 必须是 JSON 对象'); return { ok: false, diagnostics, passed: false }; }
-  for (const e of validateQaReportShape(report).errors) {
+  if (!qaReportLib) {
+    err('qa-validator-missing', '$', `这份检出没有机器 QA 的报告校验器 ${QA_VALIDATOR.path}，判不了 QA 报告：不放行`,
+      'QA 报告只认机器 QA 自己的口径：在完整的仓库检出里重跑（缺的文件用 git checkout -- tools/qa 恢复）');
+  } else for (const e of qaReportLib.validateReport(report).errors) {
     const i = e.indexOf('：');
     err('qa-report-invalid', i > 0 ? e.slice(0, i) : '$', i > 0 ? e.slice(i + 1) : e, '报告由 node tools/qa/cli.mjs report <成片> 生成，不要手写；结构见 docs/quality/QA-GATE.md');
   }
@@ -176,9 +188,9 @@ export function filmStatus(target, { loaded = null } = {}) {
   for (const r of reviews.records) if (!r.valid) diagnostics.push(...r.diagnostics.filter(d => d.level === 'error').map(d => ({ ...d, path: `review/${r.name}:${d.path}` })));
   const gates = {};
   for (const g of ['structure', ...GATES]) gates[g] = gateVerdict(reviews.records, g, film);
-  const next = [];
   if (!L.ok) {
-    return { state: 'invalid', label: STATE_LABELS.invalid, film: null, filmDir: L.filmDir, gates, run: null, qa: null, canFinal: false, diagnostics, next: ['node engine/production/film.js check <作品> 看诊断并修好 film.json'] };
+    const fix = 'node engine/production/film.js check <作品> 看诊断并修好 film.json';
+    return { state: 'invalid', label: STATE_LABELS.invalid, film: null, filmDir: L.filmDir, gates, run: null, qa: null, canFinal: false, diagnostics, next: [fix], nextRequired: fix };
   }
   const passed = g => ['approved', 'waived'].includes(gates[g].status);
   const lookOk = passed('look'), animaticOk = lookOk && passed('animatic');
@@ -216,14 +228,18 @@ export function filmStatus(target, { loaded = null } = {}) {
   const state = accepted ? 'accepted' : qaPassed ? 'qa-passed' : rendered ? 'rendered' : animaticOk ? 'animatic-approved' : lookOk ? 'look-approved' : 'draft';
 
   const cmd = `node engine/production/film.js review ${L.filmDir === resolve(L.filmDir) ? '<作品>' : L.filmDir}`;
+  // 卡住状态往上走的那一步（至多一步）；⛔1 结构确认只记录不阻断，单列为建议，不能当成交付或终渲的前置
+  const nextRequired = !lookOk ? `⛔2 风格：出风格帧 / 色彩脚本条给用户看，记录认可：${cmd} --gate look --decision approve --file <风格帧> --quote "<原话>" --source-ref "<出处>"`
+    : !animaticOk ? `⛔3 动态预演：按正片时间轴出半分辨率预演给用户看，记录认可：${cmd} --gate animatic --decision approve --file <预演片> --quote "<原话>" --source-ref "<出处>"`
+      : !rendered ? '终渲：npm run film -- render <作品> --final（工具接入前用 engine/render）；run.json 写 kind: "final"、status: "rendered"'
+        : !qaPassed ? '机器 QA：对这次成片跑 tools/qa，报告写到 <run-id>/qa/report.json'
+          : !accepted ? `⛔4 成片：把这次的成片给用户全速带声看完，记录认可：${cmd} --gate final --decision approve --file <成片> --quote "<原话>" --source-ref "<出处>"`
+            : null;
+  const next = [];
   if (gates.structure.status === 'missing') next.push('（建议）⛔1 结构确认：把一句话、三候选结构与对标表给用户，记录原话（--gate structure）');
-  if (!lookOk) next.push(`⛔2 风格：出风格帧 / 色彩脚本条给用户看，记录认可：${cmd} --gate look --decision approve --file <风格帧> --quote "<原话>" --source-ref "<出处>"`);
-  else if (!animaticOk) next.push(`⛔3 动态预演：按正片时间轴出半分辨率预演给用户看，记录认可：${cmd} --gate animatic --decision approve --file <预演片> --quote "<原话>" --source-ref "<出处>"`);
-  else if (!rendered) next.push('终渲：npm run film -- render <作品> --final（工具接入前用 engine/render）；run.json 写 kind: "final"、status: "rendered"');
-  else if (!qaPassed) next.push('机器 QA：对这次成片跑 tools/qa，报告写到 <run-id>/qa/report.json');
-  else if (!accepted) next.push(`⛔4 成片：把这次的成片给用户全速带声看完，记录认可：${cmd} --gate final --decision approve --file <成片> --quote "<原话>" --source-ref "<出处>"`);
+  if (nextRequired) next.push(nextRequired);
 
-  return { state, label: STATE_LABELS[state], film: { id: film.id, title: film.title, frameCount: film.output.frameCount, fps: film.output.fps, profile: film.output.profile }, filmDir: L.filmDir, gates, run: runInfo, qa: qaInfo, canFinal: animaticOk, diagnostics, next };
+  return { state, label: STATE_LABELS[state], film: { id: film.id, title: film.title, frameCount: film.output.frameCount, fps: film.output.fps, profile: film.output.profile }, filmDir: L.filmDir, gates, run: runInfo, qa: qaInfo, canFinal: animaticOk, diagnostics, next, nextRequired };
 }
 
 /**
@@ -273,7 +289,7 @@ export function creativeAcceptanceOf(target, { runShas, loaded = null } = {}) {
 
 export function assertFinalAllowed(target, opts = {}) {
   const s = filmStatus(target, opts);
-  if (s.state === 'invalid') throw new GateError('film.json 不合格，不能终渲', { hint: s.next[0], status: s });
+  if (s.state === 'invalid') throw new GateError('film.json 不合格，不能终渲', { hint: s.nextRequired, status: s });
   if (s.canFinal) return s;
   const missing = ['look', 'animatic'].filter(g => !['approved', 'waived'].includes(s.gates[g].status)).map(g => `${g}（${s.gates[g].status}：${s.gates[g].reason}）`);
   throw new GateError(`拒绝终渲：${missing.join('；')}`, {
@@ -285,5 +301,6 @@ export function assertFinalAllowed(target, opts = {}) {
 export function assertDelivered(target, opts = {}) {
   const s = filmStatus(target, opts);
   if (s.state === 'accepted') return s;
-  throw new GateError(`还不能写「已交付」：当前状态 ${s.state}（${s.label}）`, { hint: s.next[0] ?? '', status: s });
+  // 提示取真正卡住交付的那一步（终渲、QA 或 ⛔4），不取可选的结构确认建议
+  throw new GateError(`还不能写「已交付」：当前状态 ${s.state}（${s.label}）`, { hint: s.nextRequired ?? '', status: s });
 }

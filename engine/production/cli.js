@@ -15,11 +15,15 @@ import {
 } from './film.js';
 import { REPO_ROOT, cleanupTemps, formatJson, readJsonFile, repoRelative, toPosix, writeJsonAtomic } from './io.js';
 import { DECISIONS, RECORD_GATES, REVIEWER_KINDS, RUBRIC_DIMENSIONS, SOURCE_KINDS, VETOES, isoLocal } from './review.js';
-import { assertDelivered, assertFinalAllowed, filmStatus, qaReportIds, recordReview, validateQaReport, validateRunRecord } from './state.js';
 import { TimelineError, cutList, legacyEvents, legacyTimeline } from './timeline.js';
 
 const PROG = 'node engine/production/film.js';
 const PREFIX = { 1: 'failure', 2: 'usage', 3: 'env', 4: 'contract', 5: 'busy' };
+/**
+ * 状态机与闸门（state.js，连带审片记录与机器 QA 的报告校验器）只在 validate-result / status / gate / review 里按需加载：
+ * check、expect、export、retime、upgrade、profiles 只依赖作品描述本身与 tools/lib，新建作品与评测的作品描述校验不受 tools/qa 在不在影响。
+ */
+const stateLib = () => import('./state.js');
 
 // ───────────────────────── 共用 ─────────────────────────
 
@@ -135,8 +139,9 @@ const validateResult = defineCommand({
     '（相对运行目录或仓库根）能被机器 QA 的 validateReport 解析、ok = true、查的是这次运行的产物；运行目录的 qa/report.json 一并核对；',
     'accepted 至少要一条人工认可（reviewerKind = human、decision = approve、带原话与出处）。',
   ],
-  exitCodes: { 0: '通过', 2: '找不到 run.json 或作品', 4: '不合格（含坏 JSON）', 1: '运行失败' },
-  run: guard(ctx => {
+  exitCodes: { 0: '通过', 2: '找不到 run.json 或作品', 3: '有 QA 报告要判，但这份检出没有机器 QA 的报告校验器（tools/qa）', 4: '不合格（含坏 JSON）', 1: '运行失败' },
+  run: guard(async ctx => {
+    const { qaReportIds, validateQaReport, validateRunRecord } = await stateLib();
     const file = resolve(ctx.args.run);
     const r = readJsonFile(file);
     if (!r.ok) {
@@ -179,6 +184,9 @@ const validateResult = defineCommand({
     ctx.out([`${errors.length ? '✗' : '✓'} ${shown(file)}${film ? `（作品 ${film.id}${filmSource.auto ? '，按运行目录找到' : ''}）` : '（没有对照作品）'}`, ...diags.map(fmtDiag)].join('\n'));
     const data = { file: shown(file), film: filmSource, qaReports: qa, diagnostics: diags };
     if (!errors.length) return { data, warnings: diagWarnings(diags), runJson: shown(file) };
+    // 少了机器 QA 的校验器是环境问题（退出码 3），不是这次运行不合格：先补齐检出，再判
+    const missing = errors.find(d => d.code === 'qa-validator-missing');
+    if (missing) return { exitCode: 3, data, warnings: diagWarnings(diags), runJson: shown(file), error: { code: 'env.qa-validator-missing', message: missing.message, hint: missing.hint || null } };
     return { exitCode: 4, data, warnings: diagWarnings(diags), runJson: shown(file), error: { code: 'contract.run-invalid', message: `[${errors[0].code}] ${errors[0].path}：${errors[0].message}`, hint: errors[0].hint || null } };
   }),
 });
@@ -203,11 +211,12 @@ const status = defineCommand({
   positionals: [{ name: 'target', label: '<作品目录>', describe: '作品目录（films/<名>）' }],
   description: '状态不存档：由 film.json、review/ 的审片记录、out/latest 指向的 run.json 与 qa/report.json 现算。只有 accepted 能对外写「已交付」。',
   exitCodes: { 0: '已算出状态', 2: '找不到作品', 4: 'film.json 不合格', 1: '运行失败' },
-  run: guard(ctx => {
+  run: guard(async ctx => {
+    const { filmStatus } = await stateLib();
     const s = filmStatus(load(ctx.args.target).filmDir);
     ctx.out(statusText(s));
     if (s.state !== 'invalid') return { data: statusData(s), warnings: diagWarnings(s.diagnostics) };
-    return { exitCode: 4, data: statusData(s), warnings: diagWarnings(s.diagnostics), error: { code: 'contract.film-invalid', message: 'film.json 不合格，算不出状态', hint: s.next[0] ?? null } };
+    return { exitCode: 4, data: statusData(s), warnings: diagWarnings(s.diagnostics), error: { code: 'contract.film-invalid', message: 'film.json 不合格，算不出状态', hint: s.nextRequired ?? null } };
   }),
 });
 
@@ -220,12 +229,13 @@ const gate = defineCommand({
     { name: 'stage', label: 'final|deliver', describe: 'final：能否终渲；deliver：能否写「已交付」' },
   ],
   exitCodes: { 0: '放行', 4: '拒绝（附原因与下一步）', 2: '用法错误', 1: '运行失败' },
-  run: guard(ctx => {
+  run: guard(async ctx => {
     const { target, stage } = ctx.args;
     if (!['final', 'deliver'].includes(stage)) {
       const s = suggest(stage, ['final', 'deliver']);
       throw usage('bad-value', `gate 的第二个参数只能是 final 或 deliver，收到「${stage}」`, s ? `是不是想写 ${s}？` : null);
     }
+    const { assertDelivered, assertFinalAllowed } = await stateLib();
     const dir = load(target).filmDir;
     const s = stage === 'final' ? assertFinalAllowed(dir) : assertDelivered(dir);
     ctx.out(`✓ ${stage === 'final' ? '可以终渲' : '可以写「已交付」'}：${s.state} — ${s.label}`);
@@ -301,7 +311,7 @@ const review = defineCommand({
     `${PROG} review films/chendu --gate animatic --decision waive --quote "预演不用给我看了，直接出全片。" --source-ref "会话第 20 条"`,
   ],
   exitCodes: { 0: '已记录（--dry-run 时只打印）', 4: '记录不合格（没写文件）', 2: '用法错误', 1: '运行失败' },
-  run: guard(ctx => {
+  run: guard(async ctx => {
     const o = ctx.opts;
     for (const k of ['gate', 'decision']) if (!o[k]) throw usage('missing-option', `review 缺少 --${k}`, review.usage[0]);
     if (o.quote !== null && o['quote-file'] !== null) throw usage('conflict', '--quote 与 --quote-file 只给一个');
@@ -330,6 +340,7 @@ const review = defineCommand({
       issues: o['issues-file'] !== null ? readIssuesFile(o['issues-file']) : undefined,
     };
     ctx.onCleanup(cleanupTemps);
+    const { recordReview } = await stateLib();
     let r;
     try { r = recordReview(L.filmDir, input, { dryRun: o['dry-run'] }); } catch (e) {
       if (e.code === 'review-files') throw usage('bad-path', e.message);
