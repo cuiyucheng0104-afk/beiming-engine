@@ -13,7 +13,7 @@
   command    任意本地 TTS 命令（Piper、CosyVoice、Windows SAPI 的 PowerShell 脚本……）：params.argv 里用 {text} {text_file} {out}
              {voice} {rate} 占位；可选 params.words 指向它写出的 [[字词, 起, 止], …] JSON
   minimax    MiniMax 语音合成 t2a_v2（联网、按字计费）：密钥只从 MINIMAX_API_KEY 或系统钥匙串 beiming-minimax 读；
-             逐字时间戳从返回的字幕文件取；端点用 params.endpoint 或 MINIMAX_API_BASE 换（默认 https://api.minimax.cn）
+             逐字时间戳从返回的字幕文件取；端点用 dialogue.json 里说话人的 params.endpoint 换（默认 https://api.minimax.cn）
   edge       edge-tts（可选依赖 pip install edge-tts；联网、免费）：WordBoundary 给逐词时间
 出错抛 VoiceError(code, message, hint)：code 前缀 env. → 退出码 3（缺依赖、缺密钥、网络），contract. → 4，其余 1。
 """
@@ -251,7 +251,7 @@ class MiniMax(Provider):
         key = self.key()
         if not key:
             raise VoiceError('env.voice-key', 'MiniMax 的密钥没有设置', SEC.how_to_set(self.SERVICE, self.ENV))
-        base = (self.params.get('endpoint') or os.environ.get('MINIMAX_API_BASE') or 'https://api.minimax.cn').rstrip('/')
+        base = (self.params.get('endpoint') or 'https://api.minimax.cn').rstrip('/')
         timeout = float(self.params.get('timeout', 180))
         vs = {'voice_id': self.voice, 'speed': float(self.params.get('speed', 1.0)), 'vol': float(self.params.get('vol', 1.0)),
               'pitch': int(self.params.get('pitch', 0))}

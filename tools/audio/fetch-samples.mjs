@@ -94,7 +94,7 @@ async function main(ctx) {
   if (manifest.schema !== 'beiming.samples/1') throw new CliError('contract.manifest', `${mfile} 的 schema 是 ${manifest.schema}，应为 beiming.samples/1`);
   const dest = path.resolve(o.dest || process.env.BEIMING_SAMPLES || path.join(ROOT, 'audio', 'samples'));
   const instruments = o.instruments.length ? o.instruments : null;
-  const mirror = o.mirror || process.env.BEIMING_SAMPLES_MIRROR || null;
+  const mirror = o.mirror || null;
   const tasks = plan(manifest, { dest, instruments, mirror });
   const total = tasks.reduce((s, t) => s + t.bytes, 0);
   const data = { dest: relOut(dest), manifest: path.relative(ROOT, mfile).split(path.sep).join('/'), files: tasks.length, bytes: total, downloaded: 0, skipped: 0, recorded: 0, problems: [] };
@@ -169,7 +169,7 @@ export const command = defineCommand({
   usage: ['node tools/audio/fetch-samples.mjs [--dest <目录>] [--instruments a,b] [--dry-run | --verify-only] [--record] [--json]'],
   description: [
     '约 451 MB、226 个文件（--dry-run 列出各乐器大小，不联网、不写盘）。已有文件先校验，对得上就跳过；中断后重跑只补缺的。',
-    '走代理时设 HTTPS_PROXY 并加 NODE_USE_ENV_PROXY=1（Node 的内置 fetch 才会读代理）；镜像用 --mirror 或 BEIMING_SAMPLES_MIRROR。',
+    '走代理时设 HTTPS_PROXY 并加 NODE_USE_ENV_PROXY=1（Node 的内置 fetch 才会读代理）；镜像用 --mirror。',
     '许可：两套库都是 CC0-1.0（Versilian Studios），每个库目录里同时放一份上游 LICENSE；署名写在 audio/CREDITS 与 engine/audio/sampler.py 的 credits()。',
   ],
   options: {
@@ -178,7 +178,7 @@ export const command = defineCommand({
     'dry-run': { type: 'boolean', describe: '只列出要下载的文件数与字节数，不联网、不写盘' },
     'verify-only': { type: 'boolean', describe: '不联网，只校验目标目录里已有的文件（缺文件退出 3，内容不符退出 4）' },
     record: { type: 'boolean', describe: '下载并校验后，把算出的 sha256 写回清单里为 null 的条目（维护者用，不覆盖已有的值）' },
-    mirror: { type: 'string', arg: '<前缀>', describe: '把 https://raw.githubusercontent.com/ 换成镜像前缀（也可设 BEIMING_SAMPLES_MIRROR）' },
+    mirror: { type: 'string', arg: '<前缀>', describe: '把 https://raw.githubusercontent.com/ 换成镜像前缀' },
     jobs: { type: 'integer', arg: '<n>', describe: '并行下载数（1–16，默认 4）' },
     timeout: { type: 'number', arg: '<秒>', describe: '单个文件的超时（默认 300）' },
     manifest: { type: 'string', arg: '<文件>', describe: '换一份清单（测试用）' },
