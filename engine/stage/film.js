@@ -5,17 +5,20 @@
 //   createFilm({ width, height, designWidth, designHeight, fit, fps, shadows })
 //     → { renderer, overlay, ctx, W, H, K, DW, DH, design, fit, output, fps, run }
 //     output = { width, height, profile, injected }（injected：渲染器注入了 __RENDER）；fps 是当前影片帧率（run 之后为最终值）
-//     width / height   实际像素；不写时取渲染器注入的 window.__RENDER（页面约定 v1：{ fps, width, height, profile }），
-//                      没有注入时取视口 innerWidth / innerHeight
+//     width / height   实际像素；不写时取渲染器注入的 window.__RENDER（页面约定 v1：{ fps, width, height, profile, frameCount,
+//                      contract }，engine/render/lib/inject.mjs），没有注入时取视口 innerWidth / innerHeight。
+//                      注入里某个字段为 null 表示渲染器没指定：fps 为 null（没给 --fps、--profile、film.json）时页面按自己的
+//                      帧率出帧，并用 window.FPS 报给渲染器（它的 decideFps 据此定输出帧率）；width / height 为 null 时取视口
 //     designWidth / designHeight / fit   设计画幅与适配方式，K = 实际像素 / 设计像素（见 designFit）：
 //       只给 designHeight（老写法）：K = H / designHeight，与改动前逐位相同；只给 designWidth：K = W / designWidth；
 //       两个都给：fit = 'contain'（默认，设计稿整块装进画面、另一方向多出来）| 'cover'（铺满、另一方向裁掉）| 'height' | 'width'
 //       design = { x, y, w, h }：设计稿在 DW×DH 里的位置（居中），镜头把要紧的东西摆在里面，换竖屏也不出画
-//     fps        页面按这个帧率量化一拍二 / 一拍三；不写时 run 再定（见下）
+//     fps        页面按这个帧率量化一拍二 / 一拍三；不写（或 null）时 run 再定（见下）
 //     shadows    阴影贴图类型（THREE.*ShadowMap），false = 不开阴影
 //   film.run({ dur, fps, shots, post, debug, draw, texts, warm })   设好 window.DUR / FPS / render / TEXTS，预热后置 window.READY
-//     fps       帧率 = run 的 fps ?? createFilm 的 fps ?? window.__RENDER.fps ?? 24；写进 window.FPS 和 engine/core/clock.js 的
-//               setFilmFps（之后 frameOf / heldTime 不写 fps 时都按它）。页面帧率与渲染器注入的不一致时由渲染器拒绝出片
+//     fps       帧率 = run 的 fps ?? createFilm 的 fps ?? window.__RENDER.fps ?? 24（null 一律当作没写，往后找）；写进 window.FPS
+//               和 engine/core/clock.js 的 setFilmFps（之后 frameOf / heldTime 不写 fps 时都按它）。
+//               页面帧率与渲染器注入的不一致时由渲染器拒绝出片
 //     shots     镜头表，按开始时间升序。两种写法（一张表里只用一种）：
 //                 [{ at: 开始秒, shot, id? }]      老写法：t ≥ at 起用这个镜头（与改动前完全相同）
 //                 [{ in: 开始帧, out?, shot, id? }]   帧号写法（film.json v2 的 shots 原样传进来）：帧号 f ≥ in 起用这个镜头；
@@ -29,7 +32,9 @@
 // render(t) 的帧号 f = frameOf(t, fps)，镜头里的一拍二、一拍三都从它量化（engine/core/clock.js）。
 //
 // 下面几个是纯函数（Node 里能直接测）：
-//   renderInfo(win)              读并校验 win.__RENDER → { fps, width, height, profile } 或 null（没注入）；格式不对直接抛错
+//   renderInfo(win)              读并校验 win.__RENDER → { fps, width, height, profile } 或 null（没注入）；
+//                                字段为 null 或没有时记 null（渲染器没指定）；格式不对（fps 为 0、负数、字符串等）直接抛错。
+//                                frameCount、contract 等其它字段不读：帧数与约定版本由渲染器自己核对
 //   designFit(o)                 { width, height, designWidth, designHeight, fit } → { K, DW, DH, fit, design: { x, y, w, h } }
 //   shotTable(shots, { fps, dur }) → { list, total, at(t, f) }：校验镜头表，at 返回 { entry, ctx }，
 //                                ctx = { shotId, index, inFrame, outFrame, localFrame, localT, fps }
@@ -52,14 +57,17 @@ const isPos = v => typeof v === 'number' && Number.isFinite(v) && v > 0;
 const isDim = v => Number.isInteger(v) && v > 0;
 const show = v => (typeof v === 'string' ? JSON.stringify(v) : `${String(v)}（${typeof v}）`);
 
+// 渲染器注入的字段为 null（或没有）= 没指定（engine/render/lib/inject.mjs：没给 --fps、--profile、film.json 时 fps 为 null）
 export function renderInfo(win = globalThis) {
   const R = win?.__RENDER;
   if (R === undefined || R === null) return null;
-  if (typeof R !== 'object') throw new TypeError(`window.__RENDER 要是对象 { fps, width, height, profile }，收到 ${show(R)}`);
-  if (!isPos(R.fps)) throw new TypeError(`window.__RENDER.fps 要是正数，收到 ${show(R.fps)}（渲染器注入的页面约定 v1）`);
-  for (const k of ['width', 'height']) if (R[k] !== undefined && !isDim(R[k])) throw new TypeError(`window.__RENDER.${k} 要是正整数，收到 ${show(R[k])}`);
-  if (R.profile !== undefined && R.profile !== null && typeof R.profile !== 'string') throw new TypeError(`window.__RENDER.profile 要是档位名字符串，收到 ${show(R.profile)}`);
-  return { fps: R.fps, width: R.width ?? null, height: R.height ?? null, profile: R.profile ?? null };
+  if (typeof R !== 'object') throw new TypeError(`window.__RENDER 要是对象 { fps, width, height, profile, frameCount, contract }，收到 ${show(R)}`);
+  if (R.fps != null && !isPos(R.fps)) {
+    throw new TypeError(`window.__RENDER.fps 要是正数，或 null（渲染器没指定帧率，页面按自己的），收到 ${show(R.fps)}（渲染器注入的页面约定 v1）`);
+  }
+  for (const k of ['width', 'height']) if (R[k] != null && !isDim(R[k])) throw new TypeError(`window.__RENDER.${k} 要是正整数或 null，收到 ${show(R[k])}`);
+  if (R.profile != null && typeof R.profile !== 'string') throw new TypeError(`window.__RENDER.profile 要是档位名字符串或 null，收到 ${show(R.profile)}`);
+  return { fps: R.fps ?? null, width: R.width ?? null, height: R.height ?? null, profile: R.profile ?? null };
 }
 
 const FITS = ['height', 'width', 'contain', 'cover'];
@@ -158,9 +166,9 @@ export function createFilm({ width, height, designWidth, designHeight, fit, fps,
   const W = width ?? R?.width ?? innerWidth, H = height ?? R?.height ?? innerHeight;
   const F = designFit({ width: W, height: H, designWidth, designHeight, fit });
   const { K, DW, DH } = F;
-  if (fps !== undefined && !isPos(fps)) throw new TypeError(`createFilm：fps 要是正数，收到 ${show(fps)}`);
-  const fps0 = fps ?? R?.fps;
-  if (fps0 !== undefined) setFilmFps(fps0);   // 建镜头时（run 之前）frameOf / heldTime 就按这部片的帧率
+  if (fps != null && !isPos(fps)) throw new TypeError(`createFilm：fps 要是正数（不写或 null：按渲染器注入的帧率，再不然由 run 定），收到 ${show(fps)}`);
+  const fps0 = fps ?? R?.fps;   // 都没指定（含注入的 fps 为 null）时不设：clock 保持默认 24，run 再定
+  if (fps0 != null) setFilmFps(fps0);   // 建镜头时（run 之前）frameOf / heldTime 就按这部片的帧率
 
   const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(1); renderer.setSize(W, H);
@@ -176,7 +184,7 @@ export function createFilm({ width, height, designWidth, designHeight, fit, fps,
 
   async function run({ dur, fps: runFps, shots, post, debug = null, draw = null, texts = null, warm = [] }) {
     if (!isPos(dur)) throw new TypeError(`film.run：dur 要是正的秒数，收到 ${show(dur)}`);
-    if (runFps !== undefined && !isPos(runFps)) throw new TypeError(`film.run：fps 要是正数，收到 ${show(runFps)}`);
+    if (runFps != null && !isPos(runFps)) throw new TypeError(`film.run：fps 要是正数（不写或 null：按 createFilm 的、渲染器注入的，再不然 24），收到 ${show(runFps)}`);
     const rate = setFilmFps(runFps ?? fps ?? R?.fps ?? REF_FPS);
     const table = shotTable(shots, { fps: rate, dur });
     window.DUR = dur;

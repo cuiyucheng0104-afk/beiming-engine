@@ -1,6 +1,7 @@
-// engine/stage/film.js 在真浏览器里的页面约定 v1（附录 C5）：渲染器注入 window.__RENDER = { fps, width, height, profile }，
-// 页面按它出帧。逐帧照渲染器的方式调 render(f / fps)，核对：
+// engine/stage/film.js 在真浏览器里的页面约定 v1（附录 C5）：渲染器注入 window.__RENDER = { fps, width, height, profile,
+// frameCount, contract }（engine/render/lib/inject.mjs），页面按它出帧。逐帧照渲染器的方式调 render(f / fps)，核对：
 //   · 24 / 25 / 30 fps 下页面帧号 = 输出帧号（没有未声明的重复或跳帧），一拍二 / 一拍三每张画停整数帧（不出现 2、3 帧交替）；
+//   · 注入的 fps 为 null（渲染器没指定）：退回页面帧率或 24，并用 window.FPS 报给渲染器；
 //   · 镜头拿到的 ctx（shotId、inFrame、localFrame、localT）；第一镜加长 12 帧，第二镜同一局部帧逐像素一致；
 //   · 传了 paperUrl 却加载失败：页面报错、错误里带地址、READY 不置位；渲染器（engine/render/still.mjs）非零退出。
 // 运行：node --test tests/engine/film.browser.test.mjs（没装 headless shell 时整组跳过；npm run setup 装）
@@ -29,9 +30,11 @@ const mk = name => {
   return { scene, camera, update(t, f, ctx) { REC.push({ name, t, f, h2: hold(f, 2), h3: hold(f, 3), ht2: heldTime(f, 2), ...ctx }); }, look: () => ({}) };
 };
 const post = { ready: Promise.resolve(), render(scene, camera) { film.renderer.render(scene, camera); } };
-const fps0 = window.__RENDER ? window.__RENDER.fps : 24, N = Math.round(${dur} * fps0), cut = Math.round(N * ${split});
+// 切点按 film.js 将要用的帧率算（run 的 fps ?? createFilm 的 ?? 注入的 ?? 24；注入的 fps 可以是 null = 渲染器没指定）
+const RUN = ${run}, CREATE = ${create};
+const fps0 = RUN.fps ?? CREATE.fps ?? window.__RENDER?.fps ?? 24, N = Math.round(${dur} * fps0), cut = Math.round(N * ${split});
 await film.run({ dur: ${dur}, shots: [{ in: 0, id: 'A', shot: mk('A') }, { in: cut, id: 'B', shot: mk('B') }], post, warm: [],
-  texts: t => [{ id: 'cap', text: '北冥', x0: 10, y0: 20, x1: 110, y1: 60 }], ...${run} });
+  texts: t => [{ id: 'cap', text: '北冥', x0: 10, y0: 20, x1: 110, y1: 60 }], ...RUN });
 REC.length = 0;
 const FPS = window.FPS, total = Math.round(window.DUR * FPS);
 for (let f = 0; f < total; f++) window.render(f / FPS);     // 与渲染器相同：第 f 帧渲 t = f / FPS
@@ -95,6 +98,44 @@ btest('没有注入 __RENDER：按 24 fps、视口尺寸（与改动前相同）
   const c = await B.page('film-bad-render', filmPage(), { w: 200, h: 100, init: { __RENDER: { fps: '30' } } });
   try {
     await assert.rejects(c.result(), /__RENDER\.fps 要是正数/, '注入的格式不对：页面直接报错，不按 24 fps 悄悄渲');
+  } finally { await c.close(); }
+});
+
+// 渲染器（engine/render/lib/inject.mjs）没拿到 --fps、--profile、film.json 时注入的完整形状：fps 为 null = 页面按自己的帧率
+const unspecified = (w, h) => ({ __RENDER: { fps: null, width: w, height: h, profile: null, frameCount: null, contract: 1 } });
+
+btest('注入的 fps 为 null（渲染器没指定）：退回页面帧率或 24，window.FPS 报给渲染器；宽高仍按注入的', async () => {
+  const sequential = (r, fps) => {
+    assert.equal(r.total, 2 * fps);
+    assert.deepEqual(r.rec.map(x => x.f), Array.from({ length: r.total }, (_, k) => k), `${fps} fps：页面帧号逐帧等于输出帧号`);
+    const { body, last } = runsOf(r.rec.map(x => x.h2));
+    assert.ok(body.every(v => v === 2) && last <= 2, `${fps} fps 一拍二每张停 2 帧`);
+  };
+  // 页面没写帧率：按 24（与没注入时相同，《北冥》这样的老页面照常出片）
+  const a = await B.page('film-null-fps', filmPage({ create: '{ designHeight: 90 }' }), { w: 160, h: 90, init: unspecified(160, 90) });
+  try {
+    const r = await a.result();
+    assert.equal(r.ready, true);
+    assert.equal(r.FPS, 24, 'window.FPS = 24：渲染器的 decideFps 按页面帧率定输出帧率');
+    assert.equal(r.fps, 24); assert.equal(r.filmFps, 24);
+    sequential(r, 24);
+    assert.deepEqual(r.output, { width: 160, height: 90, profile: null, injected: true });
+    assert.deepEqual(r.gl, [160, 90]); assert.equal(r.K, 1);
+  } finally { await a.close(); }
+  // 页面在 run 里写了 30：以页面为准
+  const b = await B.page('film-null-fps-page30', filmPage({ run: '{ fps: 30 }' }), { w: 160, h: 90, init: unspecified(160, 90) });
+  try {
+    const r = await b.result();
+    assert.equal(r.FPS, 30); assert.equal(r.filmFps, 30);
+    sequential(r, 30);
+  } finally { await b.close(); }
+  // 页面把注入的值原样交给 createFilm（null）：当作没写，不报错
+  const c = await B.page('film-null-fps-create', filmPage({ create: '{ fps: window.__RENDER.fps, width: window.__RENDER.width, height: window.__RENDER.height }' }),
+    { w: 160, h: 90, init: unspecified(null, null) });
+  try {
+    const r = await c.result();
+    assert.equal(r.FPS, 24);
+    assert.deepEqual([r.W, r.H], [160, 90], '注入的宽高为 null：取视口');
   } finally { await c.close(); }
 });
 
@@ -168,6 +209,8 @@ btest('渲染器对纸纹缺失的页面非零退出，报错带地址（node en
     assert.notEqual(r.code, 0, `应当非零退出，实际 ${r.code}`);
     assert.match(r.err, /纸纹图加载失败/);
     assert.match(r.err, /paper-missing\.png/, '报错里带纸纹地址');
-    assert.deepEqual(fs.readdirSync(out), [], '失败时不留下静帧');
+    // 只查图片与半成品：渲染器按附录 C4 / C8 在输出目录写运行记录（失败也写，如 s_still.run.json），那归渲染器自己的测试管
+    const leftovers = fs.readdirSync(out).filter(f => /\.(jpe?g|png|webp)$|\.partial$|\.tmp(-\d+)?$/i.test(f));
+    assert.deepEqual(leftovers, [], '失败时不留下静帧或半成品');
   } finally { fs.rmSync(out, { recursive: true, force: true }); }
 });

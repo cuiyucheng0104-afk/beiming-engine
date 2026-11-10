@@ -14,9 +14,24 @@ test('renderInfo：没注入返回 null；格式不对直接报错（渲染器�
   assert.deepEqual(renderInfo({ __RENDER: { fps: 30, width: 1080, height: 1920, profile: 'vertical-1080x1920-30' } }),
     { fps: 30, width: 1080, height: 1920, profile: 'vertical-1080x1920-30' });
   assert.deepEqual(renderInfo({ __RENDER: { fps: 25 } }), { fps: 25, width: null, height: null, profile: null });
-  for (const bad of [{ fps: 0 }, { fps: '24' }, { fps: 24, width: 1920.5 }, { fps: 24, height: -2 }, { fps: 24, profile: 7 }, 'x', 5]) {
-    assert.throws(() => renderInfo({ __RENDER: bad }), TypeError, JSON.stringify(bad));
-  }
+  const bad = [[{ fps: 0 }, 'fps 0'], [{ fps: -24 }, 'fps 负数'], [{ fps: NaN }, 'fps NaN'], [{ fps: Infinity }, 'fps 无穷'], [{ fps: '24' }, 'fps 字符串'],
+    [{ fps: 24, width: 1920.5 }, '宽不是整数'], [{ fps: 24, height: -2 }, '高为负'], [{ fps: null, width: '1920' }, '宽是字符串'], [{ fps: 24, profile: 7 }, '档位不是字符串'],
+    ['x', '不是对象'], [5, '不是对象']];
+  for (const [v, what] of bad) assert.throws(() => renderInfo({ __RENDER: v }), TypeError, what);
+});
+
+test('renderInfo：渲染器的完整注入（engine/render/lib/inject.mjs）里 null = 没指定——fps 为 null 不报错，交给页面帧率', () => {
+  // 没给 --fps、--profile、film.json：fps / profile / frameCount 都是 null，宽高是视口
+  assert.deepEqual(renderInfo({ __RENDER: { fps: null, width: 1920, height: 1040, profile: null, frameCount: null, contract: 1 } }),
+    { fps: null, width: 1920, height: 1040, profile: null });
+  // 按档位出片：字段齐全；frameCount、contract 由渲染器自己核对，页面不读
+  assert.deepEqual(renderInfo({ __RENDER: { fps: 24, width: 3840, height: 2160, profile: 'master-2160p24', frameCount: 240, contract: 1 } }),
+    { fps: 24, width: 3840, height: 2160, profile: 'master-2160p24' });
+  assert.deepEqual(renderInfo({ __RENDER: { fps: null, width: null, height: null, profile: null } }), { fps: null, width: null, height: null, profile: null });
+  assert.deepEqual(renderInfo({ __RENDER: {} }), { fps: null, width: null, height: null, profile: null });
+  // 冻结对象（inject.mjs 用 Object.freeze）照样能读
+  assert.deepEqual(renderInfo({ __RENDER: Object.freeze({ fps: null, width: 320, height: 180, profile: null, frameCount: null, contract: 1 }) }),
+    { fps: null, width: 320, height: 180, profile: null });
 });
 
 test('designFit：只给设计高时与改动前的式子逐位相同（K = H / designHeight，DW = W / K）', () => {
