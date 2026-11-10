@@ -12,7 +12,9 @@
 
 ## 最快上手
 
-**新片**（8 秒、24 fps、1920×1080、有声）：
+### 新片
+
+用 C 模版（8 秒、24 fps、1920×1080、有声）：
 
 ```bash
 npm run setup                                   # 首次：装 playwright-core 与 Chrome headless shell
@@ -26,7 +28,7 @@ node engine/render/still.mjs films/my-film 0.25 1.33 2.67 6 7.5 --size 1920x1080
 - 仓库自带的毛笔字体子集只有"北冥"两个字：换别的片名，渲染日志会报 `[字体缺字]`，先按模版 README 的"字体"一节做子集，否则不能交付。
 - 模版改哪里、示范了哪条工艺，见 [template/README.md](template/README.md)。
 
-**挑风格**：
+### 挑风格
 
 ```bash
 node tools/c-styles.mjs find brand event typography          # 按题材、名称、画面描述排序给候选（中英文都行）
@@ -49,7 +51,9 @@ node tools/c-styles.mjs find poetry --tech canvas2d --made    # 只要 Canvas 2D
 | 体育、强节奏卡点 | 中 | 卡点排版、战术标注 | `lemo/telestrator` `lemo/countdown` `lemo/swiss-motion` `sy/12-synthwave` |
 | 悬疑、氛围 | 低 | 光影、空间、声音 | `lemo/backrooms` `lemo/silent-film` |
 
-**历史复刻**（概要，完整步骤与三类案例见 [REPLICATE.md](REPLICATE.md)）：`node tools/c-runtime.mjs setup` 按固定提交建隔离运行时 → `python3 tools/casebook.py restore <案例> --download --lemo out/runtime/lemo-bebbbe1a` → `node tools/c-runtime.mjs build <还原目录>`。
+### 历史复刻
+
+完整步骤、三类案例与实测见 [REPLICATE.md](REPLICATE.md)；概要：`node tools/c-runtime.mjs setup` 按固定提交建隔离运行时 → `python3 tools/casebook.py restore <案例> --download --lemo out/runtime/lemo-bebbbe1a` → `node tools/c-runtime.mjs build <还原目录>`。
 
 ## 一部作品的目录
 
