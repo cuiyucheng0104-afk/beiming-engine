@@ -130,7 +130,7 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
       frames = samples.length;
       if (h.platesErr) warnings.push(`面片探针出错（结果可能不全）：${h.platesErr}`);
       if (!h.three) {
-        finding(inv, { key: 'no-three', message: '页面没有经 importmap 加载 three.js（或不是 WebGL 三渲二页面），面片位置记不到：只做静态分析', hint: 'A 路线页面按模版的 importmap 引 three；C 路线 2D 页面不需要这一项' });
+        finding(inv, { key: 'no-three', message: '页面没有经 importmap 加载 three.js（C 路线的 2D 页面，或 three 不是按模版的 importmap 引的）：面片投影与贴图密度不适用', hint: 'A 路线页面按模版的 importmap 引 three；2D 页面用到的图片底板可以单独静态找边：node tools/qa/cli.mjs plates <图片…>' });
       } else projected = true;
       for (const s of samples) {
         for (const P of s.plates) {
@@ -164,7 +164,8 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
   const rows = [...files.values()].map(r => ({ name: r.name, file: relp(r.file), size: [r.analysis.width, r.analysis.height], transparent: r.analysis.hasAlpha, edges: r.analysis.edges, uses: [...r.uses] }));
   inv.value = `${files.size} 张底板${projected ? `，${frames} 帧里记到 ${placementsSeen} 次面片（three.js 面片探针）` : ''}`;
   inv.evidence = { plates: rows, frames, projected };
-  if (!files.size && !inv.findings.length) finding(inv, { key: 'none', message: '没有找到底板（页面没用贴图面片，作品描述也没有 native.images）' });
+  if (!files.size && !inv.findings.length && !projected) finding(inv, { key: 'none', message: '没有找到底板（作品描述没有 native.images，也没给图片）' });
+  if (!files.size && projected) inv.value = `页面没有图片底板（${frames} 帧里没有记到贴图面片），不需要查`;
   settle(inv);
 
   // ── 直线淡出 ──
@@ -191,11 +192,10 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
   settle(fade);
 
   // ── 贴图密度 ──
-  if (!projected && pageDir) notRun(dens, '页面面片位置记不到', '密度只能在页面渲染时量：页面要按 importmap 引 three（A 路线模版的写法）');
-  else if (!projected) {
-    // 原生片（B 路线）与单独的图片：结构上量不了，记「注意」而不是硬失败
-    dens.value = '不适用（没有页面）';
-    finding(dens, { key: 'n/a', status: 'warn', message: '没有页面可量贴图密度（B 路线原生片或只给了图片）：4K 交付时按 routes/directing/craft/two-five-d.md §2.2 的公式手算，或出 1:1 对照帧人工看' });
+  if (!projected) {
+    // 原生片（B 路线）、2D 页面（C 路线）与单独的图片：结构上量不了，记「注意」而不是硬失败（理由写在 inventory 里）
+    dens.value = pageDir ? '不适用（页面没有 three.js 面片）' : '不适用（没有页面）';
+    finding(dens, { key: 'n/a', status: 'warn', message: `${pageDir ? '页面没有 three.js 贴图面片' : '没有页面（B 路线原生片或只给了图片）'}，贴图密度量不了：4K 交付时按 routes/directing/craft/two-five-d.md §2.2 的公式手算，或出 1:1 对照帧人工看` });
     settle(dens);
   }
   else {
