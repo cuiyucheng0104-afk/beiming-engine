@@ -1,0 +1,10 @@
+# CI 用的 Python lint 工具，按哈希固定（python -m pip install --require-hashes -r tests/ci/requirements-lint.txt）。
+# ruff 0.17.2（2026-10-22 发布）。升级时把下面所有平台的 wheel 哈希一起换掉（https://pypi.org/project/ruff/#files），dependabot 会每周提更新。
+ruff==0.17.2 \
+    --hash=sha256:c60f93fec7142dba5b8f487f94bf2f6231dae24dc11e4c48648347c8b0720004 \
+    --hash=sha256:b7d0906677d89bbf3cf73cde64b5bbe2ab35df3ae43e49ee2627301e91265bac \
+    --hash=sha256:2d086be452eed686aa51271ecf2cbe5037956517cc6ee39a17b4489ac12f8bbe \
+    --hash=sha256:1b59d447f197bef9ef48a22ba1a6016137753c6099e9bac9c36eb566e422424c \
+    --hash=sha256:195ad918027f817c119310ca89a42d347887dfc28934aaa869325e9c5dc9d962 \
+    --hash=sha256:92a80d2f44584dabb0189b3a6c393e37e525e04942838482010575cb81945be7 \
+    --hash=sha256:39c5b55c960515cdb32be16e69efb5734c589c06a0eb38a22694524a336b889d
