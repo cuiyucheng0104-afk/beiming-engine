@@ -14,11 +14,12 @@
 // BEIMING_DUR、BEIMING_FPS、BEIMING_FRAMES、BEIMING_WIDTH、BEIMING_HEIGHT、BEIMING_PROFILE。
 //
 //   pageSteps({ kind: 'build' | 'animatic' }) → 步骤数组（tools/film/lib/pipeline.mjs 的格式）
-//   node engine/render/build.mjs <影片目录> [--workers 4] [--skip-video]   旧入口（npm run c:build），转调 node tools/film/cli.mjs build
+//   node engine/render/build.mjs <影片目录> [--workers 4] [--skip-video] [--json]   旧入口（npm run c:build），转调 node tools/film/cli.mjs build
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
@@ -208,12 +209,14 @@ const video = {
 };
 
 // 传给 video.mjs 的参数：画幅、帧率、路数、查询串；页面帧率与档位不同的工作版加 --any-fps。
-// 渲染器 v2（P04）认 --gpu / --profile 时一并传（看 video.mjs 的用法文字，不写死版本）。
+// 渲染器 v2（P04）认 --gpu / --profile 时一并传（看 video.mjs 的用法文字，不写死版本）。--profile 只在画幅与帧率正好是档位的
+// 时候传：v2 把「--size 与档位不一致」当用法错误，而预演（半分辨率）与 --size 改画幅的工作版本来就不按档位出。
 function videoArgs(ctx) {
   const a = ['--size', sizeArg(ctx), '--fps', String(ctx.fps), '--workers', String(ctx.opts.workers), ...queryArgs(ctx)];
   if (ctx.anyFps) a.push('--any-fps');
   if (ctx.supports('video.mjs', '--gpu')) a.push('--gpu', ctx.opts.gpu);
-  if (ctx.supports('video.mjs', '--profile') && !ctx.profile.custom) a.push('--profile', ctx.profile.id);
+  const onProfile = !ctx.profile.custom && ctx.width === ctx.profile.width && ctx.height === ctx.profile.height && ctx.fps === ctx.profile.fps;
+  if (onProfile && ctx.supports('video.mjs', '--profile')) a.push('--profile', ctx.profile.id);
   return a;
 }
 
@@ -272,15 +275,29 @@ export function pageSteps({ kind = 'build' } = {}) {
 
 export const PAGE_STEP_IDS = { build: ['probe', 'mix', 'cuecheck', 'video', 'mux'], animatic: ['probe', 'mix', 'video', 'preview'] };
 
-// 旧入口（npm run c:build）：转调统一出片命令；--skip-video 等价于 --to cuecheck
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const a = process.argv.slice(2);
-  if (a.includes('--help') || a.includes('-h') || !a.length) {
-    console.log('用法：node engine/render/build.mjs <影片目录> [--workers 4] [--skip-video]\n  已并入统一出片命令：等价于 node tools/film/cli.mjs build <影片目录> [--workers N] [--to cuecheck]；产物在 <影片目录>/out/<run-id>/');
-    process.exit(a.length ? 0 : 2);
-  }
-  const mapped = a.map(x => (x === '--skip-video' ? ['--to', 'cuecheck'] : [x])).flat();
-  console.error('[迁移提示] engine/render/build.mjs 已并入 npm run film -- build；本次转调 node tools/film/cli.mjs build ' + mapped.join(' '));
-  const p = spawnSync(process.execPath, [path.join(ROOT, 'tools/film/cli.mjs'), 'build', ...mapped], { stdio: 'inherit' });
-  process.exit(p.status ?? 1);
-}
+// 旧入口（npm run c:build，保留一个版本）：转调统一出片命令；--skip-video 等价于 --to cuecheck。
+// 参数、--help、--json 与退出码按命令约定库（tools/lib/cli.mjs）；退出码就是统一出片命令的退出码。
+export const legacyCommand = defineCommand({
+  name: 'c:build',
+  summary: '旧入口：已并入统一出片命令 npm run film -- build（本命令转调它，保留一个版本）',
+  usage: ['node engine/render/build.mjs <影片目录> [--workers N] [--skip-video] [--json]'],
+  description: ['等价于 node tools/film/cli.mjs build <影片目录> [--workers N] [--to cuecheck]；产物在 <影片目录>/out/<run-id>/。新命令见 npm run film -- build --help。'],
+  positionals: [{ name: 'film', label: '<影片目录>', describe: '作品目录，例如 films/my-film' }],
+  options: {
+    workers: { type: 'integer', min: 1, max: 32, arg: '<N>', describe: '页面渲染并行路数（默认 4）' },
+    'skip-video': { type: 'boolean', describe: '只做声音与拍点核对（等价 --to cuecheck）' },
+  },
+  exitCodes: { 0: '成功', 1: '运行失败', 2: '用法错误', 3: '缺环境', 4: '契约 / QA / 闸门不通过', 5: '作品被占用', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
+  async run(ctx) {
+    const args = ['build', ctx.args.film, ...(ctx.opts.workers ? ['--workers', String(ctx.opts.workers)] : []), ...(ctx.opts['skip-video'] ? ['--to', 'cuecheck'] : []), '--json'];
+    process.stderr.write(`[迁移提示] engine/render/build.mjs 已并入 npm run film -- build；本次转调 node tools/film/cli.mjs ${args.join(' ')}\n`);
+    const p = spawnSync(process.execPath, [path.join(ROOT, 'tools/film/cli.mjs'), ...args], { cwd: process.cwd(), stdio: ['inherit', 'pipe', 'inherit'], encoding: 'utf8', maxBuffer: 64 << 20 });
+    let env = null;
+    try { env = JSON.parse(p.stdout); } catch { /* 下面按失败处理 */ }
+    if (!env) return { exitCode: p.status ?? 1, error: { code: 'failure.film-cli', message: `统一出片命令没有给出结果（退出码 ${p.status ?? p.signal}）`, hint: '看上面 stderr 的输出' } };
+    if (!ctx.json && env.ok) ctx.out(`出片完成：${env.data?.runDir || env.runJson}`);
+    return { exitCode: env.exitCode, error: env.error, outputs: env.outputs, runJson: env.runJson, warnings: env.warnings, data: env.data };
+  },
+});
+
+if (isMain(import.meta.url)) await runCli(legacyCommand);

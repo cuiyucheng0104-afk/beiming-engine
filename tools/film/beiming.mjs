@@ -40,6 +40,7 @@ export const command = defineCommand({
   examples: ['npm run beiming:build', 'npm run beiming:build -- --4k', 'sh build.sh --no-audio', 'node tools/film/beiming.mjs --json'],
   exitCodes: { 0: '成功', 1: '运行失败', 2: '用法错误', 3: '缺环境（或作品描述 films/beiming-10s 还没就位）', 4: '契约 / 机器 QA 不通过（旧文件名照样放好）', 5: '样片正被另一次运行占用', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
   async run(ctx) {
+    if (ctx.env.npm_lifecycle_event === 'build') ctx.warn('renamed', 'npm run build 已改名为 npm run beiming:build（旧名保留一个版本）');
     const fourK = ctx.opts.uhd, noAudio = ctx.opts['no-audio'];
     const envWorkers = ctx.env.WORKERS ?? (fourK ? ctx.env.WORKERS_4K ?? '8' : '4');
     const workers = ctx.opts.workers ?? envWorkers;
