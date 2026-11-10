@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  CARDS_BEGIN, CARDS_END, auditPlan, changedFiles, diagnosePlan, formatCards, inScope, inputPathProblems, inspectPlan,
+  CARDS_BEGIN, CARDS_END, auditPlan, changedFiles, diagnosePlan, formatCard, formatCards, inScope, inputPathProblems, inspectPlan,
   isEntryPoint, resolveRoute, validatePlan,
 } from './work-plan.mjs';
 
@@ -109,6 +109,13 @@ test('v2：在办任务必须有认领记录；认领格式要对；planned 带�
   assert.match(msgs, /A01：in-progress 必须写 claim/);
   assert.match(msgs, /A02：claim 格式不对（by、baseCommit（7–40 位提交号）、startedAt（ISO 日期））/);
   assert.deepEqual(d.warnings.map(w => w.code).sort(), ['task.claim-planned', 'task.route-alias']);
+});
+test('v2：续期写 claim.note（非空字符串），任务卡在到期日后带上续期说明', () => {
+  const renewed = task('A01', { status: 'in-progress', claim: claim({ expiresAt: '2026-12-15', note: '集成负责人 2026-11-10 续期：并行开发未完' }) });
+  assert.deepEqual(diagnosePlan(plan2([renewed])).errors, []);
+  assert.match(formatCard(renewed), /2026-12-15 到期（集成负责人 2026-11-10 续期：并行开发未完）。/);
+  const bad = diagnosePlan(plan2([task('A02', { status: 'in-progress', claim: claim({ note: '' }) })]));
+  assert.match(bad.errors.map(e => e.message).join(), /A02：claim 格式不对（note（非空字符串））/);
 });
 test('v2：认领过期按 expiresAt 或 claimTtlDays 判断，--now 可复现', () => {
   const p = plan2([task('A01', { status: 'in-progress', claim: claim() }), task('A02', { status: 'in-progress', claim: claim({ expiresAt: '2026-12-31' }), writeScope: ['tools/x/'] })]);

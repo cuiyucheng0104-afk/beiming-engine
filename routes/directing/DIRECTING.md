@@ -2,7 +2,7 @@
 
 > **解决什么**：把一个需求导成一部能交付、能复核的风格化动画短片。本文规定导演工作的十步：每一步交什么、怎样算过、常见错在哪、仓库里哪件作品可以照着看，以及 A／B／C 三条路线在哪几步做法不同。
 > **按什么顺序用**：先对照 §2 的能力边界，再照 §1 的十步（加一道动态预演）走，上一步的产出物齐了再进下一步；标 ⛔ 的四个关口要拿到用户确认才往下做。小样怎么减负见 [README](README.md)"按规模选路径"。阐述按 [templates/TREATMENT.md](templates/TREATMENT.md) 写；画风规则按 [VISUAL-DESIGN.md](VISUAL-DESIGN.md)；"在本仓库里怎么做到"查 [craft/](craft/README.md)；时间、事件、声音的数据格式见 [PRODUCTION-SPEC.md](PRODUCTION-SPEC.md)；每一步的好例子和反例集中在 [EXEMPLARS.md](EXEMPLARS.md)。
-> **适用**：A 北冥风格路线 · WebGL 三渲二、B 北冥原生路线 · BNE、C 北冥代码动画风格 · 86 式。路径里的 `raea`、`cases/vendor` 是工程历史代号，只用来定位文件，不是对外名称（`AGENTS.md:3`）。
+> **适用**：A 北冥风格路线 · WebGL 三渲二、B 北冥原生路线 · BNE、C 北冥代码动画风格 · 86 式。路径里的 `raea` 是上游项目名（内部目录沿用），`cases/vendor` 是第三方快照目录，都只用来定位文件，不是对外名称（`AGENTS.md:3`）。
 
 ## 0. 读前须知
 
