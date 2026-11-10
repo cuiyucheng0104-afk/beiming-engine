@@ -177,6 +177,28 @@
       "reason": "记号形状巧合：本文件是「键: $('#选择器')」的元素表，上游是「键: hex('#颜色')」的色板表，归一化后都成了「I: I(S)」序列；内容毫不相干（P01 判定）",
       "owner": "site-session",
       "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.aigc",
+      "path": "docs/TRACKS.md",
+      "match": "手绘底板",
+      "kind": "pending",
+      "reason": "审计 COMP-04：A 路线「画面语言」一栏写「手绘底板视差」，而《北冥》的绘画底板是 AI 生成后人工整理的；根文档由整合包统一改（建议改为「AI 生成后整理的绘画底板视差」）",
+      "owner": "PZ",
+      "added": "2026-11-10",
+      "expires": "2026-12-31",
+      "ref": "P01 汇报 root_docs_text：docs/TRACKS.md"
+    },
+    {
+      "rule": "comp.aigc",
+      "path": "site/index.html",
+      "match": "手绘底板",
+      "kind": "pending",
+      "reason": "审计 COMP-04：作品站「景」一步写「手绘底板分层摆进三维空间」（图片 alt 也写「手绘的黄昏天空」）；建议改为「绘画底板（AI 生成后整理）分层摆进三维空间」，改后跑 tools/site-qa.mjs",
+      "owner": "site-session",
+      "added": "2026-11-10",
+      "expires": "2026-12-31",
+      "ref": "P01 汇报 cross_package_requests：作品站 site/index.html"
     }
   ]
 }

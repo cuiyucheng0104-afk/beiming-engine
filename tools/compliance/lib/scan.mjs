@@ -19,6 +19,7 @@ import { findDerived, isCode, provenanceHeaderProblems, PROVENANCE_TAG } from '.
 import { reuseReport } from './reuse.mjs';
 import { loadAllowlist, applyAllowlist } from './allowlist.mjs';
 import { rightsReport } from './rights.mjs';
+import { docClaims, platesProvenance } from './aigc.mjs';
 import { UsageError } from './cli.mjs';
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -31,11 +32,17 @@ const PROVENANCE = { id: 'comp.provenance', title: '派生代码缺来源头', k
 const REUSE = { id: 'comp.reuse', title: 'REUSE 许可覆盖', kind: 'reuse', hint: '见 docs/rights/licensing.md' };
 const LICENSE = { id: 'comp.license-file', title: '根 LICENSE 是标准 MIT 正文', kind: 'license',
   hint: 'LICENSE 只放标准 MIT 正文（GitHub 才能识别为 MIT）；适用范围写在 docs/rights/licensing.md 与 REUSE.toml' };
+const AIGC = { id: 'comp.aigc', title: 'AI 生成内容的标识与来源链', kind: 'aigc',
+  hint: '规范见 docs/rights/aigc.md：对外不把 AI 生成的底板写成手绘或代码绘制；底板清单记录来源链；film.json 声明 aigc' };
+const ALLOWLIST = { id: 'comp.allowlist', title: '允许清单本身有效', kind: 'allowlist', hint: '照 tools/compliance/allowlist.json 开头的说明修' };
+// 入口文档：agent 与读者最先读到、对外转述最多的几份
+export const ENTRY_DOCS = new Set(['README.md', 'AGENTS.md', 'ROUTES.md', 'CLAUDE.md', 'docs/README.md', 'docs/TRACKS.md', 'routes/README.md', 'site/index.html']);
+export const isEntryDoc = rel => ENTRY_DOCS.has(rel) || /^routes\/[^/]+\/README\.md$/.test(rel);
 const RIGHTS = { id: 'comp.rights-register', title: '授权登记册与案例目录一致', kind: 'rights',
   hint: '运行 node tools/compliance/rights-inventory.mjs --write 重新生成 docs/rights/register.md；新增的第三方或客户素材先在 docs/rights/register.json 登记' };
 export const RULES = [
   ...CONTENT_RULES.map(r => ({ id: r.id, title: r.title, hint: r.hint, kind: 'content' })),
-  { ...NAME_RULE, kind: 'name' }, PROVENANCE, REUSE, LICENSE, RIGHTS,
+  { ...NAME_RULE, kind: 'name' }, PROVENANCE, REUSE, LICENSE, RIGHTS, AIGC, ALLOWLIST,
 ];
 
 export function resolveRuleIds(list) {
@@ -167,13 +174,51 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
     stats.rights = rep.stats;
   }
 
-  // 7) 允许清单
+  // 7) AI 生成内容：入口文档措辞（暂存区模式也查）；底板清单的来源链与 film.json 的 aigc 声明（只在全量时查）
+  if (want(AIGC.id)) {
+    for (const rel of files) {
+      if (!isEntryDoc(rel)) continue;
+      const e = read(rel);
+      if (e.text == null) continue;
+      for (const c of docClaims(e.text)) add(AIGC, { file: rel, line: c.line, level: 'error', _text: c.phrase,
+        message: `入口文档把 AI 生成的底板写成了「${c.phrase}」（同一行没有「AI 生成」之类的限定）`,
+        hint: '改成如实的说法，例如「AI 生成后经人工整理的绘画底板；镜头、着色与后期由代码逐帧完成」；规范见 docs/rights/aigc.md「对外描述」' });
+    }
+    if (!staged) {
+      for (const rel of files) {
+        if (zoneOf(rel) !== 'tree') continue;
+        if (/(^|\/)plates\.json$/.test(rel)) {
+          let man;
+          try { man = JSON.parse(read(rel).text || ''); } catch { add(AIGC, { file: rel, level: 'error', message: '底板清单不是合法 JSON' }); continue; }
+          const pv = platesProvenance(man, path.join(root, path.dirname(rel)));
+          if (!pv.contains) continue;
+          if (!pv.record) add(AIGC, { file: rel, line: 1, level: 'error', message: '底板清单没有生成来源记录（D11：派生底板要么保留 C2PA，要么在清单里记来源链）',
+            hint: '在清单顶层写「生成」字段（工具、模型版本、共用参考图、后处理）；逐张来源写法见 docs/rights/aigc.md「来源链」' });
+          for (const p of pv.plates.filter(x => !x.exists)) add(AIGC, { file: rel, level: 'warn', message: `清单里的底板 ${p.file} 不存在` });
+          const bare = pv.plates.filter(x => x.exists && !x.c2pa && !x.record);
+          if (bare.length) add(AIGC, { file: rel, line: 1, level: 'warn',
+            message: `${bare.length} 张底板既没有 C2PA 清单，也没有逐张来源记录（${bare.slice(0, 4).map(x => x.file).join('、')}${bare.length > 4 ? ' 等' : ''}）`,
+            hint: '派生图用 C2PA 工具写入引用原图的新清单，或在该底板条目下写「来源」字段（工具、模型、日期、提示词位置、原图 sha256、人工修改）；见 docs/rights/aigc.md「来源链」' });
+        }
+        if (/^films\/[^/]+\/film\.json$/.test(rel) || /^routes\/[^/]+\/template\/film\.json$/.test(rel)) {
+          let film;
+          try { film = JSON.parse(read(rel).text || ''); } catch { continue; }   // 结构问题归 film.json 的校验器
+          const a = film && film.aigc;
+          if (!a || typeof a.contains !== 'boolean') add(AIGC, { file: rel, line: 1, level: 'warn', message: 'film.json 没有声明 aigc.contains（D11：是否含 AI 生成内容）',
+            hint: '写 "aigc": { "contains": true, "note": "绘画底板为 AI 生成后人工整理" }（不含就写 false）；字段定义见 film.json v2' });
+          else if (a.contains && !(typeof a.note === 'string' && a.note.trim())) add(AIGC, { file: rel, line: 1, level: 'warn', message: 'film.json 的 aigc.contains 为 true，但没写 note（哪些内容是 AI 生成的）' });
+        }
+      }
+    }
+  }
+
+  // 8) 允许清单
   const list = loadAllowlist(allowlistPath && path.resolve(root, allowlistPath));
-  const problems = list.problems.map(p => ({ rule: 'comp.allowlist', level: p.level, zone: 'tree', blocking: p.level === 'error', file: allowlistPath, line: null, message: p.message, hint: p.hint }));
+  const problems = list.problems.map(p => ({ rule: ALLOWLIST.id, level: p.level, zone: 'tree', blocking: p.level === 'error', file: allowlistPath, line: null, message: p.message, hint: p.hint }));
   const { kept, suppressed, unused, expired } = applyAllowlist(findings, list, now, { strict });
-  for (const e of expired) problems.push({ rule: 'comp.allowlist', level: 'error', zone: 'tree', blocking: true, file: allowlistPath, line: null,
+  for (const e of expired) problems.push({ rule: ALLOWLIST.id, level: 'error', zone: 'tree', blocking: true, file: allowlistPath, line: null,
     message: `允许清单第 ${e.index + 1} 条（${e.rule} ${e.path}）已于 ${e.expires} 过期，豁免失效`, hint: '问题修好了就删掉这条；还需要豁免就重新判定并改 expires' });
-  if (!only) for (const e of unused) problems.push({ rule: 'comp.allowlist', level: 'warn', zone: 'tree', blocking: false, file: allowlistPath, line: null,
+  if (!only) for (const e of unused) problems.push({ rule: ALLOWLIST.id, level: 'warn', zone: 'tree', blocking: false, file: allowlistPath, line: null,
     message: `允许清单第 ${e.index + 1} 条（${e.rule} ${e.path}）已经没有匹配的发现`, hint: '删掉这条，保持清单最小' });
   const strip = f => { const { _text, ...rest } = f; return rest; };
   const all = [...kept, ...problems].map(strip);
