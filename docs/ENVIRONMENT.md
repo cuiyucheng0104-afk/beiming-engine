@@ -27,7 +27,7 @@ npm run env:doctor -- --route a
 | 无头浏览器 | chromium-headless-shell r1243（153.0.8010.12） | playwright-core 1.63.0 自带的版本表；setup 用仓库里的 playwright-core 安装 | `browser.headless-shell`、`browser.launch`、`gpu.renderer` |
 | FFmpeg 与 ffprobe | 7 以上；必须有 libx264、aac 编码器，loudnorm、ebur128、apad、aresample、scale、format、fps、noise 滤镜，mp4 封装，concat 与 image2pipe 读入 | 系统安装（各平台命令见下文） | `ffmpeg.version`、`ffmpeg.components`、`ffprobe.version` |
 | Python | 3.12 | `.python-version`；`requirements.in` → `requirements.lock`（macOS arm64、Windows x64、Linux x64，带哈希，只用二进制轮子） | `python.interpreter`、`python.packages` |
-| 原生运行时（B 路线） | 0.1.0-canary.2 | `RAEA_BIN` 指向的安装包里的 `share/raea/VERSION` | `raea.runtime`（`--route b`） |
+| 原生运行时（B 路线） | 0.1.0-canary.2 | `RAEA_BIN` 指向的安装包里的 `share/raea/VERSION`；可执行文件的 sha256 与 `tools/env/spec.json` 的 `raea.knownBinaries` 按平台登记的已验证构建比对（不同则告警） | `raea.runtime`（`--route b`） |
 
 锁文件里的 Python 包：numpy 2.5.4、scipy 1.18.1、numba 0.68.1（llvmlite 0.50.0）、soundfile 0.14.0、soxr 1.1.0、pillow 13.0.0，以及它们的依赖。完整清单与哈希见 [`requirements.lock`](../requirements.lock)。三个目标平台解析出同一组版本，且都有 Python 3.12 的二进制轮子（`node tools/env/lock.mjs --check` 核对）。在锁定环境里重建《北冥》混音，`out/mix.wav` 的 sha256 是 `aebcb955d73e…`，与 numpy 2.5.3 / numba 0.67.0 的旧环境逐字节相同（2026-11-10，macOS arm64）；各平台的混音金标准由声音链路维护。
 
