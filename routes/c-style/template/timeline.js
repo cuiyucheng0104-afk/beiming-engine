@@ -13,10 +13,14 @@ import FILM from './film.json' with { type: 'json' };
 import { createTempo, createEvents } from '../../engine/core/tempo.js';
 
 const fail = msg => { throw new Error(`film.json：${msg}`); };
+// 每拍正好整数帧的常用速度（报错时给出可选值）：60·fps / bpm 是整数
+const wholeBeats = () => [60, 72, 75, 80, 90, 96, 100, 120, 125, 144, 150, 160, 180]
+  .filter(b => Number.isInteger(+(60 * FPS / b).toFixed(9))).map(b => `${b} BPM 每拍 ${60 * FPS / b} 帧`).join('、');
 const fix = x => +x.toFixed(6);
 
-export const FPS = FILM.fps;
-export const DUR = FILM.dur;
+// 帧率与片长：film.json 第 1 版写 fps、dur；第 2 版（output.fps、output.frameCount）也认，两种写法得到同一组数
+export const FPS = FILM.output?.fps ?? FILM.fps;
+export const DUR = FILM.output?.frameCount != null ? FILM.output.frameCount / FPS : FILM.dur;
 export const FRAMES = Math.round(DUR * FPS);
 if (!(Number.isInteger(FPS) && FPS > 0)) fail(`fps 应为正整数，现在是 ${JSON.stringify(FPS)}`);
 if (!(DUR > 0) || Math.abs(DUR * FPS - FRAMES) > 1e-6) fail(`dur × fps 应为整数帧（现在 ${DUR} × ${FPS} = ${DUR * FPS}）`);
@@ -33,7 +37,7 @@ const NEED = ['touch', 's1', 's2', 's3', 'title', 'seal'];
 for (const k of NEED) if (!(k in T)) fail(`cues 缺少 "${k}"（本模版的画面与声音都按它编排）`);
 for (const [k, t] of Object.entries(T)) {
   if (t < 0 || t >= DUR) fail(`打点 ${k} 在 ${t} 秒，超出片长 [0, ${DUR})`);
-  if (Math.abs(t * FPS - Math.round(t * FPS)) > 1e-4) fail(`打点 ${k} 落在第 ${(t * FPS).toFixed(3)} 帧，不是整帧：把速度换成每拍整帧的值（${FPS} fps 下 72 / 90 / 120 / 144 BPM 每拍 20 / 16 / 12 / 10 帧），或改拍内分数`);
+  if (Math.abs(t * FPS - Math.round(t * FPS)) > 1e-4) fail(`打点 ${k} 落在第 ${(t * FPS).toFixed(3)} 帧，不是整帧：把速度换成每拍整帧的值（${FPS} fps 下 ${wholeBeats()}），或改拍内分数`);
 }
 
 export const F = Object.fromEntries(Object.entries(T).map(([k, t]) => [k, Math.round(t * FPS)]));   // { 打点: 整数帧 }

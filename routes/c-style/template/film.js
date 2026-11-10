@@ -15,7 +15,7 @@ import { clamp, seg, ss } from '../../engine/core/math.js';
 import { frameOf, hold } from '../../engine/core/clock.js';
 import { canvasFor } from '../../engine/paint/canvas.js';
 import { makePaper, PAPER_RGB } from './paper.js';
-import { prepareStroke, drawStroke, makeMass, drawMass } from './brush.js';
+import { prepareStroke, reveal, drawStroke, makeMass, drawMass } from './brush.js';
 import { makeSeal } from './seal.js';
 import { pickFont } from './type.js';
 import { FPS, DUR, F as CUEF, BEATF, ACT } from './timeline.js';
@@ -36,23 +36,25 @@ const MASSES = ['s3', 's2', 's1'];                                           // 
 const STROKES = ['s3', 's2', 's1', 'w1', 'w2'];                              // 笔的顺序：远山、次峰、主峰、两道水纹
 
 // ———— 构图（设计坐标）。改构图只改这里；笔的字段见 brush.js 开头 ————
-const MAIN = {   // 主峰：从左脚起笔，上坡中速，山头转折处顿一下，下坡越走越快、越枯，飞白收笔
-  width: 32, entry: 34, exit: 120, tone: TONE.nong, seed: 11, lanes: 20, bleed: 1.6,
-  pressure: [[0, 0.92], [0.06, 0.66], [0.26, 0.54], [0.39, 0.4], [0.44, 0.74], [0.5, 0.6], [0.7, 0.72], [0.86, 0.48], [1, 0.2]],
-  dry: [[0, 0], [0.16, 0.02], [0.28, 0.16], [0.36, 0.06], [0.42, 0.18], [0.5, 0.05], [0.68, 0.22], [0.86, 0.55], [1, 0.92]],
+// 笔压（pressure）决定粗细，也决定快慢：brush.js 让按得重的地方走得慢、提起来的地方一掠而过，转折处再顿一下。
+// 所以下面的笔压曲线就是这一笔的"节奏"：粗细差拉开到三倍以上，远看才不是一根等宽线。
+const MAIN = {   // 主峰"一笔成山"：左脚藏锋按下 → 提笔快速上坡（最细、略枯）→ 峰顶顿笔转折 → 侧锋铺开下坡 → 越走越枯，飞白出锋
+  width: 38, entry: 40, exit: 150, tone: TONE.nong, seed: 11, lanes: 22, bleed: 1.6,
+  pressure: [[0, 1], [0.04, 0.82], [0.12, 0.48], [0.27, 0.3], [0.37, 0.4], [0.42, 0.95], [0.46, 0.72], [0.56, 0.9], [0.7, 0.76], [0.86, 0.5], [1, 0.16]],
+  dry: [[0, 0], [0.16, 0.06], [0.27, 0.26], [0.36, 0.08], [0.43, 0], [0.56, 0.1], [0.7, 0.3], [0.86, 0.62], [1, 0.95]],
 };
-const SECOND = {
-  width: 21, entry: 60, start: 'tip', exit: 80, tone: TONE.zhong, seed: 23, lanes: 16, bleed: 1.8,
-  pressure: [[0, 0.8], [0.12, 0.62], [0.38, 0.5], [0.46, 0.85], [0.55, 0.58], [0.82, 0.66], [1, 0.25]],
-  dry: [[0, 0], [0.5, 0.06], [0.8, 0.36], [1, 0.7]],
+const SECOND = { // 次峰：从主峰右坡后面露锋"冒出来"，峰顶顿一下，收笔略枯
+  width: 25, entry: 60, start: 'tip', exit: 90, tone: TONE.zhong, seed: 23, lanes: 18, bleed: 1.8,
+  pressure: [[0, 0.62], [0.1, 0.74], [0.3, 0.4], [0.42, 0.92], [0.5, 0.6], [0.76, 0.7], [1, 0.2]],
+  dry: [[0, 0], [0.32, 0.12], [0.45, 0.02], [0.8, 0.4], [1, 0.75]],
 };
 const FAR = {    // 远山：淡墨湿笔，几乎不枯；合成时垫一层晕开的墨（wet），远处不要硬边
-  width: 24, entry: 70, start: 'tip', exit: 70, tone: TONE.dan, seed: 37, lanes: 14, wet: 6,
-  pressure: [[0, 0.5], [0.2, 0.8], [0.55, 0.72], [1, 0.3]],
+  width: 27, entry: 70, start: 'tip', exit: 80, tone: TONE.dan, seed: 37, lanes: 14, wet: 6,
+  pressure: [[0, 0.45], [0.24, 0.86], [0.5, 0.66], [0.72, 0.8], [1, 0.3]],
 };
-const WATER = {  // 水纹：清墨枯笔，快速一掠（水即留白，几笔带出水面）
-  width: 6, entry: 24, start: 'tip', exit: 40, tone: TONE.qing * 1.4, lanes: 8, streak: 40,
-  pressure: [[0, 0.7], [0.3, 1], [1, 0.3]], dry: [[0, 0.25], [0.5, 0.5], [1, 0.9]],
+const WATER = {  // 水纹：清墨枯笔，快速一掠（水即留白，三笔带出水面，一笔比一笔短）
+  width: 9, entry: 30, start: 'tip', exit: 60, tone: TONE.qing * 1.9, lanes: 9, streak: 60, turn: 0,
+  pressure: [[0, 0.6], [0.25, 1], [0.6, 0.7], [1, 0.25]], dry: [[0, 0.08], [0.4, 0.22], [0.75, 0.6], [1, 0.92]],
 };
 // bleed：宣纸吃墨，合成时垫一层很小的晕（设计像素），笔边是"渗"出去的；wet：湿笔晕开的半径
 const LAYOUTS = {
@@ -65,8 +67,8 @@ const LAYOUTS = {
         [1410, 670], [1484, 702]] },   // 从主峰右坡后面"冒出来"：起点落在主峰脊线上，两条脊线不交叉
       s3: { ...FAR, pts: [[1132, 534], [1186, 506], [1256, 478], [1330, 452], [1380, 440], [1400, 438], [1424, 441], [1480, 458], [1550, 488],
         [1604, 514], [1636, 532]] },   // 远山也从次峰脊线后面起笔；右端早早收住，给题名与印留出空
-      w1: { ...WATER, seed: 51, pts: [[1188, 866], [1262, 861], [1344, 862], [1426, 867]] },
-      w2: { ...WATER, seed: 53, width: 5, pts: [[1296, 904], [1356, 901], [1428, 903]] },
+      w1: { ...WATER, seed: 51, pts: [[1090, 846], [1190, 840], [1300, 839], [1410, 843], [1480, 847]] },
+      w2: { ...WATER, seed: 53, width: 7, pts: [[1220, 884], [1300, 880], [1384, 881], [1430, 884]] },
     },
     masses: { s1: { base: 790, tone: 0.32, band: 0.09 }, s2: { base: 770, tone: 0.2, band: 0.12 }, s3: { base: 640, tone: 0.12, band: 0.16 } },
     // 云：几团压扁的椭圆把墨"提"走（destination-out）。腰云横过主峰，脚下的雾把山脚化开；只往右漂一点
@@ -83,8 +85,8 @@ const LAYOUTS = {
         [404, 880], [456, 930], [520, 996], [596, 1070], [688, 1150], [784, 1226], [878, 1296], [966, 1360], [1034, 1404]] },
       s2: { ...SECOND, pts: [[556, 1574], [628, 1500], [700, 1452], [744, 1432], [760, 1428], [778, 1431], [852, 1452], [932, 1490], [1006, 1530], [1064, 1562]] },
       s3: { ...FAR, pts: [[548, 902], [610, 856], [676, 820], [724, 802], [740, 798], [760, 801], [826, 822], [900, 858], [972, 898], [1032, 936]] },
-      w1: { ...WATER, seed: 51, pts: [[560, 1716], [632, 1711], [712, 1712], [790, 1717]] },
-      w2: { ...WATER, seed: 53, width: 5, pts: [[650, 1756], [708, 1753], [776, 1755]] },
+      w1: { ...WATER, seed: 51, pts: [[520, 1714], [612, 1708], [712, 1708], [812, 1713]] },
+      w2: { ...WATER, seed: 53, width: 7, pts: [[640, 1756], [712, 1752], [790, 1754]] },
     },
     masses: { s1: { base: 1600, tone: 0.32, band: 0.07 }, s2: { base: 1630, tone: 0.2, band: 0.12 }, s3: { base: 1000, tone: 0.12, band: 0.16 } },
     mist: [{ x: 250, y: 1230, rx: 210, ry: 40, a: 0.78 }, { x: 470, y: 1262, rx: 200, ry: 34, a: 0.7 }, { x: 700, y: 1296, rx: 190, ry: 30, a: 0.62 },
@@ -148,8 +150,9 @@ function layer(key) {
   x.clearRect(0, 0, W, H);
   return x;
 }
-// 笔走到哪：进入时间窗就先按下整个笔头（第一帧就有东西：钩子），之后缓入缓出，拍点上写完
-const strokeP = (k, fq) => (fq < ACT[k].f0 ? 0 : Math.max(0.7 * (L.strokes[k].entry || 0) / strokes[k].L, ss(seg(fq, ACT[k].f0, ACT[k].f1))));
+// 笔走到哪：时间窗里过去的比例交给 brush.reveal 换成弧长——进入时间窗就先按下笔头（第一帧就有东西：钩子），
+// 之后按这一笔自己的快慢走（粗处慢、细处快、转折处顿），拍点那一帧正好写完
+const strokeP = (k, fq) => (fq < ACT[k].f0 ? 0 : reveal(strokes[k], seg(fq, ACT[k].f0, ACT[k].f1)));
 
 export function render(t) {
   // 时间只在这里换算一次：f 是整数帧，fq 是一拍二量化后的帧（画笔、题字、印用它），镜头与云用连续的 t
@@ -237,7 +240,7 @@ function drawSeal(gx, fq, z) {
   if (fq >= a.f0 && fq < a.f1) {
     const u = seg(fq, a.f0, a.f1), r = size * k * (1.18 - 0.16 * u) / 2;
     gx.save(); gx.setTransform(1, 0, 0, 1, 0, 0); gx.globalCompositeOperation = 'multiply';
-    gx.filter = `blur(${((14 - 10 * u) * k).toFixed(2)}px)`; gx.fillStyle = `rgba(120,108,92,${(0.12 + 0.16 * u).toFixed(3)})`;
+    gx.filter = `blur(${((13 - 10 * u) * k).toFixed(2)}px)`; gx.fillStyle = `rgba(132,92,74,${(0.05 + 0.15 * u * u).toFixed(3)})`;
     gx.fillRect(sx - r, sy - r, 2 * r, 2 * r); gx.restore();
   }
   if (fq < CUEF.seal) return;

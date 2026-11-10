@@ -1,6 +1,9 @@
 // 毛笔：一笔有起笔、行笔、收笔，有浓淡枯湿；山体的"染"是笔下一片渐淡的水墨。坐标一律是设计坐标，调用方先设好世界变换。
-//   prepareStroke(spec) → st      setup 时调用一次：Catmull-Rom 过点平滑 → 每 2.5 设计像素一个采样点；算笔宽、枯湿，
+//   prepareStroke(spec) → st      setup 时调用一次：Catmull-Rom 过点平滑 → 每 2.5 设计像素一个采样点；算笔宽、枯湿、行笔速度，
 //                                  并把笔分成 lanes 道"笔毛"：每道笔毛沿弧长哪里有墨、哪里断墨（飞白）整条预先排好，逐帧只揭开，不会爬动
+//   reveal(st, q) → p             时间 → 写到哪：q（0–1）是这一笔时间窗里过去的比例，返回已写出的弧长比例 p。
+//                                  行笔速度由笔压和转折决定（按得重、转折处慢，提得轻处快），所以粗处停得久、细处一掠而过；
+//                                  q = 0 时笔已按下（返回起笔那一小段，第一帧就有东西），q = 1 时正好写完
 //   drawStroke(g, st, p, o)       把写到 p（0–1，已写出的弧长比例）为止的笔毛画进 g。只画"覆盖"（不透明的墨色），
 //                                  浓淡由调用方合成这一层时的 globalAlpha 决定（重叠的笔毛不会叠出条纹）。
 //                                  o.boil 一拍二的拍号（笔边轻微"沸腾"）
@@ -10,13 +13,15 @@
 // spec 字段：
 //   pts       过点的控制点（设计坐标）。转折处把点排密，转角就尖（山头不圆）
 //   width     最粗处笔宽（设计像素）
-//   pressure  [[u, p], ...] 沿弧长 u∈[0,1] 的笔压（0–1，单调插值、不过冲）：慢处按下去粗，快处提起来细，转折处顿一下
-//   entry     起笔长度（设计像素）。start 'press'（默认，藏锋）：笔先按下去，头部略宽，各道笔毛错开起笔，笔头是斜的（侧锋入纸）；
+//   pressure  [[u, p], ...] 沿弧长 u∈[0,1] 的笔压（0–1，单调插值、不过冲）：慢处按下去粗，快处提起来细，转折处顿一下。
+//             粗细差要拉开（最细不到最粗的三分之一），远看才不是一根等宽线
+//   entry     起笔长度（设计像素）。start 'press'（默认，藏锋）：笔先按下去，笔头圆而略宽（各道笔毛按半圆错开起笔）；
 //             start 'tip'（露锋）：笔尖先着纸，在 entry 这段里由细变粗——从别的山后面"冒出来"的脊线用它
 //   exit      出锋长度（设计像素）：最后这一段笔宽收到很细，笔毛并拢成尖
-//   dry       [[u, d], ...] 沿弧长的枯笔程度（0 湿 → 1 枯）：越枯断墨的笔毛越多，靠边的先断；不给就是湿笔
+//   dry       [[u, d], ...] 沿弧长的枯笔程度（0 湿 → 1 枯）：越枯断墨的笔毛越多，靠边的先断；不给就是湿笔。
+//             枯笔放在行笔快的地方（下坡、收笔），和速度对得上
 //   lanes     笔毛道数（默认 18）；streak 断墨条纹的长度尺度（设计像素，默认 110：条纹长而连贯，不碎成虚线）
-//   seed      噪声种子（每笔不同）
+//   turn      转折处减速的强度（默认 1）；seed 噪声种子（每笔不同）
 // 方法参考：起收笔、墨分五色、"中心线 × 笔压 × 笔宽噪声 + 若干笔毛，墨量沿笔递减、按长尺度噪声断开"的飞白、一拍二只许笔宽轻微沸腾、
 //   "飞白像虚线"的陷阱，见 cases/vendor/lemo-opuscar/styles/ink-wash/STYLE.md §2、§5、§9（lemo-opuscar@bebbbe1，MIT，LemoLab）；
 //   本文件是按这些描述自己写的实现，未复制其代码。
@@ -40,19 +45,35 @@ export function prepareStroke(spec) {
     const head = !entry ? 1 : spec.start === 'tip' ? 0.12 + 0.88 * ss(clamp(s / entry))   // 露锋：笔尖先着纸，越走越粗
       : 1 + 0.22 * (1 - ss(clamp(s / entry)));                                             // 藏锋：笔先按下去，头部略宽
     const tip = exit ? 0.12 + 0.88 * ss(clamp((L - s) / exit)) : 1;            // 出锋收尖
-    const w = spec.width * clamp(press(u), 0.04, 1) * head * tip * (1 + 0.1 * nz(s / 70, 3.1) + 0.05 * nz(s / 16, 7.7));
-    C.push({ x: q[0], y: q[1], s, u, w, dry: clamp(dry(u)) });
+    const pr = clamp(press(u), 0.04, 1);
+    const w = spec.width * pr * head * tip * (1 + 0.1 * nz(s / 70, 3.1) + 0.05 * nz(s / 16, 7.7));
+    C.push({ x: q[0], y: q[1], s, u, w, pr, dry: clamp(dry(u)) });
   }
   for (let i = 0; i <= n; i++) {
     const a = C[Math.max(0, i - 1)], b = C[Math.min(n, i + 1)];
     const tx = b.x - a.x, ty = b.y - a.y, l = Math.hypot(tx, ty) || 1;
     C[i].nx = -ty / l; C[i].ny = tx / l;
   }
+  // 行笔时间：每走一个采样点花的时间 ∝ 1 / 速度。速度随笔压变（按得重就慢），转折处再慢（顿笔）；
+  // 起笔那一小段算"按下去"，在第一帧里一起出现
+  const turnK = spec.turn ?? 1, tau = new Float64Array(n + 1);
+  const ang = i => { const a = C[Math.max(0, i - 1)], b = C[Math.min(n, i + 1)]; return Math.atan2(b.y - a.y, b.x - a.x); };
+  for (let i = 1; i <= n; i++) {
+    let d = ang(Math.min(n, i + 3)) - ang(Math.max(0, i - 3));
+    d = Math.abs(Math.atan2(Math.sin(d), Math.cos(d)));                      // ±3 个采样点里转了多少角度
+    const speed = (0.35 + 1.3 * Math.pow(1 - C[i].pr, 1.25)) / (1 + Math.min(3, turnK * 40 * d / (6 * STEP)));
+    tau[i] = tau[i - 1] + STEP / speed;
+  }
+  const press0 = Math.min(n, Math.round((spec.start === 'tip' ? 0 : entry * 0.5) / STEP));
+  for (let i = 0; i <= n; i++) tau[i] = Math.max(0, (tau[i] - tau[press0]) / (tau[n] - tau[press0] || 1));
   // 笔毛：每道一个横向位置 o∈(−1, 1)；起笔错开（笔头是斜的），哪里有墨由"枯湿 × 一行长尺度噪声"决定
   const K = spec.lanes || 18, lanes = [], streak = spec.streak || 110;
+  // 藏锋的圆头：圆心在起点往里半个笔宽处，半径是那里的半个笔宽（drawStroke 先垫这块实心圆头）
+  const cap = spec.start === 'tip' ? null : Math.min(n, Math.round(C[0].w * 0.5 / STEP)), R0 = cap == null ? 0 : C[cap].w * 0.5;
   for (let k = 0; k < K; k++) {
     const o = -0.94 + 1.88 * (k + 0.5) / K + (R() - 0.5) * 0.06;
-    const a0 = spec.start === 'tip' ? 0 : Math.min(n - 1, Math.round((entry * 0.45 * (0.5 + 0.5 * o) * (0.7 + 0.6 * R())) / STEP));
+    // 藏锋：笔头是圆的——每道笔毛从圆头的边界往里一点起笔（靠边的晚起），笔毛的圆端都藏在圆头里，不露出一排圆齿
+    const a0 = cap == null ? 0 : Math.min(n - 1, Math.round(((1 - Math.sqrt(1 - o * o)) * R0 + 1.5 + 2.5 * R()) / STEP));
     // 一道笔毛的墨分成若干段 [起, 止, 粗细]：断墨处断开；枯湿换档处也断开，越枯笔毛越细，空隙才露得出来
     const runs = [];
     let a = -1, band = -1;
@@ -68,7 +89,17 @@ export function prepareStroke(spec) {
     }
     lanes.push({ o, k, runs });
   }
-  return { spec, C, n, L, lanes, nz, lw: spec.width / K };
+  return { spec, C, n, L, lanes, nz, tau, press0, lw: spec.width / K, cap };
+}
+
+export function reveal(st, q) {
+  const { tau, n, press0 } = st;
+  if (q <= 0) return press0 / n;
+  if (q >= 1) return 1;
+  let lo = press0, hi = n;                                                   // tau 单调不减：二分找 q 落在哪两个采样点之间
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (tau[m] < q) lo = m; else hi = m; }
+  const u = (q - tau[lo]) / ((tau[hi] - tau[lo]) || 1);
+  return (lo + clamp(u)) / n;
 }
 
 export function drawStroke(g, st, p, o = {}) {
@@ -76,7 +107,20 @@ export function drawStroke(g, st, p, o = {}) {
   const { C, n, nz } = st, boil = o.boil || 0;
   const head = Math.max(2, Math.min(n, Math.round(p * n)));
   g.save();
-  g.strokeStyle = o.color || '#1b1916'; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = g.fillStyle = o.color || '#1b1916'; g.lineCap = 'round'; g.lineJoin = 'round';
+  // 藏锋的笔头：先垫一块实心的圆头（比笔毛略收一点），笔毛压在上面——笔头外沿是笔毛的毛边，里面没有一排排圆齿的缝
+  if (st.cap != null) {
+    const ci = Math.min(st.cap, head), c0 = C[ci], R0 = c0.w * 0.5, m = Math.min(head, ci + Math.round(st.press0 * 1.2));
+    const th = Math.atan2(c0.ny, c0.nx), k = 0.48;
+    g.globalAlpha = 0.92; g.beginPath();
+    for (let j = 0; j <= 16; j++) {      // 后半圆：从 +法向经过笔后方转到 −法向，半径带一点噪声起伏（不是圆规画的）
+      const a = th + Math.PI * j / 16, r = R0 * (0.95 + 0.07 * nz(j * 0.7 + 3, 11.3));
+      g.lineTo(c0.x + Math.cos(a) * r, c0.y + Math.sin(a) * r);
+    }
+    for (let i = ci; i <= m; i++) g.lineTo(C[i].x - C[i].nx * C[i].w * k, C[i].y - C[i].ny * C[i].w * k);
+    for (let i = m; i >= ci; i--) g.lineTo(C[i].x + C[i].nx * C[i].w * k, C[i].y + C[i].ny * C[i].w * k);
+    g.closePath(); g.fill();
+  }
   g.globalAlpha = 0.82;                  // 单道笔毛略透：笔心几道叠起来近乎全黑，笔边与枯笔只有一道，自然淡一点、软一点
   for (const lane of st.lanes) {
     // 笔头是圆的：还在纸上的笔头，靠边的笔毛比中间的早停一点（半圆），不是一刀切的平头
@@ -111,7 +155,9 @@ export function ridgeAt(st, x) {
 
 // 山体的染：脊线下方一片墨，离脊线越远越淡；下缘按噪声起伏、化进纸里（云雾即留白）
 //   o = { base, tone, px, seed, band, rgb }   band：贴着脊线那条更浓的墨带有多宽（0–1，按脊线到下缘的距离算）
-//   纹理两层：顺坡拉长的噪声（像笔拖过的皴擦）+ 细水渍；坡向按主峰左右分开取
+//   纹理三层：顺坡拉长的噪声（像笔拖过的皴擦）+ 成团的浓淡 + 细颗粒。
+//   顺坡纹理按左右两坡各取一张（方向固定），峰顶附近 ±80 设计像素里交叉淡入淡出：
+//   硬切会在峰顶正下方留一条竖缝；改成"旋转坐标轴"又会在过渡区挤出一排竖条纹（离原点越远转得越快），两种都试过
 export function makeMass(st, o) {
   const { C } = st, px = o.px, tone = o.tone, band = o.band ?? 0.12;
   const x0 = Math.min(...C.map(c => c.x)), x1 = Math.max(...C.map(c => c.x)), y0 = Math.min(...C.map(c => c.y));
@@ -126,16 +172,17 @@ export function makeMass(st, o) {
   for (let x = 0; x < cv.width; x++) { const dx = x0 + (x + 0.5) / px; ridge[x] = ridgeAt(st, dx); floor[x] = base(dx); }
   const rgb = o.rgb || [27, 25, 22], edge = 80;
   const slopeL = Math.atan2(top.y - C[0].y, top.x - C[0].x), slopeR = Math.atan2(C.at(-1).y - top.y, C.at(-1).x - top.x);
+  const cL = Math.cos(slopeL), sL = Math.sin(slopeL), cR = Math.cos(slopeR), sR = Math.sin(slopeR);
   for (let x = 0; x < cv.width; x++) {
     const dx = x0 + (x + 0.5) / px, r = ridge[x], depth = Math.max(1, floor[x] - r);
     const foot = ss(clamp((dx - x0) / edge)) * ss(clamp((x1 - dx) / edge));
-    const ang = dx < top.x ? slopeL : slopeR, ca = Math.cos(ang), sa = Math.sin(ang);
+    const wR = ss(clamp((dx - top.x) / 160 + 0.5));
     for (let y = 0; y < cv.height; y++) {
       const dy = y0 + (y + 0.5) / px, v = (dy - r) / depth;
       if (v < -0.02 || v > 1) continue;
       const fall = Math.pow(1 - ss(clamp(v)), 1.6) + 0.6 * Math.exp(-Math.max(v, 0) / band) * (1 - ss(clamp(v * 2.5)));
-      const along = dx * ca + dy * sa, across = -dx * sa + dy * ca;
-      const tex = 1 + 0.16 * nz(along / 260, across / 46) + 0.16 * nz(dx / 120, dy / 90) + 0.07 * nz2(dx / 15, dy / 15);
+      const streak = (1 - wR) * nz((dx * cL + dy * sL) / 260, (-dx * sL + dy * cL) / 44) + wR * nz((dx * cR + dy * sR) / 260 + 31, (-dx * sR + dy * cR) / 44);
+      const tex = 1 + 0.2 * streak + 0.14 * nz(dx / 120, dy / 90) + 0.07 * nz2(dx / 15, dy / 15);
       const a = tone * fall * foot * clamp(tex, 0.35, 1.6) * ss(clamp((v + 0.02) / 0.05));
       if (a <= 0.002) continue;
       const i = (y * cv.width + x) * 4;
