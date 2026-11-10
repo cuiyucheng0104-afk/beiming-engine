@@ -133,7 +133,7 @@ async function ruleVersions(ctx) {
 // 按语言分开匹配：Python 文件里的 JS 字符串（测试夹具）不算 JS 读取，反之亦然
 const READ_PATTERNS = {
   js: [/process\.env\.([A-Z][A-Z0-9_]*)/g, /process\.env\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g, /\benv\.([A-Z][A-Z0-9_]{2,})\b/g, /\benv\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g],
-  py: [/os\.environ(?:\.get)?\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g, /os\.environ\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g, /os\.getenv\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g],
+  py: [/os\.environ(?:\.get|\.setdefault|\.pop)?\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g, /os\.environ\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g, /os\.getenv\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g],
   sh: [/\$\{([A-Z_][A-Z0-9_]*):?[-=]/g],
 };
 const LANG = { mjs: 'js', cjs: 'js', js: 'js', ts: 'js', tsx: 'js', py: 'py', sh: 'sh' };
