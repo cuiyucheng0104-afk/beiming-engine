@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cuiyucheng0104-afk/beiming-engine/engine/production/film.schema.json",
+  "title": "film.json v2（作品描述）",
+  "description": "每部作品唯一的时间源与记录（计划附录 C6）。镜头表 shots 与事件表 events 用整数帧写，秒只由 帧 / fps 推出。本 schema 给编辑器与 agent 看结构；完整规则（镜头首尾相接、事件落在所属镜头、档位一致、资产存在、没有消费者的时间字段等）以 engine/production/film.js 的 validateFilm 为准：node engine/production/film.js check films/<名>。",
+  "type": "object",
+  "required": ["schemaVersion", "id", "title", "route", "backend", "output", "shots", "credits", "aigc"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "$comment": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "作品 id，与作品目录名相同" },
+    "title": { "type": "string", "minLength": 1, "description": "片名（不含 \" \\ ` < > 与换行）" },
+    "route": { "enum": ["a", "b", "c"], "description": "路线注册表 id：a 北冥风格路线 · WebGL 三渲二，b 北冥原生 · BNE，c 北冥代码动画风格 · 86 式；别名 beiming / raea / a-webgl / b-native / c-style 能读但会提示" },
+    "backend": { "enum": ["three", "native", "canvas", "svg", "dom", "webgl"], "description": "a 用 three；b 用 native；c 用 canvas / svg / dom / three / webgl" },
+    "entry": { "type": "string", "description": "入口（相对作品目录）：a / c 默认 index.html，b 默认 native.entry 或 film.tsx" },
+    "output": {
+      "type": "object",
+      "required": ["profile", "width", "height", "fps", "frameCount"],
+      "properties": {
+        "profile": { "type": "string", "description": "交付档位 id（engine/production/profiles.json）；新作品默认 web-1080p24" },
+        "width": { "type": "integer", "minimum": 2, "multipleOf": 2 },
+        "height": { "type": "integer", "minimum": 2, "multipleOf": 2 },
+        "fps": { "type": "integer", "minimum": 1 },
+        "frameCount": { "type": "integer", "minimum": 1, "description": "整片帧数：时长的唯一来源" }
+      },
+      "additionalProperties": false
+    },
+    "shots": {
+      "type": "array", "minItems": 1,
+      "description": "镜头表：半开区间 [in, out)，首尾相接，正好覆盖 [0, frameCount)",
+      "items": {
+        "type": "object",
+        "required": ["id", "in", "out"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+          "in": { "type": "integer", "minimum": 0 },
+          "out": { "type": "integer", "minimum": 1 },
+          "name": { "type": "string" }, "purpose": { "type": "string" },
+          "module": { "type": "string", "description": "镜头模块（相对作品目录，通常是 shots/<id>/…）" },
+          "backend": { "type": "string" },
+          "evaluation": { "enum": ["absolute", "baked", "sequential"], "description": "docs/routes/contracts.md §5：absolute 任意帧可单独求值；baked 预烘；sequential 只能顺序求值" },
+          "lookPreset": { "type": "string" },
+          "transition": { "enum": ["cut", "continuous", "dissolve", "fade"], "description": "进入本镜的方式；第一镜只能 cut 或 fade" },
+          "tracks": { "type": "array", "items": { "type": "object", "required": ["id", "step"], "properties": { "id": { "type": "string" }, "step": { "type": "integer", "minimum": 1, "maximum": 12, "description": "一拍几" }, "note": { "type": "string" } }, "additionalProperties": false } },
+          "actorClockOrigin": { "type": "object", "additionalProperties": { "type": "integer" }, "description": "{ 轨道 id: 角色时钟起点（全局帧，不晚于本镜入点） }" },
+          "framing": { "type": "string" }, "angle": { "type": "string" }, "camera": {}, "sound": {}, "desc": { "type": "string" }, "note": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "events": {
+      "type": "array",
+      "description": "事件表：每个事件写结果帧 frame（看见或听见的那一帧）与所属镜头 shot",
+      "items": {
+        "type": "object",
+        "required": ["id", "frame", "shot"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+          "frame": { "type": "integer", "minimum": 0 },
+          "shot": { "type": "string" },
+          "end": { "type": "integer", "minimum": 1, "description": "结束帧（不含）" },
+          "audio": { "type": "string", "description": "声音表里的 cue id" },
+          "visual": { "type": "string", "description": "这一帧看得见的结果" },
+          "domain": { "enum": ["picture", "ui", "text", "sfx", "music", "vo", "amb", "mix"] },
+          "sync": { "type": "boolean", "description": "false = 渐入 / 铺底类，不做起音对拍" },
+          "beat": { "type": "number", "minimum": 0, "description": "绝对拍号（0 起）；写了就必须与 frame 同源" },
+          "cue": { "type": "boolean", "description": "true = 画面打点（cuecheck 对拍）" },
+          "source": { "enum": ["plan", "probe"] },
+          "desc": { "type": "string" }, "note": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "holds": {
+      "type": "array",
+      "description": "有意的停顿与黑场（QA 的黑场 / 静帧检查据此豁免）",
+      "items": { "type": "object", "required": ["in", "out", "kind", "reason"], "properties": { "in": { "type": "integer", "minimum": 0 }, "out": { "type": "integer", "minimum": 1 }, "kind": { "enum": ["freeze", "black"] }, "reason": { "type": "string", "minLength": 1 }, "shot": { "type": "string" } }, "additionalProperties": false }
+    },
+    "drive": { "enum": ["picture", "beat", "voice"], "description": "画面 / 节拍 / 旁白主导；beat 时必须写 timeline，改切点只能 roll" },
+    "timeline": {
+      "type": "object",
+      "description": "节拍：三种写法只能用一种",
+      "properties": {
+        "sections": { "type": "array", "items": { "type": "object", "required": ["id", "start", "bpm", "meter"], "properties": { "id": { "type": "string" }, "start": { "type": "integer", "minimum": 0 }, "bpm": { "type": "number", "exclusiveMinimum": 0 }, "meter": { "type": "integer", "minimum": 1 } } } },
+        "beats": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "bars": { "type": "array", "items": { "type": "array", "items": { "type": "integer", "minimum": 1 } } },
+        "meter": { "type": "integer", "minimum": 1 }, "start": { "type": "integer", "minimum": 0 }, "id": { "type": "string" }, "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "audio": {
+      "type": "object",
+      "properties": {
+        "mode": { "enum": ["script", "wav", "none", "native"] },
+        "script": { "type": "string" }, "wav": { "type": "string" }, "cues": { "type": "string" },
+        "targetLUFS": { "type": "number", "description": "混音目标；省略时取档位值，写了必须落在档位窗口内" },
+        "truePeakDbTP": { "type": "number", "maximum": 0 },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "deliveries": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true, "description": "要交付的档位；帧率与画幅比必须与渲染档相同" },
+    "style": {
+      "type": "object", "required": ["id", "version"],
+      "properties": { "id": { "type": "string" }, "version": { "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "string", "pattern": "^v?\\d+(\\.\\d+)*$" }] }, "preset": { "type": "string" }, "baseline": { "type": "string", "description": "视觉基准（基准帧或风格锁定文件）；仓库共享素材用 ../../ 引用" }, "lock": { "type": "string" }, "note": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "assets": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:[a-z]+:)?[A-Za-z0-9][A-Za-z0-9._/-]*(?:@v?\\d+)?$" }, "description": "资产 id：<种类>:<名字>@v<版本>（engine/assets/manifest.js 的注册表），作品自带文件写 local:<相对路径>" },
+    "credits": {
+      "type": "array",
+      "description": "署名与许可：字体、采样、素材、第三方代码；没有就写 []",
+      "items": { "type": "object", "required": ["what", "license"], "properties": { "what": { "type": "string" }, "owner": { "type": "string" }, "license": { "type": "string" }, "source": { "type": "string" }, "note": { "type": "string" } }, "additionalProperties": false }
+    },
+    "aigc": {
+      "type": "object", "required": ["contains"],
+      "properties": { "contains": { "type": "boolean" }, "note": { "type": "string", "description": "含 AI 生成内容时写明哪些部分、怎么生成、怎么整理（决策 D11）" }, "marking": {}, "sources": {} },
+      "additionalProperties": false
+    },
+    "gates": {
+      "type": "object",
+      "description": "三道闸只能全开（required）；跳过要在 review/ 里记录用户原话的豁免",
+      "properties": { "look": { "const": "required" }, "animatic": { "const": "required" }, "final": { "const": "required" } },
+      "additionalProperties": false
+    },
+    "native": { "type": "object", "description": "B 路线专属：entry、output、mux（mux.sh | copy）、images、models、sequences、audio" },
+    "cuecheck": { "type": "object", "description": "页面型路线（A / C）的拍点核对：grid、tolMs、silence、quietDb", "properties": { "grid": { "type": "integer", "minimum": 1 }, "tolMs": { "type": "number", "minimum": 0 }, "silence": { "type": "array", "items": { "type": "string" } }, "quietDb": { "type": "number" } }, "additionalProperties": false },
+    "posterFrame": { "type": "integer", "minimum": 0, "description": "海报帧（整数帧）" },
+    "docs": { "type": "object", "properties": { "brief": { "type": "string" }, "treatment": { "type": "string" }, "bible": { "type": "string" }, "styleLock": { "type": "string" }, "review": { "type": "string" } }, "additionalProperties": false },
+    "methodRefs": { "type": "array", "items": { "type": "object", "required": ["caseId", "borrowed"], "properties": { "caseId": { "type": "string" }, "path": { "type": "string" }, "catalogStatus": { "type": "string" }, "borrowed": { "type": "string" }, "upstreamStyle": { "type": "string" }, "vendorPath": { "type": "string" }, "license": { "type": "string" } }, "additionalProperties": false } },
+    "mirror": { "type": "object", "description": "镜像作品（只描述冻结样片，如 films/beiming-10s）：路径相对仓库根", "required": ["of", "paths", "outDir", "check", "frozen"], "properties": { "of": { "type": "string" }, "paths": { "const": "repo" }, "outDir": { "type": "string" }, "check": { "type": "string" }, "frozen": { "const": true }, "note": { "type": "string" } }, "additionalProperties": false },
+    "notes": { "type": "string" },
+    "dur": { "type": "number", "description": "过渡期的 v1 兼容镜像：必须等于 frameCount / fps；旧版工具改读 film.js 后删除" },
+    "fps": { "type": "integer", "description": "过渡期的 v1 兼容镜像：必须等于 output.fps" },
+    "size": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2, "description": "过渡期的 v1 兼容镜像：必须等于 [output.width, output.height]" }
+  },
+  "additionalProperties": true
+}

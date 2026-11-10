@@ -66,6 +66,8 @@ const FIELDS = {
   cuecheck: ['grid', 'tolMs', 'silence', 'quietDb'],
   methodRef: ['caseId', 'path', 'catalogStatus', 'borrowed', 'upstreamStyle', 'vendorPath', 'license'],
 };
+/** 各层字段白名单（与 engine/production/film.schema.json 一致，由 tests/production/schema.test.mjs 守住）。 */
+export const FILM_FIELDS = Object.freeze(Object.fromEntries(Object.entries(FIELDS).map(([k, v]) => [k, Object.freeze([...v])])));
 /** 看起来像时间的字段名：出现在白名单之外就是"没有消费者的时间字段"（附录 C6），判错。 */
 const TIME_LIKE = /^(t|t0|t1|t_end|tend|time|times|sec|secs|seconds|dur|duration|durationseconds|starttime|endtime|offsetsec|offsetms|inframe|outframe|atframe|frame_end|frameend|start|end|at|frames|bpm|fpb|poster)$/i;
 const TIME_HINTS = {
