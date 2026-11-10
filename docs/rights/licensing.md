@@ -78,7 +78,7 @@
 
 ## 已登记的派生文件
 
-2026-11-10 扫描结果（[allowlist.json](../../tools/compliance/allowlist.json) 有对应的 `pending` 条目，属主加好来源头后条目会提示删除）：
+2026-11-10 扫描结果。阻断级的前三项在 [allowlist.json](../../tools/compliance/allowlist.json) 里登记为 `pending`（暂不阻断，`--strict` 可见），其余五项照常显示为提示；属主加好来源头后，提示自动消失，对应的 `pending` 条目会提示删除：
 
 | 文件 | 上游（lemo-opuscar@bebbbe1） | 相同程度 | 判定 | 由谁加来源头 |
 |---|---|---|---|---|

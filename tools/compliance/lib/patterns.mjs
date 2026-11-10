@@ -128,6 +128,8 @@ const CANONICAL_RANGES = new Set([[10, 0, 0, 0, 8], [172, 16, 0, 0, 12], [192, 1
   .map(([a, b, c, d, n]) => `${a}.${b}.${c}.${d}/${n}`));
 const ULA6 = /(?<![0-9a-f:])fd[0-9a-f]{2}:[0-9a-f]{0,4}:[0-9a-f:]*[0-9a-f](?![0-9a-f:])/gi;
 const TAILNET = /\b[a-z0-9-]+\.(?:[a-z0-9-]+\.)?ts\.net\b/gi;
+// 局域网主机名：只认地址里的写法（user@主机、//主机），免得把 settings.local.json 这类文件名当成主机
+const LAN_HOST = /(?:@|\/\/)([a-z0-9][a-z0-9-]*\.(?:local|lan|internal|intranet|corp|home\.arpa))(?![\w.-])/gi;
 const SSH_TARGET = /\b(?:ssh|scp|rsync|sftp)\s+(?:-[A-Za-z]+(?:\s+\S+)?\s+)*([A-Za-z0-9._-]+)@([A-Za-z0-9._-]+)/g;
 function scanPrivateNetwork(text) {
   const out = [];
@@ -144,6 +146,8 @@ function scanPrivateNetwork(text) {
   }
   TAILNET.lastIndex = 0;
   for (let m; (m = TAILNET.exec(text));) out.push({ index: m.index, length: m[0].length, level: 'error', message: 'Tailscale 内网主机名（*.ts.net）' });
+  LAN_HOST.lastIndex = 0;
+  for (let m; (m = LAN_HOST.exec(text));) out.push({ index: m.index, length: m[0].length, level: 'error', message: `局域网主机名（*.${m[1].split('.').slice(1).join('.')}）` });
   SSH_TARGET.lastIndex = 0;
   for (let m; (m = SSH_TARGET.exec(text));) {
     const host = m[2].toLowerCase();

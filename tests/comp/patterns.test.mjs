@@ -71,8 +71,10 @@ test('内网地址：私网主机地址报，标准网段名与公网地址不�
   assert.equal(hits('comp.private-network', ['10', '20', '20', '0/24'].join('.')).length, 1);
 });
 
-test('内网地址：Tailscale 主机名与 SSH 目标', () => {
+test('内网地址：Tailscale 主机名、局域网主机名与 SSH 目标', () => {
   assert.equal(hits('comp.private-network', j('rtx', '.tail1234', '.ts.net')).length, 1);
+  assert.equal(hits('comp.private-network', j('http:', '//rog', '.local', ':8188/studio')).length, 1);
+  assert.equal(hits('comp.private-network', '见 .claude/settings.local.json 与 .env.local').length, 0);
   const ssh = hits('comp.private-network', j('ssh ', 'ROG', '@', 'rtx-box'));
   assert.equal(ssh.length, 1);
   assert.equal(ssh[0].level, 'warn');
