@@ -42,12 +42,14 @@ export const poster = {
   },
 };
 
-// 联系表取哪些帧：概览约 12–24 格（每 1–2 秒一格，长片放宽间隔）+ 片尾帧；每个切点 c 取 c−3 … c+2（前 3 后 3）
-export function contactPlan({ frames, fps, cuts, maxStrips = 16 }) {
-  const dur = frames / fps;
-  const step = Math.max(1, Math.ceil(dur / 24)) * fps;
+// 联系表取哪些帧：概览约 20 格（短片逐几帧、长片按半秒 / 整秒的倍数放宽，间隔落在整齐的帧数上）+ 片尾帧；
+// 每个切点 c 取 c−3 … c+2（前 3 后 3）。例：24 fps × 240 帧 → 每 12 帧（0.5 秒）一格，共 21 格；72 帧 → 每 4 帧一格。
+export function contactPlan({ frames, fps, cuts, maxStrips = 16, target = 20 }) {
+  const raw = frames / target;
+  const q = raw >= fps / 2 ? fps / 2 : raw >= fps / 4 ? fps / 4 : 1;
+  const step = Math.max(1, Math.ceil(raw / q) * q);
   const overview = [];
-  for (let f = 0; f < frames; f += step) overview.push(f);
+  for (let f = 0; f < frames; f += step) overview.push(Math.round(f));
   if (overview.at(-1) !== frames - 1) overview.push(frames - 1);
   const strips = cuts.slice(0, maxStrips).map(c => ({ cut: c, frames: [c - 3, c - 2, c - 1, c, c + 1, c + 2].filter(f => f >= 0 && f < frames) }));
   return { overview, strips, truncated: Math.max(0, cuts.length - maxStrips) };
@@ -58,7 +60,7 @@ function shotOf(shots, f) { return (shots.find(s => f >= s.in && f < s.out) || s
 export async function writeContactSheet(ctx, { tiles, strips = [], out, header = {} }) {
   const manifest = {
     title: ctx.film.title, film: ctx.film.id, run: ctx.run.id, profile: ctx.profile.id, width: ctx.width, height: ctx.height, fps: ctx.fps, frames: ctx.frames,
-    kind: ctx.kind, shots: ctx.shots.filter(s => !s.implicit).map(s => ({ id: s.id, in: s.in, out: s.out })), cuts: ctx.cuts,
+    kind: ctx.kind, final: !!ctx.final, shots: ctx.shots.filter(s => !s.implicit).map(s => ({ id: s.id, in: s.in, out: s.out })), cuts: ctx.cuts,
     tiles, strips, ...header,
   };
   const mf = path.join(ctx.run.work, 'contact.json');
