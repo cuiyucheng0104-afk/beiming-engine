@@ -3,13 +3,13 @@
 
 在只含声音链路的临时树里跑（tests/audio/_audiotest.py 的 sound_tree），不碰仓库的 out/ 与 audio/check/：
   · 默认构建（配乐读定稿缓存）通过门禁，audio/check/qa.json 是附录 C8 的结构；--json 时 stdout 只有一个信封；
-  · 混音与分轨与本平台的金标准一致（tests/audio/golden/<平台>.json，判定见 beiming_golden.py；本平台没有记录时跳过）；
+  · 混音与分轨与本平台的金标准一致（tests/audio/golden/<平台>.json，判定见 beiming_golden.py；只跑 mix.py，不需要 ffmpeg；本平台没有记录时跳过）；
   · 混音整体 +6 dB 后 audio/check.py --strict 退出 4（满幅、响度、真峰值三项不通过）；
   · 把 audio/cues.json 的混音目标抬高 6 dB 后整个 build 退出 4；
   · 配乐缓存：乐谱 audio/score.py 改过就退出 4（不静默沿用旧配乐），--accept-stale-score 明确接受时通过并记进 render.json；
     缓存文件被换掉时 --accept-stale-score 也不放行；
   · sh audio/build.sh 与 node tools/audio/build.mjs 两个入口：--help 退出 0，未知参数退出 2。
-门禁与金标准需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指完整路径）；没有时这两类跳过，配乐缓存的用例照常跑。
+门禁需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指完整路径）；没有时门禁的用例跳过，金标准与配乐缓存的用例照常跑。
 每次构建约 5–10 秒（numba 缓存冷时多十几秒）。
 """
 import json
@@ -67,13 +67,6 @@ class BeimingGate(unittest.TestCase):
             for k in ('value', 'expected', 'evidence'):
                 self.assertIn(k, c)
 
-    def test_golden(self):
-        gold = G.load()
-        if gold is None:
-            self.skipTest(f'没有 {G.platform_key()} 的混音金标准：在锁定环境里跑 python tests/audio/beiming_golden.py record')
-        ok, mode, lines = G.compare(G.measure(self.td), gold)
-        self.assertTrue(ok, f'《北冥》混音与金标准不一致（{mode}）：\n' + '\n'.join(lines))
-
     def test_plus_6db_mix_fails_strict_check(self):
         wav = os.path.join(self.td, 'out', 'mix.wav')
         keep = wav + '.keep'
@@ -88,6 +81,23 @@ class BeimingGate(unittest.TestCase):
             self.assertTrue({'audio.overload', 'audio.loudness', 'audio.truepeak'} <= hard, hard)
         finally:
             os.replace(keep, wav)
+
+
+class BeimingGolden(unittest.TestCase):
+    """混音金标准只要混音（audio/mix.py），不需要 ffmpeg：CI 的 unit job 也能比"""
+
+    def test_golden(self):
+        gold = G.load()
+        if gold is None:
+            self.skipTest(f'没有 {G.platform_key()} 的混音金标准：在锁定环境里跑 python tests/audio/beiming_golden.py record')
+        td = H.sound_tree(H.tmpdir('beiming-golden'))
+        try:
+            r = H.run(['python', 'audio/mix.py'], cwd=td)
+            self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+            ok, mode, lines = G.compare(G.measure(td), gold)
+            self.assertTrue(ok, f'《北冥》混音与金标准不一致（{mode}）：\n' + '\n'.join(lines))
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
 
 
 @unittest.skipUnless(FF, '需要 ffmpeg / ffprobe（或设 FFMPEG、FFPROBE）')

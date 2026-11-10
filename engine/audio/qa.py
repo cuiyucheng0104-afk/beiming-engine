@@ -347,7 +347,7 @@ def main(args, ctx):
     wav = os.path.abspath(args.wav) if args.wav else find_wav(film)
     if not wav or not os.path.exists(wav):
         raise CliError('env.mix-missing', f'找不到混音：{args.wav or "（按作品找了 audio.wav、out/latest、out/mix.wav、media/mix.wav）"}',
-                       hint='先出声音（node tools/film/cli.mjs build <作品> --to mix，或跑作品的声音脚本），或用 --wav 指定')
+                       hint='先跑作品的声音脚本出混音（或整片出片），或用 --wav 指定混音文件')
     pa = prof['audio']
     fa = (film or {}).get('audio') or {}
     target = args.target_lufs if args.target_lufs is not None else fa.get('targetLUFS', pa['loudness']['integratedLUFS'])

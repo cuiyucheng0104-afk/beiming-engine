@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """《北冥》混音金标准：按平台记录默认构建（配乐读定稿缓存）的 out/mix.wav 与五条分轨的 sha256，外加一份容差指纹。
 
-  python tests/audio/beiming_golden.py record [--from <已构建的树>]   在临时树里跑一遍默认构建（或读已构建的树），写 tests/audio/golden/<平台>.json
+  python tests/audio/beiming_golden.py record [--from <已构建的树>]   在临时树里跑一遍默认混音 audio/mix.py（或读已构建的树），写 tests/audio/golden/<平台>.json
   python tests/audio/beiming_golden.py compare [--from <已构建的树>]  与本平台的记录比对；退出码 0 一致 / 4 不一致 / 3 本平台没有记录
 
 每个文件记三样：sha256（文件字节）、samplesSha256（样本按 float32 小端的字节，24 bit 与 32 位浮点都能无损表示）、指纹。
@@ -89,7 +89,7 @@ def measure(tree):
     for rel in FILES:
         p = os.path.join(tree, *rel.split('/'))
         if not os.path.exists(p):
-            raise FileNotFoundError(f'{rel} 不在 {tree} 里：先跑默认构建（python audio/build.py）')
+            raise FileNotFoundError(f'{rel} 不在 {tree} 里：先跑默认混音（python audio/mix.py）')
         out[rel] = {'sha256': _sha(p), 'samplesSha256': samples_sha256(p), 'fingerprint': fingerprint(p)}
     return out
 
@@ -154,9 +154,9 @@ def _build(tree):
         return tree, None
     td = tempfile.mkdtemp(prefix='beiming-golden-')
     H.sound_tree(td)
-    r = H.run(['python', 'audio/build.py', '--quiet'], cwd=td)
+    r = H.run(['python', 'audio/mix.py'], cwd=td)          # 只混音（不跑门禁）：不需要 ffmpeg，CI 的 unit job 也能比
     if r.returncode != 0:
-        raise SystemExit(f'默认构建没通过（退出码 {r.returncode}）：\n{r.stderr[-2000:]}')
+        raise SystemExit(f'混音没跑通（退出码 {r.returncode}）：\n{r.stderr[-2000:]}')
     return td, td
 
 
