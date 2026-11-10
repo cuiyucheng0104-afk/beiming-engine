@@ -1,6 +1,7 @@
 // 字体链路：node --test tests/style/fonts.test.mjs
-// 不联网。码位与 unicode-range、清单解析与缺字、锁定清单校验、Python 查找顺序、subset.mjs 的用法错误与 --check 过期判定；
-// 真正的子集化要装了 fontTools 的 Python 和字体缓存（node tools/fonts/fetch.mjs），没有就跳过并写明原因。
+// 不联网。码位与 unicode-range、清单解析与缺字、锁定清单校验、缓存核对、解释器缺 fontTools 时的退出码、subset.mjs 的用法错误与 --check 过期判定；
+// 真正的子集化要装了 fontTools、brotli 的 Python（npm run setup，或设 BEIMING_PYTHON）和字体缓存（node tools/fonts/fetch.mjs，
+// 或设 BEIMING_FONT_CACHE），没有就跳过并写明原因。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -10,7 +11,7 @@ import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { codepointsOf, missingChars, unicodeRange, parseFontsManifest, GlyphError } from '../../engine/style/fonts.js';
-import { validateLock, loadLock, pythonCandidates, cacheStatus, cacheDir } from '../../tools/fonts/lock.mjs';
+import { validateLock, loadLock, cacheStatus, cacheDir, findFontPython } from '../../tools/fonts/lock.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SUBSET = path.join(ROOT, 'tools/fonts/subset.mjs');
@@ -56,11 +57,38 @@ test('字体锁定清单：仓库里的清单合格；反例逐条报出', () =>
   assert.match(p, /重复/);
 });
 
-test('Python 查找顺序：--python > PYTHON > BEIMING_PYTHON > BEIMING_PY（旧名）> python3', () => {
-  const t = pythonCandidates('/opt/x/python', { PYTHON: '/a', BEIMING_PYTHON: '/b', BEIMING_PY: '/c' }, 'linux').map(a => a.join(' '));
-  assert.deepEqual(t.slice(0, 4), ['/opt/x/python', '/a', '/b', '/c']);
-  assert.ok(t.includes('python3'));
-  assert.ok(pythonCandidates(null, {}, 'win32').some(a => a.join(' ') === 'py -3'), 'Windows 上还试 py -3');
+test('解释器：--python 当作 BEIMING_PYTHON；指向坏解释器时退出码 3（env.*），不悄悄换别的', async () => {
+  await assert.rejects(findFontPython({ python: path.join(os.tmpdir(), 'no-such-python-p12') }), e => e.exitCode === 3 && /^env\./.test(e.code));
+  const d = tmpFilm(FILM);
+  try {
+    const lock = loadLock(), cache = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-fcache-'));
+    try {
+      // 缓存里没有原始字体：退出码 3，提示先跑 fetch
+      const r = run([d, '--cache', cache, '--json']);
+      assert.equal(r.status, 3);
+      const env = JSON.parse(r.stdout);
+      assert.equal(env.error.code, 'env.font-source-missing');
+      assert.match(env.error.hint, /tools\/fonts\/fetch\.mjs/);
+      assert.equal(cacheStatus(lock, cache).every(s => s.state === 'missing'), true);
+    } finally { fs.rmSync(cache, { recursive: true, force: true }); }
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+});
+
+test('fetch.mjs --check：缓存缺文件退出 3、哈希不对退出 4；信封里不写本机绝对路径', () => {
+  const cache = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-fcache-'));
+  const fetch = a => spawnSync(process.execPath, [path.join(ROOT, 'tools/fonts/fetch.mjs'), ...a], { encoding: 'utf8', env: { ...process.env, BEIMING_FONT_CACHE: cache } });
+  try {
+    let r = fetch(['--check', '--only', 'barlow-light', '--json']);
+    assert.equal(r.status, 3);
+    fs.writeFileSync(path.join(cache, 'Barlow-Light.ttf'), 'not a font');
+    r = fetch(['--check', '--only', 'barlow-light', '--json']);
+    assert.equal(r.status, 4);
+    const env = JSON.parse(r.stdout);
+    assert.equal(env.error.code, 'contract.font-sha256');
+    assert.equal(env.data.cache, '$BEIMING_FONT_CACHE');
+    assert.ok(!r.stdout.includes(cache), 'stdout 的信封里没有缓存目录的绝对路径');
+    assert.equal(fetch(['--only', 'no-such-font']).status, 4, '不认识的字体 id 是契约错误');
+  } finally { fs.rmSync(cache, { recursive: true, force: true }); }
 });
 
 test('subset.mjs：--help 无副作用退出 0；用法错误退出 2；film.json 不合格退出 4', () => {
@@ -101,18 +129,22 @@ test('subset.mjs --check：清单缺字、文件被改都判过期（退出码 4
   } finally { fs.rmSync(d, { recursive: true, force: true }); }
 });
 
-test('真正子集化：缺字立即失败；成功时子集覆盖全部文字（需要 fontTools 与字体缓存）', t => {
+test('真正子集化：缺字立即失败；成功时子集覆盖全部文字、两次结果逐字节相同（需要 fontTools 与字体缓存）', async t => {
   const lock = loadLock(), dir = cacheDir(lock);
   const ready = cacheStatus(lock, dir, ['ma-shan-zheng', 'noto-sans-sc']).every(s => s.state === 'ok');
-  const py = pythonCandidates().find(([cmd, ...pre]) => spawnSync(cmd, [...pre, '-c', 'import fontTools.subset, brotli'], { encoding: 'utf8' }).status === 0);
-  if (!ready || !py) return t.skip(`跳过：${!ready ? `字体缓存 ${dir} 不全（先跑 node tools/fonts/fetch.mjs，或设 BEIMING_FONT_CACHE）` : ''}${!py ? '没有装了 fontTools 与 brotli 的 Python（设 PYTHON）' : ''}`);
-  const env = { PYTHON: py.join(' ').split(' ')[0] };
+  let py = null;
+  try { py = await findFontPython(); } catch { py = null; }
+  if (!ready || !py) return t.skip(`跳过：${!ready ? `字体缓存 ${dir} 不全（先跑 node tools/fonts/fetch.mjs，或设 BEIMING_FONT_CACHE）` : ''}${!py ? '没有装了 fontTools 与 brotli 的 Python（npm run setup，或设 BEIMING_PYTHON）' : ''}`);
+  const env = {};
   const d = tmpFilm(FILM);
   try {
     const r = run([d, '--json'], env);
     assert.equal(r.status, 0, r.stderr);
+    const first = JSON.parse(r.stdout).outputs.map(o => o.sha256);
     const M = JSON.parse(fs.readFileSync(path.join(d, 'fonts', 'fonts.json'), 'utf8'));
     assert.equal(M.fonts.length, 2);
+    assert.deepEqual(M.coverage.map(c => [c.text, c.covered === c.chars]), [['title', true], ['sub', true]], '覆盖率报告逐条文字');
+    assert.deepEqual(JSON.parse(run([d, '--json'], env).stdout).outputs.map(o => o.sha256), first, '同样的输入，子集与清单逐字节相同');
     assert.deepEqual(missingChars(parseFontsManifest(M).fonts[0], '晨渡'), []);
     assert.ok(fs.existsSync(path.join(d, 'fonts', 'OFL-mashanzheng.txt')), '许可全文随子集复制');
     assert.equal(run([d, '--check'], env).status, 0);
@@ -122,5 +154,6 @@ test('真正子集化：缺字立即失败；成功时子集覆盖全部文字�
     const r2 = run([d, '--json'], env);
     assert.equal(r2.status, 4);
     assert.match(JSON.parse(r2.stdout).error.message, /缺字.*𠀀/);
+    assert.equal(JSON.parse(r2.stdout).error.code, 'contract.missing-glyphs');
   } finally { fs.rmSync(d, { recursive: true, force: true }); }
 });

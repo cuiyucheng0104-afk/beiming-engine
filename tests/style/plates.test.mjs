@@ -73,6 +73,24 @@ test('登记字段：必填、取值、waived 要写理由；大写名字只提�
   assert.equal(policyOf({ edgePolicy: { left: 'covered' } }, 'left'), 'covered');
 });
 
+test('来源链与原图尺寸：AI 底板必须写「来源」八个字段（可写「待补」）；sourceSize × upscale 要对得上 size', () => {
+  const ok = { name: 'sky_x', file: 'sky_x.png', size: [3548, 1774], transparent: false, colorSpace: 'srgb', edgePolicy: 'offscreen' };
+  const src = { 工具: '待补', 模型: '待补', 日期: '待补', 提示词: '待补', 参考图: 'assets/ref/sky_test.png', 原图sha256: '待补', 操作: '待补', 人工修改: ['×2 放大'] };
+  assert.match(validateEntry({ ...ok, aigc: true }).errors.join(), /要写「来源」/);
+  assert.deepEqual(validateEntry({ ...ok, aigc: true, 来源: src, sourceSize: [1774, 887], upscale: { factor: 2, method: '待补' } }).errors, []);
+  const { 模型: _drop, ...noModel } = src;
+  assert.match(validateEntry({ ...ok, aigc: true, 来源: noModel }).errors.join(), /缺字段「模型」/);
+  assert.match(validateEntry({ ...ok, aigc: true, 来源: { ...src, 原图sha256: 'abc' } }).errors.join(), /64 位/);
+  assert.match(validateEntry({ ...ok, sourceSize: [1000, 500], upscale: { factor: 2, method: 'x' } }).errors.join(), /不等于 sourceSize/);
+  assert.match(validateEntry({ ...ok, sourceSize: [1774, 887], upscale: null }).errors.join(), /写了没放大/);
+  assert.match(validateEntry({ ...ok, upscale: { factor: 2, method: 'x' } }).errors.join(), /要写 sourceSize/);
+  assert.equal(validateEntry({ ...ok, aigc: true, 来源: src }).warnings.length, 1, '没写 sourceSize 只提示');
+  // 细节密度按原图算，只报告不判定
+  const e = { ...ok, sourceSize: [1774, 887], upscale: { factor: 2, method: '待补' }, usage: [{ where: 's1', screenWidth: 2688, designHeight: 1080 }] };
+  const d = density(e, { 'web-1080p24': { width: 1920, height: 1080 } })[0];
+  assert.equal(d.level, 'ok'); assert.ok(Math.abs(d.detailPerPx - 0.66) < 0.01);
+});
+
 test('准入：直线淡出的边写 natural 不行；写 organic-mask 可以；尺寸不符报错', () => {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-plates-'));
   try {
@@ -114,6 +132,11 @@ test('仓库的 13 张底板全部通过准入（逐像素）；命令行退出�
   const r = checkPlates(path.join(ROOT, 'assets/plates/plates.json'));
   assert.deepEqual(r.errors, []);
   assert.equal(r.plates.length, 13);
+  const reg = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/plates/plates.json'), 'utf8'));
+  for (const p of reg.plates) {
+    assert.ok(p['来源'], `${p.name} 有逐张来源（D11）`);
+    assert.ok(Array.isArray(p.sourceSize) && 'upscale' in p, `${p.name} 写了原图尺寸与放大方法（QA-A-004）`);
+  }
   const straight = r.plates.filter(p => p.edges && Object.values(p.edges).some(s => s.straight && !s.hard)).map(p => p.name);
   for (const n of ['clouds_front_a', 'clouds_front_b', 'clouds_back']) assert.ok(straight.includes(n), `${n} 应当被标出直线淡出`);
   const cli = a => spawnSync(process.execPath, [path.join(ROOT, 'tools/plates/check.mjs'), ...a], { encoding: 'utf8' });

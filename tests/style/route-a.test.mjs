@@ -1,5 +1,6 @@
 // A 路线的仓库规则、模版契约与命令约定：node --test tests/style/route-a.test.mjs
-// 规则用仓库外的临时「films 目录」做反例（未登记的 lookPreset、断开的镜头表、越界的事件、缺字的子集），不碰仓库里的作品。
+// 规则在仓库外搭的小仓库上跑（tools/repo-check/core/context.mjs 的 createContext，与 node tools/repo-check.mjs --root 同一套上下文），
+// 用反例（未登记的 lookPreset、断开的镜头表、越界的事件、缺字的子集、坏掉的变体表）证明规则会失败；不碰仓库里的作品。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -8,87 +9,142 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { runRules, rules } from '../../tools/repo-check/rules/route-a/index.mjs';
-import { parseArgs, EXIT, CliError } from '../../tools/lookdev/lib/cli.mjs';
+import { createContext } from '../../tools/repo-check/core/context.mjs';
+import { loadRules } from '../../tools/repo-check/core/loader.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const RULES_DIR = path.join(ROOT, 'tools/repo-check/rules');
 const TPL = JSON.parse(fs.readFileSync(path.join(ROOT, 'routes/a-webgl/template/film.json'), 'utf8'));
+const { rules } = await loadRules(RULES_DIR);
+const A = rules.filter(r => r.domain === 'route-a');
+const rule = id => A.find(r => r.id === id);
 
-function filmsDir(films) {   // { 名字: film.json 对象 } → 临时 films 目录（每部片放上模版的镜头模块，模块存在性检查才过得去）
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-films-'));
+// 小仓库：画风注册表 + 锁定文件、字体锁定清单 + 许可、给定的作品（每部片放上镜头模块的占位文件）
+function miniRepo(films = {}, { template = false } = {}) {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-route-a-'));
+  const copy = rel => { fs.mkdirSync(path.dirname(path.join(d, rel)), { recursive: true }); fs.cpSync(path.join(ROOT, rel), path.join(d, rel), { recursive: true }); };
+  for (const rel of ['engine/style', 'fonts/fonts.lock.json', 'fonts/licenses']) copy(rel);
+  if (template) copy('routes/a-webgl/template');
   for (const [name, film] of Object.entries(films)) {
-    fs.mkdirSync(path.join(d, name, 'shots'), { recursive: true });
-    fs.writeFileSync(path.join(d, name, 'film.json'), JSON.stringify(film));
-    for (const s of film.shots || []) if (s.module) fs.writeFileSync(path.join(d, name, s.module), '// 测试用');
+    fs.mkdirSync(path.join(d, 'films', name, 'shots'), { recursive: true });
+    fs.writeFileSync(path.join(d, 'films', name, 'film.json'), JSON.stringify(film));
+    for (const s of film.shots || []) if (s.module) fs.writeFileSync(path.join(d, 'films', name, s.module), '// 测试用');
   }
   return d;
 }
-const instance = (over = {}) => {
-  const f = JSON.parse(JSON.stringify(TPL).replaceAll('{{NAME}}', 'tst').replaceAll('{{TITLE}}', '晨渡'));
-  return Object.assign(f, over);
-};
-const errorsOf = (res, rule) => res.filter(r => r.level === 'error' && (!rule || r.rule === rule)).map(r => r.message);
+const instance = (over = {}) => Object.assign(JSON.parse(JSON.stringify(TPL).replaceAll('{{NAME}}', 'tst').replaceAll('{{TITLE}}', '晨渡')), over);
+const errors = async (id, root) => (await rule(id).run(createContext({ root }))).filter(f => f.level === 'error').map(f => f.message);
+const cleanup = d => fs.rmSync(d, { recursive: true, force: true });
 
-test('当前仓库：A 路线规则全部通过', async () => {
-  const res = await runRules(ROOT);
-  assert.deepEqual(errorsOf(res), []);
-  assert.ok(rules.length >= 7);
-  for (const r of rules) assert.match(r.id, /^route-a\./);
+test('规则文件按治理骨架的加载器加载：7 条 route-a 规则，id 与目录一致', () => {
+  assert.deepEqual(A.map(r => r.id).sort(), ['route-a.film-fonts', 'route-a.film-style', 'route-a.film-timeline', 'route-a.fonts-lock', 'route-a.kun-variants', 'route-a.plates', 'route-a.style-registry']);
 });
 
-test('未登记的 lookPreset、别的画风的预设、越界的镜头覆盖都让规则失败', async () => {
+test('当前仓库：route-a 规则没有错误（node tools/repo-check.mjs --only route-a --json）', () => {
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools/repo-check.mjs'), '--only', 'route-a', '--json'], { encoding: 'utf8' });
+  const env = JSON.parse(r.stdout);
+  const mine = env.data.findings.filter(f => f.rule.startsWith('route-a.'));
+  assert.deepEqual(mine.filter(f => f.level === 'error'), []);
+  assert.equal(env.data.rules.filter(x => x.id.startsWith('route-a.')).length, 7);
+  assert.ok(mine.some(f => f.rule === 'route-a.film-style' && /beiming-original@v1/.test(f.message)), '模版的画风被核对过');
+});
+
+test('未登记的 lookPreset、别的画风的预设、越界的镜头覆盖、没登记的画风都让 film-style 失败', async () => {
   const bad = instance();
-  bad.shots = bad.shots.map((s, i) => i === 0 ? { ...s, lookPreset: 'beiming-original@v1/closeup' } : { ...s, lookOverrides: { paper: { strength: 0.5 } } });
+  bad.shots = bad.shots.map((s, i) => (i === 0 ? { ...s, lookPreset: 'beiming-original@v1/closeup' } : { ...s, lookOverrides: { paper: { strength: 0.5 } } }));
   const other = instance({ style: { id: 'beiming-original', version: 2 } });
-  const d = filmsDir({ bad, other });
+  const d = miniRepo({ bad, other });
   try {
-    const res = await runRules(ROOT, { filmsDir: d, template: false });
-    const e = errorsOf(res, 'route-a.film-style').join('\n');
+    const e = (await errors('route-a.film-style', d)).join('\n');
     assert.match(e, /closeup/);
     assert.match(e, /超出允许范围/);
     assert.match(e, /beiming-original@v2 没有登记/);
-  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  } finally { cleanup(d); }
 });
 
-test('镜头表断开、没覆盖到片尾、事件不在所属镜头里，都报错', async () => {
+test('镜头表断开、没覆盖到片尾、事件不在所属镜头里、事件帧不是整数，film-timeline 都报错', async () => {
   const f = instance();
-  f.shots = [{ ...f.shots[0], out: 60 }, { ...f.shots[1], in: 72 }];
+  f.shots = [{ ...f.shots[0], out: f.shots[0].out - 12 }, { ...f.shots[1] }];
   f.events = [...f.events, { id: 'x', frame: 10, shot: 'S2' }, { id: 'y', frame: 3.5, shot: 'S1' }];
-  f.output = { ...f.output, frameCount: 200 };
-  const d = filmsDir({ f });
+  f.output = { ...f.output, frameCount: f.output.frameCount + 32 };
+  const d = miniRepo({ f });
   try {
-    const e = errorsOf(await runRules(ROOT, { filmsDir: d, template: false }), 'route-a.film-timeline').join('\n');
-    assert.match(e, /首尾相接/);
-    assert.match(e, /frameCount 是 200/);
+    const e = (await errors('route-a.film-timeline', d)).join('\n');
+    assert.match(e, /上一镜到第 \d+ 帧为止/);
+    assert.match(e, new RegExp(`frameCount 是 ${f.output.frameCount}`));
     assert.match(e, /事件 x 在第 10 帧，不在镜头 S2/);
     assert.match(e, /事件 y 的 frame 要是整数帧/);
-  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  } finally { cleanup(d); }
 });
 
-test('作品字体：没生成子集、子集缺字、子集文件被改都报错；声明了却不在锁定清单里也报错', async () => {
+test('作品字体：没生成子集、子集缺字、子集文件被改、source 不在锁定清单里，film-fonts 都报错', async () => {
   const f = instance(), g = instance({ fonts: [{ family: 'BM Title', source: 'no-such-font' }, TPL.fonts[1]] });
-  const d = filmsDir({ f, g });
+  const d = miniRepo({ f, g });
   try {
-    let e = errorsOf(await runRules(ROOT, { filmsDir: d, template: false }), 'route-a.film-fonts').join('\n');
-    assert.match(e, /还没生成字体子集/);
+    let e = (await errors('route-a.film-fonts', d)).join('\n');
+    assert.match(e, /还没生成本片的字体子集/);
     assert.match(e, /no-such-font 不在 fonts\/fonts\.lock\.json/);
-    fs.mkdirSync(path.join(d, 'f', 'fonts'));
-    const woff = Buffer.from('x');
-    const M = { schemaVersion: 1, fonts: [
-      { family: 'BM Title', file: 't.woff2', chars: '晨', sha256: crypto.createHash('sha256').update(woff).digest('hex') },
-      { family: 'BM Text', file: 's.woff2', chars: '北冥风格 ·概念短片', sha256: crypto.createHash('sha256').update(woff).digest('hex') }] };
-    fs.writeFileSync(path.join(d, 'f', 'fonts', 'fonts.json'), JSON.stringify(M));
-    fs.writeFileSync(path.join(d, 'f', 'fonts', 't.woff2'), woff);
-    fs.writeFileSync(path.join(d, 'f', 'fonts', 's.woff2'), 'changed');
-    e = errorsOf(await runRules(ROOT, { filmsDir: d, template: false }), 'route-a.film-fonts').join('\n');
+    const fd = path.join(d, 'films', 'f', 'fonts'), woff = Buffer.from('x'), h = crypto.createHash('sha256').update(woff).digest('hex');
+    fs.mkdirSync(fd);
+    const sub = TPL.texts.find(t => t.id === 'subtitle').text;
+    fs.writeFileSync(path.join(fd, 'fonts.json'), JSON.stringify({ schemaVersion: 1, fonts: [
+      { family: 'BM Title', file: 't.woff2', chars: '晨', sha256: h }, { family: 'BM Text', file: 's.woff2', chars: sub, sha256: h }] }));
+    fs.writeFileSync(path.join(fd, 't.woff2'), woff);
+    fs.writeFileSync(path.join(fd, 's.woff2'), 'changed');
+    e = (await errors('route-a.film-fonts', d)).join('\n');
     assert.match(e, /文字 title 缺字 渡/);
     assert.match(e, /s\.woff2 与清单记的 sha256 不一致/);
-  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  } finally { cleanup(d); }
 });
 
-test('模版 film.json 是 v2 且自洽：时长 = 帧数 ÷ 帧率、文字都登记了字族、事件按帧给、gates 三道闸都 required', () => {
+test('画风注册表：锁定文件与登记表的认可状态不一致、候选写了认可、基准帧不在，style-registry 都报错', async () => {
+  const d = miniRepo();
+  try {
+    const rf = path.join(d, 'engine/style/registry.json'), reg = JSON.parse(fs.readFileSync(rf, 'utf8'));
+    fs.mkdirSync(path.join(d, 'media'));
+    for (const b of reg.styles[0].baselineFrames) fs.writeFileSync(path.join(d, b), '基准帧占位');
+    assert.deepEqual(await errors('route-a.style-registry', d), [], '原样复制的注册表合格');
+    fs.rmSync(path.join(d, 'media', 'shot_1.6.jpg'));
+    reg.styles[0].userApproval = 'approved';
+    reg.candidates[0].userApproval = 'approved';
+    fs.writeFileSync(rf, JSON.stringify(reg));
+    const e = (await errors('route-a.style-registry', d)).join('\n');
+    assert.match(e, /认可状态不一致/);
+    assert.match(e, /候选 tonal-40 写了认可状态/);
+    assert.match(e, /基准帧 media\/shot_1\.6\.jpg 不存在/);
+  } finally { cleanup(d); }
+});
+
+test('字体锁定清单：许可全文被改过、只收 OFL，fonts-lock 都报错', async () => {
+  const d = miniRepo();
+  try {
+    assert.deepEqual(await errors('route-a.fonts-lock', d), []);
+    fs.appendFileSync(path.join(d, 'fonts/licenses/OFL-mashanzheng.txt'), '\n多了一行');
+    const lf = path.join(d, 'fonts/fonts.lock.json'), lock = JSON.parse(fs.readFileSync(lf, 'utf8'));
+    lock.fonts[1].license = 'Apache-2.0';
+    fs.writeFileSync(lf, JSON.stringify(lock));
+    const e = (await errors('route-a.fonts-lock', d)).join('\n');
+    assert.match(e, /许可全文的 sha256 与清单不一致/);
+    assert.match(e, /只收 OFL-1\.1/);
+  } finally { cleanup(d); }
+});
+
+test('鲲变体表：模块不存在、认可状态不认识，kun-variants 报错', async () => {
+  const d = miniRepo();
+  try {
+    const e = (await errors('route-a.kun-variants', d)).join('\n');
+    assert.match(e, /src\/kun\.js 不存在/, '小仓库里没有 src/，变体表的模块缺失要报出来');
+    const rf = path.join(d, 'engine/style/registry.json'), reg = JSON.parse(fs.readFileSync(rf, 'utf8'));
+    reg.variants.kun.items[0].approval = 'ok';
+    fs.writeFileSync(rf, JSON.stringify(reg));
+    assert.match((await errors('route-a.kun-variants', d)).join('\n'), /认可状态 "ok" 不认识/);
+  } finally { cleanup(d); }
+});
+
+test('模版 film.json 是 v2 且自洽：画幅 1920×1080 web-1080p24、事件按帧给、gates 三道闸、下一步走统一出片命令', () => {
   assert.equal(TPL.schemaVersion, 2);
   assert.equal(TPL.route, 'a');
+  assert.equal(TPL.backend, 'three');
   assert.equal(TPL.title, '{{TITLE}}');
   assert.equal(TPL.output.profile, 'web-1080p24');
   assert.deepEqual([TPL.output.width, TPL.output.height, TPL.output.fps], [1920, 1080, 24]);
@@ -96,27 +152,25 @@ test('模版 film.json 是 v2 且自洽：时长 = 帧数 ÷ 帧率、文字都�
   for (const g of ['look', 'animatic', 'final']) assert.equal(TPL.gates[g], 'required');
   for (const e of TPL.events) assert.ok(Number.isInteger(e.frame) && e.audio && e.visual, `事件 ${e.id} 要有整数帧和声画两侧的名字`);
   assert.equal(TPL.aigc.contains, true, '天空底板是 AI 生成，要写明（D11）');
-  assert.ok(!('dur' in TPL) && !('size' in TPL), 'v1 的 dur / size 不再出现（没有消费者的时间字段）');
+  assert.ok(TPL.style.baseline && TPL.style.lock, 'A 路线写视觉基准与风格锁定文件（P05 的 style-baseline-missing）');
+  assert.ok(!('dur' in TPL) && !('size' in TPL) && !('poster' in TPL), 'v1 的 dur / size / poster 不再出现');
+  const runs = (TPL.next || []).map(s => s.run.join(' '));
+  assert.ok(runs.some(r => r.startsWith('node tools/fonts/subset.mjs')), '下一步先生成本片字体子集');
+  assert.ok(runs.some(r => /^npm run film -- build /.test(r)), '出片走统一入口 npm run film -- build');
+  assert.ok(!runs.some(r => /build\.sh/.test(r)), '模版不再带 build.sh');
 });
 
-test('命令约定库：未知参数是用法错误（退出码 2）；list 拆逗号、list-raw 整段累加', () => {
-  assert.throws(() => parseArgs(['--nope'], {}), e => e instanceof CliError && e.exit === EXIT.USAGE);
-  assert.throws(() => parseArgs(['--n'], { n: 'number' }), e => e.exit === EXIT.USAGE);
-  assert.throws(() => parseArgs(['--n', 'x'], { n: 'number' }), e => e.exit === EXIT.USAGE);
-  const { opts, args } = parseArgs(['a', '--t', '1,2', '--look', 'x=[1,2],[3,4]', '--look', 'y=1,2', '--ok'], { t: 'list', look: 'list-raw', ok: 'bool' });
-  assert.deepEqual(args, ['a']);
-  assert.deepEqual(opts.t, ['1', '2']);
-  assert.deepEqual(opts.look, ['x=[1,2],[3,4]', 'y=1,2']);
-  assert.equal(opts.ok, true);
-});
-
-test('A 路线命令：--help 都退出 0 且不写文件；未知参数都退出 2', () => {
-  const cmds = ['tools/fonts/subset.mjs', 'tools/fonts/fetch.mjs', 'tools/lookdev/sweep.mjs', 'tools/plates/check.mjs', 'tools/plates/bleed.mjs', 'tools/repo-check/rules/route-a/index.mjs'];
+test('A 路线命令：--help 都退出 0、写到 stdout 且不写文件；未知参数都退出 2；--json 输出单个信封', () => {
+  const cmds = ['tools/fonts/subset.mjs', 'tools/fonts/fetch.mjs', 'tools/lookdev/sweep.mjs', 'tools/plates/check.mjs', 'tools/plates/bleed.mjs'];
   for (const c of cmds) {
     const h = spawnSync(process.execPath, [path.join(ROOT, c), '--help'], { encoding: 'utf8' });
     assert.equal(h.status, 0, `${c} --help`);
     assert.match(h.stdout, /用法/, `${c} --help 输出到 stdout`);
-    const u = spawnSync(process.execPath, [path.join(ROOT, c), '--no-such-flag'], { encoding: 'utf8' });
+    assert.match(h.stdout, /退出码/);
+    const u = spawnSync(process.execPath, [path.join(ROOT, c), '--no-such-flag', '--json'], { encoding: 'utf8' });
     assert.equal(u.status, 2, `${c} --no-such-flag`);
+    const env = JSON.parse(u.stdout);
+    assert.equal(env.ok, false);
+    assert.equal(env.error.code, 'usage.unknown-option');
   }
 });

@@ -10,9 +10,12 @@
   title-in  片名显影：一声很轻的纸上洇墨（宽带噪声缓起缓落），偏左上（片名在左上）
 对位核对：写完 wav 后在混音上测钟声的起音，和 sun-break 的帧差超过 1 帧就失败（craft/animation.md §5.7）。
 
-用法（在仓库根目录）：python films/{{NAME}}/sound.py [films/{{NAME}}] [--out <wav>]
-  默认写 films/{{NAME}}/out/mix.wav（48 kHz 立体声 24 bit，积分响度 −14 LUFS、真峰值 ≤ −1.5 dBTP；封装时不再拉响度）
-  Python 用仓库约定的解释器（环境变量 PYTHON），依赖见 requirements.txt（numpy / scipy / numba / soundfile）。
+用法：统一出片会自动调用（npm run film -- build films/{{NAME}} 的 mix 步骤，写到运行目录）。单独跑（在仓库根目录）：
+  node tools/env/py.mjs films/{{NAME}}/sound.py [films/{{NAME}}] [--out <wav>]
+  输出位置：--out > 环境变量 BEIMING_AUDIO_OUT（统一出片设它，指向 out/<运行号>/audio/mix.wav）> films/{{NAME}}/out/mix.wav。
+  48 kHz 立体声 24 bit，积分响度 −14 LUFS、真峰值 ≤ −1.5 dBTP（封装时不再拉响度）。
+  解释器由 tools/env/py.mjs 统一选（BEIMING_PYTHON → BEIMING_PY → PYTHON → .venv …）；依赖用 npm run setup 装好（numpy / scipy / numba / soundfile）。
+  统一出片另给 BEIMING_FRAMES / BEIMING_FPS：与 film.json 不一致时退出码 4（换了档位却没改作品描述）。
 退出码：0 成功；2 用法错误；3 缺 Python 依赖；4 film.json 不合格或声画对位超差。
 """
 import argparse
@@ -58,9 +61,13 @@ def build(film_dir):
         from engine.audio.ambience import wind, water
         from engine.audio.mixing import loudness_to, match_level
     except ImportError as e:
-        die(3, f'缺 Python 依赖：{e}', '用装了 requirements.txt 的解释器运行（环境变量 PYTHON 指向它）')
+        die(3, f'缺 Python 依赖：{e}', '在仓库根目录运行 npm run setup，再用 node tools/env/py.mjs 启动（或设 BEIMING_PYTHON 指向装好依赖的解释器）')
 
     film, fps, nf, EV, cuts = load_film(film_dir)
+    for k, want in (('BEIMING_FPS', fps), ('BEIMING_FRAMES', nf)):   # 统一出片给的规格：和作品描述不一致就是换了档位却没改 film.json
+        got = os.environ.get(k)
+        if got and abs(float(got) - want) > 1e-9:
+            die(4, f'{k}={got} 与 film.json 的 {want} 不一致', '改 film.json 的 output（或按 film.json 的档位出片），声音和画面才对得上')
     D = nf / fps                       # 时长 = 帧数 ÷ 帧率，和画面逐样本对齐
     n = N(D)
     t = T(D)
@@ -169,12 +176,16 @@ def main():
             '检查 bell 的摆放与事件表；不要手抄秒数')
     lufs, tp = integrated(mix), 20 * np.log10(true_peak(mix) + 1e-12)
 
-    out = a.out or os.path.join(film_dir, 'out', 'mix.wav')
+    out = a.out or os.environ.get('BEIMING_AUDIO_OUT') or os.path.join(film_dir, 'out', 'mix.wav')
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     tmp = out + '.part.wav'
     sf.write(tmp, mix.astype(np.float32), SR, subtype='PCM_24')
     os.replace(tmp, out)
-    print(json.dumps({'path': os.path.relpath(out, ROOT).replace(os.sep, '/'), 'seconds': round(len(mix) / SR, 4),
+    try:
+        shown = os.path.relpath(out, ROOT).replace(os.sep, '/')
+    except ValueError:                 # Windows 上跨盘符
+        shown = os.path.basename(out)
+    print(json.dumps({'path': shown if not shown.startswith('..') else os.path.basename(out), 'seconds': round(len(mix) / SR, 4),
                       'lufs': round(lufs, 2), 'truePeakDbTP': round(float(tp), 2), 'gainDb': round(float(gain_db), 2),
                       'events': {'sun-break': {'frame': EV['sun-break']['frame'], 'onset': on, 'errFrames': round((on - t_sun) * fps, 3)}}},
                      ensure_ascii=False))
