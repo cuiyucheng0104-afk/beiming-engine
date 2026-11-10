@@ -33,9 +33,11 @@ test('每个命令：未知参数退出码 2；加 --json 时 stdout 只有一�
     assert.equal(k.code, 2);
     const env = parseEnvelope(k.stdout);
     for (const key of ['ok', 'exitCode', 'command', 'error', 'outputs', 'runJson', 'warnings']) assert.ok(key in env, `${cli} 的信封缺 ${key}`);
+    assert.equal(env.schemaVersion, 1);
     assert.equal(env.ok, false);
     assert.equal(env.exitCode, 2);
-    assert.equal(env.error.code, 'usage');
+    assert.equal(env.error.code, 'usage.unknown-option', '与 tools/lib/cli.mjs 同一套用法错误码');
+    assert.match(env.error.message, /不认识的选项 --no-such-flag/);
   }
 });
 

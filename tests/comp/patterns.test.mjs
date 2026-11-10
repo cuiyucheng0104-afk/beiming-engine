@@ -54,7 +54,7 @@ test('本机路径：用户目录、会话临时目录、盘符路径都认出',
 });
 
 test('本机路径：占位符、系统目录、正则与时间写法不报', () => {
-  const samples = [j('/Us', 'ers/<you>/repo/'), j('/Us', 'ers/shared/x/'), j('C', ':\\', 'Windows\\System32'), j('C', ':\\', 'Program Files\\x'), '/\\s+:\\d/', '12:30/45', j('https', '://example.com/a')];
+  const samples = [j('/Us', 'ers/<you>/repo/'), j('/Us', 'ers/<用户名>/repo/'), j('/Us', 'ers/<名>/'), j('/Us', 'ers/shared/x/'), j('C', ':\\', 'Windows\\System32'), j('C', ':\\', 'Program Files\\x'), '/\\s+:\\d/', '12:30/45', j('https', '://example.com/a')];
   for (const s of samples) assert.equal(hits('comp.local-paths', `x = "${s}"`).length, 0, `误报：${s}`);
 });
 

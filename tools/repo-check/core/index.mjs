@@ -33,14 +33,16 @@ async function run(ctx) {
   const root = opts.root ? path.resolve(opts.root) : TOOL_ROOT;
   if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw new CliError('usage.bad-root', `--root ${opts.root} 不是目录`, '给出一个仓库检出的目录');
 
-  const { rules, problems } = await loadRules(RULES_DIR);
+  const { rules, problems, domains: ruleDirs } = await loadRules(RULES_DIR);
   if (opts.list) {
     ctx.out(rules.map(r => `${r.id.padEnd(26)}${r.title}`).join('\n'));
     return { data: { rules: rules.map(r => ({ id: r.id, title: r.title, domain: r.domain, file: r.file })) } };
   }
   let selected = rules;
+  let loadProblems = problems;
   if (opts.only.length) {
-    const domains = new Set(rules.map(r => r.domain));
+    // 规则文件没加载上的域（目录在）也认：选中它时要把加载问题报出来，而不是说「没有这个域」
+    const domains = new Set([...ruleDirs, ...rules.map(r => r.domain)]);
     for (const t of opts.only) {
       if (!domains.has(t) && !rules.some(r => r.id === t)) {
         const s = suggest(t, [...domains, ...rules.map(r => r.id)]);
@@ -48,6 +50,9 @@ async function run(ctx) {
       }
     }
     selected = rules.filter(r => opts.only.includes(r.domain) || opts.only.includes(r.id));
+    // 加载问题只报选中的域（选单条规则时算它所在的域）：别的包正在改的规则文件坏了，不该让 --only core 跟着失败；全量检查照常全报
+    const chosen = new Set(opts.only.map(t => (domains.has(t) ? t : t.split('.')[0])));
+    loadProblems = problems.filter(p => !p.domain || chosen.has(p.domain));
   }
   let staged = null;
   if (opts.staged) {
@@ -55,8 +60,8 @@ async function run(ctx) {
     if (!g.ok) throw new CliError('env.git', '--staged 需要在 git 检出里运行，且能执行 git', '不用 --staged，或在仓库根目录里运行');
     staged = new Set(g.stdout.split('\0').filter(Boolean));
   }
-  const rctx = createContext({ root, staged });
-  let findings = problems.map(p => ({ ...normalizeFinding('core.loader', { level: 'error', file: p.file, message: p.message, hint: '修好或删掉这个规则文件' }), internal: true }));
+  const rctx = createContext({ root, staged, strict: !!opts.strict });
+  let findings = loadProblems.map(p => ({ ...normalizeFinding('core.loader', { level: 'error', file: p.file, message: p.message, hint: '修好或删掉这个规则文件' }), internal: true }));
   for (const rule of selected) {
     ctx.log.info(`检查 ${rule.id}`);
     findings.push(...await runRule(rule, rctx));
@@ -64,7 +69,7 @@ async function run(ctx) {
   const { waivers, problems: wp } = loadWaivers(root);
   findings.push(...wp.map(p => normalizeFinding('core.waivers', p)));
   findings = applyWaivers(findings, waivers, { strict: opts.strict, ranRules: new Set(selected.map(r => r.id)), reportStale: !staged });
-  const ruleList = [...(problems.length ? [{ id: 'core.loader', title: '规则文件加载' }] : []), ...selected];
+  const ruleList = [...(loadProblems.length ? [{ id: 'core.loader', title: '规则文件加载' }] : []), ...selected];
   if (findings.some(f => f.rule === 'core.waivers')) ruleList.push({ id: 'core.waivers', title: '限期豁免表' });
   const summary = summarize(ruleList, findings);
   const domains = [...new Set(selected.map(r => r.domain))];

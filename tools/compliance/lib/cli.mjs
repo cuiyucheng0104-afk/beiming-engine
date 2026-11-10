@@ -1,7 +1,9 @@
 // 北冥仓库 · 合规工具的命令行约定：严格参数解析、退出码（计划书附录 C1）、--json 信封（附录 C2）。
 // 接口：EXIT（退出码常量）、UsageError / EnvError / FailError（带退出码的错误）、
 //       parseCli(argv, spec) → { values, positionals }，未知参数抛 UsageError（退出码 2）；
-//       envelope({ command, exitCode, error, outputs, warnings, result }) → 附录 C2 的对象；
+//       用法错误的码与 tools/lib/cli.mjs 同名（docs/CLI.md 第 4 节）：usage.unknown-option（「不认识的选项 --xxx」）、
+//       usage.missing-value、usage.bad-value、usage.extra-argument；
+//       envelope({ command, exitCode, error, outputs, warnings, result }) → 附录 C2 的对象（schemaVersion 1）；
 //       runMain(command, fn, { json }) 统一收尾：--json 时 stdout 只输出一个对象，人读日志走 stderr。
 // P02 的 tools/lib/cli.mjs 合入后可以改为转调它；这里只依赖 Node 自带模块，保证本目录能独立运行。
 // SPDX-License-Identifier: MIT
@@ -29,7 +31,7 @@ class CliError extends Error {
   }
 }
 export class UsageError extends CliError {
-  constructor(message, hint = '加 --help 查看用法') { super(message, { code: 'usage', hint, exitCode: EXIT.USAGE }); }
+  constructor(message, hint = '加 --help 查看用法', code = 'usage.bad-value') { super(message, { code, hint, exitCode: EXIT.USAGE }); }
 }
 export class EnvError extends CliError {
   constructor(message, hint = '') { super(message, { code: 'env', hint, exitCode: EXIT.ENV }); }
@@ -45,16 +47,25 @@ export function parseCli(argv, spec) {
     parsed = parseArgs({ args: argv, options: spec.options, allowPositionals: !!spec.allowPositionals, strict: true });
   } catch (e) {
     const known = Object.keys(spec.options).map(k => `--${k}`).join(' ');
-    throw new UsageError(`参数不认识或缺值：${e.message.replace(/^.*?: /, '')}`, `可用参数：${known}；加 --help 查看用法`);
+    const hint = `可用参数：${known}；加 --help 查看用法`;
+    const flag = /'(-{1,2}[^' ]+)/.exec(e.message)?.[1] ?? '';
+    if (e.code === 'ERR_PARSE_ARGS_UNKNOWN_OPTION') throw new UsageError(`不认识的选项 ${flag || e.message}`, hint, 'usage.unknown-option');
+    if (e.code === 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE') {
+      if (/does not take an argument/.test(e.message)) throw new UsageError(`${flag} 是开关，不带值`, hint, 'usage.bad-value');
+      throw new UsageError(`${flag} 后面要跟一个值`, hint, 'usage.missing-value');
+    }
+    if (e.code === 'ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL') throw new UsageError(`不接受位置参数：${/'([^']*)'/.exec(e.message)?.[1] ?? ''}`, hint, 'usage.extra-argument');
+    throw new UsageError(`参数不对：${e.message}`, hint);
   }
   if (spec.maxPositionals != null && parsed.positionals.length > spec.maxPositionals) {
-    throw new UsageError(`多余的位置参数：${parsed.positionals.slice(spec.maxPositionals).join(' ')}`);
+    throw new UsageError(`多余的位置参数：${parsed.positionals.slice(spec.maxPositionals).join(' ')}`, '加 --help 查看用法', 'usage.extra-argument');
   }
   return parsed;
 }
 
 export function envelope({ command, exitCode = EXIT.OK, error = null, outputs = [], warnings = [], result = null }) {
   return {
+    schemaVersion: 1,
     ok: exitCode === EXIT.OK,
     exitCode,
     command,
