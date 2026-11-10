@@ -4,7 +4,8 @@
 //   autoBlink(ts, period, offset) → 闭合度 0 睁 … 1 闭：每个周期开头半秒眨一下（一拍三的四个停帧）
 //   poseEyes(eyes, b, look, root, { lidU: [睁, 闭], lidL: [睁, 闭], yaw, pitch, catches })
 //       眼睑按闭合度 b 转；look（世界坐标）给了就让眼珠转向它（偏航 / 俯仰限幅）；
-//       catches = [[x, y, z, cos 半径], [...]]（眼窝坐标的两个高光方向），或 (e, 看向的局部方向 | null) => 同样的数组
+//       catches = [[x, y, z, cos 半径], [...]]（眼窝坐标的两个高光方向），或 (e, 看向的局部方向 | null) => 同样的数组；
+//       不给（或函数返回空）时不动高光，眼睑边缘平面照常更新
 //   pickEye(eyes, target, ref)：ref = 参考点 Vector3（取近的那只）/ 1（+Z 侧）/ -1（-Z 侧，默认）→ 该眼世界坐标写进 target
 //   mountEyes({ point, normal, x, ph, inset, gaze: [gx, gy], parent, build(side, socket) → { ball, lidU, lidL, mat, frame? } })
 //       在 profileBody 式的体表 (x, ±ph) 两侧各挖一个眼窝：沿法线往里 inset，局部 +Z = 法线偏 gaze，+X 水平；
@@ -38,8 +39,10 @@ export function poseEyes(eyes, b, look, root, { lidU, lidL, yaw = 0.35, pitch = 
     if (!e.frame) continue;
     _q.copy(e.ball.quaternion).invert();
     const cs = typeof catches === 'function' ? catches(e, dir) : catches;
-    _v.set(cs[0][0], cs[0][1], cs[0][2]).normalize().applyQuaternion(_q); e.frame.catch1.set(_v.x, _v.y, _v.z, cs[0][3]);
-    _v.set(cs[1][0], cs[1][1], cs[1][2]).normalize().applyQuaternion(_q); e.frame.catch2.set(_v.x, _v.y, _v.z, cs[1][3]);
+    if (cs) {
+      _v.set(cs[0][0], cs[0][1], cs[0][2]).normalize().applyQuaternion(_q); e.frame.catch1.set(_v.x, _v.y, _v.z, cs[0][3]);
+      _v.set(cs[1][0], cs[1][1], cs[1][2]).normalize().applyQuaternion(_q); e.frame.catch2.set(_v.x, _v.y, _v.z, cs[1][3]);
+    }
     const aU = e.lidU.rotation.x, aL = e.lidL.rotation.x;
     e.frame.lidU.set(0, Math.cos(aU), Math.sin(aU)).applyQuaternion(_q);
     e.frame.lidL.set(0, -Math.cos(aL), -Math.sin(aL)).applyQuaternion(_q);

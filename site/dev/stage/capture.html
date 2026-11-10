@@ -21,7 +21,8 @@
 <canvas id="stage-canvas"></canvas>
 <script type="module">
   import { createStage } from '../../js/stage.js';
-  import { loadHUDFonts, drawTitle, setTitleLayout, HUD_T } from '@film/hud.js';
+  import { loadHUDFonts, __TITLE_SKEL as SKEL } from '@film/hud.js';
+  import { buildBrushGlyph, paintBrushGlyph } from '@engine/overlay/brush.js';
   const q = new URLSearchParams(location.search);
   const canvas = document.getElementById('stage-canvas');
   const stage = await createStage(canvas, { quality: q.get('quality') || 'auto', lod: q.get('lod') ? +q.get('lod') : null, defer: false });
@@ -33,15 +34,18 @@
   stage.pause();
 
   const PAPER = '#F3EAD9';
+  const INK = '#2A2D52', INK_RGB = [42, 45, 82];        // --ink：首屏 h1 的墨色（site/css/tokens.css）
   const grab = () => {                                   // 同一个任务里读画布（不需要 preserveDrawingBuffer）
     const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
     c.getContext('2d').drawImage(canvas, 0, 0); return c;
   };
-  const render = (t, { layer, scene, progress, tune, pointer = [0, 0], timeFx = null } = {}) => {
+  // look：{ lineK, outline } 线宽倍数与外轮廓加粗（拆层静帧在页面上缩小显示，见 render-assets.mjs）
+  const render = (t, { layer, scene, progress, tune, pointer = [0, 0], timeFx = null, look = null } = {}) => {
     if (scene) stage.setScene(scene, progress ?? 0);
     if (layer !== undefined) stage.setLayer(layer);
     stage.debug.tune(tune || null);
     stage.debug.timeFx(timeFx || { boost: null, flicks: [] });
+    stage.debug.look(look);
     stage.debug.renderAt(t, { pointer });
     return grab();
   };
@@ -49,6 +53,51 @@
     const o = document.createElement('canvas'); o.width = c.width; o.height = c.height;
     const g = o.getContext('2d'); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, o.width, o.height); } g.drawImage(c, 0, 0); return o;
   };
+  const loadImage = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+
+  // —— 分享图的毛笔标题：与首屏 h1 同一套写法（site/js/brush-title.js）：engine/overlay/brush.js 写完的样子，
+  //    骨架取 src/hud.js 的 __TITLE_SKEL；飞白表 DRY 与 hud.js、brush-title.js 两处相同（改时三处一起改），字体马善政 ——
+  const DRY = { '北': [0, 0, 0.7, 0.6, 0.45], '冥': [0, 0.4, 0, 0.25, 0, 0, 0, 0.5, 0.7, 0.35] };
+  function brushTitle(g, text, { x, yc, F, rgb }) {
+    // 与页面一样：两个字的字距 -0.02em（.hero-glyphs），字的中心落在字框中心
+    [...text].forEach((ch, i) => {
+      const G = buildBrushGlyph(ch, { font: `400 ${F}px "BM Title"`, size: F, strokes: SKEL[ch], span: [0, 1], dry: DRY[ch] || [] });
+      paintBrushGlyph(G, 1e3, { edge: 0.035, rgb });
+      const cx = x + (i + 0.5) * F * 0.98;
+      g.drawImage(G.out, Math.round(cx - G.size / 2), Math.round(yc - G.size / 2));
+    });
+  }
+  // —— 页面同款的题签：一小条纸（--paper 乘 ui-paper.jpg 纸纹）贴在天上，墨色字，底下一道细线和一点投影（sections.css .eyebrow）——
+  async function eyebrow(g, { x, bottom, size, S }) {
+    const paperTex = await loadImage('../../assets/ui-paper.jpg');
+    const lat = `500 ${size}px "BM HUD Latin", "PingFang SC", sans-serif`, sc = `500 ${size}px "PingFang SC", "Hiragino Sans GB", sans-serif`;
+    const parts = [['BEIMING ENGINE', lat, 0.12 * size, 1], ['·', sc, 0, 0.6], ['代码即影片', sc, 0, 1]];
+    const gap = 0.6 * size, padX = 0.75 * size, padT = 0.28 * size, padB = 0.3 * size;
+    g.save();
+    const widths = parts.map(([s, f, ls]) => { g.font = f; if ('letterSpacing' in g) g.letterSpacing = `${ls}px`; return g.measureText(s).width - ls; });
+    const w = widths.reduce((a, b) => a + b, 0) + gap * (parts.length - 1) + 2 * padX;
+    const h = size * 1.5 + padT + padB, y = bottom - h;
+    // 投影（0 0.6rem 1.2rem -0.8rem 夜色 45%）与底线（1px --rule-ink）
+    g.shadowColor = 'rgba(23,24,58,0.45)'; g.shadowBlur = 1.2 * 16 * S; g.shadowOffsetY = 0.6 * 16 * S;
+    g.fillStyle = PAPER; g.fillRect(x + 0.8 * 16 * S, y + 0.8 * 16 * S, w - 1.6 * 16 * S, h - 0.8 * 16 * S);
+    g.shadowColor = 'transparent';
+    g.fillStyle = PAPER; g.fillRect(x, y, w, h);
+    g.globalCompositeOperation = 'multiply';
+    const pat = g.createPattern(paperTex, 'repeat'); pat.setTransform(new DOMMatrix().translate(x, y).scale(S * 512 / paperTex.width));   // 页面上铺 512px
+    g.fillStyle = pat; g.fillRect(x, y, w, h);
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = 'rgba(42,45,82,0.16)'; g.fillRect(x, y + h, w, Math.max(1, S));
+    // 字：基线按 line-height 1.5 的行盒放（Barlow 与苹方的基线都约在行盒 72% 处）
+    g.textBaseline = 'alphabetic'; g.fillStyle = INK;
+    let cx = x + padX;
+    parts.forEach(([s, f, ls, a], i) => {
+      g.font = f; if ('letterSpacing' in g) g.letterSpacing = `${ls}px`; g.globalAlpha = a;
+      g.fillText(s, cx, y + padT + size * 1.12);
+      cx += widths[i] + gap;
+    });
+    g.restore();
+    return { x, y, w, h };
+  }
 
   window.__capture = {
     info: () => ({ ...stage.debug.info, canvas: [canvas.width, canvas.height] }),
@@ -68,24 +117,18 @@
       render(t, { ...o, layer: 4 });
       return out.toDataURL('image/png');
     },
-    // 分享图：首屏画面 + 影片片名“北冥”（src/hud.js 的 drawTitle → engine/overlay/brush.js 按笔顺写完的样子）
+    // 只要剪影（第 2 层的不透明度）：量轮廓对比用
+    mask(t, o = {}) { const c = render(t, { ...o, layer: 2 }); return c.toDataURL('image/png'); },
+    // 分享图（FINAL-11 / ART-19）：首屏画面 + 与首屏同款的题签和毛笔标题“北冥”。标题用墨色 --ink（与 h1 一致；
+    // 以前是影片片名的近白字加暖色光晕，和页面对不上）。版式比例都按画面高度给：titleX 左缘、titleY 字的中线、titleSize 字号
     async og(t, o = {}) {
       await loadHUDFonts();
-      HUD_T.subIn = HUD_T.subFull = 1e9;                  // 影片的副标题（样片用语）不画
-      setTitleLayout({ x: o.titleX ?? 0.07, y: o.titleY ?? 0.3, size: o.titleSize ?? 0.3, dry: 1, shade: o.shade ?? 0.35 });
       const c = render(t, { ...o, layer: 4 });
       const out = flatten(c), g = out.getContext('2d');
-      drawTitle(g, 30, out.width, out.height);
-      // 小标签（Barlow 大写 + 中文），近白、带暖色光晕，同影片片名的副标题处理
-      if (o.label) {
-        const S = out.height / 630, x = (o.titleX ?? 0.07) * out.width + 6 * S, y = (o.labelY ?? 0.56) * out.height;
-        g.save();
-        g.font = `500 ${Math.round(19 * S)}px "BM HUD Latin", "PingFang SC", sans-serif`;
-        if ('letterSpacing' in g) g.letterSpacing = `${(2.6 * S).toFixed(1)}px`;
-        g.shadowColor = 'rgba(28,30,78,0.45)'; g.shadowBlur = 14 * S; g.fillStyle = 'rgba(255,250,244,0.95)';
-        g.fillText(o.label, x, y);
-        g.restore();
-      }
+      const W = out.width, H = out.height, S = H / 630;
+      const F = Math.round((o.titleSize ?? 0.32) * H), x = (o.titleX ?? 0.065) * W, yc = (o.titleY ?? 0.5) * H;
+      brushTitle(g, '北冥', { x: x - 0.05 * F, yc, F, rgb: INK_RGB });   // h1 的 margin-left -0.05em：字的笔画左缘与题签左缘对齐
+      if (o.label !== false) await eyebrow(g, { x, bottom: yc - 0.5 * F - (o.labelGap ?? 0.09) * F, size: Math.round((o.labelSize ?? 21) * S), S });
       return out.toDataURL('image/png');
     },
   };

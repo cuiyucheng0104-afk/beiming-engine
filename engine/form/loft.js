@@ -6,7 +6,8 @@
 //   sideAngle(c, s)            把左右两侧折到同一侧的侧向角（-π/2 腹中线 … 0 体侧 … π/2 背中线）
 //   axisStations(x0, x1, n, k) 主轴上 n 个站位，两端按余弦加密（k = 加密程度，0 均匀）
 //   ringsAt(point, xs, nv)     每个站位一圈 nv 个点
-//   loftRings(rings, { startCap, endCap, attrs })  环首尾相接的网格；cap = { p, attr }，attrs[名] = { data, size }
+//   loftRings(rings, { startCap, endCap, attrs })  环首尾相接的网格；cap = { p, attr }，attrs[名] = { data, size }；
+//       cap.attr 可以不给或缺某个属性：封口中心取那一环该属性的平均值；给了就要正好 size 个分量（单分量也可以直接写数）
 //   loftWing({ nS, nC, span0, span1, plan, attrs })  翼型放样：展向沿 Z，弦向沿 X（前缘在 +X），厚度沿 Y；
 //       plan(t, z) → { le 前缘 x, c 弦长, th 厚度, y?, camber? }；attrs[名] = { size, at(t, cp, z), start, end }
 //   unwrap(body, x0, x1, M)    把放样体表面展开成 (U, s)：U = 沿体侧中线（y = mid、z = width）量的弧长，
@@ -60,7 +61,16 @@ export function loftRings(rings, { startCap, endCap, attrs = {} } = {}) {
   for (const n in attrs) extra[n] = attrs[n].data.slice();
   const cap = (pt, j, rev, capAttr) => {
     const ci = pos.length / 3; pos.push(pt.x, pt.y, pt.z);
-    for (const n in attrs) extra[n].push(...capAttr[n]);
+    for (const n in attrs) {
+      const { data, size } = attrs[n];
+      let v = capAttr[n];
+      if (v === undefined || v === null) {   // 没给：取这一环的平均值
+        v = new Array(size).fill(0);
+        for (let k = 0; k < nV; k++) for (let c = 0; c < size; c++) v[c] += data[(j * nV + k) * size + c] / nV;
+      } else if (typeof v === 'number') v = [v];
+      if (v.length !== size) throw new Error(`loftRings：封口属性 ${n} 要 ${size} 个分量，给了 ${v.length} 个`);
+      extra[n].push(...v);
+    }
     for (let k = 0; k < nV; k++) { const a = j * nV + k, c = j * nV + (k + 1) % nV; rev ? idx.push(a, c, ci) : idx.push(a, ci, c); }
   };
   if (startCap) cap(startCap.p, 0, true, startCap.attr || {});

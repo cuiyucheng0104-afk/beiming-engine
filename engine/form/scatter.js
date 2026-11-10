@@ -7,6 +7,7 @@
 //   placeAligned(p, n, along, scale, sink) → Matrix4：局部 +Y 朝法线，局部 +X 顺着 along 在切平面上的投影
 //   pickFrom(r, arr)  用一个 [0,1) 随机数从数组里挑一个
 //   instanced(geo, mat, items, name, { attrs, bind }) → InstancedMesh；items = [{ m: Matrix4, c?: 颜色 }]，
+//       颜色写 '#hex' / 0xhex / THREE.Color / [r, g, b]（sRGB 0..1，同 engine/look/params.js 的 toColor），别的类型报错；
 //       attrs 是挂到 geo 上的逐实例属性，bind(mesh, mat) 交给着色那一层挂材质 / 描边标记
 import * as THREE from 'three';
 import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
@@ -29,6 +30,12 @@ export function samplersOn(geo, weights) {
 }
 
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _c = new THREE.Color();
+// 实例色：每次从白色重设，不认识的值报错（共用的 _c 不会把上一个实例 / 上一次调用的颜色带下去）
+function instColor(c) {
+  if (Array.isArray(c)) return _c.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
+  if (c?.isColor || typeof c === 'string' || typeof c === 'number') return _c.setRGB(1, 1, 1).set(c);
+  throw new TypeError(`instanced：实例颜色要写 '#hex' / 0xhex / THREE.Color / [r, g, b]，收到 ${typeof c}`);
+}
 
 export function placeOnSurface(p, n, { yaw = 0, scale, sink = 0, lean = null }) {
   const up = n.clone(); if (lean) up.add(lean).normalize();
@@ -49,7 +56,7 @@ export const pickFrom = (r, arr) => arr[Math.floor(r * arr.length) % arr.length]
 
 export function instanced(geo, mat, items, name, { attrs = null, bind = null } = {}) {
   const m = new THREE.InstancedMesh(geo, mat, Math.max(1, items.length));
-  items.forEach((it, i) => { m.setMatrixAt(i, it.m); if (it.c) m.setColorAt(i, _c.set(it.c)); });
+  items.forEach((it, i) => { m.setMatrixAt(i, it.m); if (it.c !== undefined && it.c !== null) m.setColorAt(i, instColor(it.c)); });
   m.count = items.length;
   m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true;
   if (attrs) for (const k in attrs) geo.setAttribute(k, attrs[k]);
