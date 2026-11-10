@@ -49,8 +49,10 @@ export const GATE_TITLES = {
 const SOFTWARE_RE = /swiftshader|llvmpipe|softpipe|lavapipe|software|basic render|microsoft basic|\bwarp\b/i;
 const MEDIA_EXT = /\.(mp4|mov|mkv|webm|m4v|avi|wav|mp3|aac|m4a|flac|ogg|opus|gif)$/i;
 const ENV_IGNORED_ALLOW = [/^node_modules\/?$/, /^\.venv\/?$/, /^venv\/?$/, /(^|\/)__pycache__\/?$/, /\.py[co]$/, /(^|\/)\.DS_Store$/, /^\.(pytest|ruff|mypy)_cache\/?$/, /(^|\/)Thumbs\.db$/];
-// 会话 TMPDIR 里属于评测框架（Claude Code 自身）的文件：只记录，不判残留
-export const DEFAULT_TMP_ALLOW = [/^claude-[0-9a-f]{4,}-cwd$/i, /^claude-[0-9a-f-]{8,}$/i, /^\.?com\.apple\./, /^node-compile-cache$/];
+// 会话 TMPDIR 里属于评测框架（Claude Code 自身）的文件：只记录，不判残留。
+// claude-<hex>-cwd 是 Bash 工具记工作目录用的；claude-<uid>/ 是 CLI 按用户建的暂存根目录（任务输出等）。
+// 评测机上的 CLI 版本另有自己的文件时，评测方确认后用 --tmp-allow 追加。
+export const DEFAULT_TMP_ALLOW = [/^claude-[0-9a-f]{4,}-cwd$/i, /^claude-[0-9a-f-]{8,}$/i, /^claude-\d+$/, /^\.?com\.apple\./, /^node-compile-cache$/];
 
 const finding = (level, code, message, extra = {}) => ({ level, code, message, ...extra });
 
