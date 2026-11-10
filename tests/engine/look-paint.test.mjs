@@ -109,7 +109,7 @@ test('毛笔飞白 dryRuns：dry = 0 不露白；越到后段笔毛越枯，dry 
   assert.deepEqual(dryRuns(spine, { size: 30, dry: 0.7, noise: createNoise2D(mulberry(17)) }), runs, '同噪声种子同结果');
 });
 
-test('宣纸 xuanField / xuanFibers：平铺无缝、亮度对比克制（±5% 内）、纤维数量与尺度随 scale、确定性', () => {
+test('宣纸 xuanField / xuanFibers：平铺无缝、亮度对比克制（±6% 内）、纤维数量与尺度随 scale、确定性', () => {
   const W = 256, H = 192, f = xuanField({ width: W, height: H, seed: 3 });
   let lo = Infinity, hi = -Infinity, seamX = 0, seamY = 0, inner = 0;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = f(x + 0.5, y + 0.5); lo = Math.min(lo, v); hi = Math.max(hi, v); }

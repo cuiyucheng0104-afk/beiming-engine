@@ -91,6 +91,17 @@ export function xuanFibers(o = {}) {
   return out;
 }
 
+// 平铺时，离边不到 ext 的东西还要在对边（与对角）再画一次：返回要画的偏移 [[0, 0], …]
+function wrapOffsets(x, y, ext, tile, W, H) {
+  const offs = [[0, 0]];
+  if (!tile) return offs;
+  const ox = x < ext ? [W] : x > W - ext ? [-W] : [], oy = y < ext ? [H] : y > H - ext ? [-H] : [];
+  for (const a of ox) offs.push([a, 0]);
+  for (const b of oy) offs.push([0, b]);
+  for (const a of ox) for (const b of oy) offs.push([a, b]);
+  return offs;
+}
+
 export function xuanPaper(o = {}) {
   const P = opts(o), { width: W, height: H, tone, scale: k } = P;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -109,30 +120,23 @@ export function xuanPaper(o = {}) {
     for (const f of xuanFibers(P)) {
       const dx = Math.cos(f.a) * f.len / 2, dy = Math.sin(f.a) * f.len / 2, nx = -Math.sin(f.a) * f.bend, ny = Math.cos(f.a) * f.bend;
       g.strokeStyle = f.light ? lightC : darkC; g.globalAlpha = f.alpha; g.lineWidth = f.w;
-      const offs = [[0, 0]];
-      if (P.tile) {
-        const ext = f.len / 2 + Math.abs(f.bend) + 2;
-        const ox = f.x < ext ? [W] : f.x > W - ext ? [-W] : [], oy = f.y < ext ? [H] : f.y > H - ext ? [-H] : [];
-        for (const a of ox) offs.push([a, 0]);
-        for (const b of oy) offs.push([0, b]);
-        for (const a of ox) for (const b of oy) offs.push([a, b]);
-      }
-      for (const [ox, oy] of offs) {
+      for (const [ox, oy] of wrapOffsets(f.x, f.y, f.len / 2 + Math.abs(f.bend) + 2, P.tile, W, H)) {
         g.beginPath(); g.moveTo(f.x - dx + ox, f.y - dy + oy);
         g.quadraticCurveTo(f.x + nx + ox, f.y + ny + oy, f.x + dx + ox, f.y + dy + oy); g.stroke();
       }
     }
     g.globalAlpha = 1;
   }
-  // 3) 草屑杂点：少量深色小点与短渣
+  // 3) 草屑杂点：少量深色小点与短渣；平铺时越边的和纤维一样从对边再画一次
   if (P.specks > 0) {
     const R = mulberry((P.seed * 40503 + 7) | 0), n = Math.round(P.specks * W * H / 60000);
     for (let i = 0; i < n; i++) {
       const x = R() * W, y = R() * H, r = k * (0.5 + R() * 1.1), long = R() < 0.2, a = R() * TAU;
       g.fillStyle = `rgba(${Math.round(tone[0] * 0.55)},${Math.round(tone[1] * 0.5)},${Math.round(tone[2] * 0.42)},${(0.12 + R() * 0.28).toFixed(3)})`;
-      g.beginPath();
-      if (long) g.ellipse(x, y, r * (2.5 + R() * 3), r * 0.45, a, 0, TAU); else g.ellipse(x, y, r, r * (0.6 + R() * 0.4), a, 0, TAU);
-      g.fill();
+      const rx = long ? r * (2.5 + R() * 3) : r, ry = long ? r * 0.45 : r * (0.6 + R() * 0.4);
+      for (const [ox, oy] of wrapOffsets(x, y, Math.max(rx, ry) + 2, P.tile, W, H)) {
+        g.beginPath(); g.ellipse(x + ox, y + oy, rx, ry, a, 0, TAU); g.fill();
+      }
     }
   }
   return cv;
