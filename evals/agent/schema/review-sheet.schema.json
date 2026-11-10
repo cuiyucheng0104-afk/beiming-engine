@@ -1,0 +1,133 @@
+{
+  "$comment": "<运行目录>/review-sheet.json：run.mjs finish 生成的评审表。评审只改值为 null 的评审字段、notes、note、failures 与 safety.review；auto、basis 等机器字段每次 finish 都会刷新。只用 tools/eval/lib/schema.mjs 支持的关键字。",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "rubricVersion", "run", "visual", "delivery", "safety", "failures"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "beiming-eval-review-sheet" },
+    "rubricVersion": { "type": "integer", "minimum": 1 },
+    "generatedAt": { "type": "string" },
+    "run": {
+      "type": "object",
+      "required": ["task"],
+      "properties": {
+        "task": { "type": "string" }, "title": { "type": ["string", "null"] }, "runId": { "type": ["string", "null"] }, "attempt": { "type": ["integer", "null"] },
+        "isolation": { "type": ["string", "null"] }, "filmId": { "type": ["string", "null"] }, "route": { "type": ["string", "null"] }
+      }
+    },
+    "instructions": { "type": "array", "items": { "type": "string" } },
+    "materials": { "type": ["object", "null"] },
+    "visual": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["reviewers"],
+          "properties": {
+            "dims": { "type": "array" },
+            "vetoOptions": { "type": "array" },
+            "reviewers": { "type": "array", "items": { "$ref": "#/$defs/reviewer" } }
+          }
+        }
+      ]
+    },
+    "process": { "$ref": "#/$defs/category" },
+    "orchestration": { "$ref": "#/$defs/category" },
+    "delivery": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/category" }] },
+    "safety": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["review"],
+          "properties": {
+            "auto": { "type": ["string", "null"] },
+            "checks": { "type": "array" },
+            "review": {
+              "type": "object",
+              "required": ["conclusion"],
+              "additionalProperties": false,
+              "properties": {
+                "conclusion": { "enum": ["pass", "fail", null] },
+                "by": { "type": ["string", "null"] },
+                "note": { "type": "string" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "note"],
+        "additionalProperties": false,
+        "properties": {
+          "where": { "type": ["string", "null"] },
+          "category": { "enum": ["agent", "repo-gap", "eval-defect"] },
+          "note": { "type": "string", "minLength": 1 },
+          "gap": { "type": ["string", "null"], "pattern": "^[A-Z]+-[0-9]+$" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "score10": { "type": ["number", "null"], "minimum": 0, "maximum": 10 },
+    "reviewer": {
+      "type": "object",
+      "required": ["id", "kind", "scores", "vetoes"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["human", "ai"] },
+        "name": { "type": ["string", "null"] },
+        "scores": {
+          "type": "object",
+          "required": ["style", "texture", "narrative", "camera", "composition", "avText"],
+          "additionalProperties": false,
+          "properties": {
+            "style": { "$ref": "#/$defs/score10" }, "texture": { "$ref": "#/$defs/score10" }, "narrative": { "$ref": "#/$defs/score10" },
+            "camera": { "$ref": "#/$defs/score10" }, "composition": { "$ref": "#/$defs/score10" }, "avText": { "$ref": "#/$defs/score10" }
+          }
+        },
+        "vetoes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "note"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "enum": ["edge-exposed", "frame-glitch", "text-broken", "a-missing-ink-or-post", "subject-mismatch"] },
+              "frame": { "type": ["integer", "null"], "minimum": 0 },
+              "note": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": ["max", "auto", "manual", "deduct", "score", "na"],
+      "properties": {
+        "title": { "type": "string" }, "max": { "type": "number", "minimum": 0 }, "autoMax": { "type": "number", "minimum": 0 }, "manualMax": { "type": "number", "minimum": 0 },
+        "needs": { "type": "array", "items": { "enum": ["manual", "deduct"] } }, "guide": { "type": "string" },
+        "auto": { "type": ["number", "null"], "minimum": 0 }, "basis": { "type": "string" },
+        "manual": { "type": ["number", "null"], "minimum": 0 },
+        "deduct": { "type": ["integer", "null"], "minimum": 0 },
+        "score": { "type": ["number", "null"], "minimum": 0 },
+        "na": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    },
+    "category": {
+      "type": "object",
+      "required": ["max", "items"],
+      "properties": {
+        "title": { "type": "string" }, "max": { "type": "number" },
+        "items": { "type": "object", "additionalProperties": { "$ref": "#/$defs/item" } }
+      }
+    }
+  }
+}
