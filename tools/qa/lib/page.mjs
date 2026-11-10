@@ -230,7 +230,7 @@ export async function openPage({ root, pageDir, width, height, fps, profileId, r
     throw new QaError('env.playwright-missing', '缺少 playwright-core', { hint: '在仓库根目录运行 npm ci（或 npm install）', exitCode: EXIT.ENV });
   }
   const relDir = path.relative(root, pageDir);
-  if (relDir.startsWith('..') || path.isAbsolute(relDir)) throw new QaError('usage', `页面目录 ${pageDir} 不在服务根 ${root} 之内`, { exitCode: EXIT.USAGE });
+  if (relDir.startsWith('..') || path.isAbsolute(relDir)) throw new QaError('usage.bad-value', `页面目录 ${pageDir} 不在服务根 ${root} 之内`, { exitCode: EXIT.USAGE });
   const server = await serve(root, { shimThree });
   const port = server.address().port;
   const origin = `http://127.0.0.1:${port}`;

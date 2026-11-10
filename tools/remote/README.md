@@ -39,9 +39,9 @@ node tools/remote/cli.mjs cleanup rtx [--run <run-id>] [--all]
 {
   "machines": {
     "rtx": {
-      "ssh": "<用户>@<主机或 ~/.ssh/config 里的 Host 别名>",
+      "ssh": "<用户>@<主机，或本机 ssh 配置里的 Host 别名>",
       "shell": "powershell",
-      "root": "D:/beiming-remote",
+      "root": "<盘符>:/beiming-remote",
       "node": "node",
       "git": "git",
       "env": { "BEIMING_ANGLE": "vulkan" },
@@ -75,7 +75,7 @@ winget install --id OpenJS.NodeJS.LTS -e
 winget install --id Git.Git -e
 ```
 
-然后把控制机的公钥（例如 `~/.ssh/id_ed25519.pub` 的内容）加到工作站账号的 `C:\Users\<账号>\.ssh\authorized_keys`；管理员账号要加到 `C:\ProgramData\ssh\administrators_authorized_keys`。回到控制机确认：
+然后把控制机的公钥（例如控制机家目录下 `.ssh/id_ed25519.pub` 的内容）加到工作站上该账号用户目录下的 `.ssh\authorized_keys`；管理员账号要加到 `C:\ProgramData\ssh\administrators_authorized_keys`。回到控制机确认：
 
 ```bash
 ssh -o BatchMode=yes <用户>@<主机> node --version

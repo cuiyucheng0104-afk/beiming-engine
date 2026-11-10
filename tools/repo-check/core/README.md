@@ -5,7 +5,7 @@
 | 文件 | 用途 |
 |---|---|
 | `index.mjs` | 命令声明与执行流程（`--only`、`--list`、`--strict`、`--staged`、`--root`） |
-| `loader.mjs` | 扫描 `tools/repo-check/rules/<域>/*.mjs`，一个文件一条规则 |
+| `loader.mjs` | 扫描 `tools/repo-check/rules/<域>/*.mjs`：一个文件一条规则，或一个域模块装本域的多条规则 |
 | `context.mjs` | 规则拿到的 `ctx`（只读、带缓存） |
 | `markdown.mjs` | Markdown 解析：遮代码、链接、标题与 GitHub 锚点、代码块 |
 | `report.mjs` | 限期豁免、汇总、文字报告 |
@@ -37,7 +37,24 @@ export default {
 - `level`：`error`（规范错误，退出 4）、`warn`（提示，不影响退出码）、`info`（汇总说明）。`message` 说原因，`hint` 说下一步怎么做，都用中文；`file` 是仓库相对路径、正斜杠。
 - `ctx`：`root`、`rel / abs`、`exists / isDir`、`read / readJson`（缓存）、`walk(目录, { dirs, files })`（跳过 `node_modules`、`.git`、`out`、`__pycache__`、`.venv`、`.cache`、`_site`、`_previews`、`.claude/worktrees` 与 `tests/**/fixtures`）、`mdFiles({ vendor })`、`git(args)`（`{ ok, stdout }`）、`registry`（路线注册表）、`pkg`（package.json）、`inScope(rel)`、`md`（`markdown.mjs` 的全部函数）、`memo(key, fn)`。
 - 规则抛错或超过 120 秒不返回，记成「规则自身出错」，整次检查退出 1；别的规则照常跑。
+- 规则文件本身坏了（语法错误、导出的形状不对、域或 id 不合格）记成 `core.loader` 的错误，同样退出 1。全量检查全部报出；`--only <域或规则>` 只报选中的域的加载问题（选单条规则时算它所在的域），别的包正在改的规则文件不会连累 `--only core`。
 - 测试放 `tests/<域>/`：用 `--root <临时目录>` 在构造的小仓库上跑，断言规则 id 与退出码（参考 `tests/governance/`）。
+
+### 域模块：一个文件装本域的多条规则
+
+域里的规则还要能单独运行（自带命令行入口、给 CI 或提交钩子直接调）时，可以把整个域写成一个模块，例如 `rules/env/index.mjs`、`rules/qa/index.mjs`。执行器认具名导出：
+
+```js
+export const domain = 'env';                       // 可选；写了就必须等于目录名
+export const rules = [                             // 每条的 id、title、run 要求同上
+  { id: 'env.eol', title: '索引里没有 CRLF', severity: 'error', run: async ctx => [/* Finding */] },
+];
+export function createContext(root, { staged }) { /* 可选：本域自己的 ctx */ }
+```
+
+- 导出了 `createContext` 的，执行器每次检查调用一次，把它返回的对象交给本模块的全部规则；没导出的，规则拿框架的 `ctx`。`staged` 是 `--staged` 时暂存区涉及的文件集合，否则为 `null`。
+- 发现按域模块的约定换算：没写 `level` 的取该规则的 `severity`（缺省 `error`）；`level: 'ok'` 是「通过」说明，不进报告；没写 `hint` 时用 `fix`。
+- 同一个文件不能既导出单条规则（`id`、`title`、`run`）又导出 `rules` 数组。
 
 ## 限期豁免
 

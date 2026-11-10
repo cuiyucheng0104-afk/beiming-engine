@@ -5,12 +5,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  CARDS_BEGIN, CARDS_END, auditPlan, changedFiles, diagnosePlan, formatCards, inScope, inputPathProblems, inspectPlan,
+  CARDS_BEGIN, CARDS_END, auditPlan, changedFiles, diagnosePlan, formatCard, formatCards, inScope, inputPathProblems, inspectPlan,
   isEntryPoint, resolveRoute, validatePlan,
 } from './work-plan.mjs';
 
@@ -109,6 +109,13 @@ test('v2：在办任务必须有认领记录；认领格式要对；planned 带�
   assert.match(msgs, /A01：in-progress 必须写 claim/);
   assert.match(msgs, /A02：claim 格式不对（by、baseCommit（7–40 位提交号）、startedAt（ISO 日期））/);
   assert.deepEqual(d.warnings.map(w => w.code).sort(), ['task.claim-planned', 'task.route-alias']);
+});
+test('v2：续期写 claim.note（非空字符串），任务卡在到期日后带上续期说明', () => {
+  const renewed = task('A01', { status: 'in-progress', claim: claim({ expiresAt: '2026-12-15', note: '集成负责人 2026-11-10 续期：并行开发未完' }) });
+  assert.deepEqual(diagnosePlan(plan2([renewed])).errors, []);
+  assert.match(formatCard(renewed), /2026-12-15 到期（集成负责人 2026-11-10 续期：并行开发未完）。/);
+  const bad = diagnosePlan(plan2([task('A02', { status: 'in-progress', claim: claim({ note: '' }) })]));
+  assert.match(bad.errors.map(e => e.message).join(), /A02：claim 格式不对（note（非空字符串））/);
 });
 test('v2：认领过期按 expiresAt 或 claimTtlDays 判断，--now 可复现', () => {
   const p = plan2([task('A01', { status: 'in-progress', claim: claim() }), task('A02', { status: 'in-progress', claim: claim({ expiresAt: '2026-12-31' }), writeScope: ['tools/x/'] })]);
@@ -307,10 +314,13 @@ test('镜头模版用整数的全局帧起点，事件落在镜头区间内', ()
   assert.ok(shot.visibleEvents.every(e => Number.isInteger(e.atFrame) && e.atFrame >= shot.inFrame && e.atFrame < shot.outFrame));
 });
 test('写入范围的首段：仓库里没有、也没登记在 newRoots 的要报出（TOOLS-15），--strict 时是错误', () => {
-  const mk = (newRoots) => ({ ...plan2([task('A01', { writeScope: ['engnie/style/'], playbook: 'docs/CLI.md' }), task('A02', { writeScope: ['evals/x/'], playbook: 'docs/CLI.md' })]), ...(newRoots ? { newRoots } : {}) });
+  // 「新根目录」要选一个永远不会真的建出来的名字：曾用 evals，P17 合入后仓库里有了 evals/，这条用例就不再测到 newRoots
+  const NEW_ROOT = 'no-such-root-for-test';
+  assert.equal(existsSync(join(ROOT, NEW_ROOT)), false, `${NEW_ROOT}/ 不该存在`);
+  const mk = (newRoots) => ({ ...plan2([task('A01', { writeScope: ['engnie/style/'], playbook: 'docs/CLI.md' }), task('A02', { writeScope: [`${NEW_ROOT}/x/`], playbook: 'docs/CLI.md' })]), ...(newRoots ? { newRoots } : {}) });
   const loose = auditPlan(mk(null), { root: ROOT });
   assert.deepEqual(loose.warnings.filter(w => w.code === 'task.scope-root').map(w => w.task), ['A01', 'A02']);
-  const declared = auditPlan(mk(['evals']), { root: ROOT, strict: true });
+  const declared = auditPlan(mk([NEW_ROOT]), { root: ROOT, strict: true });
   assert.deepEqual(declared.errors.map(e => [e.task, e.code]), [['A01', 'task.scope-root']], '登记过的新根目录放行，写错的照样报');
   assert.match(diagnosePlan({ ...mk(['a/b']) }).errors.map(e => e.message).join(), /newRoots 要写成仓库根下的名字数组/);
 });

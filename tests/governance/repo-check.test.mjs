@@ -150,6 +150,31 @@ test('限期豁免：命中的错误降为提示并标出属主，--strict 不�
   assert.equal(strict.code, 4);
 });
 
+test('规则文件加载问题：全量检查照报（exit 1）；--only 只报选中的域，选中坏掉的域也照报', () => {
+  // 把执行器与 core 规则拷到临时目录，再放一个坏掉的域：别的包正在改的规则文件坏了，不该让 --only core 跟着失败
+  const tool = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-gov-tool-'));
+  made.push(tool);
+  for (const rel of ['tools/repo-check.mjs', 'tools/repo-check/core', 'tools/repo-check/rules/core', 'tools/lib']) fs.cpSync(path.join(ROOT, rel), path.join(tool, rel), { recursive: true });
+  fs.mkdirSync(path.join(tool, 'tools/repo-check/rules/broken'), { recursive: true });
+  fs.writeFileSync(path.join(tool, 'tools/repo-check/rules/broken/oops.mjs'), "export const rules = [{ id: 'broken.oops', title: '缺 run' }];\n");
+  const dir = cleanRepo();
+  const run = args => {
+    const r = spawnSync(process.execPath, [path.join(tool, 'tools/repo-check.mjs'), '--root', dir, ...args, '--json'], { encoding: 'utf8', timeout: 120_000 });
+    return { code: r.status, json: JSON.parse(r.stdout), err: r.stderr };
+  };
+  const loaderErrors = j => j.data.findings.filter(f => f.rule === 'core.loader');
+  const all = run([]);
+  assert.equal(all.code, 1, all.err);
+  assert.equal(all.json.error.code, 'failure.rule-crash');
+  assert.deepEqual(loaderErrors(all.json).map(f => f.file), ['tools/repo-check/rules/broken/oops.mjs']);
+  const core = run(['--only', 'core']);
+  assert.equal(core.code, 0, JSON.stringify(core.json.data.findings.filter(f => f.level === 'error'), null, 2));
+  assert.deepEqual(loaderErrors(core.json), []);
+  const broken = run(['--only', 'broken']);
+  assert.equal(broken.code, 1, '选中加载失败的域：报加载问题，而不是「没有这个域」的用法错误');
+  assert.equal(loaderErrors(broken.json).length, 1);
+});
+
 test('本仓库：core 规则全部通过（存量问题有限期豁免）', () => {
   const r = check(['--only', 'core', '--json']);
   assert.equal(r.code, 0, JSON.stringify(r.json?.data?.findings?.filter(f => f.level === 'error'), null, 2));
