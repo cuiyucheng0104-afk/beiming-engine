@@ -1,0 +1,33 @@
+{
+  "route": "b",
+  "title": "画面配方样张",
+  "dur": 4,
+  "fps": 24,
+  "size": [1920, 1080],
+  "events": [
+    { "id": "toon", "frame": 0, "visual": "配方 1 · Toon 三渲二" },
+    { "id": "pbr", "frame": 24, "visual": "配方 2 · PBR 风格化" },
+    { "id": "cards", "frame": 48, "visual": "配方 3 · 绘画卡片合成" },
+    { "id": "ink", "frame": 72, "visual": "配方 4 · 水墨线描" }
+  ],
+  "aigc": { "contains": true, "note": "天空与云底板由 AI 生成后人工整理（assets/plates/plates.json）；道具、材质与排版由代码合成" },
+  "credits": [ { "what": "原生运行时（上游项目名 RAEA）", "license": "FSL-1.1-ALv2", "source": "engine/native/runtime.lock.json" } ],
+  "native": {
+    "entry": "film.tsx",
+    "images": [
+      { "to": "sky.png", "from": "../../../assets/plates/sky_dawn.png" },
+      { "to": "paper.png", "from": "../../../assets/plates/paper.png" },
+      { "to": "mist.png", "from": "../../../assets/plates/mist_low.png", "edge": { "left": 0.16, "right": 0.16, "jitter": 0.7, "lobes": 3, "seed": 2 } },
+      { "to": "cloud_a.png", "from": "../../../assets/plates/clouds_front_a.png", "edge": { "left": 0.14, "top": 0.12, "bottom": 0.14, "jitter": 0.7, "lobes": 4, "seed": 3 } },
+      { "to": "cloud_b.png", "from": "../../../assets/plates/clouds_front_b.png", "edge": { "right": 0.14, "top": 0.12, "bottom": 0.14, "jitter": 0.7, "lobes": 4, "seed": 5 } }
+    ],
+    "models": [
+      {
+        "to": "prop.glb", "module": "../template/prop.js", "export": "createProp", "length": 1.6, "prefix": "prop",
+        "args": { "period": 3, "colors": { "body": "#E8D9C4", "band": "#C8463C", "cap": "#2A2D52", "lamp": "#FFD9A0" } },
+        "clip": { "name": "Idle", "pose": "pose", "duration": 3, "fps": 24, "loop": true },
+        "validate": { "animated": true, "clip": "Idle", "duration": 3, "nodes": ["prop-float", "prop-vane"] }
+      }
+    ]
+  }
+}

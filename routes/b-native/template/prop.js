@@ -4,10 +4,10 @@
 //     colors  { body, band, cap, lamp }（十六进制）；lamp 用 MeshBasicMaterial + HDR 倍数，导出时变成自发光
 //             材质名 body / band / post / lamp / cap / vane → GLB 里是 prop-body … prop-lamp
 //     period  一次起伏的秒数；动作首尾相接，原生端按 period 循环播放
-// 造型用 engine/form 的件（dome 半球），动作只改子节点的位置 / 旋转——根节点由原生场景摆放，不记动作；
-// 动作公式在 motion.js（纯函数，film.tsx 也用它）。
+// 动作只改子节点的位置 / 旋转——根节点由原生场景摆放，不记动作；动作公式在 motion.js（纯函数，film.tsx 也用它）。
+// 只 import three 与同目录的 motion.js：放在任何深度的目录都能被资产桥加载（routes/b-native/recipes 直接引用这一份）。
+// 要用 engine/form 的件（放样、散布、弯曲…）就按作品目录的深度写相对路径，例子见 src/ferry.js 与 examples/raea 的鲲。
 import * as THREE from 'three';
-import { dome } from '../../engine/form/props.js';
 import { idle, LAMP_HEIGHT } from './motion.js';
 
 export function createProp({ colors = { body: '#E8D9C4', band: '#C8463C', cap: '#2A2D52', lamp: '#FFD9A0' }, period = 3 } = {}) {
@@ -23,7 +23,8 @@ export function createProp({ colors = { body: '#E8D9C4', band: '#C8463C', cap: '
   const post = new THREE.Mesh(new THREE.CylinderGeometry(.05, .07, .7, 16), std(colors.cap, 'post')); post.name = 'prop-post'; post.position.y = .75; float.add(post);
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(.13, 24, 16), new THREE.MeshBasicMaterial({ name: 'lamp', color: new THREE.Color(colors.lamp).multiplyScalar(2.2) }));
   lamp.name = 'prop-lamp'; lamp.position.y = LAMP_HEIGHT; float.add(lamp);
-  const cap = new THREE.Mesh(dome(24, 10, [.2, .14, .2]), std(colors.cap, 'cap')); cap.name = 'prop-cap'; cap.position.y = 1.25; float.add(cap);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 10, 0, 2 * Math.PI, 0, Math.PI / 2).scale(.2, .14, .2), std(colors.cap, 'cap'));
+  cap.name = 'prop-cap'; cap.position.y = 1.25; float.add(cap);   // 半球灯罩
   // 绕灯转的小风标：单独一个节点，演示子节点自己的循环动作
   const vane = new THREE.Group(); vane.name = 'prop-vane'; vane.position.y = 1.42; float.add(vane);
   const fin = new THREE.Mesh(new THREE.BoxGeometry(.32, .1, .015), std(colors.band, 'vane')); fin.name = 'prop-vane-fin'; fin.position.x = .16; vane.add(fin);

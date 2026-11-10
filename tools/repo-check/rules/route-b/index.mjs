@@ -40,7 +40,7 @@ function walk(root, dir, out = []) {
 const code = text => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 
 const FILM_DIRS = root => [
-  'routes/b-native/template', 'examples/raea',
+  'routes/b-native/template', 'routes/b-native/recipes', 'examples/raea',
   ...(exists(root, 'films') ? readdirSync(join(root, 'films')).map(n => `films/${n}`).filter(d => {
     try { return JSON.parse(read(root, `${d}/film.json`)).route === 'b'; } catch { return false; }
   }) : []),

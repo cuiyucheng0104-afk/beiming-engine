@@ -1,0 +1,7 @@
+{
+  "$note": "画面配方样张的色板：每个配方一组，film.tsx 按名字取色",
+  "toonSky": "#8E86C9", "toonAmbient": "#B3A8E0", "toonKey": "#FFD6B0", "toonShade": "#7C6FA8", "toonRim": "#FFE2C2",
+  "ink": "#232647", "lamp": "#FFD9A0", "glow": "#FFD9A8", "caption": "#FFF6EC",
+  "pbrTop": "#30344C", "pbrBottom": "#6A6F8C", "pbrKey": "#FFE9D2", "pbrFill": "#9FB3E8", "pbrRim": "#FFC9A0", "pbrAmbient": "#5B6386",
+  "inkPaper": "#EFEAE0", "inkBase": "#E6E0D4", "inkShade": "#B8B0A2", "inkLine": "#1C1C22", "inkAccent": "#B5412E", "inkWash": "#8C8A86"
+}
