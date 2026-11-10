@@ -27,18 +27,29 @@ import { exec as rawExec, killAll, isolatedEnv, which } from './proc.mjs';
 import { Legacy } from './legacy.mjs';
 import { supports } from './caps.mjs';
 import * as media from './media.mjs';
+import { envelope, emit } from './output.mjs';
 
 let current = null;
 let signalled = false;
 
+// 收到中断：结束子进程树、还原旧位置、写 run.json、放锁，再按附录 C2 输出信封（--json 时 stdout 仍只有一个对象），以 130 / 143 退出。
+// 第二次中断立即退出（不再等清理）。
 function onSignal(sig) {
-  const code = sig === 'SIGINT' ? EXIT.SIGINT : sig === 'SIGTERM' ? EXIT.SIGTERM : EXIT.SIGTERM;
+  const code = sig === 'SIGINT' ? EXIT.SIGINT : EXIT.SIGTERM;
   if (signalled) { process.exit(code); }
   signalled = true;
   process.stderr.write(`\n收到 ${sig}：结束子进程、还原旧位置、写 run.json 后退出……\n`);
   const ctx = current;
-  const err = new FilmError(code, 'interrupted', `收到 ${sig}，已中断`, '原因排除后重跑；输入没变的步骤会复用缓存');
-  (ctx ? closeSession(ctx, { error: err, complete: false }) : killAll()).finally(() => process.exit(code));
+  const err = new FilmError(code, 'interrupted', `收到 ${sig}，已中断并清理`, '原因排除后重跑；输入没变的步骤会复用缓存');
+  const argv = process.argv.slice(2);
+  (ctx ? closeSession(ctx, { error: err, complete: false }) : killAll())
+    .catch(() => {})
+    .finally(() => {
+      const env = envelope({ command: argv[0] && !argv[0].startsWith('-') ? `film ${argv[0]}` : 'film', exitCode: code, error: err,
+        outputs: ctx?.outputs || [], runJson: ctx ? rel(path.join(ctx.run.dir, 'run.json')) : null, warnings: ctx?.warnings || [] });
+      emit(env, { json: argv.includes('--json') });
+      process.exit(code);
+    });
 }
 
 export function installSignals() {

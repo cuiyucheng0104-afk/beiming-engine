@@ -13,8 +13,13 @@ const [sub, file] = a;
 const fi = a.indexOf('--film');
 if (sub !== 'delivery' || !file || fi < 0) { console.error('qa-stub：用法错误'); process.exit(2); }
 const film = JSON.parse(fs.readFileSync(a[fi + 1], 'utf8'));
-const fps = film.output?.fps ?? film.fps;
-const want = film.output?.frameCount ?? Math.round(film.dur * fps);
+const filmFps = film.output?.fps ?? film.fps;
+const filmFrames = film.output?.frameCount ?? Math.round(film.dur * filmFps);
+// 按档位出片时帧率可能与 film.json 不同：期望帧数按时长换算（与编排器同口径）
+const pi = a.indexOf('--profile');
+const { BUILTIN } = await import('../../../tools/film/lib/profiles.mjs');
+const fps = pi >= 0 && BUILTIN[a[pi + 1]] ? BUILTIN[a[pi + 1]].fps : filmFps;
+const want = Math.round(filmFrames * fps / filmFps);
 const j = JSON.parse(execFileSync(process.env.FFPROBE || 'ffprobe', ['-v', 'error', '-count_frames', '-show_entries',
   'stream=codec_type,nb_read_frames,color_range,color_space,color_transfer,color_primaries', '-of', 'json', file], { encoding: 'utf8' }));
 const v = j.streams.find(s => s.codec_type === 'video');
