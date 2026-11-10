@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // 《北冥》10 秒样片镜像的一致性检查：films/beiming-10s/film.json 与冻结样片的源码、声音表必须描述同一条时间线。
-// 样片的时间散在 src/main.js（镜头起点、总长、HUD_T 覆写）、src/girl.js（GIRL_SHOT）、src/shotC.js（C_START）、
-// src/hud.js（HUD_T）、src/birds.js（鸽群起飞 T0）和 audio/cues.json（声音表）里，彼此不读对方；
-// 这个检查只读这些文件（不改、不运行页面），按下面的规则推出"应该是多少帧"，与镜像逐项比对，任何漂移都失败。
+// 样片的镜头表写在 src/timeline.js（TIMELINE：镜头起点与片长；DESIGN：编排按它写的设计稿镜头表），
+// 再被 src/main.js（film.run 的 dur 与 shots、HUD_T 覆写）、src/girl.js（GIRL_SHOT）、src/shotC.js（C_START）、
+// src/hud.js（HUD_T，设计稿秒，随镜头 C 平移）读取；src/birds.js（鸽群起飞 T0）和 audio/cues.json（声音表）各自写全局秒，
+// 声音表不读 src/。这个检查只读这些文件（不改、不运行页面），按下面的规则推出"应该是多少帧"，与镜像逐项比对，任何漂移都失败。
+// 源码里的时间写成数字、TIMELINE.X / DESIGN.X、本文件里的 const 名字和加减，这里用一个只认这几种写法的小求值器读出秒数；
+// 写法超出它（例如函数调用）时报 mirror-parse，而不是猜。
 //
 //   node films/beiming-10s/mirror-check.mjs [--root <仓库根>] [--film <film.json>] [--json]
 //   退出码：0 一致；4 有漂移（逐条列出）；2 用法错误；1 读不出文件
@@ -19,22 +22,25 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_ROOT = resolve(HERE, '../..');
-export const SOURCE_FILES = Object.freeze(['src/main.js', 'src/girl.js', 'src/shotC.js', 'src/hud.js', 'src/birds.js', 'audio/cues.json']);
+export const SOURCE_FILES = Object.freeze(['src/timeline.js', 'src/main.js', 'src/girl.js', 'src/shotC.js', 'src/hud.js', 'src/birds.js', 'audio/cues.json']);
 
-/** 画面事件：从哪个时间常量来、怎么换成帧、是否与某条声音 cue 同一时刻。 */
+/**
+ * 画面事件：从哪个时间常量来、怎么换成帧、是否与某条声音 cue 同一时刻。
+ * HUD_T 是设计稿秒（src/hud.js 的 drawHUD / drawTitle / textsAt 先减去 shiftOf('C') 再比较），成片全局秒 = HUD_T + shiftC。
+ */
 export const VISUAL_EVENTS = Object.freeze([
   { id: 'girl.touch', rule: 'exact', at: v => v.girl.start + 0.5, from: 'GIRL_SHOT.start + 0.50（src/girl.js 注释：0.50 指腹贴上镜腿，一拍二）' },
-  { id: 'hud.on', rule: 'ceil', at: v => v.hud.on, from: 'HUD_T.on' },
-  { id: 'hud.remind', rule: 'ceil', at: v => v.hud.remindIn, from: 'HUD_T.remindIn' },
-  { id: 'hud.scan', rule: 'ceil', at: v => v.hud.scan, from: 'HUD_T.scan', audio: 'ui_scan' },
-  { id: 'hud.lock', rule: 'ceil', at: v => v.hud.scanLock, from: 'HUD_T.scanLock' },
-  { id: 'hud.fail', rule: 'ceil', at: v => v.hud.fail, from: 'HUD_T.fail', audio: 'ui_fail' },
-  { id: 'hud.nav', rule: 'ceil', at: v => v.hud.navIn, from: 'HUD_T.navIn', audio: 'ui_nav' },
-  { id: 'hud.nav-done', rule: 'ceil', at: v => v.hud.navDone, from: 'HUD_T.navDone' },
-  { id: 'hud.off', rule: 'ceil', at: v => v.hud.off, from: 'HUD_T.off' },
-  { id: 'title.bei', rule: 'ceil', at: v => v.hud.titleA[0], from: 'HUD_T.titleA[0]（src/main.js 覆写后）', audio: 'apex' },
-  { id: 'title.ming', rule: 'ceil', at: v => v.hud.titleB[0], from: 'HUD_T.titleB[0]（src/main.js 覆写后）' },
-  { id: 'title.sub', rule: 'ceil', at: v => v.hud.subIn, from: 'HUD_T.subIn（src/main.js 覆写后）' },
+  { id: 'hud.on', rule: 'ceil', at: v => v.hud.on + v.shiftC, from: 'HUD_T.on + shiftOf(C)' },
+  { id: 'hud.remind', rule: 'ceil', at: v => v.hud.remindIn + v.shiftC, from: 'HUD_T.remindIn + shiftOf(C)' },
+  { id: 'hud.scan', rule: 'ceil', at: v => v.hud.scan + v.shiftC, from: 'HUD_T.scan + shiftOf(C)', audio: 'ui_scan' },
+  { id: 'hud.lock', rule: 'ceil', at: v => v.hud.scanLock + v.shiftC, from: 'HUD_T.scanLock + shiftOf(C)' },
+  { id: 'hud.fail', rule: 'ceil', at: v => v.hud.fail + v.shiftC, from: 'HUD_T.fail + shiftOf(C)', audio: 'ui_fail' },
+  { id: 'hud.nav', rule: 'ceil', at: v => v.hud.navIn + v.shiftC, from: 'HUD_T.navIn + shiftOf(C)', audio: 'ui_nav' },
+  { id: 'hud.nav-done', rule: 'ceil', at: v => v.hud.navDone + v.shiftC, from: 'HUD_T.navDone + shiftOf(C)' },
+  { id: 'hud.off', rule: 'ceil', at: v => v.hud.off + v.shiftC, from: 'HUD_T.off + shiftOf(C)' },
+  { id: 'title.bei', rule: 'ceil', at: v => v.hud.titleA[0] + v.shiftC, from: 'HUD_T.titleA[0] + shiftOf(C)（src/main.js 覆写后）', audio: 'apex' },
+  { id: 'title.ming', rule: 'ceil', at: v => v.hud.titleB[0] + v.shiftC, from: 'HUD_T.titleB[0] + shiftOf(C)（src/main.js 覆写后）' },
+  { id: 'title.sub', rule: 'ceil', at: v => v.hud.subIn + v.shiftC, from: 'HUD_T.subIn + shiftOf(C)（src/main.js 覆写后）' },
 ]);
 const SHOT_VARS = { shotA: 'A', shotB: 'B', shotC: 'C' };
 const EARLY_MS = 10;
@@ -57,67 +63,182 @@ export function readSources(root = DEFAULT_ROOT) {
   return texts;
 }
 
-/** 截出 anchor 之后第一个 { … } 对象字面量（跳过字符串与注释），转成 JSON 解析；只用于数字与数组构成的常量表。 */
-function objectAfter(src, anchor) {
-  const m = anchor.exec(src);
-  if (!m) return null;
-  let i = src.indexOf('{', m.index + m[0].length - 1);
-  if (i < 0) return null;
-  const start = i;
+// 去掉行注释与块注释（跳过字符串里的斜杠）。
+function stripComments(src) {
+  let out = '', str = null;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (str) { out += c; if (c === '\\') out += src[++i] ?? ''; else if (c === str) str = null; continue; }
+    if (c === '"' || c === "'" || c === '`') { str = c; out += c; continue; }
+    if (c === '/' && src[i + 1] === '/') { const j = src.indexOf('\n', i); if (j < 0) break; i = j - 1; continue; }
+    if (c === '/' && src[i + 1] === '*') { const j = src.indexOf('*/', i + 2); if (j < 0) break; i = j + 1; continue; }
+    out += c;
+  }
+  return out;
+}
+
+/**
+ * 秒数表达式求值：只认数字、成员名（TIMELINE.B、DESIGN.C）、scope 里的名字（DUR）、一元负号、加减和括号。
+ * 认不出就抛错（调用方报 mirror-parse），不去执行任意代码。
+ */
+export function evalSeconds(expr, scope = {}) {
+  const tokens = String(expr).match(/\d+(?:\.\d+)?|[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*|\S/g) ?? [];
+  let i = 0;
+  const primary = () => {
+    const t = tokens[i++];
+    if (t === undefined) throw new Error(`表达式不完整：${expr}`);
+    if (t === '(') { const v = sum(); if (tokens[i++] !== ')') throw new Error(`缺右括号：${expr}`); return v; }
+    if (t === '-') return -primary();
+    if (t === '+') return primary();
+    if (/^\d/.test(t)) return Number(t);
+    if (/^[A-Za-z_$]/.test(t)) {
+      const v = t.split('.').reduce((o, k) => (o !== null && typeof o === 'object' && Object.hasOwn(o, k) ? o[k] : undefined), scope);
+      if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(`不认识的名字 ${t}（${expr}）`);
+      return v;
+    }
+    throw new Error(`不认识的写法 ${t}（${expr}）`);
+  };
+  const sum = () => {
+    let v = primary();
+    while (tokens[i] === '+' || tokens[i] === '-') { const op = tokens[i++]; const r = primary(); v = op === '+' ? v + r : v - r; }
+    return v;
+  };
+  const v = sum();
+  if (i !== tokens.length) throw new Error(`多余的写法 ${tokens[i]}（${expr}）`);
+  return v;
+}
+
+/** 从 start（指向 open）起找配对的 close，跳过字符串；返回 close 的下标或 -1。 */
+function matching(src, start, open, close) {
   let depth = 0, str = null;
-  for (; i < src.length; i++) {
+  for (let i = start; i < src.length; i++) {
     const c = src[i];
     if (str) { if (c === '\\') i++; else if (c === str) str = null; continue; }
     if (c === '"' || c === "'" || c === '`') { str = c; continue; }
-    if (c === '/' && src[i + 1] === '/') { i = src.indexOf('\n', i); if (i < 0) return null; continue; }
-    if (c === '/' && src[i + 1] === '*') { i = src.indexOf('*/', i) + 1; if (i <= 0) return null; continue; }
-    if (c === '{') depth++;
-    if (c === '}' && --depth === 0) break;
+    if (c === open) depth++;
+    else if (c === close && --depth === 0) return i;
   }
-  const literal = src.slice(start, i + 1)
-    .replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
-    .replace(/,(\s*[}\]])/g, '$1');
-  try { return JSON.parse(literal); } catch { return null; }
+  return -1;
+}
+
+/** 在顶层逗号处切开（括号、方括号、花括号、字符串里的逗号不切）。 */
+function splitTop(text) {
+  const parts = [];
+  let depth = 0, str = null, from = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (str) { if (c === '\\') i++; else if (c === str) str = null; continue; }
+    if (c === '"' || c === "'" || c === '`') { str = c; continue; }
+    if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) depth--;
+    else if (c === ',' && depth === 0) { parts.push(text.slice(from, i)); from = i + 1; }
+  }
+  parts.push(text.slice(from));
+  return parts.map(s => s.trim()).filter(Boolean);
+}
+
+/**
+ * 读出 anchor（以 { 结尾的正则）之后的对象字面量：值是数字表达式或数字表达式的数组；字符串值原样保留，
+ * 其它写法记成 undefined 并把键名放进 unreadable。返回 null 表示没找到或括号不配对。
+ */
+export function objectAfter(src, anchor, scope = {}) {
+  const text = stripComments(src);
+  const m = anchor.exec(text);
+  if (!m) return null;
+  const start = text.indexOf('{', m.index + m[0].length - 1);
+  const end = start < 0 ? -1 : matching(text, start, '{', '}');
+  if (end < 0) return null;
+  const obj = {}, unreadable = [];
+  for (const entry of splitTop(text.slice(start + 1, end))) {
+    const kv = /^([A-Za-z_$][\w$]*)\s*:\s*([\s\S]+)$/.exec(entry);
+    if (!kv) { unreadable.push(entry.slice(0, 40)); continue; }
+    const [, key, raw] = kv, value = raw.trim();
+    try {
+      if (/^(['"`])[\s\S]*\1$/.test(value)) obj[key] = value.slice(1, -1);
+      else if (value.startsWith('[')) {
+        const close = matching(value, 0, '[', ']');
+        if (close !== value.length - 1) throw new Error('数组写法不认识');
+        obj[key] = splitTop(value.slice(1, -1)).map(x => evalSeconds(x, scope));
+      } else obj[key] = evalSeconds(value, scope);
+    } catch {
+      obj[key] = undefined;
+      unreadable.push(key);
+    }
+  }
+  Object.defineProperty(obj, 'unreadable', { value: unreadable, enumerable: false });
+  return obj;
+}
+
+/** 读 const NAME = <表达式>（可以是 const A = …, B = …; 里的一项）。 */
+function constAfter(src, name, scope) {
+  const m = new RegExp(`(?:^|[\\s;,])(?:export\\s+)?(?:const|let)?\\s*\\b${name}\\s*=\\s*([^,;\\n]+)`).exec(stripComments(src));
+  if (!m) return undefined;
+  try { return evalSeconds(m[1].trim(), scope); } catch { return undefined; }
 }
 
 /** 从源码里读出时间常量。读不出就报 parse 诊断（写法变了也算漂移：要么改回，要么同步改本检查）。 */
 export function parseSources(texts) {
   const diagnostics = [];
   const fail = (file, what) => diagnostics.push({ level: 'error', code: 'mirror-parse', path: file, message: `${file} 里读不出 ${what}`, hint: '样片源码的写法变了：src/ 是冻结基准，先确认这是有意改动，再同步 film.json 与本检查' });
-  const main = texts['src/main.js'], girlSrc = texts['src/girl.js'], shotC = texts['src/shotC.js'], hudSrc = texts['src/hud.js'], birds = texts['src/birds.js'];
+  const tl = texts['src/timeline.js'], main = texts['src/main.js'], girlSrc = texts['src/girl.js'], shotC = texts['src/shotC.js'], hudSrc = texts['src/hud.js'], birds = texts['src/birds.js'];
   const v = {};
-  const run = /film\.run\(\{([\s\S]*?)\n\}\);/.exec(main ?? '');
-  if (!run) fail('src/main.js', 'film.run({ … }) 调用');
-  else {
-    const dur = /\bdur:\s*(\d+(?:\.\d+)?)/.exec(run[1]);
-    if (dur) v.dur = Number(dur[1]); else fail('src/main.js', 'film.run 的 dur');
-    const list = /\bshots:\s*\[([^\]]*)\]/.exec(run[1]);
-    const items = list ? [...list[1].matchAll(/\{\s*at:\s*(\d+(?:\.\d+)?)\s*,\s*shot:\s*(\w+)\s*\}/g)].map(m => ({ at: Number(m[1]), shot: SHOT_VARS[m[2]] ?? m[2] })) : [];
-    if (items.length) v.shots = items; else fail('src/main.js', 'film.run 的 shots: [{ at, shot }, …]');
-    const fps = /\bfps:\s*(\d+)/.exec(run[1]);
-    v.fps = fps ? Number(fps[1]) : 24;   // engine/stage/film.js 的 run() 默认 24
-  }
-  const dh = /createFilm\(\{\s*designHeight:\s*(\d+)\s*\}\)/.exec(main ?? '');
-  if (dh) v.designHeight = Number(dh[1]); else fail('src/main.js', 'createFilm({ designHeight })');
-  const names = /const NAMES = \[([^\]]*)\]/.exec(main ?? '');
-  if (names) v.plates = [...names[1].matchAll(/'([^']+)'/g)].map(m => m[1]); else fail('src/main.js', '底板名单 NAMES');
-  v.paper = /paperUrl:\s*'\.\/assets\/plates\/paper\.png'/.test(main ?? '');
 
-  const hud = objectAfter(hudSrc ?? '', /export const HUD_T\s*=\s*\{/);
-  if (!hud) fail('src/hud.js', 'export const HUD_T = { … }');
-  const override = objectAfter(main ?? '', /Object\.assign\(HUD_T,\s*\{/);
-  if (!override && /Object\.assign\(HUD_T/.test(main ?? '')) fail('src/main.js', 'Object.assign(HUD_T, { … }) 的覆写表');
+  // 1. 镜头表：src/timeline.js 的 TIMELINE（成片）与 DESIGN（设计稿）
+  const timeline = objectAfter(tl ?? '', /export const TIMELINE\s*=\s*Object\.freeze\(\s*\{/);
+  const design = objectAfter(tl ?? '', /export const DESIGN\s*=\s*Object\.freeze\(\s*\{/);
+  const tlOk = o => o && ['A', 'B', 'C', 'end'].every(k => typeof o[k] === 'number');
+  if (!tlOk(timeline)) fail('src/timeline.js', 'export const TIMELINE = Object.freeze({ A, B, C, end })');
+  if (!tlOk(design)) fail('src/timeline.js', 'export const DESIGN = Object.freeze({ A, B, C, end })');
+  v.timeline = timeline; v.design = design;
+  const scope = { TIMELINE: timeline ?? {}, DESIGN: design ?? {} };
+  v.shiftC = tlOk(timeline) && tlOk(design) ? timeline.C - design.C : 0;
+
+  // 2. src/main.js：film.run 的 dur 与 shots（数字或 TIMELINE.X；dur 也可以是 const DUR = …）
+  const mainText = stripComments(main ?? '');
+  const runAt = mainText.search(/film\.run\(\s*\{/);
+  const runOpen = runAt < 0 ? -1 : mainText.indexOf('{', runAt);
+  const runClose = runOpen < 0 ? -1 : matching(mainText, runOpen, '{', '}');
+  if (runClose < 0) fail('src/main.js', 'film.run({ … }) 调用');
+  else {
+    const body = mainText.slice(runOpen + 1, runClose);
+    const mainScope = { ...scope };
+    const durConst = constAfter(main ?? '', 'DUR', scope);
+    if (durConst !== undefined) mainScope.DUR = durConst;
+    const entries = Object.fromEntries(splitTop(body).map(e => /^([A-Za-z_$][\w$]*)\s*(?::\s*([\s\S]*))?$/.exec(e)).filter(Boolean).map(m => [m[1], (m[2] ?? m[1]).trim()]));
+    try { v.dur = evalSeconds(entries.dur, mainScope); } catch { fail('src/main.js', `film.run 的 dur（写成 ${JSON.stringify(entries.dur ?? null)}）`); }
+    const list = entries.shots?.startsWith('[') ? splitTop(entries.shots.slice(1, matching(entries.shots, 0, '[', ']'))) : [];
+    const items = [];
+    for (const it of list) {
+      const m = /^\{\s*at\s*:\s*([^,}]+?)\s*,\s*shot\s*:\s*(\w+)\s*\}$/.exec(it);
+      if (!m) { items.length = 0; break; }
+      try { items.push({ at: evalSeconds(m[1], mainScope), shot: SHOT_VARS[m[2]] ?? m[2], expr: m[1] }); } catch { items.length = 0; break; }
+    }
+    if (items.length) v.shots = items; else fail('src/main.js', 'film.run 的 shots: [{ at, shot }, …]（at 写成数字或 TIMELINE.X）');
+    try { v.fps = entries.fps !== undefined ? evalSeconds(entries.fps, mainScope) : 24; }   // engine/stage/film.js 的 run() 默认 24
+    catch { fail('src/main.js', 'film.run 的 fps'); }
+  }
+  const dh = /createFilm\(\{\s*designHeight:\s*(\d+)\s*\}\)/.exec(mainText);
+  if (dh) v.designHeight = Number(dh[1]); else fail('src/main.js', 'createFilm({ designHeight })');
+  const names = /const NAMES = \[([^\]]*)\]/.exec(mainText);
+  if (names) v.plates = [...names[1].matchAll(/'([^']+)'/g)].map(m => m[1]); else fail('src/main.js', '底板名单 NAMES');
+  v.paper = /paperUrl:\s*'\.\/assets\/plates\/paper\.png'/.test(mainText);
+
+  // 3. HUD_T（设计稿秒）与 main.js 的覆写
+  const hud = objectAfter(hudSrc ?? '', /export const HUD_T\s*=\s*\{/, scope);
+  if (!hud || hud.unreadable.length) fail('src/hud.js', `export const HUD_T = { … }${hud?.unreadable.length ? `（读不出 ${hud.unreadable.join('、')}）` : ''}`);
+  const override = objectAfter(main ?? '', /Object\.assign\(HUD_T,\s*\{/, scope);
+  if ((!override || override.unreadable.length) && /Object\.assign\(HUD_T/.test(mainText)) fail('src/main.js', 'Object.assign(HUD_T, { … }) 的覆写表');
   v.hud = hud ? { ...hud, ...(override ?? {}) } : null;
   v.hudOverride = override ?? {};
 
-  const gs = objectAfter(girlSrc ?? '', /export const GIRL_SHOT\s*=\s*\{/);
+  // 4. 人物镜头、镜头 C 起点、鸽群
+  const gs = objectAfter(girlSrc ?? '', /export const GIRL_SHOT\s*=\s*\{/, scope);
   if (!gs || typeof gs.start !== 'number' || typeof gs.dur !== 'number') fail('src/girl.js', 'GIRL_SHOT = { start, dur, … }');
   else v.girl = gs;
-  const cs = /export const C_START\s*=\s*(\d+(?:\.\d+)?)\s*;/.exec(shotC ?? '');
-  if (cs) v.cStart = Number(cs[1]); else fail('src/shotC.js', 'export const C_START = …;');
-  const t0 = /const T0\s*=\s*(\d+(?:\.\d+)?)\s*;/.exec(birds ?? '');
-  if (t0) v.birdsT0 = Number(t0[1]); else fail('src/birds.js', '鸽群起飞时刻 const T0 = …;');
+  const cs = constAfter(shotC ?? '', 'C_START', scope);
+  if (cs !== undefined) v.cStart = cs; else fail('src/shotC.js', 'export const C_START = …;');
+  const t0 = constAfter(birds ?? '', 'T0', scope);
+  if (t0 !== undefined) v.birdsT0 = t0; else fail('src/birds.js', '鸽群起飞时刻 const T0 = …;');
 
   try { v.cues = JSON.parse(texts['audio/cues.json']); } catch (e) { diagnostics.push({ level: 'error', code: 'mirror-parse', path: 'audio/cues.json', message: `audio/cues.json 不是合法 JSON（${e.message}）`, hint: '' }); }
   return { values: v, diagnostics };
