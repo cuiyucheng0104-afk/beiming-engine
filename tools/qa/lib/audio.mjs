@@ -118,9 +118,13 @@ function onsetIn(sig, sr, base, t, { early, late, minRiseDb }) {
     const seg = Array.from(env.subarray(lo, hi)).sort((p, q) => p - q);
     return seg[Math.floor(seg.length / 2)];
   };
+  // 太轻的「抬升」不算：峰值低于 −70 dBFS（正常监听电平下听不见），或比这一路搜索窗里最响处低 30 dB 以上（底噪起伏）
+  let loud = 0;
+  for (let k = k0; k <= k1; k++) if (env[k] > loud) loud = env[k];
+  const audible = Math.max(10 ** (-70 / 20), loud * 10 ** (-30 / 20));
   const out = [];
   for (let k = k0; k <= k1; k++) {
-    if (!(env[k] >= env[k - 1] && env[k] >= env[k + 1])) continue;
+    if (!(env[k] >= env[k - 1] && env[k] >= env[k + 1]) || env[k] < audible) continue;
     // 峰：往后 10 ms 内的最大值
     let pk = k;
     for (let j = k; j <= Math.min(env.length - 1, k + Math.round(0.01 / hop)); j++) if (env[j] > env[pk]) pk = j;

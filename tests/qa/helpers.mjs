@@ -49,7 +49,7 @@ const ENC709 = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc
 //       gainDb（正弦音量，7.8 dB ≈ −14 LUFS）、pixFmt、encColor（false 就不写色彩参数）、extra（额外输出参数）
 export function clip(file, o = {}) {
   const size = o.size || '1920x1080', rate = o.rate || 24, dur = o.dur || 4;
-  const src = (o.src || 'testsrc2=s={S}:r={R}:d={D}').replace('{S}', size).replace('{R}', rate).replace('{D}', dur);
+  const src = (o.src || 'testsrc2=s={S}:r={R}:d={D}').replaceAll('{S}', size).replaceAll('{R}', String(rate)).replaceAll('{D}', String(dur));
   const pix = o.pixFmt || 'yuv420p';
   const vchain = [o.vf, `format=${pix}`, o.encColor === false ? null : TAG709].filter(Boolean).join(',');
   const args = ['-f', 'lavfi', '-i', src];
