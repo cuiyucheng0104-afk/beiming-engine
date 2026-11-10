@@ -1,5 +1,6 @@
 // 北冥仓库 · 规范检查 · agent 执行层规则（tools/repo-check/rules/agent/）
 // 做什么：检查 agent 一侧的机器约束都在、没被削弱：嵌套指令文件与白名单一致、快照里没有作品目录、
+//         快照目录里没有 lock.json 之外的文件（含被忽略的，casebook check 看不到这些）、
 //         根 CLAUDE.md 只是桥接、.claude/settings.json 的护栏完整、仓库 skill 的引用都有效、检索范围、
 //         git 钩子可执行、vendor README 顶部的优先级警示还在。只读，不改任何文件。
 // 接口（供 tools/repo-check.mjs 的规则执行器加载，也可单独运行 run.mjs）：
@@ -121,8 +122,54 @@ function ruleVendorFilms(ctx) {
     for (const sub of ['films', 'out']) {
       const rel = `cases/vendor/${e.name}/${sub}`;
       if (fs.existsSync(path.join(base, e.name, sub))) {
-        out.push(err(id, `${rel}/ 不该存在：上游指令让 agent 把作品或产物放在库里，但这里是只读快照（被快照自己的 .gitignore 忽略，git status 看不出，casebook check 会失败）。把里面的东西移到 films/<名字>/ 或 out/ 后删掉这个目录`, rel));
+        out.push(err(id, `${rel}/ 不该存在：上游指令让 agent 把作品或产物放在库里，但这里是只读快照。它被快照自己的 .gitignore 忽略，git status 看不出，casebook check 也不报（它跳过被忽略的文件）。把里面的东西移到 films/<名字>/（产物在 films/<名字>/out/）后删掉这个目录`, rel));
       }
+    }
+  }
+  return out;
+}
+
+const JUNK = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
+
+/**
+ * 磁盘上快照目录里不在 lock.json 的东西（含被快照自己的 .gitignore 忽略的）。casebook check 会跳过被忽略的文件
+ * （tools/casebook.py 的 check_vendor），所以按上游说法建在快照里的 films/、out/、.venv/、node_modules/ 只有这里能发现。
+ * 不在 lock 目录树里的目录整体报一次，不往里走（避免扫描巨大的 node_modules）。
+ */
+function ruleVendorInventory(ctx) {
+  const c = normCtx(ctx);
+  const id = 'agent.vendor-inventory';
+  const lockRel = 'cases/vendor/lock.json';
+  const text = read(c.root, lockRel);
+  if (text === null) return [];
+  let lock;
+  try { lock = JSON.parse(text); } catch (e) { return [err(id, `${lockRel} 不是合法 JSON（${e.message}）：从版本库恢复它`, lockRel)]; }
+  const out = [];
+  for (const repo of lock.repositories ?? []) {
+    const base = `cases/${String(repo.path ?? '').replace(/^\/+|\/+$/g, '')}`;
+    const abs = path.join(c.root, ...base.split('/'));
+    if (!fs.existsSync(abs)) continue;
+    const files = new Set((repo.files ?? []).map(f => f.path));
+    const dirs = new Set();
+    for (const f of files) { const parts = f.split('/'); for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/')); }
+    const extra = [];
+    const walkSnap = (relDir) => {
+      let entries;
+      try { entries = fs.readdirSync(relDir ? path.join(abs, ...relDir.split('/')) : abs, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        const r = relDir ? `${relDir}/${e.name}` : e.name;
+        if (e.isDirectory()) {
+          if (dirs.has(r)) walkSnap(r);
+          else extra.push(`${r}/`);
+        } else if (!files.has(r) && !JUNK.has(e.name) && !e.name.startsWith('._')) {
+          extra.push(r);
+        }
+      }
+    };
+    walkSnap('');
+    if (extra.length) {
+      const shown = extra.slice(0, 10).map(x => `${base}/${x}`).join('、') + (extra.length > 10 ? ` 等 ${extra.length} 项` : '');
+      out.push(err(id, `快照 ${base}/ 里有 ${extra.length} 项不在 ${lockRel} 里：${shown}。快照只读：作品与产物放 films/<名字>/（产物在 films/<名字>/out/），历史作品还原到 out/casebook；把这些东西移出快照后删掉（被快照自己的 .gitignore 忽略的不会出现在 git status 里，casebook check 也不报）`, base));
     }
   }
   return out;
@@ -265,6 +312,7 @@ const def = (id, title, run) => ({ id, title, severity: 'error', run, check: run
 export const rules = [
   def('agent.instruction-files', '嵌套 agent 指令文件与白名单一致', ruleInstructionFiles),
   def('agent.vendor-films', 'cases/vendor/*/films、out 不存在', ruleVendorFilms),
+  def('agent.vendor-inventory', '快照目录里没有 lock.json 之外的文件（含被忽略的）', ruleVendorInventory),
   def('agent.claude-bridge', '根 CLAUDE.md 只是 @AGENTS.md 桥接', ruleClaudeBridge),
   def('agent.guard-config', '.claude/settings.json 的护栏完整', ruleGuardConfig),
   def('agent.skills', '仓库 skill 的头信息与引用路径有效', ruleSkills),
