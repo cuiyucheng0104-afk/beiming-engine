@@ -67,10 +67,21 @@ test('shotTable：老写法 { at } 选镜头与改动前逐位相同；inFrame �
         assert.equal(ctx.localFrame, k - ctx.inFrame);
         assert.equal(ctx.localT, ctx.localFrame / fps, '整帧上 localT = localFrame / fps（逐位）');
       }
-      // 连续时间（不在整帧上）：选镜头仍按 t ≥ at，局部量不为负
-      for (let i = 0; i < 2000; i++) { const t = i * 0.00517; const { entry, ctx } = T.at(t, Math.round(t * fps)); assert.equal(entry.shot, oldPick(shots, t)); assert.ok(ctx.localT >= 0 && ctx.localFrame >= 0); }
+      // 连续时间（不在整帧上）：选镜头仍按 t ≥ at，局部量不为负；localT 与镜头第一帧的距离一致（夹到 0 以前）
+      for (let i = 0; i < 2000; i++) {
+        const t = i * 0.00517, { entry, ctx } = T.at(t, Math.round(t * fps));
+        assert.equal(entry.shot, oldPick(shots, t));
+        assert.ok(ctx.localT >= 0 && ctx.localFrame >= 0);
+        assert.ok(Math.abs(ctx.localT - Math.max(0, t - ctx.inFrame / fps)) < 1e-9, `${fps} fps t=${t}：localT = t − 第一帧的时刻`);
+      }
     }
   }
+  // 第一镜的 at 晚于 0：改动前 t < at 时也用第一镜，所以它占第 0 帧起的全部帧
+  const T = shotTable([{ at: 0.5, shot: A }, { at: 2, shot: B }], { fps: 24, dur: 4 });
+  assert.deepEqual(T.list.map(e => [e.inFrame, e.outFrame]), [[0, 48], [48, 96]]);
+  assert.equal(T.total, 96);
+  // 镜头起点晚于片尾：前一镜的 outFrame 夹到总帧数
+  assert.equal(shotTable([{ at: 0, shot: A }, { at: 9, shot: B }], { fps: 24, dur: 4 }).list[0].outFrame, 96);
 });
 
 test('shotTable：第一镜加长 12 帧，后一镜同一局部帧拿到的输入逐位相同（镜头可以重排、改长）', () => {
@@ -94,12 +105,20 @@ test('shotTable：帧号写法、id、outFrame；镜头表不合法时报清楚�
   assert.equal(T.at(2.99, 72).entry.id, 'S2', '帧号写法按帧号选');
   assert.equal(T.at(0, 0).ctx.inFrame, 0);
   assert.ok(!Object.is(shotTable([{ at: 0, shot: shot() }], { fps: 24 }).list[0].inFrame, -0), '第一帧不是 -0');
+  // film.json v2 的写法：in / out 相接、末镜 out = 总帧数
+  const V = shotTable([{ in: 0, out: 48, shot: shot(), id: 'A' }, { in: 48, out: 72, shot: shot(), id: 'B' }], { fps: 24, dur: 3 });
+  assert.deepEqual(V.list.map(e => [e.id, e.inFrame, e.outFrame]), [['A', 0, 48], ['B', 48, 72]]);
+  assert.ok(V.list.every(e => !('out' in e)), 'list 里不留输入的 out');
   const bad = [
     [[], /非空数组/], [[{ at: 0, shot: shot() }, { in: 3, shot: shot() }], /只能用一种/], [[{ shot: shot() }], /缺 at/],
     [[{ at: 0, shot: {} }], /scene, camera/], [[{ in: 1.5, shot: shot() }], /整数帧号/], [[{ at: 2, shot: shot() }, { at: 1, shot: shot() }], /升序/],
     [[{ at: 0, shot: shot(), id: 'X' }, { at: 1, shot: shot(), id: 'X' }], /id 重复/], [[{ at: 'a', shot: shot() }], /秒数/],
+    [[{ in: 12, shot: shot() }], /第 0 帧开始/], [[{ in: -1, shot: shot() }], /不小于 0/],
+    [[{ in: 0, shot: shot() }, { in: 0, shot: shot() }], /一帧也不占/], [[{ in: 0, shot: shot() }, { in: 72, shot: shot() }], /不在影片里/],
+    [[{ in: 0, out: 40, shot: shot() }, { in: 48, shot: shot() }], /不相接/], [[{ in: 0, out: 60, shot: shot() }], /总帧数/],
+    [[{ in: 0, out: 0, shot: shot() }], /大于 in/], [[{ at: 0, out: 10, shot: shot() }], /帧号写法/], [[{ at: 0, shot: shot(), id: 3 }], /非空字符串/],
   ];
-  for (const [shots, re] of bad) assert.throws(() => shotTable(shots, { fps: 24, dur: 3 }), re);
+  for (const [shots, re] of bad) assert.throws(() => shotTable(shots, { fps: 24, dur: 3 }), re, JSON.stringify(shots.map(s => ({ ...s, shot: 0 }))));
   assert.throws(() => shotTable([{ at: 0, shot: shot() }], { fps: 0 }), /fps/);
 });
 

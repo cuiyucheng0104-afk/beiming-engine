@@ -30,12 +30,16 @@
 // 下面几个是纯函数（Node 里能直接测）：
 //   renderInfo(win)              读并校验 win.__RENDER → { fps, width, height, profile } 或 null（没注入）；格式不对直接抛错
 //   designFit(o)                 { width, height, designWidth, designHeight, fit } → { K, DW, DH, fit, design: { x, y, w, h } }
-//   shotTable(shots, { fps, dur }) → { list, at(t, f) }：校验镜头表，at 返回 { entry, ctx }，
+//   shotTable(shots, { fps, dur }) → { list, total, at(t, f) }：校验镜头表，at 返回 { entry, ctx }，
 //                                ctx = { shotId, index, inFrame, outFrame, localFrame, localT, fps }
-//                                inFrame 是镜头的第一帧（老写法里 = 第一个 ≥ at 的整帧），outFrame 是下一个镜头的 inFrame（末镜 = 总帧数）；
-//                                localFrame = f − inFrame，localT = localFrame / fps + (t − f / fps)：整帧上就是 localFrame / fps，
+//                                inFrame 是镜头的第一帧，outFrame 是下一个镜头的 inFrame（末镜 = 总帧数 round(dur × fps)），
+//                                [inFrame, outFrame) 就是这个镜头占的全部整帧：
+//                                  老写法：inFrame = 第一个 ≥ at 的整帧；第一镜记 0（t 早于它的 at 时也用它，与改动前一样）
+//                                  帧号写法：第一镜必须 in: 0，in 严格递增、小于总帧数；写了 out（film.json v2）就必须与下一镜的 in
+//                                    （末镜：总帧数）相接，镜头之间不许有空档或重叠
+//                                localFrame = f − inFrame，localT = (f − inFrame) / fps + (t − f / fps)：整帧上就是 localFrame / fps，
 //                                与镜头在全片里的位置无关（第一镜加长几帧，后面镜头同一局部帧的输入逐位不变）。
-//                                镜头起点不在整帧上、t 又落在起点与第一帧之间时，两者都夹成不小于 0
+//                                t 不在整帧上、又早于镜头的第一帧时（老写法 at 不在整帧上），两者都夹成不小于 0
 //   normalizeTexts(list)         给每条文字补 box（由 x0..y1 算）或 x0..y1（由 box 算），没写 alpha 的记 1（报了就是看得见）
 //
 // 页面约定的出处：window.DUR / render(t) / READY / TEXTS（{ id, text, x0, y0, x1, y1 }）沿用 lemo-opuscar@bebbbe1
@@ -96,15 +100,29 @@ export function shotTable(shots, { fps, dur } = {}) {
     if (!S || typeof S.update !== 'function' || typeof S.look !== 'function' || !S.scene || !S.camera) {
       throw new TypeError(`${where}.shot 要是 { scene, camera, update(t, f, ctx), look(t, ctx) }`);
     }
-    if (byFrame && !Number.isInteger(c.in)) throw new TypeError(`${where}.in 要是整数帧号，收到 ${show(c.in)}`);
+    if (byFrame && !(Number.isInteger(c.in) && c.in >= 0)) throw new TypeError(`${where}.in 要是不小于 0 的整数帧号，收到 ${show(c.in)}`);
     if (byTime && (typeof c.at !== 'number' || !Number.isFinite(c.at))) throw new TypeError(`${where}.at 要是秒数，收到 ${show(c.at)}`);
     if (!byFrame && !byTime) throw new TypeError(`${where} 缺 at（开始秒）或 in（开始帧）`);
-    const inFrame = byFrame ? c.in : firstFrame(c.at, fps);
-    return { index: i, id: c.id ?? `S${i + 1}`, shot: S, at: byTime ? c.at : c.in / fps, inFrame, outFrame: total };
+    if (c.out !== undefined && !byFrame) throw new TypeError(`${where}.out 只能和帧号写法 in 一起用`);
+    if (c.out !== undefined && !(Number.isInteger(c.out) && c.out > c.in)) throw new TypeError(`${where}.out 要是大于 in 的整数帧号，收到 ${show(c.out)}`);
+    if (c.id !== undefined && (typeof c.id !== 'string' || !c.id)) throw new TypeError(`${where}.id 要是非空字符串，收到 ${show(c.id)}`);
+    // 老写法的第一镜从第 0 帧起用（改动前 t 早于它的 at 时也用它），所以它的 inFrame 记 0
+    const inFrame = byFrame ? c.in : i === 0 ? 0 : firstFrame(c.at, fps);
+    return { index: i, id: c.id ?? `S${i + 1}`, shot: S, at: byTime ? c.at : c.in / fps, inFrame, outFrame: total, out: c.out };
   });
+  if (byFrame && list[0].inFrame !== 0) throw new TypeError(`film.run：镜头表的第一镜要从第 0 帧开始（shots[0].in = 0），收到 ${list[0].inFrame}`);
   for (let i = 1; i < list.length; i++) {
     if (list[i].at < list[i - 1].at) throw new TypeError(`film.run：镜头表要按开始时间升序，shots[${i}] 比 shots[${i - 1}] 早`);
-    list[i - 1].outFrame = list[i].inFrame;
+    if (byFrame && list[i].inFrame === list[i - 1].inFrame) throw new TypeError(`film.run：shots[${i}] 与 shots[${i - 1}] 的 in 都是 ${list[i].inFrame}，前一镜一帧也不占`);
+    list[i - 1].outFrame = Math.min(list[i].inFrame, total);
+  }
+  if (byFrame && list.at(-1).inFrame >= total) throw new TypeError(`film.run：shots[${list.length - 1}].in = ${list.at(-1).inFrame} 不在影片里（总帧数 ${total}）`);
+  for (const e of list) {
+    if (e.out !== undefined && e.out !== e.outFrame) {
+      const next = e.index + 1 < list.length ? `下一镜 shots[${e.index + 1}].in = ${e.outFrame}` : `总帧数 round(dur × fps) = ${e.outFrame}`;
+      throw new TypeError(`film.run：shots[${e.index}].out = ${e.out}，与${next}不相接（镜头之间不许有空档或重叠）`);
+    }
+    delete e.out;
   }
   const ids = new Set();
   for (const e of list) { if (ids.has(e.id)) throw new TypeError(`film.run：镜头 id 重复：${e.id}`); ids.add(e.id); }
@@ -113,10 +131,10 @@ export function shotTable(shots, { fps, dur } = {}) {
     let e = list[0];
     for (const c of list) if (byFrame ? f >= c.inFrame : t >= c.at) e = c;
     const localFrame = Math.max(0, f - e.inFrame);
-    const localT = Math.max(0, localFrame / fps + (t - f / fps));
+    const localT = Math.max(0, (f - e.inFrame) / fps + (t - f / fps));
     return { entry: e, ctx: { shotId: e.id, index: e.index, inFrame: e.inFrame, outFrame: e.outFrame, localFrame, localT, fps } };
   };
-  return { list, at };
+  return { list, total, at };
 }
 
 export function normalizeTexts(list) {
