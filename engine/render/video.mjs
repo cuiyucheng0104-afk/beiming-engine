@@ -145,13 +145,13 @@ async function main({ opts, args, explicit, log, signal, cleanup, setRunJson }) 
   cleanup(closeServer);
   const dir = args[0] ?? '.';
   locateFilm(dir);                                         // 找不到页面：退出码 2，不产生任何文件
-  if (opts['--frames'] && opts['--shot']) throw new UsageError('--frames 与 --shot 只能写一个');
+  if (opts['--frames'] && opts['--shot']) throw new UsageError('--frames 与 --shot 只能写一个', '--shot 等于该镜头的 --frames in:out');
   const film = readFilm(dir);
   const { size: { w, h }, fps: fpsReq, profile } = resolveOutputSpec({ opts, explicit, film });
   const intermediate = opts['--fast'] ? 'jpeg' : 'png';
   const out = path.resolve(opts['--out'] ?? 'out/video.mp4');
   const web = opts['--web'] ? path.resolve(opts['--web']) : null;
-  if (web && web === out) throw new UsageError('--web 不能与 --out 是同一个文件');
+  if (web && web === out) throw new UsageError('--web 不能与 --out 是同一个文件', '网页版另起一个文件名，例如 out/x_web.mp4');
   const runJsonPath = path.resolve(opts['--run-json'] ?? `${out}.run.json`);
   const slots = opts['--slots'] ?? slotCount();
   const ff = preflight();                                  // 缺 FFmpeg：退出码 3
@@ -215,7 +215,7 @@ async function main({ opts, args, explicit, log, signal, cleanup, setRunJson }) 
       let a = 0, b = TOTAL;
       if (opts['--frames']) ({ a, b } = opts['--frames']);
       if (opts['--shot']) { const s = pickShot(film, opts['--shot']); a = s.in; b = s.out; }
-      if (b > TOTAL) throw new UsageError(`帧区间 ${a}:${b} 超出片长（${TOTAL} 帧，0:${TOTAL}）`);
+      if (b > TOTAL) throw new UsageError(`帧区间 ${a}:${b} 超出片长（${TOTAL} 帧，0:${TOTAL}）`, `整片是 --frames 0:${TOTAL}；帧号含头不含尾`);
       const chunks = planFilmChunks(a, b, { shots: film?.shots ?? [], chunk: opts['--chunk'] ?? 'auto', fps: FPS });
       const crf = opts['--crf'] ?? profile?.video?.crf ?? 14, preset = opts['--preset'] ?? profile?.video?.preset ?? 'medium';
       const outputs = [{ kind: 'master', file: out, vf: COLOR[intermediate], args: [...x264Args({ crf, preset }), ...TAGS] }];
@@ -330,7 +330,7 @@ async function planMode({ dir, opts, log, signal, w, h, fpsReq, profile, film, i
     let a = 0, b = TOTAL;
     if (opts['--frames']) ({ a, b } = opts['--frames']);
     if (opts['--shot']) { const s = pickShot(film, opts['--shot']); a = s.in; b = s.out; }
-    if (b > TOTAL) throw new UsageError(`帧区间 ${a}:${b} 超出片长（${TOTAL} 帧）`);
+    if (b > TOTAL) throw new UsageError(`帧区间 ${a}:${b} 超出片长（${TOTAL} 帧）`, `整片是 --frames 0:${TOTAL}；帧号含头不含尾`);
     const n = Math.min(8, b - a);
     const sample = Array.from({ length: n }, (_, i) => a + Math.floor(((i + 0.5) * (b - a)) / n));
     await renderFrame(f, sample[0] / FPS, { signal }); await f.capture(intermediate);   // 预热一帧，不计时

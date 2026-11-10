@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>渲染器测试片</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head><body>
+<canvas id="c"></canvas>
+<script>
+// 渲染器 v2 的测试片（tests/render/*.test.mjs），满足页面约定 v1。用 URL 参数注入各种失败：
+//   dur=秒（默认 1；dur=none 不设 DUR）     fps=声明 window.FPS（不写就不声明；帧号按 __RENDER.fps，再按 24）
+//   fail=throw         从第 at 帧起 render(t) 同步抛错          fail=reject     从第 at 帧起 render(t) 返回 reject 的 Promise
+//   fail=pageerror     从第 at 帧起抛一个未捕获的异步异常        fail=hang       从第 at 帧起 render(t) 死循环
+//   fail=never         永远不置 READY                            fail=norender   window.render 不是函数
+//   fail=missing-script   加载一个不存在的脚本（404）            fail=missing-image   加载一个不存在的图片（404）
+//   fail=network       请求外网地址                              fail=texts      window.TEXTS 不是函数
+//   fail=version       window.BEIMING_CONTRACT = 2
+//   slow=毫秒          每帧额外忙等这么久（给“中途杀进程”留时间）
+// 每帧画面：底色随帧号变；左上角 8 个 8×8 色块是帧号的二进制（白 = 1），解码后可读回帧号。
+const q = new URLSearchParams(location.search);
+const c = document.getElementById('c');
+c.width = innerWidth; c.height = innerHeight;
+const g = c.getContext('2d');
+const fail = q.get('fail'), at = Number(q.get('at') || 0), slow = Number(q.get('slow') || 0);
+const FPS = q.has('fps') ? Number(q.get('fps')) : (window.__RENDER && window.__RENDER.fps) || 24;
+if (q.get('dur') !== 'none') window.DUR = q.has('dur') ? Number(q.get('dur')) : 1;
+if (q.has('fps')) window.FPS = Number(q.get('fps'));
+if (fail === 'texts') window.TEXTS = 42;
+if (fail === 'version') window.BEIMING_CONTRACT = 2;
+function draw(f) {
+  const end = performance.now() + slow;
+  while (performance.now() < end) { /* 忙等，模拟重帧 */ }
+  g.fillStyle = `hsl(${(f * 37) % 360} 60% 45%)`;
+  g.fillRect(0, 0, c.width, c.height);
+  for (let b = 0; b < 8; b++) { g.fillStyle = (f >> b) & 1 ? '#fff' : '#000'; g.fillRect(b * 8, 0, 8, 8); }
+}
+if (fail !== 'norender') window.render = t => {
+  const f = Math.round(t * FPS);
+  if (fail === 'throw' && f >= at) throw new Error(`注入的渲染错误：第 ${f} 帧`);
+  if (fail === 'reject' && f >= at) return Promise.reject(new Error(`注入的异步渲染错误：第 ${f} 帧`));
+  if (fail === 'pageerror' && f >= at) setTimeout(() => { throw new Error(`注入的页面错误：第 ${f} 帧`); });
+  if (fail === 'hang' && f >= at) for (;;) { /* 卡死 */ }
+  draw(f);
+};
+if (fail === 'missing-script') { const s = document.createElement('script'); s.src = './does-not-exist.js'; document.head.appendChild(s); }
+if (fail === 'missing-image') { const i = new Image(); i.src = './does-not-exist.png'; }
+if (fail === 'network') fetch('https://example.invalid/texture.png').catch(() => {});
+if (fail !== 'never') window.READY = true;
+</script>
+</body></html>

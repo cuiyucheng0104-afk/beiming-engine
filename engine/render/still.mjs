@@ -122,7 +122,7 @@ async function main({ opts, args, explicit, log, cleanup, setRunJson }) {
       actualEncoder: `${timeFormat === frameFormat ? frameFormat : `${timeFormat}+${frameFormat}`} 截图`, render: { fps, width: w, height: h, settle } });
     record.tools.browser = f.info.browserVersion;
     for (const p of plan) {
-      if (p.frame !== null && p.frame >= total) throw new UsageError(`第 ${p.frame} 帧超出片长（${total} 帧，帧号 0–${total - 1}）`);
+      if (p.frame !== null && p.frame >= total) throw new UsageError(`第 ${p.frame} 帧超出片长（${total} 帧，帧号 0–${total - 1}）`, '帧号从 0 开始；最后一帧是 round(DUR × fps) − 1');
       const t = p.frame !== null ? p.frame / fps : p.t;
       const s0 = Date.now();
       await renderFrame(f, t, { settle, where: p.frame !== null ? `第 ${p.frame} 帧（t=${t.toFixed(4)}s）` : `t=${p.label}s`, timeoutMs: opts['--frame-timeout'] ? opts['--frame-timeout'] * 1000 : undefined });

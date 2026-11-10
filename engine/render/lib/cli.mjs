@@ -93,7 +93,7 @@ export function parseFrames(text, { name = '--frames', allowStep = false } = {})
 
 function convert(name, def, raw) {
   const s = String(raw).trim();
-  const bad = (what, hint) => new UsageError(`${name} ${what}（收到 ${raw}）`, hint ?? def.hint ?? null);
+  const bad = (what, hint) => new UsageError(`${name} ${what}（收到 ${raw}）`, hint ?? def.hint ?? `${name} 的写法见 --help`);
   switch (def.type) {
     case 'string': return s;
     case 'int': {
@@ -133,6 +133,9 @@ function convert(name, def, raw) {
 export function parseArgs(argv, spec) {
   const opts = {}, args = [], explicit = new Set();
   const names = Object.keys(spec.options);
+  // --help / -h 出现在任何位置（-- 之前）都只打印用法：不校验其他参数，也不产生副作用
+  const dashdash = argv.indexOf('--');
+  if ((dashdash < 0 ? argv : argv.slice(0, dashdash)).some(a => a === '-h' || a === '--help')) return { opts, args, help: true, explicit };
   let help = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
