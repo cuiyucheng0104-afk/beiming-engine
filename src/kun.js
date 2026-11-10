@@ -2,7 +2,7 @@
 // 胸鳍、尾鳍是翼型放样，眼睛是球 + 两片半球眼睑；背上用 MeshSurfaceSampler + InstancedMesh 散布
 // 海藻团（相当于苔藓团）、飘带海草、珊瑚簇、扇贝、藤壶、海葵。
 // 坐标：鲲局部空间，长约 600（米），头朝 +X，上为 +Y，原点在身体中心。
-// 动画：setPose(ts) 的 ts 由调用方量化（一拍三：f = Math.round(t*24); ts = Math.floor(f/3)*3/24，用帧号算，避免 t*8 的浮点误差）。
+// 动画：setPose(ts) 的 ts 由调用方量化（一拍三：ts = heldTime(frameOf(t), 3)，engine/core/clock.js；从整数帧号算，避免 t*8 的浮点误差）。
 //       脊柱波动在 GPU 顶点着色器里做，
 //       身体、尾鳍逐顶点弯；实例化装饰按实例原点整体跟着弯（改写 instanceMatrix），阴影深度材质同步形变。
 // 确定性：所有随机来自 mulberry(固定种子)，噪声来自固定种子的单纯形噪声（engine/core/noise.js）；没有 Date.now / Math.random。
@@ -17,6 +17,8 @@ import { samplersOn, placeOnSurface as place, pickFrom as pick, instanced } from
 import { autoBlink, poseEyes, pickEye, mountEyes, lidShells, eyeFrame } from '../engine/form/eye.js';
 import { taperTube } from '../engine/form/curves.js';
 import { makeToonMaterial, bindToon, PALETTE, TOON_PRESETS, TOON_SHARED, tintFrom } from './toon.js';
+import { fitShadowTo } from './shadow.js';
+import { EYE_GLSL } from './eye_shade.js';
 
 const sstep = (a, b, x) => ss(seg(x, a, b));
 
@@ -135,13 +137,17 @@ const CATCH = [[-0.27, 0.24, 0.93, 0.9835], [0.26, -0.2, 0.94, 0.9966]];   // �
  * opts.seed  散布种子（默认 20261103）
  * opts.wisps 鳍尖云丝（默认 true）
  * opts.blinkPeriod / blinkOffset：自动眨眼的周期 / 首次时刻（秒，默认 4 / 1.5）
+ * opts.finEulerOrder 胸鳍摆动（上下划、前后摆两个角）合成成四元数时的欧拉角顺序，默认 'XYZ'。
+ *            正片镜头 C 传 'YXZ'：v1.0 成片里这条鲲的胸鳍就是按 YXZ 合成的（当年靠“看过镜头后改顺序”的副作用得到），
+ *            现在改成构建参数，同一个 ts 永远得到同一个姿态，与之前渲过哪些帧无关。
  * setPose(ts, { blink, look })：blink 0 睁 → 1 闭（不给就按周期自动眨）；look 为世界坐标 Vector3，眼珠转向它（限幅 ±20°/±16°）
+ *            setPose 是 ts 与参数的纯函数：不在调用之间留状态。
  * eyeWorld(target, ref)：ref = 相机位置（取近的那只眼）/ 1（+Z 侧）/ -1（-Z 侧，默认）
  * fitShadow(light, { size })：把主光阴影相机罩到鲲身上（方向不变），鲲移动后每帧调一次
  * uniforms.uKunAmp / uKunWave / uKunOmega：脊柱波幅（米）/ 波数 / 角频率，可运行时改
  */
 export function createKun(opts = {}) {
-  const o = { lod: 1, seed: 20261103, wisps: true, blinkPeriod: 4, blinkOffset: 1.5, ...opts };
+  const o = { lod: 1, seed: 20261103, wisps: true, blinkPeriod: 4, blinkOffset: 1.5, finEulerOrder: 'XYZ', ...opts };
   const lod = clamp(o.lod, 0.1, 1);
   const N = n => Math.max(4, Math.round(n * lod));
   const LS = 1 / Math.sqrt(Math.max(lod, 0.2));     // 低 LOD：数量少、单个大，覆盖面积不变
@@ -255,7 +261,7 @@ export function createKun(opts = {}) {
       uCatch1: { value: new THREE.Vector4(0, 0, 1, 0.985) }, uCatch2: { value: new THREE.Vector4(0, 0, 1, 0.997) }, uCatchCol: { value: new THREE.Color('#fffaf2') },
       uLidU: { value: new THREE.Vector3(0, 1, 0) }, uLidL: { value: new THREE.Vector3(0, -1, 0) },
     },
-    fragmentPars: 'uniform float uIrisA, uPupilA;\nuniform vec3 uIrisCol, uIrisCol2, uRingCol, uPupilCol, uCatchCol, uLidU, uLidL, uReflCol;\nuniform vec4 uCatch1, uCatch2;\n',
+    fragmentPars: 'uniform float uIrisA, uPupilA;\nuniform vec3 uIrisCol, uIrisCol2, uRingCol, uPupilCol, uCatchCol, uLidU, uLidL, uReflCol;\nuniform vec4 uCatch1, uCatch2;\n' + EYE_GLSL,
     fragmentAlbedo: /* glsl */`
     {
       vec3 d = normalize( vToonObj );
@@ -277,14 +283,11 @@ export function createKun(opts = {}) {
       diffuseColor.rgb = mix( diffuseColor.rgb, uPupilCol, pupil );
       toonInk = max( toonInk, ( 1.0 - smoothstep( 0.7 * fa, 2.2 * fa, abs( ang - uIrisA ) ) ) * 0.95 );
       toonInk = max( toonInk, ( 1.0 - smoothstep( 0.7 * fp, 1.8 * fp, abs( pa - uPupilA ) ) ) * 0.4 );
-      float c1 = dot( d, uCatch1.xyz ), c2 = dot( d, uCatch2.xyz );
-      float fc = max( fwidth( c1 ), 1e-5 );
-      float k = max( smoothstep( uCatch1.w - fc, uCatch1.w + fc, c1 ), smoothstep( uCatch2.w - fc, uCatch2.w + fc, c2 ) );
+      float k = eyeCatch( d, uCatch1, uCatch2 );
       // 上眼睑下沿的睫毛阴影带（中间粗、两头细），下眼睑上沿一道细线
-      float du = dot( d, uLidU ), dl = dot( d, uLidL ), fd = max( fwidth( du ), 1e-5 );
+      float du = dot( d, uLidU ), dl = dot( d, uLidL );
       float front = smoothstep( 0.1, 0.6, d.z );
-      float lash = ( 1.0 - smoothstep( 0.1 * front + 0.02 - fd, 0.1 * front + 0.02 + fd, - du ) ) * front;
-      float low = ( 1.0 - smoothstep( 0.03 - fd, 0.03 + fd, - dl ) ) * front;
+      vec2 lid = eyeLidLines( du, dl, front, 0.1, 0.03 ); float lash = lid.x, low = lid.y;
       toonInk = max( toonInk, max( lash * 0.92, low * 0.6 ) );
       // 天空倒影：眼珠上半一道淡薰衣草色弧（固定在眼窝坐标，用上眼睑法线近似“上方”）
       float refl = smoothstep( -0.5, -0.4, du ) * ( 1.0 - smoothstep( -0.3, -0.22, du ) ) * smoothstep( 0.35, 0.75, d.z ) * iris * ( 1.0 - pupil );
@@ -505,32 +508,17 @@ export function createKun(opts = {}) {
       const r = f.root;
       f.pivot.position.set(r.x - r.y * Math.sin(th), dy + r.y * Math.cos(th), r.z);
       const ph = TAU * ts / 6 + (f.side > 0 ? 0 : 0.35);
-      _sq.setFromEuler(_e.set(f.side * 0.11 * Math.sin(ph), 0.05 * Math.sin(ph + 1.1), 0));
+      _sq.setFromEuler(_e.set(f.side * 0.11 * Math.sin(ph), 0.05 * Math.sin(ph + 1.1), 0, o.finEulerOrder));   // 顺序每次显式给，不沿用上一次
       _bq.setFromAxisAngle(new THREE.Vector3(0, 0, 1), th);
       f.pivot.quaternion.copy(_bq).multiply(f.baseQ).multiply(_sq);
     }
     // 眨眼（闭合度 0 睁 → 1 闭）、眼珠看向目标（世界坐标，限幅）；高光固定在眼窝坐标（左上方）
     poseEyes(eyes, po.blink ?? autoBlink(ts, o.blinkPeriod, o.blinkOffset), po.look, group, { lidU: [-0.6, 0.03], lidL: [0.48, -0.03], catches: CATCH });
-    if (po.look) _e.order = 'YXZ';   // 眼睛看过目标之后，胸鳍摆动的欧拉角改按 YXZ 顺序合成（正片镜头 C 的画面依赖这个顺序）
   }
   // 眼睛世界坐标：ref 为相机位置（Vector3）时取离它近的那只；ref 为 1 / -1 时取 +Z / -Z 侧；默认 -Z 侧
   const eyeWorld = (target, ref) => pickEye(eyes, target, ref);
   // 让主光（DirectionalLight）的阴影相机刚好罩住鲲；光的方向保持不变。鲲移动后每帧调用一次即可
-  function fitShadow(light, { size = 4096, radius = 380 } = {}) {
-    group.updateMatrixWorld(true);
-    const c = new THREE.Vector3(-10, -5, 0).applyMatrix4(group.matrixWorld);
-    const sc = group.matrixWorld.getMaxScaleOnAxis(), R = radius * sc;
-    const dir = light.position.clone().sub(light.target.position);
-    if (dir.lengthSq() < 1e-9) dir.set(0.75, 0.1, 0.65); dir.normalize();
-    light.target.position.copy(c); light.target.updateMatrixWorld();
-    light.position.copy(c).addScaledVector(dir, R * 3);
-    const cam = light.shadow.camera;
-    Object.assign(cam, { left: -R, right: R, top: R, bottom: -R, near: R * 0.5, far: R * 5.5 });
-    cam.updateProjectionMatrix();
-    if (light.shadow.mapSize.x !== size) { light.shadow.mapSize.set(size, size); light.shadow.map?.dispose(); light.shadow.map = null; }
-    light.shadow.normalBias = 1.5 * sc; light.shadow.bias = -0.0005; light.shadow.radius = 2;
-    light.castShadow = true;
-  }
+  const fitShadow = (light, { size = 4096, radius = 380 } = {}) => fitShadowTo(light, group, { center: [-10, -5, 0], radius, size });
   setPose(0);
   return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, wisps, uniforms: U, fins, eyes };
 }

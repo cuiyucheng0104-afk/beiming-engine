@@ -1,4 +1,4 @@
-// 鲲 · 青绿仙山版（三渲二配方第 1、2、4 层）。设定图：鲲设定/鲲_v2-1_青绿仙山.png
+// 鲲 · 青绿仙山版（三渲二配方第 1、2、4 层）。设定图「鲲_v2-1_青绿仙山」（美术设定稿，不在本仓库里；下面的侧影轮廓数据已从它取好）
 //   形体：鲸与鲤之间的修长鱼身——宽阔高贵的大头、钝圆吻、金眼、两对长龙须；鳃盖后满身金线鱼鳞；
 //         胸鳍是三片半透明长鳍叠成的“折扇”（能开合），腹鳍、臀鳍细长下垂，尾鳍是深叉的两片大扇。
 //   着色：身体石青（背、头）→ 石绿（体侧）→ 牙白（下颌、前腹）渐变；鳞片金线、侧身祥云纹、头顶卷云、眉线全在
@@ -25,6 +25,8 @@ import { spire as geoPeak, mesa as geoMesa, mesaEdge as mesaEdgeZ } from '../eng
 import { weightedSampler as sampler, placeOnSurface as place, pickFrom as pick, instanced } from '../engine/form/scatter.js';
 import { autoBlink, poseEyes, pickEye, mountEyes, lidShells, eyeFrame } from '../engine/form/eye.js';
 import { makeToonMaterial, bindToon, PALETTE, TOON_SHARED } from './toon_qinglv.js';
+import { fitShadowTo } from './shadow.js';
+import { EYE_GLSL } from './eye_shade.js';
 
 const sstep = (a, b, x) => ss(seg(x, a, b));
 const UP = new THREE.Vector3(0, 1, 0);
@@ -620,7 +622,7 @@ export function createKun(opts = {}) {
       uCatch1: { value: new THREE.Vector4(0, 0, 1, 0.985) }, uCatch2: { value: new THREE.Vector4(0, 0, 1, 0.997) }, uCatchCol: { value: col('#fffaf2') },
       uLidU: { value: V3(0, 1, 0) }, uLidL: { value: V3(0, -1, 0) },
     },
-    fragmentPars: 'uniform float uIrisA, uPupilA;\nuniform vec3 uIrisCol, uIrisCol2, uRingCol, uPupilCol, uCatchCol, uLidU, uLidL, uReflCol;\nuniform vec4 uCatch1, uCatch2;\n',
+    fragmentPars: 'uniform float uIrisA, uPupilA;\nuniform vec3 uIrisCol, uIrisCol2, uRingCol, uPupilCol, uCatchCol, uLidU, uLidL, uReflCol;\nuniform vec4 uCatch1, uCatch2;\n' + EYE_GLSL,
     fragmentAlbedo: /* glsl */`
     {
       vec3 d = normalize( vToonObj );
@@ -641,13 +643,10 @@ export function createKun(opts = {}) {
       diffuseColor.rgb = mix( diffuseColor.rgb, uPupilCol, pupil );
       toonInk = max( toonInk, ( 1.0 - smoothstep( 0.7 * fa, 2.2 * fa, abs( ang - uIrisA ) ) ) * 0.95 );
       toonGlow += iris * ( 1.0 - pupil ) * ( 1.0 - collar ) * vec3( 0.16, 0.09, 0.0 ) * ( 1.0 - rad * 0.5 );
-      float c1 = dot( d, uCatch1.xyz ), c2 = dot( d, uCatch2.xyz );
-      float fc = max( fwidth( c1 ), 1e-5 );
-      float k = max( smoothstep( uCatch1.w - fc, uCatch1.w + fc, c1 ), smoothstep( uCatch2.w - fc, uCatch2.w + fc, c2 ) );
-      float du = dot( d, uLidU ), dl = dot( d, uLidL ), fd = max( fwidth( du ), 1e-5 );
+      float k = eyeCatch( d, uCatch1, uCatch2 );
+      float du = dot( d, uLidU ), dl = dot( d, uLidL );
       float front = smoothstep( 0.1, 0.6, d.z );
-      float lash = ( 1.0 - smoothstep( 0.1 * front + 0.02 - fd, 0.1 * front + 0.02 + fd, - du ) ) * front;
-      float low = ( 1.0 - smoothstep( 0.03 - fd, 0.03 + fd, - dl ) ) * front;
+      vec2 lid = eyeLidLines( du, dl, front, 0.1, 0.03 ); float lash = lid.x, low = lid.y;
       toonInk = max( toonInk, max( lash * 0.92, low * 0.6 ) );
       float refl = smoothstep( -0.5, -0.4, du ) * ( 1.0 - smoothstep( -0.3, -0.22, du ) ) * smoothstep( 0.35, 0.75, d.z ) * iris * ( 1.0 - pupil );
       toonOverlay = vec4( uReflCol, refl * 0.25 );
@@ -1059,21 +1058,7 @@ export function createKun(opts = {}) {
     poseEyes(eyes, po.blink ?? autoBlink(ts, o.blinkPeriod, o.blinkOffset), po.look, group, { lidU: [-0.42, 0.03], lidL: [0.56, -0.03], catches: CATCH });
   }
   const eyeWorld = (target, ref) => pickEye(eyes, target, ref);
-  function fitShadow(light, { size = 4096, radius = 400 } = {}) {
-    group.updateMatrixWorld(true);
-    const c = V3(-10, 20, 0).applyMatrix4(group.matrixWorld);
-    const sc = group.matrixWorld.getMaxScaleOnAxis(), Rr = radius * sc;
-    const dir = light.position.clone().sub(light.target.position);
-    if (dir.lengthSq() < 1e-9) dir.set(0.75, 0.1, 0.65); dir.normalize();
-    light.target.position.copy(c); light.target.updateMatrixWorld();
-    light.position.copy(c).addScaledVector(dir, Rr * 3);
-    const cam = light.shadow.camera;
-    Object.assign(cam, { left: -Rr, right: Rr, top: Rr, bottom: -Rr, near: Rr * 0.5, far: Rr * 5.5 });
-    cam.updateProjectionMatrix();
-    if (light.shadow.mapSize.x !== size) { light.shadow.mapSize.set(size, size); light.shadow.map?.dispose(); light.shadow.map = null; }
-    light.shadow.normalBias = 1.5 * sc; light.shadow.bias = -0.0005; light.shadow.radius = 2;
-    light.castShadow = true;
-  }
+  const fitShadow = (light, { size = 4096, radius = 400 } = {}) => fitShadowTo(light, group, { center: [-10, 20, 0], radius, size });
   setPose(0);
   return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, wisps: [], uniforms: U, fins, eyes };
 }

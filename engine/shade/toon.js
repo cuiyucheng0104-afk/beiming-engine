@@ -4,7 +4,7 @@
 // 主光 = 第一盏投影平行光，只取方向和投影；颜色全按参数绝对给定（保色板用 NoToneMapping）；噪声是坐标的纯函数，任意帧可单独重渲。
 //
 //   makeToonShared(init) / setToonShared(S, g)   全场共享 uniform；g = { pass, inkTime, exposure, fillDir, fillGain, skyDir, skyGain, keyDir }
-//   tintFrom(base, shade)   阴影色 / 基色（线性空间逐通道比值）→ 乘法色调（实例色物体每个实例各有三档色）
+//   tintFrom(base, shade)   阴影色 / 基色（线性空间逐通道比值）→ 乘法色调（实例色物体每个实例各有三档色）；颜色写法同 patch.js 的 colorOf
 //   TOON_BASE               中性默认参数：step* / feather*、shadow*、edgeNoise*、rim* / rimLit*、fill*、sky*、inkColor、outlineW…
 //   toonKind(spec) → { make(opts), depth(mat), bind(mesh, mat, opts), shared }   一族材质：同一套着色器 + 自己的物体 ID 段
 //     spec：name（缓存键 / 报错前缀）、shared、firstId、defaults、featherMin（羽化下限）、bandAA（分档 fwidth 倍数）、
@@ -16,6 +16,10 @@
 //     顶点钩子 vertexPars / vertexMainStart / vertexBegin（改 transformed）/ vertexNormal（改 objectNormal）；
 //     片元钩子 fragmentPars / fragmentBase（斑块前写固有色）/ fragmentAlbedo（改 diffuseColor、toonInk、toonOverlay）/ fragmentNormal；
 //     rest（噪声坐标取 aRest，CPU 形变网格用）/ translucent（彩色通道半透明，ID 通道自动不透明）/ noId（不进 ID 通道）
+//   两套 ID 通道都守这两条约定：旧的 uToonPass = 1 通道由着色器自己处理；engine/look 的 ID 图（ids.js）——
+//     noId 的材质 make 时带上 material.userData.noId = true：ids.js 只让用它画的这一个网格（多材质时这一组）不描边、不挡线，
+//     和 TOON_NO_ID 一样只管材质自己；bind 不替它改物体 userData 的描边开关（那些会被子物体继承）；
+//     translucent 的混合只在 uToonPass 切换时改一次，ids.js 给软遮挡打的混合补丁不会被它冲掉。
 //   运行时调参 mat.userData.toon.uXxx.value；有顶点钩子时 bind 挂同样形变的阴影深度材质。
 import * as THREE from 'three';
 import { inject, programKey, vec3Of, colorOf, patchVertex, quantizeShadow, hasVertexHooks, makeDepthMaterial, bindPatched, counter } from './patch.js';
@@ -44,7 +48,7 @@ export function setToonShared(S, g = {}) {
 }
 
 export function tintFrom(base, shade) {
-  const b = new THREE.Color(base), s = new THREE.Color(shade);
+  const b = colorOf(base), s = colorOf(shade);
   return new THREE.Vector3(s.r / Math.max(b.r, 1e-4), s.g / Math.max(b.g, 1e-4), s.b / Math.max(b.b, 1e-4));
 }
 
@@ -244,12 +248,17 @@ ${join(L, 'surface')}${o.fragmentAlbedo || ''}${join(L, 'post')}`;
     mat.customProgramCacheKey = () => key;
     mat.userData.toon = u;
     mat.userData.toonOpts = o;
+    if (o.noId) mat.userData.noId = true;   // engine/look 的 ID 图按材质跳过（只管用它画的网格，不传给子物体）
     if (o.translucent) {
       // 彩色通道：正常混合、不写深度；法线 / ID 通道：不混合、写深度（在渲染前按 uToonPass 切换）
+      // 只在通道变了的时候改：同一通道里别人临时改的混合（ids.js 的软遮挡补丁）不被冲掉
       mat.forceSinglePass = true;   // 双面透明默认会画两遍并强制重编，这里不需要
       mat.depthWrite = false;
+      let lastPass = false;         // 建材质时就是彩色通道的状态
       mat.onBeforeRender = () => {
         const idPass = shared.uToonPass.value > 0.5;
+        if (idPass === lastPass) return;
+        lastPass = idPass;
         mat.blending = idPass ? THREE.NoBlending : THREE.NormalBlending;
         mat.depthWrite = idPass;
       };
@@ -265,6 +274,8 @@ ${join(L, 'surface')}${o.fragmentAlbedo || ''}${join(L, 'post')}`;
   }
 
   // 挂材质 + 投影深度材质 + 描边标记（perInstance 不给时：实例化网格且材质开了实例 ID）
+  // noId 的材质不在这里改 userData：engine/look 的 ID 图按材质上的 userData.noId 跳过这一个网格；
+  // userData 的描边 / 挡线开关会被子物体继承，借用它们会把 noId 带到挂在下面的普通网格上
   function bind(mesh, mat, { castShadow = true, receiveShadow = true, outline = true, perInstance } = {}) {
     const o = mat.userData.toonOpts || {}, u = mat.userData.toon;
     bindPatched(mesh, mat, { castShadow, receiveShadow, outline,

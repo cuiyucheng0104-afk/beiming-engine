@@ -8,10 +8,13 @@
  * - 两条路线（beiming / raea）都只要求项目记录；RAEA 路线不要求 FrameState。
  *
  * 当前契约尚未被渲染器消费，因此这里不声称“配置已生效”，也不负责资源存在性
- * （除显式传入 checkFiles 外）。
+ * （除显式传入 checkFiles 外：那时 entry、style.baseline、assets.manifest 必须存在，
+ *  且 entry / manifest 必须是文件；outputDir 已存在时必须是目录）。
+ * 路径校验与平台无关：同一份记录在 Mac 和 Windows 上得到同样的结论。
  */
-import { existsSync, readFileSync } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const SCHEMA_VERSION = 1;
 export const ROUTES = Object.freeze(['beiming', 'raea']);
@@ -25,6 +28,13 @@ export const RESULT_STATUSES = Object.freeze([
   'accepted',
 ]);
 export const STYLE_MIGRATION_STATES = Object.freeze(['design-only', 'partial', 'verified']);
+/** technicalAcceptance.status 的取值；passed / accepted 的结果要求它是 passed。 */
+export const TECHNICAL_STATUSES = Object.freeze(['not-run', 'running', 'blocked', 'failed', 'passed']);
+/** creativeAcceptance.status 的取值；accepted 的结果要求它是 accepted。 */
+export const CREATIVE_STATUSES = Object.freeze(['not-reviewed', 'rejected', 'accepted']);
+
+/** 本模块所在仓库的根（engine/production/ 往上两级）：loadProjectSpec 的默认根。 */
+export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const CONTROL_CHAR = /[\u0000-\u001f\u007f]/;
@@ -52,9 +62,18 @@ function diagnostic(code, path, message) {
   return { code, path, message };
 }
 
+/** path.relative 的结果是否仍在根内（'..draft' 这样的目录名在根内；'..'、'../x'、跨盘的绝对路径在外）。 */
+function relativeInside(rel) {
+  return !(rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel));
+}
+
+const statOrNull = file => { try { return statSync(file); } catch { return null; } };
+
 /**
  * 词法解析仓库相对路径：拒绝绝对路径、盘符、UNC、控制字符与越界 `..`。
  * 不做文件系统查询，也不解析符号链接；写入范围只是词法提醒。
+ * 绝对路径按 POSIX 与 Windows 两套规则同时判断（`/x`、`\x`、`C:`、`\\server` 在任何平台上都拒绝），
+ * 所以同一份记录在 Mac 和 Windows 上结论一致。
  * @param {string} value
  * @returns {{ ok: true, segments: string[], path: string, isDirectory: boolean } | { ok: false, message: string }}
  */
@@ -62,7 +81,7 @@ export function normalizeRelativePath(value) {
   if (!isNonEmptyString(value)) return { ok: false, message: '路径必须是非空字符串' };
   if (CONTROL_CHAR.test(value)) return { ok: false, message: '路径不能包含控制字符' };
   const raw = value.trim();
-  if (isAbsolute(raw) || /^[A-Za-z]:/.test(raw) || raw.startsWith('\\\\') || raw.startsWith('//')) {
+  if (posix.isAbsolute(raw) || win32.isAbsolute(raw) || /^[A-Za-z]:/.test(raw) || raw.startsWith('\\') || raw.startsWith('//')) {
     return { ok: false, message: '只能使用仓库相对路径，不能是绝对路径或盘符路径' };
   }
   const normalized = raw.replace(/\\/g, '/');
@@ -102,7 +121,7 @@ export function resolveProjectPath(rootDir, value, options = {}) {
   const root = resolve(rootDir);
   const absolute = resolve(root, ...parsed.segments);
   const rel = relative(root, absolute);
-  if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
+  if (!rel || !relativeInside(rel)) {
     throw new ContractError([diagnostic('path-escape', kind, `路径穿出了根目录：${value}`)], '路径解析失败');
   }
   return { absolute, relative: rel.split(sep).join('/'), kind };
@@ -174,9 +193,12 @@ export function validateProjectSpec(spec, options = {}) {
     push('backend-route-unsupported', 'backend', 'RAEA 路线使用原生执行，不接受把 backend 写成 three；如需 Three 执行请走北冥风格路线');
   }
 
-  // 3. 入口与路径解析。
-  const entry = resolvePathField(spec.entry, 'entry', rootDir, checkFiles, 'file', push);
-  const outputDir = resolvePathField(spec.output?.outputDir, 'output.outputDir', rootDir, false, 'dir', push);
+  // 3. 入口与路径解析：entry 必填，且是文件；checkFiles 时核对它真实存在。
+  if (!isNonEmptyString(spec.entry)) {
+    push('entry-missing', 'entry', 'entry 必须是仓库相对文件路径（Three 为影片目录的 index.html，RAEA 为 TSX）');
+  }
+  resolvePathField(spec.entry, 'entry', rootDir, push, { checkFiles, kind: 'file', label: '入口文件', missing: 'entry-missing', wrongKind: 'entry-not-file' });
+  resolvePathField(spec.output?.outputDir, 'output.outputDir', rootDir, push, { checkFiles, kind: 'dir', label: '输出目录', mustExist: false, wrongKind: 'output-dir-not-dir' });
 
   // 4. 输出定义：宽高、帧率、帧数必须完整且可计算。
   const output = spec.output;
@@ -194,14 +216,12 @@ export function validateProjectSpec(spec, options = {}) {
     if (!isPositiveInteger(output.fps)) push('output-incomplete', 'output.fps', 'fps 必须是正整数');
     if (!isPositiveInteger(output.frameCount)) push('output-incomplete', 'output.frameCount', 'frameCount 必须是正整数；帧数不能省略');
     if (isNonEmptyString(output.outputDir) === false) push('output-incomplete', 'output.outputDir', 'outputDir 必须是仓库相对目录');
+    // duration 只能由帧数推导：一致时保留作展示，不作为独立配置源
     if (output.duration !== undefined && isPositiveInteger(output.fps) && isPositiveInteger(output.frameCount)) {
       const expected = output.frameCount / output.fps;
       if (!isFiniteNumber(output.duration) || Math.abs(output.duration - expected) > 1e-9) {
         push('output-duration-derived', 'output.duration', `duration 必须等于 frameCount/fps=${expected} 秒；不要写入独立的时长值`);
       }
-    }
-    if (isPositiveInteger(output.fps) && isPositiveInteger(output.frameCount) && output.duration !== undefined) {
-      // duration 一致时也要提示它只能由帧数推导；保留字段用于展示，不作为独立配置源。
     }
   }
 
@@ -223,14 +243,16 @@ export function validateProjectSpec(spec, options = {}) {
   } else {
     if (!isNonEmptyString(style.id)) push('style-incomplete', 'style.id', 'style.id 必须是非空字符串');
     if (!isNonEmptyString(style.version)) push('style-incomplete', 'style.version', 'style.version 必须是非空字符串');
+    // 基准可以是基准帧（文件）或基准工程（目录），所以只核对存在
+    const baselineCheck = { checkFiles, kind: 'any', label: '视觉基准', missing: 'style-baseline-missing' };
     if (spec.route === 'beiming') {
       if (!isNonEmptyString(style.baseline)) {
         push('style-baseline-missing', 'style.baseline', '北冥风格路线必须记录视觉基准（基准帧或基准工程路径）');
       } else {
-        resolvePathField(style.baseline, 'style.baseline', rootDir, checkFiles, 'file', push);
+        resolvePathField(style.baseline, 'style.baseline', rootDir, push, baselineCheck);
       }
     } else if (style.baseline !== null && style.baseline !== undefined) {
-      resolvePathField(style.baseline, 'style.baseline', rootDir, checkFiles, 'file', push);
+      resolvePathField(style.baseline, 'style.baseline', rootDir, push, baselineCheck);
     }
     if (spec.route === 'beiming' && spec.backend === 'raea') {
       const migration = style.migration;
@@ -255,7 +277,7 @@ export function validateProjectSpec(spec, options = {}) {
   } else if (!Array.isArray(assets.inline) && !isNonEmptyString(assets.manifest)) {
     push('assets-incomplete', 'assets.manifest', '必须给出资产清单路径或内嵌 inline 清单，不能只写目录名');
   } else if (isNonEmptyString(assets.manifest)) {
-    resolvePathField(assets.manifest, 'assets.manifest', rootDir, checkFiles, 'file', push);
+    resolvePathField(assets.manifest, 'assets.manifest', rootDir, push, { checkFiles, kind: 'file', label: '资产清单', missing: 'assets-manifest-missing', wrongKind: 'assets-manifest-not-file' });
   } else if (Array.isArray(assets.inline) && assets.inline.some(v => !isPlainObject(v))) {
     push('assets-incomplete', 'assets.inline', 'inline 清单的每一项必须是对象');
   }
@@ -290,33 +312,45 @@ export function validateProjectSpec(spec, options = {}) {
     }
   }
 
-  // 10. 可选：显式要求入口文件存在（默认不查，模板只是设计稿）。
-  if (checkFiles && rootDir && isNonEmptyString(spec.entry) && entry?.ok && !existsSync(entry.absolute)) {
-    push('entry-missing', 'entry', `入口文件不存在：${entry.relative}`);
-  }
-
   return { ok: diagnostics.length === 0, diagnostics };
 }
 
-/** 校验并解析路径字段；失败时返回 null 且登记诊断。 */
-function resolvePathField(value, fieldPath, rootDir, checkFiles, kind, push) {
-  if (!isNonEmptyString(value)) {
-    if (fieldPath === 'output.outputDir' || fieldPath === 'entry') return null;
-    return null;
-  }
+/**
+ * 校验并解析路径字段；失败时返回 null 且登记诊断。空值返回 null、不登记（必填与否由调用方判断）。
+ * - kind：'file' 必须是文件（以 / 结尾在词法上就拒绝），'dir' 必须是目录，'any' 文件或目录都行。
+ * - checkFiles 且给了 root 时查文件系统：不存在登记 missing（mustExist=false 时允许不存在），类型不对登记 wrongKind。
+ */
+function resolvePathField(value, fieldPath, rootDir, push, { checkFiles = false, kind = 'any', label = fieldPath, missing, wrongKind, mustExist = true } = {}) {
+  if (!isNonEmptyString(value)) return null;
   const parsed = normalizeRelativePath(value);
   if (!parsed.ok) {
     push('path-escape', fieldPath, parsed.message);
     return null;
   }
+  if (kind === 'file' && parsed.isDirectory) {
+    push(wrongKind, fieldPath, `${label}必须是文件路径，不能以 / 结尾：${value}`);
+    return null;
+  }
   if (!rootDir) return { ok: true, relative: parsed.path, absolute: null };
+  let resolved;
   try {
-    return { ok: true, ...resolveProjectPath(rootDir, value, { kind }) };
+    resolved = resolveProjectPath(rootDir, value, { kind });
   } catch (error) {
     const message = error instanceof ContractError ? error.diagnostics[0]?.message ?? error.message : String(error);
     push('path-escape', fieldPath, message);
     return null;
   }
+  if (checkFiles) {
+    const stat = statOrNull(resolved.absolute);
+    if (!stat) {
+      if (mustExist) push(missing, fieldPath, `${label}不存在：${resolved.relative}`);
+    } else if (kind === 'file' && !stat.isFile()) {
+      push(wrongKind, fieldPath, `${label}必须是文件，${resolved.relative} 是目录`);
+    } else if (kind === 'dir' && !stat.isDirectory()) {
+      push(wrongKind, fieldPath, `${label}必须是目录，${resolved.relative} 是文件`);
+    }
+  }
+  return { ok: true, ...resolved };
 }
 
 /**
@@ -329,7 +363,8 @@ export function parseProjectSpec(input, options = {}) {
   let spec = input;
   if (typeof input === 'string') {
     try {
-      spec = JSON.parse(input);
+      // 去掉 UTF-8 BOM：Windows PowerShell 5.1 的 Set-Content / Out-File -Encoding UTF8 会写它
+      spec = JSON.parse(input.charCodeAt(0) === 0xfeff ? input.slice(1) : input);
     } catch (error) {
       throw new ContractError([diagnostic('json-invalid', '$', `JSON 解析失败：${error.message}`)], 'ProjectSpec 解析失败');
     }
@@ -340,7 +375,24 @@ export function parseProjectSpec(input, options = {}) {
 }
 
 /**
- * 从文件读取 ProjectSpec。root 默认取文件所在目录（项目根），可用 options.root 覆盖。
+ * 规格文件的默认根：契约 §2 规定 entry / baseline / manifest / outputDir 都是仓库相对路径，
+ * 所以不能取文件所在目录。文件在本仓库内就用本仓库根；否则向上找含 .git 的目录；都找不到就要求调用方传 root。
+ * @param {string} absoluteFile
+ * @returns {string}
+ */
+export function defaultSpecRoot(absoluteFile) {
+  const rel = relative(REPO_ROOT, absoluteFile);
+  if (rel && relativeInside(rel)) return REPO_ROOT;
+  for (let dir = dirname(absoluteFile); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, '.git'))) return dir;
+    if (dirname(dir) === dir) break;
+  }
+  throw new ContractError([diagnostic('root-unknown', '$', `找不到 ${absoluteFile} 所在的仓库根：请用 options.root 指明`)], 'ProjectSpec 载入失败');
+}
+
+/**
+ * 从文件读取 ProjectSpec。root 默认是仓库根（见 defaultSpecRoot），可用 options.root 覆盖。
+ * 文件开头的 UTF-8 BOM 会被去掉。
  * @param {string} filePath
  * @param {{ root?: string, checkFiles?: boolean }} [options]
  * @returns {{ spec: object, filePath: string, root: string }}
@@ -350,7 +402,7 @@ export function loadProjectSpec(filePath, options = {}) {
     throw new ContractError([diagnostic('file-invalid', '$', '必须给出 ProjectSpec 文件路径')], 'ProjectSpec 载入失败');
   }
   const absoluteFile = resolve(filePath);
-  const root = options.root ? resolve(options.root) : resolve(absoluteFile, '..');
+  const root = options.root ? resolve(options.root) : defaultSpecRoot(absoluteFile);
   let text;
   try {
     text = readFileSync(absoluteFile, 'utf8');
@@ -364,6 +416,8 @@ export function loadProjectSpec(filePath, options = {}) {
 /**
  * 校验 RenderResult 的最小语义（contracts.md §7）：
  * 未执行的记录不能预填成功；technical 与 creative 验收必须分别成立。
+ * status 为 passed / accepted 时：技术验收必须是 passed 且附证据，并记录实际设备、图形后端、编码器、
+ * 产物哈希、帧数与宽高（AGENTS.md 制作要求第 7 条）。两类验收的 status 都按枚举校验。
  * @param {unknown} result
  * @param {{ expectedFrameCount?: number }} [options]
  * @returns {{ ok: boolean, diagnostics: Array<{code:string,path:string,message:string}> }}
@@ -385,6 +439,12 @@ export function validateRenderResult(result, options = {}) {
   if (!isPlainObject(creative)) push('result-invalid', 'creativeAcceptance', 'creativeAcceptance 必须是对象');
   if (technical.evidence !== undefined && (!Array.isArray(technical.evidence) || technical.evidence.some(v => !isNonEmptyString(v)))) {
     push('result-invalid', 'technicalAcceptance.evidence', '证据必须是非空字符串数组');
+  }
+  if (isPlainObject(technical) && technical.status !== undefined && !TECHNICAL_STATUSES.includes(technical.status)) {
+    push('result-status-invalid', 'technicalAcceptance.status', `技术验收状态必须是 ${TECHNICAL_STATUSES.join(' / ')}（收到 ${String(technical.status)}）`);
+  }
+  if (isPlainObject(creative) && creative.status !== undefined && !CREATIVE_STATUSES.includes(creative.status)) {
+    push('result-status-invalid', 'creativeAcceptance.status', `创作验收状态必须是 ${CREATIVE_STATUSES.join(' / ')}（收到 ${String(creative.status)}）`);
   }
 
   const notRun = result.status === 'not-run';
@@ -411,11 +471,15 @@ export function validateRenderResult(result, options = {}) {
 
   const passesTechnical = technical.status === 'passed';
   const acceptedOverall = result.status === 'accepted';
-  if ((passesTechnical || acceptedOverall) && (!Array.isArray(technical.evidence) || !technical.evidence.length)) {
+  const passedOverall = result.status === 'passed';
+  if ((passesTechnical || passedOverall || acceptedOverall) && (!Array.isArray(technical.evidence) || !technical.evidence.length)) {
     push('result-evidence-missing', 'technicalAcceptance.evidence', '技术验收通过必须附证据（命令、日志、ffprobe、完整解码结果）');
   }
-  if (result.status === 'passed' || acceptedOverall) {
-    for (const field of ['actualDevice', 'actualGraphicsBackend']) {
+  if (passedOverall && !passesTechnical) {
+    push('result-passed-without-technical', 'technicalAcceptance.status', `status=passed 表示技术验收通过，technicalAcceptance.status 必须是 passed（收到 ${String(technical.status)}）`);
+  }
+  if (passedOverall || acceptedOverall) {
+    for (const field of ['actualDevice', 'actualGraphicsBackend', 'actualEncoder']) {
       if (!isNonEmptyString(result[field])) push('result-measured-missing', field, `技术验收通过必须记录实际执行的 ${field}，不能用计划值代替`);
     }
     if (!isNonEmptyString(result.output?.sha256)) push('result-measured-missing', 'output.sha256', '技术验收通过必须记录产物 SHA256');
