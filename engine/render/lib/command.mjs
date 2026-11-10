@@ -141,7 +141,7 @@ export class Lifecycle {
       this.abort(new RenderError(code === EXIT.SIGINT ? 'signal.sigint' : 'signal.sigterm',
         `收到 ${sig}${sig === 'SIGHUP' ? '（终端断开，按 SIGTERM 处理）' : ''}：已停下渲染，关闭浏览器与 FFmpeg，删掉临时文件`, { hint: null }));
       // SIGHUP 不在外壳的处理范围：转成 SIGTERM 交给外壳出信封、以 143 退出（不记 signalled，免得被当成第二次信号）
-      if (sig === 'SIGHUP') { process.kill(process.pid, 'SIGTERM'); return; }
+      if (sig === 'SIGHUP') { log?.error('\n收到 SIGHUP（终端断开）：按 SIGTERM 停下渲染并清理…'); process.kill(process.pid, 'SIGTERM'); return; }
       this.signalled = sig;
       log?.error(`\n收到 ${sig}：停下渲染，关闭浏览器与 FFmpeg，清理临时文件…（再按一次 Ctrl-C 立即退出）`);
       void this.teardown();
@@ -218,7 +218,7 @@ export function renderCommand(spec, main) {
       } catch (e) {
         const reason = life.signal.aborted && life.signal.reason instanceof CliError ? life.signal.reason : e;
         await life.teardown(reason instanceof Error ? reason : undefined);
-        if (!(reason instanceof CliError) && process.env.BEIMING_DEBUG && reason?.stack) process.stderr.write(`${reason.stack}\n`);
+        if (!(reason instanceof CliError) && !Number.isInteger(reason?.exitCode) && process.env.BEIMING_DEBUG && reason?.stack) process.stderr.write(`${reason.stack}\n`);
         const err = describeError(reason);
         return { exitCode: err.exitCode, error: { code: err.code, message: err.message, hint: err.hint }, data: reason?.data ?? null, runJson, warnings: log.warnings };
       } finally {

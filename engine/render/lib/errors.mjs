@@ -30,6 +30,12 @@ export const renderUsage = (code, message, hint = null) => new RenderError(`usag
 /** 任意异常 → { code, message, hint, exitCode }（信封与 run.json 用） */
 export function describeError(e) {
   if (e instanceof CliError) return { code: e.code, message: e.message, hint: e.hint ?? null, exitCode: e.exitCode };
+  // 别处定义、带数字退出码的同类错误（例如 engine/render/args.mjs 的 UsageError，exitCode 2）：照用退出码，补上对应前缀的错误码
+  if (e && Number.isInteger(e.exitCode)) {
+    const prefix = { 2: 'usage', 3: 'env', 4: 'contract', 5: 'busy', 124: 'timeout' }[e.exitCode] ?? 'failure';
+    const code = typeof e.code === 'string' && e.code.includes('.') ? e.code : `${prefix}.${prefix === 'usage' ? 'bad-value' : 'error'}`;
+    return { code, message: String(e.message).split('\n')[0], hint: e.hint ?? (e.exitCode === 2 ? '完整写法见 --help' : null), exitCode: e.exitCode };
+  }
   const message = String(e?.message ?? e).split('\n')[0];
   return { code: 'failure.internal', message: `内部错误：${message}`, hint: '这是渲染器自身的问题：设 BEIMING_DEBUG=1 重跑看堆栈，带上命令行与日志报告', exitCode: EXIT.FAILURE };
 }
