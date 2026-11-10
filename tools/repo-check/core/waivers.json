@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "about": "限期豁免：属主还没轮到改的存量问题。命中的错误降为提示并标出属主，--strict 时不降；问题修好后条目不再命中，check:repo 会提示删掉。只减不增：新增条目要写属主与原因，并在提交说明里写明。说明见 tools/repo-check/core/README.md。",
+  "waivers": [
+    { "rule": "core.claude-bridge", "file": "CLAUDE.md", "owner": "P03", "reason": "根目录 CLAUDE.md（内容 @AGENTS.md）由 agent 执行层包新建" },
+
+    { "rule": "core.reach", "file": "AGENTS.md", "match": "routes/a-webgl/README.md", "owner": "PZ", "reason": "AGENTS.md 还没链到 routes/README.md；根文档由 PZ 整合时改（D01）" },
+    { "rule": "core.reach", "file": "AGENTS.md", "match": "routes/c-style/README.md", "owner": "PZ", "reason": "同上" },
+    { "rule": "core.terms", "file": "AGENTS.md", "match": "两条路线", "owner": "PZ", "reason": "根文档由 PZ 改成三条路线（D01）" },
+    { "rule": "core.terms", "file": "AGENTS.md", "match": "历史代号", "owner": "PZ", "reason": "改称「上游项目名（内部目录沿用）」（D04）" },
+    { "rule": "core.terms", "file": "AGENTS.md", "match": "路线选择", "owner": "PZ", "reason": "选路线的判据只留在 routes/README.md，AGENTS.md 换成一行链接（ENTRY-10）" },
+
+    { "rule": "core.entry-budget", "file": "ROUTES.md", "match": "超过入口预算", "owner": "PZ", "reason": "ROUTES.md 改成 10 行以内的跳转页（ENTRY-01）" },
+    { "rule": "core.terms", "file": "ROUTES.md", "owner": "PZ", "reason": "整份改成跳转页（ENTRY-01），旧的两路线口径、历史代号与选路线一节随之删除" },
+
+    { "rule": "core.terms", "file": "docs/README.md", "match": "双路线", "owner": "PZ", "reason": "根文档整合时改成三条路线（D01）" },
+    { "rule": "core.terms", "file": "docs/README.md", "match": "历史代号", "owner": "PZ", "reason": "改称「上游项目名（内部目录沿用）」（D04）" },
+    { "rule": "core.terms", "file": "docs/TRACKS.md", "match": "历史代号", "owner": "PZ", "reason": "改称「上游项目名（内部目录沿用）」（D04）" },
+    { "rule": "core.terms", "file": "docs/TRACKS.md", "match": "RTX", "owner": "PZ", "reason": "产品名去掉 RTX（D04）" },
+    { "rule": "core.terms", "file": "docs/TRACKS.md", "match": "路线怎么选", "owner": "PZ", "reason": "TRACKS 只保留技术分档，删掉「路线怎么选」（ENTRY-01、ENTRY-10）" },
+
+    { "rule": "core.terms", "file": "docs/routes/README.md", "match": "双路线", "owner": "P02", "reason": "第二波（F1 后）改名为「A/B 引擎工程手册」（D06）" },
+    { "rule": "core.upstream-names", "file": "docs/routes/work-breakdown.md", "match": "RAEA路线", "owner": "P02", "reason": "第二波（F1 后）随工程计划一起改写（D06）" },
+
+    { "rule": "core.doc-commands", "file": "routes/b-native/README.md", "match": "我的片子", "owner": "P14", "reason": "B 手册「最快上手」的示例名不合法，照抄会被 new-film 拒绝；改成 my-film 这类 ASCII 名" },
+
+    { "rule": "core.terms", "file": "routes/directing/DIRECTING.md", "match": "历史代号", "owner": "集成负责人", "reason": "导演方法库（8c07cb8 入库，未分配给工作包）改称「上游项目名（内部目录沿用）」（D04）" },
+    { "rule": "core.terms", "file": "routes/directing/SOURCES.md", "match": "历史代号", "owner": "集成负责人", "reason": "同上" },
+    { "rule": "core.terms", "file": "routes/directing/craft/animation.md", "match": "历史代号", "owner": "集成负责人", "reason": "同上" },
+    { "rule": "core.terms", "file": "routes/directing/craft/threejs.md", "match": "历史代号", "owner": "集成负责人", "reason": "同上" }
+  ]
+}
