@@ -69,8 +69,23 @@ test('doctor：缺必需项时 exit 3，每个不合格项都有修复命令，�
   assert.match(byId['python.interpreter'].found, /BEIMING_PYTHON=/);
   assert.equal(byId['ffmpeg.version'].status, 'fail');
   for (const c of j.checks.filter(x => x.status === 'fail')) assert.ok(c.fix && c.fix.length > 4, `${c.id} 不合格却没有修复命令`);
-  assert.equal(j.error.hint, j.checks.find(c => c.status === 'fail' && c.required).fix);
+  // 顶层提示是一串按顺序执行的修复命令：系统级安装在前，npm run setup 合并 npm ci 类的修复，最后重跑 doctor
+  assert.match(j.error.hint, /^按顺序执行：.*最后重跑 npm run env:doctor$/);
+  assert.ok(Array.isArray(j.nextSteps) && j.nextSteps.length >= 1);
+  assert.equal(new Set(j.nextSteps).size, j.nextSteps.length, '修复步骤有重复');
   assert.ok(byId['env.vars'].data.set.includes('BEIMING_PYTHON') && byId['env.vars'].data.set.includes('FFMPEG'));
+});
+
+test('nextSteps：系统级安装在前，npm ci 与 npm run setup 合并成一步，去重', async () => {
+  const { nextSteps } = await import('../../tools/env/doctor.mjs');
+  const steps = nextSteps([
+    { id: 'npm.lock', fix: 'npm ci' }, { id: 'playwright.core', fix: 'npm ci' },
+    { id: 'browser.headless-shell', fix: 'npm run setup（只装锁定版本）' },
+    { id: 'ffmpeg.version', fix: 'brew install ffmpeg' }, { id: 'ffprobe.version', fix: 'brew install ffmpeg' },
+    { id: 'python.interpreter', fix: 'brew install uv，再运行 npm run setup（uv 会自动取 Python 3.12）', data: { needUv: true } },
+    { id: 'git.eol', fix: 'git config core.autocrlf false && git rm -r -q --cached . && git reset --hard' },
+  ]);
+  assert.deepEqual(steps, ['brew install ffmpeg', 'brew install uv', 'npm run setup', 'git config core.autocrlf false && git rm -r -q --cached . && git reset --hard']);
 });
 
 test('doctor：拼错的 BEIMING_ 变量会被点名', () => {

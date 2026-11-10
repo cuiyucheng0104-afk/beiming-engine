@@ -10,6 +10,7 @@
 //   字体；sh（仍有 sh 入口时）；工作区换行；磁盘空间；生效的环境变量（拼错的会提示）；
 //   --route b：RAEA_BIN 与 share/raea/VERSION；--route c：案例库与风格库快照（casebook check）。
 // 退出码：0 必需项全部通过；3 有必需项不合格；2 用法错误；1 自检本身出错。
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -66,6 +67,24 @@ export async function doctor({ routes = [], gpuMode = 'software-ok', quick = fal
   return { checks, summary, failedRequired };
 }
 
+// 把不合格项的修复命令排成一个可以照着执行的顺序：先装系统级的东西（brew / winget / apt / uv / nvm），
+// 再 npm run setup（它包含 npm ci、浏览器与 Python 环境，所以「npm ci」「npm run setup」类的修复合并成这一步），最后是其它。
+const SYSTEM = /^(brew|winget|sudo |curl |nvm |export |\$env:|安装 |用 FFmpeg)/;
+const SETUP = /^(npm ci|npm run setup)(\s|（|$)/;
+export function nextSteps(failed) {
+  const system = [], other = [];
+  let setup = false;
+  for (const c of failed) {
+    const fix = (c.fix || '').trim();
+    if (!fix) continue;
+    if (SETUP.test(fix)) { setup = true; continue; }
+    if (c.data?.needUv) { setup = true; system.push(fix.replace(/，再运行 npm run setup.*$/, '')); continue; }
+    (SYSTEM.test(fix) ? system : other).push(fix);
+  }
+  const uniq = a => [...new Set(a)];
+  return [...uniq(system), ...(setup ? ['npm run setup'] : []), ...uniq(other)];
+}
+
 function human({ checks, summary, failedRequired }, routes) {
   const tag = { pass: 'OK  ', fail: 'FAIL', warn: 'WARN', info: 'INFO', skip: 'SKIP' };
   const head = `北冥仓库 · 环境自检  ${PLATFORM_NAME[process.platform] || process.platform} ${os.arch()} · Node ${process.versions.node} · ${routes.length ? `路线 ${routes.join('、')}` : '通用项'}`;
@@ -77,9 +96,13 @@ function human({ checks, summary, failedRequired }, routes) {
   }
   lines.push('');
   const again = `npm run env:doctor${routes.length ? ` -- --route ${routes.join(',')}` : ''}`;
-  lines.push(failedRequired.length
-    ? `结论：${failedRequired.length} 项必需检查不合格（exit 3）：${failedRequired.map(c => c.id).join('、')}。按「修复」逐条处理后重跑 ${again}`
-    : `结论：必需项全部通过（${summary.passed}/${summary.total} 项通过，${summary.warnings} 项告警，用时 ${summary.seconds} 秒）。`);
+  if (failedRequired.length) {
+    lines.push(`结论：${failedRequired.length} 项必需检查不合格（exit 3）：${failedRequired.map(c => c.id).join('、')}。`, '按顺序执行：');
+    nextSteps(failedRequired).forEach((x, i) => lines.push(`  ${i + 1}. ${x}`));
+    lines.push(`  ${nextSteps(failedRequired).length + 1}. ${again}`);
+  } else {
+    lines.push(`结论：必需项全部通过（${summary.passed}/${summary.total} 项通过，${summary.warnings} 项告警，用时 ${summary.seconds} 秒）。`);
+  }
   return lines.join('\n');
 }
 
@@ -100,12 +123,14 @@ if (isMain(import.meta.url)) {
         const p = path.resolve(o.out);
         fs.mkdirSync(path.dirname(p), { recursive: true });
         fs.writeFileSync(p, JSON.stringify(report, null, 2) + '\n');
-        outputs.push({ path: path.relative(ROOT, p).split(path.sep).join('/'), sha256: null, kind: 'doctor-report' });
+        const rel = path.relative(ROOT, p);
+        outputs.push({ path: (rel.startsWith('..') || path.isAbsolute(rel) ? p : rel).split(path.sep).join('/'), sha256: createHash('sha256').update(fs.readFileSync(p)).digest('hex'), kind: 'doctor-report' });
       }
       const exitCode = r.failedRequired.length ? EXIT.ENV : EXIT.OK;
       return {
         exitCode, outputs,
-        error: exitCode ? { code: 'env-check-failed', message: `${r.failedRequired.length} 项必需检查不合格：${r.failedRequired.map(c => c.id).join('、')}`, hint: r.failedRequired[0].fix } : null,
+        error: exitCode ? { code: 'env-check-failed', message: `${r.failedRequired.length} 项必需检查不合格：${r.failedRequired.map(c => c.id).join('、')}`, hint: `按顺序执行：${nextSteps(r.failedRequired).join('；然后 ')}；最后重跑 npm run env:doctor` } : null,
+        nextSteps: exitCode ? nextSteps(r.failedRequired) : [],
         warnings: r.checks.filter(c => c.status === 'warn').map(c => `${c.id}：${c.found}${c.fix ? `（${c.fix}）` : ''}`),
         ...report,
         human: human(r, routes),

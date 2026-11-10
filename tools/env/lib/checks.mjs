@@ -207,25 +207,36 @@ const PKG_SCRIPT = [
   'print(json.dumps({"installed": inst, "imports": imp, "optional": opt}))',
 ].join('\n');
 
+// setup 建 .venv 要么用 uv（自动取 Python 3.12），要么用现成的 Python 3.12；两样都没有时，修复命令先装 uv
+function setupPrereq(spec, env) {
+  if (which('uv', { env })) return { needUv: false };
+  const names = process.platform === 'win32' ? [] : [`python${spec.python.version}`];
+  if (names.some(n => which(n, { env }))) return { needUv: false };
+  return { needUv: true, fix: `${pf(spec.python.uvFix)}，再运行 npm run setup（uv 会自动取 Python ${spec.python.version}）` };
+}
+
 export async function checkPython(root, spec, { env = process.env, imports = true } = {}) {
   const out = [];
   const py = await resolvePython({ env, root, want: spec.python.version });
   if (!py.ok) {
-    out.push(mk('python.interpreter', 'Python 解释器', { status: 'fail', found: py.error, expected: `Python ${spec.python.version}（仓库内 .venv）`, fix: `npm run setup（${py.hint}）` }));
+    const pre = py.source ? { needUv: false } : setupPrereq(spec, env);
+    out.push(mk('python.interpreter', 'Python 解释器', { status: 'fail', found: py.error, expected: `Python ${spec.python.version}（仓库内 .venv）`,
+      fix: pre.needUv ? pre.fix : py.source ? py.hint : `npm run setup（${py.hint}）`, data: { source: py.source || null, needUv: pre.needUv } }));
     return { checks: out, py };
   }
   const want = spec.python.version.split('.').map(Number);
   const verOk = py.version[0] === want[0] && py.version[1] === want[1];
   const venvExists = fs.existsSync(path.join(root, spec.python.venv));
   const overridden = venvExists && py.source !== '.venv';
+  const pre = !verOk && !['BEIMING_PYTHON', 'BEIMING_PY', 'PYTHON', '.venv'].includes(py.source) ? setupPrereq(spec, env) : { needUv: false };
   out.push(mk('python.interpreter', 'Python 解释器', {
     status: verOk ? (overridden ? 'warn' : 'pass') : 'fail', found: `${py.versionString}，来自 ${py.source}：${py.executable}`,
     expected: `Python ${spec.python.version}.x（锁文件只覆盖 ${spec.python.version}）`,
     fix: !verOk ? (py.source === '.venv' ? '删掉 .venv 后重跑 npm run setup'
       : ['BEIMING_PYTHON', 'BEIMING_PY', 'PYTHON'].includes(py.source) ? `取消 ${py.source}（或改指 Python ${spec.python.version}），再运行 npm run setup`
-        : 'npm run setup（在仓库内建 Python 3.12 的 .venv，之后所有工具自动用它）') : overridden ? `取消 ${py.source}，让工具用仓库的 .venv` : null,
-    detail: overridden ? `${py.source} 覆盖了仓库的 .venv（node-gyp 等工具也会设 PYTHON）` : null,
-    data: { source: py.source, executable: py.executable, venv: py.prefix !== py.basePrefix },
+        : (pre.needUv ? pre.fix : 'npm run setup（在仓库内建 Python 3.12 的 .venv，之后所有工具自动用它）')) : overridden ? `取消 ${py.source}，让工具用仓库的 .venv` : null,
+    detail: overridden ? `${py.source} 覆盖了仓库的 .venv（node-gyp 等工具也会设 PYTHON）` : !verOk && py.source !== '.venv' ? `系统里的 Python ${py.versionString} 不是 ${spec.python.version}；仓库只按 ${spec.python.version} 锁定依赖` : null,
+    data: { source: py.source, executable: py.executable, venv: py.prefix !== py.basePrefix, needUv: !verOk && pre.needUv },
   }));
   if (!verOk || !imports) return { checks: out, py };
   const lockPath = path.join(root, spec.python.lock);
