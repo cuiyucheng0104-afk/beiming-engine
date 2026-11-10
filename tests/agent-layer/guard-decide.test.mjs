@@ -269,7 +269,8 @@ test('Skill：全局第三方风格库 skill 拒绝；其他视频类全局 skil
   for (const s of ['lemo-opuscar', 'lemo-opuscar:lemo-opuscar', 'LEMO-OPUSCAR:x', 'sy-style-100', 'sy-style-100:sy-style-100', '/lemo-opuscar:lemo-opuscar']) {
     expectDeny(run('Skill', { skill: s }), 'skill-upstream-style-library', `Skill ${s}`);
   }
-  for (const s of ['make-a-video', 'code-video', 'painted-animation', 'remotion-video-creation', 'hyperframes']) {
+  for (const s of ['make-a-video', 'code-video', 'painted-animation', 'remotion-video-creation', 'hyperframes', 'anidoodle:anidoodle',
+    'claude-animation:claude-animation', 'motion-graphics-music-video:motion-graphics-music-video', 'title-sequence-3d', 'slideshow']) {
     const d = run('Skill', { skill: s });
     expectAllow(d, `Skill ${s}`);
     assert.match(d.context ?? '', /beiming-film/, `Skill ${s} 要提醒先用 beiming-film`);

@@ -86,7 +86,7 @@ export function isHomeRuntime(homeRel, { ci = false } = {}) {
 export const UPSTREAM_STYLE_SKILL = /^(lemo-opuscar|sy-style-100)(:|$)/i;
 
 /** 其他全局视频 / 动画类 skill：不拦，只提醒先走本仓库的 beiming-film。 */
-export const VIDEO_SKILL_HINT = /(video|film|movie|anim|motion|reel|remotion|hyperframes|manim|lottie|render|三渲二|动画|短片|视频)/i;
+export const VIDEO_SKILL_HINT = /(video|film|movie|anim|motion|reel|remotion|hyperframes|manim|lottie|render|doodle|cartoon|slideshow|3d|blender|三渲二|动画|短片|视频)/i;
 export const REPO_SKILL_PREFIX = 'beiming-';
 
 /** 拒绝时附在原因后面的说明。键是规则 id。 */
