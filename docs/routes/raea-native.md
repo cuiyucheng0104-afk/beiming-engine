@@ -2,6 +2,15 @@
 
 > 读者：直接用原生运行时做片的人｜状态：实施手册（文中命令与新工程在编写时都没有运行）｜依据：北冥 `21ed1b1`，RAEA 源码 `fb3f708`，运行包 `0.1.0-canary.2`
 
+> **先读 [B 路线手册](../../routes/b-native/README.md)。** 2026-11-10 起，北冥原生 · BNE（基于上游运行时 RAEA，FSL-1.1-ALv2）的操作入口只有那一份：新建作品、准备素材、草图帧、出片、交付规格（母版逐位复制 + BT.709 网页版 + run.json + 运行时自带成片检查）、画面工艺与 FSL 使用边界都在那里。本页保留为**原生运行时模块与接口的深入资料**；与新入口冲突时以手册为准。下表是本页旧内容到新实现的对应：
+>
+> | 本页旧内容 | 现在 |
+> |---|---|
+> | §3 建议新建的 `examples/raea-starter/`、`settings.mjs` | `node tools/new-film.mjs b <名字>`（模版 `routes/b-native/template/`），设置在 `film.json` 与 `layout.js` |
+> | §4 `raea:prepare / raea:check / raea:render` 与 `delivery/` | `node engine/native/prepare.mjs <作品>`、`node engine/render/native.mjs <作品> [--check-only \| --at …]`，产物在 `<作品>/out/<run-id>/`；`npm run raea:*` 只是例片的别名 |
+> | §5「只改 Composition 不能复用包装」的写死常量 | 已去掉：帧数、尺寸、帧率、交付档位、素材清单都从 `film.json` 读；`tests/native/contract.test.mjs` 与 `layout.test.mjs` 核对 |
+> | §7 手册步骤 R01（起步工程）、R02（项目运行包装） | 由 `engine/native/` 与 `engine/render/native.mjs` 取代；其余步骤（分层夹具、角色等）仍是待办，编号只在本页有效，与代码审查问题单的 R01–R14 无关 |
+
 本路线直接用 RAEA 的 TSX、原生页面与三维组件组织作品，适合独立画风的二维、三维、程序化画面和角色实验。先读 [路线入口](../../ROUTES.md) 与 [仓库规范](../../AGENTS.md)。原生工程可以立即编写 TSX；[契约页](contracts.md)中的 `ProjectSpec / FrameState / BackendAdapter` 是接口设计，尚未接入运行时，不是本路线的前置 SDK。
 
 本文以北冥仓库 `21ed1b10164a94a4fc0d7cf3973934d0f21f301f` 中的示例为基线，核对 RAEA 源码提交 `fb3f70844e03cc40185e3a06c394060d26c5cd38`，运行包固定 `0.1.0-canary.2`。源码快照与发行包版本分别记录，不能因接口在快照中存在，就断言发行包的每项功能均已验证。本文不包含 RAEA 内核或 SDK 副本。
@@ -203,16 +212,19 @@ Character 必须用自身 `position / yaw / scale` 放置，不能套 Group 来�
 
 ## 4. 现有例片的准备、检查、渲染
 
-完整说明见 [examples/raea/README.md](../../examples/raea/README.md)；以下命令从仓库根运行。依赖安装会改依赖目录，准备流程会生成例片素材；仅在实施对应任务时执行，本次没有执行。
+完整说明见 [examples/raea/README.md](../../examples/raea/README.md)；以下命令从仓库根运行（2026-11-10 在 macOS 实跑通过，见[实测记录](../raea/experiment.md)末节）。
 
 ```sh
 npm run setup
-python3 -m pip install -r requirements.txt
-npm run raea:prepare
+python3 -m pip install -r requirements.txt             # 或 PYTHON 指向已装 numpy / scipy / soundfile / numba 的解释器
+node engine/native/runtime.mjs fetch --accept-license  # 读过上游许可后获取运行时并校验哈希
 export RAEA_BIN="<RAEA安装包绝对目录>/bin/raea"
-npm run raea:check
-npm run raea:render
+node engine/native/prepare.mjs examples/raea           # = npm run raea:prepare
+node engine/render/native.mjs examples/raea --check-only
+node engine/render/native.mjs examples/raea            # 产物在 examples/raea/out/<run-id>/
 ```
+
+> 下表是重构前包装脚本的职责记录，保留作对照；现行行为（母版逐位复制、网页版 BT.709、运行时自带成片检查、run.json）见 B 路线手册。
 
 `<RAEA安装包绝对目录>` 需替换为实际绝对目录。Windows 使用 PowerShell 设置 `$env:RAEA_BIN` 为完整 exe 路径，按需要设置 `$env:WGPU_BACKEND = 'vulkan'`；工具不在 PATH 时设置 `PYTHON / FFMPEG / FFPROBE`。安装包必须保留 `bin` 与 `share` 相对布局。canary.2 没有 `--version` 命令，包装脚本从实际可执行文件旁的 `../share/raea/VERSION` 读取版本。
 
@@ -225,7 +237,7 @@ npm run raea:render
 | 原生渲染：同文件的 `run / requireSuccess` | 以例片目录为 cwd，运行 `render film.tsx --quality master --manifest …` | `out/native-10s.mp4 / render.json / render.stdout.log / render.stderr.log`；非零退出就不继续封装 |
 | 封装与校验：同文件的 FFmpeg／ffprobe 分支 | 复制视频轨，混入 `mix.wav` 编 AAC，截到 10 秒；完整解码计数 | `delivery/beiming-raea-10s.mp4 / technical.json`；核对 1920×1040、24/1、240 帧、AAC、时长误差 ≤0.05 秒，再记录 SHA256 |
 
-不要把 `raea:check` 与上游 `raea check` 混为一谈：前者只是本仓库文件／工具预检。技术通过后仍需检查整片、切点、黑场／意外静帧、声音起止和响度。历史实测的视觉与声音证据见[实验记录](../raea/experiment.md)，不能由本次预检推导。
+不要把预检（`native.mjs --check-only`，旧名 `raea:check`）与上游 `raea check` 混为一谈：前者只是本仓库的文件／工具预检；上游的成片检查现在由出片入口自动运行，结果在 `out/<run-id>/check.json`，P0 / P1 问题判失败。技术通过后仍需检查整片、切点、黑场／意外静帧、声音起止和响度。历史实测的视觉与声音证据见[实验记录](../raea/experiment.md)，不能由本次预检推导。
 
 ## 5. 为什么不能只改 Composition 就复用包装
 
