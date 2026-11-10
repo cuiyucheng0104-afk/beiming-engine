@@ -26,10 +26,14 @@ import { copyFile, mkdtemp, mkdir, readdir, rm, writeFile, readFile, rename } fr
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { CliError, EXIT, exitWith, isMain, log, onCleanup, offCleanup, runCli, runQuick } from './cli.mjs';
 
 const MAX = 8192;
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+// 记录里的来源路径：仓库内写相对仓库根的路径，仓库外只写文件名（不把本机绝对路径写进素材记录）
+const portable = src => { const r = relative(ROOT, resolve(String(src))); return r.startsWith('..') || isAbsolute(r) ? basename(String(src)) : r.split(sep).join('/'); };
 const ffmpeg = () => process.env.FFMPEG || 'ffmpeg';
 const FRAME_TIMEOUT = () => 1000 * Number(process.env.BNE_FRAME_TIMEOUT || 30);
 function run(args, timeoutMs = 600000) {
@@ -98,7 +102,7 @@ export async function makeSequence({ kind, src, from = 0, until, fps = 12, size 
     const list = (await readdir(tmp)).filter(f => f.endsWith('.png')).sort();
     const n = list.length;
     if (!n) throw new CliError(EXIT.FAIL, 'no-frames', '没有得到任何帧');
-    const source = { kind, src: String(src), from, until: until ?? null, ...(alpha ? { alpha: true } : {}), ...(crop ? { crop } : {}) };
+    const source = { kind, src: portable(src), from, until: until ?? null, ...(alpha ? { alpha: true } : {}), ...(crop ? { crop } : {}) };
     if (output === 'frames') {
       const dir = resolve(out), staging = `${dir}.part`;
       await rm(staging, { recursive: true, force: true });

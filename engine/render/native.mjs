@@ -190,7 +190,7 @@ async function writeJsonAtomic(file, data) {
 // ───────── 原生运行时调用 ─────────
 async function raeaRender(rt, spec, args, { label, logFile, timeoutMs, env }) {
   const errors = [];
-  let errorTail = 0, stats = null, applied = null, sysinfo = null;
+  let errorTail = 0, stats = null, applied = null, sysinfo = null, backendSeen = null, softwareSeen = false;
   const r = await spawnStream(rt.exe, args, {
     cwd: spec.dir, env, timeoutMs, logFile, quiet: true, label,
     onLine: raw => {
@@ -199,12 +199,15 @@ async function raeaRender(rt, spec, args, { label, logFile, timeoutMs, env }) {
       if (errorTail > 0 && l.trim()) { errors[errors.length - 1] += `\n${l.trim()}`; errorTail--; return; }
       if (/^APPLIED\b/.test(l)) { applied = l.trim(); log(`  │ ${l.trim()}`); }
       if (/SystemInfo/.test(l) && !sysinfo) sysinfo = l.trim();
+      const gb = /\b(metal|vulkan|dx12|direct3d ?12|opengl|gles)\b/i.exec(l);
+      if (gb && !backendSeen) backendSeen = gb[1];
+      if (/llvmpipe|swiftshader|software rasterizer|Microsoft Basic Render/i.test(l)) softwareSeen = true;
       if (l.startsWith('{') && l.includes('"frames"')) { try { stats = JSON.parse(l); } catch { /* 不是统计行 */ } }
     },
   });
   if (r.code !== 0) throw new CliError(EXIT.FAIL, 'native-render', `${label}失败（运行时退出码 ${r.code ?? r.signal}）${errors[0] ? `：${errors[0].split('\n').slice(0, 4).join(' ')}` : ''}`, `完整日志：${repoRel(logFile)}`);
   if (errors.length) throw new CliError(EXIT.FAIL, 'native-error', `${label}日志里有 ERROR（运行时仍返回 0，画面可能缺了一层）：${errors[0].split('\n').slice(0, 6).join(' ⏎ ')}`, `完整日志：${repoRel(logFile)}；着色器报错先修对应的 WESL`);
-  return { stats, applied, sysinfo };
+  return { stats, applied, sysinfo, backend: backendSeen, software: softwareSeen };
 }
 
 async function ffmpegRun(args, label, timeoutMs) {
@@ -272,6 +275,8 @@ async function run(a) {
   const assets = await checkAssets(spec);
   timing.preflight = now() - t;
   const rtInfo = { version: rt.version, platform: rt.platform, binarySha256: rt.binarySha256, verified: rt.verified };
+  // 准备阶段（资产桥、序列帧、声音脚本）用过的工具版本记在 prepared.json，一并写进 run.json
+  for (const k of ['python', 'playwright', 'browser', 'three']) if (assets.prepared?.tools?.[k]) tools[k] = `${assets.prepared.tools[k]}（准备阶段）`;
   log(`预检通过：运行时 ${rt.version}（${rt.platform}，${rt.verified === true ? '哈希与锁一致' : rt.verified === 'unlocked' ? '该平台未锁定' : '未验证版本'}），${Object.keys(assets.hashes).length} 个素材与 prepared.json 一致，交付档位 ${p.name}（${p.source}）`);
   if (a['check-only']) {
     let help = null;
@@ -354,6 +359,9 @@ async function run(a) {
     timing.render = now() - t;
     record.encoder = r.stats?.video ?? null;
     record.actualDevice.host = parseSysinfo(r.sysinfo);
+    record.actualGraphicsBackend.reported = r.backend ? `${r.backend}（从运行时日志识别）` : null;
+    record.softwareFallback = r.software ? true : r.backend ? false : null;
+    if (r.software) warn('运行时日志显示用的是软件渲染（llvmpipe / SwiftShader 等）：速度与画面都不代表 GPU 结果');
     record.nativeStats = r.stats ? { frames: r.stats.frames, fpsInclEncode: r.stats.fps_incl_encode, bytes: r.stats.bytes, video: r.stats.video } : null;
     if (!existsSync(native)) throw new CliError(EXIT.FAIL, 'native-output', '运行时没有写出 native.mp4', `看 ${repoRel(join(runDir, 'render.log'))}`);
     const nd = D.describeVideo(probe(native));
@@ -371,13 +379,15 @@ async function run(a) {
     } else warn('film.json 没有 native.audio：母版无声，网页版写入静音立体声轨');
     record.audio = pcm ? { source: repoRel(pcm), sha256: assets.hashes[spec.native.audio.out || 'mix.wav'], measured: pcmLoud, plan: { gainDb: plan.gainDb, limitedByPeak: plan.limitedByPeak }, target: audioTarget } : { source: null };
 
-    // 4 母版
+    // 4 母版（元数据：片名；含 AI 生成画面时写 comment，决定 D11）
+    const meta = D.metadataArgs({ title: spec.title, aigc: spec.raw.aigc });
+    record.aigc = spec.raw.aigc?.contains ? { contains: true, label: D.AIGC_LABEL, note: spec.raw.aigc.note ?? null, where: ['mp4 comment', 'player.html'] } : { contains: Boolean(spec.raw.aigc?.contains) };
     t = now();
     const master = join(runDir, 'master.mp4');
     parts.push(`${master}.part`);
     const m = await encodeWithLoudness({
       label: '母版封装', out: master, pcm, audio: audioTarget, gainDb: plan.gainDb, timeoutMs,
-      build: (g, part) => D.masterArgs({ video: native, pcm, gainDb: g, out: part, audio: audioTarget, durSeconds: spec.dur }),
+      build: (g, part) => D.masterArgs({ video: native, pcm, gainDb: g, out: part, audio: audioTarget, durSeconds: spec.dur, meta }),
     });
     const md = D.describeVideo(probe(master));
     const masterProblems = D.judgeVideo(md, spec, { audio: Boolean(pcm) });
@@ -396,7 +406,7 @@ async function run(a) {
       let colorNote = '';
       const w = await encodeWithLoudness({
         label: '网页版编码', out: web, pcm, audio: audioTarget, gainDb: m.gainDb, timeoutMs: 1000 * (300 + 2 * spec.frames),
-        build: (g, part) => { const b = D.webArgs({ master, pcm, gainDb: g, out: part, p, audio: audioTarget, sourceColor: { color_space: md.color.matrix, color_range: md.color.range, color_primaries: md.color.primaries }, durSeconds: spec.dur }); colorNote = b.colorNote; return b.args; },
+        build: (g, part) => { const b = D.webArgs({ master, pcm, gainDb: g, out: part, p, audio: audioTarget, sourceColor: { color_space: md.color.matrix, color_range: md.color.range, color_primaries: md.color.primaries }, durSeconds: spec.dur, meta }); colorNote = b.colorNote; return b.args; },
       });
       const wd = D.describeVideo(probe(web));
       const webProblems = D.judgeVideo(wd, spec, { web: true, audio: true, p });
@@ -416,7 +426,7 @@ async function run(a) {
     record.frameHashes = { kind: 'ffmpeg-framemd5（母版解码后）', path: repoRel(md5), sha256: await sha256File(md5), frames: md5Count };
     const cols = 5, every = Math.max(1, Math.ceil(spec.frames / 40));
     await ffmpegRun(['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-i', deliver, '-vf', `select='not(mod(n\\,${every}))',scale=384:-2,tile=${cols}x${Math.ceil(Math.ceil(spec.frames / every) / cols)}:padding=4:color=white`, '-frames:v', '1', '-q:v', '3', join(runDir, 'contact.jpg')], '联系表', 300000);
-    await writeFile(join(runDir, 'player.html'), playerHtml(spec, runId, deliver.endsWith('web.mp4') ? 'web.mp4' : 'master.mp4'));
+    await writeFile(join(runDir, 'player.html'), playerHtml(spec, runId, deliver.endsWith('web.mp4') ? 'web.mp4' : 'master.mp4', spec.raw.aigc));
     if (!a['skip-check']) {
       const out = join(runDir, 'check.json');
       const c = await spawnStream(rt.exe, ['check', rel(deliver.endsWith('web.mp4') ? 'web.mp4' : 'master.mp4'), '--manifest', rel('render.json'), '-o', rel('check.json')],
@@ -474,11 +484,11 @@ function parseFrames(s) {
   return list;
 }
 
-function playerHtml(spec, runId, file) {
+function playerHtml(spec, runId, file, aigc) {
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(spec.title)} · ${esc(runId)}</title>
 <style>:root{color-scheme:dark}body{margin:0;background:#111;color:#ddd;font:14px/1.5 system-ui,sans-serif}main{max-width:min(100vw,${spec.width}px);margin:0 auto;padding:16px}video{width:100%;height:auto;background:#000}p{margin:.5em 0;color:#999}</style>
-<main><video src="${esc(file)}" controls preload="metadata"></video><p>${esc(spec.title)} · ${spec.width}×${spec.height} · ${spec.fps} fps · ${spec.frames} 帧 · 运行 ${esc(runId)}（本地看片用；记录见 run.json）</p></main>\n`;
+<main><video src="${esc(file)}" controls preload="metadata"></video><p>${esc(spec.title)} · ${spec.width}×${spec.height} · ${spec.fps} fps · ${spec.frames} 帧 · 运行 ${esc(runId)}（本地看片用；记录见 run.json）</p>${aigc?.contains ? `<p>${esc(D.AIGC_LABEL)}${aigc.note ? `：${esc(aigc.note)}` : ''}</p>` : ''}</main>\n`;
 }
 
 if (isMain(import.meta.url)) await exitWith(main());

@@ -76,8 +76,13 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
     const gen = (N.models || []).filter(isGenerated);
     if (gen.length) {
       const reports = await exportModels(gen, { baseDir: dir, outDir: media, preview, timeoutMs: 1000 * Number(process.env.BNE_BRIDGE_TIMEOUT || 900) });
+      const rt = Object.values(reports).find(r => r?.runtime)?.runtime;
+      if (rt) Object.assign(tools, { three: rt.three, playwright: rt.playwright, browser: rt.browser });
       for (const m of gen) { made.push(m.to, m.report || m.to.replace(/\.glb$/i, '-report.json')); for (const [f, h] of Object.entries(reports[m.to]?.sourceHashes || {})) inputs[`repo:${f}`] = h; }
     }
+  }
+  if (want('sequences') && (N.sequences || []).some(s => s.page !== undefined)) {
+    try { tools.playwright ??= JSON.parse(await readFile(resolve(ROOT, 'node_modules/playwright-core/package.json'), 'utf8')).version; } catch { /* 没装时序列帧会自己报错 */ }
   }
   if (want('sequences')) for (const s of N.sequences || []) {
     const kind = ['page', 'video', 'frames'].find(k => s[k] !== undefined);

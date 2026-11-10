@@ -83,7 +83,7 @@ export function layout({ W, H, FPS, frames }, V) {
     const r = range[i];
     return { x: (W - width) / 2 - (r.x[0] + r.x[1]) / 2, y: (H - height) / 2 - (r.y[0] + r.y[1]) / 2, width, height };
   };
-  return { K, shots: SHOTS, kun, ferry, sky, skyRange: range, cards: cardsFor(W, H, V), title: { x: 0.06, y: 0.2, size: 0.2 } };
+  return { K, shots: SHOTS, kun, ferry, sky, skyRange: range, cards: cardsFor(W, H, V), title: { x: 0.06, y: 0.2, size: 0.19 } };
 }
 
 // 片名框（像素）：与 title/title.js 的排法一致——两个字的中心在 (x·W + 0.462F, y·H) 与再往右 0.90F，字号 F = size·H

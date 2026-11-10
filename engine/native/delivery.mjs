@@ -13,8 +13,10 @@
 //                                   线性增益（volume 滤镜，不做动态处理）：先对准目标响度，真峰值留 0.5 dB 给 AAC 编码余量
 //   judgeLoudness(m, audio)        成片复测：积分响度在目标 ± 容差内、真峰值不高于上限 → { ok, problems }
 // 编码参数（不经 sh / mux.sh，Windows PowerShell 直接可用）
-//   masterArgs({ video, pcm, gainDb, out, audio })   母版：原生视频轨逐位复制 + 混音 PCM 增益后编 AAC
-//   webArgs({ master, pcm, gainDb, out, p, sourceColor })   网页版：由母版视频编 H.264 High、yuv420p、BT.709 有限范围并写全
+//   metadataArgs({ title, aigc })  成片元数据：title；film.json 的 aigc.contains 为真时写 comment「含 AI 生成画面：…」
+//                                   （决定 D11 的隐式标识；显式标识写在作品说明与 player.html 里）
+//   masterArgs({ video, pcm, gainDb, out, audio, meta })   母版：原生视频轨逐位复制 + 混音 PCM 增益后编 AAC
+//   webArgs({ master, pcm, gainDb, out, p, sourceColor, meta })   网页版：由母版视频编 H.264 High、yuv420p、BT.709 有限范围并写全
 //                                   四个色彩标签、GOP = 2 秒、faststart；声音从 PCM 直接编（不做 AAC 转 AAC）
 //   colorFilter(sourceColor)       母版已是 BT.709 tv 时不做转换；是全范围 / BT.601 时用 colorspace 滤镜一次转到 BT.709 tv
 //                                   （4:2:0 上比 scale 单步更准，见 routes/directing/craft/video.md §4.5）
@@ -111,12 +113,20 @@ export function judgeLoudness(m, a) {
 
 const volume = gainDb => `volume=${gainDb.toFixed(2)}dB`;
 
-export function masterArgs({ video, pcm, gainDb, out, audio, durSeconds }) {
+export const AIGC_LABEL = '含 AI 生成画面';
+export function metadataArgs({ title, aigc } = {}) {
+  const m = [];
+  if (title) m.push('-metadata', `title=${title}`);
+  if (aigc?.contains) m.push('-metadata', `comment=${AIGC_LABEL}${aigc.note ? `：${aigc.note}` : ''}`);
+  return m;
+}
+
+export function masterArgs({ video, pcm, gainDb, out, audio, durSeconds, meta = [] }) {
   const a = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-i', video];
   if (pcm) a.push('-i', pcm, '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-af', `${volume(gainDb)},aresample=${audio.rate}`,
     '-ac', String(audio.channels), '-c:a', 'aac', '-b:a', `${audio.masterKbps}k`, '-t', String(durSeconds));
   else a.push('-map', '0:v:0', '-c:v', 'copy');
-  a.push('-movflags', '+faststart', '-f', 'mp4', out);
+  a.push(...meta, '-movflags', '+faststart', '-f', 'mp4', out);
   return a;
 }
 
@@ -131,7 +141,7 @@ export function colorFilter(src = {}) {
   };
 }
 
-export function webArgs({ master, pcm, gainDb, out, p, audio, sourceColor, durSeconds }) {
+export function webArgs({ master, pcm, gainDb, out, p, audio, sourceColor, durSeconds, meta = [] }) {
   const v = p.video, c = p.color;
   const cf = colorFilter(sourceColor);
   const vf = [cf.filter, `format=${v.pixFmt}`].filter(Boolean).join(',');
@@ -143,7 +153,7 @@ export function webArgs({ master, pcm, gainDb, out, p, audio, sourceColor, durSe
     '-maxrate', v.maxrate, '-bufsize', v.bufsize, '-g', String(v.gop), '-keyint_min', String(v.keyintMin), '-pix_fmt', v.pixFmt,
     '-color_primaries', c.primaries, '-color_trc', c.transfer, '-colorspace', c.matrix, '-color_range', c.range);
   if (pcm) a.push('-af', `${volume(gainDb)},aresample=${audio.rate}`);
-  a.push('-ac', String(audio.channels), '-ar', String(audio.rate), '-c:a', 'aac', '-b:a', `${audio.kbps}k`, '-t', String(durSeconds), '-movflags', '+faststart', '-f', 'mp4', out);
+  a.push('-ac', String(audio.channels), '-ar', String(audio.rate), '-c:a', 'aac', '-b:a', `${audio.kbps}k`, '-t', String(durSeconds), ...meta, '-movflags', '+faststart', '-f', 'mp4', out);
   return { args: a, colorNote: cf.note };
 }
 
