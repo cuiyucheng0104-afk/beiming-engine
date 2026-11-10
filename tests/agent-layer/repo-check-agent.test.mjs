@@ -201,6 +201,21 @@ test('agent.vendor-warning：vendor README 顶部没有优先级警示', async (
   assert.deepEqual(errors(await check(dir, ['agent.vendor-warning'])), [], '没有 cases/vendor/ 时不要求');
 });
 
+test('快照里建了作品目录（上游让 agent 放进克隆里的 films/）：仓库规范检查报错，即使快照自己的 .gitignore 把它藏起来', () => {
+  // 这一条由治理骨架的 core.vendor-immutable 判（agent 域不重复）；这里守住 P03 的要求「cases/vendor/*/films 不得存在」
+  const dir = fixture();
+  put(dir, 'cases/vendor/demo/a.txt', 'x');
+  put(dir, 'cases/vendor/demo/.gitignore', 'films/\nout/\n');
+  put(dir, 'cases/vendor/lock.json', JSON.stringify({ version: 1, repositories: [{ name: 'demo', path: 'vendor/demo', files: [{ path: 'a.txt', size: 1 }, { path: '.gitignore', size: 11 }] }] }));
+  put(dir, 'cases/vendor/demo/films/my-film/index.html', '<html>');
+  git(dir, ['add', '--', 'cases']);
+  assert.equal(git(dir, ['status', '--porcelain', '--', 'cases/vendor/demo/films']).trim(), '', 'git status 看不见被快照 .gitignore 藏起来的 films/');
+  const r = spawnSync(process.execPath, [CLI, '--only', 'core.vendor-immutable', '--root', dir, '--json'], { cwd: ROOT, encoding: 'utf8', timeout: 120000, windowsHide: true });
+  const o = JSON.parse(r.stdout);
+  assert.ok(o.data.findings.some(f => f.level === 'error' && f.file === 'cases/vendor/demo/films'), JSON.stringify(o.data.findings).slice(0, 400));
+  assert.notEqual(r.status, 0);
+});
+
 test('命令行：node tools/repo-check.mjs --only agent 能跑到 agent 域，违规时非零退出，--json 是统一信封', () => {
   const run = args => spawnSync(process.execPath, [CLI, ...args], { cwd: ROOT, encoding: 'utf8', timeout: 120000, windowsHide: true });
   const list = run(['--list']);
