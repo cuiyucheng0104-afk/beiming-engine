@@ -10,3 +10,44 @@ examples/raea/media/
 examples/raea/delivery/
 _site/
 _previews/
+
+# —— 以下由集成负责人按各工作包的登记补入（P01、P02、P09、P10、P17）——
+# 凭据与密钥（P01；合规扫描的 comp.sensitive-files 规则对已跟踪的这类文件同样阻断；*.key 也会忽略 Keynote 文件，客户材料本来就不该入库）
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_ecdsa
+id_ed25519
+.netrc
+.git-credentials
+# 虚拟环境与本地缓存（P10、P17）
+.venv/
+.cache/
+# 作品目录只提交源码与描述（D10）：产物只写 films/<名>/out/，媒体与帧序列兜底忽略（P02、P10）
+films/*/out/
+films/**/*.mp4
+films/**/*.mov
+films/**/*.mkv
+films/**/*.webm
+films/**/*.wav
+films/**/*.flac
+films/**/*.aac
+films/**/*.m4a
+films/**/frames/
+films/**/stills/
+# new-film 的暂存目录（进程被强杀时才可能留下）（P02）
+films/.new-*/
+# 冒烟出片与路径检查的临时作品（P09）
+films/ci-smoke-*/
+films/ci-win-*/
+# 评测结果的半成品（P17）
+evals/results/*.partial
