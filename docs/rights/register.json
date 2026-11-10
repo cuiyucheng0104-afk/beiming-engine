@@ -471,6 +471,53 @@
         "docs/raea/media/**",
         "audio/score_cache.npz"
       ]
+    },
+    {
+      "id": "R13",
+      "title": "上游原生运行时 RAEA（B 路线 · 北冥原生 · BNE 调用，不随仓库分发）",
+      "kind": "upstream-runtime",
+      "holder": "Shane Murphy（上游仓库 shinyobjectz/raea 的版权人）",
+      "holderBasis": "上游 LICENSE（固定提交 fb3f70844e03cc40185e3a06c394060d26c5cd38）；THIRD-PARTY.md 第 1 节",
+      "licensor": "同权利方（按 FSL-1.1-ALv2 公开许可）",
+      "scope": "FSL-1.1-ALv2：允许内部使用、为本身持有许可的客户提供专业服务；排除竞争性使用（对外提供替代 RAEA 或功能实质相似的商业产品或服务）；每个版本发布满两年转为 Apache-2.0",
+      "term": "实际运行的 v0.1.0-canary.2（2026-10-31 发布）于 2028-10-31 转为 Apache-2.0；升级版本时按新版本的发布日另算",
+      "writtenEvidence": "公开许可，以上游固定提交的 LICENSE 为准；若要对外商业化，所需的书面商业许可或法律意见：待补",
+      "status": "license-known",
+      "statusNote": "按 D03 只作内部制作层：用于自制影片与向客户交付成片，不作为对外的产品、SDK 或渲染服务；运行时与 SDK 不随本仓库分发",
+      "evidence": [
+        "docs/decisions/2026-11-10-industrial-baseline.md D03、D04",
+        "docs/rights/fsl-boundary.md（允许与禁止、固定版本与转换日期、对外署名句）",
+        "docs/raea/README.md（源码固定提交与运行版本）",
+        "THIRD-PARTY.md 第 1 节"
+      ],
+      "obligations": "不分发运行时、不复制或改写其源码；对外署名用 fsl-boundary.md 的固定署名句；升级运行时版本的同一提交里更新转换日期",
+      "agentRule": "B 路线只写调用 RAEA 公开接口的自有代码，不加 Rust / WESL 文件；有人要把渲染做成服务、把 BNE 给别人用或承诺商业化，先问用户",
+      "distribution": "不分发（每台机器单独取得，用 RAEA_BIN 指向）",
+      "gitPaths": [
+        "engine/native/**",
+        "examples/raea/**",
+        "docs/raea/**"
+      ]
+    }
+  ],
+  "appendix": [
+    {
+      "title": "AI 生成内容的标识（D11）",
+      "lines": [
+        "- 作品含 AI 生成的画面、配音或配乐：片尾与作品说明写显式标识（「含 AI 生成画面」「配音为 AI 合成」「配乐含 AI 生成」），成片 mp4 的 comment 写 `AIGC{…}` 隐式标识（`node tools/compliance/aigc.mjs label` 生成、`check` 核对）。",
+        "- 生成的原图保留 C2PA；处理过的派生图写入引用原图的新清单，或在底板清单里逐张记录来源链。《北冥》13 张底板目前只有清单级的生成记录，逐张来源待补（R08）。",
+        "- 对外不把 AI 生成的底板写成「手绘」或「代码逐帧绘制」；生成服务的条款与套餐登记在 R08、R09。",
+        "- 全文：[aigc.md](aigc.md)。"
+      ]
+    },
+    {
+      "title": "B 路线的 FSL 使用边界（D03）",
+      "lines": [
+        "- 上游原生运行时 RAEA 的许可是 FSL-1.1-ALv2（R13）。允许：内部制作、给客户做片并交付成片、为本身持有许可的客户提供专业服务。",
+        "- 不允许：把 BNE、engine/native 或任何基于 RAEA 的东西做成对外的商业产品、SDK、托管渲染服务；分发运行时；把上游源码搬进本仓库；用上游名当我方产品名。",
+        "- 固定版本：源码对照 fb3f70844e03cc40185e3a06c394060d26c5cd38；运行 v0.1.0-canary.2（2026-10-31 发布），2028-10-31 转为 Apache-2.0。",
+        "- 商业化之前先取得上游书面许可或法律意见，结论登记进本册。全文：[fsl-boundary.md](fsl-boundary.md)。"
+      ]
     }
   ]
 }

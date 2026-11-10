@@ -67,7 +67,7 @@ function human(res, { scope, limit, ms }) {
       }
       for (const f of fs_.slice(0, limit)) L.push(`    ${f.file}${f.line ? `:${f.line}` : ''}  ${f.message}`);
       if (fs_.length > limit) L.push(`    …另有 ${fs_.length - limit} 处（--limit 调大，或用 --json）`);
-      L.push(`    下一步：${fs_[0].hint}`);
+      for (const h of [...new Set(fs_.map(f => f.hint))].slice(0, 3)) L.push(`    下一步：${h}`);
     }
   }
   const blocking = res.findings.filter(f => f.blocking).length;

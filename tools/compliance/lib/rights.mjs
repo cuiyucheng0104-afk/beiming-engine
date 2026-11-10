@@ -50,6 +50,9 @@ export function loadRegister(root) {
     if (!STATUS[c.status]) throw new Error(`${REGISTER_JSON} 的 ${c.id}：status 只能是 ${Object.keys(STATUS).join(' / ')}`);
     if (!Array.isArray(c.evidence) || !c.evidence.length) throw new Error(`${REGISTER_JSON} 的 ${c.id}：evidence 至少写一条（证据位置）`);
   }
+  for (const [i, a] of (reg.appendix || []).entries()) {
+    if (!a || typeof a.title !== 'string' || !Array.isArray(a.lines) || !a.lines.every(l => typeof l === 'string')) throw new Error(`${REGISTER_JSON} 的 appendix 第 ${i + 1} 节要有 title 与 lines（字符串数组）`);
+  }
   return reg;
 }
 
@@ -147,6 +150,7 @@ export function renderRegister(register, inv) {
   L.push(`- 字段写「${PENDING}」表示用户还没有提供，**不推断、不编造**；合同与授权书正文不进仓库，只登记存放位置。`);
   L.push('- 「仓库内自述」是历史文件自己写的口径，只作线索，不等于授权范围；与授权范围冲突时以书面授权为准，书面授权补齐前按更严的口径执行。');
   L.push('- **授权不等于可以复用**：登记在册的第三方与客户素材只用于登记所列的作品；要用到新作品、模版、作品站新页面或其他对外物料，先在本册对应条目写明授权范围覆盖该用途，否则不用。');
+  L.push('- 相关规则：许可范围与派生代码的来源头见 [licensing.md](licensing.md)；B 路线的 FSL 边界见 [fsl-boundary.md](fsl-boundary.md)；AI 生成内容的标识见 [aigc.md](aigc.md)；总览与命令见 [README.md](README.md)。');
   L.push(`- 受影响清单按 \`cases/catalog.json\`（Release \`${inv.release || '—'}\`）计算：「整个案例」= 全部文件、成片、预览与海报；「部分文件」= 只有列出的文件（同一张图出现在别的案例里也算上）；「成片用到」= 成片、预览与海报。`);
   L.push('');
   L.push('## 一览', '');
@@ -188,6 +192,7 @@ export function renderRegister(register, inv) {
     }
     L.push('');
   }
+  for (const a of register.appendix || []) L.push(`## ${a.title}`, '', ...a.lines, '');
   L.push('## 怎么更新', '');
   L.push('1. 用户补来授权信息：改 `docs/rights/register.json` 对应字段（权利方、授权方、范围、期限、书面证据存放位置），把 status 改成相应状态。');
   L.push('2. 新增第三方或客户素材：先在 register.json 加一类或扩展 match，再入库或发布。');
