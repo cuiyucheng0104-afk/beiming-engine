@@ -111,12 +111,21 @@ export function trackChild(cp) {
   cp.once('error', () => children.delete(cp));
   return cp;
 }
+// 给一个 Promise 设上限：到时间 onTimeout() 的返回值（或抛出的错）作为结果；结束后清掉计时器，不让它拖住进程退出
+export function withTimeout(promise, ms, onTimeout) {
+  let timer;
+  const limit = new Promise((resolve, reject) => {
+    timer = setTimeout(() => { try { resolve(onTimeout()); } catch (e) { reject(e); } }, ms);
+  });
+  return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
+}
+
 export async function runCleanups() {
   for (const cp of children) { try { cp.kill('SIGKILL'); } catch { /* 已退出 */ } }
   children.clear();
   while (cleanups.length) {
     const fn = cleanups.pop();
-    try { await Promise.race([fn(), new Promise(r => setTimeout(r, 5000))]); } catch { /* 清理失败不再抛 */ }
+    try { await withTimeout(Promise.resolve().then(fn), 5000, () => undefined); } catch { /* 清理失败不再抛 */ }
   }
 }
 let installed = false;

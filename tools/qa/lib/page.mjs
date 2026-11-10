@@ -10,7 +10,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { QaError, EXIT, onCleanup } from './cli-kit.mjs';
+import { QaError, EXIT, onCleanup, withTimeout } from './cli-kit.mjs';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -220,7 +220,7 @@ export async function sampleFrames(h, frames, { fps, dom = true, batch = 24, tim
   const out = [];
   for (let i = 0; i < frames.length; i += batch) {
     const part = frames.slice(i, i + batch);
-    const r = await Promise.race([
+    const r = await withTimeout(
       h.page.evaluate(async ({ part, fps, dom }) => {
         const QA = window.__BMQA, res = [];
         for (const f of part) {
@@ -237,8 +237,9 @@ export async function sampleFrames(h, frames, { fps, dom = true, batch = 24, tim
         }
         return { res };
       }, { part, fps, dom }),
-      new Promise((_, rej) => setTimeout(() => rej(new QaError('timeout', `页面渲染第 ${part[0]}–${part[part.length - 1]} 帧超时`, { exitCode: EXIT.TIMEOUT })), timeoutMs)),
-    ]);
+      timeoutMs,
+      () => { throw new QaError('timeout', `页面渲染第 ${part[0]}–${part[part.length - 1]} 帧超时`, { hint: '单帧太慢时用 --timeout 放宽（秒）；或检查 render(t) 是否卡死', exitCode: EXIT.TIMEOUT }); },
+    );
     if (h.pageErrors.length) throw new QaError('page.error', `页面脚本出错：${h.pageErrors[0]}`, { exitCode: EXIT.RUNTIME });
     out.push(...r.res);
     if (r.error) throw new QaError('page.render', r.error, { hint: 'render(t) 必须对任意帧可单独调用（附录 C5）', exitCode: EXIT.RUNTIME });

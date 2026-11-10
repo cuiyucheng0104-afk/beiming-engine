@@ -286,20 +286,24 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
       if (!m) { m = { ch, cp: ch.codePointAt(0), texts: new Set(), fonts: new Set(), why: new Set() }; misses.set(ch, m); }
       m.texts.add(text.slice(0, 40)); m.fonts.add(font); m.why.add(why);
     };
+    // 按 CSS 字体回退顺序逐家族找；lacking = 前面已加载、但子集里没有这个字的网页字体（报给人看：缺的是谁的字）
     const resolveChar = (cp, spec) => {
+      let lacking = null;
+      const pre = () => (lacking ? `「${lacking}」的子集里没有这个字，` : '');
       for (const fam of spec.families) {
         const k = famKey(fam);
-        if (GENERIC.has(k)) return `落到通用字体族 ${fam}（系统字体）`;
+        if (GENERIC.has(k)) return `${pre()}落到通用字体族 ${fam}（系统字体）`;
         const list = byFam.get(k);
-        if (!list) return `字体族「${fam}」不是页面加载的网页字体（会用系统里的同名字体或回退）`;
+        if (!list) return `${pre()}字体族「${fam}」不是页面加载的网页字体（会用系统里的同名字体或回退）`;
         for (const f of pickFaces(list, spec.weight, spec.style)) {
           if (!inRanges(cp, f.ranges)) continue;
-          if (f.problem) return `「${f.label}」${f.problem}`;
-          if (f.status !== 'loaded') return `「${f.label}」画字时没加载完（状态 ${f.status}）`;
+          if (f.problem) return `${pre()}「${f.label}」${f.problem}`;
+          if (f.status !== 'loaded') return `${pre()}「${f.label}」画字时没加载完（状态 ${f.status}）`;
           if (f.cps.has(cp)) return null;
         }
+        lacking = lacking || list[0].label;
       }
-      return '声明的字体都没有这个字，回退到系统默认字体';
+      return `${pre()}声明的字体都没有这个字，回退到系统默认字体`;
     };
     const unionHas = cp => faces.some(f => f.cps && f.status === 'loaded' && inRanges(cp, f.ranges) && f.cps.has(cp));
     let checked = 0;
