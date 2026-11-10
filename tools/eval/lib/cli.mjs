@@ -8,10 +8,13 @@
 //     设 BEIMING_DEBUG=1 时附堆栈；
 //   - 收到 SIGINT / SIGTERM 时先执行登记的清理函数，再以 130 / 143 退出。
 // 接口：
-//   EXIT、EvalError、usageError(msg, hint)、envError(code, msg, hint)、contractError(code, msg, hint)
+//   EXIT、EvalError、usageError(msg, hint, code)、envError(code, msg, hint)、contractError(code, msg, hint)
 //   parseArgs(argv, spec) → { opts, positionals, help }
 //   runCli({ command, spec | subcommands, handler }) —— handler(parsed, ctx) 返回 { exitCode?, data?, text?, error? }
+// 用法错误的码与 tools/lib/cli.mjs 同名（docs/CLI.md 第 4 节）：usage.unknown-option（「不认识的选项 --xxx」）、
+// usage.missing-value、usage.bad-value、usage.missing-argument、usage.extra-argument；信封带 schemaVersion 1。
 // P02 的命令约定库（tools/lib）合入后，本文件改为对它的薄封装，对外行为不变。
+// 还没对齐的：各命令自己的错误码（run-missing、env-missing 等）仍是扁平写法，C2 要求按退出码加 usage. / env. 前缀，改造时一并换。
 
 export const EXIT = Object.freeze({
   OK: 0, RUN: 1, USAGE: 2, ENV: 3, CONTRACT: 4, BUSY: 5, TIMEOUT: 124, SIGINT: 130, SIGTERM: 143,
@@ -33,7 +36,7 @@ export class EvalError extends Error {
   }
 }
 
-export const usageError = (message, hint = '加 --help 查看用法') => new EvalError('usage', message, { exitCode: EXIT.USAGE, hint });
+export const usageError = (message, hint = '加 --help 查看用法', code = 'usage.bad-value') => new EvalError(code, message, { exitCode: EXIT.USAGE, hint });
 export const envError = (code, message, hint = null) => new EvalError(code, message, { exitCode: EXIT.ENV, hint });
 export const contractError = (code, message, hint = null) => new EvalError(code, message, { exitCode: EXIT.CONTRACT, hint });
 
@@ -67,22 +70,22 @@ export function parseArgs(argv, spec = {}) {
       if (eq > 0) inline = arg.slice(eq + 1);
     } else if (/^-[A-Za-z]$/.test(arg)) {
       name = shorts.get(arg.slice(1)) ?? null;
-      if (!name) throw usageError(`未知参数 ${arg}`);
+      if (!name) throw usageError(`不认识的选项 ${arg}`, `加 --help 查看 ${spec.command ?? ''} 支持的参数`.replace(/\s+/g, ' '), 'usage.unknown-option');
     } else {
       positionals.push(arg);
       continue;
     }
     const def = options[name];
-    if (!def) throw usageError(`未知参数 --${name}`, `加 --help 查看 ${spec.command ?? ''} 支持的参数`.replace(/\s+/g, ' '));
+    if (!def) throw usageError(`不认识的选项 --${name}`, `加 --help 查看 ${spec.command ?? ''} 支持的参数`.replace(/\s+/g, ' '), 'usage.unknown-option');
     if (def.type === 'boolean') {
-      if (inline !== null) throw usageError(`--${name} 是开关，不带值`);
+      if (inline !== null) throw usageError(`--${name} 是开关，不带值`, `直接写 --${name}`);
       opts[name] = true;
       continue;
     }
     let value = inline;
     if (value === null) {
       value = argv[i + 1];
-      if (value === undefined || (value.startsWith('--') && value.length > 2)) throw usageError(`--${name} 后面要跟一个值`);
+      if (value === undefined || (value.startsWith('--') && value.length > 2)) throw usageError(`--${name} 后面要跟一个值`, '加 --help 查看用法', 'usage.missing-value');
       i++;
     }
     if (def.type === 'number') {
@@ -101,8 +104,8 @@ export function parseArgs(argv, spec = {}) {
   if (!help) {
     const min = spec.positionals?.min ?? 0;
     const max = spec.positionals?.max ?? 0;
-    if (positionals.length < min) throw usageError(`缺少参数：需要 ${(spec.positionals?.names ?? []).slice(positionals.length, min).join('、') || `${min} 个位置参数`}`);
-    if (max !== Infinity && positionals.length > max) throw usageError(`多余的参数：${positionals.slice(max).join(' ')}`);
+    if (positionals.length < min) throw usageError(`缺少参数：需要 ${(spec.positionals?.names ?? []).slice(positionals.length, min).join('、') || `${min} 个位置参数`}`, '加 --help 查看用法', 'usage.missing-argument');
+    if (max !== Infinity && positionals.length > max) throw usageError(`多余的参数：${positionals.slice(max).join(' ')}`, '加 --help 查看用法', 'usage.extra-argument');
   }
   return { opts, positionals, help };
 }
@@ -128,7 +131,7 @@ export function formatHelp(command, spec) {
 }
 
 function envelope({ ok, exitCode, command, error = null, outputs = [], runJson = null, warnings = [], data = null }) {
-  return { ok, exitCode, command, error, outputs, runJson, warnings, data };
+  return { schemaVersion: 1, ok, exitCode, command, error, outputs, runJson, warnings, data };
 }
 
 /**
@@ -174,7 +177,7 @@ export async function runCli({ command, spec, handler, subcommands, summary, arg
       const first = argv[0] !== undefined && !argv[0].startsWith('-') ? argv[0] : null;
       const wantsHelp = argv.includes('--help') || argv.includes('-h');
       if (!first) {
-        if (argv.some(a => !a.startsWith('-'))) throw usageError(`子命令要写在最前面：node ${command} <${Object.keys(subcommands).join('|')}> [参数]`);
+        if (argv.some(a => !a.startsWith('-'))) throw usageError(`子命令要写在最前面：node ${command} <${Object.keys(subcommands).join('|')}> [参数]`, '加 --help 查看用法', 'usage.missing-argument');
         if (wantsHelp) {
           const lines = [summary ?? '', '', `用法：node ${command} <子命令> [参数]`, '', '子命令：'];
           for (const [name, sub] of Object.entries(subcommands)) lines.push(`  ${name.padEnd(12)} ${sub.spec.summary ?? ''}`);
@@ -183,10 +186,10 @@ export async function runCli({ command, spec, handler, subcommands, summary, arg
           process.exitCode = 0;
           return;
         }
-        throw usageError(`缺少子命令：可用 ${Object.keys(subcommands).join(' / ')}`);
+        throw usageError(`缺少子命令：可用 ${Object.keys(subcommands).join(' / ')}`, '加 --help 查看用法', 'usage.missing-argument');
       }
       const sub = subcommands[first];
-      if (!sub) throw usageError(`未知子命令 ${first}：可用 ${Object.keys(subcommands).join(' / ')}`);
+      if (!sub) throw usageError(`未知子命令 ${first}：可用 ${Object.keys(subcommands).join(' / ')}`, '加 --help 查看用法', 'usage.unknown-command');
       commandLabel = `${command} ${first}`;
       activeSpec = { ...sub.spec, command: commandLabel };
       activeHandler = sub.handler;

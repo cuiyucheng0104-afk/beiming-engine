@@ -15,13 +15,13 @@ winget install --id astral-sh.uv -e
 winget install --id Git.Git -e
 # 重开 PowerShell 后：
 git config --global core.quotepath off
-git clone <仓库地址> D:\beiming\repo
-cd D:\beiming\repo
+git clone <仓库地址> D:\<英文目录>\repo
+cd D:\<英文目录>\repo
 npm ci
 npm run setup
 ```
 
-- 仓库放在短的 ASCII 路径下，例如 `D:\beiming\repo`。中文路径下，部分老工具会出编码问题，例如运行时的字体加载失败；过长的路径会撞上 Windows 的路径长度限制。运行时、缓存、输出目录也一样放在 ASCII 路径下。
+- 仓库放在短的 ASCII 路径下，例如盘符根下一两级的 `D:\<英文目录>\repo`（`<英文目录>` 换成你自己的目录名）。中文路径下，部分老工具会出编码问题，例如运行时的字体加载失败；过长的路径会撞上 Windows 的路径长度限制。运行时、缓存、输出目录也一样放在 ASCII 路径下。
 - `core.quotepath off` 让 `git status` 直接显示中文文件名（例如本页），而不是 `"docs/RTX\345…"` 这样的转义。
 - 换行不用另外设置：仓库的 `.gitattributes` 让文本一律按 LF 检出，`core.autocrlf` 设成什么都不影响。
 - `npm run setup` 会装锁定版本的无头浏览器（chromium-headless-shell 153，不是系统 Chrome），并在仓库里建 Python 3.12 的 `.venv`。不需要系统里有 Python：uv 会自己取 3.12。

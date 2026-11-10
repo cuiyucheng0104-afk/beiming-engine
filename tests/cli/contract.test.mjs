@@ -1,10 +1,11 @@
 // 命令约定的契约测试（docs/CLI.md、附录 C1–C3）：遍历 package.json 的每个脚本——
-//   已接入命令约定库（目标文件用 tools/lib/cli.mjs 的 runCli，或 tools/lib/cli.py 的 run）的：
+//   已接入命令约定库（目标文件用下面 CLI_KITS 里登记的库：tools/lib/cli.mjs 的 runCli，或各包合入前自带、已与它对齐的外壳；
+//   Python 用 tools/lib/cli.py 的 run）的：
 //     · 加 --help：退出 0，帮助打到 stdout（含「用法」与「退出码」），不产生任何文件改动；
 //     · 加 --no-such-flag：退出 2；
 //     · 加 --no-such-flag --json：stdout 只有一个可解析的 JSON 对象（附录 C2 信封：ok=false、exitCode=2、error.code=usage.unknown-option）；
 //   还没接入的：必须登记在下面的 KNOWN_EXCEPTIONS 里（写明属主包与原因），不执行（它们的 --help 可能直接渲染或改文件）。
-// 新脚本既没接入也没登记，测试失败。--help 与未知参数在一个沙盒副本里跑（复制 tools、routes、docs、engine 与 package.json），
+// 新脚本既没接入也没登记，测试失败。--help 与未知参数在一个沙盒副本里跑（复制 tools、routes、docs、engine、被测脚本所在的顶层目录与 package.json），
 // 前后逐文件比对；不碰真实仓库，也不受并行测试写 out/ 的干扰。另用 npm run 真跑一次 new -- --help，确认参数照样传到。
 //   node --test tests/cli/contract.test.mjs
 import assert from 'node:assert/strict';
@@ -25,15 +26,14 @@ export const KNOWN_EXCEPTIONS = Object.freeze({
   stills: ['P04 渲染器', 'engine/render/still.mjs：--help 会渲出静帧（s_--help.jpg）'],
   video: ['P04 渲染器', 'engine/render/video.mjs：参数必须写在目录之后，--help 会被当成作品目录'],
   'video:4k': ['P04 渲染器', '同 video'],
-  setup: ['P10 环境', 'npm install 与浏览器下载的串联；改为 tools/env/setup.mjs'],
   'raea:prepare': ['P14 B 路线', 'examples/raea 例片的准备脚本（旧名，保留一个版本）'],
   'raea:check': ['P14 B 路线', 'examples/raea/tools/render.mjs：缺 RAEA_BIN 时抛堆栈'],
   'raea:render': ['P14 B 路线', 'examples/raea/tools/render.mjs：拼错 --check-only 会直接开始原生渲染'],
-  test: ['P09 测试与 CI', 'npm run 串联；改为 tools/run-tests.mjs'],
-  'test:routes': ['P09 测试与 CI', 'cd tests && node --test 的串联'],
-  'test:engine': ['P09 测试与 CI', 'node --test 的 glob'],
-  'test:audio': ['P09 测试与 CI', 'python3 -m unittest 的串联'],
-  'test:cases': ['P09 测试与 CI', 'python3 -m unittest'],
+  'test:env': ['P10 环境', '设计上不适用：node --test 的 glob，参数由 Node 的测试运行器解释（总入口 npm test 已接入）'],
+  'test:qa': ['P07 机器 QA', '同 test:env'],
+  'test:comp': ['P01 合规', '同 test:env'],
+  'test:eval': ['P17 评测', '同 test:env'],
+  'env:py': ['P10 环境', '设计上不适用：Python 启动器，除 --help 外的参数原样交给 Python 解释器（未知参数由 Python 报错、退出 2），没有 --json 信封；真正的命令是后面的 .py'],
   'cases:check': ['P16 案例库', 'tools/casebook.py：argparse 已拒绝未知参数（退出 2），--json 信封未接入'],
   'cases:list': ['P16 案例库', '同 cases:check'],
   'site:build': ['作品站会话', 'tools/build-showcase.py：会重建 out/site（作品站维护）'],
@@ -58,12 +58,32 @@ export function parseScript(cmd) {
   return { runner: toks[0], file: toks[1], args: toks.slice(2) };
 }
 
-/** 目标文件用了命令约定库吗（Node：lib/cli.mjs + runCli；Python：tools/lib 的 cli + run）。 */
+/**
+ * 实现了 docs/CLI.md 第 1–4 节的 Node 命令约定库 → 它的入口函数。tools/lib/cli.mjs（P02）是正式实现；其余是各包合入前自带的外壳，
+ * 错误码（usage.unknown-option 等）、信封（schemaVersion 1）与它对齐，改用 tools/lib/cli.mjs 之后从这里删掉。
+ * 用到这里的库的脚本一律逐个验证：库的实现走样，所有用它的脚本都会在这里失败。
+ */
+export const CLI_KITS = Object.freeze({
+  'tools/lib/cli.mjs': 'runCli',
+  'tools/env/lib/cli.mjs': 'runCli',          // P10 环境与远程
+  'tools/eval/lib/cli.mjs': 'runCli',         // P17 评测
+  'tools/compliance/lib/cli.mjs': 'runMain',  // P01 合规
+  'tools/qa/lib/cli-kit.mjs': 'parseArgs',    // P07 机器 QA
+  'tools/run-tests.mjs': 'parseArgs',         // P09 测试与 CI（run-tests、check-all 与 tests/ci 的脚本共用）
+});
+
+/** 目标文件用了命令约定库吗：从 CLI_KITS 里的库导入（相对路径按目标文件解析）并调用它的入口，或它自己就是库的入口；Python 看 tools/lib 的 cli + run。 */
 export function usesCliLib(file) {
   let src;
   try { src = fs.readFileSync(path.join(ROOT, file), 'utf8'); } catch { return false; }
   if (file.endsWith('.py')) return /from\s+cli\s+import/.test(src) && /\brun\(/.test(src);
-  return /lib\/cli\.mjs['"]/.test(src) && /\brunCli\(/.test(src);
+  const calls = fn => new RegExp(`\\b${fn}\\(`).test(src);
+  if (CLI_KITS[file]) return calls(CLI_KITS[file]);
+  for (const m of src.matchAll(/\bfrom\s+['"](\.{1,2}\/[^'"]+)['"]/g)) {
+    const dep = path.posix.normalize(path.posix.join(path.posix.dirname(file), m[1]));
+    if (CLI_KITS[dep] && calls(CLI_KITS[dep])) return true;
+  }
+  return false;
 }
 
 const plan = Object.entries(SCRIPTS).map(([name, cmd]) => {
@@ -78,7 +98,8 @@ after(() => { if (sandboxDir) fs.rmSync(sandboxDir, { recursive: true, force: tr
 function sandbox() {
   if (sandboxDir) return sandboxDir;
   sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-contract-'));
-  for (const d of ['tools', 'routes', 'docs', 'engine']) fs.cpSync(path.join(ROOT, d), path.join(sandboxDir, d), { recursive: true, filter: s => !/[\\/](node_modules|__pycache__|out)$/.test(s) });
+  const tops = new Set(['tools', 'routes', 'docs', 'engine', ...plan.filter(s => s.compliant).map(s => s.parsed.file.split('/')[0])]);
+  for (const d of tops) if (fs.existsSync(path.join(ROOT, d))) fs.cpSync(path.join(ROOT, d), path.join(sandboxDir, d), { recursive: true, filter: s => !/[\\/](node_modules|__pycache__|out)$/.test(s) });
   fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(sandboxDir, 'package.json'));
   if (fs.existsSync(path.join(ROOT, 'node_modules'))) fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(sandboxDir, 'node_modules'), 'junction');
   return sandboxDir;

@@ -10,6 +10,7 @@
 //   ctx.registry                      { registry: Registry | null, raw, error, diagnostics }（tools/lib/routes.mjs）
 //   ctx.pkg                           package.json 对象（读不出来是 null）
 //   ctx.inScope(rel)                  --staged 时只对暂存区涉及的文件为真；逐文件规则用它缩小范围
+//   ctx.staged / ctx.strict           暂存区涉及的文件集合（没加 --staged 时是 null）/ 是否加了 --strict（规则自己的待修豁免也不生效，如 comp 的允许清单）
 //   ctx.md                            tools/repo-check/core/markdown.mjs 的全部函数
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -28,7 +29,7 @@ export function isSkipped(rel) {
   return false;
 }
 
-export function createContext({ root, staged = null }) {
+export function createContext({ root, staged = null, strict = false }) {
   const cache = new Map();
   const memo = (k, fn) => { if (!cache.has(k)) cache.set(k, fn()); return cache.get(k); };
   const abs = r => (r === '.' || r === '' ? root : path.join(root, ...r.split('/')));
@@ -82,6 +83,7 @@ export function createContext({ root, staged = null }) {
     root, abs, rel, exists, isDir, read, readJson, walk, mdFiles, git, md, pkg,
     registry,
     staged,
+    strict: !!strict,
     inScope: r => !staged || staged.has(r),
     memo,
   };

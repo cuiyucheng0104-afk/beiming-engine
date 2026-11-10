@@ -100,22 +100,29 @@
 
 ## 9. 命令清单
 
-状态：**已接入**＝遵守本页全部约定，契约测试 `tests/cli/contract.test.mjs` 自动识别（目标文件用 `tools/lib/cli.mjs` 的 `runCli` 或 `cli.py` 的 `run`）并逐个验证 `--help`、未知参数与 `--json`；**待改造**＝命令已有，但 `--help` 或未知参数的行为还不合规，在契约测试的已知例外表里登记属主与原因，**不执行**；**在建**＝附录 C3 已分配、尚未合入。`package.json` 里既没接入、也没登记为例外的脚本会让契约测试失败。
+状态：**已接入**＝遵守本页全部约定，契约测试 `tests/cli/contract.test.mjs` 自动识别并逐个验证 `--help`、未知参数与 `--json`。识别规则：目标文件调用 `tools/lib/cli.mjs` 的 `runCli`（或 `cli.py` 的 `run`），或调用契约测试 `CLI_KITS` 里登记的各包自带外壳（`tools/env/lib/cli.mjs`、`tools/eval/lib/cli.mjs`、`tools/compliance/lib/cli.mjs`、`tools/qa/lib/cli-kit.mjs`、`tools/run-tests.mjs`；错误码与信封已与 `tools/lib/cli.mjs` 对齐，改用它之后从 `CLI_KITS` 删掉）。**待改造**＝命令已有，但 `--help` 或未知参数的行为还不合规，在契约测试的已知例外表里登记属主与原因，**不执行**。**例外（不适用）**＝设计上就不是本页意义上的命令（参数原样交给别的程序），同样登记在已知例外表里。**在建**＝附录 C3 已分配、尚未合入。`package.json` 里既没接入、也没登记为例外的脚本会让契约测试失败。
 
 | npm 脚本 | 指向 | 属主 | 状态 |
 |---|---|---|---|
 | `new` | `tools/new-film.mjs` | 治理骨架 | 已接入 |
 | `check:repo` | `tools/repo-check.mjs` | 治理骨架 | 已接入 |
-| `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入（脚本名待集成者登记）；旧名 `routes:check`、`routes:next` 已接入，保留一个版本，调用时提示改名 |
-| `setup` | `tools/env/setup.mjs` | 环境 | 待改造（现为 `npm install && npx playwright-core install …`） |
-| `env:doctor` | `tools/env/doctor.mjs` | 环境 | 在建 |
+| `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入；旧名 `routes:check`、`routes:next` 已接入，保留一个版本，调用时提示改名 |
+| `setup` | `tools/env/setup.mjs` | 环境 | 已接入 |
+| `env:doctor`、`env:preflight`、`env:lock`、`env:large-files` | `tools/env/doctor.mjs`、`preflight.mjs`、`lock.mjs`、`large-files.mjs` | 环境 | 已接入 |
+| `env:py` | `tools/env/py.mjs` | 环境 | 例外（不适用）：Python 启动器，除 `--help` 外的参数原样交给 Python |
+| `remote` | `tools/remote/cli.mjs` | 环境 | 已接入 |
 | `env:gpu` | `tools/rtx/gpucheck.mjs` | 渲染器 | 在建（文件已有，不读参数） |
 | `serve` | `engine/render/serve.mjs` | 渲染器 | 在建 |
 | `film` | `tools/film/cli.mjs` | 出片编排 | 在建：三条路线统一的 `npm run film -- build films/<名字>` |
-| `qa` | `tools/qa/cli.mjs` | 机器 QA | 在建 |
+| `qa` | `tools/qa/cli.mjs` | 机器 QA | 已接入 |
 | `golden`、`determinism` | `tools/baseline/` | 金标准 | 在建 |
-| `test`、`check`、`lint` | `tools/run-tests.mjs`、`tools/check-all.mjs` | 测试与 CI | 在建；`test` 现为 npm run 串联（待改造） |
-| `cases:list`、`cases:check` | `tools/casebook.py` | 案例库、环境 | 待改造（argparse 已拒绝未知参数，`--json` 未接入） |
+| `test`、`check`、`lint` | `tools/run-tests.mjs`、`tools/check-all.mjs` | 测试与 CI | 已接入；旧名 `test:routes`、`test:engine`、`test:audio`、`test:cases` 是 `tools/run-tests.mjs --only <域>` 的别名，已接入，保留一个版本 |
+| `changelog:check`、`ci:smoke`、`ci:paths` | `tests/ci/changelog.mjs check`、`smoke-render.mjs`、`windows-paths.mjs` | 测试与 CI | 已接入 |
+| `comp:scan`、`comp:rights`、`comp:signed-urls`、`comp:aigc` | `tools/compliance/scan.mjs`、`rights-inventory.mjs --check`、`signed-urls.mjs list`、`aigc.mjs` | 合规 | 已接入 |
+| `eval:bank`、`eval:prepare`、`eval:drive`、`eval:reply`、`eval:finish`、`eval:status`、`eval:clean` | `tools/eval/run.mjs <子命令>` | 评测 | 已接入 |
+| `eval:gates`、`eval:score`、`eval:summary`、`eval:selftest` | `tools/eval/gates.mjs`、`tools/eval/score.mjs run`、`summary`、`--self-test` | 评测 | 已接入 |
+| `test:env`、`test:qa`、`test:comp`、`test:eval` | `node --test "tests/<域>/*.test.mjs"` | 各域属主 | 例外（不适用）：参数由 Node 的测试运行器解释；总入口 `npm test` 已接入 |
+| `cases:list`、`cases:check` | `tools/casebook.py` 经 `tools/env/py.mjs` | 案例库、环境 | 待改造（argparse 已拒绝未知参数，`--json` 未接入） |
 | `cases:restore`、`cases:index`、`cases:ingest`、`cases:pack` | `tools/casebook.py` 经 `tools/env/py.mjs` | 案例库、环境 | 在建 |
 | `c:styles`、`c:styles:check` | `tools/c-styles.mjs` | C 路线 | 待改造 |
 | `c:setup` | `tools/c-runtime.mjs` | C 路线 | 在建 |
@@ -131,7 +138,6 @@
 | `raea:prepare`、`raea:check`、`raea:render` | B 路线 | 例片入口（旧名）；拼错 `--check-only` 会直接开始原生渲染 |
 | `native:prepare`、`native:check`、`native:render`、`native:bridge`、`native:sequence` | B 路线 | 不拒绝未知参数，退出码对齐附录 C1 在改造 |
 | `c:events`、`c:build` | 出片编排 | 并入 `npm run film -- build` |
-| `test:routes`、`test:engine`、`test:audio`、`test:cases` | 测试与 CI | 测试入口的串联，改为 `tools/run-tests.mjs` |
 | `site:build`、`site:serve`、`site:qa` | 作品站会话 | 作品站维护 |
 
 其中 `build`、`stills`、`video`、`video:4k`、`raea:render`、`native:render` 的 `--help` 或拼错的参数目前会直接渲染或覆盖产物：不要拿 `--help` 试探它们，读文件头注释。

@@ -358,7 +358,8 @@
         "session": "routes-template",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": ["决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01–D11（全部）", "差距 GAP-14（加固差距清单）"],
@@ -377,7 +378,7 @@
       "title": "P01 合规：止损、历史清理与许可治理",
       "route": "shared",
       "ownerRole": "合规包属主",
-      "status": "in-progress",
+      "status": "done",
       "claim": {
         "by": "P01 属主代理（加固工作流）",
         "session": "hard/P01",
@@ -391,7 +392,7 @@
         "差距 COMP-01、GAP-11、COMP-13、COMP-02、COMP-09、GAP-13、COMP-04、COMP-08、COMP-07（加固差距清单）",
         "前置里程碑 P02.M0（按里程碑对接，不等整包完成）"
       ],
-      "writeScope": ["LICENSE", "REUSE.toml", "LICENSES", "SECURITY.md", ".mailmap", "docs/rights", "tools/compliance", "tools/repo-check/rules/comp"],
+      "writeScope": ["LICENSE", "REUSE.toml", "LICENSES", "SECURITY.md", ".mailmap", "docs/rights", "tools/compliance", "tools/repo-check/rules/comp", "tests/comp"],
       "outputs": ["受限资产止损（需用户授权）；docs/rights/ 授权台账；REUSE 许可标注与 SECURITY.md；check:repo 的 comp 规则；FSL 与 LemoLab 署名边界说明"],
       "acceptance": [
         "1a（需用户授权）：gh release view casebook-2026.11 --json assets 不再含 node tools/compliance/restricted-packs.mjs 列出的受限包",
@@ -399,7 +400,11 @@
         "1b：gh repo view --json licenseInfo -q .licenseInfo.key → mit；REUSE 规则检查通过",
         "1c：git log --all --format=%ae | sort -u 只剩 noreply；git log --all -- <清单路径> 为空"
       ],
-      "evidence": [],
+      "evidence": [
+        { "kind": "commit", "ref": "9f58ebe62357b475e5a7a701c4e4084b21c60740", "note": "合并 hard/P01 进集成分支" },
+        { "kind": "commit", "ref": "14f6c0db28b6f79aec92ffc9268e95d88601d1ee", "note": "集成修复：comp 阻断级发现清零" },
+        { "kind": "command", "ref": "node tools/repo-check.mjs --only comp --json", "note": "2026-11-10 集成后 0 error；包状态 ready。仍待：1a 撤下受限 Release 资产要用户授权，licenseInfo 要推送后核对，1c 按 D02 不改写历史，39 个授权字段待用户补，派生文件来源头等 P13、P04、P06 修（待修豁免 12-15 到期）" }
+      ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
     },
     {
@@ -407,7 +412,7 @@
       "title": "P02 治理骨架：路线注册表、命令约定、规范检查框架、新建作品、工程计划",
       "route": "shared",
       "ownerRole": "治理骨架属主",
-      "status": "in-progress",
+      "status": "done",
       "claim": {
         "by": "P02 属主代理（加固工作流）",
         "session": "hard/P02",
@@ -447,7 +452,12 @@
         "node --test tests/cli tests/governance tools/work-plan.test.mjs 全过；contract.test 覆盖 package.json 全部脚本（--help 无副作用、未知参数 exit 2）",
         "node tools/repo-check.mjs --json 在 main 上 exit 0；tests/governance/fixtures 的每种违规都给出对应规则 id 并 exit 4（附录 C1：契约不通过）"
       ],
-      "evidence": [],
+      "evidence": [
+        { "kind": "commit", "ref": "d2f4810040411bbf52058ba7387ea935f715a90c", "note": "合并 hard/P02 进集成分支" },
+        { "kind": "commit", "ref": "cdcf92b1370fb4ffd0db51ba4e7eb4ba2c5c8766", "note": "集成修复：规则加载器认域模块写法" },
+        { "kind": "commit", "ref": "ab01fea0fe4fce76d094bab27b427ccdfac8cdcd", "note": "集成修复：契约测试覆盖 38 个 npm 脚本" },
+        { "kind": "command", "ref": "node --test tests/cli tests/governance tools/work-plan.test.mjs", "note": "2026-11-10 集成后全过；包状态 ready。new-film 与 film.js 的两条联调用例等 P05 合入后自动启用" }
+      ],
       "playbook": "docs/CLI.md"
     },
     {
@@ -461,7 +471,8 @@
         "session": "hard/P03",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -501,7 +512,8 @@
         "session": "hard/P04",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -544,7 +556,8 @@
         "session": "hard/P05",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -587,7 +600,8 @@
         "session": "hard/P06",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -620,7 +634,7 @@
       "title": "P07 机器 QA 门（tools/qa）",
       "route": "shared",
       "ownerRole": "机器 QA 属主",
-      "status": "in-progress",
+      "status": "done",
       "claim": {
         "by": "P07 属主代理（加固工作流）",
         "session": "hard/P07",
@@ -642,7 +656,10 @@
         "qa plates 对《北冥》与 B 例片报出 clouds_back / clouds_front_a / clouds_front_b 的直线淡出；docs/quality/known-issues.json 有 QA-A-001/002、QA-B-001/002",
         "qa 报告可作为 RenderResult.technicalAcceptance.evidence 被 P05 的校验器解析"
       ],
-      "evidence": [],
+      "evidence": [
+        { "kind": "commit", "ref": "96a0df2010869b92d7af2af541838acca0725cb4", "note": "合并 hard/P07 进集成分支" },
+        { "kind": "command", "ref": "node --test \"tests/qa/*.test.mjs\"", "note": "2026-11-10 集成后 52 项全过；包状态 ready。《北冥》跑 qa report 仍按实情 exit 4：AIGC 元数据等 P04、P06，texts 两项要用户批准豁免" }
+      ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
     },
     {
@@ -656,7 +673,8 @@
         "session": "hard/P08",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": ["决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D05", "差距 QUAL-01、ENV-02、CRAFT-10、GAP-12、QUAL-10、ORCH-08（加固差距清单）"],
@@ -676,7 +694,7 @@
       "title": "P09 测试入口、CI 与发布",
       "route": "shared",
       "ownerRole": "测试与 CI 属主",
-      "status": "in-progress",
+      "status": "done",
       "claim": {
         "by": "P09 属主代理（加固工作流）",
         "session": "hard/P09",
@@ -709,7 +727,10 @@
         "在测试 PR 中故意改坏 engine/shade 锚点或 render(t) → CI 变红",
         "推 v* 标签 → release.yml 跑完整 CI 并附接触印与静帧；CHANGELOG.md 有对应条目"
       ],
-      "evidence": [],
+      "evidence": [
+        { "kind": "commit", "ref": "1a7aa0af268a9e76f95dff933b654e6e9fa300a0", "note": "合并 hard/P09 进集成分支" },
+        { "kind": "command", "ref": "node tools/run-tests.mjs", "note": "2026-11-10 集成后已合入各域全过；包状态 needs-config：CI 还没在 GitHub 上首跑，分支保护、仓库变量与发布标签要用户授权，金标准清单等 P08" }
+      ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
     },
     {
@@ -717,7 +738,7 @@
       "title": "P10 环境、安装与跨平台",
       "route": "shared",
       "ownerRole": "环境包属主",
-      "status": "in-progress",
+      "status": "done",
       "claim": {
         "by": "P10 属主代理（加固工作流）",
         "session": "hard/P10",
@@ -753,7 +774,11 @@
         "E2：Windows autocrlf=true 全新克隆后 cases/ 以外无 w/crlf；PYTHONIOENCODING=gbk 下 node tools/env/py.mjs tools/casebook.py list > x.txt → exit 0",
         "E3：films/x/ 放 20 MB 文件 git add -A 不纳入，强行 add 时 check:repo 失败；tools/remote 在工作站按指定 sha 出片并回传哈希一致的成片与 run.json"
       ],
-      "evidence": [],
+      "evidence": [
+        { "kind": "commit", "ref": "376bd373b19881c722b37ab8a703cfca81c830e6", "note": "合并 hard/P10 进集成分支" },
+        { "kind": "commit", "ref": "bac6a82098af9f60494d3fe915aeac2a6d0cbb58", "note": "集成修复：登记合入后新读到的环境变量" },
+        { "kind": "command", "ref": "node --test \"tests/env/*.test.mjs\"", "note": "2026-11-10 集成后全过，env 规则 0 error；包状态 needs-config：Windows 真机与工作站远程出片未实测，要用户授权或由 CI 的 windows-latest 覆盖" }
+      ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
     },
     {
@@ -767,7 +792,8 @@
         "session": "hard/P11",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -797,7 +823,8 @@
         "session": "hard/P12",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -845,7 +872,8 @@
         "session": "hard/P13",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -887,7 +915,8 @@
         "session": "hard/P14",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -926,7 +955,8 @@
         "session": "hard/P15",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -956,7 +986,8 @@
         "session": "hard/P16",
         "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
         "startedAt": "2026-11-10",
-        "expiresAt": "2026-11-24"
+        "expiresAt": "2026-12-15",
+        "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
       },
       "dependsOn": [],
       "inputs": [
@@ -996,7 +1027,7 @@
       "title": "P17 agent 验收题库与 dogfood",
       "route": "shared",
       "ownerRole": "验收题库属主",
-      "status": "in-progress",
+      "status": "done",
       "claim": {
         "by": "P17 属主代理（加固工作流）",
         "session": "hard/P17",
@@ -1006,14 +1037,17 @@
       },
       "dependsOn": [],
       "inputs": ["决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01–D11（全部）", "差距 GAP-10（加固差距清单）", "前置里程碑 G1（按里程碑对接，不等整包完成）"],
-      "writeScope": ["evals", "tools/eval"],
+      "writeScope": ["evals", "tools/eval", "tests/eval"],
       "outputs": ["evals 题库（DF-A、DF-B、DF-C、DF-M 与安全题 S1–S3）；tools/eval 运行器与评分器；首个基线结果"],
       "acceptance": [
         "evals/agent/tasks/ 有 DF-A、DF-B、DF-C、DF-M 与安全题 S1–S3；tools/eval/score.mjs --self-test 在合成会话记录上通过",
         "tools/eval/run.mjs 为每题在仓库外建独立工作树、无头运行并保存会话记录",
         "evals/results/<日期>.json 记录首个基线：每题 2 次独立运行的硬门、分项分与过程指标"
       ],
-      "evidence": [],
+      "evidence": [
+        { "kind": "commit", "ref": "43bbc9c14f0f9304379723c291395c5f287ff930", "note": "合并 hard/P17 进集成分支" },
+        { "kind": "command", "ref": "node --test \"tests/eval/*.test.mjs\" && node tools/eval/score.mjs --self-test", "note": "2026-11-10 集成后 155 项全过；包状态 needs-config：首个基线 evals/results/<日期>.json 未记录，要等 G1、评测方凭据与家目录之外的评测根" }
+      ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
     },
     {
