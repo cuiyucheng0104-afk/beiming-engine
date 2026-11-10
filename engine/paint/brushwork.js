@@ -29,6 +29,13 @@ import { smoothClosed } from './path.js';
 
 const ss01 = x => { x = clamp(x); return x * x * (3 - 2 * x); };
 
+// 折线 P 第 i 点的单位切向：取前后两点之差（两端取单侧）；at 从元素里取 [x, y]
+function unitTangent(P, i, at = p => p) {
+  const prev = at(P[i > 0 ? i - 1 : 0]), next = at(P[i + 1 < P.length ? i + 1 : P.length - 1]);
+  const dx = next[0] - prev[0], dy = next[1] - prev[1], len = Math.hypot(dx, dy) || 1;
+  return [dx / len, dy / len];
+}
+
 // 飞白：每条笔毛沿弧长的干段 → [{ off, width, depth, wave, runs: [[i0, i1], ...] }]（i 是 spine 的下标）。纯函数，Node 里能测。
 // off 横向位置（−1..1），width 相对笔宽的粗细，depth 挖掉墨的比例（0.65..1：灰丝到白丝），wave 横向摆动的噪声偏移。
 // 每条笔毛在弧长比例 u_k 处"墨尽"，之后基本是干的（偶尔有一段又沾上墨）；越靠笔肚两侧、dry 越大，u_k 越早。
@@ -67,8 +74,7 @@ export function createBrush(noise) {
     const n = pts.length, out = [];
     let acc = 0;
     for (let i = 0; i < n; i++) {
-      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
-      let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+      const [tx, ty] = unitTangent(pts, i);
       if (i) acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
       const j = jit ? jit * noise(acc / 60 + sd * 3.7, st * 1.37 + sd) : 0;
       const p0 = pts[i][2] ?? 0.5;
@@ -135,8 +141,7 @@ export function createBrush(noise) {
           // 一条白丝画成一条变宽的带子、一次填充（逐小段描边在接头处会重复挖墨，出现一格一格的网纹）
           const s0 = pts[0].p.s, ramp = size * 1.2, L2 = [], R2 = [];
           for (let j = 0; j < pts.length; j++) {
-            const a = pts[Math.max(0, j - 1)].xy, b = pts[Math.min(pts.length - 1, j + 1)].xy;
-            let tx = b[0] - a[0], ty = b[1] - a[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+            const [tx, ty] = unitTangent(pts, j, q => q.xy);
             const p = pts[j].p, grow = clamp((p.s - s0) / ramp);
             const rag = 0.55 + 0.45 * (0.5 + 0.5 * noise(wave + 31.7, p.s / (size * 0.9)));
             const hw = Math.max(0.15, p.r * width * grow * rag * 0.5), [x, y] = pts[j].xy;
