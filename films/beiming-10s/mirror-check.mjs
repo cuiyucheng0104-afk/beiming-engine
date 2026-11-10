@@ -7,7 +7,7 @@
 // 源码里的时间写成数字、TIMELINE.X / DESIGN.X、本文件里的 const 名字和加减，这里用一个只认这几种写法的小求值器读出秒数；
 // 写法超出它（例如函数调用）时报 mirror-parse，而不是猜。
 //
-//   node films/beiming-10s/mirror-check.mjs [--root <仓库根>] [--film <film.json>] [--json]
+//   node films/beiming-10s/mirror-check.mjs [--root <仓库根>] [--asset-root <目录>] [--film <film.json>] [--json]
 //   退出码：0 一致；4 有漂移（逐条列出）；2 用法错误；1 读不出文件
 //
 // 换算规则（与 engine/production/timeline.js 的 secondsToFrame 一致）：
@@ -15,7 +15,7 @@
 //   画面阈值事件        代码写 t ≥ T 时出现 → 帧 = ceil(T × fps)，即 t ≥ T 的第一帧（HUD_T 各项、片名书写起点）
 //   声音事件            起音在第 floor(t × fps) 帧之内（画面先到、声音晚不到 1 帧）；有 t_end 时 end = ceil(t_end × fps)
 //   同一时刻两处都写的  画面阈值与声音 cue 必须是同一个秒数，且声音相对结果帧的偏差在同步容差内（晚 ≤ 1 帧、早 ≤ 10 ms）
-// 库接口：readSources(root) → { 相对路径: 文本 }；parseSources(texts)；expectedMirror(values)；checkMirror(film, texts, { root })
+// 库接口：readSources(root) → { 相对路径: 文本 }；parseSources(texts)；expectedMirror(values)；checkMirror(film, texts, { root, assetRoot })
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -281,7 +281,7 @@ export function expectedMirror(v) {
  * 比对镜像与源码。film 是 engine/production/film.js 读出的规范化对象（或原始 JSON）。
  * @returns {{ ok: boolean, diagnostics: object[], expected: object, values: object }}
  */
-export function checkMirror(film, texts, { root = DEFAULT_ROOT } = {}) {
+export function checkMirror(film, texts, { root = DEFAULT_ROOT, assetRoot = root } = {}) {
   const { values: v, diagnostics } = parseSources(texts);
   const d = (code, path, message, hint = '') => diagnostics.push({ level: 'error', code, path, message, hint });
   if (diagnostics.length) return { ok: false, diagnostics, expected: null, values: v };
@@ -359,7 +359,7 @@ export function checkMirror(film, texts, { root = DEFAULT_ROOT } = {}) {
     const m = /^(plate|model|character):([^@]+)(@.*)?$/.exec(a);
     if (!m) continue;
     const file = m[1] === 'plate' ? `assets/plates/${m[2]}.png` : `src/${m[2]}.js`;
-    if (!existsSync(join(root, file))) d('mirror-asset-file', `assets`, `资产 ${a} 对应的 ${file} 不存在`);
+    if (!existsSync(join(assetRoot, file))) d('mirror-asset-file', `assets`, `资产 ${a} 对应的 ${file} 不存在`);
     if (m[1] === 'plate' && m[2] !== 'paper' && !(v.plates ?? []).includes(m[2])) d('mirror-asset-extra', 'assets', `资产 ${a} 不在 src/main.js 的底板名单里`);
   }
   const tgt = cues.target ?? {};
@@ -371,10 +371,11 @@ export function checkMirror(film, texts, { root = DEFAULT_ROOT } = {}) {
 
 // ───────────────────────── 命令行 ─────────────────────────
 
-const HELP = `node films/beiming-10s/mirror-check.mjs [--root <仓库根>] [--film <film.json>] [--json]
+const HELP = `node films/beiming-10s/mirror-check.mjs [--root <仓库根>] [--asset-root <目录>] [--film <film.json>] [--json]
   比对 films/beiming-10s/film.json 与《北冥》样片源码（${SOURCE_FILES.join('、')}）。只读，不改文件。
-  --root   去哪里读样片源码（默认本仓库根；测试时指向改过的临时副本）
-  --film   镜像文件（默认与本脚本同目录的 film.json）
+  --root         去哪里读样片源码（默认本仓库根；测试时指向改过的临时副本）
+  --asset-root   去哪里核对资产文件（默认同 --root；临时副本只放源码时指向仓库根）
+  --film         镜像文件（默认与本脚本同目录的 film.json）
 退出码：0 一致；4 有漂移；2 用法错误；1 读不出文件`;
 
 async function main(argv) {
@@ -385,17 +386,17 @@ async function main(argv) {
     return env.exitCode;
   };
   if (argv.includes('--help') || argv.includes('-h')) { process.stdout.write(`${HELP}\n`); return 0; }
-  const opts = { root: DEFAULT_ROOT, film: join(HERE, 'film.json') };
+  const opts = { root: DEFAULT_ROOT, film: join(HERE, 'film.json'), 'asset-root': null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--json') continue;
-    if (a === '--root' || a === '--film') {
+    if (a === '--root' || a === '--film' || a === '--asset-root') {
       const val = argv[++i];
       if (val === undefined || val.startsWith('--')) return out({ ok: false, exitCode: 2, error: { code: 'usage', message: `${a} 后面要跟路径`, hint: HELP.split('\n')[0] } }, `${a} 后面要跟路径`);
       opts[a.slice(2)] = resolve(val);
       continue;
     }
-    return out({ ok: false, exitCode: 2, error: { code: 'usage', message: `未知参数 ${a}`, hint: '可用：--root --film --json --help' } }, `未知参数 ${a}\n${HELP}`);
+    return out({ ok: false, exitCode: 2, error: { code: 'usage', message: `未知参数 ${a}`, hint: '可用：--root --asset-root --film --json --help' } }, `未知参数 ${a}\n${HELP}`);
   }
   const { loadFilm, assertValidFilm } = await import('../../engine/production/film.js');
   let film, texts;
@@ -406,7 +407,7 @@ async function main(argv) {
     const code = error.exitCode ?? 1;
     return out({ ok: false, exitCode: code, error: { code: error.code ?? 'unreadable', message: error.message, hint: error.hint ?? '' } }, `${error.message}${error.hint ? `\n→ ${error.hint}` : ''}`);
   }
-  const r = checkMirror(film, texts, { root: opts.root });
+  const r = checkMirror(film, texts, { root: opts.root, assetRoot: opts['asset-root'] ?? opts.root });
   const lines = r.ok
     ? [`✓ 镜像与样片一致：${film.shots.length} 镜 [${film.shots.map(s => `${s.id} ${s.in}–${s.out}`).join('，')}]，${film.events.length} 个事件，${film.output.frameCount} 帧`]
     : [`✗ 镜像与样片不一致（${r.diagnostics.length} 处）：`, ...r.diagnostics.map(x => `  [${x.code}] ${x.path}：${x.message}${x.hint ? `\n    → ${x.hint}` : ''}`)];
