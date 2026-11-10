@@ -17,7 +17,9 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-guard-cli-'));
 const DEFAULT_LOG = path.join(ROOT, 'out', 'agent-guard', 'guard.jsonl');
 const statOf = f => { try { const s = fs.statSync(f); return { size: s.size, mtimeMs: s.mtimeMs }; } catch { return null; } };
 const DEFAULT_LOG_BEFORE = statOf(DEFAULT_LOG);
-test.after(() => fs.rmSync(TMP, { recursive: true, force: true }));
+const cleanup = () => fs.rmSync(TMP, { recursive: true, force: true });
+test.after(cleanup);
+process.once('exit', cleanup);          // 同一进程跑整个目录时的兜底
 
 function guard(args, { input, env = {} } = {}) {
   const r = spawnSync(process.execPath, [GUARD, ...args], {

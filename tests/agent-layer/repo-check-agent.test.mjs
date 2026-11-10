@@ -19,7 +19,10 @@ const RULES_DIR = path.join(ROOT, 'tools', 'repo-check', 'rules');
 const CLI = path.join(ROOT, 'tools', 'repo-check.mjs');
 const EXPECTED = ['agent.githooks', 'agent.guard-config', 'agent.instruction-files', 'agent.search-scope', 'agent.skills', 'agent.vendor-warning'];
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-agent-rules-'));
-test.after(() => fs.rmSync(TMP, { recursive: true, force: true }));
+// 进程退出时也清一次：node --test tests/agent-layer 把各文件导进同一个进程，带顶层 await 的文件注册的根级 after 钩子可能不执行
+const cleanup = () => fs.rmSync(TMP, { recursive: true, force: true });
+test.after(cleanup);
+process.once('exit', cleanup);
 
 const loaded = await loadRules(RULES_DIR);
 const AGENT = loaded.rules.filter(r => r.domain === 'agent');

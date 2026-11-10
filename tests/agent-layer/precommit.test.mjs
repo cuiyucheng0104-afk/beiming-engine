@@ -16,7 +16,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-precommit-'));
-test.after(() => fs.rmSync(TMP, { recursive: true, force: true }));
+const cleanup = () => fs.rmSync(TMP, { recursive: true, force: true });
+test.after(cleanup);
+process.once('exit', cleanup);          // 同一进程跑整个目录时的兜底
 
 const HAS_GIT = spawnSync('git', ['--version'], { encoding: 'utf8' }).status === 0;
 const NEEDED = ['.githooks/pre-commit', '.githooks/pre-commit.mjs', 'tools/lib/cli.mjs',
