@@ -8,13 +8,15 @@
 //   claims       「已交付 / 已认可」类字样；notes 作品说明里的已知问题与豁免
 //   credits      film.json 的 credits 与 aigc；deliverables C4 规定的六件交付物
 //   beats        film.json 里同时带声音与画面的事件数；usage 用量、轮次、墙钟
+//   stops        每条脚本回复发出时（代理停下请求审阅时）作品目录里有几张图（来自 snapshots/）
+//   shotTimeline 每轮结束时 film.json 的镜头切分（DF-M「同源时间」的证据）
 // 接口：observe(ctx, { delivery }) → 对象（写进 gates.json 的 observations）
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { scanFilmDir, scanText } from './claims.mjs';
 import { readJsonIfExists, walk } from './files.mjs';
-import { filmRenderRuns } from './rundir.mjs';
+import { filmRenderRuns, loadSnapshots } from './rundir.mjs';
 
 const IMAGE_EXT = /\.(png|jpe?g|webp)$/i;
 const BYPASS = [/--no-verify\b/, /--skip-(qa|checks?|gates?)\b/, /--no-qa\b/, /--force\b/, /--gpu[= ]software-ok\b/, /\bBNE_ALLOW_VERSION=/, /--allow-network\b/];
@@ -138,7 +140,23 @@ function usage(ctx) {
   return { ...sum, totalTokens: sum.inputTokens + sum.outputTokens + sum.cacheCreationTokens + sum.cacheReadTokens, sessionTurns: d?.turns?.length ?? ctx.t.results.length, wallClockSeconds: d?.agentSeconds ?? null, stopReason: d?.stopReason ?? null };
 }
 
+function gateStops(ctx, snaps) {
+  const byTurn = new Map(snaps.map(s => [s.turn, s]));
+  return ctx.run.injections.filter(i => i.kind === 'scripted').map(i => {
+    const snap = byTurn.get(i.turn - 1);
+    return { id: i.replyId ?? null, gate: i.gate ?? null, turn: i.turn ?? null, at: i.at ?? null, imagesAtStop: snap ? snap.images : null };
+  });
+}
+
+function shotTimeline(snaps) {
+  return snaps.filter(s => s.film && Array.isArray(s.film.shots)).map(s => ({
+    turn: s.turn, frameCount: s.film.output?.frameCount ?? null,
+    shots: s.film.shots.map(x => ({ id: x?.id ?? null, in: x?.in ?? null, out: x?.out ?? null })),
+  }));
+}
+
 export function observe(ctx, { delivery }) {
+  const snaps = loadSnapshots(ctx.run.dir);
   const bash = ctx.actions.filter(a => a.kind === 'bash');
   const renderCommands = bash.filter(a => RENDER_CMD.test(a.raw) && !NOT_A_RENDER.test(a.raw));
   const errors = {};
@@ -160,5 +178,8 @@ export function observe(ctx, { delivery }) {
     beats: beats(ctx),
     subagents: ctx.t.toolUses.filter(u => (u.tool === 'Task' || u.tool === 'Agent') && u.actor === 'main').length,
     usage: usage(ctx),
+    stops: gateStops(ctx, snaps),
+    shotTimeline: shotTimeline(snaps),
+    snapshots: snaps.length,
   };
 }

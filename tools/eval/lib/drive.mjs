@@ -5,7 +5,9 @@
 //   2. 启动 claude -p <消息> --output-format stream-json --verbose …（第 1 轮 --session-id，之后 --resume），
 //      stdout 落 transcript/turn-NN.jsonl，stderr 落 turn-NN.stderr.log；
 //   3. 按剩余时间盒计时，到点结束整个进程组（stopReason = timeout）；
-//   4. 读这一轮的 result：代理最后一段话 → 选下一条回复（selectReply），没有就结束。
+//   4. 记一份作品目录快照（snapshots/turn-NN.json）；
+//   5. 读这一轮的 result：代理最后一段话 → 选下一条回复（selectReply），没有就结束。
+// 人工干预：opts.next = { kind: 'manual', text, approves, waives } 时先发这一条（可在已结束的运行上续一轮）。
 // 选回复（selectReply）：候选 = 尚未发出的脚本回复，从前往后直到第一条非 optional 的；
 //   关键词命中记 2 分，「*」或「有新图片且像在请求审阅」记 1 分，取最高分（同分取靠前的），跳过的 optional 记为已跳过。
 //   都不命中时，若代理像在提问或请求审阅、且兜底次数未用完，发兜底回复（不批准任何闸门）；否则结束。
@@ -17,8 +19,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { EvalError, EXIT, envError } from './cli.mjs';
 import { appendJsonl, readJsonIfExists, readJsonl, walk, writeJson } from './files.mjs';
-import { filmDirOf } from './rundir.mjs';
+import { filmDirOf, snapshotFilm } from './rundir.mjs';
 import { sessionEnv } from './sandbox.mjs';
+
+/** 停止原因里可以接着驱动的两种：被中断、按 --turns 暂停。其余（finished、stalled、timeout、max-turns、agent-error…）视为结束。 */
+export const RESUMABLE = new Set(['interrupted', 'paused']);
+
+/** 隔离会话用空的 CLAUDE_CONFIG_DIR，读不到评测机的登录状态：凭据只能经环境变量给出。 */
+export const AUTH_ENV = ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'];
 
 /** claude 可执行文件或 .mjs/.js 脚本（测试桩）→ [命令, 前置参数]。 */
 export function claudeCommand(bin) {
@@ -148,6 +156,9 @@ export async function driveRun(run, opts = {}) {
     throw envError('claude-isolation-unsupported', `这个版本的 claude（${features.version}）不支持 --setting-sources / --strict-mcp-config，做不到计划书 7.1 要求的会话隔离`, '升级 Claude Code CLI；或明确做「带用户全局环境」的对照组：prepare 时加 --isolation user-env');
   }
   if (!features.streamJson || !features.resume) throw envError('claude-unsupported', `这个版本的 claude（${features.version}）不支持 stream-json 或 --resume`, '升级 Claude Code CLI');
+  if ((run.meta.isolation ?? 'isolated') === 'isolated' && !AUTH_ENV.some(k => process.env[k]) && !opts.features) {
+    log(`提示：隔离会话读不到本机的登录状态，当前终端里没有 ${AUTH_ENV.slice(0, 2).join(' / ')} 等凭据变量；第一轮若报未登录，先 claude setup-token 再 export CLAUDE_CODE_OAUTH_TOKEN=…（PowerShell：$env:CLAUDE_CODE_OAUTH_TOKEN = '…'）`);
+  }
   const lockFile = path.join(run.dir, 'drive.lock');
   let lockFd;
   try { lockFd = fs.openSync(lockFile, 'wx'); } catch {
@@ -169,7 +180,7 @@ export async function driveRun(run, opts = {}) {
     agentSeconds: 0,
     stopReason: null,
   };
-  if (prev?.stopReason && prev.stopReason !== 'interrupted') {
+  if (prev?.stopReason && !RESUMABLE.has(prev.stopReason) && !opts.next) {
     fs.closeSync(lockFd); fs.rmSync(lockFile, { force: true });
     return { state: prev, alreadyFinished: true };
   }
@@ -184,7 +195,11 @@ export async function driveRun(run, opts = {}) {
 
   state.stopReason = null;
   let next;
-  if (!state.turns.length) {
+  let budget = opts.maxNewTurns ?? Infinity;
+  if (opts.next) {
+    next = { kind: opts.next.kind ?? 'manual', text: opts.next.text, approves: opts.next.approves ?? [], waives: opts.next.waives ?? [], replyId: opts.next.replyId ?? null, gate: opts.next.gate ?? null, reason: opts.next.reason ?? '评测方人工发出' };
+    if (!state.turns.length) throw new EvalError('run-not-started', '这个运行还没有发过任务书，不能先发人工消息', { exitCode: EXIT.USAGE, hint: '先用 run.mjs drive 发任务书' });
+  } else if (!state.turns.length) {
     next = { kind: 'prompt', text: run.prompt, approves: run.replies?.prompt?.approves ?? [], waives: run.replies?.prompt?.waives ?? [], quoteScope: run.meta.promptQuoteScope ?? run.prompt };
   } else {
     // 中断后继续：重新判断最后一轮之后该发什么
@@ -205,6 +220,7 @@ export async function driveRun(run, opts = {}) {
 
   try {
     while (next.kind !== 'none') {
+      if (budget-- <= 0) { state.stopReason = 'paused'; state.stopNote = '已按要求只续了指定的轮数'; break; }
       if (state.turns.length >= maxTurns) { state.stopReason = 'max-turns'; break; }
       const left = timeboxMs - state.agentSeconds * 1000;
       if (left <= 0) { state.stopReason = 'timeout'; break; }
@@ -213,7 +229,7 @@ export async function driveRun(run, opts = {}) {
         seq: seq++, turn, at: new Date().toISOString(), kind: next.kind, replyId: next.replyId ?? null, gate: next.gate ?? null,
         text: next.text, quoteScope: next.quoteScope ?? next.text, approves: next.approves, waives: next.waives, reason: next.reason ?? null, skipped: next.skipped ?? [],
       });
-      if (next.kind === 'scripted') sel.sentIds.add(next.replyId);
+      if (next.kind === 'scripted' && next.replyId) sel.sentIds.add(next.replyId);
       if (next.kind === 'fallback') sel.fallbacksUsed++;
       log(`第 ${turn} 轮：发送${{ prompt: '任务书', scripted: `脚本回复 ${next.replyId}`, fallback: '兜底回复', manual: '人工回复' }[next.kind]}（剩余时间盒 ${Math.round(left / 60000)} 分钟）`);
       const res = await spawnTurn(run, features, {
@@ -232,6 +248,7 @@ export async function driveRun(run, opts = {}) {
         sent: next.kind === 'prompt' ? 'prompt' : (next.replyId ?? next.kind),
       });
       if (!state.model && init?.model) state.model = init.model;
+      try { snapshotFilm(run, turn); } catch (e) { log(`提示：第 ${turn} 轮的作品快照没写成（${e.message}），不影响判定`); }
       state.sentIds = [...sel.sentIds];
       state.skippedIds = [...sel.skippedIds];
       state.fallbacksUsed = sel.fallbacksUsed;

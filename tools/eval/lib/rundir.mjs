@@ -10,13 +10,15 @@
 //   tmp/             会话的 TMPDIR / TMP / TEMP
 //   session/         隔离的会话配置：config/（CLAUDE_CONFIG_DIR）、settings.json、mcp.json、COMMAND.txt
 //   transcript/      turn-NN.jsonl（stream-json）、turn-NN.stderr.log、session/（复制来的会话 JSONL）
+//   snapshots/       turn-NN.json：每轮结束时作品目录的文件清单与 film.json（「先看后做」、DF-M 同源时间的证据）
 //   gates.json、artifacts.json、review/、review-sheet.json、score.json  由 finish / score 生成
-// 接口：RUN_KIND、loadRun(dir)、filmDirOf(run)、newRunId(commit, attempt)、latestFilmRun(filmDir)
+// 接口：RUN_KIND、loadRun(dir)、filmDirOf(run)、newRunId(commit, attempt)、latestFilmRun(filmDir)、filmRenderRuns(filmDir)、
+//       snapshotFilm(run, turn)、loadSnapshots(runDir)
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { EvalError, EXIT } from './cli.mjs';
-import { readJson, readJsonIfExists, readJsonl } from './files.mjs';
+import { readJson, readJsonIfExists, readJsonl, walk, writeJson } from './files.mjs';
 import { validate } from './schema.mjs';
 import { loadSchema } from './task.mjs';
 
@@ -103,4 +105,33 @@ export function filmRenderRuns(filmDir) {
     .map(e => path.join(out, e.name))
     .filter(d => ['master.mp4', 'web.mp4'].some(f => fs.existsSync(path.join(d, f))))
     .sort();
+}
+
+const IMAGE_RE = /\.(png|jpe?g|webp)$/i;
+
+/**
+ * 记一轮结束时作品目录的样子：文件清单（相对作品目录，最多 5000 条）、图片数、film.json 内容。
+ * 写到 <运行目录>/snapshots/turn-NN.json；作品目录还不存在时也写（files 为空），方便看出「第几轮才建作品」。
+ */
+export function snapshotFilm(run, turn, now = new Date()) {
+  const film = filmDirOf(run);
+  const snap = { schemaVersion: 1, turn, at: now.toISOString(), filmId: film.id, files: [], truncated: false, images: 0, film: null };
+  if (film.dir && fs.existsSync(film.dir)) {
+    const all = walk(film.dir, { skipDirs: new Set(['node_modules', 'cache', '.git', '__pycache__']) });
+    snap.truncated = all.length > 5000;
+    snap.files = all.slice(0, 5000).map(e => ({ rel: e.rel, size: e.size, mtimeMs: Math.round(e.mtimeMs) }));
+    snap.images = all.filter(e => IMAGE_RE.test(e.rel)).length;
+    snap.film = readJsonIfExists(path.join(film.dir, 'film.json'));
+  }
+  const file = path.join(run.dir, 'snapshots', `turn-${String(turn).padStart(2, '0')}.json`);
+  writeJson(file, snap);
+  return file;
+}
+
+/** 读全部快照，按轮次排序。 */
+export function loadSnapshots(runDir) {
+  const dir = path.join(runDir, 'snapshots');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter(f => /^turn-\d+\.json$/.test(f))
+    .map(f => readJsonIfExists(path.join(dir, f))).filter(Boolean).sort((a, b) => a.turn - b.turn);
 }
