@@ -9,10 +9,13 @@
 
 事件表（与路线无关，找到的都核对）：
   · <作品>/events.json（页面 window.EV 导出，C 路线）：带 cue（或历史写法的 hit）的事件是画面打点；snap: false 的不对网格（刻意离拍）
-  · film.json v2 的 events[]：cue: true 是画面打点（frame 是整数帧，有 beat 时核对 frame = floor(拍点帧)）；
-    audio 引用声音表的 cue（film.json audio.cues 指向的文件，A 路线《北冥》是 audio/cues.json），核对"声音表时刻 − 画面结果帧"
-    落在同步容差里：声音晚 0 – late-frames 帧（默认 1 帧）、早不超过 early-ms（默认 0.25 帧 ≈ 10.4 ms @24 fps）；
-    sync: "lip" 允许晚 2 帧，sync: "soft" 只告警，sync: false / "none" 不查（routes/directing/craft/animation.md §5.7）
+  · film.json v2 的 events[]：cue: true 是画面打点（frame 是整数帧，只写了 t 秒时按 round(t × fps) 取帧；有 beat 时核对
+    frame = floor(拍点帧)）；audio 引用一个声音，声音时刻依次从两处找：声音表（film.json audio.cues 指向的文件，A 路线《北冥》是
+    audio/cues.json，取 cue 的 t）→ 声音脚本登记的起音（out/score_onsets.json 的 onsets，B、C 路线的声音脚本用
+    engine.audio.cues.Onsets.mark(t, 标签) 登记，标签写 audio 的值或事件 id）。核对"声音时刻 − 画面结果帧"落在同步容差里：
+    声音晚 0 – late-frames 帧（默认 1 帧）、早不超过 early-ms（默认 0.25 帧 ≈ 10.4 ms @24 fps）；sync: "lip"（或 visual: "lip"）
+    允许晚 2 帧，sync: "soft" 只告警，sync: false / "none" 不查（routes/directing/craft/animation.md §5.7，与 tools/qa 的 sync 同口径）。
+    两处都查不到这个声音时记一条告警（不静默跳过）：声明了声音却没有登记，只能等成片由 tools/qa sync 实测
 节拍网格：timeline.json 的 secs（与 engine/core/tempo.js 同一张表）；film.json v2 的 timeline.sections（start 为帧号）；
   或历史写法的全局 BPM（另有 METER / E8 / E16 时照用）。--grid 是一拍细分：2 八分、3 三连、4 十六分、6、8……
 关键事件集合：--keys、film.json cuecheck.keys、timeline.json 的 keys / KEYS / KEY，或事件自己 key: true；写法是事件类型或 cue / id。
@@ -33,7 +36,7 @@ from fractions import Fraction
 
 import numpy as np
 
-from ._cli import EXIT, ArgumentParser, CliError, run as run_cli, sha256_file
+from ._cli import EXIT, ArgumentParser, CliError, rel as _rel, run as run_cli, sha256_file
 from .cues import Tempo
 
 DEF_TOL_MS = 0.5
@@ -202,9 +205,21 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
             raise CliError('env.cues-missing', f'film.json 的 audio.cues 指向的声音表不存在：{film["audio"]["cues"]}')
         cue_tab = {c['id']: c for c in cj.get('cues', [])}
     seen = {r['id'] for r in rows}
+
+    def sound_time(ref, eid):
+        """声音时刻（秒）与出处：声音表 → 声音脚本登记的起音（先按 audio 的值，再按事件 id）"""
+        cue = cue_tab.get(ref)
+        if cue is not None and cue.get('t') is not None:
+            return float(cue['t']), 'cues', cue
+        for k in (ref, eid):
+            if k is not None and tags.get(k) is not None:
+                return float(tags[k]), 'score_onsets', {}
+        return None, None, None
     for e in (film or {}).get('events', []) if film and film['version'] == 2 else []:
         eid, frame = e.get('id'), e.get('frame')
-        if not isinstance(frame, int):
+        if not isinstance(frame, int) and isinstance(e.get('t'), (int, float)) and not isinstance(e.get('t'), bool):
+            frame = int(round(float(e['t']) * fps))
+        if not isinstance(frame, int) or isinstance(frame, bool):
             continue
         is_key = bool(e.get('key')) or eid in keyset
         if e.get('cue') is True and eid not in seen:
@@ -219,19 +234,27 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
             rows.append(r)
         sync = e.get('sync', True)
         ref = e.get('audio')
-        if ref is None or sync in (False, 'none'):
+        if not ref or sync in (False, 'none'):
             continue
-        cue = cue_tab.get(ref)
+        ref = str(ref)
+        if e.get('visual') == 'lip' and sync is True:
+            sync = 'lip'
+        t_snd, src, _ = sound_time(ref, eid)
         t_vis = frame / fps
-        if cue is None:
-            if cue_tab:
-                sync_rows.append({'id': eid, 'audio': ref, 'frame': frame, 'status': 'fail', 'deltaMs': None,
-                                  'problems': [f'声音表里没有 {ref}'], 'kind': 'declared'})
+        if t_snd is None:
+            where = '、'.join(w for w, ok in (('声音表 ' + str(film['audio']['cues']), bool(cue_tab)), ('out/score_onsets.json 的 onsets', bool(tags))) if ok)
+            if cue_tab and not tags:
+                sync_rows.append({'id': eid, 'audio': ref, 'frame': frame, 'status': 'fail' if sync != 'soft' else 'warn', 'deltaMs': None,
+                                  'kind': 'declared', 'problems': [f'声音表里没有 {ref}']})
+            else:
+                sync_rows.append({'id': eid, 'audio': ref, 'frame': frame, 'status': 'warn', 'deltaMs': None, 'kind': 'declared',
+                                  'problems': [f'{where or "没有声音表，也没有 score_onsets.json"}里查不到 {ref} 的时刻：声明值核对不了'
+                                               '（声音脚本用 engine.audio.cues.Onsets.mark(t, 标签) 登记；成片另由 tools/qa sync 实测）']})
             continue
         late = (2.0 if sync == 'lip' else late_frames) * fd
-        d = float(cue['t']) - t_vis
+        d = t_snd - t_vis
         st = 'pass' if -early - 1e-9 <= d <= late + 1e-9 else ('warn' if sync == 'soft' else 'fail')
-        sync_rows.append({'id': eid, 'audio': ref, 'frame': frame, 'soundT': float(cue['t']), 'deltaMs': round(d * 1e3, 2),
+        sync_rows.append({'id': eid, 'audio': ref, 'frame': frame, 'soundT': round(t_snd, 6), 'soundFrom': src, 'deltaMs': round(d * 1e3, 2),
                           'deltaFrames': round(d * fps, 3), 'status': st, 'kind': 'declared', 'sync': sync,
                           'problems': [] if st == 'pass' else [f'声音比画面{"早" if d < 0 else "晚"} {abs(d) * 1e3:.1f} ms（容差：早 ≤ {early * 1e3:.1f} ms、晚 ≤ {late * 1e3:.1f} ms）']})
     _judge(rows, tol_ms)
@@ -394,9 +417,9 @@ def _report(film, input_path, rows, sync_rows, sil_rows, ok, tol_ms, grid, tempo
            'offFrameMs': round(r['offFrameMs'], 4), 'offGridMs': None if r['offGridMs'] is None else round(r['offGridMs'], 4),
            'musicOnsetMs': None if r['musicMs'] is None else round(r['musicMs'], 4), 'key': r['key'], 'status': r['status']} for r in rows]
     devs = [d for r in rows for d in (r['offFrameMs'], r['offGridMs'] or 0, r['timelineMs'], r['musicMs'] or 0)]
-    return {'schemaVersion': 1, 'tool': {'name': 'beiming-cuecheck', 'version': '2.0.0'},
-            'film': {'id': film['id'], 'title': film['title'], 'route': film['route'], 'file': film['file'], 'frameCount': film['frameCount']} if film else None,
-            'input': {'path': input_path, 'sha256': sha} if sha else None,
+    return {'schemaVersion': 1, 'tool': {'name': 'beiming-cuecheck', 'version': '2.1.0'},
+            'film': {'id': film['id'], 'title': film['title'], 'route': film['route'], 'file': _rel(film['file']), 'frameCount': film['frameCount']} if film else None,
+            'input': {'path': _rel(input_path), 'sha256': sha} if sha else None,
             'profile': {'id': (film or {}).get('profile') or 'n/a', 'source': 'film.json'},
             'groups': ['sync'], 'skipped': [], 'checks': checks,
             'summary': {s: sum(1 for c in checks if c['status'] == s) for s in ('pass', 'fail', 'warn', 'waived')},
@@ -452,7 +475,7 @@ def main_cli(args, ctx):
         with open(p, 'w', encoding='utf-8', newline='\n') as f:
             json.dump(rep, f, ensure_ascii=False, indent=1)
             f.write('\n')
-        outputs.append({'path': p, 'sha256': sha256_file(p), 'kind': 'cuecheck'})
+        outputs.append({'path': _rel(p), 'sha256': sha256_file(p), 'kind': 'cuecheck'})
     data = {k: rep[k] for k in ('ok', 'summary', 'maxDeltaMs', 'grid', 'tolMs', 'tempo', 'keys')}
     if not rep['ok']:
         bad = [c['id'] for c in rep['checks'] if c['status'] == 'fail']

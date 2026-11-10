@@ -1,0 +1,180 @@
+# -*- coding: utf-8 -*-
+"""声音 QA 门 engine/audio/qa.py（npm run audio:qa）：按 film.json 判定混音，硬项不达标退出 4，报告是附录 C8 的结构。
+
+合格的合成混音通过；单声道、截短、过载（整体 +6 dB）、切点爆音、直流、反相六类坏样本都判不通过（退出码 4），并指出是哪一项；
+用法错误退出 2、找不到混音或作品描述退出 3；报告的结构与 tools/qa 的 qa/report.json 一致（逐项 id/status/value/expected/evidence）。
+不需要 ffmpeg（测量全在 numpy 里做），几秒跑完。用法（仓库根）：python -m unittest discover -s tests/audio -p "test_audio_qa.py"
+"""
+import json
+import os
+import shutil
+import unittest
+
+import numpy as np
+
+import _audiotest as H
+from engine.audio import qa as AQ
+from engine.audio import stream as S
+from engine.audio import meter as M
+
+STATUSES = {'pass', 'fail', 'warn', 'waived'}
+
+
+def validate_c8(t, rep):
+    """与 tools/qa/lib/report.mjs 的 validateReport 同一组规则（附录 C8）"""
+    t.assertEqual(rep['schemaVersion'], 1)
+    t.assertIsInstance(rep['ok'], bool)
+    t.assertTrue(rep['profile'] and isinstance(rep['profile']['id'], str) and rep['profile']['id'])
+    if rep['input'] is not None:
+        t.assertTrue(rep['input']['path'])
+        t.assertRegex(rep['input']['sha256'], r'^[0-9a-f]{64}$')
+    t.assertTrue(rep['checks'])
+    ids = [c['id'] for c in rep['checks']]
+    t.assertEqual(len(ids), len(set(ids)), '检查 id 不能重复')
+    for c in rep['checks']:
+        t.assertIn(c['status'], STATUSES)
+        for k in ('value', 'expected', 'evidence'):
+            t.assertIn(k, c)
+    t.assertEqual(rep['ok'], not any(c['status'] == 'fail' for c in rep['checks']), 'ok 要与 checks 一致')
+
+
+class QaGate(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.td = H.tmpdir('audio-qa')
+        cls.film = os.path.join(cls.td, 'film')
+        H.film_json(cls.film, frames=240, fps=24, cuts=(120,))
+        cls.good = H.mastered(10.0, lufs=-14.0, tp=-1.5, seed=3)
+        cls.wav = H.write_wav(os.path.join(cls.film, 'out', 'mix.wav'), cls.good)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.td, ignore_errors=True)
+
+    def qa(self, *args):
+        r = H.run(['python', '-m', 'engine.audio.qa', *args, '--json'])
+        return r, H.envelope(r)
+
+    def bad(self, name, x, subtype='PCM_24', **film):
+        d = os.path.join(self.td, name)
+        H.film_json(d, frames=240, fps=24, cuts=(120,), **film)
+        H.write_wav(os.path.join(d, 'out', 'mix.wav'), x, subtype=subtype)
+        r, env = self.qa('--film', d)
+        rep = H.read_json(os.path.join(d, 'out', 'mix.qa.json'))
+        validate_c8(self, rep)
+        return r, env, rep
+
+    def failed(self, rep):
+        return set(rep['summary']['hardFailures'])
+
+    def test_good_mix_passes_and_report_is_c8(self):
+        r, env = self.qa('--film', self.film)
+        self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+        self.assertTrue(env['ok'])
+        self.assertEqual(env['outputs'][0]['kind'], 'qa-report')
+        rep = H.read_json(os.path.join(self.film, 'out', 'mix.qa.json'))
+        validate_c8(self, rep)
+        self.assertTrue(rep['ok'])
+        self.assertEqual(rep['profile']['id'], 'web-1080p24')
+        self.assertEqual(rep['film']['frameCount'], 240)
+        got = {c['id'] for c in rep['checks']}
+        self.assertTrue({'audio.format', 'audio.length', 'audio.overload', 'audio.loudness', 'audio.truepeak', 'audio.dc',
+                         'audio.mono', 'audio.edges', 'audio.cuts', 'audio.bands'} <= got, got)
+        loud = next(c for c in rep['checks'] if c['id'] == 'audio.loudness')
+        self.assertAlmostEqual(loud['evidence']['integrated'], -14.0, delta=0.06)
+        self.assertNotIn(H.ROOT, json.dumps(rep, ensure_ascii=False).replace('\\\\', '/'), '报告里不写仓库的本机绝对路径')
+
+    def test_mono_fails_format(self):
+        r, env, rep = self.bad('mono', self.good.mean(axis=1))
+        self.assertEqual(r.returncode, 4, r.stderr[-800:])
+        self.assertIn('audio.format', self.failed(rep))
+        self.assertEqual(env['error']['code'], 'contract.audio-qa')
+
+    def test_truncated_fails_length(self):
+        r, _, rep = self.bad('short', self.good[:H.N(7.0)])
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('audio.length', self.failed(rep))
+        ln = next(c for c in rep['checks'] if c['id'] == 'audio.length')
+        self.assertLess(ln['evidence']['diffSamples'], 0)
+
+    def test_plus_6db_fails_overload_loudness_truepeak(self):
+        r, _, rep = self.bad('loud', self.good * 10 ** (6 / 20), subtype='FLOAT')
+        self.assertEqual(r.returncode, 4)
+        self.assertTrue({'audio.overload', 'audio.loudness', 'audio.truepeak'} <= self.failed(rep), self.failed(rep))
+
+    def test_click_at_cut_fails(self):
+        """柔和铺底（1.5 kHz 低通）在第 120 帧（5.000 s）的切点硬拼接：一个 4 ms 衰减的台阶，没有交叉淡化 → 只有 audio.cuts 不通过"""
+        x = H.mastered(10.0, seed=3, lp_hz=1500)
+        c = H.N(5.0)
+        x[c:] += 0.4 * np.exp(-np.arange(len(x) - c) / H.SR / 0.004)[:, None]
+        r, _, rep = self.bad('click', x)
+        self.assertEqual(r.returncode, 4)
+        self.assertEqual(self.failed(rep), {'audio.cuts'})
+        cut = next(c for c in rep['checks'] if c['id'] == 'audio.cuts')['evidence']['cuts'][0]
+        self.assertEqual(cut['frame'], 120)
+        r, _, rep = self.bad('noclick', H.mastered(10.0, seed=3, lp_hz=1500))
+        self.assertEqual(r.returncode, 0, '同样的铺底不加台阶时要通过（判据不是噪声本身）')
+
+    def test_dc_offset_fails(self):
+        r, _, rep = self.bad('dc', self.good * 0.5 + 0.03)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('audio.dc', self.failed(rep))
+
+    def test_phase_inverted_fails_mono_compat(self):
+        x = self.good.copy()
+        x[:, 1] = -x[:, 0]
+        r, _, rep = self.bad('antiphase', x)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('audio.mono', self.failed(rep))
+
+    def test_targets_come_from_film_json(self):
+        """film.json 的 audio.targetLUFS 改成 −23：同一份 −14 的混音判响度不通过（目标从作品描述来，不写死）"""
+        r, _, rep = self.bad('target23', self.good, audio={'mode': 'script', 'script': 'sound.py', 'targetLUFS': -23, 'truePeakDbTP': -1.0})
+        self.assertEqual(r.returncode, 4)
+        self.assertEqual(self.failed(rep), {'audio.loudness'})
+
+    def test_profile_broadcast_from_cli(self):
+        r, env = self.qa('--wav', self.wav, '--profile', 'broadcast-1080p25', '--frames', '250', '--fps', '25', '--no-report')
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('audio.loudness', env['data']['summary']['hardFailures'])
+
+    def test_usage_and_env_errors(self):
+        r, env = self.qa('--frames', '240')
+        self.assertEqual(r.returncode, 2)
+        self.assertEqual(env['error']['code'], 'usage.missing-input')
+        r, env = self.qa('--wav', self.wav, '--frames', '240')
+        self.assertEqual(r.returncode, 2)
+        r, env = self.qa('--film', os.path.join(self.td, 'nope'))
+        self.assertEqual(r.returncode, 3)
+        empty = os.path.join(self.td, 'nomix')
+        H.film_json(empty)
+        r, env = self.qa('--film', empty)
+        self.assertEqual(r.returncode, 3)
+        self.assertEqual(env['error']['code'], 'env.mix-missing')
+        r, env = self.qa('--wav', self.wav, '--profile', 'no-such-profile')
+        self.assertEqual(r.returncode, 2)
+
+    def test_v1_film_json_is_read(self):
+        d = os.path.join(self.td, 'v1')
+        os.makedirs(os.path.join(d, 'out'))
+        with open(os.path.join(d, 'film.json'), 'w', encoding='utf-8') as f:
+            json.dump({'route': 'c', 'title': 'v1', 'dur': 10, 'fps': 24, 'size': [1920, 1080]}, f)
+        shutil.copy(self.wav, os.path.join(d, 'out', 'mix.wav'))
+        r, env = self.qa('--film', d)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+
+    def test_chunked_measurement_matches_whole_signal(self):
+        """qa 按 10 秒一块读盘；分块的积分响度、真峰值与整段计算一致"""
+        x = H.mastered(23.7, seed=5)
+        L = S.Loudness()
+        tp = S.TruePeak(4)
+        for a in range(0, len(x), H.N(10)):
+            L.feed(x[a:a + H.N(10)])
+            tp.feed(x[a:a + H.N(10)])
+        tp.finish()
+        self.assertAlmostEqual(L.integrated(), M.integrated(x), delta=1e-9)
+        self.assertAlmostEqual(tp.value, M.true_peak(x), delta=1e-9)
+
+
+if __name__ == '__main__':
+    unittest.main()
