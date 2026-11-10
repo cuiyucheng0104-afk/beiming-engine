@@ -92,11 +92,14 @@
 
     <figure class="hero-film" id="hero-film" hidden>
       <div class="hero-film-frame">
-        <video id="film-video" src="media/beiming.mp4" preload="none" playsinline controls title="《北冥》样片"></video>
+        <video id="film-video" preload="none" playsinline controls title="《北冥》样片">
+          <source src="media/beiming-1280.mp4" type="video/mp4" media="(max-width: 900px)">
+          <source src="media/beiming.mp4" type="video/mp4">
+        </video>
       </div>
       <figcaption class="hero-film-cap">
         <span class="cap-title">《北冥》样片</span>
-        <span class="cap-meta num">10 秒 · 1920 × 1040 · 24 fps</span>
+        <span class="cap-meta num">10 秒 · <span id="film-res">1920 × 1040</span> · 24 fps</span>
         <button type="button" class="film-close" id="film-close">收起<span class="sr-only">样片</span><span class="key num" aria-hidden="true">Esc</span></button>
       </figcaption>
     </figure>
@@ -169,6 +172,10 @@
           <h3 class="step-head"><span class="step-glyph f-brush">时</span><span class="sr-only">：</span><span class="step-lead">最后定节奏。</span></h3>
           <p class="step-mod num">engine/core/clock.js</p>
           <p class="step-body">镜头每帧都在动，鲲一拍三：每三帧才换一次姿态，这是手绘动画的呼吸。</p>
+          <div class="frames" id="frames" role="img" aria-label="一秒 24 帧的帧条：每 3 帧有一格金色实心格，是鲲换姿态的那一帧，其余两帧姿态不动">
+            <span class="frames-cells" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="frames-cap" aria-hidden="true"><span class="num">1</span> 秒 = <span class="num">24</span> 帧<span class="frames-sep">·</span><span class="frames-key"></span>鲲换姿态</span>
+          </div>
         </div>
         <figure class="step-plate"><img src="assets/stage-time.jpg" alt="完整画面：青绿仙山鲲背负仙山，在黄昏云海上游动" width="1600" height="900" loading="lazy" decoding="async"></figure>
       </article>
@@ -232,7 +239,8 @@
       <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/cases" target="_blank" rel="noopener">案例库<span class="ext" aria-hidden="true">↗</span></a>
       <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/releases" target="_blank" rel="noopener">成片与素材下载（Release）<span class="ext" aria-hidden="true">↗</span></a>
     </nav>
-    <p class="foot-legal">代码以 MIT 开放；影片、底板与展示图保留所有权利；字体遵循 SIL OFL 1.1。部分画风基于开源实现，来源与许可见 <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/THIRD-PARTY.md" target="_blank" rel="noopener">THIRD-PARTY.md</a>。</p>
+    <p class="foot-legal">代码以 MIT 开放；影片、底板与展示图保留所有权利；字体遵循 SIL OFL 1.1。</p>
+    <p class="foot-legal foot-attrib" data-attribution>署名：北冥代码动画风格的画法库，部分来自两个 MIT 开源项目 <a href="https://github.com/lemomo-ai/lemo-opuscar" target="_blank" rel="noopener">lemo-opuscar</a>（LemoLab）与 <a href="https://github.com/xiaoxiong20xx-code/sy-style-100" target="_blank" rel="noopener">sy-style-100</a>（XIAOXIONG）；北冥原生路线使用上游原生运行时 <a href="https://github.com/shinyobjectz/raea" target="_blank" rel="noopener">RAEA</a>（FSL-1.1-ALv2），运行时不随本仓库分发。各项版权与许可原样保留，详见 <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/THIRD-PARTY.md" target="_blank" rel="noopener">THIRD-PARTY.md</a>。</p>
   </div>
 </footer>
 </body>

@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ContractError,
+  REPO_ROOT,
   deriveOutput,
   executionStatus,
+  loadProjectSpec,
   normalizeRelativePath,
   parseProjectSpec,
   resolveProjectPath,
@@ -32,10 +36,96 @@ test('两条路线的项目模板都能通过契约校验，且 RAEA 不被强�
 
 test('checkFiles 模式能核对真实入口文件存在', () => {
   assert.equal(validateProjectSpec(beimingTemplate(), { root: repoRoot, checkFiles: true }).ok, true);
-  assert.equal(validateProjectSpec(raeaTemplate(), { root: repoRoot, checkFiles: true }).ok, true);
+  // RAEA 模板的资产清单是 npm run raea:prepare 生成的（不入库）：有就通过，没有就只报清单缺失
+  const raeaManifest = existsSync(join(repoRoot, raeaTemplate().assets.manifest));
+  assert.deepEqual(codes(validateProjectSpec(raeaTemplate(), { root: repoRoot, checkFiles: true })), raeaManifest ? [] : ['assets-manifest-missing']);
   const missing = clone(beimingTemplate());
   missing.entry = 'examples/does-not-exist.html';
   assert.deepEqual(codes(validateProjectSpec(missing, { root: repoRoot, checkFiles: true })), ['entry-missing']);
+});
+
+test('entry 必填：删掉、写空、写成非字符串都报 entry-missing（带不带 root 都一样）', () => {
+  for (const entry of [undefined, '', '   ', 42, null]) {
+    const spec = clone(beimingTemplate());
+    if (entry === undefined) delete spec.entry; else spec.entry = entry;
+    assert.deepEqual(codes(validateProjectSpec(spec)), ['entry-missing'], String(entry));
+    assert.deepEqual(codes(validateProjectSpec(spec, { root: repoRoot, checkFiles: true })), ['entry-missing'], String(entry));
+  }
+});
+
+// 临时项目根：index.html、基准帧、资产清单各一个文件，另有一个目录
+function withTempRoot(fn) {
+  const root = mkdtempSync(join(tmpdir(), 'beiming-project-'));
+  try {
+    writeFileSync(join(root, 'index.html'), '<!doctype html>');
+    writeFileSync(join(root, 'base.jpg'), 'jpg');
+    writeFileSync(join(root, 'plates.json'), '{}');
+    mkdirSync(join(root, 'adir'));
+    mkdirSync(join(root, '..draft'));
+    writeFileSync(join(root, '..draft', 'film.html'), '<!doctype html>');
+    return fn(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+const tempSpec = patch => Object.assign(clone(beimingTemplate()), { entry: 'index.html' }, patch, {
+  style: { ...beimingTemplate().style, baseline: 'base.jpg', ...(patch?.style ?? {}) },
+  assets: { manifest: 'plates.json', ...(patch?.assets ?? {}) },
+});
+
+test('checkFiles 核对 entry / baseline / manifest 的存在与类型', () => withTempRoot(root => {
+  const check = spec => codes(validateProjectSpec(spec, { root, checkFiles: true }));
+  assert.deepEqual(check(tempSpec()), []);
+  assert.deepEqual(check(tempSpec({ entry: 'adir' })), ['entry-not-file']);
+  assert.deepEqual(check(tempSpec({ entry: 'adir/' })), ['entry-not-file']);
+  assert.deepEqual(codes(validateProjectSpec(tempSpec({ entry: 'adir/' }))), ['entry-not-file'], '以 / 结尾在词法上就拒绝');
+  assert.deepEqual(check(tempSpec({ style: { baseline: 'nope.jpg' } })), ['style-baseline-missing']);
+  assert.deepEqual(check(tempSpec({ style: { baseline: 'adir' } })), [], '基准可以是基准工程目录');
+  assert.deepEqual(check(tempSpec({ assets: { manifest: 'nope.json' } })), ['assets-manifest-missing']);
+  assert.deepEqual(check(tempSpec({ assets: { manifest: 'adir' } })), ['assets-manifest-not-file']);
+  assert.deepEqual(check(tempSpec({ output: { ...beimingTemplate().output, outputDir: 'index.html' } })), ['output-dir-not-dir']);
+  assert.deepEqual(check(tempSpec({ output: { ...beimingTemplate().output, outputDir: 'renders/' } })), [], '输出目录可以还不存在');
+  // 名为 ..draft 的目录在根内，不是越界
+  assert.deepEqual(check(tempSpec({ entry: '..draft/film.html' })), []);
+  assert.equal(resolveProjectPath(root, '..draft/film.html').relative, '..draft/film.html');
+  // 不传 checkFiles 时不查文件系统
+  assert.deepEqual(codes(validateProjectSpec(tempSpec({ entry: 'nope.html', style: { baseline: 'nope.jpg' }, assets: { manifest: 'nope.json' } }), { root })), []);
+}));
+
+test('loadProjectSpec 默认按仓库根解析，模板可直接 checkFiles', () => {
+  const beiming = loadProjectSpec(join(repoRoot, 'docs/routes/templates/project-beiming.json'), { checkFiles: true });
+  assert.equal(beiming.root, REPO_ROOT);
+  assert.equal(resolve(beiming.root), resolve(repoRoot));
+  const raea = join(repoRoot, 'docs/routes/templates/project-raea.json');
+  if (existsSync(join(repoRoot, raeaTemplate().assets.manifest))) {
+    assert.equal(loadProjectSpec(raea, { checkFiles: true }).root, REPO_ROOT);
+  } else {
+    assert.throws(() => loadProjectSpec(raea, { checkFiles: true }), e => e instanceof ContractError && codes(e).join() === 'assets-manifest-missing');
+  }
+});
+
+test('loadProjectSpec 接受带 UTF-8 BOM 的文件；仓库外的文件不传 root 要报 root-unknown', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'beiming-bom-'));
+  try {
+    const file = join(dir, 'project.json');
+    writeFileSync(file, '﻿' + JSON.stringify(beimingTemplate()), 'utf8');
+    assert.equal(loadProjectSpec(file, { root: repoRoot }).spec.projectId, 'beiming-style-reference');
+    assert.equal(parseProjectSpec('﻿' + JSON.stringify(beimingTemplate())).projectId, 'beiming-style-reference');
+    let underGit = false;
+    for (let d = dir; ; d = resolve(d, '..')) { if (existsSync(join(d, '.git'))) underGit = true; if (resolve(d, '..') === d) break; }
+    if (!underGit) assert.throws(() => loadProjectSpec(file), e => e instanceof ContractError && e.diagnostics[0].code === 'root-unknown');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('绝对路径判断与平台无关：单个反斜杠开头在任何平台上都拒绝', () => {
+  for (const value of ['\\Windows\\win.ini', '\\x', '\\/x', '/x', 'C:x', '\\\\server\\share\\a']) {
+    assert.equal(normalizeRelativePath(value).ok, false, value);
+    const spec = clone(beimingTemplate());
+    spec.entry = value;
+    assert.ok(codes(validateProjectSpec(spec)).includes('path-escape'), value);
+  }
 });
 
 test('未知 schemaVersion 拒绝自动解释', () => {
@@ -187,4 +277,63 @@ test('技术验收与创作验收必须分别成立，accepted 以技术通过�
   assert.deepEqual(validateRenderResult(accepted, { expectedFrameCount: 240 }).diagnostics, []);
 
   assert.deepEqual(codes(validateRenderResult(accepted, { expectedFrameCount: 239 })), ['result-frame-count-mismatch']);
+});
+
+// 已执行、技术验收通过的结果（status=passed，未做创作验收）
+const passedResult = () => Object.assign(clone(resultTemplate()), {
+  status: 'passed',
+  projectId: 'beiming-style-reference',
+  shotId: 'S001',
+  route: 'beiming',
+  backend: 'three',
+  actualDevice: 'RTX 5090',
+  actualGraphicsBackend: 'ANGLE-vulkan',
+  actualEncoder: 'libx264',
+  output: { file: 'out/video.mp4', sha256: 'a'.repeat(64), width: 1920, height: 1040, fps: 24, frames: 240, duration: 10 },
+  technicalAcceptance: { status: 'passed', evidence: ['ffprobe -count_frames out/video.mp4'] },
+});
+
+test('status=passed 必须技术验收通过、附证据，并记录实际编码器', () => {
+  assert.deepEqual(validateRenderResult(passedResult(), { expectedFrameCount: 240 }).diagnostics, []);
+
+  const failedTech = passedResult();
+  failedTech.technicalAcceptance = { status: 'failed', evidence: [] };
+  const c = codes(validateRenderResult(failedTech));
+  assert.ok(c.includes('result-passed-without-technical'), c.join());
+  assert.ok(c.includes('result-evidence-missing'), c.join());
+
+  for (const status of ['not-run', 'blocked']) {
+    const r = passedResult();
+    r.technicalAcceptance.status = status;
+    assert.deepEqual(codes(validateRenderResult(r)), ['result-passed-without-technical'], status);
+  }
+
+  const noTech = passedResult();
+  delete noTech.technicalAcceptance;
+  assert.deepEqual(codes(validateRenderResult(noTech)).sort(), ['result-evidence-missing', 'result-passed-without-technical']);
+
+  for (const status of ['passed', 'accepted']) {
+    const r = status === 'passed' ? passedResult() : Object.assign(passedResult(), {
+      status: 'accepted',
+      creativeAcceptance: { status: 'accepted', events: ['girl looks up'], styleComparison: ['shot_7.6.jpg'], issues: [] },
+    });
+    r.actualEncoder = null;
+    assert.deepEqual(codes(validateRenderResult(r)), ['result-measured-missing'], status);
+  }
+});
+
+test('技术验收与创作验收的 status 按枚举校验', () => {
+  const typo = passedResult();
+  typo.technicalAcceptance.status = 'pass';
+  assert.ok(codes(validateRenderResult(typo)).includes('result-status-invalid'));
+
+  const failed = Object.assign(clone(resultTemplate()), {
+    status: 'failed', projectId: 'p', shotId: 's', route: 'beiming', backend: 'three',
+    technicalAcceptance: { status: 'faild', evidence: [] },
+    creativeAcceptance: { status: 'aproved', events: [], styleComparison: [], issues: [] },
+  });
+  assert.deepEqual(codes(validateRenderResult(failed)), ['result-status-invalid', 'result-status-invalid']);
+  failed.technicalAcceptance.status = 'failed';
+  failed.creativeAcceptance.status = 'rejected';
+  assert.deepEqual(validateRenderResult(failed).diagnostics, []);
 });

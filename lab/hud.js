@@ -50,7 +50,7 @@ window.render = t => {
   drawTitle(hctx, t, W, H);
   if (Q.get('boxes')) {
     hctx.save(); hctx.strokeStyle = '#ff2d55'; hctx.lineWidth = 1; hctx.font = '14px sans-serif'; hctx.fillStyle = '#ff2d55';
-    for (const b of textsAt(t, W, H)) { hctx.strokeRect(b.x0 + .5, b.y0 + .5, b.x1 - b.x0, b.y1 - b.y0); hctx.fillText(`${b.id}: ${b.text}`, b.x0, b.y1 + 16); }
+    for (const b of textsAt(t, W, H, s)) { hctx.strokeRect(b.x0 + .5, b.y0 + .5, b.x1 - b.x0, b.y1 - b.y0); hctx.fillText(`${b.id}: ${b.text}`, b.x0, b.y1 + 16); }
     hctx.restore();
   }
   if (Q.get('skel')) {                      // 片名骨架叠图（与 hud.js 的 titleLayout 一致）
@@ -62,7 +62,7 @@ window.render = t => {
     }));
   }
 };
-window.TEXTS = t => textsAt(t, W, H);
+window.TEXTS = t => textsAt(t, W, H, fakeS(t));   // 纯函数：同一时刻的假数据，不必先 render
 
 // &perf=1：量 JS 侧耗时（不含 GPU 光栅化），结果用 console.warn 打到 still.mjs 的输出里。
 // 确定性另走真实截图路径查：别在页面里对画布 getImageData 求哈希，

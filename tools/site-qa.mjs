@@ -8,6 +8,8 @@
 //           分六轮打开页面，每轮一个全新的浏览器上下文：
 //     perf     桌面 1440×900、像素比 2（MacBook）：首屏海报与文字出现时间、首次加载字节数、实时画面帧率（S7）
 //     desktop  桌面 1440×900：开场三张、实时画面、拆层五层、作品区交互、样片、方法与页脚、文案、无障碍（S2 S3 S4 S8 S9）
+//              放映台按主会话定的焦点口径验：打开后焦点落在片名上（键盘打开时窗灯金 2px 描边，按计算样式与截图像素双重核对），
+//              Tab 一次进视频控件，Esc 收起、焦点回原格；文案按新口径验：成片“由代码合成出片”，素材来源见案例卡
 //     mobile   手机 390×844：分段截图、横向溢出、字号（S6）
 //     reduced  prefers-reduced-motion: reduce（S5）
 //     nojs     关掉 JavaScript（S4 S5 S8）
@@ -53,9 +55,18 @@ const DATA_COUNTS = { all: 79, styles: 66, 'ppt-stories': 7, 'ppt-keynote': 6, a
 const FORBIDDEN_TERMS = ['RAEA', 'raea', 'Lemo', 'lemo', 'Opuscar', 'opuscar', 'SY100', 'sy-style-100',
   'TREATMENT', 'Treatment', '导演阐述', '处理方案', '风格样片'];
 const FORBIDDEN_DASHES = ['——', '—', '--'];
-// DESIGN.md 第 7 节定稿文案里的数字：页面可见文字里必须能读到
-const FACTS = ['79 部作品', '79 部成片', '1080p', '原生 4K', '10 秒', '0.52 毫秒', 'RTX 5090', '31 秒', '240 帧', 'SSIM 0.973',
+// DESIGN.md 第 7 节定稿文案里的数字：页面可见文字里必须能读到（作品引言里的“79 部成片”归下面的口径检查）
+const FACTS = ['79 部作品', '1080p', '原生 4K', '10 秒', '0.52 毫秒', 'RTX 5090', '31 秒', '240 帧', 'SSIM 0.973',
   '第 137 帧', '86 式', '66 部成片与 20 种方法模板', '10 秒实验已跑通', '每部 18 到 20 秒', '2 到 4 分钟', '20 秒到 3 分钟', '960 宽'];
+// 作品口径（DESIGN.md 第 7 节，主会话定）：成片“由代码合成出片”，素材来源写在案例卡里。
+// 旧说法“每一帧都由代码渲染 / 画出来，不是素材剪辑”言过其实（部分作品用了提案原画、AI 生成的画面与公有领域影像），不能再出现
+const CLAIM = {
+  lede: /^(\d+) 部成片，每一部都由代码合成出片/,      // 作品区引言开头
+  source: /来源写在每部的案例卡里/,                    // 作品区的注
+  old: ['每一帧都由代码渲染', '每一帧都由代码画出来', '不是素材剪辑', '全部由代码逐帧渲染'],
+};
+// 时长标签：20 秒、2 分 51 秒；整分钟写“3 分钟”（只写“3 分”像缺了秒数）；不补零（旧站的“2 分 0051 秒”）
+const DURATION = /^(\d{1,2} 秒|\d{1,2} 分钟|\d{1,2} 分 \d{1,2} 秒)$/;
 const DESK = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
 const MOBILE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
   userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' };
@@ -147,7 +158,9 @@ function staticChecks(dir) {
   check('S1', '构建器完整跑完 7 步（.site-build.json 带 counts，不是 building）', marker && marker.counts && !marker.status,
     marker ? `counts ${JSON.stringify(marker.counts)} · 预览 ${marker.previews} · 字体 ${marker.fonts} · gsap ${marker.gsap}` : '缺少 .site-build.json');
 
-  const files = walk(dir);
+  // --out 放在构建目录里面时（例如 --dir out/r2 --out out/r2/qa），上一次的截图与报告不算产物
+  const own = OUT && OUT.startsWith(dir + path.sep) ? OUT + path.sep : null;
+  const files = walk(dir).filter(f => !own || !f.startsWith(own));
   const missing = [];
   let nRefs = 0;
   const exists = f => { try { fs.statSync(f); return true; } catch { return false; } };   // statSync 会跟随软链接
@@ -414,7 +427,28 @@ function analyzerLib() {
     }
     return out;
   }
-  window.__qa = { put, jpeg, diff, signature, contrast, color, drop: id => { store.delete(id); return true; } };
+  // 焦点描边真的画出来了吗：元素框外侧第 1–8 圈像素里，接近目标色（窗灯金）的占多少。四条边分开算（各边只取中间 70%，
+  // 避开圆角），各取最好的一圈；px 是达到六成的圈数，约等于描边宽度（CSS 像素）。outline 与 box-shadow 画的环都认
+  function ring(id, rect, target, clipW) {
+    const im = store.get(id), s = clipW ? im.w / clipW : 1, [tr, tg, tb] = color(target);
+    const hit = (x, y) => {
+      if (x < 0 || y < 0 || x >= im.w || y >= im.h) return 0;
+      const i = (y * im.w + x) * 4;
+      return Math.abs(im.d[i] - tr) + Math.abs(im.d[i + 1] - tg) + Math.abs(im.d[i + 2] - tb) <= 60 ? 1 : 0;
+    };
+    const L = Math.floor(rect[0] * s), T = Math.floor(rect[1] * s), R = Math.ceil((rect[0] + rect[2]) * s), B = Math.ceil((rect[1] + rect[3]) * s);
+    const line = (a, b, f) => { const m = Math.round((b - a) * 0.15); let n = 0, k = 0; for (let t = a + m; t < b - m; t++) { n++; k += f(t); } return n ? k / n : 0; };
+    const sides = { top: d => line(L, R, x => hit(x, T - 1 - d)), right: d => line(T, B, y => hit(R + d, y)),
+      bottom: d => line(L, R, x => hit(x, B + d)), left: d => line(T, B, y => hit(L - 1 - d, y)) };
+    const out = {};
+    for (const [k, f] of Object.entries(sides)) {
+      const cov = [];
+      for (let d = 0; d < Math.round(8 * s); d++) cov.push(f(d));
+      out[k] = { best: Math.round(Math.max(0, ...cov) * 100) / 100, px: Math.round(cov.filter(c => c >= 0.6).length / s * 10) / 10 };
+    }
+    return out;
+  }
+  window.__qa = { put, jpeg, diff, signature, contrast, ring, color, drop: id => { store.delete(id); return true; } };
 }
 
 let ANALYZER = null;
@@ -612,7 +646,35 @@ function pageLib() {
     for (let n = w.nextNode(); n; n = w.nextNode()) if (!n.parentElement?.closest('script,style,template')) all.push(n.nodeValue);
     const attrs = [];
     for (const el of document.querySelectorAll('[alt],[title],[aria-label],[placeholder]')) for (const a of ['alt', 'title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v) attrs.push(v); }
-    return { meta, visible: document.body.innerText, all: all.join('\n'), attrs };
+    const text = s => (sel(s)?.textContent || '').replace(/\s+/g, ' ').trim();
+    // 署名区块 [data-attribution]：上游项目名只许写在这里（决定 D04）。查代号时去掉它，查破折号时不去掉
+    const blocks = [...document.querySelectorAll('[data-attribution]')];
+    const inAttrib = n => !!(n.nodeType === 1 ? n : n.parentElement)?.closest('[data-attribution]');
+    let visibleT = document.body.innerText;
+    for (const b of blocks) visibleT = visibleT.split(b.innerText).join('');
+    const allT = [];
+    const w2 = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = w2.nextNode(); n; n = w2.nextNode()) if (!n.parentElement?.closest('script,style,template') && !inAttrib(n)) allT.push(n.nodeValue);
+    const attrsT = [];
+    for (const el of document.querySelectorAll('[alt],[title],[aria-label],[placeholder]')) if (!inAttrib(el)) for (const a of ['alt', 'title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v) attrsT.push(v); }
+    return { meta, visible: document.body.innerText, all: all.join('\n'), attrs, visibleT, allT: allT.join('\n'), attrsT,
+      attribBlocks: blocks.map(b => ({ inFooter: !!b.closest('footer'), text: b.innerText.replace(/\s+/g, ' ').trim() })),
+      lede: text('#works .wk-lede'), note: text('#works .wk-note') };
+  }
+  // 当前焦点元素的描边（计算样式）：outline 是不是窗灯金、多宽，box-shadow 里有没有窗灯金的环；元素框给截图比对用
+  function focusStyle() {
+    const a = document.activeElement;
+    if (!a || a === document.body || a === document.documentElement) return null;
+    const probe = document.createElement('i');
+    probe.style.cssText = 'position:absolute;color:var(--lamp)';
+    document.body.appendChild(probe);
+    const lamp = getComputedStyle(probe).color;
+    probe.remove();
+    const cs = getComputedStyle(a), r = a.getBoundingClientRect(), w = parseFloat(cs.outlineWidth) || 0;
+    const on = cs.outlineStyle !== 'none' && w > 0;
+    return { el: describe(a), text: (a.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 16), fv: a.matches(':focus-visible'),
+      outline: on ? `${cs.outlineStyle} ${cs.outlineWidth}` : 'none', width: on ? w : 0, outlineLamp: on && cs.outlineColor === lamp,
+      shadowLamp: cs.boxShadow !== 'none' && cs.boxShadow.includes(lamp), lamp, rect: [r.left, r.top, r.width, r.height] };
   }
   function stepState() {
     const st = window.ScrollTrigger?.getById?.('engine-pin');
@@ -658,7 +720,7 @@ function pageLib() {
     return { complete: i.complete, w: i.naturalWidth, src: (i.currentSrc || i.src).split('/').pop(), opacity: Number(cs.opacity), visibility: cs.visibility };
   };
   const heroCopy = () => [...document.querySelectorAll('.hero-copy > *')].map(e => { const cs = getComputedStyle(e); return Math.round(Number(cs.opacity) * 100) / 100 * (cs.visibility === 'visible' ? 1 : 0); });
-  window.__qp = { describe, textItems, navOverlap, hideText, overflow, fonts, a11y, copy, stepState, pin, works, poster, heroCopy };
+  window.__qp = { describe, textItems, navOverlap, hideText, overflow, fonts, a11y, copy, focusStyle, stepState, pin, works, poster, heroCopy };
 }
 const installLib = page => page.evaluate(pageLib);
 const P = (page, fn, ...args) => page.evaluate(([f, a]) => window.__qp[f](...a), [fn, args]);
@@ -729,6 +791,39 @@ async function contrastAt(page, label, scale = 1) {
   }
   return out;
 }
+
+// 元素框（CSS 像素）四周各留 pad，裁到视口以内；太小（不在视口里）返回 null
+function clipAround(page, [x, y, w, h], pad) {
+  const vp = page.viewportSize();
+  const x0 = Math.max(0, Math.floor(x - pad)), y0 = Math.max(0, Math.floor(y - pad));
+  const x1 = Math.min(vp.width, Math.ceil(x + w + pad)), y1 = Math.min(vp.height, Math.ceil(y + h + pad));
+  return x1 - x0 < 8 || y1 - y0 < 8 ? null : { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+}
+// 焦点描边看不看得见：计算样式（窗灯金实线 outline ≥ 2px，或窗灯金的 box-shadow 环）+ 截图里元素四条边外侧都有窗灯金像素
+// （没被 overflow 裁掉、没被别的层盖住）。返回 { ok, seen, style, …计算样式, px: 四条边的覆盖率与宽度 }
+async function focusRing(page) {
+  // 放映台打开时页面还可能在平滑滚动：等焦点元素的位置连续两次读数一致再截图
+  let st = await P(page, 'focusStyle');
+  for (let i = 0; st && i < 12; i++) {
+    await sleep(120);
+    const again = await P(page, 'focusStyle');
+    const still = again && again.rect.every((v, k) => Math.abs(v - st.rect[k]) < 0.5);
+    st = again;
+    if (still) break;
+  }
+  if (!st) return { ok: false, seen: false, style: false, el: '无焦点' };
+  const [x, y, w, h] = st.rect;
+  const style = (st.outlineLamp && st.width >= 2) || st.shadowLamp;
+  const clip = clipAround(page, st.rect, 12);
+  if (!clip) return { ...st, ok: false, seen: false, style, note: '焦点元素不在视口里' };
+  const id = await putImage(await page.screenshot({ type: 'png', clip }));
+  const px = await A('ring', id, [x - clip.x, y - clip.y, w, h], st.lamp, clip.width);
+  await A('drop', id);
+  const seen = ['top', 'right', 'bottom', 'left'].every(k => px[k].best >= 0.6);
+  return { ...st, px, seen, style, ok: style && seen };
+}
+const ringText = r => (r.px ? `${r.el}「${r.text}」：${r.outline}${r.outlineLamp ? ' 窗灯金' : ''}${r.shadowLamp ? '，box-shadow 窗灯金' : ''}${r.fv ? '，focus-visible' : ''}；` +
+  `截图四边窗灯金 ${['top', 'right', 'bottom', 'left'].map(k => `${{ top: '上', right: '右', bottom: '下', left: '左' }[k]} ${Math.round(r.px[k].best * 100)}%/${r.px[k].px}px`).join(' ')}` : `${r.el}${r.note ? `（${r.note}）` : ''}`);
 
 // ───────────────────────── 场景：perf（S7） ─────────────────────────
 function perfInit() {
@@ -1073,34 +1168,53 @@ async function worksDesktop(page) {
   await sleep(100);
   const early = await tile.evaluate(f => !!f.querySelector('video.wk-hover'));
   await sleep(1700);
-  const hov = await tile.evaluate(f => { const v = f.querySelector('video.wk-hover'); return v ? { cls: f.classList.contains('is-previewing'), muted: v.muted, loop: v.loop, t: Math.round(v.currentTime * 100) / 100, start: Number(f.dataset.start || 0), paused: v.paused, src: v.getAttribute('src').split('/').pop() } : null; });
-  if (hov) METRICS.hoverStart = { server: SERVER_KIND, start: hov.start, t: hov.t, fromPosterFrame: hov.t >= hov.start, note: SERVER_KIND === 'python' ? 'python http.server 不支持 Range，#t= 被忽略，从片头播；GitHub Pages 支持 Range' : '' };
+  // 有悬停短循环（data-hover，构建时从海报那一帧剪好）就该播它；没有才播整部预览（#t= 从海报那一帧起，要服务器支持 Range）
+  const hov = await tile.evaluate(f => {
+    const v = f.querySelector('video.wk-hover');
+    if (!v) return null;
+    const file = (v.getAttribute('src') || '').split('#')[0];
+    return { cls: f.classList.contains('is-previewing'), muted: v.muted, loop: v.loop, t: Math.round(v.currentTime * 100) / 100, start: Number(f.dataset.start || 0),
+      paused: v.paused, src: file.split('/').pop(), clip: f.dataset.hover || '', usesClip: !!f.dataset.hover && file === f.dataset.hover };
+  });
+  if (hov) {
+    METRICS.hoverStart = hov.clip
+      ? { server: SERVER_KIND, mode: hov.usesClip ? 'clip' : 'preview', src: hov.src, start: hov.start, t: hov.t, fromPosterFrame: hov.usesClip,
+        note: hov.usesClip ? '悬停播构建时剪好的短循环：从 previewStart（海报那一帧）起剪，片头就是海报，不依赖 Range' : '有 data-hover 却没播短循环' }
+      : { server: SERVER_KIND, mode: 'preview', src: hov.src, start: hov.start, t: hov.t, fromPosterFrame: hov.start <= 0 || hov.t >= hov.start,
+        note: SERVER_KIND === 'python' && hov.start > 0 ? 'python http.server 不支持 Range，#t= 被忽略，从片头播；GitHub Pages 支持 Range' : '' };
+  }
   await snap(page, 'desk-works-hover', '悬停 1.8 秒：静音循环预览', ['S4']);
   await page.mouse.move(8, 450);
   await sleep(700);
   const left = await tile.evaluate(f => ({ cls: f.classList.contains('is-previewing'), v: !!f.querySelector('video.wk-hover') }));
-  check('S4', '悬停预览：100 ms 时还没加载，180 ms 后静音循环播放，离开即停并移除', !early && hov && hov.cls && hov.muted && hov.loop && !hov.paused && hov.t > 0 && !left.cls && !left.v,
+  check('S4', '悬停预览：100 ms 时还没加载，180 ms 后静音循环播放（有短循环就播短循环），离开即停并移除',
+    !early && hov && hov.cls && hov.muted && hov.loop && !hov.paused && hov.t > 0 && (!hov.clip || hov.usesClip) && !left.cls && !left.v,
     `${JSON.stringify(hov)} → 离开后 ${JSON.stringify(left)}`);
-  // 原地放映
+  // 原地放映（焦点口径，主会话定）：打开后焦点落在 #works-screen 的片名上（键盘打开时窗灯金 2px 描边，下面的键盘检查验），
+  // Tab 一次进视频控件，Esc 收起、焦点回到原来那一格。鼠标点开按全站 :focus-visible 惯例不要求画描边，只记下来
   await tile.locator('.wk-link').click();
   await sleep(1900);
   const scr = await page.evaluate(() => {
-    const s = document.getElementById('works-screen'), v = s?.querySelector('video');
+    const s = document.getElementById('works-screen'), v = s?.querySelector('video'), a = document.activeElement;
     const link = document.querySelectorAll('#works-styles .wk-frame')[2]?.querySelector('.wk-link');
-    return s && v ? { muted: v.muted, paused: v.paused, t: Math.round(v.currentTime * 100) / 100, controls: v.controls, focus: document.activeElement === v,
+    return s && v ? { muted: v.muted, paused: v.paused, t: Math.round(v.currentTime * 100) / 100, controls: v.controls,
+      focus: a && s.contains(a) && a.matches('.wk-screen-title') ? 'title' : a === v ? 'video' : window.__qp.describe(a),
       title: s.querySelector('.wk-screen-title')?.textContent, expanded: link?.getAttribute('aria-expanded'), controlsAttr: link?.getAttribute('aria-controls'),
       after: s.parentElement?.previousElementSibling?.dataset.n } : null;
   });
   await page.mouse.move(8, 450);
+  const cr = scr ? await focusRing(page) : null;
   await snap(page, 'desk-works-screen', '点击第 3 格：在本行行尾原地展开放映台', ['S4']);
-  check('S4', '点击：原地展开放映台（有声、带控件、焦点进视频、aria-expanded / aria-controls 正确）', scr && !scr.muted && !scr.paused && scr.t > 0 && scr.controls && scr.focus &&
-    scr.expanded === 'true' && scr.controlsAttr === 'works-screen', JSON.stringify(scr));
+  check('S4', '点击：原地展开放映台（有声、带控件、焦点落在片名上、aria-expanded / aria-controls 正确）', scr && !scr.muted && !scr.paused && scr.t > 0 && scr.controls &&
+    scr.focus === 'title' && scr.expanded === 'true' && scr.controlsAttr === 'works-screen',
+    `${JSON.stringify(scr)}${cr ? `；鼠标点开的描边（不计入判定）：${cr.seen ? '看得见' : '没画'}，${ringText(cr)}` : ''}`);
   await page.keyboard.press('Escape');
   await sleep(1000);
   const closed = await page.evaluate(() => ({ screen: !!document.getElementById('works-screen')?.isConnected, n: document.activeElement?.closest('.wk-frame')?.dataset.n,
     expanded: document.activeElement?.getAttribute('aria-expanded'), preview: !!document.activeElement?.closest('.wk-frame')?.querySelector('video.wk-hover') }));
   check('S4', 'Esc 收起放映台，焦点回到原来那一格（不顺手起播预览）', !closed.screen && closed.n === '03' && closed.expanded === 'false' && !closed.preview, JSON.stringify(closed));
-  // 键盘：Tab 到第 8 格 → 焦点可见 → Enter 打开 → 焦点在视频 → Esc 关闭回到第 8 格
+  // 键盘（焦点口径）：Tab 到第 8 格（焦点可见）→ Enter 打开，焦点落在 #works-screen 的片名上、窗灯金 2px 描边看得见
+  //   → Tab 一次进视频控件 → Esc 收起，焦点回到第 8 格
   await page.locator('#works-styles .wk-frame').nth(6).locator('.wk-link').focus();
   await page.keyboard.press('Tab');
   await sleep(450);
@@ -1109,12 +1223,29 @@ async function worksDesktop(page) {
   await snap(page, 'desk-works-focus', '键盘焦点落在第 8 格（窗灯金描边）', ['S4', 'S9'], { clip: { x: Math.max(0, fb.x - 30), y: Math.max(0, fb.y - 30), width: fb.width + 60, height: fb.height + 60 } });
   await page.keyboard.press('Enter');
   await sleep(1400);
-  const ko = await page.evaluate(() => ({ open: !!document.getElementById('works-screen')?.isConnected, tag: document.activeElement?.tagName }));
+  const ko = await page.evaluate(() => {
+    const s = document.getElementById('works-screen'), a = document.activeElement;
+    return { open: !!s?.isConnected, title: !!s && !!a && s.contains(a) && a.matches('.wk-screen-title'), el: window.__qp.describe(a) };
+  });
+  const kr = await focusRing(page);
+  const kclip = kr.rect && clipAround(page, kr.rect, 40);
+  if (kclip) await snap(page, 'desk-works-kbd-title', `键盘打开放映台：焦点落在片名「${kr.text}」上（窗灯金 2px 描边）`, ['S4', 'S9'], { clip: kclip });
+  await page.keyboard.press('Tab');
+  await sleep(300);
+  const kv = await page.evaluate(() => {
+    const s = document.getElementById('works-screen'), a = document.activeElement;
+    return { video: !!s && !!a && s.contains(a) && a.tagName === 'VIDEO', el: window.__qp.describe(a), fv: !!a?.matches(':focus-visible') };
+  });
   await page.keyboard.press('Escape');
   await sleep(900);
-  const kc = await page.evaluate(() => ({ open: !!document.getElementById('works-screen')?.isConnected, n: document.activeElement?.closest('.wk-frame')?.dataset.n }));
-  check('S4', '键盘：Tab 焦点可见、Enter 打开且焦点进视频、Esc 关闭焦点回原格', kf.n === '08' && kf.fv && /solid 2px/.test(kf.outline) && ko.open && ko.tag === 'VIDEO' && !kc.open && kc.n === '08',
-    `${JSON.stringify(kf)} → ${JSON.stringify(ko)} → ${JSON.stringify(kc)}`);
+  const kc = await page.evaluate(() => {
+    const a = document.activeElement;
+    return { open: !!document.getElementById('works-screen')?.isConnected, n: a?.closest('.wk-frame')?.dataset.n, expanded: a?.getAttribute('aria-expanded'), fv: !!a?.matches(':focus-visible') };
+  });
+  check('S4', '键盘：Tab 焦点可见；Enter 打开后焦点落在片名上、窗灯金 2px 描边看得见；Tab 一次进视频；Esc 收起、焦点回原格',
+    kf.n === '08' && kf.fv && /solid 2px/.test(kf.outline) && ko.open && ko.title && kr.ok && kv.video && !kc.open && kc.n === '08' && kc.expanded === 'false',
+    `第 ${kf.n} 格 ${kf.outline}${kf.fv ? '（focus-visible）' : ''} → Enter：${ko.open ? '已展开' : '没展开'}，焦点 ${ko.title ? '片名' : ko.el}，描边${kr.ok ? '看得见' : kr.style ? '样式对但截图里看不见' : '没画或不是窗灯金 2px'}（${ringText(kr)}）` +
+    ` → Tab：${kv.video ? '进了视频' : `落在 ${kv.el}`} → Esc：${kc.open ? '没收起' : '已收起'}，焦点第 ${kc.n ?? '?'} 格（aria-expanded ${kc.expanded}）`);
   // 画风家族筛选
   await scrollToSel(page, '#works-styles', 0);
   await sleep(600);
@@ -1161,24 +1292,36 @@ async function worksDesktop(page) {
 // 文案（S8）：可见文字、隐藏文字、alt/title/aria-label、meta 都查
 async function copyChecks(page, label) {
   const c = await P(page, 'copy');
-  const corpora = { 可见文字: c.visible, 全部文字节点: c.all, '替代文字（alt / title / aria-label）': c.attrs.join('\n'), 'meta 与标题': c.meta.join('\n') };
+  // 每项是 [查破折号用的全文, 查代号用的文字（去掉了署名区块）]
+  const corpora = { 可见文字: [c.visible, c.visibleT], 全部文字节点: [c.all, c.allT], '替代文字（alt / title / aria-label）': [c.attrs.join('\n'), c.attrsT.join('\n')], 'meta 与标题': [c.meta.join('\n'), c.meta.join('\n')] };
   const hits = [];
-  for (const [name, text] of Object.entries(corpora)) {
-    for (const t of FORBIDDEN_TERMS) if (text.includes(t)) hits.push(`${name}有「${t}」：${text.slice(Math.max(0, text.indexOf(t) - 12), text.indexOf(t) + 16).replace(/\s+/g, ' ')}`);
+  for (const [name, [text, termText]] of Object.entries(corpora)) {
+    for (const t of FORBIDDEN_TERMS) if (termText.includes(t)) hits.push(`${name}有「${t}」（上游项目名只能写在页脚署名区块里）：${termText.slice(Math.max(0, termText.indexOf(t) - 12), termText.indexOf(t) + 16).replace(/\s+/g, ' ')}`);
     for (const t of FORBIDDEN_DASHES) if (text.includes(t)) hits.push(`${name}有破折号「${t}」：${text.slice(Math.max(0, text.indexOf(t) - 12), text.indexOf(t) + 12).replace(/\s+/g, ' ')}`);
   }
+  const strayAttrib = c.attribBlocks.filter(b => !b.inFooter);
+  check('S8', `${label}：署名区块 [data-attribution] 只在页脚（共 ${c.attribBlocks.length} 处）`, strayAttrib.length === 0, strayAttrib.map(b => b.text.slice(0, 30)).join('；'));
   check('S8', `${label}：可见文字、替代文字与 meta 里没有破折号与内部代号、TREATMENT 等残留`, hits.length === 0, hits.slice(0, 6).join('；'));
+  // 作品口径：引言以“N 部成片，每一部都由代码合成出片”开头，注里写明素材来源见案例卡；旧说法哪里都不能有
+  const lede = CLAIM.lede.exec(c.lede);
+  const ledeN = lede ? Number(lede[1]) : null;
+  const stale = [];
+  for (const [name, text] of Object.entries(corpora)) for (const t of CLAIM.old) if (text.includes(t)) stale.push(`${name}有旧说法「${t}」`);
+  check('S8', `${label}：作品口径：引言写“79 部成片，每一部都由代码合成出片”，注写明素材来源在案例卡里，旧说法（每一帧都由代码渲染、不是素材剪辑）不再出现`,
+    ledeN === DATA_COUNTS.all && CLAIM.source.test(c.note) && stale.length === 0,
+    `引言「${c.lede.slice(0, 40) || '没找到 #works .wk-lede'}」；注${CLAIM.source.test(c.note) ? '写了素材来源' : `没写素材来源：「${c.note.slice(0, 40)}」`}${stale.length ? `；${stale.slice(0, 4).join('；')}` : ''}`);
   const flat = c.visible.replace(/\s+/g, ' ');
   const lost = FACTS.filter(f => !flat.includes(f));
   check('S8', `${label}：DESIGN 第 7 节的数字都在页面上（${FACTS.length} 条）`, lost.length === 0, lost.length ? `缺：${lost.join('，')}` : '');
   const w = await P(page, 'works');
   const groupsOk = w.groups.length === 3 && w.groups.every(g => GROUP_COUNTS[g.key] === g.n && g.label === `${g.n} 部` && (g.toc === '' || g.toc === String(g.n)));
-  check('S8', `${label}：各组实际格数 = 组标题数字 = 目录数字（66 / 7 / 6），合计 79 与引言一致`, groupsOk && w.all === 79 && flat.includes('79 部成片'),
-    w.groups.map(g => `${g.key} ${g.n}（标题 ${g.label}，目录 ${g.toc}）`).join('，'));
+  const ledeCount = /(\d+) 部成片/.exec(c.lede);                 // 只核数字；措辞归上面的口径检查
+  check('S8', `${label}：各组实际格数 = 组标题数字 = 目录数字（66 / 7 / 6），合计 79 与引言一致`, groupsOk && w.all === 79 && !!ledeCount && Number(ledeCount[1]) === w.all,
+    `${w.groups.map(g => `${g.key} ${g.n}（标题 ${g.label}，目录 ${g.toc}）`).join('，')}；引言 ${ledeCount ? ledeCount[1] : '读不出'} 部，实际 ${w.all} 部`);
   const badName = w.names.filter(n => !n || /TREATMENT|Treatment|导演阐述|处理方案|风格样片|\d+\s*秒|^\d+[\s._-]|[A-Za-z]{2,}-\d|_/.test(n));
-  const badDur = w.durs.filter(d => !/^(\d{1,2} 秒|\d{1,2} 分( \d{1,2} 秒)?)$/.test(d) || /\b0\d/.test(d));
-  check('S8', `${label}：作品标题只写片名，时长标签格式正确（20 秒、2 分 51 秒）`, badName.length === 0 && badDur.length === 0,
-    `${badName.length ? `可疑标题：${badName.slice(0, 5).join('，')}；` : ''}${badDur.length ? `可疑时长：${badDur.slice(0, 5).join('，')}` : `时长示例：${[...new Set(w.durs)].slice(0, 6).join('，')}`}`);
+  const badDur = w.durs.filter(d => !DURATION.test(d) || /\b0\d/.test(d));
+  check('S8', `${label}：作品标题只写片名，时长标签格式正确（20 秒、2 分 51 秒、整分钟写 3 分钟）`, badName.length === 0 && badDur.length === 0,
+    `${badName.length ? `可疑标题：${badName.slice(0, 5).join('，')}；` : ''}${badDur.length ? `可疑时长：${badDur.slice(0, 5).join('，')}` : `时长 ${new Set(w.durs).size} 种：${[...new Set(w.durs)].sort((a, b) => a.length - b.length || a.localeCompare(b)).join('，')}`}`);
   const longAlt = w.alts.filter(a => a.length > 40 || !a);
   check('S8', `${label}：作品简介（海报 alt）每条 1 到 40 字`, longAlt.length === 0, longAlt.slice(0, 3).join('；'));
 }
@@ -1414,6 +1557,7 @@ async function main() {
     const args = ['tools/build-showcase.py', '--out', opts.dir, ...(opts.previewsDir ? ['--previews-dir', opts.previewsDir] : [])];
     console.log(`\n[构建] python3 ${args.join(' ')}`);
     const r = spawnSync('python3', args, { cwd: ROOT, encoding: 'utf8' });
+    fs.mkdirSync(OUT, { recursive: true });          // --out 在构建目录里面时，构建器清空目录会把它一起删掉
     fs.writeFileSync(path.join(OUT, 'build.log'), `${r.stdout || ''}${r.stderr || ''}`);
     SCENE = 'build';
     check('S1', '构建器退出码 0', r.status === 0, `退出码 ${r.status}；日志 ${relp(path.join(OUT, 'build.log'))}`);
