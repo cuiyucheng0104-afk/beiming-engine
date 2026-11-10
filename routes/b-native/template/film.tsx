@@ -21,7 +21,10 @@ import film from './film.json';
 import data from './palette.json';
 
 const P = palette(data);
-const [W, H] = film.size, FPS = film.fps, DUR = film.dur;
+// 画幅与帧数：film.json v2 的 output 优先（npm run new 生成的就是 v2），旧写法 size / fps / dur 兜底
+const OUT = film.output ?? {};
+const W = OUT.width ?? film.size[0], H = OUT.height ?? film.size[1], FPS = OUT.fps ?? film.fps;
+const FRAMES = OUT.frameCount ?? Math.round(film.dur * FPS), DUR = FRAMES / FPS;
 const L = layout({ W, H, DUR });
 const CLIP = film.native.models[0].clip.duration;                       // Idle 动作一圈的秒数
 const LAND = film.events.find(e => e.id === 'title').frame / FPS;      // 第一个字落定（与玻璃铃同一时刻）
@@ -53,4 +56,4 @@ function Piece() {
       style={{ left: T.left, top: T.top, fontSize: T.size, letterSpacing: T.letterSpacing, color: P.caption, fontWeight: 500 }} />
   </AbsoluteFill>;
 }
-registerRoot(() => <Composition id="film" component={Piece} width={W} height={H} fps={FPS} durationInFrames={Math.round(DUR * FPS)} />);
+registerRoot(() => <Composition id="film" component={Piece} width={W} height={H} fps={FPS} durationInFrames={FRAMES} />);

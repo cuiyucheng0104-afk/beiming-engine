@@ -4,13 +4,9 @@
   "dur": 4.5,
   "fps": 24,
   "size": [1920, 1080],
-  "events": [
-    { "id": "title", "frame": 30, "visual": "片名第一个字落定（画面先立住一秒多）", "audio": "玻璃铃" }
-  ],
+  "events": [{ "id": "title", "frame": 30, "visual": "片名第一个字落定（画面先立住一秒多）", "audio": "玻璃铃" }],
   "aigc": { "contains": true, "note": "天空与云海底板由 AI 生成后人工整理（assets/plates/plates.json）；浮标、片名与声音由代码合成" },
-  "credits": [
-    { "what": "原生运行时（上游项目名 RAEA）", "license": "FSL-1.1-ALv2", "source": "engine/native/runtime.lock.json" }
-  ],
+  "credits": [{ "what": "原生运行时（上游项目名 RAEA）", "license": "FSL-1.1-ALv2", "source": "engine/native/runtime.lock.json" }],
   "native": {
     "entry": "film.tsx",
     "images": [
@@ -20,7 +16,11 @@
     ],
     "models": [
       {
-        "to": "prop.glb", "module": "prop.js", "export": "createProp", "length": 1.6, "prefix": "prop",
+        "to": "prop.glb",
+        "module": "prop.js",
+        "export": "createProp",
+        "length": 1.6,
+        "prefix": "prop",
         "args": { "period": 3, "colors": { "body": "#E8D9C4", "band": "#C8463C", "cap": "#2A2D52", "lamp": "#FFD9A0" } },
         "clip": { "name": "Idle", "pose": "pose", "duration": 3, "fps": 24, "loop": true },
         "meta": { "forward": "+X", "up": "+Y" },
@@ -29,5 +29,36 @@
     ],
     "sequences": [],
     "audio": { "script": "sound.py", "out": "mix.wav" }
-  }
+  },
+  "next": [
+    {
+      "stage": "build",
+      "title": "准备素材：底板（烘软边）、道具 GLB（Idle 动作）、声音，写 media/prepared.json",
+      "run": ["node", "engine/native/prepare.mjs", "{dir}"],
+      "requires": ["python", "chrome"]
+    },
+    {
+      "stage": "check",
+      "title": "预检：运行时版本与哈希、git 工作树、FFmpeg、素材哈希（不启动 GPU）",
+      "run": ["node", "engine/render/native.mjs", "{dir}", "--check-only"],
+      "env": { "RAEA_BIN": { "describe": "原生运行时可执行文件的完整路径（0.1.0-canary.2，不随仓库分发；node engine/native/runtime.mjs fetch --accept-license 获取）", "required": true } },
+      "requires": ["raea", "ffmpeg"]
+    },
+    {
+      "stage": "look",
+      "title": "先渲三帧草图给用户定画风（look 闸），PNG 在 {dir}/out/<run-id>/stills/",
+      "run": ["node", "engine/render/native.mjs", "{dir}", "--at", "0,{midFrame},{lastFrame}"],
+      "env": { "RAEA_BIN": { "describe": "同上", "required": true } },
+      "requires": ["raea", "gpu"]
+    },
+    {
+      "stage": "final",
+      "title": "出片：原生母版 + 网页版 + 成片检查 + 机器 QA，产物在 {dir}/out/<run-id>/，out/latest 写着最近一次的 run-id",
+      "run": ["node", "engine/render/native.mjs", "{dir}"],
+      "env": { "RAEA_BIN": { "describe": "同上", "required": true } },
+      "requires": ["raea", "gpu", "ffmpeg", "python"],
+      "output": "{dir}/out/latest"
+    },
+    { "stage": "check", "title": "改完后跑仓库规范检查", "run": ["npm", "run", "check:repo"] }
+  ]
 }
