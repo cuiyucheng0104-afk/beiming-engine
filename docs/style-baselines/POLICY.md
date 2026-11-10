@@ -54,6 +54,12 @@
 
 差异几乎都在显示层文字边缘和零星墨线像素上（系统的文字光栅化不同），没有文字的画面只差 1–2 级。beiming-detail 的后期中间层（`dbg=id/edge/…`）还没有跨平台实测，先按自测页的容差；第一次拿到 Windows 或 Linux 的基线时补测并改这一节。
 
+**SwiftShader 自己的重复性**（2026-11-10 本机实测，同一台机器、同一份代码连跑）：
+
+- `ci` 集合 38 帧连跑 3 次，逐像素相同。templates 12 帧连跑 2 次，逐像素相同。
+- **例外：`lab:kun_peng`**。它每次渲染都在鲲鹏轮廓附近有 4–19 个像素随机不同（多数差 1 级，最大差 13 级），6 帧全部如此。同一页面在 Metal 上连跑 3 次逐像素相同。这多半是软件光栅在轮廓像素上的求值顺序不固定，已报给引擎维护包（P13）排查。
+- 影响：同平台容差（差超过 1 级的像素不超过 0.1%）吸收得了，但 `--strict` 会误报。哈希对不上时工具还会去现渲基线提交，要求 CI 是完整克隆。所以 CI 用的 `ci` 集合不含这一页，它由 GPU 平台的 `lab` 集合守。
+
 ## 4. 软件渲染：`--gpu` 策略
 
 | 取值 | 用在哪 | 行为 |
@@ -71,7 +77,7 @@
 | 改了 `engine/`、`src/`、`lab/`、`assets/`、`fonts/`、`index.html` 或路线模版，合入前（像素保护） | `node tools/baseline/golden.mjs compare --set beiming-core,lab,templates --strict` | exit 0；不是 0 就看报告里的热图和接触印 |
 | 想知道是哪个提交改了像素 | `… compare --set <集合> --against <提交>` | 只把那个提交的页面（约 60 MB）导出到临时目录现渲，结束即删，不建 worktree |
 | 另一台机器的画面 | 那台机器 `… capture --set <集合> --out <目录>`，拷过来 `… compare --set <集合> --ref-dir <目录>` | 按跨平台容差 |
-| CI 冒烟（`tests/ci/smoke-render.mjs` 的 golden 阶段，`BEIMING_ANGLE=swiftshader`） | 有 `tests/golden/linux-swiftshader/manifest.json`：`… compare --set beiming-core --set lab --platform linux-swiftshader --json`；没有：同样参数的 `capture`，结果作为工件 `golden-capture` 上传 | compare exit 0 通过、4 像素不一致；capture 写出的是待审批候选，按第 6 节转正 |
+| CI 冒烟（`tests/ci/smoke-render.mjs` 的 golden 阶段，`BEIMING_ANGLE=swiftshader`） | 有 `tests/golden/linux-swiftshader/manifest.json`：`… compare --set ci --platform linux-swiftshader --json`（冒烟脚本现在默认 `--golden-set beiming-core,lab`，建议改成 `ci`，见第 8 节）；没有：同样参数的 `capture`，结果作为工件 `golden-capture` 上传 | compare exit 0 通过、4 像素不一致；capture 写出的是待审批候选，按第 6 节转正 |
 | 新作品出片前、改了带累计状态的镜头 | `node tools/baseline/determinism.mjs films/<名> --seams --workers 4` | exit 0：新页面、乱序、顺序三种渲法逐像素一致 |
 | 《北冥》样片 | `node tools/baseline/determinism.mjs . --seams --workers 4 --cuts 72,120 --random 5 --frames 0,239` | 2026-11-10 实测 18 帧通过，41.7 秒 |
 
@@ -113,6 +119,9 @@
 | beiming-detail | 37 | 两个切点 ±1 帧、声画事件帧、六个关键时刻、无显示层、五个后期中间层 | 约 15 秒 |
 | beiming-original-v1 | 20 | 认可参照 beiming-original@v1 | 约 11–17 秒 |
 | fixtures | 5 | 测试夹具：纯函数画布页、灰阶色卡（截图链路本身是否改色） | 约 2 秒 |
+| ci | 38 | CI 冒烟专用（`linux-swiftshader`），半分辨率 960×520：《北冥》13 个整数帧（三个镜头、切点 72 / 120 ±1、分段边界 60、第 177 帧）、9 个自测页各 2 帧（不含 `lab:kun_peng`）、A / C 模版各 3 帧、灰阶色卡 | SwiftShader 约 77 秒（同机器上 beiming-core + lab 用 SwiftShader 要 471 秒，其中原生 4K 开页加首帧约 3.5 分钟） |
+
+CI 建议只比 `ci` 集合：`compare --set ci --platform linux-swiftshader`。原生 4K、全分辨率与 `lab:kun_peng` 由 GPU 平台的 beiming-core、lab 守。
 
 已有基线：`darwin-metal` 上 beiming-core、lab、templates、beiming-detail 四套（登记提交 abfdc83；11-10 晚在合入 P01/P02/P07/P09/P10/P17 的底座 2a0a0f3 上复核 153/153 逐像素一致，见 [records/2026-11-10-rebase-2a0a0f3.md](records/2026-11-10-rebase-2a0a0f3.md)）。**还没有**：`win-vulkan`（RTX 工作站）、`linux-swiftshader`（CI 首跑采集候选后按第 6 节第 3 条转正）。
 

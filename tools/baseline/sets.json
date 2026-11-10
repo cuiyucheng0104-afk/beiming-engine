@@ -100,6 +100,28 @@
         {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=paper", "times": [7.6]}
       ]
     },
+    "ci": {
+      "description": "CI 冒烟（无显卡，SwiftShader）专用：半分辨率 960×520，《北冥》13 个整数帧（三个镜头、切点 72 / 120 ±1、分段边界 60、红珊瑚那一帧 177）、9 个自测页各 2 帧、A / C 模版各 3 帧、灰阶色卡 1 帧，共 38 帧。不含原生 4K（SwiftShader 下 4K 开页加首帧约 3.5 分钟）；不含 lab:kun_peng（SwiftShader 下它每次渲染轮廓上有 4–19 个像素随机不同，Metal 下逐像素稳定，见 POLICY 第 3 节）。4K、全分辨率与 kun_peng 由 GPU 平台的 beiming-core、lab 守",
+      "tolerance": {
+        "samePlatform": {"maxFracAbove1": 0.001},
+        "crossPlatform": {"ssimMin": 0.98, "psnrMin": 38, "maxFracAbove2": 0.12}
+      },
+      "shots": [
+        {"page": "film", "size": [960, 520], "times": {"frames": [24, 60, 71, 72, 73, 96, 119, 120, 121, 132, 177, 182, 228]}},
+        {"page": "lab:girl", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:hud", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_bronze", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_qinglv", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_qinglv_look", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_refine", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_xuan", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:look", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "tpl:a", "size": [960, 520], "times": {"uniformMid": 3}},
+        {"page": "tpl:c", "size": [960, 540], "times": {"uniformMid": 3}},
+        {"page": "fixture:graycard", "size": [640, 360], "times": [0]}
+      ]
+    },
     "fixtures": {
       "description": "测试夹具（tests/golden 用）：纯函数页与灰阶色卡，几秒内跑完",
       "tolerance": {

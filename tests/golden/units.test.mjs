@@ -91,6 +91,10 @@ test('仓库里的 sets.json 合法，三套金标准帧数与约定一致', () 
   assert.equal(count('lab'), 60);            // 10 页 × 6
   assert.equal(count('templates'), 12);
   assert.equal(count('beiming-original-v1'), 20);   // 认可参照：6 关键时刻 × 2（带 / 不带显示层）+ 3 块 4K 局部 + 5 个后期中间层
+  assert.equal(count('ci'), 38);                    // CI 冒烟：半分辨率、无原生 4K
+  const ci = expandSet(sets, 'ci');
+  assert.ok(ci.every(g => g.size[0] * g.size[1] <= 960 * 540), 'ci 集合不放全分辨率与 4K（SwiftShader 太慢）');
+  assert.ok(!ci.some(g => g.pageId === 'lab:kun_peng'), 'lab:kun_peng 在 SwiftShader 下每次渲染都有几个像素随机不同，不进 ci 集合');
   const core = expandSet(sets, 'beiming-core');
   const t = resolveTimes(core[0].times, 10, 24);
   assert.equal(t[0].t, 0.05); assert.equal(t[39].t, 9.8); assert.equal(t[1].t, 0.3);
