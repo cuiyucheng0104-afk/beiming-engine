@@ -333,13 +333,12 @@ ${sy.map(ROW).join('\n')}
 - SY：执行面 ${tally(sy)}；历史渲染器 ${byRenderer(sy)}
 - 成熟度：${Object.entries(styles.reduce((m, r) => ((m[MATURITY[r.maturity]] = (m[MATURITY[r.maturity]] || 0) + 1), m), {})).map(([k, v]) => `${k} ${v} 式`).join('，')}
 `;
-  const out = {
-    schemaVersion: 1, generatedBy: 'tools/c-styles.mjs',
-    note: '由 node tools/c-styles.mjs 生成，不要手改；字段含义见 routes/c-style/STYLES.md 的"怎么读这张表"',
-    libraries: libs.map(l => ({ ...l, guides: l.guides })),
-    counts, styles: styles.map(s => ({ ...s, surfaceText: undefined })),
-  };
-  return { md, json: JSON.stringify(out, null, 1) + '\n' };
+  // 每式一行（紧凑、改一式只动一行），头部字段照常缩进
+  const head = { schemaVersion: 1, generatedBy: 'tools/c-styles.mjs',
+    note: '由 node tools/c-styles.mjs 生成，不要手改；字段含义见 routes/c-style/STYLES.md 的"怎么读这张表"', libraries: libs, counts };
+  const top = JSON.stringify(head, null, 1).replace(/\n\}$/, '');
+  const rows = styles.map(s => ' ' + JSON.stringify({ ...s, surfaceText: undefined }));
+  return { md, json: `${top},\n "styles": [\n${rows.join(',\n')}\n ]\n}\n` };
 }
 
 // ———————————————————————————— 查候选 ————————————————————————————
