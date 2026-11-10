@@ -1,8 +1,8 @@
 #!/bin/sh
-# {{TITLE}} · 一键出片：关键帧静帧 → 声音 → 逐帧视频 → 音画封装 → ffprobe 核对。产物全在 films/{{NAME}}/out/（不提交）。
-#   sh films/{{NAME}}/build.sh                 按 film.json 的画幅
-#   sh films/{{NAME}}/build.sh --size 3840x2080  原生 4K（构图不变，引擎按高度放大）
-#   PYTHON=/path/to/python sh films/{{NAME}}/build.sh   指定装了 requirements.txt 的 Python
+# 晨渡 · 一键出片：关键帧静帧 → 声音 → 逐帧视频 → 音画封装 → ffprobe 核对。产物全在 films/p12-old/out/（不提交）。
+#   sh films/p12-old/build.sh                 按 film.json 的画幅
+#   sh films/p12-old/build.sh --size 3840x2080  原生 4K（构图不变，引擎按高度放大）
+#   PYTHON=/path/to/python sh films/p12-old/build.sh   指定装了 requirements.txt 的 Python
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
