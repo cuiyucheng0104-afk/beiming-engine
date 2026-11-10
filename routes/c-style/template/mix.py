@@ -6,6 +6,7 @@
       out/score_onsets.json（哪个音对哪个画面打点，cuecheck 读它）。
 声音设计（模版示范的几条，见同目录 README.md "工艺对照"）：
   · 声画同源：笔落定的拍点上一定有一个拨弦起音，cuecheck 逐个核对（偏差 0 ms）；拟音只做"笔在纸上"的质感，不抢音乐
+  · 分寸：拟音比音乐低十来个 LU（听得见笔毛擦纸，又不盖住琴）；拨弦起音带足高次谐波与指甲声，手机外放也不闷
   · 三层：环境（房间底噪）、拟音（笔、印）、音乐（拨弦与泛音）；远山用泛音（轻、远），主峰用低音散音（重、近）
   · 呼吸：题字前那一拍只剩房间底噪（近静默，留底噪免得像掉音），之后的题字与钤印才显得出来
   · 最重要的一声是钤印（B 类：靠前面的安静反衬，不靠最响）：木质闷击 + 纸响 + 一声很轻的铜磬余音
@@ -21,7 +22,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(HERE, '..', '..')))   # 仓库根：engine/ 在这里
 from engine.audio import cues as CU
-from engine.audio.dsp import SR, N, T, rng, bp, lp, hp, fade, pink, place, smoothstep, make_ir, reverb, rms, db
+from engine.audio.dsp import SR, N, T, rng, bp, lp, hp, peq, shelf, fade, pink, place, smoothstep, make_ir, reverb, rms, db
 from engine.audio.synth import glass_tone
 from engine.audio.mixing import loudness_to
 from engine.audio.meter import integrated, true_peak
@@ -37,18 +38,24 @@ HZ = {'D2': 73.42, 'A2': 110.0, 'D3': 146.83, 'E3': 164.81, 'A3': 220.0, 'F#4': 
 
 
 # ———— 乐器 ————
-def pluck(f, d=3.2, amp=1.0, decay=1.6, bright=0.55, slide=0.0, slide_t=(0.10, 0.55)):
-    """拨弦：加法合成，k 次谐波衰减随 k 加快、略带非谐性；起音一小段带通噪声（指甲触弦）；slide 是起音后上滑的半音数（吟）"""
+def pluck(f, d=3.2, amp=1.0, decay=1.6, bright=0.8, slide=0.0, slide_t=(0.10, 0.55)):
+    """拨弦：加法合成，k 次谐波衰减随 k 加快、略带非谐性；起音一小段带通噪声（指甲触弦）；slide 是起音后上滑的半音数（吟）。
+    低音弦的基频只有七八十到一百多赫兹：亮度主要靠起音那一下的高次谐波和指甲声，没有它们，小音箱和手机上就只剩一片闷响"""
     t = T(d)
     ph = 2 * np.pi * np.cumsum(f * 2 ** (slide * smoothstep(slide_t[0], slide_t[1], t) / 12)) / SR
     x = np.zeros_like(t)
-    for k in range(1, 14):
+    for k in range(1, 24):
         inh = np.sqrt(1 + 0.00012 * k * k)
-        if f * k * inh > 9000:
+        if f * k * inh > 8000:
             break
-        x += k ** -1.15 * bright ** (0.35 * (k - 1)) * np.exp(-t / (decay / (1 + 0.55 * (k - 1)))) * np.sin(k * inh * ph + 0.7 * k)
+        x += k ** -1.0 * bright ** (0.3 * (k - 1)) * np.exp(-t / (decay / (1 + 0.45 * (k - 1)))) * np.sin(k * inh * ph + 0.7 * k)
+    # 起音的"亮"：一层只活几十毫秒的高次谐波（弦刚被拨开时的金属感）+ 指甲擦弦的带通噪声
+    for k in range(4, 40):
+        if f * k > 9000:
+            break
+        x += 1.1 * k ** -0.8 * np.exp(-t / 0.08) * np.sin(k * ph * np.sqrt(1 + 0.00012 * k * k) + 1.3 * k)
     x *= smoothstep(0, 0.003, t)
-    nail = bp(R.standard_normal(len(t)), 700, 4200) * np.exp(-t / 0.012) * 0.07
+    nail = bp(R.standard_normal(len(t)), 900, 5200) * np.exp(-t / 0.025) * 0.3
     return (x + nail) * amp
 
 
@@ -87,14 +94,14 @@ def touch(e):
     t = T(0.25)
     tok = lp(R.standard_normal(len(t)), 1400) * np.exp(-t / 0.02) * 0.12 + np.sin(2 * np.pi * 160 * t) * np.exp(-t / 0.05) * 0.18
     place(foley, tok, e['t'], pan=e['pan'])
-    place(music, pluck(HZ['D2'], 3.4, 0.9, decay=2.2, bright=0.45, slide=2), ON.mark(e['t'], e['cue']), pan=e['pan'])
+    place(music, pluck(HZ['D3'], 3.4, 0.8, decay=2.2, bright=0.7, slide=2), ON.mark(e['t'], e['cue']), pan=e['pan'])
 
 
 def stroke(e):
     light = e.get('light', 0)
     x = bristles(e['dur'] + 0.08, bright=1.3 if light else (0.75 if e.get('wet') else 1.0), dry=0.6 if light else 0.3)
     pan = np.linspace(e['pan0'], e['pan1'], len(x))
-    place(foley, x * (0.05 if light else 0.09), e['t'], pan=pan)
+    place(foley, x * (0.26 if light else 0.5), e['t'], pan=pan)
 
 
 def land(e):
@@ -116,7 +123,7 @@ def breathe(e):
 
 
 def write(e):
-    place(foley, bristles(e['dur'] + 0.05, bright=1.35, dry=0.5) * 0.045, e['t'], pan=e['pan'])
+    place(foley, bristles(e['dur'] + 0.05, bright=1.35, dry=0.5) * 0.25, e['t'], pan=e['pan'])
 
 
 def title(e):
@@ -156,6 +163,8 @@ def hush(x):
     return x * g[:, None]
 
 
+# 音乐总线的均衡：低音弦的能量都堆在 150 Hz 以下，手机外放听不见、大音箱又发闷——低频架子削一点，2.8 kHz 附近的"弦味"提一点
+music = shelf(peq(shelf(music, 140, -4.0, 'low'), 2800, 4.0, 0.8), 6000, 2.0, 'high')
 music = hush(reverb(music, make_ir(rt=2.6, pre=0.02, seed=3), wet=0.32))
 foley = hush(reverb(foley, make_ir(rt=0.7, pre=0.006, seed=4), wet=0.12))
 amb = hush(air) + room_tone
