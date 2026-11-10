@@ -1,7 +1,7 @@
 // 卡通着色材质 · 青绿仙山版（引擎三档卡通 + 本变体的钩子；只给 kun_qinglv.js 用）
 // 和 toon.js 的关系：
 //   · 全场共享的 uniform（TOON_SHARED：输出通道、墨线时钟、城市光 / 天空光方向……）直接引用 toon.js 那一份，
-//     所以合成代理用 toon.js 的 setToonGlobals 切通道、调光，这里的材质同步生效（换进正片只改 import）。
+//     所以合成代理用 toon.js 的 setToonGlobals 切通道、调光，这里的材质同步生效（换进正片镜头 C：buildShotC({ makeKun }) 传 kun_qinglv.js 的 createKun，已在镜头 C 里跑通）。
 //   · 物体 ID 从 301 开始编号，避免和 toon.js 的材质撞号。
 // 相比 toon.js：锈斑是固有色乘 rustTint（保住色相）、藻斑量减半；多出来的钩子 / 变量：
 //   fragmentBase      在斑块之前写 diffuseColor.rgb（固有色：石青→石绿渐变等），斑块叠在它上面
@@ -77,6 +77,5 @@ float toonSoftRim = 1.0;        // 钩子可写：边缘光系数
  *   outlineVertex  { head, body, uniforms }：给 look.js 的 ID 图用的同款顶点形变（bindToon 时挂到 mesh.userData）
  */
 export const makeToonMaterial = (opts = {}) => kind.make({ ...TOON_DEFAULTS, ...opts });
-export const makeToonDepthMaterial = kind.depth;
 // 挂材质 + 投影深度材质 + 描边标记（同 toon.js；另把 outlineVertex 挂到 userData 给 look.js 用）
 export const bindToon = kind.bind;
