@@ -2,8 +2,8 @@
   "schemaVersion": 2,
   "id": "shots-fixture",
   "title": "镜头缓存测试片",
-  "route": "a",
-  "backend": "page",
+  "route": "c",
+  "backend": "canvas",
   "output": { "width": 64, "height": 64, "fps": 24, "frameCount": 72 },
   "shots": [
     { "id": "S1", "in": 0, "out": 24, "module": "shots/s1.js", "evaluation": "absolute" },

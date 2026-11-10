@@ -30,7 +30,9 @@ export function planFilmChunks(a, b, { shots = [], chunk = 'auto', fps = 24 } = 
   const out = [];
   let cur = a;
   for (const s of usable) {
-    const lo = Math.max(a, s.in), hi = Math.min(b, s.out);
+    if (s.in >= b) break;                                             // 区间之后的镜头：不再看（空隙也不能补到 b 之后）
+    if (s.out <= cur) continue;                                       // 区间之前的镜头，或与上一个镜头完全重叠
+    const lo = Math.max(cur, s.in), hi = Math.min(b, s.out);         // 与上一个镜头重叠的部分已经切过，不重复
     if (cur < lo) out.push(...planChunks(cur, lo, { chunk, fps }));   // 镜头表没覆盖的空隙
     if (hi > lo) {
       if (s.raw?.evaluation === 'sequential') {

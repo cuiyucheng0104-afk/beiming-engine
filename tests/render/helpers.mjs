@@ -1,7 +1,7 @@
 // tests/render 共用的工具：跑渲染脚本并等它退出（超时就杀整组判失败）、记下它的所有子孙进程以便事后确认没有残留、
 // 跳过条件（没有 FFmpeg / 浏览器）、临时目录、迷你仓库（把 engine/render 复制到临时目录，影片放进去，不碰本仓库）。
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,15 +64,17 @@ export const frames = file => Number(/nb_read_packets=(\d+)/.exec(probe(file, 's
 export const framemd5 = file => execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-map', '0:v:0', '-f', 'framemd5', '-'], { encoding: 'utf8' })
   .split('\n').filter(l => l && !l.startsWith('#')).map(l => l.split(',').pop().trim());
 
+/** 渲染器运行要用到的仓库目录（迷你仓库照这份清单复制）：渲染器自身、命令约定库、FFmpeg 定位、AIGC 标识 */
+export const RENDERER_DIRS = ['engine/render', 'tools/lib', 'tools/env/lib', 'tools/compliance/lib'];
+
 /**
- * 迷你仓库：<临时>/repo/engine/render（复制整个目录）+ node_modules（链接到本仓库的）+ films/<名字>（复制夹具）。
- * 改夹具、建链接都在临时目录里，不碰本仓库。返回 { base, repo, film, script(name) }。
+ * 迷你仓库：<临时>/repo/ 下复制 RENDERER_DIRS + node_modules（链接到本仓库的）+ films/<名字>（复制夹具）。
+ * 改夹具、建链接、写 out/ 都在临时目录里，不碰本仓库。返回 { base, repo, film, script(name) }。
  */
 export function miniRepo(fixture, name = 'film') {
   const base = tmp('beiming-mini-');
   const repo = join(base, 'repo');
-  mkdirSync(join(repo, 'engine'), { recursive: true });
-  cpSync(join(ROOT, 'engine/render'), join(repo, 'engine/render'), { recursive: true });
+  for (const d of RENDERER_DIRS) cpSync(join(ROOT, d), join(repo, d), { recursive: true, filter: s => !/[\\/](node_modules|__pycache__)$/.test(s) });
   symlinkSync(join(ROOT, 'node_modules'), join(repo, 'node_modules'), 'junction');
   const film = join(repo, 'films', name);
   if (fixture) cpSync(join(ROOT, FIX, fixture), film, { recursive: true });
