@@ -66,7 +66,7 @@ const T = createTitle({ text: tTitle.text, font: fontSpec(400, 158 * K, [tTitle.
 const nG = T.glyphs.length, stagger = nG > 1 ? Math.min(8, 12 / (nG - 1)) : 0, dev = 22;   // 字越多错开越小：整行约 1.3 秒显完
 const fFull = fIn + Math.round(stagger * (nG - 1)) + dev;
 const titleP = f => { const h = fIn + hold(f - fIn, 2) * 2; return T.glyphs.map((_, i) => ss(seg(h, fIn + i * stagger, fIn + i * stagger + dev))); };   // 一拍二地洇开
-const subF = fontSpec(300, 26 * K, [tSub.font]), subX = 222 * K, subY = 330 * K + 158 * K * 0.55 + 58 * K, subLs = 0.24 * 26 * K;
+const subF = fontSpec(400, 30 * K, [tSub.font]), subX = 222 * K, subY = 330 * K + 158 * K * 0.55 + 62 * K, subLs = 0.2 * 30 * K;
 const subA = f => ss(seg(f, fFull - 4, fFull + 14));
 function drawText(ctx, f) {
   if (q.has('notext') || f < fIn) return;
@@ -74,8 +74,8 @@ function drawText(ctx, f) {
   const a = subA(f);
   if (a > 0.003) {
     ctx.save(); ctx.font = subF; ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = `${subLs.toFixed(2)}px`;
-    ctx.shadowColor = `rgba(40,36,90,${(0.55 * a).toFixed(3)})`; ctx.shadowBlur = 10 * K;
-    ctx.fillStyle = `rgba(255,248,240,${(0.86 * a).toFixed(3)})`; ctx.fillText(tSub.text, subX, subY);
+    ctx.shadowColor = `rgba(36,30,86,${(0.7 * a).toFixed(3)})`; ctx.shadowBlur = 14 * K;      // 暗晕托底：浅色字压在亮天上也够对比度
+    ctx.fillStyle = `rgba(255,248,240,${(0.94 * a).toFixed(3)})`; ctx.fillText(tSub.text, subX, subY);
     ctx.restore();
   }
 }

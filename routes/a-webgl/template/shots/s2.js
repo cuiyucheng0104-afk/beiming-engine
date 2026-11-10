@@ -47,7 +47,7 @@ export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFram
   // ── 三维：同一组峰与礁（世界位置不变），渡船换到左下中景继续向右（屏幕方向与 S1 一致） ──
   scene.add(buildIslet());
   const water = buildWater(); scene.add(water);
-  const boat = buildBoat(), wake = buildWake(), boatBase = screenToPlane(cam0, DW, DH, 560, 930).clone(); scene.add(boat, wake);
+  const boat = buildBoat(), wake = buildWake(), boatBase = screenToPlane(cam0, DW, DH, 600, 962).clone(); scene.add(boat, wake);
   const lamp = glowSprite(PAL.lamp, { order: 5.5, amt: 1.3, core: 1.8 }); scene.add(lamp);
   const key = keyLight(sun.keyDir(), ISLET.clone().add(new THREE.Vector3(0, 50, 0))); scene.add(key, key.target);
 
@@ -68,7 +68,7 @@ export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFram
     boat.updateMatrixWorld(); lampAt.set(5.2, 2.3, 0).applyMatrix4(boat.matrixWorld);
     billboard(lamp, cam, lampAt, 16, DH);
     const wu = water.material.uniforms;
-    wu.uCam.value.copy(cam.position); wu.uTime.value = t; wu.uSunAz.value = sun.az; wu.uSunUp.value = k;
+    wu.uCam.value.copy(cam.position); wu.uTime.value = t; wu.uSunAz.value = sun.az; wu.uHeld.value = hold(f, 2); wu.uSunUp.value = k;
     setToon({ inkTime: hold(f, 2), keyDir: sun.keyDir().toArray(), fillDir: [0, -1, 0], fillGain: lerp(0.8, 0.62, k), skyGain: 1, exposure: lerp(1, 1.12, k) });
   }
   // 光的剧本：画风登记的 hero → hero-sunrise 两态之间按事件进度插值（allowedOverrides「日出过渡」）

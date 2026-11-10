@@ -23,7 +23,7 @@
   ],
   "fonts": [
     { "family": "BM Title", "source": "ma-shan-zheng" },
-    { "family": "BM Text", "source": "noto-sans-sc", "weight": 300 }
+    { "family": "BM Text", "source": "noto-sans-sc", "weight": 400 }
   ],
   "audio": { "mode": "script", "script": "sound.py", "targetLUFS": -14, "truePeakDbTP": -1.0 },
   "deliveries": ["web-1080p24"],

@@ -55,7 +55,7 @@ export async function build({ shot, fps, DW, DH, preset, sun }) {
     boat.updateMatrixWorld(); lampAt.set(5.2, 2.3, 0).applyMatrix4(boat.matrixWorld);
     billboard(lamp, cam, lampAt, 18, DH);
     const wu = water.material.uniforms;
-    wu.uCam.value.copy(cam.position); wu.uTime.value = t; wu.uSunAz.value = sun.az; wu.uSunUp.value = 0;
+    wu.uCam.value.copy(cam.position); wu.uTime.value = t; wu.uSunAz.value = sun.az; wu.uHeld.value = hold(f, 2); wu.uSunUp.value = 0;
     setToon({ inkTime: hold(f, 2), keyDir: sun.keyDir().toArray(), fillDir: [0, -1, 0], fillGain: 0.8, skyGain: 1, exposure: 1 });
   }
   const P = preset();   // film.json 里本镜头的 lookPreset（beiming-original@v1/wide），不另写一份后期数值

@@ -10,7 +10,9 @@ import * as THREE from 'three';
 import { toonKind, makeToonShared, setToonShared } from '../../engine/shade/toon.js';
 import { patchLayer } from '../../engine/shade/surface.js';
 import { spire } from '../../engine/form/rock.js';
+import { pineTree } from '../../engine/form/plants.js';
 import { boatHull } from '../../engine/form/props.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { canvasLayer } from '../../engine/stage/plates.js';
 import { dirOf, project, placeOnScreen } from '../../engine/stage/camera.js';
 import { mulberry, lerp, DEG } from '../../engine/core/math.js';
@@ -28,6 +30,8 @@ export const PAL = {
   fore: '#232544', foreRim: '#6F74B5',                                  // 前景剪影：全片最暗；挨着天空的边一道冷光
   waterNear: '#353866', waterMid: '#6F6AAB', waterFar: '#DDB0C4',       // 水面：近暗、远亮（倒映地平线的粉）
   hull: '#3A3556', hullShade: '#25223D', canopy: '#2E2B4A', wake: '#E9D9EE',
+  pine: '#4B5A88', pineShade1: '#2F3B66', pineShade2: '#1F2748', trunk: '#3A2F4E',   // 松：比峰再暗一档，剪影在天上一眼可读
+  reflect: '#2E3160',                                                   // 水里的倒影：峰的二影色，比水面暗
   sun: '#FFB26B', sunCore: '#FFF1DA', lamp: '#FFC46B',                  // 强调色：只给太阳与船灯
 };
 
@@ -74,6 +78,14 @@ export const MAT = {
     rimColor: PAL.rockRim, rimAmt: 0.3, rimLitColor: PAL.rockRimLit, rimLitAmt: 0.6, rimLitPower: 0.5, fillColor: PAL.rockFill, fillAmt: 0.3, inkColor: PAL.ink }),
   canopy: kind.make({ color: PAL.canopy, shade1: '#221F38', shade2: '#16142A', step1: 0.6, step2: 0.25, edgeNoise: 0.03, edgeNoiseScale: 0.5,
     rimColor: PAL.rockRim, rimAmt: 0.35, rimLitColor: PAL.rockRimLit, rimLitAmt: 0.7, rimLitPower: 0.55, inkColor: PAL.ink }),
+  // 松：针叶团与干枝两种固有色（几何里的 aPart：0 干枝、1 针叶），其余与山石同一套光
+  pine: kind.make({ color: PAL.pine, shade1: PAL.pineShade1, shade2: PAL.pineShade2, step1: 0.5, step2: 0.2, edgeNoise: 0.06, edgeNoiseScale: 0.8,
+    rimColor: PAL.rockRim, rimAmt: 0.5, rimLitColor: PAL.rockRimLit, rimLitAmt: 0.8, rimLitPower: 0.5, rimLitInside: 0.15,
+    fillColor: PAL.rockFill, fillAmt: 0.35, fillFlat: 0.3, skyAmt: 0.4, inkColor: PAL.ink,
+    uniforms: { uTrunk: { value: new THREE.Color(PAL.trunk) } },
+    vertexPars: 'attribute float aPart;\nvarying float vPart;\n', vertexBegin: 'vPart = aPart;',
+    fragmentPars: 'varying float vPart;\nuniform vec3 uTrunk;\n',
+    fragmentBase: 'diffuseColor.rgb = mix( uTrunk, diffuseColor.rgb, step( 0.5, vPart ) );' }),
 };
 // 日出过渡：受光侧边缘光从晨前的弱亮边推到逆光的亮边（色彩脚本第二段，由 film.json 的日出事件驱动）
 export function sunrise(k) {
@@ -82,24 +94,53 @@ export function sunrise(k) {
 
 const bind = (geo, mat, o) => kind.bind(new THREE.Mesh(geo, mat), mat, o);
 
-// ───────── 三维主体：孤峰 + 伴峰 + 几块礁石（engine/form/rock.js），名义尺寸按米 ─────────
-// 峰高约 130 m：远景里它和渡船（14 m）互为尺度参照（VISUAL-DESIGN §4.1；craft/toon.md A6「太空」）。
+// ───────── 三维主体：一组山水画式的峰（主峰 + 肩峰 + 笋峰，后面一座伴峰）+ 礁石 + 峰顶的松，名义尺寸按米 ─────────
+// 剪影先于着色（craft/toon.md 判据 1）：主客三峰高低错落（132 / 74 / 52 m）、台阶状收分（steps）、各自略斜，
+// 峰顶的松给出「山水」的读法和尺度；峰约 130 m、渡船 14 m、船夫 1.7 m，远景里互为尺度参照（VISUAL-DESIGN §4.1）。
+// PEAKS 同时交给水面算倒影（同一份数字，倒影和峰永远对得上）。
 const R0 = mulberry(20261110);
+export const PEAKS = [
+  { id: 'main', at: [10, -3, -4], H: 132, Rb: 18, lean: [0.06, -0.02], steps: 4, NH: 72, NA: 64, seed: 0.11, mat: 'rock' },
+  { id: 'shoulder', at: [-8, -3, 4], H: 74, Rb: 15, lean: [-0.12, 0.02], steps: 3, NH: 48, NA: 48, seed: 0.19, mat: 'rock' },
+  { id: 'needle', at: [36, -3, 10], H: 54, Rb: 7.5, lean: [0.1, 0.04], steps: 3, NH: 40, NA: 36, seed: 0.33, mat: 'rock' },
+  { id: 'far', at: [-52, -3, -36], H: 84, Rb: 13, lean: [-0.09, 0.03], steps: 3, NH: 48, NA: 48, seed: 0.27, mat: 'rockFar' },
+];
 const GEO = {
-  spire: spire(R0, 132, 18, { steps: 2, lean: [0.06, -0.02], NH: 56, NA: 56, seed: 0.11 }),
-  spire2: spire(R0, 80, 13, { steps: 2, lean: [-0.09, 0.03], NH: 44, NA: 48, seed: 0.27 }),
-  rocks: [[26, 15, -4, 2, 0.35], [-20, 11, 14, 6, 0.52], [44, 9, 8, -14, 0.63], [-62, 8, 4, -38, 0.71]].map(([x, r, h, z, s]) => ({ x, z, g: spire(R0, h, r, { steps: 1, NH: 14, NA: 32, seed: s }) })),
+  peaks: PEAKS.map(p => spire(R0, p.H, p.Rb, { steps: p.steps, lean: p.lean, NH: p.NH, NA: p.NA, seed: p.seed })),
+  rocks: [[26, 15, -4, 2, 0.35], [-24, 11, 14, 8, 0.52], [48, 9, 8, -14, 0.63], [-66, 8, 4, -38, 0.71]].map(([x, r, h, z, s]) => ({ x, z, g: spire(R0, h, r, { steps: 1, NH: 14, NA: 32, seed: s }) })),
+  pines: pines(),
   hull: boatHull(14, 3.4, 1.7, 0.7),
   canopy: new THREE.CylinderGeometry(1.55, 1.55, 6.2, 18, 1, true, -Math.PI / 2, Math.PI).rotateZ(Math.PI / 2).translate(-0.6, 1.35, 0),
+  ferryman: ferryman(),
 };
+// 峰顶（spire 的顶点在 lean × H 处）
+function peakTop(p) { return new THREE.Vector3(p.at[0] + p.lean[0] * p.H, p.at[1] + p.H, p.at[2] + p.lean[1] * p.H); }
+// 松：主峰顶一大一小、肩峰顶一棵、笋峰顶一棵；树形用 engine/form/plants.js 的 pineTree，种子固定
+function pines() {
+  const put = [[0, 15, 0.5, [1.2, 0, -0.8]], [0, 9, 2.2, [-1.6, 0, 1.0]], [1, 11, 1.4, [0.4, 0, 0.6]], [2, 8, 3.1, [0.3, 0, 0.2]]];
+  const geos = put.map(([pi, s, yaw, off], k) => {
+    const g = pineTree(4100 + k * 37), top = peakTop(PEAKS[pi]);
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(top.x + off[0], top.y - 1.6, top.z + off[2]),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0.05 * (k - 1.5), yaw, 0.08 * (k % 2 ? 1 : -1))), new THREE.Vector3(s, s, s));
+    return g.applyMatrix4(m);
+  });
+  return mergeGeometries(geos);
+}
+// 船夫：立在船尾撑篙（身体、头、斗笠、竹篙）。远景里只有十几像素，读的是斗笠的三角和斜篙这两笔
+function ferryman() {
+  const body = new THREE.CylinderGeometry(0.22, 0.34, 1.25, 10).translate(-5.4, 1.0 + 0.62, 0);
+  const head = new THREE.SphereGeometry(0.17, 10, 8).translate(-5.4, 2.42, 0);
+  const hat = new THREE.ConeGeometry(0.55, 0.3, 14).translate(-5.4, 2.66, 0);
+  const pole = new THREE.CylinderGeometry(0.045, 0.045, 7.4, 6).rotateZ(-0.62).translate(-5.4 - 1.9, 1.3, 0.25);
+  return mergeGeometries([body, head, hat, pole].map(g => g.toNonIndexed()));
+}
 // 礁与峰的相对摆位（以礁中心为原点）；两个镜头都把它放到同一个世界位置 ISLET
 export const ISLET = new THREE.Vector3(0, 0, 0);
 export function buildIslet() {
   const g = new THREE.Group();
-  const a = bind(GEO.spire, MAT.rock); a.position.set(10, -3, -4);
-  const b = bind(GEO.spire2, MAT.rockFar); b.position.set(-48, -3, -34);
-  g.add(a, b);
+  PEAKS.forEach((p, i) => { const m = bind(GEO.peaks[i], MAT[p.mat]); m.position.set(...p.at); g.add(m); });
   for (const r of GEO.rocks) { const m = bind(r.g, MAT.rock); m.position.set(r.x, -4, r.z); g.add(m); }   // 礁石半没在水里：峰不像立在托盘上
+  g.add(bind(GEO.pines, MAT.pine));
   g.position.copy(ISLET);
   return g;
 }
@@ -109,7 +150,7 @@ export function buildBoat() {
   const g = new THREE.Group();
   const canopy = bind(GEO.canopy, MAT.canopy);
   canopy.material.side = THREE.DoubleSide;
-  g.add(bind(GEO.hull, MAT.hull), canopy);
+  g.add(bind(GEO.hull, MAT.hull), canopy, bind(GEO.ferryman, MAT.canopy));
   return g;
 }
 // h = 一拍二的拍号（hold(f, 2)）：同一拍内姿态不变；seed 区分两只船
@@ -186,10 +227,16 @@ export function keyLight(dirToSun, target) {
   return L;
 }
 
-// ───────── 水面：真的水平面（y = 0），颜色随距离从近暗到远亮；横向波纹与太阳倒影都在世界坐标里，相机怎么动都对 ─────────
+// ───────── 水面：真的水平面（y = 0），颜色随距离从近暗到远亮；横向波纹、峰的倒影、太阳倒影都在世界坐标里，相机怎么动都对 ─────────
+// 倒影是算出来的，不是贴图：水面一点 P 的反射光线来自「水下镜像相机 → P」的延长线，它在离 P 水平 s·d 处升到 s·h 高
+// （h 相机高、d 相机到 P 的水平距离）；找这条线离每座峰轴线最近的点，按 spire 的收分公式比半径，就知道是不是照到了峰。
+// 倒影的边被横向波纹打断，并且一拍二横抖（uHeld = hold(f, 2)；craft/two-five-d.md §4.1「底板的微动」）。
+const NREF = PEAKS.length;
 const WATER_VS = `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
 const WATER_FS = `
-uniform vec3 uNear, uMid, uFar, uSun, uCam; uniform float uTime, uSunAz, uSunUp, uSeed;
+#define NREF ${NREF}
+uniform vec3 uNear, uMid, uFar, uSun, uCam, uRefCol; uniform float uTime, uSunAz, uSunUp, uSeed, uHeld;
+uniform vec4 uRefA[NREF], uRefB[NREF];   // A = (x, z, 可见高, 底半径)；B = (斜 x, 斜 z, 没入水下的深度, 0)
 varying vec3 vW;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21) + uSeed); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p), u = f * f * (3. - 2. * f);
@@ -205,6 +252,22 @@ void main(){
   float fade = 1. - k * .8;
   col = mix(col, mix(uMid, uFar, k * .8 + .2) * 1.06, lite * .5 * fade);
   col = mix(col, uNear * .92, dark * .28 * fade);
+  // 峰的倒影
+  vec2 u = vW.xz - uCam.xz; float refl = 0.;
+  for (int i = 0; i < NREF; i++) {
+    vec4 A = uRefA[i], B = uRefB[i];
+    float s0 = dot(A.xy - vW.xz, u) / dot(u, u);        // 反射线离峰轴最近处（水平参数）
+    if (s0 <= 0.) continue;
+    float h = (s0 * uCam.y + B.z) / (A.z + B.z);         // 那一点在峰上的高度比例（峰底没入水下 B.z 米）
+    if (h > 1.) continue;
+    vec2 ax = A.xy + B.xy * (A.z + B.z) * h * h;         // spire 的斜：越高越偏
+    float r = A.w * pow(max(0., 1. - pow(h, 1.85)), .6) * 1.06;
+    float wob = (vn(vec2(vW.z * .45 + float(i) * 7.1, uHeld * 3.7)) - .5) * r * (.25 + .5 * (1. - h));
+    float dd = length(vW.xz + s0 * u - ax) + wob;
+    refl = max(refl, 1. - smoothstep(r * .82, r * 1.02, dd));
+  }
+  refl *= (1. - lite * .85) * (1. - smoothstep(.55, 1., k) * .5);
+  col = mix(col, uRefCol, refl * .78);
   // 太阳倒影：方位接近太阳的一条竖带，近宽远窄，碎成横向的闪；日出后才亮（uSunUp 0→1）
   float az = atan(d.x, -d.z);
   float band = exp(-pow((az - uSunAz) / (.004 + .045 * (1. - k)), 2.));
@@ -217,8 +280,10 @@ export function buildWater() {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
       uNear: { value: new THREE.Color(PAL.waterNear) }, uMid: { value: new THREE.Color(PAL.waterMid) }, uFar: { value: new THREE.Color(PAL.waterFar) },
-      uSun: { value: new THREE.Color(PAL.sun) }, uCam: { value: new THREE.Vector3() },
-      uTime: { value: 0 }, uSunAz: { value: 0 }, uSunUp: { value: 0 }, uSeed: { value: 0.37 },
+      uSun: { value: new THREE.Color(PAL.sun) }, uCam: { value: new THREE.Vector3() }, uRefCol: { value: new THREE.Color(PAL.reflect) },
+      uTime: { value: 0 }, uSunAz: { value: 0 }, uSunUp: { value: 0 }, uSeed: { value: 0.37 }, uHeld: { value: 0 },
+      uRefA: { value: PEAKS.map(p => new THREE.Vector4(ISLET.x + p.at[0], ISLET.z + p.at[2], p.H + p.at[1], p.Rb)) },
+      uRefB: { value: PEAKS.map(p => new THREE.Vector4(p.lean[0], p.lean[1], -p.at[1], 0)) },
     },
     vertexShader: WATER_VS, fragmentShader: WATER_FS, toneMapped: false, fog: false,
   });
