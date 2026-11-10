@@ -3,6 +3,7 @@
 //   node tools/run-tests.mjs                       跑全部
 //   node tools/run-tests.mjs --only ci,production  只跑这几个域        --skip render   不跑某个域
 //   node tools/run-tests.mjs --list                只列出会跑什么，不执行
+//   node tools/run-tests.mjs --skip-grep <名字片段>  不跑名字含这段文字的测试（CI 用来隔离已登记的已知问题）
 //   node tools/run-tests.mjs --json                stdout 只输出一个 JSON 对象（附录 C2 信封 + summary、suites）
 //   node tools/run-tests.mjs --help                完整参数
 //
