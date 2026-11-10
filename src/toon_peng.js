@@ -1,7 +1,7 @@
 // 鲲鹏将化 专用卡通材质（三色分档、投影量化、Ap 背光边缘光、城市暖光都用引擎 engine/shade，与 toon.js 相同）
 // 和 toon.js 的区别：
 //   · 共享 uniform 直接用 toon.js 导出的 TOON_SHARED（同一个对象）：正片里 setToonGlobals({ pass, inkTime, … }) 对本材质同样生效，
-//     换进正片只需把 import 从 './kun.js' 改成 './kun_peng.js'
+//     换进正片镜头 C：buildShotC({ makeKun }) 传 kun_peng.js 的 createKun，或把 shotC.js 的 import 从 './kun.js' 改成 './kun_peng.js'
 //   · rest:true 时，物体空间噪声坐标取顶点属性 aRest（CPU 形变的网格用：纹样贴在静止形体上，不随摆动滑动）
 //   · 表面层换成引擎的「壁画风化」muralLayer（敦煌壁画式斑驳）：褪色大斑（向地仗色靠）、干笔飞白小剥落、氧化暗斑、细碎点，
 //     全部是坐标的纯函数；高频部分按屏幕频率自动淡出，远景不闪。没有锈斑 / 藻斑那一层

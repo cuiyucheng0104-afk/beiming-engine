@@ -96,6 +96,5 @@ vec3 toonRimN = vec3( 0.0, 0.0, 1.0 ); float toonRimUse = 0.0;
  */
 export const makeBronzeToon = (opts = {}) => kind.make({ ...BRONZE_DEFAULTS, ...opts });
 // 阴影深度材质：带同样的顶点形变（弯曲、摆动），投影才跟形体对得上
-export const makeBronzeDepth = kind.depth;
 // 挂材质 + 投影深度材质 + 描边标记（与 toon.js 的 bindToon 约定一致）
 export const bindBronze = kind.bind;

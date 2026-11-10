@@ -61,9 +61,11 @@ def midi(p):
 
 # —— 力度：文件名里的力度记号 → 0..1 ——
 _DYN = {'pp': 0.15, 'p': 0.3, 'soft': 0.3, 'mp': 0.45, 'medium': 0.55, 'mf': 0.6, 'f': 0.75, 'loud': 0.8, 'ff': 0.88, 'fff': 1.0}
+_NOTE = re.compile(r'[A-G]#?-?\d')       # 文件名里的音名 token（区分大小写：F4 是音名，f1 是强奏层）
 
 
 def _velocity(tokens):
+    """tokens 是去掉音名之后、转成小写的文件名片段（音名 F2 小写后是 f2，会被误读成 forte，所以调用方要先把它拿掉）"""
     for t in tokens:
         m = re.fullmatch(r'v(\d)', t)
         if m:
@@ -72,6 +74,15 @@ def _velocity(tokens):
         if d and d.group(1) in _DYN:
             return _DYN[d.group(1)] * 10
     return 5
+
+
+def _parse_stem(stem):
+    """文件名（不含扩展名）→ (音名或 None, 力度原值)。音名按原始大小写认出来后从力度解析里排除。"""
+    tokens = re.split(r'[_\s\-]+', stem)
+    k = next((i for i, t in enumerate(tokens) if _NOTE.fullmatch(t)), None)
+    note = tokens[k] if k is not None else None
+    rest = [t.lower() for i, t in enumerate(tokens) if i != k]
+    return note, _velocity(rest)
 
 
 def _zones(inst):
@@ -86,12 +97,10 @@ def _zones(inst):
     zones = []
     for f in files:
         stem = os.path.splitext(os.path.basename(f))[0]
-        tokens = re.split(r'[_\s\-]+', stem)
-        note = next((t for t in tokens if re.fullmatch(r'[A-G]#?-?\d', t)), None)
+        note, vel = _parse_stem(stem)
         if kind != 'hit' and note is None:
             continue
-        zones.append({'file': f, 'stem': stem.lower(), 'midi': midi(note) if note else None,
-                      'vel': _velocity([t.lower() for t in tokens])})
+        zones.append({'file': f, 'stem': stem.lower(), 'midi': midi(note) if note else None, 'vel': vel})
     vs = sorted({z['vel'] for z in zones})
     for z in zones:
         z['vel'] = 0.5 if len(vs) == 1 else vs.index(z['vel']) / (len(vs) - 1)
