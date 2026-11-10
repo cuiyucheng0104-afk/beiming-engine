@@ -7,18 +7,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { usage } from '../lib/exit.mjs';
+import { loadFilm } from '../lib/spec.mjs';
+import { gateStatus, assertFinalAllowed } from '../lib/gates.mjs';
 import { ROOT, rel, sha256File } from '../lib/repo.mjs';
 import { parseFrames, parseTimes } from '../lib/args.mjs';
 import { openSession, closeSession, addOutput } from '../lib/session.mjs';
 import { runSteps } from '../lib/pipeline.mjs';
 import { frameCacheDir, linkOrCopy } from '../lib/cache.mjs';
 import { writeContactSheet } from '../lib/deliver.mjs';
+import { imageSize } from '../lib/media.mjs';
 import { nativeStills, nativeKey, raeaInfo, prepare as nativePrepare } from '../lib/native-steps.mjs';
 import { probe as pageProbe, pageTrees } from '../../../engine/render/build.mjs';
 import { envelope } from '../lib/output.mjs';
 import { fmt } from './build.mjs';
 
 const STILL = path.join(ROOT, 'engine/render/still.mjs');
+const frameSizes = async files => files.map(file => ({ file, ...imageSize(file) }));
 
 const COMMON = {
   '--profile': { type: 'string', arg: '<档位>', help: '交付档位（决定画幅；默认 film.json 的 output.profile）' },
@@ -48,6 +52,7 @@ export const renderSpec = {
     '--frames': stillsSpec.options['--frames'],
     '--shot': { type: 'string', arg: '<镜头 id>', help: '渲整个镜头（按 film.json 的镜头表）' },
     '--clip': { type: 'bool', help: '把连续帧段拼成 range.mp4（看动作用）' },
+    '--final': { type: 'bool', help: '终渲质量：先查 look / animatic 闸（D08），没通过或没有用户豁免时退出码 4；不给帧段时等于 build --final' },
     ...COMMON,
   },
 };
@@ -61,10 +66,11 @@ export const STILLS_HELP = `用法：npm run film -- stills <作品目录> [--fr
 选项：
 ${fmt(stillsSpec.options)}`;
 
-export const RENDER_HELP = `用法：npm run film -- render <作品目录> (--frames a:b[,…] | --shot <镜头 id>) [--clip] [选项]
+export const RENDER_HELP = `用法：npm run film -- render <作品目录> (--frames a:b[,…] | --shot <镜头 id>) [--clip] [--final] [选项]
 只渲指定帧段或镜头（逐帧静帧；A / C 用 engine/render/still.mjs，B 用 native.mjs --at）。帧号从 0 起，a:b 是半开区间（含 a 不含 b），
 与 film.json 的镜头表同口径。已渲过且输入没变的帧直接复用：同一命令跑第二次 0 帧重渲。
 产物：<作品>/out/<run-id>/frames/ frames.json contact.jpg run.json（--clip 时另有 range.mp4）；更新 out/latest-render。
+--final：先查闸门（look → animatic，决定 D08），没有用户通过或用户豁免记录时退出码 4、一帧不渲；不给帧段时等于 build --final（整片终渲）。
 （整片按镜头局部重渲属于渲染器 v2，P04·R4 合入后这里改为转调 video.mjs --shots。）
 
 选项：
@@ -110,10 +116,18 @@ async function renderPageFrames(ctx, frames, cacheDir) {
 
 export async function runFrames(kind, opts, positionals) {
   if (kind === 'stills' && opts.frames && opts.times) throw usage('--frames 与 --times 只能给一个');
-  if (kind === 'render' && !opts.frames && !opts.shot) throw usage('render 要给 --frames <帧段> 或 --shot <镜头 id>', '例：npm run film -- render films/my-film --frames 72:120');
   if (kind === 'render' && opts.frames && opts.shot) throw usage('--frames 与 --shot 只能给一个');
+  // 终渲质量的帧段也要过闸（D08）：先判闸门，拒绝时不建运行目录、一帧不渲
+  let gateBasis = null;
+  if (opts.final) {
+    if (opts.size) throw usage('--final 只按交付档位出帧，不能再用 --size 改画幅', '要别的画幅就换档位：--profile <档位>');
+    const film = loadFilm(positionals[0], { page: opts.page ? path.resolve(opts.page) : null });
+    gateBasis = { checked: true, basis: assertFinalAllowed(film, gateStatus(film)) };
+  }
+  if (kind === 'render' && !opts.frames && !opts.shot) throw usage('render 要给 --frames <帧段> 或 --shot <镜头 id>', '例：npm run film -- render films/my-film --frames 72:120；整片终渲用 npm run film -- build <作品目录> --final');
   const ctx = await openSession({ command: kind, kind, filmArg: positionals[0], opts: { gpu: 'required', ...opts } });
-  let error = null;
+  ctx.gateBasis = gateBasis;
+  let error = null, output = null;
   let frames = [];
   const extra = {};
   try {
@@ -184,9 +198,16 @@ export async function runFrames(kind, opts, positionals) {
     addOutput(ctx, path.join(ctx.run.dir, 'frames.json'), 'frames-manifest');
     if (opts.clip) addOutput(ctx, path.join(ctx.run.dir, 'range.mp4'), 'clip');
     extra.rendered = rendered; extra.reused = frames.length - rendered; extra.frames = frames;
+    // 静帧不是交付件：技术验收就是编排器核对「要的帧都在、画幅对」，证据是 frames.json（逐帧 sha256）
+    const sizes = await frameSizes(list.map(x => path.join(ROOT, x.path)));
+    const off = sizes.filter(s => s.width !== ctx.width || s.height !== ctx.height);
+    if (off.length) ctx.fail(4, 'frames-size', `${off.length} 张帧图的画幅不是 ${ctx.width}×${ctx.height}（例：${rel(off[0].file)} 是 ${off[0].width}×${off[0].height}）`, '看 logs/ 下渲染器的输出');
+    ctx.art.frames = path.join(ctx.run.dir, 'frames.json');
+    ctx.technical = { status: 'passed', evidence: [rel(ctx.art.frames)], by: 'tools/film 帧图核对（帧数齐全、画幅一致、逐帧 sha256；不是交付 QA）', summary: `${frames.length} 帧 ${ctx.width}×${ctx.height}` };
+    output = { path: rel(dest), sha256: sha256File(ctx.art.frames), width: ctx.width, height: ctx.height, fps: ctx.fps, frames: frames.length, kind: `${extra.ext}-sequence` };
     ctx.log(`${kind === 'stills' ? '关键帧' : '帧段'}：${frames.length} 帧，新渲 ${rendered}，复用 ${frames.length - rendered}`);
   } catch (e) { error = e; }
-  const body = await closeSession(ctx, { error, complete: !error, extra: { framesRendered: extra.rendered ?? null, framesReused: extra.reused ?? null } });
+  const body = await closeSession(ctx, { error, complete: !error, output, extra: { framesRendered: extra.rendered ?? null, framesReused: extra.reused ?? null } });
   if (error) { error.runJson = rel(path.join(ctx.run.dir, 'run.json')); error.outputs = ctx.outputs; throw error; }
   return { ctx, body, extra };
 }

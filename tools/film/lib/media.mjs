@@ -6,6 +6,7 @@
 //                                声音直接复制母版的 AAC（不做 AAC→AAC 二次编码，响度与母版一致）
 //   muxSimple({ video, audio, out, duration })   画面逐位复制 + 声音编 AAC 48 kHz 立体声（预演与无声片用；不做响度归一）
 //   clickTrack({ file, frames, fps, marks })     预演用的临时声：事件处短促提示音、切点处高一个八度（纯 Node 生成 16-bit WAV）
+//   encoderInfo(file)            从 H.264 码流里 x264 自报的参数串读出实际编码器与 crf / 预设（写进 run.json 的 actualEncoder；读不到返回 null）
 // FFMPEG / FFPROBE 环境变量可指定可执行文件。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +16,45 @@ export const FFMPEG = () => process.env.FFMPEG || 'ffmpeg';
 export const FFPROBE = () => process.env.FFPROBE || 'ffprobe';
 
 const rate = s => { const [a, b] = String(s || '0/1').split('/').map(Number); return b ? a / b : a; };
+
+// PNG / JPEG 的宽高（只读文件头，不解码）；认不出返回 { width: null, height: null }
+export function imageSize(file) {
+  let b;
+  try { b = fs.readFileSync(file); } catch { return { width: null, height: null }; }
+  if (b.length > 24 && b.readUInt32BE(0) === 0x89504e47) return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
+  if (b.length > 4 && b[0] === 0xff && b[1] === 0xd8) {
+    for (let i = 2; i + 9 < b.length;) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1];
+      if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7) || m === 0xff) { i += m === 0xff ? 1 : 2; continue; }
+      const len = b.readUInt16BE(i + 2);
+      if ((m >= 0xc0 && m <= 0xcf) && ![0xc4, 0xc8, 0xcc].includes(m)) return { width: b.readUInt16BE(i + 7), height: b.readUInt16BE(i + 5) };
+      i += 2 + len;
+    }
+  }
+  return { width: null, height: null };
+}
+
+// x264 在第一个关键帧前写一段 SEI：「x264 - core 164 r3108 … - options: … crf=14.0 …」。只读文件头 4 MB。
+export function encoderInfo(file) {
+  let buf;
+  try {
+    const fd = fs.openSync(file, 'r');
+    try { buf = Buffer.alloc(Math.min(4 << 20, fs.fstatSync(fd).size)); fs.readSync(fd, buf, 0, buf.length, 0); } finally { fs.closeSync(fd); }
+  } catch { return null; }
+  const s = buf.toString('latin1');
+  const i = s.indexOf('x264 - core ');
+  if (i < 0) return null;
+  const sei = s.slice(i, i + 3000).split('\0')[0];
+  const core = /x264 - core (\d+)/.exec(sei)?.[1];
+  const opt = k => new RegExp(`(?:^| )${k}=([^ ]+)`).exec(sei)?.[1];
+  const parts = [`libx264 core ${core}`];
+  if (opt('rc') === 'crf' && opt('crf')) parts.push(`crf ${Number(opt('crf'))}`);
+  else if (opt('rc') && opt('bitrate')) parts.push(`${opt('rc')} ${opt('bitrate')} kb/s`);
+  if (opt('ref')) parts.push(`ref ${opt('ref')}`);
+  if (opt('keyint')) parts.push(`keyint ${opt('keyint')}`);
+  return parts.join(' · ');
+}
 
 export async function probe(exec, file, { count = true } = {}) {
   const a = ['-v', 'error'];

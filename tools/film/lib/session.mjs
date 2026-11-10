@@ -3,13 +3,20 @@
 //   … 跑步骤 …
 //   await closeSession(ctx, { error, complete })   无论成败都调用：结束子进程、还原旧位置、删临时目录、写 run.json、更新 latest、放锁
 // run.json 字段（附录 C8，兼容 engine/production/project.js 的 validateRenderResult）：
-//   schemaVersion 1、kind、final、status（running → failed | blocked | passed；accepted 只由 final 闸的用户认可写入）、
-//   projectId、shotId（整片 film）、route、backend、sourceCommit、dirty、argv、tools{node,playwright,browser,ffmpeg,python?,raea?}、
-//   actualDevice、actualGraphicsBackend、actualEncoder、softwareFallback、profile、output{path,sha256,width,height,fps,frames,pixFmt,color,audio}、
-//   outputs[{path,sha256,kind}]、frameHashes（解码后的逐帧 md5）、timing{步骤: 秒}、steps[]、
-//   technicalAcceptance{status, evidence[]}（只由 QA 判定）、creativeAcceptance{status, reviews[]}、warnings[]、error
+//   schemaVersion 1、kind、final、status、outcome、projectId、shotId（整片 film）、route、backend、sourceCommit、dirty、argv、rerun、
+//   tools{node,playwright,browser,ffmpeg,python?,raea?}、actualDevice、actualGraphicsBackend、actualEncoder、softwareFallback、
+//   profile、expected、output{path,sha256,width,height,fps,frames,pixFmt,color,audio}、outputs[{path,sha256,kind}]、
+//   frameHashes（解码后的逐帧 md5）、timing{步骤: 秒}、steps[]、technicalAcceptance{status, evidence[], by}、
+//   creativeAcceptance{status, reviews[]}、gates、warnings[]、notes[]、error、legacyRestored[]、repoTouched[]
+// status 用 RenderResult 的取值，含义与校验器一致（validateRenderResult）：
+//   passed   技术验收通过：build 由机器 QA 门（P07）判定；stills / render / animatic 不是交付件，由编排器核对规格（帧数、画幅、帧率、音轨）
+//   failed   运行出错，或 QA 硬门不过
+//   blocked  没能完成技术验收：缺环境、作品被占用、用法错误；或画面已出但 QA 没跑（P07 未提供、--no-qa、--to 提前停）
+//   accepted 只由 final 闸的用户认可写入（film review approve final），不由出片命令写
+// outcome 记编排本身的结果：complete（整条链跑完）· partial（--to 提前停）· failed · interrupted
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { EXIT, FilmError, asFilmError } from './exit.mjs';
 import { ROOT, rel, gitInfo, toolVersions, pythonBin, hashTree, hashJson, fileHash, sha256File } from './repo.mjs';
 import { loadFilm, shotsAt, cutsOf } from './spec.mjs';
@@ -18,6 +25,7 @@ import { parseSize } from './args.mjs';
 import { createRunDir, acquireLock, setLatest, writeAtomic } from './rundir.mjs';
 import { exec as rawExec, killAll, isolatedEnv, which } from './proc.mjs';
 import { Legacy } from './legacy.mjs';
+import { supports } from './caps.mjs';
 import * as media from './media.mjs';
 
 let current = null;
@@ -91,6 +99,7 @@ export async function openSession({ command, kind, filmArg, opts }) {
   const audio = opts.audio ? audioOverride(film, opts.audio) : film.audio;
   const outRoot = opts.outRoot ? path.resolve(opts.outRoot) : path.join(film.dir, 'out');
 
+  const repoBefore = repoSnapshot();
   const lock = acquireLock(outRoot, { command, kind }, warnings);
   let run;
   try { run = createRunDir(outRoot); } catch (e) { lock.release(); throw e; }
@@ -101,9 +110,9 @@ export async function openSession({ command, kind, filmArg, opts }) {
 
   const ctx = {
     command, kind, final: !!opts.final, opts, film, profile, width, height, fps, frames, shots, cuts, markFrames, query, audio,
-    outRoot, run, lock, python, tools, git, env, warnings, notes, startedAt: new Date().toISOString(),
-    art: {}, meta: {}, steps: [], timing: {}, qa: null, gpu: null, nativeDevice: null, raea: null, outputs: [],
-    legacy: new Legacy(path.join(run.work, 'legacy-backup')), media, rel, hashTree, hashJson, fileHash,
+    outRoot, run, lock, python, tools, git, env, warnings, notes, startedAt: new Date().toISOString(), repoBefore,
+    art: {}, meta: {}, steps: [], timing: {}, qa: null, technical: null, gpu: null, nativeDevice: null, raea: null, outputs: [],
+    legacy: new Legacy(path.join(run.work, 'legacy-backup')), media, rel, hashTree, hashJson, fileHash, supports,
     log: m => process.stderr.write(`${m}\n`),
     warn: (code, message) => { warnings.push({ code, message }); process.stderr.write(`[警告] ${message}\n`); },
     note: (code, message) => { notes.push({ code, message }); },
@@ -158,31 +167,53 @@ async function preflight(ctx) {
 }
 
 const STATUS_FOR_EXIT = code => (code === EXIT.ENV || code === EXIT.BUSY || code === EXIT.USAGE ? 'blocked' : 'failed');
+const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|basic render|\bwarp\b/i;
+
+// 技术验收：build 取机器 QA 门的结论；其余类别由命令自己核对后写进 ctx.technical
+function technicalOf(ctx) {
+  if (ctx.technical) return ctx.technical;
+  const qa = ctx.qa;
+  if (qa && qa.status !== 'not-run') {
+    return { status: qa.status === 'passed' ? 'passed' : 'failed', evidence: qa.reportPath ? [rel(qa.reportPath)] : [], by: 'tools/qa/cli.mjs delivery（机器 QA 门）', summary: qa.message, failed: qa.failed || [] };
+  }
+  return { status: 'not-run', evidence: [], by: null, summary: qa?.message || null };
+}
+
+// 实际编码器：页面型取逐帧视频里 x264 自报的参数，封装时若重编码再接上封装的编码器；原生取运行时日志
+function encoderOf(ctx) {
+  if (ctx.film.route === 'b') return ctx.nativeDevice?.encoder || null;
+  if (ctx.kind === 'stills' || ctx.kind === 'render') return ctx.art.frames ? 'JPEG q92（engine/render/still.mjs 截图）' : null;
+  const v = ctx.meta.video?.encoder;
+  if (!v) return null;
+  const mux = ctx.meta.mux;
+  if (!mux || ctx.kind === 'animatic') return `${v}（engine/render/video.mjs）`;
+  return mux.videoCopied ? `${v}（engine/render/video.mjs；封装时画面逐位复制）` : `${v}（video.mjs）→ ${mux.encoder || 'libx264'}（封装时重编码）`;
+}
+
+// 复现命令：从仓库根照抄就能重跑（POSIX 单引号；PowerShell 下单引号同样是字面量）
+const quote = a => (/^[\w@%+=:,./-]+$/.test(a) ? a : `'${String(a).replace(/'/g, `'\\''`)}'`);
+export const rerunCommand = (argv = process.argv.slice(2)) => ['node', 'tools/film/cli.mjs', ...argv].map(quote).join(' ');
 
 export function runJsonBody(ctx, extra = {}) {
   const gpu = parseGpu(ctx.gpu && !ctx.nativeDevice ? ctx.gpu : null);
   const nd = ctx.nativeDevice;
   const device = nd ? nd.device : gpu.device;
   const backend = nd ? nd.backend : gpu.backend;
-  const qa = ctx.qa;
-  const technical = qa && qa.status !== 'not-run'
-    ? { status: qa.status === 'passed' ? 'passed' : 'failed', evidence: qa.reportPath ? [rel(qa.reportPath)] : [], summary: qa.message, failed: qa.failed || [] }
-    : { status: 'not-run', evidence: [], summary: qa?.message || null };
   return {
-    schemaVersion: 1, kind: ctx.kind, final: ctx.final, status: 'running',
+    schemaVersion: 1, kind: ctx.kind, final: ctx.final, status: 'running', outcome: 'running',
     projectId: ctx.film.id, shotId: ctx.kind === 'render' && ctx.renderScope ? ctx.renderScope : 'film', route: ctx.film.route, backend: ctx.film.backend,
     title: ctx.film.title, film: ctx.film.relDir, runId: ctx.run.id, runDir: rel(ctx.run.dir), command: `film ${ctx.command}`,
     startedAt: ctx.startedAt, finishedAt: null,
-    sourceCommit: ctx.git.commit, dirty: ctx.git.dirty, argv: process.argv.slice(2),
+    sourceCommit: ctx.git.commit, dirty: ctx.git.dirty, argv: process.argv.slice(2), rerun: rerunCommand(),
     tools: { ...ctx.tools, ...(ctx.raea ? { raea: ctx.raea.version } : {}) },
     actualDevice: device || null, actualGraphicsBackend: backend || null,
-    actualEncoder: ctx.film.route === 'b' ? (nd?.encoder || null) : ctx.art.video ? 'libx264（video.mjs crf 14）' + (ctx.art.master && ctx.meta.mux?.muxer?.includes('mux.sh') ? ' → libx264（mux.sh crf 19）' : '') : null,
-    softwareFallback: /swiftshader|llvmpipe|software/i.test(String(ctx.gpu || '')),
+    actualEncoder: encoderOf(ctx),
+    softwareFallback: SOFTWARE.test(String(ctx.gpu || '')),
     profile: { id: ctx.profile.id, source: ctx.profile.source, width: ctx.width, height: ctx.height, fps: ctx.fps, lufs: ctx.profile.lufs, lufsTol: ctx.profile.lufsTol, truePeak: ctx.profile.truePeak, ...(ctx.profile.sizeOverride ? { sizeOverride: true } : {}), ...(ctx.profile.custom ? { custom: true, base: ctx.profile.base } : {}) },
     expected: { frames: ctx.frames, width: ctx.width, height: ctx.height, fps: ctx.fps, shots: ctx.shots.filter(s => !s.implicit).map(s => ({ id: s.id, in: s.in, out: s.out })), cuts: ctx.cuts },
     output: null, outputs: ctx.outputs, frameHashes: [], frameHashKind: null,
     timing: ctx.timing, steps: ctx.steps,
-    technicalAcceptance: technical,
+    technicalAcceptance: technicalOf(ctx),
     creativeAcceptance: { status: 'not-reviewed', events: [], styleComparison: [], issues: [], reviews: [] },
     gates: ctx.gateBasis || null,
     warnings: ctx.warnings, notes: ctx.notes, error: null,
@@ -203,8 +234,40 @@ export function addOutput(ctx, file, kind) {
   ctx.outputs.push({ path: r, sha256: sha256File(file), kind });
 }
 
+// 仓库卫生：运行前后各取一次 git status（含未跟踪文件），运行期间作品目录以外多出来的改动写进警告。
+// 只报告、不还原：同一检出里可能有别人在改（还原会毁掉别人的工作）。不是 git 检出时返回 null。
+function repoSnapshot() {
+  try {
+    const out = execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { cwd: ROOT, encoding: 'utf8', timeout: 20000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'ignore'] });
+    return new Set(out.split('\0').filter(Boolean));
+  } catch { return null; }
+}
+
+function repoTouched(ctx) {
+  if (!ctx.repoBefore) return [];
+  const after = repoSnapshot();
+  if (!after) return [];
+  const mine = [ctx.film.dir, ctx.outRoot].map(d => rel(d).replace(/\/?$/, '/'));
+  const out = [];
+  for (const line of after) {
+    if (ctx.repoBefore.has(line)) continue;
+    const file = line.slice(3);
+    if (!file || mine.some(m => (file + (file.endsWith('/') ? '' : '/')).startsWith(m) || file.startsWith(m))) continue;
+    out.push({ path: file, state: line.slice(0, 2).trim() || '?' });
+  }
+  return out;
+}
+
+// RenderResult 的 status（见文件开头）：出错按退出码；跑完时看技术验收
+function statusOf(ctx, fe, outcome) {
+  if (fe) return STATUS_FOR_EXIT(fe.exitCode);
+  const t = technicalOf(ctx).status;
+  if (t === 'failed') return 'failed';
+  return outcome === 'complete' && t === 'passed' ? 'passed' : 'blocked';
+}
+
 // 结束一次运行：无论成败都走这里
-export async function closeSession(ctx, { error = null, complete = false, status = null, output = null, frameHashes = null, extra = {} } = {}) {
+export async function closeSession(ctx, { error = null, complete = false, output = null, frameHashes = null, extra = {} } = {}) {
   if (ctx.closed) return ctx.closed;
   ctx.closed = (async () => {
     const fe = error ? asFilmError(error) : null;
@@ -212,14 +275,17 @@ export async function closeSession(ctx, { error = null, complete = false, status
     const restored = ctx.legacy.restore();
     const restoredRel = restored.map(r => ({ path: rel(r.path), action: r.action }));
     for (const d of [ctx.run.tmp, path.join(ctx.run.work, 'legacy-backup')]) fs.rmSync(d, { recursive: true, force: true });
-    const st = fe ? STATUS_FOR_EXIT(fe.exitCode) : (status || 'passed');
+    const outcome = fe ? (fe.exitCode === EXIT.SIGINT || fe.exitCode === EXIT.SIGTERM ? 'interrupted' : 'failed') : complete ? 'complete' : 'partial';
+    const st = statusOf(ctx, fe, outcome);
+    const touched = repoTouched(ctx);
+    if (touched.length) ctx.warn('repo-touched', `运行期间作品目录以外多了 ${touched.length} 处改动（${touched.slice(0, 4).map(t => `${t.state} ${t.path}`).join('、')}${touched.length > 4 ? ' …' : ''}）：不是本次出片该写的地方，确认是谁改的`);
     const body = runJsonBody(ctx, {
-      status: st, finishedAt: new Date().toISOString(), output, frameHashes: frameHashes || [], frameHashKind: frameHashes?.length ? `decoded-md5:${output?.path || ''}` : null,
+      status: st, outcome, finishedAt: new Date().toISOString(), output, frameHashes: frameHashes || [], frameHashKind: frameHashes?.length ? `decoded-md5:${output?.path || ''}` : null,
       error: fe ? { code: fe.code, message: fe.message, hint: fe.hint || null, exitCode: fe.exitCode, step: ctx.currentStep || null } : null,
-      legacyRestored: restoredRel, ...extra,
+      legacyRestored: restoredRel, repoTouched: touched, ...extra,
     });
     try { writeAtomic(path.join(ctx.run.dir, 'run.json'), JSON.stringify(body, null, 2) + '\n'); } catch { /* 磁盘满等极端情况 */ }
-    if (!fe && complete && st !== 'failed') setLatest(ctx.outRoot, ctx.kind, ctx.run.id);
+    if (outcome === 'complete' && st !== 'failed') setLatest(ctx.outRoot, ctx.kind, ctx.run.id);
     ctx.lock.release();
     if (current === ctx) current = null;
     return body;

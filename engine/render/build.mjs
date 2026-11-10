@@ -24,13 +24,15 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
 const R = p => path.join(HERE, p);
 
-// 页面依赖的源码：作品目录（不含产物）+ 页面常用的共享目录；页面目录不是作品目录时（《北冥》样片在仓库根）再加页面源码
+// 页面依赖的源码：作品目录（不含产物）+ 页面常用的共享目录；页面目录不是作品目录时（《北冥》样片在仓库根）再加页面源码。
+// engine/ 里只算页面会 import 的层：render（渲染器本身另按文件哈希）、audio（Python 声音库）、native（B 路线）、production（Node 侧校验）不进画面
 const SHARED_TREES = ['engine', 'fonts', 'assets', 'src'];
+const ENGINE_NOT_PAGE = ['render', 'audio', 'native', 'production'];
 const FILM_EXCLUDE = ['out', 'media', 'review', 'events.json', 'timeline.json'];
 const PAGE_EXCLUDE = ['node_modules', 'cases', 'out', 'films', 'docs', 'media', 'site', 'tests', 'tools', 'examples', 'routes', 'audio', 'lab', '.github', '.claude', 'engine', 'fonts', 'assets', 'src'];
 export function pageTrees(ctx) {
   const t = { film: ctx.hashTree(ctx.film.dir, { exclude: FILM_EXCLUDE }) };
-  for (const d of SHARED_TREES) t[d] = ctx.hashTree(path.join(ROOT, d));
+  for (const d of SHARED_TREES) t[d] = ctx.hashTree(path.join(ROOT, d), d === 'engine' ? { exclude: ENGINE_NOT_PAGE } : {});
   if (path.resolve(ctx.film.pageDir) !== path.resolve(ctx.film.dir)) t.page = ctx.hashTree(ctx.film.pageDir, { exclude: PAGE_EXCLUDE });
   try { t.three = JSON.parse(fs.readFileSync(path.join(ROOT, 'node_modules/three/package.json'), 'utf8')).version; } catch { t.three = null; }
   return t;
@@ -56,18 +58,24 @@ export const probe = {
     const want = ctx.frames, got = Math.round(p.dur * ctx.fps);
     if (got !== want) ctx.fail(4, 'page-frames', `页面 DUR = ${p.dur} 秒，按 ${ctx.fps} fps 是 ${got} 帧，作品描述要求 ${want} 帧`, '改页面的时长或 film.json 的帧数，让两者一致（时间只有一个来源）');
     if (Math.abs(p.dur * ctx.fps - got) > 1e-6) ctx.warn('page-dur-fractional', `页面 DUR × fps = ${(p.dur * ctx.fps).toFixed(4)}，不是整数帧`);
-    if (p.fps && p.fps !== ctx.fps) {
-      const msg = `页面自报 ${p.fps} fps（window.FPS 或 TIMELINE.fps），本次按 ${ctx.fps} fps 渲：一拍二 / 一拍三与节拍网格会错位`;
-      if (ctx.final) ctx.fail(4, 'page-fps', msg, '终渲前让页面读档位帧率（P04 注入 window.__RENDER 后）或换与页面一致的档位');
-      ctx.warn('page-fps', msg);
+    // 页面帧率：video.mjs 按 window.FPS 量化一拍二 / 一拍三（没声明按 24）。与档位帧率不同时节奏会抖：终渲拒绝，工作版告警后加 --any-fps
+    const pageRate = p.renderFps ?? p.fpsDeclared ?? 24;
+    ctx.anyFps = false;
+    if (pageRate !== ctx.fps) {
+      const whose = p.fpsDeclared ? `页面声明 window.FPS = ${p.fpsDeclared}` : '页面没有声明 window.FPS（按引擎默认 24 fps 量化）';
+      const msg = `${whose}，档位 ${ctx.profile.id} 要 ${ctx.fps} fps：一拍二 / 一拍三与节拍网格会错位`;
+      if (ctx.final) ctx.fail(4, 'page-fps', msg, `终渲前让页面按 ${ctx.fps} fps 编写并声明 window.FPS = ${ctx.fps}，或换与页面一致的档位（--profile）`);
+      ctx.warn('page-fps', `${msg}（工作版照出，按 --any-fps 渲染）`);
+      ctx.anyFps = true;
     }
+    if (p.timelineFps && p.timelineFps !== ctx.fps) ctx.warn('timeline-fps', `页面时间轴 TIMELINE.fps = ${p.timelineFps}，渲染按 ${ctx.fps} fps：拍点网格按别的帧率算过，声画打点可能差半帧`);
     if (p.software) {
       const msg = `WebGL 落到了软件渲染（${String(p.gpu).slice(0, 80)}）：每帧慢 5–15 倍，像素也与硬件渲染不同`;
       if (ctx.opts.gpu === 'required') ctx.fail(3, 'software-render', msg, 'macOS 设 BEIMING_ANGLE=metal、Windows / Linux RTX 设 BEIMING_ANGLE=vulkan；只在 CI 冒烟时加 --gpu software-ok');
       ctx.warn('software-render', msg);
     }
     if (!p.hasTexts) ctx.warn('no-texts', '页面没有 window.TEXTS(t)：文字安全区、停留时长与缺字检查无从做起（附录 C5 推荐提供）');
-    return { dur: p.dur, gpu: p.gpu, software: p.software, evCount: p.evCount, hasTimeline: p.hasTimeline, hasTexts: p.hasTexts, pageFps: p.fps, title: p.title };
+    return { dur: p.dur, gpu: p.gpu, software: p.software, evCount: p.evCount, hasTimeline: p.hasTimeline, hasTexts: p.hasTexts, pageFps: pageRate, fpsDeclared: p.fpsDeclared ?? null, timelineFps: p.timelineFps ?? null, anyFps: ctx.anyFps, title: p.title };
   },
 };
 
@@ -168,9 +176,10 @@ const cuecheck = {
 const video = {
   id: 'video', title: '逐帧渲染（engine/render/video.mjs）',
   key: ctx => ctx.hashJson({
-    step: 'video@1', trees: pageTrees(ctx), size: sizeArg(ctx), fps: ctx.fps, workers: ctx.opts.workers, query: ctx.query || '',
-    renderer: ['page.mjs', 'video.mjs'].map(f => ctx.fileHash(R(f))), playwright: ctx.tools.playwright, browser: ctx.tools.browser,
+    step: 'video@2', trees: pageTrees(ctx), args: videoArgs(ctx),
+    renderer: ['page.mjs', 'video.mjs', 'args.mjs'].map(f => (fs.existsSync(R(f)) ? ctx.fileHash(R(f)) : null)), playwright: ctx.tools.playwright, browser: ctx.tools.browser,
     angle: process.env.BEIMING_ANGLE || null, chrome: process.env.BEIMING_CHROME || null, platform: `${process.platform}-${process.arch}`,
+    frameTimeout: process.env.BEIMING_FRAME_TIMEOUT || null,
   }),
   outputs: () => ({ video: 'work/video.mp4' }),
   restored: (ctx, meta) => { ctx.gpu = meta.gpu || ctx.gpu; },
@@ -180,7 +189,7 @@ const video = {
     const timeoutSec = ctx.opts.timeout || Math.round(240 + per * (ctx.opts.gpu === 'required' ? 6 : 12));
     let r;
     try {
-      r = await ctx.exec(process.execPath, [R('video.mjs'), ctx.film.pageDir, '--size', sizeArg(ctx), '--fps', String(ctx.fps), '--workers', String(ctx.opts.workers), ...queryArgs(ctx), '--out', out],
+      r = await ctx.exec(process.execPath, [R('video.mjs'), ctx.film.pageDir, ...videoArgs(ctx), '--out', out],
         { label: '逐帧渲染（video.mjs）', timeoutSec, stallSec: ctx.opts.stall || 300 });
     } finally {
       // video.mjs 在部分失败路径上会留下 .segs-*（加固计划 TOOLS-08）：段目录只会出现在输出旁，这里统一扫掉
@@ -194,20 +203,36 @@ const video = {
     if (Math.abs(info.fps - ctx.fps) > 1e-6) bad.push(`帧率 ${info.fpsRaw}（应为 ${ctx.fps}）`);
     if (bad.length) ctx.fail(4, 'video-contract', `逐帧视频与作品描述不符：${bad.join('、')}`, '多半是页面 DUR 与 film.json 不一致，或渲染中途丢帧；看 logs/video.log');
     ctx.gpu = gpu;
-    return { gpu, workers: ctx.opts.workers, frames: info.frames, color: info.color, pixFmt: info.pixFmt };
+    return { gpu, workers: ctx.opts.workers, frames: info.frames, color: info.color, pixFmt: info.pixFmt, encoder: ctx.media.encoderInfo(out), args: videoArgs(ctx) };
   },
 };
+
+// 传给 video.mjs 的参数：画幅、帧率、路数、查询串；页面帧率与档位不同的工作版加 --any-fps。
+// 渲染器 v2（P04）认 --gpu / --profile 时一并传（看 video.mjs 的用法文字，不写死版本）。
+function videoArgs(ctx) {
+  const a = ['--size', sizeArg(ctx), '--fps', String(ctx.fps), '--workers', String(ctx.opts.workers), ...queryArgs(ctx)];
+  if (ctx.anyFps) a.push('--any-fps');
+  if (ctx.supports('video.mjs', '--gpu')) a.push('--gpu', ctx.opts.gpu);
+  if (ctx.supports('video.mjs', '--profile') && !ctx.profile.custom) a.push('--profile', ctx.profile.id);
+  return a;
+}
 
 const mux = {
   id: 'mux', title: '音画封装（engine/render/mux.sh）',
   key: ctx => ctx.hashJson({
-    step: 'mux@1', video: ctx.fileHash(ctx.art.video), mix: ctx.art.mix ? ctx.fileHash(ctx.art.mix) : null, fps: ctx.fps,
+    step: 'mux@2', video: ctx.fileHash(ctx.art.video), mix: ctx.art.mix ? ctx.fileHash(ctx.art.mix) : null, fps: ctx.fps,
     muxer: ctx.fileHash(R('mux.sh')), ffmpeg: ctx.tools.ffmpeg,
   }),
   outputs: () => ({ master: 'master.mp4' }),
   async run(ctx) {
     const out = path.join(ctx.run.dir, 'master.mp4'), tmp = path.join(ctx.run.work, 'master.partial.mp4');
-    let loud = null;
+    let loud = null, copied = true;
+    // mux.sh 的响度目标固定为 −14 LUFS / 真峰值 −1.2 dBTP；档位要别的目标（broadcast −23）时它做不到，等 P04·R3 的 mux.mjs
+    if (ctx.art.mix && Number.isFinite(ctx.profile.lufs) && Math.abs(ctx.profile.lufs - MUX_SH_LUFS) > 0.05) {
+      const msg = `档位 ${ctx.profile.id} 要 ${ctx.profile.lufs} LUFS，engine/render/mux.sh 只会归一到 ${MUX_SH_LUFS} LUFS`;
+      if (ctx.final) ctx.fail(4, 'mux-loudness-target', msg, '换 −14 LUFS 的档位出片，或等渲染器 v2 的 mux.mjs（P04·R3）按档位归一');
+      ctx.warn('mux-loudness-target', `${msg}：工作版照出，QA 的响度项会判不过`);
+    }
     try {
       if (!ctx.art.mix) {
         ctx.warn('silent-film', '没有声音：母版里放一条静音 AAC（48 kHz 立体声），响度检查应按无声片处理');
@@ -216,12 +241,14 @@ const mux = {
         const r = await ctx.exec('sh', [R('mux.sh'), ctx.art.video, ctx.art.mix, tmp, String(ctx.fps), '0'], { label: '音画封装（mux.sh）', timeoutSec: ctx.opts.timeout || 1800, stallSec: 600 });
         const I = /I:\s*(-?[\d.]+)\s*LUFS/.exec(r.stdout), P = /Peak:\s*(-?[\d.]+)\s*dBFS/.exec(r.stdout);
         loud = { integratedLUFS: I ? Number(I[1]) : null, truePeakDbTP: P ? Number(P[1]) : null, by: 'mux.sh 末尾的 ebur128 摘要' };
+        copied = /直接拷贝/.test(r.stdout);
       }
       fs.renameSync(tmp, out);
     } finally { fs.rmSync(tmp, { force: true }); }
-    return { loudness: loud, muxer: ctx.art.mix ? 'engine/render/mux.sh' : 'ffmpeg 复制画面 + 静音 AAC' };
+    return { loudness: loud, muxer: ctx.art.mix ? 'engine/render/mux.sh' : 'ffmpeg 复制画面 + 静音 AAC', videoCopied: copied, encoder: ctx.media.encoderInfo(out) };
   },
 };
+const MUX_SH_LUFS = -14;
 
 // 预演：不经 mux.sh（不重编码画面、不做响度归一）；声音用作品混音，没有就按事件与切点生成提示音
 const preview = {

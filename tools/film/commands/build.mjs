@@ -111,7 +111,7 @@ export async function runBuild(kind, opts, positionals, command = kind) {
 
   const ctx = await openSession({ command, kind, filmArg: positionals[0], opts: { workers: 4, gpu: 'required', ...opts } });
   ctx.gateBasis = gateBasis;
-  let error = null, complete = false, output = null, frameHashes = null, status = 'passed';
+  let error = null, complete = false, output = null, frameHashes = null;
   try {
     const steps = stepsFor(ctx);
     ({ complete } = await runSteps(ctx, steps, { from: opts.from || null, to: opts.to || null, noCache: !!opts.noCache }));
@@ -119,26 +119,40 @@ export async function runBuild(kind, opts, positionals, command = kind) {
     const main = kind === 'animatic' ? ctx.art.animatic : ctx.art.master;
     const kinds = { master: 'master', animatic: 'animatic', web: 'web', player: 'player', contact: 'contact', poster: 'poster', qaReport: 'qa-report', mix: 'audio', events: 'events', timeline: 'timeline', technical: 'technical', manifest: 'native-manifest', cuecheckLog: 'cuecheck' };
     for (const [k, kd] of Object.entries(kinds)) addOutput(ctx, ctx.art[k], kd);
+    if (ctx.film.route === 'b' && !ctx.nativeDevice && ctx.meta.native?.device) ctx.nativeDevice = ctx.meta.native.device;
+    if (!ctx.nativeDevice && !ctx.gpu && ctx.meta.video?.gpu) ctx.gpu = ctx.meta.video.gpu;
     if (main && complete) {
-      const info = await ctx.media.probe(ctx.exec, main);
-      output = { path: rel(main), file: path.basename(main), sha256: ctx.outputs.find(o => o.path === rel(main))?.sha256 || null, width: info.width, height: info.height, fps: info.fps, frames: info.frames, duration: info.duration, pixFmt: info.pixFmt, color: info.color, audio: info.audio, codec: info.codec, level: info.level };
-      const bad = [];
-      if (info.frames !== ctx.frames) bad.push(`帧数 ${info.frames}（应为 ${ctx.frames}）`);
-      if (info.width !== ctx.width || info.height !== ctx.height) bad.push(`画幅 ${info.width}×${info.height}（应为 ${ctx.width}×${ctx.height}）`);
-      if (!info.audio) bad.push('没有音轨');
-      if (bad.length) ctx.fail(4, 'output-contract', `${path.basename(main)} 与作品描述不符：${bad.join('、')}`, '看 logs/ 下对应步骤的输出');
-      frameHashes = await ctx.media.framemd5(ctx.exec, main);
-      if (ctx.film.route === 'b' && !ctx.nativeDevice && ctx.meta.native?.device) ctx.nativeDevice = ctx.meta.native.device;
-      if (!ctx.nativeDevice && !ctx.gpu && ctx.meta.video?.gpu) ctx.gpu = ctx.meta.video.gpu;
-      if (kind === 'build' && ctx.qa?.status === 'failed') {
-        status = 'failed';
+      ({ output, frameHashes } = await checkOutput(ctx, main));
+      if (kind === 'animatic') {
+        // 预演不是交付件：技术验收就是编排器的规格核对（帧数、画幅、帧率、音轨），证据是 checks/output.json
+        ctx.technical = { status: 'passed', evidence: [rel(path.join(ctx.run.dir, 'checks', 'output.json'))], by: 'tools/film 预演规格核对（帧数、画幅、帧率、音轨；不是交付 QA）', summary: `预演 ${output.frames} 帧 ${output.width}×${output.height}` };
+      } else if (ctx.qa?.status === 'failed') {
         error = new FilmError(EXIT.CONTRACT, 'qa-failed', ctx.qa.message, `逐项见 ${rel(ctx.qa.reportPath || path.join(ctx.run.dir, 'qa'))}；改完重跑 npm run film -- build ${ctx.film.relDir}（输入没变的步骤会复用）`);
       }
     }
   } catch (e) { error = e; }
-  const body = await closeSession(ctx, { error, complete, status, output, frameHashes });
+  const body = await closeSession(ctx, { error, complete, output, frameHashes });
   if (error) { error.runJson = rel(path.join(ctx.run.dir, 'run.json')); error.outputs = ctx.outputs; throw error; }
   return { ctx, body };
+}
+
+// 主产物与作品描述逐项核对（完整解码计帧），结果写进 checks/output.json；不符即退出码 4
+async function checkOutput(ctx, main) {
+  const info = await ctx.media.probe(ctx.exec, main);
+  const sha256 = ctx.outputs.find(o => o.path === rel(main))?.sha256 || null;
+  const output = { path: rel(main), file: path.basename(main), sha256, width: info.width, height: info.height, fps: info.fps, frames: info.frames, duration: info.duration, pixFmt: info.pixFmt, color: info.color, audio: info.audio, codec: info.codec, profileName: info.profile, level: info.level };
+  const problems = [];
+  if (info.frames !== ctx.frames) problems.push(`帧数 ${info.frames}（应为 ${ctx.frames}）`);
+  if (info.width !== ctx.width || info.height !== ctx.height) problems.push(`画幅 ${info.width}×${info.height}（应为 ${ctx.width}×${ctx.height}）`);
+  if (Math.abs(info.fps - ctx.fps) > 1e-6) problems.push(`帧率 ${info.fpsRaw}（应为 ${ctx.fps}）`);
+  if (!info.audio) problems.push('没有音轨');
+  const dir = path.join(ctx.run.dir, 'checks');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'output.json'), JSON.stringify({ schemaVersion: 1, by: 'tools/film（ffprobe -count_frames 完整解码）', checkedAt: new Date().toISOString(), expected: { frames: ctx.frames, width: ctx.width, height: ctx.height, fps: ctx.fps, audio: true }, measured: output, problems, ok: !problems.length }, null, 2) + '\n');
+  if (problems.length) ctx.fail(4, 'output-contract', `${path.basename(main)} 与作品描述不符：${problems.join('、')}`, `核对记录见 ${rel(path.join(dir, 'output.json'))}；看 logs/ 下对应步骤的输出`);
+  const frameHashes = await ctx.media.framemd5(ctx.exec, main);
+  if (frameHashes.length !== ctx.frames) ctx.fail(4, 'output-decode', `${path.basename(main)} 逐帧解码只得到 ${frameHashes.length} 帧（应为 ${ctx.frames}）`, '成片可能损坏；看 logs/ 后重跑');
+  return { output, frameHashes };
 }
 
 export function summarize(ctx, body) {
@@ -153,7 +167,8 @@ export function summarize(ctx, body) {
   lines.push(`  设备       ${dev}${body.softwareFallback ? ' ⚠ 软件渲染' : ''}`);
   const cached = ctx.steps.filter(s => s.status === 'cached').map(s => s.id);
   if (cached.length) lines.push(`  复用缓存   ${cached.join('、')}`);
-  lines.push(`状态：已输出 ✓ · 技术检查 ${tech.status === 'passed' ? '通过 ✓' : tech.status === 'failed' ? '不通过 ✗' : '未运行（没有机器 QA）'} · 人工认可 未审`);
+  const techText = tech.status === 'passed' ? (ctx.kind === 'animatic' ? '预演规格核对通过 ✓' : '机器 QA 通过 ✓') : tech.status === 'failed' ? '不通过 ✗' : `未运行（${tech.summary || '没有机器 QA'}）`;
+  lines.push(`状态：已输出 ✓ · 技术检查 ${techText} · 人工认可 未审${body.status === 'blocked' ? '（run.json 记为 blocked：技术验收没做，不能交付）' : ''}`);
   if (ctx.kind === 'animatic') lines.push(`下一步：把 animatic.mp4 与 contact.jpg 给用户看；用户认可后 npm run film -- review approve animatic ${ctx.film.relDir} --quote "<原话>" --source "<出处>" --reviewer "<审阅人>"`);
   else if (!ctx.final) lines.push(`下一步：这是工作版。终渲：npm run film -- build ${ctx.film.relDir} --final（要求 look / animatic 闸已通过）`);
   else lines.push(`下一步：成片给用户看；用户认可后 npm run film -- review approve final ${ctx.film.relDir} --quote "<原话>" --source "<出处>" --reviewer "<审阅人>"，之后才能称「已交付」`);
@@ -161,10 +176,10 @@ export function summarize(ctx, body) {
   return lines.join('\n');
 }
 
-export async function buildCommand(opts, positionals, kind = 'build') {
-  const { ctx, body } = await runBuild(kind, opts, positionals);
+export async function buildCommand(opts, positionals, kind = 'build', command = kind) {
+  const { ctx, body } = await runBuild(kind, opts, positionals, command);
   return {
-    env: envelope({ command: `film ${kind}`, exitCode: 0, outputs: ctx.outputs, runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), status: body.status, technicalAcceptance: body.technicalAcceptance.status, steps: ctx.steps.map(s => ({ id: s.id, status: s.status, seconds: s.seconds })) } }),
+    env: envelope({ command: `film ${command}`, exitCode: 0, outputs: ctx.outputs, runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), status: body.status, technicalAcceptance: body.technicalAcceptance.status, steps: ctx.steps.map(s => ({ id: s.id, status: s.status, seconds: s.seconds })) } }),
     human: summarize(ctx, body),
   };
 }
