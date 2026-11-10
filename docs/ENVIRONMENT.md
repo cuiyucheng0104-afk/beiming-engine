@@ -180,6 +180,15 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `npm_config_registry` | 安装与镜像（npm） | npm 镜像地址 | https://registry.npmjs.org/ |
 | `BEIMING_MACHINES` | 远程工作站（tools/remote） | 机器档案文件的路径；档案放仓库外，主机名不进仓库 | `$XDG_CONFIG_HOME/beiming/machines.json`，未设时 `~/.config/beiming/machines.json` |
 | `XDG_CONFIG_HOME` | 远程工作站（tools/remote） | 机器档案默认所在目录 | `~/.config` |
+| `BEIMING_DEBUG` | 命令约定（tools/lib） | 设 1 时，命令遇到内部错误（`failure.internal`，退出 1）在 stderr 打印堆栈；平时只打印一句原因与下一步 | 不设 |
+| `BEIMING_TEST_GPU` | 测试与 CI | 设 1 表示本机有独显：`npm test` 才跑 `suite.json` 声明 `requires: gpu` 的测试域 | 不设，这类测试域整域跳过并写明原因 |
+| `BEIMING_TEST_NETWORK` | 测试与 CI | 设 1 表示可以联网：`npm test` 才跑声明 `requires: network` 的测试域 | 不设，同上 |
+| `BEIMING_SYNTAX_ROOT` | 测试与 CI（内部） | `npm run check` 传给语法检查子进程的仓库根，不要手动设 | 由 check-all 设置 |
+| `BEIMING_SYNTAX_FILES` | 测试与 CI（内部） | `npm run check` 传给语法检查子进程的待查文件清单（JSON 数组），不要手动设 | 由 check-all 设置 |
+| `BEIMING_EVAL_ROOT` | 评测（tools/eval） | 评测根：被测检出、会话记录与报告都在这里；必须在仓库外，且各级上级目录里没有 `CLAUDE.md`、`AGENTS.md`（见 [evals/agent/README.md](../evals/agent/README.md)「会话隔离」）；`--root` 优先 | `~/.cache/beiming/evals`；家目录里有个人指令文件时会被拒绝，正式评测设到家目录之外 |
+| `BEIMING_EVAL_CLAUDE` | 评测（tools/eval） | 驱动被测会话的 claude 可执行文件（也可以是 `cli.js` 或测试桩 `.mjs`）；`--claude` 优先 | PATH 里的 `claude` |
+| `BEIMING_EVAL_HOME` | 评测（tools/eval） | 评测工具当作家目录的位置；测试用，在假家目录里构造个人指令文件 | 系统家目录 |
+| `CLAUDE_CONFIG_DIR` | 评测（Claude Code） | Claude Code 的配置目录；隔离会话把它指向运行目录里的空目录 `session/config/`，`finish` 从这里找会话记录 | Claude Code 默认（家目录下的 `.claude`） |
 
 ## 渲染器 × 环境变量
 
