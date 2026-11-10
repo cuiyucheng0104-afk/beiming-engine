@@ -10,27 +10,32 @@
 //     w × h        画布实际像素（renderer.setPixelRatio(1)）
 //     opts.ss 2           墨线超采样倍数（ID 图和笔画在 w*ss × h*ss 上算，合成时双线性下采样 → 线自带抗锯齿）；1 更快、线略硬
 //     opts.msaa 4         主场景 MSAA 采样数
-//     opts.paperUrl null  外部纸纹图；没有或加载失败就用程序化纸纹
+//     opts.paperUrl null  外部纸纹图；没给就用程序化纸纹。给了却加载失败，look.ready 直接 reject（错误里带地址），不再悄悄换纸
 //     opts.defaults       每帧参数的默认值，结构同 LOOK_BASE（影片把自己的一套传进来）；和 LOOK_BASE 逐项合并，
 //                         只写了部分字段的项，其余字段仍取 LOOK_BASE 的（墨色、深度阈值等不会变成 undefined）
 //     opts.refHeight 1080 像素量（线宽、抖动、笔触半径）的标定高度：内部乘 输出高度 / refHeight，换分辨率画面一致；
 //                         bloom 的 mip 链按 log2(输出高度 / refHeight) 多降几级，图片纸纹与颗粒按整数倍 round(输出高度 / refHeight) 放大
 //                         （原生 4K 对 1080 标定：bloom 多降 1 级、纸纹平铺与颗粒格子 2 倍；1080 附近都不变）
 //     opts.fogColor       雾没写颜色时用的颜色（默认白）
-//     opts.fps 24         颗粒换种子的频率
+//     opts.fps            颗粒换种子的频率；不写时取影片帧率（engine/core/clock.js 的 filmFps()，默认 24，film.run 按渲染帧率设好）
 //   await look.ready 之后再出第一帧（外部纸纹图要先载好）。
 //
 // p（每帧参数；某一项不写 = 用 defaults；写 false / null = 关掉这一项；写对象 = 覆盖默认里的同名字段；
 //    写数字 = 只改它的量：outline → opacity，kuwahara / bloom / paper → strength，fog → density；grade 没有单一的量，写数字报错）：
 //   t         全局时间（秒）
-//   outline   墨线：{ width, color, wobble, boilFps, warp, pressure, breakup, inner, silhouette, depthThreshold,
+//   outline   墨线：{ width, color, wobble, boilFps, boilHold, warp, pressure, breakup, inner, silhouette, depthThreshold,
 //                     near, far, farScale, opacity, tint, darken, fogFade }        各字段见 ink.js、compose.js
+//             boilHold 可选：墨线每 boilHold 个输出帧沸腾一次（按影片帧率，换帧率也是一拍 n）；不写按 boilFps（每秒几次）
 //   kuwahara  { radius, strength, q, farRadius, farStart, farEnd, protect }      见 kuwahara.js；protect 见 grade.js
 //   bloom     { strength, threshold, radius, knee, tint }                         见 bloom.js
 //   grade     { exposure, warmth, lift, gamma, gain, saturation, shoulder }      见 grade.js
 //   fog       { color, colorHigh, density, start, max, baseHeight, falloff, cutoff, sky }   见 fog.js
-//   paper     { strength, scale, tex, mid }                                       见 paper.js
-//   vignette  0..1（或 { strength }）    grain  0..1（或 { amount }）
+//   paper     { strength, scale, tex, mid, scaleMode, anchor }                    见 paper.js（scaleMode、anchor 默认关）
+//             混合是乘法：颜色 × (1 + 2 · strength · (纸纹 − 中性亮度))，正片取 0.12–0.14（不是 soft-light）
+//   vignette  0..1（或 { strength }）
+//   grain     0..1（或 { amount, size, holdFrames }）：amount 强度；
+//             size 颗粒格子边长（refHeight 像素，按 输出高度 / refHeight 连续放大后取整）；不写 = 整数倍 round(输出高度 / refHeight)，与以前相同
+//             holdFrames 每几帧换一次颗粒（1 = 每帧换，默认；2 = 一拍二，压码率）
 //   target    输出到哪个 WebGLRenderTarget（默认 null = 屏幕）
 //   debug     'id' | 'depth' | 'edge' | 'line' | 'bloom' | 'paper' | 'kuwahara' | 'scene'   看中间缓冲
 // 哪些物体描边、怎么挡线，由物体的 userData 决定，见 ids.js。
@@ -48,6 +53,7 @@ import { createKuwahara } from './kuwahara.js';
 import { createPaper } from './paper.js';
 import { createCompose } from './compose.js';
 import { createDebugView } from './debug.js';
+import { filmFps } from '../core/clock.js';
 
 // 中性默认：黑墨、不调色、不加雾、不加颗粒；像素量按 refHeight 标定
 export const LOOK_BASE = {
@@ -85,8 +91,18 @@ export function lookDefaults(d) {
     const v = ITEMS.includes(k) ? scalarItem(k, d[k], 'defaults') : d[k];
     o[k] = ITEMS.includes(k) && isObj(v) && isObj(LOOK_BASE[k]) ? { ...LOOK_BASE[k], ...v } : v;
   }
-  o.vignette = amountOf(o.vignette, 'strength'); o.grain = amountOf(o.grain, 'amount');
+  o.vignette = amountOf(o.vignette, 'strength');
+  Object.assign(o, grainOpts(o.grain, {})); o.grain = amountOf(o.grain, 'amount');
   return o;
+}
+
+// 颗粒的 size / holdFrames（grain 写成对象时才有）；没写的字段取 D 里的
+function grainOpts(v, D) {
+  const g = isObj(v) ? v : {};
+  const size = g.size !== undefined ? g.size : D.grainSize ?? null, hold = g.holdFrames !== undefined ? g.holdFrames : D.grainHold ?? null;
+  if (size !== null && !(typeof size === 'number' && size > 0)) throw new TypeError(`look：grain.size 要是正数（refHeight 像素），收到 ${JSON.stringify(size)}`);
+  if (hold !== null && !(Number.isInteger(hold) && hold >= 1)) throw new TypeError(`look：grain.holdFrames 要是 ≥ 1 的整数，收到 ${JSON.stringify(hold)}`);
+  return { grainSize: size, grainHold: hold };
 }
 
 // 每帧参数 p 和（合并过的）默认值 D → 各项的最终参数；null = 这一项关
@@ -95,11 +111,16 @@ export function lookParams(p, D = LOOK_BASE) {
   for (const k of ITEMS) r[k] = mergeParam(scalarItem(k, p[k], 'p'), D[k]);
   r.vignette = p.vignette === undefined ? D.vignette : amountOf(p.vignette, 'strength');
   r.grain = p.grain === undefined ? D.grain : amountOf(p.grain, 'amount');
+  Object.assign(r, grainOpts(p.grain, D));
   return r;
 }
 
+// 颗粒格子边长与种子：size / holdFrames 没写时与以前逐位相同（格子 = kp，种子 = 帧计数）
+export function grainCellOf(size, k, kp) { return size === null || size === undefined ? kp : Math.max(1, Math.round(size * k)); }
+export function grainSeedOf(t, fps, hold) { const n = Math.floor(t * fps + 1e-6); return hold > 1 ? Math.floor(n / hold) : n; }
+
 export function createLook(renderer, w, h, opts = {}) {
-  const ss = opts.ss ?? 2, msaa = opts.msaa ?? 4, refHeight = opts.refHeight ?? 1080, fps = opts.fps ?? 24;
+  const ss = opts.ss ?? 2, msaa = opts.msaa ?? 4, refHeight = opts.refHeight ?? 1080, fps = opts.fps ?? null;
   const D = lookDefaults(opts.defaults), fogColor = opts.fogColor;
 
   const fx = createFullscreen(renderer);
@@ -128,7 +149,7 @@ export function createLook(renderer, w, h, opts = {}) {
 
   function render(scene, camera, p = {}) {
     const t = p.t ?? 0, k = H / refHeight, kp = Math.max(1, Math.round(k));   // kp：图片纸纹 / 颗粒的整数像素倍率
-    const { outline: OL, kuwahara: KU, bloom: BL, grade: GR, fog: FG, paper: PA, vignette: VG, grain: GN } = lookParams(p, D);
+    const { outline: OL, kuwahara: KU, bloom: BL, grade: GR, fog: FG, paper: PA, vignette: VG, grain: GN, grainSize, grainHold } = lookParams(p, D);
     const target = p.target ?? null;
 
     const prevRT = renderer.getRenderTarget(), prevAuto = renderer.autoClear, prevAlpha = renderer.getClearAlpha();
@@ -148,7 +169,7 @@ export function createLook(renderer, w, h, opts = {}) {
       if (OL && OL.opacity > 0 && OL.width > 0) {
         const maxWidth = ids.render(scene, camera, T.id) || 1;
         renderer.setClearColor(_cc, prevAlpha);
-        ink.render({ ids: T.id, edge: T.edge, line: T.line, camera, p: OL, fog: FG, fogColor, t, k, ss, maxWidth });
+        ink.render({ ids: T.id, edge: T.edge, line: T.line, camera, p: OL, fog: FG, fogColor, t, k, ss, maxWidth, fps: fps ?? filmFps() });
         lineOn = true;
       }
 
@@ -164,11 +185,12 @@ export function createLook(renderer, w, h, opts = {}) {
       if (KU && KU.strength > 0 && KU.radius > 0) {
         kuwa.render({ src: col, depth: T.scene.depthTexture, camera, p: KU, k, w: W, h: H }, T.kuwa); col = T.kuwa.texture;
       }
-      const layer = paper.layer(PA, kp);
+      const layer = paper.layer(PA, kp, k);
       if (p.debug) {
         debug.render(p.debug, { id: T.id.texture, depth: T.id.depthTexture, edge: T.edge.texture, line: T.line.texture, bloom: glow, paper: layer.tex, kuwahara: col, scene: T.scene.texture }, camera, target);
       } else {
-        compose.render({ src: col, line: lineOn ? T.line.texture : null, ink: OL, paper: layer, vignette: VG, grain: GN, grainSeed: Math.floor(t * fps + 1e-6), grainCell: kp, w: W, h: H }, target);
+        compose.render({ src: col, line: lineOn ? T.line.texture : null, ink: OL, paper: layer, vignette: VG, grain: GN,
+          grainSeed: grainSeedOf(t, fps ?? filmFps(), grainHold), grainCell: grainCellOf(grainSize, k, kp), w: W, h: H }, target);
       }
     } finally {
       renderer.autoClear = prevAuto; renderer.setClearColor(_cc, prevAlpha); renderer.setRenderTarget(prevRT);
