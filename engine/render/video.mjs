@@ -290,7 +290,9 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     record.network = { allowed: Boolean(opts['allow-network']), external: r.external };
     for (const wn of r.warnings) log.warn(wn.message, wn.code, wn.hint ?? null);
     record.frameHashes = { algo: `sha256/16 of ${intermediate} capture`, first: a, values: r.hashes };
-    record.deps = { files: r.deps.size, digest: sha256(JSON.stringify([...r.deps.keys()].sort())).slice(0, 16) };
+    // 输入指纹：页面实际加载过的每个本地文件的内容哈希（脚本、贴图、字体、底板……），换机复现时先比它
+    const inputs = await hashDeps(new Map([...r.deps].filter(([, st]) => st >= 200 && st < 300)));
+    record.inputs = { files: Object.keys(inputs).length, digest: sha256(JSON.stringify(Object.entries(inputs))).slice(0, 16), missing: Object.entries(inputs).filter(([, h]) => h === null).map(([p]) => p) };
 
     // 3) 拼接、核对、原子改名
     const te = Date.now();
@@ -338,68 +340,93 @@ function depsUnchanged(recorded) {
   return true;
 }
 
-/** --plan：试渲几帧，量出单帧耗时、单帧编码耗时与体积，估算总时长与磁盘；磁盘不够 1.5 倍退出码 3 */
+/**
+ * --plan：按真实的并行方式试渲一小段，估算整片耗时与磁盘；磁盘不够预估的 1.5 倍退出码 3（README「镜头缓存、续跑与估算」）。
+ * 做法：打开与正式渲染相同路数的浏览器（量出起浏览器的时间），每路先渲一帧预热（着色器编译，不计入单帧），再同时各渲 k 帧，
+ * 每路一个 FFmpeg 按正式参数编码，等全部编码结束。这样量到的“每路每帧”已经含了几路争 GPU / CPU、截图与编码的开销，
+ * 不再用固定的并行效率去猜（单路量完乘效率在本机实测会少估 30–40%）。
+ */
 async function planMode({ dir, opts, log, signal, w, h, fpsReq, film, intermediate, out, web, profile, openOptions }) {
   const t0 = Date.now();
   const f = await openFilm(dir, { ...openOptions, handleSignals: false, signal });
   const setupSeconds = (Date.now() - t0) / 1000;
+  const extra = [];
+  const tmp = { dir: null };
   try {
     const FPS = decideFps({ requested: fpsReq, pageFps: f.contract.pageFps, anyFps: opts['any-fps'], log });
     const TOTAL = Math.round(f.contract.dur * FPS);
     const { a, b } = frameRange({ opts, film, total: TOTAL });
-    const n = Math.min(8, b - a);
-    const sample = Array.from({ length: n }, (_, i) => a + Math.floor(((i + 0.5) * (b - a)) / n));
-    await renderFrame(f, sample[0] / FPS, { signal }); await f.capture(intermediate);   // 预热一帧，不计时
-    const imgs = [], ms = [];
-    for (const fr of sample) {
-      const s = Date.now();
-      await renderFrame(f, fr / FPS, { signal });
-      imgs.push(await f.capture(intermediate));
-      ms.push(Date.now() - s);
-    }
-    // 编码：把这几帧真的编一遍，量单帧编码耗时与体积
+    const frames = b - a;
+    const chunks = planFilmChunks(a, b, { shots: film?.shots ?? [], chunk: opts.chunk ?? 'auto', fps: FPS });
+    const lanes = Math.max(1, Math.min(opts.workers, chunks.length));
+    const k = Math.max(1, Math.min(8, Math.floor(frames / lanes) - 1));
     const crf = opts.crf ?? profile?.video?.crf ?? 14, preset = opts.preset ?? profile?.video?.preset ?? 'medium';
+    const settle = opts.settle === 'auto' ? (f.info.angle === 'vulkan' ? 'raf2' : 'none') : opts.settle;
+
+    // 1) 起其余几路浏览器（正式渲染时它们也要起）
+    const ts = Date.now();
+    for (let i = 1; i < lanes; i++) extra.push(openFilm(dir, { ...openOptions, handleSignals: false, signal }));
+    const films = [f, ...(await Promise.all(extra))];
+    const lanesSeconds = (Date.now() - ts) / 1000;
+
+    // 2) 每路预热一帧（着色器编译），计入起步时间
+    const starts = films.map((_, i) => a + Math.min(frames - k - 1, Math.floor(((i + 0.5) * frames) / lanes)));
+    const tw = Date.now();
+    await Promise.all(films.map((film_, i) => renderFrame(film_, Math.max(a, starts[i]) / FPS, { signal, settle }).then(() => film_.capture(intermediate))));
+    const warmSeconds = (Date.now() - tw) / 1000;
+
+    // 3) 几路同时各渲 k 帧，每路一个 FFmpeg 按正式参数编码
     fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
-    const tmp = fs.mkdtempSync(path.join(path.dirname(path.resolve(out)), '.plan-'));
-    let encMs = null, bytesPerFrame = null;
-    try {
-      const file = path.join(tmp, 'sample.mp4');
-      const s = Date.now();
-      await new Promise((resolve, reject) => {
-        const p = spawn(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', intermediate === 'png' ? 'png' : 'mjpeg', '-i', '-',
-          '-vf', COLOR[intermediate], ...x264Args({ crf, preset }), ...TAGS, file], { stdio: ['pipe', 'ignore', 'inherit'] });
-        p.on('error', reject); p.on('close', c => (c === 0 ? resolve() : reject(new RenderError('failure.ffmpeg', `试编码失败（退出码 ${c}）`, { hint: 'FFmpeg 自己的报错见上面' }))));
-        p.stdin.on('error', () => {});
-        for (const img of imgs) p.stdin.write(img);
-        p.stdin.end();
-      });
-      encMs = (Date.now() - s) / n;
-      bytesPerFrame = fs.statSync(file).size / n;
-    } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
-    ms.sort((x, y) => x - y);
-    const frameMs = ms[Math.floor(ms.length / 2)];
-    const frames = b - a, chunks = planFilmChunks(a, b, { shots: film?.shots ?? [], chunk: opts.chunk ?? 'auto', fps: FPS }).length;
-    const lanes = Math.max(1, Math.min(opts.workers, chunks));
-    // 每路：渲染与截图串行，编码在 FFmpeg 里并行跟上；多路共享 CPU / GPU，并行效率按 0.75 估（README「性能模型」）
-    const perLane = Math.max(frameMs, encMs ?? 0);
-    const estSeconds = setupSeconds + (frames * perLane) / 1000 / (lanes > 1 ? lanes * 0.75 : 1) + 1;
+    tmp.dir = fs.mkdtempSync(path.join(path.dirname(path.resolve(out)), '.plan-'));
+    const renderMs = [];
+    const tc = Date.now();
+    const lane = async (film_, i) => {
+      const file = path.join(tmp.dir, `lane${i}.mp4`);
+      const p = spawn(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', intermediate === 'png' ? 'png' : 'mjpeg', '-i', '-',
+        '-vf', COLOR[intermediate], ...x264Args({ crf, preset }), ...TAGS, file], { stdio: ['pipe', 'ignore', 'inherit'] });
+      openOptions.life?.track(p);
+      const exited = new Promise(r => { p.once('close', code => r(code)); p.once('error', () => r(-1)); });
+      p.stdin.on('error', () => {});
+      for (let j = 1; j <= k; j++) {
+        const s0 = Date.now();
+        await renderFrame(film_, Math.min(b - 1, Math.max(a, starts[i]) + j) / FPS, { signal, settle });
+        const img = await film_.capture(intermediate);
+        renderMs.push(Date.now() - s0);
+        if (!p.stdin.write(img)) await Promise.race([new Promise(r => p.stdin.once('drain', r)), exited]);
+      }
+      p.stdin.end();
+      const code = await exited;
+      if (code !== 0) throw new RenderError('failure.ffmpeg', `试编码失败（退出码 ${code}）`, { hint: 'FFmpeg 自己的报错见上面' });
+      return fs.statSync(file).size;
+    };
+    const sizes = await Promise.all(films.map(lane));
+    const calSeconds = (Date.now() - tc) / 1000;
+    const perLaneFrameMs = (calSeconds * 1000) / k;                 // 每路每帧（含争用、截图、编码与一块的收尾）
+    const bytesPerFrame = sizes.reduce((x, y) => x + y, 0) / (lanes * k);
+    renderMs.sort((x, y) => x - y);
     const outBytes = bytesPerFrame * frames * (web ? 1.35 : 1);
-    const needBytes = outBytes * 2;                         // 块文件 + 拼接后的输出同时在盘上
+    const concatSeconds = 0.3 + outBytes / 250e6;
+    const estSeconds = setupSeconds + lanesSeconds + warmSeconds + (frames / lanes) * perLaneFrameMs / 1000 + concatSeconds;
+    const needBytes = outBytes * 2;                                  // 块文件 + 拼接后的输出同时在盘上
     let freeBytes = null;
     try { const st = fs.statfsSync(path.dirname(path.resolve(out))); freeBytes = st.bavail * st.bsize; } catch {}
     const plan = {
-      frames, range: [a, b], fps: FPS, size: [w, h], workers: opts.workers, lanes, chunks, intermediate,
-      sampleFrames: sample, renderCaptureMs: frameMs, encodeMsPerFrame: encMs && +encMs.toFixed(1), bytesPerFrame: Math.round(bytesPerFrame),
-      setupSeconds: +setupSeconds.toFixed(2), estSeconds: +estSeconds.toFixed(1), estOutputBytes: Math.round(outBytes), needBytes: Math.round(needBytes), freeBytes,
+      frames, range: [a, b], fps: FPS, size: [w, h], workers: opts.workers, lanes, chunks: chunks.length, intermediate,
+      sampleFramesPerLane: k, setupSeconds: +setupSeconds.toFixed(2), lanesSeconds: +lanesSeconds.toFixed(2), warmSeconds: +warmSeconds.toFixed(2),
+      perLaneFrameMs: Math.round(perLaneFrameMs), renderCaptureMs: renderMs[Math.floor(renderMs.length / 2)] ?? null, bytesPerFrame: Math.round(bytesPerFrame),
+      estSeconds: +estSeconds.toFixed(1), estOutputBytes: Math.round(outBytes), needBytes: Math.round(needBytes), freeBytes,
       gpu: f.info.renderer, software: f.info.software,
     };
-    log.info(`计划：${frames} 帧 × ${frameMs} ms（渲染 + 截图），编码 ${plan.encodeMsPerFrame} ms/帧，${lanes} 路 → 约 ${plan.estSeconds} 秒；`
+    log.info(`计划：${frames} 帧，${lanes} 路，每路每帧约 ${plan.perLaneFrameMs} ms（含争用、截图与编码）→ 约 ${plan.estSeconds} 秒；`
       + `成片约 ${(outBytes / 2 ** 20).toFixed(0)} MB，渲染时需要 ${(needBytes / 2 ** 20).toFixed(0)} MB 磁盘${freeBytes !== null ? `（可用 ${(freeBytes / 2 ** 30).toFixed(1)} GB）` : ''}`);
     if (freeBytes !== null && freeBytes < needBytes * 1.5) {
       throw new RenderError('env.disk-insufficient', `磁盘不够：预计要 ${(needBytes / 2 ** 20).toFixed(0)} MB，可用 ${(freeBytes / 2 ** 20).toFixed(0)} MB（要求至少 1.5 倍余量）`, { hint: '换一个空间更大的 --out 目录，或先清理磁盘' });
     }
     return { data: { plan } };
-  } finally { await f.close(); }
+  } finally {
+    if (tmp.dir) fs.rmSync(tmp.dir, { recursive: true, force: true });
+    await Promise.all([f, ...extra].map(x => Promise.resolve(x).then(y => y.close()).catch(() => {})));
+  }
 }
 
 if (isMain(import.meta.url)) await runCli(command);

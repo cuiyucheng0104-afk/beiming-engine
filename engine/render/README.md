@@ -69,6 +69,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `output` | `{path, sha256, width, height, fps, frames, duration, codec, pixFmt, color}`，全部来自 ffprobe 实测 |
 | `frameHashes` | 逐帧截图的 sha256 前 16 位（确定性核对、续跑与金标准用） |
 | `timing` | `setupSeconds`、`renderSeconds`、`encodeSeconds`、`totalSeconds` |
+| `inputs` | 页面实际加载过的本地文件数与内容指纹（`digest`）：换机复现时先比它；`missing` 列出读不到的文件 |
 | `technicalAcceptance`、`creativeAcceptance` | 渲染器只写 `not-run` / `not-reviewed` |
 | `error` | 失败时 `{code, message, hint, exitCode}` |
 | `selfCheck` | 用作品描述包的校验器（`engine/production/film.js` 落地后用它，否则 `project.js` 的 `validateRenderResult`）自检的结果，只提示 |
@@ -166,7 +167,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 - 只改镜头 B 的模块只重渲 B；改 B 的 `out` 帧，B 和后面接着的镜头重渲；改共享代码（`main.js`、`engine/`、`node_modules`）或底板贴图，全部重渲（保守、不漏）。约定：镜头模块之间不互相 import，共享的东西放作品级文件。
 - `video.mjs --resume`：块放在 `<输出>.parts/`，失败或中断后保留；再跑只补渲没完成的块（参数或源文件变了就清空重渲），成片与一次跑完逐帧相同。`--keep-segments` 成功后也保留。
 - `--progress ndjson`：stderr 每行一个 JSON 事件（`{event: "progress", done, total, reused, fps, elapsedSec, etaSec}`、`{event: "log", level, …}`）；命令约定库收尾时另打的「错误／提示」两行是纯文本，解析时跳过不以 `{` 开头的行，结果以 `--json` 信封为准。
-- `--plan`：试渲 8 帧、真编一遍，量出单帧渲染 + 截图与编码耗时、每帧字节数，按路数（并行效率按 0.75 估）推算总时长与磁盘；可用空间不够估算的 1.5 倍退出 3。不写任何输出。
+- `--plan`：按正式渲染的路数起浏览器（量起步时间），每路预热一帧，再几路同时各渲 8 帧、各用一个 FFmpeg 按正式参数编码，量出“每路每帧”（已含几路争 GPU / CPU、截图与编码）与每帧字节数，推算总时长与磁盘；可用空间不够估算的 1.5 倍退出 3。不写任何输出。《北冥》在 Mac M5 Pro 上实测：1080 估 15.1 秒、两次实际 13.1 / 16.9 秒；4K 估 55.9 秒、实际 53.7 秒（误差都在 ±20% 内）；成片体积估算误差约 2%。
 
 ## 11. 预览服务
 

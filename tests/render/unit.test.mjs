@@ -15,7 +15,10 @@ import { aigcMetadata, AIGC_PRODUCER } from '../../engine/render/lib/mux.mjs';
 import { describeError, RenderError, EXIT } from '../../engine/render/lib/errors.mjs';
 import { loadProfiles, resolveProfile } from '../../engine/render/lib/profiles.mjs';
 import { resolveRequest, createServer } from '../../engine/render/lib/server.mjs';
-import { runId } from '../../engine/render/lib/record.mjs';
+import { runId, repoPath } from '../../engine/render/lib/record.mjs';
+import { acquireLock, lockPath } from '../../engine/render/lib/lock.mjs';
+import { tryTake, slotCount } from '../../engine/render/lib/slots.mjs';
+import { spawnSync } from 'node:child_process';
 import { parseImplicitLabel } from '../../tools/compliance/lib/aigc.mjs';
 import { exitCodeFor } from '../../tools/lib/cli.mjs';
 
@@ -223,4 +226,58 @@ test('静态服务器：只听 127.0.0.1；点文件 404、越界与链接逃逸
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(outside, { recursive: true, force: true });
   }
+});
+
+test('输出锁：同一进程第二次取同一个锁是资源忙（5）；pid 已不在的残留锁直接接管；释放只删自己的锁', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-lock-'));
+  try {
+    const target = path.join(dir, 'v.mp4');
+    const release = acquireLock(target);
+    assert.ok(fs.existsSync(lockPath(target)));
+    throwsCode(() => acquireLock(target), 'busy.output-locked');
+    release();
+    assert.equal(fs.existsSync(lockPath(target)), false);
+    // 残留锁：写锁的进程已经退出（拿一个跑完的子进程的 pid）
+    const dead = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' }).stdout.trim();
+    fs.writeFileSync(lockPath(target), JSON.stringify({ pid: Number(dead), host: os.hostname(), started: '2026-11-10T00:00:00Z', nonce: 'old' }));
+    const again = acquireLock(target);
+    assert.notEqual(JSON.parse(fs.readFileSync(lockPath(target), 'utf8')).nonce, 'old', '残留锁要被接管');
+    // 别人接管后，旧的释放函数不删新主人的锁
+    fs.writeFileSync(lockPath(target), JSON.stringify({ pid: process.pid, host: os.hostname(), nonce: 'someone-else' }));
+    again();
+    assert.ok(fs.existsSync(lockPath(target)), '只删自己的锁');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('渲染槽位：满了返回 null；持有者已不在的槽位可以接管；RENDER_SLOTS 写错是用法错误', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-slots-'));
+  try {
+    const a = tryTake(dir, 1, 'a');
+    assert.ok(a);
+    assert.equal(tryTake(dir, 1, 'b'), null, '一个槽位已占，第二个拿不到');
+    assert.ok(tryTake(dir, 2, 'b'), '两个槽位时第二个能拿到');
+    const dead = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' }).stdout.trim();
+    fs.writeFileSync(path.join(a, 'owner.json'), JSON.stringify({ pid: Number(dead), host: os.hostname(), started: '2026-11-10T00:00:00Z' }));
+    assert.ok(tryTake(dir, 1, 'c'), '持有者已退出：接管');
+    assert.equal(slotCount(''), null);
+    assert.equal(slotCount('3'), 3);
+    throwsCode(() => slotCount('0'), 'usage.bad-value');
+    throwsCode(() => slotCount('two'), 'usage.bad-value');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('运行记录里的路径：仓库内写相对路径（经 /var → /private/var 这类别名也认得出），仓库外写绝对路径', () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-rp-')));
+  try {
+    fs.mkdirSync(path.join(root, 'films', 'x', 'out'), { recursive: true });
+    assert.equal(repoPath(root, path.join(root, 'films', 'x', 'out', 'master.mp4')), 'films/x/out/master.mp4');
+    // 仓库外的别名路径指回仓库（macOS 的 /var → /private/var、Windows 的目录联接同理）
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-rp-alias-'));
+    try {
+      fs.symlinkSync(root, path.join(outside, 'repo'), 'junction');
+      assert.equal(repoPath(root, path.join(outside, 'repo', 'films', 'x', 'out', 'not-yet.mp4')), 'films/x/out/not-yet.mp4', '经别名、文件还没写出来也认得出');
+    } finally { fs.rmSync(outside, { recursive: true, force: true }); }
+    assert.equal(repoPath(root, os.homedir()), path.resolve(os.homedir()));
+    assert.equal(repoPath(root, root), '.');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

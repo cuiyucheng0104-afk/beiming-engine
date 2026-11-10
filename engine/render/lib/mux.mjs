@@ -100,6 +100,8 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
         }
       }
       loud = { I0, P0, gain: G, limited: LIMITED };
+      if (LIMITED) log?.warn(`混音的真峰值余量不够：线性增益 ${G} dB 后 AAC 的真峰值超过 ${AIM.toFixed(1)} dBTP，已在 4 倍过采样上限幅（只削峰，积分响度补回目标）`,
+        'loudness-limited', '更好的做法是回混音阶段把真峰值压到 −1.5～−2 dBTP，封装就只做线性增益');
     }
 
     // 色彩（见开头说明）
