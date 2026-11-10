@@ -77,7 +77,7 @@ export const HELP = `北冥仓库 · 无 GPU 冒烟出片（CI smoke-render）
 const sha256 = f => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const sizeOf = (s, name) => {
   const m = /^(\d+)x(\d+)$/.exec(s || '');
-  if (!m || +m[1] % 2 || +m[2] % 2 || +m[1] < 16 || +m[2] < 16) throw new CliError(EXIT.USAGE, 'USAGE', `--${name} 要写成 WxH（偶数、≥16），现在是「${s}」`);
+  if (!m || +m[1] % 2 || +m[2] % 2 || +m[1] < 16 || +m[2] < 16) throw new CliError(EXIT.USAGE, 'usage.bad-value', `--${name} 要写成 WxH（偶数、≥16），现在是「${s}」`);
   return [+m[1], +m[2]];
 };
 
@@ -137,14 +137,14 @@ export async function main(argv = process.argv.slice(2)) {
   try {
     opts = parseArgs(argv, SPEC);
     if (opts.help) { process.stdout.write(HELP + '\n'); return EXIT.OK; }
-    for (const n of [...opts.only, ...opts.skip]) if (!PHASES.includes(n)) throw new CliError(EXIT.USAGE, 'USAGE', `不认识的阶段「${n}」`, `可用：${PHASES.join('、')}`);
+    for (const n of [...opts.only, ...opts.skip]) if (!PHASES.includes(n)) throw new CliError(EXIT.USAGE, 'usage.bad-value', `不认识的阶段「${n}」`, `可用：${PHASES.join('、')}`);
     const golden = opts.golden || 'auto';
-    if (!['auto', 'compare', 'capture', 'off'].includes(golden)) throw new CliError(EXIT.USAGE, 'USAGE', `--golden 只能是 auto、compare、capture、off，现在是「${golden}」`);
-    if (opts.root && !fs.existsSync(path.resolve(opts.root))) throw new CliError(EXIT.USAGE, 'USAGE', `--root 指向的目录不存在：${opts.root}`);
+    if (!['auto', 'compare', 'capture', 'off'].includes(golden)) throw new CliError(EXIT.USAGE, 'usage.bad-value', `--golden 只能是 auto、compare、capture、off，现在是「${golden}」`);
+    if (opts.root && !fs.existsSync(path.resolve(opts.root))) throw new CliError(EXIT.USAGE, 'usage.bad-value', `--root 指向的目录不存在：${opts.root}`);
     const root = opts.root ? fs.realpathSync(path.resolve(opts.root)) : ROOT;   // 真实路径：被调用的工具按真实路径判断自己是不是入口
     const software = (process.env.BEIMING_ANGLE || '').toLowerCase() === 'swiftshader';
     const osKey = process.platform === 'win32' ? 'win' : process.platform;
-    if (golden === 'compare' && !opts.platform && !software) throw new CliError(EXIT.USAGE, 'USAGE', '--golden compare 在非软件渲染下要用 --platform 指明平台键（例如 darwin-metal-apple-m5）');
+    if (golden === 'compare' && !opts.platform && !software) throw new CliError(EXIT.USAGE, 'usage.bad-value', '--golden compare 在非软件渲染下要用 --platform 指明平台键（例如 darwin-metal-apple-m5）');
     ctx = {
       root, opts, golden, warnings, created,
       out: path.resolve(opts.out || path.join(root, 'out/ci/smoke')),

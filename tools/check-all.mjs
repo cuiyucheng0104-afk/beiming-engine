@@ -109,12 +109,12 @@ export async function main(argv = process.argv.slice(2)) {
   const only = expand(opts.only), skip = expand(opts.skip);
   const unknown = [...only, ...skip].filter(n => !STEP_IDS.includes(n));
   if (unknown.length) {
-    const e = new CliError(EXIT.USAGE, 'USAGE', `不认识的步骤：${[...new Set(unknown)].join('、')}`, `可用：${STEP_IDS.join('、')}、lint`);
+    const e = new CliError(EXIT.USAGE, 'usage.bad-value', `不认识的步骤：${[...new Set(unknown)].join('、')}`, `可用：${STEP_IDS.join('、')}、lint`);
     process.stderr.write(`${e.message}\n${e.hint}\n`);
     return finish(e.exitCode, {}, e);
   }
   if (opts.root && !fs.existsSync(path.resolve(opts.root))) {
-    const e = new CliError(EXIT.USAGE, 'USAGE', `--root 指向的目录不存在：${opts.root}`);
+    const e = new CliError(EXIT.USAGE, 'usage.bad-value', `--root 指向的目录不存在：${opts.root}`);
     process.stderr.write(e.message + '\n');
     return finish(e.exitCode, {}, e);
   }

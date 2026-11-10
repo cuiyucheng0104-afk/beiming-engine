@@ -4,7 +4,9 @@
 //   EXIT                         退出码枚举：0 成功 / 1 运行失败 / 2 用法 / 3 环境 / 4 验收不通过 / 5 资源忙 / 124 超时 / 130、143 信号
 //   QaError(code, message, { hint, exitCode })   带机器码与下一步提示的错误；cli.mjs 把它变成信封里的 error
 //   parseArgs(argv, spec)        严格解析：未知参数、缺值、多余位置参数都抛用法错误（exit 2）
-//   envelope(fields)             组装 { ok, exitCode, command, error, outputs, runJson, warnings, result }
+//   envelope(fields)             组装 { schemaVersion: 1, ok, exitCode, command, error, outputs, runJson, warnings, result }
+//   用法错误的码与 tools/lib/cli.mjs 同名（docs/CLI.md 第 4 节）：usage.unknown-option（「不认识的选项 --xxx」）、
+//   usage.missing-value、usage.bad-value、usage.missing-argument、usage.extra-argument
 //   onCleanup(fn) / trackChild(cp) / runCleanups()   登记清理动作与子进程；退出、出错、收到信号时统一清理
 //   installSignalHandlers()      SIGINT → 清理后 exit 130；SIGTERM → 清理后 exit 143
 //   log(...)                     供人阅读的日志，一律写 stderr
@@ -19,7 +21,7 @@ export class QaError extends Error {
     this.exitCode = exitCode;
   }
 }
-export const usageError = (message, hint = '用 --help 查看用法') => new QaError('usage', message, { hint, exitCode: EXIT.USAGE });
+export const usageError = (message, hint = '用 --help 查看用法', code = 'usage.bad-value') => new QaError(code, message, { hint, exitCode: EXIT.USAGE });
 
 // spec = { options: { '--name': { type: 'boolean'|'string'|'number'|'list', alias?: '-x', desc } }, positionals: { min, max, names } }
 // list 类型可重复出现，也接受逗号分隔；返回 { opts: { name: value }, positionals: [] }，opts 的键去掉前导 --、连字符转驼峰
@@ -48,7 +50,7 @@ export function parseArgs(argv, spec) {
     const o = byName.get(flag);
     if (!o) {
       const known = Object.keys(options).join(' ');
-      throw usageError(`未知参数 ${flag}`, `可用参数：${known}`);
+      throw usageError(`不认识的选项 ${flag}`, `可用参数：${known}`, 'usage.unknown-option');
     }
     const k = key(o.name);
     if (o.type === 'boolean') {
@@ -60,7 +62,7 @@ export function parseArgs(argv, spec) {
     if (eq > 0) v = a.slice(eq + 1);
     else {
       v = argv[i + 1];
-      if (v === undefined || (v.startsWith('--') && v.length > 2)) throw usageError(`${flag} 后面要跟一个值`);
+      if (v === undefined || (v.startsWith('--') && v.length > 2)) throw usageError(`${flag} 后面要跟一个值`, '用 --help 查看用法', 'usage.missing-value');
       i++;
     }
     if (o.type === 'number') {
@@ -76,13 +78,14 @@ export function parseArgs(argv, spec) {
     }
   }
   const pos = spec.positionals || { min: 0, max: 0 };
-  if (positionals.length < (pos.min ?? 0)) throw usageError(`缺少参数：${(pos.names || []).slice(positionals.length).join(' ') || '位置参数'}`);
-  if (pos.max !== undefined && positionals.length > pos.max) throw usageError(`多余的参数：${positionals.slice(pos.max).join(' ')}`);
+  if (positionals.length < (pos.min ?? 0)) throw usageError(`缺少参数：${(pos.names || []).slice(positionals.length).join(' ') || '位置参数'}`, '用 --help 查看用法', 'usage.missing-argument');
+  if (pos.max !== undefined && positionals.length > pos.max) throw usageError(`多余的参数：${positionals.slice(pos.max).join(' ')}`, '用 --help 查看用法', 'usage.extra-argument');
   return { opts, positionals };
 }
 
 export function envelope({ ok, exitCode, command, error = null, outputs = [], runJson = null, warnings = [], result = null }) {
   return {
+    schemaVersion: 1,
     ok: !!ok,
     exitCode,
     command,
