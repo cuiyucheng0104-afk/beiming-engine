@@ -1,0 +1,11 @@
+# 北冥仓库 · 允许入库的大文件（超过 5 MiB）白名单。依据：docs/decisions/2026-11-10-industrial-baseline.md D10。
+# 只列 D10 生效时已经在库里的文件。新的大文件不进 git：底板、采样、母版放 Release 或对象存储，仓库只存清单（地址、sha256、大小、许可、来源）；渲染产物永不入库。
+# 格式：sha256  字节数  路径（相对仓库根，用 / 分隔）。替换已列文件后运行 node tools/env/large-files.mjs --update 刷新哈希；这个命令不会添加新条目。
+# 检查：node tools/env/large-files.mjs（repo-check 的 env.large-files 规则做同样的判定）。
+830e9192d1216643d32b96a22ec18dc4c3a470eed4d27ac0590bf5652f0cae20    5390265  assets/plates/clouds_front_b.png
+8be1300191ea73862b0e0038401717e4680452b07cf7b4433203e45935c4c6a6    5765456  assets/plates/river.png
+6ac3ceeef4a6c029de8efb2a6bfb066aac26f7a7a3b6d6b32175d7038e4282c2    5619639  assets/plates/shotB_sky.png
+a55afb992dcd8c1780609eeb7c818d7878e13d118a6479d8ee4b5515b3c3cf4e    6285881  assets/plates/sky_dawn.png
+cea9d9aacc995a0ae5b3f120de402f3130fc505bc0601e59f31973d6c116c516   11566108  assets/plates/sky_tall.png
+6ea40ed96c0f490df464083ce8bdd5571936e3c7b1b171c80c64a16485aedba6    5725441  assets/plates/sky_zenith.png
+03108531c04477cfe68c4a061c04b6daa67485173f335114e38d443911091586   11653264  media/beiming.mp4

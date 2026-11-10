@@ -1,0 +1,23 @@
+{
+  "$comment": "tests/qa 用的豁免样例：第一条是合格写法（用户批准、引用原话、注明出处）；第二条署名 agent，QA 必须忽略它并报 warning（D08：agent 不得自己批准）。原话是测试用的虚构文本，不是用户真实说过的话。",
+  "waivers": [
+    {
+      "check": "texts.duration",
+      "target": "short",
+      "frames": [20, 26],
+      "reason": "测试夹具：半拍快闪卡，观众读到的是「有东西闪过」",
+      "approvedBy": "用户",
+      "quote": "（测试用虚构原话）这一下就是要快闪，不用读清。",
+      "source": "tests/qa/fixtures/waivers.sample.json",
+      "date": "2026-11-10"
+    },
+    {
+      "check": "texts.contrast",
+      "target": "lowc",
+      "reason": "agent 觉得暗一点更有氛围",
+      "approvedBy": "agent",
+      "quote": "我认为可以",
+      "source": "会话记录"
+    }
+  ]
+}
