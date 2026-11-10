@@ -1,6 +1,8 @@
 // 北冥 QA · 豁免：一条豁免只放行一项检查里的某个对象（文字、事件、帧区间），必须写明谁批准、原话、出处。
 // agent 不得自己批准（D08）；approvedBy 写成 agent / AI / 助手 这类的豁免一律无效并报 warning。
 // 刻意设计的静帧、黑场、闪白不是豁免，写在 film.json 的 qa.intentional（见 docs/quality/QA-GATE.md）。
+// agent 可以起草豁免，但只能写成 "status": "proposed"：QA 不采用它，只在报告里提示「有 N 条待用户批准」；
+// 用户批准后由人把原话、出处填上并删掉 status（或改成 "approved"），才生效。
 //
 //   collectWaivers({ film, files, root })  → { waivers, warnings }：film.json 的 qa.waivers、--waivers 文件、docs/quality/waivers/<作品 id>.json
 //   validateWaiver(w)                       → 问题列表（空 = 合格）
@@ -36,6 +38,7 @@ export function collectWaivers({ film = null, files = [], root }) {
   const out = [];
   const take = (list, origin) => {
     for (const w of list) {
+      if (w && w.status === 'proposed') { warnings.push(`${origin} 里有一条待用户批准的豁免（${w.check}${w.target ? ` / ${w.target}` : ''}），未采用`); continue; }
       const probs = validateWaiver(w);
       if (probs.length) { warnings.push(`忽略 ${origin} 里的一条豁免（${w?.check || '?'}）：${probs.join('；')}`); continue; }
       out.push({ ...w, origin });
