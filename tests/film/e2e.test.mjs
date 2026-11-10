@@ -3,7 +3,8 @@
 //   FILM_E2E=1 node --test tests/film/e2e.test.mjs
 // 需要：ffmpeg / ffprobe、装了 requirements.txt 的 Python（PYTHON=…）、Playwright 的 headless shell；B 另需 RAEA_BIN。
 // 机器 QA 门：默认用测试替身 tests/film/fixtures/qa-stub.mjs（只验编排器的接线：模版画面能不能过真 QA 是各路线模版的事），
-// FILM_E2E_REAL_QA=1 时用仓库里的 tools/qa/cli.mjs（模版过不了硬门时 build 退出码 4，测试会如实失败）。
+// FILM_E2E_REAL_QA=1 时用仓库里的 tools/qa/cli.mjs（模版过不了硬门时 build 退出码 4，测试会如实失败），并加跑「竖屏档位交给真 QA 的口径」：
+//   它只要求交付规格四项与文字视口按档位判，不要求模版过全部硬门；单跑它：FILM_E2E=1 FILM_E2E_REAL_QA=1 node --test --test-name-pattern 口径 tests/film/e2e.test.mjs
 // 临时作品放在 FILM_TEST_ROOT（默认系统临时目录），films/ 里只留链接（B 例外，见 helpers.mjs），测完删除；FILM_TEST_KEEP=1 保留产物。
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -117,6 +118,36 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   assert.equal(v.code, 0, v.stderr.slice(-1500));
   const vr = readRun(v.json.runJson);
   assert.deepEqual([vr.output.width, vr.output.height, vr.output.fps, vr.output.frames], [1080, 1920, 30, 90]);
+  // 档位与 film.json 不同：QA 拿到的是运行目录里换算好的生效描述（帧数、帧率、画幅与档位一致），视口是竖屏；film.json 没改
+  const vDir = path.join(ROOT, vr.runDir);
+  assert.equal(vr.filmEffective?.path, `${vr.runDir}/film.effective.json`);
+  assert.equal(v.json.data.filmEffective, vr.filmEffective.path);
+  const eff = JSON.parse(fs.readFileSync(path.join(vDir, 'film.effective.json'), 'utf8'));
+  assert.deepEqual(eff.output, { profile: 'vertical-1080x1920-30', width: 1080, height: 1920, fps: 30, frameCount: 90 });
+  assert.equal(eff.id, w.name);
+  assert.equal(eff.shots.at(-1).out, 90);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(w.dir, 'film.json'), 'utf8')).output.width, 1920, 'film.json 不改');
+  const vq = JSON.parse(fs.readFileSync(path.join(vDir, 'qa', 'report.json'), 'utf8'));
+  if (vq.stubArgs) {
+    assert.equal(vq.stubArgs.film, path.join(vDir, 'film.effective.json'));
+    assert.equal(vq.stubArgs.size, '1080x1920');
+    assert.equal(vq.stubArgs.profile, 'vertical-1080x1920-30');
+    assert.equal(vq.stubArgs.events, path.join(vDir, 'events.json'), 'film.json 没写 events：页面导出的事件表交给声画同步');
+  }
+  assert.equal(vr.technicalAcceptance.film, `${vr.runDir}/film.effective.json`);
+  // --size 改画幅：工作版、不是交付件——不跑交付 QA，规格核对通过即退出码 0
+  const sz = runCli(['build', w.rel, '--size', '960x540', '--json'], { env: env(tmp) });
+  assert.equal(sz.code, 0, sz.stderr.slice(-1500));
+  assert.equal(sz.json.data.deliverable, false);
+  assert.ok(sz.json.warnings.some(x => x.code === 'size-not-deliverable'));
+  const sr = readRun(sz.json.runJson);
+  assert.ok(['rendered', 'blocked'].includes(sr.status), `--size 工作版的状态 ${sr.status}`);
+  assert.equal(sr.technicalAcceptance.status, 'not-run');
+  assert.equal(sr.specCheck?.status, 'passed');
+  assert.deepEqual([sr.output.width, sr.output.height], [960, 540]);
+  assert.equal(sr.steps.find(s => s.id === 'qa')?.status, 'skipped');
+  assert.ok(!fs.existsSync(path.join(ROOT, sr.runDir, 'qa', 'report.json')));
+  assert.equal(runCli(['qa', w.rel, '--run', sr.runId, '--json'], { env: env(tmp) }).code, 2, 'film qa 不审 --size 的工作版');
   // 内部豁免不放行终渲；带用户原话的豁免放行；终渲的 run.json 记 kind = final 与放行依据
   assert.equal(runCli(['build', w.rel, '--final', '--json'], { env: env(tmp) }).code, 4);
   const uw = runCli(['review', 'waive', 'look,animatic', w.rel, '--reason', '用户说直接出', '--quote', '不用给我看预演了，直接出成片', '--source', '端到端测试会话 第 1 条', '--json'], { env: env(tmp) });
@@ -141,6 +172,26 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   assert.equal(status.json.data.lastFinal.delivered, true);
 });
 
+test('竖屏档位交给真 QA 的口径（FILM_E2E_REAL_QA=1）：C 模版按竖屏 30 fps 出片，交付规格四项与文字视口都按档位判', { skip: skip || (!process.env.FILM_E2E_REAL_QA && '设 FILM_E2E_REAL_QA=1 才跑（真 QA，约 1–2 分钟）'), timeout: 900000 }, () => {
+  // 模版画面能不能过全部硬门是路线模版的事（P12 / P15）；这里只要求编排器交给 QA 的口径对：
+  // 作品描述是换算好的生效描述 → delivery.frame-count / frame-rate / duration / size 通过，文字组的视口是 1080×1920
+  const w = makeWork('c');
+  works.push(w);
+  const tmp = sysTmp();
+  const r = runCli(['build', w.rel, '--profile', 'vertical-1080x1920-30', '--waive', 'look,animatic', '--reason', 'G1 自检', '--json'], { env: env(tmp) });
+  assert.ok([0, 4].includes(r.code), `退出码 ${r.code}：${r.stderr.slice(-1500)}`);
+  assert.ok(r.json?.runJson, '信封要给出 run.json');
+  const run = readRun(r.json.runJson);
+  const rep = JSON.parse(fs.readFileSync(path.join(ROOT, run.runDir, 'qa', 'report.json'), 'utf8'));
+  assert.ok(!rep.stubArgs, '这条用例要用真 QA（tools/qa/cli.mjs）');
+  const st = Object.fromEntries(rep.checks.map(c => [c.id, c]));
+  const SPEC = ['delivery.frame-count', 'delivery.frame-rate', 'delivery.duration', 'delivery.size'];
+  for (const id of SPEC) assert.equal(st[id]?.status, 'pass', `${id}：${JSON.stringify(st[id]?.findings || st[id])}`);
+  if (st['texts.contract']) assert.deepEqual(st['texts.contract'].evidence?.viewport, [1080, 1920], '文字组要在竖屏视口上量');
+  if (r.code === 4) assert.ok(!rep.summary.hardFailures.some(id => SPEC.includes(id)), `交付规格不该再失败：${rep.summary.hardFailures.join('、')}`);
+  assert.deepEqual(fs.readdirSync(tmp), []);
+});
+
 test('B 路线：模版作品经原生运行时出片', { skip: skip || (!process.env.RAEA_BIN && '没设 RAEA_BIN（原生运行时不随仓库分发）'), timeout: 900000 }, () => {
   const { run } = buildAndCheck('b');
   assert.equal(run.route, 'b');
@@ -156,7 +207,10 @@ test('中断：渲染中收到 SIGINT 退出码 130，run.json 记 interrupted�
   let out = '', err = '';
   child.stdout.on('data', b => { out += b; });
   const started = new Promise(resolve => child.stderr.on('data', b => { err += b; if (/▶ 逐帧渲染/.test(err)) resolve(); }));
-  await Promise.race([started, new Promise(r => setTimeout(r, 120000))]);
+  // 最多等 2 分钟渲染开始；race 之后清掉定时器（不清的话 node --test 跑完还要空等到它到点）
+  let guard;
+  await Promise.race([started, new Promise(r => { guard = setTimeout(r, 120000); })]);
+  clearTimeout(guard);
   await new Promise(r => setTimeout(r, 1500));
   child.kill('SIGINT');
   const code = await new Promise(r => child.on('close', c => r(c)));

@@ -133,6 +133,28 @@ test('film new：参数先按同一套规则检查，再交给 new-film；--dry-
   assert.equal(bad.code, 2);
 });
 
+test('build --waive：用法或契约有错时（档位拼错、坏画幅、--size 配 --final、步骤名不对、终渲档位不在 deliveries、终渲豁免没有原话）先退出，不写审片记录、不建运行目录', () => {
+  const w = makeWork('c');
+  works.push(w);
+  const waive = ['--waive', 'look,animatic', '--reason', '复核用例'];
+  const cases = [
+    [['--profile', 'no-such-profile'], 2, 'usage.profile-unknown'],
+    [['--size', '1921x1080'], 2, null],
+    [['--size', '960x540', '--final', '--quote', '直接出', '--source', '测试'], 2, 'usage.size-final'],
+    [['--from', 'no-such-step'], 2, 'usage.step-unknown'],
+    [['--from', 'qa', '--to', 'mix'], 2, 'usage.step-order'],
+    [['--final'], 2, 'usage.bad-usage'],
+    [['--final', '--profile', 'vertical-1080x1920-30', '--quote', '直接出', '--source', '测试'], 4, 'contract.profile-not-delivery'],
+  ];
+  for (const [extra, code, err] of cases) {
+    const r = runCli(['build', w.rel, ...waive, ...extra, '--json']);
+    assert.equal(r.code, code, `${extra.join(' ')} → ${r.code}：${r.stderr.slice(-400)}`);
+    if (err) assert.equal(r.json?.error?.code, err, extra.join(' '));
+    assert.ok(!fs.existsSync(path.join(w.dir, 'review')), `${extra.join(' ')}：不该写审片记录`);
+    assert.ok(!fs.existsSync(path.join(w.dir, 'out')), `${extra.join(' ')}：不该建运行目录`);
+  }
+});
+
 test('仓库卫生：上面这些命令跑完，除了测试作品自己，工作区没有多出任何改动', () => {
   const st = gitStatus(works.map(w => w.rel));
   if (st === null) return;   // 不是 git 检出

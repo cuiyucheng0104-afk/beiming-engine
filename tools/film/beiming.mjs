@@ -10,6 +10,8 @@
 //   out/beiming.html    单文件播放页    out/contact_sheet.jpg  联系表（本次运行的帧）            out/mix.wav          混音
 // 旧版另有的 out/stills/s_*.jpg（0.5 秒一张的样张）不再单独出：联系表直接从本次成片按 0.5 秒取帧。
 // 机器 QA 门不通过（退出码 4）时，画面与声音是好的，旧文件名照样放好，退出码仍是 4、并说明是哪几项硬门。
+// --4k（--uhd）出的是 3840×2080 的工作版，不是交付件：档位 beiming-1040p24 要 1920×1040，交付 QA 必然不过，所以不跑 QA，
+// 只核对帧数、画幅、帧率与音轨（不符退出码 4）；符合时退出码 0，run.json 记 rendered（作品描述包合入前记 blocked），与旧版 --4k 的 0 一致。
 // 参数与退出码遵守命令约定（tools/lib/cli.mjs，docs/CLI.md）：--help 无副作用、未知参数退出 2、--json 时 stdout 只有一个信封。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,15 +32,17 @@ export const command = defineCommand({
     '产物在 out/beiming/<run-id>/（run.json、qa/report.json、联系表、播放页），再按旧文件名放到 out/：',
     '  out/video[_4k].mp4 · out/beiming[_4k].mp4 · out/beiming_web.mp4 · out/beiming.html · out/contact_sheet.jpg · out/mix.wav',
     '机器 QA 门不通过时旧文件名照样放好，退出码 4（报告在运行目录的 qa/）。新作品不要用这个命令：npm run new，再 npm run film -- build。',
+    '--4k / --uhd：3840×2080 工作版，不是交付件——不跑机器 QA（档位要 1920×1040，交付规格必然不过），只核对帧数、画幅、帧率与音轨；',
+    '  符合时退出码 0（run.json 记 rendered，作品描述包合入前记 blocked），不符退出码 4。',
     '环境变量：WORKERS / WORKERS_4K（并行路数，默认 1080p 4 路、4K 8 路；--workers 优先）、PYTHON、BEIMING_ANGLE、BEIMING_CHROME。',
   ],
   options: {
-    uhd: { type: 'boolean', describe: '原生 3840×2080（构图不变，引擎按高度放大；旧写法 --4k 同样认）；只出工作版，不按交付档位' },
+    uhd: { type: 'boolean', describe: '原生 3840×2080 工作版（构图不变，引擎按高度放大；旧写法 --4k 同样认）：不是交付件，不跑机器 QA，只核对规格' },
     'no-audio': { type: 'boolean', describe: '不重新混音，沿用 out/mix.wav' },
     workers: { type: 'integer', min: 1, max: 32, arg: '<N>', describe: '逐帧渲染并行路数（默认 WORKERS，或 1080p 4 / 4K 8）' },
   },
   examples: ['npm run beiming:build', 'npm run beiming:build -- --4k', 'sh build.sh --no-audio', 'node tools/film/beiming.mjs --json'],
-  exitCodes: { 0: '成功', 1: '运行失败', 2: '用法错误', 3: '缺环境（或作品描述 films/beiming-10s 还没就位）', 4: '契约 / 机器 QA 不通过（旧文件名照样放好）', 5: '样片正被另一次运行占用', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
+  exitCodes: { 0: '成功（--4k 时：工作版出完且规格核对通过）', 1: '运行失败', 2: '用法错误', 3: '缺环境（或作品描述 films/beiming-10s 还没就位）', 4: '契约 / 机器 QA 不通过（旧文件名照样放好）；--4k 时是规格核对不符', 5: '样片正被另一次运行占用', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
   async run(ctx) {
     if (ctx.env.npm_lifecycle_event === 'build') ctx.warn('renamed', 'npm run build 已改名为 npm run beiming:build（旧名保留一个版本）');
     const fourK = ctx.opts.uhd, noAudio = ctx.opts['no-audio'];

@@ -33,11 +33,11 @@ npm run film -- status films/my-film                  # 任何时候：闸门、
 | `check <作品>` | 只读：作品描述校验（`engine/production/film.js check`；没有时用 `tools/lib/filmspec.mjs` 做结构自检）、页面契约探测或原生预检、档位、切点、闸门要求 | 无（不建运行目录） |
 | `stills <作品> [--frames … \| --times …]` | 风格关键帧：缺省每个镜头取中间一帧，单镜头取片长 1/6、1/2、5/6 | `stills/` `frames.json` `contact.jpg` |
 | `animatic <作品>` | 半分辨率预演：页面加 `previs=1`；临时声用作品混音，没有声音就按事件与切点生成提示音；B 用原生 `--quality draft` | `animatic.mp4` `contact.jpg` `player.html` |
-| `build <作品> [--final]` | 整条出片链（§4）；`--from` / `--to` 只跑一段；输入没变的步骤复用缓存 | `master.mp4` `web.mp4` `player.html` `contact.jpg` `poster.jpg` `qa/` |
+| `build <作品> [--final] [--profile] [--size]` | 整条出片链（§4）；`--from` / `--to` 只跑一段；输入没变的步骤复用缓存；`--profile` 换档位（画幅或帧率与 film.json 不同时 QA 读生效描述，§4）；`--size` 出改画幅的工作版（不是交付件，不跑交付 QA） | `master.mp4` `web.mp4` `player.html` `contact.jpg` `poster.jpg` `qa/`（换了档位另有 `film.effective.json`） |
 | `mix <作品>` | 只做声音：A、C 跑到声画拍点核对（`build --to cuecheck`），B 跑原生素材准备（`--to prepare`） | `audio/mix.wav` `audio/stems/` `audio/cuecheck.txt` |
 | `assemble <作品>` | 画面与声音复用缓存，只重做封装及之后（A、C `build --from mux`，B `--from web`） | 同 build |
 | `render <作品> --frames a:b \| --shot S [--clip] [--final]` | 只渲指定帧段或镜头，逐帧缓存（同一命令第二次 0 帧重渲）；`--final` 先查闸门，不给帧段时等于 `build --final` | `frames/` `frames.json` `contact.jpg`（`--clip` 另有 `range.mp4`） |
-| `qa <作品> [--run <id>]` | 对已出的片子补跑机器 QA 门，回写那次的 run.json | `qa/` |
+| `qa <作品> [--run <id>]` | 对已出的片子补跑机器 QA 门，回写那次的 run.json；作品描述与出片时同一口径（用那次的 `film.effective.json`）；`--size` 的工作版不审（用法错误） | `qa/` |
 | `review approve\|reject\|waive\|note\|status …` | 闸门审阅记录（§6）；`approve …` 是 `review approve …` 的简写 | `films/<名>/review/<闸>-<日期>.json`（随作品源码提交） |
 | `status <作品>` | 闸门、最近各类运行、下一步命令 | 无 |
 
@@ -49,14 +49,17 @@ npm run film -- status films/my-film                  # 任何时候：闸门、
 films/<名>/out/
   <run-id>/                 一次运行；run-id = UTC 的 YYYYMMDD-HHMMSS-<提交前 8 位>[-dirty]（同一秒已被占用时顺延一秒，不加后缀）
     master.mp4 web.mp4 player.html contact.jpg poster.jpg run.json
+    film.effective.json     本次生效的作品描述：--profile 换了画幅或帧率时才有（§4「档位与作品描述」），QA 读它
     qa/report.json report.md contact.jpg   机器 QA 门的报告（附录 C8）
     checks/output.json      编排器对主产物的核对（完整解码计帧、画幅、帧率、音轨）
     events.json timeline.json audio/mix.wav audio/stems/   页面导出的事件表、混音（A / C）
     native/ technical.json  B 的原生清单与原生入口的核对
     logs/<步骤>.log         每一步的完整输出
     work/                   中间件（work/video.mp4 是逐帧中间件）；work/tmp 是子进程的 TMPDIR，运行结束删除
-  latest                    指针文件：最近一次完整跑完且没失败的 build（不是符号链接，兼容 Windows）
-  latest-<stills|animatic|render>
+  latest                    指针文件：最近一次整条链跑完且没失败的 build（含 --no-qa、--size 的工作版，run.json 分别记 blocked、
+                            rendered；--to 提前停、失败、中断不更新）；不是符号链接，兼容 Windows。作品描述包的状态机按它找
+                            「最近一次运行」，再看那次的 kind 与 status
+  latest-<stills|animatic|render>   同口径
   cache/<步骤>/<输入哈希>/  步骤缓存（硬链接，不占双份空间；随时可删）
   .lock                     作品锁：同一作品同一时间只允许一次运行，另一次退出码 5
 ```
@@ -81,7 +84,10 @@ films/<名>/out/
 - **AIGC 标识（D11）**：film.json 的 `aigc.contains = true` 时，`label` 步骤用 `tools/compliance/lib/aigc.mjs` 的 `ffmpegMetadataArgs`（制作方「北冥引擎 Beiming Engine」，ProduceID = `<作品 id>@<run-id>`，类别取 `aigc.kinds`，缺省 visual；生成工具取 `aigc.tools`）给 master.mp4、web.mp4（预演是 animatic.mp4）写 mp4 comment；只改容器元数据、码流逐位不变；写完读回核对，run.json 的 `aigc.comment` 记下写入的字符串。播放页另写显式标识。
 - **联系表**：只取本次运行的帧（从本次视频按帧号解码，不会混进旧静帧）。概览约 20 格（24 fps × 240 帧时每 12 帧一格，含片尾帧），每个切点另有前 3 后 3 的逐帧条；每格标帧号、时间码、镜头号，切点帧用橙色标出。
 - **播放页**：`tools/make_html.py`，标题、画幅、时长、镜头分段与切点来自 film.json 与本次运行；逐帧步进（← →）、跳切点（Shift + ← →）、时间码与帧号。40 MB 以内内嵌成单文件，更大的引用同目录视频（`--embed`）。
-- **机器 QA 门**：`node tools/qa/cli.mjs report <运行目录>/master.mp4 --film <作品>/film.json [--page <页面目录>] [--profile <档位>] --out <运行目录>/qa --json`：交付规格、画面异常、文字（页面型）、底板、声画同步、已知问题台账。硬门不通过时整个出片退出码 4，结论写进 run.json 的 `technicalAcceptance`（证据 `qa/report.json`，相对运行目录）。QA 缺环境退出码 3；参数不被接受（版本不一致）记 not-run 并告警。
+- **机器 QA 门**：`node tools/qa/cli.mjs report <运行目录>/master.mp4 --film <作品描述> [--page <页面目录> --size <宽x高>] [--events <运行目录>/events.json] [--profile <档位>] --out <运行目录>/qa --json`：交付规格、画面异常、文字（页面型）、底板、声画同步、已知问题台账。硬门不通过时整个出片退出码 4，结论写进 run.json 的 `technicalAcceptance`（证据 `qa/report.json`，相对运行目录；`technicalAcceptance.film` 记 QA 读的是哪份作品描述）。QA 缺环境退出码 3；参数不被接受（版本不一致）记 not-run 并告警。页面型作品把视口 `--size` 明确交给 QA；film.json 没写 `events` 而页面导出了 `window.EV`（C 路线）时，把运行目录里的 `events.json` 交给声画同步组（QA 原本到作品目录找，编排器把这份导出写进了运行目录）。
+- **档位与作品描述**（复核 must 的修正）：机器 QA 有意要求作品描述的画幅、帧率与档位一致，解码帧数等于作品描述的 `frameCount`，文字组按作品描述的画幅开页面（docs/quality/QA-GATE.md §4.1）。所以 `--profile` 换成画幅或帧率与 film.json 不同的档位时（例如横屏作品出 `vertical-1080x1920-30`），编排器在运行目录写 `film.effective.json`：`output` 换成档位的 profile、宽高、帧率、帧数；帧率变了时镜头（首尾相接、最后一镜止于新帧数）、事件、停顿、海报帧、`qa` 的有意区间与豁免帧段按比例换算（与 `tools/new-film.mjs` 的 `rescaleFrames` 同口径），按秒写的不动；`id` 显式写上。QA 的 `--film` 指向它，run.json 的 `filmEffective` 记来源、哈希与改动；作品目录的 film.json 不改。换算后有镜头一帧不剩时出片前就拒绝（退出码 4）。`docs/quality/waivers/<id>.json` 里按帧号写的豁免不随帧率换算。B 路线的档位必须与 film.json 一致（原生运行时按 film.json 出片），不一致时出片前拒绝。
+- **改画幅的工作版（`--size`）**：不是交付件。交付 QA 按档位查画幅必然不过，所以不跑，`qa` 步骤记 skipped；编排器照常核对帧数、画幅、帧率与音轨（不符退出码 4），符合时退出码 0，run.json 的技术验收记 `not-run`、规格核对记 `specCheck`、`status` 记 `rendered`（作品描述包合入前记 `blocked`）、`deliverable: false`。不能与 `--final` 同用。《北冥》的 `--4k` 就是这一种。
+- **检查顺序**：build 先把用法与契约全部查完（作品描述、页面目录、档位、`--size` / `--final`、步骤名、终渲档位须在 film.json 的 `deliveries` 里），再写审片记录（`--waive`）、判闸门、开运行目录；前面任何一项不过都直接退出，`review/` 不会多出记录，也不建运行目录。`--final` 配没有用户原话的 `--waive` 是用法错误。
 - **主产物核对**：完整解码计帧，帧数、画幅、帧率、音轨任一与作品描述不符退出码 4，核对记录写 `checks/output.json`；再记逐帧解码 md5（`frameHashes`，复现时逐帧比对）。
 
 ## 5. film.json 里编排器读的字段
@@ -109,12 +115,12 @@ films/<名>/out/
 
 ## 6. 运行记录与闸门记录
 
-**run.json**（附录 C8，写之前用 `engine/production/project.js` 的 `validateRenderResult` 按 strict 口径自检）：`schemaVersion`、`kind`（作品描述包的运行类别：`final` 终渲 · `preview` 工作版出片 · `animatic` · `still` 静帧与帧段）、`job`（编排器的子命令类别）、`final`、`status`、`outcome`、`projectId`、`shotId`、`route`、`backend`、`sourceCommit`、`dirty`、`argv`、`rerun`（从仓库根照抄就能重跑的命令）、`tools{node,playwright,browser,ffmpeg,python,raea?}`、`preflight`、`actualDevice`、`actualGraphicsBackend`、`actualEncoder`、`softwareFallback`、`profile`、`expected`、`output{path,sha256,width,height,fps,frames,pixFmt,color,audio}`、`outputs[{path,sha256,kind}]`、`frameHashes`、`timing`、`steps[]`、`technicalAcceptance{status,evidence,report,by,summary,skipped,failed}`、`specCheck`、`creativeAcceptance{status,reviews[],events[],styleComparison[]}`、`gates`、`waivers`、`aigc`、`warnings[]`、`legacyRestored[]`、`repoTouched[]`、`validation`、`error`。
+**run.json**（附录 C8，写之前用 `engine/production/project.js` 的 `validateRenderResult` 按 strict 口径自检）：`schemaVersion`、`kind`（作品描述包的运行类别：`final` 终渲 · `preview` 工作版出片 · `animatic` · `still` 静帧与帧段）、`job`（编排器的子命令类别）、`final`、`status`、`outcome`、`projectId`、`shotId`、`route`、`backend`、`sourceCommit`、`dirty`、`argv`、`rerun`（从仓库根照抄就能重跑的命令）、`tools{node,playwright,browser,ffmpeg,python,raea?}`、`preflight`、`actualDevice`、`actualGraphicsBackend`、`actualEncoder`、`softwareFallback`、`profile`、`expected`、`filmEffective{path,sha256,from,fromSha256,profile,changes}`、`deliverable`、`output{path,sha256,width,height,fps,frames,pixFmt,color,audio}`、`outputs[{path,sha256,kind}]`、`frameHashes`、`timing`、`steps[]`、`technicalAcceptance{status,evidence,report,by,summary,skipped,failed}`、`specCheck`、`creativeAcceptance{status,reviews[],events[],styleComparison[]}`、`gates`、`waivers`、`aigc`、`warnings[]`、`legacyRestored[]`、`repoTouched[]`、`validation`、`error`。
 
 | status | 含义 |
 |---|---|
 | `passed` | 技术验收通过：build 由机器 QA 门判定 |
-| `rendered` | 非交付件（stills、render、animatic）跑完：不跑 QA，编排器的规格核对记在 `specCheck`（校验器还不认 `rendered` 的版本里记 `passed`） |
+| `rendered` | 非交付件（stills、render、animatic，以及 `--size` 改画幅的 build 工作版）跑完：不跑交付 QA，编排器的规格核对记在 `specCheck`（校验器还不认 `rendered` 的版本里：stills、render、animatic 记 `passed`，`--size` 工作版记 `blocked`） |
 | `failed` | 运行出错，或 QA 硬门不过 |
 | `blocked` | 没能完成技术验收：缺环境、作品被占用、用法错误；或画面已出但 QA 没跑（`--no-qa`、`--to` 提前停）；或记录缺实测字段 |
 | `accepted` | 只由 final 闸的用户认可写入（`review approve final`，且技术验收已通过、校验器认可） |
@@ -155,8 +161,9 @@ films/<名>/out/
 
 ## 9. 跨平台
 
-- macOS、Linux：全部命令可用。
-- Windows（PowerShell）：编排器本身、页面渲染、联系表、播放页、QA 都不经 shell；**音画封装 `engine/render/mux.sh` 与 `.sh` 声音脚本（如《北冥》的 `audio/build.sh`）目前仍要 POSIX sh**，预检会说清；Git for Windows 装在默认位置时自动找到，不用改 PATH。渲染器 v2 的 Node 封装合入后去掉这个依赖。PowerShell 设环境变量：`$env:PYTHON="C:\路径\python.exe"; npm run film -- build films\my-film`。
+- macOS（Apple Silicon，Metal）：全部命令实测（单元、契约、端到端 A / B / C、真 QA 的竖屏口径）。
+- Linux：设计上全部命令可用（只用 Node、ffmpeg、Python 与无头 Chrome，不依赖 shell 语法），**尚未实测**，交给 P09 的 CI（ubuntu 作业）跑 `node --test tests/film/*.test.mjs` 与 `node tests/film/e2e-run.mjs`。
+- Windows（PowerShell）：**尚未实测**（交给 P09 的 CI）。设计上编排器本身、页面渲染、联系表、播放页、QA 都不经 shell；**音画封装 `engine/render/mux.sh` 与 `.sh` 声音脚本（如《北冥》的 `audio/build.sh`）目前仍要 POSIX sh**，预检会说清；Git for Windows 装在默认位置时自动找到，不用改 PATH。渲染器 v2 的 Node 封装合入后去掉这个依赖。PowerShell 设环境变量：`$env:PYTHON="C:\路径\python.exe"; npm run film -- build films\my-film`。
 - 子进程整棵树清理：POSIX 上按进程组与父子关系结束（含 Playwright 自建进程组的浏览器），Windows 上 `taskkill /T /F`。子进程的 TMPDIR 指到运行目录（`work/tmp`，结束整体删除），浏览器配置目录也在其中。
 - B 路线的作品目录必须**真实位于**仓库的 `films/` 下：原生运行时按真实路径打包 `film.tsx`，指向仓库外的链接会找不到 `../../engine/native`，编排器提前以用法错误拒绝。
 
