@@ -2,13 +2,13 @@
 //
 // 记录格式以 P05 M1 为准（films/<名>/review/<闸>-<日期>.json 与 review/waivers.json，也接受作品根目录的
 // waivers.json）。P05 定稿前字段名可能变化，这里集中维护别名：
-//   闸门  gate | stage                      决定  decision | status | action | verdict | result
+//   闸门  gate | stage（都没有时取文件名里的 <闸>）  决定  decision | status | action | verdict | result
 //   原话  quote | userQuote | words | reviewerQuote | 原话 | reason（仅豁免）
 //   来源  source | from
 // 决定归一为 approve / waive / reject / other。
 // 原话核对：NFKC 归一、去首尾引号、压缩空白后做子串匹配（「逐字找到」）；至少 2 个字。
 // 接口：loadReviewRecords(filmDir)、normalizeQuote(s)、findQuote(quote, messages, predicate)、
-//       gateAlias(name, aliases)
+//       gateAlias(name, aliases)、gateFromFileName(file)、normalizeDecision(value)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -50,12 +50,19 @@ export function findQuote(quote, messages, predicate = () => true) {
   return null;
 }
 
+/** 从 P05 的文件名约定 review/<闸>-<日期>.json 推出闸门名（记录里没写 gate 时用）。 */
+export function gateFromFileName(file) {
+  const m = /^([a-z][a-z0-9_]*?)(?:[-_.](?:\d{4}-?\d{2}-?\d{2}|\d{8}T?\d*|r\d+|round\d+).*)?\.json$/i.exec(path.basename(String(file ?? '')));
+  if (!m || /^(waivers|index|reviews?|issues?)$/i.test(m[1])) return null;
+  return m[1].toLowerCase();
+}
+
 function recordsFromValue(value, file, forcedDecision = null) {
   if (Array.isArray(value)) return value.flatMap(v => recordsFromValue(v, file, forcedDecision));
   if (!value || typeof value !== 'object') return [];
   if (Array.isArray(value.waivers)) return recordsFromValue(value.waivers, file, 'waive');
   if (Array.isArray(value.records)) return recordsFromValue(value.records, file, forcedDecision);
-  const gates = value.gates ?? pick(value, GATE_KEYS);
+  const gates = value.gates ?? pick(value, GATE_KEYS) ?? gateFromFileName(file);
   const decision = forcedDecision ?? normalizeDecision(pick(value, DECISION_KEYS));
   let quote = pick(value, QUOTE_KEYS);
   if (quote === null && decision === 'waive') quote = value.reason ?? null;
