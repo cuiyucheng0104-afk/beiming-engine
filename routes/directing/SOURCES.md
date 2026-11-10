@@ -9,7 +9,7 @@
 2. **原文引用**：本规范没有直接引用第三方原文。研究稿里有过五处短引或近似原文（`$甲/styles/cel-anime-80s/STYLE.md:10`、`$甲/TECHNIQUE.md:67` 两句英文；`$乙/AGENTS.md:14` 一句中文；`$甲/styles/woodcut/STYLE.md:10` 一句的中译；`$乙` 同一句的变体），定稿时都改写成了转述，并保留文件与行号。
 3. **代码**：规范里的代码片段是本仓库自写的建议写法，没有复制第三方代码；其中 `timeline.js` 的"段＋拍"结构沿用 `$甲/TECHNIQUE.md` §3 的写法。工艺手册提到风格库甲渲染核心里的工程防护（输出锁、残留清理、信号处理、静音处理、BT.709 开关、读字检查），只作对照。**C 路线历史作品里有逐字来自 `$甲` 示例的代码**（见 §3），借用它们等于借用 `$甲` 的代码：保留 LemoLab 的版权与 MIT 许可声明和派生说明（`THIRD-PARTY.md:36`）。
 4. **画面**：没有嵌入第三方示例影片或剧照。风格库甲的示例影片与剧照是 CC BY 4.0，日后引用要署名 LemoLab、附该仓库链接与许可链接，并注明改动（`$甲/README.md:387`）。
-5. **命名**：第三方风格库名、作者名只出现在各文件的「出处与许可」段落和本文；正文用 `$甲`、`$乙`。对外名称遵守 `AGENTS.md:3`：北冥风格路线 · WebGL 三渲二、北冥原生路线 · BNE、北冥代码动画风格 · 86 式；`raea`、`cases/vendor` 是工程内部历史代号，只用于定位文件。作品站生成器把这些代号与第三方库名列为页面禁用词（`tools/build-showcase.py:88`）。入库前用 `python3 tools/check_directing_docs.py <规范目录>`（随本规范提交，见 [README](README.md)）检查命名与路径。
+5. **命名**：第三方风格库名、作者名只出现在各文件的「出处与许可」段落和本文；正文用 `$甲`、`$乙`。对外名称遵守 `AGENTS.md:3`：北冥风格路线 · WebGL 三渲二、北冥原生路线 · BNE、北冥代码动画风格 · 86 式；`raea` 是上游项目名（内部目录沿用），`cases/vendor` 是第三方快照目录，都只用于定位文件。作品站生成器把这些名字与第三方库名列为页面禁用词（`tools/build-showcase.py:88`）。入库前用 `python3 tools/check_directing_docs.py <规范目录>`（随本规范提交，见 [README](README.md)）检查命名与路径。
 6. **快照只读**：不就地修改 `cases/vendor/`；不删改 `LICENSE`、`cases/licenses/` 与 vendor 目录内的许可文件和署名（`AGENTS.md:51,56`；`THIRD-PARTY.md:32-38`）。
 7. **随仓库分发**：本规范包含对 MIT 文档的改编。随本仓库分发时，`cases/licenses/LemoLab-MIT.txt` 与 `cases/vendor/lemo-opuscar/LICENSE` 已在仓库里；把本规范单独拿出去发布时，必须附上该 MIT 许可全文和 LemoLab 的版权行。
 

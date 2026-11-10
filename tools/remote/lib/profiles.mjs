@@ -4,10 +4,10 @@
 // 格式：
 //   { "machines": { "<名字>": {
 //       "transport": "ssh",                 ssh（默认）或 local（同一台机器上的另一个目录，测试与单机用）
-//       "ssh": "<用户>@<主机>",             ssh 目标，可写 ~/.ssh/config 里的 Host 别名；只支持密钥登录（BatchMode）
+//       "ssh": "<用户>@<主机>",             ssh 目标，可写本机 ssh 配置（家目录下 .ssh/config）里的 Host 别名；只支持密钥登录（BatchMode）
 //       "sshOptions": ["-p", "22"],         可选，原样加在 ssh / scp 前面
 //       "shell": "powershell",              远端登录 shell：powershell（Windows）或 posix（macOS / Linux）
-//       "root": "D:/beiming-remote",        远端工作根目录：只能是 ASCII、不含空格（缓存仓库、运行目录、锁、共享依赖都在这里）
+//       "root": "<盘符>:/beiming-remote",   远端工作根目录：只能是 ASCII、不含空格（缓存仓库、运行目录、锁、共享依赖都在这里）
 //       "node": "node", "git": "git",       远端命令名或完整路径（非交互 ssh 会话里 PATH 常常更短）
 //       "env": { "BEIMING_ANGLE": "vulkan" },   远端运行时附加的环境变量
 //       "slots": 1                          这台机器同时允许几个远程任务（整机锁）
@@ -44,9 +44,9 @@ export function validateMachine(name, m) {
     node: m.node || 'node', git: m.git || 'git', env: m.env || {}, slots: m.slots ?? 1,
   };
   if (!['ssh', 'local'].includes(out.transport)) errors.push(`transport 只能是 ssh 或 local，收到 ${out.transport}`);
-  if (out.transport === 'ssh' && !out.ssh) errors.push('缺 ssh（例如 render@workstation，或 ~/.ssh/config 里的 Host 别名）');
+  if (out.transport === 'ssh' && !out.ssh) errors.push('缺 ssh（例如 render@workstation，或本机 ssh 配置里的 Host 别名）');
   if (!['posix', 'powershell'].includes(out.shell)) errors.push(`shell 只能是 posix 或 powershell，收到 ${out.shell}`);
-  if (!out.root) errors.push('缺 root（远端工作根目录，例如 D:/beiming-remote 或 /srv/beiming-remote）');
+  if (!out.root) errors.push('缺 root（远端工作根目录，例如 Windows 上 <盘符>:/beiming-remote、Linux 上 /srv/beiming-remote）');
   else if (!SAFE_ROOT.test(out.root)) errors.push(`root 只能用 ASCII 字母、数字与 _ : / \\ . -，不能有空格或中文：${out.root}`);
   if (!Number.isInteger(out.slots) || out.slots < 1) errors.push(`slots 要是正整数，收到 ${out.slots}`);
   if (typeof out.env !== 'object' || Array.isArray(out.env) || Object.values(out.env).some(v => typeof v !== 'string')) errors.push('env 要是 {变量名: 字符串}');

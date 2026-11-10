@@ -25,12 +25,12 @@ test('参数错误 exit 2，信封里写明原因', async () => {
     [['--size-a', '385x208'], /偶数/],
     [['--size-c', '8x8'], /≥16/],
     [['--golden', 'maybe'], /auto、compare、capture、off/],
-    [['--nope'], /不认识的参数/],
+    [['--nope'], /不认识的选项 --nope/],
   ];
   for (const [args, re] of cases) {
     const r = await runNode(TOOL, [...args, '--json']);
     assert.equal(r.code, 2, `${args.join(' ')}：${r.stderr}`);
-    assert.equal(r.json.error.code, 'USAGE');
+    assert.match(r.json.error.code, /^usage\./);
     assert.match(r.json.error.message, re);
   }
   const nonSoftware = await runNode(TOOL, ['--golden', 'compare', '--json'], { env: { BEIMING_ANGLE: 'metal' } });

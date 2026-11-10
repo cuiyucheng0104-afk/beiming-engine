@@ -129,7 +129,7 @@ export function loadProfiles({ root = REPO_ROOT, file = null } = {}) {
       if (p.source === BUILTIN_SOURCE && n) p.warnings.push(`档位 ${p.id} 不在 ${extSource} 里，用 QA 内置值`);
     }
   } else if (file) {
-    throw new QaError('usage', `找不到档位文件 ${file}`, { exitCode: EXIT.USAGE });
+    throw new QaError('usage.no-file', `找不到档位文件 ${file}`, { exitCode: EXIT.USAGE });
   } else {
     for (const p of profiles.values()) p.warnings.push(`${AUTHORITATIVE} 还不存在（由 P05 维护），按 QA 内置档位判定（与 D07、附录 C7 一致）`);
   }
@@ -140,7 +140,7 @@ export function resolveProfile(store, id, film = null) {
   const want = id || film?.profile || 'web-1080p24';
   const base = store.profiles.get(want);
   if (!base) {
-    throw new QaError('usage', `没有档位 ${want}`, { hint: `可选：${[...store.profiles.keys()].join('、')}；或用 --profiles-file 指定档位表`, exitCode: EXIT.USAGE });
+    throw new QaError('usage.bad-value', `没有档位 ${want}`, { hint: `可选：${[...store.profiles.keys()].join('、')}；或用 --profiles-file 指定档位表`, exitCode: EXIT.USAGE });
   }
   let p = structuredClone(base);
   if (!id && !film?.profile) p.warnings.push('没有用 --profile 指定档位，作品描述里也没写 output.profile，按默认档 web-1080p24 判定');

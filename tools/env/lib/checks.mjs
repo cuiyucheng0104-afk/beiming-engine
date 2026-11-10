@@ -399,7 +399,7 @@ export async function checkRaea(root, spec, { env = process.env, required = true
   const bin = env.RAEA_BIN;
   const base = { required, expected: `原生运行时 ${want}（或 BNE_ALLOW_VERSION 放行的版本）` };
   if (!bin) return mk('raea.runtime', 'B 路线原生运行时', { ...base, status: required ? 'fail' : 'info', found: '没有设 RAEA_BIN',
-    fix: process.platform === 'win32' ? "$env:RAEA_BIN = 'D:\\beiming\\tools\\raea\\bin\\raea.exe'（换成你的安装位置；运行时不随仓库分发，见 THIRD-PARTY.md）" : 'export RAEA_BIN=/opt/raea/bin/raea（换成你的安装位置；运行时不随仓库分发，见 THIRD-PARTY.md）' });
+    fix: process.platform === 'win32' ? "$env:RAEA_BIN = '<安装目录>\\bin\\raea.exe'（换成你的安装位置；运行时不随仓库分发，见 THIRD-PARTY.md）" : 'export RAEA_BIN=/opt/raea/bin/raea（换成你的安装位置；运行时不随仓库分发，见 THIRD-PARTY.md）' });
   let real;
   try { real = fs.realpathSync(bin); } catch { return mk('raea.runtime', 'B 路线原生运行时', { ...base, status: 'fail', found: `RAEA_BIN=${bin} 不存在`, fix: '改成运行时可执行文件的完整路径（安装包要保留 bin/ 与 share/）' }); }
   if (process.platform !== 'win32') { try { fs.accessSync(real, fs.constants.X_OK); } catch { return mk('raea.runtime', 'B 路线原生运行时', { ...base, status: 'fail', found: `${real} 不可执行`, fix: `chmod +x "${real}"` }); } }

@@ -230,7 +230,9 @@
     "VIRTUAL_ENV",
     "SYSTEMROOT",
     "WINDIR",
-    "COMSPEC"
+    "COMSPEC",
+    "GITHUB_STEP_SUMMARY",
+    "NODE_TEST_CONTEXT"
   ],
   "envVars": [
     {
@@ -433,7 +435,6 @@
       "default": "不设（B 路线必需）",
       "readBy": [
         "engine/render/native.mjs",
-        "tools/repo-check.mjs",
         "tools/env/lib/checks.mjs"
       ]
     },
@@ -613,6 +614,92 @@
         "tools/remote/lib/profiles.mjs"
       ],
       "external": "XDG"
+    },
+    {
+      "name": "BEIMING_DEBUG",
+      "group": "命令约定（tools/lib）",
+      "purpose": "设 1 时，命令遇到内部错误（failure.internal，退出 1）在 stderr 打印堆栈；平时只打印一句原因与下一步",
+      "default": "不设",
+      "readBy": [
+        "tools/lib/cli.mjs",
+        "tools/lib/cli.py",
+        "tools/compliance/lib/cli.mjs",
+        "tools/eval/lib/cli.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_TEST_GPU",
+      "group": "测试与 CI（tools/run-tests、tools/check-all）",
+      "purpose": "设 1 表示本机有独显：npm test 才跑 suite.json 声明 requires gpu 的测试域",
+      "default": "不设（这类测试域整域跳过，并写明原因）",
+      "readBy": [
+        "tools/run-tests.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_TEST_NETWORK",
+      "group": "测试与 CI（tools/run-tests、tools/check-all）",
+      "purpose": "设 1 表示可以联网：npm test 才跑 suite.json 声明 requires network 的测试域",
+      "default": "不设（这类测试域整域跳过，并写明原因）",
+      "readBy": [
+        "tools/run-tests.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_SYNTAX_ROOT",
+      "group": "测试与 CI（tools/run-tests、tools/check-all）",
+      "purpose": "npm run check 传给语法检查子进程的仓库根（工具设置，不要手动设）",
+      "default": "由 check-all 设置",
+      "readBy": [
+        "tools/check-all.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_SYNTAX_FILES",
+      "group": "测试与 CI（tools/run-tests、tools/check-all）",
+      "purpose": "npm run check 传给语法检查子进程的待查文件清单（JSON 数组；工具设置，不要手动设）",
+      "default": "由 check-all 设置",
+      "readBy": [
+        "tools/check-all.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_EVAL_ROOT",
+      "group": "评测（tools/eval）",
+      "purpose": "评测根：每次运行的被测检出、会话记录与报告都在这里；必须在仓库外，且各级上级目录里没有 CLAUDE.md、AGENTS.md（见 evals/agent/README.md「会话隔离」）；--root 优先",
+      "default": "~/.cache/beiming/evals（家目录里有个人指令文件时会被拒绝，正式评测设到家目录之外）",
+      "readBy": [
+        "tools/eval/lib/sandbox.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_EVAL_CLAUDE",
+      "group": "评测（tools/eval）",
+      "purpose": "驱动被测会话用的 claude 可执行文件（也可以是 cli.js 或测试桩 .mjs）；--claude 优先",
+      "default": "PATH 里的 claude",
+      "readBy": [
+        "tools/eval/run.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_EVAL_HOME",
+      "group": "评测（tools/eval）",
+      "purpose": "评测工具当作家目录的位置（测试用：在假家目录里构造个人指令文件，核对隔离检查）",
+      "default": "系统家目录",
+      "readBy": [
+        "tools/eval/lib/paths.mjs"
+      ]
+    },
+    {
+      "name": "CLAUDE_CONFIG_DIR",
+      "group": "评测（tools/eval）",
+      "purpose": "Claude Code 的配置目录。隔离会话把它指向运行目录里的空目录 session/config/（不加载个人指令、记忆、全局 skill 与插件）；finish 从这里找会话记录",
+      "default": "Claude Code 默认（家目录下的 .claude）",
+      "readBy": [
+        "tools/eval/lib/sandbox.mjs",
+        "tools/eval/run.mjs"
+      ],
+      "external": "Claude Code"
     }
   ],
   "envPrefixes": [
