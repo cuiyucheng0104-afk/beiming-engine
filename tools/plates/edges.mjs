@@ -6,7 +6,8 @@
 //     hard     outerMax > alphaHard（默认 0.02）：这条边贴着图边就不透明，是截断边，必须留在画外或被盖住
 //     crossings / cover / std / median    逐行（左右边）或逐列（上下边）从边往里找 alpha 第一次 ≥ 0.5 的位置：
 //              有交点的行数、占全高（全宽）的比例、交点位置的标准差与中位数（像素）
-//     line     交点落在中位数 ± band 以内的行占全高的比例（band = max(12, 图长 × 0.006) 像素，约等于 3548 宽原图的 ±21 px）
+//     line     交点落在中位数 ± band 以内的行占全高的比例（band = max(3, 扫描深度 × 0.012) 像素：3548 宽的原图左右边约 ±21 px；
+//              按「往里量的方向」的尺寸缩放，小图、大图判据一致）
 //     straight line ≥ fadeCover（默认 0.3）且 median > 0：至少三成的行在同一条直线附近淡出
 // 判据出自审计复核（register.json CRAFT-03 的 verify_note：alpha = 0.5 交叉列近乎一条竖线、覆盖 > 30% 行高）。
 // 用「落在中位线附近的比例」而不是整体标准差：云片上下两端的轮廓是弯的，会把整体标准差拉大，掩盖中段那条直边。
@@ -30,7 +31,7 @@ export function analyzeEdges(img, { alphaHard = 0.02, fadeCover = 0.3 } = {}) {
     const mean = xs.reduce((s, v) => s + v, 0) / (xs.length || 1);
     const std = Math.sqrt(xs.reduce((s, v) => s + (v - mean) ** 2, 0) / (xs.length || 1));
     const sorted = [...xs].sort((a, b) => a - b), median = sorted.length ? sorted[sorted.length >> 1] : null;
-    const band = Math.max(12, Math.round(n * 0.006));
+    const band = Math.max(3, Math.round(len * 0.012));
     const line = median === null ? 0 : xs.filter(v => Math.abs(v - median) <= band).length / n;
     const om = outerMax / 255;
     return {
