@@ -89,7 +89,7 @@ export const MAT = {
 };
 // 日出过渡：受光侧边缘光从晨前的弱亮边推到逆光的亮边（色彩脚本第二段，由 film.json 的日出事件驱动）
 export function sunrise(k) {
-  for (const m of [MAT.rock, MAT.rockFar]) { const u = m.userData.toon; u.uRimLitAmt.value = lerp(0.5, 1.3, k); u.uRimAmt.value = lerp(0.45, 0.7, k); }
+  for (const m of [MAT.rock, MAT.rockFar, MAT.pine]) { const u = m.userData.toon; u.uRimLitAmt.value = lerp(m === MAT.pine ? 0.8 : 0.5, 1.7, k); u.uRimAmt.value = lerp(0.45, 0.7, k); }
 }
 
 const bind = (geo, mat, o) => kind.bind(new THREE.Mesh(geo, mat), mat, o);

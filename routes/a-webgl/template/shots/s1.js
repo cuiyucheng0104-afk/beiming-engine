@@ -41,7 +41,7 @@ export async function build({ shot, fps, DW, DH, preset, sun }) {
   // ── 三维：峰与礁、乌篷渡船与尾迹、真水面 ──
   scene.add(buildIslet());
   const water = buildWater({ sky: sky.material.map, skyRect, DW, DH }); scene.add(water);   // 水面倒映的就是这张天空
-  const boat = buildBoat(), wake = buildWake(), boatBase = screenToPlane(cam0, DW, DH, 690, 862).clone(); scene.add(boat, wake);
+  const boat = buildBoat(), wake = buildWake(), boatBase = screenToPlane(cam0, DW, DH, 700, 892).clone(); scene.add(boat, wake);   // 约 680 m：远景里仍小，但船身、船篷、船夫三笔读得出
   const lamp = glowSprite(PAL.lamp, { order: 5.5, amt: 1.3, core: 1.8 }); scene.add(lamp);
   const key = keyLight(sun.keyDir(), ISLET.clone().add(new THREE.Vector3(0, 50, 0))); scene.add(key, key.target);
 
