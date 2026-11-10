@@ -595,7 +595,7 @@ export const HELP = `北冥仓库 · 测试总入口（npm test）
 用法：node tools/run-tests.mjs [参数]
       npm test -- [参数]
 
-  --only <域,…>        只跑这些域（可重复）。域 = tests/ 下的一级目录名，另有 tools（tools/ 下的测试）
+  --only <域,…>        只跑这些域（可重复）。域见下文「发现」；--list 列出现有的域
   --skip <域,…>        不跑这些域
   --if-present         --only / --skip 里不存在的域只提示、不报错（CI 里给尚未合入的域用）
   --require <能力,…>   这些能力必须具备，缺了直接 exit 3：python、python:<模块>、browser、ffmpeg、sh、gpu、network
@@ -610,11 +610,13 @@ export const HELP = `北冥仓库 · 测试总入口（npm test）
   --report <文件>      另把同一个 JSON 写进文件（CI 上传为工件）
   -h, --help           显示本说明（不做任何其他事）
 
-发现：tests/<域>/**/*.test.{mjs,js,cjs}、tests/<域>/**/test_*.py、tools/**/*.test.{mjs,js,cjs}、tools/**/test_*.py；
-      跳过 fixtures/、__fixtures__/、node_modules/、out/、__pycache__/ 与点开头的目录；不进 cases/、films/。
+发现：仓库里（git 跟踪的与未忽略的新文件）全部 *.test.{mjs,js,cjs} 与 test_*.py；不进 cases/、films/，
+      跳过 fixtures/、__fixtures__/、node_modules/、out/、__pycache__/ 与点开头的目录。
+域：  tests/<域>/… → <域>；engine/audio/…、audio/… → audio；其余按第一级目录（engine、lab、tools…）。
 域的要求：tests/<域>/suite.json → {"requires": [...], "timeoutSec": 600, "testTimeoutSec": 120, "concurrency": 1}
 
-退出码：0 通过；1 有失败；2 用法错误；3 环境缺失；4 没发现测试；124 超时；130/143 被中断（已清理子进程）`;
+退出码：0 通过；1 有失败；2 用法错误；3 环境缺失（含测试缺声明过的依赖）；4 没发现测试；124 超时；
+        130/143 被中断（已清理子进程）`;
 
 export async function main(argv = process.argv.slice(2)) {
   let opts;
