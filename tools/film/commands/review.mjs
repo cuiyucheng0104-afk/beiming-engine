@@ -136,6 +136,13 @@ export async function reviewCommand(opts, positionals) {
   if (!opts.quote || !opts.source) throw usage(`${action} 要给 --quote "<用户原话>" 与 --source "<出处>"`, 'approve / reject 只能记录用户（或用户指定的审阅人）说过的原话；agent 自己的结论用 review note');
   if (!opts.reviewer) throw usage(`${action} 要给 --reviewer "<审阅人>"（用户本人或用户指定的人）`);
   if (opts.quote.trim().length < 2) throw usage('--quote 太短：要逐字写用户的原话');
+  if ((opts.events || opts.styleRef) && gate !== 'final') throw usage('--events / --style-ref 只用于 final 闸');
+  if (opts.events && film.events.length) {
+    const ids = new Set(film.events.map(e => e.id));
+    const bad = opts.events.split(',').map(x => x.trim()).filter(x => x && !ids.has(x));
+    if (bad.length) throw usage(`--events 里有 film.json 事件表没有的 id：${bad.join('、')}`, `可用：${[...ids].join('、')}`);
+  }
+  if (opts.styleRef && !fs.existsSync(path.resolve(opts.styleRef))) throw usage(`--style-ref 指的文件不存在：${opts.styleRef}`, '给风格卡、style-lock 或基线帧的路径（相对当前目录）');
   const r = findRun(film, outRoot, gate, opts.run);
   const rec = {
     gate, decision: action === 'approve' ? 'approved' : 'changes-requested', reviewerKind: 'human', reviewer: opts.reviewer,
@@ -156,8 +163,10 @@ export async function reviewCommand(opts, positionals) {
     ca.reviews = [...(ca.reviews || []), review];
     if (action === 'approve') {
       ca.status = 'accepted';
-      const ev = opts.events ? opts.events.split(',').map(s => s.trim()).filter(Boolean) : film.events.map(e => e.id).filter(Boolean);
-      ca.events = ev.map(id => ({ id, confirmedBy: opts.reviewer, record: file }));
+      // 用户确认看到的事件：作品声明了事件表时只认表里的 id；没有事件表时记用户说的可见事件（原样文字）
+      const declared = film.events.map(e => e.id).filter(Boolean);
+      const ev = opts.events ? opts.events.split(',').map(s => s.trim()).filter(Boolean) : declared;
+      ca.events = ev.map(id => ({ id, declared: declared.includes(id), confirmedBy: opts.reviewer, record: file }));
       if (opts.styleRef) ca.styleComparison = [{ against: opts.styleRef, by: opts.reviewer, record: file }];
       ca.issues = rec.issues;
       body.creativeAcceptance = ca;
@@ -180,5 +189,6 @@ export async function reviewCommand(opts, positionals) {
     if (accepted) human += `\n运行 ${r.id} 已标为 accepted：可以称「已交付（用户已认可）」。`;
     else if (action === 'approve') human += `\n运行 ${r.id} 还不是 accepted（见警告），不要对外称「已交付」。`;
   }
+  if (warnings.length) human += '\n' + warnings.map(w => `[警告] ${w.message}`).join('\n');
   return { env: envelope({ command: `film review ${action}`, outputs, runJson: gate === 'final' ? rel(path.join(r.dir, 'run.json')) : null, warnings, data: { gate, decision: rec.decision, run: r.id, accepted } }), human };
 }

@@ -84,9 +84,12 @@ export function assertFinalAllowed(film, status) {
     return `${GATE_LABEL[g]}：${why}`;
   }).join('；');
   const d = film.relDir;
+  const first = blockers[0];
+  const make = first === 'look' ? `npm run film -- stills ${d}` : `npm run film -- animatic ${d}`;
   throw new FilmError(EXIT.CONTRACT, 'gate-blocked', `拒绝终渲：${desc}`,
-    `先把预演给用户看，用户认可后记录：node tools/film/cli.mjs review approve ${blockers.at(-1)} ${d} --quote "<用户原话>" --source "<出处>" --reviewer "<审阅人>"；` +
-    `用户明确说不看时记豁免：node tools/film/cli.mjs review waive ${blockers.join(',')} ${d} --reason "<理由>" --quote "<用户原话>" --source "<出处>"。agent 不得自己批准`);
+    `按顺序过闸：先 ${make}，把产物给用户看，用户认可后按原话记录 npm run film -- review approve ${first} ${d} --quote "<用户原话>" --source "<出处>" --reviewer "<审阅人>"` +
+    `${blockers.length > 1 ? `，再过 ${blockers.slice(1).join('、')}` : ''}；` +
+    `用户明确说不用看时记豁免：npm run film -- review waive ${blockers.join(',')} ${d} --reason "<理由>" --quote "<用户原话>" --source "<出处>"。agent 不得自己批准，也不得替用户写原话`);
 }
 
 function uniqueFile(dir, base) {
