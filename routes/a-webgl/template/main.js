@@ -6,18 +6,21 @@
 //   ?guides=1    构图参考线：三分线、图文安全区 90%、动作安全区 93%、本帧文字方框（VISUAL-DESIGN §4.1、§6.3）
 //   ?sil=1       剪影检查：三维主体涂黑、底板与辉光全关、白底、不过后期（VISUAL-DESIGN §3「剪影」）
 //   ?dbg=id|depth|edge|line|bloom|paper|kuwahara|scene 看后期中间缓冲；?notext=1 不画字（出风格帧做对照时用）
+//   ?lookdev=<JSON>（或 window.__LOOKDEV）定调扫参：把这组后期参数合并到每镜预设之上，不受 allowedOverrides 限制——
+//                只给 tools/lookdev/sweep.mjs 与 LOOKDEV.md 的扫参用；成片里出现它就说明画风还没定，要回去走定调
 import * as THREE from 'three';
 import { createFilm } from '../../engine/stage/film.js';
 import { createLook } from '../../engine/look/index.js';
 import { fontSpec } from '../../engine/overlay/text.js';
 import { frameOf, hold } from '../../engine/core/clock.js';
 import { ss, eo, seg, clamp } from '../../engine/core/math.js';
-import { loadStyle, parseLookPreset, styleKey, parseStyleRef, resolveLook, mixLook } from '../../engine/style/index.js';
+import { loadStyle, parseLookPreset, styleKey, parseStyleRef, resolveLook, mixLook, mergeParams } from '../../engine/style/index.js';
 import { loadFilmFonts } from '../../engine/style/fonts.js';
 import { makeSun } from './world.js';
 import { createTitle } from './title.js';
 
 const q = new URLSearchParams(location.search);
+if (q.has('lookdev')) window.__LOOKDEV = JSON.parse(q.get('lookdev'));
 const FILM = await (await fetch(new URL('./film.json', import.meta.url))).json();
 const OUT = FILM.output, FPS = OUT.fps, N = OUT.frameCount;
 const fail = m => { throw new Error(`[{{NAME}}] ${m}`); };
@@ -58,7 +61,8 @@ for (const s of FILM.shots) {
   };
   const mod = await import(new URL(s.module, import.meta.url).href);
   const shot = await mod.build({ shot: s, fps: FPS, DW, DH, K, preset, mixLook, sun, eventFrame });
-  shots.push({ at: s.in / FPS, spec: s, shot: animatic ? draft(shot) : shot });
+  const tuned = { ...shot, look: t => (window.__LOOKDEV ? mergeParams(shot.look(t), window.__LOOKDEV) : shot.look(t)) };
+  shots.push({ at: s.in / FPS, spec: s, shot: animatic ? draft(tuned) : tuned });
 }
 // 动态预演：同一条时间轴、同样的镜头，关掉笔触、纸纹与颗粒（快、也不让人把预演当成终版画面）
 function draft(shot) { return { ...shot, look: t => ({ ...shot.look(t), kuwahara: false, paper: { strength: 0.04 }, grain: 0 }) }; }

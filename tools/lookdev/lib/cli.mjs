@@ -4,7 +4,8 @@
 //
 //   EXIT                         { OK 0, RUN 1, USAGE 2, ENV 3, CONTRACT 4, BUSY 5, TIMEOUT 124, INT 130, TERM 143 }
 //   new CliError(exit, code, message, hint)   业务代码里 throw 它，runCli 统一转成退出码与信封
-//   parseArgs(argv, spec)        spec = { 名字: 'bool' | 'string' | 'number' | 'list' }；未知参数 → 用法错误（退出码 2）
+//   parseArgs(argv, spec)        spec = { 名字: 'bool' | 'string' | 'number' | 'list' | 'list-raw' }；未知参数 → 用法错误（退出码 2）
+//                                list 按逗号拆开累加；list-raw 每次出现整段累加（取值里本身带逗号时用）
 //   runCli({ command, usage, spec, main })    main({ opts, args, out, warn, log }) 返回 data；out(path, kind) 登记产物（自动算 sha256）
 //   onCleanup(fn)                登记清理函数：正常结束、出错、Ctrl-C、SIGTERM 都会执行（删临时目录、关浏览器）
 //   sha256File(path) / sha256(buf)   ROOT（仓库根）/ rel(path)（相对仓库根、正斜杠）
@@ -30,7 +31,7 @@ export function sha256File(file) {
 
 export function parseArgs(argv, spec) {
   const opts = {}, args = [];
-  for (const [k, t] of Object.entries(spec)) opts[k] = t === 'bool' ? false : t === 'list' ? [] : null;
+  for (const [k, t] of Object.entries(spec)) opts[k] = t === 'bool' ? false : (t === 'list' || t === 'list-raw') ? [] : null;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--') { args.push(...argv.slice(i + 1)); break; }
@@ -41,7 +42,9 @@ export function parseArgs(argv, spec) {
     let v = eq >= 0 ? a.slice(eq + 1) : argv[++i];
     if (v === undefined || (eq < 0 && v.startsWith('--'))) throw new CliError(EXIT.USAGE, 'missing-value', `--${name} 后面要跟值`);
     if (t === 'number') { const n = Number(v); if (!Number.isFinite(n)) throw new CliError(EXIT.USAGE, 'bad-number', `--${name} 要一个数，现在是 ${v}`); v = n; }
-    if (t === 'list') opts[name].push(...v.split(',').map(s => s.trim()).filter(Boolean)); else opts[name] = v;
+    if (t === 'list') opts[name].push(...v.split(',').map(s => s.trim()).filter(Boolean));
+    else if (t === 'list-raw') opts[name].push(v);
+    else opts[name] = v;
   }
   return { opts, args };
 }
