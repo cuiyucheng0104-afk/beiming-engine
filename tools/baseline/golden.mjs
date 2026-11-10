@@ -10,7 +10,7 @@ import { loadSets, setHash } from './lib/sets.mjs';
 import { captureSet, captureUsable, assertCaptured } from './lib/capture.mjs';
 import { compareFrames, summaryLine, worstStats } from './lib/compare.mjs';
 import { git, headCommit, resolveCommit, dirtyPixelPaths, withSnapshot, runId, isGitRepo, PIXEL_PATHS } from './lib/git.mjs';
-import { manifestPath, toBaseline, validateManifest, diffFrames, appendApproval, readManifest, listManifests, APPROVALS } from './lib/manifest.mjs';
+import { manifestPath, referencePath, toBaseline, validateManifest, diffFrames, appendApproval, readManifest, listManifests, listReferences, APPROVALS } from './lib/manifest.mjs';
 import { osKey } from './lib/platform.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -24,13 +24,19 @@ const HELP = `北冥仓库 · 金标准基线（golden）
   node tools/baseline/golden.mjs compare --set <集合> [--against <提交>]  与本平台的基线清单比（或现场渲染另一个提交来比）
   node tools/baseline/golden.mjs update  --set <集合> --by <审批人> --reason <理由> --commit <提交>
                                                                           把当前提交的截帧登记为基线，并追加审批记录
-  node tools/baseline/golden.mjs list                                     列出集合与已有清单
+  node tools/baseline/golden.mjs reference --set <集合> --id <名@v版本> --by <登记人> --reason <认可依据> --commit <提交>
+                                                                          冻结一份「认可参照」：写 docs/style-baselines/<名@v版本>/<平台键>.json，
+                                                                          已存在就拒绝（认可参照只增不改，新的认可画面另立 @v版本+1）
+  node tools/baseline/golden.mjs list                                     列出集合、基线清单与认可参照
 
 集合（tools/baseline/sets.json）：beiming-core（《北冥》40 帧 + 原生 4K 4 帧）、lab（10 个自测页 × 6 帧）、
-  templates（A、C 模版各 6 帧）、beiming-detail（切点 ±1、声画事件帧、关键时刻、无显示层与后期中间层）、fixtures（测试夹具）
+  templates（A、C 模版各 6 帧）、beiming-detail（切点 ±1、声画事件帧、关键时刻、无显示层与后期中间层）、
+  beiming-original-v1（认可参照 beiming-original@v1 的 20 帧：六个关键时刻、无显示层、原生 4K 局部、后期中间层）、fixtures（测试夹具）
+回归金标准（tests/golden/manifests/）跟着经审批的画面改动走；认可参照（docs/style-baselines/）冻结不动。规则见 docs/style-baselines/POLICY.md。
 
-compare 的参照（三选一）：
+compare 的参照（四选一）：
   默认              tests/golden/manifests/<平台键>/<集合>.json；哈希不同的帧自动现渲清单的源提交取参照像素，再按容差判定
+  --reference <名@v版本>   docs/style-baselines/<名@v版本>/<平台键>.json（认可参照）；其余同默认
   --against <提交>  把该提交的页面（引擎、样片、自测页、素材、字体、模版，约 60 MB）导出到临时目录现场渲染，结束即删；
                     逐帧比，用来二分定位是哪个提交改了像素。不建 git worktree，不改仓库任何状态
   --ref-dir <目录>  另一台机器 capture 出来的目录（含 capture.json 与 frames/）；平台键不同时按跨平台容差（SSIM / PSNR）比
@@ -45,13 +51,14 @@ compare 的参照（三选一）：
   --frame-timeout <秒>     单帧 render + 截图的上限（默认 60）
   --out <目录>             capture / compare 的输出目录
   --work-dir <目录>        --against 与现渲参照的临时快照放哪（默认系统临时目录）
-  --by <名字>              update：审批人（人名或角色，不能空）
-  --reason <理由>          update：为什么要更新基线（引用审批来源，如 PR 链接或用户原话出处）
+  --by <名字>              update / reference：审批人或登记人（人名或角色，不能空）
+  --reason <理由>          update / reference：为什么要更新基线 / 认可依据（引用审批来源，如 PR 链接或用户原话出处）
+  --id <名@v版本>          reference：认可参照的名字，例如 beiming-original@v1
   --commit <提交>          update：登记哪个提交：HEAD，或与 HEAD 在这些集合用到的像素相关路径上逐字节相同的提交
                            （例如集成分支上的合并基底）；像素相关路径不能有未提交改动
-  --ref <出处>             update：可选，审批证据的链接或位置
-  --dry-run                update：只算会改哪些帧，不写清单
-  --sets <文件>            capture / compare / list：改用另一份集合定义（测试与实验用；update 只认 tools/baseline/sets.json）
+  --ref <出处>             update / reference：可选，审批证据的链接或位置
+  --dry-run                update / reference：只算会改哪些帧，不写清单
+  --sets <文件>            capture / compare / list：改用另一份集合定义（测试与实验用；update / reference 只认 tools/baseline/sets.json）
   --json                   stdout 只输出一个 JSON 信封（{ok, exitCode, command, error, outputs, runJson, warnings}）
 
 退出码：0 通过；1 运行失败（页面报错、渲染失败）；2 用法错误；3 环境不满足（没浏览器、软件渲染被拒、本平台没有基线）；
@@ -65,18 +72,20 @@ const SPEC = {
     '--set': 'list', '--against': 'string', '--ref-dir': 'string', '--strict': 'bool', '--no-render-ref': 'bool', '--no-cache': 'bool',
     '--gpu': 'string', '--jobs': 'int', '--frame-timeout': 'number', '--out': 'string', '--work-dir': 'string',
     '--by': 'string', '--reason': 'string', '--commit': 'string', '--ref': 'string', '--dry-run': 'bool', '--sets': 'string', '--json': 'bool',
+    '--id': 'string', '--reference': 'string',
   },
   positionals: [1, 1],
 };
 const ALLOWED = {
   capture: ['--set', '--gpu', '--jobs', '--frame-timeout', '--out', '--sets', '--json'],
-  compare: ['--set', '--against', '--ref-dir', '--strict', '--no-render-ref', '--no-cache', '--gpu', '--jobs', '--frame-timeout', '--out', '--work-dir', '--sets', '--json'],
+  compare: ['--set', '--against', '--ref-dir', '--reference', '--strict', '--no-render-ref', '--no-cache', '--gpu', '--jobs', '--frame-timeout', '--out', '--work-dir', '--sets', '--json'],
   update: ['--set', '--by', '--reason', '--commit', '--ref', '--dry-run', '--gpu', '--jobs', '--frame-timeout', '--json'],
+  reference: ['--set', '--id', '--by', '--reason', '--commit', '--ref', '--dry-run', '--gpu', '--jobs', '--frame-timeout', '--json'],
   list: ['--sets', '--json'],
 };
 
 function checkFlags(cmd, argv) {
-  if (!ALLOWED[cmd]) throw usage(`不认识的子命令 ${cmd}`, '子命令：capture | compare | update | list');
+  if (!ALLOWED[cmd]) throw usage(`不认识的子命令 ${cmd}`, '子命令：capture | compare | update | reference | list');
   for (const a of argv) {
     if (!a.startsWith('--')) continue;
     const name = a.split('=')[0];
@@ -213,7 +222,8 @@ async function cmdCapture(opts, sets) {
 // 三步：① 截当前工作树的每个集合；② 定参照（--against / --ref-dir / 本平台清单），需要现渲的按提交分组、每个提交只导出一次快照；③ 逐集合比对、出报告
 async function cmdCompare(opts, sets) {
   const names = needSets(sets, opts.set);
-  if (opts.against && opts.refDir) throw usage('--against 与 --ref-dir 只能二选一');
+  if ([opts.against, opts.refDir, opts.reference].filter(Boolean).length > 1) throw usage('--against、--ref-dir、--reference 只能选一个');
+  if (opts.reference) checkRefId(opts.reference);
   const againstSha = opts.against ? resolveCommit(ROOT, opts.against) : null;
   const id = runId(ROOT);
   const reportRoot = opts.out ? path.resolve(opts.out) : path.join(OUT, 'compare', id);
@@ -237,11 +247,12 @@ async function cmdCompare(opts, sets) {
       if (!m) throw new CliError('no-ref', `--ref-dir 里找不到 ${s} 的 capture.json：${d}`, { hint: '传 golden capture 输出的目录（含 capture.json 与 frames/）', exitCode: EXIT.ENV });
       plan[s] = { kind: 'dir', m, dir: d };
     } else {
-      const mf = manifestPath(ROOT, curM.platformKey, s);
+      const mf = opts.reference ? referencePath(ROOT, opts.reference, curM.platformKey) : manifestPath(ROOT, curM.platformKey, s);
       const m = readManifest(mf);
+      if (m && opts.reference && m.set !== s) throw usage(`认可参照 ${opts.reference} 登记的是集合 ${m.set}，不是 ${s}`, `用 --set ${m.set}`);
       if (!m) {
         envMissing = true;
-        warnings.push(`本平台（${curM.platformKey}）还没有 ${s} 的基线清单：${rel(mf)}`);
+        warnings.push(`本平台（${curM.platformKey}）还没有 ${s} 的${opts.reference ? `认可参照 ${opts.reference}` : '基线清单'}：${rel(mf)}`);
         result.push({ set: s, ok: false, error: 'no-baseline', platformKey: curM.platformKey });
         continue;
       }
@@ -281,7 +292,7 @@ async function cmdCompare(opts, sets) {
     } else {
       const m = P.m;
       ref = { frames: m.frames, dir: null };
-      refLabel = `清单 ${rel(P.mf)}（源提交 ${m.source.commit.slice(0, 12)}）`;
+      refLabel = `${opts.reference ? `认可参照 ${opts.reference}` : '清单'} ${rel(P.mf)}（源提交 ${m.source.commit.slice(0, 12)}）`;
       mode = 'same-platform';
       const r = refs.get(refKey(m.source.commit, s));
       if (r) {
@@ -326,10 +337,18 @@ async function cmdCompare(opts, sets) {
   return { outputs, warnings, result, runJson: outputs[0]?.path ?? null };
 }
 
-// ── update ──
-async function cmdUpdate(opts, sets) {
+// ── update / reference ──
+const REF_ID = /^[a-z0-9][a-z0-9-]*@v[1-9][0-9]*$/;
+function checkRefId(id) {
+  if (!REF_ID.test(id || '')) throw usage(`认可参照的名字要写成 <名>@v<版本>，例如 beiming-original@v1（现在是 ${JSON.stringify(id)}）`);
+}
+async function cmdUpdate(opts, sets, { reference = false } = {}) {
   const names = needSets(sets, opts.set);
-  for (const k of ['by', 'reason', 'commit']) if (!opts[k] || !String(opts[k]).trim()) throw usage(`update 必须写 --${k}`, '基线更新要留审批记录：--by 审批人 --reason 理由 --commit 对应提交');
+  for (const k of ['by', 'reason', 'commit']) if (!opts[k] || !String(opts[k]).trim()) throw usage(`${reference ? 'reference' : 'update'} 必须写 --${k}`, '要留审批记录：--by 审批人 --reason 理由 --commit 对应提交');
+  if (reference) {
+    checkRefId(opts.id);
+    if (names.length !== 1) throw usage('reference 一次只登记一个集合');
+  }
   if (!isGitRepo(ROOT)) throw new CliError('no-git', '不在 git 工作树里，没法登记来源提交', { exitCode: EXIT.ENV });
   const sha = resolveCommit(ROOT, opts.commit), head = headCommit(ROOT).sha;
   const dirty = dirtyPixelPaths(ROOT);
@@ -350,20 +369,37 @@ async function cmdUpdate(opts, sets) {
     const m = cur.manifest;
     const approval = { by: opts.by.trim(), reason: opts.reason.trim(), commit: sha, at: new Date().toISOString(), ...(opts.ref ? { ref: opts.ref } : {}) };
     const baseline = toBaseline(m, approval);
-    const mf = manifestPath(ROOT, m.platformKey, s);
-    const before = readManifest(mf);
+    let mf;
+    if (reference) {
+      Object.assign(baseline, { kind: 'style-reference', referenceId: opts.id });
+      mf = referencePath(ROOT, opts.id, m.platformKey);
+      if (fs.existsSync(mf)) {
+        throw new CliError('reference-frozen', `认可参照 ${opts.id} 在 ${m.platformKey} 上已经登记过：${rel(mf)}`,
+          { hint: `认可参照冻结后不改；画面的认可变了就另立新版本（例如 ${opts.id.replace(/@v(\d+)$/, (_, v) => `@v${+v + 1}`)}），旧版本留着做历史对照`, exitCode: EXIT.CONTRACT });
+      }
+      // 同一个认可参照的各平台文件必须登记同一个提交、同一份集合定义
+      for (const o of listReferences(ROOT).filter(x => x.id === opts.id)) {
+        const om = readManifest(o.file);
+        if (om && (om.source?.commit !== sha || om.setHash !== baseline.setHash)) {
+          throw new CliError('reference-mismatch', `认可参照 ${opts.id} 已有的 ${o.platformKey} 版本登记的是提交 ${om.source?.commit?.slice(0, 12)}、集合哈希 ${om.setHash?.slice(0, 12)}，与这次不同`,
+            { hint: `给新平台补登记时用同一个提交：--commit ${om.source?.commit?.slice(0, 12)}，且不要改 sets.json 里这个集合`, exitCode: EXIT.CONTRACT });
+        }
+      }
+    } else mf = manifestPath(ROOT, m.platformKey, s);
+    const before = reference ? null : readManifest(mf);
     const d = diffFrames(before?.frames, baseline.frames);
     const same = before && before.framesDigest === baseline.framesDigest && before.setHash === baseline.setHash;
     log(`${s} → ${rel(mf)}：${before ? `新增 ${d.added.length}、删除 ${d.removed.length}、像素变化 ${d.changed.length}` : `首次建立（${baseline.frames.length} 帧）`}${same ? '（与现有基线逐帧相同）' : ''}`);
-    result.push({ set: s, manifest: rel(mf), platformKey: m.platformKey, device: m.device, frames: baseline.frames.length, before: before?.framesDigest ?? null, after: baseline.framesDigest, ...d, dryRun: !!opts.dryRun });
+    result.push({ set: s, manifest: rel(mf), platformKey: m.platformKey, device: m.device, frames: baseline.frames.length, before: before?.framesDigest ?? null, after: baseline.framesDigest, ...d, dryRun: !!opts.dryRun, ...(reference ? { referenceId: opts.id } : {}) });
     if (opts.dryRun) continue;
     fs.mkdirSync(path.dirname(mf), { recursive: true });
     fs.writeFileSync(mf, JSON.stringify(baseline, null, 1) + '\n');
     appendApproval(ROOT, {
-      at: approval.at, set: s, platformKey: m.platformKey, device: m.device, by: approval.by, reason: approval.reason, commit: sha,
+      at: approval.at, kind: reference ? 'style-reference' : 'golden-baseline', ...(reference ? { referenceId: opts.id } : {}),
+      set: s, platformKey: m.platformKey, device: m.device, by: approval.by, reason: approval.reason, commit: sha,
       ...(opts.ref ? { ref: opts.ref } : {}), before: before?.framesDigest ?? null, after: baseline.framesDigest, setHash: baseline.setHash, ...d,
     });
-    outputs.push(out(mf, 'golden-manifest'));
+    outputs.push(out(mf, reference ? 'style-reference' : 'golden-manifest'));
   }
   if (!opts.dryRun) outputs.push(out(path.join(ROOT, APPROVALS), 'approval-log'));
   return { outputs, result };
@@ -385,6 +421,15 @@ function cmdList(sets) {
     log(`  ${platformKey}/${set}：${m?.frameCount ?? '?'} 帧，源提交 ${m?.source?.commit?.slice(0, 12) ?? '?'}，${m?.device ?? '?'}，审批 ${m?.approval?.by ?? '?'}${stale ? '（集合定义已变，待更新）' : ''}`);
     result.manifests.push({ platformKey, set, file: rel(file), frames: m?.frameCount ?? null, commit: m?.source?.commit ?? null, device: m?.device ?? null, stale: !!stale });
   }
+  log('认可参照（docs/style-baselines/）：');
+  const refs = listReferences(ROOT);
+  if (!refs.length) log('  （还没有）');
+  result.references = [];
+  for (const { id, platformKey, file } of refs) {
+    const m = readManifest(file);
+    log(`  ${id}（${platformKey}）：集合 ${m?.set ?? '?'}，${m?.frameCount ?? '?'} 帧，源提交 ${m?.source?.commit?.slice(0, 12) ?? '?'}，登记 ${m?.approval?.by ?? '?'}`);
+    result.references.push({ id, platformKey, set: m?.set ?? null, file: rel(file), frames: m?.frameCount ?? null, commit: m?.source?.commit ?? null });
+  }
   return { result };
 }
 
@@ -398,6 +443,10 @@ await runMain({
     const o = normalizeOpts(opts);
     if (cmd === 'capture') return cmdCapture(o, sets);
     if (cmd === 'compare') return cmdCompare(o, sets);
+    if (cmd === 'reference') {
+      if (opts.sets) throw usage('reference 只认 tools/baseline/sets.json，不接受 --sets');
+      return cmdUpdate(o, sets, { reference: true });
+    }
     return cmdUpdate(o, sets);
   },
 });

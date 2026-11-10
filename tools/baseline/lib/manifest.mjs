@@ -11,13 +11,17 @@
 //   validateManifest(m)        → 错误列表（repo-check 规则也用）
 //   diffFrames(before, after)  → { added, removed, changed }
 //   appendApproval(root, rec) / readApprovals(root)
+//   referencePath(root, id, platformKey) / listReferences(root)   认可参照（docs/style-baselines/<名@v版本>/<平台键>.json），冻结后不改
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
 export const MANIFEST_DIR = 'tests/golden/manifests';
+export const REFERENCE_DIR = 'docs/style-baselines';
 export const APPROVALS = 'tests/golden/approvals.jsonl';
 export const manifestPath = (root, pk, set) => path.join(root, MANIFEST_DIR, pk, `${set}.json`);
+// 认可参照：docs/style-baselines/<名@v版本>/<平台键>.json（同一个 schema，多 kind: 'style-reference' 与 referenceId）
+export const referencePath = (root, id, pk) => path.join(root, REFERENCE_DIR, id, `${pk}.json`);
 
 export function framesDigest(frames) {
   const lines = frames.map(f => `${f.id}\t${f.width}x${f.height}\t${f.pixelSha256}\n`).sort();
@@ -96,6 +100,16 @@ export function listManifests(root) {
     const d = path.join(dir, pk);
     if (!fs.statSync(d).isDirectory()) continue;
     for (const f of fs.readdirSync(d)) if (f.endsWith('.json')) out.push({ platformKey: pk, set: f.slice(0, -5), file: path.join(d, f) });
+  }
+  return out;
+}
+export function listReferences(root) {
+  const dir = path.join(root, REFERENCE_DIR), out = [];
+  if (!fs.existsSync(dir)) return out;
+  for (const id of fs.readdirSync(dir)) {
+    const d = path.join(dir, id);
+    if (!/@v\d+$/.test(id) || !fs.statSync(d).isDirectory()) continue;
+    for (const f of fs.readdirSync(d)) if (/^(darwin|win|linux)-[a-z0-9]+\.json$/.test(f)) out.push({ id, platformKey: f.slice(0, -5), file: path.join(d, f) });
   }
   return out;
 }

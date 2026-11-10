@@ -90,6 +90,7 @@ test('仓库里的 sets.json 合法，三套金标准帧数与约定一致', () 
   assert.equal(count('beiming-core'), 44);   // 40 帧 + 原生 4K 4 帧
   assert.equal(count('lab'), 60);            // 10 页 × 6
   assert.equal(count('templates'), 12);
+  assert.equal(count('beiming-original-v1'), 20);   // 认可参照：6 关键时刻 × 2（带 / 不带显示层）+ 3 块 4K 局部 + 5 个后期中间层
   const core = expandSet(sets, 'beiming-core');
   const t = resolveTimes(core[0].times, 10, 24);
   assert.equal(t[0].t, 0.05); assert.equal(t[39].t, 9.8); assert.equal(t[1].t, 0.3);
