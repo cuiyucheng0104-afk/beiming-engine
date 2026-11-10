@@ -647,7 +647,19 @@ function pageLib() {
     const attrs = [];
     for (const el of document.querySelectorAll('[alt],[title],[aria-label],[placeholder]')) for (const a of ['alt', 'title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v) attrs.push(v); }
     const text = s => (sel(s)?.textContent || '').replace(/\s+/g, ' ').trim();
-    return { meta, visible: document.body.innerText, all: all.join('\n'), attrs, lede: text('#works .wk-lede'), note: text('#works .wk-note') };
+    // 署名区块 [data-attribution]：上游项目名只许写在这里（决定 D04）。查代号时去掉它，查破折号时不去掉
+    const blocks = [...document.querySelectorAll('[data-attribution]')];
+    const inAttrib = n => !!(n.nodeType === 1 ? n : n.parentElement)?.closest('[data-attribution]');
+    let visibleT = document.body.innerText;
+    for (const b of blocks) visibleT = visibleT.split(b.innerText).join('');
+    const allT = [];
+    const w2 = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = w2.nextNode(); n; n = w2.nextNode()) if (!n.parentElement?.closest('script,style,template') && !inAttrib(n)) allT.push(n.nodeValue);
+    const attrsT = [];
+    for (const el of document.querySelectorAll('[alt],[title],[aria-label],[placeholder]')) if (!inAttrib(el)) for (const a of ['alt', 'title', 'aria-label', 'placeholder']) { const v = el.getAttribute(a); if (v) attrsT.push(v); }
+    return { meta, visible: document.body.innerText, all: all.join('\n'), attrs, visibleT, allT: allT.join('\n'), attrsT,
+      attribBlocks: blocks.map(b => ({ inFooter: !!b.closest('footer'), text: b.innerText.replace(/\s+/g, ' ').trim() })),
+      lede: text('#works .wk-lede'), note: text('#works .wk-note') };
   }
   // 当前焦点元素的描边（计算样式）：outline 是不是窗灯金、多宽，box-shadow 里有没有窗灯金的环；元素框给截图比对用
   function focusStyle() {
@@ -1280,12 +1292,15 @@ async function worksDesktop(page) {
 // 文案（S8）：可见文字、隐藏文字、alt/title/aria-label、meta 都查
 async function copyChecks(page, label) {
   const c = await P(page, 'copy');
-  const corpora = { 可见文字: c.visible, 全部文字节点: c.all, '替代文字（alt / title / aria-label）': c.attrs.join('\n'), 'meta 与标题': c.meta.join('\n') };
+  // 每项是 [查破折号用的全文, 查代号用的文字（去掉了署名区块）]
+  const corpora = { 可见文字: [c.visible, c.visibleT], 全部文字节点: [c.all, c.allT], '替代文字（alt / title / aria-label）': [c.attrs.join('\n'), c.attrsT.join('\n')], 'meta 与标题': [c.meta.join('\n'), c.meta.join('\n')] };
   const hits = [];
-  for (const [name, text] of Object.entries(corpora)) {
-    for (const t of FORBIDDEN_TERMS) if (text.includes(t)) hits.push(`${name}有「${t}」：${text.slice(Math.max(0, text.indexOf(t) - 12), text.indexOf(t) + 16).replace(/\s+/g, ' ')}`);
+  for (const [name, [text, termText]] of Object.entries(corpora)) {
+    for (const t of FORBIDDEN_TERMS) if (termText.includes(t)) hits.push(`${name}有「${t}」（上游项目名只能写在页脚署名区块里）：${termText.slice(Math.max(0, termText.indexOf(t) - 12), termText.indexOf(t) + 16).replace(/\s+/g, ' ')}`);
     for (const t of FORBIDDEN_DASHES) if (text.includes(t)) hits.push(`${name}有破折号「${t}」：${text.slice(Math.max(0, text.indexOf(t) - 12), text.indexOf(t) + 12).replace(/\s+/g, ' ')}`);
   }
+  const strayAttrib = c.attribBlocks.filter(b => !b.inFooter);
+  check('S8', `${label}：署名区块 [data-attribution] 只在页脚（共 ${c.attribBlocks.length} 处）`, strayAttrib.length === 0, strayAttrib.map(b => b.text.slice(0, 30)).join('；'));
   check('S8', `${label}：可见文字、替代文字与 meta 里没有破折号与内部代号、TREATMENT 等残留`, hits.length === 0, hits.slice(0, 6).join('；'));
   // 作品口径：引言以“N 部成片，每一部都由代码合成出片”开头，注里写明素材来源见案例卡；旧说法哪里都不能有
   const lede = CLAIM.lede.exec(c.lede);

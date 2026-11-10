@@ -795,6 +795,7 @@ html.is-live .engine.is-pinned .step-plate { display: none; }   /* 实时画面�
 }
 .foot-legal a { color: var(--fg-soft); }
 .foot-legal a:hover { color: var(--lamp); }
+.foot-attrib a { white-space: nowrap; }   /* 项目名（如 sy-style-100）不在连字符处断行 */
 
 @media (max-width: 899px) {
   .foot-brand, .foot-links, .foot-legal { grid-column: 1 / -1; }

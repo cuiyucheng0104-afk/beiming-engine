@@ -7,7 +7,7 @@
 1. **只写自己负责的文件**（见第 1 节表格）。别人的文件只读；发现别人的问题，写进汇报的 `cross_role_issues`，不要替别人改。
 2. **不做任何 git 写操作**：不 commit、不 checkout、不 stash、不 reset、不 push、不建分支。只改工作区文件；删除文件用 `rm`，移动用 `mv`。主会话统一提交。
 3. **不碰许可与署名**：`LICENSE`、`cases/licenses/`、`cases/vendor/`、`cases/NOTICES.md`、`fonts/LICENSE.md` 只读。
-4. **对外名称**按 `AGENTS.md`：站点可见文字里不出现 RAEA / raea / Lemo / opuscar / SY100 等内部代号。
+4. **对外名称**按 `AGENTS.md`：站点可见文字里不出现 RAEA / raea / Lemo / opuscar / SY100 等上游项目名，唯一例外是页脚的署名区块 `[data-attribution]`（决定 D04，2026-11-10：上游名在署名与许可语境如实出现，但不作我方产品名）。构建器与 site-qa 的 S8 都按这个例外检查，破折号检查仍覆盖署名区块。
 5. **不准用破折号**（“——”“--”）写站点文案；全中文，英文只做小标签。
 6. **结论要有证据**：说“完成”之前，必须真的跑过构建、在浏览器里打开并截图看过（Read 打开截图）。没验证的写“未验证”。
 7. 临时文件放 `out/`（已在 .gitignore），不要在仓库里留调试垃圾。

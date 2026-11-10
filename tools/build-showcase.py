@@ -730,9 +730,10 @@ TEXT_ATTRS = {'alt', 'title', 'aria-label', 'placeholder'}
 class PageScan(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, bool, bool]] = []   # (tag, 在 .f-brush 里, 在不可见元素里)
+        self.stack: list[tuple[str, bool, bool, bool]] = []   # (tag, 在 .f-brush 里, 在不可见元素里, 在署名区块里)
         self.brush: list[str] = []
         self.text: list[str] = []
+        self.attrib_text: list[str] = []                # 署名区块 [data-attribution] 里的文字：可以写上游项目名（决定 D04），仍查破折号
         self.refs: list[tuple[str, str]] = []           # (属性, 值)
         self.ids: set[str] = set()
         self.modules: list[str] = []                    # 内联 module 脚本
@@ -743,7 +744,9 @@ class PageScan(HTMLParser):
         a = {k: (v or '') for k, v in attrs}
         parent_brush = self.stack[-1][1] if self.stack else False
         parent_hidden = self.stack[-1][2] if self.stack else False
+        parent_attrib = self.stack[-1][3] if self.stack else False
         brush = parent_brush or 'f-brush' in a.get('class', '').split()
+        attrib = parent_attrib or 'data-attribution' in a
         hidden = parent_hidden or tag in ('script', 'style', 'template')
         if 'id' in a:
             self.ids.add(a['id'])
@@ -756,7 +759,7 @@ class PageScan(HTMLParser):
                     if url:
                         self.refs.append(('srcset', url))
             elif key in TEXT_ATTRS and value and not hidden:
-                self.text.append(value)
+                (self.attrib_text if attrib else self.text).append(value)
         if tag == 'meta' and a.get('content') and (a.get('name') in ('description',) or
                                                    a.get('property', '').startswith('og:') and
                                                    a.get('property') in ('og:title', 'og:description')):
@@ -765,7 +768,7 @@ class PageScan(HTMLParser):
             t = a.get('type', '').strip().lower()
             self._script_kind = 'module' if (t == 'module' and 'src' not in a) else ('importmap' if t == 'importmap' else None)
         if tag not in VOID:
-            self.stack.append((tag, brush, hidden))
+            self.stack.append((tag, brush, hidden, attrib))
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
@@ -789,10 +792,11 @@ class PageScan(HTMLParser):
             return
         brush = self.stack[-1][1] if self.stack else False
         hidden = self.stack[-1][2] if self.stack else False
+        attrib = self.stack[-1][3] if self.stack else False
         if brush:
             self.brush.append(data)
         if not hidden and data.strip():
-            self.text.append(data)
+            (self.attrib_text if attrib else self.text).append(data)
 
 
 def scan_page(path: Path) -> PageScan:
@@ -1083,18 +1087,21 @@ def validate(out: Path, log: Log) -> None:
 
 
 def check_copy(out: Path, page: PageScan, log: Log) -> None:
+    # 上游项目名只允许出现在署名区块 [data-attribution] 里（决定 D04：技术、署名与许可语境如实写上游名，不作我方产品名）
     text = '\n'.join(page.text)
     for term in FORBIDDEN_TERMS:
         if term in text:
             hit = next(t for t in page.text if term in t)
-            log.error(f'页面可见文字里有「{term}」：{hit.strip()[:60]}')
+            log.error(f'页面可见文字里有「{term}」（上游项目名只能写在页脚署名区块 [data-attribution] 里）：{hit.strip()[:60]}')
+    every = page.text + page.attrib_text
+    text = '\n'.join(every)
     for dash in FORBIDDEN_DASHES:
         if dash in text:
-            hit = next(t for t in page.text if dash in t)
+            hit = next(t for t in every if dash in t)
             log.error(f'页面可见文字里有破折号「{dash}」：{hit.strip()[:60]}')
     for dash in WARN_DASHES:
         if dash in text:
-            hit = next(t for t in page.text if dash in t)
+            hit = next(t for t in every if dash in t)
             log.warn(f'页面可见文字里有连接号「{dash}」，确认不是当破折号用：{hit.strip()[:60]}')
 
 
