@@ -60,8 +60,11 @@ test('update 没有审批记录、或不在被登记的提交上 → 拒绝且�
   const before = trackedState();
   const r1 = run(GOLDEN, ['update', '--set', 'fixtures', '--json']);
   assert.equal(r1.code, 2); assert.match(envelope(r1.out).error.message, /--by/);
-  const r2 = run(GOLDEN, ['update', '--set', 'fixtures', '--by', '测试', '--reason', '测试', '--commit', 'HEAD~1', '--json']);
-  assert.ok([2, 4].includes(r2.code), r2.err);   // HEAD~1 不存在时是 2，存在时因不是 HEAD 是 4
+  // 登记一个与 HEAD 像素路径不同的提交（仓库的根提交 v1.0 没有 tests/golden/fixtures）：必须拒绝
+  const rootCommit = spawnSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim().split('\n')[0] || 'no-such-commit';
+  const r2 = run(GOLDEN, ['update', '--set', 'fixtures', '--by', '测试', '--reason', '测试', '--commit', rootCommit, '--json']);
+  assert.ok([2, 4].includes(r2.code), r2.err);   // 提交不存在（浅克隆）是 2；不等价或有未提交改动是 4
+  assert.notEqual(envelope(r2.out).ok, true);
   assert.equal(trackedState(), before);
 });
 

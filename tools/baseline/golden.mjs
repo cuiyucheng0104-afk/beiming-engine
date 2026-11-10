@@ -9,7 +9,7 @@ import { runMain, CliError, EXIT, usage, log, onCleanup, offCleanup, sha256File,
 import { loadSets, setHash } from './lib/sets.mjs';
 import { captureSet, captureUsable, assertCaptured } from './lib/capture.mjs';
 import { compareFrames, summaryLine, worstStats } from './lib/compare.mjs';
-import { git, headCommit, resolveCommit, dirtyPixelPaths, withSnapshot, runId, isGitRepo } from './lib/git.mjs';
+import { git, headCommit, resolveCommit, dirtyPixelPaths, withSnapshot, runId, isGitRepo, PIXEL_PATHS } from './lib/git.mjs';
 import { manifestPath, toBaseline, validateManifest, diffFrames, appendApproval, readManifest, listManifests, APPROVALS } from './lib/manifest.mjs';
 import { osKey } from './lib/platform.mjs';
 
@@ -47,7 +47,8 @@ compare 的参照（三选一）：
   --work-dir <目录>        --against 与现渲参照的临时快照放哪（默认系统临时目录）
   --by <名字>              update：审批人（人名或角色，不能空）
   --reason <理由>          update：为什么要更新基线（引用审批来源，如 PR 链接或用户原话出处）
-  --commit <提交>          update：登记哪个提交；必须等于当前 HEAD，且像素相关路径没有未提交改动
+  --commit <提交>          update：登记哪个提交：HEAD，或与 HEAD 在这些集合用到的像素相关路径上逐字节相同的提交
+                           （例如集成分支上的合并基底）；像素相关路径不能有未提交改动
   --ref <出处>             update：可选，审批证据的链接或位置
   --dry-run                update：只算会改哪些帧，不写清单
   --sets <文件>            capture / compare / list：改用另一份集合定义（测试与实验用；update 只认 tools/baseline/sets.json）
@@ -137,8 +138,8 @@ function sourceOf(tree) {
   return { commit: sha, dirty: dirty.length > 0, ...(dirty.length ? { dirtyPaths: dirty.slice(0, 50) } : {}) };
 }
 
-async function captureCurrent(sets, setName, opts, dir) {
-  const source = sourceOf(ROOT);
+async function captureCurrent(sets, setName, opts, dir, sourceOverride = null) {
+  const source = sourceOverride || sourceOf(ROOT);
   log(`截 ${setName}（${source.commit ? source.commit.slice(0, 7) : '无 git'}${source.dirty ? '，有未提交的像素相关改动' : ''}）→ ${rel(dir)}`);
   const manifest = await captureInto({ tree: ROOT, sets, setName, dir, opts, source });
   log(`  ${manifest.frames.length} 帧，${manifest.seconds} 秒，平台 ${manifest.platformKey}（${manifest.renderer}），浏览器 ${manifest.browser}`);
@@ -331,12 +332,21 @@ async function cmdUpdate(opts, sets) {
   for (const k of ['by', 'reason', 'commit']) if (!opts[k] || !String(opts[k]).trim()) throw usage(`update 必须写 --${k}`, '基线更新要留审批记录：--by 审批人 --reason 理由 --commit 对应提交');
   if (!isGitRepo(ROOT)) throw new CliError('no-git', '不在 git 工作树里，没法登记来源提交', { exitCode: EXIT.ENV });
   const sha = resolveCommit(ROOT, opts.commit), head = headCommit(ROOT).sha;
-  if (sha !== head) throw new CliError('not-head', `--commit ${opts.commit}（${sha.slice(0, 12)}）不是当前 HEAD（${head.slice(0, 12)}）`, { hint: `先 git checkout ${sha.slice(0, 12)} 再登记，基线必须由被登记的那个提交渲出来`, exitCode: EXIT.CONTRACT });
   const dirty = dirtyPixelPaths(ROOT);
   if (dirty.length) throw new CliError('dirty', `像素相关路径有未提交改动：${dirty.slice(0, 8).join('、')}${dirty.length > 8 ? ' …' : ''}`, { hint: '先提交或还原这些改动；基线只能来自已提交的代码', exitCode: EXIT.CONTRACT });
+  // 登记的提交可以不是 HEAD，但这些集合用到的像素相关路径必须与 HEAD 逐字节相同（git diff 为空）：
+  // 这样可以把基线登记在集成分支上更稳定的提交（例如合并基底），工作分支被压扁合并后清单里的提交仍然找得到
+  if (sha !== head) {
+    const paths = [...new Set([...PIXEL_PATHS.filter(p => !['tests/golden/fixtures', 'tools/baseline/sets.json'].includes(p)), ...pagePaths(sets, names)])];
+    if (git(['diff', '--quiet', sha, head, '--', ...paths], { cwd: ROOT, allowFail: true }) === null) {
+      throw new CliError('not-equivalent', `--commit ${opts.commit}（${sha.slice(0, 12)}）与当前 HEAD（${head.slice(0, 12)}）在这些集合用到的像素相关路径上不一样`,
+        { hint: `用 --commit HEAD，或先 git checkout ${sha.slice(0, 12)} 再登记；查差异：git diff --stat ${sha.slice(0, 12)} HEAD -- ${paths.join(' ')}`, exitCode: EXIT.CONTRACT });
+    }
+    log(`登记提交 ${sha.slice(0, 12)}：这些集合用到的像素相关路径与 HEAD（${head.slice(0, 12)}）逐字节相同，用当前工作树渲染`);
+  }
   const outputs = [], result = [];
   for (const s of names) {
-    const cur = await captureCurrent(sets, s, opts, cacheDir(sha, s));
+    const cur = await captureCurrent(sets, s, opts, cacheDir(sha, s), { commit: sha, dirty: false, ...(sha !== head ? { renderedAt: head } : {}) });
     const m = cur.manifest;
     const approval = { by: opts.by.trim(), reason: opts.reason.trim(), commit: sha, at: new Date().toISOString(), ...(opts.ref ? { ref: opts.ref } : {}) };
     const baseline = toBaseline(m, approval);

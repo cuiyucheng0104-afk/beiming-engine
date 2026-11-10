@@ -32,7 +32,7 @@ export function toBaseline(cap, approval) {
     set: cap.set, setHash: cap.setHash,
     platformKey: cap.platformKey, device: cap.device, renderer: cap.renderer, browser: cap.browser,
     env: cap.env,
-    source: { commit: cap.source.commit, dirty: !!cap.source.dirty },
+    source: { commit: cap.source.commit, dirty: !!cap.source.dirty, ...(cap.source.renderedAt ? { renderedAt: cap.source.renderedAt } : {}) },
     capturedAt: cap.capturedAt,
     framesDigest: framesDigest(frames),
     frameCount: frames.length,
