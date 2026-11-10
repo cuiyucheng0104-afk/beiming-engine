@@ -208,7 +208,10 @@ test('候选 → 审批：capture --platform 写待审批候选（不参与比�
 
     const cap = g(['capture', '--set', 'fixtures', '--platform', pk]);
     assert.equal(cap.code, 0, cap.err);
-    assert.ok(envelope(cap.out).outputs.some(o => o.kind === 'golden-candidate'));
+    const capEnv = envelope(cap.out);
+    assert.ok(capEnv.outputs.some(o => o.kind === 'golden-candidate'));
+    const sheet = capEnv.outputs.find(o => o.kind === 'contact-sheet');
+    assert.ok(sheet && fs.existsSync(path.join(d, sheet.path)), '--platform 采集要拼一张审批用的总览');
     const doc = JSON.parse(fs.readFileSync(manifest, 'utf8'));
     assert.equal(doc.sets.fixtures.status, 'candidate');
     assert.equal(doc.sets.fixtures.approval, null);

@@ -16,7 +16,8 @@ import {
   platformRel, readPlatform, writePlatform, emptyPlatform, referencePath, toBaseline, validateManifest, diffFrames,
   appendApproval, readManifest, listManifests, listReferences, APPROVALS, PK_RE, REFERENCE_DIR,
 } from './lib/manifest.mjs';
-import { decodePNG, pixelSha256 } from './lib/png.mjs';
+import { decodePNG, encodePNG, pixelSha256 } from './lib/png.mjs';
+import { contactSheet } from './lib/metrics.mjs';
 import { osKey } from './lib/platform.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -168,6 +169,16 @@ function needSets(sets, names) {
   return [...new Set(names)];
 }
 
+// 审批用的总览：一个集合的全部帧按 4 列拼成一张（每格 320 宽），写在截帧目录里。审批人转正候选前看的就是它
+function reviewSheet(dir, manifest) {
+  const imgs = manifest.frames.map(f => decodePNG(fs.readFileSync(path.join(dir, f.file))));
+  const rows = [];
+  for (let i = 0; i < imgs.length; i += 4) rows.push(imgs.slice(i, i + 4));
+  const file = path.join(dir, 'contact.png');
+  fs.writeFileSync(file, encodePNG(contactSheet(rows, { tileW: 320 })));
+  return file;
+}
+
 // ── capture ──
 // 输出：--out 给了就写 <out>/<集合>/；工作树干净时写缓存 out/golden/cache/<提交>/<系统-后端>/<集合>/（compare 取参照像素时复用）；
 // 否则写 out/golden/runs/<运行编号>/<集合>/。
@@ -183,6 +194,11 @@ async function cmdCapture(opts, sets) {
     const { manifest } = await captureCurrent(sets, s, opts, dir, source);
     caps[s] = manifest;
     outputs.push(out(path.join(dir, 'capture.json'), 'golden-capture'));
+    if (opts.platform) {
+      const sheet = reviewSheet(dir, manifest);
+      outputs.push(out(sheet, 'contact-sheet'));
+      log(`  总览（审批时看）：${rel(sheet)}`);
+    }
     result.push({ set: s, dir: rel(dir), platformKey: manifest.platformKey, device: manifest.device, frames: manifest.frames.length, seconds: manifest.seconds, source: { commit: manifest.source.commit, dirty: manifest.source.dirty } });
   }
   if (opts.platform) {
@@ -586,7 +602,8 @@ export const command = defineCommand({
   description: () => [
     '子命令：',
     '  capture    截当前工作树，PNG 与截帧清单写到 out/golden/（不改入库文件）；加 --platform 时核对本机平台键，',
-    '             并把还没有经审批基线的集合写成「待审批候选」放进 tests/golden/<平台键>/manifest.json（CI 首次采集用）',
+    '             并把还没有经审批基线的集合写成「待审批候选」放进 tests/golden/<平台键>/manifest.json（CI 首次采集用），',
+    '             另在截帧目录拼一张总览 contact.png（全部帧，4 列），审批人转正前看它',
     '  compare    与本平台清单 tests/golden/<平台键>/manifest.json 比（或 --against 现场渲染另一个提交、--ref-dir 另一台机器的截帧、',
     '             --reference 认可参照）；哈希不同的帧自动现渲清单的源提交取参照像素，再按容差判定，出报告、差异热图与接触印',
     '  update     把当前提交的截帧登记为本平台基线，并在 tests/golden/approvals.jsonl 追加审批记录（必须 --by --reason --commit）',

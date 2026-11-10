@@ -87,7 +87,7 @@
    - 像素相关路径有未提交改动时拒绝。
    - `--commit` 可以是 HEAD，也可以是与 HEAD 在这些集合用到的像素路径上逐字节相同的稳定提交（例如集成分支的合并基底）；这样工作分支被压扁合并后，清单里的提交仍然找得到。
    - 每次更新在 `tests/golden/approvals.jsonl` 追加一行：谁、为什么、哪个提交、更新前后的摘要、新增 / 删除 / 变化的帧。这个文件只追加。
-3. **另一台机器采集的基线（CI 的 `linux-swiftshader`、没有 GPU 的人拿不到的平台）**：在那台机器上 `capture --set <集合> --platform <平台键>`，工具把截帧写成待审批候选（`tests/golden/<平台键>/manifest.json` 里该集合 `status: "candidate"`、`approval: null`，另记像素相关路径的内容摘要 `source.pixelTree`）。CI 的 smoke-render 首次运行就是这样做的，并把候选作为工件 `golden-capture` 上传。审批人下载工件、在仓库根目录解开、看过接触印后转正：
+3. **另一台机器采集的基线（CI 的 `linux-swiftshader`、没有 GPU 的人拿不到的平台）**：在那台机器上 `capture --set <集合> --platform <平台键>`，工具把截帧写成待审批候选（`tests/golden/<平台键>/manifest.json` 里该集合 `status: "candidate"`、`approval: null`，另记像素相关路径的内容摘要 `source.pixelTree`）。CI 的 smoke-render 首次运行就是这样做的，并把候选作为工件 `golden-capture` 上传。`--platform` 采集同时在截帧目录拼一张总览 `contact.png`（全部帧，4 列），审批要看的就是它和原帧。审批人下载工件、在仓库根目录解开、看过总览与原帧后转正：
    `node tools/baseline/golden.mjs approve --platform <平台键> --set <集合> --by <批准人> --reason <理由> [--commit <提交>] [--ref <出处>]`
    - 不重渲（本机渲不出别的平台的像素），只核对：候选按现在的 `sets.json` 截的（集合哈希一致）；登记提交在候选用到的像素相关路径上与采集时逐字节相同（按 `source.pixelTree` 核对，不需要采集时的提交在本地——CI 的合并提交在 PR 合入后就找不到了，这时用 `--commit` 指合入后的提交）。
    - 候选转正前不参与比对（`compare` 视为本平台没有基线，exit 3），也不能入库（规范检查 `baseline.manifests` 报错）。已有经审批基线的集合，`capture --platform` 不覆盖。
