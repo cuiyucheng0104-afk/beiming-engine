@@ -1,8 +1,16 @@
 #!/bin/sh
-# 重新生成 fonts/ 里的字体子集（显示层 + 片名用）。
-# 用 Google Fonts CSS2 API 的 &text= 参数，只取用到的字；文字改了就改下面三行再跑一遍：
-#   sh fonts/fetch_fonts.sh
+# 《北冥》样片共用字体子集（fonts/*.woff2）的来历记录：当初用 Google Fonts CSS2 API 的 &text= 参数，只取显示层与片名用到的字。
+# 这几个子集是冻结的基准（src/hud.js 与作品站都在用），新作品不要重跑本脚本——它会联网、结果没有哈希校验、并且覆盖共用文件。
+# 新作品按自己的文字生成子集：node tools/fonts/subset.mjs films/<名>（原始字体锁定在 fonts/fonts.lock.json，见 fonts/LICENSE.md）。
+# 确实要为《北冥》本身重抓时才加 --overwrite-shared：sh fonts/fetch_fonts.sh --overwrite-shared
 # 三个字体都是 SIL OFL 1.1，许可见 fonts/LICENSE.md。
+case "${1:-}" in
+  --overwrite-shared) ;;
+  -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
+  *) echo "fonts/fetch_fonts.sh 会覆盖《北冥》共用的字体子集，默认不执行。" >&2
+     echo "新作品：node tools/fonts/subset.mjs films/<名>；确实要重抓《北冥》的子集：sh fonts/fetch_fonts.sh --overwrite-shared" >&2
+     exit 2 ;;
+esac
 set -eu
 cd "$(dirname "$0")"
 UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'

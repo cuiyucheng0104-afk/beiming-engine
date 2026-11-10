@@ -1,6 +1,13 @@
 # fonts/ 字体许可说明
 
-本目录的字体全部是 **SIL Open Font License 1.1（OFL）**，可商用、可嵌入、可随作品分发，但不能单独出售字体本身。文件都是 **子集**：只含《北冥》显示层与片名用到的字，不是完整字体。子集由 Google Fonts CSS2 API 的 `&text=` 参数生成（2026-11-03 取得），重新生成见 `fetch_fonts.sh`。
+本目录的字体全部是 **SIL Open Font License 1.1（OFL）**，可商用、可嵌入、可随作品分发，但不能单独出售字体本身。`*.woff2` 都是 **子集**：只含《北冥》显示层与片名用到的字，不是完整字体。子集由 Google Fonts CSS2 API 的 `&text=` 参数生成（2026-11-03 取得），来历见 `fetch_fonts.sh`；它们是《北冥》的冻结基准，**新作品不要重抓、不要改动**。
+
+## 新作品的字体：锁定原始字体 + 按作品子集化
+
+- `fonts.lock.json` 锁定完整的 OFL 原始字体（Ma Shan Zheng 2.003、Noto Sans SC 2.004、Barlow 1.408 三个字重）：版本、上游提交、下载地址、大小与 sha256、版权行、保留字体名。字体本体不进 git（决定 D10），`node tools/fonts/fetch.mjs` 一次下载到缓存目录 `.cache/fonts/`（或环境变量 `BEIMING_FONT_CACHE`）并逐字节核对。
+- `licenses/` 是每款字体随发布的 OFL 全文（`fonts.lock.json` 里记了它们的 sha256）；子集化时随字体复制进作品目录。
+- `node tools/fonts/subset.mjs films/<名>` 按作品 `film.json` 的 `texts`（画面文字白名单）与 `fonts`（字族 → 锁定字体）离线生成 `films/<名>/fonts/*.woff2` + `fonts.json` 清单；原始字体里没有的字直接失败并列出该字。页面用 `engine/style/fonts.js` 读同一份清单，画字前再核对一遍，缺字就报错，绝不回退系统字体。
+- 子集化用 Python fontTools（`PYTHON` 指向装了 fonttools 与 brotli 的解释器）；同样的输入得到逐字节相同的子集。
 
 | 文件 | 字体（字重） | 子集内容 | 用途 | 版权行（读自字体 name 表 ID 0） | 许可地址（name 表 ID 14） |
 |---|---|---|---|---|---|
