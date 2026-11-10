@@ -75,7 +75,7 @@ export const command = renderCommand({
   const { angle: chosen, source } = resolveAngle(opts.angle ?? undefined);
   const valid = validAngles();
   for (const a of opts.backends) if (!valid.includes(a)) throw new RenderError('usage.angle', `后端 ${a} 在这个平台上不可用`, { hint: `可用：${valid.join(' / ')}` });
-  const list = opts.backends.length ? opts.backends : [...new Set([chosen, ...(PREFER[process.platform] ?? []), ...valid])].filter(a => valid.includes(a) && a !== 'swiftshader');
+  const list = opts.backends.length ? opts.backends : [...new Set([chosen, ...(PREFER[process.platform] ?? []), ...valid])].filter(a => valid.includes(a) && (a !== 'swiftshader' || a === chosen));   // 软件后端只在它就是渲染器会用的那个时才测
   const exe = chromeExecutable();
   log.info(`浏览器：${exe || 'Playwright 自带的 chromium-headless-shell'}；启动参数 ${chromeArgs(chosen).join(' ')}；渲染器会用的后端：${chosen}（★，来自 ${source}）`);
   const results = [];
