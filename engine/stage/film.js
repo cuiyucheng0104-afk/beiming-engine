@@ -18,7 +18,8 @@
 //               setFilmFps（之后 frameOf / heldTime 不写 fps 时都按它）。页面帧率与渲染器注入的不一致时由渲染器拒绝出片
 //     shots     镜头表，按开始时间升序。两种写法（一张表里只用一种）：
 //                 [{ at: 开始秒, shot, id? }]      老写法：t ≥ at 起用这个镜头（与改动前完全相同）
-//                 [{ in: 开始帧, shot, id? }]      帧号写法（film.json v2 的 in）：帧号 f ≥ in 起用这个镜头
+//                 [{ in: 开始帧, out?, shot, id? }]   帧号写法（film.json v2 的 shots 原样传进来）：帧号 f ≥ in 起用这个镜头；
+//                                                     写了 out 就核对与下一镜相接（不许空档或重叠）
 //               镜头 = { scene, camera, update(t, f, ctx), look(t, ctx) → 后期参数 }；ctx 见 shotTable
 //     post      后期：{ render(scene, camera, params), ready }
 //     debug     非空时写进后期参数的 debug（调试视图）
