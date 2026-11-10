@@ -2,7 +2,9 @@
 
 > 读者：直接用原生运行时做片的人｜状态：实施手册（文中命令与新工程在编写时都没有运行）｜依据：北冥 `21ed1b1`，RAEA 源码 `fb3f708`，运行包 `0.1.0-canary.2`
 
-> **先读 [B 路线手册](../../routes/b-native/README.md)。** 2026-11-10 起，北冥原生 · BNE（基于上游运行时 RAEA，FSL-1.1-ALv2）的操作入口只有那一份：新建作品、准备素材、草图帧、出片、交付规格（母版逐位复制 + BT.709 网页版 + run.json + 运行时自带成片检查）、画面工艺与 FSL 使用边界都在那里。本页保留为**原生运行时模块与接口的深入资料**；与新入口冲突时以手册为准。下表是本页旧内容到新实现的对应：
+> **先读 [B 路线手册](../../routes/b-native/README.md)。** 2026-11-10 起，北冥原生 · BNE（基于上游运行时 RAEA，FSL-1.1-ALv2）的操作入口只有那一份：新建作品、准备素材、草图帧、出片、交付规格（母版逐位复制 + BT.709 网页版 + run.json + 运行时自带成片检查 + 仓库的机器 QA 门）、画面工艺与 FSL 使用边界都在那里。本页保留为**原生运行时模块与接口的深入资料**；与新入口冲突时以手册为准。
+>
+> **许可边界**：RAEA 是第三方 FSL 软件，本仓库只把它用作内部制作层（自制影片、向客户交付成片），不分发运行时、不复制其源码、不作为对外的产品、SDK 或渲染服务；全文与 agent 规则见 [docs/rights/fsl-boundary.md](../rights/fsl-boundary.md)。作品要在 git 工作树里（`git archive` 导出的目录会被运行时 REFUSED）。下表是本页旧内容到新实现的对应：
 >
 > | 本页旧内容 | 现在 |
 > |---|---|
@@ -215,8 +217,7 @@ Character 必须用自身 `position / yaw / scale` 放置，不能套 Group 来�
 完整说明见 [examples/raea/README.md](../../examples/raea/README.md)；以下命令从仓库根运行（2026-11-10 在 macOS 实跑通过，见[实测记录](../raea/experiment.md)末节）。
 
 ```sh
-npm run setup
-python3 -m pip install -r requirements.txt             # 或 PYTHON 指向已装 numpy / scipy / soundfile / numba 的解释器
+npm run setup                                          # node 依赖、无头 Chromium、仓库内 .venv（声音脚本的 numpy / scipy / soundfile / numba）
 node engine/native/runtime.mjs fetch --accept-license  # 读过上游许可后获取运行时并校验哈希
 export RAEA_BIN="<RAEA安装包绝对目录>/bin/raea"
 node engine/native/prepare.mjs examples/raea           # = npm run raea:prepare
@@ -226,7 +227,7 @@ node engine/render/native.mjs examples/raea            # 产物在 examples/raea
 
 > 下表是重构前包装脚本的职责记录，保留作对照；现行行为（母版逐位复制、网页版 BT.709、运行时自带成片检查、run.json）见 B 路线手册。
 
-`<RAEA安装包绝对目录>` 需替换为实际绝对目录。Windows 使用 PowerShell 设置 `$env:RAEA_BIN` 为完整 exe 路径，按需要设置 `$env:WGPU_BACKEND = 'vulkan'`；工具不在 PATH 时设置 `PYTHON / FFMPEG / FFPROBE`。安装包必须保留 `bin` 与 `share` 相对布局。canary.2 没有 `--version` 命令，包装脚本从实际可执行文件旁的 `../share/raea/VERSION` 读取版本。
+`<RAEA安装包绝对目录>` 需替换为实际绝对目录。Windows 使用 PowerShell 设置 `$env:RAEA_BIN` 为完整 exe 路径，按需要设置 `$env:WGPU_BACKEND = 'vulkan'`；工具不在 PATH 时设置 `FFMPEG / FFPROBE`，要用 `.venv` 以外的 Python 时设置 `BEIMING_PYTHON`。安装包必须保留 `bin` 与 `share` 相对布局。canary.2 没有 `--version` 命令，包装脚本从实际可执行文件旁的 `../share/raea/VERSION` 读取版本。
 
 | 阶段／文件与函数 | 输入与步骤 | 输出及失败判断 |
 |---|---|---|

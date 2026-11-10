@@ -4,7 +4,7 @@
 
 **做片先读 [B 路线手册](../../routes/b-native/README.md)**：那里是唯一的操作入口（新建作品、准备素材、草图帧、出片、交付规格、画面工艺、FSL 使用边界）。本目录是它的深入资料：运行时源码对照、历史实验记录与集成设计。
 
-北冥原生 · BNE（Beiming Native Edition）是本仓库的通用原生渲染路线，基于上游原生运行时 RAEA（FSL-1.1-ALv2；目录名 `docs/raea/` 与 `examples/raea/` 是上游项目名，内部沿用）。决定 D03：它只作内部制作层——自制影片、向客户交付成片——不作为对外的产品、SDK 或渲染服务；仓库不分发运行时、不复制其源码，版本与哈希锁在 `engine/native/runtime.lock.json`。
+北冥原生 · BNE（Beiming Native Edition）是本仓库的通用原生渲染路线，基于上游原生运行时 RAEA（FSL-1.1-ALv2；目录名 `docs/raea/` 与 `examples/raea/` 是上游项目名，内部沿用）。决定 D03：它只作内部制作层——自制影片、向客户交付成片——不作为对外的产品、SDK 或渲染服务；仓库不分发运行时、不复制其源码，版本与哈希锁在 `engine/native/runtime.lock.json`。许可边界全文与 agent 规则见 [docs/rights/fsl-boundary.md](../rights/fsl-boundary.md)。
 
 **当前状态（2026-11-10）：** 通用原生层 `engine/native/`、唯一出片入口 `engine/render/native.mjs`（母版逐位复制 + BT.709 网页版 + run.json + 运行时自带成片检查）、最小作品模版与《北冥》例片均已在 macOS 实跑；角色表演系统、原版画风（ID 墨线、Kuwahara）的等价迁移、Windows / 5090 上用新入口重跑仍是待办。原有 A 路与 Three.js 主线不依赖原生运行时。
 
