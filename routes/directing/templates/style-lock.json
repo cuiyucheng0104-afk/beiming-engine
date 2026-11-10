@@ -1,0 +1,263 @@
+{
+  "$comment": "设计草案 beiming.style-lock/1。渲染器不读取本文件（未实现）。字段说明见 STYLE-LOCK.md。示例值取自《北冥》10 秒样片（源提交 3b97946），每个值后都能在 sources 或字段里的 source 找到出处。新作品复制本文件后改 styleId、version、derivedFrom，只改有理由的字段。",
+  "schema": "beiming.style-lock/1",
+  "styleId": "beiming-original",
+  "version": "v1",
+  "route": "beiming",
+  "derivedFrom": null,
+  "sourceCommit": "3b979466d1608e53a4a68347e15cf85fc043ebd5",
+
+  "status": {
+    "output": "rendered",
+    "technical": "not-reviewed",
+    "userApproval": "indirect",
+    "approvalEvidence": ["cases/source/local-beiming-film-9min/docs/画风锁定.md:3"],
+    "approvedBy": null,
+    "approvedAt": null,
+    "$comment": "userApproval 取 none / indirect / approved / rejected。indirect：九分钟版记下用户要求完全沿用原版十秒，不是对样片本身的验收记录。"
+  },
+
+  "baselines": [
+    { "file": "media/shot_1.6.jpg", "sha256": "3ff503f7d5a1ea81e6b970fb0e2bb2a29e46d8d0906a56790e377ca19ff980fb", "shot": "A", "t": 1.6, "frame": null, "note": "1.6×24=38.4，不在整数帧上，只作目视对照" },
+    { "file": "media/shot_4.0.jpg", "sha256": "9bb3d72fc6f42e19cb7814ea35f3241db06ab20ad4c4fc35e8eadfecc7a70bea", "shot": "B", "t": 4.0, "frame": 96 },
+    { "file": "media/shot_7.6.jpg", "sha256": "b51de4f95aa96c76f31bfcd1fa1ea5873400ddacc7757ab00a1893744af63448", "shot": "C", "t": 7.6, "frame": null, "primary": true, "note": "设计模板登记的风格基准（docs/routes/templates/project-beiming.json:10）；182.4 帧，只作目视对照" },
+    { "file": "media/shot_9.9.jpg", "sha256": "3434d0cbdafd5f864ca81fa522680278f19375ea193578fdeae1219370d75c2c", "shot": "C", "t": 9.9, "frame": null, "note": "237.6 帧，只作目视对照" }
+  ],
+  "motionBaselines": [],
+  "$motionBaselines": "未实现：没有一拍二、一拍三的相邻帧基准；新版本应补每条轨道一组 6 帧的帧条。",
+
+  "palette": {
+    "space": "sRGB 十六进制；进着色器时用 THREE.Color 转线性一次（src/toon.js:5）",
+    "source": "src/toon.js:14-20",
+    "colors": [
+      { "id": "zenith", "hex": "#4F5BBF", "role": "天顶" },
+      { "id": "lavender", "hex": "#9C8FD8", "role": "天空中段；也是雾色（src/look.js:19）" },
+      { "id": "pink", "hex": "#F2A0A6", "role": "天空粉；鲲背光侧边缘光" },
+      { "id": "apricot", "hex": "#FFB26B", "role": "杏橙地平线" },
+      { "id": "cloudShade", "hex": "#8E7CC3", "role": "云影" },
+      { "id": "cloudLit", "hex": "#F7A98F", "role": "云亮边" },
+      { "id": "city", "hex": "#4B4A8C", "role": "城市剪影" },
+      { "id": "window", "hex": "#FFC46B", "role": "窗灯", "only": ["窗灯与灯点"] },
+      { "id": "kunBase", "hex": "#6E7BA8", "role": "鲲亮档" },
+      { "id": "kunShade1", "hex": "#4E5888", "role": "鲲一影：逆光下观众看到的主色" },
+      { "id": "kunShade2", "hex": "#343D69", "role": "鲲二影：只在背光最深处" },
+      { "id": "kunRim", "hex": "#FFD3B0", "role": "鲲受光侧边缘光（暖桃）" },
+      { "id": "kunBelly", "hex": "#F2A36B", "role": "腹部下方补光：城市灯海的假暖" },
+      { "id": "barnacle", "hex": "#E9DCC9", "role": "藤壶亮档" },
+      { "id": "barnacleShade", "hex": "#9A8FA8", "role": "藤壶阴影：暖奶油换成薰衣草，色相 36°→266°" },
+      { "id": "weedA", "hex": "#5E8A5A", "role": "海草一影" },
+      { "id": "weedB", "hex": "#3E6B4A", "role": "海草二影" },
+      { "id": "coral", "hex": "#F07F86", "role": "珊瑚" },
+      { "id": "anemone", "hex": "#FFF4EA", "role": "海葵" },
+      { "id": "rust", "hex": "#7A5C9E", "role": "紫色锈斑" },
+      { "id": "ink", "hex": "#2A2D52", "role": "墨线与深色斑点", "never": ["用纯黑代替墨色"] },
+      { "id": "hud", "hex": "#EAF6FF", "role": "显示层主色", "only": ["显示层"] },
+      { "id": "hudAccent", "hex": "#9FE8FF", "role": "显示层点缀", "only": ["显示层"] }
+    ],
+    "rules": [
+      "灯只给方向和投影，颜色全部按色板绝对给定（src/toon.js:4-5）",
+      "阴影换色相，不靠压暗：单色物体直接给 shade1/shade2，实例色物体用 tintFrom(亮, 影)（engine/shade/toon.js:46-49）",
+      "显示层两色只属于显示层（docs/作品.md:47-53）",
+      "墨色吸 15% 底色；底色比墨还暗时线取底色×0.5，暗部的线也看得见（src/look.js:37-38）"
+    ],
+    "knownDuplicates": [
+      "src/hud.js:63-66 用 RGB 数组另写了显示层颜色",
+      "src/girl.js:40-58 人物另有一套色板 GIRL_PAL"
+    ]
+  },
+
+  "colorScript": {
+    "source": "docs/作品.md:55-65",
+    "segments": [
+      { "id": "fog-night", "colors": "青灰、蓝灰", "meaning": "困、钝", "valueKey": "中低调、低反差：主体与背景明度接近，最亮处不超过中灰", "valueKeySource": "目标，由 docs/作品.md:59 推出（推断）", "implemented": false },
+      { "id": "city-lights", "colors": "钠灯橙、霓虹品红，自下而上", "meaning": "假的暖：饱和、平、刺眼", "valueKey": "中调、高彩度、反差平：亮部多而碎，光从下方来", "valueKeySource": "目标，由 docs/作品.md:60 推出（推断）", "implemented": false },
+      { "id": "moon-river", "colors": "银蓝，海草冷绿荧光", "meaning": "轻、自由", "valueKey": "中低调、冷：荧光海草是唯一的亮点群", "valueKeySource": "目标，由 docs/作品.md:61 推出（推断）", "implemented": false },
+      { "id": "lights-out", "colors": "近乎全黑，只剩红绿两点航行灯", "meaning": "静、悬", "valueKey": "极低调：暗部约占画面九成以上，只留两点", "valueKeySource": "目标，由 docs/作品.md:62 推出（推断）", "implemented": false },
+      { "id": "sunrise", "colors": "粉紫、橙、金，逆光", "meaning": "真的暖：柔、透、从背后来", "valueKey": "中高调、逆光：天空最亮，主体落在一影（鲲一影 OKLab L≈0.47，天顶 L≈0.52）", "valueKeySource": "样片色板复算（craft/toon.md §5.2 的命令）", "implemented": true, "shots": ["A", "B", "C"] }
+    ]
+  },
+
+  "light": {
+    "key": {
+      "model": "场景里第一盏投影的平行光，只取方向和投影；灯色与强度不进卡通材质",
+      "intent": "本风格（北冥日出段）选低角度逆光或侧逆光（docs/作品.md:63）；只描述本风格，不是新作品的默认，新片按镜头的读形目标定主光",
+      "elevationDeg": [6.9, 7.0],
+      "$elevationDeg": "镜头 A 6.9°（src/shotA.js:55）、镜头 C 7.0°（src/shotC.js:112）；自测页 lab/kun.js:34-35 的 5.8° 不属于样片；镜头 B 没有平行光",
+      "perShot": {
+        "A": { "dir": [-0.72, 0.12, -0.68], "source": "src/shotA.js:53-55" },
+        "C": { "yawDeg": 30, "elevationDeg": 7, "source": "src/shotC.js:110-112" }
+      }
+    },
+    "fill": { "meaning": "城市灯海的暖光，自下而上", "dir": [0, -1, 0], "source": "src/toon.js:28", "perShot": { "A": { "fillDir": [0.08, -1, 0.1], "fillGain": 0.55, "source": "src/shotA.js:142" } } },
+    "sky": { "dir": [0, 1, 0], "rule": "天光只进暗部里朝天的面", "source": "engine/shade/toon.js:130-135" },
+    "script": [
+      { "shot": "C", "frames": [216, 240], "change": "城市补光 1→0.62；材质曝光 1→1.12；调色暖度 0.12→0.2、曝光 1→1.2；bloom 0.6→1.05；暗角 0.24→0.16", "meaning": "假暖退场，真暖登场", "source": "src/shotC.js:197-210" }
+    ]
+  },
+
+  "shading": {
+    "model": "三档卡通分档＋投影量化＋背光侧与受光侧边缘光＋下方补光＋天光（engine/shade/toon.js）",
+    "toneMapping": "NoToneMapping",
+    "outputColorSpace": "sRGB",
+    "defaults": { "step1": 0.56, "feather1": 0.02, "step2": 0.32, "feather2": 0.03, "shadowDepth": 0.5, "castShade": 1, "shadowLo": 0.42, "shadowHi": 0.58, "edgeNoise": 0.03, "edgeNoiseScale": 0.06 },
+    "defaultsSource": "src/toon.js:35-57",
+    "presets": {
+      "kun": { "step1": 0.53, "step2": 0.17, "shade1": "#4E5888", "shade2": "#343D69", "fillAmt": 0.92, "fillStep": 0.6, "fillStep2": 0.94, "skyAmt": 0.75, "rimAmt": 0.6, "rimColor": "#F2A0A6", "rimLitAmt": 1, "rimLitColor": "#FFD3B0" }
+    },
+    "presetsSource": "src/toon.js:61-76"
+  },
+
+  "line": {
+    "screenInk": { "width": 2.6, "color": "#2A2D52", "wobble": 1.2, "boilFps": 12, "warp": 70, "pressure": 0.35, "breakup": 0.1, "inner": 0.55, "silhouette": 0.12, "tint": 0.15, "darken": 0.5 },
+    "source": "src/look.js:22-38",
+    "perShot": {
+      "A": { "width": 2.3, "near": 300, "far": 3000, "farScale": 0.6, "source": "src/shotA.js:147" },
+      "B": { "screenInk": false, "note": "人物自己画轮廓", "source": "src/shotB.js:59" },
+      "C": { "width": 2.6, "near": 90, "far": 700, "farScale": 0.55, "source": "src/shotC.js:205" }
+    },
+    "materialInk": {
+      "target": "沸腾节拍等于该物体的绘制节拍：鲲身的线随鲲的一拍三（hold(f, 3)）；环境与底板上的线可以另定",
+      "current": "全场共用一个墨线时钟 hold(f, 2)，与屏幕墨线同拍沸腾（src/shotA.js:142; src/shotC.js:198; src/kun.js:182-183）；分轨【未实现】",
+      "knownIssue": ["鲲姿态一拍三、身上的线一拍二，干涉成 2-1-1-2 的变化节奏，是否保留由看片决定（craft/animation.md §2.8）", "原生 4K 下被 Kuwahara 抹掉（craft/toon.md §5.3、F16）"]
+    }
+  },
+
+  "brush": {
+    "kuwahara": { "radius": 5, "strength": 1, "q": 8, "farRadius": 5, "farStart": 40, "farEnd": 120, "protect": [1.05, 1.6] },
+    "source": "src/look.js:41",
+    "perShot": {
+      "A": { "radius": 3, "farRadius": 6.5, "farStart": 700, "farEnd": 2200, "source": "src/shotA.js:148" },
+      "B": { "radius": 1.6, "farRadius": 6, "farStart": 30, "farEnd": 60, "reason": "人物面部不能被远景的大半径抹平", "source": "src/shotB.js:60" },
+      "C": { "radius": 4, "farRadius": 7, "farStart": 900, "farEnd": 3000, "source": "src/shotC.js:206" }
+    }
+  },
+
+  "texture": {
+    "paper": { "strength": 0.12, "scale": 1, "perShot": { "A": 0.14, "B": 0.12, "C": 0.13 }, "note": "外部纸纹按输出像素平铺，4K 下变细；要两种分辨率观感一致就令 scale=H/1080（craft/video.md §3.3）" },
+    "grain": { "default": 0, "perShot": 0.65, "note": "0.65 是着色器输入量，不是不透明度（docs/routes/beiming-style.md:126）" },
+    "vignette": { "default": 0.22, "perShot": { "A": 0.24, "B": 0.26, "C": "0.24→0.16" } },
+    "source": "src/look.js:45-47; src/shotA.js:151; src/shotB.js:63; src/shotC.js:209"
+  },
+
+  "grade": {
+    "default": { "exposure": 1, "warmth": 0.12, "lift": [0.035, 0.022, 0.06], "gamma": 1, "gain": 1, "saturation": 1.04, "shoulder": 0.9 },
+    "bloom": { "strength": 0.55, "threshold": 0.72, "radius": 0.65, "knee": 0.25 },
+    "source": "src/look.js:42-43"
+  },
+
+  "typography": {
+    "fonts": [
+      { "family": "BM HUD Latin", "file": "fonts/Barlow-300/400/500.woff2", "role": "数字与西文", "license": "SIL OFL 1.1" },
+      { "family": "BM HUD SC", "file": "fonts/NotoSansSC-var.woff2（子集）", "role": "中文界面字", "license": "SIL OFL 1.1" },
+      { "family": "BM Title", "file": "fonts/MaShanZheng-400.woff2", "role": "片名毛笔楷书", "license": "SIL OFL 1.1" }
+    ],
+    "licenseFile": "fonts/LICENSE.md（含 OFL 1.1 全文与各字体版权行）",
+    "source": "src/hud.js:32-42",
+    "rules": ["子集必须覆盖全部字形，缺字会静默回退到系统字体（engine/overlay/text.js:28）", "片名按笔顺写骨架，只给收笔快的笔画加飞白（src/hud.js:282-308）"]
+  },
+
+  "layout": {
+    "designHeight": 1040,
+    "postRefHeight": 1080,
+    "overlayScale": "H/1040",
+    "pixelRatio": 1,
+    "title": { "x": 0.088, "y": 0.43, "source": "src/main.js:32" },
+    "source": "src/main.js:19-24; src/look.js:21"
+  },
+
+  "camera": {
+    "rules": ["默认固定机位或缓推；每个运镜写动机", "不变焦、不甩镜、不斜构图", "城市段长焦、竖向压迫；海面段广角、横向舒展", "不做长时间正面特写", "相机默认不量化；跟拍一拍 n 的主体时，主体根运动走平滑或相机瞄准连续轨迹（VISUAL-DESIGN §4.3）", "镜头间连续性按 VISUAL-DESIGN §4.4（轴线、视线、落点、光向）"],
+    "rulesSource": "docs/作品.md:69-72",
+    "fovDeg": { "A": 16, "B": 30, "C": 31 },
+    "fovSource": "src/shotA.js:19; src/shotB.js:13; src/shotC.js:23"
+  },
+
+  "motion": {
+    "tracks": [
+      { "id": "camera", "step": 1 },
+      { "id": "fog-water-grain", "step": 1 },
+      { "id": "girl", "step": 2, "source": "src/girl.js:4" },
+      { "id": "ink-boil", "step": 2, "source": "src/look.js:27" },
+      { "id": "birds", "step": 2, "source": "src/birds.js:67" },
+      { "id": "reflections", "step": 2, "source": "src/shotA.js:99-100" },
+      { "id": "kun-trapped", "step": 3, "source": "src/shotA.js:103; src/shotC.js:165" },
+      { "id": "kun-awake", "step": 2, "implemented": false },
+      { "id": "peng", "step": 1, "implemented": false }
+    ],
+    "rules": ["切点与节拍切换放在所有轨道的公倍数帧（一拍二＋一拍三取 6 的倍数）", "周期动作频率不超过 fps/(2n)"],
+    "source": "docs/作品.md:74-84"
+  },
+
+  "form": {
+    "rules": ["先保证远中近景轮廓，再提高细分；拓扑密度不等于美术复杂度（docs/routes/beiming-style.md:36）", "低 LOD 时装饰数量少、单个大，覆盖面积不变（src/kun.js:147）", "鲲约 600 m、远看像一座岛（docs/作品.md:30）：尺度靠参照物（渡船、楼群、人）和放慢的动作时间来卖（craft/animation.md §3.9）"],
+    "lineup": null,
+    "$lineup": "比例对照表（鲲、渡船、人、楼并排）样片没有，新版本应补"
+  },
+
+  "valueStructure": {
+    "minDeltaL": null,
+    "separation": ["屏幕墨线", "暖补光（腹部的城市灯海）", "色相差"],
+    "$comment": "样片现状：鲲一影 #4E5888 与天顶 #4F5BBF 的 OKLab 明度差约 0.04，分离靠墨线、暖补光和色相差（VISUAL-DESIGN §3）。迁到不带屏幕墨线的后端（GLB）时这一项会失效，必须先重定明度。建议门槛 ΔL≥0.15 属通用工艺，样片不满足，所以这里写 null 并列出替代的分离手段。"
+  },
+
+  "soundPalette": {
+    "families": ["汽笛与鲲鸣同一发声器、同一谐波谱（audio/design.py:3-5）"],
+    "layers": ["眼镜提示音干声、居中、不进世界混响（audio/design.py:6-7）"],
+    "rules": ["配乐稀疏，全片只出现三次，关灯段完全撤掉（docs/作品.md:88）"],
+    "source": "audio/design.py:3-7; docs/作品.md:88-90"
+  },
+
+  "metrics": {
+    "paletteDistance": null,
+    "inkLengthPerMpx": null,
+    "kuwaharaRadiusPx": null,
+    "$comment": "给同帧对照配的辅助数字：调色后像素到最近色板色的 OKLab 距离分布、每百万像素的墨线长度、Kuwahara 有效半径。只作对照，不作通过门槛；计算脚本未实现。"
+  },
+
+  "overlay": {
+    "rules": ["最后叠加，不经后期：不加颗粒、不受泛光、永远锐利", "只在戴着眼镜时出现", "只画真实功能", "同时最多两行字", "提示音干声、居中、不进世界混响"],
+    "theme": "neutral",
+    "source": "docs/作品.md:45-53; engine/stage/film.js:2,30-33; src/hud.js:53; src/main.js:30; audio/design.py:6-7"
+  },
+
+  "allowedOverrides": [
+    { "param": "brush.kuwahara 近／远半径与过渡距离", "scope": "每镜按景别", "range": "radius 1.6–4，farRadius 6–7", "reason": "景别决定笔触半径（docs/routes/beiming-style.md:128）" },
+    { "param": "line 的 width、near、far、farScale", "scope": "每镜按景深", "range": "width 2.3–2.6", "reason": "远景线细且淡" },
+    { "param": "鲲腹部补光阈值 uFillStep / uFillStep2 / uFillW1 / uFillAmt", "scope": "镜头 C", "range": "0.38 / 0.72 / 0.5 / 1.0", "reason": "仰拍时腹部法线只有约 0.8 朝下（src/shotC.js:79-81）" },
+    { "param": "片尾日光过渡（light.script）", "scope": "镜头 C 第 216–240 帧", "reason": "色彩脚本：真的暖登场" }
+  ],
+
+  "newVersionWhen": ["换色板", "换光照公式（分档、补光、边缘光的算法）", "换后期顺序", "换色调映射"],
+  "newVersionSource": "docs/routes/beiming-style.md:175",
+
+  "forbidden": [
+    "ACES、AgX 等全局色调映射",
+    "纯黑墨线",
+    "把显示层画进后期管线",
+    "提高设备像素比来放大线宽（docs/routes/beiming-style.md:128）",
+    "用 AI 超分出片（docs/渲染与4K.md:11）"
+  ],
+
+  "lockedFiles": [
+    { "path": "src/toon.js", "sha256": "c2b039950ee37f61e7572f7cdd6f70eb2ae340919f29a60e3dbd716ed24e7718" },
+    { "path": "src/look.js", "sha256": "83f4fe837de77f6b19ea829121bfe3b52a29215ddcc2f61cb1b83908b65186b9" },
+    { "path": "src/kun.js", "sha256": "497a9362bafebc7f9d69122cc2a2b9620c3dc7cd56a2ba9ef3985355662585af" },
+    { "path": "src/girl.js", "sha256": "2d340817f80bf326658a9911a38ec50ec5af888c785758ca507790ce71e17f89" },
+    { "path": "src/shotA.js", "sha256": "258cb25bc970653966cf26f6618aae45e33f7824281f7c4e99201e9369ece41e" },
+    { "path": "src/shotB.js", "sha256": "9db99d3744d3e11ebe81a8d8ef89538ceca554fa88a1db60ca5c22801fb59c0b" },
+    { "path": "src/shotC.js", "sha256": "27af741bb4fc0a09ce97308eb5dbd4eeadfd42016c704aba9fac31eaaaf958eb" },
+    { "path": "src/hud.js", "sha256": "57eeea365acd50d29f85e402a2cc01a9cecdea8b73991ae1d0f70419ce601036" },
+    { "path": "assets/plates/plates.json", "sha256": "24b770d7abc44ae479bf2fefe8644a84f25a3a85578807ff7d894c3845b9bfd9" }
+  ],
+  "$lockedFiles": "文件哈希只是证据：证明风格来源没被改动，不证明画风合格（九分钟版只锁哈希，作品被否）。",
+
+  "sources": [
+    "docs/作品.md",
+    "docs/routes/beiming-style.md:36,128,175",
+    "src/toon.js:4-76",
+    "src/look.js:19-47",
+    "src/main.js:19-32",
+    "src/hud.js:32-66",
+    "src/shotA.js:142-151; src/shotB.js:55-65; src/shotC.js:197-211"
+  ]
+}
