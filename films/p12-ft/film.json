@@ -1,3 +1,0 @@
-{ "schemaVersion": 2, "id": "p12-ft", "title": "晨渡",
-  "fonts": [ { "family": "BM Title", "source": "ma-shan-zheng" }, { "family": "BM Text", "source": "noto-sans-sc", "weight": 300, "extra": "0123456789" } ],
-  "texts": [ { "id": "title", "text": "鲲鹏𬸚渡", "font": "BM Title" }, { "id": "subtitle", "text": "北冥风格 · 概念短片", "font": "BM Text" } ] }
