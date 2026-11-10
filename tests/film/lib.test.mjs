@@ -269,3 +269,77 @@ test('取帧按色彩标记精确换算：BT.709 有限范围的中性灰 128 �
     assert.deepEqual([...raw.subarray(0, 3)], [128, 128, 128]);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('底座接线：错误码按退出码补前缀；AIGC 标识参数；预检项按路线与步骤；QA 的命令行；《北冥》旧参数 --4k', async () => {
+  const { prefixed } = await import('../../tools/film/lib/exit.mjs');
+  assert.equal(prefixed(2, 'film-dir-missing'), 'usage.film-dir-missing');
+  assert.equal(prefixed(4, 'gate-blocked'), 'contract.gate-blocked');
+  assert.equal(prefixed(3, 'raea-missing'), 'env.raea-missing');
+  assert.equal(prefixed(5, 'film-busy'), 'busy.film-busy');
+  assert.equal(prefixed(124, 'stalled'), 'timeout.stalled');
+  assert.equal(prefixed(130, 'interrupted'), 'signal.sigint');
+  assert.equal(prefixed(1, 'step-failed'), 'failure.step-failed');
+  assert.equal(prefixed(4, 'contract.x'), 'contract.x', '已带前缀的原样返回');
+  const e = new FilmError(4, 'qa-failed', 'QA 不过', '看报告');
+  assert.equal(e.code, 'contract.qa-failed');
+  assert.equal(e.short, 'qa-failed');
+  assert.equal(e.exitCode, 4);
+
+  const { aigcLabel } = await import('../../tools/film/lib/deliver.mjs');
+  const { parseImplicitLabel } = await import('../../tools/compliance/lib/aigc.mjs');
+  const ctx = aigc => ({ film: { id: 'chendu', raw: { aigc } }, run: { id: '20261110-120000-abcdef12' } });
+  assert.equal(aigcLabel(ctx({ contains: false })), null);
+  assert.equal(aigcLabel(ctx(undefined)), null);
+  const L = aigcLabel(ctx({ contains: true, kinds: ['visual', 'voice'], tools: ['Midjourney V8'] }));
+  assert.equal(L.args[0], '-metadata');
+  assert.ok(L.args[1].startsWith('comment=AIGC{'));
+  const parsed = parseImplicitLabel(L.comment);
+  assert.ok(parsed.ok, parsed.problems.join('；'));
+  assert.equal(parsed.fields.ProduceID, 'chendu@20261110-120000-abcdef12');
+  assert.equal(parsed.fields.ContentProducer, '北冥引擎 Beiming Engine');
+  assert.match(parsed.statement, /含 AI 生成画面；配音为 AI 合成（生成工具：Midjourney V8）/);
+  assert.deepEqual(aigcLabel(ctx({ contains: true, kinds: ['bogus'] })).kinds, ['visual'], '不认识的类别按 visual');
+
+  const { preflightNeeds } = await import('../../tools/film/lib/session.mjs');
+  const fctx = (route, kind, audio, extra = {}) => ({ kind, audio, film: { route, cuecheck: null, ...extra } });
+  const muxNode = fs.existsSync(path.join(ROOT, 'engine/render/lib/mux.mjs'));
+  const a = preflightNeeds(fctx('a', 'build', { mode: 'script', path: 'x/sound.py' }));
+  for (const n of ['ffmpeg', 'python', 'browser', 'python:audio']) assert.ok(a.includes(n), `A 出片要 ${n}`);
+  assert.equal(a.includes('sh'), !muxNode, '没有 Node 封装时才要 sh');
+  assert.ok(!a.includes('raea'));
+  const st = preflightNeeds(fctx('c', 'stills', { mode: 'script', path: 'x/mix.py' }));
+  assert.ok(!st.includes('python:audio') && !st.includes('sh'), '静帧不跑声音、不封装');
+  assert.ok(preflightNeeds(fctx('a', 'build', { mode: 'script', path: 'audio/build.sh' })).includes('sh'), '.sh 声音脚本要 sh');
+  const b = preflightNeeds(fctx('b', 'build', { mode: 'native' }));
+  assert.ok(b.includes('raea') && b.includes('python:audio'));
+
+  const { qaArgs } = await import('../../tools/film/lib/qa.mjs');
+  const q = qaArgs({ master: '/r/master.mp4', film: { dir: '/f' }, profile: { id: 'web-1080p24' }, runDir: '/r', pageDir: '/f' });
+  assert.deepEqual(q.slice(0, 2), ['report', '/r/master.mp4']);
+  assert.equal(q[q.indexOf('--out') + 1], path.join('/r', 'qa'));
+  assert.equal(q[q.indexOf('--page') + 1], '/f');
+  assert.equal(q[q.indexOf('--profile') + 1], 'web-1080p24');
+  assert.ok(!qaArgs({ master: 'm', film: { dir: '/f' }, profile: { id: 'custom', custom: true }, runDir: '/r' }).includes('--profile'), '自定义画幅不传档位');
+
+  const { mapLegacyArgs } = await import('../../tools/film/beiming.mjs');
+  assert.deepEqual(mapLegacyArgs(['--4k', '--json']), ['--uhd', '--json']);
+  assert.deepEqual(mapLegacyArgs(['--', '--4k']), ['--', '--4k'], '-- 之后不动');
+});
+
+test('镜像作品：路径相对仓库根，页面是 entry 所在目录，运行目录在 mirror.outDir', () => {
+  const dir = tmp();
+  try {
+    const raw = { schemaVersion: 2, id: 'beiming-10s', title: '北冥', route: 'a', backend: 'three', entry: 'index.html',
+      mirror: { paths: 'repo', outDir: 'out/beiming' }, output: { profile: 'beiming-1040p24', width: 1920, height: 1040, fps: 24, frameCount: 240 },
+      shots: [{ id: 'A', in: 0, out: 72 }, { id: 'B', in: 72, out: 120 }, { id: 'C', in: 120, out: 240 }], audio: { mode: 'script', script: 'audio/build.sh' } };
+    const f = parseFilm(raw, { dir });
+    assert.equal(f.pageDir, ROOT);
+    assert.equal(f.pathBase, ROOT);
+    assert.equal(f.outRoot, path.join(ROOT, 'out/beiming'));
+    assert.equal(f.audio.path, path.join(ROOT, 'audio/build.sh'));
+    assert.deepEqual(cutsOf(f.shots), [72, 120]);
+    const plain = parseFilm({ ...raw, mirror: undefined, entry: undefined, audio: { mode: 'none' } }, { dir });
+    assert.equal(plain.pageDir, dir);
+    assert.equal(plain.outRoot, path.join(dir, 'out'));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

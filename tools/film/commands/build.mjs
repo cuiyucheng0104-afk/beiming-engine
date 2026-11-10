@@ -188,7 +188,8 @@ export function withRunJson(ctx) {
   return list;
 }
 
-// 主产物与作品描述逐项核对（完整解码计帧），结果写进 checks/output.json；不符即退出码 4
+// 主产物与作品描述逐项核对（完整解码计帧），结果写进 checks/output.json。机器 QA 门跑过并给了结论时，帧数、画幅、帧率、音轨
+// 以 QA 为准（它查得更全，避免两处各判一遍）：这里只记录、不另判失败；没跑 QA（预演、--no-qa、QA 未提供）时不符即退出码 4。
 async function checkOutput(ctx, main) {
   const info = await ctx.media.probe(ctx.exec, main);
   const sha256 = ctx.outputs.find(o => o.path === rel(main))?.sha256 || null;
@@ -202,7 +203,9 @@ async function checkOutput(ctx, main) {
   const dir = path.join(ctx.run.dir, 'checks');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'output.json'), JSON.stringify({ schemaVersion: 1, by: 'tools/film（ffprobe -count_frames 完整解码）', checkedAt: new Date().toISOString(), expected: { frames: ctx.frames, width: ctx.width, height: ctx.height, fps: ctx.fps, audio: true }, measured: output, problems, ok: !problems.length }, null, 2) + '\n');
-  if (problems.length) ctx.fail(4, 'output-contract', `${path.basename(main)} 与作品描述不符：${problems.join('、')}`, `核对记录见 ${rel(path.join(dir, 'output.json'))}；看 logs/ 下对应步骤的输出`);
+  const qaDecided = ctx.qa && ['passed', 'failed'].includes(ctx.qa.status);
+  if (problems.length && qaDecided) ctx.warn('output-contract', `${path.basename(main)} 与作品描述不符：${problems.join('、')}（以机器 QA 的结论为准）`);
+  else if (problems.length) ctx.fail(4, 'output-contract', `${path.basename(main)} 与作品描述不符：${problems.join('、')}`, `核对记录见 ${rel(path.join(dir, 'output.json'))}；看 logs/ 下对应步骤的输出`);
   const frameHashes = await ctx.media.framemd5(ctx.exec, main);
   if (frameHashes.length !== ctx.frames) ctx.fail(4, 'output-decode', `${path.basename(main)} 逐帧解码只得到 ${frameHashes.length} 帧（应为 ${ctx.frames}）`, '成片可能损坏；看 logs/ 后重跑');
   return { output, frameHashes };
