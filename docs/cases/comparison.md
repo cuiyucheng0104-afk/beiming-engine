@@ -6,13 +6,13 @@
 
 ## 固定版本与数量
 
-| 来源 | 本次固定版本 | 核对到的内容 | 在北冥中的位置 |
+| 来源 | 固定版本（2026-11-07 归档） | 核对到的内容 | 在北冥中的位置 |
 |---|---|---|---|
 | [sy-style-100](https://github.com/xiaoxiong20xx-code/sy-style-100/tree/e41dee31a5c05dffa12b2f241378e648d2a22df6) | `e41dee31a5c05dffa12b2f241378e648d2a22df6` | 20 种风格；首期 20、第二期 20、行业 60，共 100 个示例 | 完整源码快照收入 cases/vendor；运行时独立，北冥不另造一套同功能播放器 |
 | [lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar/tree/bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00) | `bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00` | 66 个实际风格目录；另有 `_template`，不计入风格数 | 完整的 66 种风格、导演/技术文档、demo、core 和工具收入 cases/vendor |
 | 北冥引擎 | 本批归档基于 `02762fe` | 风格化 Three 主线、RAEA 独立实验、真实项目与案例库 | 创作入口、项目资产、渲染和验收；原片源码保持不变 |
 
-本机的 lemo 库与本次远端快照 HEAD 相同。两套外部仓库的 tracked Git blob ID 交集为 **0**（331 与 2478 个文件条目）；这是字节级核对，不证明不存在相近算法或改写。完整外部示例索引见 [references.json](../../cases/references.json)。本机 66 部风格实验是另一组项目，不能把它们与 lemo 的 66 部官方 demo 加成“132 种画风”。
+2026-11-07 归档时，本机的 lemo 库与当时远端快照的 HEAD 相同。两套外部仓库的 tracked Git blob ID 交集为 **0**（331 与 2478 个文件条目）；这是字节级核对，不证明不存在相近算法或改写。完整外部示例索引见 [references.json](../../cases/references.json)。本机 66 部风格实验是另一组项目，不能把它们与 lemo 的 66 部官方 demo 加成“132 种画风”。
 
 ## 源码层的区别
 
@@ -23,7 +23,7 @@
 | 等待资源 | `__seek` 内部等待 setup/fonts Promise | 页面 READY + 浏览器端检查 | 适配时必须等待第一次异步 seek；不能只检测函数存在 |
 | 画面方法 | Canvas、SVG、DOM/CSS、WebGL；18 个库模块，含 SDF 光线步进 | 66 套风格方法与演示，2D/3D/剪辑/纪实混合 | 北冥三色材质、ID 线、绘画人物和后期只是一种组合；案例库补充不同组合 |
 | 光照/材质 | `lib/rm.js` 的距离场场景；`toon/clay/glass/chrome` 等专用模块 | 按风格分别实现；不是所有风格都用 Three | 优先借用构成和材质方法；SDF 与 Mesh 不能直接互换材质代码 |
-| 模糊/采样 | `--frames --mb N` 的子帧 + Halton jitter + FFmpeg tmix；frameKey 可复用停格帧 | 多 worker 逐帧、锁文件、渲染槽、质量检查 | 未来按需求取用子帧采样；本次没有宣称已移植到北冥 |
+| 模糊/采样 | `--frames --mb N` 的子帧 + Halton jitter + FFmpeg tmix；frameKey 可复用停格帧 | 多 worker 逐帧、锁文件、渲染槽、质量检查 | 未来按需求取用子帧采样；截至 2026-11-07 归档没有移植到北冥 |
 | GPU | 默认 SwiftShader；`--hwgpu` 才请求硬件 GPU | Chrome/ANGLE 后端配置 | 已有 RTX Vulkan 路径；必须记录实际设备，不把 WebGL 硬件加速称作 CUDA/NVENC/DLSS |
 | 声音 | 音乐种类+动作 cue，Python 合成，统一合成 reel | events、采样器、配乐/拟音/混音和阅读检查 | 保存案例实际声音程序与素材，不统一重算历史混音 |
 | 示例用途 | 10/15 秒广告、文字配置、行业换题材 | 风格学习、镜头与导演方法、长短故事 | 真实 PPT 改编、风格探索、讲解片与技术预演按状态存档 |
