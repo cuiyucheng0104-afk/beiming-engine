@@ -6,7 +6,7 @@
 //   原话  quote | userQuote | words | reviewerQuote | 原话 | reason（仅豁免）
 //   来源  source | from
 // 决定归一为 approve / waive / reject / other。
-// 原话核对：NFKC 归一、去首尾引号、压缩空白后做子串匹配（「逐字找到」）；至少 2 个字。
+// 原话核对：NFKC 归一、去首尾引号、去掉全部空白后做子串匹配（「逐字找到」：排版空白不算改字）；至少 2 个字。
 // 接口：loadReviewRecords(filmDir)、normalizeQuote(s)、findQuote(quote, messages, predicate)、
 //       gateAlias(name, aliases)、gateFromFileName(file)、normalizeDecision(value)
 
@@ -39,13 +39,16 @@ export function normalizeQuote(s) {
     .trim();
 }
 
+/** 比对用的键：在 normalizeQuote 之上去掉全部空白（换行、排版空格不算改字，改字、增删字才算）。 */
+const quoteKey = s => normalizeQuote(s).replace(/\s+/g, '');
+
 /** 原话 quote 是否逐字出现在某条满足 predicate 的消息里；返回命中的消息或 null。 */
 export function findQuote(quote, messages, predicate = () => true) {
-  const q = normalizeQuote(quote);
+  const q = quoteKey(quote);
   if ([...q].length < 2) return null;
   for (const m of messages) {
     if (!predicate(m)) continue;
-    if (normalizeQuote(m.text).replace(/\s+/g, ' ').includes(q)) return m;
+    if (quoteKey(m.text).includes(q)) return m;
   }
   return null;
 }

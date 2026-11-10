@@ -61,6 +61,7 @@ export function makeSourceRepo(dir) {
     'cases/vendor/lemo-opuscar/README.md': '# vendor 快照\n',
     'cases/vendor/lemo-opuscar/styles/watercolor/STYLE.md': '# 水彩\n',
     'tools/casebook.py': CASEBOOK_STUB,
+    '.claude/skills/film-qc/SKILL.md': '---\nname: film-qc\ndescription: 仓库自带的出片质检 skill（夹具）\n---\n\n# film-qc\n',
     'package.json': '{ "name": "beiming-fixture", "private": true, "type": "module" }\n',
   };
   for (const [rel, text] of Object.entries(files)) {
@@ -90,7 +91,7 @@ export const SMALL = { width: 64, height: 36, fps: 24, frameCount: 48 };
  * @param {{ task: string, patch?: object, src: {dir, commit}, attempt?: number, isolation?: string, environment?: string,
  *           seed?: (wt) => void, act?: (wt, runDir) => void,
  *           turns?: object[][] | ((wt, runDir) => object[][]), injections?: object[] | ((prompt) => object[]) | null,
- *           drive?: object|null, hooks?: object[]|null, startedAt?: string }} o
+ *           drive?: object|null, hooks?: object[]|null, startedAt?: string, baselineProcesses?: object[] }} o
  */
 export function makeRun(root, o) {
   const base = loadTask(o.task);
@@ -115,7 +116,7 @@ export function makeRun(root, o) {
   fs.writeFileSync(path.join(dir, 'replies.json'), JSON.stringify(replies, null, 2));
   fs.writeFileSync(path.join(dir, 'prompt.txt'), prompt);
   o.seed?.(worktree);
-  const baseline = captureBaseline({ worktree, tmpDir: path.join(dir, 'tmp'), commit: o.src.commit }, { listProcs: () => [] });
+  const baseline = captureBaseline({ worktree, tmpDir: path.join(dir, 'tmp'), commit: o.src.commit }, { listProcs: () => o.baselineProcesses ?? [] });
   fs.writeFileSync(path.join(dir, 'baseline.json'), JSON.stringify(baseline, null, 2));
   o.act?.(worktree, dir);
   if (o.turns) writeTurns(dir, typeof o.turns === 'function' ? o.turns(worktree, dir) : o.turns);
