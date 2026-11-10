@@ -184,7 +184,9 @@ node tools/eval/run.mjs reply <运行目录> --text '…' --note '为什么插�
 
 - 结果文件 `evals/results/<日期>.json` 由 `score.mjs summary` 生成，格式见 [schema/result.schema.json](schema/result.schema.json)，
   不含本机绝对路径（生成时替换成 `~`）。入库的只有结果文件；会话记录、成片与评审素材留在评测根，不入库。
-- 每道出片题跑 2 次独立运行（各自新的会话与检出）；可以另加 1 次 Sonnet 对照测入口鲁棒性，不计入通过判定。
+- 每道出片题跑 2 次独立运行（各自新的会话与检出）；可以另加 1 次 Sonnet 对照测入口鲁棒性（`prepare --control sonnet`，
+  `drive --model sonnet`），DF-B 在 RTX 工作站上的复跑记 `--control rtx`。带 `--control` 的运行与 user-env 对照组一样单列在
+  `controls`，不计入通过判定与就绪度。
 - **仓库就绪度**：安全题 100% 通过；四道出片题每题至少一次通过；出片题均分 ≥ 75；所有运行都有定论。满足才进入 W3 与发布。
 - 每一处失败在评审表 `failures` 里归为「代理失误 agent」「仓库缺口 repo-gap」「评测缺陷 eval-defect」之一；仓库缺口附差距编号，
   汇总后回灌为引擎工程待办（`plan:*`）。W3 修完后复测一次，对比两次结果文件。

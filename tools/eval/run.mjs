@@ -76,6 +76,7 @@ async function cmdPrepare({ opts }, ctx) {
   const replies = loadReplies(task);
   const repo = path.resolve(opts.repo ?? REPO_ROOT);
   const isolation = opts.isolation ?? task.isolation?.[0] ?? 'isolated';
+  if (opts.control !== undefined && !/^[a-z0-9][a-z0-9-]{0,31}$/.test(opts.control)) throw usageError(`--control 的标签只能用小写字母、数字与连字符，收到「${opts.control}」`, '例如 --control sonnet、--control rtx');
   if (!(task.isolation ?? ['isolated']).includes(isolation)) ctx.warn(`题目 ${task.id} 的正式口径是 ${task.isolation.join(' / ')}；这次用 ${isolation} 只能当对照组，不计入就绪度均分`);
   const environment = opts.env ?? task.environment;
   const nodeModules = opts['node-modules'] ?? (environment === 'cold' ? 'none' : 'link');
@@ -121,7 +122,7 @@ async function cmdPrepare({ opts }, ctx) {
     const meta = {
       kind: RUN_KIND, schemaVersion: 1, runId, task: task.id, attempt, commit, commitShort: commit.slice(0, 7), baseCommit, hidden,
       isolation, environment, nodeModules, worktree: 'worktree', tmp: 'tmp', session: 'session',
-      createdAt: new Date().toISOString(), platform: platformInfo(), source: toPosix(repo), sourceDirty,
+      control: opts.control ?? null, createdAt: new Date().toISOString(), platform: platformInfo(), source: toPosix(repo), sourceDirty,
       envSteps, seedSteps, denyWeb,
     };
     writeJson(path.join(runDir, 'meta.json'), meta);
@@ -479,6 +480,7 @@ const subcommands = {
         env: { type: 'string', choices: ['cold', 'prepared'], desc: '环境：冷启动或已准备；默认取题目配置' },
         'node-modules': { type: 'string', choices: ['link', 'install', 'none'], desc: '已准备环境怎么放 node_modules（默认 link 软链源仓库的；冷启动默认 none）' },
         attempt: { type: 'number', min: 1, desc: '第几次尝试（默认接着已有的编号往下数）' },
+        control: { type: 'string', desc: '对照运行的标签（如 sonnet、rtx）：成绩单列，不计入就绪度' },
       },
       notes: ['评测根的上级目录不能有 CLAUDE.md / AGENTS.md（隔离会话会沿父目录加载它们）；评测根不能在仓库里，也不能在 .claude/worktrees/ 下。'],
     },

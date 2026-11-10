@@ -669,7 +669,7 @@ export async function evaluateRun(runDir, opts = {}) {
     schemaVersion: 1,
     kind: 'beiming-eval-gates',
     generatedAt: new Date().toISOString(),
-    run: { dir: run.dir, runId: run.meta.runId ?? path.basename(run.dir), task: run.task.id, attempt: run.meta.attempt ?? null, isolation: isolation.mode, commit: run.meta.commit, filmId: ctx.film.id },
+    run: { dir: run.dir, runId: run.meta.runId ?? path.basename(run.dir), task: run.task.id, attempt: run.meta.attempt ?? null, isolation: isolation.mode, control: run.meta.control ?? null, commit: run.meta.commit, filmId: ctx.film.id },
     judge: { toolsRoot, toolsCommit, sameCommit: toolsCommit ? toolsCommit === run.meta.commit : null, transcriptSource: t.source, transcriptBadLines: t.badLines },
     verdict,
     hardGates: { failed, unavailable, passed: applicable.filter(g => g.status === 'pass').map(g => g.id) },

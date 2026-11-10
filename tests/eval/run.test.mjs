@@ -223,6 +223,17 @@ describe('DF-A 完整评测流程（Claude CLI 测试桩扮演代理）', { skip
     assert.equal(cli(SCORE, ['summary', p.root, '--strict', '--json']).status, 4);
   });
 
+  it('对照运行（--control）单列，不计入就绪度', () => {
+    const c = cli(RUN, ['prepare', '--task', 'S1', '--repo', SRC.dir, '--root', p.root, '--node-modules', 'none', '--control', 'sonnet', '--json']);
+    assert.equal(c.status, 0, c.stderr);
+    assert.equal(cli(RUN, ['finish', c.envelope.data.runDir, '--tools-root', STUB_ROOT, '--no-materials', '--json']).status, 0);
+    const r = cli(SCORE, ['summary', p.root, '--json']);
+    assert.equal(r.envelope.data.controls.length, 1);
+    assert.equal(r.envelope.data.controls[0].control, 'sonnet');
+    assert.equal(r.envelope.data.tasks.S1.runs, 0, '对照运行不进每题统计');
+    assert.equal(cli(RUN, ['prepare', '--task', 'S1', '--repo', SRC.dir, '--root', p.root, '--control', 'Sonnet 5', '--json']).status, 2);
+  });
+
   it('status 与 clean：清掉被测检出后保留报告，finish 不能再跑', () => {
     const s = cli(RUN, ['status', p.runDir, '--json']);
     assert.equal(s.envelope.data.stage, '已计分');
