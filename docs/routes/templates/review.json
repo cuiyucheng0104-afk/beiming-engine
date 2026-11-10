@@ -1,0 +1,21 @@
+{
+  "$comment": "审片记录的字段样例（films/<名>/review/<闸>-<YYYY-MM-DD>.json）。不要手抄这个文件：用 node engine/production/film.js review <作品> --gate … --decision … 生成，它会算所看文件的 sha256、冻结镜头表或风格版本。下面 {{…}} 处原样留着时记录无效——approve / reject / waive 只能填用户的原话与出处，agent 不能自己批准。规则见 docs/creative-review/README.md。",
+  "schemaVersion": 1,
+  "film": "{{NAME}}",
+  "gate": "look",
+  "decision": "approve",
+  "reviewer": { "kind": "human", "name": "用户" },
+  "quote": "{{用户原话，原样照录}}",
+  "source": { "kind": "session", "ref": "{{能找回这句话的出处}}", "at": "2026-11-10T15:32:00+08:00" },
+  "recordedBy": { "kind": "ai", "name": "agent" },
+  "recordedAt": "2026-11-10T15:35:12+08:00",
+  "reviewed": [ { "path": "stills/look_01.png", "sha256": "{{所看文件的 sha256}}" } ],
+  "style": { "id": "beiming-original", "version": 1 },
+  "shots": [ { "id": "S1", "verdict": "pass" }, { "id": "S2", "verdict": "note", "note": "天空再亮一点" } ],
+  "issues": [
+    { "id": "R1", "frame": 101, "shot": "S2", "region": [0.42, 0.3, 0.1, 0.12], "layer": "performance", "dimension": "motion", "problem": "发丝穿过镜框", "fix": "发丝路径收短", "priority": "P2", "evidence": ["review/strips/s2_096-106.jpg"], "status": "open" }
+  ],
+  "scores": { "style": 8, "subject": 8 },
+  "vetoes": [],
+  "evidenceFrames": [96, 101]
+}
