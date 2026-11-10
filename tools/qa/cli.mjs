@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, QaError, usageError, parseArgs, envelope, log, installSignalHandlers, runCleanups } from './lib/cli-kit.mjs';
 import { loadProfiles, resolveProfile, REPO_ROOT } from './lib/profiles.mjs';
-import { findFilm, loadFilm, loadEvents, runDirOf } from './lib/film.mjs';
+import { findFilm, loadFilm, loadEvents, runDirOf, repoRootOf } from './lib/film.mjs';
 import { collectWaivers, applyWaivers } from './lib/waivers.mjs';
 import { buildReport, validateReport, toMarkdown, technicalAcceptanceFrom } from './lib/report.mjs';
 import { requireFfmpeg } from './lib/proc.mjs';
@@ -152,7 +152,7 @@ async function runGroups(sub, opts, input) {
         }
         const { runTexts } = await import('./checks/texts.mjs');
         log(`▶ texts：打开 ${rel(pageDir)}/index.html 逐帧读文字`);
-        const r = await runTexts({ pageDir, profile: ctx.profile, film: ctx.film, step: opts.step || 1, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, contrast: !opts.noContrast, timeoutMs: ctx.timeoutMs });
+        const r = await runTexts({ pageDir, root: repoRootOf(pageDir) || REPO_ROOT, profile: ctx.profile, film: ctx.film, step: opts.step || 1, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, contrast: !opts.noContrast, timeoutMs: ctx.timeoutMs });
         checks.push(...r.checks); warnings.push(...r.warnings); extra.texts = r.summary;
       } else if (g === 'sync') {
         const events = opts.events ? loadEvents(path.resolve(opts.events), ctx.film?.fps || null) : (ctx.film?.events || []);
@@ -203,11 +203,16 @@ async function knownIssues(film) {
   return settle(c);
 }
 
+// 报告默认写到：运行目录下的 qa/；成片在某个 out/ 目录里时写到同目录的 qa/<文件名>/；否则写到仓库根的 out/qa/<文件名>/
 function defaultOutDir(input) {
   const run = runDirOf(input);
   if (run) return path.join(run, 'qa');
-  const base = path.basename(input).replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '_') || 'film';
-  return path.join(REPO_ROOT, 'out', 'qa', base);
+  const abs = path.resolve(input);
+  const base = path.basename(abs).replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '_') || 'film';
+  const root = repoRootOf(abs) || REPO_ROOT;
+  const relDir = path.relative(root, path.dirname(abs));
+  const inOut = !relDir.startsWith('..') && !path.isAbsolute(relDir) && relDir.split(path.sep).includes('out');
+  return inOut ? path.join(path.dirname(abs), 'qa', base) : path.join(root, 'out', 'qa', base);
 }
 
 function printHuman(report) {

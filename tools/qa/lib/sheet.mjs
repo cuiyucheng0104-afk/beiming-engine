@@ -100,7 +100,7 @@ export async function contactSheet({ input, probe, film = null, report = null, f
     if (isFlag) fill(img, W, cx - 3, cy - 3, tw + 6, th + label + 6, [210, 50, 40]);
     fill(img, W, cx, cy, tw, th + label, [40, 40, 40]);
     const t = thumbs.get(f);
-    if (t) for (let y = 0; y < th; y++) t.copy(img, ((cy + y) * W + cx) * 3, y * tw * 3, (y + 1) * tw * 3);
+    if (t) for (let y = 0; y < th; y++) img.set(t.subarray(y * tw * 3, (y + 1) * tw * 3), ((cy + y) * W + cx) * 3);
     drawText(img, W, cx + 4, cy + th + 4, `F${f} ${tc(f, fps)}`, [235, 235, 235], 2);
     const sh = shotOf(f);
     drawText(img, W, cx + 4, cy + th + 20, `${sh ? sh + ' ' : ''}${isCut ? 'CUT ' : ''}${isFlag ? '!' : ''}`.trim() || ' ', isCut ? [255, 214, 90] : [200, 200, 200], 2);

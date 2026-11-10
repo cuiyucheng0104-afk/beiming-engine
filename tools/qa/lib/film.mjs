@@ -2,7 +2,10 @@
 // 只读、宽容：字段的权威校验在 P05 的 engine/production/film.js（film check），这里遇到不一致只记 warning，不替它判定。
 // P05 合入后，normalizeFilm 改为先调用其升级函数，再取下面这些字段（见 docs/quality/QA-GATE.md「接口」）。
 //
-//   findFilm({ film, input, root })   → film.json 的绝对路径或 null：显式参数优先；成片在 films/<名>/out/… 下时自动找 films/<名>/film.json
+//   findFilm({ film, input })          → film.json 的绝对路径或 null：显式参数优先；否则从成片所在目录往上找最近的 film.json
+//                                        （films/<名>/out/<run-id>/master.mp4 → films/<名>/film.json），找到仓库根为止；
+//                                        《北冥》样片的运行目录 out/beiming/<run-id>/ 对应 films/beiming-10s/film.json（P05 的镜像）
+//   repoRootOf(p)                      → p 所在的仓库根（往上第一个同时有 package.json 与 engine/ 的目录），没有返回 null
 //   loadFilm(file)                     → normalizeFilm(JSON, file)
 //   normalizeFilm(raw, file)           → { id, title, route, fps, width, height, frameCount, profile, shots, cuts, events, audioMode, aigc, qa, warnings }
 //   loadEvents(file, fps)              → 事件表（film.json / events.json 两种写法）规范成 [{ id, frame, t, needsSound, kind, soft }]
@@ -14,9 +17,20 @@ import { parseFps } from './profiles.mjs';
 
 const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
 const isInt = v => Number.isInteger(v);
-const posix = p => p.split(path.sep).join('/');
+export const BEIMING_FILM = 'films/beiming-10s/film.json';
 
-export function findFilm({ film = null, input = null, root }) {
+export function repoRootOf(p) {
+  let d = path.resolve(p);
+  try { if (!fs.statSync(d).isDirectory()) d = path.dirname(d); } catch { d = path.dirname(d); }
+  for (;;) {
+    if (fs.existsSync(path.join(d, 'package.json')) && fs.existsSync(path.join(d, 'engine'))) return d;
+    const up = path.dirname(d);
+    if (up === d) return null;
+    d = up;
+  }
+}
+
+export function findFilm({ film = null, input = null }) {
   if (film) {
     const p = path.resolve(film);
     if (!fs.existsSync(p)) throw new QaError('usage', `找不到作品描述：${film}`, { hint: '--film 给作品目录或它的 film.json', exitCode: EXIT.USAGE });
@@ -28,10 +42,18 @@ export function findFilm({ film = null, input = null, root }) {
     return p;
   }
   if (input) {
-    const rel = posix(path.relative(root, path.resolve(input)));
-    const m = /^films\/([^/]+)\/out\//.exec(rel);
-    if (m) {
-      const f = path.join(root, 'films', m[1], 'film.json');
+    const root = repoRootOf(input);
+    let d = path.dirname(path.resolve(input));
+    for (;;) {
+      if (root && d === root) break;
+      const f = path.join(d, 'film.json');
+      if (fs.existsSync(f)) return f;
+      const up = path.dirname(d);
+      if (up === d || !root) break;
+      d = up;
+    }
+    if (root && runDirOf(input) && path.basename(path.dirname(runDirOf(input))) === 'beiming') {
+      const f = path.join(root, BEIMING_FILM);
       if (fs.existsSync(f)) return f;
     }
   }
