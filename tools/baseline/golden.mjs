@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runMain, CliError, EXIT, usage, log, onCleanup, offCleanup, sha256File, displayPath } from './lib/cli.mjs';
-import { loadSets, setHash } from './lib/sets.mjs';
+import { loadSets, setHash, shotOf } from './lib/sets.mjs';
 import { captureSet, captureUsable, assertCaptured } from './lib/capture.mjs';
 import { compareFrames, summaryLine, worstStats } from './lib/compare.mjs';
 import { git, headCommit, resolveCommit, dirtyPixelPaths, withSnapshot, runId, isGitRepo, PIXEL_PATHS } from './lib/git.mjs';
@@ -46,6 +46,8 @@ compare 的参照（四选一）：
   --strict                 compare：任何不是逐像素一致的帧都算失败（合入前的「像素保护」用这个）
   --no-render-ref          compare：哈希不同时不自动现渲源提交（只报哈希差异，判为无法核实）
   --no-cache               compare：参照一律现渲，不用 out/golden/cache/ 里的缓存
+  --perturb <k=v&…>        compare：给当前工作树的每个页面网址加查询串（不改帧编号），证明闸门抓得到一个已知的小改动，
+                           例如 --set lab --perturb lw=2（自测页 look 的墨线宽 2.6 → 2）应当 exit 4 并出差异热图
   --gpu <策略>             required（默认：落到软件渲染即 exit 3）| any | software-ok（CI 的 SwiftShader、有意的软件渲染）
   --jobs <n>               同时开几个页面（默认 2）
   --frame-timeout <秒>     单帧 render + 截图的上限（默认 60）
@@ -72,13 +74,13 @@ const SPEC = {
     '--set': 'list', '--against': 'string', '--ref-dir': 'string', '--strict': 'bool', '--no-render-ref': 'bool', '--no-cache': 'bool',
     '--gpu': 'string', '--jobs': 'int', '--frame-timeout': 'number', '--out': 'string', '--work-dir': 'string',
     '--by': 'string', '--reason': 'string', '--commit': 'string', '--ref': 'string', '--dry-run': 'bool', '--sets': 'string', '--json': 'bool',
-    '--id': 'string', '--reference': 'string',
+    '--id': 'string', '--reference': 'string', '--perturb': 'string',
   },
   positionals: [1, 1],
 };
 const ALLOWED = {
   capture: ['--set', '--gpu', '--jobs', '--frame-timeout', '--out', '--sets', '--json'],
-  compare: ['--set', '--against', '--ref-dir', '--reference', '--strict', '--no-render-ref', '--no-cache', '--gpu', '--jobs', '--frame-timeout', '--out', '--work-dir', '--sets', '--json'],
+  compare: ['--set', '--against', '--ref-dir', '--reference', '--perturb', '--strict', '--no-render-ref', '--no-cache', '--gpu', '--jobs', '--frame-timeout', '--out', '--work-dir', '--sets', '--json'],
   update: ['--set', '--by', '--reason', '--commit', '--ref', '--dry-run', '--gpu', '--jobs', '--frame-timeout', '--json'],
   reference: ['--set', '--id', '--by', '--reason', '--commit', '--ref', '--dry-run', '--gpu', '--jobs', '--frame-timeout', '--json'],
   list: ['--sets', '--json'],
@@ -121,7 +123,7 @@ function lock(dir) {
 }
 
 // 截一个集合到 dir（先写到临时目录，成功后整体改名，半截的缓存永远不会被当成可用）
-async function captureInto({ tree, sets, setName, dir, opts, source }) {
+async function captureInto({ tree, sets, setName, dir, opts, source, perturb = '' }) {
   const release = lock(dir);
   const tmp = `${dir}.tmp-${process.pid}`;
   const rmTmp = () => fs.rmSync(tmp, { recursive: true, force: true });
@@ -130,7 +132,7 @@ async function captureInto({ tree, sets, setName, dir, opts, source }) {
   try {
     rmTmp();
     const { manifest, failures } = await captureSet({
-      tree, sets, setName, outDir: tmp, gpu: opts.gpu, jobs: opts.jobs, frameTimeoutMs: opts.frameTimeoutMs, log, source,
+      tree, sets, setName, outDir: tmp, gpu: opts.gpu, jobs: opts.jobs, frameTimeoutMs: opts.frameTimeoutMs, log, source, perturb,
     });
     assertCaptured(failures);
     fs.rmSync(dir, { recursive: true, force: true });
@@ -150,7 +152,9 @@ function sourceOf(tree) {
 async function captureCurrent(sets, setName, opts, dir, sourceOverride = null) {
   const source = sourceOverride || sourceOf(ROOT);
   log(`截 ${setName}（${source.commit ? source.commit.slice(0, 7) : '无 git'}${source.dirty ? '，有未提交的像素相关改动' : ''}）→ ${rel(dir)}`);
-  const manifest = await captureInto({ tree: ROOT, sets, setName, dir, opts, source });
+  // --perturb 只作用于当前工作树这一次截帧：参照（缓存、现渲的源提交）永远不加
+  const manifest = await captureInto({ tree: ROOT, sets, setName, dir, opts, source, perturb: opts.perturb || '' });
+  if (opts.perturb) log(`  （网址加了 --perturb ${opts.perturb}，帧编号不变）`);
   log(`  ${manifest.frames.length} 帧，${manifest.seconds} 秒，平台 ${manifest.platformKey}（${manifest.renderer}），浏览器 ${manifest.browser}`);
   return { manifest, dir };
 }
@@ -308,10 +312,18 @@ async function cmdCompare(opts, sets) {
     if (opts.strict && mode === 'cross-platform') warnings.push(`${s}：跨平台比对不可能逐像素一致，--strict 不适用，按跨平台容差判定`);
     const dir = path.join(reportRoot, s);
     const cmp = compareFrames({ ref, cur: { frames: curM.frames, dir: cur[s].dir }, tolerance, strict, outDir: dir, log });
+    // 给每帧标上镜头（sets.json 顶层 annotations 的镜头表），汇总差异落在哪些镜头
+    const meta = new Map([...ref.frames, ...curM.frames].map(f => [f.id, f]));
+    const byShot = {};
+    for (const f of cmp.frames) {
+      const m = meta.get(f.id), shot = m ? shotOf(sets, m.page, m.t) : null;
+      if (shot) f.shot = shot;
+      if (shot && !['identical', 'within'].includes(f.status)) byShot[shot] = (byShot[shot] || 0) + 1;
+    }
     const report = {
       schemaVersion: 1, kind: 'golden-compare', set: s, mode, strict, tolerance,
       reference: refLabel, current: { dir: rel(cur[s].dir), source: curM.source, platformKey: curM.platformKey, device: curM.device, renderer: curM.renderer, browser: curM.browser, env: curM.env },
-      ok: cmp.ok, summary: cmp.summary, worst: worstStats(cmp.frames), drift, contact: cmp.contact,
+      ok: cmp.ok, summary: cmp.summary, worst: worstStats(cmp.frames), byShot, drift, contact: cmp.contact,
       frames: cmp.frames,
     };
     fs.mkdirSync(dir, { recursive: true });
@@ -320,11 +332,12 @@ async function cmdCompare(opts, sets) {
     outputs.push(out(rp, 'golden-report'));
     if (cmp.contact) outputs.push(out(path.join(dir, cmp.contact), 'contact-sheet'));
     log(`${cmp.ok ? '通过' : '不通过'} ${s}（${mode === 'cross-platform' ? '跨平台' : '同平台'}${strict ? '，严格' : ''}）对 ${refLabel}：${summaryLine(cmp.summary)}`);
+    if (Object.keys(byShot).length) log(`  差异所在镜头：${Object.entries(byShot).map(([k, n]) => `镜头 ${k} ${n} 帧`).join('、')}`);
     for (const f of cmp.frames.filter(x => !['identical', 'within'].includes(x.status)).slice(0, 12)) {
       log(`  ✗ ${f.id}：${f.status}${f.reasons ? ` · ${f.reasons.join('；')}` : ''}${f.diff ? ` · 热图 ${rel(path.join(dir, f.diff))}` : ''}`);
     }
     if (!cmp.ok) failed = true;
-    result.push({ set: s, ok: cmp.ok, mode, summary: cmp.summary, worst: report.worst, report: rel(rp) });
+    result.push({ set: s, ok: cmp.ok, mode, summary: cmp.summary, worst: report.worst, byShot, report: rel(rp) });
   }
   if (failed) {
     return { exitCode: EXIT.CONTRACT, outputs, warnings, result, runJson: outputs[0]?.path ?? null,

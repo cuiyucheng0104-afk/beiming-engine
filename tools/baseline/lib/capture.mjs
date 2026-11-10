@@ -1,6 +1,7 @@
 // 北冥仓库 · 截一个集合：把集合展开成页面组，每组起一个截帧子进程（worker.mjs），收齐结果写成「截帧清单」。
 //
-//   captureSet({ tree, sets, setName, outDir, gpu, jobs, frameTimeoutMs, log, source })
+//   captureSet({ tree, sets, setName, outDir, gpu, jobs, frameTimeoutMs, log, source, perturb })
+//     perturb  加在每个页面网址上的查询串（不进帧编号），只给 compare --perturb 做灵敏度检查
 //     tree     被测工作树（当前仓库，或 --against 检出的临时工作树）；页面、渲染器、模版都从这里取
 //     outDir   PNG 与截帧清单（capture.json）写到这里
 //     → { manifest, failures }：manifest 见 writeCaptureManifest；failures 是没截成的组（含原因与建议的退出码）
@@ -99,7 +100,7 @@ function readFilmFps(dir) {
   try { const j = JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')); return j.fps || j.output?.fps || null; } catch { return null; }
 }
 
-export async function captureSet({ tree, sets, setName, outDir, gpu = 'required', jobs = 2, frameTimeoutMs = 60000, log = () => {}, source = {} }) {
+export async function captureSet({ tree, sets, setName, outDir, gpu = 'required', jobs = 2, frameTimeoutMs = 60000, log = () => {}, source = {}, perturb = '' }) {
   const groups = expandSet(sets, setName);
   fs.mkdirSync(outDir, { recursive: true });
   const t0 = Date.now();
@@ -128,7 +129,7 @@ export async function captureSet({ tree, sets, setName, outDir, gpu = 'required'
       const spec = {
         groupId: g.groupId, tree, dir, pageId: g.pageId, query: g.query, w: size[0], h: size[1], clip: g.clip, times: g.times, fps,
         outDir: path.join(outDir, 'frames'), resultFile: path.join(outDir, '.work', `${g.groupId.replace(/[^a-z0-9]+/gi, '_')}.json`),
-        gpu, frameTimeoutMs, order: 'asc',
+        gpu, frameTimeoutMs, order: 'asc', ...(perturb ? { perturb } : {}),
       };
       log(`  · ${g.pageId}${g.query ? `?${g.query}` : ''} ${size.join('x')}${g.clip ? ` 裁切 ${g.clip.join(',')}` : ''}`);
       const r = await runWorker(spec, { log, prefix: `    [${g.pageId}] `, timeoutMs: 200000 + 30 * frameTimeoutMs });
@@ -152,7 +153,7 @@ export async function captureSet({ tree, sets, setName, outDir, gpu = 'required'
     set: setName, setHash: setHash(sets, setName),
     platformKey: renderer ? platformKey(renderer) : null, device: renderer ? deviceSlug(renderer) : null, renderer, backend: backendOf(renderer),
     browser: [...browsers][0] || null,
-    env: { os: osDescription(), ...toolVersions(tree), angle: process.env.BEIMING_ANGLE || 'default', gpuPolicy: gpu },
+    env: { os: osDescription(), ...toolVersions(tree), angle: process.env.BEIMING_ANGLE || 'default', gpuPolicy: gpu, ...(perturb ? { perturb } : {}) },
     source, capturedAt: new Date().toISOString(), seconds: Math.round((Date.now() - t0) / 100) / 10,
     frames: frames.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     failures,

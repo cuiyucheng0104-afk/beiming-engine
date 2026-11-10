@@ -34,8 +34,9 @@ const HELP = `北冥仓库 · 确定性检查（determinism）
   4. 静态扫描 Math.random / Date.now / performance.now / new Date（存量登记见 tools/baseline/determinism-allow.json）
 
 取样选项（都不写时 = 分段边界 + 切点 + 5 个随机帧 + 首尾帧；写了任何一个就只取写了的）：
-  --seams                  分段边界 ±1 帧（配合 --workers，默认 4，与 video.mjs 默认一致）
-  --cuts <帧,帧>           切点帧，查 ±1 帧；不写时读作品 film.json 的 shots[].in（v2）或 cuts
+  --seams                  分段边界 ±1 帧（配合 --workers，默认 4，与 video.mjs 默认一致）；没写 --cuts 时连切点 ±1 帧一起查
+  --cuts <帧,帧>           切点帧，查 ±1 帧；不写时读作品 film.json 的 shots[].in（v2）或 cuts；
+                           仓库根目录（《北冥》样片）读 tools/baseline/sets.json 的镜头表标注（72、120）
   --random <n>             随机取 n 帧（种子 --seed，默认 1）
   --frames <帧,帧>         直接给要查的帧号
 其它选项：
@@ -73,6 +74,18 @@ function mulberry(a) {
   return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 function readFilm(dir) { try { return JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')); } catch { return null; } }
+// 切点（帧号）：film.json v2 的 shots[].in；v1 的 cuts；仓库根目录（《北冥》样片，没有 film.json）读 tools/baseline/sets.json 的镜头表标注
+function filmCuts(film, dir, fps) {
+  if (Array.isArray(film?.shots)) return film.shots.map(s => s.in).filter(v => Number.isInteger(v) && v > 0);
+  if (Array.isArray(film?.cuts)) return film.cuts.filter(Number.isInteger);
+  if (path.resolve(dir) === ROOT) {
+    try {
+      const shots = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/baseline/sets.json'), 'utf8')).annotations?.film?.shots || [];
+      return shots.map(([, from]) => Math.round(from * fps)).filter(f => f > 0);
+    } catch { return []; }
+  }
+  return [];
+}
 
 function doScan(paths) {
   const files = listFiles(ROOT, paths);
@@ -136,10 +149,7 @@ async function main({ opts, positionals }) {
     const per = Math.ceil(N / W);
     if (!selectors || opts.seams) for (let k = 1; k < W; k++) { const a = k * per; if (a < N) [a - 1, a, a + 1].forEach(f => add(f, `第 ${k} 段边界（${a}）`)); }
     let cuts = ints(opts.cuts, '--cuts');
-    if (!selectors) {   // 默认取样时从作品描述里找切点：film.json v2 的 shots[].in，或 v1 的 cuts（帧号）
-      if (Array.isArray(film?.shots)) cuts = film.shots.map(s => s.in).filter(v => Number.isInteger(v) && v > 0);
-      else if (Array.isArray(film?.cuts)) cuts = film.cuts.filter(Number.isInteger);
-    }
+    if (!selectors || (opts.seams && !opts.cuts.length)) cuts = filmCuts(film, dir, fps);
     for (const c of cuts) [c - 1, c, c + 1].forEach(f => add(f, `切点 ${c}`));
     const nRandom = opts.random ?? (selectors ? 0 : 5);
     const R = mulberry(seed);
@@ -147,7 +157,7 @@ async function main({ opts, positionals }) {
     for (const f of ints(opts.frames, '--frames')) { if (f >= N) throw usage(`--frames 里的 ${f} 超出作品帧数 ${N}`); add(f, '指定'); }
     if (!selectors) { add(0, '首帧'); add(N - 1, '尾帧'); }
     const warnings = [];
-    if (!selectors && !cuts.length) warnings.push('没找到切点信息（作品 film.json 没有 shots[].in 或 cuts），只查了分段边界、随机帧与首尾；可用 --cuts 指定');
+    if ((!selectors || opts.seams) && !cuts.length && !opts.cuts.length) warnings.push('没找到切点信息（作品 film.json 没有 shots[].in 或 cuts），没有查切点；可用 --cuts 指定');
     const frames = [...pick.keys()].sort((a, b) => a - b);
     if (!frames.length) throw usage('没有取到任何帧（检查 --frames / --cuts 是否超出作品帧数）');
     log(`取样 ${frames.length} 帧（共 ${N} 帧）：${frames.join(' ')}`);

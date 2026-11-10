@@ -1,7 +1,8 @@
 // 北冥仓库 · 金标准集合：读 tools/baseline/sets.json，校验结构，把集合展开成「页面组」，再在页面打开后展开成帧。
 //
 //   loadSets(file)            → 校验过的 sets.json 对象；结构错误抛 CliError（exit 4）
-//   setHash(sets, name)       → 集合定义（含引用的页面）的 sha256，写进清单，用来发现「集合改了但基线没更新」
+//   setHash(sets, name)       → 集合定义（含引用页面里影响像素的字段）的 sha256，写进清单，用来发现「集合改了但基线没更新」
+//   shotOf(sets, pageId, t)   → 镜头名（来自顶层 annotations.<页面>.shots），没有标注时为 null
 //   expandSet(sets, name)     → [{ groupId, pageId, page, size, query, clip, times, fps }]
 //   resolveTimes(times, DUR, fps) → [{ t, f? }]，四种写法：
 //       [1.6, 4.0]                         显式秒数
@@ -28,6 +29,11 @@ export function validateSets(j) {
     if (p.query != null && typeof p.query !== 'string') errs.push(`页面 ${id} 的 query 要是字符串`);
     if (p.fps != null && !(Number.isInteger(p.fps) && p.fps > 0)) errs.push(`页面 ${id} 的 fps 要是正整数`);
     if (p.template && p.vars && !Object.values(p.vars).every(v => typeof v === 'string')) errs.push(`页面 ${id} 的 vars 只能是字符串`);
+  }
+  for (const [pid, a] of Object.entries(j?.annotations || {})) {
+    if (!pages[pid]) errs.push(`annotations 里的页面 ${pid} 不存在`);
+    const sh = a?.shots;
+    if (sh != null && !(Array.isArray(sh) && sh.every((x, i) => Array.isArray(x) && x.length === 2 && typeof x[0] === 'string' && isNum(x[1]) && (i === 0 || x[1] > sh[i - 1][1])))) errs.push(`annotations.${pid}.shots 要写成 [[镜头名, 起点秒], …]，起点升序`);
   }
   for (const [name, s] of Object.entries(sets)) {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) errs.push(`集合名 ${name} 只能用小写字母、数字和 -`);
@@ -65,11 +71,24 @@ function flattenKeys(o, acc = {}) {
   else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) { acc[k] = 1; flattenKeys(v, acc); }
   return acc;
 }
+// 集合哈希只算影响像素的字段：集合的 shots 与容差、引用页面的 dir / template / vars / query / fps / requires。
+// 说明文字（description、说明）和标注（顶层 annotations，例如镜头表）改了不算集合变了，已登记的基线与认可参照不受影响
+const PAGE_PIXEL_KEYS = ['dir', 'template', 'vars', 'query', 'fps', 'requires'];
 export function setHash(sets, name) {
   const s = sets.sets[name];
-  const pages = Object.fromEntries([...new Set(s.shots.map(g => g.page))].sort().map(p => [p, sets.pages[p]]));
+  const pages = Object.fromEntries([...new Set(s.shots.map(g => g.page))].sort().map(p =>
+    [p, Object.fromEntries(PAGE_PIXEL_KEYS.filter(k => sets.pages[p][k] !== undefined).map(k => [k, sets.pages[p][k]]))]));
   const { description, 说明, ...rest } = s;
   return crypto.createHash('sha256').update(canon({ set: rest, pages })).digest('hex');
+}
+
+// 镜头表标注（顶层 annotations.<页面>.shots = [[镜头名, 起点秒], …]，升序）：报告里给每帧标上属于哪个镜头
+export function shotOf(sets, pageId, t) {
+  const shots = sets.annotations?.[pageId]?.shots;
+  if (!Array.isArray(shots) || t == null) return null;
+  let cur = null;
+  for (const [id, from] of shots) if (t >= from - 1e-9) cur = id;
+  return cur;
 }
 
 export function expandSet(sets, name) {

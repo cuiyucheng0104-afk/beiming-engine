@@ -3,7 +3,7 @@
 // 按给定顺序调 window.render(t)，整页截 PNG（与 still / video 出片同一条截图路径），算像素哈希，写结果文件。
 // 只由 tools/baseline/lib/capture.mjs 调用：node worker.mjs <spec.json>
 //
-// spec：{ tree, dir, pageId, query, w, h, clip, times, fps, outDir, resultFile, gpu, frameTimeoutMs, order, sequential }
+// spec：{ tree, dir, pageId, query, perturb, w, h, clip, times, fps, outDir, resultFile, gpu, frameTimeoutMs, order, sequential }
 //   order        'asc'（按时间升序，默认）| 'given'（按给的顺序）| 'shuffle:<种子>'（确定性乱序）
 //   sequential   { from }：从 from 帧起逐帧 render 到最后一个要截的帧，只在要截的帧截图（模拟单 worker 顺序出片）
 //   gpu          'required'（落到软件渲染即失败，exit 3）| 'any' | 'software-ok'
@@ -47,7 +47,8 @@ const { openFilm, closeServer } = await import(pathToFileURL(pageMjs).href);
 
 let film;
 try {
-  film = await openFilm(spec.dir, { w: spec.w, h: spec.h, query: spec.query || '' });
+  // perturb 只加在网址上、不进帧编号：用来证明闸门对一个已知的小改动足够灵敏（compare --perturb），不能用于登记基线
+  film = await openFilm(spec.dir, { w: spec.w, h: spec.h, query: [spec.query, spec.perturb].filter(Boolean).join('&') });
 } catch (e) {
   const code = e?.exitCode === 2 ? 4 : /Executable doesn't exist|browserType\.launch/i.test(e?.message || '') ? 3 : 1;
   finish(code, { code: code === 3 ? 'no-browser' : 'open-failed', message: String(e?.message || e).split('\n')[0] });

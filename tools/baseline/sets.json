@@ -1,6 +1,9 @@
 {
   "schema": "beiming-golden-sets/v1",
   "说明": "金标准集合定义。改这里（加帧、换时刻、改容差）会改变集合哈希，已有清单会提示「集合定义已变」，要重新截帧并经审批 update。时刻写法见 tools/baseline/lib/sets.mjs 开头；容差含义与标定数据见 docs/style-baselines/POLICY.md（同平台：差 >1 级的像素占比；跨平台：SSIM、PSNR、差 >2 级的像素占比，按 2026-11-10 Metal 对 SwiftShader、Mac 对 RTX 的实测定）。",
+  "annotations": {
+    "film": {"shots": [["A", 0], ["B", 3], ["C", 5]], "说明": "与 src/timeline.js 的 TIMELINE 一致：A 雾江 0–3 秒、B 她 3–5 秒、C 鲲现 5–10 秒。compare 报告据此标出差异帧属于哪个镜头，determinism 对仓库根目录据此取切点 ±1 帧。镜头表改了同步改这里（不影响集合哈希）"}
+  },
   "pages": {
     "film": {"dir": ".", "fps": 24, "说明": "《北冥》10 秒样片正片（src/main.js）"},
     "lab:girl": {"dir": ".", "query": "test=girl", "requires": "lab/girl.js"},
