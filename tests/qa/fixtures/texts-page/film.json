@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "id": "qa-texts-fixture",
+  "title": "QA 文字夹具",
+  "route": "c",
+  "output": { "profile": "t-360p24", "width": 640, "height": 360, "fps": 24, "frameCount": 48 },
+  "shots": [ { "id": "S1", "in": 0, "out": 48 } ],
+  "audio": { "mode": "none" },
+  "aigc": { "contains": false }
+}
