@@ -1,0 +1,143 @@
+{
+  "schema": "beiming-media-provenance/v1",
+  "说明": "media/ 下每个文件的来源：sha256、来源提交（查不到的写明来源状态）、生成命令、环境、是否与代码一致、复现结果。本应写在 media/PROVENANCE.json；P08 这一轮的边界是不改 media/，所以先放这里，由 repo-check 规则 baseline.media-provenance 核对哈希。调查过程见 records/2026-11-10-d05-media-provenance.md。",
+  "checkedAt": "2026-11-10",
+  "checkedWith": { "os": "macOS 26（darwin 25.5.0 arm64）", "gpu": "Apple M5 Pro，ANGLE Metal", "browser": "chromium-headless-shell 153.0.8010.12（playwright-core 1.63.0）", "ffmpeg": "8.0.1", "node": "24.13.1", "python": "Pillow 12.3.0" },
+  "files": [
+    {
+      "path": "media/beiming.mp4",
+      "sha256": "03108531c04477cfe68c4a061c04b6daa67485173f335114e38d443911091586",
+      "bytes": 11653264,
+      "kind": "video",
+      "spec": "H.264 High 1920×1040，24 fps，240 帧，yuvj420p，color_range=pc，color_space=bt470bg，transfer / primaries 未标；AAC LC 48 kHz 立体声 192 kb/s；10.005 秒",
+      "firstCommit": "ed11b83",
+      "sourceCommit": null,
+      "sourceState": "v1.0 提交前未入库的工作区（2026-11-03T16:57:43Z 那次构建）：engine/core/noise.js 是 16:53:29Z 的初稿，置换表用从后往前的 Fisher–Yates 洗牌；16:59:32Z 改为从前往后后没有重渲整片",
+      "command": "PYTHON=<含 numpy、scipy、numba、soundfile 的 Python> sh build.sh（当时的版本：静帧样张 → 混音 → video.mjs 4 路 → mux.sh crf 19 → 两遍 9 Mbps 网页版），再 cp out/beiming_web.mp4 media/beiming.mp4（17:01:02Z）",
+      "environment": "macOS，Apple M5 Pro，ANGLE Metal；编码器 Lavc62.11.100 libx264",
+      "matchesCode": false,
+      "reproduced": "把 ed11b83 的 noise.js 换回初稿，走同一条管线（视频部分）重建整片：与本文件 SSIM All 0.9492、PSNR 39.23 dB、9 帧解码后逐位相同；用 ed11b83 原样重建只有 SSIM 0.8838、PSNR 27.68 dB",
+      "status": "historical-public",
+      "statusNote": "历史公开成片（README 首屏、作品站、Release v1.0 附件 beiming.mp4 的 sha256 与本文件相同）。不是回归金标准，也不是认可参照",
+      "release": "v1.0 附件 beiming.mp4"
+    },
+    {
+      "path": "media/preview.gif",
+      "sha256": "c788c8be5c6be0bea074b0443a872af296f068b18fb364d1e2096f2046a790b8",
+      "bytes": 4482706,
+      "kind": "animated-gif",
+      "spec": "600×326，8 fps，80 帧",
+      "firstCommit": "ed11b83",
+      "sourceCommit": null,
+      "sourceState": "由 media/beiming.mp4 转出（2026-11-03T17:05:06Z），继承它的画面",
+      "command": "ffmpeg -i media/beiming.mp4 -vf \"fps=8,scale=600:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=96:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle\" media/preview.gif",
+      "environment": "macOS；FFmpeg 8.x",
+      "matchesCode": false,
+      "reproduced": "2026-11-10 用 FFmpeg 8.0.1 按上面的命令重转，与本文件逐字节相同",
+      "status": "historical-public",
+      "statusNote": "README 首屏动图；画面同 media/beiming.mp4"
+    },
+    {
+      "path": "media/beiming-1280.mp4",
+      "sha256": "adc77c7df6033a018293e40d6d46f7cd4c14ae9f9c063f374312ac096db5fa07",
+      "bytes": 5242842,
+      "kind": "video",
+      "spec": "H.264 High 1280×694，24 fps，240 帧，yuvj420p，pc，bt470bg；约 4 Mb/s；元数据 comment=from media/beiming.mp4 sha256=03108531…",
+      "firstCommit": "62ad28e",
+      "sourceCommit": null,
+      "sourceState": "由 media/beiming.mp4 两遍转码（2026-11-09T13:42Z，作品站第二轮），继承它的画面",
+      "command": "python3 tools/build-showcase.py --make-film-1280（两遍 x264 slow，4000 kb/s，maxrate 6000k，bufsize 8000k，GOP 48，音频复制）",
+      "environment": "macOS；FFmpeg 8.x（Lavc62.11.100 libx264）",
+      "matchesCode": false,
+      "reproduced": "两遍多线程 x264 的码流不保证逐位可复现：2026-11-10 重转的帧与本文件不逐位相同；来源由文件自带的 comment（原片 sha256）证明",
+      "status": "historical-public",
+      "statusNote": "作品站窄屏用的样片；作品站构建时校验它记的原片 sha256 与 media/beiming.mp4 一致，换原片必须一起重转"
+    },
+    {
+      "path": "media/shot_1.6.jpg",
+      "sha256": "3ff503f7d5a1ea81e6b970fb0e2bb2a29e46d8d0906a56790e377ca19ff980fb",
+      "bytes": 141754,
+      "kind": "still",
+      "spec": "1280×694 JPEG（yuvj420p）",
+      "firstCommit": "ed11b83",
+      "sourceCommit": "ed11b83",
+      "command": "node engine/render/still.mjs . 1.6 4.0 7.6 9.9 --out media --prefix shot_（ed11b83 的 still.mjs：1920×1040，JPEG q92），再逐张 ffmpeg -i shot_<t>.jpg -q:v 3 -vf scale=1280:-2",
+      "environment": "macOS，Apple M5 Pro，ANGLE Metal；FFmpeg 8.x",
+      "matchesCode": true,
+      "reproduced": "2026-11-10 从 ed11b83 导出页面、用同样的两步重做，与本文件逐字节相同",
+      "status": "code-v1.0",
+      "statusNote": "与 v1.0 代码一致；不带 62ad28e 的 R24、R30（这一刻看得见渡船航行灯与鸽群）"
+    },
+    {
+      "path": "media/shot_4.0.jpg",
+      "sha256": "9bb3d72fc6f42e19cb7814ea35f3241db06ab20ad4c4fc35e8eadfecc7a70bea",
+      "bytes": 88044,
+      "kind": "still",
+      "spec": "1280×694 JPEG（yuvj420p）",
+      "firstCommit": "ed11b83",
+      "sourceCommit": "ed11b83",
+      "command": "同 media/shot_1.6.jpg",
+      "environment": "同 media/shot_1.6.jpg",
+      "matchesCode": true,
+      "reproduced": "2026-11-10 重做，逐字节相同",
+      "status": "code-v1.0",
+      "statusNote": "现代码在这一刻的 1080 画面与 v1.0 逐像素一致"
+    },
+    {
+      "path": "media/shot_7.6.jpg",
+      "sha256": "b51de4f95aa96c76f31bfcd1fa1ea5873400ddacc7757ab00a1893744af63448",
+      "bytes": 164678,
+      "kind": "still",
+      "spec": "1280×694 JPEG（yuvj420p）",
+      "firstCommit": "ed11b83",
+      "sourceCommit": "ed11b83",
+      "command": "同 media/shot_1.6.jpg",
+      "environment": "同 media/shot_1.6.jpg",
+      "matchesCode": true,
+      "reproduced": "2026-11-10 重做，逐字节相同",
+      "status": "code-v1.0",
+      "statusNote": "与 v1.0 代码一致（没有红珊瑚），所以和同目录的 beiming.mp4 第 182 帧对不上；62ad28e 的 R66 改了这一刻导航线线头的个别像素",
+      "usedBy": "docs/routes/templates/project-beiming.json 的 style.baseline（有损缩图，做不了像素对照；像素对照用 docs/style-baselines/beiming-original@v1）"
+    },
+    {
+      "path": "media/shot_9.9.jpg",
+      "sha256": "3434d0cbdafd5f864ca81fa522680278f19375ea193578fdeae1219370d75c2c",
+      "bytes": 126496,
+      "kind": "still",
+      "spec": "1280×694 JPEG（yuvj420p）",
+      "firstCommit": "ed11b83",
+      "sourceCommit": "ed11b83",
+      "command": "同 media/shot_1.6.jpg",
+      "environment": "同 media/shot_1.6.jpg",
+      "matchesCode": true,
+      "reproduced": "2026-11-10 重做，逐字节相同",
+      "status": "code-v1.0",
+      "statusNote": "现代码在这一刻的 1080 画面与 v1.0 逐像素一致"
+    },
+    {
+      "path": "media/styles.jpg",
+      "sha256": "ae094c4ab12fddf005adfbb0c9c18791a5bb84fd2f0615cd93290492eeee933f",
+      "bytes": 343904,
+      "kind": "still-composite",
+      "spec": "1924×780 JPEG（quality 88），六种画风鲲各一格，上方标签用系统字体 Hiragino Sans GB 22 px",
+      "firstCommit": "ed11b83",
+      "sourceCommit": null,
+      "sourceState": "由仓库建立前样片工程里的「六版鲲对比图」（1920 宽 JPEG，sha256 32fdf8413c695d8bc5c16cada336a9c58f22615743d5d0195a8749c12c0c51c9，不在仓库里）裁切拼排（2026-11-03T17:01:02Z）",
+      "command": "Pillow：对比图每行取第二列（x ∈ [W/4+2, W/2−2)，W 为原图宽）的六段 [86,432)、[479,825)、[872,1218)、[1265,1611)、[1658,2004)、[2051,2397)，排成 3×2、间距 8、标签栏 40 px、底色 #0d0e1c，标签「原版、东方化、青绿仙山、玄鲲云纹、青铜古鲲、鲲鹏将化」，save(quality=88)",
+      "environment": "macOS；Pillow 12.3.0；字体 /System/Library/Fonts/Hiragino Sans GB.ttc（系统字体，换系统字形会变）",
+      "matchesCode": null,
+      "reproduced": "2026-11-10 用同一张对比图与同一段脚本重做，与本文件逐字节相同；对比图本身不在仓库里，所以仓库内不可复现",
+      "status": "derived-pre-repo",
+      "statusNote": "画面来自仓库建立前的自测页渲染；要变成可复现，应改为用 lab/ 自测页现渲六张再拼（golden 的 lab 集合已有这些页面）"
+    }
+  ],
+  "releases": [
+    {
+      "tag": "v1.0",
+      "assets": [
+        { "name": "beiming.mp4", "sha256": "03108531c04477cfe68c4a061c04b6daa67485173f335114e38d443911091586", "note": "与 media/beiming.mp4 相同：噪声初稿的旧产物，红珊瑚版" },
+        { "name": "beiming_4k.mp4", "sha256": null, "note": "原生 4K，2026-11-03T17:00:19Z 起在改正噪声之后渲染（build.sh --4k），与 v1.0 代码一致、没有红珊瑚——同一个发布页里的两个附件画面不一致。sha256 未核对（没有下载 Release 附件）" }
+      ]
+    }
+  ]
+}
