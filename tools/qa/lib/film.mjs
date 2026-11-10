@@ -4,7 +4,7 @@
 //
 //   findFilm({ film, input })          → film.json 的绝对路径或 null：显式参数优先；否则从成片所在目录往上找最近的 film.json
 //                                        （films/<名>/out/<run-id>/master.mp4 → films/<名>/film.json），找到仓库根为止；
-//                                        《北冥》样片的运行目录 out/beiming/<run-id>/ 对应 films/beiming-10s/film.json（P05 的镜像）
+//                                        《北冥》样片的运行目录 out/beiming/<run-id>/ 与旧产物 out/beiming*.mp4 对应 films/beiming-10s/film.json（P05 的镜像）
 //   repoRootOf(p)                      → p 所在的仓库根（往上第一个同时有 package.json 与 engine/ 的目录），没有返回 null
 //   loadFilm(file)                     → normalizeFilm(JSON, file)
 //   normalizeFilm(raw, file)           → { id, title, route, fps, width, height, frameCount, profile, shots, cuts, events, audioMode, aigc, qa, warnings }
@@ -52,7 +52,10 @@ export function findFilm({ film = null, input = null }) {
       if (up === d || !root) break;
       d = up;
     }
-    if (root && runDirOf(input) && path.basename(path.dirname(runDirOf(input))) === 'beiming') {
+    // 《北冥》样片：新运行目录 out/beiming/<run-id>/，或 build.sh 的旧产物 out/beiming.mp4、beiming_4k.mp4、beiming_web.mp4
+    const relIn = root ? path.relative(root, path.resolve(input)).split(path.sep).join('/') : '';
+    const beiming = (runDirOf(input) && path.basename(path.dirname(runDirOf(input))) === 'beiming') || /^out\/beiming(_4k|_web)?\.mp4$/.test(relIn);
+    if (root && beiming) {
       const f = path.join(root, BEIMING_FILM);
       if (fs.existsSync(f)) return f;
     }

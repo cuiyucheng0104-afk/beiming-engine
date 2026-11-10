@@ -79,18 +79,21 @@ function usage(sub) {
   return [`用法：node tools/qa/cli.mjs ${sub} ${s.args}`.trim(), '', DESC[sub], '', '参数：', ...opts].join('\n');
 }
 
+// 被检查的仓库：成片 / 页面 / 作品描述所在的仓库（往上找 package.json + engine/），找不到就用本工具所在的仓库。
+// 报告里的路径、已知问题台账、豁免目录、权威档位表都相对它。
+let ROOT = REPO_ROOT;
 const rel = p => {
-  const r = path.relative(REPO_ROOT, path.resolve(p));
+  const r = path.relative(ROOT, path.resolve(p));
   return (r.startsWith('..') || path.isAbsolute(r) ? path.resolve(p) : r).split(path.sep).join('/');
 };
 
 function context(opts, input) {
-  const store = loadProfiles({ file: opts.profilesFile || null });
-  const filmFile = findFilm({ film: opts.film, input, root: REPO_ROOT });
+  const store = loadProfiles({ root: ROOT, file: opts.profilesFile || null });
+  const filmFile = findFilm({ film: opts.film, input });
   const film = filmFile ? loadFilm(filmFile) : null;
   if (film) film.relFile = rel(filmFile);
   const profile = resolveProfile(store, opts.profile, film);
-  const { waivers, warnings: ww } = collectWaivers({ film, files: opts.waivers || [], root: REPO_ROOT });
+  const { waivers, warnings: ww } = collectWaivers({ film, files: opts.waivers || [], root: ROOT });
   const warnings = [...store.warnings, ...profile.warnings, ...(film?.warnings || []).map(w => `作品描述：${w}`), ...ww];
   const timeoutMs = (opts.timeout || 600) * 1000;
   return { store, film, profile, waivers, warnings, timeoutMs };
@@ -141,7 +144,7 @@ async function runGroups(sub, opts, input) {
         const { runVisual } = await import('./checks/visual.mjs');
         log('▶ visual：解码分析画面');
         const r = await runVisual({ input, profile: ctx.profile, film: ctx.film, probe, timeoutMs: ctx.timeoutMs });
-        checks.push(...r.checks); foi = r.framesOfInterest; extra.visualSeries = r.series;
+        checks.push(...r.checks); foi = [...new Set([...foi, ...r.framesOfInterest])]; extra.visualSeries = r.series;
       } else if (g === 'texts') {
         const pageDir = opts.page ? path.resolve(opts.page) : ctx.film?.dir;
         if (!pageDir || !fs.existsSync(path.join(pageDir, 'index.html'))) {
@@ -152,10 +155,19 @@ async function runGroups(sub, opts, input) {
         }
         const { runTexts } = await import('./checks/texts.mjs');
         log(`▶ texts：打开 ${rel(pageDir)}/index.html 逐帧读文字`);
-        const r = await runTexts({ pageDir, root: repoRootOf(pageDir) || REPO_ROOT, profile: ctx.profile, film: ctx.film, step: opts.step || 1, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, contrast: !opts.noContrast, timeoutMs: ctx.timeoutMs });
+        const r = await runTexts({ pageDir, root: repoRootOf(pageDir) || ROOT, profile: ctx.profile, film: ctx.film, step: opts.step || 1, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, contrast: !opts.noContrast, timeoutMs: ctx.timeoutMs });
         checks.push(...r.checks); warnings.push(...r.warnings); extra.texts = r.summary;
+        // 文字有问题的帧也进联系表（红框）
+        for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
+        foi = [...new Set(foi)].sort((a, b) => a - b);
       } else if (g === 'sync') {
-        const events = opts.events ? loadEvents(path.resolve(opts.events), ctx.film?.fps || null) : (ctx.film?.events || []);
+        // 事件表：--events 优先；作品描述没写 events 时，用作品目录里 C 路线导出的 events.json（engine/render/events.mjs）
+        let evFile = opts.events ? path.resolve(opts.events) : null;
+        if (!evFile && !(ctx.film?.events || []).length && ctx.film?.dir && fs.existsSync(path.join(ctx.film.dir, 'events.json'))) {
+          evFile = path.join(ctx.film.dir, 'events.json');
+          warnings.push(`作品描述没有 events，声画同步改用 ${rel(evFile)}`);
+        }
+        const events = evFile ? loadEvents(evFile, ctx.film?.fps || null) : (ctx.film?.events || []);
         if (!events.some(e => e.needsSound)) {
           const why = opts.events ? `${opts.events} 里没有要求有声的事件` : '作品描述没有要求有声的事件（events[].audio / sfx / cue）';
           if (sub === 'sync') throw new QaError('usage', why, { hint: '用 --events 指定事件表，或在 film.json 的 events 里给事件写 audio', exitCode: EXIT.USAGE });
@@ -190,7 +202,7 @@ async function runGroups(sub, opts, input) {
 
 async function knownIssues(film) {
   const { makeCheck, finding, settle } = await import('./lib/checks.mjs');
-  const file = path.join(REPO_ROOT, 'docs/quality/known-issues.json');
+  const file = path.join(ROOT, 'docs/quality/known-issues.json');
   if (!film || !fs.existsSync(file)) return null;
   const c = makeCheck('known-issues.open', { expected: '没有未放行的 P0 / P1' });
   let doc;
@@ -209,7 +221,7 @@ function defaultOutDir(input) {
   if (run) return path.join(run, 'qa');
   const abs = path.resolve(input);
   const base = path.basename(abs).replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '_') || 'film';
-  const root = repoRootOf(abs) || REPO_ROOT;
+  const root = repoRootOf(abs) || ROOT;
   const relDir = path.relative(root, path.dirname(abs));
   const inOut = !relDir.startsWith('..') && !path.isAbsolute(relDir) && relDir.split(path.sep).includes('out');
   return inOut ? path.join(path.dirname(abs), 'qa', base) : path.join(root, 'out', 'qa', base);
@@ -238,8 +250,9 @@ async function main(argv) {
   if (opts.help) { process.stdout.write(usage(sub) + '\n'); return { code: EXIT.OK, command, silent: true }; }
   if (positionals.length < spec.pos) throw usageError(`缺少参数 ${spec.args}`, `node tools/qa/cli.mjs ${sub} --help`);
 
+  ROOT = repoRootOf(positionals[0] || opts.page || opts.film || process.cwd()) || REPO_ROOT;
   if (sub === 'profiles') {
-    const store = loadProfiles({ file: opts.profilesFile || null });
+    const store = loadProfiles({ root: ROOT, file: opts.profilesFile || null });
     const list = [...store.profiles.values()].map(p => ({ id: p.id, label: p.label, source: p.source, width: p.width, height: p.height, fps: p.fps, pixFmt: p.video.pixFmt, color: `${p.video.colorRange}/${p.video.colorSpace}`, loudness: `${p.audio.integratedLufs}±${p.audio.lufsTolerance} LUFS`, truePeak: `≤${p.audio.truePeakMaxDbtp} dBTP` }));
     if (!opts.json) process.stdout.write(list.map(p => `${p.id.padEnd(24)} ${p.width}×${p.height} ${p.fps}fps ${p.color} ${p.loudness} ${p.truePeak}  来源 ${p.source}`).join('\n') + '\n');
     return { code: EXIT.OK, command, ok: true, result: { source: store.source, profiles: list }, warnings: [...store.warnings, ...new Set([...store.profiles.values()].flatMap(p => p.warnings))], json: opts.json };
