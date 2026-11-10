@@ -76,7 +76,7 @@ export const prepare = {
     fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({ step: 'prepare', key, runId: ctx.run.id, createdAt: new Date().toISOString(), assets: p?.assets || {} }, null, 1));
   },
   async run(ctx) {
-    await ctx.exec(process.execPath, [PREPARE, ctx.film.dir], { label: '原生素材准备', env: { ...ctx.env, PYTHON: ctx.python }, timeoutSec: ctx.opts.timeout || 1800, stallSec: ctx.opts.stall || 600 });
+    await ctx.exec(process.execPath, [PREPARE, ctx.film.dir], { label: '原生素材准备', env: ctx.env, timeoutSec: ctx.opts.timeout || 1800, stallSec: ctx.opts.stall || 600 });
     const p = readJson(path.join(ctx.film.dir, 'media', 'prepared.json'));
     return { assets: Object.keys(p?.assets || {}).length };
   },

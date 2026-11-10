@@ -8,34 +8,35 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { EXIT, FilmError } from '../lib/exit.mjs';
-import { ROOT, rel, pythonBin } from '../lib/repo.mjs';
+import { ROOT, rel, findPython } from '../lib/repo.mjs';
+import { filmJsonProblems } from '../../lib/filmspec.mjs';
+import { readRegistry } from '../../lib/routes.mjs';
 import { loadFilm, shotsAt } from '../lib/spec.mjs';
 import { resolveProfile, framesAt } from '../lib/profiles.mjs';
 import { exec } from '../lib/proc.mjs';
 import { raeaInfo } from '../lib/native-steps.mjs';
 import { envelope } from '../lib/output.mjs';
 import { onInterrupt } from '../lib/session.mjs';
-import { fmt } from './build.mjs';
 
 export const checkSpec = {
-  positionals: [{ name: '作品目录', required: true }],
+  positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }],
   options: {
     '--profile': { type: 'string', arg: '<档位>', help: '按这个档位核对（默认 film.json 的 output.profile）' },
     '--page': { type: 'string', arg: '<目录>', help: '页面目录（默认作品目录）' },
-    '--json': { type: 'bool', help: 'stdout 只输出一个 JSON 对象' },
-    '--help': { type: 'bool', help: '只打印用法' },
   },
 };
 
-export const CHECK_HELP = `用法：npm run film -- check <作品目录> [--profile <档位>] [--page <目录>] [--json]
-出片前的只读检查（不渲帧、不写作品目录、不建运行目录）：
-  1. 作品描述  node engine/production/film.js check（P05 的校验器：镜头首尾相接、事件落在镜头内、引用存在、路线取自注册表…）
-  2. 页面契约  A / C 打开页面等 READY，查 render / DUR / 帧数 / 软件渲染；B 跑 native.mjs --check-only
-  3. 编排视图  路线、档位、帧数、切点、闸门要求
-退出码：0 全部通过 · 3 缺环境（校验器、浏览器、RAEA_BIN…）· 4 契约不满足
-
-选项：
-${fmt(checkSpec.options)}`;
+export const CHECK_DOC = {
+  summary: '出片前的只读检查（不渲帧、不写作品目录、不建运行目录）',
+  usage: ['npm run film -- check <作品目录> [--profile <档位>] [--page <目录>] [--json]'],
+  description: [
+    '  1. 作品描述  node engine/production/film.js check（作品描述包的校验器：镜头首尾相接、事件落在镜头内、引用存在…）',
+    '  2. 页面契约  A / C 打开页面等 READY，查 render / DUR / 帧数 / 软件渲染；B 跑 native.mjs --check-only',
+    '  3. 编排视图  路线、档位、帧数、切点、闸门要求',
+  ],
+  examples: ['npm run film -- check films/my-film'],
+  exitCodes: { 0: '全部通过', 2: '用法错误', 3: '缺环境（校验器、浏览器、RAEA_BIN…）', 4: '契约不满足', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
+};
 
 const P05 = path.join(ROOT, 'engine/production/film.js');
 
@@ -61,7 +62,12 @@ export async function checkCommand(opts, positionals) {
       add('spec', ok ? 'pass' : r.code === 3 ? 'env' : 'fail', ok ? '作品描述通过 P05 校验' : `作品描述校验不通过（退出码 ${r.code}）${j?.error?.message ? `：${j.error.message}` : ''}`, { exitCode: r.code, diagnostics: j?.diagnostics || j?.warnings || null });
     } catch (e) { add('spec', 'env', `作品描述校验器运行失败：${e.message}`); }
   } else {
-    add('spec', 'env', '作品描述校验器 engine/production/film.js 还不存在（由 P05 提供）：这一项没有检查', { hint: 'P05·M0 合入后重跑；在那之前编排器只做最小检查（路线、帧数、画幅、镜头表）' });
+    // 作品描述包的校验器还没合入：先用治理骨架的轻量结构自检（tools/lib/filmspec.mjs，与 new-film、规范检查同一套规则）
+    let routeIds = ['a', 'b', 'c'];
+    try { const { raw } = readRegistry(ROOT); if (Array.isArray(raw?.routes)) routeIds = raw.routes.map(r => r.id); } catch { /* 用内置三条 */ }
+    const problems = filmJsonProblems(film.raw, { mode: 'film', routeIds, dirName: film.raw?.mirror ? undefined : film.id });
+    add('spec', problems.length ? 'fail' : 'pass', problems.length ? `作品描述结构不合格：${problems.join('；')}` : '作品描述结构自检通过（tools/lib/filmspec.mjs；字段级完整校验等作品描述包的 engine/production/film.js 合入）', { by: 'tools/lib/filmspec.mjs' });
+    warnings.push({ code: 'spec-validator-missing', message: '作品描述校验器 engine/production/film.js 还不存在：只做了结构自检（路线、片名、帧数、画幅、兼容字段一致）' });
   }
 
   // 3 编排视图
@@ -112,5 +118,5 @@ export async function checkCommand(opts, positionals) {
   const err = worst === EXIT.OK ? null : new FilmError(worst, worst === EXIT.CONTRACT ? 'check-failed' : 'check-env', worst === EXIT.CONTRACT ? `检查不通过：${checks.filter(c => c.status === 'fail').map(c => c.id).join('、')}` : `检查没做全（缺环境）：${checks.filter(c => c.status === 'env').map(c => c.id).join('、')}`, checks.find(c => c.hint && c.status !== 'pass')?.hint || null);
   const mark = { pass: '✓', fail: '✗', env: '…', warn: '!', info: '·' };
   const human = [`检查 ${film.relDir}（${film.routeInfo.brand}）`, ...checks.map(c => `  ${mark[c.status]} ${c.id.padEnd(14)} ${c.message}`)].join('\n');
-  return { env: envelope({ command: 'film check', exitCode: worst, error: err, warnings, data: { film: film.relDir, route: film.route, checks, python: pythonBin() } }), human, exitCode: worst };
+  return { env: envelope({ command: 'film check', exitCode: worst, error: err, warnings, data: { film: film.relDir, route: film.route, checks, python: (await findPython()).versionString } }), human, exitCode: worst };
 }

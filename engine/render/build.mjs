@@ -112,14 +112,14 @@ const mix = {
     for (const o of outs) for (const n of ['mix.wav', 'stems', 'score_onsets.json']) ctx.legacy.protect(path.join(o, n));
     placeEventsForLegacy(ctx);
     const env = {
-      ...ctx.env, PYTHONPATH: [ROOT, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter), PYTHON: ctx.python,
+      ...ctx.env,
       BEIMING_FILM: ctx.film.dir, BEIMING_RUN: ctx.run.dir, BEIMING_AUDIO_OUT: out,
       BEIMING_EVENTS: ctx.art.events || '', BEIMING_TIMELINE: ctx.art.timeline || '',
       BEIMING_DUR: String(ctx.frames / ctx.fps), BEIMING_FPS: String(ctx.fps), BEIMING_FRAMES: String(ctx.frames),
       BEIMING_WIDTH: String(ctx.width), BEIMING_HEIGHT: String(ctx.height), BEIMING_PROFILE: ctx.profile.id,
     };
     const t0 = Date.now() - 2000;
-    const [cmd, args] = ext === '.py' ? [ctx.python, [script, ctx.film.dir]] : ext === '.sh' ? ['sh', [script]] : ['.mjs', '.js'].includes(ext) ? [process.execPath, [script, ctx.film.dir]] : [null, null];
+    const [cmd, args] = ext === '.py' ? ctx.py([script, ctx.film.dir]) : ext === '.sh' ? [ctx.sh || 'sh', [script]] : ['.mjs', '.js'].includes(ext) ? [process.execPath, [script, ctx.film.dir]] : [null, null];
     if (!cmd) ctx.fail(4, 'audio-script-type', `声音脚本只支持 .py / .sh / .mjs：${ctx.rel(script)}`);
     await ctx.exec(cmd, args, { label: `声音脚本 ${ctx.rel(script)}`, env, timeoutSec: ctx.opts.timeout || 1800, stallSec: ctx.opts.stall || 600 });
     if (!fs.existsSync(out)) {
@@ -166,7 +166,7 @@ const cuecheck = {
     if (c.grid) a.push('--grid', String(c.grid));
     if (c.tolMs != null) a.push('--tol-ms', String(c.tolMs));
     if (c.quietDb != null) a.push('--quiet-db', String(c.quietDb));
-    const r = await ctx.exec(ctx.python, a, { label: '拍点核对', env: { ...ctx.env, PYTHONPATH: ROOT }, timeoutSec: 600, okCodes: [0, 1] });
+    const r = await ctx.exec(...ctx.py(a), { label: '拍点核对', timeoutSec: 600, okCodes: [0, 1] });
     fs.writeFileSync(path.join(ctx.run.dir, 'audio', 'cuecheck.txt'), r.stdout);
     if (r.code !== 0 || !/CUECHECK OK/.test(r.stdout)) ctx.fail(4, 'cuecheck-failed', '声画拍点核对不通过（CUECHECK FAIL）', `逐条偏差见 ${ctx.rel(path.join(ctx.run.dir, 'audio', 'cuecheck.txt'))}；改 timeline.js 的打点或 mix.py 的起音`);
     return { ok: true };
@@ -238,7 +238,7 @@ const mux = {
         ctx.warn('silent-film', '没有声音：母版里放一条静音 AAC（48 kHz 立体声），响度检查应按无声片处理');
         await ctx.media.muxSimple(ctx.exec, { video: ctx.art.video, audio: null, out: tmp, duration: ctx.frames / ctx.fps, logFile: ctx.logFile('mux') });
       } else {
-        const r = await ctx.exec('sh', [R('mux.sh'), ctx.art.video, ctx.art.mix, tmp, String(ctx.fps), '0'], { label: '音画封装（mux.sh）', timeoutSec: ctx.opts.timeout || 1800, stallSec: 600 });
+        const r = await ctx.exec(ctx.sh || 'sh', [R('mux.sh'), ctx.art.video, ctx.art.mix, tmp, String(ctx.fps), '0'], { label: '音画封装（mux.sh）', timeoutSec: ctx.opts.timeout || 1800, stallSec: 600 });
         const I = /I:\s*(-?[\d.]+)\s*LUFS/.exec(r.stdout), P = /Peak:\s*(-?[\d.]+)\s*dBFS/.exec(r.stdout);
         loud = { integratedLUFS: I ? Number(I[1]) : null, truePeakDbTP: P ? Number(P[1]) : null, by: 'mux.sh 末尾的 ebur128 摘要' };
         copied = /直接拷贝/.test(r.stdout);

@@ -11,9 +11,8 @@ import { EXIT, FilmError, usage } from '../lib/exit.mjs';
 import { ROOT, rel } from '../lib/repo.mjs';
 import { loadFilm } from '../lib/spec.mjs';
 import { GATES, GATE_KIND, GATE_LABEL, gateStatus, writeReview, writeWaivers, hashFiles, reviewLib } from '../lib/gates.mjs';
-import { readLatest, writeAtomic, listRuns } from '../lib/rundir.mjs';
+import { readLatest, writeAtomic, listRuns, jobOf } from '../lib/rundir.mjs';
 import { envelope } from '../lib/output.mjs';
-import { fmt } from './build.mjs';
 
 export const reviewSpec = {
   positionals: [{ name: '动作', required: true }, { name: '闸', required: false }, { name: '作品目录', required: false }],
@@ -28,25 +27,32 @@ export const reviewSpec = {
     '--events': { type: 'string', arg: '<id,id>', help: 'final：用户确认看到的事件 id（缺省取 film.json 的全部事件）' },
     '--style-ref': { type: 'string', arg: '<文件>', help: 'final：风格对照的依据（风格卡、style-lock、基线帧目录）' },
     '--out-root': { type: 'string', arg: '<目录>', help: '运行目录的上层（默认 <作品>/out）' },
-    '--json': { type: 'bool', help: 'stdout 只输出一个 JSON 对象' },
-    '--help': { type: 'bool', help: '只打印用法' },
   },
 };
 
-export const REVIEW_HELP = `用法：
-  npm run film -- review approve <look|animatic|final> <作品目录> --quote "<用户原话>" --source "<出处>" --reviewer "<审阅人>" [--run <run-id>] [--issues "…"]
-  npm run film -- review reject  <look|animatic|final> <作品目录> --quote "<用户原话>" --source "<出处>" --reviewer "<审阅人>" [--issues "72: 雾太浓；S2: 天色太亮"]
-  npm run film -- review waive   <look,animatic> <作品目录> --reason "<理由>" [--quote "<用户原话>" --source "<出处>"]
-  npm run film -- review note    <look|animatic|final> <作品目录> --note "<代理审片结论>" [--issues "…"]
-  npm run film -- review status  <作品目录>
-三道闸（决定 D08）：look 风格关键帧（film stills）→ animatic 动态预演（film animatic）→ final 终渲（film build --final）。
-记录写在 <作品>/review/（随作品源码提交）：<闸>-<UTC 时间>.json 与 waivers.json。
-铁律：approve / reject 只记用户（或用户指定的审阅人）说过的原话，原话要能在会话里逐字找到；agent 不得自己批准，
-也不得把「技术检查通过」写成「用户认可」。agent 自己的审片结论用 note（不放行任何闸）。
-final 闸 approve 后，那次终渲的 run.json 才会是 accepted——「已交付 / 用户已认可」只能由它生成。
-
-选项：
-${fmt(reviewSpec.options)}`;
+export const REVIEW_DOC = {
+  summary: '创作闸门的审阅记录（决定 D08）：只记用户（或用户指定的审阅人）的原话，agent 不得自己批准',
+  usage: [
+    'npm run film -- review approve <look|animatic|final> <作品目录> --quote "<用户原话>" --source "<出处>" --reviewer "<审阅人>" [--run <run-id>] [--issues "…"]',
+    'npm run film -- review reject  <look|animatic|final> <作品目录> --quote "<用户原话>" --source "<出处>" --reviewer "<审阅人>" [--issues "72: 雾太浓；S2: 天色太亮"]',
+    'npm run film -- review waive   <look,animatic> <作品目录> --reason "<理由>" [--quote "<用户原话>" --source "<出处>"]',
+    'npm run film -- review note    <look|animatic|final> <作品目录> --note "<代理审片结论>" [--issues "…"]',
+    'npm run film -- review status  <作品目录>',
+  ],
+  description: [
+    '三道闸（决定 D08）：look 风格关键帧（film stills）→ animatic 动态预演（film animatic）→ final 终渲（film build --final）。',
+    '记录写在 <作品>/review/<闸>-<YYYY-MM-DD>[-n].json（随作品源码提交，格式同作品描述包 engine/production/review.js）。',
+    '铁律：approve / reject / waive 只记用户（或用户指定的审阅人）说过的原话，原话要能在会话里逐字找到；agent 不得自己批准，',
+    '也不得把「技术检查通过」写成「用户认可」。agent 自己的审片结论用 note（记成 comment，不放行任何闸）。',
+    '没有用户原话的 waive 只记一条内部说明（comment），只用于自检，不放行终渲；final 闸不能豁免。',
+    'final 闸 approve 后，那次终渲的 run.json 才会是 accepted——「已交付 / 用户已认可」只能由它生成。',
+  ],
+  examples: [
+    'npm run film -- review approve look films/my-film --quote "这版颜色可以" --source "会话 2026-11-10 第 12 条" --reviewer 用户',
+    'npm run film -- review status films/my-film',
+  ],
+  exitCodes: { 0: '成功', 2: '用法错误', 4: '没有可审的运行或记录不合格', 5: '作品正被另一次运行占用' },
+};
 
 const ACTIONS = ['approve', 'reject', 'waive', 'note', 'status'];
 
@@ -63,14 +69,14 @@ function findRun(film, outRoot, gate, runId) {
   const kind = GATE_KIND[gate];
   // final 闸审的是最近一次成功的终渲（工作版 build 不算）；其余闸取该类运行的 latest 指针
   const id = runId || (gate === 'final'
-    ? listRuns(outRoot).find(x => x.run?.kind === 'build' && x.run?.final && ['passed', 'accepted'].includes(x.run?.status))?.id || null
+    ? listRuns(outRoot).find(x => jobOf(x.run) === 'build' && x.run?.final && ['passed', 'accepted'].includes(x.run?.status))?.id || null
     : readLatest(outRoot, kind));
   const cmd = { stills: 'stills', animatic: 'animatic', build: 'build' }[kind];
   if (!id) throw new FilmError(EXIT.CONTRACT, 'nothing-to-review', `${GATE_LABEL[gate]}没有可审的运行：还没有成功的 ${kind} 运行`, `先出给用户看的东西：npm run film -- ${cmd} ${film.relDir}${kind === 'build' ? ' --final' : ''}`);
   const dir = path.join(outRoot, id);
   let run;
   try { run = JSON.parse(fs.readFileSync(path.join(dir, 'run.json'), 'utf8')); } catch { throw new FilmError(EXIT.USAGE, 'run-unknown', `找不到运行 ${id}（${rel(dir)}/run.json）`); }
-  if (run.kind !== kind) throw new FilmError(EXIT.USAGE, 'run-kind', `运行 ${id} 是 ${run.kind}，${GATE_LABEL[gate]}要审的是 ${kind}`);
+  if (jobOf(run) !== kind) throw new FilmError(EXIT.USAGE, 'run-kind', `运行 ${id} 是 ${jobOf(run)}，${GATE_LABEL[gate]}要审的是 ${kind}`);
   // look / animatic 审的是给用户看的东西：编排跑完（outcome = complete）就能审；final 审交付件，必须技术验收通过
   const viewable = gate === 'final' ? ['passed', 'accepted'].includes(run.status) : (run.outcome === 'complete' || ['passed', 'accepted'].includes(run.status));
   if (!viewable) throw new FilmError(EXIT.CONTRACT, 'run-not-passed', `运行 ${id} 的状态是 ${run.status}${run.outcome ? `（${run.outcome}）` : ''}，不能拿来审`, gate === 'final' ? '终渲要先过机器 QA 门；修好后重新终渲' : '先修好并重新出给用户看的东西');

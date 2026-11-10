@@ -5,15 +5,18 @@
 //   encodeWeb({ src, audioFrom, out, fps })   网页版：H.264 High@4.1、GOP 2 秒、faststart；色彩一次性转成 BT.709 有限范围并写全四个标签；
 //                                声音直接复制母版的 AAC（不做 AAC→AAC 二次编码，响度与母版一致）
 //   muxSimple({ video, audio, out, duration })   画面逐位复制 + 声音编 AAC 48 kHz 立体声（预演与无声片用；不做响度归一）
+//   setMetadata(file, args)      只改容器元数据（-c copy 重新封装，画面与声音码流逐位不变；保留 faststart）：写隐式 AIGC 标识用
+//   readComment(file)            读 mp4 的 comment 元数据（核对标识确实写进去了）
 //   clickTrack({ file, frames, fps, marks })     预演用的临时声：事件处短促提示音、切点处高一个八度（纯 Node 生成 16-bit WAV）
 //   encoderInfo(file)            从 H.264 码流里 x264 自报的参数串读出实际编码器与 crf / 预设（写进 run.json 的 actualEncoder；读不到返回 null）
-// FFMPEG / FFPROBE 环境变量可指定可执行文件。
+// FFMPEG / FFPROBE 环境变量可指定可执行文件（与 tools/env/lib/ffmpeg.mjs 的 ffmpegBins 同一口径）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, FilmError } from './exit.mjs';
+import { ffmpegBins } from './repo.mjs';
 
-export const FFMPEG = () => process.env.FFMPEG || 'ffmpeg';
-export const FFPROBE = () => process.env.FFPROBE || 'ffprobe';
+export const FFMPEG = () => ffmpegBins().ffmpeg;
+export const FFPROBE = () => ffmpegBins().ffprobe;
 
 const rate = s => { const [a, b] = String(s || '0/1').split('/').map(Number); return b ? a / b : a; };
 
@@ -146,6 +149,27 @@ export async function encodeWeb(exec, { src, srcInfo, audioFrom, out, fps, logFi
     fs.renameSync(tmp, out);
   } finally { fs.rmSync(tmp, { force: true }); }
   return out;
+}
+
+// 只改容器层元数据：所有流 -c copy、保留已有元数据与 faststart；先写临时文件再改名（运行目录里的 master 可能是缓存的硬链接，
+// 改名会断开链接，缓存里那份不受影响）。metaArgs 例：['-metadata', 'comment=AIGC{…} 含 AI 生成画面']
+export async function setMetadata(exec, file, metaArgs, { logFile } = {}) {
+  const tmp = `${file}.meta.partial.mp4`;
+  const a = ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-map', '0', '-c', 'copy', '-map_metadata', '0', ...metaArgs, '-movflags', '+faststart', tmp];
+  try {
+    await exec(FFMPEG(), a, { label: '写容器元数据', logFile, timeoutSec: 600, stallSec: 300, quiet: true, sweep: false });
+    fs.renameSync(tmp, file);
+  } finally { fs.rmSync(tmp, { force: true }); }
+  return file;
+}
+
+export async function readComment(exec, file) {
+  const r = await exec(FFPROBE(), ['-v', 'error', '-show_entries', 'format_tags=comment', '-of', 'json', file], { label: `ffprobe comment ${path.basename(file)}`, quiet: true, timeoutSec: 60, sweep: false });
+  try {
+    const tags = JSON.parse(r.stdout).format?.tags || {};
+    const k = Object.keys(tags).find(x => x.toLowerCase() === 'comment');
+    return k ? tags[k] : null;
+  } catch { return null; }
 }
 
 export async function muxSimple(exec, { video, audio, out, duration, logFile }) {

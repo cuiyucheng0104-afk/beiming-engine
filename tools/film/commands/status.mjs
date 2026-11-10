@@ -4,25 +4,26 @@ import path from 'node:path';
 import { rel } from '../lib/repo.mjs';
 import { loadFilm } from '../lib/spec.mjs';
 import { GATES, GATE_LABEL, gateStatus, passes } from '../lib/gates.mjs';
-import { listRuns, readLatest } from '../lib/rundir.mjs';
+import { listRuns, readLatest, jobOf } from '../lib/rundir.mjs';
 import { envelope } from '../lib/output.mjs';
-import { fmt } from './build.mjs';
 
 export const statusSpec = {
-  positionals: [{ name: '作品目录', required: true }],
+  positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }],
   options: {
     '--out-root': { type: 'string', arg: '<目录>', help: '运行目录的上层（默认 <作品>/out）' },
-    '--json': { type: 'bool', help: 'stdout 只输出一个 JSON 对象' },
-    '--help': { type: 'bool', help: '只打印用法' },
   },
 };
 
-export const STATUS_HELP = `用法：npm run film -- status <作品目录> [--out-root <目录>] [--json]
-只读：闸门状态（look → animatic → final）、最近一次 stills / animatic / build / render 的结果与产物、下一步命令。
-「已交付（用户已认可）」只在最近一次终渲的 run.json 是 accepted 时出现。
-
-选项：
-${fmt(statusSpec.options)}`;
+export const STATUS_DOC = {
+  summary: '一部作品现在在哪一步：闸门、各类运行最近一次的结果、下一步命令（只读）',
+  usage: ['npm run film -- status <作品目录> [--out-root <目录>] [--json]'],
+  description: [
+    '闸门状态（look → animatic → final）、最近一次 stills / animatic / build / render 的结果与产物、下一步命令。',
+    '「已交付（用户已认可）」只在最近一次终渲的 run.json 是 accepted 时出现；其余情况分三件事写：已输出 / 技术检查 / 人工认可。',
+  ],
+  examples: ['npm run film -- status films/my-film'],
+  exitCodes: { 0: '成功', 2: '用法错误' },
+};
 
 const STATE = { approved: '已通过', waived: '已豁免', 'changes-requested': '要修改', pending: '待审' };
 
@@ -45,7 +46,7 @@ export async function statusCommand(opts, positionals) {
     const r = runs.find(x => x.id === id);
     latest[k] = r ? { id: r.id, dir: rel(r.dir), status: r.run?.status, final: !!r.run?.final, technical: r.run?.technicalAcceptance?.status || null, creative: r.run?.creativeAcceptance?.status || null, outputs: (r.run?.outputs || []).map(o => o.path) } : null;
   }
-  const lastFinal = runs.find(x => x.run?.kind === 'build' && x.run?.final && ['passed', 'accepted'].includes(x.run?.status)) || null;
+  const lastFinal = runs.find(x => jobOf(x.run) === 'build' && x.run?.final && ['passed', 'accepted'].includes(x.run?.status)) || null;
   const failedLast = runs[0]?.run && ['failed', 'blocked'].includes(runs[0].run.status) ? { id: runs[0].id, kind: runs[0].run.kind, status: runs[0].run.status, error: runs[0].run.error } : null;
   const d = film.relDir;
   let next;

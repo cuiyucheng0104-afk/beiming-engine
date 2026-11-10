@@ -19,7 +19,6 @@ import { imageSize } from '../lib/media.mjs';
 import { nativeStills, nativeKey, raeaInfo, prepare as nativePrepare } from '../lib/native-steps.mjs';
 import { probe as pageProbe, pageTrees } from '../../../engine/render/build.mjs';
 import { envelope } from '../lib/output.mjs';
-import { fmt } from './build.mjs';
 
 const STILL = path.join(ROOT, 'engine/render/still.mjs');
 const frameSizes = async files => files.map(file => ({ file, ...imageSize(file) }));
@@ -34,12 +33,10 @@ const COMMON = {
   '--gpu': { type: 'enum', values: ['required', 'any', 'software-ok'], arg: '<required|any|software-ok>', help: '落到软件渲染时是否放行（默认 required）' },
   '--no-cache': { type: 'bool', help: '不复用已渲过的帧' },
   '--timeout': { type: 'int', min: 10, arg: '<秒>', help: '每路渲染的超时' },
-  '--json': { type: 'bool', help: 'stdout 只输出一个 JSON 对象' },
-  '--help': { type: 'bool', help: '只打印用法' },
 };
 
 export const stillsSpec = {
-  positionals: [{ name: '作品目录', required: true }],
+  positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }],
   options: {
     '--frames': { type: 'string', arg: '<帧号>', help: '要看的帧：48、72:120（半开区间）、0:240:24、0,48,96' },
     '--times': { type: 'string', arg: '<秒,秒>', help: '按秒给时刻（四舍五入到整帧）' },
@@ -47,7 +44,7 @@ export const stillsSpec = {
   },
 };
 export const renderSpec = {
-  positionals: [{ name: '作品目录', required: true }],
+  positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }],
   options: {
     '--frames': stillsSpec.options['--frames'],
     '--shot': { type: 'string', arg: '<镜头 id>', help: '渲整个镜头（按 film.json 的镜头表）' },
@@ -57,24 +54,28 @@ export const renderSpec = {
   },
 };
 
-export const STILLS_HELP = `用法：npm run film -- stills <作品目录> [--frames 0,48,96 | --times 1.5,2.9] [选项]
-风格关键帧（D08 第一道闸 look）：按交付画幅渲几张静帧并拼成联系表。不给帧号时，每个镜头取中间一帧；
-只有一个镜头时取片长 1/6、1/2、5/6 处。已渲过且输入没变的帧直接复用。
-产物：<作品>/out/<run-id>/stills/f000048.jpg … frames.json contact.jpg run.json；更新 out/latest-stills。
-给用户看完，按用户原话记录：npm run film -- review approve look <作品目录> --quote "…" --source "…" --reviewer "…"
+export const STILLS_DOC = {
+  summary: '风格关键帧（D08 第一道闸 look）：按交付画幅渲几张静帧并拼成联系表',
+  usage: ['npm run film -- stills <作品目录> [--frames 0,48,96 | --times 1.5,2.9] [选项]'],
+  description: [
+    '不给帧号时，每个镜头取中间一帧；只有一个镜头时取片长 1/6、1/2、5/6 处。已渲过且输入没变的帧直接复用。',
+    '产物：<作品>/out/<run-id>/stills/f000048.jpg … frames.json contact.jpg run.json；更新 out/latest-stills。',
+    '给用户看完，按用户原话记录：npm run film -- review approve look <作品目录> --quote "…" --source "…" --reviewer "…"',
+  ],
+  examples: ['npm run film -- stills films/my-film', 'npm run film -- stills films/my-film --frames 0,48,96'],
+};
 
-选项：
-${fmt(stillsSpec.options)}`;
-
-export const RENDER_HELP = `用法：npm run film -- render <作品目录> (--frames a:b[,…] | --shot <镜头 id>) [--clip] [--final] [选项]
-只渲指定帧段或镜头（逐帧静帧；A / C 用 engine/render/still.mjs，B 用 native.mjs --at）。帧号从 0 起，a:b 是半开区间（含 a 不含 b），
-与 film.json 的镜头表同口径。已渲过且输入没变的帧直接复用：同一命令跑第二次 0 帧重渲。
-产物：<作品>/out/<run-id>/frames/ frames.json contact.jpg run.json（--clip 时另有 range.mp4）；更新 out/latest-render。
---final：先查闸门（look → animatic，决定 D08），没有用户通过或用户豁免记录时退出码 4、一帧不渲；不给帧段时等于 build --final（整片终渲）。
-（整片按镜头局部重渲属于渲染器 v2，P04·R4 合入后这里改为转调 video.mjs --shots。）
-
-选项：
-${fmt(renderSpec.options)}`;
+export const RENDER_DOC = {
+  summary: '只渲指定帧段或镜头（逐帧静帧，帧级复用：同一命令第二次 0 帧重渲）',
+  usage: ['npm run film -- render <作品目录> (--frames a:b[,…] | --shot <镜头 id>) [--clip] [--final] [选项]'],
+  description: [
+    'A / C 用 engine/render/still.mjs，B 用 native.mjs --at。帧号从 0 起，a:b 是半开区间（含 a 不含 b），与 film.json 的镜头表同口径。',
+    '产物：<作品>/out/<run-id>/frames/ frames.json contact.jpg run.json（--clip 时另有 range.mp4）；更新 out/latest-render。',
+    '--final：先查闸门（look → animatic，决定 D08），没有用户认可或用户豁免记录时退出码 4、一帧不渲；不给帧段时等于 build --final（整片终渲）。',
+    '（整片按镜头局部重渲属于渲染器 v2，P04·R4 合入后这里改为转调 video.mjs --shots。）',
+  ],
+  examples: ['npm run film -- render films/my-film --frames 0:24', 'npm run film -- render films/my-film --shot S2 --clip'],
+};
 
 function defaultStills(ctx) {
   const real = ctx.shots.filter(s => !s.implicit);
@@ -203,7 +204,8 @@ export async function runFrames(kind, opts, positionals) {
     const off = sizes.filter(s => s.width !== ctx.width || s.height !== ctx.height);
     if (off.length) ctx.fail(4, 'frames-size', `${off.length} 张帧图的画幅不是 ${ctx.width}×${ctx.height}（例：${rel(off[0].file)} 是 ${off[0].width}×${off[0].height}）`, '看 logs/ 下渲染器的输出');
     ctx.art.frames = path.join(ctx.run.dir, 'frames.json');
-    ctx.technical = { status: 'passed', evidence: [rel(ctx.art.frames)], by: 'tools/film 帧图核对（帧数齐全、画幅一致、逐帧 sha256；不是交付 QA）', summary: `${frames.length} 帧 ${ctx.width}×${ctx.height}` };
+    ctx.nonDeliverable = true;
+    ctx.specCheck = { status: 'passed', evidence: [rel(ctx.art.frames)], by: 'tools/film 帧图核对（帧数齐全、画幅一致、逐帧 sha256；不是交付 QA）', summary: `${frames.length} 帧 ${ctx.width}×${ctx.height}` };
     output = { path: rel(dest), sha256: sha256File(ctx.art.frames), width: ctx.width, height: ctx.height, fps: ctx.fps, frames: frames.length, kind: `${extra.ext}-sequence` };
     ctx.log(`${kind === 'stills' ? '关键帧' : '帧段'}：${frames.length} 帧，新渲 ${rendered}，复用 ${frames.length - rendered}`);
   } catch (e) { error = e; }
@@ -226,4 +228,16 @@ export async function framesCommand(kind, opts, positionals) {
     env: envelope({ command: `film ${kind}`, exitCode: 0, outputs: ctx.outputs, runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), frames: extra.frames, rendered: extra.rendered, reused: extra.reused } }),
     human,
   };
+}
+
+// render 的入口：--final 不给帧段 = 整片终渲（与 build --final 相同，闸门照查）
+export async function renderEntry(opts, positionals) {
+  if (opts.final && !opts.frames && !opts.shot) {
+    if (opts.clip) throw usage('--clip 只用于 --frames / --shot 帧段');
+    const { buildCommand } = await import('./build.mjs');
+    process.stderr.write('render --final 没给帧段：按整片终渲处理（等价 build --final）\n');
+    const { clip, ...rest } = opts;
+    return buildCommand(rest, positionals, 'build', 'render');
+  }
+  return framesCommand('render', opts, positionals);
 }

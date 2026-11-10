@@ -7,7 +7,8 @@
 //   <outRoot>/latest-<kind>        各类运行（stills、animatic、render）最近一次成功的 run-id
 //   <outRoot>/cache/               步骤缓存（按输入哈希）
 //   <outRoot>/.lock                作品锁：同一作品同一时间只允许一次运行（旧脚本写固定路径，并行会互相覆盖）→ 退出码 5
-// run-id = UTC 的 YYYYMMDD-HHMMSS-<提交前 8 位>[-dirty]；不是 git 检出时写 nogit；同一秒重名时加 -2、-3。
+// run-id = UTC 的 YYYYMMDD-HHMMSS-<提交前 8 位>[-dirty]（附录 C4；作品描述包与 QA 门都按这个格式认运行目录）；
+// 不是 git 检出时写 nogit；同一秒重名时把时间往后推一秒（不加后缀，免得出现校验器不认的 run-id）。
 // 作品锁的做法（锁里记 pid、持锁进程不在或锁超过 12 小时没刷新就接管、长任务定时刷新）参照
 // cases/vendor/lemo-opuscar/core/render/video.mjs@bebbbe1a（MIT，LemoLab）的输出锁思路，代码为本仓库重写，另加了主机名判断。
 import fs from 'node:fs';
@@ -30,9 +31,8 @@ export const RUN_ID_RE = /^\d{8}-\d{6}-(?:[0-9a-f]{8}|nogit)(?:-dirty)?(?:-\d+)?
 
 export function createRunDir(outRoot, d = new Date()) {
   fs.mkdirSync(outRoot, { recursive: true });
-  const base = newRunId(d);
-  for (let i = 1; i < 100; i++) {
-    const id = i === 1 ? base : `${base}-${i}`;
+  for (let i = 0; i < 120; i++) {
+    const id = newRunId(new Date(d.getTime() + i * 1000));
     const dir = path.join(outRoot, id);
     try {
       fs.mkdirSync(dir);
@@ -42,7 +42,7 @@ export function createRunDir(outRoot, d = new Date()) {
       if (e.code !== 'EEXIST') throw new FilmError(EXIT.RUN, 'run-dir', `无法创建运行目录 ${rel(dir)}：${e.message}`, '检查磁盘空间与目录权限');
     }
   }
-  throw new FilmError(EXIT.BUSY, 'run-id-exhausted', `同一秒内已有 99 个运行目录：${base}`, '稍后再试');
+  throw new FilmError(EXIT.BUSY, 'run-id-exhausted', `两分钟内的运行目录名都被占用了：${newRunId(d)}`, '稍后再试');
 }
 
 const alive = pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
@@ -102,6 +102,15 @@ export function readLatest(outRoot, kind = 'build') {
     const id = fs.readFileSync(f, 'utf8').trim();
     return id && fs.existsSync(path.join(outRoot, id, 'run.json')) ? id : null;
   } catch { return null; }
+}
+
+// 一次运行是编排器的哪一类（build / animatic / stills / render）：新记录写在 job；旧记录的 kind 就是它
+const JOB_OF_KIND = { final: 'build', preview: 'build', animatic: 'animatic', still: null };
+export function jobOf(run) {
+  if (!run) return null;
+  if (run.job) return run.job;
+  if (['build', 'animatic', 'stills', 'render'].includes(run.kind)) return run.kind;
+  return JOB_OF_KIND[run.kind] ?? (/render/.test(String(run.command || '')) ? 'render' : 'stills');
 }
 
 // 列出 outRoot 下全部运行（新的在前），读各自 run.json 的摘要

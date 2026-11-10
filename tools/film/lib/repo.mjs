@@ -4,11 +4,16 @@
 //   gitInfo()                  { commit, short, dirty }；不是 git 检出时三者都是 null（run-id 用 nogit）
 //   toolVersions(opts)         { node, playwright, browser, ffmpeg, python?, raea? }，写进 run.json 的 tools
 //   sha256File(p) / hashTree(dir, { exclude }) / hashJson(v)   内容哈希；hashTree 按相对路径排序，跨机器稳定
+//   findPython(env)            选 Python：统一走 tools/env/py.mjs 的查找顺序（BEIMING_PYTHON → BEIMING_PY → PYTHON → .venv → python3 → python → py -3.12）
+//                              → { ok, cmd, args, executable, versionString, source, error, hint }；Windows 上没有 python3 也找得到
+//   ffmpegBins()               { ffmpeg, ffprobe }：认 FFMPEG / FFPROBE（tools/env/lib/ffmpeg.mjs，全仓库同一口径）
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { resolvePython } from '../../env/lib/python.mjs';
+import { ffmpegBins as envFfmpegBins } from '../../env/lib/ffmpeg.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 export const rel = p => path.relative(ROOT, p).split(path.sep).join('/') || '.';
@@ -75,7 +80,7 @@ export function hashTree(dir, { exclude = [] } = {}) {
 
 let versionsCache = null;
 const firstLine = s => String(s || '').split('\n').map(l => l.trim()).find(Boolean) || null;
-export function toolVersions({ python = null, raea = null } = {}) {
+export function toolVersions({ python = null, raea = null } = {}) {   // python：findPython 的结果
   if (!versionsCache) {
     const v = { node: process.version, playwright: null, browser: null, ffmpeg: null };
     try { v.playwright = JSON.parse(fs.readFileSync(path.join(ROOT, 'node_modules/playwright-core/package.json'), 'utf8')).version; } catch { /* 未安装 */ }
@@ -83,17 +88,19 @@ export function toolVersions({ python = null, raea = null } = {}) {
       const b = JSON.parse(fs.readFileSync(path.join(ROOT, 'node_modules/playwright-core/browsers.json'), 'utf8')).browsers.find(x => x.name === 'chromium-headless-shell');
       v.browser = process.env.BEIMING_CHROME ? `BEIMING_CHROME=${path.basename(process.env.BEIMING_CHROME)}` : b ? `chromium-headless-shell ${b.browserVersion} (r${b.revision})` : null;
     } catch { /* 未安装 */ }
-    try { v.ffmpeg = firstLine(execFileSync(process.env.FFMPEG || 'ffmpeg', ['-hide_banner', '-version'], { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] })); } catch { /* 缺 ffmpeg 由预检报 */ }
+    try { v.ffmpeg = firstLine(execFileSync(ffmpegBins().ffmpeg, ['-hide_banner', '-version'], { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'] })); } catch { /* 缺 ffmpeg 由预检报 */ }
     versionsCache = v;
   }
   const out = { ...versionsCache };
-  if (python) {
-    try { out.python = firstLine(execFileSync(python, ['--version'], { encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'] })) || null; } catch { out.python = null; }
-  }
+  if (python?.ok) out.python = `Python ${python.versionString}`;
   if (raea) out.raea = raea;
   return out;
 }
 
-export function pythonBin() {
-  return process.env.PYTHON || process.env.BEIMING_PY || (process.platform === 'win32' ? 'python' : 'python3');
+export const ffmpegBins = (env = process.env) => envFfmpegBins(env);
+
+export async function findPython(env = process.env) {
+  const py = await resolvePython({ env, root: ROOT, want: '3.12' });
+  return py.ok ? { ok: true, cmd: py.cmd, args: py.args || [], executable: py.executable || py.cmd, versionString: py.versionString, source: py.source }
+    : { ok: false, cmd: null, args: [], executable: null, versionString: null, source: py.source || null, error: py.error, hint: py.hint };
 }

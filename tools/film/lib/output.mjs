@@ -1,26 +1,25 @@
-// 北冥仓库 · 出片编排 · 结果输出（附录 C2）：
-//   --json 时 stdout 只输出一个对象 { ok, exitCode, command, error: {code,message,hint}|null, outputs: [{path,sha256,kind}], runJson, warnings[], …data }
-//   否则 stdout 只打印一段给人看的结论；过程日志一律走 stderr
-//   emit(result, { json }) → 退出码
+// 北冥仓库 · 出片编排 · 结果输出（附录 C2，信封本身由命令约定库 tools/lib/cli.mjs 生成）：
+//   子命令返回 { env: envelope({...}), human }：env 交给 tools/film/cli.mjs 的适配层，由 runCli 写成
+//     { schemaVersion: 1, ok, exitCode, command, error: {code,message,hint}|null, outputs: [{path,sha256,kind}], runJson, warnings[], data }
+//   human 是给人看的结论（普通模式打到 stdout；--json 时不打）；过程日志一律走 stderr
+//   emit(env, { json })：不经 runCli 的路径（收到中断信号时）直接输出同一格式的信封
+import { envelope as cliEnvelope } from '../../lib/cli.mjs';
 import { EXIT_MEANING } from './exit.mjs';
 
-export function envelope({ command, exitCode = 0, error = null, outputs = [], runJson = null, warnings = [], data = {} }) {
-  return {
-    ok: exitCode === 0, exitCode, command,
-    error: error ? { code: error.code || 'error', message: error.message, hint: error.hint || null } : null,
-    outputs, runJson, warnings, ...data,
-  };
+const errOf = e => (e ? { code: e.code || 'failure.error', message: String(e.message ?? e), hint: e.hint || null } : null);
+
+export function envelope({ command, exitCode = 0, error = null, outputs = [], runJson = null, warnings = [], data = null }) {
+  return { command, exitCode, error: errOf(error), outputs, runJson, warnings, data };
 }
 
-export function emit(env, { json = false, human = null } = {}) {
-  if (json) process.stdout.write(JSON.stringify(env) + '\n');
-  else {
-    if (env.error) {
-      process.stderr.write(`\n✗ ${env.error.message}\n`);
-      if (env.error.hint) process.stderr.write(`  下一步：${env.error.hint}\n`);
-      process.stderr.write(`  退出码 ${env.exitCode}（${EXIT_MEANING[env.exitCode] || '?'}）\n`);
-    }
-    if (human) process.stdout.write(human.endsWith('\n') ? human : human + '\n');
+export function emit(env, { json = false } = {}) {
+  const full = cliEnvelope({ ...env, error: errOf(env.error) });
+  if (json) {
+    try { process.stdout.write(JSON.stringify(full, null, 2) + '\n'); } catch { /* stdout 已关 */ }
+  } else if (full.error) {
+    process.stderr.write(`错误[${full.error.code}]：${full.error.message}\n`);
+    if (full.error.hint) process.stderr.write(`提示：${full.error.hint}\n`);
+    process.stderr.write(`退出码 ${full.exitCode}（${EXIT_MEANING[full.exitCode] || '?'}）\n`);
   }
-  return env.exitCode;
+  return full.exitCode;
 }

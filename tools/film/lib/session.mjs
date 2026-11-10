@@ -19,7 +19,10 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { EXIT, FilmError, asFilmError } from './exit.mjs';
-import { ROOT, rel, gitInfo, toolVersions, pythonBin, hashTree, hashJson, fileHash, sha256File } from './repo.mjs';
+import { ROOT, rel, gitInfo, toolVersions, findPython, hashTree, hashJson, fileHash, sha256File } from './repo.mjs';
+import { preflight as envPreflight } from '../../env/preflight.mjs';
+import { pythonEnv } from '../../env/lib/python.mjs';
+import { findSh, shFix } from '../../env/lib/sh.mjs';
 import { loadFilm, shotsAt, cutsOf } from './spec.mjs';
 import { resolveProfile, framesAt } from './profiles.mjs';
 import { parseSize } from './args.mjs';
@@ -126,14 +129,18 @@ export async function openSession({ command, kind, filmArg, opts }) {
   const lock = acquireLock(outRoot, { command, kind }, warnings);
   let run;
   try { run = createRunDir(outRoot); } catch (e) { lock.release(); throw e; }
-  const python = pythonBin();
-  const tools = toolVersions({ python });
+  const py = await findPython(process.env);
+  const tools = toolVersions({ python: py });
   const git = gitInfo();
-  const env = isolatedEnv(process.env, run.tmp);
+  // 子进程环境：TMPDIR 指到运行目录（结束整体删掉）；Python 子进程统一 UTF-8 输出、PYTHONPATH 前置仓库根（tools/env/py.mjs 同口径）；
+  // PYTHON 指向选中的解释器，给 .sh 声音脚本与 engine/native/prepare.mjs 这类按旧约定读 PYTHON 的入口
+  const env = pythonEnv(isolatedEnv(process.env, run.tmp), { root: ROOT });
+  if (py.ok) env.PYTHON = py.executable;
+  const sh = findSh({ env: process.env });
 
   const ctx = {
     command, kind, final: !!opts.final, opts, film, profile, width, height, fps, frames, shots, cuts, markFrames, query, audio,
-    outRoot, run, lock, python, tools, git, env, warnings, notes, startedAt: new Date().toISOString(), repoBefore,
+    outRoot, run, lock, pyInfo: py, python: py.cmd, pythonArgs: py.args, pythonExe: py.executable, sh: sh.path, tools, git, env, warnings, notes, startedAt: new Date().toISOString(), repoBefore,
     art: {}, meta: {}, steps: [], timing: {}, qa: null, technical: null, gpu: null, nativeDevice: null, raea: null, outputs: [],
     legacy: new Legacy(path.join(run.work, 'legacy-backup')), media, rel, hashTree, hashJson, fileHash, supports,
     log: m => process.stderr.write(`${m}\n`),
@@ -143,11 +150,14 @@ export async function openSession({ command, kind, filmArg, opts }) {
     logFile: step => path.join(run.logs, `${step}.log`),
     relLog: step => rel(path.join(run.logs, `${step}.log`)),
   };
+  // Python 命令行：[解释器, [解释器自带参数（Windows 的 py -3.12）, ...args]]，用法 ctx.exec(...ctx.py([脚本, 参数]), 选项)
+  ctx.py = args => [ctx.python || 'python3', [...(ctx.pythonArgs || []), ...args]];
   // 子进程默认在仓库根运行、用隔离的 TMPDIR，输出记进当前步骤的日志
   ctx.exec = (cmd, args, o = {}) => {
     const logFile = o.logFile !== undefined ? o.logFile : (ctx.currentStep ? ctx.logFile(ctx.currentStep) : null);
     return rawExec(cmd, args, { cwd: ROOT, env: ctx.env, ...o, logFile });
   };
+  ctx.statusVocab = await knownStatuses();
   current = ctx;
   try { await preflight(ctx); } catch (e) { await closeSession(ctx, { error: e }); throw e; }
   writeRunJson(ctx, { status: 'running' });
@@ -167,39 +177,74 @@ function audioOverride(film, raw) {
   throw new FilmError(EXIT.USAGE, 'audio-type', `--audio 只接受 none、.wav 混音或 .py / .sh / .mjs 声音脚本：${raw}`);
 }
 
-// 开工前查齐外部依赖：缺什么一次说清，退出码 3（不先渲十分钟再在混音一步失败）
-async function preflight(ctx) {
-  const missing = [];
-  for (const t of [media.FFMPEG(), media.FFPROBE()]) if (!which(t)) missing.push(`${t}（FFmpeg ≥ 7，带 libx264 / aac / loudnorm / ebur128）`);
-  const hasPy = !!which(ctx.python);
-  if (!hasPy) missing.push(`Python（${ctx.python}）：设 PYTHON=<装了 requirements.txt 的 python>`);
+// 开工前查齐外部依赖（渲染第一帧之前）：tools/env/preflight.mjs（P10）只查文件、版本与可执行程序，约 1 秒；
+// 缺什么一次说清，退出码 3（不先渲十分钟再在混音一步失败）。查哪些项按路线与这次要做的步骤定：
+//   全部  ffmpeg（≥ 7）、python（联系表与播放页要 Pillow，另查 PIL）
+//   A / C  browser（无头 Chrome）；出片且有声音时 sh（engine/render/mux.sh，P04·R3 的 mux.mjs 合入后去掉）
+//   出片 / 预演要跑声音脚本、拍点核对或 B 的原生素材准备时  python:audio（Python 3.12 + numpy / scipy / numba / soundfile / soxr / Pillow）
+//   B      browser（素材准备导出 GLB）、raea（RAEA_BIN 指向的原生运行时）
+export function preflightNeeds(ctx) {
   const page = ctx.film.route !== 'b';
   const a = ctx.audio;
   const script = a.mode === 'script' ? path.extname(a.path).toLowerCase() : null;
-  const needsSh = (page && ctx.kind === 'build' && a.mode !== 'none') || script === '.sh';
-  if (needsSh && !which('sh')) missing.push('sh（音画封装 engine/render/mux.sh 与 .sh 声音脚本要 POSIX sh；Windows 请装 Git Bash 并把 sh 放进 PATH；P04·R3 的 mux.mjs 合入后去掉此依赖）');
-  if (hasPy) {
-    const mods = ['PIL'];
-    const audioPython = (page && (script === '.py' || script === '.sh' || (ctx.film.cuecheck && a.mode !== 'none'))) || (!page && ctx.film.native?.audio);
-    if (audioPython && ['build', 'animatic'].includes(ctx.kind)) mods.push('numpy', 'scipy', 'soundfile', 'soxr', 'numba');
-    const code = `import importlib.util,sys\nbad=[m for m in ${JSON.stringify(mods)} if importlib.util.find_spec(m) is None]\nprint(','.join(bad))\nsys.exit(1 if bad else 0)`;
-    try { await rawExec(ctx.python, ['-c', code], { cwd: ROOT, env: ctx.env, quiet: true, timeoutSec: 60, label: 'Python 依赖预检', sweep: false }); }
-    catch (e) { const bad = String(e.details?.stdout || '').trim(); missing.push(`Python 包 ${bad || mods.join(',')}（${ctx.python}）：pip install -r requirements.txt，或设 PYTHON=<已装好的 python>`); }
+  const delivers = ['build', 'animatic'].includes(ctx.kind);
+  const needs = new Set(['ffmpeg', 'python', 'browser']);
+  if (page && delivers && a.mode !== 'none' && (ctx.kind === 'build' || script === '.sh')) needs.add('sh');
+  if (script === '.sh') needs.add('sh');
+  const audioPython = page ? delivers && (script === '.py' || script === '.sh' || (ctx.film.cuecheck && a.mode !== 'none')) : true;
+  if (audioPython) needs.add('python:audio');
+  if (!page) needs.add('raea');
+  return [...needs];
+}
+
+async function preflight(ctx) {
+  const needs = preflightNeeds(ctx);
+  let r;
+  try { r = await envPreflight(needs, { env: process.env }); } catch (e) {
+    throw new FilmError(EXIT.RUN, 'preflight-error', `开工前预检没能跑完：${e.message}`, '先单独跑 node tools/env/preflight.mjs --need ' + needs.join(','));
   }
-  if (missing.length) throw new FilmError(EXIT.ENV, 'env-missing', `出片前预检：缺 ${missing.length} 项依赖`, missing.join('；'));
+  const failed = [...r.failed];
+  // 联系表与播放页用 Pillow：python:audio 已含；只查 python 时另查一次（find_spec，不导入）
+  if (!needs.includes('python:audio') && ctx.pyInfo.ok) {
+    try { await rawExec(ctx.python, [...ctx.pythonArgs, '-c', 'import importlib.util,sys; sys.exit(0 if importlib.util.find_spec("PIL") else 1)'], { cwd: ROOT, env: ctx.env, quiet: true, timeoutSec: 30, label: 'Pillow 预检', sweep: false }); }
+    catch { failed.push({ id: 'python.packages', found: `${ctx.pyInfo.source} 缺 Pillow（PIL）`, fix: 'npm run setup' }); }
+  }
+  if (needs.includes('sh') && !ctx.sh && !failed.some(c => c.id === 'shell.sh')) failed.push({ id: 'shell.sh', found: '没有 POSIX sh', fix: shFix() });
+  ctx.preflight = { needs, ms: r.ms, ok: !failed.length, checks: r.checks.map(c => ({ id: c.id, status: c.status, found: c.found ?? null })) };
+  if (failed.length) {
+    throw new FilmError(EXIT.ENV, 'preflight-failed', `出片前预检不通过（${needs.join('、')}）：${failed.map(c => `${c.id}（${c.found}）`).join('；')}`,
+      [...new Set(failed.map(c => c.fix).filter(Boolean))].join('；') || 'npm run env:doctor 看完整体检');
+  }
 }
 
 const STATUS_FOR_EXIT = code => (code === EXIT.ENV || code === EXIT.BUSY || code === EXIT.USAGE ? 'blocked' : 'failed');
 const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|basic render|\bwarp\b/i;
 
-// 技术验收：build 取机器 QA 门的结论；其余类别由命令自己核对后写进 ctx.technical
+// 技术验收：build 取机器 QA 门的结论（tools/qa report 的 technicalAcceptance，证据是相对运行目录的 qa/report.json）；
+// 其余类别（stills、render、animatic）不是交付件，不跑 QA：编排器只核对规格（帧数、画幅、帧率、音轨），记在 checks 里
 function technicalOf(ctx) {
+  if (ctx.nonDeliverable && ctx.specCheck) {
+    // 作品描述包的校验器认得 rendered：非交付件的技术验收如实写 not-run（规格核对另记 specCheck）；旧校验器只能把规格核对当作技术验收
+    return (ctx.statusVocab || []).includes('rendered')
+      ? { status: 'not-run', evidence: [], by: null, summary: '非交付件不跑机器 QA；编排器的规格核对见 specCheck' }
+      : ctx.specCheck;
+  }
   if (ctx.technical) return ctx.technical;
   const qa = ctx.qa;
-  if (qa && qa.status !== 'not-run') {
-    return { status: qa.status === 'passed' ? 'passed' : 'failed', evidence: qa.reportPath ? [rel(qa.reportPath)] : [], by: 'tools/qa/cli.mjs delivery（机器 QA 门）', summary: qa.message, failed: qa.failed || [] };
-  }
+  if (qa?.technical) return qa.technical;
+  if (qa && qa.status !== 'not-run') return { status: qa.status === 'passed' ? 'passed' : 'failed', evidence: qa.reportPath ? ['qa/report.json'] : [], by: 'node tools/qa/cli.mjs report（机器 QA 门）', summary: qa.message, failed: qa.failed || [] };
   return { status: 'not-run', evidence: [], by: null, summary: qa?.message || null };
+}
+
+// run.json 的 kind 用作品描述包的取值（final / preview / animatic / still，engine/production/state.js 的 RUN_KINDS）；
+// 编排器自己的运行类别（build / animatic / stills / render）另记在 job
+export const runKind = ctx => (ctx.kind === 'build' ? (ctx.final ? 'final' : 'preview') : ctx.kind === 'animatic' ? 'animatic' : 'still');
+// 校验器认得的 status：作品描述包合入后有 rendered（出完、不走 QA 的非交付件）；之前的版本没有，非交付件按规格核对记 passed
+let statusVocab = null;
+async function knownStatuses() {
+  if (statusVocab) return statusVocab;
+  try { statusVocab = (await import(pathToFileURL(path.join(ROOT, 'engine/production/project.js')).href)).RESULT_STATUSES || []; } catch { statusVocab = []; }
+  return statusVocab;
 }
 
 // 实际编码器：页面型取逐帧视频里 x264 自报的参数，封装时若重编码再接上封装的编码器；原生取运行时日志
@@ -229,12 +274,13 @@ export function runJsonBody(ctx, extra = {}) {
   const device = nd ? nd.device : gpu.device;
   const backend = nd ? nd.backend : gpu.backend;
   return {
-    schemaVersion: 1, kind: ctx.kind, final: ctx.final, status: 'running', outcome: 'running',
+    schemaVersion: 1, kind: runKind(ctx), job: ctx.kind, final: ctx.final, status: 'running', outcome: 'running',
     projectId: ctx.film.id, shotId: ctx.kind === 'render' && ctx.renderScope ? ctx.renderScope : 'film', route: ctx.film.route, backend: ctx.film.backend,
     title: ctx.film.title, film: ctx.film.relDir, runId: ctx.run.id, runDir: rel(ctx.run.dir), command: `film ${ctx.command}`,
     startedAt: ctx.startedAt, finishedAt: null,
     sourceCommit: ctx.git.commit, dirty: ctx.git.dirty, argv: process.argv.slice(2), rerun: rerunCommand(),
     tools: { ...ctx.tools, ...(ctx.raea ? { raea: ctx.raea.version } : {}) },
+    preflight: ctx.preflight || null,
     actualDevice: device || null, actualGraphicsBackend: backend || null,
     actualEncoder: encoderOf(ctx),
     softwareFallback: SOFTWARE.test(String(ctx.gpu || '')),
@@ -245,6 +291,8 @@ export function runJsonBody(ctx, extra = {}) {
     technicalAcceptance: technicalOf(ctx),
     creativeAcceptance: { status: 'not-reviewed', events: [], styleComparison: [], issues: [], reviews: [] },
     gates: ctx.gateBasis || null,
+    specCheck: ctx.specCheck || null,
+    aigc: ctx.aigc || (ctx.film.raw?.aigc ? { contains: ctx.film.raw.aigc.contains === true, comment: null, note: ctx.film.raw.aigc.note ?? null } : null),
     warnings: ctx.warnings, notes: ctx.notes, error: null,
     ...extra,
   };
@@ -287,25 +335,28 @@ function repoTouched(ctx) {
   return out;
 }
 
-// RenderResult 的 status（见文件开头）：出错按退出码；跑完时看技术验收
-function statusOf(ctx, fe, outcome) {
+// RenderResult 的 status（见文件开头）：出错按退出码；跑完时看技术验收。
+// 非交付件（stills、render、animatic）跑完：校验器认得 rendered 时记 rendered（技术验收 not-run，规格核对在 checks）；否则沿用 passed
+function statusOf(ctx, fe, outcome, vocab) {
   if (fe) return STATUS_FOR_EXIT(fe.exitCode);
   const t = technicalOf(ctx).status;
   if (t === 'failed') return 'failed';
+  if (ctx.nonDeliverable && outcome === 'complete') return vocab.includes('rendered') ? 'rendered' : (t === 'passed' ? 'passed' : 'blocked');
   return outcome === 'complete' && t === 'passed' ? 'passed' : 'blocked';
 }
 
-// 写 run.json 前用 P05 的校验器自检（加固计划 P04·R2、硬门 H5）：status = passed 却缺实测字段（设备、图形后端、编码器、
-// 产物哈希、帧数）时，降为 blocked 并写明原因——宁可少报，不能让一份过不了校验的「通过」记录流出去。
-// P05 的 node engine/production/film.js validate-result 合入后，这里改为同口径调用它（见 tools/film/README.md）。
+// 写 run.json 前用作品描述包的校验器自检（engine/production/project.js 的 validateRenderResult，strict：技术验收必须指向
+// 运行目录里 ok = true 的 qa/report.json）：status = passed 却缺实测字段（设备、图形后端、编码器、产物哈希、帧数）或证据不合格时，
+// 降为 blocked 并写明原因——宁可少报，不能让一份过不了校验的「通过」记录流出去（硬门 H5）。
 async function selfValidate(ctx, body) {
   let validate;
   try { ({ validateRenderResult: validate } = await import(pathToFileURL(path.join(ROOT, 'engine/production/project.js')).href)); } catch { return; }
-  const r = validate(body, { expectedFrameCount: ctx.kind === 'build' || ctx.kind === 'animatic' ? ctx.frames : undefined });
-  body.validation = { by: 'engine/production/project.js validateRenderResult', ok: r.ok, diagnostics: r.diagnostics.map(d => ({ code: d.code, path: d.path, message: d.message })) };
-  if (!r.ok && body.status === 'passed') {
+  const r = validate(body, { strict: true, runDir: ctx.run.dir, expectedFrameCount: ctx.kind === 'build' || ctx.kind === 'animatic' ? ctx.frames : undefined });
+  body.validation = { by: 'engine/production/project.js validateRenderResult（strict）', ok: r.ok, diagnostics: r.diagnostics.map(d => ({ code: d.code, path: d.path, message: d.message })) };
+  if (!r.ok && ['passed', 'rendered'].includes(body.status)) {
+    const was = body.status;
     body.status = 'blocked';
-    const msg = `技术检查做完了，但记录不全，不能记为 passed：${r.diagnostics.map(d => d.message).join('；')}`;
+    const msg = `${was === 'passed' ? '技术检查做完了' : '画面出完了'}，但运行记录不全，不能记为 ${was}：${r.diagnostics.map(d => d.message).join('；')}`;
     body.warnings.push({ code: 'run-record-incomplete', message: msg });
     process.stderr.write(`[警告] ${msg}\n`);
   }
@@ -321,7 +372,7 @@ export async function closeSession(ctx, { error = null, complete = false, output
     const restoredRel = restored.map(r => ({ path: rel(r.path), action: r.action }));
     for (const d of [ctx.run.tmp, path.join(ctx.run.work, 'legacy-backup')]) fs.rmSync(d, { recursive: true, force: true });
     const outcome = fe ? (fe.exitCode === EXIT.SIGINT || fe.exitCode === EXIT.SIGTERM ? 'interrupted' : 'failed') : complete ? 'complete' : 'partial';
-    const st = statusOf(ctx, fe, outcome);
+    const st = statusOf(ctx, fe, outcome, await knownStatuses());
     const touched = repoTouched(ctx);
     if (touched.length) ctx.warn('repo-touched', `运行期间作品目录以外多了 ${touched.length} 处改动（${touched.slice(0, 4).map(t => `${t.state} ${t.path}`).join('、')}${touched.length > 4 ? ' …' : ''}）：不是本次出片该写的地方，确认是谁改的`);
     const body = runJsonBody(ctx, {

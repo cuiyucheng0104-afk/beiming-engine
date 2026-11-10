@@ -1,15 +1,19 @@
 // 北冥仓库 · 出片编排 · 三条路线共用的交付步骤：网页版、海报、联系表、播放页、机器 QA。
 //   web      master 之外另编一份网页版（从最高质量的画面源编一次，色彩一次性转 BT.709 tv；声音复制母版 AAC）→ web.mp4
+//   label    film.json 的 aigc.contains = true 时，给 master.mp4 与 web.mp4 写隐式 AIGC 标识（mp4 comment，决定 D11）：
+//            字符串由 tools/compliance/lib/aigc.mjs 的 ffmpegMetadataArgs 生成（ProduceID = <作品 id>@<run-id>），只改容器元数据，
+//            码流逐位不变；写完读回核对，run.json 的 aigc 记下写入的 comment
 //   poster   本次运行的海报帧（film.json 的 poster / posterFrame，缺省片长 60% 处）→ poster.jpg
 //   contact  联系表：概览（约每 1–2 秒一格，含片尾帧）+ 每个切点前 3 后 3 帧的逐帧条；标帧号、时间码、镜头号与切点 → contact.jpg
 //            只取本次运行的帧（从本次的视频里按帧号解码），不会混进旧静帧（加固计划 TOOLS-08）
 //   player   单文件播放页：标题、画幅、时长、镜头分段与切点来自 film.json 与 ffprobe；逐帧步进、跳切点 → player.html
-//   qa       node tools/qa/cli.mjs delivery（P07）→ qa/report.json；硬门不过退出码 4
+//   qa       node tools/qa/cli.mjs report（机器 QA 门）→ qa/report.json、report.md、contact.jpg；硬门不过退出码 4
 // 这些步骤都很轻，不进缓存（--from 时照常重跑）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from './repo.mjs';
 import { runQa } from './qa.mjs';
+import { ffmpegMetadataArgs, parseImplicitLabel, EXPLICIT } from '../../compliance/lib/aigc.mjs';
 
 const CONTACT = path.join(ROOT, 'tools/contact_sheet.py');
 const PLAYER = path.join(ROOT, 'tools/make_html.py');
@@ -26,6 +30,34 @@ export const web = {
     const info = await ctx.media.probe(ctx.exec, src, { count: false });
     await ctx.media.encodeWeb(ctx.exec, { src, srcInfo: info, audioFrom: ctx.art.master, out: path.join(ctx.run.dir, 'web.mp4'), fps: ctx.fps, logFile: ctx.logFile('web'), timeoutSec: ctx.opts.timeout || 1800 });
     return { from: ctx.rel(src), colorIn: info.color };
+  },
+};
+
+// 隐式标识的参数：kinds 取 film.json 的 aigc.kinds（visual / voice / music），没写按 visual；tools 取 aigc.tools（生成工具名，写进人读说明）
+export function aigcLabel(ctx) {
+  const a = ctx.film.raw?.aigc;
+  if (!a || a.contains !== true) return null;
+  const kinds = Array.isArray(a.kinds) && a.kinds.length && a.kinds.every(k => EXPLICIT[k]) ? a.kinds : ['visual'];
+  const tools = Array.isArray(a.tools) ? a.tools.filter(t => typeof t === 'string' && t.trim()) : [];
+  const opts = { producer: '北冥引擎 Beiming Engine', produceId: `${ctx.film.id}@${ctx.run.id}`, kinds, tools };
+  const args = ffmpegMetadataArgs(opts);
+  return { ...opts, args, comment: args[1].replace(/^comment=/, '') };
+}
+
+export const label = {
+  id: 'label', title: '隐式 AIGC 标识（mp4 comment，D11）',
+  when: ctx => (aigcLabel(ctx) ? true : 'film.json 没有声明 aigc.contains = true'),
+  async run(ctx) {
+    const L = aigcLabel(ctx);
+    const files = [ctx.art.master, ctx.art.web, ctx.art.animatic].filter(f => f && fs.existsSync(f));
+    for (const f of files) {
+      await ctx.media.setMetadata(ctx.exec, f, L.args, { logFile: ctx.logFile('label') });
+      const got = await ctx.media.readComment(ctx.exec, f);
+      const parsed = parseImplicitLabel(got);
+      if (got !== L.comment || !parsed.ok) ctx.fail(1, 'aigc-label', `${path.basename(f)} 的隐式 AIGC 标识没写进去或读回不一致：${parsed.problems.join('；') || '内容不同'}`, '检查 FFmpeg 版本（≥ 7）；看 logs/label.log');
+    }
+    ctx.aigc = { contains: true, comment: L.comment, kinds: L.kinds, tools: L.tools, files: files.map(f => ctx.rel(f)), by: 'tools/compliance/lib/aigc.mjs ffmpegMetadataArgs' };
+    return { files: files.map(f => path.basename(f)), comment: L.comment };
   },
 };
 
@@ -65,7 +97,7 @@ export async function writeContactSheet(ctx, { tiles, strips = [], out, header =
   };
   const mf = path.join(ctx.run.work, 'contact.json');
   fs.writeFileSync(mf, JSON.stringify(manifest, null, 1));
-  await ctx.exec(ctx.python, [CONTACT, out, '--manifest', mf], { label: '联系表（tools/contact_sheet.py）', timeoutSec: 600, logFile: ctx.logFile('contact'), quiet: true, sweep: false });
+  await ctx.exec(...ctx.py([CONTACT, out, '--manifest', mf]), { label: '联系表（tools/contact_sheet.py）', timeoutSec: 600, logFile: ctx.logFile('contact'), quiet: true, sweep: false });
   return out;
 }
 
@@ -100,7 +132,7 @@ export const player = {
     };
     const mf = path.join(ctx.run.work, 'player.json');
     fs.writeFileSync(mf, JSON.stringify(meta, null, 1));
-    await ctx.exec(ctx.python, [PLAYER, video, path.join(ctx.run.dir, 'player.html'), '--meta', mf, '--embed', ctx.opts.embed || 'auto'], { label: '播放页', timeoutSec: 600, logFile: ctx.logFile('player'), quiet: true, sweep: false });
+    await ctx.exec(...ctx.py([PLAYER, video, path.join(ctx.run.dir, 'player.html'), '--meta', mf, '--embed', ctx.opts.embed || 'auto']), { label: '播放页', timeoutSec: 600, logFile: ctx.logFile('player'), quiet: true, sweep: false });
     return { video: path.basename(video) };
   },
 };
@@ -110,7 +142,11 @@ export const qa = {
   when: ctx => (ctx.opts.noQa ? '加了 --no-qa' : true),
   outputs: () => ({ qaReport: 'qa/report.json' }),
   async run(ctx) {
-    const r = await runQa({ master: ctx.art.master, film: ctx.film, profile: ctx.profile, runDir: ctx.run.dir, exec: ctx.exec, timeoutSec: ctx.opts.timeout || Math.max(900, Math.round(ctx.frames * 0.5)) });
+    // 页面型作品把页面目录交给 QA（文字、底板两组要打开页面逐帧读；《北冥》样片的页面在仓库根）；B 没有页面，QA 自己跳过这两组
+    const pageDir = ctx.film.route !== 'b' ? ctx.film.pageDir : null;
+    // QA 要整片解码好几遍、文字组还要逐帧开页面：总时限按帧数给（每帧约 1.5 秒上限，最少 15 分钟）
+    const r = await runQa({ master: ctx.art.master, film: ctx.film, profile: ctx.profile, runDir: ctx.run.dir, exec: ctx.exec, pageDir, timeoutSec: ctx.opts.timeout ? Math.max(ctx.opts.timeout, 900) : Math.max(900, Math.round(ctx.frames * 1.5)) });
+    for (const o of r.outputs || []) if (o?.path && /^qa-/.test(String(o.kind || ''))) ctx.qaOutputs = [...(ctx.qaOutputs || []), o];
     ctx.qa = r;
     if (r.status === 'not-run') {
       if (ctx.final) ctx.fail(3, r.reason || 'qa-missing', `终渲必须过机器 QA：${r.message}`, '先合入 / 安装 tools/qa/cli.mjs（P07），或去掉 --final 出工作版');
@@ -123,6 +159,6 @@ export const qa = {
 };
 
 export function deliverSteps({ kind = 'build' } = {}) {
-  if (kind === 'animatic') return [contact, player];
-  return [web, poster, contact, player, qa];
+  if (kind === 'animatic') return [label, contact, player];
+  return [web, label, poster, contact, player, qa];
 }

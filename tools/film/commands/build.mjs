@@ -28,12 +28,10 @@ const COMMON = {
   '--timeout': { type: 'int', min: 10, arg: '<秒>', help: '单步超时（默认按帧数估算）' },
   '--stall': { type: 'int', min: 30, arg: '<秒>', help: '单步无输出看门狗（默认 300–600 秒）' },
   '--embed': { type: 'enum', values: ['auto', 'always', 'never'], arg: '<auto|always|never>', help: '播放页是否内嵌视频（auto：40 MB 以内内嵌）' },
-  '--json': { type: 'bool', help: 'stdout 只输出一个 JSON 对象（附录 C2）' },
-  '--help': { type: 'bool', help: '只打印用法' },
 };
 
 export const buildSpec = {
-  positionals: [{ name: '作品目录', required: true }],
+  positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }],
   options: {
     '--final': { type: 'bool', help: '终渲：先查 look / animatic 闸，QA 必须可用且通过' },
     '--waive': { type: 'list', values: ['look', 'animatic'], arg: '<闸,闸>', help: '出片前先记豁免（要配 --reason；终渲只认带 --quote/--source 的用户豁免）' },
@@ -48,51 +46,64 @@ export const buildSpec = {
   },
 };
 
-export const animaticSpec = { positionals: [{ name: '作品目录', required: true }], options: { '--no-cache': buildSpec.options['--no-cache'], ...COMMON } };
+export const animaticSpec = { positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }], options: { '--no-cache': buildSpec.options['--no-cache'], ...COMMON } };
 
-export const BUILD_HELP = `用法：npm run film -- build <作品目录> [选项]        （等价：node tools/film/cli.mjs build …）
-按 film.json 的路线分派整条出片链：
-  A / C 页面型  probe → mix → cuecheck → video → mux → web → poster → contact → player → qa
-  B 原生        prepare → preflight → native → web → poster → contact → player → qa
-产物只写进 <作品>/out/<run-id>/：master.mp4 web.mp4 player.html contact.jpg poster.jpg run.json qa/report.json；
-完整跑完且没失败时更新 <作品>/out/latest。输入没变的步骤直接复用缓存（out/cache/）。
-终渲：--final 先查闸门（look → animatic → final，决定 D08）：没有用户通过或用户豁免记录时退出码 4，一帧不渲。
+export const BUILD_DOC = {
+  summary: '整条出片链：按 film.json 的路线分派，产物与运行记录只写进 <作品>/out/<run-id>/',
+  usage: ['npm run film -- build <作品目录> [选项]', 'node tools/film/cli.mjs build <作品目录> [选项]'],
+  description: [
+    '出片链（--from / --to 用这些步骤名）：',
+    '  A / C 页面型  probe → mix → cuecheck → video → mux → web → label → poster → contact → player → qa',
+    '  B 原生        prepare → preflight → native → web → label → poster → contact → player → qa',
+    '产物：master.mp4 web.mp4 player.html contact.jpg poster.jpg run.json qa/report.json；整条链跑完且 QA 通过时更新 <作品>/out/latest。',
+    '输入没变的步骤直接复用缓存（out/cache/）；film.json 的 aigc.contains = true 时 master.mp4 与 web.mp4 写入隐式 AIGC 标识（D11）。',
+    '机器 QA 门（node tools/qa/cli.mjs report）硬门不通过时退出码 4，结论写进 run.json 的 technicalAcceptance。',
+    '终渲：--final 先查闸门（look → animatic → final，决定 D08）：没有用户认可或带用户原话的豁免时退出码 4，一帧不渲。',
+  ],
+  examples: [
+    'npm run film -- build films/my-film                         工作版（不查闸门）',
+    'npm run film -- build films/my-film --final                 终渲',
+    'npm run film -- build films/my-film --from mux              只重跑封装及之后（前面复用缓存）',
+    'npm run film -- build films/my-film --profile vertical-1080x1920-30',
+    'npm run film -- build films/my-film --waive look,animatic --reason "<理由>" --quote "<用户原话>" --source "<出处>" --final',
+  ],
+};
 
-选项：
-${fmt(buildSpec.options)}
-退出码：0 成功 · 1 运行失败 · 2 用法错误 · 3 缺环境（ffmpeg、Python 包、RAEA_BIN、软件渲染）· 4 契约 / QA / 闸门不通过 · 5 作品正被另一次运行占用 · 124 超时 · 130/143 中断
-例：
-  npm run film -- build films/my-film                         工作版（不查闸门）
-  npm run film -- build films/my-film --final                 终渲
-  npm run film -- build films/my-film --from mux              只重跑封装及之后（前面复用缓存）
-  npm run film -- build films/my-film --waive look,animatic --reason "用户说不用看预演" --quote "<原话>" --source "<出处>" --final`;
+export const ANIMATIC_DOC = {
+  summary: '动态预演（D08 第二道闸）：时长与切点同正片，半分辨率，给用户看节奏',
+  usage: ['npm run film -- animatic <作品目录> [选项]'],
+  description: [
+    '时长、切点全部取自正片时间轴；半分辨率；页面加 previs=1（作品自己决定关掉哪些后期）；',
+    '临时声用作品混音，没有声音就按 film.json 的事件与切点生成提示音。B 路线用原生 --quality draft。',
+    '产物：<作品>/out/<run-id>/animatic.mp4 contact.jpg player.html run.json；更新 out/latest-animatic。',
+    '给用户看完，按用户原话记录：npm run film -- review approve animatic <作品目录> --quote "…" --source "…" --reviewer "…"',
+  ],
+  examples: ['npm run film -- animatic films/my-film'],
+};
 
-export const ANIMATIC_HELP = `用法：npm run film -- animatic <作品目录> [选项]
-动态预演（D08 第二道闸，导演方法步骤 7.5）：时长、切点全部取自正片时间轴；半分辨率；页面加 previs=1（作品自己决定关掉哪些后期）；
-临时声用作品混音，没有声音就按 film.json 的事件与切点生成提示音。B 路线用原生 --quality draft。
-产物：<作品>/out/<run-id>/animatic.mp4 contact.jpg player.html run.json；更新 out/latest-animatic。
-给用户看完，按用户原话记录：npm run film -- review approve animatic <作品目录> --quote "…" --source "…" --reviewer "…"
+export const mixSpec = { positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }], options: { '--no-cache': buildSpec.options['--no-cache'], ...COMMON } };
+export const assembleSpec = { positionals: [{ name: '作品目录', describe: '作品目录，例如 films/my-film（相对当前目录）', required: true }], options: { '--no-qa': buildSpec.options['--no-qa'], ...COMMON } };
 
-选项：
-${fmt(animaticSpec.options)}`;
+export const MIX_DOC = {
+  summary: '只做声音：A / C 跑到声画拍点核对，B 跑原生素材准备（含声音）',
+  usage: ['npm run film -- mix <作品目录> [选项]'],
+  description: [
+    'A / C：probe → mix → cuecheck（页面事件表 → 声音脚本 → 声画拍点核对）；B：原生素材准备（含声音）。',
+    '改了声音脚本或事件时用它，比整片重出快；输入没变就复用缓存。等价 build --to cuecheck（B：--to prepare）。',
+    '产物：A / C 在 <作品>/out/<run-id>/audio/（mix.wav、stems/、cuecheck.txt）；B 在作品的 media/。',
+  ],
+  examples: ['npm run film -- mix films/my-film'],
+};
 
-export const mixSpec = { positionals: [{ name: '作品目录', required: true }], options: { '--no-cache': buildSpec.options['--no-cache'], ...COMMON } };
-export const assembleSpec = { positionals: [{ name: '作品目录', required: true }], options: { '--no-qa': buildSpec.options['--no-qa'], ...COMMON } };
-
-export const MIX_HELP = `用法：npm run film -- mix <作品目录> [选项]
-只做声音：A / C 跑 probe → mix → cuecheck（页面事件表 → 声音脚本 → 声画拍点核对），B 跑原生素材准备（含声音）。
-改了声音脚本或事件时用它，比整片重出快；输入没变就复用缓存。等价 build --to cuecheck（B：--to prepare）。
-产物：A / C 在 <作品>/out/<run-id>/audio/（mix.wav、stems/、cuecheck.txt）；B 在作品的 media/。
-
-选项：
-${fmt(mixSpec.options)}`;
-
-export const ASSEMBLE_HELP = `用法：npm run film -- assemble <作品目录> [选项]
-画面与声音都已渲过（缓存里有）时，只重做封装及之后：A / C 从 mux 起（封装 → 网页版 → 海报 → 联系表 → 播放页 → QA），
-B 从 web 起（原生的画面与封装在同一步）。等价 build --from mux（B：--from web）；前面的步骤缺缓存时退出码 2 并说明是哪一步。
-
-选项：
-${fmt(assembleSpec.options)}`;
+export const ASSEMBLE_DOC = {
+  summary: '画面与声音复用缓存，只重做封装及之后',
+  usage: ['npm run film -- assemble <作品目录> [选项]'],
+  description: [
+    'A / C 从 mux 起（封装 → 网页版 → 标识 → 海报 → 联系表 → 播放页 → QA），B 从 web 起（原生的画面与封装在同一步）。',
+    '等价 build --from mux（B：--from web）；前面的步骤缺缓存时退出码 2 并说明是哪一步。',
+  ],
+  examples: ['npm run film -- assemble films/my-film'],
+};
 
 // mix / assemble：按路线换成 build 的 --to / --from
 export async function mixCommand(opts, positionals) {
@@ -104,9 +115,6 @@ export async function assembleCommand(opts, positionals) {
   return buildCommand({ ...opts, from: film.route === 'b' ? 'web' : 'mux' }, positionals, 'build', 'assemble');
 }
 
-export function fmt(options) {
-  return Object.entries(options).map(([k, d]) => `  ${(k + (d.arg ? ' ' + d.arg : '')).padEnd(34)} ${d.help || ''}`).join('\n');
-}
 
 function stepsFor(ctx) {
   const route = ctx.film.route === 'b' ? nativeSteps({ kind: ctx.kind }) : pageSteps({ kind: ctx.kind });
@@ -153,7 +161,8 @@ export async function runBuild(kind, opts, positionals, command = kind) {
       ({ output, frameHashes } = await checkOutput(ctx, main));
       if (kind === 'animatic') {
         // 预演不是交付件：技术验收就是编排器的规格核对（帧数、画幅、帧率、音轨），证据是 checks/output.json
-        ctx.technical = { status: 'passed', evidence: [rel(path.join(ctx.run.dir, 'checks', 'output.json'))], by: 'tools/film 预演规格核对（帧数、画幅、帧率、音轨；不是交付 QA）', summary: `预演 ${output.frames} 帧 ${output.width}×${output.height}` };
+        ctx.nonDeliverable = true;
+        ctx.specCheck = { status: 'passed', evidence: [rel(path.join(ctx.run.dir, 'checks', 'output.json'))], by: 'tools/film 预演规格核对（帧数、画幅、帧率、音轨；不是交付 QA）', summary: `预演 ${output.frames} 帧 ${output.width}×${output.height}` };
       } else if (ctx.qa?.status === 'failed') {
         error = new FilmError(EXIT.CONTRACT, 'qa-failed', ctx.qa.message, `逐项见 ${rel(ctx.qa.reportPath || path.join(ctx.run.dir, 'qa'))}；改完重跑 npm run film -- build ${ctx.film.relDir}（输入没变的步骤会复用）`);
       }
