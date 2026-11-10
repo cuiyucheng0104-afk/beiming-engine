@@ -343,3 +343,86 @@ test('镜像作品：路径相对仓库根，页面是 entry 所在目录，运�
     assert.equal(plain.outRoot, path.join(dir, 'out'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('生效作品描述：档位换了画幅与帧率时 output、镜头、事件、停顿、海报帧、qa 区间与豁免帧段按比例换算，id 显式写上，film.json 不改', async () => {
+  const { effectiveFilm, differs, retimeShots, specOf } = await import('../../tools/film/lib/effective.mjs');
+  const dir = tmp();
+  try {
+    const raw = {
+      schemaVersion: 2, title: '换算', route: 'c', backend: 'canvas', dur: 3, fps: 24, size: [1920, 1080],
+      output: { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 72 },
+      shots: [{ id: 'S1', in: 0, out: 36, transition: 'cut' }, { id: 'S2', in: 36, out: 72, actorClockOrigin: { kun: 36 } }],
+      events: [{ id: 'hit', frame: 36, shot: 'S2', audio: 'hit' }, { id: 'tail', frame: 71, end: 72 }, { id: 'beat', beat: 4 }, { id: 'sec', t: 1.5 }],
+      holds: [{ in: 60, out: 72 }], posterFrame: 43,
+      qa: { intentional: [{ kind: 'freeze', from: 60, to: 72, reason: '片尾停' }, { kind: 'black', t0: 0, t1: 0.2, reason: '开场黑' }], waivers: [{ check: 'visual.freeze', frames: [10, 20], reason: 'r', approvedBy: '用户', quote: 'q', source: 's' }] },
+      deliveries: ['web-1080p24'],
+    };
+    fs.writeFileSync(path.join(dir, 'film.json'), JSON.stringify(raw));
+    const film = parseFilm(raw, { dir });
+    const spec = { profileId: 'vertical-1080x1920-30', width: 1080, height: 1920, fps: 30, frames: 90 };
+    assert.equal(differs(film, specOf(film)), false, '与 film.json 相同的规格不需要生效描述');
+    assert.equal(differs(film, spec), true);
+    const { raw: e, changes } = effectiveFilm(film, spec);
+    assert.equal(e.id, path.basename(dir), 'id 显式写上（QA 缺 id 时取所在目录名，运行目录名不是作品 id）');
+    assert.deepEqual(e.output, { profile: 'vertical-1080x1920-30', width: 1080, height: 1920, fps: 30, frameCount: 90 });
+    assert.deepEqual([e.dur, e.fps, e.size], [3, 30, [1080, 1920]], 'v1 兼容镜像跟着改');
+    assert.deepEqual(e.shots.map(s => [s.id, s.in, s.out]), [['S1', 0, 45], ['S2', 45, 90]]);
+    assert.equal(e.shots[0].transition, 'cut', '镜头的其它字段原样保留');
+    assert.deepEqual(e.shots[1].actorClockOrigin, { kun: 45 });
+    assert.deepEqual(e.events.map(x => [x.id, x.frame, x.end]), [['hit', 45, undefined], ['tail', 89, 90], ['beat', undefined, undefined], ['sec', undefined, undefined]]);
+    assert.equal(e.events[3].t, 1.5, '按秒写的事件不动');
+    assert.deepEqual(e.holds, [{ in: 75, out: 90 }]);
+    assert.equal(e.posterFrame, 54);
+    assert.deepEqual(e.qa.intentional[0], { kind: 'freeze', from: 75, to: 90, reason: '片尾停' });
+    assert.deepEqual([e.qa.intentional[1].t0, e.qa.intentional[1].t1], [0, 0.2], '按秒写的区间不动');
+    assert.deepEqual(e.qa.waivers[0].frames, [13, 25]);
+    assert.ok(changes.some(c => /画幅 1920×1080 → 1080×1920/.test(c)) && changes.some(c => /帧率 24 → 30/.test(c)) && changes.some(c => /帧数 72 → 90/.test(c)), changes.join('；'));
+    assert.match(e.$comment, /不要手改/);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')).output.width, 1920, 'film.json 不改');
+    assert.deepEqual(raw.shots[1], { id: 'S2', in: 36, out: 72, actorClockOrigin: { kun: 36 } }, '传入的作品描述对象也不改');
+    // 只换画幅、不换帧率：帧号全部不动
+    const same = effectiveFilm(film, { profileId: 'x', width: 1920, height: 1040, fps: 24, frames: 72 }).raw;
+    assert.deepEqual(same.shots.map(s => [s.in, s.out]), [[0, 36], [36, 72]]);
+    assert.equal(same.events[0].frame, 36);
+    // 换到更低帧率后太短的镜头一帧不剩：拒绝（契约，退出码 4）
+    throwsCode(() => retimeShots([{ id: 'A', in: 0, out: 12 }, { id: 'B', in: 12, out: 13 }, { id: 'C', in: 13, out: 72 }], 24 / 30, 58, { oldFrames: 72 }), EXIT.CONTRACT, 'retime-empty-shot');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('出片前的检查（planSession）：不写文件；竖屏档位要生效描述；--size 是非交付的工作版；终渲档位要在 deliveries 里；预演、静帧不要生效描述', async () => {
+  const { planSession } = await import('../../tools/film/lib/session.mjs');
+  const { makeWork } = await import('./helpers.mjs');
+  const w = makeWork('c');
+  try {
+    const before = fs.readdirSync(w.dir).sort();
+    const v = planSession({ kind: 'build', filmArg: w.dir, opts: { profile: 'vertical-1080x1920-30' } });
+    assert.deepEqual([v.width, v.height, v.fps, v.frames], [1080, 1920, 30, 90]);
+    assert.equal(v.effective, true);
+    assert.equal(v.sizeWork, false);
+    assert.equal(v.shots.at(-1).out, 90, '镜头表按帧率换算，最后一镜止于新帧数');
+    const s = planSession({ kind: 'build', filmArg: w.dir, opts: { size: '960x540' } });
+    assert.equal(s.sizeWork, true);
+    assert.equal(s.effective, false, '--size 的工作版不跑交付 QA，不写生效描述');
+    assert.deepEqual([s.profile.baseWidth, s.profile.baseHeight], [1920, 1080]);
+    assert.ok(s.warnings.some(x => x.code === 'size-not-deliverable'));
+    assert.equal(planSession({ kind: 'build', filmArg: w.dir, opts: {} }).effective, false, '与 film.json 一致时直接给 QA film.json');
+    assert.equal(planSession({ kind: 'animatic', filmArg: w.dir, opts: { profile: 'vertical-1080x1920-30' } }).effective, false, '预演不是交付件');
+    assert.equal(planSession({ kind: 'stills', filmArg: w.dir, opts: { profile: 'vertical-1080x1920-30' } }).effective, false);
+    throwsCode(() => planSession({ kind: 'build', filmArg: w.dir, opts: { final: true, profile: 'vertical-1080x1920-30' } }), EXIT.CONTRACT, 'profile-not-delivery');
+    throwsCode(() => planSession({ kind: 'build', filmArg: w.dir, opts: { profile: 'no-such-profile' } }), EXIT.USAGE, 'profile-unknown');
+    throwsCode(() => planSession({ kind: 'build', filmArg: w.dir, opts: { size: '960x540', final: true } }), EXIT.USAGE, 'size-final');
+    assert.deepEqual(fs.readdirSync(w.dir).sort(), before, 'planSession 不写任何文件');
+  } finally { w.cleanup(); }
+});
+
+test('QA 的命令行：生效描述、页面与视口、页面导出的事件表都交给 QA', async () => {
+  const { qaArgs } = await import('../../tools/film/lib/qa.mjs');
+  const q = qaArgs({ master: '/r/master.mp4', film: { dir: '/f' }, filmFile: '/r/film.effective.json', profile: { id: 'vertical-1080x1920-30' }, runDir: '/r', pageDir: '/f', size: [1080, 1920], events: '/r/events.json' });
+  assert.equal(q[q.indexOf('--film') + 1], '/r/film.effective.json');
+  assert.equal(q[q.indexOf('--size') + 1], '1080x1920');
+  assert.equal(q[q.indexOf('--events') + 1], '/r/events.json');
+  assert.equal(q[q.indexOf('--profile') + 1], 'vertical-1080x1920-30');
+  const b = qaArgs({ master: 'm', film: { dir: '/f' }, profile: { id: 'web-1080p24' }, runDir: '/r', size: [1920, 1080] });
+  assert.equal(b[b.indexOf('--film') + 1], path.join('/f', 'film.json'), '没有生效描述时给 film.json');
+  assert.ok(!b.includes('--size') && !b.includes('--page'), '没有页面（B）时不给视口');
+});

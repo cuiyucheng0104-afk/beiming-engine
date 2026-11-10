@@ -3,8 +3,9 @@
 //   <outRoot>/<run-id>/            一次运行的全部产物：master.mp4 web.mp4 player.html run.json qa/report.json contact.jpg …
 //   <outRoot>/<run-id>/work/       中间件（video.mp4 等）；work/tmp/ 是子进程的 TMPDIR，运行结束整体删除
 //   <outRoot>/<run-id>/logs/       每一步的完整输出
-//   <outRoot>/latest               指针文件：最近一次成功的完整出片（build）的 run-id；不用符号链接（兼容 Windows）
-//   <outRoot>/latest-<kind>        各类运行（stills、animatic、render）最近一次成功的 run-id
+//   <outRoot>/latest               指针文件：最近一次整条链跑完且没有失败的 build 的 run-id（含 --no-qa、--size 的工作版，
+//                                  它们的 run.json 记 blocked / rendered；--to 提前停、失败、中断不更新）；不用符号链接（兼容 Windows）
+//   <outRoot>/latest-<kind>        各类运行（stills、animatic、render）同口径的最近一次
 //   <outRoot>/cache/               步骤缓存（按输入哈希）
 //   <outRoot>/.lock                作品锁：同一作品同一时间只允许一次运行（旧脚本写固定路径，并行会互相覆盖）→ 退出码 5
 // run-id = UTC 的 YYYYMMDD-HHMMSS-<提交前 8 位>[-dirty]（附录 C4；作品描述包与 QA 门都按这个格式认运行目录）；

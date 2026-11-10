@@ -2,7 +2,8 @@
 // 档位的唯一定义在 engine/production/profiles.json（P05）；它合入前用下面与 D07 逐项一致的内置表，并在信封里给出警告。
 //   resolveProfile(film, { override, size }) → { id, width, height, fps, lufs, lufsTol, truePeak, base, source, custom }
 //     顺序：--profile > film.json 的 output.profile > v1 作品按 film.json 的 size/fps（编码与响度按 web-1080p24）
-//     --size 只覆盖画幅（非 --final），记进 run.json，不改档位 id
+//     --size 只覆盖画幅（非 --final），记进 run.json，不改档位 id；档位原本的画幅留在 baseWidth / baseHeight。
+//     改了画幅的 build 是工作版、不是交付件：不跑交付 QA（tools/film/lib/session.mjs 的 planSession）
 import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, FilmError } from './exit.mjs';
@@ -72,12 +73,13 @@ export function resolveProfile(film, { override = null, size = null } = {}, warn
   }
   if (size) {
     warnings.push({ code: 'size-override', message: `画幅按 --size ${size[0]}x${size[1]} 覆盖（档位 ${prof.id} 是 ${prof.width}x${prof.height}）` });
-    prof = { ...prof, width: size[0], height: size[1], sizeOverride: true };
+    prof = { ...prof, width: size[0], height: size[1], sizeOverride: true, baseWidth: prof.width, baseHeight: prof.height };
   }
   return prof;
 }
 
-// 档位帧率与 film.json 不同时，帧数按时长换算；不是整数帧时给出警告（页面契约要求 DUR × fps 为整数帧）
+// 档位帧率与 film.json 不同时，帧数按时长换算；不是整数帧时给出警告（页面契约要求 DUR × fps 为整数帧）。
+// 换了帧率或画幅的 build 交给机器 QA 时，作品描述用运行目录里换算好的 film.effective.json（tools/film/lib/effective.mjs）
 export function framesAt(film, fps, warnings = []) {
   if (fps === film.fps) return film.frameCount;
   const exact = film.frameCount * fps / film.fps;

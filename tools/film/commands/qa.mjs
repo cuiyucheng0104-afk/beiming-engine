@@ -2,16 +2,20 @@
 //   默认审 out/latest 指的那次完整出片；--run <run-id> 指定别的。报告写进 <运行目录>/qa/report.json，
 //   并更新那次的 run.json：technicalAcceptance 与 status（passed / failed），附一条 qaRuns 记录。
 // 适用：QA 门晚于出片合入、改了 QA 阈值或豁免台账后复核、build 时加了 --no-qa。
+// 作品描述与出片时同一口径：那次运行用了 film.effective.json（--profile 换了画幅或帧率）就接着用；旧运行没记、规格又与 film.json
+// 不同时补写一份。按 --size 改画幅的工作版不是交付件，不审（用法错误）。
 // 退出码：0 通过 · 2 用法错误 · 3 QA 门不可用或缺环境 · 4 硬门不过 · 5 作品正被另一次运行占用。
 import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, FilmError, usage } from '../lib/exit.mjs';
-import { rel } from '../lib/repo.mjs';
+import { ROOT, rel } from '../lib/repo.mjs';
 import { loadFilm } from '../lib/spec.mjs';
 import { resolveProfile } from '../lib/profiles.mjs';
 import { readLatest, acquireLock, writeAtomic, jobOf } from '../lib/rundir.mjs';
 import { exec, isolatedEnv, killAll } from '../lib/proc.mjs';
 import { runQa } from '../lib/qa.mjs';
+import { qaInputs } from '../lib/deliver.mjs';
+import { differs, writeEffectiveFilm } from '../lib/effective.mjs';
 import { envelope } from '../lib/output.mjs';
 import { onInterrupt } from '../lib/session.mjs';
 
@@ -45,21 +49,34 @@ export async function qaCommand(opts, positionals) {
   let run;
   try { run = JSON.parse(fs.readFileSync(runFile, 'utf8')); } catch { throw usage(`找不到运行 ${id}（${rel(runFile)}）`, `可用的运行在 ${rel(outRoot)}/ 下；不给 --run 时用 out/latest`); }
   if (jobOf(run) !== 'build') throw usage(`运行 ${id} 是 ${jobOf(run)}，机器 QA 门只审完整出片（build）`);
+  if (run.profile?.sizeOverride) {
+    throw usage(`运行 ${id} 是按 --size ${run.profile.width}x${run.profile.height} 改了画幅的工作版，不是交付件：交付 QA 按档位查画幅必然不过`, `要交付就按档位重出：npm run film -- build ${film.relDir} --profile <档位>`);
+  }
   const master = path.join(dir, 'master.mp4');
   if (!fs.existsSync(master)) throw new FilmError(EXIT.CONTRACT, 'qa-no-master', `运行 ${id} 没有 master.mp4（outcome = ${run.outcome || '?'}）`, `重新出片：npm run film -- build ${film.relDir}`);
   const warnings = [];
   let profile;
   try { profile = resolveProfile(film, { override: run.profile?.custom ? null : run.profile?.id || null }, warnings); } catch { profile = { id: run.profile?.id, custom: !!run.profile?.custom }; }
+  // 作品描述：那次运行用过生效描述就接着用它（与出片时同一口径）；旧运行没记、但规格与 film.json 不同时现在补写一份
+  const spec = { width: run.expected?.width ?? profile.width, height: run.expected?.height ?? profile.height, fps: run.expected?.fps ?? profile.fps, frames: run.expected?.frames ?? film.frameCount };
+  let filmFile = run.filmEffective?.path ? path.join(ROOT, run.filmEffective.path) : null;
+  if (filmFile && !fs.existsSync(filmFile)) throw new FilmError(EXIT.CONTRACT, 'qa-effective-missing', `运行 ${id} 记的生效作品描述 ${run.filmEffective.path} 不见了`, `重新出片：npm run film -- build ${film.relDir}`);
 
   const lock = acquireLock(outRoot, { command: 'qa', kind: 'qa' }, warnings);
   const tmp = path.join(dir, 'work', `tmp-qa-${process.pid}`);
   const undo = onInterrupt(() => { fs.rmSync(tmp, { recursive: true, force: true }); lock.release(); });
   let r;
   try {
+    if (!filmFile && film.route !== 'b' && differs(film, spec)) {
+      const eff = writeEffectiveFilm(dir, film, { profileId: profile.custom ? null : profile.id, ...spec });
+      filmFile = eff.path;
+      run.filmEffective = { path: rel(eff.path), sha256: eff.sha256, from: rel(eff.from), fromSha256: eff.fromSha256, profile: eff.profile, changes: eff.changes, writtenBy: 'film qa' };
+      warnings.push({ code: 'film-effective-written', message: `运行 ${id} 的规格与 film.json 不同：补写了生效描述 ${rel(eff.path)}（${eff.changes.join('；')}）` });
+    }
     const env = isolatedEnv(process.env, tmp);
     const run_ = (cmd, args, o = {}) => exec(cmd, args, { env, ...o });
-    const frames = run.expected?.frames || film.frameCount;
-    r = await runQa({ master, film, profile, runDir: dir, exec: run_, pageDir: film.route !== 'b' ? film.pageDir : null, timeoutSec: opts.timeout || Math.max(900, Math.round(frames * 1.5)) });
+    const inputs = qaInputs({ film, runDir: dir, width: spec.width, height: spec.height, filmEffective: filmFile });
+    r = await runQa({ master, film, profile, runDir: dir, exec: run_, ...inputs, timeoutSec: opts.timeout || Math.max(900, Math.round(spec.frames * 1.5)) });
   } finally {
     await killAll().catch(() => {});
     fs.rmSync(tmp, { recursive: true, force: true });

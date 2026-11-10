@@ -2,14 +2,17 @@
 //   A / C 页面型：probe → mix → cuecheck → video → mux → web → poster → contact → player → qa   （步骤见 engine/render/build.mjs）
 //   B 原生：      prepare → preflight → native → web → poster → contact → player → qa          （见 tools/film/lib/native-steps.mjs）
 //   预演（animatic）：A / C probe → mix → video（半分辨率、previs=1）→ preview → contact → player；B prepare → preflight → native（draft）→ contact → player
+// 顺序：用法与契约检查（planSession：作品描述、页面、档位、--size / --final、步骤名）→ 写审片记录（--waive）→ 闸门（--final）→ 开运行目录；
+// 前面任何一项不过都直接退出，不写记录、不建目录。
 // --final 先查闸门（D08）：required 的 look 与 animatic 必须是用户通过或带用户原话的豁免，否则退出码 4，一帧不渲。
+// --profile 换了画幅或帧率时，QA 读运行目录里的 film.effective.json（tools/film/lib/effective.mjs）；--size 的工作版不跑交付 QA。
 import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, FilmError, usage } from '../lib/exit.mjs';
 import { rel, sha256File } from '../lib/repo.mjs';
 import { loadFilm } from '../lib/spec.mjs';
-import { openSession, closeSession, addOutput, parseGpu } from '../lib/session.mjs';
-import { runSteps } from '../lib/pipeline.mjs';
+import { planSession, openSession, closeSession, addOutput, parseGpu } from '../lib/session.mjs';
+import { runSteps, checkStepName } from '../lib/pipeline.mjs';
 import { deliverSteps } from '../lib/deliver.mjs';
 import { nativeSteps } from '../lib/native-steps.mjs';
 import { pageSteps } from '../../../engine/render/build.mjs';
@@ -19,7 +22,7 @@ import { envelope } from '../lib/output.mjs';
 const COMMON = {
   '--profile': { type: 'string', arg: '<档位>', help: '交付档位（默认 film.json 的 output.profile）' },
   '--workers': { type: 'int', min: 1, max: 32, arg: '<n>', help: '页面渲染并行路数（默认 4）' },
-  '--size': { type: 'string', arg: '<宽x高>', help: '改画幅（不能与 --final 同用；记进 run.json）' },
+  '--size': { type: 'string', arg: '<宽x高>', help: '改画幅出工作版：不是交付件，不跑交付 QA（只核对规格）；不能与 --final 同用' },
   '--query': { type: 'string', arg: '<k=v>', help: '原样传给页面的查询串' },
   '--audio': { type: 'string', arg: '<none|x.wav|x.py>', help: '覆盖 film.json 的声音：none、现成混音或声音脚本' },
   '--page': { type: 'string', arg: '<目录>', help: '页面目录（默认作品目录；《北冥》样片是仓库根 .）' },
@@ -58,10 +61,16 @@ export const BUILD_DOC = {
     '出片链（--from / --to 用这些步骤名）：',
     '  A / C 页面型  probe → mix → cuecheck → video → mux → web → label → poster → contact → player → qa',
     '  B 原生        prepare → preflight → native → web → label → poster → contact → player → qa',
-    '产物：master.mp4 web.mp4 player.html contact.jpg poster.jpg run.json qa/report.json；整条链跑完且 QA 通过时更新 <作品>/out/latest。',
+    '产物：master.mp4 web.mp4 player.html contact.jpg poster.jpg run.json qa/report.json。',
+    'out/latest：整条链跑完且没有失败时指向这次（--no-qa、--size 的工作版也更新，它们的 run.json 分别记 blocked、rendered）；',
+    '  --to 提前停、失败、被中断都不更新。',
     '输入没变的步骤直接复用缓存（out/cache/）；film.json 的 aigc.contains = true 时 master.mp4 与 web.mp4 写入隐式 AIGC 标识（D11）。',
     '机器 QA 门（node tools/qa/cli.mjs report）硬门不通过时退出码 4，结论写进 run.json 的 technicalAcceptance。',
-    '终渲：--final 先查闸门（look → animatic → final，决定 D08）：没有用户认可或带用户原话的豁免时退出码 4，一帧不渲。',
+    '--profile 换成画幅或帧率与 film.json 不同的档位时，镜头表按帧率换算，交给 QA 的作品描述是运行目录里换算好的',
+    '  film.effective.json（film.json 不改；run.json 的 filmEffective 记来源与改动）。',
+    '--size 改画幅的是工作版、不是交付件：不跑交付 QA，只核对帧数、画幅、帧率与音轨（不符退出码 4），符合时退出码 0。',
+    '终渲：--final 先查闸门（look → animatic → final，决定 D08）：没有用户认可或带用户原话的豁免时退出码 4，一帧不渲；',
+    '  终渲档位要在 film.json 的 deliveries 里。用法与契约检查全部在写审片记录（--waive）和开运行目录之前做完。',
   ],
   examples: [
     'npm run film -- build films/my-film                         工作版（不查闸门）',
@@ -131,23 +140,32 @@ export async function runBuild(kind, opts, positionals, command = kind) {
   if (opts.waive && !opts.reason) throw usage('--waive 要配 --reason <理由>', '豁免必须写理由；用户的原话用 --quote，出处用 --source');
   if ((opts.quote && !opts.source) || (!opts.quote && opts.source)) throw usage('--quote 与 --source 要一起给：原话和它的出处缺一不可');
   if ((opts.quote || opts.reason || opts.sourceKind || opts.saidAt || opts.reviewer) && !opts.waive) throw usage('--reason / --quote / --source / --source-kind / --said-at / --reviewer 只在 --waive 时使用', '审阅认可用：npm run film -- review approve <闸> <作品目录> …');
+  // 终渲只认带用户原话的豁免：没有原话的 --waive 只能记成内部说明，放行不了 --final，记下来也只是一条用不上的记录
+  if (opts.final && opts.waive && !opts.quote) throw usage('--final 只认带用户原话的豁免：--waive 要配 --quote <用户原话> --source <出处>', '没有用户原话时先出工作版（去掉 --final）；用户认可后用 npm run film -- review approve <闸> <作品目录> 记录');
+
+  // 先把用法与契约全部查完（作品描述、页面目录、档位、--size / --final、步骤名），再写审片记录、判闸门、开运行目录：
+  // 任何一项不过都在这里退出（2 / 4），review/ 里不会多出记录，也不建运行目录
+  const o = { workers: 4, gpu: 'required', ...opts };
+  const plan = planSession({ kind, filmArg: positionals[0], opts: o });
+  const steps = stepsFor({ film: plan.film, kind });
+  checkStepName(steps, opts.from, '--from');
+  checkStepName(steps, opts.to, '--to');
+  const ids = steps.map(s => s.id);
+  if (opts.from && opts.to && ids.indexOf(opts.to) < ids.indexOf(opts.from)) throw new FilmError(EXIT.USAGE, 'step-order', `--to ${opts.to} 在 --from ${opts.from} 之前`, `步骤顺序：${ids.join(' → ')}`);
 
   // 闸门在开运行目录之前判：拒绝终渲时不留任何产物
   let gateBasis = null, waived = null;
-  if (opts.waive || opts.final) {
-    const film = loadFilm(positionals[0], { page: opts.page ? path.resolve(opts.page) : null });
-    if (opts.waive) {
-      const r = await recordWaivers(film, opts.waive, { reason: opts.reason, quote: opts.quote, source: opts.source, sourceKind: opts.sourceKind, saidAt: opts.saidAt, reviewer: opts.reviewer });
-      process.stderr.write(`已记${r.kind === 'user' ? '用户豁免' : '内部豁免说明（没有用户原话，不放行 --final）'} ${opts.waive.join('、')} → ${r.files.join('、')}\n`);
-      waived = r;
-    }
-    if (opts.final) {
-      const status = await gateStatus(film);
-      gateBasis = { checked: true, by: status.by, basis: assertFinalAllowed(film, status) };
-    }
+  if (opts.waive) {
+    const r = await recordWaivers(plan.film, opts.waive, { reason: opts.reason, quote: opts.quote, source: opts.source, sourceKind: opts.sourceKind, saidAt: opts.saidAt, reviewer: opts.reviewer });
+    process.stderr.write(`已记${r.kind === 'user' ? '用户豁免' : '内部豁免说明（没有用户原话，不放行 --final）'} ${opts.waive.join('、')} → ${r.files.join('、')}\n`);
+    waived = r;
+  }
+  if (opts.final) {
+    const status = await gateStatus(plan.film);
+    gateBasis = { checked: true, by: status.by, basis: assertFinalAllowed(plan.film, status) };
   }
 
-  const ctx = await openSession({ command, kind, filmArg: positionals[0], opts: { workers: 4, gpu: 'required', ...opts } });
+  const ctx = await openSession({ command, kind, filmArg: positionals[0], opts: o, plan });
   ctx.gateBasis = gateBasis;
   if (waived) {
     ctx.waived = { gates: opts.waive, kind: waived.kind, records: waived.files };
@@ -155,7 +173,6 @@ export async function runBuild(kind, opts, positionals, command = kind) {
   }
   let error = null, complete = false, output = null, frameHashes = null;
   try {
-    const steps = stepsFor(ctx);
     ({ complete } = await runSteps(ctx, steps, { from: opts.from || null, to: opts.to || null, noCache: !!opts.noCache }));
     // 汇总产物
     const main = kind === 'animatic' ? ctx.art.animatic : ctx.art.master;
@@ -165,10 +182,12 @@ export async function runBuild(kind, opts, positionals, command = kind) {
     if (!ctx.nativeDevice && !ctx.gpu && ctx.meta.video?.gpu) ctx.gpu = ctx.meta.video.gpu;
     if (main && complete) {
       ({ output, frameHashes } = await checkOutput(ctx, main));
-      if (kind === 'animatic') {
-        // 预演不是交付件：技术验收就是编排器的规格核对（帧数、画幅、帧率、音轨），证据是 checks/output.json
+      if (kind === 'animatic' || ctx.sizeWork) {
+        // 预演、改画幅（--size）的工作版不是交付件：不跑交付 QA，编排器核对规格（帧数、画幅、帧率、音轨），证据是 checks/output.json；
+        // 规格不符时 checkOutput 已按退出码 4 失败
         ctx.nonDeliverable = true;
-        ctx.specCheck = { status: 'passed', evidence: [rel(path.join(ctx.run.dir, 'checks', 'output.json'))], by: 'tools/film 预演规格核对（帧数、画幅、帧率、音轨；不是交付 QA）', summary: `预演 ${output.frames} 帧 ${output.width}×${output.height}` };
+        const what = kind === 'animatic' ? '预演' : `改画幅的工作版（--size ${ctx.width}x${ctx.height}）`;
+        ctx.specCheck = { status: 'passed', evidence: [rel(path.join(ctx.run.dir, 'checks', 'output.json'))], by: `tools/film ${kind === 'animatic' ? '预演' : '工作版'}规格核对（帧数、画幅、帧率、音轨；不是交付 QA）`, summary: `${what} ${output.frames} 帧 ${output.width}×${output.height}` };
       } else if (ctx.qa?.status === 'failed') {
         error = new FilmError(EXIT.CONTRACT, 'qa-failed', ctx.qa.message, `逐项见 ${rel(ctx.qa.reportPath || path.join(ctx.run.dir, 'qa'))}；改完重跑 npm run film -- build ${ctx.film.relDir}（输入没变的步骤会复用）`);
       }
@@ -214,7 +233,7 @@ async function checkOutput(ctx, main) {
 export function summarize(ctx, body) {
   const lines = [];
   const tech = body.technicalAcceptance;
-  const kindLabel = { mix: '声音', assemble: '重新封装' }[ctx.command] || { build: ctx.final ? '终渲' : '工作版出片', animatic: '动态预演' }[ctx.kind] || ctx.kind;
+  const kindLabel = { mix: '声音', assemble: '重新封装' }[ctx.command] || { build: ctx.final ? '终渲' : ctx.sizeWork ? '改画幅的工作版（不是交付件）' : '工作版出片', animatic: '动态预演' }[ctx.kind] || ctx.kind;
   lines.push(`${kindLabel}完成：${ctx.film.relDir} → ${rel(ctx.run.dir)}/${body.outcome === 'partial' ? `（按要求只跑到 ${ctx.steps.at(-1)?.id}）` : ''}`);
   for (const o of ctx.outputs.filter(o => ['master', 'animatic', 'web', 'player', 'contact', 'poster', 'qa-report', ...(body.outcome === 'partial' ? ['audio', 'cuecheck', 'events'] : [])].includes(o.kind))) lines.push(`  ${o.kind.padEnd(10)} ${o.path}`);
   lines.push(`  run.json   ${rel(path.join(ctx.run.dir, 'run.json'))}`);
@@ -228,9 +247,11 @@ export function summarize(ctx, body) {
     if (ctx.warnings.length) lines.push(`警告 ${ctx.warnings.length} 条（--json 看全部）：${ctx.warnings.slice(0, 3).map(w => w.message).join('；')}${ctx.warnings.length > 3 ? ' …' : ''}`);
     return lines.join('\n');
   }
-  const techText = tech.status === 'passed' ? (ctx.kind === 'animatic' ? '预演规格核对通过 ✓' : '机器 QA 通过 ✓') : tech.status === 'failed' ? '不通过 ✗' : `未运行（${tech.summary || '没有机器 QA'}）`;
+  const techText = tech.status === 'passed' ? (ctx.kind === 'animatic' ? '预演规格核对通过 ✓' : '机器 QA 通过 ✓') : tech.status === 'failed' ? '不通过 ✗' : ctx.sizeWork ? '未运行（不是交付件；规格核对通过 ✓）' : `未运行（${tech.summary || '没有机器 QA'}）`;
   lines.push(`状态：已输出 ✓ · 技术检查 ${techText} · 人工认可 未审${body.status === 'blocked' ? '（run.json 记为 blocked：技术验收没做，不能交付）' : ''}`);
+  if (body.filmEffective) lines.push(`  生效描述   ${body.filmEffective.path}（${body.filmEffective.changes.join('；')}）`);
   if (ctx.kind === 'animatic') lines.push(`下一步：把 animatic.mp4 与 contact.jpg 给用户看；用户认可后 npm run film -- review approve animatic ${ctx.film.relDir} --quote "<原话>" --source "<出处>" --reviewer "<审阅人>"`);
+  else if (ctx.sizeWork) lines.push(`下一步：这是改画幅的工作版，不能交付。要交付按档位出：npm run film -- build ${ctx.film.relDir} --profile <档位>`);
   else if (!ctx.final) lines.push(`下一步：这是工作版。终渲：npm run film -- build ${ctx.film.relDir} --final（要求 look / animatic 闸已通过）`);
   else lines.push(`下一步：成片给用户看；用户认可后 npm run film -- review approve final ${ctx.film.relDir} --quote "<原话>" --source "<出处>" --reviewer "<审阅人>"，之后才能称「已交付」`);
   if (ctx.warnings.length) lines.push(`警告 ${ctx.warnings.length} 条（--json 看全部）：${ctx.warnings.slice(0, 3).map(w => w.message).join('；')}${ctx.warnings.length > 3 ? ' …' : ''}`);
@@ -240,7 +261,7 @@ export function summarize(ctx, body) {
 export async function buildCommand(opts, positionals, kind = 'build', command = kind) {
   const { ctx, body } = await runBuild(kind, opts, positionals, command);
   return {
-    env: envelope({ command: `film ${command}`, exitCode: 0, outputs: withRunJson(ctx), runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), status: body.status, technicalAcceptance: body.technicalAcceptance.status, steps: ctx.steps.map(s => ({ id: s.id, status: s.status, seconds: s.seconds })) } }),
+    env: envelope({ command: `film ${command}`, exitCode: 0, outputs: withRunJson(ctx), runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), status: body.status, deliverable: body.deliverable, technicalAcceptance: body.technicalAcceptance.status, filmEffective: body.filmEffective?.path || null, steps: ctx.steps.map(s => ({ id: s.id, status: s.status, seconds: s.seconds })) } }),
     human: summarize(ctx, body),
   };
 }

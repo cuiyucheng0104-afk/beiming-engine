@@ -7,7 +7,8 @@
 //   contact  联系表：概览（约每 1–2 秒一格，含片尾帧）+ 每个切点前 3 后 3 帧的逐帧条；标帧号、时间码、镜头号与切点 → contact.jpg
 //            只取本次运行的帧（从本次的视频里按帧号解码），不会混进旧静帧（加固计划 TOOLS-08）
 //   player   单文件播放页：标题、画幅、时长、镜头分段与切点来自 film.json 与 ffprobe；逐帧步进、跳切点 → player.html
-//   qa       node tools/qa/cli.mjs report（机器 QA 门）→ qa/report.json、report.md、contact.jpg；硬门不过退出码 4
+//   qa       node tools/qa/cli.mjs report（机器 QA 门）→ qa/report.json、report.md、contact.jpg；硬门不过退出码 4。
+//            本次规格与 film.json 不同时作品描述给 film.effective.json；--no-qa 与 --size 的工作版（不是交付件）不跑
 // 这些步骤都很轻，不进缓存（--from 时照常重跑）。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -137,15 +138,29 @@ export const player = {
   },
 };
 
+// QA 的输入（build 与 film qa 共用）：作品描述（本次规格与 film.json 不同时用运行目录的 film.effective.json）、页面目录与视口、
+// 页面导出的事件表（film.json 没写 events 时）。口径说明见 tools/film/lib/qa.mjs 文件头
+export function qaInputs({ film, runDir, width, height, filmEffective = null }) {
+  const page = film.route !== 'b';
+  const ev = path.join(runDir, 'events.json');
+  return {
+    filmFile: filmEffective || null,
+    pageDir: page ? film.pageDir : null,
+    size: page ? [width, height] : null,
+    events: page && !film.events.length && fs.existsSync(ev) ? ev : null,
+  };
+}
+
 export const qa = {
   id: 'qa', title: '机器 QA 门（tools/qa/cli.mjs，P07）',
-  when: ctx => (ctx.opts.noQa ? '加了 --no-qa' : true),
+  when: ctx => (ctx.opts.noQa ? '加了 --no-qa' : ctx.sizeWork ? '按 --size 改了画幅的工作版不是交付件：不跑交付 QA（规格核对见 checks/output.json）' : true),
   outputs: () => ({ qaReport: 'qa/report.json', qaMarkdown: 'qa/report.md', qaContact: 'qa/contact.jpg' }),
   async run(ctx) {
-    // 页面型作品把页面目录交给 QA（文字、底板两组要打开页面逐帧读；《北冥》样片的页面在仓库根）；B 没有页面，QA 自己跳过这两组
-    const pageDir = ctx.film.route !== 'b' ? ctx.film.pageDir : null;
+    // 页面型作品把页面目录与视口交给 QA（文字、底板两组要打开页面逐帧读；《北冥》样片的页面在仓库根）；B 没有页面，QA 自己跳过这两组。
+    // 本次规格与 film.json 不同（--profile 换了画幅或帧率）时，作品描述给运行目录里换算好的 film.effective.json
+    const inputs = qaInputs({ film: ctx.film, runDir: ctx.run.dir, width: ctx.width, height: ctx.height, filmEffective: ctx.filmEffective?.path });
     // QA 要整片解码好几遍、文字组还要逐帧开页面：总时限按帧数给（每帧约 1.5 秒上限，最少 15 分钟）
-    const r = await runQa({ master: ctx.art.master, film: ctx.film, profile: ctx.profile, runDir: ctx.run.dir, exec: ctx.exec, pageDir, timeoutSec: ctx.opts.timeout ? Math.max(ctx.opts.timeout, 900) : Math.max(900, Math.round(ctx.frames * 1.5)) });
+    const r = await runQa({ master: ctx.art.master, film: ctx.film, profile: ctx.profile, runDir: ctx.run.dir, exec: ctx.exec, ...inputs, timeoutSec: ctx.opts.timeout ? Math.max(ctx.opts.timeout, 900) : Math.max(900, Math.round(ctx.frames * 1.5)) });
     for (const o of r.outputs || []) if (o?.path && /^qa-/.test(String(o.kind || ''))) ctx.qaOutputs = [...(ctx.qaOutputs || []), o];
     ctx.qa = r;
     if (r.status === 'not-run') {

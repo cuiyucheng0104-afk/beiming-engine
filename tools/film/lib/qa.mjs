@@ -1,6 +1,13 @@
 // 北冥仓库 · 出片编排 · 机器 QA 门对接（tools/qa/cli.mjs，报告格式见附录 C8）。
-//   runQa({ master, film, profile, runDir, exec, timeoutSec }) → { status: passed|failed|not-run, report, reportPath, technical, exitCode, failed[], warned[], message }
-// 调用：node tools/qa/cli.mjs report <运行目录>/master.mp4 --film <作品>/film.json [--page <页面目录>] [--profile <档位>] --out <运行目录>/qa --json
+//   runQa({ master, film, filmFile, profile, runDir, exec, pageDir, size, events, timeoutSec })
+//     → { status: passed|failed|not-run, report, reportPath, technical, exitCode, failed[], warned[], message }
+// 调用：node tools/qa/cli.mjs report <运行目录>/master.mp4 --film <作品描述> --out <运行目录>/qa
+//         [--page <页面目录> --size <宽x高>] [--events <运行目录>/events.json] [--profile <档位>] --json
+//   作品描述与 QA 的口径（docs/quality/QA-GATE.md §4.1）：QA 要求作品描述的画幅、帧率与档位一致，解码帧数等于作品描述的 frameCount，
+//   文字组按作品描述的画幅开页面。所以本次规格与 film.json 不同时（--profile 换了画幅或帧率），--film 给运行目录里换算好的
+//   film.effective.json（tools/film/lib/effective.mjs），一致时给作品目录的 film.json；页面型作品另把视口 --size 明确交给 QA。
+//   --events：film.json 没写 events、页面导出了 window.EV 时（C 路线），把运行目录里的 events.json 交给声画同步组——
+//   QA 原本到作品目录找它，但编排器把这份导出写进了运行目录（附录 C4：产物只写进运行目录）。
 //   report 跑全部检查组（交付规格、画面异常、文字、底板、声画同步，再加已知问题台账），写 qa/report.json、report.md、contact.jpg；
 //   B 路线没有页面，文字与底板组由 QA 自己跳过并写明原因。
 //   stdout 是 C2 信封：result 是 C8 报告本身，result.technicalAcceptance 是 QA 给的技术验收结论。
@@ -31,19 +38,23 @@ function parseOut(stdout) {
 const isReport = j => j && Array.isArray(j.checks) && typeof j.ok === 'boolean';
 const lastLine = s => String(s || '').trim().split('\n').filter(Boolean).slice(-1)[0] || '';
 
-export function qaArgs({ master, film, profile, runDir, pageDir = null }) {
-  const args = ['report', master, '--film', path.join(film.dir, 'film.json'), '--out', path.join(runDir, 'qa')];
-  if (pageDir) args.push('--page', pageDir);
+export function qaArgs({ master, film, filmFile = null, profile, runDir, pageDir = null, size = null, events = null }) {
+  const args = ['report', master, '--film', filmFile || path.join(film.dir, 'film.json'), '--out', path.join(runDir, 'qa')];
+  if (pageDir) {
+    args.push('--page', pageDir);
+    if (size) args.push('--size', `${size[0]}x${size[1]}`);
+  }
+  if (events) args.push('--events', events);
   if (profile && !profile.custom) args.push('--profile', profile.id);
   args.push('--json');
   return args;
 }
 
-export async function runQa({ master, film, profile, runDir, exec, timeoutSec = 900, pageDir = null }) {
+export async function runQa({ master, film, filmFile = null, profile, runDir, exec, timeoutSec = 900, pageDir = null, size = null, events = null }) {
   timeoutSec = Math.max(timeoutSec, 120);
   const cli = qaCli();
   if (!cli) return { status: 'not-run', reason: 'qa-missing', message: '机器 QA 门 tools/qa/cli.mjs 不存在，本次没有做技术验收' };
-  const args = [cli, ...qaArgs({ master, film, profile, runDir, pageDir })];
+  const args = [cli, ...qaArgs({ master, film, filmFile, profile, runDir, pageDir, size, events })];
   let res;
   try {
     // 文字与底板检查要逐帧跑页面，长片可能几分钟不出声：看门狗放宽到 15 分钟，总超时由调用方按帧数给
@@ -76,6 +87,7 @@ export async function runQa({ master, film, profile, runDir, exec, timeoutSec = 
     evidence: ['qa/report.json'],
     report: rel(reportPath),
     by: 'node tools/qa/cli.mjs report（机器 QA 门）',
+    film: rel(filmFile || path.join(film.dir, 'film.json')),
     qa: ta ? { status: ta.status ?? null, evidence: ta.evidence ?? [] } : null,
     summary: report.summary ? { pass: report.summary.pass ?? null, warn: report.summary.warn ?? null, fail: report.summary.fail ?? null, waived: report.summary.waived ?? null, hardFailures: report.summary.hardFailures ?? failed.map(c => c.id) } : null,
     skipped: Array.isArray(report.skipped) ? report.skipped : [],

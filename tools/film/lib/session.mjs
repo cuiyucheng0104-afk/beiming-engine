@@ -1,7 +1,12 @@
 // 北冥仓库 · 出片编排 · 一次运行的上下文：作品、档位、运行目录、作品锁、隔离的 TMPDIR、旧位置工作区、信号处理与 run.json。
-//   const ctx = await openSession({ command, kind, filmArg, opts })   kind = build | animatic | stills | render
+//   const plan = planSession({ kind, filmArg, opts })   开运行目录之前的全部用法与契约检查（不写文件、不起进程），出错就在这里抛
+//   const ctx = await openSession({ command, kind, filmArg, opts, plan })   kind = build | animatic | stills | render（不给 plan 时内部先 plan）
 //   … 跑步骤 …
 //   await closeSession(ctx, { error, complete })   无论成败都调用：结束子进程、还原旧位置、删临时目录、写 run.json、更新 latest、放锁
+// 本次规格（画幅、帧率、帧数）与 film.json 不同、又要交给机器 QA 时（--profile 换了档位），运行目录里另写一份换算好的
+// film.effective.json（tools/film/lib/effective.mjs），QA 的 --film 指向它；run.json 的 filmEffective 记来源与改动。
+// latest 指针：整条链跑完且没有失败就更新（含 --no-qa 与 --size 的工作版，它们的 run.json 分别记 blocked、rendered）；
+// --to 提前停、失败、被中断都不更新。作品描述包（engine/production/state.js）按它找「最近一次运行」，再看那次的 kind 与 status。
 // run.json 字段（附录 C8，兼容 engine/production/project.js 的 validateRenderResult）：
 //   schemaVersion 1、kind、final、status、outcome、projectId、shotId（整片 film）、route、backend、sourceCommit、dirty、argv、rerun、
 //   tools{node,playwright,browser,ffmpeg,python?,raea?}、actualDevice、actualGraphicsBackend、actualEncoder、softwareFallback、
@@ -10,8 +15,10 @@
 //   creativeAcceptance{status, reviews[]}、gates、warnings[]、notes[]、error、legacyRestored[]、repoTouched[]
 // status 用 RenderResult 的取值，含义与校验器一致（validateRenderResult）：
 //   passed   技术验收通过：build 由机器 QA 门（P07）判定；stills / render / animatic 不是交付件，由编排器核对规格（帧数、画幅、帧率、音轨）
+//   rendered 非交付件跑完（作品描述包合入后的取值）：stills / render / animatic，以及按 --size 改画幅的 build 工作版；不跑交付 QA，规格核对在 specCheck
 //   failed   运行出错，或 QA 硬门不过
-//   blocked  没能完成技术验收：缺环境、作品被占用、用法错误；或画面已出但 QA 没跑（P07 未提供、--no-qa、--to 提前停）
+//   blocked  没能完成技术验收：缺环境、作品被占用、用法错误；或画面已出但 QA 没跑（P07 未提供、--no-qa、--to 提前停；
+//            作品描述包合入前，--size 的工作版也记 blocked）
 //   accepted 只由 final 闸的用户认可写入（film review approve final），不由出片命令写
 // outcome 记编排本身的结果：complete（整条链跑完）· partial（--to 提前停）· failed · interrupted
 import fs from 'node:fs';
@@ -23,8 +30,9 @@ import { ROOT, rel, gitInfo, toolVersions, findPython, hashTree, hashJson, fileH
 import { preflight as envPreflight } from '../../env/preflight.mjs';
 import { pythonEnv } from '../../env/lib/python.mjs';
 import { findSh, shFix } from '../../env/lib/sh.mjs';
-import { loadFilm, shotsAt, cutsOf } from './spec.mjs';
+import { loadFilm, cutsOf } from './spec.mjs';
 import { resolveProfile, framesAt } from './profiles.mjs';
+import { differs, retimeShots, writeEffectiveFilm } from './effective.mjs';
 import { parseSize } from './args.mjs';
 import { createRunDir, acquireLock, setLatest, writeAtomic } from './rundir.mjs';
 import { exec as rawExec, killAll, isolatedEnv, which } from './proc.mjs';
@@ -89,7 +97,10 @@ export function parseGpu(s) {
   return { device: device || s, backend: backend ? `WebGL2 / ANGLE ${backend}` : 'WebGL2 / ANGLE' };
 }
 
-export async function openSession({ command, kind, filmArg, opts }) {
+// 开运行目录之前的全部检查与换算：作品描述、页面目录、--size / --final、交付档位、B 路线的档位一致性、--audio、本次规格
+// （画幅、帧率、帧数、镜头表）。不写任何文件、不起进程：用法或契约有问题都在这里抛（退出码 2 / 4），
+// build 的 --waive 在它之后才写审片记录，所以用法错误不会留下记录。
+export function planSession({ kind, filmArg, opts }) {
   const warnings = [], notes = [];
   const film = loadFilm(filmArg, { page: opts.page ? path.resolve(opts.page) : null });
   warnings.push(...film.warnings);
@@ -118,20 +129,38 @@ export async function openSession({ command, kind, filmArg, opts }) {
     notes.push({ code: 'animatic-half', message: `预演按半分辨率 ${width}×${height} 渲染，后期开关由页面读 previs=1 决定` });
   }
   if (opts.final && profile.custom) throw new FilmError(EXIT.CONTRACT, 'profile-required', '终渲要按明确的交付档位出片，但 film.json 没有 output.profile', `在 film.json 写 output.profile，或加 --profile <档位>（新作品默认 web-1080p24，决定 D07）`);
+  // 终渲只按作品交付清单（film.json 的 deliveries）里的档位出片：作品描述包的状态机只认这些档位的 QA 报告
+  const deliveries = Array.isArray(film.raw?.deliveries) ? film.raw.deliveries.filter(x => typeof x === 'string') : [];
+  if (opts.final && deliveries.length && !deliveries.includes(profile.id) && profile.id !== film.profileId) {
+    throw new FilmError(EXIT.CONTRACT, 'profile-not-delivery', `终渲档位 ${profile.id} 不在作品的交付清单里（film.json 的 deliveries：${deliveries.join('、')}）`,
+      `把 ${profile.id} 加进 film.json 的 deliveries 后再终渲；只想看看效果就去掉 --final 出工作版`);
+  }
   const fps = profile.fps;
   const frames = framesAt(film, fps, warnings);
   if (film.route === 'b' && (profile.width !== film.width || profile.height !== film.height || fps !== film.fps)) {
     throw new FilmError(EXIT.CONTRACT, 'profile-native-mismatch', `档位 ${profile.id} 要 ${profile.width}×${profile.height}@${fps}，但 B 作品的 film.json 是 ${film.width}×${film.height}@${film.fps}（原生渲染按 film.json 出片）`,
       `改 film.json 的 size / fps 与档位一致，或换档位（--profile）`);
   }
-  const shots = shotsAt(film, fps);
-  const cuts = cutsOf(shots);
+  // 镜头表按本次帧率换算（与生效描述 film.effective.json 同一个函数）；有镜头换算后一帧不剩时在这里拒绝
   const k = fps / film.fps;
+  const shots = k === 1 ? film.shots : retimeShots(film.shots, k, frames, { oldFrames: film.frameCount });
+  const cuts = cutsOf(shots);
   const markFrames = [...new Set(film.events.map(e => Math.round(e.frame * k)).filter(f => f >= 0 && f < frames))];
   let query = opts.query || '';
   if (kind === 'animatic') query = query ? `${query}&previs=1` : 'previs=1';
   const audio = opts.audio ? audioOverride(film, opts.audio) : film.audio;
   const outRoot = opts.outRoot ? path.resolve(opts.outRoot) : film.outRoot;
+  // --size 改了画幅的 build 是工作版、不是交付件：交付 QA 按档位查画幅必然不过，所以不跑，只核对规格（见 commands/build.mjs）
+  const sizeWork = kind === 'build' && !!size;
+  if (sizeWork) warnings.push({ code: 'size-not-deliverable', message: `按 --size ${size[0]}x${size[1]} 改了画幅：这是工作版，不是交付件——不跑机器 QA（档位 ${profile.id} 要 ${profile.baseWidth}×${profile.baseHeight}），只核对帧数、画幅、帧率与音轨；要交付请换档位：--profile <档位>` });
+  // 本次规格与 film.json 不同、又要交给机器 QA 的（页面型路线的 build）：开运行目录后写生效描述
+  const effective = kind === 'build' && !sizeWork && film.route !== 'b' && differs(film, { width, height, fps, frames });
+  return { film, profile, width, height, fps, frames, shots, cuts, markFrames, query, audio, outRoot, size, sizeWork, effective, warnings, notes };
+}
+
+export async function openSession({ command, kind, filmArg, opts, plan = null }) {
+  const p = plan || planSession({ kind, filmArg, opts });
+  const { film, profile, width, height, fps, frames, shots, cuts, markFrames, query, audio, outRoot, warnings, notes } = p;
 
   const repoBefore = repoSnapshot();
   const lock = acquireLock(outRoot, { command, kind }, warnings);
@@ -150,6 +179,7 @@ export async function openSession({ command, kind, filmArg, opts }) {
     command, kind, final: !!opts.final, opts, film, profile, width, height, fps, frames, shots, cuts, markFrames, query, audio,
     outRoot, run, lock, pyInfo: py, python: py.cmd, pythonArgs: py.args, pythonExe: py.executable, sh: sh.path, tools, git, env, warnings, notes, startedAt: new Date().toISOString(), repoBefore,
     art: {}, meta: {}, steps: [], timing: {}, qa: null, technical: null, gpu: null, nativeDevice: null, raea: null, outputs: [],
+    sizeWork: !!p.sizeWork, filmEffective: null,
     legacy: new Legacy(path.join(run.work, 'legacy-backup')), media, rel, hashTree, hashJson, fileHash, supports,
     log: m => process.stderr.write(`${m}\n`),
     warn: (code, message) => { warnings.push({ code, message }); process.stderr.write(`[警告] ${message}\n`); },
@@ -167,7 +197,15 @@ export async function openSession({ command, kind, filmArg, opts }) {
   };
   ctx.statusVocab = await knownStatuses();
   current = ctx;
-  try { await preflight(ctx); } catch (e) { await closeSession(ctx, { error: e }); throw e; }
+  try {
+    if (p.effective) {
+      const eff = writeEffectiveFilm(run.dir, film, { profileId: profile.custom ? null : profile.id, width, height, fps, frames });
+      ctx.filmEffective = eff;
+      addOutput(ctx, eff.path, 'film-effective');
+      ctx.note('film-effective', `本次规格 ${width}×${height}@${fps} fps × ${frames} 帧与 film.json（${film.width}×${film.height}@${film.fps} × ${film.frameCount}）不同：机器 QA 用运行目录里的 film.effective.json（${eff.changes.join('；')}）`);
+    }
+    await preflight(ctx);
+  } catch (e) { await closeSession(ctx, { error: e }); throw e; }
   writeRunJson(ctx, { status: 'running' });
   ctx.log(`作品 ${film.relDir}（${film.routeInfo.brand}）· ${kind}${ctx.final ? '（终渲）' : ''} · 档位 ${profile.id} ${width}×${height}@${fps} · ${frames} 帧 · 运行目录 ${rel(run.dir)}`);
   return ctx;
@@ -233,6 +271,8 @@ const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|basic render|\bwarp\b/i
 // 技术验收：build 取机器 QA 门的结论（tools/qa report 的 technicalAcceptance，证据是相对运行目录的 qa/report.json）；
 // 其余类别（stills、render、animatic）不是交付件，不跑 QA：编排器只核对规格（帧数、画幅、帧率、音轨），记在 checks 里
 function technicalOf(ctx) {
+  // 改画幅的工作版（--size）：交付 QA 必然不过所以没跑，技术验收如实写 not-run（规格核对另记 specCheck），不拿规格核对冒充技术验收
+  if (ctx.sizeWork) return { status: 'not-run', evidence: [], by: null, summary: `改画幅的工作版（--size ${ctx.width}x${ctx.height}）不是交付件，不跑机器 QA；编排器的规格核对见 specCheck` };
   if (ctx.nonDeliverable && ctx.specCheck) {
     // 作品描述包的校验器认得 rendered：非交付件的技术验收如实写 not-run（规格核对另记 specCheck）；旧校验器只能把规格核对当作技术验收
     return (ctx.statusVocab || []).includes('rendered')
@@ -296,6 +336,9 @@ export function runJsonBody(ctx, extra = {}) {
     softwareFallback: SOFTWARE.test(String(ctx.gpu || '')),
     profile: { id: ctx.profile.id, source: ctx.profile.source, width: ctx.width, height: ctx.height, fps: ctx.fps, lufs: ctx.profile.lufs, lufsTol: ctx.profile.lufsTol, truePeak: ctx.profile.truePeak, ...(ctx.profile.sizeOverride ? { sizeOverride: true } : {}), ...(ctx.profile.custom ? { custom: true, base: ctx.profile.base } : {}) },
     expected: { frames: ctx.frames, width: ctx.width, height: ctx.height, fps: ctx.fps, shots: ctx.shots.filter(s => !s.implicit).map(s => ({ id: s.id, in: s.in, out: s.out })), cuts: ctx.cuts },
+    // 本次规格与 film.json 不同时交给机器 QA 的作品描述（运行目录里的 film.effective.json）；与 film.json 一致时为 null，QA 直接读 film.json
+    filmEffective: ctx.filmEffective ? { path: rel(ctx.filmEffective.path), sha256: ctx.filmEffective.sha256, from: rel(ctx.filmEffective.from), fromSha256: ctx.filmEffective.fromSha256, profile: ctx.filmEffective.profile, changes: ctx.filmEffective.changes } : null,
+    deliverable: ctx.kind === 'build' && !ctx.sizeWork,
     output: null, outputs: ctx.outputs, frameHashes: [], frameHashKind: null,
     timing: ctx.timing, steps: ctx.steps,
     technicalAcceptance: technicalOf(ctx),
@@ -393,6 +436,8 @@ export async function closeSession(ctx, { error = null, complete = false, output
     });
     await selfValidate(ctx, body);
     try { writeAtomic(path.join(ctx.run.dir, 'run.json'), JSON.stringify(body, null, 2) + '\n'); } catch { /* 磁盘满等极端情况 */ }
+    // latest 指针：整条链跑完且没有失败就指向这次（--no-qa、--size 的工作版也算，它们的 status 是 blocked / rendered）；
+    // --to 提前停（partial）、失败、被中断都不动。build --help、tools/film/README.md 与 rundir.mjs 写的是同一个口径
     if (outcome === 'complete' && body.status !== 'failed') setLatest(ctx.outRoot, ctx.kind, ctx.run.id);
     ctx.lock.release();
     if (current === ctx) current = null;
