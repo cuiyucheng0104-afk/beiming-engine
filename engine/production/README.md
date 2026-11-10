@@ -29,14 +29,14 @@
     { "id": "S2", "in": 96, "out": 192, "module": "shots/s2/shot.js", "evaluation": "absolute" }
   ],
   "events": [ { "id": "kun.rise", "frame": 130, "shot": "S2", "audio": "kun_breath", "visual": "鲲背出水" } ],
-  "holds": [ { "in": 186, "out": 192, "kind": "black", "reason": "片尾黑场" } ],
   "audio": { "mode": "script", "script": "audio/sound.py" },
   "deliveries": ["web-1080p24"],
   "style": { "id": "beiming-original", "version": 1, "baseline": "../../media/shot_7.6.jpg" },
   "assets": ["model:kun@v1", "plate:sky_dawn", "local:assets/far_hills.png"],
   "credits": [ { "what": "字体子集 Noto Sans SC", "owner": "Adobe / Google", "license": "OFL-1.1", "source": "fonts/LICENSE.md" } ],
-  "aigc": { "contains": true, "note": "远山底板由图像模型生成后手工整理" },
-  "gates": { "look": "required", "animatic": "required", "final": "required" }
+  "aigc": { "contains": true, "kinds": ["visual"], "note": "远山底板由图像模型生成后手工整理" },
+  "gates": { "look": "required", "animatic": "required", "final": "required" },
+  "qa": { "intentional": [ { "kind": "black", "from": 186, "to": 192, "reason": "片尾黑场" } ] }
 }
 ```
 

@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 1,
-  "$comment": "交付档位（决策 D07、计划附录 C7）。QA（tools/qa）、渲染器（engine/render）、出片编排（tools/film）都只读这一份；每个档位的交付规格完整展开，不做继承，方便机器直接比对；qa 是所有档位共用的检测阈值（档位可按键覆盖）。ffprobeFields 给出字段到 ffprobe 输出键的对照。读取与校验用 engine/production/film.js 的 loadProfiles / getProfile / ffprobeExpect / qaExpectations。",
+  "schemaVersion": 2,
+  "$comment": "交付档位（决策 D07、计划附录 C7）的唯一权威表。出片编排、渲染器与机器 QA 都读这一份：QA（tools/qa/lib/profiles.mjs）直接读它，tools/qa/profiles.builtin.json 只在这里缺档位或缺字段时兜底（兜底会在 QA 报告里标 warn，仓库检查 spec.profiles 要求零兜底）。每个档位完整展开、不做继承，方便机器逐项比对。字段写法与 QA 的 adapt 对齐：video.color.{range,matrix,primaries,transfer}、video.profiles、audio.loudness.{integrated,tolerance,truePeak}；safeArea、texts、visual、plates、sync、container、aigc 各段 QA 原样读取（含义与出处见 docs/quality/QA-GATE.md）。秒数阈值换成本片帧数由 engine/production/film.js 的 qaExpectations 完成；作品可在 film.json 的 qa 段按键覆盖。",
   "default": "web-1080p24",
   "ffprobeFields": {
     "video.codec": "codec_name",
-    "video.codecProfile": "profile",
+    "video.profiles": "profile（取其一）",
     "video.pixFmt": "pix_fmt",
     "video.sar": "sample_aspect_ratio",
     "video.fieldOrder": "field_order",
@@ -16,35 +16,10 @@
     "video.height": "height",
     "video.fps": "r_frame_rate 与 avg_frame_rate（写成 <fps>/1）",
     "audio.codec": "codec_name",
+    "audio.aacProfile": "profile",
     "audio.sampleRate": "sample_rate",
     "audio.channels": "channels",
     "audio.channelLayout": "channel_layout"
-  },
-  "qa": {
-    "$comment": "机器 QA（tools/qa）的判定阈值，所有档位共用；档位里写 qa 时按键覆盖（只覆盖写出的叶子）。秒数换成本片帧数由 film.js 的 qaExpectations 完成。calibrate = true 的项是行业常用起点值，尚未在本仓库成片上实测标定：QA 属主标定后改这里，并在 source 写明依据。",
-    "decode": { "xerror": true, "countFrames": true, "ptsUniform": true, "source": "计划 P07 delivery：-xerror 完整解码、-count_frames 计帧、PTS 严格等间隔" },
-    "black": {
-      "pixelThreshold": 0.1, "pictureRatio": 0.98, "minSeconds": 0.08, "waiverFrom": "film.json holds 里 kind = black 的区间",
-      "calibrate": true, "source": "ffmpeg blackdetect 的 pix_th / pic_th 默认值；最短 2 帧（24 fps）"
-    },
-    "freeze": {
-      "noiseDb": -60, "minSeconds": 1.0, "waiverFrom": "film.json holds 里 kind = freeze 的区间",
-      "calibrate": true, "source": "ffmpeg freezedetect 的 n 默认值；时长取 1 秒，避开一拍二、一拍三与定格镜头的正常停顿（定格要写进 holds）"
-    },
-    "flicker": {
-      "metric": "YAVG", "windowFrames": 5, "maxDeltaLuma": 12, "excludeCutFrames": 1,
-      "calibrate": true, "source": "计划 P07 visual：亮度与前后 5 帧中值之差，切点帧除外；阈值（8 位限范围码值）待实测标定"
-    },
-    "cuts": { "toleranceFrames": 1, "nmsFrames": 2, "detector": "scdet", "source": "计划 P07 visual：检出切点与镜头表对应 ±1 帧，±2 帧内非极大值抑制" },
-    "text": {
-      "opaqueAlpha": 0.9, "minHoldSeconds": 0.8, "perCharSeconds": 0.12, "minContrast": 3.0, "safeArea": "title", "glyphCheck": "cmap",
-      "source": "计划 P07 texts：不透明度 ≥90% 的连续时长 ≥ max(0.8 秒, 字数 × 0.12 秒)；对比度 ≥ 3:1；缺字按字体 cmap 比对"
-    },
-    "plates": {
-      "straightFadeStdPx": 15, "straightFadeMinRowCover": 0.3, "texelPerPxWarn": 1.0, "texelPerPxFail": 0.6,
-      "source": "计划 P07 plates：alpha = 0.5 交叉列标准差 < 15 px 且覆盖 > 30% 行高判直线淡出；贴图密度低于 1.0 texel/px 警告、低于 0.6 失败"
-    },
-    "aigc": { "marker": "含 AI 生成画面", "metadataKey": "comment", "source": "决策 D11：显式标识写片尾或说明，隐式标识写 mp4 的 comment 元数据" }
   },
   "profiles": {
     "web-1080p24": {
@@ -53,23 +28,63 @@
       "purpose": "网页、社交平台、客户预览的默认成片",
       "source": "决策 D07（docs/decisions/2026-11-10-industrial-baseline.md）",
       "video": {
-        "width": 1920, "height": 1080, "fps": 24, "cfr": true,
-        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "width": 1920,
+        "height": 1080,
+        "fps": 24,
+        "cfr": true,
+        "codec": "h264",
+        "profiles": ["High"],
+        "maxLevel": 4.1,
+        "pixFmt": "yuv420p",
+        "sar": "1:1",
+        "fieldOrder": "progressive",
         "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
       },
       "audio": {
-        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
-        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
-        "truePeakMaxDbTP": -1.0
+        "codec": "aac",
+        "aacProfile": "LC",
+        "sampleRate": 48000,
+        "channels": 2,
+        "channelLayout": "stereo",
+        "loudness": { "integrated": -14, "tolerance": 1, "truePeak": -1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" }
       },
-      "container": { "format": "mp4", "faststart": true },
-      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "container": { "formats": ["mp4", "mov"], "faststart": "warn" },
       "safeArea": {
         "unit": "每边内缩占画面宽或高的比例",
-        "title": { "top": 0.1, "bottom": 0.1, "left": 0.1, "right": 0.1 },
-        "action": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
-        "source": "保守取传统口径：标题安全框 80%、动作安全框 90%"
-      }
+        "title": { "top": 0.05, "right": 0.05, "bottom": 0.05, "left": 0.05 },
+        "action": { "top": 0.035, "right": 0.035, "bottom": 0.035, "left": 0.035 },
+        "source": "EBU R95：16:9 图文安全区 90%（每边 5%）、动作安全区 93%（每边 3.5%），与 routes/directing/VISUAL-DESIGN.md §6.3 一致"
+      },
+      "texts": {
+        "minHoldSec": 0.8,
+        "perUnitSec": 0.12,
+        "opaqueAlpha": 0.9,
+        "targetBaseSec": 1.5,
+        "targetUnitsPerSec": 4.5,
+        "minContrast": 3,
+        "goodContrast": 4.5
+      },
+      "visual": {
+        "blackPixel": 0.02,
+        "blackRatio": 0.98,
+        "freezeMinSec": 0.5,
+        "freezeNoiseDb": -50,
+        "flickerLevels": 6,
+        "flickerHalfWindow": 5,
+        "cutScore": 10,
+        "cutTolFrames": 1,
+        "cutNmsFrames": 2,
+        "jumpRatio": 3,
+        "jumpMinLevels": 2,
+        "edgeBandMinPx": 4,
+        "edgeLineMinFrac": 0.3,
+        "flashLumDelta": 20,
+        "flashMaxPerSec": 3,
+        "flashAreaFrac": 0.25
+      },
+      "plates": { "sides": ["left", "right"], "maxStdPx": 15, "minCoverage": 0.3, "minOpacity": 0.05, "densityWarn": 1, "densityFail": 0.6 },
+      "sync": { "earlyFrames": 0.25, "lateFrames": 1, "lipLateFrames": 2, "minRiseDb": 8, "searchEarlySec": 0.15, "searchLateSec": 0.25 },
+      "aigc": { "metadata": "required" }
     },
     "master-1080p24": {
       "label": "母版 1080p24",
@@ -77,24 +92,64 @@
       "purpose": "存档与二次剪辑：中间帧无损，成片高码率；网页版从同一组中间帧另编",
       "source": "决策 D07；计划附录 C7「无损中间件加高码率母版」",
       "video": {
-        "width": 1920, "height": 1080, "fps": 24, "cfr": true,
-        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "width": 1920,
+        "height": 1080,
+        "fps": 24,
+        "cfr": true,
+        "codec": "h264",
+        "profiles": ["High"],
+        "maxLevel": 5.1,
+        "pixFmt": "yuv420p",
+        "sar": "1:1",
+        "fieldOrder": "progressive",
         "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" },
         "intermediate": "lossless"
       },
       "audio": {
-        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
-        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
-        "truePeakMaxDbTP": -1.0
+        "codec": "aac",
+        "aacProfile": "LC",
+        "sampleRate": 48000,
+        "channels": 2,
+        "channelLayout": "stereo",
+        "loudness": { "integrated": -14, "tolerance": 1, "truePeak": -1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" }
       },
-      "container": { "format": "mp4", "faststart": true },
-      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "container": { "formats": ["mp4", "mov"], "faststart": "off" },
       "safeArea": {
         "unit": "每边内缩占画面宽或高的比例",
-        "title": { "top": 0.1, "bottom": 0.1, "left": 0.1, "right": 0.1 },
-        "action": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
-        "source": "保守取传统口径：标题安全框 80%、动作安全框 90%"
-      }
+        "title": { "top": 0.05, "right": 0.05, "bottom": 0.05, "left": 0.05 },
+        "action": { "top": 0.035, "right": 0.035, "bottom": 0.035, "left": 0.035 },
+        "source": "EBU R95：16:9 图文安全区 90%（每边 5%）、动作安全区 93%（每边 3.5%），与 routes/directing/VISUAL-DESIGN.md §6.3 一致"
+      },
+      "texts": {
+        "minHoldSec": 0.8,
+        "perUnitSec": 0.12,
+        "opaqueAlpha": 0.9,
+        "targetBaseSec": 1.5,
+        "targetUnitsPerSec": 4.5,
+        "minContrast": 3,
+        "goodContrast": 4.5
+      },
+      "visual": {
+        "blackPixel": 0.02,
+        "blackRatio": 0.98,
+        "freezeMinSec": 0.5,
+        "freezeNoiseDb": -50,
+        "flickerLevels": 6,
+        "flickerHalfWindow": 5,
+        "cutScore": 10,
+        "cutTolFrames": 1,
+        "cutNmsFrames": 2,
+        "jumpRatio": 3,
+        "jumpMinLevels": 2,
+        "edgeBandMinPx": 4,
+        "edgeLineMinFrac": 0.3,
+        "flashLumDelta": 20,
+        "flashMaxPerSec": 3,
+        "flashAreaFrac": 0.25
+      },
+      "plates": { "sides": ["left", "right"], "maxStdPx": 15, "minCoverage": 0.3, "minOpacity": 0.05, "densityWarn": 1, "densityFail": 0.6 },
+      "sync": { "earlyFrames": 0.25, "lateFrames": 1, "lipLateFrames": 2, "minRiseDb": 8, "searchEarlySec": 0.15, "searchLateSec": 0.25 },
+      "aigc": { "metadata": "required" }
     },
     "uhd-2160p24": {
       "label": "超高清 2160p24",
@@ -102,23 +157,63 @@
       "purpose": "大屏与高分辨率交付；页面按设计高度放大原生渲染，不从 1080 放大",
       "source": "决策 D07",
       "video": {
-        "width": 3840, "height": 2160, "fps": 24, "cfr": true,
-        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "width": 3840,
+        "height": 2160,
+        "fps": 24,
+        "cfr": true,
+        "codec": "h264",
+        "profiles": ["High"],
+        "maxLevel": 5.2,
+        "pixFmt": "yuv420p",
+        "sar": "1:1",
+        "fieldOrder": "progressive",
         "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
       },
       "audio": {
-        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
-        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
-        "truePeakMaxDbTP": -1.0
+        "codec": "aac",
+        "aacProfile": "LC",
+        "sampleRate": 48000,
+        "channels": 2,
+        "channelLayout": "stereo",
+        "loudness": { "integrated": -14, "tolerance": 1, "truePeak": -1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" }
       },
-      "container": { "format": "mp4", "faststart": true },
-      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "container": { "formats": ["mp4", "mov"], "faststart": "warn" },
       "safeArea": {
         "unit": "每边内缩占画面宽或高的比例",
-        "title": { "top": 0.1, "bottom": 0.1, "left": 0.1, "right": 0.1 },
-        "action": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
-        "source": "保守取传统口径：标题安全框 80%、动作安全框 90%"
-      }
+        "title": { "top": 0.05, "right": 0.05, "bottom": 0.05, "left": 0.05 },
+        "action": { "top": 0.035, "right": 0.035, "bottom": 0.035, "left": 0.035 },
+        "source": "EBU R95：16:9 图文安全区 90%（每边 5%）、动作安全区 93%（每边 3.5%），与 routes/directing/VISUAL-DESIGN.md §6.3 一致"
+      },
+      "texts": {
+        "minHoldSec": 0.8,
+        "perUnitSec": 0.12,
+        "opaqueAlpha": 0.9,
+        "targetBaseSec": 1.5,
+        "targetUnitsPerSec": 4.5,
+        "minContrast": 3,
+        "goodContrast": 4.5
+      },
+      "visual": {
+        "blackPixel": 0.02,
+        "blackRatio": 0.98,
+        "freezeMinSec": 0.5,
+        "freezeNoiseDb": -50,
+        "flickerLevels": 6,
+        "flickerHalfWindow": 5,
+        "cutScore": 10,
+        "cutTolFrames": 1,
+        "cutNmsFrames": 2,
+        "jumpRatio": 3,
+        "jumpMinLevels": 2,
+        "edgeBandMinPx": 4,
+        "edgeLineMinFrac": 0.3,
+        "flashLumDelta": 20,
+        "flashMaxPerSec": 3,
+        "flashAreaFrac": 0.25
+      },
+      "plates": { "sides": ["left", "right"], "maxStdPx": 15, "minCoverage": 0.3, "minOpacity": 0.05, "densityWarn": 1, "densityFail": 0.6 },
+      "sync": { "earlyFrames": 0.25, "lateFrames": 1, "lipLateFrames": 2, "minRiseDb": 8, "searchEarlySec": 0.15, "searchLateSec": 0.25 },
+      "aigc": { "metadata": "required" }
     },
     "vertical-1080x1920-30": {
       "label": "竖屏 1080×1920 30 fps",
@@ -126,23 +221,63 @@
       "purpose": "手机竖屏短视频平台；需要单独的竖屏版式，不能从横屏裁",
       "source": "决策 D07；安全区为通用工艺建议值",
       "video": {
-        "width": 1080, "height": 1920, "fps": 30, "cfr": true,
-        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "width": 1080,
+        "height": 1920,
+        "fps": 30,
+        "cfr": true,
+        "codec": "h264",
+        "profiles": ["High"],
+        "maxLevel": 4.1,
+        "pixFmt": "yuv420p",
+        "sar": "1:1",
+        "fieldOrder": "progressive",
         "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
       },
       "audio": {
-        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
-        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
-        "truePeakMaxDbTP": -1.0
+        "codec": "aac",
+        "aacProfile": "LC",
+        "sampleRate": 48000,
+        "channels": 2,
+        "channelLayout": "stereo",
+        "loudness": { "integrated": -14, "tolerance": 1, "truePeak": -1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" }
       },
-      "container": { "format": "mp4", "faststart": true },
-      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "container": { "formats": ["mp4", "mov"], "faststart": "warn" },
       "safeArea": {
         "unit": "每边内缩占画面宽或高的比例",
-        "title": { "top": 0.1, "bottom": 0.2, "left": 0.06, "right": 0.12 },
-        "action": { "top": 0.05, "bottom": 0.12, "left": 0.04, "right": 0.08 },
-        "source": "按 9:16 平台界面的常见遮挡取保守值：底部描述与按钮最多、右侧有互动按钮、顶部有状态栏；以目标平台实看为准"
-      }
+        "title": { "top": 0.08, "right": 0.12, "bottom": 0.18, "left": 0.06 },
+        "action": { "top": 0.05, "right": 0.05, "bottom": 0.1, "left": 0.05 },
+        "source": "竖屏平台的界面会压住画面上下与右侧（顶部状态栏与标题、底部文案与按钮、右侧互动按钮）：取主流竖屏平台安全区示意的保守交集；作品按目标平台核对后可在 film.json 的 qa.safeArea 改写"
+      },
+      "texts": {
+        "minHoldSec": 0.8,
+        "perUnitSec": 0.12,
+        "opaqueAlpha": 0.9,
+        "targetBaseSec": 1.5,
+        "targetUnitsPerSec": 4.5,
+        "minContrast": 3,
+        "goodContrast": 4.5
+      },
+      "visual": {
+        "blackPixel": 0.02,
+        "blackRatio": 0.98,
+        "freezeMinSec": 0.5,
+        "freezeNoiseDb": -50,
+        "flickerLevels": 6,
+        "flickerHalfWindow": 5,
+        "cutScore": 10,
+        "cutTolFrames": 1,
+        "cutNmsFrames": 2,
+        "jumpRatio": 3,
+        "jumpMinLevels": 2,
+        "edgeBandMinPx": 4,
+        "edgeLineMinFrac": 0.3,
+        "flashLumDelta": 20,
+        "flashMaxPerSec": 3,
+        "flashAreaFrac": 0.25
+      },
+      "plates": { "sides": ["left", "right"], "maxStdPx": 15, "minCoverage": 0.3, "minOpacity": 0.05, "densityWarn": 1, "densityFail": 0.6 },
+      "sync": { "earlyFrames": 0.25, "lateFrames": 1, "lipLateFrames": 2, "minRiseDb": 8, "searchEarlySec": 0.15, "searchLateSec": 0.25 },
+      "aigc": { "metadata": "required" }
     },
     "broadcast-1080p25": {
       "label": "广播 1080p25（EBU R128）",
@@ -150,47 +285,127 @@
       "purpose": "电视或按 EBU R128 收片的平台；电视台另有封装要求（MXF、PCM 等）时按台方规范另做",
       "source": "决策 D07；响度 EBU R128（−23 LUFS，文件交付 ±0.5 LU，真峰值 −1 dBTP）；安全区 EBU R95",
       "video": {
-        "width": 1920, "height": 1080, "fps": 25, "cfr": true,
-        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "width": 1920,
+        "height": 1080,
+        "fps": 25,
+        "cfr": true,
+        "codec": "h264",
+        "profiles": ["High"],
+        "maxLevel": 4.1,
+        "pixFmt": "yuv420p",
+        "sar": "1:1",
+        "fieldOrder": "progressive",
         "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
       },
       "audio": {
-        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
-        "loudness": { "integratedLUFS": -23, "toleranceLU": 0.5, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
-        "truePeakMaxDbTP": -1.0
+        "codec": "aac",
+        "aacProfile": "LC",
+        "sampleRate": 48000,
+        "channels": 2,
+        "channelLayout": "stereo",
+        "loudness": { "integrated": -23, "tolerance": 0.5, "truePeak": -1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" }
       },
-      "container": { "format": "mp4", "faststart": true },
-      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "container": { "formats": ["mp4", "mov"], "faststart": "warn" },
       "safeArea": {
         "unit": "每边内缩占画面宽或高的比例",
-        "title": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
-        "action": { "top": 0.035, "bottom": 0.035, "left": 0.035, "right": 0.035 },
-        "source": "EBU R95：16:9 高清的图文安全框 90%、动作安全框 93%"
-      }
+        "title": { "top": 0.05, "right": 0.05, "bottom": 0.05, "left": 0.05 },
+        "action": { "top": 0.035, "right": 0.035, "bottom": 0.035, "left": 0.035 },
+        "source": "EBU R95：16:9 图文安全区 90%（每边 5%）、动作安全区 93%（每边 3.5%），与 routes/directing/VISUAL-DESIGN.md §6.3 一致"
+      },
+      "texts": {
+        "minHoldSec": 0.8,
+        "perUnitSec": 0.12,
+        "opaqueAlpha": 0.9,
+        "targetBaseSec": 1.5,
+        "targetUnitsPerSec": 4.5,
+        "minContrast": 3,
+        "goodContrast": 4.5
+      },
+      "visual": {
+        "blackPixel": 0.02,
+        "blackRatio": 0.98,
+        "freezeMinSec": 0.5,
+        "freezeNoiseDb": -50,
+        "flickerLevels": 6,
+        "flickerHalfWindow": 5,
+        "cutScore": 10,
+        "cutTolFrames": 1,
+        "cutNmsFrames": 2,
+        "jumpRatio": 3,
+        "jumpMinLevels": 2,
+        "edgeBandMinPx": 4,
+        "edgeLineMinFrac": 0.3,
+        "flashLumDelta": 20,
+        "flashMaxPerSec": 3,
+        "flashAreaFrac": 0.25
+      },
+      "plates": { "sides": ["left", "right"], "maxStdPx": 15, "minCoverage": 0.3, "minOpacity": 0.05, "densityWarn": 1, "densityFail": 0.6 },
+      "sync": { "earlyFrames": 0.25, "lateFrames": 1, "lipLateFrames": 2, "minRiseDb": 8, "searchEarlySec": 0.15, "searchLateSec": 0.25 },
+      "aigc": { "metadata": "required" }
     },
     "beiming-1040p24": {
       "label": "《北冥》样片专用档 1920×1040 24 fps",
       "role": "delivery",
       "purpose": "只给仓库根的《北冥》10 秒样片及其镜像 films/beiming-10s；新作品不要选它",
-      "source": "决策 D07；响度与真峰值取 docs/routes/validation-and-rtx.md 第 2 节与 docs/routes/templates/project-beiming.json；色彩按 D07 统一为 BT.709 限范围（现有 media/beiming.mp4 未达标，见集成实测发现第 1 条）",
+      "source": "决策 D07；响度与真峰值按 D07 统一（−14 ±1 LU、≤ −1.0 dBTP）；色彩按 D07 统一为 BT.709 限范围（现有 media/beiming.mp4 未达标，见集成实测发现第 1 条）",
       "video": {
-        "width": 1920, "height": 1040, "fps": 24, "cfr": true,
-        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "width": 1920,
+        "height": 1040,
+        "fps": 24,
+        "cfr": true,
+        "codec": "h264",
+        "profiles": ["High"],
+        "maxLevel": 4.1,
+        "pixFmt": "yuv420p",
+        "sar": "1:1",
+        "fieldOrder": "progressive",
         "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
       },
       "audio": {
-        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
-        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
-        "truePeakMaxDbTP": -1.2
+        "codec": "aac",
+        "aacProfile": "LC",
+        "sampleRate": 48000,
+        "channels": 2,
+        "channelLayout": "stereo",
+        "loudness": { "integrated": -14, "tolerance": 1, "truePeak": -1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" }
       },
-      "container": { "format": "mp4", "faststart": true },
-      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "container": { "formats": ["mp4", "mov"], "faststart": "warn" },
       "safeArea": {
         "unit": "每边内缩占画面宽或高的比例",
-        "title": { "top": 0.1, "bottom": 0.1, "left": 0.1, "right": 0.1 },
-        "action": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
-        "source": "保守取传统口径：标题安全框 80%、动作安全框 90%"
-      }
+        "title": { "top": 0.05, "right": 0.05, "bottom": 0.05, "left": 0.05 },
+        "action": { "top": 0.035, "right": 0.035, "bottom": 0.035, "left": 0.035 },
+        "source": "EBU R95：16:9 图文安全区 90%（每边 5%）、动作安全区 93%（每边 3.5%），与 routes/directing/VISUAL-DESIGN.md §6.3 一致"
+      },
+      "texts": {
+        "minHoldSec": 0.8,
+        "perUnitSec": 0.12,
+        "opaqueAlpha": 0.9,
+        "targetBaseSec": 1.5,
+        "targetUnitsPerSec": 4.5,
+        "minContrast": 3,
+        "goodContrast": 4.5
+      },
+      "visual": {
+        "blackPixel": 0.02,
+        "blackRatio": 0.98,
+        "freezeMinSec": 0.5,
+        "freezeNoiseDb": -50,
+        "flickerLevels": 6,
+        "flickerHalfWindow": 5,
+        "cutScore": 10,
+        "cutTolFrames": 1,
+        "cutNmsFrames": 2,
+        "jumpRatio": 3,
+        "jumpMinLevels": 2,
+        "edgeBandMinPx": 4,
+        "edgeLineMinFrac": 0.3,
+        "flashLumDelta": 20,
+        "flashMaxPerSec": 3,
+        "flashAreaFrac": 0.25
+      },
+      "plates": { "sides": ["left", "right"], "maxStdPx": 15, "minCoverage": 0.3, "minOpacity": 0.05, "densityWarn": 1, "densityFail": 0.6 },
+      "sync": { "earlyFrames": 0.25, "lateFrames": 1, "lipLateFrames": 2, "minRiseDb": 8, "searchEarlySec": 0.15, "searchLateSec": 0.25 },
+      "aigc": { "metadata": "required" }
     }
   }
 }

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AUDIO_MODES, DRIVES, EVALUATIONS, EVENT_DOMAINS, FILM_FIELDS, GATE_KEYS, HOLD_KINDS, TRANSITIONS, validateFilm } from '../../engine/production/film.js';
+import { AIGC_KINDS, AUDIO_MODES, DRIVES, EVALUATIONS, EVENT_DOMAINS, EVENT_SYNCS, FILM_FIELDS, GATE_KEYS, INTENTIONAL_KINDS, TRANSITIONS, validateFilm } from '../../engine/production/film.js';
 import { BUILTIN_ROUTES } from '../../engine/production/routes.js';
 import { REPO, minimalFilm } from './helpers.mjs';
 
@@ -16,7 +16,9 @@ test('顶层与各段的字段集合和校验器的白名单相同', () => {
   assert.deepEqual(keys(P.output.properties), [...FILM_FIELDS.output].sort());
   assert.deepEqual(keys(P.shots.items.properties), [...FILM_FIELDS.shot].sort());
   assert.deepEqual(keys(P.events.items.properties), [...FILM_FIELDS.event].sort());
-  assert.deepEqual(keys(P.holds.items.properties), [...FILM_FIELDS.hold].sort());
+  assert.deepEqual(keys(P.qa.properties), [...FILM_FIELDS.qa].sort());
+  assert.deepEqual(keys(schema.$defs.intentional.properties), [...FILM_FIELDS.intentional].sort());
+  assert.deepEqual(keys(schema.$defs.waiver.properties), [...FILM_FIELDS.waiver].sort());
   assert.deepEqual(keys(P.timeline.properties), [...FILM_FIELDS.timeline].sort());
   assert.deepEqual(keys(P.audio.properties), [...FILM_FIELDS.audio].sort());
   assert.deepEqual(keys(P.style.properties), [...FILM_FIELDS.style].sort());
@@ -28,7 +30,7 @@ test('顶层与各段的字段集合和校验器的白名单相同', () => {
   assert.deepEqual(keys(P.methodRefs.items.properties), [...FILM_FIELDS.methodRef].sort());
 });
 
-test('取值表相同：路线、后端、评估方式、转场、事件域、声音方式、节拍主导、停顿种类、闸门', () => {
+test('取值表相同：路线、后端、评估方式、转场、事件域、声画同步、声音方式、节拍主导、刻意画面种类、AIGC 种类、闸门', () => {
   assert.deepEqual(P.route.enum, BUILTIN_ROUTES.map(r => r.id));
   assert.deepEqual([...P.backend.enum].sort(), [...new Set(BUILTIN_ROUTES.flatMap(r => r.backends))].sort());
   assert.deepEqual(P.shots.items.properties.evaluation.enum, EVALUATIONS);
@@ -36,7 +38,9 @@ test('取值表相同：路线、后端、评估方式、转场、事件域、�
   assert.deepEqual(P.events.items.properties.domain.enum, EVENT_DOMAINS);
   assert.deepEqual(P.audio.properties.mode.enum, AUDIO_MODES);
   assert.deepEqual(P.drive.enum, DRIVES);
-  assert.deepEqual(P.holds.items.properties.kind.enum, HOLD_KINDS);
+  assert.deepEqual(P.events.items.properties.sync.enum, EVENT_SYNCS);
+  assert.deepEqual(schema.$defs.intentional.properties.kind.enum, INTENTIONAL_KINDS);
+  assert.deepEqual(P.aigc.properties.kinds.items.enum, Object.keys(AIGC_KINDS));
   assert.deepEqual(keys(P.gates.properties), [...GATE_KEYS].sort());
   // schema 里的必填项，校验器也必填
   for (const k of schema.required.filter(k => !['schemaVersion'].includes(k))) {

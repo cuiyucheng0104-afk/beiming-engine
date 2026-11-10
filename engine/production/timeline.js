@@ -15,7 +15,7 @@
 //   cutList(film)                             切点 [{ frame, from, to, transition }]（不含第 0 帧）
 //   stageShots(film, byId)                    给 engine/stage/film.js 的 run({ shots })：[{ at: in / fps, shot }]
 //   retimeShot(film, id, { out | length }, { mode: 'ripple' | 'roll' })
-//                                             改一个镜头的出点：ripple 后续镜头、事件、停顿、海报帧、角色起点整体顺延，总帧数随之变；
+//                                             改一个镜头的出点：ripple 后续镜头、事件、刻意画面（qa.intentional）、豁免帧段、海报帧、角色起点整体顺延，总帧数随之变；
 //                                             roll 只挪本镜与下一镜之间的切点，总帧数不变。返回新对象，不改入参
 //   timingSignature / eventsSignature / shotSignature(film, id)
 //                                             稳定的 JSON 文本：前两个给闸门判断"认可之后切点 / 事件改没改"，
@@ -222,6 +222,29 @@ export function stageShots(film, byId) {
 
 const clone = v => (typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v)));
 
+const QA_RANGE_LISTS = ['intentional', 'holds', 'blackouts', 'flashes'];
+/**
+ * film.qa 里所有帧区间（刻意画面与豁免的帧段）：[{ label, get() → [a, b], set(a, b) }]。
+ * 刻意画面写 from / to（也认 in / out），豁免写 frames: [a, b)。改切点时它们和事件一样跟着镜头走。
+ */
+export function qaRanges(film) {
+  const q = isObj(film?.qa) ? film.qa : null, out = [];
+  if (!q) return out;
+  for (const list of QA_RANGE_LISTS) {
+    (Array.isArray(q[list]) ? q[list] : []).forEach((it, k) => {
+      if (!isObj(it)) return;
+      const [fa, fb] = it.in !== undefined || it.out !== undefined ? ['in', 'out'] : ['from', 'to'];
+      if (!Number.isInteger(it[fa]) || !Number.isInteger(it[fb])) return;
+      out.push({ label: `qa.${list}[${k}]`, get: () => [it[fa], it[fb]], set: (a, b) => { it[fa] = a; it[fb] = b; } });
+    });
+  }
+  (Array.isArray(q.waivers) ? q.waivers : []).forEach((w, k) => {
+    if (!isObj(w) || !Array.isArray(w.frames) || !w.frames.every(Number.isInteger)) return;
+    out.push({ label: `qa.waivers[${k}].frames`, get: () => [w.frames[0], w.frames[1]], set: (a, b) => { w.frames = [a, b]; } });
+  });
+  return out;
+}
+
 /**
  * 改镜头出点。ripple：本镜之后的一切（镜头、事件、停顿、海报帧、后面镜头的角色起点）整体平移 delta，总帧数随之变；
  * roll：只挪本镜与下一镜之间的切点，总帧数不变。冲突（事件会落到镜头外等）一律抛错，不替你删改。
@@ -241,11 +264,11 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
   if (!Number.isInteger(newOut) || newOut <= shot.in) throw new TimelineError('retime-args', `新的出点必须是大于入点 ${shot.in} 的整数帧，收到 ${JSON.stringify(newOut)}`);
   const delta = newOut - oldOut;
   const next = clone(film);
-  const result = { film: next, delta, mode, frameCount: { from: film.output.frameCount, to: film.output.frameCount }, moved: { shots: [], events: [], holds: [], origins: [] } };
+  const result = { film: next, delta, mode, frameCount: { from: film.output.frameCount, to: film.output.frameCount }, moved: { shots: [], events: [], ranges: [], origins: [] } };
   if (delta === 0) return result;
 
   const events = Array.isArray(next.events) ? next.events : [];
-  const holds = Array.isArray(next.holds) ? next.holds : [];
+  const ranges = qaRanges(next);
   const shotIdx = new Map(next.shots.map((s, k) => [s.id, k]));
   const conflicts = [];
 
@@ -264,6 +287,12 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
     for (const e of events) {
       if (onCut(e)) { e.frame = newOut; result.moved.events.push({ id: e.id, frame: [oldOut, newOut] }); }
       else if (e.shot === shot.id && e.end === oldOut) { e.end = newOut; result.moved.events.push({ id: e.id, end: [oldOut, newOut] }); }
+    }
+    // 贴着切点的刻意画面 / 豁免帧段跟着切点走（到切点为止的、从切点开始的）；其余区间留在原来的全局帧
+    for (const r of ranges) {
+      const [a, b] = r.get();
+      if (b === oldOut && a < newOut) { r.set(a, newOut); result.moved.ranges.push({ label: r.label, from: [a, b], to: [a, newOut] }); }
+      else if (a === oldOut && newOut < b) { r.set(newOut, b); result.moved.ranges.push({ label: r.label, from: [a, b], to: [newOut, b] }); }
     }
     // 下一镜里从切点起算的角色时钟（起点 = 旧切点）跟着切点走；其余起点不动（内容留在原来的全局时刻）
     if (isObj(after.actorClockOrigin)) {
@@ -287,11 +316,14 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
       if (e.frame >= newOut) conflicts.push(`事件 ${e.id}（第 ${e.frame} 帧）会落到镜头 ${shot.id} 的新出点 ${newOut} 之外`);
       else if (e.end !== undefined && e.end !== oldOut && e.end > newOut && e.end < oldOut) conflicts.push(`事件 ${e.id} 的 end=${e.end} 落在被剪掉的 [${newOut}, ${oldOut}) 里`);
     }
-    for (const [k, h] of holds.entries()) {
-      if (h.in < oldOut && h.out > newOut && h.in >= shot.in) conflicts.push(`holds[${k}] [${h.in}, ${h.out}) 与被剪掉的 [${newOut}, ${oldOut}) 重叠`);
+    for (const r of ranges) {
+      // 从被剪掉的 [newOut, oldOut) 里开始、或在里面结束的区间没有归宿；到出点为止或跨过切点的跟着出点缩短
+      const [a, b] = r.get();
+      if (a >= newOut && a < oldOut) conflicts.push(`${r.label} [${a}, ${b}) 从被剪掉的 [${newOut}, ${oldOut}) 里开始`);
+      else if (a < newOut && b > newOut && b < oldOut) conflicts.push(`${r.label} [${a}, ${b}) 在被剪掉的 [${newOut}, ${oldOut}) 里结束`);
     }
     if (Number.isInteger(next.posterFrame) && next.posterFrame >= newOut && next.posterFrame < oldOut) conflicts.push(`posterFrame=${next.posterFrame} 落在被剪掉的 [${newOut}, ${oldOut}) 里`);
-    if (conflicts.length) throw new TimelineError('retime-conflict', `缩短 ${shotId} 冲突：\n- ${conflicts.join('\n- ')}`, '先把这些事件 / 停顿 / 海报帧挪到新出点之前，再改');
+    if (conflicts.length) throw new TimelineError('retime-conflict', `缩短 ${shotId} 冲突：\n- ${conflicts.join('\n- ')}`, '先把这些事件 / 刻意画面 / 豁免帧段 / 海报帧挪到新出点之前，再改');
   }
 
   next.shots[i].out = newOut;
@@ -319,9 +351,11 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
       result.moved.events.push({ id: e.id, end: [e.end - delta, e.end] });
     }
   }
-  for (const [k, h] of holds.entries()) {
-    if (h.in >= oldOut) { h.in += delta; h.out += delta; result.moved.holds.push(k); }
-    else if (h.out > oldOut) { h.out += delta; result.moved.holds.push(k); }
+  for (const r of ranges) {
+    // 后面镜头里的整体平移；到本镜出点为止（或跨过切点）的终点跟着出点走，与事件的 end 同一规则
+    const [a, b] = r.get();
+    if (a >= oldOut) { r.set(a + delta, b + delta); result.moved.ranges.push({ label: r.label, from: [a, b], to: [a + delta, b + delta] }); }
+    else if (b >= oldOut) { r.set(a, b + delta); result.moved.ranges.push({ label: r.label, from: [a, b], to: [a, b + delta] }); }
   }
   if (Number.isInteger(next.posterFrame) && next.posterFrame >= oldOut) next.posterFrame += delta;
   next.output.frameCount += delta;
@@ -359,8 +393,9 @@ export function shotSignature(film, shotId) {
   const origins = isObj(actorClockOrigin) ? Object.fromEntries(Object.entries(actorClockOrigin).map(([k, f]) => [k, f - s.in])) : undefined;
   const events = (film.events ?? []).filter(e => e.shot === s.id).map(e => ({ ...e, frame: e.frame - s.in, end: e.end === undefined ? undefined : e.end - s.in }))
     .sort((a, b) => a.frame - b.frame || String(a.id).localeCompare(String(b.id)));
-  const holds = (film.holds ?? []).filter(h => h.in < s.out && h.out > s.in).map(h => ({ ...h, in: Math.max(h.in, s.in) - s.in, out: Math.min(h.out, s.out) - s.in }));
-  return stableStringify({ fps: o.fps, width: o.width, height: o.height, length: s.out - s.in, shot: fields, originsLocal: origins, events, holds });
+  const ranges = qaRanges(film).map(r => [r.label.replace(/\[\d+\].*$/, ''), ...r.get()]).filter(([, a, b]) => a < s.out && b > s.in)
+    .map(([list, a, b]) => [list, Math.max(a, s.in) - s.in, Math.min(b, s.out) - s.in]).sort((x, y) => x[1] - y[1] || x[2] - y[2] || x[0].localeCompare(y[0]));
+  return stableStringify({ fps: o.fps, width: o.width, height: o.height, length: s.out - s.in, shot: fields, originsLocal: origins, events, ranges });
 }
 
 // ───────────────────────── 节拍 ─────────────────────────

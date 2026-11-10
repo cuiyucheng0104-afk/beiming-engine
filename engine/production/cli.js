@@ -375,7 +375,7 @@ function cmdUpgrade({ pos, flags }) {
 
 function cmdProfiles() {
   const P = loadProfiles();
-  const rows = Object.entries(P.profiles).map(([id, p]) => `  ${id.padEnd(22)} ${`${p.video.width}×${p.video.height}@${p.video.fps}`.padEnd(15)} ${String(p.audio.loudness.integratedLUFS).padStart(3)} ±${p.audio.loudness.toleranceLU} LUFS  真峰值 ≤ ${p.audio.truePeakMaxDbTP} dBTP  ${p.label}${id === P.default ? '（默认）' : ''}`);
+  const rows = Object.entries(P.profiles).map(([id, p]) => `  ${id.padEnd(22)} ${`${p.video.width}×${p.video.height}@${p.video.fps}`.padEnd(15)} ${String(p.audio.loudness.integrated).padStart(3)} ±${p.audio.loudness.tolerance} LUFS  真峰值 ≤ ${p.audio.loudness.truePeak} dBTP  ${p.label}${id === P.default ? '（默认）' : ''}`);
   return { ok: true, exitCode: 0, text: ['交付档位（engine/production/profiles.json）：', ...rows].join('\n'), warnings: [], result: P };
 }
 

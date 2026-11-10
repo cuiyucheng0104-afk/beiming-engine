@@ -106,6 +106,34 @@ test('roll 只挪切点：总长不变，切点上的事件跟着切点走；会
   assert.throws(() => retime(raw, 'C', { out: 200 }, { mode: 'roll' }), err => err.code === 'retime-args');
 });
 
+test('刻意画面与豁免帧段（qa 段）也跟着镜头走：ripple 平移、roll 贴切点、缩短时冲突拒绝；QA 期望同步', () => {
+  const film = minimalFilm({
+    shots: [{ id: 'S1', in: 0, out: 48 }, { id: 'S2', in: 48, out: 96 }],
+    qa: {
+      intentional: [{ kind: 'freeze', from: 40, to: 48, reason: 'S1 结尾停住等切' }, { kind: 'black', from: 90, to: 96, reason: '片尾黑场' }],
+      waivers: [{ check: 'texts.duration', target: 'sub', frames: [84, 96], reason: '片尾字随最后一拍落定', approvedBy: '用户', quote: '最后那行字停短点没关系', source: '会话第 12 条' }],
+    },
+  });
+  // ripple：S1 加长 12 帧 → 贴着 S1 出点的停住延长，S2 里的黑场与豁免整体后移
+  const r = retime(film, 'S1', { out: 60 });
+  assert.deepEqual(r.film.qa.intentional.map(x => [x.from, x.to]), [[40, 60], [102, 108]]);
+  assert.deepEqual(r.film.qa.waivers[0].frames, [96, 108]);
+  assert.deepEqual(r.moved.ranges.map(x => x.label), ['qa.intentional[0]', 'qa.intentional[1]', 'qa.waivers[0].frames']);
+  const qa = qaExpectations(r.normalized);
+  assert.deepEqual(qa.intentional.map(x => [x.kind, x.from, x.to]), [['freeze', 40, 60], ['black', 102, 108]]);
+  assert.deepEqual(qa.waivers[0].frames, [96, 108]);
+  // roll：只挪切点，贴切点的区间跟着切点走，其余不动
+  const roll = retime(film, 'S1', { out: 44 }, { mode: 'roll' });
+  assert.deepEqual(roll.film.qa.intentional.map(x => [x.from, x.to]), [[40, 44], [90, 96]]);
+  // 缩短 S2：到出点为止的黑场与豁免跟着出点缩短；从被剪掉的部分开始的区间没有归宿，拒绝，不替你删
+  const short = retime(film, 'S2', { out: 92 });
+  assert.deepEqual(short.film.qa.intentional[1], { kind: 'black', from: 90, to: 92, reason: '片尾黑场' });
+  assert.deepEqual(short.film.qa.waivers[0].frames, [84, 92]);
+  assert.throws(() => retime(film, 'S2', { out: 88 }), err => err.code === 'retime-conflict' && /qa\.intentional\[1\]/.test(err.message) && !/qa\.waivers/.test(err.message));
+  // 位置无关签名：只平移的 S2 签名不变（刻意画面按镜头局部帧记）
+  assert.equal(shotSignature(r.normalized, 'S2'), shotSignature(validateFilm(film, { checkFiles: false }).film, 'S2'));
+});
+
 test('缩短镜头时会被剪掉的事件拒绝改动，不替你删；节拍主导的片子不许 ripple', () => {
   const raw = beiming();
   assert.throws(() => retime(raw, 'B', { out: 84 }), err => err.code === 'retime-conflict' && /girl\.touch/.test(err.message));

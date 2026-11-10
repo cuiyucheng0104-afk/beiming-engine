@@ -62,19 +62,13 @@
           "audio": { "type": "string", "description": "声音表里的 cue id" },
           "visual": { "type": "string", "description": "这一帧看得见的结果" },
           "domain": { "enum": ["picture", "ui", "text", "sfx", "music", "vo", "amb", "mix"] },
-          "sync": { "type": "boolean", "description": "false = 渐入 / 铺底类，不做起音对拍" },
+          "sync": { "enum": ["lip", "soft", "none"], "description": "声画同步口径（与 tools/qa 一致）：不写 = 起音对结果帧的硬门；lip 口型类可晚 2 帧；soft 缓起类超出只记注意；none 不查（铺底、渐入）" },
           "beat": { "type": "number", "minimum": 0, "description": "绝对拍号（0 起）；写了就必须与 frame 同源" },
-          "cue": { "type": "boolean", "description": "true = 画面打点（cuecheck 对拍）" },
           "source": { "enum": ["plan", "probe"] },
           "desc": { "type": "string" }, "note": { "type": "string" }
         },
         "additionalProperties": true
       }
-    },
-    "holds": {
-      "type": "array",
-      "description": "有意的停顿与黑场（QA 的黑场 / 静帧检查据此豁免）",
-      "items": { "type": "object", "required": ["in", "out", "kind", "reason"], "properties": { "in": { "type": "integer", "minimum": 0 }, "out": { "type": "integer", "minimum": 1 }, "kind": { "enum": ["freeze", "black"] }, "reason": { "type": "string", "minLength": 1 }, "shot": { "type": "string" } }, "additionalProperties": false }
     },
     "drive": { "enum": ["picture", "beat", "voice"], "description": "画面 / 节拍 / 旁白主导；beat 时必须写 timeline，改切点只能 roll" },
     "timeline": {
@@ -113,7 +107,7 @@
     },
     "aigc": {
       "type": "object", "required": ["contains"],
-      "properties": { "contains": { "type": "boolean" }, "note": { "type": "string", "description": "含 AI 生成内容时写明哪些部分、怎么生成、怎么整理（决策 D11）" }, "marking": {}, "sources": {} },
+      "properties": { "contains": { "type": "boolean" }, "kinds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["visual", "voice", "music"] }, "description": "含哪类 AI 生成内容（visual 含 AI 生成画面、voice 配音为 AI 合成、music 配乐含 AI 生成），出片编排按它写片尾显式标识与 mp4 comment 隐式标识；contains 为 true 时缺省 [\"visual\"]" }, "note": { "type": "string", "description": "含 AI 生成内容时写明哪些部分、怎么生成、怎么整理（决策 D11）" }, "marking": {}, "sources": {} },
       "additionalProperties": false
     },
     "gates": {
@@ -124,14 +118,46 @@
     },
     "native": { "type": "object", "description": "B 路线专属：entry、output、mux（mux.sh | copy）、images、models、sequences、audio" },
     "cuecheck": { "type": "object", "description": "页面型路线（A / C）的拍点核对：grid、tolMs、silence、quietDb", "properties": { "grid": { "type": "integer", "minimum": 1 }, "tolMs": { "type": "number", "minimum": 0 }, "silence": { "type": "array", "items": { "type": "string" } }, "quietDb": { "type": "number" } }, "additionalProperties": false },
+    "qa": {
+      "type": "object",
+      "description": "机器 QA 段（tools/qa 读它，docs/quality/QA-GATE.md）：刻意画面的声明、阈值覆盖、豁免。改切点时 intentional 与豁免的帧段跟着镜头走",
+      "properties": {
+        "intentional": { "type": "array", "description": "刻意的静帧、黑场、闪白（设计声明，不是豁免）：半开区间 [from, to) 整数帧，要写理由", "items": { "$ref": "#/$defs/intentional" } },
+        "holds": { "type": "array", "description": "旧写法（= intentional，缺省 kind freeze）", "items": { "$ref": "#/$defs/intentional" } },
+        "blackouts": { "type": "array", "description": "旧写法（= intentional，缺省 kind black）", "items": { "$ref": "#/$defs/intentional" } },
+        "flashes": { "type": "array", "description": "旧写法（= intentional，缺省 kind flash）", "items": { "$ref": "#/$defs/intentional" } },
+        "safeArea": { "type": "object", "description": "按键覆盖档位的安全区：{ title, action }，数字（四边同值）或 { top, right, bottom, left }", "properties": { "title": {}, "action": {} } },
+        "texts": { "type": "object", "description": "按键覆盖档位的文字阈值（键名同 profiles.json 的 texts 段）" },
+        "visual": { "type": "object", "description": "按键覆盖档位的画面阈值（键名同 profiles.json 的 visual 段）" },
+        "sync": { "type": "object", "description": "按键覆盖档位的声画同步阈值（键名同 profiles.json 的 sync 段）" },
+        "plates": { "type": "object", "description": "按键覆盖档位的底板阈值（键名同 profiles.json 的 plates 段）" },
+        "clearColor": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$", "description": "画面边缘的清屏色（缺省 #000000）" },
+        "waivers": { "type": "array", "description": "QA 豁免：一条只放行一项检查里的某个对象；approvedBy 不能是 agent", "items": { "$ref": "#/$defs/waiver" } },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
     "posterFrame": { "type": "integer", "minimum": 0, "description": "海报帧（整数帧）" },
     "docs": { "type": "object", "properties": { "brief": { "type": "string" }, "treatment": { "type": "string" }, "bible": { "type": "string" }, "styleLock": { "type": "string" }, "review": { "type": "string" } }, "additionalProperties": false },
     "methodRefs": { "type": "array", "items": { "type": "object", "required": ["caseId", "borrowed"], "properties": { "caseId": { "type": "string" }, "path": { "type": "string" }, "catalogStatus": { "type": "string" }, "borrowed": { "type": "string" }, "upstreamStyle": { "type": "string" }, "vendorPath": { "type": "string" }, "license": { "type": "string" } }, "additionalProperties": false } },
     "mirror": { "type": "object", "description": "镜像作品（只描述冻结样片，如 films/beiming-10s）：路径相对仓库根", "required": ["of", "paths", "outDir", "check", "frozen"], "properties": { "of": { "type": "string" }, "paths": { "const": "repo" }, "outDir": { "type": "string" }, "check": { "type": "string" }, "frozen": { "const": true }, "note": { "type": "string" } }, "additionalProperties": false },
+    "next": { "type": "array", "description": "模版专用：新建后的下一步命令（格式同 routes/routes.json 的 next，docs/CLI.md §10）；new-film 生成作品时去掉", "items": { "type": "object", "required": ["stage", "title", "run"], "properties": { "stage": { "enum": ["look", "animatic", "build", "check", "final"] }, "title": { "type": "string" }, "run": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "env": { "type": "object" }, "requires": { "type": "array", "items": { "type": "string" } }, "output": { "type": "string" } } } },
     "notes": { "type": "string" },
     "dur": { "type": "number", "description": "过渡期的 v1 兼容镜像：必须等于 frameCount / fps；旧版工具改读 film.js 后删除" },
     "fps": { "type": "integer", "description": "过渡期的 v1 兼容镜像：必须等于 output.fps" },
     "size": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2, "description": "过渡期的 v1 兼容镜像：必须等于 [output.width, output.height]" }
   },
-  "additionalProperties": true
+  "additionalProperties": true,
+  "$defs": {
+    "intentional": {
+      "type": "object", "required": ["reason"],
+      "properties": { "kind": { "enum": ["freeze", "black", "flash"] }, "from": { "type": "integer", "minimum": 0 }, "to": { "type": "integer", "minimum": 1 }, "in": { "type": "integer", "minimum": 0 }, "out": { "type": "integer", "minimum": 1 }, "reason": { "type": "string", "minLength": 1 }, "shot": { "type": "string" } },
+      "additionalProperties": false
+    },
+    "waiver": {
+      "type": "object", "required": ["check"],
+      "properties": { "check": { "type": "string" }, "target": { "type": "string" }, "frames": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 2, "maxItems": 2 }, "reason": { "type": "string" }, "approvedBy": { "type": "string" }, "quote": { "type": "string" }, "source": { "type": "string" }, "date": { "type": "string" }, "status": { "enum": ["proposed", "approved"] }, "note": { "type": "string" } },
+      "additionalProperties": false
+    }
+  }
 }

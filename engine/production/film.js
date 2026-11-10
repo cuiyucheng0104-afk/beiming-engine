@@ -12,8 +12,11 @@
 //   validateFilm(json, { filmDir, template, checkFiles, profiles, registry }) → { ok, film, upgraded, notes, diagnostics }
 //       film 是补齐默认值后的 v2 对象（events / holds / gates / deliveries / drive / entry / audio）；diagnostics 每条 { level, code, path, message, hint }
 //   upgradeFilm(v1, { dirName, template, has }) → { film, notes }      v1 { route, title, dur, fps, size, native?, poster?, cuecheck? } → v2
+//   migrateV2(raw) → { film, notes, changed }                          早期 v2 草稿的写法换成现行写法（holds → qa.intentional、sync 布尔值 → 枚举）
 //   retime(raw, shotId, change, opts)                                  改切点（ripple / roll），见 timeline.js 的 retimeShot
-//   qaExpectations(film) → 尺寸、帧率、帧数、像素格式、色彩、音频、响度窗口、安全区、切点、事件、停顿、AIGC 标识（QA 的全部期望值）
+//   qaExpectations(film) → 尺寸、帧率、帧数、像素格式、色彩、音频、响度窗口、安全区、切点、事件、刻意画面、豁免、AIGC 标识与换成帧数的阈值
+//   effectiveProfile(film) → { profile, overrides }                    档位叠加作品 qa 段之后的阈值（与 tools/qa 的 resolveProfile 同一规则）
+//   intentionalRanges(film)                                            qa.intentional（与旧写法 holds / blackouts / flashes）合成的刻意画面表
 //   loadProfiles() / getProfile(id) / matchProfile({ width, height, fps }) / ffprobeExpect(id)
 //   loadRouteRegistry() / resolveRoute(value)                          路线注册表（routes/routes.json 存在时读它，否则用内置三条；实现在 routes.js）
 //   toProjectSpec(film, opts) / fromProjectSpec(spec)                  与 engine/production/project.js 的 ProjectSpec v1 互相映射（路线 a / b / c，旧值 beiming / raea 作别名）
@@ -26,6 +29,8 @@ import { canonicalRoute, normalizeRelativePath, validateProjectSpec } from './pr
 import { BUILTIN_ROUTES, loadRouteRegistry, resolveRoute } from './routes.js';
 import { checkAssets, loadRegistry as loadAssetRegistry, resolveAsset } from '../assets/manifest.js';
 import { REPO_ROOT, formatJson, readJsonFile, repoRelative, sha256Text, writeJsonAtomic } from './io.js';
+import { isPlaceholderQuote } from './vocab.js';
+import { validateSteps } from '../../tools/lib/routes.mjs';
 import {
   FRAME_EPS, TimelineError, beatGrid, checkShots, frameOfBeat, offGrid, retimeShot, secondsToFrame, stableStringify, timingOf,
 } from './timeline.js';
@@ -40,32 +45,45 @@ const PLACEHOLDER = /\{\{\s*([^{}\s]*)\s*\}\}/g;
 export const EVALUATIONS = Object.freeze(['absolute', 'baked', 'sequential']);
 export const TRANSITIONS = Object.freeze(['cut', 'continuous', 'dissolve', 'fade']);
 export const EVENT_DOMAINS = Object.freeze(['picture', 'ui', 'text', 'sfx', 'music', 'vo', 'amb', 'mix']);
+/** events[].sync：不写 = 起音对结果帧的硬门；lip = 口型类（可晚 2 帧）；soft = 缓起类（超出只记注意）；none = 不查（铺底、渐入）。与 tools/qa 的读法一致。 */
+export const EVENT_SYNCS = Object.freeze(['lip', 'soft', 'none']);
 export const AUDIO_MODES = Object.freeze(['script', 'wav', 'none', 'native']);
 export const DRIVES = Object.freeze(['picture', 'beat', 'voice']);
-export const HOLD_KINDS = Object.freeze(['freeze', 'black']);
+/** qa.intentional[].kind：刻意的静帧、黑场、闪白（设计声明，不是豁免；与 tools/qa/lib/film.mjs 一致）。 */
+export const INTENTIONAL_KINDS = Object.freeze(['freeze', 'black', 'flash']);
+/** qa 段里与 intentional 同义的旧列表（QA 都读，缺省的 kind 不同）；新作品只写 intentional。 */
+const INTENTIONAL_ALIASES = Object.freeze({ holds: 'freeze', blackouts: 'black', flashes: 'flash' });
 export const GATE_KEYS = Object.freeze(['look', 'animatic', 'final']);
-export const AIGC_MARK = '含 AI 生成画面';
+/** 显式标识的固定文字（决策 D11；与 tools/compliance/lib/aigc.mjs 的 EXPLICIT 一致，由 tests/production 守住）。 */
+export const AIGC_KINDS = Object.freeze({ visual: '含 AI 生成画面', voice: '配音为 AI 合成', music: '配乐含 AI 生成' });
+export const AIGC_MARK = AIGC_KINDS.visual;
 
 const FIELDS = {
-  top: ['schemaVersion', '$comment', 'id', 'title', 'route', 'backend', 'entry', 'output', 'shots', 'events', 'holds', 'drive', 'timeline',
-    'audio', 'deliveries', 'style', 'assets', 'credits', 'aigc', 'gates', 'native', 'cuecheck', 'posterFrame', 'docs', 'methodRefs', 'mirror', 'notes'],
+  top: ['schemaVersion', '$comment', 'id', 'title', 'route', 'backend', 'entry', 'output', 'shots', 'events', 'drive', 'timeline',
+    'audio', 'deliveries', 'style', 'assets', 'credits', 'aigc', 'gates', 'native', 'cuecheck', 'qa', 'posterFrame', 'docs', 'methodRefs', 'mirror', 'next', 'notes'],
   compat: ['dur', 'fps', 'size'],
   output: ['profile', 'width', 'height', 'fps', 'frameCount'],
   shot: ['id', 'in', 'out', 'name', 'purpose', 'module', 'backend', 'evaluation', 'lookPreset', 'transition', 'tracks', 'actorClockOrigin',
     'framing', 'angle', 'camera', 'sound', 'desc', 'note'],
-  event: ['id', 'frame', 'shot', 'end', 'audio', 'visual', 'domain', 'sync', 'beat', 'cue', 'source', 'desc', 'note'],
-  hold: ['in', 'out', 'kind', 'reason', 'shot'],
+  event: ['id', 'frame', 'shot', 'end', 'audio', 'visual', 'domain', 'sync', 'beat', 'source', 'desc', 'note'],
   timeline: ['sections', 'beats', 'bars', 'meter', 'start', 'id', 'note'],
   audio: ['mode', 'script', 'wav', 'cues', 'targetLUFS', 'truePeakDbTP', 'note'],
   style: ['id', 'version', 'preset', 'baseline', 'lock', 'note'],
   credit: ['what', 'owner', 'license', 'source', 'note'],
-  aigc: ['contains', 'note', 'marking', 'sources'],
+  aigc: ['contains', 'kinds', 'note', 'marking', 'sources'],
   docs: ['brief', 'treatment', 'bible', 'styleLock', 'review'],
   mirror: ['of', 'paths', 'outDir', 'check', 'frozen', 'note'],
   native: ['entry', 'output', 'mux', 'images', 'models', 'sequences', 'audio', 'note'],
   cuecheck: ['grid', 'tolMs', 'silence', 'quietDb'],
   methodRef: ['caseId', 'path', 'catalogStatus', 'borrowed', 'upstreamStyle', 'vendorPath', 'license'],
+  qa: ['intentional', 'holds', 'blackouts', 'flashes', 'safeArea', 'texts', 'visual', 'sync', 'plates', 'clearColor', 'waivers', 'note'],
+  intentional: ['kind', 'from', 'to', 'in', 'out', 'reason', 'shot'],
+  waiver: ['check', 'target', 'frames', 'reason', 'approvedBy', 'quote', 'source', 'date', 'status', 'note'],
 };
+/** qa 段里按档位阈值覆盖的四段：键名必须是档位里已有的（engine/production/profiles.json），否则 QA 不会读。 */
+const QA_OVERRIDES = Object.freeze(['texts', 'visual', 'sync', 'plates']);
+/** 豁免的批准人不能是 agent（D08；与 tools/qa/lib/waivers.mjs 同一口径）。 */
+const AGENT_APPROVER = /^(agent|ai|claude|assistant|bot|gpt|codex|代理|助手|智能体|机器人)\b/i;
 /** 各层字段白名单（与 engine/production/film.schema.json 一致，由 tests/production/schema.test.mjs 守住）。 */
 export const FILM_FIELDS = Object.freeze(Object.fromEntries(Object.entries(FIELDS).map(([k, v]) => [k, Object.freeze([...v])])));
 /** 看起来像时间的字段名：出现在白名单之外就是"没有消费者的时间字段"（附录 C6），判错。 */
@@ -102,44 +120,80 @@ export class FilmError extends Error {
 const PROFILES_FILE = join(dirname(fileURLToPath(import.meta.url)), 'profiles.json');
 let profilesCache = null;
 
+export const PROFILES_SCHEMA_VERSION = 2;
+const SIDES = ['top', 'right', 'bottom', 'left'];
+const sideBox = v => isObj(v) && SIDES.every(k => finite(v[k]) && v[k] >= 0 && v[k] < 0.5);
+
+/**
+ * 读交付档位表并校验（schemaVersion 2：字段写法与 tools/qa/lib/profiles.mjs 的 adapt 对齐，QA 不需要兜底）。
+ * 每个档位：video { width, height, fps, codec, profiles[], maxLevel, pixFmt, sar, fieldOrder, color{range,matrix,primaries,transfer} }、
+ * audio { codec, aacProfile, sampleRate, channels, channelLayout, loudness{integrated,tolerance,truePeak,measure} }、
+ * container、safeArea{title,action}、texts、visual、plates、sync、aigc（后几段的键与含义见 docs/quality/QA-GATE.md）。
+ */
 export function loadProfiles({ file = PROFILES_FILE, fresh = false } = {}) {
   if (profilesCache && !fresh && file === PROFILES_FILE) return profilesCache;
   const r = readJsonFile(file);
   if (!r.ok) throw new FilmError('profiles-unreadable', `交付档位表读不出来：${r.message}`, { exitCode: 1, hint: '它随仓库提供（engine/production/profiles.json）；被删改过就从版本库恢复' });
   const doc = r.value, problems = [];
+  if (doc?.schemaVersion !== PROFILES_SCHEMA_VERSION) problems.push(`schemaVersion 应为 ${PROFILES_SCHEMA_VERSION}（收到 ${JSON.stringify(doc?.schemaVersion)}）`);
   if (!isObj(doc?.profiles) || !Object.keys(doc.profiles).length) problems.push('缺少 profiles 对象');
   for (const [id, p] of Object.entries(doc?.profiles ?? {})) {
-    const v = p?.video, a = p?.audio;
+    const v = p?.video, a = p?.audio, l = a?.loudness;
     if (!posInt(v?.width) || !posInt(v?.height) || v.width % 2 || v.height % 2) problems.push(`${id}.video 宽高必须是正偶数`);
     if (!posInt(v?.fps)) problems.push(`${id}.video.fps 必须是正整数`);
-    if (!isObj(v?.color)) problems.push(`${id}.video.color 缺失`);
-    if (!finite(a?.loudness?.integratedLUFS) || !finite(a?.loudness?.toleranceLU) || !finite(a?.truePeakMaxDbTP)) problems.push(`${id}.audio 响度或真峰值缺失`);
-    if (!isObj(p?.safeArea?.title) || !isObj(p?.safeArea?.action)) problems.push(`${id}.safeArea 缺失`);
+    if (!isStr(v?.codec) || !Array.isArray(v?.profiles) || !v.profiles.length || !isStr(v?.pixFmt)) problems.push(`${id}.video 要写 codec、profiles[]、pixFmt`);
+    if (!isObj(v?.color) || !['range', 'matrix', 'primaries', 'transfer'].every(k => isStr(v.color[k]))) problems.push(`${id}.video.color 要写 range、matrix、primaries、transfer`);
+    if (!isStr(a?.codec) || !posInt(a?.sampleRate) || !posInt(a?.channels)) problems.push(`${id}.audio 要写 codec、sampleRate、channels`);
+    if (!finite(l?.integrated) || !(finite(l?.tolerance) && l.tolerance > 0) || !(finite(l?.truePeak) && l.truePeak <= 0)) problems.push(`${id}.audio.loudness 要写 integrated、tolerance（> 0）、truePeak（≤ 0）`);
+    if (!sideBox(p?.safeArea?.title) || !sideBox(p?.safeArea?.action)) problems.push(`${id}.safeArea.title / action 要写四边比例（0 ≤ x < 0.5）`);
+    for (const k of ['container', ...QA_OVERRIDES, 'aigc']) if (!isObj(p?.[k])) problems.push(`${id}.${k} 缺失`);
   }
   if (doc?.default && !doc.profiles?.[doc.default]) problems.push(`default 指向不存在的档位 ${doc.default}`);
-  const q = doc?.qa;
-  if (!isObj(q)) problems.push('缺少 qa 检测阈值');
-  else for (const k of ['decode', 'black', 'freeze', 'flicker', 'cuts', 'text', 'plates', 'aigc']) if (!isObj(q[k])) problems.push(`qa.${k} 缺失`);
   if (problems.length) throw new FilmError('profiles-invalid', `交付档位表不合格：${problems.join('；')}`, { exitCode: 1, hint: '从版本库恢复 engine/production/profiles.json，或按报错补字段' });
-  const value = { default: doc.default ?? 'web-1080p24', profiles: doc.profiles, ffprobeFields: doc.ffprobeFields ?? {}, qa: doc.qa };
+  const value = { default: doc.default ?? 'web-1080p24', profiles: doc.profiles, ffprobeFields: doc.ffprobeFields ?? {} };
   if (file === PROFILES_FILE) profilesCache = value;
   return value;
 }
 
-/** 按键深合并（只覆盖写出的叶子；数组整体替换）：档位的 qa 覆盖共用阈值。 */
+/** 按键深合并（只覆盖写出的叶子；数组整体替换；$ 开头的说明键不合并）：作品的 qa 段覆盖档位阈值，与 QA 的 resolveProfile 同一规则。 */
 function mergeDeep(base, over) {
   if (!isObj(base) || !isObj(over)) return clone(over ?? base);
   const out = clone(base);
-  for (const [k, v] of Object.entries(over)) out[k] = isObj(v) && isObj(out[k]) ? mergeDeep(out[k], v) : clone(v);
+  for (const [k, v] of Object.entries(over)) {
+    if (k.startsWith('$')) continue;
+    out[k] = isObj(v) && isObj(out[k]) ? mergeDeep(out[k], v) : clone(v);
+  }
   return out;
 }
 
-/** 档位规格；qa 是共用阈值与档位覆盖合并后的结果。 */
+/** 档位规格（深拷贝）。 */
 export function getProfile(id, profiles = loadProfiles()) {
   const p = profiles.profiles[id];
   if (!p) throw new FilmError('profile-unknown', `没有交付档位 ${JSON.stringify(id)}`, { hint: `可用：${Object.keys(profiles.profiles).join('、')}（默认 ${profiles.default}）` });
-  const { $comment, ...shared } = profiles.qa ?? {};
-  return { id, ...p, qa: mergeDeep(shared, p.qa ?? {}) };
+  return { id, ...clone(p) };
+}
+
+/** 安全区写法与 QA 一致：数字（四边同值）、{ top, right, bottom, left }，或 { x, y }；大于 1 的按百分数。 */
+function normalizeSafeBox(v) {
+  const pct = x => (finite(x) && x > 1 ? x / 100 : x);
+  if (finite(v)) return Object.fromEntries(SIDES.map(k => [k, pct(v)]));
+  if (isObj(v)) return Object.fromEntries(SIDES.map(k => [k, pct(v[k] ?? (k === 'top' || k === 'bottom' ? v.y : v.x))]).filter(([, x]) => x !== undefined));
+  return undefined;
+}
+
+/** 档位叠加作品的 qa 段之后，这部片 QA 实际用的阈值（与 tools/qa/lib/profiles.mjs 的 resolveProfile 同一规则）。 */
+export function effectiveProfile(film, { profiles = loadProfiles() } = {}) {
+  const p = getProfile(film.output.profile, profiles);
+  const q = isObj(film.qa) ? film.qa : {};
+  const overrides = [];
+  if (isObj(q.safeArea)) {
+    for (const k of ['title', 'action']) {
+      const box = normalizeSafeBox(q.safeArea[k]);
+      if (box) { p.safeArea[k] = { ...p.safeArea[k], ...box }; overrides.push(`safeArea.${k}`); }
+    }
+  }
+  for (const k of QA_OVERRIDES) if (isObj(q[k])) { p[k] = mergeDeep(p[k], q[k]); overrides.push(...Object.keys(q[k]).filter(x => !x.startsWith('$')).map(x => `${k}.${x}`)); }
+  return { profile: p, overrides };
 }
 
 export function matchProfile({ width, height, fps }, profiles = loadProfiles()) {
@@ -155,11 +209,11 @@ export function ffprobeExpect(profileOrId, profiles = loadProfiles()) {
   const v = p.video, a = p.audio;
   return {
     video: {
-      codec_name: v.codec, profile: v.codecProfile, pix_fmt: v.pixFmt, width: v.width, height: v.height,
+      codec_name: v.codec, profile: v.profiles.length === 1 ? v.profiles[0] : v.profiles, pix_fmt: v.pixFmt, width: v.width, height: v.height,
       r_frame_rate: `${v.fps}/1`, avg_frame_rate: `${v.fps}/1`, sample_aspect_ratio: v.sar, field_order: v.fieldOrder,
       color_range: v.color.range, color_space: v.color.matrix, color_primaries: v.color.primaries, color_transfer: v.color.transfer,
     },
-    audio: { codec_name: a.codec, sample_rate: String(a.sampleRate), channels: a.channels, channel_layout: a.channelLayout },
+    audio: { codec_name: a.codec, profile: a.aacProfile, sample_rate: String(a.sampleRate), channels: a.channels, channel_layout: a.channelLayout },
   };
 }
 
@@ -214,6 +268,29 @@ export function upgradeFilm(v1, { dirName, template = false, has = () => false, 
   }
   if (v1.$comment !== undefined) film.$comment = v1.$comment;
   return { film, notes };
+}
+
+/**
+ * 早期 v2 草稿的写法换成现行写法（纯函数，返回新对象）：顶层 holds → qa.intentional；events[].sync 布尔值 → "none" / 删掉；
+ * events[].cue（字符串）→ audio。没有可迁的内容时 changed = false。
+ */
+export function migrateV2(raw) {
+  const film = clone(raw), notes = [];
+  if (Array.isArray(film.holds)) {
+    const moved = film.holds.filter(isObj).map(h => ({ kind: h.kind, from: h.in, to: h.out, reason: h.reason, ...(h.shot ? { shot: h.shot } : {}) }));
+    film.qa = isObj(film.qa) ? film.qa : {};
+    film.qa.intentional = [...(Array.isArray(film.qa.intentional) ? film.qa.intentional : []), ...moved];
+    delete film.holds;
+    notes.push(`顶层 holds 的 ${moved.length} 段搬进 qa.intentional（in / out → from / to）`);
+  } else if (film.holds !== undefined) notes.push('顶层 holds 不是数组，没有搬：手工改成 qa.intentional');
+  for (const e of Array.isArray(film.events) ? film.events : []) {
+    if (!isObj(e)) continue;
+    if (e.sync === false) { e.sync = 'none'; notes.push(`事件 ${e.id} 的 sync: false → "none"`); }
+    else if (e.sync === true) { delete e.sync; notes.push(`事件 ${e.id} 的 sync: true 删掉（不写就是硬门）`); }
+    if (typeof e.cue === 'string' && e.audio === undefined) { e.audio = e.cue; delete e.cue; notes.push(`事件 ${e.id} 的 cue → audio`); }
+    else if (typeof e.cue === 'boolean') { notes.push(`事件 ${e.id} 的 cue: ${e.cue} 删掉（对拍看 audio）`); delete e.cue; }
+  }
+  return { film, notes, changed: notes.length > 0 };
 }
 
 // ───────────────────────── 校验 ─────────────────────────
@@ -292,7 +369,15 @@ export function validateFilm(input, opts = {}) {
       else warn('unknown-field', where, `未知字段 ${where}（校验器不认识，消费者也不会读）`, '拼写错了就改正；确需新字段先在 engine/production/README.md 登记');
     }
   };
-  known(f, FIELDS.top, '$', { compat: upgraded ? [] : FIELDS.compat });
+  known(f, [...FIELDS.top, 'holds'], '$', { compat: upgraded ? [] : FIELDS.compat });
+  if (f.holds !== undefined) {
+    err('holds-moved', 'holds', '顶层 holds 已并入 qa.intentional：机器 QA 只读 qa.intentional，写在 holds 里的停顿与黑场不会被放行',
+      '改成 "qa": { "intentional": [{ "kind": "freeze" | "black" | "flash", "from": 起帧, "to": 止帧, "reason": "为什么" }] }；node engine/production/film.js upgrade <作品> --write 会自动搬');
+  }
+  if (f.next !== undefined) {
+    if (!template) warn('next-in-film', 'next', 'next 是模版专用字段（new-film 生成作品时会去掉它）：作品的下一步由路线注册表与出片命令给出', '删掉 next');
+    else for (const d of validateSteps(f.next, 'next')) err('next-invalid', d.path, d.message, d.hint ?? '格式同 routes/routes.json 的 next（docs/CLI.md §10）');
+  }
 
   // 4. 身份与路线
   if (template) {
@@ -482,7 +567,8 @@ export function validateFilm(input, opts = {}) {
   else events.forEach((e, i) => {
     const p = `events[${i}]`;
     if (!isObj(e)) { err('event-invalid', p, '事件必须是对象'); return; }
-    known(e, FIELDS.event, p);
+    known(e, [...FIELDS.event, 'cue'], p);
+    if (e.cue !== undefined) err('event-cue-moved', `${p}.cue`, '事件的声音写在 audio（声音表里的 cue id）；cue 是 events.json 的旧写法，机器 QA 见到它就当作要对拍的声音', typeof e.cue === 'string' ? `改成 "audio": ${JSON.stringify(e.cue)}` : '删掉 cue：要对拍就写 audio，画面打点写 visual');
     if (!isStr(e.id) || !EVENT_ID.test(e.id)) err('event-id-invalid', `${p}.id`, `事件 id 用「组.名[.序号]」（字母数字点下划线冒号短横线）：${JSON.stringify(e.id)}`);
     else if (eventIds.has(e.id)) err('event-id-duplicate', `${p}.id`, `事件 id 重复：${e.id}`);
     else eventIds.add(e.id);
@@ -506,9 +592,13 @@ export function validateFilm(input, opts = {}) {
     if (e.visual !== undefined && !isStr(e.visual)) err('event-visual-invalid', `${p}.visual`, 'visual 是这一帧看得见的结果（非空字符串）');
     if (e.audio === undefined && e.visual === undefined && e.domain === undefined) warn('event-empty', p, `事件 ${e.id} 既没有 visual 也没有 audio`, '写明这一帧看见什么（visual）或响什么（audio），否则没人消费它');
     if (e.domain !== undefined && !EVENT_DOMAINS.includes(e.domain)) err('event-domain-invalid', `${p}.domain`, `domain 只能是 ${EVENT_DOMAINS.join(' / ')}`);
-    if (e.sync !== undefined && typeof e.sync !== 'boolean') err('event-sync-invalid', `${p}.sync`, 'sync 是布尔值：false = 渐入 / 铺底类，不做起音对拍');
+    if (typeof e.sync === 'boolean') {
+      err('event-sync-legacy', `${p}.sync`, `sync 不再用布尔值（机器 QA 读不懂 ${e.sync}，会按硬门对拍）`, e.sync ? '删掉 sync（不写就是起音对结果帧的硬门）' : '铺底、渐入类写 "sync": "none"（不查）；缓起的写 "soft"（超出只记注意）');
+    } else if (e.sync !== undefined && !EVENT_SYNCS.includes(e.sync)) {
+      err('event-sync-invalid', `${p}.sync`, `sync 只能是 ${EVENT_SYNCS.join(' / ')}（不写 = 硬门）：lip 口型类可晚 2 帧，soft 缓起类超出只记注意，none 不查`);
+    }
+    if (EVENT_SYNCS.includes(e.sync) && e.sync !== 'none' && e.audio === undefined) warn('event-sync-without-audio', `${p}.sync`, `事件 ${e.id} 写了 sync = ${e.sync} 却没有 audio：没有声音可对拍`);
     if (e.source !== undefined && !['plan', 'probe'].includes(e.source)) err('event-source-invalid', `${p}.source`, 'source 只能是 plan（计划时刻）或 probe（按画面实测）');
-    if (e.cue !== undefined && typeof e.cue !== 'boolean') err('event-cue-invalid', `${p}.cue`, 'cue 是布尔值：true = 画面打点（cuecheck 对拍）');
     if (e.beat !== undefined) {
       if (!(finite(e.beat) && e.beat >= 0)) err('event-beat-invalid', `${p}.beat`, 'beat 是从 0 起的绝对拍号（可带小数）');
       else if (f.timeline === undefined) err('event-beat-without-timeline', `${p}.beat`, '事件写了 beat，但 film.json 没有 timeline');
@@ -525,19 +615,8 @@ export function validateFilm(input, opts = {}) {
     for (const k of ['desc', 'note']) if (e[k] !== undefined && !isStr(e[k])) err('event-field-invalid', `${p}.${k}`, `${k} 必须是非空字符串`);
   });
 
-  // 12. 停顿（QA 的黑场 / 静帧豁免依据）
-  if (f.holds !== undefined) {
-    if (!Array.isArray(f.holds)) err('holds-invalid', 'holds', 'holds 是 [{ in, out, kind, reason }]');
-    else f.holds.forEach((h, i) => {
-      const p = `holds[${i}]`;
-      if (!isObj(h)) { err('hold-invalid', p, '停顿必须是对象'); return; }
-      known(h, FIELDS.hold, p);
-      if (!nonNegInt(h.in) || !nonNegInt(h.out) || h.out <= h.in) err('hold-invalid', p, '停顿是半开区间 [in, out)，整数帧，out > in');
-      else if (frameCount !== null && h.out > frameCount) err('hold-invalid', p, `停顿 [${h.in}, ${h.out}) 超出整片 ${frameCount}`);
-      if (!HOLD_KINDS.includes(h.kind)) err('hold-invalid', `${p}.kind`, `kind 只能是 ${HOLD_KINDS.join(' / ')}`);
-      if (!isStr(h.reason)) err('hold-invalid', `${p}.reason`, '写明为什么要这段停顿或黑场（QA 据此豁免）');
-    });
-  }
+  // 12. 机器 QA 段（tools/qa 读它；docs/quality/QA-GATE.md「film.json 的 qa 段」）：刻意画面的声明、阈值覆盖、豁免
+  if (f.qa !== undefined) validateQa(f.qa, { err, warn, known, frameCount, shotById, profile });
   if (f.posterFrame !== undefined && !(nonNegInt(f.posterFrame) && (frameCount === null || f.posterFrame < frameCount))) {
     err('poster-invalid', 'posterFrame', `posterFrame 是 [0, ${frameCount ?? 'frameCount'}) 里的整数帧`);
   }
@@ -559,15 +638,16 @@ export function validateFilm(input, opts = {}) {
     if (a.mode === 'script' && route?.id === 'b' && f.native?.audio?.script && a.script !== f.native.audio.script) {
       err('audio-native-conflict', 'audio.script', `audio.script（${a.script}）与 native.audio.script（${f.native.audio.script}）不一致`, 'B 路线的声音写在 native.audio；film.audio 写 { "mode": "native" }');
     }
+    const L = profileAudio?.loudness;
     if (a.targetLUFS !== undefined) {
       if (!finite(a.targetLUFS)) err('audio-target-invalid', 'audio.targetLUFS', 'targetLUFS 必须是数字');
-      else if (profileAudio && Math.abs(a.targetLUFS - profileAudio.loudness.integratedLUFS) > profileAudio.loudness.toleranceLU + 1e-9) {
-        err('audio-target-profile', 'audio.targetLUFS', `混音目标 ${a.targetLUFS} LUFS 落在档位 ${profile.id} 的窗口外（${profileAudio.loudness.integratedLUFS} ± ${profileAudio.loudness.toleranceLU} LU）`, '删掉 targetLUFS 就按档位取值');
+      else if (L && Math.abs(a.targetLUFS - L.integrated) > L.tolerance + 1e-9) {
+        err('audio-target-profile', 'audio.targetLUFS', `混音目标 ${a.targetLUFS} LUFS 落在档位 ${profile.id} 的窗口外（${L.integrated} ± ${L.tolerance} LU）`, '删掉 targetLUFS 就按档位取值');
       }
     }
     if (a.truePeakDbTP !== undefined) {
       if (!finite(a.truePeakDbTP) || a.truePeakDbTP > 0) err('audio-target-invalid', 'audio.truePeakDbTP', 'truePeakDbTP 必须是 ≤ 0 的数字');
-      else if (profileAudio && a.truePeakDbTP > profileAudio.truePeakMaxDbTP + 1e-9) err('audio-target-profile', 'audio.truePeakDbTP', `真峰值目标 ${a.truePeakDbTP} dBTP 高于档位上限 ${profileAudio.truePeakMaxDbTP}`);
+      else if (L && a.truePeakDbTP > L.truePeak + 1e-9) err('audio-target-profile', 'audio.truePeakDbTP', `真峰值目标 ${a.truePeakDbTP} dBTP 高于档位上限 ${L.truePeak}`);
     }
   }
 
@@ -629,8 +709,14 @@ export function validateFilm(input, opts = {}) {
   else if (!isObj(f.aigc)) err('aigc-invalid', 'aigc', 'aigc 是 { contains, note }');
   else {
     known(f.aigc, FIELDS.aigc, 'aigc');
-    if (typeof f.aigc.contains !== 'boolean') err('aigc-invalid', 'aigc.contains', 'contains 必须是 true / false');
+    if (typeof f.aigc.contains !== 'boolean') err('aigc-invalid', 'aigc.contains', 'contains 必填，写 true / false（决策 D11；与仓库检查 comp.aigc 同一口径）');
     if (f.aigc.contains === true && !isStr(f.aigc.note)) err('aigc-invalid', 'aigc.note', '含 AI 生成内容时写明哪些部分、怎么生成、怎么整理');
+    if (f.aigc.kinds !== undefined) {
+      const ks = Object.keys(AIGC_KINDS);
+      if (!Array.isArray(f.aigc.kinds) || !f.aigc.kinds.length || f.aigc.kinds.some(k => !ks.includes(k)) || new Set(f.aigc.kinds).size !== f.aigc.kinds.length) {
+        err('aigc-invalid', 'aigc.kinds', `kinds 是 ${ks.map(k => `${k}（${AIGC_KINDS[k]}）`).join('、')} 的非空、不重复子集`, '出片编排按它生成片尾显式标识与 mp4 comment 隐式标识（tools/compliance/lib/aigc.mjs）');
+      } else if (f.aigc.contains === false) err('aigc-invalid', 'aigc.kinds', 'contains 为 false 时不能写 kinds');
+    }
   }
 
   // 16. 闸门：只能全开，跳过要有用户原话的豁免记录
@@ -735,20 +821,108 @@ function validateNative(n, { err, warn, known, checkPath }) {
   }
 }
 
+/**
+ * 机器 QA 段 qa：{ intentional, safeArea, texts, visual, sync, plates, clearColor, waivers }（tools/qa/lib/film.mjs 的 normalizeQa 读它）。
+ * intentional（以及同义的旧列表 holds / blackouts / flashes）是刻意的静帧、黑场、闪白：半开区间 [from, to) 整数帧，要写理由；
+ * texts / visual / sync / plates 按键覆盖档位阈值，键名必须是档位里有的；waivers 的规则与 tools/qa/lib/waivers.mjs 一致（agent 不能批准）。
+ */
+function validateQa(q, { err, warn, known, frameCount, shotById, profile }) {
+  if (!isObj(q)) { err('qa-invalid', 'qa', 'qa 是对象：{ intentional, safeArea, texts, visual, sync, plates, clearColor, waivers }（docs/quality/QA-GATE.md）'); return; }
+  known(q, FIELDS.qa, 'qa');
+  const range = (o, p, label) => {
+    const hasFT = o.from !== undefined || o.to !== undefined, hasIO = o.in !== undefined || o.out !== undefined;
+    if (hasFT && hasIO) { err('qa-range-invalid', p, `${label}的区间写 from / to 或 in / out 之一，不要两种都写`); return null; }
+    const a = hasIO ? o.in : o.from, b = hasIO ? o.out : o.to;
+    if (!nonNegInt(a) || !nonNegInt(b) || b <= a) { err('qa-range-invalid', p, `${label}是半开区间 [from, to)，整数帧，to > from（收到 ${JSON.stringify([a, b])}）`); return null; }
+    if (frameCount !== null && b > frameCount) { err('qa-range-invalid', p, `${label} [${a}, ${b}) 超出整片 [0, ${frameCount})`); return null; }
+    return [a, b];
+  };
+  for (const list of ['intentional', ...Object.keys(INTENTIONAL_ALIASES)]) {
+    if (q[list] === undefined) continue;
+    const p0 = `qa.${list}`;
+    if (!Array.isArray(q[list])) { err('qa-intentional-invalid', p0, `${p0} 是 [{ kind, from, to, reason }] 数组`); continue; }
+    if (list !== 'intentional') warn('qa-intentional-alias', p0, `${p0} 是 qa.intentional 的旧写法（QA 照读，缺省 kind = ${INTENTIONAL_ALIASES[list]}）`, `并进 qa.intentional，每条写明 "kind": "${INTENTIONAL_ALIASES[list]}"`);
+    q[list].forEach((it, i) => {
+      const p = `${p0}[${i}]`;
+      if (!isObj(it)) { err('qa-intentional-invalid', p, '每条刻意画面是 { kind, from, to, reason }'); return; }
+      known(it, FIELDS.intentional, p);
+      const kind = it.kind ?? (list === 'intentional' ? undefined : INTENTIONAL_ALIASES[list]);
+      if (!INTENTIONAL_KINDS.includes(kind)) err('qa-intentional-invalid', `${p}.kind`, `kind 只能是 ${INTENTIONAL_KINDS.join(' / ')}（静帧 / 黑场 / 闪白）`);
+      range(it, p, '刻意画面');
+      if (!isStr(it.reason)) err('qa-intentional-invalid', `${p}.reason`, '写明为什么是刻意的（审片时对照阐述核对）；不要为了过检写声明', '例："开场空纸等第一笔落拍"');
+      if (it.shot !== undefined && !shotById.has(it.shot)) err('qa-intentional-invalid', `${p}.shot`, `没有镜头 ${it.shot}`);
+    });
+  }
+  if (q.safeArea !== undefined) {
+    if (!isObj(q.safeArea)) err('qa-override-invalid', 'qa.safeArea', 'qa.safeArea 是 { title, action }，每项为数字（四边同值）或 { top, right, bottom, left }');
+    else for (const [k, v] of Object.entries(q.safeArea)) {
+      if (!['title', 'action'].includes(k)) { warn('qa-override-unknown', `qa.safeArea.${k}`, `安全区只有 title / action，${k} 不会被读`); continue; }
+      const box = normalizeSafeBox(v);
+      if (!box || !Object.keys(box).length || Object.values(box).some(x => !(finite(x) && x >= 0 && x < 0.5))) err('qa-override-invalid', `qa.safeArea.${k}`, '安全区每边是 0–0.5 之间的比例（大于 1 的按百分数）');
+    }
+  }
+  for (const k of QA_OVERRIDES) {
+    if (q[k] === undefined) continue;
+    if (!isObj(q[k])) { err('qa-override-invalid', `qa.${k}`, `qa.${k} 是按键覆盖档位阈值的对象`); continue; }
+    const base = profile?.[k];
+    for (const [key, v] of Object.entries(q[k])) {
+      if (key.startsWith('$')) continue;
+      if (base && !Object.hasOwn(base, key)) warn('qa-override-unknown', `qa.${k}.${key}`, `档位 ${profile.id} 的 ${k} 段没有 ${key}：QA 不认识的阈值名不会生效`, `可用：${Object.keys(base).filter(x => !x.startsWith('$')).join('、')}（含义见 docs/quality/QA-GATE.md）`);
+      else if (base && typeof v !== typeof base[key]) err('qa-override-invalid', `qa.${k}.${key}`, `${key} 应与档位里的类型相同（${typeof base[key]}），收到 ${JSON.stringify(v)}`);
+    }
+  }
+  if (q.clearColor !== undefined && !(typeof q.clearColor === 'string' && /^#[0-9a-f]{6}$/i.test(q.clearColor))) err('qa-override-invalid', 'qa.clearColor', 'clearColor 是 #rrggbb（画面边缘清屏色，缺省黑）');
+  if (q.waivers !== undefined) {
+    if (!Array.isArray(q.waivers)) err('qa-waivers-invalid', 'qa.waivers', 'qa.waivers 是豁免数组（字段见 docs/quality/QA-GATE.md §5）');
+    else q.waivers.forEach((w, i) => {
+      const p = `qa.waivers[${i}]`;
+      if (!isObj(w)) { err('qa-waiver-invalid', p, '豁免必须是对象'); return; }
+      known(w, FIELDS.waiver, p);
+      if (!isStr(w.check)) err('qa-waiver-invalid', `${p}.check`, '缺 check（要放行的检查 id，如 texts.duration）');
+      if (w.status === 'proposed') {
+        warn('qa-waiver-proposed', p, `有一条待用户批准的豁免（${w.check ?? '?'}）：QA 不采用`, '用户批准后由人填上原话与出处、删掉 status');
+      } else {
+        if (w.status !== undefined && w.status !== 'approved') err('qa-waiver-invalid', `${p}.status`, 'status 只能是 proposed（agent 起草，待批）或 approved');
+        for (const k of ['reason', 'approvedBy', 'quote', 'source']) if (!isStr(w[k])) err('qa-waiver-invalid', `${p}.${k}`, `缺 ${k}：豁免必须写明谁批准、用户原话与出处，否则 QA 不采用`);
+        if (isStr(w.approvedBy) && AGENT_APPROVER.test(w.approvedBy.trim())) err('qa-waiver-agent', `${p}.approvedBy`, 'approvedBy 不能是 agent 自己：豁免只能由用户或集成负责人批准（D08）');
+        if (isStr(w.quote) && isPlaceholderQuote(w.quote)) err('qa-waiver-invalid', `${p}.quote`, `quote 是占位符或自评口吻（${JSON.stringify(w.quote)}）：只能写用户原话`);
+      }
+      if (w.frames !== undefined) {
+        if (!(Array.isArray(w.frames) && w.frames.length === 2 && w.frames.every(nonNegInt) && w.frames[1] > w.frames[0])) err('qa-waiver-invalid', `${p}.frames`, 'frames 要写成 [起帧, 止帧) 的整数半开区间');
+        else if (frameCount !== null && w.frames[1] > frameCount) err('qa-waiver-invalid', `${p}.frames`, `frames [${w.frames[0]}, ${w.frames[1]}) 超出整片 ${frameCount}`);
+      }
+    });
+  }
+}
+
 /** 补齐默认值（不改入参）。 */
 function normalize(source, { route, profile }) {
   const f = clone(source);
   f.route = route?.id ?? f.route;
   f.events = Array.isArray(f.events) ? f.events : [];
-  f.holds = Array.isArray(f.holds) ? f.holds : [];
   f.drive = f.drive ?? 'picture';
   f.gates = { look: 'required', animatic: 'required', final: 'required' };
   f.deliveries = Array.isArray(f.deliveries) ? f.deliveries : [f.output.profile];
   f.entry = f.entry ?? (f.route === 'b' ? (f.native?.entry ?? 'film.tsx') : 'index.html');
   const a = f.audio ?? { mode: f.route === 'b' ? (f.native?.audio ? 'native' : 'none') : 'none' };
-  f.audio = { ...a, targetLUFS: a.targetLUFS ?? profile?.audio.loudness.integratedLUFS, truePeakDbTP: a.truePeakDbTP ?? profile?.audio.truePeakMaxDbTP };
+  f.audio = { ...a, targetLUFS: a.targetLUFS ?? profile?.audio.loudness.integrated, truePeakDbTP: a.truePeakDbTP ?? profile?.audio.loudness.truePeak };
+  if (isObj(f.aigc) && f.aigc.contains === true && f.aigc.kinds === undefined) f.aigc = { ...f.aigc, kinds: ['visual'] };
   for (const k of FIELDS.compat) delete f[k];
   return f;
+}
+
+/** 刻意的静帧、黑场、闪白：qa.intentional 与旧写法 holds / blackouts / flashes 合成一张表 [{ kind, from, to, reason, list, index }]。 */
+export function intentionalRanges(film) {
+  const q = isObj(film?.qa) ? film.qa : {};
+  const out = [];
+  for (const list of ['intentional', ...Object.keys(INTENTIONAL_ALIASES)]) {
+    (Array.isArray(q[list]) ? q[list] : []).forEach((it, index) => {
+      if (!isObj(it)) return;
+      const from = it.from ?? it.in, to = it.to ?? it.out;
+      out.push({ kind: it.kind ?? INTENTIONAL_ALIASES[list] ?? null, from, to, reason: it.reason ?? '', list, index });
+    });
+  }
+  return out.sort((a, b) => a.from - b.from || a.to - b.to);
 }
 
 // ───────────────────────── 载入、写回、改切点 ─────────────────────────
@@ -798,51 +972,49 @@ export function retime(raw, shotId, change, { mode = 'ripple', filmDir = null } 
 
 // ───────────────────────── QA 期望值 ─────────────────────────
 
-/** 一部作品交给 QA 的全部期望值。改 film.json（例如某镜的 out），这里的帧数、切点、事件随之变化。 */
+/**
+ * 一部作品交给 QA 的全部期望值（与 tools/qa 同一来源：档位表 + 作品的 qa 段）。改 film.json（例如某镜的 out），
+ * 这里的帧数、切点、事件、刻意画面随之变化；秒数阈值换成本片帧数（例如 24 fps 下静帧 0.5 秒 = 12 帧）。
+ */
 export function qaExpectations(film, { profiles = loadProfiles() } = {}) {
-  const p = getProfile(film.output.profile, profiles);
-  const fps = film.output.fps, n = film.output.frameCount;
+  const { profile: p, overrides } = effectiveProfile(film, { profiles });
+  const fps = film.output.fps, n = film.output.frameCount, L = p.audio.loudness;
+  const strip = o => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => !k.startsWith('$')));
+  const frames = s => Math.ceil(s * fps - FRAME_EPS);
+  const needsSound = e => e.sync !== 'none' && e.audio !== undefined;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     film: film.id,
     profile: p.id,
     deliveries: film.deliveries ?? [p.id],
-    video: { width: p.video.width, height: p.video.height, fps, frameCount: n, durationSeconds: n / fps, codec: p.video.codec, codecProfile: p.video.codecProfile, pixFmt: p.video.pixFmt, sar: p.video.sar, cfr: p.video.cfr, fieldOrder: p.video.fieldOrder, color: { ...p.video.color } },
+    source: { profiles: 'engine/production/profiles.json', overrides },
+    video: { width: p.video.width, height: p.video.height, fps, frameCount: n, durationSeconds: n / fps, codec: p.video.codec, profiles: [...p.video.profiles], maxLevel: p.video.maxLevel, pixFmt: p.video.pixFmt, sar: p.video.sar, cfr: p.video.cfr, fieldOrder: p.video.fieldOrder, color: { ...p.video.color } },
     audio: {
       expected: film.audio?.mode !== 'none',
-      codec: p.audio.codec, sampleRate: p.audio.sampleRate, channels: p.audio.channels, channelLayout: p.audio.channelLayout,
-      loudness: { integratedLUFS: p.audio.loudness.integratedLUFS, toleranceLU: p.audio.loudness.toleranceLU, min: p.audio.loudness.integratedLUFS - p.audio.loudness.toleranceLU, max: p.audio.loudness.integratedLUFS + p.audio.loudness.toleranceLU, measure: p.audio.loudness.measure },
-      truePeakMaxDbTP: p.audio.truePeakMaxDbTP,
-      mixTarget: { integratedLUFS: film.audio?.targetLUFS ?? p.audio.loudness.integratedLUFS, truePeakDbTP: film.audio?.truePeakDbTP ?? p.audio.truePeakMaxDbTP },
+      codec: p.audio.codec, aacProfile: p.audio.aacProfile, sampleRate: p.audio.sampleRate, channels: p.audio.channels, channelLayout: p.audio.channelLayout,
+      loudness: { integrated: L.integrated, tolerance: L.tolerance, min: L.integrated - L.tolerance, max: L.integrated + L.tolerance, truePeak: L.truePeak, measure: L.measure },
+      mixTarget: { integratedLUFS: film.audio?.targetLUFS ?? L.integrated, truePeakDbTP: film.audio?.truePeakDbTP ?? L.truePeak },
     },
     ffprobe: ffprobeExpect(p),
-    container: { ...p.container },
-    sync: { ...p.sync },
+    container: clone(p.container),
     safeArea: clone(p.safeArea),
     shots: film.shots.map(s => ({ id: s.id, in: s.in, out: s.out, length: s.out - s.in, seconds: [s.in / fps, s.out / fps], transition: s.transition ?? 'cut' })),
     cuts: film.shots.slice(1).map((s, i) => ({ frame: s.in, seconds: s.in / fps, from: film.shots[i].id, to: s.id, transition: s.transition ?? 'cut', hard: (s.transition ?? 'cut') === 'cut' })),
-    events: film.events.map(e => ({ id: e.id, frame: e.frame, seconds: e.frame / fps, shot: e.shot, end: e.end, audio: e.audio, visual: e.visual, sync: e.sync ?? (e.audio !== undefined), beat: e.beat })),
-    holds: film.holds.map(h => ({ ...h, seconds: [h.in / fps, h.out / fps] })),
+    events: film.events.map(e => ({ id: e.id, frame: e.frame, seconds: e.frame / fps, shot: e.shot, end: e.end, audio: e.audio, visual: e.visual, sync: e.sync ?? 'default', needsSound: needsSound(e), beat: e.beat })),
+    intentional: intentionalRanges(film).map(({ kind, from, to, reason }) => ({ kind, from, to, seconds: [from / fps, to / fps], reason })),
+    waivers: (Array.isArray(film.qa?.waivers) ? film.qa.waivers : []).map(w => ({ check: w.check, target: w.target ?? null, frames: w.frames ?? null, status: w.status ?? 'approved' })),
     posterFrame: film.posterFrame ?? null,
-    aigc: { contains: film.aigc?.contains ?? null, markerRequired: film.aigc?.contains === true, marker: p.qa.aigc?.marker ?? AIGC_MARK, metadataKey: p.qa.aigc?.metadataKey ?? 'comment' },
-    checks: qaChecks(p.qa, fps),
-  };
-}
-
-/** 检测阈值换成本片的帧数（秒数照留，方便核对）；文字最短停留 = max(minHoldFrames, 字数 × perCharFrames) 向上取整。 */
-function qaChecks(q, fps) {
-  const frames = s => Math.ceil(s * fps - FRAME_EPS);
-  const strip = o => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => !['source', 'calibrate', 'waiverFrom'].includes(k)));
-  const calibrate = Object.entries(q).filter(([, v]) => v?.calibrate === true).map(([k]) => k);
-  return {
-    decode: strip(q.decode),
-    black: { ...strip(q.black), minFrames: frames(q.black.minSeconds), waiver: 'holds.black' },
-    freeze: { ...strip(q.freeze), minFrames: frames(q.freeze.minSeconds), waiver: 'holds.freeze' },
-    flicker: strip(q.flicker),
-    cuts: strip(q.cuts),
-    text: { ...strip(q.text), minHoldFrames: frames(q.text.minHoldSeconds), perCharFrames: q.text.perCharSeconds * fps },
-    plates: strip(q.plates),
-    calibrate,
+    aigc: {
+      contains: film.aigc?.contains ?? null, markerRequired: film.aigc?.contains === true, kinds: film.aigc?.kinds ?? [],
+      explicit: (film.aigc?.kinds ?? []).map(k => AIGC_KINDS[k]), metadataKey: 'comment', metadata: p.aigc?.metadata ?? 'required',
+    },
+    checks: {
+      visual: { ...strip(p.visual), freezeMinFrames: frames(p.visual.freezeMinSec), flickerWindowFrames: 2 * p.visual.flickerHalfWindow + 1 },
+      texts: { ...strip(p.texts), minHoldFrames: frames(p.texts.minHoldSec), perUnitFrames: p.texts.perUnitSec * fps, targetBaseFrames: frames(p.texts.targetBaseSec) },
+      sync: { ...strip(p.sync), earlyMs: (p.sync.earlyFrames / fps) * 1000, lateMs: (p.sync.lateFrames / fps) * 1000, lipLateMs: (p.sync.lipLateFrames / fps) * 1000 },
+      plates: strip(p.plates),
+      clearColor: film.qa?.clearColor ?? '#000000',
+    },
   };
 }
 
@@ -871,7 +1043,7 @@ export function toProjectSpec(film, { runtime = null, execution = null, outputDi
       ? { id: film.style.id, version: typeof film.style.version === 'number' ? `v${film.style.version}` : String(film.style.version), baseline: film.style.baseline ? rel(film.style.baseline) : null }
       : { id: 'unspecified', version: 'v0', baseline: null },
     assets: { inline: (film.assets ?? []).map(id => ({ id })), scope: '来自 film.json v2 的资产 id；文件与 sha256 见 engine/assets' },
-    audio: { sampleRate: p.audio.sampleRate, channels: p.audio.channels, targetLUFS: film.audio?.targetLUFS ?? p.audio.loudness.integratedLUFS, truePeakLimitDbTP: film.audio?.truePeakDbTP ?? p.audio.truePeakMaxDbTP },
+    audio: { sampleRate: p.audio.sampleRate, channels: p.audio.channels, targetLUFS: film.audio?.targetLUFS ?? p.audio.loudness.integrated, truePeakLimitDbTP: film.audio?.truePeakDbTP ?? p.audio.loudness.truePeak },
     execution: execution ?? { target: 'local', graphicsBackend: 'auto', evidence: null },
   };
   const hints = {

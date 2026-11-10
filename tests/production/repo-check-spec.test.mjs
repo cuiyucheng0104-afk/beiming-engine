@@ -1,4 +1,6 @@
-// tools/repo-check/rules/spec：spec 域的仓库规范检查（作品描述、审片记录、交付字样、阐述四节、镜像、资产锁、档位）。
+// tools/repo-check/rules/spec/：spec 域的仓库规范检查（作品描述、审片记录、交付字样、阐述四节、镜像、资产锁、档位）。
+// 规则按治理骨架的加载器约定写（tools/repo-check/core/loader.mjs：一个文件一条规则，默认导出 { id, title, run(ctx) }）。
+//   node --test tests/production/repo-check-spec.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -6,14 +8,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import * as film from '../../engine/production/film.js';
-import * as state from '../../engine/production/state.js';
 import * as review from '../../engine/production/review.js';
-import * as assets from '../../engine/assets/manifest.js';
-import { domain, rules, runRules } from '../../tools/repo-check/rules/spec/index.mjs';
+import { loadRules } from '../../tools/repo-check/core/loader.mjs';
+import { createContext } from '../../tools/repo-check/core/context.mjs';
 import { HUMAN, REPO, minimalFilm } from './helpers.mjs';
 
-const L = { film, state, review, assets };
-const CLI = join(REPO, 'tools', 'repo-check', 'rules', 'spec', 'index.mjs');
+const RULES_DIR = join(REPO, 'tools', 'repo-check', 'rules');
+const SPEC_IDS = ['spec.assets-lock', 'spec.claims', 'spec.films', 'spec.mirror', 'spec.profiles', 'spec.reviews', 'spec.templates', 'spec.treatment'];
+
+async function specRules() {
+  const { rules, problems } = await loadRules(RULES_DIR);
+  return { rules: rules.filter(r => r.domain === 'spec'), problems: problems.filter(p => p.file.includes('/rules/spec/')) };
+}
 
 /** 临时仓库根：films/<id>/ 下放 film.json、index.html 与 extra 文件。 */
 function tempRepo(films) {
@@ -31,49 +37,63 @@ function tempRepo(films) {
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-const byRule = r => Object.fromEntries(r.results.map(x => [x.id, x.diagnostics]));
-const errCodes = list => list.filter(x => x.level === 'error').map(x => x.code);
+const codeOf = f => /^\[([a-z0-9-]+)\]/.exec(f.message)?.[1] ?? null;
+const errCodes = list => list.filter(x => x.level === 'error').map(codeOf);
 
-test('插件形状：domain、rules[{ id, title, check }]、runRules；仓库现状没有错误', async () => {
-  assert.equal(domain, 'spec');
-  for (const r of rules) { assert.match(r.id, /^spec\.[a-z-]+$/); assert.equal(typeof r.check, 'function'); assert.ok(r.title); }
-  const r = await runRules({ root: REPO });
-  assert.equal(r.ok, true, JSON.stringify(r.results.flatMap(x => x.diagnostics.filter(y => y.level === 'error')), null, 1));
+test('加载器约定：spec 的 8 条规则各一个文件，默认导出 { id, title, run }，没有加载问题', async () => {
+  const { rules, problems } = await specRules();
+  assert.deepEqual(problems, []);
+  assert.deepEqual(rules.map(r => r.id).sort(), SPEC_IDS);
+  for (const r of rules) { assert.ok(r.title); assert.equal(typeof r.run, 'function'); }
+});
+
+test('仓库现状：spec 域没有错误（node tools/repo-check.mjs --only spec --json）', () => {
+  const r = spawnSync(process.execPath, [join(REPO, 'tools', 'repo-check.mjs'), '--only', 'spec', '--json'], { cwd: REPO, encoding: 'utf8', timeout: 240_000 });
+  const env = JSON.parse(r.stdout);
+  assert.equal(env.schemaVersion, 1);
+  const mine = env.data.findings.filter(f => f.rule.startsWith('spec.'));
+  assert.deepEqual(mine.filter(f => f.level === 'error'), [], JSON.stringify(mine.filter(f => f.level === 'error'), null, 1));
+  assert.deepEqual(env.data.rules.filter(x => x.id.startsWith('spec.')).map(x => x.id).sort(), SPEC_IDS);
 });
 
 test('查出：不合格的 film.json、agent 自批的记录、没有依据的「已交付」、阐述缺小节', async () => {
+  const { rules } = await specRules();
+  const rule = id => rules.find(r => r.id === id);
   const good = minimalFilm();
   const selfApproved = review.buildReview({ film: film.validateFilm(minimalFilm({ id: 'self' }), { checkFiles: false }).film, pathBase: '.', gate: 'look', decision: 'approve', ...HUMAN, reviewer: { kind: 'ai', name: 'agent' }, reviewed: [{ path: 'x.png', sha256: 'a'.repeat(64) }] });
   const t = tempRepo({
-    tfilm: { json: good, extra: { 'README.md': '# 测试片\n\n本片已交付，用户已认可。\n\n技术检查通过，未交付。\n', 'TREATMENT.md': '# 测试片\n\n## 10. 镜头表\n\n## 11. 节拍表\n' } },
+    tfilm: { json: good, extra: { 'README.md': '# 测试片\n\n本片已交付，用户已认可。\n\n技术检查通过，未交付；「已交付」只能由 accepted 生成。\n', 'TREATMENT.md': '# 测试片\n\n## 10. 镜头表\n\n## 11. 节拍表\n' } },
     self: { json: minimalFilm({ id: 'self' }), extra: { 'review/look-2026-11-09.json': selfApproved } },
     broken: { json: minimalFilm({ id: 'broken', shots: [{ id: 'S1', in: 0, out: 40 }, { id: 'S2', in: 48, out: 96 }] }) },
   });
   try {
-    const r = await runRules({ root: t.root, L }, { only: ['spec.films', 'spec.reviews', 'spec.claims', 'spec.treatment'] });
-    assert.equal(r.ok, false);
-    const m = byRule(r);
-    assert.ok(errCodes(m['spec.films']).includes('shots-not-contiguous'));
-    assert.ok(m['spec.films'].some(x => x.path.startsWith('films/broken/film.json')));
-    assert.ok(errCodes(m['spec.reviews']).includes('review-ai-decision'));
-    const claims = m['spec.claims'].filter(x => x.code === 'unbacked-claim');
-    assert.deepEqual(claims.map(x => x.path), ['films/tfilm/README.md:3', 'films/tfilm/README.md:3']);
-    assert.ok(errCodes(m['spec.treatment']).includes('treatment-sections'));
-    assert.match(m['spec.treatment'].find(x => x.code === 'treatment-sections').message, /cue map、声音设计/);
-    assert.ok(m['spec.treatment'].some(x => x.code === 'treatment-missing' && x.level === 'warning'));
+    const ctx = createContext({ root: t.root });
+    const films = await rule('spec.films').run(ctx);
+    assert.ok(errCodes(films).includes('shots-not-contiguous'), JSON.stringify(films));
+    assert.ok(films.some(x => x.file === 'films/broken/film.json' && x.level === 'error'));
+    assert.ok(films.every(x => x.file !== 'films/tfilm/film.json' || x.level !== 'error'));
+    const reviews = await rule('spec.reviews').run(ctx);
+    assert.ok(errCodes(reviews).includes('review-ai-decision'));
+    assert.ok(reviews.some(x => x.file === 'films/self/review/look-2026-11-09.json'));
+    const claims = (await rule('spec.claims').run(ctx)).filter(x => codeOf(x) === 'unbacked-claim');
+    assert.deepEqual(claims.map(x => [x.file, x.line, x.excerpt]), [['films/tfilm/README.md', 3, '已交付'], ['films/tfilm/README.md', 3, '用户已认可']]);
+    const tr = await rule('spec.treatment').run(ctx);
+    const sections = tr.find(x => codeOf(x) === 'treatment-sections');
+    assert.equal(sections.level, 'error');
+    assert.match(sections.message, /cue map、声音设计/);
+    assert.ok(tr.some(x => codeOf(x) === 'treatment-missing' && x.level === 'warn'));
   } finally { t.cleanup(); }
 });
 
-test('命令行：一致 exit 0，--json 信封；参数错 exit 2；--help 不跑检查', () => {
-  const run = args => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', timeout: 120_000 });
-  const ok = run(['--json']);
-  assert.equal(ok.status, 0, ok.stderr);
-  const env = JSON.parse(ok.stdout);
-  assert.deepEqual(Object.keys(env).slice(0, 7), ['ok', 'exitCode', 'command', 'error', 'outputs', 'runJson', 'warnings']);
-  assert.equal(env.result.results.length, rules.length);
-  assert.equal(run(['--only', 'spec.nope']).status, 2);
-  assert.equal(run(['--bogus']).status, 2);
-  const help = run(['--help']);
-  assert.equal(help.status, 0);
-  assert.match(help.stdout, /spec\.claims/);
+test('--staged：只看暂存区涉及的作品', async () => {
+  const { rules } = await specRules();
+  const t = tempRepo({
+    a: { json: minimalFilm({ id: 'a', shots: [{ id: 'S1', in: 0, out: 40 }, { id: 'S2', in: 48, out: 96 }] }) },
+    b: { json: minimalFilm({ id: 'b', shots: [{ id: 'S1', in: 0, out: 40 }, { id: 'S2', in: 48, out: 96 }] }) },
+  });
+  try {
+    const ctx = createContext({ root: t.root, staged: new Set(['films/b/film.json']) });
+    const out = await rules.find(r => r.id === 'spec.films').run(ctx);
+    assert.deepEqual([...new Set(out.filter(x => x.level === 'error').map(x => x.file))], ['films/b/film.json']);
+  } finally { t.cleanup(); }
 });

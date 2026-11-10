@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  AIGC_MARK, ffprobeExpect, getProfile, loadFilm, loadProfiles, matchProfile, qaExpectations, upgradeFilm, validateFilm,
+  AIGC_KINDS, AIGC_MARK, effectiveProfile, ffprobeExpect, getProfile, intentionalRanges, loadFilm, loadProfiles, matchProfile, migrateV2, qaExpectations, upgradeFilm, validateFilm,
 } from '../../engine/production/film.js';
 import { REPO, clone, errors, minimalFilm, tempFilm, warnings } from './helpers.mjs';
 
@@ -89,7 +89,7 @@ test('没有消费者的时间字段判错；未知字段只警告', () => {
     ['镜头里的 t0', f => { f.shots[0].t0 = 0; }],
     ['事件里的 t', f => { f.events[0].t = 2.5; }],
     ['output.duration', f => { f.output.duration = 4; }],
-    ['停顿里的 start', f => { f.holds = [{ in: 0, out: 2, kind: 'black', reason: '片头黑场', start: 0 }]; }],
+    ['刻意画面里的 t0', f => { f.qa = { intentional: [{ kind: 'black', from: 0, to: 2, reason: '片头黑场', t0: 0 }] }; }],
   ]) {
     const f = minimalFilm(); mutate(f);
     assert.ok(errors(v(f)).includes('orphan-time-field'), where);
@@ -127,8 +127,14 @@ test('档位表与决策 D07 一致，ffprobe 期望值与 QA 期望值由它推
   assert.deepEqual([web.video.width, web.video.height, web.video.fps, web.video.pixFmt], [1920, 1080, 24, 'yuv420p']);
   assert.deepEqual(web.video.color, { range: 'tv', matrix: 'bt709', primaries: 'bt709', transfer: 'bt709' });
   assert.deepEqual([web.audio.codec, web.audio.sampleRate, web.audio.channels], ['aac', 48000, 2]);
-  assert.deepEqual([web.audio.loudness.integratedLUFS, web.audio.loudness.toleranceLU, web.audio.truePeakMaxDbTP], [-14, 1, -1]);
-  assert.equal(getProfile('broadcast-1080p25').audio.loudness.integratedLUFS, -23);
+  assert.deepEqual([web.audio.loudness.integrated, web.audio.loudness.tolerance, web.audio.loudness.truePeak], [-14, 1, -1]);
+  assert.deepEqual([getProfile('broadcast-1080p25').audio.loudness.integrated, getProfile('broadcast-1080p25').audio.loudness.tolerance], [-23, 0.5]);
+  // D07：真峰值一律不高于 −1.0 dBTP（作品可在 film.json 的 audio.truePeakDbTP 定更严的混音目标）
+  for (const id of Object.keys(P.profiles)) assert.equal(getProfile(id).audio.loudness.truePeak, -1, id);
+  // 安全区：16:9 按 EBU R95（每边 5% / 3.5%，routes/directing/VISUAL-DESIGN.md §6.3）；竖屏按平台界面的保守交集
+  assert.deepEqual(web.safeArea.title, { top: 0.05, right: 0.05, bottom: 0.05, left: 0.05 });
+  assert.deepEqual(web.safeArea.action, { top: 0.035, right: 0.035, bottom: 0.035, left: 0.035 });
+  assert.deepEqual(getProfile('vertical-1080x1920-30').safeArea.title, { top: 0.08, right: 0.12, bottom: 0.18, left: 0.06 });
   assert.equal(getProfile('broadcast-1080p25').video.fps, 25);
   assert.deepEqual([getProfile('vertical-1080x1920-30').video.width, getProfile('vertical-1080x1920-30').video.height, getProfile('vertical-1080x1920-30').video.fps], [1080, 1920, 30]);
   assert.deepEqual([getProfile('uhd-2160p24').video.width, getProfile('uhd-2160p24').video.height], [3840, 2160]);
@@ -136,7 +142,7 @@ test('档位表与决策 D07 一致，ffprobe 期望值与 QA 期望值由它推
   for (const id of Object.keys(P.profiles)) {
     const c = getProfile(id).video.color;
     assert.deepEqual(c, { range: 'tv', matrix: 'bt709', primaries: 'bt709', transfer: 'bt709' }, id);
-    assert.ok(getProfile(id).qa.text.minContrast >= 3, id);
+    assert.ok(getProfile(id).texts.minContrast >= 3, id);
   }
   assert.deepEqual(ffprobeExpect('web-1080p24').video, {
     codec_name: 'h264', profile: 'High', pix_fmt: 'yuv420p', width: 1920, height: 1080, r_frame_rate: '24/1', avg_frame_rate: '24/1',
@@ -144,11 +150,55 @@ test('档位表与决策 D07 一致，ffprobe 期望值与 QA 期望值由它推
   });
   assert.equal(matchProfile({ width: 1920, height: 1080, fps: 24 }), 'web-1080p24');
   assert.equal(matchProfile({ width: 1280, height: 720, fps: 24 }), null);
+  assert.equal(ffprobeExpect('web-1080p24').audio.profile, 'LC');
   const e = qaExpectations(v(minimalFilm()).film);
-  assert.equal(e.checks.text.minHoldFrames, 20);   // 0.8 秒 @24 fps
-  assert.equal(e.checks.cuts.toleranceFrames, 1);
-  assert.equal(e.aigc.marker, AIGC_MARK);
-  assert.ok(Array.isArray(e.checks.calibrate));
+  assert.equal(e.checks.texts.minHoldFrames, 20);   // 0.8 秒 @24 fps
+  assert.equal(e.checks.visual.freezeMinFrames, 12);   // 0.5 秒 @24 fps
+  assert.equal(e.checks.visual.cutTolFrames, 1);
+  assert.equal(e.checks.sync.lipLateFrames, 2);
+  assert.deepEqual(e.source.overrides, []);
+  assert.deepEqual(e.aigc, { contains: false, markerRequired: false, kinds: [], explicit: [], metadataKey: 'comment', metadata: 'required' });
+  // 作品的 qa 段按键覆盖档位阈值，期望值照实写出覆盖了什么
+  const o = qaExpectations(v(minimalFilm({ qa: { texts: { minHoldSec: 1.0 }, safeArea: { title: { bottom: 0.18 } } } })).film);
+  assert.equal(o.checks.texts.minHoldFrames, 24);
+  assert.equal(o.safeArea.title.bottom, 0.18);
+  assert.equal(o.safeArea.title.top, 0.05);
+  assert.deepEqual(o.source.overrides.sort(), ['safeArea.title', 'texts.minHoldSec']);
+  const ai = qaExpectations(v(minimalFilm({ aigc: { contains: true, note: '底板为 AI 生成后人工整理' } })).film);
+  assert.deepEqual([ai.aigc.markerRequired, ai.aigc.kinds, ai.aigc.explicit], [true, ['visual'], [AIGC_MARK]]);
+});
+
+test('档位表就是 QA 读的那一份：tools/qa 读它不需要任何兜底，数值与 QA 内置档位一致（只有一把尺子）', async () => {
+  const qa = await import('../../tools/qa/lib/profiles.mjs');
+  const store = qa.loadProfiles({ root: REPO });
+  assert.equal(store.source, 'engine/production/profiles.json');
+  assert.deepEqual(store.warnings, []);
+  for (const [id, p] of store.profiles) {
+    assert.deepEqual(p.warnings, [], id);
+    const mine = getProfile(id);
+    assert.deepEqual([p.width, p.height, p.fps], [mine.video.width, mine.video.height, mine.video.fps], id);
+    assert.deepEqual([p.audio.integratedLufs, p.audio.lufsTolerance, p.audio.truePeakMaxDbtp], [mine.audio.loudness.integrated, mine.audio.loudness.tolerance, mine.audio.loudness.truePeak], id);
+    assert.deepEqual([p.video.colorRange, p.video.colorSpace, p.video.colorPrimaries, p.video.colorTransfer], Object.values(mine.video.color), id);
+    for (const k of ['texts', 'visual', 'sync', 'plates']) {
+      for (const [key, val] of Object.entries(mine[k])) assert.deepEqual(p[k][key], val, `${id}.${k}.${key}`);
+    }
+    assert.deepEqual(p.safeArea.title, mine.safeArea.title, id);
+  }
+  // 作品 qa 段的覆盖：两边合并规则相同
+  const film = v(minimalFilm({ qa: { visual: { freezeMinSec: 0.75 }, safeArea: { title: 0.08 } } })).film;
+  const theirs = qa.resolveProfile(store, film.output.profile, { profile: film.output.profile, qa: film.qa, audioMode: 'none' });
+  const ours = effectiveProfile(film).profile;
+  assert.equal(theirs.visual.freezeMinSec, ours.visual.freezeMinSec);
+  assert.deepEqual(theirs.safeArea.title, ours.safeArea.title);
+});
+
+test('AIGC 的显式标识文字与合规库 tools/compliance/lib/aigc.mjs 一致', async () => {
+  const { EXPLICIT } = await import('../../tools/compliance/lib/aigc.mjs');
+  assert.deepEqual(AIGC_KINDS, EXPLICIT);
+  assert.ok(errors(v(minimalFilm({ aigc: { contains: true, note: 'x', kinds: ['visual', 'smell'] } }))).includes('aigc-invalid'));
+  assert.ok(errors(v(minimalFilm({ aigc: { contains: false, kinds: ['visual'] } }))).includes('aigc-invalid'));
+  assert.deepEqual(errors(v(minimalFilm({ aigc: { contains: true, note: '配音为 AI 合成', kinds: ['voice'] } }))), []);
+  assert.ok(errors(v(minimalFilm({ aigc: { note: '没写 contains' } }))).includes('aigc-invalid'));
 });
 
 test('路线：注册表 id 是规范值，别名只提示；后端按路线校验', () => {
@@ -189,11 +239,76 @@ test('闸门在 film.json 里只能全开；署名与 AIGC 标识必填', () => 
   assert.ok(errors(v(minimalFilm({ methodRefs: [{ caseId: 'local-beiming-film-9min', borrowed: '镜头表', catalogStatus: 'rejected', license: '本项目' }] }))).includes('method-ref-rejected'));
 });
 
-test('停顿与海报帧都是整数帧，停顿要写原因（QA 据此豁免黑场 / 静帧）', () => {
-  assert.deepEqual(errors(v(minimalFilm({ holds: [{ in: 0, out: 6, kind: 'black', reason: '片头黑场' }], posterFrame: 70 }))), []);
-  assert.ok(errors(v(minimalFilm({ holds: [{ in: 0, out: 6, kind: 'black' }] }))).includes('hold-invalid'));
-  assert.ok(errors(v(minimalFilm({ holds: [{ in: 90, out: 100, kind: 'freeze', reason: 'x' }] }))).includes('hold-invalid'));
+test('qa 段：刻意画面是整数帧半开区间、要写理由；顶层 holds 已并入 qa.intentional；海报帧在片内', () => {
+  const ok = minimalFilm({ qa: { intentional: [{ kind: 'black', from: 0, to: 6, reason: '片头黑场' }, { kind: 'flash', from: 60, to: 62, reason: '拍点闪白' }] }, posterFrame: 70 });
+  assert.deepEqual(errors(v(ok)), []);
+  assert.deepEqual(intentionalRanges(ok).map(r => [r.kind, r.from, r.to]), [['black', 0, 6], ['flash', 60, 62]]);
+  assert.ok(errors(v(minimalFilm({ qa: { intentional: [{ kind: 'black', from: 0, to: 6 }] } }))).includes('qa-intentional-invalid'));
+  assert.ok(errors(v(minimalFilm({ qa: { intentional: [{ kind: 'freeze', from: 90, to: 100, reason: 'x' }] } }))).includes('qa-range-invalid'));
+  assert.ok(errors(v(minimalFilm({ qa: { intentional: [{ kind: 'pause', from: 0, to: 6, reason: 'x' }] } }))).includes('qa-intentional-invalid'));
+  // 旧写法 holds / blackouts / flashes 在 qa 里照读（QA 也认），提示并进 intentional
+  const alias = v(minimalFilm({ qa: { blackouts: [{ from: 90, to: 96, reason: '片尾黑场' }] } }));
+  assert.deepEqual(errors(alias), []);
+  assert.ok(warnings(alias).includes('qa-intentional-alias'));
+  // 顶层 holds：QA 不读，判错并给出搬法；migrateV2 自动搬
+  const legacy = minimalFilm({ holds: [{ in: 0, out: 6, kind: 'black', reason: '片头黑场' }] });
+  assert.ok(errors(v(legacy)).includes('holds-moved'));
+  const m = migrateV2(legacy);
+  assert.equal(m.changed, true);
+  assert.equal(m.film.holds, undefined);
+  assert.deepEqual(m.film.qa.intentional, [{ kind: 'black', from: 0, to: 6, reason: '片头黑场' }]);
+  assert.deepEqual(errors(v(m.film)), []);
+  // 阈值覆盖：键名必须是档位里有的；类型相同；豁免要有批准人、原话、出处，agent 不能批
+  assert.ok(warnings(v(minimalFilm({ qa: { texts: { minHoldSeconds: 1 } } }))).includes('qa-override-unknown'));
+  assert.ok(errors(v(minimalFilm({ qa: { visual: { freezeMinSec: '1s' } } }))).includes('qa-override-invalid'));
+  assert.ok(errors(v(minimalFilm({ qa: { clearColor: 'black' } }))).includes('qa-override-invalid'));
+  const waiver = { check: 'texts.duration', target: 'subtitle', frames: [90, 96], reason: '片尾副标题随最后一拍落定', approvedBy: '用户', quote: '最后那行字停短点没关系', source: '会话 2026-11-10 第 12 条' };
+  assert.deepEqual(errors(v(minimalFilm({ qa: { waivers: [waiver] } }))), []);
+  assert.ok(errors(v(minimalFilm({ qa: { waivers: [{ ...waiver, approvedBy: 'agent' }] } }))).includes('qa-waiver-agent'));
+  assert.ok(errors(v(minimalFilm({ qa: { waivers: [{ ...waiver, quote: undefined }] } }))).includes('qa-waiver-invalid'));
+  assert.ok(warnings(v(minimalFilm({ qa: { waivers: [{ check: 'texts.duration', status: 'proposed' }] } }))).includes('qa-waiver-proposed'));
+  assert.ok(errors(v(minimalFilm({ qa: { waivers: [{ ...waiver, frames: [90, 100] }] } }))).includes('qa-waiver-invalid'));
   assert.ok(errors(v(minimalFilm({ posterFrame: 96 }))).includes('poster-invalid'));
+});
+
+test('qa 段的校验与机器 QA 的读法一致：QA 采用的豁免这里也合格，QA 丢弃的这里判错', async () => {
+  const { validateWaiver } = await import('../../tools/qa/lib/waivers.mjs');
+  const base = { check: 'texts.duration', reason: 'r', approvedBy: '用户', quote: '可以', source: '会话第 3 条' };
+  for (const w of [base, { ...base, approvedBy: 'AI 助手' }, { ...base, quote: '' }, { ...base, frames: [10, 5] }, { ...base, source: undefined }]) {
+    const theirs = validateWaiver(w).length === 0;
+    const ours = !errors(v(minimalFilm({ qa: { waivers: [w] } }))).some(c => c.startsWith('qa-waiver'));
+    assert.equal(ours, theirs, JSON.stringify(w));
+  }
+});
+
+test('events[].sync 用 QA 的取值：lip / soft / none（不写 = 硬门）；布尔值与 cue 是旧写法', () => {
+  for (const sync of ['lip', 'soft', 'none']) {
+    const f = minimalFilm(); f.events[0].sync = sync;
+    assert.deepEqual(errors(v(f)), [], sync);
+  }
+  const bad = minimalFilm(); bad.events[0].sync = 'hard';
+  assert.ok(errors(v(bad)).includes('event-sync-invalid'));
+  const legacy = minimalFilm(); legacy.events[0].sync = false;
+  assert.ok(errors(v(legacy)).includes('event-sync-legacy'));
+  assert.equal(migrateV2(legacy).film.events[0].sync, 'none');
+  const cue = minimalFilm(); delete cue.events[0].audio; cue.events[0].cue = 'hit';
+  assert.ok(errors(v(cue)).includes('event-cue-moved'));
+  assert.equal(migrateV2(cue).film.events[0].audio, 'hit');
+  const silent = minimalFilm(); delete silent.events[0].audio; silent.events[0].sync = 'lip';
+  assert.ok(warnings(v(silent)).includes('event-sync-without-audio'));
+  // 期望值：needsSound 与 QA 的判断一致（有 audio 且 sync 不是 none）
+  const e = qaExpectations(v(minimalFilm({ events: [{ id: 'a.bed', frame: 0, shot: 'S1', end: 48, audio: 'bed', sync: 'none' }, { id: 'a.hit', frame: 60, shot: 'S2', audio: 'hit' }] })).film);
+  assert.deepEqual(e.events.map(x => [x.id, x.sync, x.needsSound]), [['a.bed', 'none', false], ['a.hit', 'default', true]]);
+});
+
+test('next 是模版专用字段：模版里按注册表的步骤格式校验，作品里只提示', () => {
+  const step = { stage: 'look', title: '先出三张关键帧', run: ['node', 'engine/render/still.mjs', '{dir}', '0', '{mid}', '{last}'] };
+  const tpl = minimalFilm({ id: '{{NAME}}', title: '{{TITLE}}', next: [step] });
+  assert.deepEqual(errors(v(tpl, { template: true })), []);
+  assert.deepEqual(warnings(v(tpl, { template: true })).filter(c => c === 'unknown-field'), []);
+  assert.ok(errors(v(minimalFilm({ id: '{{NAME}}', title: '{{TITLE}}', next: [{ ...step, stage: 'render' }] }), { template: true })).includes('next-invalid'));
+  assert.ok(errors(v(minimalFilm({ id: '{{NAME}}', title: '{{TITLE}}', next: [{ ...step, run: 'node x.mjs' }] }), { template: true })).includes('next-invalid'));
+  assert.ok(warnings(v(minimalFilm({ next: [step] }))).includes('next-in-film'));
 });
 
 test('v1 记录自动升级：frameCount = round(dur × fps)，整片一个镜头，poster 秒数换成帧', () => {
