@@ -60,7 +60,7 @@
 |---|---|---|
 | `required`（默认；不写 `--gpu` 时取环境变量 `BEIMING_GPU`） | 本地出片、本地金标准 | WebGL 落到软件光栅（SwiftShader、llvmpipe、WARP）立刻 exit 3，一帧也不截 |
 | `any` | 本地排查 | 接受任何后端，平台键照实记 |
-| `software-ok` | CI 冒烟（`linux-swiftshader` 基线）、B 路线资产烘焙 | 明确要软件渲染；截帧清单的 `env.gpuPolicy` 记下来 |
+| `software-ok` | CI 冒烟（`linux-swiftshader` 基线）、B 路线资产烘焙 | 明确要软件渲染；截帧清单的 `env.gpuPolicy` 记下来。`--platform` 指明软件光栅平台（`*-swiftshader`、`*-llvmpipe`、`*-warp`）而没写 `--gpu` / `BEIMING_GPU` 时，默认就是它 |
 
 软件渲染的帧只会和 `*-swiftshader` 基线同平台比，和 GPU 基线之间按第 3 节的跨平台容差比，所以 CI 用 SwiftShader 不会把 GPU 基线判红，GPU 基线也不会被 CI 的软件渲染污染。
 

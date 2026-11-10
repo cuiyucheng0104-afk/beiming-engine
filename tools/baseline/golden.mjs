@@ -17,7 +17,7 @@ import {
   appendApproval, readManifest, listManifests, listReferences, APPROVALS, PK_RE, REFERENCE_DIR,
 } from './lib/manifest.mjs';
 import { decodePNG, encodePNG, pixelSha256 } from './lib/png.mjs';
-import { contactSheet } from './lib/metrics.mjs';
+import { contactSheet, downscale } from './lib/metrics.mjs';
 import { osKey } from './lib/platform.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -155,8 +155,10 @@ function readPlatformSafe(pk) {
   }
 }
 
+const SOFTWARE_PK = /-(swiftshader|llvmpipe|warp)$/;
 function normalizeOpts(o) {
-  const gpu = o.gpu || process.env.BEIMING_GPU || 'required';
+  // --gpu 不写时：取 BEIMING_GPU；--platform 指明的是软件光栅平台（如 linux-swiftshader）时默认 software-ok；否则 required
+  const gpu = o.gpu || process.env.BEIMING_GPU || (o.platform && SOFTWARE_PK.test(o.platform) ? 'software-ok' : 'required');
   if (!GPU_POLICIES.includes(gpu)) {
     throw usage(`${o.gpu ? '--gpu' : '环境变量 BEIMING_GPU'} 只能是 ${GPU_POLICIES.join(' | ')}，现在是 ${gpu}`);
   }
@@ -171,7 +173,7 @@ function needSets(sets, names) {
 
 // 审批用的总览：一个集合的全部帧按 4 列拼成一张（每格 320 宽），写在截帧目录里。审批人转正候选前看的就是它
 function reviewSheet(dir, manifest) {
-  const imgs = manifest.frames.map(f => decodePNG(fs.readFileSync(path.join(dir, f.file))));
+  const imgs = manifest.frames.map(f => downscale(decodePNG(fs.readFileSync(path.join(dir, f.file))), 320));   // 逐张缩小，4K 帧也不占大内存
   const rows = [];
   for (let i = 0; i < imgs.length; i += 4) rows.push(imgs.slice(i, i + 4));
   const file = path.join(dir, 'contact.png');
@@ -619,7 +621,7 @@ export const command = defineCommand({
   positionals: [{ name: 'subcommand', label: '<子命令>', describe: Object.keys(SUBS).join(' | ') }],
   options: {
     set: { type: 'list', split: ',', arg: '<集合>', describe: '可重复，也可逗号分隔；capture / compare / update / approve / reference 必须给', example: 'beiming-core' },
-    platform: { type: 'string', arg: '<平台键>', describe: 'capture / compare：本机应有的平台键（不符即 exit 3），capture 时另写候选；approve：转正哪个平台的候选', example: 'linux-swiftshader' },
+    platform: { type: 'string', arg: '<平台键>', describe: 'capture / compare：本机应有的平台键（不符即 exit 3；软件光栅平台如 linux-swiftshader 默认 --gpu software-ok），capture 时另写候选；approve：转正哪个平台的候选', example: 'linux-swiftshader' },
     against: { type: 'string', arg: '<提交>', describe: 'compare：把该提交的页面（约 60 MB）导出到临时目录现场渲染来比；不建 worktree，结束即删', example: 'HEAD~1' },
     'ref-dir': { type: 'string', arg: '<目录>', describe: 'compare：另一台机器 capture 出来的目录（含 capture.json 与 frames/）' },
     reference: { type: 'string', arg: '<名@v版本>', describe: 'compare：与认可参照比；keyframes：导出哪个认可参照的关键帧', example: 'beiming-original@v1' },
@@ -627,7 +629,7 @@ export const command = defineCommand({
     strict: { type: 'boolean', describe: 'compare：任何不是逐像素一致的帧都算失败（合入前的「像素保护」用这个）' },
     'no-render-ref': { type: 'boolean', describe: 'compare：哈希不同时不自动现渲源提交（只报哈希差异，判为无法核实）' },
     'no-cache': { type: 'boolean', describe: 'compare / keyframes：参照一律现渲，不用 out/golden/cache/ 里的缓存' },
-    gpu: { type: 'string', arg: '<策略>', choices: GPU_POLICIES, describe: '落到软件渲染时：required 即 exit 3（默认）；software-ok 给 CI 的 SwiftShader；不写时取 BEIMING_GPU' },
+    gpu: { type: 'string', arg: '<策略>', choices: GPU_POLICIES, describe: '落到软件渲染时：required 即 exit 3（默认）；software-ok 给 CI 的 SwiftShader；不写时取 BEIMING_GPU，--platform 是软件光栅平台时取 software-ok' },
     jobs: { type: 'integer', arg: '<n>', min: 1, max: 16, describe: '同时开几个页面（默认 2）', example: '2' },
     'frame-timeout': { type: 'number', arg: '<秒>', min: 1, max: 3600, describe: '单帧 render + 截图的上限（默认 60）', example: '60' },
     out: { type: 'string', arg: '<目录>', describe: 'capture / compare 的输出目录（默认 out/golden/…）' },
@@ -644,7 +646,7 @@ export const command = defineCommand({
     'node tools/baseline/golden.mjs compare --set beiming-core,lab,templates --strict',
     'node tools/baseline/golden.mjs compare --set lab --perturb lw=2            # 灵敏度自检：应当 exit 4',
     'node tools/baseline/golden.mjs compare --set beiming-core --against HEAD~3   # 二分是哪个提交改了像素',
-    'BEIMING_ANGLE=swiftshader BEIMING_GPU=software-ok node tools/baseline/golden.mjs compare --set beiming-core --platform linux-swiftshader --json',
+    'BEIMING_ANGLE=swiftshader node tools/baseline/golden.mjs compare --set beiming-core --set lab --platform linux-swiftshader --json   # CI 冒烟同款',
     'node tools/baseline/golden.mjs update --set lab --by 集成负责人 --reason "PR #12 有意改墨线" --commit HEAD --ref <PR 链接>',
   ],
   exitCodes: {
