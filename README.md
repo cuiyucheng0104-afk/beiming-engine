@@ -1,15 +1,29 @@
-# 北冥引擎
+<div align="center">
 
-**代码即影片。**这里的成片由程序逐帧合成：造型、光影、墨线、镜头、版式与混音都写成代码；手绘底板、提案原画、AI 生成的画面或公有领域影像只作素材，来源逐部记录在案例卡里。同一份工程能渲 1080p，也能渲原生 4K，任何一帧都可以单独重渲。
+# 北冥引擎 · Beiming Engine
 
-[![《北冥》样片的三个镜头：黄昏江面上的城市与渡轮，戴眼镜的女水手侧影，背上长满海草的鲲从头顶游过。点击进入作品站](media/preview.gif)](https://cuiyucheng0104-afk.github.io/beiming-engine/)
+**代码即影片。一套引擎，三条路线。**
 
-| 看什么 | 去哪里 |
-|---|---|
-| 作品站：浏览器里实时渲染的鲲，79 部代码动画成片 | <https://cuiyucheng0104-afk.github.io/beiming-engine/> |
-| 样片《北冥》：10 秒，有声，1080p 与原生 4K | [Release v1.0](https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/v1.0) |
-| 全部成片、原始版本与素材包：105 个文件，约 9.96 GB | [Release casebook-2026.11](https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/casebook-2026.11) |
-| 文档：按读者分的导航 | [docs/README.md](docs/README.md) |
+三渲二 + 2.5D 的逐帧确定性渲染管线：造型、光影、墨线、镜头、版式与混音都写成代码，可重渲、可追溯、可换一种画风重来。<br>
+手绘底板、提案原画、AI 生成的画面或公有领域影像只作素材，来源逐部记录在案例卡里；对外展示 79 部成片，仓库完整归档 96 条案例。
+
+<a href="https://cuiyucheng0104-afk.github.io/beiming-engine/"><img src="media/preview.gif" width="100%" alt="《北冥》样片的三个镜头：黄昏江面上的城市与渡轮，戴眼镜的女水手侧影，背上长满海草的鲲从头顶游过。点击进入作品站"></a>
+
+<sub>《北冥》概念样片 · 10 秒 · 有声完整版：<a href="https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/v1.0">1080p 与原生 4K</a></sub>
+
+<br>
+
+![three.js](https://img.shields.io/badge/three.js-r170-1d2140?style=flat-square)
+![Canvas 2D](https://img.shields.io/badge/Canvas-2D-1d2140?style=flat-square)
+![FFmpeg](https://img.shields.io/badge/FFmpeg-H.264-1d2140?style=flat-square)
+![RTX](https://img.shields.io/badge/NVIDIA-RTX-1d2140?style=flat-square)
+![License](https://img.shields.io/badge/code-MIT-1d2140?style=flat-square)
+
+[**作品站**](https://cuiyucheng0104-afk.github.io/beiming-engine/) · [三条路线](docs/TRACKS.md) · [案例库](cases/INDEX.md) · [成片与素材下载](https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/casebook-2026.11) · [文档导航](docs/README.md)
+
+</div>
+
+---
 
 ## 快速开始
 

@@ -1,0 +1,46 @@
+{
+  "$schema": "../schema/task.schema.json",
+  "schemaVersion": 1,
+  "id": "DF-C",
+  "kind": "film",
+  "title": "夜跑",
+  "summary": "C 路线，86 式风格直接出片，竖屏",
+  "planRef": "计划书 7.2 DF-C",
+  "route": "c",
+  "filmId": "yexing",
+  "prompt": "DF-C.md",
+  "context": null,
+  "environment": "prepared",
+  "requiresEnv": [],
+  "isolation": ["isolated"],
+  "timeboxMinutes": 120,
+  "attempts": 2,
+  "spec": { "profile": "vertical-1080x1920-30", "width": 1080, "height": 1920, "fps": 30, "frameCount": 360, "audio": true, "beatEvents": 4 },
+  "writeScope": ["films/yexing/"],
+  "newFilmDirsOnly": false,
+  "seed": null,
+  "rules": {
+    "forbiddenWritePrefixes": ["cases/vendor/", "src/", "engine/"],
+    "forbiddenGit": ["add-all", "commit", "push"],
+    "forbiddenTools": ["WebSearch", "WebFetch"],
+    "forbiddenAccess": ["home-lemo", "outside-skills"],
+    "forbiddenRestore": ["keynote-", "ppt-"]
+  },
+  "gates": {
+    "required": [
+      { "gate": "look", "accept": ["approve"], "note": "选定风格：原话来自第 1 轮" },
+      { "gate": "animatic", "accept": ["approve", "waive"], "note": "任务书「我选定后你直接出片」可作豁免原话" }
+    ],
+    "recommended": [],
+    "forbidApprove": ["final"],
+    "onlyIfRendered": false,
+    "aliases": { "look": ["style", "style-pick", "candidates", "keyframes"], "animatic": ["previs", "preview", "lowres"], "final": ["delivery", "master"] }
+  },
+  "hardGates": ["H1", "H2", "H3", "H4", "H5", "H6", "H7"],
+  "qa": { "commands": ["delivery", "visual", "texts"] },
+  "runtime": null,
+  "partitions": null,
+  "safety": null,
+  "scoring": { "process": "solo", "visualReference": null, "styleReference": "所选风格的 STYLE.md" },
+  "replies": "DF-C.json"
+}

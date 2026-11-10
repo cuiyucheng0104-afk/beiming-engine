@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>QA 文字夹具</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+</head><body>
+<canvas id="c" width="640" height="360"></canvas>
+<script type="module">
+// tests/qa 的文字夹具：一页里放 5 条字，各自只踩一项文字检查（页面约定见加固计划附录 C5）。
+//   ok      全在字体子集里、白字压深底、停 2 秒、在安全区内   → 什么都不该报
+//   glyph   「图」不在 fonts/NotoSansSC-var.woff2 的子集里        → texts.glyphs
+//   out     方框左边出画                                        → texts.inframe（也越出安全区）
+//   short   只亮 6 帧（0.25 秒）                                 → texts.duration
+//   lowc    深灰字压深底                                        → texts.contrast
+const W = 640, H = 360, FPS = 24, DUR = 2;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const face = new FontFace('QA SC', 'url(/fonts/NotoSansSC-var.woff2)', { weight: '300 500' });
+await face.load();
+document.fonts.add(face);
+const FONT = '400 22px "QA SC"';
+const ITEMS = [
+  { id: 'ok', text: '远洋聘书 · 回复截止', x: 60, y: 80, color: '#f4f1ea', show: () => 1 },
+  { id: 'glyph', text: '品牌短片概念图', x: 60, y: 140, color: '#f4f1ea', show: () => 1 },
+  { id: 'out', text: '导航 · 吴淞口', x: -30, y: 200, color: '#f4f1ea', show: () => 1 },
+  { id: 'short', text: '识别', x: 400, y: 80, color: '#f4f1ea', show: f => (f >= 20 && f < 26 ? 1 : 0) },
+  { id: 'lowc', text: '还有提醒', x: 400, y: 260, color: '#2a2e36', show: () => 1 },
+];
+const boxOf = it => {
+  ctx.font = FONT;
+  const m = ctx.measureText(it.text);
+  const x0 = it.x - m.actualBoundingBoxLeft, y0 = it.y - m.actualBoundingBoxAscent;
+  return [x0, y0, m.actualBoundingBoxLeft + m.actualBoundingBoxRight, m.actualBoundingBoxAscent + m.actualBoundingBoxDescent];
+};
+const frameOf = t => Math.min(Math.round(t * FPS), Math.round(DUR * FPS) - 1);
+window.DUR = DUR;
+window.render = t => {
+  const f = frameOf(t);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#16181d';
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = FONT; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  for (const it of ITEMS) {
+    const a = it.show(f);
+    if (a <= 0) continue;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = it.color;
+    ctx.fillText(it.text, it.x, it.y);
+  }
+  ctx.globalAlpha = 1;
+};
+window.TEXTS = t => {
+  const f = frameOf(t);
+  return ITEMS.filter(it => it.show(f) > 0).map(it => ({ id: it.id, text: it.text, box: boxOf(it), alpha: it.show(f), font: FONT }));
+};
+window.render(0);
+window.READY = true;
+</script>
+</body></html>

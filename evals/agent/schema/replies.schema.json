@@ -1,0 +1,54 @@
+{
+  "$comment": "evals/agent/replies/<ID>.json：评测方以「用户」身份在闸门处发出的脚本化回复。text 是原样发出的文字。",
+  "type": "object",
+  "required": ["schemaVersion", "task", "prompt", "replies", "fallback"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "task": { "type": "string" },
+    "prompt": {
+      "$comment": "第一条消息（任务书）本身带有的审批含义，例如 DF-C「我选定后你直接出片」豁免动态预演。",
+      "type": "object",
+      "required": ["approves", "waives"],
+      "additionalProperties": false,
+      "properties": {
+        "approves": { "type": "array", "items": { "type": "string" } },
+        "waives": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    },
+    "replies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "gate", "round", "text", "kind", "approves", "waives", "expect", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" },
+          "gate": { "type": "string" },
+          "round": { "type": "integer", "minimum": 1 },
+          "text": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["revise", "approve", "approve-with-changes"] },
+          "approves": { "type": "array", "items": { "type": "string" } },
+          "waives": { "type": "array", "items": { "type": "string" } },
+          "expect": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "whenNewImages": { "type": "boolean" },
+          "optional": { "type": "boolean" },
+          "source": { "enum": ["plan-7.2", "eval-supplement"] },
+          "purpose": { "type": "string" },
+          "checks": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "fallback": {
+      "type": "object",
+      "required": ["text", "max"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": ["string", "null"] },
+        "max": { "type": "integer", "minimum": 0, "maximum": 10 }
+      }
+    }
+  }
+}

@@ -1,8 +1,93 @@
-# 换行规则（R79）：仓库里的文本一律按 LF 检出，Windows 上也一样。
-# 否则 Git for Windows 默认的 core.autocrlf=true 会把 sh 脚本换成 CRLF（sh 跑不了），
-# 任务卡测试与案例库的逐字节 SHA256 校验也会失败。
+# 北冥仓库 · 换行与二进制约定（R79 的规则在此基础上补全；属主 P10，依据决定 D09）。
+# 仓库里的文本一律按 LF 检出，Windows 上也一样。否则 Git for Windows 默认的 core.autocrlf=true
+# 会把 sh 脚本换成 CRLF（sh 报 set: -: invalid option），任务卡测试与案例库的逐字节 SHA256 校验也会失败。
+# 案例归档按原字节保存：casebook 逐字节校验 SHA256 与 git blob，其中有些文件本来就是 CRLF，不能做任何换行转换。
+# 改本文件后：git add --renormalize . && git status，应当没有内容变化；有变化先弄清原因再提交。
+# 检查：npm run env:doctor（工作区换行）、repo-check 的 env.gitattributes / env.eol 规则（规则齐全、索引里没有 CRLF）。
+
+# 1) 默认：自动识别文本，入库与检出一律 LF
 * text=auto eol=lf
 
-# 案例归档按原字节保存：casebook 逐字节校验 SHA256，其中有些文件本来就是 CRLF，不能做任何换行转换。
-cases/source/** -text
-cases/vendor/** -text
+# 2) 明确是文本的类型：不靠自动识别，一律 LF
+*.sh      text eol=lf
+*.bash    text eol=lf
+*.py      text eol=lf
+*.mjs     text eol=lf
+*.cjs     text eol=lf
+*.js      text eol=lf
+*.jsx     text eol=lf
+*.ts      text eol=lf
+*.tsx     text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.html    text eol=lf
+*.css     text eol=lf
+*.svg     text eol=lf
+*.glsl    text eol=lf
+*.wgsl    text eol=lf
+*.wesl    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.toml    text eol=lf
+*.txt     text eol=lf
+*.in      text eol=lf
+*.lock    text eol=lf
+*.allow   text eol=lf
+*.board   text eol=lf
+.gitattributes   text eol=lf
+.gitignore       text eol=lf
+.nvmrc           text eol=lf
+.python-version  text eol=lf
+
+# 3) Windows 原生脚本保持 CRLF（PowerShell 与 cmd 习惯）
+*.ps1  text eol=crlf
+*.psm1 text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# 4) 二进制：不转换换行、不做文本 diff 与合并
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.avif   binary
+*.ico    binary
+*.psd    binary
+*.exr    binary
+*.hdr    binary
+*.ktx2   binary
+*.mp4    binary
+*.mov    binary
+*.webm   binary
+*.mkv    binary
+*.wav    binary
+*.flac   binary
+*.mp3    binary
+*.m4a    binary
+*.aac    binary
+*.ogg    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.ttc    binary
+*.glb    binary
+*.bin    binary
+*.npz    binary
+*.npy    binary
+*.wasm   binary
+*.zip    binary
+*.gz     binary
+*.tgz    binary
+*.7z     binary
+*.pdf    binary
+*.pptx   binary
+*.docx   binary
+*.xlsx   binary
+*.blend  binary
+
+# 5) 归档按原字节：放在最后，覆盖上面所有换行规则（不影响 binary 标记）
+cases/source/**    -text
+cases/vendor/**    -text
+cases/licenses/**  -text

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>QA 底板夹具</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+</head><body>
+<script type="module">
+// tests/qa 的底板夹具（页面约定见加固计划附录 C5）：一张 256×128 的透明底板 fade.png，左边是一条 alpha 线性淡出的直边，
+// 拉宽到 800 px 摆在 640×360 的画面里（左端在画内、右端在画外）→ plates.straight-fade 报左边、plates.density 约 0.32 texel/px 不通过。
+import * as THREE from 'three';
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#5a6aa8');
+const cam = new THREE.OrthographicCamera(0, W, H, 0, -10, 10);
+const tex = await new THREE.TextureLoader().loadAsync('./fade.png');
+tex.colorSpace = THREE.SRGBColorSpace;
+const plate = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+plate.scale.set(800, 400, 1);
+scene.add(plate);
+window.DUR = 1;
+window.render = t => {
+  plate.position.set(200 + 400 - 20 * t, H / 2, 0);   // 左端从 x=200 往左挪 20 px
+  renderer.render(scene, cam);
+};
+window.TEXTS = () => [];
+window.render(0);
+window.READY = true;
+</script>
+</body></html>
