@@ -41,6 +41,7 @@ test('写文件工具：受保护区域拒绝，作品目录放行', () => {
     [R('src', 'main.js'), 'zone-src'],
     [R('LICENSE'), 'zone-license'],
     [R('cases', 'licenses', 'MIT.txt'), 'zone-license'],
+    [R('LICENSES', 'MIT.txt'), 'zone-license'],
     [R('cases', 'catalog.json'), 'zone-catalog'],
     [R('.claude', 'settings.json'), 'zone-agent-layer'],
     [R('.claude', 'settings.local.json'), 'zone-agent-layer'],

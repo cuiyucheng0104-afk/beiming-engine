@@ -40,7 +40,7 @@ export const ZONES = [
   },
   {
     id: 'license', kind: 'license', unlock: 'license',
-    prefixes: ['cases/licenses/'], files: ['LICENSE'],
+    prefixes: ['cases/licenses/', 'LICENSES/'], files: ['LICENSE'],
     title: '许可证与署名文件不得删改（THIRD-PARTY.md）',
     next: '需要更新许可或署名时，把要改的内容写给用户或维护者，由维护者处理',
   },

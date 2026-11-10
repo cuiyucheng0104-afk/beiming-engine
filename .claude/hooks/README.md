@@ -19,7 +19,7 @@
 | `vendor` | `cases/vendor/` | 第三方风格库固定快照，`lock.json` 逐字节锁定 |
 | `source` | `cases/source/` | 历史源码归档，`catalog.json` 按哈希记录 |
 | `src` | `src/` | 《北冥》10 秒样片，A 路线参考实现与视觉基准，改了会动金标准像素 |
-| `license` | `LICENSE`、`cases/licenses/` | 许可与署名不得删改 |
+| `license` | `LICENSE`、`LICENSES/`（REUSE 许可文本目录）、`cases/licenses/` | 许可与署名不得删改 |
 | `catalog` | `cases/catalog.json` | 由案例库工具生成并校验，不手改 |
 | `agent-layer` | `.claude/hooks/`、`.githooks/`、`.claude/settings.json`、`.claude/settings.local.json` | 护栏本身，agent 不得自行修改或关闭 |
 | `instructions` | 任何子目录里新建 `AGENTS.md`、`CLAUDE.md`、`CLAUDE.local.md`、`GEMINI.md` | 会被 agent 工具自动当成指令加载；本仓库只有根目录一份 |
