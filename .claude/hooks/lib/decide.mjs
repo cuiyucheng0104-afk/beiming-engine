@@ -2,8 +2,9 @@
 // 做什么：给一次工具调用（Claude Code 的 PreToolUse 事件）判定放行还是拒绝，拒绝时给出规则 id、原因和下一步。
 //   - Write / Edit / MultiEdit / NotebookEdit：写入受保护区域、家目录风格库、子目录指令文件 → 拒绝
 //   - Bash / PowerShell：切词后逐条分析重定向、rm / cp / mv / sed -i / find -delete 等写入目标，
-//     git 的整树暂存、强推、跳过钩子、改写历史、reset --hard、clean -f、整树丢弃，
-//     在归档里执行代码、访问 ~/lemo-*、gh 的删除与改可见性 → 拒绝
+//     git 的整树暂存、强推（任何位置，不能解锁）；本仓库里的跳过钩子、改写历史、reset --hard、clean -f、
+//     整树丢弃、commit -a（BEIMING_GUARD_UNLOCK=git 可解锁）；删除远端分支或标签；
+//     在归档里执行代码、访问 ~/lemo-*（~/lemo-opuscar/.venv 只许当解释器执行）、gh 的删除与改可见性 → 拒绝
 //   - Read：家目录风格库 → 拒绝；读归档里的上游 agent 文件 → 放行并附"只是资料"的提醒
 //   - Skill：全局第三方风格库 skill → 拒绝；其他视频类全局 skill → 放行并提醒先用 beiming-film
 //   - mcp__*：按工具名与参数里的路径 / 命令做同样的判断
@@ -14,7 +15,7 @@ import { parseBash, parsePwsh } from './shell.mjs';
 import { classifyPath, pathApi, expandHome } from './paths.mjs';
 import {
   RULES, ZONES, MEMORY_FILE_NAMES, INSTRUCTION_FILE_NAMES, UPSTREAM_STYLE_SKILL, VIDEO_SKILL_HINT, REPO_SKILL_PREFIX,
-  HOME_STYLE_DIRS, unlockedZones, zoneUnder,
+  HOME_STYLE_DIRS, unlockedZones, zoneUnder, isHomeRuntime, ALWAYS_DENY_RULES, GIT_UNLOCK,
 } from './policy.mjs';
 
 const ALLOW = Object.freeze({ decision: 'allow' });
@@ -122,7 +123,7 @@ const show = (c, raw) => (c.inside ? (c.rel || '.') : String(raw));
 function checkWrite(target, ctx, cwd, { verb = '写入', recursive = false, createsFile = false } = {}) {
   if (target == null || target === '') return null;
   const c = classifyPath(target, { root: ctx.root, cwd, home: ctx.home, platform: ctx.platform });
-  if (c.homeLib) return deny('home-style-library', `${verb} ${target}`, { target: String(target) });
+  if (c.homeLib) return deny(isHomeRuntime(c.homeRel, { ci: c.ci }) ? 'home-style-runtime' : 'home-style-library', `${verb} ${target}`, { target: String(target) });
   if (!c.inside || isForeign(c.rel)) return null;
   const zone = c.zone ?? (recursive ? zoneUnder(c.rel, { ci: c.ci }) : null);
   if (zone && !ctx.unlocked.has(zone.unlock)) return denyZone(zone, show(c, target), verb);
@@ -133,12 +134,28 @@ function checkWrite(target, ctx, cwd, { verb = '写入', recursive = false, crea
   return null;
 }
 
-/** 只查"访问家目录上游风格库"（读也不行）。 */
+/** 只查"访问家目录上游风格库"（读也不行）；库里的解释器例外（HOME_STYLE_RUNTIME）可以引用和执行。 */
 function checkHomeAccess(word, ctx, cwd) {
   if (typeof word !== 'string' || !word) return null;
   if (!/[\\/]|^~|^\$|^%/.test(word) && !HOME_STYLE_DIRS.some(d => word.toLowerCase().includes(d))) return null;
   const c = classifyPath(word, { root: ctx.root, cwd, home: ctx.home, platform: ctx.platform });
-  return c.homeLib ? deny('home-style-library', `访问 ${word}`, { target: word }) : null;
+  if (!c.homeLib || isHomeRuntime(c.homeRel, { ci: c.ci })) return null;
+  return deny('home-style-library', `访问 ${word}`, { target: word });
+}
+
+/** 用解释器例外里的 pip / uv / python -m pip 装包或改环境：拒绝（只读使用）。 */
+function checkHomeRuntimeMutation(words, ctx, cwd) {
+  const c = classifyPath(words[0], { root: ctx.root, cwd, home: ctx.home, platform: ctx.platform });
+  if (!c.homeLib || !isHomeRuntime(c.homeRel, { ci: c.ci })) return null;
+  const exe = baseName(words[0], true);
+  const args = words.slice(1);
+  const pipLike = /^(pip\d*(\.\d+)?|uv|easy_install)$/.test(exe);
+  const m = args.indexOf('-m');
+  const viaModule = isPython(exe) && m >= 0 && /^(pip|ensurepip|venv|uv)$/.test(args[m + 1] ?? '');
+  if (!pipLike && !viaModule) return null;
+  const sub = pipLike ? args : args.slice(m + 2);
+  if (/^(list|show|freeze|check|--version|-V|help|--help|-h)$/.test(sub[0] ?? '') || sub.length === 0) return null;
+  return deny('home-style-runtime', `执行 ${words.slice(0, 4).join(' ')}`, { target: String(words[0]) });
 }
 
 function archiveZoneOf(p, ctx, cwd) {
@@ -211,14 +228,15 @@ function unwrap(words, ctx) {
 function analyzeGit(args, ctx, cwd) {
   let i = 0;
   let gcwd = cwd;
+  let hooksBypass = null;                      // -c core.hooksPath=… / --config-env=core.hooksPath=…：临时换掉钩子
   while (i < args.length) {
     const a = args[i];
     if (a === '-C') { gcwd = ctx.P.resolve(gcwd, expandHome(args[i + 1] ?? '.', ctx.home)); i += 2; continue; }
     if (a === '-c' || a === '--config-env') {
-      if (/^core\.hookspath\b/i.test(args[i + 1] ?? '')) return deny('git-hooks-bypass', `执行 git ${a} ${args[i + 1]}`);
+      if (/^core\.hookspath\b/i.test(args[i + 1] ?? '')) hooksBypass ??= `${a} ${args[i + 1]}`;
       i += 2; continue;
     }
-    if (/^--config-env=core\.hookspath/i.test(a)) return deny('git-hooks-bypass', `执行 git ${a}`);
+    if (/^--config-env=core\.hookspath/i.test(a)) { hooksBypass ??= a; i++; continue; }
     if (['--git-dir', '--work-tree', '--namespace', '--super-prefix'].includes(a)) { i += 2; continue; }
     if (a.startsWith('-')) { i++; continue; }
     break;
@@ -226,50 +244,61 @@ function analyzeGit(args, ctx, cwd) {
   const sub = args[i];
   const rest = args.slice(i + 1);
   const cmdText = `git ${[sub, ...rest].join(' ')}`.slice(0, 200);
+  // 规则分档（policy.ALWAYS_DENY_RULES 的说明）：
+  //   always  整树暂存、强推：在哪里执行都拒绝，不能解锁（与 settings.json 的 permissions.deny 一致）；
+  //   local   只改工作区的操作：只在命令落在本仓库（不含 .claude/worktrees/）里时拒绝，BEIMING_GUARD_UNLOCK=git 可解锁；
+  //   remote  影响公开远端的操作：在哪里执行都拒绝，BEIMING_GUARD_UNLOCK=git 可解锁。
+  const where = classifyPath(gcwd, { root: ctx.root, cwd: gcwd, home: ctx.home, platform: ctx.platform });
+  const inRepo = where.inside && !isForeign(where.rel);
+  const gitUnlocked = ctx.unlocked.has(GIT_UNLOCK);
+  const always = rule => deny(rule, `执行 ${cmdText}`);
+  const local = rule => (ALWAYS_DENY_RULES.has(rule) ? always(rule) : (!inRepo || gitUnlocked) ? null : deny(rule, `执行 ${cmdText}`));
+  const remote = rule => (gitUnlocked ? null : deny(rule, `执行 ${cmdText}`));
+  if (hooksBypass && inRepo && !gitUnlocked) return deny('git-hooks-bypass', `执行 git ${hooksBypass} ${sub ?? ''}`.trim());
   switch (sub) {
     case 'add': {
       const p = splitArgs(rest, new Set(['--chmod', '--pathspec-from-file']));
       if (p.has('-n', '--dry-run')) return null;
-      if (p.has('-A', '--all', '--no-ignore-removal')) return deny('git-add-all', `执行 ${cmdText}`);
-      if (p.has('-f', '--force')) return deny('git-add-force', `执行 ${cmdText}`);
-      if (p.has('--pathspec-from-file')) return deny('git-add-pathspec-file', `执行 ${cmdText}`);
-      if (p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return deny('git-add-dot', `执行 ${cmdText}`);
-      if (p.has('-u', '--update') && p.pos.length === 0) return deny('git-add-update', `执行 ${cmdText}`);
+      if (p.has('-A', '--all', '--no-ignore-removal')) return always('git-add-all');
+      if (p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return always('git-add-dot');
+      if (p.has('-f', '--force')) return local('git-add-force');
+      if (p.has('--pathspec-from-file')) return local('git-add-pathspec-file');
+      if (p.has('-u', '--update') && p.pos.length === 0) return local('git-add-update');
       return null;
     }
     case 'commit': {
       const p = splitArgs(rest,
         new Set(['-m', '-F', '-C', '-c', '-t', '--message', '--file', '--reuse-message', '--reedit-message', '--fixup', '--squash', '--author', '--date', '--cleanup', '--template', '--trailer', '--pathspec-from-file']),
         new Set(['-u', '-S']));
-      if (p.has('-n', '--no-verify')) return deny('git-no-verify', `执行 ${cmdText}`);
-      if (p.has('-a', '--all')) return deny('git-commit-all', `执行 ${cmdText}`);
-      if (p.has('--pathspec-from-file')) return deny('git-add-pathspec-file', `执行 ${cmdText}`);
-      if (p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return deny('git-commit-all', `执行 ${cmdText}`);
+      if (p.has('-n', '--no-verify')) return local('git-no-verify');
+      if (p.has('-a', '--all')) return local('git-commit-all');
+      if (p.has('--pathspec-from-file')) return local('git-add-pathspec-file');
+      if (p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return local('git-commit-all');
       return null;
     }
     case 'push': {
       const p = splitArgs(rest, new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']), new Set());
       if (p.has('-n', '--dry-run')) return null;
-      if (p.has('--no-verify')) return deny('git-no-verify', `执行 ${cmdText}`);
       if (p.has('-f', '--force', '--force-with-lease', '--force-if-includes', '--mirror') || p.pos.slice(1).some(r => r.startsWith('+'))) {
-        return deny('git-push-force', `执行 ${cmdText}`);
+        return always('git-push-force');
       }
-      if (p.has('-d', '--delete', '--prune') || p.pos.slice(1).some(r => r.startsWith(':'))) return deny('git-push-delete', `执行 ${cmdText}`);
+      if (p.has('-d', '--delete', '--prune') || p.pos.slice(1).some(r => r.startsWith(':'))) return remote('git-push-delete');
+      if (p.has('--no-verify')) return remote('git-no-verify');
       return null;
     }
     case 'reset': {
       const p = splitArgs(rest);
-      return p.has('--hard') ? deny('git-reset-hard', `执行 ${cmdText}`) : null;
+      return p.has('--hard') ? local('git-reset-hard') : null;
     }
     case 'clean': {
       const p = splitArgs(rest, new Set(['-e', '--exclude']));
       if (p.has('-n', '--dry-run')) return null;
-      return p.has('-f', '--force') ? deny('git-clean', `执行 ${cmdText}`) : null;
+      return p.has('-f', '--force') ? local('git-clean') : null;
     }
     case 'checkout': {
       const p = splitArgs(rest, new Set(['-b', '-B', '--orphan', '--conflict', '--pathspec-from-file']));
-      if (p.has('-f', '--force')) return deny('git-discard-all', `执行 ${cmdText}`);
-      if (p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return deny('git-discard-all', `执行 ${cmdText}`);
+      if (p.has('-f', '--force')) return local('git-discard-all');
+      if (p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return local('git-discard-all');
       if (p.beforeDD > 0) {                       // git checkout <版本> -- <路径>：用别的版本覆盖这些路径
         for (const t of p.pos.slice(p.beforeDD)) { const d = checkWrite(t, ctx, gcwd, { verb: 'git checkout 覆盖', recursive: true }); if (d) return d; }
       }
@@ -278,7 +307,7 @@ function analyzeGit(args, ctx, cwd) {
     case 'restore': {
       const p = splitArgs(rest, new Set(['-s', '--source', '--pathspec-from-file']));
       const worktree = p.has('-W', '--worktree') || !p.has('-S', '--staged');
-      if (worktree && p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return deny('git-discard-all', `执行 ${cmdText}`);
+      if (worktree && p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return local('git-discard-all');
       if (worktree && p.vals('-s', '--source').length) {   // 用别的版本覆盖工作区里的这些路径
         for (const t of p.pos) { const d = checkWrite(t, ctx, gcwd, { verb: 'git restore --source 覆盖', recursive: true }); if (d) return d; }
       }
@@ -299,12 +328,19 @@ function analyzeGit(args, ctx, cwd) {
       return null;
     }
     case 'filter-branch': case 'filter-repo':
-      return deny('git-history-rewrite', `执行 ${cmdText}`);
+      return local('git-history-rewrite');
     case 'config': {
       const idx = rest.findIndex(a => /^core\.hookspath$/i.test(a));
       if (idx < 0) return null;
-      const reading = rest.includes('--get') || rest.includes('--get-all') || rest.includes('get') || (idx === rest.length - 1 && !rest.some(a => /^--(unset|unset-all|replace-all|add)$/.test(a) || a === 'unset'));
-      return reading ? null : deny('git-hooks-path', `执行 ${cmdText}`);
+      const unsetting = rest.some(a => /^--(unset|unset-all|remove-section)$/.test(a) || a === 'unset');
+      const reading = !unsetting && (rest.includes('--get') || rest.includes('--get-all') || rest.includes('get') || idx === rest.length - 1);
+      if (reading) return null;
+      const scoped = rest.some(a => /^--(global|system)$/.test(a));
+      const value = rest[idx + 1];
+      // 只放行"在本仓库里启用本仓库的提交前检查"：git config [--local] core.hooksPath .githooks
+      if (!unsetting && !scoped && typeof value === 'string' && /^\.?\/?\.githooks\/?$/.test(value.replace(/\\/g, '/'))) return null;
+      if (scoped) return remote('git-hooks-path');
+      return local('git-hooks-path');
     }
     default:
       return null;
@@ -372,8 +408,9 @@ function analyzeSimple(item, ctx, dialect, st, depth) {
   const name = baseName(words[0], ci);
   const args = words.slice(1);
 
-  // 2. 家目录风格库：读写都不行
+  // 2. 家目录风格库：读写都不行；解释器例外只许执行，不许在里面装包
   for (const w of words) { const d = checkHomeAccess(w, ctx, cwd); if (d) return d; }
+  { const d = checkHomeRuntimeMutation(words, ctx, cwd); if (d) return d; }
 
   // 3. 在归档里执行代码
   if (/[\\/]/.test(words[0])) {

@@ -1,7 +1,8 @@
 // 北冥仓库 · agent 护栏的路径归一
 // 做什么：把工具调用里的路径（POSIX 或 Windows、相对或绝对、~ / $HOME / %USERPROFILE%、经过符号链接）
 //         归一成"相对仓库根的正斜杠路径"，并判断是否落在受保护区域或家目录的上游风格库副本里。
-// 接口：pathApi(root)、expandHome(p, home)、classifyPath(input, ctx) → { abs, inside, rel, zone, homeLib }。
+// 接口：pathApi(root)、caseInsensitive(platform, root)、expandHome(p, home)、
+//       classifyPath(input, ctx) → { abs, inside, rel, zone, homeLib, homeRel, ci }。
 //       ctx = { root, cwd, home, platform }；platform 缺省取 process.platform。
 // 只读文件系统（realpath 最深的已存在祖先），不写任何东西。
 import fs from 'node:fs';
@@ -62,6 +63,8 @@ function relInside(P, base, target) {
  *   rel      仓库相对路径（正斜杠；根本身是 ''）；不在仓库内为 null
  *   zone     命中的受保护区域（policy.ZONES 的一项）或 null
  *   homeLib  命中的家目录上游风格库目录名（如 'lemo-my-styles'）或 null
+ *   homeRel  命中时相对家目录的路径（正斜杠，如 'lemo-opuscar/.venv/bin/python'），否则 null
+ *   ci       是否按大小写不敏感比较
  */
 export function classifyPath(input, ctx) {
   const root = ctx.root;
@@ -87,7 +90,9 @@ export function classifyPath(input, ctx) {
     if (z) { zone = z; rel = r; break; }
   }
 
+  // 家目录风格库：原始写法与解析符号链接后的写法都查；记下命中的库名与相对家目录的路径（判断解释器例外用）。
   let homeLib = null;
+  let homeRel = null;
   const homes = [P.resolve(home), realpathLoose(P.resolve(home), P)];
   for (const h of homes) {
     for (const target of [abs, real]) {
@@ -95,9 +100,9 @@ export function classifyPath(input, ctx) {
       if (!r) continue;
       const first = r.split('/')[0];
       const hit = HOME_STYLE_DIRS.find(d => (ci ? d.toLowerCase() === first.toLowerCase() : d === first));
-      if (hit) { homeLib = hit; break; }
+      if (hit) { homeLib = hit; homeRel = r; break; }
     }
     if (homeLib) break;
   }
-  return { abs, inside: rel !== null, rel, zone, homeLib, ci };
+  return { abs, inside: rel !== null, rel, zone, homeLib, homeRel, ci };
 }

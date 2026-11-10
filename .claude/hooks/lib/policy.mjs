@@ -2,8 +2,9 @@
 // 做什么：列出 agent 不许写的区域、不许跑的命令类别、临时解锁的办法和每条拒绝给出的中文下一步。
 // 谁在用：.claude/hooks/guard.mjs（Claude Code 的 PreToolUse 钩子）、.githooks/pre-commit.mjs、
 //         tools/repo-check/rules/agent/（规范检查）、tests/agent-layer/。改这里就同时改了三处的口径。
-// 接口：ZONES、UNLOCK_ENV、unlockedZones(env)、HOME_STYLE_DIRS、UPSTREAM_STYLE_SKILL、VIDEO_SKILL_HINT、
-//       MEMORY_FILE_NAMES、INSTRUCTION_FILE_NAMES、RULES（规则 id → 一句话原因 + 下一步）。
+// 接口：ZONES、UNLOCK_ENV、unlockedZones(env)、zoneOf、zoneUnder、HOME_STYLE_DIRS、HOME_STYLE_RUNTIME、isHomeRuntime、
+//       UPSTREAM_STYLE_SKILL、VIDEO_SKILL_HINT、REPO_SKILL_PREFIX、MEMORY_FILE_NAMES、INSTRUCTION_FILE_NAMES、
+//       RULES（规则 id → 一句话原因 + 下一步）、ALWAYS_DENY_RULES、GIT_UNLOCK、LOG_ENV、DEFAULT_LOG。
 // 只有数据和纯函数，不读写文件。
 
 /** 临时解锁：由用户在启动 Claude Code 之前设置（或写进不入库的 .claude/settings.local.json 的 env），
@@ -66,6 +67,21 @@ export const INSTRUCTION_FILE_NAMES = [...MEMORY_FILE_NAMES, 'SKILL.md', 'DIRECT
 /** 上游风格库在家目录的默认副本（全局 skill 会克隆、更新、写入这里），在本仓库里不读不写。 */
 export const HOME_STYLE_DIRS = ['lemo-opuscar', 'lemo-my-styles'];
 
+/**
+ * 家目录风格库里唯一的例外：现成的 Python 虚拟环境（相对家目录的前缀）。有的机器在仓库环境（npm run setup 的 .venv）
+ * 建好之前，用它当带 numpy / numba 的解释器（PYTHON=~/lemo-opuscar/.venv/bin/python）。只许当解释器执行或作为
+ * 参数引用；写进去、在里面装包、读库里的其他内容照样拒绝。仓库有了自己的环境后可以删掉这条。
+ */
+export const HOME_STYLE_RUNTIME = ['lemo-opuscar/.venv/'];
+
+/** 相对家目录的路径（正斜杠）是否落在上面的解释器例外里。 */
+export function isHomeRuntime(homeRel, { ci = false } = {}) {
+  if (typeof homeRel !== 'string') return false;
+  const norm = s => (ci ? s.toLowerCase() : s);
+  const r = norm(homeRel.replace(/\\/g, '/'));
+  return HOME_STYLE_RUNTIME.some(p => r === norm(p).slice(0, -1) || r.startsWith(norm(p)));
+}
+
 /** 全局安装的第三方风格库 skill（插件 skill 名形如 lemo-opuscar:lemo-opuscar）。在本仓库里拒绝调用。 */
 export const UPSTREAM_STYLE_SKILL = /^(lemo-opuscar|sy-style-100)(:|$)/i;
 
@@ -77,7 +93,11 @@ export const REPO_SKILL_PREFIX = 'beiming-';
 export const RULES = {
   'home-style-library': {
     title: '家目录下的上游风格库副本（~/lemo-opuscar、~/lemo-my-styles）在本仓库里不读不写：版本不固定，也绕开了快照、许可与验收',
-    next: '风格只在仓库的固定快照里查：先读 routes/c-style/STYLES.md，再按其中链接读 cases/vendor/…/STYLE.md',
+    next: '风格只在仓库的固定快照里查：先读 routes/c-style/STYLES.md，再按其中链接读 cases/vendor/…/STYLE.md。需要带 numpy、numba 的 Python 时，用仓库环境或用户指定的解释器，经 PYTHON 环境变量传给脚本',
+  },
+  'home-style-runtime': {
+    title: '~/lemo-opuscar/.venv 只能当现成的解释器用（只读）：不在里面装包、升级或改文件，那是别的项目的环境',
+    next: '缺依赖时告诉用户缺哪个包，由用户决定装在哪里；仓库自己的环境以 npm run setup 为准',
   },
   'nested-instructions': {
     title: '子目录里的 AGENTS.md / CLAUDE.md / GEMINI.md 会被 agent 工具自动当成指令加载；本仓库只有根目录 AGENTS.md 一份指令',
@@ -120,8 +140,8 @@ export const RULES = {
     next: '按钩子的报错修好再提交',
   },
   'git-hooks-path': {
-    title: '是否启用 .githooks（git config core.hooksPath .githooks）由用户或 npm run setup 决定，agent 不改这项设置',
-    next: '需要启用或停用时告诉用户命令，由用户自己执行',
+    title: '不把 core.hooksPath 改到别处、不取消它、不在 --global / --system 里改：那会关掉或替换提交前检查，还会影响本机所有仓库',
+    next: '要启用本仓库的提交前检查，只用 git config core.hooksPath .githooks（只作用于本仓库）；停用或改到别处由用户自己执行',
   },
   'git-push-force': {
     title: '不强推（--force、-f、--force-with-lease、+refspec、--mirror）：不改写已公开的历史（决定 D02）',
@@ -156,6 +176,16 @@ export const RULES = {
     next: '把要执行的命令和影响写给用户，由用户自己执行（维护者可设置 BEIMING_GUARD_UNLOCK=publish）',
   },
 };
+
+/**
+ * 命令规则分两档：
+ *   ALWAYS_DENY_RULES 永远拒绝，同时写在 .claude/settings.json 的 permissions.deny 里（整树暂存、强推）；
+ *   其余 git-* 规则保护的是工作区里别人未提交的改动与提交前检查，维护者可设置 BEIMING_GUARD_UNLOCK=git 解锁。
+ * 只改本仓库工作区的规则（暂存、提交、reset、clean、checkout、restore、rm、mv、config）只在命令落在本仓库里时生效；
+ * 推送与删除远端影响公开仓库，在哪里执行都管。
+ */
+export const ALWAYS_DENY_RULES = new Set(['git-add-all', 'git-add-dot', 'git-push-force']);
+export const GIT_UNLOCK = 'git';
 
 /** 解析解锁环境变量，返回小写区域 id 集合。不支持 all：每个区域必须点名。 */
 export function unlockedZones(env = process.env) {

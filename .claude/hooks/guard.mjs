@@ -17,7 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decide } from './lib/decide.mjs';
 import { appendLog, redact } from './lib/log.mjs';
-import { RULES, ZONES } from './lib/policy.mjs';
+import { RULES, ZONES, ALWAYS_DENY_RULES } from './lib/policy.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.BEIMING_GUARD_ROOT ? path.resolve(process.env.BEIMING_GUARD_ROOT) : path.resolve(HERE, '..', '..');
@@ -39,8 +39,11 @@ const HELP = `北冥仓库 · agent 护栏（Claude Code PreToolUse 钩子）
 ${ZONES.map(z => `  ${z.unlock.padEnd(12)} ${[...z.prefixes, ...z.files].join('、')}`).join('\n')}
   instructions  子目录里的 AGENTS.md / CLAUDE.md / GEMINI.md
   publish       gh release delete、gh repo delete / rename / archive / edit --visibility
+  git           ${Object.keys(RULES).filter(k => k.startsWith('git-') && !ALWAYS_DENY_RULES.has(k)).join('、')}
 
+永远拒绝、不能解锁：${[...ALWAYS_DENY_RULES].join('、')}（git add -A / --all / . / *、强推）
 命令规则：${Object.keys(RULES).filter(k => k.startsWith('git-')).join('、')}
+只改工作区的 git 规则只在命令落在本仓库里时生效；推送规则在哪里执行都生效。
 日志：out/agent-guard/guard.jsonl（BEIMING_GUARD_LOG=off 关闭）。说明：.claude/hooks/README.md
 `;
 
