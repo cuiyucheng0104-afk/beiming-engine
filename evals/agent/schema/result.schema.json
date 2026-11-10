@@ -1,0 +1,185 @@
+{
+  "$comment": "evals/results/<日期>.json：tools/eval/score.mjs summary 生成的评测结果。不得含本机绝对路径（生成时已替换成 ~）。只用 tools/eval/lib/schema.mjs 支持的关键字。",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "kind",
+    "rubricVersion",
+    "date",
+    "generatedAt",
+    "commit",
+    "environment",
+    "judge",
+    "runs",
+    "tasks",
+    "readiness",
+    "controls",
+    "failureAttribution"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {"type": "string"},
+    "schemaVersion": {"const": 1},
+    "kind": {"const": "beiming-eval-results"},
+    "rubricVersion": {"type": "integer", "minimum": 1},
+    "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+    "generatedAt": {"type": "string"},
+    "commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{7,40}$"},
+    "environment": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "properties": {
+            "os": {"type": ["string", "null"]},
+            "arch": {"type": ["string", "null"]},
+            "node": {"type": ["string", "null"]},
+            "claude": {"type": ["string", "null"]},
+            "model": {"type": ["string", "null"]}
+          }
+        }
+      ]
+    },
+    "judge": {"type": ["object", "null"]},
+    "runs": {"type": "array", "items": {"$ref": "#/$defs/run"}},
+    "tasks": {"type": "object", "additionalProperties": {"$ref": "#/$defs/taskStats"}},
+    "readiness": {
+      "type": "object",
+      "required": ["ready", "filmMean", "filmMin", "firstPassRate", "safetyPassRate", "allFilmTasksPassedOnce", "interventions", "reasons", "rule"],
+      "additionalProperties": false,
+      "properties": {
+        "ready": {"type": "boolean"},
+        "filmMean": {"type": ["number", "null"]},
+        "filmMin": {"type": ["number", "null"]},
+        "firstPassRate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "safetyPassRate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "allFilmTasksPassedOnce": {"type": "boolean"},
+        "wallClockSeconds": {"$ref": "#/$defs/stats"},
+        "totalTokens": {"$ref": "#/$defs/stats"},
+        "firstStillSeconds": {"$ref": "#/$defs/stats"},
+        "interventions": {"type": "integer", "minimum": 0},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "rule": {"type": "string"}
+      }
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task", "runId", "isolation", "verdict", "passed"],
+        "additionalProperties": false,
+        "properties": {
+          "task": {"type": "string"},
+          "runId": {"type": ["string", "null"]},
+          "isolation": {"type": ["string", "null"]},
+          "verdict": {"type": ["string", "null"]},
+          "safety": {"type": ["string", "null"]},
+          "passed": {"type": ["boolean", "null"]},
+          "control": {"type": ["string", "null"]},
+          "total": {"type": ["number", "null"]}
+        }
+      }
+    },
+    "failureAttribution": {
+      "type": "object",
+      "required": ["agent", "repo-gap", "eval-defect", "repoGaps"],
+      "additionalProperties": false,
+      "properties": {
+        "agent": {"type": "integer", "minimum": 0},
+        "repo-gap": {"type": "integer", "minimum": 0},
+        "eval-defect": {"type": "integer", "minimum": 0},
+        "repoGaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["task", "note"],
+            "additionalProperties": false,
+            "properties": {
+              "task": {"type": "string"},
+              "runId": {"type": ["string", "null"]},
+              "where": {"type": ["string", "null"]},
+              "note": {"type": "string"},
+              "gap": {"type": ["string", "null"]}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "stats": {
+      "type": "object",
+      "required": ["mean", "min", "max", "n"],
+      "additionalProperties": false,
+      "properties": {
+        "mean": {"type": ["number", "null"]},
+        "min": {"type": ["number", "null"]},
+        "max": {"type": ["number", "null"]},
+        "n": {"type": "integer", "minimum": 0}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wallClockSeconds": {"type": ["number", "null"]},
+        "sessionTurns": {"type": ["integer", "null"]},
+        "totalTokens": {"type": ["integer", "null"]},
+        "outputTokens": {"type": ["integer", "null"]},
+        "costUsd": {"type": ["number", "null"]},
+        "firstStillSeconds": {"type": ["number", "null"]},
+        "interventions": {"type": ["integer", "null"]},
+        "renderRuns": {"type": ["integer", "null"]},
+        "entryDocs": {"type": ["integer", "null"]},
+        "entryLines": {"type": ["integer", "null"]},
+        "subagents": {"type": ["integer", "null"]},
+        "stopReason": {"type": ["string", "null"]}
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["task", "runId", "attempt", "isolation", "verdict", "hardGatesPassed", "total", "passed", "status", "reasons", "metrics"],
+      "additionalProperties": false,
+      "properties": {
+        "task": {"type": "string", "pattern": "^(DF-[A-Z]|S[0-9]|DR-[A-Z])$"},
+        "runId": {"type": ["string", "null"]},
+        "attempt": {"type": ["integer", "null"], "minimum": 1},
+        "isolation": {"enum": ["isolated", "user-env", null]},
+        "commit": {"type": ["string", "null"]},
+        "verdict": {"enum": ["pass", "fail", "incomplete", "invalid", "needs-review", null]},
+        "hardGatesPassed": {"type": ["boolean", "null"]},
+        "failedGates": {"type": "array", "items": {"type": "string"}},
+        "unavailableGates": {"type": "array", "items": {"type": "string"}},
+        "safety": {"type": ["string", "null"]},
+        "visual": {"type": ["number", "null"], "minimum": 0, "maximum": 60},
+        "visualDims": {"type": ["object", "null"]},
+        "process": {"type": ["number", "null"], "minimum": 0, "maximum": 20},
+        "delivery": {"type": ["number", "null"], "minimum": 0, "maximum": 20},
+        "total": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "passed": {"type": ["boolean", "null"]},
+        "status": {"enum": ["final", "provisional", "incomplete"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "metrics": {"$ref": "#/$defs/metrics"},
+        "aiCalibration": {"type": ["number", "null"]},
+        "control": {"type": ["string", "null"]}
+      }
+    },
+    "taskStats": {
+      "type": "object",
+      "required": ["kind", "runs", "passed", "undetermined", "firstAttemptPassed", "total", "interventions"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["film", "safety", "drill"]},
+        "runs": {"type": "integer", "minimum": 0},
+        "passed": {"type": "integer", "minimum": 0},
+        "undetermined": {"type": "integer", "minimum": 0},
+        "firstAttemptPassed": {"type": ["boolean", "null"]},
+        "total": {"$ref": "#/$defs/stats"},
+        "wallClockSeconds": {"$ref": "#/$defs/stats"},
+        "totalTokens": {"$ref": "#/$defs/stats"},
+        "firstStillSeconds": {"$ref": "#/$defs/stats"},
+        "interventions": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

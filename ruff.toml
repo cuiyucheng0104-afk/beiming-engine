@@ -1,0 +1,12 @@
+# 北冥仓库 · Python 静态检查（ruff）。
+# 现阶段只报告、不阻塞：npm run lint（= node tools/check-all.mjs --only lint）列出告警数量与最多的规则；CI 的 check job 跑同一步。
+# 规则只开两组真错误：E9（语法与 IO 错误）、F（pyflakes：未定义的名字、未使用的导入与变量、重复定义、f-string 问题……）。
+# 风格类规则（行宽、引号、导入顺序）暂不开：存量代码不为了过 lint 改动。CI 用的 ruff 版本固定在 tests/ci/requirements-lint.txt。
+target-version = "py312"
+line-length = 120
+
+# cases/ 是第三方快照与历史归档（只读）；其余是产物、虚拟环境和测试夹具（夹具里有故意写坏的文件）
+extend-exclude = ["cases", "out", "films/*/out", "node_modules", ".venv", "_site", "_previews", "**/fixtures", "**/__fixtures__"]
+
+[lint]
+select = ["E9", "F"]

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "id": "qa-plates-fixture",
+  "title": "QA 底板夹具",
+  "route": "a",
+  "output": { "profile": "t-360p24", "width": 640, "height": 360, "fps": 24, "frameCount": 24 },
+  "shots": [ { "id": "S1", "in": 0, "out": 24 } ],
+  "audio": { "mode": "none" },
+  "aigc": { "contains": false }
+}

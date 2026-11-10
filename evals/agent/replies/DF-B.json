@@ -1,0 +1,38 @@
+{
+  "$schema": "../schema/replies.schema.json",
+  "schemaVersion": 1,
+  "task": "DF-B",
+  "prompt": { "approves": [], "waives": [], "note": "任务书要求先写风格卡、先给 2 张草图帧，本身不批准任何闸门" },
+  "replies": [
+    {
+      "id": "B-look-1",
+      "gate": "look",
+      "round": 1,
+      "text": "灯头闪光再快一倍，云再暗一档。",
+      "kind": "revise",
+      "approves": [],
+      "waives": [],
+      "expect": ["草图", "风格卡", "样张"],
+      "whenNewImages": true,
+      "optional": false,
+      "source": "plan-7.2",
+      "purpose": "返修意见两条：闪光频率翻倍、云的明度降一档",
+      "checks": ["灯头闪光周期约为原来的一半", "云层整体明度低一档，且仍与天空分得开"]
+    },
+    {
+      "id": "B-look-2",
+      "gate": "look",
+      "round": 2,
+      "text": "可以，出片。",
+      "kind": "approve",
+      "approves": ["look"],
+      "waives": ["animatic"],
+      "expect": ["*"],
+      "whenNewImages": true,
+      "optional": false,
+      "source": "plan-7.2",
+      "purpose": "批准 look；动态预演没给用户看过，代理应记成豁免而不是批准"
+    }
+  ],
+  "fallback": { "text": "请按任务书和仓库规定继续；需要我审阅时，把要看的内容给我。", "max": 3 }
+}

@@ -1,0 +1,19 @@
+历史案例归档的权利说明（Casebook Archive）
+
+适用范围：cases/source/ 下的历史工程源码与文本，即 REUSE.toml 中标注为 LicenseRef-Casebook-Archive 的文件。
+
+这是历史创作档案。归档不把其中的代码、文本与素材统一改为 MIT，各部分的权利如下：
+
+1. 本项目原创的代码：按 MIT 许可（LICENSES/MIT.txt），版权人同仓库根目录的 LICENSE。
+2. 使用、复制或改写自 LemoLab lemo-opuscar 的代码：按 LemoLab 的 MIT 许可（cases/licenses/LemoLab-MIT.txt），
+   保留其版权声明。cases/catalog.json 的 upstream 字段给出能逐字核对的固定提交与路径；没有该字段不等于证明原创。
+3. 嵌入的第三方库、字体、采样与媒体：按各工程原有的 LICENSE、CREDITS 与来源标注，不被本仓库的根许可覆盖。
+4. 剧本、旁白与对白、PPT 原画与文本、品牌标识、配音、生成音乐、影片与素材包：保留原权利范围，
+   只作已有项目的展示与学习参考，不授予复用权。其中客户与第三方素材的权利人与授权状态见 docs/rights/register.md。
+
+历史文件里「已交付」「已完成」一类旧措辞不代表用户认可状态，以 cases/catalog.json 与案例卡为准。
+
+Archive notice: historical project sources. Original code is MIT-licensed; code derived from LemoLab
+lemo-opuscar stays under LemoLab's MIT license with its copyright notice; embedded third-party material keeps
+its own license; scripts, narration, client slides, brand marks, voices, music and films keep their original
+rights and are not licensed for reuse. Rights holders and clearance status: docs/rights/register.md.
