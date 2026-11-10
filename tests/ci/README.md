@@ -157,7 +157,7 @@ v1.0 标签停在首个提交，GitHub 上的 Latest 仍指向它。要替换，
 
 - eslint：配置是仓库根的 `eslint.config.js`（扁平配置），需要开发依赖 eslint 10.13.0、@eslint/js 10.0.1、globals 17.13.0。按目录区分浏览器端与 Node 端，会把回调交给 `page.evaluate` 的 Node 脚本同时给两种全局变量。
 - ruff：配置是 `ruff.toml`，只开 E9 与 F 两组真错误。版本按哈希固定在 `tests/ci/requirements-lint.txt`。
-- 2026-11-10 实测：eslint 共 148 个文件，11 个错误、25 个警告；ruff 1 条告警（F401）。这些告警都在别的工作包的存量代码里，本目录与 `tools/run-tests.mjs`、`tools/check-all.mjs` 为 0。存量告警由各自的属主逐步清理，不为了过 lint 去改别人的文件。
+- 2026-11-10 实测（eslint 10.13.0、ruff 0.17.2）：eslint 共 153 个文件，8 个错误、23 个警告。按规则分：no-unused-vars 23、no-useless-assignment 5、no-control-regex 2、preserve-caught-error 1；按目录分：src/ 22、engine/ 3、site/ 3、tools/ 2、routes/ 1。ruff 1 条告警：`routes/a-webgl/template/sound.py:18` 的 F401。这些都在别的工作包的存量代码里；本目录与 `tools/run-tests.mjs`、`tools/check-all.mjs`、`eslint.config.js` 为 0。存量告警由各自的属主逐步清理，不为了过 lint 去改别人的文件。
 
 ## 输出约定
 
