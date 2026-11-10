@@ -8,7 +8,9 @@
 //   按当前 ANGLE 设置启动一次浏览器，报告 WebGL 实际用的 GPU（识别软件渲染与「有独显却落到核显」）；
 //   FFmpeg ≥ 7 及 libx264、aac、loudnorm、ebur128 等组件；Python 3.12 解释器与 requirements.lock 一致、核心模块可导入；
 //   字体；sh（仍有 sh 入口时）；工作区换行；磁盘空间；生效的环境变量（拼错的会提示）；
-//   --route b：RAEA_BIN 与 share/raea/VERSION；--route c：案例库与风格库快照（casebook check）。
+//   --route b：RAEA_BIN、share/raea/VERSION 与已登记构建的 sha256；--route c：案例库与风格库快照（casebook check）。
+// 必需项不合格时，最后给出「按顺序执行」的修复命令（系统级安装在前，npm ci 类修复并成 npm run setup 一步）；--json 的 nextSteps 字段同此。
+// 供别的 Node 工具调用：import { doctor, nextSteps } from './tools/env/doctor.mjs'
 // 退出码：0 必需项全部通过；3 有必需项不合格；2 用法错误；1 自检本身出错。
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
