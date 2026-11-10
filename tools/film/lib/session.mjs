@@ -188,7 +188,7 @@ function audioOverride(film, raw) {
 // 开工前查齐外部依赖（渲染第一帧之前）：tools/env/preflight.mjs（P10）只查文件、版本与可执行程序，约 1 秒；
 // 缺什么一次说清，退出码 3（不先渲十分钟再在混音一步失败）。查哪些项按路线与这次要做的步骤定：
 //   全部  ffmpeg（≥ 7）、python（联系表与播放页要 Pillow，另查 PIL）
-//   A / C  browser（无头 Chrome）；出片且有声音时 sh（engine/render/mux.sh，P04·R3 的 mux.mjs 合入后去掉）
+//   A / C  browser（无头 Chrome）；出片且有声音、又没有 Node 封装（engine/render/lib/mux.mjs）时 sh（engine/render/mux.sh）
 //   出片 / 预演要跑声音脚本、拍点核对或 B 的原生素材准备时  python:audio（Python 3.12 + numpy / scipy / numba / soundfile / soxr / Pillow）
 //   B      browser（素材准备导出 GLB）、raea（RAEA_BIN 指向的原生运行时）
 export function preflightNeeds(ctx) {
@@ -197,7 +197,9 @@ export function preflightNeeds(ctx) {
   const script = a.mode === 'script' ? path.extname(a.path).toLowerCase() : null;
   const delivers = ['build', 'animatic'].includes(ctx.kind);
   const needs = new Set(['ffmpeg', 'python', 'browser']);
-  if (page && delivers && a.mode !== 'none' && (ctx.kind === 'build' || script === '.sh')) needs.add('sh');
+  // 封装要 sh 只在渲染器 v2 的 Node 封装（engine/render/lib/mux.mjs）还没有时
+  const muxNeedsSh = !fs.existsSync(path.join(ROOT, 'engine/render/lib/mux.mjs'));
+  if (page && ctx.kind === 'build' && a.mode !== 'none' && muxNeedsSh) needs.add('sh');
   if (script === '.sh') needs.add('sh');
   const audioPython = page ? delivers && (script === '.py' || script === '.sh' || (ctx.film.cuecheck && a.mode !== 'none')) : true;
   if (audioPython) needs.add('python:audio');

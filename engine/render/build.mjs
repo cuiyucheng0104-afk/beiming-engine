@@ -6,7 +6,8 @@
 //   mix       film.json 的 audio         script（.py / .sh / .mjs）或 wav；产物 audio/mix.wav（+ stems/、score_onsets.json）
 //   cuecheck  engine.audio.cuecheck      film.json 写了 cuecheck 才跑；超差即停（退出码 4）
 //   video     engine/render/video.mjs    逐帧 → work/video.mp4；核对帧数、画幅、帧率
-//   mux       engine/render/mux.sh       两遍线性 loudnorm → master.mp4；无声片补一条静音 AAC（不经 mux.sh）
+//   mux       engine/render/lib/mux.mjs（渲染器 v2 的 Node 封装，在就用它）或 engine/render/mux.sh → master.mp4；
+//             响度线性归一到目标，完整标记的画面逐位复制；无声片补一条静音 AAC
 //   preview   （预演）                    画面逐位复制 + 混音或拍点提示音 → animatic.mp4，不做响度归一
 // 现有脚本写死的位置（mix.py 读作品目录的 events.json / timeline.json、写 out/mix.wav；cuecheck 读作品目录与 out/）
 // 由 ctx.legacy 临时放置、事后还原：运行结束后作品目录与 out/ 下不留这些文件，产物只在 out/<run-id>/。
@@ -220,26 +221,40 @@ function videoArgs(ctx) {
   return a;
 }
 
+// 音画封装用哪一个：渲染器 v2 的 Node 封装（engine/render/lib/mux.mjs，三个平台都不要 sh，响度目标按档位）在就用它；
+// 否则用 engine/render/mux.sh（要 POSIX sh，响度目标固定 −14 LUFS / 真峰值 −1.2 dBTP）。两者对完整标记的输入都逐位复制画面。
+export const MUX_NODE = R('lib/mux.mjs');
+export const muxerOf = () => (fs.existsSync(MUX_NODE) ? 'node' : 'sh');
+
 const mux = {
-  id: 'mux', title: '音画封装（engine/render/mux.sh）',
+  id: 'mux', title: '音画封装（engine/render/lib/mux.mjs 或 mux.sh）',
   key: ctx => ctx.hashJson({
-    step: 'mux@2', video: ctx.fileHash(ctx.art.video), mix: ctx.art.mix ? ctx.fileHash(ctx.art.mix) : null, fps: ctx.fps,
-    muxer: ctx.fileHash(R('mux.sh')), ffmpeg: ctx.tools.ffmpeg,
+    step: 'mux@3', video: ctx.fileHash(ctx.art.video), mix: ctx.art.mix ? ctx.fileHash(ctx.art.mix) : null, fps: ctx.fps, frames: ctx.frames,
+    muxer: muxerOf() === 'node' ? ['node', ctx.hashTree(R('lib')), ctx.profile.custom ? null : ctx.profile.id] : ['sh', ctx.fileHash(R('mux.sh'))], ffmpeg: ctx.tools.ffmpeg,
   }),
   outputs: () => ({ master: 'master.mp4' }),
   async run(ctx) {
     const out = path.join(ctx.run.dir, 'master.mp4'), tmp = path.join(ctx.run.work, 'master.partial.mp4');
+    const which = muxerOf();
     let loud = null, copied = true;
-    // mux.sh 的响度目标固定为 −14 LUFS / 真峰值 −1.2 dBTP；档位要别的目标（broadcast −23）时它做不到，等 P04·R3 的 mux.mjs
-    if (ctx.art.mix && Number.isFinite(ctx.profile.lufs) && Math.abs(ctx.profile.lufs - MUX_SH_LUFS) > 0.05) {
+    // mux.sh 的响度目标固定为 −14 LUFS / 真峰值 −1.2 dBTP；档位要别的目标（broadcast −23）时它做不到（Node 封装按档位归一）
+    if (which === 'sh' && ctx.art.mix && Number.isFinite(ctx.profile.lufs) && Math.abs(ctx.profile.lufs - MUX_SH_LUFS) > 0.05) {
       const msg = `档位 ${ctx.profile.id} 要 ${ctx.profile.lufs} LUFS，engine/render/mux.sh 只会归一到 ${MUX_SH_LUFS} LUFS`;
-      if (ctx.final) ctx.fail(4, 'mux-loudness-target', msg, '换 −14 LUFS 的档位出片，或等渲染器 v2 的 mux.mjs（P04·R3）按档位归一');
+      if (ctx.final) ctx.fail(4, 'mux-loudness-target', msg, '换 −14 LUFS 的档位出片，或等渲染器 v2 的 Node 封装 engine/render/lib/mux.mjs 按档位归一');
       ctx.warn('mux-loudness-target', `${msg}：工作版照出，QA 的响度项会判不过`);
     }
     try {
       if (!ctx.art.mix) {
         ctx.warn('silent-film', '没有声音：母版里放一条静音 AAC（48 kHz 立体声），响度检查应按无声片处理');
         await ctx.media.muxSimple(ctx.exec, { video: ctx.art.video, audio: null, out: tmp, duration: ctx.frames / ctx.fps, logFile: ctx.logFile('mux') });
+      } else if (which === 'node') {
+        const args = [MUX_NODE, ctx.art.video, ctx.art.mix, tmp, String(ctx.fps), '0', '--frames', String(ctx.frames), ...(ctx.profile.custom ? [] : ['--profile', ctx.profile.id]), '--json'];
+        const r = await ctx.exec(process.execPath, args, { label: '音画封装（lib/mux.mjs）', timeoutSec: ctx.opts.timeout || 1800, stallSec: 600 });
+        let j = null;
+        try { j = JSON.parse(r.stdout); } catch { /* 下面按缺结果处理 */ }
+        const L = j?.data?.loudness || {};
+        loud = { integratedLUFS: L.I != null ? Number(L.I) : null, truePeakDbTP: L.truePeak != null ? Number(L.truePeak) : null, target: L.target ?? null, by: 'engine/render/lib/mux.mjs（ebur128）' };
+        copied = j?.data?.video?.copied !== false;
       } else {
         const r = await ctx.exec(ctx.sh || 'sh', [R('mux.sh'), ctx.art.video, ctx.art.mix, tmp, String(ctx.fps), '0'], { label: '音画封装（mux.sh）', timeoutSec: ctx.opts.timeout || 1800, stallSec: 600 });
         const I = /I:\s*(-?[\d.]+)\s*LUFS/.exec(r.stdout), P = /Peak:\s*(-?[\d.]+)\s*dBFS/.exec(r.stdout);
@@ -248,7 +263,7 @@ const mux = {
       }
       fs.renameSync(tmp, out);
     } finally { fs.rmSync(tmp, { force: true }); }
-    return { loudness: loud, muxer: ctx.art.mix ? 'engine/render/mux.sh' : 'ffmpeg 复制画面 + 静音 AAC', videoCopied: copied, encoder: ctx.media.encoderInfo(out) };
+    return { loudness: loud, muxer: !ctx.art.mix ? 'ffmpeg 复制画面 + 静音 AAC' : which === 'node' ? 'engine/render/lib/mux.mjs' : 'engine/render/mux.sh', videoCopied: copied, encoder: ctx.media.encoderInfo(out) };
   },
 };
 const MUX_SH_LUFS = -14;
