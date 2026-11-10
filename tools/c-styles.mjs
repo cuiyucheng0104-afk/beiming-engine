@@ -421,7 +421,8 @@ async function main(argv) {
       }
       const targets = [[OUT_MD, md, 'styles-index'], [OUT_JSON, js, 'styles-json']];
       if (o.cmd === 'check') {
-        const stale = targets.filter(([f, txt]) => !fs.existsSync(abs(f)) || fs.readFileSync(abs(f), 'utf8') !== txt).map(([f]) => f);
+        // 按 LF 比：仓库 .gitattributes 要求 LF，万一按 CRLF 检出也不误报过期
+        const stale = targets.filter(([f, txt]) => !fs.existsSync(abs(f)) || fs.readFileSync(abs(f), 'utf8').replace(/\r\n/g, '\n') !== txt).map(([f]) => f);
         if (stale.length) throw new Fail(4, `${stale.join('、')} 不是最新（与快照或案例目录不一致）`, '运行 node tools/c-styles.mjs 重新生成，再提交生成物；不要手改');
         for (const [f, txt, kind] of targets) env.outputs.push({ path: f, sha256: await sha256(txt), kind });
         if (!o.json) console.log(`${OUT_MD} 与 ${OUT_JSON} 已是最新（${data.styles.length} 式：Lemo ${data.counts.lemo} + SY ${data.counts.sy}，做过 ${data.counts.made}）`);

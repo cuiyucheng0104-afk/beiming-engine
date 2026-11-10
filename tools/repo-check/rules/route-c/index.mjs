@@ -23,7 +23,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = path.resolve(HERE, '../../../..');
 const C = 'routes/c-style';
 
-const read = (root, r) => fs.readFileSync(path.join(root, r), 'utf8');
+const read = (root, r) => fs.readFileSync(path.join(root, r), 'utf8').replace(/\r\n/g, '\n');   // 按 LF 读（CRLF 检出也不误报）
 const has = (root, r) => fs.existsSync(path.join(root, r));
 const err = (message, file, hint) => ({ level: 'error', message, ...(file ? { file } : {}), ...(hint ? { hint } : {}) });
 
