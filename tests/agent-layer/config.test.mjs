@@ -70,20 +70,37 @@ test('settings.json 的钩子命令经真实 shell 展开后能跑：拒绝写�
   const hook = settings.hooks.PreToolUse.find(m => m.matcher.includes('Write')).hooks[0];
   const evt = file => JSON.stringify({ session_id: 'shell-test', hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: path.join(ROOT, ...file.split('/')), content: 'x' }, cwd: ROOT });
   const env = { ...process.env, CLAUDE_PROJECT_DIR: ROOT, BEIMING_GUARD_LOG: 'off', BEIMING_GUARD_UNLOCK: '' };
-  const shells = [];
-  if (spawnSync('sh', ['-c', 'exit 0'], { windowsHide: true }).status === 0) shells.push(['sh', ['-c', hook.command]]);
-  // 没有 Git Bash 的 Windows：Claude Code 用 PowerShell 跑钩子，并把 ${CLAUDE_PROJECT_DIR} 改写成 ${env:CLAUDE_PROJECT_DIR}
-  for (const ps of ['pwsh', 'powershell']) {
-    if (spawnSync(ps, ['-NoProfile', '-Command', 'exit 0'], { windowsHide: true }).status === 0) { shells.push([ps, ['-NoProfile', '-Command', hook.command.replace('${CLAUDE_PROJECT_DIR}', '${env:CLAUDE_PROJECT_DIR}')]]); break; }
-  }
-  if (!shells.length) { t.skip('本机没有 sh，也没有 PowerShell'); return; }
-  for (const [shell, args] of shells) {
-    const deny = spawnSync(shell, args, { cwd: os.tmpdir(), env, input: evt('cases/vendor/x.js'), encoding: 'utf8', timeout: 30000, windowsHide: true });
-    assert.equal(deny.status, 0, `${shell}：${deny.stderr}`);
-    assert.equal(JSON.parse(deny.stdout).hookSpecificOutput.permissionDecision, 'deny', `${shell} 下没有拒绝`);
-    const allow = spawnSync(shell, args, { cwd: os.tmpdir(), env, input: evt('films/demo/main.js'), encoding: 'utf8', timeout: 30000, windowsHide: true });
-    assert.equal(allow.status, 0, `${shell}：${allow.stderr}`);
-    assert.equal(allow.stdout, '', `${shell} 下放行时不该有输出`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-hookshell-'));
+  try {
+    // 每个 shell 一个 run(事件文件)：事件从 stdin 进钩子，与 Claude Code 一样
+    const shells = [];
+    if (spawnSync('sh', ['-c', 'exit 0'], { windowsHide: true }).status === 0) {
+      shells.push(['sh', file => spawnSync('sh', ['-c', hook.command], { cwd: dir, env, input: fs.readFileSync(file), encoding: 'utf8', timeout: 30000, windowsHide: true })]);
+    }
+    // 没有 Git Bash 的 Windows：Claude Code 用 PowerShell 跑钩子，并把 ${CLAUDE_PROJECT_DIR} 改写成 ${env:CLAUDE_PROJECT_DIR}
+    for (const ps of ['pwsh', 'powershell']) {
+      if (spawnSync(ps, ['-NoProfile', '-Command', 'exit 0'], { windowsHide: true }).status !== 0) continue;
+      const cmd = hook.command.replace('${CLAUDE_PROJECT_DIR}', '${env:CLAUDE_PROJECT_DIR}');
+      shells.push([ps, file => spawnSync(ps, ['-NoProfile', '-NonInteractive', '-Command',
+        `[Console]::OutputEncoding = [Text.Encoding]::UTF8; $OutputEncoding = [Text.Encoding]::UTF8; Get-Content -Raw -LiteralPath '${file.replace(/'/g, "''")}' | ${cmd}; exit $LASTEXITCODE`],
+      { cwd: dir, env, encoding: 'utf8', timeout: 60000, windowsHide: true })]);
+      break;
+    }
+    if (!shells.length) { t.skip('本机没有 sh，也没有 PowerShell'); return; }
+    const denyFile = path.join(dir, 'deny.json');
+    const allowFile = path.join(dir, 'allow.json');
+    fs.writeFileSync(denyFile, evt('cases/vendor/x.js'));
+    fs.writeFileSync(allowFile, evt('films/demo/main.js'));
+    for (const [shell, run] of shells) {
+      const deny = run(denyFile);
+      assert.equal(deny.status, 0, `${shell}：${deny.stderr}`);
+      assert.equal(JSON.parse(deny.stdout).hookSpecificOutput.permissionDecision, 'deny', `${shell} 下没有拒绝`);
+      const allow = run(allowFile);
+      assert.equal(allow.status, 0, `${shell}：${allow.stderr}`);
+      assert.equal(allow.stdout.trim(), '', `${shell} 下放行时不该有输出`);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
