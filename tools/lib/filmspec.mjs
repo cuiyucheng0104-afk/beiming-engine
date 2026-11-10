@@ -37,6 +37,36 @@ export function titleProblem(title) {
 }
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/** 一行写法：{ "a": 1, "b": [1, 2] }（值为 undefined 的键省略）。 */
+function compact(v) {
+  if (Array.isArray(v)) return v.length ? `[${v.map(compact).join(', ')}]` : '[]';
+  if (isObj(v)) {
+    const keys = Object.keys(v).filter(k => v[k] !== undefined);
+    return keys.length ? `{ ${keys.map(k => `${JSON.stringify(k)}: ${compact(v[k])}`).join(', ')} }` : '{}';
+  }
+  return JSON.stringify(v ?? null);
+}
+
+/**
+ * film.json 的稳定排版：顶层逐键换行；放得进 width 列的数组与对象写成一行，放不下才展开（两格缩进），末尾一个换行。
+ * 与作品描述包 engine/production/io.js 的 formatJson 是同一条排版规则（tests/cli/new-film.test.mjs 在两者都在时逐字节比对），
+ * 所以 new-film 写出的文件与 film.js retime / upgrade 回写的文件一致，不会因为重新排版产生无关的 diff。
+ */
+export function formatFilmJson(value, { width = 160 } = {}) {
+  const fmt = (v, indent, prefix, top) => {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v ?? null);
+    const c = compact(v);
+    if (!top && indent + prefix + c.length <= width) return c;
+    const pad = ' '.repeat(indent + 2), end = ' '.repeat(indent);
+    if (Array.isArray(v)) return v.length ? `[\n${v.map(x => pad + fmt(x, indent + 2, 0, false)).join(',\n')}\n${end}]` : '[]';
+    const keys = Object.keys(v).filter(k => v[k] !== undefined);
+    if (!keys.length) return '{}';
+    return `{\n${keys.map(k => { const key = JSON.stringify(k); return `${pad}${key}: ${fmt(v[k], indent + 2, key.length + 2, false)}`; }).join(',\n')}\n${end}}`;
+  };
+  return `${fmt(value, 0, 0, true)}\n`;
+}
+
 const evenSide = v => Number.isInteger(v) && v >= 16 && v % 2 === 0;
 const posInt = v => Number.isInteger(v) && v > 0;
 

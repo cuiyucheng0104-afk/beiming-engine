@@ -105,6 +105,10 @@ export function validateRegistry(raw, { root } = {}) {
       else if (!file && !has(`${v}/film.json`)) out.push({ path: `${p}.${k}`, message: `${v}/film.json 不存在` });
     }
     if (!Array.isArray(r.aliases) || !r.aliases.every(a => typeof a === 'string' && SLUG_RE.test(a))) out.push({ path: `${p}.aliases`, message: '要写成小写 slug 的数组（旧路线名、目录名）' });
+    if (!('legacyId' in r)) out.push({ path: `${p}.legacyId`, message: '要写旧路线名（工程计划 v1 与 ProjectSpec 用的 beiming / raea），没有就写 null' });
+    else if (r.legacyId !== null && !(typeof r.legacyId === 'string' && Array.isArray(r.aliases) && r.aliases.includes(r.legacyId))) out.push({ path: `${p}.legacyId`, message: `legacyId ${JSON.stringify(r.legacyId)} 要么是 null，要么同时列在 aliases 里` });
+    if (!Array.isArray(r.backends) || !r.backends.length || !r.backends.every(x => typeof x === 'string' && SLUG_RE.test(x))) out.push({ path: `${p}.backends`, message: '要写成非空数组：film.json 的 backend 允许的取值（与 engine/production/film.js 一致）' });
+    else if (isStr(r.backend) && !r.backends.includes(r.backend)) out.push({ path: `${p}.backend`, message: `默认 backend ${JSON.stringify(r.backend)} 不在 backends 里` });
     if (!Array.isArray(r.renderer) || !r.renderer.length) out.push({ path: `${p}.renderer`, message: '要写成非空数组，取 renderers 里的 id' });
     else for (const x of r.renderer) if (!(x in renderers)) out.push({ path: `${p}.renderer`, message: `渲染器 ${x} 不在 renderers 表里` });
     if (!Array.isArray(r.upstream)) out.push({ path: `${p}.upstream`, message: '要写成数组（没有上游写 []）' });
@@ -117,6 +121,7 @@ export function validateRegistry(raw, { root } = {}) {
       else {
         if (d.aigc !== undefined && !(isObj(d.aigc) && typeof d.aigc.contains === 'boolean' && isStr(d.aigc.note))) out.push({ path: `${p}.templateDefaults.aigc`, message: '要写 { contains: true|false, note }（D11）' });
         if (d.audio !== undefined && !(isObj(d.audio) && isStr(d.audio.mode))) out.push({ path: `${p}.templateDefaults.audio`, message: '要写 { mode, script? }' });
+        if (d.style !== undefined && !(isObj(d.style) && isStr(d.style.id) && (Number.isInteger(d.style.version) || isStr(d.style.version)))) out.push({ path: `${p}.templateDefaults.style`, message: '要写 { id, version, note? }' });
         if (d.credits !== undefined && !(Array.isArray(d.credits) && d.credits.every(c => isObj(c) && isStr(c.what) && isStr(c.license)))) out.push({ path: `${p}.templateDefaults.credits`, message: '每项要有 what 与 license' });
       }
     }

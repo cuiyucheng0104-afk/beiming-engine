@@ -28,13 +28,16 @@
       "summary": "北冥画风的确定性三渲二：程序化造型、三档卡通着色、屏幕空间墨线、Kuwahara 笔触与底板视差，无头 Chrome 的 WebGL 逐帧出片。",
       "chooseWhen": "延续《北冥》画风，或要精确控制色阶、阴影、墨线、纸纹与二维三维比例的三渲二作品。",
       "aliases": ["a-webgl", "beiming"],
+      "legacyId": "beiming",
       "backend": "three",
+      "backends": ["three"],
       "renderer": ["page"],
       "upstream": [],
       "manual": "routes/a-webgl/README.md",
       "template": "routes/a-webgl/template",
       "templateDefaults": {
         "audio": { "mode": "script", "script": "sound.py" },
+        "style": { "id": "a-template", "version": 1, "note": "模版 main.js 自带的色板 C 与后期参数 lookAt；look 闸定调通过后改成本片自己的风格 id 与版本" },
         "aigc": { "contains": false, "note": "模版画面全部由代码程序化绘制，没有 AI 生成的图像或声音" },
         "credits": [
           { "what": "字体子集 Barlow 300 / 500（片名与副标题）", "owner": "The Barlow Project Authors", "license": "OFL-1.1", "source": "fonts/LICENSE.md" }
@@ -61,7 +64,9 @@
       "summary": "通用原生渲染（render anything）：作品写成一个 TSX 编排文件，由原生 GPU 运行时逐帧确定性渲出；可以复用北冥资产，但不要求北冥画风。",
       "chooseWhen": "要原生 GPU、要把模型、图片、视频与页面作品放进同一个三维空间、要骨骼或 morph 动画，或作品不依赖 A 的屏幕墨线与 Kuwahara 笔触。",
       "aliases": ["b-native", "raea"],
-      "backend": "raea",
+      "legacyId": "raea",
+      "backend": "native",
+      "backends": ["native"],
       "renderer": ["native", "page"],
       "upstream": [
         {
@@ -80,7 +85,7 @@
       "manual": "routes/b-native/README.md",
       "template": "routes/b-native/template",
       "templateDefaults": {
-        "audio": { "mode": "script", "script": "sound.py" },
+        "audio": { "mode": "native" },
         "aigc": { "contains": true, "note": "模版底板 sky_dawn、mist_low 取自 assets/plates/，由 Midjourney V8 与 GPT Image 2.5 生成后人工整理（见 assets/plates/plates.json）" },
         "credits": [
           { "what": "底板 sky_dawn、mist_low", "owner": "北冥引擎", "license": "LicenseRef-AllRightsReserved", "source": "assets/plates/plates.json" }
@@ -115,7 +120,9 @@
       "summary": "页面型代码动画的方法库，外加可直接出片的 C 模版：Canvas 2D / SVG / DOM / WebGL 各自实现画法，一张时间表驱动画面与声音；与 A 共用页面渲染器，不是第三个 GPU 后端（D01）。",
       "chooseWhen": "要一种现成的代码动画风格（水墨、油画、浮世绘、白板讲解……）、PPT 或故事介绍片、信息图与排版节奏；复刻历史作品也走这里。",
       "aliases": ["c-style"],
-      "backend": "page",
+      "legacyId": null,
+      "backend": "canvas",
+      "backends": ["canvas", "svg", "dom", "three", "webgl"],
       "renderer": ["page"],
       "upstream": [
         {

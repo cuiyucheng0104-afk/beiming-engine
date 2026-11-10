@@ -2,6 +2,7 @@
 //   node --test tests/cli/registry.test.mjs
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,10 @@ test('注册表合格，三条路线按 D01 / D04 登记', () => {
   assert.equal(b.upstream[0].distributed, false);
   assert.match(reg.get('c').summary, /不是第三个 GPU 后端/);
   assert.deepEqual(reg.get('c').renderer, ['page'], 'C 与 A 共用页面渲染器（D01）');
+  assert.deepEqual(reg.routes.map(r => r.legacyId), ['beiming', 'raea', null], '计划 M1 的 legacyId');
+  assert.deepEqual(reg.routes.map(r => r.backend), ['three', 'native', 'canvas'], 'backend 默认值与 engine/production/film.js 同口径');
+  for (const r of reg.routes) assert.ok(r.backends.includes(r.backend), r.id);
+  assert.deepEqual(reg.get('c').backends, ['canvas', 'svg', 'dom', 'three', 'webgl']);
 });
 
 test('id 与别名都能找到路线；旧名是别名；找不到返回 null', () => {
@@ -50,8 +55,11 @@ test('注册表校验能抓出常见错误', () => {
   bad.routes[2].renderer = ['gpu3'];
   bad.routes[0].next[0].run = 'node x.mjs';
   bad.routes[0].next[1].run = ['node', '{nope}'];
+  bad.routes[1].backend = 'raea';
+  bad.routes[2].legacyId = 'style';
+  delete bad.routes[0].legacyId;
   const msgs = validateRegistry(bad, { root: ROOT }).map(d => `${d.path} ${d.message}`).join('\n');
-  for (const s of ['重复', '撞车', 'RTX', 'gpu3', 'argv', '{nope}']) assert.ok(msgs.includes(s), `应报出「${s}」：\n${msgs}`);
+  for (const s of ['重复', '撞车', 'RTX', 'gpu3', 'argv', '{nope}', '不在 backends 里', 'legacyId "style"', '没有就写 null']) assert.ok(msgs.includes(s), `应报出「${s}」：\n${msgs}`);
 });
 
 test('下一步命令：B 的 prepare 在第一步；变量展开；POSIX 与 PowerShell 写法', () => {
@@ -86,6 +94,28 @@ test('交付档位：兜底表与 D07 一致；有 profiles.json 时两边画幅
     assert.equal(p.source, 'fallback');
     assert.equal(p.profiles.get('web-1080p24').width, 1920);
   }
+});
+
+test('交付档位：读得懂作品描述包 profiles.json 的正式写法（video / audio.loudness / default）', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-profiles-'));
+  try {
+    fs.mkdirSync(path.join(root, 'engine/production'), { recursive: true });
+    fs.writeFileSync(path.join(root, PROFILES_PATH), JSON.stringify({
+      schemaVersion: 1, default: 'web-1080p24', ffprobeFields: { 'video.width': 'width' },
+      profiles: {
+        'web-1080p24': { label: '网页', video: { width: 1920, height: 1080, fps: 24 }, audio: { loudness: { integratedLUFS: -14, toleranceLU: 1 }, truePeakMaxDbTP: -1 } },
+        'beiming-1040p24': { label: '样片', video: { width: 1920, height: 1040, fps: 24 }, audio: { loudness: { integratedLUFS: -14 }, truePeakMaxDbTP: -1.2 } },
+        broken: { label: '缺画幅' },
+      },
+    }));
+    const p = loadProfiles(root);
+    assert.equal(p.source, PROFILES_PATH);
+    assert.equal(p.defaultId, 'web-1080p24');
+    assert.deepEqual(p.profiles.get('web-1080p24'), { id: 'web-1080p24', label: '网页', width: 1920, height: 1080, fps: 24, targetLUFS: -14, truePeakDbTP: -1 });
+    assert.match(p.profiles.get('beiming-1040p24').reserved, /样片专用/);
+    assert.equal(p.profiles.get('beiming-1040p24').truePeakDbTP, -1.2);
+    assert.ok(p.warnings.some(w => w.includes('broken')), '读不出的档位要提示');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('占位符只认两层花括号里的大写标识符，JSX 不算', () => {
