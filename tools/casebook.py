@@ -1849,33 +1849,39 @@ def render_notices(manifest, current):
 
 
 def index_outputs(manifest):
-    """{repository-relative path: generated text} for every view the index command owns."""
+    """{path relative to cases/: generated text} for every view the index command owns."""
     site = read_works_meta()
-    out = {f'cases/entries/{c["id"]}.md': render_card(manifest, c, site) for c in manifest['cases']}
-    out['cases/INDEX.md'] = render_index(manifest, site)
-    out['cases/index.html'] = render_gallery(manifest, site, (ARCHIVE / 'index.html').read_text(encoding='utf-8'))
-    out['cases/NOTICES.md'] = render_notices(manifest, (ARCHIVE / 'NOTICES.md').read_text(encoding='utf-8'))
+    out = {f'entries/{c["id"]}.md': render_card(manifest, c, site) for c in manifest['cases']}
+    out['INDEX.md'] = render_index(manifest, site)
+    try:
+        out['index.html'] = render_gallery(manifest, site, (ARCHIVE / 'index.html').read_text(encoding='utf-8'))
+        out['NOTICES.md'] = render_notices(manifest, (ARCHIVE / 'NOTICES.md').read_text(encoding='utf-8'))
+    except FileNotFoundError as error:
+        raise CasebookError(f'缺生成模板 {error.filename}', hint='git checkout -- cases/index.html cases/NOTICES.md')
     return out
 
 
 def index_drift(manifest):
-    """(stale paths, extra card paths, outputs): generated views that differ from the files on disk."""
+    """(stale, extra, outputs): generated views (paths relative to cases/) that differ from the files on disk,
+    and cards without a catalog record."""
     outputs = index_outputs(manifest)
     stale = []
     for rel, text in outputs.items():
-        p = ROOT / rel
         try:
-            if p.read_bytes() != text.encode('utf-8'):
+            if (ARCHIVE / rel).read_bytes() != text.encode('utf-8'):
                 stale.append(rel)
         except OSError:
             stale.append(rel)
-    cards = {f'cases/entries/{p.name}' for p in (ARCHIVE / 'entries').glob('*.md')}
+    cards = {f'entries/{p.name}' for p in (ARCHIVE / 'entries').glob('*.md')}
     extra = sorted(cards - set(outputs))
     return stale, extra, outputs
 
 
 def cmd_index(args, ctx, manifest):
     stale, extra, outputs = index_drift(manifest)
+    shown = lambda rel: shown_path(ARCHIVE / rel)      # noqa: E731  repository-relative when inside the repository
+    stale, extra = [shown(r) for r in stale], [shown(r) for r in extra]
+    outputs = {shown(r): t for r, t in outputs.items()}
     if args.verify:
         if stale or extra:
             for rel in stale:
@@ -1894,7 +1900,7 @@ def cmd_index(args, ctx, manifest):
         return {'data': {'stale': stale, 'extra': extra, 'dryRun': True}}
     written = []
     for rel in stale:
-        p = ROOT / rel
+        p = Path(rel) if Path(rel).is_absolute() else ROOT / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         tmp = p.with_name(p.name + '.tmp')
         tmp.write_bytes(outputs[rel].encode('utf-8'))

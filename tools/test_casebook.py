@@ -848,6 +848,189 @@ class CasebookTests(unittest.TestCase):
         self.assertFalse(list((self.root/'packs').glob('*.partial')))
 
 
+
+def v2_case(case, *, tech='rendered', approval=None, clearance='public', **extra):
+    """Give a fixture case the schemaVersion 2 fields check expects."""
+    approval = approval or {'status': 'unreviewed', 'by': None, 'date': None, 'reasons': [], 'evidence': []}
+    case.setdefault('group', 'styles')
+    case.setdefault('title', case['id'])
+    case.update(technical={'status': tech, 'qa': {'status': 'not-run', 'report': None}}, approval=approval,
+                rights={'clearance': clearance, 'register': [], 'owner': '待补', 'license': cb.ARCHIVE_LICENSE,
+                        'sourceUrl': None, 'attributionText': [], 'aiGenerated': {'present': '待补', 'register': [], 'tools': '待补'},
+                        'evidence': []},
+                displayTitle=case.get('displayTitle', case['id']), summary='', keyFiles=[])
+    case.update(extra)
+    case['status'] = cb.legacy_status(case)
+    return case
+
+
+REGISTER = {'schemaVersion': 1, 'updated': '2026-11-10', 'categories': [
+    {'id': 'R01', 'title': '客户材料', 'kind': 'client-material', 'holder': '某客户', 'match': {'cases': ['client']}},
+    {'id': 'R03', 'title': '参考图', 'kind': 'reference-images', 'holder': '待补', 'match': {'files': [{'case': '*', 'path': 'refs/**'}]}},
+    {'id': 'R07', 'title': '鼓组采样（CC BY 4.0）', 'kind': 'open-license', 'holder': '某人',
+     'match': {'text': [{'path': 'CREDITS*', 'pattern': 'MuldjordKit'}]}},
+    {'id': 'R08', 'title': '图像生成服务', 'kind': 'service-terms', 'holder': '待补', 'match': {'uses': ['client']}},
+    {'id': 'R10', 'title': '不按案例计算', 'kind': 'open-license', 'holder': 'x'},
+]}
+
+
+class SchemaV2Tests(unittest.TestCase):
+    """catalog schemaVersion 2: technical / approval / rights fields, the rights computation, generated views.
+    Uses the CasebookTests fixture (one case, one source, one asset pack) without inheriting its tests."""
+
+    def setUp(self):
+        self.base = CasebookTests('test_roundtrip_and_tokens')
+        self.base.setUp()
+        self.addCleanup(self.base.tearDown)
+        self.root, self.m = self.base.root, self.base.m
+        self.add_case, self.add_source, self.restore = self.base.add_case, self.base.add_source, self.base.restore
+        self.m['schemaVersion'] = 2
+        v2_case(self.m['cases'][0])
+
+    def test_v2_fields_pass_and_each_rule_bites(self):
+        self.assertEqual(cb.check(self.m), (1, 1))
+        case = self.m['cases'][0]
+        broken = {
+            'technical.status': lambda c: c['technical'].update(status='done'),
+            'approval.status': lambda c: c['approval'].update(status='ok'),
+            '被否定的记录要有 reasons 与 evidence': lambda c: (c['approval'].update(status='rejected'), c.update(status='rejected')),
+            'approved 必须写 by、date 与 evidence': lambda c: c['approval'].update(status='approved'),
+            "status 'historical-render' 与 technical/approval": lambda c: c['technical'].update(status='previs'),
+            '缺 rights': lambda c: c.pop('rights'),
+            'rights.clearance': lambda c: c['rights'].update(clearance='secret'),
+            'keyFiles 里的 nope.md': lambda c: c.update(keyFiles=['nope.md']),
+            'templated 条目不能保留 originalSha256': lambda c: c['files'][0].update(originalSha256='0' * 64),
+            '与 restore 写入的 RIGHTS.json 重名': lambda c: c['files'].append(dict(c['files'][0], path='RIGHTS.json')),
+        }
+        for expected, damage in broken.items():
+            with self.subTest(expected):
+                saved = json.loads(json.dumps(case))
+                damage(case)
+                with self.assertRaisesRegex(cb.CheckFailed, re.escape(expected)): cb.check(self.m)
+                case.clear()
+                case.update(saved)
+        case['approval'] = {'status': 'rejected', 'by': '用户', 'date': '待补', 'reasons': [cb.PENDING_REASON], 'evidence': ['卡片原文']}
+        case['status'] = cb.legacy_status(case)
+        self.assertEqual((case['status'], cb.check(self.m)), ('rejected', (1, 1)))
+
+    def rights_fixture(self):
+        self.add_case('client', 'ppt/client')
+        self.add_case('drums', 'styles/drums')
+        self.add_source('drums/CREDITS', b'Fonts: OFL\nDrums: "MuldjordKit" by Lars Muldjord, licensed under CC BY 4.0 (https://x)\n',
+                        path='CREDITS', case='drums')
+        ref = b'reference image'
+        self.m['cases'][2]['files'].append({'path': 'refs/a.png', 'asset': cb.digest(ref), 'sha256': cb.digest(ref), 'size': len(ref)})
+        return cb.compute_rights(self.m, REGISTER)
+
+    def test_rights_follow_the_register_rules(self):
+        rights, marks = self.rights_fixture()
+        self.assertEqual((rights['client']['clearance'], rights['client']['register'], rights['client']['owner']),
+                         ('internal', ['R01', 'R08'], '某客户'))
+        self.assertEqual(rights['client']['aiGenerated'], {'present': True, 'register': ['R08'], 'tools': '待补'})
+        self.assertEqual(rights['client']['sourceUrl'], '待补')
+        drums = rights['drums']
+        self.assertEqual((drums['clearance'], drums['register']), ('public', ['R03', 'R07']))
+        self.assertEqual(drums['attributionText'], ['Drums: "MuldjordKit" by Lars Muldjord, licensed under CC BY 4.0 (https://x)'])
+        self.assertIn('cases/drums/CREDITS:2', drums['evidence'])
+        self.assertEqual(marks['drums'], {'refs/a.png': {'register': ['R03'], 'clearance': 'internal'}})
+        self.assertEqual((rights['one']['clearance'], rights['one']['register']), ('public', []))
+
+    def test_apply_rights_is_idempotent_and_drift_is_reported(self):
+        computed = self.rights_fixture()
+        for c in self.m['cases'][1:]:
+            v2_case(c)
+        self.assertTrue(cb.rights_drift(self.m, computed))
+        cb.apply_rights(self.m, REGISTER, computed)
+        self.assertEqual(cb.rights_drift(self.m, computed), [])
+        once = json.dumps(self.m, ensure_ascii=False)
+        cb.apply_rights(self.m, REGISTER, cb.compute_rights(self.m, REGISTER))
+        self.assertEqual(json.dumps(self.m, ensure_ascii=False), once)
+        self.assertEqual(self.m['rights']['register'], 'docs/rights/register.json')
+        self.assertEqual(self.m['cases'][2]['files'][-1]['clearance'], 'internal')
+        self.m['cases'][1]['rights']['clearance'] = 'public'
+        self.assertTrue(any('client' in p for p in cb.rights_drift(self.m, computed)))
+
+    def test_glob_matches_the_compliance_rules(self):
+        for glob, path, hit in (('refs/**', 'refs/a/b.png', True), ('refs/*', 'refs/a/b.png', False), ('CREDITS*', 'CREDITS.md', True),
+                                ('**/CREDITS*', 'a/CREDITS', True), ('**/CREDITS*', 'CREDITS', False), ('a\\*b', 'a*b', True),
+                                ('IP图_超分/P17_*x*.png', 'IP图_超分/P17_大闹天宫x星巴克.png', True)):
+            with self.subTest(glob=glob, path=path):
+                self.assertEqual(bool(cb.glob_regex(glob).fullmatch(path)), hit)
+
+    def test_restore_writes_rights_record_and_license_texts(self):
+        font = b'font bytes'
+        sha = cb.digest(font)
+        with zipfile.ZipFile(self.root/'packs/assets.zip', 'a') as z:
+            z.writestr(sha, font)
+        pack = self.root/'packs/assets.zip'
+        self.m['packs'][0].update(size=pack.stat().st_size, sha256=cb.digest(pack.read_bytes()))
+        self.m['assets'][sha] = {'size': len(font), 'pack': 'assets.zip'}
+        self.m['cases'][0]['files'].append({'path': 'fonts/a.woff2', 'asset': sha, 'sha256': sha, 'size': len(font)})
+        self.m['cases'][0]['rights']['attributionText'] = ['x, licensed under CC BY 4.0']
+        p = self.restore()
+        record = json.loads((p/'RIGHTS.json').read_text(encoding='utf-8'))
+        self.assertEqual((record['case'], record['clearance'], record['withheld']), ('one', 'public', 0))
+        names = sorted(x.name for x in (p/'ARCHIVE-LICENSES').iterdir())
+        self.assertEqual(names, ['CC-BY-4.0.txt', 'LicenseRef-Casebook-Archive.txt', 'OFL-1.1.txt'])
+        self.assertIn('SIL OPEN FONT LICENSE', (p/'ARCHIVE-LICENSES/OFL-1.1.txt').read_text(encoding='utf-8'))
+        self.assertEqual([x['file'] for x in record['licenses']][0], 'ARCHIVE-LICENSES/LicenseRef-Casebook-Archive.txt')
+
+    def index_fixture(self):
+        (cb.ARCHIVE/'entries').mkdir(exist_ok=True)
+        (cb.ARCHIVE/'index.html').write_text('<html><script>const DATA=[];\nshow();</script></html>\n', encoding='utf-8')
+        (cb.ARCHIVE/'NOTICES.md').write_text(f'# 来源\n\n{cb.ATTRIBUTION_START}\nold\n{cb.ATTRIBUTION_END}\n\n尾注\n', encoding='utf-8')
+        case = self.m['cases'][0]
+        case.update(title='一部 · 处理方案（Treatment）', displayTitle='一部', summary='摘要。', notes=['历史说明。'],
+                    preview={'url': 'https://example.invalid/one.mp4', 'duration': 19.791667})
+        case['rights']['attributionText'] = ['Drums: "Kit" by A, CC BY 4.0']
+        self.add_case('two', 'local/two')
+        v2_case(self.m['cases'][1], group='local-films', approval={'status': 'rejected', 'by': '用户', 'date': '待补',
+                                                                   'reasons': [cb.PENDING_REASON], 'evidence': ['卡片原文']},
+                clearance='internal')
+        for c in self.m['cases']:
+            (cb.ARCHIVE/f'entries/{c["id"]}.md').write_text('# 旧卡片\n', encoding='utf-8')
+
+    def test_index_generates_cards_index_gallery_and_notices(self):
+        self.index_fixture()
+        out = cb.index_outputs(self.m)
+        self.assertEqual(sorted(out), ['INDEX.md', 'NOTICES.md', 'entries/one.md', 'entries/two.md', 'index.html'])
+        one, two = out['entries/one.md'], out['entries/two.md']
+        self.assertIn('**历史成片·', one)
+        self.assertNotIn('本次', one + two + out['INDEX.md'])
+        self.assertIn('| 用户认可 | 未审', one)
+        self.assertIn('| 署名 | Drums: "Kit" by A, CC BY 4.0 |', one)
+        self.assertIn('node tools/env/py.mjs tools/casebook.py restore one --download', one)
+        self.assertIn('历史说明。', one)                     # notes repeated word for word (check_cards)
+        self.assertIn('**画面效果未获认可**', two)
+        self.assertIn('--include-internal', two)
+        self.assertIn('| [一部](entries/one.md) | — | 19.79 秒 | 历史成片 | 未审 | 公开 | `one` |', out['INDEX.md'])
+        self.assertIn('| 未获认可 | 内部 | `two` |', out['INDEX.md'])
+        data = json.loads(re.search(r'const DATA=(\[.*?\]);', out['index.html']).group(1))
+        self.assertEqual([(d['id'], d['status'], d['duration']) for d in data],
+                         [('one', '历史成片 · 未审', 19.8), ('two', '画面效果未获认可 · 内部素材', 0)])
+        self.assertTrue(out['index.html'].endswith('\nshow();</script></html>\n'))
+        self.assertIn('| Drums: "Kit" by A, CC BY 4.0 | [one](entries/one.md) |', out['NOTICES.md'])
+        self.assertTrue(out['NOTICES.md'].startswith('# 来源') and out['NOTICES.md'].endswith('尾注\n'))
+        self.assertNotIn('old', out['NOTICES.md'])
+
+    def test_index_check_finds_hand_edits_and_extra_cards(self):
+        self.index_fixture()
+        stale, extra, outputs = cb.index_drift(self.m)
+        self.assertEqual(len(stale), 5)
+        for rel, text in outputs.items():
+            (cb.ARCHIVE/rel).write_text(text, encoding='utf-8')
+        self.assertEqual(cb.index_drift(self.m)[:2], ([], []))
+        (cb.ARCHIVE/'entries/one.md').write_text(outputs['entries/one.md'] + '手改\n', encoding='utf-8')
+        (cb.ARCHIVE/'entries/ghost.md').write_text('# ghost\n', encoding='utf-8')
+        self.assertEqual(cb.index_drift(self.m)[:2], (['entries/one.md'], ['entries/ghost.md']))
+
+    def test_duration_labels(self):
+        for seconds, label in ((19.791667, '19.79 秒'), (19.0, '19 秒'), (194.52, '3 分 14.52 秒'), (180.0, '3 分'),
+                               (124.8, '2 分 4.8 秒'), (540, '9 分'), (None, '—'), (0, '—')):
+            with self.subTest(seconds):
+                self.assertEqual(cb.fmt_duration_label(seconds), label)
+
+
 class CommandLineTests(unittest.TestCase):
     """The command contract of docs/CLI.md: --help, usage errors (exit 2), --json envelopes, exit 3 / 4."""
 
