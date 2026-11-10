@@ -38,7 +38,9 @@
 | `node tools/compliance/scan.mjs --only <规则> --scope archive` | 列出历史归档区的逐条发现 | 同上 |
 | `node tools/compliance/rights-inventory.mjs --check` | 核对登记册是否最新、客户与 IP 作品是否全部登记 | 0 通过；4 过期或漏登 |
 | `node tools/compliance/signed-urls.mjs list` | 列出签名链接（不输出签名值） | 0 |
+| `node tools/compliance/aigc.mjs label --id <作品>` | 打印要写进成片的隐式标识与 ffmpeg 参数（不写文件） | 0 |
 | `node tools/compliance/aigc.mjs check <成片>` | 核对成片的隐式标识 | 0 通过；4 缺失或不合规 |
+| `node --test "tests/comp/*.test.mjs"` | 合规工具自己的测试（约 5 秒，用系统临时目录，跑完即删） | 0 全过 |
 
 全部命令支持 `--help`（无副作用）与 `--json`（stdout 只有一个 JSON 对象，见 docs/CLI.md 的信封约定）；用法错误退出码 2，环境问题（不是 git 仓库、缺 ffprobe）退出码 3，工具自身出错退出码 1。
 
