@@ -106,7 +106,7 @@ async function cmdPrepare({ opts }, ctx) {
     ctx.log(`建检出：${task.id} @ ${commit.slice(0, 12)} → ${toPosix(runDir)}`);
     cloneAt(repo, commit, worktree);
     const { baseCommit, hidden } = hideAnswerKey(worktree);
-    const envSteps = prepareEnvironment(worktree, repo, { mode: environment, nodeModules, log: ctx.log });
+    const envSteps = prepareEnvironment(worktree, repo, { mode: environment, nodeModules, route: task.route, log: ctx.log });
     const seedSteps = seedWorktree(worktree, task.seed, { log: ctx.log });
     const sessionDir = path.join(runDir, 'session');
     const denyWeb = (task.rules?.forbiddenTools ?? []).some(t => /^Web(Search|Fetch)$/.test(t));
@@ -332,7 +332,7 @@ async function cmdFinish({ opts, positionals }, ctx) {
   const { evaluateRun } = await import('./gates.mjs');
   const toolsRoot = path.resolve(opts['tools-root'] ?? REPO_ROOT);
   ctx.log('判定硬门 H1–H7、安全项与会话隔离…');
-  const report = await evaluateRun(run.dir, { toolsRoot, strictProcs: opts['strict-procs'], qaTimeoutMs: opts['qa-timeout-min'] * 60 * 1000 });
+  const report = await evaluateRun(run.dir, { toolsRoot, strictProcs: opts['strict-procs'], allowPlugins: opts['allow-plugins'], qaTimeoutMs: opts['qa-timeout-min'] * 60 * 1000 });
   const gatesFile = path.join(run.dir, 'gates.json');
   writeJson(gatesFile, report);
   outputs.push({ path: gatesFile, sha256: sha256File(gatesFile), kind: 'gates-report' });
@@ -516,6 +516,7 @@ const subcommands = {
         'session-id': { type: 'string', desc: '对照组交互式会话的会话 id（用于找会话 JSONL）' },
         'no-materials': { type: 'boolean', desc: '不取评审素材（没有 ffmpeg 或只想快速看硬门时）' },
         'strict-procs': { type: 'boolean', desc: 'H7：看不出归属的新渲染进程也判失败' },
+        'allow-plugins': { type: 'list', desc: '会话隔离核对时放行的插件名（评测方确认是 CLI 内置或托管策略强制的）' },
         'qa-timeout-min': { type: 'number', min: 1, default: 30, desc: '每个 QA 子命令的超时（分钟）' },
         strict: { type: 'boolean', desc: '把硬门结论当退出码（pass 0；fail / needs-review 4；incomplete / invalid 3）' },
       },

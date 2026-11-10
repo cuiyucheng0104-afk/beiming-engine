@@ -789,6 +789,12 @@ describe('会话隔离', () => {
     assert.equal(verdictExitCode(report.verdict), EXIT.ENV);
   });
 
+  it('评测方确认过的内置插件（--allow-plugins）不算泄漏', async () => {
+    const turns = wt => [[S.init({ cwd: wt, plugins: [{ name: 'builtin-x', path: '/opt/claude/plugins/builtin-x' }] }), S.done('ok')]];
+    const { report } = await judge(DFA({ act: () => {}, turns }), { only: ['H4'], allowPlugins: ['builtin-x'] });
+    assert.equal(report.isolation.status, 'ok');
+  });
+
   it('会话不在被测检出里启动 → 隔离失效', async () => {
     const turns = () => [[S.init({ cwd: '/Users/tester/beiming-engine' }), S.done('ok')]];
     const { report } = await judge(DFA({ act: () => {}, turns }), { only: ['H4'] });

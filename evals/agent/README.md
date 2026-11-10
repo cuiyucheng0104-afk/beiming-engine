@@ -125,6 +125,7 @@ node tools/eval/run.mjs reply <运行目录> --text '…' --note '为什么插�
 | 会话不在被测检出里启动 | drive 以被测检出为工作目录启动 | init 记录的 cwd 必须在被测检出里 |
 
 任何一项核对失败（例如 init 里出现了 MCP 服务器），`gates.json` 结论记 `invalid`：这次运行作废，不计分，修好后重跑。
+评测机的 Claude Code 若带有内置插件、或托管策略强制加载了插件，评测方确认后用 `finish --allow-plugins <名,…>` 放行，并在结果里注明。
 
 **对照组**：`--isolation user-env` 不换配置目录、不加隔离参数，带着评测机用户的全局 skill、插件与记忆运行，专门测全局 skill 会不会抢先触发
 （GAP-07）。DR-W 两种都跑；其他题可以另做对照，结果单列在汇总的 `controls` 里，不计入就绪度均分。
@@ -137,7 +138,7 @@ node tools/eval/run.mjs reply <运行目录> --text '…' --note '为什么插�
 | 口径 | 题目 | prepare 做什么 | 代理要自己做的 |
 |---|---|---|---|
 | 冷启动 `cold` | DF-A | 只建检出；评测机上只需装好 Node、FFmpeg、git | 按仓库指引装 npm 依赖、Python 依赖与浏览器（可以联网下载） |
-| 已准备 `prepared` | DF-B、DF-C、DF-M、S1–S3、DR-W | node_modules 软链源仓库的（`--node-modules link`，源仓库没有时 `npm ci`）；仓库里有 `tools/env/setup.mjs`、`tools/env/doctor.mjs`（P10）时先跑它们，失败以 exit 3 停下；执行题目的预置步骤（S2、S3 先建好作品） | 直接做片 |
+| 已准备 `prepared` | DF-B、DF-C、DF-M、S1–S3、DR-W | node_modules 软链源仓库的（`--node-modules link`，源仓库没有时 `npm ci`）；仓库里有 `tools/env/setup.mjs`、`tools/env/doctor.mjs`（P10）时先跑 `setup`，再跑 `doctor --route <题目路线> --json`（与 G1 自检同口径），失败以 exit 3 停下；执行题目的预置步骤（S2、S3 先建好作品） | 直接做片 |
 
 版本按决定 D09：Node ≥ 22、Python 3.12、FFmpeg ≥ 7、playwright-core 1.63.0。DF-B 要在启动评测的终端里设置 `RAEA_BIN`
 （原生运行时可执行文件的完整路径），没设 `prepare` 以 exit 3 停下；运行时不随仓库分发，也不能复制进仓库（D03）。

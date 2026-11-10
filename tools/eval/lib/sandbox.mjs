@@ -98,7 +98,7 @@ function runStep(cmd, args, { cwd, timeoutMs, env = process.env }) {
  * nodeModules：link（软链源仓库的 node_modules，最快）| install（npm ci）| none。
  * 返回步骤记录。
  */
-export function prepareEnvironment(wt, repo, { mode, nodeModules = 'link', log = () => {} }) {
+export function prepareEnvironment(wt, repo, { mode, nodeModules = 'link', route = null, log = () => {} }) {
   const steps = [];
   if (mode === 'cold') return [{ step: 'cold', note: '冷启动：不装 node_modules、不建 .venv；会话里 PLAYWRIGHT_BROWSERS_PATH 指向本次运行的空目录' }];
   const target = path.join(wt, 'node_modules');
@@ -113,7 +113,9 @@ export function prepareEnvironment(wt, repo, { mode, nodeModules = 'link', log =
     steps.push({ step: 'node_modules', how: 'npm ci', exitCode: r.status });
     if (r.status !== 0) throw envError('npm-ci-failed', `npm ci 失败（exit ${r.status}）：${(r.stderr || r.stdout).trim().split('\n').slice(-3).join(' ')}`, '检查网络与 npm 缓存，或改用 --node-modules link');
   }
-  for (const [name, args, timeout] of [['setup', ['tools/env/setup.mjs'], 30], ['doctor', ['tools/env/doctor.mjs', '--json'], 5]]) {
+  // 与 G1 自检同口径：npm run setup，再 npm run env:doctor -- --route <路线> --json（P10）
+  const doctorArgs = ['tools/env/doctor.mjs', ...(route ? ['--route', route] : []), '--json'];
+  for (const [name, args, timeout] of [['setup', ['tools/env/setup.mjs'], 30], ['doctor', doctorArgs, 5]]) {
     if (!fs.existsSync(path.join(wt, args[0]))) { steps.push({ step: name, skipped: `${args[0]} 不存在（P10 尚未合入）` }); continue; }
     log(`环境：node ${args.join(' ')}`);
     const r = runStep(process.execPath, args, { cwd: wt, timeoutMs: timeout * 60 * 1000 });
