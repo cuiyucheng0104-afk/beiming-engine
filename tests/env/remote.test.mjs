@@ -112,7 +112,8 @@ test('remote run（local）：远端命令的退出码原样返回；槽位被�
   } finally { fs.rmSync(m.base, { recursive: true, force: true }); }
 });
 
-test('remote run（local）：控制机被中断时，远端结束子进程、删除工作树、释放锁，控制机 exit 130', async () => {
+// Windows 上 child.kill('SIGINT') 直接结束进程、不触发清理（真实的 Ctrl+C 走控制台事件），这条只在 POSIX 上跑
+test('remote run（local）：控制机被中断时，远端结束子进程、删除工作树、释放锁，控制机 exit 130', { skip: process.platform === 'win32' && 'Windows 上无法用信号模拟 Ctrl+C' }, async () => {
   const m = miniRepo();
   const pidFile = path.join(m.base, 'child.pid');
   try {

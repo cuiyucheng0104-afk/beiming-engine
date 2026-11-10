@@ -12,9 +12,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const CLIS = ['tools/env/doctor.mjs', 'tools/env/setup.mjs', 'tools/env/preflight.mjs', 'tools/env/lock.mjs', 'tools/env/large-files.mjs', 'tools/remote/cli.mjs', 'tools/repo-check/rules/env/index.mjs'];
 const ENVELOPE = ['ok', 'exitCode', 'command', 'error', 'outputs', 'runJson', 'warnings'];
 const node = (args, opts = {}) => spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', timeout: 60_000, ...opts });
+// 只看这些命令可能写到的位置：整个 out/ 是别的测试也会写的共用目录，放进来会让并行跑的测试互相干扰
+const WATCH = ['tools', 'tests/env', 'docs', 'requirements.in', 'requirements.lock', 'requirements.txt', 'LARGE-FILES.allow', '.gitattributes', '.venv', 'out/remote', 'out/doctor'];
 const state = () => {
-  const r = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--ignored'], { cwd: ROOT, encoding: 'utf8' });
-  return r.status === 0 ? r.stdout : null;
+  const r = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--ignored', '--', ...WATCH], { cwd: ROOT, encoding: 'utf8' });
+  const venv = path.join(ROOT, '.venv');
+  return r.status === 0 ? r.stdout + (fs.existsSync(venv) ? `venv:${fs.statSync(venv).mtimeMs}` : '') : null;
 };
 const missing = name => path.join(os.tmpdir(), `beiming-missing-${process.pid}-${name}`);
 
@@ -112,10 +115,16 @@ test('preflight：2 秒内给出结论；缺依赖时 exit 3，hint 就是修复
 test('setup --dry-run --json：只列计划，不下载、不写文件', () => {
   const before = state();
   const r = node(['tools/env/setup.mjs', '--dry-run', '--json', '--skip-npm', '--no-hooks'], { timeout: 120_000 });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
   const j = JSON.parse(r.stdout);
-  assert.equal(j.dryRun, true);
-  assert.deepEqual(j.steps.map(s => s.id), ['npm', 'browser', 'python', 'hooks']);
-  for (const s of j.steps) assert.ok(['skipped', 'planned'].includes(s.status), `${s.id} 在演练里是 ${s.status}`);
+  if (r.status === 3) {
+    // 这台机器既没有 uv 也没有 Python 3.12：演练也要如实报出缺前置条件，并给出先装 uv 的修复
+    assert.equal(j.error.code, 'python-missing', r.stderr);
+    assert.match(j.error.hint, /uv/);
+  } else {
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.equal(j.dryRun, true);
+    assert.deepEqual(j.steps.map(s => s.id), ['npm', 'browser', 'python', 'hooks']);
+    for (const s of j.steps) assert.ok(['skipped', 'planned'].includes(s.status), `${s.id} 在演练里是 ${s.status}`);
+  }
   if (before !== null) assert.equal(state(), before, '--dry-run 改动了仓库');
 });
