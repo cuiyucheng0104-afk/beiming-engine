@@ -62,8 +62,7 @@ async function main(opts, positionals) {
   if (opts.path.length) throw usage('--path 只配合 --scan-only 使用');
   if (!!positionals[0] === !!opts.template) throw usage('要么给作品目录，要么给 --template a|c（二选一）');
   if (opts.template && !TEMPLATES[opts.template]) throw usage(`--template 只能是 ${Object.keys(TEMPLATES).join(' | ')}`);
-  const gpu = opts.gpu || process.env.BEIMING_GPU || 'required';
-  if (!['required', 'any', 'software-ok'].includes(gpu)) throw usage(`${opts.gpu ? '--gpu' : '环境变量 BEIMING_GPU'} 只能是 required | any | software-ok（现在是 ${gpu}）`);
+  const gpu = opts.gpu || 'required';   // 取值由命令约定库按 choices 校验
   const W = opts.workers ?? 4;
   if (!(W >= 1 && W <= 64)) throw usage('--workers 要在 1–64 之间');
   if (opts.random != null && !(opts.random >= 0 && opts.random <= 50)) throw usage('--random 要在 0–50 之间');
@@ -239,7 +238,7 @@ export const command = defineCommand({
     size: { type: 'string', arg: '<宽x高>', describe: '默认读 film.json 的 size，没有就 1920x1040', example: '960x520' },
     fps: { type: 'integer', arg: '<n>', min: 1, max: 240, describe: '默认读 film.json 的 fps，没有就 24', example: '24' },
     query: { type: 'string', arg: '<k=v&…>', describe: '页面查询串' },
-    gpu: { type: 'string', arg: '<策略>', choices: ['required', 'any', 'software-ok'], describe: '落到软件渲染时：required 即 exit 3（默认）；不写时取 BEIMING_GPU' },
+    gpu: { type: 'string', arg: '<策略>', choices: ['required', 'any', 'software-ok'], describe: '落到软件渲染时：required 即 exit 3（默认）；any 接受任何后端；software-ok 明确要软件渲染（CI 的 SwiftShader）' },
     jobs: { type: 'integer', arg: '<n>', min: 1, max: 16, describe: '新页面模式同时开几个浏览器（默认 2）', example: '2' },
     'frame-timeout': { type: 'number', arg: '<秒>', min: 1, max: 3600, describe: '单帧上限（默认 60）', example: '60' },
     out: { type: 'string', arg: '<目录>', describe: '报告目录（默认 out/determinism/<运行编号>/）' },

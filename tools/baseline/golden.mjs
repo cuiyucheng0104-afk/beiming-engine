@@ -116,7 +116,7 @@ async function captureCurrent(sets, setName, opts, dir, sourceOverride = null) {
   log(`  ${manifest.frames.length} 帧，${manifest.seconds} 秒，平台 ${manifest.platformKey}（${manifest.renderer}），浏览器 ${manifest.browser}`);
   if (opts.platform && manifest.platformKey !== opts.platform) {
     throw new CliError('env.platform-mismatch', `--platform ${opts.platform}，本机实际渲出的是 ${manifest.platformKey}（${manifest.renderer}）`, {
-      hint: `平台键由 WebGL 实际报出的渲染器决定：检查 BEIMING_ANGLE（软件渲染设 swiftshader，并配 --gpu software-ok 或 BEIMING_GPU=software-ok）；或改用 --platform ${manifest.platformKey}`,
+      hint: `平台键由 WebGL 实际报出的渲染器决定：检查 BEIMING_ANGLE（软件渲染设 swiftshader）；或改用 --platform ${manifest.platformKey}`,
       exitCode: EXIT.ENV,
     });
   }
@@ -157,10 +157,10 @@ function readPlatformSafe(pk) {
 
 const SOFTWARE_PK = /-(swiftshader|llvmpipe|warp)$/;
 function normalizeOpts(o) {
-  // --gpu 不写时：取 BEIMING_GPU；--platform 指明的是软件光栅平台（如 linux-swiftshader）时默认 software-ok；否则 required
-  const gpu = o.gpu || process.env.BEIMING_GPU || (o.platform && SOFTWARE_PK.test(o.platform) ? 'software-ok' : 'required');
+  // --gpu 不写时：--platform 指明的是软件光栅平台（如 linux-swiftshader）就默认 software-ok，否则 required
+  const gpu = o.gpu || (o.platform && SOFTWARE_PK.test(o.platform) ? 'software-ok' : 'required');
   if (!GPU_POLICIES.includes(gpu)) {
-    throw usage(`${o.gpu ? '--gpu' : '环境变量 BEIMING_GPU'} 只能是 ${GPU_POLICIES.join(' | ')}，现在是 ${gpu}`);
+    throw usage(`--gpu 只能是 ${GPU_POLICIES.join(' | ')}，现在是 ${gpu}`);
   }
   if (o.platform && !PK_RE.test(o.platform)) throw usage(`--platform 要写成 <系统>-<后端>，例如 darwin-metal、win-vulkan、linux-swiftshader（现在是 ${o.platform}）`);
   return { ...o, gpu, jobs: o.jobs || 2, frameTimeoutMs: Math.round((o.frameTimeout || 60) * 1000) };
@@ -616,7 +616,7 @@ export const command = defineCommand({
     `集合（tools/baseline/sets.json）：${(() => { try { return Object.keys(JSON.parse(fs.readFileSync(SETS_FILE, 'utf8')).sets).join('、'); } catch { return '（读不出来）'; } })()}`,
     '平台键 = <系统>-<WebGL 后端>，由 WebGL 实际报出的渲染器决定：darwin-metal、win-vulkan、win-d3d11、linux-swiftshader……',
     '同一平台键按像素比（--strict 要求逐像素一致）；不同平台键只按 SSIM / PSNR 容差比。规则与实测阈值见 docs/style-baselines/POLICY.md。',
-    '环境变量：BEIMING_ANGLE（metal | vulkan | d3d11 | gl | swiftshader）、BEIMING_CHROME（浏览器可执行文件）、BEIMING_GPU（--gpu 的默认值）。',
+    '环境变量：BEIMING_ANGLE（metal | vulkan | d3d11 | gl | swiftshader）、BEIMING_CHROME（浏览器可执行文件）。',
   ],
   positionals: [{ name: 'subcommand', label: '<子命令>', describe: Object.keys(SUBS).join(' | ') }],
   options: {
@@ -629,7 +629,7 @@ export const command = defineCommand({
     strict: { type: 'boolean', describe: 'compare：任何不是逐像素一致的帧都算失败（合入前的「像素保护」用这个）' },
     'no-render-ref': { type: 'boolean', describe: 'compare：哈希不同时不自动现渲源提交（只报哈希差异，判为无法核实）' },
     'no-cache': { type: 'boolean', describe: 'compare / keyframes：参照一律现渲，不用 out/golden/cache/ 里的缓存' },
-    gpu: { type: 'string', arg: '<策略>', choices: GPU_POLICIES, describe: '落到软件渲染时：required 即 exit 3（默认）；software-ok 给 CI 的 SwiftShader；不写时取 BEIMING_GPU，--platform 是软件光栅平台时取 software-ok' },
+    gpu: { type: 'string', arg: '<策略>', choices: GPU_POLICIES, describe: '落到软件渲染时：required 即 exit 3（默认）；software-ok 给 CI 的 SwiftShader；不写时 --platform 是软件光栅平台就取 software-ok' },
     jobs: { type: 'integer', arg: '<n>', min: 1, max: 16, describe: '同时开几个页面（默认 2）', example: '2' },
     'frame-timeout': { type: 'number', arg: '<秒>', min: 1, max: 3600, describe: '单帧 render + 截图的上限（默认 60）', example: '60' },
     out: { type: 'string', arg: '<目录>', describe: 'capture / compare 的输出目录（默认 out/golden/…）' },

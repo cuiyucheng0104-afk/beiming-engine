@@ -58,9 +58,9 @@
 
 | 取值 | 用在哪 | 行为 |
 |---|---|---|
-| `required`（默认；不写 `--gpu` 时取环境变量 `BEIMING_GPU`） | 本地出片、本地金标准 | WebGL 落到软件光栅（SwiftShader、llvmpipe、WARP）立刻 exit 3，一帧也不截 |
+| `required`（默认） | 本地出片、本地金标准 | WebGL 落到软件光栅（SwiftShader、llvmpipe、WARP）立刻 exit 3，一帧也不截 |
 | `any` | 本地排查 | 接受任何后端，平台键照实记 |
-| `software-ok` | CI 冒烟（`linux-swiftshader` 基线）、B 路线资产烘焙 | 明确要软件渲染；截帧清单的 `env.gpuPolicy` 记下来。`--platform` 指明软件光栅平台（`*-swiftshader`、`*-llvmpipe`、`*-warp`）而没写 `--gpu` / `BEIMING_GPU` 时，默认就是它 |
+| `software-ok` | CI 冒烟（`linux-swiftshader` 基线）、B 路线资产烘焙 | 明确要软件渲染；截帧清单的 `env.gpuPolicy` 记下来。`--platform` 指明软件光栅平台（`*-swiftshader`、`*-llvmpipe`、`*-warp`）而没写 `--gpu` 时，默认就是它 |
 
 软件渲染的帧只会和 `*-swiftshader` 基线同平台比，和 GPU 基线之间按第 3 节的跨平台容差比，所以 CI 用 SwiftShader 不会把 GPU 基线判红，GPU 基线也不会被 CI 的软件渲染污染。
 
@@ -71,7 +71,7 @@
 | 改了 `engine/`、`src/`、`lab/`、`assets/`、`fonts/`、`index.html` 或路线模版，合入前（像素保护） | `node tools/baseline/golden.mjs compare --set beiming-core,lab,templates --strict` | exit 0；不是 0 就看报告里的热图和接触印 |
 | 想知道是哪个提交改了像素 | `… compare --set <集合> --against <提交>` | 只把那个提交的页面（约 60 MB）导出到临时目录现渲，结束即删，不建 worktree |
 | 另一台机器的画面 | 那台机器 `… capture --set <集合> --out <目录>`，拷过来 `… compare --set <集合> --ref-dir <目录>` | 按跨平台容差 |
-| CI 冒烟（`tests/ci/smoke-render.mjs` 的 golden 阶段，`BEIMING_ANGLE=swiftshader BEIMING_GPU=software-ok`） | 有 `tests/golden/linux-swiftshader/manifest.json`：`… compare --set beiming-core --set lab --platform linux-swiftshader --json`；没有：同样参数的 `capture`，结果作为工件 `golden-capture` 上传 | compare exit 0 通过、4 像素不一致；capture 写出的是待审批候选，按第 6 节转正 |
+| CI 冒烟（`tests/ci/smoke-render.mjs` 的 golden 阶段，`BEIMING_ANGLE=swiftshader`） | 有 `tests/golden/linux-swiftshader/manifest.json`：`… compare --set beiming-core --set lab --platform linux-swiftshader --json`；没有：同样参数的 `capture`，结果作为工件 `golden-capture` 上传 | compare exit 0 通过、4 像素不一致；capture 写出的是待审批候选，按第 6 节转正 |
 | 新作品出片前、改了带累计状态的镜头 | `node tools/baseline/determinism.mjs films/<名> --seams --workers 4` | exit 0：新页面、乱序、顺序三种渲法逐像素一致 |
 | 《北冥》样片 | `node tools/baseline/determinism.mjs . --seams --workers 4 --cuts 72,120 --random 5 --frames 0,239` | 2026-11-10 实测 18 帧通过，41.7 秒 |
 

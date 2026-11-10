@@ -77,10 +77,10 @@ test('子命令用错选项、缺参数、非法值 → exit 2，信封可解析
   }
 });
 
-test('BEIMING_GPU 写错时按用法错误报出（--gpu 的默认值来自它）', () => {
-  const r = run(GOLDEN, ['capture', '--set', 'fixtures', '--json'], { env: { BEIMING_GPU: 'nope' } });
-  assert.equal(r.code, 2);
-  assert.match(envelope(r.out).error.message, /BEIMING_GPU/);
+test('--platform 写的是软件光栅平台时 --gpu 默认 software-ok；平台键写法不对是用法错误', () => {
+  const bad = run(GOLDEN, ['compare', '--set', 'fixtures', '--platform', 'linux_swiftshader', '--json']);
+  assert.equal(bad.code, 2);
+  assert.match(envelope(bad.out).error.message, /--platform/);
 });
 
 test('update / approve 缺审批字段、或登记提交与 HEAD 像素不等价 → 拒绝且不写清单', () => {
