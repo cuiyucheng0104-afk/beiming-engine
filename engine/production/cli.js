@@ -51,6 +51,7 @@ const COMMANDS = {
       gate: 'string', decision: 'string', quote: 'string', 'quote-file': 'string', 'source-kind': 'string', 'source-ref': 'string', 'source-at': 'string',
       reviewer: 'string', 'reviewer-kind': 'string', 'recorded-by': 'string', 'recorded-by-kind': 'string', file: 'list', shot: 'list',
       'rejected-on': 'string', 'must-change': 'string', summary: 'string', notes: 'string', 'dry-run': 'bool',
+      score: 'list', veto: 'list', 'evidence-frame': 'list', 'issues-file': 'string',
     },
     summary: '记录一条审片结论到 review/<闸>-<日期>.json（只增不改）',
     help: `${PROG} review <作品目录> --gate <structure|look|animatic|final> --decision <approve|reject|waive|comment> [选项] [--json]
@@ -64,6 +65,10 @@ const COMMANDS = {
   --shot <镜头=pass|fail|note[:说明]>   逐镜结论，可重复
   --rejected-on <维度,…>     reject 时否定的维度（style,subject,camera,motion,rhythm,text）；--must-change <下次必须改什么>
   --summary <文字>           comment（代理审片）的结论；--notes <文字> 备注
+  --score <维度=分>          评分，可重复：style / subject / camera / motion / rhythm / text，1–10（docs/creative-review/RUBRIC.md）
+  --veto <否决项>            一票否决项，可重复（RUBRIC §3 的 id）
+  --evidence-frame <帧>      支撑评分的证据帧号，可重复
+  --issues-file <JSON 文件>  问题条目数组（格式见 docs/creative-review/issue.schema.json）
   --dry-run                  只打印记录，不写文件
 agent 不能自己批准：没有用户原话的 approve / reject / waive 记录无效。final 不能豁免。
 退出码：0 已记录；4 记录不合格（没写文件）；2 用法错误`,
@@ -198,7 +203,7 @@ function cmdValidateResult({ pos, flags }) {
 function statusText(s) {
   const mark = { approved: '✓', waived: '≈', rejected: '✗', stale: '↺', missing: '·' };
   const lines = [`${s.film ? `${s.film.id}「${s.film.title}」` : shown(s.filmDir)}：${s.state} — ${s.label}`];
-  for (const [g, v] of Object.entries(s.gates)) lines.push(`  ${mark[v.status] ?? '?'} ${g.padEnd(9)} ${v.status.padEnd(8)} ${v.reason}${v.record ? `（${v.record.file}）` : ''}`);
+  for (const [g, v] of Object.entries(s.gates)) lines.push(`  ${mark[v.status] ?? '?'} ${g.padEnd(9)} ${v.status.padEnd(8)} ${v.reason}${v.record ? `（${v.record.file}）` : ''}${v.comments ? `；代理审片 ${v.comments} 条（不推进状态）` : ''}`);
   if (s.run) lines.push(`  运行 ${s.run.runId}：kind ${s.run.kind ?? '未写'}，status ${s.run.status ?? '未写'}${s.qa ? `；QA ${s.qa.ok === true ? '通过' : `未通过${s.qa.failed.length ? `（${s.qa.failed.join('、')}）` : ''}`}` : '；没有 QA 报告'}`);
   for (const n of s.next) lines.push(`  下一步：${n}`);
   for (const d of s.diagnostics.filter(d => d.level === 'error' || ['render-bypassed-gate', 'gate-order', 'run-kind-missing'].includes(d.code))) lines.push(`  ${fmtDiag(d)}`);
@@ -253,6 +258,10 @@ function cmdReview({ pos, flags }) {
     shots: flags.shot ? parseShotVerdicts(flags.shot) : undefined,
     rejectedOn: flags['rejected-on'] ? flags['rejected-on'].split(',').map(s => s.trim()).filter(Boolean) : undefined,
     mustChange: flags['must-change'], summary: flags.summary, notes: flags.notes,
+    scores: flags.score ? parseScores(flags.score) : undefined,
+    vetoes: flags.veto,
+    evidenceFrames: flags['evidence-frame'] ? flags['evidence-frame'].map(x => { if (!/^\d+$/.test(x)) throw new UsageError(`--evidence-frame 要非负整数帧，收到 ${JSON.stringify(x)}`); return Number(x); }) : undefined,
+    issues: flags['issues-file'] !== undefined ? readIssuesFile(flags['issues-file']) : undefined,
   };
   let r;
   try { r = recordReview(L.filmDir, input, { dryRun: Boolean(flags['dry-run']) }); } catch (error) {
@@ -265,6 +274,27 @@ function cmdReview({ pos, flags }) {
   }
   if (!r.path) return { ok: true, exitCode: 0, text: `（--dry-run，没有写文件）\n${formatJson(r.record).trimEnd()}`, warnings: warnStrings(r.diagnostics), result: { record: r.record, diagnostics: r.diagnostics } };
   return { ok: true, exitCode: 0, text: `✓ 已记录 ${shown(r.path)}\n${statusText(r.status)}`, outputs: [{ path: shown(r.path), sha256: r.sha256, kind: 'review' }], warnings: warnStrings(r.diagnostics), result: { record: r.record, file: shown(r.path), status: { state: r.status.state, label: r.status.label } } };
+}
+
+function parseScores(list) {
+  const out = {};
+  for (const x of list) {
+    const m = /^([a-z]+)=(\d+)$/.exec(x);
+    if (!m) throw new UsageError(`--score 写成 <维度>=<1–10>，收到 ${JSON.stringify(x)}`);
+    if (out[m[1]] !== undefined) throw new UsageError(`--score ${m[1]} 给了两次`);
+    out[m[1]] = Number(m[2]);
+  }
+  return out;
+}
+
+function readIssuesFile(p) {
+  const r = readJsonFile(resolve(p));
+  if (!r.ok) {
+    if (r.code === 'not-found') throw new UsageError(`--issues-file 文件不存在：${p}`);
+    throw new FilmError(r.code, `--issues-file 读不出来：${r.message}`, { exitCode: r.code === 'json-invalid' ? 4 : 1 });
+  }
+  if (!Array.isArray(r.value)) throw new FilmError('issues-invalid', '--issues-file 的内容要是问题条目数组', { exitCode: 4, hint: '格式见 docs/creative-review/issue.schema.json' });
+  return r.value;
 }
 
 function readQuoteFile(p) {

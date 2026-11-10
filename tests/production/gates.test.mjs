@@ -290,6 +290,8 @@ test('给出片编排（P06）的库路径：没有 animatic 认可时终渲被�
 test('交付字样检查：引号里提到词本身、否定说法放行；直接声称的才算', () => {
   assert.deepEqual(findUnbackedClaims('只有 accepted 才能写「已交付」。', 'draft'), []);
   assert.deepEqual(findUnbackedClaims('本片未交付', 'draft'), []);
+  for (const t of ['这条不是用户认可', '未经用户认可', '没有用户认可的记录', '不算已验收', '不能写已交付']) assert.deepEqual(findUnbackedClaims(t, 'draft'), [], t);
+  assert.deepEqual(findUnbackedClaims('用户认可了', 'draft').map(x => x.claim), ['用户认可']);
   assert.deepEqual(findUnbackedClaims('本片已交付', 'qa-passed').map(x => x.claim), ['已交付']);
   assert.deepEqual(findUnbackedClaims('本片已交付', 'accepted'), []);
 });

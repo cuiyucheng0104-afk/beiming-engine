@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "film": "beiming-10s",
+  "gate": "final",
+  "decision": "comment",
+  "reviewer": { "kind": "ai", "name": "agent（P05 代理审片样例）" },
+  "recordedBy": { "kind": "ai", "name": "agent" },
+  "recordedAt": "2026-11-10T17:33:20+08:00",
+  "shots": [{ "id": "A", "verdict": "pass" }, { "id": "B", "verdict": "pass" }, { "id": "C", "verdict": "fail", "note": "片尾片名与副标题停留不足（R1、R2）" }],
+  "issues": [
+    {
+      "id": "R1",
+      "frames": [231, 240],
+      "shot": "C",
+      "region": [0.08, 0.3, 0.28, 0.26],
+      "layer": "text",
+      "dimension": "text",
+      "problem": "片名「北冥」在第 230–232 帧之间写完，之后只停约 9 帧（0.4 秒）就到片尾，短于读字下限 max(0.8 秒, 字数 × 0.12 秒) = 0.8 秒",
+      "fix": "样片源码冻结，不改 src/：按 QA 豁免登记；新作品片名写完后至少停 20 帧（0.8 秒 @24 fps），或把书写提前",
+      "priority": "P1",
+      "status": "open"
+    },
+    {
+      "id": "R2",
+      "frames": [227, 240],
+      "shot": "C",
+      "region": [0.08, 0.58, 0.26, 0.05],
+      "layer": "text",
+      "dimension": "text",
+      "problem": "副标题「AI 眼镜 · 品牌短片 · 概念样片」字号小、与浅粉色云层对比低，完全不透明的时间只有片尾几帧",
+      "fix": "同 R1 按豁免登记；新作品副标题放在有底的区域或加暗晕，停留按读字时长",
+      "priority": "P1",
+      "status": "open"
+    },
+    {
+      "id": "R3",
+      "frame": 239,
+      "shot": "C",
+      "region": [0.66, 0.1, 0.12, 0.62],
+      "layer": "camera",
+      "dimension": "subject",
+      "problem": "鲲的胸鳍尖正好落在东方明珠塔尖上（两个尖端相切），视线被引到接触点，片名一侧反而空",
+      "fix": "新作品构图避开相切：让鳍尖与塔尖错开或明确重叠",
+      "priority": "P2",
+      "status": "open"
+    },
+    {
+      "id": "R4",
+      "frame": 150,
+      "shot": "C",
+      "region": [0.47, 0.72, 0.1, 0.05],
+      "layer": "overlay",
+      "dimension": "text",
+      "problem": "显示层「未能识别」字小（960 宽静帧上约 11 像素高，目测），青色压在橙棕色鲲皮上，对比偏低",
+      "fix": "新作品的显示层标签加半透明底或描边，按档位安全区与对比度 ≥ 3:1 核对",
+      "priority": "P3",
+      "status": "open"
+    }
+  ],
+  "scores": { "style": 8, "subject": 7, "camera": 8, "text": 5 },
+  "vetoes": ["text-defect"],
+  "evidenceFrames": [69, 71, 72, 84, 119, 120, 131, 150, 216, 224, 227, 230, 232, 239],
+  "summary": "代理检查未通过：片尾片名与副标题停留不足（一票否决 text-defect）。看过的其余维度代理检查通过：三张底板、卡通着色鲲与纸纹在三个镜头里一致，A→B、B→C 两个硬切成立。动作、节奏与声音未评（只看了静帧，没有看连续帧与带声成片）。样片源码冻结，问题按 QA 豁免登记，作为新作品的反例。",
+  "notes": "证据是 HEAD 渲染的 960×520 静帧（src/ 与 abfdc83 相同）：node engine/render/still.mjs . <秒…> --size 960x520 --out <仓库外目录>，秒 = 帧 / 24；渲染产物不入库（决策 D10）。按 docs/creative-review/RUBRIC.md §4 看了两个切点各前后 3 帧与 9 个事件帧。这是 AI 的代理审片，不是用户认可，不推进状态。"
+}

@@ -60,8 +60,9 @@ export function findUnbackedClaims(text, state) {
   for (const claim of RESERVED_CLAIMS) {
     let i = s.indexOf(claim);
     while (i >= 0) {
-      const before = s.slice(Math.max(0, i - 2), i), open = s[i - 1], close = s[i + claim.length];
-      const negated = /[未不没非]$/.test(before);                       // 「未交付」「不算已验收」这类否定说法放行
+      const before = s.slice(Math.max(0, i - 3), i), open = s[i - 1], close = s[i + claim.length];
+      // 否定说法放行：「不是用户认可」「未经用户认可」「没有用户认可」「不算已验收」「不能写已交付」
+      const negated = /[未不没非无](?:是|算|经|有|能写|能|写|作|被|再|曾)?$/.test(before);
       const quoted = Object.hasOwn(QUOTE_PAIRS, open ?? '') && QUOTE_PAIRS[open] === close;   // 「已交付」这样提到词本身也放行
       // 「用户认可」被更长的「用户已认可」覆盖时只报一次
       const covered = out.some(o => o.index <= i && i + claim.length <= o.index + o.claim.length);
