@@ -57,6 +57,8 @@ export class UsageError extends RenderError {
 /** 任意异常 → { code, message, hint, exitCode }（信封与 run.json 用） */
 export function describeError(e) {
   if (e instanceof RenderError) return { code: e.code, message: e.message, hint: e.hint ?? null, exitCode: e.exitCode };
+  // 别处定义的同类错误（例如 engine/render/args.mjs 的 UsageError）：有数字退出码就照用
+  if (e && Number.isInteger(e.exitCode)) return { code: e.code ?? (e.name === 'UsageError' ? 'usage' : 'error'), message: String(e.message), hint: e.hint ?? null, exitCode: e.exitCode };
   const message = String(e?.message ?? e).split('\n')[0];
   return { code: 'internal', message: `内部错误：${message}`, hint: '这是渲染器自身的问题：带上完整日志与命令行报告', exitCode: EXIT.FAIL };
 }
