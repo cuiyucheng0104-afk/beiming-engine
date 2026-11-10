@@ -4,7 +4,7 @@
 为什么另起一套：mixing.at() 给每个元素分配一条全长 (n, 2) float64 缓冲，meter.integrated / dsp.tp_limit 对整段信号一次算完——
 540 秒的片子一条缓冲约 415 MB，一次 4 倍过采样真峰值的临时量约 1.7 GB，元素一多就超内存。短片照用原来的函数（《北冥》10 秒样片
 的混音就是那一套，逐样本不变）；长片用这里的：同一公式、同一滤波器，分块只改变求和顺序，与整段计算的差别在 1e-9 量级
-（tests/audio/test_stream.py 逐项比对）。
+（tests/audio/test_audio_stream.py 逐项比对；10 分钟合成混音的峰值内存实测 932 MB，见 tests/audio/longmix_probe.py）。
 
 接口：
   Bus(n, name='', dtype=float32)        立体声累加总线，.buf 是 (n, 2) 数组

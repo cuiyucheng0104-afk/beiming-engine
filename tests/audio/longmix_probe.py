@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """长片混音的内存探针：用 engine/audio/stream 合成一条 N 秒（默认 600 秒）的完整混音——三层分段生成的环境声底层、
 上千个一次性音效、一条"旁白"层（带让路包络）——母带到 −14 LUFS / −1 dBTP，写 PCM_24，最后打印一行 JSON：
-{seconds, peakRssMb, wallSec, integrated, truePeakDb, events}。tests/audio/test_stream.py 用它断言峰值内存 < 1.5 GB。
+{seconds, peakRssMb, wallSec, integrated, truePeakDb, events}。tests/audio/test_audio_stream.py 用它断言峰值内存 < 1.5 GB
+（2026-11-10 本机实测 600 秒：峰值 932 MB、32 秒、−14.02 LUFS、−1.0 dBTP，临时写盘约 0.8 GB）。
 
 用法：python tests/audio/longmix_probe.py <输出目录> [秒数]
 写法就是长片的推荐写法：一次只留一条工作总线和一条母带总线在内存里，分轨处理完就写盘、释放。
