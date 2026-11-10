@@ -66,8 +66,11 @@ function parseArgv(argv) {
     else if (a === '--json') o.json = true;
     else if (a === '--explain') o.explain = true;
     else if (valued.has(a)) {
-      if (i + 1 >= argv.length) return { error: `${a} 后面要跟一个值`, json: argv.includes('--json') };
-      o[a.slice(2)] = argv[++i];
+      const v = argv[i + 1];
+      // 值不能缺，也不能是另一个选项（--tool --json 这种写法按用法错误处理，而不是把 --json 当成工具名）
+      if (v === undefined || /^--[a-z]/.test(v)) return { error: `${a} 后面要跟一个值`, json: argv.includes('--json') };
+      o[a.slice(2)] = v;
+      i++;
     } else return { error: `不认识的参数 ${a}`, json: argv.includes('--json') };
   }
   return o;
