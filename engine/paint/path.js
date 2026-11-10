@@ -1,6 +1,9 @@
 // 北冥引擎 · 路径小语言：SVG 风格的路径字符串 → 命令数组，再做变换、转 Path2D、采样成折线。
-// 命令数组：[['M', x, y], ['L', x, y], ['C', x1, y1, x2, y2, x, y], ['Q', x1, y1, x, y], ['Z']]，只支持绝对坐标。
-//   parsePath(str)               字符串 → 命令数组（M 之后省略命令字母的坐标按 L 读）
+// 命令数组：[['M', x, y], ['L', x, y], ['C', x1, y1, x2, y2, x, y], ['Q', x1, y1, x, y], ['Z']]，全部是绝对坐标。
+//   parsePath(str)               字符串 → 命令数组。认 SVG 的 M L H V C S Q T Z（大写绝对、小写相对），H/V/S/T 和小写命令
+//                                都展开成上面五种绝对命令；同一命令连写多组坐标就重复这条命令，M 之后省略命令字母的坐标按 L 读，
+//                                开头省略 M 也按 M 读。数字支持正负号、省略整数部分（.5）和指数（1e-7）；逗号、空白都是分隔。
+//                                A（弧线）、别的字母、认不出的字符、坐标个数不够都直接报错（不再静默画出错的形状）；空串返回 []。
 //   scalePath(cmds, cx, cy, k)   绕 (cx, cy) 整体缩放（设计时微调大小用）
 //   mapPath(cmds, m, warp)       所有点（含控制点）先过可选形变 warp(x, y) → [x, y]，再乘仿射矩阵 m
 //   toPath2D(cmds, p)            追加到 Path2D p（不给就新建）并返回它
@@ -11,14 +14,49 @@
 
 import { apply } from './affine.js';
 
+const ARGS = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, Z: 0 };
+const LEX = /[\s,]+|([A-Za-z])|([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)/y;
+
 export function parsePath(str) {
-  const tk = str.match(/[MLCQZ]|-?\d*\.?\d+/gi); const out = []; let i = 0, c = 'M';
-  while (i < tk.length) {
-    const t = tk[i];
-    if (/^[MLCQZ]$/i.test(t)) { c = t.toUpperCase(); i++; if (c === 'Z') { out.push(['Z']); continue; } }
-    const n = c === 'C' ? 6 : c === 'Q' ? 4 : 2, v = [c];
-    for (let k = 0; k < n; k++) v.push(+tk[i++]);
-    out.push(v); if (c === 'M') c = 'L';
+  if (str == null) throw new TypeError('parsePath：没有给路径字符串');
+  const src = String(str), tk = [];
+  for (let i = 0; i < src.length;) {
+    LEX.lastIndex = i;
+    const m = LEX.exec(src);
+    if (!m) throw new SyntaxError(`parsePath：第 ${i + 1} 个字符“${src[i]}”认不出来：${src.slice(0, 80)}`);
+    if (m[1]) tk.push(m[1]); else if (m[2] !== undefined) tk.push(Number(m[2]));
+    i = LEX.lastIndex;
+  }
+  const out = [];
+  let k = 0, cmd = null, cx = 0, cy = 0, sx = 0, sy = 0, prev = null;   // prev = [上一段的类型 'C'/'Q', 控制点 x, y]（S/T 取它的反射）
+  while (k < tk.length) {
+    if (typeof tk[k] === 'string') {
+      cmd = tk[k++];
+      const U = cmd.toUpperCase();
+      if (U === 'A') throw new SyntaxError(`parsePath：不支持 ${cmd}（弧线）命令，请先换成 C 贝塞尔：${src.slice(0, 80)}`);
+      if (!(U in ARGS)) throw new SyntaxError(`parsePath：不认识的命令 ${cmd}（只认 M L H V C S Q T Z，大小写都可以）：${src.slice(0, 80)}`);
+      if (U === 'Z') { out.push(['Z']); cx = sx; cy = sy; prev = null; continue; }
+    } else if (cmd === null) cmd = 'M';
+    else if (cmd === 'Z' || cmd === 'z') throw new SyntaxError(`parsePath：Z 后面的坐标缺少命令字母：${src.slice(0, 80)}`);
+    const U = cmd.toUpperCase(), rel = cmd !== U, n = ARGS[U], a = [];
+    for (let j = 0; j < n; j++, k++) {
+      if (typeof tk[k] !== 'number') throw new SyntaxError(`parsePath：${cmd} 要 ${n} 个数，第 ${j + 1} 个缺了：${src.slice(0, 80)}`);
+      a.push(tk[k]);
+    }
+    const X = v => (rel ? cx + v : v), Y = v => (rel ? cy + v : v);
+    if (U === 'M') { cx = sx = X(a[0]); cy = sy = Y(a[1]); out.push(['M', cx, cy]); prev = null; cmd = rel ? 'l' : 'L'; }
+    else if (U === 'L') { const x = X(a[0]), y = Y(a[1]); out.push(['L', x, y]); cx = x; cy = y; prev = null; }
+    else if (U === 'H') { cx = X(a[0]); out.push(['L', cx, cy]); prev = null; }
+    else if (U === 'V') { cy = Y(a[0]); out.push(['L', cx, cy]); prev = null; }
+    else if (U === 'C' || U === 'S') {
+      const c1 = U === 'C' ? [X(a[0]), Y(a[1])] : prev && prev[0] === 'C' ? [2 * cx - prev[1], 2 * cy - prev[2]] : [cx, cy];
+      const r = U === 'C' ? 2 : 0, c2 = [X(a[r]), Y(a[r + 1])], e = [X(a[r + 2]), Y(a[r + 3])];
+      out.push(['C', ...c1, ...c2, ...e]); prev = ['C', c2[0], c2[1]]; cx = e[0]; cy = e[1];
+    } else {   // Q / T
+      const c1 = U === 'Q' ? [X(a[0]), Y(a[1])] : prev && prev[0] === 'Q' ? [2 * cx - prev[1], 2 * cy - prev[2]] : [cx, cy];
+      const r = U === 'Q' ? 2 : 0, e = [X(a[r]), Y(a[r + 1])];
+      out.push(['Q', ...c1, ...e]); prev = ['Q', c1[0], c1[1]]; cx = e[0]; cy = e[1];
+    }
   }
   return out;
 }

@@ -3,7 +3,9 @@
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错
 //   strHash(s) / programKey(prefix, parts)  程序缓存键：前缀 | 各段源码拼起来的哈希
-//   vec3Of(v) / colorOf(c)                  数组 / {x,y,z} / 实例 → 新的 THREE.Vector3；色值 / 实例 → 新的 THREE.Color
+//   vec3Of(v) / colorOf(c)                  数组 / {x,y,z} / 实例 → 新的 THREE.Vector3；色值 → 新的 THREE.Color：
+//                                           '#hex' / 0xhex / THREE.Color / [r, g, b]（sRGB 0..1，与 engine/look/params.js 的 toColor 同一约定）；
+//                                           空值 = 白；别的类型直接报错（three 的 Color.set 遇到不认识的值会静默保持白色）
 //   patchVertex(src, hooks, own, who)       顶点钩子 vertexPars / vertexMainStart / vertexNormal（改 objectNormal）/ vertexBegin（改 transformed）；
 //                                           own = { head, begin, project } 是材质自己的声明与赋值，排在同位置的钩子前面
 //   quantizeShadow(frag, lo, hi, who)       投影量化：getShadow 的返回值过 smoothstep( lo, hi )（lo / hi 是 GLSL 表达式）
@@ -27,7 +29,12 @@ export function strHash(s) { let h = 5381; for (let i = 0; i < s.length; i++) h 
 export const programKey = (prefix, parts) => prefix + '|' + strHash(parts.join('§'));
 
 export const vec3Of = v => v instanceof THREE.Vector3 ? v.clone() : Array.isArray(v) ? new THREE.Vector3(...v) : new THREE.Vector3(v.x, v.y, v.z);
-export const colorOf = c => c instanceof THREE.Color ? c.clone() : new THREE.Color(c);
+export function colorOf(c) {
+  if (c instanceof THREE.Color || c?.isColor) return new THREE.Color().copy(c);
+  if (Array.isArray(c)) return new THREE.Color().setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
+  if (c === undefined || c === null || typeof c === 'string' || typeof c === 'number') return new THREE.Color(c ?? 0xffffff);
+  throw new TypeError(`颜色要写 '#hex' / 0xhex / THREE.Color / [r, g, b]（sRGB 0..1），收到 ${typeof c}：${String(c).slice(0, 40)}`);
+}
 
 export function patchVertex(src, h, own = {}, who) {
   let s = src;

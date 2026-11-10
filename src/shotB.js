@@ -52,17 +52,14 @@ export function buildShotB({ W, H, img, K = 1 }) {   // W×H：1040 高的设计
     figTex.needsUpdate = true;
   }
 
-  const look = t => {
-    const tl = t - GIRL_SHOT.start;
-    return {
-      t,
-      outline: false,
-      kuwahara: { radius: 1.6, farRadius: 6, farStart: 30, farEnd: 60, strength: 1, protect: [1.05, 1.6] },
-      bloom: { strength: 0.85, threshold: 0.7, radius: 0.75, knee: 0.3 },
-      grade: { exposure: 1.0, warmth: 0.13, lift: [0.02, 0.012, 0.045], gamma: 0.97, gain: 1.01, saturation: 1.08, shoulder: 0.9 },
-      paper: { strength: 0.12 }, vignette: 0.26, grain: 0.65, fog: null,
-    };
-  };
+  const look = t => ({
+    t,
+    outline: false,
+    kuwahara: { radius: 1.6, farRadius: 6, farStart: 30, farEnd: 60, strength: 1, protect: [1.05, 1.6] },
+    bloom: { strength: 0.85, threshold: 0.7, radius: 0.75, knee: 0.3 },
+    grade: { exposure: 1.0, warmth: 0.13, lift: [0.02, 0.012, 0.045], gamma: 0.97, gain: 1.01, saturation: 1.08, shoulder: 0.9 },
+    paper: { strength: 0.12 }, vignette: 0.26, grain: 0.65, fog: null,
+  });
 
   return { scene, camera: cam, update, look };
 }
