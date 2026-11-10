@@ -72,7 +72,9 @@ export function classifyPath(input, ctx) {
   const ci = caseInsensitive(ctx.platform ?? process.platform, root);
   const home = ctx.home ?? os.homedir();
   const cwd = ctx.cwd ? P.resolve(root, ctx.cwd) : root;
-  const expanded = expandHome(String(input), home);
+  // POSIX 仓库上也把反斜杠当分隔符：PowerShell 在 macOS / Linux 上同样接受 films\x\a.js；宁可多拦，不可漏拦。
+  const raw = P === path.posix ? String(input).replace(/\\/g, '/') : String(input);
+  const expanded = expandHome(raw, home);
   const abs = P.resolve(cwd, expanded);
   const real = realpathLoose(abs, P);
   const rootReal = realpathLoose(P.resolve(root), P);
