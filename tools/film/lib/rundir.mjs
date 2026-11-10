@@ -8,6 +8,8 @@
 //   <outRoot>/cache/               步骤缓存（按输入哈希）
 //   <outRoot>/.lock                作品锁：同一作品同一时间只允许一次运行（旧脚本写固定路径，并行会互相覆盖）→ 退出码 5
 // run-id = UTC 的 YYYYMMDD-HHMMSS-<提交前 8 位>[-dirty]；不是 git 检出时写 nogit；同一秒重名时加 -2、-3。
+// 作品锁的做法（锁里记 pid、持锁进程不在或锁超过 12 小时没刷新就接管、长任务定时刷新）参照
+// cases/vendor/lemo-opuscar/core/render/video.mjs@bebbbe1a（MIT，LemoLab）的输出锁思路，代码为本仓库重写，另加了主机名判断。
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -44,8 +46,10 @@ export function createRunDir(outRoot, d = new Date()) {
 }
 
 const alive = pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+const LOCK_MAX_AGE = 12 * 3600 * 1000;        // 锁超过这么久没刷新：pid 多半已被别的进程复用，当作过期
+const LOCK_REFRESH = 10 * 60 * 1000;          // 持锁期间每 10 分钟刷新一次修改时间（长片渲染不会被误判过期）
 
-// 作品锁：原子创建 .lock（wx）；同机且持锁进程已不在 → 视为过期并接管（写进 warnings）
+// 作品锁：原子创建 .lock（wx）；同机且（持锁进程已不在，或锁超过 12 小时没刷新）→ 视为过期并接管（写进 warnings）
 export function acquireLock(outRoot, info, warnings = []) {
   fs.mkdirSync(outRoot, { recursive: true });
   const f = path.join(outRoot, '.lock');
@@ -54,24 +58,27 @@ export function acquireLock(outRoot, info, warnings = []) {
     try {
       fs.writeFileSync(f, body, { flag: 'wx' });
       let released = false;
+      const timer = setInterval(() => { try { const n = new Date(); fs.utimesSync(f, n, n); } catch { /* 已不在 */ } }, LOCK_REFRESH);
+      timer.unref();
       return {
         file: f,
         release() {
           if (released) return;
           released = true;
+          clearInterval(timer);
           try { const cur = JSON.parse(fs.readFileSync(f, 'utf8')); if (cur.pid === process.pid) fs.rmSync(f, { force: true }); } catch { /* 已不在 */ }
         },
       };
     } catch (e) {
       if (e.code !== 'EEXIST') throw new FilmError(EXIT.RUN, 'lock', `无法创建作品锁 ${rel(f)}：${e.message}`);
-      let cur = null;
-      try { cur = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* 坏锁当作过期 */ }
+      let cur = null, age = 0;
+      try { cur = JSON.parse(fs.readFileSync(f, 'utf8')); age = Date.now() - fs.statSync(f).mtimeMs; } catch { /* 坏锁当作过期 */ }
       const sameHost = cur && cur.host === os.hostname();
-      if (cur && (!sameHost || alive(cur.pid))) {
+      if (cur && (!sameHost || (alive(cur.pid) && age < LOCK_MAX_AGE))) {
         throw new FilmError(EXIT.BUSY, 'film-busy', `作品 ${rel(path.dirname(outRoot))} 正在被另一次运行占用（${cur.command || '?'}，pid ${cur.pid}，${sameHost ? '本机' : cur.host}，开始于 ${cur.startedAt}）`,
           sameHost ? '等它结束再跑；确认它已不在时删掉 .lock' : '另一台机器在用同一检出：换各自的检出目录');
       }
-      warnings.push({ code: 'stale-lock', message: `接管过期的作品锁（pid ${cur?.pid ?? '?'} 已不在）` });
+      warnings.push({ code: 'stale-lock', message: `接管过期的作品锁（pid ${cur?.pid ?? '?'} ${cur && age >= LOCK_MAX_AGE ? `超过 12 小时没刷新` : '已不在'}）` });
       fs.rmSync(f, { force: true });
     }
   }
