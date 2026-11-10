@@ -193,21 +193,26 @@ async function ruleEnvVars(ctx) {
   return f;
 }
 
-// ── 7 env 域文档：设置环境变量的 bash 代码块后面紧跟 PowerShell 写法（两种 shell 写法不同的地方）──
+// ── 7 env 域文档：设置环境变量的 bash 代码块旁边（紧挨着的前一块或后一块）要有 PowerShell 写法 ──
 // 「VAR=值 命令」与「export VAR=值」在 PowerShell 与 cmd 里都无效，是 Windows 上照抄失败的头号原因。
-const DUAL_DOCS = ['docs/ENVIRONMENT.md', 'docs/RTX工作站.md'];
+const DUAL_DOCS = ['docs/ENVIRONMENT.md', 'docs/RTX工作站.md', 'tools/remote/README.md'];
 const SETS_ENV = /^\s*(export\s+[A-Z_][A-Z0-9_]*=|[A-Z_][A-Z0-9_]*=\S*\s+\S)/m;
+const PS = new Set(['powershell', 'pwsh', 'ps1']);
+export function dualShellFindings(doc, text) {
+  const f = [];
+  const blocks = [...text.matchAll(/^```(\w*)[^\n]*\n([\s\S]*?)^```\s*$/gm)].map(m => ({ lang: m[1].toLowerCase(), body: m[2], at: text.slice(0, m.index).split('\n').length }));
+  blocks.forEach((b, i) => {
+    if (!['bash', 'sh', 'shell', 'zsh', ''].includes(b.lang) || !SETS_ENV.test(b.body)) return;
+    if (PS.has(blocks[i + 1]?.lang) || PS.has(blocks[i - 1]?.lang)) return;
+    f.push({ file: doc, line: b.at, message: `${doc}:${b.at} 的代码块用 bash 写法设置环境变量，前后都没有对应的 powershell 代码块`, fix: '紧挨着补一段 ```powershell 写法（$env:NAME = \'值\'）' });
+  });
+  return f;
+}
 async function ruleDualShell(ctx) {
   const f = [];
   for (const doc of DUAL_DOCS) {
     const t = ctx.read(doc);
-    if (t === null) continue;
-    const blocks = [...t.matchAll(/^```(\w*)[^\n]*\n([\s\S]*?)^```\s*$/gm)].map(m => ({ lang: m[1].toLowerCase(), body: m[2], at: t.slice(0, m.index).split('\n').length }));
-    blocks.forEach((b, i) => {
-      if (!['bash', 'sh', 'shell', 'zsh', ''].includes(b.lang) || !SETS_ENV.test(b.body)) return;
-      const next = blocks[i + 1];
-      if (!next || !['powershell', 'pwsh', 'ps1'].includes(next.lang)) f.push({ file: doc, line: b.at, message: `${doc}:${b.at} 的代码块用 bash 写法设置环境变量，后面没有对应的 powershell 代码块`, fix: '紧接着补一段 ```powershell 写法（$env:NAME = \'值\'）' });
-    });
+    if (t !== null) f.push(...dualShellFindings(doc, t));
   }
   return f;
 }
