@@ -28,7 +28,13 @@ export function scoreRunDir(runDir) {
   const run = loadRun(runDir);
   const report = readJsonIfExists(path.join(run.dir, 'gates.json'));
   if (!report) throw new EvalError('gates-missing', `${toPosix(run.dir)} 里没有 gates.json`, { exitCode: EXIT.USAGE, hint: `先跑 node tools/eval/run.mjs finish ${toPosix(run.dir)}` });
-  const stored = readJsonIfExists(path.join(run.dir, 'review-sheet.json'));
+  const sheetFile = path.join(run.dir, 'review-sheet.json');
+  const stored = readJsonIfExists(sheetFile);
+  if (fs.existsSync(sheetFile) && !stored) throw new EvalError('sheet-invalid', `评审表不是合法 JSON：${toPosix(sheetFile)}`, { exitCode: EXIT.CONTRACT, hint: '修正 JSON 语法（常见：多了逗号、引号不配对）后重跑' });
+  if (stored) {
+    const errors = validate(loadSchema('review-sheet'), stored);
+    if (errors.length) throw new EvalError('sheet-invalid', `评审表填写有误：${errors.slice(0, 5).map(e => `${e.path || '$'} ${e.message}`).join('；')}`, { exitCode: EXIT.CONTRACT, hint: '按 evals/agent/schema/review-sheet.schema.json 修正（分数是 0–10 的数字，否决项要写 id 与 note）' });
+  }
   const sheet = stored ?? buildSheet(report, run);
   return { run, report, sheet, sheetMissing: !stored, score: scoreRun(report, sheet, run) };
 }
