@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cuiyucheng0104-afk/beiming-engine/docs/creative-review/issue.schema.json",
+  "title": "审片问题条目",
+  "description": "一条审片问题：定位到帧、镜头、画面区域与所属层，写现象、改法、优先级、证据与处理状态。用在审片记录 review/<闸>-<日期>.json 的 issues[] 与送审单里。取值表的唯一来源是 engine/production/vocab.js；校验实现是 engine/production/review.js 的 validateIssue。",
+  "type": "object",
+  "required": ["layer", "problem", "priority"],
+  "oneOf": [
+    { "required": ["frame"], "not": { "required": ["frames"] } },
+    { "required": ["frames"], "not": { "required": ["frame"] } }
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$", "description": "条目编号，例如 R1、look-03" },
+    "frame": { "type": "integer", "minimum": 0, "description": "单帧（全局帧号，0 起，小于整片帧数）" },
+    "frames": { "type": "array", "prefixItems": [{ "type": "integer", "minimum": 0 }, { "type": "integer", "minimum": 1 }], "minItems": 2, "maxItems": 2, "description": "半开区间 [in, out)，整数帧，out > in，在片长之内" },
+    "shot": { "type": "string", "description": "镜头 id（film.json shots[].id）" },
+    "region": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 4, "maxItems": 4, "description": "画面区域 [x, y, w, h]，占画面宽高的比例" },
+    "layer": { "enum": ["model", "material", "lighting", "plate", "post", "performance", "camera", "edit", "overlay", "text", "sound", "tech"], "description": "问题所属的层：造型、材质与着色、灯光、底板、后期、动作与表演、镜头与运镜、剪辑与节奏、显示层、文字、声音、技术与编码" },
+    "dimension": { "enum": ["style", "subject", "camera", "motion", "rhythm", "text"], "description": "影响的评分维度（docs/creative-review/RUBRIC.md §2）" },
+    "problem": { "type": "string", "minLength": 1, "description": "看到了什么（现象，不写猜测的原因）" },
+    "fix": { "type": "string", "description": "改法：改哪个文件、怎么改" },
+    "priority": { "enum": ["P0", "P1", "P2", "P3"], "description": "P0 报错、黑屏、穿帮或一票否决项；P1 明显偏离画风或转场、动作不成立；P2 可见瑕疵；P3 锦上添花" },
+    "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "证据文件路径（帧条、联系表、对照图、检查报告），相对作品目录" },
+    "status": { "enum": ["open", "fixed", "verified", "wontfix"], "description": "处理状态：待改 / 改了待复核 / 复核过 / 不改（写理由）" },
+    "note": { "type": "string" }
+  },
+  "additionalProperties": false
+}
