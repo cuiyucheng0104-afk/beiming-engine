@@ -141,7 +141,15 @@
     "versionSource": "engine/render/native.mjs",
     "versionPattern": "export const VALIDATED = '([^']+)'",
     "fallbackVersion": "0.1.0-canary.2",
-    "versionFile": "../share/raea/VERSION"
+    "versionFile": "../share/raea/VERSION",
+    "knownBinaries": {
+      "$comment": "已验证安装包里 bin/ 下可执行文件的 sha256，按「平台-架构」登记（process.platform-os.arch()）。VERSION 文本一致但哈希不同，说明是另一次构建：doctor 告警，先按 B 路线手册重跑验收再登记。没登记的平台只报告哈希。",
+      "darwin-arm64": {
+        "version": "0.1.0-canary.2",
+        "sha256": "91a6630a067a700992f3d22f0f0e38349d4c1ba92755b4b7fae1ad5d4cb0dbb6",
+        "recordedAt": "2026-11-10"
+      }
+    }
   },
   "fonts": {
     "dir": "fonts",

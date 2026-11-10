@@ -409,9 +409,14 @@ export async function checkRaea(root, spec, { env = process.env, required = true
   if (!version) return mk('raea.runtime', 'B 路线原生运行时', { ...base, status: 'fail', found: `缺 ${vf}`, fix: '安装包不完整：重新解压完整发行包（保留 bin/ 与 share/raea/VERSION）' });
   const allowed = version === want || version === env.BNE_ALLOW_VERSION;
   const digest = await fileSha256(real);          // 运行时可执行文件有几百 MB：流式计算，不整个读进内存
-  return mk('raea.runtime', 'B 路线原生运行时', { ...base, status: allowed ? 'pass' : 'fail', found: `${version}（${real}，sha256 ${digest.slice(0, 16)}…）`,
-    fix: allowed ? null : `换回已验证的 ${want}；确实要用 ${version} 时先按 routes/b-native/README.md 重跑验收，再设 BNE_ALLOW_VERSION=${version}`,
-    data: { version, path: real, sha256: digest } });
+  const key = `${process.platform}-${os.arch()}`;
+  const known = spec.raea.knownBinaries?.[key];
+  const sameBuild = !known || known.version !== version || known.sha256 === digest;
+  return mk('raea.runtime', 'B 路线原生运行时', { ...base, status: !allowed ? 'fail' : sameBuild ? 'pass' : 'warn', found: `${version}（${real}，sha256 ${digest.slice(0, 16)}…）`,
+    fix: !allowed ? `换回已验证的 ${want}；确实要用 ${version} 时先按 routes/b-native/README.md 重跑验收，再设 BNE_ALLOW_VERSION=${version}`
+      : sameBuild ? null : `确认安装包来源；按 routes/b-native/README.md 重跑验收后，把新哈希登记到 tools/env/spec.json 的 raea.knownBinaries["${key}"]`,
+    detail: !sameBuild ? `VERSION 都是 ${version}，但可执行文件与登记的已验证构建（sha256 ${known.sha256.slice(0, 16)}…，${known.recordedAt}）不同：可能是另一次构建` : known ? null : `本平台（${key}）还没有登记已验证构建的哈希`,
+    data: { version, path: real, sha256: digest, platformKey: key, knownSha256: known?.sha256 || null } });
 }
 
 // ── C 路线 ──
