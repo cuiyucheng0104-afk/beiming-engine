@@ -1,0 +1,7 @@
+{
+  "$comment": "tests/qa 专用的小画幅档位（--profiles-file）。没写的字段由 QA 内置档位兜底，报告里会记 warn；正式判定只读 engine/production/profiles.json。",
+  "profiles": {
+    "t-360p24": { "label": "测试 640×360 24 fps", "width": 640, "height": 360, "fps": 24 },
+    "t-360p25": { "label": "测试 640×360 25 fps", "width": 640, "height": 360, "fps": 25 }
+  }
+}
