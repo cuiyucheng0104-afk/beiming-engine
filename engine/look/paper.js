@@ -22,6 +22,9 @@
 //     dispose()
 //   }
 //   paperAnchor(now, ref) → anchor   now / ref = { x, y, s }（screenAnchor 的结果：屏幕位置与锚点处一段长度的像素长）
+//   canvasPaper(canvas, { strength = 0.12 }) → { tex, mid, strength }   画布做的纸纹（例如 engine/paint/xuan.js 的 xuanPaper，
+//                         默认可平铺），直接当每帧参数 p.paper（tex 优先于 paperUrl）。mid 取 R 通道的均值——合成取的就是 R，
+//                         这样叠上去整体不提亮也不压暗
 // 程序化纸纹的颗粒尺度按 max(.5, 高度 / refHeight) 缩放，换分辨率看起来一样粗；图片纸纹按 layer 的 kp 放大平铺。
 
 import * as THREE from 'three';
@@ -135,4 +138,14 @@ export function createPaper(fx, renderer, { url = null, refHeight = 1080 } = {})
     get mid() { return mid; },
     dispose() { target?.dispose(); meanT?.dispose(); mat.dispose(); meanMat.dispose(); ext?.dispose(); },
   };
+}
+
+export function canvasPaper(canvas, { strength = 0.12 } = {}) {
+  if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) throw new TypeError('canvasPaper：要一张有尺寸的画布（例如 xuanPaper({ width: 1024, height: 1024 })）');
+  const n = 64, cv = document.createElement('canvas'); cv.width = cv.height = n;
+  const g = cv.getContext('2d'); g.drawImage(canvas, 0, 0, n, n);
+  const d = g.getImageData(0, 0, n, n).data; let s = 0;
+  for (let i = 0; i < d.length; i += 4) s += d[i] / 255;
+  const tex = new THREE.Texture(canvas); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.needsUpdate = true;
+  return { tex, mid: s / (n * n), strength };
 }
