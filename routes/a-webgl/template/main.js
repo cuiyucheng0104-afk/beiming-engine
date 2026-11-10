@@ -7,7 +7,7 @@ import { createFilm } from '../../engine/stage/film.js';
 import { createLook } from '../../engine/look/index.js';
 import { fontSpec } from '../../engine/overlay/text.js';
 import { frameOf, hold } from '../../engine/core/clock.js';
-import { ss, seg, clamp } from '../../engine/core/math.js';
+import { ss, eo, seg, clamp } from '../../engine/core/math.js';
 import { loadStyle, parseLookPreset, styleKey, parseStyleRef, resolveLook, mixLook } from '../../engine/style/index.js';
 import { loadFilmFonts } from '../../engine/style/fonts.js';
 import { makeSun } from './world.js';
@@ -65,9 +65,9 @@ const fIn = eventFrame('title-in');
 const T = createTitle({ text: tTitle.text, font: fontSpec(400, 158 * K, [tTitle.font]), size: 158 * K, x: 214 * K, y: 330 * K, ls: 0.06 });
 const nG = T.glyphs.length, stagger = nG > 1 ? Math.min(8, 12 / (nG - 1)) : 0, dev = 22;   // 字越多错开越小：整行约 1.3 秒显完
 const fFull = fIn + Math.round(stagger * (nG - 1)) + dev;
-const titleP = f => { const h = fIn + hold(f - fIn, 2) * 2; return T.glyphs.map((_, i) => ss(seg(h, fIn + i * stagger, fIn + i * stagger + dev))); };   // 一拍二地洇开
+const titleP = f => { const h = fIn + hold(f - fIn, 2) * 2; return T.glyphs.map((_, i) => eo(seg(h, fIn + i * stagger, fIn + i * stagger + dev))); };   // 一拍二地洇开；先快后慢（墨落纸上洇得快、越往外越慢）
 const subF = fontSpec(400, 30 * K, [tSub.font]), subX = 222 * K, subY = 330 * K + 158 * K * 0.55 + 62 * K, subLs = 0.2 * 30 * K;
-const subA = f => ss(seg(f, fFull - 4, fFull + 14));
+const subA = f => ss(seg(f, fFull - 10, fFull + 6));   // 副标题在片名收尾时淡入：完整停留 ≥ 字数 × 0.12 秒（QA 的读字时长门）
 function drawText(ctx, f) {
   if (q.has('notext') || f < fIn) return;
   T.draw(ctx, titleP(f));

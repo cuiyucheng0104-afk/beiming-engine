@@ -32,7 +32,7 @@ export const PAL = {
   hull: '#3A3556', hullShade: '#25223D', canopy: '#2E2B4A', wake: '#E9D9EE',
   pine: '#4B5A88', pineShade1: '#2F3B66', pineShade2: '#1F2748', trunk: '#3A2F4E',   // 松：比峰再暗一档，剪影在天上一眼可读
   reflect: '#2E3160',                                                   // 水里的倒影：峰的二影色，比水面暗
-  sun: '#FFB26B', sunCore: '#FFF1DA', lamp: '#FFC46B',                  // 强调色：只给太阳与船灯
+  sun: '#FFA45C', sunCore: '#FFF4E0', lamp: '#FFC46B',                  // 强调色：只给太阳与船灯（日晕偏橙，日轮白热）
 };
 
 // ───────── 卡通材质族：一族材质共享着色器，每个物体一个 ID（墨线在物体之间也画得出） ─────────
@@ -182,10 +182,11 @@ const SUN_FS = `
 uniform vec3 color, halo; uniform float amt, glint, rd; varying vec2 vUv;
 void main(){
   vec2 d = (vUv - .5) * 2.; float r = length(d);
-  float disc = 1. - smoothstep(rd - .035, rd + .01, r);             // 实的日轮：边缘略软，Kuwahara 的高光保护会留住它
-  float h = exp(-r * r * 10.) * .5 + exp(-r * r * 45.) * .7;         // 两层日晕
-  float star = glint * exp(-r * r * 3.) * (exp(-abs(d.y) * 60.) + exp(-abs(d.x) * 60.) * .5);   // 冲顶那一下的光芒
-  gl_FragColor = vec4((color * disc * 1.6 + halo * h * .7 + halo * star * 1.4) * amt, 1.);
+  float disc = 1. - smoothstep(rd - .02, rd + .006, r);              // 实的日轮：白热的芯，边缘略软（Kuwahara 的高光保护会留住它）
+  float corona = exp(-pow(max(r - rd, 0.) / .07, 2.)) * (1. - disc);  // 贴着日轮的一圈饱和暖色：日轮不至于发白发灰
+  float h = exp(-r * r * 9.) * .55 + exp(-r * r * 40.) * .8;          // 两层日晕
+  float star = glint * exp(-r * r * 2.5) * (exp(-abs(d.y) * 55.) + exp(-abs(d.x) * 55.) * .45);   // 冲顶那一下的光芒
+  gl_FragColor = vec4((color * disc * 1.8 + halo * (corona * 1.2 + h * .8) + mix(halo, color, .5) * star * 3.) * amt, 1.);
 }`;
 export function sunDisc({ order = 0.6 } = {}) {
   const mat = new THREE.ShaderMaterial({
@@ -227,32 +228,49 @@ export function keyLight(dirToSun, target) {
   return L;
 }
 
-// ───────── 水面：真的水平面（y = 0），颜色随距离从近暗到远亮；横向波纹、峰的倒影、太阳倒影都在世界坐标里，相机怎么动都对 ─────────
-// 倒影是算出来的，不是贴图：水面一点 P 的反射光线来自「水下镜像相机 → P」的延长线，它在离 P 水平 s·d 处升到 s·h 高
+// ───────── 水面：真的水平面（y = 0），远处像镜子、近处看得进水里；倒影、碎波、太阳倒影都在世界坐标里，相机怎么动都对 ─────────
+// 天空的倒影：水面每个像素按「地平线镜像」去天空底板上取色（远处的东西，倒影在屏幕上就是关于地平线的镜像），
+// 所以水面带着天空的粉、橙、紫色带——《北冥》江面的做法（media/shot_1.6.jpg），不是一块平涂的暗色。
+// 峰的倒影是算出来的，不是贴图：水面一点 P 的反射光线来自「水下镜像相机 → P」的延长线，它在离 P 水平 s·d 处升到 s·h 高
 // （h 相机高、d 相机到 P 的水平距离）；找这条线离每座峰轴线最近的点，按 spire 的收分公式比半径，就知道是不是照到了峰。
-// 倒影的边被横向波纹打断，并且一拍二横抖（uHeld = hold(f, 2)；craft/two-five-d.md §4.1「底板的微动」）。
+// 时钟：波纹流动一拍一（uTime，水与雾每帧都动）；倒影的扰动一拍二（uHeld = hold(f, 2)，《北冥》倒影的节拍，VISUAL-DESIGN §5）。
 const NREF = PEAKS.length;
-const WATER_VS = `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+const WATER_VS = `varying vec3 vW; varying vec4 vClip;
+void main(){ vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; vClip = projectionMatrix * viewMatrix * w; gl_Position = vClip; }`;
 const WATER_FS = `
 #define NREF ${NREF}
-uniform vec3 uNear, uMid, uFar, uSun, uCam, uRefCol; uniform float uTime, uSunAz, uSunUp, uSeed, uHeld;
+uniform vec3 uNear, uMid, uFar, uSun, uCam, uRefCol; uniform float uTime, uSunAz, uSunUp, uSeed, uHeld, uSkyFlip;
 uniform vec4 uRefA[NREF], uRefB[NREF];   // A = (x, z, 可见高, 底半径)；B = (斜 x, 斜 z, 没入水下的深度, 0)
-varying vec3 vW;
+uniform sampler2D uSky; uniform vec4 uSkyRect; uniform vec3 uView;   // 天空底板在设计稿上的矩形 (左, 上, 宽, 高)；(设计宽, 设计高, 地平线 y)
+varying vec3 vW; varying vec4 vClip;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21) + uSeed); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p), u = f * f * (3. - 2. * f);
   return mix(mix(h21(i), h21(i + vec2(1, 0)), u.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), u.x), u.y); }
 void main(){
   vec3 d = vW - uCam; float dist = length(d.xz);
-  float k = smoothstep(80., 4500., dist);
-  vec3 col = mix(uNear, uMid, smoothstep(0., .5, k));
-  col = mix(col, uFar, smoothstep(.45, 1., k));
-  // 横向波纹：世界坐标里的两层长条（一深一浅），越远越密越淡；只随 uTime 平移，任意帧可单独重渲
-  float w1 = vn(vec2(vW.x * .004, vW.z * .06 + uTime * .1)), w2 = vn(vec2(vW.x * .015 + 7., vW.z * .2 - uTime * .25));
-  float lite = smoothstep(.66, .86, w1 * .6 + w2 * .4), dark = smoothstep(.62, .82, 1. - (w1 * .5 + w2 * .5));
-  float fade = 1. - k * .8;
-  col = mix(col, mix(uMid, uFar, k * .8 + .2) * 1.06, lite * .5 * fade);
-  col = mix(col, uNear * .92, dark * .28 * fade);
-  // 峰的倒影
+  float k = smoothstep(80., 4500., dist);                 // 0 近 → 1 远
+  vec3 body = mix(uNear, uMid, smoothstep(0., .6, k));    // 看进水里的颜色：近暗远亮
+  // 波纹：r1 长涌、r2 碎波，随 uTime 流动（一拍一）；r3 只给倒影的扰动，随拍号 uHeld 跳（一拍二）
+  float r1 = vn(vec2(vW.x * .004, vW.z * .06 + uTime * .1));
+  float r2 = vn(vec2(vW.x * .018 + 7., vW.z * .22 - uTime * .25));
+  float r3 = vn(vec2(vW.x * .045 + 3., vW.z * .5 + uHeld * 1.7));
+  // 地平线镜像：屏幕上离地平线 below 像素的点，倒影取天空里地平线以上 below 像素处的颜色；越近被波纹拉得越碎
+  vec2 ndc = vClip.xy / vClip.w;
+  vec2 px = vec2((ndc.x * .5 + .5) * uView.x, (.5 - ndc.y * .5) * uView.y);
+  float below = max(0., px.y - uView.z), wob = (r2 - .5) * .8 + (r3 - .5) * .7;
+  float my = uView.z - below * (1. + .45 * wob * (1. - .6 * k)), mx = px.x + (r3 - .5) * 16. * (1. - k);
+  vec2 suv = vec2((mx - uSkyRect.x) / uSkyRect.z, 1. - (my - uSkyRect.y) / uSkyRect.w);
+  if (uSkyFlip > .5) suv.x = 1. - suv.x;
+  vec3 sky = texture2D(uSky, clamp(suv, vec2(.002), vec2(.998))).rgb;
+  float fr = mix(.38, .88, smoothstep(.0, .65, k));       // 反射比例：远处近乎镜面，近处看得进水里（菲涅耳的画法近似）
+  vec3 col = mix(body, sky * mix(vec3(.74, .72, .88), vec3(.94, .93, .98), k), fr);
+  // 碎波：横向短条的亮与暗（不是贯穿整幅的长线），越远越密越淡
+  float lite = smoothstep(.7, .88, r1 * .45 + r2 * .55) * smoothstep(.4, .7, r3);
+  float dark = smoothstep(.64, .86, 1. - (r1 * .55 + r2 * .45)) * smoothstep(.3, .6, r3);
+  float fade = 1. - k * .7;
+  col = mix(col, mix(uMid, uFar, .55) * 1.12, lite * .4 * fade);
+  col = mix(col, body * .82, dark * .38 * fade);
+  // 峰的倒影：暗、边被波纹打断
   vec2 u = vW.xz - uCam.xz; float refl = 0.;
   for (int i = 0; i < NREF; i++) {
     vec4 A = uRefA[i], B = uRefB[i];
@@ -262,21 +280,23 @@ void main(){
     if (h > 1.) continue;
     vec2 ax = A.xy + B.xy * (A.z + B.z) * h * h;         // spire 的斜：越高越偏
     float r = A.w * pow(max(0., 1. - pow(h, 1.85)), .6) * 1.06;
-    float wob = (vn(vec2(vW.z * .45 + float(i) * 7.1, uHeld * 3.7)) - .5) * r * (.25 + .5 * (1. - h));
-    float dd = length(vW.xz + s0 * u - ax) + wob;
-    refl = max(refl, 1. - smoothstep(r * .82, r * 1.02, dd));
+    float jit = ((r3 - .5) * .9 + (vn(vec2(vW.z * .45 + float(i) * 7.1, uHeld * 3.7)) - .5) * .6) * r * (.3 + .6 * (1. - h));
+    float dd = length(vW.xz + s0 * u - ax) + jit;
+    refl = max(refl, (1. - smoothstep(r * .8, r * 1.02, dd)) * (1. - h * .35));
   }
-  refl *= (1. - lite * .85) * (1. - smoothstep(.55, 1., k) * .5);
-  col = mix(col, uRefCol, refl * .78);
+  refl *= 1. - lite * .8;
+  col = mix(col, uRefCol, refl * .8);
   // 太阳倒影：方位接近太阳的一条竖带，近宽远窄，碎成横向的闪；日出后才亮（uSunUp 0→1）
   float az = atan(d.x, -d.z);
-  float band = exp(-pow((az - uSunAz) / (.004 + .045 * (1. - k)), 2.));
-  float glit = smoothstep(.5, .8, vn(vec2(vW.x * .06, vW.z * .55 + uTime * .9)));
-  col += uSun * band * (.15 + .85 * glit) * uSunUp * (.3 + .7 * k);
+  float band = exp(-pow((az - uSunAz) / (.005 + .05 * (1. - k)), 2.));
+  float glit = smoothstep(.48, .78, vn(vec2(vW.x * .06, vW.z * .55 + uTime * .9))) * smoothstep(.3, .6, r3);
+  col += uSun * band * (.22 + 1.15 * glit) * uSunUp * (.55 + .45 * k);
   gl_FragColor = vec4(col, 1.);
   #include <colorspace_fragment>
 }`;
-export function buildWater() {
+// sky：天空底板贴图（loadPlate 读的那张）；skyRect：它在起始机位下摆在设计稿上的矩形 [左, 上, 宽, 高]（与 placeOnScreen 同一组数）
+export function buildWater({ sky, skyRect, DW, DH }) {
+  const flip = sky.repeat.x < 0 ? 1 : 0;
   const mat = new THREE.ShaderMaterial({
     uniforms: {
       uNear: { value: new THREE.Color(PAL.waterNear) }, uMid: { value: new THREE.Color(PAL.waterMid) }, uFar: { value: new THREE.Color(PAL.waterFar) },
@@ -284,6 +304,7 @@ export function buildWater() {
       uTime: { value: 0 }, uSunAz: { value: 0 }, uSunUp: { value: 0 }, uSeed: { value: 0.37 }, uHeld: { value: 0 },
       uRefA: { value: PEAKS.map(p => new THREE.Vector4(ISLET.x + p.at[0], ISLET.z + p.at[2], p.H + p.at[1], p.Rb)) },
       uRefB: { value: PEAKS.map(p => new THREE.Vector4(p.lean[0], p.lean[1], -p.at[1], 0)) },
+      uSky: { value: sky }, uSkyFlip: { value: flip }, uSkyRect: { value: new THREE.Vector4(...skyRect) }, uView: { value: new THREE.Vector3(DW, DH, DH * 0.7) },
     },
     vertexShader: WATER_VS, fragmentShader: WATER_FS, toneMapped: false, fog: false,
   });
@@ -291,6 +312,14 @@ export function buildWater() {
   m.userData.outline = false;      // 水面不描边（否则地平线会被描成一条墨线）
   m.receiveShadow = false;
   return m;
+}
+// 每帧更新水面：相机位置、时间、拍号、地平线（水平方向无穷远处在屏幕上的 y，倒影按它镜像）
+const _hz = new THREE.Vector3();
+export function waterFrame(water, cam, DW, DH, { t, held, sunAz, sunUp }) {
+  const u = water.material.uniforms;
+  u.uCam.value.copy(cam.position); u.uTime.value = t; u.uHeld.value = held; u.uSunAz.value = sunAz; u.uSunUp.value = sunUp;
+  const fwd = cam.getWorldDirection(_hz); fwd.y = 0; fwd.normalize();
+  u.uView.value.z = project(cam, DW, DH, fwd.multiplyScalar(1e7).add(cam.position)).y;
 }
 
 // ───────── 手绘层：程序化画出的山脊剪影（远浅近深，朝太阳的坡带一道暖亮边） ─────────

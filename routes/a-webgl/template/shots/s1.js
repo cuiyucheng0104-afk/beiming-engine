@@ -7,7 +7,7 @@ import { aimCamera, placeOnScreen, screenToPlane } from '../../../engine/stage/c
 import { plate, cutoutPlane, glowSprite, tileRepeat } from '../../../engine/stage/plates.js';
 import { hold } from '../../../engine/core/clock.js';
 import { DEG } from '../../../engine/core/math.js';
-import { PAL, setToon, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, ridgeTexture, mistTexture, foregroundTexture, loadPlate, ISLET } from '../world.js';
+import { PAL, setToon, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, foregroundTexture, loadPlate, ISLET } from '../world.js';
 
 export async function build({ shot, fps, DW, DH, preset, sun }) {
   const scene = new THREE.Scene();
@@ -21,7 +21,8 @@ export async function build({ shot, fps, DW, DH, preset, sun }) {
   const sky = plate(await loadPlate('sky_dawn', { flipX: true }), 0);
   const glowU = 1 - sky.material.map.userData.meta['关键位置']['地平线辉光中心_x'];   // 翻转后辉光在右；从登记表读，不手抄
   const sunX = sun.screenX(cam0, DW, DH), skyW = DW * 1.4;
-  placeOnScreen(sky, cam0, DW, DH, sunX - (glowU - 0.5) * skyW, 750 - skyW / 4, skyW, 20000, skyW / 2);   // 底边（画好的地平线）压在真地平线下
+  const skyRect = [sunX - (glowU - 0.5) * skyW - skyW / 2, 750 - skyW / 2, skyW, skyW / 2];   // [左, 上, 宽, 高]：底边（画好的地平线）压在真地平线下
+  placeOnScreen(sky, cam0, DW, DH, skyRect[0] + skyW / 2, skyRect[1] + skyW / 4, skyW, 20000, skyW / 2);
   const halo = glowSprite(PAL.sun, { order: 0.5, amt: 0.4, core: 0.25, squash: 2.6 });   // 晨前：太阳还在山后，只在它要升起的方位留一团暖晕（预告）
   placeOnScreen(halo, cam0, DW, DH, sunX, 700, 980, 15000, 980);
   const ridgeU = (sunX + DW * 0.25) / (DW * 1.5);
@@ -39,7 +40,7 @@ export async function build({ shot, fps, DW, DH, preset, sun }) {
 
   // ── 三维：峰与礁、乌篷渡船与尾迹、真水面 ──
   scene.add(buildIslet());
-  const water = buildWater(); scene.add(water);
+  const water = buildWater({ sky: sky.material.map, skyRect, DW, DH }); scene.add(water);   // 水面倒映的就是这张天空
   const boat = buildBoat(), wake = buildWake(), boatBase = screenToPlane(cam0, DW, DH, 690, 862).clone(); scene.add(boat, wake);
   const lamp = glowSprite(PAL.lamp, { order: 5.5, amt: 1.3, core: 1.8 }); scene.add(lamp);
   const key = keyLight(sun.keyDir(), ISLET.clone().add(new THREE.Vector3(0, 50, 0))); scene.add(key, key.target);
@@ -54,8 +55,7 @@ export async function build({ shot, fps, DW, DH, preset, sun }) {
     wake.position.set(boat.position.x, 0, boat.position.z);
     boat.updateMatrixWorld(); lampAt.set(5.2, 2.3, 0).applyMatrix4(boat.matrixWorld);
     billboard(lamp, cam, lampAt, 18, DH);
-    const wu = water.material.uniforms;
-    wu.uCam.value.copy(cam.position); wu.uTime.value = t; wu.uSunAz.value = sun.az; wu.uHeld.value = hold(f, 2); wu.uSunUp.value = 0;
+    waterFrame(water, cam, DW, DH, { t, held: hold(f, 2), sunAz: sun.az, sunUp: 0 });
     setToon({ inkTime: hold(f, 2), keyDir: sun.keyDir().toArray(), fillDir: [0, -1, 0], fillGain: 0.8, skyGain: 1, exposure: 1 });
   }
   const P = preset();   // film.json 里本镜头的 lookPreset（beiming-original@v1/wide），不另写一份后期数值

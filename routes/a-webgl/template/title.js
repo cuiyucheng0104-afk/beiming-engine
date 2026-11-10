@@ -31,7 +31,7 @@ export function createTitle({ text, font, size, x, y, ls = 0.08, color = [255, 2
       const px = k % S, py = (k / S) | 0;
       const fib = 0.5 + 0.25 * Math.sin(px * 0.21 + py * 0.03 + ph[0]) + 0.15 * Math.sin(px * 0.047 - py * 0.11 + ph[1]) + 0.1 * Math.sin((px + py) * 0.6 + ph[2]);
       const d = inside[k] ? Math.min(dt[k], dmax) / dmax : 0;
-      idx.push(k); thr.push(0.7 * (1 - d) + 0.3 * fib); alpha.push(a);
+      idx.push(k); thr.push(0.62 * (1 - Math.sqrt(d)) + 0.38 * fib); alpha.push(a);   // 开方：细笔画的中线也早早出现，不只是最粗那一笔先冒出来
     }
     const out = document.createElement('canvas'); out.width = out.height = S;
     const octx = out.getContext('2d');
@@ -46,9 +46,10 @@ export function createTitle({ text, font, size, x, y, ls = 0.08, color = [255, 2
     g.lastP = p;
     const d = g.img.data; d.fill(0);
     if (p > 0) {
-      const edge = 0.08, front = p * (1 + edge);
+      const edge = 0.07 + 0.32 * (1 - p) * (1 - p), front = p * (1 + edge);   // 起初边很软（墨刚渗进纸、一片淡影），显完时收成清楚的笔画边
+      const ghost = 0.22 * clamp(p / 0.25) * (1 - p);   // 墨刚落纸：整个字先透出一层淡影，笔画再从中线洇满（不只是几道细丝）
       for (let j = 0; j < g.idx.length; j++) {
-        const v = clamp((front - g.thr[j]) / edge); if (v <= 0) continue;
+        const v = Math.max(ghost, clamp((front - g.thr[j]) / edge)); if (v <= 0) continue;
         const o = g.idx[j] * 4; d[o] = color[0]; d[o + 1] = color[1]; d[o + 2] = color[2]; d[o + 3] = g.a[j] * v;
       }
     }
