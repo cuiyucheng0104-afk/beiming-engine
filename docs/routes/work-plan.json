@@ -1010,7 +1010,7 @@
       "writeScope": ["README.md", "AGENTS.md", "ROUTES.md", "THIRD-PARTY.md", "docs/README.md", "docs/TRACKS.md", "docs/GLOSSARY.md"],
       "outputs": ["README、AGENTS、ROUTES、THIRD-PARTY、docs/README、docs/TRACKS、docs/GLOSSARY 收成跳转页，并承接各包交来的根文档文字"],
       "acceptance": [
-        "git grep -nE '两条路线|双路线|两条创作路线|历史代号' -- README.md AGENTS.md ROUTES.md docs/README.md docs/TRACKS.md 无输出",
+        "`git grep -nE '两条路线|双路线|两条创作路线|历史代号' -- README.md AGENTS.md ROUTES.md docs/README.md docs/TRACKS.md` 无输出",
         "node tools/repo-check.mjs --only core.entry-budget,core.reach,core.links → 通过（AGENTS.md 前 40 行含优先级、三路线表、npm run new、npm run film -- build、npm run check）",
         "README 无 npx http-server、无行首裸 python、环境变量写法同时给 bash 与 PowerShell、产品名不含 RTX、底板来源与 AIGC 说明如实",
         "THIRD-PARTY.md 含 FSL 边界（fb3f708…、canary.2、2026-10-31 → 2028-10-31）、CC BY 署名、LemoLab 派生说明"

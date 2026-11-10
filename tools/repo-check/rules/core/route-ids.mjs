@@ -1,6 +1,6 @@
 // core.route-ids：路线 id 只能取注册表 routes/routes.json 里的值。
 //   - films/*/film.json 的 route 必须是注册表 id（a / b / c），旧名（beiming、raea、目录名）也不行；
-//   - docs/routes/work-plan.json 的 route 只能是注册表 id、注册表别名或 shared（工程计划第二波改成注册表 id）；
+//   - docs/routes/work-plan.json（引擎工程待办）v2 的 route 只能是注册表 id 或 shared；v1 的旧名（beiming、raea）按别名提示；
 //   - 机器层的硬编码清单（engine/production/project.js 导出的 ROUTES、tools/work-plan.mjs 的 ROUTES）只能含 id、别名或 shared。
 // 模版 film.json 的 route 由 core.templates 按各自路线核对。
 import path from 'node:path';
@@ -28,13 +28,17 @@ export default {
     if (ctx.exists(wp)) {
       let plan = null;
       try { plan = ctx.readJson(wp); } catch (e) { out.push({ level: 'error', file: wp, message: `不是合法 JSON（${e.message}）` }); }
+      const v2 = plan?.schemaVersion === 2;
       const legacy = new Set();
       for (const t of Array.isArray(plan?.tasks) ? plan.tasks : []) {
         if (ids.has(t.route) || t.route === 'shared') continue;
-        if (aliases.has(t.route)) { legacy.add(t.route); continue; }
-        out.push({ level: 'error', file: wp, message: `任务 ${t.id} 的 route = ${JSON.stringify(t.route)} 不是注册表 id、别名或 shared`, hint: `只能是 ${idList}、shared（旧名 ${[...aliases.keys()].join('、')} 暂时也认）`, excerpt: String(t.route) });
+        if (aliases.has(t.route) && !v2) { legacy.add(t.route); continue; }
+        out.push({
+          level: 'error', file: wp, message: `任务 ${t.id} 的 route = ${JSON.stringify(t.route)} 不是注册表 id 或 shared`,
+          hint: aliases.has(t.route) ? `工程计划 v2 只写注册表 id：改成 "route": "${aliases.get(t.route)}"` : `只能是 ${idList}、shared`, excerpt: String(t.route),
+        });
       }
-      if (legacy.size) out.push({ level: 'info', file: wp, message: `仍用旧路线名 ${[...legacy].join('、')}（别名，第二波工程计划 v2 改成注册表 id）` });
+      if (legacy.size) out.push({ level: 'info', file: wp, message: `工程计划 v1 仍用旧路线名 ${[...legacy].join('、')}（别名；升到 v2 时改成注册表 id）` });
     }
     const known = v => ids.has(v) || aliases.has(v) || v === 'shared';
     const pj = 'engine/production/project.js';

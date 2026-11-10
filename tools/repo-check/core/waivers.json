@@ -4,8 +4,6 @@
   "waivers": [
     { "rule": "core.claude-bridge", "file": "CLAUDE.md", "owner": "P03", "reason": "根目录 CLAUDE.md（内容 @AGENTS.md）由 agent 执行层包新建" },
 
-    { "rule": "core.reach", "file": "AGENTS.md", "match": "routes/a-webgl/README.md", "owner": "PZ", "reason": "AGENTS.md 还没链到 routes/README.md；根文档由 PZ 整合时改（D01）" },
-    { "rule": "core.reach", "file": "AGENTS.md", "match": "routes/c-style/README.md", "owner": "PZ", "reason": "同上" },
     { "rule": "core.terms", "file": "AGENTS.md", "match": "两条路线", "owner": "PZ", "reason": "根文档由 PZ 改成三条路线（D01）" },
     { "rule": "core.terms", "file": "AGENTS.md", "match": "历史代号", "owner": "PZ", "reason": "改称「上游项目名（内部目录沿用）」（D04）" },
     { "rule": "core.terms", "file": "AGENTS.md", "match": "路线选择", "owner": "PZ", "reason": "选路线的判据只留在 routes/README.md，AGENTS.md 换成一行链接（ENTRY-10）" },
@@ -19,8 +17,6 @@
     { "rule": "core.terms", "file": "docs/TRACKS.md", "match": "RTX", "owner": "PZ", "reason": "产品名去掉 RTX（D04）" },
     { "rule": "core.terms", "file": "docs/TRACKS.md", "match": "路线怎么选", "owner": "PZ", "reason": "TRACKS 只保留技术分档，删掉「路线怎么选」（ENTRY-01、ENTRY-10）" },
 
-    { "rule": "core.terms", "file": "docs/routes/README.md", "match": "双路线", "owner": "P02", "reason": "第二波（F1 后）改名为「A/B 引擎工程手册」（D06）" },
-    { "rule": "core.upstream-names", "file": "docs/routes/work-breakdown.md", "match": "RAEA路线", "owner": "P02", "reason": "第二波（F1 后）随工程计划一起改写（D06）" },
 
     { "rule": "core.doc-commands", "file": "routes/b-native/README.md", "match": "我的片子", "owner": "P14", "reason": "B 手册「最快上手」的示例名不合法，照抄会被 new-film 拒绝；改成 my-film 这类 ASCII 名" },
 
