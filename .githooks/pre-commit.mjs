@@ -1,7 +1,17 @@
 #!/usr/bin/env node
 // 北冥仓库 · 提交前检查（由 .githooks/pre-commit 调用；不走 Claude Code 的工具和人工提交也过这道检查）
-// 只看这次要提交的内容（git 索引），在提交前拦下会破坏仓库约定的改动。两类检查，每项一个 id：
-//   本文件自己判定（只看暂存的改动，不依赖别的工具，毫秒级）：
+// 在提交前拦下会破坏仓库约定的改动。各项读的是什么（这决定了它会不会被与本次提交无关的工作区状态拦下）：
+//   - 本文件自己的六项、large、eol：读 git 索引，也就是这次要提交的内容（按路径提交 git commit -- <路径> 时是 git 的临时索引）；
+//   - compliance：只扫这次暂存的文件，读暂存的版本；
+//   - repo-check（P02 的规范检查）：规则读的是工作区。--staged 只把逐文件的规则缩到暂存的文件上，全仓规则照常看整个工作区，
+//     所以未跟踪的草稿目录、没暂存的改动都会被判到。本文件按「发现落在哪个路径上」归属：
+//       · 落在工作区里与这次提交不一致的路径上——未跟踪或被 .gitignore 忽略的文件与目录、有未暂存改动的文件
+//         （按路径提交时没带上的暂存改动也算）、含有这类路径的目录——降为提示，不阻断；
+//       · 落在这次提交改动的路径（或包含它的目录）上、落在工作区与提交一致的路径上、没写路径的发现照常阻断。
+//     仍会误拦的情形：一个与提交一致的文件，因为另一个文件在工作区里的未提交状态被判错（例如它引用的文件在工作区删了、
+//     删除没暂存）。这时报错末尾列出工作区里与提交不同的路径。根治要靠规范检查在 --staged 时读索引（已向 P02 提请求）。
+// 检查项（每项一个 id）：
+//   本文件自己判定（不依赖别的工具，毫秒级）：
 //     vendor        改了 cases/vendor/ 里的第三方快照（lock.json 逐字节锁定；只有 cases/vendor/README.md 可以改）
 //     source        修改或删除 cases/source/ 里已归档的文件（catalog.json 按哈希记录；新增归档放行）
 //     films-out     提交 films/<名字>/out/ 下的渲染产物，或 films/ 下的音视频文件（渲染产物永不入库，决定 D10）
@@ -14,13 +24,15 @@
 //     compliance    合规扫描：密钥、本机路径等     node tools/compliance/scan.mjs --staged（P01；退出 4 阻断，3 只提示）
 //     eol           索引里没有 CRLF              node tools/repo-check/rules/env/index.mjs --only env.eol（P10）
 //     repo-check    仓库规范检查                  node tools/repo-check.mjs --staged（P02；合规与 env 域已在上面跑过，这里不重复）
-//   四个工具并行运行；规范检查里「规则自身出错」只提示不阻断（结果不完整，属主修），其余错误阻断。
+//   四个工具并行运行；规范检查里「规则自身出错」只提示不阻断（结果不完整，属主修），其余错误按上面的归属阻断或提示。
 // 合并提交（有 MERGE_HEAD）：只检查与两个父提交都不同的路径（冲突的解决结果）；合并进来的改动已在来源分支上检查过，
 //   工具对这些路径之外的发现降为提示。
 // 用法：node .githooks/pre-commit.mjs [--all] [--only <id,…>] [--json] [--help]
 //   --all   检查索引里的全部文件，而不只是这次的改动（首次启用或在 CI 里用）
-// 退出码（附录 C1）：0 通过；4 有检查不通过（git 中止提交）；2 用法错误；3 找不到 git 或不在 git 仓库里；1 检查自身出错。
-// 临时放行：BEIMING_PRECOMMIT_ALLOW=<id,…>，只对这一次命令生效（例如升级 vendor 快照：BEIMING_PRECOMMIT_ALLOW=vendor git commit …）。
+// 退出码（附录 C1）：0 通过；4 有检查不通过（git 中止提交）；2 用法错误；3 找不到 git 或不在 git 仓库里；1 检查自身出错；
+//   124 git 子进程超时（默认 60 秒，BEIMING_PRECOMMIT_GIT_TIMEOUT_MS=<毫秒> 可调）。
+// 临时放行：BEIMING_PRECOMMIT_ALLOW=<id,…>，只对这一次命令生效，只能由用户本人在 Claude Code 之外的终端里设置：
+//   检测到 CLAUDECODE=1（Claude Code 的工具运行的命令都带它）时忽略放行并提示；agent 护栏也拒绝 agent 设置这个变量。
 // 启用：npm run setup 会在本仓库设 git config core.hooksPath .githooks（只作用于本仓库，--no-hooks 跳过）；也可以自己执行这条命令。
 // 不改全局或系统级 git 配置。只读：不改任何文件。
 import fs from 'node:fs';
@@ -30,6 +42,7 @@ import { CliError, defineCommand, isMain, runCli } from '../tools/lib/cli.mjs';
 import { isInstructionFile } from '../.claude/hooks/lib/policy.mjs';
 
 const ALLOW_ENV = 'BEIMING_PRECOMMIT_ALLOW';
+const GIT_TIMEOUT_ENV = 'BEIMING_PRECOMMIT_GIT_TIMEOUT_MS';
 const WHITELIST = 'tools/repo-check/rules/agent/instruction-files.json';
 const OWN = ['vendor', 'source', 'films-out', 'instructions', 'bridge', 'conflict'];
 const DELEGATED = ['large', 'compliance', 'eol', 'repo-check'];
@@ -38,14 +51,30 @@ const MEDIA_EXT = new Set(['.mp4', '.mov', '.m4v', '.mkv', '.webm', '.avi', '.y4
 const TEXT_EXT = new Set(['.md', '.txt', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.json', '.html', '.htm', '.css', '.py', '.sh', '.bash',
   '.ps1', '.toml', '.yaml', '.yml', '.glsl', '.wgsl', '.wesl', '.svg', '.xml', '.csv', '']);
 const TOOL_TIMEOUT_MS = 180_000;
+const GIT_TIMEOUT_MS = 60_000;
 const SHOW_WARN = 10;
+const SHOW_DRIFT = 5;
+
+/** 由 Claude Code 的工具运行（Bash / PowerShell 工具给子进程设 CLAUDECODE=1，git 再传给钩子）。 */
+export const inAgentSession = env => /^(1|true|yes)$/i.test(String(env?.CLAUDECODE ?? '').trim());
 
 // ───────────────────────── git ─────────────────────────
 
-function git(root, args, { input, encoding = 'utf8', allowFail = false } = {}) {
-  const opts = { cwd: root, input, maxBuffer: 1024 * 1024 * 1024, windowsHide: true, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } };
+function gitTimeout(env = process.env) {
+  const n = Number(env[GIT_TIMEOUT_ENV]);
+  return Number.isInteger(n) && n > 0 ? n : GIT_TIMEOUT_MS;
+}
+
+/** 跑一条 git 命令（带超时）。超时抛 timeout.git（退出 124），git 起不来抛 env.git（退出 3），失败抛 failure.git（退出 1）。 */
+function spawnGit(cwd, args, { input, encoding = 'utf8', allowFail = false, env = process.env } = {}) {
+  const timeout = gitTimeout(env);
+  const opts = { cwd, input, timeout, maxBuffer: 1024 * 1024 * 1024, windowsHide: true, env: { ...env, GIT_OPTIONAL_LOCKS: '0' } };
   if (encoding !== 'buffer') opts.encoding = 'utf8';      // 不写 encoding 时 stdout 是 Buffer（读 blob 原始字节用）
   const r = spawnSync('git', ['-c', 'core.quotepath=off', ...args], opts);
+  if (r.error?.code === 'ETIMEDOUT') {
+    throw new CliError('timeout.git', `git ${args.slice(0, 3).join(' ')} 超过 ${timeout / 1000} 秒没有结束，提交已中止`,
+      `看看是不是有别的 git 进程占着仓库（例如残留的 .git/index.lock）；仓库很大或磁盘很慢时设 ${GIT_TIMEOUT_ENV}=<毫秒> 调大后重试`);
+  }
   if (r.error) throw new CliError('env.git', `运行 git 失败：${r.error.message}`, '先装好 git，并确认它在 PATH 里');
   if (r.status !== 0 && !allowFail) {
     const msg = Buffer.isBuffer(r.stderr) ? r.stderr.toString('utf8') : String(r.stderr ?? '');
@@ -54,7 +83,9 @@ function git(root, args, { input, encoding = 'utf8', allowFail = false } = {}) {
   return r;
 }
 
+const git = (root, args, opts) => spawnGit(root, args, opts);
 const verify = (root, ref) => git(root, ['rev-parse', '--verify', '-q', ref], { allowFail: true }).status === 0;
+const splitZ = s => String(s ?? '').split('\0').filter(Boolean);
 
 function nameStatus(root, base) {
   const r = git(root, ['diff', '--cached', '--name-status', '-z', '--no-renames', '--no-ext-diff', base]);
@@ -69,12 +100,57 @@ function nameStatus(root, base) {
 
 /** 这次提交引入的改动 [{ status, path }]（status：A/C/D/M/T/U；改名拆成 D + A）。合并提交只留与两个父提交都不同的路径。 */
 function stagedChanges(root, all) {
-  if (all) return { changes: git(root, ['ls-files', '-z', '--cached']).stdout.split('\0').filter(Boolean).map(p => ({ status: 'A', path: p })), merge: false };
+  if (all) return { changes: splitZ(git(root, ['ls-files', '-z', '--cached']).stdout).map(p => ({ status: 'A', path: p })), merge: false };
   const base = verify(root, 'HEAD') ? 'HEAD' : git(root, ['hash-object', '-t', 'tree', '--stdin'], { input: '' }).stdout.trim();
   const changes = nameStatus(root, base);
   if (base !== 'HEAD' || !verify(root, 'MERGE_HEAD')) return { changes, merge: false };
   const other = new Set(nameStatus(root, 'MERGE_HEAD').map(c => c.path));
   return { changes: changes.filter(c => other.has(c.path)), merge: true };
+}
+
+/** 路径集合的全部上级目录（'a/b/c' → 'a/b'、'a'）。 */
+function dirsOf(paths) {
+  const dirs = new Set();
+  for (const p of paths) {
+    let i = p.lastIndexOf('/');
+    while (i > 0) {
+      const d = p.slice(0, i);
+      if (dirs.has(d)) break;              // 更上级的目录在加入 d 时已经加过
+      dirs.add(d);
+      i = p.lastIndexOf('/', i - 1);
+    }
+  }
+  return dirs;
+}
+
+/**
+ * 工作区与这次要提交的内容（git 索引；按路径提交时是 git 的临时索引）不一致的地方。
+ * repo-check 的规则读工作区：落在这些路径上的发现说的是工作区，不是这次提交。
+ */
+function worktreeDrift(root) {
+  const index = splitZ(git(root, ['ls-files', '-z', '--cached']).stdout);
+  const modified = splitZ(git(root, ['diff', '--name-only', '-z', '--no-renames', '--no-ext-diff']).stdout);   // 已跟踪：工作区 ≠ 索引（含未暂存的删除）
+  const untracked = splitZ(git(root, ['ls-files', '-z', '--others', '--exclude-standard']).stdout);
+  return {
+    index: new Set(index), indexDirs: dirsOf(index),
+    modified: new Set(modified), untracked: new Set(untracked), driftDirs: dirsOf([...modified, ...untracked]),
+    sample: [...modified, ...untracked],
+  };
+}
+
+/**
+ * 一条规范检查发现归到哪里：commit（落在这次提交改动的路径或包含它的目录）、commit-state（与提交一致的路径，或没写路径）、
+ * worktree（只在工作区、不在这次提交里：未跟踪、被忽略、有未暂存的改动，或含有这类路径的目录）。worktree 时附原因。
+ */
+function attribute(file, { root, commitPaths, commitDirs, drift }) {
+  const f = String(file ?? '').replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
+  if (!f || f === '.') return { kind: 'commit-state' };
+  if (commitPaths.has(f) || commitDirs.has(f)) return { kind: 'commit' };
+  if (drift.untracked.has(f)) return { kind: 'worktree', why: '未跟踪的文件' };
+  if (drift.modified.has(f)) return { kind: 'worktree', why: drift.index.has(f) && !fs.existsSync(path.join(root, ...f.split('/'))) ? '工作区里删了、删除没有暂存' : '有没暂存进这次提交的改动' };
+  if (drift.driftDirs.has(f)) return { kind: 'worktree', why: '目录里有未跟踪或没暂存进这次提交的改动' };
+  if (!drift.index.has(f) && !drift.indexDirs.has(f) && fs.existsSync(path.join(root, ...f.split('/')))) return { kind: 'worktree', why: '未跟踪或被 .gitignore 忽略' };
+  return { kind: 'commit-state' };
 }
 
 /** 索引里这些路径的 { mode, sha }。 */
@@ -185,7 +261,7 @@ function ownChecks(root, { all, changes, want }) {
     for (const c of changes) {
       const p = c.path;
       if (want('vendor') && p.startsWith('cases/vendor/') && p !== 'cases/vendor/README.md') {
-        add('vendor', p, `${c.status === 'D' ? '删除' : '改动'}了第三方快照里的 ${p}：cases/vendor/ 由 cases/vendor/lock.json 逐字节锁定，只读。撤回暂存：git restore --staged -- "${p}"；作品放 films/<名字>/。确实在升级快照（重新固定版本并更新 lock.json）时，用 ${ALLOW_ENV}=vendor 只放行这一次`);
+        add('vendor', p, `${c.status === 'D' ? '删除' : '改动'}了第三方快照里的 ${p}：cases/vendor/ 由 cases/vendor/lock.json 逐字节锁定，只读。撤回暂存：git restore --staged -- "${p}"；作品放 films/<名字>/。维护者确实在升级快照（重新固定版本并更新 lock.json）时，由用户本人在 Claude Code 之外的终端里用 ${ALLOW_ENV}=vendor 只放行这一次（agent 会话里设置无效）`);
       }
       if (want('source') && p.startsWith('cases/source/') && c.status !== 'A') {
         add('source', p, `${c.status === 'D' ? '删除' : '修改'}了已归档的 ${p}：cases/catalog.json 按哈希记录归档文件，改了 casebook check 会失败。撤回暂存：git restore --staged -- "${p}"；要改历史作品先 python3 tools/casebook.py restore <id> --out out/casebook 还原到 out/ 再改`);
@@ -328,13 +404,35 @@ const TOOLS = {
 const exists = (root, rel) => fs.existsSync(path.join(root, ...rel.split('/')));
 const isCliFile = (root, rel) => { try { return /\bisMain\(/.test(fs.readFileSync(path.join(root, ...rel.split('/')), 'utf8')); } catch { return false; } };
 
-async function delegatedChecks(root, { all, want, register, introduced }) {
+/**
+ * 规范检查的发现按路径归属（见文件头）：只在工作区、不在这次提交里的降为提示；其余阻断。
+ * 阻断的发现落在与提交一致的路径上、而工作区里另有与提交不同的路径时，附上这些路径（可能是它们引起的）。
+ */
+function scopeRepoCheck(v, { root, all, changes }) {
+  const drift = worktreeDrift(root);
+  const commitPaths = new Set(all ? [] : changes.map(c => c.path));
+  const commitDirs = dirsOf([...commitPaths]);
+  const block = [];
+  const warn = [];
+  const tail = drift.sample.length
+    ? `（这条规则按工作区判定；工作区里另有 ${drift.sample.length} 处与这次提交不同：${drift.sample.slice(0, SHOW_DRIFT).join('、')}${drift.sample.length > SHOW_DRIFT ? ' 等' : ''}。如果是它们引起的，把相关改动一并暂存进这次提交，或由用户决定先收起它们（git stash push --keep-index --include-untracked，提交后 git stash pop）再提交）`
+    : '';
+  for (const f of v.block) {
+    const a = attribute(f.file, { root, commitPaths, commitDirs, drift });
+    if (a.kind === 'worktree') warn.push({ ...f, message: `（只在工作区、不在这次提交里：${a.why}，不阻断）${f.message}` });
+    else block.push(a.kind === 'commit-state' && tail ? { ...f, message: `${f.message}${tail}` } : f);
+  }
+  return { block, warn: [...warn, ...(v.warn ?? [])] };
+}
+
+async function delegatedChecks(root, { all, want, register, introduced, changes }) {
   const results = [];
   const ran = new Set();
   const jobs = [];
   const evaluate = (id, script, r) => {
-    const v = TOOLS[id].judge(r);
+    let v = TOOLS[id].judge(r);
     if (v === null) return { id, status: 'fail', block: [{ message: toolFailure(id, script, r) }], warn: [] };
+    if (id === 'repo-check' && !introduced) v = scopeRepoCheck(v, { root, all, changes });
     let block = v.block ?? [];
     let warn = v.warn ?? [];
     if (introduced) {                     // 合并提交：不是这次合并自己引入的路径，降为提示
@@ -382,20 +480,24 @@ async function run(ctx) {
   const only = ctx.opts.only;
   const bad = only.filter(id => !CHECKS.includes(id));
   if (bad.length) throw new CliError('usage.unknown-check', `没有这些检查：${bad.join('、')}`, `可选：${CHECKS.join('、')}`);
-  const top = spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', windowsHide: true });
-  if (top.error) throw new CliError('env.no-git', `找不到 git（${top.error.message}）`, '先装好 git，并确认它在 PATH 里');
+  const top = spawnGit(process.cwd(), ['rev-parse', '--show-toplevel'], { allowFail: true, env: ctx.env });
   if (top.status !== 0) throw new CliError('env.not-a-repo', '当前目录不在 git 仓库里', '在仓库根目录里运行');
   const root = top.stdout.trim();
   const allowRaw = String(ctx.env[ALLOW_ENV] ?? '').split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
-  const allow = new Set(allowRaw.filter(id => CHECKS.includes(id)));
+  let allow = new Set(allowRaw.filter(id => CHECKS.includes(id)));
   for (const id of allowRaw.filter(x => !CHECKS.includes(x))) ctx.warn('allow.unknown', `${ALLOW_ENV} 里的「${id}」不是检查 id，忽略`, `可选：${CHECKS.join('、')}`);
+  if (allow.size && inAgentSession(ctx.env)) {
+    ctx.warn('allow.ignored', `检测到 CLAUDECODE=1（这次提交由 Claude Code 的工具发起）：${ALLOW_ENV}=${[...allow].join(',')} 不生效，照常检查`,
+      '放行只能由用户本人在 Claude Code 之外的终端里设置；agent 按报错修改，确认是误报时告诉用户');
+    allow = new Set();
+  }
   if (allow.size) ctx.warn('allow.used', `${ALLOW_ENV}=${[...allow].join(',')}：这些检查本次放行`);
   const want = id => (!only.length || only.includes(id)) && !allow.has(id);
 
   const { changes, merge } = stagedChanges(root, ctx.opts.all);
   const own = ownChecks(root, { all: ctx.opts.all, changes, want });
   const introduced = merge ? new Set(changes.map(c => c.path)) : null;
-  const delegated = await delegatedChecks(root, { all: ctx.opts.all, want, register: ctx.onCleanup, introduced });
+  const delegated = await delegatedChecks(root, { all: ctx.opts.all, want, register: ctx.onCleanup, introduced, changes });
 
   const findings = [...own.findings];
   for (const d of delegated) {
@@ -440,10 +542,13 @@ export const command = defineCommand({
   summary: '北冥仓库提交前检查（只读）：快照不可变、归档不改、产物与大文件不入库、指令文件白名单、合规与规范检查',
   usage: ['node .githooks/pre-commit.mjs [--all] [--only <id,…>] [--json]'],
   description: [
-    '只看这次要提交的内容（git 索引）。本文件自己判定：vendor、source、films-out、instructions、bridge、conflict；',
-    '交给仓库已有的工具：large（tools/env/large-files.mjs）、compliance（tools/compliance/scan.mjs --staged）、',
-    'eol（tools/repo-check/rules/env/index.mjs --only env.eol）、repo-check（tools/repo-check.mjs --staged）。工具不在时跳过并提示。',
-    `临时放行：${ALLOW_ENV}=<id,…>，只对这一次命令生效（例如升级 vendor 快照时 ${ALLOW_ENV}=vendor git commit …）。`,
+    '本文件自己判定：vendor、source、films-out、instructions、bridge、conflict（读 git 索引，也就是这次要提交的内容）；',
+    '交给仓库已有的工具：large（tools/env/large-files.mjs，读索引）、compliance（tools/compliance/scan.mjs --staged，读暂存的版本）、',
+    'eol（tools/repo-check/rules/env/index.mjs --only env.eol，读索引）、repo-check（tools/repo-check.mjs --staged）。工具不在时跳过并提示。',
+    'repo-check 的规则读的是工作区：发现落在工作区里与这次提交不一致的路径上（未跟踪、被忽略、有没暂存进这次提交的改动，',
+    '  或含有这类路径的目录）时降为提示；落在这次提交改动的路径、或工作区与提交一致的路径上的照常阻断。',
+    `临时放行：${ALLOW_ENV}=<id,…>，只对这一次命令生效，只能由用户本人在 Claude Code 之外的终端里设置（CLAUDECODE=1 时不生效）。`,
+    `git 子进程超时默认 ${GIT_TIMEOUT_MS / 1000} 秒（退出 124），${GIT_TIMEOUT_ENV}=<毫秒> 可调。`,
     '启用：npm run setup 会在本仓库执行 git config core.hooksPath .githooks（只作用于本仓库，setup --no-hooks 跳过）；停用：git config --unset core.hooksPath。',
     'git commit --no-verify 会跳过全部检查，只应由人本人在确认误报时使用。',
   ],
@@ -451,8 +556,8 @@ export const command = defineCommand({
     all: { type: 'boolean', describe: '检查索引里的全部文件（默认只看这次暂存的改动）' },
     only: { type: 'list', split: ',', arg: '<id,…>', describe: `只跑这些检查：${CHECKS.join('、')}`, example: 'vendor,films-out' },
   },
-  examples: ['node .githooks/pre-commit.mjs', 'node .githooks/pre-commit.mjs --all --only vendor,large', `${ALLOW_ENV}=vendor git commit -m "升级 vendor 快照到 <提交>"`],
-  exitCodes: { 0: '通过', 1: '检查自身出错', 2: '用法错误', 3: '找不到 git 或不在 git 仓库里', 4: '有检查不通过（git 中止提交）' },
+  examples: ['node .githooks/pre-commit.mjs', 'node .githooks/pre-commit.mjs --all --only vendor,large', `${ALLOW_ENV}=vendor git commit -m "升级 vendor 快照到 <提交>"   # 用户本人在自己的终端里`],
+  exitCodes: { 0: '通过', 1: '检查自身出错', 2: '用法错误', 3: '找不到 git 或不在 git 仓库里', 4: '有检查不通过（git 中止提交）', 124: 'git 子进程超时' },
   run,
 });
 
