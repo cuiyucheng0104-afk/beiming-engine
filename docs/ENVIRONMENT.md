@@ -38,7 +38,7 @@ QA 还会用到 blackdetect、freezedetect、signalstats、select、gblur、ssim
 | 平台 | 状态 | GPU 后端（`BEIMING_ANGLE`） | 说明 |
 |---|---|---|---|
 | macOS arm64 | 2026-11-10 全新克隆实测：只装 Node 时 doctor 退出 3 并给出修复顺序；setup 之后 doctor `--gpu required` 退出 0 | `metal`（默认） | 主力开发机 |
-| Windows x64（NVIDIA RTX 工作站） | 锁文件已按此平台解析；setup 与 doctor 尚待在工作站上实测 | `vulkan` | 主力出片机，见 [RTX 工作站](RTX工作站.md)；出片封装暂时还要 Git Bash 里的 `sh` |
+| Windows x64（NVIDIA RTX 工作站） | 锁文件已按此平台解析（都有二进制轮子）；`core.autocrlf=true` 的全新克隆在 macOS 上模拟实测（归档以外没有 CRLF）；setup 与 doctor 尚待在工作站上实测 | `vulkan` | 主力出片机，见 [RTX 工作站](RTX工作站.md)；出片封装暂时还要 Git for Windows 的 `sh`（`Git\bin` 加进 PATH） |
 | Linux x64 | 锁文件已按此平台解析；CI 目标平台 | 有 NVIDIA 用 `vulkan`；没有显卡时用 `swiftshader`，按软件渲染记录 | 需要系统库与中文字体 |
 
 ## 安装：macOS
@@ -77,7 +77,7 @@ npm ci && npm run setup && npm run env:doctor -- --route a
 - **克隆到短的英文路径**，例如 `D:\beiming\repo`。中文路径下部分老工具会出编码问题，过长的路径会撞上 Windows 的路径长度限制。
 - **换行**：仓库的 `.gitattributes` 已经让文本一律按 LF 检出，`core.autocrlf` 设成什么都不影响；上面那条 `git config core.autocrlf false` 是给旧检出的保险。
 - **Python**：Windows 上通常没有 `python3` 命令，`python` 可能只是应用商店的空壳。仓库的 npm 脚本与文档统一经 `node tools/env/py.mjs` 启动 Python，它会找到 `.venv`；自己调用时也这样写：`node tools/env/py.mjs tools/casebook.py list`。
-- **中文输出**：`py.mjs` 固定 `PYTHONUTF8=1`、`PYTHONIOENCODING=utf-8`，重定向到文件或管道时不会再报 `UnicodeEncodeError: 'gbk'`。直接调用 Python 时先设 `$env:PYTHONUTF8 = '1'`。
+- **中文输出**：`py.mjs` 固定 `PYTHONUTF8=1`、`PYTHONIOENCODING=utf-8`，重定向到文件或管道时不会再报 `UnicodeEncodeError: 'gbk'`（用 `PYTHONIOENCODING=gbk` 模拟中文 Windows 实测：`node tools/env/py.mjs tools/casebook.py list > x.txt` 退出 0，直接用 Python 运行退出 1）。直接调用 Python 时先设 `$env:PYTHONUTF8 = '1'`。
 - **sh（过渡期）**：A 的 `build.sh`、C 的 `engine/render/build.mjs`、B 的 `native.mjs` 目前都要用 sh 调用 `engine/render/mux.sh`（清单见下文「sh 入口盘点」）。装 Git for Windows 后，doctor 会自己找到 `Git\bin\sh.exe`；但这些入口按名字调用 `sh`，所以还要把 **`Git\bin`** 加进 PATH：`$env:Path += ';C:\Program Files\Git\bin'`（当前窗口有效；长期生效在「系统属性 → 环境变量」里加）。不要加 `Git\usr\bin`：那里的 `find`、`sort` 会盖掉 Windows 自带的同名命令，而且直接用 `usr\bin\sh.exe` 时脚本里找不到 sed、awk。装在别处时设 `$env:BEIMING_SH`。Node 版封装合入后不再需要 sh。
 - **PowerShell 拦截 npm**：报「此系统上禁止运行脚本」时，把命令里的 `npm` 换成 `npm.cmd`，或者由你自己决定是否执行 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`。
 - 设环境变量用 `$env:名字 = '值'`（只对当前窗口有效），不要照抄 bash 的 `名字=值 命令` 写法。
@@ -104,7 +104,7 @@ npm run env:doctor -- --route a
 |---|---|---|
 | npm | `npm ci` | `node_modules` 与 `package-lock.json` 一致；`node_modules` 是指向别处的链接时拒绝改动并退出 3 |
 | 浏览器 | `node node_modules/playwright-core/cli.js install chromium-headless-shell`，Linux 加 `--with-deps` 时带系统库 | r1243 已装全（有 `INSTALLATION_COMPLETE` 标记） |
-| Python | 有 uv：`uv venv --python 3.12 .venv`，再 `uv pip sync --require-hashes --only-binary :all: --compile-bytecode requirements.lock`；没有 uv：`python3.12 -m venv .venv`，再 `pip install --require-hashes --only-binary :all: -r requirements.lock`；装完导入一次核心模块 | `.venv` 是 setup 建的、Python 3.12、记录的锁文件哈希与现在一致，且核对通过 |
+| Python | 有 uv：`uv venv --python 3.12 .venv`，再 `uv pip sync --require-hashes --only-binary :all: --compile-bytecode requirements.lock`；没有 uv：`python3.12 -m venv .venv`，再 `pip install --require-hashes --only-binary :all: -r requirements.lock`；装完导入一次核心模块；`.venv` 里写一个 `.gitignore`，整个虚拟环境不进 git | `.venv` 是 setup 建的、Python 3.12、记录的锁文件哈希与现在一致，且核对通过 |
 | 钩子 | `git config core.hooksPath .githooks` | 仓库里没有 `.githooks/`，或已经设好 |
 
 - `--dry-run` 只列出每一步会做什么，不下载、不写文件。`--json` 输出 C2 信封（`steps` 字段是每一步的结果）。
@@ -114,7 +114,7 @@ npm run env:doctor -- --route a
 
 ## doctor 怎么读
 
-每一项一行：`OK`、`FAIL`、`WARN`、`INFO`、`SKIP`，后面是检查项编号、实际找到的东西；不合格的项另有「修复」一行，可以直接复制执行。`--json` 时 stdout 只有一个对象，`checks` 是全部检查项，每项含 `id`、`ok`、`required`、`found`、`expected`、`fix`。
+每一项一行：`OK`、`FAIL`、`WARN`、`INFO`、`SKIP`，后面是检查项编号、实际找到的东西；不合格的项另有「修复」一行，可以直接复制执行。必需项不合格时，最后一段「按顺序执行」把修复命令排好顺序：系统级安装（brew、winget、apt、uv）在前，`npm ci` 一类的修复合并成一步 `npm run setup`，最后重跑 doctor。`--json` 时 stdout 只有一个对象，`checks` 是全部检查项（每项含 `id`、`ok`、`required`、`found`、`expected`、`fix`），`nextSteps` 是同一份顺序。
 
 | 选项 | 作用 |
 |---|---|
