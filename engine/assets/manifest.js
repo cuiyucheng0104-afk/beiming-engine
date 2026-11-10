@@ -19,14 +19,15 @@
 //   checkAssets(refs, { root, filmDir, lock }) → { ok, diagnostics, resolved }：不认识 / 版本不对 / 文件缺失判错，哈希与锁文件不符只提示
 //   assetFingerprint(refs, opts)              → 所用资产哈希的总指纹（缓存键材料）
 //   readLock() / buildLock()                  锁文件 engine/assets/assets.lock.json
-// 命令行（退出码按计划附录 C1：0 通过、2 用法错误、4 不认识或缺文件、1 运行失败）：
+// 命令行（tools/lib/cli.mjs，docs/CLI.md：0 通过、2 用法错误、4 不认识或缺文件、1 运行失败；--json 的结果在 data）：
 //   node engine/assets/manifest.js list [--kind <种类>] [--json]
 //   node engine/assets/manifest.js check [<资产 id>…] [--film <作品目录>] [--strict] [--json]
 //   node engine/assets/manifest.js lock [--write] [--json]
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, posix, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { CliError, defineCommand, isMain, runCli, suggest } from '../../tools/lib/cli.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(HERE, '../..');
@@ -234,90 +235,107 @@ export function assetFingerprint(refs, opts = {}) {
   return sha(r.resolved.map(x => `${x.id}=${x.sha256 ?? x.files.join(',')}`).sort().join('\n'));
 }
 
-// ───────────────────────── 命令行 ─────────────────────────
+// ───────────────────────── 命令行（tools/lib/cli.mjs：docs/CLI.md 的约定，--json 的结果在 data） ─────────────────────────
 
-const HELP = `北冥引擎 · 共享资产注册表
-用法：
-  node engine/assets/manifest.js list [--kind <${KINDS.filter(k => k !== 'local').join('|')}>] [--json]
-  node engine/assets/manifest.js check [<资产 id>…] [--film <作品目录>] [--strict] [--json]
-      不给 id 时核对注册表里的全部资产；--film 时核对作品 film.json 的 assets；--strict 时哈希变化也算失败
-  node engine/assets/manifest.js lock [--write] [--json]
-      重算全部资产的 sha256；不加 --write 只打印与锁文件的差异
-退出码：0 通过；4 资产不认识 / 版本不对 / 文件缺失（--strict 时含哈希变化）；2 用法错误；1 运行失败`;
+const toCli = e => (e instanceof AssetError
+  ? new CliError(`${{ 2: 'usage', 4: 'contract' }[e.exitCode] ?? 'failure'}.${e.code}`, e.message, { hint: e.hint || null, exitCode: e.exitCode })
+  : e);
+const guard = fn => async ctx => { try { return await fn(ctx); } catch (e) { throw toCli(e); } };
+const fmt = d => `${d.level === 'error' ? '✗' : '!'} [${d.code}] ${d.path}：${d.message}${d.hint ? `\n    → ${d.hint}` : ''}`;
 
-function parseArgs(argv) {
-  const flags = { json: false, write: false, strict: false, kind: null, film: null }, pos = [];
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--json' || a === '--write' || a === '--strict') { flags[a.slice(2)] = true; continue; }
-    if (a === '--kind' || a === '--film') {
-      const v = argv[++i];
-      if (v === undefined || v.startsWith('--')) throw new AssetError('usage', `${a} 后面要跟一个值`, { exitCode: 2 });
-      flags[a.slice(2)] = v;
-      continue;
-    }
-    if (a.startsWith('-')) throw new AssetError('usage', `未知参数 ${a}`, { exitCode: 2, hint: '看 --help' });
-    pos.push(a);
-  }
-  return { flags, pos };
-}
+const listCmd = defineCommand({
+  name: 'manifest.js list',
+  summary: '列出共享资产：id@版本、来源文件、许可',
+  usage: ['node engine/assets/manifest.js list [--kind <种类>] [--json]'],
+  options: { kind: { type: 'string', arg: '<种类>', choices: KINDS.filter(k => k !== 'local'), describe: '只列这一类' } },
+  exitCodes: { 0: '成功', 2: '用法错误', 1: '运行失败' },
+  run: guard(ctx => {
+    const reg = loadRegistry();
+    const rows = [...reg.assets.values()].filter(e => !ctx.opts.kind || e.kind === ctx.opts.kind).map(e => ({ id: `${e.id}@v${e.version}`, name: e.name, source: e.module ?? e.files.join(' '), license: e.license }));
+    ctx.out(rows.map(r => `${r.id.padEnd(30)} ${r.source.padEnd(34)} ${r.license}  ${r.name}`).join('\n'));
+    return { data: { assets: rows, problems: reg.problems }, warnings: reg.problems.map(p => ({ code: 'asset-registry', message: String(p), hint: null })) };
+  }),
+});
 
-async function main(argv) {
-  if (argv.includes('--help') || argv.includes('-h') || argv[0] === 'help') { process.stdout.write(`${HELP}\n`); return 0; }
-  const json = argv.includes('--json');
-  const emit = (r, text) => {
-    if (json) process.stdout.write(`${JSON.stringify({ ok: r.ok, exitCode: r.exitCode, command: `manifest.js ${r.command ?? ''}`.trim(), error: r.error ?? null, outputs: r.outputs ?? [], runJson: null, warnings: r.warnings ?? [], result: r.result ?? null }, null, 2)}\n`);
-    else if (text) process[r.exitCode === 0 || r.exitCode === 4 ? 'stdout' : 'stderr'].write(`${text}\n`);
-    return r.exitCode;
-  };
-  const [cmd, ...rest] = argv;
-  try {
-    if (!['list', 'check', 'lock'].includes(cmd)) throw new AssetError('usage', cmd ? `未知子命令 ${cmd}` : '缺少子命令', { exitCode: 2, hint: '可用：list / check / lock；看 --help' });
-    const { flags, pos } = parseArgs(rest);
-    if (cmd === 'list') {
-      if (pos.length) throw new AssetError('usage', 'list 不带位置参数', { exitCode: 2 });
-      if (flags.kind && !KINDS.includes(flags.kind)) throw new AssetError('usage', `--kind 只能是 ${KINDS.join(' / ')}`, { exitCode: 2 });
-      const reg = loadRegistry();
-      const rows = [...reg.assets.values()].filter(e => !flags.kind || e.kind === flags.kind).map(e => ({ id: `${e.id}@v${e.version}`, name: e.name, source: e.module ?? e.files.join(' '), license: e.license }));
-      return emit({ ok: true, exitCode: 0, command: 'list', result: { assets: rows, problems: reg.problems }, warnings: reg.problems }, rows.map(r => `${r.id.padEnd(30)} ${r.source.padEnd(34)} ${r.license}  ${r.name}`).join('\n'));
-    }
-    if (cmd === 'check') {
-      let refs = pos, filmDir = null;
-      if (flags.film) {
-        if (pos.length) throw new AssetError('usage', '--film 与资产 id 只给一种', { exitCode: 2 });
-        filmDir = resolve(flags.film);
-        const f = join(filmDir, 'film.json');
-        if (!existsSync(f)) throw new AssetError('not-found', `找不到 ${f}`, { exitCode: 2 });
-        const raw = readJson(f);
-        refs = Array.isArray(raw.assets) ? raw.assets : [];
-        if (raw.mirror?.paths === 'repo') filmDir = REPO_ROOT;
-      } else if (!refs.length) refs = [...loadRegistry().assets.keys()];
-      const r = checkAssets(refs, { filmDir });
-      const errs = r.diagnostics.filter(d => d.level === 'error'), warns = r.diagnostics.filter(d => d.level === 'warning');
-      const ok = !errs.length && !(flags.strict && warns.length);
-      const lines = [`${ok ? '✓' : '✗'} ${r.resolved.length}/${refs.length} 个资产核对通过`, ...r.diagnostics.map(d => `${d.level === 'error' ? '✗' : '!'} [${d.code}] ${d.path}：${d.message}${d.hint ? `\n    → ${d.hint}` : ''}`)];
-      return emit({ ok, exitCode: ok ? 0 : 4, command: 'check', result: r, warnings: warns.map(d => d.message), error: ok ? null : { code: (errs[0] ?? warns[0]).code, message: (errs[0] ?? warns[0]).message, hint: (errs[0] ?? warns[0]).hint } }, lines.join('\n'));
-    }
-    if (pos.length) throw new AssetError('usage', 'lock 不带位置参数', { exitCode: 2 });
+const checkCmd = defineCommand({
+  name: 'manifest.js check',
+  summary: '核对资产：认得、版本对、文件在；哈希与锁文件不符只提示（--strict 时也算失败）',
+  usage: ['node engine/assets/manifest.js check [<资产 id>…] [--film <作品目录>] [--strict] [--json]'],
+  positionals: [{ name: 'ids', label: '[<资产 id>…]', required: false, variadic: true, describe: '不给时核对注册表里的全部资产' }],
+  options: {
+    film: { type: 'string', arg: '<作品目录>', describe: '核对作品 film.json 的 assets' },
+    strict: { type: 'boolean', describe: '哈希与锁文件不符也算失败' },
+  },
+  exitCodes: { 0: '通过', 4: '资产不认识 / 版本不对 / 文件缺失（--strict 时含哈希变化）', 2: '用法错误或找不到作品', 1: '运行失败' },
+  run: guard(ctx => {
+    let refs = ctx.args.ids, filmDir = null;
+    if (ctx.opts.film) {
+      if (refs.length) throw new CliError('usage.conflict', '--film 与资产 id 只给一种', '核对作品用 --film，核对单个资产直接写 id');
+      filmDir = resolve(ctx.opts.film);
+      const f = join(filmDir, 'film.json');
+      if (!existsSync(f)) throw new CliError('usage.not-found', `找不到作品描述：${ctx.opts.film.replace(/\\/g, '/').replace(/\/+$/, '')}/film.json`, '给作品目录（films/<名>）');
+      const raw = readJson(f);
+      refs = Array.isArray(raw.assets) ? raw.assets : [];
+      if (raw.mirror?.paths === 'repo') filmDir = REPO_ROOT;
+    } else if (!refs.length) refs = [...loadRegistry().assets.keys()];
+    const r = checkAssets(refs, { filmDir });
+    const errs = r.diagnostics.filter(d => d.level === 'error'), warns = r.diagnostics.filter(d => d.level === 'warning');
+    const ok = !errs.length && !(ctx.opts.strict && warns.length);
+    ctx.out([`${ok ? '✓' : '✗'} ${r.resolved.length}/${refs.length} 个资产核对通过`, ...r.diagnostics.map(fmt)].join('\n'));
+    const data = { ok: r.ok, resolved: r.resolved, diagnostics: r.diagnostics };
+    const warnings = warns.map(d => ({ code: d.code, message: `${d.path}：${d.message}`, hint: d.hint || null }));
+    if (ok) return { data, warnings };
+    const e = errs[0] ?? warns[0];
+    return { exitCode: 4, data, warnings, error: { code: `contract.${e.code}`, message: e.message, hint: e.hint || null } };
+  }),
+});
+
+const lockCmd = defineCommand({
+  name: 'manifest.js lock',
+  summary: '重算全部资产的 sha256，与锁文件 engine/assets/assets.lock.json 比对；--write 写回',
+  usage: ['node engine/assets/manifest.js lock [--write] [--json]'],
+  options: { write: { type: 'boolean', describe: '原子地写回锁文件（确认资产改动是有意的之后）' } },
+  exitCodes: { 0: '成功（预览或已写回）', 2: '用法错误', 1: '运行失败' },
+  run: guard(async ctx => {
     const next = buildLock(), prev = readLock();
     const diff = Object.keys(next.assets).filter(k => prev?.assets?.[k]?.sha256 !== next.assets[k].sha256);
     const removed = Object.keys(prev?.assets ?? {}).filter(k => !next.assets[k]);
     const outputs = [];
-    if (flags.write && (diff.length || removed.length || !prev)) {
-      const { writeJsonAtomic } = await import('../production/io.js');
+    if (ctx.opts.write && (diff.length || removed.length || !prev)) {
+      const { cleanupTemps, writeJsonAtomic } = await import('../production/io.js');
+      ctx.onCleanup(cleanupTemps);
       const w = writeJsonAtomic(LOCK_FILE, next);
       outputs.push({ path: 'engine/assets/assets.lock.json', sha256: w.sha256, kind: 'lock' });
     }
-    const text = [`${Object.keys(next.assets).length} 个资产；与锁文件不同 ${diff.length} 个${diff.length ? `：${diff.join('、')}` : ''}${removed.length ? `；锁文件里多出 ${removed.join('、')}` : ''}`, outputs.length ? '✓ 已写 engine/assets/assets.lock.json' : (flags.write ? '锁文件已是最新' : '（预览：加 --write 写回锁文件）')].join('\n');
-    return emit({ ok: true, exitCode: 0, command: 'lock', outputs, result: { changed: diff, removed, written: outputs.length > 0 } }, text);
-  } catch (error) {
-    const known = error instanceof AssetError;
-    const code = known ? error.exitCode : 1;
-    return emit({ ok: false, exitCode: code, command: cmd, error: { code: known ? error.code : 'internal', message: error.message, hint: error.hint ?? '' } }, `${known ? '' : '内部错误：'}${error.message}${error.hint ? `\n→ ${error.hint}` : ''}`);
-  }
+    ctx.out([`${Object.keys(next.assets).length} 个资产；与锁文件不同 ${diff.length} 个${diff.length ? `：${diff.join('、')}` : ''}${removed.length ? `；锁文件里多出 ${removed.join('、')}` : ''}`,
+      outputs.length ? '✓ 已写 engine/assets/assets.lock.json' : (ctx.opts.write ? '锁文件已是最新' : '（预览：加 --write 写回锁文件）')].join('\n'));
+    return { outputs, data: { changed: diff, removed, written: outputs.length > 0 } };
+  }),
+});
+
+export const SUBCOMMANDS = Object.freeze({ list: listCmd, check: checkCmd, lock: lockCmd });
+
+const top = defineCommand({
+  name: 'manifest.js',
+  summary: '北冥引擎 · 共享资产注册表（造型、角色、材质、底板、字体、风格参考的 id 与 sha256）',
+  usage: ['node engine/assets/manifest.js <list|check|lock> [参数] [--json]', 'node engine/assets/manifest.js <子命令> --help'],
+  positionals: [{ name: 'command', label: '<子命令>', required: false, describe: 'list / check / lock' }, { name: 'rest', label: '[参数…]', required: false, variadic: true }],
+  description: () => Object.entries(SUBCOMMANDS).map(([k, c]) => `  ${k.padEnd(6)} ${c.summary}`),
+  exitCodes: { 0: '成功', 2: '用法错误', 4: '资产核对不通过', 1: '运行失败' },
+  run: ctx => {
+    const name = ctx.args.command;
+    if (!name) throw new CliError('usage.missing-subcommand', '缺少子命令', '可用：list / check / lock；看 --help');
+    const s = suggest(name, Object.keys(SUBCOMMANDS));
+    throw new CliError('usage.unknown-subcommand', `没有子命令 ${name}`, `${s ? `是不是想写 ${s}？` : ''}可用：list / check / lock`);
+  },
+});
+
+export async function main(argv) {
+  const i = argv.findIndex(a => a === '--' || !a.startsWith('-'));
+  const name = i >= 0 && argv[i] !== '--' ? argv[i] : null;
+  if (name === 'help') return runCli(top, ['--help']);
+  if (name && Object.hasOwn(SUBCOMMANDS, name)) return runCli(SUBCOMMANDS[name], [...argv.slice(0, i), ...argv.slice(i + 1)]);
+  return runCli(top, argv);
 }
 
-const direct = (() => {
-  try { return Boolean(process.argv[1]) && pathToFileURL(realpathSync(resolve(process.argv[1]))).href === import.meta.url; } catch { return false; }
-})();
-if (direct) main(process.argv.slice(2)).then(code => { process.exitCode = code; }, error => { console.error(error?.stack ?? error); process.exitCode = 1; });
+if (isMain(import.meta.url)) await main(process.argv.slice(2));

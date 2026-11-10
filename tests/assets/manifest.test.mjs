@@ -122,14 +122,20 @@ test('命令行：list / check / lock 的退出码与 --json 信封；--help 无
   assert.equal(run(['--help']).status, 0);
   const list = run(['list', '--kind', 'font', '--json']);
   assert.equal(list.status, 0);
-  assert.deepEqual(JSON.parse(list.stdout).result.assets.map(a => a.id), ['font:noto-sans-sc@v1', 'font:barlow@v1', 'font:ma-shan-zheng@v1']);
+  const env = JSON.parse(list.stdout);
+  assert.equal(env.schemaVersion, 1);
+  assert.deepEqual(env.data.assets.map(a => a.id), ['font:noto-sans-sc@v1', 'font:barlow@v1', 'font:ma-shan-zheng@v1']);
   assert.equal(run(['check', '--film', join(REPO, 'films', 'beiming-10s')]).status, 0);
   const bad = run(['check', 'model:nope', '--json']);
   assert.equal(bad.status, 4);
-  assert.equal(JSON.parse(bad.stdout).error.code, 'asset-unknown');
+  assert.equal(JSON.parse(bad.stdout).error.code, 'contract.asset-unknown');
   assert.equal(run(['lock', '--json']).status, 0);
   assert.equal(run(['nope']).status, 2);
   assert.equal(run(['list', '--kind']).status, 2);
   assert.equal(run(['check', '--bogus']).status, 2);
+  assert.equal(JSON.parse(run(['chek', '--json']).stdout).error.code, 'usage.unknown-subcommand');
+  assert.equal(run(['list', '--kind', 'plates']).status, 2);   // 取值不对：是不是想写 plate
+  assert.equal(run(['check', '--film', join(REPO, 'films', 'no-such-film')]).status, 2);
+  assert.equal(run(['check', '--help']).status, 0);
   assert.equal(readFileSync(join(REPO, 'engine', 'assets', 'assets.lock.json'), 'utf8'), before);
 });
