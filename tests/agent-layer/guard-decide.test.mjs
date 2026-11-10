@@ -250,6 +250,9 @@ test('模拟 Windows 仓库路径：盘符、反斜杠、大小写都归一', ()
   expectDeny(write('C:\\work\\beiming\\cases\\vendor\\x.js', opts), 'zone-vendor', 'Windows vendor');
   expectDeny(write('c:/WORK/Beiming/Src/main.js', opts), 'zone-src', 'Windows 大小写与正斜杠');
   expectAllow(write('C:\\work\\beiming\\films\\demo\\main.js', opts), 'Windows 作品目录');
+  expectDeny(write('/c/work/beiming/src/main.js', opts), 'zone-src', 'Git Bash 写法 /c/…');
+  expectDeny(bash('echo x > /c/work/beiming/cases/vendor/a.txt', opts), 'zone-vendor', 'Git Bash 重定向 /c/…');
+  expectAllow(bash('echo x > /c/work/beiming/films/demo/a.txt', opts), 'Git Bash 写作品目录');
   expectDeny(pwsh('Remove-Item -Recurse C:\\work\\beiming\\cases\\source', opts), 'zone-source', 'PowerShell 绝对路径');
   expectDeny(pwsh('Get-ChildItem $env:USERPROFILE\\lemo-opuscar', opts), 'home-style-library', 'PowerShell 家目录变量');
   expectAllow(pwsh('& $env:USERPROFILE\\lemo-opuscar\\.venv\\Scripts\\python.exe tools\\casebook.py check', opts), 'Windows 解释器例外');
