@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineCommand, runCli, isMain } from '../lib/cli.mjs';
-import { CliError, EXIT, usage, log, setQuiet, bindCleanups, onCleanup, offCleanup, sha256File, sha256, displayPath } from './lib/cli.mjs';
+import { CliError, EXIT, usage, log, setQuiet, bindCleanups, echoWarnings, onCleanup, offCleanup, sha256File, sha256, displayPath } from './lib/cli.mjs';
 import { loadSets, setHash, shotOf } from './lib/sets.mjs';
 import { captureSet, captureUsable, assertCaptured } from './lib/capture.mjs';
 import { compareFrames, summaryLine, worstStats } from './lib/compare.mjs';
@@ -648,11 +648,10 @@ export const command = defineCommand({
       const sets = loadSets(opts.sets ? path.resolve(opts.sets) : SETS_FILE);
       if (sub === 'list') return cmdList(sets);
       const o = normalizeOpts(opts);
-      if (sub === 'capture') return await cmdCapture(o, sets);
-      if (sub === 'compare') return await cmdCompare(o, sets);
-      if (sub === 'approve') return await cmdApprove(o, sets);
-      if (sub === 'keyframes') return await cmdKeyframes(o, sets);
-      return await cmdUpdate(o, sets, { reference: sub === 'reference' });
+      const r = sub === 'capture' ? await cmdCapture(o, sets) : sub === 'compare' ? await cmdCompare(o, sets)
+        : sub === 'approve' ? await cmdApprove(o, sets) : sub === 'keyframes' ? await cmdKeyframes(o, sets)
+          : await cmdUpdate(o, sets, { reference: sub === 'reference' });
+      return echoWarnings(r);
     } finally { await done(); }
   },
 });

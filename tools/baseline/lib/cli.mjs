@@ -11,6 +11,7 @@
 //                             收尾登记（删临时目录、结束截帧子进程）。命令正常结束、出错、收到 SIGINT / SIGTERM 时都执行一次；
 //                             进程被直接 exit 时只能做同步收尾：登记的函数带 .sync 版本就调用它
 //   bindCleanups(ctx)         把上面的收尾接到 runCli 的 ctx.onCleanup（信号与抛错时由 runCli 调用）
+//   echoWarnings(result)      run 返回的 warnings 在人读模式下也打到 stderr（runCli 只把它们放进 --json 信封）
 //   parseSize(s)              --size WxH（偶数宽高，≥16）
 //   displayPath(root, p)      输出里写的路径：仓库内写相对路径，仓库外写绝对路径；分隔符一律 /
 //   sha256File(file) / sha256(data)
@@ -54,6 +55,11 @@ process.on('exit', () => {
 export function bindCleanups(ctx) {
   const off = ctx.onCleanup(() => runCleanups());
   return async () => { await runCleanups(); off(); };
+}
+
+export function echoWarnings(result) {
+  for (const w of result?.warnings || []) console.error(`警告：${typeof w === 'string' ? w : w.message}`);
+  return result;
 }
 
 // --size WxH：偶数宽高（H.264 yuv420p 的要求），16 以上

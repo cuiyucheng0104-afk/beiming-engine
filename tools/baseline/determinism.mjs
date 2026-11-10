@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineCommand, runCli, isMain } from '../lib/cli.mjs';
-import { CliError, EXIT, codeFor, usage, log, setQuiet, bindCleanups, parseSize, sha256File, displayPath } from './lib/cli.mjs';
+import { CliError, EXIT, codeFor, usage, log, setQuiet, bindCleanups, echoWarnings, parseSize, sha256File, displayPath } from './lib/cli.mjs';
 import { runWorker, materializeTemplate, noBrowserHint } from './lib/capture.mjs';
 import { decodePNG, encodePNG } from './lib/png.mjs';
 import { compareImages, diffHeatmap } from './lib/metrics.mjs';
@@ -259,7 +259,7 @@ export const command = defineCommand({
     setQuiet(ctx.quiet);
     const done = bindCleanups(ctx);
     try {
-      return await main(camel(ctx.opts), ctx.args.dir ? [ctx.args.dir] : []);
+      return echoWarnings(await main(camel(ctx.opts), ctx.args.dir ? [ctx.args.dir] : []));
     } finally { await done(); }
   },
 });
