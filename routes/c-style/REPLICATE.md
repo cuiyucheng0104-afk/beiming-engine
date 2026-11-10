@@ -23,17 +23,17 @@
 **1. 建隔离运行时**（一次就好，约 1 秒；会核对快照的 2478 个文件）：
 
 ```bash
-node tools/c-runtime.mjs setup --python <装了 numpy、scipy、soundfile 的 Python>      # 不写 --python 就按 $PYTHON、$BEIMING_PY、python3 找
+node tools/c-runtime.mjs setup                  # Python 按仓库统一的顺序选（node tools/env/py.mjs --which 可查看），也可以用 --python 指定
 #   → out/runtime/lemo-bebbbe1a/（快照副本 + 链到仓库根 node_modules + .venv/bin/python 转发脚本 + runtime.json）
 node tools/c-runtime.mjs status                                                       # 只读核对
 ```
 
-缺 Python 包时它会停下并列出缺什么：换一个装好的解释器（`--python`），或加 `--venv` 在运行时里建虚拟环境、按上游 requirements 安装（要联网）。拨弦乐器（`pluck.py`）要 numba，加 `--music` 一并检查。
+缺 Python 包时它会停下，列出缺什么。解决办法三选一：在仓库根运行 `npm run setup`，按锁文件建好仓库 `.venv`；或者用 `--python` 换一个装好包的解释器；或者加 `--venv`，在运行时里建虚拟环境并按上游 requirements 安装（要联网）。拨弦乐器（`pluck.py`）要 numba，加 `--music` 一并检查。
 
 **2. 还原作品**（必须带 `--download`：`--source-only` 不带图片、字体等二进制素材，不能出片，也不能拿它判断能不能渲）：
 
 ```bash
-python3 tools/casebook.py restore style-76-circuit-board --download --lemo out/runtime/lemo-bebbbe1a
+node tools/env/py.mjs tools/casebook.py restore style-76-circuit-board --download --lemo out/runtime/lemo-bebbbe1a
 #   → out/casebook/style-test-66/76-circuit-board/；素材包每个约 0.6 GB，一部要 1–3 个，下到 out/casebook-packs/（--packs 可改）
 ```
 
@@ -74,8 +74,11 @@ node tools/c-runtime.mjs sy 18-ink --video          # 适配页 + 整片（帧�
 
 ## 平台
 
-- **macOS / Linux**：自带 `sh`。Linux 与 Windows 上 RTX 显卡请设 `LEMO_ANGLE=vulkan`（Lemo 渲染器）和 `BEIMING_ANGLE=vulkan`（北冥渲染器），否则 Chrome 可能落到核显或软件渲染。
-- **Windows**：历史作品的 build.sh 是 POSIX shell 脚本，要 `sh`：装 Git for Windows 后 PowerShell 里就有（`c-runtime` 会自己找 `C:\Program Files\Git\bin\sh.exe`），或在 WSL 里跑。运行时的 `node_modules` 用目录联接，不需要管理员。新片和 SY 适配页不需要 `sh`。
+三套渲染器各认各的环境变量，变量表与三平台写法见 [docs/ENVIRONMENT.md「渲染器 × 环境变量」](../../docs/ENVIRONMENT.md)。
+
+- **macOS / Linux**：自带 `sh`。在 Linux 或 Windows 上用 NVIDIA 显卡时，设 `LEMO_ANGLE=vulkan`（Lemo 渲染器）和 `BEIMING_ANGLE=vulkan`（北冥渲染器），否则 Chrome 可能落到核显或软件渲染。
+- **Windows**：历史作品的 build.sh 是 POSIX shell 脚本，需要 `sh`。装 Git for Windows 后，`c-runtime` 会自己找到 `Git\bin\sh.exe`（装在别处时设 `BEIMING_SH`），也可以在 WSL 里跑。运行时的 `node_modules` 用目录联接，不需要管理员权限。新片和 SY 适配页不需要 `sh`。
+- **Windows 上的解释器路径**：`c-runtime build` 已把 build.sh 里的 `"$LIB/.venv/bin/python"` 换成运行时记下的解释器，脚本里直接写 `.venv/bin/python` 的地方由 sh 小脚本转发。但个别作品的 Python 代码会自己拼 `$LIB/.venv/bin/python` 起子进程，例如 `style-34-silent-film` 的 mix.py。Windows 上没有这个可执行文件，这类作品要在 WSL 里复刻。
 
 ## 出错了
 
