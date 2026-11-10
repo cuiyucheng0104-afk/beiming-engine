@@ -1,6 +1,6 @@
 # tools/remote · 控制机与工作站
 
-> 读者｜要让另一台机器（通常是 Windows RTX 工作站）按指定提交出片的人与 agent　状态｜生效；本机目录传输（`--transport local`）在 macOS 上端到端实测过，ssh 传输待在工作站上实测　依据｜加固计划 GAP-09；退出码与 `--json` 信封遵守仓库统一约定
+> 读者｜要让另一台机器（通常是 Windows RTX 工作站）按指定提交出片的人与 agent　状态｜生效；本机目录传输（`--transport local`）在 macOS 上端到端实测过（远端建环境、自检、按提交渲静帧并取回，取回的静帧与本地渲染逐字节相同），ssh 传输与 Windows 远端待在工作站上实测　依据｜加固计划 GAP-09；退出码与 `--json` 信封遵守仓库统一约定
 
 控制机上一条命令：把指定提交发到工作站 → 在那里建独立工作树、拿整机锁、按该提交的锁文件建环境 → 运行命令（日志实时转回）→ 取回产物并逐个核对 sha256 → 清理。工作站只需要 OpenSSH 服务、git 和 Node 22 以上，其余由 `npm run setup` 按该提交建好。
 
@@ -88,7 +88,7 @@ FFmpeg、uv、显卡驱动按 [RTX 工作站](../../docs/RTX工作站.md)第 1 �
 
 ```
 <root>/
-  repo.git/                缓存的裸仓库，按提交保存 refs/beiming/<sha>，第二次起只收增量
+  repo.git/                缓存的裸仓库，按提交保存 refs/beiming/<sha>。第一次收完整历史（2026-11 约 180 MiB），之后只收增量
   runs/<run-id>/           每次运行一个独立工作树，结束后删除（--keep 时保留）
   runs/<run-id>.json       远端的运行记录
   locks/slot-<n>.json      整机槽位锁（持有者进程已不在时自动接管）
