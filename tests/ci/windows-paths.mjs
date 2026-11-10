@@ -153,10 +153,13 @@ export async function main(argv = process.argv.slice(2)) {
     else {
       const env = { ...process.env, PYTHONIOENCODING: 'gbk' };
       delete env.PYTHONUTF8;
-      const r = await run(py.cmd, [...py.pre, path.join(ROOT, 'tools', 'casebook.py'), 'list'], { cwd: ROOT, env, stdout: 'capture', stderr: 'capture', timeoutMs: 120000 });
-      const err = (r.stderr || '').trim().split(/\r?\n/).pop() || '';
-      add('python-gbk', 'Python 输出到 GBK 管道', r.code === 0 ? 'pass' : 'fail',
-        r.code === 0 ? `casebook list 正常（${py.label}）` : `casebook list 退出码 ${r.code}：${err}（Python 入口要把标准输出改成 UTF-8，或经 tools/env/py.mjs 运行）`);
+      // 输出按 GBK 编码：按字节收回来再用 GBK 解码，报错信息才不是乱码
+      const r = spawnSync(py.cmd, [...py.pre, path.join(ROOT, 'tools', 'casebook.py'), 'list'], { cwd: ROOT, env, timeout: 120000, windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
+      const decode = b => { try { return new TextDecoder('gbk').decode(b || Buffer.alloc(0)); } catch { return Buffer.from(b || '').toString('utf8'); } };
+      const err = decode(r.stderr).trim().split(/\r?\n/).pop() || (r.error ? r.error.message : '');
+      add('python-gbk', 'Python 输出到 GBK 管道', r.status === 0 ? 'pass' : 'fail',
+        r.status === 0 ? `casebook list 正常（${py.label}）`
+          : `casebook list 退出码 ${r.status}：${err}（中文 Windows 上把输出重定向到文件时会遇到；Python 入口要把标准输出改成 UTF-8，或经 tools/env/py.mjs 运行）`);
     }
   } finally {
     cleanup();
