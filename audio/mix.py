@@ -35,7 +35,10 @@ from engine.audio.dsp import SR, N, smoothstep, undb, db, stereo, width, make_ir
 from engine.audio.meter import true_peak, integrated, momentary_max, band_energy, onset  # noqa: E402
 from engine.audio import mixing as M, ambience as A, sampler  # noqa: E402
 from engine.audio import scorecache as SC  # noqa: E402
+from engine.audio import _env  # noqa: E402
 import design as D  # noqa: E402
+
+_env.utf8_stdio()                    # Windows 的 GBK 控制台与管道里打印中文不出错（只影响输出编码，不影响样本）
 import score  # noqa: E402  只取配乐的时间表（CUE_TIMES / LEVEL_WIN）；--score 时才真的渲染
 
 T_START = time.time()

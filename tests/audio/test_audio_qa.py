@@ -176,5 +176,27 @@ class QaGate(unittest.TestCase):
         self.assertAlmostEqual(tp.value, M.true_peak(x), delta=1e-9)
 
 
+
+class FilmSpec(unittest.TestCase):
+    """声音脚本取同源时间：改镜头长度只改 film.json，事件与镜头的秒数跟着变"""
+
+    def test_event_times_and_shot_spans(self):
+        from engine.audio import filmspec as F
+        td = H.tmpdir('filmspec')
+        try:
+            H.film_json(td, frames=480, fps=24, cuts=(96, 228, 360),
+                        events=[{'id': 'kun-rise', 'frame': 130, 'audio': 'kun'}, {'id': 'late', 't': 12.5}, {'frame': 5}])
+            f = F.load(td)
+            self.assertEqual(F.event_times(f), {'kun-rise': 130 / 24, 'late': 12.5})
+            sp = F.shot_spans(f)
+            self.assertEqual(sp['S2'], (4.0, 9.5))
+            self.assertEqual(f['cuts'], [96, 228, 360])
+            H.film_json(td, frames=480, fps=24, cuts=(96, 216, 360))          # 第 3 镜少 12 帧、第 4 镜多 12 帧
+            sp2 = F.shot_spans(F.load(td))
+            self.assertEqual((sp2['S2'][1], sp2['S3'][0]), (9.0, 9.0))
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
+
+
 if __name__ == '__main__':
     unittest.main()

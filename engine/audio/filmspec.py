@@ -8,6 +8,9 @@
        audio: {mode, script, wav, cues, targetLUFS, truePeakDbTP, …}, cuecheck, timeline, voice, raw}
   profile(pid=None) → 交付档位（engine/production/profiles.json；没有这个文件时用决策 D07 的兜底表）
   resolve(film, rel) → 相对路径基准的绝对路径
+  event_times(film) → {事件 id: 秒}          film.json v2 的 events（frame / fps；只写了 t 的照用）
+  shot_spans(film) → {镜头 id: (起秒, 止秒)}   film.json v2 的 shots（[in, out) 帧 / fps）
+  声音脚本按这两张表摆声音（而不是在脚本里写死秒数），改镜头长度只改 film.json，声音跟着走（DF-M 的「同源时间」）。
 """
 import json
 import os
@@ -104,3 +107,21 @@ def load(target):
 
 def resolve(film, rel):
     return rel if os.path.isabs(rel) else os.path.normpath(os.path.join(film['dir'], *str(rel).split('/')))
+
+
+def event_times(film):
+    out = {}
+    for e in film.get('events') or []:
+        eid = e.get('id')
+        if eid is None:
+            continue
+        if isinstance(e.get('frame'), int) and not isinstance(e.get('frame'), bool):
+            out[eid] = e['frame'] / film['fps']
+        elif isinstance(e.get('t'), (int, float)) and not isinstance(e.get('t'), bool):
+            out[eid] = float(e['t'])
+    return out
+
+
+def shot_spans(film):
+    return {s['id']: (s['in'] / film['fps'], s['out'] / film['fps']) for s in film.get('shots') or []
+            if isinstance(s.get('in'), int) and isinstance(s.get('out'), int)}
