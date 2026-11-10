@@ -278,7 +278,8 @@ export async function checkGitEol(root) {
   for (const rec of r.stdout.split('\0')) {
     const tab = rec.indexOf('\t');
     if (tab < 0) continue;
-    const [i, w, attr] = rec.slice(0, tab).trim().split(/\s+/);
+    const [i, w, ...rest] = rec.slice(0, tab).trim().split(/\s+/);
+    const attr = rest.join(' ');        // 「attr/text eol=lf」是两段，要拼回来
     const p = rec.slice(tab + 1);
     if (w === 'w/crlf' && i !== 'i/crlf' && !/^cases\/(source|vendor|licenses)\//.test(p) && !/eol=crlf/.test(attr || '')) bad.push(p);
   }

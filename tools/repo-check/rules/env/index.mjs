@@ -64,7 +64,8 @@ async function ruleEol(ctx) {
   for (const rec of out.split('\0')) {
     const tab = rec.indexOf('\t');
     if (tab < 0) continue;
-    const [i, w, attr] = rec.slice(0, tab).trim().split(/\s+/);
+    const [i, w, ...rest] = rec.slice(0, tab).trim().split(/\s+/);
+    const attr = rest.join(' ');        // 「attr/text eol=lf」是两段，要拼回来
     const p = rec.slice(tab + 1);
     if (ARCHIVE.test(p) || /eol=crlf/.test(attr || '')) continue;
     if (i === 'i/crlf' || i === 'i/mixed') f.push({ level: 'error', file: p, message: `${p} 以 ${i.slice(2).toUpperCase()} 换行入库`, fix: `git add --renormalize "${p}"` });
