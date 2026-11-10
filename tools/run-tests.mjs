@@ -52,11 +52,12 @@ export class CliError extends Error {
   }
 }
 
-// 严格解析参数。spec = { 名字: { type: 'bool' | 'string' | 'list' | 'int', short?: 'h' } }；list 可重复、可逗号分隔。
+// 严格解析参数。spec = { 名字: { type: 'bool' | 'string' | 'list' | 'multi' | 'int', short?: 'h' } }；
+// list 可重复、可逗号分隔；multi 可重复、不按逗号拆（值本身可能带逗号，例如测试名）。
 // 未知参数、缺值、类型不对一律抛 CliError(2)。positional 为允许的位置参数个数上限（默认 0）。
 export function parseArgs(argv, spec, { positional = 0 } = {}) {
   const out = { _: [] };
-  for (const [k, s] of Object.entries(spec)) out[k] = s.type === 'list' ? [] : s.type === 'bool' ? false : null;
+  for (const [k, s] of Object.entries(spec)) out[k] = s.type === 'list' || s.type === 'multi' ? [] : s.type === 'bool' ? false : null;
   const shorts = Object.fromEntries(Object.entries(spec).filter(([, s]) => s.short).map(([k, s]) => [s.short, k]));
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -79,6 +80,9 @@ export function parseArgs(argv, spec, { positional = 0 } = {}) {
       const items = val.split(',').map(x => x.trim()).filter(Boolean);
       if (!items.length) throw usage(`--${name} 的值不能为空`);
       out[name].push(...items);
+    } else if (s.type === 'multi') {
+      if (!val.trim()) throw usage(`--${name} 的值不能为空`);
+      out[name].push(val);
     } else out[name] = val;
   }
   if (out._.length > positional) throw usage(`多余的参数：${out._.slice(positional).join(' ')}`);
@@ -124,6 +128,7 @@ export function dw(s) {
 }
 export const pad = (s, w) => String(s) + ' '.repeat(Math.max(0, w - dw(s)));
 export const fmtSec = ms => `${(ms / 1000).toFixed(1)}s`;
+export const escapeRegExp = t => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // ───────────────────────── GitHub Actions 注解与汇总 ─────────────────────────
 
@@ -421,10 +426,22 @@ import hashlib, importlib, importlib.util, json, os, sys, traceback, unittest
 files = json.loads(os.environ['BEIMING_TEST_FILES'])
 root = os.path.abspath(os.environ['BEIMING_TEST_ROOT'])
 grep = os.environ.get('BEIMING_TEST_GREP', '')
+skips = json.loads(os.environ.get('BEIMING_TEST_SKIP') or '[]')
 loader = unittest.TestLoader()
-if grep:
-    loader.testNamePatterns = ['*%s*' % grep]
 suite = unittest.TestSuite()
+def wanted(t):
+    i = t.id()
+    return (not grep or grep in i) and not any(k in i for k in skips)
+def prune(s):
+    out = unittest.TestSuite()
+    for t in s:
+        if isinstance(t, unittest.TestSuite):
+            sub = prune(t)
+            if sub.countTestCases():
+                out.addTest(sub)
+        elif wanted(t):
+            out.addTest(t)
+    return out
 broken = []
 used = set()
 if root not in sys.path and '' not in sys.path:
@@ -462,7 +479,7 @@ for f in files:
         else:
             mod = importlib.import_module(name)
         used.add(name)
-        suite.addTests(loader.loadTestsFromModule(mod))
+        suite.addTests(prune(loader.loadTestsFromModule(mod)) if (grep or skips) else loader.loadTestsFromModule(mod))
     except Exception as e:
         tb = traceback.format_exc()
         broken.append({'name': f, 'location': f, 'message': tb.strip().splitlines()[-1], 'missingModule': missing_module(e)})
@@ -489,7 +506,9 @@ sys.exit(0 if ok and r.testsRun else (5 if ok else 1))
 async function runNodeSuite(s, ctx) {
   const c = s.config;
   const args = ['--test', '--test-reporter=spec', '--test-reporter-destination=stderr', '--test-reporter=tap', '--test-reporter-destination=stdout'];
-  if (ctx.grep) args.push(`--test-name-pattern=${ctx.grep}`);
+  // --grep / --skip-grep 是「名字含这段文字」，node 的参数是正则：转义后再传
+  if (ctx.grep) args.push(`--test-name-pattern=${escapeRegExp(ctx.grep)}`);
+  for (const k of ctx.skipGrep) args.push(`--test-skip-pattern=${escapeRegExp(k)}`);
   if (c.concurrency) args.push(`--test-concurrency=${c.concurrency}`);
   if (c.testTimeoutSec) args.push(`--test-timeout=${c.testTimeoutSec * 1000}`);
   args.push(...s.files.map(f => f.split('/').join(path.sep)));
@@ -507,7 +526,7 @@ async function runNodeSuite(s, ctx) {
 
 async function runPythonSuite(s, ctx) {
   const py = ctx.python();
-  const env = pythonEnv({ BEIMING_TEST_FILES: JSON.stringify(s.files.map(f => path.join(ctx.root, f))), BEIMING_TEST_ROOT: ctx.root, BEIMING_TEST_GREP: ctx.grep || '' });
+  const env = pythonEnv({ BEIMING_TEST_FILES: JSON.stringify(s.files.map(f => path.join(ctx.root, f))), BEIMING_TEST_ROOT: ctx.root, BEIMING_TEST_GREP: ctx.grep || '', BEIMING_TEST_SKIP: JSON.stringify(ctx.skipGrep) });
   const r = await run(py.cmd, [...py.pre, '-c', PY_DRIVER], { cwd: ctx.root, env, timeoutMs: ctx.timeoutMs(s), stdout: 'capture', stderr: 'inherit' });
   const MARK = '@@BEIMING-UNITTEST@@';
   const mark = r.stdout.lastIndexOf(MARK);
@@ -563,7 +582,7 @@ export function missingDependency(failure, kind, deps) {
 const SPEC = {
   only: { type: 'list' }, skip: { type: 'list' }, require: { type: 'list' }, 'if-present': { type: 'bool' },
   list: { type: 'bool' }, json: { type: 'bool' }, report: { type: 'string' }, timeout: { type: 'int' }, bail: { type: 'bool' },
-  grep: { type: 'string' }, python: { type: 'string' }, root: { type: 'string' }, help: { type: 'bool', short: 'h' },
+  grep: { type: 'string' }, 'skip-grep': { type: 'multi' }, python: { type: 'string' }, root: { type: 'string' }, help: { type: 'bool', short: 'h' },
 };
 
 export const HELP = `北冥仓库 · 测试总入口（npm test）
@@ -576,7 +595,8 @@ export const HELP = `北冥仓库 · 测试总入口（npm test）
   --if-present         --only / --skip 里不存在的域只提示、不报错（CI 里给尚未合入的域用）
   --require <能力,…>   这些能力必须具备，缺了直接 exit 3：python、python:<模块>、browser、ffmpeg、sh、gpu、network
   --list               只列出发现的测试组和是否会跑，不执行
-  --grep <文字>        只跑名字含这段文字的测试（node --test-name-pattern / unittest -k）
+  --grep <文字>        只跑名字含这段文字的测试（Node 按测试名，Python 按 模块.类.方法）
+  --skip-grep <文字>   不跑名字含这段文字的测试（可重复；CI 用它隔离已登记的已知问题，见 tests/ci/README.md）
   --timeout <秒>       每一组的总时限（默认 600；tests/<域>/suite.json 的 timeoutSec 优先于默认值，本参数优先于两者）
   --bail               有一组失败就停，剩下的标为未运行
   --python <解释器>    指定 Python（默认经 tools/env/py.mjs，或依次找 BEIMING_PY、PYTHON、.venv、python3、python、py -3）
@@ -615,11 +635,18 @@ export async function main(argv = process.argv.slice(2)) {
     return finish(e.exitCode, {}, e);
   }
 
+  const [, minor] = process.versions.node.split('.').map(Number);
+  if (opts['skip-grep'].length && major === 22 && minor < 1) {
+    const e = new CliError(EXIT.ENV, 'NODE_TOO_OLD', `--skip-grep 要用 node --test-skip-pattern，需要 Node ≥ 22.1，当前是 v${process.versions.node}`, '升级到 Node 24（仓库 .nvmrc）或最新的 22.x');
+    process.stderr.write(`${e.message}\n${e.hint}\n`);
+    return finish(e.exitCode, {}, e);
+  }
+  for (const k of opts['skip-grep']) warnings.push(`--skip-grep：名字含「${k}」的测试本次不跑`);
   if (opts.root && !fs.existsSync(path.resolve(opts.root))) { const e = usage(`--root 指向的目录不存在：${opts.root}`); process.stderr.write(e.message + '\n'); return finish(e.exitCode, {}, e); }
   const root = opts.root ? fs.realpathSync(path.resolve(opts.root)) : ROOT;
   let pyMemo;
   const ctx = {
-    root, grep: opts.grep,
+    root, grep: opts.grep, skipGrep: opts['skip-grep'],
     python: () => (pyMemo === undefined ? (pyMemo = resolvePython(root, opts.python)) : pyMemo),
     timeoutMs: s => 1000 * (opts.timeout || s.config.timeoutSec || 600),
     deps: declaredDeps(root),
@@ -717,7 +744,7 @@ export async function main(argv = process.argv.slice(2)) {
     Object.assign(s, { exitCode: r.code, durationMs: r.durationMs, counts: r.counts, failures: r.failures });
     if (r.timedOut) { s.status = 'timeout'; s.skipReason = `超过 ${ctx.timeoutMs(s) / 1000} 秒没有结束，已结束整棵进程树（可能有没关闭的服务器、子进程或定时器）`; }
     else if (r.spawnError) { s.status = 'fail'; s.skipReason = `启动失败：${r.spawnError.message}`; }
-    else if (r.noTests && ctx.grep) s.status = 'pass';   // --grep 在这一组里没匹配到，不算失败
+    else if (r.noTests && (ctx.grep || ctx.skipGrep.length)) s.status = 'pass';   // 按名字筛选后这一组没有要跑的，不算失败
     else if (r.noTests) { s.status = 'fail'; s.skipReason = '有测试文件，但一个测试也没加载到（类要继承 unittest.TestCase，方法名以 test 开头）'; }
     else s.status = r.code === 0 ? 'pass' : 'fail';
     // 失败全是「声明了却没装」的依赖导致的：这是环境问题（exit 3），不是代码坏了

@@ -219,6 +219,24 @@ test('--grep 只跑名字匹配的测试', async t => {
   assert.equal(r.json.suites[0].counts.pass, 1);
 });
 
+test('--skip-grep 按名字隔离测试（Node 与 Python；名字里的括号、点按字面匹配），并写进 warnings', { skip: !python() && '没有 Python' }, async t => {
+  const node = `import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('能过的', () => {});\ntest('R35 很慢（4K.x2）', () => assert.fail('不该运行'));\ntest('R36 4Kax2', () => assert.fail('正则才会匹配到这一条'));\n`;
+  const py = 'import unittest\n\nclass Heavy(unittest.TestCase):\n    def test_fast(self):\n        pass\n\n    def test_slow_4k(self):\n        self.fail("不该运行")\n';
+  const { root, cleanup } = makeRepo({ 'tests/a/a.test.mjs': node, 'tests/b/test_b.py': py });
+  t.after(cleanup);
+  const r = await runNode(RUN_TESTS, ['--root', root, '--skip-grep', 'R35 很慢（4K.x2）', '--skip-grep', 'R36', '--skip-grep', 'test_slow_4k', '--json']);
+  assert.equal(r.code, 0, r.stderr);
+  const by = Object.fromEntries(r.json.suites.map(s => [s.id, s.counts]));
+  assert.equal(by['a:node'].pass, 1);
+  assert.equal(by['a:node'].fail, 0);
+  assert.equal(by['b:python'].tests, 1);
+  assert.equal(r.json.warnings.filter(w => /--skip-grep/.test(w)).length, 3);
+  // 「4K.x2」按字面只匹配 R35；当正则用会连 R36（4Kax2）也选上
+  const one = await runNode(RUN_TESTS, ['--root', root, '--only', 'a', '--grep', '4K.x2', '--json']);
+  assert.equal(one.code, 1);
+  assert.deepEqual(one.json.suites[0].failures.map(f => f.name), ['R35 很慢（4K.x2）']);
+});
+
 test('环境：--require 缺能力 exit 3，未知能力 exit 2；找不到 Python 而有 Python 测试 exit 3', async t => {
   const { root, cleanup } = makeRepo({ 'tests/alpha/a.test.mjs': PASS_NODE, 'tests/beta/test_b.py': FAIL_PY });
   t.after(cleanup);
