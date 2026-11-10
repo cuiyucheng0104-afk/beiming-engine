@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 北冥仓库 · 出片编排命令（npm run film -- <子命令>）：一条 Node 命令依据作品描述 film.json 出片，三条路线、三个平台同一套参数。
-//   node tools/film/cli.mjs <new|check|stills|animatic|build|render|qa|review|approve|status> … [--json] [--help]
+//   node tools/film/cli.mjs <new|check|stills|animatic|build|mix|assemble|render|qa|review|approve|status> … [--json] [--help]
 // 约定（加固计划附录 C）：
 //   退出码 C1：0 成功 · 1 运行失败 · 2 用法错误 · 3 缺环境 · 4 契约 / 验收 / 闸门不通过 · 5 资源忙 · 124 超时 · 130/143 中断
 //   --json C2：stdout 只输出一个对象 { ok, exitCode, command, error, outputs[], runJson, warnings[] }；过程日志一律走 stderr
@@ -20,6 +20,8 @@ const TOP_HELP = `北冥出片编排：npm run film -- <子命令> [参数]     
   stills <作品目录>                        风格关键帧 + 联系表                  → review approve look
   animatic <作品目录>                      低清动态预演 + 联系表 + 播放页        → review approve animatic
   build <作品目录> [--final]               整条出片链 → out/<run-id>/           → review approve final（之后才能称「已交付」）
+  mix <作品目录>                           只做声音（A / C 到声画拍点核对；B 原生素材准备）
+  assemble <作品目录>                      画面与声音复用缓存，只重做封装及之后
   render <作品目录> --frames a:b|--shot S  只渲指定帧段或镜头（帧级复用）；--final 先查闸门
   qa <作品目录> [--run <run-id>]           对已出的片子补跑机器 QA 门（P07），回写 run.json
   review approve|reject|waive|note|status  闸门审阅记录；approve … 是 review approve … 的简写
@@ -30,7 +32,7 @@ const TOP_HELP = `北冥出片编排：npm run film -- <子命令> [参数]     
 退出码：0 成功 · 1 运行失败 · 2 用法错误 · 3 缺环境 · 4 契约 / QA / 闸门不通过 · 5 作品被占用 · 124 超时 · 130/143 中断
 《北冥》10 秒样片：sh build.sh（转调 build films/beiming-10s --page . --out-root out/beiming，再按旧文件名放进 out/）。`;
 
-const COMMANDS = ['new', 'check', 'stills', 'animatic', 'build', 'render', 'qa', 'review', 'approve', 'status'];
+const COMMANDS = ['new', 'check', 'stills', 'animatic', 'build', 'mix', 'assemble', 'render', 'qa', 'review', 'approve', 'status'];
 
 // 子命令 → { 模块, 用法文字, 参数表, 执行 }；模块按需加载（--help 不加载渲染相关的库）
 const TABLE = {
@@ -38,6 +40,8 @@ const TABLE = {
   animatic: { mod: './commands/build.mjs', help: m => m.ANIMATIC_HELP, spec: m => m.animaticSpec, run: (m, o, p) => m.buildCommand(o, p, 'animatic') },
   stills: { mod: './commands/frames.mjs', help: m => m.STILLS_HELP, spec: m => m.stillsSpec, run: (m, o, p) => m.framesCommand('stills', o, p) },
   render: { mod: './commands/frames.mjs', help: m => m.RENDER_HELP, spec: m => m.renderSpec, run: (m, o, p) => m.framesCommand('render', o, p) },
+  mix: { mod: './commands/build.mjs', help: m => m.MIX_HELP, spec: m => m.mixSpec, run: (m, o, p) => m.mixCommand(o, p) },
+  assemble: { mod: './commands/build.mjs', help: m => m.ASSEMBLE_HELP, spec: m => m.assembleSpec, run: (m, o, p) => m.assembleCommand(o, p) },
   qa: { mod: './commands/qa.mjs', help: m => m.QA_HELP, spec: m => m.qaSpec, run: (m, o, p) => m.qaCommand(o, p) },
   review: { mod: './commands/review.mjs', help: m => m.REVIEW_HELP, spec: m => m.reviewSpec, run: (m, o, p) => m.reviewCommand(o, p) },
   status: { mod: './commands/status.mjs', help: m => m.STATUS_HELP, spec: m => m.statusSpec, run: (m, o, p) => m.statusCommand(o, p) },

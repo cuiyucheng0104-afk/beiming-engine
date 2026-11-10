@@ -76,6 +76,34 @@ export const ANIMATIC_HELP = `用法：npm run film -- animatic <作品目录> [
 选项：
 ${fmt(animaticSpec.options)}`;
 
+export const mixSpec = { positionals: [{ name: '作品目录', required: true }], options: { '--no-cache': buildSpec.options['--no-cache'], ...COMMON } };
+export const assembleSpec = { positionals: [{ name: '作品目录', required: true }], options: { '--no-qa': buildSpec.options['--no-qa'], ...COMMON } };
+
+export const MIX_HELP = `用法：npm run film -- mix <作品目录> [选项]
+只做声音：A / C 跑 probe → mix → cuecheck（页面事件表 → 声音脚本 → 声画拍点核对），B 跑原生素材准备（含声音）。
+改了声音脚本或事件时用它，比整片重出快；输入没变就复用缓存。等价 build --to cuecheck（B：--to prepare）。
+产物：A / C 在 <作品>/out/<run-id>/audio/（mix.wav、stems/、cuecheck.txt）；B 在作品的 media/。
+
+选项：
+${fmt(mixSpec.options)}`;
+
+export const ASSEMBLE_HELP = `用法：npm run film -- assemble <作品目录> [选项]
+画面与声音都已渲过（缓存里有）时，只重做封装及之后：A / C 从 mux 起（封装 → 网页版 → 海报 → 联系表 → 播放页 → QA），
+B 从 web 起（原生的画面与封装在同一步）。等价 build --from mux（B：--from web）；前面的步骤缺缓存时退出码 2 并说明是哪一步。
+
+选项：
+${fmt(assembleSpec.options)}`;
+
+// mix / assemble：按路线换成 build 的 --to / --from
+export async function mixCommand(opts, positionals) {
+  const film = loadFilm(positionals[0], { page: opts.page ? path.resolve(opts.page) : null });
+  return buildCommand({ ...opts, to: film.route === 'b' ? 'prepare' : 'cuecheck' }, positionals, 'build', 'mix');
+}
+export async function assembleCommand(opts, positionals) {
+  const film = loadFilm(positionals[0], { page: opts.page ? path.resolve(opts.page) : null });
+  return buildCommand({ ...opts, from: film.route === 'b' ? 'web' : 'mux' }, positionals, 'build', 'assemble');
+}
+
 export function fmt(options) {
   return Object.entries(options).map(([k, d]) => `  ${(k + (d.arg ? ' ' + d.arg : '')).padEnd(34)} ${d.help || ''}`).join('\n');
 }
@@ -159,15 +187,20 @@ async function checkOutput(ctx, main) {
 export function summarize(ctx, body) {
   const lines = [];
   const tech = body.technicalAcceptance;
-  const kindLabel = { build: ctx.final ? '终渲' : '工作版出片', animatic: '动态预演' }[ctx.kind] || ctx.kind;
-  lines.push(`${kindLabel}完成：${ctx.film.relDir} → ${rel(ctx.run.dir)}/`);
-  for (const o of ctx.outputs.filter(o => ['master', 'animatic', 'web', 'player', 'contact', 'poster', 'qa-report'].includes(o.kind))) lines.push(`  ${o.kind.padEnd(10)} ${o.path}`);
+  const kindLabel = { mix: '声音', assemble: '重新封装' }[ctx.command] || { build: ctx.final ? '终渲' : '工作版出片', animatic: '动态预演' }[ctx.kind] || ctx.kind;
+  lines.push(`${kindLabel}完成：${ctx.film.relDir} → ${rel(ctx.run.dir)}/${body.outcome === 'partial' ? `（按要求只跑到 ${ctx.steps.at(-1)?.id}）` : ''}`);
+  for (const o of ctx.outputs.filter(o => ['master', 'animatic', 'web', 'player', 'contact', 'poster', 'qa-report', ...(body.outcome === 'partial' ? ['audio', 'cuecheck', 'events'] : [])].includes(o.kind))) lines.push(`  ${o.kind.padEnd(10)} ${o.path}`);
   lines.push(`  run.json   ${rel(path.join(ctx.run.dir, 'run.json'))}`);
   if (body.output) lines.push(`  规格       ${body.output.width}×${body.output.height} · ${body.output.fps} fps · ${body.output.frames} 帧 · ${body.output.color.range}/${body.output.color.space}${body.output.audio ? ` · ${body.output.audio.codec} ${body.output.audio.rate} Hz ×${body.output.audio.channels}` : ''}`);
-  const dev = body.actualDevice ? `${body.actualDevice}（${body.actualGraphicsBackend || '?'}）` : '未记录';
-  lines.push(`  设备       ${dev}${body.softwareFallback ? ' ⚠ 软件渲染' : ''}`);
+  const dev = body.actualDevice ? `${body.actualDevice}（${body.actualGraphicsBackend || '?'}）` : null;
+  if (dev || body.outcome !== 'partial') lines.push(`  设备       ${dev || '未记录'}${body.softwareFallback ? ' ⚠ 软件渲染' : ''}`);
   const cached = ctx.steps.filter(s => s.status === 'cached').map(s => s.id);
   if (cached.length) lines.push(`  复用缓存   ${cached.join('、')}`);
+  if (body.outcome === 'partial') {
+    lines.push(`状态：只跑了一段（${ctx.steps.filter(s => s.status !== 'skipped').map(s => s.id).join(' → ')}），不是成片；整片出片：npm run film -- build ${ctx.film.relDir}`);
+    if (ctx.warnings.length) lines.push(`警告 ${ctx.warnings.length} 条（--json 看全部）：${ctx.warnings.slice(0, 3).map(w => w.message).join('；')}${ctx.warnings.length > 3 ? ' …' : ''}`);
+    return lines.join('\n');
+  }
   const techText = tech.status === 'passed' ? (ctx.kind === 'animatic' ? '预演规格核对通过 ✓' : '机器 QA 通过 ✓') : tech.status === 'failed' ? '不通过 ✗' : `未运行（${tech.summary || '没有机器 QA'}）`;
   lines.push(`状态：已输出 ✓ · 技术检查 ${techText} · 人工认可 未审${body.status === 'blocked' ? '（run.json 记为 blocked：技术验收没做，不能交付）' : ''}`);
   if (ctx.kind === 'animatic') lines.push(`下一步：把 animatic.mp4 与 contact.jpg 给用户看；用户认可后 npm run film -- review approve animatic ${ctx.film.relDir} --quote "<原话>" --source "<出处>" --reviewer "<审阅人>"`);

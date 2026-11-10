@@ -33,6 +33,8 @@ npm run film -- status films/my-film                  # 任何时候：闸门、
 | `stills <作品> [--frames … \| --times …]` | 风格关键帧：缺省每个镜头取中间一帧，单镜头取片长 1/6、1/2、5/6 | `stills/` `frames.json` `contact.jpg` |
 | `animatic <作品>` | 半分辨率预演：页面加 `previs=1`；临时声用作品混音，没有声音就按事件与切点生成提示音；B 用原生 `--quality draft` | `animatic.mp4` `contact.jpg` `player.html` |
 | `build <作品> [--final]` | 整条出片链（§4）；`--from` / `--to` 只跑一段；输入没变的步骤复用缓存 | `master.mp4` `web.mp4` `player.html` `contact.jpg` `poster.jpg` `qa/report.json` |
+| `mix <作品>` | 只做声音：A、C 跑到声画拍点核对（`build --to cuecheck`），B 跑原生素材准备（`--to prepare`） | `audio/mix.wav` `audio/stems/` `audio/cuecheck.txt` |
+| `assemble <作品>` | 画面与声音复用缓存，只重做封装及之后（A、C `build --from mux`，B `--from web`） | 同 build |
 | `render <作品> --frames a:b \| --shot S [--clip] [--final]` | 只渲指定帧段或镜头，逐帧缓存（同一命令第二次 0 帧重渲）；`--final` 先查闸门，不给帧段时等于 `build --final` | `frames/` `frames.json` `contact.jpg`（`--clip` 另有 `range.mp4`） |
 | `qa <作品> [--run <id>]` | 对已出的片子补跑机器 QA 门（P07），回写那次的 run.json | `qa/report.json` |
 | `review approve\|reject\|waive\|note\|status …` | 闸门审阅记录（§6）；`approve …` 是 `review approve …` 的简写 | `films/<名>/review/*.json`（随作品源码提交） |

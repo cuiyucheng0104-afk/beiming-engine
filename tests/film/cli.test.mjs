@@ -10,7 +10,7 @@ const works = [];
 const statusBefore = new Set(gitStatus() || []);
 after(() => { for (const w of works) w.cleanup(); });
 
-const SUBS = ['new', 'check', 'stills', 'animatic', 'build', 'render', 'qa', 'review', 'approve', 'status'];
+const SUBS = ['new', 'check', 'stills', 'animatic', 'build', 'mix', 'assemble', 'render', 'qa', 'review', 'approve', 'status'];
 
 test('--help：每个子命令都打印用法到 stdout、退出码 0、不建任何目录', () => {
   const films = snapshotDir(path.join(ROOT, 'films')), out = snapshotDir(path.join(ROOT, 'out'));
