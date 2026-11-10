@@ -1,0 +1,145 @@
+# 北冥仓库 · 逐路径许可（REUSE 规范 3.3）。说明见 docs/rights/licensing.md。
+# 规则：同一文件命中多条时，后写的条目优先，所以先写大范围、后写例外。
+# precedence = "closest"：文件头自己写了 SPDX 许可与版权行时以文件头为准（派生代码的来源头就这样生效）。
+# 权利人「北冥引擎 Beiming Engine」与根 LICENSE 一致；法律主体名称待用户补（docs/rights/register.md R12），补来后两处一起改。
+# 新增目录不用改本文件：默认按第一条走 MIT；新增的影片画面、底板、第三方素材必须在下面补例外（见 licensing.md「新增文件」）。
+# 自查：node tools/compliance/scan.mjs --only reuse,license-file（离线复核）；CI 上另跑官方 reuse lint。
+version = 1
+
+# ── 兜底：本项目自有的代码、文档、配置与作品工程（MIT）──
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 北冥引擎 Beiming Engine"
+SPDX-License-Identifier = "MIT"
+
+# ── 《北冥》与新作品的画面、底板、声音与展示图：保留所有权利 ──
+# 作品工程（films/<名>/）里的代码按 MIT；画面、底板与声音素材保留权利。渲染产物不入库（D10）。
+[[annotations]]
+path = ["assets/**", "media/**", "site/assets/**", "docs/raea/media/**", "audio/score_cache.npz",
+        "films/**/*.png", "films/**/*.jpg", "films/**/*.jpeg", "films/**/*.webp", "films/**/*.gif", "films/**/*.avif",
+        "films/**/*.exr", "films/**/*.hdr", "films/**/*.mp4", "films/**/*.mov", "films/**/*.webm",
+        "films/**/*.wav", "films/**/*.mp3", "films/**/*.flac", "films/**/*.m4a", "films/**/*.ogg",
+        "tests/golden/**/*.png", "tests/golden/**/*.jpg", "tests/golden/**/*.webp", "tests/golden/**/*.mp4"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 北冥引擎 Beiming Engine"
+SPDX-License-Identifier = "LicenseRef-AllRightsReserved"
+
+# 底板清单是自有的说明文字，不是画面
+[[annotations]]
+path = "assets/plates/plates.json"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 北冥引擎 Beiming Engine"
+SPDX-License-Identifier = "MIT"
+
+# 历史作品的海报与截图：画面里可能含客户与第三方素材，权利人见 docs/rights/register.md
+[[annotations]]
+path = ["cases/previews/**", "site/data/posters/**"]
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 北冥引擎 Beiming Engine", "各案例素材的原权利人（见 docs/rights/register.md）"]
+SPDX-License-Identifier = "LicenseRef-AllRightsReserved"
+
+# ── 字体子集：SIL OFL 1.1（版权行读自字体 name 表，见 fonts/LICENSE.md）──
+[[annotations]]
+path = "fonts/NotoSansSC-*.woff2"
+precedence = "closest"
+SPDX-FileCopyrightText = "2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = "fonts/Barlow-*.woff2"
+precedence = "closest"
+SPDX-FileCopyrightText = "2017 The Barlow Project Authors (https://github.com/jpt/barlow)"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = "fonts/MaShanZheng-*.woff2"
+precedence = "closest"
+SPDX-FileCopyrightText = "2018 The MaShanZheng Project Authors (https://github.com/googlefonts/mashanzheng)"
+SPDX-License-Identifier = "OFL-1.1"
+
+# B 路线例片把片名字体（马善政楷书「北冥」子集）内嵌为 data URL：代码 MIT，内嵌字体数据 OFL
+[[annotations]]
+path = "examples/raea/title-font.ts"
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 北冥引擎 Beiming Engine", "2018 The MaShanZheng Project Authors (https://github.com/googlefonts/mashanzheng)"]
+SPDX-License-Identifier = "MIT AND OFL-1.1"
+
+# ── 案例归档：历史工程源码与文本（代码 MIT / LemoLab MIT，其余保留原权利，见许可文本）──
+[[annotations]]
+path = "cases/source/**"
+precedence = "closest"
+SPDX-FileCopyrightText = ["2026 北冥引擎 Beiming Engine", "各工程原权利人（见 cases/NOTICES.md 与 docs/rights/register.md）"]
+SPDX-License-Identifier = "LicenseRef-Casebook-Archive"
+
+# 案例归档里收录的第三方许可文本
+[[annotations]]
+path = "cases/licenses/LemoLab-MIT.txt"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 LemoLab"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "cases/licenses/XIAOXIONG-MIT.txt"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 肖雄 XIAOXIONG"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "cases/licenses/three-MIT.txt"
+precedence = "closest"
+SPDX-FileCopyrightText = "2010-2024 three.js authors"
+SPDX-License-Identifier = "MIT"
+
+# ── 第三方风格库快照（只读，原样收录；以上游仓库的许可声明为准）──
+# sy-style-100@e41dee31：上游 LICENSE 为 MIT（肖雄 XIAOXIONG），未对媒体另作声明
+[[annotations]]
+path = "cases/vendor/sy-style-100/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 肖雄 XIAOXIONG"
+SPDX-License-Identifier = "MIT"
+
+# lemo-opuscar@bebbbe1a：上游 README「Licence」节——代码与文档 MIT；例片与静帧（styles/、展示页、Release）CC BY 4.0；
+# 例片里的第三方素材按各自 CREDITS（字体 OFL、Poly Haven CC0 等）
+[[annotations]]
+path = "cases/vendor/lemo-opuscar/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 LemoLab"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["cases/vendor/lemo-opuscar/styles/*/poster.jpg", "cases/vendor/lemo-opuscar/styles/*/demo/stills/**",
+        "cases/vendor/lemo-opuscar/styleboard/img/**", "cases/vendor/lemo-opuscar/docs/frames/**"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 LemoLab"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "cases/vendor/lemo-opuscar/core/assets/polyhaven/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "Poly Haven (https://polyhaven.com)"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "cases/vendor/lemo-opuscar/core/fonts/f0.woff2"
+precedence = "closest"
+SPDX-FileCopyrightText = "2018 The ZCOOL KuaiLe Project Authors (https://github.com/googlefonts/zcool-kuaile)"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = ["cases/vendor/lemo-opuscar/core/fonts/f1.woff2", "cases/vendor/lemo-opuscar/core/fonts/f2.woff2", "cases/vendor/lemo-opuscar/core/fonts/f3.woff2"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2016 The Fredoka Project Authors (https://github.com/hafontia/Fredoka-One)"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = ["cases/vendor/lemo-opuscar/core/fonts/f4.woff2", "cases/vendor/lemo-opuscar/core/fonts/f5.woff2"]
+precedence = "closest"
+SPDX-FileCopyrightText = 'Copyright (c) 2011 Juan Montoreano (juan@remolacha.biz), with Reserved Font Names "Lilita One"'
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = ["cases/vendor/lemo-opuscar/core/fonts/f6.woff2", "cases/vendor/lemo-opuscar/core/fonts/f7.woff2"]
+precedence = "closest"
+SPDX-FileCopyrightText = "(c) 2007 Igino Marini (www.iginomarini.com) With Reserved Font Name IM FELL English Italic / IM FELL English Roman"
+SPDX-License-Identifier = "OFL-1.1"

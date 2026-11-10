@@ -1,0 +1,18 @@
+保留所有权利（All Rights Reserved）
+
+适用范围：REUSE.toml 中标注为 LicenseRef-AllRightsReserved 的文件，包括《北冥》影片与样片画面、
+底板图与纸纹（assets/）、样片与参考帧（media/）、作品站的画面与界面图（site/assets/）、
+配乐渲染缓存（audio/score_cache.npz）、实验联系表（docs/raea/media/），以及历史作品的海报与截图
+（cases/previews/、site/data/posters/）。
+
+这些文件随本仓库公开，只供查看、展示与学习参考。本仓库的 MIT 许可不适用于它们。
+除法律另有规定外，未经权利人事先书面许可，不得复制、修改、改编、再分发、公开传播或用于商业用途。
+
+权利人：本项目自有作品的权利人见 docs/rights/register.md 的 R12（法律主体名称待补）；
+其中含有的第三方或客户素材（例如上海美术电影制片厂相关 IP、乐奇相关客户材料、参考图）的权利归各自权利人所有，
+权利人与授权状态见 docs/rights/register.md。部分画面含 AI 生成内容，标识办法见 docs/rights/aigc.md。
+
+All rights reserved. These files are published for viewing and reference only; the MIT license of this
+repository does not apply to them. No permission is granted to copy, modify, adapt, redistribute, communicate
+to the public or use them commercially without prior written permission of the rights holder(s) listed in
+docs/rights/register.md, except as permitted by law.
