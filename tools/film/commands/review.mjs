@@ -104,7 +104,7 @@ export async function reviewCommand(opts, positionals) {
   const film = loadFilm(filmArg);
   const outRoot = opts.outRoot ? path.resolve(opts.outRoot) : path.join(film.dir, 'out');
   const lib = await reviewLib();
-  const warnings = lib ? [] : [{ code: 'review-builtin', message: '闸门记录用编排器内置实现（engine/production/review.js 尚未提供 REVIEW_API_VERSION 1），格式见 tools/film/README.md' }];
+  const warnings = lib ? [] : [{ code: 'review-builtin', message: '闸门记录由编排器内置实现写入（engine/production/review.js 尚未提供 recordReview / recordWaivers），格式见 tools/film/README.md §6' }];
 
   if (action === 'status') {
     const st = gateStatus(film);

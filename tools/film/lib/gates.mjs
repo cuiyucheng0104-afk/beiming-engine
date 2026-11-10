@@ -9,8 +9,10 @@
 //   - 每道闸取时间最晚的一条有效记录（human 审阅或豁免）定状态：approved / waived / changes-requested / pending。
 //   - 终渲（build --final）要求 film.json 里 required 的 look 与 animatic 都是 approved 或 user 豁免，否则退出码 4。
 //   - 「已交付 / 用户已认可」只由 final 闸的 human approved 生成（run.json 的 status = accepted）。
-// P05 的闸门库（engine/production/review.js）导出 REVIEW_API_VERSION = 1 与 approve / waive / gateStatus 时转调它；
-// 在那之前用这里的内置实现，文件格式与加固计划 P05·M1 的描述一致（见 tools/film/README.md「闸门记录」）。
+// 写记录：P05 的闸门库（engine/production/review.js）导出 REVIEW_API_VERSION = 1 与通用的 recordReview(filmDir, rec)、
+// recordWaivers(filmDir, list) 时转调它（rec 的字段就是上面这些，approve / reject / note 共用一个入口，不按动作分函数，
+// 免得把「要修改」误记成「通过」）；否则用这里的内置实现。文件格式与加固计划 P05·M1 的描述一致（见 tools/film/README.md §6）。
+// 读记录、判闸门一律用这里的实现（只认合格记录），与写入方是谁无关。
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -30,7 +32,7 @@ export async function reviewLib() {
   if (fs.existsSync(f)) {
     try {
       const m = await import(pathToFileURL(f).href);
-      if (m.REVIEW_API_VERSION === 1 && ['approve', 'waive', 'gateStatus'].every(k => typeof m[k] === 'function')) p05 = m;
+      if (m.REVIEW_API_VERSION === 1 && ['recordReview', 'recordWaivers'].every(k => typeof m[k] === 'function')) p05 = m;
     } catch { /* 坏模块按未提供处理 */ }
   }
   return p05;
@@ -123,7 +125,7 @@ function uniqueFile(dir, base) {
 
 export async function writeReview(film, rec) {
   const lib = await reviewLib();
-  if (lib) return lib.approve(film.dir, rec.gate, rec);
+  if (lib) return lib.recordReview(film.dir, { schemaVersion: 1, ...rec });
   const dir = reviewDir(film);
   fs.mkdirSync(dir, { recursive: true });
   const f = uniqueFile(dir, `${rec.gate}-${stamp(new Date(rec.recordedAt))}`);
@@ -133,7 +135,7 @@ export async function writeReview(film, rec) {
 
 export async function writeWaivers(film, list) {
   const lib = await reviewLib();
-  if (lib) return lib.waive(film.dir, list.map(x => x.gate), list[0]);
+  if (lib) return lib.recordWaivers(film.dir, list);
   const dir = reviewDir(film);
   fs.mkdirSync(dir, { recursive: true });
   const f = path.join(dir, 'waivers.json');

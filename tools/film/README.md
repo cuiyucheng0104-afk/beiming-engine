@@ -146,7 +146,7 @@ films/<名>/out/
 |---|---|---|
 | P02 命令约定库 `tools/lib/cli.mjs` | 本目录 `lib/exit.mjs`、`lib/args.mjs`、`lib/output.mjs` 按附录 C1、C2 自带一份 | 改为从 `tools/lib/cli.mjs` 转出同名常量，行为不变 |
 | P04 渲染器 v2 | 读 `engine/render/video.mjs --help` 的用法文字探测能力：认 `--gpu`、`--profile` 时自动传；编排层兜底超时、看门狗、进程树清理、`.segs-*` 清扫 | `--frames/--shots/--resume` 合入后 `render` 改为整片按镜头局部重渲；`mux.mjs` 合入后去掉 sh 依赖、按档位归一响度；渲染器自己的 run.json 并入本 run.json 的 `steps` |
-| P05 作品描述与闸门库 | `check` 转调 `engine/production/film.js check`（缺时退出码 3 并说明）；档位优先读 `engine/production/profiles.json`；闸门库 `engine/production/review.js` 导出 `REVIEW_API_VERSION = 1` 与 `approve / waive / gateStatus` 时转调它，否则用本目录 `lib/gates.mjs`（文件格式见 §6，与 P05·M1 的描述一致）；run.json 自检用 `project.js` 的 `validateRenderResult` | 改用 `node engine/production/film.js validate-result` 同口径自检 |
+| P05 作品描述与闸门库 | `check` 转调 `engine/production/film.js check`（缺时退出码 3 并说明）；档位优先读 `engine/production/profiles.json`；闸门库 `engine/production/review.js` 导出 `REVIEW_API_VERSION = 1` 与通用写入口 `recordReview(filmDir, rec)`、`recordWaivers(filmDir, list)` 时由它写记录，否则用本目录 `lib/gates.mjs`（文件格式见 §6，与 P05·M1 的描述一致）；读记录、判闸门一律用 `lib/gates.mjs`（只认合格记录）；run.json 自检用 `project.js` 的 `validateRenderResult` | 改用 `node engine/production/film.js validate-result` 同口径自检 |
 | P07 机器 QA 门 | `node tools/qa/cli.mjs delivery <成片> --film <作品>/film.json [--profile <档位>] --json`；stdout 可以是附录 C8 的报告本身，也可以是 C2 信封（outputs 里 kind 含 qa / report 的一项指向报告）；退出码 0 通过、4 硬门不过、2 参数不匹配（按未运行处理并告警）、3 缺环境 | — |
 | P10 环境 | Python 用 `PYTHON` 或 `python3`；出片前自己预检依赖 | 改用 `tools/env/py.mjs` 选解释器 |
 | P11 / P12 / P14 / P15 | 声音脚本按旧约定或 `BEIMING_AUDIO_OUT`；模版的 film.json 能被 `parseFilm` 读懂（规范检查 `film.templates` 把关） | 模版接线（v2 film.json、`window.FPS`、`TEXTS`）由各路线包完成 |
