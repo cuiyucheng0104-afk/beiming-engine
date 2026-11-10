@@ -9,7 +9,9 @@
 //   loadFilm(dir, { page }) → film；parseFilm(raw, { dir }) 同样的整理，但不读文件（规范检查核对模版用）
 //     film = { dir, relDir, file, raw, schemaVersion, id, title, route, backend, fps, frameCount, dur, width, height,
 //              profileId, shots[{id,in,out}], events[{id,frame,shot}], audio{mode,path}, gates{look,animatic,final},
-//              cuecheck, posterFrame, native, pageDir, warnings[] }
+//              cuecheck, posterFrame, native, pageDir, pathBase, outRoot, mirror, warnings[] }
+//   镜像作品（mirror.paths = "repo"，如 films/beiming-10s 描述仓库根的《北冥》样片）：路径（entry、audio.script…）相对仓库根，
+//   页面目录是 entry 所在目录，运行目录默认在 mirror.outDir（《北冥》是 out/beiming）；普通作品都相对作品目录。
 //   ROUTE_INFO   路线 id → { slug, brand, renderer }；有 routes/routes.json（P02）时以它为准
 import fs from 'node:fs';
 import path from 'node:path';
@@ -67,7 +69,7 @@ export function loadFilm(dirArg, { page = null } = {}) {
     throw new FilmError(EXIT.USAGE, 'film-json-missing', `${rel(dir)} 下没有 film.json，不是作品目录`, '作品目录由 node tools/film/cli.mjs new 生成；《北冥》样片的作品描述在 films/beiming-10s/');
   }
   let raw;
-  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { throw bad(file, [`不是合法 JSON（${e.message}）`]); }
+  try { raw = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); } catch (e) { throw bad(file, [`不是合法 JSON（${e.message}）`]); }
   return parseFilm(raw, { dir, file, page });
 }
 
@@ -77,6 +79,8 @@ export function parseFilm(raw, { dir, file = path.join(dir, 'film.json'), page =
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw bad(file, ['顶层必须是对象']);
   const warnings = [];
   const problems = [];
+  const mirror = raw.mirror && typeof raw.mirror === 'object' && raw.mirror.paths === 'repo' ? raw.mirror : null;
+  const pathBase = mirror ? ROOT : dir;
   const v2 = raw.schemaVersion === 2 || (raw.output && typeof raw.output === 'object');
   if (raw.schemaVersion !== undefined && ![1, 2].includes(raw.schemaVersion)) problems.push(`schemaVersion 只能是 1 或 2，现在是 ${JSON.stringify(raw.schemaVersion)}`);
 
@@ -125,8 +129,8 @@ export function parseFilm(raw, { dir, file = path.join(dir, 'film.json'), page =
   else if (raw.audio && typeof raw.audio === 'object') {
     const mode = raw.audio.mode;
     if (mode === 'none') audio = { mode: 'none' };
-    else if (mode === 'wav' && typeof (raw.audio.wav ?? raw.audio.file ?? raw.audio.path) === 'string') audio = { mode: 'wav', path: path.resolve(dir, raw.audio.wav ?? raw.audio.file ?? raw.audio.path) };
-    else if (mode === 'script' && typeof raw.audio.script === 'string') audio = { mode: 'script', path: path.resolve(dir, raw.audio.script) };
+    else if (mode === 'wav' && typeof (raw.audio.wav ?? raw.audio.file ?? raw.audio.path) === 'string') audio = { mode: 'wav', path: path.resolve(pathBase, raw.audio.wav ?? raw.audio.file ?? raw.audio.path) };
+    else if (mode === 'script' && typeof raw.audio.script === 'string') audio = { mode: 'script', path: path.resolve(pathBase, raw.audio.script) };
     else throw bad(file, [`audio 要写成 { mode: "script", script } / { mode: "wav", wav } / { mode: "none" }，现在是 ${JSON.stringify(raw.audio)}`]);
   } else if (fs.existsSync(path.join(dir, 'sound.py'))) audio = { mode: 'script', path: path.join(dir, 'sound.py'), inferred: true };
   else if (fs.existsSync(path.join(dir, 'mix.py'))) audio = { mode: 'script', path: path.join(dir, 'mix.py'), inferred: true };
@@ -143,8 +147,11 @@ export function parseFilm(raw, { dir, file = path.join(dir, 'film.json'), page =
   else posterFrame = Math.round(frameCount * 0.6);
   posterFrame = Math.min(frameCount - 1, Math.max(0, posterFrame));
 
-  const pageRel = page ?? (typeof raw.page === 'string' && raw.page ? path.resolve(dir, raw.page) : dir);
+  // 页面目录：--page > film.json 的 page > entry 所在目录（相对路径基准）> 作品目录
+  const entryDir = typeof raw.entry === 'string' && raw.entry && /\.html?$/i.test(raw.entry) ? path.dirname(path.resolve(pathBase, raw.entry)) : null;
+  const pageRel = page ?? (typeof raw.page === 'string' && raw.page ? path.resolve(dir, raw.page) : entryDir ?? dir);
   const pageDir = path.resolve(pageRel);
+  const outRoot = mirror && typeof mirror.outDir === 'string' && mirror.outDir ? path.resolve(ROOT, mirror.outDir) : path.join(dir, 'out');
 
   return {
     dir, relDir: rel(dir), file, raw, schemaVersion: v2 ? 2 : 1,
@@ -152,7 +159,7 @@ export function parseFilm(raw, { dir, file = path.join(dir, 'film.json'), page =
     title, route: r.id, routeInfo: ROUTE_INFO[r.id], backend: typeof raw.backend === 'string' ? raw.backend : ROUTE_INFO[r.id].backend,
     fps, frameCount, dur, width, height, profileId, shots, events, audio, gates,
     cuecheck: raw.cuecheck && typeof raw.cuecheck === 'object' ? raw.cuecheck : null,
-    posterFrame, native: raw.native || null, pageDir, warnings,
+    posterFrame, native: raw.native || null, pageDir, pathBase, outRoot, mirror, warnings,
   };
 }
 

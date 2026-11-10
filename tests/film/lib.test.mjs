@@ -13,13 +13,16 @@ import { Legacy } from '../../tools/film/lib/legacy.mjs';
 import * as cache from '../../tools/film/lib/cache.mjs';
 import { resolveProfile, framesAt, BUILTIN } from '../../tools/film/lib/profiles.mjs';
 import { parseFilm, shotsAt, cutsOf, normalizeRoute } from '../../tools/film/lib/spec.mjs';
-import { gateStatus, assertFinalAllowed, passes, reviewProblems, writeReview, writeWaivers } from '../../tools/film/lib/gates.mjs';
+import { gateStatus, assertFinalAllowed, passes, reviewProblems, buildRecord, writeRecord, recordWaivers, sourceOf, timingSnapshot, filmView } from '../../tools/film/lib/gates.mjs';
 import { imageSize, encoderInfo, clickTrack, timecode } from '../../tools/film/lib/media.mjs';
 import { rerunCommand } from '../../tools/film/lib/session.mjs';
 import { ROOT } from './helpers.mjs';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'film-lib-'));
-const throwsCode = (fn, exitCode, code) => assert.throws(fn, e => e instanceof FilmError && e.exitCode === exitCode && (!code || e.code === code));
+// code 写短名（'film-busy'）或带前缀的全名（'busy.film-busy'）都行
+const codeOk = (e, code) => !code || e.code === code || e.short === code;
+const throwsCode = (fn, exitCode, code) => assert.throws(fn, e => e instanceof FilmError && e.exitCode === exitCode && codeOk(e, code));
+const rejectsCode = (p, exitCode, code) => assert.rejects(p, e => e instanceof FilmError && e.exitCode === exitCode && codeOk(e, code));
 
 test('参数：未知选项、开关带值、整数范围、枚举、列表都按用法错误（退出码 2）', () => {
   const spec = { positionals: [{ name: '作品目录', required: true }], options: {
@@ -75,6 +78,11 @@ test('运行目录：run-id 格式、同秒不重名、latest 指针、作品锁
     const a = createRunDir(root, d), b = createRunDir(root, d);
     assert.match(a.id, RUN_ID_RE);
     assert.notEqual(a.id, b.id);
+    // 同一秒重名时顺延一秒，不加后缀：作品描述包（state.js）与 QA 门都只认 YYYYMMDD-HHMMSS-<短提交>[-dirty]
+    const C4 = /^\d{8}-\d{6}-(?:[0-9a-f]{7,40}|nogit)(-dirty)?$/;
+    assert.match(a.id, C4);
+    assert.match(b.id, C4);
+    assert.ok(a.id.startsWith('20261110-010203-') && b.id.startsWith('20261110-010204-'), `${a.id} ${b.id}`);
     assert.ok(fs.existsSync(a.work) && fs.existsSync(a.logs));
     fs.writeFileSync(path.join(a.dir, 'run.json'), '{"kind":"build"}');
     setLatest(root, 'build', a.id);
@@ -166,28 +174,59 @@ test('作品描述：v1 自动换算帧数、v2 读 output、坏镜头表只告�
   assert.deepEqual(normalizeRoute('c-style'), { id: 'c', legacy: false });
 });
 
-test('闸门：没有记录拒绝终渲（4）；agent 记录与内部豁免不放行；用户豁免与用户认可放行', async () => {
+test('闸门（内置实现，与 engine/production/review.js 同格式）：没有记录拒绝终渲；agent 记录与内部豁免说明不放行；用户豁免与用户认可放行；改切点后预演认可失效', async () => {
   const dir = tmp();
+  const prev = process.env.FILM_REVIEW_LIB;
+  process.env.FILM_REVIEW_LIB = 'builtin';
   try {
-    const film = { dir, relDir: 'films/t', gates: { look: 'required', animatic: 'required', final: 'required' } };
-    throwsCode(() => assertFinalAllowed(film, gateStatus(film)), EXIT.CONTRACT, 'gate-blocked');
-    await writeReview(film, { gate: 'look', decision: 'approved', reviewerKind: 'ai', reviewer: 'agent', quote: '我觉得可以', source: '自评', recordedAt: '2026-11-10T00:00:00Z' });
-    assert.equal(gateStatus(film).look.state, 'pending', 'agent 自己写的 approved 不算');
-    await writeWaivers(film, [{ gate: 'look', reason: '赶时间', recordedAt: '2026-11-10T00:00:01Z' }, { gate: 'animatic', reason: '赶时间', recordedAt: '2026-11-10T00:00:01Z' }]);
-    const st = gateStatus(film);
-    assert.equal(st.look.state, 'waived');
-    assert.equal(st.look.waiverKind, 'internal');
-    assert.equal(passes(st.look), true);
-    assert.equal(passes(st.look, { final: true }), false, '内部豁免不放行终渲');
-    throwsCode(() => assertFinalAllowed(film, st), EXIT.CONTRACT);
-    await writeReview(film, { gate: 'look', decision: 'approved', reviewerKind: 'human', reviewer: '用户', quote: '这版可以', source: '会话第 3 条', recordedAt: '2026-11-10T00:00:02Z' });
-    await writeWaivers(film, [{ gate: 'animatic', reason: '用户说不看预演', quote: '动态预览不用给我看了', source: '会话第 5 条', recordedAt: '2026-11-10T00:00:03Z' }]);
-    const ok = assertFinalAllowed(film, gateStatus(film));
+    const raw = { schemaVersion: 2, output: { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 96 }, shots: [{ id: 'S1', in: 0, out: 48 }, { id: 'S2', in: 48, out: 96 }], events: [] };
+    const film = { dir, relDir: 'films/t', id: 't', raw, fps: 24, frameCount: 96, gates: { look: 'required', animatic: 'required', final: 'required' } };
+    fs.writeFileSync(path.join(dir, 'seen.jpg'), 'jpg');
+    throwsCode(() => assertFinalAllowed(film, null ?? { look: { required: true, state: 'missing', invalid: [], comments: 0 }, animatic: { required: true, state: 'missing', invalid: [], comments: 0 } }), EXIT.CONTRACT, 'gate-blocked');
+    await assert.rejects(async () => assertFinalAllowed(film, await gateStatus(film)), e => e.short === 'gate-blocked');
+    // agent 自己写的 approve：校验不过，不写盘
+    const fake = await buildRecord(film, { gate: 'look', decision: 'approve', reviewer: { kind: 'ai', name: 'agent' }, quote: '我觉得可以', source: sourceOf('自评'), reviewed: [path.join(dir, 'seen.jpg')] });
+    await rejectsCode(writeRecord(film, fake), EXIT.CONTRACT, 'review-invalid');
+    // 占位符原话无效
+    const ph = await buildRecord(film, { gate: 'look', decision: 'approve', reviewer: { kind: 'human', name: '用户' }, quote: '<用户原话>', source: sourceOf('会话'), reviewed: [path.join(dir, 'seen.jpg')] });
+    await rejectsCode(writeRecord(film, ph), EXIT.CONTRACT, 'review-invalid');
+    // 没有原话的豁免只记 comment，不放行
+    const internal = await recordWaivers(film, ['look', 'animatic'], { reason: '自检' });
+    assert.equal(internal.kind, 'internal');
+    let st = await gateStatus(film);
+    assert.equal(st.look.state, 'missing');
+    assert.equal(st.look.comments, 1);
+    assert.equal(passes(st.look), false);
+    await assert.rejects(async () => assertFinalAllowed(film, st), e => /内部豁免说明/.test(e.message));
+    // 用户认可 look、用户豁免 animatic → 放行
+    const look = await buildRecord(film, { gate: 'look', decision: 'approve', reviewer: { kind: 'human', name: '用户' }, quote: '这版可以', source: sourceOf('会话第 3 条'), reviewed: [path.join(dir, 'seen.jpg')] }, { now: new Date('2026-11-10T10:00:00Z') });
+    assert.deepEqual(reviewProblems(look, { filmId: 't' }), []);
+    assert.equal(look.reviewed[0].path, 'seen.jpg');
+    await writeRecord(film, look);
+    await recordWaivers(film, ['animatic'], { reason: '用户说不看预演', quote: '动态预览不用给我看了', source: '会话第 5 条' });
+    st = await gateStatus(film);
+    const ok = assertFinalAllowed(film, st);
     assert.deepEqual(ok.map(x => x.state), ['approved', 'waived']);
-    await writeReview(film, { gate: 'look', decision: 'changes-requested', reviewerKind: 'human', reviewer: '用户', quote: '雾再淡一点', source: '会话第 7 条', recordedAt: '2026-11-10T00:00:04Z' });
-    throwsCode(() => assertFinalAllowed(film, gateStatus(film)), EXIT.CONTRACT, 'gate-blocked');
-    assert.deepEqual(reviewProblems({ decision: 'approved', reviewerKind: 'human', reviewer: 'u', quote: 'x', source: 's' }), ['缺用户原话']);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    // 预演认可冻结镜头表：改切点后失效
+    const anim = await buildRecord(film, { gate: 'animatic', decision: 'approve', reviewer: { kind: 'human', name: '用户' }, quote: '节奏可以', source: sourceOf('会话第 6 条'), reviewed: [path.join(dir, 'seen.jpg')] }, { now: new Date(Date.now() + 1000) });
+    assert.equal(anim.timing.timingSha256, timingSnapshot(filmView(film)).timingSha256);
+    await writeRecord(film, anim);
+    assert.equal((await gateStatus(film)).animatic.state, 'approved');
+    const moved = { ...film, raw: { ...raw, shots: [{ id: 'S1', in: 0, out: 40 }, { id: 'S2', in: 40, out: 96 }] } };
+    assert.equal((await gateStatus(moved)).animatic.state, 'stale');
+    // 用户要求修改 → 拒绝终渲
+    const rej = await buildRecord(film, { gate: 'look', decision: 'reject', reviewer: { kind: 'human', name: '用户' }, quote: '雾再淡一点', source: sourceOf('会话第 7 条') }, { now: new Date(Date.now() + 2000) });
+    await writeRecord(film, rej);
+    await assert.rejects(async () => assertFinalAllowed(film, await gateStatus(film)), e => e.short === 'gate-blocked' && /用户要求修改/.test(e.message));
+    // final 不能豁免；文件名按 <闸>-<日期>[-n].json
+    assert.ok(reviewProblems({ ...look, gate: 'final', decision: 'waive' }).some(p => /final 不能豁免/.test(p)));
+    assert.ok(fs.readdirSync(path.join(dir, 'review')).every(n => /^(look|animatic)-\d{4}-\d{2}-\d{2}(-\d+)?\.json$/.test(n)));
+    throwsCode(() => sourceOf('会话', { kind: 'telepathy' }), EXIT.USAGE);
+    throwsCode(() => sourceOf('会话', { at: '昨天' }), EXIT.USAGE);
+  } finally {
+    if (prev === undefined) delete process.env.FILM_REVIEW_LIB; else process.env.FILM_REVIEW_LIB = prev;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('媒体小工具：PNG / JPEG 尺寸、时间码、提示音 WAV、复现命令的引号', () => {

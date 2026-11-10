@@ -6,14 +6,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, FilmError, usage } from '../lib/exit.mjs';
-import { rel } from '../lib/repo.mjs';
+import { rel, sha256File } from '../lib/repo.mjs';
 import { loadFilm } from '../lib/spec.mjs';
 import { openSession, closeSession, addOutput, parseGpu } from '../lib/session.mjs';
 import { runSteps } from '../lib/pipeline.mjs';
 import { deliverSteps } from '../lib/deliver.mjs';
 import { nativeSteps } from '../lib/native-steps.mjs';
 import { pageSteps } from '../../../engine/render/build.mjs';
-import { gateStatus, assertFinalAllowed, writeWaivers, GATES } from '../lib/gates.mjs';
+import { gateStatus, assertFinalAllowed, recordWaivers, GATES, SOURCE_KINDS } from '../lib/gates.mjs';
 import { envelope } from '../lib/output.mjs';
 
 const COMMON = {
@@ -38,6 +38,9 @@ export const buildSpec = {
     '--reason': { type: 'string', arg: '<理由>', help: '豁免理由' },
     '--quote': { type: 'string', arg: '<用户原话>', help: '豁免依据的用户原话（逐字）' },
     '--source': { type: 'string', arg: '<出处>', help: '原话出处（会话、日期、消息位置）' },
+    '--source-kind': { type: 'enum', values: ['session', 'chat', 'im', 'email', 'meeting', 'document', 'other'], arg: '<种类>', help: '出处种类（默认 session）' },
+    '--said-at': { type: 'string', arg: '<ISO 时间>', help: '用户说这句话的时间（默认记录时刻）' },
+    '--reviewer': { type: 'string', arg: '<审阅人>', help: '豁免由谁说的（默认「用户」）' },
     '--from': { type: 'string', arg: '<步骤>', help: '从这一步起强制重跑（前面的步骤复用缓存）' },
     '--to': { type: 'string', arg: '<步骤>', help: '跑到这一步为止（不更新 latest 指针）' },
     '--no-cache': { type: 'bool', help: '不复用任何步骤缓存' },
@@ -127,33 +130,36 @@ export async function runBuild(kind, opts, positionals, command = kind) {
   if (opts.noCache && opts.from) throw usage('--no-cache 与 --from 不能同时用：--from 要复用前面步骤的缓存');
   if (opts.waive && !opts.reason) throw usage('--waive 要配 --reason <理由>', '豁免必须写理由；用户的原话用 --quote，出处用 --source');
   if ((opts.quote && !opts.source) || (!opts.quote && opts.source)) throw usage('--quote 与 --source 要一起给：原话和它的出处缺一不可');
-  if ((opts.quote || opts.reason) && !opts.waive) throw usage('--reason / --quote / --source 只在 --waive 时使用', '审阅通过用：npm run film -- review approve <闸> <作品目录> …');
+  if ((opts.quote || opts.reason || opts.sourceKind || opts.saidAt || opts.reviewer) && !opts.waive) throw usage('--reason / --quote / --source / --source-kind / --said-at / --reviewer 只在 --waive 时使用', '审阅认可用：npm run film -- review approve <闸> <作品目录> …');
 
   // 闸门在开运行目录之前判：拒绝终渲时不留任何产物
-  let gateBasis = null;
+  let gateBasis = null, waived = null;
   if (opts.waive || opts.final) {
     const film = loadFilm(positionals[0], { page: opts.page ? path.resolve(opts.page) : null });
     if (opts.waive) {
-      const at = new Date().toISOString();
-      const list = opts.waive.map(g => ({ gate: g, reason: opts.reason, quote: opts.quote || null, source: opts.source || null, kind: opts.quote ? 'user' : 'internal', recordedAt: at, recordedBy: 'tools/film/cli.mjs build --waive' }));
-      const file = await writeWaivers(film, list);
-      process.stderr.write(`已记豁免 ${opts.waive.join('、')}（${opts.quote ? '带用户原话' : '内部，没有用户原话：不放行 --final'}）→ ${file}\n`);
+      const r = await recordWaivers(film, opts.waive, { reason: opts.reason, quote: opts.quote, source: opts.source, sourceKind: opts.sourceKind, saidAt: opts.saidAt, reviewer: opts.reviewer });
+      process.stderr.write(`已记${r.kind === 'user' ? '用户豁免' : '内部豁免说明（没有用户原话，不放行 --final）'} ${opts.waive.join('、')} → ${r.files.join('、')}\n`);
+      waived = r;
     }
     if (opts.final) {
-      const status = gateStatus(film);
-      gateBasis = { checked: true, basis: assertFinalAllowed(film, status) };
+      const status = await gateStatus(film);
+      gateBasis = { checked: true, by: status.by, basis: assertFinalAllowed(film, status) };
     }
   }
 
   const ctx = await openSession({ command, kind, filmArg: positionals[0], opts: { workers: 4, gpu: 'required', ...opts } });
   ctx.gateBasis = gateBasis;
+  if (waived) {
+    ctx.waived = { gates: opts.waive, kind: waived.kind, records: waived.files };
+    if (waived.kind === 'internal') ctx.warn('waiver-internal', `--waive ${opts.waive.join(',')} 没有 --quote / --source：只记了内部豁免说明，不放行终渲（--final）`);
+  }
   let error = null, complete = false, output = null, frameHashes = null;
   try {
     const steps = stepsFor(ctx);
     ({ complete } = await runSteps(ctx, steps, { from: opts.from || null, to: opts.to || null, noCache: !!opts.noCache }));
     // 汇总产物
     const main = kind === 'animatic' ? ctx.art.animatic : ctx.art.master;
-    const kinds = { master: 'master', animatic: 'animatic', web: 'web', player: 'player', contact: 'contact', poster: 'poster', qaReport: 'qa-report', mix: 'audio', events: 'events', timeline: 'timeline', technical: 'technical', manifest: 'native-manifest', cuecheckLog: 'cuecheck' };
+    const kinds = { master: 'master', animatic: 'animatic', web: 'web', player: 'player', contact: 'contact', poster: 'poster', qaReport: 'qa-report', qaMarkdown: 'qa-markdown', qaContact: 'qa-contact-sheet', mix: 'audio', events: 'events', timeline: 'timeline', technical: 'technical', manifest: 'native-manifest', cuecheckLog: 'cuecheck' };
     for (const [k, kd] of Object.entries(kinds)) addOutput(ctx, ctx.art[k], kd);
     if (ctx.film.route === 'b' && !ctx.nativeDevice && ctx.meta.native?.device) ctx.nativeDevice = ctx.meta.native.device;
     if (!ctx.nativeDevice && !ctx.gpu && ctx.meta.video?.gpu) ctx.gpu = ctx.meta.video.gpu;
@@ -169,8 +175,17 @@ export async function runBuild(kind, opts, positionals, command = kind) {
     }
   } catch (e) { error = e; }
   const body = await closeSession(ctx, { error, complete, output, frameHashes });
-  if (error) { error.runJson = rel(path.join(ctx.run.dir, 'run.json')); error.outputs = ctx.outputs; throw error; }
+  if (error) { error.runJson = rel(path.join(ctx.run.dir, 'run.json')); error.outputs = withRunJson(ctx); error.warnings = ctx.warnings; throw error; }
   return { ctx, body };
+}
+
+// 信封的 outputs：本次的产物（成片、网页版、播放页、联系表、QA 报告……）再加 run.json 本身，路径相对仓库根、带 sha256；
+// 远程出片（tools/remote）按它取回并核对哈希
+export function withRunJson(ctx) {
+  const f = path.join(ctx.run.dir, 'run.json');
+  const list = ctx.outputs.filter(o => o.kind !== 'run-json');
+  if (fs.existsSync(f)) list.push({ path: rel(f), sha256: sha256File(f), kind: 'run-json' });
+  return list;
 }
 
 // 主产物与作品描述逐项核对（完整解码计帧），结果写进 checks/output.json；不符即退出码 4
@@ -222,7 +237,7 @@ export function summarize(ctx, body) {
 export async function buildCommand(opts, positionals, kind = 'build', command = kind) {
   const { ctx, body } = await runBuild(kind, opts, positionals, command);
   return {
-    env: envelope({ command: `film ${command}`, exitCode: 0, outputs: ctx.outputs, runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), status: body.status, technicalAcceptance: body.technicalAcceptance.status, steps: ctx.steps.map(s => ({ id: s.id, status: s.status, seconds: s.seconds })) } }),
+    env: envelope({ command: `film ${command}`, exitCode: 0, outputs: withRunJson(ctx), runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), status: body.status, technicalAcceptance: body.technicalAcceptance.status, steps: ctx.steps.map(s => ({ id: s.id, status: s.status, seconds: s.seconds })) } }),
     human: summarize(ctx, body),
   };
 }

@@ -123,7 +123,7 @@ export async function openSession({ command, kind, filmArg, opts }) {
   let query = opts.query || '';
   if (kind === 'animatic') query = query ? `${query}&previs=1` : 'previs=1';
   const audio = opts.audio ? audioOverride(film, opts.audio) : film.audio;
-  const outRoot = opts.outRoot ? path.resolve(opts.outRoot) : path.join(film.dir, 'out');
+  const outRoot = opts.outRoot ? path.resolve(opts.outRoot) : film.outRoot;
 
   const repoBefore = repoSnapshot();
   const lock = acquireLock(outRoot, { command, kind }, warnings);
@@ -291,6 +291,7 @@ export function runJsonBody(ctx, extra = {}) {
     technicalAcceptance: technicalOf(ctx),
     creativeAcceptance: { status: 'not-reviewed', events: [], styleComparison: [], issues: [], reviews: [] },
     gates: ctx.gateBasis || null,
+    waivers: ctx.waived || null,
     specCheck: ctx.specCheck || null,
     aigc: ctx.aigc || (ctx.film.raw?.aigc ? { contains: ctx.film.raw.aigc.contains === true, comment: null, note: ctx.film.raw.aigc.note ?? null } : null),
     warnings: ctx.warnings, notes: ctx.notes, error: null,

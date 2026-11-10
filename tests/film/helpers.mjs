@@ -1,5 +1,5 @@
 // tests/film 共用的小工具：在仓库根跑出片命令、建临时作品（放仓库外，films/ 里只留链接）、比对目录前后。
-//   runCli(args, { env, input }) → { code, stdout, stderr, json }   json = stdout 解析出的单个对象（--json 时）
+//   runCli(args, { env, input }) → { code, stdout, stderr, json }   json = stdout 整体解析出的单个对象（--json 时；解析不了为 null）
 //   makeWork(route, { title }) → { name, rel, dir, real, cleanup() }
 //     A / C：作品本体放在 FILM_TEST_ROOT（默认系统临时目录下的 beiming-film-tests-<pid>），films/<名> 是指向它的链接
 //            （Windows 用目录联接，不需要管理员权限）；B：原生运行时按真实路径打包，作品必须真实位于 films/ 下，结束时删除
@@ -20,7 +20,7 @@ export function runCli(args, { env = {}, timeout = 600000 } = {}) {
   const r = spawnSync(process.execPath, [CLI, ...args], { cwd: ROOT, encoding: 'utf8', timeout, env: { ...process.env, ...env }, maxBuffer: 64 << 20 });
   let json = null;
   const lines = (r.stdout || '').trim().split('\n').filter(Boolean);
-  if (lines.length === 1) { try { json = JSON.parse(lines[0]); } catch { /* 不是 JSON */ } }
+  try { json = JSON.parse(r.stdout); } catch { /* 不是（单个）JSON 对象 */ }
   return { code: r.status, signal: r.signal, stdout: r.stdout || '', stderr: r.stderr || '', json, lines };
 }
 

@@ -37,7 +37,7 @@ export const QA_DOC = {
 
 export async function qaCommand(opts, positionals) {
   const film = loadFilm(positionals[0]);
-  const outRoot = opts.outRoot ? path.resolve(opts.outRoot) : path.join(film.dir, 'out');
+  const outRoot = opts.outRoot ? path.resolve(opts.outRoot) : film.outRoot;
   const id = opts.run || readLatest(outRoot, 'build');
   if (!id) throw new FilmError(EXIT.CONTRACT, 'nothing-to-qa', `${film.relDir} 还没有完整出过片（out/latest 为空）`, `先出片：npm run film -- build ${film.relDir}`);
   const dir = path.join(outRoot, id);

@@ -140,7 +140,7 @@ export const player = {
 export const qa = {
   id: 'qa', title: '机器 QA 门（tools/qa/cli.mjs，P07）',
   when: ctx => (ctx.opts.noQa ? '加了 --no-qa' : true),
-  outputs: () => ({ qaReport: 'qa/report.json' }),
+  outputs: () => ({ qaReport: 'qa/report.json', qaMarkdown: 'qa/report.md', qaContact: 'qa/contact.jpg' }),
   async run(ctx) {
     // 页面型作品把页面目录交给 QA（文字、底板两组要打开页面逐帧读；《北冥》样片的页面在仓库根）；B 没有页面，QA 自己跳过这两组
     const pageDir = ctx.film.route !== 'b' ? ctx.film.pageDir : null;

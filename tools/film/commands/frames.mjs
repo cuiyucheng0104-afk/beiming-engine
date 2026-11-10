@@ -19,6 +19,7 @@ import { imageSize } from '../lib/media.mjs';
 import { nativeStills, nativeKey, raeaInfo, prepare as nativePrepare } from '../lib/native-steps.mjs';
 import { probe as pageProbe, pageTrees } from '../../../engine/render/build.mjs';
 import { envelope } from '../lib/output.mjs';
+import { withRunJson } from './build.mjs';
 
 const STILL = path.join(ROOT, 'engine/render/still.mjs');
 const frameSizes = async files => files.map(file => ({ file, ...imageSize(file) }));
@@ -123,7 +124,8 @@ export async function runFrames(kind, opts, positionals) {
   if (opts.final) {
     if (opts.size) throw usage('--final 只按交付档位出帧，不能再用 --size 改画幅', '要别的画幅就换档位：--profile <档位>');
     const film = loadFilm(positionals[0], { page: opts.page ? path.resolve(opts.page) : null });
-    gateBasis = { checked: true, basis: assertFinalAllowed(film, gateStatus(film)) };
+    const status = await gateStatus(film);
+    gateBasis = { checked: true, by: status.by, basis: assertFinalAllowed(film, status) };
   }
   if (kind === 'render' && !opts.frames && !opts.shot) throw usage('render 要给 --frames <帧段> 或 --shot <镜头 id>', '例：npm run film -- render films/my-film --frames 72:120；整片终渲用 npm run film -- build <作品目录> --final');
   const ctx = await openSession({ command: kind, kind, filmArg: positionals[0], opts: { gpu: 'required', ...opts } });
@@ -210,7 +212,7 @@ export async function runFrames(kind, opts, positionals) {
     ctx.log(`${kind === 'stills' ? '关键帧' : '帧段'}：${frames.length} 帧，新渲 ${rendered}，复用 ${frames.length - rendered}`);
   } catch (e) { error = e; }
   const body = await closeSession(ctx, { error, complete: !error, output, extra: { framesRendered: extra.rendered ?? null, framesReused: extra.reused ?? null } });
-  if (error) { error.runJson = rel(path.join(ctx.run.dir, 'run.json')); error.outputs = ctx.outputs; throw error; }
+  if (error) { error.runJson = rel(path.join(ctx.run.dir, 'run.json')); error.outputs = withRunJson(ctx); error.warnings = ctx.warnings; throw error; }
   return { ctx, body, extra };
 }
 
@@ -225,7 +227,7 @@ export async function framesCommand(kind, opts, positionals) {
     kind === 'stills' ? `下一步：把联系表给用户看；用户认可后 npm run film -- review approve look ${ctx.film.relDir} --quote "<原话>" --source "<出处>" --reviewer "<审阅人>"` : null,
   ].filter(Boolean).join('\n');
   return {
-    env: envelope({ command: `film ${kind}`, exitCode: 0, outputs: ctx.outputs, runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), frames: extra.frames, rendered: extra.rendered, reused: extra.reused } }),
+    env: envelope({ command: `film ${kind}`, exitCode: 0, outputs: withRunJson(ctx), runJson: rel(path.join(ctx.run.dir, 'run.json')), warnings: ctx.warnings, data: { runId: ctx.run.id, runDir: rel(ctx.run.dir), frames: extra.frames, rendered: extra.rendered, reused: extra.reused } }),
     human,
   };
 }
