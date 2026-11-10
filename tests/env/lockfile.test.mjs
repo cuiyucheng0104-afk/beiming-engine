@@ -87,11 +87,18 @@ test('evalMarker：比较、逻辑、括号、in / not in、版本按数值比�
   assert.throws(() => evalMarker('sys_platform "darwin"', mac));
 });
 
-test('pinsFor：PyPy 上跳过只给 CPython 的包；normalizeName 按 PEP 503', () => {
-  const lock = parseLock("cffi==2.1.1 --hash=sha256:" + 'a'.repeat(64) + "\npycparser==3.12 ; implementation_name != 'PyPy' --hash=sha256:" + 'b'.repeat(64));
+test('pinsFor：按 PEP 508 区分大小写求值；normalizeName 按 PEP 503', () => {
+  // cffi 2.x 的元数据写的是 implementation_name != 'PyPy'；implementation_name 是小写的 sys.implementation.name，
+  // 所以这个标记在 PyPy 上也成立（pycparser 照装）。真正排除 PyPy 要写小写 'pypy' 或用 platform_python_implementation。
+  const lock = parseLock([
+    'cffi==2.1.1 --hash=sha256:' + 'a'.repeat(64),
+    "pycparser==3.12 ; implementation_name != 'PyPy' --hash=sha256:" + 'b'.repeat(64),
+    "onlycpython==1.0 ; implementation_name != 'pypy' --hash=sha256:" + 'c'.repeat(64),
+    "alsocpython==1.0 ; platform_python_implementation == 'CPython' --hash=sha256:" + 'd'.repeat(64),
+  ].join('\n'));
   const pypy = { ...PROBES['linux-x64'], implementation: 'pypy' };
-  assert.deepEqual(pinsFor(lock, PROBES['linux-x64']).map(p => p.name), ['cffi', 'pycparser']);
-  assert.deepEqual(pinsFor(lock, pypy).map(p => p.name), ['cffi']);
+  assert.deepEqual(pinsFor(lock, PROBES['linux-x64']).map(p => p.name), ['cffi', 'pycparser', 'onlycpython', 'alsocpython']);
+  assert.deepEqual(pinsFor(lock, pypy).map(p => p.name), ['cffi', 'pycparser']);
   assert.equal(normalizeName('Typing_Extensions'), 'typing-extensions');
   assert.equal(normalizeName('zope.interface'), 'zope-interface');
   assert.equal(normalizeName('A__B--c'), 'a-b-c');
