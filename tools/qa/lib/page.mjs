@@ -6,7 +6,7 @@
 //   openPage({ root, pageDir, width, height, fps, profileId, readyTimeoutMs }) → { page, info, externalRequests, pageErrors, close }
 //   sampleFrames(h, frames, { fps, dom })     → [{ f, texts, textsError, runs, dom }]（每批在页面里连续 render(t)，减少往返）
 //   fontInventory(h)                          → { faces, set }：FontFace 与 @font-face 的来源、描述符、加载状态
-//   screenshotPair(h, f, fps)                 → { on: PNG, off: PNG }：同一帧开、关文字各截一张无损图
+//   screenshotSet(h, f, fps)                  → { on, text, layer }（PNG）：同一帧照常、只关文字、关文字并藏掉显示层各截一张无损图
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -129,7 +129,10 @@ const PROBE = cfg => {
     }
     return out;
   };
-  QA.setHidden = on => {
+  // mode：false = 恢复；'text' = 只关文字（fillText / strokeText 不画、DOM 与 SVG 文字透明），字后面的底板、图标照常画；
+  // 'layer' = 再把叠在 WebGL 画布上面的 2D 显示层整层藏掉（engine/stage/film.js 的做法），给画成路径的字（书法片名）取背景
+  QA.setHidden = mode => {
+    const on = !!mode;
     QA.hide = on;
     let st = document.getElementById('__bmqa_hide');
     if (on && !st) {
@@ -137,13 +140,12 @@ const PROBE = cfg => {
       st.textContent = '*{color:transparent!important;text-shadow:none!important;-webkit-text-stroke:0!important;caret-color:transparent!important}svg text,svg tspan{fill:transparent!important;stroke:transparent!important}';
       document.head.appendChild(st);
     } else if (!on && st) st.remove();
-    // 显示层：叠在 WebGL 画布上面的 2D 画布（engine/stage/film.js 的做法），关文字时整层隐藏
     const cvs = [...document.querySelectorAll('canvas')];
     const gl = cvs.filter(c => c.__bmType === 'webgl');
     for (const c of cvs) {
       if (c.__bmType !== '2d' || !gl.length) continue;
       const z = parseInt(getComputedStyle(c).zIndex, 10) || 0;
-      if (gl.some(g => (parseInt(getComputedStyle(g).zIndex, 10) || 0) < z)) c.style.visibility = on ? 'hidden' : '';
+      if (gl.some(g => (parseInt(getComputedStyle(g).zIndex, 10) || 0) < z)) c.style.visibility = mode === 'layer' ? 'hidden' : '';
     }
   };
   const gc = HTMLCanvasElement.prototype.getContext;
@@ -267,11 +269,15 @@ export async function fontInventory(h) {
   });
 }
 
-export async function screenshotPair(h, f, fps) {
-  await h.page.evaluate(async ({ f, fps }) => { const p = window.render(f / fps); if (p && typeof p.then === 'function') await p; }, { f, fps });
-  const on = await h.page.screenshot({ type: 'png' });
-  await h.page.evaluate(async ({ f, fps }) => { window.__BMQA.setHidden(true); const p = window.render(f / fps); if (p && typeof p.then === 'function') await p; }, { f, fps });
-  const off = await h.page.screenshot({ type: 'png' });
-  await h.page.evaluate(() => window.__BMQA.setHidden(false));
-  return { on, off };
+// 同一帧截三张无损图：on 照常；text 只关文字；layer 关文字并藏掉整层显示层
+export async function screenshotSet(h, f, fps) {
+  const shot = async mode => {
+    await h.page.evaluate(async ({ f, fps, mode }) => { window.__BMQA.setHidden(mode); const p = window.render(f / fps); if (p && typeof p.then === 'function') await p; }, { f, fps, mode });
+    return h.page.screenshot({ type: 'png' });
+  };
+  try {
+    return { on: await shot(false), text: await shot('text'), layer: await shot('layer') };
+  } finally {
+    await h.page.evaluate(() => window.__BMQA.setHidden(false)).catch(() => {});
+  }
 }

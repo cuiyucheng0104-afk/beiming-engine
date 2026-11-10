@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { makeCheck, finding, settle, notRun } from '../lib/checks.mjs';
-import { openPage, sampleFrames, fontInventory, screenshotPair } from '../lib/page.mjs';
+import { openPage, sampleFrames, fontInventory, screenshotSet } from '../lib/page.mjs';
 import { parseFont, parseUnicodeRange, inRanges } from '../lib/font.mjs';
 import { decodePng } from '../lib/png.mjs';
 import { fpsOf, REPO_ROOT } from '../lib/profiles.mjs';
@@ -110,28 +110,35 @@ const lum = (d, i) => 0.2126 * lin(d[i]) + 0.7152 * lin(d[i + 1]) + 0.0722 * lin
 const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 const pctl = (arr, p) => { if (!arr.length) return 0; const s = Float64Array.from(arr).sort(); return s[Math.min(s.length - 1, Math.max(0, Math.round(p * (s.length - 1))))]; };
 
-// 同一帧开、关文字两张图里，按方框算文字对比度
+// 同一帧「照常」与「关掉文字」两张图里，按方框算文字对比度（两张图都按 sRGB 解码成 WCAG 相对亮度）：
+//   方框内差值 ≥ 0.5×P99 的像素是字的笔画核心；方框向外扩 max(4 px, 0.3×字高) 的范围里、差值 < max(6, 0.1×P99) 的像素是字周围
+//   没被改动的背景；两者之间（抗锯齿边、辉光）两边都不算。字取笔画核心亮度的 P75（亮字）/ P25（暗字），
+//   背景取对字不利的一侧四分位（亮字取背景 P75、暗字取 P25），按 WCAG 公式求比值。
+//   背景按「照常」那张图取：字后面的半透明底板、描边、暗晕都算进背景（它们本来就是为可读性画的）。
 export function measureContrast(on, off, box) {
+  const W = on.width, H = on.height;
   const x0 = Math.max(0, Math.floor(box[0])), y0 = Math.max(0, Math.floor(box[1]));
-  const x1 = Math.min(on.width, Math.ceil(box[2])), y1 = Math.min(on.height, Math.ceil(box[3]));
+  const x1 = Math.min(W, Math.ceil(box[2])), y1 = Math.min(H, Math.ceil(box[3]));
   if (x1 - x0 < 2 || y1 - y0 < 2) return null;
-  const diffs = [];
-  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-    const i = (y * on.width + x) * 4;
-    diffs.push(Math.max(Math.abs(on.data[i] - off.data[i]), Math.abs(on.data[i + 1] - off.data[i + 1]), Math.abs(on.data[i + 2] - off.data[i + 2])));
-  }
-  const top = pctl(diffs, 0.99);
-  const thr = Math.max(24, 0.5 * top);
+  const pad = Math.max(4, Math.round(0.3 * (y1 - y0)));
+  const X0 = Math.max(0, x0 - pad), Y0 = Math.max(0, y0 - pad), X1 = Math.min(W, x1 + pad), Y1 = Math.min(H, y1 + pad);
+  const diffAt = i => Math.max(Math.abs(on.data[i] - off.data[i]), Math.abs(on.data[i + 1] - off.data[i + 1]), Math.abs(on.data[i + 2] - off.data[i + 2]));
+  const inner = [];
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) inner.push(diffAt((y * W + x) * 4));
+  const top = pctl(inner, 0.99);
+  const hi = Math.max(24, 0.5 * top), lo = Math.max(6, 0.1 * top);
   const fg = [], bg = [];
-  let k = 0;
-  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++, k++) {
-    const i = (y * on.width + x) * 4;
-    (diffs[k] >= thr ? fg : bg).push(lum(on.data, i));
+  for (let y = Y0; y < Y1; y++) for (let x = X0; x < X1; x++) {
+    const i = (y * W + x) * 4, d = diffAt(i);
+    const inBox = x >= x0 && x < x1 && y >= y0 && y < y1;
+    if (inBox && d >= hi) fg.push(lum(on.data, i));
+    else if (d < lo) bg.push(lum(on.data, i));
   }
-  if (fg.length < Math.max(12, 0.004 * diffs.length) || bg.length < 12) return { separable: false, fgPixels: fg.length };
-  const Lf = pctl(fg, 0.5);
-  const Lb = Lf >= pctl(bg, 0.5) ? pctl(bg, 0.75) : pctl(bg, 0.25);
-  return { separable: true, ratio: +ratio(Lf, Lb).toFixed(2), fg: +Lf.toFixed(4), bg: +Lb.toFixed(4), fgPixels: fg.length, bgPixels: bg.length };
+  if (fg.length < Math.max(12, 0.004 * inner.length) || bg.length < 12) return { separable: false, fgPixels: fg.length, bgPixels: bg.length };
+  const bright = pctl(fg, 0.5) >= pctl(bg, 0.5);
+  const Lf = bright ? pctl(fg, 0.75) : pctl(fg, 0.25);
+  const Lb = bright ? pctl(bg, 0.75) : pctl(bg, 0.25);
+  return { separable: true, ratio: +ratio(Lf, Lb).toFixed(2), fg: +Lf.toFixed(4), bg: +Lb.toFixed(4), fgPixels: fg.length, bgPixels: bg.length, textIs: bright ? 'lighter' : 'darker' };
 }
 
 export async function runTexts({ pageDir, profile, film = null, step = 1, readyTimeoutMs = 120000, contrast = true, timeoutMs = 600000, root = REPO_ROOT }) {
@@ -184,17 +191,23 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
         const runs = s.runs.filter(r => r.box && (r.text === it.text || (it.text.includes(r.text) && r.text.trim().length > 0)) && (!r.attached || overlap(r.box, it.box) > 0.3 * Math.min(area(r.box), area(it.box) || 1)));
         const alpha = it.alpha ?? (runs.length ? Math.max(...runs.map(r => r.alpha ?? 1)) : null);
         const font = it.font || runs.find(r => !r.filter)?.font || runs[0]?.font || null;
-        let tr = tracks.get(it.id);
-        if (!tr) { tr = { id: it.id, text: it.text, frames: new Map(), fonts: new Set(), alphaKnown: false }; tracks.set(it.id, tr); }
+        // 按「id + 文字」分轨：同一个 id 换了内容（如 识别中… → 未能识别）是两条要分别读完的字
+        const key = `${it.id}\u0000${it.text}`;
+        let tr = tracks.get(key);
+        if (!tr) {
+          const sameId = [...tracks.values()].some(x => x.id === it.id);
+          tr = { key, id: sameId ? `${it.id}:${it.text}` : it.id, text: it.text, frames: new Map(), fonts: new Set(), alphaKnown: false, peak: 0 };
+          tracks.set(key, tr);
+        }
         tr.frames.set(s.f, { box: it.box, alpha, font });
         if (font) tr.fonts.add(font);
-        if (alpha !== null) tr.alphaKnown = true;
+        if (alpha !== null) { tr.alphaKnown = true; tr.peak = Math.max(tr.peak, alpha); }
       }
     }
     if (badItems.size) finding(contract, { key: 'bad-items', message: `TEXTS 有 ${badItems.size} 种条目缺方框或方框不是数字：${[...badItems].slice(0, 3).join('、')}` });
     if (textsErrors.size) finding(contract, { key: 'texts-error', message: `TEXTS(t) 抛错：${[...textsErrors][0]}` });
     const noAlpha = [...tracks.values()].filter(t => !t.alphaKnown).map(t => t.id);
-    if (noAlpha.length && !derived) finding(contract, { key: 'no-alpha', message: `这些文字的 TEXTS 条目没有 alpha、探针也没量到不透明度，停留时长按「出现」计：${noAlpha.slice(0, 5).join('、')}`, hint: 'TEXTS 条目加 alpha 字段（附录 C5），停留时长才能按 ≥90% 不透明计' });
+    if (noAlpha.length && !derived) finding(contract, { key: 'no-alpha', message: `这些文字的 TEXTS 条目没有 alpha、探针也没量到不透明度，停留时长按「出现」计：${noAlpha.slice(0, 5).join('、')}`, hint: 'TEXTS 条目加 alpha 字段（附录 C5），停留时长才能按「完全显现」计' });
     settle(contract);
 
     // ── 画内与安全区 ──
@@ -223,7 +236,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
 
     // ── 停留时长 ──
     const du = C['texts.duration'];
-    du.expected = `≥90% 不透明连续 ≥ max(${T.minHoldSec} 秒, 字数×${T.perUnitSec} 秒)；建议 ≥ 字数÷${T.targetUnitsPerSec}＋${T.targetBaseSec} 秒`;
+    du.expected = `完全显现（不透明度 ≥ 该条峰值的 ${Math.round(T.opaqueAlpha * 100)}%）连续 ≥ max(${T.minHoldSec} 秒, 字数×${T.perUnitSec} 秒)；建议 ≥ 字数÷${T.targetUnitsPerSec}＋${T.targetBaseSec} 秒`;
     const durRows = [];
     for (const tr of tracks.values()) {
       const fs2 = [...tr.frames.keys()].sort((a, b) => a - b);
@@ -235,7 +248,8 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
         let best = 0, cur = 0;
         for (let k = 0; k < app.length; k++) {
           const a = tr.frames.get(app[k]).alpha;
-          const opaque = a === null ? true : a >= T.opaqueAlpha;
+          // 「完全显现」按这条字自己的峰值不透明度算：显示层的字本来就是半透明的（如 0.85），不能按绝对 0.9 判它永远没显现
+          const opaque = a === null ? true : a >= T.opaqueAlpha * (tr.peak || 1) - 1e-6;
           const contiguous = k > 0 && app[k] - app[k - 1] <= step;
           cur = opaque ? (contiguous && cur > 0 ? cur + 1 : 1) : 0;
           best = Math.max(best, cur);
@@ -243,10 +257,10 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
         const sec = (best * step) / fps;
         const range = [app[0], app[app.length - 1] + 1];
         const atEnd = range[1] >= frameCount - step + 1;
-        durRows.push({ id: tr.id, text: tr.text, frames: range, opaqueSec: +sec.toFixed(3), needSec: +need.toFixed(3), targetSec: +target.toFixed(3), alphaKnown: tr.alphaKnown });
+        durRows.push({ id: tr.id, text: tr.text, frames: range, opaqueSec: +sec.toFixed(3), needSec: +need.toFixed(3), targetSec: +target.toFixed(3), alphaKnown: tr.alphaKnown, peakAlpha: tr.alphaKnown ? +tr.peak.toFixed(3) : null });
         if (sec + 1e-9 < need) {
           finding(du, { key: `short@${tr.id}@${range[0]}`, target: tr.id, frames: range, status: derived ? 'warn' : undefined,
-            message: `「${tr.text}」${tr.alphaKnown ? '≥90% 不透明' : '出现'}只有 ${sec.toFixed(2)} 秒（${Math.round(sec * fps)} 帧），下限 ${need.toFixed(2)} 秒${atEnd ? '；它停在片尾，实际停留还取决于播放器是否停在最后一帧' : ''}`,
+            message: `「${tr.text}」${tr.alphaKnown ? '完全显现' : '出现'}只有 ${sec.toFixed(2)} 秒（${Math.round(sec * fps)} 帧），下限 ${need.toFixed(2)} 秒${atEnd ? '；它停在片尾，实际停留还取决于播放器是否停在最后一帧' : ''}`,
             hint: '拉长停留或减字；刻意的快闪（例如半拍闪卡）要由用户批准后写进豁免（docs/quality/QA-GATE.md「豁免」）' });
         } else if (sec + 1e-9 < target) {
           finding(du, { key: `brief@${tr.id}@${range[0]}`, target: tr.id, frames: range, status: 'warn', message: `「${tr.text}」停留 ${sec.toFixed(2)} 秒，低于导演规范建议的 ${target.toFixed(2)} 秒（字数÷4.5＋1.5，DIRECTING 步骤 9）` });
@@ -359,19 +373,22 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
       for (const tr of tracks.values()) { const f = pickFrame(tr); if (f === null) continue; if (!byFrame.has(f)) byFrame.set(f, []); byFrame.get(f).push(tr); }
       const rows = [];
       for (const [f, list] of [...byFrame.entries()].sort((a, b) => a[0] - b[0])) {
-        const { on, off } = await screenshotPair(h, f, fps);
-        const A = decodePng(on), B = decodePng(off);
+        const shots = await screenshotSet(h, f, fps);
+        const A = decodePng(shots.on), Bt = decodePng(shots.text);
+        let Bl = null;
         for (const tr of list) {
           const d = tr.frames.get(f);
-          const m = measureContrast(A, B, d.box);
-          rows.push({ id: tr.id, text: tr.text, frame: f, alpha: d.alpha, ...(m || { separable: false }) });
+          // 先只关文字（字后面的底板、图标留着当背景）；画成路径的字关不掉，再改用整层藏掉的那张
+          let m = measureContrast(A, Bt, d.box), via = 'text';
+          if (!m || !m.separable) { Bl = Bl || decodePng(shots.layer); m = measureContrast(A, Bl, d.box); via = 'layer'; }
+          rows.push({ id: tr.id, text: tr.text, frame: f, alpha: d.alpha, via, ...(m || { separable: false }) });
           if (!m || !m.separable) { finding(ct, { key: `unmeasured@${tr.id}`, target: tr.id, frames: [f, f + 1], status: 'warn', message: `「${tr.text}」第 ${f} 帧分不出字和背景（关掉文字后画面没变），对比度没测到`, hint: '文字若画在 WebGL 场景里（世界内文字），要人工看 4K 与 1080 对照帧' }); continue; }
           if (m.ratio < T.minContrast) finding(ct, { key: `low@${tr.id}`, target: tr.id, frames: [f, f + 1], message: `「${tr.text}」第 ${f} 帧对比度 ${m.ratio}:1，低于 ${T.minContrast}:1`, hint: '加暗晕、描边或半透明底板，或换落点（文字不压亮背景）；VISUAL-DESIGN §6.3' });
           else if (m.ratio < T.goodContrast) finding(ct, { key: `fair@${tr.id}`, target: tr.id, frames: [f, f + 1], status: 'warn', message: `「${tr.text}」第 ${f} 帧对比度 ${m.ratio}:1，低于建议的 ${T.goodContrast}:1` });
         }
       }
       ct.value = rows.filter(r => r.separable).map(r => `${r.text.slice(0, 10)} ${r.ratio}:1`).join('；') || '没测到';
-      ct.evidence = { rows, method: '同帧开 / 关文字各截一张无损 PNG；差值 ≥ max(24, 0.5×P99) 的像素当作字，字取亮度中位数，背景取不利一侧的四分位（亮字取 P75、暗字取 P25），按 WCAG 相对亮度算比值' };
+      ct.evidence = { rows, method: '同帧照常 / 只关文字（画成路径的字改为藏掉显示层）各截一张无损 PNG；差值 ≥ max(24, 0.5×P99) 的像素是笔画核心，差值 < max(6, 0.1×P99) 的是背景，中间的抗锯齿边与辉光不计；字取笔画核心的 P75（亮字）/ P25（暗字），背景取对字不利一侧的四分位（亮字 P75、暗字 P25），按 WCAG 相对亮度算比值' };
       settle(ct);
     }
     return {
