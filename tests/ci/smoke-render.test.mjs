@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { notBlank, isBt709Tv } from './smoke-render.mjs';
+import { notBlank, isBt709Tv, explainFailure } from './smoke-render.mjs';
 import { runNode, REPO } from './helpers.mjs';
 
 const TOOL = path.join(REPO, 'tests/ci/smoke-render.mjs');
@@ -74,4 +74,15 @@ test('isBt709Tv：四项标注齐全且是有限范围才算', () => {
   assert.equal(isBt709Tv({ range: 'pc', space: 'bt709', primaries: 'bt709', transfer: 'bt709' }), false);
   assert.equal(isBt709Tv({ range: 'tv', space: 'bt470bg', primaries: null, transfer: null }), false);
   assert.equal(isBt709Tv(null), false);
+});
+
+test('explainFailure：从子命令输出里挑出根因那一行', () => {
+  const out = [
+    '▶ 4/7 逐帧', '渲染失败： 第 2 段第 36 帧（t=1.5000s）render 出错：page.evaluate: Error: 故意改坏的 render',
+    'node:internal/errors:985', '  const err = new Error(message);', '        ^', 'Error: Command failed: node engine/render/video.mjs …',
+    '    at genericNodeError (node:internal/errors:985:15)', '  status: 1,', '}', 'Node.js v24.13.1',
+  ].join('\n');
+  assert.equal(explainFailure(out), '渲染失败： 第 2 段第 36 帧（t=1.5000s）render 出错：page.evaluate: Error: 故意改坏的 render');
+  assert.equal(explainFailure('x\n    at f (a.js:1:1)\nTypeError: boom\nNode.js v24.13.1'), 'TypeError: boom');
+  assert.equal(explainFailure('a\nb\nc\nd'), 'b / c / d');
 });

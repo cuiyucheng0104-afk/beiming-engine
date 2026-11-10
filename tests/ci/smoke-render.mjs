@@ -266,15 +266,22 @@ function pyExecutable(py) {
   return exe;
 }
 
+// 从子命令的输出里挑出最能说明原因的一行：先找中文的失败描述（各工具第一次报错时写的就是根因），
+// 再找 XxxError（跳过 execFileSync 的「Command failed」包装），都没有就取最后三行
+export function explainFailure(text) {
+  const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    .filter(l => !/^at\s|^Node\.js v\d|^\^+$|^[{}()[\]]+$|^(code|status|signal|output|pid|stdout|stderr|errno|syscall|path|spawnargs):/.test(l));
+  return lines.find(l => /(失败|出错|错误|缺少|超时|不一致|不存在|找不到|拒绝|不合法)/.test(l))
+    || lines.find(l => /\b\w*Error\b/.test(l) && !/Command failed/.test(l))
+    || lines.slice(-3).join(' / ');
+}
+
 async function step(ctx, label, cmd, args, env = {}) {
   process.stderr.write(`  $ ${[cmd === process.execPath ? 'node' : cmd, ...args].join(' ')}\n`);
   const r = await run(cmd, args, { cwd: ctx.root, env: { ...pythonEnv(), ...ctx.childEnv, ...env }, timeoutMs: ctx.timeoutMs, stdout: 'pipe', stderr: 'pipe' });
   if (r.timedOut) throw Object.assign(new Error(`${label} 超过 ${ctx.timeoutMs / 1000} 秒，已结束`), { timedOut: true, exitCode: EXIT.TIMEOUT });
   if (r.error) throw new Error(`${label} 启动失败：${r.error.message}`);
-  if (r.code !== 0) {
-    const last = (r.stdout + r.stderr).split(/\r?\n/).filter(l => l.trim()).slice(-3).join(' / ');
-    throw new Error(`${label} 退出码 ${r.code}：${last}`);
-  }
+  if (r.code !== 0) throw new Error(`${label} 退出码 ${r.code}：${explainFailure(r.stdout + '\n' + r.stderr)}`);
   return r;
 }
 
