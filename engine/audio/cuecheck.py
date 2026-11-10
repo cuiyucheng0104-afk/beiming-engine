@@ -36,7 +36,7 @@ from fractions import Fraction
 
 import numpy as np
 
-from ._cli import EXIT, ArgumentParser, CliError, rel as _rel, run as run_cli, sha256_file
+from ._cli import ArgumentParser, CliError, rel as _rel, run as run_cli, sha256_file
 from .cues import Tempo
 
 DEF_TOL_MS = 0.5
@@ -178,7 +178,6 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
     fps = (_ci(TL or {}, 'fps') or (film or {}).get('fps') or 24)
     tempo, tempo_src = tempo_of(TL, film)
     keyset = _keyset(keys, film, TL)
-    tol = tol_ms * 1e-3
     tl_t = (_ci(TL or {}, 't') or {}) if TL else {}
     notes = sorted(float(n) for n in SO.get('notes', []))
     tags = SO.get('onsets', {})

@@ -14,7 +14,6 @@ import unittest
 import numpy as np
 
 import _audiotest as H
-from engine.audio import qa as AQ
 from engine.audio import stream as S
 from engine.audio import meter as M
 

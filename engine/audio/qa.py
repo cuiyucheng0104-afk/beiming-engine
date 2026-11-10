@@ -37,7 +37,7 @@ import sys
 
 import numpy as np
 
-from ._cli import EXIT, ArgumentParser, CliError, run, sha256_file
+from ._cli import ArgumentParser, CliError, run, sha256_file
 from . import filmspec as F
 from .dsp import SR, N
 from .meter import BANDS

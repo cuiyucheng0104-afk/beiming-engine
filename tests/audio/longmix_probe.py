@@ -20,7 +20,7 @@ sys.path.insert(0, ROOT)
 import numpy as np  # noqa: E402
 
 from engine.audio import ambience as A, stream as S  # noqa: E402
-from engine.audio.dsp import N, SR, T, rng, lp, hp, fade, smoothstep  # noqa: E402
+from engine.audio.dsp import N, T, rng, lp, hp, fade, smoothstep  # noqa: E402
 from engine.audio.synth import glass_tone  # noqa: E402
 
 

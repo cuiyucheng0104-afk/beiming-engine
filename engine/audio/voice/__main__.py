@@ -6,7 +6,6 @@
   providers  列出配音服务与本机能不能用（不联网、不花钱）
 退出码（附录 C1）：0 成功；2 用法；3 缺依赖、缺密钥、离线时缓存里没有、找不到文件；4 对白文件不合规、台词放不下或叠在一起；1 运行失败。
 """
-import os
 import sys
 
 from .._cli import ArgumentParser, CliError, rel, run, sha256_file
