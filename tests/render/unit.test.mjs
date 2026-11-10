@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveAngle, resolveGpuPolicy, enforceGpu, chromeArgs, platformDefaultAngle, isSoftwareRenderer } from '../../engine/render/lib/gpu.mjs';
 import { parseSize, parseFrames, positiveNumber } from '../../engine/render/lib/command.mjs';
 import { planChunks, planFilmChunks } from '../../engine/render/lib/chunks.mjs';
@@ -280,4 +281,31 @@ test('运行记录里的路径：仓库内写相对路径（经 /var → /privat
     assert.equal(repoPath(root, os.homedir()), path.resolve(os.homedir()));
     assert.equal(repoPath(root, root), '.');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('serve.mjs：一启动就输出信封（地址、端口），只听 127.0.0.1，.git 不出；SIGTERM 时关掉服务以 143 退出；端口被占退出 5', { timeout: 30000 }, async () => {
+  const { spawn } = await import('node:child_process');
+  const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+  const p = spawn(process.execPath, [path.join(ROOT, 'engine/render/serve.mjs'), '--port', '0', '--json'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '';
+  p.stdout.on('data', d => { out += d; });
+  const exited = new Promise(r => p.on('exit', (code, sig) => r({ code, sig })));
+  for (let i = 0; i < 100 && !out.trim().endsWith('}'); i++) await new Promise(r => setTimeout(r, 50));
+  const env = JSON.parse(out);
+  assert.equal(env.ok, true);
+  assert.match(env.data.url, /^http:\/\/127\.0\.0\.1:\d+\/$/);
+  const status = u => new Promise((resolve, reject) => http.get(u, res => { res.resume(); resolve(res.statusCode); }).on('error', reject));
+  assert.equal(await status(env.data.url), 200, '仓库根的 index.html（《北冥》样片）');
+  assert.equal(await status(`${env.data.url}.git/HEAD`), 404);
+  // 同一个端口再起一个：退出 5
+  const busy = spawn(process.execPath, [path.join(ROOT, 'engine/render/serve.mjs'), '--port', String(env.data.port), '--json'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  let bout = '';
+  busy.stdout.on('data', d => { bout += d; });
+  const bcode = await new Promise(r => busy.on('exit', c => r(c)));
+  assert.equal(bcode, 5);
+  assert.equal(JSON.parse(bout).error.code, 'busy.port');
+  if (process.platform !== 'win32') {
+    p.kill('SIGTERM');
+    assert.equal((await exited).code, 143);
+  } else { p.kill(); await exited; }
 });
