@@ -66,6 +66,27 @@ test('settings.json：PreToolUse 钩子覆盖写文件、Shell、PowerShell、Sk
   assert.deepEqual(reads.sort(), ['Read(/cases/**)', 'Read(/out/casebook/**)'], 'Read 只在归档与还原目录里过护栏（附"只是资料"提醒）');
 });
 
+test('settings.json 的钩子命令经真实 shell 展开后能跑：拒绝写快照、放行写作品（模拟 Claude Code 的钩子执行方式）', (t) => {
+  const hook = settings.hooks.PreToolUse.find(m => m.matcher.includes('Write')).hooks[0];
+  const evt = file => JSON.stringify({ session_id: 'shell-test', hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: path.join(ROOT, ...file.split('/')), content: 'x' }, cwd: ROOT });
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: ROOT, BEIMING_GUARD_LOG: 'off', BEIMING_GUARD_UNLOCK: '' };
+  const shells = [];
+  if (spawnSync('sh', ['-c', 'exit 0'], { windowsHide: true }).status === 0) shells.push(['sh', ['-c', hook.command]]);
+  // 没有 Git Bash 的 Windows：Claude Code 用 PowerShell 跑钩子，并把 ${CLAUDE_PROJECT_DIR} 改写成 ${env:CLAUDE_PROJECT_DIR}
+  for (const ps of ['pwsh', 'powershell']) {
+    if (spawnSync(ps, ['-NoProfile', '-Command', 'exit 0'], { windowsHide: true }).status === 0) { shells.push([ps, ['-NoProfile', '-Command', hook.command.replace('${CLAUDE_PROJECT_DIR}', '${env:CLAUDE_PROJECT_DIR}')]]); break; }
+  }
+  if (!shells.length) { t.skip('本机没有 sh，也没有 PowerShell'); return; }
+  for (const [shell, args] of shells) {
+    const deny = spawnSync(shell, args, { cwd: os.tmpdir(), env, input: evt('cases/vendor/x.js'), encoding: 'utf8', timeout: 30000, windowsHide: true });
+    assert.equal(deny.status, 0, `${shell}：${deny.stderr}`);
+    assert.equal(JSON.parse(deny.stdout).hookSpecificOutput.permissionDecision, 'deny', `${shell} 下没有拒绝`);
+    const allow = spawnSync(shell, args, { cwd: os.tmpdir(), env, input: evt('films/demo/main.js'), encoding: 'utf8', timeout: 30000, windowsHide: true });
+    assert.equal(allow.status, 0, `${shell}：${allow.stderr}`);
+    assert.equal(allow.stdout, '', `${shell} 下放行时不该有输出`);
+  }
+});
+
 test('settings.json：在项目级禁用全局风格库插件，并排除归档里的上游 CLAUDE.md / AGENTS.md', () => {
   assert.equal(settings.enabledPlugins?.['lemo-opuscar@lemolab'], false);
   const ex = settings.claudeMdExcludes ?? [];
