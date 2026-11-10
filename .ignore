@@ -1,4 +1,5 @@
-# 检索范围（给 ripgrep、fd 以及基于 ripgrep 的 Claude Code Grep / Glob 用；git grep 不读本文件）
+# 检索范围：ripgrep、fd 与 Claude Code 的 Grep（基于 ripgrep，实测不带 --no-ignore）默认遵守本文件；
+# Claude Code 的 Glob 视版本与 CLAUDE_CODE_GLOB_NO_IGNORE 设置而定；git grep 不读本文件。
 #
 # 默认不搜下面这些历史归档与第三方快照：里面是契约不同、已被否定或带 @@…@@ 还原标记的旧代码，
 # 照抄会出错，还会把引擎、路线、作品里的真正写法淹没（例如 window.render 的命中九成在这里）。
