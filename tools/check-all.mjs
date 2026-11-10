@@ -246,6 +246,51 @@ async function pool(items, n, fn) {
   return results;
 }
 
+// JS 语法：一个子进程里用 V8 编译全部文件（不执行）。按 Node 的规则定模块类型：.mjs 是 ESM，.cjs 是 CommonJS，
+// .js 看最近的 package.json 的 type。没有 type 时 Node 会「先按 CommonJS、失败再按 ESM」自动判断，而这种情况下
+// `node --check` 遇到 ESM 写法的语法错误会直接返回 0（Node 24 实测），所以不用它判定，只在需要行号时借用。
+const JS_SYNTAX = String.raw`
+import vm from 'node:vm';
+import fs from 'node:fs';
+import path from 'node:path';
+const root = process.env.BEIMING_SYNTAX_ROOT;
+const types = new Map();
+function pkgType(dir) {
+  if (types.has(dir)) return types.get(dir);
+  let t = null;
+  try { t = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).type || 'auto'; } catch {
+    const up = path.dirname(dir);
+    t = dir === root || up === dir ? 'auto' : pkgType(up);
+  }
+  types.set(dir, t);
+  return t;
+}
+const out = [];
+for (const rel of JSON.parse(process.env.BEIMING_SYNTAX_FILES)) {
+  const abs = path.join(root, rel), ext = path.extname(rel).toLowerCase();
+  let src;
+  try { src = fs.readFileSync(abs, 'utf8'); } catch (e) { out.push({ file: rel, line: 0, message: e.message, mode: null }); continue; }
+  const type = ext === '.mjs' ? 'module' : ext === '.cjs' ? 'commonjs' : pkgType(path.dirname(abs));
+  const cjs = () => vm.compileFunction(src, ['exports', 'require', 'module', '__filename', '__dirname'], { filename: abs });
+  const esm = () => new vm.SourceTextModule(src, { identifier: abs });
+  let err = null, mode = type;
+  try {
+    if (type === 'module') esm();
+    else if (type === 'commonjs') cjs();
+    else {
+      try { cjs(); mode = 'commonjs'; } catch (e1) {
+        try { esm(); mode = 'module'; } catch (e2) { const looksEsm = /^\s*(import|export)\b/m.test(src); err = looksEsm ? e2 : e1; mode = looksEsm ? 'module' : 'commonjs'; }
+      }
+    }
+  } catch (e) { err = e; }
+  if (err) {
+    const m = /:(\d+)\s*$/.exec(String(err.stack || '').split(/\r?\n/)[0]);
+    out.push({ file: rel, line: m ? +m[1] : 0, message: err.name + ': ' + err.message, mode });
+  }
+}
+process.stdout.write(JSON.stringify(out));
+`;
+
 const PY_SYNTAX = String.raw`
 import ast, json, os, sys, warnings
 warnings.simplefilter('ignore')
@@ -267,14 +312,24 @@ async function syntaxCheck(st, ctx) {
   const js = by(['.js', '.mjs', '.cjs']), py = by(['.py']), json = by(['.json']), sh = by(['.sh']);
   const bad = [];
   const n = Math.max(2, (os.availableParallelism?.() || os.cpus().length || 2));
-  await pool(js, n, async f => {
-    const r = await run(process.execPath, ['--check', f], { cwd: ctx.root, stdout: 'capture', stderr: 'capture', timeoutMs: 60000 });
-    if (r.code !== 0) {
-      const lines = r.stderr.split(/\r?\n/).filter(Boolean);
-      const where = lines.find(l => l.includes(f.split('/').pop())) || f;
-      bad.push({ file: f, line: +((/:(\d+)\s*$/.exec(where) || [])[1] || 0), message: lines.find(l => /Error/.test(l)) || lines[0] || `退出码 ${r.code}` });
-    }
-  });
+  if (js.length) {
+    const r = await run(process.execPath, ['--experimental-vm-modules', '--no-warnings', '--input-type=module', '-e', JS_SYNTAX], {
+      cwd: ctx.root, env: { ...process.env, BEIMING_SYNTAX_ROOT: ctx.root, BEIMING_SYNTAX_FILES: JSON.stringify(js) }, stdout: 'capture', stderr: 'capture', timeoutMs: 120000,
+    });
+    let found;
+    try { found = JSON.parse(r.stdout); } catch { found = [{ file: '(js)', line: 0, message: `JS 语法检查没能运行（退出码 ${r.code}）：${tail(r.stderr, 3).join(' ')}` }]; }
+    // ESM 的编译错误不带位置：拷成临时 .mjs 交给 node --check 取行号（.mjs 不受模块类型自动判断的影响）
+    await pool(found.filter(b => !b.line && b.mode === 'module'), n, async b => {
+      const tmp = path.join(os.tmpdir(), `bm-syntax-${process.pid}-${Math.random().toString(36).slice(2)}.mjs`);
+      try {
+        fs.copyFileSync(path.join(ctx.root, b.file), tmp);
+        const c = await run(process.execPath, ['--check', tmp], { cwd: ctx.root, stdout: 'capture', stderr: 'capture', timeoutMs: 60000 });
+        const m = /:(\d+)\s*$/.exec(c.stderr.split(/\r?\n/).find(l => l.startsWith(tmp)) || '');
+        if (m) b.line = +m[1];
+      } finally { fs.rmSync(tmp, { force: true }); }
+    });
+    bad.push(...found.map(({ file, line, message }) => ({ file, line, message })));
+  }
   for (const f of json) {
     try { JSON.parse(fs.readFileSync(path.join(ctx.root, f), 'utf8').replace(/^\uFEFF/, '')); } catch (e) { bad.push({ file: f, line: 0, message: e.message }); }
   }

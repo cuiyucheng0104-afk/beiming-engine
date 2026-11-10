@@ -12,10 +12,11 @@ export const RUN_TESTS = path.join(REPO, 'tools/run-tests.mjs');
 export const CHECK_ALL = path.join(REPO, 'tools/check-all.mjs');
 export const WIN = process.platform === 'win32';
 
-// files: { '相对路径': 内容 }；返回临时仓库根（真实路径）与清理函数
+// files: { '相对路径': 内容 }（内容为 null 表示不建这个文件，方便在公共夹具上删掉一项）；返回临时仓库根（真实路径）与清理函数
 export function makeRepo(files, { git = false } = {}) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bm-ci-')));
   for (const [rel, body] of Object.entries(files)) {
+    if (body == null) continue;
     const p = path.join(root, ...rel.split('/'));
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, body);
