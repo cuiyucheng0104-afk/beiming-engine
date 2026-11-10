@@ -12,17 +12,18 @@
 //                                                       所以不破坏「直通 alpha、透明区已填色」的底板约定（plates.json 通用设置）
 // 结果对同一 FFmpeg 构建是确定的；prepare 把 FFmpeg 版本记进 media/prepared.json。
 import { rename, rm } from 'node:fs/promises';
-import { CliError, EXIT, runQuick } from './cli.mjs';
+import { EXIT, fail, runQuick } from './cli.mjs';
+import { ffmpegBins } from '../../tools/env/lib/ffmpeg.mjs';
 
 const SIDES = { left: ['X/W', 'Y/H'], right: ['(W-1-X)/W', 'Y/H'], top: ['Y/H', 'X/W'], bottom: ['(H-1-Y)/H', 'X/W'] };
 const f = x => Number(x).toFixed(6);
 
 export function checkEdge(edge) {
-  if (!edge || typeof edge !== 'object' || Array.isArray(edge)) throw new CliError(EXIT.CONTRACT, 'edge', 'edge 要写成 { left, right, top, bottom, jitter, lobes, seed }');
-  for (const k of Object.keys(edge)) if (![...Object.keys(SIDES), 'jitter', 'lobes', 'seed'].includes(k)) throw new CliError(EXIT.CONTRACT, 'edge', `edge 里不认识的字段 ${k}`);
-  for (const k of Object.keys(SIDES)) if (edge[k] !== undefined && !(edge[k] >= 0 && edge[k] <= 0.5)) throw new CliError(EXIT.CONTRACT, 'edge', `edge.${k} 要在 0–0.5 之间（占图宽 / 高的比例）`);
-  if (edge.jitter !== undefined && !(edge.jitter >= 0 && edge.jitter <= 1)) throw new CliError(EXIT.CONTRACT, 'edge', 'edge.jitter 要在 0–1 之间');
-  if (!Object.keys(SIDES).some(k => edge[k] > 0)) throw new CliError(EXIT.CONTRACT, 'edge', 'edge 至少要给一条边一个大于 0 的宽度');
+  if (!edge || typeof edge !== 'object' || Array.isArray(edge)) throw fail(EXIT.CONTRACT, 'edge', 'edge 要写成 { left, right, top, bottom, jitter, lobes, seed }');
+  for (const k of Object.keys(edge)) if (![...Object.keys(SIDES), 'jitter', 'lobes', 'seed'].includes(k)) throw fail(EXIT.CONTRACT, 'edge', `edge 里不认识的字段 ${k}`);
+  for (const k of Object.keys(SIDES)) if (edge[k] !== undefined && !(edge[k] >= 0 && edge[k] <= 0.5)) throw fail(EXIT.CONTRACT, 'edge', `edge.${k} 要在 0–0.5 之间（占图宽 / 高的比例）`);
+  if (edge.jitter !== undefined && !(edge.jitter >= 0 && edge.jitter <= 1)) throw fail(EXIT.CONTRACT, 'edge', 'edge.jitter 要在 0–1 之间');
+  if (!Object.keys(SIDES).some(k => edge[k] > 0)) throw fail(EXIT.CONTRACT, 'edge', 'edge 至少要给一条边一个大于 0 的宽度');
 }
 
 export function edgeExpr({ jitter = 0.5, lobes = 6, seed = 1, ...sides }) {
@@ -40,11 +41,11 @@ export function edgeExpr({ jitter = 0.5, lobes = 6, seed = 1, ...sides }) {
   return `alpha(X,Y)*${terms.join('*')}`;
 }
 
-export async function applyEdge(src, out, edge, { ffmpeg = process.env.FFMPEG || 'ffmpeg', timeoutMs = 120000 } = {}) {
+export async function applyEdge(src, out, edge, { ffmpeg = ffmpegBins(process.env).ffmpeg, timeoutMs = 120000 } = {}) {
   checkEdge(edge);
   const tmp = `${out}.edge.png`;
   const vf = `format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='${edgeExpr(edge)}'`;
   const p = runQuick(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-i', src, '-vf', vf, '-frames:v', '1', '-c:v', 'png', tmp], { timeoutMs, label: 'FFmpeg（底板软边）' });
-  if (p.status !== 0) { await rm(tmp, { force: true }); throw new CliError(EXIT.FAIL, 'edge', `底板软边处理失败：${p.stderr.trim().slice(0, 300)}`); }
+  if (p.status !== 0) { await rm(tmp, { force: true }); throw fail(EXIT.FAIL, 'edge', `底板软边处理失败：${p.stderr.trim().slice(0, 300)}`); }
   await rename(tmp, out);
 }

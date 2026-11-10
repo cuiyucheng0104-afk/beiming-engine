@@ -18,20 +18,20 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { basename, join, relative, resolve, sep } from 'node:path';
-import { CliError, EXIT, sha256File } from './cli.mjs';
+import { EXIT, fail, sha256File } from './cli.mjs';
 
-const contract = (message, hint) => new CliError(EXIT.CONTRACT, 'film-json', message, hint);
+const contract = (message, hint) => fail(EXIT.CONTRACT, 'film-json', message, hint);
 
 export async function readFilmSpec(dir) {
   dir = resolve(dir);
   let text;
   try { text = await readFile(resolve(dir, 'film.json'), 'utf8'); } catch {
-    throw new CliError(EXIT.USAGE, 'no-film', `${dir} 下没有 film.json`, '参数要给作品目录（例如 films/<名字>），新作品用 node tools/new-film.mjs b <名字> 生成');
+    throw fail(EXIT.USAGE, 'no-film', `${dir} 下没有 film.json`, '参数要给作品目录（例如 films/<名字>），新作品用 node tools/new-film.mjs b <名字> 生成');
   }
   let raw;
   try { raw = JSON.parse(text); } catch (e) { throw contract(`film.json 不是合法 JSON：${e.message}`, '修好 film.json 的语法'); }
   const route = String(raw.route ?? '').toLowerCase();
-  if (route !== 'b') throw new CliError(EXIT.USAGE, 'wrong-route', `film.json 的 route 是 ${JSON.stringify(raw.route)}，原生入口只处理 "b"`, 'A / C 路线的作品走各自的出片入口（见 routes/README.md）');
+  if (route !== 'b') throw fail(EXIT.USAGE, 'wrong-route', `film.json 的 route 是 ${JSON.stringify(raw.route)}，原生入口只处理 "b"`, 'A / C 路线的作品走各自的出片入口（见 routes/README.md）');
   const out = raw.output || {};
   const fps = out.fps ?? raw.fps;
   const [w1, h1] = Array.isArray(raw.size) ? raw.size : [];

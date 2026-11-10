@@ -42,8 +42,8 @@ test('platformKey', () => {
 });
 
 test('没设 RAEA_BIN / 文件不存在 → exit 3，提示下一步', async () => {
-  await assert.rejects(resolveRuntime({ env: {}, lock: lockWith(null) }), e => e.exitCode === EXIT.ENV && e.code === 'no-runtime' && /fetch --accept-license/.test(e.hint));
-  await assert.rejects(resolveRuntime({ env: { RAEA_BIN: '/no/such/raea' }, lock: lockWith(null) }), e => e.exitCode === EXIT.ENV && e.code === 'bad-runtime');
+  await assert.rejects(resolveRuntime({ env: {}, lock: lockWith(null) }), e => e.exitCode === EXIT.ENV && e.code === 'env.no-runtime' && /fetch --accept-license/.test(e.hint));
+  await assert.rejects(resolveRuntime({ env: { RAEA_BIN: '/no/such/raea' }, lock: lockWith(null) }), e => e.exitCode === EXIT.ENV && e.code === 'env.bad-runtime');
 });
 
 test('相对路径的 RAEA_BIN 按调用者当前目录解析成绝对路径（R03）', async () => {
@@ -59,27 +59,31 @@ test('哈希：未锁定的平台记为 unlocked；与锁不符 → exit 3', asy
   const f = fakeRuntime();
   try {
     assert.equal((await resolveRuntime({ env: { RAEA_BIN: f.exe }, lock: lockWith(null) })).verified, 'unlocked');
-    await assert.rejects(resolveRuntime({ env: { RAEA_BIN: f.exe }, lock: lockWith('0'.repeat(64)) }), e => e.exitCode === EXIT.ENV && e.code === 'runtime-hash');
+    await assert.rejects(resolveRuntime({ env: { RAEA_BIN: f.exe }, lock: lockWith('0'.repeat(64)) }), e => e.exitCode === EXIT.ENV && e.code === 'env.runtime-hash');
   } finally { rmSync(f.dir, { recursive: true, force: true }); }
 });
 
 test('版本：不符 → exit 3；BNE_ALLOW_VERSION 显式放行时记为 allowed、不核对哈希', async () => {
   const f = fakeRuntime('0.2.0');
   try {
-    await assert.rejects(resolveRuntime({ env: { RAEA_BIN: f.exe }, lock: lockWith(f.sha) }), e => e.exitCode === EXIT.ENV && e.code === 'runtime-version');
+    await assert.rejects(resolveRuntime({ env: { RAEA_BIN: f.exe }, lock: lockWith(f.sha) }), e => e.exitCode === EXIT.ENV && e.code === 'env.runtime-version');
     assert.equal((await resolveRuntime({ env: { RAEA_BIN: f.exe, BNE_ALLOW_VERSION: '0.2.0' }, lock: lockWith('0'.repeat(64)) })).verified, 'allowed');
   } finally { rmSync(f.dir, { recursive: true, force: true }); }
 });
 
-test('命令行：fetch 不接受许可 → exit 2；status 没设 RAEA_BIN → exit 3 且只有一行说明', () => {
+test('命令行：fetch 不接受许可 → exit 2；status 没设 RAEA_BIN → exit 3，一行原因加一行下一步', () => {
   const env = { ...process.env };
   delete env.RAEA_BIN;
   const fetch = spawnSync(process.execPath, [ENTRY, 'fetch', '--json'], { encoding: 'utf8', env, timeout: 30000 });
   assert.equal(fetch.status, EXIT.USAGE);
   const j = JSON.parse(fetch.stdout);
-  assert.equal(j.error.code, 'license');
+  assert.equal(j.error.code, 'usage.license');
+  assert.match(j.error.hint, /内部制作层/);
   assert.match(j.error.message, /FSL-1\.1-ALv2/);
   const st = spawnSync(process.execPath, [ENTRY, 'status'], { encoding: 'utf8', env, timeout: 30000 });
   assert.equal(st.status, EXIT.ENV);
-  assert.equal(st.stderr.trim().split('\n').length, 1, st.stderr);
+  const lines = st.stderr.trim().split('\n');
+  assert.equal(lines.length, 2, st.stderr);
+  assert.match(lines[0], /^错误\[env\.no-runtime\]/);
+  assert.match(lines[1], /^提示：/);
 });

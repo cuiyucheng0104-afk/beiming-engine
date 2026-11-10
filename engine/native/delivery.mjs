@@ -13,13 +13,16 @@
 //                                   线性增益（volume 滤镜，不做动态处理）：先对准目标响度，真峰值留 0.5 dB 给 AAC 编码余量
 //   judgeLoudness(m, audio)        成片复测：积分响度在目标 ± 容差内、真峰值不高于上限 → { ok, problems }
 // 编码参数（不经 sh / mux.sh，Windows PowerShell 直接可用）
-//   metadataArgs({ title, aigc })  成片元数据：title；film.json 的 aigc.contains 为真时写 comment「含 AI 生成画面：…」
-//                                   （决定 D11 的隐式标识；显式标识写在作品说明与 player.html 里）
+//   metadataArgs({ title, aigc, producer, produceId })  成片元数据：title；film.json 的 aigc.contains 为真时按仓库统一写法写隐式标识
+//                                   （tools/compliance/lib/aigc.mjs 的 ffmpegMetadataArgs：comment = AIGC{…} 含 AI 生成画面，
+//                                   GB 45438 文件元数据写法，决定 D11；显式标识写在作品说明与 player.html 里）
 //   masterArgs({ video, pcm, gainDb, out, audio, meta })   母版：原生视频轨逐位复制 + 混音 PCM 增益后编 AAC
 //   webArgs({ master, pcm, gainDb, out, p, sourceColor, meta })   网页版：由母版视频编 H.264 High、yuv420p、BT.709 有限范围并写全
 //                                   四个色彩标签、GOP = 2 秒、faststart；声音从 PCM 直接编（不做 AAC 转 AAC）
 //   colorFilter(sourceColor)       母版已是 BT.709 tv 时不做转换；是全范围 / BT.601 时用 colorspace 滤镜一次转到 BT.709 tv
 //                                   （4:2:0 上比 scale 单步更准，见 routes/directing/craft/video.md §4.5）
+import { EXPLICIT, ffmpegMetadataArgs } from '../../tools/compliance/lib/aigc.mjs';
+
 export const PROFILES = Object.freeze({
   'web-1080p24': { width: 1920, height: 1080, fps: 24, web: true },
   'master-1080p24': { width: 1920, height: 1080, fps: 24, web: false },
@@ -113,11 +116,11 @@ export function judgeLoudness(m, a) {
 
 const volume = gainDb => `volume=${gainDb.toFixed(2)}dB`;
 
-export const AIGC_LABEL = '含 AI 生成画面';
-export function metadataArgs({ title, aigc } = {}) {
+export const AIGC_LABEL = EXPLICIT.visual;
+export function metadataArgs({ title, aigc, producer = '北冥引擎（北冥原生 · BNE）', produceId } = {}) {
   const m = [];
   if (title) m.push('-metadata', `title=${title}`);
-  if (aigc?.contains) m.push('-metadata', `comment=${AIGC_LABEL}${aigc.note ? `：${aigc.note}` : ''}`);
+  if (aigc?.contains) m.push(...ffmpegMetadataArgs({ producer, produceId: produceId || title || 'film', kinds: Array.isArray(aigc.kinds) && aigc.kinds.length ? aigc.kinds : ['visual'] }));
   return m;
 }
 

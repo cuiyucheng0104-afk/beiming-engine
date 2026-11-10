@@ -23,7 +23,8 @@
 //   命令行：node engine/native/bridge/validate.mjs <x.glb> [--expect '{"animated":true,"clip":"Swim"}'] [--json]
 //   退出码：0 通过 · 2 用法（缺参数、文件不存在、--expect 不是 JSON）· 4 结构检查不通过
 import { readFile } from 'node:fs/promises';
-import { CliError, EXIT, exitWith, isMain, log, runCli } from '../cli.mjs';
+import { EXIT, bind, exitWith, fail, log } from '../cli.mjs';
+import { defineCommand, isMain, runCli } from '../../../tools/lib/cli.mjs';
 
 class GLBError extends Error {}
 const check = (ok, message) => { if (!ok) throw new GLBError(message); };
@@ -172,28 +173,29 @@ export function validateGLBBuffer(file, { maxBytes = 20_000_000, animated = fals
   return { bytes: file.length, megabytes: file.length / 1e6, sceneTriangles, vertices, nodes: gltf.nodes?.length || 0, materials: gltf.materials?.length || 0, embeddedTextures: gltf.images?.length || 0, skinnedMeshes, morphMeshes, jointCount: gltf.skins?.[0]?.joints.length || 0, extensionsUsed: gltf.extensionsUsed || [], animations, meshBreakdown, accessorsChecked: accessors.length };
 }
 
-const USAGE = `node engine/native/bridge/validate.mjs <x.glb> [--expect '<JSON>'] [--json]
-  GLB 结构检查；--expect 的字段见文件开头注释（animated、clip、duration、loop、nodes、skinnedMin、skinnedNodes、notAnimated、pbr、maxBytes）
-退出码：0 通过 · 2 用法 · 4 结构检查不通过`;
+export const command = defineCommand({
+  name: 'native:validate',
+  summary: 'GLB 二进制结构检查（不依赖浏览器和 three）',
+  usage: ["node engine/native/bridge/validate.mjs <x.glb> [--expect '<JSON>'] [--json]"],
+  description: '--expect 的字段见文件开头注释：animated、clip、duration、loop、nodes、skinnedMin、skinnedNodes、notAnimated、pbr、maxBytes。',
+  positionals: [{ name: 'glb', label: '<x.glb>', describe: '要检查的 GLB 文件' }],
+  options: { expect: { type: 'string', arg: '<JSON>', describe: '结构期望（JSON），例 \'{"animated":true,"clip":"Swim"}\'' } },
+  exitCodes: { 0: '通过', 2: '用法错误（缺参数、文件不存在、--expect 不是 JSON）', 4: '结构检查不通过' },
+  async run(ctx) {
+    bind(ctx);
+    const file = ctx.args.glb;
+    let expect = {};
+    if (ctx.opts.expect) { try { expect = JSON.parse(ctx.opts.expect); } catch (e) { throw fail(EXIT.USAGE, 'bad-value', `--expect 不是合法 JSON：${e.message}`, '例：--expect \'{"animated":true,"clip":"Idle"}\''); } }
+    let summary;
+    try { summary = await validateGLB(file, expect); }
+    catch (e) {
+      if (/读不了/.test(e.message)) throw fail(EXIT.USAGE, 'no-file', e.message, '确认文件路径（相对当前目录）');
+      throw fail(EXIT.CONTRACT, 'glb', `${file} 结构检查不通过：${e.message}`, '修好导出脚本或模型后重导');
+    }
+    log(JSON.stringify(summary, null, 2));
+    log(`通过：${summary.sceneTriangles} 三角面，${summary.accessorsChecked} 个访问器，${summary.animations.length} 段动画`);
+    return { data: summary };
+  },
+});
 
-export async function main(argv = process.argv.slice(2)) {
-  return runCli({
-    command: 'validate-glb', usage: USAGE, argv, spec: { '--expect': 'string' },
-    main: async a => {
-      if (a._.length !== 1) throw new CliError(EXIT.USAGE, 'usage', '要给一个 .glb 文件');
-      let expect = {};
-      if (a.expect) { try { expect = JSON.parse(a.expect); } catch (e) { throw new CliError(EXIT.USAGE, 'usage', `--expect 不是合法 JSON：${e.message}`); } }
-      let summary;
-      try { summary = await validateGLB(a._[0], expect); }
-      catch (e) {
-        if (/读不了/.test(e.message)) throw new CliError(EXIT.USAGE, 'no-file', e.message);
-        throw new CliError(EXIT.CONTRACT, 'glb', `${a._[0]} 结构检查不通过：${e.message}`);
-      }
-      log(JSON.stringify(summary, null, 2));
-      log(`通过：${summary.sceneTriangles} 三角面，${summary.accessorsChecked} 个访问器，${summary.animations.length} 段动画`);
-      return { outputs: [], info: summary };
-    },
-  });
-}
-
-if (isMain(import.meta.url)) await exitWith(main());
+if (isMain(import.meta.url)) await exitWith(runCli(command));

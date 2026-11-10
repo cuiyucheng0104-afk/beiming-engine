@@ -31,18 +31,18 @@
 //        复杂生物（GPU 形变要换成骨骼、反照率烘焙）写配方：模块导出 build(ctx, asset) 与可选 verify(ctx, bytes, all)
 //   { "to": "x.glb", "from": "path/to/x.glb" }   外部模型：由 prepare.mjs 复制并检查，这里跳过
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
 import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, relative, extname, sep, basename } from 'node:path';
 import { createHash } from 'node:crypto';
-import { CliError, EXIT, exitWith, isMain, log, onCleanup, offCleanup, runCli } from '../cli.mjs';
+import { CliError, EXIT, bind, exitWith, fail, log, onCleanup, offCleanup } from '../cli.mjs';
+import { defineCommand, isMain, runCli } from '../../../tools/lib/cli.mjs';
 import { validateGLB } from './validate.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const MIME = { '.mjs': 'text/javascript', '.js': 'text/javascript', '.json': 'application/json', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.wasm': 'application/wasm' };
 const sha = buf => createHash('sha256').update(buf).digest('hex');
-const inRepo = p => { const r = relative(ROOT, p); if (r.startsWith('..') || resolve(ROOT, r) !== p) throw new CliError(EXIT.USAGE, 'path', `路径不在仓库内：${p}`, '资产桥只服务仓库里的文件；把模块放进仓库（作品目录或 engine/）'); return r.split(sep).join('/'); };
+const inRepo = p => { const r = relative(ROOT, p); if (r.startsWith('..') || resolve(ROOT, r) !== p) throw fail(EXIT.USAGE, 'path', `路径不在仓库内：${p}`, '资产桥只服务仓库里的文件；把模块放进仓库（作品目录或 engine/）'); return r.split(sep).join('/'); };
 export const isGenerated = m => Boolean(m.module || m.recipe);
 
 // models：条目数组；baseDir：条目里相对路径的基准；outDir：输出目录
@@ -50,7 +50,7 @@ export async function exportModels(models, { baseDir, outDir, preview = false, l
   const assets = models.map(m => {
     const a = { ...m };
     for (const k of ['module', 'recipe']) if (m[k]) { const abs = resolve(baseDir, m[k]); a[k + 'Rel'] = inRepo(abs); a[k] = '/repo/' + a[k + 'Rel']; }
-    if (basename(m.to) !== m.to || !/\.glb$/i.test(m.to)) throw new CliError(EXIT.CONTRACT, 'asset-name', `输出名只能是 media/ 下的 .glb 文件名：${m.to}`);
+    if (basename(m.to) !== m.to || !/\.glb$/i.test(m.to)) throw fail(EXIT.CONTRACT, 'asset-name', `输出名只能是 media/ 下的 .glb 文件名：${m.to}`);
     return a;
   });
   if (!assets.length) return {};
@@ -96,22 +96,22 @@ export async function exportModels(models, { baseDir, outDir, preview = false, l
   try {
     say(`资产桥：${assets.map(a => a.to).join('、')}（临时回环端口 ${port}）`);
     let chromium;
-    try { ({ chromium } = await import('playwright-core')); } catch { throw new CliError(EXIT.ENV, 'deps', '缺 playwright-core', '在仓库根运行 npm ci（或 npm run setup）'); }
+    try { ({ chromium } = await import('playwright-core')); } catch { throw fail(EXIT.ENV, 'deps', '缺 playwright-core', '在仓库根运行 npm ci（或 npm run setup）'); }
     try {
       browser = await chromium.launch({ headless: true, ...(process.env.BEIMING_CHROME ? { executablePath: process.env.BEIMING_CHROME } : {}), args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-    } catch (e) { throw new CliError(EXIT.ENV, 'browser', `无头 Chromium 启动失败：${e.message.split('\n')[0]}`, '在仓库根运行 npm run setup 安装锁定版本的 headless shell，或用 BEIMING_CHROME 指定'); }
+    } catch (e) { throw fail(EXIT.ENV, 'browser', `无头 Chromium 启动失败：${e.message.split('\n')[0]}`, '在仓库根运行 npm run setup 安装锁定版本的 headless shell，或用 BEIMING_CHROME 指定'); }
     const page = await browser.newPage({ viewport: { width: 1600, height: 1120 }, deviceScaleFactor: 1 });
     page.on('console', m => { if (m.type() !== 'warning' || !/GPU stall due to ReadPixels|non-normalized/.test(m.text())) say(`[browser:${m.type()}] ${m.text()}`); });
     page.on('pageerror', e => { pageErrors.push(e.message); say(`[browser:pageerror] ${e.message}`); });
     await page.goto(`http://127.0.0.1:${port}/`);
-    const timer = new Promise((_, rej) => setTimeout(() => rej(new CliError(EXIT.TIMEOUT, 'timeout', `资产桥超过 ${Math.round(timeoutMs / 1000)} 秒未完成，已终止`, '确认没有卡死后调大 BNE_BRIDGE_TIMEOUT（秒）')), timeoutMs).unref());
+    const timer = new Promise((_, rej) => setTimeout(() => rej(fail(EXIT.TIMEOUT, 'timeout', `资产桥超过 ${Math.round(timeoutMs / 1000)} 秒未完成，已终止`, '确认没有卡死后调大 BNE_BRIDGE_TIMEOUT（秒）')), timeoutMs).unref());
     try {
       reports = await Promise.race([page.evaluate(() => window.task), timer]);
     } catch (e) {
       if (e instanceof CliError) throw e;
-      throw new CliError(EXIT.FAIL, 'bridge', `浏览器端导出失败：${String(e.message || e).replace(/^page\.evaluate: /, '').split('\n')[0]}`, pageErrors.length ? `页面报错：${pageErrors[0]}` : '常见原因：配方或模块的 import 路径不对、three 版本不符、回读断言失败');
+      throw fail(EXIT.FAIL, 'bridge', `浏览器端导出失败：${String(e.message || e).replace(/^page\.evaluate: /, '').split('\n')[0]}`, pageErrors.length ? `页面报错：${pageErrors[0]}` : '常见原因：配方或模块的 import 路径不对、three 版本不符、回读断言失败');
     }
-    if (!reports || typeof reports !== 'object') throw new CliError(EXIT.FAIL, 'bridge', '浏览器端没有返回报告对象', pageErrors[0] || '');
+    if (!reports || typeof reports !== 'object') throw fail(EXIT.FAIL, 'bridge', '浏览器端没有返回报告对象', pageErrors[0] || '');
     const runtime = {
       three: await page.evaluate(() => import('three').then(T => `r${T.REVISION}`)),
       playwright: JSON.parse(await readFile(resolve(ROOT, 'node_modules/playwright-core/package.json'), 'utf8')).version,
@@ -121,10 +121,10 @@ export async function exportModels(models, { baseDir, outDir, preview = false, l
     for (const [f, h] of [...served].sort()) (f.startsWith('node_modules/') ? packages : repo)[f] = h;
     for (const a of assets) {
       const r = reports[a.to];
-      if (!r) throw new CliError(EXIT.FAIL, 'bridge', `浏览器端没有 ${a.to} 的报告`);
+      if (!r) throw fail(EXIT.FAIL, 'bridge', `浏览器端没有 ${a.to} 的报告`);
       const tmp = part(a.to);
       try { r.structuralValidation = await validateGLB(tmp, a.validate || {}); }
-      catch (e) { throw new CliError(EXIT.CONTRACT, 'glb', `${a.to} 结构检查不通过：${e.message}`, '修好模块 / 配方后重导；正式路径上的旧文件没有被覆盖'); }
+      catch (e) { throw fail(EXIT.CONTRACT, 'glb', `${a.to} 结构检查不通过：${e.message}`, '修好模块 / 配方后重导；正式路径上的旧文件没有被覆盖'); }
       r.sha256 = sha(await readFile(tmp));
       r.asset = Object.fromEntries(Object.entries(m(a)).filter(([k]) => !k.endsWith('Rel')));
       r.runtime = runtime;
@@ -150,35 +150,61 @@ export async function exportModels(models, { baseDir, outDir, preview = false, l
 // 报告里记录条目本身（实际参数，例如 lod），去掉内部用的 /repo/ 路径
 const m = a => ({ ...a, module: a.moduleRel, recipe: a.recipeRel });
 
-const USAGE = readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').filter(l => l.startsWith('//')).map(l => l.slice(3)).join('\n');
+export const command = defineCommand({
+  name: 'native:bridge',
+  summary: '通用资产桥：浏览器里用 engine 搭的 three.js 对象 → GLB（可带骨骼 / morph 动作），回读与结构检查通过才落盘',
+  usage: [
+    'node engine/native/bridge/export.mjs <作品目录> [--only a.glb,b.glb] [--preview] [--json]',
+    'node engine/native/bridge/export.mjs --module <模块.js> --export <函数名> [--args <JSON>] [--length <米> | --scale <倍>] [--clip <JSON>] [--prefix <名>] --out <输出.glb>',
+  ],
+  description: [
+    '第一种读 <作品目录>/film.json 的 native.models 里由代码生成的条目（带 module 或 recipe），写进 <作品目录>/media/；',
+    '第二种临时导出一个对象（模块路径相对当前目录，须在仓库内）。条目字段见本文件开头注释。',
+    '起一个只读的回环服务与无头 Chromium（SwiftShader，只做转换，不占独显）；超时用 BNE_BRIDGE_TIMEOUT（秒，默认 900）。',
+  ],
+  positionals: [{ name: 'film', label: '<作品目录>', describe: 'B 路线作品目录（用 --module 时不给）', required: false }],
+  options: {
+    only: { type: 'list', split: ',', arg: '<a.glb,…>', describe: '只导这几个产物' },
+    preview: { type: 'boolean', describe: '另存一张回读预览图（条目的 preview 字段）' },
+    module: { type: 'string', arg: '<模块.js>', describe: '临时导出：模块路径' },
+    export: { type: 'string', arg: '<函数名>', describe: '临时导出：模块里返回 Object3D 的函数' },
+    args: { type: 'string', arg: '<JSON>', describe: '临时导出：传给函数的参数' },
+    length: { type: 'number', arg: '<米>', describe: '临时导出：最终长度（按包围盒最长边换算）' },
+    scale: { type: 'number', arg: '<倍>', describe: '临时导出：直接给缩放' },
+    clip: { type: 'string', arg: '<JSON>', describe: '临时导出：动作采样，例 \'{"name":"Idle","pose":"pose","duration":4,"fps":30}\'' },
+    prefix: { type: 'string', arg: '<名>', describe: '临时导出：未命名网格 / 材质的名字前缀' },
+    out: { type: 'string', arg: '<输出.glb>', describe: '临时导出：输出文件（默认 out/model.glb）' },
+  },
+  exitCodes: { 0: '成功', 1: '导出 / 回读失败', 2: '用法错误', 3: '缺浏览器或依赖', 4: '结构检查不通过', 124: '超时', 130: '中断（已清理）' },
+  examples: ['node engine/native/bridge/export.mjs films/my-film', 'node engine/native/bridge/export.mjs examples/raea --only ferry.glb'],
+  async run(ctx) {
+    bind(ctx);
+    const a = ctx.opts;
+    const json = k => { try { return JSON.parse(a[k]); } catch (e) { throw fail(EXIT.USAGE, 'bad-value', `--${k} 不是合法 JSON：${e.message}`); } };
+    const timeoutMs = 1000 * Number(process.env.BNE_BRIDGE_TIMEOUT || 900);
+    if (a.module) {
+      if (ctx.args.film) throw fail(EXIT.USAGE, 'extra-argument', '--module 临时导出时不要再给作品目录', '二选一：作品目录，或 --module … --export … --out …');
+      if (!a.export) throw fail(EXIT.USAGE, 'missing-option', '--module 要配 --export <函数名>');
+      const out = resolve(a.out || 'out/model.glb');
+      const entry = { to: basename(out), module: a.module, export: a.export, args: a.args ? json('args') : undefined, prefix: a.prefix || undefined };
+      if (a.length !== null) entry.length = a.length;
+      if (a.scale !== null) entry.scale = a.scale;
+      if (a.clip) { entry.clip = json('clip'); entry.validate = { animated: true, clip: entry.clip.name || 'Idle', loop: entry.clip.loop !== false }; }
+      await exportModels([entry], { baseDir: process.cwd(), outDir: dirname(out), preview: a.preview, timeoutMs });
+      return { outputs: [{ path: repoPath(out), sha256: sha(await readFile(out)), kind: 'glb' }] };
+    }
+    if (!ctx.args.film) throw fail(EXIT.USAGE, 'missing-argument', '要给一个作品目录，或用 --module 临时导出', '例：node engine/native/bridge/export.mjs films/my-film');
+    const dir = resolve(ctx.args.film);
+    let film;
+    try { film = JSON.parse(await readFile(resolve(dir, 'film.json'), 'utf8')); } catch { throw fail(EXIT.USAGE, 'no-film', `${dir} 下没有可读的 film.json`, '参数要给作品目录（例如 films/<名字>）'); }
+    const only = a.only.length ? a.only : null;
+    const models = (film.native?.models || []).filter(isGenerated).filter(x => !only || only.includes(x.to));
+    if (!models.length) throw fail(EXIT.USAGE, 'nothing-to-do', 'film.json 里没有要由代码生成的模型（native.models 中带 module / recipe 的条目）', only ? `--only 给的是 ${only.join('、')}，核对产物名` : null);
+    const reports = await exportModels(models, { baseDir: dir, outDir: resolve(dir, 'media'), preview: a.preview, timeoutMs });
+    return { outputs: models.map(x => ({ path: repoPath(resolve(dir, 'media', x.to)), sha256: reports[x.to].sha256, kind: 'glb' })) };
+  },
+});
+// 信封里的路径：仓库内写仓库相对路径（正斜杠），仓库外只写文件名
+const repoPath = p => { const r = relative(ROOT, p); return r.startsWith('..') ? basename(p) : r.split(sep).join('/'); };
 
-export async function main(argv = process.argv.slice(2)) {
-  return runCli({
-    command: 'bridge', usage: USAGE, argv,
-    spec: { '--only': 'string', '--preview': 'bool', '--module': 'string', '--export': 'string', '--args': 'string', '--length': 'string', '--scale': 'string', '--clip': 'string', '--prefix': 'string', '--out': 'string' },
-    main: async a => {
-      const json = (k) => { try { return JSON.parse(a[k]); } catch (e) { throw new CliError(EXIT.USAGE, 'usage', `--${k} 不是合法 JSON：${e.message}`); } };
-      if (a.module) {
-        if (!a.export) throw new CliError(EXIT.USAGE, 'usage', '--module 要配 --export <函数名>');
-        const out = resolve(a.out || 'out/model.glb');
-        const entry = { to: basename(out), module: a.module, export: a.export, args: a.args ? json('args') : undefined, prefix: a.prefix };
-        if (a.length) entry.length = Number(a.length);
-        if (a.scale) entry.scale = Number(a.scale);
-        if (a.clip) { entry.clip = json('clip'); entry.validate = { animated: true, clip: entry.clip.name || 'Idle', loop: entry.clip.loop !== false }; }
-        await exportModels([entry], { baseDir: process.cwd(), outDir: dirname(out), preview: Boolean(a.preview), timeoutMs: 1000 * Number(process.env.BNE_BRIDGE_TIMEOUT || 900) });
-        return { outputs: [{ path: out, sha256: sha(await readFile(out)), kind: 'glb' }] };
-      }
-      if (a._.length !== 1) throw new CliError(EXIT.USAGE, 'usage', '要给一个作品目录，或用 --module 临时导出');
-      const dir = resolve(a._[0]);
-      let film;
-      try { film = JSON.parse(await readFile(resolve(dir, 'film.json'), 'utf8')); } catch { throw new CliError(EXIT.USAGE, 'no-film', `${dir} 下没有可读的 film.json`); }
-      const only = a.only?.split(',');
-      const models = (film.native?.models || []).filter(isGenerated).filter(x => !only || only.includes(x.to));
-      if (!models.length) throw new CliError(EXIT.USAGE, 'usage', 'film.json 里没有要由代码生成的模型（native.models 中带 module / recipe 的条目）');
-      const reports = await exportModels(models, { baseDir: dir, outDir: resolve(dir, 'media'), preview: Boolean(a.preview), timeoutMs: 1000 * Number(process.env.BNE_BRIDGE_TIMEOUT || 900) });
-      return { outputs: models.map(x => ({ path: relative(ROOT, resolve(dir, 'media', x.to)).split(sep).join('/'), sha256: reports[x.to].sha256, kind: 'glb' })) };
-    },
-  });
-}
-
-if (isMain(import.meta.url)) await exitWith(main());
+if (isMain(import.meta.url)) await exitWith(runCli(command));

@@ -6,23 +6,30 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CliError, EXIT, exitWith, runCli } from '../../../engine/native/cli.mjs';
+import { EXIT, bind, exitWith, fail } from '../../../engine/native/cli.mjs';
 import { exportModels } from '../../../engine/native/bridge/export.mjs';
+import { defineCommand, isMain, runCli } from '../../../tools/lib/cli.mjs';
 
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = `node examples/raea/tools/export-kun.mjs [--preview] [--lod 0.4–0.6] [--json]
-  只重导 examples/raea/media/kun.glb 与 ferry.glb（及报告）；--lod 临时改鲲的细节档（默认取 film.json）`;
 
-await exitWith(runCli({
-  command: 'export-kun', usage: USAGE, spec: { '--preview': 'bool', '--lod': 'string' },
-  main: async a => {
-    if (a._.length) throw new CliError(EXIT.USAGE, 'usage', `不需要位置参数：${a._.join(' ')}`);
+export const command = defineCommand({
+  name: 'raea:export-kun',
+  summary: '只重导 examples/raea/media/kun.glb 与 ferry.glb（及报告）',
+  usage: ['node examples/raea/tools/export-kun.mjs [--preview] [--lod 0.4–0.6] [--json]'],
+  options: {
+    preview: { type: 'boolean', describe: '另存鲲的回读预览图（kun-preview.png）' },
+    lod: { type: 'number', arg: '<0.4–0.6>', min: 0.4, max: 0.6, describe: '临时改鲲的细节档（默认取 film.json）' },
+  },
+  exitCodes: { 0: '成功', 1: '导出 / 回读失败', 2: '用法错误', 3: '缺浏览器或依赖', 4: '结构检查不通过', 124: '超时' },
+  async run(ctx) {
+    bind(ctx);
     const film = JSON.parse(await readFile(resolve(project, 'film.json'), 'utf8'));
-    const lod = a.lod !== undefined ? Number(a.lod) : undefined;
-    const models = film.native.models.map(m => (m.to === 'kun.glb' && lod !== undefined ? { ...m, lod } : m));
+    const models = film.native.models.map(m => (m.to === 'kun.glb' && ctx.opts.lod !== null ? { ...m, lod: ctx.opts.lod } : m));
     const kun = models.find(m => m.to === 'kun.glb');
-    if (!(kun.lod >= 0.4 && kun.lod <= 0.6)) throw new CliError(EXIT.USAGE, 'lod', `--lod 要在 0.4–0.6 之间：${kun.lod}`);
-    const reports = await exportModels(models, { baseDir: project, outDir: resolve(project, 'media'), preview: Boolean(a.preview), timeoutMs: 1000 * Number(process.env.BNE_BRIDGE_TIMEOUT || 900) });
+    if (!(kun.lod >= 0.4 && kun.lod <= 0.6)) throw fail(EXIT.CONTRACT, 'lod', `examples/raea/film.json 里鲲的 lod 要在 0.4–0.6 之间：${kun.lod}`);
+    const reports = await exportModels(models, { baseDir: project, outDir: resolve(project, 'media'), preview: ctx.opts.preview, timeoutMs: 1000 * Number(process.env.BNE_BRIDGE_TIMEOUT || 900) });
     return { outputs: models.map(m => ({ path: `examples/raea/media/${m.to}`, sha256: reports[m.to].sha256, kind: 'glb' })) };
   },
-}));
+});
+
+if (isMain(import.meta.url)) await exitWith(runCli(command));
