@@ -51,7 +51,7 @@ films/<名字>/
 | 浏览器里能用 engine 搭的 three.js 对象 | `models` 写 `module / export / args`：资产桥在无头 Chromium 里导出 GLB（材质转 PBR，源材质有名字就沿用），`clip` 逐帧调 `pose(t)` 采样动作 | 已实测：渡船、模版浮标（Idle） |
 | GPU 着色器里的程序形变 | 写配方 `recipe`：`bridge/rig.mjs` 把弯曲波换成骨骼、`geometry.mjs` 合并实例 / morph、`bake.mjs` 烘反照率 | 已实测：鲲（回归基准 `examples/raea/expected-assets.json`） |
 | 外部 GLB / glTF | `models` 写 `from`；`.glb` 复制后做结构检查 | `.glb` 已实测；`.gltf` 未实测 |
-| 图片 | `images`（可带 `edge` 软边）；`<Backdrop>` 二维底板、`<PlateCard>` 三维面片 | 已实测 |
+| 图片 | `images`（`edge` 有机软边 / 圆形收边，`crop` 裁一块、`flip` 翻转）；`<Backdrop>` 二维底板、`<PlateCard>` 三维面片 | 已实测（`crop` / `flip` 只有单测） |
 | A / C 路线的页面作品 | `sequences` 写 `page`：逐帧渲成图集（`<SequencePlane>`）或透明逐帧 PNG（`<FrameSequence>`） | 已实测：《北冥》页面 → 面片；毛笔片名页面 → 透明叠层 |
 | 视频 / 图片序列 | `sequences` 写 `video` / `frames` | 视频已实测；图片目录未单独实测 |
 
@@ -90,7 +90,7 @@ films/<名字>/
 1. **构图与读字**：主体在三分线，片名 / 字幕在安全区（左右各 ≥ 5% 画宽、上下各 ≥ 120/1080 画高）、不压主体、与背后像素对比 ≥ 3:1。机位与版式写进 `layout.js`，`tests/native/layout.test.mjs` 每一帧投影核对；`raea check` 再核对成片里的文字。
 2. **片名有动画**：`TitleReveal` 逐字落定（模版）；要书法笔顺就用 A 路页面经 `sequences` 渲透明逐帧 PNG、`<FrameSequence>` 叠上（例片的毛笔「北冥」）。片名起笔 / 落定的帧号写在 film.json `events`，声音脚本读同一个帧号。
 3. **纸纹不钉在屏幕上**：`<PaperOverlay>` 页面层整幅 multiply，一拍二换一张「纸」，按 H/1040 缩放；不要用只盖三维层、逐像素固定的颗粒冒充纸纹。
-4. **雾与云片不露截断边**：卡片按镜头摆（`cardInView`：先定屏幕框和深度再换算世界坐标，与画面平行），被画幅截断的竖边每一帧都在画外；上下截断边若进画，`images[].edge` 给那条边烘有机软边（安全网，不是借口）。不开距离雾，空气感靠画出来的雾层和远层冷色。
+4. **雾与云片不露截断边**：卡片按镜头摆（`cardInView`：先定屏幕框和深度再换算世界坐标，与画面平行），被画幅截断的竖边每一帧都在画外；上下截断边若进画，`images[].edge` 给那条边烘有机软边（安全网，不是借口）。确实要在画内结束的远景云堤（原图两端是沿竖线的线性淡出），把端头烘成**圆形收边**：`edge` 宽 ≥ 0.15、`round` ≥ 0.5，淡出线弯成圆弧并带低频起伏（相当于 A 路 `cropPlate` 的椭圆软边），QA 门的找边检测对处理后的图报「没有直线边」；收边的半透明区不要压在后面的实物（楼、船）上，否则它们会「透」出来——例片把云堤挪到近景云后面。不开距离雾（见「边界与常见坑」），空气感靠画出来的雾层和远层冷色；三维物体的空气透视还没做（QA-B-002，未关闭）。
 5. **天空像在无穷远**：页面层天空加 `skyShift(t)`，随摇 / 仰反向移动；铺法按原图等比、按镜头运动范围留出血。
 6. **一个时钟**：角色的位置、姿态、动作片段同一个量化时钟（例片鲲一拍三）；摄影、船、水面按 24 帧。载具朝速度方向，尾迹与船同一个偏航。
 7. **发光体**：灯的材质单独一层卡通覆盖并保留自发光，灯晕用页面层 `<Glow>`（投影锚点）——layered 画布里三维 Bloom 的光晕在天空前看不到。
@@ -108,13 +108,14 @@ films/<名字>/
 
 | 项 | 命令 | 判据 / 2026-11-10 macOS（Apple M5 Pro、Metal、VideoToolbox）实测 |
 |---|---|---|
-| 工具与版式 | `node --test 'tests/native/*.test.mjs'` | 全过（83 项，约 10 秒：资产桥重导出与基准逐字节比对、R01 睑缘墨线断言、逐帧版式、命令约定、仓库规则） |
-| 仓库规则 | `node tools/repo-check/rules/route-b/index.mjs` | 七条全过（Windows / Linux 可执行文件哈希未锁为提示） |
+| 工具与版式 | `node tools/run-tests.mjs --only native` | 全过（90 项，约 4–10 秒：资产桥重导出与基准逐字节比对、R01 睑缘墨线断言、逐帧版式、云堤收边的找边回归、预检拒绝路径、命令约定、仓库规则） |
+| 仓库规则 | `node tools/repo-check.mjs --only route-b` | 八条 0 错误（Windows / Linux 可执行文件哈希未锁为提示） |
 | 中断与清理 | 出片中途 Ctrl+C | exit 130，原生进程被整组终止，`.part` 删除，run.json 记 interrupted |
-| 缺运行时 | `node engine/render/native.mjs films/<名字> --check-only`（不设 `RAEA_BIN`） | 一行中文指引，exit 3 |
-| 模版出片 | `new-film b` → `prepare` → `native.mjs` | exit 0：1920×1080 / 24fps / 108 帧，web-1080p24，−14.1 LUFS / −1.5 dBTP，`raea check` 4 段文字全过（含对比度 ≥ 3:1），原生渲染 2.8 秒 |
-| 例片出片 | `prepare examples/raea` → `native.mjs examples/raea` | exit 0：1920×1040 / 240 帧，beiming-1040p24，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题，28 秒 |
-| 可复现性 | 同一提交渲两次，比对两次的 `framemd5.txt` | 例片 240/240 帧解码后逐帧相同；原生 VideoToolbox 码流两次不同，网页版视频与音频码流逐字节相同。（历史 5090 记录：197/240 相同、最大差 6，所以阈值仍写「最大差 ≤ 8、PSNR ≥ 70 dB」） |
+| 缺运行时 | `node engine/render/native.mjs films/<名字> --check-only`（不设 `RAEA_BIN`） | exit 3，stderr 两行：`错误[env.no-runtime]：…` 与 `提示：…runtime.mjs fetch --accept-license` |
+| 预检拒绝 | `tests/native/preflight.test.mjs`（假运行时） | 不在 git 工作树 exit 3；素材被改 exit 4；素材清单改了没重新准备 exit 4（提示 `--only <类>`） |
+| 模版出片 | `new-film b` → `prepare` → `native.mjs` | exit 0：1920×1080 / 24fps / 108 帧，web-1080p24，−14.1 LUFS / −1.5 dBTP，`raea check` 文字全过（含对比度 ≥ 3:1），机器 QA 通过（29 过 2 提示），run.json `status: passed`、`selfCheck.ok` |
+| 例片出片 | `prepare examples/raea` → `native.mjs examples/raea` | 1920×1040 / 240 帧，beiming-1040p24，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题；机器 QA 唯一的硬门是 `known-issues.open`（台账里 QA-B-001 仍是 open，待 QA 包核对关闭；QA-B-002 未修）→ 目前 exit 4，这是如实的结论 |
+| 可复现性 | 同一提交渲两次，比对两次的 `framemd5.txt` | 模版与例片的母版解码后逐帧相同；网页版视频与音频码流逐字节相同（只有 comment 里的运行 id 不同）；原生 VideoToolbox 码流两次不同。（历史 5090 记录：197/240 相同、最大差 6，所以阈值仍写「最大差 ≤ 8、PSNR ≥ 70 dB」） |
 
 看片规则：技术检查通过 ≠ 画面通过。至少看 `contact.jpg` 与整片，切点邻帧、片名、截断边、黑场与静帧；原生速度与画风质量分别评价，不把 A 路的 WebGL 数据当原生证据。
 
@@ -130,7 +131,7 @@ films/<名字>/
 - **辅助模块不能 import 作品目录之外**：运行时把作品模块复制到临时目录打包，只有入口 `film.tsx` 的外部相对 import 被改写；`layout.js` 之类再 import `../../engine/…` 会 REFUSED。辅助模块写成纯函数，需要的引擎函数由 `film.tsx` 传进去；也不能 import three。
 - **GLB 不带屏幕后期**：墨线、Kuwahara、视角相关卡通光都不在模型里，原生端用 `ToonMaterial` 重新给光；覆盖时保留 `baseColorTexture` 与 `COLOR_0`（带贴图 / 顶点色的部位不写 `base_color`）。
 - **同名实体跨帧沿用**：运行时按 `name` 跨帧沿用实体；同一个模型在不同镜头换材质覆盖时，每个镜头给不同的 `name`，否则后面镜头的覆盖不生效。全局卡通覆盖只换明暗处理、不换各材质自己的颜色，换色要按材质名逐个给（`parts`）。
-- **透明面片别开距离雾**：canary 的预乘雾会露出面片矩形边。**Bloom 在 layered 画布里只落在三维像素上**；**页面层「径向渐变 + mix-blend-mode」不出图**（纯色块加 blend 可以）。
+- **透明面片别开距离雾**：canary 的预乘雾会露出面片矩形边（图片卡的透明区被染成雾色，整张卡变成一块雾色矩形，实测盖住页面层天空）。换成 `Mesh3d` + `StandardMaterial`（`unlit`、`alpha_mode="Blend"`、`fog_enabled={false}`）的卡片不吃雾、三维物体照常吃雾，但同一张雾带比 `ImagePlane` 更实更饱和（同帧 PSNR 27.5 dB），要改卡片实现就得重调全部卡片的不透明度——这是 QA-B-002 的下一步，还没做。**Bloom 在 layered 画布里只落在三维像素上**；**页面层「径向渐变 + mix-blend-mode」不出图**（纯色块加 blend 可以）。
 - **字体**：外部字体在 Windows 中文路径下曾加载失败；片名用 A 路页面渲成 PNG（例片），或内嵌 data URL。模版字幕用系统字体，换机器字形可能不同。
 - **Composition id** 只能是字母、数字、连字符（模版固定 `id="film"`）；作品目录名可以是中文。
 - **图集上限** 8192 像素且整张进显存；长序列用 `output: "frames"`。

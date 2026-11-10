@@ -5,16 +5,16 @@
 ## 文件与调用关系
 
 ```text
-film.json（唯一配置源：片长 / 帧率 / 尺寸、事件帧号、AIGC 标识、素材清单）
+film.json（唯一配置源：片长 / 帧率 / 尺寸、镜头表 shots、事件帧号、AIGC 标识、素材清单）
   → node engine/native/prepare.mjs examples/raea
-      images     assets/plates 的底板（近景云的截断边烘有机软边）+ 纸纹 → media/
+      images     assets/plates 的底板（近景云的截断边烘有机软边，远景云堤两端烘圆形收边）+ 纸纹 → media/
       models     鲲：配方 tools/export-kun-browser.mjs（GPU 弯曲 → 骨骼 / morph，反照率烘焙，眼睑 UV 对齐整球）
                  渡船：通用「模块 + 导出名」src/ferry.js:createFerry
                  → engine/native/bridge/export.mjs → GLB + 结构检查 + 回读报告
       sequences  title/（A 路毛笔片名页面）→ 透明逐帧 PNG media/title/ + media/title.json
       audio      tools/sound.py（engine/audio，事件时刻读 film.json）→ media/mix.wav
 film.tsx + layout.js + media/ → node engine/render/native.mjs examples/raea
-      → out/<run-id>/master.mp4（原生视频轨逐位复制）+ web.mp4（交付网页版）+ run.json + check.json + contact.jpg + player.html
+      → out/<run-id>/master.mp4（原生视频轨逐位复制）+ web.mp4（交付网页版）+ run.json + check.json + qa/report.md + contact.jpg + player.html
 ```
 
 | 文件 | 作用 |
@@ -62,9 +62,9 @@ node engine/render/native.mjs examples/raea                  # 出片
 - `master.mp4`：原生视频轨逐位复制（不再二次有损）+ AAC 48 kHz；
 - `web.mp4`：交付网页版，H.264 High / yuv420p / BT.709 有限范围（四个色彩标签写全）/ AAC 48 kHz 立体声，−14 LUFS、真峰值 ≤ −1 dBTP（档位按尺寸推断为 `beiming-1040p24`）；
 - `run.json`：运行时版本与哈希、实际编码器、显卡与图形后端、全部输入与素材哈希、响度实测、逐帧哈希、各阶段耗时；
-- `check.json`：运行时自带的成片检查（P0 / P1 问题即 exit 4）；`contact.jpg` 联系表；`player.html` 本地看片页。
+- `check.json`：运行时自带的成片检查（P0 / P1 问题即 exit 4）；`qa/report.md`：仓库的机器 QA 门（规格、色彩、响度、画面、声画、底板，硬门不通过 exit 4）；`contact.jpg` 联系表；`player.html` 本地看片页。
 
-2026-11-10 macOS（Apple M5 Pro、VideoToolbox）实测：全程 28 秒，原生渲染 5.6 秒；240 帧，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题。技术检查通过不等于画面通过：看 `contact.jpg` 与整片。
+2026-11-10 macOS（Apple M5 Pro、Metal、VideoToolbox）实测（提交 `ca5361e`）：原生渲染 4.8 秒，全程 33–85 秒（视机器负载）；240 帧，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题；机器 QA 27 过、3 提示（底板静态找边看的是原图、原生片没有页面量不了贴图密度、船笛 / 鲲鸣 / 和弦是缓起的声音只给软项）、1 个硬门 `known-issues.open`：台账 `docs/quality/known-issues.json` 里 QA-B-001（云堤直线淡出，本次已修，待 QA 包按回归命令核对后关闭）与 QA-B-002（三维物体没有空气透视，未修）仍是 open，所以目前 exit 4、run.json 记 failed。技术检查通过不等于画面通过：看 `contact.jpg` 与整片。
 
 ## 4. 如何修改
 
@@ -73,12 +73,14 @@ node engine/render/native.mjs examples/raea                  # 出片
 - 改角色动作：`ToonModel animation="Swim" time=…`；鲲的位置、昂头与片段都按一拍三（`layout.js` 的 `kun(f)`）。要新动作就改配方重导 clip，不要只挪模型整体。
 - 改材质：`film.tsx` 的 `KUN_PARTS` 按材质名分组覆盖；带贴图 / 顶点色的部位不要写 `base_color`。
 - 改颜色：`palette.json`。改水面 / 尾迹：`waterWesl` / `ribbonWesl` 的参数。
-- 改时长或分辨率：改 `film.json` 的 `dur / size`（2D 版式按 `H/1040` 缩放，天空铺法按镜头运动自动算），同时检查 `SHOTS` 与 `events`；渲染入口按 film.json 自动核对。
+- 改时长或分辨率：改 `film.json` 的 `dur / size`（2D 版式按 `H/1040` 缩放，天空铺法按镜头运动自动算），同时检查 `shots` 与 `events`；渲染入口按 film.json 自动核对。镜头切点只认 `film.json` 的 `shots[].out`（`layout.js` 的 `SHOTS` 只给机位，切点由 `cuts` 传入）。
+- 改底板的软边、收边、裁切：改 `film.json` 的 `images[].edge / crop / flip` 后必须重新准备（`node engine/native/prepare.mjs examples/raea --only images`）；忘了的话渲染入口发现清单指纹不符会 exit 4。
 
 ## 5. 常见坑（本片踩过的）
 
 - **作品目录里的辅助模块不能 import 作品目录之外的文件**：原生运行时把作品模块复制到临时目录打包，只有入口 `film.tsx` 的外部相对 import 被改写；`layout.js` 因此不 import engine，投影函数由 `film.tsx` / 片名页面 / 测试传进去。
-- **透明面片别开距离雾**：canary 版的预乘雾会露出面片矩形边缘；空气感用远层底板与江面远端淡出。
+- **透明面片别开距离雾**：canary 版的预乘雾会把图片卡的透明区染成雾色，整张卡变成矩形；空气感目前靠远层底板与江面远端淡出，三维物体的空气透视还没做（QA-B-002，下一步见 B 路线手册「边界与常见坑」）。
+- **云堤是一段画，两端是直线淡出**：在画内结束时烘圆形收边（`edge.round`），并让收边的半透明区落在近景云后面，别压在高楼上（楼会透出来）。缓起的声音（船笛、鲲鸣、和弦）在 `events` 上标 `sync: "soft"`，QA 只给软项。
 - **天空在页面层**：要像在无穷远一样跟着镜头摇 / 仰移动（`skyShift`），否则摇镜时天空「粘」在屏幕上。
 - **按镜头摆近景云**：用屏幕框 + 深度（`cardInView`）换算世界坐标，截断边放在画外；上下截断边若进画，film.json 给那条边烘软边。
 

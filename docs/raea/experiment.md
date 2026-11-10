@@ -67,3 +67,16 @@
 | 回归测试 | `node --test 'tests/native/*.test.mjs'` | 全过（含资产桥重导出与基准逐字节比对、逐帧版式核对） |
 
 与上一节复现相比的画面改动（都是有意的，例片不是像素基准）：近景云按镜头摆、截断竖边每帧都在画外，上下截断边烘有机软边（不再出现竖直刀口）；天际线按原图 2:1 等比（不再压扁），水岸线压在江面上；页面层天空随摇 / 仰移动；渡船朝运动方向、尾迹在船尾后（审查 R04）；鲲的位置、昂头与 Swim 片段同一个一拍三时钟（R07）；纸纹改为页面层整幅、一拍二换纸；片名改为 A 路毛笔按笔顺写出、收笔飞白；眨眼那一帧一声细小铃音、片名两字起笔各一声，与分镜表一致（R11）。未改：没有 A 路的屏幕 ID 墨线与 Kuwahara；仍未在 Windows / 5090 上用新入口重跑。
+
+## 接入底座命令约定与 QA 门后的复现（2026-11-10 晚，P14 第三任）
+
+基线：分支 `hard/P14` 提交 `ca5361e`（已合入集成分支 `routes-template@2a0a0f3`：命令约定库、QA 门、环境与合规工具），同一台 macOS 26.5 · Apple M5 Pro · Metal · VideoToolbox；运行时 `0.1.0-canary.2`（可执行文件 sha256 与锁一致）。
+
+| 步骤 | 命令 | 结果 |
+|---|---|---|
+| 准备 | `node examples/raea/tools/prepare.mjs` | exit 0，约 17 秒；云堤 `clouds_back` 两端烘圆形收边（`edge.round`），QA 门的找边检测对处理后的图报「没有直线边」（原图左 3.7% / 右 96.2% 两条直线淡出）；`prepared.json` 新增每类素材清单的指纹 |
+| 出片 | `node examples/raea/tools/render.mjs --run-id final` | 原生渲染 4.8 秒；240 帧、1920×1040、yuv420p、BT.709 tv 四标签、−14.0 LUFS / −3.2 dBTP；`raea check` 无问题；run.json：`tools.raea` 0.1.0-canary.2、`actualDevice` Apple M5 Pro、`actualGraphicsBackend` metal、`softwareFallback` false、`actualEncoder` VideoToolbox（母版）+ libx264（网页版）；隐式标识 `AIGC{…} 含 AI 生成画面` |
+| 机器 QA 门 | 出片入口自动运行 `node tools/qa/cli.mjs report` | 27 过、3 提示、1 硬门：`known-issues.open`（台账 QA-B-001、QA-B-002 仍是 open）→ exit 4、run.json `status: failed`。声画同步：眨眼铃与片名铃偏差 1.9–2.4 ms；船笛、鲲鸣、和弦是 0.9–1.5 秒的缓起包络，事件标 `sync: "soft"` 后只给软项 |
+| 模版（对照） | `new-film b` → `prepare` → `native.mjs`，连渲两次 | 两次都 exit 0、机器 QA 通过；母版解码后逐帧相同；网页版视频与音频码流逐字节相同（只有 comment 里的运行 id 不同） |
+
+与上一节相比的画面改动（有意的）：第三镜鲲上方那团积云的左端从竖直刀口变成圆形收边；云堤整体右移 16 米，第一镜的右端收边落到右侧近景云后面（不让陆家嘴高楼从半透明收边里透出来）。其余画面不变。仍未做：三维物体的空气透视（QA-B-002，实验记录见 B 路线手册「边界与常见坑」）；Windows / 5090 用新入口重跑。
