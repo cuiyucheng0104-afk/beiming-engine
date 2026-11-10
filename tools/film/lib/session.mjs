@@ -73,6 +73,13 @@ export async function openSession({ command, kind, filmArg, opts }) {
   if (film.route !== 'b' && (rp.startsWith('..') || path.isAbsolute(rp))) {
     throw new FilmError(EXIT.USAGE, 'page-outside', `页面目录 ${film.pageDir} 不在仓库里：页面由仓库根的本地服务器提供`, '把作品放在仓库的 films/ 下（npm run new 生成的就是）');
   }
+  // B：原生运行时按真实路径打包 film.tsx，作品目录若是指向仓库外的链接，../../engine/native 就找不到
+  if (film.route === 'b') {
+    let real = film.dir;
+    try { real = fs.realpathSync(film.dir); } catch { /* 上面已确认存在 */ }
+    const rr = path.relative(fs.realpathSync(ROOT), real);
+    if (rr.startsWith('..') || path.isAbsolute(rr)) throw new FilmError(EXIT.USAGE, 'native-outside', `B 路线作品目录的真实位置不在仓库里（${real}）：原生运行时按真实路径打包 film.tsx，../../engine/native 会找不到`, '把作品目录本身放进仓库的 films/ 下（不要用指向仓库外的链接）');
+  }
   if (opts.size && opts.final) throw new FilmError(EXIT.USAGE, 'size-final', '--final 只按交付档位出片，不能再用 --size 改画幅', '要别的画幅就换档位：--profile <档位>');
   const size = opts.size ? parseSize(opts.size) : null;
   if (size && film.route === 'b') throw new FilmError(EXIT.USAGE, 'size-native', 'B 路线的画幅来自 film.json（native.mjs 与 film.tsx 都读它），不能用 --size 覆盖', '改 film.json 的 size');
@@ -181,7 +188,13 @@ function technicalOf(ctx) {
 
 // 实际编码器：页面型取逐帧视频里 x264 自报的参数，封装时若重编码再接上封装的编码器；原生取运行时日志
 function encoderOf(ctx) {
-  if (ctx.film.route === 'b') return ctx.nativeDevice?.encoder || null;
+  if (ctx.film.route === 'b') {
+    if (ctx.kind === 'stills' || ctx.kind === 'render') return ctx.art.frames ? 'PNG（原生运行时 render --at）' : null;
+    if (ctx.nativeDevice?.encoder) return ctx.nativeDevice.encoder;
+    const o = ctx.outputInfo;
+    // canary.2 的日志不报编码器名：按码流如实记录（档次、级别），不猜是哪家编码器
+    return o ? `${String(o.codec || 'h264').toUpperCase()} ${o.profileName || ''}${o.level ? ` @ L${o.level / 10}` : ''}（原生运行时内置编码器；运行时日志没有报编码器名，按码流记录）`.replace(/\s+（/, '（') : null;
+  }
   if (ctx.kind === 'stills' || ctx.kind === 'render') return ctx.art.frames ? 'JPEG q92（engine/render/still.mjs 截图）' : null;
   const v = ctx.meta.video?.encoder;
   if (!v) return null;

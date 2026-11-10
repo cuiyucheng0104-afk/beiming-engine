@@ -141,6 +141,7 @@ async function checkOutput(ctx, main) {
   const info = await ctx.media.probe(ctx.exec, main);
   const sha256 = ctx.outputs.find(o => o.path === rel(main))?.sha256 || null;
   const output = { path: rel(main), file: path.basename(main), sha256, width: info.width, height: info.height, fps: info.fps, frames: info.frames, duration: info.duration, pixFmt: info.pixFmt, color: info.color, audio: info.audio, codec: info.codec, profileName: info.profile, level: info.level };
+  ctx.outputInfo = output;
   const problems = [];
   if (info.frames !== ctx.frames) problems.push(`帧数 ${info.frames}（应为 ${ctx.frames}）`);
   if (info.width !== ctx.width || info.height !== ctx.height) problems.push(`画幅 ${info.width}×${info.height}（应为 ${ctx.width}×${ctx.height}）`);
