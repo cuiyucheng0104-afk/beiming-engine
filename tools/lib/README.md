@@ -7,8 +7,8 @@
 | `cli.mjs` | Node 命令：声明参数与选项、严格解析、`--help` 无副作用、`--json` 信封、退出码常量 `EXIT`、错误类 `CliError`、信号清理 |
 | `cli.py` | Python 命令：同一套退出码、信封与错误类；`ArgumentParser` 是 argparse 的严格版（中文报错、不接受缩写） |
 | `routes.mjs` | 路线注册表 `routes/routes.json` 的唯一读取口：校验、按 id 或别名找路线、展开下一步命令 |
-| `profiles.mjs` | 交付档位：读 `engine/production/profiles.json`，没有时用 D07 的兜底表 |
-| `filmspec.mjs` | 作品描述的轻量规则：占位符、作品名与片名、film.json 结构自检 |
+| `profiles.mjs` | 交付档位：读 `engine/production/profiles.json`（作品描述包的正式写法 `video` / `audio.loudness` / `default`），没有时用 D07 的兜底表 |
+| `filmspec.mjs` | 作品描述的轻量规则：占位符、作品名与片名、film.json 结构自检；`formatFilmJson` 稳定排版（与 `engine/production/io.js` 的 `formatJson` 同一规则） |
 
 ## 写一个 Node 命令
 
@@ -65,4 +65,4 @@ if __name__ == '__main__':
     sys.exit(run(main, parser, command='thing'))
 ```
 
-测试：`node --test tests/cli`（含 `cli.py` 的用例，需要 `python3`）。
+测试：`node --test tests/cli tests/governance`（含 `cli.py` 的用例，需要 `python3`）。`tests/cli/contract.test.mjs` 会自动识别用本库写的 npm 脚本并验证 `--help`、未知参数与 `--json`；还没接入的脚本要在它的 `KNOWN_EXCEPTIONS` 里登记属主与原因。
