@@ -2,7 +2,7 @@
 //   · 后期的颗粒 / 墨线沸腾的种子、颗粒格子、纸纹 layer 与锚点：默认参数下与改动前（abfdc83）的式子逐位相同，
 //     新参数（holdFrames、size、boilHold、scaleMode、anchor）按影片帧率 / 分辨率工作；
 //   · paint 的仿射矩阵、平滑曲线与弧长、毛笔飞白的笔毛干段、宣纸的亮度场与纤维清单；
-//   · overlay 的倒角距离变换。
+//   · overlay 的倒角距离变换；显示层文字方框记录（window.TEXTS 的 box、alpha、font）。
 // 画到画布上的效果（毛笔一笔、宣纸）在 tests/engine/paint.browser.test.mjs。
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,6 +17,7 @@ import { catmullRom, pointAt, spanPoints, project } from '../../engine/paint/cur
 import { dryRuns } from '../../engine/paint/brushwork.js';
 import { xuanField, xuanFibers } from '../../engine/paint/xuan.js';
 import { chamfer } from '../../engine/overlay/brush.js';
+import { createOverlay } from '../../engine/overlay/text.js';
 
 const R = mulberry(20261110);
 
@@ -138,4 +139,24 @@ test('overlay/brush 的 chamfer：形内到边缘的倒角距离——圆盘中�
   assert.ok(d[40 * W + 11] <= 2, '贴边的像素距离小');
   assert.ok(Math.abs(d[40 * W + 25] - d[25 * W + 40]) < 1e-6 && Math.abs(d[40 * W + 25] - d[40 * W + 55]) < 1e-6, '对称');
   assert.ok(hashi(1) !== hashi(2));
+});
+
+test('overlay/text 的文字方框（window.TEXTS，页面约定 v1）：旧字段 x0..y1 向外取整不变，box 由它们算，alpha 记下时的不透明度', () => {
+  const O = createOverlay({ ink: [234, 246, 255], glow: [159, 232, 255], halo: [0, 0, 0], fill: [10, 20, 30] });
+  const list = O.collect(() => {
+    O.rec('title', '北冥', 100.4, 50.6, 220.2, 90.1, 0.83456, '400 25.00px "BM Sans", sans-serif');
+    O.rec('sub', '鲲', 10, 20, 30, 40, 1.7);          // 不透明度夹到 1
+    O.rec('ghost', '看不见', 0, 0, 10, 10, 0.02);      // ≤ 0.02 不算看得见，不记
+    O.rec('nofont', 'x', 1.5, 2.5, 3.5, 4.5, 0.5);
+  });
+  assert.deepEqual(list, [
+    { id: 'title', text: '北冥', x0: 100, y0: 50, x1: 221, y1: 91, box: [100, 50, 121, 41], alpha: 0.8346, font: '400 25.00px "BM Sans", sans-serif' },
+    { id: 'sub', text: '鲲', x0: 10, y0: 20, x1: 30, y1: 40, box: [10, 20, 20, 20], alpha: 1 },
+    { id: 'nofont', text: 'x', x0: 1, y0: 2, x1: 4, y1: 5, box: [1, 2, 3, 3], alpha: 0.5 },
+  ]);
+  assert.equal(O.draw, true, 'collect 之后恢复「画」');
+  assert.throws(() => O.collect(() => { throw new Error('布局出错'); }), /布局出错/);
+  assert.ok(O.draw === true && O.out === null, '布局函数抛错也恢复，不把后面的帧变成「只量不画」');
+  O.rec('outside', '不在 collect 里', 0, 0, 1, 1, 1);   // 不在 collect 期间：不记、不报错
+  assert.equal(O.out, null);
 });
