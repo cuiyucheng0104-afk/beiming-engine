@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { RenderError, EXIT } from './cli.mjs';
+import { RenderError } from './errors.mjs';
 import { alive } from './lock.mjs';
 
 const BEAT_MS = 15000, STALE_MS = 90000, MUTEX_STALE_MS = 10000;
@@ -70,7 +70,7 @@ export function tryTake(dir, slots, label) {
 export function slotCount(value = process.env.RENDER_SLOTS) {
   if (value === undefined || value === null || value === '') return null;
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 1 || n > 256) throw new RenderError('usage', `RENDER_SLOTS / --slots 必须是 1–256 的整数（收到 ${value}）`, { exitCode: EXIT.USAGE });
+  if (!Number.isInteger(n) || n < 1 || n > 256) throw new RenderError('usage.bad-value', `RENDER_SLOTS / --slots 必须是 1–256 的整数（收到 ${value}）`, { hint: '不限槽位就不设 RENDER_SLOTS' });
   return n;
 }
 
@@ -92,8 +92,8 @@ export async function acquireSlot({ slots = slotCount(), wait = true, timeoutMs 
       process.on('exit', release);
       return Object.assign(release, { info: { slots, slot: path.basename(d), waitedSeconds: +((Date.now() - t0) / 1000).toFixed(1) } });
     }
-    if (!wait) throw new RenderError('slots-full', `这台机器的 ${slots} 个渲染槽位都占着（RENDER_SLOTS=${slots}）`, { exitCode: EXIT.BUSY, hint: '等别的渲染结束后重试，或去掉 --no-wait 让它排队' });
-    if (Date.now() - t0 > timeoutMs) throw new RenderError('slot-timeout', `等渲染槽位超过 ${timeoutMs / 1000} 秒`, { exitCode: EXIT.TIMEOUT, hint: '槽位一直满：看看是不是有渲染卡住了（槽位目录 ' + dir + '）' });
+    if (!wait) throw new RenderError('busy.slots-full', `这台机器的 ${slots} 个渲染槽位都占着（RENDER_SLOTS=${slots}）`, { hint: '等别的渲染结束后重试，或去掉 --no-wait 让它排队' });
+    if (Date.now() - t0 > timeoutMs) throw new RenderError('timeout.slot', `等渲染槽位超过 ${timeoutMs / 1000} 秒`, { hint: '槽位一直满：看看是不是有渲染卡住了（槽位目录在系统临时目录的 beiming-render-slots-<用户> 下，可用 BEIMING_SLOT_DIR 改）' });
     if (n % 15 === 0) log?.info(`排队等渲染槽位（最多 ${slots} 个同时渲染）…`);
     await sleep(2000, signal);
   }
@@ -141,8 +141,8 @@ export async function guardGpu({ enabled = true, wait = true, timeoutMs = 30 * 6
     const s = await checkSharedGpu();
     if (!s.available || !s.busy) return { checked: true, ...s, waitedSeconds: +((Date.now() - t0) / 1000).toFixed(1) };
     const why = s.reasons.join('；');
-    if (!wait) throw new RenderError('gpu-busy', `共享 GPU 正忙：${why}`, { exitCode: EXIT.BUSY, hint: '等它空下来再渲（去掉 --no-wait 会自动排队），或在独占的时段渲；不要终止别人的任务' });
-    if (Date.now() - t0 > timeoutMs) throw new RenderError('gpu-busy-timeout', `等共享 GPU 空闲超过 ${Math.round(timeoutMs / 1000)} 秒：${why}`, { exitCode: EXIT.TIMEOUT });
+    if (!wait) throw new RenderError('busy.gpu', `共享 GPU 正忙：${why}`, { hint: '等它空下来再渲（去掉 --no-wait 会自动排队），或在独占的时段渲；不要终止别人的任务' });
+    if (Date.now() - t0 > timeoutMs) throw new RenderError('timeout.gpu-busy', `等共享 GPU 空闲超过 ${Math.round(timeoutMs / 1000)} 秒：${why}`, { hint: '共享 GPU 一直被占：和占用者协调时段，或加 --no-guard 明知故犯（会拖慢别人的任务）' });
     if (n % 4 === 0) log?.info(`共享 GPU 正忙（${why}），15 秒后再看…`);
     await sleep(15000, signal);
   }

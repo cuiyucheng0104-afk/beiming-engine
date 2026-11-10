@@ -3,17 +3,17 @@
 //
 //   resolveAngle(value?)        ANGLE 后端：参数 > BEIMING_ANGLE > 平台默认（macOS metal、Windows vulkan、Linux default）。
 //                               先转小写去空格，再按平台校验：metal 只用于 macOS，d3d11 / d3d9 只用于 Windows；
-//                               不认识或平台不对 → UsageError（退出码 2）。'default' 表示不传 --use-angle，由 Chrome 自己选
+//                               不认识或平台不对 → usage.angle（退出码 2）。'default' 表示不传 --use-angle，由 Chrome 自己选
 //   chromeArgs(angle)           启动参数（改这里会改变画面：先出基线再比对）
 //   chromeExecutable()          BEIMING_CHROME 指定的浏览器；没设用 Playwright 自带的 chromium-headless-shell
 //   launchBrowser({ angle })    启动浏览器；Playwright 不接管信号（渲染脚本自己收尾）
 //   probeGpu(page)              { renderer, vendor, webgl2 }：页面里新建一个 WebGL2 上下文读 UNMASKED_RENDERER
 //   isSoftwareRenderer(name)    SwiftShader、llvmpipe / softpipe、Windows WARP（Microsoft Basic Render Driver）
 //   resolveGpuPolicy(value?)    --gpu：required（默认，软件渲染判失败，退出码 3）| any（允许软件渲染，记一条提示）|
-//                               software-ok（明确要软件渲染：CI 冒烟、资产烘焙，不提示）；没写参数时读 BEIMING_GPU
-//   enforceGpu(info, policy)    按策略判定：要硬件却是软件 / 没有 WebGL2 → RenderError（退出码 3），带修复提示
+//                               software-ok（明确要软件渲染：CI 冒烟、资产烘焙，不提示）；没写参数时读 BEIMING_GPU（同样校验，写错退出码 2）
+//   enforceGpu(info, policy)    按策略判定：要硬件却是软件 → env.software-gl、没有 WebGL2 → env.webgl-unavailable（退出码 3），带修复提示
 import { chromium } from 'playwright-core';
-import { RenderError, UsageError, EXIT } from './cli.mjs';
+import { RenderError } from './errors.mjs';
 
 const VALID = {
   darwin: ['metal', 'gl', 'swiftshader', 'default'],
@@ -38,7 +38,7 @@ export function resolveAngle(value, { platform = process.platform, env = process
     const hint = angle === 'vulkan' && platform === 'darwin' ? 'macOS 上用 metal（vulkan 在 Mac 上会静默落到软件渲染）'
       : angle === 'metal' && platform !== 'darwin' ? 'metal 只有 macOS 有；Windows 的 NVIDIA 显卡用 vulkan'
       : `可用：${valid.join(' / ')}；不确定就运行 node tools/rtx/gpucheck.mjs 看哪个后端落在硬件 GPU 上`;
-    throw new UsageError(`${source === '--angle' ? '--angle' : 'BEIMING_ANGLE'}=${raw} 在 ${where} 上不可用`, hint);
+    throw new RenderError('usage.angle', `${source === '--angle' ? '--angle' : 'BEIMING_ANGLE'}=${raw} 在 ${where} 上不可用`, { hint });
   }
   return { angle, source };
 }
@@ -60,15 +60,15 @@ export const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|software|basic r
 export const isSoftwareRenderer = name => SOFTWARE_RENDERER.test(String(name || ''));
 
 export function resolveGpuPolicy(value, { env = process.env } = {}) {
-  const raw = value ?? (env.BEIMING_GPU || 'required');
+  const raw = value ?? (env.BEIMING_GPU || 'required');   // value 是 --gpu（null / undefined 表示没写）
   const p = String(raw).trim().toLowerCase();
-  if (!GPU_POLICIES.includes(p)) throw new UsageError(`${value !== undefined ? '--gpu' : 'BEIMING_GPU'}=${raw} 不认识`, `只能是 ${GPU_POLICIES.join(' | ')}`);
+  if (!GPU_POLICIES.includes(p)) throw new RenderError('usage.gpu-policy', `${value !== undefined && value !== null ? '--gpu' : 'BEIMING_GPU'}=${raw} 不认识`, { hint: `只能是 ${GPU_POLICIES.join(' | ')}；CI 冒烟与没有 GPU 的机器用 software-ok` });
   return p;
 }
 
 /**
  * 启动浏览器。Playwright 默认不接管信号（handleSignals=false）：调用方自己清理；库调用方可以传 true。
- * 浏览器启动失败（没装 headless shell、BEIMING_CHROME 指错）→ RenderError 退出码 3。
+ * 浏览器启动失败（没装 headless shell、BEIMING_CHROME 指错）→ env.browser-launch（退出码 3）。
  */
 export async function launchBrowser({ angle = defaultAngle(), handleSignals = false, executablePath = chromeExecutable() } = {}) {
   try {
@@ -79,8 +79,7 @@ export async function launchBrowser({ angle = defaultAngle(), handleSignals = fa
   } catch (e) {
     const first = String(e?.message ?? e).split('\n').find(l => l.trim()) ?? '';
     const missing = /Executable doesn't exist|ENOENT|not found/i.test(String(e?.message));
-    throw new RenderError('browser-launch', `无头浏览器起不来：${first}`, {
-      exitCode: EXIT.ENV,
+    throw new RenderError('env.browser-launch', `无头浏览器起不来：${first}`, {
       hint: missing ? (executablePath ? `BEIMING_CHROME=${executablePath} 指向的文件不存在` : '运行 npm run setup 安装 Playwright 自带的 chromium-headless-shell（版本与 package.json 锁定的 playwright-core 一致）')
         : '检查 BEIMING_CHROME 与显卡驱动；node tools/rtx/gpucheck.mjs 可逐个后端试',
     });
@@ -108,10 +107,10 @@ export function enforceGpu({ renderer, webgl2 }, policy, { angle } = {}) {
   const fix = `检查 BEIMING_ANGLE（现在是 ${angle}）与显卡驱动，运行 node tools/rtx/gpucheck.mjs 看哪个后端落在硬件 GPU 上；`
     + '确实要用软件渲染（CI 冒烟、没有 GPU 的机器）就加 --gpu software-ok';
   if (!webgl2 && policy !== 'software-ok') {
-    throw new RenderError('webgl-unavailable', `浏览器建不起 WebGL2 上下文（ANGLE 后端 ${angle}）`, { exitCode: EXIT.ENV, hint: fix });
+    throw new RenderError('env.webgl-unavailable', `浏览器建不起 WebGL2 上下文（ANGLE 后端 ${angle}）`, { hint: fix });
   }
   if (software && policy === 'required') {
-    throw new RenderError('software-gl', `WebGL 落到了软件渲染（${String(renderer).slice(0, 100)}）：慢几十倍，画面也与硬件 GPU 不同`, { exitCode: EXIT.ENV, hint: fix });
+    throw new RenderError('env.software-gl', `WebGL 落到了软件渲染（${String(renderer).slice(0, 100)}）：慢几十倍，画面也与硬件 GPU 不同`, { hint: fix });
   }
   const warnings = software && policy === 'any' ? [`WebGL 正在用软件渲染（${String(renderer).slice(0, 80)}）：--gpu any 放行，画面与硬件 GPU 不同`] : [];
   return { software, warnings };

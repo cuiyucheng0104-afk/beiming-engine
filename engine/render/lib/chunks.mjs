@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { openFilm, renderFrame, finalFaultCheck } from '../page.mjs';
-import { RenderError, EXIT } from './cli.mjs';
+import { RenderError } from './errors.mjs';
 import { FFMPEG, probe } from './ffmpeg.mjs';
 import { sha256 } from './record.mjs';
 
@@ -34,7 +34,7 @@ export function planFilmChunks(a, b, { shots = [], chunk = 'auto', fps = 24 } = 
     if (cur < lo) out.push(...planChunks(cur, lo, { chunk, fps }));   // 镜头表没覆盖的空隙
     if (hi > lo) {
       if (s.raw?.evaluation === 'sequential') {
-        if (lo !== s.in) throw new RenderError('sequential-partial', `镜头 ${s.id} 是 sequential（有状态），只能从它的第一帧 ${s.in} 开始渲`, { exitCode: EXIT.USAGE, hint: `--frames 的起点改成 ${s.in}，或整镜渲 --shot ${s.id}` });
+        if (lo !== s.in) throw new RenderError('usage.sequential-partial', `镜头 ${s.id} 是 sequential（有状态），只能从它的第一帧 ${s.in} 开始渲`, { hint: `--frames 的起点改成 ${s.in}，或整镜渲 --shot ${s.id}` });
         out.push([lo, hi]);
       } else out.push(...planChunks(s.in, s.out, { chunk, fps }).map(([x, y]) => [Math.max(x, lo), Math.min(y, hi)]).filter(([x, y]) => y > x));
     }
@@ -58,7 +58,7 @@ const describeExit = r => (r.error ? `无法运行：${r.error.message}` : r.sig
 
 // 把一帧写进 FFmpeg 的 stdin；管道满了就等 drain，同时盯着 FFmpeg 退出和中止信号，绝不无限等待
 async function feed(ff, buf, exited, signal, where) {
-  const gone = async () => new RenderError('ffmpeg-exited', `FFmpeg 在${where}中途退出（${describeExit(await Promise.race([exited, sleep(5000).then(() => ({ code: '未知' }))]))}）`, {
+  const gone = async () => new RenderError('failure.ffmpeg-exited', `FFmpeg 在${where}中途退出（${describeExit(await Promise.race([exited, sleep(5000).then(() => ({ code: '未知' }))]))}）`, {
     hint: 'FFmpeg 自己的报错见上面；常见原因：磁盘满、编码参数不被这个 FFmpeg 支持',
   });
   if (ff.exitCode !== null || ff.signalCode !== null || ff.stdin.destroyed || !ff.stdin.writable) throw await gone();
@@ -147,7 +147,7 @@ export async function renderRange(o) {
     const blockHashes = [];
     try {
       const early = await Promise.race([new Promise(r => ff.once('spawn', () => r(null))), exited]);
-      if (early) throw new RenderError('ffmpeg-spawn', `FFmpeg 没能启动（${describeExit(early)}）`, { exitCode: EXIT.ENV, hint: '运行 ffmpeg -version 确认可用；或设 FFMPEG 为完整路径' });
+      if (early) throw new RenderError('env.ffmpeg-spawn', `FFmpeg 没能启动（${describeExit(early)}）`, { hint: '运行 ffmpeg -version 确认可用；或设 FFMPEG 为完整路径' });
       for (let f = a; f < b; f++) {
         if (signal.aborted) throw signal.reason;
         const t = f / fps;
@@ -167,10 +167,10 @@ export async function renderRange(o) {
       const r = await Promise.race([exited, new Promise((_, reject) => {
         if (signal.aborted) reject(signal.reason); else signal.addEventListener('abort', () => reject(signal.reason), { once: true });
       })]);
-      if (r.code !== 0) throw new RenderError('ffmpeg-failed', `FFmpeg 编码第 ${a}–${b - 1} 帧时${describeExit(r)}`, { hint: 'FFmpeg 自己的报错见上面' });
+      if (r.code !== 0) throw new RenderError('failure.ffmpeg', `FFmpeg 编码第 ${a}–${b - 1} 帧时${describeExit(r)}`, { hint: 'FFmpeg 自己的报错见上面' });
       for (let j = 0; j < outputs.length; j++) {
         const n = (await probe(partial[j], { signal })).video?.frames;
-        if (n !== b - a) throw new RenderError('frame-count', `第 ${a}–${b - 1} 帧这一块编出来是 ${n} 帧，应为 ${b - a} 帧`, { exitCode: EXIT.CONTRACT });
+        if (n !== b - a) throw new RenderError('contract.frame-count', `第 ${a}–${b - 1} 帧这一块编出来是 ${n} 帧，应为 ${b - a} 帧`, { hint: '编码器丢帧或重复帧：带上日志报告' });
       }
       for (let j = 0; j < outputs.length; j++) fs.renameSync(partial[j], files[outputs[j].kind][i]);
       writeMeta(files[outputs[0].kind][i], { a, b, hashes: blockHashes, deps: Object.fromEntries(film.requests) });
@@ -228,16 +228,16 @@ const metaPath = file => `${file}.json`;
 function readMeta(file) { try { return JSON.parse(fs.readFileSync(metaPath(file), 'utf8')); } catch { return null; } }
 function writeMeta(file, meta) { const tmp = `${metaPath(file)}.tmp`; fs.writeFileSync(tmp, JSON.stringify(meta)); fs.renameSync(tmp, metaPath(file)); }
 
-/** 把几段同参数的 H.264 无损拼接（concat 复制，不重编码），核对帧数后原子改名 */
-export async function concatChunks(list, out, { expectFrames, signal, live, workDir }) {
+/** 把几段同参数的 H.264 无损拼接（concat 复制，不重编码），核对帧数后原子改名；metadata 是附加的 -metadata 参数（AIGC 标识） */
+export async function concatChunks(list, out, { expectFrames, signal, live, workDir, metadata = [] }) {
   const listFile = path.join(workDir, `concat-${process.pid}-${path.basename(out)}.txt`);
   fs.writeFileSync(listFile, list.map(f => `file '${path.relative(workDir, f).split(path.sep).join('/').replace(/'/g, "'\\''")}'`).join('\n') + '\n');
   const partial = path.join(workDir, `merged-${process.pid}-${path.basename(out)}`);
   try {
     const { must } = await import('./ffmpeg.mjs');
-    await must(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', path.basename(listFile), '-c', 'copy', path.basename(partial)], '拼接', { cwd: workDir, signal, live });
+    await must(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', path.basename(listFile), '-c', 'copy', ...metadata, path.basename(partial)], '拼接', { cwd: workDir, signal, live });
     const p = await probe(partial, { signal });
-    if (p.video?.frames !== expectFrames) throw new RenderError('frame-count', `拼接后是 ${p.video?.frames} 帧，应为 ${expectFrames} 帧`, { exitCode: EXIT.CONTRACT });
+    if (p.video?.frames !== expectFrames) throw new RenderError('contract.frame-count', `拼接后是 ${p.video?.frames} 帧，应为 ${expectFrames} 帧`, { hint: '块文件不完整或参数不一致：去掉 --resume 重渲' });
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.renameSync(partial, out);
     return p;

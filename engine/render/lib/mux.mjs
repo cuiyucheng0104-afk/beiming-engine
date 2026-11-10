@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥引擎 · 音画封装（Node 实现，三个平台都不需要 sh；engine/render/mux.sh 是调用它的兼容壳）
 //   node engine/render/lib/mux.mjs <video.mp4> <mix.wav | -> <out.mp4> [fps] [grain]
-//        [--frames N] [--profile web-1080p24] [--aigc "说明" | --film films/x/film.json] [--json]   完整选项：--help
+//        [--frames N] [--profile web-1080p24] [--film films/x] [--aigc visual,voice] [--aigc-tool 名字] [--json]   完整选项：--help
 //
 // 响度：用 ebur128（与最后核对用的是同一把尺，BS.1770）测积分响度和真峰值，整段乘同一个增益到目标（默认 −14 LUFS），不压动态。
 //   编成 AAC 后真峰值仍高于（上限 − 0.2）dBTP 时，才在 4 倍过采样上用前瞻限幅器削掉超出的峰，再测一次把积分响度补回目标。
@@ -15,7 +15,9 @@
 //   没有按 H.264 默认的有限范围；矩阵 bt709、bt470bg、smpte170m、fcc、smpte240m、bt2020nc 按标记换算，没有矩阵标记按 BT.601；
 //   RGB 输入（rgb / bgr / gbr…）直接换算。swscale 换算不了的矩阵（bt2020c、ycgco、ictcp 等）不换算，原样编码并保留标记。
 // grain > 0 时在封装阶段再叠一层胶片颗粒（北冥的颗粒已在页面里画好，默认 0）。
-// AIGC 标识（决定 D11）：--aigc "说明"，或 --film 读 film.json 的 aigc{ contains, note }，写进 mp4 的 comment 元数据（隐式标识）。
+// AIGC 隐式标识（决定 D11，docs/rights/aigc.md）：作品声明含 AI 生成内容时（--film 读 film.json 的 aigc.contains，或 --aigc
+//   直接给出类别），用 tools/compliance/lib/aigc.mjs 的 ffmpegMetadataArgs 写进 mp4 的 comment 元数据：AIGC{…} 加一句人读说明；
+//   ProduceID 是 <作品 id>@<运行号>（--produce-id 可指定）。不含（contains=false、--aigc none、两者都没写）就不写。
 // 输出先写 <输出目录>/.<名>.partial-<pid>.mp4，核对通过才改名；失败不留半成品。最后核对：帧数与输入一致、
 //   |I − 目标| ≤ 0.5 LU、真峰值 ≤ 上限（默认 −1.0 dBTP，D07）。
 // 退出码：0 成功 · 2 用法 · 3 缺 FFmpeg · 4 输入不合规（帧率、帧数、静音、读不出）或成片响度 / 帧数不达标 · 1 FFmpeg 出错。
@@ -23,34 +25,18 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runCli, RenderError, UsageError, EXIT, REPO } from './cli.mjs';
+import { isMain, runCli } from '../../../tools/lib/cli.mjs';
+import { ffmpegMetadataArgs, EXPLICIT } from '../../../tools/compliance/lib/aigc.mjs';
+import { RenderError } from './errors.mjs';
+import { renderCommand, positiveNumber } from './command.mjs';
 import { preflight, FFMPEG, run, must, probe } from './ffmpeg.mjs';
 import { resolveProfile } from './profiles.mjs';
-import { sha256File, repoPath } from './record.mjs';
+import { sha256File, repoPath, environment, runId as makeRunId } from './record.mjs';
 
-export const SPEC = {
-  command: 'engine/render/lib/mux.mjs',
-  usage: 'node engine/render/lib/mux.mjs <video.mp4> <mix.wav | -> <out.mp4> [fps] [grain] [选项]',
-  summary: ['把无声视频与混音封装成成片：响度按 BS.1770 实测线性归一到目标，画面能拷贝就拷贝；音频写 - 表示无声片。'],
-  positionals: { min: 3, max: 5, names: ['video.mp4', 'mix.wav', 'out.mp4', 'fps', 'grain'] },
-  options: {
-    '--fps': { type: 'number', positive: true, arg: '<n>', desc: '期望的帧率：与输入不一致退出码 4（与第 4 个位置参数相同）' },
-    '--frames': { type: 'int', min: 1, arg: '<N>', desc: '期望的帧数：与输入不一致退出码 4' },
-    '--grain': { type: 'number', min: 0, arg: '<强度>', desc: '封装时叠的颗粒（默认 0，画面拷贝；与第 5 个位置参数相同）' },
-    '--profile': { type: 'string', arg: '<档位>', desc: '响度目标取自交付档位（默认 −14 LUFS、真峰值 ≤ −1.0 dBTP）' },
-    '--target-lufs': { type: 'number', arg: '<LUFS>', desc: '积分响度目标（覆盖档位）' },
-    '--true-peak': { type: 'number', arg: '<dBTP>', desc: '真峰值上限（覆盖档位）' },
-    '--aigc': { type: 'string', arg: '<说明>', desc: '写进 comment 元数据：「含 AI 生成画面：说明」' },
-    '--film': { type: 'string', arg: '<film.json>', desc: '从 film.json 的 aigc{ contains, note } 取 AIGC 标识' },
-    '--comment': { type: 'string', arg: '<文字>', desc: '原样写进 comment 元数据（与 --aigc 二选一）' },
-    '--json': { type: 'flag', desc: 'stdout 只输出一个结果对象' },
-  },
-  examples: [
-    'node engine/render/lib/mux.mjs out/video.mp4 out/mix.wav out/beiming.mp4 24 0',
-    'node engine/render/lib/mux.mjs films/x/out/video.mp4 films/x/out/mix.wav films/x/out/x.mp4 --frames 192 --film films/x/film.json',
-    'node engine/render/lib/mux.mjs films/x/out/video.mp4 - films/x/out/x.mp4        无声片',
-  ],
-};
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+/** 隐式标识里的制作方（法律主体待补，docs/rights/register.md R12；与 tools/compliance/aigc.mjs 的默认值相同） */
+export const AIGC_PRODUCER = '北冥引擎 Beiming Engine';
+const KINDS = Object.keys(EXPLICIT);
 
 // ebur128 摘要里取某一项（与 mux.sh 的 awk 相同：取最后一次出现的“键 值”）
 export function field(text, key) {
@@ -61,30 +47,30 @@ export function field(text, key) {
 const fix2 = x => x.toFixed(2);
 async function measure(file, signal) {
   const r = await run(FFMPEG(), ['-hide_banner', '-nostats', '-i', file, '-vn', '-af', 'ebur128=peak=true:framelog=quiet', '-f', 'null', '-'], { signal });
-  if (r.code !== 0) throw new RenderError('loudness-measure', `测响度失败：${file}`, { exitCode: EXIT.CONTRACT });
+  if (r.code !== 0) throw new RenderError('contract.loudness-measure', `测响度失败：${file}`, { hint: '文件读不出声音：检查混音是否完整' });
   return { I: field(r.stderr, 'I:'), LRA: field(r.stderr, 'LRA:'), Peak: field(r.stderr, 'Peak:') };
 }
 
-/** 封装：返回 { out, video{…}, loudness{…}, comment } */
-export async function mux({ video, audio, out, fps = null, frames = null, grain = 0, target = -14, tolerance = 0.5, truePeak = -1.0, comment = null, signal, log }) {
+/** 封装：返回 { out, video{…}, loudness{…}, comment }；metadata 是要原样拼进 ffmpeg 的 -metadata 参数（AIGC 标识，见 aigcMetadata） */
+export async function mux({ video, audio, out, fps = null, frames = null, grain = 0, target = -14, tolerance = 0.5, truePeak = -1.0, metadata = [], signal, log }) {
   const LIM = 0.81, AIM = truePeak - 0.2;   // 限幅线 0.81 ≈ −1.8 dBFS，给 AAC 编码留余量；触发限幅的线比上限再低 0.2 dB
-  if (!fs.existsSync(video)) throw new UsageError(`找不到画面文件：${video}`);
-  if (audio !== null && !fs.existsSync(audio)) throw new UsageError(`找不到声音文件：${audio}`, '无声片把音频写成 -');
+  if (!fs.existsSync(video)) throw new RenderError('usage.input-missing', `找不到画面文件：${video}`, { hint: '先用 node engine/render/video.mjs 出无声视频' });
+  if (audio !== null && !fs.existsSync(audio)) throw new RenderError('usage.input-missing', `找不到声音文件：${audio}`, { hint: '无声片把音频写成 -' });
   const v = (await probe(video, { signal })).video;
-  if (!v) throw new RenderError('no-video', `${video} 里没有画面`, { exitCode: EXIT.CONTRACT });
+  if (!v) throw new RenderError('contract.no-video', `${video} 里没有画面`, { hint: '第一个参数要是视频文件' });
   const RATE = v.rate, VFPS = v.fps, NF = v.frames;
-  if (!(VFPS > 0)) throw new RenderError('input-fps', `读不出画面帧率：${video}（r_frame_rate=${RATE}）`, { exitCode: EXIT.CONTRACT });
-  if (!(Number.isInteger(NF) && NF > 0)) throw new RenderError('input-frames', `数不出画面帧数：${video}`, { exitCode: EXIT.CONTRACT });
+  if (!(VFPS > 0)) throw new RenderError('contract.input-fps', `读不出画面帧率：${video}（r_frame_rate=${RATE}）`, { hint: '重新生成画面文件' });
+  if (!(Number.isInteger(NF) && NF > 0)) throw new RenderError('contract.input-frames', `数不出画面帧数：${video}`, { hint: '重新生成画面文件' });
   if (fps !== null && Math.abs(fps - VFPS) >= 0.001) {
-    throw new RenderError('input-fps-mismatch', `期望 ${fps} fps，输入视频是 ${RATE}（${NF} 帧）：不能用 fps 滤镜“修正”，那会静默丢帧或重复帧`, {
-      exitCode: EXIT.CONTRACT, hint: '按正确的帧率重渲画面（video.mjs --fps / --profile），或去掉期望帧率按输入封装',
+    throw new RenderError('contract.input-fps-mismatch', `期望 ${fps} fps，输入视频是 ${RATE}（${NF} 帧）：不能用 fps 滤镜“修正”，那会静默丢帧或重复帧`, {
+      hint: '按正确的帧率重渲画面（video.mjs --fps / --profile），或去掉期望帧率按输入封装',
     });
   }
   if (frames !== null && frames !== NF) {
-    throw new RenderError('input-frames-mismatch', `期望 ${frames} 帧，输入视频是 ${NF} 帧（${RATE} fps）`, { exitCode: EXIT.CONTRACT, hint: '画面帧数要等于 film.json 的 frameCount：重渲画面' });
+    throw new RenderError('contract.input-frames-mismatch', `期望 ${frames} 帧，输入视频是 ${NF} 帧（${RATE} fps）`, { hint: '画面帧数要等于 film.json 的 frameCount：重渲画面' });
   }
   if (Math.abs(v.avgFps - VFPS) > 0.001 * VFPS) {
-    throw new RenderError('input-vfr', `输入视频不是恒定帧率（r_frame_rate ${RATE}，平均 ${v.avgFps.toFixed(3)} fps）`, { exitCode: EXIT.CONTRACT, hint: '时间戳不均匀：重渲画面，不要拼接帧率不同的片段' });
+    throw new RenderError('contract.input-vfr', `输入视频不是恒定帧率（r_frame_rate ${RATE}，平均 ${v.avgFps.toFixed(3)} fps）`, { hint: '时间戳不均匀：重渲画面，不要拼接帧率不同的片段' });
   }
   const VD = (NF / VFPS).toFixed(6);
   const T = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-mux-'));
@@ -96,8 +82,8 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
       await must(FFMPEG(), ['-y', '-loglevel', 'error', '-i', audio, '-vn', '-af', `aresample=48000,apad=whole_dur=${VD},atrim=end=${VD}`, '-c:a', 'pcm_f32le', path.join(T, 'a0.wav')], '对齐声音', { signal });
       const m0 = await measure(path.join(T, 'a0.wav'), signal);
       I0 = m0.I; P0 = m0.Peak;
-      if (I0 === null || P0 === null) throw new RenderError('loudness-measure', `测不出响度：${audio}`, { exitCode: EXIT.CONTRACT });
-      if (!(Number(I0) > -69)) throw new RenderError('audio-silent', `音频几乎是静音（${I0} LUFS），测不出可用的响度：${audio}`, { exitCode: EXIT.CONTRACT, hint: '检查混音是否真的出了声；无声片把音频写成 -' });
+      if (I0 === null || P0 === null) throw new RenderError('contract.loudness-measure', `测不出响度：${audio}`, { hint: '文件读不出声音：检查混音是否完整' });
+      if (!(Number(I0) > -69)) throw new RenderError('contract.audio-silent', `音频几乎是静音（${I0} LUFS），测不出可用的响度：${audio}`, { hint: '检查混音是否真的出了声；无声片把音频写成 -' });
       const enc = filter => must(FFMPEG(), ['-y', '-loglevel', 'error', '-i', path.join(T, 'a0.wav'), '-af', filter, '-c:a', 'aac', '-b:a', '256k', path.join(T, 'a.m4a')], '编 AAC', { signal });
       const lim = g => `volume=${g}dB,aresample=192000,alimiter=limit=${LIM}:attack=1:release=60:level=0:latency=1,aresample=48000`;
       G = fix2(target - Number(I0));
@@ -121,14 +107,14 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
     let PRI = v.color.primaries, TRC = v.color.transfer;
     const PRI0 = PRI, TRC0 = TRC;
     const INR = R === 'pc' ? 'full' : ['tv', 'unknown', 'unspecified', ''].includes(R) ? 'limited' : null;
-    if (!INR) throw new RenderError('input-color', `不认识的输入色彩范围：${R}`, { exitCode: EXIT.CONTRACT });
+    if (!INR) throw new RenderError('contract.input-color', `不认识的输入色彩范围：${R}`, { hint: '输入要是有限范围（tv）或全范围（pc）的 YUV / RGB' });
     const isRgb = /^(rgb|bgr|gbr|argb|abgr|0rgb|0bgr|x2rgb|x2bgr)/.test(PF);
     const INM = isRgb ? 'rgb' : CS === 'bt709' ? 'bt709' : /^(bt470bg|smpte170m|unknown|unspecified|reserved.*|)$/.test(CS) ? 'bt601'
       : CS === 'fcc' ? 'fcc' : CS === 'smpte240m' ? 'smpte240m' : ['bt2020nc', 'bt2020_ncl'].includes(CS) ? 'bt2020' : 'keep';
     if (/^(unknown|unspecified|reserved.*|)$/.test(PRI)) PRI = 'bt709';
-    else if (!['bt709', 'bt470m', 'bt470bg', 'smpte170m', 'smpte240m', 'film', 'bt2020', 'smpte428', 'smpte431', 'smpte432', 'jedec-p22', 'ebu3213'].includes(PRI)) throw new RenderError('input-color', `不认识的输入原色标记：${PRI}`, { exitCode: EXIT.CONTRACT });
+    else if (!['bt709', 'bt470m', 'bt470bg', 'smpte170m', 'smpte240m', 'film', 'bt2020', 'smpte428', 'smpte431', 'smpte432', 'jedec-p22', 'ebu3213'].includes(PRI)) throw new RenderError('contract.input-color', `不认识的输入原色标记：${PRI}`, { hint: '按 BT.709 重新生成画面' });
     if (/^(unknown|unspecified|reserved.*|)$/.test(TRC)) TRC = 'bt709';
-    else if (!['bt709', 'bt470m', 'bt470bg', 'smpte170m', 'smpte240m', 'linear', 'log100', 'log316', 'iec61966-2-4', 'bt1361e', 'iec61966-2-1', 'bt2020-10', 'bt2020-12', 'smpte2084', 'smpte428', 'arib-std-b67'].includes(TRC)) throw new RenderError('input-color', `不认识的输入传递特性标记：${TRC}`, { exitCode: EXIT.CONTRACT });
+    else if (!['bt709', 'bt470m', 'bt470bg', 'smpte170m', 'smpte240m', 'linear', 'log100', 'log316', 'iec61966-2-4', 'bt1361e', 'iec61966-2-1', 'bt2020-10', 'bt2020-12', 'smpte2084', 'smpte428', 'arib-std-b67'].includes(TRC)) throw new RenderError('contract.input-color', `不认识的输入传递特性标记：${TRC}`, { hint: '按 BT.709 重新生成画面' });
     const ETRC = TRC === 'bt470m' ? 'gamma22' : TRC === 'bt470bg' ? 'gamma28' : TRC;
     const GRAIN = Number(grain) ? `,noise=c0s=${grain}:allf=t` : '';
     const SWS = 'out_range=limited:out_color_matrix=bt709:flags=accurate_rnd+full_chroma_int';
@@ -149,7 +135,8 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
     const COPY = !Number(grain) && PF === 'yuv420p' && R === 'tv' && CS === 'bt709' && PRI0 === 'bt709' && TRC0 === 'bt709';
     if (COPY) COLOR = '有限范围 BT.709（输入已完整标记，画面直接拷贝，未重新编码）';
 
-    const meta = comment ? ['-metadata', `comment=${comment}`] : [];
+    const meta = Array.isArray(metadata) ? metadata : [];
+    const comment = meta.length ? meta[1].replace(/^comment=/, '') : null;
     const aIn = audio !== null ? ['-i', path.join(T, 'a.m4a')] : [];
     const aMap = audio !== null ? ['-map', '1:a:0', '-c:a', 'copy'] : [];
     fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
@@ -174,12 +161,12 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
       + (result.loudness ? `\n  响度：原 ${I0} LUFS、真峰值 ${P0} dBTP → 整段增益 ${G} dB${LIMITED ? '；线性增益后 AAC 峰值超限，加了 4 倍过采样限幅' : ''}`
         + `\n    I:    ${result.loudness.I} LUFS\n    LRA:  ${result.loudness.LRA} LU\n    Peak: ${result.loudness.truePeak} dBFS` : '\n  声音：无（无声片）')
       + (comment ? `\n  comment：${comment}` : ''));
-    if (NO !== NF) throw new RenderError('output-frames', `成片 ${NO} 帧，与输入画面 ${NF} 帧不一致：${out}`, { exitCode: EXIT.CONTRACT });
+    if (NO !== NF) throw new RenderError('contract.output-frames', `成片 ${NO} 帧，与输入画面 ${NF} 帧不一致：${out}`, { hint: '封装丢帧或补帧：带上日志报告' });
     if (result.loudness) {
       const I = Number(result.loudness.I), P = Number(result.loudness.truePeak);
       if (!(Math.abs(I - target) <= tolerance && P <= truePeak)) {
-        throw new RenderError('loudness-out-of-spec', `成片响度不达标：I=${result.loudness.I} LUFS（目标 ${target}±${tolerance}）、真峰值 ${result.loudness.truePeak} dBTP（上限 ${truePeak}）：${out}`, {
-          exitCode: EXIT.CONTRACT, hint: '混音的峰值余量不够：回到混音阶段把真峰值压到 −1.5～−2 dBTP 再封装',
+        throw new RenderError('contract.loudness', `成片响度不达标：I=${result.loudness.I} LUFS（目标 ${target}±${tolerance}）、真峰值 ${result.loudness.truePeak} dBTP（上限 ${truePeak}）：${out}`, {
+          hint: '混音的峰值余量不够：回到混音阶段把真峰值压到 −1.5～−2 dBTP 再封装',
         });
       }
     }
@@ -191,40 +178,91 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
   }
 }
 
-/** 从 --aigc / --film / --comment 得到 comment 元数据 */
-export function aigcComment({ aigc, film, comment }) {
-  if ([aigc, film, comment].filter(x => x !== undefined).length > 1) throw new UsageError('--aigc、--film、--comment 只能写一个');
-  if (comment !== undefined) return comment;
-  if (aigc !== undefined) return `含 AI 生成画面${aigc ? `：${aigc}` : ''}`;
-  if (film !== undefined) {
-    let j;
-    try { j = JSON.parse(fs.readFileSync(film, 'utf8')); } catch (e) { throw new UsageError(`读不了 ${film}：${e.message}`); }
-    if (j.aigc?.contains === true) return `含 AI 生成画面${j.aigc.note ? `：${j.aigc.note}` : ''}`;
-    return null;
+/** 读作品描述（目录或 film.json）：只取 id 与 aigc；读不了 → usage.film-json */
+function readFilmJson(p) {
+  const file = fs.existsSync(p) && fs.statSync(p).isDirectory() ? path.join(p, 'film.json') : p;
+  try { return { file, json: JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch (e) {
+    throw new RenderError('usage.film-json', `读不了作品描述 ${file}：${e.code === 'ENOENT' ? '文件不存在' : e.message}`, { hint: '--film 写作品目录（films/<名字>）或它的 film.json' });
   }
-  return null;
 }
 
-async function main({ opts, args, log, signal }) {
-  const [video, audioArg, out, fpsPos, grainPos] = args;
-  const num = (s, name) => { const v = Number(s); if (s === undefined) return undefined; if (!Number.isFinite(v) || v < 0) throw new UsageError(`${name} 必须是非负数（收到 ${s}）`); return v; };
-  const fpsP = fpsPos !== undefined && fpsPos !== '' ? num(fpsPos, '第 4 个参数 fps') : undefined;
-  if (fpsP !== undefined && !(fpsP > 0)) throw new UsageError(`fps 必须大于 0（收到 ${fpsPos}）`);
-  const grainP = grainPos !== undefined && grainPos !== '' ? num(grainPos, '第 5 个参数 grain') : undefined;
-  if (fpsP !== undefined && opts['--fps'] !== undefined && fpsP !== opts['--fps']) throw new UsageError('位置参数 fps 与 --fps 不一致');
-  const profile = opts['--profile'] ? resolveProfile(opts['--profile'], REPO) : null;
-  const comment = aigcComment({ aigc: opts['--aigc'], film: opts['--film'], comment: opts['--comment'] });
-  preflight();
-  const target = opts['--target-lufs'] ?? profile?.audio.targetLUFS ?? -14;
+/**
+ * AIGC 隐式标识的 ffmpeg 参数（D11）：返回 { args, comment, kinds, tools, produceId }；不含 AI 生成内容时 args 为空。
+ *   kinds：--aigc 给出的类别（visual / voice / music；none 表示不含）优先，其次 film.json 的 aigc.kinds，再默认 visual
+ *   film：film.json 的内容（取 aigc.contains、aigc.kinds、aigc.tools 与 id）
+ */
+export function aigcMetadata({ film = null, kinds = [], tools = [], produceId = null, runId = null, producer = AIGC_PRODUCER } = {}) {
+  const bad = kinds.filter(k => k !== 'none' && !KINDS.includes(k));
+  if (bad.length) throw new RenderError('usage.bad-value', `--aigc 只能取 ${[...KINDS, 'none'].join(' / ')}（收到 ${bad.join('、')}）`, { hint: '例：--aigc visual,voice；不含 AI 生成内容写 --aigc none' });
+  if (kinds.includes('none') && kinds.length > 1) throw new RenderError('usage.bad-value', '--aigc none 不能与别的类别同时写', { hint: '去掉 none，或只写 none' });
+  const declared = film?.aigc && typeof film.aigc === 'object' ? film.aigc : null;
+  const contains = kinds.length ? !kinds.includes('none') : declared?.contains === true;
+  if (!contains) return { args: [], comment: null, kinds: [], tools: [], produceId: null };
+  const k = kinds.length ? kinds : (Array.isArray(declared?.kinds) && declared.kinds.length ? declared.kinds.filter(x => KINDS.includes(x)) : []);
+  const t = tools.length ? tools : (Array.isArray(declared?.tools) ? declared.tools.map(String) : []);
+  const id = produceId ?? `${typeof film?.id === 'string' && film.id ? film.id : 'beiming'}@${runId ?? 'norun'}`;
+  const finalKinds = k.length ? k : ['visual'];
+  const args = ffmpegMetadataArgs({ producer, produceId: id, kinds: finalKinds, tools: t });
+  return { args, comment: args[1].slice('comment='.length), kinds: finalKinds, tools: t, produceId: id };
+}
+
+export const command = renderCommand({
+  name: 'engine/render/lib/mux.mjs',
+  summary: '把无声视频与混音封装成成片：响度按 BS.1770 实测线性归一到目标，画面能拷贝就拷贝；音频写 - 表示无声片',
+  usage: ['node engine/render/lib/mux.mjs <video.mp4> <mix.wav | -> <out.mp4> [fps] [grain] [选项]'],
+  positionals: [
+    { name: 'video', label: '<video.mp4>', describe: '无声视频（video.mjs 的产物）' },
+    { name: 'audio', label: '<mix.wav | ->', describe: '混音；写 - 表示无声片' },
+    { name: 'out', label: '<out.mp4>', describe: '成片' },
+    { name: 'fpsArg', label: '[fps]', describe: '期望帧率（与 --fps 相同；兼容 mux.sh 的写法）', required: false },
+    { name: 'grainArg', label: '[grain]', describe: '颗粒强度（与 --grain 相同；默认 0，画面拷贝）', required: false },
+  ],
+  options: {
+    fps: { type: 'number', arg: '<n>', describe: '期望的帧率：与输入不一致退出码 4' },
+    frames: { type: 'integer', min: 1, arg: '<N>', describe: '期望的帧数：与输入不一致退出码 4' },
+    grain: { type: 'number', min: 0, arg: '<强度>', describe: '封装时叠的颗粒（默认 0，画面拷贝不重编码）' },
+    profile: { type: 'string', arg: '<档位>', describe: '响度目标取自交付档位（默认 −14 LUFS、真峰值 ≤ −1.0 dBTP）' },
+    'target-lufs': { type: 'number', arg: '<LUFS>', describe: '积分响度目标（覆盖档位）' },
+    'true-peak': { type: 'number', arg: '<dBTP>', describe: '真峰值上限（覆盖档位）' },
+    film: { type: 'string', arg: '<作品目录|film.json>', describe: '从作品描述取 AIGC 声明（aigc.contains / kinds / tools）与作品 id' },
+    aigc: { type: 'list', split: ',', arg: '<类别>', describe: `AIGC 类别：${KINDS.join(' / ')}，逗号分隔；none 表示不含（覆盖 film.json）` },
+    'aigc-tool': { type: 'list', arg: '<名字>', describe: '生成工具（写进标识的人读说明，可重复；覆盖 film.json 的 aigc.tools）' },
+    'produce-id': { type: 'string', arg: '<作品@运行号>', describe: '标识里的 ProduceID（默认 <作品 id>@<运行号>）' },
+  },
+  examples: [
+    'node engine/render/lib/mux.mjs out/video.mp4 out/mix.wav out/beiming.mp4 24 0',
+    'node engine/render/lib/mux.mjs films/x/out/video.mp4 films/x/out/mix.wav films/x/out/x.mp4 --frames 192 --film films/x',
+    'node engine/render/lib/mux.mjs films/x/out/video.mp4 - films/x/out/x.mp4        无声片',
+  ],
+}, async ({ opts, args, log, signal }) => {
+  const num = (v, label) => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) throw new RenderError('usage.bad-value', `${label} 必须是非负数（收到「${v}」）`, { hint: '例：… out.mp4 24 0' });
+    return n;
+  };
+  const fpsP = num(args.fpsArg, '第 4 个参数 fps'), grainP = num(args.grainArg, '第 5 个参数 grain');
+  if (fpsP !== null && !(fpsP > 0)) throw new RenderError('usage.bad-value', `fps 必须大于 0（收到 ${args.fpsArg}）`);
+  positiveNumber(opts.fps, '--fps');
+  if (fpsP !== null && opts.fps !== null && fpsP !== opts.fps) throw new RenderError('usage.conflict', `位置参数 fps=${fpsP} 与 --fps ${opts.fps} 不一致`, { hint: '只写一处' });
+  if (grainP !== null && opts.grain !== null && grainP !== opts.grain) throw new RenderError('usage.conflict', `位置参数 grain=${grainP} 与 --grain ${opts.grain} 不一致`, { hint: '只写一处' });
+  const profile = opts.profile ? resolveProfile(opts.profile, REPO) : null;
+  const film = opts.film ? readFilmJson(path.resolve(opts.film)).json : null;
+  const ff = preflight();
+  const env = environment(REPO, { ffmpegVersion: ff.version });
+  const meta = aigcMetadata({ film, kinds: opts.aigc, tools: opts['aigc-tool'], produceId: opts['produce-id'], runId: makeRunId(env) });
+  const target = opts['target-lufs'] ?? profile?.audio.targetLUFS ?? -14;
   const r = await mux({
-    video: path.resolve(video), audio: audioArg === '-' ? null : path.resolve(audioArg), out: path.resolve(out),
-    fps: opts['--fps'] ?? fpsP ?? null, frames: opts['--frames'] ?? null, grain: opts['--grain'] ?? grainP ?? 0,
-    target, tolerance: Math.min(0.5, profile?.audio.toleranceLU ?? 0.5), truePeak: opts['--true-peak'] ?? profile?.audio.truePeakDbTP ?? -1.0,
-    comment, signal, log,
+    video: path.resolve(args.video), audio: args.audio === '-' ? null : path.resolve(args.audio), out: path.resolve(args.out),
+    fps: opts.fps ?? fpsP ?? null, frames: opts.frames ?? null, grain: opts.grain ?? grainP ?? 0,
+    target, tolerance: Math.min(0.5, profile?.audio.toleranceLU ?? 0.5), truePeak: opts['true-peak'] ?? profile?.audio.truePeakDbTP ?? -1.0,
+    metadata: meta.args, signal, log,
   });
   const sha = await sha256File(r.out);
-  return { outputs: [{ path: repoPath(REPO, r.out), sha256: sha, kind: 'master' }], extra: { video: r.video, loudness: r.loudness, comment: r.comment } };
-}
+  return {
+    outputs: [{ path: repoPath(REPO, r.out), sha256: sha, kind: 'master' }],
+    data: { video: r.video, loudness: r.loudness, aigc: meta.comment ? { comment: meta.comment, kinds: meta.kinds, tools: meta.tools, produceId: meta.produceId } : null },
+  };
+});
 
-const real = p => { try { return fs.realpathSync(p); } catch { return p; } };
-if (process.argv[1] && real(process.argv[1]) === real(fileURLToPath(import.meta.url))) await runCli(SPEC, main);
+if (isMain(import.meta.url)) await runCli(command);

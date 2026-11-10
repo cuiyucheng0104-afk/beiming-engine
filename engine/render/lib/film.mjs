@@ -2,10 +2,10 @@
 // 兼容 v1（{ route, title, dur, fps, size }，frameCount = round(dur × fps)）与 v2（附录 C6：output{ profile, width, height,
 // fps, frameCount }、shots[{ id, in, out, module }]，帧号含头不含尾）。不存在 film.json 时返回 null（例如《北冥》样片在仓库根）。
 //   readFilm(dir)  → null | { file, version, id, title, route, backend, output, shots, aigc }
-//   pickShot(film, id) / shotsByIds(film, ids)：按 id 取镜头；不认识的 id → UsageError（列出可用 id）
+//   pickShot(film, id) / shotsByIds(film, ids)：按 id 取镜头；不认识的 id → usage.shot-unknown（列出可用 id）
 import fs from 'node:fs';
 import path from 'node:path';
-import { UsageError, RenderError, EXIT } from './cli.mjs';
+import { RenderError } from './errors.mjs';
 
 const int = v => (Number.isInteger(v) ? v : null);
 
@@ -14,7 +14,7 @@ export function readFilm(dir) {
   let j;
   try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
     if (e.code === 'ENOENT') return null;
-    throw new RenderError('film-json', `${file} 不是合法 JSON：${e.message}`, { exitCode: EXIT.CONTRACT, hint: '先修好 film.json（node engine/production/film.js check 可逐项检查）' });
+    throw new RenderError('contract.film-json', `${file} 不是合法 JSON：${e.message}`, { hint: '先修好 film.json（node engine/production/film.js check 可逐项检查）' });
   }
   const v2 = j.schemaVersion === 2 || (j.output && typeof j.output === 'object');
   let output;
@@ -33,7 +33,7 @@ export function readFilm(dir) {
   })) : [];
   for (const s of shots) {
     if (s.in === null || s.out === null || !(s.out > s.in)) {
-      throw new RenderError('film-shots', `${file} 的镜头 ${s.id} 的 in / out 要是整数帧号且 out > in（收到 in=${s.raw.in} out=${s.raw.out}）`, { exitCode: EXIT.CONTRACT });
+      throw new RenderError('contract.film-shots', `${file} 的镜头 ${s.id} 的 in / out 要是整数帧号且 out > in（收到 in=${s.raw.in} out=${s.raw.out}）`, { hint: '帧号含头不含尾：镜头 [in, out)，下一个镜头的 in 等于上一个的 out' });
     }
   }
   return {
@@ -44,10 +44,10 @@ export function readFilm(dir) {
 }
 
 export function shotsByIds(film, ids) {
-  if (!film?.shots?.length) throw new UsageError('film.json 里没有镜头表（v2 的 shots[]）', '--shot / --shots 要求 film.json v2 的 shots: [{ id, in, out, module }]；只要一段帧就用 --frames 起:止');
+  if (!film?.shots?.length) throw new RenderError('usage.no-shots', 'film.json 里没有镜头表（v2 的 shots[]）', { hint: '--shot / --shots 要求 film.json v2 的 shots: [{ id, in, out, module }]；只要一段帧就用 --frames 起:止' });
   const known = new Map(film.shots.map(s => [s.id, s]));
   const bad = ids.filter(id => !known.has(id));
-  if (bad.length) throw new UsageError(`film.json 里没有镜头 ${bad.join('、')}`, `可用：${film.shots.map(s => s.id).join(' / ')}`);
+  if (bad.length) throw new RenderError('usage.shot-unknown', `film.json 里没有镜头 ${bad.join('、')}`, { hint: `可用：${film.shots.map(s => s.id).join(' / ')}` });
   return ids.map(id => known.get(id));
 }
 export const pickShot = (film, id) => shotsByIds(film, [id])[0];

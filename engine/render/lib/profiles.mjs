@@ -4,10 +4,10 @@
 // 只要能读出宽、高、帧率就算一个有效档位。
 //   loadProfiles(root)       → { source, profiles: Map<id, Profile> }
 //   resolveProfile(id, root) → Profile：{ id, width, height, fps, audio: { targetLUFS, toleranceLU, truePeakDbTP, sampleRate, channels },
-//                               video: { crf?, preset? }, source }；不认识的 id → UsageError（列出可用档位）
+//                               video: { crf?, preset? }, source }；不认识的 id → usage.profile-unknown（列出可用档位）
 import fs from 'node:fs';
 import path from 'node:path';
-import { UsageError } from './cli.mjs';
+import { RenderError } from './errors.mjs';
 
 const audio = (targetLUFS = -14, toleranceLU = 1, truePeakDbTP = -1.0) => ({ targetLUFS, toleranceLU, truePeakDbTP, sampleRate: 48000, channels: 2 });
 /** 内置表（D07）：profiles.json 缺席时才用 */
@@ -47,7 +47,7 @@ export function loadProfiles(root) {
   const out = new Map();
   let source = 'builtin（engine/render/lib/profiles.mjs，照抄 D07）';
   let raw = null;
-  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); source = 'engine/production/profiles.json'; } catch (e) { if (e.code !== 'ENOENT') throw new UsageError(`engine/production/profiles.json 不是合法 JSON：${e.message}`); }
+  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); source = 'engine/production/profiles.json'; } catch (e) { if (e.code !== 'ENOENT') throw new RenderError('contract.profiles-json', `engine/production/profiles.json 不是合法 JSON：${e.message}`, { hint: '修好档位表（作品描述包维护）' }); }
   const entries = raw === null ? Object.entries(BUILTIN_PROFILES)
     : Array.isArray(raw.profiles) ? raw.profiles.map(p => [p.id, p])
       : raw.profiles && typeof raw.profiles === 'object' ? Object.entries(raw.profiles)
@@ -59,6 +59,6 @@ export function loadProfiles(root) {
 export function resolveProfile(id, root) {
   const { profiles, source } = loadProfiles(root);
   const p = profiles.get(id);
-  if (!p) throw new UsageError(`不认识的交付档位 ${id}`, `可用：${[...profiles.keys()].join(' / ')}（来源：${source}）`);
+  if (!p) throw new RenderError('usage.profile-unknown', `不认识的交付档位 ${id}`, { hint: `可用：${[...profiles.keys()].join(' / ')}（来源：${source}）` });
   return p;
 }

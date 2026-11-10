@@ -1,9 +1,11 @@
 // 北冥引擎 · 运行记录 run.json（RenderResult v1 扩展，加固计划附录 C8）：每次渲染都写，失败时也写。
-// 渲染器只写实测事实（status 为 rendered / failed）；technicalAcceptance 一律 not-run（交给 QA 判定），
-// creativeAcceptance 一律 not-reviewed（交给人工评审）。写完用 engine/production/project.js 的 validateRenderResult 自检，
-// 结果记进 selfCheck（只提示、不影响退出码：校验器的口径由作品描述包维护）。
+// 渲染器只写实测事实：status 只写 running（stage 记到哪一步：rendering 渲染中、rendered 已出片待 QA）或 failed；
+// passed / accepted 由 QA 门与人工评审之后的出片编排改写。technicalAcceptance 一律 not-run（交给 QA 判定），
+// creativeAcceptance 一律 not-reviewed（交给人工评审）。写完用作品描述包的校验器自检（engine/production/film.js 落地后
+// 优先用它，否则 project.js 的 validateRenderResult），结果记进 selfCheck（只提示、不影响退出码：口径由作品描述包维护）。
 //   environment(root)          { sourceCommit, dirty, tools{ node, playwright, three, ffmpeg }, host{ platform, arch, release, cpus, memGB } }
 //   runId(env, date)           YYYYMMDD-HHMMSS-<短提交>[-dirty]（附录 C4）
+//   writeLatest(outRoot, id)   写指针文件 <outRoot>/latest（内容是运行号，不用符号链接；附录 C4）
 //   baseRecord({...})          记录骨架
 //   writeRecord(file, record)  原子写（先写 .tmp 再改名），返回路径
 //   sha256File(file)           流式计算
@@ -63,6 +65,7 @@ export function baseRecord({ command, argv, env, projectId, shotId = 'film', rou
     schemaVersion: 1,
     kind: 'render-run',
     status: 'running',
+    stage: 'rendering',
     command,
     projectId, shotId, route, backend,
     sourceCommit: env.sourceCommit, dirty: env.dirty,
@@ -92,16 +95,34 @@ export function writeRecord(file, record) {
   return file;
 }
 
+/** 写 <outRoot>/latest 指针（原子写；内容是运行号加换行） */
+export function writeLatest(outRoot, id) {
+  fs.mkdirSync(outRoot, { recursive: true });
+  const file = path.join(outRoot, 'latest'), tmp = `${file}.tmp-${process.pid}`;
+  fs.writeFileSync(tmp, `${id}\n`);
+  fs.renameSync(tmp, file);
+  return file;
+}
+
 /** 用作品描述包的校验器自检（存在才调）：{ validator, ok, diagnostics } */
 export async function selfCheck(root, record, { expectedFrameCount } = {}) {
-  const file = path.join(root, 'engine', 'production', 'project.js');
-  if (!fs.existsSync(file)) return { validator: null, ok: null, diagnostics: [] };
-  try {
-    const mod = await import(pathToFileURL(file).href);
-    if (typeof mod.validateRenderResult !== 'function') return { validator: null, ok: null, diagnostics: [] };
-    const r = mod.validateRenderResult(record, { expectedFrameCount });
-    return { validator: 'engine/production/project.js#validateRenderResult', ok: r.ok, diagnostics: r.diagnostics ?? [] };
-  } catch (e) {
-    return { validator: 'engine/production/project.js#validateRenderResult', ok: null, diagnostics: [{ code: 'validator-crashed', path: '$', message: String(e?.message ?? e) }] };
+  const candidates = [['film.js', ['validateRenderResult', 'validateResult']], ['project.js', ['validateRenderResult']]];
+  for (const [name, fns] of candidates) {
+    const file = path.join(root, 'engine', 'production', name);
+    if (!fs.existsSync(file)) continue;
+    let mod;
+    try { mod = await import(pathToFileURL(file).href); } catch (e) {
+      return { validator: `engine/production/${name}`, ok: null, diagnostics: [{ code: 'validator-crashed', path: '$', message: String(e?.message ?? e) }] };
+    }
+    const fn = fns.find(f => typeof mod[f] === 'function');
+    if (!fn) continue;
+    const id = `engine/production/${name}#${fn}`;
+    try {
+      const r = mod[fn](record, { expectedFrameCount });
+      return { validator: id, ok: r?.ok ?? null, diagnostics: r?.diagnostics ?? [] };
+    } catch (e) {
+      return { validator: id, ok: null, diagnostics: [{ code: 'validator-crashed', path: '$', message: String(e?.message ?? e) }] };
+    }
   }
+  return { validator: null, ok: null, diagnostics: [] };
 }
