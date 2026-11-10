@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "说明": "合规扫描的允许清单：只放人工判定为「不是问题」的发现。每条写清 rule、path（通配同 REUSE.toml）、match（命中文字里必须出现的子串）与理由；不要用它掩盖真实泄露。扫描器会对过期条目报 error、对不再匹配的条目报 warn。",
+  "entries": [
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/production/project.test.mjs",
+      "match": "C:/abs.txt",
+      "reason": "路径解析的拒绝用例：测试要证明 Windows 绝对路径会被 resolveProjectPath 拒绝，字符串是构造的样例，不是任何机器上的真实路径",
+      "owner": "P05",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tools/work-plan.test.mjs",
+      "match": "C:/engine",
+      "reason": "写入范围校验的拒绝用例：测试要证明盘符路径不被当作仓库内范围，字符串是构造的样例",
+      "owner": "P02",
+      "added": "2026-11-10"
+    }
+  ]
+}
