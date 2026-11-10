@@ -5,6 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -134,4 +135,24 @@ test('改过 vendor README 后 casebook check 仍然 OK（README 不在 lock.jso
   const r = spawnSync(py, [path.join(ROOT, 'tools', 'casebook.py'), 'check'], { cwd: ROOT, encoding: 'utf8', timeout: 300000 });
   assert.equal(r.status, 0, `casebook check 失败：\n${r.stdout}\n${r.stderr}`);
   assert.match(r.stdout, /^OK:/m);
+});
+
+test('本机装了 Claude Code 时：claude doctor 不报项目设置无效（钩子条目写坏会让整份设置失效）', (t) => {
+  if (process.env.BEIMING_SKIP_CLAUDE_DOCTOR === '1') { t.skip('BEIMING_SKIP_CLAUDE_DOCTOR=1'); return; }
+  const v = spawnSync('claude', ['--version'], { encoding: 'utf8', timeout: 30000, windowsHide: true });
+  if (v.status !== 0 || !/Claude Code/.test(v.stdout)) { t.skip('本机没有 claude 命令'); return; }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-doctor-'));
+  try {
+    fs.mkdirSync(path.join(dir, '.claude'));
+    fs.copyFileSync(path.join(ROOT, '.claude', 'settings.json'), path.join(dir, '.claude', 'settings.json'));
+    const r = spawnSync('claude', ['doctor'], { cwd: dir, encoding: 'utf8', timeout: 120000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const text = `${r.stdout ?? ''}${r.stderr ?? ''}`.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
+    assert.match(text, /Claude Code doctor/, `claude doctor 没有正常输出：${text.slice(0, 300)}`);
+    // macOS 的临时目录是符号链接（/var → /private/var），doctor 可能打印任一种写法；两种都认。
+    const names = [...new Set([dir, fs.realpathSync(dir)].flatMap(d => [path.join(d, '.claude', 'settings.json'), `${d.split(path.sep).join('/')}/.claude/settings.json`]))];
+    const mine = text.split('\n').filter(l => names.some(n => l.includes(n)));
+    assert.deepEqual(mine, [], `claude doctor 对仓库的 .claude/settings.json 报了问题：\n${mine.join('\n')}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
