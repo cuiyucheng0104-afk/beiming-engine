@@ -14,7 +14,8 @@
 门禁的门槛写在 audio/cues.json 的 qa 段（混音积分响度容差、提示音带内信噪比下限、音高容差）；混音目标仍是 target 段。
 需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指定完整路径，同 tools/env）；成片响度这一项还要用 sh 跑 engine/render/mux.sh
 （mux.sh 另外用到 ffprobe）。sh 按 BEIMING_SH → PATH 里的 sh →（Windows）Git for Windows 的 Git\bin\sh.exe 的顺序找
-（engine/audio/_env.py，同 tools/env/lib/sh.mjs）；仓库里有 engine/render/mux.mjs 而找不到 sh 时改用 node 跑它。找不到 sh、或 mux.sh
+（engine/audio/_env.py，同 tools/env/lib/sh.mjs）；仓库里有 Node 版封装（engine/render/lib/mux.mjs 或 engine/render/mux.mjs，P04）时优先用
+node 跑它，不需要 sh。找不到 sh、或 mux.sh
 起不来、跑不通时，这一项记进 problems（门禁模式下：跑不了记为「未执行」的告警，跑了但不达标才算硬项失败），其余照常测完，报告照常写出。
 音高与和弦核对用 librosa（可选依赖）：没装时报告里记「未执行」，不再把导入错误当成测量结果吞掉。
 """
@@ -52,7 +53,8 @@ GATE = ARGS.strict or bool(ARGS.report)
 
 OUT = os.path.join(ROOT, 'out', 'mix.wav')
 MUX = os.path.join(ROOT, 'engine', 'render', 'mux.sh')
-MUX_MJS = os.path.join(ROOT, 'engine', 'render', 'mux.mjs')
+MUX_MJS = next((p for p in (os.path.join(ROOT, 'engine', 'render', 'lib', 'mux.mjs'), os.path.join(ROOT, 'engine', 'render', 'mux.mjs'))
+                if os.path.exists(p)), None)        # P04 的 Node 版封装（同样的位置参数与退出码）；有它就优先用，不需要 sh
 CK = os.path.join(HERE, 'check')
 QA_REPORT = os.path.abspath(ARGS.report) if ARGS.report else os.path.join(CK, 'qa.json')
 os.makedirs(CK, exist_ok=True)
@@ -114,8 +116,8 @@ def mux_probe():
     # 返回里的 kind：env = 环境里缺东西（sh、mux.sh、进程起不来），run = 真的跑了但没跑通（门禁模式据此分「未执行」与「不达标」）
     sh, why = E.find_sh()
     node = shutil.which('node')
-    if sh is None and node and os.path.exists(MUX_MJS):
-        cmd = [node, MUX_MJS]          # Windows 的 PowerShell / cmd 里没有 sh：用同一套位置参数跑 Node 版封装
+    if node and MUX_MJS:
+        cmd = [node, MUX_MJS]          # Node 版封装（Windows 的 PowerShell / cmd 里也能跑）
     elif not os.path.exists(MUX):
         return {'error': f'找不到 {MUX}', 'kind': 'env'}
     elif sh is None:
