@@ -1,6 +1,7 @@
 // 《{{TITLE}}》画面：宣纸上三笔山——主峰浓墨"一笔成山"、收笔飞白；次峰重墨；远山淡墨湿笔晕开——
 // 山腰与山脚的云把墨"提"走（露出纸白），片名竖排题在右上的留白里，最后钤一方白文朱印。
-// Canvas 2D；只依赖 engine/ 与本目录的 paper.js / brush.js / seal.js / type.js；所有时刻来自 timeline.js（它读 film.json）。
+// Canvas 2D；只依赖 engine/、本目录的 paper.js / brush.js / seal.js / type.js 与 C 路线的片名字体（routes/c-style/fonts/）；
+// 所有时刻来自 timeline.js（它读 film.json）。
 //   setup(canvas) → 报告 { layout, scale, fonts }  生成纸、笔画几何、山体的染、印；选字体并检查缺字
 //   render(t)                                    画时刻 t（确定性：不读时钟、不留上一帧的状态，任意帧可单独、乱序重渲）
 //   TEXTS(t)                                     画面上的字：[{ id, text, box:[x,y,w,h], x0,y0,x1,y1, alpha, font, missing }]（屏幕像素）
@@ -22,13 +23,13 @@ import { FPS, DUR, F as CUEF, BEATF, ACT } from './timeline.js';
 
 export const TITLE = '{{TITLE}}';
 export const SEAL_TEXT = '北冥';                       // 印文：换成自己的落款（1–4 字），字体里要有这些字
-// 字体表 [族名, 地址, 字重]：main.js 全部加载；片名与印文按顺序取第一个"字都有"的字体。
-// 自己的字体子集放进作品目录（如 ./fonts/title.woff2）插到最前面，许可文件一并放进作品目录。
+// 字体表（type.js 的 registerFonts）：片名与印文按顺序取第一个"字都有"的字体，所以作品自己的字体插到最前面就优先用。
+//   { family, manifest }  分片字体：只下载片名、印文用得到的那几片
+//   { family, src }       一个字体文件：作品自己的 OFL 子集放进作品目录（如 ./fonts/title.woff2），许可文件一并放进去
 export const FONTS = [
-  ['BM Title', '../../fonts/MaShanZheng-400.woff2', '400'],   // 马善政毛笔楷书（OFL）；仓库子集只有"北""冥"两字
-  ['BM Sans', '../../fonts/NotoSansSC-var.woff2', '100 900'], // 思源黑体子集（OFL）；约 60 字
+  { family: 'BM Brush', manifest: '../../routes/c-style/fonts/fonts.json' },   // 马善政毛笔楷书全部 7015 字（简体，OFL），见那个目录的 README
 ];
-const TITLE_FAMILIES = ['BM Title', 'BM Sans'], SEAL_FAMILIES = ['BM Title', 'BM Sans'];
+const TITLE_FAMILIES = FONTS.map(f => f.family), SEAL_FAMILIES = TITLE_FAMILIES;
 
 const INK = '#1b1916', VERMILION = [176, 46, 34];
 const TONE = { jiao: 0.95, nong: 0.9, zhong: 0.56, dan: 0.3, qing: 0.16 };   // 墨分五色：焦 浓 重 淡 清
@@ -75,25 +76,29 @@ const LAYOUTS = {
     mist: [{ x: 360, y: 606, rx: 250, ry: 40, a: 0.78 }, { x: 610, y: 628, rx: 230, ry: 34, a: 0.7 }, { x: 860, y: 650, rx: 220, ry: 30, a: 0.62 },
       { x: 300, y: 790, rx: 420, ry: 70, a: 0.72 }, { x: 900, y: 772, rx: 470, ry: 60, a: 0.66 }, { x: 1420, y: 740, rx: 420, ry: 56, a: 0.6 }],
     drift: 28,
-    title: { x: 1742, y: 160, size: 96, gap: 1.12, maxY: 560, hx: 1700, hy: 930, hsize: 72, hmax: 980 },
+    // 题名：竖排时 x 是字的中心线、y 是第一个字的上沿；横排（非中日文或超过 8 个字）时题名与印作为一组右对齐到 hx、中线在 hy。
+    // 位置按"推到最近时仍在图文安全区内"定（16:9 每边 5%）：缓推会把右上角的字往外推约 3.5%
+    title: { x: 1742, y: 160, size: 96, gap: 1.12, maxY: 560, hx: 1780, hy: 930, hsize: 72, hmax: 980 },
     seal: { size: 74, gap: 0.5 },
   },
+  // 竖屏（9:16 社媒）：不是横屏裁切，另排一套。平台界面压住右侧约 12%、底部约 18%（QA 的竖屏安全区），
+  // 所以山整体上提，底部留给纸与雾（平台字幕落在这里也不挡主体）；题名放大、收进右上的安全区，印在题名下方
   portrait: {
-    size: [1080, 1920], focus: [560, 1020], push: 0.035,
+    size: [1080, 1920], focus: [560, 870], push: 0.035,
     strokes: {
-      s1: { ...MAIN, pts: [[48, 1562], [112, 1452], [176, 1334], [234, 1206], [282, 1080], [322, 970], [356, 900], [372, 874], [384, 868],
-        [404, 880], [456, 930], [520, 996], [596, 1070], [688, 1150], [784, 1226], [878, 1296], [966, 1360], [1034, 1404]] },
-      s2: { ...SECOND, pts: [[556, 1574], [628, 1500], [700, 1452], [744, 1432], [760, 1428], [778, 1431], [852, 1452], [932, 1490], [1006, 1530], [1064, 1562]] },
-      s3: { ...FAR, pts: [[548, 902], [610, 856], [676, 820], [724, 802], [740, 798], [760, 801], [826, 822], [900, 858], [972, 898], [1032, 936]] },
-      w1: { ...WATER, seed: 51, pts: [[520, 1714], [612, 1708], [712, 1708], [812, 1713]] },
-      w2: { ...WATER, seed: 53, width: 7, pts: [[640, 1756], [712, 1752], [790, 1754]] },
+      s1: { ...MAIN, pts: [[48, 1412], [112, 1302], [176, 1184], [234, 1056], [282, 930], [322, 820], [356, 750], [372, 724], [384, 718],
+        [404, 730], [456, 780], [520, 846], [596, 920], [688, 1000], [784, 1076], [878, 1146], [966, 1210], [1034, 1254]] },
+      s2: { ...SECOND, pts: [[556, 1424], [628, 1350], [700, 1302], [744, 1282], [760, 1278], [778, 1281], [852, 1302], [932, 1340], [1006, 1380], [1064, 1412]] },
+      s3: { ...FAR, pts: [[548, 862], [610, 816], [676, 780], [724, 762], [740, 758], [760, 761], [826, 782], [900, 818], [972, 858], [1032, 896]] },   // 远山压低，离印至少一个印的高度，不相切
+      w1: { ...WATER, seed: 51, pts: [[520, 1564], [612, 1558], [712, 1558], [812, 1563]] },
+      w2: { ...WATER, seed: 53, width: 7, pts: [[640, 1606], [712, 1602], [790, 1604]] },
     },
-    masses: { s1: { base: 1600, tone: 0.32, band: 0.07 }, s2: { base: 1630, tone: 0.2, band: 0.12 }, s3: { base: 1000, tone: 0.12, band: 0.16 } },
-    mist: [{ x: 250, y: 1230, rx: 210, ry: 40, a: 0.78 }, { x: 470, y: 1262, rx: 200, ry: 34, a: 0.7 }, { x: 700, y: 1296, rx: 190, ry: 30, a: 0.62 },
-      { x: 300, y: 1610, rx: 420, ry: 80, a: 0.72 }, { x: 860, y: 1600, rx: 400, ry: 70, a: 0.66 }],
+    masses: { s1: { base: 1450, tone: 0.32, band: 0.07 }, s2: { base: 1480, tone: 0.2, band: 0.12 }, s3: { base: 960, tone: 0.12, band: 0.16 } },
+    mist: [{ x: 250, y: 1080, rx: 210, ry: 40, a: 0.78 }, { x: 470, y: 1112, rx: 200, ry: 34, a: 0.7 }, { x: 700, y: 1146, rx: 190, ry: 30, a: 0.62 },
+      { x: 300, y: 1460, rx: 420, ry: 80, a: 0.72 }, { x: 860, y: 1450, rx: 400, ry: 70, a: 0.66 }],
     drift: 18,
-    title: { x: 900, y: 200, size: 100, gap: 1.12, maxY: 690, hx: 1000, hy: 1760, hsize: 66, hmax: 860 },
-    seal: { size: 76, gap: 0.5 },
+    title: { x: 800, y: 240, size: 120, gap: 1.12, maxY: 640, hx: 900, hy: 330, hsize: 72, hmax: 780 },
+    seal: { size: 84, gap: 0.5 },
   },
 };
 
@@ -125,13 +130,14 @@ export function setup(canvas) {
     title.bottom = t.y + title.size * ((chars.length - 1) * t.gap + 1);
     title.sealAt = [t.x, title.bottom + L.seal.gap * title.size + L.seal.size / 2];
   } else {
+    // 横排：题名与印作为一组右对齐到 hx（印在题名右边），太长就整体缩字号，不越出 hmax
     const m = document.createElement('canvas').getContext('2d');
     m.font = `400 ${t.hsize}px "${pick.family}", serif`;
-    const w = m.measureText(TITLE).width;
-    title.size = w > t.hmax ? t.hsize * t.hmax / w : t.hsize;
-    title.width = Math.min(w, t.hmax);
-    title.cells = [{ ch: TITLE, x: t.hx - title.width / 2, y: t.hy - title.size * 0.35 }];
-    title.sealAt = [t.hx + 0.45 * title.size + L.seal.size / 2, t.hy - title.size * 0.35];
+    const w = m.measureText(TITLE).width, room = L.seal.size + 0.4 * t.hsize, max = t.hmax - room;
+    title.size = w > max ? t.hsize * max / w : t.hsize;
+    title.width = Math.min(w, max);
+    title.cells = [{ ch: TITLE, x: t.hx - room - title.width / 2, y: t.hy }];
+    title.sealAt = [t.hx - L.seal.size / 2, t.hy];
   }
   seal = makeSeal({ text: SEAL_TEXT, family: sealPick.family, px: Math.round(L.seal.size * S * (1 + L.push)), seed: 23, rgb: VERMILION });
   report = { layout: name, scale: +S.toFixed(4), fonts: { title: { family: pick.family, missing: pick.missing }, seal: { family: sealPick.family, missing: sealPick.missing } } };
