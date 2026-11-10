@@ -457,13 +457,15 @@
   background: var(--lamp);
 }
 .wk-screen-title {
+  align-self: flex-start;             /* 宽度贴着字：焦点描边只圈住片名，不拉满整栏 */
   margin: 0;
   font-size: var(--step-3);
   font-weight: 600;
   line-height: var(--leading-tight);
   letter-spacing: 0.01em;
 }
-.wk-screen-title:focus { outline: none; }
+/* 打开放映台时焦点落在片名上：键盘打开显示窗灯金 2px 描边（上面的 .wk :focus-visible），鼠标点开不画 */
+.wk-screen-title:focus:not(:focus-visible) { outline: none; }
 .wk-screen-facts {
   display: flex;
   flex-wrap: wrap;

@@ -39,7 +39,7 @@ python -m unittest discover -s tools -p test_casebook.py
 
 ## 5. Windows 注意
 
-- 仓库需以 LF 检出：`git config core.autocrlf false`，否则文本文件字节变化会让 `casebook.py check` 报 `Checksum mismatch`，Git blob 校验也会失败。
+- 仓库按 LF 检出：根目录的 `.gitattributes` 已规定文本一律 LF、`cases/source/` 与 `cases/vendor/` 按原字节不做转换，新克隆无需额外设置。如果是在加入 `.gitattributes` 之前克隆、用 CRLF 检出的旧工作区，先提交或备份未提交的改动（下面这条命令会丢弃它们），再执行 `git rm --cached -r -q . && git reset --hard` 按新规则重新检出，否则文本文件字节变化会让 `casebook.py check` 报 `Checksum mismatch`，Git blob 校验也会失败。
 - `npm run cases:check` / `test:cases` 调用的 `python3` 在 Windows 上可能只是空别名；请安装 Python 3 并用 `python` 执行对应命令。
 - 符号链接相关的还原测试需要「开发者模式」或管理员权限，否则 Windows 上会有 1 个环境性失败。
 

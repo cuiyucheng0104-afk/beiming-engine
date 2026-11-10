@@ -3,8 +3,14 @@
 
 读 audio/cues.json（时间、声像、增益微调）→ 渲染五条总线（环境 amb / 音效 fx / 鲲鸣 kun / 眼镜提示音 ui / 配乐 music）
 → 每个元素按“目标响度”自动定电平（下面 TARGET 表，就是这部片的混音平衡）→ 空间处理 → 母带
-（低频平衡、轻胶水压缩、−14 LUFS、过采样真峰值限制、末尾 0.2 s 淡出）→ out/mix.wav。
-另写：audio/stems/*.wav（五条总线，已乘母带电平、未过压缩和限制器，合成时可重配比）、audio/CREDITS、audio/check/render.json。
+（低频平衡、−14 LUFS、过采样真峰值限制、末尾 0.2 s 淡出）→ out/mix.wav。
+另写：audio/stems/*.wav（五条总线，已乘母带电平、未过限制器，32 位浮点：超过满幅的部分原样保留，合成时可重配比）、
+audio/CREDITS、audio/check/render.json。
+
+时间全部从 cues.json 推导：镜头切点 = shots 的 t；三段环境声底层按各自镜头的长度（前后各多 0.2 s，末尾淡出）生成；
+各元素的放置时刻、声像、定电平区间跟着对应 cue 的 t / t_end / pan 走。配乐例外：配乐的时间写在 audio/score.py
+（cues.json 里 layer = music 的事件只是标注，apex 的 gain_db 是整条配乐的增益微调），这里会核对两边是否一致。
+时间表前后矛盾（镜头首尾接不上、frame 与 t 对不上、配乐标注和 score.py 不一致）时在终端告警，并写进 render.json 的 warnings。
 
 用法：python audio/mix.py            配乐读 audio/score_cache.npz（定稿配乐的渲染缓存）
       python audio/mix.py --score    用采样库重新渲染配乐（需要 BEIMING_SAMPLES，见 engine/audio/sampler.py）
@@ -25,6 +31,7 @@ from engine.audio.dsp import SR, N, smoothstep, undb, db, stereo, width, make_ir
 from engine.audio.meter import true_peak, integrated, momentary_max, band_energy, onset  # noqa: E402
 from engine.audio import mixing as M, ambience as A, sampler  # noqa: E402
 import design as D  # noqa: E402
+import score  # noqa: E402  只取配乐的时间表（CUE_TIMES / LEVEL_WIN）；--score 时才真的渲染
 
 T_START = time.time()
 CUES = json.load(open(os.path.join(HERE, 'cues.json'), encoding='utf-8'))
@@ -36,6 +43,42 @@ CUT_AB, CUT_BC = float(SH['B']['t']), float(SH['C']['t'])
 TGT_I = float(CUES['target']['integrated_lufs'])
 TGT_TP = float(CUES['target']['true_peak_dbtp'])
 tt = np.arange(NT) / SR
+SHOT_END = {'A': CUT_AB, 'B': CUT_BC, 'C': DUR}     # 镜头 X 到哪里结束（以下一个镜头的 t 为准）
+WARN = []
+
+
+def warn(msg):
+    WARN.append(msg)
+    print('[mix 告警]', msg, file=sys.stderr)
+
+
+def check_timeline():
+    """时间表自洽：镜头首尾相接、frame 与 t 一致、配乐标注与 score.py 一致（只告警，不改任何时间）"""
+    if not 0.0 < CUT_AB < CUT_BC < DUR:
+        raise ValueError(f'audio/cues.json 的镜头切点要满足 0 < B.t < C.t < dur：现在 B.t={CUT_AB}、C.t={CUT_BC}、dur={DUR}')
+    if abs(float(SH['A']['t'])) > 1e-9:
+        warn(f'镜头 A 的 t 是 {SH["A"]["t"]}，环境声和画面都从 0 s 开始，按 0 处理')
+    for k, end in SHOT_END.items():
+        te = SH[k].get('t_end')
+        if te is not None and abs(float(te) - end) > 1e-6:
+            warn(f'镜头 {k} 的 t_end={te} 与下一段的起点 {end} 不一致（混音以下一段的 t 为切点）')
+    fps = float(CUES.get('fps', 24))
+    for c in CUES['cues']:
+        for tk, fk in (('t', 'frame'), ('t_end', 'frame_end')):
+            if tk in c and fk in c and abs(float(c[fk]) - float(c[tk]) * fps) > 1e-3:
+                warn(f'{c["id"]} 的 {fk}={c[fk]} 与 {tk}×{fps:g}={float(c[tk]) * fps:g} 不一致')
+        if c.get('layer') == 'music':
+            ref = score.CUE_TIMES.get(c['id'])
+            if ref is None:
+                warn(f'配乐标注 {c["id"]} 在 audio/score.py 的 CUE_TIMES 里没有对应项：它不会影响声音')
+                continue
+            for tk, rv in zip(('t', 't_end'), ref):
+                if rv is not None and tk in c and abs(float(c[tk]) - rv) > 1e-6:
+                    warn(f'配乐标注 {c["id"]}.{tk}={c[tk]}，但配乐里这一处在 {rv} s：配乐的时间要改 audio/score.py 再跑 --score，'
+                         f'改 cues.json 不会挪动配乐')
+
+
+check_timeline()
 
 # 混音平衡：每个元素的目标（mom = 最大瞬时响度 LUFS；win = 区间积分响度 LUFS；peak = 采样峰值 dBFS）。
 # 设计成母带增益约等于 0：片尾顶点最响（约 −9 LUFS 瞬时），鲲鸣次之，汽笛是镜头 A 的事件，环境声一直在底下。
@@ -88,7 +131,11 @@ LEVELS = {}
 def level(name, st, t0=0.0, t1=None):
     """把元素 st 调到 TARGET[name]；win 型用 (t0, t1) 区间，mom 型在 (t0, t1) 里找最大瞬时响度"""
     target, how = TARGET[name]
-    out, cur, g = M.match_level(st, target, how, t0, DUR if t1 is None else t1)
+    try:
+        out, cur, g = M.match_level(st, target, how, t0, DUR if t1 is None else t1)
+    except ValueError as e:
+        raise ValueError(f'元素 {name} 定电平失败：{e}。检查 audio/cues.json 里它的 t / t_end 是否还落在所属镜头里、'
+                         f'有没有被镜头切点整段切掉') from e
     LEVELS[name] = {'how': how, 'target': target, 'measured_raw': round(cur, 2), 'gain_db': round(g, 2)}
     return out
 
@@ -105,24 +152,42 @@ ELEM = {}   # 元素（定电平后、进总线前）留着做时间与音高核
 DUCK = M.duck(tt, T0('touch'), 0.5, pre=(0.10, 0.01), post=(0.06, 0.25))
 
 # ———————————————— 环境 amb ————————————————
+# 三段底层按镜头长度生成：切点前多 0.2 s（给 12 ms 交叉），镜头结束后多 0.2 s 再淡出（被镜头窗切掉，听不到也不会硬断）
+BED_PAD = 0.2
+
+
+def bed(shot):
+    """镜头 shot 的环境声底层：(放置起点, 生成时长)"""
+    t0 = 0.0 if shot == 'A' else float(SH[shot]['t'])
+    return max(0.0, t0 - BED_PAD), (SHOT_END[shot] - t0) + 2 * BED_PAD
+
+
+def bed_tail(x):
+    """底层末尾 0.1 s 淡出（只落在镜头结束之后的余量里）"""
+    return fade(x, 0.0, BED_PAD / 2)
+
+
 amb = buf()
-a = A.city_hum(3.4, 11, fog=1.25) * 1.0 + A.water(3.4, 12, 'far') * 0.5 + A.wind(3.4, 13, 'far')[0] * 0.55
-a = width(reverb(a, IR_RIVER, wet=0.12), 0.95)
-a = at(a, 0.0) * window(0, CUT_AB)
-a = level('amb_fog', a, 0.05, CUT_AB - 0.05)
+A_at, A_len = bed('A')
+a = A.city_hum(A_len, 11, fog=1.25) * 1.0 + A.water(A_len, 12, 'far') * 0.5 + A.wind(A_len, 13, 'far')[0] * 0.55
+a = bed_tail(width(reverb(a, IR_RIVER, wet=0.12), 0.95))
+a = at(a, A_at) * window(0, CUT_AB)
+a = level('amb_fog', a, A_at + 0.05, CUT_AB - 0.05)
 amb += a * G('amb_fog')
 ELEM['amb_fog'] = a
 
-bw, bgust = A.wind(2.4, 22, 'close')
-b = A.city_hum(2.4, 21, fog=2.2) * 0.35 + bw * 0.85
-b = at(width(b, 0.55), CUT_AB - 0.2) * window(CUT_AB, CUT_BC)
+B_at, B_len = bed('B')
+bw, bgust = A.wind(B_len, 22, 'close')
+b = A.city_hum(B_len, 21, fog=2.2) * 0.35 + bw * 0.85
+b = at(bed_tail(width(b, 0.55)), B_at) * window(CUT_AB, CUT_BC)
 b = level('amb_close', b, CUT_AB + 0.05, CUT_BC - 0.05) * DUCK
 amb += b * G('amb_close')
 ELEM['amb_close'] = b
 
-c = A.city_hum(5.4, 31, fog=1.1) * 0.55 + A.water(5.4, 32, 'hull') * 0.32 + A.wind(5.4, 33, 'open')[0] * 0.62
-c = width(reverb(c, IR_SKY, wet=0.10), 1.35)
-c = at(c, CUT_BC - 0.2) * window(CUT_BC, DUR + 1)
+C_at, C_len = bed('C')
+c = A.city_hum(C_len, 31, fog=1.1) * 0.55 + A.water(C_len, 32, 'hull') * 0.32 + A.wind(C_len, 33, 'open')[0] * 0.62
+c = bed_tail(width(reverb(c, IR_SKY, wet=0.10), 1.35))
+c = at(c, C_at) * window(CUT_BC, DUR + 1)
 c = level('amb_open', c, CUT_BC + 0.05, DUR - 0.05)
 amb += c * G('amb_open')
 ELEM['amb_open'] = c
@@ -152,20 +217,26 @@ ELEM['horn'] = horn
 ELEM['horn_dry'] = hx
 
 # 鸽群：近处干、远处多送江面混响
-near, far = D.pigeons()
+near, far = D.pigeons(pan=P('pigeons', [0.0, 0.7]))
 pg = at(near, T0('pigeons')) + reverb(at(far, T0('pigeons')), IR_RIVER, wet=1.0, dry=0.0) * 0.5
 pg = pg * tail_after(CUT_AB, 0.2)
 pg = level('pigeons', pg)
 fx += pg * G('pigeons')
 ELEM['pigeons'] = pg
 
-gx = at(stereo(D.kun_glimpse(), P('kun_glimpse')), T0('kun_glimpse'))
+# 鲲影：时长 = cue 的 t_end − t（不超过镜头 A）；定电平只量主体（跳过开头 0.45 s 的渐起和切点前最后 0.1 s）
+GL0 = T0('kun_glimpse')
+GL1 = min(float(C['kun_glimpse'].get('t_end', CUT_AB)), CUT_AB)
+if GL1 - GL0 < 0.7:
+    raise ValueError(f'元素 kun_glimpse 在镜头 A 里只剩 {GL1 - GL0:.2f} s（t={GL0}、t_end/切点={GL1}），太短没法定电平；'
+                     f'把它的 t 往前挪，或者把 t_end 和镜头 B 的 t 一起往后挪')
+gx = at(stereo(D.kun_glimpse(d=GL1 - GL0), P('kun_glimpse')), GL0)
 gx = (gx + reverb(gx, IR_RIVER, wet=1.0, dry=0.0) * 0.3) * window(0, CUT_AB)
-gx = level('kun_glimpse', gx, 1.6, 2.9)
+gx = level('kun_glimpse', gx, GL0 + 0.45 * (GL1 - GL0) / 1.85, GL1 - 0.1)
 fx += gx * G('kun_glimpse')
 ELEM['kun_glimpse'] = gx
 
-hr = at(width(A.hair(2.4, 23, bgust), 0.7), CUT_AB - 0.2) * window(CUT_AB, CUT_BC)
+hr = at(bed_tail(width(A.hair(B_len, 23, bgust), 0.7)), B_at) * window(CUT_AB, CUT_BC)
 hr = level('hair', hr, CUT_AB + 0.05, CUT_BC - 0.05)
 hr = hr * DUCK
 fx += hr * G('hair')
@@ -178,14 +249,15 @@ fx += sw * G('shadow')
 ELEM['shadow'] = sw
 
 t_pass = T0('kun_pass') - 0.10
-ps, ppan, penv = D.kun_pass()
+ps, ppan, penv = D.kun_pass(pan=P('kun_pass', [0.65, -0.65]))
 px = at(ps, t_pass)
 px = px + reverb(px, IR_SKY, wet=1.0, dry=0.0) * 0.35
 px = level('kun_pass', px)
 fx += px * G('kun_pass')
 ELEM['kun_pass'] = px
 
-wd = at(D.seaweed(708, len(penv) / SR, penv, ppan), t_pass)
+wpan = D.pass_pan(np.arange(len(penv)) / SR, P('seaweed', P('kun_pass', [0.65, -0.65])))   # 海草跟着鲲走：默认与 kun_pass 同一条声像
+wd = at(D.seaweed(708, len(penv) / SR, penv, wpan), t_pass)
 wd = wd + reverb(wd, IR_SKY, wet=1.0, dry=0.0) * 0.3
 wd = level('seaweed', wd)
 fx += wd * G('seaweed')
@@ -237,7 +309,7 @@ else:
     _c = np.load(os.path.join(HERE, 'score_cache.npz'))
     mus, sections = _c['mus'].astype(float), {}
     harmony, USED = json.loads(str(_c['harmony'])), json.loads(str(_c['used']))
-mus = level('music', mus, 8.9, 9.6)
+mus = level('music', mus, *score.LEVEL_WIN)
 ELEM['music'] = mus
 mus = mus * G('apex')
 
@@ -258,18 +330,23 @@ mix *= (np.cos(np.pi / 2 * smoothstep(T0('end_fade'), DUR, tt)) ** 2)[:, None]
 mix[-1] = 0.0
 mix = mix[:NT].astype(np.float32)
 
-assert mix.shape == (NT, 2) and np.isfinite(mix).all()
+if mix.shape != (NT, 2) or not np.isfinite(mix).all():
+    bad = [k for k, v in BUS.items() if not np.isfinite(v).all()] + [k for k, v in ELEM.items() if not np.isfinite(v).all()]
+    raise RuntimeError(f'母带结果异常：形状 {mix.shape}（应为 {(NT, 2)}），含 NaN/inf 的总线或元素：{bad or "无（问题出在母带处理）"}')
 os.makedirs(os.path.join(ROOT, 'out'), exist_ok=True)
 sf.write(os.path.join(ROOT, 'out', 'mix.wav'), mix, SR, subtype='PCM_24')
 
-# 分轨：乘上母带的电平（低频搁架 + 总增益），不过压缩和限制器；五轨相加 ≈ 成品
+# 分轨：乘上母带的电平（低频搁架 + 总增益），不过限制器；五轨相加 ≈ 成品（限制前）。
+# 32 位浮点写盘：顶点处配乐乘上母带增益后会超过满幅，整数 PCM 会把它削掉，浮点原样保留，重配比时不带进削波
 os.makedirs(os.path.join(HERE, 'stems'), exist_ok=True)
+STEM_PEAK = {}
 for k, v in BUS.items():
     s = hp(v, 28, 2)
     if LOW_SHELF:
         s = shelf(s, 115, LOW_SHELF, 'low', 0.7)
     s = s * undb(g_total) * (np.cos(np.pi / 2 * smoothstep(T0('end_fade'), DUR, tt)) ** 2)[:, None]
-    sf.write(os.path.join(HERE, 'stems', f'{k}.wav'), s.astype(np.float32), SR, subtype='PCM_24')
+    STEM_PEAK[k] = round(float(db(np.abs(s).max())), 2)
+    sf.write(os.path.join(HERE, 'stems', f'{k}.wav'), s.astype(np.float32), SR, subtype='FLOAT')
 
 # 署名
 used = USED
@@ -308,6 +385,10 @@ rep = {
                                  for i in range(int(DUR / 0.05)) if gr[N(i * 0.05):N(i * 0.05 + 0.05)].min() < undb(-0.3)},
     'band_rel_db': band_energy(mix.astype(float)),
     'levels': LEVELS, 'onsets': chk, 'music_sections_apex_lufs': sec_lufs, 'harmony': harmony,
+    'stems': {'subtype': 'FLOAT', 'peak_dbfs': STEM_PEAK},
+    'timeline': {'dur': DUR, 'cuts': [CUT_AB, CUT_BC], 'beds': {'A': [A_at, A_len], 'B': [B_at, B_len], 'C': [C_at, C_len]},
+                 'music_level_win': list(score.LEVEL_WIN)},
+    'warnings': WARN,
     'render_seconds': round(time.time() - T_START, 1),
 }
 os.makedirs(os.path.join(HERE, 'check'), exist_ok=True)

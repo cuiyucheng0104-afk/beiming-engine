@@ -1,0 +1,8 @@
+# 换行规则（R79）：仓库里的文本一律按 LF 检出，Windows 上也一样。
+# 否则 Git for Windows 默认的 core.autocrlf=true 会把 sh 脚本换成 CRLF（sh 跑不了），
+# 任务卡测试与案例库的逐字节 SHA256 校验也会失败。
+* text=auto eol=lf
+
+# 案例归档按原字节保存：casebook 逐字节校验 SHA256，其中有些文件本来就是 CRLF，不能做任何换行转换。
+cases/source/** -text
+cases/vendor/** -text

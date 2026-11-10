@@ -4,14 +4,16 @@
 接口：
   kweight(st)                            K 加权（48 kHz 系数）
   loudness_curve(st, win, hop)           逐窗响度 → (窗中心秒, LUFS)；win=0.4 瞬时 / 3.0 短时
-  integrated(st)                         BS.1770-4 门限积分响度（LUFS）
-  momentary_max(st, t0, t1)              窗中心落在 t0–t1 秒内的最大瞬时响度
+  integrated(st)                         BS.1770-4 门限积分响度（LUFS）；没有块过 −70 LUFS 绝对门限（静音、短于 0.4 s）时返回 −inf
+  momentary_max(st, t0, t1)              窗中心落在 t0–t1 秒内的最大瞬时响度；区间里一个完整的 0.4 s 窗都没有时报 ValueError
   true_peak(st, os)                      过采样真峰值（线性，所有声道最大）
   band_energy(st, bands, nfft, hop)      各频段能量，相对最强频段的 dB
   band_snr(sig, other, t, lo, hi, d)     t 秒起 d 秒内、lo–hi Hz 带内 sig 对 other 的能量比 dB
   onset(st, t_hint, rel_db, search)      t_hint 前后 search 秒内，第一次超过局部峰值 rel_db 的时刻
   ebur128(path)                          ffmpeg ebur128 汇总：I / LRA / 真峰值 / LRA 上下沿
   loudnorm_linear(path, I, TP, LRA)      两遍 loudnorm（第二遍 linear=true）→ (第一遍测量, 第二遍结果)
+  ffmpeg 的输出按 UTF-8 解码（路径里的中文在任何系统区域设置下都不出错）；ffmpeg 失败或输出里找不到要的字段时
+  报 RuntimeError，并带上 ffmpeg 输出的最后几行。
 """
 import re
 import json
@@ -58,18 +60,22 @@ def integrated(st):
     starts = np.arange(0, len(p) - W + 1, H)
     z = (c[starts + W] - c[starts]) / W
     lz = -0.691 + 10 * np.log10(z + 1e-12)
-    z1 = z[lz > -70]
+    gate_abs = lz > -70
+    z1 = z[gate_abs]
     if len(z1) == 0:
         return -np.inf
     rel = -0.691 + 10 * np.log10(z1.mean()) - 10
-    z2 = z[lz > rel]
+    z2 = z[gate_abs & (lz > rel)]          # BS.1770-4：两道门限同时满足（只看相对门限会在很弱的信号里放进 −70 以下的块）
     return float(-0.691 + 10 * np.log10(z2.mean()))
 
 
 def momentary_max(st, t0=0.0, t1=None):
     """t1 不给就到信号结尾"""
     tc, L = loudness_curve(st, 0.4, 0.01)
-    m = (tc >= t0) & (tc <= (t1 if t1 is not None else len(st) / SR))
+    t1 = len(st) / SR if t1 is None else t1
+    m = (tc >= t0) & (tc <= t1)
+    if not m.any():
+        raise ValueError(f'momentary_max：{t0:.3f}–{t1:.3f} s 内没有完整的 0.4 s 窗（信号长 {len(st) / SR:.3f} s）')
     return float(L[m].max())
 
 
@@ -111,27 +117,51 @@ def onset(st, t_hint, rel_db=-30.0, search=0.6):
     return round((a + int(np.argmax(seg > thr))) / SR, 4)
 
 
+def _tail(s, n=6):
+    return '\n'.join((s or '').strip().splitlines()[-n:])
+
+
 def _ffmpeg(path, af):
-    return subprocess.run(['ffmpeg', '-hide_banner', '-nostats', '-i', path, '-af', af, '-f', 'null', '-'],
-                          capture_output=True, text=True).stderr
+    """跑一遍只测量的 ffmpeg，返回 stderr 文本（UTF-8 解码，坏字节替换掉）"""
+    r = subprocess.run(['ffmpeg', '-hide_banner', '-nostats', '-i', path, '-vn', '-af', af, '-f', 'null', '-'],
+                       capture_output=True, encoding='utf-8', errors='replace')
+    if r.returncode != 0:
+        raise RuntimeError(f'ffmpeg 测量失败（退出码 {r.returncode}）：{path}\n{_tail(r.stderr)}')
+    return r.stderr or ''
 
 
 def ebur128(path):
-    s = _ffmpeg(path, 'ebur128=peak=true')
-    s = s[s.rfind('Summary:'):]
-    num = lambda pat: float(re.search(pat, s).group(1))  # noqa: E731
-    return {'I_LUFS': num(r'I:\s+(-?[\d.]+) LUFS'), 'LRA_LU': num(r'LRA:\s+(-?[\d.]+) LU'),
-            'TP_dBTP': num(r'Peak:\s+(-?[\d.]+) dBFS'),
-            'LRA_low': num(r'LRA low:\s+(-?[\d.]+) LUFS'), 'LRA_high': num(r'LRA high:\s+(-?[\d.]+) LUFS')}
+    full = _ffmpeg(path, 'ebur128=peak=true')
+    i = full.rfind('Summary:')
+    if i < 0:
+        raise RuntimeError(f'ffmpeg ebur128 的输出里没有 Summary：{path}\n{_tail(full)}')
+    s = full[i:]
+
+    def num(pat, what):
+        m = re.search(pat, s)
+        if m is None:
+            raise RuntimeError(f'ffmpeg ebur128 的 Summary 里找不到 {what}：{path}\n{_tail(s, 12)}')
+        return float(m.group(1))
+    return {'I_LUFS': num(r'I:\s+(-?[\d.]+) LUFS', 'I'), 'LRA_LU': num(r'LRA:\s+(-?[\d.]+) LU', 'LRA'),
+            'TP_dBTP': num(r'Peak:\s+(-?[\d.]+) dBFS', '真峰值 Peak'),
+            'LRA_low': num(r'LRA low:\s+(-?[\d.]+) LUFS', 'LRA low'), 'LRA_high': num(r'LRA high:\s+(-?[\d.]+) LUFS', 'LRA high')}
+
+
+def _last_json(s, path):
+    a, b = s.rfind('{'), s.rfind('}')
+    if a < 0 or b < a:
+        raise RuntimeError(f'ffmpeg loudnorm 没有输出 JSON：{path}\n{_tail(s)}')
+    try:
+        return json.loads(s[a:b + 1])
+    except ValueError as e:
+        raise RuntimeError(f'ffmpeg loudnorm 的 JSON 解析失败（{e}）：{path}\n{_tail(s)}') from None
 
 
 def loudnorm_linear(path, I=-14, TP=-1.2, LRA=11):
     """第二遍结果里 normalization_type 为 linear 才说明只做了线性增益、没有压动态"""
     tgt = f'loudnorm=I={I}:TP={TP}:LRA={LRA}'
-    s = _ffmpeg(path, tgt + ':print_format=json')
-    j1 = json.loads(s[s.rfind('{'):s.rfind('}') + 1])
+    j1 = _last_json(_ffmpeg(path, tgt + ':print_format=json'), path)
     ln = (tgt + ':measured_I={input_i}:measured_TP={input_tp}:measured_LRA={input_lra}:'
           'measured_thresh={input_thresh}:offset={target_offset}:linear=true:print_format=json').format(**j1)
-    s = _ffmpeg(path, ln)
-    j2 = json.loads(s[s.rfind('{'):s.rfind('}') + 1])
+    j2 = _last_json(_ffmpeg(path, ln), path)
     return j1, j2

@@ -69,6 +69,8 @@ void main(){
 }`;
 
 // 笔画：以边缘像素为圆心画圆头笔，查找坐标做低频域扭曲（抖动）；SR = 搜索半径（编译期常量）
+// 搜索半径要盖住最粗的半线宽（基础 × 物体系数 × 远处系数 × 内部线系数 × 笔压），否则圆头笔被方窗截掉、线变细变方。
+// 上限随分辨率放宽：max(8, ceil(8·k))，最多 16（原生 4K 为 16）；1080 附近仍是 8，现有画面的变体不变。
 const STROKE_FS = /* glsl */`
 ${HASH_NOISE}
 uniform sampler2D tEdge;
@@ -121,7 +123,8 @@ export function createInk(fx) {
     e.uOpacity.value = p.opacity; e.uFogFade.value = fog ? p.fogFade : 0; e.uWD.value.set(p.near, p.far, p.farScale);
     setFog(e, fog, camera, fogColor);
     fx.draw(edgeMat, edge);
-    const R = Math.min(8, Math.max(2, Math.ceil(hw * maxWidth * (1 + p.pressure) + 1)));
+    const widest = hw * maxWidth * Math.max(1, p.farScale ?? 1) * Math.max(1, p.inner ?? 1) * (1 + Math.max(0, p.pressure ?? 0));
+    const R = Math.min(Math.max(8, Math.min(16, Math.ceil(8 * k))), Math.max(2, Math.ceil(widest + 1)));
     const sm = strokeMat(R), s = sm.uniforms;
     s.tEdge.value = edge.texture; s.uRes.value.set(LW, LH);
     s.uWobble.value = p.wobble * k * ss; s.uWarp.value = p.warp * k * ss; s.uPressure.value = p.pressure; s.uBreakup.value = p.breakup;
