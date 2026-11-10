@@ -1,8 +1,10 @@
 # 北冥仓库 · 发布：推 v* 标签 → 核对标签（语义化版本、在 main 上、与 package.json 一致、CHANGELOG.md 有对应段落）
-# → 整套 CI（复用 ci.yml）→ 用 CHANGELOG 段落建草稿 Release，附 CI 冒烟接触印。草稿要人工在网页上核对后点「发布」：
-# 发布是公开、不可撤回的动作，由维护者确认，不在流水线里自动完成。
-# 不上传大文件：成片、4K 母版、素材包按 D10 另行上传（Release 资产或对象存储），这里只附几十 KB 的接触印。
+# → 整套 CI（复用 ci.yml，《北冥》与 lab 静帧按 1920x1040 出）→ 用 CHANGELOG 段落建草稿 Release，附 CI 接触印与静帧。
+# 草稿要人工在网页上核对后点「发布」：发布是公开、不可撤回的动作，由维护者确认，不在流水线里自动完成。
+# 不上传大文件：成片、4K 母版、素材包按 D10 另行上传（Release 资产或对象存储），这里只附接触印（几百 KB）与静帧压缩包（几 MB）。
+# 静帧是 CI 上软件渲染（SwiftShader）的结果，只证明这个提交能出片，画质以 GPU 工作站的成片为准。
 # 重新生成某个标签的草稿：Actions → release → Run workflow，填标签。已经发布的 Release 只提示、不改。
+# 发布步骤（改版本号、写更新日志、打标签）见 tests/ci/README.md「发布」。
 name: release
 
 on:
@@ -49,13 +51,17 @@ jobs:
             echo "::error title=标签格式::$TAG 不是 vX.Y.Z 或 vX.Y.Z-预发布号（语义化版本）"
             exit 2
           fi
-          commit=$(git rev-list -n 1 "$TAG")
+          if ! commit=$(git rev-list -n 1 "refs/tags/$TAG" 2>/dev/null); then
+            echo "::error title=标签不存在::仓库里没有标签 $TAG"
+            exit 2
+          fi
           if ! git merge-base --is-ancestor "$commit" origin/main; then
             echo "::error title=标签不在 main 上::$TAG 指向 $commit，它不在 main 的历史里；只从 main 发布"
             exit 4
           fi
           footer=()
           if [ -f docs/rights/RELEASE-FOOTER.md ]; then footer=(--footer docs/rights/RELEASE-FOOTER.md); fi
+          node tests/ci/changelog.mjs check
           node tests/ci/changelog.mjs notes "$TAG" --package package.json "${footer[@]}" --out out/release/notes.md
           {
             echo "tag=$TAG"
@@ -75,6 +81,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       ref: ${{ inputs.tag || github.ref }}
+      stills-size: 1920x1040
 
   publish:
     name: 建草稿 Release
@@ -88,12 +95,28 @@ jobs:
         with:
           name: release-notes
           path: release
-      - name: 取 CI 冒烟接触印（没有也不影响发布）
-        continue-on-error: true
+      - name: 取 CI 冒烟产物（接触印与静帧）
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: smoke-render
           path: smoke
+      - name: 整理附件
+        env:
+          TAG: ${{ needs.notes.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          sheet=$(find smoke -name contact.jpg -size -5M | head -n 1 || true)
+          if [ -n "$sheet" ]; then cp "$sheet" "assets/contact-$TAG.jpg"; fi
+          stills=$(find smoke -path '*/smoke/beiming/*.jpg' -o -path '*/smoke/lab/*.jpg' | sort)
+          if [ -n "$stills" ]; then
+            printf '%s\n' "$stills" | zip -q -j "assets/stills-$TAG.zip" -@
+          fi
+          ls -l assets
+          if [ -z "$(ls -A assets)" ]; then
+            echo "::error title=没有附件::CI 冒烟产物里找不到接触印和静帧（看 ci / smoke-render 的日志）"
+            exit 1
+          fi
       - name: 建或更新草稿
         env:
           GH_TOKEN: ${{ github.token }}
@@ -113,13 +136,10 @@ jobs:
             if [ "$PRERELEASE" = "true" ]; then args+=(--prerelease); fi
             gh release create "$TAG" "${args[@]}"
           fi
-          sheet=$(find smoke -name contact.jpg -size -2M 2>/dev/null | head -n 1 || true)
-          if [ -n "$sheet" ]; then
-            cp "$sheet" "contact-$TAG.jpg"
-            gh release upload "$TAG" "contact-$TAG.jpg" --repo "$repo" --clobber
-          fi
+          gh release upload "$TAG" assets/* --repo "$repo" --clobber
           {
             echo "### 草稿 Release：$TAG"
             echo
-            echo "在 https://github.com/$repo/releases 核对说明与附件后点「发布」。附件只有 CI 冒烟接触印（软件渲染、小尺寸，只证明该提交能出片，不代表画质）。"
+            echo "在 https://github.com/$repo/releases 核对说明与附件后点「发布」。"
+            echo "附件：CI 接触印与《北冥》、lab 静帧（软件渲染，只证明这个提交能出片，画质以工作站成片为准）。"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -17,8 +17,9 @@ indent_size = 4
 [*.md]
 trim_trailing_whitespace = false
 
-# Windows 批处理与 PowerShell 脚本用 CRLF（与 .gitattributes 的约定一致）
-[*.{ps1,bat,cmd}]
+# 换行与 .gitattributes（* text=auto eol=lf）一致：一律 LF，PowerShell 脚本也是（pwsh 认 LF）。
+# 例外只有 cmd.exe 的批处理：LF 换行会让 goto / call :标签 偶发失效，所以写 CRLF（需要 .gitattributes 同样声明 *.bat / *.cmd eol=crlf）
+[*.{bat,cmd}]
 end_of_line = crlf
 
 [Makefile]

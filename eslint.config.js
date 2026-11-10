@@ -1,7 +1,7 @@
-// 北冥仓库 · JavaScript 静态检查（ESLint 扁平配置，ESLint ≥ 9）。
+// 北冥仓库 · JavaScript 静态检查（ESLint 扁平配置；按 eslint 10.13.0 实测，9.x 也能用）。
 // 现阶段只报告、不阻塞：npm run lint（= node tools/check-all.mjs --only lint）列出错误与警告的数量和最多的规则；
 // CI 的 check job 跑同一步，结果进报告，不让 PR 变红。存量告警按目录逐步清理，不为了过 lint 去改别的工作包的代码。
-// 需要的开发依赖（package.json 的 devDependencies，由集成负责人登记）：eslint、@eslint/js、globals。
+// 需要的开发依赖（package.json 的 devDependencies，由集成负责人登记）：eslint 10.13.0、@eslint/js 10.0.1、globals 17.13.0。
 //
 // 规则：@eslint/js 的 recommended（未定义变量、重复声明、恒真条件、不可达代码等真错误），未使用变量降为警告。
 // 运行环境按目录区分：
