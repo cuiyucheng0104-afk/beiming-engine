@@ -12,7 +12,7 @@
 //     TMPDIR/TMP/TEMP 指向本次运行的 tmp/。凭据只透传环境变量，工具不读取、不落盘。
 // 接口：resolveEvalRoot(opt)、assertEvalRoot(root, repo, { isolation, allowAncestors })、ancestorInstructionFiles(dir)、
 //       cloneAt(repo, commit, dest)、hideAnswerKey(wt)、prepareEnvironment(wt, repo, mode, log)、seedWorktree(wt, seed)、
-//       captureBaseline(run)、writeSessionConfig(runDir, opts)、sessionEnv(run, extra)、lemoEnvVars(env, home)、writeWavTone(file, seconds)
+//       captureBaseline(run)、entryState(abs)、writeSessionConfig(runDir, opts)、sessionEnv(run, extra)、lemoEnvVars(env, home)、writeWavTone(file, seconds)
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -165,14 +165,18 @@ export function seedWorktree(wt, seed, { log = () => {} } = {}) {
   return steps;
 }
 
+/** 一个路径的状态：普通文件记 sha256，软链记指向，目录只记类型，不存在记 missing（基线与判定时比对用）。 */
+export function entryState(abs) {
+  let st;
+  try { st = fs.lstatSync(abs); } catch { return { kind: 'missing', sha256: null }; }
+  if (st.isSymbolicLink()) { let link = null; try { link = fs.readlinkSync(abs); } catch { /* 读不到 */ } return { kind: 'symlink', sha256: null, link }; }
+  if (st.isFile()) return { kind: 'file', sha256: sha256File(abs) };
+  return { kind: st.isDirectory() ? 'dir' : 'other', sha256: null };
+}
+
 /** 开跑前的基线：git 状态（含文件哈希）、被忽略条目、渲染进程、tmp 内容、films/ 下已有作品。 */
 export function captureBaseline({ worktree, tmpDir, commit }, { listProcs = listProcesses } = {}) {
-  const status = statusEntries(worktree).map(e => {
-    const abs = path.join(worktree, e.path);
-    let sha256 = null;
-    try { if (fs.statSync(abs).isFile()) sha256 = sha256File(abs); } catch { /* 已删除 */ }
-    return { ...e, sha256 };
-  });
+  const status = statusEntries(worktree).map(e => ({ ...e, ...entryState(path.join(worktree, e.path)) }));
   let processes = [];
   try { processes = matchRender(listProcs()).map(p => ({ pid: p.pid, command: p.command.slice(0, 160) })); } catch { /* ps 不可用时 H7 会报 */ }
   const films = path.join(worktree, 'films');

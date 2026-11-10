@@ -35,6 +35,7 @@ import { probeVideo } from './lib/media.mjs';
 import { observe } from './lib/observe.mjs';
 import { canonical, homeDir, isInside, relInside, startsWithPrefix, toPosix } from './lib/paths.mjs';
 import { listProcesses, matchRender } from './lib/procs.mjs';
+import { entryState } from './lib/sandbox.mjs';
 import { findQuote, gateAlias, loadReviewRecords } from './lib/review.mjs';
 import { filmDirOf, latestFilmRun, loadRun } from './lib/rundir.mjs';
 import { REPO_ROOT } from './lib/task.mjs';
@@ -187,14 +188,22 @@ const isSystemTemp = abs => {
   return /^(\/private)?\/(tmp|var\/tmp)\//.test(p) || /^\/var\/folders\//.test(p) || /\/AppData\/Local\/Temp\//i.test(p);
 };
 
-/** 基线里已有的脏文件是否又被改过：基线记了 sha256（删除的记 null），现在内容不同就算改过。 */
+/**
+ * 基线里已有的脏路径是否又被改过：普通文件比 sha256，软链比指向，不存在的比是否仍不存在。
+ * 旧运行目录的基线没有 kind 时按「有 sha256 是文件、没有是已删除」理解。
+ */
 function fileChangedSinceBaseline(wt, rel, base) {
   if (!base) return true;
-  const abs = path.join(wt, rel);
-  if (!fs.existsSync(abs)) return base.sha256 !== null;
-  if (!base.sha256) return true;
-  try { return sha256File(abs) !== base.sha256; } catch { return true; }
+  const now = entryState(path.join(wt, rel));
+  const kind = base.kind ?? (base.sha256 ? 'file' : 'missing');
+  if (now.kind !== kind) return true;
+  if (kind === 'file') return now.sha256 !== base.sha256;
+  if (kind === 'symlink') return base.link !== undefined && now.link !== base.link;
+  return false;
 }
+
+// 照仓库指引建环境时产生、但仓库 .gitignore 还没收录的路径：未跟踪时只警告（仓库缺口，不算代理越界）
+const ENV_UNTRACKED_ALLOW = [/^\.venv\//, /^venv\//, /^\.python-version$/, /(^|\/)__pycache__\//, /\.py[co]$/, /^\.(pytest|ruff|mypy)_cache\//, /^node_modules$/, /^node_modules\//, /(^|\/)\.DS_Store$/, /(^|\/)Thumbs\.db$/];
 
 function partitionAnalysis(ctx) {
   const f = [];
@@ -277,6 +286,12 @@ function gateH3(ctx) {
     const b = baseStatus.get(p);
     if (b && !fileChangedSinceBaseline(wt, p, b)) continue;
     changed.set(p, 'git diff 基线');
+  }
+  const envUntracked = [...changed].filter(([p, why]) => !scope(p) && /「\?\?」/.test(why) && ENV_UNTRACKED_ALLOW.some(re => re.test(p)));
+  for (const [p] of envUntracked) changed.delete(p);
+  if (envUntracked.length) {
+    const tops = [...new Set(envUntracked.map(([p]) => p.split('/')[0]))];
+    f.push(finding('warn', 'env-untracked', `建环境产生了 ${envUntracked.length} 个未跟踪路径（${tops.slice(0, 5).join('、')}），仓库 .gitignore 没有收录`, { hint: '这是仓库缺口（.gitignore 缺规则），不算代理越界；评审归因记 repo-gap' }));
   }
   const outside = [...changed].filter(([p]) => !scope(p));
   for (const [p, why] of outside.slice(0, 100)) f.push(finding('fail', 'outside-scope', `写入范围之外的改动：${p}（${why}）`, { hint: `本题只允许 ${run.task.newFilmDirsOnly ? 'films/ 下新建的作品目录' : run.task.writeScope.join('、')}` }));

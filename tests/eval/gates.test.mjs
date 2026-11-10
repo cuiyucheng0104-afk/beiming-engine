@@ -240,6 +240,21 @@ describe('H3 写入范围', () => {
     assert.deepEqual(codes(touched.report, 'H3'), ['outside-scope']);
   });
 
+  it('照仓库指引建的 .venv/（.gitignore 没收录）→ 只警告为仓库缺口，不判越界', async () => {
+    const act = wt => { fs.mkdirSync(path.join(wt, '.venv', 'lib'), { recursive: true }); fs.writeFileSync(path.join(wt, '.venv', 'lib', 'site.py'), 'x'); fs.writeFileSync(path.join(wt, '.venv', 'pyvenv.cfg'), 'x'); };
+    const { report } = await judge(DFA({ act }), { only: ['H3'] });
+    assert.equal(report.gates.H3.status, 'pass', JSON.stringify(report.gates.H3.findings));
+    assert.deepEqual(codes(report, 'H3', 'warn'), ['env-untracked']);
+  });
+
+  it('基线里就有的软链不算改动；改了指向才算', { skip: process.platform === 'win32' && 'Windows 上建软链要额外权限' }, async () => {
+    const seed = wt => fs.symlinkSync('src', path.join(wt, 'src-link'));
+    const same = await judge(DFA({ seed, act: () => {} }), { only: ['H3'] });
+    assert.equal(same.report.gates.H3.status, 'pass', JSON.stringify(same.report.gates.H3.findings));
+    const moved = await judge(DFA({ seed, act: wt => { fs.unlinkSync(path.join(wt, 'src-link')); fs.symlinkSync('engine', path.join(wt, 'src-link')); } }), { only: ['H3'] });
+    assert.deepEqual(codes(moved.report, 'H3'), ['outside-scope']);
+  });
+
   it('会话记录里写到被测检出之外 → 不通过；写系统临时目录只警告', async () => {
     const turns = wt => [[
       S.init({ cwd: wt }),
