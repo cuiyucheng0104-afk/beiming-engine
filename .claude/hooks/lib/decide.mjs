@@ -4,7 +4,7 @@
 //   - Bash / PowerShell：切词后逐条分析重定向、rm / cp / mv / sed -i / find -delete 等写入目标，
 //     git 的整树暂存（add / stage 的 -A、.）、强推（任何位置，不能解锁）；本仓库里的跳过钩子、改写历史、reset --hard、clean -f、
 //     整树丢弃、commit -a（BEIMING_GUARD_UNLOCK=git 可解锁）；设置提交前检查的放行变量 BEIMING_PRECOMMIT_ALLOW；删除远端分支或标签；
-//     在归档里执行代码、访问 ~/lemo-*（~/lemo-opuscar/.venv 只许当解释器执行）、gh 的删除与改可见性 → 拒绝
+//     在归档里执行代码、访问 ~/lemo-*（读、写、执行都不行）、gh 的删除与改可见性 → 拒绝
 //   - Read：家目录风格库 → 拒绝；读归档里的上游 agent 文件 → 放行并附"只是资料"的提醒
 //   - Skill：全局第三方风格库 skill → 拒绝；其他视频类全局 skill → 放行并提醒先用 beiming-film
 //   - mcp__*：按工具名与参数里的路径 / 命令做同样的判断
@@ -15,7 +15,7 @@ import { parseBash, parsePwsh } from './shell.mjs';
 import { classifyPath, pathApi, expandHome } from './paths.mjs';
 import {
   RULES, ZONES, MEMORY_FILE_NAMES, INSTRUCTION_FILE_NAMES, UPSTREAM_STYLE_SKILL, VIDEO_SKILL_HINT, REPO_SKILL_PREFIX,
-  HOME_STYLE_DIRS, unlockedZones, zoneUnder, isHomeRuntime, ALWAYS_DENY_RULES, GIT_UNLOCK, isNestedAgentConfig,
+  HOME_STYLE_DIRS, unlockedZones, zoneUnder, ALWAYS_DENY_RULES, GIT_UNLOCK, isNestedAgentConfig,
 } from './policy.mjs';
 
 const ALLOW = Object.freeze({ decision: 'allow' });
@@ -132,7 +132,7 @@ const show = (c, raw) => (c.inside ? (c.rel || '.') : String(raw));
 function checkWrite(target, ctx, cwd, { verb = '写入', recursive = false, createsFile = false } = {}) {
   if (target == null || target === '') return null;
   const c = classifyPath(target, { root: ctx.root, cwd, home: ctx.home, platform: ctx.platform });
-  if (c.homeLib) return deny(isHomeRuntime(c.homeRel, { ci: c.ci }) ? 'home-style-runtime' : 'home-style-library', `${verb} ${target}`, { target: String(target) });
+  if (c.homeLib) return deny('home-style-library', `${verb} ${target}`, { target: String(target) });
   if (!c.inside || isForeign(c.rel)) return null;
   const parent = !c.zone && recursive ? zoneUnder(c.rel, { ci: c.ci }) : null;
   const zone = c.zone ?? parent;
@@ -144,28 +144,13 @@ function checkWrite(target, ctx, cwd, { verb = '写入', recursive = false, crea
   return null;
 }
 
-/** 只查"访问家目录上游风格库"（读也不行）；库里的解释器例外（HOME_STYLE_RUNTIME）可以引用和执行。 */
+/** 只查"访问家目录上游风格库"：读、写、执行（包括库里的虚拟环境）都不行。 */
 function checkHomeAccess(word, ctx, cwd) {
   if (typeof word !== 'string' || !word) return null;
   if (!/[\\/]|^~|^\$|^%/.test(word) && !HOME_STYLE_DIRS.some(d => word.toLowerCase().includes(d))) return null;
   const c = classifyPath(word, { root: ctx.root, cwd, home: ctx.home, platform: ctx.platform });
-  if (!c.homeLib || isHomeRuntime(c.homeRel, { ci: c.ci })) return null;
+  if (!c.homeLib) return null;
   return deny('home-style-library', `访问 ${word}`, { target: word });
-}
-
-/** 用解释器例外里的 pip / uv / python -m pip 装包或改环境：拒绝（只读使用）。 */
-function checkHomeRuntimeMutation(words, ctx, cwd) {
-  const c = classifyPath(words[0], { root: ctx.root, cwd, home: ctx.home, platform: ctx.platform });
-  if (!c.homeLib || !isHomeRuntime(c.homeRel, { ci: c.ci })) return null;
-  const exe = baseName(words[0], true);
-  const args = words.slice(1);
-  const pipLike = /^(pip\d*(\.\d+)?|uv|easy_install)$/.test(exe);
-  const m = args.indexOf('-m');
-  const viaModule = isPython(exe) && m >= 0 && /^(pip|ensurepip|venv|uv)$/.test(args[m + 1] ?? '');
-  if (!pipLike && !viaModule) return null;
-  const sub = pipLike ? args : args.slice(m + 2);
-  if (/^(list|show|freeze|check|--version|-V|help|--help|-h)$/.test(sub[0] ?? '') || sub.length === 0) return null;
-  return deny('home-style-runtime', `执行 ${words.slice(0, 4).join(' ')}`, { target: String(words[0]) });
 }
 
 function archiveZoneOf(p, ctx, cwd) {
@@ -454,9 +439,8 @@ function analyzeSimple(item, ctx, dialect, st, depth) {
   const name = baseName(words[0], ci);
   const args = words.slice(1);
 
-  // 2. 家目录风格库：读写都不行；解释器例外只许执行，不许在里面装包
+  // 2. 家目录风格库：读、写、执行都不行
   for (const w of words) { const d = checkHomeAccess(w, ctx, cwd); if (d) return d; }
-  { const d = checkHomeRuntimeMutation(words, ctx, cwd); if (d) return d; }
 
   // 3. 在归档里执行代码
   if (/[\\/]/.test(words[0])) {

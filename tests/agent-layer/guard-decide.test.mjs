@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decide } from '../../.claude/hooks/lib/decide.mjs';
-import { RULES, ZONES, ALWAYS_DENY_RULES, isHomeRuntime } from '../../.claude/hooks/lib/policy.mjs';
+import { RULES, ZONES, ALWAYS_DENY_RULES } from '../../.claude/hooks/lib/policy.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HOME = path.join(os.tmpdir(), 'beiming-guard-test-home-does-not-exist');
@@ -59,7 +59,7 @@ test('写文件工具：受保护区域拒绝，作品目录放行', () => {
     [R('.mcp.json'), 'zone-agent-layer'],
     [H('lemo-my-styles', 'watercolor', 'STYLE.md'), 'home-style-library'],
     [H('lemo-opuscar', 'styles', 'x', 'STYLE.md'), 'home-style-library'],
-    [H('lemo-opuscar', '.venv', 'lib', 'site.py'), 'home-style-runtime'],
+    [H('lemo-opuscar', '.venv', 'lib', 'site.py'), 'home-style-library'],
   ];
   for (const tool of ['Write', 'Edit', 'MultiEdit']) {
     for (const [p, rule] of deny) expectDeny(run(tool, { file_path: p, old_string: 'a', new_string: 'b' }), rule, `${tool} ${p}`);
@@ -241,26 +241,25 @@ test('在归档里运行上游代码：拒绝（会把产物写进快照，setup
   expectAllow(bash('cd cases/vendor/lemo-opuscar && node make.js', { env: { BEIMING_GUARD_UNLOCK: 'vendor' } }), '解锁 vendor 后');
 });
 
-test('家目录风格库：读写都拒绝；~/lemo-opuscar/.venv 只许当解释器执行', () => {
+test('家目录风格库：读、写、执行都拒绝，库里的 .venv 也没有例外（评测 H4 按「没有访问 ~/lemo-*」判）', () => {
   const py = `${POSIX_HOME}/lemo-opuscar/.venv/bin/python`;
   for (const cmd of ['cat ~/lemo-opuscar/AGENTS.md', 'ls ~/lemo-my-styles', 'cd ~/lemo-opuscar && git pull',
     `cat ${POSIX_HOME}/lemo-opuscar/README.md`, 'cat $HOME/lemo-my-styles/README.md', 'cp -r ~/lemo-opuscar/styles films/x/',
     'git clone https://github.com/lemomo-ai/lemo-opuscar ~/lemo-opuscar', 'git clone https://github.com/lemomo-ai/lemo-opuscar.git /tmp/x',
-    `${py} ~/lemo-opuscar/tools/directory/build.py`, 'LEMO=~/lemo-opuscar node x.mjs']) {
+    `${py} ~/lemo-opuscar/tools/directory/build.py`, 'LEMO=~/lemo-opuscar node x.mjs',
+    // 以前的解释器例外已删：当解释器执行、经环境变量传给脚本、在里面装包都拒绝
+    `${py} tools/casebook.py check`, `${py} -m unittest discover -s tools`, `${py} -m pip install numpy`,
+    `${POSIX_HOME}/lemo-opuscar/.venv/bin/pip install -U scipy`, `echo x > ${POSIX_HOME}/lemo-opuscar/.venv/pyvenv.cfg`,
+    `BEIMING_PYTHON=${py} node tools/env/py.mjs tools/casebook.py check`, `env PYTHON=${py} python3 -V`,
+    'BEIMING_PYTHON=~/lemo-opuscar/.venv/bin/python npm test']) {
     expectDeny(bash(cmd), 'home-style-library', cmd);
   }
-  for (const cmd of [`${py} -m pip install numpy`, `${POSIX_HOME}/lemo-opuscar/.venv/bin/pip install -U scipy`,
-    `${py} -m pip uninstall -y numba`, `echo x > ${POSIX_HOME}/lemo-opuscar/.venv/pyvenv.cfg`]) {
-    expectDeny(bash(cmd), 'home-style-runtime', cmd);
-  }
-  for (const cmd of [`BEIMING_PYTHON=${py} node tools/env/py.mjs tools/casebook.py check`, `PYTHON=${py} node tools/x.mjs`,
-    `${py} tools/casebook.py check`, `${py} -m unittest discover -s tools`, `${py} -m pip list`, `env PYTHON=${py} python3 -V`,
-    `PYTHON=~/lemo-opuscar/.venv/bin/python sh build.sh`, 'BEIMING_PYTHON=~/lemo-opuscar/.venv/bin/python npm test']) {
+  assert.equal(RULES['home-style-runtime'], undefined, '解释器例外的规则已删');
+  assert.match(RULES['home-style-library'].next, /npm run setup/, '下一步要指向仓库自己的环境');
+  // 用户在启动前设好的解释器经环境变量传进来：命令里不出现家目录路径，放行
+  for (const cmd of ['"$BEIMING_PYTHON" tools/casebook.py check', 'node tools/env/py.mjs tools/casebook.py check', 'npm run setup', 'BEIMING_PYTHON="$BEIMING_PYTHON" npm test']) {
     expectAllow(bash(cmd), cmd);
   }
-  assert.equal(isHomeRuntime('lemo-opuscar/.venv/bin/python'), true);
-  assert.equal(isHomeRuntime('lemo-opuscar/.venvx/bin/python'), false);
-  assert.equal(isHomeRuntime('lemo-opuscar/styles/x'), false);
   expectDeny(run('Read', { file_path: H('lemo-my-styles', 'README.md') }), 'home-style-library', 'Read 家目录风格库');
   expectDeny(run('Grep', { pattern: 'x', path: H('lemo-opuscar') }), 'home-style-library', 'Grep 家目录风格库');
 });
@@ -296,7 +295,7 @@ test('模拟 Windows 仓库路径：盘符、反斜杠、大小写都归一', ()
   expectAllow(bash(`echo x > ${gitBash('films/demo/a.txt')}`, opts), 'Git Bash 写作品目录');
   expectDeny(pwsh(`Remove-Item -Recurse ${W('work', 'beiming', 'cases', 'source')}`, opts), 'zone-source', 'PowerShell 绝对路径');
   expectDeny(pwsh('Get-ChildItem $env:USERPROFILE\\lemo-opuscar', opts), 'home-style-library', 'PowerShell 家目录变量');
-  expectAllow(pwsh('& $env:USERPROFILE\\lemo-opuscar\\.venv\\Scripts\\python.exe tools\\casebook.py check', opts), 'Windows 解释器例外');
+  expectDeny(pwsh('& $env:USERPROFILE\\lemo-opuscar\\.venv\\Scripts\\python.exe tools\\casebook.py check', opts), 'home-style-library', 'Windows 上库里的解释器也没有例外');
 });
 
 test('符号链接指进受保护区域：按解析后的真实路径拒绝', (t) => {

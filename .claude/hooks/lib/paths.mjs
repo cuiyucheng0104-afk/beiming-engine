@@ -63,7 +63,7 @@ function relInside(P, base, target) {
  *   rel      仓库相对路径（正斜杠；根本身是 ''）；不在仓库内为 null
  *   zone     命中的受保护区域（policy.ZONES 的一项）或 null
  *   homeLib  命中的家目录上游风格库目录名（如 'lemo-my-styles'）或 null
- *   homeRel  命中时相对家目录的路径（正斜杠，如 'lemo-opuscar/.venv/bin/python'），否则 null
+ *   homeRel  命中时相对家目录的路径（正斜杠，如 'lemo-opuscar/styles/x/STYLE.md'），否则 null
  *   ci       是否按大小写不敏感比较
  */
 export function classifyPath(input, ctx) {

@@ -29,7 +29,7 @@
 另外两条与路径有关的规则：
 
 - `archive-exec`：不在 `cases/vendor/`、`cases/source/` 里运行代码（`node`、`python`、`sh`、`npm`、`make` 等），上游的 `make.js`、`build.sh`、`setup.sh` 会把产物写进快照，`setup.sh` 还会克隆或 `reset --hard` 家目录里的上游库。从归档复制代码到作品里放行，但会提醒在作品的 CREDITS 里写来源与许可。
-- `home-style-library`：家目录的上游风格库副本 `~/lemo-opuscar`、`~/lemo-my-styles` 读写都不行，克隆上游库也不行。唯一例外是 `~/lemo-opuscar/.venv/`：有的机器在仓库环境建好之前用它当带 numpy、numba 的解释器（`BEIMING_PYTHON=~/lemo-opuscar/.venv/bin/python`），只许执行，在里面装包或改文件按 `home-style-runtime` 拒绝。
+- `home-style-library`：家目录的上游风格库副本 `~/lemo-opuscar`、`~/lemo-my-styles` 读、写、执行都不行，克隆上游库也不行，没有例外（以前给 `~/lemo-opuscar/.venv/` 留的解释器例外已删：仓库自己的环境 `npm run setup` 建的 `.venv` 已落地，评测硬门 H4 按「没有访问 `~/lemo-*`」判）。需要带 numpy、numba 的 Python 时用仓库的 `.venv`（`node tools/env/py.mjs` 会找到它）；用户确实要用别处的解释器，就在启动 Claude Code 之前设 `BEIMING_PYTHON`，命令里写 `"$BEIMING_PYTHON"`，不写出它指向的家目录路径。
 
 ## 命令规则
 
