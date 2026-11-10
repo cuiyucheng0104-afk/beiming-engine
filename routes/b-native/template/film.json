@@ -5,7 +5,11 @@
   "fps": 24,
   "size": [1920, 1080],
   "events": [
-    { "id": "title", "frame": 16, "visual": "片名第一个字落定", "audio": "玻璃铃" }
+    { "id": "title", "frame": 30, "visual": "片名第一个字落定（画面先立住一秒多）", "audio": "玻璃铃" }
+  ],
+  "aigc": { "contains": true, "note": "天空与云海底板由 AI 生成后人工整理（assets/plates/plates.json）；浮标、片名与声音由代码合成" },
+  "credits": [
+    { "what": "原生运行时（上游项目名 RAEA）", "license": "FSL-1.1-ALv2", "source": "engine/native/runtime.lock.json" }
   ],
   "native": {
     "entry": "film.tsx",

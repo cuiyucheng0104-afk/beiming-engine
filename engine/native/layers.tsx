@@ -22,10 +22,17 @@
 //                                          所以纸纹不是钉在屏幕上的一层脏点；boil=0 才静止。opacity 0.10–0.16 合适（A 路正片取 0.12–0.14）
 //   <Vignette width height strength? reach? color? />
 //                                          整幅暗角（页面层径向渐变），盖住天空底板与三维两层，不像 FramePass 只作用在三维上
+//   <Glow x y radius color? strength? core? />
+//                                          页面层光晕（径向渐变，普通叠加）：灯、窗、发光体在天空前的晕。Canvas3D layered 时
+//                                          三维的 Bloom 只落在三维物体自己的像素上，透明处（下面是页面层天空）看不到光晕（2026-11-10 实测），
+//                                          所以用 view.js 的 project 把发光点投到屏幕，在页面层贴晕。radius 是像素，color 是十六进制色。
+//                                          不用 mix-blend-mode：canary.2 的页面层里「径向渐变 + mix-blend-mode」整块不出图（实测），
+//                                          纯色块加 blend 才生效；所以晕用浅暖色低透明度普通叠加
 
 import { staticFile } from 'raea';
 import { ImagePlane } from 'raea/3d';
 import { sinHash } from './math.ts';
+import { rgb } from './palette.ts';
 
 type V = number[];
 export const drift = (p: V, v: V | undefined, t: number): V => v ? p.map((x, i) => x + t * (v[i] ?? 0)) : p;
@@ -68,4 +75,10 @@ export function PaperOverlay({ src, f, width, height, opacity = 0.14, scale = he
 
 export function Vignette({ width, height, strength = 0.22, reach = 0.55, color = '20,16,48' }: { width: number, height: number, strength?: number, reach?: number, color?: string }) {
   return <div style={{ position: 'absolute', left: 0, top: 0, width, height, background: `radial-gradient(ellipse at center, rgba(${color},0) ${Math.round(reach * 100)}%, rgba(${color},${strength}) 100%)` }} />;
+}
+
+export function Glow({ x, y, radius, color = '#FFD6A0', strength = 0.55, core = 0.14 }: { x: number, y: number, radius: number, color?: string, strength?: number, core?: number }) {
+  const c = rgb(color).map(v => Math.round(v * 255)).join(',');
+  return <div style={{ position: 'absolute', left: x - radius, top: y - radius, width: 2 * radius, height: 2 * radius,
+    background: `radial-gradient(circle at center, rgba(${c},${strength}) 0%, rgba(${c},${(strength * 0.42).toFixed(3)}) ${Math.round(core * 100)}%, rgba(${c},0) 70%)` }} />;
 }

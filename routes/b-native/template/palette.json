@@ -1,10 +1,12 @@
 {
-  "$note": "{{TITLE}} 的色板：film.tsx 只按名字取色。sky 是底板没铺到时的底色；key 暖主光从左下方来（与天空底板左侧的低太阳一致）；shade 是卡通暗部色，偏冷紫，让主体在逆光里仍读得出形",
+  "$note": "{{TITLE}} 的色板：film.tsx 只按名字取色。sky 是底板没铺到时的底色；key 暖主光从左下方来（与天空底板左侧的低太阳一致）；shade 是卡通暗部色，偏冷紫，让主体在逆光里仍读得出形；lamp 是灯的自发光色；glow 是页面层灯晕的颜色",
   "sky": "#8E86C9",
   "ambient": "#B3A8E0",
   "key": "#FFD6B0",
   "rim": "#FFE2C2",
   "shade": "#7C6FA8",
   "ink": "#232647",
+  "lamp": "#FFD9A0",
+  "glow": "#FFD9A8",
   "caption": "#FFF6EC"
 }

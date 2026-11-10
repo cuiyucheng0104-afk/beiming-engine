@@ -29,12 +29,14 @@ async function upload(name, scene, clips=[], maxBytes=20_000_000) {
 }
 
 // 任意材质 → 普通 PBR。只在与默认值不同时才设置额外字段，所以朴素输入的导出结果保持稳定。
+// 材质名：源材质的 name 非空时为 <前缀>-<name>，否则 <前缀>-PBR-<序号> / <前缀>-emissive-<序号>。
 function standardOf(old, n, prefix) {
   const emissive=old.isMeshBasicMaterial;
   const intensity=emissive?Math.max(old.color.r,old.color.g,old.color.b,1):0;
   const color=emissive?old.color.clone().multiplyScalar(1/intensity):old.color;
   const m=new T.MeshStandardMaterial({color:emissive?0x111111:color,roughness:.8,metalness:0,emissive:emissive?color:0x000000,emissiveIntensity:intensity});
-  m.name=emissive?`${prefix}-emissive-${n}`:`${prefix}-PBR-${n}`;
+  // 源材质有名字就沿用（film.tsx 能按名字给某个部件单独的卡通 / 自发光覆盖）；没名字按序号
+  m.name=old.name?`${prefix}-${old.name}`:emissive?`${prefix}-emissive-${n}`:`${prefix}-PBR-${n}`;
   if(old.map) m.map=old.map;
   if(old.vertexColors) m.vertexColors=true;
   if(old.side!==undefined&&old.side!==T.FrontSide) m.side=old.side;

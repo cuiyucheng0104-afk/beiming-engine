@@ -8,7 +8,7 @@
 //   view.js     纯函数：project / cardOnScreen / edgeVisible / screenBox / overlap（世界 → 屏幕投影，Node 测试也用）、
 //               skyShift（页面层天空跟镜头转）、headingYaw / behind（载具朝速度方向、尾迹在船尾后）
 //   layers.tsx  Backdrop（二维底板视差）、PlateCard（三维绘画面片）、SequencePlane（序列帧图集面片）、
-//               FrameSequence（逐帧 PNG 叠层）、PaperOverlay（整幅纸纹，一拍二换纸）、Vignette（整幅暗角）
+//               FrameSequence（逐帧 PNG 叠层）、PaperOverlay（整幅纸纹，一拍二换纸）、Vignette（整幅暗角）、Glow（页面层光晕）
 //   toon.tsx    place、ToonMesh / ToonBox（带卡通材质的基本体）、ToonModel（GLB + 分材质卡通覆盖）、toonFromShade
 //   title.tsx   FontFace、TitleReveal（片名逐字落定）、TitleCard（旧：只淡入）、Caption（字幕）、fadeWindow
 //   post.ts     paperPass（只盖三维层的颗粒 + 暗角，整幅纸纹改用 PaperOverlay）、gradePass（engine/look/grade.js 同式调色）的 WESL 生成

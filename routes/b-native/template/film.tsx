@@ -6,12 +6,16 @@
 //          → 近层云海压住浮标底座（向右漂）：前后层夹住主体，视差方向相反，空气感靠画出来的雾，不开距离雾。
 //          云海是横向四方连续图，两端是硬切口：film.json 给它烘了有机软边，摆位也让两端始终在画外。
 //   质感   纸纹与暗角是页面层整幅叠层（不是只盖三维的 FramePass），纸纹一拍二换一张「纸」，不钉在屏幕上。
-//   时间   片名逐字落定；第一个字落定的帧号写在 film.json 的 events（id = "title"），声音脚本读同一个帧号放玻璃铃。
+//   时间   先让画面立住一秒，片名再逐字落定；第一个字落定的帧号写在 film.json 的 events（id = "title"），
+//          声音脚本读同一个帧号放玻璃铃。
+//   灯     灯的材质单独一层卡通覆盖并保留自发光；灯晕在页面层：motion.js 的 lampAt(t) 与 Idle 片段同一个公式，
+//          用 view.js 的 project 投到屏幕贴 <Glow>（layered 画布里三维 Bloom 的光晕落在透明处会丢，天空前看不到）。
 import { AbsoluteFill, Composition, registerRoot, staticFile, useCurrentFrame } from 'raea';
 import { AmbientLight, DirectionalLight } from 'raea/light';
 import { Transform } from 'raea/transform';
 import { ToneMapping, Canvas3D } from 'raea/3d';
-import { palette, ShotCamera, Backdrop, PlateCard, ToonModel, TitleReveal, PaperOverlay, Vignette } from '../../engine/native/index.ts';
+import { palette, shotAt, project, ShotCamera, Backdrop, PlateCard, ToonModel, TitleReveal, PaperOverlay, Vignette, Glow } from '../../engine/native/index.ts';
+import { lampAt } from './motion.js';
 import { layout } from './layout.js';
 import film from './film.json';
 import data from './palette.json';
@@ -27,6 +31,8 @@ const Mist = ({ m, t }: { m: typeof BACK, t: number }) => <PlateCard name={m.nam
 
 function Piece() {
   const f = useCurrentFrame(), t = f / FPS;
+  const cam = shotAt(t, L.shots), lamp = project(lampAt(t % CLIP, CLIP), cam, [W, H]);
+  const lampR = .13 * (H / 2) / Math.tan(cam.fov * Math.PI / 360) / lamp.depth;   // 灯球的屏幕半径（像素）
   return <AbsoluteFill style={{ background: P.sky }}>
     <Backdrop src={staticFile('backdrop.png')} t={t} x={L.backdrop.x} y={L.backdrop.y} width={L.backdrop.width} height={L.backdrop.height} drift={L.backdrop.drift} />
     <Canvas3D layered>
@@ -36,9 +42,11 @@ function Piece() {
       <ToneMapping mode="none" />
       <Mist m={BACK} t={t} />
       <ToonModel name="prop" src={staticFile('prop.glb')} animation="Idle" time={t % CLIP} loop position={[0, 0, 0]}
-        toon={{ steps: 3, shadow_color: P.shade, rim: { intensity: .45, width: .22, color: P.rim }, outline: { width: 1.6, color: P.ink } }} />
+        toon={{ steps: 3, shadow_color: P.shade, rim: { intensity: .45, width: .22, color: P.rim }, outline: { width: 1.6, color: P.ink } }}
+        parts={[{ materials: ['prop-lamp'], toon: { steps: 2, base_color: P.lamp, shadow_color: P.lamp, emissive: P.lamp, outline: false } }]} />
       <Mist m={FRONT} t={t} />
     </Canvas3D>
+    <Glow x={lamp.x} y={lamp.y} radius={lampR * 6} color={P.glow} strength={.9} core={.2} />
     <PaperOverlay src={staticFile('paper.png')} f={f} width={W} height={H} opacity={.13} />
     <Vignette width={W} height={H} strength={.24} />
     <TitleReveal text={TITLE} t={t} at={LAND - .35} rule={{ width: T.box[2] - T.left - T.letterSpacing, color: P.caption }}
