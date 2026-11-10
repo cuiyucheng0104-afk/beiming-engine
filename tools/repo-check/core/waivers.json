@@ -18,11 +18,6 @@
     { "rule": "core.terms", "file": "docs/TRACKS.md", "match": "路线怎么选", "owner": "PZ", "reason": "TRACKS 只保留技术分档，删掉「路线怎么选」（ENTRY-01、ENTRY-10）" },
 
 
-    { "rule": "core.doc-commands", "file": "routes/b-native/README.md", "match": "我的片子", "owner": "P14", "reason": "B 手册「最快上手」的示例名不合法，照抄会被 new-film 拒绝；改成 my-film 这类 ASCII 名" },
-
-    { "rule": "core.terms", "file": "routes/directing/DIRECTING.md", "match": "历史代号", "owner": "集成负责人", "reason": "导演方法库（8c07cb8 入库，未分配给工作包）改称「上游项目名（内部目录沿用）」（D04）" },
-    { "rule": "core.terms", "file": "routes/directing/SOURCES.md", "match": "历史代号", "owner": "集成负责人", "reason": "同上" },
-    { "rule": "core.terms", "file": "routes/directing/craft/animation.md", "match": "历史代号", "owner": "集成负责人", "reason": "同上" },
-    { "rule": "core.terms", "file": "routes/directing/craft/threejs.md", "match": "历史代号", "owner": "集成负责人", "reason": "同上" }
+    { "rule": "core.doc-commands", "file": "routes/b-native/README.md", "match": "我的片子", "owner": "P14", "reason": "B 手册「最快上手」的示例名不合法，照抄会被 new-film 拒绝；改成 my-film 这类 ASCII 名" }
   ]
 }

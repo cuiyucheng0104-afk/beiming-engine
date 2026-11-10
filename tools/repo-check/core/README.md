@@ -35,7 +35,7 @@ export default {
 ```
 
 - `level`：`error`（规范错误，退出 4）、`warn`（提示，不影响退出码）、`info`（汇总说明）。`message` 说原因，`hint` 说下一步怎么做，都用中文；`file` 是仓库相对路径、正斜杠。
-- `ctx`：`root`、`rel / abs`、`exists / isDir`、`read / readJson`（缓存）、`walk(目录, { dirs, files })`（跳过 `node_modules`、`.git`、`out`、`__pycache__`、`.venv`、`.cache`、`_site`、`_previews`、`.claude/worktrees` 与 `tests/**/fixtures`）、`mdFiles({ vendor })`、`git(args)`（`{ ok, stdout }`）、`registry`（路线注册表）、`pkg`（package.json）、`inScope(rel)`、`md`（`markdown.mjs` 的全部函数）、`memo(key, fn)`。
+- `ctx`：`root`、`rel / abs`、`exists / isDir`、`read / readJson`（缓存）、`walk(目录, { dirs, files })`（跳过 `node_modules`、`.git`、`out`、`__pycache__`、`.venv`、`.cache`、`_site`、`_previews`、`.claude/worktrees` 与 `tests/**/fixtures`）、`mdFiles({ vendor })`、`git(args)`（`{ ok, stdout }`）、`registry`（路线注册表）、`pkg`（package.json）、`inScope(rel)`、`staged`（暂存区涉及的文件集合或 `null`）、`strict`（加了 `--strict`：规则自己的待修豁免也不该生效，例如 comp 的允许清单里的 pending 条目）、`md`（`markdown.mjs` 的全部函数）、`memo(key, fn)`。
 - 规则抛错或超过 120 秒不返回，记成「规则自身出错」，整次检查退出 1；别的规则照常跑。
 - 规则文件本身坏了（语法错误、导出的形状不对、域或 id 不合格）记成 `core.loader` 的错误，同样退出 1。全量检查全部报出；`--only <域或规则>` 只报选中的域的加载问题（选单条规则时算它所在的域），别的包正在改的规则文件不会连累 `--only core`。
 - 测试放 `tests/<域>/`：用 `--root <临时目录>` 在构造的小仓库上跑，断言规则 id 与退出码（参考 `tests/governance/`）。
