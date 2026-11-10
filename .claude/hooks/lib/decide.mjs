@@ -15,7 +15,7 @@ import { parseBash, parsePwsh } from './shell.mjs';
 import { classifyPath, pathApi, expandHome } from './paths.mjs';
 import {
   RULES, ZONES, MEMORY_FILE_NAMES, INSTRUCTION_FILE_NAMES, UPSTREAM_STYLE_SKILL, VIDEO_SKILL_HINT, REPO_SKILL_PREFIX,
-  HOME_STYLE_DIRS, unlockedZones, zoneUnder, isHomeRuntime, ALWAYS_DENY_RULES, GIT_UNLOCK,
+  HOME_STYLE_DIRS, unlockedZones, zoneUnder, isHomeRuntime, ALWAYS_DENY_RULES, GIT_UNLOCK, isNestedAgentConfig,
 } from './policy.mjs';
 
 const ALLOW = Object.freeze({ decision: 'allow' });
@@ -136,7 +136,7 @@ function checkWrite(target, ctx, cwd, { verb = '写入', recursive = false, crea
   if (zone && !ctx.unlocked.has(zone.unlock)) return denyZone(zone, show(c, target), verb, { parentOf: Boolean(parent) });
   if (createsFile && c.rel.includes('/') && !ctx.unlocked.has('instructions')) {
     const b = c.rel.split('/').pop().toLowerCase();
-    if (MEMORY_FILE_NAMES.some(n => n.toLowerCase() === b)) return deny('nested-instructions', `${verb} ${c.rel}`, { target: c.rel });
+    if (MEMORY_FILE_NAMES.some(n => n.toLowerCase() === b) || isNestedAgentConfig(c.rel)) return deny('nested-instructions', `${verb} ${c.rel}`, { target: c.rel });
   }
   return null;
 }

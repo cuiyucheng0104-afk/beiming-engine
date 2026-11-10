@@ -51,6 +51,12 @@ test('写文件工具：受保护区域拒绝，作品目录放行', () => {
     [R('.githooks', 'pre-commit'), 'zone-agent-layer'],
     [R('films', 'demo', 'AGENTS.md'), 'nested-instructions'],
     [R('films', 'demo', 'CLAUDE.md'), 'nested-instructions'],
+    [R('films', 'demo', '.claude', 'settings.json'), 'nested-instructions'],
+    [R('films', 'demo', '.claude', 'skills', 'x', 'SKILL.md'), 'nested-instructions'],
+    [R('films', 'demo', '.mcp.json'), 'nested-instructions'],
+    [R('.claude', 'skills', 'beiming-film', 'SKILL.md'), 'zone-agent-layer'],
+    [R('.claude', 'skills', 'new-skill', 'SKILL.md'), 'zone-agent-layer'],
+    [R('.mcp.json'), 'zone-agent-layer'],
     [H('lemo-my-styles', 'watercolor', 'STYLE.md'), 'home-style-library'],
     [H('lemo-opuscar', 'styles', 'x', 'STYLE.md'), 'home-style-library'],
     [H('lemo-opuscar', '.venv', 'lib', 'site.py'), 'home-style-runtime'],
@@ -78,6 +84,8 @@ test('临时解锁：只解点名的区域，区域 id 不含 all', () => {
   expectDeny(write(R('cases', 'vendor', 'x.js'), { env: { BEIMING_GUARD_UNLOCK: 'src' } }), 'zone-vendor', '解锁 src 不影响 vendor');
   expectDeny(write(R('src', 'main.js'), { env: { BEIMING_GUARD_UNLOCK: 'all' } }), 'zone-src', 'all 不是区域 id');
   expectAllow(write(R('films', 'x', 'AGENTS.md'), { env: { BEIMING_GUARD_UNLOCK: 'instructions' } }), '解锁 instructions');
+  expectAllow(write(R('films', 'x', '.claude', 'settings.json'), { env: { BEIMING_GUARD_UNLOCK: 'instructions' } }), '解锁 instructions 后写嵌套 .claude');
+  expectAllow(write(R('.claude', 'skills', 'beiming-film', 'SKILL.md'), { env: { BEIMING_GUARD_UNLOCK: 'agent-layer' } }), '解锁 agent-layer 后改仓库 skill');
 });
 
 test('本机临时工作树 .claude/worktrees/ 是另一份检出：不按本仓库区域判断', () => {
@@ -157,6 +165,8 @@ test('Shell：写入受保护区域的各种写法都拒绝', () => {
     ['chmod -R 777 cases/vendor', 'zone-vendor'], ['git rm -r cases/vendor/sy-style-100', 'zone-vendor'],
     ['git checkout HEAD~1 -- src/main.js', 'zone-src'], ['ln -s ../x cases/vendor/link', 'zone-vendor'],
     ['echo x > films/demo/CLAUDE.md', 'nested-instructions'], ['echo {} > .claude/settings.local.json', 'zone-agent-layer'],
+    ['mkdir -p films/demo/.claude && echo {} > films/demo/.claude/settings.json', 'nested-instructions'],
+    ["sed -i '' 's/a/b/' .claude/skills/beiming-film/SKILL.md", 'zone-agent-layer'],
   ];
   for (const [cmd, rule] of cases) expectDeny(bash(cmd), rule, cmd);
 });

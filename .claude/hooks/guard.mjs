@@ -111,7 +111,7 @@ async function explainCli(argv) {
       '',
       `受保护区域（${UNLOCK_ENV} 可点名解锁，逗号分隔，由用户在启动 Claude Code 前设置；agent 自己 export 无效）：`,
       ...ZONES.map(z => `  ${z.unlock.padEnd(12)} ${[...z.prefixes, ...z.files].join('、')}`),
-      '  instructions  子目录里的 AGENTS.md / CLAUDE.md / GEMINI.md',
+      '  instructions  子目录里的 AGENTS.md / CLAUDE.md / GEMINI.md、嵌套的 .claude/ 与 .mcp.json',
       '  publish       gh release delete、gh repo delete / rename / archive / edit --visibility',
       `  git           ${Object.keys(RULES).filter(k => k.startsWith('git-') && !ALWAYS_DENY_RULES.has(k)).join('、')}`,
       `永远拒绝、不能解锁：${[...ALWAYS_DENY_RULES].join('、')}（git add -A / --all / . / *、强推）`,

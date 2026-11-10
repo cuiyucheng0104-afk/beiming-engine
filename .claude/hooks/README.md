@@ -21,8 +21,8 @@
 | `src` | `src/` | 《北冥》10 秒样片，A 路线参考实现与视觉基准，改了会动金标准像素 |
 | `license` | `LICENSE`、`LICENSES/`（REUSE 许可文本目录）、`cases/licenses/` | 许可与署名不得删改 |
 | `catalog` | `cases/catalog.json` | 由案例库工具生成并校验，不手改 |
-| `agent-layer` | `.claude/hooks/`、`.githooks/`、`.claude/settings.json`、`.claude/settings.local.json` | 护栏本身，agent 不得自行修改或关闭 |
-| `instructions` | 任何子目录里新建 `AGENTS.md`、`CLAUDE.md`、`CLAUDE.local.md`、`GEMINI.md` | 会被 agent 工具自动当成指令加载；本仓库只有根目录一份 |
+| `agent-layer` | `.claude/hooks/`、`.claude/skills/`、`.githooks/`、`.claude/settings.json`、`.claude/settings.local.json`、`.mcp.json` | agent 执行层本身（护栏、仓库 skill、MCP 配置），agent 不得自行修改或关闭 |
+| `instructions` | 任何子目录里新建 `AGENTS.md`、`CLAUDE.md`、`CLAUDE.local.md`、`GEMINI.md`，或嵌套的 `.claude/`（设置、skill、命令）与 `.mcp.json` | 会被 agent 工具自动加载；本仓库只有根目录一份指令 |
 
 "写入"包括写文件工具、重定向、`cp` / `mv` / `rm` / `mkdir` / `touch` / `tee` / `sed -i` / `perl -pi` / `chmod`、`find -delete` 与 `-exec rm`、`tar -x` / `unzip`、`curl -o` / `wget`、`--out` / `--output` 一类输出参数、`git checkout <版本> -- <路径>`、`git rm` / `git mv`，以及 PowerShell 的 `Remove-Item`、`Set-Content`、`Out-File`、`New-Item`、`Copy-Item`、`Move-Item`、`Expand-Archive`、`Invoke-WebRequest -OutFile` 等。递归删除或移动某个上级目录（例如 `rm -rf cases`、`rm -rf .`）会连带区域，同样拒绝。
 

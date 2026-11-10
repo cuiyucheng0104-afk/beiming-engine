@@ -53,14 +53,24 @@ export const ZONES = [
   },
   {
     id: 'agent-layer', kind: 'guard', unlock: 'agent-layer',
-    prefixes: ['.claude/hooks/', '.githooks/'], files: ['.claude/settings.json', '.claude/settings.local.json'],
-    title: '这是 agent 护栏本身（权限、PreToolUse 钩子、git 钩子），agent 不得自行修改或关闭',
+    prefixes: ['.claude/hooks/', '.claude/skills/', '.githooks/'], files: ['.claude/settings.json', '.claude/settings.local.json', '.mcp.json'],
+    title: '这是 agent 执行层本身（权限、PreToolUse 钩子、仓库 skill、git 钩子），agent 不得自行修改或关闭',
     next: '需要调整护栏时告诉用户；维护者可设置 BEIMING_GUARD_UNLOCK=agent-layer 后修改，并跑 node --test tests/agent-layer',
   },
 ];
 
 /** 嵌套指令文件：Claude Code、Codex 等会沿目录自动加载这些文件当指令。本仓库只有根目录一份。 */
 export const MEMORY_FILE_NAMES = ['AGENTS.md', 'CLAUDE.md', 'CLAUDE.local.md', 'GEMINI.md'];
+
+/**
+ * 子目录里新建会被自动加载的 agent 配置：嵌套的 .claude/（settings、skills、commands、agents……）与 .mcp.json。
+ * rel 是仓库相对路径（正斜杠）；根目录的 .claude/ 不算（那里归 agent-layer 区域管）。
+ */
+export function isNestedAgentConfig(rel) {
+  const r = String(rel ?? '').replace(/\\/g, '/');
+  if (/^[^/]/.test(r) && /\/\.claude\//i.test(r) && !/^\.claude\/worktrees\//i.test(r)) return true;
+  return /\/\.mcp\.json$/i.test(r);
+}
 
 /** 规范检查里算作"agent 指令文件"的文件名（任何目录）。.claude-plugin/ 下的 JSON 另按目录判断。 */
 export const INSTRUCTION_FILE_NAMES = [...MEMORY_FILE_NAMES, 'SKILL.md', 'DIRECTOR.md', '.cursorrules', '.windsurfrules', '.clinerules', 'copilot-instructions.md'];
@@ -121,7 +131,7 @@ export const RULES = {
     next: '缺依赖时告诉用户缺哪个包，由用户决定装在哪里；仓库自己的环境以 npm run setup 为准',
   },
   'nested-instructions': {
-    title: '子目录里的 AGENTS.md / CLAUDE.md / GEMINI.md 会被 agent 工具自动当成指令加载；本仓库只有根目录 AGENTS.md 一份指令',
+    title: '子目录里的 AGENTS.md / CLAUDE.md / GEMINI.md、嵌套的 .claude/ 配置与 skill、.mcp.json 会被 agent 工具自动加载；本仓库只有根目录 AGENTS.md 一份指令',
     next: '子目录的说明写成 README.md；确需改变 agent 行为，把修改建议交给维护者写进根 AGENTS.md（维护者可设置 BEIMING_GUARD_UNLOCK=instructions）',
   },
   'archive-exec': {
