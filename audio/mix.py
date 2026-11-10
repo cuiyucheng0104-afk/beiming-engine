@@ -13,7 +13,11 @@ audio/CREDITS、audio/check/render.json。
 时间表前后矛盾（镜头首尾接不上、frame 与 t 对不上、配乐标注和 score.py 不一致）时在终端告警，并写进 render.json 的 warnings。
 
 用法：python audio/mix.py            配乐读 audio/score_cache.npz（定稿配乐的渲染缓存）
-      python audio/mix.py --score    用采样库重新渲染配乐（需要 BEIMING_SAMPLES，见 engine/audio/sampler.py）
+      python audio/mix.py --score    用采样库重新渲染配乐（需要 BEIMING_SAMPLES，见 engine/audio/sampler.py；
+                                     取样库：node tools/audio/fetch-samples.mjs），同时重写缓存与输入键
+      python audio/mix.py --accept-stale-score   缓存与当前乐谱对不上时仍用旧配乐（记进 render.json 的 warnings）
+配乐缓存的输入键在 audio/score_cache.lock.json（engine/audio/scorecache.py）：读缓存前先核对，乐谱源码改了、缓存文件被换了、
+时长变了就以退出码 4 停下并说明下一步，不静默沿用旧配乐。现在这份缓存是冻结的定稿配乐（lock 的 frozen / note）。
 确定性：所有随机都有固定种子，重跑结果逐样本一致。
 """
 import os
@@ -30,6 +34,7 @@ import soundfile as sf  # noqa: E402
 from engine.audio.dsp import SR, N, smoothstep, undb, db, stereo, width, make_ir, reverb, echoes, hp, lp, shelf, fade  # noqa: E402
 from engine.audio.meter import true_peak, integrated, momentary_max, band_energy, onset  # noqa: E402
 from engine.audio import mixing as M, ambience as A, sampler  # noqa: E402
+from engine.audio import scorecache as SC  # noqa: E402
 import design as D  # noqa: E402
 import score  # noqa: E402  只取配乐的时间表（CUE_TIMES / LEVEL_WIN）；--score 时才真的渲染
 
@@ -299,16 +304,33 @@ ELEM['touch'] = tc
 ELEM['wake_ping'] = wp
 
 # ———————————————— 配乐 music ————————————————
+# 缓存与输入键（engine/audio/scorecache.py）：--score 渲完写缓存 + 输入键；默认读缓存前核对输入键，对不上就停下（退出码 4）
+CACHE, CACHE_LOCK = os.path.join(HERE, 'score_cache.npz'), os.path.join(HERE, 'score_cache.lock.json')
+SCORE_CODE = ['audio/score.py', 'engine/audio/dsp.py', 'engine/audio/sampler.py', 'engine/audio/orchestra.py']   # score.render 用到的源码
+SCORE_SEED = 2026                                                                                               # score.render 的默认种子
 if '--score' in sys.argv:
     import score  # noqa: E402
     mus, sections, harmony = score.render(DUR)
     USED = sorted(score.USED)
-    np.savez_compressed(os.path.join(HERE, 'score_cache.npz'), mus=mus.astype(np.float32),
-                        harmony=json.dumps(harmony, ensure_ascii=False), used=json.dumps(USED))
+    LIB = SC.scan_library(sampler.ROOT, USED)
+    if not LIB['ok']:
+        warn(f'采样库与 engine/audio/samples.json 的固定版本不符（{len(LIB["problems"])} 处，例：{"；".join(LIB["problems"][:3])}）：'
+             f'这次渲出的配乐不保证别的机器能复现；取固定版本用 node tools/audio/fetch-samples.mjs')
+    SC.save(CACHE, CACHE_LOCK, mus, harmony, USED, SC.inputs(ROOT, SCORE_CODE, DUR, SCORE_SEED, USED, LIB),
+            note=None if LIB['ok'] else '采样库与固定版本不符：' + '；'.join(LIB['problems'][:20]))
+    SCORE_CACHE = {'status': 'rendered', 'changed': [], 'frozen': False, 'library_ok': LIB['ok'], 'library_files': LIB['files'],
+                   'message': '用采样库重渲了配乐，并重写了缓存与输入键'}
 else:
-    _c = np.load(os.path.join(HERE, 'score_cache.npz'))
-    mus, sections = _c['mus'].astype(float), {}
-    harmony, USED = json.loads(str(_c['harmony'])), json.loads(str(_c['used']))
+    try:
+        _m, harmony, USED, SCORE_CACHE = SC.load(
+            CACHE, CACHE_LOCK, NT, lambda used: SC.inputs(ROOT, SCORE_CODE, DUR, SCORE_SEED, used),
+            accept_stale='--accept-stale-score' in sys.argv)
+    except SC.StaleCache as e:
+        print(f'[mix] 停下：{e.message}\n[mix] 下一步：{e.hint}', file=sys.stderr)
+        sys.exit(e.exit_code)
+    mus, sections = _m.astype(float), {}
+    if SCORE_CACHE['status'] == 'stale-accepted':
+        warn(f'按 --accept-stale-score 沿用了旧配乐：{SCORE_CACHE["message"]}')
 mus = level('music', mus, *score.LEVEL_WIN)
 ELEM['music'] = mus
 mus = mus * G('apex')
@@ -389,6 +411,7 @@ rep = {
     'timeline': {'dur': DUR, 'cuts': [CUT_AB, CUT_BC], 'beds': {'A': [A_at, A_len], 'B': [B_at, B_len], 'C': [C_at, C_len]},
                  'music_level_win': list(score.LEVEL_WIN)},
     'warnings': WARN,
+    'score_cache': SCORE_CACHE,
     'render_seconds': round(time.time() - T_START, 1),
 }
 os.makedirs(os.path.join(HERE, 'check'), exist_ok=True)
