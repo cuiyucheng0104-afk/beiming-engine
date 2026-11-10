@@ -41,6 +41,8 @@ import { fileURLToPath, pathToFileURL } from 'url';
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VENDOR = { lemo: 'cases/vendor/lemo-opuscar', sy: 'cases/vendor/sy-style-100' };
 const REQUIRED = ['numpy', 'scipy', 'soundfile'], RECOMMENDED = ['soxr', 'PIL', 'fontTools'], MUSIC = ['numba'];
+// 重建运行时时保留的下载物（assets 装的包；不在快照文件清单里）
+const KEEP_ON_REBUILD = ['core/audio/instruments', 'core/assets/polyhaven', 'core/tts/kokoro-v1.0.onnx', 'core/tts/voices-v1.0.bin'];
 const IS_WIN = process.platform === 'win32';
 
 const USAGE = `用法：
@@ -200,6 +202,10 @@ async function setup(o, env) {
   env.result = plan;
   if (o.dryRun) { log('（--dry-run：只核对，不写文件）'); return 0; }
 
+  // 只会删、重建自己建的运行时：目录已在却没有 runtime.json（也不是空目录），多半是别人的东西，停下
+  if (fs.existsSync(dir) && !readRuntime(dir) && fs.readdirSync(dir).length) {
+    throw new Fail(2, `${dir} 已存在且不是 c-runtime 建的运行时（没有 runtime.json），不覆盖`, '换一个空目录（--out），或确认没用后自己删掉再跑');
+  }
   const unlock = lockDir(dir);
   try {
     const cur = readRuntime(dir);
@@ -217,6 +223,11 @@ async function setup(o, env) {
           fs.mkdirSync(path.dirname(dst), { recursive: true });
           fs.copyFileSync(src, dst);
           if (f.mode === '100755') fs.chmodSync(dst, 0o755);
+        }
+        // 已下载的大素材包（sha256 校验过的数据，不是代码）搬进新副本，--force 也不用重下
+        for (const keep of KEEP_ON_REBUILD) {
+          const from = path.join(dir, keep), to = path.join(tmp, keep);
+          if (fs.existsSync(from) && !fs.existsSync(to)) { fs.mkdirSync(path.dirname(to), { recursive: true }); fs.renameSync(from, to); }
         }
         fs.rmSync(dir, { recursive: true, force: true });
         fs.renameSync(tmp, dir);
