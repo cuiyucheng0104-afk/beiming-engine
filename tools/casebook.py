@@ -1153,11 +1153,13 @@ def restore_warnings(report):
 
 # --- rehash -----------------------------------------------------------------------------------------------
 
-def rehash(manifest, patch):
+def rehash(manifest, patch, mark=None):
     """Apply a source patch ({files: [{source, oldSha256, newSha256, oldSize, newSize}]}, the format written by
     node tools/compliance/signed-urls.mjs strip --patch-out) to every catalog entry that references each
     source. Each file on disk must already hold the new bytes, and each entry must still record the old ones:
-    the catalog only follows edits that were actually made. Returns the updated entry count per source."""
+    the catalog only follows edits that were actually made. `mark` (e.g. 'signed-url-query') is added to each
+    patched entry's `redactions`, so a reader can tell why sha256 and originalSha256 differ. Returns the
+    updated entry count per source."""
     files = patch.get('files') if isinstance(patch, dict) else None
     if not isinstance(files, list) or not files:
         raise CasebookError('补丁里没有 files 列表', hint='用 node tools/compliance/signed-urls.mjs strip --patch-out 生成')
@@ -1187,6 +1189,8 @@ def rehash(manifest, patch):
             continue
         for cid, item in refs[source]:
             if (item['size'], item['sha256']) == (new_size, new):
+                if mark and mark not in item.get('redactions', ()):
+                    plan.append((source, item, new_size, new))
                 continue                     # already applied: rerunning the same patch changes nothing
             if (item['size'], item['sha256']) != (old_size, old):
                 problems.append(f'{cid}/{item["path"]}: catalog 记录的既不是补丁的旧值也不是新值')
@@ -1197,6 +1201,8 @@ def rehash(manifest, patch):
     counts = {}
     for source, item, size, sha in plan:
         item['size'], item['sha256'] = size, sha
+        if mark and mark not in item.setdefault('redactions', []):
+            item['redactions'].append(mark)
         counts[source] = counts.get(source, 0) + 1
     return counts
 
@@ -1220,14 +1226,14 @@ OPTION_COMMANDS = {
     'out': {'restore'}, 'packs': {'restore'}, 'download': {'restore'}, 'source_only': {'restore'},
     'lemo': {'restore'}, 'rog_host': {'restore'}, 'reverify': {'restore'}, 'mirror': {'restore'},
     'retries': {'restore'}, 'if_exists': {'restore'}, 'include_internal': {'restore'}, 'strict': {'restore'},
-    'dry_run': {'restore', 'rehash'}, 'patch': {'rehash'},
+    'dry_run': {'restore', 'rehash'}, 'patch': {'rehash'}, 'mark': {'rehash'},
 }
 EPILOG = '''示例：
   node tools/env/py.mjs tools/casebook.py list --group ppt-stories
   node tools/env/py.mjs tools/casebook.py check --json
   node tools/env/py.mjs tools/casebook.py restore style-02-watercolor --source-only
   node tools/env/py.mjs tools/casebook.py restore style-02-watercolor --download --dry-run
-  node tools/env/py.mjs tools/casebook.py rehash --patch out/signed-urls.patch.json
+  node tools/env/py.mjs tools/casebook.py rehash --patch out/signed-urls.patch.json --mark signed-url-query
 
 退出码：0 成功（只有提示也算）；1 运行失败（读写出错、工具内部错误）；2 用法错误（未知选项、
   --group 拼错、案例编号不存在、目标目录已存在、路径含不安全字符）；3 环境问题（缺素材包、
@@ -1286,6 +1292,7 @@ def build_parser():
     g.add_argument('--dry-run', action='store_true', help='只报告会写什么、要下载多少、需要多少磁盘，不写盘不联网')
     g = p.add_argument_group('rehash')
     g.add_argument('--patch', type=Path, metavar='<补丁.json>', help='源文件补丁（signed-urls.mjs strip --patch-out 的输出）')
+    g.add_argument('--mark', metavar='<标签>', help='给改过的条目记一笔 redactions（如 signed-url-query），说明哈希为什么变了')
     return p
 
 
@@ -1310,6 +1317,8 @@ def validate_options(args):
         raise usage_error('missing-argument', 'rehash 需要 --patch <补丁.json>', '补丁由 node tools/compliance/signed-urls.mjs strip --patch-out 生成')
     if args.retries < 0 or args.retries > 20:
         raise usage_error('bad-value', f'--retries 要在 0 到 20 之间，现在是 {args.retries}')
+    if args.mark is not None and not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', args.mark):
+        raise usage_error('bad-value', f'--mark 用小写 kebab-case 标签：{args.mark}', '例：--mark signed-url-query')
     if args.mirror and not re.match(r'https?://[^/\s]+', args.mirror):
         raise usage_error('bad-value', f'--mirror 要写 http:// 或 https:// 开头的网址：{args.mirror}',
                           '本机已下载的素材包用 --packs <目录>，不用 --mirror')
@@ -1482,7 +1491,7 @@ def cmd_rehash(args, ctx, manifest):
     except ValueError as error:
         raise CliError('usage.bad-patch', f'补丁不是合法的 JSON：{error}')
     try:
-        counts = rehash(manifest, patch)
+        counts = rehash(manifest, patch, args.mark)
     except CheckFailed as failed:
         for problem in failed.problems:
             err_print(ctx, f'问题：{problem}')

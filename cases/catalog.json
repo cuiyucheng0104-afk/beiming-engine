@@ -37704,9 +37704,12 @@
         {
           "path": "旁白/wav/n01.json",
           "source": "source/ppt-jianlong/旁白/wav/n01.json",
-          "sha256": "b5efafc69c54c1a385c780baf2b181eef3169ad75d288e18d471ebd858488541",
-          "size": 669,
-          "originalSha256": "b5efafc69c54c1a385c780baf2b181eef3169ad75d288e18d471ebd858488541"
+          "sha256": "9a6539309fe8ee5b8f8480d45b28f1584767fbd83fe00788c03f6b6a7a4fe020",
+          "size": 565,
+          "originalSha256": "b5efafc69c54c1a385c780baf2b181eef3169ad75d288e18d471ebd858488541",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n01.wav",
@@ -37718,9 +37721,12 @@
         {
           "path": "旁白/wav/n02.json",
           "source": "source/ppt-jianlong/旁白/wav/n02.json",
-          "sha256": "09ce53843a100f4d9253291dbee48dfdaa2a246f1f52abe34d04217d828b66d3",
-          "size": 667,
-          "originalSha256": "09ce53843a100f4d9253291dbee48dfdaa2a246f1f52abe34d04217d828b66d3"
+          "sha256": "beeaac0b862d190bcf014e663d9e3fe5c00b4310f2cf781e7b4f7002a44d2e83",
+          "size": 565,
+          "originalSha256": "09ce53843a100f4d9253291dbee48dfdaa2a246f1f52abe34d04217d828b66d3",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n02.wav",
@@ -37732,9 +37738,12 @@
         {
           "path": "旁白/wav/n03.json",
           "source": "source/ppt-jianlong/旁白/wav/n03.json",
-          "sha256": "a6d9693d14ac0e88fac3797d343c357df4e2c5ddf6765ad59e55ae914911ffe9",
-          "size": 665,
-          "originalSha256": "a6d9693d14ac0e88fac3797d343c357df4e2c5ddf6765ad59e55ae914911ffe9"
+          "sha256": "051c04063700bd743d2d214a139c34ef2a4a9e680ff4a1890c98306705e799e7",
+          "size": 565,
+          "originalSha256": "a6d9693d14ac0e88fac3797d343c357df4e2c5ddf6765ad59e55ae914911ffe9",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n03.wav",
@@ -37746,9 +37755,12 @@
         {
           "path": "旁白/wav/n04.json",
           "source": "source/ppt-jianlong/旁白/wav/n04.json",
-          "sha256": "f4c3970a870fc118ed32197888d7cd6b260c147331535a9bf8466be1f80a969c",
-          "size": 669,
-          "originalSha256": "f4c3970a870fc118ed32197888d7cd6b260c147331535a9bf8466be1f80a969c"
+          "sha256": "88eb8ae193caccaf1ba7cee25d5be088ae4769307cee737cadad1ae995eebae4",
+          "size": 565,
+          "originalSha256": "f4c3970a870fc118ed32197888d7cd6b260c147331535a9bf8466be1f80a969c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n04.wav",
@@ -37760,9 +37772,12 @@
         {
           "path": "旁白/wav/n05.json",
           "source": "source/ppt-jianlong/旁白/wav/n05.json",
-          "sha256": "be7127a5fa51eaddd41d4dad4ba64e440d0963402edc31f0c3beedc0f2a31a1d",
-          "size": 665,
-          "originalSha256": "be7127a5fa51eaddd41d4dad4ba64e440d0963402edc31f0c3beedc0f2a31a1d"
+          "sha256": "e6a76d0014b7f32422054d6ada09c56714514b0392a370936e5d685d4f86faba",
+          "size": 565,
+          "originalSha256": "be7127a5fa51eaddd41d4dad4ba64e440d0963402edc31f0c3beedc0f2a31a1d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n05.wav",
@@ -37774,9 +37789,12 @@
         {
           "path": "旁白/wav/n06.json",
           "source": "source/ppt-jianlong/旁白/wav/n06.json",
-          "sha256": "7aa60b1af37178d1bb3d9b10d8cd2ca083aa9f78a55e61a704b568c04bffacc6",
-          "size": 671,
-          "originalSha256": "7aa60b1af37178d1bb3d9b10d8cd2ca083aa9f78a55e61a704b568c04bffacc6"
+          "sha256": "f15201a1be2d98e54b3c3581246fcf20b6ae771d5f1f7cf22c7389c5bff2c5d3",
+          "size": 565,
+          "originalSha256": "7aa60b1af37178d1bb3d9b10d8cd2ca083aa9f78a55e61a704b568c04bffacc6",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n06.wav",
@@ -37788,9 +37806,12 @@
         {
           "path": "旁白/wav/n07.json",
           "source": "source/ppt-jianlong/旁白/wav/n07.json",
-          "sha256": "e1818b5ea1eea0d90d29440443d03521e62b4ca6f91a5c6e8d1a1f0c34ad4fd9",
-          "size": 665,
-          "originalSha256": "e1818b5ea1eea0d90d29440443d03521e62b4ca6f91a5c6e8d1a1f0c34ad4fd9"
+          "sha256": "20539e5ffaaa2970619fdaedfbea90b89106e636bb87164268e8845f4a54643f",
+          "size": 565,
+          "originalSha256": "e1818b5ea1eea0d90d29440443d03521e62b4ca6f91a5c6e8d1a1f0c34ad4fd9",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n07.wav",
@@ -37802,9 +37823,12 @@
         {
           "path": "旁白/wav/n08.json",
           "source": "source/ppt-jianlong/旁白/wav/n08.json",
-          "sha256": "8ff16231a088bd561dff1caf34098decb96506dac65c623e31a9ea161fe72668",
-          "size": 665,
-          "originalSha256": "8ff16231a088bd561dff1caf34098decb96506dac65c623e31a9ea161fe72668"
+          "sha256": "a4619e2694391feb66401691ec34bf7cd3913de33e5b011394277ffa1d60834d",
+          "size": 565,
+          "originalSha256": "8ff16231a088bd561dff1caf34098decb96506dac65c623e31a9ea161fe72668",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n08.wav",
@@ -37816,9 +37840,12 @@
         {
           "path": "旁白/wav/n09.json",
           "source": "source/ppt-jianlong/旁白/wav/n09.json",
-          "sha256": "f6222b710d47e4170688335a55772422533445f92605e0067cdf234f1aa57508",
-          "size": 665,
-          "originalSha256": "f6222b710d47e4170688335a55772422533445f92605e0067cdf234f1aa57508"
+          "sha256": "bab5735128d9d0b8448b2cad7276ddc492ce51642c6d96e8705cc07dea0dbc95",
+          "size": 565,
+          "originalSha256": "f6222b710d47e4170688335a55772422533445f92605e0067cdf234f1aa57508",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n09.wav",
@@ -37830,9 +37857,12 @@
         {
           "path": "旁白/wav/n10.json",
           "source": "source/ppt-jianlong/旁白/wav/n10.json",
-          "sha256": "58267d179942f8b96ee378e382d74b49f1cd9ba80c8c2751fb3ff54d36049db9",
-          "size": 667,
-          "originalSha256": "58267d179942f8b96ee378e382d74b49f1cd9ba80c8c2751fb3ff54d36049db9"
+          "sha256": "19b5166c3592704b6286fa625d25570f9c7ed44530c8277205eacbe22a7914bc",
+          "size": 565,
+          "originalSha256": "58267d179942f8b96ee378e382d74b49f1cd9ba80c8c2751fb3ff54d36049db9",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n10.wav",
@@ -37844,9 +37874,12 @@
         {
           "path": "旁白/wav/n11.json",
           "source": "source/ppt-jianlong/旁白/wav/n11.json",
-          "sha256": "5099ba71b4e02d1c266fb7562ee6fb8428d1e6b4164d6a6dea15fbb3155c280d",
-          "size": 667,
-          "originalSha256": "5099ba71b4e02d1c266fb7562ee6fb8428d1e6b4164d6a6dea15fbb3155c280d"
+          "sha256": "b205b04b3fdd1c1717dbeb5a4b884bfb853ebc373614039f60365ba0c9421cf2",
+          "size": 565,
+          "originalSha256": "5099ba71b4e02d1c266fb7562ee6fb8428d1e6b4164d6a6dea15fbb3155c280d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n11.wav",
@@ -37858,9 +37891,12 @@
         {
           "path": "旁白/wav/n12.json",
           "source": "source/ppt-jianlong/旁白/wav/n12.json",
-          "sha256": "22c91ee5a49fb09ec40a6b298d76c651f997b826def617fe446df38c59f2f4bd",
-          "size": 667,
-          "originalSha256": "22c91ee5a49fb09ec40a6b298d76c651f997b826def617fe446df38c59f2f4bd"
+          "sha256": "e4230172ccc0a628968ef41f19c6d1ab78e4564bdad1efe8f840834df34ba792",
+          "size": 565,
+          "originalSha256": "22c91ee5a49fb09ec40a6b298d76c651f997b826def617fe446df38c59f2f4bd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n12.wav",
@@ -37872,9 +37908,12 @@
         {
           "path": "旁白/wav/n13.json",
           "source": "source/ppt-jianlong/旁白/wav/n13.json",
-          "sha256": "f7f6cbd45d858413955d9db73352b8003b8863783304632bbe9cfaee7e46ebe9",
-          "size": 667,
-          "originalSha256": "f7f6cbd45d858413955d9db73352b8003b8863783304632bbe9cfaee7e46ebe9"
+          "sha256": "fede7e85d3a0277e8a076944f92b39db18674b9b4820d32c2d293817e4cbf100",
+          "size": 567,
+          "originalSha256": "f7f6cbd45d858413955d9db73352b8003b8863783304632bbe9cfaee7e46ebe9",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n13.wav",
@@ -37886,9 +37925,12 @@
         {
           "path": "旁白/wav/n14.json",
           "source": "source/ppt-jianlong/旁白/wav/n14.json",
-          "sha256": "d8f41340d758807e1bb3577cbddc8521652ad9f78bb38da7e456783ec94cbe94",
-          "size": 667,
-          "originalSha256": "d8f41340d758807e1bb3577cbddc8521652ad9f78bb38da7e456783ec94cbe94"
+          "sha256": "ca6553e121658935ac9c0977f3307006f65e6a256780b7f32d20814d579f7ef0",
+          "size": 565,
+          "originalSha256": "d8f41340d758807e1bb3577cbddc8521652ad9f78bb38da7e456783ec94cbe94",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n14.wav",
@@ -37900,9 +37942,12 @@
         {
           "path": "旁白/wav/n15.json",
           "source": "source/ppt-jianlong/旁白/wav/n15.json",
-          "sha256": "54c79f7da9dddb2514960105eaee58d08db14a20b650941995daa4bd58bdcf4e",
-          "size": 665,
-          "originalSha256": "54c79f7da9dddb2514960105eaee58d08db14a20b650941995daa4bd58bdcf4e"
+          "sha256": "81654a397ae6ab70c67ca32d48071cb7c404be7873d38d1b750a2ea57ee59211",
+          "size": 565,
+          "originalSha256": "54c79f7da9dddb2514960105eaee58d08db14a20b650941995daa4bd58bdcf4e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n15.wav",
@@ -37914,9 +37959,12 @@
         {
           "path": "旁白/wav/n16.json",
           "source": "source/ppt-jianlong/旁白/wav/n16.json",
-          "sha256": "fc8ef6ddc5838b0cbbda7cc7ce1e149e7bf4ee66a82af302817fbe3138aa0b93",
-          "size": 665,
-          "originalSha256": "fc8ef6ddc5838b0cbbda7cc7ce1e149e7bf4ee66a82af302817fbe3138aa0b93"
+          "sha256": "54f6bc2f6fb75ac1c724bb1942da379596f7ca7de51cd52e4bb09f4bfc492c91",
+          "size": 565,
+          "originalSha256": "fc8ef6ddc5838b0cbbda7cc7ce1e149e7bf4ee66a82af302817fbe3138aa0b93",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n16.wav",
@@ -37928,9 +37976,12 @@
         {
           "path": "旁白/wav/n17.json",
           "source": "source/ppt-jianlong/旁白/wav/n17.json",
-          "sha256": "09a02f42d0c592f342a728e0d75a91c726f02ef64acd15c8b310083f52fd97cd",
-          "size": 667,
-          "originalSha256": "09a02f42d0c592f342a728e0d75a91c726f02ef64acd15c8b310083f52fd97cd"
+          "sha256": "8be38f8a1d3f03eda946fe996a933d7c75ad94bdba55945c31d8a05b177b2730",
+          "size": 565,
+          "originalSha256": "09a02f42d0c592f342a728e0d75a91c726f02ef64acd15c8b310083f52fd97cd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n17.wav",
@@ -37942,9 +37993,12 @@
         {
           "path": "旁白/wav/n18.json",
           "source": "source/ppt-jianlong/旁白/wav/n18.json",
-          "sha256": "8a7c21137752019605cfdd36c6e430a89a86f02c04bfefdcd171a185552e454a",
-          "size": 667,
-          "originalSha256": "8a7c21137752019605cfdd36c6e430a89a86f02c04bfefdcd171a185552e454a"
+          "sha256": "5746e674d553a2ab47b1cf47fc063a1a800f34684710250998bc2ca49c3e776a",
+          "size": 565,
+          "originalSha256": "8a7c21137752019605cfdd36c6e430a89a86f02c04bfefdcd171a185552e454a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n18.wav",
@@ -37977,9 +38031,12 @@
         {
           "path": "旁白v2/wav/n01.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n01.json",
-          "sha256": "72f4fc980492c1b18a8a6fa2bc907bcb22d869971ead638d69b8c84c4b422727",
-          "size": 669,
-          "originalSha256": "72f4fc980492c1b18a8a6fa2bc907bcb22d869971ead638d69b8c84c4b422727"
+          "sha256": "3f23a89c38cc172d57a253aa601ed1c24886828925f29de9d05ebbe4b0b4999f",
+          "size": 565,
+          "originalSha256": "72f4fc980492c1b18a8a6fa2bc907bcb22d869971ead638d69b8c84c4b422727",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n01.wav",
@@ -37991,9 +38048,12 @@
         {
           "path": "旁白v2/wav/n02.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n02.json",
-          "sha256": "2d25f2063713c59e397cd45586daa11f1f1ae03137e2b03805fd54d1b8bf5f88",
-          "size": 665,
-          "originalSha256": "2d25f2063713c59e397cd45586daa11f1f1ae03137e2b03805fd54d1b8bf5f88"
+          "sha256": "0fab0652081e6664644a7fee4ef9a7688e9c301f4d399824e60af1b82010b6b9",
+          "size": 565,
+          "originalSha256": "2d25f2063713c59e397cd45586daa11f1f1ae03137e2b03805fd54d1b8bf5f88",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n02.wav",
@@ -38005,9 +38065,12 @@
         {
           "path": "旁白v2/wav/n03.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n03.json",
-          "sha256": "f20f0a286fafbdd1cea56b2446476af9c0d0cc1e3402efd66d02da820c9443c3",
-          "size": 665,
-          "originalSha256": "f20f0a286fafbdd1cea56b2446476af9c0d0cc1e3402efd66d02da820c9443c3"
+          "sha256": "8302b7ea85c90588b66d9e3f2febba79afa0ece8ec1c014a3cec72ad6a6d8153",
+          "size": 565,
+          "originalSha256": "f20f0a286fafbdd1cea56b2446476af9c0d0cc1e3402efd66d02da820c9443c3",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n03.wav",
@@ -38019,9 +38082,12 @@
         {
           "path": "旁白v2/wav/n04.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n04.json",
-          "sha256": "4ee5dd6f043eb92298b90b1337c87b54eb2efe079a2a84f65f22490d86e7840a",
-          "size": 665,
-          "originalSha256": "4ee5dd6f043eb92298b90b1337c87b54eb2efe079a2a84f65f22490d86e7840a"
+          "sha256": "c42f5731b9d310b4e3f4e722ecd7b2079546653b5ed976a5f6c1f0484fee0c93",
+          "size": 565,
+          "originalSha256": "4ee5dd6f043eb92298b90b1337c87b54eb2efe079a2a84f65f22490d86e7840a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n04.wav",
@@ -38033,9 +38099,12 @@
         {
           "path": "旁白v2/wav/n05.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n05.json",
-          "sha256": "eece304888abc9f99b5070f736c35eb73691a9afa7c0be319f67917886122b38",
-          "size": 667,
-          "originalSha256": "eece304888abc9f99b5070f736c35eb73691a9afa7c0be319f67917886122b38"
+          "sha256": "8b9cd26b0b224233f5d69775a0d24a0c2ad45c02bc15277425175da7910fe4a6",
+          "size": 565,
+          "originalSha256": "eece304888abc9f99b5070f736c35eb73691a9afa7c0be319f67917886122b38",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n05.wav",
@@ -38047,9 +38116,12 @@
         {
           "path": "旁白v2/wav/n06.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n06.json",
-          "sha256": "213ea81fd319787f0fcf842e09e4d26b8c1689ba5d1612632cb4c592b74c7439",
-          "size": 665,
-          "originalSha256": "213ea81fd319787f0fcf842e09e4d26b8c1689ba5d1612632cb4c592b74c7439"
+          "sha256": "aa5216870beb2048edc1d9f0b38c7df862ad5bdf7f6564fa27af494b81241eac",
+          "size": 565,
+          "originalSha256": "213ea81fd319787f0fcf842e09e4d26b8c1689ba5d1612632cb4c592b74c7439",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n06.wav",
@@ -38061,9 +38133,12 @@
         {
           "path": "旁白v2/wav/n07.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n07.json",
-          "sha256": "ca842d5ba17b14e87de9c23cef61fd0d65bf0f51919085d502b9727570bc28e4",
-          "size": 665,
-          "originalSha256": "ca842d5ba17b14e87de9c23cef61fd0d65bf0f51919085d502b9727570bc28e4"
+          "sha256": "730199c50e7b2906cf97619db7a3f17639429dbc1da90f192ea80c97edbc0827",
+          "size": 565,
+          "originalSha256": "ca842d5ba17b14e87de9c23cef61fd0d65bf0f51919085d502b9727570bc28e4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n07.wav",
@@ -38075,9 +38150,12 @@
         {
           "path": "旁白v2/wav/n08.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n08.json",
-          "sha256": "23b31b5ccaae35c88a2130d12d4be0e4fcba42b971ef813d5aad2318640cc8d2",
-          "size": 665,
-          "originalSha256": "23b31b5ccaae35c88a2130d12d4be0e4fcba42b971ef813d5aad2318640cc8d2"
+          "sha256": "1ab1863e33d3f949447493c7e85b244a4b21f43fc10bb8386032a8966189e029",
+          "size": 565,
+          "originalSha256": "23b31b5ccaae35c88a2130d12d4be0e4fcba42b971ef813d5aad2318640cc8d2",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n08.wav",
@@ -38089,9 +38167,12 @@
         {
           "path": "旁白v2/wav/n09.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n09.json",
-          "sha256": "892a15208878db7dbfb6b968c1c0ec2de04638db3513c8aac999ab5d766ab939",
-          "size": 673,
-          "originalSha256": "892a15208878db7dbfb6b968c1c0ec2de04638db3513c8aac999ab5d766ab939"
+          "sha256": "226e3999ac10802e2b5fad98b58e09c70ea25239c372977bd8a970848359358f",
+          "size": 565,
+          "originalSha256": "892a15208878db7dbfb6b968c1c0ec2de04638db3513c8aac999ab5d766ab939",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n09.wav",
@@ -38103,9 +38184,12 @@
         {
           "path": "旁白v2/wav/n10.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n10.json",
-          "sha256": "3db7dab024d657d99e1eb13be83025a5b0a4975f221175fc1fea59d2e124c7f4",
-          "size": 667,
-          "originalSha256": "3db7dab024d657d99e1eb13be83025a5b0a4975f221175fc1fea59d2e124c7f4"
+          "sha256": "6d3b5f465b424715c5fdc99e12304a58763822f4a998ae065e01f94bb6f9f046",
+          "size": 565,
+          "originalSha256": "3db7dab024d657d99e1eb13be83025a5b0a4975f221175fc1fea59d2e124c7f4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n10.wav",
@@ -38117,9 +38201,12 @@
         {
           "path": "旁白v2/wav/n11.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n11.json",
-          "sha256": "83457fd0ca3300a44797d6abbb5946093118be83f7983378ef55880d4dc353e4",
-          "size": 667,
-          "originalSha256": "83457fd0ca3300a44797d6abbb5946093118be83f7983378ef55880d4dc353e4"
+          "sha256": "8966ef3927aec72a7f045feb9816f450afccca6ad6a538839f667c34e089cb8e",
+          "size": 565,
+          "originalSha256": "83457fd0ca3300a44797d6abbb5946093118be83f7983378ef55880d4dc353e4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n11.wav",
@@ -38131,9 +38218,12 @@
         {
           "path": "旁白v2/wav/n12.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n12.json",
-          "sha256": "bc60c4c6bd4e80248db3092120c4bec202e49de5bca7d7a251c860c0d31a2f52",
-          "size": 669,
-          "originalSha256": "bc60c4c6bd4e80248db3092120c4bec202e49de5bca7d7a251c860c0d31a2f52"
+          "sha256": "8247082f5c2dc3d324287cd6e5a4824ca291042234dcec81c6108bea369a0683",
+          "size": 565,
+          "originalSha256": "bc60c4c6bd4e80248db3092120c4bec202e49de5bca7d7a251c860c0d31a2f52",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n12.wav",
@@ -38145,9 +38235,12 @@
         {
           "path": "旁白v2/wav/n13.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n13.json",
-          "sha256": "e0d2c2216122db75b582e12768c2616b04e4b1511ff8ad3ef60fc6b28440564c",
-          "size": 668,
-          "originalSha256": "e0d2c2216122db75b582e12768c2616b04e4b1511ff8ad3ef60fc6b28440564c"
+          "sha256": "65bd239e8030a048f1c477d2fd1a2109aa56a2808a3f2c002811fd17dfa966b6",
+          "size": 568,
+          "originalSha256": "e0d2c2216122db75b582e12768c2616b04e4b1511ff8ad3ef60fc6b28440564c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n13.wav",
@@ -38159,9 +38252,12 @@
         {
           "path": "旁白v2/wav/n14.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n14.json",
-          "sha256": "9d1fb27c3d82ba64a20dd3c24970d26bbff4895845d8e7de4144bc5c913a86db",
-          "size": 669,
-          "originalSha256": "9d1fb27c3d82ba64a20dd3c24970d26bbff4895845d8e7de4144bc5c913a86db"
+          "sha256": "4822e023490eff172201d7c40037986cd659b6e428d0f4688d290740b5d06ddb",
+          "size": 565,
+          "originalSha256": "9d1fb27c3d82ba64a20dd3c24970d26bbff4895845d8e7de4144bc5c913a86db",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n14.wav",
@@ -38173,9 +38269,12 @@
         {
           "path": "旁白v2/wav/n15.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n15.json",
-          "sha256": "ff517e1db1cb40df95c44f329c20f8156e925ac2472e9d699ca3f37af5dbbdee",
-          "size": 665,
-          "originalSha256": "ff517e1db1cb40df95c44f329c20f8156e925ac2472e9d699ca3f37af5dbbdee"
+          "sha256": "28f5278d44eb6bf18c87677fd8d6e6a0f9d60c754d72c1726d375394f660ab87",
+          "size": 565,
+          "originalSha256": "ff517e1db1cb40df95c44f329c20f8156e925ac2472e9d699ca3f37af5dbbdee",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n15.wav",
@@ -38187,9 +38286,12 @@
         {
           "path": "旁白v2/wav/n16.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n16.json",
-          "sha256": "fd13dd79fefb50fd5b2bb6bd5a6eae68ab0a761a0c8250ca8373763ff9c056da",
-          "size": 665,
-          "originalSha256": "fd13dd79fefb50fd5b2bb6bd5a6eae68ab0a761a0c8250ca8373763ff9c056da"
+          "sha256": "cd5b81df1ac97bc688f0b6949e5da1662e7b31df08e25909d8b71ae5db34b558",
+          "size": 565,
+          "originalSha256": "fd13dd79fefb50fd5b2bb6bd5a6eae68ab0a761a0c8250ca8373763ff9c056da",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n16.wav",
@@ -38201,9 +38303,12 @@
         {
           "path": "旁白v2/wav/n17.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n17.json",
-          "sha256": "a52775509e72eb294a20cf263c7b0c40448703b557478db3ba36fe7f34aababe",
-          "size": 667,
-          "originalSha256": "a52775509e72eb294a20cf263c7b0c40448703b557478db3ba36fe7f34aababe"
+          "sha256": "17fb8892e2fdcdb6333d29382828a21661368eeca14b32431dc2d0d7341dde6c",
+          "size": 565,
+          "originalSha256": "a52775509e72eb294a20cf263c7b0c40448703b557478db3ba36fe7f34aababe",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n17.wav",
@@ -38215,9 +38320,12 @@
         {
           "path": "旁白v2/wav/n18.json",
           "source": "source/ppt-jianlong/旁白v2/wav/n18.json",
-          "sha256": "9c37532f068d4e275892c94b076b87682dd8e4df3a06341cb57b4b3f1ead99cd",
-          "size": 669,
-          "originalSha256": "9c37532f068d4e275892c94b076b87682dd8e4df3a06341cb57b4b3f1ead99cd"
+          "sha256": "b4da32a08341eb78c1767377444267317afb3a6d438af35b59972b147a115309",
+          "size": 565,
+          "originalSha256": "9c37532f068d4e275892c94b076b87682dd8e4df3a06341cb57b4b3f1ead99cd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/wav/n18.wav",
@@ -38432,9 +38540,12 @@
         {
           "path": "旁白v2/试听/v1/t.json",
           "source": "source/ppt-jianlong/旁白v2/试听/v1/t.json",
-          "sha256": "151c631a87f698edc14f963bf8522f02dc65b7fe1c048a570f6ec3d521b24b9c",
-          "size": 659,
-          "originalSha256": "151c631a87f698edc14f963bf8522f02dc65b7fe1c048a570f6ec3d521b24b9c"
+          "sha256": "d3a440e28d540556f1c16952dabeb54402ade31f5f7ab9190f13224782a70d86",
+          "size": 557,
+          "originalSha256": "151c631a87f698edc14f963bf8522f02dc65b7fe1c048a570f6ec3d521b24b9c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/试听/v1/t.wav",
@@ -38460,9 +38571,12 @@
         {
           "path": "旁白v2/试听/v2/t.json",
           "source": "source/ppt-jianlong/旁白v2/试听/v2/t.json",
-          "sha256": "4cd0b861aadc88a277112bf49a41c7a4c2e42666b00d0136ebd94d04b5fee1c0",
-          "size": 659,
-          "originalSha256": "4cd0b861aadc88a277112bf49a41c7a4c2e42666b00d0136ebd94d04b5fee1c0"
+          "sha256": "0d3d3169396458eaa810a93f8091bdf0ec491d73ee357ee4cc99ae599970d37b",
+          "size": 557,
+          "originalSha256": "4cd0b861aadc88a277112bf49a41c7a4c2e42666b00d0136ebd94d04b5fee1c0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/试听/v2/t.wav",
@@ -38488,9 +38602,12 @@
         {
           "path": "旁白v2/试听/v3/t.json",
           "source": "source/ppt-jianlong/旁白v2/试听/v3/t.json",
-          "sha256": "e798e728b031b0754ce5c8b300803ee6b1377396ac183d0bb63f52db44483456",
-          "size": 657,
-          "originalSha256": "e798e728b031b0754ce5c8b300803ee6b1377396ac183d0bb63f52db44483456"
+          "sha256": "c85d587f92c86edcd6b118514ae36f490c81247dce0e9a7f17b1c8543576563a",
+          "size": 557,
+          "originalSha256": "e798e728b031b0754ce5c8b300803ee6b1377396ac183d0bb63f52db44483456",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/试听/v3/t.wav",
@@ -38516,9 +38633,12 @@
         {
           "path": "旁白v2/试听/v4/t.json",
           "source": "source/ppt-jianlong/旁白v2/试听/v4/t.json",
-          "sha256": "c712f20a11441f16eceefdb4e69a1a1ffc76b61a69ed4b7d803d071da80cf478",
-          "size": 657,
-          "originalSha256": "c712f20a11441f16eceefdb4e69a1a1ffc76b61a69ed4b7d803d071da80cf478"
+          "sha256": "910aa137562d7ad46295f34623da8b002dfc831cf23602c2c953bcbffeeffd8c",
+          "size": 557,
+          "originalSha256": "c712f20a11441f16eceefdb4e69a1a1ffc76b61a69ed4b7d803d071da80cf478",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/试听/v4/t.wav",
@@ -38544,9 +38664,12 @@
         {
           "path": "旁白v2/试听/v5/t.json",
           "source": "source/ppt-jianlong/旁白v2/试听/v5/t.json",
-          "sha256": "a781ff6af48c4766919d00358cd0f597681c3f53516833e96ef8782fe4fcfbda",
-          "size": 659,
-          "originalSha256": "a781ff6af48c4766919d00358cd0f597681c3f53516833e96ef8782fe4fcfbda"
+          "sha256": "2ab9fb505cb9a36bc7ef140ec29157f8cfbb4ffd05beb4b9c1c191157f5bf8d5",
+          "size": 557,
+          "originalSha256": "a781ff6af48c4766919d00358cd0f597681c3f53516833e96ef8782fe4fcfbda",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/试听/v5/t.wav",
@@ -38572,9 +38695,12 @@
         {
           "path": "旁白v2/试听/v6/t.json",
           "source": "source/ppt-jianlong/旁白v2/试听/v6/t.json",
-          "sha256": "88b4b28a77b4d6fcb4c7d95c6652b66f4d99ea915dec2310bf5443533afd6384",
-          "size": 661,
-          "originalSha256": "88b4b28a77b4d6fcb4c7d95c6652b66f4d99ea915dec2310bf5443533afd6384"
+          "sha256": "d752e423256a2c44eb7ad7f7cdb145e032238026c0cb2ecfb183db50ca450a36",
+          "size": 557,
+          "originalSha256": "88b4b28a77b4d6fcb4c7d95c6652b66f4d99ea915dec2310bf5443533afd6384",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白v2/试听/v6/t.wav",
@@ -38983,9 +39109,12 @@
         {
           "path": "配音/wav/d_guard.json",
           "source": "source/ppt-in-sight/配音/wav/d_guard.json",
-          "sha256": "340f3cae6ce43b3560aaa828b10862355ed0a4b04350b19b52d11e620a84175b",
-          "size": 669,
-          "originalSha256": "340f3cae6ce43b3560aaa828b10862355ed0a4b04350b19b52d11e620a84175b"
+          "sha256": "d87ceaf557aa27ec5e7265096ebc6649f25a13e5da7fb5f490055936082ae42d",
+          "size": 569,
+          "originalSha256": "340f3cae6ce43b3560aaa828b10862355ed0a4b04350b19b52d11e620a84175b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/d_guard.wav",
@@ -38997,9 +39126,12 @@
         {
           "path": "配音/wav/d_jack1.json",
           "source": "source/ppt-in-sight/配音/wav/d_jack1.json",
-          "sha256": "3baafa13ca4479ad19f71d450884c631981fec77b5b316e5354ca2da5517eddd",
-          "size": 669,
-          "originalSha256": "3baafa13ca4479ad19f71d450884c631981fec77b5b316e5354ca2da5517eddd"
+          "sha256": "05bf9afcccd1cb4f6148d86d3360a308831affbef150df29b4b5d5ee7a4fafde",
+          "size": 569,
+          "originalSha256": "3baafa13ca4479ad19f71d450884c631981fec77b5b316e5354ca2da5517eddd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/d_jack1.wav",
@@ -39011,9 +39143,12 @@
         {
           "path": "配音/wav/d_jack2.json",
           "source": "source/ppt-in-sight/配音/wav/d_jack2.json",
-          "sha256": "324bd377d2f3c756ab6c3b4830ebcff000616268fbb9558b2038a85157b0d64d",
-          "size": 673,
-          "originalSha256": "324bd377d2f3c756ab6c3b4830ebcff000616268fbb9558b2038a85157b0d64d"
+          "sha256": "1dcd35bcc6004f1f2c9b8b30a0b09c08747553709f11664779349e82db59ae9f",
+          "size": 569,
+          "originalSha256": "324bd377d2f3c756ab6c3b4830ebcff000616268fbb9558b2038a85157b0d64d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/d_jack2.wav",
@@ -39025,9 +39160,12 @@
         {
           "path": "配音/wav/d_ray.json",
           "source": "source/ppt-in-sight/配音/wav/d_ray.json",
-          "sha256": "8774c1a77ec88ba76bc7249ee675b1b8e3210603d554a64a1478e13a40c82b21",
-          "size": 667,
-          "originalSha256": "8774c1a77ec88ba76bc7249ee675b1b8e3210603d554a64a1478e13a40c82b21"
+          "sha256": "a07020793ec16f31080b5afc1d4cac33a675c6ef0e917b212184a1a63a76ece5",
+          "size": 567,
+          "originalSha256": "8774c1a77ec88ba76bc7249ee675b1b8e3210603d554a64a1478e13a40c82b21",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/d_ray.wav",
@@ -39039,9 +39177,12 @@
         {
           "path": "配音/wav/d_ryan1.json",
           "source": "source/ppt-in-sight/配音/wav/d_ryan1.json",
-          "sha256": "1423383c5b471f0e13d31bbefcb3e099b95f8627dd70afcd09752d07d85f5ff4",
-          "size": 669,
-          "originalSha256": "1423383c5b471f0e13d31bbefcb3e099b95f8627dd70afcd09752d07d85f5ff4"
+          "sha256": "8500b64edbfe45efe35e18d96a2576c1ffca69c7f4f056413c63fe290ddf9c9a",
+          "size": 569,
+          "originalSha256": "1423383c5b471f0e13d31bbefcb3e099b95f8627dd70afcd09752d07d85f5ff4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/d_ryan1.wav",
@@ -39053,9 +39194,12 @@
         {
           "path": "配音/wav/d_vex1.json",
           "source": "source/ppt-in-sight/配音/wav/d_vex1.json",
-          "sha256": "b0f86dfc4856bfff22b9200b1b087e595183db4811821e8c8d599b9774fe7dd3",
-          "size": 674,
-          "originalSha256": "b0f86dfc4856bfff22b9200b1b087e595183db4811821e8c8d599b9774fe7dd3"
+          "sha256": "b51d06d56257db13b117baf55fd684d8e6ba72c7f70645e72590997ca38fa27f",
+          "size": 568,
+          "originalSha256": "b0f86dfc4856bfff22b9200b1b087e595183db4811821e8c8d599b9774fe7dd3",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/d_vex1.wav",
@@ -39067,9 +39211,12 @@
         {
           "path": "配音/wav/d_vex2.json",
           "source": "source/ppt-in-sight/配音/wav/d_vex2.json",
-          "sha256": "d76487f4e13e21e78a472e1bc7a0b0f200171bb3067c8245bb7fea340b74307f",
-          "size": 668,
-          "originalSha256": "d76487f4e13e21e78a472e1bc7a0b0f200171bb3067c8245bb7fea340b74307f"
+          "sha256": "bdecb0f62e44014e7b0e05915a5f788ee42535ac566acd24b35e82a5afb2a736",
+          "size": 568,
+          "originalSha256": "d76487f4e13e21e78a472e1bc7a0b0f200171bb3067c8245bb7fea340b74307f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/d_vex2.wav",
@@ -39081,9 +39228,12 @@
         {
           "path": "配音/wav/d_vex3.json",
           "source": "source/ppt-in-sight/配音/wav/d_vex3.json",
-          "sha256": "923770f7bd358e48932a9af4024da1311270fcf11a19660816d8851b74d24150",
-          "size": 674,
-          "originalSha256": "923770f7bd358e48932a9af4024da1311270fcf11a19660816d8851b74d24150"
+          "sha256": "804e31d42365157eee06f904ded7c40a3e061478e46b85a91a99ebf2507477a3",
+          "size": 568,
+          "originalSha256": "923770f7bd358e48932a9af4024da1311270fcf11a19660816d8851b74d24150",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/d_vex3.wav",
@@ -39102,9 +39252,12 @@
         {
           "path": "配音/wav/n01.json",
           "source": "source/ppt-in-sight/配音/wav/n01.json",
-          "sha256": "cec7e4ed985bf2a6f7d44f61a0e74ff609e5c587c9bb6bcc0bc27600f6a35660",
-          "size": 667,
-          "originalSha256": "cec7e4ed985bf2a6f7d44f61a0e74ff609e5c587c9bb6bcc0bc27600f6a35660"
+          "sha256": "15a51cd660ac71c15839b4eb0fb779009e44407bc7499b93dfb9bac8c1e8073d",
+          "size": 565,
+          "originalSha256": "cec7e4ed985bf2a6f7d44f61a0e74ff609e5c587c9bb6bcc0bc27600f6a35660",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n01.wav",
@@ -39116,9 +39269,12 @@
         {
           "path": "配音/wav/n02.json",
           "source": "source/ppt-in-sight/配音/wav/n02.json",
-          "sha256": "6a301a038f606c821bf7a50dcd814371582b93bc48b4d229d77e2e5a76ada3ee",
-          "size": 665,
-          "originalSha256": "6a301a038f606c821bf7a50dcd814371582b93bc48b4d229d77e2e5a76ada3ee"
+          "sha256": "98ef118973a36fdfc5a19e8c78b9ac0d25915f6d137161d53c8120db5017a43e",
+          "size": 565,
+          "originalSha256": "6a301a038f606c821bf7a50dcd814371582b93bc48b4d229d77e2e5a76ada3ee",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n02.wav",
@@ -39130,9 +39286,12 @@
         {
           "path": "配音/wav/n03.json",
           "source": "source/ppt-in-sight/配音/wav/n03.json",
-          "sha256": "4efb58f92c7cb257730f5af202cf3d7e2715505dc1e5e45487a3fd6b1f1bacdb",
-          "size": 665,
-          "originalSha256": "4efb58f92c7cb257730f5af202cf3d7e2715505dc1e5e45487a3fd6b1f1bacdb"
+          "sha256": "786227f11297dd0af1a7fa17a1a28671c7cb3a4236e4c519fada03b2e66fe644",
+          "size": 565,
+          "originalSha256": "4efb58f92c7cb257730f5af202cf3d7e2715505dc1e5e45487a3fd6b1f1bacdb",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n03.wav",
@@ -39144,9 +39303,12 @@
         {
           "path": "配音/wav/n04.json",
           "source": "source/ppt-in-sight/配音/wav/n04.json",
-          "sha256": "6312d7de763870381309b9f93fef81b21055c1c289217ade7ae26d6d47f284fd",
-          "size": 665,
-          "originalSha256": "6312d7de763870381309b9f93fef81b21055c1c289217ade7ae26d6d47f284fd"
+          "sha256": "713d59631f680cec3c1b287a9a2b63d0ad7f0e1679807515e51d5c4be2e58497",
+          "size": 565,
+          "originalSha256": "6312d7de763870381309b9f93fef81b21055c1c289217ade7ae26d6d47f284fd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n04.wav",
@@ -39158,9 +39320,12 @@
         {
           "path": "配音/wav/n05.json",
           "source": "source/ppt-in-sight/配音/wav/n05.json",
-          "sha256": "8cb573281f99c45f87794845c14ce40d48a546de297bf7864fc60b126b5b1e88",
-          "size": 668,
-          "originalSha256": "8cb573281f99c45f87794845c14ce40d48a546de297bf7864fc60b126b5b1e88"
+          "sha256": "317fb6612daf9fefb98b348e26bea5625da432bc832b6f6b3fc7f20688abbe97",
+          "size": 568,
+          "originalSha256": "8cb573281f99c45f87794845c14ce40d48a546de297bf7864fc60b126b5b1e88",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n05.wav",
@@ -39172,9 +39337,12 @@
         {
           "path": "配音/wav/n06.json",
           "source": "source/ppt-in-sight/配音/wav/n06.json",
-          "sha256": "fa85c97864a40e1e0b6ab52ab8559d0240fd66dda71b63441edadbd4c462d720",
-          "size": 669,
-          "originalSha256": "fa85c97864a40e1e0b6ab52ab8559d0240fd66dda71b63441edadbd4c462d720"
+          "sha256": "df3d1f43c6f7256ac3486793ad61ef4001d590dc81c0d9373d01cc0150539d61",
+          "size": 565,
+          "originalSha256": "fa85c97864a40e1e0b6ab52ab8559d0240fd66dda71b63441edadbd4c462d720",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n06.wav",
@@ -39186,9 +39354,12 @@
         {
           "path": "配音/wav/n07.json",
           "source": "source/ppt-in-sight/配音/wav/n07.json",
-          "sha256": "8b34887754f406bb27df16cf9691f45ff2e7532189ce785a2c018358ca865b6d",
-          "size": 666,
-          "originalSha256": "8b34887754f406bb27df16cf9691f45ff2e7532189ce785a2c018358ca865b6d"
+          "sha256": "309a1700c5fef432e6225be42614d1a398f831db125661c1f5cfb57226dbf1be",
+          "size": 566,
+          "originalSha256": "8b34887754f406bb27df16cf9691f45ff2e7532189ce785a2c018358ca865b6d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n07.wav",
@@ -39200,9 +39371,12 @@
         {
           "path": "配音/wav/n08.json",
           "source": "source/ppt-in-sight/配音/wav/n08.json",
-          "sha256": "64e462353ba54bfa77c9a6315e54cc4ffd5709b683b28b7b89f5566c44cc8b36",
-          "size": 665,
-          "originalSha256": "64e462353ba54bfa77c9a6315e54cc4ffd5709b683b28b7b89f5566c44cc8b36"
+          "sha256": "39c0ffa0bd67b597a3e9ce890826c947d45399588182f562771620857f303c1d",
+          "size": 565,
+          "originalSha256": "64e462353ba54bfa77c9a6315e54cc4ffd5709b683b28b7b89f5566c44cc8b36",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n08.wav",
@@ -39214,9 +39388,12 @@
         {
           "path": "配音/wav/n09.json",
           "source": "source/ppt-in-sight/配音/wav/n09.json",
-          "sha256": "dd897b9058e7027d18ef33a2bdc45f3a7c6b15d3c373f5a6bf06161515f00ec0",
-          "size": 667,
-          "originalSha256": "dd897b9058e7027d18ef33a2bdc45f3a7c6b15d3c373f5a6bf06161515f00ec0"
+          "sha256": "c3de5640b775a490de8c4327c90bbcd1ef7d1a1540dd6d2d580ad6e82b735898",
+          "size": 565,
+          "originalSha256": "dd897b9058e7027d18ef33a2bdc45f3a7c6b15d3c373f5a6bf06161515f00ec0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n09.wav",
@@ -39228,9 +39405,12 @@
         {
           "path": "配音/wav/n10.json",
           "source": "source/ppt-in-sight/配音/wav/n10.json",
-          "sha256": "25128efa5c5d6986e5ba8c8336052f0cd049c62d316c346eb3cc3cfbdf41168a",
-          "size": 667,
-          "originalSha256": "25128efa5c5d6986e5ba8c8336052f0cd049c62d316c346eb3cc3cfbdf41168a"
+          "sha256": "f4db93e2ce9ba8753cab850b4af280b6c30edbd7726a8504e49f4826e9257ff4",
+          "size": 565,
+          "originalSha256": "25128efa5c5d6986e5ba8c8336052f0cd049c62d316c346eb3cc3cfbdf41168a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n10.wav",
@@ -39242,9 +39422,12 @@
         {
           "path": "配音/wav/n11.json",
           "source": "source/ppt-in-sight/配音/wav/n11.json",
-          "sha256": "e8d2d4b1e72085bf919975db9f20b3d9b37186c8817e50001eb65b7df5298b91",
-          "size": 665,
-          "originalSha256": "e8d2d4b1e72085bf919975db9f20b3d9b37186c8817e50001eb65b7df5298b91"
+          "sha256": "66c9d2d8c9cfa53835b92e2c5465a2d4ce8662be0e85551a68802d70ccb53a02",
+          "size": 565,
+          "originalSha256": "e8d2d4b1e72085bf919975db9f20b3d9b37186c8817e50001eb65b7df5298b91",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n11.wav",
@@ -39256,9 +39439,12 @@
         {
           "path": "配音/wav/n12.json",
           "source": "source/ppt-in-sight/配音/wav/n12.json",
-          "sha256": "7dc22a2007cfe640819ee6a28874fb2f8ccbf423129e16b1efce1e06a6c86675",
-          "size": 666,
-          "originalSha256": "7dc22a2007cfe640819ee6a28874fb2f8ccbf423129e16b1efce1e06a6c86675"
+          "sha256": "1a89dd414056843da4bafe6dc9b8d721511a52779daa5445685d4d8de5a9df25",
+          "size": 566,
+          "originalSha256": "7dc22a2007cfe640819ee6a28874fb2f8ccbf423129e16b1efce1e06a6c86675",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n12.wav",
@@ -39270,9 +39456,12 @@
         {
           "path": "配音/wav/n13.json",
           "source": "source/ppt-in-sight/配音/wav/n13.json",
-          "sha256": "c064aa0893fdb77aa04a71f7db1173f799caa122ddeca4d7d7944de2dc87d84c",
-          "size": 669,
-          "originalSha256": "c064aa0893fdb77aa04a71f7db1173f799caa122ddeca4d7d7944de2dc87d84c"
+          "sha256": "f95ecf0fdd41049183bc4e60aa8494fa075973bc698a4b2520eb94a8e3e13fe1",
+          "size": 565,
+          "originalSha256": "c064aa0893fdb77aa04a71f7db1173f799caa122ddeca4d7d7944de2dc87d84c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n13.wav",
@@ -39284,9 +39473,12 @@
         {
           "path": "配音/wav/n14.json",
           "source": "source/ppt-in-sight/配音/wav/n14.json",
-          "sha256": "7fc66280f3224788477f9f6fc1f3a7be508c1e132961fda12051bdf8589a9917",
-          "size": 665,
-          "originalSha256": "7fc66280f3224788477f9f6fc1f3a7be508c1e132961fda12051bdf8589a9917"
+          "sha256": "b8a512b4aeceb259958f1d767c559749cb420c3dca985178154b2110ae8eb310",
+          "size": 565,
+          "originalSha256": "7fc66280f3224788477f9f6fc1f3a7be508c1e132961fda12051bdf8589a9917",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n14.wav",
@@ -39298,9 +39490,12 @@
         {
           "path": "配音/wav/n15.json",
           "source": "source/ppt-in-sight/配音/wav/n15.json",
-          "sha256": "7f22afed30e09dd35a2d50f6da9cda3d9f65fe26e9cbab020567c8bf9cf24132",
-          "size": 667,
-          "originalSha256": "7f22afed30e09dd35a2d50f6da9cda3d9f65fe26e9cbab020567c8bf9cf24132"
+          "sha256": "2b5d892e742203be2f1dc75bacdc7921e26046e81452cd0a113112d3ea39be11",
+          "size": 565,
+          "originalSha256": "7f22afed30e09dd35a2d50f6da9cda3d9f65fe26e9cbab020567c8bf9cf24132",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n15.wav",
@@ -39312,9 +39507,12 @@
         {
           "path": "配音/wav/n16.json",
           "source": "source/ppt-in-sight/配音/wav/n16.json",
-          "sha256": "e334115823f5f63da175437829967a7f371fb6458e5815b15dca00be06bcc3d2",
-          "size": 665,
-          "originalSha256": "e334115823f5f63da175437829967a7f371fb6458e5815b15dca00be06bcc3d2"
+          "sha256": "03725910f27d2e5fa0fa6161ad7846962de67c7542ee0d3fa4cf48b79454989a",
+          "size": 565,
+          "originalSha256": "e334115823f5f63da175437829967a7f371fb6458e5815b15dca00be06bcc3d2",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n16.wav",
@@ -39326,9 +39524,12 @@
         {
           "path": "配音/wav/n17.json",
           "source": "source/ppt-in-sight/配音/wav/n17.json",
-          "sha256": "eb9d2c3ffcfe39917d6664271e13781ca1d7a4251244fe038ca6d30b3ed2b10c",
-          "size": 665,
-          "originalSha256": "eb9d2c3ffcfe39917d6664271e13781ca1d7a4251244fe038ca6d30b3ed2b10c"
+          "sha256": "0bc57c6db5f681905363bd9f5eecc9ad8c94ab5de6037b34f8eef714bd6e8598",
+          "size": 565,
+          "originalSha256": "eb9d2c3ffcfe39917d6664271e13781ca1d7a4251244fe038ca6d30b3ed2b10c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n17.wav",
@@ -39340,9 +39541,12 @@
         {
           "path": "配音/wav/n18.json",
           "source": "source/ppt-in-sight/配音/wav/n18.json",
-          "sha256": "7370674c0fdfc23b97d06ede5cf69e9e70647dfcaa964ac1b0adcc317e70a97a",
-          "size": 665,
-          "originalSha256": "7370674c0fdfc23b97d06ede5cf69e9e70647dfcaa964ac1b0adcc317e70a97a"
+          "sha256": "741a3f6c40f5724f764ed914ae347f48d3401a636cd47978dbad50d46c8fe09d",
+          "size": 565,
+          "originalSha256": "7370674c0fdfc23b97d06ede5cf69e9e70647dfcaa964ac1b0adcc317e70a97a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n18.wav",
@@ -39354,9 +39558,12 @@
         {
           "path": "配音/wav/n19.json",
           "source": "source/ppt-in-sight/配音/wav/n19.json",
-          "sha256": "f668fb30b856390c2264afeb5a5cde76b4a2d632ffbc6cad194b4527f00cff30",
-          "size": 669,
-          "originalSha256": "f668fb30b856390c2264afeb5a5cde76b4a2d632ffbc6cad194b4527f00cff30"
+          "sha256": "f88926570ac650a0e5cfae060cc8e69f807a5975c03ed2a0f477a7de2af108f2",
+          "size": 565,
+          "originalSha256": "f668fb30b856390c2264afeb5a5cde76b4a2d632ffbc6cad194b4527f00cff30",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n19.wav",
@@ -39368,9 +39575,12 @@
         {
           "path": "配音/wav/n20.json",
           "source": "source/ppt-in-sight/配音/wav/n20.json",
-          "sha256": "b21c8104f8fe7c7466f7d4bd1034998d032882141e1c9e64cb4056e553216852",
-          "size": 667,
-          "originalSha256": "b21c8104f8fe7c7466f7d4bd1034998d032882141e1c9e64cb4056e553216852"
+          "sha256": "b95b18345b45952ba717e7cddac20f937cb3004da0be24484d1034ae099cd915",
+          "size": 565,
+          "originalSha256": "b21c8104f8fe7c7466f7d4bd1034998d032882141e1c9e64cb4056e553216852",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n20.wav",
@@ -40086,9 +40296,12 @@
         {
           "path": "配音/wav/m1.json",
           "source": "source/ppt-dance-mentor/配音/wav/m1.json",
-          "sha256": "1a177af646d375146dd60ab9e3d43a46acf6b50bdea5cccde9d4d51fe2b62f85",
-          "size": 662,
-          "originalSha256": "1a177af646d375146dd60ab9e3d43a46acf6b50bdea5cccde9d4d51fe2b62f85"
+          "sha256": "f6296efa458fafb819f159e54d53b15e662fba18a34e81b26089a5318c119b78",
+          "size": 562,
+          "originalSha256": "1a177af646d375146dd60ab9e3d43a46acf6b50bdea5cccde9d4d51fe2b62f85",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/m1.wav",
@@ -40100,9 +40313,12 @@
         {
           "path": "配音/wav/m2.json",
           "source": "source/ppt-dance-mentor/配音/wav/m2.json",
-          "sha256": "5e41e3ee3524743edabce8ce918ae95f2903f68435636aff916f0a1195e2fd92",
-          "size": 664,
-          "originalSha256": "5e41e3ee3524743edabce8ce918ae95f2903f68435636aff916f0a1195e2fd92"
+          "sha256": "4329e6a91f1543e37bb97680b10570aff5f5b5b2ec9cbc24dfc8b300c9c921d1",
+          "size": 562,
+          "originalSha256": "5e41e3ee3524743edabce8ce918ae95f2903f68435636aff916f0a1195e2fd92",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/m2.wav",
@@ -40114,9 +40330,12 @@
         {
           "path": "配音/wav/m3.json",
           "source": "source/ppt-dance-mentor/配音/wav/m3.json",
-          "sha256": "42325529c9335fef450bf4db3f565a4ee0578197d779d68c1999439925c36d7d",
-          "size": 664,
-          "originalSha256": "42325529c9335fef450bf4db3f565a4ee0578197d779d68c1999439925c36d7d"
+          "sha256": "226c318d52c3fa0341eaaf4a4f899968f2118a5f66728519421932f9ab9ba004",
+          "size": 562,
+          "originalSha256": "42325529c9335fef450bf4db3f565a4ee0578197d779d68c1999439925c36d7d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/m3.wav",
@@ -40128,9 +40347,12 @@
         {
           "path": "配音/wav/m4.json",
           "source": "source/ppt-dance-mentor/配音/wav/m4.json",
-          "sha256": "4b7b96961700d25565008dfe91f2bae7fcc1f6acaede45f9d3d1a44be296a82f",
-          "size": 664,
-          "originalSha256": "4b7b96961700d25565008dfe91f2bae7fcc1f6acaede45f9d3d1a44be296a82f"
+          "sha256": "9379b9d8dcb5dd8d303ad1fffc9761780801f51920a2708649b6c9cf311b7ff7",
+          "size": 562,
+          "originalSha256": "4b7b96961700d25565008dfe91f2bae7fcc1f6acaede45f9d3d1a44be296a82f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/m4.wav",
@@ -40142,9 +40364,12 @@
         {
           "path": "配音/wav/n01.json",
           "source": "source/ppt-dance-mentor/配音/wav/n01.json",
-          "sha256": "ae93cff1d84405b08a3fdd75de7f2738bfa4d76f747801ccf33f30f564372ff6",
-          "size": 669,
-          "originalSha256": "ae93cff1d84405b08a3fdd75de7f2738bfa4d76f747801ccf33f30f564372ff6"
+          "sha256": "733207b23cbb15642e011de0c9f81500c95f54fc52fc045d02f69abb4f7772b8",
+          "size": 565,
+          "originalSha256": "ae93cff1d84405b08a3fdd75de7f2738bfa4d76f747801ccf33f30f564372ff6",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n01.wav",
@@ -40156,9 +40381,12 @@
         {
           "path": "配音/wav/n02.json",
           "source": "source/ppt-dance-mentor/配音/wav/n02.json",
-          "sha256": "dd713c4b1f3c223eb2411e641245e73496cbc310513719e2fc7060edcc0090b0",
-          "size": 665,
-          "originalSha256": "dd713c4b1f3c223eb2411e641245e73496cbc310513719e2fc7060edcc0090b0"
+          "sha256": "18be8199504ab68350530f67b1d513c5cea263c1754ffbc6139136d9207fae3c",
+          "size": 565,
+          "originalSha256": "dd713c4b1f3c223eb2411e641245e73496cbc310513719e2fc7060edcc0090b0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n02.wav",
@@ -40170,9 +40398,12 @@
         {
           "path": "配音/wav/n03.json",
           "source": "source/ppt-dance-mentor/配音/wav/n03.json",
-          "sha256": "fb240e0b0f54a8c19f1ecabd3dd16e9ef8c13cc3932467d2f36afc61c4f0604e",
-          "size": 665,
-          "originalSha256": "fb240e0b0f54a8c19f1ecabd3dd16e9ef8c13cc3932467d2f36afc61c4f0604e"
+          "sha256": "af6d1640dc7c1ec43124141cb4d90bf6c09eb973554827e4df9e7987df7436ac",
+          "size": 565,
+          "originalSha256": "fb240e0b0f54a8c19f1ecabd3dd16e9ef8c13cc3932467d2f36afc61c4f0604e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n03.wav",
@@ -40184,9 +40415,12 @@
         {
           "path": "配音/wav/n04.json",
           "source": "source/ppt-dance-mentor/配音/wav/n04.json",
-          "sha256": "95e3798e7d43ba6fd731cedb4f7a2a5a7974f91760dbe9f64d6be94f9ebf8106",
-          "size": 665,
-          "originalSha256": "95e3798e7d43ba6fd731cedb4f7a2a5a7974f91760dbe9f64d6be94f9ebf8106"
+          "sha256": "b019bb5114b98af5c8bd755b58ea3c021f6fd8c38b8325584fb2de1cf65ab370",
+          "size": 565,
+          "originalSha256": "95e3798e7d43ba6fd731cedb4f7a2a5a7974f91760dbe9f64d6be94f9ebf8106",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n04.wav",
@@ -40198,9 +40432,12 @@
         {
           "path": "配音/wav/n05.json",
           "source": "source/ppt-dance-mentor/配音/wav/n05.json",
-          "sha256": "bb692987272f7ce81c1ab8f8e8c258c65a82897dd58c6e90bd0a4a02b58dffea",
-          "size": 665,
-          "originalSha256": "bb692987272f7ce81c1ab8f8e8c258c65a82897dd58c6e90bd0a4a02b58dffea"
+          "sha256": "60bc9de85175b9feadf9a32043b2fb025e35a029ba6a5e4b18aed5682a9b9fc2",
+          "size": 565,
+          "originalSha256": "bb692987272f7ce81c1ab8f8e8c258c65a82897dd58c6e90bd0a4a02b58dffea",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n05.wav",
@@ -40212,9 +40449,12 @@
         {
           "path": "配音/wav/n06.json",
           "source": "source/ppt-dance-mentor/配音/wav/n06.json",
-          "sha256": "5d2a76f932454f832aeb82a1df4e39b628eee91834a0ab28c7cdfd9d4f6ba27b",
-          "size": 665,
-          "originalSha256": "5d2a76f932454f832aeb82a1df4e39b628eee91834a0ab28c7cdfd9d4f6ba27b"
+          "sha256": "4390f4da53f023b3a0806a5eb368ea6f15c3828964c43c548063c7c497fc1d19",
+          "size": 565,
+          "originalSha256": "5d2a76f932454f832aeb82a1df4e39b628eee91834a0ab28c7cdfd9d4f6ba27b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n06.wav",
@@ -40226,9 +40466,12 @@
         {
           "path": "配音/wav/n07.json",
           "source": "source/ppt-dance-mentor/配音/wav/n07.json",
-          "sha256": "9e274305cdbc7dbb7d0a2de8fb50eeb66f1a66591a23eb3594e94538e386d53a",
-          "size": 665,
-          "originalSha256": "9e274305cdbc7dbb7d0a2de8fb50eeb66f1a66591a23eb3594e94538e386d53a"
+          "sha256": "3b6010445da28b64be1f3439e6d6b036cb9e279a790800bcf98f65a6d68436fc",
+          "size": 565,
+          "originalSha256": "9e274305cdbc7dbb7d0a2de8fb50eeb66f1a66591a23eb3594e94538e386d53a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n07.wav",
@@ -40240,9 +40483,12 @@
         {
           "path": "配音/wav/n08.json",
           "source": "source/ppt-dance-mentor/配音/wav/n08.json",
-          "sha256": "5d06eaa5f95cd18c930d82ff147582b59f8b4de69d60e8e9fe8fa87e167e4aff",
-          "size": 665,
-          "originalSha256": "5d06eaa5f95cd18c930d82ff147582b59f8b4de69d60e8e9fe8fa87e167e4aff"
+          "sha256": "58bf639e3106739038dbb9868d50ce50916276d045b149468b20c707806119bd",
+          "size": 565,
+          "originalSha256": "5d06eaa5f95cd18c930d82ff147582b59f8b4de69d60e8e9fe8fa87e167e4aff",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n08.wav",
@@ -40254,9 +40500,12 @@
         {
           "path": "配音/wav/n09.json",
           "source": "source/ppt-dance-mentor/配音/wav/n09.json",
-          "sha256": "446e705274be95864ac24492ebdae4e4a860125f023dc34986285b596b6a26e0",
-          "size": 667,
-          "originalSha256": "446e705274be95864ac24492ebdae4e4a860125f023dc34986285b596b6a26e0"
+          "sha256": "fc421a7a48c6dbc5d225f4d154afd289fc22280b631310c26cb8b7e60f7a7885",
+          "size": 565,
+          "originalSha256": "446e705274be95864ac24492ebdae4e4a860125f023dc34986285b596b6a26e0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n09.wav",
@@ -40268,9 +40517,12 @@
         {
           "path": "配音/wav/n10.json",
           "source": "source/ppt-dance-mentor/配音/wav/n10.json",
-          "sha256": "cc144aafc9d1ef053f695e6fa09d3b2d90aa451d40c5cbd1ce58e9944e2e70f0",
-          "size": 667,
-          "originalSha256": "cc144aafc9d1ef053f695e6fa09d3b2d90aa451d40c5cbd1ce58e9944e2e70f0"
+          "sha256": "f45b9022a675f79b7e752b9b8ea39e2674962a11caf48e877a7bbb24dad40c36",
+          "size": 565,
+          "originalSha256": "cc144aafc9d1ef053f695e6fa09d3b2d90aa451d40c5cbd1ce58e9944e2e70f0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n10.wav",
@@ -40282,9 +40534,12 @@
         {
           "path": "配音/wav/n11.json",
           "source": "source/ppt-dance-mentor/配音/wav/n11.json",
-          "sha256": "6fda1218b5a1314f4d59a3834c9dc608c5782b35039e5c605b60928041179ed3",
-          "size": 669,
-          "originalSha256": "6fda1218b5a1314f4d59a3834c9dc608c5782b35039e5c605b60928041179ed3"
+          "sha256": "47170324642fa013dd01167c692543c990ac12acd4db62ccd234a82d5cae4c1b",
+          "size": 565,
+          "originalSha256": "6fda1218b5a1314f4d59a3834c9dc608c5782b35039e5c605b60928041179ed3",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n11.wav",
@@ -40296,9 +40551,12 @@
         {
           "path": "配音/wav/n12.json",
           "source": "source/ppt-dance-mentor/配音/wav/n12.json",
-          "sha256": "5019392d885bc562927f886a35199359c27f68c180b5069d5d4b16b7e906b9bb",
-          "size": 669,
-          "originalSha256": "5019392d885bc562927f886a35199359c27f68c180b5069d5d4b16b7e906b9bb"
+          "sha256": "e12eb7625489cb06a473b4cfbaa657cab736f0d3427f068c7739d7e8fc4f6437",
+          "size": 565,
+          "originalSha256": "5019392d885bc562927f886a35199359c27f68c180b5069d5d4b16b7e906b9bb",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n12.wav",
@@ -40310,9 +40568,12 @@
         {
           "path": "配音/wav/n14.json",
           "source": "source/ppt-dance-mentor/配音/wav/n14.json",
-          "sha256": "4daedd8fb0664cd34350576b96026862cfffa71b19f4b6d94276254ac550080b",
-          "size": 667,
-          "originalSha256": "4daedd8fb0664cd34350576b96026862cfffa71b19f4b6d94276254ac550080b"
+          "sha256": "2b4f5a45563e977bddea12f4c935748aad7799f59902434da33be1f67b2559ea",
+          "size": 565,
+          "originalSha256": "4daedd8fb0664cd34350576b96026862cfffa71b19f4b6d94276254ac550080b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n14.wav",
@@ -40324,9 +40585,12 @@
         {
           "path": "配音/wav/n15.json",
           "source": "source/ppt-dance-mentor/配音/wav/n15.json",
-          "sha256": "2d0abf37e6a8957f826f1a3d18d9fa73d18245aeb6d5c79ab95adf6c92a2e269",
-          "size": 665,
-          "originalSha256": "2d0abf37e6a8957f826f1a3d18d9fa73d18245aeb6d5c79ab95adf6c92a2e269"
+          "sha256": "67bd5d18fa911679910b217e08f7435ec37ba8b70067dc452b2ea8fbcf9b6837",
+          "size": 565,
+          "originalSha256": "2d0abf37e6a8957f826f1a3d18d9fa73d18245aeb6d5c79ab95adf6c92a2e269",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n15.wav",
@@ -40338,9 +40602,12 @@
         {
           "path": "配音/wav/n16.json",
           "source": "source/ppt-dance-mentor/配音/wav/n16.json",
-          "sha256": "ac03341bf8ecb734d9d920fabdd8359d18d64d31c0c80396c25cc4d2e24c06b4",
-          "size": 665,
-          "originalSha256": "ac03341bf8ecb734d9d920fabdd8359d18d64d31c0c80396c25cc4d2e24c06b4"
+          "sha256": "87b8c27c94741e894198ad8aa9b7775a56297188c87e6448e0798d2ed6dabdc7",
+          "size": 565,
+          "originalSha256": "ac03341bf8ecb734d9d920fabdd8359d18d64d31c0c80396c25cc4d2e24c06b4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n16.wav",
@@ -40978,9 +41245,12 @@
         {
           "path": "旁白/wav/c16.json",
           "source": "source/ppt-understands-you/旁白/wav/c16.json",
-          "sha256": "a71d693e690e61c1732f01f667fdc3fe317c88017bed359ec239bdc6a4a37347",
-          "size": 673,
-          "originalSha256": "a71d693e690e61c1732f01f667fdc3fe317c88017bed359ec239bdc6a4a37347"
+          "sha256": "729b1b8efa0fea711fe2253761e74b3e21118de4c39b0a4b28caad838815b4b7",
+          "size": 565,
+          "originalSha256": "a71d693e690e61c1732f01f667fdc3fe317c88017bed359ec239bdc6a4a37347",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/c16.wav",
@@ -40999,9 +41269,12 @@
         {
           "path": "旁白/wav/n01.json",
           "source": "source/ppt-understands-you/旁白/wav/n01.json",
-          "sha256": "716d11f71fe73ec84d556d7b746e2cebc35ba7bf7ad9eff380a6b435edbb57ce",
-          "size": 665,
-          "originalSha256": "716d11f71fe73ec84d556d7b746e2cebc35ba7bf7ad9eff380a6b435edbb57ce"
+          "sha256": "480d5938214cda41cd42e3300d4d9d9c96aa7ef44be8c8dcfab75d2798cad0a1",
+          "size": 565,
+          "originalSha256": "716d11f71fe73ec84d556d7b746e2cebc35ba7bf7ad9eff380a6b435edbb57ce",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n01.wav",
@@ -41013,9 +41286,12 @@
         {
           "path": "旁白/wav/n02.json",
           "source": "source/ppt-understands-you/旁白/wav/n02.json",
-          "sha256": "7b58ae28cc3a41d0567f9f1789313f43bd567ff8d06a150a0738b323febe9e49",
-          "size": 665,
-          "originalSha256": "7b58ae28cc3a41d0567f9f1789313f43bd567ff8d06a150a0738b323febe9e49"
+          "sha256": "ba39bb0fb0a2c246f43cbe96452cea7e974d40db27c46953be6da66f1bd6d145",
+          "size": 565,
+          "originalSha256": "7b58ae28cc3a41d0567f9f1789313f43bd567ff8d06a150a0738b323febe9e49",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n02.wav",
@@ -41027,9 +41303,12 @@
         {
           "path": "旁白/wav/n03.json",
           "source": "source/ppt-understands-you/旁白/wav/n03.json",
-          "sha256": "035739803f48668c3cbb3906dcf8f1a6c39214f19b11ece5234b9bb674bd5882",
-          "size": 665,
-          "originalSha256": "035739803f48668c3cbb3906dcf8f1a6c39214f19b11ece5234b9bb674bd5882"
+          "sha256": "0a6c78967afa811b5df594a35715a538bde64f2964f02876d163bd76a448d094",
+          "size": 565,
+          "originalSha256": "035739803f48668c3cbb3906dcf8f1a6c39214f19b11ece5234b9bb674bd5882",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n03.wav",
@@ -41041,9 +41320,12 @@
         {
           "path": "旁白/wav/n04.json",
           "source": "source/ppt-understands-you/旁白/wav/n04.json",
-          "sha256": "f42e129a0bb96b70795f4b99d61ed05c4b531fdc3743bd0e5f634dbb4a517499",
-          "size": 667,
-          "originalSha256": "f42e129a0bb96b70795f4b99d61ed05c4b531fdc3743bd0e5f634dbb4a517499"
+          "sha256": "8685a65ffcaf01aad18d31e0dea0ecf723d4297de098b8f6bc8a0f8ce5e3f51f",
+          "size": 565,
+          "originalSha256": "f42e129a0bb96b70795f4b99d61ed05c4b531fdc3743bd0e5f634dbb4a517499",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n04.wav",
@@ -41055,9 +41337,12 @@
         {
           "path": "旁白/wav/n05.json",
           "source": "source/ppt-understands-you/旁白/wav/n05.json",
-          "sha256": "fac2fb4bd01a4753b0c15707d937d867a551cb1ada6c3e33d93330e6bf0f767d",
-          "size": 665,
-          "originalSha256": "fac2fb4bd01a4753b0c15707d937d867a551cb1ada6c3e33d93330e6bf0f767d"
+          "sha256": "6f4200a490fe674a5d3fb74e5f4f6c4c75e500a5b8a95d00022ea4dfe8acb0f6",
+          "size": 565,
+          "originalSha256": "fac2fb4bd01a4753b0c15707d937d867a551cb1ada6c3e33d93330e6bf0f767d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n05.wav",
@@ -41069,9 +41354,12 @@
         {
           "path": "旁白/wav/n06.json",
           "source": "source/ppt-understands-you/旁白/wav/n06.json",
-          "sha256": "d7ee51aa30c22c62d6c85e306ab95f23f9e5d2ecb2949110f4f290c50cea558e",
-          "size": 665,
-          "originalSha256": "d7ee51aa30c22c62d6c85e306ab95f23f9e5d2ecb2949110f4f290c50cea558e"
+          "sha256": "55f450245ecca04f347e9e97c93f68a4ed4c7bba50f942892d62eebd51253424",
+          "size": 565,
+          "originalSha256": "d7ee51aa30c22c62d6c85e306ab95f23f9e5d2ecb2949110f4f290c50cea558e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n06.wav",
@@ -41083,9 +41371,12 @@
         {
           "path": "旁白/wav/n07.json",
           "source": "source/ppt-understands-you/旁白/wav/n07.json",
-          "sha256": "f07c9f957deb4852a28586eced83dceeb3a8b5e592697783ba9c7a7d064f77eb",
-          "size": 667,
-          "originalSha256": "f07c9f957deb4852a28586eced83dceeb3a8b5e592697783ba9c7a7d064f77eb"
+          "sha256": "673eb08fb57d1f728df808e44eb94d38480375dc6afbcfc74a1df8e64acd9296",
+          "size": 565,
+          "originalSha256": "f07c9f957deb4852a28586eced83dceeb3a8b5e592697783ba9c7a7d064f77eb",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n07.wav",
@@ -41097,9 +41388,12 @@
         {
           "path": "旁白/wav/n08.json",
           "source": "source/ppt-understands-you/旁白/wav/n08.json",
-          "sha256": "6eab8a9ca3be4cc5f7bf29c4f03c3afc1018a6224b3323abaa0974a3c15c49bf",
-          "size": 667,
-          "originalSha256": "6eab8a9ca3be4cc5f7bf29c4f03c3afc1018a6224b3323abaa0974a3c15c49bf"
+          "sha256": "8f61bf1410b9b27859e47622112daf76cce7aa0b56f89d861eefa953ea7cb4e9",
+          "size": 565,
+          "originalSha256": "6eab8a9ca3be4cc5f7bf29c4f03c3afc1018a6224b3323abaa0974a3c15c49bf",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n08.wav",
@@ -41111,9 +41405,12 @@
         {
           "path": "旁白/wav/n09.json",
           "source": "source/ppt-understands-you/旁白/wav/n09.json",
-          "sha256": "d47291b8ac38e5298eafca4a150bba2d8b0df3a14cc05c565f3456110bc829cd",
-          "size": 665,
-          "originalSha256": "d47291b8ac38e5298eafca4a150bba2d8b0df3a14cc05c565f3456110bc829cd"
+          "sha256": "0d77bda4e6e39a145ef42184b1b2245f884d08b49a7959a4c79ec7d0e1c18907",
+          "size": 565,
+          "originalSha256": "d47291b8ac38e5298eafca4a150bba2d8b0df3a14cc05c565f3456110bc829cd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n09.wav",
@@ -41125,9 +41422,12 @@
         {
           "path": "旁白/wav/n10.json",
           "source": "source/ppt-understands-you/旁白/wav/n10.json",
-          "sha256": "41883ed98e642d871d751be348d0472e897a0d55a02d99dc82bf0b381bc64568",
-          "size": 667,
-          "originalSha256": "41883ed98e642d871d751be348d0472e897a0d55a02d99dc82bf0b381bc64568"
+          "sha256": "44431cf15447b9e410fded66a67496f03487a624c7556952c63f7b2c0a902c86",
+          "size": 565,
+          "originalSha256": "41883ed98e642d871d751be348d0472e897a0d55a02d99dc82bf0b381bc64568",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n10.wav",
@@ -41139,9 +41439,12 @@
         {
           "path": "旁白/wav/n11.json",
           "source": "source/ppt-understands-you/旁白/wav/n11.json",
-          "sha256": "cf9074c8909b90f99499e690abfa3e7a251286d3d093888369f9038e59b0e982",
-          "size": 669,
-          "originalSha256": "cf9074c8909b90f99499e690abfa3e7a251286d3d093888369f9038e59b0e982"
+          "sha256": "52c3dd0ffdde3506a22f9dab0e4f87c0af066666787fa44dd982462e430c2d7c",
+          "size": 565,
+          "originalSha256": "cf9074c8909b90f99499e690abfa3e7a251286d3d093888369f9038e59b0e982",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n11.wav",
@@ -41153,9 +41456,12 @@
         {
           "path": "旁白/wav/n12.json",
           "source": "source/ppt-understands-you/旁白/wav/n12.json",
-          "sha256": "9d3f730ddaa273bca6e00dfafdc613da450d03887e5d3b9c4a5b420c34b09c0f",
-          "size": 667,
-          "originalSha256": "9d3f730ddaa273bca6e00dfafdc613da450d03887e5d3b9c4a5b420c34b09c0f"
+          "sha256": "04f9f1d53f056fff808bb1c0a8116ec51f343e3a306c7785f1843ab59589a458",
+          "size": 565,
+          "originalSha256": "9d3f730ddaa273bca6e00dfafdc613da450d03887e5d3b9c4a5b420c34b09c0f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n12.wav",
@@ -41167,9 +41473,12 @@
         {
           "path": "旁白/wav/n13.json",
           "source": "source/ppt-understands-you/旁白/wav/n13.json",
-          "sha256": "5c8e718b7c6f6cefafaae7ff37e5eb9e4c678857bcc17da2ea2ec245e79f34d9",
-          "size": 665,
-          "originalSha256": "5c8e718b7c6f6cefafaae7ff37e5eb9e4c678857bcc17da2ea2ec245e79f34d9"
+          "sha256": "b354357bca45b410c88034b93620293541002a568696131751e9635e38a39741",
+          "size": 565,
+          "originalSha256": "5c8e718b7c6f6cefafaae7ff37e5eb9e4c678857bcc17da2ea2ec245e79f34d9",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n13.wav",
@@ -41181,9 +41490,12 @@
         {
           "path": "旁白/wav/n14.json",
           "source": "source/ppt-understands-you/旁白/wav/n14.json",
-          "sha256": "3ac3ffd49a1675769b58236e5730e4e9577fba22afa679e73c20d92097e077ec",
-          "size": 665,
-          "originalSha256": "3ac3ffd49a1675769b58236e5730e4e9577fba22afa679e73c20d92097e077ec"
+          "sha256": "531f64d6e376e0243cf20d66840c6269dbe4cc6661e3acad720d8f997744d985",
+          "size": 565,
+          "originalSha256": "3ac3ffd49a1675769b58236e5730e4e9577fba22afa679e73c20d92097e077ec",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n14.wav",
@@ -41195,9 +41507,12 @@
         {
           "path": "旁白/wav/n15.json",
           "source": "source/ppt-understands-you/旁白/wav/n15.json",
-          "sha256": "5725b24c89517e12b6109dd4dd4c20627da7a9c1f9af2b9e2a845362574e73ea",
-          "size": 665,
-          "originalSha256": "5725b24c89517e12b6109dd4dd4c20627da7a9c1f9af2b9e2a845362574e73ea"
+          "sha256": "ba79f06ca6e8e8d5b72aa7daf8f2346b1a4869b33643b82e3c5a8f7cc0039ed0",
+          "size": 565,
+          "originalSha256": "5725b24c89517e12b6109dd4dd4c20627da7a9c1f9af2b9e2a845362574e73ea",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n15.wav",
@@ -41209,9 +41524,12 @@
         {
           "path": "旁白/wav/n16.json",
           "source": "source/ppt-understands-you/旁白/wav/n16.json",
-          "sha256": "e39cee013b3e73eba5c3c0db27564af7973dc3531ba9cee2a224cc46f1df7c78",
-          "size": 667,
-          "originalSha256": "e39cee013b3e73eba5c3c0db27564af7973dc3531ba9cee2a224cc46f1df7c78"
+          "sha256": "b5d76adc4da57867485aee0d876b2e964a78335634b35879f0d376f0b1402dcb",
+          "size": 565,
+          "originalSha256": "e39cee013b3e73eba5c3c0db27564af7973dc3531ba9cee2a224cc46f1df7c78",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n16.wav",
@@ -41223,9 +41541,12 @@
         {
           "path": "旁白/wav/n17.json",
           "source": "source/ppt-understands-you/旁白/wav/n17.json",
-          "sha256": "94f58cc04eb24655d2c91ff4b9965eafd6a8a41f09efee65e46fe011f541aac1",
-          "size": 665,
-          "originalSha256": "94f58cc04eb24655d2c91ff4b9965eafd6a8a41f09efee65e46fe011f541aac1"
+          "sha256": "0975a0d39f01cba03c9aa14760222ab9710c5090576743faeb2a592d44435071",
+          "size": 565,
+          "originalSha256": "94f58cc04eb24655d2c91ff4b9965eafd6a8a41f09efee65e46fe011f541aac1",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n17.wav",
@@ -41237,9 +41558,12 @@
         {
           "path": "旁白/wav/n18.json",
           "source": "source/ppt-understands-you/旁白/wav/n18.json",
-          "sha256": "1d93faaf7877a1458d183cb854e7bb8ed5c9115e535682f4a558814bc70fe47a",
-          "size": 667,
-          "originalSha256": "1d93faaf7877a1458d183cb854e7bb8ed5c9115e535682f4a558814bc70fe47a"
+          "sha256": "ef5de9f016b9cf61761ccb491c4d74a92adc4b17ec880ee9193cf786e86e9097",
+          "size": 565,
+          "originalSha256": "1d93faaf7877a1458d183cb854e7bb8ed5c9115e535682f4a558814bc70fe47a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n18.wav",
@@ -41251,9 +41575,12 @@
         {
           "path": "旁白/wav/n19.json",
           "source": "source/ppt-understands-you/旁白/wav/n19.json",
-          "sha256": "fafb4ca9726a699fbebd8da17cbe7c86d2a581ea34bde64c50a70565acf16d0e",
-          "size": 669,
-          "originalSha256": "fafb4ca9726a699fbebd8da17cbe7c86d2a581ea34bde64c50a70565acf16d0e"
+          "sha256": "986e0613c2cbeab98edd073b2080945ae50732148090c0f111566bb81789b789",
+          "size": 565,
+          "originalSha256": "fafb4ca9726a699fbebd8da17cbe7c86d2a581ea34bde64c50a70565acf16d0e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n19.wav",
@@ -41265,9 +41592,12 @@
         {
           "path": "旁白/wav/n20.json",
           "source": "source/ppt-understands-you/旁白/wav/n20.json",
-          "sha256": "b53f59d8ae2119db31d83d7f46170ee4800762a80c55402ad0ef533ad078e588",
-          "size": 669,
-          "originalSha256": "b53f59d8ae2119db31d83d7f46170ee4800762a80c55402ad0ef533ad078e588"
+          "sha256": "67b452bed6c1d72472aefc9b8235060d5d3e220f1186688627e379d99f93f72c",
+          "size": 565,
+          "originalSha256": "b53f59d8ae2119db31d83d7f46170ee4800762a80c55402ad0ef533ad078e588",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n20.wav",
@@ -41279,9 +41609,12 @@
         {
           "path": "旁白/wav/n21.json",
           "source": "source/ppt-understands-you/旁白/wav/n21.json",
-          "sha256": "4a50646cd079d89162736ca21b390fc5d69a55457c8da32beaf70c10274971c8",
-          "size": 665,
-          "originalSha256": "4a50646cd079d89162736ca21b390fc5d69a55457c8da32beaf70c10274971c8"
+          "sha256": "122c7d1194496fc1d7c23e6620cccbd27cd461bf586f2585f930e8aa48979e42",
+          "size": 565,
+          "originalSha256": "4a50646cd079d89162736ca21b390fc5d69a55457c8da32beaf70c10274971c8",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n21.wav",
@@ -41293,9 +41626,12 @@
         {
           "path": "旁白/wav/n22.json",
           "source": "source/ppt-understands-you/旁白/wav/n22.json",
-          "sha256": "16c0982976f55b17aeb985fa3050c7b056a006c0d04ad8748ea91a9189f6df92",
-          "size": 665,
-          "originalSha256": "16c0982976f55b17aeb985fa3050c7b056a006c0d04ad8748ea91a9189f6df92"
+          "sha256": "87ee29d4f2930bde4de96d3ec77d97e2480fccd8c729fcd19a93322b7603873d",
+          "size": 565,
+          "originalSha256": "16c0982976f55b17aeb985fa3050c7b056a006c0d04ad8748ea91a9189f6df92",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n22.wav",
@@ -41307,9 +41643,12 @@
         {
           "path": "旁白/wav/n24.json",
           "source": "source/ppt-understands-you/旁白/wav/n24.json",
-          "sha256": "ff85946aafcd993aaf3b408ec43f5e1154d628397b0893c30254e98a7c965e00",
-          "size": 669,
-          "originalSha256": "ff85946aafcd993aaf3b408ec43f5e1154d628397b0893c30254e98a7c965e00"
+          "sha256": "aa7d0d313e6ea6ffb48e27acc5ac5d633c2347eedd8dfa0c7d16f40859e12aa8",
+          "size": 565,
+          "originalSha256": "ff85946aafcd993aaf3b408ec43f5e1154d628397b0893c30254e98a7c965e00",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n24.wav",
@@ -41321,9 +41660,12 @@
         {
           "path": "旁白/wav/n25.json",
           "source": "source/ppt-understands-you/旁白/wav/n25.json",
-          "sha256": "4d43312cbb85226ea636ea0853c396f3ad1c3fcb27af1d40c168ee17b1f63835",
-          "size": 667,
-          "originalSha256": "4d43312cbb85226ea636ea0853c396f3ad1c3fcb27af1d40c168ee17b1f63835"
+          "sha256": "c6d1544029e35d34b72a07186c99c0f96da86f5295cdf338ab405984c6651013",
+          "size": 565,
+          "originalSha256": "4d43312cbb85226ea636ea0853c396f3ad1c3fcb27af1d40c168ee17b1f63835",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/n25.wav",
@@ -41335,9 +41677,12 @@
         {
           "path": "旁白/wav/q05.json",
           "source": "source/ppt-understands-you/旁白/wav/q05.json",
-          "sha256": "0f5c87fbb1852fbcfd85c6e52b28a60b9f5aac476a10c2931c5cd2841ef38a10",
-          "size": 665,
-          "originalSha256": "0f5c87fbb1852fbcfd85c6e52b28a60b9f5aac476a10c2931c5cd2841ef38a10"
+          "sha256": "47a1fadc3f6cbc673ddcd7c28a1f42d44b0e1b39fd07638638a75bbb3855a6c6",
+          "size": 565,
+          "originalSha256": "0f5c87fbb1852fbcfd85c6e52b28a60b9f5aac476a10c2931c5cd2841ef38a10",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/q05.wav",
@@ -41349,9 +41694,12 @@
         {
           "path": "旁白/wav/q09.json",
           "source": "source/ppt-understands-you/旁白/wav/q09.json",
-          "sha256": "da5781a98eeea72c47d43d028c103fbacb6ce00f2b5896e5baeed7149e002b4f",
-          "size": 666,
-          "originalSha256": "da5781a98eeea72c47d43d028c103fbacb6ce00f2b5896e5baeed7149e002b4f"
+          "sha256": "6bd3c5af03f0bdb857793b3a864a6931098cee636c690052cfaf8ac5bbf6c301",
+          "size": 564,
+          "originalSha256": "da5781a98eeea72c47d43d028c103fbacb6ce00f2b5896e5baeed7149e002b4f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/q09.wav",
@@ -41363,9 +41711,12 @@
         {
           "path": "旁白/wav/q10.json",
           "source": "source/ppt-understands-you/旁白/wav/q10.json",
-          "sha256": "b846738a1a22024ff2c31639c1720730a4c512a63ec4d818d0b9beb855513a7f",
-          "size": 667,
-          "originalSha256": "b846738a1a22024ff2c31639c1720730a4c512a63ec4d818d0b9beb855513a7f"
+          "sha256": "6953ee45653e146c85386452cddc14b461d14f688148ba586528eebe245b2dc7",
+          "size": 565,
+          "originalSha256": "b846738a1a22024ff2c31639c1720730a4c512a63ec4d818d0b9beb855513a7f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/q10.wav",
@@ -41377,9 +41728,12 @@
         {
           "path": "旁白/wav/q17.json",
           "source": "source/ppt-understands-you/旁白/wav/q17.json",
-          "sha256": "5e3ef42fcd1a32bc957f9e5214e30c60ae616a6c818fd06ed3242164c68b8a2b",
-          "size": 665,
-          "originalSha256": "5e3ef42fcd1a32bc957f9e5214e30c60ae616a6c818fd06ed3242164c68b8a2b"
+          "sha256": "1abca55485a9134cb7df836d25483525a0d9a687462257c247ea76ffaf41c9e2",
+          "size": 565,
+          "originalSha256": "5e3ef42fcd1a32bc957f9e5214e30c60ae616a6c818fd06ed3242164c68b8a2b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/q17.wav",
@@ -41391,9 +41745,12 @@
         {
           "path": "旁白/wav/q19.json",
           "source": "source/ppt-understands-you/旁白/wav/q19.json",
-          "sha256": "8d03184e1b05ed9f291aa1aecf3d7bc5418b3bd579d8691fd5facf96028ccebe",
-          "size": 663,
-          "originalSha256": "8d03184e1b05ed9f291aa1aecf3d7bc5418b3bd579d8691fd5facf96028ccebe"
+          "sha256": "d25045544b980aeef40c164d1907a6a3f34594bc2333746ddc5512f966c53b56",
+          "size": 563,
+          "originalSha256": "8d03184e1b05ed9f291aa1aecf3d7bc5418b3bd579d8691fd5facf96028ccebe",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/q19.wav",
@@ -41405,9 +41762,12 @@
         {
           "path": "旁白/wav/q22.json",
           "source": "source/ppt-understands-you/旁白/wav/q22.json",
-          "sha256": "f35cb4ab7909644375dba4949f5dae45d83159065d348c6c3078d5736f956ea4",
-          "size": 664,
-          "originalSha256": "f35cb4ab7909644375dba4949f5dae45d83159065d348c6c3078d5736f956ea4"
+          "sha256": "253b52dbcce17b3cb5913d8baf9d656776ec1498642932464074014364d2e6e9",
+          "size": 564,
+          "originalSha256": "f35cb4ab7909644375dba4949f5dae45d83159065d348c6c3078d5736f956ea4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/q22.wav",
@@ -41419,9 +41779,12 @@
         {
           "path": "旁白/wav/q24.json",
           "source": "source/ppt-understands-you/旁白/wav/q24.json",
-          "sha256": "592066de02c673d44f9ddf1242c87160fe55bc51bb48254470747cd9c68043ca",
-          "size": 668,
-          "originalSha256": "592066de02c673d44f9ddf1242c87160fe55bc51bb48254470747cd9c68043ca"
+          "sha256": "808ba28518479938d5cdba7bc3d1ed3a7f3b7d67ab0bdcd46273d3a2fc35e2a4",
+          "size": 564,
+          "originalSha256": "592066de02c673d44f9ddf1242c87160fe55bc51bb48254470747cd9c68043ca",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav/q24.wav",
@@ -41440,9 +41803,12 @@
         {
           "path": "旁白/wav11/c16.json",
           "source": "source/ppt-understands-you/旁白/wav11/c16.json",
-          "sha256": "c712a1f34727b433376ea615171ca18ec90b3a00cb4809749f71ef4f3312baea",
-          "size": 669,
-          "originalSha256": "c712a1f34727b433376ea615171ca18ec90b3a00cb4809749f71ef4f3312baea"
+          "sha256": "36c96d2ced587018cc7c92a6441cb91266008626c13a3d3e14e3a378f765fc22",
+          "size": 565,
+          "originalSha256": "c712a1f34727b433376ea615171ca18ec90b3a00cb4809749f71ef4f3312baea",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/c16.wav",
@@ -41461,9 +41827,12 @@
         {
           "path": "旁白/wav11/n01.json",
           "source": "source/ppt-understands-you/旁白/wav11/n01.json",
-          "sha256": "edf9fd3d56d358f0f3e520a045c7df240b24e9c6b750c0ce181b56e950f15061",
-          "size": 665,
-          "originalSha256": "edf9fd3d56d358f0f3e520a045c7df240b24e9c6b750c0ce181b56e950f15061"
+          "sha256": "2746b02a55bb24fb9b0e8dbe7b78737c5c7ccaacfb5a9d7920475f30b5cf6348",
+          "size": 565,
+          "originalSha256": "edf9fd3d56d358f0f3e520a045c7df240b24e9c6b750c0ce181b56e950f15061",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n01.wav",
@@ -41475,9 +41844,12 @@
         {
           "path": "旁白/wav11/n02.json",
           "source": "source/ppt-understands-you/旁白/wav11/n02.json",
-          "sha256": "7338d347678ef32c61e455b53e06d3efae3d20eb794ebbeaaecf8c539eaca52c",
-          "size": 667,
-          "originalSha256": "7338d347678ef32c61e455b53e06d3efae3d20eb794ebbeaaecf8c539eaca52c"
+          "sha256": "d573811c544a86770259546905e0f8cd39e042e420167a9aece107032d70e3a7",
+          "size": 565,
+          "originalSha256": "7338d347678ef32c61e455b53e06d3efae3d20eb794ebbeaaecf8c539eaca52c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n02.wav",
@@ -41489,9 +41861,12 @@
         {
           "path": "旁白/wav11/n03.json",
           "source": "source/ppt-understands-you/旁白/wav11/n03.json",
-          "sha256": "6453de3a3863599b58255ebfb12273e499c2851f4e65895ec1172ce228046aab",
-          "size": 669,
-          "originalSha256": "6453de3a3863599b58255ebfb12273e499c2851f4e65895ec1172ce228046aab"
+          "sha256": "9858a134de516d69cc9a7b77586c6ee8716386f90cb99e0668e7b8dfc3588031",
+          "size": 565,
+          "originalSha256": "6453de3a3863599b58255ebfb12273e499c2851f4e65895ec1172ce228046aab",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n03.wav",
@@ -41503,9 +41878,12 @@
         {
           "path": "旁白/wav11/n04.json",
           "source": "source/ppt-understands-you/旁白/wav11/n04.json",
-          "sha256": "5896939182fb2b9fb14616141a616f715b3b696ab33c9ad66aa17a63f60ab013",
-          "size": 665,
-          "originalSha256": "5896939182fb2b9fb14616141a616f715b3b696ab33c9ad66aa17a63f60ab013"
+          "sha256": "b075f226bde07c0c306e5368bfe696a28065b4d16e44adcae6360e94fff9edeb",
+          "size": 565,
+          "originalSha256": "5896939182fb2b9fb14616141a616f715b3b696ab33c9ad66aa17a63f60ab013",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n04.wav",
@@ -41517,9 +41895,12 @@
         {
           "path": "旁白/wav11/n05.json",
           "source": "source/ppt-understands-you/旁白/wav11/n05.json",
-          "sha256": "416750c5a7260a1dcd2240b0c4c42f7c0a08f1ad450d14493697cd64c9bc3d95",
-          "size": 667,
-          "originalSha256": "416750c5a7260a1dcd2240b0c4c42f7c0a08f1ad450d14493697cd64c9bc3d95"
+          "sha256": "577a6ca40e173355949f9681c2e9e762263091a7cc0e1596ffda6a9d92320b29",
+          "size": 565,
+          "originalSha256": "416750c5a7260a1dcd2240b0c4c42f7c0a08f1ad450d14493697cd64c9bc3d95",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n05.wav",
@@ -41531,9 +41912,12 @@
         {
           "path": "旁白/wav11/n06.json",
           "source": "source/ppt-understands-you/旁白/wav11/n06.json",
-          "sha256": "f604efa02ba0abfbacb9ea3c94c944d81edcdfc6ea2b10d00a1fae1138aeda65",
-          "size": 669,
-          "originalSha256": "f604efa02ba0abfbacb9ea3c94c944d81edcdfc6ea2b10d00a1fae1138aeda65"
+          "sha256": "294d6aef0df223581ffbaa23aa3e182086ef681520c0a3edb9e375b7ced087aa",
+          "size": 565,
+          "originalSha256": "f604efa02ba0abfbacb9ea3c94c944d81edcdfc6ea2b10d00a1fae1138aeda65",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n06.wav",
@@ -41545,9 +41929,12 @@
         {
           "path": "旁白/wav11/n07.json",
           "source": "source/ppt-understands-you/旁白/wav11/n07.json",
-          "sha256": "c70b5d4e44a27c03be1bb0a7ada35d0912ada3b02821d014e507b357b5d6a7f8",
-          "size": 665,
-          "originalSha256": "c70b5d4e44a27c03be1bb0a7ada35d0912ada3b02821d014e507b357b5d6a7f8"
+          "sha256": "a916e52b78108e5a2dd97bac92155ea79fa9938dfbd1871837a33b471a77e9ce",
+          "size": 565,
+          "originalSha256": "c70b5d4e44a27c03be1bb0a7ada35d0912ada3b02821d014e507b357b5d6a7f8",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n07.wav",
@@ -41559,9 +41946,12 @@
         {
           "path": "旁白/wav11/n08.json",
           "source": "source/ppt-understands-you/旁白/wav11/n08.json",
-          "sha256": "7847d587fdec50cc08597312396e8d6416f5367639bf231fa7123358221bf720",
-          "size": 665,
-          "originalSha256": "7847d587fdec50cc08597312396e8d6416f5367639bf231fa7123358221bf720"
+          "sha256": "c8eb4cf638a7defd165f61ae0d8d9f75ce421da93bfe5a0428c03db6c770c505",
+          "size": 565,
+          "originalSha256": "7847d587fdec50cc08597312396e8d6416f5367639bf231fa7123358221bf720",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n08.wav",
@@ -41573,9 +41963,12 @@
         {
           "path": "旁白/wav11/n09.json",
           "source": "source/ppt-understands-you/旁白/wav11/n09.json",
-          "sha256": "03021e06a6c01b84f9a89aaff24025983f056ae207fae5d51bc0f9b86c06b91c",
-          "size": 667,
-          "originalSha256": "03021e06a6c01b84f9a89aaff24025983f056ae207fae5d51bc0f9b86c06b91c"
+          "sha256": "b77ac786c1676649fde168509351d935d2a223d43f7824bd342ebd4c0d8f095f",
+          "size": 565,
+          "originalSha256": "03021e06a6c01b84f9a89aaff24025983f056ae207fae5d51bc0f9b86c06b91c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n09.wav",
@@ -41587,9 +41980,12 @@
         {
           "path": "旁白/wav11/n10.json",
           "source": "source/ppt-understands-you/旁白/wav11/n10.json",
-          "sha256": "ec3cf13ef5b429008cc3694edac52a474f2e088e0f0dc4f7cb7c2827cee31a43",
-          "size": 665,
-          "originalSha256": "ec3cf13ef5b429008cc3694edac52a474f2e088e0f0dc4f7cb7c2827cee31a43"
+          "sha256": "7a627a2bcc5c41405824226da88467c002a488e406765fd571d25ee3e886fc54",
+          "size": 565,
+          "originalSha256": "ec3cf13ef5b429008cc3694edac52a474f2e088e0f0dc4f7cb7c2827cee31a43",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n10.wav",
@@ -41601,9 +41997,12 @@
         {
           "path": "旁白/wav11/n11.json",
           "source": "source/ppt-understands-you/旁白/wav11/n11.json",
-          "sha256": "a0ad8da100fc69cff7e0b5b88b9a35475bf1f27e4b96758e37a05436dd2a7b1b",
-          "size": 667,
-          "originalSha256": "a0ad8da100fc69cff7e0b5b88b9a35475bf1f27e4b96758e37a05436dd2a7b1b"
+          "sha256": "a1ab58ecd03f0327dfd22ea1df5cb642e0efb39747fc7e3cc41639059f7b3a06",
+          "size": 565,
+          "originalSha256": "a0ad8da100fc69cff7e0b5b88b9a35475bf1f27e4b96758e37a05436dd2a7b1b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n11.wav",
@@ -41615,9 +42014,12 @@
         {
           "path": "旁白/wav11/n12.json",
           "source": "source/ppt-understands-you/旁白/wav11/n12.json",
-          "sha256": "4766550a12b03a53a7a1351969897580b5576dfa8c875e0f8168b3be8c5d6511",
-          "size": 665,
-          "originalSha256": "4766550a12b03a53a7a1351969897580b5576dfa8c875e0f8168b3be8c5d6511"
+          "sha256": "6f95c3344500c6249c9a2f7b41c00e57839441263964d28f2e9fc8fb481e44ed",
+          "size": 565,
+          "originalSha256": "4766550a12b03a53a7a1351969897580b5576dfa8c875e0f8168b3be8c5d6511",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n12.wav",
@@ -41629,9 +42031,12 @@
         {
           "path": "旁白/wav11/n13.json",
           "source": "source/ppt-understands-you/旁白/wav11/n13.json",
-          "sha256": "20997553e3f68f2f790a71c88ac9eed7d01ec74015f84f534a79be43fafb86cc",
-          "size": 665,
-          "originalSha256": "20997553e3f68f2f790a71c88ac9eed7d01ec74015f84f534a79be43fafb86cc"
+          "sha256": "f62519e14c56b01449bf31867d8a4863cda1073843c0a48369eee98746170917",
+          "size": 565,
+          "originalSha256": "20997553e3f68f2f790a71c88ac9eed7d01ec74015f84f534a79be43fafb86cc",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n13.wav",
@@ -41643,9 +42048,12 @@
         {
           "path": "旁白/wav11/n14.json",
           "source": "source/ppt-understands-you/旁白/wav11/n14.json",
-          "sha256": "a52c5a93fe5883c41bc8ff9a7f163f02b148e21c12018418d29ad794dc75c404",
-          "size": 665,
-          "originalSha256": "a52c5a93fe5883c41bc8ff9a7f163f02b148e21c12018418d29ad794dc75c404"
+          "sha256": "cacbab4d63682f88381803627461643cfe8e5535ff44f53b496d349ee4a8ae7c",
+          "size": 565,
+          "originalSha256": "a52c5a93fe5883c41bc8ff9a7f163f02b148e21c12018418d29ad794dc75c404",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n14.wav",
@@ -41657,9 +42065,12 @@
         {
           "path": "旁白/wav11/n15.json",
           "source": "source/ppt-understands-you/旁白/wav11/n15.json",
-          "sha256": "51d542417dc35ef87efb90ee266757cd3ff7bc8951030cd72c2d5ff645c19af0",
-          "size": 669,
-          "originalSha256": "51d542417dc35ef87efb90ee266757cd3ff7bc8951030cd72c2d5ff645c19af0"
+          "sha256": "e91d348899e43a2d9ea8d71fef172cb260aee87d999ce06d969ef513ae74c0a8",
+          "size": 565,
+          "originalSha256": "51d542417dc35ef87efb90ee266757cd3ff7bc8951030cd72c2d5ff645c19af0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n15.wav",
@@ -41671,9 +42082,12 @@
         {
           "path": "旁白/wav11/n16.json",
           "source": "source/ppt-understands-you/旁白/wav11/n16.json",
-          "sha256": "00e1d6d2d93f88cb41d69fe52dad57a94c546e49c4b5ffb2ba6da1115ee37683",
-          "size": 665,
-          "originalSha256": "00e1d6d2d93f88cb41d69fe52dad57a94c546e49c4b5ffb2ba6da1115ee37683"
+          "sha256": "2b9e67d7d6109f66cb5f0cd8a2a211136573e99b584eced486f78973a67298cb",
+          "size": 565,
+          "originalSha256": "00e1d6d2d93f88cb41d69fe52dad57a94c546e49c4b5ffb2ba6da1115ee37683",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n16.wav",
@@ -41685,9 +42099,12 @@
         {
           "path": "旁白/wav11/n17.json",
           "source": "source/ppt-understands-you/旁白/wav11/n17.json",
-          "sha256": "847600390377b28b94371baa2855868238137171010a6499f737139e55fba0c0",
-          "size": 665,
-          "originalSha256": "847600390377b28b94371baa2855868238137171010a6499f737139e55fba0c0"
+          "sha256": "f883fe62c6b9ba4963384db9493d3087147bb77de2b8e88cef7f8cfdc4cf7465",
+          "size": 565,
+          "originalSha256": "847600390377b28b94371baa2855868238137171010a6499f737139e55fba0c0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n17.wav",
@@ -41699,9 +42116,12 @@
         {
           "path": "旁白/wav11/n18.json",
           "source": "source/ppt-understands-you/旁白/wav11/n18.json",
-          "sha256": "b471863e8090bda64425cf138bdc4d698df0a7500a32d16f28fb7235673197ec",
-          "size": 665,
-          "originalSha256": "b471863e8090bda64425cf138bdc4d698df0a7500a32d16f28fb7235673197ec"
+          "sha256": "6a04df695f701c119db46b82a5629be75f1ffdb40c462f3ee4b6195b84508cff",
+          "size": 565,
+          "originalSha256": "b471863e8090bda64425cf138bdc4d698df0a7500a32d16f28fb7235673197ec",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n18.wav",
@@ -41713,9 +42133,12 @@
         {
           "path": "旁白/wav11/n19.json",
           "source": "source/ppt-understands-you/旁白/wav11/n19.json",
-          "sha256": "acd5a082c0528bff1cba783b08aca8e45ad0b48d1144c869843ad6bbf8158692",
-          "size": 667,
-          "originalSha256": "acd5a082c0528bff1cba783b08aca8e45ad0b48d1144c869843ad6bbf8158692"
+          "sha256": "bba3d39f7a44ad5617049f278f72f0510e6d6cb76cb962ae1ff67d582be2c930",
+          "size": 565,
+          "originalSha256": "acd5a082c0528bff1cba783b08aca8e45ad0b48d1144c869843ad6bbf8158692",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n19.wav",
@@ -41727,9 +42150,12 @@
         {
           "path": "旁白/wav11/n20.json",
           "source": "source/ppt-understands-you/旁白/wav11/n20.json",
-          "sha256": "602524ae2b794c3b3cac107a17b9e52dd0c58d0074e52acb885bfed10dcdf1a4",
-          "size": 667,
-          "originalSha256": "602524ae2b794c3b3cac107a17b9e52dd0c58d0074e52acb885bfed10dcdf1a4"
+          "sha256": "72affabcb9ba2ec6b8efd0e357c11b4ebf63233dc9e5229bfff1540bbcdde301",
+          "size": 565,
+          "originalSha256": "602524ae2b794c3b3cac107a17b9e52dd0c58d0074e52acb885bfed10dcdf1a4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n20.wav",
@@ -41741,9 +42167,12 @@
         {
           "path": "旁白/wav11/n21.json",
           "source": "source/ppt-understands-you/旁白/wav11/n21.json",
-          "sha256": "cf29059cfb6e0757c3fa5e8f37043ab7de49ce7a1acb9f3b4842331766cd8ce1",
-          "size": 665,
-          "originalSha256": "cf29059cfb6e0757c3fa5e8f37043ab7de49ce7a1acb9f3b4842331766cd8ce1"
+          "sha256": "39d8824850822d49d1a887cf43ea201bb067cd71255bfba5151368e44d258846",
+          "size": 565,
+          "originalSha256": "cf29059cfb6e0757c3fa5e8f37043ab7de49ce7a1acb9f3b4842331766cd8ce1",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n21.wav",
@@ -41755,9 +42184,12 @@
         {
           "path": "旁白/wav11/n22.json",
           "source": "source/ppt-understands-you/旁白/wav11/n22.json",
-          "sha256": "4c6722eb6afd6496043a901b93f85fc6dcfdadac28f39d118ae846d886e0ea8e",
-          "size": 665,
-          "originalSha256": "4c6722eb6afd6496043a901b93f85fc6dcfdadac28f39d118ae846d886e0ea8e"
+          "sha256": "535c3f3dd5ab636c16d6f65debd4c259a25d226ae7a0af6359426846a418062c",
+          "size": 565,
+          "originalSha256": "4c6722eb6afd6496043a901b93f85fc6dcfdadac28f39d118ae846d886e0ea8e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n22.wav",
@@ -41769,9 +42201,12 @@
         {
           "path": "旁白/wav11/n24.json",
           "source": "source/ppt-understands-you/旁白/wav11/n24.json",
-          "sha256": "21db4057586a6dce1ded71cbf42e4bd48a5d5310185cd84222552c2bc06278b5",
-          "size": 667,
-          "originalSha256": "21db4057586a6dce1ded71cbf42e4bd48a5d5310185cd84222552c2bc06278b5"
+          "sha256": "f55210d00fc2bc7c62f7e8cbe7ba8504e4f2f81bf5bd6a2721459f93085e51df",
+          "size": 565,
+          "originalSha256": "21db4057586a6dce1ded71cbf42e4bd48a5d5310185cd84222552c2bc06278b5",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n24.wav",
@@ -41783,9 +42218,12 @@
         {
           "path": "旁白/wav11/n25.json",
           "source": "source/ppt-understands-you/旁白/wav11/n25.json",
-          "sha256": "840278f072195e9b17934b5683fcfe6101000e2dc7be9c58812b0199d4cc87cd",
-          "size": 669,
-          "originalSha256": "840278f072195e9b17934b5683fcfe6101000e2dc7be9c58812b0199d4cc87cd"
+          "sha256": "45777bbff09390c07d0b599b1647d1963aab46ba6daf7ffdd5e4f30ec4b665de",
+          "size": 565,
+          "originalSha256": "840278f072195e9b17934b5683fcfe6101000e2dc7be9c58812b0199d4cc87cd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "旁白/wav11/n25.wav",
@@ -42259,9 +42697,12 @@
         {
           "path": "配音/wav/b01.json",
           "source": "source/ppt-before-sunset/配音/wav/b01.json",
-          "sha256": "477670787f492e949a2d2e311f1e6c02ef79e9f496e0ad2af6d8111fde172f68",
-          "size": 665,
-          "originalSha256": "477670787f492e949a2d2e311f1e6c02ef79e9f496e0ad2af6d8111fde172f68"
+          "sha256": "b92729c8987ded1509896e5e082fbb351cfae4ee7301fd8436425f39ad914968",
+          "size": 565,
+          "originalSha256": "477670787f492e949a2d2e311f1e6c02ef79e9f496e0ad2af6d8111fde172f68",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/b01.wav",
@@ -42273,9 +42714,12 @@
         {
           "path": "配音/wav/c01.json",
           "source": "source/ppt-before-sunset/配音/wav/c01.json",
-          "sha256": "a64af0291565c66cb695c0971cf8d80e9270f2dfa49d21ca685e025fecaecfa6",
-          "size": 664,
-          "originalSha256": "a64af0291565c66cb695c0971cf8d80e9270f2dfa49d21ca685e025fecaecfa6"
+          "sha256": "dff77a8146b4a7a2593f16eb20893f0da71abc02d9e6a8c33a230ab6d51a7fe9",
+          "size": 564,
+          "originalSha256": "a64af0291565c66cb695c0971cf8d80e9270f2dfa49d21ca685e025fecaecfa6",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c01.wav",
@@ -42287,9 +42731,12 @@
         {
           "path": "配音/wav/c02.json",
           "source": "source/ppt-before-sunset/配音/wav/c02.json",
-          "sha256": "068ed5208b8ce9ef8a92ba24f06478a20971aae01ef2e8710cb37bd23a5b3fd7",
-          "size": 666,
-          "originalSha256": "068ed5208b8ce9ef8a92ba24f06478a20971aae01ef2e8710cb37bd23a5b3fd7"
+          "sha256": "532dc27359d3f056ce4b1044e337489daf34ba963d4db22a64b55f91bac1a699",
+          "size": 564,
+          "originalSha256": "068ed5208b8ce9ef8a92ba24f06478a20971aae01ef2e8710cb37bd23a5b3fd7",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c02.wav",
@@ -42301,9 +42748,12 @@
         {
           "path": "配音/wav/c03.json",
           "source": "source/ppt-before-sunset/配音/wav/c03.json",
-          "sha256": "33423a1a58698cd2eb79f0f0cdc2822f7b89d8acf27aa0eff1447eed95367a85",
-          "size": 665,
-          "originalSha256": "33423a1a58698cd2eb79f0f0cdc2822f7b89d8acf27aa0eff1447eed95367a85"
+          "sha256": "30bda7fb2839da5d68172edd8335ed71b8c88adbd3928052725628c11ffa6df1",
+          "size": 561,
+          "originalSha256": "33423a1a58698cd2eb79f0f0cdc2822f7b89d8acf27aa0eff1447eed95367a85",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c03.wav",
@@ -42315,9 +42765,12 @@
         {
           "path": "配音/wav/c04.json",
           "source": "source/ppt-before-sunset/配音/wav/c04.json",
-          "sha256": "c251a3ba963f7299b2f20c6ad33db9ad39cf103fbf481f858f3998780be1d2db",
-          "size": 664,
-          "originalSha256": "c251a3ba963f7299b2f20c6ad33db9ad39cf103fbf481f858f3998780be1d2db"
+          "sha256": "cc482427601a5d452ca1830b2e0d9cacb99bcc8881781b4d9f67f9d666a87b8b",
+          "size": 564,
+          "originalSha256": "c251a3ba963f7299b2f20c6ad33db9ad39cf103fbf481f858f3998780be1d2db",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c04.wav",
@@ -42329,9 +42782,12 @@
         {
           "path": "配音/wav/c05.json",
           "source": "source/ppt-before-sunset/配音/wav/c05.json",
-          "sha256": "69a29168d1f0f0c40cd603bab753ae5a151d7a718b82dd939d05e2216c6f94cc",
-          "size": 663,
-          "originalSha256": "69a29168d1f0f0c40cd603bab753ae5a151d7a718b82dd939d05e2216c6f94cc"
+          "sha256": "4b73966c909f41da4d837b34bfe3dbd82c9a2df5b6111ceb00f9858ce1fcc16f",
+          "size": 561,
+          "originalSha256": "69a29168d1f0f0c40cd603bab753ae5a151d7a718b82dd939d05e2216c6f94cc",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c05.wav",
@@ -42343,9 +42799,12 @@
         {
           "path": "配音/wav/c06.json",
           "source": "source/ppt-before-sunset/配音/wav/c06.json",
-          "sha256": "c1bf9bceafbf79bdff9122cf640cbc20e65a694ea6af1f0b52e2ffc57f790c67",
-          "size": 664,
-          "originalSha256": "c1bf9bceafbf79bdff9122cf640cbc20e65a694ea6af1f0b52e2ffc57f790c67"
+          "sha256": "c7666050040ccdbe82ccdf06297e05dae9a9a83e3b42be4aa82c5224a4f7a67e",
+          "size": 562,
+          "originalSha256": "c1bf9bceafbf79bdff9122cf640cbc20e65a694ea6af1f0b52e2ffc57f790c67",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c06.wav",
@@ -42357,9 +42816,12 @@
         {
           "path": "配音/wav/c07.json",
           "source": "source/ppt-before-sunset/配音/wav/c07.json",
-          "sha256": "ff4aab792de05073e12b61e5194ba75b4ce7225f52c0a73423f4a41334344d3b",
-          "size": 663,
-          "originalSha256": "ff4aab792de05073e12b61e5194ba75b4ce7225f52c0a73423f4a41334344d3b"
+          "sha256": "dd219c65bcd55cba3d998c29979c473538d8ac2b5fc02bbfe543557433890ae6",
+          "size": 561,
+          "originalSha256": "ff4aab792de05073e12b61e5194ba75b4ce7225f52c0a73423f4a41334344d3b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c07.wav",
@@ -42371,9 +42833,12 @@
         {
           "path": "配音/wav/c08.json",
           "source": "source/ppt-before-sunset/配音/wav/c08.json",
-          "sha256": "e4cf1dc591d34a5b450ee69c7f4fef196d759e22c81bf2b1792ac534caeb9ccd",
-          "size": 665,
-          "originalSha256": "e4cf1dc591d34a5b450ee69c7f4fef196d759e22c81bf2b1792ac534caeb9ccd"
+          "sha256": "d1d4d288d606308c33da737fd93b9e56c4349f4a491065b5c0f62bde5b2828b3",
+          "size": 563,
+          "originalSha256": "e4cf1dc591d34a5b450ee69c7f4fef196d759e22c81bf2b1792ac534caeb9ccd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c08.wav",
@@ -42385,9 +42850,12 @@
         {
           "path": "配音/wav/c09.json",
           "source": "source/ppt-before-sunset/配音/wav/c09.json",
-          "sha256": "ac905ad60f012917d9657ec7dce3b4ade041a72f73da730c1c959a0bdaf13c7b",
-          "size": 668,
-          "originalSha256": "ac905ad60f012917d9657ec7dce3b4ade041a72f73da730c1c959a0bdaf13c7b"
+          "sha256": "42e3c5f69fbc406f77e3103b87af3c12efb028d498ae2ecd148163a4dcb05371",
+          "size": 564,
+          "originalSha256": "ac905ad60f012917d9657ec7dce3b4ade041a72f73da730c1c959a0bdaf13c7b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c09.wav",
@@ -42399,9 +42867,12 @@
         {
           "path": "配音/wav/c10.json",
           "source": "source/ppt-before-sunset/配音/wav/c10.json",
-          "sha256": "d2be0d81477c9d5660176cefdcb5509be7b48194263ced521db55aca8ba435a6",
-          "size": 664,
-          "originalSha256": "d2be0d81477c9d5660176cefdcb5509be7b48194263ced521db55aca8ba435a6"
+          "sha256": "aed037177f385c3c8d985427729cef0510f0d3f922f202d1a09234e298c6515f",
+          "size": 564,
+          "originalSha256": "d2be0d81477c9d5660176cefdcb5509be7b48194263ced521db55aca8ba435a6",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c10.wav",
@@ -42413,9 +42884,12 @@
         {
           "path": "配音/wav/c11.json",
           "source": "source/ppt-before-sunset/配音/wav/c11.json",
-          "sha256": "f43570ab0d7b430c3e3f97fcfe36e79869c6012cd19adad3398221b911204d69",
-          "size": 661,
-          "originalSha256": "f43570ab0d7b430c3e3f97fcfe36e79869c6012cd19adad3398221b911204d69"
+          "sha256": "b4c1f7e90c5842c514cbca149b10c3e425ef7fd3ed7c1c702701a673fcbc4018",
+          "size": 561,
+          "originalSha256": "f43570ab0d7b430c3e3f97fcfe36e79869c6012cd19adad3398221b911204d69",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/c11.wav",
@@ -42434,9 +42908,12 @@
         {
           "path": "配音/wav/e01.json",
           "source": "source/ppt-before-sunset/配音/wav/e01.json",
-          "sha256": "15b5fadfad8530fb6e3f099fb49486628504f888a94dbac98df916b18e51d581",
-          "size": 667,
-          "originalSha256": "15b5fadfad8530fb6e3f099fb49486628504f888a94dbac98df916b18e51d581"
+          "sha256": "d20c16e19ff732694cd07c7e4b5f3d391f39557633446ed8a0a35c2908b4acf2",
+          "size": 565,
+          "originalSha256": "15b5fadfad8530fb6e3f099fb49486628504f888a94dbac98df916b18e51d581",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/e01.wav",
@@ -42448,9 +42925,12 @@
         {
           "path": "配音/wav/e02.json",
           "source": "source/ppt-before-sunset/配音/wav/e02.json",
-          "sha256": "92be46393732980219eaaf55ee542c861a68e7608ca71c83262ca21536ef5efe",
-          "size": 667,
-          "originalSha256": "92be46393732980219eaaf55ee542c861a68e7608ca71c83262ca21536ef5efe"
+          "sha256": "f7b7967fce77454915796af1b5273ac78480011c24e864b068869095f7849400",
+          "size": 565,
+          "originalSha256": "92be46393732980219eaaf55ee542c861a68e7608ca71c83262ca21536ef5efe",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/e02.wav",
@@ -42462,9 +42942,12 @@
         {
           "path": "配音/wav/e03.json",
           "source": "source/ppt-before-sunset/配音/wav/e03.json",
-          "sha256": "6f237e351dc42e4e6c5a15939ef246f3d61e8e7790ed2d928a6087fd8cabe577",
-          "size": 665,
-          "originalSha256": "6f237e351dc42e4e6c5a15939ef246f3d61e8e7790ed2d928a6087fd8cabe577"
+          "sha256": "e93890e87961ee589b471c6778bef63a7adf436a6774ef9053cc4fe01e9ceb20",
+          "size": 565,
+          "originalSha256": "6f237e351dc42e4e6c5a15939ef246f3d61e8e7790ed2d928a6087fd8cabe577",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/e03.wav",
@@ -42476,9 +42959,12 @@
         {
           "path": "配音/wav/g01.json",
           "source": "source/ppt-before-sunset/配音/wav/g01.json",
-          "sha256": "11b8e135598e2ec2978fd5eb002627af81a955268c51abb2da6a549c72f0f9c5",
-          "size": 665,
-          "originalSha256": "11b8e135598e2ec2978fd5eb002627af81a955268c51abb2da6a549c72f0f9c5"
+          "sha256": "26ac7e627926a371ec186ab3e547b96839e9ec62050987dfa24403d673a6d887",
+          "size": 565,
+          "originalSha256": "11b8e135598e2ec2978fd5eb002627af81a955268c51abb2da6a549c72f0f9c5",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/g01.wav",
@@ -42490,9 +42976,12 @@
         {
           "path": "配音/wav/k01.json",
           "source": "source/ppt-before-sunset/配音/wav/k01.json",
-          "sha256": "bafd8cbf7375d1e2f8ff07367c271a574f99156d24a0b9291e9295e2d1b92586",
-          "size": 664,
-          "originalSha256": "bafd8cbf7375d1e2f8ff07367c271a574f99156d24a0b9291e9295e2d1b92586"
+          "sha256": "366cde7f2af3c8e89354f34c8f974c13e072b6b3cc6b88bc7a488b9b9a3ea117",
+          "size": 562,
+          "originalSha256": "bafd8cbf7375d1e2f8ff07367c271a574f99156d24a0b9291e9295e2d1b92586",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/k01.wav",
@@ -42504,9 +42993,12 @@
         {
           "path": "配音/wav/n01.json",
           "source": "source/ppt-before-sunset/配音/wav/n01.json",
-          "sha256": "000fe69fcb45799f148d4b0b8756f046cf45477bf2f083fae2b111d691e99024",
-          "size": 665,
-          "originalSha256": "000fe69fcb45799f148d4b0b8756f046cf45477bf2f083fae2b111d691e99024"
+          "sha256": "7cb68350874e09fe6ee9be27b4b44acb0fdc8b9cd6249722d570807432b6bafa",
+          "size": 565,
+          "originalSha256": "000fe69fcb45799f148d4b0b8756f046cf45477bf2f083fae2b111d691e99024",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n01.wav",
@@ -42518,9 +43010,12 @@
         {
           "path": "配音/wav/n02.json",
           "source": "source/ppt-before-sunset/配音/wav/n02.json",
-          "sha256": "a89777ba61febe03565c540cbc2a8c7645e5d2b92d3a9ac3125d34c0d98a1ae5",
-          "size": 667,
-          "originalSha256": "a89777ba61febe03565c540cbc2a8c7645e5d2b92d3a9ac3125d34c0d98a1ae5"
+          "sha256": "38b5760bec1a4e3777fbb2a331768bb3b42d305a49c5c7fdaf0962fee65a27be",
+          "size": 565,
+          "originalSha256": "a89777ba61febe03565c540cbc2a8c7645e5d2b92d3a9ac3125d34c0d98a1ae5",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n02.wav",
@@ -42532,9 +43027,12 @@
         {
           "path": "配音/wav/n03.json",
           "source": "source/ppt-before-sunset/配音/wav/n03.json",
-          "sha256": "ce38dc3b22149ba2d389640bf4f765c09c291b95d43fd95effc2103d3bb5ce57",
-          "size": 665,
-          "originalSha256": "ce38dc3b22149ba2d389640bf4f765c09c291b95d43fd95effc2103d3bb5ce57"
+          "sha256": "260181a6e29605ae2540de59033feccb65c669df177709ff554b64060b7b3962",
+          "size": 565,
+          "originalSha256": "ce38dc3b22149ba2d389640bf4f765c09c291b95d43fd95effc2103d3bb5ce57",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n03.wav",
@@ -42546,9 +43044,12 @@
         {
           "path": "配音/wav/n04.json",
           "source": "source/ppt-before-sunset/配音/wav/n04.json",
-          "sha256": "7d740caff8cb356fdccfe0376b32b0980c07466124939ac3662918ebc25dc11b",
-          "size": 669,
-          "originalSha256": "7d740caff8cb356fdccfe0376b32b0980c07466124939ac3662918ebc25dc11b"
+          "sha256": "19141ddfd06f4d67ef4d7e28472f8f522132e795f48b1347860b85ac8846fd4a",
+          "size": 565,
+          "originalSha256": "7d740caff8cb356fdccfe0376b32b0980c07466124939ac3662918ebc25dc11b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n04.wav",
@@ -42560,9 +43061,12 @@
         {
           "path": "配音/wav/n05.json",
           "source": "source/ppt-before-sunset/配音/wav/n05.json",
-          "sha256": "2a01637e6f73c2aa8721e6c821b393b0fe467bfe79bd7267293df292cc24b410",
-          "size": 667,
-          "originalSha256": "2a01637e6f73c2aa8721e6c821b393b0fe467bfe79bd7267293df292cc24b410"
+          "sha256": "5380e7fc6efa06dd07425dbc696745f4b9450a22c22c36f42ff59ca5d836e79c",
+          "size": 565,
+          "originalSha256": "2a01637e6f73c2aa8721e6c821b393b0fe467bfe79bd7267293df292cc24b410",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n05.wav",
@@ -42574,9 +43078,12 @@
         {
           "path": "配音/wav/n06.json",
           "source": "source/ppt-before-sunset/配音/wav/n06.json",
-          "sha256": "ef05de0183deadca98571312d8cf4b624534041c7853738ea84030e431635def",
-          "size": 667,
-          "originalSha256": "ef05de0183deadca98571312d8cf4b624534041c7853738ea84030e431635def"
+          "sha256": "0e7220fb17c7c38dd2e3b942671b00f1a3e62cda47bcf363532cb942490d0729",
+          "size": 565,
+          "originalSha256": "ef05de0183deadca98571312d8cf4b624534041c7853738ea84030e431635def",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n06.wav",
@@ -42588,9 +43095,12 @@
         {
           "path": "配音/wav/n07.json",
           "source": "source/ppt-before-sunset/配音/wav/n07.json",
-          "sha256": "f56d23dda82a4f9c8993c8c22891e4bacf32d137e1ef7f946c0fec8fb9c4843c",
-          "size": 671,
-          "originalSha256": "f56d23dda82a4f9c8993c8c22891e4bacf32d137e1ef7f946c0fec8fb9c4843c"
+          "sha256": "664feaaf84713c039c4c077adcd0cac08967537e83935171a27906a536a3897f",
+          "size": 565,
+          "originalSha256": "f56d23dda82a4f9c8993c8c22891e4bacf32d137e1ef7f946c0fec8fb9c4843c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n07.wav",
@@ -42602,9 +43112,12 @@
         {
           "path": "配音/wav/n08.json",
           "source": "source/ppt-before-sunset/配音/wav/n08.json",
-          "sha256": "c5a0eeee8c100ae9cd3d3517205ddc6185704c6dbff9dde8e7990adecc256c56",
-          "size": 665,
-          "originalSha256": "c5a0eeee8c100ae9cd3d3517205ddc6185704c6dbff9dde8e7990adecc256c56"
+          "sha256": "42c79ccb02a3a5859768a640a7b524922d55c5ca80f65ffa45378f96087a244b",
+          "size": 565,
+          "originalSha256": "c5a0eeee8c100ae9cd3d3517205ddc6185704c6dbff9dde8e7990adecc256c56",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n08.wav",
@@ -42616,9 +43129,12 @@
         {
           "path": "配音/wav/n09.json",
           "source": "source/ppt-before-sunset/配音/wav/n09.json",
-          "sha256": "069ff50ce5cc6e52abcdb427da68e363210ffe9b92d82b9e349be688ca444281",
-          "size": 667,
-          "originalSha256": "069ff50ce5cc6e52abcdb427da68e363210ffe9b92d82b9e349be688ca444281"
+          "sha256": "81e0cd3e352b352ad0489642bc9e61210c10829130f26440d5c03a7019325a9a",
+          "size": 565,
+          "originalSha256": "069ff50ce5cc6e52abcdb427da68e363210ffe9b92d82b9e349be688ca444281",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n09.wav",
@@ -42630,9 +43146,12 @@
         {
           "path": "配音/wav/n10.json",
           "source": "source/ppt-before-sunset/配音/wav/n10.json",
-          "sha256": "0784f7fa79cc843102afd488197add6e4944482de1dec838dc474a79e4c28ad1",
-          "size": 667,
-          "originalSha256": "0784f7fa79cc843102afd488197add6e4944482de1dec838dc474a79e4c28ad1"
+          "sha256": "45f59672b5503df6ab7a07a4881a95787ad6d28e919536b3c915cfb3b977cfd4",
+          "size": 565,
+          "originalSha256": "0784f7fa79cc843102afd488197add6e4944482de1dec838dc474a79e4c28ad1",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n10.wav",
@@ -42644,9 +43163,12 @@
         {
           "path": "配音/wav/n11.json",
           "source": "source/ppt-before-sunset/配音/wav/n11.json",
-          "sha256": "2df997015fc6f8de4222b896629f483330f7f430c1db56a5a512c4ffec00c9e5",
-          "size": 667,
-          "originalSha256": "2df997015fc6f8de4222b896629f483330f7f430c1db56a5a512c4ffec00c9e5"
+          "sha256": "4c7883dee98801d2aa3526aa88de2d583d33848524349a0daf2a85052fec099f",
+          "size": 565,
+          "originalSha256": "2df997015fc6f8de4222b896629f483330f7f430c1db56a5a512c4ffec00c9e5",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n11.wav",
@@ -42658,9 +43180,12 @@
         {
           "path": "配音/wav/n12.json",
           "source": "source/ppt-before-sunset/配音/wav/n12.json",
-          "sha256": "f4a475c8a62ada2c553fb9d1838764142e0812290e777c427b54862a0967e51f",
-          "size": 665,
-          "originalSha256": "f4a475c8a62ada2c553fb9d1838764142e0812290e777c427b54862a0967e51f"
+          "sha256": "21852c0b369de649748b40e7e7d16451152df6418816ca6e764b4289cdf42bee",
+          "size": 565,
+          "originalSha256": "f4a475c8a62ada2c553fb9d1838764142e0812290e777c427b54862a0967e51f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n12.wav",
@@ -42672,9 +43197,12 @@
         {
           "path": "配音/wav/n13.json",
           "source": "source/ppt-before-sunset/配音/wav/n13.json",
-          "sha256": "91e0bf5a4b48d70913f4f9653f990997ac408abf74d8b7f0974ad38640fd4b3c",
-          "size": 664,
-          "originalSha256": "91e0bf5a4b48d70913f4f9653f990997ac408abf74d8b7f0974ad38640fd4b3c"
+          "sha256": "98c2658e2f634e6a2afc2020ae5885022e844ce580371860f4c52632ccedba18",
+          "size": 564,
+          "originalSha256": "91e0bf5a4b48d70913f4f9653f990997ac408abf74d8b7f0974ad38640fd4b3c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/n13.wav",
@@ -42686,9 +43214,12 @@
         {
           "path": "配音/wav/t01.json",
           "source": "source/ppt-before-sunset/配音/wav/t01.json",
-          "sha256": "0896f86ac118c6ac29838694214771eacb43ab5bf996d74738329e58a7baece3",
-          "size": 665,
-          "originalSha256": "0896f86ac118c6ac29838694214771eacb43ab5bf996d74738329e58a7baece3"
+          "sha256": "6b31df4663b3f0cd9e9f2532ea271dd79b7e5756e16221d4b595e13222753a72",
+          "size": 565,
+          "originalSha256": "0896f86ac118c6ac29838694214771eacb43ab5bf996d74738329e58a7baece3",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/t01.wav",
@@ -42700,9 +43231,12 @@
         {
           "path": "配音/wav/t02.json",
           "source": "source/ppt-before-sunset/配音/wav/t02.json",
-          "sha256": "234793cd02c7a9714b2d38af6b1c28073c37e52f5cfa1bdcacd13de666d4eb6d",
-          "size": 669,
-          "originalSha256": "234793cd02c7a9714b2d38af6b1c28073c37e52f5cfa1bdcacd13de666d4eb6d"
+          "sha256": "ea284844ef1a78198447abe2f5388146faaba1df627da3096ba89646a280b2d6",
+          "size": 565,
+          "originalSha256": "234793cd02c7a9714b2d38af6b1c28073c37e52f5cfa1bdcacd13de666d4eb6d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/t02.wav",
@@ -42714,9 +43248,12 @@
         {
           "path": "配音/wav/t03.json",
           "source": "source/ppt-before-sunset/配音/wav/t03.json",
-          "sha256": "7b57518e94e108f80cf538cbf9ed1f855b793e6fce2e7d31190afe37724ea108",
-          "size": 665,
-          "originalSha256": "7b57518e94e108f80cf538cbf9ed1f855b793e6fce2e7d31190afe37724ea108"
+          "sha256": "6729c668adaf41d1420da955bb0a0b79237865f5d382a5fac5c14a051158a623",
+          "size": 565,
+          "originalSha256": "7b57518e94e108f80cf538cbf9ed1f855b793e6fce2e7d31190afe37724ea108",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/t03.wav",
@@ -42728,9 +43265,12 @@
         {
           "path": "配音/wav/t04.json",
           "source": "source/ppt-before-sunset/配音/wav/t04.json",
-          "sha256": "03c482981d15098cf27b76d30dbaab0e8effb21198a9547dac94af5b54d6590b",
-          "size": 663,
-          "originalSha256": "03c482981d15098cf27b76d30dbaab0e8effb21198a9547dac94af5b54d6590b"
+          "sha256": "555fc14793bed165359e85d3dfacf695f588c07b7c32352e3fe0f21fad8b887b",
+          "size": 563,
+          "originalSha256": "03c482981d15098cf27b76d30dbaab0e8effb21198a9547dac94af5b54d6590b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/t04.wav",
@@ -42749,9 +43289,12 @@
         {
           "path": "配音/wav/y01.json",
           "source": "source/ppt-before-sunset/配音/wav/y01.json",
-          "sha256": "a11c03b6a2ca20bf0eb0ca93444ee9e4dab14a953e188f12bf765496803e12f5",
-          "size": 665,
-          "originalSha256": "a11c03b6a2ca20bf0eb0ca93444ee9e4dab14a953e188f12bf765496803e12f5"
+          "sha256": "2f748d90b1d5da89b7216ca57b4cb4f0e62baf63038d394f7297ec7c5452334a",
+          "size": 565,
+          "originalSha256": "a11c03b6a2ca20bf0eb0ca93444ee9e4dab14a953e188f12bf765496803e12f5",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/y01.wav",
@@ -42763,9 +43306,12 @@
         {
           "path": "配音/wav/y02.json",
           "source": "source/ppt-before-sunset/配音/wav/y02.json",
-          "sha256": "d0881823b1639670a1f01480db753a5ec0e472078fff5b824757eba62f88c4d4",
-          "size": 666,
-          "originalSha256": "d0881823b1639670a1f01480db753a5ec0e472078fff5b824757eba62f88c4d4"
+          "sha256": "922cc2c23bd09a04ec38c4277e1fc41e36ca7a8c3bb581ac96349999960ead74",
+          "size": 564,
+          "originalSha256": "d0881823b1639670a1f01480db753a5ec0e472078fff5b824757eba62f88c4d4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/y02.wav",
@@ -42777,9 +43323,12 @@
         {
           "path": "配音/wav/y03.json",
           "source": "source/ppt-before-sunset/配音/wav/y03.json",
-          "sha256": "d8737eb9a71618b21cce1885dea35cbb069bd10b61258e8b58a191bb2289e116",
-          "size": 662,
-          "originalSha256": "d8737eb9a71618b21cce1885dea35cbb069bd10b61258e8b58a191bb2289e116"
+          "sha256": "c6277d811f96034f8e982290a65b8b2ae7c6931b0717eee3d48e4695bab367d4",
+          "size": 562,
+          "originalSha256": "d8737eb9a71618b21cce1885dea35cbb069bd10b61258e8b58a191bb2289e116",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/y03.wav",
@@ -42791,9 +43340,12 @@
         {
           "path": "配音/wav/y04.json",
           "source": "source/ppt-before-sunset/配音/wav/y04.json",
-          "sha256": "da2f9da2166084b293d71e67f313597e85f4143ac3e4aa1fbd74a4d6e4f02fe4",
-          "size": 665,
-          "originalSha256": "da2f9da2166084b293d71e67f313597e85f4143ac3e4aa1fbd74a4d6e4f02fe4"
+          "sha256": "7a37011306c1fafec6e6783cf0167333828121fba12a393a97c258f54e8886b4",
+          "size": 565,
+          "originalSha256": "da2f9da2166084b293d71e67f313597e85f4143ac3e4aa1fbd74a4d6e4f02fe4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/y04.wav",
@@ -42805,9 +43357,12 @@
         {
           "path": "配音/wav/y05.json",
           "source": "source/ppt-before-sunset/配音/wav/y05.json",
-          "sha256": "fc20f906fba06d6d9f244bf0194963dbfe5a981592617f6b15696b7a94bb7e6e",
-          "size": 662,
-          "originalSha256": "fc20f906fba06d6d9f244bf0194963dbfe5a981592617f6b15696b7a94bb7e6e"
+          "sha256": "4db5a7fffcc8e138441c5cb86c735ff6620914743504486118cebec9dcb20946",
+          "size": 562,
+          "originalSha256": "fc20f906fba06d6d9f244bf0194963dbfe5a981592617f6b15696b7a94bb7e6e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/y05.wav",
@@ -42819,9 +43374,12 @@
         {
           "path": "配音/wav/y06.json",
           "source": "source/ppt-before-sunset/配音/wav/y06.json",
-          "sha256": "ce1c307725ec3b0e5e4482436b1d1ade1383e1dfb0e6b86108d0bd964b7d74ff",
-          "size": 664,
-          "originalSha256": "ce1c307725ec3b0e5e4482436b1d1ade1383e1dfb0e6b86108d0bd964b7d74ff"
+          "sha256": "a89b93abf545061aff7baecf3d950f987b41efc0bc44d786789d75ca39e1d014",
+          "size": 564,
+          "originalSha256": "ce1c307725ec3b0e5e4482436b1d1ade1383e1dfb0e6b86108d0bd964b7d74ff",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/y06.wav",
@@ -42833,9 +43391,12 @@
         {
           "path": "配音/wav/y07.json",
           "source": "source/ppt-before-sunset/配音/wav/y07.json",
-          "sha256": "89d1a59d7c4c82ecfa5fc8eff0d3e99c9319beb2963702f5d562ba949ab90de4",
-          "size": 666,
-          "originalSha256": "89d1a59d7c4c82ecfa5fc8eff0d3e99c9319beb2963702f5d562ba949ab90de4"
+          "sha256": "2806977a8f5732e188065442da45d68a93b8de800cb787e53a791df14ab37291",
+          "size": 564,
+          "originalSha256": "89d1a59d7c4c82ecfa5fc8eff0d3e99c9319beb2963702f5d562ba949ab90de4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/y07.wav",
@@ -42847,9 +43408,12 @@
         {
           "path": "配音/wav/y08.json",
           "source": "source/ppt-before-sunset/配音/wav/y08.json",
-          "sha256": "312aa23c12755f4fd7734873e00b37ace68d2a1c222e5ef1e90eb50049b545f5",
-          "size": 664,
-          "originalSha256": "312aa23c12755f4fd7734873e00b37ace68d2a1c222e5ef1e90eb50049b545f5"
+          "sha256": "9fedf1e33d5285b21f03568f723bf99aa3c0f1a0d4e5be3cf430697d15e8fdde",
+          "size": 564,
+          "originalSha256": "312aa23c12755f4fd7734873e00b37ace68d2a1c222e5ef1e90eb50049b545f5",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "配音/wav/y08.wav",
@@ -43090,9 +43654,12 @@
         {
           "path": "film/vo/a1.json",
           "source": "source/ppt-painting-treasure/film/vo/a1.json",
-          "sha256": "9155803d6bd17a5404a149654fdd4d46d9c47bc2f247893b4383e23b4296bc0c",
-          "size": 666,
-          "originalSha256": "9155803d6bd17a5404a149654fdd4d46d9c47bc2f247893b4383e23b4296bc0c"
+          "sha256": "e77def38eabb3a38bae24e865b58d6fae2391eb824a1b60a1376abdf966d7116",
+          "size": 564,
+          "originalSha256": "9155803d6bd17a5404a149654fdd4d46d9c47bc2f247893b4383e23b4296bc0c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/a1.wav",
@@ -43104,9 +43671,12 @@
         {
           "path": "film/vo/a2.json",
           "source": "source/ppt-painting-treasure/film/vo/a2.json",
-          "sha256": "624d1265df938dbf15ee8f6f2f9ddd990aa1db3aa1c3a15a8aae10b21a33278e",
-          "size": 668,
-          "originalSha256": "624d1265df938dbf15ee8f6f2f9ddd990aa1db3aa1c3a15a8aae10b21a33278e"
+          "sha256": "9663429b8f07da20a6a7d69366d86d9d172c6fa738a20de1ef7eefc88037480e",
+          "size": 564,
+          "originalSha256": "624d1265df938dbf15ee8f6f2f9ddd990aa1db3aa1c3a15a8aae10b21a33278e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/a2.wav",
@@ -43118,9 +43688,12 @@
         {
           "path": "film/vo/a3.json",
           "source": "source/ppt-painting-treasure/film/vo/a3.json",
-          "sha256": "6121538b599910ba00e57309040fc60af4ebad2bc851cecdcf3902cc26a82667",
-          "size": 664,
-          "originalSha256": "6121538b599910ba00e57309040fc60af4ebad2bc851cecdcf3902cc26a82667"
+          "sha256": "05f69094ce9620b81718d87d9fa10bbbfcba1951d0d702515d9d9c2bf5fed0ad",
+          "size": 564,
+          "originalSha256": "6121538b599910ba00e57309040fc60af4ebad2bc851cecdcf3902cc26a82667",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/a3.wav",
@@ -43132,9 +43705,12 @@
         {
           "path": "film/vo/a4.json",
           "source": "source/ppt-painting-treasure/film/vo/a4.json",
-          "sha256": "87b30becb6d9f25da8944f27ed177bdefd86b6e1a2c523bad7da5ac03dd9c2e0",
-          "size": 668,
-          "originalSha256": "87b30becb6d9f25da8944f27ed177bdefd86b6e1a2c523bad7da5ac03dd9c2e0"
+          "sha256": "6d20a3c2e36d143ea4ccf13c8e8bedebb98a106cc0e623f3c432562ad2f0d592",
+          "size": 564,
+          "originalSha256": "87b30becb6d9f25da8944f27ed177bdefd86b6e1a2c523bad7da5ac03dd9c2e0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/a4.wav",
@@ -43146,9 +43722,12 @@
         {
           "path": "film/vo/a5.json",
           "source": "source/ppt-painting-treasure/film/vo/a5.json",
-          "sha256": "42ebe57a6be5e7cee669a2a6eb95e6381605d6285e7d3bf1085a80194b323593",
-          "size": 664,
-          "originalSha256": "42ebe57a6be5e7cee669a2a6eb95e6381605d6285e7d3bf1085a80194b323593"
+          "sha256": "a7b1bf94f51c95471debef179c75dd338d7b06a547ac388e4a10e6717c2d2912",
+          "size": 564,
+          "originalSha256": "42ebe57a6be5e7cee669a2a6eb95e6381605d6285e7d3bf1085a80194b323593",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/a5.wav",
@@ -43160,9 +43739,12 @@
         {
           "path": "film/vo/b1.json",
           "source": "source/ppt-painting-treasure/film/vo/b1.json",
-          "sha256": "619f3ffdc45e3ebff359cb8ee0431e55e43493173030645cadb224f2973f3f62",
-          "size": 664,
-          "originalSha256": "619f3ffdc45e3ebff359cb8ee0431e55e43493173030645cadb224f2973f3f62"
+          "sha256": "b58b6199f5754d398c3c47d5355c5192f6e11acecc2aa611a22e2c95f6dd413b",
+          "size": 564,
+          "originalSha256": "619f3ffdc45e3ebff359cb8ee0431e55e43493173030645cadb224f2973f3f62",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/b1.wav",
@@ -43174,9 +43756,12 @@
         {
           "path": "film/vo/b2.json",
           "source": "source/ppt-painting-treasure/film/vo/b2.json",
-          "sha256": "8d478675ad40572d09b3a57c5f8cfda3d1f0074465299eaee8f1c6a245d2dedb",
-          "size": 664,
-          "originalSha256": "8d478675ad40572d09b3a57c5f8cfda3d1f0074465299eaee8f1c6a245d2dedb"
+          "sha256": "2298e3d68c11fae8b8ff193189d30b93c93aa9d35ad28e8c9da51dc3c44f88ac",
+          "size": 564,
+          "originalSha256": "8d478675ad40572d09b3a57c5f8cfda3d1f0074465299eaee8f1c6a245d2dedb",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/b2.wav",
@@ -43188,9 +43773,12 @@
         {
           "path": "film/vo/b3.json",
           "source": "source/ppt-painting-treasure/film/vo/b3.json",
-          "sha256": "8d070a4451743a18fe146ee155def137bfbfdc6423743eb54eb6cec597829b71",
-          "size": 666,
-          "originalSha256": "8d070a4451743a18fe146ee155def137bfbfdc6423743eb54eb6cec597829b71"
+          "sha256": "c73a91b180a5c9b2fee4850e729b888edadc7f339ea651d6df9b050d2ddd0c07",
+          "size": 564,
+          "originalSha256": "8d070a4451743a18fe146ee155def137bfbfdc6423743eb54eb6cec597829b71",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/b3.wav",
@@ -43202,9 +43790,12 @@
         {
           "path": "film/vo/b4.json",
           "source": "source/ppt-painting-treasure/film/vo/b4.json",
-          "sha256": "5d9a94784b7dee8e0b1e13c36d209085330145016221485639eac6cc86cebcf8",
-          "size": 664,
-          "originalSha256": "5d9a94784b7dee8e0b1e13c36d209085330145016221485639eac6cc86cebcf8"
+          "sha256": "6ce7ecf619cd9d0ff922f402733168e0299920bea5bee34e8252f927cb5f9f7c",
+          "size": 564,
+          "originalSha256": "5d9a94784b7dee8e0b1e13c36d209085330145016221485639eac6cc86cebcf8",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/b4.wav",
@@ -43216,9 +43807,12 @@
         {
           "path": "film/vo/b5.json",
           "source": "source/ppt-painting-treasure/film/vo/b5.json",
-          "sha256": "977aa23eb628a251e852a964d8c84456e269b98028fa2242cd847d8efdd51d2b",
-          "size": 670,
-          "originalSha256": "977aa23eb628a251e852a964d8c84456e269b98028fa2242cd847d8efdd51d2b"
+          "sha256": "93dd1e6a40106e1875395acb9467b24a446b0cdba2fb37e478819daa6a3b0250",
+          "size": 564,
+          "originalSha256": "977aa23eb628a251e852a964d8c84456e269b98028fa2242cd847d8efdd51d2b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/b5.wav",
@@ -43230,9 +43824,12 @@
         {
           "path": "film/vo/c1.json",
           "source": "source/ppt-painting-treasure/film/vo/c1.json",
-          "sha256": "efe03e9d8c4603a4edb8141884d2319d959c9c227d87e62fc1b696d42b8b2623",
-          "size": 664,
-          "originalSha256": "efe03e9d8c4603a4edb8141884d2319d959c9c227d87e62fc1b696d42b8b2623"
+          "sha256": "0738728a9f0c888b0787e7c19c715b726af82a949fcaa9010cfd7bd0179fe152",
+          "size": 564,
+          "originalSha256": "efe03e9d8c4603a4edb8141884d2319d959c9c227d87e62fc1b696d42b8b2623",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/c1.wav",
@@ -43244,9 +43841,12 @@
         {
           "path": "film/vo/c2.json",
           "source": "source/ppt-painting-treasure/film/vo/c2.json",
-          "sha256": "b66eab62daaf931973bfbac2ac7098046cf1702f5e332f7ce76e7678039c3fa4",
-          "size": 663,
-          "originalSha256": "b66eab62daaf931973bfbac2ac7098046cf1702f5e332f7ce76e7678039c3fa4"
+          "sha256": "c05428ef4b45d4fbbf87898ed74141950b0fc435c0119136ce18fbf90c9f27d5",
+          "size": 563,
+          "originalSha256": "b66eab62daaf931973bfbac2ac7098046cf1702f5e332f7ce76e7678039c3fa4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/c2.wav",
@@ -43258,9 +43858,12 @@
         {
           "path": "film/vo/c3.json",
           "source": "source/ppt-painting-treasure/film/vo/c3.json",
-          "sha256": "d08bae2a88baaeb922d2bcc944fa0df2c0ef7993df11691e57abc561390942fc",
-          "size": 666,
-          "originalSha256": "d08bae2a88baaeb922d2bcc944fa0df2c0ef7993df11691e57abc561390942fc"
+          "sha256": "2c593765c2c4f59e08845798d8e560aaf48747b01a2ac317c8967d59875e02dd",
+          "size": 564,
+          "originalSha256": "d08bae2a88baaeb922d2bcc944fa0df2c0ef7993df11691e57abc561390942fc",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/c3.wav",
@@ -43272,9 +43875,12 @@
         {
           "path": "film/vo/c4.json",
           "source": "source/ppt-painting-treasure/film/vo/c4.json",
-          "sha256": "8aa663dfe46d145123592c84d511fd9773892b38dfc966834e0ad10fa9616031",
-          "size": 664,
-          "originalSha256": "8aa663dfe46d145123592c84d511fd9773892b38dfc966834e0ad10fa9616031"
+          "sha256": "adfa1fadcca82f9528dba42e049afdf16a4505f0b87a8a3069423fca58201b86",
+          "size": 564,
+          "originalSha256": "8aa663dfe46d145123592c84d511fd9773892b38dfc966834e0ad10fa9616031",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/c4.wav",
@@ -43286,9 +43892,12 @@
         {
           "path": "film/vo/c5.json",
           "source": "source/ppt-painting-treasure/film/vo/c5.json",
-          "sha256": "c97390b8b8c39565e9ed704c7e2c72a906925d7fc9f1a80775634106c7b29bb0",
-          "size": 664,
-          "originalSha256": "c97390b8b8c39565e9ed704c7e2c72a906925d7fc9f1a80775634106c7b29bb0"
+          "sha256": "25103dc127109b6e38b0a92056b1d059cddb96e05f5389682848b2e08cf499b1",
+          "size": 564,
+          "originalSha256": "c97390b8b8c39565e9ed704c7e2c72a906925d7fc9f1a80775634106c7b29bb0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/c5.wav",
@@ -43300,9 +43909,12 @@
         {
           "path": "film/vo/d1.json",
           "source": "source/ppt-painting-treasure/film/vo/d1.json",
-          "sha256": "947a2e1e7faecd51a2acd149f6ea376248152c55cc41edaf9d909cc18ea051c2",
-          "size": 666,
-          "originalSha256": "947a2e1e7faecd51a2acd149f6ea376248152c55cc41edaf9d909cc18ea051c2"
+          "sha256": "33e6a2612fdb68847b0b60fe8ef87b3347b50655b231c1109e205afbf1b050a8",
+          "size": 564,
+          "originalSha256": "947a2e1e7faecd51a2acd149f6ea376248152c55cc41edaf9d909cc18ea051c2",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/d1.wav",
@@ -43314,9 +43926,12 @@
         {
           "path": "film/vo/d2.json",
           "source": "source/ppt-painting-treasure/film/vo/d2.json",
-          "sha256": "76daeed938fddc19041a83af240ae2a7c8746c50f5fffeeec43081d652b2f763",
-          "size": 664,
-          "originalSha256": "76daeed938fddc19041a83af240ae2a7c8746c50f5fffeeec43081d652b2f763"
+          "sha256": "62e23016b0400ba7fc27e72ec9d5de79ab4bb3218b50ea6eaa58cabb014189e7",
+          "size": 564,
+          "originalSha256": "76daeed938fddc19041a83af240ae2a7c8746c50f5fffeeec43081d652b2f763",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/d2.wav",
@@ -43328,9 +43943,12 @@
         {
           "path": "film/vo/d3.json",
           "source": "source/ppt-painting-treasure/film/vo/d3.json",
-          "sha256": "1b12e827d3600bfe9ba07e6d41db3210f06340234a8da60a5054d342f5f1e102",
-          "size": 663,
-          "originalSha256": "1b12e827d3600bfe9ba07e6d41db3210f06340234a8da60a5054d342f5f1e102"
+          "sha256": "5cfea5e71bf7befca9c0d0711d06ffd3b76f37ed260026293c8ac8c7d3c4d24c",
+          "size": 563,
+          "originalSha256": "1b12e827d3600bfe9ba07e6d41db3210f06340234a8da60a5054d342f5f1e102",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/d3.wav",
@@ -43342,9 +43960,12 @@
         {
           "path": "film/vo/d4.json",
           "source": "source/ppt-painting-treasure/film/vo/d4.json",
-          "sha256": "09af320e00b65e188b6fd061567e193e910e5e6bc2bf4ab30c45d4eb3b1847b0",
-          "size": 662,
-          "originalSha256": "09af320e00b65e188b6fd061567e193e910e5e6bc2bf4ab30c45d4eb3b1847b0"
+          "sha256": "b8ea4dad868904fcd81cb4b5e1506c8fc8c6b200f7e842de521177475318625f",
+          "size": 560,
+          "originalSha256": "09af320e00b65e188b6fd061567e193e910e5e6bc2bf4ab30c45d4eb3b1847b0",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/d4.wav",
@@ -43356,9 +43977,12 @@
         {
           "path": "film/vo/d5.json",
           "source": "source/ppt-painting-treasure/film/vo/d5.json",
-          "sha256": "11f87c2bcc4e8007a5ffdec46377c110804b0036695a783504a48baea739e08c",
-          "size": 663,
-          "originalSha256": "11f87c2bcc4e8007a5ffdec46377c110804b0036695a783504a48baea739e08c"
+          "sha256": "e5458c9a5eca64bec1764f9153aaf99210fc3cf9e9d5548bf2695b0217d611d0",
+          "size": 563,
+          "originalSha256": "11f87c2bcc4e8007a5ffdec46377c110804b0036695a783504a48baea739e08c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/d5.wav",
@@ -43370,9 +43994,12 @@
         {
           "path": "film/vo/d6.json",
           "source": "source/ppt-painting-treasure/film/vo/d6.json",
-          "sha256": "3bcb7607d6fccbcf8f5fa8ed229ed3058b350a3d7bf86051293a664283830748",
-          "size": 665,
-          "originalSha256": "3bcb7607d6fccbcf8f5fa8ed229ed3058b350a3d7bf86051293a664283830748"
+          "sha256": "82851bc0c8eb6a763afdec320b51b66ba7941e585571b5372b8772a2858f39e1",
+          "size": 563,
+          "originalSha256": "3bcb7607d6fccbcf8f5fa8ed229ed3058b350a3d7bf86051293a664283830748",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/d6.wav",
@@ -43384,9 +44011,12 @@
         {
           "path": "film/vo/d7.json",
           "source": "source/ppt-painting-treasure/film/vo/d7.json",
-          "sha256": "6c486e9d08ae8509b79eb488597a3380a483749bf5ff5473c80df059c637c925",
-          "size": 663,
-          "originalSha256": "6c486e9d08ae8509b79eb488597a3380a483749bf5ff5473c80df059c637c925"
+          "sha256": "622175791b541b3147c0b423c61f75fe31d09e27b5f2c424bdfcbea7c12e0df6",
+          "size": 561,
+          "originalSha256": "6c486e9d08ae8509b79eb488597a3380a483749bf5ff5473c80df059c637c925",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/d7.wav",
@@ -43405,9 +44035,12 @@
         {
           "path": "film/vo/e1.json",
           "source": "source/ppt-painting-treasure/film/vo/e1.json",
-          "sha256": "d89feb441af719b524682ce436941235248eb674a9c281fe284168978b186cab",
-          "size": 664,
-          "originalSha256": "d89feb441af719b524682ce436941235248eb674a9c281fe284168978b186cab"
+          "sha256": "2d43b7f1c46095d0fe64510b56c724de89e000166185cee7938fe594efc238c5",
+          "size": 564,
+          "originalSha256": "d89feb441af719b524682ce436941235248eb674a9c281fe284168978b186cab",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/e1.wav",
@@ -43419,9 +44052,12 @@
         {
           "path": "film/vo/e2.json",
           "source": "source/ppt-painting-treasure/film/vo/e2.json",
-          "sha256": "5413845859738a19ba097cb8c28ebedbdd6137be8157c9d3056a625de5f6b6b6",
-          "size": 664,
-          "originalSha256": "5413845859738a19ba097cb8c28ebedbdd6137be8157c9d3056a625de5f6b6b6"
+          "sha256": "88e955c218cb03bcf36d9eebbd002dd2efc1d40e146223442a0b0963fec87f25",
+          "size": 564,
+          "originalSha256": "5413845859738a19ba097cb8c28ebedbdd6137be8157c9d3056a625de5f6b6b6",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/e2.wav",
@@ -43433,9 +44069,12 @@
         {
           "path": "film/vo/e3.json",
           "source": "source/ppt-painting-treasure/film/vo/e3.json",
-          "sha256": "512be183145db2e7f07b01cf4cf96a2716cae5ef079fa86605028dfda3b1288e",
-          "size": 664,
-          "originalSha256": "512be183145db2e7f07b01cf4cf96a2716cae5ef079fa86605028dfda3b1288e"
+          "sha256": "10be85862eb798f9a5a6b42fddbd84f4f3f16e79fc2c9aa95e77930a86cef400",
+          "size": 564,
+          "originalSha256": "512be183145db2e7f07b01cf4cf96a2716cae5ef079fa86605028dfda3b1288e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/e3.wav",
@@ -43447,9 +44086,12 @@
         {
           "path": "film/vo/e4.json",
           "source": "source/ppt-painting-treasure/film/vo/e4.json",
-          "sha256": "7cd01c05889b1a6b279f6aa4e3c1a269b1a392bc421d020b571f8686b84ceca8",
-          "size": 664,
-          "originalSha256": "7cd01c05889b1a6b279f6aa4e3c1a269b1a392bc421d020b571f8686b84ceca8"
+          "sha256": "6b8c67b0f3c8e5d0a45609ae0677995c4aa99a15837a29004dea7a5d43b527f8",
+          "size": 564,
+          "originalSha256": "7cd01c05889b1a6b279f6aa4e3c1a269b1a392bc421d020b571f8686b84ceca8",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/e4.wav",
@@ -43461,9 +44103,12 @@
         {
           "path": "film/vo/e5.json",
           "source": "source/ppt-painting-treasure/film/vo/e5.json",
-          "sha256": "4d697cae2ce5dc061c97799027f610d879cc8fe54dbe5eb0c0501786fdc4f3c3",
-          "size": 666,
-          "originalSha256": "4d697cae2ce5dc061c97799027f610d879cc8fe54dbe5eb0c0501786fdc4f3c3"
+          "sha256": "c553ad3e371a9c90c4ce938a3b9ac89acbb4ee94bdba1df306106cb091791bd3",
+          "size": 564,
+          "originalSha256": "4d697cae2ce5dc061c97799027f610d879cc8fe54dbe5eb0c0501786fdc4f3c3",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/e5.wav",
@@ -43475,9 +44120,12 @@
         {
           "path": "film/vo/e6.json",
           "source": "source/ppt-painting-treasure/film/vo/e6.json",
-          "sha256": "c3c92d65b040ba3598e35ea470f6828ccb0f2979c21dffae4f4149f17aa5330a",
-          "size": 665,
-          "originalSha256": "c3c92d65b040ba3598e35ea470f6828ccb0f2979c21dffae4f4149f17aa5330a"
+          "sha256": "67fade5018a3ef214652c022f284d456fb9852afa33c18eda140b0963ba393cf",
+          "size": 563,
+          "originalSha256": "c3c92d65b040ba3598e35ea470f6828ccb0f2979c21dffae4f4149f17aa5330a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/e6.wav",
@@ -43489,9 +44137,12 @@
         {
           "path": "film/vo/f1.json",
           "source": "source/ppt-painting-treasure/film/vo/f1.json",
-          "sha256": "5c1f2227dbe33d136a3d0b20b54e0dc3a45142b396289c8c259feb433a83126e",
-          "size": 666,
-          "originalSha256": "5c1f2227dbe33d136a3d0b20b54e0dc3a45142b396289c8c259feb433a83126e"
+          "sha256": "98941a8c1cd9438e6c858dd0efddb76e5e5c250aed0627cdd25a3103f989ab24",
+          "size": 564,
+          "originalSha256": "5c1f2227dbe33d136a3d0b20b54e0dc3a45142b396289c8c259feb433a83126e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f1.wav",
@@ -43503,9 +44154,12 @@
         {
           "path": "film/vo/f2.json",
           "source": "source/ppt-painting-treasure/film/vo/f2.json",
-          "sha256": "5124433ea13c6a2808587afb773db9d768dea4fec007f7dcf17ff76bf154738c",
-          "size": 665,
-          "originalSha256": "5124433ea13c6a2808587afb773db9d768dea4fec007f7dcf17ff76bf154738c"
+          "sha256": "b3a278d72c8417016d447872c0c199b4402f6a146836161868ba2d73db0dcf25",
+          "size": 563,
+          "originalSha256": "5124433ea13c6a2808587afb773db9d768dea4fec007f7dcf17ff76bf154738c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f2.wav",
@@ -43517,9 +44171,12 @@
         {
           "path": "film/vo/f3.json",
           "source": "source/ppt-painting-treasure/film/vo/f3.json",
-          "sha256": "208443d87f2270f1d7c51daaa3e2f8ef2cbad13d901ae2665047fff0226d34b7",
-          "size": 663,
-          "originalSha256": "208443d87f2270f1d7c51daaa3e2f8ef2cbad13d901ae2665047fff0226d34b7"
+          "sha256": "a73128e02d5d8cee3124479d3c03a9e003c07e9eac9c69896a182b4636610ee1",
+          "size": 563,
+          "originalSha256": "208443d87f2270f1d7c51daaa3e2f8ef2cbad13d901ae2665047fff0226d34b7",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f3.wav",
@@ -43531,9 +44188,12 @@
         {
           "path": "film/vo/f4.json",
           "source": "source/ppt-painting-treasure/film/vo/f4.json",
-          "sha256": "f75c739eaa79f390d13262709d1f28420c755e10e6a2d71b38243b301d30d742",
-          "size": 666,
-          "originalSha256": "f75c739eaa79f390d13262709d1f28420c755e10e6a2d71b38243b301d30d742"
+          "sha256": "b7b558e2fc755c96e8bb413f4853de3ec754936bdd7426a2be9716109ad81dcb",
+          "size": 564,
+          "originalSha256": "f75c739eaa79f390d13262709d1f28420c755e10e6a2d71b38243b301d30d742",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f4.wav",
@@ -43545,9 +44205,12 @@
         {
           "path": "film/vo/f5.json",
           "source": "source/ppt-painting-treasure/film/vo/f5.json",
-          "sha256": "c157b701b98b2b17c060c8a181e870a8691b4f7837b4c37907d1892e29c66ddd",
-          "size": 664,
-          "originalSha256": "c157b701b98b2b17c060c8a181e870a8691b4f7837b4c37907d1892e29c66ddd"
+          "sha256": "46aecf0dc16146d09d3a2723aaafbcb7683679d3a19918dbacf30be8ae7dec45",
+          "size": 564,
+          "originalSha256": "c157b701b98b2b17c060c8a181e870a8691b4f7837b4c37907d1892e29c66ddd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f5.wav",
@@ -43559,9 +44222,12 @@
         {
           "path": "film/vo/f6.json",
           "source": "source/ppt-painting-treasure/film/vo/f6.json",
-          "sha256": "0332931028c7f13e8b45ed33e3a47f4601f74e35c9f20fa161610506ffe998cf",
-          "size": 664,
-          "originalSha256": "0332931028c7f13e8b45ed33e3a47f4601f74e35c9f20fa161610506ffe998cf"
+          "sha256": "d18100239a787ddf8a74ce28dacd2aa4b4347d49ce2308fbd97b3109c8caac9a",
+          "size": 564,
+          "originalSha256": "0332931028c7f13e8b45ed33e3a47f4601f74e35c9f20fa161610506ffe998cf",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f6.wav",
@@ -43573,9 +44239,12 @@
         {
           "path": "film/vo/f7.json",
           "source": "source/ppt-painting-treasure/film/vo/f7.json",
-          "sha256": "09909ed5bad07d4f1435371d5d8c8ccaae2c0525da0353c29be9b7e63d5e3c9b",
-          "size": 662,
-          "originalSha256": "09909ed5bad07d4f1435371d5d8c8ccaae2c0525da0353c29be9b7e63d5e3c9b"
+          "sha256": "3c3131f5da5b902a01c0af218c2e88f126820995ebd99642b570131c30588f9e",
+          "size": 562,
+          "originalSha256": "09909ed5bad07d4f1435371d5d8c8ccaae2c0525da0353c29be9b7e63d5e3c9b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f7.wav",
@@ -43587,9 +44256,12 @@
         {
           "path": "film/vo/f8.json",
           "source": "source/ppt-painting-treasure/film/vo/f8.json",
-          "sha256": "ce833ba0f46079e254721da032df8aee91fbc19df3735adf1ee200a3ae3f1e8d",
-          "size": 662,
-          "originalSha256": "ce833ba0f46079e254721da032df8aee91fbc19df3735adf1ee200a3ae3f1e8d"
+          "sha256": "fb2446a442cadba551037c2aaefb65f4cf22a2a830b62bd978194e592c475ecf",
+          "size": 560,
+          "originalSha256": "ce833ba0f46079e254721da032df8aee91fbc19df3735adf1ee200a3ae3f1e8d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f8.wav",
@@ -43601,9 +44273,12 @@
         {
           "path": "film/vo/f9.json",
           "source": "source/ppt-painting-treasure/film/vo/f9.json",
-          "sha256": "960659760e6ac68ce499dabccc09a6fac8afd73101bd967e241346852fc3b6ef",
-          "size": 664,
-          "originalSha256": "960659760e6ac68ce499dabccc09a6fac8afd73101bd967e241346852fc3b6ef"
+          "sha256": "3dbdb7b2a90743861f85a16051507fee85ba7c83b948f49247c43ef4561abbcc",
+          "size": 564,
+          "originalSha256": "960659760e6ac68ce499dabccc09a6fac8afd73101bd967e241346852fc3b6ef",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/f9.wav",
@@ -43615,9 +44290,12 @@
         {
           "path": "film/vo/g1.json",
           "source": "source/ppt-painting-treasure/film/vo/g1.json",
-          "sha256": "68a4867542ea3cd4b767bdcbb74f7c7823d5bcfb7cfa31ef6975f3113e6f5a87",
-          "size": 661,
-          "originalSha256": "68a4867542ea3cd4b767bdcbb74f7c7823d5bcfb7cfa31ef6975f3113e6f5a87"
+          "sha256": "679ac900c8596dbad6c9b411e618099cf96cf4ba97abc2030050b3dc4d44c32f",
+          "size": 561,
+          "originalSha256": "68a4867542ea3cd4b767bdcbb74f7c7823d5bcfb7cfa31ef6975f3113e6f5a87",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/g1.wav",
@@ -43629,9 +44307,12 @@
         {
           "path": "film/vo/g2.json",
           "source": "source/ppt-painting-treasure/film/vo/g2.json",
-          "sha256": "a2fb34dfc0cdc39e902921a113129e49e99a0fbca5374fa244fc3dbeba852889",
-          "size": 665,
-          "originalSha256": "a2fb34dfc0cdc39e902921a113129e49e99a0fbca5374fa244fc3dbeba852889"
+          "sha256": "01e6b8e12bc4342cddf568b69964695513a17954d9e7db80b2f2786578b03764",
+          "size": 561,
+          "originalSha256": "a2fb34dfc0cdc39e902921a113129e49e99a0fbca5374fa244fc3dbeba852889",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/g2.wav",
@@ -43643,9 +44324,12 @@
         {
           "path": "film/vo/g3.json",
           "source": "source/ppt-painting-treasure/film/vo/g3.json",
-          "sha256": "b39542e13f501cb744045f23fe42fca7672c832f31ad146a194d103379a65f26",
-          "size": 663,
-          "originalSha256": "b39542e13f501cb744045f23fe42fca7672c832f31ad146a194d103379a65f26"
+          "sha256": "d84afc49f70d6ce6703bd254df80636e04be3f0d8880698f20806522629e392a",
+          "size": 563,
+          "originalSha256": "b39542e13f501cb744045f23fe42fca7672c832f31ad146a194d103379a65f26",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/g3.wav",
@@ -43657,9 +44341,12 @@
         {
           "path": "film/vo/g4.json",
           "source": "source/ppt-painting-treasure/film/vo/g4.json",
-          "sha256": "76ee037e2ff445adf94ff2630e033817ec6c5c10fd880722d78bdcc82c65f5d3",
-          "size": 664,
-          "originalSha256": "76ee037e2ff445adf94ff2630e033817ec6c5c10fd880722d78bdcc82c65f5d3"
+          "sha256": "fe84af180a398102efe13fe6f2d89143042ed7fea2787a69ef123d416437159d",
+          "size": 564,
+          "originalSha256": "76ee037e2ff445adf94ff2630e033817ec6c5c10fd880722d78bdcc82c65f5d3",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/g4.wav",
@@ -43671,9 +44358,12 @@
         {
           "path": "film/vo/g5.json",
           "source": "source/ppt-painting-treasure/film/vo/g5.json",
-          "sha256": "38fc1da9f346b2e51cca86be91915cef965d161e026ed6a6d792215221813d47",
-          "size": 668,
-          "originalSha256": "38fc1da9f346b2e51cca86be91915cef965d161e026ed6a6d792215221813d47"
+          "sha256": "d895585822db0c933c5d084da270db6343306dba3bbd199ab9dfe8dc8c85ae59",
+          "size": 564,
+          "originalSha256": "38fc1da9f346b2e51cca86be91915cef965d161e026ed6a6d792215221813d47",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/g5.wav",
@@ -43685,9 +44375,12 @@
         {
           "path": "film/vo/g6.json",
           "source": "source/ppt-painting-treasure/film/vo/g6.json",
-          "sha256": "f10de82961ec17df388567806dbbad560ab2630cf21d1d962ea104e742163548",
-          "size": 664,
-          "originalSha256": "f10de82961ec17df388567806dbbad560ab2630cf21d1d962ea104e742163548"
+          "sha256": "127171980648ceff03de2cef7fa2e5f57b0b1e8271a1bdce2f34059499c71e6c",
+          "size": 564,
+          "originalSha256": "f10de82961ec17df388567806dbbad560ab2630cf21d1d962ea104e742163548",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/g6.wav",
@@ -43699,9 +44392,12 @@
         {
           "path": "film/vo/h1.json",
           "source": "source/ppt-painting-treasure/film/vo/h1.json",
-          "sha256": "30662934ba9389c45ee4199718eab158192abdf7a22ab8cf629b8f2f1aa16d46",
-          "size": 666,
-          "originalSha256": "30662934ba9389c45ee4199718eab158192abdf7a22ab8cf629b8f2f1aa16d46"
+          "sha256": "22e776e1d852c636822b73c2b660e7d422e09af9969edd53346973c6ac25f9ff",
+          "size": 564,
+          "originalSha256": "30662934ba9389c45ee4199718eab158192abdf7a22ab8cf629b8f2f1aa16d46",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h1.wav",
@@ -43713,9 +44409,12 @@
         {
           "path": "film/vo/h2.json",
           "source": "source/ppt-painting-treasure/film/vo/h2.json",
-          "sha256": "4da816a230688085cd867e23fd4bc848276ec3b1a7610635990e0f03b36a48ff",
-          "size": 663,
-          "originalSha256": "4da816a230688085cd867e23fd4bc848276ec3b1a7610635990e0f03b36a48ff"
+          "sha256": "59f5cbacccc0f9095db11313c11f4c2853d7b169660729191eeade2b184bc322",
+          "size": 563,
+          "originalSha256": "4da816a230688085cd867e23fd4bc848276ec3b1a7610635990e0f03b36a48ff",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h2.wav",
@@ -43727,9 +44426,12 @@
         {
           "path": "film/vo/h3.json",
           "source": "source/ppt-painting-treasure/film/vo/h3.json",
-          "sha256": "e08a02a90a0a21ad7033bf33a404d90bd56a3ef9a44fc7101233f6534dfe8dbd",
-          "size": 668,
-          "originalSha256": "e08a02a90a0a21ad7033bf33a404d90bd56a3ef9a44fc7101233f6534dfe8dbd"
+          "sha256": "329a782f489b4c42bdb8dcd7046d1fbc1496c9a4ffda2ecb2637905b62f5c3ee",
+          "size": 564,
+          "originalSha256": "e08a02a90a0a21ad7033bf33a404d90bd56a3ef9a44fc7101233f6534dfe8dbd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h3.wav",
@@ -43741,9 +44443,12 @@
         {
           "path": "film/vo/h4.json",
           "source": "source/ppt-painting-treasure/film/vo/h4.json",
-          "sha256": "9d54e4a58d03963b144ceaa814d2ee32cd7734537d27bb32c1877b3df1bd7efd",
-          "size": 664,
-          "originalSha256": "9d54e4a58d03963b144ceaa814d2ee32cd7734537d27bb32c1877b3df1bd7efd"
+          "sha256": "3cac44e3593be758f9b42d246b1f2fcbfb32b555710fc9fa66522a984307aeed",
+          "size": 560,
+          "originalSha256": "9d54e4a58d03963b144ceaa814d2ee32cd7734537d27bb32c1877b3df1bd7efd",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h4.wav",
@@ -43755,9 +44460,12 @@
         {
           "path": "film/vo/h5.json",
           "source": "source/ppt-painting-treasure/film/vo/h5.json",
-          "sha256": "fe1c57ba637ec050ec85e6558353a9dfbb73e6ab20613ab1d8908d0880739c0a",
-          "size": 666,
-          "originalSha256": "fe1c57ba637ec050ec85e6558353a9dfbb73e6ab20613ab1d8908d0880739c0a"
+          "sha256": "c07369e586e6ffffa5f94977deab2b24d4937c79f38a5b7c18a8750cf02d3c86",
+          "size": 564,
+          "originalSha256": "fe1c57ba637ec050ec85e6558353a9dfbb73e6ab20613ab1d8908d0880739c0a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h5.wav",
@@ -43769,9 +44477,12 @@
         {
           "path": "film/vo/h6.json",
           "source": "source/ppt-painting-treasure/film/vo/h6.json",
-          "sha256": "9e1e3fb408f6b20c49e7ba7479692cc6502725276a3e98bea262ec195f1f1cca",
-          "size": 663,
-          "originalSha256": "9e1e3fb408f6b20c49e7ba7479692cc6502725276a3e98bea262ec195f1f1cca"
+          "sha256": "3d63465e462b6060e67eae61833b20e2968180c15bf5d94330e4ba922c8607dc",
+          "size": 563,
+          "originalSha256": "9e1e3fb408f6b20c49e7ba7479692cc6502725276a3e98bea262ec195f1f1cca",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h6.wav",
@@ -43783,9 +44494,12 @@
         {
           "path": "film/vo/h7.json",
           "source": "source/ppt-painting-treasure/film/vo/h7.json",
-          "sha256": "e11c7d3b510f3bc5beb2fcff214c4a665dc27ce232ee818a97d20b74fc119c46",
-          "size": 668,
-          "originalSha256": "e11c7d3b510f3bc5beb2fcff214c4a665dc27ce232ee818a97d20b74fc119c46"
+          "sha256": "32bdb217af0096715fa4b73df5c27e30a995eefb8f207f8ecc1f72cd673ea4b5",
+          "size": 564,
+          "originalSha256": "e11c7d3b510f3bc5beb2fcff214c4a665dc27ce232ee818a97d20b74fc119c46",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h7.wav",
@@ -43797,9 +44511,12 @@
         {
           "path": "film/vo/h8.json",
           "source": "source/ppt-painting-treasure/film/vo/h8.json",
-          "sha256": "5864c511b0c681b415211670a80d26902847c5f415add7d77591a0022fb4b87d",
-          "size": 664,
-          "originalSha256": "5864c511b0c681b415211670a80d26902847c5f415add7d77591a0022fb4b87d"
+          "sha256": "0a2fadee4e3619993ebb0493ce662c7ada01693a48e12793636d764170652999",
+          "size": 564,
+          "originalSha256": "5864c511b0c681b415211670a80d26902847c5f415add7d77591a0022fb4b87d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h8.wav",
@@ -43811,9 +44528,12 @@
         {
           "path": "film/vo/h9.json",
           "source": "source/ppt-painting-treasure/film/vo/h9.json",
-          "sha256": "b468c2e989c2013a2c4f4f124f2fe598f58e8bc9dfcb7b8d8d71bca87b33df5f",
-          "size": 665,
-          "originalSha256": "b468c2e989c2013a2c4f4f124f2fe598f58e8bc9dfcb7b8d8d71bca87b33df5f"
+          "sha256": "34c3fc8d87eb660fc2494d0066b67a5bfab33fba333dbdc1e0ec11af1881849a",
+          "size": 563,
+          "originalSha256": "b468c2e989c2013a2c4f4f124f2fe598f58e8bc9dfcb7b8d8d71bca87b33df5f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/h9.wav",
@@ -43825,9 +44545,12 @@
         {
           "path": "film/vo/i1.json",
           "source": "source/ppt-painting-treasure/film/vo/i1.json",
-          "sha256": "2ceb6622f5708799a3eb7b5d1d174c981ddffbe3a56ba41fef5ae6fab7b96c6b",
-          "size": 664,
-          "originalSha256": "2ceb6622f5708799a3eb7b5d1d174c981ddffbe3a56ba41fef5ae6fab7b96c6b"
+          "sha256": "6bb156f879487db94af85876db1dc47545209c773b8f3e333a38a17e77c17273",
+          "size": 564,
+          "originalSha256": "2ceb6622f5708799a3eb7b5d1d174c981ddffbe3a56ba41fef5ae6fab7b96c6b",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/i1.wav",
@@ -43839,9 +44562,12 @@
         {
           "path": "film/vo/i2.json",
           "source": "source/ppt-painting-treasure/film/vo/i2.json",
-          "sha256": "6b7f9e300ee9b28324f3e57a13eb37d3ead0ea3da630f179327d939e0b70690e",
-          "size": 664,
-          "originalSha256": "6b7f9e300ee9b28324f3e57a13eb37d3ead0ea3da630f179327d939e0b70690e"
+          "sha256": "db4b41627a127913659a053bbf299094e09aa00a61785cea1743beec7d7098d4",
+          "size": 564,
+          "originalSha256": "6b7f9e300ee9b28324f3e57a13eb37d3ead0ea3da630f179327d939e0b70690e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/i2.wav",
@@ -43853,9 +44579,12 @@
         {
           "path": "film/vo/i3.json",
           "source": "source/ppt-painting-treasure/film/vo/i3.json",
-          "sha256": "a542e6630360bd0fb52a7c144b5be6e8083d9852e8ffd35a44aefb528e27520a",
-          "size": 668,
-          "originalSha256": "a542e6630360bd0fb52a7c144b5be6e8083d9852e8ffd35a44aefb528e27520a"
+          "sha256": "09bc4e2ce2ccabd919b59326f7fb2f41e4f412391973934c414b6ef607881c17",
+          "size": 564,
+          "originalSha256": "a542e6630360bd0fb52a7c144b5be6e8083d9852e8ffd35a44aefb528e27520a",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/i3.wav",
@@ -43867,9 +44596,12 @@
         {
           "path": "film/vo/i4.json",
           "source": "source/ppt-painting-treasure/film/vo/i4.json",
-          "sha256": "7b614d4a65197cf56af184384f08e839c7d4c7a2bda152870d01594fcdd3f128",
-          "size": 666,
-          "originalSha256": "7b614d4a65197cf56af184384f08e839c7d4c7a2bda152870d01594fcdd3f128"
+          "sha256": "a8a1048da838f5b68a3d0e0ffbe342a268faaf33fc63eea8b26087f6711d548d",
+          "size": 564,
+          "originalSha256": "7b614d4a65197cf56af184384f08e839c7d4c7a2bda152870d01594fcdd3f128",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/i4.wav",
@@ -43881,9 +44613,12 @@
         {
           "path": "film/vo/i5.json",
           "source": "source/ppt-painting-treasure/film/vo/i5.json",
-          "sha256": "0cb81fa6915c505d1fd2f8b6a22d46e513c09b7b3c69b6ebfaa0d654b364f486",
-          "size": 666,
-          "originalSha256": "0cb81fa6915c505d1fd2f8b6a22d46e513c09b7b3c69b6ebfaa0d654b364f486"
+          "sha256": "e3cc912c59e93497536706af68c3113a7e304f6dec133266fdd95c17be0ccff5",
+          "size": 564,
+          "originalSha256": "0cb81fa6915c505d1fd2f8b6a22d46e513c09b7b3c69b6ebfaa0d654b364f486",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/i5.wav",
@@ -43895,9 +44630,12 @@
         {
           "path": "film/vo/i6.json",
           "source": "source/ppt-painting-treasure/film/vo/i6.json",
-          "sha256": "6784057ee1d4566524bbb0862f77dca4783e2a5735a8984572f85b895ef91ebf",
-          "size": 668,
-          "originalSha256": "6784057ee1d4566524bbb0862f77dca4783e2a5735a8984572f85b895ef91ebf"
+          "sha256": "8742f4dc7c5b046aa28b7b6449e1b2b988d8931a657a416c3a41b46643854e09",
+          "size": 564,
+          "originalSha256": "6784057ee1d4566524bbb0862f77dca4783e2a5735a8984572f85b895ef91ebf",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/i6.wav",
@@ -43909,9 +44647,12 @@
         {
           "path": "film/vo/i7.json",
           "source": "source/ppt-painting-treasure/film/vo/i7.json",
-          "sha256": "7c644425c84ecd337e9403da3a2d6b3b02489fbd88fb2a46267724b00469a3c4",
-          "size": 668,
-          "originalSha256": "7c644425c84ecd337e9403da3a2d6b3b02489fbd88fb2a46267724b00469a3c4"
+          "sha256": "4cdd3d05ea08f84b2800aaa8a9eb9e9357e457619edbcc7d4b98af71580b096e",
+          "size": 564,
+          "originalSha256": "7c644425c84ecd337e9403da3a2d6b3b02489fbd88fb2a46267724b00469a3c4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/i7.wav",
@@ -43923,9 +44664,12 @@
         {
           "path": "film/vo/i8.json",
           "source": "source/ppt-painting-treasure/film/vo/i8.json",
-          "sha256": "e2ab9a98119d4612419643c20546c150843352f0379615aa659ee12f510410e4",
-          "size": 664,
-          "originalSha256": "e2ab9a98119d4612419643c20546c150843352f0379615aa659ee12f510410e4"
+          "sha256": "b872c02d2eddbb4b84cc1d1b935be94bb2cc4d3f4a667b041d6902bd6281f588",
+          "size": 560,
+          "originalSha256": "e2ab9a98119d4612419643c20546c150843352f0379615aa659ee12f510410e4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/i8.wav",
@@ -43937,9 +44681,12 @@
         {
           "path": "film/vo/j1.json",
           "source": "source/ppt-painting-treasure/film/vo/j1.json",
-          "sha256": "21e7eaac529768300183144c4018f17dd935559dc1c58f6205fcd737a5b7d934",
-          "size": 666,
-          "originalSha256": "21e7eaac529768300183144c4018f17dd935559dc1c58f6205fcd737a5b7d934"
+          "sha256": "d0526bb9af16aa9e28172fdf73fdce0adf80e7570c697e8eeb2715d1d646efbc",
+          "size": 562,
+          "originalSha256": "21e7eaac529768300183144c4018f17dd935559dc1c58f6205fcd737a5b7d934",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/j1.wav",
@@ -43951,9 +44698,12 @@
         {
           "path": "film/vo/j2.json",
           "source": "source/ppt-painting-treasure/film/vo/j2.json",
-          "sha256": "bd15a3cc3564317d6f5d84620bc13c1eb9fec044990ad2bf2b85b4fe446dea74",
-          "size": 663,
-          "originalSha256": "bd15a3cc3564317d6f5d84620bc13c1eb9fec044990ad2bf2b85b4fe446dea74"
+          "sha256": "c3ec40ebfa57254ee131667b6703d96022fe3e857f6275b3c09c5da26d33057f",
+          "size": 563,
+          "originalSha256": "bd15a3cc3564317d6f5d84620bc13c1eb9fec044990ad2bf2b85b4fe446dea74",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/j2.wav",
@@ -43965,9 +44715,12 @@
         {
           "path": "film/vo/j3.json",
           "source": "source/ppt-painting-treasure/film/vo/j3.json",
-          "sha256": "58a886f1ead5c5f2b1f2eb7560d956f1dfb9a0ea827cfc62991fa3c7363bc286",
-          "size": 666,
-          "originalSha256": "58a886f1ead5c5f2b1f2eb7560d956f1dfb9a0ea827cfc62991fa3c7363bc286"
+          "sha256": "a83a1811896de387794f7416dc1db3c917ea15e1823373d9e1cf3db702488e87",
+          "size": 564,
+          "originalSha256": "58a886f1ead5c5f2b1f2eb7560d956f1dfb9a0ea827cfc62991fa3c7363bc286",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/j3.wav",
@@ -43979,9 +44732,12 @@
         {
           "path": "film/vo/j4.json",
           "source": "source/ppt-painting-treasure/film/vo/j4.json",
-          "sha256": "0bd0d169afaeeb1d8ca77d12d003a54f1fa9556624257142602ba682b705d1cc",
-          "size": 665,
-          "originalSha256": "0bd0d169afaeeb1d8ca77d12d003a54f1fa9556624257142602ba682b705d1cc"
+          "sha256": "c8334660ae5b3837472543fb1eeb57956628238b19a406c70eebe65008bc2ff7",
+          "size": 563,
+          "originalSha256": "0bd0d169afaeeb1d8ca77d12d003a54f1fa9556624257142602ba682b705d1cc",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/j4.wav",
@@ -43993,9 +44749,12 @@
         {
           "path": "film/vo/j5.json",
           "source": "source/ppt-painting-treasure/film/vo/j5.json",
-          "sha256": "28b917baae5ae8bb11cc1f409541c51f57c71db9e9cafbc7223221e7ee0708f7",
-          "size": 664,
-          "originalSha256": "28b917baae5ae8bb11cc1f409541c51f57c71db9e9cafbc7223221e7ee0708f7"
+          "sha256": "a1b2b4e232453f10bbd2d11f83ef0d5ab1a9511971da8774fd58876574960c82",
+          "size": 564,
+          "originalSha256": "28b917baae5ae8bb11cc1f409541c51f57c71db9e9cafbc7223221e7ee0708f7",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/j5.wav",
@@ -44007,9 +44766,12 @@
         {
           "path": "film/vo/k1.json",
           "source": "source/ppt-painting-treasure/film/vo/k1.json",
-          "sha256": "df13f11c8abb4d4ee04e1fab394025e0457dcdcb49f402ccbd243adf4102f72d",
-          "size": 664,
-          "originalSha256": "df13f11c8abb4d4ee04e1fab394025e0457dcdcb49f402ccbd243adf4102f72d"
+          "sha256": "9c0f226faea46a06de1701e647c2a6d6449258eaef36de2f56a4175230092a6e",
+          "size": 564,
+          "originalSha256": "df13f11c8abb4d4ee04e1fab394025e0457dcdcb49f402ccbd243adf4102f72d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/k1.wav",
@@ -44021,9 +44783,12 @@
         {
           "path": "film/vo/k2.json",
           "source": "source/ppt-painting-treasure/film/vo/k2.json",
-          "sha256": "d59033b38557dc184040b481b4bedb84b2ea214668b8c62fea84169c43cfad9d",
-          "size": 666,
-          "originalSha256": "d59033b38557dc184040b481b4bedb84b2ea214668b8c62fea84169c43cfad9d"
+          "sha256": "041ed6b54df92c1c874cae2b38c624c6962ebbdbec82d93f4ffe47a57b842cf7",
+          "size": 564,
+          "originalSha256": "d59033b38557dc184040b481b4bedb84b2ea214668b8c62fea84169c43cfad9d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/k2.wav",
@@ -50376,9 +51141,12 @@
         {
           "path": "film/vo/c01.json",
           "source": "source/ppt-new-year-street/film/vo/c01.json",
-          "sha256": "f29a5ab7f81621e396eaa1cdba8fd36ef37c38e314d5949985f9baf06bb1175f",
-          "size": 671,
-          "originalSha256": "f29a5ab7f81621e396eaa1cdba8fd36ef37c38e314d5949985f9baf06bb1175f"
+          "sha256": "4d39825a6d64d7f1823b793239644e318a82a7ea5d44a2917235e725e72dd1b7",
+          "size": 565,
+          "originalSha256": "f29a5ab7f81621e396eaa1cdba8fd36ef37c38e314d5949985f9baf06bb1175f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/c01.wav",
@@ -50390,9 +51158,12 @@
         {
           "path": "film/vo/c02.json",
           "source": "source/ppt-new-year-street/film/vo/c02.json",
-          "sha256": "c342f78e9c496b34657ac90a84cc8db7305d44fc5ba19d49d57f1d6076c17950",
-          "size": 665,
-          "originalSha256": "c342f78e9c496b34657ac90a84cc8db7305d44fc5ba19d49d57f1d6076c17950"
+          "sha256": "7a2b9c52d0082f274f52e133044c470107b9fbbe14f8569296bbdb869f474973",
+          "size": 565,
+          "originalSha256": "c342f78e9c496b34657ac90a84cc8db7305d44fc5ba19d49d57f1d6076c17950",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/c02.wav",
@@ -50404,9 +51175,12 @@
         {
           "path": "film/vo/c03.json",
           "source": "source/ppt-new-year-street/film/vo/c03.json",
-          "sha256": "d4237b8244a02acfaa2455fa936f899ad8be7f13d5a75365ea267be3c34b183e",
-          "size": 665,
-          "originalSha256": "d4237b8244a02acfaa2455fa936f899ad8be7f13d5a75365ea267be3c34b183e"
+          "sha256": "89d223869e7c6a56faeb98e6ecd69d4ce34d4c80ca6bcbe29d3a09b9f421a0ee",
+          "size": 563,
+          "originalSha256": "d4237b8244a02acfaa2455fa936f899ad8be7f13d5a75365ea267be3c34b183e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/c03.wav",
@@ -50418,9 +51192,12 @@
         {
           "path": "film/vo/d01.json",
           "source": "source/ppt-new-year-street/film/vo/d01.json",
-          "sha256": "85a8b217d110fe3f5eb953288cef91d28e6c747263580403ca96a4dd4fe43e52",
-          "size": 665,
-          "originalSha256": "85a8b217d110fe3f5eb953288cef91d28e6c747263580403ca96a4dd4fe43e52"
+          "sha256": "fed5c346c78a7f619eb5e0ba096b270c9ae2db6d1a2723cab8776075bac5ebe0",
+          "size": 565,
+          "originalSha256": "85a8b217d110fe3f5eb953288cef91d28e6c747263580403ca96a4dd4fe43e52",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/d01.wav",
@@ -50439,9 +51216,12 @@
         {
           "path": "film/vo/l01.json",
           "source": "source/ppt-new-year-street/film/vo/l01.json",
-          "sha256": "451e82f4f885d86e6df01cfef75ad4b65827c149a52635edff03f000a6730f02",
-          "size": 665,
-          "originalSha256": "451e82f4f885d86e6df01cfef75ad4b65827c149a52635edff03f000a6730f02"
+          "sha256": "89c256c6bc00f362d6d5481540e6cac814f2cdc0b4b06df6d17d00e1269e303a",
+          "size": 565,
+          "originalSha256": "451e82f4f885d86e6df01cfef75ad4b65827c149a52635edff03f000a6730f02",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/l01.wav",
@@ -50453,9 +51233,12 @@
         {
           "path": "film/vo/l02.json",
           "source": "source/ppt-new-year-street/film/vo/l02.json",
-          "sha256": "568ff3d7619c00953f849ee9d40e3eb554824835b97c52bc724cadda17f10f85",
-          "size": 667,
-          "originalSha256": "568ff3d7619c00953f849ee9d40e3eb554824835b97c52bc724cadda17f10f85"
+          "sha256": "c9dda1443c8eec10f17a229a3842524af915ba73cfbb8db59713cd7ccb30b0b6",
+          "size": 565,
+          "originalSha256": "568ff3d7619c00953f849ee9d40e3eb554824835b97c52bc724cadda17f10f85",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/l02.wav",
@@ -50467,9 +51250,12 @@
         {
           "path": "film/vo/l03.json",
           "source": "source/ppt-new-year-street/film/vo/l03.json",
-          "sha256": "3509962d8f2f32b3efcc820fffbc2a23bbe1655796394863532cb940fed5afd9",
-          "size": 667,
-          "originalSha256": "3509962d8f2f32b3efcc820fffbc2a23bbe1655796394863532cb940fed5afd9"
+          "sha256": "9b418a41974215b9dd5496b2bba81219739672d371d45546275d53e2371aaf09",
+          "size": 565,
+          "originalSha256": "3509962d8f2f32b3efcc820fffbc2a23bbe1655796394863532cb940fed5afd9",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/l03.wav",
@@ -50481,9 +51267,12 @@
         {
           "path": "film/vo/m01.json",
           "source": "source/ppt-new-year-street/film/vo/m01.json",
-          "sha256": "d99bb97f9b586f42702cb87c6d128ac516316b8160391e27d2e55f7154b850a2",
-          "size": 667,
-          "originalSha256": "d99bb97f9b586f42702cb87c6d128ac516316b8160391e27d2e55f7154b850a2"
+          "sha256": "9cf7e94ff874443460f8b504e8b032c11e26a02b29c609ab5057e97e5cd58857",
+          "size": 565,
+          "originalSha256": "d99bb97f9b586f42702cb87c6d128ac516316b8160391e27d2e55f7154b850a2",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/m01.wav",
@@ -50495,9 +51284,12 @@
         {
           "path": "film/vo/m02.json",
           "source": "source/ppt-new-year-street/film/vo/m02.json",
-          "sha256": "d37f0cb19c10404790a8b68844453656bd2b1c7e87a0e830d5663548d14095b5",
-          "size": 665,
-          "originalSha256": "d37f0cb19c10404790a8b68844453656bd2b1c7e87a0e830d5663548d14095b5"
+          "sha256": "508f48acf89b1d76759c6c4468d005f1dd88de7d9c29fbf9d2f97ff52d47eee6",
+          "size": 565,
+          "originalSha256": "d37f0cb19c10404790a8b68844453656bd2b1c7e87a0e830d5663548d14095b5",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/m02.wav",
@@ -50509,9 +51301,12 @@
         {
           "path": "film/vo/m03.json",
           "source": "source/ppt-new-year-street/film/vo/m03.json",
-          "sha256": "bb1f93ed5cd10be4a296802df764bc0de4e4cb5a297ebbfdf0fc78856d9a3854",
-          "size": 664,
-          "originalSha256": "bb1f93ed5cd10be4a296802df764bc0de4e4cb5a297ebbfdf0fc78856d9a3854"
+          "sha256": "56a3db3c52f8ba1c83d890ddac42ae825a63b27627c0e47892ee4ebf38393ded",
+          "size": 564,
+          "originalSha256": "bb1f93ed5cd10be4a296802df764bc0de4e4cb5a297ebbfdf0fc78856d9a3854",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/m03.wav",
@@ -50523,9 +51318,12 @@
         {
           "path": "film/vo/n01.json",
           "source": "source/ppt-new-year-street/film/vo/n01.json",
-          "sha256": "9d32c5997715c9ec76c8e908e6a8deee76dad726e24d67936c48f06ed8dd014d",
-          "size": 665,
-          "originalSha256": "9d32c5997715c9ec76c8e908e6a8deee76dad726e24d67936c48f06ed8dd014d"
+          "sha256": "3321cd503cc3cd6966f31bd765665ce884851145501594176c6a48d32387e8b2",
+          "size": 565,
+          "originalSha256": "9d32c5997715c9ec76c8e908e6a8deee76dad726e24d67936c48f06ed8dd014d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/n01.wav",
@@ -50537,9 +51335,12 @@
         {
           "path": "film/vo/n02.json",
           "source": "source/ppt-new-year-street/film/vo/n02.json",
-          "sha256": "b6313def7c6a4e92202d4862ba8e2dc63c17033dc8828331a95d91176c3606a8",
-          "size": 667,
-          "originalSha256": "b6313def7c6a4e92202d4862ba8e2dc63c17033dc8828331a95d91176c3606a8"
+          "sha256": "9e7ab68bc341238689d0393f17d8c8afe203dc52e6f6b8ef758c06b1b924ac1e",
+          "size": 565,
+          "originalSha256": "b6313def7c6a4e92202d4862ba8e2dc63c17033dc8828331a95d91176c3606a8",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/n02.wav",
@@ -50551,9 +51352,12 @@
         {
           "path": "film/vo/n03.json",
           "source": "source/ppt-new-year-street/film/vo/n03.json",
-          "sha256": "ae28038c2e9cf53aecd474cc4bfc55ed081b4d764900a37533fcdd53b91d8446",
-          "size": 667,
-          "originalSha256": "ae28038c2e9cf53aecd474cc4bfc55ed081b4d764900a37533fcdd53b91d8446"
+          "sha256": "df42fa08f654899ecab92b65b89f9699ce9dc43c0cfb2dae84bc7c220266ab9f",
+          "size": 565,
+          "originalSha256": "ae28038c2e9cf53aecd474cc4bfc55ed081b4d764900a37533fcdd53b91d8446",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/n03.wav",
@@ -50565,9 +51369,12 @@
         {
           "path": "film/vo/n04.json",
           "source": "source/ppt-new-year-street/film/vo/n04.json",
-          "sha256": "a456e7945e530c8128b6aad3949d5b7065632eaf408eb49713170f30bdd2d684",
-          "size": 665,
-          "originalSha256": "a456e7945e530c8128b6aad3949d5b7065632eaf408eb49713170f30bdd2d684"
+          "sha256": "f968980a47409eb690909d9793e6658ce6bf1633b7a1a63a2c568b42a29c8008",
+          "size": 565,
+          "originalSha256": "a456e7945e530c8128b6aad3949d5b7065632eaf408eb49713170f30bdd2d684",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/n04.wav",
@@ -50579,9 +51386,12 @@
         {
           "path": "film/vo/n05.json",
           "source": "source/ppt-new-year-street/film/vo/n05.json",
-          "sha256": "809dd38f7b30db930a2cc55abc89832307978fe37d5ad00990c2642e734e650e",
-          "size": 669,
-          "originalSha256": "809dd38f7b30db930a2cc55abc89832307978fe37d5ad00990c2642e734e650e"
+          "sha256": "59435cac7996e1adbfe8c831ca0eba335bc3335582867d2d22ebd75d9d0d4cef",
+          "size": 565,
+          "originalSha256": "809dd38f7b30db930a2cc55abc89832307978fe37d5ad00990c2642e734e650e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/n05.wav",
@@ -50593,9 +51403,12 @@
         {
           "path": "film/vo/n06.json",
           "source": "source/ppt-new-year-street/film/vo/n06.json",
-          "sha256": "7a0edcb6100d1100133f2d2778d0db19279d6b54c66bcf84c602dd995678c29c",
-          "size": 667,
-          "originalSha256": "7a0edcb6100d1100133f2d2778d0db19279d6b54c66bcf84c602dd995678c29c"
+          "sha256": "8787d8f13ddb88ff8ac1758c668de0524da7a84ff69b20d0e03e947b9dc27115",
+          "size": 565,
+          "originalSha256": "7a0edcb6100d1100133f2d2778d0db19279d6b54c66bcf84c602dd995678c29c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/n06.wav",
@@ -50607,9 +51420,12 @@
         {
           "path": "film/vo/n07.json",
           "source": "source/ppt-new-year-street/film/vo/n07.json",
-          "sha256": "653d5ea412470c62f44abe908be9f5a050481571a6279f52214f1ce3a9a725a4",
-          "size": 665,
-          "originalSha256": "653d5ea412470c62f44abe908be9f5a050481571a6279f52214f1ce3a9a725a4"
+          "sha256": "02f949f810e0b1f5f560b22e3dd4d95d69efe1f485125a6ea1fc372ed122b703",
+          "size": 565,
+          "originalSha256": "653d5ea412470c62f44abe908be9f5a050481571a6279f52214f1ce3a9a725a4",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/n07.wav",
@@ -50621,9 +51437,12 @@
         {
           "path": "film/vo/n08.json",
           "source": "source/ppt-new-year-street/film/vo/n08.json",
-          "sha256": "b6f051b983c62755f126f199fef17ccddba719fca7a48d05be4306b0dd0e112e",
-          "size": 667,
-          "originalSha256": "b6f051b983c62755f126f199fef17ccddba719fca7a48d05be4306b0dd0e112e"
+          "sha256": "a16ea2bb1ee08ff460112dc48fc54ac7ae0188022b325d13907e1000da8a4041",
+          "size": 565,
+          "originalSha256": "b6f051b983c62755f126f199fef17ccddba719fca7a48d05be4306b0dd0e112e",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/n08.wav",
@@ -50635,9 +51454,12 @@
         {
           "path": "film/vo/r01.json",
           "source": "source/ppt-new-year-street/film/vo/r01.json",
-          "sha256": "75084348a288bcadc42039d673f68a93264315a7563f230ae6baa0df9462b9a5",
-          "size": 667,
-          "originalSha256": "75084348a288bcadc42039d673f68a93264315a7563f230ae6baa0df9462b9a5"
+          "sha256": "aa43ec5440b63c8996f3b615edd6db41f5054c940bbeab689661bd3f4ac03c6f",
+          "size": 565,
+          "originalSha256": "75084348a288bcadc42039d673f68a93264315a7563f230ae6baa0df9462b9a5",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/r01.wav",
@@ -50649,9 +51471,12 @@
         {
           "path": "film/vo/r02.json",
           "source": "source/ppt-new-year-street/film/vo/r02.json",
-          "sha256": "1fde2c70395b581457f3f6dfee5910dffbe2bd732d78516b0e1f0b92882d08c3",
-          "size": 667,
-          "originalSha256": "1fde2c70395b581457f3f6dfee5910dffbe2bd732d78516b0e1f0b92882d08c3"
+          "sha256": "779c93eeaa93c24147951652d6c2558787c08c009788f51b86383f6774963ffb",
+          "size": 565,
+          "originalSha256": "1fde2c70395b581457f3f6dfee5910dffbe2bd732d78516b0e1f0b92882d08c3",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/r02.wav",
@@ -50663,9 +51488,12 @@
         {
           "path": "film/vo/r03.json",
           "source": "source/ppt-new-year-street/film/vo/r03.json",
-          "sha256": "cac04708c97a6d4fe17f964afdca0bb8a09ba15f0213e9ee4b51866591ab3f68",
-          "size": 667,
-          "originalSha256": "cac04708c97a6d4fe17f964afdca0bb8a09ba15f0213e9ee4b51866591ab3f68"
+          "sha256": "ca83906d11aa535783d2ae4fc49173ad59e72be755c76f108df18f6bc49e55ae",
+          "size": 565,
+          "originalSha256": "cac04708c97a6d4fe17f964afdca0bb8a09ba15f0213e9ee4b51866591ab3f68",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/r03.wav",
@@ -50677,9 +51505,12 @@
         {
           "path": "film/vo/r04.json",
           "source": "source/ppt-new-year-street/film/vo/r04.json",
-          "sha256": "201b28cb5d5ce1967c46c3a1757497f1b09eebcb3d7da8be4d97f5fda1ed7d2d",
-          "size": 667,
-          "originalSha256": "201b28cb5d5ce1967c46c3a1757497f1b09eebcb3d7da8be4d97f5fda1ed7d2d"
+          "sha256": "7f321279b765440a5739ccd9517998f536eb61e0222d9f58eedbd6f31048e5a4",
+          "size": 565,
+          "originalSha256": "201b28cb5d5ce1967c46c3a1757497f1b09eebcb3d7da8be4d97f5fda1ed7d2d",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/r04.wav",
@@ -50691,9 +51522,12 @@
         {
           "path": "film/vo/t01.json",
           "source": "source/ppt-new-year-street/film/vo/t01.json",
-          "sha256": "be36be739ec5f686eb36c64b23f0671c617165e8a7c1a226afff4f8322d4ca2c",
-          "size": 665,
-          "originalSha256": "be36be739ec5f686eb36c64b23f0671c617165e8a7c1a226afff4f8322d4ca2c"
+          "sha256": "632b493d1dab4d6a55545a67aba279ae190169e570db326454dcb931cc33c429",
+          "size": 565,
+          "originalSha256": "be36be739ec5f686eb36c64b23f0671c617165e8a7c1a226afff4f8322d4ca2c",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/t01.wav",
@@ -50705,9 +51539,12 @@
         {
           "path": "film/vo/t02.json",
           "source": "source/ppt-new-year-street/film/vo/t02.json",
-          "sha256": "ae5695ade0653f4c78757f0c99330f24b2b02c6eff1791fccd9a5539307ec49f",
-          "size": 665,
-          "originalSha256": "ae5695ade0653f4c78757f0c99330f24b2b02c6eff1791fccd9a5539307ec49f"
+          "sha256": "792aafc48144b0c839a3be5d436ac7210910c6b590d6826c444e900db2111541",
+          "size": 565,
+          "originalSha256": "ae5695ade0653f4c78757f0c99330f24b2b02c6eff1791fccd9a5539307ec49f",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/t02.wav",
@@ -50719,9 +51556,12 @@
         {
           "path": "film/vo/t03.json",
           "source": "source/ppt-new-year-street/film/vo/t03.json",
-          "sha256": "759a06bc025e12fbb4ee0445c790fd869edd5ec0223291308e2f28037e3ed6f7",
-          "size": 665,
-          "originalSha256": "759a06bc025e12fbb4ee0445c790fd869edd5ec0223291308e2f28037e3ed6f7"
+          "sha256": "82ed2fe621864cdc98aee0364472218bea20d058de1d81b1d30d475bf25b149b",
+          "size": 565,
+          "originalSha256": "759a06bc025e12fbb4ee0445c790fd869edd5ec0223291308e2f28037e3ed6f7",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/t03.wav",
@@ -50733,9 +51573,12 @@
         {
           "path": "film/vo/t04.json",
           "source": "source/ppt-new-year-street/film/vo/t04.json",
-          "sha256": "1d8fb791cebee33ee886b3a76911c5a66fd8cc5cfb14de056472469dc1c5b970",
-          "size": 665,
-          "originalSha256": "1d8fb791cebee33ee886b3a76911c5a66fd8cc5cfb14de056472469dc1c5b970"
+          "sha256": "ed92cc66f0f92302ac89c7346bd930e96a15494b9c8f0f3041870a7d8d196e95",
+          "size": 565,
+          "originalSha256": "1d8fb791cebee33ee886b3a76911c5a66fd8cc5cfb14de056472469dc1c5b970",
+          "redactions": [
+            "signed-url-query"
+          ]
         },
         {
           "path": "film/vo/t04.wav",

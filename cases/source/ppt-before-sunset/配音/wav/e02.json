@@ -3,7 +3,7 @@
   "audio": "<e02.wav>",
   "status": 2,
   "ced": "",
-  "subtitle_file": "https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/audio%2Ftts-20261103115003-wejeUMukkGlejiOZ.titles?Expires=1793764204&OSSAccessKeyId=LTAI5t6b6ytykqLxpkHbMvhN&Signature=PbEoXifGF6ycNYEc7i5%2FncelOUQ%3D"
+  "subtitle_file": "https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/audio%2Ftts-20261103115003-wejeUMukkGlejiOZ.titles"
  },
  "extra_info": {
   "audio_length": 5793,
