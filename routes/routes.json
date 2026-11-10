@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "about": "三条路线的唯一注册表。new-film、repo-check 与以后的 film 命令都从这里读路线 id、目录、品牌名、上游项目、渲染器、手册、模版与出片命令；字段说明见 docs/CLI.md「路线注册表」一节，读取与校验在 tools/lib/routes.mjs。",
+  "about": "三条路线的唯一注册表。new-film、repo-check、引擎工程待办（work-plan）、作品描述校验器（engine/production/film.js）与出片命令（npm run film）都从这里读路线 id、目录、品牌名、上游项目、渲染器、手册、模版与出片命令；字段说明见 docs/CLI.md「路线注册表」一节，读取与校验在 tools/lib/routes.mjs。",
   "decisions": "docs/decisions/2026-11-10-industrial-baseline.md",
   "defaultProfile": "web-1080p24",
   "renderers": {

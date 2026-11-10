@@ -15,8 +15,9 @@
 //   task.evidence   [{ kind: file | result | command | commit, ref, note?, sha256? }]：done 至少一条；file / result 要存在，commit 要能在 git 里找到
 //   task.superseded { by: [任务 id], reason }：被别的任务或已有实现取代；依赖它的任务要改成依赖取代者
 //   task.playbook   详细指引（仓库相对路径，必须存在）
+//   plan.newRoots   计划新增的根目录与根文件（如 evals、CHANGELOG.md）：未完成任务的写入范围首段要么已在仓库里，要么登记在这里
 // 退出码：0 合格（可以有提示）；4 计划不合格（结构错误、两个在办任务写入范围重叠、认领过期、证据或指引缺失；
-// --strict 时可领取任务之间的重叠与输入里写错的路径也算）；verify-diff 有越界改动也是 4；2 用法错误；3 没有 git；1 内部错误。
+// --strict 时可领取任务之间的重叠、输入里写错的路径、没登记的新根目录也算）；verify-diff 有越界改动也是 4；2 用法错误；3 没有 git；1 内部错误。
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
@@ -85,6 +86,7 @@ export function diagnosePlan(plan, { reg = defaultRegistry() } = {}) {
   const v2 = plan.schemaVersion === 2;
   if (!v2) W(null, 'plan.v1', 'schemaVersion 1（旧格式）：路线可写旧名、证据是字符串、没有认领记录', '升到 v2：route 用注册表 id，in-progress / blocked 写 claim，证据写成对象（见 tools/work-plan.mjs 文件头）');
   if (plan.claimTtlDays !== undefined && !(Number.isInteger(plan.claimTtlDays) && plan.claimTtlDays > 0)) E(null, 'plan.claim-ttl', `claimTtlDays 要是正整数（天），现在是 ${JSON.stringify(plan.claimTtlDays)}`);
+  if (plan.newRoots !== undefined && !(Array.isArray(plan.newRoots) && plan.newRoots.every(x => isStr(x) && !x.includes('/') && safePath(x)))) E(null, 'plan.new-roots', 'newRoots 要写成仓库根下的名字数组（不带斜杠），如 ["evals", "CHANGELOG.md"]');
   const ids = new Map();
   plan.tasks.forEach((task, i) => {
     if (!isObj(task)) { E(null, 'task.shape', `tasks[${i}] 要是对象`); return; }
@@ -304,6 +306,7 @@ export function auditPlan(plan, { root = ROOT, reg = defaultRegistry(), strict =
   const W = (task, code, message, hint = null) => warnings.push({ task, code, message, hint });
   const git = gitAt(root);
   let gitOk = null;
+  const newRoots = new Set(Array.isArray(plan.newRoots) ? plan.newRoots : []);
   for (const t of plan.tasks) {
     if (t.playbook !== undefined && !isFile(root, t.playbook)) E(t.id, 'task.playbook-missing', `${t.id}：详细指引 ${t.playbook} 不存在`, '改成现有文档的完整仓库相对路径，或先把文档写出来');
     for (const x of t.evidence) {
@@ -328,6 +331,12 @@ export function auditPlan(plan, { root = ROOT, reg = defaultRegistry(), strict =
     if (!['done', 'superseded'].includes(t.status)) {
       for (const input of t.inputs) for (const p of inputPathProblems(input, root)) {
         (strict ? E : W)(t.id, 'task.input-path', `${t.id}：输入里的路径 ${p.token} ${p.problem}`, '写完整的仓库相对路径，领取的人才能照着找到文件（R87）');
+      }
+      // 写入范围的首段要么已在仓库里，要么登记为计划新增的根目录或根文件（TOOLS-15：防止写错路径、悄悄另起根目录）
+      for (const s of t.writeScope) {
+        const top = s.split('/')[0];
+        if (top === '**' || exists(root, top) || newRoots.has(top)) continue;
+        (strict ? E : W)(t.id, 'task.scope-root', `${t.id}：写入范围 ${s} 的首段 ${top} 在仓库里不存在，也没登记在计划的 newRoots 里`, '路径写错了就改正；确实要新建根目录或根文件，先在 work-plan.json 的 newRoots 里登记');
       }
     }
   }
