@@ -24,7 +24,7 @@ const HELP = `北冥仓库 · 统一的 Python 入口
       node tools/env/py.mjs tools/casebook.py list
       node tools/env/py.mjs -c "import numpy, scipy, numba, soundfile, soxr"
       node tools/env/py.mjs -m engine.audio.cuecheck --help
-  node tools/env/py.mjs --which [--json]    显示选中的解释器与查找过程，不运行任何 Python 代码以外的东西
+  node tools/env/py.mjs --which [--json]    只显示选中的解释器与查找过程（每个候选只运行一次版本探测）
   node tools/env/py.mjs --help              本说明
 
 查找顺序（第一个能运行的就用）：

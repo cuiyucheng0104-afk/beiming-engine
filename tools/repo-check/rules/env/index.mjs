@@ -8,12 +8,13 @@
 //   export function createContext(root, {staged}) → ctx：{ root, staged, read(rel), exists(rel), git(args), tracked() }
 // 单独运行（执行器合入之前，或只想看 env 域）：
 //   node tools/repo-check/rules/env/index.mjs [--only <规则id>] [--root <目录>] [--json]
-//   退出码：0 无 error；1 有 error；2 用法错误。
+//   退出码（附录 C1）：0 无 error；4 有 error（规范不通过）；2 用法错误。
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { checkLargeFiles } from '../../../env/lib/largefiles.mjs';
+import { EXIT, runCli, isMain, usageError } from '../../../env/lib/cli.mjs';
 import { parseLock, sha256, normalizeName } from '../../../env/lib/lockfile.mjs';
 
 export const domain = 'env';
@@ -267,31 +268,46 @@ export async function runRules(ctx, { only = null } = {}) {
   return results;
 }
 
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
-  const argv = process.argv.slice(2);
-  const json = argv.includes('--json');
-  if (argv.includes('--help') || argv.includes('-h')) {
-    process.stdout.write('北冥仓库 · repo-check env 域规则\n用法：node tools/repo-check/rules/env/index.mjs [--only <规则id,…>] [--root <目录>] [--json]\n规则：\n' + rules.map(r => `  ${r.id.padEnd(20)} ${r.severity.padEnd(5)} ${r.title}`).join('\n') + '\n退出码：0 无 error；1 有 error；2 用法错误。\n');
-    process.exit(0);
-  }
-  const known = new Set(['--json', '--only', '--root']);
-  const bad = argv.filter((a, i) => a.startsWith('--') && !known.has(a) && !['--only', '--root'].includes(argv[i - 1]));
-  if (bad.length) { process.stderr.write(`不认识的参数：${bad.join(' ')}\n`); process.exit(2); }
-  const val = k => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
-  const only = val('--only')?.split(',');
-  const ctx = createContext(path.resolve(val('--root') || HERE_ROOT));
-  const results = await runRules(ctx, { only });
-  const errors = results.flatMap(r => r.findings.filter(f => f.level === 'error'));
-  const warns = results.flatMap(r => r.findings.filter(f => f.level === 'warn'));
-  if (json) {
-    process.stdout.write(JSON.stringify({ ok: errors.length === 0, exitCode: errors.length ? 1 : 0, command: 'check:repo --only env', error: errors.length ? { code: 'rule-failed', message: `${errors.length} 个 error`, hint: errors[0].fix || null } : null, outputs: [], runJson: null, warnings: warns.map(w => w.message), results }) + '\n');
-  } else {
-    for (const r of results) {
-      const e = r.findings.filter(f => f.level === 'error').length, w = r.findings.length - e;
-      process.stdout.write(`${e ? 'FAIL' : w ? 'WARN' : 'OK  '}  ${r.id.padEnd(20)} ${r.title}${r.findings.length ? `（${e} error，${w} warn）` : ''}\n`);
-      for (const x of r.findings.slice(0, 12)) process.stdout.write(`        ${x.level === 'error' ? '错误' : '提示'}：${x.message}${x.fix ? `\n              修复：${x.fix}` : ''}\n`);
-      if (r.findings.length > 12) process.stdout.write(`        ……另有 ${r.findings.length - 12} 条\n`);
-    }
-  }
-  process.exitCode = errors.length ? 1 : 0;
+const HELP = () => `北冥仓库 · repo-check env 域规则（P10）
+
+用法：
+  node tools/repo-check/rules/env/index.mjs [--only <规则id,…>] [--root <目录>] [--json]
+
+规则：
+${rules.map(r => `  ${r.id.padEnd(20)} ${r.severity.padEnd(5)} ${r.title}`).join('\n')}
+
+--only   只跑列出的规则（逗号分隔或重复）
+--root   检查别的检出（默认本仓库）
+--json   stdout 只输出一个 JSON 对象（C2 信封，results 字段是每条规则的发现）
+退出码：0 没有 error（只有 warn 也是 0）；4 有 error（规范不通过）；2 用法错误。`;
+
+if (isMain(import.meta.url)) {
+  runCli({
+    command: 'check:repo --only env', help: HELP(),
+    options: { only: { type: 'string', multiple: true }, root: { type: 'string' } },
+    run: async (o) => {
+      const only = o.only ? o.only.flatMap(x => x.split(',')).map(x => x.trim()).filter(Boolean) : null;
+      const unknown = (only || []).filter(id => !rules.some(r => r.id === id));
+      if (unknown.length) throw usageError(`不认识的规则：${unknown.join('、')}（可选：${rules.map(r => r.id).join('、')}）`);
+      const root = path.resolve(o.root || HERE_ROOT);
+      if (!fs.existsSync(root)) throw usageError(`--root 目录不存在：${root}`);
+      const results = await runRules(createContext(root), { only });
+      const errors = results.flatMap(r => r.findings.filter(f => f.level === 'error'));
+      const warns = results.flatMap(r => r.findings.filter(f => f.level === 'warn'));
+      const lines = [];
+      for (const r of results) {
+        const e = r.findings.filter(f => f.level === 'error').length, w = r.findings.length - e;
+        lines.push(`${e ? 'FAIL' : w ? 'WARN' : 'OK  '}  ${r.id.padEnd(20)} ${r.title}${r.findings.length ? `（${e} error，${w} warn）` : ''}`);
+        for (const x of r.findings.slice(0, 12)) lines.push(`        ${x.level === 'error' ? '错误' : '提示'}：${x.message}${x.fix ? `\n              修复：${x.fix}` : ''}`);
+        if (r.findings.length > 12) lines.push(`        ……另有 ${r.findings.length - 12} 条`);
+      }
+      return {
+        exitCode: errors.length ? EXIT.CONTRACT : EXIT.OK,
+        error: errors.length ? { code: 'rule-failed', message: `env 域有 ${errors.length} 个 error：${[...new Set(results.filter(r => r.findings.some(f => f.level === 'error')).map(r => r.id))].join('、')}`, hint: errors[0].fix || '按上面每条的「修复」处理' } : null,
+        warnings: warns.map(w => w.message),
+        results,
+        human: lines.join('\n'),
+      };
+    },
+  });
 }

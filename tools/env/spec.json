@@ -159,9 +159,10 @@
       "path": "build.sh",
       "owner": "P06",
       "spawnedBy": [
-        "npm run build"
+        "npm run build",
+        "tests/production/render-pipeline.test.mjs"
       ],
-      "replacement": "node tools/film/cli.mjs build . --profile beiming-1040p24（build.sh 留作兼容壳）"
+      "replacement": "node tools/film/cli.mjs build . --profile beiming-1040p24（P06）；build.sh 留一个版本作兼容壳"
     },
     {
       "path": "audio/build.sh",
@@ -169,7 +170,7 @@
       "spawnedBy": [
         "build.sh"
       ],
-      "replacement": "Python 或 Node 入口（例如 node tools/env/py.mjs audio/build.py），由 tools/film 的 mix 步骤调用"
+      "replacement": "Python 入口 audio/build.py（node tools/env/py.mjs audio/build.py），由 tools/film 的 mix 步骤调用；audio/check.py 改调 Node 版封装"
     },
     {
       "path": "engine/render/mux.sh",
@@ -179,9 +180,10 @@
         "engine/render/build.mjs",
         "engine/render/native.mjs",
         "audio/check.py",
-        "routes/a-webgl/template/build.sh"
+        "routes/a-webgl/template/build.sh",
+        "tests/production/render-pipeline.test.mjs"
       ],
-      "replacement": "engine/render/lib/mux.mjs（P04·R3），mux.sh 改为调用它的薄壳"
+      "replacement": "engine/render/lib/mux.mjs（P04·R3）：同样的参数与退出码，ffmpeg 经 FFMPEG / FFPROBE 解析，两遍响度用 ebur128 的 JSON 结果在 Node 里算；mux.sh 改成调用它的薄壳"
     },
     {
       "path": "routes/a-webgl/template/build.sh",
@@ -189,13 +191,13 @@
       "spawnedBy": [
         "films/<名>/build.sh"
       ],
-      "replacement": "npm run film -- build films/<名>（P06），模版不再带 build.sh"
+      "replacement": "npm run film -- build films/<名>（P06 按 film.json 分派）；模版不再带 build.sh"
     },
     {
       "path": "fonts/fetch_fonts.sh",
       "owner": "P12",
       "spawnedBy": [],
-      "replacement": "Node 版取字体脚本（只用 fetch 与 node:crypto 校验 sha256）"
+      "replacement": "node tools/fonts/fetch.mjs（P12）：只用 fetch 与 node:crypto，按锁定清单校验 sha256，不覆盖已入库的子集"
     }
   ],
   "systemVars": [
@@ -289,12 +291,13 @@
     {
       "name": "FFMPEG",
       "group": "编码",
-      "purpose": "ffmpeg 可执行文件；只有 B 路线入口与 doctor 识别，engine/render/video.mjs、mux.sh、build.sh 仍从 PATH 调用",
+      "purpose": "ffmpeg 可执行文件（完整路径）。目前只有 B 路线入口与 tools/env 识别；engine/render/video.mjs、mux.sh、build.sh、audio/check.py 仍从 PATH 调用（Node 入口改用 tools/env/lib/ffmpeg.mjs 的 ffmpegBins 即可统一）",
       "default": "PATH 里的 ffmpeg",
       "readBy": [
         "engine/render/native.mjs",
         "engine/native/sequence.mjs",
         "engine/native/prepare.mjs",
+        "tools/env/lib/ffmpeg.mjs",
         "tools/env/lib/checks.mjs"
       ]
     },
@@ -305,6 +308,7 @@
       "default": "PATH 里的 ffprobe",
       "readBy": [
         "engine/render/native.mjs",
+        "tools/env/lib/ffmpeg.mjs",
         "tools/env/lib/checks.mjs"
       ]
     },

@@ -6,7 +6,14 @@
 //   probeFfmpeg(bin, {full})  → Promise<{ok, path, version, major, libavcodecMajor, lists:{encoders,...}, error}>
 //       full=false 只跑 -version（preflight 用，几十毫秒）；full=true 再列出五类组件（doctor 用）
 //   missingComponents(probe, spec)  → {required: [...], recommended: [...]}，元素形如 'filters:loudnorm'
+//   ffmpegBins(env)           → {ffmpeg, ffprobe}：尊重 FFMPEG / FFPROBE（完整路径），否则用 PATH 里的名字。
+//       给要调用 ffmpeg 的 Node 入口共用（engine/render、tools/film、tools/qa…），全仓库对这两个变量的口径一致
 import { run, which } from './proc.mjs';
+
+export function ffmpegBins(env = process.env) {
+  const pick = (name, fallback) => ((env[name] || '').trim() || fallback);
+  return { ffmpeg: pick('FFMPEG', 'ffmpeg'), ffprobe: pick('FFPROBE', 'ffprobe') };
+}
 
 // libavcodec 主版本 → FFmpeg 主版本（用于 N-xxxxx-g… 这类 git 构建，版本号里看不出发行号）
 const LAVC_TO_FFMPEG = { 58: 4, 59: 5, 60: 6, 61: 7, 62: 8, 63: 9 };

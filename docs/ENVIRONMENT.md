@@ -78,7 +78,7 @@ npm ci && npm run setup && npm run env:doctor -- --route a
 - **换行**：仓库的 `.gitattributes` 已经让文本一律按 LF 检出，`core.autocrlf` 设成什么都不影响；上面那条 `git config core.autocrlf false` 是给旧检出的保险。
 - **Python**：Windows 上通常没有 `python3` 命令，`python` 可能只是应用商店的空壳。仓库的 npm 脚本与文档统一经 `node tools/env/py.mjs` 启动 Python，它会找到 `.venv`；自己调用时也这样写：`node tools/env/py.mjs tools/casebook.py list`。
 - **中文输出**：`py.mjs` 固定 `PYTHONUTF8=1`、`PYTHONIOENCODING=utf-8`，重定向到文件或管道时不会再报 `UnicodeEncodeError: 'gbk'`。直接调用 Python 时先设 `$env:PYTHONUTF8 = '1'`。
-- **sh**：A 的 `build.sh`、C 的 `engine/render/build.mjs`、B 的 `native.mjs` 目前都要调用 `engine/render/mux.sh`。装 Git for Windows，并把 `C:\Program Files\Git\usr\bin` 加进 PATH；Node 版封装合入后不再需要。doctor 的 `shell.sh` 一项会提示。
+- **sh（过渡期）**：A 的 `build.sh`、C 的 `engine/render/build.mjs`、B 的 `native.mjs` 目前都要用 sh 调用 `engine/render/mux.sh`（清单见下文「sh 入口盘点」）。装 Git for Windows 后，doctor 会自己找到 `Git\bin\sh.exe`；但这些入口按名字调用 `sh`，所以还要把 **`Git\bin`** 加进 PATH：`$env:Path += ';C:\Program Files\Git\bin'`（当前窗口有效；长期生效在「系统属性 → 环境变量」里加）。不要加 `Git\usr\bin`：那里的 `find`、`sort` 会盖掉 Windows 自带的同名命令，而且直接用 `usr\bin\sh.exe` 时脚本里找不到 sed、awk。装在别处时设 `$env:BEIMING_SH`。Node 版封装合入后不再需要 sh。
 - **PowerShell 拦截 npm**：报「此系统上禁止运行脚本」时，把命令里的 `npm` 换成 `npm.cmd`，或者由你自己决定是否执行 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`。
 - 设环境变量用 `$env:名字 = '值'`（只对当前窗口有效），不要照抄 bash 的 `名字=值 命令` 写法。
 
@@ -143,9 +143,11 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 |---|---|---|---|
 | `BEIMING_ANGLE` | 渲染（engine/render） | 无头浏览器的 ANGLE 后端：metal / vulkan / gl / d3d11 / swiftshader / default | macOS 为 metal，其它平台不传参数；Windows 双显卡机上会落到核显，NVIDIA 机器设 vulkan |
 | `BEIMING_CHROME` | 渲染（engine/render） | 改用指定的浏览器可执行文件 | 锁定的 headless shell 153；不设最好，换浏览器会破坏跨机器一致性 |
+| `BEIMING_READY_TIMEOUT` | 渲染（engine/render） | 等页面声明 `window.READY` 的上限（秒） | 180 |
+| `BEIMING_FRAME_TIMEOUT` | 渲染（engine/render） | 单帧 `render(t)` 的上限（秒），超时按失败处理 | 300 |
 | `WORKERS` | 渲染（engine/render） | `build.sh` 1080p 出片时并行的浏览器数 | 4 |
 | `WORKERS_4K` | 渲染（engine/render） | `build.sh --4k` 时并行的浏览器数 | 8 |
-| `FFMPEG` | 编码 | ffmpeg 可执行文件。只有 B 路线入口与 doctor 识别；`engine/render/video.mjs`、`mux.sh`、`build.sh` 仍从 PATH 调用 | PATH 里的 ffmpeg |
+| `FFMPEG` | 编码 | ffmpeg 可执行文件（完整路径）。目前只有 B 路线入口与 `tools/env` 识别；`engine/render/video.mjs`、`mux.sh`、`build.sh`、`audio/check.py` 仍从 PATH 调用 | PATH 里的 ffmpeg |
 | `FFPROBE` | 编码 | ffprobe 可执行文件，识别范围同上 | PATH 里的 ffprobe |
 | `BEIMING_PYTHON` | Python | 指定解释器（正式名，优先级最高） | 按上一节的顺序查找 |
 | `BEIMING_PY` | Python | `BEIMING_PYTHON` 的别名（C 路线 `build.mjs` 沿用） | 同上 |
@@ -155,6 +157,8 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `PYTHONIOENCODING` | Python | py.mjs 固定设为 utf-8，覆盖外部的 gbk 等设置 | 由工具设置 |
 | `NUMBA_CACHE_DIR` | Python（numba） | numba 编译缓存目录；仓库目录只读时改到可写处 | `engine/audio/__pycache__` |
 | `BEIMING_SAMPLES` | 声音 | CC0 采样库目录；只有重渲配乐（`sh audio/build.sh --score`）需要 | 不设，用 `audio/score_cache.npz` |
+| `BEIMING_CJK_FONT` | 声音 | 声音自检图（`engine/audio/scope.py`）用的中文字体文件；找不到系统中文字体时设它 | 按 macOS、Windows（`%WINDIR%\Fonts`）、Linux 的常见位置查找 |
+| `BEIMING_SH` | 过渡期 sh | POSIX sh 的完整路径；Windows 上 Git for Windows 装在非默认位置时用。sh 入口全部改成 Node 后不再需要 | PATH 里的 sh；Windows 上再找 Git for Windows 的 `bin\sh.exe` |
 | `RAEA_BIN` | B 路线 | 原生运行时可执行文件的完整路径；安装包要保留 `bin/` 与 `share/` | 不设（B 路线必需） |
 | `BNE_ALLOW_VERSION` | B 路线 | 临时放行未验证的运行时版本（先重跑验收） | 不设 |
 | `WGPU_BACKEND` | B 路线（wgpu） | 原生运行时的图形后端；与 `BEIMING_ANGLE` 是两套设置 | Windows 上 native.mjs 设为 vulkan |
@@ -244,6 +248,28 @@ npm run setup
 - 旧检出里已经有 CRLF 的，doctor 的 `git.eol` 一项会给出重新检出的命令。
 - Windows 上 `git config core.quotepath off`，`git status` 才会显示中文文件名，而不是 `"docs/RTX\345…"` 这样的转义。
 - Python 输出编码见上文「安装：Windows」。
+
+## sh 入口盘点
+
+仓库里还有 5 个 POSIX sh 入口。它们是 Windows 上「PowerShell 里直接跑」的主要障碍，按下表改成 Node 或 Python 入口后，doctor 的 `shell.sh` 一项自动消失（清单的机器可读版本在 `tools/env/spec.json` 的 `shEntrypoints`，doctor 与本表同源）。
+
+| 入口 | 属主 | 谁在调用 | 替代方案 |
+|---|---|---|---|
+| `build.sh` | P06 | `npm run build`；`tests/production/render-pipeline.test.mjs` | `node tools/film/cli.mjs build . --profile beiming-1040p24`；`build.sh` 留一个版本作兼容壳 |
+| `audio/build.sh` | P11 | `build.sh` | Python 入口 `audio/build.py`，经 `node tools/env/py.mjs audio/build.py` 调用，由 tools/film 的混音步骤接上 |
+| `engine/render/mux.sh` | P04 | `build.sh`、`engine/render/build.mjs`、`engine/render/native.mjs`、`audio/check.py`、A 模版的 `build.sh`、`tests/production/render-pipeline.test.mjs` | `engine/render/lib/mux.mjs`：参数与退出码不变；ffmpeg 经 `FFMPEG` / `FFPROBE` 解析；两遍响度用 ebur128 的结果在 Node 里算；`mux.sh` 改成调用它的薄壳 |
+| `routes/a-webgl/template/build.sh` | P12 | 复制成 `films/<名>/build.sh` | `npm run film -- build films/<名>`（P06 按 `film.json` 分派），模版不再带 `build.sh` |
+| `fonts/fetch_fonts.sh` | P12 | 手动运行 | `node tools/fonts/fetch.mjs`：只用 `fetch` 与 `node:crypto`，按锁定清单校验 sha256 |
+
+给改写这些入口的人，`tools/env/` 里有现成的跨平台积木，不要再各写一套：
+
+| 要做的事 | 用什么 |
+|---|---|
+| 找 Python 并运行 | `spawnPython(args)`、`resolvePython()`（[`tools/env/py.mjs`](../tools/env/py.mjs)）；命令行写 `node tools/env/py.mjs <脚本>` |
+| 找 ffmpeg / ffprobe | `ffmpegBins(env)`（[`tools/env/lib/ffmpeg.mjs`](../tools/env/lib/ffmpeg.mjs)），尊重 `FFMPEG` / `FFPROBE` |
+| 开工前 2 秒内确认依赖齐全 | `assertPreflight(['browser', 'ffmpeg', 'python:audio'])`（[`tools/env/preflight.mjs`](../tools/env/preflight.mjs)），不满足时抛退出码 3 的错误，提示就是修复命令 |
+| 过渡期仍要调用 sh | `findSh()`（[`tools/env/lib/sh.mjs`](../tools/env/lib/sh.mjs)），Windows 上找到 Git for Windows 的 `bin\sh.exe`，不要求改 PATH |
+| 带超时的子进程、整组结束 | `run()`、`killAll()`（[`tools/env/lib/proc.mjs`](../tools/env/lib/proc.mjs)） |
 
 ## 常见问题
 

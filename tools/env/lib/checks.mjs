@@ -9,7 +9,7 @@ import path from 'node:path';
 import { run, which } from './proc.mjs';
 import { resolvePython, pythonEnv, venvPython } from './python.mjs';
 import { parseLock, pinsFor, sha256 } from './lockfile.mjs';
-import { probeFfmpeg, missingComponents } from './ffmpeg.mjs';
+import { probeFfmpeg, missingComponents, ffmpegBins } from './ffmpeg.mjs';
 import { headlessShell, resolveAngle, probeGpu, classifyRenderer, nvidiaSmi } from './browser.mjs';
 import { findSh, shFix } from './sh.mjs';
 
@@ -148,8 +148,8 @@ export async function checkGpu(root, spec, { env = process.env, gpuMode = 'softw
 
 // ── FFmpeg ──
 export async function checkFfmpeg(spec, env = process.env, { full = true } = {}) {
-  const bin = env.FFMPEG || 'ffmpeg';
-  const p = await probeFfmpeg(bin, { full, env });
+  const bins = ffmpegBins(env);
+  const p = await probeFfmpeg(bins.ffmpeg, { full, env });
   const out = [];
   if (!p.ok) {
     out.push(mk('ffmpeg.version', 'FFmpeg', { status: 'fail', found: `${env.FFMPEG ? `FFMPEG=${env.FFMPEG}：` : ''}${p.error}`, expected: `FFmpeg ${spec.ffmpeg.minMajor} 以上，带 libx264、aac、loudnorm、ebur128`, fix: pf(spec.ffmpeg.fix) }));
@@ -178,7 +178,7 @@ export async function checkFfmpeg(spec, env = process.env, { full = true } = {})
       fix: miss.required.length || miss.recommended.length ? `换一个完整构建的 FFmpeg：${pf(spec.ffmpeg.fix)}` : null,
       detail: !x264 ? '这个 ffmpeg 没有 libx264（Playwright 自带的 ffmpeg 就是这样），不能用来出片' : null }));
   }
-  const fp = await probeFfmpeg(env.FFPROBE || 'ffprobe', { env });
+  const fp = await probeFfmpeg(bins.ffprobe, { env });
   out.push(mk('ffprobe.version', 'ffprobe', { status: fp.ok && fp.major >= spec.ffmpeg.minMajor ? 'pass' : 'fail',
     found: fp.ok ? `${fp.version} ${fp.path}` : `${env.FFPROBE ? `FFPROBE=${env.FFPROBE}：` : ''}${fp.error}`, expected: `与 ffmpeg 同一套构建，>= ${spec.ffmpeg.minMajor}`,
     fix: fp.ok && fp.major >= spec.ffmpeg.minMajor ? null : pf(spec.ffmpeg.fix) }));
@@ -229,7 +229,13 @@ export async function checkPython(root, spec, { env = process.env, imports = tru
   }));
   if (!verOk || !imports) return { checks: out, py };
   const lockPath = path.join(root, spec.python.lock);
-  const lock = parseLock(fs.readFileSync(lockPath, 'utf8'));
+  let lockText = null;
+  try { lockText = fs.readFileSync(lockPath, 'utf8'); } catch { /* 下面报缺失 */ }
+  if (lockText === null) {
+    out.push(mk('python.packages', 'Python 依赖（requirements.lock）', { status: 'fail', found: `缺少 ${spec.python.lock}`, fix: `git checkout -- ${spec.python.lock}（维护者改依赖后用 node tools/env/lock.mjs 重新生成）` }));
+    return { checks: out, py };
+  }
+  const lock = parseLock(lockText);
   const pins = pinsFor(lock, py);
   const r = await run(py.cmd, [...py.args, '-c', PKG_SCRIPT], {
     env: pythonEnv(env, { root }), timeout: 180_000,
