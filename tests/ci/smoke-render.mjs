@@ -9,10 +9,18 @@
 // 阶段：
 //   a        new-film a → films/<临时名>/build.sh --size 384x208（关键帧 → 声音 → 逐帧 → 封装）→ 核对成片与中段关键帧
 //   c        new-film c → film.json 的 size 改成 320x180 → engine/render/build.mjs（事件 → 混音 → 拍点 → 逐帧 → 封装 → 海报 → 核对）
-//   b        new-film b → engine/native/prepare.mjs（资产桥导出 GLB、底板、声音；不需要原生运行时）→ 记录产物哈希
-//   beiming  《北冥》1.5 / 4.0 / 7.6 秒与 lab 自测页 look 的静帧（384x208）→ 不是黑屏、不是纯色
+//   b        new-film b → engine/native/prepare.mjs（资产桥导出 GLB、底板、声音；不需要原生运行时）→ 声明的素材齐全、
+//            prepared.json 的哈希与文件一致；再准备一遍，两次产物逐字节相同（资产桥的确定性）
+//   b-render 只在设了 RAEA_BIN（原生运行时，仓库不分发）时运行：engine/render/native.mjs 以小尺寸出片并核对；没设就跳过并写明
+//   beiming  《北冥》1.5 / 4.0 / 7.6 秒与 lab 自测页 look 的静帧（默认 384x208）→ 不是黑屏、不是纯色
 //   golden   tools/baseline/golden.mjs（P08）：tests/golden/<平台键>/manifest.json 在就 compare，不在就 capture 并把结果放进 --out
 //   最后总会把本次的静帧拼成 <out>/contact.jpg（只用来看一眼，不参与判定）。
+// 成片核对（a、c、b-render）：尺寸、帧数 = round(dur × fps)、帧率、H.264 yuv420p、BT.709 有限范围且标注完整、AAC 48 kHz 立体声、
+//   积分响度 −14 ± 1 LUFS、真峰值 ≤ −1.0 dBTP（D07）、中段一帧不是黑屏或纯色。这些是冒烟级的规格核对，完整的机器 QA 门见 tools/qa（P07）。
+// 平台键：默认 <系统>-swiftshader（BEIMING_ANGLE=swiftshader 时；CI 上是 linux-swiftshader）。不是软件渲染时不做金标准比对，
+//   除非用 --golden compare 并用 --platform 指明平台键。
+// 软件渲染放行：设了 BEIMING_ANGLE=swiftshader 时，子进程环境里加 BEIMING_GPU=software-ok（渲染器 v2 要求显式允许软件渲染；
+//   旧渲染器忽略这个变量）。
 // 临时作品建在 films/ci-smoke-<路线>-<随机>/（页面服务只认仓库内的目录），结束、出错或被中断时都会删掉；--keep 保留。
 // 产物都复制到 --out（默认 out/ci/smoke/），report.json 用附录 C2 信封。
 //
@@ -27,14 +35,16 @@ import {
   inActions, annotate, stepSummary, mdCell, table, fmtSec,
 } from '../../tools/run-tests.mjs';
 
-const PHASES = ['a', 'c', 'b', 'beiming', 'golden'];
+const PHASES = ['a', 'c', 'b', 'b-render', 'beiming', 'golden'];
 const NEEDS = {   // 每段要的能力（预检；缺了 exit 3）
   a: ['browser', 'ffmpeg', 'sh', 'python', 'python:numpy+scipy+soundfile+numba'],
   c: ['browser', 'ffmpeg', 'sh', 'python', 'python:numpy+scipy+soundfile+numba'],
   b: ['browser', 'python', 'python:numpy+soundfile'],
+  'b-render': ['ffmpeg', 'sh', 'python', 'python:numpy+soundfile'],
   beiming: ['browser', 'ffmpeg'],
   golden: [],
 };
+const TILE = [384, 208];   // 接触印每格的尺寸（与静帧尺寸无关）
 const SPEC = {
   only: { type: 'list' }, skip: { type: 'list' }, out: { type: 'string' }, python: { type: 'string' }, root: { type: 'string' },
   'size-a': { type: 'string' }, 'size-c': { type: 'string' }, 'size-beiming': { type: 'string' },
@@ -51,7 +61,7 @@ export const HELP = `北冥仓库 · 无 GPU 冒烟出片（CI smoke-render）
   --size-c <WxH>          C 模版出片尺寸（默认 320x180）
   --size-beiming <WxH>    《北冥》静帧尺寸（默认 384x208）
   --golden <模式>         auto（默认：有清单就比对，没有就采集）、compare、capture、off
-  --platform <平台键>     金标准平台键（默认 linux-swiftshader）
+  --platform <平台键>     金标准平台键（默认 <系统>-swiftshader，CI 上是 linux-swiftshader；不是软件渲染时没有默认值）
   --golden-set <名,…>     金标准集合（默认 beiming-core,lab）
   --python <解释器>       Python（默认经 tools/env/py.mjs，或 BEIMING_PY、PYTHON、.venv、python3…）
   --timeout <秒>          每一步的时限（默认 600）
@@ -61,7 +71,7 @@ export const HELP = `北冥仓库 · 无 GPU 冒烟出片（CI smoke-render）
   -h, --help              显示本说明
 
 环境：CI 上设 BEIMING_ANGLE=swiftshader；需要 playwright-core 的 chromium-headless-shell、FFmpeg（ffmpeg + ffprobe）、POSIX sh、
-      装了 requirements 的 Python。
+      装了 requirements 的 Python。b-render 另要 RAEA_BIN（原生运行时，仓库不分发；没有就跳过这一段）。
 退出码：0 通过；1 失败；2 用法错误；3 环境缺失；4 金标准不一致；124 超时；130/143 被中断`;
 
 const sha256 = f => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
@@ -72,17 +82,24 @@ const sizeOf = (s, name) => {
 };
 
 // ffprobe → { video: {width,height,frames,fps,pixFmt}, audio: {sampleRate,channels} | null }
-function probeMedia(file) {
-  const r = spawnSync('ffprobe', ['-v', 'error', '-count_frames', '-show_entries', 'stream=codec_type,width,height,r_frame_rate,nb_read_frames,pix_fmt,sample_rate,channels', '-of', 'json', file], { encoding: 'utf8', timeout: 120000 });
+export function probeMedia(file) {
+  const r = spawnSync('ffprobe', ['-v', 'error', '-count_frames', '-show_entries',
+    'stream=codec_type,codec_name,profile,width,height,r_frame_rate,nb_read_frames,pix_fmt,color_range,color_space,color_primaries,color_transfer,sample_rate,channels',
+    '-of', 'json', file], { encoding: 'utf8', timeout: 120000 });
   if (r.status !== 0) throw new Error(`ffprobe 读不了 ${file}：${(r.stderr || '').trim().split('\n').pop()}`);
   const streams = JSON.parse(r.stdout).streams || [];
   const v = streams.find(s => s.codec_type === 'video'), a = streams.find(s => s.codec_type === 'audio');
   const [n, d] = (v?.r_frame_rate || '0/1').split('/').map(Number);
   return {
-    video: v ? { width: v.width, height: v.height, frames: +v.nb_read_frames, fps: d ? n / d : 0, pixFmt: v.pix_fmt } : null,
-    audio: a ? { sampleRate: +a.sample_rate, channels: a.channels } : null,
+    video: v ? {
+      codec: v.codec_name, profile: v.profile, width: v.width, height: v.height, frames: +v.nb_read_frames, fps: d ? n / d : 0, pixFmt: v.pix_fmt,
+      color: { range: v.color_range || null, space: v.color_space || null, primaries: v.color_primaries || null, transfer: v.color_transfer || null },
+    } : null,
+    audio: a ? { codec: a.codec_name, sampleRate: +a.sample_rate, channels: a.channels } : null,
   };
 }
+// 有限范围 BT.709，四项标注齐全（D07；62ad28e 起整条出片链路都这样写）
+export const isBt709Tv = c => !!c && c.range === 'tv' && c.space === 'bt709' && c.primaries === 'bt709' && c.transfer === 'bt709';
 // 画面统计（一张图，或视频里的第 n 帧）：YMIN / YLOW / YAVG / YHIGH / YMAX
 function lumaStats(file, frame = null) {
   const vf = (frame == null ? '' : `select=eq(n\\,${frame}),`) + 'signalstats,metadata=print:file=-';
@@ -93,7 +110,7 @@ function lumaStats(file, frame = null) {
 // 不是黑屏（最亮处 ≥ 32）也不是纯色（10%–90% 分位的亮度差 ≥ 6）
 export const notBlank = s => s.ymax != null && s.ymax >= 32 && s.yhigh - s.ylow >= 6;
 function loudness(file) {
-  const r = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', file, '-af', 'ebur128=peak=true', '-f', 'null', '-'], { encoding: 'utf8', timeout: 120000 });
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', file, '-vn', '-af', 'ebur128=peak=true:framelog=quiet', '-f', 'null', '-'], { encoding: 'utf8', timeout: 120000 });
   const txt = r.stderr || '';
   const i = /I:\s+(-?[\d.]+) LUFS/.exec(txt.slice(txt.lastIndexOf('Summary:'))), p = /Peak:\s+(-?[\d.]+|-inf) dBFS/.exec(txt.slice(txt.lastIndexOf('Summary:')));
   return { lufs: i ? +i[1] : null, truePeak: p && p[1] !== '-inf' ? +p[1] : null };
@@ -125,13 +142,18 @@ export async function main(argv = process.argv.slice(2)) {
     if (!['auto', 'compare', 'capture', 'off'].includes(golden)) throw new CliError(EXIT.USAGE, 'USAGE', `--golden 只能是 auto、compare、capture、off，现在是「${golden}」`);
     if (opts.root && !fs.existsSync(path.resolve(opts.root))) throw new CliError(EXIT.USAGE, 'USAGE', `--root 指向的目录不存在：${opts.root}`);
     const root = opts.root ? fs.realpathSync(path.resolve(opts.root)) : ROOT;   // 真实路径：被调用的工具按真实路径判断自己是不是入口
+    const software = (process.env.BEIMING_ANGLE || '').toLowerCase() === 'swiftshader';
+    const osKey = process.platform === 'win32' ? 'win' : process.platform;
+    if (golden === 'compare' && !opts.platform && !software) throw new CliError(EXIT.USAGE, 'USAGE', '--golden compare 在非软件渲染下要用 --platform 指明平台键（例如 darwin-metal-apple-m5）');
     ctx = {
       root, opts, golden, warnings, created,
       out: path.resolve(opts.out || path.join(root, 'out/ci/smoke')),
       sizeA: sizeOf(opts['size-a'] || '384x208', 'size-a'), sizeC: sizeOf(opts['size-c'] || '320x180', 'size-c'),
       sizeB: sizeOf(opts['size-beiming'] || '384x208', 'size-beiming'),
-      platform: opts.platform || 'linux-swiftshader', sets: opts['golden-set'].length ? opts['golden-set'] : ['beiming-core', 'lab'],
+      platform: opts.platform || (software ? `${osKey}-swiftshader` : null), sets: opts['golden-set'].length ? opts['golden-set'] : ['beiming-core', 'lab'],
       timeoutMs: 1000 * (opts.timeout || 600), tag: crypto.randomBytes(3).toString('hex'),
+      // 渲染器 v2（P04）默认拒绝软件渲染；CI 本来就只有软件渲染，显式放行（旧渲染器不认这个变量，没有影响）
+      childEnv: software && !process.env.BEIMING_GPU ? { BEIMING_GPU: 'software-ok' } : {},
     };
   } catch (e) {
     if (!(e instanceof CliError)) throw e;
@@ -212,7 +234,7 @@ export async function main(argv = process.argv.slice(2)) {
   return finish(exitCode, { outputs, phases }, error);
 }
 
-const TITLES = { a: 'A 模版出片', c: 'C 模版出片', b: 'B 模版素材准备（资产桥）', beiming: '《北冥》与 lab 静帧', golden: '金标准（P08）', contact: '接触印' };
+const TITLES = { a: 'A 模版出片', c: 'C 模版出片', b: 'B 模版素材准备（资产桥）', 'b-render': 'B 模版出片（需原生运行时）', beiming: '《北冥》与 lab 静帧', golden: '金标准（P08）', contact: '接触印' };
 
 // 命令一览（--plan 与报告共用）
 function planOf(id, ctx) {
@@ -221,11 +243,17 @@ function planOf(id, ctx) {
   switch (id) {
     case 'a': return [`node tools/new-film.mjs a ${film('a').slice(6)} --title 冒烟试映`, `PYTHON=<python> sh ${film('a')}/build.sh --size ${ctx.sizeA.join('x')}`, `核对 ${film('a')}/out/film.mp4 与 out/stills/`];
     case 'c': return [`node tools/new-film.mjs c ${film('c').slice(6)} --title 冒烟试映`, `把 ${film('c')}/film.json 的 size 改成 [${ctx.sizeC}]`, `BEIMING_PY=<python> node engine/render/build.mjs ${film('c')}`, `核对 ${film('c')}/out/${film('c').slice(6)}.mp4 与 poster.jpg`];
-    case 'b': return [`node tools/new-film.mjs b ${film('b').slice(6)} --title 冒烟试映`, `PYTHON=<python> node engine/native/prepare.mjs ${film('b')}`, `核对 ${film('b')}/media/prepared.json 与 GLB`];
+    case 'b': return [`node tools/new-film.mjs b ${film('b').slice(6)} --title 冒烟试映`, `PYTHON=<python> node engine/native/prepare.mjs ${film('b')}`,
+      `核对 ${film('b')}/media/ 的素材与 prepared.json，再准备一遍比对哈希`];
+    case 'b-render': return process.env.RAEA_BIN
+      ? [`把 ${film('b')}/film.json 的 size 改成 [${ctx.sizeC}]`, `RAEA_BIN=${process.env.RAEA_BIN} node engine/render/native.mjs ${film('b')} --quality draft`, '核对成片规格']
+      : ['跳过：没有设 RAEA_BIN（原生运行时不随仓库分发）'];
     case 'beiming': return [`node engine/render/still.mjs . 1.5 4.0 7.6 --size ${ctx.sizeB.join('x')} --out ${r(path.join(ctx.out, 'beiming'))}`,
       `node engine/render/still.mjs . 1.0 --query test=look --size ${ctx.sizeB.join('x')} --out ${r(path.join(ctx.out, 'lab'))} --prefix look_`];
-    case 'golden': return [`tests/golden/${ctx.platform}/manifest.json 在：node tools/baseline/golden.mjs compare ${ctx.sets.map(s => `--set ${s}`).join(' ')}`,
-      `不在：node tools/baseline/golden.mjs capture ${ctx.sets.map(s => `--set ${s}`).join(' ')} → 复制到 ${r(path.join(ctx.out, 'golden-capture'))}`];
+    case 'golden': return ctx.platform
+      ? [`tests/golden/${ctx.platform}/manifest.json 在：node tools/baseline/golden.mjs compare ${ctx.sets.map(s => `--set ${s}`).join(' ')} --platform ${ctx.platform}`,
+        `不在：node tools/baseline/golden.mjs capture ${ctx.sets.map(s => `--set ${s}`).join(' ')} --platform ${ctx.platform} → 复制到 ${r(path.join(ctx.out, 'golden-capture'))}`]
+      : ['跳过：不是软件渲染（BEIMING_ANGLE≠swiftshader）且没有 --platform；本机 GPU 的金标准用 node tools/baseline/golden.mjs 自己比对'];
     default: return [];
   }
 }
@@ -240,7 +268,7 @@ function pyExecutable(py) {
 
 async function step(ctx, label, cmd, args, env = {}) {
   process.stderr.write(`  $ ${[cmd === process.execPath ? 'node' : cmd, ...args].join(' ')}\n`);
-  const r = await run(cmd, args, { cwd: ctx.root, env: { ...pythonEnv(), ...env }, timeoutMs: ctx.timeoutMs, stdout: 'pipe', stderr: 'pipe' });
+  const r = await run(cmd, args, { cwd: ctx.root, env: { ...pythonEnv(), ...ctx.childEnv, ...env }, timeoutMs: ctx.timeoutMs, stdout: 'pipe', stderr: 'pipe' });
   if (r.timedOut) throw Object.assign(new Error(`${label} 超过 ${ctx.timeoutMs / 1000} 秒，已结束`), { timedOut: true, exitCode: EXIT.TIMEOUT });
   if (r.error) throw new Error(`${label} 启动失败：${r.error.message}`);
   if (r.code !== 0) {
@@ -271,15 +299,19 @@ function keep(ph, ctx, src, dstRel, kind) {
 function checkFilm(ph, file, { w, h, frames, fps, audio = true }) {
   const m = probeMedia(file);
   ph.details.media = m;
-  ph.check('画面尺寸', m.video && m.video.width === w && m.video.height === h, m.video ? `${m.video.width}x${m.video.height}` : '无画面', `${w}x${h}`);
-  ph.check('帧数', m.video && m.video.frames === frames, m.video?.frames, frames);
-  ph.check('帧率', m.video && Math.abs(m.video.fps - fps) < 1e-6, m.video?.fps, fps);
-  ph.check('像素格式', m.video && m.video.pixFmt === 'yuv420p', m.video?.pixFmt, 'yuv420p');
+  const v = m.video, c = v?.color;
+  ph.check('画面尺寸', v && v.width === w && v.height === h, v ? `${v.width}x${v.height}` : '无画面', `${w}x${h}`);
+  ph.check('帧数', v && v.frames === frames, v?.frames, frames);
+  ph.check('帧率', v && Math.abs(v.fps - fps) < 1e-6, v?.fps, fps);
+  ph.check('编码 H.264 yuv420p', v && v.codec === 'h264' && v.pixFmt === 'yuv420p', v ? `${v.codec} ${v.pixFmt}` : '无画面', 'h264 yuv420p');
+  ph.check('色彩：BT.709 有限范围，标注齐全', isBt709Tv(c), c ? `${c.range}/${c.space}/${c.primaries}/${c.transfer}` : '无', 'tv/bt709/bt709/bt709');
   if (audio) {
-    ph.check('音轨 48 kHz 立体声', m.audio && m.audio.sampleRate === 48000 && m.audio.channels === 2, m.audio ? `${m.audio.sampleRate} Hz × ${m.audio.channels}` : '无音轨', '48000 Hz × 2');
+    ph.check('音轨 AAC 48 kHz 立体声', m.audio && m.audio.codec === 'aac' && m.audio.sampleRate === 48000 && m.audio.channels === 2,
+      m.audio ? `${m.audio.codec} ${m.audio.sampleRate} Hz × ${m.audio.channels}` : '无音轨', 'aac 48000 Hz × 2');
     const l = loudness(file);
     ph.details.loudness = l;
-    ph.check('有声音（积分响度 > −50 LUFS）', l.lufs != null && l.lufs > -50, l.lufs == null ? '测不出' : `${l.lufs} LUFS`, '> −50 LUFS');
+    ph.check('积分响度 −14 ± 1 LUFS', l.lufs != null && Math.abs(l.lufs + 14) <= 1, l.lufs == null ? '测不出' : `${l.lufs} LUFS`, '−15 … −13 LUFS');
+    ph.check('真峰值 ≤ −1.0 dBTP', l.truePeak != null && l.truePeak <= -1.0, l.truePeak == null ? '测不出' : `${l.truePeak} dBTP`, '≤ −1.0 dBTP');
   }
   const mid = Math.floor(frames / 2), s = lumaStats(file, mid);
   ph.details.midFrame = { frame: mid, ...s };
@@ -322,24 +354,68 @@ const RUNNERS = {
 
   async b(ph, ctx) {
     const f = await newFilm(ph, ctx, 'b');
-    await step(ctx, 'B 素材准备（prepare.mjs）', process.execPath, [path.join(ctx.root, 'engine/native/prepare.mjs'), f.dir], { PYTHON: ctx.pyExe });
+    const prepare = () => step(ctx, 'B 素材准备（prepare.mjs）', process.execPath, [path.join(ctx.root, 'engine/native/prepare.mjs'), f.dir], { PYTHON: ctx.pyExe });
+    await prepare();
     const media = path.join(f.dir, 'media'), manifest = path.join(media, 'prepared.json');
     if (!ph.check('prepared.json 存在', fs.existsSync(manifest), `${f.rel}/media/prepared.json`, '存在')) return;
     keep(ph, ctx, manifest, 'b/prepared.json', 'manifest');
-    const assets = {};
-    for (const x of fs.readdirSync(media).sort()) {
-      const p = path.join(media, x);
-      if (fs.statSync(p).isFile()) assets[x] = { size: fs.statSync(p).size, sha256: sha256(p) };
-    }
+    const snapshot = () => {
+      const out = {};
+      for (const x of fs.readdirSync(media).sort()) {
+        const p = path.join(media, x);
+        if (fs.statSync(p).isFile()) out[x] = { size: fs.statSync(p).size, sha256: sha256(p) };
+      }
+      return out;
+    };
+    const assets = snapshot();
     ph.details.assets = assets;
+    const native = f.film.native || {};
+    const want = [...(native.images || []).map(i => i.to), ...(native.models || []).map(m => m.to), ...(native.sequences || []).map(q => q.to), ...(native.audio?.out ? [native.audio.out] : [])];
+    ph.check('film.json 声明的素材都已生成', want.length > 0 && want.every(x => assets[x]), want.filter(x => !assets[x]).join('、') || `${want.length} 个齐全`, '齐全');
     const glbs = Object.keys(assets).filter(x => x.endsWith('.glb'));
     ph.check('至少导出一个 GLB', glbs.length > 0, glbs.join('、') || '无', '≥ 1 个');
     for (const g of glbs) {
       const magic = fs.readFileSync(path.join(media, g)).subarray(0, 4).toString('latin1');
       ph.check(`${g} 是 glTF 二进制`, magic === 'glTF', magic, 'glTF');
     }
-    const want = (f.film.native?.images || []).map(i => i.to).concat((f.film.native?.models || []).map(m => m.to));
-    ph.check('film.json 声明的素材都已生成', want.every(x => assets[x]), want.filter(x => !assets[x]).join('、') || '齐全', '齐全');
+    let recorded = {};
+    try { recorded = JSON.parse(fs.readFileSync(manifest, 'utf8')).assets || {}; } catch { /* 下一条核对会失败 */ }
+    const wrong = want.filter(x => recorded[x] !== assets[x]?.sha256);
+    ph.check('prepared.json 记录的哈希与文件一致', !wrong.length, wrong.join('、') || `${want.length} 个一致`, '全部一致');
+    // 资产桥的确定性：同一份 film.json 再准备一遍，产物逐字节相同（B 路线的复现依据就是 prepared.json 里的哈希）
+    await prepare();
+    const again = snapshot();
+    const changed = want.filter(x => again[x]?.sha256 !== assets[x]?.sha256);
+    ph.check('再准备一遍，产物逐字节相同', !changed.length, changed.join('、') || `${want.length} 个相同`, '全部相同');
+    ctx.bFilm = f;
+  },
+
+  // 只在本机有原生运行时（RAEA_BIN）时跑：小尺寸出片，按与 A、C 相同的规格核对。仓库不分发运行时（D03），CI 上总是跳过。
+  async 'b-render'(ph, ctx) {
+    const bin = process.env.RAEA_BIN;
+    if (!bin || !fs.existsSync(bin)) {
+      ph.status = 'skip';
+      ph.reason = bin ? `RAEA_BIN 指向的 ${bin} 不存在` : '没有设 RAEA_BIN（原生运行时不随仓库分发）：B 路线只核对到素材准备';
+      process.stderr.write(`  · ${ph.reason}\n`);
+      return;
+    }
+    let f = ctx.bFilm;
+    if (!f) {
+      f = await newFilm(ph, ctx, 'b');
+      await step(ctx, 'B 素材准备（prepare.mjs）', process.execPath, [path.join(ctx.root, 'engine/native/prepare.mjs'), f.dir], { PYTHON: ctx.pyExe });
+    }
+    const [w, h] = ctx.sizeC;
+    const fj = path.join(f.dir, 'film.json');
+    const film = { ...JSON.parse(fs.readFileSync(fj, 'utf8')), size: [w, h] };
+    fs.writeFileSync(fj, JSON.stringify(film, null, 2) + '\n');
+    await step(ctx, 'B 出片（native.mjs）', process.execPath, [path.join(ctx.root, 'engine/render/native.mjs'), f.dir, '--quality', 'draft'], { RAEA_BIN: bin });
+    const outRel = film.native?.output || `out/${f.name}.mp4`, mp4 = path.join(f.dir, ...outRel.split('/'));
+    if (!ph.check('成片存在', fs.existsSync(mp4), `${f.rel}/${outRel}`, '存在')) return;
+    checkFilm(ph, mp4, { w, h, frames: Math.round(film.dur * film.fps), fps: film.fps });
+    keep(ph, ctx, mp4, 'b/film.mp4', 'video');
+    const mid = Math.floor(Math.round(film.dur * film.fps) / 2), still = path.join(ctx.out, 'b', `mid_${mid}.jpg`);
+    const x = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', mp4, '-vf', `select=eq(n\\,${mid})`, '-frames:v', '1', '-q:v', '3', still]);
+    if (x.status === 0 && fs.existsSync(still)) ph.outputs.push({ path: path.relative(ctx.root, still).split(path.sep).join('/'), sha256: sha256(still), kind: 'still' });
   },
 
   async beiming(ph, ctx) {
@@ -362,8 +438,14 @@ const RUNNERS = {
   // P08 的金标准工具：只依赖 capture / compare 两个子命令、--set、--json 与附录 C1 退出码（不一致 → 4）
   async golden(ph, ctx) {
     const tool = path.join(ctx.root, 'tools/baseline/golden.mjs');
-    const manifestRel = `tests/golden/${ctx.platform}/manifest.json`, manifest = path.join(ctx.root, manifestRel);
     if (!fs.existsSync(tool)) { ph.status = 'skip'; ph.reason = 'tools/baseline/golden.mjs 还没合入（P08），本次没有金标准比对'; process.stderr.write(`  · ${ph.reason}\n`); return; }
+    if (!ctx.platform) {
+      ph.status = 'skip';
+      ph.reason = '不是软件渲染（BEIMING_ANGLE≠swiftshader）：冒烟只比对 SwiftShader 金标准；本机 GPU 的金标准用 node tools/baseline/golden.mjs compare 自己比对';
+      process.stderr.write(`  · ${ph.reason}\n`);
+      return;
+    }
+    const manifestRel = `tests/golden/${ctx.platform}/manifest.json`, manifest = path.join(ctx.root, manifestRel);
     const help = spawnSync(process.execPath, [tool, '--help'], { cwd: ctx.root, encoding: 'utf8', timeout: 30000 });
     const platformArgs = /--platform\b/.test(help.stdout || '') ? ['--platform', ctx.platform] : [];
     const sets = ctx.sets.flatMap(s => ['--set', s]);
@@ -372,7 +454,7 @@ const RUNNERS = {
     if (mode === 'compare') {
       if (!fs.existsSync(manifest)) throw new CliError(EXIT.CONTRACT, 'GOLDEN_MISSING', `没有 ${manifestRel}：先用 --golden capture 采集并按 tests/ci/README.md 提交`);
       process.stderr.write(`  $ node tools/baseline/golden.mjs compare ${[...sets, ...platformArgs].join(' ')} --json\n`);
-      const r = await run(process.execPath, [tool, 'compare', ...sets, ...platformArgs, '--json'], { cwd: ctx.root, timeoutMs: ctx.timeoutMs, stdout: 'capture', stderr: 'pipe' });
+      const r = await run(process.execPath, [tool, 'compare', ...sets, ...platformArgs, '--json'], { cwd: ctx.root, env: { ...process.env, ...ctx.childEnv }, timeoutMs: ctx.timeoutMs, stdout: 'capture', stderr: 'pipe' });
       let j = null; try { j = JSON.parse(r.stdout); } catch { /* 按退出码判 */ }
       ph.details.result = j;
       if (r.timedOut) throw Object.assign(new Error('golden compare 超时'), { timedOut: true, exitCode: EXIT.TIMEOUT });
@@ -387,7 +469,7 @@ const RUNNERS = {
     // capture：把采集结果放进 --out/golden-capture/（保持仓库相对路径，下载后在仓库根目录解开即可）
     process.stderr.write(`  $ node tools/baseline/golden.mjs capture ${[...sets, ...platformArgs].join(' ')} --json\n`);
     const before = fs.existsSync(path.dirname(manifest));
-    const r = await run(process.execPath, [tool, 'capture', ...sets, ...platformArgs, '--json'], { cwd: ctx.root, timeoutMs: ctx.timeoutMs, stdout: 'capture', stderr: 'pipe' });
+    const r = await run(process.execPath, [tool, 'capture', ...sets, ...platformArgs, '--json'], { cwd: ctx.root, env: { ...process.env, ...ctx.childEnv }, timeoutMs: ctx.timeoutMs, stdout: 'capture', stderr: 'pipe' });
     if (r.timedOut) throw Object.assign(new Error('golden capture 超时'), { timedOut: true, exitCode: EXIT.TIMEOUT });
     if (r.code !== 0) throw new Error(`golden capture 退出码 ${r.code}：${(r.stderr || '').trim().split('\n').pop()}`);
     if (!ph.check(`采集写出了 ${manifestRel}`, fs.existsSync(manifest), fs.existsSync(manifest) ? '存在' : '不存在', `存在（平台键要等于 ${ctx.platform}）`)) return;
@@ -408,8 +490,8 @@ function contactSheet(phases, ctx) {
   const ph = new Phase('contact', TITLES.contact);
   const t0 = Date.now(), tmp = fs.mkdtempSync(path.join(ctx.out, '.tiles-'));
   try {
-    const [W, H] = ctx.sizeB;
-    stills.forEach((s, i) => spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', s, '-vf', `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black`, path.join(tmp, `t_${String(i).padStart(3, '0')}.png`)]));
+    const [W, H] = TILE;
+    stills.forEach((s, i) => spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', s, '-vf', `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=white`, path.join(tmp, `t_${String(i).padStart(3, '0')}.png`)]));
     const cols = Math.min(4, stills.length), rows = Math.ceil(stills.length / cols);
     const out = path.join(ctx.out, 'contact.jpg');
     const r = spawnSync('ffmpeg', ['-v', 'error', '-y', '-framerate', '1', '-i', path.join(tmp, 't_%03d.png'), '-vf', `tile=${cols}x${rows}:padding=4:margin=4:color=white`, '-frames:v', '1', '-q:v', '3', out]);
