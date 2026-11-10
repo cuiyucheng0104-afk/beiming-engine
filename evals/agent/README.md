@@ -33,9 +33,9 @@
 ## 一次评测怎么跑
 
 每道题的每一次尝试叫一次「运行」，全部状态放在仓库外的运行目录 `<评测根>/<题号>/<运行号>/`。评测根默认
-`~/.cache/beiming/evals`，可用 `BEIMING_EVAL_ROOT` 或 `--root` 改。家目录里有 `~/.claude/CLAUDE.md` 或 `~/AGENTS.md`
+`~/.cache/beiming/evals`，可用 `BEIMING_EVAL_ROOT` 或 `--root` 改。家目录里有 `.claude/CLAUDE.md` 或 `AGENTS.md`
 时（多数评测机都有），隔离会话会沿父目录加载它们，`prepare` 会以 exit 3 拒绝默认位置：把评测根放到家目录之外，
-例如 macOS / Linux 的 `/var/tmp/beiming-evals`、Windows 的 `C:\beiming-evals`。
+例如 macOS / Linux 的 `/var/tmp/beiming-evals`、Windows 系统盘根下的 `$env:SystemDrive\beiming-evals`。
 
 ```sh
 # bash / zsh（Linux、macOS）
@@ -52,7 +52,7 @@ node tools/eval/run.mjs clean  "$BEIMING_EVAL_ROOT/DF-A/<运行号>"   # 删掉�
 
 ```powershell
 # PowerShell（Windows）
-$env:BEIMING_EVAL_ROOT = 'C:\beiming-evals'
+$env:BEIMING_EVAL_ROOT = "$env:SystemDrive\beiming-evals"
 $env:CLAUDE_CODE_OAUTH_TOKEN = '…'
 node tools/eval/run.mjs prepare --task DF-A --commit <G1 候选提交>
 node tools/eval/run.mjs drive  "$env:BEIMING_EVAL_ROOT\DF-A\<运行号>"
@@ -123,7 +123,7 @@ node tools/eval/run.mjs reply <运行目录> --text '…' --note '为什么插�
 | 临时文件混进评测机的 TMPDIR | `TMPDIR` / `TMP` / `TEMP` 指向运行目录的 `tmp/` | H7：会话结束后 `tmp/` 不能有新增文件（Claude Code 自己的 `claude-*-cwd` 不算） |
 | 联网查资料 | 会话设置里禁用 WebSearch、WebFetch（禁用后仍会留下「尝试」记录） | H4：会话记录里的调用，包括被拦下的尝试 |
 | 冷启动借用现成环境 | 不放 node_modules；`PLAYWRIGHT_BROWSERS_PATH` 指向空目录；不传 `PYTHON`、`VIRTUAL_ENV`、`PYTHONPATH`、`CONDA_PREFIX` 等变量 | 过程分与 H1 自然体现 |
-| `~/lemo-*` 与仓库外的 skill 目录 | 不隐藏（代理仍读得到），靠判定；`prepare` 发现环境变量指向 `~/lemo-*` 会提示先 unset | H4：命令与路径里出现 `~/lemo-*`、`~/.claude/skills` 等即判不通过 |
+| `~/lemo-*` 与仓库外的 skill 目录 | 不隐藏（代理仍读得到），靠判定；`prepare` 发现环境变量指向 `~/lemo-*` 会提示先 unset | H4：命令与路径里出现 `~/lemo-*`、家目录下的 `.claude/skills` 等即判不通过 |
 | 会话不在被测检出里启动 | drive 以被测检出为工作目录启动 | init 记录的 cwd 必须在被测检出里 |
 
 任何一项核对失败（例如 init 里出现了 MCP 服务器），`gates.json` 结论记 `invalid`：这次运行作废，不计分，修好后重跑。

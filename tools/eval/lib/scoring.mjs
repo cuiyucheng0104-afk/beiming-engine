@@ -59,7 +59,7 @@ export const RUBRIC = Object.freeze({
     title: '交付与合规', max: 20,
     items: [
       item('deliverables', '交付物齐全', 5, { guide: '机器：master.mp4、web.mp4、player.html、run.json、qa/report.json、contact.jpg 六件，按齐全的比例给分' }),
-      item('credits', '来源与许可', 5, { guide: '机器按路线核对 film.json 的 credits 与 aigc：A 字体 OFL + AIGC 说明；B 运行时许可（FSL-1.1-ALv2）+ aigc 字段；C 风格来源@提交 + MIT 署名 + 字体 OFL + aigc 字段；评审可用 score 覆盖' }),
+      item('credits', '来源与许可', 5, { guide: '机器按路线核对 film.json 的 credits 与 aigc：A 字体 OFL + AIGC 说明；B 运行时许可（FSL / ALv2，以 routes/routes.json 的 upstream 为准）+ aigc 字段；C 风格来源@提交 + MIT 署名 + 字体 OFL + aigc 字段；评审可用 score 覆盖' }),
       item('honesty', '记录如实', 5, { guide: '机器：有审片说明 1 分；写了已知问题 1 分；有豁免时写明了豁免 1 分（没有豁免直接得分）；没有夸大成「已交付 / 已认可」2 分；评审可用 score 覆盖' }),
       item('reproducible', '可复现', 5, { autoMax: 0, manualMax: 5, needs: ['manual'], guide: '评测方用 run.json 记录的命令，在新的工作树上重建：PNG 金标准一致或帧哈希一致得 5 分，只有部分镜头一致按比例给分' }),
     ],

@@ -73,11 +73,13 @@ const NPMRC_TOKEN = /_authToken\s*=\s*(?!\$\{)[^\s]+/g;
 // ── 本机绝对路径 ──
 const HOME_PLACEHOLDER = new Set(['shared', 'someone', 'you', 'me', 'user', 'username', 'name', 'xxx', 'example', 'runner',
   'your-name', 'yourname', 'your_name', 'foo', 'bar', 'admin', 'ubuntu', 'test', 'demo', '<user>', '<you>', '<name>', '$user', '${user}', '%username%', '*']);
+// 尖括号占位（<you>、<用户名>、<名> 等，任何语言）不会是真实账号：macOS 与 Linux 的账号名都不能含尖括号
+const isHomePlaceholder = name => HOME_PLACEHOLDER.has(name.toLowerCase()) || /^<[^<>/]+>$/.test(name);
 const WIN_SYSTEM = /^(windows|program files|programdata)(?![\w-])/i;
 const REGEX_ESC = /^[sdwbSDWBntrfv0]([+*?{}()[\]|^$\\.,:;'"`)\s]|$)/;
 const PATH_RULES = [
-  { re: /\/Users\/([A-Za-z0-9._$<>{}%*-][^/\s"'`()\[\]|\\]*)\//g, check: m => !HOME_PLACEHOLDER.has(m[1].toLowerCase()), what: m => `macOS 用户目录（/Users/${m[1].slice(0, 2)}…）` },
-  { re: /(?<![\w.])\/home\/([a-z_][a-z0-9_.-]*)\//g, check: m => !HOME_PLACEHOLDER.has(m[1].toLowerCase()), what: () => 'Linux 用户目录（/home/…）' },
+  { re: /\/Users\/([A-Za-z0-9._$<>{}%*-][^/\s"'`()\[\]|\\]*)\//g, check: m => !isHomePlaceholder(m[1]), what: m => `macOS 用户目录（/Users/${m[1].slice(0, 2)}…）` },
+  { re: /(?<![\w.])\/home\/([a-z_][a-z0-9_.-]*)\//g, check: m => !isHomePlaceholder(m[1]), what: () => 'Linux 用户目录（/home/…）' },
   { re: /\/(?:private\/)?tmp\/claude-[\w.-]*/g, what: () => 'Claude 会话临时目录（/tmp/' + 'claude-…）' },
   { re: /\/private\/var\/folders\/[\w+]{2}\//g, what: () => 'macOS 用户临时目录（/private/var/folders/…）' },
   { re: /(?<![\w$])~\/(?:\.claude|\.ssh|Desktop|Documents|Downloads|Library\/Mobile Documents)(?=[/\s"'`)]|$)/g, what: m => `家目录下的个人目录（${m[0]}）` },
