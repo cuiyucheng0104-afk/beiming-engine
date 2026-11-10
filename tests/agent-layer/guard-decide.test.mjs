@@ -102,6 +102,8 @@ test('git：整树暂存与强推在哪里都拒绝，而且不能解锁', () =>
     ['git push --force-with-lease origin main', 'git-push-force'], ['git push --mirror', 'git-push-force'],
     ['cd films/demo && git add -A', 'git-add-all'], ['bash -c "git add -A"', 'git-add-all'], ['sh -c \'git push -f\'', 'git-push-force'],
     ['echo ok; git add .', 'git-add-dot'], ['rtk proxy git add -A', 'git-add-all'], ['env GIT_DIR=.git git add -A', 'git-add-all'],
+    // git stage 是 git add 的同义命令
+    ['git stage -A', 'git-add-all'], ['git stage --all films/x', 'git-add-all'], ['git stage .', 'git-add-dot'], ['git stage -- .', 'git-add-dot'],
   ];
   for (const [cmd, rule] of always) {
     expectDeny(bash(cmd), rule, cmd);
@@ -144,10 +146,34 @@ test('git：日常写法放行（按文件名暂存、普通提交与推送、�
     'git add -u films/demo/', 'git add -n .', 'git commit -m "feat: 新片 不要用 git add -A"', 'git push origin hard/P03',
     'git push --dry-run --force', 'git restore --staged films/demo/main.js', 'git restore films/demo/main.js', 'git checkout -b feat/x',
     'git switch main', 'git stash', 'git clean -n', 'git config core.hooksPath', 'git config core.hooksPath .githooks',
-    'git config --local core.hooksPath .githooks', 'git config get core.hooksPath', 'git -c user.email=a@b.c commit -m x',
+    'git config --local core.hooksPath .githooks', 'git config get core.hooksPath', 'git -c user.email=a@b.c commit -m x', 'git stage films/demo/main.js',
     "git commit -F - <<'EOF'\n不要 git add -A，也不要 git push --force\nEOF", 'git merge --ff-only routes-template', 'git worktree list']) {
     expectAllow(bash(cmd), cmd);
   }
+});
+
+test('提交前检查的放行变量 BEIMING_PRECOMMIT_ALLOW：agent 设置它按 git-no-verify 拒绝（与 --no-verify 同档），读它放行', () => {
+  for (const cmd of ['BEIMING_PRECOMMIT_ALLOW=vendor,repo-check git commit -m x', 'export BEIMING_PRECOMMIT_ALLOW=vendor',
+    'BEIMING_PRECOMMIT_ALLOW=vendor; git commit -m x', 'env BEIMING_PRECOMMIT_ALLOW=vendor git commit -m x',
+    'env -u CLAUDECODE BEIMING_PRECOMMIT_ALLOW=vendor git commit -m x', 'declare -x BEIMING_PRECOMMIT_ALLOW=vendor',
+    'bash -c "BEIMING_PRECOMMIT_ALLOW=vendor git commit -m x"', 'cd films/demo && BEIMING_PRECOMMIT_ALLOW=vendor git commit -m x',
+    'set BEIMING_PRECOMMIT_ALLOW=vendor', 'setx BEIMING_PRECOMMIT_ALLOW vendor', 'beiming_precommit_allow=vendor git commit -m x']) {
+    expectDeny(bash(cmd), 'git-no-verify', cmd);
+    expectDeny(bash(cmd, { cwd: os.tmpdir() }), 'git-no-verify', `${cmd}（在仓库外：变量只对本仓库的提交前检查有意义）`);
+    expectAllow(bash(cmd, { env: { BEIMING_GUARD_UNLOCK: 'git' } }), `${cmd}（解锁 git 后）`);
+  }
+  for (const cmd of ['$env:BEIMING_PRECOMMIT_ALLOW = "vendor"; git commit -m x', '$env:BEIMING_PRECOMMIT_ALLOW="vendor"',
+    'Set-Item Env:BEIMING_PRECOMMIT_ALLOW vendor', 'New-Item -Path Env:\\BEIMING_PRECOMMIT_ALLOW -Value vendor',
+    "[Environment]::SetEnvironmentVariable('BEIMING_PRECOMMIT_ALLOW', 'vendor')"]) {
+    expectDeny(pwsh(cmd), 'git-no-verify', `PowerShell ${cmd}`);
+  }
+  const d = bash('BEIMING_PRECOMMIT_ALLOW=vendor git commit -m x');
+  assert.match(d.reason, /用户本人在 Claude Code 之外的终端/, '下一步要说放行只能由用户本人做');
+  for (const cmd of ['echo $BEIMING_PRECOMMIT_ALLOW', 'grep -rn "BEIMING_PRECOMMIT_ALLOW=" .githooks', 'node .githooks/pre-commit.mjs --help',
+    'git commit -m "说明 BEIMING_PRECOMMIT_ALLOW=vendor 的用法"', 'export PYTHON=python3', 'BEIMING_PYTHON=python3 npm test']) {
+    expectAllow(bash(cmd), cmd);
+  }
+  expectAllow(pwsh('$env:PYTHON = "python"; Get-ChildItem Env:BEIMING_PRECOMMIT_ALLOW'), 'PowerShell 读环境变量');
 });
 
 test('Shell：写入受保护区域的各种写法都拒绝', () => {
@@ -240,7 +266,7 @@ test('家目录风格库：读写都拒绝；~/lemo-opuscar/.venv 只许当解�
 });
 
 test('PowerShell：同样的规则（cmdlet、别名、Windows 路径分隔符）', () => {
-  for (const [cmd, rule] of [['git add -A', 'git-add-all'], ['git add .', 'git-add-dot'], ['git push -f', 'git-push-force'],
+  for (const [cmd, rule] of [['git add -A', 'git-add-all'], ['git add .', 'git-add-dot'], ['git push -f', 'git-push-force'], ['git stage -A', 'git-add-all'],
     ['Remove-Item -Recurse -Force cases\\vendor', 'zone-vendor'], ['ri src\\main.js', 'zone-src'],
     ['Set-Content -Path src\\main.js -Value x', 'zone-src'], ['"x" | Out-File cases\\catalog.json', 'zone-catalog'],
     ['New-Item -ItemType File -Path films\\demo\\AGENTS.md', 'nested-instructions'],

@@ -6,7 +6,7 @@
 
 | 层 | 文件 | 管什么 | 失效时 |
 |---|---|---|---|
-| 权限 | [.claude/settings.json](../settings.json) 的 `permissions.deny` | 硬拒绝：写 `cases/vendor/**`、`cases/source/**`；`git add -A` / `--all` / `.`；强推；全局风格库 skill；读写 `~/lemo-opuscar`、`~/lemo-my-styles` | 由 Claude Code 执行，不能临时解锁 |
+| 权限 | [.claude/settings.json](../settings.json) 的 `permissions.deny` | 硬拒绝：写 `cases/vendor/**`、`cases/source/**`；`git add -A` / `--all` / `.`（同义的 `git stage` 同样拒绝）；强推；全局风格库 skill；读写 `~/lemo-opuscar`、`~/lemo-my-styles` | 由 Claude Code 执行，不能临时解锁 |
 | 钩子 | `guard.mjs`（PreToolUse） | 兜底与提示：按路径和命令内容判断，覆盖权限规则写不到的写法（重定向、`rm -rf`、`sed -i`、`cd` 之后再操作、`bash -c`、PowerShell cmdlet、MCP 工具），拒绝时给出改去 `films/<名字>/` 的下一步 | 钩子自身出错时放行并报错（不挡正常工作），由另外两层兜底 |
 | 提交 | [.githooks/pre-commit](../../.githooks/README.md) | 给不走 Claude Code 的工具：快照不可变、产物与大文件不入库、指令文件白名单，并调用合规扫描、大文件闸门与规范检查 | `npm run setup` 会在本仓库启用（`--no-hooks` 跳过）；手动：`git config core.hooksPath .githooks` |
 
@@ -35,12 +35,15 @@
 
 | 档 | 规则 | 范围 | 解锁 |
 |---|---|---|---|
-| 永远拒绝 | `git-add-all`（`git add -A` / `--all`）、`git-add-dot`（`git add .` / `*` / `:/` / 仓库根）、`git-push-force`（`--force`、`-f`、`--force-with-lease`、`+refspec`、`--mirror`） | 在哪里执行都管 | 不能解锁（与权限规则一致） |
-| 本仓库 | `git-reset-hard`、`git-clean`（`clean -f`）、`git-discard-all`（`checkout -f`、`checkout -- .`、`restore .`）、`git-commit-all`（`commit -a`、`commit .`）、`git-no-verify`、`git-add-force`、`git-add-update`（不带路径的 `add -u`）、`git-add-pathspec-file`、`git-history-rewrite`（`filter-repo`、`filter-branch`）、`git-hooks-bypass`（`-c core.hooksPath=…`）、`git-hooks-path` | 只在命令落在本仓库（不含 `.claude/worktrees/`）里时 | `BEIMING_GUARD_UNLOCK=git` |
+| 永远拒绝 | `git-add-all`（`git add -A` / `--all`）、`git-add-dot`（`git add .` / `*` / `:/` / 仓库根）——同义的 `git stage` 一样判；`git-push-force`（`--force`、`-f`、`--force-with-lease`、`+refspec`、`--mirror`） | 在哪里执行都管 | 不能解锁（与权限规则一致） |
+| 本仓库 | `git-reset-hard`、`git-clean`（`clean -f`）、`git-discard-all`（`checkout -f`、`checkout -- .`、`restore .`）、`git-commit-all`（`commit -a`、`commit .`）、`git-no-verify`（`commit --no-verify` / `-n`）、`git-add-force`、`git-add-update`（不带路径的 `add -u`）、`git-add-pathspec-file`、`git-history-rewrite`（`filter-repo`、`filter-branch`）、`git-hooks-bypass`（`-c core.hooksPath=…`）、`git-hooks-path` | 只在命令落在本仓库（不含 `.claude/worktrees/`）里时 | `BEIMING_GUARD_UNLOCK=git` |
 | 远端 | `git-push-delete`（`--delete`、`:ref`、`--prune`）、`push --no-verify`、`git config --global/--system core.hooksPath` | 在哪里执行都管 | `BEIMING_GUARD_UNLOCK=git` |
+| 放行变量 | `git-no-verify`：设置提交前检查的放行变量 `BEIMING_PRECOMMIT_ALLOW`（`X=… git commit`、`export` / `declare` / `env` / `set` / `setx`、PowerShell 的 `$env:X = …`、`Set-Item env:X`、`[Environment]::SetEnvironmentVariable`） | 在哪里执行都管（变量只对本仓库的提交前检查有意义） | `BEIMING_GUARD_UNLOCK=git` |
 | 发布 | `publish-irreversible`：`gh release delete`、`gh repo delete / rename / archive`、`gh repo edit --visibility`、`gh api -X DELETE` | 在哪里执行都管 | `BEIMING_GUARD_UNLOCK=publish` |
 
-`git config core.hooksPath .githooks`（在本仓库启用提交前检查）放行。提交说明、heredoc 正文、PowerShell here-string 里出现的"git add -A"当数据，不会误拦。
+`git config core.hooksPath .githooks`（在本仓库启用提交前检查）放行。提交说明、heredoc 正文、PowerShell here-string 里出现的"git add -A"当数据，不会误拦；读放行变量（`echo $BEIMING_PRECOMMIT_ALLOW`、搜索它）放行。
+
+放行变量 `BEIMING_PRECOMMIT_ALLOW` 只给用户本人在 Claude Code 之外的终端里用。即使 agent 用静态分析认不出的写法设了它（变量拼出的名字、写进脚本文件再执行），提交前检查看到 `CLAUDECODE=1`（Claude Code 的工具运行的命令都带）也会忽略它，照常检查。
 
 ## Skill 与读取
 

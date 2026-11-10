@@ -2,8 +2,8 @@
 // 做什么：给一次工具调用（Claude Code 的 PreToolUse 事件）判定放行还是拒绝，拒绝时给出规则 id、原因和下一步。
 //   - Write / Edit / MultiEdit / NotebookEdit：写入受保护区域、家目录风格库、子目录指令文件 → 拒绝
 //   - Bash / PowerShell：切词后逐条分析重定向、rm / cp / mv / sed -i / find -delete 等写入目标，
-//     git 的整树暂存、强推（任何位置，不能解锁）；本仓库里的跳过钩子、改写历史、reset --hard、clean -f、
-//     整树丢弃、commit -a（BEIMING_GUARD_UNLOCK=git 可解锁）；删除远端分支或标签；
+//     git 的整树暂存（add / stage 的 -A、.）、强推（任何位置，不能解锁）；本仓库里的跳过钩子、改写历史、reset --hard、clean -f、
+//     整树丢弃、commit -a（BEIMING_GUARD_UNLOCK=git 可解锁）；设置提交前检查的放行变量 BEIMING_PRECOMMIT_ALLOW；删除远端分支或标签；
 //     在归档里执行代码、访问 ~/lemo-*（~/lemo-opuscar/.venv 只许当解释器执行）、gh 的删除与改可见性 → 拒绝
 //   - Read：家目录风格库 → 拒绝；读归档里的上游 agent 文件 → 放行并附"只是资料"的提醒
 //   - Skill：全局第三方风格库 skill → 拒绝；其他视频类全局 skill → 放行并提醒先用 beiming-film
@@ -30,6 +30,9 @@ const BUILD_TOOLS = new Set(['npm', 'npx', 'pnpm', 'yarn', 'make', 'uv', 'pip', 
 const SHELL_KEYWORDS = new Set(['if', 'then', 'else', 'elif', 'fi', 'do', 'done', 'while', 'until', 'for', 'in', '!', 'time', 'case', 'esac', '{', '}']);
 const OUTPUT_OPTS = new Set(['--out', '--output', '--out-dir', '--outdir', '--output-dir', '--dest', '--destination', '--target-dir', '--prefix', '--save-dir', '--download-dir']);
 const isPython = n => /^python\d*(\.\d+)?$/.test(n);
+/** 提交前检查的放行变量（.githooks/pre-commit.mjs）：只能由用户本人在 Claude Code 之外的终端里设置。 */
+const PRECOMMIT_ALLOW = 'BEIMING_PRECOMMIT_ALLOW';
+const EXPORTERS = new Set(['export', 'declare', 'typeset', 'local', 'readonly', 'set', 'setx']);
 
 function baseName(cmd, ci) {
   let b = String(cmd).split(/[\\/]/).pop() ?? '';
@@ -184,14 +187,16 @@ function isBlanketSpec(spec, ctx, cwd) {
 // ── 包装命令：sudo、env、nohup、timeout、xargs、rtk… 去掉后才是真正执行的命令 ──
 function unwrap(words, ctx) {
   let w = words.slice();
-  const assigns = [];
+  const assigns = [];                          // 变量赋值的值（查家目录风格库）
+  const names = [];                            // 变量赋值的名字（查放行变量）
+  const assign = a => { const eq = a.indexOf('='); names.push(a.slice(0, eq).replace(/\+$/, '')); assigns.push(a.slice(eq + 1)); };
   for (let guard = 0; guard < 16 && w.length; guard++) {
     const first = w[0];
     if (SHELL_KEYWORDS.has(first)) { w = w.slice(1); continue; }
-    if (/^[A-Za-z_][A-Za-z0-9_]*\+?=/.test(first)) { assigns.push(first.slice(first.indexOf('=') + 1)); w = w.slice(1); continue; }
+    if (/^[A-Za-z_][A-Za-z0-9_]*\+?=/.test(first)) { assign(first); w = w.slice(1); continue; }
     const name = baseName(first, ctx.ci);
     if (name === 'command') {
-      if (w[1] === '-v' || w[1] === '-V') return { words: [], assigns, lookup: true };
+      if (w[1] === '-v' || w[1] === '-V') return { words: [], assigns, names, lookup: true };
       w = w.slice(1); while (w[0] === '-p') w = w.slice(1); continue;
     }
     if (name === 'builtin' || name === 'nohup' || name === '&') { w = w.slice(1); continue; }
@@ -208,7 +213,7 @@ function unwrap(words, ctx) {
         if (w[0] === '--') { w = w.slice(1); break; }
         if (['-u', '-C', '-S', '--unset', '--chdir', '--split-string'].includes(w[0])) { w = w.slice(2); continue; }
         if (w[0].startsWith('-')) { w = w.slice(1); continue; }
-        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0])) { assigns.push(w[0].slice(w[0].indexOf('=') + 1)); w = w.slice(1); continue; }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0])) { assign(w[0]); w = w.slice(1); continue; }
         break;
       }
       continue;
@@ -228,7 +233,35 @@ function unwrap(words, ctx) {
     if (name === 'rtk') { w = w.slice(1); if (w[0] === 'proxy') w = w.slice(1); continue; }
     break;
   }
-  return { words: w, assigns };
+  return { words: w, assigns, names };
+}
+
+/**
+ * 这条简单命令是否设置了 BEIMING_PRECOMMIT_ALLOW（放行提交前检查）。返回看到的写法，没有返回 null。
+ * 认：行首赋值 X=… cmd、env X=… cmd、export / declare / typeset / local / readonly / set X=…、setx X；
+ * PowerShell 的 $env:X = …、Set-Item / New-Item env:X。变量名不分大小写（Windows 上环境变量本来就不分）。
+ * 静态切词认不出的写法（变量拼出来的名字、脚本文件里的赋值）由提交前检查兜底：CLAUDECODE=1 时它忽略这个变量。
+ */
+function setsPrecommitAllow(item, u, dialect) {
+  const is = n => typeof n === 'string' && n.toUpperCase() === PRECOMMIT_ALLOW;
+  if (u.names.some(is)) return `${PRECOMMIT_ALLOW}=…`;
+  const w = u.words;
+  const name = w.length ? baseName(w[0], true) : '';
+  if (EXPORTERS.has(name)) {
+    for (const a of w.slice(1)) {
+      const m = /^([A-Za-z_][A-Za-z0-9_]*)\+?=/.exec(a);
+      if ((m && is(m[1])) || (name === 'setx' && is(a))) return `${name} ${PRECOMMIT_ALLOW}`;
+    }
+  }
+  if (dialect === 'pwsh') {
+    for (let i = 0; i < item.words.length; i++) {
+      const m = /^\$env:([A-Za-z_][A-Za-z0-9_]*)(.*)$/i.exec(item.words[i]);
+      if (m && is(m[1]) && (/^\s*\+?=/.test(m[2]) || /^\+?=/.test(item.words[i + 1] ?? ''))) return `$env:${PRECOMMIT_ALLOW} = …`;
+    }
+    if (['set-item', 'si', 'new-item', 'ni', 'set-content', 'sc', 'add-content', 'ac'].includes(name)
+      && w.slice(1).some(a => /^env:[\\/]?/i.test(a) && is(a.replace(/^env:[\\/]?/i, '')))) return `${w[0]} env:${PRECOMMIT_ALLOW}`;
+  }
+  return null;
 }
 
 // ── git ──
@@ -263,7 +296,7 @@ function analyzeGit(args, ctx, cwd) {
   const remote = rule => (gitUnlocked ? null : deny(rule, `执行 ${cmdText}`));
   if (hooksBypass && inRepo && !gitUnlocked) return deny('git-hooks-bypass', `执行 git ${hooksBypass} ${sub ?? ''}`.trim());
   switch (sub) {
-    case 'add': {
+    case 'add': case 'stage': {                 // git stage 是 git add 的同义命令
       const p = splitArgs(rest, new Set(['--chmod', '--pathspec-from-file']));
       if (p.has('-n', '--dry-run')) return null;
       if (p.has('-A', '--all', '--no-ignore-removal')) return always('git-add-all');
@@ -411,7 +444,10 @@ function analyzeSimple(item, ctx, dialect, st, depth) {
       if (d) return d;
     }
   }
-  const { words, assigns, lookup } = unwrap(item.words, ctx);
+  const u = unwrap(item.words, ctx);
+  const { words, assigns, lookup } = u;
+  const allowHow = setsPrecommitAllow(item, u, dialect);
+  if (allowHow && !ctx.unlocked.has(GIT_UNLOCK)) return deny('git-no-verify', `设置 ${allowHow}（放行提交前检查）`);
   for (const v of assigns) { const d = checkHomeAccess(v, ctx, cwd); if (d) return d; }
   if (lookup || !words.length) return null;
   const ci = ctx.ci || dialect === 'pwsh';
@@ -673,6 +709,9 @@ function analyzePwshCmdlet(name, args, ctx, cwd, st) {
 
 function analyzeScript(script, ctx, dialect, st, depth) {
   if (depth > 8 || typeof script !== 'string' || !script.trim()) return null;
+  if (dialect === 'pwsh' && !ctx.unlocked.has(GIT_UNLOCK) && new RegExp(`SetEnvironmentVariable\\s*\\(\\s*['"]${PRECOMMIT_ALLOW}['"]`, 'i').test(script)) {
+    return deny('git-no-verify', `设置 [Environment]::SetEnvironmentVariable('${PRECOMMIT_ALLOW}', …)（放行提交前检查）`);
+  }
   const { cmds, subs } = dialect === 'pwsh' ? parsePwsh(script) : parseBash(script);
   for (const s of subs) {
     const r = analyzeScript(s, ctx, dialect, { ...st, cwd: st.cwd }, depth + 1);

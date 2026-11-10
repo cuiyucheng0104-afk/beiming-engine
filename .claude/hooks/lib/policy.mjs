@@ -139,11 +139,11 @@ export const RULES = {
     next: '历史作品用 python3 tools/casebook.py restore <id> --out out/casebook 还原后在 out/casebook 里看；做片用本仓库的 npm run / engine/render 命令，产物只写 films/<名字>/out/',
   },
   'git-add-all': {
-    title: '不用 git add -A / --all：整树暂存会把别人的改动、成片、媒体和客户材料一起带进提交',
+    title: '不用 git add -A / --all（git stage 同理）：整树暂存会把别人的改动、成片、媒体和客户材料一起带进提交',
     next: '只按文件名暂存本次改动的源码，例如 git add films/<名字>/film.json films/<名字>/main.js；先 git status 看清楚',
   },
   'git-add-dot': {
-    title: '不用 git add . / * / :/（整目录、整树的通配暂存）',
+    title: '不用 git add . / * / :/（git stage 同理；整目录、整树的通配暂存）',
     next: '只按文件名暂存本次改动的源码；out/、帧序列、wav、mp4 不提交',
   },
   'git-add-update': {
@@ -163,8 +163,8 @@ export const RULES = {
     next: '先按文件名 git add，再 git commit -m "中文说明"',
   },
   'git-no-verify': {
-    title: '不跳过 git 钩子（--no-verify / -n）：pre-commit 负责挡住快照改动、成片和大文件',
-    next: '按 pre-commit 的报错修好再提交；确认是误报时告诉用户',
+    title: '不跳过 git 钩子，也不放行其中的检查（--no-verify / -n、设置 BEIMING_PRECOMMIT_ALLOW）：pre-commit 负责挡住快照改动、成片和大文件',
+    next: '按 pre-commit 的报错修好再提交；确认是误报时告诉用户——放行只能由用户本人在 Claude Code 之外的终端里执行（Claude Code 发起的提交里 BEIMING_PRECOMMIT_ALLOW 本来也不生效）',
   },
   'git-hooks-bypass': {
     title: '不用 -c core.hooksPath=… 临时换掉或关掉 git 钩子',

@@ -2,7 +2,8 @@
 // 北冥仓库 · agent 护栏（Claude Code PreToolUse 钩子，跨平台 node 脚本）
 // 做什么：每次 agent 调用写文件、跑命令、调 skill、读归档之前判定一次：
 //   拒绝写 cases/vendor/、cases/source/（上游快照与历史归档）、src/（《北冥》基准）、许可文件、护栏本身；
-//   拒绝 git add -A / . / -f、git commit -a / --no-verify、强推、删远端、改写历史、reset --hard、clean -f；
+//   拒绝 git add（或同义的 git stage）-A / . / -f、git commit -a / --no-verify、设置 BEIMING_PRECOMMIT_ALLOW、强推、删远端、
+//   改写历史、reset --hard、clean -f；
 //   拒绝在归档里运行代码、访问 ~/lemo-opuscar 与 ~/lemo-my-styles、调用全局第三方风格库 skill；
 //   拒绝时告诉 agent 原因与下一步（作品一律放 films/<名字>/）。规则数据在 lib/policy.mjs，判定在 lib/decide.mjs。
 // 用法：
@@ -114,7 +115,8 @@ async function explainCli(argv) {
       '  instructions  子目录里的 AGENTS.md / CLAUDE.md / GEMINI.md、嵌套的 .claude/ 与 .mcp.json',
       '  publish       gh release delete、gh repo delete / rename / archive / edit --visibility',
       `  git           ${Object.keys(RULES).filter(k => k.startsWith('git-') && !ALWAYS_DENY_RULES.has(k)).join('、')}`,
-      `永远拒绝、不能解锁：${[...ALWAYS_DENY_RULES].join('、')}（git add -A / --all / . / *、强推）`,
+      `永远拒绝、不能解锁：${[...ALWAYS_DENY_RULES].join('、')}（git add 或 git stage 的 -A / --all / . / *、强推）`,
+      'git-no-verify 还管设置提交前检查的放行变量 BEIMING_PRECOMMIT_ALLOW：放行只由用户本人在 Claude Code 之外的终端里做。',
       `日志：${DEFAULT_LOG}（${LOG_ENV}=off 关闭，=<路径> 改写），每行是 Claude Code 钩子载荷格式。说明：.claude/hooks/README.md`,
     ],
     options: {

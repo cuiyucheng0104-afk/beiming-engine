@@ -35,10 +35,14 @@ test('settings.json：要求的拒绝规则都在，写法是 工具(模式)', (
   const deny = settings.permissions?.deny ?? [];
   for (const r of ['Edit(/cases/vendor/**)', 'Edit(/cases/source/**)', 'Bash(git add -A)', 'Bash(git add -A *)', 'Bash(git add --all)',
     'Bash(git add .)', 'Bash(git add . *)', 'Bash(git push --force*)', 'Bash(git push -f)', 'Bash(git push * -f *)',
-    'PowerShell(git add -A)', 'PowerShell(git add .)', 'PowerShell(git push --force*)', 'Skill(lemo-opuscar)', 'Skill(lemo-opuscar:*)',
-    'Skill(sy-style-100:*)', 'Read(~/lemo-opuscar/**)', 'Read(~/lemo-my-styles/**)', 'Edit(~/lemo-my-styles/**)']) {
+    'Bash(git stage -A)', 'Bash(git stage --all *)', 'Bash(git stage .)', 'Bash(git stage -- .)',
+    'PowerShell(git add -A)', 'PowerShell(git add .)', 'PowerShell(git stage -A)', 'PowerShell(git stage .)', 'PowerShell(git push --force*)',
+    'Skill(lemo-opuscar)', 'Skill(lemo-opuscar:*)', 'Skill(sy-style-100:*)', 'Read(~/lemo-opuscar/**)', 'Read(~/lemo-my-styles/**)', 'Edit(~/lemo-my-styles/**)']) {
     assert.ok(deny.includes(r), `permissions.deny 缺 ${r}`);
   }
+  // Bash 与 PowerShell 的 git 拒绝规则一一对应（没有 Git Bash 的 Windows 上 agent 用 PowerShell 工具）
+  const shellRules = tool => deny.filter(r => r.startsWith(`${tool}(git `)).map(r => r.slice(tool.length)).sort();
+  assert.deepEqual(shellRules('PowerShell'), shellRules('Bash'), 'Bash 与 PowerShell 的 git 拒绝规则要一一对应');
   for (const r of deny) assert.match(r, /^(Edit|Read|Bash|PowerShell|Skill)\(.+\)$/, `拒绝规则写法不对：${r}`);
   assert.equal(new Set(deny).size, deny.length, '拒绝规则有重复');
   assert.equal(settings.permissions?.allow, undefined, '仓库级设置不预先放行任何命令（"其它宽松"指不额外拒绝，不是替用户批准）');

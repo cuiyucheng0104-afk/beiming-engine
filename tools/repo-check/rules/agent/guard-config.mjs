@@ -1,5 +1,5 @@
 // agent.guard-config：.claude/settings.json 的护栏没被削弱（差距 ENTRY-02、COMP-10、GAP-07）。
-//   - permissions.deny 里有硬拒绝：写 cases/vendor/**、cases/source/**；git add -A / .；强推；全局第三方风格库 skill
+//   - permissions.deny 里有硬拒绝：写 cases/vendor/**、cases/source/**；git add / git stage 的 -A、.；强推；全局第三方风格库 skill
 //   - hooks.PreToolUse 让写文件、Shell、PowerShell、Skill、MCP 工具都经过 .claude/hooks/guard.mjs，脚本存在
 //   - enabledPlugins 在项目级关掉会抢先触发的全局风格库插件（lemo-opuscar@lemolab）
 //   - claudeMdExcludes 屏蔽 cases/vendor、cases/source 里上游 CLAUDE.md / AGENTS.md 的自动加载
@@ -10,8 +10,9 @@ const GUARD = '.claude/hooks/guard.mjs';
 const REQUIRED_DENY = [
   'Edit(/cases/vendor/**)', 'Edit(/cases/source/**)',
   'Bash(git add -A)', 'Bash(git add -A *)', 'Bash(git add --all)', 'Bash(git add .)', 'Bash(git add . *)',
+  'Bash(git stage -A)', 'Bash(git stage -A *)', 'Bash(git stage --all)', 'Bash(git stage .)', 'Bash(git stage . *)',
   'Bash(git push --force*)', 'Bash(git push -f)', 'Bash(git push -f *)',
-  'PowerShell(git add -A)', 'PowerShell(git add .)', 'PowerShell(git push --force*)',
+  'PowerShell(git add -A)', 'PowerShell(git add .)', 'PowerShell(git stage -A)', 'PowerShell(git stage .)', 'PowerShell(git push --force*)',
   'Skill(lemo-opuscar)', 'Skill(lemo-opuscar:*)', 'Skill(sy-style-100)', 'Skill(sy-style-100:*)',
 ];
 const GUARDED_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Bash', 'PowerShell', 'Skill', 'mcp__any__write_file'];
