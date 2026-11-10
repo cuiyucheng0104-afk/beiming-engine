@@ -103,7 +103,7 @@ const blocked = [
   ['large', { 'films/demo/plate.bin': Buffer.alloc(5 * 1024 * 1024 + 1, 1) }],
   ['secrets', { '.env': 'TOKEN=abc\n' }],
   ['secrets', { 'films/demo/key.pem': 'x' }],
-  ['secrets', { 'films/demo/notes.md': '-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n' }],
+  ['secrets', { 'films/demo/notes.md': `-----BEGIN ${'OPENSSH'} PRIVATE KEY-----\nabc\n` }],   // 拆开写，免得本文件自己被 --all 当成私钥
   ['instructions', { 'films/demo/AGENTS.md': '# 子目录指令\n' }],
   ['instructions', { '.claude/skills/new-skill/SKILL.md': '---\nname: new-skill\ndescription: x\n---\n' }],
   ['bridge', { 'CLAUDE.md': '@AGENTS.md\n另外的规则\n' }],
