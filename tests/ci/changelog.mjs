@@ -116,7 +116,7 @@ export function releaseNotes(parsed, { tag = null, unreleased = false, footer = 
   if (unreleased) sec = parsed.sections.find(s => /^unreleased$/i.test(s.label));
   else {
     const v = normalizeVersion(tag);
-    if (!v) throw new CliError(EXIT.USAGE, 'USAGE', `标签「${tag}」不是 v<主>.<次>.<修订> 形式`, '例如 v2.0.0、v2.1.0-rc.1');
+    if (!v) throw new CliError(EXIT.USAGE, 'usage.bad-value', `标签「${tag}」不是 v<主>.<次>.<修订> 形式`, '例如 v2.0.0、v2.1.0-rc.1');
     sec = parsed.sections.find(s => s.version === v);
     if (!sec) {
       const have = parsed.sections.filter(s => s.version).map(s => s.label).join('、') || '无';
@@ -166,9 +166,9 @@ export function main(argv = process.argv.slice(2)) {
     opts = parseArgs(argv, SPEC, { positional: 2 });
     if (opts.help) { process.stdout.write(HELP + '\n'); return EXIT.OK; }
     const [cmd, tag] = opts._;
-    if (!['check', 'notes'].includes(cmd)) throw new CliError(EXIT.USAGE, 'USAGE', cmd ? `不认识的子命令「${cmd}」` : '缺子命令', '用 check 或 notes；--help 查看用法');
-    if (cmd === 'check' && tag) throw new CliError(EXIT.USAGE, 'USAGE', `check 不带位置参数（多了「${tag}」）`);
-    if (cmd === 'notes' && !tag === !opts.unreleased) throw new CliError(EXIT.USAGE, 'USAGE', 'notes 要给一个标签，或者 --unreleased（二选一）');
+    if (!['check', 'notes'].includes(cmd)) throw new CliError(EXIT.USAGE, cmd ? 'usage.unknown-command' : 'usage.missing-argument', cmd ? `不认识的子命令「${cmd}」` : '缺子命令', '用 check 或 notes；--help 查看用法');
+    if (cmd === 'check' && tag) throw new CliError(EXIT.USAGE, 'usage.bad-value', `check 不带位置参数（多了「${tag}」）`);
+    if (cmd === 'notes' && !tag === !opts.unreleased) throw new CliError(EXIT.USAGE, 'usage.bad-value', 'notes 要给一个标签，或者 --unreleased（二选一）');
     const file = path.resolve(opts.file || path.join(ROOT, 'CHANGELOG.md'));
     if (!fs.existsSync(file)) throw new CliError(EXIT.CONTRACT, 'CHANGELOG_MISSING', `找不到 ${file}`, '仓库根目录应有 CHANGELOG.md（Keep a Changelog 格式）');
     const parsed = parseChangelog(fs.readFileSync(file, 'utf8'));

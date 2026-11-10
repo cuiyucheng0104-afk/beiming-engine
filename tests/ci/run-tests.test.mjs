@@ -42,14 +42,15 @@ test('--help 只打印用法、exit 0，不碰任何文件', async () => {
 test('未知参数 exit 2；--json 时 stdout 是唯一一个信封对象', async () => {
   const r = await runNode(RUN_TESTS, ['--no-such-flag']);
   assert.equal(r.code, 2);
-  assert.match(r.stderr, /不认识的参数 --no-such-flag/);
+  assert.match(r.stderr, /不认识的选项 --no-such-flag/);
   const j = await runNode(RUN_TESTS, ['--no-such-flag', '--json']);
   assert.equal(j.code, 2);
   assert.ok(j.json, `stdout 应是 JSON：${j.stdout}`);
-  assert.deepEqual(Object.keys(j.json).slice(0, 7), ['ok', 'exitCode', 'command', 'error', 'outputs', 'runJson', 'warnings']);
+  assert.deepEqual(Object.keys(j.json).slice(0, 8), ['schemaVersion', 'ok', 'exitCode', 'command', 'error', 'outputs', 'runJson', 'warnings']);
+  assert.equal(j.json.schemaVersion, 1);
   assert.equal(j.json.ok, false);
   assert.equal(j.json.exitCode, 2);
-  assert.equal(j.json.error.code, 'USAGE');
+  assert.equal(j.json.error.code, 'usage.unknown-option', '与 tools/lib/cli.mjs 同一套用法错误码');
 });
 
 test('发现：跳过 cases/、films/、fixtures/、node_modules/ 与点开头的目录', async t => {

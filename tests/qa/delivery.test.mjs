@@ -26,7 +26,8 @@ before(() => {
 test('合格样本：全部硬门通过，exit 0，信封字段齐全', { skip }, () => {
   const r = qa(['delivery', good, '--film', film]);
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(Object.keys(r.env).slice(0, 7), ['ok', 'exitCode', 'command', 'error', 'outputs', 'runJson', 'warnings']);
+  assert.deepEqual(Object.keys(r.env).slice(0, 8), ['schemaVersion', 'ok', 'exitCode', 'command', 'error', 'outputs', 'runJson', 'warnings']);
+  assert.equal(r.env.schemaVersion, 1);
   assert.equal(r.env.ok, true);
   assert.equal(r.env.exitCode, 0);
   assert.deepEqual(fails(r.env), []);

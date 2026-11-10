@@ -174,7 +174,8 @@ if (isMain(import.meta.url)) {
   const dd = argv.indexOf('--');
   const passthrough = dd >= 0 ? argv.slice(dd + 1) : [];
   runCli({
-    command: `remote ${argv[0] || ''}`.trim(), help: HELP, argv: dd >= 0 ? argv.slice(0, dd) : argv, maxPositionals: 3,
+    // 信封的 command 是命令名：只有认得的子命令才拼进去（拼错的选项或子命令不进命令名）
+    command: SUBS.includes(argv[0]) ? `remote ${argv[0]}` : 'remote', help: HELP, argv: dd >= 0 ? argv.slice(0, dd) : argv, maxPositionals: 3,
     options: {
       commit: { type: 'string' }, 'allow-dirty': { type: 'boolean' }, 'no-setup': { type: 'boolean' }, wait: { type: 'string' }, keep: { type: 'boolean' },
       dest: { type: 'string' }, fetch: { type: 'string', multiple: true }, route: { type: 'string', multiple: true }, gpu: { type: 'string' }, profile: { type: 'string' },

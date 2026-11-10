@@ -28,7 +28,7 @@ test('--help 只打印用法、exit 0；未知步骤 exit 2 并列出可用步�
   assert.match(h.stdout, /用法：node tools\/check-all\.mjs/);
   const r = await runNode(CHECK_ALL, ['--only', 'nosuch', '--json']);
   assert.equal(r.code, 2);
-  assert.equal(r.json.error.code, 'USAGE');
+  assert.equal(r.json.error.code, 'usage.bad-value');
   assert.match(r.json.error.hint, /repo、plan、tests/);
 });
 
