@@ -12,8 +12,14 @@
 //   resolveGpuPolicy(value?)    --gpu：required（默认，软件渲染判失败，退出码 3）| any（允许软件渲染，记一条提示）|
 //                               software-ok（明确要软件渲染：CI 冒烟、资产烘焙，不提示）；没写参数时读 BEIMING_GPU（同样校验，写错退出码 2）
 //   enforceGpu(info, policy)    按策略判定：要硬件却是软件 → env.software-gl、没有 WebGL2 → env.webgl-unavailable（退出码 3），带修复提示
-import { chromium } from 'playwright-core';
 import { RenderError } from './errors.mjs';
+
+// playwright-core 用到时才加载：封装（lib/mux.mjs）、--help、参数校验都不需要装好 npm 依赖
+async function chromiumLib() {
+  try { return (await import('playwright-core')).chromium; } catch (e) {
+    throw new RenderError('env.playwright-missing', `加载不了 playwright-core（${String(e?.message ?? e).split('\n')[0]}）`, { hint: '在仓库根运行 npm ci（或 npm run setup），装好锁定版本的 npm 依赖与 headless shell' });
+  }
+}
 
 const VALID = {
   darwin: ['metal', 'gl', 'swiftshader', 'default'],
@@ -71,6 +77,7 @@ export function resolveGpuPolicy(value, { env = process.env } = {}) {
  * 浏览器启动失败（没装 headless shell、BEIMING_CHROME 指错）→ env.browser-launch（退出码 3）。
  */
 export async function launchBrowser({ angle = defaultAngle(), handleSignals = false, executablePath = chromeExecutable() } = {}) {
+  const chromium = await chromiumLib();
   try {
     return await chromium.launch({
       executablePath, args: chromeArgs(angle),

@@ -138,6 +138,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `env.webgl-unavailable` | 3 | 建不起 WebGL2 上下文 | 查显卡驱动，跑 gpucheck |
 | `env.gpu-not-hardware` | 3 | gpucheck：渲染器会用的后端不是硬件 GPU | 按推荐设 `BEIMING_ANGLE` |
 | `env.browser-launch` | 3 | 无头浏览器起不来 | `npm run setup` 装锁定的 headless shell |
+| `env.playwright-missing` | 3 | 加载不了 playwright-core（没装 npm 依赖） | 在仓库根 `npm ci` |
 | `env.ffmpeg-missing`、`env.ffprobe-missing`、`env.ffmpeg-encoder-missing`、`env.ffmpeg-spawn` | 3 | 找不到 FFmpeg / ffprobe、缺 libx264 或 aac、起不来 | 装 FFmpeg ≥ 7，或设 `FFMPEG` / `FFPROBE` |
 | `env.disk-insufficient` | 3 | `--plan` 估算磁盘不够 1.5 倍余量 | 换输出目录或清理磁盘 |
 | `env.lock-io`、`env.listen` | 3 | 输出目录不可写；预览服务监听失败 | 查权限 |
