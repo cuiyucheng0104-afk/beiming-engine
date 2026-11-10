@@ -111,9 +111,9 @@ function pageSize(opts) {
 }
 
 function checkInput(p) {
-  if (!p) throw usageError('缺少成片路径');
-  if (!fs.existsSync(p)) throw new QaError('usage', `找不到文件：${p}`, { hint: '给出成片的路径（例如 films/<名>/out/<run-id>/master.mp4）', exitCode: EXIT.USAGE });
-  if (!fs.statSync(p).isFile()) throw new QaError('usage', `${p} 不是文件`, { exitCode: EXIT.USAGE });
+  if (!p) throw usageError('缺少成片路径', '用 --help 查看用法', 'usage.missing-argument');
+  if (!fs.existsSync(p)) throw new QaError('usage.no-file', `找不到文件：${p}`, { hint: '给出成片的路径（例如 films/<名>/out/<run-id>/master.mp4）', exitCode: EXIT.USAGE });
+  if (!fs.statSync(p).isFile()) throw new QaError('usage.no-file', `${p} 不是文件`, { exitCode: EXIT.USAGE });
 }
 
 async function envInfo() {
@@ -161,7 +161,7 @@ async function runGroups(sub, opts, input) {
         const pageDir = opts.page ? path.resolve(opts.page) : ctx.film?.dir;
         if (!pageDir || !fs.existsSync(path.join(pageDir, 'index.html'))) {
           const why = opts.page ? `${opts.page} 里没有 index.html` : '没有可打开的作品页面（B 路线原生片没有页面；页面型作品用 --page 或 --film 指定）';
-          if (sub === 'texts') throw new QaError('usage', why, { exitCode: EXIT.USAGE });
+          if (sub === 'texts') throw new QaError('usage.bad-value', why, { exitCode: EXIT.USAGE });
           skipped.push({ group: 'texts', reason: why });
           continue;
         }
@@ -176,10 +176,10 @@ async function runGroups(sub, opts, input) {
         const images = sub === 'plates' ? (opts.images || []) : [];
         const pageDir = opts.page ? path.resolve(opts.page) : ctx.film?.dir;
         const hasPage = !!(pageDir && fs.existsSync(path.join(pageDir, 'index.html')));
-        if (opts.page && !hasPage) throw new QaError('usage', `${opts.page} 里没有 index.html`, { exitCode: EXIT.USAGE });
+        if (opts.page && !hasPage) throw new QaError('usage.bad-value', `${opts.page} 里没有 index.html`, { exitCode: EXIT.USAGE });
         if (!hasPage && !images.length && !(ctx.film?.native?.images || []).length) {
           const why = '没有可投影的页面、film.json 也没有 native.images（给图片路径可只做静态找边）';
-          if (sub === 'plates') throw new QaError('usage', why, { hint: 'node tools/qa/cli.mjs plates --film films/<名>，或 plates <图片…>', exitCode: EXIT.USAGE });
+          if (sub === 'plates') throw new QaError('usage.bad-value', why, { hint: 'node tools/qa/cli.mjs plates --film films/<名>，或 plates <图片…>', exitCode: EXIT.USAGE });
           skipped.push({ group: 'plates', reason: why });
           continue;
         }
@@ -199,7 +199,7 @@ async function runGroups(sub, opts, input) {
         const events = evFile ? loadEvents(evFile, ctx.film?.fps || null) : (ctx.film?.events || []);
         if (!events.some(e => e.needsSound)) {
           const why = opts.events ? `${opts.events} 里没有要求有声的事件` : '作品描述没有要求有声的事件（events[].audio / sfx / cue）';
-          if (sub === 'sync') throw new QaError('usage', why, { hint: '用 --events 指定事件表，或在 film.json 的 events 里给事件写 audio', exitCode: EXIT.USAGE });
+          if (sub === 'sync') throw new QaError('usage.bad-value', why, { hint: '用 --events 指定事件表，或在 film.json 的 events 里给事件写 audio', exitCode: EXIT.USAGE });
           skipped.push({ group: 'sync', reason: why });
           continue;
         }
@@ -270,18 +270,24 @@ function printHuman(report) {
 
 async function main(argv) {
   const sub = argv[0];
-  if (sub === undefined) { process.stderr.write(usage() + '\n'); return { code: EXIT.USAGE, command: 'qa', error: usageError('缺少子命令') }; }
+  if (sub === undefined) { process.stderr.write(usage() + '\n'); return { code: EXIT.USAGE, command: 'qa', error: usageError('缺少子命令', '用 --help 查看用法', 'usage.missing-argument') }; }
   if (sub === '--help' || sub === '-h' || sub === 'help') { process.stdout.write(usage() + '\n'); return { code: EXIT.OK, command: 'qa', silent: true }; }
-  if (!SUBS[sub]) throw usageError(`未知子命令 ${sub}`, `可用：${Object.keys(SUBS).join('、')}`);
+  if (sub.startsWith('-')) {
+    // 子命令写在最前面：开头就是选项时，除 --json 外的选项都不认识（--help 已在上面处理）
+    const bad = argv.find(a => a.startsWith('-') && a !== '--json');
+    if (bad) throw usageError(`不认识的选项 ${bad.split('=')[0]}`, `子命令写在最前面：node tools/qa/cli.mjs <${Object.keys(SUBS).join('|')}> [参数]`, 'usage.unknown-option');
+    throw usageError('缺少子命令', `可用：${Object.keys(SUBS).join('、')}`, 'usage.missing-argument');
+  }
+  if (!SUBS[sub]) throw usageError(`未知子命令 ${sub}`, `可用：${Object.keys(SUBS).join('、')}`, 'usage.unknown-command');
   const spec = SUBS[sub];
   const { opts, positionals } = parseArgs(argv.slice(1), { options: spec.options, positionals: { min: 0, max: spec.max ?? spec.pos, names: [spec.args] } });
   if (sub === 'plates') {
     opts.images = positionals;
-    for (const f of positionals) if (!fs.existsSync(f)) throw new QaError('usage', `找不到图片：${f}`, { exitCode: EXIT.USAGE });
+    for (const f of positionals) if (!fs.existsSync(f)) throw new QaError('usage.no-file', `找不到图片：${f}`, { exitCode: EXIT.USAGE });
   }
   const command = `qa ${sub}`;
   if (opts.help) { process.stdout.write(usage(sub) + '\n'); return { code: EXIT.OK, command, silent: true }; }
-  if (positionals.length < spec.pos) throw usageError(`缺少参数 ${spec.args}`, `node tools/qa/cli.mjs ${sub} --help`);
+  if (positionals.length < spec.pos) throw usageError(`缺少参数 ${spec.args}`, `node tools/qa/cli.mjs ${sub} --help`, 'usage.missing-argument');
 
   ROOT = repoRootOf((sub !== 'plates' && positionals[0]) || opts.page || opts.film || positionals[0] || process.cwd()) || REPO_ROOT;
   if (sub === 'profiles') {
@@ -292,7 +298,7 @@ async function main(argv) {
   }
   if (sub === 'validate') {
     const f = positionals[0];
-    if (!fs.existsSync(f)) throw new QaError('usage', `找不到 ${f}`, { exitCode: EXIT.USAGE });
+    if (!fs.existsSync(f)) throw new QaError('usage.no-file', `找不到 ${f}`, { exitCode: EXIT.USAGE });
     let doc;
     try { doc = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return { code: EXIT.GATE, command, ok: false, error: new QaError('report.invalid', `${f} 不是合法 JSON：${e.message}`), json: opts.json }; }
     const v = validateReport(doc);
@@ -348,7 +354,7 @@ try {
   const qe = e instanceof QaError ? e : new QaError('internal', `内部错误：${e.message}`, { hint: '这是 QA 工具本身的问题，请带上下面的堆栈报告给维护者', exitCode: EXIT.RUNTIME });
   if (!(e instanceof QaError)) process.stderr.write(`${e.stack}\n`);
   if (!wantJson) process.stderr.write(`错误：${qe.message}${qe.hint ? `\n下一步：${qe.hint}` : ''}\n`);
-  res = { code: qe.exitCode, command: `qa ${argv[0] || ''}`.trim(), ok: false, error: qe, json: wantJson };
+  res = { code: qe.exitCode, command: SUBS[argv[0]] ? `qa ${argv[0]}` : 'qa', ok: false, error: qe, json: wantJson };
 }
 await runCleanups();
 if (res.json || (wantJson && !res.silent)) {

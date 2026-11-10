@@ -199,6 +199,114 @@
       "added": "2026-11-10",
       "expires": "2026-12-31",
       "ref": "P01 汇报 cross_package_requests：作品站 site/index.html"
+    },
+    {
+      "rule": "comp.fsl-boundary",
+      "path": "tests/cli/registry.test.mjs",
+      "match": "1.1-ALv2",
+      "kind": "false-positive",
+      "reason": "路线注册表测试断言 B 路线上游运行时的 license 字段等于登记值：字符串是被测数据（SPDX 许可标识），不是 FSL 正文或许可头（P00 集成时判定）",
+      "owner": "P02",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/env/remote.test.mjs",
+      "match": "beiming-remote",
+      "kind": "false-positive",
+      "reason": "远程工具的参数编码与机器档案校验用例：Windows 远端工作根的构造样例，测 PowerShell 编码与 root 合法性，不对应任何机器（P00 集成时判定）",
+      "owner": "P10",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/env/remote.test.mjs",
+      "match": "北冥 远程",
+      "kind": "false-positive",
+      "reason": "机器档案校验的拒绝用例：故意构造带中文与空格的远端根，测试要证明它被拒绝（P00 集成时判定）",
+      "owner": "P10",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/env/sh-ffmpeg.test.mjs",
+      "match": ":\\Tools",
+      "kind": "false-positive",
+      "reason": "findSh（Windows）用例：构造 Git for Windows 装在非默认盘的样例路径，测从 PATH 里的 git.exe 反推 sh.exe（P00 集成时判定）",
+      "owner": "P10",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/env/sh-ffmpeg.test.mjs",
+      "match": ":\\Users",
+      "kind": "false-positive",
+      "reason": "findSh（Windows）用例：构造的用户级安装位置（用户名 u 的 LOCALAPPDATA），测按用户目录找 Git（P00 集成时判定）",
+      "owner": "P10",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/eval/*.test.mjs",
+      "match": "Users/tester/",
+      "kind": "false-positive",
+      "reason": "评测工具的路径用例：构造的 macOS 家目录（用户名 tester），测 ~ 展开、本机路径替换、越界写入与会话起点判定（P00 集成时判定）",
+      "owner": "P17",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/eval/gates.test.mjs",
+      "match": "Users/other/",
+      "kind": "false-positive",
+      "reason": "H7 残留进程用例：构造的「别人的」ffmpeg 命令行，测认不出归属的进程只警告、基线进程不算残留（P00 集成时判定）",
+      "owner": "P17",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/eval/gates.test.mjs",
+      "match": "HOME}/.claude",
+      "kind": "false-positive",
+      "reason": "H4 用例：构造代理读取家目录下全局 skill 的会话记录（HOME 是测试里的假家目录），测试要证明它被判不通过（P00 集成时判定）",
+      "owner": "P17",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/eval/lib.test.mjs",
+      "match": ":\\tools",
+      "kind": "false-positive",
+      "reason": "渲染进程识别用例：构造的 Windows ffmpeg 可执行文件路径，测按可执行文件名识别渲染进程（P00 集成时判定）",
+      "owner": "P17",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/eval/lib.test.mjs",
+      "match": "Users/bob/",
+      "kind": "false-positive",
+      "reason": "结果文件脱敏用例：构造的另一位用户的 Windows 用户目录，测本机路径统一换成 ~（P00 集成时判定）",
+      "owner": "P17",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/eval/lib.test.mjs",
+      "match": ":\\Users",
+      "kind": "false-positive",
+      "reason": "同上一条：同一个样例的 Windows 盘符写法（C 盘 Users 目录，用户名 bob）（P00 集成时判定）",
+      "owner": "P17",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "tools/qa/lib/sheet.mjs",
+      "match": "sy-style-100/lib/pixel.js",
+      "kind": "false-positive",
+      "reason": "联系表标签用的 5×7 点阵字是公开的 HD44780 液晶字库字形，写成「#」与空格的字符串；上游是「0/1」位串，且字形不同（如 3），记号归一化后都成了「键: [7 个字符串]」才连成一串（P00 集成时判定）",
+      "owner": "P07",
+      "added": "2026-11-10"
     }
   ]
 }

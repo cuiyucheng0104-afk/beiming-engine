@@ -56,6 +56,8 @@ export class CliError extends Error {
 // 严格解析参数。spec = { 名字: { type: 'bool' | 'string' | 'list' | 'multi' | 'int', short?: 'h' } }；
 // list 可重复、可逗号分隔；multi 可重复、不按逗号拆（值本身可能带逗号，例如测试名）。
 // 未知参数、缺值、类型不对一律抛 CliError(2)。positional 为允许的位置参数个数上限（默认 0）。
+// 用法错误的码与 tools/lib/cli.mjs 同名（docs/CLI.md 第 4 节）：usage.unknown-option（「不认识的选项 --xxx」）、
+// usage.missing-value、usage.bad-value、usage.extra-argument；各命令自己的用法错误用 usageError(message, hint, code)。
 export function parseArgs(argv, spec, { positional = 0 } = {}) {
   const out = { _: [] };
   for (const [k, s] of Object.entries(spec)) out[k] = s.type === 'list' || s.type === 'multi' ? [] : s.type === 'bool' ? false : null;
@@ -65,36 +67,36 @@ export function parseArgs(argv, spec, { positional = 0 } = {}) {
     if (a === '--') { out._.push(...argv.slice(i + 1)); break; }
     let name, val;
     if (a.startsWith('--')) { const eq = a.indexOf('='); name = eq > 0 ? a.slice(2, eq) : a.slice(2); val = eq > 0 ? a.slice(eq + 1) : undefined; }
-    else if (/^-[a-zA-Z]$/.test(a)) { name = shorts[a[1]]; if (!name) throw usage(`不认识的参数 ${a}`); }
+    else if (/^-[a-zA-Z]$/.test(a)) { name = shorts[a[1]]; if (!name) throw usageError(`不认识的选项 ${a}`, '加 --help 查看用法', 'usage.unknown-option'); }
     else { out._.push(a); continue; }
     const s = spec[name];
-    if (!s) throw usage(`不认识的参数 --${name}`);
+    if (!s) throw usageError(`不认识的选项 --${name}`, '加 --help 查看用法', 'usage.unknown-option');
     if (s.type === 'bool') {
-      if (val !== undefined) throw usage(`--${name} 是开关，不带值`);
+      if (val !== undefined) throw usageError(`--${name} 是开关，不带值`, `直接写 --${name}`);
       out[name] = true; continue;
     }
-    if (val === undefined) { val = argv[++i]; if (val === undefined || (val.startsWith('--') && val.length > 2)) throw usage(`--${name} 后面要跟一个值`); }
+    if (val === undefined) { val = argv[++i]; if (val === undefined || (val.startsWith('--') && val.length > 2)) throw usageError(`--${name} 后面要跟一个值`, '加 --help 查看用法', 'usage.missing-value'); }
     if (s.type === 'int') {
-      if (!/^\d+$/.test(val) || +val <= 0) throw usage(`--${name} 要写正整数，现在是「${val}」`);
+      if (!/^\d+$/.test(val) || +val <= 0) throw usageError(`--${name} 要写正整数，现在是「${val}」`);
       out[name] = +val;
     } else if (s.type === 'list') {
       const items = val.split(',').map(x => x.trim()).filter(Boolean);
-      if (!items.length) throw usage(`--${name} 的值不能为空`);
+      if (!items.length) throw usageError(`--${name} 的值不能为空`);
       out[name].push(...items);
     } else if (s.type === 'multi') {
-      if (!val.trim()) throw usage(`--${name} 的值不能为空`);
+      if (!val.trim()) throw usageError(`--${name} 的值不能为空`);
       out[name].push(val);
     } else out[name] = val;
   }
-  if (out._.length > positional) throw usage(`多余的参数：${out._.slice(positional).join(' ')}`);
+  if (out._.length > positional) throw usageError(`多余的参数：${out._.slice(positional).join(' ')}`, '加 --help 查看用法', 'usage.extra-argument');
   return out;
 }
-const usage = (message, hint = '加 --help 查看用法') => new CliError(EXIT.USAGE, 'USAGE', message, hint);
+export const usageError = (message, hint = '加 --help 查看用法', code = 'usage.bad-value') => new CliError(EXIT.USAGE, code, message, hint);
 
-// 附录 C2 信封：{ok, exitCode, command, error, outputs, runJson, warnings} + 各命令自己的字段（放在后面）
+// 附录 C2 信封：{schemaVersion, ok, exitCode, command, error, outputs, runJson, warnings} + 各命令自己的字段（放在后面）
 export function envelope({ exitCode, command, error = null, outputs = [], runJson = null, warnings = [], ...extra }) {
   return {
-    ok: exitCode === 0, exitCode, command,
+    schemaVersion: 1, ok: exitCode === 0, exitCode, command,
     error: error ? { code: error.code || 'ERROR', message: error.message, hint: error.hint || '' } : null,
     outputs, runJson, warnings, ...extra,
   };
@@ -649,7 +651,7 @@ export async function main(argv = process.argv.slice(2)) {
     return finish(e.exitCode, {}, e);
   }
   for (const k of opts['skip-grep']) warnings.push(`--skip-grep：名字含「${k}」的测试本次不跑`);
-  if (opts.root && !fs.existsSync(path.resolve(opts.root))) { const e = usage(`--root 指向的目录不存在：${opts.root}`); process.stderr.write(e.message + '\n'); return finish(e.exitCode, {}, e); }
+  if (opts.root && !fs.existsSync(path.resolve(opts.root))) { const e = usageError(`--root 指向的目录不存在：${opts.root}`); process.stderr.write(e.message + '\n'); return finish(e.exitCode, {}, e); }
   const root = opts.root ? fs.realpathSync(path.resolve(opts.root)) : ROOT;
   let pyMemo;
   const ctx = {
@@ -667,7 +669,7 @@ export async function main(argv = process.argv.slice(2)) {
     if (!unknown.length) continue;
     const msg = `--${flag} 里的域不存在：${unknown.join('、')}（现有：${domains.join('、') || '无'}）`;
     if (opts['if-present']) warnings.push(msg);
-    else { const e = usage(msg, '检查拼写；CI 里给尚未合入的域加 --if-present'); process.stderr.write(e.message + '\n'); return finish(e.exitCode, { domains }, e); }
+    else { const e = usageError(msg, '检查拼写；CI 里给尚未合入的域加 --if-present'); process.stderr.write(e.message + '\n'); return finish(e.exitCode, { domains }, e); }
   }
   if (opts.only.length) suites = suites.filter(s => opts.only.includes(s.domain));
   if (opts.skip.length) suites = suites.filter(s => !opts.skip.includes(s.domain));
@@ -675,7 +677,7 @@ export async function main(argv = process.argv.slice(2)) {
   // --require：前置能力检查
   for (const cap of opts.require) {
     const r = probeCapability(cap, ctx);
-    if (r.unknown) { const e = usage(r.detail); process.stderr.write(e.message + '\n'); return finish(e.exitCode, {}, e); }
+    if (r.unknown) { const e = usageError(r.detail); process.stderr.write(e.message + '\n'); return finish(e.exitCode, {}, e); }
     if (!r.ok) {
       const e = new CliError(EXIT.ENV, 'ENV_MISSING', `要求的能力「${cap}」不具备：${r.detail}`, '按提示装好后重跑；本地只想跑单元测试时去掉 --require');
       process.stderr.write(e.message + '\n');

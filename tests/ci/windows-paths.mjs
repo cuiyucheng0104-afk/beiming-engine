@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 北冥仓库 · 路径与编码可移植性检查（CI 的 windows-paths job；macOS / Linux 上也能跑）：
-// 工作站上仓库常经目录联接（D:\北冥 → D:\beiming）或带空格、带中文的路径进入，命令行是 PowerShell，控制台是 GBK。
+// 工作站上仓库常经目录联接（中文目录名 → ASCII 目录名）或带空格、带中文的路径进入，命令行是 PowerShell，控制台是 GBK。
 // 这里把这几种情况造出来，逐项确认工具「要么正确工作，要么清楚地报错」，不许静默什么都不做却 exit 0。
 //   node tests/ci/windows-paths.mjs [--json] [--report 文件] [--keep]
 //

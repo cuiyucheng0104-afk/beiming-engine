@@ -28,7 +28,7 @@
 适用范围：
 
 - 本章只讲 A 路线（北冥风格路线 · WebGL 三渲二）。B 路线（北冥原生路线 · BNE）用 WESL 与原生材质，本章的 GLSL 不能直接搬过去【仓库实证】AGENTS.md:39；docs/routes/beiming-style.md:184。
-- B 路线的资产桥也用同一份 three 导出 GLB【仓库实证】examples/raea/tools/export-kun-browser.mjs:1-5；examples/raea/tools/export-kun.mjs:39（内部目录名沿用历史代号）。所以升级 three 会同时影响 B 路线的资产导出（§1.5 第 8 步）。
+- B 路线的资产桥也用同一份 three 导出 GLB【仓库实证】examples/raea/tools/export-kun-browser.mjs:1-5；examples/raea/tools/export-kun.mjs:39；路径里的 raea 是上游项目名（内部目录沿用）。所以升级 three 会同时影响 B 路线的资产导出（§1.5 第 8 步）。
 - C 路线（北冥代码动画风格 · 86 式）是方法资料层，不是第三套后端（docs/TRACKS.md:43）。`cases/source` 里用到 three 的历史作品各自锁定版本，例如 `cases/source/local-threejs-demo/package.json:15`（^0.183.2）、`cases/source/local-clapperboard-3d/index.html:56`（CDN 0.160.0）、`cases/source/lab-2026-11-05-beiming-nine-3d/package.json:15`（0.170.0，自带一份 engine 副本）。还原后按各自的版本运行（AGENTS.md:57），不要套用本章的 r170 锚点约定。`historical-render` 只说明出过片，不代表用户认可（AGENTS.md:58）。
 
 ## 要点速查（给进入仓库的 agent）

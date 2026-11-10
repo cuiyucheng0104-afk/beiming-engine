@@ -55,7 +55,7 @@ export function assertEvalRoot(root, repo, { isolation = 'isolated', allowAncest
     if (found.length) {
       throw envError('ancestor-instructions', `评测根的上级目录里有个人指令文件，会被 Claude Code 沿父目录加载，破坏隔离：${found.map(toPosix).join('、')}`,
         process.platform === 'win32'
-          ? '把评测根放到不含这些文件的目录，例如 $env:BEIMING_EVAL_ROOT = "C:\\beiming-evals"；做「带用户全局环境」的对照组时改用 --isolation user-env'
+          ? '把评测根放到不含这些文件的目录，例如系统盘根下：$env:BEIMING_EVAL_ROOT = "$env:SystemDrive\\beiming-evals"；做「带用户全局环境」的对照组时改用 --isolation user-env'
           : '把评测根放到不含这些文件的目录，例如 BEIMING_EVAL_ROOT=/var/tmp/beiming-evals；做「带用户全局环境」的对照组时改用 --isolation user-env');
     }
   }
