@@ -159,3 +159,25 @@ test('字体 cmap：仓库字体子集的字数与 fonts/LICENSE.md 的说明一
   const r = parseUnicodeRange('U+0000-00FF, U+4E??');
   assert.ok(inRanges(0x41, r) && inRanges(0x4e2d, r) && !inRanges(0x5000, r));
 });
+
+test('报告的 technicalAcceptance 放进 RenderResult，现行的 validateRenderResult（engine/production/project.js）接受；evidence 指向的报告能被 validateReport 解析', { skip }, async () => {
+  const { validateRenderResult } = await import('../../engine/production/project.js');
+  const d = path.join(dir, 'ta');
+  fs.mkdirSync(d);
+  const f = clip(path.join(d, 'master.mp4'));
+  writeJson(path.join(d, 'film.json'), { schemaVersion: 2, id: 'qa-ta', title: 'TA', route: 'a', output: { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 96 }, shots: [{ id: 'S1', in: 0, out: 96 }], aigc: { contains: false } });
+  const out = path.join(d, 'qa');
+  const r = qa(['report', f, '--out', out, '--no-sheet']);
+  assert.equal(r.code, 0);
+  const rep = JSON.parse(fs.readFileSync(path.join(out, 'report.json'), 'utf8'));
+  const result = {
+    schemaVersion: 1, status: 'passed', projectId: 'qa-ta', shotId: 'film', route: 'beiming', backend: 'three',
+    actualDevice: 'test', actualGraphicsBackend: 'test', actualEncoder: 'libx264',
+    output: { sha256: rep.input.sha256, frames: rep.facts.frames },
+    technicalAcceptance: rep.technicalAcceptance, creativeAcceptance: { status: 'not-reviewed' },
+  };
+  const v = validateRenderResult(result, { expectedFrameCount: 96 });
+  assert.deepEqual(v.diagnostics.filter(x => /technical|evidence|frames/.test(x.path || '')), [], JSON.stringify(v.diagnostics));
+  const ev = path.resolve(ROOT, rep.technicalAcceptance.evidence[0]);
+  assert.equal(validateReport(JSON.parse(fs.readFileSync(fs.existsSync(ev) ? ev : path.join(out, 'report.json'), 'utf8'))).ok, true);
+});
