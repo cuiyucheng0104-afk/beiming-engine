@@ -242,7 +242,8 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
         t_snd, src, _ = sound_time(ref, eid)
         t_vis = frame / fps
         if t_snd is None:
-            where = '、'.join(w for w, ok in (('声音表 ' + str(film['audio']['cues']), bool(cue_tab)), ('out/score_onsets.json 的 onsets', bool(tags))) if ok)
+            where = '、'.join(w for w, ok in (('声音表 ' + str((film.get('audio') or {}).get('cues')), bool(cue_tab)),
+                                              ('out/score_onsets.json 的 onsets', bool(tags))) if ok)
             if cue_tab and not tags:
                 sync_rows.append({'id': eid, 'audio': ref, 'frame': frame, 'status': 'fail' if sync != 'soft' else 'warn', 'deltaMs': None,
                                   'kind': 'declared', 'problems': [f'声音表里没有 {ref}']})
@@ -349,8 +350,10 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
         out('没有可核对的事件：events.json 里没有带 cue 的打点，film.json 的事件也没有 cue: true 或 audio')
     ok = all(r['status'] != 'fail' for r in rows + sync_rows + sil_rows)
     out('CUECHECK ' + ('OK' if ok else 'FAIL'))
-    return _report(film, ev_path if EVJ is not None else (film or {}).get('file'), rows, sync_rows, sil_rows, ok, tol_ms, grid, tempo_src,
-                   early, late_frames * fd, keyset)
+    rep = _report(film, ev_path if EVJ is not None else (film or {}).get('file'), rows, sync_rows, sil_rows, ok, tol_ms, grid, tempo_src,
+                  early, late_frames * fd, keyset)
+    rep['_rows'] = rows
+    return rep
 
 
 def _hit(name, t, fps, tempo, grid, tl_t, tag_t, notes, is_key, grid_exempt=False, source='', etype=None):
@@ -473,10 +476,15 @@ def main_cli(args, ctx):
         p = os.path.abspath(args.report)
         os.makedirs(os.path.dirname(p), exist_ok=True)
         with open(p, 'w', encoding='utf-8', newline='\n') as f:
-            json.dump(rep, f, ensure_ascii=False, indent=1)
+            json.dump({k: v for k, v in rep.items() if not k.startswith('_')}, f, ensure_ascii=False, indent=1)
             f.write('\n')
         outputs.append({'path': _rel(p), 'sha256': sha256_file(p), 'kind': 'cuecheck'})
     data = {k: rep[k] for k in ('ok', 'summary', 'maxDeltaMs', 'grid', 'tolMs', 'tempo', 'keys')}
+    # 不通过与告警的逐条原因（--json 时表格不打印，给调用方看这里）
+    data['problems'] = ([{'kind': 'hit', 'id': r['id'], 'status': r['status'], 'problems': r['problems']} for r in rep['_rows'] if r['status'] != 'pass']
+                        + [{'kind': 'sync', 'id': r['id'], 'audio': r['audio'], 'status': r['status'], 'deltaMs': r.get('deltaMs'), 'problems': r['problems']}
+                           for r in rep['sync'] if r['status'] != 'pass']
+                        + [{'kind': 'silence', 'id': r['id'], 'status': r['status'], 'problems': []} for r in rep['silences'] if r['status'] != 'pass'])
     if not rep['ok']:
         bad = [c['id'] for c in rep['checks'] if c['status'] == 'fail']
         return {'data': data, 'outputs': outputs, 'error': {'code': 'contract.cuecheck', 'message': '声画拍点核对不通过：' + '、'.join(bad),
