@@ -1,124 +1,161 @@
 # C 路线 · 北冥代码动画风格 · 86 式
 
-给第一次进仓库的 agent：读完这一页就能用 C 模版出一部片，或者从 86 式里找方法落到 A / B。命令都在仓库根目录执行，路径都是仓库相对路径。
+给第一次进仓库的 agent：读完这一页就能用 C 模版出一部片、从 86 式里挑风格，或者复刻一部历史作品。命令都在仓库根目录执行，路径都是仓库相对路径。
 
 ## 这条路线是什么
 
-- **一部作品 = 一个网页 + 一张时间表 + 一个声音脚本。** 画面是 `index.html` 里的 Canvas 2D（也可以是 SVG、DOM/CSS，个别风格用 WebGL），`render(t)` 把任意时刻画出来；无头 Chrome 逐帧截图、FFmpeg 编码。没有统一着色器，每种风格各自实现画法。
-- **一条时间线驱动一切。** 节拍表（段落、速度、拍号）与画面打点写在 `timeline.js`；页面导出的事件表 `events.json` 同时驱动拟音、配乐打点和拍点核对，声画对齐靠同一组数字，不靠手对。
-- **86 式是方法库，不是运行时。** `cases/vendor/` 里两套第三方风格库（SY 20 种 + Lemo 66 种，均 MIT）的固定快照只读，用来学画法；`cases/source/` 是我们自己 66 部风格实验、7 部 PPT 片与发布会动画的历史源码（用 `python3 tools/casebook.py restore` 还原）。风格索引见 [STYLES.md](STYLES.md)。
-- **两种用法**：① 用 C 模版直接做一部 Canvas 2D 风格片；② 在 STYLES.md 里找到方法，用到 WebGL / 三维的拿到 A 路线（WebGL 三渲二，`engine/`）落地，原生运行时的需求走 B 路线（北冥原生 · BNE）。
+- **定义**：C 是"页面型代码动画的方法库，外加可直接出片的 C 模版"。它和 A 共用页面渲染器 `engine/render`，不是第三个 GPU 后端；复刻历史作品是 C 的一个子流程。新片按需求在 A、B、C 三条里选（[决定 D01](../../docs/decisions/2026-11-10-industrial-baseline.md)）。
+- **一部作品 = 一个网页 + 一份 film.json + 一个声音脚本。** 画面在 `index.html` 里用 Canvas 2D（也可以 SVG、DOM/CSS，个别风格用 WebGL）画，`render(t)` 能画出任意时刻；无头 Chrome 逐帧截图，FFmpeg 编码。没有统一着色器，每种风格自己实现画法。
+- **一条时间线驱动一切。** 速度、拍号和画面打点只写在 `film.json`；页面导出的事件表同时驱动拟音、配乐打点和拍点核对，声画对齐靠同一组数字。
+- **86 式是索引，不是我们原创的画法。** 它们来自两套第三方 MIT 风格库的固定快照：Lemo 66 种（`cases/vendor/lemo-opuscar`，lemo-opuscar@bebbbe1）＋ SY 20 种（`cases/vendor/sy-style-100`，sy-style-100@e41dee3），只读。66 种 Lemo 风格我们各做过一部风格实验，历史源码在 `cases/source/`。索引见 [STYLES.md](STYLES.md)。
+- **三种用法**：① **新片**——用 C 模版直接出片；② **取方法**——在 STYLES.md 里找到一式，读它的 STYLE.md 和示例，在 C 模版里重写，或落到 A / B；③ **历史复刻**——把我们做过的一部原样重渲（[REPLICATE.md](REPLICATE.md)）。
 
 ## 最快上手
 
-**用法一：C 模版出一部片**（3 秒、24 fps、1920×1080、有声）
+**新片**（8 秒、24 fps、1920×1080、有声）：
 
 ```bash
 npm run setup                                   # 首次：装 playwright-core 与 Chrome headless shell
-node tools/new-film.mjs c my-film               # 复制 routes/c-style/template → films/my-film，替换 {{NAME}} / {{TITLE}}
+node tools/new-film.mjs c my-film --title 北冥   # 复制 routes/c-style/template → films/my-film（不写 --title 就用名字当片名）
 BEIMING_PY=/path/to/python node engine/render/build.mjs films/my-film
-#   → films/my-film/out/my-film.mp4（−14 LUFS）、out/poster.jpg；最后一行打印帧数、尺寸、音轨核对结果
-node engine/render/still.mjs films/my-film 0.5 2.75 --size 1920x1080 --out films/my-film/out/stills   # 看关键帧
+#   → films/my-film/out/my-film.mp4（−14 LUFS）、out/poster.jpg；最后一行核对帧数、尺寸、音轨
+node engine/render/still.mjs films/my-film 0.25 1.33 2.67 6 7.5 --size 1920x1080 --out films/my-film/out/stills
 ```
 
-- `BEIMING_PY` 指向装了 `requirements.txt`（numpy、scipy、numba、soundfile）的 Python；不设就用 `python3`。
-- `tools/new-film.mjs` 由仓库统一提供（只做"复制 + 替换占位符"）；还没有时手工 `cp -R routes/c-style/template films/my-film` 再把文件里的 `{{NAME}}`、`{{TITLE}}` 换掉。
-- 只要声音和核对、不渲画面：`node engine/render/build.mjs films/my-film --skip-video`。
+- `BEIMING_PY` 指向装了 numpy、scipy、numba、soundfile 的 Python，不设就用 `python3`。只要声音和拍点核对、不渲画面：加 `--skip-video`。
+- 仓库自带的毛笔字体子集只有"北冥"两个字：换别的片名，渲染日志会报 `[字体缺字]`，先按模版 README 的"字体"一节做子集，否则不能交付。
+- 模版改哪里、示范了哪条工艺，见 [template/README.md](template/README.md)。
 
-**用法二：找方法，再落到 A / B**
+**挑风格**：
 
 ```bash
-npm run c:styles:check                          # 确认 STYLES.md 与快照同步
-python3 tools/casebook.py restore style-03-ink-wash --source-only --out out/casebook   # 还原我们做过的那一部，看源码
+node tools/c-styles.mjs find brand event typography          # 按题材、名称、画面描述排序给候选（中英文都行）
+node tools/c-styles.mjs find poetry --tech canvas2d --made    # 只要 Canvas 2D、我们做过的
 ```
 
-1. 在 [STYLES.md](STYLES.md) 按风格名找到一行：看"执行面"和"建议怎么落地"。
-2. 读"方法参考"里的 `STYLE.md` / 示例入口；我们做过的，读还原出来的 `timeline.js`、`film.js`、`mix.py`。
-3. 只用 Canvas 2D / SVG / DOM 的，在 C 模版里重写画法；用到 WebGL / three.js 的，按 A 路线手册在 `engine/` 的分层里实现。**自己写，不搬**（见"边界与常见坑"）。
+先按下表定大方向，再用 `find` 和 STYLES.md 收窄；给用户报候选时写清编号、理由、执行面和来源许可。
+
+| 叙事任务 | 信息密度 | 画面技术倾向 | 先看这些（`lemo/…` 我们做过，`sy/…` 只有方法） |
+|---|---|---|---|
+| 意境、诗意、文化品牌 | 低（一两句字） | Canvas 2D 笔触 | `lemo/ink-wash` `lemo/watercolor` `lemo/one-line` `lemo/ukiyoe` `sy/18-ink` |
+| 童趣、绘本、睡前故事 | 低–中 | Canvas 2D | `lemo/crayon-book` `lemo/paper-popup` `lemo/papercut-red` |
+| 民俗、节庆、传统 | 低–中 | Canvas 2D | `lemo/shadow-puppet` `lemo/paper-lantern` `lemo/woodcut` |
+| 品牌识别、活动开场、口号 | 中（关键词） | Canvas 2D 排版 | `lemo/swiss-motion` `lemo/pictogram-motion` `lemo/spy-titles` `lemo/art-deco` `sy/15-variety` |
+| 讲解、教程、科普 | 高（步骤、标注） | Canvas 2D / SVG | `lemo/whiteboard` `lemo/chalkboard` `lemo/iso-infographic` `lemo/isometric-picture-book` `sy/07-sticker` |
+| 数据、报告、新闻 | 高（数字、图表） | Canvas 2D | `lemo/dataviz` `lemo/caption-news` `lemo/news-package` `lemo/transit-map` `sy/17-editorial` |
+| 产品发布、硬件、科技 | 中–高 | WebGL / three.js | `lemo/dark-keynote` `lemo/glass-product` `lemo/teardown` `lemo/hologram-hud` `sy/05-3d` `sy/10-glass` |
+| 游戏感、复古、快节奏社媒 | 中 | Canvas 2D 像素 / 扁平 | `lemo/pixel-rpg` `lemo/microgame` `lemo/game-show` `lemo/halftone-dossier` `sy/13-pixel` |
+| 纪实、调查、历史 | 中–高 | 素材剪辑 + Canvas 2D | `lemo/visual-investigation` `lemo/newsreel` `lemo/archive-lighttable` `lemo/kino-montage` |
+| 体育、强节奏卡点 | 中 | Canvas 2D 排版 + 卡点 | `lemo/telestrator` `lemo/countdown` `lemo/swiss-motion` `sy/12-synthwave` |
+| 悬疑、氛围 | 低 | WebGL | `lemo/backrooms` `lemo/silent-film` |
+
+**历史复刻**（概要，完整步骤与三类案例见 [REPLICATE.md](REPLICATE.md)）：`node tools/c-runtime.mjs setup` 按固定提交建隔离运行时 → `python3 tools/casebook.py restore <案例> --download --lemo out/runtime/lemo-bebbbe1a` → `node tools/c-runtime.mjs build <还原目录>`。
 
 ## 一部作品的目录
 
 ```
 films/<名字>/
-  film.json        { route: "c", title, dur, fps, size: [w, h] } + 可选 poster（秒）、cuecheck（拍点核对参数）
-  index.html       一个 <canvas id="c">，加载 main.js
-  main.js          页面约定：加载字体 → setup → 挂 window.DUR / render / READY / EV / TIMELINE / TEXTS
-  timeline.js      节拍表、画面打点（CUES → T）、声画事件（EV）、TIMELINE；页面与 mix.py 共用的唯一时间源
-  film.js          画面：setup(canvas) 与 render(t)，Canvas 2D；TEXTS(t) 报告画面上的字
-  mix.py           声音：读 events.json / timeline.json → out/mix.wav、out/stems/、out/score_onsets.json
-  README.md        改哪里、怎么出片
-  events.json      生成物：window.EV 导出（build 第 1 步写入）
-  timeline.json    生成物：window.TIMELINE 导出
-  out/             生成物：video.mp4、mix.wav、stems/、score_onsets.json、<名字>.mp4、poster.jpg（已被 .gitignore）
+  film.json     route "c"、title、dur、fps、size、poster（秒）、tempo（节拍段落）、cues（画面打点地址）、cuecheck（拍点核对参数）
+  index.html    一个 <canvas id="c">，加载 main.js
+  main.js       页面约定：加载字体与缺字探针 → setup → 挂 window.FPS / DUR / render / READY / EV / TIMELINE / TEXTS
+  timeline.js   只做换算：film.json → 打点秒数与整数帧、动作时间窗 ACT、声画事件 EV、TIMELINE
+  film.js       画面：构图（横竖两套）、setup(canvas)、render(t)、TEXTS(t)、声像
+  brush.js paper.js seal.js type.js     模版的画法模块：毛笔笔触与山体的染、宣纸、白文印、缺字检查（换风格时换掉）
+  mix.py        声音：读 events.json / timeline.json → out/mix.wav、out/stems/、out/score_onsets.json
+  README.md     改哪里、怎么出片、工艺对照
+  events.json timeline.json   生成物：build 第 1 步由页面导出
+  out/          生成物：video.mp4、mix.wav、stems/、score_onsets.json、<名字>.mp4、poster.jpg
 ```
 
-模版里引用引擎用 `../../engine/...`、字体用 `../../fonts/...`，所以作品必须放在 `films/<名字>/` 这一层（页面服务器以仓库根为根，影片目录必须在仓库内）。`events.json` / `timeline.json` 每次 build 重新生成，是否提交跟作品的提交约定走；成片和中间文件只放 `out/`，不提交。
+模版里引用引擎用 `../../engine/...`、字体用 `../../fonts/...`，所以作品必须放在 `films/<名字>/` 这一层（页面服务器以仓库根为根）。成片和中间文件只放 `out/`，不提交。
 
 ## 能力清单
 
 每项：模块 → 能做什么 → 仓库里的例子。
 
-**C 路线的时间与声画（本路线新增，抽自我们自己的历史作品）**
+**时间与声画（C 路线的骨架）**
 
-- `engine/core/tempo.js` `createTempo` → 段落（bpm、拍号、起点）上的"小节·拍·拍内分数"地址换成秒（6 位小数），一拍/一小节时长、所在段落、离整帧/离网格的距离、`toJSON()` → `routes/c-style/template/timeline.js`
-- `engine/core/tempo.js` `createEvents` → 记声画事件 `{t, type, ...}`，带 `cue` 的是画面打点 → 同上
-- `engine/render/events.mjs` → 打开页面，把 `window.EV` 写成 `events.json`，`window.TIMELINE` 写成 `timeline.json` → `node engine/render/events.mjs films/<名字>`
-- `engine/audio/cues.py` → `load` 读两张表；`Tempo`（与 tempo.js 同一公式）；`Onsets` 登记"哪个音符对哪个打点"并写 `score_onsets.json`；`dispatch` 按事件类型分派拟音（可带 `prepare` 逐事件先抽随机数），返回没有处理器的类型；`write` 写混音与分轨 → `routes/c-style/template/mix.py`
-- `engine/audio/cuecheck.py` → 每个打点离整帧、离 1/grid 拍网格、离时间线、离音乐起音的毫秒数，可选静默段检查，超差退出码 1 → `python -m engine.audio.cuecheck films/<名字>`，或在 `film.json` 写 `cuecheck`
-- `engine/render/build.mjs` → 页面型作品一条命令：事件表 → mix.py → 拍点核对 → 逐帧 → 封装 → 海报 → ffprobe 核对 → `npm run c:build -- films/<名字>`
+- `engine/core/tempo.js` `createTempo` / `createEvents` → 节拍地址换成秒、离整帧 / 离网格的距离；记声画事件，带 `cue` 的是画面打点 → `template/timeline.js`
+- `engine/render/events.mjs` → 把 `window.EV` 写成 `events.json`、`window.TIMELINE` 写成 `timeline.json`
+- `engine/audio/cues.py` → 读两张表、`Tempo`、`Onsets` 登记"哪个音对哪个打点"、`dispatch` 按事件类型分派拟音、`write` 落盘 → `template/mix.py`
+- `engine/audio/cuecheck.py` → 每个打点离整帧、离 1/grid 拍网格、离时间线、离音乐起音的毫秒数，超差退出非零；只覆盖"八分网格 + 每个打点一个音"的写法
+- `engine/render/build.mjs` → 一条命令：事件表 → mix.py → 拍点核对 → 逐帧 → 封装 → 海报 → 规格核对
 
-**共享引擎里 C 模版直接用到的**
+**共享引擎里 C 直接用到的**
 
-- `engine/render/video.mjs` / `still.mjs` / `page.mjs` → 页面约定、分段并行逐帧渲染、静帧 → 所有作品
-- `engine/render/mux.sh` → 两遍 loudnorm 线性归一到 −14 LUFS / −1.2 dBTP，音频短于画面补静音 → build 第 5 步
-- `engine/core/math.js`（clamp、seg、缓动、`mulberry` 种子随机）、`clock.js`（`tick` 一拍二/一拍三）、`noise.js`（`createNoise2D`）→ 模版的抖动与时序
-- `engine/paint/ink.js` `createInk` → 有笔压起伏、按拍换形的墨线 → 模版三笔远山
-- `engine/paint/wash.js` → 水彩斑驳 + 纸纹纹理 → 模版宣纸底
-- `engine/paint/canvas.js`、`path.js`、`curve.js`、`light.js`、`strand.js`、`affine.js` → 离屏层、路径采样、曲线、边缘光、发丝、仿射（A 路线《北冥》在用，C 可直接调）
-- `engine/overlay/text.js`（`loadFonts`、`fontSpec`、`measure`、带晕的字）、`brush.js`（毛笔逐笔写字）、`widgets.js` → 片名与显示层 → 模版片名用 `loadFonts` + `fontSpec`
-- `engine/audio/dsp.py`（滤波、摆位 `place`、混响、限制器）、`synth.py`（玻璃音、气泡、颗粒流）、`mixing.py`（镜头窗、让路、定响度）、`meter.py`（响度、真峰值）、`sampler.py`（多采样乐器，需 `BEIMING_SAMPLES` 指向采样库）→ 模版 mix.py 用 dsp + synth
+- `engine/render/video.mjs` / `still.mjs` / `page.mjs` → 页面约定、分段并行逐帧、静帧；`mux.sh` → 用 ebur128 量响度、整段线性增益到 −14 LUFS（真峰值 ≤ −1.2 dBTP），画面已是标注完整的 BT.709 时直接拷贝
+- `engine/core/math.js`（缓动、`mulberry` 种子随机、`monotone` 单调插值）、`clock.js`（`hold` 一拍二 / 一拍三）、`noise.js`（必须传种子）
+- `engine/paint/curve.js`（Catmull-Rom 与弧长取点，模版毛笔用它）、`ink.js`（带笔压起伏、按拍换形的墨线）、`wash.js`、`path.js`、`light.js`、`strand.js`、`canvas.js`（离屏层，模版用它）
+- `engine/overlay/text.js`（`loadFonts`、`fontSpec`、`measure`）、`brush.js`（毛笔逐笔写字）
+- `engine/audio/dsp.py`、`synth.py`、`mixing.py`（`loudness_to`）、`meter.py`、`sampler.py`（多采样乐器，需 `BEIMING_SAMPLES`）
+
+**工具**
+
+- `tools/c-styles.mjs` → 生成与核对 STYLES.md / styles.json，`find` 查候选
+- `tools/c-runtime.mjs` → 历史复刻：`setup` 建隔离运行时、`status` 看是否就绪、`build` 重跑还原出的作品、`sy` 给 SY 风格做适配页（见 REPLICATE.md）
+
+**把一式的方法落到 C 模版 / A / B**（按上游 STYLE.md 的 11 节对照）
+
+| STYLE.md 节 | C 模版里写在哪 | 落到 A（`engine/` 九层） | 落到 B（`engine/native/`） |
+|---|---|---|---|
+| §2 材质与渲染 | 作品目录里的画法模块（模版的 `brush.js`、`paper.js`），Canvas 2D 合成 | `engine/paint`（ink、wash、path、light）、`engine/look`（纸纹、颗粒、Kuwahara、墨线）、`engine/shade` | `post.ts` 的 `paperPass` / `gradePass`、`surface.ts`、`toon.tsx`；页面画法整段烘成图集用 `sequence.mjs` + `<SequencePlane>` |
+| §3 色彩逻辑 | `film.js` 顶部的色板常量（模版：朱红只给印） | `engine/look` 调色与色彩脚本 | `palette.ts`（色板从 palette.json 读） |
+| §4 字与字幕 | `film.js` + `engine/overlay/text.js`，缺字检查 `type.js` | `engine/overlay` | `title.tsx`（`TitleCard`、`Caption`） |
+| §5 运动质感 | `engine/core/clock.js` 的 `hold`、`math.js` 缓动、`film.json` 节拍 | 同左，加 `engine/stage` | 帧号驱动的组件时间（`layers.tsx` 的 `drift`） |
+| §6 镜头语法 | `film.js` 的相机矩阵（模版：绕焦点缓推） | `engine/stage` 的相机与底板视差 | `camera.tsx` 的 `ShotCamera` |
+| §7 声音 | `mix.py`（`engine/audio`） | 同左 | 同左，由 prepare 调用声音脚本 |
+| §9 媒介陷阱 | 动手前逐条读，模版的修法写在 `brush.js` 注释里 | A 路默认后期会把任何风格染成北冥味：先关后期证明风格本体（[工艺手册 §6](../directing/craft/README.md)） | GLB 不带屏幕后期，墨线要重做 |
 
 **未实现（别当成已有）**
 
-- 仓库自己的"画面文字停留时长"检查（历史作品用的是 Lemo 的 `core/render/readcheck.mjs`，第三方）；模版只把 `window.TEXTS` 暴露出来。
-- 配音生成与逐字时间戳对齐、字幕导出：66 部里只有 2 部有配音，PPT 片各自实现，没有抽成通用模块。
-- SVG / DOM 作品的模版：只有 Canvas 2D 模版；SVG / DOM 风格按页面约定自己写 `render(t)`。
+- 仓库自己的"画面文字停留时长"检查、字幕导出；配音与逐字时间戳对齐（历史作品各自实现，没抽成模块）。
+- 十六分网格、"关键事件集合"式的拍点核对（`style-16-swiss-motion` 那种写法）：`cuecheck.py` 不覆盖。
+- SVG / DOM 作品的模版：只有 Canvas 2D 模版，SVG / DOM 风格按页面约定自己写 `render(t)`。
+- 完整字体与自动子集化：仓库只带《北冥》用到的字体子集。
 
 ## 契约
 
-- **页面约定**（`engine/render/page.mjs` 头注释）：`window.DUR` 秒；`window.render(t)` 确定性——不读 `Date.now()`、不用无种子随机、不依赖上一帧状态，任意帧可单独、乱序重渲；资源就绪后 `window.READY = true`；可选 `window.TEXTS(t)` → `[{id, text, x0, y0, x1, y1}]`。
-- **C 路线附加**：`window.EV = [{t, type, ...}]`，`t` 是秒（6 位小数），带 `cue` 的是画面打点；`window.TIMELINE = { fps, secs, dur, cues, t }`（`secs` = `[{id, t0, bpm, meter, t1?}]`，`t` = `{cue: 秒}`）。
-- **film.json**：`{ route: "c", title, dur, fps, size: [w, h] }`，`size` 两边都是偶数；可选 `poster`（秒）、`cuecheck: { grid, tolMs, silence: [段落id], quietDb }`。`dur` 必须与 `timeline.js` 的 `DUR` 一致。
-- **mix.py**：在仓库根目录用 `$BEIMING_PY films/<名字>/mix.py <影片目录>` 运行；读 `events.json` / `timeline.json`；写 `out/mix.wav`（48 kHz 立体声）、可选 `out/stems/*.wav`、`out/score_onsets.json`（`{onsets: {cue: 秒}, notes: [秒...]}`，cuecheck 读它）。不写响度：统一由 `mux.sh` 归一。
-- **整数帧**：每个打点落在整帧上（24 fps 下 120 BPM 一拍 12 帧、90 BPM 一拍 16 帧）；cuecheck 默认容差 0.5 ms。
-- **占位符**：模版里只有 `{{NAME}}`（目录名）和 `{{TITLE}}`（片名）两个。
+- **页面约定**（`engine/render/page.mjs` 头注释）：`window.DUR` 秒；`window.render(t)` 确定（不读 `Date.now()`、不用无种子随机、不依赖上一帧状态，任意帧可单独、乱序重渲）；资源就绪后 `window.READY = true`；`window.FPS` 是页面量化用的帧率（模版取 film.json 的 fps，渲染器默认按它出片，`--fps` 不一致直接报错）；可选 `window.TEXTS(t)` → `[{ id, text, box:[x,y,w,h], x0, y0, x1, y1, alpha, font, missing }]`。
+- **C 路线附加**：`window.EV = [{t, type, ...}]`（`t` 秒、6 位小数，带 `cue` 的是画面打点）；`window.TIMELINE = { fps, secs, dur, cues, t, act }`。
+- **film.json**：`route: "c"`、`title`、`dur`、`fps`（正整数）、`size: [宽, 高]`（偶数）；`poster`（秒）；`tempo: [{ id, t0, bpm, meter }]`；`cues: { 名字: [段落, 小节, 拍, 拍内分数] }`；`cuecheck: { grid, tolMs, silence, quietDb }`。时间只写在这里：`timeline.js` 从它推导，第 2 版写法（`output.fps`、`output.frameCount`）也认。
+- **mix.py**：仓库根目录下 `$BEIMING_PY films/<名字>/mix.py`；读 `events.json` / `timeline.json`；写 `out/mix.wav`（48 kHz 立体声）、`out/stems/*.wav`、`out/score_onsets.json`（`{onsets: {cue: 秒}, notes: [秒...]}`）。
+- **整数帧**：打点落在整帧上（24 fps 下 90 BPM 一拍 16 帧、120 BPM 12 帧；30 fps 下 90 BPM 20 帧）；cuecheck 默认容差 0.5 ms。
+- **占位符**：模版只用 `{{NAME}}`（目录名）和 `{{TITLE}}`（片名）。
+- **历史页面**：Lemo 的页面与我们同一套约定（`DUR` / `render(t)` / `READY`），只是不声明 `window.FPS`；SY 用 `Reel.scene` 契约（`?render=1` 后暴露 `window.__seek(t)` / `__duration` / `__fps`），不能直接交给 `engine/render`。
+- **渲染器与环境变量**：
+
+| 渲染器 | 用在 | GPU 后端 | 其它变量 |
+|---|---|---|---|
+| `engine/render`（still / video / build） | 新片；自包含的历史页面；SY 适配页 | `BEIMING_ANGLE`（macOS 默认 metal；RTX 用 vulkan） | `BEIMING_CHROME`、`BEIMING_READY_TIMEOUT`、`BEIMING_FRAME_TIMEOUT`、`BEIMING_PY`（build 用的 Python） |
+| Lemo `core/render`（`c-runtime build` 调用历史 build.sh） | 依赖 `/core/` 的历史作品 | `LEMO_ANGLE` | `PLAYWRIGHT_CHROME`、`RENDER_SLOTS`；`LEMO_OPUSCAR_HOME` 由 c-runtime 设成隔离运行时 |
+| SY `render.js`（上游自带） | SY 风格原样渲染 | 默认 SwiftShader 软件渲染；`--hwgpu` 或 `HWGPU=1` 用显卡 | `--nogpu`（纯 2D 页面更快） |
 
 ## 验收
 
-1. `node engine/render/build.mjs films/<名字>` 退出码 0，最后一行"画面 W×H、N 帧（应为 N）、音轨 48000 Hz × 2"与 `film.json` 一致（build 自己用 ffprobe 核对，不符退出 1）。
+1. `node engine/render/build.mjs films/<名字>` 退出码 0，最后一行"画面 W×H、N 帧（应为 N）、音轨 48000 Hz × 2"与 film.json 一致。
 2. 拍点核对打印 `CUECHECK OK`，最大偏差 ≤ 0.5 ms。
-3. 看关键帧：`still.mjs` 渲 3–5 个打点前后的时刻，或 `ffmpeg -i out/<名字>.mp4 -vf "select='eq(n\,12)+eq(n\,48)',tile=2x1" -frames:v 1 sheet.jpg`；完整看一遍带声音的成片。
-4. 确定性：同一 `--workers` 两次渲染 `ffmpeg -i out/video.mp4 -f framemd5 -` 逐帧一致；`still.mjs` 乱序渲同一时刻得到同一张图。
-5. 改了 `engine/` 里 C 路线的模块：`npm run c:styles:check`、`python3 tools/casebook.py check`，并用还原出来的历史作品做改前/改后逐帧、逐样本比对（做法见下方"参考作品"里的比对记录）。
-6. 状态分开写：已出片、技术检查通过、人工认可是三件事。
+3. 渲染日志里没有 `[字体缺字]`、`[页面错误]`。
+4. 看片：`still.mjs` 渲 3–5 个打点前后的时刻；完整看一遍带声音的成片（"代理检查通过"不等于用户认可）。
+5. 确定性：同一 `--workers` 两次渲染 `ffmpeg -i out/video.mp4 -f framemd5 -` 逐帧一致；`still.mjs` 乱序渲同一时刻得到同一张图。
+6. 改了 C 的工具或索引：`node tools/c-styles.mjs --check`、`node --test tests/c-style/`、`node tools/repo-check/rules/route-c/index.mjs`、`python3 tools/casebook.py check`。
+7. 状态分开写：已出片、技术检查通过、人工认可是三件事。
 
 ## 边界与常见坑
 
-- **不搬第三方代码。** `cases/vendor/` 只读学方法；我们历史作品里有一部分文件本身就是从风格库改写来的（如 `crayon.js`、`gl.js`，见各作品 `CREDITS`；catalog 记录 66 部风格实验里有 137 个文件与 Lemo 逐字一致），抽公共件时只取我们自己写的。确需引用时保留原作者版权与 MIT 许可、在作品 `CREDITS` 写明来源，规则见 [THIRD-PARTY.md](../../THIRD-PARTY.md)。
-- **历史作品跑在 Lemo 运行时上**：页面用绝对路径 `/core/lib.js`，`build.sh` 依赖 `$LIB` 下的 `core/render/*.mjs`、`.venv` 与采样库。还原出来的源码不能直接用北冥的 `engine/render/*` 渲；要重跑就把 `LIB` 指向装好依赖的 Lemo 目录，在 `out/` 或临时目录里跑，不改归档。`--source-only` 还原不带字体等二进制素材，缺字体时页面会回落到系统字体。
-- **比对逐帧时 `--workers` 要相同。** `video.mjs` 每段单独编码，分段数不同则关键帧位置不同，解码后的像素会不同（画面本身是确定的，`still.mjs` 乱序重渲逐字节一致）。
-- **FLOAT 子类型的 WAV 文件头带时间戳**（PEAK 块），两次写出的字节不同；比对声音要读样本比，不要比文件哈希。模版默认写 PCM_24，文件可逐字节比对。
-- **打点必须在整帧上。** 速度和段落起点选成整帧（例如 120 BPM@24 fps），拍内分数用 0.5、0.25；`tempo.offFrame` / cuecheck 会报出偏差。
-- **字体**：`fonts/NotoSansSC-var.woff2` 是子集，片名里不在子集的字会回落到系统字体，换机器字形会变；要固定字形就按 `fonts/fetch_fonts.sh` 的方法做子集放进作品目录。
+- **不搬第三方代码。** `cases/vendor/` 只读学方法；我们的历史作品里也有从风格库改写来的文件（见各作品 `CREDITS`）。确需引用就保留原作者版权与 MIT 许可、在作品 `CREDITS` 写明来源，规则见 [THIRD-PARTY.md](../../THIRD-PARTY.md)。
+- **历史页面能不能交给 `engine/render`，分三种：** ① 自包含的 Lemo 页面（STYLES.md "自包含"列为"是"，22 部）在素材齐全（`restore --download`）时可以直接用 `engine/render` 渲，因为它们不声明 `window.FPS`，要加 `--fps <原帧率> --any-fps`；② 用了 `/core/` 绝对路径的 Lemo 页面（44 部）只能在 Lemo 库根目录下服务，用 `c-runtime build` 跑它自己的 build.sh；③ SY 风格是 `__seek` 契约，用 `c-runtime sy` 生成适配页再交给 `engine/render`，或者只取方法。`--source-only` 还原的目录不带图片、字体等二进制素材，**不能拿它判断能不能渲**。
+- **不要运行 vendor 自带的 `setup.sh`**（`cases/vendor/lemo-opuscar/plugin/skills/lemo-opuscar/scripts/setup.sh`）：在本仓库里运行它会去找或克隆 `~/lemo-opuscar`，对它自己管理的克隆执行 `fetch origin main` + `reset --hard`，拿到的是上游最新代码而不是固定快照 bebbbe1。要运行环境用 `node tools/c-runtime.mjs setup`。
+- **SY 页面用本机字体名**（Noto CJK、Inter 等），字体不随库分发：换机器字形就变。
+- **比对逐帧时 `--workers` 要相同。** 分段数不同则关键帧位置不同，解码后的像素会不同（画面本身是确定的，`still.mjs` 乱序重渲逐字节一致）。
+- **FLOAT 子类型的 WAV 文件头带时间戳**，两次写出的字节不同；比对声音读样本，不比文件哈希。模版写 PCM_24。
+- **打点必须在整帧上。** 速度选每拍整帧的值，拍内分数用 1/2、1/4；`timeline.js` 和 cuecheck 都会报出偏差。
 - **作品目录必须在仓库内**（`page.mjs` 只服务仓库根）；放在 `films/<名字>/`，引擎用 `../../engine/`。
-- **执行面不等于画法**：STYLES.md 的执行面是正则检测，WebGL 列出来不代表画面主体在 WebGL 上；落地前读示例源码确认。
+- **执行面不等于画法**：STYLES.md 的执行面是源码检测，WebGL 列出来不代表画面主体在 WebGL 上；落地前读示例源码确认。
 
 ## 参考作品
 
-- 模版：[routes/c-style/template/](template/)（3 秒，墨线远山 + 片名 + 朱印，5 个打点，声音全部合成）。
-- 风格索引：[STYLES.md](STYLES.md)（86 式，执行面、方法参考、我们做过的作品与预览、落地建议；`npm run c:styles` 重建）。
-- 我们的 66 部风格实验与 PPT 片：[cases/README.md](../../cases/README.md)、[cases/INDEX.md](../../cases/INDEX.md)；两库源码对比 [docs/cases/comparison.md](../../docs/cases/comparison.md)，PPT 片流程 [docs/cases/ppt-animation.md](../../docs/cases/ppt-animation.md)。
-- 抽取依据（盘点 66 部风格实验，还原后统计）：66 部都有 `build.sh` 与 `index.html`；65 部 `events.json`（由 `window.EV` 导出）；61 部 `timeline.js` 与根目录 `mix.py`；47 部的声音脚本用 `if/elif ty ==` 按事件类型分派拟音；65 部有拍点核对脚本（`cuecheck.py` 或 `cuecheck.mjs`，写法各异）；61 部用 `document.fonts.load` 等字体（`engine/overlay/text.js` 的 `loadFonts` 已覆盖，未另抽）；44 部用 Lemo 的 readcheck、66 部用 Lemo 的 events/video/mux（第三方，未抽，北冥 `engine/render` 有自己的 video/still/mux）。
-- 抽取正确性的比对（scratch 里改历史作品调用新模块，归档不改）：
-  - `style-01-crayon-book`《小纸船遇上大雨》：`timeline.js` 改用 `createTempo`、`film.js` 改用 `createEvents`、`mix.py` 改用 `cues.load / Tempo / Onsets / dispatch / write`、`tools/cuecheck.py` 改为调用 `engine.audio.cuecheck`。与原版相比 `timeline.json`、`events.json`、`mix.wav` 与三条分轨、`score_onsets.json`、cuecheck 报告逐字节一致，475 帧逐帧一致。
-  - `style-16-swiss-motion`《TEMPO》：拟音分派改用 `dispatch(..., prepare)`、落盘改用 `write`。`mix.wav` 976800×2 个样本全等（FLOAT 文件头时间戳不同），`score.json` 与标准输出一致。它的拍点核对是另一种写法（十六分网格 + 关键事件集合），`engine/audio/cuecheck.py` 不覆盖。
+- 模版：[template/](template/)（8 秒，三笔山 + 云 + 竖排题字 + 白文朱印，6 个打点，声音全部合成；横竖两套构图）。
+- 风格索引：[STYLES.md](STYLES.md) 与 [styles.json](styles.json)；两套库的导演与技术手册（只读，MIT）：Lemo 的 [DIRECTOR.md](../../cases/vendor/lemo-opuscar/DIRECTOR.md)、[TECHNIQUE.md](../../cases/vendor/lemo-opuscar/TECHNIQUE.md)、[MY-STYLES.md](../../cases/vendor/lemo-opuscar/MY-STYLES.md)（LemoLab），SY 的 [README.md](../../cases/vendor/sy-style-100/README.md)、[SKILL.md](../../cases/vendor/sy-style-100/SKILL.md)（肖雄 XIAOXIONG）。
+- 我们的 66 部风格实验与 PPT 片：[cases/README.md](../../cases/README.md)、[cases/INDEX.md](../../cases/INDEX.md)；两库源码对比 [docs/cases/comparison.md](../../docs/cases/comparison.md)。
+- 导演与工艺规范：[routes/directing/](../directing/README.md)（导演十步、画面设计、五章工艺）。
+- C 的公共件（tempo.js、cues.py、cuecheck.py、events.mjs、build.mjs）抽自我们 66 部风格实验的共同写法；抽取时的改前改后逐字节比对记在提交 e76c9d5 的说明里（本次未重跑）。
