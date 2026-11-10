@@ -32,20 +32,30 @@ test('--help：每个命令 exit 0、说明写到 stdout、不改动仓库里的
   if (before !== null) assert.equal(state(), before, '--help 改动了仓库（出现了新文件或改动）');
 });
 
-test('不认识的参数：exit 2；加 --json 时 stdout 只有一个信封对象', () => {
+test('不认识的参数：exit 2；加 --json 时 stdout 只有一个信封对象（与 tools/lib/cli.mjs 同一套错误码）', () => {
   for (const cli of CLIS) {
     const r = node([cli, '--no-such-flag']);
     assert.equal(r.status, 2, `${cli} --no-such-flag 退出码 ${r.status}`);
-    assert.match(r.stderr, /不认识的参数/, `${cli} 的用法错误没说清楚`);
+    assert.match(r.stderr, /不认识的选项 --no-such-flag/, `${cli} 的用法错误没说清楚`);
     const j = node([cli, '--no-such-flag', '--json']);
     assert.equal(j.status, 2);
     const obj = JSON.parse(j.stdout);           // 整个 stdout 就是一个对象
     for (const k of ENVELOPE) assert.ok(k in obj, `${cli} 的信封缺 ${k}`);
+    assert.equal(obj.schemaVersion, 1);
     assert.equal(obj.ok, false);
     assert.equal(obj.exitCode, 2);
-    assert.equal(obj.error.code, 'usage');
+    assert.equal(obj.error.code, 'usage.unknown-option');
     assert.ok(obj.error.hint, `${cli} 的用法错误没有下一步提示`);
+    assert.doesNotMatch(obj.command, /no-such-flag/, `${cli}：拼错的参数不该进命令名`);
   }
+});
+
+test('参数缺值、开关带值、多余的位置参数：exit 2，错误码分别是 usage.missing-value、usage.bad-value、usage.extra-argument', () => {
+  const code = args => { const j = node(args); assert.equal(j.status, 2, `${args.join(' ')}：${j.stderr}`); return JSON.parse(j.stdout).error.code; };
+  assert.equal(code(['tools/env/doctor.mjs', '--route', '--json']), 'usage.missing-value');
+  assert.equal(code(['tools/env/doctor.mjs', '--json', '--route']), 'usage.missing-value');
+  assert.equal(code(['tools/env/doctor.mjs', '--quick=yes', '--json']), 'usage.bad-value');
+  assert.equal(code(['tools/env/doctor.mjs', 'extra', '--json']), 'usage.extra-argument');
 });
 
 test('枚举参数写错时列出合法取值', () => {

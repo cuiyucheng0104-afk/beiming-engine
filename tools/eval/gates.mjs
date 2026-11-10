@@ -723,7 +723,7 @@ async function main(parsed, ctx) {
   ctx.onCleanup(killAll);
   const { opts, positionals } = parsed;
   const only = opts.only.map(s => s.toUpperCase());
-  for (const id of only) if (!GATE_IDS.includes(id)) throw new EvalError('usage', `--only 里的 ${id} 不是硬门编号（H1–H7）`, { exitCode: EXIT.USAGE });
+  for (const id of only) if (!GATE_IDS.includes(id)) throw new EvalError('usage.bad-value', `--only 里的 ${id} 不是硬门编号（H1–H7）`, { exitCode: EXIT.USAGE });
   const report = await evaluateRun(positionals[0], {
     toolsRoot: opts['tools-root'] ?? undefined,
     only,

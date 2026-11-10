@@ -829,13 +829,18 @@ describe('gates.mjs 命令行（附录 C1 / C2）', () => {
     } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
   });
 
-  it('未知参数 → exit 2；--json 时 stdout 是单个信封', () => {
+  it('未知参数 → exit 2；--json 时 stdout 是单个信封（错误码与 tools/lib/cli.mjs 同名）', () => {
     const r = cli(['x', '--no-such-flag', '--json']);
     assert.equal(r.status, 2);
     const env = JSON.parse(r.stdout);
+    assert.equal(env.schemaVersion, 1);
     assert.equal(env.ok, false);
     assert.equal(env.exitCode, 2);
-    assert.equal(env.error.code, 'usage');
+    assert.equal(env.error.code, 'usage.unknown-option');
+    assert.match(env.error.message, /不认识的选项 --no-such-flag/);
+    const bad = cli(['x', '--only', 'H9', '--json']);
+    assert.equal(bad.status, 2);
+    assert.equal(JSON.parse(bad.stdout).error.code, 'usage.bad-value');
   });
 
   it('不是运行目录 → exit 2，提示先 prepare', () => {
