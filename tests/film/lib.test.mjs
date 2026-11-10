@@ -212,3 +212,21 @@ test('媒体小工具：PNG / JPEG 尺寸、时间码、提示音 WAV、复现�
     assert.equal(rerunCommand(['build', 'films/x', '--reason', "用户说'不看'"]), `node tools/film/cli.mjs build films/x --reason '用户说'\\''不看'\\'''`);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('取帧按色彩标记精确换算：BT.709 有限范围的中性灰 128 读回 128（默认换算会读成 126）', async () => {
+  const ff = process.env.FFMPEG || 'ffmpeg';
+  if (spawnSync(ff, ['-version']).status !== 0) return;
+  const { extractFrames, rgbDecode } = await import('../../tools/film/lib/media.mjs');
+  const { exec } = await import('../../tools/film/lib/proc.mjs');
+  const dir = tmp();
+  try {
+    const png = path.join(dir, 'g.png'), mp4 = path.join(dir, 'g.mp4');
+    spawnSync(ff, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=0x808080:s=64x64,format=rgb24', '-frames:v', '1', png]);
+    spawnSync(ff, ['-v', 'error', '-i', png, '-vf', 'scale=in_range=full:in_color_matrix=bt601:out_range=limited:out_color_matrix=bt709:flags=accurate_rnd+full_chroma_int,format=yuv420p',
+      '-c:v', 'libx264', '-qp', '0', '-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', mp4]);
+    assert.match(rgbDecode({ range: 'tv', space: 'bt709' }), /in_range=tv:in_color_matrix=bt709/);
+    const got = await extractFrames(exec, mp4, [0], path.join(dir, 'f'));
+    const raw = spawnSync(ff, ['-v', 'error', '-i', got.get(0), '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']).stdout;
+    assert.deepEqual([...raw.subarray(0, 3)], [128, 128, 128]);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

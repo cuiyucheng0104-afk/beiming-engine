@@ -1,7 +1,7 @@
 // 北冥仓库 · 出片编排 · 媒体工具（全部经 FFmpeg / ffprobe，路径与参数都不经 shell）：
 //   probe(file)                  ffprobe 完整解码计数：{ width, height, fps, frames, duration, pixFmt, color{range,space,transfer,primaries}, audio{codec,rate,channels}|null }
 //   framemd5(file)               解码后逐帧 md5（写进 run.json 的 frameHashes，复现时逐帧比对）
-//   extractFrames(file, frames, dir)   一次解码按帧号取出 PNG（联系表、海报只用本次运行的帧）
+//   extractFrames(file, frames, dir)   一次解码按帧号取出 PNG（联系表、海报只用本次运行的帧；按色彩标记精确换算成 RGB）
 //   encodeWeb({ src, audioFrom, out, fps })   网页版：H.264 High@4.1、GOP 2 秒、faststart；色彩一次性转成 BT.709 有限范围并写全四个标签；
 //                                声音直接复制母版的 AAC（不做 AAC→AAC 二次编码，响度与母版一致）
 //   muxSimple({ video, audio, out, duration })   画面逐位复制 + 声音编 AAC 48 kHz 立体声（预演与无声片用；不做响度归一）
@@ -80,17 +80,26 @@ export async function framemd5(exec, file) {
   return r.stdout.split('\n').filter(l => l && !l.startsWith('#')).map(l => l.split(',').at(-1).trim()).filter(h => /^[0-9a-f]{32}$/.test(h));
 }
 
-// 帧号从 0 起；输出 <dir>/f000123.png；select 表达式过长时分批
-export async function extractFrames(exec, file, frames, dir, { logFile } = {}) {
+// 取帧时的 YUV → RGB：按码流标记精确换算。FFmpeg 默认的快速换算会把有限范围画面整体读暗约 2 级
+// （实测 BT.709 tv 的中性灰 128 读成 126，换成下面的写法读回 128），联系表与海报会比成片暗。
+export function rgbDecode(color = {}) {
+  const range = ['pc', 'jpeg', 'full'].includes(color.range) ? 'pc' : 'tv';
+  const matrix = color.space === 'bt709' ? 'bt709' : ['bt470bg', 'smpte170m'].includes(color.space) ? 'bt601' : range === 'tv' ? 'bt709' : 'bt601';
+  return `scale=in_range=${range}:in_color_matrix=${matrix}:flags=accurate_rnd+full_chroma_int,format=rgb24`;
+}
+
+// 帧号从 0 起；输出 <dir>/f000123.png；select 表达式过长时分批；color 不给时先读码流的色彩标记
+export async function extractFrames(exec, file, frames, dir, { logFile, color = null } = {}) {
   fs.mkdirSync(dir, { recursive: true });
   const uniq = [...new Set(frames)].sort((a, b) => a - b);
   const out = new Map();
+  const decode = rgbDecode(color || (await probe(exec, file, { count: false })).color);
   for (let i = 0; i < uniq.length; i += 60) {
     const batch = uniq.slice(i, i + 60);
     const tmp = path.join(dir, `.batch-${i}`);
     fs.mkdirSync(tmp, { recursive: true });
     const sel = batch.map(f => `eq(n\\,${f})`).join('+');
-    await exec(FFMPEG(), ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-map', '0:v:0', '-vf', `select='${sel}'`, '-fps_mode', 'passthrough', '-f', 'image2', path.join(tmp, '%06d.png')],
+    await exec(FFMPEG(), ['-hide_banner', '-loglevel', 'error', '-y', '-i', file, '-map', '0:v:0', '-vf', `select='${sel}',${decode}`, '-fps_mode', 'passthrough', '-f', 'image2', path.join(tmp, '%06d.png')],
       { label: '取帧', quiet: true, timeoutSec: 1800, logFile, sweep: false });
     const got = fs.readdirSync(tmp).filter(n => n.endsWith('.png')).sort();
     if (got.length !== batch.length) {
