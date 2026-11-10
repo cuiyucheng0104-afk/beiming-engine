@@ -74,7 +74,7 @@ git config core.autocrlf false && git config core.quotepath off
 npm ci && npm run setup && npm run env:doctor -- --route a
 ```
 
-- **克隆到短的英文路径**，例如 `D:\beiming\repo`。中文路径下部分老工具会出编码问题，过长的路径会撞上 Windows 的路径长度限制。
+- **克隆到短的英文路径**，例如盘符根下一两级的 `D:\<英文目录>\repo`。中文路径下部分老工具会出编码问题，过长的路径会撞上 Windows 的路径长度限制。
 - **换行**：仓库的 `.gitattributes` 已经让文本一律按 LF 检出，`core.autocrlf` 设成什么都不影响；上面那条 `git config core.autocrlf false` 是给旧检出的保险。
 - **Python**：Windows 上通常没有 `python3` 命令，`python` 可能只是应用商店的空壳。仓库的 npm 脚本与文档统一经 `node tools/env/py.mjs` 启动 Python，它会找到 `.venv`；自己调用时也这样写：`node tools/env/py.mjs tools/casebook.py list`。
 - **中文输出**：`py.mjs` 固定 `PYTHONUTF8=1`、`PYTHONIOENCODING=utf-8`，重定向到文件或管道时不会再报 `UnicodeEncodeError: 'gbk'`（用 `PYTHONIOENCODING=gbk` 模拟中文 Windows 实测：`node tools/env/py.mjs tools/casebook.py list > x.txt` 退出 0，直接用 Python 运行退出 1）。直接调用 Python 时先设 `$env:PYTHONUTF8 = '1'`。
