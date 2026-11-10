@@ -1,0 +1,125 @@
+# 北冥仓库 · 发布：推 v* 标签 → 核对标签（语义化版本、在 main 上、与 package.json 一致、CHANGELOG.md 有对应段落）
+# → 整套 CI（复用 ci.yml）→ 用 CHANGELOG 段落建草稿 Release，附 CI 冒烟接触印。草稿要人工在网页上核对后点「发布」：
+# 发布是公开、不可撤回的动作，由维护者确认，不在流水线里自动完成。
+# 不上传大文件：成片、4K 母版、素材包按 D10 另行上传（Release 资产或对象存储），这里只附几十 KB 的接触印。
+# 重新生成某个标签的草稿：Actions → release → Run workflow，填标签。已经发布的 Release 只提示、不改。
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 已存在的标签，例如 v2.0.0
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  notes:
+    name: 核对标签与更新日志
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: 核对标签，生成 Release 说明
+        id: meta
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error title=标签格式::$TAG 不是 vX.Y.Z 或 vX.Y.Z-预发布号（语义化版本）"
+            exit 2
+          fi
+          commit=$(git rev-list -n 1 "$TAG")
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error title=标签不在 main 上::$TAG 指向 $commit，它不在 main 的历史里；只从 main 发布"
+            exit 4
+          fi
+          footer=()
+          if [ -f docs/rights/RELEASE-FOOTER.md ]; then footer=(--footer docs/rights/RELEASE-FOOTER.md); fi
+          node tests/ci/changelog.mjs notes "$TAG" --package package.json "${footer[@]}" --out out/release/notes.md
+          {
+            echo "tag=$TAG"
+            if [[ "$TAG" == *-* ]]; then echo "prerelease=true"; else echo "prerelease=false"; fi
+          } >> "$GITHUB_OUTPUT"
+          { echo "### Release 说明预览（$TAG）"; echo; cat out/release/notes.md; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: out/release/notes.md
+          if-no-files-found: error
+          retention-days: 30
+
+  ci:
+    name: ci
+    needs: notes
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.tag || github.ref }}
+
+  publish:
+    name: 建草稿 Release
+    needs: [notes, ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-notes
+          path: release
+      - name: 取 CI 冒烟接触印（没有也不影响发布）
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: smoke-render
+          path: smoke
+      - name: 建或更新草稿
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.notes.outputs.tag }}
+          PRERELEASE: ${{ needs.notes.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          if draft=$(gh release view "$TAG" --repo "$repo" --json isDraft -q .isDraft 2>/dev/null); then
+            if [ "$draft" != "true" ]; then
+              echo "::notice title=已发布::$TAG 的 Release 已经发布，不改动；要改说明请在网页上编辑"
+              exit 0
+            fi
+            gh release edit "$TAG" --repo "$repo" --notes-file release/notes.md
+          else
+            args=(--repo "$repo" --draft --verify-tag --title "北冥引擎 $TAG" --notes-file release/notes.md)
+            if [ "$PRERELEASE" = "true" ]; then args+=(--prerelease); fi
+            gh release create "$TAG" "${args[@]}"
+          fi
+          sheet=$(find smoke -name contact.jpg -size -2M 2>/dev/null | head -n 1 || true)
+          if [ -n "$sheet" ]; then
+            cp "$sheet" "contact-$TAG.jpg"
+            gh release upload "$TAG" "contact-$TAG.jpg" --repo "$repo" --clobber
+          fi
+          {
+            echo "### 草稿 Release：$TAG"
+            echo
+            echo "在 https://github.com/$repo/releases 核对说明与附件后点「发布」。附件只有 CI 冒烟接触印（软件渲染、小尺寸，只证明该提交能出片，不代表画质）。"
+          } >> "$GITHUB_STEP_SUMMARY"

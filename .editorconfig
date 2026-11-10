@@ -1,0 +1,33 @@
+# 北冥仓库 · 编辑器约定（https://editorconfig.org）：UTF-8、LF、文件末尾留一个换行、去掉行尾空白，2 空格缩进，Python 4 空格。
+# cases/ 是按字节校验的第三方快照与历史归档（tools/casebook.py check 核对 SHA256），编辑器不得改它的换行、缩进与空白，下面全部 unset。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.py]
+indent_size = 4
+
+# Markdown 行尾两个空格是硬换行，不能自动删
+[*.md]
+trim_trailing_whitespace = false
+
+# Windows 批处理与 PowerShell 脚本用 CRLF（与 .gitattributes 的约定一致）
+[*.{ps1,bat,cmd}]
+end_of_line = crlf
+
+[Makefile]
+indent_style = tab
+
+[{cases/**,**/*.min.js,**/*.min.css}]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset

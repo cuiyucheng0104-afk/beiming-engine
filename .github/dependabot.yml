@@ -1,0 +1,58 @@
+# 北冥仓库 · 依赖更新：每周一检查 npm、pip、GitHub Actions，同类小版本合成一个 PR；新版本至少发布 14 天后才提（cooldown），躲开刚发布就撤回的版本。
+# 每个更新 PR 都要过 ci.yml（含 SwiftShader 金标准），像素或混音有变化会在那里变红。
+# 不自动升级的：three 固定 r170（engine/shade/patch.js 的着色器锚点只对这一版成立）、playwright-core 固定 1.63.0（D09；浏览器构建一变，
+# 软件渲染的像素就变）。这两项要升级时手动改，同时重采金标准（docs/style-baselines/POLICY.md）。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Shanghai
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'deps(npm)'
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: three
+      - dependency-name: playwright-core
+
+  - package-ecosystem: pip
+    directories:
+      - /
+      - /tests/ci
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Shanghai
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'deps(pip)'
+    groups:
+      pip-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Shanghai
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'deps(actions)'
+    groups:
+      actions:
+        patterns: ['*']
