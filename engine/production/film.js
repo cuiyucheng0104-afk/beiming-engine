@@ -115,16 +115,29 @@ export function loadProfiles({ file = PROFILES_FILE, fresh = false } = {}) {
     if (!isObj(p?.safeArea?.title) || !isObj(p?.safeArea?.action)) problems.push(`${id}.safeArea 缺失`);
   }
   if (doc?.default && !doc.profiles?.[doc.default]) problems.push(`default 指向不存在的档位 ${doc.default}`);
+  const q = doc?.qa;
+  if (!isObj(q)) problems.push('缺少 qa 检测阈值');
+  else for (const k of ['decode', 'black', 'freeze', 'flicker', 'cuts', 'text', 'plates', 'aigc']) if (!isObj(q[k])) problems.push(`qa.${k} 缺失`);
   if (problems.length) throw new FilmError('profiles-invalid', `交付档位表不合格：${problems.join('；')}`, { exitCode: 1, hint: '从版本库恢复 engine/production/profiles.json，或按报错补字段' });
-  const value = { default: doc.default ?? 'web-1080p24', profiles: doc.profiles, ffprobeFields: doc.ffprobeFields ?? {} };
+  const value = { default: doc.default ?? 'web-1080p24', profiles: doc.profiles, ffprobeFields: doc.ffprobeFields ?? {}, qa: doc.qa };
   if (file === PROFILES_FILE) profilesCache = value;
   return value;
 }
 
+/** 按键深合并（只覆盖写出的叶子；数组整体替换）：档位的 qa 覆盖共用阈值。 */
+function mergeDeep(base, over) {
+  if (!isObj(base) || !isObj(over)) return clone(over ?? base);
+  const out = clone(base);
+  for (const [k, v] of Object.entries(over)) out[k] = isObj(v) && isObj(out[k]) ? mergeDeep(out[k], v) : clone(v);
+  return out;
+}
+
+/** 档位规格；qa 是共用阈值与档位覆盖合并后的结果。 */
 export function getProfile(id, profiles = loadProfiles()) {
   const p = profiles.profiles[id];
   if (!p) throw new FilmError('profile-unknown', `没有交付档位 ${JSON.stringify(id)}`, { hint: `可用：${Object.keys(profiles.profiles).join('、')}（默认 ${profiles.default}）` });
-  return { id, ...p };
+  const { $comment, ...shared } = profiles.qa ?? {};
+  return { id, ...p, qa: mergeDeep(shared, p.qa ?? {}) };
 }
 
 export function matchProfile({ width, height, fps }, profiles = loadProfiles()) {
@@ -799,7 +812,25 @@ export function qaExpectations(film, { profiles = loadProfiles() } = {}) {
     events: film.events.map(e => ({ id: e.id, frame: e.frame, seconds: e.frame / fps, shot: e.shot, end: e.end, audio: e.audio, visual: e.visual, sync: e.sync ?? (e.audio !== undefined), beat: e.beat })),
     holds: film.holds.map(h => ({ ...h, seconds: [h.in / fps, h.out / fps] })),
     posterFrame: film.posterFrame ?? null,
-    aigc: { contains: film.aigc?.contains ?? null, markerRequired: film.aigc?.contains === true, marker: AIGC_MARK, metadataKey: 'comment' },
+    aigc: { contains: film.aigc?.contains ?? null, markerRequired: film.aigc?.contains === true, marker: p.qa.aigc?.marker ?? AIGC_MARK, metadataKey: p.qa.aigc?.metadataKey ?? 'comment' },
+    checks: qaChecks(p.qa, fps),
+  };
+}
+
+/** 检测阈值换成本片的帧数（秒数照留，方便核对）；文字最短停留 = max(minHoldFrames, 字数 × perCharFrames) 向上取整。 */
+function qaChecks(q, fps) {
+  const frames = s => Math.ceil(s * fps - FRAME_EPS);
+  const strip = o => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => !['source', 'calibrate', 'waiverFrom'].includes(k)));
+  const calibrate = Object.entries(q).filter(([, v]) => v?.calibrate === true).map(([k]) => k);
+  return {
+    decode: strip(q.decode),
+    black: { ...strip(q.black), minFrames: frames(q.black.minSeconds), waiver: 'holds.black' },
+    freeze: { ...strip(q.freeze), minFrames: frames(q.freeze.minSeconds), waiver: 'holds.freeze' },
+    flicker: strip(q.flicker),
+    cuts: strip(q.cuts),
+    text: { ...strip(q.text), minHoldFrames: frames(q.text.minHoldSeconds), perCharFrames: q.text.perCharSeconds * fps },
+    plates: strip(q.plates),
+    calibrate,
   };
 }
 

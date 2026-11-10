@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "$comment": "交付档位（决策 D07、计划附录 C7）。QA（tools/qa）、渲染器（engine/render）、出片编排（tools/film）都只读这一份；每个档位完整展开，不做继承，方便机器直接比对。ffprobeFields 给出字段到 ffprobe 输出键的对照。读取与校验用 engine/production/film.js 的 loadProfiles / getProfile / ffprobeExpect。",
+  "$comment": "交付档位（决策 D07、计划附录 C7）。QA（tools/qa）、渲染器（engine/render）、出片编排（tools/film）都只读这一份；每个档位的交付规格完整展开，不做继承，方便机器直接比对；qa 是所有档位共用的检测阈值（档位可按键覆盖）。ffprobeFields 给出字段到 ffprobe 输出键的对照。读取与校验用 engine/production/film.js 的 loadProfiles / getProfile / ffprobeExpect / qaExpectations。",
   "default": "web-1080p24",
   "ffprobeFields": {
     "video.codec": "codec_name",
@@ -19,6 +19,32 @@
     "audio.sampleRate": "sample_rate",
     "audio.channels": "channels",
     "audio.channelLayout": "channel_layout"
+  },
+  "qa": {
+    "$comment": "机器 QA（tools/qa）的判定阈值，所有档位共用；档位里写 qa 时按键覆盖（只覆盖写出的叶子）。秒数换成本片帧数由 film.js 的 qaExpectations 完成。calibrate = true 的项是行业常用起点值，尚未在本仓库成片上实测标定：QA 属主标定后改这里，并在 source 写明依据。",
+    "decode": { "xerror": true, "countFrames": true, "ptsUniform": true, "source": "计划 P07 delivery：-xerror 完整解码、-count_frames 计帧、PTS 严格等间隔" },
+    "black": {
+      "pixelThreshold": 0.1, "pictureRatio": 0.98, "minSeconds": 0.08, "waiverFrom": "film.json holds 里 kind = black 的区间",
+      "calibrate": true, "source": "ffmpeg blackdetect 的 pix_th / pic_th 默认值；最短 2 帧（24 fps）"
+    },
+    "freeze": {
+      "noiseDb": -60, "minSeconds": 1.0, "waiverFrom": "film.json holds 里 kind = freeze 的区间",
+      "calibrate": true, "source": "ffmpeg freezedetect 的 n 默认值；时长取 1 秒，避开一拍二、一拍三与定格镜头的正常停顿（定格要写进 holds）"
+    },
+    "flicker": {
+      "metric": "YAVG", "windowFrames": 5, "maxDeltaLuma": 12, "excludeCutFrames": 1,
+      "calibrate": true, "source": "计划 P07 visual：亮度与前后 5 帧中值之差，切点帧除外；阈值（8 位限范围码值）待实测标定"
+    },
+    "cuts": { "toleranceFrames": 1, "nmsFrames": 2, "detector": "scdet", "source": "计划 P07 visual：检出切点与镜头表对应 ±1 帧，±2 帧内非极大值抑制" },
+    "text": {
+      "opaqueAlpha": 0.9, "minHoldSeconds": 0.8, "perCharSeconds": 0.12, "minContrast": 3.0, "safeArea": "title", "glyphCheck": "cmap",
+      "source": "计划 P07 texts：不透明度 ≥90% 的连续时长 ≥ max(0.8 秒, 字数 × 0.12 秒)；对比度 ≥ 3:1；缺字按字体 cmap 比对"
+    },
+    "plates": {
+      "straightFadeStdPx": 15, "straightFadeMinRowCover": 0.3, "texelPerPxWarn": 1.0, "texelPerPxFail": 0.6,
+      "source": "计划 P07 plates：alpha = 0.5 交叉列标准差 < 15 px 且覆盖 > 30% 行高判直线淡出；贴图密度低于 1.0 texel/px 警告、低于 0.6 失败"
+    },
+    "aigc": { "marker": "含 AI 生成画面", "metadataKey": "comment", "source": "决策 D11：显式标识写片尾或说明，隐式标识写 mp4 的 comment 元数据" }
   },
   "profiles": {
     "web-1080p24": {
