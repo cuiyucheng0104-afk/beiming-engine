@@ -1,7 +1,9 @@
 {
+ "$schema": "./plates.schema.json",
  "项目": "《北冥》2D 手绘底板",
  "生成": "Midjourney V8 与 GPT Image 2.5 生成，共用同一张风格参考（assets/ref/sky_test.png）与同一句风格描述，再手工整理",
  "后处理": "alpha 主体拉满并去脏晕、透明区颜色外扩（防 mipmap 黑边）、向共享色板做色彩对齐、天际线逆光剪影渐变映射、截断边柔化、×2 放大（预乘 alpha）",
+ "来源链": "生成工具与风格参考见「生成」；后处理六步见「后处理」。风格参考 assets/ref/sky_test.png 带 C2PA 信息，由它派生的底板在后处理中丢失了 C2PA（审计 COMP-04），所以在这里按决定 D11 记录来源链；每张底板的 aigc 字段标明是否 AI 生成。生成时用的完整风格描述没有入库，按同一配方复现做不到逐张一致。",
  "通用设置": {
   "颜色空间": "彩色底板 SRGBColorSpace；paper 用 NoColorSpace",
   "alpha": "直通 alpha（非预乘），透明区 RGB 已填充，直接开 mipmap",
@@ -32,6 +34,15 @@
    ],
    "aspect": 2.0,
    "transparent": false,
+   "colorSpace": "srgb",
+   "edgePolicy": {
+    "left": "offscreen",
+    "right": "offscreen",
+    "top": "offscreen",
+    "bottom": "covered"
+   },
+   "edgeNote": "不透明底板：左右上三边留在画外；底边就是画好的地平线，压在真地平线下、被江面与雾盖住。",
+   "aigc": true,
    "用途": "主天空：破晓前蓝调 → 杏橙地平线，几层横向层积云带；无建筑无地面。镜头 A、C 的最远层",
    "镜头": [
     "A",
@@ -47,7 +58,29 @@
      1.0
     ]
    },
-   "注意": "底边就是地平线（整条杏橙辉光带在 y 0.88–1.0）。天顶色 ≈ #5263C0，与 sky_zenith 底边无缝相接"
+   "注意": "底边就是地平线（整条杏橙辉光带在 y 0.88–1.0）。天顶色 ≈ #5263C0，与 sky_zenith 底边无缝相接",
+   "usage": [
+    {
+     "where": "routes/a-webgl/template/shots/s1.js",
+     "screenWidth": 2688,
+     "designHeight": 1080,
+     "profiles": [
+      "web-1080p24",
+      "master-1080p24",
+      "uhd-2160p24"
+     ]
+    },
+    {
+     "where": "routes/a-webgl/template/shots/s2.js",
+     "screenWidth": 2592,
+     "designHeight": 1080,
+     "profiles": [
+      "web-1080p24",
+      "master-1080p24",
+      "uhd-2160p24"
+     ]
+    }
+   ]
   },
   {
    "name": "sky_zenith",
@@ -59,6 +92,10 @@
    ],
    "aspect": 2.0,
    "transparent": false,
+   "colorSpace": "srgb",
+   "edgePolicy": "offscreen",
+   "edgeNote": "不透明底板：四边留在画外（正片不单独加载，只作 sky_tall 的源图）。",
+   "aigc": true,
    "用途": "仰望的高空：深长春花蓝，稀疏卷云。已重调竖向渐变，底边颜色 = sky_dawn 顶边。现已并入 sky_tall（镜头 C 上摇用的是 sky_tall），正片不单独加载这张，只作 sky_tall 的源图保留",
    "镜头": [],
    "层级": 0,
@@ -76,6 +113,10 @@
    ],
    "aspect": 1.0374,
    "transparent": false,
+   "colorSpace": "srgb",
+   "edgePolicy": "offscreen",
+   "edgeNote": "穹顶天空：四边留在穹顶覆盖范围之外（镜头 C 的覆盖核算见 craft/two-five-d.md §2.1）。",
+   "aigc": true,
    "用途": "sky_zenith（上）+ sky_dawn（下）拼好的长天空，带 64px 交叉过渡；镜头 C 上摇一张图走到底",
    "镜头": [
     "C"
@@ -99,6 +140,10 @@
    ],
    "aspect": 2.0,
    "transparent": false,
+   "colorSpace": "srgb",
+   "edgePolicy": "offscreen",
+   "edgeNote": "不透明底板：四边留在画外。",
+   "aigc": true,
    "用途": "镜头 B 背景：近处明亮的破晓天空，粉金光晕、柔和稍虚，衬林潮逆光侧脸剪影",
    "镜头": [
     "B"
@@ -124,6 +169,15 @@
    ],
    "aspect": 3.0,
    "transparent": true,
+   "colorSpace": "srgb",
+   "edgePolicy": {
+    "left": "covered",
+    "right": "offscreen",
+    "top": "natural",
+    "bottom": "covered"
+   },
+   "edgeNote": "右端是直线淡出（tools/plates/check.mjs 实测约三成的行在同一条竖线附近淡出），必须留在画外；左端在镜头 A 里落在画内 x≈145，靠同色云天盖住（审计 CRAFT-03）；下沿被浦东天际线与雾盖住。",
+   "aigc": true,
    "用途": "鲲身后的云堤（透明）：横向一长条积云/层云，杏粉亮边、淡紫阴影、奶白高光",
    "镜头": [
     "A",
@@ -153,6 +207,15 @@
    ],
    "aspect": 1.5,
    "transparent": true,
+   "colorSpace": "srgb",
+   "edgePolicy": {
+    "left": "organic-mask",
+    "right": "natural",
+    "top": "natural",
+    "bottom": "covered"
+   },
+   "edgeNote": "左端是被画幅截断后的直线淡出（八成的行在离边约 80 px 的同一条竖线附近淡出），单独使用时要用 cropPlate 裁成有机外形或留在画外；镜头 A 里这条边进画是已登记的已知问题（craft/README §5）。下沿被更近的层盖住。",
+   "aigc": true,
    "用途": "鲲身前的大团近景云和雾带（透明）：云团占左侧，右侧边缘碎成圆润云瓣和雾丝。镜头 C 开场\"云层分开\"用：a 往左、b 往右拉开",
    "镜头": [
     "A",
@@ -183,6 +246,15 @@
    ],
    "aspect": 2.0,
    "transparent": true,
+   "colorSpace": "srgb",
+   "edgePolicy": {
+    "left": "natural",
+    "right": "organic-mask",
+    "top": "natural",
+    "bottom": "covered"
+   },
+   "edgeNote": "右端是直线淡出（七成多的行在离边约 90 px 处淡出），用 cropPlate 裁成有机外形（镜头 C 的做法，src/shotC.js:124）或留在画外；下沿被更近的层盖住。",
+   "aigc": true,
    "用途": "鲲身前的大团近景云和雾带（透明）：云团占右侧，左侧边缘碎成圆润云瓣和雾丝。镜头 C 开场\"云层分开\"用：a 往左、b 往右拉开",
    "镜头": [
     "A",
@@ -213,6 +285,15 @@
    ],
    "aspect": 2.0,
    "transparent": true,
+   "colorSpace": "srgb",
+   "edgePolicy": {
+    "left": "natural",
+    "right": "natural",
+    "top": "natural",
+    "bottom": "covered"
+   },
+   "edgeNote": "天际线底边平直（建筑落地线），由江面、倒影与低雾盖住。",
+   "aigc": true,
    "用途": "陆家嘴天际线水彩剪影（透明）：东方明珠、金茂、环球金融中心、上海中心可辨；逆光蓝紫 #4B4A8C 主色，暖橙窗灯，最高几栋带杏色亮边，底部融进薄雾",
    "镜头": [
     "A",
@@ -258,6 +339,15 @@
    ],
    "aspect": 3.0534,
    "transparent": true,
+   "colorSpace": "srgb",
+   "edgePolicy": {
+    "left": "natural",
+    "right": "natural",
+    "top": "covered",
+    "bottom": "natural"
+   },
+   "edgeNote": "倒影顶边贴着图边，由天际线与雾盖住。",
+   "aigc": true,
    "用途": "陆家嘴天际线在江面上的倒影（透明，由 skyline_pudong 程序化生成）：横向碎波错位、横向笔触断开、窗灯拉成竖向暖色光斑",
    "镜头": [
     "A"
@@ -282,6 +372,15 @@
    ],
    "aspect": 3.0,
    "transparent": true,
+   "colorSpace": "srgb",
+   "edgePolicy": {
+    "left": "natural",
+    "right": "natural",
+    "top": "natural",
+    "bottom": "covered"
+   },
+   "edgeNote": "底边平直，由前景与雾盖住。右端软边在画内是已登记的已知问题（QA 台账 QA-A-001）。",
+   "aigc": true,
    "用途": "外滩一侧低矮古典建筑群剪影（透明）：海关钟楼、汇丰穹顶、和平饭店金字塔顶、行道树；比浦东更暗更近",
    "镜头": [
     "A"
@@ -321,6 +420,10 @@
    ],
    "aspect": 2.0,
    "transparent": false,
+   "colorSpace": "srgb",
+   "edgePolicy": "offscreen",
+   "edgeNote": "不透明底板：四边留在画外。",
+   "aigc": true,
    "用途": "黄浦江江面（不透明）：平涂倒映天光（远处杏粉、近处薰衣草/长春花蓝）+ 深色倒影块 + 白色细波纹线与椭圆涟漪，远处一条薄雾",
    "镜头": [
     "A",
@@ -355,6 +458,15 @@
    ],
    "aspect": 2.4254,
    "transparent": true,
+   "colorSpace": "srgb",
+   "edgePolicy": {
+    "left": "offscreen",
+    "right": "offscreen",
+    "top": "natural",
+    "bottom": "waived"
+   },
+   "edgeNote": "雾带左右两端贴着图边，必须留在画外（横向循环平铺时也不会露出）；下沿的水平渐隐是有意的——雾贴着水面，不是截断边。",
+   "aigc": true,
    "用途": "贴着水面的低雾带（透明），横向四方连续，可无限平移",
    "镜头": [
     "A",
@@ -382,6 +494,9 @@
    ],
    "aspect": 1.0,
    "transparent": false,
+   "colorSpace": "data",
+   "edgePolicy": "tiled",
+   "edgeNote": "四方连续纸纹，不当底板摆，按输出像素平铺。",
    "用途": "水彩冷压纸纹理（灰度、四方连续），给后期做纸纹叠加",
    "镜头": [
     "A",
@@ -391,7 +506,7 @@
    "层级": null,
    "视差": 0.0,
    "地平线_y": null,
-   "注意": "中性灰：均值 0.5、标准差 0.11。按屏幕像素 1:1 平铺（uv*分辨率/1024），colorSpace 用 NoColorSpace，RepeatWrapping。推荐 soft-light 混合强度 0.25–0.35（自测页用 0.35）；所有层（含 3D）一起叠，最后再叠胶片颗粒"
+   "注意": "中性灰：均值 0.5、标准差 0.11。按输出像素 1:1 平铺（uv*分辨率/1024），colorSpace 用 NoColorSpace，RepeatWrapping。混合是乘法：颜色 ×（1 + 2 × 强度 ×（纸纹 − 均值）），见 engine/look/compose.js；正片取强度 0.12–0.14（src/shotA.js:151、src/shotB.js:63、src/shotC.js:209），画风登记 beiming-original@v1 的 allowedOverrides 也是这个范围。所有层（含 3D）一起叠，最后再叠胶片颗粒"
   }
  ]
 }
