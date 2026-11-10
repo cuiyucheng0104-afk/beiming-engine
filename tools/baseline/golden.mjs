@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runMain, CliError, EXIT, usage, log, onCleanup, offCleanup, sha256File } from './lib/cli.mjs';
+import { runMain, CliError, EXIT, usage, log, onCleanup, offCleanup, sha256File, displayPath } from './lib/cli.mjs';
 import { loadSets, setHash } from './lib/sets.mjs';
 import { captureSet, captureUsable, assertCaptured } from './lib/capture.mjs';
 import { compareFrames, summaryLine, worstStats } from './lib/compare.mjs';
@@ -84,7 +84,7 @@ function checkFlags(cmd, argv) {
 
 const angleKey = () => `${osKey()}-${process.env.BEIMING_ANGLE || 'default'}`;
 const cacheDir = (sha, set) => path.join(OUT, 'cache', sha, angleKey(), set);
-const rel = p => path.relative(ROOT, p).split(path.sep).join('/');
+const rel = p => displayPath(ROOT, p);
 const out = (p, kind) => ({ path: rel(p), sha256: sha256File(p), kind });
 
 function lock(dir) {

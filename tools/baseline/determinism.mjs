@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runMain, CliError, EXIT, usage, log, parseSize, sha256File } from './lib/cli.mjs';
+import { runMain, CliError, EXIT, usage, log, parseSize, sha256File, displayPath } from './lib/cli.mjs';
 import { runWorker, materializeTemplate, noBrowserHint } from './lib/capture.mjs';
 import { decodePNG, encodePNG } from './lib/png.mjs';
 import { compareImages, diffHeatmap } from './lib/metrics.mjs';
@@ -64,7 +64,7 @@ const SPEC = {
   positionals: [0, 1],
 };
 
-const rel = p => path.relative(ROOT, p).split(path.sep).join('/');
+const rel = p => displayPath(ROOT, p);
 const ints = (list, name) => list.map(v => {
   if (!/^\d+$/.test(v)) throw usage(`${name} 只能写非负整数帧号，现在有 ${JSON.stringify(v)}`);
   return Number(v);

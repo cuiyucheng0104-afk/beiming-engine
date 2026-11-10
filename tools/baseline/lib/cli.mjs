@@ -11,6 +11,7 @@
 //   log(...)                  人读日志（stderr）
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
 
 export const EXIT = Object.freeze({
   OK: 0, FAIL: 1, USAGE: 2, ENV: 3, CONTRACT: 4, BUSY: 5, TIMEOUT: 124, SIGINT: 130, SIGTERM: 143,
@@ -168,6 +169,13 @@ export async function runMain({ command, argv = process.argv.slice(2), spec, hel
     emit();
     process.exit(exitCode);
   }
+}
+
+// 输出里写的路径：在仓库内写相对路径，在仓库外（--out 指到别处）写绝对路径；分隔符一律用 /，三平台一致
+export function displayPath(root, p) {
+  const r = path.relative(root, p);
+  const outside = r === '..' || r.startsWith(`..${path.sep}`) || path.isAbsolute(r);
+  return (outside ? path.resolve(p) : r).split(path.sep).join('/');
 }
 
 // 文件 sha256（大文件流式读）

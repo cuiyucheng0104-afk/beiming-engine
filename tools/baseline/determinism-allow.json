@@ -2,17 +2,9 @@
   "说明": "确定性静态扫描的存量登记（tools/baseline/lib/scan.mjs）。只减不增：新代码一律不许用 Math.random / Date.now / performance.now / new Date；真要计时，在同一行写 // determinism-ok: <理由>。每条写明为什么暂时允许、由谁来修。match 是对该行代码的正则。",
   "allow": [
     {
-      "file": "engine/core/noise.js", "api": "Math.random", "match": "createNoise2D\\(random = Math\\.random\\)",
-      "reason": "默认参数：不传种子时每个页面得到不同的置换表（分段并行时每个 worker 一套噪声）。现有调用都传了 mulberry 种子，画面不受影响",
-      "owner": "P13（引擎九层维护）：改成未传随机源即抛错；改完删本条"
-    },
-    {
-      "file": "engine/core/noise.js", "api": "Math.random", "match": "createNoise3D\\(random = Math\\.random\\)",
-      "reason": "同上（3D 版）",
-      "owner": "P13：同上"
-    },
-    {
-      "file": "src/kun_bronze.js", "api": "performance.now", "match": "T0 = performance\\.now\\(\\)",
+      "file": "src/kun_bronze.js",
+      "api": "performance.now",
+      "match": "T0 = performance\\.now\\(\\)",
       "reason": "青铜鲲构建阶段的耗时统计，只写进 kun.debug.timings 供自测页打印，不影响画面",
       "owner": "src/ 只读（《北冥》样片）；不改"
     }
