@@ -1,5 +1,5 @@
 // 《北冥》原生例片 · 毛笔片名页面：A 路的写字代码（engine/overlay/brush.js）按笔顺把「北冥」一笔一笔写出来，收笔带飞白，
-// 白字 + 暖色光晕 + 字下一层冷色暗晕（保证压在薰衣草色天空上的对比度）。画在透明画布上，原生端把逐帧 PNG 叠在三维之上。
+// 字色取 ../palette.json 的 title（近白），加暖色光晕与字下一层冷色暗晕（保证压在薰衣草色天空上的对比度）。画在透明画布上，原生端把逐帧 PNG 叠在三维之上。
 //   window.DUR = 1.0          写字 0–0.86 秒（「北」0–0.36、「冥」0.40–0.86），之后停在写完的样子
 //   window.render(t)          纯函数：同一个 t 永远画出同一张图（字形每个画面尺寸只预计算一次）
 //   window.TEXTS(t)           [{ text, box:[x, y, w, h], alpha, font }]，给检查用
@@ -24,10 +24,12 @@ const ctx = cv.getContext('2d');
 window.DUR = 1.0;
 window.FPS = 24;
 
-let G = null, T = null;
+let G = null, T = null, INK = [255, 252, 246];
 async function init() {
   await loadFonts([[FAMILY, new URL('../../../fonts/MaShanZheng-400.woff2', import.meta.url).href, '400']]);
   const film = await (await fetch(new URL('../film.json', import.meta.url))).json();
+  const pal = await (await fetch(new URL('../palette.json', import.meta.url))).json();   // 字色取色板的 title
+  INK = [1, 3, 5].map(i => parseInt(pal.title.slice(i, i + 2), 16));
   const L = layout({ W, H, FPS: film.fps, frames: Math.round(film.dur * film.fps) }, V);
   T = titleBox({ W, H }, L.title);
   G = T.glyphs.map(([ch]) => buildBrushGlyph(ch, { font: `400 ${T.F.toFixed(2)}px "${FAMILY}"`, size: T.F, strokes: SKEL[ch], span: SPAN[ch], dry: DRY[ch] }));
@@ -40,7 +42,7 @@ window.render = t => {
   const far = 4 * W;
   T.glyphs.forEach(([, x, y], i) => {
     const g = G[i];
-    if (!paintBrushGlyph(g, t, { edge: 0.035, rgb: [255, 252, 246] })) return;
+    if (!paintBrushGlyph(g, t, { edge: 0.035, rgb: INK })) return;
     const gx = x - g.size / 2, gy = y - g.size / 2;
     shadowOnly(ctx, g.out, gx, gy + 5 * S, 'rgba(30,28,82,0.42)', 30 * S, far);     // 冷色暗晕：托住白字
     shadowOnly(ctx, g.out, gx, gy, 'rgba(255,190,140,0.50)', 36 * S, far);          // 暖色外晕
