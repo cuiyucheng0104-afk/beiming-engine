@@ -55,6 +55,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 
 - 写了 `--out`：成片就是它，运行记录是 `<输出>.run.json`。
 - 不写 `--out`：作品出到 `films/<名字>/out/<运行号>/master.mp4`，《北冥》样片出到 `out/beiming/<运行号>/master.mp4`；运行记录是同目录的 `run.json`；成功后把运行号写进指针文件 `…/out/latest`（不用符号链接）。运行号 `YYYYMMDD-HHMMSS-<短提交>[-dirty]`。
+- 出片编排（`tools/film`）有两种接法：不写 `--out`，由渲染器建运行目录，从 `--json` 信封的 `data.runId`、`data.runDir` 取位置；或者自己定运行目录，写 `--out <运行目录>/master.mp4 --web <运行目录>/web.mp4 --run-json <运行目录>/run.json`。
 - 写盘一律先写临时名再改名：失败或被中断不留半成品；分段临时目录 `<输出目录>/.segs-*` 任何结局都删。
 
 运行记录每次都写，失败也写（开渲前先写一份占位，旧记录不会被误当成这次的结果）。主要字段：
