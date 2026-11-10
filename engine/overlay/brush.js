@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Portions Copyright (c) 2026 LemoLab — lemo-opuscar@bebbbe1 styles/chalkboard/demo/js/chalk.js、core/lib.js（MIT），许可原文见本注释末尾
 // 北冥引擎 · 毛笔写字：用字体里的字形当"墨"，按手标的笔画骨架把字一笔一笔揭开，收笔快的笔画带飞白（枯笔露白）。
 // 骨架 = 按笔顺排列的笔画中线，每笔是 [[x, y], ...]，单位 em，原点在字的中心（textAlign center / textBaseline middle）。
 //   buildBrushGlyph(ch, o) → glyph    预计算（每个字号一次，约 30–50 ms）。o：
@@ -13,6 +15,24 @@
 //   paintBrushGlyph(glyph, t, { edge, rgb }) → 是否有像素露出
 //     把时刻 t 已经写到的部分画进 glyph.out：每笔的笔锋沿骨架按缓入缓出推进，edge 是笔锋前沿的柔边宽（em，默认 0.035），rgb 墨色
 //   chamfer(inside, W, H)              倒角距离变换：inside（Uint8Array，1 = 在形内）每个像素到形状边缘的距离（像素）
+//
+// 来源：chamfer 改编自 cases/vendor/lemo-opuscar/styles/chalkboard/demo/js/chalk.js@bebbbe1 的倒角距离变换（两遍扫描，写法相同），
+//   "字形当蒙版、按笔画中线给每个像素定揭开顺序"的做法也取自该文件的 bakeOutline；hash1 / vnoise 与
+//   cases/vendor/lemo-opuscar/core/lib.js@bebbbe1 的 hash / vnoise 相同。骨架、笔画归属、飞白、时间分配与绘制是本仓库自己写的。
+// @provenance lemo-opuscar@bebbbe1 styles/chalkboard/demo/js/chalk.js
+// @provenance lemo-opuscar@bebbbe1 core/lib.js
+// LemoLab 部分的许可（MIT 原文，按其要求随这些部分一起分发）：
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//   to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//   The above copyright notice and this permission notice shall be included in all copies or substantial portions
+//   of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+//   THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+//   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//   IN THE SOFTWARE.
 
 import { clamp, lerp, ss, seg } from '../core/math.js';
 import { catmullRom, project } from '../paint/curve.js';

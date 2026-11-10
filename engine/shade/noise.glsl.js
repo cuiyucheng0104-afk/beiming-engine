@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Portions Copyright (c) 2014 David Hoskins — Hash without Sine（MIT，https://www.shadertoy.com/view/4djSRW），许可原文见本注释末尾
 // 北冥引擎 · 着色器噪声（GLSL 源码片段）：确定性哈希、梯度噪声、fbm、二维 Voronoi。
 // 全部是坐标的纯函数，没有时间和随机数，任意帧单独渲染结果一致。拼进片元着色器的函数区即可。
 //
@@ -6,6 +8,22 @@
 //                        float toonFbm( vec3 )    4 层 fbm（倍频 2.03，每层错开）
 //   HASH13_GLSL          float toonHash13( vec3 ) → [0, 1)
 //   voronoiGlsl(name)    vec3 name( vec2 p )：x = 最近距离 F1，y = 次近 F2，z = 最近格子的哈希（0..1）；依赖 NOISE_GLSL
+//
+// 来源：toonHash33、toonHash13 的公式逐字取自 David Hoskins 的 Hash without Sine（hash33、hash13；toonHash33 另把结果映射到 [-1, 1]）；
+//   toonNoise、toonFbm、voronoiGlsl 是本仓库自己写的。
+// @provenance hash-without-sine (David Hoskins, 2014) https://www.shadertoy.com/view/4djSRW
+// David Hoskins 部分的许可（MIT 原文，按其要求随这些部分一起分发）：
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//   to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//   The above copyright notice and this permission notice shall be included in all copies or substantial portions
+//   of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+//   THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+//   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//   IN THE SOFTWARE.
 
 export const NOISE_GLSL = /* glsl */`
 vec3 toonHash33( vec3 p3 ) {

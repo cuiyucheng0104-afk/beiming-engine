@@ -1,8 +1,28 @@
+// SPDX-License-Identifier: MIT
+// Portions Copyright (c) 2026 LemoLab — lemo-opuscar@bebbbe1 core/lib.js（MIT），许可原文见本注释末尾
 // 北冥引擎 · 基础数学：区间、插值、缓动、确定性随机、单调样条。
 // 除 mulberry 外都是纯函数：同样的输入永远得到同样的输出，任意一帧都能单独重渲。
 // mulberry(seed) 本身是纯的，但它返回的生成器每调用一次都改写内部状态——只能在构建期（建场景、撒实例、
 // 交给 createNoise2D/3D 洗牌）用；放进 render(t) 里逐帧取值，结果会依赖渲染顺序，分段并行时在段边界跳变。
 // 逐帧随机一律用 hashi(帧号或拍号)。
+//
+// 来源：clamp、lerp、seg、ss、ei、eo、eio、TAU、mulberry、monotone 改编自 cases/vendor/lemo-opuscar/core/lib.js@bebbbe1
+//   （monotone 逐句相同，只改了变量名；mulberry 改写了结构）；hashi 的混合常数与同库 styles/hd-2d/demo/px.js 的 h2 相同
+//   （改成一维）；DEG、ss5 与全部注释是本仓库自己写的。
+// @provenance lemo-opuscar@bebbbe1 core/lib.js
+// @provenance lemo-opuscar@bebbbe1 styles/hd-2d/demo/px.js
+// LemoLab 部分的许可（MIT 原文，按其要求随这些部分一起分发）：
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//   to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//   The above copyright notice and this permission notice shall be included in all copies or substantial portions
+//   of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+//   THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+//   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//   IN THE SOFTWARE.
 
 export const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 export const lerp = (a, b, t) => a + (b - a) * t;

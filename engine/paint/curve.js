@@ -1,9 +1,30 @@
+// SPDX-License-Identifier: MIT
+// Portions Copyright (c) 2026 LemoLab — lemo-opuscar@bebbbe1 styles/urban-sketch/demo/engine.js、styles/transit-map/demo/film.js（MIT），
+// 许可原文见本注释末尾
 // 北冥引擎 · 平滑曲线与弧长：稀疏折线 → Catmull-Rom 平滑曲线，并支持按弧长取点、求最近点。
 // 曲线对象 sp = { pts: [[x, y], ...], L: 每点的累计弧长, total: 总长 }
 //   catmullRom(P, steps)              P = [[x, y], ...]（至少 2 个点），每段细分 steps 份
 //   pointAt(sp, d)                    弧长 d 处的点（两端夹住）
 //   spanPoints(sp, d0, d1, step, f)   从弧长 d0 到 d1 每 step 取一点 [x, y, f(d)]，末点落在 d1（给 engine/core/stroke.js 当带笔压的中心线）
 //   project(sp, x, y)                 → [到曲线的最近距离, 最近点的弧长, 在曲线哪一侧 ±1]
+//
+// 来源：catmullRom 的逐段求值改编自 cases/vendor/lemo-opuscar/styles/urban-sketch/demo/engine.js@bebbbe1 的 spline；
+//   曲线对象 { pts, L, total } 与 pointAt / project 的做法改编自 cases/vendor/lemo-opuscar/styles/transit-map/demo/film.js@bebbbe1；
+//   spanPoints 与 project 的侧向符号是本仓库自己写的。
+// @provenance lemo-opuscar@bebbbe1 styles/urban-sketch/demo/engine.js
+// @provenance lemo-opuscar@bebbbe1 styles/transit-map/demo/film.js
+// LemoLab 部分的许可（MIT 原文，按其要求随这些部分一起分发）：
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//   to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//   The above copyright notice and this permission notice shall be included in all copies or substantial portions
+//   of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+//   THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+//   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//   IN THE SOFTWARE.
 
 import { clamp, lerp } from '../core/math.js';
 

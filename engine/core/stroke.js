@@ -6,6 +6,11 @@
 //   streamline 中心线跟手的迟滞：0 = 紧贴输入点，越大越"稳"、越圆顺
 //   start / end { taper: 像素 } 起笔、收笔的出锋长度；不给 taper 时两端是圆头，圆头背向笔触方向
 //   只有一个点（或所有点重合）时画一个整圆
+//
+// 方法出处：参数约定与三条默认公式沿用 perfect-freehand（Steve Ruiz，MIT，github.com/steveruizok/perfect-freehand）的
+//   getStroke——中心线迟滞系数 0.15 + 0.85·(1 − streamline)、半径 size·(0.5 − thinning·(0.5 − 笔压))、起笔 u(2 − u) 与
+//   收笔 1 − (1 − u)³ 的收锋缓动。去重、笔压平滑、折返切线、端头与轮廓拼接是本文件自己的写法，没有复制该项目的源码
+//   （仓库里也没有收录它）。
 
 const EPS = 1e-6;
 
