@@ -119,7 +119,7 @@
 | beiming-detail | 37 | 两个切点 ±1 帧、声画事件帧、六个关键时刻、无显示层、五个后期中间层 | 约 15 秒 |
 | beiming-original-v1 | 20 | 认可参照 beiming-original@v1 | 约 11–17 秒 |
 | fixtures | 5 | 测试夹具：纯函数画布页、灰阶色卡（截图链路本身是否改色） | 约 2 秒 |
-| ci | 38 | CI 冒烟专用（`linux-swiftshader`），半分辨率 960×520：《北冥》13 个整数帧（三个镜头、切点 72 / 120 ±1、分段边界 60、第 177 帧）、9 个自测页各 2 帧（不含 `lab:kun_peng`）、A / C 模版各 3 帧、灰阶色卡 | SwiftShader 约 77 秒（同机器上 beiming-core + lab 用 SwiftShader 要 471 秒，其中原生 4K 开页加首帧约 3.5 分钟） |
+| ci | 38 | CI 冒烟专用（`linux-swiftshader`），半分辨率 960×520：《北冥》13 个整数帧（三个镜头、切点 72 / 120 ±1、分段边界 60、第 177 帧）、9 个自测页各 2 帧（不含 `lab:kun_peng`）、A / C 模版各 3 帧、灰阶色卡 | SwiftShader 约 77 秒；本机满载（load average 约 45）时 218–266 秒。对比：同一台机器上 beiming-core + lab 用 SwiftShader 要 471 秒，其中原生 4K 开页加首帧约 3.5 分钟 |
 
 CI 建议只比 `ci` 集合：`compare --set ci --platform linux-swiftshader`。原生 4K、全分辨率与 `lab:kun_peng` 由 GPU 平台的 beiming-core、lab 守。
 
