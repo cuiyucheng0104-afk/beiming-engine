@@ -39,30 +39,51 @@ export async function reviewLib() {
 const reviewDir = film => path.join(film.dir, 'review');
 const readJson = f => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
 
+const filled = v => typeof v === 'string' && v.trim().length > 0;
+// 一条审阅能不能算数：approve / reject 必须是 human、写明审阅人、用户原话（至少 2 个字）与出处；agent 的 note 只留证据
+export function reviewProblems(j) {
+  const p = [];
+  if (j.decision === 'agent-note') { if (j.reviewerKind !== 'ai') p.push('agent-note 的 reviewerKind 应为 ai'); return p; }
+  if (!['approved', 'changes-requested'].includes(j.decision)) p.push(`decision 不认识：${JSON.stringify(j.decision)}`);
+  if (j.reviewerKind !== 'human') p.push(`reviewerKind 应为 human（收到 ${JSON.stringify(j.reviewerKind)}）`);
+  if (!filled(j.reviewer)) p.push('缺审阅人');
+  if (!(filled(j.quote) && j.quote.trim().length >= 2)) p.push('缺用户原话');
+  if (!filled(j.source)) p.push('缺原话出处');
+  return p;
+}
+
 export function readRecords(film) {
   const dir = reviewDir(film);
-  if (!fs.existsSync(dir)) return { reviews: [], waivers: [] };
-  const reviews = [];
+  if (!fs.existsSync(dir)) return { reviews: [], waivers: [], invalid: [] };
+  const reviews = [], invalid = [];
   for (const name of fs.readdirSync(dir).sort()) {
     const m = /^(look|animatic|final)-.+\.json$/.exec(name);
     if (!m) continue;
+    const file = rel(path.join(dir, name));
     const j = readJson(path.join(dir, name));
-    if (!j || j.gate !== m[1]) continue;
+    if (!j || j.gate !== m[1]) { invalid.push({ file, problems: [j ? `gate 与文件名不符（${JSON.stringify(j.gate)}）` : '不是合法 JSON'] }); continue; }
     const decision = j.decision === 'approve' ? 'approved' : j.decision;
-    reviews.push({ ...j, decision, file: rel(path.join(dir, name)) });
+    const problems = reviewProblems({ ...j, decision });
+    if (problems.length) { invalid.push({ file, problems }); continue; }   // 不合格的记录不放行任何闸
+    reviews.push({ ...j, decision, file });
   }
   const w = readJson(path.join(dir, 'waivers.json'));
-  const waivers = (Array.isArray(w?.waivers) ? w.waivers : []).filter(x => x && GATES.includes(x.gate) && !x.revoked)
-    .map(x => ({ ...x, kind: x.quote && x.source ? 'user' : (x.kind === 'user' ? 'user' : 'internal') }));
-  return { reviews, waivers };
+  const waivers = [];
+  for (const [i, x] of (Array.isArray(w?.waivers) ? w.waivers : []).entries()) {
+    if (!x || x.revoked) continue;
+    if (!['look', 'animatic'].includes(x.gate) || !filled(x.reason)) { invalid.push({ file: rel(path.join(dir, 'waivers.json')), problems: [`第 ${i + 1} 条豁免：${x.gate === 'final' ? 'final 闸不能豁免' : !filled(x.reason) ? '没有理由' : `gate 不认识（${JSON.stringify(x.gate)}）`}`] }); continue; }
+    waivers.push({ ...x, kind: filled(x.quote) && filled(x.source) ? 'user' : 'internal' });
+  }
+  return { reviews, waivers, invalid };
 }
 
 export function gateStatus(film) {
-  const { reviews, waivers } = readRecords(film);
+  const { reviews, waivers, invalid } = readRecords(film);
   const out = {};
+  Object.defineProperty(out, 'invalid', { value: invalid, enumerable: false });
   for (const g of GATES) {
     const items = [
-      ...reviews.filter(r => r.gate === g && r.reviewerKind !== 'ai').map(r => ({ t: r.recordedAt, state: r.decision === 'approved' ? 'approved' : 'changes-requested', by: r.reviewer, quote: r.quote, source: r.source, record: r.file, run: r.run?.id || null })),
+      ...reviews.filter(r => r.gate === g && r.reviewerKind === 'human').map(r => ({ t: r.recordedAt, state: r.decision === 'approved' ? 'approved' : 'changes-requested', by: r.reviewer, quote: r.quote, source: r.source, record: r.file, run: r.run?.id || null })),
       ...waivers.filter(x => x.gate === g).map(x => ({ t: x.recordedAt, state: 'waived', waiverKind: x.kind, by: x.recordedBy, quote: x.quote || null, source: x.source || null, reason: x.reason, record: rel(path.join(reviewDir(film), 'waivers.json')) })),
     ].sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
     const last = items.at(-1);

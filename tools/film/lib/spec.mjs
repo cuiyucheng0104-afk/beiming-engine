@@ -6,7 +6,7 @@
 // 本模块只做编排必需的最小检查（路线、帧数、画幅、镜头表能否用来标切点）；字段级的完整校验由
 // `node engine/production/film.js check`（P05）负责，`film check` 与 `film build` 会转调它。
 //
-//   loadFilm(dir, { page }) → film
+//   loadFilm(dir, { page }) → film；parseFilm(raw, { dir }) 同样的整理，但不读文件（规范检查核对模版用）
 //     film = { dir, relDir, file, raw, schemaVersion, id, title, route, backend, fps, frameCount, dur, width, height,
 //              profileId, shots[{id,in,out}], events[{id,frame,shot}], audio{mode,path}, gates{look,animatic,final},
 //              cuecheck, posterFrame, native, pageDir, warnings[] }
@@ -68,6 +68,12 @@ export function loadFilm(dirArg, { page = null } = {}) {
   }
   let raw;
   try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { throw bad(file, [`不是合法 JSON（${e.message}）`]); }
+  return parseFilm(raw, { dir, file, page });
+}
+
+// 不读文件的版本：raw 是已解析的 film.json，dir 是它所在的目录（声音脚本、页面按它解析）。
+// 规范检查（tools/repo-check/rules/film）用它核对模版替换占位符后能不能直接出片。
+export function parseFilm(raw, { dir, file = path.join(dir, 'film.json'), page = null } = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw bad(file, ['顶层必须是对象']);
   const warnings = [];
   const problems = [];
@@ -119,7 +125,7 @@ export function loadFilm(dirArg, { page = null } = {}) {
   else if (raw.audio && typeof raw.audio === 'object') {
     const mode = raw.audio.mode;
     if (mode === 'none') audio = { mode: 'none' };
-    else if (mode === 'wav' && typeof raw.audio.wav === 'string') audio = { mode: 'wav', path: path.resolve(dir, raw.audio.wav) };
+    else if (mode === 'wav' && typeof (raw.audio.wav ?? raw.audio.file ?? raw.audio.path) === 'string') audio = { mode: 'wav', path: path.resolve(dir, raw.audio.wav ?? raw.audio.file ?? raw.audio.path) };
     else if (mode === 'script' && typeof raw.audio.script === 'string') audio = { mode: 'script', path: path.resolve(dir, raw.audio.script) };
     else throw bad(file, [`audio 要写成 { mode: "script", script } / { mode: "wav", wav } / { mode: "none" }，现在是 ${JSON.stringify(raw.audio)}`]);
   } else if (fs.existsSync(path.join(dir, 'sound.py'))) audio = { mode: 'script', path: path.join(dir, 'sound.py'), inferred: true };

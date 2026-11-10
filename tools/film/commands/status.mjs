@@ -62,11 +62,12 @@ export async function statusCommand(opts, positionals) {
     '最近运行：',
     ...['stills', 'animatic', 'build', 'render'].map(k => `  ${k.padEnd(9)} ${latest[k] ? `${latest[k].id}  ${latest[k].status}${latest[k].final ? '（终渲）' : ''}  技术 ${latest[k].technical || '-'}` : '—'}`),
     failedLast ? `最近一次失败：${failedLast.id}（${failedLast.kind}，${failedLast.status}）${failedLast.error?.message ? `：${failedLast.error.message}` : ''}` : null,
+    gates.invalid?.length ? `⚠ ${gates.invalid.length} 条闸门记录不合格、不放行任何闸：${gates.invalid.slice(0, 3).map(x => `${x.file}（${x.problems.join('；')}）`).join('、')}` : null,
     `终渲状态：${lastFinal ? `${lastFinal.id} · 已输出 ✓ · 技术检查 ${fs.technical} · 人工认可 ${fs.creative}${fs.delivered ? ' · 已交付（用户已认可）' : ''}` : '还没有终渲'}`,
     `下一步：${next}`,
   ].filter(Boolean);
   return {
-    env: envelope({ command: 'film status', outputs: [], runJson: lastFinal ? rel(path.join(lastFinal.dir, 'run.json')) : null, data: { film: d, title: film.title, route: film.route, gates, latest, lastFinal: lastFinal ? { id: lastFinal.id, ...fs } : null, lastFailure: failedLast, next } }),
+    env: envelope({ command: 'film status', outputs: [], runJson: lastFinal ? rel(path.join(lastFinal.dir, 'run.json')) : null, warnings: (gates.invalid || []).map(x => ({ code: 'review-invalid', message: `${x.file}：${x.problems.join('；')}` })), data: { film: d, title: film.title, route: film.route, gates, latest, lastFinal: lastFinal ? { id: lastFinal.id, ...fs } : null, lastFailure: failedLast, next } }),
     human: lines.join('\n'),
   };
 }
