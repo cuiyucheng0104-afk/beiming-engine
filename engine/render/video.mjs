@@ -26,7 +26,7 @@ import { acquireSlot, guardGpu, slotCount } from './lib/slots.mjs';
 import { environment, baseRecord, writeRecord, sha256File, selfCheck, repoPath, sha256 } from './lib/record.mjs';
 import { resolveProfile } from './lib/profiles.mjs';
 import { readFilm, pickShot } from './lib/film.mjs';
-import { planChunks, renderRange, concatChunks } from './lib/chunks.mjs';
+import { planChunks, planFilmChunks, renderRange, concatChunks } from './lib/chunks.mjs';
 
 const PRESETS = ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'];
 export const SPEC = {
@@ -216,7 +216,7 @@ async function main({ opts, args, explicit, log, signal, cleanup, setRunJson }) 
       if (opts['--frames']) ({ a, b } = opts['--frames']);
       if (opts['--shot']) { const s = pickShot(film, opts['--shot']); a = s.in; b = s.out; }
       if (b > TOTAL) throw new UsageError(`帧区间 ${a}:${b} 超出片长（${TOTAL} 帧，0:${TOTAL}）`);
-      const chunks = planChunks(a, b, { chunk: opts['--chunk'] ?? 'auto', fps: FPS });
+      const chunks = planFilmChunks(a, b, { shots: film?.shots ?? [], chunk: opts['--chunk'] ?? 'auto', fps: FPS });
       const crf = opts['--crf'] ?? profile?.video?.crf ?? 14, preset = opts['--preset'] ?? profile?.video?.preset ?? 'medium';
       const outputs = [{ kind: 'master', file: out, vf: COLOR[intermediate], args: [...x264Args({ crf, preset }), ...TAGS] }];
       if (web) {
@@ -361,7 +361,7 @@ async function planMode({ dir, opts, log, signal, w, h, fpsReq, profile, film, i
     } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
     ms.sort((x, y) => x - y);
     const frameMs = ms[Math.floor(ms.length / 2)];
-    const frames = b - a, chunks = planChunks(a, b, { chunk: opts['--chunk'] ?? 'auto', fps: FPS }).length;
+    const frames = b - a, chunks = planFilmChunks(a, b, { shots: film?.shots ?? [], chunk: opts['--chunk'] ?? 'auto', fps: FPS }).length;
     const lanes = Math.max(1, Math.min(opts['--workers'], chunks));
     // 每路：渲染与截图串行，编码在 FFmpeg 里并行跟上；多路共享 CPU / GPU，并行效率按 0.75 估（README「性能模型」）
     const perLane = Math.max(frameMs, encMs ?? 0);

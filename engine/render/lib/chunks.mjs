@@ -19,6 +19,31 @@ const sleep = ms => new Promise(r => setTimeout(r, ms).unref());
 const pad = n => String(n).padStart(6, '0');
 export const chunkName = (kind, a, b) => `${kind}-${pad(a)}-${pad(b)}.mp4`;
 
+/**
+ * 整片的块：先按镜头边界切（film.json v2 的 shots），每个镜头再各自 planChunks；evaluation 为 sequential 的镜头（有状态、
+ * 只能从头顺序渲）整段一块。只渲 [a, b) 的一部分时，与区间相交的部分照同样的规则切。没有镜头表时就是 planChunks(a, b)。
+ * 这样 video.mjs 渲整片与 shots.mjs 逐镜头渲，块的边界完全相同。
+ */
+export function planFilmChunks(a, b, { shots = [], chunk = 'auto', fps = 24 } = {}) {
+  const usable = shots.filter(s => Number.isInteger(s.in) && Number.isInteger(s.out)).sort((x, y) => x.in - y.in);
+  if (!usable.length) return planChunks(a, b, { chunk, fps });
+  const out = [];
+  let cur = a;
+  for (const s of usable) {
+    const lo = Math.max(a, s.in), hi = Math.min(b, s.out);
+    if (cur < lo) out.push(...planChunks(cur, lo, { chunk, fps }));   // 镜头表没覆盖的空隙
+    if (hi > lo) {
+      if (s.raw?.evaluation === 'sequential') {
+        if (lo !== s.in) throw new RenderError('sequential-partial', `镜头 ${s.id} 是 sequential（有状态），只能从它的第一帧 ${s.in} 开始渲`, { exitCode: EXIT.USAGE, hint: `--frames 的起点改成 ${s.in}，或整镜渲 --shot ${s.id}` });
+        out.push([lo, hi]);
+      } else out.push(...planChunks(s.in, s.out, { chunk, fps }).map(([x, y]) => [Math.max(x, lo), Math.min(y, hi)]).filter(([x, y]) => y > x));
+    }
+    cur = Math.max(cur, hi);
+  }
+  if (cur < b) out.push(...planChunks(cur, b, { chunk, fps }));
+  return out;
+}
+
 export function planChunks(a, b, { chunk = 'auto', fps = 24 } = {}) {
   const total = b - a;
   if (!(total > 0)) return [];
@@ -193,6 +218,7 @@ export async function renderRange(o) {
   return {
     files, deps, info, contract, warnings, external: [...external],
     hashes: Array.from({ length: total }, (_, i) => hashes.get(chunks[0][0] + i) ?? null),
+    hashMap: hashes,
     stats: { renderedFrames: rendered, reusedChunks: reused, chunks: chunks.length,
       seconds: +((Date.now() - t0) / 1000).toFixed(2), perFrameMs: { p50: q(0.5), p95: q(0.95), max: perFrame.at(-1) ?? null } },
   };

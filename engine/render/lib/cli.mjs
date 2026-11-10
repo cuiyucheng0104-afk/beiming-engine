@@ -9,7 +9,8 @@
 //   parseArgs(argv, spec)      严格解析：不认识的选项、缺值、类型不对、位置参数个数不对都抛 UsageError；同一选项写两次以后一次为准
 //                              （npm run x -- --out y 会追加到脚本自带的参数后面）；支持 --k v 与 --k=v，-- 之后都算位置参数
 //   helpText(spec)             --help 的文字（写到 stdout，不产生任何副作用）
-//   runCli(spec, main)         命令外壳：解析参数 → --help → main({ opts, args, log, signal, ctx }) → 统一出错与退出码；
+//   runCli(spec, main)         命令外壳：解析参数 → --help → main({ opts, args, log, signal, cleanup, emit, … }) → 统一出错与退出码；
+//                              长时间运行的命令（serve）用 emit(extra) 一启动就发信封，结束时不再发第二个；
 //                              --json 时 stdout 只输出一个信封对象 { ok, exitCode, command, error, outputs, runJson, warnings }，
 //                              人看的日志一律走 stderr；收到信号时先中止 signal、等 main 收尾，再以 130/143/129 退出
 //   createLog({ ndjson })      stderr 日志：info / warn（同时收进 warnings）/ progress；--progress ndjson 时每行一个 JSON 事件
@@ -243,12 +244,13 @@ export async function runCli(spec, main, argv = process.argv.slice(2)) {
   const jsonMode = argv.includes('--json');
   const ndjson = argv.some((a, i) => a === '--progress=ndjson' || (a === '--progress' && argv[i + 1] === 'ndjson'));
   const log = createLog({ ndjson });
+  let emitted = false;   // 长时间运行的命令已经先发过信封：结束时不再发第二个（stdout 始终只有一个对象）
   const envelope = (exitCode, error, result = {}) => ({
     ok: exitCode === 0, exitCode, command: spec.command, error,
     outputs: result.outputs ?? [], runJson: result.runJson ?? null, warnings: log.warnings, ...(result.extra ?? {}),
   });
   const finish = (exitCode, error, result) => {
-    if (jsonMode) process.stdout.write(JSON.stringify(envelope(exitCode, error, result)) + '\n');
+    if (jsonMode && !emitted) process.stdout.write(JSON.stringify(envelope(exitCode, error, result)) + '\n');
     else if (error) {
       log.error(`失败（${error.code}，退出码 ${exitCode}）：${error.message}`);
       if (error.hint) log.error(`  下一步：${error.hint}`);
@@ -278,7 +280,7 @@ export async function runCli(spec, main, argv = process.argv.slice(2)) {
   const onSignal = (sig, code) => () => {
     if (signalCode) { process.exit(signalCode); }   // 第二次信号：立即退出（同步收尾已在 exit 钩子里）
     signalCode = code;
-    log.error(`\n收到 ${sig}：停下渲染，关闭浏览器与 FFmpeg，清理临时文件…（再按一次 Ctrl-C 立即退出）`);
+    log.error(`\n收到 ${sig}：停下手头的工作并收尾（关浏览器与 FFmpeg、删临时文件、释放锁）…再按一次 Ctrl-C 立即退出`);
     ac.abort(new RenderError(sig === 'SIGINT' ? 'sigint' : sig === 'SIGTERM' ? 'sigterm' : 'sighup', `收到 ${sig}，已中止`, { exitCode: code }));
     sleep(20000).then(() => process.exit(code));   // 收尾卡住时的兜底
   };
@@ -288,14 +290,16 @@ export async function runCli(spec, main, argv = process.argv.slice(2)) {
   let result = {}, error = null, exitCode = 0;
   try {
     result = (await main({
-      opts: parsed.opts, args: parsed.args, explicit: parsed.explicit, log, signal: ac.signal,
+      opts: parsed.opts, args: parsed.args, explicit: parsed.explicit, log, signal: ac.signal, json: jsonMode,
       cleanup: fn => cleanups.push(fn), setRunJson: p => { runJson = p; },
+      emit: extra => { if (jsonMode && !emitted) { emitted = true; process.stdout.write(JSON.stringify(envelope(0, null, { extra })) + '\n'); } },
     })) ?? {};
     if (signalCode) throw ac.signal.reason;
   } catch (e) {
     const reason = signalCode ? ac.signal.reason : e;
     const d = describeError(reason);
     error = { code: d.code, message: d.message, hint: d.hint };
+    if (reason?.extra) result = { ...result, extra: reason.extra };   // 失败时也带上已经测到的东西（例如 gpucheck 的逐后端结果）
     exitCode = signalCode || d.exitCode;
     if (d.code === 'internal' && !jsonMode) process.stderr.write(`${e?.stack ?? e}\n`);
   } finally {
