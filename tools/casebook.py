@@ -1946,6 +1946,17 @@ class _Formatter(argparse.RawDescriptionHelpFormatter):
 
 
 class Parser(ArgumentParser):
+    def error(self, message):
+        # 与 tools/lib/cli.mjs 同一句式「不认识的选项 --x」（契约测试 tests/cli/contract.test.mjs 按它判定）
+        m = re.search(r'unrecognized arguments: (\S+)', message)
+        if m:
+            flag = m[1].split('=')[0]
+            close = difflib.get_close_matches(flag, self._option_strings(), n=1, cutoff=0.6) if flag.startswith('--') else []
+            if not flag.startswith('-'):
+                raise CliError('usage.unexpected-argument', f'多余的参数 {flag}', hint='只有 restore 接一个案例编号；全部用法见 --help')
+            raise CliError('usage.unknown-option', f'不认识的选项 {flag}', hint=(f'是不是想写 {close[0]}？' if close else '') + '全部选项见 --help')
+        super().error(message)
+
     def format_usage(self):          # cli.run 自己会在前面加「用法：」
         formatter = self._get_formatter()
         formatter.add_usage(self.usage, self._actions, self._mutually_exclusive_groups, prefix='')
