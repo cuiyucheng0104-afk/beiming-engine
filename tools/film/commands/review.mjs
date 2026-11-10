@@ -71,7 +71,9 @@ function findRun(film, outRoot, gate, runId) {
   let run;
   try { run = JSON.parse(fs.readFileSync(path.join(dir, 'run.json'), 'utf8')); } catch { throw new FilmError(EXIT.USAGE, 'run-unknown', `找不到运行 ${id}（${rel(dir)}/run.json）`); }
   if (run.kind !== kind) throw new FilmError(EXIT.USAGE, 'run-kind', `运行 ${id} 是 ${run.kind}，${GATE_LABEL[gate]}要审的是 ${kind}`);
-  if (!['passed', 'accepted'].includes(run.status)) throw new FilmError(EXIT.CONTRACT, 'run-not-passed', `运行 ${id} 的状态是 ${run.status}，不能拿来审`, '先修好并重新出片');
+  // look / animatic 审的是给用户看的东西：编排跑完（outcome = complete）就能审；final 审交付件，必须技术验收通过
+  const viewable = gate === 'final' ? ['passed', 'accepted'].includes(run.status) : (run.outcome === 'complete' || ['passed', 'accepted'].includes(run.status));
+  if (!viewable) throw new FilmError(EXIT.CONTRACT, 'run-not-passed', `运行 ${id} 的状态是 ${run.status}${run.outcome ? `（${run.outcome}）` : ''}，不能拿来审`, gate === 'final' ? '终渲要先过机器 QA 门；修好后重新终渲' : '先修好并重新出给用户看的东西');
   if (gate === 'final' && !run.final) throw new FilmError(EXIT.CONTRACT, 'final-needs-final-run', `运行 ${id} 不是终渲（没加 --final），final 闸只审终渲`, `npm run film -- build ${film.relDir} --final`);
   return { id, dir, run };
 }

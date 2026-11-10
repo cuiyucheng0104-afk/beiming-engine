@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { EXIT, FilmError, asFilmError } from './exit.mjs';
 import { ROOT, rel, gitInfo, toolVersions, pythonBin, hashTree, hashJson, fileHash, sha256File } from './repo.mjs';
 import { loadFilm, shotsAt, cutsOf } from './spec.mjs';
@@ -290,6 +291,22 @@ function statusOf(ctx, fe, outcome) {
   return outcome === 'complete' && t === 'passed' ? 'passed' : 'blocked';
 }
 
+// 写 run.json 前用 P05 的校验器自检（加固计划 P04·R2、硬门 H5）：status = passed 却缺实测字段（设备、图形后端、编码器、
+// 产物哈希、帧数）时，降为 blocked 并写明原因——宁可少报，不能让一份过不了校验的「通过」记录流出去。
+// P05 的 node engine/production/film.js validate-result 合入后，这里改为同口径调用它（见 tools/film/README.md）。
+async function selfValidate(ctx, body) {
+  let validate;
+  try { ({ validateRenderResult: validate } = await import(pathToFileURL(path.join(ROOT, 'engine/production/project.js')).href)); } catch { return; }
+  const r = validate(body, { expectedFrameCount: ctx.kind === 'build' || ctx.kind === 'animatic' ? ctx.frames : undefined });
+  body.validation = { by: 'engine/production/project.js validateRenderResult', ok: r.ok, diagnostics: r.diagnostics.map(d => ({ code: d.code, path: d.path, message: d.message })) };
+  if (!r.ok && body.status === 'passed') {
+    body.status = 'blocked';
+    const msg = `技术检查做完了，但记录不全，不能记为 passed：${r.diagnostics.map(d => d.message).join('；')}`;
+    body.warnings.push({ code: 'run-record-incomplete', message: msg });
+    process.stderr.write(`[警告] ${msg}\n`);
+  }
+}
+
 // 结束一次运行：无论成败都走这里
 export async function closeSession(ctx, { error = null, complete = false, output = null, frameHashes = null, extra = {} } = {}) {
   if (ctx.closed) return ctx.closed;
@@ -308,8 +325,9 @@ export async function closeSession(ctx, { error = null, complete = false, output
       error: fe ? { code: fe.code, message: fe.message, hint: fe.hint || null, exitCode: fe.exitCode, step: ctx.currentStep || null } : null,
       legacyRestored: restoredRel, repoTouched: touched, ...extra,
     });
+    await selfValidate(ctx, body);
     try { writeAtomic(path.join(ctx.run.dir, 'run.json'), JSON.stringify(body, null, 2) + '\n'); } catch { /* 磁盘满等极端情况 */ }
-    if (outcome === 'complete' && st !== 'failed') setLatest(ctx.outRoot, ctx.kind, ctx.run.id);
+    if (outcome === 'complete' && body.status !== 'failed') setLatest(ctx.outRoot, ctx.kind, ctx.run.id);
     ctx.lock.release();
     if (current === ctx) current = null;
     return body;
