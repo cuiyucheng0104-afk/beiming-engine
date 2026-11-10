@@ -20,6 +20,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -204,9 +205,10 @@ def main(argv=None):
            'updatedAt': datetime.date.today().isoformat()}
     os.makedirs(GOLDEN_DIR, exist_ok=True)
     p = os.path.join(GOLDEN_DIR, f'{key}.json')
+    text = json.dumps(doc, ensure_ascii=False, indent=1)
+    text = re.sub(r'\[\n\s+(-?[0-9.e+-]+),\n\s+(-?[0-9.e+-]+)\n\s+\]', r'[\1, \2]', text)    # 每块的左右声道写一行
     with open(p, 'w', encoding='utf-8', newline='\n') as f:
-        json.dump(doc, f, ensure_ascii=False, indent=1)
-        f.write('\n')
+        f.write(text + '\n')
     print(f'写了 {os.path.relpath(p, ROOT)}：mix.wav {cur["out/mix.wav"]["sha256"]}')
     return 0
 
