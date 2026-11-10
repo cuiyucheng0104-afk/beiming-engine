@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { after, test } from 'node:test';
+import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { cueAt, emWidth, subtitleLayout, textsFrom } from '../../engine/audio/voice/texts.mjs';
 import { validateReport } from '../../tools/qa/lib/report.mjs';
@@ -57,14 +57,13 @@ test('window.TEXTS：{text, box, alpha, font}；淡入淡出按帧', () => {
   assert.ok(Math.abs(emWidth('北冥 ab') - 3.4) < 1e-9);
 });
 
-let tmp = null;
-after(() => { if (tmp) fs.rmSync(tmp, { recursive: true, force: true }); });
 const py = await resolvePython({});
 const skip = py.ok ? false : `没有可用的 Python：${py.error}`;
 const runPy = (args) => spawnSync(py.cmd, [...py.args, ...args], { cwd: ROOT, env: pythonEnv(process.env), encoding: 'utf8', timeout: 300_000 });
 
-test('engine/audio/qa 与 cuecheck 的报告过 tools/qa 的 validateReport（附录 C8）', { skip }, () => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-audio-c8-'));
+test('engine/audio/qa 与 cuecheck 的报告过 tools/qa 的 validateReport（附录 C8）', { skip }, (t) => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-audio-c8-'));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
   const film = path.join(tmp, 'film');
   const gen = runPy(['-c', [
     'import sys, os', `sys.path.insert(0, ${JSON.stringify(path.join(ROOT, 'tests', 'audio'))})`, 'import _audiotest as H',
