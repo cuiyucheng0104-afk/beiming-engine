@@ -110,7 +110,7 @@ export const qa = {
   when: ctx => (ctx.opts.noQa ? '加了 --no-qa' : true),
   outputs: () => ({ qaReport: 'qa/report.json' }),
   async run(ctx) {
-    const r = await runQa({ master: ctx.art.master, film: ctx.film, profile: ctx.profile, runDir: ctx.run.dir, exec: ctx.exec, timeoutSec: ctx.opts.timeout || 900 });
+    const r = await runQa({ master: ctx.art.master, film: ctx.film, profile: ctx.profile, runDir: ctx.run.dir, exec: ctx.exec, timeoutSec: ctx.opts.timeout || Math.max(900, Math.round(ctx.frames * 0.5)) });
     ctx.qa = r;
     if (r.status === 'not-run') {
       if (ctx.final) ctx.fail(3, r.reason || 'qa-missing', `终渲必须过机器 QA：${r.message}`, '先合入 / 安装 tools/qa/cli.mjs（P07），或去掉 --final 出工作版');

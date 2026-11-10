@@ -27,6 +27,7 @@ function parseOut(stdout) {
 const isReport = j => j && Array.isArray(j.checks) && typeof j.ok === 'boolean';
 
 export async function runQa({ master, film, profile, runDir, exec, timeoutSec = 900 }) {
+  timeoutSec = Math.max(timeoutSec, 60);
   const cli = qaCli();
   if (!cli) return { status: 'not-run', reason: 'qa-missing', message: '机器 QA 门 tools/qa/cli.mjs 还不存在（由 P07 提供），本次没有做技术验收' };
   const args = [cli, 'delivery', master, '--film', path.join(film.dir, 'film.json')];
@@ -34,7 +35,8 @@ export async function runQa({ master, film, profile, runDir, exec, timeoutSec = 
   args.push('--json');
   let res, code = 0;
   try {
-    res = await exec(process.execPath, args, { cwd: ROOT, label: 'QA（tools/qa/cli.mjs delivery）', timeoutSec, stallSec: 300, logFile: path.join(runDir, 'logs', 'qa.log'), quiet: true, okCodes: [0, 4] });
+    // QA 的文字检查要逐帧跑页面，长片可能几分钟不出声：看门狗放宽到 15 分钟，总超时由调用方按帧数给
+    res = await exec(process.execPath, args, { cwd: ROOT, label: 'QA（tools/qa/cli.mjs delivery）', timeoutSec, stallSec: 900, logFile: path.join(runDir, 'logs', 'qa.log'), quiet: true, okCodes: [0, 4] });
     code = res.code;
   } catch (e) {
     if (e instanceof FilmError && e.details && (e.details.code === 2)) {

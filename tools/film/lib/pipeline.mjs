@@ -1,5 +1,5 @@
 // 北冥仓库 · 出片编排 · 步骤执行器：按顺序跑具名步骤，支持 --from / --to、输入哈希命中缓存时跳过、逐步计时与日志。
-// 步骤定义（路线专属的在 engine/render/build.mjs 与 tools/film/lib/routes/*.mjs，通用交付步骤在 tools/film/lib/deliver.mjs）：
+// 步骤定义（页面型路线的在 engine/render/build.mjs，B 原生的在 tools/film/lib/native-steps.mjs，三条路线共用的交付步骤在 tools/film/lib/deliver.mjs）：
 //   { id, title, when?(ctx) → bool | 不跑的原因字符串, key?(ctx) → 输入哈希, outputs?(ctx) → { 产物名: 运行目录相对路径 },
 //     run(ctx) → meta?, restored?(ctx, meta), cacheHit?(ctx, key) → { runId } | null, cacheStore?(ctx, key) }
 //   key 给出时：命中缓存 → 硬链接产物回本次运行目录、跳过 run；未命中 → run 之后把 outputs 存进缓存（meta 一并存）
