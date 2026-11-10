@@ -64,7 +64,7 @@ $env:BEIMING_GUARD_UNLOCK = "src,git"; claude         # Windows PowerShell
 
 ## 人工查询
 
-不写日志、不改文件，按退出码看结论（0 放行、4 会被拒绝、2 用法错误、1 内部错误）：
+不写日志、不改文件，按 [docs/CLI.md](../../docs/CLI.md) 的命令约定：退出码 0 放行、4 会被拒绝、2 用法错误、1 内部错误；`--json` 输出一个信封，`data.decision` 是判定，拒绝时 `error.code` 是 `contract.<规则 id>`、`error.hint` 是下一步。
 
 ```sh
 node .claude/hooks/guard.mjs --help
@@ -76,7 +76,19 @@ node .claude/hooks/guard.mjs --explain --input event.json      # 一个 PreToolU
 
 ## 日志
 
-拒绝与附带提醒的判定追加到 `out/agent-guard/guard.jsonl`（`out/` 不入库），普通放行不记；命令文本截断到 400 字并遮住常见的密钥写法；超过 2 MiB 轮换为 `guard.jsonl.1`。`BEIMING_GUARD_LOG=off` 关闭，`BEIMING_GUARD_LOG=<路径>` 改写到别处。评测题（P17）用它统计"有没有尝试写快照、整树暂存、访问家目录风格库"。
+拒绝与附带提醒的判定追加到 `out/agent-guard/guard.jsonl`（`out/` 不入库），普通放行不记；超过 2 MiB 轮换为 `guard.jsonl.1`。`BEIMING_GUARD_LOG=off` 关闭，`BEIMING_GUARD_LOG=<路径>` 改写到别处（相对路径按仓库根）。
+
+每行一个 JSON 对象，字段沿用 Claude Code 钩子载荷的名字，评测工具（`tools/eval`）的会话解析可以直接读：
+
+| 字段 | 内容 |
+|---|---|
+| `timestamp`、`hook_event_name`、`session_id`、`tool_use_id`、`cwd` | 时间与事件来源（`hook_event_name` 固定为 `PreToolUse`） |
+| `tool_name`、`tool_input` | 工具名与精简后的输入：只留路径、命令（遮住常见密钥写法，截断到 400 字）、skill 名，不记文件内容和 Edit 的新旧文本 |
+| `permissionDecision` | `deny`，或 `allow`（附提醒时） |
+| `permissionDecisionReason` / `additionalContext` | 拒绝理由 / 提醒正文 |
+| `rule`、`zone`、`target` | 护栏规则 id、受保护区域、判定的目标路径 |
+
+做 agent 评测（硬门 H4：有没有尝试写快照、整树暂存、访问家目录风格库）时，在启动 Claude Code **之前**设 `BEIMING_GUARD_LOG=<运行目录>/hooks.jsonl`（绝对路径）：日志直接落在评测的运行目录，被测检出里不留文件，也不用再复制。
 
 ## 跨平台
 
