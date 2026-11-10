@@ -1,15 +1,18 @@
 {
   "route": "b",
   "title": "{{TITLE}}",
-  "dur": 3,
+  "dur": 4.5,
   "fps": 24,
   "size": [1920, 1080],
+  "events": [
+    { "id": "title", "frame": 16, "visual": "片名第一个字落定", "audio": "玻璃铃" }
+  ],
   "native": {
     "entry": "film.tsx",
-    "output": "out/{{NAME}}.mp4",
     "images": [
       { "to": "backdrop.png", "from": "../../assets/plates/sky_dawn.png" },
-      { "to": "mist.png", "from": "../../assets/plates/mist_low.png" }
+      { "to": "mist.png", "from": "../../assets/plates/mist_low.png", "edge": { "left": 0.16, "right": 0.16, "jitter": 0.7, "lobes": 3, "seed": 2 } },
+      { "to": "paper.png", "from": "../../assets/plates/paper.png" }
     ],
     "models": [
       {

@@ -1,0 +1,9 @@
+{
+  "film": "films/p14-base",
+  "assets": {
+    "backdrop.png": "a55afb992dcd8c1780609eeb7c818d7878e13d118a6479d8ee4b5515b3c3cf4e",
+    "mist.png": "c86a0b17bb4d83634d91598aa2c3214c4fed7a6914b1a4ba3bfaeece79fdc40e",
+    "prop.glb": "ae7f136be9dfc59fdee4ab7f91e9ca0f8bc5280181582897297b67fb8df32344",
+    "mix.wav": "1a8cb3a1a45ef080148aa2624420013de99c2807ef23642273fe854e03efad4b"
+  }
+}

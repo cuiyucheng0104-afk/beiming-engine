@@ -1,0 +1,140 @@
+{
+  "scale": 1,
+  "boundsXYZ": [
+    1.0320703466193604,
+    1.8610169667151713,
+    1.0342357151109127
+  ],
+  "nominalLength": 1.6,
+  "emissiveMeshes": 1,
+  "emissive": [
+    {
+      "name": "prop-lamp",
+      "emissiveIntensity": 2.2
+    }
+  ],
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 3,
+      "tracks": 3
+    }
+  ],
+  "bytes": 86820,
+  "roundTrip": {
+    "loadedWith": "three GLTFLoader r170 (exported bytes)",
+    "meshes": 6,
+    "boundsXYZ": [
+      1.029617314786807,
+      1.8265652193031192,
+      1.0289775430208028
+    ],
+    "clips": [
+      {
+        "name": "Idle",
+        "duration": 3,
+        "tracks": 3,
+        "animatedNodes": 2,
+        "maxRange": 0.19795401023123918,
+        "maxLoopEndpointDistance": 0,
+        "motion": [
+          {
+            "node": "prop-float",
+            "rangeXYZ": [
+              0,
+              0.1599999964237213,
+              0
+            ],
+            "loopEndpointDistance": 0
+          },
+          {
+            "node": "prop-vane",
+            "rangeXYZ": [
+              0.19795401023123918,
+              0.1599999964237213,
+              0.14160827133247605
+            ],
+            "loopEndpointDistance": 0
+          }
+        ]
+      }
+    ]
+  },
+  "sourceHashes": {
+    "films/p14-base/prop.js": "c47fb40bff812f33f58a7b7cadefcbb18f9405c198218a2ce9b839599098182c"
+  },
+  "structuralValidation": {
+    "bytes": 86820,
+    "megabytes": 0.08682,
+    "sceneTriangles": 2884,
+    "vertices": 1748,
+    "nodes": 9,
+    "materials": 6,
+    "embeddedTextures": 0,
+    "skinnedMeshes": 0,
+    "morphMeshes": 0,
+    "jointCount": 0,
+    "extensionsUsed": [
+      "KHR_materials_emissive_strength"
+    ],
+    "animations": [
+      {
+        "name": "Idle",
+        "duration": 3,
+        "channels": 3,
+        "paths": {
+          "translation": 1,
+          "rotation": 2
+        },
+        "maxLoopError": 0,
+        "targets": [
+          {
+            "name": "prop-float",
+            "path": "translation",
+            "keys": 73,
+            "interpolation": "LINEAR"
+          },
+          {
+            "name": "prop-float",
+            "path": "rotation",
+            "keys": 73,
+            "interpolation": "LINEAR"
+          },
+          {
+            "name": "prop-vane",
+            "path": "rotation",
+            "keys": 73,
+            "interpolation": "LINEAR"
+          }
+        ]
+      }
+    ],
+    "meshBreakdown": [
+      {
+        "name": "prop-body",
+        "triangles": 480
+      },
+      {
+        "name": "prop-band",
+        "triangles": 1152
+      },
+      {
+        "name": "prop-post",
+        "triangles": 64
+      },
+      {
+        "name": "prop-lamp",
+        "triangles": 720
+      },
+      {
+        "name": "prop-cap",
+        "triangles": 456
+      },
+      {
+        "name": "prop-vane-fin",
+        "triangles": 12
+      }
+    ]
+  },
+  "sha256": "ae7f136be9dfc59fdee4ab7f91e9ca0f8bc5280181582897297b67fb8df32344"
+}

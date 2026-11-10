@@ -112,7 +112,7 @@ async function readback(bytes) {
   const parsed=await new GLTFLoader().parseAsync(bytes,''), scene=parsed.scene;
   let meshes=0;scene.traverse(o=>{if(o.isMesh){meshes++;for(const m of [].concat(o.material))assert(m.isMeshStandardMaterial,'Nonstandard material after reload');}});
   scene.updateMatrixWorld(true);
-  const out={loadedWith:'three GLTFLoader r170 (exported bytes)',meshes,boundsXYZ:new T.Box3().setFromObject(scene,true).getSize(new T.Vector3()).toArray(),clips:[]};
+  const out={loadedWith:`three GLTFLoader r${T.REVISION} (exported bytes)`,meshes,boundsXYZ:new T.Box3().setFromObject(scene,true).getSize(new T.Vector3()).toArray(),clips:[]};
   for(const clip of parsed.animations){
     const mixer=new T.AnimationMixer(scene),action=mixer.clipAction(clip);action.setLoop(T.LoopOnce,1);action.clampWhenFinished=true;action.play();
     const at=t=>{action.reset().play();mixer.setTime(t);scene.updateMatrixWorld(true);};
