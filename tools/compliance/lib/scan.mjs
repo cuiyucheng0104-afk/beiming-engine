@@ -143,7 +143,7 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
         if (!fs.existsSync(path.join(root, vendorRel))) add(PROVENANCE, { file: rel, line: 1, level: 'warn', message: `@provenance 指向的上游文件在快照里找不到：${vendorRel}` });
       }
     }
-    for (const rel of vendorFiles) {
+    for (const rel of targets.length ? vendorFiles : []) {     // 没有要查的代码（如暂存区里只有文档）就不读快照
       if (!isCode(rel)) continue;
       const e = staged ? readEntry(root, rel) : read(rel);
       if (e.text != null) vendor.push({ rel, text: e.text });
@@ -218,7 +218,8 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
   const { kept, suppressed, unused, expired } = applyAllowlist(findings, list, now, { strict });
   for (const e of expired) problems.push({ rule: ALLOWLIST.id, level: 'error', zone: 'tree', blocking: true, file: allowlistPath, line: null,
     message: `允许清单第 ${e.index + 1} 条（${e.rule} ${e.path}）已于 ${e.expires} 过期，豁免失效`, hint: '问题修好了就删掉这条；还需要豁免就重新判定并改 expires' });
-  if (!only) for (const e of unused) problems.push({ rule: ALLOWLIST.id, level: 'warn', zone: 'tree', blocking: false, file: allowlistPath, line: null,
+  // 「没有匹配的发现」只在全量扫描时有意义：只跑部分规则或只扫暂存区时，条目没匹配上是正常的
+  if (!only && !staged) for (const e of unused) problems.push({ rule: ALLOWLIST.id, level: 'warn', zone: 'tree', blocking: false, file: allowlistPath, line: null,
     message: `允许清单第 ${e.index + 1} 条（${e.rule} ${e.path}）已经没有匹配的发现`, hint: '删掉这条，保持清单最小' });
   const strip = f => { const { _text, ...rest } = f; return rest; };
   const all = [...kept, ...problems].map(strip);
