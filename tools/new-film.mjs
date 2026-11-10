@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 北冥仓库 · 新建作品：把路线模版复制成 films/<名字>/，替换 {{NAME}} / {{TITLE}}，生成 film.json v2，校验通过后才落盘，打印下一步命令。
-//   node tools/new-film.mjs <路线> <名字> [--title 片名] [--profile 档位] [--dry-run] [--json]
+//   node tools/new-film.mjs <路线> <名字> [--title 片名] [--profile 档位] [--dry-run] [--check-timeout 秒] [--json]
 //   npm run new -- <路线> <名字> [选项]
 // 路线、模版位置、下一步命令都从路线注册表 routes/routes.json 读（tools/lib/routes.mjs）；命令约定见 docs/CLI.md。
 //
@@ -16,7 +16,7 @@
 //      档位帧率与模版不同时，镜头、事件、停顿、海报帧按帧率比例换算（按节拍写的事件无法换算，拒绝并说明）。
 //   4. 模版带字体文件而同目录没有许可文本时：字体与仓库 fonts/ 里的同一份 → 附上 fonts/LICENSE.md；否则退出 4。
 //   5. 有作品描述校验器 engine/production/film.js 时，在暂存目录上跑 `film.js check --json`：不过退出 4、不留目录；
-//      校验器自身出错退出 1（不放过没校验的作品）；--dry-run 不写任何文件，也就不调用校验器。
+//      校验器自身出错退出 1、超时（--check-timeout，默认 60 秒）退出 124（不放过没校验的作品）；--dry-run 不写任何文件，也就不调用校验器。
 //   6. 下一步命令取模版 film.json 的 next，没有就取注册表这条路线的 next（生成的 film.json 里不保留 next）。
 // 不改模版、不渲染、不覆盖已有目录；--dry-run 不写仓库里的任何文件。
 import { spawn } from 'node:child_process';
