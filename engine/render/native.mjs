@@ -33,6 +33,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { EXIT, bind, exitWith, fail, getWarnings, log, onCleanup, offCleanup, runQuick, sha256File, spawnStream, warn } from '../native/cli.mjs';
 import { defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs';
 import { ffmpegBins } from '../../tools/env/lib/ffmpeg.mjs';
+import { preflight } from '../../tools/env/preflight.mjs';
 import { declaredAssets, hashAsset, readFilmSpec, referencedAssets, sourceFiles } from '../native/film.mjs';
 import { resolveRuntime } from '../native/runtime.mjs';
 import { SPEC_KINDS, specHash } from '../native/prepare.mjs';
@@ -49,17 +50,19 @@ const now = () => performance.now() / 1000;
 const ANSI = /\u001b\[[0-9;]*m/g;
 
 // ───────── 预检 ─────────
-function ffmpegInfo() {
+// FFmpeg 先过环境包的快速预检（与 npm run env:doctor 同一套判据：版本 ≥ 7、带 libx264、ffprobe 可用，修复命令也一样），
+// 再查这条出片链要的组件（aac、ebur128、colorspace）。原生运行时的版本与哈希按 engine/native/runtime.lock.json 核对（更严：哈希不符即 exit 3）。
+async function ffmpegInfo() {
+  const pf = await preflight(['ffmpeg']);
+  if (!pf.ok) throw fail(EXIT.ENV, 'ffmpeg', `FFmpeg 不合格：${pf.failed.map(c => c.found).join('；')}`, pf.failed[0].fix || '装 FFmpeg ≥ 7（决定 D09），或用 FFMPEG / FFPROBE 指定完整路径；npm run env:doctor 会列出修法');
   const { ffmpeg, ffprobe } = BIN();
   const ver = runQuick(ffmpeg, ['-hide_banner', '-version'], { label: 'FFmpeg', timeoutMs: 15000 });
   if (ver.status !== 0) throw fail(EXIT.ENV, 'ffmpeg', `FFmpeg 不能运行：${ver.stderr.trim().slice(0, 200)}`, '装 FFmpeg ≥ 7，或用 FFMPEG 指定完整路径（npm run env:doctor 会列出修法）');
   const line = (/ffmpeg version \S+/.exec(ver.stdout) || [ver.stdout.split('\n')[0].trim()])[0];
-  const major = Number((/version\s+n?(\d+)/.exec(line) || [])[1]);
   const enc = runQuick(ffmpeg, ['-hide_banner', '-encoders'], { label: 'FFmpeg', timeoutMs: 15000 }).stdout;
   const fil = runQuick(ffmpeg, ['-hide_banner', '-filters'], { label: 'FFmpeg', timeoutMs: 15000 }).stdout;
   const missing = [[/\blibx264\b/, enc, 'libx264'], [/\baac\b/, enc, 'aac'], [/\bebur128\b/, fil, 'ebur128'], [/\bcolorspace\b/, fil, 'colorspace']].filter(([re, s]) => !re.test(s)).map(x => x[2]);
   if (missing.length) throw fail(EXIT.ENV, 'ffmpeg-build', `这个 FFmpeg 缺 ${missing.join('、')}`, '换一个带 libx264 的完整构建（决定 D09：FFmpeg ≥ 7）；npm run env:doctor 会列出修法');
-  if (major && major < 7) warn(`FFmpeg ${major} 低于约定的 7（D09），结果可能与基线不同`);
   const pv = runQuick(ffprobe, ['-hide_banner', '-version'], { label: 'ffprobe', timeoutMs: 15000 });
   if (pv.status !== 0) throw fail(EXIT.ENV, 'ffprobe', 'ffprobe 不能运行', '与 FFmpeg 同一套安装；或用 FFPROBE 指定完整路径');
   return { ffmpeg: line };
@@ -349,7 +352,7 @@ async function run(ctx) {
   const rt = await resolveRuntime();
   if (rt.lock.version !== VALIDATED) warn(`engine/native/runtime.lock.json 的版本 ${rt.lock.version} 与本入口登记的 VALIDATED ${VALIDATED} 不一致：两处要一起改`);
   checkWorktree(spec.dir);
-  const tools = { node: process.version, ...ffmpegInfo() };
+  const tools = { node: process.version, ...(await ffmpegInfo()) };
   const assets = await checkAssets(spec);
   timing.preflight = now() - t;
   const runtime = { version: rt.version, platform: rt.platform, binarySha256: rt.binarySha256, lockedSha256: rt.entry?.binarySha256 ?? null, verified: rt.verified };
