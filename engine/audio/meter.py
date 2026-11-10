@@ -13,7 +13,8 @@
   ebur128(path)                          ffmpeg ebur128 汇总：I / LRA / 真峰值 / LRA 上下沿
   loudnorm_linear(path, I, TP, LRA)      两遍 loudnorm（第二遍 linear=true）→ (第一遍测量, 第二遍结果)
   ffmpeg 的输出按 UTF-8 解码（路径里的中文在任何系统区域设置下都不出错）；ffmpeg 失败或输出里找不到要的字段时
-  报 RuntimeError，并带上 ffmpeg 输出的最后几行。
+  报 RuntimeError，并带上 ffmpeg 输出的最后几行。可执行文件按环境变量 FFMPEG（完整路径）找，没设时用 PATH 里的 ffmpeg；
+  找不到时报 OSError（FileNotFoundError），由调用方提示安装。
 """
 import re
 import json
@@ -23,6 +24,7 @@ import numpy as np
 from scipy.signal import lfilter, resample_poly
 
 from .dsp import SR, N, stereo, undb
+from ._env import ffmpeg as _ffmpeg_bin
 
 # ITU-R BS.1770 在 48 kHz 下的 K 加权两级双二阶系数
 _KB1 = np.array([1.53512485958697, -2.69169618940638, 1.19839281085285])
@@ -123,7 +125,7 @@ def _tail(s, n=6):
 
 def _ffmpeg(path, af):
     """跑一遍只测量的 ffmpeg，返回 stderr 文本（UTF-8 解码，坏字节替换掉）"""
-    r = subprocess.run(['ffmpeg', '-hide_banner', '-nostats', '-i', path, '-vn', '-af', af, '-f', 'null', '-'],
+    r = subprocess.run([_ffmpeg_bin(), '-hide_banner', '-nostats', '-i', path, '-vn', '-af', af, '-f', 'null', '-'],
                        capture_output=True, encoding='utf-8', errors='replace')
     if r.returncode != 0:
         raise RuntimeError(f'ffmpeg 测量失败（退出码 {r.returncode}）：{path}\n{_tail(r.stderr)}')

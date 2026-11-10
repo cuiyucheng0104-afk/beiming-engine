@@ -12,8 +12,9 @@
                                          打印逐项结论；退出码按附录 C1：硬项不达标 4，缺 ffmpeg / 没有 out/mix.wav 3，其余 0
       --report <文件>                    C8 报告换个位置；--json 时 stdout 只输出一个信封（附录 C2）
 门禁的门槛写在 audio/cues.json 的 qa 段（混音积分响度容差、提示音带内信噪比下限、音高容差）；混音目标仍是 target 段。
-需要 ffmpeg；成片响度这一项还要用 sh 跑 engine/render/mux.sh（mux.sh 另外用到 ffprobe。macOS / Linux 的终端都有 sh，
-Windows 请在 Git Bash 或 WSL 里跑；PATH 里没有 sh 而仓库里有 engine/render/mux.mjs 时改用 node 跑它）。PATH 里找不到 sh、或 mux.sh
+需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指定完整路径，同 tools/env）；成片响度这一项还要用 sh 跑 engine/render/mux.sh
+（mux.sh 另外用到 ffprobe）。sh 按 BEIMING_SH → PATH 里的 sh →（Windows）Git for Windows 的 Git\bin\sh.exe 的顺序找
+（engine/audio/_env.py，同 tools/env/lib/sh.mjs）；仓库里有 engine/render/mux.mjs 而找不到 sh 时改用 node 跑它。找不到 sh、或 mux.sh
 起不来、跑不通时，这一项记进 problems（门禁模式下：跑不了记为「未执行」的告警，跑了但不达标才算硬项失败），其余照常测完，报告照常写出。
 音高与和弦核对用 librosa（可选依赖）：没装时报告里记「未执行」，不再把导入错误当成测量结果吞掉。
 """
@@ -34,6 +35,9 @@ from engine.audio.dsp import SR, N, db  # noqa: E402
 from engine.audio.meter import loudness_curve, integrated, band_energy, band_snr, ebur128, loudnorm_linear, true_peak  # noqa: E402
 from engine.audio.scope import font, spectrogram, waveform, curves, side_mid  # noqa: E402
 from engine.audio import _cli  # noqa: E402
+from engine.audio import _env as E  # noqa: E402
+
+E.utf8_stdio()
 
 # 参数先解析：--help 与用法错误在任何写盘之前就结束
 _P = _cli.ArgumentParser(prog='python audio/check.py', description='《北冥》混音自检；--strict 是门禁模式（附录 C8 报告 + 附录 C1 退出码）')
@@ -108,22 +112,21 @@ def mux_probe():
     不让异常把整个自检打断：没有 mux.sh、PATH 里没有 sh（例如在 Windows 的 PowerShell / cmd 里直接跑本脚本）、
     ffmpeg 或 sh 起不来（找不到、没有执行权限、格式不对）、临时目录建不了、探针成片测不出响度，都算这一类。"""
     # 返回里的 kind：env = 环境里缺东西（sh、mux.sh、进程起不来），run = 真的跑了但没跑通（门禁模式据此分「未执行」与「不达标」）
-    sh = shutil.which('sh')
+    sh, why = E.find_sh()
     node = shutil.which('node')
     if sh is None and node and os.path.exists(MUX_MJS):
         cmd = [node, MUX_MJS]          # Windows 的 PowerShell / cmd 里没有 sh：用同一套位置参数跑 Node 版封装
     elif not os.path.exists(MUX):
         return {'error': f'找不到 {MUX}', 'kind': 'env'}
     elif sh is None:
-        return {'error': '找不到 sh：这一项要用 sh 跑 engine/render/mux.sh。请在带 sh 的终端里跑'
-                         '（macOS / Linux 的终端；Windows 用 Git Bash 或 WSL），或把 sh 所在目录加进 PATH', 'kind': 'env'}
+        return {'error': f'找不到 sh（{why}）：这一项要用 sh 跑 engine/render/mux.sh。{E.sh_fix()}', 'kind': 'env'}
     else:
         cmd = [sh, MUX]
     td = None
     try:
         td = tempfile.mkdtemp(prefix='beiming-mux-')
         v, o = os.path.join(td, 'black.mp4'), os.path.join(td, 'probe.mp4')
-        r = subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'lavfi', '-i', f'color=c=black:s=64x36:r={FPS}:d={DUR}',
+        r = subprocess.run([E.ffmpeg(), '-y', '-v', 'error', '-f', 'lavfi', '-i', f'color=c=black:s=64x36:r={FPS}:d={DUR}',
                             '-c:v', 'libx264', '-pix_fmt', 'yuv420p', v], capture_output=True, encoding='utf-8', errors='replace')
         if r.returncode != 0:
             return {'error': f'生成探针画面失败：{_tail(r.stderr)}', 'kind': 'env'}
@@ -131,7 +134,7 @@ def mux_probe():
         if r.returncode != 0 or not os.path.exists(o):
             return {'error': f'{os.path.basename(cmd[-1])} 退出码 {r.returncode}：{_tail(r.stderr or r.stdout)}', 'kind': 'run'}
         e = ebur128(o)
-        pcm = subprocess.run(['ffmpeg', '-v', 'error', '-i', o, '-vn', '-ac', '2', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
+        pcm = subprocess.run([E.ffmpeg(), '-v', 'error', '-i', o, '-vn', '-ac', '2', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
         a = np.frombuffer(pcm.stdout, dtype='<f4').astype(np.float64).reshape(-1, 2) if pcm.returncode == 0 else None
         res = {'I_LUFS': e['I_LUFS'], 'TP_dBTP': e['TP_dBTP'], 'LRA_LU': e['LRA_LU']}
         if a is not None and len(a):
@@ -375,7 +378,7 @@ figs = [figure(os.path.join(CK, 'overview.png'), 0.0, DUR, f'《北冥》{DUR:g}
         figure(os.path.join(CK, 'zoom_C.png'), BC, DUR, f'镜头 C 鲲现：鲲鸣 A2→D2、掠过、导航、顶点 {APEX:.1f}', fmin=40, fmax=4000, lanes=False)]
 
 # ffmpeg 自己的频谱图作旁证
-subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', OUT, '-lavfi',
+subprocess.run([E.ffmpeg(), '-y', '-v', 'error', '-i', OUT, '-lavfi',
                 'showspectrumpic=s=1600x700:legend=1:scale=log:fscale=log:color=magma', os.path.join(CK, 'ffmpeg_spectrum.png')])
 REP['figures'] = figs + [os.path.join(CK, 'ffmpeg_spectrum.png')]
 

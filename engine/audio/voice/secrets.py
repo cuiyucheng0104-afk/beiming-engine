@@ -19,14 +19,14 @@ def _macos(service, account):
     if sys.platform != 'darwin' or not shutil.which('security'):
         return None
     r = subprocess.run(['security', 'find-generic-password', '-s', service, '-a', account, '-w'], capture_output=True, text=True)
-    return r.stdout.strip() or None if r.returncode == 0 else None
+    return (r.stdout.strip() or None) if r.returncode == 0 else None
 
 
 def _linux(service, account):
     if not sys.platform.startswith('linux') or not shutil.which('secret-tool'):
         return None
     r = subprocess.run(['secret-tool', 'lookup', 'service', service, 'account', account], capture_output=True, text=True)
-    return r.stdout.strip() or None if r.returncode == 0 else None
+    return (r.stdout.strip() or None) if r.returncode == 0 else None
 
 
 def _windows(service):

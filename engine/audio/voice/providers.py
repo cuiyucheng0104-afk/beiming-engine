@@ -33,6 +33,7 @@ import urllib.request
 import numpy as np
 
 from ..dsp import SR
+from .. import _env as E
 from . import align as AL
 from . import secrets as SEC
 
@@ -64,9 +65,9 @@ def read_audio(path):
         x, sr = sf.read(path, dtype='float64', always_2d=True)
     except Exception:
         # soundfile 读不了的格式（mp3 等）交给 ffmpeg 解码
-        ff = shutil.which('ffmpeg')
+        ff = shutil.which(E.ffmpeg())
         if not ff:
-            raise VoiceError('env.ffmpeg', f'读不了 {os.path.basename(path)}，解码要 ffmpeg', '装 FFmpeg ≥ 7 并放进 PATH') from None
+            raise VoiceError('env.ffmpeg', f'读不了 {os.path.basename(path)}，解码要 ffmpeg', '装 FFmpeg ≥ 7 并放进 PATH，或设 FFMPEG 为完整路径') from None
         r = subprocess.run([ff, '-v', 'error', '-i', path, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
         if r.returncode != 0:
             raise VoiceError('failure.decode', f'ffmpeg 解不开 {os.path.basename(path)}：{r.stderr.decode("utf-8", "replace")[-300:]}') from None
