@@ -1,5 +1,5 @@
 // qa delivery：现场生成的合成样本各自以指定检查项不通过（加固计划 P07 验收第 2 条），合格样本通过。
-// 跑法：node --test tests/qa/
+// 跑法：node --test "tests/qa/*.test.mjs"（Node ≥ 22 支持引号里的通配；Windows PowerShell 同样写法）
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
