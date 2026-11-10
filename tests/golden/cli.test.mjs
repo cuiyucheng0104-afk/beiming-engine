@@ -29,7 +29,11 @@ function snapshot(dir) {
   return out.sort().join('\n');
 }
 const tracked = ['tests/golden/manifests', 'tests/golden/approvals.jsonl'];
-const trackedState = () => tracked.map(p => snapshot(path.join(ROOT, p)) || (fs.existsSync(path.join(ROOT, p)) ? fs.readFileSync(path.join(ROOT, p), 'utf8') : '')).join('|');
+// 目录取「文件 + 修改时间」快照，文件取内容；不存在记为空
+const trackedState = () => tracked.map(p => {
+  const a = path.join(ROOT, p), st = fs.statSync(a, { throwIfNoEntry: false });
+  return !st ? '' : st.isDirectory() ? snapshot(a) : fs.readFileSync(a, 'utf8');
+}).join('|');
 
 test('--help 输出到 stdout、exit 0、不留任何文件', () => {
   const outState = () => ['out/golden', 'out/determinism'].map(d => snapshot(path.join(ROOT, d))).join('|');
