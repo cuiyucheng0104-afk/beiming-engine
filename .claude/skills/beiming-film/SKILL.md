@@ -39,7 +39,7 @@ npm run new -- <a|b|c> <名字> --title <片名>      # 等价：node tools/new-
 | 4 final | 终渲成片、机器检查结果、代理审片证据、自检表 | DIRECTING 步骤 10 与 §4 |
 
 - 每次确认都把**用户原话**、日期、看的版本记进审片记录；agent 不能替用户批准。
-- 跳过某道关口只能凭用户原话（例如「预演不用给我看了」），把原话逐字记成豁免并写明出处；没有原话就不跳。
+- 跳过某道关口只能凭用户原话（例如「预演不用给我看了」），把原话逐字记成豁免并写明出处；没有原话就不跳。QA 门的豁免同理：agent 只能起草（`"status": "proposed"`），由用户批准后生效。
 - 「已交付」「用户已认可」只能写在用户确实认可之后；技术检查通过只写「代理检查通过」。
 
 **5 做到高水平**　动手前查 `routes/directing/craft/README.md` 找对应工艺章：三渲二 `toon.md`、2.5D 底板 `two-five-d.md`、表演与节拍 `animation.md`、出片工程 `video.md`、three.js `threejs.md`；画风锁定用 `templates/STYLE-LOCK.md`。好例子与反例在 `routes/directing/EXEMPLARS.md`（rejected 作品只作反例）。常见翻车，先自查：
@@ -51,6 +51,6 @@ npm run new -- <a|b|c> <名字> --title <片名>      # 等价：node tools/new-
 - 声音：叙事动作要有声，至少两处真静默；封装时不要再做一次 loudnorm。
 - 借风格库的方法，不借它示例片的故事、镜头和时间线；成片里不出现第三方风格库的署名或水印。
 
-**6 出片与验收**　出片命令以所选路线手册的「最快上手」「验收」两节为准（`npm run film -- --help` 能运行时优先用统一入口）。声音与检查脚本要带 numpy、numba 的 Python：用 `PYTHON` 环境变量指定解释器，不要假定系统 `python3` 装齐了包。验收、审片和交付记录用 `beiming-review` skill。
+**6 出片与验收**　出片命令以所选路线手册的「最快上手」「验收」两节为准（`npm run film -- --help` 能运行时优先用统一入口）。终渲后先过机器 QA 门 `node tools/qa/cli.mjs report <成片>`，exit 0 才能写「代理检查通过」；再用 `beiming-review` skill 做代理审片与闸门记录。声音与检查脚本要带 numpy、numba 的 Python：先 `npm run setup` 建仓库的 `.venv`，或用 `BEIMING_PYTHON` 环境变量指定已有解释器（`node tools/env/py.mjs` 按这个顺序找），不要假定系统 `python3` 装齐了包；环境不全先跑 `npm run env:doctor`。
 
 **7 汇报**　写清：路线与理由、实际改动的文件、跑过的命令与关键输出原文、产物路径、三种状态分开写（已输出 / 技术检查通过 / 用户认可）、已知问题与豁免。用到的字体（OFL）、风格来源（`路径@固定提交` 与 MIT 署名）、AI 生成素材（片尾或说明写「含 AI 生成画面」）写进作品的 CREDITS。不提交、不推送，除非用户要求；提交时只按文件名 `git add`，不用 `-A`、`.`。

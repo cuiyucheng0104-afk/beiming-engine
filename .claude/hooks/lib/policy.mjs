@@ -90,7 +90,7 @@ export const HOME_STYLE_DIRS = ['lemo-opuscar', 'lemo-my-styles'];
 
 /**
  * 家目录风格库里唯一的例外：现成的 Python 虚拟环境（相对家目录的前缀）。有的机器在仓库环境（npm run setup 的 .venv）
- * 建好之前，用它当带 numpy / numba 的解释器（PYTHON=~/lemo-opuscar/.venv/bin/python）。只许当解释器执行或作为
+ * 建好之前，用它当带 numpy / numba 的解释器（BEIMING_PYTHON=~/lemo-opuscar/.venv/bin/python）。只许当解释器执行或作为
  * 参数引用；写进去、在里面装包、读库里的其他内容照样拒绝。仓库有了自己的环境后可以删掉这条。
  */
 export const HOME_STYLE_RUNTIME = ['lemo-opuscar/.venv/'];
@@ -114,7 +114,7 @@ export const REPO_SKILL_PREFIX = 'beiming-';
 export const RULES = {
   'home-style-library': {
     title: '家目录下的上游风格库副本（~/lemo-opuscar、~/lemo-my-styles）在本仓库里不读不写：版本不固定，也绕开了快照、许可与验收',
-    next: '风格只在仓库的固定快照里查：先读 routes/c-style/STYLES.md，再按其中链接读 cases/vendor/…/STYLE.md。需要带 numpy、numba 的 Python 时，用仓库环境或用户指定的解释器，经 PYTHON 环境变量传给脚本',
+    next: '风格只在仓库的固定快照里查：先读 routes/c-style/STYLES.md，再按其中链接读 cases/vendor/…/STYLE.md。需要带 numpy、numba 的 Python 时，用 npm run setup 建的仓库环境，或用户指定的解释器（经 BEIMING_PYTHON 环境变量传给脚本）',
   },
   'home-style-runtime': {
     title: '~/lemo-opuscar/.venv 只能当现成的解释器用（只读）：不在里面装包、升级或改文件，那是别的项目的环境',

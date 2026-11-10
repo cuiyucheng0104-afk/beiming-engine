@@ -95,6 +95,9 @@ async function hookMode() {
 
 // ───────────────────────── 人工查询（命令约定库） ─────────────────────────
 
+/** 带一个文本值的选项（tools/lib/cli.mjs 的声明格式）。 */
+const textOption = (arg, describe, example) => ({ type: 'string', arg, describe, ...(example ? { example } : {}) });
+
 async function explainCli(argv) {
   const { CliError, defineCommand, runCli } = await import(pathToFileURL(path.join(HERE, '..', '..', 'tools', 'lib', 'cli.mjs')).href);
   const command = defineCommand({
@@ -116,12 +119,12 @@ async function explainCli(argv) {
     ],
     options: {
       explain: { type: 'boolean', describe: '判定一次工具调用（人工查询模式；带其他选项时可以省略）' },
-      tool: { type: 'string', arg: '<工具>', describe: 'Write、Edit、Bash、PowerShell、Read、Skill、mcp__… 等', example: 'Bash' },
-      path: { type: 'string', arg: '<路径>', describe: '写文件或读文件的目标（相对 --cwd）', example: 'cases/vendor/x.js' },
-      command: { type: 'string', arg: '<命令>', describe: 'Bash / PowerShell 命令文本', example: '"git add -A"' },
-      skill: { type: 'string', arg: '<名字>', describe: 'Skill 工具调用的 skill 名', example: 'lemo-opuscar:lemo-opuscar' },
-      input: { type: 'string', arg: '<文件>', describe: '一个完整的 PreToolUse 事件 JSON 文件' },
-      cwd: { type: 'string', arg: '<目录>', describe: '模拟的工作目录（默认当前目录）' },
+      tool: textOption('<工具>', 'Write、Edit、Bash、PowerShell、Read、Skill、mcp__… 等', 'Bash'),
+      path: textOption('<路径>', '写文件或读文件的目标（相对 --cwd）', 'cases/vendor/x.js'),
+      command: textOption('<命令>', 'Bash / PowerShell 命令文本', '"git add -A"'),
+      skill: textOption('<名字>', 'Skill 工具调用的 skill 名', 'lemo-opuscar:lemo-opuscar'),
+      input: textOption('<文件>', '一个完整的 PreToolUse 事件 JSON 文件'),
+      cwd: textOption('<目录>', '模拟的工作目录（默认当前目录）'),
     },
     examples: ['node .claude/hooks/guard.mjs --explain --tool Write --path cases/vendor/x.js',
       'node .claude/hooks/guard.mjs --explain --tool Bash --command "git add -A" --json',

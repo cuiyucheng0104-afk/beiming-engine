@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 权限 | [.claude/settings.json](../settings.json) 的 `permissions.deny` | 硬拒绝：写 `cases/vendor/**`、`cases/source/**`；`git add -A` / `--all` / `.`；强推；全局风格库 skill；读写 `~/lemo-opuscar`、`~/lemo-my-styles` | 由 Claude Code 执行，不能临时解锁 |
 | 钩子 | `guard.mjs`（PreToolUse） | 兜底与提示：按路径和命令内容判断，覆盖权限规则写不到的写法（重定向、`rm -rf`、`sed -i`、`cd` 之后再操作、`bash -c`、PowerShell cmdlet、MCP 工具），拒绝时给出改去 `films/<名字>/` 的下一步 | 钩子自身出错时放行并报错（不挡正常工作），由另外两层兜底 |
-| 提交 | [.githooks/pre-commit](../../.githooks/README.md) | 给不走 Claude Code 的工具：快照不可变、产物与大文件不入库、指令文件白名单 | 需要用户自己启用：`git config core.hooksPath .githooks` |
+| 提交 | [.githooks/pre-commit](../../.githooks/README.md) | 给不走 Claude Code 的工具：快照不可变、产物与大文件不入库、指令文件白名单，并调用合规扫描、大文件闸门与规范检查 | `npm run setup` 会在本仓库启用（`--no-hooks` 跳过）；手动：`git config core.hooksPath .githooks` |
 
 另有规范检查 `node tools/repo-check.mjs --only agent`（`npm run check:repo -- --only agent`）核对这三层没被削弱：指令文件白名单、护栏配置、仓库 skill、检索范围 `.ignore`、git 钩子、vendor 顶部警示；快照里不得有作品目录、根 `CLAUDE.md` 只是桥接由 `core.vendor-immutable`、`core.claude-bridge` 负责。
 
@@ -29,7 +29,7 @@
 另外两条与路径有关的规则：
 
 - `archive-exec`：不在 `cases/vendor/`、`cases/source/` 里运行代码（`node`、`python`、`sh`、`npm`、`make` 等），上游的 `make.js`、`build.sh`、`setup.sh` 会把产物写进快照，`setup.sh` 还会克隆或 `reset --hard` 家目录里的上游库。从归档复制代码到作品里放行，但会提醒在作品的 CREDITS 里写来源与许可。
-- `home-style-library`：家目录的上游风格库副本 `~/lemo-opuscar`、`~/lemo-my-styles` 读写都不行，克隆上游库也不行。唯一例外是 `~/lemo-opuscar/.venv/`：有的机器在仓库环境建好之前用它当带 numpy、numba 的解释器（`PYTHON=~/lemo-opuscar/.venv/bin/python`），只许执行，在里面装包或改文件按 `home-style-runtime` 拒绝。
+- `home-style-library`：家目录的上游风格库副本 `~/lemo-opuscar`、`~/lemo-my-styles` 读写都不行，克隆上游库也不行。唯一例外是 `~/lemo-opuscar/.venv/`：有的机器在仓库环境建好之前用它当带 numpy、numba 的解释器（`BEIMING_PYTHON=~/lemo-opuscar/.venv/bin/python`），只许执行，在里面装包或改文件按 `home-style-runtime` 拒绝。
 
 ## 命令规则
 

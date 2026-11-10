@@ -217,8 +217,9 @@ test('家目录风格库：读写都拒绝；~/lemo-opuscar/.venv 只许当解�
     `${py} -m pip uninstall -y numba`, `echo x > ${POSIX_HOME}/lemo-opuscar/.venv/pyvenv.cfg`]) {
     expectDeny(bash(cmd), 'home-style-runtime', cmd);
   }
-  for (const cmd of [`PYTHON=${py} node tools/x.mjs`, `${py} tools/casebook.py check`, `${py} -m unittest discover -s tools`,
-    `${py} -m pip list`, `env PYTHON=${py} python3 -V`, `PYTHON=~/lemo-opuscar/.venv/bin/python sh build.sh`]) {
+  for (const cmd of [`BEIMING_PYTHON=${py} node tools/env/py.mjs tools/casebook.py check`, `PYTHON=${py} node tools/x.mjs`,
+    `${py} tools/casebook.py check`, `${py} -m unittest discover -s tools`, `${py} -m pip list`, `env PYTHON=${py} python3 -V`,
+    `PYTHON=~/lemo-opuscar/.venv/bin/python sh build.sh`, 'BEIMING_PYTHON=~/lemo-opuscar/.venv/bin/python npm test']) {
     expectAllow(bash(cmd), cmd);
   }
   assert.equal(isHomeRuntime('lemo-opuscar/.venv/bin/python'), true);
