@@ -7,11 +7,14 @@
 //   node tools/run-tests.mjs --help                完整参数
 //
 // 发现规则（显式枚举，不用 node --test 的默认匹配：默认匹配会跑进 cases/ 下历史作品自带的 test.js）：
-//   tests/<域>/**/*.test.{mjs,js,cjs}       Node 测试，域 = tests/ 下第一级目录名
-//   tests/<域>/**/test_*.py                 Python unittest
-//   tools/**/*.test.{mjs,js,cjs}、tools/**/test_*.py    域 = tools
-//   跳过的目录：fixtures、__fixtures__、node_modules、out、__pycache__ 和点开头的目录。cases/、films/ 不在发现范围内。
+//   文件：*.test.{mjs,js,cjs} 是 Node 测试，test_*.py 是 Python unittest。
+//   范围：git 跟踪的文件加上未跟踪、未被忽略的文件（不是 git 检出时遍历目录）。
+//   不发现：cases/、films/ 整个目录；任何一级名为 fixtures、__fixtures__、node_modules、out、__pycache__ 或以点开头的目录。
+//   域：tests/<域>/… → <域>；engine/audio/… → audio（与 audio/、tests/audio/ 同属声音链路）；其余按第一级目录
+//       （engine、lab、audio、tools…），根目录下的文件 → root。同名的 tests/<域>/ 与同名目录里的测试合成一个域。
 // 每个域的 Node 测试由一个 `node --test` 进程运行，Python 测试由一个解释器进程运行；域之间顺序执行。
+// 与旧的 npm 脚本对应：test:routes → --only ci,production,tools；test:engine → --only engine,lab；test:audio → --only audio；
+//   test:cases → --only tools。旧 `npm test` 里的 routes:check、cases:check 是检查不是测试，在 tools/check-all.mjs 里。
 //
 // 域的运行要求（可选文件 tests/<域>/suite.json）：
 //   { "requires": ["browser", "ffmpeg", "python", "python:numpy", "sh", "gpu", "network"],
@@ -23,7 +26,9 @@
 //   仓库 .venv、python3、python、py -3。子进程统一设 PYTHONUTF8=1、PYTHONIOENCODING=utf-8。
 //
 // 退出码（附录 C1）：0 全部通过（跳过不算失败）；1 有测试失败；2 用法错误；3 环境缺失（Node < 22、要跑 Python 却找不到解释器、
-//   --require 的能力缺失）；4 一个测试也没发现；124 某一域超时（已结束整棵进程树）；130 / 143 收到 SIGINT / SIGTERM（已清理）。
+//   --require 的能力缺失、测试因缺第三方依赖而导入失败——npm 包没装或 Python 解释器缺 requirements 里的模块）；
+//   4 一个测试也没发现；124 某一域超时（已结束整棵进程树）；130 / 143 收到 SIGINT / SIGTERM（已清理）。
+//   同时有几类问题时取最重的：3 > 124 > 1（与 tools/check-all.mjs 一致：环境不全时其余结果不可信）。
 // 在 GitHub Actions 里（GITHUB_ACTIONS=true）另写失败注解和 $GITHUB_STEP_SUMMARY 汇总表。
 //
 // 本文件同时导出一组命令约定的小工具（参数解析、退出码、--json 信封、带超时与进程树清理的子进程），供 tools/check-all.mjs
@@ -293,39 +298,66 @@ export function probeCapability(name, ctx) {
 // ───────────────────────── 发现 ─────────────────────────
 
 const SKIP_DIRS = new Set(['fixtures', '__fixtures__', 'node_modules', 'out', '__pycache__']);
+const SKIP_TOP = new Set(['cases', 'films']);   // 历史归档与第三方快照、用户作品：不是仓库自己的测试
 const NODE_TEST = /\.test\.(mjs|js|cjs)$/, PY_TEST = /^test_.*\.py$/;
+const isTestName = name => NODE_TEST.test(name) || PY_TEST.test(name);
+const byName = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
-function walk(dir, out = []) {
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
-  for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
-    if (e.name.startsWith('.') || SKIP_DIRS.has(e.name)) continue;
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) walk(p, out);
-    else if (e.isFile() && (NODE_TEST.test(e.name) || PY_TEST.test(e.name))) out.push(p);
+// 相对路径（/ 分隔）是否在发现范围内
+export function inScope(rel) {
+  const parts = rel.split('/');
+  if (SKIP_TOP.has(parts[0])) return false;
+  return parts.slice(0, -1).every(p => !p.startsWith('.') && !SKIP_DIRS.has(p)) && isTestName(parts[parts.length - 1]);
+}
+
+// 测试文件 → 域名
+export function domainOf(rel) {
+  const parts = rel.split('/');
+  if (parts.length === 1) return 'root';
+  if (parts[0] === 'tests') return parts.length > 2 ? parts[1] : 'root';
+  if (parts[0] === 'engine' && parts[1] === 'audio') return 'audio';
+  return parts[0];
+}
+
+// 候选文件：git 跟踪的 + 未跟踪未忽略的（按 .gitignore）；不是 git 检出（或 git 不可用）时遍历目录
+function candidates(root) {
+  const g = spawnSync('git', ['-C', root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+    { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, windowsHide: true, timeout: 60000 });
+  if (g.status === 0 && !g.error) {
+    // 已从工作区删掉但还在索引里的文件不算
+    return [...new Set(g.stdout.split('\0').filter(Boolean))].filter(f => inScope(f) && fs.existsSync(path.join(root, ...f.split('/'))));
   }
+  const out = [];
+  const walk = rel => {
+    let entries;
+    try { entries = fs.readdirSync(path.join(root, ...rel.split('/').filter(Boolean)), { withFileTypes: true }); } catch { return; }
+    for (const e of entries.sort((a, b) => byName(a.name, b.name))) {
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        if (e.name.startsWith('.') || SKIP_DIRS.has(e.name) || (!rel && SKIP_TOP.has(e.name))) continue;
+        walk(r);
+      } else if (e.isFile() && inScope(r)) out.push(r);
+    }
+  };
+  walk('');
   return out;
 }
 
 // → [{ id, domain, kind: 'node'|'python', files: [相对路径], config, configError }]，按域名、类型排序
 export function discover(root = ROOT) {
   const groups = new Map();
-  const add = (domain, file) => {
-    const kind = NODE_TEST.test(file) ? 'node' : 'python';
+  for (const rel of candidates(root).sort(byName)) {
+    const domain = domainOf(rel), kind = NODE_TEST.test(rel) ? 'node' : 'python';
     const id = `${domain}:${kind}`;
     if (!groups.has(id)) groups.set(id, { id, domain, kind, files: [] });
-    groups.get(id).files.push(path.relative(root, file).split(path.sep).join('/'));
-  };
+    groups.get(id).files.push(rel);
+  }
   const testsDir = path.join(root, 'tests');
-  let tops = [];
-  try { tops = fs.readdirSync(testsDir, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !SKIP_DIRS.has(e.name)).map(e => e.name).sort(); } catch { /* 没有 tests/ */ }
-  for (const d of tops) for (const f of walk(path.join(testsDir, d))) add(d, f);
-  for (const f of walk(path.join(root, 'tools'))) add('tools', f);
-  const suites = [...groups.values()].sort((a, b) => (a.domain === b.domain ? (a.kind < b.kind ? -1 : 1) : a.domain < b.domain ? -1 : 1));
+  const suites = [...groups.values()].sort((a, b) => (a.domain === b.domain ? byName(a.kind, b.kind) : byName(a.domain, b.domain)));
   for (const s of suites) {
     s.config = {}; s.configError = null;
     const cf = path.join(testsDir, s.domain, 'suite.json');
-    if (s.domain !== 'tools' && fs.existsSync(cf)) {
+    if (fs.existsSync(cf)) {
       try {
         const c = JSON.parse(fs.readFileSync(cf, 'utf8'));
         if (!c || typeof c !== 'object' || Array.isArray(c)) throw new Error('顶层必须是对象');
@@ -368,40 +400,74 @@ export function parseTap(text) {
   return { counts, failures };
 }
 
-// Python 侧的驱动：按文件路径加载测试模块（每个文件独立的模块名，不依赖包结构），跑完在 stdout 写一行标记 + JSON
+// Python 侧的驱动：逐个加载测试文件，跑完在 stdout 写一行标记 + JSON。模块名的取法与仓库里各测试写明的用法一致：
+//   所在目录是包（有 __init__.py）：按相对仓库根的点分名导入（engine/audio/test_audio.py → engine.audio.test_audio，
+//     等同 `python -m unittest discover -s engine/audio -t .`，包内的绝对导入照常工作）；路径里有不能作模块名的目录时，
+//     改为从第一个不是包的上级目录起算。
+//   不是包：把文件所在目录放进 sys.path，用文件名导入（tools/test_casebook.py → test_casebook，等同 discover -s tools）。
+//   重名（两个目录里都有 test_x.py）时第二个改用带路径哈希的名字按文件加载。
 const PY_DRIVER = String.raw`
-import hashlib, importlib.util, json, os, sys, traceback, unittest
+import hashlib, importlib, importlib.util, json, os, sys, traceback, unittest
 files = json.loads(os.environ['BEIMING_TEST_FILES'])
+root = os.path.abspath(os.environ['BEIMING_TEST_ROOT'])
 grep = os.environ.get('BEIMING_TEST_GREP', '')
 loader = unittest.TestLoader()
 if grep:
     loader.testNamePatterns = ['*%s*' % grep]
 suite = unittest.TestSuite()
 broken = []
-stems = [os.path.splitext(os.path.basename(f))[0] for f in files]
-for f, stem in zip(files, stems):
-    d = os.path.dirname(os.path.abspath(f))
-    if d not in sys.path:
-        sys.path.insert(0, d)
-    # 模块名尽量用文件名本身（测试名好读）；同名文件或与已加载模块重名时加路径哈希
-    name = stem if stems.count(stem) == 1 and stem not in sys.modules else 'bmtest_' + hashlib.sha1(f.encode('utf-8')).hexdigest()[:10] + '_' + stem
+used = set()
+if root not in sys.path and '' not in sys.path:
+    sys.path.insert(0, root)
+def missing_module(exc):
+    while exc is not None:
+        if isinstance(exc, ModuleNotFoundError) and exc.name:
+            return exc.name
+        exc = exc.__cause__ or exc.__context__
+    return None
+def module_name(f):
+    d, stem = os.path.dirname(os.path.abspath(f)), os.path.splitext(os.path.basename(f))[0]
+    if not os.path.isfile(os.path.join(d, '__init__.py')):
+        return stem, d
+    parts = os.path.relpath(os.path.abspath(f), root)[:-3].replace(os.sep, '/').split('/')
+    if not parts[0].startswith('..') and all(p.isidentifier() for p in parts):
+        return '.'.join(parts), root
+    dotted = [stem]
+    while os.path.isfile(os.path.join(d, '__init__.py')) and os.path.dirname(d) != d:
+        dotted.insert(0, os.path.basename(d))
+        d = os.path.dirname(d)
+    return '.'.join(dotted), d
+for f in files:
+    name, base = module_name(f)
+    if base not in sys.path and not (base == root and '' in sys.path):
+        sys.path.insert(0, base)
+    stem = name.rsplit('.', 1)[-1]
     try:
-        spec = importlib.util.spec_from_file_location(name, f)
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules[name] = mod
-        spec.loader.exec_module(mod)
+        if name in used or (name in sys.modules and '.' not in name):
+            name = 'bmtest_' + hashlib.sha1(f.encode('utf-8')).hexdigest()[:10] + '_' + stem
+            spec = importlib.util.spec_from_file_location(name, f)
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[name] = mod
+            spec.loader.exec_module(mod)
+        else:
+            mod = importlib.import_module(name)
+        used.add(name)
         suite.addTests(loader.loadTestsFromModule(mod))
-    except Exception:
+    except Exception as e:
         tb = traceback.format_exc()
-        broken.append({'name': f, 'location': f, 'message': tb.strip().splitlines()[-1]})
+        broken.append({'name': f, 'location': f, 'message': tb.strip().splitlines()[-1], 'missingModule': missing_module(e)})
         sys.stderr.write('无法加载 %s：\n%s\n' % (f, tb))
 r = unittest.TextTestRunner(stream=sys.stderr, verbosity=2).run(suite)
 def entry(pair):
     test, tb = pair
     lines = [x for x in tb.strip().splitlines() if x.strip()]
-    return {'name': test.id(), 'location': None, 'message': lines[-1] if lines else ''}
+    last = lines[-1] if lines else ''
+    miss = None
+    if last.startswith('ModuleNotFoundError:') and "'" in last:
+        miss = last.split("'")[1]
+    return {'name': test.id(), 'location': None, 'message': last, 'missingModule': miss}
 failed = [entry(p) for p in r.failures] + [entry(p) for p in r.errors] + \
-    [{'name': t.id(), 'location': None, 'message': 'unexpected success'} for t in r.unexpectedSuccesses]
+    [{'name': t.id(), 'location': None, 'message': 'unexpected success', 'missingModule': None} for t in r.unexpectedSuccesses]
 res = {'tests': r.testsRun, 'failed': len(failed), 'skipped': len(r.skipped), 'broken': len(broken),
        'failures': failed + broken}
 sys.stdout.write('\n@@BEIMING-UNITTEST@@' + json.dumps(res, ensure_ascii=False) + '\n')
@@ -417,7 +483,11 @@ async function runNodeSuite(s, ctx) {
   if (c.concurrency) args.push(`--test-concurrency=${c.concurrency}`);
   if (c.testTimeoutSec) args.push(`--test-timeout=${c.testTimeoutSec * 1000}`);
   args.push(...s.files.map(f => f.split('/').join(path.sep)));
-  const r = await run(process.execPath, args, { cwd: ctx.root, timeoutMs: ctx.timeoutMs(s), stdout: 'capture', stderr: 'inherit' });
+  // 本入口自己也可能是在某个 node --test 里被调起的（tests/ci 就是）：去掉测试运行器给子进程设的 NODE_TEST_CONTEXT，
+  // 否则这里的 node --test 会当自己是子进程，改用内部协议输出，TAP 解析不到任何结果
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const r = await run(process.execPath, args, { cwd: ctx.root, env, timeoutMs: ctx.timeoutMs(s), stdout: 'capture', stderr: 'inherit' });
   const { counts, failures } = parseTap(r.stdout);
   return {
     code: r.code, timedOut: r.timedOut, leaked: r.leaked, durationMs: r.durationMs, failures, spawnError: r.error,
@@ -427,7 +497,7 @@ async function runNodeSuite(s, ctx) {
 
 async function runPythonSuite(s, ctx) {
   const py = ctx.python();
-  const env = pythonEnv({ BEIMING_TEST_FILES: JSON.stringify(s.files.map(f => path.join(ctx.root, f))), BEIMING_TEST_GREP: ctx.grep || '' });
+  const env = pythonEnv({ BEIMING_TEST_FILES: JSON.stringify(s.files.map(f => path.join(ctx.root, f))), BEIMING_TEST_ROOT: ctx.root, BEIMING_TEST_GREP: ctx.grep || '' });
   const r = await run(py.cmd, [...py.pre, '-c', PY_DRIVER], { cwd: ctx.root, env, timeoutMs: ctx.timeoutMs(s), stdout: 'capture', stderr: 'inherit' });
   const MARK = '@@BEIMING-UNITTEST@@';
   const mark = r.stdout.lastIndexOf(MARK);
@@ -441,6 +511,41 @@ async function runPythonSuite(s, ctx) {
     noTests: r.code === 5,
     counts: { tests, pass: Math.max(0, tests - failed - skipped), fail: failed + broken, skipped, todo: 0 },
   };
+}
+
+// ───────────────────────── 缺依赖：区分「环境没装好」与「代码坏了」 ─────────────────────────
+
+// 仓库声明的第三方依赖：npm 包名（package.json）与 Python 导入名（requirements*.txt / .in / .lock）
+const PY_IMPORT_ALIAS = { pillow: 'PIL', 'opencv-python': 'cv2', 'opencv-python-headless': 'cv2', 'scikit-image': 'skimage', 'scikit-learn': 'sklearn', pyyaml: 'yaml', 'python-dateutil': 'dateutil' };
+export function declaredDeps(root) {
+  const npm = new Set(), py = new Set();
+  try {
+    const pj = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+    for (const k of ['dependencies', 'devDependencies', 'optionalDependencies']) for (const n of Object.keys(pj[k] || {})) npm.add(n);
+  } catch { /* 没有 package.json */ }
+  for (const f of ['requirements.txt', 'requirements.in', 'requirements.lock']) {
+    let txt;
+    try { txt = fs.readFileSync(path.join(root, f), 'utf8'); } catch { continue; }
+    for (const line of txt.split(/\r?\n/)) {
+      const m = /^\s*([A-Za-z0-9][A-Za-z0-9._-]*)/.exec(line);
+      if (!m || line.trim().startsWith('-')) continue;
+      const n = m[1].toLowerCase().replace(/_/g, '-');
+      py.add(PY_IMPORT_ALIAS[n] || n.replace(/[-.]/g, '_'));
+    }
+  }
+  return { npm, py };
+}
+const npmRoot = spec => (spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0]);
+// 一条失败是不是「仓库声明了、但当前环境没装」的依赖导致的 → 依赖名或 null
+export function missingDependency(failure, kind, deps) {
+  if (kind === 'python') {
+    const top = failure.missingModule ? failure.missingModule.split('.')[0] : null;
+    return top && deps.py.has(top) ? top : null;
+  }
+  const m = /Cannot find (?:package|module) '([^']+)'/.exec(failure.message || '');
+  if (!m || /^(\.|\/|[A-Za-z]:[\\/]|file:|node:)/.test(m[1])) return null;
+  const pkg = npmRoot(m[1]);
+  return deps.npm.has(pkg) ? pkg : null;
 }
 
 // ───────────────────────── 主流程 ─────────────────────────
@@ -507,6 +612,7 @@ export async function main(argv = process.argv.slice(2)) {
     root, grep: opts.grep,
     python: () => (pyMemo === undefined ? (pyMemo = resolvePython(root, opts.python)) : pyMemo),
     timeoutMs: s => 1000 * (opts.timeout || s.config.timeoutSec || 600),
+    deps: declaredDeps(root),
   };
 
   // 发现与筛选
@@ -552,6 +658,7 @@ export async function main(argv = process.argv.slice(2)) {
   const view = s => ({
     id: s.id, domain: s.domain, kind: s.kind, files: s.files, requires: s.config.requires || [], status: s.status,
     skipReason: s.skipReason, exitCode: s.exitCode ?? null, durationMs: s.durationMs ?? 0, counts: s.counts || null, failures: s.failures || [],
+    missingDeps: s.missingDeps || [],
   });
 
   if (opts.list) {
@@ -603,6 +710,14 @@ export async function main(argv = process.argv.slice(2)) {
     else if (r.noTests && ctx.grep) s.status = 'pass';   // --grep 在这一组里没匹配到，不算失败
     else if (r.noTests) { s.status = 'fail'; s.skipReason = '有测试文件，但一个测试也没加载到（类要继承 unittest.TestCase，方法名以 test 开头）'; }
     else s.status = r.code === 0 ? 'pass' : 'fail';
+    // 失败全是「声明了却没装」的依赖导致的：这是环境问题（exit 3），不是代码坏了
+    s.missingDeps = s.status === 'fail' ? [...new Set(s.failures.map(f => missingDependency(f, s.kind, ctx.deps)).filter(Boolean))] : [];
+    if (s.missingDeps.length && s.failures.every(f => missingDependency(f, s.kind, ctx.deps))) {
+      s.status = 'env';
+      s.skipReason = s.kind === 'node'
+        ? `缺 npm 依赖 ${s.missingDeps.join('、')}：在仓库根目录运行 npm ci（按 package-lock.json 安装）`
+        : `Python 解释器 ${ctx.python()?.label}（${ctx.python()?.version}）缺 ${s.missingDeps.join('、')}：运行 npm run setup，或 <python> -m pip install -r requirements.txt；也可以用 BEIMING_PY / PYTHON 指向已经装好 requirements 的解释器`;
+    }
     if (r.leaked) warnings.push(`${s.id} 结束后进程组里还有残留进程（已强制结束）：检查测试里启动的浏览器、服务器、子进程有没有关闭`);
     if (s.status !== 'pass' && opts.bail) stop = true;
   }
@@ -610,13 +725,16 @@ export async function main(argv = process.argv.slice(2)) {
   // 汇总与退出码
   const summary = summarize(suites, started);
   const timedOut = suites.filter(s => s.status === 'timeout'), failed = suites.filter(s => s.status === 'fail');
+  const envBad = suites.filter(s => s.status === 'env');
   const skipped = suites.filter(s => s.status === 'skip');
   for (const s of skipped) warnings.push(`${s.id} 已跳过：${s.skipReason}`);
-  const exitCode = timedOut.length ? EXIT.TIMEOUT : failed.length ? EXIT.FAIL : EXIT.OK;
+  const exitCode = envBad.length ? EXIT.ENV : timedOut.length ? EXIT.TIMEOUT : failed.length ? EXIT.FAIL : EXIT.OK;
+  const bad = [...envBad, ...timedOut, ...failed];
   const error = exitCode === EXIT.OK ? null
-    : new CliError(exitCode, timedOut.length ? 'TIMEOUT' : 'TESTS_FAILED',
-      `${[...timedOut, ...failed].map(s => s.id).join('、')} 未通过（失败 ${summary.fail} 项）`,
-      '看上面 stderr 里 ✖ 开头的测试；单独重跑：node tools/run-tests.mjs --only <域> --grep <测试名>');
+    : new CliError(exitCode, envBad.length ? 'DEPS_MISSING' : timedOut.length ? 'TIMEOUT' : 'TESTS_FAILED',
+      `${bad.map(s => s.id).join('、')} 未通过（失败 ${summary.fail} 项${envBad.length ? `；其中 ${envBad.map(s => `${s.id} 缺 ${s.missingDeps.join('、')}`).join('，')}` : ''}）`,
+      envBad.length ? envBad[0].skipReason
+        : '看上面 stderr 里 ✖ 开头的测试；单独重跑：node tools/run-tests.mjs --only <域> --grep <测试名>');
 
   printHuman(suites, summary, opts);
   reportActions(suites, summary, root);
@@ -637,7 +755,7 @@ export function table(head, rows) {
   return [head, ...rows].map(r => '  ' + r.map((c, i) => (i === r.length - 1 ? c : pad(c ?? '', w[i]))).join('  ')).join('\n');
 }
 
-const STATUS = { pass: '通过', fail: '失败', skip: '跳过', timeout: '超时', 'not-run': '未运行', pending: '未运行' };
+const STATUS = { pass: '通过', fail: '失败', env: '缺依赖', skip: '跳过', timeout: '超时', 'not-run': '未运行', pending: '未运行' };
 function printHuman(suites, sum, opts) {
   const rows = suites.map(s => [s.domain, s.kind === 'node' ? 'Node' : 'Python', STATUS[s.status] || s.status,
     String(s.counts?.tests ?? '-'), String(s.counts?.pass ?? '-'), String(s.counts?.fail ?? '-'), String(s.counts?.skipped ?? '-'),
@@ -647,7 +765,7 @@ function printHuman(suites, sum, opts) {
     if (s.skipReason && s.status !== 'pass') out.push(`  · ${s.id}：${s.skipReason}`);
     for (const f of (s.failures || []).slice(0, 10)) out.push(`  ✗ ${s.id}  ${f.name}${f.location ? `  (${f.location})` : ''}${f.message ? `\n      ${f.message}` : ''}`);
   }
-  const bad = suites.filter(s => s.status === 'fail' || s.status === 'timeout').length;
+  const bad = suites.filter(s => ['fail', 'timeout', 'env'].includes(s.status)).length;
   out.push(bad ? `✗ ${bad} 组未通过（${sum.tests} 项测试，失败 ${sum.fail}），用时 ${fmtSec(sum.durationMs)}`
     : `✓ ${sum.ran} 组全部通过（${sum.tests} 项测试${sum.skipped ? `，其中 ${sum.skipped} 项跳过` : ''}${sum.skippedSuites ? `；${sum.skippedSuites} 组因环境跳过` : ''}），用时 ${fmtSec(sum.durationMs)}`);
   (opts.json ? process.stderr : process.stdout).write(out.join('\n') + '\n');
@@ -658,6 +776,7 @@ function reportActions(suites, sum, root) {
   for (const s of suites) {
     if (s.status === 'timeout') annotate('error', s.skipReason, { title: `测试超时：${s.id}` });
     if (s.status === 'skip') annotate('notice', s.skipReason, { title: `测试组跳过：${s.id}` });
+    if (s.status === 'env') { annotate('error', s.skipReason, { title: `环境缺依赖：${s.id}` }); continue; }
     for (const f of s.failures || []) {
       const m = f.location && /^(.*):(\d+):(\d+)$/.exec(f.location);
       const file = m ? path.relative(root, m[1]).split(path.sep).join('/') : undefined;
@@ -665,7 +784,7 @@ function reportActions(suites, sum, root) {
     }
   }
   const rows = suites.map(s => `| ${mdCell(s.domain)} | ${s.kind} | ${STATUS[s.status] || s.status} | ${s.counts?.tests ?? '-'} | ${s.counts?.fail ?? '-'} | ${s.counts?.skipped ?? '-'} | ${s.durationMs ? fmtSec(s.durationMs) : '-'} | ${mdCell(s.skipReason || '')} |`);
-  stepSummary([`### 测试（run-tests）：${sum.fail || suites.some(s => s.status === 'timeout') ? '未通过' : '通过'}`, '',
+  stepSummary([`### 测试（run-tests）：${sum.fail || suites.some(s => ['timeout', 'env', 'fail'].includes(s.status)) ? '未通过' : '通过'}`, '',
     '| 域 | 类型 | 结果 | 测试 | 失败 | 跳过 | 用时 | 说明 |', '|---|---|---|---|---|---|---|---|', ...rows, ''].join('\n'));
 }
 
