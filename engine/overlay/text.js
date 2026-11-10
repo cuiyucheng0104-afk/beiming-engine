@@ -1,6 +1,8 @@
 // 北冥引擎 · 显示层的字与线：字体加载、量字、带暗晕与辉光的字和描线、半透明卡片，以及文字方框记录（给 window.TEXTS 查字）。
 // 同一套布局代码可以"画"也可以"只量不画"：O.collect(fn) 期间所有画法函数直接返回，只有 O.rec 记下方框。
-//   loadFonts([[family, url, weight], ...])   全部加载并加入 document.fonts（返回 Promise）
+//   loadFonts([[family, url, weight], ...])   全部加载并加入 document.fonts（返回 Promise）。字体先登记进 document.fonts 再开始下载，
+//                                             所以下载期间 document.fonts.check(该字体) 是 false，调用方能据此等它就绪；
+//                                             url 按 CSS 字符串写进 src，含括号、引号、空格的路径也能用
 //   fontSpec(weight, px, families)            → CSS font 串，例如 '400 25.00px "A", "B", sans-serif'
 //   rgba([r, g, b], a)                        → CSS 颜色串（a 夹到 0..1）
 //   measure(str, font, ls = 0)                → { w, asc, desc }：左对齐、字母基线，ls 是字距（像素）
@@ -17,10 +19,13 @@
 import { clamp } from '../core/math.js';
 import { roundRect } from './widgets.js';
 
+const cssString = v => `"${String(v).replace(/[\\"]/g, '\\$&').replace(/\n/g, '\\a ')}"`;
+
 export async function loadFonts(list) {
   await Promise.all(list.map(async ([fam, url, weight]) => {
-    const f = new FontFace(fam, `url(${url})`, { weight, display: 'block' });
-    await f.load(); document.fonts.add(f);
+    const f = new FontFace(fam, `url(${cssString(url)})`, { weight, display: 'block' });
+    document.fonts.add(f);
+    try { await f.load(); } catch (e) { document.fonts.delete(f); throw new Error(`字体加载失败：${fam}（${url}）：${e && e.message || e}`); }
   }));
   await document.fonts.ready;
 }

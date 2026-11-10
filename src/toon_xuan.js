@@ -1,7 +1,7 @@
 // 玄鲲专用卡通材质（在 toon.js 三渲二配方上加三样：金箔、墨玉光泽、丝绸透光）
 // 和 toon.js 的关系：
 //   · 全场共享参数 TOON_SHARED（输出模式 uToonPass、墨线时钟、城市光 / 天空光方向）直接从 toon.js 引用同一个对象，
-//     合成代理照旧调 toon.js 的 setToonGlobals，本模块的材质一起生效 —— 换进正片只改 import。
+//     合成代理照旧调 toon.js 的 setToonGlobals，本模块的材质一起生效；换进正片镜头 C 见 kun_xuan.js 的说明（buildShotC 的 makeKun）。
 //   · 分档、投影量化、Ap 背光边缘光、城市暖光、天空冷光、斑块噪声都用引擎 engine/shade（三色 + 双羽化）；
 //     本变体分档的 fwidth 兜底取 1.5 像素、羽化下限 0.004，锈斑不带斑心。
 //   · 物体 ID 从 4001 起编，避免和 toon.js 的材质撞号（撞号会让两物体之间的 ID 描边消失）。
@@ -16,8 +16,7 @@ import * as THREE from 'three';
 import { TOON_SHARED, PALETTE, tintFrom, setToonGlobals } from './toon.js';
 import { toonKind } from '../engine/shade/toon.js';
 import { patchLayer } from '../engine/shade/surface.js';
-import { NOISE_GLSL as ENGINE_NOISE } from '../engine/shade/noise.glsl.js';
-import { SS_GLSL, lineGlsl, FILL_GLSL } from '../engine/shade/util.glsl.js';
+import { lineGlsl, FILL_GLSL } from '../engine/shade/util.glsl.js';
 import { vec3Of, colorOf } from '../engine/shade/patch.js';
 export { TOON_SHARED, PALETTE, tintFrom, setToonGlobals };
 
@@ -87,9 +86,6 @@ export const XUAN_PRESETS = {
     skyAmt: 0.5, skyTint: [0.9, 0.93, 1.06], fillAmt: 0.75, fillStep: 0.45, fillStep2: 0.85, fillFlat: 0.45,
     rimAmt: 0.0, rimLitAmt: 0.6, rimLitInside: 0.2, rimLitPower: 0.5, rimLitDirK: 0.5, edgeNoise: 0.02, edgeNoiseScale: 0.05 },
 };
-
-// —— GLSL 函数区：引擎的确定性噪声 + 本变体用的抗锯齿细线 / 填充（kun_xuan 的钩子会调） ——
-export const NOISE_GLSL = ENGINE_NOISE + SS_GLSL + lineGlsl(1) + FILL_GLSL;
 
 // —— 本变体在引擎三档卡通上加的光照钩子 ——
 const SHADE = {
@@ -163,6 +159,5 @@ uniform vec3 uTransA, uTransB; uniform float uTransThr, uTransHot, uTransShadow;
  *   noId: true         不进法线 / ID 通道（屏幕描边、雾都不管它；细小物件用自身着色器画边）
  */
 export const makeXuanMaterial = (opts = {}) => kind.make({ ...XUAN_DEFAULTS, ...opts });
-export const makeXuanDepthMaterial = kind.depth;
 // 挂材质 + 投影深度材质 + 描边标记（与 toon.js 的 bindToon 相同约定）
 export const bindXuan = kind.bind;

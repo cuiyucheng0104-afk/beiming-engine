@@ -5,7 +5,6 @@
 // 坐标：船长约 32 m，船头朝 +X，上为 +Y，原点在水线船中。
 import * as THREE from 'three';
 import { makeToonMaterial, bindToon, TOON_DEFAULTS, PALETTE } from './toon.js';
-import { hashi } from '../engine/core/math.js';
 import { boatHull } from '../engine/form/props.js';
 
 const hdr = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
@@ -55,10 +54,10 @@ export function createFerry() {
   windows.traverse(o => { o.userData.outline = false; });
   g.add(windows);
 
-  // 航行灯：左舷红、右舷绿（船头朝 +X 时，左舷在 +Z）+ 桅顶白灯
+  // 航行灯：左舷红、右舷绿 + 桅顶白灯。three.js 右手系、上为 +Y：船头朝 +X 时右舷 = 前 × 上 = +Z，左舷在 −Z
   const lamp = (hex, k, r, x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), new THREE.MeshBasicMaterial({ color: hdr(hex, k), toneMapped: false, fog: false })); m.position.set(x, y, z); m.userData.outline = false; g.add(m); return m; };
-  const red = lamp('#FF3B3B', 3.2, 0.55, L * 0.1, 8.6, B * 0.3);
-  const green = lamp('#3BFF8A', 3.0, 0.55, L * 0.1, 8.6, -B * 0.3);
+  const red = lamp('#FF3B3B', 3.2, 0.55, L * 0.1, 8.6, -B * 0.3);
+  const green = lamp('#3BFF8A', 3.0, 0.55, L * 0.1, 8.6, B * 0.3);
   const white = lamp('#FFF4E0', 3.0, 0.5, L * 0.1, 12.5, 0);
   const sternLamp = lamp('#FFE2B0', 2.4, 0.45, -L * 0.48, 4.6, 0);
 
@@ -131,4 +130,3 @@ export function lightStreak(hex, k = 1) {
   m.renderOrder = 4.9; m.frustumCulled = false; m.userData.outline = false; m.userData.outlineOccluder = false;
   return m;
 }
-export const streakSeed = f => Math.floor(f / 2) + hashi(Math.floor(f / 2)) * 0.001;

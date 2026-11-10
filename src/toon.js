@@ -85,5 +85,4 @@ const kind = toonKind({ name: 'toon', shared: TOON_SHARED, firstId: 1, layers: [
  * 有顶点钩子时，用 bindToon(mesh, mat) 挂上同样形变的阴影深度材质。
  */
 export const makeToonMaterial = (opts = {}) => kind.make({ ...TOON_DEFAULTS, ...opts });
-export const makeToonDepthMaterial = kind.depth;
 export const bindToon = kind.bind;

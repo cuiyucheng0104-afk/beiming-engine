@@ -13,7 +13,9 @@
 // window.bench(n, t) 连渲 n 帧、每帧 readPixels 强制 GPU 同步，返回每帧毫秒数。
 import * as THREE from 'three';
 import { mulberry } from '../engine/core/math.js';
+import { frameOf, heldTime } from '../engine/core/clock.js';
 import { createLook } from '../src/look.js';
+import { loadSky } from './kun_bench.js';
 
 const Q = new URLSearchParams(location.search);
 const num = (k, d) => (Q.has(k) ? parseFloat(Q.get(k)) : d);
@@ -69,8 +71,8 @@ function toon(hex, { rim = '#FFD3B0', rimAmt = 1, rust = .45, instanced = false 
   return m;
 }
 
-// 背景底板（不描边）
-const skyTex = new THREE.TextureLoader().load('./assets/ref/sky_test.png');
+// 背景底板（不描边）。等图载入再往下走；缺图时直接报错（写明路径），不会一直等不到 READY
+const skyTex = await loadSky();
 skyTex.colorSpace = THREE.SRGBColorSpace;
 {
   const d = 160, hh = 2 * d * Math.tan(THREE.MathUtils.degToRad(15)) * 1.6, ww = hh * 2;
@@ -264,8 +266,8 @@ if (Q.has('hud')) {
 }
 window.DUR = 4;
 window.render = t => {
-  // 鲲一拍三（8 fps 动画时钟），镜头 24 fps 平滑
-  const tq = Math.floor(t * 8 + 1e-6) / 8;
+  // 鲲一拍三（8 fps 动画时钟，从整数帧号量化），镜头 24 fps 平滑
+  const tq = heldTime(frameOf(t), 3);
   kun.rotation.set(.05 * Math.sin(tq * 1.3), -.2 + .1 * Math.sin(tq * .9), .04 * Math.sin(tq * 1.7));
   kun.position.y = .25 * Math.sin(tq * 1.1);
   const tc = Q.has('still') ? 0 : t;   // still=1：镜头不动，只看一拍二/一拍三
@@ -281,6 +283,6 @@ window.bench = (n = 10, t0 = 1) => {
   for (let i = 0; i < n; i++) { const a = performance.now(); window.render(t0 + i / 24); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); out.push(performance.now() - a); }
   return out;
 };
-await Promise.all([look.ready, new Promise(r => { if (skyTex.image) r(); else skyTex.onUpdate = r; const iv = setInterval(() => { if (skyTex.image) { clearInterval(iv); r(); } }, 20); })]);
+await look.ready;
 window.render(0);
 window.READY = true;
