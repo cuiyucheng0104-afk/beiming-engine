@@ -270,7 +270,7 @@ export async function checkPython(root, spec, { env = process.env, imports = tru
   }));
   for (const o of spec.python.optional) {
     out.push(mk(`python.optional.${o.module}`, `可选 Python 包 ${o.module}`, { status: res.optional[o.module] ? 'pass' : 'info', required: false,
-      found: res.optional[o.module] ? '已安装' : '未安装', expected: o.purpose, fix: res.optional[o.module] ? null : `需要时：uv pip install --python "${venvPython(path.join(root, spec.python.venv))}" ${o.module}` }));
+      found: res.optional[o.module] ? '已安装' : '未安装', expected: o.purpose, fix: res.optional[o.module] ? null : `需要时：uv pip install --python "${py.executable || py.cmd}" ${o.module}` }));
   }
   const cacheDir = env.NUMBA_CACHE_DIR || path.join(root, 'engine', 'audio');
   let writable = true;

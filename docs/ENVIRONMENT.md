@@ -16,7 +16,7 @@ npm run env:doctor -- --route a
 - `npm run env:doctor` 只读体检。每一项给出「修复」命令，必需项不合格时退出码 3；照着修完再跑，直到退出码 0。`--route a|b|c` 只看某条路线需要的项。
 - 脚本注册之前，直接运行同一个文件：`node tools/env/setup.mjs`、`node tools/env/doctor.mjs`。
 
-新环境第一次跑 setup 大约要 2–5 分钟（下载浏览器约 100 MB、Python 依赖约 70 MB）。之后每次 doctor 约 2 秒。
+新环境第一次跑 setup 大约 3 分钟：2026-11-10 在 macOS arm64 的全新克隆上实测 2 分 58 秒，其中下载浏览器 60 秒，Python 依赖下载 45 秒，加上第一次导入 70 秒（见「第一次为什么慢」）。第二次运行 0.8 秒，什么都不下载。doctor 第一次约 4 秒（含一次浏览器冷启动），之后约 2 秒。
 
 ## 版本要求
 
@@ -29,7 +29,7 @@ npm run env:doctor -- --route a
 | Python | 3.12 | `.python-version`；`requirements.in` → `requirements.lock`（macOS arm64、Windows x64、Linux x64，带哈希，只用二进制轮子） | `python.interpreter`、`python.packages` |
 | 原生运行时（B 路线） | 0.1.0-canary.2 | `RAEA_BIN` 指向的安装包里的 `share/raea/VERSION` | `raea.runtime`（`--route b`） |
 
-锁文件里的 Python 包：numpy 2.5.4、scipy 1.18.1、numba 0.68.1（llvmlite 0.50.0）、soundfile 0.14.0、soxr 1.1.0、pillow 13.0.0，以及它们的依赖。完整清单与哈希见 [`requirements.lock`](../requirements.lock)。
+锁文件里的 Python 包：numpy 2.5.4、scipy 1.18.1、numba 0.68.1（llvmlite 0.50.0）、soundfile 0.14.0、soxr 1.1.0、pillow 13.0.0，以及它们的依赖。完整清单与哈希见 [`requirements.lock`](../requirements.lock)。三个目标平台解析出同一组版本，且都有 Python 3.12 的二进制轮子（`node tools/env/lock.mjs --check` 核对）。在锁定环境里重建《北冥》混音，`out/mix.wav` 的 sha256 是 `aebcb955d73e…`，与 numpy 2.5.3 / numba 0.67.0 的旧环境逐字节相同（2026-11-10，macOS arm64）；各平台的混音金标准由声音链路维护。
 
 QA 还会用到 blackdetect、freezedetect、signalstats、select、gblur、ssim、psnr 滤镜和 framemd5 封装；缺了只告警。Playwright 安装浏览器时会顺带下载一个精简版 ffmpeg，它没有 libx264，不能用来出片，doctor 会指出来。
 
@@ -37,7 +37,7 @@ QA 还会用到 blackdetect、freezedetect、signalstats、select、gblur、ssim
 
 | 平台 | 状态 | GPU 后端（`BEIMING_ANGLE`） | 说明 |
 |---|---|---|---|
-| macOS arm64 | 全新克隆上实测过 setup 与 doctor | `metal`（默认） | 主力开发机 |
+| macOS arm64 | 2026-11-10 全新克隆实测：只装 Node 时 doctor 退出 3 并给出修复顺序；setup 之后 doctor `--gpu required` 退出 0 | `metal`（默认） | 主力开发机 |
 | Windows x64（NVIDIA RTX 工作站） | 锁文件已按此平台解析；setup 与 doctor 尚待在工作站上实测 | `vulkan` | 主力出片机，见 [RTX 工作站](RTX工作站.md)；出片封装暂时还要 Git Bash 里的 `sh` |
 | Linux x64 | 锁文件已按此平台解析；CI 目标平台 | 有 NVIDIA 用 `vulkan`；没有显卡时用 `swiftshader`，按软件渲染记录 | 需要系统库与中文字体 |
 
@@ -225,7 +225,7 @@ npm run setup
 
 ## 第一次为什么慢
 
-- **Python**：新环境第一次 `import numpy, scipy, numba, soundfile, soxr` 要加载一批原生库，macOS 上常见 30–60 秒（实测墙钟 37 秒，其中 CPU 时间只有 1.5 秒）；第二次 1–2 秒。不是 numba 在编译：numba 编译只占约 0.2 秒。setup 装完会预先导入一次，把这笔时间提前付掉。
+- **Python**：新环境第一次 `import numpy, scipy, numba, soundfile, soxr` 要加载一批原生库，macOS 上实测 37–75 秒（墙钟；CPU 时间只有 1.5 秒左右，时间花在系统第一次检查这些新的原生库上）；第二次 0.5–2 秒。不是 numba 在编译：numba 编译只占约 0.2 秒。setup 装完会预先导入一次，把这笔时间提前付掉；远程工作站按锁文件哈希共享环境，每个锁文件只付一次。
 - **浏览器**：每次出片都要启动无头浏览器，冷启动 0.3–2 秒。4K 整片里这部分占比很小；短片和单帧预览里占比明显。
 - **声音**：`engine/audio/dsp.py` 的 numba 函数带缓存（`@njit(cache=True)`），缓存写在 `engine/audio/__pycache__`；目录不可写时设 `NUMBA_CACHE_DIR`。
 

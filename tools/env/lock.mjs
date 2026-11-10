@@ -38,7 +38,7 @@ function header({ inputSha, excludeNewer, uvVersion }) {
     `# targets: ${SPEC.lockTargets.map(t => t.id).join(', ')}`,
     `# exclude-newer: ${excludeNewer}`,
     `# uv: ${uvVersion}`,
-    '# 安装：npm run setup（uv pip sync --require-hashes --only-binary :all:；没有 uv 时 pip install --require-hashes --only-binary :all: --no-deps -r requirements.lock）',
+    '# 安装：npm run setup（有 uv：uv pip sync --require-hashes --only-binary :all:；没有 uv：pip install --require-hashes --only-binary :all: -r requirements.lock）',
     '',
   ].join('\n');
 }

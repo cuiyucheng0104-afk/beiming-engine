@@ -5,7 +5,7 @@
 # targets: macos-arm64, windows-x64, linux-x64
 # exclude-newer: 2026-11-10T00:00:00Z
 # uv: 0.10.2 (Homebrew 2026-02-10)
-# 安装：npm run setup（uv pip sync --require-hashes --only-binary :all:；没有 uv 时 pip install --require-hashes --only-binary :all: --no-deps -r requirements.lock）
+# 安装：npm run setup（有 uv：uv pip sync --require-hashes --only-binary :all:；没有 uv：pip install --require-hashes --only-binary :all: -r requirements.lock）
 cffi==2.1.1 \
     --hash=sha256:046bfc24911b37851ee1b51aab8bffe713d89c68c6a057b09484ce9fd5f69b4e \
     --hash=sha256:06c72bb76605a4b0cd0aad6930b69d4baf7dd5d806cfc409b824191099700e66 \
