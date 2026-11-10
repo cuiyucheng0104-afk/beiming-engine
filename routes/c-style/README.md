@@ -35,19 +35,19 @@ node tools/c-styles.mjs find poetry --tech canvas2d --made    # 只要 Canvas 2D
 
 先按下表定大方向，再用 `find` 和 STYLES.md 收窄；给用户报候选时写清编号、理由、执行面和来源许可。
 
-| 叙事任务 | 信息密度 | 画面技术倾向 | 先看这些（`lemo/…` 我们做过，`sy/…` 只有方法） |
+| 叙事任务 | 信息密度 | 画面要什么 | 先看这些（`lemo/…` 我们做过，`sy/…` 只有方法；执行面、渲染器以 STYLES.md 为准） |
 |---|---|---|---|
-| 意境、诗意、文化品牌 | 低（一两句字） | Canvas 2D 笔触 | `lemo/ink-wash` `lemo/watercolor` `lemo/one-line` `lemo/ukiyoe` `sy/18-ink` |
-| 童趣、绘本、睡前故事 | 低–中 | Canvas 2D | `lemo/crayon-book` `lemo/paper-popup` `lemo/papercut-red` |
-| 民俗、节庆、传统 | 低–中 | Canvas 2D | `lemo/shadow-puppet` `lemo/paper-lantern` `lemo/woodcut` |
-| 品牌识别、活动开场、口号 | 中（关键词） | Canvas 2D 排版 | `lemo/swiss-motion` `lemo/pictogram-motion` `lemo/spy-titles` `lemo/art-deco` `sy/15-variety` |
-| 讲解、教程、科普 | 高（步骤、标注） | Canvas 2D / SVG | `lemo/whiteboard` `lemo/chalkboard` `lemo/iso-infographic` `lemo/isometric-picture-book` `sy/07-sticker` |
-| 数据、报告、新闻 | 高（数字、图表） | Canvas 2D | `lemo/dataviz` `lemo/caption-news` `lemo/news-package` `lemo/transit-map` `sy/17-editorial` |
-| 产品发布、硬件、科技 | 中–高 | WebGL / three.js | `lemo/dark-keynote` `lemo/glass-product` `lemo/teardown` `lemo/hologram-hud` `sy/05-3d` `sy/10-glass` |
-| 游戏感、复古、快节奏社媒 | 中 | Canvas 2D 像素 / 扁平 | `lemo/pixel-rpg` `lemo/microgame` `lemo/game-show` `lemo/halftone-dossier` `sy/13-pixel` |
-| 纪实、调查、历史 | 中–高 | 素材剪辑 + Canvas 2D | `lemo/visual-investigation` `lemo/newsreel` `lemo/archive-lighttable` `lemo/kino-montage` |
-| 体育、强节奏卡点 | 中 | Canvas 2D 排版 + 卡点 | `lemo/telestrator` `lemo/countdown` `lemo/swiss-motion` `sy/12-synthwave` |
-| 悬疑、氛围 | 低 | WebGL | `lemo/backrooms` `lemo/silent-film` |
+| 意境、诗意、文化品牌 | 低（一两句字） | 笔触、纸、留白 | `lemo/ink-wash` `lemo/watercolor` `lemo/one-line` `lemo/ukiyoe` `sy/18-ink` |
+| 童趣、绘本、睡前故事 | 低–中 | 手绘质感、角色 | `lemo/crayon-book` `lemo/paper-popup` `lemo/papercut-red` |
+| 民俗、节庆、传统 | 低–中 | 剪纸、皮影、木刻的材质 | `lemo/shadow-puppet` `lemo/paper-lantern` `lemo/woodcut` |
+| 品牌识别、活动开场、口号 | 中（关键词） | 大字排版、图形节奏 | `lemo/swiss-motion` `lemo/pictogram-motion` `lemo/spy-titles` `lemo/art-deco` `sy/15-variety` |
+| 讲解、教程、科普 | 高（步骤、标注） | 图解、标注、逐步出现 | `lemo/whiteboard` `lemo/chalkboard` `lemo/iso-infographic` `lemo/isometric-picture-book` `sy/07-sticker` |
+| 数据、报告、新闻 | 高（数字、图表） | 图表生长、数字、字幕条 | `lemo/dataviz` `lemo/caption-news` `lemo/news-package` `lemo/transit-map` `sy/17-editorial` |
+| 产品发布、硬件、科技 | 中–高 | 产品质感、三维或界面 | `lemo/dark-keynote` `lemo/glass-product` `lemo/teardown` `lemo/hologram-hud` `sy/05-3d` `sy/10-glass` |
+| 游戏感、复古、快节奏社媒 | 中 | 像素或扁平、快切 | `lemo/pixel-rpg` `lemo/microgame` `lemo/game-show` `lemo/halftone-dossier` `sy/13-pixel` |
+| 纪实、调查、历史 | 中–高 | 素材、档案、标注 | `lemo/visual-investigation` `lemo/newsreel` `lemo/archive-lighttable` `lemo/kino-montage` |
+| 体育、强节奏卡点 | 中 | 卡点排版、战术标注 | `lemo/telestrator` `lemo/countdown` `lemo/swiss-motion` `sy/12-synthwave` |
+| 悬疑、氛围 | 低 | 光影、空间、声音 | `lemo/backrooms` `lemo/silent-film` |
 
 **历史复刻**（概要，完整步骤与三类案例见 [REPLICATE.md](REPLICATE.md)）：`node tools/c-runtime.mjs setup` 按固定提交建隔离运行时 → `python3 tools/casebook.py restore <案例> --download --lemo out/runtime/lemo-bebbbe1a` → `node tools/c-runtime.mjs build <还原目录>`。
 
@@ -78,7 +78,7 @@ films/<名字>/
 - `engine/core/tempo.js` `createTempo` / `createEvents` → 节拍地址换成秒、离整帧 / 离网格的距离；记声画事件，带 `cue` 的是画面打点 → `template/timeline.js`
 - `engine/render/events.mjs` → 把 `window.EV` 写成 `events.json`、`window.TIMELINE` 写成 `timeline.json`
 - `engine/audio/cues.py` → 读两张表、`Tempo`、`Onsets` 登记"哪个音对哪个打点"、`dispatch` 按事件类型分派拟音、`write` 落盘 → `template/mix.py`
-- `engine/audio/cuecheck.py` → 每个打点离整帧、离 1/grid 拍网格、离时间线、离音乐起音的毫秒数，超差退出非零；只覆盖"八分网格 + 每个打点一个音"的写法
+- `engine/audio/cuecheck.py` → 每个打点离整帧、离 1/grid 拍网格（`cuecheck.grid`：2 = 八分、4 = 十六分）、离时间线、离登记的音乐起音的毫秒数，可查静默段，超差退出非零
 - `engine/render/build.mjs` → 一条命令：事件表 → mix.py → 拍点核对 → 逐帧 → 封装 → 海报 → 规格核对
 
 **共享引擎里 C 直接用到的**
@@ -92,7 +92,7 @@ films/<名字>/
 **工具**
 
 - `tools/c-styles.mjs` → 生成与核对 STYLES.md / styles.json，`find` 查候选
-- `tools/c-runtime.mjs` → 历史复刻：`setup` 建隔离运行时、`status` 看是否就绪、`build` 重跑还原出的作品、`sy` 给 SY 风格做适配页（见 REPLICATE.md）
+- `tools/c-runtime.mjs` → 历史复刻：`setup` 建隔离运行时、`status` 看是否就绪、`assets` 装上游采样乐器等大素材包（sha256 锁在快照里）、`build` 重跑还原出的作品、`sy` 给 SY 风格做适配页（见 REPLICATE.md）
 
 **把一式的方法落到 C 模版 / A / B**（按上游 STYLE.md 的 11 节对照）
 
@@ -109,7 +109,7 @@ films/<名字>/
 **未实现（别当成已有）**
 
 - 仓库自己的"画面文字停留时长"检查、字幕导出；配音与逐字时间戳对齐（历史作品各自实现，没抽成模块）。
-- 十六分网格、"关键事件集合"式的拍点核对（`style-16-swiss-motion` 那种写法）：`cuecheck.py` 不覆盖。
+- "关键事件集合"式的拍点核对（`style-16-swiss-motion` 那种：十六分网格上一组关键画面事件逐个对音乐，不要求每个打点各登记一个音）：`cuecheck.py` 不覆盖。
 - SVG / DOM 作品的模版：只有 Canvas 2D 模版，SVG / DOM 风格按页面约定自己写 `render(t)`。
 - 完整字体与自动子集化：仓库只带《北冥》用到的字体子集。
 
@@ -143,7 +143,7 @@ films/<名字>/
 ## 边界与常见坑
 
 - **不搬第三方代码。** `cases/vendor/` 只读学方法；我们的历史作品里也有从风格库改写来的文件（见各作品 `CREDITS`）。确需引用就保留原作者版权与 MIT 许可、在作品 `CREDITS` 写明来源，规则见 [THIRD-PARTY.md](../../THIRD-PARTY.md)。
-- **历史页面能不能交给 `engine/render`，分三种：** ① 自包含的 Lemo 页面（STYLES.md "自包含"列为"是"，22 部）在素材齐全（`restore --download`）时可以直接用 `engine/render` 渲，因为它们不声明 `window.FPS`，要加 `--fps <原帧率> --any-fps`；② 用了 `/core/` 绝对路径的 Lemo 页面（44 部）只能在 Lemo 库根目录下服务，用 `c-runtime build` 跑它自己的 build.sh；③ SY 风格是 `__seek` 契约，用 `c-runtime sy` 生成适配页再交给 `engine/render`，或者只取方法。`--source-only` 还原的目录不带图片、字体等二进制素材，**不能拿它判断能不能渲**。
+- **历史页面能不能交给 `engine/render`，分三种：** ① 自包含的 Lemo 页面（STYLES.md "自包含"列为"是"，22 部）在素材齐全（`restore --download`，有的还要先跑它 build.sh 里的准备步骤）时可以直接用 `engine/render` 渲；它们不声明 `window.FPS`，按原帧率给 `--fps`，不是 24 fps 时再加 `--any-fps`；② 用了 `/core/` 绝对路径的 Lemo 页面（44 部）只能在 Lemo 库根目录下服务，用 `c-runtime build` 跑它自己的 build.sh；③ SY 风格是 `__seek` 契约，用 `c-runtime sy` 生成适配页再交给 `engine/render`，或者只取方法。`--source-only` 还原的目录不带图片、字体等二进制素材，**不能拿它判断能不能渲**。
 - **不要运行 vendor 自带的 `setup.sh`**（`cases/vendor/lemo-opuscar/plugin/skills/lemo-opuscar/scripts/setup.sh`）：在本仓库里运行它会去找或克隆 `~/lemo-opuscar`，对它自己管理的克隆执行 `fetch origin main` + `reset --hard`，拿到的是上游最新代码而不是固定快照 bebbbe1。要运行环境用 `node tools/c-runtime.mjs setup`。
 - **SY 页面用本机字体名**（Noto CJK、Inter 等），字体不随库分发：换机器字形就变。
 - **比对逐帧时 `--workers` 要相同。** 分段数不同则关键帧位置不同，解码后的像素会不同（画面本身是确定的，`still.mjs` 乱序重渲逐字节一致）。
