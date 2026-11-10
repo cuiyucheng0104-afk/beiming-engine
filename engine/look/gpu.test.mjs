@@ -330,3 +330,61 @@ const out = {}; for (const [k, ol] of Object.entries({ w6: { width: 6, farScale:
 window.RESULT = out;`, { timeout: 180000 });
   for (const [k, v] of Object.entries(r)) assert.ok(Math.abs(v - 1) < .02, `${k}：2080 / 1040 线宽比 ${v.toFixed(3)}（修改前 w6 为 0.735、far3 为 0.833）`);
 });
+
+// CRAFT-12 的新选项（默认都关）：纸纹锚点跟着画面里的一点走；scaleMode 'refHeight' 让图片纸纹在非整数倍画幅上相对画高一样大
+const PAPER_PROBE = `
+import * as THREE from 'three';
+import { createLook } from '/engine/look/index.js';
+const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(1); renderer.setSize(64, 64); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#8a7fb8');
+const cam = new THREE.PerspectiveCamera(30, 1, 1, 100);
+async function lum(W, H, paper) {
+  const look = createLook(renderer, W, H, { paperUrl: '/assets/plates/paper.png' }); await look.ready;
+  const rt = new THREE.WebGLRenderTarget(W, H);
+  look.render(scene, cam, { t: 1, outline: false, kuwahara: false, bloom: false, grade: false, vignette: 0, grain: 0, paper, target: rt });
+  const b = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(rt, 0, 0, W, H, b); rt.dispose(); look.dispose();
+  const L = new Float32Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) L[y * W + x] = b[((H - 1 - y) * W + x) * 4 + 1];   // 行序翻成左上为原点
+  return L;
+}
+// a 平移 (dx, dy) 后与 b 的差（只看两者都在画内的部分）：返回平均绝对差
+function shiftErr(a, b, W, H, dx, dy) { let s = 0, n = 0; for (let y = 8; y < H - 8; y++) for (let x = 8; x < W - 8; x++) { const xs = x - dx, ys = y - dy; if (xs < 0 || ys < 0 || xs >= W || ys >= H) continue; s += Math.abs(b[y * W + x] - a[ys * W + xs]); n++; } return s / n; }
+`;
+
+gpuTest('R61 纸纹锚点：锚点在屏幕上平移 (dx, dy) 时纸纹整块跟着平移（误差 < 1 像素），不写锚点的纸纹钉在屏幕上', async () => {
+  const r = await run('r61', PAPER_PROBE + `
+const W = 320, H = 240, base = { strength: 0.6, scale: 1 };
+const ref = await lum(W, H, { ...base, anchor: { pos: [160, 120], origin: [160, 120], zoom: 1 } });
+const still = await lum(W, H, base);
+const moved = await lum(W, H, { ...base, anchor: { pos: [167, 116], origin: [160, 120], zoom: 1 } });
+const best = []; for (let dy = -6; dy <= 2; dy++) for (let dx = 4; dx <= 10; dx++) best.push([shiftErr(ref, moved, W, H, dx, dy), dx, dy]);
+best.sort((a, b) => a[0] - b[0]);
+let sd = 0, m = 0; for (const v of ref) m += v; m /= ref.length; for (const v of ref) sd += (v - m) ** 2; sd = Math.sqrt(sd / ref.length);
+window.RESULT = { same: shiftErr(ref, still, W, H, 0, 0), best: best[0], second: best[1], unshifted: shiftErr(ref, moved, W, H, 0, 0), sd };`, { w: 64, h: 64 });
+  assert.ok(r.sd > 2, `纸纹要看得出来（亮度标准差 ${r.sd.toFixed(2)}）`);
+  assert.ok(r.same < 1e-9, `锚点在铺纸那一点（pos = origin, zoom = 1）时与不写锚点逐像素相同：${r.same}`);
+  assert.deepEqual(r.best.slice(1), [7, -4], `纸纹位移 = 锚点位移 (7, −4)，实际最佳 ${r.best.slice(1)}`);
+  assert.ok(r.best[0] < 0.6 && r.best[0] * 3 < r.unshifted, `平移后对齐的残差 ${r.best[0].toFixed(3)}（不平移 ${r.unshifted.toFixed(2)}）`);
+});
+
+gpuTest('R62 纸纹 scaleMode：refHeight 下 1440 高与 1080 高的纸纹平铺尺寸相对画高一致；默认 pixel 按整数倍（与以前相同）', async () => {
+  const r = await run('r62', `
+import * as THREE from 'three';
+import { createPaper } from '/engine/look/paper.js';
+import { createFullscreen } from '/engine/look/pass.js';
+const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(1); renderer.setSize(64, 64);
+const fx = createFullscreen(renderer), paper = createPaper(fx, renderer, { url: '/assets/plates/paper.png' }); await paper.ready;
+const out = {};
+for (const H of [1080, 1440, 2160]) {
+  const k = H / 1080, kp = Math.max(1, Math.round(k));
+  const px = paper.layer({ strength: .12, scale: 1 }, kp, k), rh = paper.layer({ strength: .12, scale: 1, scaleMode: 'refHeight' }, kp, k);
+  out[H] = { pixel: px.w / H, ref: rh.w / H, anchor: 'anchor' in px };
+}
+let bad = null; try { paper.layer({ strength: .1, scaleMode: 'zoom' }, 1, 1); } catch (e) { bad = String(e.message); }
+window.RESULT = { out, bad };`, { w: 64, h: 64 });
+  const { out, bad } = r;
+  assert.ok(Math.abs(out[1440].ref / out[1080].ref - 1) < 1e-9 && Math.abs(out[2160].ref / out[1080].ref - 1) < 1e-9, `refHeight：平铺尺寸 / 画高 一致 ${JSON.stringify(out)}`);
+  assert.ok(Math.abs(out[1440].pixel / out[1080].pixel - 1080 / 1440) < 1e-9, 'pixel（默认）：1440 高按整数倍 1，纸纹相对画面变细（与以前相同）');
+  assert.ok(Math.abs(out[2160].pixel / out[1080].pixel - 1) < 1e-9, 'pixel：2160 高按整数倍 2，与 1080 相对一致（R32）');
+  assert.ok(!out[1080].anchor, '不写锚点时 layer 的结果不带 anchor 字段（走默认着色器）');
+  assert.match(bad || '', /scaleMode 只能是 pixel \/ refHeight/);
+});
