@@ -184,8 +184,9 @@ async function makeRunDir(spec, a, git) {
   throw fail(EXIT.BUSY, 'run-dir', '同一秒内的运行目录已用完', '稍后重试');
 }
 
+let tmpSeq = 0;
 async function writeJsonAtomic(file, data) {
-  const tmp = `${file}.part`;
+  const tmp = `${file}.${process.pid}-${++tmpSeq}.part`;   // 每次写一个独立的临时文件：中断清理与失败收尾同时写也不会交错
   await writeFile(tmp, JSON.stringify(data, null, 2) + '\n');
   await rename(tmp, file);
 }
@@ -394,12 +395,15 @@ async function run(ctx) {
   };
   for (const f of await sourceFiles(spec.dir)) record.inputs.sources[f] = await sha256File(join(spec.dir, f));
   const runJsonPath = join(runDir, 'run.json');
-  const save = async () => { record.timing.total = now() - T0; record.warnings = getWarnings(); await writeJsonAtomic(runJsonPath, record); };
+  // run.json 的写入排成一条队：中断清理（信号）与失败收尾（被杀的子进程让渲染抛错）可能同时发生
+  let saving = Promise.resolve(), interrupted = false;
+  const save = () => (saving = saving.then(async () => { record.timing.total = now() - T0; record.warnings = getWarnings(); await writeJsonAtomic(runJsonPath, record); }));
   await save();
   const parts = [];
   const cleanup = onCleanup(async () => {
+    interrupted = true;
     for (const f of parts) await rm(f, { force: true });
-    record.status = 'failed'; record.error = { code: 'interrupted', message: '运行被中断' }; record.finishedAt = new Date().toISOString();
+    record.status = 'failed'; record.error = { code: 'interrupted', message: '运行被中断（收到 SIGINT / SIGTERM），子进程已终止、半成品已删除' }; record.finishedAt = new Date().toISOString();
     try { await save(); } catch { /* 尽力 */ }
   });
   const noteDevice = r => {
@@ -585,10 +589,12 @@ async function run(ctx) {
   } catch (e) {
     offCleanup(cleanup);
     for (const f of parts) if (f.endsWith('.part')) await rm(f, { force: true });
-    record.status = 'failed';
-    record.error = e?.code ? { code: e.code, exitCode: e.exitCode, message: e.message, hint: e.hint ?? null } : { code: 'failure.internal', message: String(e?.message || e) };
-    record.finishedAt = new Date().toISOString();
-    try { record.selfCheck = await selfCheck(record, spec.frames); await save(); } catch { /* 运行目录可能不可写 */ }
+    if (!interrupted) {   // 被信号中断时由清理写 interrupted，这里不覆盖
+      record.status = 'failed';
+      record.error = e?.code ? { code: e.code, exitCode: e.exitCode, message: e.message, hint: e.hint ?? null } : { code: 'failure.internal', message: String(e?.message || e) };
+      record.finishedAt = new Date().toISOString();
+      try { record.selfCheck = await selfCheck(record, spec.frames); await save(); } catch { /* 运行目录可能不可写 */ }
+    }
     if (e && typeof e === 'object' && 'hint' in e && !String(e.hint ?? '').includes('run.json')) e.hint = `${e.hint ? `${e.hint}；` : ''}运行记录：${repoRel(runJsonPath)}`;
     throw e;
   }

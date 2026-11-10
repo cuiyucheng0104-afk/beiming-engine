@@ -124,6 +124,11 @@ export function sha256File(path) {
 
 export async function exitWith(codePromise) {
   const code = await codePromise;
+  if (code === EXIT.SIGINT || code === EXIT.SIGTERM) {
+    // 收到信号：命令约定库的信号处理还在收尾（清理、写 --json 信封），由它退出进程；这里不抢先退出，10 秒兜底
+    setTimeout(() => process.exit(code), 10000);
+    return;
+  }
   await new Promise(r => process.stdout.write('', r));
   await new Promise(r => process.stderr.write('', r));
   process.exit(code);

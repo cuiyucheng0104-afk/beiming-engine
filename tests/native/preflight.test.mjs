@@ -4,13 +4,14 @@
 //   · 素材在 prepare 之后被改过 → exit 4（contract.asset-hash）
 //   · film.json 的素材清单在 prepare 之后改过（例如改了 edge 参数没重新准备）→ exit 4（contract.stale-assets），提示重做哪一类
 //   · 都对 → exit 0，信封 data 里有运行时版本与交付档位
+//   · 出片途中收到 SIGINT → exit 130，--json 只输出一个信封，run.json 记 interrupted，假运行时子进程被整组终止（不留残留）
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { specHash } from '../../engine/native/prepare.mjs';
 
@@ -25,7 +26,8 @@ function setup({ git = true } = {}) {
   mkdirSync(join(rt, 'bin'), { recursive: true });
   mkdirSync(join(rt, 'share', 'raea'), { recursive: true });
   const exe = join(rt, 'bin', process.platform === 'win32' ? 'raea.cmd' : 'raea');
-  writeFileSync(exe, process.platform === 'win32' ? '@echo usage\r\n' : '#!/bin/sh\necho usage\n');
+  // 假运行时：render 子命令睡 30 秒（模拟长渲染，供中断测试），其余打印 usage
+  writeFileSync(exe, process.platform === 'win32' ? '@echo usage\r\n' : '#!/bin/sh\nif [ "$1" = render ]; then echo "$$" > "$BNE_TEST_PIDFILE"; exec sleep 30; fi\necho usage\n');
   chmodSync(exe, 0o755);
   writeFileSync(join(rt, 'share', 'raea', 'VERSION'), '9.9.9-test\n');
   const film = join(root, 'films', 'demo');
@@ -39,7 +41,7 @@ function setup({ git = true } = {}) {
   if (git) spawnSync('git', ['init', '-q'], { cwd: root, timeout: 30000 });
   const env = { ...process.env, RAEA_BIN: exe, BNE_ALLOW_VERSION: '9.9.9-test' };
   const run = () => spawnSync(process.execPath, [ENTRY, film, '--check-only', '--json'], { encoding: 'utf8', env, timeout: 60000 });
-  return { root, film, run };
+  return { root, film, run, env };
 }
 const envOf = r => JSON.parse(r.stdout);
 
@@ -95,4 +97,29 @@ test('specHash：键的顺序不影响指纹，内容变了指纹就变', () => 
   assert.equal(specHash({ images: [{ to: 'a', from: 'b' }] }, 'images'), specHash({ images: [{ from: 'b', to: 'a' }] }, 'images'));
   assert.notEqual(specHash({ images: [{ to: 'a', edge: { left: 0.1 } }] }, 'images'), specHash({ images: [{ to: 'a', edge: { left: 0.2 } }] }, 'images'));
   assert.equal(specHash({}, 'audio'), specHash({ audio: null }, 'audio'));
+});
+
+test('出片途中收到 SIGINT：exit 130、单个信封、run.json 记 interrupted、运行时子进程被终止', { skip: (!hasFFmpeg && '本机没有带 libx264 的 FFmpeg') || (process.platform === 'win32' && 'Windows 没有 POSIX 信号') }, async () => {
+  const s = setup();
+  try {
+    const pidFile = join(s.root, 'child.pid');
+    const child = spawn(process.execPath, [ENTRY, s.film, '--run-id', 'sig', '--json'], { env: { ...s.env, BNE_TEST_PIDFILE: pidFile, COMFY_URL: 'http://127.0.0.1:9' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '', err = '';
+    child.stdout.on('data', d => { out += d; });
+    child.stderr.on('data', d => { err += d; });
+    for (let i = 0; i < 200; i++) { try { readFileSync(pidFile); break; } catch { await new Promise(r => setTimeout(r, 50)); } }
+    child.kill('SIGINT');
+    const code = await new Promise(r => child.on('close', c => r(c)));
+    assert.equal(code, 130, err);
+    const env = JSON.parse(out);
+    assert.equal(env.exitCode, 130);
+    assert.equal(env.error.code, 'signal.sigint');
+    const record = JSON.parse(readFileSync(join(s.film, 'out', 'sig', 'run.json'), 'utf8'));
+    assert.equal(record.status, 'failed');
+    assert.equal(record.error.code, 'interrupted');
+    const pid = Number(readFileSync(pidFile, 'utf8'));
+    let alive = true;
+    for (let i = 0; i < 40 && alive; i++) { try { process.kill(pid, 0); await new Promise(r => setTimeout(r, 50)); } catch { alive = false; } }
+    assert.equal(alive, false, '假运行时子进程要被终止');
+  } finally { rmSync(s.root, { recursive: true, force: true }); }
 });
