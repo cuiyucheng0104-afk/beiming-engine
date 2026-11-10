@@ -8,10 +8,15 @@
   audio.format      hard  48 kHz、2 声道、样本全是有限数
   audio.length      hard  样本数 = frameCount / fps × 48000，差不超过 1 帧（截短、多出都算）
   audio.overload    hard  没有样本到满幅（|x| ≥ 0.99999；浮点文件超过 1.0 也算）
+  响度在哪一步定（--loudness-at，默认自动：命令行给了 --target-lufs 或 film.json 的 audio 写了 targetLUFS → mix，
+  有作品描述但没写 → deliver；只给 --wav → mix）：
+  mix（声音脚本自己母带到目标）：
   audio.loudness    hard  BS.1770 积分响度 = 混音目标 ± 容差（目标：film.json audio.targetLUFS，否则档位的 integratedLUFS；
                           容差默认 0.5 LU，不宽于档位容差。成片以最终 AAC 为准由 tools/qa 复测）
   audio.truepeak    hard  4 倍过采样真峰值 ≤ audio.truePeakDbTP（否则档位的 truePeakMaxDbTP），测量容差 0.05 dB
                           （限制器正好压在上限时，24 bit 量化后的实测会高出万分之几 dB）
+  deliver（封装时 engine/render/mux.sh 整段乘一个增益到目标，真峰值超限才加限幅）：响度只记录；改判峰值余量——
+  audio.headroom    hard > 3 dB、soft > 0   线性增益到目标后的真峰值 = 真峰值 + (目标 − 积分响度)，超出上限多少 dB 就要被限幅削多少
   audio.dc          hard > 0.01、soft > 0.001   每个声道的直流偏移
   audio.mono        hard 相关 < −0.3 或折单声道损失 < −8 LU；soft 相关 < 0 或损失 < −4 LU   单声道兼容
   audio.edges       hard > 0.05、soft > 0.003   首尾样本（不归零会在开始 / 结束时"咔"一声）
@@ -139,8 +144,8 @@ def _grade(value, soft_bad, hard_bad):
     return 'fail' if hard_bad else ('warn' if soft_bad else 'pass')
 
 
-def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.5, max_tp=-1.0, chunk_s=10.0):
-    """→ (checks, info)。cuts 是切点帧号。"""
+def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.5, max_tp=-1.0, chunk_s=10.0, loudness_at='mix'):
+    """→ (checks, info)。cuts 是切点帧号；loudness_at 见文件头（mix / deliver）。"""
     import soundfile as sf
     info = sf.info(wav)
     checks = []
@@ -181,22 +186,37 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
 
     I = A.L.integrated()
     li = {'integrated': None if not np.isfinite(I) else round(I, 2), 'momentaryMax': round(A.L.momentary_max(), 2),
-          'shortTermMax': round(A.L.short_term_max(), 2), 'lra': round(A.L.lra(), 2)}
+          'shortTermMax': round(A.L.short_term_max(), 2), 'lra': round(A.L.lra(), 2), 'loudnessAt': loudness_at}
+    tpd = float(20 * np.log10(A.tp.value)) if A.tp.value > 0 else -np.inf
     if not np.isfinite(I) or I <= -70:
         checks.append(_chk('audio.loudness', '积分响度', 'fail', '静音（没有块高于 −70 LUFS）', f'{target_lufs:g} ± {tol_lu:g} LUFS', li,
                            '混音是静音', hint='检查声音脚本有没有写进东西，或 film.json 的 audio.mode 应为 none'))
+    elif loudness_at == 'deliver':
+        checks.append(_chk('audio.loudness', '积分响度（封装时整段线性增益到目标，这里只记录）', 'pass', f'{I:.2f} LUFS',
+                           f'封装到 {target_lufs:g} LUFS（engine/render/mux.sh）', dict(li, gainToTargetDb=round(target_lufs - I, 2)), '', severity='soft'))
+        after = tpd + (target_lufs - I)
+        over = after - max_tp
+        st = 'fail' if over > 3.0 else ('warn' if over > TP_TOL_DB else 'pass')
+        checks.append(_chk('audio.headroom', '峰值余量（线性增益到目标后的真峰值）', st, f'{after:.2f} dBTP（增益 {target_lufs - I:+.2f} dB）',
+                           f'≤ {max_tp:g} dBTP（超出 3 dB 以内只告警）', {'truePeakDbTP': round(tpd, 4), 'gainToTargetDb': round(target_lufs - I, 3),
+                                                                     'truePeakAfterGainDbTP': round(after, 3), 'overDb': round(over, 3)},
+                           '' if st == 'pass' else f'整段增益到 {target_lufs:g} LUFS 后真峰值 {after:.2f} dBTP：封装时的限幅要削掉约 {over:.1f} dB 的峰'
+                           + ('，瞬态会被压扁' if st == 'fail' else ''),
+                           hint=None if st == 'pass' else '在声音脚本里母带：mixing.loudness_to(mix, 目标, 真峰值上限)（长片 stream.loudness_to），'
+                                                          '并在 film.json 的 audio 写 targetLUFS / truePeakDbTP',
+                           severity='hard' if st == 'fail' else 'soft'))
     else:
         ok = abs(I - target_lufs) <= tol_lu + 1e-9
         checks.append(_chk('audio.loudness', '积分响度（BS.1770）', 'pass' if ok else 'fail', f'{I:.2f} LUFS', f'{target_lufs:g} ± {tol_lu:g} LUFS', li,
                            '' if ok else f'积分响度 {I:.2f} LUFS，离目标 {target_lufs:g} 差 {I - target_lufs:+.2f} LU',
                            hint=None if ok else '在声音脚本末尾按 film.json 的 audio.targetLUFS / truePeakDbTP 收口（mixing.loudness_to；长片 stream.loudness_to），'
                                                 '别指望封装时再归一化'))
-    tpd = float(20 * np.log10(A.tp.value)) if A.tp.value > 0 else -np.inf
-    ok = tpd <= max_tp + TP_TOL_DB
-    checks.append(_chk('audio.truepeak', '真峰值（4 倍过采样）', 'pass' if ok else 'fail', f'{tpd:.2f} dBTP', f'≤ {max_tp:g} dBTP（测量容差 {TP_TOL_DB} dB）',
-                       {'truePeakDbTP': round(tpd, 4), 'samplePeak': round(A.sp, 6), 'toleranceDb': TP_TOL_DB},
-                       '' if ok else f'真峰值 {tpd:.2f} dBTP 高于上限 {max_tp:g}：AAC 编码后会过载失真',
-                       hint=None if ok else '母带限制器的上限设到 audio.truePeakDbTP 以下（loudness_to 的 tp 参数）'))
+    if loudness_at != 'deliver':
+        ok = tpd <= max_tp + TP_TOL_DB
+        checks.append(_chk('audio.truepeak', '真峰值（4 倍过采样）', 'pass' if ok else 'fail', f'{tpd:.2f} dBTP', f'≤ {max_tp:g} dBTP（测量容差 {TP_TOL_DB} dB）',
+                           {'truePeakDbTP': round(tpd, 4), 'samplePeak': round(A.sp, 6), 'toleranceDb': TP_TOL_DB},
+                           '' if ok else f'真峰值 {tpd:.2f} dBTP 高于上限 {max_tp:g}：AAC 编码后会过载失真',
+                           hint=None if ok else '母带限制器的上限设到 audio.truePeakDbTP 以下（loudness_to 的 tp 参数）'))
 
     n = max(A.n, 1)
     dc = (A.s1 / n).tolist()
@@ -330,6 +350,8 @@ def make_parser():
     p.add_argument('--report', help='报告写到哪里（默认混音旁边的 <名>.qa.json）')
     p.add_argument('--no-report', action='store_true', help='不写报告文件（只打印 / --json）')
     p.add_argument('--fail-on-warn', action='store_true', help='告警也算不通过')
+    p.add_argument('--loudness-at', choices=['mix', 'deliver'], help='响度在哪一步定：mix 声音脚本自己母带到目标（查响度与真峰值）；'
+                   'deliver 封装时线性增益到目标（查峰值余量）。默认自动，见文件头')
     return p
 
 
@@ -355,9 +377,12 @@ def main(args, ctx):
     max_tp = args.max_tp if args.max_tp is not None else fa.get('truePeakDbTP', pa['truePeakMaxDbTP'])
     fps = film['fps'] if film else args.fps
     frames = film['frameCount'] if film else args.frames
-    ctx.log(f'声音 QA：{_rel(wav)}（档位 {prof["id"]}，目标 {target:g} ± {tol:g} LUFS、真峰值 ≤ {max_tp:g} dBTP）')
-    checks, _ = analyze(wav, fps=fps, frames=frames, cuts=film['cuts'] if film else (), target_lufs=float(target), tol_lu=tol, max_tp=float(max_tp))
+    at = args.loudness_at or ('mix' if (args.target_lufs is not None or 'targetLUFS' in fa or not film) else 'deliver')
+    ctx.log(f'声音 QA：{_rel(wav)}（档位 {prof["id"]}，目标 {target:g} ± {tol:g} LUFS、真峰值 ≤ {max_tp:g} dBTP；响度在 {at} 定）')
+    checks, _ = analyze(wav, fps=fps, frames=frames, cuts=film['cuts'] if film else (), target_lufs=float(target), tol_lu=tol, max_tp=float(max_tp),
+                        loudness_at=at)
     rep = build_report(checks, film=film, wav=wav, profile_id=prof['id'], fail_on_warn=args.fail_on_warn)
+    rep['loudnessAt'] = at
     outputs = []
     if not args.no_report:
         rp = os.path.abspath(args.report) if args.report else os.path.splitext(wav)[0] + '.qa.json'
@@ -367,7 +392,8 @@ def main(args, ctx):
     for c in checks:
         ctx.out(f"  {mark[c['status']]} {c['id']:15} {c['value']}" + (f"  —— {c['message']}" if c['message'] else ''))
     ctx.out('AUDIO QA ' + ('OK' if rep['ok'] else 'FAIL') + (f'（报告 {outputs[0]["path"]}）' if outputs else ''))
-    data = {'ok': rep['ok'], 'summary': rep['summary'], 'checks': [{k: c[k] for k in ('id', 'status', 'value', 'expected')} for c in checks]}
+    data = {'ok': rep['ok'], 'summary': rep['summary'], 'loudnessAt': at,
+            'checks': [{k: c[k] for k in ('id', 'status', 'value', 'expected')} for c in checks]}
     if not rep['ok']:
         return {'data': data, 'outputs': outputs, 'error': {'code': 'contract.audio-qa', 'message': '声音 QA 有硬项不达标：' + '、'.join(rep['summary']['hardFailures']),
                                                            'hint': '逐项原因与下一步见报告的 checks[].message / hint'}}

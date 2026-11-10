@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """声音 QA 门 engine/audio/qa.py（npm run audio:qa）：按 film.json 判定混音，硬项不达标退出 4，报告是附录 C8 的结构。
+响度在哪一步定：film.json 写了 audio.targetLUFS → 声音脚本自己母带（查响度、真峰值）；没写 → 封装时线性增益（查峰值余量）。
 
 合格的合成混音通过；单声道、截短、过载（整体 +6 dB）、切点爆音、直流、反相六类坏样本都判不通过（退出码 4），并指出是哪一项；
 用法错误退出 2、找不到混音或作品描述退出 3；报告的结构与 tools/qa 的 qa/report.json 一致（逐项 id/status/value/expected/evidence）。
@@ -132,6 +133,36 @@ class QaGate(unittest.TestCase):
         r, _, rep = self.bad('target23', self.good, audio={'mode': 'script', 'script': 'sound.py', 'targetLUFS': -23, 'truePeakDbTP': -1.0})
         self.assertEqual(r.returncode, 4)
         self.assertEqual(self.failed(rep), {'audio.loudness'})
+
+    def test_loudness_set_at_delivery_checks_headroom(self):
+        """film.json 的 audio 没写 targetLUFS：响度由封装时的线性增益定（mux.sh），只记录响度、改判峰值余量"""
+        plain = {'mode': 'script', 'script': 'sound.py'}
+        r, env, rep = self.bad('deliver-good', self.good * 10 ** (-4 / 20), audio=plain)     # −18 LUFS、峰值余量够（A 模版的写法）
+        self.assertEqual(r.returncode, 0, r.stdout[-800:])
+        self.assertEqual((rep['loudnessAt'], env['data']['loudnessAt']), ('deliver', 'deliver'))
+        ids = {c['id']: c for c in rep['checks']}
+        self.assertNotIn('audio.truepeak', ids)
+        self.assertEqual(ids['audio.loudness']['severity'], 'soft')
+        self.assertEqual(ids['audio.headroom']['status'], 'pass')
+        self.assertAlmostEqual(ids['audio.headroom']['evidence']['gainToTargetDb'], 4.0, delta=0.06)
+        r2, env2 = self.qa('--film', os.path.join(self.td, 'deliver-good'), '--loudness-at', 'mix', '--no-report')
+        self.assertEqual(r2.returncode, 4, '强制 mix：−18 LUFS 离目标 −14 太远')
+        self.assertIn('audio.loudness', env2['data']['summary']['hardFailures'])
+
+    def test_headroom_fails_when_limiting_would_be_heavy(self):
+        plain = {'mode': 'script', 'script': 'sound.py'}
+        bed = H.music_like(10.0, seed=6) * 0.02                        # 很轻的铺底
+        clicks = np.zeros_like(bed)
+        for k in range(1, 10):
+            i = H.N(k - 0.5)
+            clicks[i:i + H.N(0.004)] = 0.85                           # 几下很响的短瞬态：积分响度低、峰值高
+        x = bed + clicks
+        x[0] = x[-1] = 0.0
+        r, env, rep = self.bad('deliver-peaky', x, audio=plain)
+        head = next(c for c in rep['checks'] if c['id'] == 'audio.headroom')
+        self.assertGreater(head['evidence']['overDb'], 3.0, head)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('audio.headroom', self.failed(rep))
 
     def test_profile_broadcast_from_cli(self):
         r, env = self.qa('--wav', self.wav, '--profile', 'broadcast-1080p25', '--frames', '250', '--fps', '25', '--no-report')

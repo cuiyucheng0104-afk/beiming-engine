@@ -35,6 +35,7 @@ export const command = pythonCommand({
     report: str('<文件>', '报告写到哪里（默认混音旁边的 <名>.qa.json）'),
     'no-report': flag('不写报告文件（只打印 / --json）'),
     'fail-on-warn': flag('告警也算不通过'),
+    'loudness-at': { type: 'string', arg: '<mix|deliver>', choices: ['mix', 'deliver'], describe: '响度在哪一步定：mix 声音脚本自己母带（查响度、真峰值）；deliver 封装时线性增益（查峰值余量）。默认自动' },
   },
   examples: ['node tools/audio/qa.mjs --film films/dawn --json', 'node tools/audio/qa.mjs --wav out/mix.wav --profile beiming-1040p24 --frames 240 --fps 24'],
 });
