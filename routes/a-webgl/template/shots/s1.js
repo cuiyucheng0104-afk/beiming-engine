@@ -7,14 +7,14 @@ import { aimCamera, placeOnScreen, screenToPlane } from '../../../engine/stage/c
 import { plate, cutoutPlane, glowSprite, tileRepeat } from '../../../engine/stage/plates.js';
 import { hold } from '../../../engine/core/clock.js';
 import { DEG } from '../../../engine/core/math.js';
-import { PAL, setToon, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, foregroundTexture, loadPlate, ISLET } from '../world.js';
+import { PAL, setToon, frameCamera, peakPoint, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, foregroundTexture, loadPlate, ISLET } from '../world.js';
 
 export async function build({ shot, fps, DW, DH, preset, sun }) {
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(16, DW / DH, 1, 60000);
   const C0 = new THREE.Vector3(-120, 30, 1100), C1 = new THREE.Vector3(-117.5, 30.5, 1086);   // 推 14 m、右移 2.5 m
-  const YAW = -1.32 * DEG, PITCH = 2.68 * DEG;   // 主体落在右三分线、地平线落在下三分线（换算见路线手册「模版示范了什么」）
-  aimCamera(cam, C0, YAW, PITCH);
+  // 构图：地平线落在下三分线、主峰（轴线半高处）落在右三分线——先定屏幕位置，偏航与俯仰反算出来（world.js 的 frameCamera）
+  const { yaw: YAW, pitch: PITCH } = frameCamera(cam, C0, { horizonY: DH * 2 / 3, subject: peakPoint('main'), subjectX: DW * 2 / 3 }, DW, DH);
   const cam0 = cam.clone();                      // 底板一律按起始机位摆，之后的视差交给真实透视
 
   // ── 底板与手绘层（D = 视深；renderOrder 与 D 同序：越远越小） ──

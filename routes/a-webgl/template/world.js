@@ -14,7 +14,7 @@ import { pineTree } from '../../engine/form/plants.js';
 import { boatHull } from '../../engine/form/props.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { canvasLayer } from '../../engine/stage/plates.js';
-import { dirOf, project, placeOnScreen } from '../../engine/stage/camera.js';
+import { aimCamera, dirOf, project, placeOnScreen } from '../../engine/stage/camera.js';
 import { mulberry, lerp, DEG } from '../../engine/core/math.js';
 
 // ───────── 色指定（只用画风 beiming-original@v1 的色板与它的规则；明度用 OKLab L 核对过，见手册） ─────────
@@ -67,7 +67,7 @@ const ROCK = {
   rimColor: PAL.rockRim, rimAmt: 0.45, rimPower: 0.32, rimInside: 0.34, rimDirK: 0.5,
   rimLitColor: PAL.rockRimLit, rimLitAmt: 0.5, rimLitPower: 0.5, rimLitInside: 0.12, rimLitDirK: 0.55,
   fillColor: PAL.rockFill, fillAmt: 0.5, fillStep: 0.55, fillStep2: 0.9, fillW1: 0.45, fillFlat: 0.5,
-  skyTint: [0.84, 0.88, 1.1], skyAmt: 0.25,
+  skyTint: [0.84, 0.88, 1.1], skyAmt: 0.07,                            // 天光只轻轻点一下朝上的台阶面：太亮会把每级台阶描成一圈圈亮环
   rustColor: PAL.rust, rustAmt: 0.35, rustThr: 0.12, patchScale: 0.022, inkColor: PAL.ink,
   ...CUN,
 };
@@ -133,6 +133,26 @@ function ferryman() {
   const hat = new THREE.ConeGeometry(0.55, 0.3, 14).translate(-5.4, 2.66, 0);
   const pole = new THREE.CylinderGeometry(0.045, 0.045, 7.4, 6).rotateZ(-0.62).translate(-5.4 - 1.9, 1.3, 0.25);
   return mergeGeometries([body, head, hat, pole].map(g => g.toNonIndexed()));
+}
+// 峰轴上高度比例 h 处的世界点（含 spire 的斜与 ISLET 偏移）：构图时拿它当「主体落点」
+export function peakPoint(id, h = 0.45) {
+  const p = PEAKS.find(q => q.id === id);
+  return new THREE.Vector3(ISLET.x + p.at[0] + p.lean[0] * p.H * h * h, ISLET.y + p.at[1] + p.H * h, ISLET.z + p.at[2] + p.lean[1] * p.H * h * h);
+}
+// 构图先定屏幕位置，再反算机位（与底板「按屏幕像素摆」同一个思路，craft/two-five-d.md §1.2）：
+//   地平线落在 horizonY（只由俯仰决定，滚转为 0 时是精确解）；主体上的点 subject 落在横坐标 subjectX（偏航单调，二分 60 次）。
+//   frameCamera(cam, pos, { horizonY, subject, subjectX }, DW, DH) → { yaw, pitch }（弧度），并把相机摆好
+export function frameCamera(cam, pos, { horizonY, subject, subjectX }, DW, DH) {
+  const pitch = Math.atan((horizonY - DH / 2) / (DH / 2) * Math.tan(cam.fov * DEG / 2));
+  let lo = -Math.PI / 3, hi = Math.PI / 3;          // 偏航越大（向左转），主体越往画右
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    aimCamera(cam, pos, mid, pitch);
+    if (project(cam, DW, DH, subject).x < subjectX) lo = mid; else hi = mid;
+  }
+  const yaw = (lo + hi) / 2;
+  aimCamera(cam, pos, yaw, pitch);
+  return { yaw, pitch };
 }
 // 礁与峰的相对摆位（以礁中心为原点）；两个镜头都把它放到同一个世界位置 ISLET
 export const ISLET = new THREE.Vector3(0, 0, 0);

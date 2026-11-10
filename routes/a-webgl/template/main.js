@@ -1,8 +1,12 @@
 // {{TITLE}} · 页面入口：读 film.json（唯一的时间与规格来源）→ 本片字体子集 → 画风注册表 → 按镜头表加载镜头模块 → 交给影片外壳。
 // 这里不写任何镜头时间、帧率、画幅的数字：切点、事件、字幕都从 film.json 来，改 film.json 不用改代码（镜头运镜按自己的 in/out 伸缩）。
 // 页面约定（附录 C5）：window.DUR = frameCount / fps；render(t) 确定；READY；TEXTS(t) → [{ id, text, box:[x,y,w,h], alpha, font }]；
-// 另给 window.TIMELINE（镜头表与事件表，单位：帧）。查询参数：?animatic=1 动态预演（关笔触与纸纹、底部画时间条，给 animatic 闸用）；
-// ?dbg=id|depth|edge|line|bloom|paper|kuwahara|scene 看后期中间缓冲；?notext=1 不画字（出风格帧做对照时用）。
+// 另给 window.TIMELINE（镜头表与事件表，单位：帧）。查询参数（都只给自查用，成片不带）：
+//   ?animatic=1  动态预演：关笔触与纸纹、底部画时间条（给 animatic 闸用，DIRECTING.md 步骤 7.5）
+//   ?guides=1    构图参考线：三分线、图文安全区 90%、动作安全区 93%、本帧文字方框（VISUAL-DESIGN §4.1、§6.3）
+//   ?sil=1       剪影检查：三维主体涂黑、底板与辉光全关、白底、不过后期（VISUAL-DESIGN §3「剪影」）
+//   ?dbg=id|depth|edge|line|bloom|paper|kuwahara|scene 看后期中间缓冲；?notext=1 不画字（出风格帧做对照时用）
+import * as THREE from 'three';
 import { createFilm } from '../../engine/stage/film.js';
 import { createLook } from '../../engine/look/index.js';
 import { fontSpec } from '../../engine/overlay/text.js';
@@ -58,6 +62,17 @@ for (const s of FILM.shots) {
 }
 // 动态预演：同一条时间轴、同样的镜头，关掉笔触、纸纹与颗粒（快、也不让人把预演当成终版画面）
 function draft(shot) { return { ...shot, look: t => ({ ...shot.look(t), kuwahara: false, paper: { strength: 0.04 }, grain: 0 }) }; }
+// 剪影检查：只留描边的三维物体（峰、礁、松、渡船），一律涂成纯黑不受光；底板、水、辉光、尾迹全部隐藏，白底直出不过后期。
+// 缩到 160 px 宽仍认得出「峰群 + 一条船」，主体的形才算立住了（灰度缩略图看明度，这里只看形）。
+const sil = q.has('sil');
+if (sil) {
+  const black = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  for (const { shot } of shots) {
+    shot.scene.background = new THREE.Color(0xffffff);
+    shot.scene.traverse(o => { if (o.isMesh || o.isSprite) { if (o.userData.outline === true) o.material = black; else o.visible = false; } });
+  }
+}
+const silPost = { ready: Promise.resolve(), render(scene, camera) { film.renderer.setRenderTarget(null); film.renderer.render(scene, camera); } };
 
 // ── 显示层：片名在 S2 左上的天空留白里显影；副标题随后淡入。位置按设计稿像素 × K ──
 const tTitle = TEXT.get('title'), tSub = TEXT.get('subtitle');
@@ -92,6 +107,16 @@ function texts(t) {
   }
   return out;
 }
+// 构图参考线（?guides=1）：三分线（细）、图文安全区 90%（实线）、动作安全区 93%（虚线）、本帧文字的方框（暖色）
+function drawGuides(ctx, t) {
+  ctx.save(); ctx.lineWidth = Math.max(1, K);
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  for (const k of [1, 2]) { ctx.beginPath(); ctx.moveTo(W * k / 3, 0); ctx.lineTo(W * k / 3, H); ctx.moveTo(0, H * k / 3); ctx.lineTo(W, H * k / 3); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(120,255,200,0.8)'; ctx.strokeRect(W * 0.05, H * 0.05, W * 0.9, H * 0.9);
+  ctx.setLineDash([8 * K, 6 * K]); ctx.strokeRect(W * 0.035, H * 0.035, W * 0.93, H * 0.93); ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(255,190,90,0.95)'; for (const x of texts(t)) ctx.strokeRect(...x.box);
+  ctx.restore();
+}
 // 动态预演的时间条：镜头分段、事件刻度、播放头（不用字，免得引入子集外的字形）
 function drawTimebar(ctx, f) {
   const x0 = 96 * K, x1 = W - 96 * K, y = H - 34 * K, X = fr => x0 + (x1 - x0) * fr / N;
@@ -104,9 +129,9 @@ function drawTimebar(ctx, f) {
 
 window.TIMELINE = { fps: FPS, frameCount: N, shots: FILM.shots.map(({ id, in: a, out: b }) => ({ id, in: a, out: b })), events: [...EV.values()] };
 await film.run({
-  dur: N / FPS, fps: FPS, post: look, debug: q.get('dbg'),
+  dur: N / FPS, fps: FPS, post: sil ? silPost : look, debug: q.get('dbg'),
   shots: shots.map(({ at, shot }) => ({ at, shot })),
-  draw: (ctx, t) => { const f = frameOf(t, FPS); drawText(ctx, f); if (animatic) drawTimebar(ctx, f); },
+  draw: (ctx, t) => { const f = frameOf(t, FPS); if (!sil) drawText(ctx, f); if (animatic) drawTimebar(ctx, f); if (q.has('guides')) drawGuides(ctx, t); },
   texts,
   warm: [0, ...FILM.shots.map(s => (s.in + s.out) / 2 / FPS), eventFrame('sun-break') / FPS, (N - 1) / FPS],
 });

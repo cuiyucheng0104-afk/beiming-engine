@@ -7,15 +7,16 @@ import { aimCamera, placeOnScreen, screenToPlane, project, dirOf } from '../../.
 import { plate, glowSprite, tileRepeat } from '../../../engine/stage/plates.js';
 import { hold, frameOf } from '../../../engine/core/clock.js';
 import { DEG, eo, ss, seg, lerp } from '../../../engine/core/math.js';
-import { PAL, SUN, setToon, sunrise, sunDisc, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, loadPlate, ISLET } from '../world.js';
+import { PAL, SUN, setToon, frameCamera, peakPoint, sunrise, sunDisc, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, loadPlate, ISLET } from '../world.js';
 import { billboard } from './s1.js';
 
 export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFrame }) {
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(28, DW / DH, 1, 60000);
-  const C0 = new THREE.Vector3(-40, 16, 560), C1 = new THREE.Vector3(-40.7, 17.5, 550);   // 推 10 m、升 1.5 m
-  const YAW = 4.04 * DEG, PITCH = 6.58 * DEG;      // 峰落在右三分线、峰尖在上三分线附近、地平线压低到 y≈790 给天空留白
-  aimCamera(cam, C0, YAW, PITCH);
+  // 切近：离峰 350 m（S1 是 1100 m），主峰在画面上约高 1.75 倍——景别真的变了，不是只换了个角度的跳切（VISUAL-DESIGN §4.4）
+  const C0 = new THREE.Vector3(-4, 16, 350), C1 = new THREE.Vector3(-4.7, 17.5, 340);   // 推 10 m、升 1.5 m
+  // 构图：主峰仍在右三分线（切点前后视觉落点不跳）；地平线压到 y≈800，给片名留出左上的天空；太阳落在针峰右边的空处
+  const { yaw: YAW, pitch: PITCH } = frameCamera(cam, C0, { horizonY: DH * 800 / 1080, subject: peakPoint('main'), subjectX: DW * 2 / 3 }, DW, DH);
   const cam0 = cam.clone();
   const fSun = eventFrame('sun-break');
 
@@ -38,12 +39,12 @@ export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFram
   const mid = ridgeTexture({ seed: 83, color: PAL.ridgeMid, light: PAL.ridgeLight, base: 0.62, amp: 0.2, sunU: uSun });
   const ridgeMid = plate(mid.tex, 2); placeOnScreen(ridgeMid, cam0, DW, DH, DW / 2, crestY + 22 - mid.topAt(uSun) * H2 + H2 / 2, W2, 2600, H2);   // 近山在太阳下方更低：挡住日轮的是远山
   scene.add(sky, halo, disc, ridgeFar, ridgeMid);
-  const mists = [[792, 200, 1800, 3, 0.85, 5], [848, 110, 480, 5, 0.66, 13], [1050, 230, 150, 7, 0.3, 17]].map(([y, h, D, order, op, seed]) => {
+  const mists = [[806, 180, 1800, 3, 0.8, 5], [902, 120, 330, 5, 0.62, 13], [1050, 230, 150, 7, 0.3, 17]].map(([y, h, D, order, op, seed]) => {   // 远雾压地平线；礁脚雾贴着峰脚（峰脚在 y≈900）
     const m = mistTexture({ seed }); m.repeat.x = tileRepeat(m, DW * 1.6, h);
     const p = plate(m, order, { opacity: op }); placeOnScreen(p, cam0, DW, DH, DW / 2, y, DW * 1.6, D, h); scene.add(p); return m;
   });
   const veil = glowSprite(PAL.sun, { order: 3.5, amt: 0, core: 0.2, squash: 3.2 });   // 光从雾后透出来：加色辉光叠在远雾之上（craft/two-five-d.md §4.1）
-  placeOnScreen(veil, cam0, DW, DH, sunX, 792, 1000, 1700, 1000); scene.add(veil);
+  placeOnScreen(veil, cam0, DW, DH, sunX, 806, 1000, 1700, 1000); scene.add(veil);
 
   // ── 三维：同一组峰与礁（世界位置不变），渡船换到左下中景继续向右（屏幕方向与 S1 一致） ──
   scene.add(buildIslet());
