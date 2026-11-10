@@ -33,7 +33,7 @@
 
 | 上游说法（出处） | 在北冥仓库里怎么做 |
 |---|---|
-| 作品目录是克隆里的 `films/<name>/`，被 git 忽略（`lemo-opuscar/AGENTS.md:85`；`lemo-opuscar/.gitignore:85`） | 作品放仓库根目录的 `films/<名字>/`。快照里的 `films/`、`out/` 被快照自己的 `.gitignore` 忽略：git status 看不出来，`casebook.py check` 也不报（它跳过被忽略的文件），只有 `node tools/repo-check/rules/agent/run.mjs` 会报错 |
+| 作品目录是克隆里的 `films/<name>/`，被 git 忽略（`lemo-opuscar/AGENTS.md:85`；`lemo-opuscar/.gitignore:85`） | 作品放仓库根目录的 `films/<名字>/`。快照里的 `films/`、`out/` 被快照自己的 `.gitignore` 忽略：git status 看不出来，`casebook.py check` 也不报（它跳过被忽略的文件），要靠仓库规范检查 `node tools/repo-check.mjs`（`core.vendor-immutable` 规则）报错 |
 | 先读 `~/lemo-my-styles/README.md`；确认的风格存进 `~/lemo-my-styles/<slug>/`，文件用英文写（`lemo-opuscar/AGENTS.md:13,20`；`lemo-opuscar/MY-STYLES.md:7,11,13`） | 不读写家目录的风格库。风格在 `routes/c-style/STYLES.md` 里查；本片对风格的改动写进作品自己的画风锁定（`routes/directing/templates/STYLE-LOCK.md`），文档用中文 |
 | 用户启动 skill 却没写需求时，第一个问题永远是语言，并用 AskUserQuestion 给出进入方式（`lemo-opuscar/AGENTS.md:21-22`） | 不问语言，默认中文；按 `routes/directing/DIRECTING.md` 步骤 1 接需求 |
 | 一次问完就不再回来问；除非用户要分镜，否则不停（`lemo-opuscar/AGENTS.md:74,77,81`；`lemo-opuscar/DIRECTOR.md` §5） | 结构、look、animatic、final 每道关口都停下等用户确认，记下原话；跳过只能凭用户原话记豁免（决定 D08） |
@@ -44,4 +44,4 @@
 | `sy-style-100/SKILL.md`、`sy-style-100/skills/sy-style-100/SKILL.md`、`sy-style-100/styles/SKILL.md`、`lemo-opuscar/plugin/skills/lemo-opuscar/SKILL.md` 的触发描述（做视频、改风格、出片） | 这些 skill 只在它们自己的仓库里有意义；在本仓库里做片用仓库自带的 `beiming-film` skill，审片用 `beiming-review` |
 | 成片不留 LemoLab 署名或水印（`lemo-opuscar/AGENTS.md:16`） | 一致：成片里不出现第三方风格库的署名或水印；作品的 CREDITS 写明借用了哪个风格的方法（`路径@固定提交`）与 MIT 许可 |
 
-这一节由仓库的 agent 护栏一同维护：`.claude/settings.json` 屏蔽本目录里 CLAUDE.md / AGENTS.md 的自动加载并拒绝写入，`.claude/hooks/guard.mjs` 拦截在这里运行代码、写入和访问家目录风格库，`node tools/repo-check/rules/agent/run.mjs` 检查本页顶部的警示还在。
+这一节由仓库的 agent 护栏一同维护：`.claude/settings.json` 屏蔽本目录里 CLAUDE.md / AGENTS.md 的自动加载并拒绝写入，`.claude/hooks/guard.mjs` 拦截在这里运行代码、写入和访问家目录风格库，`node tools/repo-check.mjs --only agent`（`agent.vendor-warning` 规则）检查本页顶部的警示还在。

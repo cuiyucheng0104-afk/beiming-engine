@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { isInstructionFile } from '../tools/repo-check/rules/agent/index.mjs';
+import { isInstructionFile } from '../.claude/hooks/lib/policy.mjs';
 
 const COMMAND = 'node .githooks/pre-commit.mjs';
 const MAX_BYTES = 5 * 1024 * 1024;

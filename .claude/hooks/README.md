@@ -10,7 +10,7 @@
 | 钩子 | `guard.mjs`（PreToolUse） | 兜底与提示：按路径和命令内容判断，覆盖权限规则写不到的写法（重定向、`rm -rf`、`sed -i`、`cd` 之后再操作、`bash -c`、PowerShell cmdlet、MCP 工具），拒绝时给出改去 `films/<名字>/` 的下一步 | 钩子自身出错时放行并报错（不挡正常工作），由另外两层兜底 |
 | 提交 | [.githooks/pre-commit](../../.githooks/README.md) | 给不走 Claude Code 的工具：快照不可变、产物与大文件不入库、指令文件白名单 | 需要用户自己启用：`git config core.hooksPath .githooks` |
 
-另有规范检查 `node tools/repo-check/rules/agent/run.mjs` 核对这三层没被削弱（嵌套指令文件白名单、快照里没有作品目录、钩子接线、`.ignore` 等）。
+另有规范检查 `node tools/repo-check.mjs --only agent`（`npm run check:repo -- --only agent`）核对这三层没被削弱：指令文件白名单、护栏配置、仓库 skill、检索范围 `.ignore`、git 钩子、vendor 顶部警示；快照里不得有作品目录、根 `CLAUDE.md` 只是桥接由 `core.vendor-immutable`、`core.claude-bridge` 负责。
 
 ## 受保护区域
 
@@ -90,9 +90,9 @@ node .claude/hooks/guard.mjs --explain --input event.json      # 一个 PreToolU
 
 ## 改护栏
 
-规则数据在 `lib/policy.mjs`（区域、规则说明、解锁名、家目录例外），判定在 `lib/decide.mjs`，路径归一在 `lib/paths.mjs`，命令切词在 `lib/shell.mjs`，日志在 `lib/log.mjs`。规范检查与提交前检查从 `policy.mjs` 取同一份指令文件名单；区域或规则有增减时，同步看一眼 `.githooks/pre-commit.mjs` 与 `tools/repo-check/rules/agent/index.mjs`。改完：
+规则数据在 `lib/policy.mjs`（区域、规则说明、解锁名、家目录例外），判定在 `lib/decide.mjs`，路径归一在 `lib/paths.mjs`，命令切词在 `lib/shell.mjs`，日志在 `lib/log.mjs`。规范检查与提交前检查从 `policy.mjs` 取同一份指令文件名单；区域或规则有增减时，同步看一眼 `.githooks/pre-commit.mjs` 与 `tools/repo-check/rules/agent/`（一个文件一条规则，共用部分在 `_shared.mjs`）。改完：
 
 ```sh
 node --test tests/agent-layer
-node tools/repo-check/rules/agent/run.mjs
+node tools/repo-check.mjs --only agent
 ```

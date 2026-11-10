@@ -4,6 +4,7 @@
 //         tools/repo-check/rules/agent/（规范检查）、tests/agent-layer/。改这里就同时改了三处的口径。
 // 接口：ZONES、UNLOCK_ENV、unlockedZones(env)、zoneOf、zoneUnder、HOME_STYLE_DIRS、HOME_STYLE_RUNTIME、isHomeRuntime、
 //       UPSTREAM_STYLE_SKILL、VIDEO_SKILL_HINT、REPO_SKILL_PREFIX、MEMORY_FILE_NAMES、INSTRUCTION_FILE_NAMES、
+//       LOCAL_ONLY_INSTRUCTION_FILES、isInstructionFile(rel)、
 //       RULES（规则 id → 一句话原因 + 下一步）、ALWAYS_DENY_RULES、GIT_UNLOCK、LOG_ENV、DEFAULT_LOG。
 // 只有数据和纯函数，不读写文件。
 
@@ -63,6 +64,26 @@ export const MEMORY_FILE_NAMES = ['AGENTS.md', 'CLAUDE.md', 'CLAUDE.local.md', '
 
 /** 规范检查里算作"agent 指令文件"的文件名（任何目录）。.claude-plugin/ 下的 JSON 另按目录判断。 */
 export const INSTRUCTION_FILE_NAMES = [...MEMORY_FILE_NAMES, 'SKILL.md', 'DIRECTOR.md', '.cursorrules', '.windsurfrules', '.clinerules', 'copilot-instructions.md'];
+
+/** 个人本地配置：未跟踪时不算仓库的指令文件（入库了照样要登记）。仓库相对路径，小写比较。 */
+export const LOCAL_ONLY_INSTRUCTION_FILES = ['.claude/settings.local.json', 'claude.local.md'];
+
+const INSTRUCTION_NAMES_LC = new Set(INSTRUCTION_FILE_NAMES.map(n => n.toLowerCase()));
+
+/**
+ * 会被 agent 工具（Claude Code、Codex、Cursor、Gemini CLI 等）当成指令或配置自动加载的文件。
+ * rel 是仓库相对路径（正斜杠或反斜杠都行）。规范检查 agent.instruction-files 与提交前检查 instructions 共用这一个判定。
+ */
+export function isInstructionFile(rel) {
+  const r = String(rel ?? '').replace(/\\/g, '/');
+  const base = (r.split('/').pop() ?? '').toLowerCase();
+  if (INSTRUCTION_NAMES_LC.has(base)) return true;
+  if (/(^|\/)\.claude-plugin\/[^/]+\.json$/i.test(r)) return true;
+  if (/(^|\/)\.claude\/(settings(\.local)?\.json|agents\/.+\.md|commands\/.+\.md|rules\/.+|output-styles\/.+\.md)$/i.test(r)) return true;
+  if (/(^|\/)\.mcp\.json$/i.test(r)) return true;
+  if (/(^|\/)\.cursor\/rules\//i.test(r) || /(^|\/)\.codex\//i.test(r)) return true;
+  return false;
+}
 
 /** 上游风格库在家目录的默认副本（全局 skill 会克隆、更新、写入这里），在本仓库里不读不写。 */
 export const HOME_STYLE_DIRS = ['lemo-opuscar', 'lemo-my-styles'];

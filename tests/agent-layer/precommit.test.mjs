@@ -15,7 +15,7 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-precommit-'));
 test.after(() => fs.rmSync(TMP, { recursive: true, force: true }));
 
 const HAS_GIT = spawnSync('git', ['--version'], { encoding: 'utf8' }).status === 0;
-const NEEDED = ['.githooks/pre-commit', '.githooks/pre-commit.mjs', 'tools/repo-check/rules/agent/index.mjs',
+const NEEDED = ['.githooks/pre-commit', '.githooks/pre-commit.mjs',
   'tools/repo-check/rules/agent/instruction-files.json', '.claude/hooks/lib/policy.mjs'];
 const GIT_ENV = { GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid' };
 let seq = 0;

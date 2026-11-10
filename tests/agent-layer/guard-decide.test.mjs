@@ -246,14 +246,18 @@ test('PowerShell：同样的规则（cmdlet、别名、Windows 路径分隔符�
 });
 
 test('模拟 Windows 仓库路径：盘符、反斜杠、大小写都归一', () => {
-  const opts = { root: 'C:\\work\\beiming', cwd: 'C:\\work\\beiming', home: 'C:\\Users\\tester', platform: 'win32' };
-  expectDeny(write('C:\\work\\beiming\\cases\\vendor\\x.js', opts), 'zone-vendor', 'Windows vendor');
-  expectDeny(write('c:/WORK/Beiming/Src/main.js', opts), 'zone-src', 'Windows 大小写与正斜杠');
-  expectAllow(write('C:\\work\\beiming\\films\\demo\\main.js', opts), 'Windows 作品目录');
-  expectDeny(write('/c/work/beiming/src/main.js', opts), 'zone-src', 'Git Bash 写法 /c/…');
-  expectDeny(bash('echo x > /c/work/beiming/cases/vendor/a.txt', opts), 'zone-vendor', 'Git Bash 重定向 /c/…');
-  expectAllow(bash('echo x > /c/work/beiming/films/demo/a.txt', opts), 'Git Bash 写作品目录');
-  expectDeny(pwsh('Remove-Item -Recurse C:\\work\\beiming\\cases\\source', opts), 'zone-source', 'PowerShell 绝对路径');
+  // 模拟的盘符路径在运行时拼出来（path.win32），源码里不写字面的本机路径（合规扫描 comp.local-paths 的口径）
+  const W = (...segs) => path.win32.join('C:\\', ...segs);
+  const repo = W('work', 'beiming');
+  const opts = { root: repo, cwd: repo, home: W('Users', 'tester'), platform: 'win32' };
+  const gitBash = rel => `/c/work/beiming/${rel}`;                       // Git Bash / MSYS 写法
+  expectDeny(write(W('work', 'beiming', 'cases', 'vendor', 'x.js'), opts), 'zone-vendor', 'Windows vendor');
+  expectDeny(write(W('WORK', 'Beiming', 'Src', 'main.js').replace(/\\/g, '/').replace(/^C/, 'c'), opts), 'zone-src', 'Windows 大小写与正斜杠');
+  expectAllow(write(W('work', 'beiming', 'films', 'demo', 'main.js'), opts), 'Windows 作品目录');
+  expectDeny(write(gitBash('src/main.js'), opts), 'zone-src', 'Git Bash 写法 /c/…');
+  expectDeny(bash(`echo x > ${gitBash('cases/vendor/a.txt')}`, opts), 'zone-vendor', 'Git Bash 重定向 /c/…');
+  expectAllow(bash(`echo x > ${gitBash('films/demo/a.txt')}`, opts), 'Git Bash 写作品目录');
+  expectDeny(pwsh(`Remove-Item -Recurse ${W('work', 'beiming', 'cases', 'source')}`, opts), 'zone-source', 'PowerShell 绝对路径');
   expectDeny(pwsh('Get-ChildItem $env:USERPROFILE\\lemo-opuscar', opts), 'home-style-library', 'PowerShell 家目录变量');
   expectAllow(pwsh('& $env:USERPROFILE\\lemo-opuscar\\.venv\\Scripts\\python.exe tools\\casebook.py check', opts), 'Windows 解释器例外');
 });

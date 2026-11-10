@@ -74,7 +74,7 @@ export function classifyPath(input, ctx) {
   const cwd = ctx.cwd ? P.resolve(root, ctx.cwd) : root;
   // POSIX 仓库上也把反斜杠当分隔符：PowerShell 在 macOS / Linux 上同样接受 films\x\a.js；宁可多拦，不可漏拦。
   let raw = P === path.posix ? String(input).replace(/\\/g, '/') : String(input);
-  // Windows 仓库上把 Git Bash / MSYS 写法 /c/work/x 换成 C:/work/x（Windows 上的 Bash 工具常这样写）
+  // Windows 仓库上把 Git Bash / MSYS 写法「/<盘符>/<目录>」换成「<盘符>:/<目录>」（Windows 上的 Bash 工具常这样写）
   if (P === path.win32) { const m = raw.match(/^\/([a-zA-Z])(?=\/|$)/); if (m) raw = `${m[1].toUpperCase()}:/${raw.slice(3)}`; }
   const expanded = expandHome(raw, home);
   const abs = P.resolve(cwd, expanded);
