@@ -1,0 +1,104 @@
+{
+  "$comment": "QA 的内置交付档位，只在 engine/production/profiles.json（P05 维护的权威档位表）缺失或缺字段时兜底使用，用到时报告里会写 warn。数值与 docs/decisions/2026-11-10-industrial-baseline.md 的 D07、加固计划附录 C7 一致；两处冲突时以 D07 为准（响度容差 ±1 LU、真峰值 ≤ −1.0 dBTP）。阈值的含义与出处见 docs/quality/QA-GATE.md。",
+  "schemaVersion": 1,
+  "basedOn": "D07（docs/decisions/2026-11-10-industrial-baseline.md）；加固计划 v1 附录 C7",
+  "defaults": {
+    "video": {
+      "codec": "h264",
+      "profiles": ["High"],
+      "pixFmt": "yuv420p",
+      "colorRange": "tv",
+      "colorSpace": "bt709",
+      "colorPrimaries": "bt709",
+      "colorTransfer": "bt709",
+      "maxLevel": 4.1,
+      "sar": "1:1"
+    },
+    "audio": {
+      "required": true,
+      "codec": "aac",
+      "aacProfile": "LC",
+      "sampleRate": 48000,
+      "channels": 2,
+      "integratedLufs": -14,
+      "lufsTolerance": 1,
+      "truePeakMaxDbtp": -1.0
+    },
+    "container": { "formats": ["mp4", "mov"], "faststart": "warn" },
+    "safeArea": {
+      "$comment": "每边留白占画面宽 / 高的比例。16:9 取 EBU R95：图文安全区 90%（每边 5%）、动作安全区 93%（每边 3.5%），与 routes/directing/VISUAL-DESIGN.md §6.3 一致。",
+      "title": { "top": 0.05, "right": 0.05, "bottom": 0.05, "left": 0.05 },
+      "action": { "top": 0.035, "right": 0.035, "bottom": 0.035, "left": 0.035 }
+    },
+    "texts": {
+      "minHoldSec": 0.8,
+      "perUnitSec": 0.12,
+      "opaqueAlpha": 0.9,
+      "targetBaseSec": 1.5,
+      "targetUnitsPerSec": 4.5,
+      "minContrast": 3.0,
+      "goodContrast": 4.5
+    },
+    "visual": {
+      "blackPixel": 0.02,
+      "blackRatio": 0.98,
+      "freezeMinSec": 0.5,
+      "freezeNoiseDb": -50,
+      "flickerLevels": 6,
+      "flickerHalfWindow": 5,
+      "cutScore": 10,
+      "cutTolFrames": 1,
+      "cutNmsFrames": 2,
+      "jumpRatio": 3,
+      "jumpMinLevels": 2,
+      "edgeBandMinPx": 4,
+      "edgeLineMinFrac": 0.3,
+      "flashLumDelta": 20,
+      "flashMaxPerSec": 3,
+      "flashAreaFrac": 0.25
+    },
+    "sync": {
+      "earlyFrames": 0.25,
+      "lateFrames": 1,
+      "lipLateFrames": 2,
+      "searchEarlySec": 0.15,
+      "searchLateSec": 0.25
+    },
+    "aigc": { "metadata": "required" }
+  },
+  "profiles": {
+    "web-1080p24": {
+      "label": "网页交付（默认档）",
+      "width": 1920, "height": 1080, "fps": 24
+    },
+    "master-1080p24": {
+      "label": "高码率母版（与无损中间件同出）",
+      "width": 1920, "height": 1080, "fps": 24,
+      "video": { "maxLevel": 5.1 },
+      "container": { "faststart": "off" }
+    },
+    "uhd-2160p24": {
+      "label": "4K 交付",
+      "width": 3840, "height": 2160, "fps": 24,
+      "video": { "maxLevel": 5.2 }
+    },
+    "vertical-1080x1920-30": {
+      "label": "竖屏 9:16、30 fps",
+      "width": 1080, "height": 1920, "fps": 30,
+      "safeArea": {
+        "$comment": "竖屏平台的界面会压住画面上下与右侧：顶部状态栏与标题、底部文案与按钮、右侧互动按钮。取各主流竖屏平台安全区示意的保守交集，作品按目标平台核对后可在 film.json 的 qa.safeArea 改写。",
+        "title": { "top": 0.08, "right": 0.12, "bottom": 0.18, "left": 0.06 },
+        "action": { "top": 0.05, "right": 0.05, "bottom": 0.10, "left": 0.05 }
+      }
+    },
+    "broadcast-1080p25": {
+      "label": "广播 25 fps（EBU R128）",
+      "width": 1920, "height": 1080, "fps": 25,
+      "audio": { "integratedLufs": -23, "lufsTolerance": 0.5 }
+    },
+    "beiming-1040p24": {
+      "label": "《北冥》样片专用档",
+      "width": 1920, "height": 1040, "fps": 24
+    }
+  }
+}
