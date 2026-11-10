@@ -50,7 +50,7 @@ const validDate = d => {
 
 // 解析 → { title, sections: [{label, version, date, yanked, line, body, types: {Added: n…}, entries}], links: {label: url}, errors, warnings }
 export function parseChangelog(text) {
-  const src = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  const src = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   const lines = src.split('\n');
   const errors = [], warnings = [], sections = [], links = {};
   let title = null, cur = null, inFence = false;
@@ -205,8 +205,8 @@ export function main(argv = process.argv.slice(2)) {
       process.stderr.write(`  ✓ [${section.label}] 的说明已写到 ${opts.out}（${section.entries} 条）\n`);
     } else if (!opts.json) process.stdout.write(text);
     return finish(EXIT.OK, { outputs, version: section.version, date: section.date, notes: opts.json ? text : undefined });
-  } catch (e) {
-    if (!(e instanceof CliError)) e = new CliError(EXIT.FAIL, 'ERROR', e.message);
+  } catch (caught) {
+    const e = caught instanceof CliError ? caught : new CliError(EXIT.FAIL, 'ERROR', caught.message);
     opts = opts || { json: argv.includes('--json') };
     return finish(e.exitCode, {}, e);
   }

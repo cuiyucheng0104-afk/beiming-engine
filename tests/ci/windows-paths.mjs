@@ -21,7 +21,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
-  ROOT, EXIT, CliError, parseArgs, envelope, writeReport, isMain, run, onSignals, resolvePython, pythonEnv,
+  ROOT, EXIT, CliError, parseArgs, envelope, writeReport, isMain, run, onSignals, resolvePython,
   inActions, annotate, stepSummary, mdCell, table, fmtSec,
 } from '../../tools/run-tests.mjs';
 

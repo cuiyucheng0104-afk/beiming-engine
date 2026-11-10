@@ -28,7 +28,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import {
   ROOT, EXIT, CliError, parseArgs, envelope, writeReport, isMain, run, onSignals, resolvePython, pythonEnv,
   inActions, annotate, stepSummary, mdCell, table, fmtSec, probeCapability,
@@ -277,7 +276,7 @@ async function syntaxCheck(st, ctx) {
     }
   });
   for (const f of json) {
-    try { JSON.parse(fs.readFileSync(path.join(ctx.root, f), 'utf8').replace(/^﻿/, '')); } catch (e) { bad.push({ file: f, line: 0, message: e.message }); }
+    try { JSON.parse(fs.readFileSync(path.join(ctx.root, f), 'utf8').replace(/^\uFEFF/, '')); } catch (e) { bad.push({ file: f, line: 0, message: e.message }); }
   }
   let pyNote = '';
   if (py.length) {
@@ -395,7 +394,11 @@ function printHuman(steps, opts) {
   const rows = steps.map(s => [s.id, s.title, `${STATUS[s.status] || s.status}${s.blocking ? '' : '（不阻塞）'}`, s.durationMs ? fmtSec(s.durationMs) : '-', s.reason || '']);
   const bad = steps.filter(s => s.blocking && ['fail', 'error', 'timeout'].includes(s.status));
   const lines = ['\n检查汇总（tools/check-all.mjs）', table(['步骤', '名称', '结果', '用时', '说明'], rows)];
-  lines.push(bad.length ? `✗ ${bad.length} 个阻塞步骤未通过：${bad.map(s => s.id).join('、')}` : `✓ 阻塞步骤全部通过（${steps.filter(s => s.status === 'pass').length}/${steps.length} 通过）`);
+  const blocking = steps.filter(s => s.blocking), ran = blocking.filter(s => s.status !== 'skip');
+  const notes = steps.filter(s => !s.blocking && s.status !== 'skip' && s.reason).map(s => `${s.id}：${s.reason}`);
+  lines.push(bad.length ? `✗ ${bad.length} 个阻塞步骤未通过：${bad.map(s => s.id).join('、')}`
+    : `✓ 阻塞步骤全部通过（${ran.filter(s => s.status === 'pass').length}/${ran.length}${blocking.length > ran.length ? `，另有 ${blocking.length - ran.length} 步跳过` : ''}）`);
+  if (notes.length) lines.push(`  只报告、不影响退出码：${notes.join('；')}`);
   (opts.json ? process.stderr : process.stdout).write(lines.join('\n') + '\n');
 }
 
