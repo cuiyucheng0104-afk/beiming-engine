@@ -30,6 +30,8 @@ class TestCheckWhenMuxCannotRun(unittest.TestCase):
         os.makedirs(os.path.join(cls.td, 'engine', 'render'))
         shutil.copytree(os.path.join(ROOT, 'engine', 'audio'), os.path.join(cls.td, 'engine', 'audio'), ignore=SKIP)
         shutil.copy(os.path.join(ROOT, 'engine', 'render', 'mux.sh'), os.path.join(cls.td, 'engine', 'render'))
+        os.makedirs(os.path.join(cls.td, 'tools', 'lib'))          # 命令约定库（engine/audio/_cli.py 按路径加载它）
+        shutil.copy(os.path.join(ROOT, 'tools', 'lib', 'cli.py'), os.path.join(cls.td, 'tools', 'lib'))
         cls.env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONIOENCODING='utf-8')
         cls.env.setdefault('NUMBA_CACHE_DIR', os.path.join(tempfile.gettempdir(), 'beiming-numba-cache'))
         r = subprocess.run([sys.executable, os.path.join(cls.td, 'audio', 'mix.py')], cwd=cls.td, env=cls.env,
