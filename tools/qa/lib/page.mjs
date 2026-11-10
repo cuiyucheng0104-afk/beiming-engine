@@ -7,6 +7,7 @@
 //   sampleFrames(h, frames, { fps, dom })     → [{ f, texts, textsError, runs, dom }]（每批在页面里连续 render(t)，减少往返）
 //   fontInventory(h)                          → { faces, set }：FontFace 与 @font-face 的来源、描述符、加载状态
 //   screenshotSet(h, f, fps)                  → { on, text, layer }（PNG）：同一帧照常、只关文字、关文字并藏掉显示层各截一张无损图
+//   samplePlates(h, frames, { fps })          → [{ f, plates: [贴图面片] }]（openPage 要带 shimThree: true）
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,7 +21,20 @@ const MIME = {
   '.mp4': 'video/mp4', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream', '.wasm': 'application/wasm',
 };
 
-function serve(root) {
+// three.js 探针垫片：页面按 importmap 取 /node_modules/three/build/three.module.js 时，交给它一个垫片模块——
+// 原样转出真模块的全部导出（同一批类，页面行为不变），只把 WebGLRenderer 换成一个子类：构造完把实例的 render 交给探针包一层
+// （three 的 render 是构造函数里挂在实例上的，改原型抓不到），用来记每帧画面里贴图面片的屏幕位置（plates 检查）。
+// 本地导出的同名绑定优先于 export *；真模块用 ?bmqa=real 区分，服务端照常给原文件。
+const THREE_MODULE = /^\/node_modules\/three\/build\/(three\.module(?:\.min)?\.js)$/;
+const threeShim = name => [
+  `import * as T from './${name}?bmqa=real';`,
+  `export * from './${name}?bmqa=real';`,
+  'const QA = window.__BMQA;',
+  'if (QA && QA.installThree) QA.installThree(T);',
+  'class WebGLRenderer extends T.WebGLRenderer { constructor(...a) { super(...a); if (QA && QA.wrapRenderer) QA.wrapRenderer(this); } }',
+  'export { WebGLRenderer };', ''].join('\n');
+
+function serve(root, { shimThree = false } = {}) {
   return new Promise((resolve, reject) => {
     const base = path.resolve(root);
     const s = http.createServer((req, res) => {
@@ -31,6 +45,8 @@ function serve(root) {
       let rel;
       try { rel = decodeURIComponent(req.url.split('?')[0].split('#')[0]); } catch { res.writeHead(400); return res.end(); }
       if (rel.split('/').some(seg => seg.startsWith('.') && seg !== '.' && seg !== '..')) { res.writeHead(403); return res.end(); }
+      const tm = shimThree && !/[?&]bmqa=real\b/.test(req.url) ? THREE_MODULE.exec(rel) : null;
+      if (tm) { res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' }); return res.end(req.method === 'HEAD' ? undefined : threeShim(tm[1])); }
       const file = path.resolve(base, '.' + rel);
       if (file !== base && !file.startsWith(base + path.sep)) { res.writeHead(403); return res.end(); }
       fs.stat(file, (err, st) => {
@@ -148,6 +164,58 @@ const PROBE = cfg => {
       if (gl.some(g => (parseInt(getComputedStyle(g).zIndex, 10) || 0) < z)) c.style.visibility = mode === 'layer' ? 'hidden' : '';
     }
   };
+  // ── 底板面片探针：three.js 垫片调 installThree(T)；platesRec 打开时，每次 render(scene, camera) 记下场景里可见的贴图平面 ──
+  // 记录：图片地址与原尺寸、四角的裁剪空间坐标（左上、右上、左下、右下）、四角对应的贴图 uv（已含 map.matrix 或裁切面片的 rect）、
+  // 不透明度、是否横向循环、裁切面片的软边参数。同一帧里同一个面片只记一次（后期会把场景渲好几遍）。
+  QA.plates = []; QA.platesSeen = new Set(); QA.platesRec = false; QA.platesErr = null; QA.three = null;
+  QA.installThree = T => { if (!QA.three && T && T.WebGLRenderer) { QA.three = T.REVISION || 'unknown'; QA.T = T; } };
+  QA.wrapRenderer = renderer => {
+    const T = QA.T;
+    if (!T || !renderer || typeof renderer.render !== 'function' || renderer.__bmqa) return;
+    renderer.__bmqa = true;
+    const orig = renderer.render;
+    const v = new T.Vector4(), pv = new T.Matrix4();
+    renderer.render = function (scene, camera) {
+      if (QA.platesRec && scene && camera && camera.isCamera) {
+        try {
+          if (scene.matrixWorldAutoUpdate !== false) scene.updateMatrixWorld();
+          if (camera.parent === null && camera.matrixWorldAutoUpdate !== false) camera.updateMatrixWorld();
+          pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+          scene.traverseVisible(o => {
+            if (!o.isMesh || !o.geometry || o.geometry.type !== 'PlaneGeometry' || QA.platesSeen.has(o.uuid)) return;
+            const mat = Array.isArray(o.material) ? null : o.material;
+            if (!mat || mat.visible === false || mat.colorWrite === false) return;
+            const U = mat.uniforms || null;
+            const crop = !!(U && U.rect && U.map);
+            const map = crop ? U.map.value : (mat.map || (U && U.map && U.map.value) || null);
+            const img = map && map.image;
+            const src = img && (img.currentSrc || img.src);
+            if (typeof src !== 'string' || !src || src.startsWith('data:')) return;
+            const g = o.geometry.parameters || {}, w = g.width ?? 1, h = g.height ?? 1;
+            const corners = [[-w / 2, h / 2, 0, 1], [w / 2, h / 2, 1, 1], [-w / 2, -h / 2, 0, 0], [w / 2, -h / 2, 1, 0]];
+            const clip = corners.map(([x, y]) => { v.set(x, y, 0, 1).applyMatrix4(o.matrixWorld).applyMatrix4(pv); return [v.x, v.y, v.z, v.w]; });
+            let uv;
+            if (crop) {
+              const r = U.rect.value, flip = !!(U.flip && U.flip.value > 0.5);
+              uv = corners.map(([, , s, t]) => { const q = flip ? 1 - s : s; return [r.x + q * r.z, r.y + t * r.w]; });
+            } else if (U && !mat.map) return;   // 自定义着色器，uv 怎么用不知道，不猜
+            else {
+              if (map.matrixAutoUpdate) map.updateMatrix();
+              const e = map.matrix.elements;
+              uv = corners.map(([, , s, t]) => [e[0] * s + e[3] * t + e[6], e[1] * s + e[4] * t + e[7]]);
+            }
+            const op = (mat.opacity ?? 1) * (crop && U.opacity ? U.opacity.value : 1);
+            QA.platesSeen.add(o.uuid);
+            QA.plates.push({ src, iw: img.naturalWidth || img.width, ih: img.naturalHeight || img.height, flipY: map.flipY !== false,
+              wrapS: map.wrapS === T.RepeatWrapping, wrapT: map.wrapT === T.RepeatWrapping, clip, uv, opacity: op, order: o.renderOrder,
+              crop: crop ? { soft: U.soft ? U.soft.value : 0.55 } : null, name: o.name || '' });
+          });
+        } catch (e) { QA.platesErr = String((e && e.message) || e); }
+      }
+      return orig.apply(this, arguments);
+    };
+  };
+
   const gc = HTMLCanvasElement.prototype.getContext;
   HTMLCanvasElement.prototype.getContext = function (type, opts) {
     const ctx = gc.call(this, type, opts);
@@ -156,14 +224,14 @@ const PROBE = cfg => {
   };
 };
 
-export async function openPage({ root, pageDir, width, height, fps, profileId, readyTimeoutMs = 120000 }) {
+export async function openPage({ root, pageDir, width, height, fps, profileId, readyTimeoutMs = 120000, shimThree = false }) {
   let chromium;
   try { ({ chromium } = await import('playwright-core')); } catch {
     throw new QaError('env.playwright-missing', '缺少 playwright-core', { hint: '在仓库根目录运行 npm ci（或 npm install）', exitCode: EXIT.ENV });
   }
   const relDir = path.relative(root, pageDir);
   if (relDir.startsWith('..') || path.isAbsolute(relDir)) throw new QaError('usage', `页面目录 ${pageDir} 不在服务根 ${root} 之内`, { exitCode: EXIT.USAGE });
-  const server = await serve(root);
+  const server = await serve(root, { shimThree });
   const port = server.address().port;
   const origin = `http://127.0.0.1:${port}`;
   let browser = null;
@@ -245,6 +313,33 @@ export async function sampleFrames(h, frames, { fps, dom = true, batch = 24, tim
     if (h.pageErrors.length) throw new QaError('page.error', `页面脚本出错：${h.pageErrors[0]}`, { exitCode: EXIT.RUNTIME });
     out.push(...r.res);
     if (r.error) throw new QaError('page.render', r.error, { hint: 'render(t) 必须对任意帧可单独调用（附录 C5）', exitCode: EXIT.RUNTIME });
+  }
+  return out;
+}
+
+// 逐帧 render(t)，取探针记下的贴图面片（见 PROBE 的 installThree）
+export async function samplePlates(h, frames, { fps, batch = 24, timeoutMs = 600000 }) {
+  const out = [];
+  for (let i = 0; i < frames.length; i += batch) {
+    const part = frames.slice(i, i + batch);
+    const r = await withTimeout(
+      h.page.evaluate(async ({ part, fps }) => {
+        const QA = window.__BMQA, res = [];
+        for (const f of part) {
+          QA.plates = []; QA.platesSeen = new Set(); QA.platesRec = true;
+          try { const p = window.render(f / fps); if (p && typeof p.then === 'function') await p; } catch (e) { QA.platesRec = false; return { error: `render(${f}/${fps}) 抛错：${(e && e.message) || e}`, res }; }
+          QA.platesRec = false;
+          res.push({ f, plates: QA.plates });
+        }
+        return { res, three: QA.three, err: QA.platesErr };
+      }, { part, fps }),
+      timeoutMs,
+      () => { throw new QaError('timeout', `页面渲染第 ${part[0]}–${part[part.length - 1]} 帧超时`, { hint: '单帧太慢时用 --timeout 放宽（秒）', exitCode: EXIT.TIMEOUT }); },
+    );
+    if (h.pageErrors.length) throw new QaError('page.error', `页面脚本出错：${h.pageErrors[0]}`, { exitCode: EXIT.RUNTIME });
+    if (r.error) throw new QaError('page.render', r.error, { hint: 'render(t) 必须对任意帧可单独调用（附录 C5）', exitCode: EXIT.RUNTIME });
+    out.push(...r.res);
+    h.three = r.three; h.platesErr = r.err;
   }
   return out;
 }

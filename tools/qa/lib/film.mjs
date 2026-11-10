@@ -7,7 +7,7 @@
 //                                        《北冥》样片的运行目录 out/beiming/<run-id>/ 与旧产物 out/beiming*.mp4 对应 films/beiming-10s/film.json（P05 的镜像）
 //   repoRootOf(p)                      → p 所在的仓库根（往上第一个同时有 package.json 与 engine/ 的目录），没有返回 null
 //   loadFilm(file)                     → normalizeFilm(JSON, file)
-//   normalizeFilm(raw, file)           → { id, title, route, fps, width, height, frameCount, profile, shots, cuts, events, audioMode, aigc, qa, warnings }
+//   normalizeFilm(raw, file)           → { id, title, route, fps, width, height, frameCount, profile, shots, cuts, events, audioMode, aigc, native, qa, warnings }
 //   loadEvents(file, fps)              → 事件表（film.json / events.json 两种写法）规范成 [{ id, frame, t, needsSound, kind, soft }]
 //   runDirOf(input)                    → 成片所在的运行目录（films/<名>/out/<run-id>/ 或 out/beiming/<run-id>/），不在运行目录里返回 null
 import fs from 'node:fs';
@@ -89,7 +89,7 @@ function range(o, fps) {
 }
 
 export function normalizeQa(q, fps, warnings) {
-  const out = { intentional: [], waivers: [], safeArea: null, texts: null, visual: null, sync: null, clearColor: null };
+  const out = { intentional: [], waivers: [], safeArea: null, texts: null, visual: null, sync: null, plates: null, clearColor: null };
   if (q == null) return out;
   if (!isObj(q)) { warnings.push('qa 字段应是对象，已忽略'); return out; }
   const add = (list, kind) => {
@@ -108,7 +108,7 @@ export function normalizeQa(q, fps, warnings) {
   add(q.blackouts, 'black');
   add(q.flashes, 'flash');
   if (Array.isArray(q.waivers)) out.waivers = q.waivers;
-  for (const k of ['safeArea', 'texts', 'visual', 'sync']) if (isObj(q[k])) out[k] = q[k];
+  for (const k of ['safeArea', 'texts', 'visual', 'sync', 'plates']) if (isObj(q[k])) out[k] = q[k];
   if (typeof q.clearColor === 'string') out.clearColor = q.clearColor;
   return out;
 }
@@ -148,6 +148,7 @@ export function normalizeFilm(raw, file = null) {
     fps, width, height, frameCount, profile,
     shots, cuts, events, audioMode,
     aigc: isObj(raw.aigc) ? raw.aigc : null,
+    native: isObj(raw.native) ? raw.native : null,
     qa, warnings,
   };
 }

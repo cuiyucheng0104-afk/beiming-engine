@@ -141,10 +141,10 @@ export function measureContrast(on, off, box) {
   return { separable: true, ratio: +ratio(Lf, Lb).toFixed(2), fg: +Lf.toFixed(4), bg: +Lb.toFixed(4), fgPixels: fg.length, bgPixels: bg.length, textIs: bright ? 'lighter' : 'darker' };
 }
 
-export async function runTexts({ pageDir, profile, film = null, step = 1, readyTimeoutMs = 120000, contrast = true, timeoutMs = 600000, root = REPO_ROOT }) {
+export async function runTexts({ pageDir, profile, film = null, step = 1, readyTimeoutMs = 120000, contrast = true, timeoutMs = 600000, root = REPO_ROOT, size = null }) {
   const T = profile.texts;
   const fps = (film?.fps || fpsOf(profile)).value;
-  const W = film?.width || profile.width, H = film?.height || profile.height;
+  const [W, H] = size || [film?.width || profile.width, film?.height || profile.height];
   const warnings = [];
   const ids = ['texts.contract', 'texts.inframe', 'texts.safe-area', 'texts.duration', 'texts.contrast', 'texts.glyphs'];
   const C = Object.fromEntries(ids.map(id => [id, makeCheck(id)]));

@@ -57,6 +57,15 @@
       "flashMaxPerSec": 3,
       "flashAreaFrac": 0.25
     },
+    "plates": {
+      "$comment": "直线淡出：alpha 0.5 交叉位置的标准差 < maxStdPx 且覆盖主体 ≥ minCoverage（加固计划 P07 plates）；密度：画内每个屏幕像素分到的贴图像素，< densityFail 不通过、< densityWarn 注意（GAP-03）",
+      "sides": ["left", "right"],
+      "maxStdPx": 15,
+      "minCoverage": 0.3,
+      "minOpacity": 0.05,
+      "densityWarn": 1.0,
+      "densityFail": 0.6
+    },
     "sync": {
       "earlyFrames": 0.25,
       "lateFrames": 1,

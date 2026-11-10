@@ -65,7 +65,7 @@ function adapt(raw) {
   pick(audio, 'truePeakMaxDbtp', loud.truePeak, a.truePeakDbTP, a.truePeakMaxDbtp, a.truePeak, raw.truePeakDbTP);
   if (Object.keys(audio).length) p.audio = audio;
   if (raw.safeArea) p.safeArea = normalizeSafe(raw.safeArea);
-  for (const k of ['texts', 'visual', 'sync', 'container', 'aigc']) if (isObj(raw[k])) p[k] = raw[k];
+  for (const k of ['texts', 'visual', 'sync', 'plates', 'container', 'aigc']) if (isObj(raw[k])) p[k] = raw[k];
   for (const k of Object.keys(p)) if (p[k] === undefined) delete p[k];
   return p;
 }
@@ -146,7 +146,7 @@ export function resolveProfile(store, id, film = null) {
   if (!id && !film?.profile) p.warnings.push('没有用 --profile 指定档位，作品描述里也没写 output.profile，按默认档 web-1080p24 判定');
   const q = film?.qa || {};
   if (q.safeArea) p.safeArea = merge(p.safeArea || {}, normalizeSafe(q.safeArea));
-  for (const k of ['texts', 'visual', 'sync']) if (isObj(q[k])) p[k] = merge(p[k] || {}, q[k]);
+  for (const k of ['texts', 'visual', 'sync', 'plates']) if (isObj(q[k])) p[k] = merge(p[k] || {}, q[k]);
   if (film && film.audioMode === 'none') p = merge(p, { audio: { required: false } });
   return p;
 }

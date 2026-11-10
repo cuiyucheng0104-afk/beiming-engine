@@ -4,6 +4,7 @@
 //   delivery <成片>   交付规格：容器、完整解码、帧数、帧率 / CFR、尺寸、SAR、编码、像素格式、BT.709 tv、音轨、音画首尾、响度、真峰值、AIGC 标识
 //   visual   <成片>   画面异常：黑场、静帧、闪帧、切点对照镜头表、跳帧、大面积闪烁、边缘露底、截断竖边
 //   texts             文字：打开作品页面逐帧读 window.TEXTS，查越界、安全区、停留时长、对比度、缺字（cmap）
+//   plates   [图片…]  底板：透明底板的直线淡出 / 硬切边是否露在画内、画内贴图密度（页面逐帧投影；B 路线与单独图片只做静态找边）
 //   sync     <成片>   声画同步：作品描述的事件帧 vs 最终音轨的起音
 //   report   <成片>   以上全部 → qa/report.json + report.md + contact.jpg
 //   profiles          列出交付档位及来源
@@ -38,18 +39,20 @@ const PAGE = {
   '--step': { type: 'number', min: 1, desc: '每隔几帧采一次（默认 1，即逐帧）' },
   '--ready-timeout': { type: 'number', min: 1, desc: '等 window.READY 的秒数（默认 120）' },
   '--no-contrast': { type: 'boolean', desc: '跳过对比度（不截图，快）' },
+  '--size': { type: 'string', desc: '按这个分辨率打开页面（如 3840x2080，查 4K 的贴图密度与文字）；缺省取作品描述或档位' },
 };
 const SUBS = {
   delivery: { args: '<成片>', pos: 1, options: pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout') },
   visual: { args: '<成片>', pos: 1, options: pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout') },
   texts: { args: '', pos: 0, options: { ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), ...PAGE } },
+  plates: { args: '[图片…]', pos: 0, max: Infinity, options: { ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), '--page': PAGE['--page'], '--step': PAGE['--step'], '--ready-timeout': PAGE['--ready-timeout'], '--size': PAGE['--size'] } },
   sync: { args: '<成片>', pos: 1, options: { ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), '--events': { type: 'string', desc: '事件表（film.json 或 events.json）；缺省用作品描述的 events' } } },
   report: {
     args: '<成片>', pos: 1,
     options: {
       ...pick('--json', '--help', '--profile', '--profiles-file', '--film', '--waivers', '--out', '--timeout'), ...PAGE,
       '--events': { type: 'string', desc: '事件表（缺省用作品描述的 events）' },
-      '--skip': { type: 'list', desc: '跳过的检查组：delivery,visual,texts,sync' },
+      '--skip': { type: 'list', desc: '跳过的检查组：delivery,visual,texts,plates,sync' },
       '--no-sheet': { type: 'boolean', desc: '不出联系表' },
     },
   },
@@ -60,6 +63,7 @@ const DESC = {
   delivery: '交付规格（容器、解码、帧数、帧率、色彩、音轨、响度、AIGC 标识）',
   visual: '画面异常（黑场、静帧、闪帧、切点、跳帧、闪烁、露边）',
   texts: '文字（越界、安全区、停留时长、对比度、缺字）；需要页面与无头浏览器',
+  plates: '底板（直线淡出 / 硬切边露在画内、贴图密度）；页面型作品要无头浏览器',
   sync: '声画同步（事件帧 vs 起音，按 craft/animation.md §5.7 的不对称容差）',
   report: '全部检查 → qa/report.json + report.md + contact.jpg',
   profiles: '列出交付档位、来源与关键数值',
@@ -99,6 +103,13 @@ function context(opts, input) {
   return { store, film, profile, waivers, warnings, timeoutMs };
 }
 
+function pageSize(opts) {
+  if (!opts.size) return null;
+  const m = /^(\d+)x(\d+)$/i.exec(opts.size);
+  if (!m || +m[1] < 16 || +m[2] < 16 || +m[1] % 2 || +m[2] % 2) throw usageError(`--size 要写成 宽x高 的偶数像素（如 3840x2080），收到「${opts.size}」`);
+  return [+m[1], +m[2]];
+}
+
 function checkInput(p) {
   if (!p) throw usageError('缺少成片路径');
   if (!fs.existsSync(p)) throw new QaError('usage', `找不到文件：${p}`, { hint: '给出成片的路径（例如 films/<名>/out/<run-id>/master.mp4）', exitCode: EXIT.USAGE });
@@ -125,11 +136,12 @@ async function writeOut(dir, files) {
 
 async function runGroups(sub, opts, input) {
   const ctx = context(opts, input);
-  const env = input || sub !== 'texts' ? await envInfo() : { node: process.versions.node, platform: `${process.platform}-${process.arch}`, warnings: [] };
+  const env = input || !['texts'].includes(sub) ? await envInfo() : { node: process.versions.node, platform: `${process.platform}-${process.arch}`, warnings: [] };
   const warnings = [...ctx.warnings, ...env.warnings];
-  const groups = sub === 'report' ? ['delivery', 'visual', 'texts', 'sync'].filter(g => !(opts.skip || []).includes(g)) : [sub];
-  const bad = (opts.skip || []).filter(g => !['delivery', 'visual', 'texts', 'sync'].includes(g));
-  if (bad.length) throw usageError(`--skip 只认 delivery,visual,texts,sync，收到 ${bad.join(',')}`);
+  const ALL = ['delivery', 'visual', 'texts', 'plates', 'sync'];
+  const groups = sub === 'report' ? ALL.filter(g => !(opts.skip || []).includes(g)) : [sub];
+  const bad = (opts.skip || []).filter(g => !ALL.includes(g));
+  if (bad.length) throw usageError(`--skip 只认 ${ALL.join(',')}，收到 ${bad.join(',')}`);
   const checks = [], skipped = [], extra = {}, errors = [];
   let probe = null, facts = null, foi = [];
   for (const g of groups) {
@@ -155,9 +167,26 @@ async function runGroups(sub, opts, input) {
         }
         const { runTexts } = await import('./checks/texts.mjs');
         log(`▶ texts：打开 ${rel(pageDir)}/index.html 逐帧读文字`);
-        const r = await runTexts({ pageDir, root: repoRootOf(pageDir) || ROOT, profile: ctx.profile, film: ctx.film, step: opts.step || 1, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, contrast: !opts.noContrast, timeoutMs: ctx.timeoutMs });
+        const r = await runTexts({ pageDir, size: pageSize(opts), root: repoRootOf(pageDir) || ROOT, profile: ctx.profile, film: ctx.film, step: opts.step || 1, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, contrast: !opts.noContrast, timeoutMs: ctx.timeoutMs });
         checks.push(...r.checks); warnings.push(...r.warnings); extra.texts = r.summary;
         // 文字有问题的帧也进联系表（红框）
+        for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
+        foi = [...new Set(foi)].sort((a, b) => a - b);
+      } else if (g === 'plates') {
+        const images = sub === 'plates' ? (opts.images || []) : [];
+        const pageDir = opts.page ? path.resolve(opts.page) : ctx.film?.dir;
+        const hasPage = !!(pageDir && fs.existsSync(path.join(pageDir, 'index.html')));
+        if (opts.page && !hasPage) throw new QaError('usage', `${opts.page} 里没有 index.html`, { exitCode: EXIT.USAGE });
+        if (!hasPage && !images.length && !(ctx.film?.native?.images || []).length) {
+          const why = '没有可投影的页面、film.json 也没有 native.images（给图片路径可只做静态找边）';
+          if (sub === 'plates') throw new QaError('usage', why, { hint: 'node tools/qa/cli.mjs plates --film films/<名>，或 plates <图片…>', exitCode: EXIT.USAGE });
+          skipped.push({ group: 'plates', reason: why });
+          continue;
+        }
+        const { runPlates } = await import('./checks/plates.mjs');
+        log(`▶ plates：${hasPage ? `打开 ${rel(pageDir)}/index.html 逐帧记面片` : '静态找边'}`);
+        const r = await runPlates({ pageDir: hasPage ? pageDir : null, size: pageSize(opts), root: (hasPage && repoRootOf(pageDir)) || ROOT, profile: ctx.profile, film: ctx.film, step: opts.step || 1, images, readyTimeoutMs: (opts.readyTimeout || 120) * 1000, timeoutMs: ctx.timeoutMs });
+        checks.push(...r.checks); warnings.push(...r.warnings); extra.plates = r.summary;
         for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
         foi = [...new Set(foi)].sort((a, b) => a - b);
       } else if (g === 'sync') {
@@ -245,12 +274,16 @@ async function main(argv) {
   if (sub === '--help' || sub === '-h' || sub === 'help') { process.stdout.write(usage() + '\n'); return { code: EXIT.OK, command: 'qa', silent: true }; }
   if (!SUBS[sub]) throw usageError(`未知子命令 ${sub}`, `可用：${Object.keys(SUBS).join('、')}`);
   const spec = SUBS[sub];
-  const { opts, positionals } = parseArgs(argv.slice(1), { options: spec.options, positionals: { min: 0, max: spec.pos, names: [spec.args] } });
+  const { opts, positionals } = parseArgs(argv.slice(1), { options: spec.options, positionals: { min: 0, max: spec.max ?? spec.pos, names: [spec.args] } });
+  if (sub === 'plates') {
+    opts.images = positionals;
+    for (const f of positionals) if (!fs.existsSync(f)) throw new QaError('usage', `找不到图片：${f}`, { exitCode: EXIT.USAGE });
+  }
   const command = `qa ${sub}`;
   if (opts.help) { process.stdout.write(usage(sub) + '\n'); return { code: EXIT.OK, command, silent: true }; }
   if (positionals.length < spec.pos) throw usageError(`缺少参数 ${spec.args}`, `node tools/qa/cli.mjs ${sub} --help`);
 
-  ROOT = repoRootOf(positionals[0] || opts.page || opts.film || process.cwd()) || REPO_ROOT;
+  ROOT = repoRootOf((sub !== 'plates' && positionals[0]) || opts.page || opts.film || positionals[0] || process.cwd()) || REPO_ROOT;
   if (sub === 'profiles') {
     const store = loadProfiles({ root: ROOT, file: opts.profilesFile || null });
     const list = [...store.profiles.values()].map(p => ({ id: p.id, label: p.label, source: p.source, width: p.width, height: p.height, fps: p.fps, pixFmt: p.video.pixFmt, color: `${p.video.colorRange}/${p.video.colorSpace}`, loudness: `${p.audio.integratedLufs}±${p.audio.lufsTolerance} LUFS`, truePeak: `≤${p.audio.truePeakMaxDbtp} dBTP` }));
