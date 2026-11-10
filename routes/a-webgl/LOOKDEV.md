@@ -26,7 +26,7 @@
 
 ## 2. 校准场景
 
-用模版当校准场景：`node tools/new-film.mjs a <名>-look --title 定调`。固定机位、固定种子、固定时刻（模版的 S1 远景 1.5 秒、S2 近景 6.5 秒各一张），只改画风相关的数，不动构图和时间——这样每轮对照的差异只来自参数。
+用模版当校准场景：`npm run new -- a <名>-look --title 定调`。固定机位、固定种子、固定时刻（模版的 S1 远景 1.5 秒、S2 日出前 3.6 秒、S2 片名之后 6.5 秒各一张），只改画风相关的数，不动构图和时间——这样每轮对照的差异只来自参数。
 
 ## 3. 钥匙帧（3–5 张）
 
@@ -34,15 +34,15 @@
 
 ```sh
 node tools/fonts/subset.mjs films/<名>
-node engine/render/still.mjs films/<名> 1.5 4.25 6.5 --size 1920x1080 --out films/<名>/out/look
-node engine/render/still.mjs films/<名> 1.5 6.5 --size 1920x1080 --query sil=1 --out films/<名>/out/look --prefix sil_
+npm run film -- stills films/<名> --times 1.5,3.6,6.5                 # 钥匙帧 + 联系表，在 out/<运行号>/stills/
+npm run film -- stills films/<名> --times 1.5,6.5 --query sil=1       # 剪影检查（三维主体涂黑、白底、不过后期）
 ```
 
 每张钥匙帧配三样检查，结果写进 `review/`：剪影（`sil_*.jpg` 缩到 160 px 宽仍认得出主体）、灰度缩略图（`ffmpeg -i <帧> -vf "format=gray,scale=240:-2,gblur=sigma=2" <缩略图>.png`，主体是第一落点）、与基准帧的同帧对照（北冥画风对 `media/shot_*.jpg`）。再出一条色彩脚本条（每镜一张，时间顺序并排，`python tools/contact_sheet.py`）。
 
 ## 4. ⛔ look 闸：用户签认
 
-把钥匙帧、色彩脚本条、剪影与灰度检查交给用户。用户的原话、出处、所看文件的 sha256 记进 `films/<名>/review/look-<日期>.json`（用 `npm run film -- approve`，参数见它的 `--help`）。用户没看过就不能写「认可」；用户说「不用给我看」也要原话记成豁免。签认之前：不扩展时长、不做第二个镜头、不登记画风版本。
+把钥匙帧、色彩脚本条、剪影与灰度检查交给用户。用户的原话、出处、所看文件的 sha256 记进 `films/<名>/review/look-<日期>.json`（`npm run film -- review approve look films/<名> --quote "<原话>" --source "<出处>" --reviewer "<审阅人>"`）。用户没看过就不能写「认可」；用户说「不用给我看」也要原话记成豁免。签认之前：不扩展时长、不做第二个镜头、不登记画风版本。
 
 ## 5. 色板锁定
 
@@ -68,7 +68,7 @@ node tools/lookdev/sweep.mjs . --t 1.0 --q test=look --q kr=3,5,7      # 自测�
 2. `lookDefaults`（交给 `createLook` 的默认后期）与 `lookPresets`（每类镜头一套每帧参数，例如远 / 中 / 近、日出前 / 后）是渲染真正读的部分；`allowedOverrides[].paths` 写镜头级允许调的参数路径与范围（`[下限, 上限]` 或 `"any"`），页面按它严格检查。
 3. `status.userApproval` 只能按用户原话写：签认了写 `approved` 并填 `approvalEvidence`（look 闸的记录文件）、`approvedBy`、`approvedAt`；没有就写 `none` 或 `indirect`。
 4. 在 `engine/style/registry.json` 的 `styles` 加一项（`id`、`version`、`file`、`lookPresets`、`baselineFrames`）。
-5. 自检：`node tools/repo-check/rules/route-a/index.mjs` 无错误（锁定文件合格、预设可解析、作品引用的 `lookPreset` 都登记过）。
+5. 自检：`node tools/repo-check.mjs --only route-a` 无错误（锁定文件合格、预设可解析、作品引用的 `lookPreset` 都登记过）。
 
 **什么时候必须升版本**：换色板、换光照公式、换后期顺序或增删一道后期、把 `allowedOverrides` 外的参数改成别的值（`newVersionWhen`）。景别改变笔触半径这类在允许范围里的调整不升版本。
 

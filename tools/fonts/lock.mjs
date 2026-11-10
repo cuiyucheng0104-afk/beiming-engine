@@ -97,6 +97,15 @@ export const licenseText = (f, { root = ROOT } = {}) => fs.readFileSync(path.joi
 
 const FT_PROBE = 'import fontTools, fontTools.subset, fontTools.varLib.instancer, brotli; print(fontTools.version)';
 
+// 缺 fontTools 时的下一步：仓库锁文件已经收了 fonttools 就是 npm run setup；还没收（加固过渡期）就给出装进 .venv 的命令
+export function fontToolsHint(root = ROOT) {
+  let locked = false;
+  try { locked = /^fonttools==/m.test(fs.readFileSync(path.join(root, 'requirements.lock'), 'utf8')); } catch { locked = false; }
+  return locked
+    ? '在仓库根目录运行 npm run setup（按 requirements.lock 装好 fonttools、brotli）；或设 BEIMING_PYTHON（也可加 --python）指向已装好它们的 Python 3.12'
+    : '仓库的 requirements.lock 还没收 fonttools：先 npm run setup 建好 .venv，再 uv pip install --python .venv "fonttools>=4.60,<5" "brotli>=1.1,<2"（没有 uv 时 node tools/env/py.mjs -m pip install …）；或设 BEIMING_PYTHON 指向已装好它们的 Python 3.12';
+}
+
 export async function findFontPython({ python = null, env = process.env } = {}) {
   const e = python ? { ...env, BEIMING_PYTHON: python } : env;
   const py = await resolvePython({ env: e, want: '3.12' });
@@ -105,8 +114,7 @@ export async function findFontPython({ python = null, env = process.env } = {}) 
   const r = spawnSync(py.cmd, [...py.args, '-c', FT_PROBE], { encoding: 'utf8', env: runEnv, timeout: 60_000, windowsHide: true });
   if (r.error || r.status !== 0) {
     const why = r.error ? (r.error.code || r.error.message) : ((r.stderr || '').trim().split('\n').pop() || `退出码 ${r.status}`);
-    throw new CliError('env.python-fonttools', `解释器 ${py.executable || py.cmd}（来自 ${py.source}）缺子集化要用的 fontTools 或 brotli：${why}`,
-      'npm run setup 按 requirements.lock 装好全部 Python 依赖（含 fonttools、brotli）；或设 BEIMING_PYTHON（也可加 --python）指向已装好它们的 Python 3.12');
+    throw new CliError('env.python-fonttools', `解释器 ${py.executable || py.cmd}（来自 ${py.source}）缺子集化要用的 fontTools 或 brotli：${why}`, fontToolsHint());
   }
   return { cmd: py.cmd, args: py.args, source: py.source, executable: py.executable || py.cmd, fontTools: r.stdout.trim(), env: runEnv };
 }
