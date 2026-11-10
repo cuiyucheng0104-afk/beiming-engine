@@ -3,7 +3,7 @@
 const MANUAL = 'routes/b-native/README.md';
 const NEED = [
   [/Beiming Native Edition/, 'BNE 的释义「Beiming Native Edition」（D04）'],
-  [/基于 `?RAEA`? 原生运行时（FSL-1\.1-ALv2）/, '署名「基于 RAEA 原生运行时（FSL-1.1-ALv2）」（D04）'],
+  [/基于 `?RAEA`? 原生运行时（FSL-1\.1-ALv2）/, '署名「基于 RAEA 原生运行时（<上游许可>）」，许可名照 engine/native/runtime.lock.json 的 license 写（D04）'],
   [/内部制作层/, 'FSL 使用边界：只作内部制作层（D03）'],
   [/--accept-license/, '获取运行时要显式 --accept-license'],
   [/书面许可/, '商业化前取得上游书面许可（D03）'],
