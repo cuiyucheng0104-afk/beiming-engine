@@ -28,6 +28,7 @@
       "approves": ["look"],
       "waives": ["animatic"],
       "expect": ["*"],
+      "whenNewImages": true,
       "optional": false,
       "source": "plan-7.2",
       "purpose": "批准 look；动态预演没给用户看过，代理应记成豁免而不是批准"

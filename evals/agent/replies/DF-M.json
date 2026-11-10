@@ -42,6 +42,7 @@
       "approves": ["look"],
       "waives": [],
       "expect": ["*"],
+      "whenNewImages": true,
       "optional": true,
       "source": "eval-supplement",
       "purpose": "计划书未列的复看回复：代理改完第 2 镜后再次只给关键帧时才发；直接给低清全片则跳过"

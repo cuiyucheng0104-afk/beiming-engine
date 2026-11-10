@@ -9,7 +9,10 @@
 //   5. 读这一轮的 result：代理最后一段话 → 选下一条回复（selectReply），没有就结束。
 // 人工干预：opts.next = { kind: 'manual', text, approves, waives } 时先发这一条（可在已结束的运行上续一轮）。
 // 选回复（selectReply）：候选 = 尚未发出的脚本回复，从前往后直到第一条非 optional 的；
-//   关键词命中记 2 分，「*」或「有新图片且像在请求审阅」记 1 分，取最高分（同分取靠前的），跳过的 optional 记为已跳过。
+//   标了 whenNewImages 的回复（看关键帧、草图帧的那几条）只在「上一条脚本回复之后作品里有新图」时才可能发出，
+//   免得代理只是问了个问题，就收到了对它没给出的画面的意见或批准；
+//   关键词命中记 2 分，「*」且代理在请求审阅（或有新图）记 1 分，「要新图且有新图、代理在请求审阅」记 1 分，
+//   取最高分（同分取靠前的），跳过的 optional 记为已跳过。
 //   都不命中时，若代理像在提问或请求审阅、且兜底次数未用完，发兜底回复（不批准任何闸门）；否则结束。
 // 接口：detectClaude(bin)、selectReply(state, stop)、looksLikeRequest(text)、driveRun(run, opts)
 
@@ -71,6 +74,7 @@ export function selectReply(state, stop) {
   const isRequest = looksLikeRequest(stop.text);
   let best = null;
   candidates.forEach((r, i) => {
+    if (r.whenNewImages && !stop.newImages) return;
     const words = r.expect.filter(w => w !== '*');
     let score = 0;
     let reason = '';
@@ -211,7 +215,15 @@ export async function driveRun(run, opts = {}) {
     // 中断后继续：重新判断最后一轮之后该发什么
     const last = state.turns[state.turns.length - 1];
     const { text } = lastResult(last.out ? path.resolve(run.dir, last.out) : '');
-    next = choose(text, Date.parse(last.endedAt));
+    next = choose(text, imagesSince());
+  }
+
+  // 「新图」的起点：上一条脚本回复发出的时间（还没发过就是开跑时间），代理在两道闸之间任何一轮出的图都算
+  function imagesSince() {
+    const { records } = readJsonl(injectionsFile);
+    const lastScripted = [...records].reverse().find(r => r.kind === 'scripted');
+    const t = Date.parse(lastScripted?.at ?? state.startedAt ?? '');
+    return Number.isFinite(t) ? t : 0;
   }
 
   function choose(text, sinceMs) {
@@ -263,7 +275,7 @@ export async function driveRun(run, opts = {}) {
       if (res.error) { state.stopReason = 'spawn-error'; state.error = res.error; break; }
       if (!result) { state.stopReason = 'agent-crashed'; state.error = `第 ${turn} 轮没有 result 记录（exit ${res.exitCode}${res.signal ? `，${res.signal}` : ''}），见 ${state.turns.at(-1).stderr}`; break; }
       if (result.is_error && result.subtype !== 'success') { state.stopReason = 'agent-error'; state.error = `第 ${turn} 轮以 ${result.subtype} 结束`; break; }
-      next = choose(text, res.startedAt);
+      next = choose(text, imagesSince());
       if (next.kind === 'none') { state.stopReason = /用完/.test(next.reason) ? 'stalled' : 'finished'; state.stopNote = next.reason; }
     }
     if (!state.stopReason) { state.stopReason = /用完/.test(next.reason ?? '') ? 'stalled' : 'finished'; state.stopNote = next.reason ?? null; }

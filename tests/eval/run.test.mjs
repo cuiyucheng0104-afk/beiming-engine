@@ -390,6 +390,20 @@ describe('回复选择（selectReply / looksLikeRequest）', () => {
     assert.equal(pick.reply.id, 'M-look-2');
   });
 
+  const dfa = JSON.parse(fs.readFileSync(path.join(REPO, 'evals', 'agent', 'replies', 'DF-A.json'), 'utf8')).replies;
+  const dfaState = sent => ({ replies: dfa, sentIds: new Set(sent), skippedIds: new Set(), fallbacksUsed: 0, fallback: { text: '请继续。', max: 3 } });
+
+  it('看图的回复要有新图：代理只是问了句「什么风格」，不发关键帧意见，发兜底', () => {
+    const pick = selectReply(dfaState([]), { text: '开工前想确认一下：您更想要哪种风格的雾？', newImages: false });
+    assert.equal(pick.kind, 'fallback');
+  });
+
+  it('看图的回复要有新图：返修之后没出新图就问「可以吗」，不发批准', () => {
+    assert.equal(selectReply(dfaState(['A-look-1']), { text: '我按意见调整了参数，可以吗？', newImages: false }).kind, 'fallback');
+    const ok = selectReply(dfaState(['A-look-1']), { text: '改好的关键帧在 keyframes/，可以吗？', newImages: true });
+    assert.equal(ok.reply.id, 'A-look-2');
+  });
+
   it('提问但不对应闸门 → 兜底；兜底用完 → 结束', () => {
     assert.equal(selectReply(state(['M-structure-1']), { text: '片名用什么字体比较好？', newImages: false }).kind, 'fallback');
     assert.equal(selectReply(state(['M-structure-1'], 3), { text: '片名用什么字体比较好？', newImages: false }).kind, 'none');
