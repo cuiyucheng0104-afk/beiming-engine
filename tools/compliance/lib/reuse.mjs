@@ -1,13 +1,16 @@
 // 北冥仓库 · REUSE 覆盖检查（按 REUSE 规范 3.3 的 REUSE.toml 写法离线复核，不需要安装 reuse 工具）。
-// 检查四件事：每个文件都能查到许可与版权；用到的许可在 LICENSES/ 里有全文；LICENSES/ 里没有用不上的许可；
-//             LICENSES/ 的文件名是合法的 SPDX 标识或 LicenseRef-*。
+// 检查五件事：每个文件都能查到许可与版权；用到的许可在 LICENSES/ 里有全文；LICENSES/ 里没有用不上的许可；
+//             LICENSES/ 的文件名是合法的 SPDX 标识或 LicenseRef-*；文件头只写了许可或只写了版权的给提示（两行写全，
+//             不同版本的 reuse 对「只写一半」的解读不一样）。
 // 与官方 reuse lint 的差别：只支持 REUSE.toml（不读 .reuse/dep5 与 .license 旁注文件）；许可表达式只拆标识、不校验 SPDX 官方清单。
 // 接口：
 //   parseReuseToml(text) → { version, annotations: [{ path: [glob], precedence, copyright: [..], license }] }，语法不支持时抛错并给出行号
 //   globToRegExp(glob)：* 不跨目录，** 跨目录，\* 是字面星号
 //   headerInfo(text) → { licenses: [表达式], copyrights: [..] }：按 reuse 的做法在全文找 SPDX 标签，跳过 reuse 忽略块（开始、结束两个标记之间）的内容
+//   resolveFile(doc, rel, hdr) → { licenses, copyrights, annotation }：按 precedence 合成一个文件的许可与版权
 //   reuseReport({ root, files, read }) → { problems: [{ level, file, message, hint }], stats }
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -17,7 +20,7 @@ export const isReuseIgnored = rel => rel.startsWith('LICENSES/') || rel.startsWi
 
 // ── TOML 子集：注释、[[annotations]]、key = "..." / '...' / 整数 / 字符串数组（可跨行）──
 export function parseReuseToml(text) {
-  const doc = { version: null, annotations: [] };
+  const doc = { annotations: [] };
   let cur = doc;   // 顶层或当前 annotations 表
   const lines = text.split(/\r?\n/);
   let i = 0;
@@ -56,7 +59,7 @@ export function parseReuseToml(text) {
     const m = /^([A-Za-z0-9_-]+)\s*=\s*(.*)$/.exec(raw);
     if (!m) fail(`看不懂这一行：${raw}`);
     const key = m[1];
-    let rest = m[2];
+    const rest = m[2];
     let value;
     if (rest.startsWith('[')) {
       // 数组可以跨多行，收集到右括号为止
@@ -82,11 +85,12 @@ export function parseReuseToml(text) {
       value = s;
     } else if (/^-?\d+$/.test(rest)) value = Number(rest);
     else fail(`不支持的取值 ${rest}`);
-    if (key in cur) fail(`重复的键 ${key}`);
+    if (cur === doc && key === 'annotations') fail('annotations 只能写成 [[annotations]] 表');
+    if (Object.prototype.hasOwnProperty.call(cur, key)) fail(`重复的键 ${key}`);
     cur[key] = value;
   }
-  doc.version = doc.version ?? null;
-  doc.annotations = doc.annotations.map((a, k) => {
+  const version = Object.prototype.hasOwnProperty.call(doc, 'version') ? doc.version : null;
+  const annotations = doc.annotations.map((a, k) => {
     const arr = v => (v == null ? [] : Array.isArray(v) ? v : [v]);
     const known = new Set(['path', 'precedence', 'SPDX-FileCopyrightText', 'SPDX-License-Identifier']);
     for (const key of Object.keys(a)) if (!known.has(key)) throw new Error(`REUSE.toml 第 ${k + 1} 个 [[annotations]]：不认识的键 ${key}`);
@@ -95,7 +99,7 @@ export function parseReuseToml(text) {
     if (!arr(a.path).length) throw new Error(`REUSE.toml 第 ${k + 1} 个 [[annotations]]：缺 path`);
     return { path: arr(a.path), precedence, copyright: arr(a['SPDX-FileCopyrightText']), license: arr(a['SPDX-License-Identifier']), regexps: arr(a.path).map(globToRegExp) };
   });
-  return doc;
+  return { version, annotations };
 }
 
 export function globToRegExp(glob) {
@@ -127,22 +131,36 @@ export function headerInfo(text) {
   return { licenses, copyrights };
 }
 
+// 一个文件最终适用的许可与版权。后写的 [[annotations]] 优先；closest 时文件头有就用文件头（逐项回退到 REUSE.toml）。
+export function resolveFile(doc, rel, hdr = { licenses: [], copyrights: [] }) {
+  let ann = null;
+  for (const a of doc.annotations) if (a.regexps.some(re => re.test(rel))) ann = a;
+  if (ann && ann.precedence === 'override') return { licenses: ann.license, copyrights: ann.copyright, annotation: ann };
+  if (ann && ann.precedence === 'aggregate') return { licenses: [...ann.license, ...hdr.licenses], copyrights: [...ann.copyright, ...hdr.copyrights], annotation: ann };
+  return {
+    licenses: hdr.licenses.length ? hdr.licenses : (ann ? ann.license : []),
+    copyrights: hdr.copyrights.length ? hdr.copyrights : (ann ? ann.copyright : []),
+    annotation: ann,
+  };
+}
+
 const ID_OK = /^(LicenseRef-[A-Za-z0-9.-]+|[A-Za-z0-9][A-Za-z0-9.+-]*)$/;
+
+export function loadReuse(root) {
+  const tomlPath = path.join(root, 'REUSE.toml');
+  if (!fs.existsSync(tomlPath)) return { doc: null, error: '仓库根目录没有 REUSE.toml：无法按路径查到许可' };
+  try { return { doc: parseReuseToml(fs.readFileSync(tomlPath, 'utf8')), error: null }; } catch (e) { return { doc: null, error: e.message }; }
+}
 
 export function reuseReport({ root, files, read }) {
   const problems = [];
-  const err = (file, message, hint) => problems.push({ level: 'error', file, message, hint });
-  const tomlPath = path.join(root, 'REUSE.toml');
-  if (!fs.existsSync(tomlPath)) {
-    err('REUSE.toml', '仓库根目录没有 REUSE.toml：无法按路径查到许可', '按 docs/rights/licensing.md 补上 REUSE.toml');
+  const err = (file, message, hint, level = 'error') => problems.push({ level, file, message, hint });
+  const { doc, error } = loadReuse(root);
+  if (!doc) {
+    err('REUSE.toml', error, '照 REUSE 规范 3.3 的写法改（只用字符串、整数和字符串数组）；写法说明见 docs/rights/licensing.md');
     return { problems, stats: null };
   }
-  let doc;
-  try { doc = parseReuseToml(fs.readFileSync(tomlPath, 'utf8')); } catch (e) {
-    err('REUSE.toml', e.message, '照 REUSE 规范 3.3 的写法改；只用字符串、整数和字符串数组');
-    return { problems, stats: null };
-  }
-  if (doc.version !== 1) err('REUSE.toml', `version 应为 1，现在是 ${doc.version}`, '第一行写 version = 1');
+  if (doc.version !== 1) err('REUSE.toml', `version 应为 1，现在是 ${doc.version}`, '第一个键写 version = 1');
   const licDir = path.join(root, 'LICENSES');
   const licFiles = fs.existsSync(licDir) ? fs.readdirSync(licDir).filter(f => !f.startsWith('.')) : [];
   const available = new Map();   // 标识 → 文件名
@@ -154,24 +172,20 @@ export function reuseReport({ root, files, read }) {
   const used = new Map();        // 标识 → 首个用到它的文件
   const useId = (expr, file) => { for (const id of licenseIds(expr)) if (!used.has(id)) used.set(id, file); };
   let covered = 0, viaHeader = 0;
-  const uncovered = [];
+  const uncovered = [], partial = [];
   for (const rel of files) {
     if (isReuseIgnored(rel)) continue;
-    let ann = null;
-    for (const a of doc.annotations) if (a.regexps.some(re => re.test(rel))) ann = a;   // 后写的条目优先
     let hdr = { licenses: [], copyrights: [] };
-    if (!ann || ann.precedence !== 'override') {
-      const e = read(rel);
-      if (e && e.text != null) hdr = headerInfo(e.text);
-    }
-    let lic = [], cr = [];
-    if (ann && ann.precedence === 'override') { lic = ann.license; cr = ann.copyright; }
-    else if (ann && ann.precedence === 'aggregate') { lic = [...ann.license, ...hdr.licenses]; cr = [...ann.copyright, ...hdr.copyrights]; }
-    else { lic = hdr.licenses.length ? hdr.licenses : (ann ? ann.license : []); cr = hdr.copyrights.length ? hdr.copyrights : (ann ? ann.copyright : []); }
+    const e = read(rel);
+    if (e && e.text != null) hdr = headerInfo(e.text);
+    const r = resolveFile(doc, rel, hdr);
     if (hdr.licenses.length) viaHeader++;
-    for (const l of lic) useId(l, rel);
-    if (lic.length && cr.length) covered++;
-    else uncovered.push({ rel, missing: [!lic.length && '许可', !cr.length && '版权'].filter(Boolean).join('与') });
+    if (!r.annotation || r.annotation.precedence !== 'override') {
+      if ((hdr.licenses.length > 0) !== (hdr.copyrights.length > 0)) partial.push({ rel, has: hdr.licenses.length ? '许可' : '版权' });
+    }
+    for (const l of r.licenses) useId(l, rel);
+    if (r.licenses.length && r.copyrights.length) covered++;
+    else uncovered.push({ rel, missing: [!r.licenses.length && '许可', !r.copyrights.length && '版权'].filter(Boolean).join('与') });
   }
   // 未覆盖的文件按目录归并，避免一次刷几百行
   const groups = new Map();
@@ -180,8 +194,9 @@ export function reuseReport({ root, files, read }) {
     const g = groups.get(dir) || { n: 0, sample: u.rel, missing: u.missing };
     g.n++; groups.set(dir, g);
   }
-  for (const [dir, g] of groups) err(g.sample, `${g.n} 个文件查不到${g.missing}信息（${dir}${g.n > 1 ? ' 等' : ''}）`, '在 REUSE.toml 里给这些路径加一条 [[annotations]]，或在文件头写 SPDX 许可与版权行');
+  for (const [dir, g] of groups) err(g.sample, `${g.n} 个文件查不到${g.missing}信息（${dir}${g.n > 1 ? ' 等' : ''}）`, '在 REUSE.toml 里给这些路径加一条 [[annotations]]，或在文件头写 SPDX 许可与版权两行');
+  for (const p of partial) err(p.rel, `文件头只写了${p.has}一行（SPDX），另一半要靠 REUSE.toml 补`, '许可行与版权行两行写全；写法见 docs/rights/licensing.md「文件头」', 'warn');
   for (const [id, file] of used) if (!available.has(id)) err(file, `用到的许可 ${id} 在 LICENSES/ 里没有全文`, `把 ${id} 的许可全文放到 LICENSES/${id}.txt`);
   for (const [id, f] of available) if (!used.has(id)) err(`LICENSES/${f}`, `LICENSES/${f} 没有任何文件用到`, '删掉它，或在 REUSE.toml 里给用到它的路径标上');
-  return { problems, stats: { files: files.length, covered, viaHeader, uncovered: uncovered.length, licenses: [...used.keys()].sort() } };
+  return { problems, stats: { files: files.length, covered, viaHeader, uncovered: uncovered.length, partialHeaders: partial.length, licenses: [...used.keys()].sort() } };
 }
