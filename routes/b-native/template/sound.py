@@ -2,7 +2,8 @@
 """{{TITLE}} 的声音：远风 + 远处水面 + 片名落定时一声玻璃铃 + 很低的持续音，全部用 engine/audio。
 由 engine/native/prepare.mjs 调用：PYTHONPATH = 仓库根，BNE_OUT = 输出 wav，BNE_DUR = 片长（秒），BNE_FILM = 作品目录。
 玻璃铃的时刻读 film.json 的 events（id = "title" 的帧号）——画面与声音用同一个帧号，改一处两边一起动。
-混音按 −16 LUFS 出；交付响度（−14 LUFS、真峰值 ≤ −1 dBTP）由渲染入口按实测线性增益统一做。"""
+混音直接定到 −14 LUFS、真峰值限制在 −1.5 dBTP（engine.audio.mixing.loudness_to 带真峰值限制器）；渲染入口再按实测
+做纯线性增益核对——峰值与响度之比太大时它拒绝出片（exit 4），所以限峰要在这里做。"""
 import json
 import os
 from pathlib import Path
@@ -28,7 +29,7 @@ dsp.place(y, drone * np.minimum(1, t / 1.2) * .01, 0, 1, 0)
 dsp.place(y, synth.glass_tone(880, 1.8, decay=.35, octave=.2), LAND, .05, -.25)   # 铃在左：片名在画左
 
 y = dsp.fade(y, .2, .6)
-y, gain, _ = mixing.loudness_to(y, -16.0, -1.5)
+y, gain, _ = mixing.loudness_to(y, -14.0, -1.5)
 OUT.parent.mkdir(parents=True, exist_ok=True)
 sf.write(OUT, y, dsp.SR, subtype='PCM_24')
 print(f'{OUT}  {D:.2f}s  玻璃铃 {LAND:.3f}s  总增益 {gain:+.1f} dB')

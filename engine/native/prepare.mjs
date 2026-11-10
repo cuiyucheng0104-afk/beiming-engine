@@ -10,7 +10,8 @@
 //              [{ to, module, export, args, … }]       由代码生成：engine/native/bridge/export.mjs（three.js 对象 → GLB + 回读）
 //              [{ to, recipe, … }]                     由配方生成（复杂生物）
 //   sequences  [{ to, page|video|frames, from, until, fps, size, cell, output?, alpha?, crop? }]
-//                                                      序列帧：engine/native/sequence.mjs（page 指满足页面约定的作品目录）
+//                                                      序列帧：engine/native/sequence.mjs（page 指满足页面约定的作品目录）；
+//                                                      fps 不写取作品帧率，size（page 的渲染尺寸）不写取作品画面尺寸
 //   audio      { script, out }                          运行 Python 声音脚本（PYTHONPATH = 仓库根，可直接 from engine.audio import …）
 //                                                      环境变量 BNE_OUT（输出 wav 绝对路径）、BNE_DUR（秒）、BNE_FILM（作品目录）
 // 每个产物先写临时文件、通过检查后才换名到正式路径；最后原子地写 media/prepared.json：
@@ -83,7 +84,7 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
     if (!kind) throw new CliError(EXIT.CONTRACT, 'sequence-entry', `sequences 条目要有 page / video / frames 之一：${JSON.stringify(s)}`);
     const src = need(resolve(dir, s[kind]), kind === 'page' ? '页面作品目录' : kind === 'video' ? '视频' : '图片目录');
     const out = resolve(media, name(s.to));
-    const sheet = await makeSequence({ kind, src, from: s.from ?? 0, until: s.until, fps: s.fps ?? spec.fps, size: s.size, cell: s.cell, out, query: s.query || '', output: s.output || 'atlas', alpha: Boolean(s.alpha), crop: s.crop });
+    const sheet = await makeSequence({ kind, src, from: s.from ?? 0, until: s.until, fps: s.fps ?? spec.fps, size: s.size ?? [spec.width, spec.height], cell: s.cell, out, query: s.query || '', output: s.output || 'atlas', alpha: Boolean(s.alpha), crop: s.crop });
     log(`序列帧 ${s.to}：${kind} → ${sheet.frames} 帧${sheet.grid ? `，图集 ${sheet.grid.join('×')} 格` : '，逐帧 PNG'}`);
     const base = name(s.to);
     made.push(base, s.output === 'frames' ? `${base}.json` : base.replace(/\.png$/i, '.json'));
@@ -114,7 +115,9 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
 
   const hashes = {};
   for (const f of made) if (existsSync(resolve(media, f))) hashes[f] = await hashAsset(resolve(media, f));
-  const old = existsSync(resolve(media, 'prepared.json')) ? JSON.parse(await readFile(resolve(media, 'prepared.json'), 'utf8')) : {};
+  // 只有 --only 时才沿用上次的记录（其余类别没重做）；完整准备从零记，film.json 里删掉的素材不会留在记录里
+  let old = {};
+  if (only && existsSync(resolve(media, 'prepared.json'))) { try { old = JSON.parse(await readFile(resolve(media, 'prepared.json'), 'utf8')); } catch { old = {}; } }
   const record = {
     schemaVersion: 1, film: posix(relative(ROOT, dir)), preparedAt: new Date().toISOString(), tools,
     inputs: { ...(old.inputs || {}), ...inputs }, assets: { ...(old.assets || {}), ...hashes },

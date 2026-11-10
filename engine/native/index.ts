@@ -5,7 +5,8 @@
 //   math.ts     确定性数学与随机（直接 re-export engine/core/math.js 与 clock.js）+ sinHash + ease
 //   palette.ts  色板：从作品的 palette.json 读、校验、按名取色
 //   camera.tsx  ShotCamera / shotAt：分段机位曲线
-//   view.js     纯函数：project / cardOnScreen / edgeVisible / screenBox / overlap（世界 → 屏幕投影，Node 测试也用）
+//   view.js     纯函数：project / cardOnScreen / edgeVisible / screenBox / overlap（世界 → 屏幕投影，Node 测试也用）、
+//               skyShift（页面层天空跟镜头转）、headingYaw / behind（载具朝速度方向、尾迹在船尾后）
 //   layers.tsx  Backdrop（二维底板视差）、PlateCard（三维绘画面片）、SequencePlane（序列帧图集面片）、
 //               FrameSequence（逐帧 PNG 叠层）、PaperOverlay（整幅纸纹，一拍二换纸）、Vignette（整幅暗角）
 //   toon.tsx    place、ToonMesh / ToonBox（带卡通材质的基本体）、ToonModel（GLB + 分材质卡通覆盖）、toonFromShade
@@ -18,7 +19,7 @@
 export * from './math.ts';
 export * from './palette.ts';
 export * from './camera.tsx';
-export { project, cardRect, cardOnScreen, edgeVisible, screenBox, overlap } from './view.js';
+export { project, unproject, cardRect, cardAxes, cardInView, faceYaw, cardOnScreen, edgeVisible, screenBox, overlap, skyShift, headingYaw, behind } from './view.js';
 export * from './layers.tsx';
 export * from './toon.tsx';
 export * from './title.tsx';

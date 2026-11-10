@@ -1,0 +1,10 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>北冥 · 毛笔片名（原生例片的序列帧来源）</title>
+<!-- 只画片名的 A 路页面：透明背景，满足页面约定（window.DUR / render(t) / READY / TEXTS）。
+     准备阶段由 engine/native/prepare.mjs 经 sequence.mjs 逐帧渲成透明 PNG（film.json 的 sequences 条目），
+     原生端用 <FrameSequence> 叠在页面层。单独看：在仓库根起任意静态服务器，打开 examples/raea/title/index.html，
+     控制台里 render(0.5)。 -->
+<style>html,body{margin:0;background:transparent;overflow:hidden}canvas{display:block}</style>
+<canvas id="title"></canvas>
+<script type="module" src="./title.js"></script>

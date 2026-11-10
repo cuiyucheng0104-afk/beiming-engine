@@ -4,23 +4,33 @@
   "dur": 10,
   "fps": 24,
   "size": [1920, 1040],
+  "events": [
+    { "id": "horn", "frame": 11, "visual": "第一镜：渡船在画面中下方前行", "audio": "低船笛" },
+    { "id": "kun-call", "frame": 89, "visual": "第二镜开始：鲲眼近景", "audio": "鲲鸣抬起（三次回声）" },
+    { "id": "blink", "frame": 111, "visual": "鲲眼睑完全闭合（Swim 片段 6.625 秒，一拍三）", "audio": "一次细小铃音" },
+    { "id": "chord", "frame": 142, "visual": "第二镜末尾、切全景之前", "audio": "弓弦和弦进入" },
+    { "id": "title", "frame": 194, "visual": "片名「北」起笔（毛笔逐笔写出，0.86 秒写完）", "audio": "玻璃铃，第二声落在「冥」起笔" }
+  ],
+  "aigc": { "contains": true, "note": "天空、云、天际线、江面底板由 AI 生成后人工整理（assets/plates/plates.json）；鲲、渡船、水面着色与片名由代码合成" },
+  "credits": [
+    { "what": "片名字体子集（马善政，只含「北冥」两字）", "license": "OFL-1.1", "source": "fonts/LICENSE.md" },
+    { "what": "原生运行时（上游项目名 RAEA）", "license": "FSL-1.1-ALv2", "source": "engine/native/runtime.lock.json" }
+  ],
   "native": {
     "entry": "film.tsx",
-    "output": "delivery/beiming-raea-10s.mp4",
     "images": [
       { "to": "sky_dawn.png", "from": "../../assets/plates/sky_dawn.png" },
       { "to": "clouds_back.png", "from": "../../assets/plates/clouds_back.png" },
       { "to": "skyline_pudong.png", "from": "../../assets/plates/skyline_pudong.png" },
-      { "to": "clouds_front_a.png", "from": "../../assets/plates/clouds_front_a.png" },
-      { "to": "clouds_front_b.png", "from": "../../assets/plates/clouds_front_b.png" },
+      { "to": "clouds_front_a.png", "from": "../../assets/plates/clouds_front_a.png", "edge": { "left": 0.14, "top": 0.12, "bottom": 0.14, "jitter": 0.7, "lobes": 4, "seed": 3 } },
+      { "to": "clouds_front_b.png", "from": "../../assets/plates/clouds_front_b.png", "edge": { "right": 0.14, "top": 0.12, "bottom": 0.14, "jitter": 0.7, "lobes": 4, "seed": 5 } },
       { "to": "river.png", "from": "../../assets/plates/river.png" },
-      { "to": "FONT-LICENSE.md", "from": "../../fonts/LICENSE.md" }
+      { "to": "paper.png", "from": "../../assets/plates/paper.png" }
     ],
     "models": [
       {
         "to": "kun.glb", "recipe": "tools/export-kun-browser.mjs", "lod": 0.5,
         "report": "kun-report.json", "preview": "kun-preview.png",
-        "sources": ["../../src/kun.js", "../../engine/form/bend.js"],
         "validate": {
           "animated": true, "clip": "Swim", "duration": 10, "skinnedMin": 2,
           "nodes": ["kun-fin-R", "kun-fin-L", "kun-eyelid-upper-R", "kun-eyelid-lower-L"],
@@ -33,6 +43,9 @@
         "meta": { "forward": "+X", "up": "+Y", "lights": "Original emissive window and navigation-light meshes; no source punctual lights" },
         "report": "ferry-report.json"
       }
+    ],
+    "sequences": [
+      { "to": "title", "page": "title", "from": 0, "until": 1.0, "output": "frames", "alpha": true }
     ],
     "audio": { "script": "tools/sound.py", "out": "mix.wav" }
   }
