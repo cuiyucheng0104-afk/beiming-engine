@@ -104,6 +104,12 @@ function spawnTurn(run, features, { message, turn, sessionId, firstTurn, model, 
   fs.mkdirSync(tdir, { recursive: true });
   const out = path.join(tdir, `turn-${String(turn).padStart(2, '0')}.jsonl`);
   const err = path.join(tdir, `turn-${String(turn).padStart(2, '0')}.stderr.log`);
+  // 上次在这一轮被中断：留下的半截记录改名保存（里面的工具调用仍是证据），不覆盖
+  if (fs.existsSync(out)) {
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, '');
+    fs.renameSync(out, path.join(tdir, `turn-${String(turn).padStart(2, '0')}.partial-${stamp}.jsonl`));
+    if (fs.existsSync(err)) fs.renameSync(err, path.join(tdir, `turn-${String(turn).padStart(2, '0')}.partial-${stamp}.stderr.log`));
+  }
   const args = ['-p', message, '--output-format', 'stream-json', '--verbose'];
   if (model) args.push('--model', model);
   if (effort) args.push('--effort', effort);

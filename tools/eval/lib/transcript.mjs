@@ -1,7 +1,7 @@
 // 会话记录解析：把两种 Claude Code 会话记录归一成同一组事件。
 //
 //   1. stream-json：`claude -p --output-format stream-json --verbose` 的标准输出，run.mjs 每轮存成
-//      transcript/turn-NN.jsonl；子代理的消息带 parent_tool_use_id。
+//      transcript/turn-NN.jsonl（被中断的半轮另存 turn-NN.partial-<时间>.jsonl）；子代理的消息带 parent_tool_use_id。
 //   2. 会话 JSONL：Claude Code 存在 <配置目录>/projects/<项目>/<会话>.jsonl 的原始记录，run.mjs finish 时
 //      复制到 transcript/session/；子代理记录带 isSidechain:true（agentId 区分）。评测方手工操作交互式
 //      会话时只有这一种。
@@ -120,8 +120,10 @@ export function parseRecords(t, records, { source, turn: fixedTurn = null, file 
 export function loadTranscript(runDir) {
   const t = emptyTranscript();
   const dir = path.join(runDir, 'transcript');
+  // turn-NN.jsonl 是完整的一轮；turn-NN.partial-<时间>.jsonl 是被中断的半轮（排在同号完整轮之前），里面的调用同样计入
   const streamFiles = fs.existsSync(dir)
-    ? fs.readdirSync(dir).filter(f => /^turn-\d+\.jsonl$/.test(f)).sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]))
+    ? fs.readdirSync(dir).filter(f => /^turn-\d+(\.partial-[0-9TZ]+)?\.jsonl$/.test(f))
+      .sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]) || (a.includes('.partial-') ? -1 : 1) - (b.includes('.partial-') ? -1 : 1) || a.localeCompare(b))
     : [];
   if (streamFiles.length) {
     t.source = 'stream';

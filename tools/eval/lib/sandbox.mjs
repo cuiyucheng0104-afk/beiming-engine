@@ -10,7 +10,7 @@
 //     TMPDIR/TMP/TEMP 指向本次运行的 tmp/。凭据只透传环境变量，工具不读取、不落盘。
 // 接口：resolveEvalRoot(opt)、assertEvalRoot(root, repo, { isolation, allowAncestors })、ancestorInstructionFiles(dir)、
 //       cloneAt(repo, commit, dest)、prepareEnvironment(wt, repo, mode, log)、seedWorktree(wt, seed)、
-//       captureBaseline(run)、writeSessionConfig(runDir, opts)、sessionEnv(run, extra)、writeWavTone(file, seconds)
+//       captureBaseline(run)、writeSessionConfig(runDir, opts)、sessionEnv(run, extra)、lemoEnvVars(env, home)、writeWavTone(file, seconds)
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -191,11 +191,20 @@ export function writeSessionConfig(sessionDir, { denyWeb = false } = {}) {
 }
 
 const STRIP_ENV = ['CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT', 'CLAUDE_CONFIG_DIR'];
+// 冷启动不许借用评测机现成的 Python 环境：这些变量一律不传给会话
+const COLD_STRIP_ENV = ['PYTHON', 'VIRTUAL_ENV', 'PYTHONPATH', 'PYTHONHOME', 'CONDA_PREFIX', 'CONDA_DEFAULT_ENV', 'UV_PROJECT_ENVIRONMENT'];
 
-/** 会话进程的环境变量。isolated：换 CLAUDE_CONFIG_DIR；两种模式都换 TMPDIR；冷启动另换浏览器目录。 */
+/** 值里指向家目录下 lemo-* 的环境变量名（会话会继承，等于把仓库外的风格库递给代理）。 */
+export function lemoEnvVars(env = process.env, home = homeDir()) {
+  const h = toPosix(home).replace(/\/+$/, '');
+  return Object.entries(env).filter(([, v]) => typeof v === 'string' && (toPosix(v).includes(`${h}/lemo-`) || /(^|[\s:;=])~[\\/]lemo-/.test(v))).map(([k]) => k);
+}
+
+/** 会话进程的环境变量。isolated：换 CLAUDE_CONFIG_DIR；两种模式都换 TMPDIR；冷启动另换浏览器目录、去掉现成的 Python 环境。 */
 export function sessionEnv(run, extra = {}) {
   const env = { ...process.env };
   for (const k of STRIP_ENV) delete env[k];
+  if (run.meta.environment === 'cold') for (const k of COLD_STRIP_ENV) delete env[k];
   if ((run.meta.isolation ?? 'isolated') === 'isolated') env.CLAUDE_CONFIG_DIR = path.join(run.sessionDir, 'config');
   env.TMPDIR = run.tmpDir;
   env.TMP = run.tmpDir;
