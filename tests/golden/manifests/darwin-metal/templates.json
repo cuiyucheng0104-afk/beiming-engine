@@ -1,0 +1,178 @@
+{
+ "schema": "beiming-golden-manifest/v1",
+ "set": "templates",
+ "setHash": "b3915d2e54e8b83dbd7c45fbfb1b68979808e4ed0739dab3d469b65528cad43a",
+ "platformKey": "darwin-metal",
+ "device": "apple-m5-pro",
+ "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+ "browser": "153.0.8010.12",
+ "env": {
+  "os": "darwin 25.5.0 arm64",
+  "node": "24.13.1",
+  "playwright": "1.63.0",
+  "three": "0.170.0",
+  "angle": "default",
+  "gpuPolicy": "required"
+ },
+ "source": {
+  "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+  "dirty": false,
+  "renderedAt": "249efccc25cacd0dc9218be8110402eac6c45be3"
+ },
+ "capturedAt": "2026-11-10T09:18:53.611Z",
+ "framesDigest": "e94b3d076b3b764a1e282f6304500d0c1d3e9b69400a10dc8f0eb465a3ef3e77",
+ "frameCount": 12,
+ "approval": {
+  "by": "P08 属主（Claude Opus 5.5 工作包代理，待集成负责人复核）",
+  "reason": "G0 首次建立 darwin-metal 回归基线。底座 routes-template@abfdc83（含 main 62ad28e）；与合并前 8c07cb8 逐帧比对的全部差异已按文件还原实验归因到 62ad28e 的有意修复（R24 渡船航行灯、R30 鸽群黑边、R66 导航线线头；4K 专属 R17/R19/R31/R32/R45；engine/look/paper.js 程序化纸纹中性点；engine/shade/surface.js 风化分支），无法归因的差异 0 帧",
+  "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+  "at": "2026-11-10T09:18:53.613Z",
+  "ref": "docs/style-baselines/records/2026-11-10-darwin-metal-g0.md"
+ },
+ "frames": [
+  {
+   "id": "tpl:a@1920x1040#t=0.2500",
+   "page": "tpl:a",
+   "t": 0.25,
+   "w": 1920,
+   "h": 1040,
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "57a8b39e9028a0b71c1877cf886eabc0adb7d5512c0464e113ccf721bfdefebd",
+   "pngSha256": "12f215d3355653cb92786dc03c05bcc3800e6da5386858b21a9436bf452dcc1f",
+   "bytes": 2213727
+  },
+  {
+   "id": "tpl:a@1920x1040#t=0.7500",
+   "page": "tpl:a",
+   "t": 0.75,
+   "w": 1920,
+   "h": 1040,
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "930fafbef7acae13a0d7566ec5ae580ad28704d1e6227817894d662a16a89b18",
+   "pngSha256": "aae366b085586750ba322201a776b24c483a9aa5f7e4af39a905abb16c3dda8d",
+   "bytes": 2214987
+  },
+  {
+   "id": "tpl:a@1920x1040#t=1.2500",
+   "page": "tpl:a",
+   "t": 1.25,
+   "w": 1920,
+   "h": 1040,
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "5f15768748227ef2d1b8484e91a3d6d8cccfadf120e2e9a2c6a428c8f6980269",
+   "pngSha256": "f078f5760f84ea88d8e51a99835ce83ba8e29831f0edb948910e7d3c275c82b4",
+   "bytes": 2224616
+  },
+  {
+   "id": "tpl:a@1920x1040#t=1.7500",
+   "page": "tpl:a",
+   "t": 1.75,
+   "w": 1920,
+   "h": 1040,
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "600af36fd665626363dcd1b40a536d00fafe2e5d88b780c8fd54744378dcc6bb",
+   "pngSha256": "da328d287109b9b4d02e537b76bcb3d1b11db22455ea75e4720b5ecfd3e09d2d",
+   "bytes": 2234247
+  },
+  {
+   "id": "tpl:a@1920x1040#t=2.2500",
+   "page": "tpl:a",
+   "t": 2.25,
+   "w": 1920,
+   "h": 1040,
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "4d0eea23ed6c841384a9ba54c024592f1df5913be09a17b43ec0e4437b2011d2",
+   "pngSha256": "883380ce4cb34187c93108ec7991b37bfa4caeb712d0585fa19e5829e21430dd",
+   "bytes": 2236737
+  },
+  {
+   "id": "tpl:a@1920x1040#t=2.7500",
+   "page": "tpl:a",
+   "t": 2.75,
+   "w": 1920,
+   "h": 1040,
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "24752a660aee7c9205d9d5b49cf827ce230c10792977c98449a0f68b057781af",
+   "pngSha256": "12775b8ccbe26708d078bffe5ff27db6dfb956d10e5f6939b7af654e07cd9e7c",
+   "bytes": 2236839
+  },
+  {
+   "id": "tpl:c@1920x1080#t=0.2500",
+   "page": "tpl:c",
+   "t": 0.25,
+   "w": 1920,
+   "h": 1080,
+   "width": 1920,
+   "height": 1080,
+   "pixelSha256": "250265a8680f31417f0e4752fbaf8fc527f3a66b6db4b352b921afc23d0d3494",
+   "pngSha256": "b71a59ba9f6276038677e9bc5156d01e5324e0ae2bf744c6517465502c7a9a60",
+   "bytes": 913434
+  },
+  {
+   "id": "tpl:c@1920x1080#t=0.7500",
+   "page": "tpl:c",
+   "t": 0.75,
+   "w": 1920,
+   "h": 1080,
+   "width": 1920,
+   "height": 1080,
+   "pixelSha256": "92f51c2e662130cee4b9c7484427d99b4c21a412fffa26365495137991199208",
+   "pngSha256": "691a7326c8baf8f12aec4be7d74e290c4326148e825e6132783b610e00d6db28",
+   "bytes": 913117
+  },
+  {
+   "id": "tpl:c@1920x1080#t=1.2500",
+   "page": "tpl:c",
+   "t": 1.25,
+   "w": 1920,
+   "h": 1080,
+   "width": 1920,
+   "height": 1080,
+   "pixelSha256": "519fa075c1dd852ed87104f1b06849ab153c9178de9de37e328d228bf0bb2203",
+   "pngSha256": "867bb327d3f44ca950c1158408898f90f7cb6b53303ab57f7b69176ec76f0eb5",
+   "bytes": 912149
+  },
+  {
+   "id": "tpl:c@1920x1080#t=1.7500",
+   "page": "tpl:c",
+   "t": 1.75,
+   "w": 1920,
+   "h": 1080,
+   "width": 1920,
+   "height": 1080,
+   "pixelSha256": "8a342ae841c57a9f4819f33f6f6a19b16b17986c6acf796079b2ff135df0e9d1",
+   "pngSha256": "a8f1ceb22eee08d05873b2dfed0af15086dc8d4e1dbf9ebeb9f7cad5534f2be0",
+   "bytes": 909901
+  },
+  {
+   "id": "tpl:c@1920x1080#t=2.2500",
+   "page": "tpl:c",
+   "t": 2.25,
+   "w": 1920,
+   "h": 1080,
+   "width": 1920,
+   "height": 1080,
+   "pixelSha256": "827bf146bad6607b97b74a03f655e990cb608fc5a1891bfbd4fb8975ef2504f1",
+   "pngSha256": "b978bc4f5b53ae4fad82985d2e55fd38d46e6edc4dd0ea05b1f8f301fd6a73df",
+   "bytes": 915644
+  },
+  {
+   "id": "tpl:c@1920x1080#t=2.7500",
+   "page": "tpl:c",
+   "t": 2.75,
+   "w": 1920,
+   "h": 1080,
+   "width": 1920,
+   "height": 1080,
+   "pixelSha256": "375b9fc26ce6f6fa2108be877ad58668cce88647080de044230f47c82f9cfa29",
+   "pngSha256": "3188e1c8148bd59842ea0621f33e067d97c54d21a1fb2be3db59d7bde3cec09d",
+   "bytes": 917495
+  }
+ ]
+}
