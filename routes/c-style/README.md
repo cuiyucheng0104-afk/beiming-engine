@@ -137,7 +137,7 @@ films/<名字>/
 3. 渲染日志里没有 `[字体缺字]`、`[页面错误]`。
 4. 看片：`still.mjs` 渲 3–5 个打点前后的时刻；完整看一遍带声音的成片（"代理检查通过"不等于用户认可）。
 5. 确定性：同一 `--workers` 两次渲染 `ffmpeg -i out/video.mp4 -f framemd5 -` 逐帧一致；`still.mjs` 乱序渲同一时刻得到同一张图。
-6. 改了 C 的工具或索引：`node tools/c-styles.mjs --check`、`node --test tests/c-style/`、`node tools/repo-check/rules/route-c/index.mjs`、`python3 tools/casebook.py check`。
+6. 改了 C 的工具或索引：`node tools/c-styles.mjs --check`、`node --test "tests/c-style/*.test.mjs"`、`node tools/repo-check/rules/route-c/index.mjs`、`python3 tools/casebook.py check`。
 7. 状态分开写：已出片、技术检查通过、人工认可是三件事。
 
 ## 边界与常见坑
