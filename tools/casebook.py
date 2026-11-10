@@ -7,6 +7,7 @@
   restore <案例编号>        还原到独立目录（默认 out/casebook/）；默认不还原内部素材（--include-internal）
   rehash --patch <补丁>     按补丁更新源文件的 sha256 与大小（例如去掉签名链接的查询串之后）
   rights [--write|--check]  按 docs/rights/register.json 算出每个案例的权利字段并写回或核对
+  index [--check]          由 catalog 生成案例卡、INDEX.md、画廊数据与 NOTICES 署名段
 """
 import argparse
 import difflib
@@ -1590,17 +1591,332 @@ def write_manifest(manifest, path=None):
     return digest(body)
 
 
+# --- index: views generated from the catalog ---------------------------------------------------------------
+# cases/entries/<id>.md、cases/INDEX.md、cases/index.html 的数据与 cases/NOTICES.md 的署名段都由 catalog 生成（index 命令），
+# 不要手改；index --check 核对它们是最新的（规范检查 cases.index 调用同一条命令）。
+
+GROUPS = [   # (分组, 小节标题, 小节说明；{site} = 上站数量，{n} = 记录数)
+    ('styles', '北冥代码动画风格 · {n} 部风格实验', '{site_sentence}每部 18 到 20 秒，同一套代码骨架换一组笔触与材质。'),
+    ('ppt-stories', 'PPT 故事介绍片 · {n} 部', '{site_sentence}做法见 [PPT 怎样变成代码动画](../docs/cases/ppt-animation.md)。'),
+    ('ppt-keynote', '发布会动画 · {works} 个工程与 {support} 组共用资源', '{site} 个工程在作品站展示；共用资源只在归档里。'),
+    ('beiming-labs', '北冥画风实验 · {n} 组', '不上站：画风实验和未获认可的试作。'),
+    ('local-films', '其他动画与预演 · {n} 个', '不上站：其他题材的成片、交互页面实验和技术预演。'),
+]
+TECH_LABEL = {'rendered': '历史成片', 'experiment': '画风实验', 'previs': '技术预演', 'interactive': '交互实验', 'support': '共用资源'}
+CARD_LABEL = {'rendered': '历史成片·{date} 归档时未重渲', 'experiment': '画风实验·非正式成片', 'previs': '技术预演·非正式作品',
+              'interactive': '交互/页面实验', 'support': '共用资源'}
+APPROVAL_LABEL = {'approved': '用户认可', 'rejected': '未获认可', 'unreviewed': '未审'}
+CLEARANCE_LABEL = {'public': '公开', 'internal': '内部', 'client-confidential': '客户保密'}
+SITE_URL = 'https://cuiyucheng0104-afk.github.io/beiming-engine/'
+WORKS_META = ROOT / 'site' / 'data' / 'works-meta.json'      # 作品站的策展数据（只读）：上站作品的片名与画风名
+PY_CMD = 'node tools/env/py.mjs tools/casebook.py'
+ATTRIBUTION_START = '<!-- casebook index:署名 开始（由 tools/casebook.py index 生成，不要手改） -->'
+ATTRIBUTION_END = '<!-- casebook index:署名 结束 -->'
+
+
+def fmt_seconds(value):
+    text = f'{round(value, 2):.2f}'.rstrip('0').rstrip('.')
+    return text or '0'
+
+
+def fmt_duration_label(seconds):
+    """19.79 秒 / 3 分 14.52 秒 / 3 分 / —（观看版的长度）。"""
+    if not seconds:
+        return '—'
+    minutes, rest = divmod(round(seconds, 2), 60)
+    rest = round(rest, 2)
+    if minutes and not rest:
+        return f'{int(minutes)} 分'
+    return (f'{int(minutes)} 分 ' if minutes else '') + f'{fmt_seconds(rest)} 秒'
+
+
+def md_target(path):
+    """A relative link target that Markdown parses: spaces and brackets percent-encoded, the rest as written."""
+    return ''.join({' ': '%20', '(': '%28', ')': '%29', '<': '%3C', '>': '%3E'}.get(ch, ch) for ch in path)
+
+
+def md_cell(text):
+    return str(text).replace('|', '\\|').replace('\n', ' ')
+
+
+def read_works_meta():
+    try:
+        return json.loads(WORKS_META.read_text(encoding='utf-8')).get('works') or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def case_title(case, site):
+    return ((site.get(case['id']) or {}).get('title') or case.get('displayTitle') or case['title']).strip()
+
+
+def approval_text(case):
+    appr = case.get('approval') or {}
+    status = appr.get('status', 'unreviewed')
+    if status == 'unreviewed':
+        return '未审：仓库里没有用户认可的记录；上作品站不等于用户认可'
+    if status == 'rejected':
+        reasons = '；'.join(appr.get('reasons') or [PENDING_REASON])
+        return f'未获认可：{reasons}（记录人：{appr.get("by") or PENDING}；日期：{appr.get("date") or PENDING}）'
+    return f'用户认可（{appr.get("by")}，{appr.get("date")}）'
+
+
+def render_card(manifest, case, site):
+    cid, tech = case['id'], (case.get('technical') or {}).get('status')
+    appr = (case.get('approval') or {}).get('status', 'unreviewed')
+    rights = case.get('rights') or {}
+    label = '画面效果未获认可' if appr == 'rejected' else CARD_LABEL[tech].format(date=manifest.get('date', PENDING))
+    L = [f'# {case["title"]}', '', f'**{label}** · `{cid}`', '']
+    if case.get('summary'):
+        L += [case['summary'], '']
+    if case.get('poster'):
+        L += [f'![历史画面](../{case["poster"]})', '']
+    if case.get('preview'):
+        L += [f'[观看/下载压缩预览]({case["preview"]["url"]}) · 历史成片转码，非重新渲染。', '']
+    if case.get('notes'):
+        L += [*case['notes'], '']
+    qa = ((case.get('technical') or {}).get('qa') or {}).get('status', 'not-run')
+    tech_text = TECH_LABEL[tech] + ('（归档时未重渲' if tech == 'rendered' else '（') + \
+        ('；机器 QA 未跑）' if qa == 'not-run' else f'；机器 QA：{qa}）')
+    tech_text = tech_text.replace('（；', '（')
+    L += ['## 状态与权利', '', '| 项 | 记录 |', '|---|---|', f'| 技术状态 | {tech_text} |',
+          f'| 用户认可 | {md_cell(approval_text(case))} |']
+    evidence = (case.get('approval') or {}).get('evidence') or []
+    if evidence:
+        L.append(f'| 认可记录出处 | {md_cell("；".join(evidence))} |')
+    for line in (case.get('approval') or {}).get('history') or []:
+        L.append(f'| 认可经过 | {md_cell(line)} |')
+    clearance = rights.get('clearance', 'public')
+    if clearance == 'public':
+        right_text = '公开归档' + ('（个别素材标为内部，restore 默认不还原，见 catalog 的文件条目）'
+                                   if any(f.get('clearance') for f in case['files']) else '')
+    else:
+        right_text = (f'{CLEARANCE_LABEL[clearance]}：含客户材料、第三方 IP 或参考图，权利方 {rights.get("owner") or PENDING}；'
+                      'restore 默认不还原其素材，产物不得用进新作品或对外物料')
+    L.append(f'| 权利 | {md_cell(right_text)} |')
+    if rights.get('register'):
+        L.append(f'| 登记类别 | {"、".join(rights["register"])}（[授权登记册](../../docs/rights/register.md)） |')
+    for line in rights.get('attributionText') or []:
+        L.append(f'| 署名 | {md_cell(line)} |')
+    ai = rights.get('aiGenerated') or {}
+    if ai.get('present') is True:
+        L.append(f'| AI 生成 | 含（{"、".join(ai.get("register") or [])}；工具与版本{ai.get("tools") or PENDING}） |')
+    L += ['', '## 源码与还原', '', '```bash', f'{PY_CMD} restore {cid} --download', '```', '',
+          f'还原位置：`out/casebook/{case["workspacePath"]}/`。只看代码可加 `--source-only`；先看要下载多少可加 `--dry-run`。'
+          '命令不运行构建。' + ('内部素材默认不还原，只为研究方法时加 `--include-internal`。' if clearance != 'public' else ''),
+          '', '| 入口 | 归档原文件 |', '|---|---|']
+    by_path = {f['path']: f for f in case['files']}
+    for path in [*case['entrypoints'], *case.get('keyFiles', ())]:
+        item = by_path[path]
+        link = f'[查看](../{md_target(item["source"])})' if 'source' in item else '素材包内'
+        L.append(f'| `{path}` | {link} |')
+    req = '；'.join(case.get('requirements') or []) or '见本工程说明与依赖文件。'
+    L += ['', f'运行前核对：{req}', '',
+          '历史脚本含本机路径还原标记。还原会替换工作区和Lemo库路径；网络服务、API、外部采样、Windows远端和旧版构建命令仍需按项目准备。'
+          '`@@ROG_HOST@@` 需用 `--rog-host` 指定才会替换；加 `--strict` 时有未替换的标记就拒绝还原。', '']
+    if case.get('artifacts'):
+        L += ['## 保留的成片版本', '', '| 文件 | 尺寸 / 秒 | 原文件包 | SHA256 |', '|---|---|---|---|']
+        packs = {p['filename']: p for p in manifest['packs']}
+        for art in case['artifacts']:
+            video = art.get('video') or {}
+            size = f'{video.get("width")}×{video.get("height")} / {float(video.get("duration") or 0):.3f}'
+            pack = packs.get(art.get('pack'), {})
+            L.append(f'| {md_cell(art["filename"])} | {size} | [{art["pack"]}]({pack.get("url", "")})，包内 `{art["member"]}` | `{art["sha256"]}` |')
+        L.append('')
+    L += ['完整文件映射见 [catalog.json](../catalog.json)。来源与署名见 [NOTICES](../NOTICES.md)，授权状态见 [授权登记册](../../docs/rights/register.md)。', '']
+    return '\n'.join(L)
+
+
+def site_counts(manifest, site):
+    on_site = {g: sum(1 for c in manifest['cases'] if c['group'] == g and c['id'] in site) for g, _, _ in GROUPS}
+    return on_site, sum(on_site.values())
+
+
+def render_index(manifest, site):
+    cases = manifest['cases']
+    on_site, total_site = site_counts(manifest, site)
+    support = sum(1 for c in cases if (c.get('technical') or {}).get('status') == 'support')
+    groups = {g: [c for c in cases if c['group'] == g] for g, _, _ in GROUPS}
+    names = {'styles': '北冥代码动画风格', 'ppt-stories': 'PPT 故事介绍片', 'ppt-keynote': '发布会动画'}
+    site_list = '、'.join(f'{names[g]} {on_site[g]}' for g in names if on_site.get(g))
+    rejected = sum(1 for c in cases if (c.get('approval') or {}).get('status') == 'rejected')
+    approved = sum(1 for c in cases if (c.get('approval') or {}).get('status') == 'approved')
+    internal = sum(1 for c in cases if (c.get('rights') or {}).get('clearance', 'public') != 'public')
+    L = ['# 北冥案例目录', '',
+         f'> 读者：要找某个旧作品、看状态或还原工程的人｜状态：由 `{PY_CMD} index` 从 `cases/catalog.json` 生成，不要手改｜'
+         f'依据：catalog 第 {manifest.get("schemaVersion", 1)} 版（{manifest.get("date")} 归档）', '',
+         f'共 {len(cases)} 条记录：{len(cases) - support} 个创作与实验工程，加 {support} 组共用资源；不是 {len(cases)} 部正式发布的作品。'
+         f'其中 {total_site} 部有观看预览的成片在[作品站]({SITE_URL})展示（{site_list}），其余只在这里归档。', '',
+         '上站作品的片名与画风名和作品站一致，取自 `site/data/works-meta.json`；其余记录的片名去掉了工程标题里的“TREATMENT”“处理方案”“风格样片”和秒数。'
+         f'原始标题见各案例卡。时长是观看版的长度。案例编号用于 `{PY_CMD} restore <编号>`。', '',
+         '每条记录有三个互相独立的状态：',
+         '',
+         '- **技术状态**：历史成片（已有成片，归档时没有重新渲染）、画风实验、技术预演、交互实验（不是正式成片）、共用资源（几个工程共用的素材，不单独成片）。',
+         f'- **用户认可**：用户认可 {approved} 条、未获认可 {rejected} 条（画面效果被否定，不作为合格画风或正式作品）、其余未审（仓库里没有用户认可的记录；上作品站不等于用户认可，挑参考片时不要当成“已认可”）。',
+         f'- **权利**：公开或内部。内部 {internal} 条含客户材料、第三方 IP 或参考图（[授权登记册](../docs/rights/register.md)）：`restore` 默认不还原其素材，不得用进新作品或对外物料。',
+         '',
+         '[画廊](index.html) · [还原方法](README.md) · [两套完整风格库](vendor/README.md) · [对比与去重](../docs/cases/comparison.md) · [案例库工具](../docs/cases/casebook.md)', '']
+    for group, title, intro in GROUPS:
+        rows = groups[group]
+        if not rows:
+            continue
+        works = sum(1 for c in rows if (c.get('technical') or {}).get('status') != 'support')
+        site_sentence = '全部在作品站展示。' if on_site[group] == len(rows) else (
+            f'{on_site[group]} 部在作品站展示。' if on_site[group] else '不上站。')
+        fill = dict(n=len(rows), works=works, support=len(rows) - works, site=on_site[group], site_sentence=site_sentence)
+        L += [f'## {title.format(**fill)}', '', intro.format(**fill), '']
+        style_col = group == 'styles'
+        L.append('| 片名 | ' + ('画风 | ' if style_col else '') + '时长 | 技术状态 | 用户认可 | 权利 | 案例编号 |')
+        L.append('|---|' + ('---|' if style_col else '') + '---:|---|---|---|---|')
+        for c in rows:
+            tech = (c.get('technical') or {}).get('status')
+            appr = (c.get('approval') or {}).get('status', 'unreviewed')
+            row = [f'[{md_cell(case_title(c, site))}](entries/{c["id"]}.md)']
+            if style_col:
+                row.append(md_cell((site.get(c['id']) or {}).get('styleName') or '—'))
+            row += [fmt_duration_label((c.get('preview') or {}).get('duration')), TECH_LABEL[tech], APPROVAL_LABEL[appr],
+                    CLEARANCE_LABEL[(c.get('rights') or {}).get('clearance', 'public')], f'`{c["id"]}`']
+            L.append('| ' + ' | '.join(row) + ' |')
+        L.append('')
+    L += render_sy_section()
+    return '\n'.join(L)
+
+
+def render_sy_section():
+    """sy-style-100 的 20 种风格（两期示例）：第三方方法库，不是本仓库的成片。"""
+    try:
+        refs = json.loads((ARCHIVE / 'references.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    demos = [e for e in refs.get('examples', ()) if e.get('repository') == 'sy' and e.get('category') == 'style-demo']
+    vol1 = {e['id'].split('/')[-1]: e for e in demos if e['id'].startswith('styles/')}
+    vol2 = {e['id'].split('/')[-1]: e for e in demos if e['id'].startswith('vol2/styles/')}
+    if not vol1:
+        return []
+    repo = next((r for r in refs.get('repositories', ()) if r.get('id') == 'sy'), {})
+    L = [f'## 方法库 · sy-style-100 的 {len(vol1)} 种风格', '',
+         f'不是本仓库的成片：第三方开源风格库（{repo.get("license", "MIT")}）在 `{repo.get("commit", "")[:8]}` 的固定快照，只读，用来学画法；'
+         '每种风格两期示例，浏览器直接打开 `index.html` 就能循环播放。lemo-opuscar 的 66 种风格就是上面的 66 部风格实验（案例的 `upstreamStyle`）。'
+         '两库合起来的选型与移植表见 [C 路线风格索引](../routes/c-style/STYLES.md)。', '',
+         '| 编号 | 风格 | 第一期示例 | 第二期示例 |', '|---|---|---|---|']
+    for key in sorted(vol1):
+        number, _, rest = vol1[key]['title'].partition(' ')
+        name = rest.split(' · ')[0]
+        first = f'[{md_cell(rest.split(" · ", 1)[-1])}](vendor/sy-style-100/styles/{key}/index.html)'
+        second = (f'[{md_cell(vol2[key]["title"].split(" · ", 1)[-1])}](vendor/sy-style-100/vol2/styles/{key}/index.html)'
+                  if key in vol2 else '—')
+        L.append(f'| {number} | {md_cell(name)} | {first} | {second} |')
+    L.append('')
+    return L
+
+
+def render_gallery(manifest, site, template):
+    """cases/index.html：模板不变，只换 const DATA=[…]; 一行的数据。"""
+    data = []
+    for c in manifest['cases']:
+        tech = (c.get('technical') or {}).get('status')
+        appr = (c.get('approval') or {}).get('status', 'unreviewed')
+        clearance = (c.get('rights') or {}).get('clearance', 'public')
+        status = '画面效果未获认可' if appr == 'rejected' else TECH_LABEL[tech] + ' · ' + APPROVAL_LABEL[appr]
+        if clearance != 'public':
+            status += ' · 内部素材'
+        preview = c.get('preview') or {}
+        data.append({'id': c['id'], 'title': case_title(c, site), 'group': c['group'], 'status': status,
+                     'poster': c.get('poster'), 'preview': preview.get('url'),
+                     'duration': round(preview['duration'], 1) if preview.get('duration') else 0})
+    head, sep, rest = template.partition('const DATA=')
+    if not sep:
+        raise CasebookError('cases/index.html 里找不到 const DATA=，模板被改坏了', hint='git checkout -- cases/index.html')
+    end = rest.find('];')
+    return head + sep + json.dumps(data, ensure_ascii=False) + rest[end + 1:]
+
+
+def render_notices(manifest, current):
+    """cases/NOTICES.md：手写正文不动，只重写两个标记之间的署名段（CC BY 署名原文，按案例汇总）。"""
+    if ATTRIBUTION_START not in current or ATTRIBUTION_END not in current:
+        raise CasebookError('cases/NOTICES.md 缺署名段的起止标记', hint=f'在文中放一对 {ATTRIBUTION_START} … {ATTRIBUTION_END}')
+    lines = {}
+    for c in manifest['cases']:
+        for text in (c.get('rights') or {}).get('attributionText') or []:
+            lines.setdefault(text, []).append(c['id'])
+    body = ['', '| 署名原文（照录案例 CREDITS） | 用到的案例 |', '|---|---|']
+    for text, ids in sorted(lines.items()):
+        body.append(f'| {md_cell(text)} | {"、".join(f"[{i}](entries/{i}.md)" for i in ids)} |')
+    body.append('')
+    head = current[:current.index(ATTRIBUTION_START) + len(ATTRIBUTION_START)]
+    tail = current[current.index(ATTRIBUTION_END):]
+    return head + '\n'.join(body) + '\n' + tail
+
+
+def index_outputs(manifest):
+    """{repository-relative path: generated text} for every view the index command owns."""
+    site = read_works_meta()
+    out = {f'cases/entries/{c["id"]}.md': render_card(manifest, c, site) for c in manifest['cases']}
+    out['cases/INDEX.md'] = render_index(manifest, site)
+    out['cases/index.html'] = render_gallery(manifest, site, (ARCHIVE / 'index.html').read_text(encoding='utf-8'))
+    out['cases/NOTICES.md'] = render_notices(manifest, (ARCHIVE / 'NOTICES.md').read_text(encoding='utf-8'))
+    return out
+
+
+def index_drift(manifest):
+    """(stale paths, extra card paths, outputs): generated views that differ from the files on disk."""
+    outputs = index_outputs(manifest)
+    stale = []
+    for rel, text in outputs.items():
+        p = ROOT / rel
+        try:
+            if p.read_bytes() != text.encode('utf-8'):
+                stale.append(rel)
+        except OSError:
+            stale.append(rel)
+    cards = {f'cases/entries/{p.name}' for p in (ARCHIVE / 'entries').glob('*.md')}
+    extra = sorted(cards - set(outputs))
+    return stale, extra, outputs
+
+
+def cmd_index(args, ctx, manifest):
+    stale, extra, outputs = index_drift(manifest)
+    if args.verify:
+        if stale or extra:
+            for rel in stale:
+                err_print(ctx, f'过期：{rel}')
+            for rel in extra:
+                err_print(ctx, f'多余：{rel}（catalog 里没有这个案例）')
+            return {'error': {'code': 'contract.index-stale', 'message': f'{len(stale)} 个生成文件与 catalog 不一致，{len(extra)} 张多余的案例卡',
+                              'hint': f'运行 {PY_CMD} index 重新生成（不要手改这些文件）'},
+                    'data': {'stale': stale, 'extra': extra}}
+        ctx.out(f'生成的 {len(outputs)} 个文件都是最新的')
+        return {'data': {'stale': [], 'extra': [], 'files': len(outputs)}}
+    if args.dry_run:
+        ctx.out(f'演练（未写文件）：{len(stale)} 个文件会更新' + (f'，{len(extra)} 张多余的案例卡要人工处理' if extra else ''))
+        for rel in stale:
+            ctx.out(f'  {rel}')
+        return {'data': {'stale': stale, 'extra': extra, 'dryRun': True}}
+    written = []
+    for rel in stale:
+        p = ROOT / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_name(p.name + '.tmp')
+        tmp.write_bytes(outputs[rel].encode('utf-8'))
+        tmp.replace(p)
+        written.append({'path': rel, 'sha256': digest(outputs[rel].encode('utf-8')), 'kind': 'doc'})
+    for rel in extra:
+        ctx.warn('cases.extra-card', f'{rel} 没有对应的 catalog 记录，未删除', '确认后手动删除，或在 catalog 里补上这个案例')
+    ctx.out(f'已更新 {len(written)} 个文件（共生成 {len(outputs)} 个）' if written else f'生成的 {len(outputs)} 个文件都是最新的')
+    return {'data': {'stale': stale, 'extra': extra, 'files': len(outputs)}, 'outputs': written}
+
+
 # --- command line -----------------------------------------------------------------------------------------
 
-COMMANDS = ('list', 'check', 'restore', 'rehash', 'rights')
+COMMANDS = ('list', 'check', 'restore', 'rehash', 'rights', 'index')
 # 每个选项只对这些命令有意义；用错命令时退出 2（docs/CLI.md 第 3 节：严格）
 OPTION_COMMANDS = {
     'group': {'list'},
     'out': {'restore'}, 'packs': {'restore'}, 'download': {'restore'}, 'source_only': {'restore'},
     'lemo': {'restore'}, 'rog_host': {'restore'}, 'reverify': {'restore'}, 'mirror': {'restore'},
     'retries': {'restore'}, 'if_exists': {'restore'}, 'include_internal': {'restore'}, 'strict': {'restore'},
-    'dry_run': {'restore', 'rehash'}, 'patch': {'rehash'}, 'mark': {'rehash'},
-    'rights': {'check'}, 'write': {'rights'}, 'verify': {'rights'},
+    'dry_run': {'restore', 'rehash', 'index'}, 'patch': {'rehash'}, 'mark': {'rehash'},
+    'rights': {'check'}, 'write': {'rights'}, 'verify': {'rights', 'index'},
 }
 EPILOG = '''示例：
   node tools/env/py.mjs tools/casebook.py list --group ppt-stories
@@ -1609,6 +1925,7 @@ EPILOG = '''示例：
   node tools/env/py.mjs tools/casebook.py restore style-02-watercolor --download --dry-run
   node tools/env/py.mjs tools/casebook.py rehash --patch out/signed-urls.patch.json --mark signed-url-query
   node tools/env/py.mjs tools/casebook.py rights --check
+  node tools/env/py.mjs tools/casebook.py index --check
 
 退出码：0 成功（只有提示也算）；1 运行失败（读写出错、工具内部错误）；2 用法错误（未知选项、
   --group 拼错、案例编号不存在、目标目录已存在、路径含不安全字符）；3 环境问题（缺素材包、
@@ -1641,11 +1958,12 @@ def build_parser():
                            '                           不执行构建；默认不还原内部素材（--include-internal）\n'
                            '  rehash --patch <补丁>     按补丁更新源文件的 sha256 与大小（先核对旧值与磁盘上的新内容）\n'
                            '  rights [--write|--check]  按 docs/rights/register.json 算每个案例的权利字段（clearance、登记类别、\n'
-                           '                           署名、AI 生成）；--write 写回 catalog.json，--check 不一致时退出 4')
+                           '                           署名、AI 生成）；--write 写回 catalog.json，--check 不一致时退出 4\n'
+                           '  index [--check]          由 catalog 生成案例卡、INDEX.md、画廊数据与 NOTICES 署名段；--check 只核对')
     p._optionals.title = '选项'
     p._positionals.title = '位置参数'
     p.add_argument('-h', '--help', action='help', help='显示本说明并退出（不读目录、不写文件）')
-    p.add_argument('command', choices=COMMANDS, metavar='<命令>', help='list、check、restore、rehash、rights')
+    p.add_argument('command', choices=COMMANDS, metavar='<命令>', help='list、check、restore、rehash、rights、index')
     p.add_argument('case', nargs='?', metavar='案例编号', help='restore 要还原的案例（list 第一列）')
     g = p.add_argument_group('check')
     g.add_argument('--rights', action='store_true', help='另核对 rights 字段与授权登记册一致、公开素材包不含内部素材')
@@ -1672,10 +1990,11 @@ def build_parser():
     g = p.add_argument_group('rehash')
     g.add_argument('--patch', type=Path, metavar='<补丁.json>', help='源文件补丁（signed-urls.mjs strip --patch-out 的输出）')
     g.add_argument('--mark', metavar='<标签>', help='给改过的条目记一笔 redactions（如 signed-url-query），说明哈希为什么变了')
-    g = p.add_argument_group('rights')
+    g = p.add_argument_group('rights / index')
     x = g.add_mutually_exclusive_group()
     x.add_argument('--write', action='store_true', help='把算出的权利字段写回 cases/catalog.json')
-    x.add_argument('--check', dest='verify', action='store_true', help='只核对：catalog 的权利字段与登记册推出的不一致时退出 4')
+    x.add_argument('--check', dest='verify', action='store_true',
+                   help='rights、index：只核对（权利字段或生成文件过期时退出 4），不写文件')
     return p
 
 
@@ -1933,7 +2252,8 @@ def cmd_rights(args, ctx, manifest):
 def main(args, ctx):
     validate_options(args)
     manifest = load_catalog()
-    handler = {'list': cmd_list, 'check': cmd_check, 'restore': cmd_restore, 'rehash': cmd_rehash, 'rights': cmd_rights}[args.command]
+    handler = {'list': cmd_list, 'check': cmd_check, 'restore': cmd_restore, 'rehash': cmd_rehash, 'rights': cmd_rights,
+               'index': cmd_index}[args.command]
     try:
         return handler(args, ctx, manifest)
     except (CliError, KeyboardInterrupt):
