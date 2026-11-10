@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import http.server
 import importlib.util
@@ -324,8 +325,8 @@ class CasebookTests(unittest.TestCase):
         p = self.restore()
         self.assertEqual(self.report(p)['unreplacedTokens'], [{'file': 'rog.sh', 'tokens': ['@@ROG_HOST@@']}])
         self.assertTrue(any('--rog-host' in w for w in cb.restore_warnings(self.report(p))))
-        p2 = self.restore(out=self.root/'out2', rog='192.168.10.190')
-        self.assertEqual((p2/'rog.sh').read_text(encoding='utf-8'), 'ssh ROG@192.168.10.190 true\n')
+        p2 = self.restore(out=self.root/'out2', rog='192.0.2.10')     # RFC 5737 documentation address
+        self.assertEqual((p2/'rog.sh').read_text(encoding='utf-8'), 'ssh ROG@192.0.2.10 true\n')
 
     # --- R76: tokens that still point at a project's pre-move location --------------------------------------
 
@@ -574,7 +575,7 @@ class CasebookTests(unittest.TestCase):
         real = cb.file_digest
         with mock.patch.object(cb.urllib.request, 'urlopen', fake_urlopen), \
                 mock.patch.object(cb, 'file_digest', lambda p: hashed.append(p) or real(p)):
-            with self.assertRaisesRegex(cb.DownloadInterrupted, '续传') as caught: self.restore(download=True)
+            with self.assertRaisesRegex(cb.DownloadInterrupted, '续传') as caught: self.restore(download=True, retries=0)
             self.assertIsInstance(caught.exception.__cause__, ConnectionResetError)
             self.assertEqual((self.root/'packs/assets.zip.partial').stat().st_size, half)
             self.assertFalse((self.root/'out/styles/one').exists())
@@ -640,7 +641,7 @@ class CasebookTests(unittest.TestCase):
         with mock.patch.object(cb, 'PACK_ORIGIN', server.origin), \
                 mock.patch.object(cb.urllib.request, 'urlopen', server.urlopen):
             with self.assertRaisesRegex(cb.DownloadInterrupted, f'{half} / {len(payload)} 字节[\\s\\S]*续传'):
-                self.restore(download=True)
+                self.restore(download=True, retries=0)
             self.assertEqual((self.root/'packs/assets.zip.partial').read_bytes(), payload[:half])
             self.assertFalse((self.root/'out').exists())
             p = self.restore(download=True)
@@ -664,6 +665,487 @@ class CasebookTests(unittest.TestCase):
                     cb.get_pack(self.m['packs'][0], self.root/'packs', True)
                 self.assertFalse(partial.exists())
                 self.assertFalse(pack.exists())
+
+
+    # --- T1: collected check problems, stray files, cards, rehash --------------------------------------------
+
+    def test_check_collects_every_problem_before_failing(self):
+        self.add_case('two', 'styles/two')
+        self.m['cases'][1]['files'] = [dict(self.m['cases'][0]['files'][0], sha256='0' * 64)]       # 1: bad hash
+        self.m['cases'][0]['files'][1]['asset'] = 'f' * 64                                         # 2: unknown asset
+        self.m['cases'][0]['entrypoints'].append('missing.js')                                    # 3: entry point
+        with self.assertRaises(cb.CheckFailed) as caught: cb.check(self.m)
+        problems = caught.exception.problems
+        self.assertEqual(len(problems), 3, problems)
+        self.assertTrue(any('two/main.js' in p for p in problems))
+        self.assertTrue(any('Unknown asset' in p for p in problems))
+        self.assertTrue(any('Missing entry point: one' in p for p in problems))
+        self.assertIsInstance(caught.exception, ValueError)          # callers that catch ValueError keep working
+
+    def test_check_lists_new_and_missing_source_files(self):
+        (cb.ARCHIVE/'source/one').mkdir(parents=True)
+        (cb.ARCHIVE/'source/one/kept.txt').write_bytes(b'kept\n')
+        self.add_source('source/one/kept.txt', b'kept\n', path='kept.txt')
+        (cb.ARCHIVE/'source/one/.DS_Store').write_bytes(b'junk')       # operating-system clutter is ignored
+        self.assertEqual(cb.check(self.m), (1, 2))
+        (cb.ARCHIVE/'source/one/stray.md').write_text('nobody registered me', encoding='utf-8')
+        self.add_source('source/one/gone.txt', b'gone\n', path='gone.txt')
+        (cb.ARCHIVE/'source/one/gone.txt').unlink()
+        with self.assertRaises(cb.CheckFailed) as caught: cb.check(self.m)
+        text = '\n'.join(caught.exception.problems)
+        self.assertIn('source/one/stray.md', text)
+        self.assertIn('（新增）', text)
+        self.assertIn('Missing source file（缺失）: one/gone.txt', text)
+
+    def test_check_requires_one_card_per_case_and_existing_posters(self):
+        (cb.ARCHIVE/'entries').mkdir()
+        (cb.ARCHIVE/'entries/one.md').write_text('# one\n', encoding='utf-8')
+        (cb.ARCHIVE/'entries/ghost.md').write_text('# ghost\n', encoding='utf-8')
+        self.add_case('two', 'styles/two', poster='previews/two.jpg')
+        with self.assertRaises(cb.CheckFailed) as caught: cb.check(self.m)
+        text = '\n'.join(caught.exception.problems)
+        self.assertIn('entries/ghost.md', text)
+        self.assertIn('entries/two.md', text)
+        self.assertIn('海报缺失 previews/two.jpg', text)
+
+    def test_check_reports_vendor_file_count(self):
+        folder, lock = self.vendor_fixture()
+        summary = {}
+        cb.check(self.m, summary)
+        self.assertEqual((summary['vendorFiles'], summary['vendorRepos']), (4, 1))
+
+    def rehash_fixture(self):
+        old = (cb.ARCHIVE/'source.js').read_bytes()
+        new = b'const root = "@@CASE_ROOT@@"; // stripped\n'
+        (cb.ARCHIVE/'source.js').write_bytes(new)
+        self.add_case('two', 'styles/two')
+        self.m['cases'][1]['files'] = [dict(self.m['cases'][0]['files'][0])]       # two cases share the source
+        patch = {'schemaVersion': 1, 'files': [{'source': 'source.js', 'oldSha256': cb.digest(old), 'newSha256': cb.digest(new),
+                                                'oldSize': len(old), 'newSize': len(new)}]}
+        return old, new, patch
+
+    def test_rehash_updates_every_reference_once(self):
+        old, new, patch = self.rehash_fixture()
+        with self.assertRaises(cb.CheckFailed): cb.check(self.m)
+        self.assertEqual(cb.rehash(self.m, patch), {'source.js': 2})
+        self.assertEqual({(f['size'], f['sha256']) for c in self.m['cases'] for f in c['files'] if f.get('source') == 'source.js'},
+                         {(len(new), cb.digest(new))})
+        self.assertEqual(cb.check(self.m), (2, 1))
+        self.assertEqual(cb.rehash(self.m, patch), {})              # the same patch again changes nothing
+
+    def test_rehash_refuses_patches_that_do_not_match(self):
+        old, new, patch = self.rehash_fixture()
+        bad = json.loads(json.dumps(patch))
+        bad['files'][0]['newSha256'] = '0' * 64                     # disk does not hold the patched bytes
+        with self.assertRaisesRegex(cb.CheckFailed, '磁盘上的文件不是补丁写的新内容'): cb.rehash(self.m, bad)
+        self.m['cases'][1]['files'][0]['sha256'] = '1' * 64          # catalog records neither old nor new
+        with self.assertRaisesRegex(cb.CheckFailed, 'two/main.js'): cb.rehash(self.m, patch)
+        self.assertEqual(self.m['cases'][0]['files'][0]['sha256'], cb.digest(old))   # nothing applied
+
+    def test_write_manifest_keeps_the_archive_format(self):
+        path = self.root/'catalog.json'
+        cb.write_manifest({'b': 1, 'a': ['中文']}, path)
+        self.assertEqual(path.read_bytes(), '{\n  "b": 1,\n  "a": [\n    "中文"\n  ]\n}'.encode('utf-8'))
+
+    # --- T1: unresolved tokens, internal clearance, retries, mirrors, disk space -------------------------------
+
+    def test_unresolved_tokens_are_listed_by_line_and_strict_refuses(self):
+        self.add_source('rog.sh', b'#!/bin/sh\necho start\nssh ROG@@@ROG_HOST@@ true\nscp a ROG@@@ROG_HOST@@:b\n', templated=True)
+        with self.assertRaisesRegex(cb.UnresolvedTokensError, r'2 处还原标记没有值[\s\S]*rog.sh:3') as caught:
+            self.restore(strict=True)
+        self.assertIn('--rog-host', caught.exception.hint)
+        self.assertFalse((self.root/'out').exists())                   # nothing written
+        p = self.restore()
+        self.assertEqual(self.report(p)['unresolvedTokens'], [{'file': 'rog.sh', 'line': 3, 'token': '@@ROG_HOST@@'},
+                                                              {'file': 'rog.sh', 'line': 4, 'token': '@@ROG_HOST@@'}])
+        self.assertTrue(any('rog.sh:3' in w and '--strict' in w for w in cb.restore_warnings(self.report(p))))
+        p2 = self.restore(out=self.root/'out2', rog='192.0.2.10', strict=True)
+        self.assertEqual(self.report(p2)['unresolvedTokens'], [])
+
+    def test_internal_assets_are_withheld_unless_asked_for(self):
+        self.m['cases'][0]['files'][1]['clearance'] = 'internal'
+        p = self.restore()
+        self.assertFalse((p/'assets/a.bin').exists())
+        self.assertEqual(self.report(p)['withheld'], [{'path': 'assets/a.bin', 'clearance': 'internal', 'size': 11}])
+        self.assertTrue(any('--include-internal' in w for w in cb.restore_warnings(self.report(p))))
+        (self.root/'packs/assets.zip').unlink()                         # the pack is not even needed
+        p = self.restore(out=self.root/'out2')
+        self.assertTrue((p/'main.js').exists())
+        with self.assertRaises(FileNotFoundError): self.restore(out=self.root/'out3', include_internal=True)
+        self.m['cases'][0]['files'][1].pop('clearance')
+        self.m['cases'][0]['rights'] = {'clearance': 'internal'}       # a whole internal case
+        plan = cb.plan_restore(self.m, 'one', self.root/'out4', self.root/'packs')
+        self.assertEqual(([f['path'] for f in plan['write']], len(plan['withheld'])), (['main.js'], 1))
+        plan = cb.plan_restore(self.m, 'one', self.root/'out4', self.root/'packs', include_internal=True)
+        self.assertEqual(plan['missingPacks'], ['assets.zip'])
+
+    def test_check_rejects_unknown_clearance(self):
+        self.m['cases'][0]['files'][1]['clearance'] = 'secret'
+        with self.assertRaisesRegex(cb.CheckFailed, "clearance 'secret'"): cb.check(self.m)
+
+    def download_fixture(self):
+        pack = self.root/'packs/assets.zip'
+        payload = pack.read_bytes()
+        pack.unlink()
+        self.m['packs'][0]['url'] = cb.PACK_ORIGIN + 'casebook-test/assets.zip'
+        return pack, payload
+
+    def test_download_retries_and_resumes_within_one_run(self):
+        pack, payload = self.download_fixture()
+        half, calls, slept, seen = len(payload) // 2, [], [], []
+
+        def fake_urlopen(request, timeout=None):
+            calls.append(request.get_header('Range'))
+            if len(calls) == 1:
+                return Response(payload, fail_after=half)
+            if len(calls) == 2:
+                raise cb.urllib.error.HTTPError(request.full_url, 503, 'busy', {}, None)
+            start = int(request.get_header('Range')[6:-1])
+            return Response(payload[start:], 206, {'Content-Range': f'bytes {start}-{len(payload) - 1}/{len(payload)}'})
+        with mock.patch.object(cb.urllib.request, 'urlopen', fake_urlopen):
+            p = self.restore(download=True, retries=3, sleep=slept.append, progress=lambda m, h, t: seen.append(h))
+        self.assertEqual(calls, [None, f'bytes={half}-', f'bytes={half}-'])
+        self.assertEqual(slept, [1, 2])                                  # exponential backoff
+        self.assertEqual(pack.read_bytes(), payload)
+        self.assertEqual(seen[-1], len(payload))
+        self.assertEqual((p/'assets/a.bin').read_bytes(), b'asset bytes')
+
+    def test_download_does_not_retry_permanent_errors(self):
+        pack, payload = self.download_fixture()
+        calls = []
+
+        def fake_urlopen(request, timeout=None):
+            calls.append(1)
+            raise cb.urllib.error.HTTPError(request.full_url, 404, 'gone', {}, None)
+        with mock.patch.object(cb.urllib.request, 'urlopen', fake_urlopen):
+            with self.assertRaises(cb.urllib.error.HTTPError): self.restore(download=True, retries=3, sleep=lambda s: None)
+        self.assertEqual(len(calls), 1)
+
+    def test_mirror_is_verified_against_the_catalog(self):
+        pack, payload = self.download_fixture()
+        urls = []
+
+        def fake_urlopen(request, timeout=None):
+            urls.append(request.full_url)
+            return Response(body[0])
+        body = [payload[:-1] + b'!']
+        with mock.patch.object(cb.urllib.request, 'urlopen', fake_urlopen):
+            with self.assertRaisesRegex(ValueError, 'Checksum mismatch'):
+                self.restore(download=True, mirror='https://mirror.example/casebook/', retries=0)
+            body[0] = payload
+            p = self.restore(download=True, mirror='https://mirror.example/casebook')
+        self.assertEqual(urls, ['https://mirror.example/casebook/assets.zip'] * 2)
+        self.assertEqual((p/'assets/a.bin').read_bytes(), b'asset bytes')
+        self.assertEqual(cb.pack_url({'filename': '素材 01.zip', 'url': 'x'}, 'https://m.example'), 'https://m.example/%E7%B4%A0%E6%9D%90%2001.zip')
+
+    def test_disk_space_is_checked_before_anything_is_written(self):
+        pack, payload = self.download_fixture()
+        with mock.patch.object(cb, 'free_bytes', lambda p: (1000, self.root)), \
+                mock.patch.object(cb.urllib.request, 'urlopen', side_effect=AssertionError('no download expected')):
+            with self.assertRaisesRegex(cb.DiskSpaceError, '磁盘空间不够') as caught: self.restore(download=True)
+        self.assertIn('--dry-run', caught.exception.hint)
+        self.assertFalse((self.root/'out').exists())
+        self.assertFalse(list((self.root/'packs').glob('*.partial')))
+
+
+
+def v2_case(case, *, tech='rendered', approval=None, clearance='public', **extra):
+    """Give a fixture case the schemaVersion 2 fields check expects."""
+    approval = approval or {'status': 'unreviewed', 'by': None, 'date': None, 'reasons': [], 'evidence': []}
+    case.setdefault('group', 'styles')
+    case.setdefault('title', case['id'])
+    case.update(technical={'status': tech, 'qa': {'status': 'not-run', 'report': None}}, approval=approval,
+                rights={'clearance': clearance, 'register': [], 'owner': '待补', 'license': cb.ARCHIVE_LICENSE,
+                        'sourceUrl': None, 'attributionText': [], 'aiGenerated': {'present': '待补', 'register': [], 'tools': '待补'},
+                        'evidence': []},
+                displayTitle=case.get('displayTitle', case['id']), summary='', keyFiles=[])
+    case.update(extra)
+    case['status'] = cb.legacy_status(case)
+    return case
+
+
+REGISTER = {'schemaVersion': 1, 'updated': '2026-11-10', 'categories': [
+    {'id': 'R01', 'title': '客户材料', 'kind': 'client-material', 'holder': '某客户', 'match': {'cases': ['client']}},
+    {'id': 'R03', 'title': '参考图', 'kind': 'reference-images', 'holder': '待补', 'match': {'files': [{'case': '*', 'path': 'refs/**'}]}},
+    {'id': 'R07', 'title': '鼓组采样（CC BY 4.0）', 'kind': 'open-license', 'holder': '某人',
+     'match': {'text': [{'path': 'CREDITS*', 'pattern': 'MuldjordKit'}]}},
+    {'id': 'R08', 'title': '图像生成服务', 'kind': 'service-terms', 'holder': '待补', 'match': {'uses': ['client']}},
+    {'id': 'R10', 'title': '不按案例计算', 'kind': 'open-license', 'holder': 'x'},
+]}
+
+
+class SchemaV2Tests(unittest.TestCase):
+    """catalog schemaVersion 2: technical / approval / rights fields, the rights computation, generated views.
+    Uses the CasebookTests fixture (one case, one source, one asset pack) without inheriting its tests."""
+
+    def setUp(self):
+        self.base = CasebookTests('test_roundtrip_and_tokens')
+        self.base.setUp()
+        self.addCleanup(self.base.tearDown)
+        self.root, self.m = self.base.root, self.base.m
+        self.add_case, self.add_source, self.restore = self.base.add_case, self.base.add_source, self.base.restore
+        self.m['schemaVersion'] = 2
+        v2_case(self.m['cases'][0])
+
+    def test_v2_fields_pass_and_each_rule_bites(self):
+        self.assertEqual(cb.check(self.m), (1, 1))
+        case = self.m['cases'][0]
+        broken = {
+            'technical.status': lambda c: c['technical'].update(status='done'),
+            'approval.status': lambda c: c['approval'].update(status='ok'),
+            '被否定的记录要有 reasons 与 evidence': lambda c: (c['approval'].update(status='rejected'), c.update(status='rejected')),
+            'approved 必须写 by、date 与 evidence': lambda c: c['approval'].update(status='approved'),
+            "status 'historical-render' 与 technical/approval": lambda c: c['technical'].update(status='previs'),
+            '缺 rights': lambda c: c.pop('rights'),
+            'rights.clearance': lambda c: c['rights'].update(clearance='secret'),
+            'keyFiles 里的 nope.md': lambda c: c.update(keyFiles=['nope.md']),
+            'templated 条目不能保留 originalSha256': lambda c: c['files'][0].update(originalSha256='0' * 64),
+            '与 restore 写入的 RIGHTS.json 重名': lambda c: c['files'].append(dict(c['files'][0], path='RIGHTS.json')),
+        }
+        for expected, damage in broken.items():
+            with self.subTest(expected):
+                saved = json.loads(json.dumps(case))
+                damage(case)
+                with self.assertRaisesRegex(cb.CheckFailed, re.escape(expected)): cb.check(self.m)
+                case.clear()
+                case.update(saved)
+        case['approval'] = {'status': 'rejected', 'by': '用户', 'date': '待补', 'reasons': [cb.PENDING_REASON], 'evidence': ['卡片原文']}
+        case['status'] = cb.legacy_status(case)
+        self.assertEqual((case['status'], cb.check(self.m)), ('rejected', (1, 1)))
+
+    def rights_fixture(self):
+        self.add_case('client', 'ppt/client')
+        self.add_case('drums', 'styles/drums')
+        self.add_source('drums/CREDITS', b'Fonts: OFL\nDrums: "MuldjordKit" by Lars Muldjord, licensed under CC BY 4.0 (https://x)\n',
+                        path='CREDITS', case='drums')
+        ref = b'reference image'
+        self.m['cases'][2]['files'].append({'path': 'refs/a.png', 'asset': cb.digest(ref), 'sha256': cb.digest(ref), 'size': len(ref)})
+        return cb.compute_rights(self.m, REGISTER)
+
+    def test_rights_follow_the_register_rules(self):
+        rights, marks = self.rights_fixture()
+        self.assertEqual((rights['client']['clearance'], rights['client']['register'], rights['client']['owner']),
+                         ('internal', ['R01', 'R08'], '某客户'))
+        self.assertEqual(rights['client']['aiGenerated'], {'present': True, 'register': ['R08'], 'tools': '待补'})
+        self.assertEqual(rights['client']['sourceUrl'], '待补')
+        drums = rights['drums']
+        self.assertEqual((drums['clearance'], drums['register']), ('public', ['R03', 'R07']))
+        self.assertEqual(drums['attributionText'], ['Drums: "MuldjordKit" by Lars Muldjord, licensed under CC BY 4.0 (https://x)'])
+        self.assertIn('cases/drums/CREDITS:2', drums['evidence'])
+        self.assertEqual(marks['drums'], {'refs/a.png': {'register': ['R03'], 'clearance': 'internal'}})
+        self.assertEqual((rights['one']['clearance'], rights['one']['register']), ('public', []))
+
+    def test_apply_rights_is_idempotent_and_drift_is_reported(self):
+        computed = self.rights_fixture()
+        for c in self.m['cases'][1:]:
+            v2_case(c)
+        self.assertTrue(cb.rights_drift(self.m, computed))
+        cb.apply_rights(self.m, REGISTER, computed)
+        self.assertEqual(cb.rights_drift(self.m, computed), [])
+        once = json.dumps(self.m, ensure_ascii=False)
+        cb.apply_rights(self.m, REGISTER, cb.compute_rights(self.m, REGISTER))
+        self.assertEqual(json.dumps(self.m, ensure_ascii=False), once)
+        self.assertEqual(self.m['rights']['register'], 'docs/rights/register.json')
+        self.assertEqual(self.m['cases'][2]['files'][-1]['clearance'], 'internal')
+        self.m['cases'][1]['rights']['clearance'] = 'public'
+        self.assertTrue(any('client' in p for p in cb.rights_drift(self.m, computed)))
+
+    def test_glob_matches_the_compliance_rules(self):
+        for glob, path, hit in (('refs/**', 'refs/a/b.png', True), ('refs/*', 'refs/a/b.png', False), ('CREDITS*', 'CREDITS.md', True),
+                                ('**/CREDITS*', 'a/CREDITS', True), ('**/CREDITS*', 'CREDITS', False), ('a\\*b', 'a*b', True),
+                                ('IP图_超分/P17_*x*.png', 'IP图_超分/P17_大闹天宫x星巴克.png', True)):
+            with self.subTest(glob=glob, path=path):
+                self.assertEqual(bool(cb.glob_regex(glob).fullmatch(path)), hit)
+
+    def test_restore_writes_rights_record_and_license_texts(self):
+        font = b'font bytes'
+        sha = cb.digest(font)
+        with zipfile.ZipFile(self.root/'packs/assets.zip', 'a') as z:
+            z.writestr(sha, font)
+        pack = self.root/'packs/assets.zip'
+        self.m['packs'][0].update(size=pack.stat().st_size, sha256=cb.digest(pack.read_bytes()))
+        self.m['assets'][sha] = {'size': len(font), 'pack': 'assets.zip'}
+        self.m['cases'][0]['files'].append({'path': 'fonts/a.woff2', 'asset': sha, 'sha256': sha, 'size': len(font)})
+        self.m['cases'][0]['rights']['attributionText'] = ['x, licensed under CC BY 4.0']
+        p = self.restore()
+        record = json.loads((p/'RIGHTS.json').read_text(encoding='utf-8'))
+        self.assertEqual((record['case'], record['clearance'], record['withheld']), ('one', 'public', 0))
+        names = sorted(x.name for x in (p/'ARCHIVE-LICENSES').iterdir())
+        self.assertEqual(names, ['CC-BY-4.0.txt', 'LicenseRef-Casebook-Archive.txt', 'OFL-1.1.txt'])
+        self.assertIn('SIL OPEN FONT LICENSE', (p/'ARCHIVE-LICENSES/OFL-1.1.txt').read_text(encoding='utf-8'))
+        self.assertEqual([x['file'] for x in record['licenses']][0], 'ARCHIVE-LICENSES/LicenseRef-Casebook-Archive.txt')
+
+    def index_fixture(self):
+        (cb.ARCHIVE/'entries').mkdir(exist_ok=True)
+        (cb.ARCHIVE/'index.html').write_text('<html><script>const DATA=[];\nshow();</script></html>\n', encoding='utf-8')
+        (cb.ARCHIVE/'NOTICES.md').write_text(f'# 来源\n\n{cb.ATTRIBUTION_START}\nold\n{cb.ATTRIBUTION_END}\n\n尾注\n', encoding='utf-8')
+        case = self.m['cases'][0]
+        case.update(title='一部 · 处理方案（Treatment）', displayTitle='一部', summary='摘要。', notes=['历史说明。'],
+                    preview={'url': 'https://example.invalid/one.mp4', 'duration': 19.791667})
+        case['rights']['attributionText'] = ['Drums: "Kit" by A, CC BY 4.0']
+        self.add_case('two', 'local/two')
+        v2_case(self.m['cases'][1], group='local-films', approval={'status': 'rejected', 'by': '用户', 'date': '待补',
+                                                                   'reasons': [cb.PENDING_REASON], 'evidence': ['卡片原文']},
+                clearance='internal')
+        for c in self.m['cases']:
+            (cb.ARCHIVE/f'entries/{c["id"]}.md').write_text('# 旧卡片\n', encoding='utf-8')
+
+    def test_index_generates_cards_index_gallery_and_notices(self):
+        self.index_fixture()
+        out = cb.index_outputs(self.m)
+        self.assertEqual(sorted(out), ['INDEX.md', 'NOTICES.md', 'entries/one.md', 'entries/two.md', 'index.html'])
+        one, two = out['entries/one.md'], out['entries/two.md']
+        self.assertIn('**历史成片·', one)
+        self.assertNotIn('本次', one + two + out['INDEX.md'])
+        self.assertIn('| 用户认可 | 未审', one)
+        self.assertIn('| 署名 | Drums: "Kit" by A, CC BY 4.0 |', one)
+        self.assertIn('node tools/env/py.mjs tools/casebook.py restore one --download', one)
+        self.assertIn('历史说明。', one)                     # notes repeated word for word (check_cards)
+        self.assertIn('**画面效果未获认可**', two)
+        self.assertIn('--include-internal', two)
+        self.assertIn('| [一部](entries/one.md) | — | 19.79 秒 | 历史成片 | 未审 | 公开 | `one` |', out['INDEX.md'])
+        self.assertIn('| 未获认可 | 内部 | `two` |', out['INDEX.md'])
+        data = json.loads(re.search(r'const DATA=(\[.*?\]);', out['index.html']).group(1))
+        self.assertEqual([(d['id'], d['status'], d['duration']) for d in data],
+                         [('one', '历史成片 · 未审', 19.8), ('two', '画面效果未获认可 · 内部素材', 0)])
+        self.assertTrue(out['index.html'].endswith('\nshow();</script></html>\n'))
+        self.assertIn('| Drums: "Kit" by A, CC BY 4.0 | [one](entries/one.md) |', out['NOTICES.md'])
+        self.assertTrue(out['NOTICES.md'].startswith('# 来源') and out['NOTICES.md'].endswith('尾注\n'))
+        self.assertNotIn('old', out['NOTICES.md'])
+
+    def test_index_check_finds_hand_edits_and_extra_cards(self):
+        self.index_fixture()
+        stale, extra, outputs = cb.index_drift(self.m)
+        self.assertEqual(len(stale), 5)
+        for rel, text in outputs.items():
+            (cb.ARCHIVE/rel).write_text(text, encoding='utf-8')
+        self.assertEqual(cb.index_drift(self.m)[:2], ([], []))
+        (cb.ARCHIVE/'entries/one.md').write_text(outputs['entries/one.md'] + '手改\n', encoding='utf-8')
+        (cb.ARCHIVE/'entries/ghost.md').write_text('# ghost\n', encoding='utf-8')
+        self.assertEqual(cb.index_drift(self.m)[:2], (['entries/one.md'], ['entries/ghost.md']))
+
+    def test_duration_labels(self):
+        for seconds, label in ((19.791667, '19.79 秒'), (19.0, '19 秒'), (194.52, '3 分 14.52 秒'), (180.0, '3 分'),
+                               (124.8, '2 分 4.8 秒'), (540, '9 分'), (None, '—'), (0, '—')):
+            with self.subTest(seconds):
+                self.assertEqual(cb.fmt_duration_label(seconds), label)
+
+
+class CommandLineTests(unittest.TestCase):
+    """The command contract of docs/CLI.md: --help, usage errors (exit 2), --json envelopes, exit 3 / 4."""
+
+    def setUp(self):
+        self.base = CasebookTests('test_roundtrip_and_tokens')
+        self.base.setUp()
+        self.addCleanup(self.base.tearDown)
+        self.root, self.m = self.base.root, self.base.m
+        self.m['cases'][0].update(group='styles', status='historical-render', title='第一部')
+        self.write_catalog()
+
+    def write_catalog(self):
+        (cb.ARCHIVE/'catalog.json').write_text(json.dumps(self.m, ensure_ascii=False, indent=2), encoding='utf-8')
+
+    def run_cli(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        code = cb.run(cb.main, cb.build_parser(), argv=list(argv), command='casebook', stdout=out, stderr=err)
+        return code, out.getvalue(), err.getvalue()
+
+    def envelope(self, *argv):
+        code, out, err = self.run_cli(*argv, '--json')
+        env = json.loads(out)                                   # stdout is exactly one JSON object
+        self.assertEqual((env['schemaVersion'], env['exitCode'], env['ok'], env['command']), (1, code, code == 0, 'casebook'))
+        return code, env, err
+
+    def test_help_has_no_side_effects(self):
+        printed = io.StringIO()
+        with mock.patch.object(cb, 'read_manifest', side_effect=AssertionError('--help must not read the catalog')), \
+                contextlib.redirect_stdout(printed):          # argparse prints help to sys.stdout itself
+            code, out, err = self.run_cli('--help')
+        out += printed.getvalue()
+        self.assertEqual(code, 0)
+        for word in ('用法', '退出码', 'restore', '--include-internal', '--if-exists'):
+            self.assertIn(word, out)
+
+    def test_usage_errors_exit_2_with_an_envelope(self):
+        for argv, error in ((['check', '--no-such-flag'], 'usage.unknown-option'), (['lst'], 'usage.bad-value'),
+                            (['list', '--group', 'style'], 'usage.bad-group'), (['restore'], 'usage.missing-argument'),
+                            (['restore', 'on'], 'usage.unknown-case'), (['check', 'one'], 'usage.unexpected-argument'),
+                            (['list', '--download'], 'usage.option-not-applicable'),
+                            (['restore', 'one', '--if-exists', 'replace'], 'usage.bad-value'),
+                            (['restore', 'one', '--mirror', 'ftp://x'], 'usage.bad-value'), (['rehash'], 'usage.missing-argument')):
+            with self.subTest(argv):
+                code, env, err = self.envelope(*argv)
+                self.assertEqual((code, env['error']['code']), (2, error))
+        code, env, err = self.envelope('list', '--group', 'style')
+        self.assertIn('styles', env['error']['hint'])                    # lists the legal values
+
+    def test_list_filters_and_reports_clearance(self):
+        self.base.add_case('two', 'local/two', group='local-films', status='rejected', title='第二部 T−15')
+        self.m['cases'][0]['rights'] = {'clearance': 'internal'}
+        self.write_catalog()
+        code, env, err = self.envelope('list')
+        self.assertEqual((code, env['data']['count'], env['data']['groups']), (0, 2, ['local-films', 'styles']))
+        self.assertEqual([c['clearance'] for c in env['data']['cases']], ['internal', 'public'])
+        code, out, err = self.run_cli('list', '--group', 'local-films')
+        self.assertEqual((code, out.count('\n')), (0, 1))
+        self.assertIn('第二部 T−15', out)
+
+    def test_check_exit_codes_and_data(self):
+        code, env, err = self.envelope('check')
+        self.assertEqual((code, env['data']['records'], env['data']['uniqueSourceFiles'], env['data']['problems']), (0, 1, 1, []))
+        code, out, err = self.run_cli('check')
+        self.assertRegex(out, r'^通过：1 条记录、1 个唯一源文件、0 个 vendor 文件')
+        (cb.ARCHIVE/'source.js').write_text('tampered', encoding='utf-8')
+        self.m['cases'][0]['entrypoints'].append('gone.js')
+        self.write_catalog()
+        code, env, err = self.envelope('check')
+        self.assertEqual((code, env['error']['code'], len(env['data']['problems'])), (4, 'contract.check-failed', 2))
+        self.assertIn('问题：Checksum mismatch', err)
+        self.assertIn('问题：Missing entry point', err)
+
+    def test_restore_exit_codes(self):
+        out = self.root/'cli-out'
+        code, env, err = self.envelope('restore', 'one', '--out', str(out), '--packs', str(self.root/'packs'), '--dry-run')
+        self.assertEqual((code, env['data']['dryRun'], env['data']['files'], env['outputs']), (0, True, 2, []))
+        self.assertFalse(out.exists())
+        code, env, err = self.envelope('restore', 'one', '--out', str(out), '--packs', str(self.root/'packs'))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(env['outputs'][0]['kind'], 'report')
+        self.assertTrue(env['outputs'][0]['path'].endswith('styles/one/ARCHIVE-RESTORED.json'))
+        code, env, err = self.envelope('restore', 'one', '--out', str(out), '--packs', str(self.root/'packs'))
+        self.assertEqual((code, env['error']['code']), (2, 'usage.target-exists'))
+        code, env, err = self.envelope('restore', 'one', '--out', str(out), '--packs', str(self.root/'packs'), '--if-exists', 'skip')
+        self.assertEqual((code, env['data']['skipped']), (0, True))
+        code, env, err = self.envelope('restore', 'one', '--out', str(self.root/'o2'), '--packs', str(self.root/'nowhere'))
+        self.assertEqual((code, env['error']['code']), (3, 'env.missing-pack'))
+        self.assertIn('--download', env['error']['hint'])
+        self.base.add_source('rog.sh', b'ssh ROG@@@ROG_HOST@@ true\n', templated=True)
+        self.write_catalog()
+        code, env, err = self.envelope('restore', 'one', '--out', str(self.root/'o3'), '--packs', str(self.root/'packs'), '--strict')
+        self.assertEqual((code, env['error']['code']), (3, 'env.unresolved-tokens'))
+        self.assertFalse((self.root/'o3').exists())
+        code, env, err = self.envelope('restore', 'one', '--out', str(self.root/'o4'), '--packs', str(self.root/'packs'))
+        self.assertEqual((code, env['data']['unresolvedTokens']), (0, [{'file': 'rog.sh', 'line': 1, 'token': '@@ROG_HOST@@'}]))
+        self.assertTrue(any('@@ROG_HOST@@' in w['message'] for w in env['warnings']))
+        (self.root/'packs/assets.zip').write_bytes(b'not a zip')
+        code, env, err = self.envelope('restore', 'one', '--out', str(self.root/'o5'), '--packs', str(self.root/'packs'))
+        self.assertEqual((code, env['error']['code']), (4, 'contract.checksum'))
+
+    def test_rehash_writes_the_catalog_only_when_asked(self):
+        old, new, patch = self.base.rehash_fixture()
+        self.write_catalog()
+        patch_file = self.root/'patch.json'
+        patch_file.write_text(json.dumps(patch), encoding='utf-8')
+        before = (cb.ARCHIVE/'catalog.json').read_bytes()
+        code, env, err = self.envelope('rehash', '--patch', str(patch_file), '--dry-run')
+        self.assertEqual((code, env['data']['entries'], (cb.ARCHIVE/'catalog.json').read_bytes()), (0, 2, before))
+        code, env, err = self.envelope('rehash', '--patch', str(patch_file))
+        self.assertEqual((code, env['outputs'][0]['kind']), (0, 'catalog'))
+        self.assertEqual(self.run_cli('check')[0], 0)
+        patch['files'][0]['newSha256'] = '0' * 64
+        patch_file.write_text(json.dumps(patch), encoding='utf-8')
+        code, env, err = self.envelope('rehash', '--patch', str(patch_file))
+        self.assertEqual((code, env['error']['code']), (4, 'contract.check-failed'))
 
 
 @unittest.skipUnless((REAL_ARCHIVE/'catalog.json').exists(), 'case archive not present')

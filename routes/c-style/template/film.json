@@ -1,9 +1,31 @@
 {
-  "route": "c",
+  "schemaVersion": 2,
+  "$comment": "时间只写在这里：output.frameCount 与 fps 定片长，tempo（节拍段落）与 cues（画面打点 [段落, 小节, 拍, 拍内分数]）定节奏，timeline.js 从它们推导一切。dur / fps / size 是 v1 兼容镜像（engine/render/build.mjs 还在读），改片长或画幅时与 output 一起改；npm run check:repo 会核对。",
+  "id": "{{NAME}}",
   "title": "{{TITLE}}",
-  "dur": 3,
+  "route": "c",
+  "backend": "canvas",
+  "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 192 },
+  "audio": { "mode": "script", "script": "mix.py", "targetLUFS": -14, "truePeakDbTP": -1.0 },
+  "deliveries": ["web-1080p24"],
+  "credits": [
+    { "what": "片名与印文字体：马善政毛笔楷书（Ma Shan Zheng）", "owner": "The Ma Shan Zheng Project Authors", "license": "OFL-1.1", "source": "routes/c-style/fonts/fonts.json" },
+    { "what": "画法参考：水墨风格的笔触、宣纸、留白与钤印（只取方法，代码自写）", "owner": "LemoLab", "license": "MIT", "source": "cases/vendor/lemo-opuscar/styles/ink-wash/STYLE.md@bebbbe1" }
+  ],
+  "aigc": { "contains": false, "note": "画面与声音全部由代码程序化生成，没有 AI 生成的图像或声音" },
+  "gates": { "look": "required", "animatic": "required", "final": "required" },
+  "cuecheck": { "grid": 2, "tolMs": 0.5 },
+  "tempo": [{ "id": "A", "t0": 0, "bpm": 90, "meter": 4 }],
+  "cues": {
+    "touch": ["A", 1, 1],
+    "s1": ["A", 1, 3],
+    "s2": ["A", 1, 4],
+    "s3": ["A", 2, 1],
+    "title": ["A", 3, 1],
+    "seal": ["A", 3, 2]
+  },
+  "posterFrame": 180,
+  "dur": 8,
   "fps": 24,
-  "size": [1920, 1080],
-  "poster": 2.75,
-  "cuecheck": { "grid": 2, "tolMs": 0.5 }
+  "size": [1920, 1080]
 }
