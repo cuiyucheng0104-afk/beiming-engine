@@ -377,11 +377,16 @@ export function parseTap(text) {
   const counts = {};
   const failures = [];
   const lines = text.split(/\r?\n/);
+  // 顶层的诊断注释（测试文件自己打到 stdout / stderr 的内容、导入阶段的报错）：node --test 把它们写成「# …」行，
+  // 放在这个文件的结果之前。文件整个加载失败时 error 只有一句 'test failed'，真正的原因在这里
+  let diag = [];
   for (let i = 0; i < lines.length; i++) {
     const m = /^# (tests|suites|pass|fail|cancelled|skipped|todo|duration_ms) ([\d.]+)$/.exec(lines[i]);
     if (m) { counts[m[1]] = +m[2]; continue; }
+    if (/^# /.test(lines[i]) && !/^# Subtest: /.test(lines[i])) { diag.push(lines[i].slice(2)); continue; }
     const f = /^(\s*)not ok \d+ - (.*?)(\s+# (TODO|SKIP)\b.*)?$/.exec(lines[i]);
-    if (!f || f[4] === 'TODO') continue;
+    if (/^(not )?ok \d+ /.test(lines[i]) && !f) diag = [];
+    if (!f || f[4] === 'TODO') { if (f) diag = []; continue; }
     const ind = f[1];
     const info = { name: f[2], location: null, failureType: null, message: null };
     for (let j = i + 1; j < lines.length && lines[j] !== `${ind}  ...`; j++) {
@@ -395,6 +400,11 @@ export function parseTap(text) {
         info.message = msg.replace(/^'(.*)'$/, '$1');
       }
     }
+    if (!ind && (!info.message || info.message === 'test failed') && diag.length) {
+      const why = diag.find(d => /Cannot find (package|module) '|^\w*Error\b|^Error \[/.test(d.trim()));
+      if (why) { info.message = why.trim(); info.diagnostic = diag.slice(-40).join('\n'); }
+    }
+    if (!ind) diag = [];
     if (info.failureType !== 'subtestsFailed') failures.push(info);
   }
   return { counts, failures };
@@ -729,10 +739,10 @@ export async function main(argv = process.argv.slice(2)) {
   const skipped = suites.filter(s => s.status === 'skip');
   for (const s of skipped) warnings.push(`${s.id} 已跳过：${s.skipReason}`);
   const exitCode = envBad.length ? EXIT.ENV : timedOut.length ? EXIT.TIMEOUT : failed.length ? EXIT.FAIL : EXIT.OK;
-  const bad = [...envBad, ...timedOut, ...failed];
   const error = exitCode === EXIT.OK ? null
     : new CliError(exitCode, envBad.length ? 'DEPS_MISSING' : timedOut.length ? 'TIMEOUT' : 'TESTS_FAILED',
-      `${bad.map(s => s.id).join('、')} 未通过（失败 ${summary.fail} 项${envBad.length ? `；其中 ${envBad.map(s => `${s.id} 缺 ${s.missingDeps.join('、')}`).join('，')}` : ''}）`,
+      [...envBad.map(s => `${s.id} 缺依赖 ${s.missingDeps.join('、')}`), ...timedOut.map(s => `${s.id} 超时`),
+        ...failed.map(s => `${s.id} 有 ${s.counts?.fail || 0} 项失败${s.skipReason ? `（${s.skipReason}）` : ''}`)].join('；'),
       envBad.length ? envBad[0].skipReason
         : '看上面 stderr 里 ✖ 开头的测试；单独重跑：node tools/run-tests.mjs --only <域> --grep <测试名>');
 

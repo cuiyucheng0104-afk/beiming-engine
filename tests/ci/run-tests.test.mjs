@@ -1,11 +1,12 @@
-// tools/run-tests.mjs：发现范围（不进 cases/、films/、fixtures/）、按域筛选、退出码（附录 C1）、--json 信封（C2）、超时与中断的清理。
+// tools/run-tests.mjs：发现范围（不进 cases/、films/、fixtures/）、域的划分、Python 模块名、缺依赖的判定、按域筛选、
+// 退出码（附录 C1）、--json 信封（C2）、超时与中断的清理。夹具在临时目录里现场生成（tests/ci/helpers.mjs 的 makeRepo）。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
-import { parseArgs, parseTap, discover, CliError, EXIT, isMain } from '../../tools/run-tests.mjs';
+import { spawn, spawnSync } from 'node:child_process';
+import { parseArgs, parseTap, discover, domainOf, inScope, CliError, EXIT, isMain } from '../../tools/run-tests.mjs';
 import { makeRepo, runNode, RUN_TESTS, REPO, python, alive, waitFor, WIN } from './helpers.mjs';
 
 const PASS_NODE = `import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('一加一', () => assert.equal(1 + 1, 2));\ntest('字符串', () => assert.equal('北' + '冥', '北冥'));\n`;
@@ -51,7 +52,7 @@ test('未知参数 exit 2；--json 时 stdout 是唯一一个信封对象', asyn
   assert.equal(j.json.error.code, 'USAGE');
 });
 
-test('发现：只进 tests/ 与 tools/，跳过 cases/、films/、fixtures/、node_modules/', async t => {
+test('发现：跳过 cases/、films/、fixtures/、node_modules/ 与点开头的目录', async t => {
   const { root, cleanup } = passRepo();
   t.after(cleanup);
   const suites = discover(root);
@@ -62,6 +63,93 @@ test('发现：只进 tests/ 与 tools/，跳过 cases/、films/、fixtures/、n
   assert.equal(r.code, 0, r.stderr);
   assert.equal(r.json.suites.find(s => s.id === 'gamma:node').status, 'skip');
   assert.match(r.json.suites.find(s => s.id === 'gamma:node').skipReason, /gpu/);
+});
+
+test('发现：与源码放在一起的测试按目录归域（engine/audio → audio；tests/<域> 与同名目录合并）', t => {
+  const { root, cleanup } = makeRepo({
+    'engine/form/a.test.mjs': PASS_NODE,
+    'engine/audio/__init__.py': '', 'engine/audio/test_dsp.py': FAIL_PY,
+    'audio/test_mix.py': FAIL_PY,
+    'tests/audio/test_more.py': FAIL_PY,
+    'tests/engine/b.test.mjs': PASS_NODE,
+    'lab/regress.test.mjs': PASS_NODE,
+    'top.test.mjs': PASS_NODE,
+    '.claude/hooks/h.test.mjs': BOOM, 'engine/.cache/c.test.mjs': BOOM, 'src/__pycache__/test_x.py': BOOM,
+    'routes/a/test.js': BOOM, 'engine/notatest.mjs': BOOM,
+  });
+  t.after(cleanup);
+  const got = Object.fromEntries(discover(root).map(s => [s.id, s.files]));
+  assert.deepEqual(got, {
+    'audio:python': ['audio/test_mix.py', 'engine/audio/test_dsp.py', 'tests/audio/test_more.py'],
+    'engine:node': ['engine/form/a.test.mjs', 'tests/engine/b.test.mjs'],
+    'lab:node': ['lab/regress.test.mjs'],
+    'root:node': ['top.test.mjs'],
+  });
+});
+
+test('发现：git 检出里按 .gitignore 过滤（未跟踪但没被忽略的新测试也会跑）', { skip: spawnSync('git', ['--version']).status !== 0 && '没有 git' }, t => {
+  const { root, cleanup } = makeRepo({
+    '.gitignore': 'scratch/\n', 'tests/a/a.test.mjs': PASS_NODE, 'scratch/x.test.mjs': BOOM,
+  }, { git: true });
+  t.after(cleanup);
+  fs.writeFileSync(path.join(root, 'tests/a/new.test.mjs'), PASS_NODE);   // 还没 git add
+  assert.deepEqual(discover(root).map(s => [s.id, s.files]), [['a:node', ['tests/a/a.test.mjs', 'tests/a/new.test.mjs']]]);
+});
+
+test('Python：包里的测试按点分模块名导入，包内绝对导入可用；两个目录里的同名测试都能跑', { skip: !python() && '没有 Python' }, async t => {
+  const { root, cleanup } = makeRepo({
+    'engine/audio/__init__.py': '',
+    'engine/audio/dsp.py': 'def gain(x):\n    return 2 * x\n',
+    'engine/audio/test_dsp.py': 'import unittest\nfrom engine.audio.dsp import gain\n\nclass T(unittest.TestCase):\n    def test_gain(self):\n        self.assertEqual(gain(3), 6)\n        self.assertEqual(__name__, "engine.audio.test_dsp")\n',
+    'tests/x/test_same.py': 'import unittest\n\nclass A(unittest.TestCase):\n    def test_a(self):\n        pass\n',
+    'tests/y/test_same.py': 'import unittest\n\nclass B(unittest.TestCase):\n    def test_b(self):\n        pass\n',
+  });
+  t.after(cleanup);
+  const r = await runNode(RUN_TESTS, ['--root', root, '--json']);
+  assert.equal(r.code, 0, r.stderr);
+  const by = Object.fromEntries(r.json.suites.map(s => [s.id, s.counts]));
+  assert.equal(by['audio:python'].pass, 1);
+  assert.equal(by['x:python'].pass, 1);
+  assert.equal(by['y:python'].pass, 1);
+});
+
+test('缺声明过的依赖：exit 3（环境问题）并给出安装命令；没声明的模块找不到仍算测试失败（exit 1）', { skip: !python() && '没有 Python' }, async t => {
+  const missingPy = 'import unittest\nimport bm_not_installed_pkg\n\nclass T(unittest.TestCase):\n    def test_x(self):\n        pass\n';
+  const missingNode = `import test from 'node:test';\nimport x from 'bm-not-installed-pkg';\ntest('x', () => x);\n`;
+  const declared = makeRepo({
+    'package.json': JSON.stringify({ name: 'x', private: true, devDependencies: { 'bm-not-installed-pkg': '1.0.0' } }),
+    'requirements.txt': '# 注释\nbm_not_installed_pkg==1.0 \\\n    --hash=sha256:00\n',
+    'tests/py/test_a.py': missingPy, 'tests/js/a.test.mjs': missingNode, 'tests/ok/a.test.mjs': PASS_NODE,
+  });
+  t.after(declared.cleanup);
+  const r = await runNode(RUN_TESTS, ['--root', declared.root, '--json']);
+  assert.equal(r.code, 3, r.stderr);
+  assert.equal(r.json.error.code, 'DEPS_MISSING');
+  const by = Object.fromEntries(r.json.suites.map(s => [s.id, s]));
+  assert.equal(by['py:python'].status, 'env');
+  assert.deepEqual(by['py:python'].missingDeps, ['bm_not_installed_pkg']);
+  assert.match(by['py:python'].skipReason, /pip install -r requirements\.txt/);
+  assert.equal(by['js:node'].status, 'env');
+  assert.deepEqual(by['js:node'].missingDeps, ['bm-not-installed-pkg']);
+  assert.match(by['js:node'].skipReason, /npm ci/);
+  assert.equal(by['ok:node'].status, 'pass');
+  const undeclared = makeRepo({ 'tests/py/test_a.py': missingPy, 'tests/js/a.test.mjs': missingNode });
+  t.after(undeclared.cleanup);
+  const u = await runNode(RUN_TESTS, ['--root', undeclared.root, '--json']);
+  assert.equal(u.code, 1, u.stderr);
+  assert.deepEqual(u.json.suites.map(s => s.status), ['fail', 'fail']);
+});
+
+test('domainOf / inScope：路径规则', () => {
+  assert.equal(domainOf('tests/render/a.test.mjs'), 'render');
+  assert.equal(domainOf('tests/a.test.mjs'), 'root');
+  assert.equal(domainOf('engine/audio/test_audio.py'), 'audio');
+  assert.equal(domainOf('engine/look/look.test.mjs'), 'engine');
+  assert.equal(domainOf('tools/repo-check/rules/core/x.test.mjs'), 'tools');
+  assert.equal(domainOf('x.test.mjs'), 'root');
+  for (const yes of ['engine/a.test.cjs', 'audio/test_x.py', 'site/js/a.test.js']) assert.ok(inScope(yes), yes);
+  for (const no of ['cases/a/x.test.mjs', 'films/f/x.test.mjs', 'tests/a/fixtures/x.test.mjs', 'a/node_modules/b/x.test.mjs', 'a/out/x.test.mjs',
+    '.github/x.test.mjs', 'tests/a/test.js', 'tests/a/x.mjs', 'tests/a/testx.py', 'tests/a/x_test.py']) assert.ok(!inScope(no), no);
 });
 
 test('全部通过：exit 0，计数正确，要 GPU 的组跳过并写明原因', { skip: !python() && '没有 Python' }, async t => {
@@ -226,4 +314,16 @@ test('parseTap：计数取汇总行，失败只记叶子测试', () => {
     ['失败的测试', '/x/a.test.mjs:4:1', 'Expected 1 to equal 2'],
     ['子测试失败', '/x/a.test.mjs:6:3', 'boom'],
   ]);
+});
+
+test('parseTap：整个文件加载失败时，从它前面的诊断注释里取真正的原因', () => {
+  const tap = [
+    'TAP version 13', '# 测试自己打印的一行', 'ok 1 - 通过的文件', '  ---', '  ...',
+    '# node:internal/modules/package_json_reader:301', "# Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'three' imported from /x/b.test.mjs",
+    '#     at packageResolve (node:internal/modules/esm/resolve:769:81)', '# Subtest: b.test.mjs', 'not ok 2 - b.test.mjs', '  ---',
+    "  location: '/x/b.test.mjs:1:1'", "  failureType: 'testCodeFailure'", "  error: 'test failed'", "  code: 'ERR_TEST_FAILURE'", '  ...',
+    '# 无关的输出', 'not ok 3 - c.test.mjs', '  ---', "  failureType: 'testCodeFailure'", "  error: 'test failed'", '  ...', '1..3', '# tests 3', '# fail 2',
+  ].join('\n');
+  const { failures } = parseTap(tap);
+  assert.deepEqual(failures.map(f => f.message), ["Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'three' imported from /x/b.test.mjs", 'test failed']);
 });
