@@ -1,0 +1,1484 @@
+{
+ "schema": "beiming.samples/1",
+ "说明": "engine/audio/sampler.py 的 INSTRUMENTS 表指向的两套 CC0 采样库：固定到上游提交，逐个文件列出下载地址（rawBase + 库内路径）、字节数、上游 git blob SHA-1 与 sha256。采样库不随仓库分发（D10）：用 node tools/audio/fetch-samples.mjs 下载到 BEIMING_SAMPLES 并逐个校验；sha256 为 null 的条目由第一次下载时 fetch-samples --record 补上（git blob SHA-1 照样逐字节校验）。清单内容进入配乐缓存的输入键（audio/score_cache.lock.json）：换版本、增删文件都会让旧缓存失效。",
+ "env": "BEIMING_SAMPLES",
+ "layout": "<BEIMING_SAMPLES>/<library.dir>/<instrument.dir>/<file.path>",
+ "generatedFrom": "GitHub git trees API（recursive）在下列固定提交上的文件列表，2026-11-10",
+ "libraries": [
+  {
+   "id": "vsco2ce",
+   "dir": "vsco2ce",
+   "name": "VS Chamber Orchestra: Community Edition",
+   "author": "Versilian Studios",
+   "license": "CC0-1.0",
+   "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+   "upstream": "https://github.com/sgossner/VSCO-2-CE",
+   "commit": "440300901dfe9275fd84e0b7763af1f8443ae62e",
+   "commitDate": "2020-08-05",
+   "release": "1.1.0（标签提交 28092772；之后只改了 README）",
+   "rawBase": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/440300901dfe9275fd84e0b7763af1f8443ae62e/",
+   "credit": "VS Chamber Orchestra: Community Edition (Versilian Studios)",
+   "extras": [
+    {
+     "path": "LICENSE",
+     "bytes": 6555,
+     "gitBlobSha1": "670154e3538863b2d9891fd5483160fbdfc89164",
+     "sha256": null
+    }
+   ]
+  },
+  {
+   "id": "vcsl",
+   "dir": "vcsl",
+   "name": "Versilian Community Sample Library",
+   "author": "Versilian Studios",
+   "license": "CC0-1.0",
+   "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+   "upstream": "https://github.com/sgossner/VCSL",
+   "commit": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+   "commitDate": "2026-01-14",
+   "release": "master（v1.2.2-RC 之后补了 LICENSE 文件）",
+   "rawBase": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/",
+   "credit": "Versilian Community Sample Library (Versilian Studios)",
+   "extras": [
+    {
+     "path": "LICENSE",
+     "bytes": 7048,
+     "gitBlobSha1": "0e259d42c996742e9e3cba14c677129b2c1b6311",
+     "sha256": null
+    }
+   ]
+  }
+ ],
+ "instruments": {
+  "violins": {
+   "library": "vsco2ce",
+   "dir": "Strings/Violin Section/susVib",
+   "kind": "sus",
+   "count": 22,
+   "bytes": 45962344,
+   "files": [
+    {
+     "path": "VlnEns_susVib_A2_v1.wav",
+     "bytes": 1979216,
+     "gitBlobSha1": "b86c2e7000da2a80466196acca2ddbdf6cf83fe8",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_A2_v2.wav",
+     "bytes": 2231504,
+     "gitBlobSha1": "5960b46c4678a146834594031d0bba1048855102",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_A3_v1.wav",
+     "bytes": 1890316,
+     "gitBlobSha1": "ec84b89a4b93ecdc7e23d0c023b897b6f151bca7",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_A3_v2.wav",
+     "bytes": 1671704,
+     "gitBlobSha1": "401653718e521b65712da594a53d22184f4a207a",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_B2_v1.wav",
+     "bytes": 2314360,
+     "gitBlobSha1": "c2bdf89eed02c0e7fbb11b52799ac62276787ff8",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_B2_v2.wav",
+     "bytes": 2373380,
+     "gitBlobSha1": "4f54ea9180f4c11ec3d0e92f556003be59cb0f0c",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_B4_v1.wav",
+     "bytes": 2056964,
+     "gitBlobSha1": "8e22cb66ba5bccb4df68decf98139b3008733e8a",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_B4_v2.wav",
+     "bytes": 1923744,
+     "gitBlobSha1": "598c11bd6fb25e33c599836428e03336ad5a5031",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_C4_v1.wav",
+     "bytes": 2063320,
+     "gitBlobSha1": "6d81fcafba04ca992a8b85665a56e60337929ce0",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_C4_v2.wav",
+     "bytes": 2017512,
+     "gitBlobSha1": "1c8e05059b270f870342a03e19b93882d6dd1e1b",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_D3_v1.wav",
+     "bytes": 2061808,
+     "gitBlobSha1": "e47f9a53d487475fb049039ca7846e11c1ff830a",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_D3_v2.wav",
+     "bytes": 2457908,
+     "gitBlobSha1": "31143ae1a31ddd57baa38b3e79a4415b108a0007",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_D5_v1.wav",
+     "bytes": 2116352,
+     "gitBlobSha1": "fa455a7f8fe8c5c00b36c8e131bbc340204ae1c8",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_D5_v2.wav",
+     "bytes": 1976276,
+     "gitBlobSha1": "804a72a49c07eed754e377b354f8e54a4805476d",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_E4_v1.wav",
+     "bytes": 2315540,
+     "gitBlobSha1": "838b43d3c9e763898817869d411ab26463b7464f",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_E4_v2.wav",
+     "bytes": 1702620,
+     "gitBlobSha1": "2c33cc296b9b3654fd08fc9e9887042eabee738d",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_F#3_v1.wav",
+     "bytes": 1585612,
+     "gitBlobSha1": "996ca7e6b1d9541d2f2fd7f53ba88294693893e7",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_F#3_v2.wav",
+     "bytes": 1720800,
+     "gitBlobSha1": "33a19df9d89a5dbb174b9f72e6ae79a07327b2b6",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_G2_v1.wav",
+     "bytes": 2341712,
+     "gitBlobSha1": "e2de84e8b912dbfb8df3efe7b8ee241e2bcfa027",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_G2_v2.wav",
+     "bytes": 2681324,
+     "gitBlobSha1": "b7693eb5c9d104fc01e130ee2552dac546ee85f7",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_G4_v1.wav",
+     "bytes": 2330236,
+     "gitBlobSha1": "81d3994ebbf467cbbc88bb2d2ad0dd94d96e7e04",
+     "sha256": null
+    },
+    {
+     "path": "VlnEns_susVib_G4_v2.wav",
+     "bytes": 2150136,
+     "gitBlobSha1": "c36674326c6d0b6ae8bf5d20b52b6ddd005719bb",
+     "sha256": null
+    }
+   ]
+  },
+  "violas": {
+   "library": "vsco2ce",
+   "dir": "Strings/Viola Section/susvib",
+   "kind": "sus",
+   "count": 26,
+   "bytes": 71702776,
+   "files": [
+    {
+     "path": "ViolaEns_susvib_A3_v1_1.wav",
+     "bytes": 2491352,
+     "gitBlobSha1": "a57d0e5e328257ef14a3dd09b1debea045671527",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_A3_v2_1.wav",
+     "bytes": 2861282,
+     "gitBlobSha1": "b479361fe3bed076db011092b8d48bca54daf83f",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_B2_v1_1.wav",
+     "bytes": 2861510,
+     "gitBlobSha1": "86e2428bca77c49d795e5e3d5be7dd9b022fce65",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_B2_v2_1.wav",
+     "bytes": 3268364,
+     "gitBlobSha1": "0f7bee6ccadc6e25a101cbd7be1c27ac6e896ea4",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_B4_v1_1.wav",
+     "bytes": 2203118,
+     "gitBlobSha1": "66520dad5b544b8e93c48e0f3aa941b3e85bc633",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_B4_v2_1.wav",
+     "bytes": 2893766,
+     "gitBlobSha1": "818ac60340e41f1287024c738d43c5bf3cf7dc9d",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_C2_v1_1.wav",
+     "bytes": 2642360,
+     "gitBlobSha1": "b1cfb66c1ab03bdb9adac7e347b427bc61524b94",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_C2_v2_1.wav",
+     "bytes": 3318188,
+     "gitBlobSha1": "7851268d881b226650cba4ef1d4e9578ae212099",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_C4_v1_1.wav",
+     "bytes": 2289656,
+     "gitBlobSha1": "a88aa6006bbc4ad1b25e4f08eb2d8ac974a7097f",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_C4_v2_1.wav",
+     "bytes": 2954936,
+     "gitBlobSha1": "4561f010d9b6de44b121246731042d1879d38ab7",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_D2_v1_1.wav",
+     "bytes": 2359898,
+     "gitBlobSha1": "d508161e1c7a255d291f1d32f9605a9c215357aa",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_D2_v2_1.wav",
+     "bytes": 3049772,
+     "gitBlobSha1": "bf8a94de83b7d96375bef7c94e07d616f43f9c14",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_D3_v1_1.wav",
+     "bytes": 2789648,
+     "gitBlobSha1": "9a3a65b93d871964a666d6a86deec4d29425d828",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_D3_v2_1.wav",
+     "bytes": 3596756,
+     "gitBlobSha1": "2f6d74aa54f4f23889de311ff85d9f704fb600b9",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_D5_v1_1.wav",
+     "bytes": 2087798,
+     "gitBlobSha1": "57d1de0867673e6861f318c01ed3358ffbff2996",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_D5_v2_1.wav",
+     "bytes": 2638244,
+     "gitBlobSha1": "05a181827b7f6b3f339a92fa8eaf648f352651a5",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_E2_v1_1.wav",
+     "bytes": 2520044,
+     "gitBlobSha1": "6401156b3518b6f39e95fdaefc74cc814d6aceb2",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_E2_v2_1.wav",
+     "bytes": 3027656,
+     "gitBlobSha1": "764698fba8db1da82ecc6b5ec54fe61c0036e4f2",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_E4_v1_1.wav",
+     "bytes": 2044358,
+     "gitBlobSha1": "c97e8f4eeffe3fd94afeb8a3d32099105ab270d2",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_E4_v2_1.wav",
+     "bytes": 2559086,
+     "gitBlobSha1": "c0e669461ba50854dd80e68767604a6f57471cc2",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_F3_v1_1.wav",
+     "bytes": 2487818,
+     "gitBlobSha1": "f9e0fa27802046cf9ed1e6b5625b6a815b3c09e8",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_F3_v2_1.wav",
+     "bytes": 3471944,
+     "gitBlobSha1": "e6b387021b4b98c926d737b2d451037aad087d0e",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_G2_v1_1.wav",
+     "bytes": 2001644,
+     "gitBlobSha1": "7c6dbafbe1f5de539b5861515f1bf39987e354cb",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_G2_v2_1.wav",
+     "bytes": 3637364,
+     "gitBlobSha1": "e8b4cc651229723bc4dcb781d715d6b995b5589d",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_G4_v1_1.wav",
+     "bytes": 2542586,
+     "gitBlobSha1": "2f34fb8b8826e09cf0427d1710b650a5c3dd3010",
+     "sha256": null
+    },
+    {
+     "path": "ViolaEns_susvib_G4_v2_1.wav",
+     "bytes": 3103628,
+     "gitBlobSha1": "54255fd83b3bf242022e61ff6d9fe518401dc537",
+     "sha256": null
+    }
+   ]
+  },
+  "cellos": {
+   "library": "vsco2ce",
+   "dir": "Strings/Cello Section/susvib",
+   "kind": "sus",
+   "count": 27,
+   "bytes": 72584478,
+   "files": [
+    {
+     "path": "susvib_A2_v1_1.wav",
+     "bytes": 2336738,
+     "gitBlobSha1": "76df6b474aff133b2ac9d96bf2466cb6fd865c72",
+     "sha256": null
+    },
+    {
+     "path": "susvib_A2_v3_1.wav",
+     "bytes": 3082676,
+     "gitBlobSha1": "ad696c6ad3cbacb37b6d9cf4f26da4a54521e7ce",
+     "sha256": null
+    },
+    {
+     "path": "susvib_B1_v1_1.wav",
+     "bytes": 2372492,
+     "gitBlobSha1": "d6a4a2d1a688c6ccb4e1e1a56b878c9c93df468b",
+     "sha256": null
+    },
+    {
+     "path": "susvib_B1_v3_1.wav",
+     "bytes": 3372962,
+     "gitBlobSha1": "56c81412c60a2b04b8556dfa26a7e0127357c5cb",
+     "sha256": null
+    },
+    {
+     "path": "susvib_B3_v1_1.wav",
+     "bytes": 1690082,
+     "gitBlobSha1": "16d846690d7c4d385f3cfc8f1fe25873d6bd5b01",
+     "sha256": null
+    },
+    {
+     "path": "susvib_B3_v3_1.wav",
+     "bytes": 2865086,
+     "gitBlobSha1": "3b1685e657db57bd71c979da8c2d9d35d2d0d197",
+     "sha256": null
+    },
+    {
+     "path": "susvib_C1_v1_1.wav",
+     "bytes": 2347376,
+     "gitBlobSha1": "ff87d1ae488d87189f33a0d18550d3bcde012f3d",
+     "sha256": null
+    },
+    {
+     "path": "susvib_C1_v3_1.wav",
+     "bytes": 3335948,
+     "gitBlobSha1": "d3820a6d57daf9a202a000bff0fa082a3f77acf6",
+     "sha256": null
+    },
+    {
+     "path": "susvib_C3_v1_1.wav",
+     "bytes": 2444174,
+     "gitBlobSha1": "73ccb5dc2cc2a07926a1c41aa3c5621b19f420bf",
+     "sha256": null
+    },
+    {
+     "path": "susvib_C3_v3_1.wav",
+     "bytes": 3019394,
+     "gitBlobSha1": "a192845091cb8e669c72d3ff4a88eb1c5968e626",
+     "sha256": null
+    },
+    {
+     "path": "susvib_D2_v1_1.wav",
+     "bytes": 2550956,
+     "gitBlobSha1": "8076f809d4f6a8057f3835e12d22751a25e39252",
+     "sha256": null
+    },
+    {
+     "path": "susvib_D2_v3_1.wav",
+     "bytes": 3291368,
+     "gitBlobSha1": "fdb46242bb68876ad275b9b8ed10c4b8508b9292",
+     "sha256": null
+    },
+    {
+     "path": "susvib_D4_v1_1.wav",
+     "bytes": 2153228,
+     "gitBlobSha1": "e1125afc13def9b43e4612cdcebd11b99fce20cc",
+     "sha256": null
+    },
+    {
+     "path": "susvib_D4_v3_1.wav",
+     "bytes": 2801210,
+     "gitBlobSha1": "9189549dab9d3e0928fc7e42f94c04d66d28c52b",
+     "sha256": null
+    },
+    {
+     "path": "susvib_E1_v1_1.wav",
+     "bytes": 2468348,
+     "gitBlobSha1": "fcd27d29a8c0d520539cef6aad659bf9006ae730",
+     "sha256": null
+    },
+    {
+     "path": "susvib_E1_v1_2.wav",
+     "bytes": 2439512,
+     "gitBlobSha1": "d5756d400ce67b25c332e04061dd9f32dc89d283",
+     "sha256": null
+    },
+    {
+     "path": "susvib_E1_v3_1.wav",
+     "bytes": 3080426,
+     "gitBlobSha1": "666f0d1ba1a76133c12c9859222c1c7094b613cf",
+     "sha256": null
+    },
+    {
+     "path": "susvib_E3_v1_1.wav",
+     "bytes": 2456672,
+     "gitBlobSha1": "63f4d6df3a25fb95f417b5d45b5f8bf6a11107bf",
+     "sha256": null
+    },
+    {
+     "path": "susvib_E3_v3_1.wav",
+     "bytes": 3278270,
+     "gitBlobSha1": "7711cb67795d692b0d732eb8fd234c41d5980f42",
+     "sha256": null
+    },
+    {
+     "path": "susvib_F2_v1_1.wav",
+     "bytes": 2186012,
+     "gitBlobSha1": "78f52c49ddc8a357657d92b05cd89f15beb6c717",
+     "sha256": null
+    },
+    {
+     "path": "susvib_F2_v3_1.wav",
+     "bytes": 3062696,
+     "gitBlobSha1": "a384e84a342ab9be12ca55b92c845a3c351b75bf",
+     "sha256": null
+    },
+    {
+     "path": "susvib_F4_v1_1.wav",
+     "bytes": 1922948,
+     "gitBlobSha1": "7f39cccecb392eaa0ff4c94e3607dc2294458a30",
+     "sha256": null
+    },
+    {
+     "path": "susvib_F4_v3_1.wav",
+     "bytes": 2726342,
+     "gitBlobSha1": "074f12a91124e13ea0e4fb34d9ecbe7279ec0806",
+     "sha256": null
+    },
+    {
+     "path": "susvib_G1_v1_1.wav",
+     "bytes": 2161700,
+     "gitBlobSha1": "42a2731d11a4749c3026f0618e21a8c9370c2024",
+     "sha256": null
+    },
+    {
+     "path": "susvib_G1_v3_1.wav",
+     "bytes": 3370496,
+     "gitBlobSha1": "35971538059e18b8f38cdc556630967777a0a0d5",
+     "sha256": null
+    },
+    {
+     "path": "susvib_G3_v1_1.wav",
+     "bytes": 2431598,
+     "gitBlobSha1": "7880157fbb8e57fb0b7a694b8569701bc0d942ea",
+     "sha256": null
+    },
+    {
+     "path": "susvib_G3_v3_1.wav",
+     "bytes": 3335768,
+     "gitBlobSha1": "732d0c80596fdfc593f55b5a24f65c07cd3191cd",
+     "sha256": null
+    }
+   ]
+  },
+  "contrabass": {
+   "library": "vsco2ce",
+   "dir": "Strings/Solo Contrabass/SusVib",
+   "kind": "sus",
+   "count": 26,
+   "bytes": 47957640,
+   "files": [
+    {
+     "path": "BKCtbss_SusVib_A#0_v1_rr1.wav",
+     "bytes": 1336820,
+     "gitBlobSha1": "6121cdd1a2011599c3f016c8bba312902d8dff5f",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_A#0_v3_rr1.wav",
+     "bytes": 2193316,
+     "gitBlobSha1": "93b045a2ce6f37a7b479ee32c17b87a791bc16e0",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_A1_v1_rr1.wav",
+     "bytes": 2131692,
+     "gitBlobSha1": "552d5297f6a9b0384a4544eda9689fbb1f9f0950",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_A1_v3_rr1.wav",
+     "bytes": 1975160,
+     "gitBlobSha1": "2829c3686a2ae6c728cd2c924679b66d850d74de",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_B2_v1_rr1.wav",
+     "bytes": 1246160,
+     "gitBlobSha1": "ec3908bbb75b03c60c5fdfc182761016e90b3a89",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_B2_v3_rr1.wav",
+     "bytes": 1633420,
+     "gitBlobSha1": "9424df5a5e339fc2aec523d78b99efa0de6e4d09",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_C#2_v1_rr1.wav",
+     "bytes": 1349416,
+     "gitBlobSha1": "7c9dde09e9bc254c0b7523ccce679c69b87a25e3",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_C#2_v3_rr1.wav",
+     "bytes": 1860096,
+     "gitBlobSha1": "b84db77f1fec73b106f2f108037c66d23a35c1ce",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_C1_v1_rr1.wav",
+     "bytes": 1835940,
+     "gitBlobSha1": "b0698cd7f3deab8320de5bda1d96d1c3443a51b2",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_C1_v3_rr1.wav",
+     "bytes": 2479908,
+     "gitBlobSha1": "961971106505e82db1b2a2c850e573528a75c6e7",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_D1_v1_rr1.wav",
+     "bytes": 3057536,
+     "gitBlobSha1": "305eaa62b5a84f1035a8723792fe0f4011d7f9e6",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_D1_v3_rr1.wav",
+     "bytes": 2450408,
+     "gitBlobSha1": "e66dde25194ee27477b4fdd31fd7726e84df2d73",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_E1_v1_rr1.wav",
+     "bytes": 2429548,
+     "gitBlobSha1": "b1fbaaf4c5226a1ea8447b4e3687fb0539d62b0c",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_E1_v3_rr1.wav",
+     "bytes": 2051084,
+     "gitBlobSha1": "c1749de03dc4ea9b49eca55318e7698b76e5b65d",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_E2_v1_rr1.wav",
+     "bytes": 1533524,
+     "gitBlobSha1": "8a7643452697f29cfddba49c23549fdc913a8726",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_E2_v3_rr1.wav",
+     "bytes": 1874324,
+     "gitBlobSha1": "2fc3c01f5d1a0449489800a5b5dabd3bc8817c80",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_F#0_v1_rr1.wav",
+     "bytes": 1597380,
+     "gitBlobSha1": "ddd3f5c1bff906167aa16bee3ceb45589fc32f22",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_F#0_v3_rr1.wav",
+     "bytes": 2177272,
+     "gitBlobSha1": "4ffc597b3930f4e383be776141f0dab145120d62",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_F#1_v1_rr1.wav",
+     "bytes": 1153568,
+     "gitBlobSha1": "cb95407f5853c21b4544a117bcca9cf074f45e71",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_F#1_v3_rr1.wav",
+     "bytes": 1710912,
+     "gitBlobSha1": "dce2dab98559f73837834f23d80a1f73f6a57ad1",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_G#1_v1_rr1.wav",
+     "bytes": 1256636,
+     "gitBlobSha1": "318147f57e7e2c6c13306e2a703dbcba670454a8",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_G#1_v3_rr1.wav",
+     "bytes": 1874712,
+     "gitBlobSha1": "6f701d221e67b5451cb80affd3002e743c8e4e68",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_G#2_v1_rr1.wav",
+     "bytes": 1352760,
+     "gitBlobSha1": "a9f242894bb6b52da9f7bef619023888e3b70c65",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_G#2_v3_rr1.wav",
+     "bytes": 1821888,
+     "gitBlobSha1": "e64bf733e9622fb6bea298708d0d30e3ce1c49b6",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_G0_v1_rr1.wav",
+     "bytes": 1583696,
+     "gitBlobSha1": "35ee3d675424306c55438f2130f2c05e312da3f6",
+     "sha256": null
+    },
+    {
+     "path": "BKCtbss_SusVib_G0_v3_rr1.wav",
+     "bytes": 1990464,
+     "gitBlobSha1": "834df8922de2c341ee5f841f5bcc13e0bcb1206c",
+     "sha256": null
+    }
+   ]
+  },
+  "horn": {
+   "library": "vsco2ce",
+   "dir": "Brass/F Horn/sus",
+   "kind": "sus",
+   "count": 29,
+   "bytes": 50632480,
+   "files": [
+    {
+     "path": "MOHorn_sus_A#1_v1_1.wav",
+     "bytes": 2417592,
+     "gitBlobSha1": "573db456092f7eff6af7245819f162828f749e10",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_A#1_v2_1.wav",
+     "bytes": 2740036,
+     "gitBlobSha1": "62c15504278f9c2dfaa0006530d34a5a3d92ecb0",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_A#1_v3_1.wav",
+     "bytes": 1829064,
+     "gitBlobSha1": "8fe919bf02a81284083f9a356db56591ffbb5e31",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_A0_v1_1.wav",
+     "bytes": 947196,
+     "gitBlobSha1": "bec79afe2bde69ed445c52da977b83e31cc81ed7",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_A2_v1_1.wav",
+     "bytes": 2672192,
+     "gitBlobSha1": "d358aadfb3bb1e0f28ab742d96f5418dc750057b",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_A2_v2_1.wav",
+     "bytes": 2542000,
+     "gitBlobSha1": "5ea35c7b0bf50d85195ba726380e611817f4ba9a",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_A2_v3_1.wav",
+     "bytes": 1305440,
+     "gitBlobSha1": "d4088d29905d60944c524d443f66c55035301e47",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_C1_v1_1.wav",
+     "bytes": 1093856,
+     "gitBlobSha1": "eed8f32ab91afd3381e42d0a5d0ad1d2beccbd11",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_C1_v2_1.wav",
+     "bytes": 807756,
+     "gitBlobSha1": "48ea1921e88607d0aea8aece16be6bc2456f6a4e",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_C1_v3_1.wav",
+     "bytes": 704216,
+     "gitBlobSha1": "3503c90afff58abd64db51f24e7f0ffc02954e3d",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_C3_v1_1.wav",
+     "bytes": 2519448,
+     "gitBlobSha1": "e53d2d03f0902c9f3a6add7c6bf51122bcc7d573",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_C3_v2_1.wav",
+     "bytes": 2240888,
+     "gitBlobSha1": "9f89dc248404a1a1e0240035ac5fa55c89e9c9cd",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_C3_v3_1.wav",
+     "bytes": 2114316,
+     "gitBlobSha1": "69e3187ccc4d4338931d412a9f50978ca576db5c",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_C3_v4_1.wav",
+     "bytes": 1761688,
+     "gitBlobSha1": "98bc7d3d4709c8d7a240a1f39c615bef3af7e5b0",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_D#1_v1_1.wav",
+     "bytes": 1425196,
+     "gitBlobSha1": "238de6f129810744e89a22c414daf926e1b55a37",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_D#1_v2_1.wav",
+     "bytes": 970468,
+     "gitBlobSha1": "20c33d3ffb3bf369e30359e3eb8b8ac7548adda3",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_D#1_v3_1.wav",
+     "bytes": 927292,
+     "gitBlobSha1": "db97debcf24dfa898ce069d9b21b5bbea371e552",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_D2_v1_1.wav",
+     "bytes": 2500360,
+     "gitBlobSha1": "e63cadc76d2b3e56ee26ad558e52fd633cc8c4b1",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_D2_v2_1.wav",
+     "bytes": 2583372,
+     "gitBlobSha1": "665f09cf0fe70efdcec1d93b064d5a5a32d6ebe0",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_D2_v3_1.wav",
+     "bytes": 1746204,
+     "gitBlobSha1": "aec5cfdb8e2532338f69f6726c77c1d8e5044f0d",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_D2_v4_1.wav",
+     "bytes": 1166236,
+     "gitBlobSha1": "e61e2d828400580fd267e5af934eee65e62d21b7",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_D4_v1_1.wav",
+     "bytes": 1445100,
+     "gitBlobSha1": "0d13acd769ecdfc234c416fe859a4eda9aac2f22",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_F2_v1_1.wav",
+     "bytes": 2163124,
+     "gitBlobSha1": "90c68f7833a7aa2325dea7159aad8af4c9b13a76",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_F2_v2_1.wav",
+     "bytes": 2558276,
+     "gitBlobSha1": "37655b24ac23b96a47a6bb75c091bedef6913632",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_F2_v3_1.wav",
+     "bytes": 1692688,
+     "gitBlobSha1": "af9345753c5b31083a3e344dd7bbf6c978de59c3",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_F4_v1_1.wav",
+     "bytes": 1477536,
+     "gitBlobSha1": "3061198e82995900230e9ddde1138a076d8dca9f",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_G1_v1_1.wav",
+     "bytes": 2038728,
+     "gitBlobSha1": "587133d2ed466473bd29438555973d9e75c3285a",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_G1_v2_1.wav",
+     "bytes": 1300556,
+     "gitBlobSha1": "e09ff9550c6ed4b660baeaba5497040ca7add35e",
+     "sha256": null
+    },
+    {
+     "path": "MOHorn_sus_G1_v3_1.wav",
+     "bytes": 941656,
+     "gitBlobSha1": "e824ccfe9f9b0a33e31151cec90e838dc769d949",
+     "sha256": null
+    }
+   ]
+  },
+  "harp": {
+   "library": "vcsl",
+   "dir": "Chordophones/Composite Chordophones/Concert Harp",
+   "kind": "dec",
+   "count": 45,
+   "bytes": 76694972,
+   "files": [
+    {
+     "path": "KSHarp_A2_f1.wav",
+     "bytes": 1956866,
+     "gitBlobSha1": "0c826a5910a789f256ec433a567d2730dcbfa058",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_A2_mf1.wav",
+     "bytes": 2007670,
+     "gitBlobSha1": "265383d75cb23b2882ca297e6c50908e3ec8247a",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_A4_f1.wav",
+     "bytes": 2057694,
+     "gitBlobSha1": "ed7b3f241f62caa080fc208c95fd6e790cd172f7",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_A4_mf1.wav",
+     "bytes": 2143618,
+     "gitBlobSha1": "acbece38a84e886cb5516e0f29d6ff5d38900fe1",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_A6_f1.wav",
+     "bytes": 544050,
+     "gitBlobSha1": "de6abdbc81c9039d98c966c7c1389c81e12a97d4",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_A6_mf1.wav",
+     "bytes": 636870,
+     "gitBlobSha1": "9fc9959804954e24e6837c426d702031fd2a3b7f",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_B1_f1.wav",
+     "bytes": 4472742,
+     "gitBlobSha1": "3c1fe4c30090920906c2910a1713d6d3535671dc",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_B1_mf1.wav",
+     "bytes": 2284022,
+     "gitBlobSha1": "bb26292fd8b4d4d7f95703c69667c8f2234eebc8",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_B3_f1.wav",
+     "bytes": 2095102,
+     "gitBlobSha1": "75f19f8f1a2193cfb99ea7061901a9a82899fa6a",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_B3_mf1.wav",
+     "bytes": 1981130,
+     "gitBlobSha1": "8d06cd55bc871d19f25a2bb1b56c7a567aabbc6b",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_B5_f1.wav",
+     "bytes": 739674,
+     "gitBlobSha1": "5824bdfc0b91f9c43284cfa43a877868c08df956",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_B5_mf1.wav",
+     "bytes": 779058,
+     "gitBlobSha1": "2d2689e8ca023cd685ed5a29161f3d641f109da9",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_B6_f1.wav",
+     "bytes": 551854,
+     "gitBlobSha1": "e6909ef3f3d9a2ce9089a6c0904c3e7a24d53797",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_B6_mf1.wav",
+     "bytes": 483966,
+     "gitBlobSha1": "d350ad472b663c9c239802f10228cd0073cf698d",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_C3_f2.wav",
+     "bytes": 2788402,
+     "gitBlobSha1": "fcc9d395b347f7dbbaf345f51227c816cd3decea",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_C3_mf3.wav",
+     "bytes": 1886028,
+     "gitBlobSha1": "2e2b9b2eeab0619e912418ecf9cfbd34623157d4",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_C5_f1.wav",
+     "bytes": 2238054,
+     "gitBlobSha1": "81378311f0804bea313d7c13f8d80150701a1168",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_C5_mf1.wav",
+     "bytes": 1237142,
+     "gitBlobSha1": "748b4b1366616972c2a22e81fc48a86178801c45",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_D2_f1.wav",
+     "bytes": 2452326,
+     "gitBlobSha1": "64cb39c85b45000c8deb9396c38bc69fad42387b",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_D2_mf1.wav",
+     "bytes": 1741118,
+     "gitBlobSha1": "2a9d5a18ceb32459a29995a4e68e06c8f78dff5d",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_D4_f1.wav",
+     "bytes": 1992818,
+     "gitBlobSha1": "ba6ae57b844023dc9834d5c8c7891fc68a3aabca",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_D4_mf1.wav",
+     "bytes": 1921690,
+     "gitBlobSha1": "342eec5072e2c0a7fb7cb03b6f5b46d84ed6ac69",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_D6_f1.wav",
+     "bytes": 1314286,
+     "gitBlobSha1": "68508a288650600ffa85c368b1216d0b02d0a954",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_D6_mf1.wav",
+     "bytes": 687750,
+     "gitBlobSha1": "f66e88f651740695e4971c3197e6a1d61d6380c1",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_D7_f1.wav",
+     "bytes": 498098,
+     "gitBlobSha1": "1087b28d75ff411ff8d248743bfd68cbc3133307",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_D7_p1.wav",
+     "bytes": 200462,
+     "gitBlobSha1": "45a921c0f63361608957d88bc532414d06c22787",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_E1_f1.wav",
+     "bytes": 3729054,
+     "gitBlobSha1": "b9794ea7871af9b9a543eb4161447c6f2fc88b84",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_E3_f1.wav",
+     "bytes": 2811614,
+     "gitBlobSha1": "7abc23a2563c97c49ff20c71882209692f323501",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_E3_mf1.wav",
+     "bytes": 2461138,
+     "gitBlobSha1": "5c6c7410ae0ff7800214931f9db9a7f52db5987e",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_E5_f1.wav",
+     "bytes": 1728554,
+     "gitBlobSha1": "df5dc574d2d25404589e97d33d3d82f9cc1ec35f",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_E5_mf1.wav",
+     "bytes": 1171586,
+     "gitBlobSha1": "20675907d698db011d0c8bc72cf9af4e7a1ac971",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_F2_f1.wav",
+     "bytes": 4239354,
+     "gitBlobSha1": "c7ad1de34ab40c92dbd3d1dbb7afa7b39d101125",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_F2_mf1.wav",
+     "bytes": 3086590,
+     "gitBlobSha1": "03c3ce65453dc79a0b36805126b57574ff7dc654",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_F4_f1.wav",
+     "bytes": 1873242,
+     "gitBlobSha1": "55109581efa288c4c5373b2ae36c903457ba8bf9",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_F4_mf1.wav",
+     "bytes": 1913498,
+     "gitBlobSha1": "a1966639b165b623ac533270d616814cbc5389ef",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_F6_f1.wav",
+     "bytes": 775754,
+     "gitBlobSha1": "c382066b1acea753ae4b525e4a9974af9ab7e28f",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_F6_mf1.wav",
+     "bytes": 413126,
+     "gitBlobSha1": "5d80932f790a28c088fab5dc2727c01ef2a130fc",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_F7_f1.wav",
+     "bytes": 332482,
+     "gitBlobSha1": "2451907b2acc4cdf9b371111c760abc9bb866926",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_F7_p1.wav",
+     "bytes": 230814,
+     "gitBlobSha1": "10fcedf26120650a5a125a03adc596a75530a343",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_G1_f1.wav",
+     "bytes": 2786426,
+     "gitBlobSha1": "d0c69a718a435789eeb17af9b8e3edc7d85d370d",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_G1_mp1.wav",
+     "bytes": 1189890,
+     "gitBlobSha1": "b7935d0f8828a40be189f960960d4cb8d3235328",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_G3_f1.wav",
+     "bytes": 2463842,
+     "gitBlobSha1": "9b45404d803b9fbac1720fca5f9ecc8878deca63",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_G3_mf1.wav",
+     "bytes": 1806874,
+     "gitBlobSha1": "a2f7fcc2bce81d039d9c0c529a94159f589f36e1",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_G5_f1.wav",
+     "bytes": 938866,
+     "gitBlobSha1": "ad30ffcb01ed26471576dcc0adf20ad8bd89489b",
+     "sha256": null
+    },
+    {
+     "path": "KSHarp_G5_mf1.wav",
+     "bytes": 1049778,
+     "gitBlobSha1": "8e3593345c95368ae9d74591c1046d21de6a8e60",
+     "sha256": null
+    }
+   ]
+  },
+  "glockenspiel": {
+   "library": "vcsl",
+   "dir": "Idiophones/Struck Idiophones/Glockenspiel",
+   "kind": "dec",
+   "count": 18,
+   "bytes": 17189468,
+   "files": [
+    {
+     "path": "glock_loud_C5_01.wav",
+     "bytes": 1323482,
+     "gitBlobSha1": "25185183d6a23973dcb245843b86c33108098381",
+     "sha256": null
+    },
+    {
+     "path": "glock_loud_C6_01.wav",
+     "bytes": 1323482,
+     "gitBlobSha1": "f15847a111ce01f6d1bf285c835c941a22c9a38b",
+     "sha256": null
+    },
+    {
+     "path": "glock_loud_C7_01.wav",
+     "bytes": 464710,
+     "gitBlobSha1": "7e4bc7ee61184e7d3171eeca26d1f95c2f8de3c2",
+     "sha256": null
+    },
+    {
+     "path": "glock_loud_G#6_01.wav",
+     "bytes": 931630,
+     "gitBlobSha1": "c0da4e02db0fb6a394223dc3b6cb2d25d402499c",
+     "sha256": null
+    },
+    {
+     "path": "glock_loud_G4_01.wav",
+     "bytes": 1323482,
+     "gitBlobSha1": "741d607d19f0b9ca9c449391d332946bd89d4fa5",
+     "sha256": null
+    },
+    {
+     "path": "glock_loud_G5_01.wav",
+     "bytes": 1323482,
+     "gitBlobSha1": "5a74c7a1c297fc67ddd6f1ba3e829f59478ce05a",
+     "sha256": null
+    },
+    {
+     "path": "glock_medium_C5_01.wav",
+     "bytes": 1271310,
+     "gitBlobSha1": "db079c70946137f543820b6a6ac023d0afaac47c",
+     "sha256": null
+    },
+    {
+     "path": "glock_medium_C6_01.wav",
+     "bytes": 1271310,
+     "gitBlobSha1": "c02ff721d10eb3551372806653368f45ea5dc367",
+     "sha256": null
+    },
+    {
+     "path": "glock_medium_C7_01.wav",
+     "bytes": 492418,
+     "gitBlobSha1": "a0f4aff9ef7d73e49a16f4054ead1369a78572b0",
+     "sha256": null
+    },
+    {
+     "path": "glock_medium_G4_01.wav",
+     "bytes": 1271310,
+     "gitBlobSha1": "a7d9ca6c68e4c56327d83f0653ee3e16e4810265",
+     "sha256": null
+    },
+    {
+     "path": "glock_medium_G5_01.wav",
+     "bytes": 1226714,
+     "gitBlobSha1": "dbaf80bc3975016095de3a611a202b581931311c",
+     "sha256": null
+    },
+    {
+     "path": "glock_medium_G6_01.wav",
+     "bytes": 843122,
+     "gitBlobSha1": "e95738492bdc207b11ad32891a9a1ea090b6719e",
+     "sha256": null
+    },
+    {
+     "path": "glock_soft_C5_02.wav",
+     "bytes": 709206,
+     "gitBlobSha1": "b68621c4f4fc482284bc8e848ea2d2654366d49e",
+     "sha256": null
+    },
+    {
+     "path": "glock_soft_C6_01.wav",
+     "bytes": 706962,
+     "gitBlobSha1": "d3c777e9470ee9d4b1821817585967500fc34362",
+     "sha256": null
+    },
+    {
+     "path": "glock_soft_C7_03.wav",
+     "bytes": 706962,
+     "gitBlobSha1": "058b6acda9c40c9df19d8a911e79c0c4a60c3111",
+     "sha256": null
+    },
+    {
+     "path": "glock_soft_G4_01.wav",
+     "bytes": 706962,
+     "gitBlobSha1": "0fb4b3e2baea5685fa4bb29aba340781c0ab0077",
+     "sha256": null
+    },
+    {
+     "path": "glock_soft_G5_01.wav",
+     "bytes": 706962,
+     "gitBlobSha1": "2de4932c129eaacdb2ec9e6e9795cdf00e112cf7",
+     "sha256": null
+    },
+    {
+     "path": "glock_soft_G6_01.wav",
+     "bytes": 585962,
+     "gitBlobSha1": "36c308a3c51796da6754a53373787e818830de5b",
+     "sha256": null
+    }
+   ]
+  },
+  "vibraphone_bowed": {
+   "library": "vcsl",
+   "dir": "Idiophones/Struck Idiophones/Vibraphone/Bowed",
+   "kind": "sus",
+   "count": 6,
+   "bytes": 15363160,
+   "files": [
+    {
+     "path": "Vibes_bowed_A2_rr1_Main.wav",
+     "bytes": 2118720,
+     "gitBlobSha1": "58956f6d649ae9b633f8c2467d8d0793add0924d",
+     "sha256": null
+    },
+    {
+     "path": "Vibes_bowed_A4_rr1_Main.wav",
+     "bytes": 2707792,
+     "gitBlobSha1": "e3b748d6b3ecf09fb931b342b0e3a37117c7c45c",
+     "sha256": null
+    },
+    {
+     "path": "Vibes_bowed_D4_rr1_Main.wav",
+     "bytes": 2879664,
+     "gitBlobSha1": "5237b09697b059baf3fea14d0caaaf7a691c4cb9",
+     "sha256": null
+    },
+    {
+     "path": "Vibes_bowed_E3_rr1_Main.wav",
+     "bytes": 3002168,
+     "gitBlobSha1": "7cbe4af932abad58c5d25f72efff3bf4675de77c",
+     "sha256": null
+    },
+    {
+     "path": "Vibes_bowed_E5_rr1_Main.wav",
+     "bytes": 1743188,
+     "gitBlobSha1": "5ff2fa0879e25b763dfb8cf293d0a30d3b242d6e",
+     "sha256": null
+    },
+    {
+     "path": "Vibes_bowed_G3_rr1_Main.wav",
+     "bytes": 2911628,
+     "gitBlobSha1": "ee6d0232dd671c44a46f9a9f91dd7c9fb8da7969",
+     "sha256": null
+    }
+   ]
+  },
+  "sus_cymbal": {
+   "library": "vcsl",
+   "dir": "Idiophones/Struck Idiophones/Suspended Cymbal 1",
+   "kind": "hit",
+   "count": 25,
+   "bytes": 52903106,
+   "files": [
+    {
+     "path": "susCymb1_bow_13.wav",
+     "bytes": 1453914,
+     "gitBlobSha1": "9e6d1587757712fa23b005db6a8a61f003a68e36",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_bow_17.wav",
+     "bytes": 2801538,
+     "gitBlobSha1": "0c39bcb58ba015615c18f2b5c94f50c3e9297f4d",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_bow_20.wav",
+     "bytes": 2286506,
+     "gitBlobSha1": "cef29228f706af2b46ab60ea367905c152656c79",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_bow_7.wav",
+     "bytes": 1530958,
+     "gitBlobSha1": "b7e61ae0abe29ef938892a678d56e06d7115275b",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_cresc_1.5s.wav",
+     "bytes": 2018122,
+     "gitBlobSha1": "e3c97b86a0673734204ecc3c667f6ec222ec865e",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_cresc_2s.wav",
+     "bytes": 1837622,
+     "gitBlobSha1": "5375b5cb5abde0aecdeceb07411468fedaa06238",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_cresc_4s.wav",
+     "bytes": 2291710,
+     "gitBlobSha1": "0e1de2b7a87d8873f177e123c6bb74436a236c0c",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_cresc_7.5s.wav",
+     "bytes": 2991302,
+     "gitBlobSha1": "f1f88a207d2e40c7a7409d26de99c68acebbc00b",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_bell_fff1.wav",
+     "bytes": 748994,
+     "gitBlobSha1": "103cfc469b1ef5533e5d2f3e458241dfd0043345",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_bell_mf1.wav",
+     "bytes": 1279550,
+     "gitBlobSha1": "3eee09cfd9268cf7a5b867ae08ea1e7df8735bb9",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_bell_pp1.wav",
+     "bytes": 1300206,
+     "gitBlobSha1": "1d07e2596fd7efc7d9117cf64ef2afb3ea4ef488",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_f1.wav",
+     "bytes": 2046894,
+     "gitBlobSha1": "106a43a794c18fc88b4257c2b67a0bbcecf94607",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_fff1.wav",
+     "bytes": 2285114,
+     "gitBlobSha1": "b073dd7e3a6f871e0d550fc55d829a7158570a45",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_mp1.wav",
+     "bytes": 1981318,
+     "gitBlobSha1": "1a66cc768a4595533aab424baf00fddfa316cfb9",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_pp1.wav",
+     "bytes": 1844706,
+     "gitBlobSha1": "c5cf725246c8d8c6550a7f5948d7eeafbcf9c2ea",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_stick_f1.wav",
+     "bytes": 1213358,
+     "gitBlobSha1": "4529eca8c2b92f1b377b1eb0f55985152b245642",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_stick_mp1.wav",
+     "bytes": 1399926,
+     "gitBlobSha1": "22733b4388f26829d94de380711792f7a56ab4da",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_hit_stick_pp1.wav",
+     "bytes": 1152978,
+     "gitBlobSha1": "012211003ea58fa9075c356592ead89e937ab96b",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_roll_f1_nloop.wav",
+     "bytes": 6443082,
+     "gitBlobSha1": "c6055503242343efade7657c2261e26d039628f4",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_roll_f1_rel.wav",
+     "bytes": 1087622,
+     "gitBlobSha1": "9cf5be4fbea636e96a21b6838ceec5c08cc2b701",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_roll_ff2_nloop.wav",
+     "bytes": 4500618,
+     "gitBlobSha1": "f4be3be495682452f409bb174b5977d03bf0e34c",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_roll_ff2_rel.wav",
+     "bytes": 712882,
+     "gitBlobSha1": "d3e810bd2830cc8b586ebb8c3ff3884ba9e5f1e5",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_roll_mp1_nloop.wav",
+     "bytes": 5231630,
+     "gitBlobSha1": "d3c308fb3d372f8e3c48ee040d09b673a38a3462",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_roll_mp1_rel.wav",
+     "bytes": 1130106,
+     "gitBlobSha1": "04f97e20106c11f5df0f31a17d19e2f885cb9a65",
+     "sha256": null
+    },
+    {
+     "path": "susCymb1_scrape_1.wav",
+     "bytes": 1332450,
+     "gitBlobSha1": "8c32d4c14ae56c40b9bc603c753d7552260fc914",
+     "sha256": null
+    }
+   ]
+  }
+ },
+ "totals": {
+  "files": 224,
+  "bytes": 450990424
+ }
+}
