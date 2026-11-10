@@ -5,7 +5,7 @@
 // 判定（对每个本仓文件，取与它最像的一个上游文件）：
 //   error：最长连续相同片段 ≥ 200 个记号，或「与同一个上游文件相同的内容占本文件 ≥ 40%」且最长片段 ≥ 48 个记号；
 //   warn ：最长片段 ≥ 90 个记号，或相同内容占比 ≥ 30% 且最长片段 ≥ 32 个记号——交人判断是派生还是通用写法；
-//   已写来源头（LemoLab / lemo-opuscar / 肖雄 / sy-style-100 / @provenance 等）的文件不报。
+//   已写来源头（文件头某一行同时有版权字样与上游权利人 LemoLab / 肖雄，或有完整的 @provenance 标记）的文件不报。
 // 接口：
 //   tokenize(text, rel) → { toks: string[], lines: number[] }
 //   findDerived(targets, vendor) → [{ file, vendor, run, coverage, level, lines:[起,止], vendorLines, attributed }]
@@ -13,6 +13,7 @@
 //   hasAttribution(text) / provenanceHeaderProblems(text) → 来源头是否齐全
 // 方法参考：Schleimer 等《Winnowing: Local Algorithms for Document Fingerprinting》（SIGMOD 2003）的 K 元组指纹思路，未复制任何实现。
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 
 export const K = 16;                 // 指纹窗口（记号数）
 export const THRESHOLDS = Object.freeze({ errorRun: 200, errorCoverage: 0.4, errorCoverageRun: 48, warnRun: 90, warnCoverage: 0.3, warnCoverageRun: 32 });
@@ -140,16 +141,20 @@ function hashWindow(toks, start) {
   return h >>> 0;
 }
 
-const ATTR_RE = /LemoLab|lemo-opuscar|XIAOXIONG|肖雄|sy-style-100|@provenance|Portions Copyright|派生自|改写自/i;
+// 标记的写法：@provenance <上游名>@<提交>:<上游路径>（上游名如 lemo-opuscar，提交至少 7 位十六进制）；只提到这个词不算标记。
+export const PROVENANCE_TAG = new RegExp('@' + 'provenance\\s+([\\w.-]+)@([0-9a-f]{7,40}):(\\S+)');
+// 「写了来源头」= 文件头某一行同时有版权字样与上游权利人，或有完整的 @provenance 标记。只在注释里顺口提到上游名不算。
+const ATTR_LINE = /(Portions Copyright|SPDX-FileCopyrightText|Copyright|版权)[^\n]*(LemoLab|XIAOXIONG|肖雄)/i;
 export function hasAttribution(text) {
-  return ATTR_RE.test(text.slice(0, 6000));
+  const head = text.slice(0, 6000);
+  return ATTR_LINE.test(head) || PROVENANCE_TAG.test(head);
 }
 // 带 @provenance 标记的文件必须同时写许可标识与版权行，否则来源头不完整。
 const LIC_TAG = new RegExp('SPDX-' + 'License-Identifier:');
-const CR_TAG = new RegExp('SPDX-' + 'FileCopyrightText:|Copyright \\(c\\)|Portions Copyright', 'i');
+const CR_TAG = new RegExp('SPDX-' + 'FileCopyrightText:|Copy' + 'right \\(c\\)|Portions Copy' + 'right', 'i');
 export function provenanceHeaderProblems(text) {
   const head = text.slice(0, 6000);
-  if (!/@provenance/.test(head)) return [];
+  if (!PROVENANCE_TAG.test(head)) return [];
   const probs = [];
   if (!LIC_TAG.test(head)) probs.push('缺许可标识行');
   if (!CR_TAG.test(head)) probs.push('缺上游版权行');

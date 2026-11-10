@@ -11,6 +11,7 @@
 // D02 补充约定：这些链接属于第三方（MiniMax 的 OSS），签名已于 2026-11-04 前后过期，用户无法也无需轮换密钥，去掉查询串即可。
 // 退出码（附录 C1）：0 成功；4 list --check 发现清单过期；2 用法错误（含目标文件有未提交改动）；3 不在 git 仓库；1 工具自身出错。
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';

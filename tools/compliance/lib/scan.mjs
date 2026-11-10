@@ -4,16 +4,18 @@
 //   历史归档与第三方快照只报告不阻塞，清理由案例库属主（P16）在后续波次执行。
 // 接口：
 //   RULES：全部规则 { id, title, hint, kind }
-//   scanRepository({ root, staged, only, now, allowlistPath }) → { findings, suppressed, stats, problems }
+//   scanRepository({ root, staged, only, now, allowlistPath, strict }) → { findings, suppressed, stats, waivers }
+//     strict：pending 类豁免（等别的包修的真问题）一律不生效，用来看真实欠账。
 //     同一进程里同样的参数只扫一次（规范检查的各条 comp 规则共用一次扫描结果）。
 //   resolveRuleIds(list) → 规范化的规则 id（允许省略 comp. 前缀），未知 id 抛错。
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listFiles, readEntry, zoneOf, lineIndex, gitLines } from './repo.mjs';
-import { CONTENT_RULES, NAME_RULE, checkFileName, isPersonalEmail, maskEmail } from './patterns.mjs';
-import { findDerived, isCode, provenanceHeaderProblems } from './provenance.mjs';
+import { CONTENT_RULES, NAME_RULE, checkFileName, isPersonalEmail, isUnlinkedNoreply, maskEmail } from './patterns.mjs';
+import { findDerived, isCode, provenanceHeaderProblems, PROVENANCE_TAG } from './provenance.mjs';
 import { reuseReport } from './reuse.mjs';
 import { loadAllowlist, applyAllowlist } from './allowlist.mjs';
 import { rightsReport } from './rights.mjs';
@@ -48,9 +50,9 @@ export function resolveRuleIds(list) {
 
 const cache = new Map();
 
-export function scanRepository({ root = REPO_ROOT, staged = false, only = null, now = Date.now(), allowlistPath = DEFAULT_ALLOWLIST } = {}) {
+export function scanRepository({ root = REPO_ROOT, staged = false, only = null, now = Date.now(), allowlistPath = DEFAULT_ALLOWLIST, strict = false } = {}) {
   root = path.resolve(root);
-  const key = JSON.stringify({ root, staged, only, allowlistPath });
+  const key = JSON.stringify({ root, staged, only, allowlistPath, strict });
   if (cache.has(key)) return cache.get(key);
   const want = id => !only || only.includes(id);
   const { files, source } = listFiles(root, { staged });
@@ -94,11 +96,13 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
   // 2) 个人邮箱：公开历史只报告；D02 之后的新提交仍用个人邮箱则阻断；当前 git 配置是个人邮箱给提示
   if (want('comp.personal-email') && !staged && source === 'git') {
     const log = gitLines(root, ['log', '--format=%h%x09%ae%x09%ce%x09%cI']) || [];
-    const old = [], fresh = [];
+    const old = [], fresh = [], unlinked = [];
     for (const row of log) {
       const [h, ae, ce, cd] = row.split('\t');
+      const isNew = Date.parse(cd) >= Date.parse(NOREPLY_SINCE);
+      if (isNew && [ae, ce].some(isUnlinkedNoreply)) unlinked.push(h);
       if (!isPersonalEmail(ae) && !isPersonalEmail(ce)) continue;
-      (Date.parse(cd) >= Date.parse(NOREPLY_SINCE) ? fresh : old).push(h);
+      (isNew ? fresh : old).push(h);
     }
     const rule = RULES.find(r => r.id === 'comp.personal-email');
     if (old.length) findings.push({ rule: rule.id, level: 'warn', zone: 'history', blocking: false, file: '(git 历史)', line: null,
@@ -107,6 +111,9 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
     if (fresh.length) findings.push({ rule: rule.id, level: 'error', zone: 'history', blocking: true, file: '(git 历史)', line: null,
       message: `${NOREPLY_SINCE.slice(0, 10)} 之后仍有 ${fresh.length} 个提交用个人邮箱：${fresh.slice(0, 5).join(' ')}${fresh.length > 5 ? ' …' : ''}`,
       hint: '这些提交还没公开时，用 git commit --amend --reset-author（或 rebase）改成 noreply 邮箱后再推送；已推送的按 D02 不改写' });
+    if (unlinked.length) findings.push({ rule: rule.id, level: 'warn', zone: 'history', blocking: false, file: '(git 历史)', line: null,
+      message: `${NOREPLY_SINCE.slice(0, 10)} 之后有 ${unlinked.length} 个提交用的 noreply 地址不带数字 ID（不会关联到 GitHub 账号）：${unlinked.slice(0, 5).join(' ')}${unlinked.length > 5 ? ' …' : ''}`,
+      hint: '按 D02 补充约定，尚未推送的提交在推送前统一改成账号的正式 noreply 地址（<数字 ID>+<用户名>@users.noreply.github.com）；已推送的不改写' });
     const cfg = gitLines(root, ['config', 'user.email']);
     if (cfg && cfg[0] && isPersonalEmail(cfg[0])) findings.push({ rule: rule.id, level: 'warn', zone: 'config', blocking: false, file: '(git config)', line: null,
       message: `当前 git 配置的提交邮箱是个人邮箱（${maskEmail(cfg[0])}）：照这样提交会再次公开它`,
@@ -123,7 +130,7 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
       if (e.text == null) continue;
       targets.push({ rel, text: e.text });
       for (const p of provenanceHeaderProblems(e.text)) add(PROVENANCE, { file: rel, line: 1, level: 'error', message: `来源头不完整：${p}` });
-      const tag = /@provenance\s+([\w.-]+)@([0-9a-f]{7,40}):(\S+)/.exec(e.text.slice(0, 6000));
+      const tag = PROVENANCE_TAG.exec(e.text.slice(0, 6000));
       if (tag) {
         const vendorRel = `cases/vendor/${tag[1]}/${tag[3].replace(/#.*$/, '')}`;
         if (!fs.existsSync(path.join(root, vendorRel))) add(PROVENANCE, { file: rel, line: 1, level: 'warn', message: `@provenance 指向的上游文件在快照里找不到：${vendorRel}` });
@@ -163,7 +170,7 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
   // 7) 允许清单
   const list = loadAllowlist(allowlistPath && path.resolve(root, allowlistPath));
   const problems = list.problems.map(p => ({ rule: 'comp.allowlist', level: p.level, zone: 'tree', blocking: p.level === 'error', file: allowlistPath, line: null, message: p.message, hint: p.hint }));
-  const { kept, suppressed, unused, expired } = applyAllowlist(findings, list, now);
+  const { kept, suppressed, unused, expired } = applyAllowlist(findings, list, now, { strict });
   for (const e of expired) problems.push({ rule: 'comp.allowlist', level: 'error', zone: 'tree', blocking: true, file: allowlistPath, line: null,
     message: `允许清单第 ${e.index + 1} 条（${e.rule} ${e.path}）已于 ${e.expires} 过期，豁免失效`, hint: '问题修好了就删掉这条；还需要豁免就重新判定并改 expires' });
   if (!only) for (const e of unused) problems.push({ rule: 'comp.allowlist', level: 'warn', zone: 'tree', blocking: false, file: allowlistPath, line: null,
@@ -171,12 +178,16 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
   const strip = f => { const { _text, ...rest } = f; return rest; };
   const all = [...kept, ...problems].map(strip);
   all.sort((a, b) => (b.blocking - a.blocking) || a.rule.localeCompare(b.rule) || a.file.localeCompare(b.file) || (a.line ?? 0) - (b.line ?? 0));
-  const result = { root, findings: all, suppressed: suppressed.map(strip), stats };
+  const pending = list.entries.filter(e => e.kind === 'pending').map(e => ({ entry: e.index + 1, rule: e.rule, path: e.path, owner: e.owner, expires: e.expires, ref: e.ref, hits: e.hits }));
+  const waivers = { falsePositive: suppressed.filter(f => f.waiver !== 'pending').length, pending: suppressed.filter(f => f.waiver === 'pending').length, strict, pendingEntries: pending };
+  const result = { root, findings: all, suppressed: suppressed.map(strip), stats, waivers };
   cache.set(key, result);
   return result;
 }
 
-// LICENSE 与 LICENSES/MIT.txt 去掉版权行、压平空白后应完全一致
+// LICENSE 与 LICENSES/MIT.txt 去掉版权行、压平空白后应完全一致。
+// 版权英文词拆成两半拼接：官方 reuse 会把源码里任何「该词后接空格」的文字当成版权声明，写整词会被误认。
+const HOLDER_LINE = new RegExp('^\\s*Copy' + 'right \\(c\\)\\s*\\d{4}(?:-\\d{4})?\\s+(.+?)\\s*$', 'im');
 export function licenseProblems(root) {
   const out = [];
   const lic = path.join(root, 'LICENSE');
@@ -186,8 +197,8 @@ export function licenseProblems(root) {
   const norm = t => t.replace(/^\s*Copyright.*$/gim, '').replace(/\s+/g, ' ').trim();
   const a = fs.readFileSync(lic, 'utf8'), b = fs.readFileSync(std, 'utf8');
   if (norm(a) !== norm(b)) out.push({ file: 'LICENSE', line: 1, level: 'error', message: 'LICENSE 不是标准 MIT 正文（多了或少了内容），GitHub 会把仓库许可识别成 Other' });
-  const holder = (/^\s*Copyright \(c\)\s*\d{4}(?:-\d{4})?\s+(.+?)\s*$/im.exec(a) || [])[1];
-  if (!holder) out.push({ file: 'LICENSE', line: 3, level: 'error', message: 'LICENSE 缺少版权行（Copyright (c) <年份> <权利人>）' });
+  const holder = (HOLDER_LINE.exec(a) || [])[1];
+  if (!holder) out.push({ file: 'LICENSE', line: 3, level: 'error', message: 'LICENSE 缺少版权行（「Copy' + 'right (c) <年份> <权利人>」）' });
   const toml = path.join(root, 'REUSE.toml');
   if (holder && fs.existsSync(toml) && !fs.readFileSync(toml, 'utf8').includes(holder)) {
     out.push({ file: 'LICENSE', line: 3, level: 'warn', message: `LICENSE 的权利人「${holder}」没有出现在 REUSE.toml 的版权行里`, hint: '两处写同一个法律主体；权利人变更时一起改' });

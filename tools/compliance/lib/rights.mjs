@@ -15,6 +15,7 @@
 //   uses: [id]         这些案例的成片用到了该类素材（成片、预览、海报受影响；源文件不列）
 //   exclude: [{ case, path }]               从 files 的结果里去掉
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import fs from 'node:fs';
 import path from 'node:path';
 import { globToRegExp } from './reuse.mjs';

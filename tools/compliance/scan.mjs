@@ -9,6 +9,7 @@
 // 区域：仓库主体（tree）按规则阻断；cases/source（历史归档）与 cases/vendor（第三方快照）只报告不阻塞。
 // 退出码（附录 C1）：0 没有阻断级发现；4 有阻断级发现；2 用法错误；3 环境问题（不是目录、读不到 git 暂存区）；1 工具自身出错。
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import path from 'node:path';
 import { EXIT, parseCli, runMain, wantsHelp, UsageError } from './lib/cli.mjs';
 import { RULES, REPO_ROOT, DEFAULT_ALLOWLIST, resolveRuleIds, scanRepository } from './lib/scan.mjs';
@@ -21,6 +22,7 @@ const HELP = `北冥仓库 · 合规扫描（只读）
   --staged             只扫 git 暂存区里新增或改动的文件（读暂存区内容，不读工作区）
   --root <目录>        仓库根目录（默认为本工具所在仓库）
   --allowlist <文件>   允许清单（默认 ${DEFAULT_ALLOWLIST}；写 none 不用允许清单）
+  --strict             pending 类豁免（等别的工作包修的真问题）不生效，看真实欠账
   --limit <n>          人读报告里每条规则最多列几处（默认 12；--json 不受影响）
   --list-rules         列出全部规则后退出
   -h, --help           显示本帮助
@@ -72,7 +74,12 @@ function human(res, { scope, limit, ms }) {
   const warns = res.findings.filter(f => !f.blocking && f.zone !== 'archive').length;
   const archived = res.findings.filter(f => f.zone === 'archive').length;
   L.push('');
-  if (res.suppressed.length) L.push(`允许清单豁免 ${res.suppressed.length} 处（理由见 ${DEFAULT_ALLOWLIST}）。`);
+  const w = res.waivers || { falsePositive: res.suppressed.length, pending: 0, pendingEntries: [] };
+  if (w.falsePositive) L.push(`允许清单：人工判定的误报 ${w.falsePositive} 处（理由见 ${DEFAULT_ALLOWLIST}）。`);
+  if (w.pending) {
+    const owners = [...new Set(w.pendingEntries.filter(e => e.hits).map(e => `${e.owner}（${e.expires} 前）`))].join('、');
+    L.push(`允许清单：等别的工作包修的真问题 ${w.pending} 处，暂不阻断——${owners}；加 --strict 查看。`);
+  } else if (w.strict && w.pendingEntries.length) L.push(`--strict：${w.pendingEntries.length} 条 pending 豁免未生效，上面按真实状态报告。`);
   L.push(blocking ? `结论：${blocking} 处阻断、${warns} 处提示、归档区 ${archived} 处 → 退出码 4` : `结论：没有阻断级发现（提示 ${warns} 处、归档区 ${archived} 处）→ 退出码 0`);
   return L.join('\n');
 }
@@ -81,7 +88,8 @@ await runMain('compliance.scan', async () => {
   if (wantsHelp(argv)) return { exitCode: EXIT.OK, text: HELP, result: { help: HELP } };
   const { values } = parseCli(argv, {
     options: { json: { type: 'boolean' }, only: { type: 'string', multiple: true }, scope: { type: 'string' }, staged: { type: 'boolean' },
-      root: { type: 'string' }, allowlist: { type: 'string' }, limit: { type: 'string' }, 'list-rules': { type: 'boolean' }, help: { type: 'boolean', short: 'h' } },
+      root: { type: 'string' }, allowlist: { type: 'string' }, limit: { type: 'string' }, 'list-rules': { type: 'boolean' }, strict: { type: 'boolean' },
+      help: { type: 'boolean', short: 'h' } },
     allowPositionals: false,
   });
   if (values['list-rules']) return { exitCode: EXIT.OK, text: listRules(), result: { rules: RULES.map(({ id, title, kind }) => ({ id, title, kind })) } };
@@ -93,7 +101,7 @@ await runMain('compliance.scan', async () => {
   const root = values.root ? path.resolve(values.root) : REPO_ROOT;
   const allowlistPath = values.allowlist === 'none' ? null : (values.allowlist || DEFAULT_ALLOWLIST);
   const t0 = Date.now();
-  const res = scanRepository({ root, staged: !!values.staged, only, allowlistPath });
+  const res = scanRepository({ root, staged: !!values.staged, only, allowlistPath, strict: !!values.strict });
   const ms = Date.now() - t0;
   const blocking = res.findings.filter(f => f.blocking);
   const counts = {};
@@ -107,7 +115,7 @@ await runMain('compliance.scan', async () => {
     error: blocking.length ? { code: 'compliance', message: `${blocking.length} 处阻断级合规问题`, hint: blocking[0].hint } : null,
     warnings: res.findings.filter(f => !f.blocking && f.zone !== 'archive').map(f => `${f.rule} ${f.file}${f.line ? `:${f.line}` : ''} ${f.message}`),
     result: { root: path.relative(process.cwd(), res.root) || '.', scope, staged: !!values.staged, durationMs: ms, stats: res.stats, counts,
-      findings: res.findings.filter(show), suppressed: res.suppressed.length },
+      findings: res.findings.filter(show), suppressed: res.suppressed.length, waivers: res.waivers },
     text: human(res, { scope, limit, ms }),
   };
 }, { json });

@@ -8,6 +8,7 @@
 //   gitLines(root, args) → 字符串数组：给历史邮箱检查等少量只读 git 查询用。
 // 路径一律用正斜杠的仓库相对路径，Windows 与 macOS / Linux 输出一致。
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';

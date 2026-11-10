@@ -7,6 +7,7 @@
 // --release-json：传入 `gh release view casebook-2026.11 --json assets` 存下的文件，核对 Release 上的每个附件都能在目录里找到归属。
 // 退出码（附录 C1）：0 通过；4 登记册过期、漏登或 Release 附件对不上；2 用法错误；3 读不到登记册或案例目录；1 工具自身出错。
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';

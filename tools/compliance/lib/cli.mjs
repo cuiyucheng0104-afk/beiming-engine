@@ -5,6 +5,7 @@
 //       runMain(command, fn, { json }) 统一收尾：--json 时 stdout 只输出一个对象，人读日志走 stderr。
 // P02 的 tools/lib/cli.mjs 合入后可以改为转调它；这里只依赖 Node 自带模块，保证本目录能独立运行。
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import { parseArgs } from 'node:util';
 
 export const EXIT = Object.freeze({

@@ -6,6 +6,7 @@
 //   redact(s)：遮蔽令牌，只保留前 4 个字符与长度。
 // 所有规则都不输出密钥原文、签名参数值与完整个人邮箱。规则源码里的关键字用拼接写法，避免扫描器扫到自己。
 // SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 
 export const redact = s => (s.length <= 6 ? '*'.repeat(s.length) : `${s.slice(0, 4)}…(${s.length} 字符，已遮蔽)`);
 
@@ -77,13 +78,13 @@ const REGEX_ESC = /^[sdwbSDWBntrfv0]([+*?{}()[\]|^$\\.,:;'"`)\s]|$)/;
 const PATH_RULES = [
   { re: /\/Users\/([A-Za-z0-9._$<>{}%*-][^/\s"'`()\[\]|\\]*)\//g, check: m => !HOME_PLACEHOLDER.has(m[1].toLowerCase()), what: m => `macOS 用户目录（/Users/${m[1].slice(0, 2)}…）` },
   { re: /(?<![\w.])\/home\/([a-z_][a-z0-9_.-]*)\//g, check: m => !HOME_PLACEHOLDER.has(m[1].toLowerCase()), what: () => 'Linux 用户目录（/home/…）' },
-  { re: /\/(?:private\/)?tmp\/claude-[\w.-]*/g, what: () => 'Claude 会话临时目录（/tmp/claude-…）' },
+  { re: /\/(?:private\/)?tmp\/claude-[\w.-]*/g, what: () => 'Claude 会话临时目录（/tmp/' + 'claude-…）' },
   { re: /\/private\/var\/folders\/[\w+]{2}\//g, what: () => 'macOS 用户临时目录（/private/var/folders/…）' },
   { re: /(?<![\w$])~\/(?:\.claude|\.ssh|Desktop|Documents|Downloads|Library\/Mobile Documents)(?=[/\s"'`)]|$)/g, what: m => `家目录下的个人目录（${m[0]}）` },
   { re: /(?:\$HOME|\$\{HOME\}|%USERPROFILE%|\$env:USERPROFILE)[\\/](?:Desktop|Documents|Downloads|\.ssh|\.claude)\b/gi, what: m => `家目录下的个人目录（${m[0]}）` },
   { re: /(?<![\w/])\/mnt\/[a-z]\/(?=\S)/g, what: () => 'WSL 挂载的本机盘符（/mnt/<盘>/）' },
-  { re: /\\\\wsl(?:\$|\.localhost)\\/gi, what: () => 'WSL 网络路径（\\\\wsl$\\…）' },
-  { // Windows 盘符路径：D:\北冥、D:/beiming、C:\Users\<名字>。系统目录（C:\Windows、Program Files）不算本机隐私。
+  { re: /\\\\wsl(?:\$|\.localhost)\\/gi, what: () => 'WSL 网络路径（\\\\' + 'wsl$…）' },
+  { // Windows 盘符路径：盘符加冒号再接反斜杠或斜杠（D 盘下的项目目录、C 盘的 Users 目录等）。系统目录（Windows、Program Files）不算本机隐私。
     re: /(?<![A-Za-z0-9_])([A-Za-z]):(?:\\\\|\\|\/)(?!\/)([^\\/\s"'`<>|?*\]),;]+)((?: [^\\/"'`<>|?*\]),;]+)*)/g,
     check: m => {
       const seg = m[2];
@@ -121,6 +122,10 @@ function privateKind(ip) {
   if (p[0] === 169 && p[1] === 254) return '169.254.0.0/16（链路本地）';
   return null;
 }
+// 标准网段的名字本身（如 RFC 1918 的三段、CGNAT、链路本地，写成「网络地址/前缀」）是公开常识，不是拓扑泄露，不报；
+// 具体的主机地址与非标准的子网（如某个 /24）照报。
+const CANONICAL_RANGES = new Set([[10, 0, 0, 0, 8], [172, 16, 0, 0, 12], [192, 168, 0, 0, 16], [100, 64, 0, 0, 10], [169, 254, 0, 0, 16]]
+  .map(([a, b, c, d, n]) => `${a}.${b}.${c}.${d}/${n}`));
 const ULA6 = /(?<![0-9a-f:])fd[0-9a-f]{2}:[0-9a-f]{0,4}:[0-9a-f:]*[0-9a-f](?![0-9a-f:])/gi;
 const TAILNET = /\b[a-z0-9-]+\.(?:[a-z0-9-]+\.)?ts\.net\b/gi;
 const SSH_TARGET = /\b(?:ssh|scp|rsync|sftp)\s+(?:-[A-Za-z]+(?:\s+\S+)?\s+)*([A-Za-z0-9._-]+)@([A-Za-z0-9._-]+)/g;
@@ -129,6 +134,8 @@ function scanPrivateNetwork(text) {
   IPV4.lastIndex = 0;
   for (let m; (m = IPV4.exec(text));) {
     const kind = privateKind(m[1]);
+    const cidr = /^\/(\d{1,2})(?!\d)/.exec(text.slice(m.index + m[1].length, m.index + m[1].length + 4));
+    if (cidr && CANONICAL_RANGES.has(`${m[1]}/${cidr[1]}`)) continue;
     if (kind) out.push({ index: m.index, length: m[1].length, level: 'error', message: `内网地址 ${m[1].split('.').slice(0, 2).join('.')}.x.x（${kind}）` });
   }
   ULA6.lastIndex = 0;
@@ -195,6 +202,8 @@ const PERSONAL_DOMAINS = /@(gmail|googlemail|qq|foxmail|163|126|yeah|sina|sohu|a
 const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
 export const maskEmail = e => { const [u, d] = e.split('@'); return `${u.slice(0, 2)}…@${d}`; };
 export const isPersonalEmail = e => PERSONAL_DOMAINS.test(e) && !/noreply|no-reply/i.test(e);
+// GitHub noreply 地址要带账号数字 ID（<数字>+<用户名>@users.noreply.github.com）才会关联到账号；不带 ID 的旧写法给提示。
+export const isUnlinkedNoreply = e => /@users\.noreply\.github\.com$/i.test(e || '') && !/^\d+\+/.test(e);
 // 许可与署名文件里的作者邮箱是署名义务的一部分（OFL 等要求原样保留版权行），不报。
 const ATTRIBUTION_FILE = /(^|\/)([^/]*OFL[^/]*\.(txt|md)|LICEN[CS]E[^/]*|COPYING[^/]*|NOTICE[^/]*|AUTHORS[^/]*|CREDITS[^/]*|CONTRIBUTORS[^/]*)$/i;
 function scanEmails(text, rel) {
@@ -213,14 +222,20 @@ const CODE_EXT = /\.(m?js|cjs|jsx|ts|tsx|py|rs|wgsl|wesl|glsl|vert|frag|sh|ps1|t
 const FSL_MARKERS = [
   { re: new RegExp('Functional ' + 'Source License', 'g'), what: 'FSL 许可正文标题', verbatim: false },
   { re: new RegExp('\\bFSL-1\\.1-(?:ALv2|MIT|Apache-2\\.0)\\b', 'g'), what: 'FSL 许可标识', verbatim: false },
-  { re: new RegExp('Copyright 2026 Shane' + ' Murphy', 'g'), what: '上游 RAEA 的版权行', verbatim: false },
+  { re: new RegExp('Copy' + 'right 2026 Shane' + ' Murphy', 'g'), what: '上游 RAEA 的版权行', verbatim: false },
   { re: new RegExp('A Competing' + ' Use means', 'g'), what: 'FSL「Competing Use」条款原文', verbatim: true },
 ];
 const FSL_HEADER = new RegExp('SPDX-' + 'License-Identifier:\\s*LicenseRef-' + 'FSL-1\\.1-ALv2');
+// 上游 RAEA 是 Rust + WESL 写的；本仓库自己没有 Rust / WESL 代码，出现这类文件先确认是不是搬了上游源码。
+const UPSTREAM_SHAPE = /\.(rs|wesl)$|(^|\/)Cargo\.(toml|lock)$/i;
 function scanFsl(text, rel) {
   const out = [];
   const code = CODE_EXT.test(rel);
   if (FSL_HEADER.test(text)) return out;     // 已按派生代码单独标注许可
+  if (UPSTREAM_SHAPE.test(rel)) {
+    out.push({ index: 0, length: 0, level: 'error', message: '仓库主体出现 Rust / WESL 源码或 Cargo 清单：本仓库自己不写这类代码，先确认不是搬进来的上游 RAEA 源码',
+      hint: '是上游源码就删掉（运行时与 SDK 不随本仓库分发，见 docs/rights/fsl-boundary.md）；确是自己写的，在文件头写 SPDX 许可与版权两行，并在允许清单里登记理由' });
+  }
   for (const f of FSL_MARKERS) {
     f.re.lastIndex = 0;
     for (let m; (m = f.re.exec(text));) {
