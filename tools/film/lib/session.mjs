@@ -40,23 +40,31 @@ const cleanups = new Set();
 export function onInterrupt(fn) { cleanups.add(fn); return () => cleanups.delete(fn); }
 
 // 收到中断：结束子进程树、还原旧位置、写 run.json、放锁，再按附录 C2 输出信封（--json 时 stdout 仍只有一个对象），以 130 / 143 退出。
-// 第二次中断立即退出（不再等清理）。
+// 收到信号之后，正在跑的子命令再怎么结束（子进程被杀而抛错）都不再输出结果：唯一的信封由这里写（tools/film/cli.mjs 用 wasSignalled 判断）。
+// 第二次中断立即退出（不再等清理）；清理本身最多等 30 秒。
+export const wasSignalled = () => signalled;
 function onSignal(sig) {
-  const code = sig === 'SIGINT' ? EXIT.SIGINT : EXIT.SIGTERM;
+  const code = sig === 'SIGINT' ? EXIT.SIGINT : sig === 'SIGTERM' ? EXIT.SIGTERM : 129;
   if (signalled) { process.exit(code); }
   signalled = true;
   process.stderr.write(`\n收到 ${sig}：结束子进程、还原旧位置、写 run.json 后退出……\n`);
+  setTimeout(() => process.exit(code), 30000);
   const ctx = current;
-  const err = new FilmError(code, 'interrupted', `收到 ${sig}，已中断并清理`, '原因排除后重跑；输入没变的步骤会复用缓存');
+  const err = new FilmError(code === 129 ? EXIT.SIGTERM : code, 'interrupted', `收到 ${sig}，已中断并清理`, '原因排除后重跑；输入没变的步骤会复用缓存');
   const argv = process.argv.slice(2);
   (ctx ? closeSession(ctx, { error: err, complete: false }) : killAll())
     .catch(() => {})
     .finally(() => {
       for (const fn of cleanups) { try { fn(); } catch { /* 尽力而为 */ } }
-      const env = envelope({ command: argv[0] && !argv[0].startsWith('-') ? `film ${argv[0]}` : 'film', exitCode: code, error: err,
-        outputs: ctx?.outputs || [], runJson: ctx ? rel(path.join(ctx.run.dir, 'run.json')) : null, warnings: ctx?.warnings || [] });
+      const outputs = ctx ? [...ctx.outputs] : [];
+      const runJson = ctx ? rel(path.join(ctx.run.dir, 'run.json')) : null;
+      if (runJson && fs.existsSync(path.join(ROOT, runJson))) outputs.push({ path: runJson, sha256: sha256File(path.join(ROOT, runJson)), kind: 'run-json' });
+      const env = envelope({ command: argv[0] && !argv[0].startsWith('-') ? `film ${argv[0]}` : 'film', exitCode: code, error: err, outputs, runJson, warnings: ctx?.warnings || [] });
       emit(env, { json: argv.includes('--json') });
-      process.exit(code);
+      // 管道上的 stdout 在 macOS 是异步写：等信封写完再退出（最多 1 秒）
+      const bye = () => process.exit(code);
+      setTimeout(bye, 1000);
+      try { process.stdout.write('', bye); } catch { bye(); }
     });
 }
 

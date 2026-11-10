@@ -11,7 +11,7 @@
 import { CliError, EXIT, defineCommand, isMain, runCli } from '../lib/cli.mjs';
 import { FilmError, asFilmError } from './lib/exit.mjs';
 import { camel } from './lib/args.mjs';
-import { installSignals } from './lib/session.mjs';
+import { installSignals, wasSignalled } from './lib/session.mjs';
 
 const EXIT_CODES = {
   0: '成功', 1: '运行失败', 2: '用法错误', 3: '缺环境（ffmpeg、Python 包、浏览器、RAEA_BIN、软件渲染）',
@@ -121,11 +121,14 @@ export function subcommand(name, m, t = SUBCOMMANDS[name]) {
       const pos = positionals.map(p => ctx.args[p.name]);
       while (pos.length && (pos.at(-1) === null || pos.at(-1) === undefined)) pos.pop();
       let r;
+      const silent = () => new Promise(() => {});   // 收到信号后不再输出：lib/session.mjs 的信号处理写唯一的信封并退出
       try { r = await t.run(m, opts, pos); } catch (e) {
+        if (wasSignalled()) return silent();
         const fe = asFilmError(e);
         if (fe.short === 'internal' && fe.details?.stack && (process.env.BEIMING_DEBUG || process.env.FILM_DEBUG)) process.stderr.write(`${fe.details.stack}\n`);
         return { exitCode: fe.exitCode, error: fe, outputs: e?.outputs || [], runJson: e?.runJson || null, warnings: e?.warnings || [], data: e?.data ?? null };
       }
+      if (wasSignalled()) return silent();
       if (r.human) ctx.out(r.human);
       const env = r.env || {};
       return { exitCode: env.exitCode ?? 0, error: env.error || null, outputs: env.outputs || [], runJson: env.runJson || null, warnings: env.warnings || [], data: env.data ?? null };

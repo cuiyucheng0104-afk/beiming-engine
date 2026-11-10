@@ -2,7 +2,8 @@
 // 会真的启动浏览器、渲染、编码（A / C 各约 10–20 秒，B 另需原生运行时），所以默认跳过：
 //   FILM_E2E=1 node --test tests/film/e2e.test.mjs
 // 需要：ffmpeg / ffprobe、装了 requirements.txt 的 Python（PYTHON=…）、Playwright 的 headless shell；B 另需 RAEA_BIN。
-// 机器 QA 门：默认用测试替身 tests/film/fixtures/qa-stub.mjs（只验编排器的接线），FILM_E2E_REAL_QA=1 时用仓库里的 tools/qa/cli.mjs。
+// 机器 QA 门：默认用测试替身 tests/film/fixtures/qa-stub.mjs（只验编排器的接线：模版画面能不能过真 QA 是各路线模版的事），
+// FILM_E2E_REAL_QA=1 时用仓库里的 tools/qa/cli.mjs（模版过不了硬门时 build 退出码 4，测试会如实失败）。
 // 临时作品放在 FILM_TEST_ROOT（默认系统临时目录），films/ 里只留链接（B 例外，见 helpers.mjs），测完删除；FILM_TEST_KEEP=1 保留产物。
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,13 +38,27 @@ function buildAndCheck(route) {
   const tmp = sysTmp();
   const r = runCli(['build', w.rel, '--profile', 'web-1080p24', '--waive', 'look,animatic', '--reason', 'G1 自检，非用户审批', '--json'], { env: env(tmp) });
   assert.equal(r.code, 0, `build 退出码 ${r.code}：${r.stderr.slice(-2000)}`);
-  assert.equal(r.lines.length, 1, 'stdout 只有一个 JSON 对象');
-  assert.equal(r.json.status, 'passed');
-  const runDir = path.join(ROOT, r.json.runDir);
+  assert.ok(r.json, 'stdout 只有一个 JSON 对象（附录 C2 信封）');
+  assert.equal(r.json.schemaVersion, 1);
+  assert.equal(r.json.data.status, 'passed');
+  const runDir = path.join(ROOT, r.json.data.runDir);
   for (const f of ['master.mp4', 'web.mp4', 'player.html', 'contact.jpg', 'poster.jpg', 'run.json', 'qa/report.json', 'checks/output.json']) {
     assert.ok(fs.existsSync(path.join(runDir, f)), `缺 ${f}`);
   }
+  // 信封的 outputs：仓库相对路径、带 sha256，含成片、run.json 与 QA 报告（远程出片据此取回并核对）
+  const kinds = new Set(r.json.outputs.map(o => o.kind));
+  for (const k of ['master', 'web', 'player', 'contact', 'qa-report', 'run-json']) assert.ok(kinds.has(k), `信封 outputs 缺 ${k}`);
+  for (const o of r.json.outputs) {
+    assert.ok(!path.isAbsolute(o.path) && !o.path.includes('\\'), `路径要仓库相对、正斜杠：${o.path}`);
+    assert.match(o.sha256 || '', /^[0-9a-f]{64}$/, `${o.path} 缺 sha256`);
+  }
+  assert.equal(r.json.runJson, `${w.rel}/out/${r.json.data.runId}/run.json`);
   const run = readRun(r.json.runJson);
+  assert.equal(run.kind, 'preview', '工作版出片记为 preview（作品描述包的运行类别）');
+  assert.equal(run.job, 'build');
+  assert.equal(run.technicalAcceptance.status, 'passed');
+  assert.deepEqual(run.technicalAcceptance.evidence, ['qa/report.json'], '技术验收证据相对运行目录');
+  assert.ok(run.preflight?.ok, '渲染前跑过环境预检');
   assert.equal(run.output.frames, run.expected.frames, '帧数等于 film.json');
   assert.equal(run.output.frames, 72, '模版是 3 秒 × 24 fps');
   assert.deepEqual([run.output.width, run.output.height, run.output.fps], [1920, 1080, 24]);
@@ -51,9 +66,18 @@ function buildAndCheck(route) {
   assert.equal(run.frameHashes.length, 72);
   assert.equal(run.softwareFallback, false);
   assert.ok(run.rerun.startsWith('node tools/film/cli.mjs build '));
-  const v = validateRenderResult(run, { expectedFrameCount: run.expected.frames });
+  const v = validateRenderResult(run, { strict: true, runDir, expectedFrameCount: run.expected.frames });
   assert.ok(v.ok, `run.json 过不了 validateRenderResult：${JSON.stringify(v.diagnostics)}`);
-  assert.equal(fs.readFileSync(path.join(w.dir, 'out', 'latest'), 'utf8').trim(), r.json.runId);
+  assert.equal(fs.readFileSync(path.join(w.dir, 'out', 'latest'), 'utf8').trim(), r.json.data.runId);
+  // film.json 声明含 AI 生成内容时，成片与网页版的 comment 写了隐式标识（D11），run.json 记下写入的字符串
+  const raw = JSON.parse(fs.readFileSync(path.join(w.dir, 'film.json'), 'utf8'));
+  if (raw.aigc?.contains) {
+    assert.match(run.aigc?.comment || '', /^AIGC\{.*"ProduceID":"[^"]+@[^"]+".*\} 含 AI 生成画面/);
+    for (const f of ['master.mp4', 'web.mp4']) {
+      const c = spawnSync(process.env.FFPROBE || 'ffprobe', ['-v', 'error', '-show_entries', 'format_tags=comment', '-of', 'default=nw=1:nk=1', path.join(runDir, f)], { encoding: 'utf8' }).stdout.trim();
+      assert.equal(c, run.aigc.comment, `${f} 的 comment`);
+    }
+  } else assert.ok(!run.aigc?.comment, '没有声明含 AI 生成内容时不写标识');
   assert.deepEqual(findSegs(path.join(w.dir, 'out')), []);
   assert.deepEqual(fs.readdirSync(tmp), [], 'TMPDIR 不该留下文件');
   assert.deepEqual(run.repoTouched, []);
@@ -68,21 +92,24 @@ test('A 路线：模版作品按 G1 命令出片，--from mux 只重跑封装及
   const tmp = sysTmp();
   const again = runCli(['build', w.rel, '--profile', 'web-1080p24', '--from', 'mux', '--json'], { env: env(tmp) });
   assert.equal(again.code, 0, again.stderr.slice(-1500));
-  const st = Object.fromEntries(again.json.steps.map(s => [s.id, s.status]));
+  const st = Object.fromEntries(again.json.data.steps.map(s => [s.id, s.status]));
   assert.equal(st.video, 'cached');
   assert.equal(st.mix, 'cached');
   assert.equal(st.mux, 'done');
   const one = runCli(['render', w.rel, '--profile', 'web-1080p24', '--frames', '0:4', '--json'], { env: env(tmp) });
   assert.equal(one.code, 0, one.stderr.slice(-1500));
-  assert.equal(one.json.rendered, 4);
+  assert.equal(one.json.data.rendered, 4);
   const two = runCli(['render', w.rel, '--profile', 'web-1080p24', '--frames', '0:4', '--json'], { env: env(tmp) });
   assert.equal(two.code, 0);
-  assert.equal(two.json.rendered, 0, '第二次应全部复用');
-  assert.equal(two.json.reused, 4);
+  assert.equal(two.json.data.rendered, 0, '第二次应全部复用');
+  assert.equal(two.json.data.reused, 4);
+  const fr = readRun(two.json.runJson);
+  assert.equal(fr.kind, 'still');
+  assert.ok(['rendered', 'passed'].includes(fr.status), `帧段运行的状态 ${fr.status}`);
   assert.deepEqual(fs.readdirSync(tmp), []);
 });
 
-test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps 档位的工作版能出', { skip, timeout: 900000 }, () => {
+test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps 档位的工作版能出；用户豁免后终渲，用户认可后 accepted', { skip, timeout: 900000 }, () => {
   const { w, run } = buildAndCheck('c');
   assert.ok(run.steps.some(s => s.id === 'cuecheck' && s.status === 'done'), 'C 模版写了 cuecheck，应当跑');
   const tmp = sysTmp();
@@ -90,6 +117,28 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   assert.equal(v.code, 0, v.stderr.slice(-1500));
   const vr = readRun(v.json.runJson);
   assert.deepEqual([vr.output.width, vr.output.height, vr.output.fps, vr.output.frames], [1080, 1920, 30, 90]);
+  // 内部豁免不放行终渲；带用户原话的豁免放行；终渲的 run.json 记 kind = final 与放行依据
+  assert.equal(runCli(['build', w.rel, '--final', '--json'], { env: env(tmp) }).code, 4);
+  const uw = runCli(['review', 'waive', 'look,animatic', w.rel, '--reason', '用户说直接出', '--quote', '不用给我看预演了，直接出成片', '--source', '端到端测试会话 第 1 条', '--json'], { env: env(tmp) });
+  assert.equal(uw.code, 0, uw.stderr);
+  const fin = runCli(['build', w.rel, '--final', '--json'], { env: env(tmp) });
+  assert.equal(fin.code, 0, fin.stderr.slice(-1500));
+  const fr = readRun(fin.json.runJson);
+  assert.equal(fr.kind, 'final');
+  assert.equal(fr.final, true);
+  assert.deepEqual(fr.gates.basis.map(g => g.state), ['waived', 'waived']);
+  const st = Object.fromEntries(fin.json.data.steps.map(s => [s.id, s.status]));
+  assert.equal(st.video, 'cached', '画面输入没变：终渲复用工作版的逐帧视频');
+  // 用户认可成片 → accepted（「已交付」的唯一来源）
+  const styleRef = path.join(w.dir, 'film.json');
+  const ok = runCli(['review', 'approve', 'final', w.rel, '--quote', '可以，就这版', '--source', '端到端测试会话 第 2 条', '--reviewer', '测试用户', '--events', '片名出现', '--style-ref', styleRef, '--json'], { env: env(tmp) });
+  assert.equal(ok.code, 0, ok.stderr);
+  assert.equal(ok.json.data.accepted, true, JSON.stringify(ok.json.warnings));
+  const acc = readRun(fin.json.runJson);
+  assert.equal(acc.status, 'accepted');
+  assert.equal(acc.creativeAcceptance.reviews.at(-1).reviewerKind, 'human');
+  const status = runCli(['status', w.rel, '--json'], { env: env(tmp) });
+  assert.equal(status.json.data.lastFinal.delivered, true);
 });
 
 test('B 路线：模版作品经原生运行时出片', { skip: skip || (!process.env.RAEA_BIN && '没设 RAEA_BIN（原生运行时不随仓库分发）'), timeout: 900000 }, () => {
@@ -112,8 +161,9 @@ test('中断：渲染中收到 SIGINT 退出码 130，run.json 记 interrupted�
   child.kill('SIGINT');
   const code = await new Promise(r => child.on('close', c => r(c)));
   assert.equal(code, 130, err.slice(-1500));
-  const env1 = JSON.parse(out.trim().split('\n').at(-1));
-  assert.equal(env1.error.code, 'interrupted');
+  const env1 = JSON.parse(out);
+  assert.equal(env1.exitCode, 130);
+  assert.equal(env1.error.code, 'signal.sigint');
   const run = readRun(env1.runJson);
   assert.equal(run.outcome, 'interrupted');
   assert.ok(!fs.existsSync(path.join(w.dir, 'out', '.lock')), '作品锁没放');

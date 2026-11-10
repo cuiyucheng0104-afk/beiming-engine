@@ -16,7 +16,8 @@
 播放：先有声自动播放，被浏览器拦下就转静音并显示「开启声音」；系统开了「减少动态效果」时不自动播放；结束后停在最后一帧。
 按键：空格 / K 播放暂停 · ← → 逐帧（会暂停）· Shift + ← → 上一个 / 下一个切点 · Home / End · M 静音 · F 全屏 · I 片子信息。
 进度条下方是镜头分段与切点；右下角是时间码（时:分:秒:帧）与帧号——审片意见按帧号写（npm run film -- review … --issues "72: …"）。
-退出码：0 成功；1 读写失败；2 用法错误；3 缺 ffprobe 且没有别的画幅来源。出错只打印一行原因。
+退出码：0 成功；1 读写失败；2 用法错误；3 缺 ffprobe 且没有别的画幅来源。出错只打印一行原因。stdout / stderr 一律 UTF-8。
+ffprobe 认环境变量 FFPROBE（与 tools/env/lib/ffmpeg.mjs 同一口径）。
 """
 import argparse
 import base64
@@ -89,17 +90,46 @@ def read_film(arg):
     return out
 
 
+def strict_parser(**kw):
+    """命令约定库（tools/lib/cli.py）的严格解析器：中文报错、不接受选项缩写；--help 打印本文件开头的说明（中文）。"""
+    sys.path.insert(0, str(Path(__file__).resolve().parent / 'lib'))
+    try:
+        from cli import ArgumentParser, CliError
+    except ImportError:
+        return argparse.ArgumentParser(allow_abbrev=False, add_help=False, **kw), None
+    finally:
+        sys.path.pop(0)
+    return ArgumentParser(add_globals=False, add_help=False, **kw), CliError
+
+
+def utf8_stdio():
+    """Windows 中文版的控制台与管道默认是 GBK：入口处统一改成 UTF-8，中文标题与提示不会因编码出错。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv):
-    ap = argparse.ArgumentParser(prog='python tools/make_html.py', description='单文件播放页：标题、画幅、时长、镜头与切点来自 film.json、编排器清单或 ffprobe。',
-                                 epilog='按键：空格/K 播放暂停 · ←→ 逐帧 · Shift+←→ 切点 · M 静音 · F 全屏 · I 信息')
+    if any(x in ('-h', '--help') for x in argv):
+        print(__doc__.strip())
+        return 0
+    ap, CliError = strict_parser(prog='python tools/make_html.py')
     ap.add_argument('src', help='输入视频（.mp4）')
     ap.add_argument('dst', help='输出 HTML')
     ap.add_argument('--title', help='标题（默认取 film.json 或清单里的 title）')
     ap.add_argument('--film', help='作品目录或 film.json：标题、帧率、镜头表、AIGC 标识')
     ap.add_argument('--meta', help='编排器写的清单 JSON（title film run kind final profile fps frames width height duration shots cuts aigc）')
     ap.add_argument('--embed', choices=['auto', 'always', 'never'], default='auto', help='是否把视频内嵌进 HTML（默认 auto：40 MB 以内内嵌）')
-    ap.error = lambda msg: die(f'用法错误：{msg}（加 --help 看用法）', 2)
-    a = ap.parse_args(argv)
+    if CliError is None:
+        ap.error = lambda msg: die(f'用法错误：{msg}（加 --help 看用法）', 2)
+    try:
+        a = ap.parse_args(argv)
+    except Exception as e:  # tools/lib/cli.py 的 CliError：用法错误
+        if CliError is not None and isinstance(e, CliError):
+            die(f'用法错误：{e.message}（{e.hint or "加 --help 看用法"}）', 2)
+        raise
 
     src, dst = Path(a.src), Path(a.dst)
     if not src.is_file():
@@ -277,4 +307,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 """
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    utf8_stdio()
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except KeyboardInterrupt:
+        die('收到中断，没有写出播放页', 130)

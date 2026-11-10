@@ -14,8 +14,14 @@
 只用 Pillow。字体：逐段检查字形覆盖，依次试 BEIMING_SHEET_FONT、系统里同时含中文与拉丁字母的字体
 （macOS 冬青黑体 / 华文黑体、Linux Noto Sans CJK / 文泉驿、Windows 微软雅黑 / 黑体）、系统拉丁字体，最后用 Pillow 自带字体；
 仓库 fonts/ 里的是成片用的字形子集，不拿来写标注。找不到中文字体时标注改用英文、片名改用作品 id（只影响审片图，不影响成片）。
-退出码：0 成功；1 读不了图或写不了文件；2 用法错误；3 缺 Pillow。出错只打印一行原因。
+退出码：0 成功；1 读不了图或写不了文件；2 用法错误；3 缺 Pillow。出错只打印一行原因。stdout / stderr 一律 UTF-8。
 """
+# 来源：旧用法（out.jpg a.jpg b.jpg …）的命令行参数解析方式（--cols、--w 与默认值 4、480）与格子排法改写自 LemoLab 的
+# lemo-opuscar（cases/vendor/lemo-opuscar/core/render/sheet.py，固定提交 bebbbe1），按其 MIT 许可使用；清单用法、字体挑选、
+# 时间码与切点标注为本仓库新写。许可全文见 cases/licenses/LemoLab-MIT.txt。
+# @provenance lemo-opuscar@bebbbe1:core/render/sheet.py
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: 2026 LemoLab（旧用法的参数与排法）；2026 北冥引擎 Beiming Engine（其余部分）
 import argparse
 import json
 import os
@@ -307,17 +313,46 @@ def legacy_sheet(out, files, cols, width):
     return sheet.size
 
 
+def strict_parser(**kw):
+    """命令约定库（tools/lib/cli.py）的严格解析器：中文报错、不接受选项缩写；--help 打印本文件开头的说明（中文）。"""
+    sys.path.insert(0, str(Path(__file__).resolve().parent / 'lib'))
+    try:
+        from cli import ArgumentParser, CliError
+    except ImportError:
+        return argparse.ArgumentParser(allow_abbrev=False, add_help=False, **kw), None
+    finally:
+        sys.path.pop(0)
+    return ArgumentParser(add_globals=False, add_help=False, **kw), CliError
+
+
+def utf8_stdio():
+    """Windows 中文版的控制台与管道默认是 GBK：入口处统一改成 UTF-8，中文路径与提示不会因编码出错。"""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv):
-    ap = argparse.ArgumentParser(prog='python tools/contact_sheet.py', description='联系表：把一组帧拼成一张审片图（帧号、时间码、镜头号、切点）。',
-                                 epilog='新用法由 node tools/film/cli.mjs 自动调用；手动拼图用旧用法：python tools/contact_sheet.py out.jpg a.jpg b.jpg --cols 4 --w 480')
+    if any(x in ('-h', '--help') for x in argv):
+        print(__doc__.strip())
+        return 0
+    ap, CliError = strict_parser(prog='python tools/contact_sheet.py')
     ap.add_argument('out', help='输出 JPEG 路径')
     ap.add_argument('images', nargs='*', help='旧用法：按顺序拼的图片')
     ap.add_argument('--manifest', help='film CLI 写的清单 JSON')
     ap.add_argument('--width', type=int, default=0, help='新用法：概览每格的宽（像素，默认横屏 400 / 竖屏 220）')
     ap.add_argument('--cols', type=int, default=4, help='旧用法：每行几格（默认 4）')
     ap.add_argument('--w', type=int, default=480, help='旧用法：每格宽（默认 480）')
-    ap.error = lambda msg: die(f'用法错误：{msg}（加 --help 看用法）', 2)
-    a = ap.parse_args(argv)
+    if CliError is None:
+        ap.error = lambda msg: die(f'用法错误：{msg}（加 --help 看用法）', 2)
+    try:
+        a = ap.parse_args(argv)
+    except Exception as e:  # tools/lib/cli.py 的 CliError：用法错误
+        if CliError is not None and isinstance(e, CliError):
+            die(f'用法错误：{e.message}（{e.hint or "加 --help 看用法"}）', 2)
+        raise
     out = Path(a.out)
     try:
         if a.manifest:
@@ -345,4 +380,8 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    utf8_stdio()
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except KeyboardInterrupt:
+        die('收到中断，没有写出联系表', 130)
