@@ -323,6 +323,7 @@ if '--score' in sys.argv:
             note=None if LIB['ok'] else '采样库与固定版本不符：' + '；'.join(LIB['problems'][:20]))
     SCORE_CACHE = {'status': 'rendered', 'changed': [], 'frozen': False, 'library_ok': LIB['ok'], 'library_files': LIB['files'],
                    'message': '用采样库重渲了配乐，并重写了缓存与输入键'}
+    mus = np.asarray(mus, dtype=np.float32).astype(float)    # 与缓存里存的那份（float32）相同：重渲当次与之后读缓存的混音逐样本一致
 else:
     try:
         _m, harmony, USED, SCORE_CACHE = SC.load(

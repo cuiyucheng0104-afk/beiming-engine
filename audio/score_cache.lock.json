@@ -19,5 +19,5 @@
  },
  "inputs": null,
  "renderedWith": null,
- "note": "这份缓存早于输入键：渲它时用的 score.py、engine/audio 代码和采样库版本都没有登记，现有代码不保证能逐样本重渲出它。加固审计（2026-11-10）记录：用当前 score.py 与采样库 --score 重渲，母带增益 4.22 dB，与读这份缓存时的 4.89 dB 不同（本机没有完整采样库，未复现）。【推断】原因之一是 62ad28e 改了 engine/audio/sampler.py 的力度解析（文件名里的 F4 不再被误读成 forte），选中的采样层随之变化。冻结后只登记乐谱源码 audio/score.py：它改了说明作者想改配乐，默认构建就拒绝沿用缓存；引擎代码或采样库变化不影响定稿配乐。想听当前代码渲出的配乐：sh audio/build.sh --score（会覆盖缓存并写入完整输入键，frozen 变成 false）。"
+ "note": "这份缓存早于输入键：渲它时用的 score.py、engine/audio 代码和采样库版本都没有登记，现有代码不能逐样本重渲出它。2026-11-10 用固定版本的完整采样库（engine/audio/samples.json，224 个乐器文件按 sha256 逐个核对通过）实测：--score 重渲的配乐与这份缓存不是同一版（逐样本差的均方根只比配乐本身低 2.9 dB），母带增益 4.55 dB（读这份缓存时 4.89 dB）。【推断】原因之一是 62ad28e 改了 engine/audio/sampler.py 的力度解析（文件名里的 F4 不再被误读成 forte），选中的采样层随之变化。所以冻结：只登记乐谱源码 audio/score.py，它改了说明作者想改配乐，默认构建就拒绝沿用缓存；引擎代码或采样库变化不影响定稿配乐。想听当前代码渲出的配乐：node tools/audio/build.mjs --score（会覆盖缓存并写入完整输入键，frozen 变成 false；重渲当次与之后读缓存的混音逐样本一致）。"
 }

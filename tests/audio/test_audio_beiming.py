@@ -8,7 +8,8 @@
   · 把 audio/cues.json 的混音目标抬高 6 dB 后整个 build 退出 4；
   · 配乐缓存：乐谱 audio/score.py 改过就退出 4（不静默沿用旧配乐），--accept-stale-score 明确接受时通过并记进 render.json；
     缓存文件被换掉时 --accept-stale-score 也不放行；
-  · sh audio/build.sh 与 node tools/audio/build.mjs 两个入口：--help 退出 0，未知参数退出 2。
+  · sh audio/build.sh 与 node tools/audio/build.mjs 两个入口：--help 退出 0，未知参数退出 2；
+  · 设了 BEIMING_SAMPLES（固定版本的采样库）时：--score 重渲可复现，重渲当次与之后读缓存的混音逐字节相同。
 门禁需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指完整路径）；没有时门禁的用例跳过，金标准与配乐缓存的用例照常跑。
 每次构建约 5–10 秒（numba 缓存冷时多十几秒）。
 """
@@ -166,6 +167,34 @@ class ScoreCache(unittest.TestCase):
         r = self.mix()
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
         self.assertEqual(H.read_json(os.path.join(self.td, 'audio', 'check', 'render.json'))['score_cache']['status'], 'frozen')
+
+
+@unittest.skipUnless(os.environ.get('BEIMING_SAMPLES'), '要配乐采样库：node tools/audio/fetch-samples.mjs 后设 BEIMING_SAMPLES（约 451 MB）')
+class ScoreRerender(unittest.TestCase):
+    """用固定版本的采样库 --score 重渲：库与清单逐个核对通过；两次重渲逐样本相同；重渲当次与之后读缓存的混音逐字节相同"""
+
+    def test_score_rerender_is_reproducible(self):
+        td = H.sound_tree(H.tmpdir('beiming-score-rerender'))
+        try:
+            mix = os.path.join(td, 'out', 'mix.wav')
+            r = H.run(['python', 'audio/mix.py', '--score'], cwd=td)
+            self.assertEqual(r.returncode, 0, r.stderr[-1500:])
+            rj = H.read_json(os.path.join(td, 'audio', 'check', 'render.json'))['score_cache']
+            self.assertEqual((rj['status'], rj['library_ok']), ('rendered', True), rj)
+            lock = H.read_json(os.path.join(td, 'audio', 'score_cache.lock.json'))
+            self.assertFalse(lock['frozen'])
+            self.assertTrue(lock['inputs']['samplesLibrary'])
+            first = G._sha(mix)
+            mus1 = np.load(os.path.join(td, 'audio', 'score_cache.npz'))['mus']
+            r = H.run(['python', 'audio/mix.py'], cwd=td)
+            self.assertEqual(r.returncode, 0, r.stderr[-800:])
+            self.assertEqual(H.read_json(os.path.join(td, 'audio', 'check', 'render.json'))['score_cache']['status'], 'match')
+            self.assertEqual(G._sha(mix), first, '重渲当次与读缓存的混音要逐字节相同')
+            r = H.run(['python', 'audio/mix.py', '--score'], cwd=td)
+            self.assertEqual(r.returncode, 0, r.stderr[-800:])
+            self.assertTrue(np.array_equal(np.load(os.path.join(td, 'audio', 'score_cache.npz'))['mus'], mus1), '两次重渲逐样本相同')
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
 
 
 @unittest.skipUnless(NODE, '需要 node')
