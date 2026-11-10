@@ -16,6 +16,10 @@
 //         5 写 .venv/bin/python 小脚本（转到选定的解释器，历史 build.sh 写死了这个路径）与 runtime.json
 //   node tools/c-runtime.mjs status [--out <运行时目录>] [--verify]
 //       只读：运行时在不在、提交与快照是否一致、Node 链接与 Python 依赖；--verify 逐文件重算 sha256
+//   node tools/c-runtime.mjs assets <包…> [--out <运行时目录>]
+//       下载上游大素材包到运行时（采样乐器 instruments-vcsl / vsco2ce / freepats / karoryfer / salamander、voice、hdri）：
+//       用运行时里那份快照自带的 tools/fetch.sh（包名、大小、sha256 都锁在快照的 tools/assets.json 里，校验不过就不解包；可断点续传）。
+//       build 之前会按作品的声音脚本查它要哪几个采样库，缺了直接告诉你装哪个
 //   node tools/c-runtime.mjs build <还原目录> [--timeout 秒] [--dry-run] [--out <运行时目录>]
 //       重跑还原出的历史作品（python3 tools/casebook.py restore <案例> --download --lemo out/runtime/lemo-bebbbe1a）：
 //       把 build.sh 的 LIB= 指到运行时、"$LIB/.venv/bin/python" 换成选定的解释器，写成同目录的 build.c-runtime.sh，用 sh 运行；
@@ -42,6 +46,7 @@ const IS_WIN = process.platform === 'win32';
 const USAGE = `用法：
   node tools/c-runtime.mjs setup [--python <解释器>] [--venv] [--music] [--force] [--dry-run] [--out <运行时目录>]
   node tools/c-runtime.mjs status [--out <运行时目录>] [--verify]
+  node tools/c-runtime.mjs assets <包…> [--out <运行时目录>]      例：assets instruments-vcsl instruments-vsco2ce
   node tools/c-runtime.mjs build <还原目录> [--timeout 秒] [--dry-run] [--out <运行时目录>]
   node tools/c-runtime.mjs sy <编号|目录名> [--still 0.5,2] [--video] [--out <目录>]
 通用：--json（stdout 只输出一个结果对象）、--help
@@ -311,6 +316,67 @@ function need(tool, args = ['-version']) {
   if (r.status !== 0) throw new Fail(3, `找不到 ${tool}`, `装好 ${tool} 并放进 PATH（FFmpeg ≥ 7，带 libx264、aac）`);
 }
 
+// ———————————————————————————— assets：上游大素材包 ————————————————————————————
+function assetPacks(rtDir) {
+  const f = path.join(rtDir, 'tools', 'assets.json');
+  if (!fs.existsSync(f)) throw new Fail(3, `运行时里没有 tools/assets.json（${rel(rtDir)}）`, '运行时不完整：node tools/c-runtime.mjs setup --force');
+  return JSON.parse(fs.readFileSync(f, 'utf8')).packs || {};
+}
+const instrumentsDir = rtDir => path.join(rtDir, 'core', 'audio', 'instruments');
+const packInstalled = (rtDir, name) => (name.startsWith('instruments-') ? fs.existsSync(path.join(instrumentsDir(rtDir), name.slice(12)))
+  : name === 'voice' ? fs.existsSync(path.join(rtDir, 'core', 'tts', 'kokoro-v1.0.onnx')) : name === 'hdri' ? fs.existsSync(path.join(rtDir, 'core', 'assets', 'polyhaven')) : false);
+
+// 作品的声音脚本用到哪些采样乐器 → 要哪些采样库（按运行时 core/audio/sampler.py 的乐器表）
+export function samplerNeeds(caseDir, rtDir) {
+  const reg = path.join(rtDir, 'core', 'audio', 'sampler.py');
+  if (!fs.existsSync(reg)) return { libs: [], instruments: [] };
+  const src = fs.readFileSync(reg, 'utf8');
+  // 库前缀：V, C, F, K, SAL = 'vsco2ce/', 'vcsl/', …；VI, VM = C + '…', C + '…'（派生前缀跟着它的库）
+  const pre = {};
+  for (const m of src.matchAll(/^\s*([A-Z][A-Z_]*(?:\s*,\s*[A-Z][A-Z_]*)*)\s*=\s*(.+)$/gm)) {
+    const names = m[1].split(',').map(x => x.trim()), parts = m[2].split(/,(?![^(]*\))/).map(x => x.trim());
+    names.forEach((n, i) => {
+      const v = parts[i] || '', lit = /^'([a-z0-9]+)\/'$/.exec(v), der = /^([A-Z][A-Z_]*)\s*\+/.exec(v);
+      if (lit) pre[n] = lit[1]; else if (der && pre[der[1]]) pre[n] = pre[der[1]];
+    });
+  }
+  const table = {};
+  for (const m of src.matchAll(/^\s*'([a-z0-9_]+)'\s*:\s*dict\(src=\(?\s*([A-Z][A-Z_]*)\s*\+/gm)) if (pre[m[2]]) table[m[1]] = pre[m[2]];
+  const texts = [];
+  const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    if (e.name === 'out' || e.name === 'node_modules' || e.name.startsWith('.')) continue;
+    const p = path.join(d, e.name);
+    if (e.isDirectory()) walk(p); else if (e.name.endsWith('.py')) texts.push(fs.readFileSync(p, 'utf8'));
+  } };
+  walk(caseDir);
+  const all = texts.join('\n');
+  const instruments = Object.keys(table).filter(n => new RegExp(`['"]${n}['"]`).test(all)).sort();
+  return { instruments, libs: [...new Set(instruments.map(n => table[n]))].sort() };
+}
+
+async function assets(o, env) {
+  const { lemo } = readLock();
+  const rtDir = runtimeDir(lemo, o.out);
+  if (!readRuntime(rtDir)) throw new Fail(3, `隔离运行时不存在：${rel(rtDir)}`, '先运行 node tools/c-runtime.mjs setup');
+  const packs = assetPacks(rtDir);
+  if (!o.packs.length) throw new Fail(2, `assets 要给包名（可选：${Object.keys(packs).join('、')}）`);
+  const bad = o.packs.filter(p => !packs[p]);
+  if (bad.length) throw new Fail(2, `快照的 tools/assets.json 里没有 ${bad.join('、')}（可选：${Object.keys(packs).join('、')}）`);
+  const sh = findSh();
+  env.result = { runtime: rel(rtDir), packs: [] };
+  for (const name of o.packs) {
+    const p = packs[name];
+    if (packInstalled(rtDir, name)) { log(`✓ ${name} 已在运行时里`); env.result.packs.push({ name, status: 'present' }); continue; }
+    log(`▶ ${name}（${(p.size / 1e6).toFixed(0)} MB，sha256 ${p.sha256.slice(0, 12)}…）`);
+    const args = name.startsWith('instruments-') ? ['instruments', name.slice(12)] : [name];
+    const r = await runChild(sh, ['tools/fetch.sh', ...args], { cwd: rtDir, env: { ...process.env, LEMO_OPUSCAR_HOME: rtDir }, timeout: o.timeout });
+    const code = exitFor(r);
+    if (code) throw new Fail(code === 1 ? 3 : code, `${name} 没有装好（退出码 ${r.code}）`, '多半是网络中断：重跑同一条命令会接着下载；校验不过说明上游换了包，这个快照的素材就取不到了。不要按提示去跑上游 setup.sh');
+    env.result.packs.push({ name, status: 'installed', sha256: p.sha256 });
+  }
+  return 0;
+}
+
 // ———————————————————————————— build ————————————————————————————
 function probeVideo(file) {
   const r = spawnSync('ffprobe', ['-v', 'error', '-count_packets', '-select_streams', 'v:0', '-show_entries', 'stream=width,height,r_frame_rate,nb_read_packets', '-of', 'json', file], { encoding: 'utf8' });
@@ -354,6 +420,10 @@ async function build(o, env) {
   const master = c?.artifacts?.find(a => a.role === 'master' && a.video);
   const { text, notes } = rewriteBuild(fs.readFileSync(buildF, 'utf8'), rtDir);
   const sh = findSh(); need('ffmpeg'); need('ffprobe');
+  const sampler = samplerNeeds(dir, rtDir);
+  const lack = sampler.libs.filter(l => !fs.existsSync(path.join(instrumentsDir(rtDir), l)));
+  if (lack.length) throw new Fail(3, `${report.case} 的配乐用到采样乐器 ${sampler.instruments.join('、')}，运行时里还没有采样库 ${lack.join('、')}`,
+    `先装：node tools/c-runtime.mjs assets ${lack.map(l => `instruments-${l}`).join(' ')}（每个几百 MB，sha256 锁在快照里）`);
   const py = rt.python.executable;
   const res = { case: report.case, dir: rel(dir), runtime: rel(rtDir), notes, expected: master ? { file: master.filename, ...master.video } : null };
   env.result = res;
@@ -455,10 +525,10 @@ async function sy(o, env) {
 // ———————————————————————————— 命令行 ————————————————————————————
 export function parse(argv) {
   const o = { cmd: null, json: false, help: false, target: null, python: null, venv: false, music: false, force: false, dryRun: false,
-    out: null, verify: false, timeout: 3600, still: [], video: false };
+    out: null, verify: false, timeout: 3600, still: [], video: false, packs: [] };
   const a = [...argv];
   const val = x => { const v = a.shift(); if (v === undefined || v.startsWith('--')) throw new Fail(2, `选项 ${x} 缺少取值`); return v; };
-  const allow = { setup: ['--python', '--venv', '--music', '--force', '--dry-run', '--out'], status: ['--out', '--verify'],
+  const allow = { setup: ['--python', '--venv', '--music', '--force', '--dry-run', '--out'], status: ['--out', '--verify'], assets: ['--out', '--timeout'],
     build: ['--timeout', '--dry-run', '--out'], sy: ['--still', '--video', '--out', '--timeout'] };
   while (a.length) {
     const x = a.shift();
@@ -467,6 +537,7 @@ export function parse(argv) {
     if (!x.startsWith('-')) {
       if (!o.cmd) { if (!allow[x]) throw new Fail(2, `不认识的子命令 ${x}（可用：${Object.keys(allow).join('、')}）`); o.cmd = x; continue; }
       if ((o.cmd === 'build' || o.cmd === 'sy') && !o.target) { o.target = x; continue; }
+      if (o.cmd === 'assets') { o.packs.push(x); continue; }
       throw new Fail(2, `多余的参数 ${x}`);
     }
     if (!o.cmd) { if (o.help) continue; throw new Fail(2, `选项 ${x} 要写在子命令后面`); }
@@ -496,7 +567,7 @@ export async function main(argv) {
   try {
     o = parse(argv);
     if (o.help) { process.stdout.write(USAGE + '\n'); return 0; }
-    const fn = { setup, status, build, sy }[o.cmd];
+    const fn = { setup, status, assets, build, sy }[o.cmd];
     env.exitCode = await fn(o, env);
   } catch (e) {
     const code = e instanceof Fail ? e.exitCode : 1;
