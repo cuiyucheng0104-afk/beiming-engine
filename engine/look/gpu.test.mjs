@@ -24,7 +24,7 @@ const TAIL = `
 </script></body></html>`;
 const PAGES = {};
 
-let browser = null, server = null, port = 0, skip = null;
+let browser = null, server = null, port = 0, skip = null, soft = false;
 test.before(async () => {
   let chromium;
   try { ({ chromium } = await import('playwright-core')); } catch { skip = '没有 playwright-core'; return; }
@@ -39,7 +39,12 @@ test.before(async () => {
   const angle = process.env.BEIMING_ANGLE || (process.platform === 'darwin' ? 'metal' : 'default');
   try {
     browser = await chromium.launch({ executablePath: process.env.BEIMING_CHROME || undefined, args: [...(angle === 'default' ? [] : [`--use-angle=${angle}`]), '--enable-gpu', '--ignore-gpu-blocklist'] });
-  } catch (e) { skip = '无头 Chrome 起不来（先 npm run setup）：' + String(e.message).split('\n')[0]; }
+  } catch (e) { skip = '无头 Chrome 起不来（先 npm run setup）：' + String(e.message).split('\n')[0]; return; }
+  // 软件渲染（CI 的 SwiftShader、没有显卡的 Linux）：大画幅的用例按比例缩小尺寸，时限放宽
+  const probe = await browser.newPage();
+  const gpu = await probe.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'), e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)) : ''; });
+  await probe.close();
+  soft = /swiftshader|llvmpipe|softpipe|software/i.test(gpu);
 });
 test.after(async () => { await browser?.close(); server?.close(); });
 
@@ -49,8 +54,11 @@ async function run(name, body, { w = 400, h = 300, timeout = 120000 } = {}) {
   const logs = [];
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.text().slice(0, 200)); });
   try {
-    await page.goto(`http://127.0.0.1:${port}/__gpu__/${name}`);
-    await page.waitForFunction(() => window.RESULT !== undefined, null, { timeout });
+    // 测试页的模块用顶层 await 跑完整个用例，load 事件要等它跑完：导航只等提交，实际时限交给下面等 RESULT
+    // （以前用 goto 默认的 30 秒，软件渲染下 R35 跑 60 秒就在 goto 上超时）
+    const limit = soft ? timeout * 3 : timeout;
+    await page.goto(`http://127.0.0.1:${port}/__gpu__/${name}`, { waitUntil: 'commit', timeout: limit });
+    await page.waitForFunction(() => window.RESULT !== undefined, null, { timeout: limit });
     const r = await page.evaluate(() => window.RESULT);
     if (r.error) throw new Error(r.error);
     return Object.defineProperty(r, 'logs', { value: logs, enumerable: false });   // 控制台告警留着看，不混进结果的键
@@ -316,7 +324,9 @@ async function lw(W, H, ol) {
   const L = look.targets.line, b = new Uint8Array(L.width * 4); renderer.readRenderTargetPixels(L, 0, L.height >> 1, L.width, 1, b);
   let s = 0; for (let x = 0; x < L.width / 2; x++) s += b[x * 4] / 255; look.dispose(); return s / 2 / H;
 }
-const out = {}; for (const [k, ol] of Object.entries({ w6: { width: 6, farScale: 1 }, far3: { width: 2.6, farScale: 3 } })) out[k] = (await lw(3840, 2080, ol)) / (await lw(1920, 1040, ol));
+// 软件渲染下宽度取高度的 0.75 倍（方块仍整块在画面里，线宽只按画高标定）：像素量降到 4 成，2080 / 1040 的比较不变
+const SOFT = ${soft}, wOf = h => SOFT ? h * 3 / 4 : h * 24 / 13;
+const out = {}; for (const [k, ol] of Object.entries({ w6: { width: 6, farScale: 1 }, far3: { width: 2.6, farScale: 3 } })) out[k] = (await lw(wOf(2080), 2080, ol)) / (await lw(wOf(1040), 1040, ol));
 window.RESULT = out;`, { timeout: 180000 });
   for (const [k, v] of Object.entries(r)) assert.ok(Math.abs(v - 1) < .02, `${k}：2080 / 1040 线宽比 ${v.toFixed(3)}（修改前 w6 为 0.735、far3 为 0.833）`);
 });
