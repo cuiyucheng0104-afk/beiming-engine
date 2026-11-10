@@ -317,7 +317,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
         }
         lacking = lacking || list[0].label;
       }
-      return `${pre()}声明的字体都没有这个字，回退到系统默认字体`;
+      return lacking ? `${pre()}回退到系统默认字体` : '声明的字体都没有这个字，回退到系统默认字体';
     };
     const unionHas = cp => faces.some(f => f.cps && f.status === 'loaded' && inRanges(cp, f.ranges) && f.cps.has(cp));
     let checked = 0;
