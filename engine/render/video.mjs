@@ -162,6 +162,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   const film = readFilm(dir);
   if (opts.shot) pickShot(film, opts.shot);
   const { size: { w, h }, fps: fpsReq, profile } = resolveOutputSpec({ opts, film });
+  for (const m of profile?.warnings ?? []) log.warn(m, 'profiles', '档位表归作品描述包维护：engine/production/profiles.json');
   const intermediate = opts.fast ? 'jpeg' : 'png';
   const slots = opts.slots ?? slotCount();
   const ff = preflight();                                  // 缺 FFmpeg：退出码 3

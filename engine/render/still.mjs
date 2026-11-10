@@ -60,6 +60,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   resolveGpuPolicy(opts.gpu ?? undefined); resolveAngle(opts.angle ?? undefined);
   const film = readFilm(dir);
   const { size: { w, h }, fps: fpsReq, profile } = resolveOutputSpec({ opts, film });
+  for (const m of profile?.warnings ?? []) log.warn(m, 'profiles', '档位表归作品描述包维护：engine/production/profiles.json');
   const byFrame = Boolean(opts.frame.length || opts.frames);
   const shots = times.map(s => ({ t: parseTime(s), label: s.trim(), frame: null }));
   if (opts.range) shots.push(...rangeTimes(opts.range).map(x => ({ ...x, frame: null })));

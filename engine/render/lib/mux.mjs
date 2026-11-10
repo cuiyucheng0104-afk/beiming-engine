@@ -247,6 +247,7 @@ export const command = renderCommand({
   if (fpsP !== null && opts.fps !== null && fpsP !== opts.fps) throw new RenderError('usage.conflict', `位置参数 fps=${fpsP} 与 --fps ${opts.fps} 不一致`, { hint: '只写一处' });
   if (grainP !== null && opts.grain !== null && grainP !== opts.grain) throw new RenderError('usage.conflict', `位置参数 grain=${grainP} 与 --grain ${opts.grain} 不一致`, { hint: '只写一处' });
   const profile = opts.profile ? resolveProfile(opts.profile, REPO) : null;
+  for (const m of profile?.warnings ?? []) log.warn(m, 'profiles', '档位表归作品描述包维护：engine/production/profiles.json');
   const film = opts.film ? readFilmJson(path.resolve(opts.film)).json : null;
   const ff = preflight();
   const env = environment(REPO, { ffmpegVersion: ff.version });

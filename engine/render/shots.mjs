@@ -63,6 +63,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   if (!film?.shots?.length) throw new RenderError('usage.no-shots', `${dir}/film.json 没有镜头表`, { hint: 'shots.mjs 要 film.json v2 的 shots: [{ id, in, out, module }]；整片渲染用 video.mjs' });
   const selected = opts.shots.length ? shotsByIds(film, opts.shots).sort((x, y) => x.in - y.in) : [...film.shots].sort((x, y) => x.in - y.in);
   const { size: { w, h }, fps: fpsReq, profile } = resolveOutputSpec({ opts, film });
+  for (const m of profile?.warnings ?? []) log.warn(m, 'profiles', '档位表归作品描述包维护：engine/production/profiles.json');
   const intermediate = opts.fast ? 'jpeg' : 'png';
   const cache = path.resolve(opts.cache ?? path.join(dir, 'out', 'cache', 'shots'));
   const out = opts.out ? path.resolve(opts.out) : null;

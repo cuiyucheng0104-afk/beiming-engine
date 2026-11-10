@@ -5,7 +5,7 @@
 //   编码提示 video.crf / video.preset（profiles.json 写了就用；没写时 master-* 档位用 crf 10 / slow 的高码率母版，其余 crf 14 / medium）。
 //   loadProfiles(root)       → { source, profiles: Map<id, Profile>, warnings[] }
 //   resolveProfile(id, root) → Profile：{ id, label, width, height, fps, audio: { targetLUFS, toleranceLU, truePeakDbTP, sampleRate, channels },
-//                               video: { crf, preset }, source }；不认识的 id → usage.profile-unknown（列出可用档位）
+//                               video: { crf, preset }, source, warnings }；不认识的 id → usage.profile-unknown（列出可用档位）
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadProfiles as loadRepoProfiles, PROFILES_PATH } from '../../../tools/lib/profiles.mjs';
@@ -49,9 +49,10 @@ export function loadProfiles(root) {
   return { source, profiles: out, warnings };
 }
 
+/** 取一个档位；warnings 是读档位表时的提示（profiles.json 读不出、某档位缺字段而用了兜底），调用方要转给日志 */
 export function resolveProfile(id, root) {
-  const { profiles, source } = loadProfiles(root);
+  const { profiles, source, warnings } = loadProfiles(root);
   const p = profiles.get(id);
   if (!p) throw new RenderError('usage.profile-unknown', `不认识的交付档位 ${id}`, { hint: `可用：${[...profiles.keys()].join(' / ')}（来源：${source === 'fallback' ? 'D07 兜底表' : source}）` });
-  return p;
+  return { ...p, warnings };
 }
