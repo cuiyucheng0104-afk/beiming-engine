@@ -58,6 +58,13 @@ export function removeLink(p) {
   try { fs.unlinkSync(p); } catch (e) { if (e.code !== 'ENOENT') { try { fs.rmdirSync(p); } catch { /* 已不在 */ } } }
 }
 
+// 测完收尾：删掉各命令专用的空 TMPDIR（tmp-*），TEST_ROOT 空了就一并删；FILM_TEST_KEEP=1 时全部保留
+export function cleanupTestRoot() {
+  if (process.env.FILM_TEST_KEEP || !fs.existsSync(TEST_ROOT)) return;
+  for (const n of fs.readdirSync(TEST_ROOT)) if (n.startsWith('tmp-')) fs.rmSync(path.join(TEST_ROOT, n), { recursive: true, force: true });
+  try { fs.rmdirSync(TEST_ROOT); } catch { /* 还有别的东西（用户指定的目录）就留着 */ }
+}
+
 export const snapshotDir = dir => new Set(fs.existsSync(dir) ? fs.readdirSync(dir) : []);
 export const newEntries = (before, dir) => [...snapshotDir(dir)].filter(n => !before.has(n));
 

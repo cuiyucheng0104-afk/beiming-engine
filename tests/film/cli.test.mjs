@@ -4,11 +4,11 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, runCli, makeWork, snapshotDir, newEntries, gitStatus } from './helpers.mjs';
+import { ROOT, runCli, makeWork, snapshotDir, newEntries, gitStatus, cleanupTestRoot } from './helpers.mjs';
 
 const works = [];
 const statusBefore = new Set(gitStatus() || []);
-after(() => { for (const w of works) w.cleanup(); });
+after(() => { for (const w of works) w.cleanup(); cleanupTestRoot(); });
 
 const SUBS = ['new', 'check', 'stills', 'animatic', 'build', 'mix', 'assemble', 'render', 'qa', 'review', 'approve', 'status'];
 

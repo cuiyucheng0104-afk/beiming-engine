@@ -9,14 +9,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { ROOT, CLI, QA_STUB, TEST_ROOT, runCli, makeWork, gitStatus } from './helpers.mjs';
+import { ROOT, CLI, QA_STUB, TEST_ROOT, runCli, makeWork, gitStatus, cleanupTestRoot } from './helpers.mjs';
 import { validateRenderResult } from '../../engine/production/project.js';
 
 const ON = process.env.FILM_E2E === '1';
 const skip = ON ? false : '设 FILM_E2E=1 才跑（要渲染）';
 const works = [];
 const statusBefore = ON ? new Set(gitStatus() || []) : null;
-after(() => { for (const w of works) w.cleanup(); });
+after(() => { for (const w of works) w.cleanup(); cleanupTestRoot(); });
 
 // 每个命令用一个专门的空 TMPDIR：跑完应仍是空的（编排器把子进程的临时文件都放进运行目录并删掉）
 function sysTmp() {
