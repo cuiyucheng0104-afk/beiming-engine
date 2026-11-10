@@ -45,7 +45,7 @@ ffmpeg -hide_banner -v error -i "$F" -vf "select='between(n\,93\,99)',scale=480:
 
 - 画面：`routes/directing/VISUAL-DESIGN.md` §8「画面 QA 清单」与其后的「审美复核」（眯眼缩略图、水平翻转、5 秒复述、与基准帧并排）。
 - 交付前：`routes/directing/DIRECTING.md` §4「交付前清单」。
-- 出片工程（色彩、编码、确定性、逐帧对比）：`routes/directing/craft/video.md` 第 2、4、6 节。
+- 出片工程：`routes/directing/craft/video.md` 第 2 节（确定性）、第 4 节（色彩管线）、第 5 节（编码与封装）、第 6 节（质量门）。
 - 文字：白名单、读字时长（中文停留 ≥ 字数 ÷ 4.5 + 1.5 秒）、安全区、缺字回落（DIRECTING 步骤 9）。
 - 声音：叙事动作有声、静默段实测电平、"最重要的一声"写明类型、声画偏差不超过 1 帧（DIRECTING 步骤 8；`craft/animation.md` §5.7 的容差表）。
 
