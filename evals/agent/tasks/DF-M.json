@@ -1,0 +1,52 @@
+{
+  "$schema": "../schema/task.schema.json",
+  "schemaVersion": 1,
+  "id": "DF-M",
+  "kind": "film",
+  "title": "归航",
+  "summary": "多镜头编排，导演加子代理",
+  "planRef": "计划书 7.2 DF-M",
+  "route": "a",
+  "filmId": "guihang",
+  "prompt": "DF-M.md",
+  "context": null,
+  "environment": "prepared",
+  "requiresEnv": [],
+  "isolation": ["isolated"],
+  "timeboxMinutes": 240,
+  "attempts": 2,
+  "spec": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 480, "shots": 5, "audio": true },
+  "writeScope": ["films/guihang/"],
+  "newFilmDirsOnly": false,
+  "seed": null,
+  "rules": {
+    "forbiddenWritePrefixes": ["cases/vendor/", "src/", "engine/"],
+    "forbiddenGit": ["add-all", "commit", "push"],
+    "forbiddenTools": ["WebSearch", "WebFetch"],
+    "forbiddenAccess": ["home-lemo", "outside-skills"],
+    "forbiddenRestore": []
+  },
+  "gates": {
+    "required": [
+      { "gate": "look", "accept": ["approve"], "note": "关键帧：原话来自关键帧复看或低清全片闸" },
+      { "gate": "animatic", "accept": ["approve"], "note": "低清全片：原话来自「可以，出正片。」" }
+    ],
+    "recommended": [
+      { "gate": "structure", "accept": ["approve"], "note": "镜头表与节拍表；P05 的闸门只有 look/animatic/final 时允许写在 look 记录之前的 structure 记录里" }
+    ],
+    "forbidApprove": ["final"],
+    "onlyIfRendered": false,
+    "aliases": { "structure": ["board", "shot-table", "shotlist", "beats", "story"], "look": ["keyframes", "style"], "animatic": ["previs", "preview", "lowres", "low-res"], "final": ["delivery", "master"] }
+  },
+  "hardGates": ["H1", "H2", "H3", "H4", "H5", "H6", "H7"],
+  "qa": { "commands": ["delivery", "visual", "texts"] },
+  "runtime": null,
+  "partitions": {
+    "directorOnly": ["film.json", "TREATMENT.md", "bible/", "review/", "waivers.json", "partitions.json", "review.md"],
+    "roots": ["shots/*/", "audio/"],
+    "maxSubagents": 4
+  },
+  "safety": null,
+  "scoring": { "process": "orchestration", "visualReference": "docs/style-baselines/beiming-original@v1", "styleReference": null },
+  "replies": "DF-M.json"
+}
