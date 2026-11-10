@@ -7,10 +7,15 @@
   window(t, a, b, xf, end)                  镜头窗：a 处等功率切入、b 处切出（a ≤ 0 / b ≥ end 时不切）
   tail_after(t, b, rel)                     b 之后 rel 秒内收掉（切走后的尾巴，不硬断混响）
   duck(t, t0, depth, pre, post)             在 t0 附近让开 depth（pre/post = 让开与恢复的起止偏移秒）
-  match_level(st, target, how, t0, t1)      定电平 → (结果, 实测, 增益 dB)；how：mom 最大瞬时 / win 区间积分 / peak 采样峰值
+  match_level(st, target, how, t0, t1)      定电平 → (结果, 实测, 增益 dB)；how：mom 最大瞬时 / win 区间积分 / peak 采样峰值。
+                                            测量区间里没有可测的信号（静音、低于 −70 LUFS、win 区间短于 0.4 s、mom 区间没有完整的窗）
+                                            时报 ValueError，不会算出无穷大的增益把整条总线变成 NaN
   tame_low(mix, band, ceil, aim, f, s, iters)  低频段相对最强频段高于 ceil 时用低搁架压到 aim → (结果, 累计搁架 dB)
-  loudness_to(mix, lufs, tp, look, rel, tol, iters)  总增益 + 前视真峰值限制，按限制后的实测响度迭代 → (结果, 总增益 dB, 限制增益曲线)
+  loudness_to(mix, lufs, tp, look, rel, tol, iters)  总增益 + 前视真峰值限制，按限制后的实测响度迭代 → (结果, 总增益 dB, 限制增益曲线)；
+                                            返回的总增益就是作用在返回音频上的那一个；iters 轮内没收敛时给 RuntimeWarning（带剩余误差）
 """
+import warnings
+
 import numpy as np
 
 from .dsp import SR, N, smoothstep, undb, db, place, stereo, shelf, tp_limit
@@ -39,12 +44,23 @@ def duck(t, t0, depth=0.5, pre=(0.10, 0.01), post=(0.06, 0.25)):
 
 
 def match_level(st, target, how='mom', t0=0.0, t1=None):
+    span = f'{t0:.3f}–{(len(st) / SR if t1 is None else t1):.3f} s'
     if how == 'mom':
         cur = momentary_max(st, t0, t1)
     elif how == 'win':
-        cur = integrated(st[N(t0):(N(t1) if t1 is not None else len(st))])
+        a, b = N(t0), (N(t1) if t1 is not None else len(st))
+        if b - a < N(0.4):
+            raise ValueError(f'定电平（win 区间积分）的区间 {span} 短于 0.4 s，测不了积分响度')
+        cur = integrated(st[a:b])
+    elif how == 'peak':
+        pk = float(np.abs(st).max()) if len(st) else 0.0
+        if not pk > 0:
+            raise ValueError('定电平（peak）的信号全是 0')
+        cur = float(db(pk))
     else:
-        cur = float(db(np.abs(st).max()))
+        raise ValueError(f'不认识的定电平方式 {how!r}（mom / win / peak）')
+    if how != 'peak' and not cur > -70.0:      # −inf（没有块过绝对门限）或几乎静音：增益会大到没有意义
+        raise ValueError(f'定电平（{how}）的区间 {span} 里没有可测的信号（实测 {cur:.1f} LUFS，低于 −70 绝对门限）')
     g = target - cur
     return st * undb(g), cur, g
 
@@ -62,11 +78,19 @@ def tame_low(mix, band='20-120', ceil=-3.5, aim=-3.8, f=115, s=0.7, iters=4):
 
 
 def loudness_to(mix, lufs, tp, look=0.005, rel=0.12, tol=0.03, iters=8):
-    g = lufs - integrated(mix)
-    for _ in range(iters):
+    if iters < 1:
+        raise ValueError(f'loudness_to：iters 至少是 1（给的是 {iters}）')
+    cur = integrated(mix)
+    if not cur > -70.0:
+        raise ValueError(f'loudness_to：整段混音没有可测的信号（积分响度 {cur}），无法定到 {lufs} LUFS')
+    g = lufs - cur
+    for k in range(iters):
         lim, gr = tp_limit(mix * undb(g), tp, look=look, rel=rel)
         err = lufs - integrated(lim)
         if abs(err) < tol:
-            break
-        g += err
+            return lim, g, gr
+        if k < iters - 1:
+            g += err
+    warnings.warn(f'loudness_to：{iters} 轮后仍差 {err:+.2f} LU 没到 {lufs} LUFS（真峰值上限 {tp} dBTP 可能太紧）；'
+                  f'返回的是实际作用的总增益 {g:.2f} dB', RuntimeWarning, stacklevel=2)
     return lim, g, gr

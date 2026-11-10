@@ -28,6 +28,14 @@ DYN = [(4.9, 0.0), (5.05, 0.16), (5.6, 0.2), (6.4, 0.28), (7.4, 0.42), (8.2, 0.5
        (8.88, 0.69), (8.95, 0.66), (9.02, 1.0), (9.35, 0.92), (9.6, 0.72), (9.8, 0.52), (10.0, 0.38)]
 HORN_DYN = [(8.1, 0.0), (8.3, 0.22), (8.9, 0.6), (9.02, 0.88), (9.4, 0.7), (9.75, 0.25), (10.0, 0.0)]
 
+# 配乐的时间以本文件为准（下面 render() 里的音符时间都是全局秒，默认还读 score_cache.npz 这份定稿渲染）。
+# audio/cues.json 里 layer = music 的事件只是给人看的标注，改了不会挪动配乐：要改配乐时间就改本文件，再跑 sh audio/build.sh --score。
+# mix.py 每次都拿 cues.json 的标注和这里核对，不一致会在终端和 audio/check/render.json 里告警。
+CUE_TIMES = {'strings_in': (5.0, None), 'chord_D6': (6.4, None), 'chord_GD': (7.4, None), 'chord_CD': (8.2, None),
+             'harp_gliss': (8.58, 8.96), 'apex': (9.0, None), 'air_end': (9.6, 10.0)}
+APEX = CUE_TIMES['apex'][0]
+LEVEL_WIN = (APEX - 0.1, APEX + 0.6)     # 给配乐定电平的区间：顶点前 0.1 s 到后 0.6 s 里的最大瞬时响度
+
 sus = partial(O.sus, dyn=DYN)
 pluck = O.pluck
 

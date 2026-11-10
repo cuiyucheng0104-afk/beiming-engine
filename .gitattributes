@@ -1,6 +1,7 @@
-# 北冥仓库 · 换行与二进制约定。
-# 目的：任何平台、任何 core.autocrlf 设置下检出，文本一律是 LF（Windows 上 sh 脚本照样能跑，逐字节哈希照样对得上）；
-# 归档 cases/source、cases/vendor 与许可证原文按原字节保存（casebook 逐字节校验 SHA256 与 git blob，其中有些文件本来就是 CRLF）。
+# 北冥仓库 · 换行与二进制约定（R79 的规则在此基础上补全；属主 P10，依据决定 D09）。
+# 仓库里的文本一律按 LF 检出，Windows 上也一样。否则 Git for Windows 默认的 core.autocrlf=true
+# 会把 sh 脚本换成 CRLF（sh 报 set: -: invalid option），任务卡测试与案例库的逐字节 SHA256 校验也会失败。
+# 案例归档按原字节保存：casebook 逐字节校验 SHA256 与 git blob，其中有些文件本来就是 CRLF，不能做任何换行转换。
 # 改本文件后：git add --renormalize . && git status，应当没有内容变化；有变化先弄清原因再提交。
 # 检查：npm run env:doctor（工作区换行）、repo-check 的 env.gitattributes / env.eol 规则（规则齐全、索引里没有 CRLF）。
 
