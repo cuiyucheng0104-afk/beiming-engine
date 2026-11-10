@@ -7,6 +7,7 @@
  *   --live      0..1  实时画布的可见度（引擎就绪后交叉淡入，海报同时淡出）
  *   --bloom     0..1  开场时天空从地平线往上晕开的进度（只在开场期间生效）
  *   --navshade  0..1  画面顶部那层压导航浅色字的夜色（首屏跟 --dusk；拆层里天空铺满时也要它）
+ *   --sink      0..1  竖屏拆层收尾：纸页上滚时实时画面沉进夜色（html.sinking 时舞台垫一层夜色底，画布按它淡出）
  */
 
 :root {
@@ -14,6 +15,7 @@
   --grid-gap: clamp(12px, 2vw, 32px);
   --dusk: 1;
   --live: 0;
+  --sink: 0;
   --bloom: 1;
   --focus-halo: var(--ink);
 }
@@ -265,8 +267,11 @@ section[tabindex="-1"]:focus, section[tabindex="-1"]:focus-visible { outline: no
   width: 100%;
   height: 100%;
   max-width: none;
-  opacity: var(--live);
+  opacity: calc(var(--live) * (1 - var(--sink)));
 }
+/* 竖屏拆层收尾：纸页往上滚走时画面沉进夜色（天空这时铺满画布，画布不透明；垫上夜色底再把画布淡出，
+   中途不会透出纸色），夜色接着作品区。只在纸页离开的那一段由 main.js 加上 */
+html.sinking .stage { background-color: var(--night); }
 .stage::after {                      /* 顶部一层很淡的夜色，让导航的浅色字压得住（首屏，以及拆层里天空铺满时） */
   content: "";
   position: absolute;

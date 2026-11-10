@@ -1,8 +1,9 @@
 // src/girl.js — 镜头 B「她」：林潮逆光侧脸剪影 + AI 眼镜（人物层）
 //
 // 画在透明 2D canvas 上，tl = 镜头内时间 0–2 秒（对应全局 3.00–5.00）。
-//   · 角色动画一拍二：所有姿态（发丝、手、呼吸、抬头）只在 floor(tl*12)/12 上取值，墨线抖动也按这个步进换形；
-//   · 镜片倒影里的鲲一拍三：floor(tl*8)/8（和镜头 C 里的鲲一致）；
+//   · 角色动画一拍二：所有姿态（发丝、手、呼吸、抬头）只在 snapTime(tl, 12) 上取值，墨线抖动也按这个步进换形；
+//   · 镜片倒影里的鲲一拍三：snapTime(tl, 8)（和镜头 C 里的鲲一致）；
+//     drawGirl 只拿到连续的 tl，所以用 engine/core/clock.js 的 snapTime（带 1e-6 防抖，整帧时刻与按帧号量化结果相同）；
 //   · 镜头缓推、镜片内缘光、粉色天光的明暗属于「光与镜头」，24 fps 平滑。
 // 画法：深蓝紫平涂剪影（2–3 档）+ 偏移法求出的硬边边缘光（粉金，只出现在挨着天空的轮廓上）+ 天顶冷边
 //      + 手绘墨线（有粗细、按一拍二抖动）+ 水彩斑驳纹理。通用画法都在 engine/paint/（路径、轮廓光、墨线、
@@ -22,12 +23,15 @@
 //       halo     逆光辉光强度，默认 0.5（合成里 bloom 很强时调小或 0）；debug true = 标锚点
 //   drawGirlMotes(ctx, tl, w, h, opts) 逆光里漂浮的光尘（环境层，24 fps 平滑），建议画在人物层后面
 //   girlCamera(tl) → {zoom, fx, fy}    推荐镜头；背景用同一个 zoom × 视差系数（天空 0.25–0.35）
-//   girlAnchors(tl, w, h, opts)        镜片、摄像头、触点、鼻尖、下巴、耳朵的画面坐标
 //   glowLevel(tl)                      镜片内缘光强度 0–1（给音效、bloom 对齐用）
-//   GIRL_SHOT / GIRL_PAL               镜头时间常量 / 色板
+//   GIRL_SHOT / GIRL_PAL               镜头时间常量（起点、长度取自 src/timeline.js）/ 色板
+// 像素换算：w×h 是用户空间（设计尺寸），画布可以更大（原生 4K 时 2 倍，调用方先 setTransform）。
+//   路径、线宽跟着变换走；画布滤镜的模糊半径和 shadowBlur 不随变换缩放，都要乘 DPR（= 画布宽 / w）。
 
 import { createNoise2D } from '../engine/core/noise.js';
 import { mulberry, clamp, lerp, seg, ss, ei } from '../engine/core/math.js';
+import { tick, snapTime } from '../engine/core/clock.js';
+import { TIMELINE, DESIGN } from './timeline.js';
 import * as M from '../engine/paint/affine.js';
 import { parsePath as P, mapPath as X, toPath2D as path2d, scalePath, samplePath, polyPath, smoothClosed } from '../engine/paint/path.js';
 import { canvasFor, clearLayer, blit } from '../engine/paint/canvas.js';
@@ -60,8 +64,8 @@ const PAL = GIRL_PAL;
 
 // ───────────────────────── 镜头参数 ─────────────────────────
 export const GIRL_SHOT = {
-  start: 3.0,              // 全局起点
-  dur: 2.0,                // 镜头长度
+  start: TIMELINE.B,                // 全局起点（镜头 B 开始）
+  dur: TIMELINE.C - TIMELINE.B,     // 镜头长度（到镜头 C 开始；设计稿 2 秒，下面的动作时间按它写）
   touch: 0.55,             // 镜片内缘光亮起；指腹在一拍二的 0.50 那一拍（全局 3.50–3.58）已贴上镜腿
   reflection: [0.8, 2.0],  // 镜片倒影：粉色天光 + 鲲的暗影从右向左
 };
@@ -75,8 +79,8 @@ const SKY = norm([-0.12, -1]);      // 天顶冷光方向
 // ───────────────────────── 小工具 ─────────────────────────
 const D2R = Math.PI / 180;
 function norm(v) { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; }
-const q12 = t => Math.floor(t * 12 + 1e-6) / 12;   // 一拍二
-const q8 = t => Math.floor(t * 8 + 1e-6) / 8;      // 一拍三
+const q12 = t => snapTime(t, 12);   // 一拍二
+const q8 = t => snapTime(t, 8);     // 一拍三
 
 // 噪声：每个用途一个独立的固定种子
 const nHair = createNoise2D(mulberry(31013));
@@ -381,7 +385,7 @@ function rig(tl, w, h, opts) {
   // 手：0.12 从画面下方抬起 → 0.42 悬停 → 0.50 指腹贴上镜腿（一拍二的这一拍覆盖全局 3.50–3.58，含 3.55）
   //     → 0.55 镜片内缘光亮起 → 0.95 起放下 → 1.42 出画
   const rise = ss(seg(tq, 0.12, 0.42)), reach = ss(seg(tq, 0.42, 0.5)), down = ei(seg(tq, 0.95, 1.42));
-  const press = tq >= 0.5 && tq < 0.67 ? 1 : 0;                   // 触碰时指尖轻压一下（一拍二下就是两拍）
+  const press = tq >= 0.5 && tq < 0.67 ? 1 : 0;                   // 触碰时指尖轻压一下：一拍二的 0.50、0.58、0.67 三拍（全局 3.50–3.71，成片如此）
   const dy = lerp(920, 40, rise) - 40 * reach - 4 * press + 940 * down;
   const hand = {
     on: tq > 0.13 && tq < 1.42,
@@ -391,24 +395,13 @@ function rig(tl, w, h, opts) {
   return { tq, tl, k, px, cam, C, body, head, hand, tilt, w, h };
 }
 
-// 主要锚点的画面坐标（给合成代理对齐光效、景深焦点用）
-export function girlAnchors(tl, w, h, opts = {}) {
-  const R = rig(tl, w, h, opts);
-  const c = (m, p) => M.apply(m, p);
-  return {
-    nearLens: c(R.head, [-58, 498]), farLens: c(R.head, [27, 496]), camera: c(R.head, CAM_C),
-    touch: c(R.head, TOUCH_AT), noseTip: c(R.head, [86, 642]), chin: c(R.head, [22, 860]), ear: c(R.head, EAR_C),
-    px: R.px,
-  };
-}
-
 // ───────────────────────── 绘制零件 ─────────────────────────
 // 竖向渐隐遮罩：在 m 坐标系里从 y0（全亮）到 y1（全隐）
 const fadeMask = (m, y0, y1) => fadeAlong(m, [0, y0], [0, y1]);
 
 // 手绘墨线（engine/paint/ink.js）：线宽以 1040 高的画面为准，随镜头推进变粗；每一拍二换一次抖动形状
 const brush = createInk(nInk);
-const inkOpts = (o, R) => ({ color: PAL.ink, ...o, step: Math.floor(R.tq * 12 + 1e-6), px: v => v * R.h / 1040 * R.cam.zoom });
+const inkOpts = (o, R) => ({ color: PAL.ink, ...o, step: tick(R.tq, 12), px: v => v * R.h / 1040 * R.cam.zoom });
 const ink = (g, poly, o, R) => brush.line(g, poly, inkOpts(o, R));
 const inkPath = (g, cmds, o, R) => brush.path(g, cmds, inkOpts(o, R));
 
@@ -440,7 +433,7 @@ const applyTexture = (g, alpha, clip) => washOver(g, texture(), alpha, clip);
 //   opts.reflect false 时不画镜片倒影
 //   opts.debug   true 时标出锚点
 export function drawGirl(ctx, tl, w, h, opts = {}) {
-  DPR = ctx.canvas.width / w;   // 画布比 w 大时（原生 4K），画布滤镜的模糊半径要乘它（滤镜长度不随变换缩放）
+  DPR = ctx.canvas.width / w;   // 画布比 w 大时（原生 4K），滤镜模糊半径和 shadowBlur 都要乘它（两者都不随变换缩放）
   const R = rig(tl, w, h, opts);
   const { head, body, hand, tq, px } = R;
   const T0 = ctx.getTransform();
@@ -505,7 +498,7 @@ export function drawGirl(ctx, tl, w, h, opts = {}) {
   // 发簇轮廓墨线：底块只描露在外面的前额发际，发簇各自描边
   clumps.forEach((cp, i) => ink(g, samplePath(polyPath(cp), 2.5)[0], { size: CLUMPS[i].thin ? 1.2 : 2.1, seed: 90 + i, t0: 6, t1: 6 }, R));
   // 迎光细发丝：暖金色，带一点辉光
-  g.save(); g.shadowColor = PAL.rim; g.shadowBlur = 5 * px;
+  g.save(); g.shadowColor = PAL.rim; g.shadowBlur = 5 * px * DPR;
   GLINTS.forEach((s, i) => {
     const pl = glintLine(s, tq, wind).map(p => M.apply(head, hdef(p[0], p[1])));
     const warm = clamp((s.r[0] + 480) / 300);
@@ -615,7 +608,8 @@ export function drawGirlMotes(ctx, tl, w, h, opts = {}) {
   ctx.save();
   for (const m of MOTES) {
     const z = 1 + (cam.zoom - 1) * (0.6 + m.d);                       // 近的尘埃推进更明显
-    let x = ((m.x - (m.vx * m.d) * (tl + 3) * 1.6) % 1.1 + 1.1) % 1.1 - 0.05, y = m.y + m.vy * tl + 0.006 * Math.sin(tl * 2.1 + m.ph);
+    // 漂移相位按设计稿的全局秒（镜头 B 从 DESIGN.B = 3.0 起）：镜头起点改了，光尘跟着镜头整体平移
+    let x = ((m.x - (m.vx * m.d) * (tl + DESIGN.B) * 1.6) % 1.1 + 1.1) % 1.1 - 0.05, y = m.y + m.vy * tl + 0.006 * Math.sin(tl * 2.1 + m.ph);
     x = cam.fx + (x - cam.fx) * z; y = cam.fy + (y - cam.fy) * z;
     const tw = 0.55 + 0.45 * Math.sin(tl * 3.3 + m.ph * 3);
     const r = m.s * h / 1040 * (0.7 + 0.5 * m.d);
@@ -639,8 +633,8 @@ function lensGlowLine(g, lens, R, gain) {
   const flash = 0.32 * gain * ss(clamp(t / 0.04)) * Math.exp(-Math.max(0, t - 0.04) / 0.12);
   if (flash > 0.004) { g.globalAlpha = flash; g.fillStyle = PAL.glow; g.fill(lens); }
   g.globalAlpha = a;
-  g.shadowColor = PAL.glow; g.shadowBlur = 16 * px; g.strokeStyle = PAL.glow; g.lineWidth = 6 * px; g.stroke(lens);
-  g.shadowBlur = 5 * px; g.strokeStyle = '#E9FCFF'; g.lineWidth = 2.6 * px; g.stroke(lens);
+  g.shadowColor = PAL.glow; g.shadowBlur = 16 * px * DPR; g.strokeStyle = PAL.glow; g.lineWidth = 6 * px; g.stroke(lens);   // shadowBlur 是画布像素
+  g.shadowBlur = 5 * px * DPR; g.strokeStyle = '#E9FCFF'; g.lineWidth = 2.6 * px; g.stroke(lens);
   g.restore();
 }
 

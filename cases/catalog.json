@@ -2,7 +2,20 @@
   "version": 1,
   "date": "2026-11-07",
   "release": "casebook-2026.11",
-  "sourcePolicy": "Historical source with explicit path tokens; original files unchanged. Restore before editing/running. See README and NOTICES.",
+  "sourcePolicy": "Historical source with explicit path tokens; original files unchanged. Restore also rewrites paths the scripts resolved through the home folder (~/, $HOME, expanduser, Path.home()) into the restored workspace, see homePaths and legacyRoots. Restore before editing/running. See README and NOTICES.",
+  "homePaths": {
+    "note": "原脚本经家目录解析的路径（~/、$HOME、expanduser、Path.home()）在还原时改写进还原目录，还原目录代替原机家目录；案例的 legacyRoots 是项目搬到 workspacePath 之前的位置。lemo 指向 @@LEMO_ROOT@@；external 是有意读取真实家目录的凭据与工具，原样保留并在还原报告中列出；notArchived 是已知未归档的外部工程，改写进还原目录并在报告中提示。",
+    "lemo": "lemo-opuscar",
+    "external": [
+      ".ssh",
+      ".config",
+      ".claude/skills",
+      ".rembg"
+    ],
+    "notArchived": [
+      "hypit-remake-lab"
+    ]
+  },
   "cases": [
     {
       "id": "style-01-crayon-book",
@@ -38657,6 +38670,9 @@
         "历史故事介绍片；原画、配音和配乐为项目资产。入库不等于重新渲染或品牌终审。"
       ],
       "workspacePath": "Desktop/上影ppt/见龙",
+      "legacyRoots": [
+        "Desktop/见龙"
+      ],
       "preview": {
         "url": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-jianlong-preview.mp4",
         "filename": "ppt-jianlong-preview.mp4",
@@ -39457,6 +39473,9 @@
         "历史故事介绍片；原画、配音和配乐为项目资产。入库不等于重新渲染或品牌终审。"
       ],
       "workspacePath": "Desktop/上影ppt/目之所及",
+      "legacyRoots": [
+        "Desktop/目之所及"
+      ],
       "preview": {
         "url": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-in-sight-preview.mp4",
         "filename": "ppt-in-sight-preview.mp4",
@@ -40424,6 +40443,9 @@
         "历史故事介绍片；原画、配音和配乐为项目资产。入库不等于重新渲染或品牌终审。"
       ],
       "workspacePath": "Desktop/上影ppt/她的舞蹈导师",
+      "legacyRoots": [
+        "Desktop/她的舞蹈导师"
+      ],
       "preview": {
         "url": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-dance-mentor-preview.mp4",
         "filename": "ppt-dance-mentor-preview.mp4",
@@ -42009,6 +42031,9 @@
         "书桌版为后续版本，film/build.py 同时保留旧版；以 tools/desk_film.py 和技术说明为入口。"
       ],
       "workspacePath": "Desktop/上影ppt/懂你的人",
+      "legacyRoots": [
+        "Desktop/懂你的人"
+      ],
       "preview": {
         "url": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-understands-you-preview.mp4",
         "filename": "ppt-understands-you-preview.mp4",
@@ -42948,6 +42973,9 @@
         "历史故事介绍片；原画、配音和配乐为项目资产。入库不等于重新渲染或品牌终审。"
       ],
       "workspacePath": "Desktop/上影ppt/日落之前",
+      "legacyRoots": [
+        "Desktop/日落之前"
+      ],
       "preview": {
         "url": "https://github.com/cuiyucheng0104-afk/beiming-engine/releases/download/casebook-2026.11/ppt-before-sunset-preview.mp4",
         "filename": "ppt-before-sunset-preview.mp4",
@@ -55119,7 +55147,7 @@
       ],
       "requirements": [],
       "notes": [
-        "画风实验；360图是单视角2.5D代理，不是九个完整三维世界，未证明长片时序稳定。"
+        "三维画风实验：按九张参考的题材重建三维场景，附灰模与侧移机位，没有沿用 360 图的单视角 MoGe 网格；06、07 复用同一楼阁，天空与远云仍是二维水彩底板，人物为单图生成模型、未绑定，未验证动画时序稳定。"
       ],
       "workspacePath": "beiming-style-lab/2026-11-05-beiming-nine-3d",
       "poster": "previews/lab-2026-11-05-beiming-nine-3d.jpg"
@@ -64793,7 +64821,7 @@
       ],
       "requirements": [],
       "notes": [
-        "画风实验；360图是单视角2.5D代理，不是九个完整三维世界，未证明长片时序稳定。"
+        "色阶实验：一个场景、一份 TRELLIS.2 楼阁模型，固定光向、机位与随机种子，8 种配色 × 5 种色阶方案（二阶硬切、三阶硬切、三阶柔边、四阶叠色、六阶塑形）共 40 版静帧；只是配色与色阶候选，楼阁背面几何仍有缺陷，未做跨资产与运动验证。"
       ],
       "workspacePath": "beiming-style-lab/2026-11-05-tonal-40",
       "poster": "previews/lab-2026-11-05-tonal-40.jpg"

@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { createKun } from '../src/kun_qinglv.js';
 import { setToonGlobals } from '../src/toon.js';
 import { createLook } from '../src/look.js';
+import { frameOf, heldTime, hold } from '../engine/core/clock.js';
+import { loadSky } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);
 const W = innerWidth, H = innerHeight;
@@ -16,7 +18,7 @@ document.body.appendChild(renderer.domElement);
 const look = createLook(renderer, W, H, { ss: 2 });
 
 const scene = new THREE.Scene();
-const sky = await new THREE.TextureLoader().loadAsync('./assets/ref/sky_test.png');
+const sky = await loadSky();
 sky.colorSpace = THREE.SRGBColorSpace; scene.background = sky;
 const camera = new THREE.PerspectiveCamera(30, W / H, 5, 6000);
 const kun = createKun({});
@@ -35,11 +37,11 @@ const VIEWS = {
 const v = VIEWS[q.get('view')] || VIEWS.side;
 window.DUR = 4;
 window.render = t => {
-  const fr = Math.round(t * 24), ts = Math.floor(fr / 3) * 3 / 24;
+  const fr = frameOf(t), ts = heldTime(fr, 3);               // 鲲一拍三，从整数帧号量化
   camera.fov = v.fov; camera.updateProjectionMatrix();
   camera.position.set(...v.cam); camera.lookAt(...v.look);
   kun.setPose(ts);
-  setToonGlobals({ inkTime: Math.floor(fr / 2), pass: 0 });
+  setToonGlobals({ inkTime: hold(fr, 2), pass: 0 });
   look.render(scene, camera, { t: fr / 24, debug: q.get('dbg') || undefined });
 };
 await look.ready;

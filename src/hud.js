@@ -1,10 +1,9 @@
 // AI 眼镜显示层 + 片名「北冥」（2D canvas，叠在最终画面最上层，不经过任何后期）
-//
-// 导出：
+// 导出（t 都是成片全局秒；HUD_T 按设计稿秒写，src/timeline.js 改了镜头 C 的起点，显示层和片名整体跟着平移）：
 //   loadHUDFonts()                 加载 fonts/ 里的字体子集（READY 之前 await 它）
 //   drawHUD(ctx, t, w, h, s)       显示层，只在镜头 C（5.0–8.9）出现，8.9–9.2 淡出
 //   drawTitle(ctx, t, w, h)        片名，9.0 起一笔一笔写出
-//   textsAt(t, w, h[, s])          当前画面上的全部文字及其方框（给 window.TEXTS）
+//   textsAt(t, w, h, s)            时刻 t 画面上的全部文字及其方框（给 window.TEXTS）；只看 t 和 s，见「文字报告」一节
 //   setHUDTheme('mono'|'neutral') 显示层配色：mono=AI 眼镜产品图里的单色绿（默认），neutral=共享色板的青白
 //   setTitleLayout({x, y, size, shade, dry})  片名版式（画面比例），默认 {x:.105, y:.262, size:288/1040, shade:0, dry:1}
 //   HUD_T                          全部时间点（可在第一帧之前改，例如 HUD_T.titleB = [9.3, 9.6]）
@@ -27,6 +26,7 @@ import { shadowOnly } from '../engine/paint/canvas.js';
 import { loadFonts, fontSpec, rgba, measure as meas, measureContext as mctx, createOverlay } from '../engine/overlay/text.js';
 import { brackets, arcGap, swayOffset } from '../engine/overlay/widgets.js';
 import { buildBrushGlyph, paintBrushGlyph } from '../engine/overlay/brush.js';
+import { DESIGN, shiftOf } from './timeline.js';
 
 // ───────────────────────── 字体 ─────────────────────────
 const FAM_LAT = 'BM HUD Latin';   // Barlow：数字与西文（接近 AI 眼镜界面里 DIN 风格的数字）
@@ -45,10 +45,10 @@ export async function loadHUDFonts() {
 }
 const font = (wt, px, fam = 'ui') => fontSpec(wt, px, fam === 'title' ? [FAM_TITLE] : [FAM_LAT, FAM_SC]);
 
-// ───────────────────────── 时间轴（全局秒） ─────────────────────────
+// ───────────────────────── 时间轴（设计稿秒：镜头 C 从 DESIGN.C = 5.0 起） ─────────────────────────
 export const HUD_T = {
-  on: 5.0, off: 8.9, offEnd: 9.2,             // 显示层整体出现 / 开始收淡 / 完全消失
-  clockIn: 5.0, remindIn: 5.2,                // 左上时间、提醒卡
+  on: DESIGN.C, off: 8.9, offEnd: 9.2,        // 显示层整体出现（= 镜头 C 开始）/ 开始收淡 / 完全消失
+  clockIn: DESIGN.C, remindIn: 5.2,           // 左上时间、提醒卡
   scan: 5.45, scanLock: 5.9, fail: 6.25,      // 识别框出现、收拢到位、变成「未能识别」
   scanOut: 6.78, scanGone: 7.0,               // 识别框收起（7.0 前收完，保证同时最多 2 行字）
   navIn: 7.0, navDone: 8.4,                   // 导航卡出现、导航线画完
@@ -266,9 +266,9 @@ function navIcon(ctx, x, y, r, a, S) {      // 导航箭头（朝右上）
 }
 
 // ───────────────────────── 显示层入口 ─────────────────────────
-let lastS = null, lastT = NaN;
+const SHIFT_C = shiftOf('C'), toDesign = t => t - SHIFT_C;   // 成片全局秒 → 设计稿秒；平移量载入时定下，和镜头 C 的 C_START 同时取值
 export function drawHUD(ctx, t, w, h, s) {
-  lastS = s; lastT = t;
+  t = toDesign(t);
   if (t < HUD_T.on || t > HUD_T.offEnd + 0.1) return;
   const S = h / 1040, A = masterAlpha(t); if (A <= 0.002) return;
   const off = headOffset(s, h);
@@ -330,6 +330,7 @@ function subLayout(ctx, S) {
   return { f, ls, parts: out, w: x - gap, asc, desc };
 }
 export function drawTitle(ctx, t, w, h) {
+  t = toDesign(t);
   if (t < HUD_T.titleA[0]) return;
   const L = titleLayout(w, h), key = [w, h, L.F.toFixed(2), TITLE_CFG.dry, HUD_T.titleA, HUD_T.titleB].join('|');   // 改了 HUD_T 的书写区间也会重算
   if (!fontsReady && !document.fonts.check(font(400, 40, 'title'))) return;
@@ -360,9 +361,10 @@ export function drawTitle(ctx, t, w, h) {
 }
 
 // ───────────────────────── 文字报告（window.TEXTS） ─────────────────────────
-// s 可不传：沿用同一帧 drawHUD 收到的 s（渲染器的文字检查 总是先 render(t) 再 TEXTS(t)）
-export function textsAt(t, w, h, s) {
-  if (s === undefined) s = lastT === t ? lastS : null;
+// 纯函数：只看 t 和 s（s 由调用方按 t 单独算好，例如镜头 C 的 hudAt(t)；不传按 null 算，即没有鲲眼和导航线），
+// 不读上一次 drawHUD 留下的状态，所以不先 render(t) 也能问；画面上没画显示层（如 ?nohud=1）时调用方不该报这些文字。
+export function textsAt(t, w, h, s = null) {
+  t = toDesign(t);
   const out = [];
   if (t >= HUD_T.on && t <= HUD_T.offEnd + 0.1) {
     const S = h / 1040, A = masterAlpha(t), off = headOffset(s, h), ctx = mctx();

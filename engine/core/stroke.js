@@ -4,7 +4,8 @@
 //   size       笔宽（直径，像素）
 //   thinning   笔压对粗细的影响：0 = 等宽，1 = 笔压为 0 时线宽收到 0
 //   streamline 中心线跟手的迟滞：0 = 紧贴输入点，越大越"稳"、越圆顺
-//   start / end { taper: 像素 } 起笔、收笔的出锋长度；不给 taper 时两端是圆头
+//   start / end { taper: 像素 } 起笔、收笔的出锋长度；不给 taper 时两端是圆头，圆头背向笔触方向
+//   只有一个点（或所有点重合）时画一个整圆
 
 const EPS = 1e-6;
 
@@ -20,8 +21,14 @@ export function inkStroke(points, { size = 8, thinning = 0.5, streamline = 0.3, 
     if (last && Math.hypot(px - last[0], py - last[1]) < 0.25) { last[2] = Math.max(last[2], q[2] ?? 0.5); continue; }
     P.push([px, py, q[2] ?? 0.5]);
   }
-  const lastIn = points[points.length - 1];
-  P.push([lastIn[0], lastIn[1], lastIn[2] ?? 0.5]);   // 收笔落在最后一个输入点上
+  // 收笔落在最后一个输入点上。平滑点已经与它重合（streamline = 0，或只有一个点）时改写末点、不再追加：
+  // 追加的重合点切线为零，末端会捏成一点、圆头方向固定朝 +x，单点笔触也画不成圆
+  const lastIn = points[points.length - 1], tail = P[P.length - 1];
+  if (Math.hypot(lastIn[0] - tail[0], lastIn[1] - tail[1]) < EPS) {
+    tail[0] = lastIn[0]; tail[1] = lastIn[1]; tail[2] = Math.max(tail[2], lastIn[2] ?? 0.5);
+  } else {
+    P.push([lastIn[0], lastIn[1], lastIn[2] ?? 0.5]);
+  }
   const n = P.length;
   if (n === 1) return circle(P[0][0], P[0][1], radius(size, thinning, P[0][2]));
 
@@ -42,7 +49,9 @@ export function inkStroke(points, { size = 8, thinning = 0.5, streamline = 0.3, 
   // 3) 沿法线向两侧偏移
   const left = [], right = [];
   for (let i = 0; i < n; i++) {
-    const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)];
+    let a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)];
+    // 前后邻点重合（笔触原路折返）时切线为零：改用单侧邻点，向前或向后找最近的不重合点
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < EPS) [a, b] = chord(P, i);
     let tx = b[0] - a[0], ty = b[1] - a[1];
     const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
     left.push([P[i][0] - ty * R[i], P[i][1] + tx * R[i]]);
@@ -55,6 +64,14 @@ export function inkStroke(points, { size = 8, thinning = 0.5, streamline = 0.3, 
   out.push(...right.reverse());
   if (!(start.taper > 0)) out.push(...arc(P[0], P[1], R[0]));
   return out;
+}
+
+// 第 i 点的单侧弦：先找后面最近的不重合点，没有再找前面的；都没有就返回原点（长度为零）
+function chord(P, i) {
+  const c = P[i], far = q => Math.hypot(q[0] - c[0], q[1] - c[1]) >= EPS;
+  for (let j = i + 1; j < P.length; j++) if (far(P[j])) return [c, P[j]];
+  for (let j = i - 1; j >= 0; j--) if (far(P[j])) return [P[j], c];
+  return [c, c];
 }
 
 function radius(size, thinning, p) {

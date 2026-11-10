@@ -2,6 +2,9 @@
 // 骨架 = 按笔顺排列的笔画中线，每笔是 [[x, y], ...]，单位 em，原点在字的中心（textAlign center / textBaseline middle）。
 //   buildBrushGlyph(ch, o) → glyph    预计算（每个字号一次，约 30–50 ms）。o：
 //       font    画字形用的 CSS font 串；size 字号（像素）；strokes 骨架；span [t0, t1] 整个字的书写区间（秒）
+//               字体必须已经就绪：document.fonts 里登记了这个字族、却还在下载时直接报错，免得把后备字体的字形算进 glyph
+//               （调用方常按字号缓存 glyph，后备字形一旦缓存就再也不会重算）。从没登记过的字族浏览器当系统字体，这里查不出来，
+//               调用方要自己先等 loadFonts 完成
 //       dry     每笔的飞白强度（0 = 不露白），dryScale 整体倍数（默认 1）
 //       gap     笔与笔之间的提笔间隙（秒，默认 0.012）；hold 每笔的顿笔常数（em，默认 0.14，短笔也有起收的时间）
 //     做法：距离变换估每一笔的半宽；字形每个像素归给"笔身包含它的、最先写的那一笔"（都不含就归最近的一笔），
@@ -37,6 +40,8 @@ export function chamfer(inside, W, H) {
 }
 
 export function buildBrushGlyph(ch, { font, size: F, strokes, span, dry = [], dryScale = 1, gap = 0.012, hold = 0.14 }) {
+  if (typeof document !== 'undefined' && document.fonts && !document.fonts.check(font, ch))
+    throw new Error(`buildBrushGlyph：字体还没加载好（${font}，“${ch}”）；先等 loadFonts / document.fonts.load 完成再预计算字形`);
   const sks = strokes.map(P => catmullRom(P, 8));
   const size = Math.ceil(F * 1.12), cv = document.createElement('canvas'); cv.width = cv.height = size;
   const c = cv.getContext('2d', { willReadFrequently: true });

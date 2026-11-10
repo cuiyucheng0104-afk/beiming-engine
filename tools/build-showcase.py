@@ -10,8 +10,10 @@
   4. 复制 GSAP（gsap、ScrollTrigger、Flip）到 vendor/gsap/
   5. 字体：按页面上 .f-brush 的字与引擎层名取 Ma Shan Zheng 子集，Barlow 取 ASCII 子集（Google Fonts CSS2 API），
      写 css/fonts.css；联网失败只打印警告，退回仓库自带子集与系统字体，构建不失败
-  6. 复制作品海报、预览视频（默认软链接，--copy-previews 时复制）与样片 media/beiming.mp4；
-     有本地预览且有 ffmpeg 时，另剪悬停短循环 media/hover/<id>-hover.mp4（在第 1 步之后剪好、缓存在 out/.cache/hover/）
+  6. 复制作品海报、预览视频（默认软链接，--copy-previews 时复制）、样片 media/beiming.mp4 与手机版 media/beiming-1280.mp4
+     （手机版提交在仓库里，构建核对它是从现在的原片转的、不超过 6 MB）；
+     有本地预览且有 ffmpeg 时，另剪悬停短循环 media/hover/<id>-hover.mp4（在第 1 步之后剪好、缓存在 out/.cache/hover/；
+     剪失败时 ffmpeg 报错原文写进构建日志）
   7. 校验：输出目录里所有本地 src / href / poster / srcset / CSS url() 都能解析到文件，
      页内锚点都存在，页面可见文字里没有破折号、内部代号和工程残留
 
@@ -20,6 +22,7 @@
   python3 tools/build-showcase.py --out out/dev-works \\
       --previews-dir ~/beiming-case-audit-20261107/release    # 本地：预览视频软链接进 media/previews/
   python3 tools/build-showcase.py --out _site --previews-dir _previews --copy-previews   # CI（GitHub Pages）
+  python3 tools/build-showcase.py --make-film-1280          # 换了 media/beiming.mp4 之后：重转手机版样片（不构建站点）
 
 不给 --previews-dir 时，作品预览直接用 GitHub Release 的下载地址。
 开发选项：--template 换模板（默认 <site>/index.html）、--site 换源目录（默认 site/）、
@@ -34,9 +37,11 @@ import json
 import os
 import posixpath
 import re
+import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -48,6 +53,7 @@ CATALOG = ROOT / 'cases' / 'catalog.json'
 NODE = ROOT / 'node_modules'
 FONTS_DIR = ROOT / 'fonts'
 FILM = ROOT / 'media' / 'beiming.mp4'
+FILM_1280 = ROOT / 'media' / 'beiming-1280.mp4'
 DEFAULT_SITE = ROOT / 'site'
 DEFAULT_OUT = ROOT / 'out' / 'site'
 FONT_CACHE = ROOT / 'out' / '.cache' / 'fonts'
@@ -107,6 +113,15 @@ GSAP_VERSION = '3.15.1'
 # 悬停只播它，不用为几秒悬停下载整部预览（几 MB）；点开放映台才用完整预览。参数一变缓存就失效
 HOVER = {'seconds': 4, 'width': 480, 'crf': 30, 'fpsmax': 30}
 HOVER_CACHE = ROOT / 'out' / '.cache' / 'hover'
+FFMPEG_ERR_LINES = 60          # ffmpeg 报错原文写进构建日志时最多保留的行数（取最后几行）
+
+# 手机版样片 media/beiming-1280.mp4：页面在窄屏用 <source media> 选它，原片 9 Mbps、11 MB 对手机太重。
+# 由原片转码后提交进仓库，构建只核对、复制，不在 CI 里转。1280 宽、两遍 4 Mbps 的 H.264，音轨原样复用（AAC），faststart；
+# 色彩不做转换：沿用原片的全范围与 BT.601 矩阵标记，手机上和桌面版一个颜色。
+# 元数据 comment 记下原片的 sha256：原片换了而手机版没重转，构建报错。重转：python3 tools/build-showcase.py --make-film-1280
+FILM_1280_ENC = {'width': 1280, 'kbps': 4000, 'maxkbps': 6000, 'bufkbps': 8000, 'gop': 48}
+FILM_1280_MAX_BYTES = 6_000_000
+FILM_1280_SOURCE = re.compile(rb'beiming\.mp4 sha256=([0-9a-f]{64})')
 
 WEB_EXT = {'.js', '.mjs', '.json', '.css', '.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif', '.svg',
            '.woff', '.woff2', '.ttf', '.otf', '.mp4', '.webm', '.mp3', '.wav', '.ogg', '.glb', '.gltf',
@@ -175,14 +190,15 @@ def duration_of(case: dict) -> float | None:
 
 
 def fmt_duration(seconds: float | None) -> str:
-    """20 秒 / 2 分 51 秒 / 3 分。四舍五入到整秒（旧站的「2 分 0051 秒」就是这里格式写错了）。"""
+    """20 秒 / 2 分 51 秒 / 3 分钟。四舍五入到整秒（旧站的「2 分 0051 秒」就是这里格式写错了）；
+    整分钟写「3 分钟」，只写「3 分」读着像缺了秒数。"""
     if seconds is None:
         return ''
     total = int(seconds + 0.5)
     if total < 60:
         return f'{total} 秒'
     minutes, secs = divmod(total, 60)
-    return f'{minutes} 分' if secs == 0 else f'{minutes} 分 {secs} 秒'
+    return f'{minutes} 分钟' if secs == 0 else f'{minutes} 分 {secs} 秒'
 
 
 TITLE_RESIDUE = [
@@ -326,10 +342,40 @@ def load_works(site: Path, previews_dir: Path | None, log: Log) -> dict:
     }
 
 
+def run_ffmpeg(cmd: list[str], timeout: float) -> None:
+    """跑一条 ffmpeg 命令；失败时抛出带 stderr 的 CalledProcessError / TimeoutExpired / OSError。"""
+    subprocess.run(cmd, check=True, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
+
+
+def ffmpeg_failure(cmd: list[str], exc: Exception) -> tuple[str, str]:
+    """ffmpeg 为什么失败（一句）与写进构建日志的细节：完整命令和 ffmpeg 报错原文（stderr，太长只留最后几行）。"""
+    if isinstance(exc, subprocess.CalledProcessError):
+        why = f'ffmpeg 退出码 {exc.returncode}'
+    elif isinstance(exc, subprocess.TimeoutExpired):
+        why = f'ffmpeg 超过 {exc.timeout:g} 秒没跑完'
+    else:
+        why = f'ffmpeg 没能运行：{exc.__class__.__name__} {exc}'
+    raw = getattr(exc, 'stderr', None) or b''
+    text = (raw.decode('utf-8', 'replace') if isinstance(raw, bytes) else str(raw)).strip()
+    lines = [f'    命令：{shlex.join(cmd)}']
+    if text:
+        body = text.splitlines()
+        if len(body) > FFMPEG_ERR_LINES:
+            lines.append(f'    ffmpeg 报错原文（共 {len(body)} 行，只列最后 {FFMPEG_ERR_LINES} 行）：')
+            body = body[-FFMPEG_ERR_LINES:]
+        else:
+            lines.append('    ffmpeg 报错原文：')
+        lines += [f'      {line}' for line in body]
+    else:
+        lines.append('    ffmpeg 没有输出报错文字')
+    return why, '\n'.join(lines)
+
+
 def prepare_hover_clips(data: dict, previews_dir: Path | None, enabled: bool, log: Log) -> dict:
     """剪悬停短循环到 out/.cache/hover/（按预览文件、起播点与参数缓存），给每部作品记上 hover 路径。
-    要在生成作品区标记之前跑：标记里的 data-hover 指向它。没有本地预览或没有 ffmpeg 时跳过，悬停退回整部预览。"""
-    stats = {'mode': 'off', 'clips': 0, 'made': 0, 'bytes': 0}
+    要在生成作品区标记之前跑：标记里的 data-hover 指向它。没有本地预览或没有 ffmpeg 时跳过，悬停退回整部预览。
+    剪失败的那一部也退回整部预览；ffmpeg 的报错原文连同命令写进构建日志，CI 上直接看 Actions 日志排查。"""
+    stats = {'mode': 'off', 'clips': 0, 'made': 0, 'failed': 0, 'bytes': 0}
     if not enabled:
         return stats
     if not previews_dir:
@@ -351,18 +397,19 @@ def prepare_hover_clips(data: dict, previews_dir: Path | None, enabled: bool, lo
         cached = HOVER_CACHE / f'{w["id"]}-{key}.mp4'
         if not cached.is_file():
             tmp = cached.with_suffix('.tmp.mp4')
-            cmd = [ffmpeg, '-v', 'error', '-y', '-ss', f'{w["previewStart"]:g}', '-i', str(src),
+            cmd = [ffmpeg, '-v', 'error', '-nostdin', '-y', '-ss', f'{w["previewStart"]:g}', '-i', str(src),
                    '-t', str(HOVER['seconds']), '-an', '-sn', '-dn', '-map_metadata', '-1',
                    '-vf', f'scale={HOVER["width"]}:-2:flags=lanczos,format=yuv420p', '-fpsmax', str(HOVER['fpsmax']),
                    '-c:v', 'libx264', '-preset', 'slow', '-crf', str(HOVER['crf']), '-profile:v', 'main',
                    '-movflags', '+faststart', str(tmp)]
             try:
-                subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+                run_ffmpeg(cmd, timeout=120)
                 tmp.replace(cached)
             except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as exc:
-                detail = getattr(exc, 'stderr', b'') or b''
-                log.warn(f'{w["id"]} 的悬停短循环没剪成（{exc.__class__.__name__} {detail.decode("utf-8", "replace").strip()[:120]}），悬停退回整部预览')
                 tmp.unlink(missing_ok=True)
+                why, detail = ffmpeg_failure(cmd, exc)
+                log.warn(f'{w["id"]} 的悬停短循环没剪成（{why}），悬停退回整部预览\n{detail}')
+                stats['failed'] += 1
                 continue
             stats['made'] += 1
         w['hover'] = f'media/hover/{w["id"]}-hover.mp4'
@@ -683,9 +730,10 @@ TEXT_ATTRS = {'alt', 'title', 'aria-label', 'placeholder'}
 class PageScan(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, bool, bool]] = []   # (tag, 在 .f-brush 里, 在不可见元素里)
+        self.stack: list[tuple[str, bool, bool, bool]] = []   # (tag, 在 .f-brush 里, 在不可见元素里, 在署名区块里)
         self.brush: list[str] = []
         self.text: list[str] = []
+        self.attrib_text: list[str] = []                # 署名区块 [data-attribution] 里的文字：可以写上游项目名（决定 D04），仍查破折号
         self.refs: list[tuple[str, str]] = []           # (属性, 值)
         self.ids: set[str] = set()
         self.modules: list[str] = []                    # 内联 module 脚本
@@ -696,7 +744,9 @@ class PageScan(HTMLParser):
         a = {k: (v or '') for k, v in attrs}
         parent_brush = self.stack[-1][1] if self.stack else False
         parent_hidden = self.stack[-1][2] if self.stack else False
+        parent_attrib = self.stack[-1][3] if self.stack else False
         brush = parent_brush or 'f-brush' in a.get('class', '').split()
+        attrib = parent_attrib or 'data-attribution' in a
         hidden = parent_hidden or tag in ('script', 'style', 'template')
         if 'id' in a:
             self.ids.add(a['id'])
@@ -709,7 +759,7 @@ class PageScan(HTMLParser):
                     if url:
                         self.refs.append(('srcset', url))
             elif key in TEXT_ATTRS and value and not hidden:
-                self.text.append(value)
+                (self.attrib_text if attrib else self.text).append(value)
         if tag == 'meta' and a.get('content') and (a.get('name') in ('description',) or
                                                    a.get('property', '').startswith('og:') and
                                                    a.get('property') in ('og:title', 'og:description')):
@@ -718,7 +768,7 @@ class PageScan(HTMLParser):
             t = a.get('type', '').strip().lower()
             self._script_kind = 'module' if (t == 'module' and 'src' not in a) else ('importmap' if t == 'importmap' else None)
         if tag not in VOID:
-            self.stack.append((tag, brush, hidden))
+            self.stack.append((tag, brush, hidden, attrib))
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
@@ -742,10 +792,11 @@ class PageScan(HTMLParser):
             return
         brush = self.stack[-1][1] if self.stack else False
         hidden = self.stack[-1][2] if self.stack else False
+        attrib = self.stack[-1][3] if self.stack else False
         if brush:
             self.brush.append(data)
         if not hidden and data.strip():
-            self.text.append(data)
+            (self.attrib_text if attrib else self.text).append(data)
 
 
 def scan_page(path: Path) -> PageScan:
@@ -902,7 +953,79 @@ def place_media(out: Path, data: dict, previews_dir: Path | None, copy_previews:
         copy_file(FILM, out / 'media' / 'beiming.mp4')
     else:
         log.error(f'缺少样片 {FILM}')
+    if FILM_1280.is_file():
+        stats['film1280'] = check_film_1280(log)
+        copy_file(FILM_1280, out / 'media' / FILM_1280.name)
+    else:
+        log.error(f'缺少手机版样片 {rel_posix(FILM_1280, ROOT)}；用 python3 tools/build-showcase.py --make-film-1280 从原片转出来再提交')
     return stats
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open('rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def check_film_1280(log: Log) -> int:
+    """手机版样片不超过 6 MB，且是从现在这份原片转出来的（比对元数据 comment 里记的原片 sha256）。返回字节数。"""
+    data = FILM_1280.read_bytes()
+    name = rel_posix(FILM_1280, ROOT)
+    if len(data) > FILM_1280_MAX_BYTES:
+        log.error(f'{name} 有 {len(data) / 1e6:.2f} MB，超过手机版 {FILM_1280_MAX_BYTES / 1e6:g} MB 的上限')
+    found = FILM_1280_SOURCE.search(data)
+    if not found:
+        log.warn(f'{name} 没记原片的 sha256，核对不了是不是从现在的 media/beiming.mp4 转的；'
+                 '建议用 python3 tools/build-showcase.py --make-film-1280 重转')
+    elif FILM.is_file() and found.group(1).decode() != sha256_file(FILM):
+        log.error(f'media/beiming.mp4 换过了，{name} 还是从旧原片转的；'
+                  '运行 python3 tools/build-showcase.py --make-film-1280 重转，两个文件一起提交')
+    return len(data)
+
+
+def film_1280_commands(ffmpeg: str, dst: Path, passlog: Path, source_sha: str) -> list[list[str]]:
+    """手机版样片的两遍转码命令（参数见 FILM_1280_ENC）。"""
+    e = FILM_1280_ENC
+    head = [ffmpeg, '-v', 'error', '-nostdin', '-y', '-i', str(FILM)]
+    video = ['-vf', f'scale={e["width"]}:-2:flags=lanczos,setsar=1', '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high',
+             '-b:v', f'{e["kbps"]}k', '-maxrate', f'{e["maxkbps"]}k', '-bufsize', f'{e["bufkbps"]}k',
+             '-g', str(e['gop']), '-passlogfile', str(passlog)]
+    return [
+        head + ['-map', '0:v:0', *video, '-pass', '1', '-an', '-f', 'null', os.devnull],
+        head + ['-map', '0:v:0', '-map', '0:a:0', *video, '-pass', '2', '-c:a', 'copy',
+                '-metadata', f'comment=from media/beiming.mp4 sha256={source_sha}',
+                '-movflags', '+faststart', str(dst)],
+    ]
+
+
+def make_film_1280(log: Log) -> int:
+    """--make-film-1280：从 media/beiming.mp4 重转手机版样片 media/beiming-1280.mp4（换了原片之后用）。"""
+    ffmpeg = shutil.which('ffmpeg')
+    if not ffmpeg:
+        raise BuildError('找不到 ffmpeg，转不了手机版样片')
+    if not FILM.is_file():
+        raise BuildError(f'缺少样片 {FILM}')
+    sha = sha256_file(FILM)
+    tmp_out = FILM_1280.with_suffix('.tmp.mp4')
+    try:
+        with tempfile.TemporaryDirectory(prefix='beiming-1280-') as tmp:
+            for cmd in film_1280_commands(ffmpeg, tmp_out, Path(tmp) / 'x264', sha):
+                try:
+                    run_ffmpeg(cmd, timeout=900)
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as exc:
+                    why, detail = ffmpeg_failure(cmd, exc)
+                    print(detail, file=sys.stderr, flush=True)
+                    raise BuildError(f'手机版样片没转成（{why}）') from None
+        size = tmp_out.stat().st_size
+        if size > FILM_1280_MAX_BYTES:
+            raise BuildError(f'手机版样片有 {size / 1e6:.2f} MB，超过 {FILM_1280_MAX_BYTES / 1e6:g} MB 上限；调低 FILM_1280_ENC 的码率')
+        tmp_out.replace(FILM_1280)
+    finally:
+        tmp_out.unlink(missing_ok=True)
+    log.info(f'手机版样片：{rel_posix(FILM_1280, ROOT)}，{size / 1e6:.2f} MB（原片 sha256 {sha[:12]}…）；记得和原片一起提交')
+    return 0
 
 
 # ───────────────────────── 7. 校验 ─────────────────────────
@@ -964,18 +1087,21 @@ def validate(out: Path, log: Log) -> None:
 
 
 def check_copy(out: Path, page: PageScan, log: Log) -> None:
+    # 上游项目名只允许出现在署名区块 [data-attribution] 里（决定 D04：技术、署名与许可语境如实写上游名，不作我方产品名）
     text = '\n'.join(page.text)
     for term in FORBIDDEN_TERMS:
         if term in text:
             hit = next(t for t in page.text if term in t)
-            log.error(f'页面可见文字里有「{term}」：{hit.strip()[:60]}')
+            log.error(f'页面可见文字里有「{term}」（上游项目名只能写在页脚署名区块 [data-attribution] 里）：{hit.strip()[:60]}')
+    every = page.text + page.attrib_text
+    text = '\n'.join(every)
     for dash in FORBIDDEN_DASHES:
         if dash in text:
-            hit = next(t for t in page.text if dash in t)
+            hit = next(t for t in every if dash in t)
             log.error(f'页面可见文字里有破折号「{dash}」：{hit.strip()[:60]}')
     for dash in WARN_DASHES:
         if dash in text:
-            hit = next(t for t in page.text if dash in t)
+            hit = next(t for t in every if dash in t)
             log.warn(f'页面可见文字里有连接号「{dash}」，确认不是当破折号用：{hit.strip()[:60]}')
 
 
@@ -1026,7 +1152,8 @@ def build(args) -> int:
     log.info(f'  {c["all"]} 部：风格 {c["styles"]} · 故事 {c["ppt-stories"]} · 发布会 {c["ppt-keynote"]}（档案共 {c["archived"]} 条）')
     hover = prepare_hover_clips(data, previews_dir, not args.no_hover_clips, log)
     if hover['mode'] == 'clips':
-        log.info(f'  悬停短循环 {hover["clips"]} 段（新剪 {hover["made"]} 段，其余用缓存），共 {hover["bytes"] / 1e6:.1f} MB')
+        failed = f'；{hover["failed"]} 段没剪成，退回整部预览（报错原文见上方警告）' if hover['failed'] else ''
+        log.info(f'  悬停短循环 {hover["clips"]} 段（新剪 {hover["made"]} 段，其余用缓存），共 {hover["bytes"] / 1e6:.1f} MB{failed}')
 
     log.info(f'[2/7] 复制 site/ → {out}')
     prepare_out(out, site)
@@ -1087,7 +1214,9 @@ def build(args) -> int:
     media = place_media(out, data, previews_dir, args.copy_previews, log)
     log.check('放置媒体')
     mode = {'release': '用 Release 地址', 'symlink': '软链接', 'copy': '复制'}[media['previewMode']]
-    log.info(f'  海报 {media["posters"]} 张；预览视频 {media["previews"]} 个（{mode}）；悬停短循环 {media.get("hover", 0)} 段；样片 media/beiming.mp4')
+    film1280 = f'、手机版 media/beiming-1280.mp4（{media["film1280"] / 1e6:.2f} MB）' if media.get('film1280') else ''
+    log.info(f'  海报 {media["posters"]} 张；预览视频 {media["previews"]} 个（{mode}）；悬停短循环 {media.get("hover", 0)} 段；'
+             f'样片 media/beiming.mp4{film1280}')
 
     log.info('[7/7] 校验')
     validate(out, log)
@@ -1122,8 +1251,12 @@ def main(argv=None) -> int:
     parser.add_argument('--lenient', action='store_true', help='校验错误只警告（仅限并行开发时本地自测）')
     parser.add_argument('--no-hover-clips', action='store_true',
                         help='不剪悬停短循环（默认有本地预览且有 ffmpeg 就剪，缓存在 out/.cache/hover/）')
+    parser.add_argument('--make-film-1280', action='store_true',
+                        help='只从 media/beiming.mp4 重转手机版样片 media/beiming-1280.mp4（换了原片之后用），不构建站点')
     args = parser.parse_args(argv)
     try:
+        if args.make_film_1280:
+            return make_film_1280(Log())
         return build(args)
     except BuildError as exc:
         print(f'构建失败：{exc}', file=sys.stderr)
