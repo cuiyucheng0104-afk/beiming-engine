@@ -2,8 +2,13 @@
 // 测什么：在一次性 git 仓库里启用 .githooks，真由 git commit 调起钩子：合规改动照常提交；本文件自己的检查（vendor、source、
 //         films-out、instructions、bridge、conflict）与交给已有工具的检查（large → tools/env/large-files.mjs、compliance →
 //         tools/compliance/scan.mjs --staged、eol → env 规则的 env.eol、repo-check → tools/repo-check.mjs --staged）各自拦下违规；
-//         规范检查「规则自身出错」只提示不阻断；合并提交只查冲突的解决结果；--json 是 docs/CLI.md 的信封；--help 无副作用。
-// 夹具里复制的是仓库里真实的 P10 / P01 工具（集成测试）；规范检查执行器用一个按约定输出 JSON 的替身，结果才可控。
+//         规范检查「规则自身出错」只提示不阻断；合并提交只查冲突的解决结果；--json 是 docs/CLI.md 的信封；--help 无副作用；
+//         CLAUDECODE=1 时 BEIMING_PRECOMMIT_ALLOW 不生效；git 子进程超时退出 124。
+// 夹具里复制的是仓库里真实的 P10 / P01 工具（集成测试）。规范检查分两组：
+//   - 替身执行器：按约定输出 JSON，测「规则自身出错只提示」「--only 不重跑 comp 与 env」这类接线；
+//   - 真实执行器（tools/repo-check.mjs、core 框架、tools/lib）加读工作区的真实规则（core.vendor-immutable、core.films、
+//     core.ascii-paths、agent.skills）：测发现按路径归属——工作区里与这次提交不一致的路径只提示，带进提交或与提交一致的照常阻断。
+// 测试进程的环境里如果有 CLAUDECODE（在 Claude Code 里跑），git 子进程一律清掉它，需要时由用例自己设。
 // 夹具建在系统临时目录，结束时删掉；不碰真实仓库与全局 git 配置。
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,13 +31,14 @@ const NEEDED = ['.githooks/pre-commit', '.githooks/pre-commit.mjs', 'tools/lib/c
 const TOOL_DIRS = ['tools/env', 'tools/compliance'];                       // P10 大文件闸门与 env 规则的库、P01 合规扫描
 const TOOL_FILES = ['tools/repo-check/rules/env/index.mjs'];              // P10 env 规则的命令行入口（env.eol）
 const OWN_AND_INDEX = 'vendor,source,films-out,instructions,bridge,conflict,large,eol';
-const GIT_ENV = { GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid' };
+const GIT_ENV = { GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid',
+  BEIMING_PRECOMMIT_ALLOW: '', CLAUDECODE: '', BEIMING_PRECOMMIT_GIT_TIMEOUT_MS: '' };
 let seq = 0;
 
 function git(dir, args, { env = {}, input } = {}) {
   return spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'core.autocrlf=false', '-c', 'init.defaultBranch=main', ...args], {
     cwd: dir, encoding: 'utf8', input, windowsHide: true, timeout: 180000,
-    env: { ...process.env, ...GIT_ENV, BEIMING_PRECOMMIT_ALLOW: '', ...env },
+    env: { ...process.env, ...GIT_ENV, ...env },
   });
 }
 function put(dir, rel, content) {
@@ -90,7 +96,7 @@ function commitWith(dir, files, { env, message = 'x' } = {}) {
 }
 const commits = dir => git(dir, ['rev-list', '--count', 'HEAD']).stdout.trim();
 const runDirect = (dir, args, env = {}) => spawnSync(process.execPath, [path.join(dir, '.githooks', 'pre-commit.mjs'), ...args], {
-  cwd: dir, encoding: 'utf8', env: { ...process.env, ...GIT_ENV, BEIMING_PRECOMMIT_ALLOW: '', ...env }, windowsHide: true, timeout: 180000,
+  cwd: dir, encoding: 'utf8', env: { ...process.env, ...GIT_ENV, ...env }, windowsHide: true, timeout: 180000,
 });
 
 const skip = HAS_GIT ? false : '本机没有 git';
@@ -172,6 +178,17 @@ test('BEIMING_PRECOMMIT_ALLOW 只放行点名的检查', { skip }, () => {
   assert.doesNotMatch(no.stderr, /\[vendor\]/);
 });
 
+test('CLAUDECODE=1（Claude Code 的工具发起的提交）时 BEIMING_PRECOMMIT_ALLOW 不生效，照常拦下', { skip }, () => {
+  const dir = makeRepo();
+  const r = commitWith(dir, { 'cases/vendor/demo/a.txt': 'upgraded\n' }, { env: { BEIMING_PRECOMMIT_ALLOW: 'vendor', CLAUDECODE: '1' } });
+  assert.notEqual(r.status, 0, 'agent 会话里设的放行不该生效');
+  assert.match(r.stderr, /CLAUDECODE=1/);
+  assert.match(r.stderr, /Claude Code 之外的终端/);
+  assert.match(r.stderr, /\[vendor\]/);
+  assert.doesNotMatch(r.stderr, /本次放行/);
+  assert.equal(commits(dir), '1');
+});
+
 test('大文件按 LARGE-FILES.allow 判定（P10 的 sha256 + 字节数格式）：登记了放行，内容换了照样拦', { skip }, () => {
   const dir = makeRepo();
   const big = Buffer.alloc(6 * 1024 * 1024, 2);
@@ -239,6 +256,112 @@ test('规范检查：规则自身出错只提示不阻断，真错误阻断；�
   assert.match(error.stderr, /\[repo-check\] docs\/x\.md:3 core\.links：链接指向不存在的文件/);
 });
 
+// ── 真实规范检查：执行器、框架与读工作区的规则都是仓库里的原文件（复核员指出的误拦就出在这里） ──
+const RC_FILES = ['tools/repo-check.mjs', 'tools/repo-check/rules/core/vendor-immutable.mjs', 'tools/repo-check/rules/core/films.mjs',
+  'tools/repo-check/rules/core/ascii-paths.mjs', 'tools/repo-check/rules/agent/_shared.mjs', 'tools/repo-check/rules/agent/skills.mjs'];
+const RC_DIRS = ['tools/repo-check/core', 'tools/lib'];
+let rcTemplate = null;
+/** 在基础夹具上加真实的规范检查，以及让这几条规则在提交状态下全过的内容（作品 film.json、带 size 的 lock、skill 与它引用的文档）。 */
+function makeRcRepo() {
+  rcTemplate ??= (() => {
+    template ??= buildTemplate();
+    const dir = path.join(TMP, 'rc-template');
+    fs.cpSync(template, dir, { recursive: true });
+    for (const rel of RC_FILES) put(dir, rel, fs.readFileSync(path.join(ROOT, ...rel.split('/'))));
+    for (const rel of RC_DIRS) fs.cpSync(path.join(ROOT, ...rel.split('/')), path.join(dir, ...rel.split('/')), { recursive: true, filter: s => !/waivers\.json$|__pycache__/.test(s) });
+    put(dir, 'films/keep/film.json', `${JSON.stringify({ route: 'c', title: '保留', dur: 1, fps: 24, size: [1920, 1080] })}\n`);
+    put(dir, 'docs/guide.md', '# 指南\n');
+    put(dir, '.claude/skills/beiming-film/SKILL.md', '---\nname: beiming-film\ndescription: 在北冥仓库里做动画、短片与风格化渲染时的入口流程（夹具）\n---\n\n先读 `docs/guide.md`。\n');
+    const lockFile = path.join(dir, 'cases', 'vendor', 'lock.json');
+    const lock = JSON.parse(fs.readFileSync(lockFile, 'utf8'));
+    lock.repositories[0].files[0].size = fs.statSync(path.join(dir, 'cases', 'vendor', 'demo', 'a.txt')).size;   // core.vendor-immutable 按大小核对
+    fs.writeFileSync(lockFile, JSON.stringify(lock, null, 2));
+    assert.equal(git(dir, ['add', '--', ...RC_FILES, ...RC_DIRS, 'films/keep/film.json', 'docs/guide.md', '.claude/skills/beiming-film/SKILL.md', 'cases/vendor/lock.json']).status, 0);
+    const c = git(dir, ['commit', '-q', '--no-verify', '-m', 'repo-check']);
+    assert.equal(c.status, 0, c.stderr);
+    return dir;
+  })();
+  const dir = path.join(TMP, `rc-${++seq}`);
+  fs.cpSync(rcTemplate, dir, { recursive: true });
+  return dir;
+}
+const touchKeep = (dir, n) => { put(dir, 'films/keep/main.js', `export const x = ${n};\n`); assert.equal(git(dir, ['add', '--', 'films/keep/main.js']).status, 0); };
+
+test('真实规范检查：夹具在提交状态下全过，规范检查确实跑了（不是跳过）', { skip }, () => {
+  const dir = makeRcRepo();
+  touchKeep(dir, 2);
+  const r = runDirect(dir, ['--json']);
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  const rc = JSON.parse(r.stdout).data.checks.find(c => c.id === 'repo-check');
+  assert.ok(['pass', 'warn'].includes(rc.status), `repo-check 应当跑了：${JSON.stringify(rc)}`);
+});
+
+test('复核 (a)：按路径提交时另暂存的快照改动只提示；把它带进提交时照样拦（本文件 vendor + core.vendor-immutable）', { skip }, () => {
+  const dir = makeRcRepo();
+  put(dir, 'cases/vendor/demo/a.txt', 'tampered, longer\n');                        // 大小变了，core.vendor-immutable 才看得出
+  assert.equal(git(dir, ['add', '--', 'cases/vendor/demo/a.txt']).status, 0);
+  put(dir, 'films/keep/main.js', 'export const x = 5;\n');
+  const ok = git(dir, ['commit', '-q', '-m', 'only film', '--', 'films/keep/main.js']);
+  assert.equal(ok.status, 0, `只提交作品文件应放行：${ok.stderr}`);
+  assert.match(ok.stderr, /只在工作区、不在这次提交里[^\n]*core\.vendor-immutable/);
+  const bad = git(dir, ['commit', '-q', '-m', 'vendor', '--', 'cases/vendor/demo/a.txt']);
+  assert.notEqual(bad.status, 0);
+  assert.match(bad.stderr, /\[vendor\]/);
+  assert.match(bad.stderr, /\[repo-check\] cases\/vendor\/demo core\.vendor-immutable/);
+  assert.equal(commits(dir), '3');
+});
+
+test('复核 (b)：未跟踪的 films/wip（没有 film.json）只提示；暂存进提交后拦下（core.films）', { skip }, () => {
+  const dir = makeRcRepo();
+  put(dir, 'films/wip/notes.md', '草稿\n');
+  touchKeep(dir, 3);
+  const ok = git(dir, ['commit', '-q', '-m', 'unrelated']);
+  assert.equal(ok.status, 0, `无关提交应放行：${ok.stderr}`);
+  assert.match(ok.stderr, /只在工作区、不在这次提交里：目录里有未跟踪[^\n]*films\/wip core\.films/);
+  assert.equal(git(dir, ['add', '--', 'films/wip/notes.md']).status, 0);
+  const bad = git(dir, ['commit', '-q', '-m', 'wip']);
+  assert.notEqual(bad.status, 0);
+  assert.match(bad.stderr, /\[repo-check\] films\/wip core\.films：作品根目录缺 film\.json/);
+});
+
+test('未跟踪的中文目录名只提示；暂存进提交后拦下（core.ascii-paths）；--json 里降级的发现是 warn', { skip }, () => {
+  const dir = makeRcRepo();
+  put(dir, 'tools/草稿/a.js', 'export {};\n');
+  touchKeep(dir, 4);
+  const r = runDirect(dir, ['--json']);
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  const warned = JSON.parse(r.stdout).data.findings.filter(f => f.rule === 'precommit.repo-check' && f.level === 'warn' && /core\.ascii-paths/.test(f.message));
+  assert.ok(warned.length && warned.every(f => /只在工作区、不在这次提交里/.test(f.message)), JSON.stringify(warned));
+  assert.equal(git(dir, ['add', '--', 'tools/草稿/a.js']).status, 0);
+  const bad = runDirect(dir, ['--json']);
+  assert.equal(bad.status, 4);
+  assert.ok(JSON.parse(bad.stdout).data.findings.some(f => f.level === 'error' && /core\.ascii-paths/.test(f.message)));
+});
+
+test('跨文件：工作区里删了 skill 引用的文档但没暂存，不拦（agent.skills 读索引）；删除暂存进提交后拦下与提交一致的 SKILL.md', { skip }, () => {
+  const dir = makeRcRepo();
+  fs.rmSync(path.join(dir, 'docs', 'guide.md'));
+  touchKeep(dir, 6);
+  const ok = git(dir, ['commit', '-q', '-m', 'unrelated']);
+  assert.equal(ok.status, 0, `工作区里没暂存的删除不该拦：${ok.stderr}`);
+  assert.equal(git(dir, ['add', '--', 'docs/guide.md']).status, 0);                // 暂存删除
+  const bad = git(dir, ['commit', '-q', '-m', 'rm guide']);
+  assert.notEqual(bad.status, 0, '删掉被引用的文档要拦');
+  assert.match(bad.stderr, /\[repo-check\] \.claude\/skills\/beiming-film\/SKILL\.md agent\.skills：[^\n]*docs\/guide\.md 不存在/);
+});
+
+test('与提交一致的已跟踪路径上的发现照常阻断，并列出工作区里与提交不同的路径', { skip }, () => {
+  const dir = makeRcRepo();
+  put(dir, 'tools/中文.js', 'export {};\n');                                       // 先绕过检查提交一个存量问题
+  assert.equal(git(dir, ['add', '--', 'tools/中文.js']).status, 0);
+  assert.equal(git(dir, ['commit', '-q', '--no-verify', '-m', 'legacy']).status, 0);
+  put(dir, 'notes.txt', '没提交的笔记\n');
+  touchKeep(dir, 7);
+  const bad = git(dir, ['commit', '-q', '-m', 'unrelated']);
+  assert.notEqual(bad.status, 0);
+  assert.match(bad.stderr, /\[repo-check\] tools\/中文\.js core\.ascii-paths[^\n]*工作区里另有 1 处与这次提交不同：notes\.txt/);
+});
+
 test('直接运行：退出码、--json 信封、--all 按 lock.json 核对快照', { skip }, () => {
   const dir = makeRepo();
   const clean = runDirect(dir, ['--all', '--json', '--only', OWN_AND_INDEX]);
@@ -272,6 +395,17 @@ test('直接运行：退出码、--json 信封、--all 按 lock.json 核对快�
   assert.equal(unknown.status, 2);
   assert.equal(JSON.parse(unknown.stdout).error.code, 'usage.unknown-check');
   assert.equal(runDirect(dir, ['--bogus']).status, 2);
+});
+
+test('git 子进程超时：按附录 C1 退出 124，信封里是 timeout.git 与下一步', { skip }, () => {
+  const dir = makeRepo();
+  put(dir, 'films/keep/main.js', 'export const x = 9;\n');
+  git(dir, ['add', '--', 'films/keep/main.js']);
+  const r = runDirect(dir, ['--json'], { BEIMING_PRECOMMIT_GIT_TIMEOUT_MS: '1' });
+  assert.equal(r.status, 124, `${r.stdout}\n${r.stderr}`);
+  const o = JSON.parse(r.stdout);
+  assert.equal(o.error.code, 'timeout.git');
+  assert.match(o.error.hint, /BEIMING_PRECOMMIT_GIT_TIMEOUT_MS/);
 });
 
 test('--help 无副作用，在仓库外也能运行；不在仓库里运行检查时 exit 3', () => {
