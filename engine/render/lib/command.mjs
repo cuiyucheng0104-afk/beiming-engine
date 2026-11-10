@@ -138,12 +138,12 @@ export class Lifecycle {
         kill();
         process.exit(code);
       }
+      this.signalled = sig;
       this.abort(new RenderError(code === EXIT.SIGINT ? 'signal.sigint' : 'signal.sigterm',
         `收到 ${sig}${sig === 'SIGHUP' ? '（终端断开，按 SIGTERM 处理）' : ''}：已停下渲染，关闭浏览器与 FFmpeg，删掉临时文件`, { hint: null }));
-      // SIGHUP 不在外壳的处理范围：转成 SIGTERM 交给外壳出信封、以 143 退出（不记 signalled，免得被当成第二次信号）
-      if (sig === 'SIGHUP') { log?.error('\n收到 SIGHUP（终端断开）：按 SIGTERM 停下渲染并清理…'); process.kill(process.pid, 'SIGTERM'); return; }
-      this.signalled = sig;
-      log?.error(`\n收到 ${sig}：停下渲染，关闭浏览器与 FFmpeg，清理临时文件…（再按一次 Ctrl-C 立即退出）`);
+      log?.error(`\n收到 ${sig}：停下渲染，关闭浏览器与 FFmpeg，清理临时文件…${sig === 'SIGINT' ? '（再按一次 Ctrl-C 立即退出）' : ''}`);
+      // SIGINT / SIGTERM 由命令约定库收尾并以 130 / 143 退出；SIGHUP 它不管：这里中止后，run 带着 signal.sigterm 的错误返回，
+      // 外壳照常输出信封、以 143 退出（不向自己再发 SIGTERM——Windows 上那会直接结束进程，跳过收尾）
       void this.teardown();
     };
     this.handlers = [['SIGINT', EXIT.SIGINT], ['SIGTERM', EXIT.SIGTERM], ['SIGHUP', EXIT.SIGTERM]].map(([s, c]) => [s, onSignal(s, c)]);
