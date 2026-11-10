@@ -433,7 +433,8 @@ export function validateFilm(input, opts = {}) {
     if (origins !== undefined) {
       if (!isObj(origins)) err('shot-origin-invalid', `${p}.actorClockOrigin`, 'actorClockOrigin 是 { 轨道 id: 全局起点帧 }');
       else for (const [tk, fr] of Object.entries(origins)) {
-        if (!nonNegInt(fr)) err('shot-origin-invalid', `${p}.actorClockOrigin.${tk}`, '角色起点必须是非负整数帧（全局帧）');
+        // 全局帧；可以早于第 0 帧：镜头整段前移时，它的角色时钟起点跟着前移
+        if (!Number.isInteger(fr)) err('shot-origin-invalid', `${p}.actorClockOrigin.${tk}`, '角色起点必须是整数帧（全局帧）');
         else if (nonNegInt(s.in) && fr > s.in) err('shot-origin-invalid', `${p}.actorClockOrigin.${tk}`, `角色起点 ${fr} 晚于镜头入点 ${s.in}`, '延迟启动用轨道内的事件表达（docs/routes/contracts.md §3）');
         if (tracks !== undefined && !trackIds.has(tk)) warn('shot-origin-orphan', `${p}.actorClockOrigin.${tk}`, `轨道 ${tk} 没在 tracks 里声明`);
       }
@@ -441,7 +442,7 @@ export function validateFilm(input, opts = {}) {
     if (Array.isArray(tracks) && nonNegInt(s.in) && nonNegInt(s.out)) {
       for (const tr of tracks) {
         if (!(Number.isInteger(tr?.step) && tr.step > 1)) continue;
-        const origin = nonNegInt(origins?.[tr.id]) ? origins[tr.id] : 0;
+        const origin = Number.isInteger(origins?.[tr.id]) ? origins[tr.id] : 0;
         const bad = [['入点', s.in], ['出点', s.out]].filter(([, fr]) => (fr - origin) % tr.step !== 0);
         if (bad.length) {
           const m = tracks.filter(x => Number.isInteger(x?.step) && x.step > 1).reduce((acc, x) => lcm(acc, x.step), 1);

@@ -223,7 +223,7 @@ export function stageShots(film, byId) {
 const clone = v => (typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v)));
 
 /**
- * 改镜头出点。ripple：本镜之后的一切（镜头、事件、停顿、海报帧、本镜之后起拍的角色起点）整体平移 delta，总帧数随之变；
+ * 改镜头出点。ripple：本镜之后的一切（镜头、事件、停顿、海报帧、后面镜头的角色起点）整体平移 delta，总帧数随之变；
  * roll：只挪本镜与下一镜之间的切点，总帧数不变。冲突（事件会落到镜头外等）一律抛错，不替你删改。
  * 贴着切点的事件跟着切点走：本镜里 end 正好等于旧出点的（整镜铺底、到切点为止的声音）改到新出点；
  * roll 时下一镜里正好落在旧切点上的事件（切点上的那一声、显示层出现）改到新切点。
@@ -265,6 +265,12 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
       if (onCut(e)) { e.frame = newOut; result.moved.events.push({ id: e.id, frame: [oldOut, newOut] }); }
       else if (e.shot === shot.id && e.end === oldOut) { e.end = newOut; result.moved.events.push({ id: e.id, end: [oldOut, newOut] }); }
     }
+    // 下一镜里从切点起算的角色时钟（起点 = 旧切点）跟着切点走；其余起点不动（内容留在原来的全局时刻）
+    if (isObj(after.actorClockOrigin)) {
+      for (const [track, f] of Object.entries(after.actorClockOrigin)) {
+        if (f === oldOut) { after.actorClockOrigin[track] = newOut; result.moved.origins.push({ shot: after.id, track, from: f, to: newOut }); }
+      }
+    }
     next.shots[i].out = newOut;
     after.in = newOut;
     result.moved.shots.push({ id: shot.id, out: [oldOut, newOut] }, { id: after.id, in: [oldOut, newOut] });
@@ -295,8 +301,9 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
     s.in += delta; s.out += delta;
     result.moved.shots.push({ id: s.id, in: [from[0], s.in], out: [from[1], s.out] });
     if (isObj(s.actorClockOrigin)) {
+      // 后面的镜头整段平移：它的角色时钟也是镜头内容的一部分，跟着平移（镜头内的一拍 n 相位不变）
       for (const [track, f] of Object.entries(s.actorClockOrigin)) {
-        if (Number.isInteger(f) && f >= oldOut) { s.actorClockOrigin[track] = f + delta; result.moved.origins.push({ shot: s.id, track, from: f, to: f + delta }); }
+        if (Number.isInteger(f)) { s.actorClockOrigin[track] = f + delta; result.moved.origins.push({ shot: s.id, track, from: f, to: f + delta }); }
       }
     }
   }
