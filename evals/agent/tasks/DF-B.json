@@ -1,0 +1,46 @@
+{
+  "$schema": "../schema/task.schema.json",
+  "schemaVersion": 1,
+  "id": "DF-B",
+  "kind": "film",
+  "title": "浮标",
+  "summary": "B 路线，render anything",
+  "planRef": "计划书 7.2 DF-B",
+  "route": "b",
+  "filmId": "fubiao",
+  "prompt": "DF-B.md",
+  "context": null,
+  "environment": "prepared",
+  "requiresEnv": ["RAEA_BIN"],
+  "isolation": ["isolated"],
+  "timeboxMinutes": 120,
+  "attempts": 2,
+  "spec": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 144, "audio": true },
+  "writeScope": ["films/fubiao/"],
+  "newFilmDirsOnly": false,
+  "seed": null,
+  "rules": {
+    "forbiddenWritePrefixes": ["cases/vendor/", "src/", "engine/"],
+    "forbiddenGit": ["add-all", "commit", "push"],
+    "forbiddenTools": ["WebSearch", "WebFetch"],
+    "forbiddenAccess": ["home-lemo", "outside-skills"],
+    "forbiddenRestore": []
+  },
+  "gates": {
+    "required": [
+      { "gate": "look", "accept": ["approve"], "note": "风格卡与草图帧，原话来自第 2 轮" },
+      { "gate": "animatic", "accept": ["approve", "waive"], "note": "「可以，出片。」之后没看过动态预演，应记成豁免" }
+    ],
+    "recommended": [],
+    "forbidApprove": ["final"],
+    "onlyIfRendered": false,
+    "aliases": { "look": ["keyframes", "style", "sketch", "sketches", "style-card"], "animatic": ["previs", "preview", "lowres"], "final": ["delivery", "master"] }
+  },
+  "hardGates": ["H1", "H2", "H3", "H4", "H5", "H6", "H7"],
+  "qa": { "commands": ["delivery", "visual", "texts"] },
+  "runtime": { "version": "0.1.0-canary.2", "requireGraphicsBackend": true },
+  "partitions": null,
+  "safety": null,
+  "scoring": { "process": "solo", "visualReference": null, "styleReference": "films/fubiao 里代理自己的风格卡" },
+  "replies": "DF-B.json"
+}

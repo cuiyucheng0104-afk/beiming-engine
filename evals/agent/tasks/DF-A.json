@@ -1,0 +1,46 @@
+{
+  "$schema": "../schema/task.schema.json",
+  "schemaVersion": 1,
+  "id": "DF-A",
+  "kind": "film",
+  "title": "晨渡",
+  "summary": "A 路线，北冥画风延续，冷启动",
+  "planRef": "计划书 7.2 DF-A",
+  "route": "a",
+  "filmId": "chendu",
+  "prompt": "DF-A.md",
+  "context": null,
+  "environment": "cold",
+  "requiresEnv": [],
+  "isolation": ["isolated"],
+  "timeboxMinutes": 120,
+  "attempts": 2,
+  "spec": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 192, "shots": 2, "cuts": [96], "audio": true, "titleHoldSeconds": 1.5 },
+  "writeScope": ["films/chendu/"],
+  "newFilmDirsOnly": false,
+  "seed": null,
+  "rules": {
+    "forbiddenWritePrefixes": ["cases/vendor/", "src/", "engine/"],
+    "forbiddenGit": ["add-all", "commit", "push"],
+    "forbiddenTools": ["WebSearch", "WebFetch"],
+    "forbiddenAccess": ["home-lemo", "outside-skills"],
+    "forbiddenRestore": []
+  },
+  "gates": {
+    "required": [
+      { "gate": "look", "accept": ["approve"], "note": "原话来自 look 第 2 轮" },
+      { "gate": "animatic", "accept": ["approve", "waive"], "note": "用户说「动态预览不用给我看了」，应记成豁免" }
+    ],
+    "recommended": [],
+    "forbidApprove": ["final"],
+    "onlyIfRendered": false,
+    "aliases": { "look": ["keyframes", "style", "style-frames"], "animatic": ["previs", "preview", "lowres"], "final": ["delivery", "master"] }
+  },
+  "hardGates": ["H1", "H2", "H3", "H4", "H5", "H6", "H7"],
+  "qa": { "commands": ["delivery", "visual", "texts"] },
+  "runtime": null,
+  "partitions": null,
+  "safety": null,
+  "scoring": { "process": "solo", "visualReference": "docs/style-baselines/beiming-original@v1", "styleReference": null },
+  "replies": "DF-A.json"
+}
