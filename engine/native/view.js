@@ -41,10 +41,11 @@ export function shotAt(t, shots) {
   return { eye: along(s.eye, u), at: along(s.at, u), fov: alongN(s.fov, u), index, u };
 }
 
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = a => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0] / l, a[1] / l, a[2] / l]; };
+// 三维向量的通用写法（逐分量；加法顺序与按分量展开的写法相同，结果逐位一致）
+const sub = (a, b) => a.map((x, i) => x - b[i]);
+const dot = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0);
+const cross = ([ax, ay, az], [bx, by, bz]) => [ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx];
+const norm = a => { const l = Math.hypot(...a); return a.map(x => x / l); };
 
 export function project(p, cam, [W, H]) {
   const f = norm(sub(cam.at, cam.eye)), r = norm(cross(f, [0, 1, 0])), u = cross(r, f);

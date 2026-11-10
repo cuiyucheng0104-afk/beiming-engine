@@ -2,32 +2,31 @@
 
 ## 这条路线是什么
 
-**北冥原生 · BNE**（Beiming Native Edition，北冥原生版）是本仓库的通用原生渲染路线，定位 **render anything**：作品写成一个 TSX 编排文件，由外部原生 GPU 运行时逐帧、确定性地渲出来；程序化造型、外部模型、绘画底板、视频、A / C 路线的页面作品都能进同一个原生场景，不必套北冥画风。**基于 `RAEA` 原生运行时（FSL-1.1-ALv2）**：BNE 是我方路线名，不是自研运行时；运行时与 SDK 归上游所有，不随仓库分发。
+**北冥原生 · BNE**（Beiming Native Edition，北冥原生版）是本仓库的通用原生渲染路线，定位 **render anything**：作品写成一个 TSX 编排文件，由外部原生 GPU 运行时逐帧、确定性地渲出来；程序化造型、外部模型、绘画底板、视频、A / C 路线的页面作品都能进同一个原生场景，不必套北冥画风。**基于 `RAEA` 原生运行时（FSL-1.1-ALv2）**：BNE 是我方路线名，不是自研运行时；运行时与 SDK 归上游所有，不随仓库分发，本路线只作内部制作层（自制影片、向客户交付成片，决定 D03）。许可边界见下文「边界与常见坑」与 [docs/rights/fsl-boundary.md](../../docs/rights/fsl-boundary.md)。
 
 - **执行面**：React/TypeScript 编排 → Rust 引擎（三维走 Bevy，页面层走原生排版）→ GPU 合成 → 编码。画面只由帧号决定（`useCurrentFrame()`），同一帧重渲在可复现误差内一致。
-- **仓库里的部分**：`engine/native/`（TSX 组件库 + 准备阶段工具 + 资产桥 + 交付）、`engine/render/native.mjs`（唯一出片入口）、`routes/b-native/template/`（最小作品模版）、`examples/raea/`（《北冥》10 秒例片；目录名是上游项目名，内部沿用）。
-- **运行时版本锁**：`engine/native/runtime.lock.json` 记版本 `0.1.0-canary.2`、上游源码提交、许可、三平台归档 sha256 与可执行文件 sha256；`RAEA_BIN` 指向它的可执行文件。
+- **仓库里的部分**：`engine/native/`（TSX 组件库 + 准备阶段工具 + 资产桥 + 交付）、`engine/render/native.mjs`（唯一出片入口）、`routes/b-native/template/`（最小作品模版）、`routes/b-native/recipes/`（四类画面配方样张）、`examples/raea/`（《北冥》10 秒例片；目录名是上游项目名，内部沿用）。
+- **运行时版本锁**：`engine/native/runtime.lock.json` 记版本 `0.1.0-canary.2`、上游源码提交、许可、三平台归档 sha256 与可执行文件 sha256；`RAEA_BIN` 指向它的可执行文件。**作品必须在 git 工作树里**：运行时按工作树认「项目目录」，`git archive` 导出的目录会被拒绝（REFUSED「outside raea's home and the project's folder」），入口预检时就以 exit 3 说明。
 - **什么时候选它**：要原生 GPU、要把多种来源的画面放进一个三维空间、要骨骼 / morph 动画模型、或作品不依赖 A 路的屏幕墨线与 Kuwahara 笔触。要逐帧延续《北冥》原画风选 A。
 
 ## 最快上手
 
-在仓库根目录（macOS / Linux 用 export，Windows PowerShell 用 `$env:名字 = '值'`；不需要 Git Bash）：
+在仓库根目录（macOS / Linux 用 export，Windows PowerShell 用 `$env:RAEA_BIN = '…'`；不需要 Git Bash）：
 
 ```sh
-npm run setup                                         # three / playwright-core / 无头 Chromium（资产桥与页面序列帧要用）
-export PYTHON=/path/to/python                         # 需 numpy scipy soundfile numba（声音脚本用 engine/audio）
+npm run setup                                         # node 依赖、无头 Chromium、仓库内 .venv（声音脚本的 numpy / scipy / soundfile / numba）
 node engine/native/runtime.mjs fetch --accept-license # 读过上游许可后获取运行时、校验哈希，打印 RAEA_BIN 应设的值
 export RAEA_BIN=/absolute/path/to/raea/bin/raea
 
-node tools/new-film.mjs b my-film --title 我的片子     # 从 routes/b-native/template 复制到 films/my-film/
+node tools/new-film.mjs b my-film --title 我的片子     # 从 routes/b-native/template 复制到 films/my-film/（名字只用小写 ASCII）
 node engine/native/prepare.mjs films/my-film           # 素材进 media/：底板（含软边）、道具 GLB（Idle 动作）、声音，写 prepared.json
-node engine/render/native.mjs films/my-film --check-only    # 预检：运行时版本与哈希、FFmpeg、素材哈希；不启动 GPU
+node engine/render/native.mjs films/my-film --check-only    # 预检：运行时版本与哈希、git 工作树、FFmpeg、素材哈希；不启动 GPU
 node engine/render/native.mjs films/my-film --at 0,30,107   # 草图帧 → films/my-film/out/<run-id>/stills/f<帧号>.png
-node engine/render/native.mjs films/my-film                 # 出片 → films/my-film/out/<run-id>/
-node --test 'tests/native/*.test.mjs'                  # 版式逐帧核对与工具单测（不启动 GPU）
+node engine/render/native.mjs films/my-film                 # 出片 + 成片检查 + 机器 QA → films/my-film/out/<run-id>/
+node tools/run-tests.mjs --only native                 # 版式逐帧核对与工具单测（不启动 GPU）
 ```
 
-每个命令都支持 `--help`（只打印用法、无副作用）与 `--json`（stdout 只输出一个信封 `{ok, exitCode, command, error:{code,message,hint}, outputs, runJson, warnings}`，日志走 stderr）。退出码：0 成功 · 1 渲染 / 编码失败（含运行时日志里的 ERROR）· 2 用法 · 3 运行时 / 工具 / 素材缺失或不合格 · 4 契约、交付规格或成片检查不通过 · 5 共享 GPU 忙 · 124 超时 · 130 / 143 中断（已清理）。出错时 stderr 一行写原因与下一步。
+每个命令都用仓库的命令约定（[docs/CLI.md](../../docs/CLI.md)）：`--help` 只打印用法、无副作用；`--json` 时 stdout 只输出一个信封 `{schemaVersion, ok, exitCode, command, error:{code,message,hint}, outputs, runJson, warnings, data}`，日志走 stderr；未知参数 exit 2。退出码：0 成功 · 1 渲染 / 编码失败（含运行时日志里的 ERROR）· 2 用法 · 3 运行时 / 工具 / 素材缺失或不合格（含不在 git 工作树里）· 4 契约、交付规格、成片检查或机器 QA 硬门不通过 · 5 共享 GPU 忙 · 124 超时 · 130 / 143 中断（已清理）。出错时 stderr 写「错误[码]：原因」与「提示：下一步」两行。Python 走仓库统一的查找（`.venv` → `BEIMING_PYTHON` / `PYTHON`），FFmpeg 认 `FFMPEG` / `FFPROBE`。
 
 ## 一部作品的目录
 
@@ -41,7 +40,9 @@ films/<名字>/
   media/         prepare 生成，不提交   out/<run-id>/  渲染产物，不提交；out/latest 是最近一次成功的 run-id
 ```
 
-`out/<run-id>/`（run-id = `YYYYMMDD-HHMMSS-<短提交>[-dirty]`）：`master.mp4`（原生视频轨**逐位复制** + AAC 48 kHz，母版不二次有损）、`web.mp4`（交付网页版：H.264 High、yuv420p、BT.709 有限范围且四个色彩标签写全、AAC 48 kHz 立体声、−14 LUFS ±1、真峰值 ≤ −1 dBTP；交付档位按 film.json 或尺寸帧率推断，见 `engine/native/delivery.mjs`）、`run.json`（运行时版本与可执行文件哈希、实际编码器、显卡与图形后端、源码与素材哈希、准备阶段工具版本、响度实测、逐帧哈希、各阶段耗时；`technicalAcceptance` 由 QA 判定，渲染器只写 not-run）、`check.json`（运行时自带的成片检查：字幕裁切、安全区、对比度、冻帧、响度；P0 / P1 即 exit 4）、`contact.jpg`、`player.html`、`framemd5.txt`、`render.log`。
+`out/<run-id>/`（run-id = `YYYYMMDD-HHMMSS-<短提交>[-dirty]`）：`master.mp4`（原生视频轨**逐位复制** + AAC 48 kHz，母版不二次有损）、`web.mp4`（交付网页版：H.264 High、yuv420p、BT.709 有限范围且四个色彩标签写全、AAC 48 kHz 立体声、−14 LUFS ±1、真峰值 ≤ −1 dBTP；交付档位按 film.json 或尺寸帧率推断，见 `engine/native/delivery.mjs`）、`check.json`（运行时自带的成片检查：字幕裁切、安全区、对比度、冻帧、响度；P0 / P1 即 exit 4）、`qa/report.json` 与 `qa/report.md`（仓库的机器 QA 门 `tools/qa`：规格、色彩、响度、画面、声画、底板；硬门不通过 exit 4）、`run.json`、`contact.jpg`、`player.html`、`framemd5.txt`、`render.log`。
+
+`run.json`（附录 C8）：`tools.raea` 是运行时版本，`runtime` 记平台、可执行文件实测与锁定 sha256；`actualDevice`（显卡）、`actualGraphicsBackend`（运行时日志里认出的 metal / vulkan / dx12）、`softwareFallback`、`actualEncoder`（母版的原生编码器与网页版的 libx264）；`inputs` 记作品每个源文件（含 film.tsx）与每个素材的 sha256、准备阶段的工具版本；`output` 是交付件的路径、哈希、尺寸、帧数、像素格式与色彩；`frameHashes`、`audio`（实测响度与增益）、`aigc`、`timing`。`status`：机器 QA 通过记 `passed`（`technicalAcceptance` 同时记 passed 并附报告路径），`--skip-qa` 或草图帧记 `rendered`，失败记 `failed`；`creativeAcceptance` 始终是 not-reviewed——技术通过不等于用户认可（D08）。末尾用 `engine/production/project.js` 的校验器自检，结论在 `selfCheck`。
 
 ## 能力清单
 
@@ -119,7 +120,13 @@ films/<名字>/
 
 ## 边界与常见坑
 
-- **FSL 使用边界（决定 D03）**：上游运行时以 FSL-1.1-ALv2 发布（两年后转 Apache-2.0）。本仓库**只把它用作内部制作层**——自制影片、向客户交付成片；**不**作为对外的产品、SDK、插件或渲染服务提供，**不**分发运行时二进制，**不**把上游源码复制进 `engine/`、`routes/`、`tools/`（读上游 SDK 文档与类型定义来写调用代码可以）。`runtime.mjs fetch` 必须显式 `--accept-license`。将来要商业化对外提供，先取得上游书面许可或法律意见。对外文案写「北冥原生 · BNE（基于 `RAEA` 原生运行时，FSL-1.1-ALv2）」，上游名只出现在技术说明与署名里。
+- **FSL 使用边界（决定 D03，全文见 [docs/rights/fsl-boundary.md](../../docs/rights/fsl-boundary.md)）**：上游运行时以 FSL-1.1-ALv2 发布（每个版本发布满两年转 Apache-2.0；canary.2 于 2028-10-31 转换）。本仓库**只把它用作内部制作层**——自制影片、向客户交付成片。agent 照这五条做：
+  1. RAEA 是第三方 FSL 软件：只在本机或工作站上调用，不提交、不打包、不随成片给出（`runtime.mjs fetch` 必须显式 `--accept-license`，装在仓库外的缓存目录）。
+  2. `engine/native/` 只写调用 RAEA 公开接口的自有代码；不复制 SDK 或运行时源码，不加 Rust / WESL 文件（读上游文档与类型定义来写调用代码可以；着色器写成我方 `.ts` 里的字符串）。
+  3. 交付物只有影片；有人要「把渲染做成服务」「把 BNE 给别人用」，停下来问用户。商业化对外提供之前，先取得上游书面许可或法律意见。
+  4. 对外只用「北冥原生 · BNE」，并带署名句「北冥原生 · BNE 基于第三方原生运行时 RAEA（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）。运行时不随本仓库分发，需单独取得并遵守其许可。」；不写「自研原生引擎」。
+  5. 升级运行时版本：同一提交里更新 `engine/native/runtime.lock.json`、`engine/render/native.mjs` 的 `VALIDATED`、fsl-boundary.md 与 THIRD-PARTY.md 的版本、发布日和 Apache-2.0 转换日期，并重跑本手册「验收」。
+- **作品必须在 git 工作树里**：运行时按 git 工作树认「项目目录」，在 `git archive` 导出的目录或仓库外的拷贝里渲染会 REFUSED「outside raea's home and the project's folder」（P07 实测）；入口预检时就 exit 3 并说明。作品放仓库检出的 `films/<名字>/`，CI 或临时检出用 `git clone` / `git worktree`，不用 `git archive`。
 - **辅助模块不能 import 作品目录之外**：运行时把作品模块复制到临时目录打包，只有入口 `film.tsx` 的外部相对 import 被改写；`layout.js` 之类再 import `../../engine/…` 会 REFUSED。辅助模块写成纯函数，需要的引擎函数由 `film.tsx` 传进去；也不能 import three。
 - **GLB 不带屏幕后期**：墨线、Kuwahara、视角相关卡通光都不在模型里，原生端用 `ToonMaterial` 重新给光；覆盖时保留 `baseColorTexture` 与 `COLOR_0`（带贴图 / 顶点色的部位不写 `base_color`）。
 - **同名实体跨帧沿用**：运行时按 `name` 跨帧沿用实体；同一个模型在不同镜头换材质覆盖时，每个镜头给不同的 `name`，否则后面镜头的覆盖不生效。全局卡通覆盖只换明暗处理、不换各材质自己的颜色，换色要按材质名逐个给（`parts`）。

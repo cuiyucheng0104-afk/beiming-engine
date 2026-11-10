@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 北冥引擎 · 原生渲染入口（北冥原生 · BNE，基于 RAEA 原生运行时，FSL-1.1-ALv2）：任何 route = "b" 的作品目录都用它
+// 北冥引擎 · 原生渲染入口（北冥原生 · BNE，基于上游 RAEA 原生运行时；许可边界见 docs/rights/fsl-boundary.md）：任何 route = "b" 的作品目录都用它
 // 预检、出草图帧和出片。命令约定（参数、--help、--json 信封、退出码）用 tools/lib/cli.mjs，见 docs/CLI.md。
 //   node engine/render/native.mjs <作品目录> [--check-only | --at 0,36,71 | --frame N] [选项]，--help 看全部选项
 //

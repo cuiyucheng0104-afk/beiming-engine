@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// 北冥引擎 · 原生层 · 运行时锁定与获取：外部原生运行时（上游项目名 RAEA，FSL-1.1-ALv2）不随仓库分发，
+// 北冥引擎 · 原生层 · 运行时锁定与获取：外部原生运行时（上游项目名 RAEA；许可写在 runtime.lock.json 的 license，
+// 使用边界见 docs/rights/fsl-boundary.md）不随仓库分发，
 // 这里按 engine/native/runtime.lock.json 核对版本与哈希，并在用户明确接受许可后把官方发行包装到本机缓存。
 //
 //   node engine/native/runtime.mjs status [--json]       读 RAEA_BIN：版本、平台、可执行文件 sha256 是否与锁一致（不启动 GPU）
@@ -140,7 +141,7 @@ async function cmdStatus(a, hashOnly = false) {
 
 export const command = defineCommand({
   name: 'native:runtime',
-  summary: '原生运行时（上游项目名 RAEA，FSL-1.1-ALv2）的核对、哈希与获取；运行时不随仓库分发',
+  summary: '原生运行时（上游项目名 RAEA）的核对、哈希与获取；运行时不随仓库分发，许可与使用边界见 docs/rights/fsl-boundary.md',
   usage: [
     'node engine/native/runtime.mjs status [--json]',
     'node engine/native/runtime.mjs hash [--json]',
@@ -154,7 +155,7 @@ export const command = defineCommand({
   ],
   positionals: [{ name: 'sub', label: '<status|hash|fetch>', describe: '子命令' }],
   options: {
-    'accept-license': { type: 'boolean', describe: 'fetch：已阅读并接受上游 FSL-1.1-ALv2 许可' },
+    'accept-license': { type: 'boolean', describe: 'fetch：已阅读并接受上游许可（runtime.lock.json 的 licenseUrl）' },
     platform: { type: 'string', arg: '<平台>', choices: ['macos-arm64', 'windows-x64', 'linux-x64'], describe: 'fetch：要获取的平台（默认本机）' },
     dest: { type: 'string', arg: '<目录>', describe: 'fetch：解包目录（默认 <缓存>/beiming/raea/<版本>/<平台>/）' },
     from: { type: 'string', arg: '<归档>', describe: 'fetch：用已下载的发行归档，不联网' },

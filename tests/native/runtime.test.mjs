@@ -29,7 +29,7 @@ const lockWith = binarySha256 => ({ version: '0.1.0-canary.2', platforms: { [pla
 test('锁文件：版本、许可、各平台归档哈希都在；macOS arm64 的可执行文件哈希已锁定', async () => {
   const lock = await loadLock();
   assert.equal(lock.version, '0.1.0-canary.2');
-  assert.equal(lock.license, 'FSL-1.1-ALv2');
+  assert.match(lock.license, /^FSL-1\.1-ALv2$/);
   for (const k of ['macos-arm64', 'windows-x64', 'linux-x64']) assert.match(lock.platforms[k].sha256, /^[0-9a-f]{64}$/, k);
   assert.equal(lock.platforms['macos-arm64'].sha256, 'bc48a94af99f7626a83f930a5d7ecfd2464218ad8b2b06169a8248a514dfa280');
   assert.match(lock.platforms['macos-arm64'].binarySha256, /^[0-9a-f]{64}$/);

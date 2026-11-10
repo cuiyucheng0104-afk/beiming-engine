@@ -33,14 +33,13 @@ film.tsx + layout.js + media/ → node engine/render/native.mjs examples/raea
 ## 1. 环境
 
 ```sh
-npm run setup                                   # three / playwright-core / 无头 Chromium（资产桥与片名页面要用）
-export PYTHON=/path/to/python                   # 需 numpy scipy soundfile numba（requirements.txt）
+npm run setup                                   # node 依赖、无头 Chromium（资产桥与片名页面）、仓库内 .venv（声音脚本的 numpy / scipy / soundfile / numba）
 node engine/native/runtime.mjs fetch --accept-license   # 原生运行时：读过上游许可后获取并校验哈希，打印 RAEA_BIN 应设的值
 export RAEA_BIN=/absolute/path/to/raea/bin/raea
 node engine/native/runtime.mjs status           # 版本与可执行文件 sha256 是否与 engine/native/runtime.lock.json 一致
 ```
 
-Windows PowerShell：`$env:RAEA_BIN = 'D:\beiming\runtime\raea\bin\raea.exe'`；`WGPU_BACKEND` 默认设为 `vulkan`；工具不在 PATH 时设 `FFMPEG`、`FFPROBE`、`PYTHON`。不需要 Git Bash（交付编码直接调 FFmpeg，不经 `sh`）。新入口尚未在 Windows / 5090 上重跑。
+Windows PowerShell：`$env:RAEA_BIN = '<运行时目录>\raea\bin\raea.exe'`（换成 `runtime.mjs fetch` 打印的路径）；`WGPU_BACKEND` 默认设为 `vulkan`；工具不在 PATH 时设 `FFMPEG`、`FFPROBE`，要用别的 Python 时设 `BEIMING_PYTHON`。作品要在 git 工作树里（`git archive` 导出的目录会被运行时拒绝）。不需要 Git Bash（交付编码直接调 FFmpeg，不经 `sh`）。新入口尚未在 Windows / 5090 上重跑。
 
 ## 2. 准备素材
 
@@ -87,4 +86,4 @@ node engine/render/native.mjs examples/raea                  # 出片
 
 没有真人物表演；鲲的视线 / 高光已烘焙，只有眼睑有动画；城市 / 云是 2.5D 绘画面片；没有 A 路的屏幕 ID 墨线与 Kuwahara。它证明资产与运行路径可迁移、画面达到「方向正确且不粗糙」，不证明 A 路笔触已完整复现。底板由 AI 生成后人工整理，成片 comment 元数据与 `player.html` 标「含 AI 生成画面」。
 
-本目录原创代码遵循仓库 MIT。片名用的马善政字体遵循 [fonts/LICENSE.md](../../fonts/LICENSE.md) 中的 OFL（只在准备阶段渲成 PNG，不随成片分发字体）；影片、底板和艺术资产沿用仓库保留权利的范围。外部原生运行时及其 SDK 由上游 FSL-1.1-ALv2 约束，不包含在本仓库 MIT 授权内；本仓库只把它用作内部制作层，不分发、不复制其源码。
+本目录原创代码遵循仓库 MIT。片名用的马善政字体遵循 [fonts/LICENSE.md](../../fonts/LICENSE.md) 中的 OFL（只在准备阶段渲成 PNG，不随成片分发字体）；影片、底板和艺术资产沿用仓库保留权利的范围。外部原生运行时及其 SDK 由上游 FSL-1.1-ALv2 约束，不包含在本仓库 MIT 授权内；本仓库只把它用作内部制作层（自制影片、向客户交付成片），不分发、不复制其源码，也不作为对外的产品、SDK 或渲染服务——许可边界与 agent 规则见 [docs/rights/fsl-boundary.md](../../docs/rights/fsl-boundary.md)。

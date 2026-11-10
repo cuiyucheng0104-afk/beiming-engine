@@ -1,49 +1,62 @@
-// B 路线仓库规范规则（tools/repo-check/rules/route-b）：在本仓库上全部通过；在临时造的反例目录上逐条抓到问题。
+// B 路线仓库规范规则（tools/repo-check/rules/route-b/，由 tools/repo-check.mjs 的加载器加载）：在本仓库上全部不报错；
+// 在临时造的反例仓库上逐条抓到问题。只看 route-b 域的结论（别的域的规则文件好坏不归本包管）。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { check, rules } from '../../tools/repo-check/rules/route-b/index.mjs';
+import { loadRules } from '../../tools/repo-check/core/loader.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const ENTRY = fileURLToPath(new URL('../../tools/repo-check/rules/route-b/index.mjs', import.meta.url));
+const RULES_DIR = join(ROOT, 'tools/repo-check/rules');
+const check = root => {
+  const r = spawnSync(process.execPath, [join(ROOT, 'tools/repo-check.mjs'), '--only', 'route-b', '--json', ...(root ? ['--root', root] : [])], { encoding: 'utf8', timeout: 120000 });
+  const j = JSON.parse(r.stdout);
+  const rules = Object.fromEntries(j.data.rules.filter(x => x.id.startsWith('route-b.')).map(x => [x.id, x]));
+  const findings = j.data.findings.filter(f => f.rule?.startsWith('route-b.') || f.id?.startsWith('route-b.'));
+  return { rules, findings, envelope: j };
+};
 
-test('本仓库：B 路线规则全部不报错（只允许「平台还没锁定」的提示）', () => {
-  const results = check(ROOT);
-  assert.equal(results.length, rules.length);
-  for (const r of results) assert.notEqual(r.status, 'fail', `${r.id}：${r.errors.join('；')}`);
+test('加载器认得 route-b 的每个规则文件（一个文件一条规则，id 的域等于目录名）', async () => {
+  const { rules, problems } = await loadRules(RULES_DIR);
+  assert.deepEqual(problems.filter(p => p.file.includes('/route-b/')), []);
+  const ids = rules.filter(r => r.domain === 'route-b').map(r => r.id).sort();
+  const files = readdirSync(join(RULES_DIR, 'route-b')).filter(f => f.endsWith('.mjs') && !f.startsWith('_')).length;
+  assert.equal(ids.length, files);
+  assert.deepEqual(ids, ['route-b.aigc-label', 'route-b.cli-contract', 'route-b.film-module-imports', 'route-b.manual-boundary',
+    'route-b.no-hardcoded-contract', 'route-b.no-runtime-distribution', 'route-b.runtime-lock', 'route-b.spawn-timeout']);
 });
 
-test('反例：写死契约、锁文件残缺、辅助模块越界 import、缺 aigc、直接 spawnSync、手册缺许可边界都被抓到', () => {
+test('本仓库：B 路线规则没有错误（只允许 Windows / Linux 可执行文件哈希未锁的提示）', () => {
+  const { rules } = check(null);
+  assert.equal(Object.keys(rules).length, 8);
+  for (const r of Object.values(rules)) assert.notEqual(r.status, 'fail', `${r.id} 不通过`);
+});
+
+test('反例：写死契约、锁文件残缺、辅助模块越界 import、缺 aigc、直接 spawnSync、手册缺许可边界、入口不用命令约定库、运行时二进制入库都被抓到', () => {
   const root = mkdtempSync(join(tmpdir(), 'bne-rules-'));
   const put = (f, text) => { mkdirSync(dirname(join(root, f)), { recursive: true }); writeFileSync(join(root, f), text); };
   try {
+    put('package.json', '{"name":"t","private":true}');
     put('routes/b-native/template/film.json', JSON.stringify({ route: 'b', title: '{{TITLE}}', dur: 10, fps: 24, size: [1920, 1080], native: { images: [{ to: 'sky.png', from: '../../assets/plates/sky_dawn.png' }] } }));
     put('routes/b-native/template/film.tsx', "import { layout } from './layout.js';\nconst N = 240;\n");
     put('routes/b-native/template/layout.js', "import { shotAt } from '../../engine/native/view.js';\nexport const layout = () => shotAt;\n");
-    put('engine/render/native.mjs', "// 入口\nconst a = ['-t 10'];\n");
+    put('routes/b-native/template/shader.wesl', 'fn main() {}\n');
+    put('engine/render/native.mjs', "#!/usr/bin/env node\n// 入口\nconst a = ['-t 10'];\nexport const VALIDATED = '9.9.9';\n");
     put('engine/native/runtime.lock.json', JSON.stringify({ version: '0.1.0', license: 'MIT', platforms: {} }));
     put('engine/native/x.mjs', "import { spawnSync } from 'node:child_process';\nspawnSync('ffmpeg', []);\n");
+    put('engine/native/bin/raea', 'binary');
     put('routes/b-native/README.md', '# B\n\n## 边界与常见坑\n\n- 没写许可\n');
-    const byId = Object.fromEntries(check(root).map(r => [r.id, r]));
-    assert.equal(byId['route-b.no-hardcoded-contract'].status, 'fail');
-    assert.ok(byId['route-b.no-hardcoded-contract'].errors.length >= 2, '模版里的 240 与入口里的 -t 10 都要报');
-    assert.equal(byId['route-b.runtime-lock'].status, 'fail');
-    assert.equal(byId['route-b.film-module-imports'].status, 'fail');
-    assert.equal(byId['route-b.aigc-label'].status, 'fail');
-    assert.equal(byId['route-b.spawn-timeout'].status, 'fail');
-    assert.equal(byId['route-b.manual-boundary'].status, 'fail');
-    const cli = spawnSync(process.execPath, [ENTRY, '--root', root, '--json'], { encoding: 'utf8', timeout: 60000 });
-    assert.equal(cli.status, 4);
-    assert.equal(JSON.parse(cli.stdout).ok, false);
+    spawnSync('git', ['init', '-q'], { cwd: root, timeout: 30000 });
+    spawnSync('git', ['add', '-A'], { cwd: root, timeout: 30000 });
+    const { rules, envelope } = check(root);
+    for (const id of ['route-b.no-hardcoded-contract', 'route-b.runtime-lock', 'route-b.film-module-imports', 'route-b.aigc-label', 'route-b.spawn-timeout',
+      'route-b.manual-boundary', 'route-b.cli-contract', 'route-b.no-runtime-distribution']) assert.equal(rules[id]?.status, 'fail', `${id} 应当不通过`);
+    assert.ok(rules['route-b.no-hardcoded-contract'].errors >= 2, '模版里的 240 与入口里的 -t 10 都要报');
+    assert.ok(rules['route-b.no-runtime-distribution'].errors >= 2, '运行时二进制入库与 .wesl 源文件都要报');
+    assert.ok(rules['route-b.runtime-lock'].errors >= 3, '许可、平台、VALIDATED 不一致都要报');
+    assert.notEqual(envelope.exitCode, 0);
   } finally { rmSync(root, { recursive: true, force: true }); }
-});
-
-test('命令行：--help 退出 0；未知参数 exit 2', () => {
-  assert.equal(spawnSync(process.execPath, [ENTRY, '--help'], { timeout: 30000 }).status, 0);
-  assert.equal(spawnSync(process.execPath, [ENTRY, '--nope'], { timeout: 30000 }).status, 2);
-  assert.ok(readFileSync(ENTRY, 'utf8').startsWith('#!/usr/bin/env node'));
 });
