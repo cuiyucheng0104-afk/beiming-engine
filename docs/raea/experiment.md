@@ -53,3 +53,17 @@
 ![入库源码在 macOS 的关键帧复现](media/experiment-contact.jpg)
 
 当前数据见 [publication-validation.json](publication-validation.json)。本次没有重跑 5090 性能测试；Windows 新版 Node 包装脚本尚未在工作站重新执行，历史 Windows 原生实验仍单独记录。
+
+## 重构后复现记录（2026-11-10，工业级加固 P14）
+
+基线：分支 `hard/P14` 提交 `d105b81`（底座 `routes-template@abfdc83`，含 main 的 `62ad28e`），macOS 26.5 · Apple M5 Pro · Metal（从运行时日志识别）· 原生编码 VideoToolbox；运行时 `0.1.0-canary.2`，可执行文件 sha256 与 `engine/native/runtime.lock.json` 一致；Node 24.13、FFmpeg 8.0.1、Playwright 1.63.0 / Chromium 153。操作入口已统一到 [B 路线手册](../../routes/b-native/README.md)。
+
+| 步骤 | 命令 | 结果 |
+|---|---|---|
+| 准备 | `node engine/native/prepare.mjs examples/raea` | exit 0，约 6 秒。鲲 `8f77f664…66f9`（R01 眼睑 UV 修复后的新基准），渡船 `c34e6996…c8c7`（底座 R24 把红绿航行灯换到正确舷侧后的新基准）；回读断言：四片眼睑睑缘一圈 texel 到墨线色的距离比 0.145–0.150（上限 0.35；用未修复的半球 UV 重导同一配方为 1.037，导出失败、正式路径不留文件） |
+| 出片 | `node engine/render/native.mjs examples/raea` | exit 0，全程约 28–38 秒（原生渲染 4.7–14.5 秒，含首次着色器编译）。母版：原生 VideoToolbox 视频轨逐位复制 + AAC；网页版：H.264 High@4.1、yuv420p、BT.709 有限范围四标签、AAC 48 kHz 立体声，15.5 MB；240 帧 / 10.000 秒；−14.0 LUFS、真峰值 −3.2 dBTP；mp4 comment 写「含 AI 生成画面」 |
+| 运行时自带成片检查 | 出片入口自动运行 `raea check` | 无问题：响度、无突停、无 3 秒冻帧、文字不裁切、安全区、读字时长（毛笔片名是图片层，不计入文字项） |
+| 可复现性 | 同一提交连渲两次（`--run-id final-a / final-b`） | 母版解码后 240/240 帧 framemd5 逐帧相同（PSNR ∞）；原生 VideoToolbox 码流本身两次不同，网页版视频码流与音频码流两次逐字节相同 |
+| 回归测试 | `node --test 'tests/native/*.test.mjs'` | 全过（含资产桥重导出与基准逐字节比对、逐帧版式核对） |
+
+与上一节复现相比的画面改动（都是有意的，例片不是像素基准）：近景云按镜头摆、截断竖边每帧都在画外，上下截断边烘有机软边（不再出现竖直刀口）；天际线按原图 2:1 等比（不再压扁），水岸线压在江面上；页面层天空随摇 / 仰移动；渡船朝运动方向、尾迹在船尾后（审查 R04）；鲲的位置、昂头与 Swim 片段同一个一拍三时钟（R07）；纸纹改为页面层整幅、一拍二换纸；片名改为 A 路毛笔按笔顺写出、收笔飞白；眨眼那一帧一声细小铃音、片名两字起笔各一声，与分镜表一致（R11）。未改：没有 A 路的屏幕 ID 墨线与 Kuwahara；仍未在 Windows / 5090 上用新入口重跑。

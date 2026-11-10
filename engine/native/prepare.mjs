@@ -124,7 +124,7 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
   let old = {};
   if (only && existsSync(resolve(media, 'prepared.json'))) { try { old = JSON.parse(await readFile(resolve(media, 'prepared.json'), 'utf8')); } catch { old = {}; } }
   const record = {
-    schemaVersion: 1, film: posix(relative(ROOT, dir)), preparedAt: new Date().toISOString(), tools,
+    schemaVersion: 1, film: posix(relative(ROOT, dir)), preparedAt: new Date().toISOString(), tools: { ...(old.tools || {}), ...tools },
     inputs: { ...(old.inputs || {}), ...inputs }, assets: { ...(old.assets || {}), ...hashes },
   };
   await writeFile(resolve(media, 'prepared.json.part'), JSON.stringify(record, null, 2) + '\n');
