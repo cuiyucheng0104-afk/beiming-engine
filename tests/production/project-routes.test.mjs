@@ -2,7 +2,7 @@
 // RenderResult 的评审条目（附录 C8 的 reviews[]）与严格口径。原有 T01 测试见 project.test.mjs，这里只测新增规则。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LEGACY_ROUTES, ROUTES, canonicalRoute, validateProjectSpec, validateRenderResult } from '../../engine/production/project.js';
 import { builtinRegistry, loadRouteRegistry, resolveRoute } from '../../engine/production/routes.js';
@@ -23,7 +23,24 @@ test('路线：注册表 id 是规范值，旧值与目录名都是别名；未�
   assert.match(bad.diagnostics[0].message, /beiming（= a）/);
   assert.deepEqual(canonicalRoute({ route: 'raea', backend: 'raea' }), { routeId: 'b', backend: 'native', routeAlias: true });
   assert.equal(resolveRoute('C-Style').id, 'c');
-  assert.equal(loadRouteRegistry().source, 'builtin');
+  // 治理骨架的注册表 routes/routes.json 已入库：以它为准；内置三条只是注册表文件缺失时的退路
+  assert.equal(loadRouteRegistry().source, existsSync(join(REPO, 'routes', 'routes.json')) ? 'routes/routes.json' : 'builtin');
+});
+
+test('内置三条与注册表 routes/routes.json 一致（退路不会和注册表说两套话）', { skip: existsSync(join(REPO, 'routes', 'routes.json')) ? false : '还没有 routes/routes.json' }, () => {
+  const reg = JSON.parse(readFileSync(join(REPO, 'routes', 'routes.json'), 'utf8'));
+  const builtin = builtinRegistry();
+  assert.deepEqual(reg.routes.map(r => r.id), builtin.routes.map(r => r.id));
+  for (const r of reg.routes) {
+    const b = builtin.routes.find(x => x.id === r.id);
+    assert.equal(r.slug, b.slug, `${r.id}.slug`);
+    assert.equal(r.brand, b.brand, `${r.id}.brand`);
+    assert.equal(r.legacyId ?? null, b.legacyId ?? null, `${r.id}.legacyId`);
+    assert.deepEqual(r.backends, b.backends, `${r.id}.backends`);
+    assert.equal(r.manual, b.manual, `${r.id}.manual`);
+    // 注册表里写的每个别名都能解析到这条路线
+    for (const a of r.aliases ?? []) assert.equal(resolveRoute(a).id, r.id, `别名 ${a}`);
+  }
 });
 
 test('后端按路线校验：b 只能 native（旧写法 raea），c 是页面型后端，a 搬到原生要声明迁移', () => {

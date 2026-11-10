@@ -36,7 +36,8 @@ const isStr = v => typeof v === 'string' && v.trim().length > 0;
 
 function withAliases(routes, source) {
   const aliases = new Map();
-  for (const r of routes) for (const a of [r.id, r.slug, r.legacyId].filter(isStr)) aliases.set(String(a).toLowerCase(), r.id);
+  // 注册表的 aliases 数组（P02：a-webgl / beiming、b-native / raea……）与 id、目录名、旧路线名都认
+  for (const r of routes) for (const a of [r.id, r.slug, r.legacyId, ...(Array.isArray(r.aliases) ? r.aliases : [])].filter(isStr)) aliases.set(String(a).toLowerCase(), r.id);
   return { routes, source, aliases };
 }
 
