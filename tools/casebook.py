@@ -6,6 +6,7 @@
   check                    核对目录、源文件、素材引用、案例卡与 vendor 快照，收集全部问题后再退出
   restore <案例编号>        还原到独立目录（默认 out/casebook/）；默认不还原内部素材（--include-internal）
   rehash --patch <补丁>     按补丁更新源文件的 sha256 与大小（例如去掉签名链接的查询串之后）
+  rights [--write|--check]  按 docs/rights/register.json 算出每个案例的权利字段并写回或核对
 """
 import argparse
 import difflib
@@ -49,6 +50,20 @@ CRLF_HINT = ('这些文件只差换行：Git 检出时把 LF 改成了 CRLF（Gi
 JUNK_FILES = {'.DS_Store', 'Thumbs.db', 'desktop.ini'}
 LOCAL_DIRS = {'node_modules', '.venv', '__pycache__', '.git'}
 CLEARANCES = ('public', 'internal', 'client-confidential')   # 权利字段 clearance 的取值（docs/cases/casebook.md）
+TECH_STATUSES = ('rendered', 'experiment', 'previs', 'interactive', 'support')   # technical.status
+QA_STATUSES = ('not-run', 'pass', 'fail')                                        # technical.qa.status
+APPROVAL_STATUSES = ('approved', 'rejected', 'unreviewed')                       # approval.status
+LEGACY_STATUS = {'rendered': 'historical-render', 'experiment': 'experiment', 'previs': 'previs',
+                 'interactive': 'interactive', 'support': 'support'}            # status 是作品站读的兼容字段
+PENDING = '待补'                                         # 不知道就写「待补」，不推断、不编造（docs/rights/README.md）
+PENDING_REASON = '原因未记录，待用户补充'
+REGISTER = ROOT / 'docs' / 'rights' / 'register.json'    # P01 的授权登记册：rights 字段由它算出
+ARCHIVE_LICENSE = 'LicenseRef-Casebook-Archive'          # cases/source/** 的许可（REUSE.toml、LICENSES/）
+INTERNAL_KINDS = frozenset({'third-party-ip', 'client-material', 'reference-images', 'trademark'})
+RESERVED_NAMES = ('ARCHIVE-RESTORED.json', 'RIGHTS.json')       # restore 写进还原目录的文件
+RESERVED_DIR = 'ARCHIVE-LICENSES'                                 # restore 复制许可文本的目录
+FONT_FILE = re.compile(r'\.(?:woff2?|ttf|otf|ttc)$', re.I)
+THREE_FILE = re.compile(r'(?:^|/)three(?:\.module)?(?:\.min)?\.(?:m?js)$', re.I)
 RETRY_HTTP = {408, 425, 429, 500, 502, 503, 504}             # 值得重试的 HTTP 状态
 DISK_MARGIN = 256 << 20                                     # 下载与还原前另留的磁盘余量
 
@@ -863,10 +878,309 @@ def check_stray_sources(referenced, problems):
                         '新作品入库要经 casebook 工具登记哈希与归属；误放的文件请移走。')
 
 
-def check(manifest, summary=None):
+def legacy_status(case):
+    """The legacy `status` that technical + approval imply (tools/build-showcase.py still curates on it)."""
+    if (case.get('approval') or {}).get('status') == 'rejected':
+        return 'rejected'
+    return LEGACY_STATUS.get((case.get('technical') or {}).get('status'))
+
+
+def check_fields(manifest, problems):
+    """schemaVersion 2 fields: technical and approval kept apart (QUAL-16, CRAFT-11), rights present, templated
+    entries without originalSha256 (COMP-05), restore's reserved names unused."""
+    for case in manifest['cases']:
+        cid = case.get('id')
+        tech, appr = case.get('technical'), case.get('approval')
+        ok = True
+        if not isinstance(tech, dict) or tech.get('status') not in TECH_STATUSES:
+            problems.append(f'{cid}: technical.status 要是 {"/".join(TECH_STATUSES)} 之一')
+            ok = False
+        elif (tech.get('qa') or {}).get('status') not in QA_STATUSES:
+            problems.append(f'{cid}: technical.qa.status 要是 {"/".join(QA_STATUSES)} 之一')
+        if not isinstance(appr, dict) or appr.get('status') not in APPROVAL_STATUSES:
+            problems.append(f'{cid}: approval.status 要是 {"/".join(APPROVAL_STATUSES)} 之一')
+            ok = False
+        elif appr['status'] == 'rejected' and not (appr.get('reasons') and appr.get('evidence')):
+            problems.append(f'{cid}: 被否定的记录要有 reasons 与 evidence（查不到用户原话就写「{PENDING_REASON}」，不编造）')
+        elif appr['status'] == 'approved' and not (appr.get('by') and appr.get('date') and appr.get('evidence')):
+            problems.append(f'{cid}: approved 必须写 by、date 与 evidence（用户原话或评审记录的位置；agent 不能自己批准，D08）')
+        if ok and case.get('status') != legacy_status(case):
+            problems.append(f'{cid}: status {case.get("status")!r} 与 technical/approval 推出的 {legacy_status(case)!r} 不一致'
+                            '（status 是作品站读的兼容字段，随 technical、approval 一起改）')
+        for key in ('displayTitle', 'summary'):
+            if not isinstance(case.get(key), str):
+                problems.append(f'{cid}: 缺 {key}（字符串，可以为空）')
+        names = {f.get('path') for f in case['files']}
+        for path in case.get('keyFiles', ()):
+            if path not in names:
+                problems.append(f'{cid}: keyFiles 里的 {path} 不在这个案例的文件里')
+        rights = case.get('rights')
+        if not isinstance(rights, dict):
+            problems.append(f'{cid}: 缺 rights（运行 casebook.py rights --write 按 docs/rights/register.json 生成）')
+        elif rights.get('clearance') not in CLEARANCES:
+            problems.append(f'{cid}: rights.clearance 要是 {"/".join(CLEARANCES)} 之一')
+        for item in case['files']:
+            if item.get('templated') and 'originalSha256' in item:
+                problems.append(f'{cid}/{item["path"]}: templated 条目不能保留 originalSha256（能反推出还原标记的原值，COMP-05）')
+            if item.get('path') in RESERVED_NAMES or str(item.get('path', '')).startswith(RESERVED_DIR + '/'):
+                problems.append(f'{cid}/{item["path"]}: 与 restore 写入的 {item["path"].split("/")[0]} 重名')
+
+
+# --- rights: computed from the register (docs/rights/register.json, maintained by the compliance package) -----
+
+def glob_regex(glob):
+    """Same rules as tools/compliance/lib/reuse.mjs globToRegExp: ** crosses folders, * stays inside one,
+    \\* is a literal star, everything else is literal. Use with fullmatch."""
+    out, j = [], 0
+    while j < len(glob):
+        c = glob[j]
+        if c == '\\' and glob[j + 1:j + 2] == '*':
+            out.append(r'\*')
+            j += 2
+        elif c == '*' and glob[j + 1:j + 2] == '*':
+            out.append('.*')
+            j += 2
+        else:
+            out.append('[^/]*' if c == '*' else re.escape(c))
+            j += 1
+    return re.compile(''.join(out))
+
+
+def read_register(path=None):
+    path = path or REGISTER
+    try:
+        register = json.loads(Path(path).read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        raise CasebookError(f'找不到授权登记册 {shown_path(path)}', hint='在完整的仓库检出里运行；登记册由合规工作包维护')
+    except ValueError as error:
+        raise CasebookError(f'授权登记册不是合法的 JSON：{error}', hint='git checkout -- docs/rights/register.json')
+    if register.get('schemaVersion') != 1 or not isinstance(register.get('categories'), list):
+        raise CasebookError('授权登记册结构变了：要有 schemaVersion 1 与 categories 数组', hint='同步更新 casebook 的 register_hits')
+    return register
+
+
+def source_reader():
+    cache = {}
+
+    def read(source):
+        if source not in cache:
+            try:
+                cache[source] = (ARCHIVE / source).read_text(encoding='utf-8', errors='replace')
+            except OSError:
+                cache[source] = ''
+        return cache[source]
+    return read
+
+
+def register_hits(register, manifest, read_text):
+    """Which cases each register category touches: {category: {case: {how, files, where}}}. A port of
+    computeInventory in tools/compliance/lib/rights.mjs (same match rules, same order, same precedence:
+    whole > uses > files); the cases.rights rule of check:repo compares the two."""
+    by_id = {c['id']: c for c in manifest['cases']}
+    rank = {'whole': 3, 'uses': 2, 'files': 1}
+    result = {}
+    for cat in register['categories']:
+        m = cat.get('match')
+        if not m:
+            continue
+        hits = {}
+
+        def mark(cid, how, path=None, where=None):
+            h = hits.setdefault(cid, {'how': how, 'files': set(), 'where': []})
+            if rank[how] > rank[h['how']]:
+                h['how'] = how
+            if path:
+                h['files'].add(path)
+            if where:
+                h['where'].append(where)
+        for cid in m.get('cases', ()):
+            if cid in by_id:
+                mark(cid, 'whole')
+        for cid in m.get('uses', ()):
+            if cid in by_id:
+                mark(cid, 'uses')
+        for group in m.get('groups', ()):
+            for c in manifest['cases']:
+                if c['group'] == group:
+                    mark(c['id'], 'whole')
+        excluded = [(x.get('case', '*'), glob_regex(x['path'])) for x in m.get('exclude', ())]
+        shas = set()
+        for rule in m.get('files', ()):
+            rx = glob_regex(rule['path'])
+            for c in manifest['cases']:
+                if rule.get('case') != '*' and rule.get('case') != c['id']:
+                    continue
+                for f in c['files']:
+                    if not rx.fullmatch(f['path']):
+                        continue
+                    if any((xc == '*' or xc == c['id']) and xr.fullmatch(f['path']) for xc, xr in excluded):
+                        continue
+                    mark(c['id'], 'files', f['path'])
+                    shas.add(f['sha256'])
+        if shas and m.get('propagate', True) is not False:
+            for c in manifest['cases']:
+                for f in c['files']:
+                    if f['sha256'] in shas:
+                        mark(c['id'], 'files', f['path'])
+        for rule in m.get('text', ()):
+            rx = glob_regex(rule['path'])
+            flags = sum({'i': re.I, 'm': re.M, 's': re.S}.get(ch, 0) for ch in rule.get('flags', ''))
+            pattern = re.compile(rule['pattern'], flags)
+            for c in manifest['cases']:
+                if c['id'] in hits and hits[c['id']]['how'] == 'whole':
+                    continue
+                for f in c['files']:
+                    if 'source' not in f or not rx.fullmatch(f['path']):
+                        continue
+                    text = read_text(f['source'])
+                    found = pattern.search(text)
+                    if found:
+                        start = text.rfind('\n', 0, found.start()) + 1
+                        end = text.find('\n', found.start())
+                        mark(c['id'], 'uses', where=(f['source'], line_of(text, found.start()), text[start:end if end != -1 else None]))
+                        break
+        result[cat['id']] = hits
+    return result
+
+
+def attribution_of(line):
+    """A CREDITS line as plain attribution text: list markers and table pipes removed, spacing collapsed."""
+    text = line.strip()
+    if text.startswith('|'):
+        text = ' '.join(cell.strip() for cell in text.strip('|').split('|') if cell.strip())
+    return re.sub(r'\s+', ' ', re.sub(r'^[-*+]\s+', '', text)).strip()
+
+
+def compute_rights(manifest, register, read_text=None):
+    """(rights per case, file marks per case). Case rights: clearance (internal when a client, third-party IP,
+    reference-image or trademark category touches the whole case or its film), the register categories,
+    owner, license, sourceUrl, CC BY attribution lines read from the case's own CREDITS, AI-generation
+    categories and evidence. File marks: register categories matched file by file, plus clearance=internal
+    for such files in an otherwise public case. Unknown values are 待补."""
+    read_text = read_text or source_reader()
+    cats = {c['id']: c for c in register['categories']}
+    hits = register_hits(register, manifest, read_text)
+    rights, marks = {}, {}
+    for case in manifest['cases']:
+        mine = {k: h[case['id']] for k, h in hits.items() if case['id'] in h}
+        internal = sorted(k for k, h in mine.items() if cats[k].get('kind') in INTERNAL_KINDS and h['how'] in ('whole', 'uses'))
+        clearance = 'internal' if internal else 'public'
+        attribution, evidence = [], [f'docs/rights/register.md 的 {k}' for k in sorted(mine)]
+        for k in sorted(mine):
+            for source, line, text in mine[k]['where']:
+                evidence.append(f'cases/{source}:{line}')
+                if cats[k].get('kind') == 'open-license' and re.search(r'\bCC BY\b', cats[k].get('title', '')):
+                    attribution.append(attribution_of(text))
+        ai = sorted(k for k in mine if cats[k].get('kind') == 'service-terms')
+        rights[case['id']] = {
+            'clearance': clearance,
+            'register': sorted(mine),
+            'owner': '；'.join(dict.fromkeys(cats[k].get('holder') or PENDING for k in internal)) or PENDING,
+            'license': ARCHIVE_LICENSE,
+            'sourceUrl': PENDING if internal else None,
+            'attributionText': list(dict.fromkeys(attribution)),
+            'aiGenerated': {'present': True, 'register': ai, 'tools': PENDING} if ai else
+                           {'present': PENDING, 'register': [], 'tools': PENDING},
+            'evidence': evidence,
+        }
+        files = {}
+        for k, h in mine.items():
+            for path in h['files']:
+                files.setdefault(path, set()).add(k)
+        marks[case['id']] = {
+            path: {'register': sorted(ks),
+                   'clearance': 'internal' if clearance == 'public' and any(cats[k].get('kind') in INTERNAL_KINDS for k in ks) else None}
+            for path, ks in files.items()}
+    return rights, marks
+
+
+def _insert_after(record, after, key, value):
+    if key in record:
+        record[key] = value
+        return record
+    out = {}
+    for k, v in record.items():
+        out[k] = v
+        if k == after:
+            out[key] = value
+    if key not in out:
+        out[key] = value
+    record.clear()
+    record.update(out)
+    return record
+
+
+def apply_rights(manifest, register, computed):
+    """Write computed rights into the catalog in place (idempotent: stale file marks are removed first)."""
+    rights, marks = computed
+    _insert_after(manifest, 'homePaths', 'rights', {
+        'register': 'docs/rights/register.json', 'registerUpdated': register.get('updated'),
+        'internalKinds': sorted(INTERNAL_KINDS),
+        'note': '每个案例的 rights 由 casebook.py rights --write 按授权登记册算出，不要手改；登记册改了要重新生成。'
+                'clearance=internal 的素材 restore 默认不还原（--include-internal），不得用进新作品或对外物料；'
+                '文件条目上的 register、clearance 只标逐文件命中的登记类别（整案命中的写在案例的 rights 上）。'})
+    for case in manifest['cases']:
+        _insert_after(case, 'approval' if 'approval' in case else 'status', 'rights', rights[case['id']])
+        mine = marks.get(case['id'], {})
+        for item in case['files']:
+            item.pop('register', None)
+            item.pop('clearance', None)
+            mark = mine.get(item['path'])
+            if mark:
+                item['register'] = mark['register']
+                if mark['clearance']:
+                    item['clearance'] = mark['clearance']
+
+
+def rights_drift(manifest, computed):
+    """Differences between the catalog's rights fields and what the register implies now."""
+    rights, marks = computed
+    problems = []
+    for case in manifest['cases']:
+        cid = case['id']
+        if case.get('rights') != rights[cid]:
+            have = case.get('rights') or {}
+            keys = sorted(k for k in set(have) | set(rights[cid]) if have.get(k) != rights[cid].get(k))
+            problems.append(f'{cid}: rights 与登记册推出的不一致（{"、".join(keys)}）')
+        mine = marks.get(cid, {})
+        wrong = [item['path'] for item in case['files']
+                 if (item.get('register'), item.get('clearance')) != ((mine.get(item['path']) or {}).get('register'),
+                                                                     (mine.get(item['path']) or {}).get('clearance'))]
+        if wrong:
+            problems.append(f'{cid}: {len(wrong)} 个文件条目的 register/clearance 与登记册推出的不一致，例如 {wrong[0]}')
+    if problems:
+        problems.append('改了 docs/rights/register.json 或 catalog 之后运行：node tools/env/py.mjs tools/casebook.py rights --write')
+    return problems
+
+
+def check_rights(manifest, summary, problems):
+    """check --rights: rights fields match the register; packs declared public hold no internal asset."""
+    try:
+        register = read_register()
+    except CasebookError as error:
+        problems.append(f'{error}')
+        return
+    problems.extend(rights_drift(manifest, compute_rights(manifest, register)))
+    internal = {item['asset'] for case in manifest['cases'] for item in case['files']
+                if 'asset' in item and file_clearance(case, item) != 'public'}
+    mixed = []
+    for pack in manifest['packs']:
+        assets = {sha for sha, meta in manifest['assets'].items() if meta['pack'] == pack['filename']}
+        bad = assets & internal
+        if pack.get('audience') == 'public' and bad:
+            problems.append(f'公开素材包 {pack["filename"]} 含 {len(bad)} 个 clearance≠public 的素材')
+        elif pack.get('audience') is None and bad and assets - bad:
+            mixed.append(pack['filename'])
+    if mixed:
+        summary['notices'].append(f'{len(mixed)} 个历史素材包混装了公开与内部素材（casebook-2026.11，D02 不下线）：'
+                                  f'{"、".join(mixed)}；新打的包要分 audience=public / internal。')
+
+
+def check(manifest, summary=None, rights=False):
     """Verify catalog and archive, collecting every problem before failing (CheckFailed lists them all).
     `summary`, when given, receives 'notices' (worth reading although the check passed), 'fileModes'
-    (checked, skipped, unsupported or absent), 'vendorFiles' and 'vendorRepos'. Returns (records, sources)."""
+    (checked, skipped, unsupported or absent), 'vendorFiles' and 'vendorRepos'. `rights` also compares the
+    rights fields with docs/rights/register.json and audits the packs. Returns (records, sources)."""
     summary = {} if summary is None else summary
     summary.setdefault('notices', [])
     problems = []
@@ -947,6 +1261,10 @@ def check(manifest, summary=None):
         problems.append(f'Checksum mismatch（换行被改成 CRLF）：{len(crlf)} 个文件{listing(crlf, 10)}\n{CRLF_HINT}')
     check_cards(manifest, summary, problems)
     check_posters(manifest, problems)
+    if manifest.get('schemaVersion', 1) >= 2:
+        check_fields(manifest, problems)
+    if rights:
+        check_rights(manifest, summary, problems)
     summary['records'], summary['sources'] = len(ids), sum(1 for v in verified.values() if v is not None)
     if problems:
         raise CheckFailed(problems)
@@ -982,6 +1300,9 @@ def plan_restore(manifest, case_id, output, pack_dir, source_only=False, include
     target = safe_path(output, case['workspacePath'])
     for item in case['files']:          # validate every destination before anything is created
         safe_path(target, item['path'])
+    for item in case['files']:
+        if item['path'] in RESERVED_NAMES or item['path'].startswith(RESERVED_DIR + '/'):
+            raise CasebookError(f'{case_id}/{item["path"]} 与 restore 写入的文件重名', hint='在 catalog 里给这个文件换个路径')
     packs = {p['filename']: p for p in manifest['packs']}
     write, withheld = [], []
     for item in case['files']:
@@ -1002,6 +1323,48 @@ def plan_restore(manifest, case_id, output, pack_dir, source_only=False, include
         'missingPacks': missing, 'bytes': sum(f['size'] for f in write),
         'downloadBytes': sum(packs[n]['size'] for n in missing),
     }
+
+
+LICENSE_TEXTS = {   # restore 复制进 ARCHIVE-LICENSES/ 的许可文本：键 → (源文件, 什么时候需要)
+    'LicenseRef-Casebook-Archive.txt': (ROOT / 'LICENSES' / 'LicenseRef-Casebook-Archive.txt', '归档源码与文本的权利说明（每个案例都带）'),
+    'OFL-1.1.txt': (ARCHIVE / 'licenses' / 'OFL-1.1.txt', '案例里有字体文件（OFL 第 2 条：随字体分发许可全文；子集也是修改版）'),
+    'LemoLab-MIT.txt': (ARCHIVE / 'licenses' / 'LemoLab-MIT.txt', '用到或改写了 LemoLab lemo-opuscar 的代码'),
+    'three-MIT.txt': (ARCHIVE / 'licenses' / 'three-MIT.txt', '打包了 three.js'),
+    'CC-BY-4.0.txt': (ROOT / 'LICENSES' / 'CC-BY-4.0.txt', '用了 CC BY 4.0 的素材（署名见 RIGHTS.json）'),
+}
+
+
+def rights_record(manifest, case, written, withheld, include_internal, register=None):
+    """RIGHTS.json for a restored case, plus the license texts it must carry: [(name, source path)]."""
+    rights = case.get('rights') or {'clearance': case_clearance(case), 'register': [], 'owner': PENDING,
+                                     'license': ARCHIVE_LICENSE, 'attributionText': [], 'evidence': []}
+    names = ['LicenseRef-Casebook-Archive.txt']
+    if any(FONT_FILE.search(f['path']) for f in written):
+        names.append('OFL-1.1.txt')
+    if case.get('upstreamStyle') or any(f.get('upstream') for f in written):
+        names.append('LemoLab-MIT.txt')
+    if any(THREE_FILE.search(f['path']) for f in written):
+        names.append('three-MIT.txt')
+    if any('CC BY 4.0' in line for line in rights.get('attributionText', ())):
+        names.append('CC-BY-4.0.txt')
+    texts = [(n, LICENSE_TEXTS[n][0]) for n in names if LICENSE_TEXTS[n][0].is_file()]
+    rules = []
+    if register:
+        cats = {c['id']: c for c in register.get('categories', ())}
+        rules = [{'id': k, 'title': cats[k].get('title'), 'obligations': cats[k].get('obligations'),
+                  'agentRule': cats[k].get('agentRule')} for k in rights.get('register', ()) if k in cats]
+    return {
+        'case': case['id'], 'title': case.get('title'),
+        'note': '历史归档的权利记录（由 casebook restore 写出）：代码按 MIT 或上游许可，影片、原画、配音与素材保留原权利，'
+                '不因还原而获得复用授权。clearance=internal 的素材只为研究方法，不得用进新作品或对外物料。',
+        **{k: rights.get(k) for k in ('clearance', 'register', 'owner', 'license', 'sourceUrl', 'attributionText',
+                                      'aiGenerated', 'evidence')},
+        'technical': case.get('technical'), 'approval': case.get('approval'),
+        'includeInternal': include_internal, 'withheld': len(withheld),
+        'licenses': [{'file': f'{RESERVED_DIR}/{n}', 'why': LICENSE_TEXTS[n][1]} for n, _ in texts],
+        'register': rights.get('register', []), 'rules': rules,
+        'registerFile': 'docs/rights/register.md',
+    }, texts
 
 
 def restore(manifest, case_id, output, pack_dir, download=False, source_only=False, lemo=None, rog=None,
@@ -1112,6 +1475,16 @@ def restore(manifest, case_id, output, pack_dir, download=False, source_only=Fal
             if item.get('executable'):
                 dest.chmod(0o755)
         (temp/'ARCHIVE-RESTORED.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+        try:
+            register = read_register()
+        except CasebookError:
+            register = None                 # the rights record still carries the catalog fields
+        record, texts = rights_record(manifest, case, plan['write'], plan['withheld'], include_internal, register)
+        (temp/'RIGHTS.json').write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding='utf-8')
+        if texts:
+            (temp/RESERVED_DIR).mkdir()
+            for name, src in texts:
+                shutil.copyfile(src, temp/RESERVED_DIR/name)
         temp.rename(target)
         temp = None
     finally:
@@ -1219,7 +1592,7 @@ def write_manifest(manifest, path=None):
 
 # --- command line -----------------------------------------------------------------------------------------
 
-COMMANDS = ('list', 'check', 'restore', 'rehash')
+COMMANDS = ('list', 'check', 'restore', 'rehash', 'rights')
 # 每个选项只对这些命令有意义；用错命令时退出 2（docs/CLI.md 第 3 节：严格）
 OPTION_COMMANDS = {
     'group': {'list'},
@@ -1227,6 +1600,7 @@ OPTION_COMMANDS = {
     'lemo': {'restore'}, 'rog_host': {'restore'}, 'reverify': {'restore'}, 'mirror': {'restore'},
     'retries': {'restore'}, 'if_exists': {'restore'}, 'include_internal': {'restore'}, 'strict': {'restore'},
     'dry_run': {'restore', 'rehash'}, 'patch': {'rehash'}, 'mark': {'rehash'},
+    'rights': {'check'}, 'write': {'rights'}, 'verify': {'rights'},
 }
 EPILOG = '''示例：
   node tools/env/py.mjs tools/casebook.py list --group ppt-stories
@@ -1234,6 +1608,7 @@ EPILOG = '''示例：
   node tools/env/py.mjs tools/casebook.py restore style-02-watercolor --source-only
   node tools/env/py.mjs tools/casebook.py restore style-02-watercolor --download --dry-run
   node tools/env/py.mjs tools/casebook.py rehash --patch out/signed-urls.patch.json --mark signed-url-query
+  node tools/env/py.mjs tools/casebook.py rights --check
 
 退出码：0 成功（只有提示也算）；1 运行失败（读写出错、工具内部错误）；2 用法错误（未知选项、
   --group 拼错、案例编号不存在、目标目录已存在、路径含不安全字符）；3 环境问题（缺素材包、
@@ -1264,12 +1639,16 @@ def build_parser():
                            '                           收集全部问题后再退出，通过时打印记录数、源文件数与 vendor 文件数\n'
                            '  restore <案例编号>        还原到独立目录（默认 out/casebook/）；不覆盖已有目录、\n'
                            '                           不执行构建；默认不还原内部素材（--include-internal）\n'
-                           '  rehash --patch <补丁>     按补丁更新源文件的 sha256 与大小（先核对旧值与磁盘上的新内容）')
+                           '  rehash --patch <补丁>     按补丁更新源文件的 sha256 与大小（先核对旧值与磁盘上的新内容）\n'
+                           '  rights [--write|--check]  按 docs/rights/register.json 算每个案例的权利字段（clearance、登记类别、\n'
+                           '                           署名、AI 生成）；--write 写回 catalog.json，--check 不一致时退出 4')
     p._optionals.title = '选项'
     p._positionals.title = '位置参数'
     p.add_argument('-h', '--help', action='help', help='显示本说明并退出（不读目录、不写文件）')
-    p.add_argument('command', choices=COMMANDS, metavar='<命令>', help='list、check、restore、rehash')
+    p.add_argument('command', choices=COMMANDS, metavar='<命令>', help='list、check、restore、rehash、rights')
     p.add_argument('case', nargs='?', metavar='案例编号', help='restore 要还原的案例（list 第一列）')
+    g = p.add_argument_group('check')
+    g.add_argument('--rights', action='store_true', help='另核对 rights 字段与授权登记册一致、公开素材包不含内部素材')
     g = p.add_argument_group('list')
     g.add_argument('--group', metavar='<分组>', help='只列这一组：styles、ppt-stories、ppt-keynote、beiming-labs、local-films')
     g = p.add_argument_group('restore')
@@ -1293,6 +1672,10 @@ def build_parser():
     g = p.add_argument_group('rehash')
     g.add_argument('--patch', type=Path, metavar='<补丁.json>', help='源文件补丁（signed-urls.mjs strip --patch-out 的输出）')
     g.add_argument('--mark', metavar='<标签>', help='给改过的条目记一笔 redactions（如 signed-url-query），说明哈希为什么变了')
+    g = p.add_argument_group('rights')
+    x = g.add_mutually_exclusive_group()
+    x.add_argument('--write', action='store_true', help='把算出的权利字段写回 cases/catalog.json')
+    x.add_argument('--check', dest='verify', action='store_true', help='只核对：catalog 的权利字段与登记册推出的不一致时退出 4')
     return p
 
 
@@ -1390,7 +1773,7 @@ def cmd_list(args, ctx, manifest):
 def cmd_check(args, ctx, manifest):
     summary = {}
     try:
-        records, sources = check(manifest, summary)
+        records, sources = check(manifest, summary, rights=args.rights)
     except CheckFailed as failed:
         for problem in failed.problems:
             err_print(ctx, f'问题：{problem}')
@@ -1404,7 +1787,7 @@ def cmd_check(args, ctx, manifest):
     modes = {'checked': '、执行位', 'skipped': '（执行位已跳过，见提示）'}.get(summary.get('fileModes'), '')
     ctx.out(f'通过：{records} 条记录、{sources} 个唯一源文件、{summary.get("vendorFiles", 0)} 个 vendor 文件'
             f'（{summary.get("vendorRepos", 0)} 个快照）；已核对路径、SHA256、素材引用、案例卡、家目录路径'
-            f'与 vendor 快照（清单、字节、Git blob{modes}）')
+            f'与 vendor 快照（清单、字节、Git blob{modes}）' + ('；权利字段与授权登记册一致' if args.rights else ''))
     return {'data': dict(_summary_data(summary), problems=[])}
 
 
@@ -1511,10 +1894,46 @@ def cmd_rehash(args, ctx, manifest):
     return {'data': {'sources': len(counts), 'entries': entries, 'dryRun': bool(args.dry_run)}, 'outputs': outputs}
 
 
+def cmd_rights(args, ctx, manifest):
+    register = read_register()
+    computed = compute_rights(manifest, register)
+    rights = computed[0]
+    by_clearance, by_category = {}, {}
+    for cid, r in rights.items():
+        by_clearance[r['clearance']] = by_clearance.get(r['clearance'], 0) + 1
+        for k in r['register']:
+            by_category[k] = by_category.get(k, 0) + 1
+    files = sum(1 for marks in computed[1].values() for m in marks.values() if m['clearance'])
+    data = {'cases': len(rights), 'clearance': by_clearance, 'categories': dict(sorted(by_category.items())),
+            'internalFiles': files, 'registerUpdated': register.get('updated')}
+    ctx.out(f'{len(rights)} 个案例：' + '、'.join(f'{k} {v}' for k, v in sorted(by_clearance.items()))
+            + f'；公开案例里逐文件标为内部的素材 {files} 个')
+    ctx.out('登记类别涉及的案例数：' + '、'.join(f'{k} {v}' for k, v in sorted(by_category.items())))
+    drift = rights_drift(manifest, computed)
+    if args.write:
+        if not drift:
+            ctx.out('catalog 的权利字段已是最新，未改动')
+            return {'data': dict(data, written=False)}
+        apply_rights(manifest, register, computed)
+        sha = write_manifest(manifest)
+        ctx.out(f'已写入 cases/catalog.json（{len(drift) - 1} 处更新）；下一步运行 check --rights')
+        return {'data': dict(data, written=True), 'outputs': [{'path': 'cases/catalog.json', 'sha256': sha, 'kind': 'catalog'}]}
+    if drift:
+        for line in drift:
+            err_print(ctx, f'不一致：{line}')
+        if args.verify:
+            return {'error': {'code': 'contract.rights-stale', 'message': f'catalog 的权利字段与授权登记册不一致：{len(drift) - 1} 处',
+                              'hint': '运行 node tools/env/py.mjs tools/casebook.py rights --write'}, 'data': dict(data, drift=drift)}
+        ctx.warn('cases.rights-stale', f'catalog 的权利字段与登记册不一致 {len(drift) - 1} 处', '加 --write 更新')
+    elif args.verify:
+        ctx.out('catalog 的权利字段与授权登记册一致')
+    return {'data': dict(data, drift=drift)}
+
+
 def main(args, ctx):
     validate_options(args)
     manifest = load_catalog()
-    handler = {'list': cmd_list, 'check': cmd_check, 'restore': cmd_restore, 'rehash': cmd_rehash}[args.command]
+    handler = {'list': cmd_list, 'check': cmd_check, 'restore': cmd_restore, 'rehash': cmd_rehash, 'rights': cmd_rights}[args.command]
     try:
         return handler(args, ctx, manifest)
     except (CliError, KeyboardInterrupt):
