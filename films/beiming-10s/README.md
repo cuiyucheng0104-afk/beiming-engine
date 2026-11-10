@@ -6,7 +6,7 @@
 |---|---|
 | `film.json` | 镜像描述：三镜 A [0, 72)、B [72, 120)、C [120, 240)，34 个画面与声音事件，档位 `beiming-1040p24`；路径相对仓库根（`mirror.paths = repo`），`mirror.frozen = true` |
 | `mirror-check.mjs` | 一致性检查：读 `src/timeline.js`、`src/main.js`、`src/girl.js`、`src/shotC.js`、`src/hud.js`、`src/birds.js`、`audio/cues.json`，推出应有的镜头表与事件帧，与 `film.json` 逐项比对，任何漂移都失败 |
-| `review/` | 审片记录。目前只有一条 AI 的代理审片（`decision: comment`），不是用户认可 |
+| `review/` | 审片记录。目前只有一条 AI 的代理审片（`decision: comment`），不是用户认可，状态仍是 draft |
 
 ```sh
 node engine/production/film.js check films/beiming-10s     # 作品描述合格
@@ -19,4 +19,4 @@ node engine/production/film.js expect films/beiming-10s    # QA 期望值（切�
 
 **改样片的切点**（src/ 是冻结基准，改之前先确认有授权）：在 `src/timeline.js` 改 `TIMELINE`，再跑 `mirror-check.mjs`，按它列出的差异改 `film.json` 的镜头表与事件（`film.js retime films/beiming-10s --shot <id> --out <帧>` 可以预览改后的帧号；镜像不许 `--write`）。声音表 `audio/cues.json` 的时间也要一起改。
 
-**代理审片样例**：`review/final-2026-11-10.json` 是按 `docs/creative-review/RUBRIC.md` §4 做的一次代理审片（静帧证据，没有看连续帧与带声成片）：片尾片名「北冥」写完后只停约 9 帧、副标题字小对比低（一票否决 `text-defect`），鲲鳍尖与东方明珠塔尖相切。样片源码冻结，这些问题按 QA 豁免登记，作为新作品的反例。
+**代理审片样例**：`review/final-2026-11-10.json` 是按 `docs/creative-review/RUBRIC.md` §3 与评分标尺 `docs/quality/RUBRIC.md` 做的一次代理审片（静帧证据，没有看连续帧与带声成片）：片尾片名「北冥」写完后只停约 9 帧、副标题字小对比低（声画与文字 5 分，机器 QA 的 `texts.duration` 硬门同样不通过），鲲鳍尖与东方明珠塔尖相切（构图与留白 7 分）。AI 的记录只能是 `comment`，不推进状态。样片源码冻结，这些问题按 QA 豁免登记，作为新作品的反例。

@@ -4,7 +4,7 @@
 > **依据**：决策 D08（`docs/decisions/2026-11-10-industrial-baseline.md`）；导演方法的四个关口见 `routes/directing/DIRECTING.md` §1。
 > **实现**：`engine/production/review.js`（记录）、`engine/production/state.js`（状态机与闸门），命令入口 `node engine/production/film.js`。出片编排 `tools/film`（P06）调用同一套库。
 
-同目录还有：[SOP.md](SOP.md)（从需求到交付的生产链总表）、[RUBRIC.md](RUBRIC.md)（六维评分、一票否决、问题分级、代理审片规程）、[review.template.md](review.template.md)（送审单）、[issue.schema.json](issue.schema.json)（问题条目格式）。
+同目录还有：[SOP.md](SOP.md)（从需求到交付的生产链总表）、[RUBRIC.md](RUBRIC.md)（分数与问题怎么写进记录、送审线、代理审片规程）、[review.template.md](review.template.md)（送审单）、[issue.schema.json](issue.schema.json)（问题条目格式）。评分标尺只有一份：[docs/quality/RUBRIC.md](../quality/RUBRIC.md)（六维锚点、一票否决、机器证据对照）。
 
 ## 1. 四个关口
 
@@ -45,7 +45,7 @@ flowchart LR
 
 ## 3. 怎么记录
 
-一条结论一个文件：`review/<闸>-<YYYY-MM-DD>.json`，同一天同一道闸再记就是 `-2`、`-3`……；**只增不改**，新的结论覆盖旧的结论（同一秒内按序号）。用命令写，不要手写：
+一条结论一个文件：`review/<闸>-<YYYY-MM-DD>.json`，同一天同一道闸再记就是 `-2`、`-3`……；**只增不改**，新的结论覆盖旧的结论（同一秒内按序号）。记录的核心字段是 `gate`、`decision`、`quote`（用户原话，逐字）、`source`（出处 `{ kind, ref, at }`，`at` 是用户说话的时间）、`at`（写记录的时间，不能早于用户说话的时间），与验收题库核对原话的字段同名。用命令写，不要手写：
 
 ```sh
 # 用户认可风格帧（--file 可重复；记录里自动写每个文件的 sha256）
@@ -56,7 +56,7 @@ node engine/production/film.js review films/<名> --gate look --decision approve
 # 用户否定：写清维度与下次必须改什么
 node engine/production/film.js review films/<名> --gate animatic --decision reject \
   --quote "节奏太碎了，镜头 C 太短" --source-ref "飞书 2026-11-11 10:32" \
-  --rejected-on rhythm,camera --must-change "镜头 C 至少 4 秒，合并 S3 与 S4" --shot C=fail:太短
+  --rejected-on camera,narrative --must-change "镜头 C 至少 4 秒，合并 S3 与 S4" --shot C=fail:太短
 
 # 用户明确说跳过某一关（只能 look / animatic）
 node engine/production/film.js review films/<名> --gate animatic --decision waive \
@@ -72,23 +72,25 @@ node engine/production/film.js gate films/<名> final     # 能否终渲：exit 
 node engine/production/film.js gate films/<名> deliver   # 能否写「已交付」：只有 accepted 放行
 ```
 
-`--quote` 原样照录用户说的话：含标点，不改写、不概括、不翻译；多行用 `--quote-file <UTF-8 文本>`。`--source-ref` 写能找回这句话的地方（会话与消息序号、聊天记录时间、邮件主题、会议纪要路径），不写本机绝对路径。`--source-at` 写用户说话的时间（默认现在）。`--dry-run` 只打印记录。
+`--quote` 原样照录用户说的话：含标点，不改写、不概括、不翻译；多行用 `--quote-file <UTF-8 文本>`。`--source-ref` 写能找回这句话的地方（会话与消息序号、聊天记录时间、邮件主题、会议纪要路径），不写本机绝对路径。`--source-at` 写用户说话的时间（默认现在）。`--dry-run` 只打印记录。加 `--json` 时 stdout 只有一个信封（[docs/CLI.md](../CLI.md) §2），记录内容在 `data.record`。
+
+**`review/waivers.json`**：用户在命令行之外批准的豁免（例如集成负责人在评审会上记下的）也可以写在这里，`{ "schemaVersion": 1, "waivers": [ { "gate", "quote", "source", "reviewer", "recordedBy", "at" } ] }`；每条按 `decision: waive` 校验，规则与单独的记录文件相同（原话、出处、不能是 agent 批准、final 不能豁免），一起参与闸门结论。
 
 ## 4. agent 能做什么、不能做什么
 
 - **不能自己批准**：approve / reject / waive 只能由用户或指定审片人做。记录里 `reviewer.kind` 必须是 `human`，并带原话与出处；没有原话、原话是占位符（`用户原话`、`{{…}}`、`TODO`、`代理检查通过`……）或自评口吻的记录无效，状态计算当它不存在。`recordedBy` 写实际录入的人或 agent（默认 agent）。
 - **不能替人看片**：全速带声的完整观看只能由人做；agent 不能写「已带声看过」。
-- **能做代理审片**：按 [RUBRIC.md](RUBRIC.md) §4 的规程看联系表、切点帧条、事件帧条、声画数据、读字与安全区，打分并写问题条目（[issue.schema.json](issue.schema.json)），用 `--decision comment` 记录。代理审片的结论只能写「代理检查通过 / 未通过」。
+- **能做代理审片**：按 [RUBRIC.md](RUBRIC.md) §3 的规程看联系表、切点帧条、事件帧条、声画数据、读字与安全区，按评分标尺打分并写问题条目（[issue.schema.json](issue.schema.json)），用 `--decision comment` 记录。代理审片的结论只能写「代理检查通过 / 未通过」。
 - **不能编原话**：二手转述不是原话。例如九分钟版文档转述过「用户要求完全沿用原版十秒」，那是转述，不能补成样片的审片记录。
 - **豁免**：用户明确说跳过 look 或 animatic 时，照录原话写 waive；final 不能豁免（用户不看片就要交付时，状态停在 qa-passed，对外写「技术检查通过，未经用户审看」）。
 
 ## 5. 运行记录里的创作验收
 
-`run.json`（附录 C8）的 `creativeAcceptance` 是 `{ status, reviews[] }`，每条评审 `{ reviewerKind, reviewer, decision, quote, source, scores?, vetoes?, evidenceFrames?, record? }`。`engine/production/project.js` 的 `validateRenderResult(run, { strict: true })`（`film.js validate-result` 与状态机都用它）要求：
+`run.json`（附录 C8）的 `creativeAcceptance` 是 `{ status, reviews[] }`，每条评审 `{ reviewerKind, reviewer, decision, quote, source, scores?, vetoes?, evidenceFrames?, record? }`。出片编排不手拼它：用 `engine/production/state.js` 的 `creativeAcceptanceOf(作品, { runShas })` 从 `review/` 里看过这次成片的 final 记录生成（`accepted` / `rejected` / `ai-reviewed` / `not-reviewed`），与状态机同一来源。`engine/production/project.js` 的 `validateRenderResult(run, { strict: true })`（`film.js validate-result` 与状态机都用它）要求：
 
 - `accepted` 至少有一条 `reviewerKind: human`、`decision: approve`、带原话与出处的评审；只有 AI 评审时最多写 `ai-reviewed`。
 - AI 评审只能是 `comment`。
-- 技术验收 `passed` 必须指向一份可解析、`ok: true` 的 QA 报告（`qa/report.json`）；命令与日志只能作补充证据。渲染器只写 `status: rendered` 与 `technicalAcceptance.status: not-run`，由 QA 判定。
+- 技术验收 `passed` 必须指向一份可解析、`ok: true` 的 QA 报告：`tools/qa` 写的仓库相对路径（`films/<名>/out/<run-id>/qa/report.json`）或相对运行目录的 `qa/report.json` 都认；报告结构按机器 QA 自己的 `validateReport` 判，还要查的是这次运行的产物（`input.sha256`）。命令与日志只能作补充证据。渲染器只写 `status: rendered` 与 `technicalAcceptance.status: not-run`，由 QA 判定。
 
 ## 6. 历史作品
 

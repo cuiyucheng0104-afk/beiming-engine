@@ -6,8 +6,8 @@
 
 | 契约 | 实现 | 说明 |
 |---|---|---|
-| 作品描述 `films/<名>/film.json` v2 | [`engine/production/film.js`](../../engine/production/film.js)，schema 见 [`film.schema.json`](../../engine/production/film.schema.json) | 每部作品唯一的时间源：镜头表、事件表、节拍、停顿都用整数帧；字段与规则见 [engine/production/README.md](../../engine/production/README.md)；本页 §0 摘要 |
-| 交付档位 | [`engine/production/profiles.json`](../../engine/production/profiles.json) | 决策 D07；QA 期望值由 `film.js expect` 给出 |
+| 作品描述 `films/<名>/film.json` v2 | [`engine/production/film.js`](../../engine/production/film.js)，schema 见 [`film.schema.json`](../../engine/production/film.schema.json) | 每部作品唯一的时间源：镜头表、事件表、节拍、刻意画面都用整数帧；字段与规则见 [engine/production/README.md](../../engine/production/README.md)；本页 §0 摘要 |
+| 交付档位 | [`engine/production/profiles.json`](../../engine/production/profiles.json) | 决策 D07；机器 QA 直接读这一份（不兜底）；本片的 QA 期望值由 `film.js expect` 给出 |
 | 页面约定 v1 | 本页 §0.2 | A、C 路线的页面与渲染器之间的约定（计划附录 C5） |
 | 创作闸门与状态 | [`engine/production/state.js`](../../engine/production/state.js)、[`review.js`](../../engine/production/review.js) | 决策 D08；操作说明见 [docs/creative-review/](../creative-review/README.md) |
 | `ProjectSpec` 与 `RenderResult` | [`engine/production/project.js`](../../engine/production/project.js) | T01 的字段与路径校验；路线改用注册表 id；RenderResult 加了人工评审与 QA 证据规则（§7） |
@@ -21,8 +21,9 @@
 
 - **时间**：`output.frameCount` 是时长的唯一来源；镜头 `shots[]` 是半开区间 `[in, out)`，首尾相接覆盖 `[0, frameCount)`；事件 `events[]` 写结果帧 `frame` 与所属镜头 `shot`；秒只由 帧 / fps 推出。改切点用 `node engine/production/film.js retime`，事件跟着镜头走。
 - **路线**：`route` 取路线注册表 id（`a` / `b` / `c`），`backend` 按路线取值；交付规格只引用档位 `output.profile`。
-- **不许有没有消费者的时间字段**：时间只写在 `shots`、`events`、`holds`、`timeline`、`posterFrame`。
-- **校验**：`node engine/production/film.js check films/<名> [--json]`（退出码 0 / 2 / 4）；模版用 `--template`。
+- **声画同步与刻意画面**：`events[].sync` 与机器 QA 同口径（不写 = 硬门、`lip`、`soft`、`none`）；刻意的静帧、黑场、闪白写在 `qa.intentional`（写理由），QA 的阈值覆盖与用户批准的豁免也在 `qa` 段（[QA-GATE.md](../quality/QA-GATE.md)）。
+- **不许有没有消费者的时间字段**：时间只写在 `shots`、`events`、`timeline`、`qa`（`intentional` 的 `from` / `to`、豁免的 `frames`）、`posterFrame`。
+- **校验**：`node engine/production/film.js check films/<名> [--json]`（退出码 0 / 2 / 4；`--json` 的诊断在 `data.diagnostics`）；模版用 `--template`。
 
 ### 0.2 页面约定 v1（A、C 路线）
 
@@ -30,7 +31,7 @@
 
 | 字段 | 要求 |
 |---|---|
-| `window.DUR` | 必选。有限正数（秒），且 `round(DUR × fps)` 必须等于 film.json 的 `output.frameCount` |
+| `window.DUR` | 必选。有限正数（秒），且 `round(DUR × fps)` 必须等于 film.json 的 `output.frameCount`。从 film.json 推出：`window.DUR = pageTiming(film).DUR`（`engine/production/timeline.js`） |
 | `window.render(t)` | 必选。`t` 是秒（= 帧号 / fps）；结果只由 `t` 决定（任意帧单独渲与顺序渲一致）；可以同步执行或返回 Promise，受单帧超时约束 |
 | `window.READY` | 必选。资源加载完、着色器编译完后置为 `true`，须在就绪超时之内 |
 | `window.TEXTS(t)` | 推荐。返回该时刻画面上的文字 `[{ text, box: [x, y, w, h], alpha, font }]`（像素框、0–1 不透明度），给 QA 查安全区、停留时长、对比度与缺字 |
@@ -38,7 +39,19 @@
 | `window.__RENDER` | 由渲染器注入：`{ fps, width, height, profile }`；页面据此按档位排版，不自己写死帧率 |
 | `window.BEIMING_CONTRACT` | 可选，页面约定的版本号，缺省按 1 处理 |
 
-禁止：渲染路径里用 `Math.random`、`Date.now`、`performance.now`（只用于计时的除外）、无种子的噪声（`engine/core/noise.js` 不再接受无种子调用）；渲染时读回 GPU 画布；访问外网。页面里的时间常量（例如 `timeline.js` 的 `DUR`、`FPS`）要从 film.json 读，或与它一致——`film.js check` 会核对作品目录里 `timeline.js` 的 `DUR` 与 `FPS`。
+禁止：渲染路径里用 `Math.random`、`Date.now`、`performance.now`（只用于计时的除外）、无种子的噪声（`engine/core/noise.js` 不再接受无种子调用）；渲染时读回 GPU 画布；访问外网。
+
+页面的时间从 film.json 读，不在代码里另写切点与事件的秒数：
+
+```js
+import { pageTiming } from '../../engine/production/timeline.js';
+const timing = pageTiming(await (await fetch('./film.json')).json());
+window.DUR = timing.DUR;                       // round(DUR × fps) = output.frameCount
+const { shot, local } = timing.at(t);          // t 所在的镜头与镜头内秒数（画面先到：帧取 floor）
+const tTitle = timing.event('title.in').t;     // 事件的结果帧换成秒
+```
+
+这样改一个镜头的 `out`（`film.js retime`），画面切点、镜头内时间与事件时刻跟着 film.json 变，不改页面代码。还没改读 film.json 的页面，时间常量（例如 `timeline.js` 的 `DUR`、`FPS`）必须与它一致——`film.js check` 会核对作品目录里 `timeline.js` 的 `DUR` 与 `FPS`。
 
 B 路线的原生入口（`film.tsx`）不走页面约定：帧数、尺寸由 film.json 的 `output` 与 `native` 段给出，时间只由 `useCurrentFrame()` 决定。
 
@@ -208,12 +221,12 @@ Three 适配器先包装现有镜头，不直接改写其全局 `update(t,f)` �
 | `sourceCommit`、`dirty`、`argv`、`tools{node, playwright, browser, ffmpeg, python?, raea?}` | 来源与工具版本 |
 | `actualDevice`、`actualGraphicsBackend`、`actualEncoder`、`softwareFallback` | 实际执行证据（rendered / passed / accepted 必填前三项） |
 | `output{path, sha256, width, height, fps, frames, pixFmt, color}`、`frameHashes`、`timing{阶段: 秒}` | 产物与耗时 |
-| `technicalAcceptance{status, evidence[]}` | 渲染器只写 `not-run`；`passed` 必须指向一份可解析、`ok: true` 的 QA 报告（`qa/report.json`） |
-| `creativeAcceptance{status, reviews[]}` | `status`：`not-reviewed` / `ai-reviewed` / `rejected` / `accepted`；`reviews[]` 每条 `{ reviewerKind: human \| ai, reviewer, decision, quote, source{kind, ref, at}, scores?, vetoes?, evidenceFrames?, record? }`。AI 只能 `comment`；`accepted` 至少要一条人工 `approve`，带审阅人原话与出处 |
+| `technicalAcceptance{status, evidence[]}` | 渲染器只写 `not-run`；`passed` 必须指向一份可解析、`ok: true` 的 QA 报告（`tools/qa` 写的仓库相对路径，或相对运行目录的 `qa/report.json`） |
+| `creativeAcceptance{status, reviews[]}` | `status`：`not-reviewed` / `ai-reviewed` / `rejected` / `accepted`；`reviews[]` 每条 `{ reviewerKind: human \| ai, reviewer, decision, quote, source{kind, ref, at}, scores?, vetoes?, evidenceFrames?, record? }`（`scores` / `vetoes` 的 id 见 [docs/creative-review/RUBRIC.md](../creative-review/RUBRIC.md) §1）。AI 只能 `comment`；`accepted` 至少要一条人工 `approve`，带审阅人原话与出处。出片编排用 `creativeAcceptanceOf(作品, { runShas })`（`engine/production/state.js`）从审片记录生成，不手拼 |
 
-校验：`node engine/production/film.js validate-result <run.json> [--film <作品>]`，库 `validateRenderResult(run, { strict: true, runDir })`。T01 的旧形状（`creativeAcceptance` 只写 `events` / `styleComparison`）只在默认口径下兼容，运行记录一律用严格口径。
+校验：`node engine/production/film.js validate-result <run.json> [--film <作品>] [--json]`（不给 `--film` 时按运行目录找作品；exit 0 通过、4 不合格、2 找不到），库 `validateRenderResult(run, { strict: true, runDir, repoRoot })`。T01 的旧形状（`creativeAcceptance` 只写 `events` / `styleComparison`）只在默认口径下兼容，运行记录一律用严格口径。
 
-QA 报告 `qa/report.json` 的最小字段：`{ schemaVersion: 1, film, input: { path, sha256 }, profile, checks: [{ id, status: pass | fail | warn | waived, value, expected, evidence, waiver? }], ok }`；`input.sha256` 必须是这次运行的成片。
+QA 报告 `qa/report.json` 由 `node tools/qa/cli.mjs report <成片>` 生成，结构以机器 QA 的 `validateReport`（`tools/qa/lib/report.mjs`）为准，最少有 `{ schemaVersion: 1, film, input: { path, sha256 }, profile, checks: [{ id, status: pass | fail | warn | waived, value, expected, evidence, waiver? }], ok }`（`film`、`profile` 可以是带 `id` 的对象）；`input.sha256` 必须是这次运行的成片。
 
 ### 7.2 创作闸门
 

@@ -13,9 +13,9 @@
   "style": { "id": "beiming-original", "version": 1 },
   "shots": [ { "id": "S1", "verdict": "pass" }, { "id": "S2", "verdict": "note", "note": "天空再亮一点" } ],
   "issues": [
-    { "id": "R1", "frame": 101, "shot": "S2", "region": [0.42, 0.3, 0.1, 0.12], "layer": "performance", "dimension": "motion", "problem": "发丝穿过镜框", "fix": "发丝路径收短", "priority": "P2", "evidence": ["review/strips/s2_096-106.jpg"], "status": "open" }
+    { "id": "R1", "frame": 101, "shot": "S2", "region": [0.42, 0.3, 0.1, 0.12], "layer": "performance", "dimension": "narrative", "problem": "发丝穿过镜框", "fix": "发丝路径收短", "priority": "P2", "evidence": ["review/strips/s2_096-106.jpg"], "status": "open" }
   ],
-  "scores": { "style": 8, "subject": 8 },
+  "scores": { "style": 8, "composition": 8 },
   "vetoes": [],
   "evidenceFrames": [96, 101]
 }

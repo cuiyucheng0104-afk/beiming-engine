@@ -11,16 +11,29 @@ import { REPO } from './helpers.mjs';
 
 const doc = name => readFileSync(join(REPO, 'docs', 'creative-review', name), 'utf8');
 
-test('RUBRIC.md 列出全部评分维度、否决项、层与优先级，名称与 vocab.js 一致', () => {
+test('只有一把尺子：vocab.js 的维度与否决项 = 评分标尺 docs/quality/RUBRIC.md 的小节 = 验收题库的评分表', async () => {
+  const quality = readFileSync(join(REPO, 'docs', 'quality', 'RUBRIC.md'), 'utf8');
+  // 评分标尺 §2 的六个小节标题，顺序与 vocab 相同
+  const heads = [...quality.matchAll(/^### 2\.(\d) (.+)$/gm)].map(m => m[2].trim());
+  assert.deepEqual(heads, Object.values(RUBRIC_DIMENSIONS));
+  // 一票否决：评分标尺 §3 的表逐行对得上（标尺写「断帧或闪帧」，题库写同一句）
+  for (const label of Object.values(VETOES)) assert.ok(quality.includes(`| ${label} |`), `评分标尺 §3 缺「${label}」`);
+  // 验收题库的评分表（tools/eval/lib/scoring.mjs）：id 与标题都相同
+  const { VISUAL_DIMS, VETOES: EVAL_VETOES } = await import('../../tools/eval/lib/scoring.mjs');
+  assert.deepEqual(VISUAL_DIMS.map(d => [d.id, d.title]), Object.entries(RUBRIC_DIMENSIONS));
+  assert.deepEqual(EVAL_VETOES.map(v => [v.id, v.title]), Object.entries(VETOES));
+});
+
+test('docs/creative-review/RUBRIC.md 只写落分方法，不另立标尺：列出全部 id、链到评分标尺，层与优先级与 vocab.js 一致', () => {
   const md = doc('RUBRIC.md');
+  assert.match(md, /\.\.\/quality\/RUBRIC\.md/);
   for (const [id, label] of Object.entries(RUBRIC_DIMENSIONS)) assert.ok(md.includes(`| \`${id}\` | ${label} |`), `维度 ${id}「${label}」`);
   for (const [id, label] of Object.entries(VETOES)) assert.ok(md.includes(`| \`${id}\` | ${label} |`), `否决项 ${id}「${label}」`);
   for (const [id, label] of Object.entries(ISSUE_LAYERS)) assert.ok(md.includes(`\`${id}\` | ${label} |`), `层 ${id}「${label}」`);
   for (const p of ISSUE_PRIORITIES) assert.ok(md.includes(`| \`${p}\` |`), p);
   for (const s of ISSUE_STATUSES) assert.ok(md.includes(`\`${s}\``), s);
-  // 文档里出现的维度 id 不多于 vocab（防止文档自己加维度）
-  const rows = [...md.matchAll(/^\| `([a-z-]+)` \| ([^|]+) \| (?:10 分|.*?)/gm)].map(m => m[1]);
-  for (const id of rows) assert.ok(Object.hasOwn(RUBRIC_DIMENSIONS, id) || Object.hasOwn(VETOES, id) || Object.hasOwn(ISSUE_LAYERS, id) || ISSUE_PRIORITIES.includes(id), `文档里多出 ${id}`);
+  // 不写锚点分档表（那是评分标尺的事）：本页没有「| 10 |」「| 8 |」这样的锚点行
+  assert.doesNotMatch(md, /^\| (10|8|6|4|2) \|/m);
 });
 
 test('issue.schema.json 的取值与 vocab.js 一致，必填项与 validateIssue 一致', () => {
@@ -31,7 +44,7 @@ test('issue.schema.json 的取值与 vocab.js 一致，必填项与 validateIssu
   assert.deepEqual(s.properties.status.enum, ISSUE_STATUSES);
   assert.deepEqual(s.required.sort(), ['layer', 'priority', 'problem']);
   const film = { output: { frameCount: 240 }, shots: [{ id: 'A' }, { id: 'B' }] };
-  const ok = { id: 'R1', frame: 101, shot: 'B', region: [0.4, 0.3, 0.1, 0.1], layer: 'performance', dimension: 'motion', problem: '发丝穿过镜框', fix: '收短发丝路径', priority: 'P2', evidence: ['review/strips/b.jpg'], status: 'open' };
+  const ok = { id: 'R1', frame: 101, shot: 'B', region: [0.4, 0.3, 0.1, 0.1], layer: 'performance', dimension: 'narrative', problem: '发丝穿过镜框', fix: '收短发丝路径', priority: 'P2', evidence: ['review/strips/b.jpg'], status: 'open' };
   assert.deepEqual(validateIssue(ok, { film }), []);
   for (const k of Object.keys(ok)) assert.ok(Object.hasOwn(s.properties, k), `schema 缺字段 ${k}`);
   for (const [bad, code] of [[{ layer: 'colour' }, 'issue-layer'], [{ priority: 'high' }, 'issue-priority'], [{ frame: 240 }, 'issue-frames'], [{ frames: [10, 20] }, 'issue-frames'], [{ problem: '' }, 'issue-problem'], [{ region: [0, 0, 2, 1] }, 'issue-region'], [{ shot: 'Z' }, 'issue-shot']]) {

@@ -107,7 +107,7 @@ const passed = over => Object.assign(JSON.parse(readFileSync(join(REPO, 'docs', 
   technicalAcceptance: { status: 'passed', evidence: ['qa/report.json'] },
 }, over);
 const human = { reviewerKind: 'human', reviewer: '用户', decision: 'approve', quote: '可以，交付。', source: { kind: 'session', ref: '会话第 12 条消息', at: '2026-11-10T15:00:00+08:00' }, scores: { style: 9 }, evidenceFrames: [12, 60] };
-const ai = { reviewerKind: 'ai', reviewer: 'agent', decision: 'comment', summary: '代理检查通过', scores: { rhythm: 7 }, vetoes: [] };
+const ai = { reviewerKind: 'ai', reviewer: 'agent', decision: 'comment', summary: '代理检查通过', scores: { camera: 7 }, vetoes: [] };
 
 test('评审条目：AI 只能 comment；只有 AI 评审时 accepted 被拒；人工认可要原话与出处', () => {
   const aiOnly = passed({ status: 'accepted', creativeAcceptance: { status: 'accepted', reviews: [ai] } });

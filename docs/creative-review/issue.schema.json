@@ -16,7 +16,7 @@
     "shot": { "type": "string", "description": "镜头 id（film.json shots[].id）" },
     "region": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 4, "maxItems": 4, "description": "画面区域 [x, y, w, h]，占画面宽高的比例" },
     "layer": { "enum": ["model", "material", "lighting", "plate", "post", "performance", "camera", "edit", "overlay", "text", "sound", "tech"], "description": "问题所属的层：造型、材质与着色、灯光、底板、后期、动作与表演、镜头与运镜、剪辑与节奏、显示层、文字、声音、技术与编码" },
-    "dimension": { "enum": ["style", "subject", "camera", "motion", "rhythm", "text"], "description": "影响的评分维度（docs/creative-review/RUBRIC.md §2）" },
+    "dimension": { "enum": ["style", "texture", "narrative", "camera", "composition", "avText"], "description": "影响的评分维度（docs/quality/RUBRIC.md §2：风格还原、质感、叙事清楚、镜头与节奏、构图与留白、声画与文字）" },
     "problem": { "type": "string", "minLength": 1, "description": "看到了什么（现象，不写猜测的原因）" },
     "fix": { "type": "string", "description": "改法：改哪个文件、怎么改" },
     "priority": { "enum": ["P0", "P1", "P2", "P3"], "description": "P0 报错、黑屏、穿帮或一票否决项；P1 明显偏离画风或转场、动作不成立；P2 可见瑕疵；P3 锦上添花" },

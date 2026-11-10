@@ -13,6 +13,8 @@
 //                                                    再核对它查的是这次运行的成片、档位在作品的交付清单里
 //   qaReportIds(report)              QA 报告里的作品 id 与档位 id（报告写成对象 { id, … }，附录 C8 的最小写法是字符串，两种都认）
 //   readLatestRun(loaded)            按 latest 指针文件找最近一次运行（不跟符号链接）
+//   creativeAcceptanceOf(target, { runShas }) → run.json 的 creativeAcceptance { status, reviews[] }：由 review/ 里看过这次成片
+//                                    （reviewed 的 sha256 对得上）的 final 记录生成，给出片编排写运行记录用；与状态机同一来源，不另判
 // 运行目录：普通作品 films/<名>/out/<run-id>/；镜像作品用 film.json 的 mirror.outDir（如 out/beiming/<run-id>/）。
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -20,7 +22,7 @@ import { FilmError, loadFilm } from './film.js';
 import { REPO_ROOT, readJsonFile } from './io.js';
 import { validateRenderResult } from './project.js';
 import { validateReport as validateQaReportShape } from '../../tools/qa/lib/report.mjs';
-import { GATES, buildReview, gateVerdict, readReviews, validateReview, writeReview } from './review.js';
+import { GATES, HUMAN_DECISIONS, buildReview, gateVerdict, readReviews, recordTime, validateReview, writeReview } from './review.js';
 
 export const STATES = Object.freeze(['draft', 'look-approved', 'animatic-approved', 'rendered', 'qa-passed', 'accepted']);
 export const STATE_LABELS = Object.freeze({
@@ -243,6 +245,30 @@ export function recordReview(target, input, { dryRun = false, now = new Date() }
   if (dryRun) return { record, path: null, sha256: null, diagnostics: v.diagnostics, status: null };
   const w = writeReview(L.filmDir, record);
   return { record, path: w.path, sha256: w.sha256, diagnostics: v.diagnostics, status: filmStatus(L.filmDir) };
+}
+
+/**
+ * 运行记录的创作验收（附录 C8 的 creativeAcceptance）：只收 final 关口、看过这次成片（reviewed 里有 runShas 之一）的有效记录。
+ *   accepted     最后一条人工结论是 approve（且状态机现算也是 accepted 时，出片编排才应把 run.json 的 status 写成 accepted）
+ *   rejected     最后一条人工结论是 reject
+ *   ai-reviewed  只有 agent 的代理审片（comment）
+ *   not-reviewed 没有看过这次成片的记录
+ * reviews[] 的形状满足 project.js 的 validateCreativeAcceptance：{ reviewerKind, reviewer, decision, quote?, source?, scores?, vetoes?, evidenceFrames?, record }。
+ */
+export function creativeAcceptanceOf(target, { runShas, loaded = null } = {}) {
+  const L = loaded ?? loadFilm(target);
+  const shas = runShas instanceof Set ? runShas : new Set(runShas ?? []);
+  const { records } = readReviews(L.filmDir, { film: L.film });
+  const mine = records.filter(r => r.valid && r.record?.gate === 'final' && (r.record.reviewed ?? []).some(x => shas.has(x.sha256)));
+  const reviews = mine.map(r => {
+    const rec = r.record;
+    const out = { reviewerKind: rec.reviewer.kind, reviewer: rec.reviewer.name, decision: rec.decision, record: `review/${r.name}`, at: recordTime(rec) };
+    for (const k of ['quote', 'source', 'scores', 'vetoes', 'evidenceFrames']) if (rec[k] !== undefined) out[k] = rec[k];
+    return out;
+  });
+  const lastHuman = mine.filter(r => HUMAN_DECISIONS.includes(r.record.decision) && r.record.decision !== 'waive').at(-1);
+  const status = lastHuman ? (lastHuman.record.decision === 'approve' ? 'accepted' : 'rejected') : (reviews.length ? 'ai-reviewed' : 'not-reviewed');
+  return { status, reviews };
 }
 
 export function assertFinalAllowed(target, opts = {}) {

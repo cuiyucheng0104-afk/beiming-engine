@@ -9,8 +9,9 @@ import { join } from 'node:path';
 import { loadFilm } from '../../engine/production/film.js';
 import { buildReview, gateVerdict, readReviews, validateReview, writeReview } from '../../engine/production/review.js';
 import {
-  GateError, assertDelivered, assertFinalAllowed, deliveryLabel, filmStatus, findUnbackedClaims, validateRunRecord,
+  GateError, assertDelivered, assertFinalAllowed, creativeAcceptanceOf, deliveryLabel, filmStatus, findUnbackedClaims, validateRunRecord,
 } from '../../engine/production/state.js';
+import { validateCreativeAcceptance as validateCreativeContract } from '../../engine/production/project.js';
 import { buildReport, technicalAcceptanceFrom } from '../../tools/qa/lib/report.mjs';
 import { HUMAN, minimalFilm, runFilm, tempFilm } from './helpers.mjs';
 
@@ -91,7 +92,18 @@ test('完整一遍：draft → look → animatic → rendered → qa-passed → 
     assert.deepEqual(findUnbackedClaims('《测试片》已交付，用户已认可。', s).map(x => x.claim), ['已交付', '用户已认可']);
     assert.deepEqual(findUnbackedClaims('技术检查通过，未交付。', s), []);
 
+    // 出片编排写 run.json 的 creativeAcceptance 用库函数生成：代理审片之后是 ai-reviewed，用户认可之后是 accepted
+    const L = loadFilm(t.dir);
+    const comment = buildReview({ film: L.film, pathBase: L.pathBase, gate: 'final', decision: 'comment', reviewer: { kind: 'ai', name: 'agent' }, summary: '代理检查通过', scores: { style: 8, avText: 8 }, reviewed: [{ path: `out/${run.runId}/web.mp4` }] });
+    writeReview(t.dir, comment);
+    assert.equal(creativeAcceptanceOf(t.dir, { runShas: [run.sha] }).status, 'ai-reviewed');
     record(t.dir, 'final', 'approve', { quote: '成片可以，交付吧。', reviewed: [{ path: `out/${run.runId}/web.mp4` }] });
+    const ca = creativeAcceptanceOf(t.dir, { runShas: [run.sha] });
+    assert.equal(ca.status, 'accepted');
+    assert.deepEqual(ca.reviews.map(r => [r.reviewerKind, r.decision]), [['ai', 'comment'], ['human', 'approve']]);
+    assert.equal(validateCreativeContract(ca).humanApproved, true);
+    assert.deepEqual(validateCreativeContract(ca).diagnostics, []);
+    assert.equal(creativeAcceptanceOf(t.dir, { runShas: ['0'.repeat(64)] }).status, 'not-reviewed');   // 别的成片：没人看过
     s = filmStatus(t.dir);
     assert.equal(s.state, 'accepted');
     assert.equal(deliveryLabel(s), '已交付 · 用户已认可');
@@ -115,7 +127,7 @@ test('agent 不能自己批准：AI 的 approve / waive、没有原话、占位�
     assert.ok(check({ source: { kind: 'session', ref: '会话', at: '昨天' } }).includes('review-source-at'));
     assert.ok(check({ reviewed: [] }).includes('review-files-missing'));
     // AI 的代理审片只能写 comment，永远推不动状态
-    const comment = buildReview({ ...base, decision: 'comment', reviewer: { kind: 'ai', name: 'agent' }, quote: undefined, source: undefined, summary: '代理检查通过：切点 ±1 帧无跳帧', scores: { style: 8, rhythm: 7 } });
+    const comment = buildReview({ ...base, decision: 'comment', reviewer: { kind: 'ai', name: 'agent' }, quote: undefined, source: undefined, summary: '代理检查通过：切点 ±1 帧无跳帧', scores: { style: 8, camera: 7 } });
     assert.deepEqual(codesOf(validateReview(comment, { film: L.film })), []);
     writeReview(t.dir, comment);
     // 手工塞进去的 AI 批准记录：读得到，但无效，不算数
