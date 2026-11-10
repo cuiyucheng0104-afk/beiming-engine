@@ -5,7 +5,7 @@
 //   - 槽位目录：BEIMING_SLOT_DIR，默认 <系统临时目录>/beiming-render-slots-<用户>；所有检出共用（只读仓库也能用）
 //   - 一个槽位 = 一个子目录 slot<i>，里面 owner.json 记持有者，持有者每 15 秒刷新它的修改时间
 //   - 持有者进程已不在（同一台机器）或心跳超过 90 秒没动 → 槽位过期，可接管；所有“查看 → 接管 / 占用”都在 .mutex 目录锁里做
-//   - 外层已占槽位（RENDER_SLOT_HELD=1）时直接放行
+//   - 外层调度已经替这次渲染占了槽位（BEIMING_SLOT_HELD=1）时直接放行
 //   acquireSlot({ slots, wait, timeoutMs, signal, log, label }) → release()；满了且 wait=false → 退出码 5；等超时 → 退出码 124
 //
 // 共享 GPU 守卫：机器上有 nvidia-smi 时（Windows / Linux 的 NVIDIA 工作站）开渲前采样一次——任一块卡占用率高于
@@ -75,7 +75,7 @@ export function slotCount(value = process.env.RENDER_SLOTS) {
 }
 
 export async function acquireSlot({ slots = slotCount(), wait = true, timeoutMs = Infinity, signal, log, label = path.basename(process.argv[1] || 'render') } = {}) {
-  if (!slots || process.env.RENDER_SLOT_HELD === '1') return Object.assign(() => {}, { info: { slots: slots ?? null, held: process.env.RENDER_SLOT_HELD === '1' } });
+  if (!slots || process.env.BEIMING_SLOT_HELD === '1') return Object.assign(() => {}, { info: { slots: slots ?? null, held: process.env.BEIMING_SLOT_HELD === '1' } });
   const dir = slotDir();
   fs.mkdirSync(dir, { recursive: true });
   const t0 = Date.now();

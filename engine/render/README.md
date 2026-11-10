@@ -184,10 +184,9 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `BEIMING_CHROME` | 换浏览器可执行文件（默认锁定的 headless shell） |
 | `BEIMING_READY_TIMEOUT`、`BEIMING_FRAME_TIMEOUT` | 等 READY、单帧的上限（秒） |
 | `FFMPEG`、`FFPROBE` | FFmpeg / ffprobe 的完整路径（`tools/env/lib/ffmpeg.mjs` 的 `ffmpegBins`） |
-| `RENDER_SLOTS`、`BEIMING_SLOT_DIR` | 机器级渲染槽位数与槽位目录（默认系统临时目录下 `beiming-render-slots-<用户>`） |
+| `RENDER_SLOTS`、`BEIMING_SLOT_DIR`、`BEIMING_SLOT_HELD` | 机器级渲染槽位数、槽位目录（默认系统临时目录下 `beiming-render-slots-<用户>`）；外层调度已替这次渲染占了槽位时设 `BEIMING_SLOT_HELD=1` |
 | `BEIMING_GPU_BUSY_UTIL`、`BEIMING_GPU_MIN_FREE_MB`、`COMFY_URL` | 共享 GPU 守卫的阈值与 ComfyUI 地址 |
 | `BEIMING_DEBUG` | 出内部错误时打印堆栈 |
-| `NODE` | `mux.sh` 兼容壳用哪个 node |
 
 ## 13. 文件
 
@@ -195,7 +194,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 |---|---|
 | `page.mjs` | 打开影片页面：静态服务、无头 Chrome、注入 `__RENDER` 与故障监测、等 READY、核对页面约定、逐帧 `renderFrame`、截图。兼容导出 `chromeArgs`、`SOFTWARE_RENDERER`、`defaultAngle`、`takeSize`、`FilmError` 等（`tools/env`、`engine/native/sequence.mjs`、测试在用；`render.compat-exports` 规则守护） |
 | `still.mjs`、`video.mjs`、`shots.mjs`、`serve.mjs` | 四个命令 |
-| `mux.sh` | 兼容壳：`exec node lib/mux.mjs "$@"`（CRLF 检出时自行去掉 CR 重跑） |
+| `mux.sh` | 兼容壳：`exec node lib/mux.mjs "$@"`（用 PATH 里的 node；CRLF 检出时自行去掉 CR 重跑） |
 | `args.mjs` | 旧的参数小工具（`--range` 与时刻），still 仍在用 |
 | `lib/command.mjs` | 渲染命令外壳：收尾（子进程、浏览器、临时目录、锁、失败记录）、信号、日志与 NDJSON 进度、参数取值、共用选项 |
 | `lib/errors.mjs` | `RenderError`（继承命令约定库的 `CliError`）、错误归类、退出码表 |
