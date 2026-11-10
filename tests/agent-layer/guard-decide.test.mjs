@@ -170,6 +170,22 @@ test('Shell：作品目录、out/、临时目录的写入与只读命令放行',
   }
 });
 
+test('递归操作的起点只是包含只读区域时：拒绝并说清"会连带"，限定到自己的目录就放行', () => {
+  for (const cmd of ['find . -name "*.pyc" -delete', 'rm -rf .', 'git clean -fd cases', 'chmod -R 755 .']) {
+    const d = bash(cmd);
+    assert.equal(d.decision, 'deny', cmd);
+    assert.match(d.reason, /会连带只读区域/, `${cmd} 的理由要说明会连带只读区域`);
+    assert.match(d.reason, /限定在自己的目录/, `${cmd} 的下一步要建议缩小范围`);
+  }
+  const inside = write(R('cases', 'vendor', 'x.js'));
+  assert.doesNotMatch(inside.reason, /会连带/, '目标本身在区域里时不说"连带"');
+  for (const cmd of ['find films -name "*.pyc" -delete', 'git clean -fd films/demo/out', 'git clean -fdx out/', 'rm -rf films/demo/out out/stills']) {
+    expectAllow(bash(cmd), cmd);
+  }
+  expectDeny(bash('git clean -fdx'), 'git-clean', 'git clean 不带路径');
+  expectDeny(bash('git clean -fd .'), 'git-clean', 'git clean 仓库根');
+});
+
 test('从归档复制代码时放行，但附上署名提醒', () => {
   const d = bash('cp cases/vendor/lemo-opuscar/styles/x/demo/pal.js films/demo/pal.js');
   expectAllow(d, '复制 vendor 代码');

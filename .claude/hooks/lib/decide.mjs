@@ -110,9 +110,15 @@ function deny(rule, what, extra = {}) {
   return { decision: 'deny', rule, reason, ...extra };
 }
 
-function denyZone(zone, rel, verb) {
+function denyZone(zone, rel, verb, { parentOf = false } = {}) {
   const rule = `zone-${zone.id}`;
-  const reason = `北冥护栏拒绝（${rule}）：${verb} ${rel || '.'}。原因：${zone.title}。下一步：${zone.next}。（说明见 .claude/hooks/README.md）`;
+  const area = [...zone.prefixes, ...zone.files][0];
+  // 目标本身不在区域里、只是它的上级目录（rm -rf cases、find . -delete）：说清"会连带"，下一步是缩小范围
+  const what = parentOf ? `${verb} ${rel || '.'}，会连带只读区域 ${area}` : `${verb} ${rel || '.'}`;
+  const next = parentOf
+    ? `把范围限定在自己的目录（films/<名字>/、out/），或用排除写法避开 cases/、src/ 等只读区域（例如 find 加 -not -path './cases/*'）；${zone.next}`
+    : zone.next;
+  const reason = `北冥护栏拒绝（${rule}）：${what}。原因：${zone.title}。下一步：${next}。（说明见 .claude/hooks/README.md）`;
   return { decision: 'deny', rule, reason, target: rel, zone: zone.id };
 }
 
@@ -125,8 +131,9 @@ function checkWrite(target, ctx, cwd, { verb = '写入', recursive = false, crea
   const c = classifyPath(target, { root: ctx.root, cwd, home: ctx.home, platform: ctx.platform });
   if (c.homeLib) return deny(isHomeRuntime(c.homeRel, { ci: c.ci }) ? 'home-style-runtime' : 'home-style-library', `${verb} ${target}`, { target: String(target) });
   if (!c.inside || isForeign(c.rel)) return null;
-  const zone = c.zone ?? (recursive ? zoneUnder(c.rel, { ci: c.ci }) : null);
-  if (zone && !ctx.unlocked.has(zone.unlock)) return denyZone(zone, show(c, target), verb);
+  const parent = !c.zone && recursive ? zoneUnder(c.rel, { ci: c.ci }) : null;
+  const zone = c.zone ?? parent;
+  if (zone && !ctx.unlocked.has(zone.unlock)) return denyZone(zone, show(c, target), verb, { parentOf: Boolean(parent) });
   if (createsFile && c.rel.includes('/') && !ctx.unlocked.has('instructions')) {
     const b = c.rel.split('/').pop().toLowerCase();
     if (MEMORY_FILE_NAMES.some(n => n.toLowerCase() === b)) return deny('nested-instructions', `${verb} ${c.rel}`, { target: c.rel });
@@ -292,8 +299,11 @@ function analyzeGit(args, ctx, cwd) {
     }
     case 'clean': {
       const p = splitArgs(rest, new Set(['-e', '--exclude']));
-      if (p.has('-n', '--dry-run')) return null;
-      return p.has('-f', '--force') ? local('git-clean') : null;
+      if (p.has('-n', '--dry-run') || !p.has('-f', '--force')) return null;
+      // 带路径、且路径都在自己的目录里（git clean -fd films/demo/out）放行；不带路径或路径落到仓库根 / 只读区域上级时拒绝
+      if (!p.pos.length || p.pos.some(s => isBlanketSpec(s, ctx, gcwd))) return local('git-clean');
+      for (const t of p.pos) { const d = checkWrite(t, ctx, gcwd, { verb: 'git clean 删除', recursive: true }); if (d) return d; }
+      return null;
     }
     case 'checkout': {
       const p = splitArgs(rest, new Set(['-b', '-B', '--orphan', '--conflict', '--pathspec-from-file']));

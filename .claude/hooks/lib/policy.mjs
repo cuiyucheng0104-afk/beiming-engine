@@ -161,7 +161,7 @@ export const RULES = {
   },
   'git-clean': {
     title: '不用 git clean -f：会删掉所有未跟踪文件，包括别人的新作品和渲染产物',
-    next: '先 git clean -n 看清楚，再按路径删自己的产物（例如 films/<名字>/out/）',
+    next: '先 git clean -n 看清楚，再只清自己的目录：git clean -fd films/<名字>/out/（带路径且不碰只读区域时放行）',
   },
   'git-discard-all': {
     title: '不整树丢弃改动（git checkout -- . / git checkout -f / git restore .）：会覆盖别人未提交的工作',
