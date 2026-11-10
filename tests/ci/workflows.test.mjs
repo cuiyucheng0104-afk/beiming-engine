@@ -63,9 +63,12 @@ test('同一个 action 在各处用同一个哈希（dependabot 升级时不会�
   assert.ok(seen.size >= 5);
 });
 
-test('ci.yml：四个 job 都在，各有时限；权限只读；windows-paths 用 PowerShell 且去掉 Git Bash', () => {
+test('ci.yml：五个 job 都在，各有时限；权限只读；windows-paths 用 PowerShell 且去掉 Git Bash；环境自检三平台', () => {
   const text = read('.github/workflows/ci.yml'), jobs = jobsOf(text);
-  assert.deepEqual(Object.keys(jobs), ['unit', 'check', 'smoke-render', 'windows-paths']);
+  assert.deepEqual(Object.keys(jobs), ['unit', 'check', 'smoke-render', 'env-smoke', 'windows-paths']);
+  assert.match(jobs['env-smoke'], /os: \[ubuntu-24\.04, macos-26, windows-2025\]/);
+  assert.match(jobs['env-smoke'], /hashFiles\('tools\/env\/doctor\.mjs'\) != ''/);
+  for (const k of ['windows-paths', 'env-smoke']) assert.match(jobs[k], /continue-on-error: \$\{\{ vars\.BEIMING_\w+_REQUIRED != 'true' \}\}/);
   for (const [k, v] of Object.entries(jobs)) assert.match(v, /timeout-minutes:\s*\d+/, `${k} 没有 timeout-minutes`);
   assert.match(text, /^permissions:\n {2}contents: read$/m);
   assert.match(jobs.unit, /node: \['24', '22'\]/);
@@ -99,12 +102,13 @@ test('run 脚本里不直接展开外部输入（标签名、PR 标题、inputs 
   }
 });
 
-test('工作流里调用的仓库脚本都存在（node / python 后面的相对路径）', () => {
+test('工作流里调用的仓库脚本都存在（node / python 后面的相对路径；用 hashFiles 守着的步骤允许暂缺）', () => {
   const missing = [];
   for (const f of WORKFLOWS) {
+    const guarded = new Set([...read(f).matchAll(/hashFiles\('([^']+)'\)/g)].map(m => m[1]));
     for (const b of runBlocks(read(f), f)) {
       for (const m of b.text.matchAll(/(?:^|\s)node\s+((?:tools|tests|engine|routes)\/[^\s"']+\.m?js)/g)) {
-        if (!fs.existsSync(path.join(REPO, m[1]))) missing.push(`${f}:${b.line} ${m[1]}`);
+        if (!fs.existsSync(path.join(REPO, m[1])) && !guarded.has(m[1])) missing.push(`${f}:${b.line} ${m[1]}`);
       }
       for (const m of b.text.matchAll(/-r\s+((?:tests|tools)\/[^\s"']+)/g)) if (!fs.existsSync(path.join(REPO, m[1]))) missing.push(`${f}:${b.line} ${m[1]}`);
     }

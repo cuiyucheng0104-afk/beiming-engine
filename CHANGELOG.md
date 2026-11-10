@@ -26,7 +26,7 @@
 - 回归测试：引擎各层（`engine/{form,look,overlay,paint,shade,stage}/*.test.mjs`，其中 `engine/look/gpu.test.mjs` 在无头 Chrome 里读回像素）、正片源码（`lab/regress.test.mjs`）、声音（`engine/audio/test_audio.py`、`audio/test_*.py`）、渲染管线的失败路径与色彩标注（`tests/production/render-*.test.mjs`）。
 - 测试总入口 `tools/run-tests.mjs`（登记为 `npm test`）：发现仓库自己的全部 Node 与 Python 测试（`tests/**`、与源码放在一起的 `*.test.mjs`、`test_*.py`），不进 `cases/`、`films/` 和夹具目录；按域筛选（`--only`、`--skip`）、按名字筛选与隔离（`--grep`、`--skip-grep`）、`--json` 运行记录；测试因缺声明过的依赖而导入失败时判为环境缺失（退出码 3）并给出安装命令；超时与中断时结束整棵进程树。
 - 检查总入口 `tools/check-all.mjs`（登记为 `npm run check`）：依次跑仓库规范、工程计划、测试、风格索引、案例库、导演规范、语法（JS、Python、JSON、sh）和更新日志；另外统计 eslint 与 ruff 的告警数量，只报告、不阻塞（`npm run lint`）。
-- 持续集成 `.github/workflows/ci.yml`，四个 job：unit（Node 24 与 22、Python 3.12）；check；smoke-render（SwiftShader 软件 WebGL 与 FFmpeg 8 下再跑一遍全部测试，A、C 模版小尺寸出片并核对尺寸、帧数、BT.709 标注、−14 LUFS 与真峰值，B 模版资产桥导出并核对两次逐字节相同，渲《北冥》与 lab 静帧，与 linux-swiftshader 金标准比对或首次采集）；windows-paths（PowerShell、无 Git Bash 下的测试、检查、目录联接与中文路径、GBK 管道）。actions 都固定到提交哈希。本机复现方法见 `tests/ci/README.md`。
+- 持续集成 `.github/workflows/ci.yml`，五个 job：unit（Node 24 与 22、Python 3.12）；check；smoke-render（SwiftShader 软件 WebGL 与 FFmpeg 8 下再跑一遍全部测试，A、C 模版小尺寸出片并核对尺寸、帧数、BT.709 标注、−14 LUFS 与真峰值，B 模版资产桥导出并核对两次逐字节相同，渲《北冥》与 lab 静帧，与 linux-swiftshader 金标准比对或首次采集）；env-smoke（Linux、macOS、Windows 三平台按锁文件装环境并自检）；windows-paths（PowerShell、无 Git Bash 下的测试、检查、目录联接与中文路径、GBK 管道）。actions 都固定到提交哈希。本机复现方法见 `tests/ci/README.md`。
 - 发布流程 `.github/workflows/release.yml`：推 `v*` 标签后核对标签、版本号与本文件，跑整套 CI，再用本文件的对应段落建草稿 Release，附 CI 接触印与 1920×1040 静帧，人工核对后发布。`tests/ci/changelog.mjs` 校验本文件并取出各版本的说明。
 - 编辑器与静态检查配置：`.editorconfig`；`eslint.config.js` 与 `ruff.toml`（只开真错误类规则，先只报告）；`.github/dependabot.yml`，每周检查 npm、pip、GitHub Actions 的更新（新版本发布满 14 天才提；three 与 playwright-core 不自动升级）。
 

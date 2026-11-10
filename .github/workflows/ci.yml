@@ -7,12 +7,13 @@
 #                  ① 全部测试再跑一遍（这次浏览器与 FFmpeg 都在，渲染失败夹具、GPU 回归、混音测试都会真跑）；
 #                  ② tests/ci/smoke-render.mjs：A / C 模版小尺寸出片并核对规格，B 模版资产桥导出并核对可复现，
 #                     《北冥》与 lab 静帧，与 linux-swiftshader 金标准比对（还没有清单时首次采集并上传工件）。
+#   env-smoke      Linux、macOS、Windows 三平台：按锁文件一键装环境（tools/env/setup.mjs）并跑环境自检（tools/env/doctor.mjs）。
 #   windows-paths  Windows Server 2025 + PowerShell、去掉 Git Bash：测试、检查、目录联接与中文路径、GBK 管道。
 # 每个 job 在本机怎么复现、金标准首次采集后怎么提交清单、已知问题与隔离项：见 tests/ci/README.md。
 # 命令一律直接写 node <路径>，不经 npm 脚本（npm 脚本由集成负责人登记，名字变了也不影响 CI）。
 # actions 固定到提交哈希（行尾注释是对应版本，2026-11-10 核对过是各自的最新正式版）；dependabot 每周提更新。
-# 分支保护建议的必需检查：unit (Node 24)、unit (Node 22)、check、smoke-render；windows-paths 在仓库变量
-# BEIMING_WINDOWS_REQUIRED=true 之前不阻塞（开分支保护是仓库设置，由维护者操作）。
+# 分支保护建议的必需检查：unit (Node 24)、unit (Node 22)、check、smoke-render；windows-paths、env-smoke 分别在仓库变量
+# BEIMING_WINDOWS_REQUIRED、BEIMING_ENV_SMOKE_REQUIRED 设为 true 之前不阻塞（开分支保护是仓库设置，由维护者操作）。
 name: ci
 
 on:
@@ -221,6 +222,52 @@ jobs:
           path: out/ci/smoke/golden-capture/
           if-no-files-found: ignore
           retention-days: 30
+
+  # 三平台按锁文件装环境、跑环境自检（tools/env 是环境工作包的入口，还没合入时这两步跳过，job 照样绿）
+  env-smoke:
+    name: env-smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    # 环境自检第一次在三平台跑通之前不阻塞；转绿后把仓库变量 BEIMING_ENV_SMOKE_REQUIRED 设为 true
+    continue-on-error: ${{ vars.BEIMING_ENV_SMOKE_REQUIRED != 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-26, windows-2025]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: 安装 Node 依赖（按 package-lock.json）
+        run: npm ci
+      - name: 一键装环境（= npm run setup）
+        if: hashFiles('tools/env/setup.mjs') != ''
+        run: node tools/env/setup.mjs
+      - name: 环境自检（= npm run env:doctor，A 与 C 路线；B 路线要原生运行时，CI 上没有）
+        if: hashFiles('tools/env/doctor.mjs') != ''
+        run: |
+          mkdir -p out/ci
+          node tools/env/doctor.mjs --route a --json > out/ci/doctor-a.json
+          node tools/env/doctor.mjs --route c --json > out/ci/doctor-c.json
+      - name: 上传自检结果
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: env-smoke-${{ matrix.os }}
+          path: out/ci/
+          if-no-files-found: ignore
+          retention-days: 14
 
   windows-paths:
     name: windows-paths

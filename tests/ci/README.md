@@ -54,7 +54,7 @@
 - **缺依赖不算代码坏了**：测试因为缺 `package.json` 或 `requirements*.txt` 里声明过的依赖而导入失败，整组标为「缺依赖」，退出码 3，并给出安装命令（`npm ci`；Python 侧运行 `npm run setup` 或 `pip install -r requirements.txt`，也可以用 `BEIMING_PY` 指向装好依赖的解释器）。没声明过的模块找不到，仍然按测试失败处理。
 - **会开浏览器的测试**要自己判断浏览器在不在，不在就 `t.skip(原因)`；用完关掉浏览器、服务器和子进程。测试结束后进程组里还有残留进程，`run-tests` 会强制结束它们并写进 warnings。
 
-## CI 的四个 job，以及在本机怎么复现
+## CI 的五个 job，以及在本机怎么复现
 
 工作流在 `.github/workflows/ci.yml`。下面每条命令都与 job 里的一致，在仓库根目录运行。
 
@@ -105,6 +105,18 @@ node tests/ci/smoke-render.mjs --out out/ci/smoke
 临时作品建在 `films/ci-smoke-*/`（页面服务只认仓库内的目录），结束、出错或被中断时都会删掉；加 `--keep` 可以保留下来排查。产物、报告和接触印 `contact.jpg` 放在 `--out` 指定的目录。`--plan` 只打印每段要跑的命令，不执行。
 
 原生运行时不随仓库分发（D03），所以 CI 上的 b-render 总是跳过；在工作站上设好 `RAEA_BIN`，就能把三条路线都完整走一遍。
+
+### env-smoke（Linux、macOS、Windows 三平台）
+
+按锁文件一键装环境，再跑 A、C 两条路线的环境自检。B 路线要原生运行时，CI 上没有，所以不自检 B。这两个入口归环境工作包（`tools/env/`）：还没合入时，这两步自动跳过，job 照样是绿的。
+
+```sh
+node tools/env/setup.mjs
+node tools/env/doctor.mjs --route a --json
+node tools/env/doctor.mjs --route c --json
+```
+
+在三平台第一次跑通之前，这个 job 不阻塞合入。跑通后，把仓库变量 `BEIMING_ENV_SMOKE_REQUIRED` 设为 true，并在分支保护里把它加为必需检查。
 
 ### windows-paths（Windows Server 2025、PowerShell、无 Git Bash）
 
