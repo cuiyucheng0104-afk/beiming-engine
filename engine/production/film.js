@@ -10,13 +10,14 @@
 // 库接口：
 //   loadFilm(target, opts) → { ok, film, raw, diagnostics, upgraded, notes, filmDir, file, pathBase }
 //   validateFilm(json, { filmDir, template, checkFiles, profiles, registry }) → { ok, film, upgraded, notes, diagnostics }
-//       film 是补齐默认值后的 v2 对象（events / holds / gates / deliveries / drive / entry / audio）；diagnostics 每条 { level, code, path, message, hint }
+//       film 是补齐默认值后的 v2 对象（events / gates / deliveries / drive / entry / audio）；diagnostics 每条 { level, code, path, message, hint }
+//   isTimeLikeField(key, value)                                        字段名看起来像时间吗（白名单之外出现就是"没有消费者的时间字段"，判错）
 //   upgradeFilm(v1, { dirName, template, has }) → { film, notes }      v1 { route, title, dur, fps, size, native?, poster?, cuecheck? } → v2
-//   migrateV2(raw) → { film, notes, changed }                          早期 v2 草稿的写法换成现行写法（holds → qa.intentional、sync 布尔值 → 枚举）
+//   migrateV2(raw) → { film, notes, changed }                          早期 v2 草稿的写法换成现行写法（顶层 holds → qa.intentional、sync 布尔值 → 枚举）
 //   retime(raw, shotId, change, opts)                                  改切点（ripple / roll），见 timeline.js 的 retimeShot
 //   qaExpectations(film) → 尺寸、帧率、帧数、像素格式、色彩、音频、响度窗口、安全区、切点、事件、刻意画面、豁免、AIGC 标识与换成帧数的阈值
 //   effectiveProfile(film) → { profile, overrides }                    档位叠加作品 qa 段之后的阈值（与 tools/qa 的 resolveProfile 同一规则）
-//   intentionalRanges(film)                                            qa.intentional（与旧写法 holds / blackouts / flashes）合成的刻意画面表
+//   intentionalRanges(film)                                            qa.intentional 与 qa 段里的同义旧列表（qa.holds / blackouts / flashes）合成的刻意画面表
 //   loadProfiles() / getProfile(id) / matchProfile({ width, height, fps }) / ffprobeExpect(id)
 //   loadRouteRegistry() / resolveRoute(value)                          路线注册表（routes/routes.json 存在时读它，否则用内置三条；实现在 routes.js）
 //   toProjectSpec(film, opts) / fromProjectSpec(spec)                  与 engine/production/project.js 的 ProjectSpec v1 互相映射（路线 a / b / c，旧值 beiming / raea 作别名）
@@ -86,8 +87,34 @@ const QA_OVERRIDES = Object.freeze(['texts', 'visual', 'sync', 'plates']);
 const AGENT_APPROVER = /^(agent|ai|claude|assistant|bot|gpt|codex|代理|助手|智能体|机器人)\b/i;
 /** 各层字段白名单（与 engine/production/film.schema.json 一致，由 tests/production/schema.test.mjs 守住）。 */
 export const FILM_FIELDS = Object.freeze(Object.fromEntries(Object.entries(FIELDS).map(([k, v]) => [k, Object.freeze([...v])])));
-/** 看起来像时间的字段名：出现在白名单之外就是"没有消费者的时间字段"（附录 C6），判错。 */
-const TIME_LIKE = /^(t|t0|t1|t_end|tend|time|times|sec|secs|seconds|dur|duration|durationseconds|starttime|endtime|offsetsec|offsetms|inframe|outframe|atframe|frame_end|frameend|start|end|at|frames|bpm|fpb|poster)$/i;
+/**
+ * 看起来像时间的字段名：出现在该层白名单之外就是"没有消费者的时间字段"（计划 P05·M0、附录 C6），判错——
+ * 镜头表与事件表是唯一时间源，别处多写一个秒数，迟早与镜头表对不上。字段名按 camelCase、下划线、短横线、字母与数字之间切段
+ * （holdSec → hold·sec，t_end → t·end，t0 → t·0），四条规则任一命中即算（值是布尔的不算：布尔值装不下时间）：
+ *   ① 常见的时间名本身：t、t0、time、sec、dur、duration、start、end、at、in、out、delay、hold、fade、cut、bpm、fps、poster…
+ *   ② 最后一段是时间单位：…Sec / …Secs / …Seconds / …Ms / …Millis / …Frame / …Frames / …Time / …Duration / …Dur / …Fps / …Bpm / …Timecode
+ *      （startSec、durationMs、holdSec、delaySec、fadeFrames、endSec、timeMs、beatSec、startTime）
+ *   ③ t 后面紧跟大写字母、数字或下划线（tStart、t0、t_end）
+ *   ④ 首段是时间动词（start、end、in、out、cut、hold、fade、delay、frame、beat），后面跟着时刻或长度（at、point、from、to、until、in、out、
+ *      length、len、count、offset）：fadeIn、cutAt、startAt、inPoint、frameCount、holdLength
+ * 切段使 items、format、endCard、fadeColor、startScale 这类字段不会被误判（它们照旧只是未知字段的提示）。
+ */
+const TIME_NAMES = new Set(['t', 't0', 't1', 't_end', 'tend', 'time', 'times', 'timing', 'timecode', 'sec', 'secs', 'second', 'seconds', 'ms', 'dur', 'duration',
+  'durationseconds', 'starttime', 'endtime', 'offsetsec', 'offsetms', 'inframe', 'outframe', 'atframe', 'frame_end', 'frameend', 'start', 'end', 'at',
+  'in', 'out', 'frames', 'delay', 'hold', 'fade', 'cut', 'bpm', 'fpb', 'fps', 'tempo', 'poster']);
+const TIME_UNITS = new Set(['sec', 'secs', 'second', 'seconds', 'ms', 'msec', 'msecs', 'millis', 'millisecond', 'milliseconds', 'frame', 'frames',
+  'time', 'times', 'duration', 'dur', 'fps', 'bpm', 'timecode', 'tc']);
+const TIME_LEADS = new Set(['start', 'end', 'in', 'out', 'cut', 'hold', 'fade', 'delay', 'frame', 'beat']);
+const TIME_TAILS = new Set(['at', 'point', 'from', 'to', 'until', 'in', 'out', 'length', 'len', 'count', 'offset']);
+const nameTokens = k => k.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Za-z])(\d)/g, '$1 $2').split(/[\s_.-]+/).filter(Boolean).map(s => s.toLowerCase());
+export function isTimeLikeField(key, value) {
+  if (typeof value === 'boolean' || typeof key !== 'string' || !key || key.startsWith('$')) return false;
+  if (TIME_NAMES.has(key.toLowerCase()) || /^t[A-Z0-9_]/.test(key)) return true;
+  const toks = nameTokens(key);
+  if (toks.length > 1 && TIME_UNITS.has(toks.at(-1))) return true;
+  return toks.length > 1 && TIME_LEADS.has(toks[0]) && toks.slice(1).some(t => TIME_TAILS.has(t));
+}
+/** 写错地方的时间字段该写到哪：按字段名给的专门提示优先，其次按所在的层。 */
 const TIME_HINTS = {
   poster: 'v2 的海报帧写 posterFrame（整数帧），不写 poster 秒数',
   dur: '时长由 output.frameCount / output.fps 推出，不单独写',
@@ -95,6 +122,24 @@ const TIME_HINTS = {
   inframe: 'v2 的镜头区间写 in / out',
   outframe: 'v2 的镜头区间写 in / out',
 };
+const TIME_HOME = {
+  film: '时间只写在 shots[].in / out、events[].frame / end、qa.intentional[].from / to、qa.waivers[].frames、timeline 与 posterFrame，一律整数帧；秒由 帧 / fps 推出',
+  shot: '镜头的时间只有 in / out（整数帧，半开区间）；镜头里晚一点发生的事写成 events（frame 落在本镜内），角色时钟的起点写 actorClockOrigin',
+  event: '事件的时间只有 frame 与 end（整数帧，end 不含）；按拍写就加 beat（与 frame 同源，第 b 拍所在帧取 floor）',
+  output: '整片时长只由 output.frameCount / output.fps 推出；交付帧率取档位',
+  intentional: '刻意画面的区间写 from / to（整数帧，半开区间）',
+  waiver: '豁免的帧段写 frames: [起帧, 止帧)（整数帧，半开区间）',
+};
+function timeHint(key, path) {
+  const own = TIME_HINTS[key.toLowerCase()];
+  if (own) return own;
+  if (/^shots\[\d+\]$/.test(path)) return TIME_HOME.shot;
+  if (/^events\[\d+\]$/.test(path)) return TIME_HOME.event;
+  if (path === 'output') return TIME_HOME.output;
+  if (/^qa\.(intentional|holds|blackouts|flashes)\[\d+\]$/.test(path)) return TIME_HOME.intentional;
+  if (/^qa\.waivers\[\d+\]$/.test(path)) return TIME_HOME.waiver;
+  return TIME_HOME.film;
+}
 
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isStr = v => typeof v === 'string' && v.trim().length > 0;
@@ -365,7 +410,7 @@ export function validateFilm(input, opts = {}) {
     for (const k of Object.keys(obj)) {
       if (list.includes(k) || compat.includes(k)) continue;
       const where = path === '$' ? k : `${path}.${k}`;
-      if (TIME_LIKE.test(k)) err('orphan-time-field', where, `${where} 是没有消费者的时间字段`, TIME_HINTS[k.toLowerCase()] ?? '时间只写在 shots（in/out）、events（frame/end）、holds、timeline、posterFrame，全部用整数帧；秒由帧数推出');
+      if (isTimeLikeField(k, obj[k])) err('orphan-time-field', where, `${where} 是没有消费者的时间字段（校验器、页面与 QA 都不读它）`, timeHint(k, path));
       else warn('unknown-field', where, `未知字段 ${where}（校验器不认识，消费者也不会读）`, '拼写错了就改正；确需新字段先在 engine/production/README.md 登记');
     }
   };

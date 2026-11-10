@@ -58,7 +58,7 @@
 | `mirror` | 只给描述冻结样片的镜像作品（`films/beiming-10s`）：路径相对仓库根，`frozen: true` 时不许写回切点 |
 | `next` | 模版专用：新建后的下一步命令（格式同 `routes/routes.json` 的 `next`），`new-film` 生成作品时去掉；作品里写了只提示 |
 
-不允许出现没有消费者的时间字段：`poster`、`dur`、`duration`、`t`、`t0`、`start`、`at`、`inFrame` 之类写在白名单之外就判错（海报写 `posterFrame`，时长由 `frameCount` 推出）。未知字段只提示。完整字段见 `film.schema.json`。
+不允许出现没有消费者的时间字段（`orphan-time-field`，判错）：时间只写在 `shots[].in / out`、`events[].frame / end`、`qa.intentional[].from / to`、`qa.waivers[].frames`、`timeline` 与 `posterFrame`。白名单之外的字段，只要名字像时间就判错，不管写在顶层、镜头、事件、`output` 还是 `qa` 段：常见时间名本身（`poster`、`dur`、`duration`、`t`、`t0`、`start`、`at`、`delay`、`fps`、`tempo`…）；最后一段是时间单位（`startSec`、`durationMs`、`holdSec`、`fadeFrames`、`startTime`、`beatSec`）；`t` 加大写或数字开头（`tStart`、`t_end`）；时间动词加时刻或长度（`fadeIn`、`cutAt`、`inPoint`、`frameCount`）。字段名按 camelCase / 下划线切段再判，`items`、`endCard`、`fadeColor`、`startScale` 这类不会误判；值是布尔的不算。规则实现与测试：`film.js` 的 `isTimeLikeField`、`tests/production/film.test.mjs`。其他未知字段只提示。完整字段见 `film.schema.json`。
 
 **v1 兼容**：没有 `schemaVersion` 的 v1 记录 `{ route, title, dur, fps, size, native?, poster?, cuecheck? }` 自动升级读取（`frameCount = round(dur × fps)`，整片一个镜头），并提示迁移：`node engine/production/film.js upgrade <作品> --write`。v2 里可以暂留 `dur` / `fps` / `size` 作兼容镜像（给还没改读 film.js 的旧工具），但必须与 `output` 一致。早期 v2 草稿的旧写法（顶层 `holds`、`sync: true / false`、事件里的 `cue`）判错并给出搬法，`upgrade --write` 自动换成现行写法（库：`migrateV2`）。
 

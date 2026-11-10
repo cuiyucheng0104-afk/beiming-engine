@@ -94,6 +94,40 @@ test('没有消费者的时间字段判错；未知字段只警告', () => {
     const f = minimalFilm(); mutate(f);
     assert.ok(errors(v(f)).includes('orphan-time-field'), where);
   }
+  // 不只认固定名单：最后一段是时间单位、t 加大写或数字开头、「动词 + 时刻 / 长度」的写法，不管写在哪一层都判错
+  const LEVELS = {
+    顶层: (f, k, val) => { f[k] = val; },
+    镜头: (f, k, val) => { f.shots[1][k] = val; },
+    事件: (f, k, val) => { f.events[0][k] = val; },
+    output: (f, k, val) => { f.output[k] = val; },
+    刻意画面: (f, k, val) => { f.qa = { intentional: [{ kind: 'black', from: 0, to: 2, reason: '片头黑场', [k]: val }] }; },
+    豁免: (f, k, val) => { f.qa = { waivers: [{ check: 'texts.duration', frames: [0, 12], reason: '片名短闪', approvedBy: '用户', quote: '片名闪一下就行。', source: '会话第 5 条', [k]: val }] }; },
+  };
+  for (const key of ['startSec', 'durationMs', 'holdSec', 'delaySec', 'fadeFrames', 'tStart', 'endSec', 'timeMs', 'beatSec', 'startTime', 'fadeIn', 'cutAt', 'inPoint', 'frameCount', 'tempo', 'fps']) {
+    for (const [level, put] of Object.entries(LEVELS)) {
+      if (level === 'output' && ['fps', 'frameCount'].includes(key)) continue;   // output 的 fps / frameCount 是正经字段
+      if (level === '顶层' && key === 'fps') continue;                            // 顶层 fps 是 v1 兼容镜像（与 output 不一致另判 legacy-mirror-mismatch）
+      const f = minimalFilm(); put(f, key, 1.5);
+      const r = v(f);
+      const d = r.diagnostics.find(x => x.code === 'orphan-time-field');
+      assert.ok(d && d.level === 'error', `${level}的 ${key}`);
+      assert.doesNotMatch(d.hint, /holds/, '提示不再指向已废弃的顶层 holds');
+    }
+  }
+  // 提示按所在的层指到正确的地方
+  const hintOf = mutate => { const f = minimalFilm(); mutate(f); return v(f).diagnostics.find(x => x.code === 'orphan-time-field').hint; };
+  assert.match(hintOf(f => { f.startTime = 1.5; }), /qa\.intentional\[\]\.from \/ to、qa\.waivers\[\]\.frames/);
+  assert.match(hintOf(f => { f.shots[0].holdSec = 2; }), /镜头的时间只有 in \/ out/);
+  assert.match(hintOf(f => { f.events[0].startSec = 2; }), /事件的时间只有 frame 与 end/);
+  assert.match(hintOf(f => { f.output.durationMs = 4000; }), /output\.frameCount \/ output\.fps/);
+  assert.match(hintOf(f => { f.qa = { intentional: [{ kind: 'black', from: 0, to: 2, reason: 'x', endSec: 1 }] }; }), /from \/ to/);
+  // 不像时间的未知字段只警告：切段之后 items、endCard、fadeColor、startScale、offsetX 都不是时间；布尔值装不下时间
+  for (const [key, val] of [['items', 3], ['endCard', '片尾卡'], ['fadeColor', '#000000'], ['startScale', 1.2], ['offsetX', 12], ['format', 'mp4'], ['fadeIn', true]]) {
+    const f = minimalFilm(); f.shots[0][key] = val;
+    const r = v(f);
+    assert.deepEqual(errors(r), [], key);
+    assert.ok(warnings(r).includes('unknown-field'), key);
+  }
   const typo = minimalFilm({ titel: 'x' });
   const r = v(typo);
   assert.deepEqual(errors(r), []);
