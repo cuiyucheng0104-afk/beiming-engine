@@ -1,6 +1,6 @@
 # 命令约定与命令清单
 
-读者｜写命令、调命令、编排命令的人与 agent　状态｜生效（附录 C1–C3 的冻结稿）　实现｜[tools/lib/cli.mjs](../tools/lib/cli.mjs)、[tools/lib/cli.py](../tools/lib/cli.py)　契约测试｜`node --test tests/cli`
+读者｜写命令、调命令、编排命令的人与 agent　状态｜生效（附录 C1–C3 的冻结稿）　实现｜[tools/lib/cli.mjs](../tools/lib/cli.mjs)、[tools/lib/cli.py](../tools/lib/cli.py)　契约测试｜`node --test tests/cli tests/governance`
 
 仓库里每个命令都按本页的同一套规则接参数、报错、退出、输出机器可读结果。新命令一律用 `tools/lib/` 的命令约定库写（用法见 [tools/lib/README.md](../tools/lib/README.md)）；老命令在第 9 节的清单里逐个改造，改造前它们的 `--help` 可能有副作用，先看清单再调。
 
@@ -100,21 +100,21 @@
 
 ## 9. 命令清单
 
-状态：**已接入**＝遵守本页全部约定，在契约测试里逐项验证；**待改造**＝命令已有，但 `--help` 或未知参数的行为还不合规（契约测试里列为已知例外，不执行）；**在建**＝附录 C3 已分配、尚未提交。
+状态：**已接入**＝遵守本页全部约定，契约测试 `tests/cli/contract.test.mjs` 自动识别（目标文件用 `tools/lib/cli.mjs` 的 `runCli` 或 `cli.py` 的 `run`）并逐个验证 `--help`、未知参数与 `--json`；**待改造**＝命令已有，但 `--help` 或未知参数的行为还不合规，在契约测试的已知例外表里登记属主与原因，**不执行**；**在建**＝附录 C3 已分配、尚未合入。`package.json` 里既没接入、也没登记为例外的脚本会让契约测试失败。
 
 | npm 脚本 | 指向 | 属主 | 状态 |
 |---|---|---|---|
 | `new` | `tools/new-film.mjs` | 治理骨架 | 已接入 |
 | `check:repo` | `tools/repo-check.mjs` | 治理骨架 | 已接入 |
+| `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入（脚本名待集成者登记）；旧名 `routes:check`、`routes:next` 已接入，保留一个版本，调用时提示改名 |
 | `setup` | `tools/env/setup.mjs` | 环境 | 待改造（现为 `npm install && npx playwright-core install …`） |
 | `env:doctor` | `tools/env/doctor.mjs` | 环境 | 在建 |
 | `env:gpu` | `tools/rtx/gpucheck.mjs` | 渲染器 | 在建（文件已有，不读参数） |
 | `serve` | `engine/render/serve.mjs` | 渲染器 | 在建 |
 | `film` | `tools/film/cli.mjs` | 出片编排 | 在建：三条路线统一的 `npm run film -- build films/<名字>` |
 | `qa` | `tools/qa/cli.mjs` | 机器 QA | 在建 |
-| `golden`、`determinism` | `tools/baseline/` | 基线 | 在建 |
-| `test`、`check`、`lint` | `tools/run-tests.mjs`、`tools/check-all.mjs` | 测试与 CI | 在建 |
-| `plan:check`、`plan:next` | `tools/work-plan.mjs` | 治理骨架 | 第二波；现为 `routes:check`、`routes:next`（待改造） |
+| `golden`、`determinism` | `tools/baseline/` | 金标准 | 在建 |
+| `test`、`check`、`lint` | `tools/run-tests.mjs`、`tools/check-all.mjs` | 测试与 CI | 在建；`test` 现为 npm run 串联（待改造） |
 | `cases:list`、`cases:check` | `tools/casebook.py` | 案例库、环境 | 待改造（argparse 已拒绝未知参数，`--json` 未接入） |
 | `cases:restore`、`cases:index`、`cases:ingest`、`cases:pack` | `tools/casebook.py` 经 `tools/env/py.mjs` | 案例库、环境 | 在建 |
 | `c:styles`、`c:styles:check` | `tools/c-styles.mjs` | C 路线 | 待改造 |
@@ -122,26 +122,39 @@
 | `b:preflight`、`b:render` | `engine/render/native.mjs` | B 路线 | 在建；现为 `native:check`、`native:render`（待改造） |
 | `beiming:build` | `build.sh` | 出片编排 | 在建；现为 `build`（待改造） |
 
-现有的旧名 `build`、`stills`、`video`、`video:4k`、`raea:*`、`native:*`、`routes:*`、`c:build`、`c:events`、`test:routes`、`test:cases`、`site:*` 都是**待改造**：其中 `build`、`stills`、`video`、`video:4k`、`raea:render`、`native:render` 的 `--help` 目前会直接渲染或覆盖产物，不要拿 `--help` 试探它们，读文件头注释。
+现有的其他脚本都是**待改造**，属主与原因以 `tests/cli/contract.test.mjs` 的 `KNOWN_EXCEPTIONS` 为准：
+
+| 脚本 | 属主 | 现状 |
+|---|---|---|
+| `build` | 出片编排 | `--help` 会直接重建《北冥》 |
+| `stills`、`video`、`video:4k` | 渲染器 | `--help` 会渲出静帧或被当成作品目录 |
+| `raea:prepare`、`raea:check`、`raea:render` | B 路线 | 例片入口（旧名）；拼错 `--check-only` 会直接开始原生渲染 |
+| `native:prepare`、`native:check`、`native:render`、`native:bridge`、`native:sequence` | B 路线 | 不拒绝未知参数，退出码对齐附录 C1 在改造 |
+| `c:events`、`c:build` | 出片编排 | 并入 `npm run film -- build` |
+| `test:routes`、`test:engine`、`test:audio`、`test:cases` | 测试与 CI | 测试入口的串联，改为 `tools/run-tests.mjs` |
+| `site:build`、`site:serve`、`site:qa` | 作品站会话 | 作品站维护 |
+
+其中 `build`、`stills`、`video`、`video:4k`、`raea:render`、`native:render` 的 `--help` 或拼错的参数目前会直接渲染或覆盖产物：不要拿 `--help` 试探它们，读文件头注释。
 
 ## 10. 路线注册表（`routes/routes.json`）
 
-三条路线的唯一注册表；读取与校验在 [tools/lib/routes.mjs](../tools/lib/routes.mjs)，`npm run check:repo` 的 `core.registry` 规则执行同一份校验。
+三条路线的唯一注册表；读取与校验在 [tools/lib/routes.mjs](../tools/lib/routes.mjs)，`npm run check:repo` 的 `core.registry` 规则执行同一份校验。new-film、规范检查、工程计划与作品描述校验器都从这里读路线。
 
 | 字段 | 说明 |
 |---|---|
 | `defaultProfile` | 新作品的默认交付档位（D07：`web-1080p24`） |
 | `renderers` | 渲染器表：`page`（`engine/render`，无头 Chrome）、`native`（`engine/render/native.mjs` + 原生运行时） |
-| `routes[].id` | 路线 id：`a`、`b`、`c`。film.json、工程计划与所有命令只认这三个值 |
+| `routes[].id` | 路线 id：`a`、`b`、`c`。film.json、工程计划与所有命令只认这三个值（工程计划另有 `shared`） |
 | `routes[].slug` | 目录名：`routes/<slug>/` |
 | `routes[].brand`、`label` | 对外品牌名（D04），不带 RTX、不用上游项目名 |
 | `routes[].summary`、`chooseWhen` | 一句话定位与适用场景（与 `routes/README.md` 一致） |
-| `routes[].aliases` | 旧名与目录名（如 `beiming`、`raea`、`a-webgl`）：命令接受并提示改写 |
-| `routes[].backend`、`renderer` | film.json 的 `backend` 默认值；用到的渲染器 id |
+| `routes[].aliases`、`legacyId` | 旧名与目录名（`beiming`、`raea`、`a-webgl`……）：命令接受并提示改写；`legacyId` 是工程计划 v1 与 ProjectSpec 用过的旧路线名（C 没有，写 `null`） |
+| `routes[].backend`、`backends` | film.json 的 `backend` 默认值与允许值，与 `engine/production/film.js` 同口径：A `three`；B `native`；C `canvas`（也可 `svg`、`dom`、`three`、`webgl`） |
+| `routes[].renderer` | 用到的渲染器 id |
 | `routes[].upstream` | 上游项目：名字、仓库、许可、固定版本、是否随仓库分发、使用边界（D03、D04） |
 | `routes[].manual`、`template` | 路线手册与模版目录 |
-| `routes[].templateDefaults` | 模版 film.json 还是 v1 时，new-film 用它补齐 v2 的 `audio`、`aigc`、`credits` |
-| `routes[].next` | 新建后的下一步：`[{stage, title, run: argv[], env?, requires?, output?}]`，`stage` 取 `look`、`animatic`、`build`、`check`、`final`；`run` 里可用 `{dir} {name} {dur} {fps} {width} {height} {size} {mid} {last} {midFrame} {lastFrame}` |
+| `routes[].templateDefaults` | 模版 film.json 还是 v1 时，new-film 用它补齐 v2 的 `audio`、`style`（A 路线必填）、`aigc`、`credits` |
+| `routes[].next` | 新建后的下一步：`[{stage, title, run: argv[], env?, requires?, output?}]`，`stage` 取 `look`、`animatic`、`build`、`check`、`final`；`run` 里可用 `{dir} {name} {dur} {fps} {width} {height} {size} {mid} {last} {midFrame} {lastFrame}`。模版 film.json 写了 `next` 就以模版为准 |
 
 ## 11. 新建作品（`npm run new`）
 
@@ -151,11 +164,12 @@ npm run new -- <a|b|c> <名字> [--title 片名] [--profile 档位] [--dry-run] 
 
 - **名字**：小写字母、数字、连字符，字母或数字开头，最长 64；同时是目录名、film.json 的 `id` 与输出文件名。不得是 Windows 保留名，不得含上游项目名。片名用 `--title` 另给（不能含 `` " ' ` \ < > `` 与控制字符）。
 - **占位符**：模版里只允许 `{{NAME}}` 与 `{{TITLE}}`。占位符＝两层花括号包住的大写标识符，中间没有空格，所以 JSX 的 `style={{ color: P.ink }}` 不受影响；替换后还残留 `{{大写标识符}}` 就退出 4、什么都不写。
-- **复制**：模版的全部文件，包括点文件（B 模版的 `.gitignore`）；跳过 `out/`、`node_modules/`、`__pycache__/` 与模版自己 `.gitignore` 里列出的生成物目录；先写临时目录再整体改名。
-- **film.json v2**（附录 C6）：`schemaVersion` 2、`id`＝名字、`route`＝注册表 id、`backend`、`output`（交付档位：`--profile` > 模版声明 > 注册表默认 `web-1080p24`）、`deliveries`、`audio`、`credits`、`aigc`（D11）、`gates`（look、animatic、final 三道，D08），以及路线自己的段（B 的 `native`、C 的 `cuecheck`、`poster`）。模版里有 `dur`、`fps`、`size`（v1 写法）时保留为兼容镜像，数值按 `output` 重写，供现有出片脚本读取；改时长或画幅要两处一起改，`check:repo` 会核对一致。
+- **复制**：模版的全部文件，包括点文件（B 模版的 `.gitignore`）；跳过 `out/`、`node_modules/`、`__pycache__/` 与模版自己 `.gitignore` 里列出的生成物目录。
+- **film.json v2**（附录 C6，与 `engine/production/film.js` 的 v1 升级同口径）：`schemaVersion` 2、`id`＝名字、`route`＝注册表 id、`backend`、`output`（交付档位：`--profile` > 模版声明 > 注册表默认 `web-1080p24`）、`shots`（模版没写就整片一个镜头 `S1`）、`events`、`audio`、`deliveries`、`style`、`credits`、`aigc`（D11）、`gates`（look、animatic、final 三道，D08），以及路线自己的段（B 的 `native`、C 的 `cuecheck`）。v1 的 `poster`（秒）换成 `posterFrame`（帧）。模版里有 `dur`、`fps`、`size`（v1 写法）时保留为兼容镜像，数值按 `output` 重写，供现有出片脚本读取；改时长或画幅要两处一起改。排版与 `engine/production/io.js` 的 `formatJson` 相同。
+- **换帧率**：`--profile` 的帧率与模版不同时，镜头、事件、停顿、海报帧按比例换算并提示；按节拍（`beat`）写的事件不自动换算，退出 4。
+- **校验后落盘**：先写进 `films/.new-*` 暂存目录；有 `engine/production/film.js` 时在暂存目录上跑 `film.js check --json`，通过才整体改名为 `films/<名字>/`；不通过退出 4、校验器自身出错退出 1，两种情况都不留目录。`--dry-run` 不写任何文件，也不调用校验器。
 - **下一步**：取模版 film.json 的 `next`，没有就取注册表这条路线的 `next`；`--json` 的 `data.next` 给出 argv、环境变量与产物路径，编排器不用解析 shell。
-- **校验**：写盘后若有 `engine/production/film.js`，调用 `node engine/production/film.js check films/<名字>`，不过即退出 4。
-- 退出码：0 成功；1 写盘失败；2 路线、名字、片名、档位不合法或目录已存在；4 模版、注册表或生成的 film.json 不合格。
+- 退出码：0 成功；1 写盘失败或校验器自身出错；2 路线、名字、片名、档位不合法或目录已存在；4 模版、注册表或生成的 film.json 不合格。
 
 ## 12. 仓库规范检查（`npm run check:repo`）
 
@@ -164,5 +178,20 @@ npm run check:repo                              # 全部规则；--json、--only
 ```
 
 - 规则按域放在 `tools/repo-check/rules/<域>/`：`core` 由治理骨架维护；`comp`（合规）、`agent`（agent 执行层）、`render`、`spec`、`film`、`qa`、`baseline`、`env`、`route-a`、`route-b`、`route-c`、`cases` 由各自的工作包维护。写规则见 [tools/repo-check/core/README.md](../tools/repo-check/core/README.md)。
+- core 规则：路线注册表、路线 id、三份手册的 8 节、三个模版、全部非 vendor Markdown 的链接与锚点、入口口径（三条路线、上游项目名、产品名不带 RTX、选路线的判据只在 `routes/README.md`）、入口预算与可达性、根目录 CLAUDE.md 桥接、作品的 film.json 与占位符、`films/` 不提交媒体、`routes/` `films/` `tools/` `engine/` 的路径只用 ASCII、`engine/` 模块的中文注释、脚本与文档命令能照抄执行、`cases/vendor/` 快照只读。每条规则在 `tests/governance/fixtures/violations.json` 里至少有一个违规夹具，`node --test tests/governance` 断言报出对应规则 id 并退出 4。
 - 退出码：0 没有错误（可以有提示）；4 有规范错误；2 用法错误；1 有规则自身出错（结果不完整）。
 - **限期豁免**：属主还没轮到改的存量问题记在 `tools/repo-check/core/waivers.json`（规则、文件、匹配文字、属主、原因）；命中的错误降为提示并标出属主，`--strict` 时不降。问题修好后条目不再命中，检查会提示删掉它：豁免只减不增。
+
+## 13. 引擎工程待办（`npm run plan:check`、`npm run plan:next`）
+
+工程计划 `docs/routes/work-plan.json` 是引擎与工具的工程待办（D06）：T 编号是早先拆出的工程任务，H 编号是工业级加固的工作包。做作品不用它（作品由 film.json 与 `films/<名>/review/` 记录）。字段、领取与检查规则见 [docs/routes/work-breakdown.md](routes/work-breakdown.md)。
+
+```sh
+npm run plan:check                              # = node tools/work-plan.mjs --check；--strict、--json、--now <ISO 日期>、--file <计划>
+npm run plan:next -- --route c                  # = node tools/work-plan.mjs --ready；路线 a / b / c / shared，旧名也认
+node tools/work-plan.mjs --verify-diff <任务>   # 基线（默认取认领记录）以来的改动是否都在写入范围里
+node tools/work-plan.mjs --cards                # 按 JSON 生成 work-breakdown.md 的依赖总览与任务卡
+```
+
+- 退出码：0 合格（可以有提示）；4 计划不合格（结构错误、两个在办任务写入范围重叠、认领过期、证据或指引文件不存在；`--strict` 时可领取任务的重叠与输入里写错的路径也算）或 `--verify-diff` 有越界改动；2 未知路线（列出注册表合法取值）、未知任务、参数冲突；3 `--verify-diff` 时没有 git。
+- 旧名 `npm run routes:check`、`npm run routes:next` 保留一个版本：照常工作，并在 stderr 与 `--json` 的 `warnings` 里提示改名。
