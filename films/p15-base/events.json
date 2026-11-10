@@ -1,1 +1,0 @@
-{"dur":3,"ev":[{"t":0.5,"type":"stroke","cue":"s1","dur":0.4,"pan":-0.5},{"t":1,"type":"stroke","cue":"s2","dur":0.4,"pan":0},{"t":1.5,"type":"stroke","cue":"s3","dur":0.4,"pan":0.5},{"t":2,"type":"title","cue":"title","dur":0.6},{"t":2.5,"type":"seal","cue":"seal","pan":0.35},{"t":0,"type":"room","t1":3}]}
