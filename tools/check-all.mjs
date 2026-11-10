@@ -77,7 +77,7 @@ export const HELP = `北冥仓库 · 检查总入口（npm run check）
   --list            列出步骤、命令与是否阻塞，不执行
   --fail-fast       第一个阻塞步骤失败就停，剩下的标为未运行
   --timeout <秒>    每一步的时限（默认 300；tests 默认 900）
-  --python <解释器> 案例库、导演规范与测试里的 Python（默认经 tools/env/py.mjs，或 BEIMING_PY、PYTHON、.venv、python3…）
+  --python <解释器> 案例库、导演规范与测试里的 Python（默认依次找 BEIMING_PY、PYTHON、tools/env/py.mjs、.venv、python3…）
   --root <目录>     检查另一个检出（给 tests/ci 的夹具用）
   --json            stdout 只输出一个 JSON 对象（附录 C2 信封 + steps）；各步输出在 stderr
   --report <文件>   另把同一个 JSON 写进文件

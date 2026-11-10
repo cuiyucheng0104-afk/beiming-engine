@@ -43,7 +43,7 @@
 每个域的 Node 测试由一个 `node --test` 进程运行，Python 测试由一个解释器进程运行，域与域之间按顺序跑。
 
 - **Python 模块名**：所在目录有 `__init__.py` 时，按相对仓库根的点分名导入，例如 `engine/audio/test_audio.py` 导入为 `engine.audio.test_audio`，包内的绝对导入照常可用。不是包时，把文件所在目录加进 `sys.path`，用文件名导入。
-- **Python 解释器**：有 `tools/env/py.mjs` 时经它启动；否则依次用 `--python`、`BEIMING_PY`、`BEIMING_PYTHON`、`PYTHON`、仓库 `.venv`、`python3`、`python`、`py -3`。
+- **Python 解释器**：依次用 `--python`、`BEIMING_PY`、`BEIMING_PYTHON`、`PYTHON`、`tools/env/py.mjs`（环境包的统一入口）、仓库 `.venv`、`python3`、`python`、`py -3` 中第一个能跑的。明确指定的优先，`--python` 指向的解释器跑不起来时直接报错，不往下猜。
 - **域的运行要求**：可以在 `tests/<域>/suite.json` 里声明，对整个域生效：
 
   ```json

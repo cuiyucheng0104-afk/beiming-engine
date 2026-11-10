@@ -23,8 +23,8 @@
 //   缺少某项能力时整域跳过并写明原因；--require <能力,…> 把能力变成前置条件（缺了 exit 3），CI 的渲染 job 用它。
 //   gpu、network 不自动探测：设 BEIMING_TEST_GPU=1、BEIMING_TEST_NETWORK=1 才算具备。
 //
-// Python 解释器：有 tools/env/py.mjs（P10）时一律经它启动；否则依次用 --python、BEIMING_PY、BEIMING_PYTHON、PYTHON、
-//   仓库 .venv、python3、python、py -3。子进程统一设 PYTHONUTF8=1、PYTHONIOENCODING=utf-8。
+// Python 解释器：依次用 --python、BEIMING_PY、BEIMING_PYTHON、PYTHON、tools/env/py.mjs（环境包的统一入口）、仓库 .venv、
+//   python3、python、py -3 中第一个能跑的。子进程统一设 PYTHONUTF8=1、PYTHONIOENCODING=utf-8。
 //
 // 退出码（附录 C1）：0 全部通过（跳过不算失败）；1 有测试失败；2 用法错误；3 环境缺失（Node < 22、要跑 Python 却找不到解释器、
 //   --require 的能力缺失、测试因缺第三方依赖而导入失败——npm 包没装或 Python 解释器缺 requirements 里的模块）；
@@ -225,7 +225,11 @@ export function onSignals(onSignal) {
 const PY_ENV = { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8', PYTHONDONTWRITEBYTECODE: '1' };
 export const pythonEnv = (extra = {}) => ({ ...process.env, ...PY_ENV, ...extra });
 
-// 返回 { cmd, pre: [...前置参数], label } 或 null。有 tools/env/py.mjs 时经它启动（P10 的唯一解析入口）。
+// 返回 { cmd, pre: [...前置参数], label, version } 或 null；resolvePython.tried 记下试过的候选（报错时列出）。
+// 优先级：明确指定的优先于仓库默认，仓库默认优先于系统：
+//   --python（只用它，坏了就报错，不往下猜）→ 环境变量 BEIMING_PY、BEIMING_PYTHON、PYTHON（CI 与工作站用它们指定解释器）
+//   → tools/env/py.mjs（环境包的统一入口，按 requirements.lock 建的 .venv）→ 仓库 .venv → python3、python、Windows 上的 py -3。
+// 某个候选跑不起来就试下一个；最后用上的解释器缺依赖时，测试会判「缺依赖」并给出安装命令。
 export function resolvePython(root = ROOT, override = null) {
   const probe = (cmd, pre) => {
     const r = spawnSync(cmd, [...pre, '-c', 'import sys; print(sys.version.split()[0])'], { encoding: 'utf8', env: pythonEnv(), timeout: 20000, windowsHide: true });
@@ -234,9 +238,9 @@ export function resolvePython(root = ROOT, override = null) {
   const candidates = [];
   if (override) candidates.push([override, [], '--python']);
   else {
+    for (const k of ['BEIMING_PY', 'BEIMING_PYTHON', 'PYTHON']) if (process.env[k]) candidates.push([process.env[k], [], k]);
     const pyMjs = path.join(root, 'tools/env/py.mjs');
     if (fs.existsSync(pyMjs)) candidates.push([process.execPath, [pyMjs], 'tools/env/py.mjs']);
-    for (const k of ['BEIMING_PY', 'BEIMING_PYTHON', 'PYTHON']) if (process.env[k]) candidates.push([process.env[k], [], k]);
     const venv = process.platform === 'win32' ? path.join(root, '.venv', 'Scripts', 'python.exe') : path.join(root, '.venv', 'bin', 'python');
     if (fs.existsSync(venv)) candidates.push([venv, [], '.venv']);
     candidates.push(['python3', [], 'python3'], ['python', [], 'python']);
@@ -247,7 +251,7 @@ export function resolvePython(root = ROOT, override = null) {
     resolvePython.tried.push(label);
     const v = probe(cmd, pre);
     if (v) return { cmd, pre, label, version: v.split(/\r?\n/).pop() };
-    if (override || label === 'tools/env/py.mjs') break;   // 指定了就不再往下猜，免得用错解释器
+    if (override) break;   // 指定了就不再往下猜，免得用错解释器
   }
   return null;
 }
@@ -600,7 +604,7 @@ export const HELP = `北冥仓库 · 测试总入口（npm test）
   --skip-grep <文字>   不跑名字含这段文字的测试（可重复；CI 用它隔离已登记的已知问题，见 tests/ci/README.md）
   --timeout <秒>       每一组的总时限（默认 600；tests/<域>/suite.json 的 timeoutSec 优先于默认值，本参数优先于两者）
   --bail               有一组失败就停，剩下的标为未运行
-  --python <解释器>    指定 Python（默认经 tools/env/py.mjs，或依次找 BEIMING_PY、PYTHON、.venv、python3、python、py -3）
+  --python <解释器>    指定 Python（默认依次找 BEIMING_PY、PYTHON、tools/env/py.mjs、.venv、python3、python、py -3）
   --root <目录>        在另一个检出里发现并运行（给 tests/ci 的夹具用）
   --json               stdout 只输出一个 JSON 对象（附录 C2 信封 + summary、suites）；进度在 stderr
   --report <文件>      另把同一个 JSON 写进文件（CI 上传为工件）

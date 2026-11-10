@@ -63,7 +63,7 @@ export const HELP = `北冥仓库 · 无 GPU 冒烟出片（CI smoke-render）
   --golden <模式>         auto（默认：有清单就比对，没有就采集）、compare、capture、off
   --platform <平台键>     金标准平台键（默认 <系统>-swiftshader，CI 上是 linux-swiftshader；不是软件渲染时没有默认值）
   --golden-set <名,…>     金标准集合（默认 beiming-core,lab）
-  --python <解释器>       Python（默认经 tools/env/py.mjs，或 BEIMING_PY、PYTHON、.venv、python3…）
+  --python <解释器>       Python（默认依次找 BEIMING_PY、PYTHON、tools/env/py.mjs、.venv、python3…）
   --timeout <秒>          每一步的时限（默认 600）
   --keep                  保留 films/ 下的临时作品（排查用）
   --plan                  只打印每段要跑的命令，不执行、不建任何文件
