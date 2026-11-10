@@ -46,6 +46,8 @@ class Cache:
             return None                                   # 坏条目当作没有（会重新合成；离线时报缺）
         if sr != SR or meta.get('key') != k:
             return None
+        if meta.get('storedGain'):                       # 存盘时为了不削波压过的，读回来还原
+            x = x / float(meta['storedGain'])
         return x, meta
 
     def put(self, k, audio, meta):
