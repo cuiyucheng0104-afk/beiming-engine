@@ -30,7 +30,7 @@ async function init() {
   const film = await (await fetch(new URL('../film.json', import.meta.url))).json();
   const pal = await (await fetch(new URL('../palette.json', import.meta.url))).json();   // 字色取色板的 title
   INK = [1, 3, 5].map(i => parseInt(pal.title.slice(i, i + 2), 16));
-  const L = layout({ W, H, FPS: film.fps, frames: Math.round(film.dur * film.fps) }, V);
+  const L = layout({ W, H, FPS: film.fps, frames: Math.round(film.dur * film.fps), cuts: film.shots?.map(s => s.out) }, V);
   T = titleBox({ W, H }, L.title);
   G = T.glyphs.map(([ch]) => buildBrushGlyph(ch, { font: `400 ${T.F.toFixed(2)}px "${FAMILY}"`, size: T.F, strokes: SKEL[ch], span: SPAN[ch], dry: DRY[ch] }));
   window.READY = true;

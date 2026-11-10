@@ -7,7 +7,8 @@
 // 辅助模块再 import ../../engine/… 会打包失败（2026-11-10 实测，canary.2）。所以投影函数由调用方传进来：
 //   film.tsx 传 engine/native/index.ts 的同名函数，title/title.js 与测试传 engine/native/view.js 的——同一份源码。
 //
-//   layout({ W, H, FPS, frames }, V) → { K, shots, kun(f), ferry(t), sky(index), cards, title }
+//   layout({ W, H, FPS, frames, cuts? }, V) → { K, shots, kun(f), ferry(t), sky(index), cards, title }
+//     cuts        film.json shots[].out（帧号）：镜头切点只认 film.json 一处（画面、声音事件、QA 的切点核对同一个来源）；不给时用 SHOTS 的默认值
 //     V           { shotAt, skyShift, headingYaw, behind, cardInView }（engine/native/view.js）
 //     K           2D 像素量的缩放 = H / 1040（设计高；分辨率改了 2D 版式跟着缩放，三维量不变）
 //     shots       三个镜头（view.js 的 shotAt 格式）：渡船建立尺度 → 鲲眼近景 → 拉开收片名；切点 3.5 / 6 秒
@@ -18,7 +19,9 @@
 //     cards       绘画卡片（ImagePlane）：{ name, src, image, position, width, aspect, drift, rotation, shots, cut }
 //                 shots 是出现在哪几个镜头（0 起算）——近景云按镜头摆（每镜一套，用屏幕框 + 深度换算成世界坐标，
 //                 与该镜画面平行，防纸板感）；cut 是这张图被画幅截断的边：竖直的截断边必须一直在画外，
-//                 上下的截断边若进画，film.json 的 images[].edge 必须给这条边烘了有机软边
+//                 上下的截断边若进画，film.json 的 images[].edge 必须给这条边烘了有机软边；
+//                 确实要在画内结束的远景云堤（cloud-bank 两端原图是沿直线的线性淡出），film.json 给这两条边烘「圆形收边」
+//                 （edge 宽 ≥ 0.15、round ≥ 0.5：淡出线弯成圆弧并带低频起伏，相当于 A 路 cropPlate 的椭圆软边），不留直线
 //     title       片名框（画面比例）：{ x, y, size } → 毛笔片名页面 title/ 与安全区检查共用
 //     events      film.json 的 events 换算成秒：{ id: 秒 }（声音脚本读同一份 film.json，画面与声音同一个帧号）
 
@@ -33,11 +36,13 @@ export const SHOTS = [
 
 const FERRY = { start: [-3, 0.1, 11], v: [0.5, 0, -0.65], wakeBehind: 4.77, wakeDrop: -0.33 };
 
-function cardsFor(W, H, V) {
-  const camAtStart = i => V.shotAt(i ? SHOTS[i - 1].until : 0, SHOTS);   // 某一镜起点的机位（按镜摆的卡片按它换算）
+function cardsFor(W, H, V, shots = SHOTS) {
+  const camAtStart = i => V.shotAt(i ? shots[i - 1].until : 0, shots);   // 某一镜起点的机位（按镜摆的卡片按它换算）
   const cards = [
-    // 远层：鲲身后的云堤（两端原图已柔化淡出）与陆家嘴天际线（等比；水岸线在图高 0.80 处，对齐江面 y = −0.25）——三个镜头共用
-    { name: 'cloud-bank', src: 'clouds_back.png', image: 'clouds_back', position: [-28, 32, -140], width: 150, drift: [0.1, 0, 0], shots: [0, 1, 2], cut: [] },
+    // 远层：鲲身后的云堤与陆家嘴天际线（等比；水岸线在图高 0.80 处，对齐江面 y = −0.25）——三个镜头共用。
+    // 云堤两端原图是沿竖线的线性淡出（QA-B-001），film.json 给它烘了圆形收边。云堤在天际线前面（楼顶没进云里），
+    // 整体比旧位置右移 16 米：第一镜的右端收边落到右侧近景云后面，收边的半透明区不再压在陆家嘴高楼上（否则楼会「透」出来）
+    { name: 'cloud-bank', src: 'clouds_back.png', image: 'clouds_back', position: [-12, 32, -140], width: 150, drift: [0.1, 0, 0], shots: [0, 1, 2], cut: ['left', 'right'] },
     { name: 'skyline', src: 'skyline_pudong.png', image: 'skyline_pudong', position: [-6, 0, -150], width: 112, shots: [0, 1, 2], cut: [], waterline: 0.8, water: -0.25 },
     // 第一镜：左右两团近景云夹出渡船前方的云隙（世界坐标摆，两团云向两侧拉开）
     { name: 'left-cloud', src: 'clouds_front_a.png', image: 'clouds_front_a', position: [-34, 8, -25], width: 57, drift: [-0.6, 0, 0], shots: [0], cut: ['left', 'top', 'bottom'] },
@@ -55,8 +60,12 @@ function cardsFor(W, H, V) {
   return cards;
 }
 
-export function layout({ W, H, FPS, frames }, V) {
+export function layout({ W, H, FPS, frames, cuts }, V) {
   for (const k of ['shotAt', 'skyShift', 'headingYaw', 'behind', 'cardInView']) if (typeof V?.[k] !== 'function') throw new TypeError(`layout：第二个参数要给 engine/native/view.js 的 ${k}`);
+  if (cuts !== undefined && !(Array.isArray(cuts) && cuts.length === SHOTS.length && cuts.every((c, i) => Number.isInteger(c) && c > (i ? cuts[i - 1] : 0)))) {
+    throw new TypeError(`layout：cuts 要是 ${SHOTS.length} 个递增的帧号（film.json shots[].out），收到 ${JSON.stringify(cuts)}`);
+  }
+  const shots = cuts ? SHOTS.map((s, i) => ({ ...s, until: cuts[i] / FPS })) : SHOTS;
   const K = H / 1040;
   const ferry = t => {
     const p = FERRY.start.map((x, i) => x + t * FERRY.v[i]), yaw = V.headingYaw(FERRY.v);
@@ -69,9 +78,9 @@ export function layout({ W, H, FPS, frames }, V) {
     return { q, clip: (q + 2) % 10, position: [-2 + q * 0.8, 13 + Math.sin(q * 0.7) * 0.45, -2], rotation: [-0.08, -0.18, -0.05 + (0.10 + 0.05) * raise] };
   };
   // 天空：每一镜里 skyShift 的范围 → 底板等比放大到能盖住整个范围，起点放在范围中间
-  const range = SHOTS.map(() => ({ x: [Infinity, -Infinity], y: [Infinity, -Infinity] }));
+  const range = shots.map(() => ({ x: [Infinity, -Infinity], y: [Infinity, -Infinity] }));
   for (let f = 0; f < frames; f++) {
-    const t = f / FPS, i = V.shotAt(t, SHOTS).index, [dx, dy] = V.skyShift(t, SHOTS, [W, H]);
+    const t = f / FPS, i = V.shotAt(t, shots).index, [dx, dy] = V.skyShift(t, shots, [W, H]);
     const r = range[i];
     r.x = [Math.min(r.x[0], dx), Math.max(r.x[1], dx)];
     r.y = [Math.min(r.y[0], dy), Math.max(r.y[1], dy)];
@@ -83,7 +92,7 @@ export function layout({ W, H, FPS, frames }, V) {
     const r = range[i];
     return { x: (W - width) / 2 - (r.x[0] + r.x[1]) / 2, y: (H - height) / 2 - (r.y[0] + r.y[1]) / 2, width, height };
   };
-  return { K, shots: SHOTS, kun, ferry, sky, skyRange: range, cards: cardsFor(W, H, V), title: { x: 0.06, y: 0.2, size: 0.19 } };
+  return { K, shots, kun, ferry, sky, skyRange: range, cards: cardsFor(W, H, V, shots), title: { x: 0.06, y: 0.2, size: 0.19 } };
 }
 
 // 片名框（像素）：与 title/title.js 的排法一致——两个字的中心在 (x·W + 0.462F, y·H) 与再往右 0.90F，字号 F = size·H

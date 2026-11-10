@@ -22,7 +22,7 @@ import titleSheet from './media/title.json';
 
 const P = palette(data);
 const [W, H] = film.size, FPS = film.fps, FRAMES = Math.round(film.dur * FPS);
-const L = layout({ W, H, FPS, frames: FRAMES }, { shotAt, skyShift, headingYaw, behind, cardInView });
+const L = layout({ W, H, FPS, frames: FRAMES, cuts: film.shots.map(s => s.out) }, { shotAt, skyShift, headingYaw, behind, cardInView });
 const EV = eventSeconds(film);
 
 // 近岸栏杆：与阴影同色的实心卡通块（只在第一镜，给出可量的前景视差）

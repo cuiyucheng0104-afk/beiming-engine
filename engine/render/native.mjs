@@ -35,6 +35,7 @@ import { defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs';
 import { ffmpegBins } from '../../tools/env/lib/ffmpeg.mjs';
 import { declaredAssets, hashAsset, readFilmSpec, referencedAssets, sourceFiles } from '../native/film.mjs';
 import { resolveRuntime } from '../native/runtime.mjs';
+import { SPEC_KINDS, specHash } from '../native/prepare.mjs';
 import * as D from '../native/delivery.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -100,6 +101,10 @@ async function checkAssets(spec) {
     const want = prepared.assets?.[a.name];
     if (want !== h) throw fail(EXIT.CONTRACT, 'asset-hash', `media/${a.name} 的 sha256 与 prepared.json 记录不符（${want ? '素材在 prepare 之后被改过或替换' : 'prepared.json 里没有这一项'}）`, `重新准备：node engine/native/prepare.mjs ${repoRel(spec.dir)}`);
   }
+  // film.json 的素材清单在 prepare 之后改过（例如改了 edge 参数）：media/ 里的东西已经不是清单描述的样子
+  const stale = prepared?.specs ? SPEC_KINDS.filter(k => prepared.specs[k] !== undefined && prepared.specs[k] !== specHash(spec.native, k)) : [];
+  if (stale.length) throw fail(EXIT.CONTRACT, 'stale-assets', `film.json 的素材清单（${stale.join('、')}）在 prepare 之后改过，media/ 里的素材已过期`, `重新准备：node engine/native/prepare.mjs ${repoRel(spec.dir)} --only ${stale.join(',')}`);
+  if (prepared && !prepared.specs) warn('media/prepared.json 是旧格式（没有素材清单指纹），发现不了「清单改了没重做」：重新准备一次即可补上');
   if (undeclared.length) warn(`源码引用了未在 film.json 声明的素材：${undeclared.join('、')}（无法由 prepare 复现；请写进 native.images / models / sequences）`);
   return { hashes, prepared: prepared ? { film: prepared.film, tools: prepared.tools ?? null } : null, undeclared };
 }

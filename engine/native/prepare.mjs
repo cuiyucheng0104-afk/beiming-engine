@@ -5,7 +5,8 @@
 //   node engine/native/prepare.mjs <作品目录> [--only images,models,sequences,audio] [--preview] [--json]
 //
 // film.json → native 段（路径都相对作品目录；to 是 media/ 下的文件名）
-//   images     [{ to, from, edge? }]                    复制图片 / 字体 / 许可文件；edge 给透明底板的截断边烘有机软边（engine/native/edge.mjs）
+//   images     [{ to, from, edge?, crop?, flip? }]      复制图片 / 字体 / 许可文件；edge 给透明底板的截断边烘有机软边或圆形收边，
+//                                                      crop / flip 从一张底板派生一块云片（engine/native/edge.mjs）
 //   models     [{ to, from }]                           外部 GLB：复制 + 结构检查（validate 字段同 bridge/validate.mjs）
 //              [{ to, module, export, args, … }]       由代码生成：engine/native/bridge/export.mjs（three.js 对象 → GLB + 回读）
 //              [{ to, recipe, … }]                     由配方生成（复杂生物）
@@ -15,13 +16,16 @@
 //   audio      { script, out }                          运行 Python 声音脚本（PYTHONPATH = 仓库根，可直接 from engine.audio import …）
 //                                                      环境变量 BNE_OUT（输出 wav 绝对路径）、BNE_DUR（秒）、BNE_FILM（作品目录）
 // 每个产物先写临时文件、通过检查后才换名到正式路径；最后原子地写 media/prepared.json：
-//   { schemaVersion, film, preparedAt, tools{node, ffmpeg, python?}, inputs{来源相对路径: sha256}, assets{产物名: sha256} }
-// 渲染入口会逐个核对 assets 的哈希，素材在 prepare 之后被改过就拒绝出片。
+//   { schemaVersion, film, preparedAt, tools{node, ffmpeg, python?}, inputs{来源相对路径: sha256}, assets{产物名: sha256},
+//     specs{images|models|sequences|audio: 该类素材清单的 sha256} }
+// 渲染入口会逐个核对 assets 的哈希（素材在 prepare 之后被改过就拒绝出片），并核对 specs（film.json 的素材清单在 prepare 之后
+// 改过——例如改了 edge 参数却没重新准备——也拒绝，并说明要重做哪一类）。
 // Python 用仓库统一的解释器查找（tools/env/lib/python.mjs：BEIMING_PYTHON → BEIMING_PY → PYTHON → .venv → python3 …；npm run setup 建 .venv），
 // 子进程环境 PYTHONUTF8=1、PYTHONPATH 前置仓库根。FFmpeg 认 FFMPEG / FFPROBE（tools/env/lib/ffmpeg.mjs 的 ffmpegBins）。
 // 环境变量：BEIMING_PYTHON / PYTHON、FFMPEG、BEIMING_CHROME、BNE_AUDIO_TIMEOUT / BNE_BRIDGE_TIMEOUT（秒）。
 // 退出码：0 · 1 生成失败 · 2 用法 · 3 缺来源文件 / Python 依赖 / FFmpeg · 4 film.json 或产物不合格 · 124 超时 · 130 / 143 中断
 import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +51,12 @@ const need = (p, what) => { if (!existsSync(p)) throw fail(EXIT.ENV, 'missing-in
 
 export async function readFilm(dir) { return readFilmSpec(dir); }
 
+// 每类素材清单的指纹（film.json native 段里对应的数组 / 对象，键排序后序列化）：渲染入口据此发现「清单改了、素材没重做」
+export const SPEC_KINDS = ['images', 'models', 'sequences', 'audio'];
+const canon = v => Array.isArray(v) ? `[${v.map(canon).join(',')}]` : v && typeof v === 'object' ? `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}` : JSON.stringify(v ?? null);
+// 没写与空数组算同一份清单（readFilmSpec 会把缺省的 images / models / sequences 补成 []）
+export const specHash = (native, kind) => { const v = native?.[kind]; return createHash('sha256').update(canon(Array.isArray(v) && !v.length ? null : v ?? null)).digest('hex'); };
+
 export async function prepare(dir, { only = null, preview = false } = {}) {
   dir = resolve(dir);
   const spec = await readFilmSpec(dir), N = spec.native, media = resolve(dir, 'media'), made = [], inputs = {};
@@ -59,7 +69,10 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
     const to = resolve(media, name(im.to)), from = need(resolve(dir, im.from), '图片');
     await mkdir(dirname(to), { recursive: true });
     await recordInput(from);
-    if (im.edge) { await applyEdge(from, to, im.edge); log(`底板 ${im.to}：烘入有机软边 ${JSON.stringify(im.edge)}`); }
+    if (im.edge || im.crop || im.flip) {
+      await applyEdge(from, to, im.edge, { crop: im.crop, flip: Boolean(im.flip) });
+      log(`底板 ${im.to}：${[im.crop && `裁 ${JSON.stringify(im.crop)}`, im.flip && '水平翻转', im.edge && `${im.edge.round ? '圆形收边' : '有机软边'} ${JSON.stringify(im.edge)}`].filter(Boolean).join('，')}`);
+    }
     else { await copyFile(from, `${to}.part`); await rename(`${to}.part`, to); }
     made.push(im.to);
   }
@@ -129,9 +142,11 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
   // 只有 --only 时才沿用上次的记录（其余类别没重做）；完整准备从零记，film.json 里删掉的素材不会留在记录里
   let old = {};
   if (only && existsSync(resolve(media, 'prepared.json'))) { try { old = JSON.parse(await readFile(resolve(media, 'prepared.json'), 'utf8')); } catch { old = {}; } }
+  const specs = { ...(old.specs || {}) };
+  for (const k of SPEC_KINDS) if (want(k)) specs[k] = specHash(N, k);
   const record = {
     schemaVersion: 1, film: posix(relative(ROOT, dir)), preparedAt: new Date().toISOString(), tools: { ...(old.tools || {}), ...tools },
-    inputs: { ...(old.inputs || {}), ...inputs }, assets: { ...(old.assets || {}), ...hashes },
+    inputs: { ...(old.inputs || {}), ...inputs }, assets: { ...(old.assets || {}), ...hashes }, specs,
   };
   await writeFile(resolve(media, 'prepared.json.part'), JSON.stringify(record, null, 2) + '\n');
   await rename(resolve(media, 'prepared.json.part'), resolve(media, 'prepared.json'));
