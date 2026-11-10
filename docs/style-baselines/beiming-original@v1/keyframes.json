@@ -1,0 +1,82 @@
+{
+ "schema": "beiming-style-keyframes/v1",
+ "reference": "beiming-original@v1",
+ "说明": "认可参照 beiming-original@v1 的六张关键帧（不带显示层，1920×1040 原样 PNG）：film.json 里 lookPreset 写 beiming-original@v1/<name>，look 闸门并排对照的就是这些图；P17 的 A 路线与 DF-M 风格参考指标（色板 ΔE00、墨线覆盖率、颗粒能量）也从这里读。图由 node tools/baseline/golden.mjs keyframes --reference beiming-original@v1 从登记提交原样导出，像素与 darwin-metal.json 里同名帧逐位相同；冻结，不改。",
+ "platformKey": "darwin-metal",
+ "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+ "set": "beiming-original-v1",
+ "keyframes": [
+  {
+   "name": "wide",
+   "frame": "film?nohud=1@1920x1040#t=1.5000",
+   "t": 1.5,
+   "shot": "A",
+   "file": "keyframes/wide.png",
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "5d87c7a0fa0e051b4bd10e9faf366a029fa21e677926de6f9031b5e85910285c",
+   "sha256": "f4d03984ce18c2bf011400525af4398749d7cca002d301963b82c381677d1958",
+   "bytes": 3019471
+  },
+  {
+   "name": "wide-out",
+   "frame": "film?nohud=1@1920x1040#t=2.9500",
+   "t": 2.95,
+   "shot": "A",
+   "file": "keyframes/wide-out.png",
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "08b6ec726da9d6044abb8836d9cc9f3b3087e0446599328ad93a5efe2f6b401b",
+   "sha256": "cdda229578e1faedbbb544976587b23d931cdf77d06f3ce27959e7d03f649ee0",
+   "bytes": 3011764
+  },
+  {
+   "name": "figure",
+   "frame": "film?nohud=1@1920x1040#t=4.0000",
+   "t": 4,
+   "shot": "B",
+   "file": "keyframes/figure.png",
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "e0efc3d8581fc967b91d0773b24c129dc16ab772a6b6e829501dd658b9d8ec7e",
+   "sha256": "3d674f2b5cf05b3991197eb4cf1a54d2f1654dbede12dfbd1103a0ff620041e6",
+   "bytes": 2797869
+  },
+  {
+   "name": "eye",
+   "frame": "film?nohud=1@1920x1040#t=5.3000",
+   "t": 5.3,
+   "shot": "C",
+   "file": "keyframes/eye.png",
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "889cb66c1a1dde052ded149b763476a3eaa02880867288ecdb4ce8c251ab1fca",
+   "sha256": "9e7cb6ccfed63e705f19984cd49b1dd558912621d19392adac14388963725033",
+   "bytes": 3000333
+  },
+  {
+   "name": "underside",
+   "frame": "film?nohud=1@1920x1040#t=7.6000",
+   "t": 7.6,
+   "shot": "C",
+   "file": "keyframes/underside.png",
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "6b61d1b93fa6dfbb44515930a4c3c7d6d4a5b388edd474011bd9818eaa7ce5a3",
+   "sha256": "045a2acefa3f1fafdd1bc943e08e926390453d4e77c63eaa454d1b2bf3a94556",
+   "bytes": 3168035
+  },
+  {
+   "name": "title",
+   "frame": "film?nohud=1@1920x1040#t=9.6000",
+   "t": 9.6,
+   "shot": "C",
+   "file": "keyframes/title.png",
+   "width": 1920,
+   "height": 1040,
+   "pixelSha256": "717715305de9607e83c82c260607ca82ed8a631f37b5acfbcdb26fa13ea76bf9",
+   "sha256": "236364ab6929e868486d12166619c8174997eb6620b6a3dbf19941ad512d3580",
+   "bytes": 2906050
+  }
+ ]
+}
