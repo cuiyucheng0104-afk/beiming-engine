@@ -1,0 +1,97 @@
+/* 北冥作品站 · 设计令牌（共享，只读：由主会话维护，各角色只引用不修改）
+ * 色值取自影片色板 src/toon.js 的 PALETTE，换算成 OKLCH；注释里是原 hex。
+ * 对比度已核对（WCAG 2.x）：
+ *   --ink / --paper 11.0　--ink-soft / --paper 6.8　--ink-mute / --paper 5.5（/ --paper-deep 5.1）
+ *   --mist / --night 13.7　--mist-soft / --night 8.7　--mist-mute / --night 5.8（/ --night-2 5.0）
+ *   --lamp / --night 10.9　--ink / --lamp 8.4　--hud / --night 12.6
+ *   首屏文字用 --ink 压在下半部暖色天空上：--ink / 粉 6.5、/ 杏 7.4、/ 薰衣草 4.6（薰衣草区只放大字）
+ *   近白字 --paper-light 在薰衣草上只有 2.7，不要把近白小字放在天空中段。
+ */
+:root {
+  /* —— 天空（黄昏，自上而下） —— */
+  --sky-zenith:   oklch(51.5% 0.156 274.4);  /* #4F5BBF 天顶 */
+  --sky-lavender: oklch(69.0% 0.106 291.5);  /* #9C8FD8 薰衣草 */
+  --sky-cloud:    oklch(63.1% 0.106 294.8);  /* #8E7CC3 云的暗面 */
+  --sky-pink:     oklch(78.8% 0.098 14.8);   /* #F2A0A6 粉 */
+  --sky-cloudlit: oklch(80.4% 0.100 39.2);   /* #F7A98F 云的受光面 */
+  --sky-apricot:  oklch(82.3% 0.126 62.3);   /* #FFB26B 地平线杏色 */
+  --city:         oklch(44.3% 0.106 281.8);  /* #4B4A8C 城市剪影 */
+
+  /* —— 纸与墨 —— */
+  --paper:        oklch(94.0% 0.025 83.4);   /* #F3EAD9 纸 */
+  --paper-deep:   oklch(91.0% 0.032 82.0);   /* #EBE0CB 纸（深一档，用于分区） */
+  --paper-light:  oklch(97.6% 0.012 84.0);   /* #FBF7EF 近白（代替 #fff） */
+  --ink:          oklch(31.4% 0.066 278.4);  /* #2A2D52 墨线色，正文 */
+  --ink-soft:     oklch(42.5% 0.058 280.0);  /* #4A4D74 次要文字 */
+  --ink-mute:     oklch(47.5% 0.050 281.0);  /* #585A7E 注释、元信息（≥4.5:1） */
+  --rule-ink:     oklch(31.4% 0.066 278.4 / 0.16); /* 纸面上的细线 */
+
+  /* —— 夜 —— */
+  --night:        oklch(23.0% 0.064 278.8);  /* #17183A */
+  --night-2:      oklch(27.8% 0.071 279.6);  /* #22234A 夜（浅一档） */
+  --night-3:      oklch(33.0% 0.075 280.0);  /* 悬停底、分隔 */
+  --mist:         oklch(92.5% 0.025 292.0);  /* #E8E4F5 夜里的正文 */
+  --mist-soft:    oklch(77.5% 0.050 292.0);  /* #B9B5D6 次要文字 */
+  --mist-mute:    oklch(70.5% 0.055 291.0);  /* #A09DC2 元信息（≥5:1） */
+  --rule-mist:    oklch(92.5% 0.025 292.0 / 0.14);
+
+  /* —— 唯一强调色：窗灯金（≤10% 面积）与显示层青（仅实时读数） —— */
+  --lamp:         oklch(85.6% 0.126 76.0);   /* #FFC46B 城市窗灯 */
+  --lamp-deep:    oklch(72.0% 0.140 66.0);   /* 纸面上需要更深的金时用 */
+  --hud:          oklch(89.1% 0.079 219.6);  /* #9FE8FF 显示层青 */
+  --kun-rim:      oklch(89.6% 0.068 60.3);   /* #FFD3B0 鲲的轮廓光 */
+
+  /* —— 当前篇章的语义色（由 main.js 随滚动在篇章交界处插值） —— */
+  --bg: var(--paper);
+  --fg: var(--ink);
+  --fg-soft: var(--ink-soft);
+  --fg-mute: var(--ink-mute);
+  --rule: var(--rule-ink);
+  --accent: var(--lamp-deep);
+
+  /* —— 字体 —— */
+  --font-brush: "Ma Shan Zheng", "STKaiti", "Kaiti SC", "KaiTi", serif;
+  --font-sans: "Barlow", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Source Han Sans SC", system-ui, sans-serif;
+  --font-num: "Barlow", "PingFang SC", system-ui, sans-serif;  /* 数字：font-variant-numeric: tabular-nums */
+
+  /* —— 字号阶（1.25–1.333 比例，流式） —— */
+  --step--2: clamp(0.72rem, 0.70rem + 0.10vw, 0.78rem);
+  --step--1: clamp(0.83rem, 0.80rem + 0.15vw, 0.92rem);
+  --step-0:  clamp(1.00rem, 0.96rem + 0.20vw, 1.12rem);   /* 正文 */
+  --step-1:  clamp(1.25rem, 1.17rem + 0.40vw, 1.50rem);
+  --step-2:  clamp(1.56rem, 1.40rem + 0.80vw, 2.00rem);
+  --step-3:  clamp(1.95rem, 1.65rem + 1.50vw, 2.85rem);
+  --step-4:  clamp(2.44rem, 1.90rem + 2.70vw, 4.20rem);
+  --step-5:  clamp(3.40rem, 2.40rem + 5.00vw, 7.50rem);
+  --step-6:  clamp(5.50rem, 3.00rem + 12.5vw, 16.5rem);   /* 首屏“北冥” */
+
+  --leading-body: 1.75;
+  --leading-tight: 1.2;
+  --measure: 34em;               /* 正文最大行长，约 34 个汉字 */
+  --track-label: 0.12em;         /* 西文大写小标签字距 */
+
+  /* —— 空间 —— */
+  --gutter: clamp(16px, 4.5vw, 64px);
+  --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem;
+  --space-5: 1.5rem;  --space-6: 2rem;   --space-7: 3rem;    --space-8: 4.5rem;
+  --space-9: clamp(4.5rem, 3rem + 6vw, 9rem);      /* 篇章内的大段落间距 */
+  --space-10: clamp(7rem, 4rem + 12vw, 16rem);     /* 篇章之间 */
+
+  /* —— 动效 —— */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);       /* expo.out */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --dur-1: 160ms; --dur-2: 280ms; --dur-3: 520ms; --dur-4: 900ms;
+
+  /* —— 其他 —— */
+  --radius: 2px;                 /* 几乎方角：胶片与纸 */
+  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--lamp);
+  --z-stage: 0; --z-content: 1; --z-nav: 20; --z-player: 30;
+}
+
+[data-theme="dusk"]  { --fg: var(--ink); --fg-soft: var(--ink-soft); --fg-mute: var(--ink-mute); --rule: var(--rule-ink); --accent: var(--lamp-deep); }
+[data-theme="paper"] { --bg: var(--paper); --fg: var(--ink); --fg-soft: var(--ink-soft); --fg-mute: var(--ink-mute); --rule: var(--rule-ink); --accent: var(--lamp-deep); }
+[data-theme="night"] { --bg: var(--night); --fg: var(--mist); --fg-soft: var(--mist-soft); --fg-mute: var(--mist-mute); --rule: var(--rule-mist); --accent: var(--lamp); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur-4: 0ms; }
+}

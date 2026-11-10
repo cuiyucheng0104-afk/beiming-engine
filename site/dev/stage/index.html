@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>舞台测试页 · 北冥作品站</title>
+<!-- 独立测试页：从仓库根起服务（python3 -m http.server 8101），打开 http://127.0.0.1:8101/site/dev/stage/
+     参数：scene=hero|layers|idle  progress=0..1  layer=0..4  quality=auto|high|low  reduced=1  ui=0  poster=0
+           demo=1（自动扫过五层）  pointer=x,y（固定鼠标位置）  bg=纸色十六进制（透明层底下的颜色）
+           defer=0（不按 CPU 探针推迟 / 放弃建鲲，压测时用） -->
+<script type="importmap">{ "imports": {
+  "three": "/node_modules/three/build/three.module.js",
+  "three/addons/": "/node_modules/three/examples/jsm/",
+  "@engine/": "/engine/",
+  "@film/": "/src/"
+} }</script>
+<style>
+  :root { --paper: #F3EAD9; --ink: #2A2D52; --lamp: #FFC46B; --hud: #9FE8FF; --night: #17183A; }
+  html, body { margin: 0; height: 100%; background: var(--bg, var(--paper)); color: var(--ink); font: 13px/1.5 "PingFang SC", system-ui, sans-serif; }
+  .stage { position: fixed; inset: 0; overflow: hidden; }
+  .stage-poster, #stage-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage-poster { object-fit: cover; object-position: 50% 50%; transition: opacity 0.6s ease; }
+  .stage.is-live .stage-poster { opacity: 0; }
+  #stage-canvas { opacity: 0; transition: opacity 0.6s ease; }
+  .stage.is-live #stage-canvas { opacity: 1; }
+  .panel { position: fixed; left: 12px; bottom: 12px; z-index: 5; background: rgb(251 247 239 / 0.92); border: 1px solid rgb(42 45 82 / 0.18);
+           padding: 10px 12px; display: grid; gap: 6px; min-width: 300px; border-radius: 2px; }
+  .panel label { display: grid; grid-template-columns: 64px 1fr 44px; align-items: center; gap: 8px; }
+  .panel output { font-variant-numeric: tabular-nums; text-align: right; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  button, select { font: inherit; color: var(--ink); background: #fff8; border: 1px solid rgb(42 45 82 / 0.3); padding: 2px 8px; border-radius: 2px; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--lamp); }
+  .read { font-variant-numeric: tabular-nums; color: #4A4D74; }
+  .grid { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 2;
+          background: repeating-linear-gradient(90deg, transparent 0 calc(100% / 12 - 1px), rgb(255 0 80 / 0.25) calc(100% / 12 - 1px) calc(100% / 12)); }
+  body.show-grid .grid { display: block; }
+  body.no-ui .panel { display: none; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" aria-hidden="true">
+  <picture>
+    <source media="(max-aspect-ratio: 999/1000)" srcset="../../assets/hero-poster-portrait.jpg">
+    <img class="stage-poster" src="../../assets/hero-poster.jpg" alt="">
+  </picture>
+  <canvas id="stage-canvas"></canvas>
+</div>
+<div class="grid"></div>
+<div class="panel" id="panel">
+  <div class="row">
+    <select id="scene" aria-label="场景"><option>hero</option><option>layers</option><option>idle</option></select>
+    <button id="play" aria-pressed="true">播放</button>
+    <button id="demo" aria-pressed="false">自动扫层</button>
+    <button id="gridBtn" aria-pressed="false">12 栏</button>
+  </div>
+  <label>层 <input id="layer" type="range" min="0" max="4" step="0.01" value="4"><output id="layerOut">4</output></label>
+  <label>进度 <input id="progress" type="range" min="0" max="1" step="0.001" value="0"><output id="progressOut">0</output></label>
+  <div class="read" id="read">建鲲中…</div>
+  <div class="read" id="info"></div>
+</div>
+<script type="module">
+  import { createStage } from '../../js/stage.js';
+  const q = new URLSearchParams(location.search);
+  const $ = id => document.getElementById(id);
+  // salt=1：给每个着色器塞一个本次唯一的常量（不改画面），ANGLE / Metal 的缓存全部失效，模拟第一次来的访客
+  if (q.get('salt') === '1') {
+    const P = WebGL2RenderingContext.prototype, salt = 1 + Math.floor(Math.random() * 1e6);
+    const create = P.createShader, source = P.shaderSource;
+    P.createShader = function (type) { const s = create.call(this, type); if (s) s.__type = type; return s; };
+    P.shaderSource = function (sh, src) {
+      const frag = sh && sh.__type === this.FRAGMENT_SHADER;
+      src = src.replace(/void\s+main\s*\(\s*\)\s*\{/, m => m + (frag ? ` if ( gl_FragCoord.x < -${salt}.5 ) discard;` : ` if ( gl_VertexID == -${salt} ) { gl_Position = vec4( 0.0 ); return; }`));
+      return source.call(this, sh, src);
+    };
+  }
+  if (q.get('ui') === '0') document.body.classList.add('no-ui');
+  if (q.get('grid') === '1') document.body.classList.add('show-grid');
+  if (q.get('bg')) document.documentElement.style.setProperty('--bg', '#' + q.get('bg'));
+  if (q.get('poster') === '0') document.querySelector('.stage picture').remove();
+  const stats = []; window.__statsLog = stats;
+  // 舞台在画布上派发的额外事件：记下来给测试脚本看
+  const events = []; window.__stageEvents = events;
+  for (const type of ['stage:lost', 'stage:restored', 'stage:deferred', 'stage:skipped', 'stage:beat']) {
+    $('stage-canvas').addEventListener(type, e => { events.push({ type, at: Math.round(performance.now()), detail: e.detail ?? null }); if (events.length > 400) events.splice(0, 100); });
+  }
+  const t0 = performance.now();
+  const stage = await createStage($('stage-canvas'), {
+    reducedMotion: q.get('reduced') === '1', quality: q.get('quality') || 'auto', lod: q.get('lod') ? +q.get('lod') : null, defer: q.get('defer') !== '0',
+    onStats: s => { stats.push({ ...s, at: Math.round(performance.now() - t0) }); $('read').textContent = `实时渲染中 · ${s.fps} fps · ${s.triangles.toLocaleString('zh-CN')} 三角形 · ${s.drawCalls} 次绘制 · 像素比 ${s.pixelRatio} · ${s.gpu}`; },
+  });
+  window.__stage = stage;
+  if (!stage) { $('read').textContent = '舞台不可用（不支持 WebGL2 或初始化失败），保留海报'; window.__ready = 'null'; }
+  else {
+    const scene = q.get('scene') || 'hero', layer = +(q.get('layer') ?? 4), progress = +(q.get('progress') ?? 0);
+    $('scene').value = scene; $('layer').value = layer; $('progress').value = progress;
+    $('layerOut').value = layer; $('progressOut').value = progress;
+    stage.setScene(scene, progress); stage.setLayer(layer);
+    if (q.get('pointer')) { const [x, y] = q.get('pointer').split(',').map(Number); stage.setPointer(x, y); }
+    else addEventListener('pointermove', e => stage.setPointer(e.clientX / innerWidth * 2 - 1, 1 - e.clientY / innerHeight * 2));
+    $('scene').onchange = () => stage.setScene($('scene').value, +$('progress').value);
+    $('layer').oninput = () => { stage.setLayer(+$('layer').value); $('layerOut').value = (+$('layer').value).toFixed(2); };
+    $('progress').oninput = () => { stage.setScene($('scene').value, +$('progress').value); $('progressOut').value = (+$('progress').value).toFixed(3); };
+    $('play').onclick = () => { const on = $('play').getAttribute('aria-pressed') !== 'true'; $('play').setAttribute('aria-pressed', on); on ? stage.play() : stage.pause(); };
+    $('gridBtn').onclick = () => { const on = document.body.classList.toggle('show-grid'); $('gridBtn').setAttribute('aria-pressed', on); };
+    // 自动扫层：每 2.5 秒往上画回一层（4 → 0 → 1 → … → 4），机位跟着 progress 走
+    let demo = q.get('demo') === '1', demoT = 0, last = performance.now();
+    $('demo').setAttribute('aria-pressed', demo);
+    $('demo').onclick = () => { demo = !demo; demoT = 0; $('demo').setAttribute('aria-pressed', demo); if (demo) { $('scene').value = 'layers'; } };
+    (function tick(now) {
+      const dt = (now - last) / 1000; last = now;
+      if (demo) {
+        demoT += dt;
+        const x = Math.min(4, Math.max(0, demoT / 2.5 - 0.6));
+        stage.setScene('layers', Math.min(1, demoT / 13)); stage.setLayer(x);
+        $('layer').value = x; $('layerOut').value = x.toFixed(2); $('progress').value = Math.min(1, demoT / 13);
+        if (demoT > 14) demoT = 0;
+      }
+      requestAnimationFrame(tick);
+    })(last);
+    const ff = await stage.firstFrame;
+    document.getElementById('stage').classList.add('is-live');
+    const i = stage.debug.info;
+    $('info').textContent = `建鲲 ${i.buildMs.toFixed(0)} ms（探针 ${i.probeMs.toFixed(1)} ms，预估 ${i.estMs.toFixed(0)} ms${i.deferMs ? `，推迟 ${i.deferMs.toFixed(0)} ms` : ''}） · 着色器 ${i.compileMs.toFixed(0)} ms · 首帧 ${ff.ms.toFixed(0)} ms · lod ${i.lod} · 阴影 ${i.shadow} · ${i.tier} · 像素比阶梯 ${i.ladder.join(' / ')}`;
+    window.__ready = true;
+  }
+</script>
+</body>
+</html>

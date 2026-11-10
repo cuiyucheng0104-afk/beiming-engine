@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh-CN" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>北冥 · 代码即影片</title>
+<meta name="description" content="北冥引擎的作品站。首屏这条鲲正在你的浏览器里实时渲染；79 部成片，每一部都由代码合成出片。">
+<meta name="theme-color" content="#4F5BBF">
+<link rel="canonical" href="https://cuiyucheng0104-afk.github.io/beiming-engine/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="北冥 · 代码即影片">
+<meta property="og:description" content="一条鲲，由代码一帧一帧画出来。79 部成片，每一部都由代码合成出片。">
+<meta property="og:url" content="https://cuiyucheng0104-afk.github.io/beiming-engine/">
+<meta property="og:image" content="https://cuiyucheng0104-afk.github.io/beiming-engine/assets/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/ui-icon.png" type="image/png" sizes="64x64">
+<link rel="apple-touch-icon" href="assets/ui-icon-180.png">
+<link rel="preload" href="fonts/MaShanZheng-400.woff2" as="font" type="font/woff2" crossorigin>
+<!-- 样式顺序固定（契约第 3 节） -->
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/sections.css">
+<link rel="stylesheet" href="css/works.css">
+<script>
+  // 第一帧绘制之前定下页面状态：有脚本、是否减少动态。开场的初始隐藏态只在动态模式下生效；
+  // 1.6 秒内 main.js 没接手就撤掉初始隐藏态（保底：网速慢、脚本加载失败时首屏照样在 2.5 秒内完整）。
+  (function (d) {
+    var c = d.documentElement.classList;
+    var rm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    c.remove('no-js'); c.add('js'); c.add(rm ? 'rm' : 'motion');
+    if (!rm) { c.add('intro'); window.__bmIntro = setTimeout(function () { c.remove('intro'); }, 1600); }
+  })(document);
+</script>
+<script type="importmap">{ "imports": {
+  "three": "./vendor/three/three.module.min.js",
+  "three/addons/": "./vendor/three/addons/",
+  "@engine/": "./engine/",
+  "@film/": "./src/"
+} }</script>
+<link rel="modulepreload" href="js/brush-title.js">
+<link rel="modulepreload" href="engine/overlay/brush.js">
+<link rel="modulepreload" href="engine/core/math.js">
+<link rel="modulepreload" href="engine/paint/curve.js">
+<script src="vendor/gsap/gsap.min.js" defer></script>
+<script src="vendor/gsap/ScrollTrigger.min.js" defer></script>
+<script src="vendor/gsap/Flip.min.js" defer></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#main">跳到正文</a>
+
+<header class="nav" id="nav" data-nav="sky">
+  <a class="nav-brand" href="#hero" aria-label="北冥，回到页首">
+    <span class="nav-mark f-brush" aria-hidden="true">北冥</span>
+    <span class="nav-word label" aria-hidden="true">BEIMING ENGINE</span>
+  </a>
+  <nav class="nav-links" aria-label="主导航">
+    <a href="#engine">引擎</a>
+    <a href="#works">作品</a>
+    <a href="#method">方法</a>
+    <a href="https://github.com/cuiyucheng0104-afk/beiming-engine" target="_blank" rel="noopener">GitHub<span class="ext" aria-hidden="true">↗</span><span class="sr-only">（新标签页）</span></a>
+  </nav>
+</header>
+
+<div class="stage" id="stage" aria-hidden="true"><picture><source media="(max-aspect-ratio: 999/1000)" srcset="assets/hero-poster-portrait.jpg"><img class="stage-poster" src="assets/hero-poster.jpg" alt="" fetchpriority="high" decoding="async"></picture><canvas id="stage-canvas"></canvas></div>
+
+<main id="main" tabindex="-1">
+
+  <section id="hero" class="hero" data-theme="dusk" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="label">BEIMING ENGINE</span><span class="sep" aria-hidden="true">·</span><span>代码即影片</span></p>
+      <h1 class="hero-title" id="hero-title"><span class="hero-glyphs f-brush">北冥</span></h1>
+      <p class="hero-claim">一条鲲，由代码<wbr>一帧一帧画出来。</p>
+      <p class="hero-live" id="hero-live" data-state="poster">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span class="live-lead">你看到的不是视频</span>
+        <span class="live-sep" aria-hidden="true">·</span>
+        <span class="live-state" id="live-state">引擎渲染的静帧</span>
+        <button type="button" class="live-toggle" id="live-toggle" hidden><span class="live-toggle-label">暂停</span><span class="sr-only">实时画面</span></button>
+      </p>
+      <p class="hero-sub">北冥引擎把造型、光影、墨线和纸纹都写成代码。同一份程序，渲出 1080p，也渲出原生 4K。</p>
+      <div class="hero-actions">
+        <a class="btn btn-lamp" id="film-open" href="media/beiming.mp4">
+          <svg class="btn-icon" viewBox="0 0 12 14" width="12" height="14" aria-hidden="true" focusable="false"><path d="M1 1.2v11.6c0 .5.5.8.9.5l9.4-5.8c.4-.2.4-.8 0-1L1.9.7C1.5.4 1 .7 1 1.2z" fill="currentColor"/></svg>
+          <span>看《北冥》样片 · 10 秒</span>
+        </a>
+        <a class="btn btn-line" href="#works">79 部作品</a>
+      </div>
+    </div>
+
+    <figure class="hero-film" id="hero-film" hidden>
+      <div class="hero-film-frame">
+        <video id="film-video" preload="none" playsinline controls title="《北冥》样片">
+          <source src="media/beiming-1280.mp4" type="video/mp4" media="(max-width: 900px)">
+          <source src="media/beiming.mp4" type="video/mp4">
+        </video>
+      </div>
+      <figcaption class="hero-film-cap">
+        <span class="cap-title">《北冥》样片</span>
+        <span class="cap-meta num">10 秒 · <span id="film-res">1920 × 1040</span> · 24 fps</span>
+        <button type="button" class="film-close" id="film-close">收起<span class="sr-only">样片</span><span class="key num" aria-hidden="true">Esc</span></button>
+      </figcaption>
+    </figure>
+
+    <p class="sr-only">首屏画面：青绿仙山鲲背负仙山，在黄昏的云海上游动。</p>
+  </section>
+
+  <section id="engine" class="engine" data-theme="paper" aria-labelledby="engine-title">
+    <div class="engine-pin" id="engine-pin">
+      <div class="engine-sheet" aria-hidden="true"></div>
+
+      <div class="step step-intro" data-step="intro">
+        <div class="step-text">
+          <p class="chapter-label" lang="en">ENGINE</p>
+          <h2 class="engine-title" id="engine-title">把画风<wbr>写成代码</h2>
+          <p class="engine-lede">画风不锁在素材里。<em>拆开这条鲲</em>，每一层都是一段可以单独替换、单独验收的程序。</p>
+        </div>
+      </div>
+
+      <ol class="rail" id="rail" aria-label="引擎九层，按引擎原序">
+        <li data-key="form"><span class="rail-glyph f-brush">形</span><span class="sr-only">engine/form</span></li>
+        <li data-key="shade"><span class="rail-glyph f-brush">光</span><span class="sr-only">engine/shade</span></li>
+        <li data-key="stage"><span class="rail-glyph f-brush">景</span><span class="sr-only">engine/stage</span></li>
+        <li data-key="look"><span class="rail-glyph f-brush">笔</span><span class="sr-only">engine/look</span></li>
+        <li data-key="paint"><span class="rail-glyph f-brush">人</span><span class="sr-only">engine/paint</span></li>
+        <li data-key="overlay"><span class="rail-glyph f-brush">界</span><span class="sr-only">engine/overlay</span></li>
+        <li data-key="time"><span class="rail-glyph f-brush">时</span><span class="sr-only">engine/core</span></li>
+        <li data-key="audio"><span class="rail-glyph f-brush">声</span><span class="sr-only">engine/audio</span></li>
+        <li data-key="render"><span class="rail-glyph f-brush">片</span><span class="sr-only">engine/render</span></li>
+      </ol>
+
+      <article class="step step-layer" data-step="form" data-layer="0">
+        <div class="step-text">
+          <h3 class="step-head"><span class="step-glyph f-brush">形</span><span class="sr-only">：</span><span class="step-lead">先有形。</span></h3>
+          <p class="step-mod num">engine/form</p>
+          <p class="step-body">轮廓表放样出鱼身，翼型撑起胸鳍，沿脊传播的波推着全身游动；背上的仙山与松树按种子确定性地散布。</p>
+        </div>
+        <figure class="step-plate"><img src="assets/stage-form.jpg" alt="素模：纸色与淡墨画出的鲲和背上的仙山，还没有着色" width="1600" height="900" loading="lazy" decoding="async"></figure>
+      </article>
+
+      <article class="step step-layer" data-step="shade" data-layer="1">
+        <div class="step-text">
+          <h3 class="step-head"><span class="step-glyph f-brush">光</span><span class="sr-only">：</span><span class="step-lead">再给光。</span></h3>
+          <p class="step-mod num">engine/shade</p>
+          <p class="step-body">三色分档的卡通着色把阴影量化成色块，背光在轮廓上勾出一道暖边。</p>
+        </div>
+        <figure class="step-plate"><img src="assets/stage-shade.jpg" alt="加上三色分档着色：阴影成块，轮廓透出一道暖色背光" width="1600" height="900" loading="lazy" decoding="async"></figure>
+      </article>
+
+      <article class="step step-layer" data-step="look" data-layer="2">
+        <div class="step-text">
+          <h3 class="step-head"><span class="step-glyph f-brush">笔</span><span class="sr-only">：</span><span class="step-lead">然后落笔。</span></h3>
+          <p class="step-mod num">engine/look</p>
+          <p class="step-body">墨线从深度、法线和物体编号里算出来，每两帧抖动一次，像手描的线。</p>
+        </div>
+        <figure class="step-plate"><img src="assets/stage-look.jpg" alt="加上墨线与纸纹，鲲的轮廓像手描的一样" width="1600" height="900" loading="lazy" decoding="async"></figure>
+      </article>
+
+      <article class="step step-layer" data-step="stage" data-layer="3">
+        <div class="step-text">
+          <h3 class="step-head"><span class="step-glyph f-brush">景</span><span class="sr-only">：</span><span class="step-lead">放进天空。</span></h3>
+          <p class="step-mod num">engine/stage</p>
+          <p class="step-body">手绘底板分层摆进三维空间，远处罩上一层空气透视的薄雾。</p>
+        </div>
+        <figure class="step-plate"><img src="assets/stage-stage.jpg" alt="鲲被放进手绘的黄昏天空，远处罩着一层薄雾" width="1600" height="900" loading="lazy" decoding="async"></figure>
+      </article>
+
+      <article class="step step-layer" data-step="time" data-layer="4">
+        <div class="step-text">
+          <h3 class="step-head"><span class="step-glyph f-brush">时</span><span class="sr-only">：</span><span class="step-lead">最后定节奏。</span></h3>
+          <p class="step-mod num">engine/core/clock.js</p>
+          <p class="step-body">镜头每帧都在动，鲲一拍三：每三帧才换一次姿态，这是手绘动画的呼吸。</p>
+          <div class="frames" id="frames" role="img" aria-label="一秒 24 帧的帧条：每 3 帧有一格金色实心格，是鲲换姿态的那一帧，其余两帧姿态不动">
+            <span class="frames-cells" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="frames-cap" aria-hidden="true"><span class="num">1</span> 秒 = <span class="num">24</span> 帧<span class="frames-sep">·</span><span class="frames-key"></span>鲲换姿态</span>
+          </div>
+        </div>
+        <figure class="step-plate"><img src="assets/stage-time.jpg" alt="完整画面：青绿仙山鲲背负仙山，在黄昏云海上游动" width="1600" height="900" loading="lazy" decoding="async"></figure>
+      </article>
+
+      <div class="step step-rest" data-step="rest">
+        <div class="step-text">
+          <p class="rest-text">另外四层：<b class="f-brush">人</b>（Canvas 2D 逐笔画人物），<b class="f-brush">界</b>（显示层与片名），<b class="f-brush">声</b>（程序化音效与混音），<b class="f-brush">片</b>（无头浏览器逐帧出片）。</p>
+          <p class="engine-note"><span class="num">0.52</span> 毫秒：RTX 5090 上一帧重着色器的耗时。<span class="num">31</span> 秒：原生 4K 整片 240 帧。同一份代码在工作站与 Mac 上渲出的 4K 成片，SSIM <span class="num">0.973</span>。</p>
+        </div>
+      </div>
+    </div>
+    <div class="engine-dusk" aria-hidden="true"></div>
+  </section>
+
+  <section id="works" class="works" data-theme="night" aria-labelledby="works-title"><!-- @works --></section>
+
+  <section id="method" class="method" data-theme="night" aria-labelledby="method-title">
+    <div class="method-head">
+      <p class="chapter-label" lang="en">METHOD</p>
+      <h2 class="method-title f-brush" id="method-title">方法</h2>
+      <p class="method-quote">代码不是素材的替代品，<wbr>而是画风的来源。</p>
+    </div>
+    <dl class="principles">
+      <div class="principle"><dt>确定性</dt><dd>没有墙钟时间，没有无种子随机。任何一帧都能单独重渲，第 <span class="num">137</span> 帧永远和第 <span class="num">137</span> 帧一样。</dd></div>
+      <div class="principle"><dt>整数帧</dt><dd>全局帧、镜头局部帧与动作相位分开计算；预演与成片用同一条时间轴。</dd></div>
+      <div class="principle"><dt>原生分辨率</dt><dd>镜头按设计尺寸摆位，4K 是算出来的，不是放大出来的。</dd></div>
+      <div class="principle"><dt>可复刻</dt><dd>每一部旧片都能从归档源码还原重建；换一组参数，就是新的画风试验。</dd></div>
+    </dl>
+    <div class="routes">
+      <h3 class="routes-title">三条路线</h3>
+      <ol class="route-list">
+        <li class="route">
+          <span class="route-key num" aria-hidden="true">A</span>
+          <span class="route-name">北冥风格路线 · WebGL 三渲二</span>
+          <span class="route-note">主线，可出 1080p 与原生 4K</span>
+          <a class="route-link" href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/engine" target="_blank" rel="noopener">引擎代码<span class="ext" aria-hidden="true">↗</span><span class="sr-only">（北冥风格路线，新标签页）</span></a>
+        </li>
+        <li class="route">
+          <span class="route-key num" aria-hidden="true">B</span>
+          <span class="route-name">北冥原生路线 · BNE</span>
+          <span class="route-note">10 秒实验已跑通</span>
+          <a class="route-link" href="https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/docs/TRACKS.md" target="_blank" rel="noopener">路线说明<span class="ext" aria-hidden="true">↗</span><span class="sr-only">（北冥原生路线，新标签页）</span></a>
+        </li>
+        <li class="route">
+          <span class="route-key num" aria-hidden="true">C</span>
+          <span class="route-name">北冥代码动画风格 · 86 式</span>
+          <span class="route-note">66 部成片与 20 种方法模板</span>
+          <a class="route-link" href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/cases" target="_blank" rel="noopener">案例库<span class="ext" aria-hidden="true">↗</span><span class="sr-only">（北冥代码动画风格，新标签页）</span></a>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-foot" data-theme="night">
+  <div class="foot-inner">
+    <p class="foot-brand"><span class="f-brush" aria-hidden="true">北冥</span><span class="label">BEIMING ENGINE</span></p>
+    <nav class="foot-links" aria-label="站外链接">
+      <a href="https://github.com/cuiyucheng0104-afk/beiming-engine" target="_blank" rel="noopener">GitHub<span class="ext" aria-hidden="true">↗</span></a>
+      <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/tree/main/cases" target="_blank" rel="noopener">案例库<span class="ext" aria-hidden="true">↗</span></a>
+      <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/releases" target="_blank" rel="noopener">成片与素材下载（Release）<span class="ext" aria-hidden="true">↗</span></a>
+    </nav>
+    <p class="foot-legal">代码以 MIT 开放；影片、底板与展示图保留所有权利；字体遵循 SIL OFL 1.1。</p>
+    <p class="foot-legal foot-attrib" data-attribution>署名：北冥代码动画风格的画法库，部分来自两个 MIT 开源项目 <a href="https://github.com/lemomo-ai/lemo-opuscar" target="_blank" rel="noopener">lemo-opuscar</a>（LemoLab）与 <a href="https://github.com/xiaoxiong20xx-code/sy-style-100" target="_blank" rel="noopener">sy-style-100</a>（XIAOXIONG）；北冥原生路线使用上游原生运行时 <a href="https://github.com/shinyobjectz/raea" target="_blank" rel="noopener">RAEA</a>（FSL-1.1-ALv2），运行时不随本仓库分发。各项版权与许可原样保留，详见 <a href="https://github.com/cuiyucheng0104-afk/beiming-engine/blob/main/THIRD-PARTY.md" target="_blank" rel="noopener">THIRD-PARTY.md</a>。</p>
+  </div>
+</footer>
+</body>
+</html>

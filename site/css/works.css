@@ -1,0 +1,617 @@
+/* 北冥作品站 · 作品区（works 角色）
+ *
+ * 入夜 · 作品：79 部成片像一张夜里的接触印样。66 部风格样片印在同一张相纸上，16:9 紧密拼接，
+ * 每格只剩画面，片边一行小字写编号、片名与时长；画风名悬停才出现。正在放映的那一格用窗灯金的油性笔圈出来。
+ * 故事片与发布会是横向胶片条；点开就在原地展开放映台。
+ * 标记由 tools/build-showcase.py 生成，类名一律以 wk- 开头。只引用 tokens.css 的令牌；
+ * #works 容器本身的位置、背景与主题插值归 shell，这里不碰。
+ */
+
+.wk {
+  --wk-gap: 3px;                                        /* 印样的格缝：2–4px */
+  --wk-paper: var(--night-2);                           /* 相纸：格缝与四周都是它 */
+  --wk-film: var(--night-3);                            /* 胶片片基 */
+  --wk-perf: var(--night);                              /* 齿孔透出的夜色 */
+  --wk-perf-h: 14px;
+  --wk-perf-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 12'%3E%3Crect x='7' y='3.25' width='10' height='5.5' rx='1.4'/%3E%3C/svg%3E");
+  --wk-edge: clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem);   /* 片边小字 12–13px */
+  --wk-close-h: 2.4rem;                                 /* 放映台「收起」的高度（触屏 44px） */
+  --wk-close-w: 7.5rem;                                 /* 底栏给「收起」留的宽度（触屏没有键帽，窄一些） */
+  position: relative;
+  padding: var(--space-10) var(--gutter) var(--space-9);
+  color: var(--fg);
+}
+
+.wk-sr {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.wk :focus-visible {
+  outline: 2px solid var(--lamp);
+  outline-offset: 2px;
+}
+
+/* ── 篇章头：大字「作品」压左，引言与分组索引在右下 ── */
+.wk-head {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--space-5);
+  align-items: end;
+  margin-bottom: var(--space-9);
+}
+.wk-label {
+  grid-column: 1 / -1;
+  margin: 0 0 var(--space-4);
+  font: 500 var(--step--2)/1 var(--font-num);
+  letter-spacing: var(--track-label);
+  color: var(--fg-mute);
+}
+.wk-title {
+  grid-column: 1 / span 5;
+  margin: 0;
+  font-family: var(--font-brush);
+  font-weight: 400;
+  font-size: var(--step-5);
+  line-height: 0.95;
+  color: var(--fg);
+}
+.wk-intro { grid-column: 7 / -1; padding-bottom: 0.4em; }
+.wk-lede {
+  margin: 0 0 var(--space-5);
+  max-width: 24em;
+  font-size: var(--step-1);
+  line-height: 1.6;
+  color: var(--fg-soft);
+}
+.wk-toc ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+.wk-toc a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  font-size: var(--step--1);
+  color: var(--fg-soft);
+  text-decoration: none;
+  transition: color var(--dur-1) var(--ease-out);
+}
+.wk-toc a:hover { color: var(--lamp); }
+.wk-toc-n {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-mute);
+}
+.wk-toc a:hover .wk-toc-n { color: inherit; }
+
+/* ── 分组 ── */
+.wk-group { scroll-margin-top: var(--space-8); }
+.wk-group + .wk-group { margin-top: var(--space-9); }
+.wk-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-6);
+  margin-bottom: var(--space-5);
+}
+.wk-group-title {
+  margin: 0;
+  font-size: var(--step-2);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: 0.02em;
+}
+.wk-group-n {
+  margin-left: 0.65em;
+  font-family: var(--font-num);
+  font-size: var(--step-0);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  color: var(--fg-mute);
+}
+.wk-group-desc {
+  flex: 1 1 20em;
+  max-width: var(--measure);
+  margin: 0;
+  line-height: 1.8;
+  color: var(--fg-soft);
+}
+
+/* ── 画风家族筛选（JS 才显示） ── */
+.wk-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-5);
+}
+.wk-filter[hidden] { display: none; }
+.wk-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45em;
+  padding: 0.42em 0.85em 0.45em;
+  font: inherit;
+  font-size: var(--step--1);
+  line-height: 1.4;
+  color: var(--fg-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.wk-chip-n {
+  font-family: var(--font-num);
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-mute);
+}
+.wk-chip:hover { color: var(--fg); border-color: var(--mist-mute); }
+.wk-chip[aria-pressed="true"] {
+  color: var(--night);
+  background: var(--lamp);
+  border-color: var(--lamp);
+}
+.wk-chip[aria-pressed="true"] .wk-chip-n { color: var(--night-2); }
+
+/* ── 每一格（印样与胶片条共用） ── */
+.wk-frame { position: relative; min-width: 0; }
+.wk-link {
+  display: flex;
+  flex-direction: column-reverse;     /* 标记里题注在前，画面上题注在海报下方 */
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.wk-link:focus-visible { outline-offset: 0; }
+
+.wk-pic {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--night-3);
+}
+.wk-pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--dur-4) var(--ease-out);
+}
+/* 悬停预览：和海报一起放大，交叉淡入时两层画面一样大 */
+.wk-hover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-4) var(--ease-out);
+}
+.wk-frame.is-previewing .wk-hover { opacity: 1; }
+.wk-name { transition: color var(--dur-1) var(--ease-out); }
+.wk-dur {
+  flex: none;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .wk-link:hover .wk-pic img,
+  .wk-link:hover .wk-hover { transform: scale(1.035); }
+  .wk-link:hover .wk-name { color: var(--lamp); }
+}
+
+/* ── 接触印样：整张相纸是一个物件，每格只剩画面 ── */
+.wk-sheet {
+  position: relative;
+  z-index: 0;                         /* 自成一层：相纸垫在格子下面 */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+  gap: var(--wk-gap);
+  margin: 0;
+  padding: 10px 10px 14px;
+  list-style: none;
+}
+/* 相纸单独一层：筛选与放映台让印样变高变矮时，works.js 用 --wk-paper-s 让它跟着格子一起伸缩，不跳 */
+.wk-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--wk-paper);
+  box-shadow: 0 1.1rem 2rem -1.2rem oklch(14% 0.05 279 / 0.7);   /* 印样平放在夜里的纸上 */
+  transform-origin: 50% 0;
+  transform: scaleY(var(--wk-paper-s, 1));
+}
+/* 片边：编号、片名、时长，一行 */
+.wk-sheet .wk-cap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
+  min-width: 0;
+  padding: 5px 2px 1px;
+  font-size: var(--wk-edge);
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--fg-mute);
+}
+.wk-sheet .wk-n {
+  flex: none;
+  font-family: var(--font-num);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+.wk-sheet .wk-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--fg);
+}
+.wk-sheet .wk-dur::before { content: "·"; margin-right: 0.55em; }
+/* 画风名：悬停、键盘聚焦、预览中才浮出来 */
+.wk-sheet .wk-style {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 1;
+  max-width: 100%;
+  padding: 0.34em 0.6em 0.36em;
+  overflow: hidden;
+  font-size: var(--wk-edge);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--mist);
+  background: color-mix(in oklch, var(--night) 82%, transparent);
+  opacity: 0;
+  transform: translateY(0.4em);
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out);
+  pointer-events: none;
+}
+.wk-sheet .wk-link:focus-visible .wk-style,
+.wk-sheet .is-previewing .wk-style { opacity: 1; transform: none; }
+@media (hover: hover) {
+  .wk-sheet .wk-link:hover .wk-style { opacity: 1; transform: none; }
+}
+
+/* ── 正在放映的那一格：窗灯金的油性笔圈（路径由 works.js 按格子大小手绘） ── */
+.wk-frame.is-current { z-index: 2; }
+.wk-mark {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.wk-mark path {
+  fill: none;
+  stroke: var(--lamp);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── 胶片条（故事片、发布会） ── */
+.wk-strip-nav {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.wk-strip-nav[hidden] { display: none; }
+.wk-strip-btn {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  color: var(--fg-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.wk-strip-btn:hover { color: var(--lamp); border-color: var(--lamp); }
+.wk-strip-btn[aria-disabled="true"] { opacity: 0.38; cursor: default; }
+.wk-strip-btn[aria-disabled="true"]:hover { color: var(--fg-soft); border-color: var(--rule); }
+
+.wk-strip { margin-inline: calc(var(--gutter) * -1); }
+.wk-track {
+  display: flex;
+  margin: 0;
+  padding: 8px var(--gutter) var(--space-5);   /* 上留 8px：焦点描边与油性笔圈不被横向滚动裁掉 */
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+  scrollbar-width: thin;
+  scrollbar-color: var(--night-3) transparent;
+}
+.wk-frame--wide {
+  flex: 0 0 clamp(16rem, 27vw, 25rem);
+  scroll-snap-align: start;
+}
+.wk-film {
+  position: relative;
+  display: block;
+  padding: var(--wk-perf-h) 3px;
+  background: var(--wk-film);
+}
+.wk-film::before,
+.wk-film::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: var(--wk-perf-h);
+  background: var(--wk-perf);
+  -webkit-mask: var(--wk-perf-mask) 0 50% / calc(100% / 8) 100% repeat-x;
+  mask: var(--wk-perf-mask) 0 50% / calc(100% / 8) 100% repeat-x;
+}
+.wk-film::before { top: 0; }
+.wk-film::after { bottom: 0; }
+.wk-film .wk-n {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  padding: 0.3em 0.5em 0.32em;
+  font: 500 var(--step--2)/1 var(--font-num);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--mist);
+  background: color-mix(in oklch, var(--night) 80%, transparent);
+}
+.wk-frame--wide .wk-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4) 0 3px;
+}
+.wk-frame--wide .wk-name {
+  font-size: var(--step-0);
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+.wk-frame--wide .wk-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9em;
+  font-size: var(--step--2);
+  line-height: 1.5;
+  color: var(--fg-mute);
+}
+.wk-frame--wide .wk-style { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-blurb {
+  margin-top: 0.35rem;
+  max-width: 24em;
+  font-size: var(--step--1);
+  line-height: 1.75;
+  color: var(--fg-soft);
+}
+
+/* ── 放映台：在原地展开，同一行（或同一条胶片）之后 ──
+ * 标记顺序是 题注 → 视频 → 收起 → 链接：打开时焦点落在片名上（Esc 随时能收起），
+ * Tab 进播放器控件，再 Tab 一次就到「收起」。视觉位置由网格区域决定。 */
+.wk-screen-row { grid-column: 1 / -1; min-width: 0; list-style: none; }
+.wk-screen-row--strip { margin-top: var(--space-4); }
+.wk-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 8fr) minmax(16rem, 4fr);
+  grid-template-rows: 1fr auto;
+  grid-template-areas: "media meta" "media foot";
+  gap: var(--space-5) var(--space-6);
+  padding: var(--space-6) 0 var(--space-7);   /* 左缘与印样对齐 */
+}
+.wk-screen-media { grid-area: media; position: relative; min-width: 0; }
+.wk-screen-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--night);
+}
+.wk-screen-meta {
+  grid-area: meta;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.wk-screen-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em 0.75em;
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--fg-mute);
+}
+.wk-screen-n {
+  padding: 0.3em 0.5em;
+  font: 600 var(--step--2)/1 var(--font-num);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: var(--night);
+  background: var(--lamp);
+}
+.wk-screen-title {
+  align-self: flex-start;             /* 宽度贴着字：焦点描边只圈住片名，不拉满整栏 */
+  margin: 0;
+  font-size: var(--step-3);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: 0.01em;
+}
+/* 打开放映台时焦点落在片名上：键盘打开显示窗灯金 2px 描边（上面的 .wk :focus-visible），鼠标点开不画 */
+.wk-screen-title:focus:not(:focus-visible) { outline: none; }
+.wk-screen-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2em 0.6em;
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--fg-mute);
+}
+.wk-screen-dur { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.wk-screen-blurb {
+  max-width: var(--measure);
+  margin: 0;
+  line-height: 1.8;
+  color: var(--fg-soft);
+}
+/* 底栏：链接在左，「收起」叠在同一格的右端（它在标记里紧跟视频） */
+.wk-screen-foot {
+  grid-area: foot;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  min-height: calc(var(--space-4) + var(--wk-close-h));
+  padding: var(--space-4) var(--wk-close-w) 0 0;
+  border-top: 1px solid var(--rule);
+}
+.wk-screen-foot a {
+  font-size: var(--step--1);
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.3em;
+  transition: color var(--dur-1) var(--ease-out), text-decoration-color var(--dur-1) var(--ease-out);
+}
+.wk-screen-foot a:hover { color: var(--lamp); text-decoration-color: currentColor; }
+.wk-screen-close {
+  grid-area: foot;
+  justify-self: end;
+  align-self: end;
+  position: relative;
+  z-index: 1;                         /* 叠在底栏之上：底栏在标记里排在后面，不抬上来会挡住点击 */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  height: var(--wk-close-h);
+  padding: 0 0.8em;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--fg-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.wk-screen-close:hover { color: var(--lamp); border-color: var(--lamp); }
+.wk-key {
+  padding: 0.15em 0.4em;
+  font: 500 var(--step--2)/1 var(--font-num);
+  letter-spacing: 0.04em;
+  color: var(--fg-mute);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+/* 焦点在播放器里时 Esc 到不了页面（Chromium 的原生控件会吞掉按键）：这时不标 Esc */
+.wk-screen:has(.wk-screen-video:focus) .wk-key { visibility: hidden; }
+
+/* ── 注 ── */
+.wk-note {
+  max-width: var(--measure);
+  margin: var(--space-8) 0 0;
+  font-size: var(--step--1);
+  line-height: 1.8;
+  color: var(--fg-mute);
+}
+.wk-note a {
+  color: var(--fg-soft);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, currentColor 40%, transparent);
+  text-underline-offset: 0.3em;
+}
+.wk-note a:hover { color: var(--lamp); text-decoration-color: currentColor; }
+
+/* ── 窄屏 ── */
+@media (max-width: 56rem) {
+  .wk-title { grid-column: 1 / -1; margin-bottom: var(--space-5); }
+  .wk-intro { grid-column: 1 / -1; }
+  .wk-screen {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-template-areas: "media" "meta" "foot";
+    padding: var(--space-5) 0 var(--space-6);
+  }
+  /* 视频不比视口高：按视口高度限宽，居中 */
+  .wk-screen-video {
+    max-width: calc((100vh - 7rem) * 16 / 9);
+    max-width: calc((100svh - 7rem) * 16 / 9);
+    margin-inline: auto;
+  }
+}
+@media (max-width: 40rem) {
+  .wk { --wk-perf-h: 12px; }
+  .wk-sheet { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px 8px 12px; }
+  .wk-frame--wide { flex-basis: min(80vw, 19rem); }
+  .wk-screen { gap: var(--space-4); }
+  .wk-screen-title { font-size: var(--step-2); }
+}
+/* 手机横屏这类矮屏：视频按高度定宽放左边，文字放右边，一屏看全 */
+@media (max-height: 31.25rem) and (orientation: landscape) {
+  .wk-screen {
+    grid-template-columns: minmax(0, calc((100vh - 7rem) * 16 / 9)) minmax(12rem, 1fr);
+    grid-template-columns: minmax(0, calc((100svh - 7rem) * 16 / 9)) minmax(12rem, 1fr);
+    grid-template-rows: 1fr auto;
+    grid-template-areas: "media meta" "media foot";
+    gap: var(--space-3) var(--space-5);
+    padding: var(--space-4) 0 var(--space-5);
+  }
+  .wk-screen-video { max-width: none; margin-inline: 0; }
+  .wk-screen-title { font-size: var(--step-1); }
+  .wk-screen-blurb { font-size: var(--step--1); line-height: 1.7; }
+  .wk-screen-meta { gap: var(--space-2); }
+}
+/* 触屏：直接滑动胶片条，不要左右按钮；没有 Esc 键，不标键帽；点按目标不小于 44px */
+@media (hover: none) and (pointer: coarse) {
+  .wk-strip-nav { display: none; }
+}
+@media (hover: none) {
+  .wk { --wk-close-w: 5rem; }
+  .wk-key { display: none; }
+}
+@media (pointer: coarse) {
+  .wk { --wk-close-h: 44px; }
+  .wk-chip,
+  .wk-toc a,
+  .wk-screen-foot a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wk-pic img, .wk-hover, .wk-sheet .wk-style { transition: none; }
+  .wk-link:hover .wk-pic img,
+  .wk-link:hover .wk-hover { transform: none; }
+}
+
+@media (forced-colors: active) {
+  .wk-chip[aria-pressed="true"] { border-width: 2px; }
+  .wk-frame.is-current .wk-link { outline: 2px solid CanvasText; }
+  .wk-mark { display: none; }
+}

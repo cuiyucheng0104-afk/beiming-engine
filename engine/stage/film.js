@@ -35,6 +35,7 @@ export function createFilm({ width = innerWidth, height = innerHeight, designHei
   async function run({ dur, fps = 24, shots, post, debug = null, draw = null, texts = null, warm = [] }) {
     const pick = t => { let s = shots[0].shot; for (const c of shots) if (t >= c.at) s = c.shot; return s; };
     window.DUR = dur;
+    window.FPS = fps;   // 页面约定（engine/render/page.mjs）：video.mjs 据此核对 --fps，不一致就报错，免得一拍二、一拍三的节奏抖
     window.render = t => {
       t = Math.min(Math.max(t, 0), dur - 1e-6);
       const f = frameOf(t, fps);

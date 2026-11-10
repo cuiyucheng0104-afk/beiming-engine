@@ -8,3 +8,5 @@ __pycache__/
 .DS_Store
 examples/raea/media/
 examples/raea/delivery/
+_site/
+_previews/

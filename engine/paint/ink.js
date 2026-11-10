@@ -5,7 +5,7 @@
 // o：
 //   px(v)     设计尺寸 → 画面像素（例如 v => v * h / 1040 * zoom），size 与 jit 都按它换算
 //   step      抖动换形的拍号（整数；同一拍里形状不变，例如一拍二就是 floor(t * 12)）
-//   seed      每条线自己的噪声偏移；color、alpha
+//   seed      每条线自己的噪声偏移；color、alpha（alpha 乘在调用方当前的 globalAlpha 上，画完 globalAlpha 与 fillStyle 都还原）
 //   size 笔宽（2.6）  jit 抖动幅度（0.7）  thin 笔压对粗细的影响（0.62）  t0 / t1 起笔、收笔出锋长度，单位笔宽（7）
 
 import { inkStroke } from '../core/stroke.js';
@@ -37,7 +37,9 @@ export function createInk(noise) {
       size, thinning: o.thin ?? 0.62, streamline: 0.16,
       start: { taper: (o.t0 ?? 7) * size }, end: { taper: (o.t1 ?? 7) * size },
     });
-    g.globalAlpha = o.alpha ?? 1; g.fillStyle = o.color || '#000'; g.fill(smoothClosed(ol)); g.globalAlpha = 1;
+    const a0 = g.globalAlpha, f0 = g.fillStyle;
+    g.globalAlpha = a0 * (o.alpha ?? 1); g.fillStyle = o.color || '#000'; g.fill(smoothClosed(ol));
+    g.globalAlpha = a0; g.fillStyle = f0;
   }
   const path = (g, cmds, o) => { for (const pl of samplePath(cmds, o.sample ?? 2.5)) line(g, pl, o); };
   return { line, path };

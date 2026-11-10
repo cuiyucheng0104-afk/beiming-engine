@@ -1,13 +1,21 @@
 name: pages
 
+# 作品站：tools/build-showcase.py 把 site/ 装配成整站（作品数据、模块依赖、GSAP、字体子集、海报与预览视频），发布到 GitHub Pages。
 on:
   push:
     branches: [main]
     paths:
+      - 'site/**'
+      - 'engine/**'
+      - 'src/**'
+      - 'fonts/**'
       - 'cases/catalog.json'
       - 'cases/previews/**'
+      - 'media/beiming.mp4'
+      - 'media/beiming-1280.mp4'
       - 'tools/build-showcase.py'
-      - 'showcase/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -28,16 +36,34 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies (three, gsap)
+        run: npm ci
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build case atlas
-        run: python tools/build-showcase.py --out _site/index.html --poster-prefix cases/ --media-prefix media/
-      - name: Assemble site
+      - name: Download preview videos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download casebook-2026.11 --pattern '*-preview.mp4' --dir _previews
+      # 构建器用 ffmpeg 从预览里剪悬停短循环（每段 4 秒、约 100 KB）；装不上也不挡发布，悬停退回整部预览。
+      # 剪失败时构建日志里有 ffmpeg 的完整命令与报错原文；这里先记下装上的版本，便于对照
+      - name: Install ffmpeg (hover clips)
+        continue-on-error: true
         run: |
-          mkdir -p _site/cases _site/media
-          cp -r cases/previews _site/cases/previews
-          cp media/shot_1.6.jpg _site/media/shot_1.6.jpg
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
+          ffmpeg -hide_banner -version | head -n 1
+      - name: Cache hover clips
+        uses: actions/cache@v4
+        with:
+          path: out/.cache/hover
+          key: hover-${{ hashFiles('cases/catalog.json', 'site/data/works-meta.json', 'tools/build-showcase.py') }}
+          restore-keys: hover-
+      - name: Build site
+        run: python tools/build-showcase.py --out _site --previews-dir _previews --copy-previews
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

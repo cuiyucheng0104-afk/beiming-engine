@@ -96,20 +96,23 @@ def _scuffle(r):
     return un_safe(hp(r.standard_normal(m), 2500, 2)) * np.exp(-t / 0.004)
 
 
-def pigeons(seed=303, n_birds=10, d=2.6, heading=0.72):
+def pigeons(seed=303, n_birds=10, d=2.6, heading=0.72, pan=(0.0, 0.7)):
     """鸽群惊起（时间相对 0.80 s）：起飞时翅膀在背上互击的“啪” + 每次下扑的气流“噗”与羽毛沙沙。
     10 只，0.3 s 内陆续起飞；前几下近、干、响，之后 12–18 m/s 往上往远飞（变小、变闷、混响比例变大），约 1.5 s 后基本听不见。
-    heading 是飞向右上的比例。返回 (近处立体声, 送混响用的远处立体声)"""
+    pan = (起飞处的声像中心, 飞去那一侧的声像)：每只的起点在 pan[0] ± 0.3 里随机；终点落在 pan[1] 那一侧，
+    幅度在 (0.5–0.95) × |pan[1]| / 0.7 里随机（默认 0.7 就是 0.5–0.95）；heading 是飞向 pan[1] 那一侧的比例。
+    返回 (近处立体声, 送混响用的远处立体声)"""
     r = rng(seed)
     near = np.zeros((N(d), 2))
     far = np.zeros((N(d), 2))
+    c0, k1 = float(pan[0]), float(pan[1]) / 0.7      # 下面循环里的 pan 是每一下的声像，先把参数取出来
     for b in range(n_birds):
         tb = 0.0 if b == 0 else min(0.32, r.gamma(1.4, 0.07))
         f0, f1 = r.uniform(8.5, 10.0), r.uniform(6.5, 7.5)
         nb = int(r.integers(8, 13))
         d0, v = r.uniform(2.0, 4.5), r.uniform(12.0, 18.0)
-        p0 = r.uniform(-0.3, 0.3)
-        p1 = (1 if r.random() < heading else -1) * r.uniform(0.5, 0.95)
+        p0 = min(1.0, max(-1.0, c0 + r.uniform(-0.3, 0.3)))
+        p1 = min(1.0, max(-1.0, (1 if r.random() < heading else -1) * r.uniform(0.5, 0.95) * k1))
         tk = tb + 0.02 + r.uniform(0.0, 0.015)
         place(near, _scuffle(r), tk - 0.02, (3 / d0) * 0.18, p0)     # 起飞前脚爪一蹬
         for k in range(nb):
@@ -129,11 +132,13 @@ def pigeons(seed=303, n_birds=10, d=2.6, heading=0.72):
 
 
 def kun_glimpse(seed=404, d=1.85):
-    """镜头 A 1.20–3.00：鲲的背脊在云层里滑过——极低的气压涌动，几乎听不见，只给体感"""
+    """镜头 A 1.15–3.00：鲲的背脊在云层里滑过——极低的气压涌动，几乎听不见，只给体感。
+    d 是时长（mix.py 按 cues.json 的 t_end − t 给）；起伏包络按 1.85 s 设计，时长变了按比例伸缩"""
     r = rng(seed)
     n = N(d)
     t = T(d)
-    env = curve([(0, 0), (0.55, 0.45), (1.05, 1.0), (1.5, 0.7), (1.85, 0.35)], t)
+    s = d / 1.85
+    env = curve([(0, 0), (0.55 * s, 0.45), (1.05 * s, 1.0), (1.5 * s, 0.7), (1.85 * s, 0.35)], t)
     low = un_safe(svf(brown(n, r), 90 + 60 * env, 0.7, 'lp'))
     rush = un_safe(svf(pink(n, r), 260 + 160 * env, 0.9, 'bp'))
     return fade((low + 0.25 * rush) * env, 0.05, 0.02)
@@ -193,15 +198,20 @@ def _groan(r, d=0.9, f=61.7):
     return un_safe(x) * am * np.sin(np.pi * t / d) ** 1.5
 
 
-def kun_pass(seed=707, d=3.4):
-    """鲲从头顶滑过（时间相对 6.30；主体 6.40–8.60 右→左）。
+def pass_pan(t, pan=(0.65, -0.65)):
+    """掠过的声像曲线（时间相对掠过起点）：0.1–2.3 s 从 pan[0] 平滑移到 pan[1]"""
+    return pan[0] + (pan[1] - pan[0]) * smoothstep(0.1, 2.3, t)
+
+
+def kun_pass(seed=707, d=3.4, pan=(0.65, -0.65)):
+    """鲲从头顶滑过（时间相对 6.30；主体 6.40–8.60，声像从 pan[0] 移到 pan[1]，默认右→左）。
     低频气流（截止随强度升高）+ 气流冲刷（中心频率从 650 降到 300 Hz，近似多普勒）+ 高频湍流 + 两声巨体的低沉“吱呀”（B1，有 2、3 次谐波，小喇叭也能听见）。
     返回 (立体声, 声像曲线, 强度包络)"""
     r = rng(seed)
     n = N(d)
     t = T(d)
     env = curve([(0, 0), (0.1, 0.05), (0.6, 0.5), (1.0, 0.92), (1.2, 1.0), (1.55, 0.88), (2.05, 0.5), (2.5, 0.15), (3.4, 0)], t)
-    pan = 0.65 - 1.3 * smoothstep(0.1, 2.3, t)
+    pan = pass_pan(t, (float(pan[0]), float(pan[1])))
     lowL = un_safe(svf(brown(n, r), 85 + 150 * env, 0.75, 'lp'))
     lowR = un_safe(svf(brown(n, r), 85 + 150 * env, 0.75, 'lp'))
     rushfc = curve([(0, 650), (1.2, 560), (1.6, 430), (2.6, 300)], t)

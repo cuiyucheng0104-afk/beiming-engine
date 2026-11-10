@@ -7,7 +7,7 @@
 //   tileRepeat(map, wpx, hpx)              横向循环贴图铺满 wpx×hpx 时不变形的重复次数
 //   canvasLayer(w, h)                      2D 画布 + 它的 sRGB 贴图 → { canvas, ctx, tex }
 //   cropPlate(map, rect, o)                底板的一块（uv 矩形）+ 椭圆软边，可翻转、染色（云片、雾团）
-//   cutoutPlane(tex, { order, cut })       抠像面片：彩色层 + 只写深度的遮罩层，让后期按深度区分笔触大小
+//   cutoutPlane(tex, { order, cut })       抠像面片：彩色层 + 只写深度的遮罩层，让后期按深度区分笔触大小（更远的透明底板 order < order - 0.5）
 //   glowSprite(color, o)                   加色辉光斑（太阳、灯）：两层高斯 + 软边，squash 压扁
 import * as THREE from 'three';
 
@@ -75,10 +75,13 @@ export function cropPlate(map, rect, { order = 5, opacity = 1, soft = 0.55, flip
 }
 
 // ── 抠像面片 ── 彩色层正常透明混合（边缘柔和）；遮罩层只在 alpha > cut 处写深度，后期的 Kuwahara 据此给前景小笔触、背景大笔触
+// 遮罩层也放进透明队列（transparent: true，不写颜色），按 renderOrder 排在更远的底板之后、彩色层之前：
+// three 先画完全部不透明物体再画透明队列，遮罩若是不透明材质就会抢先写深度，后面的透明底板在它身上全被深度测试拒掉，
+// 半透明的边和变淡的部分就只能和清屏色（黑）混合。所以更远的透明底板 order 要小于 order - 0.5。
 export function cutoutPlane(tex, { order = 10, cut = 0.5 } = {}) {
   const g = new THREE.Group();
   const color = flat(new THREE.Mesh(UNIT_PLANE, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, fog: false, premultipliedAlpha: false })), order);
-  const mask = flat(new THREE.Mesh(UNIT_PLANE, new THREE.MeshBasicMaterial({ map: tex, alphaTest: cut, colorWrite: false, depthWrite: true, fog: false })), order - 0.5);
+  const mask = flat(new THREE.Mesh(UNIT_PLANE, new THREE.MeshBasicMaterial({ map: tex, alphaTest: cut, transparent: true, colorWrite: false, depthWrite: true, fog: false })), order - 0.5);
   mask.userData.outlineOccluder = false;
   g.add(mask, color);
   g.userData.outline = false;
