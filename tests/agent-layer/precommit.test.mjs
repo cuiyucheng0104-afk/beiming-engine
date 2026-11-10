@@ -134,6 +134,19 @@ for (const [id, files] of blocked) {
   });
 }
 
+test('按路径提交（git commit -- <路径>，git 用临时索引）：只判这次真正要提交的内容', { skip }, () => {
+  const dir = makeRepo();
+  put(dir, 'cases/vendor/demo/a.txt', 'tampered\n');
+  assert.equal(git(dir, ['add', '--', 'cases/vendor/demo/a.txt']).status, 0);   // 暂存了快照改动，但这次不提交它
+  put(dir, 'films/keep/main.js', 'export const x = 5;\n');
+  const ok = git(dir, ['commit', '-q', '-m', 'only film', '--', 'films/keep/main.js']);
+  assert.equal(ok.status, 0, `只提交作品文件应放行：${ok.stderr}`);
+  const bad = git(dir, ['commit', '-q', '-m', 'vendor', '--', 'cases/vendor/demo/a.txt']);
+  assert.notEqual(bad.status, 0);
+  assert.match(bad.stderr, /\[vendor\]/);
+  assert.equal(commits(dir), '2');
+});
+
 test('删除归档或根 CLAUDE.md 也拦下', { skip }, () => {
   const dir = makeRepo();
   assert.equal(git(dir, ['rm', '-q', 'cases/source/old/main.js']).status, 0);
