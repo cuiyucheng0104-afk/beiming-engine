@@ -168,7 +168,8 @@ export async function runCli({ command, usage, spec, main, argv = process.argv.s
     else { exitCode = EXIT.FAIL; error = { code: 'internal', message: e?.stack || String(e), hint: '这是工具自身的错误：保留输出与日志，报告给维护者' }; }
     await runCleanups();
   }
-  if (error) log(`失败（exit ${exitCode}）：${error.message}${error.hint ? `\n下一步：${error.hint}` : ''}`);
+  // 一行：原因 + 下一步（agent 与 CI 日志按行读；内部错误的调用栈才多行）
+  if (error) log(`失败（exit ${exitCode}）：${error.message}${error.hint ? `。下一步：${error.hint}` : ''}`);
   if (wantsJson) process.stdout.write(JSON.stringify(envelope({ command, exitCode, error, outputs: result.outputs, runJson: result.runJson ?? failedRunJson })) + '\n');
   process.off('SIGINT', onSignal);
   process.off('SIGTERM', onSignal);

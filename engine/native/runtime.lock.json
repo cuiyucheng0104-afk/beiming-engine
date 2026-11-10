@@ -1,5 +1,5 @@
 {
-  "$note": "北冥原生 · BNE 使用的外部原生运行时锁定记录。仓库不分发运行时、不复制其源码（docs/decisions/2026-11-10-industrial-baseline.md D03）；这里只记版本、来源、许可与哈希，供 engine/native/runtime.mjs 与渲染入口核对。sha256 为 null 的平台表示尚未在该平台实测，渲染时会提示「未锁定」并照常记录实际哈希。",
+  "$note": "北冥原生 · BNE 使用的外部原生运行时锁定记录。仓库不分发运行时、不复制其源码（docs/decisions/2026-11-10-industrial-baseline.md D03）；这里只记版本、来源、许可与哈希，供 engine/native/runtime.mjs（status / hash / fetch）与渲染入口 engine/render/native.mjs 核对。sha256 是发行归档的哈希，binarySha256 是解包后可执行文件的哈希；binarySha256 为 null 的平台表示还没在该平台解包实测，渲染时提示「该平台未锁定」并把实测哈希记进 run.json，用 node engine/native/runtime.mjs hash 补齐。",
   "upstream": "RAEA（上游项目名；仓库内目录与命令沿用 raea）",
   "version": "0.1.0-canary.2",
   "tag": "v0.1.0-canary.2",
@@ -15,23 +15,23 @@
       "sha256": "bc48a94af99f7626a83f930a5d7ecfd2464218ad8b2b06169a8248a514dfa280",
       "binary": "raea/bin/raea",
       "binarySha256": "91a6630a067a700992f3d22f0f0e38349d4c1ba92755b4b7fae1ad5d4cb0dbb6",
-      "verified": "2026-11-10 macOS 26 · Apple M5 Pro 实测：归档 sha256 与随包保存的 .sha256 文件一致（shasum 复核）；binarySha256 由该归档解包后的 bin/raea 计算"
+      "verified": "2026-11-10 macOS 26 · Apple M5 Pro 实测：归档 sha256 与随包的 .sha256 文件、GitHub 发行页资产 digest 三者一致；binarySha256 由该归档解出的 raea/bin/raea 计算（tar -xzf 后 shasum -a 256 复核）"
     },
     "windows-x64": {
       "archive": "raea-0.1.0-canary.2-windows-x86_64.zip",
       "size": 144917515,
-      "sha256": null,
+      "sha256": "528709da6008646b8f8e8992ff7b4ecedadf798660919a35a4b7982515e970c6",
       "binary": "raea/bin/raea.exe",
       "binarySha256": null,
-      "verified": "待补：在 Windows 工作站运行 node engine/native/runtime.mjs hash，把输出的两个哈希填进来"
+      "verified": "归档 sha256 取自 GitHub 发行页资产 digest（2026-11-10 用 gh api repos/shinyobjectz/raea/releases/tags/v0.1.0-canary.2 查询）；尚未在 Windows 上解包实测：binarySha256 待在 Windows 工作站运行 node engine/native/runtime.mjs hash 补齐"
     },
     "linux-x64": {
       "archive": "raea-0.1.0-canary.2-linux-x86_64.tar.gz",
       "size": 162710576,
-      "sha256": null,
+      "sha256": "fdd463d64ae62a4eef30ebbca0bbe6694d1147096cf571d0e9fa3d3f66b11e4e",
       "binary": "raea/bin/raea",
       "binarySha256": null,
-      "verified": "待补：Linux 未验证"
+      "verified": "归档 sha256 取自 GitHub 发行页资产 digest（同上查询）；Linux 未验证：binarySha256 待补，渲染结果未在 Linux 上核对"
     }
   }
 }
