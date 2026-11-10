@@ -30,6 +30,8 @@ export const STATE_LABELS = Object.freeze({
 /** 只能由 accepted 生成的说法。 */
 export const RESERVED_CLAIMS = Object.freeze(['已交付', '用户已认可', '用户认可', '已获认可', '客户已认可', '已验收', '交付完成']);
 export const RUN_KINDS = Object.freeze(['final', 'animatic', 'preview', 'still']);
+/** 出片已完成的运行状态（rendered = 待 QA，passed = 技术验收通过，accepted = 创作验收也通过）。 */
+const DONE_STATUSES = Object.freeze(['rendered', 'passed', 'accepted']);
 const RUN_ID = /^\d{8}-\d{6}-[0-9a-f]{7,40}(-dirty)?$/;
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const SHA = /^[0-9a-f]{64}$/;
@@ -83,7 +85,7 @@ export function validateRunRecord(run, { film = null, runDir = null } = {}) {
   else if (!RUN_KINDS.includes(run.kind)) err('run-kind', 'kind', `kind 只能是 ${RUN_KINDS.join(' / ')}`);
   if (film && run.projectId !== undefined && run.projectId !== null && run.projectId !== film.id) err('run-film', 'projectId', `run.json 属于 ${run.projectId}，不是 ${film.id}`);
   const o = run.output ?? {};
-  if (film && run.kind === 'final' && ['passed', 'accepted'].includes(run.status)) {
+  if (film && run.kind === 'final' && DONE_STATUSES.includes(run.status)) {
     const want = { width: film.output.width, height: film.output.height, fps: film.output.fps, frames: film.output.frameCount };
     for (const [k, v] of Object.entries(want)) if (o[k] !== v) err('run-output-mismatch', `output.${k}`, `终渲 ${k}=${JSON.stringify(o[k])}，作品要求 ${v}`);
   }
@@ -169,7 +171,7 @@ export function filmStatus(target, { loaded = null } = {}) {
     diagnostics.push(...rv.diagnostics.map(d => ({ ...d, path: `${latest.runId}/run.json:${d.path}` })));
     const shas = runShasOf(latest.run);
     runInfo = { runId: latest.runId, kind: latest.run.kind ?? null, status: latest.run.status ?? null, valid: rv.ok, outputs: [...shas] };
-    rendered = rv.ok && latest.run.kind === 'final' && ['passed', 'accepted'].includes(latest.run.status) && shas.size > 0;
+    rendered = rv.ok && latest.run.kind === 'final' && DONE_STATUSES.includes(latest.run.status) && shas.size > 0;
     if (rendered && !animaticOk) {
       diagnostics.push({ level: 'warning', code: 'render-bypassed-gate', path: `${latest.runId}/run.json`, message: '有终渲产物，但出片时 look / animatic 没有认可或豁免：这次终渲绕过了闸门，不计入状态', hint: '补齐认可后重新终渲' });
       rendered = false;
@@ -196,7 +198,7 @@ export function filmStatus(target, { loaded = null } = {}) {
   if (gates.structure.status === 'missing') next.push('（建议）⛔1 结构确认：把一句话、三候选结构与对标表给用户，记录原话（--gate structure）');
   if (!lookOk) next.push(`⛔2 风格：出风格帧 / 色彩脚本条给用户看，记录认可：${cmd} --gate look --decision approve --file <风格帧> --quote "<原话>" --source-ref "<出处>"`);
   else if (!animaticOk) next.push(`⛔3 动态预演：按正片时间轴出半分辨率预演给用户看，记录认可：${cmd} --gate animatic --decision approve --file <预演片> --quote "<原话>" --source-ref "<出处>"`);
-  else if (!rendered) next.push('终渲：npm run film -- render <作品> --final（工具接入前用 engine/render）；run.json 要写 kind: "final"');
+  else if (!rendered) next.push('终渲：npm run film -- render <作品> --final（工具接入前用 engine/render）；run.json 写 kind: "final"、status: "rendered"');
   else if (!qaPassed) next.push('机器 QA：对这次成片跑 tools/qa，报告写到 <run-id>/qa/report.json');
   else if (!accepted) next.push(`⛔4 成片：把这次的成片给用户全速带声看完，记录认可：${cmd} --gate final --decision approve --file <成片> --quote "<原话>" --source-ref "<出处>"`);
 

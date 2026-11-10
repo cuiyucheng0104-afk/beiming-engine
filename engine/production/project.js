@@ -37,11 +37,16 @@ export const ROUTES = Object.freeze(BUILTIN_ROUTES.map(r => r.id));
 export const LEGACY_ROUTES = Object.freeze(Object.fromEntries(BUILTIN_ROUTES.filter(r => r.legacyId).map(r => [r.legacyId, r.id])));
 /** 内置注册表里出现的全部后端，加上旧写法 raea（= native）。 */
 export const BACKENDS = Object.freeze([...new Set([...BUILTIN_ROUTES.flatMap(r => r.backends), ...Object.keys(BACKEND_ALIASES)])]);
+/**
+ * RenderResult.status：not-run → running → rendered（出片完成、待技术验收）→ passed（技术验收通过）→ accepted（创作验收也通过）；
+ * 中途失败写 failed，被前置条件拦下写 blocked。rendered 由渲染器写；passed 由 QA 判定后写；accepted 只能有人工认可。
+ */
 export const RESULT_STATUSES = Object.freeze([
   'not-run',
   'running',
   'blocked',
   'failed',
+  'rendered',
   'passed',
   'accepted',
 ]);
@@ -566,7 +571,8 @@ function qaReportProblem(report) {
  * 校验 RenderResult 的最小语义（contracts.md §7；运行记录 run.json 见附录 C8）：
  * 未执行的记录不能预填成功；technical 与 creative 验收必须分别成立。
  * status 为 passed / accepted 时：技术验收必须是 passed 且附证据，并记录实际设备、图形后端、编码器、
- * 产物哈希、帧数与宽高（AGENTS.md 制作要求第 7 条）。两类验收的 status 都按枚举校验；route 取自路线注册表。
+ * 产物哈希、帧数与宽高（AGENTS.md 制作要求第 7 条）；rendered（出片完成、待 QA）同样要记录这些实测值，但不要求技术验收。
+ * 两类验收的 status 都按枚举校验；route 取自路线注册表。
  * strict（运行记录一律用它）另加两条：accepted 必须有人工认可的评审（reviews[]，不再接受只写 events / styleComparison 的旧形状）；
  * 技术验收 passed 必须指向 QA 报告，给了 runDir 时还要读出来、ok = true。
  * @param {unknown} result
@@ -632,17 +638,19 @@ export function validateRenderResult(result, options = {}) {
   const passesTechnical = technical.status === 'passed';
   const acceptedOverall = result.status === 'accepted';
   const passedOverall = result.status === 'passed';
+  const renderedOverall = result.status === 'rendered';
   if ((passesTechnical || passedOverall || acceptedOverall) && (!Array.isArray(technical.evidence) || !technical.evidence.length)) {
     push('result-evidence-missing', 'technicalAcceptance.evidence', '技术验收通过必须附证据（命令、日志、ffprobe、完整解码结果）');
   }
   if (passedOverall && !passesTechnical) {
     push('result-passed-without-technical', 'technicalAcceptance.status', `status=passed 表示技术验收通过，technicalAcceptance.status 必须是 passed（收到 ${String(technical.status)}）`);
   }
-  if (passedOverall || acceptedOverall) {
+  if (passedOverall || acceptedOverall || renderedOverall) {
+    const what = renderedOverall ? '出片完成' : '技术验收通过';
     for (const field of ['actualDevice', 'actualGraphicsBackend', 'actualEncoder']) {
-      if (!isNonEmptyString(result[field])) push('result-measured-missing', field, `技术验收通过必须记录实际执行的 ${field}，不能用计划值代替`);
+      if (!isNonEmptyString(result[field])) push('result-measured-missing', field, `${what}必须记录实际执行的 ${field}，不能用计划值代替`);
     }
-    if (!isNonEmptyString(result.output?.sha256)) push('result-measured-missing', 'output.sha256', '技术验收通过必须记录产物 SHA256');
+    if (!isNonEmptyString(result.output?.sha256)) push('result-measured-missing', 'output.sha256', `${what}必须记录产物 SHA256`);
     const frames = result.output?.frames;
     if (!isPositiveInteger(frames)) push('result-output-incomplete', 'output.frames', '必须记录实际帧数');
     if (isPositiveInteger(frames) && isPositiveInteger(options.expectedFrameCount) && frames !== options.expectedFrameCount) {

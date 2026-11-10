@@ -266,7 +266,11 @@ export function readReviews(filmDir, { film = null } = {}) {
     const valid = !v.diagnostics.some(d => d.level === 'error');
     records.push({ file, name, record: r.value, valid, diagnostics: v.diagnostics });
   }
-  records.sort((a, b) => (Date.parse(a.record?.recordedAt ?? '') || 0) - (Date.parse(b.record?.recordedAt ?? '') || 0) || a.name.localeCompare(b.name));
+  // 先按录入时间，同一秒内按文件序号（<闸>-<日期>.json 是第 1 条，-2、-3… 依次往后）：最后一条才是现行结论
+  const seq = name => { const m = /-(\d+)\.json$/.exec(name.replace(/^[a-z]+-\d{4}-\d{2}-\d{2}/, '')); return m ? Number(m[1]) : 1; };
+  const day = name => (/\d{4}-\d{2}-\d{2}/.exec(name) ?? [''])[0];
+  records.sort((a, b) => (Date.parse(a.record?.recordedAt ?? '') || 0) - (Date.parse(b.record?.recordedAt ?? '') || 0)
+    || day(a.name).localeCompare(day(b.name)) || seq(a.name) - seq(b.name) || a.name.localeCompare(b.name));
   return { records, diagnostics };
 }
 
