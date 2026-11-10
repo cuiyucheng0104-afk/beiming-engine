@@ -224,7 +224,9 @@ const clone = v => (typeof structuredClone === 'function' ? structuredClone(v) :
 
 /**
  * 改镜头出点。ripple：本镜之后的一切（镜头、事件、停顿、海报帧、本镜之后起拍的角色起点）整体平移 delta，总帧数随之变；
- * roll：只挪本镜与下一镜之间的切点，总帧数与事件帧号不变。冲突（事件会落到镜头外等）一律抛错，不替你删改。
+ * roll：只挪本镜与下一镜之间的切点，总帧数不变。冲突（事件会落到镜头外等）一律抛错，不替你删改。
+ * 贴着切点的事件跟着切点走：本镜里 end 正好等于旧出点的（整镜铺底、到切点为止的声音）改到新出点；
+ * roll 时下一镜里正好落在旧切点上的事件（切点上的那一声、显示层出现）改到新切点。
  * @returns {{ film: object, delta: number, mode: string, frameCount: {from: number, to: number}, moved: object }}
  */
 export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) {
@@ -251,11 +253,18 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
     if (i === next.shots.length - 1) throw new TimelineError('retime-args', `镜头 ${shotId} 是最后一镜，没有下一镜可以 roll`, '改总长用 ripple');
     const after = next.shots[i + 1];
     if (newOut >= after.out) throw new TimelineError('retime-args', `roll 后下一镜 ${after.id} 会变成空镜头（新切点 ${newOut} ≥ 它的出点 ${after.out}）`);
+    const onCut = e => e.shot === after.id && e.frame === oldOut;   // 切点上的事件：跟着切点走
     for (const e of events) {
       if (e.shot === shot.id && e.frame >= newOut) conflicts.push(`事件 ${e.id}（第 ${e.frame} 帧）属于 ${shot.id}，会落进 ${after.id}`);
-      if (e.shot === after.id && e.frame < newOut) conflicts.push(`事件 ${e.id}（第 ${e.frame} 帧）属于 ${after.id}，会落进 ${shot.id}`);
+      if (e.shot === shot.id && e.end !== undefined && e.end !== oldOut && e.end > newOut && e.end <= oldOut) conflicts.push(`事件 ${e.id} 的 end=${e.end} 会越过新切点 ${newOut}`);
+      if (e.shot === after.id && e.frame < newOut && !onCut(e)) conflicts.push(`事件 ${e.id}（第 ${e.frame} 帧）属于 ${after.id}，会落进 ${shot.id}`);
+      if (onCut(e) && e.end !== undefined && e.end <= newOut) conflicts.push(`事件 ${e.id} 贴着切点开始，挪到第 ${newOut} 帧后会超过它的 end=${e.end}`);
     }
     if (conflicts.length) throw new TimelineError('retime-conflict', `roll 冲突：\n- ${conflicts.join('\n- ')}`, '先把这些事件改到新切点的正确一侧（或改它的 shot），再 roll');
+    for (const e of events) {
+      if (onCut(e)) { e.frame = newOut; result.moved.events.push({ id: e.id, frame: [oldOut, newOut] }); }
+      else if (e.shot === shot.id && e.end === oldOut) { e.end = newOut; result.moved.events.push({ id: e.id, end: [oldOut, newOut] }); }
+    }
     next.shots[i].out = newOut;
     after.in = newOut;
     result.moved.shots.push({ id: shot.id, out: [oldOut, newOut] }, { id: after.id, in: [oldOut, newOut] });
@@ -270,7 +279,7 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
     for (const e of events) {
       if (e.shot !== shot.id) continue;
       if (e.frame >= newOut) conflicts.push(`事件 ${e.id}（第 ${e.frame} 帧）会落到镜头 ${shot.id} 的新出点 ${newOut} 之外`);
-      else if (e.end !== undefined && e.end > newOut && e.end <= oldOut) conflicts.push(`事件 ${e.id} 的 end=${e.end} 落在被剪掉的 [${newOut}, ${oldOut}) 里`);
+      else if (e.end !== undefined && e.end !== oldOut && e.end > newOut && e.end < oldOut) conflicts.push(`事件 ${e.id} 的 end=${e.end} 落在被剪掉的 [${newOut}, ${oldOut}) 里`);
     }
     for (const [k, h] of holds.entries()) {
       if (h.in < oldOut && h.out > newOut && h.in >= shot.in) conflicts.push(`holds[${k}] [${h.in}, ${h.out}) 与被剪掉的 [${newOut}, ${oldOut}) 重叠`);
@@ -298,8 +307,8 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
       e.frame += delta;
       if (e.end !== undefined) e.end += delta;
       result.moved.events.push({ id: e.id, frame: [f0, e.frame] });
-    } else if (k === i && e.end !== undefined && e.end > oldOut) {
-      e.end += delta;   // 跨切点延续的声音（L-cut）：跟着后面的镜头走
+    } else if (k === i && e.end !== undefined && e.end >= oldOut) {
+      e.end += delta;   // 到切点为止（end = 旧出点）的跟着新出点走；跨切点延续的声音（L-cut）跟着后面的镜头走
       result.moved.events.push({ id: e.id, end: [e.end - delta, e.end] });
     }
   }

@@ -286,6 +286,9 @@ function cmdRetime({ pos, flags }) {
   if (flags.mode && !['ripple', 'roll'].includes(flags.mode)) throw new UsageError('--mode 只能是 ripple 或 roll');
   const L = loadFilm(pos[0]);
   assertValidFilm(L, 'film.json');
+  if (flags.write && L.raw?.mirror?.frozen === true) {
+    throw new FilmError('mirror-frozen', `${shown(L.file)} 是冻结样片的镜像（mirror.frozen = true），不能改写切点`, { exitCode: 4, hint: '镜像只描述样片现状：样片本身改了切点（src/timeline.js）之后，再同步镜像并跑它的 mirror.check；新作品的切点在新作品里改' });
+  }
   const before = { frameCount: L.film.output.frameCount, cuts: cutList(L.film).map(c => c.frame) };
   const res = retime(L.raw, flags.shot, flags.out !== undefined ? { out: flags.out } : { length: flags.length }, { mode: flags.mode ?? 'ripple', filmDir: L.filmDir });
   const after = { frameCount: res.normalized.output.frameCount, cuts: cutList(res.normalized).map(c => c.frame) };
