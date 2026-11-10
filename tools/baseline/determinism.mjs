@@ -4,10 +4,12 @@
 //   node tools/baseline/determinism.mjs <作品目录> [选项]        例：node tools/baseline/determinism.mjs . --seams --workers 4
 //   node tools/baseline/determinism.mjs --template a|c [选项]    检查路线模版（按 new-film 的规则临时实例化，结束即删）
 //   node tools/baseline/determinism.mjs --scan-only [--path <目录>]…   只做静态扫描
+// 命令约定（参数、--help、--json 信封、退出码、信号收尾）用 tools/lib/cli.mjs（docs/CLI.md）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runMain, CliError, EXIT, usage, log, parseSize, sha256File, displayPath } from './lib/cli.mjs';
+import { defineCommand, runCli, isMain } from '../lib/cli.mjs';
+import { CliError, EXIT, codeFor, usage, log, setQuiet, bindCleanups, parseSize, sha256File, displayPath } from './lib/cli.mjs';
 import { runWorker, materializeTemplate, noBrowserHint } from './lib/capture.mjs';
 import { decodePNG, encodePNG } from './lib/png.mjs';
 import { compareImages, diffHeatmap } from './lib/metrics.mjs';
@@ -18,52 +20,6 @@ import { platformKey, deviceSlug } from './lib/platform.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ALLOW = path.join(ROOT, 'tools/baseline/determinism-allow.json');
 const TEMPLATES = { a: 'routes/a-webgl/template', c: 'routes/c-style/template' };
-
-const HELP = `北冥仓库 · 确定性检查（determinism）
-
-用法：
-  node tools/baseline/determinism.mjs <作品目录> [选项]       作品目录在仓库内，含 index.html；《北冥》样片就是 .
-  node tools/baseline/determinism.mjs --template a|c [选项]   检查 A / C 路线模版（临时复制到 out/ 下渲，结束即删）
-  node tools/baseline/determinism.mjs --scan-only [--path <目录>]…   只做静态扫描（默认范围：engine 浏览器端代码、films/、路线模版）
-
-做什么：
-  1. 取样帧：按 video.mjs 的分段规则（每段 ceil(N/W) 帧）取各分段边界 ±1 帧；切点 ±1 帧；另取若干随机帧；外加首尾帧
-  2. 每帧用三种方式各渲一次：新页面单帧（每帧一个全新浏览器，等于分段出片时每段的第一帧）、
-     同一页面乱序（确定性随机顺序）、同一页面从第 0 帧逐帧顺序渲到最后一个取样帧（等于单 worker 顺序出片）
-  3. 三种方式的像素哈希必须完全一致；不一致的帧给出差异热图（新页面对顺序）
-  4. 静态扫描 Math.random / Date.now / performance.now / new Date（存量登记见 tools/baseline/determinism-allow.json）
-
-取样选项（都不写时 = 分段边界 + 切点 + 5 个随机帧 + 首尾帧；写了任何一个就只取写了的）：
-  --seams                  分段边界 ±1 帧（配合 --workers，默认 4，与 video.mjs 默认一致）；没写 --cuts 时连切点 ±1 帧一起查
-  --cuts <帧,帧>           切点帧，查 ±1 帧；不写时读作品 film.json 的 shots[].in（v2）或 cuts；
-                           仓库根目录（《北冥》样片）读 tools/baseline/sets.json 的镜头表标注（72、120）
-  --random <n>             随机取 n 帧（种子 --seed，默认 1）
-  --frames <帧,帧>         直接给要查的帧号
-其它选项：
-  --workers <n>            分段数（默认 4）
-  --seed <n>               随机帧与乱序的种子（默认 1）
-  --size <宽x高>           默认读 film.json 的 size，没有就 1920x1040
-  --fps <n>                默认读 film.json 的 fps，没有就 24
-  --query <k=v&…>          页面查询串
-  --gpu <策略>             required（默认）| any | software-ok
-  --jobs <n>               新页面模式同时开几个浏览器（默认 2）
-  --frame-timeout <秒>     单帧上限（默认 60）
-  --out <目录>             报告目录（默认 out/determinism/<运行编号>/）
-  --no-scan                不做静态扫描
-  --path <目录>            --scan-only 的扫描范围（可重复）
-  --json                   stdout 只输出一个 JSON 信封
-
-退出码：0 通过；1 运行失败；2 用法错误；3 环境不满足（没浏览器、软件渲染被拒）；4 不确定（三种方式不一致）或静态扫描有违规；124 超时；130 / 143 中断已清理。
-`;
-
-const SPEC = {
-  flags: {
-    '--template': 'string', '--scan-only': 'bool', '--path': 'list', '--seams': 'bool', '--cuts': 'list', '--random': 'int', '--frames': 'list',
-    '--workers': 'int', '--seed': 'int', '--size': 'string', '--fps': 'int', '--query': 'string', '--gpu': 'string', '--jobs': 'int',
-    '--frame-timeout': 'number', '--out': 'string', '--no-scan': 'bool', '--json': 'bool',
-  },
-  positionals: [0, 1],
-};
 
 const rel = p => displayPath(ROOT, p);
 const ints = (list, name) => list.map(v => {
@@ -95,19 +51,19 @@ function doScan(paths) {
   return { paths, ...r };
 }
 
-async function main({ opts, positionals }) {
+async function main(opts, positionals) {
   if (opts.scanOnly) {
     if (positionals.length || opts.template) throw usage('--scan-only 不接受作品目录或 --template；用 --path 指定范围');
     const scan = doScan(opts.path.length ? opts.path : defaultTargets(ROOT));
     return scan.errors.length
-      ? { exitCode: EXIT.CONTRACT, result: { scan }, error: { code: 'nondeterministic-api', message: `${scan.errors.length} 处用了不确定的 API`, hint: '改成由 t 与固定种子算出；只用于计时的写法在同一行加 // determinism-ok: <理由>' } }
-      : { result: { scan } };
+      ? { exitCode: EXIT.CONTRACT, data: { scan }, error: { code: 'contract.nondeterministic-api', message: `${scan.errors.length} 处用了不确定的 API`, hint: '改成由 t 与固定种子算出；只用于计时的写法在同一行加 // determinism-ok: <理由>' } }
+      : { data: { scan } };
   }
   if (opts.path.length) throw usage('--path 只配合 --scan-only 使用');
   if (!!positionals[0] === !!opts.template) throw usage('要么给作品目录，要么给 --template a|c（二选一）');
   if (opts.template && !TEMPLATES[opts.template]) throw usage(`--template 只能是 ${Object.keys(TEMPLATES).join(' | ')}`);
-  const gpu = opts.gpu || 'required';
-  if (!['required', 'any', 'software-ok'].includes(gpu)) throw usage('--gpu 只能是 required | any | software-ok');
+  const gpu = opts.gpu || process.env.BEIMING_GPU || 'required';
+  if (!['required', 'any', 'software-ok'].includes(gpu)) throw usage(`${opts.gpu ? '--gpu' : '环境变量 BEIMING_GPU'} 只能是 required | any | software-ok（现在是 ${gpu}）`);
   const W = opts.workers ?? 4;
   if (!(W >= 1 && W <= 64)) throw usage('--workers 要在 1–64 之间');
   if (opts.random != null && !(opts.random >= 0 && opts.random <= 50)) throw usage('--random 要在 0–50 之间');
@@ -140,7 +96,7 @@ async function main({ opts, positionals }) {
     const probe = await runWorker({ ...base, groupId: 'probe', times: { frames: [0] }, outDir: path.join(outDir, 'probe'), resultFile: path.join(outDir, '.work', 'probe.json'), order: 'asc' }, { log, prefix: '  [探测] ', timeoutMs: 240000 });
     if (probe.exitCode) failWorker(probe, '打开页面');
     const DUR = probe.result.DUR, N = Math.round(DUR * fps), renderer = probe.result.renderer;
-    if (N < 2) throw new CliError('too-short', `作品只有 ${N} 帧，没法做确定性检查`, { exitCode: EXIT.CONTRACT });
+    if (N < 2) throw new CliError('contract.too-short', `作品只有 ${N} 帧，没法做确定性检查`, { exitCode: EXIT.CONTRACT });
 
     // 取样
     const selectors = opts.seams || opts.cuts.length || opts.random != null || opts.frames.length;
@@ -225,14 +181,14 @@ async function main({ opts, positionals }) {
     } else log(`通过：${rows.length} 帧在新页面、乱序、顺序三种方式下逐像素一致`);
     const outputs = [{ path: rel(rp), sha256: sha256File(rp), kind: 'determinism-report' }];
     if (bad.length) {
-      return { exitCode: EXIT.CONTRACT, outputs, warnings, runJson: rel(rp), result: { ok: false, bad: bad.map(r => r.f) },
-        error: { code: 'nondeterministic', message: `${bad.length} 帧三种渲染方式结果不同（第 ${bad.map(r => r.f).join('、')} 帧）`, hint: 'render(t) 里有累计状态、未设种子的随机或依赖上一帧的东西：改成只由 t 算出；修好之前出片用 --workers 1' } };
+      return { exitCode: EXIT.CONTRACT, outputs, warnings, runJson: rel(rp), data: { ok: false, bad: bad.map(r => r.f) },
+        error: { code: 'contract.nondeterministic', message: `${bad.length} 帧三种渲染方式结果不同（第 ${bad.map(r => r.f).join('、')} 帧）`, hint: 'render(t) 里有累计状态、未设种子的随机或依赖上一帧的东西：改成只由 t 算出；修好之前出片用 --workers 1' } };
     }
     if (scan?.errors.length) {
-      return { exitCode: EXIT.CONTRACT, outputs, warnings, runJson: rel(rp), result: { ok: false, scanErrors: scan.errors.length },
-        error: { code: 'nondeterministic-api', message: `渲染逐像素一致，但静态扫描有 ${scan.errors.length} 处不确定的 API`, hint: '改成由 t 与固定种子算出；只用于计时的写法在同一行加 // determinism-ok: <理由>' } };
+      return { exitCode: EXIT.CONTRACT, outputs, warnings, runJson: rel(rp), data: { ok: false, scanErrors: scan.errors.length },
+        error: { code: 'contract.nondeterministic-api', message: `渲染逐像素一致，但静态扫描有 ${scan.errors.length} 处不确定的 API`, hint: '改成由 t 与固定种子算出；只用于计时的写法在同一行加 // determinism-ok: <理由>' } };
     }
-    return { outputs, warnings, runJson: rel(rp), result: { ok: true, frames: rows.length } };
+    return { outputs, warnings, runJson: rel(rp), data: { ok: true, frames: rows.length } };
   } finally {
     tpl?.remove();
   }
@@ -241,10 +197,71 @@ async function main({ opts, positionals }) {
 function failWorker(r, what) {
   const e = r.result?.error || {};
   const exitCode = [EXIT.ENV, EXIT.CONTRACT, EXIT.TIMEOUT].includes(r.exitCode) ? r.exitCode : EXIT.FAIL;
-  throw new CliError(e.code || 'render-failed', `${what}失败：${e.message || r.stderrTail.trim().split('\n').slice(-2).join(' / ')}`, {
+  throw new CliError(codeFor(exitCode, e.code || 'render-failed'), `${what}失败：${e.message || r.stderrTail.trim().split('\n').slice(-2).join(' / ')}`, {
     hint: e.code === 'software-fallback' ? (e.hint || '检查 BEIMING_ANGLE；有意用软件渲染时加 --gpu software-ok') : e.code === 'no-browser' ? noBrowserHint
       : '先用 node engine/render/still.mjs <目录> <t> 单独渲一帧看页面报错', exitCode,
   });
 }
 
-await runMain({ command: 'determinism', spec: SPEC, help: HELP, main });
+const camel = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), v]));
+
+export const command = defineCommand({
+  name: 'determinism',
+  summary: '确定性检查：同一部作品用「新页面单帧」「乱序」「从头顺序」三种方式渲同一批帧，像素哈希必须完全一致；另做静态扫描',
+  usage: [
+    'node tools/baseline/determinism.mjs <作品目录> [选项]       作品目录在仓库内，含 index.html；《北冥》样片就是 .',
+    'node tools/baseline/determinism.mjs --template a|c [选项]   检查 A / C 路线模版（临时复制到 out/ 下渲，结束即删）',
+    'node tools/baseline/determinism.mjs --scan-only [--path <目录>]…   只做静态扫描（默认范围：engine 浏览器端代码、films/、路线模版）',
+  ],
+  description: [
+    '只有通过它，video.mjs 的多 worker 分段出片才等同单进程顺序出片（分段边界、切点处不会跳相位）。',
+    '做什么：',
+    '  1. 取样帧：按 video.mjs 的分段规则（每段 ceil(N/W) 帧）取各分段边界 ±1 帧；切点 ±1 帧；另取若干随机帧；外加首尾帧',
+    '  2. 每帧用三种方式各渲一次：新页面单帧（每帧一个全新浏览器，等于分段出片时每段的第一帧）、',
+    '     同一页面乱序（确定性随机顺序）、同一页面从第 0 帧逐帧顺序渲到最后一个取样帧（等于单 worker 顺序出片）',
+    '  3. 三种方式的像素哈希必须完全一致；不一致的帧给出差异热图（新页面对顺序）',
+    '  4. 静态扫描 Math.random / Date.now / performance.now / new Date / crypto.getRandomValues（存量登记见 tools/baseline/determinism-allow.json）',
+    '取样（都不写时 = 分段边界 + 切点 + 5 个随机帧 + 首尾帧；写了任何一个就只取写了的）：',
+    '  --seams 取分段边界 ±1 帧，没写 --cuts 时连切点 ±1 帧一起查；切点读作品 film.json 的 shots[].in（v2）或 cuts，',
+    '  仓库根目录（《北冥》样片，没有 film.json）读 tools/baseline/sets.json 的镜头表标注（72、120）',
+  ],
+  positionals: [{ name: 'dir', label: '<作品目录>', required: false, describe: '仓库内的作品目录（含 index.html）；和 --template 二选一' }],
+  options: {
+    template: { type: 'string', arg: '<a|c>', choices: Object.keys(TEMPLATES), describe: '检查路线模版（按 new-film 的规则临时实例化，结束即删）' },
+    'scan-only': { type: 'boolean', describe: '只做静态扫描，不渲染' },
+    path: { type: 'list', arg: '<目录>', describe: '--scan-only 的扫描范围（可重复）' },
+    seams: { type: 'boolean', describe: '取分段边界 ±1 帧（配合 --workers，默认 4，与 video.mjs 默认一致）' },
+    cuts: { type: 'list', split: ',', arg: '<帧,帧>', describe: '切点帧，查 ±1 帧', example: '72,120' },
+    random: { type: 'integer', arg: '<n>', min: 0, max: 50, describe: '随机取 n 帧（种子 --seed）', example: '5' },
+    frames: { type: 'list', split: ',', arg: '<帧,帧>', describe: '直接给要查的帧号', example: '0,239' },
+    workers: { type: 'integer', arg: '<n>', min: 1, max: 64, describe: '分段数（默认 4）', example: '4' },
+    seed: { type: 'integer', arg: '<n>', describe: '随机帧与乱序的种子（默认 1）', example: '1' },
+    size: { type: 'string', arg: '<宽x高>', describe: '默认读 film.json 的 size，没有就 1920x1040', example: '960x520' },
+    fps: { type: 'integer', arg: '<n>', min: 1, max: 240, describe: '默认读 film.json 的 fps，没有就 24', example: '24' },
+    query: { type: 'string', arg: '<k=v&…>', describe: '页面查询串' },
+    gpu: { type: 'string', arg: '<策略>', choices: ['required', 'any', 'software-ok'], describe: '落到软件渲染时：required 即 exit 3（默认）；不写时取 BEIMING_GPU' },
+    jobs: { type: 'integer', arg: '<n>', min: 1, max: 16, describe: '新页面模式同时开几个浏览器（默认 2）', example: '2' },
+    'frame-timeout': { type: 'number', arg: '<秒>', min: 1, max: 3600, describe: '单帧上限（默认 60）', example: '60' },
+    out: { type: 'string', arg: '<目录>', describe: '报告目录（默认 out/determinism/<运行编号>/）' },
+    'no-scan': { type: 'boolean', describe: '不做静态扫描' },
+  },
+  examples: [
+    'node tools/baseline/determinism.mjs . --seams --workers 4',
+    'node tools/baseline/determinism.mjs --template a --seams --random 5',
+    'node tools/baseline/determinism.mjs films/<名> --seams --workers 4 --json',
+    'node tools/baseline/determinism.mjs --scan-only',
+  ],
+  exitCodes: {
+    0: '通过', 1: '运行失败', 2: '用法错误', 3: '环境不满足（没浏览器、软件渲染被拒）',
+    4: '不确定（三种方式不一致）或静态扫描有违规', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理',
+  },
+  async run(ctx) {
+    setQuiet(ctx.quiet);
+    const done = bindCleanups(ctx);
+    try {
+      return await main(camel(ctx.opts), ctx.args.dir ? [ctx.args.dir] : []);
+    } finally { await done(); }
+  },
+});
+
+if (isMain(import.meta.url)) await runCli(command);

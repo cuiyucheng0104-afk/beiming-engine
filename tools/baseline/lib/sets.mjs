@@ -1,7 +1,7 @@
 // 北冥仓库 · 金标准集合：读 tools/baseline/sets.json，校验结构，把集合展开成「页面组」，再在页面打开后展开成帧。
 //
 //   loadSets(file)            → 校验过的 sets.json 对象；结构错误抛 CliError（exit 4）
-//   setHash(sets, name)       → 集合定义（含引用页面里影响像素的字段）的 sha256，写进清单，用来发现「集合改了但基线没更新」
+//   setHash(sets, name)       → 集合定义（含引用的页面）的 sha256，写进清单，用来发现「集合改了但基线没更新」
 //   shotOf(sets, pageId, t)   → 镜头名（来自顶层 annotations.<页面>.shots），没有标注时为 null
 //   expandSet(sets, name)     → [{ groupId, pageId, page, size, query, clip, times, fps }]
 //   resolveTimes(times, DUR, fps) → [{ t, f? }]，四种写法：
@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { CliError, EXIT } from './cli.mjs';
 
-const fail = (msg, hint = '') => new CliError('bad-sets', `sets.json：${msg}`, { hint, exitCode: EXIT.CONTRACT });
+const fail = (msg, hint = '') => new CliError('contract.bad-sets', `sets.json：${msg}`, { hint, exitCode: EXIT.CONTRACT });
 const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const isSize = s => Array.isArray(s) && s.length === 2 && s.every(v => Number.isInteger(v) && v >= 16 && v % 2 === 0);
 
@@ -71,13 +71,12 @@ function flattenKeys(o, acc = {}) {
   else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) { acc[k] = 1; flattenKeys(v, acc); }
   return acc;
 }
-// 集合哈希只算影响像素的字段：集合的 shots 与容差、引用页面的 dir / template / vars / query / fps / requires。
-// 说明文字（description、说明）和标注（顶层 annotations，例如镜头表）改了不算集合变了，已登记的基线与认可参照不受影响
-const PAGE_PIXEL_KEYS = ['dir', 'template', 'vars', 'query', 'fps', 'requires'];
+// 集合哈希 = 集合定义（去掉集合自己的 description / 说明）+ 它引用的页面定义（整条，含页面的说明）。
+// 已登记的回归基线与冻结的认可参照都按这个算法记了哈希，算法不能改：改了它，所有清单都会被判成「集合定义已变」。
+// 顶层 annotations（镜头表等标注）不在集合与页面里，改它不影响哈希。
 export function setHash(sets, name) {
   const s = sets.sets[name];
-  const pages = Object.fromEntries([...new Set(s.shots.map(g => g.page))].sort().map(p =>
-    [p, Object.fromEntries(PAGE_PIXEL_KEYS.filter(k => sets.pages[p][k] !== undefined).map(k => [k, sets.pages[p][k]]))]));
+  const pages = Object.fromEntries([...new Set(s.shots.map(g => g.page))].sort().map(p => [p, sets.pages[p]]));
   const { description, 说明, ...rest } = s;
   return crypto.createHash('sha256').update(canon({ set: rest, pages })).digest('hex');
 }
@@ -93,7 +92,7 @@ export function shotOf(sets, pageId, t) {
 
 export function expandSet(sets, name) {
   const s = sets.sets[name];
-  if (!s) throw new CliError('unknown-set', `没有集合 ${name}`, { hint: `可用集合：${Object.keys(sets.sets).join('、')}`, exitCode: EXIT.USAGE });
+  if (!s) throw new CliError('usage.unknown-set', `没有集合 ${name}`, { hint: `可用集合：${Object.keys(sets.sets).join('、')}`, exitCode: EXIT.USAGE });
   return s.shots.map((g, i) => {
     const page = sets.pages[g.page];
     const query = [page.query, g.query].filter(Boolean).join('&');

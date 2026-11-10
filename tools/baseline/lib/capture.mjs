@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { CliError, EXIT, onCleanup, offCleanup, sha256File } from './cli.mjs';
+import { CliError, EXIT, codeFor, onCleanup, offCleanup, sha256File } from './cli.mjs';
 import { expandSet, setHash } from './sets.mjs';
 import { backendOf, deviceSlug, platformKey, toolVersions, osDescription } from './platform.mjs';
 
@@ -186,8 +186,8 @@ export function failureExit(failures) {
 export function assertCaptured(failures) {
   if (!failures.length) return;
   const exitCode = failureExit(failures);
-  const first = failures[0];
-  throw new CliError(first.code || 'capture-failed',
+  const first = failures.find(f => f.exitCode === exitCode) || failures[0];
+  throw new CliError(codeFor(exitCode, first.code || 'capture-failed'),
     `${failures.length} 组没截成：${failures.map(f => `${f.pageId}（${f.message}）`).join('；')}`,
     { hint: first.code === 'software-fallback' ? first.hint || '检查 BEIMING_ANGLE；有意用软件渲染时加 --gpu software-ok'
       : first.code === 'no-browser' ? noBrowserHint
