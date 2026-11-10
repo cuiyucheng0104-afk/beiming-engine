@@ -100,4 +100,11 @@ node tools/c-runtime.mjs sy 18-ink --video          # 适配页 + 整片（帧�
 | `style-04-impasto`《红色自行车》（油画厚涂） | 自包含 | 装好它要的三个采样库（vcsl、vsco2ce、freepats）后 `c-runtime build` 退出码 0，用时 29 秒：1920×1080、24 fps、468 帧，与案例目录一致，成片 −13.8 LUFS，拍点核对最大偏差 0.2 ms；另用 `engine/render` 直接渲画面也是 468 帧，15.417 秒那一帧与归档海报 PSNR 36.7 dB |
 | `sy/18-ink`（水墨国风） | SY | `c-runtime sy 18-ink --video` 退出码 0，用时 9 秒：1920×1080、30 fps、300 帧（= 10 秒 × 30），BT.709 有限范围 |
 
+`c-runtime` 改用命令约定库与仓库统一的 Python 查找之后，同一天晚上又重跑了一遍，三类都退出码 0：
+- `style-76-circuit-board`：61 秒，594 帧。
+- `style-04-impasto`：27 秒，468 帧。
+- `sy 18 --still 2,8.5`：1 秒。
+
+跑完没有残留进程，也没有留下 `.segs-*`；`casebook.py check` 仍然 OK。
+
 以上只说明"能按固定快照重渲、规格与归档一致"，不是对作品的认可。
