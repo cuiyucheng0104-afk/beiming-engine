@@ -1,0 +1,490 @@
+{
+ "schemaVersion": 1,
+ "note": "engine 九层的导出快照（tests/engine/api-snapshot.test.mjs）。stable 的导出名必须逐个相同；更新：node tests/engine/lib/api-snapshot.mjs --write",
+ "modules": {
+  "engine/core/clock.js": {
+   "stability": "stable",
+   "exports": [
+    "REF_FPS",
+    "filmFps",
+    "frameOf",
+    "hashi",
+    "heldAt",
+    "heldTime",
+    "hold",
+    "holdAt",
+    "holdFrames",
+    "setFilmFps",
+    "snapTime",
+    "tick"
+   ]
+  },
+  "engine/core/math.js": {
+   "stability": "stable",
+   "exports": [
+    "DEG",
+    "TAU",
+    "clamp",
+    "ei",
+    "eio",
+    "eo",
+    "hashi",
+    "lerp",
+    "monotone",
+    "mulberry",
+    "seg",
+    "ss",
+    "ss5"
+   ]
+  },
+  "engine/core/noise.js": {
+   "stability": "stable",
+   "exports": [
+    "createNoise2D",
+    "createNoise3D"
+   ]
+  },
+  "engine/core/stroke.js": {
+   "stability": "stable",
+   "exports": [
+    "brushOutline",
+    "inkStroke"
+   ]
+  },
+  "engine/form/bend.js": {
+   "stability": "stable",
+   "exports": [
+    "frameWave",
+    "pitchWave",
+    "pitchYawLinearWave",
+    "pitchYawWave"
+   ]
+  },
+  "engine/form/curves.js": {
+   "stability": "stable",
+   "exports": [
+    "catmull",
+    "pathShape",
+    "spiral",
+    "squareSpiral",
+    "taperTube",
+    "withSpiral"
+   ]
+  },
+  "engine/form/eye.js": {
+   "stability": "stable",
+   "exports": [
+    "autoBlink",
+    "eyeFrame",
+    "lidShells",
+    "mountEyes",
+    "pickEye",
+    "poseEyes"
+   ]
+  },
+  "engine/form/loft.js": {
+   "stability": "stable",
+   "exports": [
+    "axisStations",
+    "loftRings",
+    "loftWing",
+    "profileBody",
+    "ringCenter",
+    "ringsAt",
+    "sideAngle",
+    "unwrap"
+   ]
+  },
+  "engine/form/plants.js": {
+   "stability": "stable",
+   "exports": [
+    "bakeLeaf",
+    "blade",
+    "fern",
+    "leaf",
+    "pineTree",
+    "strands",
+    "tuft"
+   ]
+  },
+  "engine/form/props.js": {
+   "stability": "stable",
+   "exports": [
+    "barnacle",
+    "boatHull",
+    "branchCoral",
+    "card",
+    "clump",
+    "dome",
+    "flake",
+    "flowerHead",
+    "moundCluster",
+    "petalDisc",
+    "petalFan",
+    "scallop"
+   ]
+  },
+  "engine/form/rock.js": {
+   "stability": "stable",
+   "exports": [
+    "mesa",
+    "mesaEdge",
+    "spire"
+   ]
+  },
+  "engine/form/scatter.js": {
+   "stability": "stable",
+   "exports": [
+    "instanced",
+    "pickFrom",
+    "placeAligned",
+    "placeOnSurface",
+    "samplersOn",
+    "weightedSampler",
+    "withWeights"
+   ]
+  },
+  "engine/form/sdf.js": {
+   "stability": "stable",
+   "exports": [
+    "blur5",
+    "edt2d",
+    "sdfFromImage",
+    "shapeInside"
+   ]
+  },
+  "engine/shade/noise.glsl.js": {
+   "stability": "stable",
+   "exports": [
+    "HASH13_GLSL",
+    "NOISE_GLSL",
+    "voronoiGlsl"
+   ]
+  },
+  "engine/shade/patch.js": {
+   "stability": "stable",
+   "exports": [
+    "bindPatched",
+    "colorOf",
+    "counter",
+    "hasVertexHooks",
+    "inject",
+    "makeDepthMaterial",
+    "patchVertex",
+    "programKey",
+    "quantizeShadow",
+    "strHash",
+    "vec3Of"
+   ]
+  },
+  "engine/shade/surface.js": {
+   "stability": "stable",
+   "exports": [
+    "muralLayer",
+    "paintLayer",
+    "patchLayer"
+   ]
+  },
+  "engine/shade/toon.js": {
+   "stability": "stable",
+   "exports": [
+    "TOON_BASE",
+    "makeToonShared",
+    "setToonShared",
+    "tintFrom",
+    "toonKind"
+   ]
+  },
+  "engine/shade/util.glsl.js": {
+   "stability": "stable",
+   "exports": [
+    "AA_GLSL",
+    "FAR_GLSL",
+    "FILL_GLSL",
+    "LUM_GLSL",
+    "SS_GLSL",
+    "bumpGlsl",
+    "glf",
+    "lineGlsl"
+   ]
+  },
+  "engine/stage/camera.js": {
+   "stability": "stable",
+   "exports": [
+    "aimCamera",
+    "dirOf",
+    "fillScreen",
+    "placeOnScreen",
+    "placeStrip",
+    "project",
+    "projectAll",
+    "screenAnchor",
+    "screenToPlane",
+    "screenToWorld",
+    "wrapAngle",
+    "yawPitchOf"
+   ]
+  },
+  "engine/stage/dome.js": {
+   "stability": "stable",
+   "exports": [
+    "domeGeo",
+    "domePlate"
+   ]
+  },
+  "engine/stage/film.js": {
+   "stability": "stable",
+   "exports": [
+    "createFilm",
+    "designFit",
+    "normalizeTexts",
+    "renderInfo",
+    "shotTable"
+   ]
+  },
+  "engine/stage/motion.js": {
+   "stability": "stable",
+   "exports": [
+    "bezierPoints",
+    "headingQuat",
+    "integratePath"
+   ]
+  },
+  "engine/stage/outline.js": {
+   "stability": "stable",
+   "exports": [
+    "wireOutlines"
+   ]
+  },
+  "engine/stage/plates.js": {
+   "stability": "stable",
+   "exports": [
+    "canvasLayer",
+    "cropPlate",
+    "cutoutPlane",
+    "glowSprite",
+    "loadPlates",
+    "plate",
+    "plateCopy",
+    "plateMat",
+    "tileRepeat"
+   ]
+  },
+  "engine/look/bloom.js": {
+   "stability": "stable",
+   "exports": [
+    "createBloom"
+   ]
+  },
+  "engine/look/compose.js": {
+   "stability": "stable",
+   "exports": [
+    "FINAL_FS",
+    "anchoredFinalFs",
+    "createCompose"
+   ]
+  },
+  "engine/look/debug.js": {
+   "stability": "stable",
+   "exports": [
+    "DEBUG_VIEWS",
+    "createDebugView"
+   ]
+  },
+  "engine/look/fog.js": {
+   "stability": "stable",
+   "exports": [
+    "FOG_GLSL",
+    "createFogPass",
+    "fogUniforms",
+    "setFog"
+   ]
+  },
+  "engine/look/glsl.js": {
+   "stability": "stable",
+   "exports": [
+    "HASH_NOISE"
+   ]
+  },
+  "engine/look/grade.js": {
+   "stability": "stable",
+   "exports": [
+    "createGrade"
+   ]
+  },
+  "engine/look/ids.js": {
+   "stability": "stable",
+   "exports": [
+    "createIdPass"
+   ]
+  },
+  "engine/look/index.js": {
+   "stability": "stable",
+   "exports": [
+    "LOOK_BASE",
+    "createLook",
+    "grainCellOf",
+    "grainSeedOf",
+    "lookDefaults",
+    "lookParams"
+   ]
+  },
+  "engine/look/ink.js": {
+   "stability": "stable",
+   "exports": [
+    "boilSeed",
+    "createInk"
+   ]
+  },
+  "engine/look/kuwahara.js": {
+   "stability": "stable",
+   "exports": [
+    "createKuwahara"
+   ]
+  },
+  "engine/look/paper.js": {
+   "stability": "stable",
+   "exports": [
+    "canvasPaper",
+    "createPaper",
+    "paperAnchor"
+   ]
+  },
+  "engine/look/params.js": {
+   "stability": "stable",
+   "exports": [
+    "linVec",
+    "mergeParam",
+    "srgbVec",
+    "toColor",
+    "vec3Of"
+   ]
+  },
+  "engine/look/pass.js": {
+   "stability": "stable",
+   "exports": [
+    "FS_VERT",
+    "createFullscreen",
+    "renderTarget"
+   ]
+  },
+  "engine/paint/affine.js": {
+   "stability": "stable",
+   "exports": [
+    "apply",
+    "asMatrix",
+    "chain",
+    "mul",
+    "rotate",
+    "scale",
+    "translate",
+    "zoomAt"
+   ]
+  },
+  "engine/paint/brushwork.js": {
+   "stability": "experimental",
+   "exports": [
+    "createBrush",
+    "dryRuns"
+   ]
+  },
+  "engine/paint/canvas.js": {
+   "stability": "stable",
+   "exports": [
+    "blit",
+    "canvasFor",
+    "clearLayer",
+    "shadowOnly"
+   ]
+  },
+  "engine/paint/curve.js": {
+   "stability": "stable",
+   "exports": [
+    "catmullRom",
+    "pointAt",
+    "project",
+    "spanPoints"
+   ]
+  },
+  "engine/paint/ink.js": {
+   "stability": "stable",
+   "exports": [
+    "createInk"
+   ]
+  },
+  "engine/paint/light.js": {
+   "stability": "stable",
+   "exports": [
+    "fadeAlong",
+    "glassSheen",
+    "glowBehind",
+    "lightWrap",
+    "rimBleed",
+    "rimPass"
+   ]
+  },
+  "engine/paint/path.js": {
+   "stability": "stable",
+   "exports": [
+    "fillPoly",
+    "mapPath",
+    "parsePath",
+    "polyPath",
+    "samplePath",
+    "scalePath",
+    "smoothClosed",
+    "toPath2D"
+   ]
+  },
+  "engine/paint/strand.js": {
+   "stability": "stable",
+   "exports": [
+    "strandOutline",
+    "strandSpine"
+   ]
+  },
+  "engine/paint/wash.js": {
+   "stability": "stable",
+   "exports": [
+    "washOver",
+    "washTexture"
+   ]
+  },
+  "engine/paint/xuan.js": {
+   "stability": "experimental",
+   "exports": [
+    "xuanFibers",
+    "xuanField",
+    "xuanPaper"
+   ]
+  },
+  "engine/overlay/brush.js": {
+   "stability": "stable",
+   "exports": [
+    "buildBrushGlyph",
+    "chamfer",
+    "paintBrushGlyph"
+   ]
+  },
+  "engine/overlay/text.js": {
+   "stability": "stable",
+   "exports": [
+    "createOverlay",
+    "fontSpec",
+    "loadFonts",
+    "measure",
+    "measureContext",
+    "rgba"
+   ]
+  },
+  "engine/overlay/widgets.js": {
+   "stability": "stable",
+   "exports": [
+    "arcGap",
+    "brackets",
+    "roundRect",
+    "swayOffset"
+   ]
+  }
+ }
+}
