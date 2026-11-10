@@ -377,7 +377,7 @@ const out = {};
 for (const H of [1080, 1440, 2160]) {
   const k = H / 1080, kp = Math.max(1, Math.round(k));
   const px = paper.layer({ strength: .12, scale: 1 }, kp, k), rh = paper.layer({ strength: .12, scale: 1, scaleMode: 'refHeight' }, kp, k);
-  out[H] = { pixel: px.w / H, ref: rh.w / H, anchor: 'anchor' in px };
+  out[H] = { pixel: px.w / H, ref: rh.w / H, anchor: 'anchor' in px, pxTexels: 'texels' in px, texels: rh.texels };
 }
 let bad = null; try { paper.layer({ strength: .1, scaleMode: 'zoom' }, 1, 1); } catch (e) { bad = String(e.message); }
 window.RESULT = { out, bad };`, { w: 64, h: 64 });
@@ -386,5 +386,65 @@ window.RESULT = { out, bad };`, { w: 64, h: 64 });
   assert.ok(Math.abs(out[1440].pixel / out[1080].pixel - 1080 / 1440) < 1e-9, 'pixel（默认）：1440 高按整数倍 1，纸纹相对画面变细（与以前相同）');
   assert.ok(Math.abs(out[2160].pixel / out[1080].pixel - 1) < 1e-9, 'pixel：2160 高按整数倍 2，与 1080 相对一致（R32）');
   assert.ok(!out[1080].anchor, '不写锚点时 layer 的结果不带 anchor 字段（走默认着色器）');
+  for (const H of [1080, 1440, 2160]) {
+    assert.equal(out[H].pxTexels, false, 'pixel 模式不带 texels（compose 用默认着色器，与以前逐像素相同）');
+    assert.deepEqual(out[H].texels, [1024, 1024], 'refHeight 模式带纸纹图的像素数，compose 据此按面积取样（R63）');
+  }
   assert.match(bad || '', /scaleMode 只能是 pixel \/ refHeight/);
+});
+
+
+// CRAFT-12 的验收：新模式（纸纹 scaleMode 'refHeight' + 颗粒 size）下，同一平涂区 1080 直出与高分辨率缩回 1080 的高频能量差 ≤ 3%。
+// 高频能量 = 亮度减 5×5 盒模糊后的标准差（审计 CRAFT-12 的量法）；缩回 1080 用按面积的盒滤波（2160 → 1080 就是 2×2 平均）。
+const HF_PROBE = `
+import * as THREE from 'three';
+import { createLook } from '/engine/look/index.js';
+const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(1); renderer.setSize(64, 64); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#8a7fb8');   // 平涂区：整幅一个颜色，只剩纸纹与颗粒
+const cam = new THREE.PerspectiveCamera(30, 1, 1, 100);
+async function lum(W, H, p) {
+  const look = createLook(renderer, W, H, { paperUrl: '/assets/plates/paper.png', ss: 1 }); await look.ready;
+  const rt = new THREE.WebGLRenderTarget(W, H);
+  look.render(scene, cam, { t: 1, outline: false, kuwahara: false, bloom: false, grade: false, vignette: 0, ...p, target: rt });
+  const b = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(rt, 0, 0, W, H, b); rt.dispose(); look.dispose();
+  const L = new Float32Array(W * H); for (let i = 0; i < W * H; i++) L[i] = .2126 * b[i * 4] + .7152 * b[i * 4 + 1] + .0722 * b[i * 4 + 2]; return L;
+}
+// 按面积重采样（可缩可放）：目标像素 = 它在源图上盖住的各像素按重叠长度加权（逐轴）
+function axisW(N, n) { const s = N / n, w = []; for (let j = 0; j < n; j++) { const a = j * s, b = a + s, r = []; for (let x = Math.floor(a); x < Math.ceil(b - 1e-9); x++) { const o = Math.min(b, x + 1) - Math.max(a, x); if (o > 1e-9) r.push([x, o / s]); } w.push(r); } return w; }
+function resample(A, W, H, w, h) {
+  const wx = axisW(W, w), wy = axisW(H, h), T = new Float32Array(w * H), O = new Float32Array(w * h);
+  for (let y = 0; y < H; y++) for (let j = 0; j < w; j++) { let s = 0; for (const [x, k] of wx[j]) s += A[y * W + x] * k; T[y * w + j] = s; }
+  for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) { let s = 0; for (const [y, k] of wy[i]) s += T[y * w + j] * k; O[i * w + j] = s; }
+  return O;
+}
+function hf(L, w, h, m = 8) { let s = 0, s2 = 0, n = 0; for (let y = m; y < h - m; y++) for (let x = m; x < w - m; x++) { let b = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) b += L[(y + dy) * w + x + dx]; const d = L[y * w + x] - b / 25; s += d; s2 += d * d; n++; } const mu = s / n; return Math.sqrt(s2 / n - mu * mu); }
+function corr(a, b) { const n = a.length; let ma = 0, mb = 0; for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i]; } ma /= n; mb /= n; let va = 0, vb = 0, cv = 0; for (let i = 0; i < n; i++) { const x = a[i] - ma, y = b[i] - mb; va += x * x; vb += y * y; cv += x * y; } return cv / Math.sqrt(va * vb); }
+`;
+
+gpuTest('R63 纸纹 refHeight + 颗粒 size：原生 4K 缩回 1080 与 1080 直出的高频能量差 ≤ 3%；1440 上颗粒 size 3 等比、纸纹不比理想放大多损失', async () => {
+  const r = await run('r63', HF_PROBE + `
+const w = 540, h = 1080, out = {};   // 宽取高的一半：结论只跟画高有关，像素量省一半
+const PAPER = { strength: .14, scaleMode: 'refHeight' };
+const CASES = { new1: { paper: PAPER, grain: { amount: .65, size: 1 } }, new3: { paper: PAPER, grain: { amount: .65, size: 3 } },
+  grain3: { paper: false, grain: { amount: .65, size: 3 } }, paper: { paper: PAPER, grain: 0 }, legacy: { paper: { strength: .14 }, grain: .65 } };
+const HS = { new1: [2160], new3: [2160, 1440], grain3: [1440], paper: [2160, 1440], legacy: [2160] };
+for (const [k, p] of Object.entries(CASES)) {
+  const a = await lum(w, h, p), o = { hf1080: hf(a, w, h) };
+  for (const H of HS[k]) { const W = H / 2, B = resample(await lum(W, H, p), W, H, w, h); o[H] = { r: hf(B, w, h) / o.hf1080, c: corr(a, B) }; }
+  // 1440 的理想：把 1080 直出按面积放大到 1440 再缩回（整像素画面在非整数倍上能做到的最好），纸纹不该比它多损失
+  if (k === 'paper') o.ideal1440 = hf(resample(resample(a, w, h, 720, 1440), 720, 1440, w, h), w, h) / o.hf1080;
+  out[k] = o;
+}
+window.RESULT = out;`, { w: 64, h: 64, timeout: 240000 });
+  const pct = v => `${((v - 1) * 100).toFixed(1)}%`;
+  for (const k of ['new1', 'new3', 'paper']) {
+    assert.ok(Math.abs(r[k][2160].r - 1) <= .03, `${k}：2160 缩回 1080 的高频能量 ${pct(r[k][2160].r)}（双线性取样纸纹时 −6% 到 −20%）`);
+    assert.ok(r[k][2160].c > .99, `${k}：2160 缩回 1080 与 1080 直出相关 ${r[k][2160].c.toFixed(4)}`);
+  }
+  assert.ok(Math.abs(r.grain3[1440].r - 1) <= .03 && r.grain3[1440].c > .99, `颗粒 size 3（1080 / 1440 上 3 / 4 像素）：1440 缩回 1080 ${pct(r.grain3[1440].r)}，相关 ${r.grain3[1440].c.toFixed(4)}`);
+  assert.ok(r.paper.ideal1440 < .97, `1440 的理想放大本身就损失高频（${pct(r.paper.ideal1440)}）：整像素画面做不到逐像素等比，所以 1440 只比理想`);
+  assert.ok(Math.abs(r.paper[1440].r / r.paper.ideal1440 - 1) <= .03, `纸纹 1440：${pct(r.paper[1440].r)}，理想 ${pct(r.paper.ideal1440)}——面积取样不比理想多损失（双线性是 −23%）`);
+  assert.ok(r.paper[1440].c > .98, `纸纹 1440 缩回 1080 与 1080 直出相关 ${r.paper[1440].c.toFixed(4)}（纸纹相对画高一样大、对得上位置）`);
+  // 默认 pixel 模式不在这条验收里（旧输出逐像素不变，由金标准守）：记一下它 4K 缩回的高频损失，供对照
+  assert.ok(r.legacy[2160].r < .97, `默认模式（双线性、整数倍 kp）2160 缩回 1080：${pct(r.legacy[2160].r)}——新模式就是为它加的`);
 });

@@ -32,9 +32,13 @@
 //   fog       { color, colorHigh, density, start, max, baseHeight, falloff, cutoff, sky }   见 fog.js
 //   paper     { strength, scale, tex, mid, scaleMode, anchor }                    见 paper.js（scaleMode、anchor 默认关）
 //             混合是乘法：颜色 × (1 + 2 · strength · (纸纹 − 中性亮度))，正片取 0.12–0.14（不是 soft-light）
+//             scaleMode 'refHeight'：图片纸纹相对画高一样大，并按面积取样——原生 4K 缩回 1080 与 1080 直出相同（engine/look/gpu.test R63）
 //   vignette  0..1（或 { strength }）
 //   grain     0..1（或 { amount, size, holdFrames }）：amount 强度；
 //             size 颗粒格子边长（refHeight 像素，按 输出高度 / refHeight 连续放大后取整）；不写 = 整数倍 round(输出高度 / refHeight)，与以前相同
+//               格子是整像素：size × 输出高度 / refHeight 是整数时，缩回 1080 与 1080 直出逐像素相同；不是整数时取整，颗粒相对画面变粗或变细。
+//               要 1080 / 1440 / 2160 三档都等比，size 取 3 的倍数（3 → 3 / 4 / 6 像素）；size 1 只在 1080、2160 等比（1440 上是 1 像素，
+//               缩回 1080 后颗粒高频弱四成）。默认的 1 像素颗粒在非整数倍画幅上做不到等比，这是整像素格子的物理限制
 //             holdFrames 每几帧换一次颗粒（1 = 每帧换，默认；2 = 一拍二，压码率）
 //   target    输出到哪个 WebGLRenderTarget（默认 null = 屏幕）
 //   debug     'id' | 'depth' | 'edge' | 'line' | 'bloom' | 'paper' | 'kuwahara' | 'scene'   看中间缓冲

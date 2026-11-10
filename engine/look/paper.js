@@ -7,13 +7,17 @@
 //     resize(w, h)          按输出尺寸重建程序化纸纹（下次 prepare 时生成）
 //     prepare()             需要时生成程序化纸纹并量均值（整幅均匀取 128×128 个点在 GPU 上平均，再读回 16×16：
 //                           任何尺寸都量得到、换分辨率中性点不漂；以前只读左下角 128×128，画面不到 128 像素时读不到、中性点成 0）
-//     layer(p, kp = 1, k = kp) → { tex, strength, mid, w, h, anchor }   本帧用哪张纸纹、强度、中性亮度、平铺尺寸（像素）、锚点
+//     layer(p, kp = 1, k = kp) → { tex, strength, mid, w, h, anchor?, texels? }   本帧用哪张纸纹、强度、中性亮度、平铺尺寸（像素）、
+//                锚点（只在给了锚点时有）、按面积取样时纸纹图的像素数 [宽, 高]（只在 scaleMode 'refHeight' 的图片纸纹上有）
 //                p：{ strength, scale, tex, mid, scaleMode, anchor } 或空；tex 是自带贴图（优先于 url），mid 是它的中性亮度（默认 .5）
 //                kp：整数像素倍率（look 按 round(输出高度 / refHeight) 给，原生 4K 为 2）：图片纸纹按 1 图像像素 = kp 输出像素平铺，
 //                    换分辨率纸纹相对画面一样大；1080 附近 kp = 1，和原来一样
 //                k：连续倍率 输出高度 / refHeight（look 给）
-//                scaleMode  'pixel'（默认，按上面的整数倍 kp 平铺）| 'refHeight'（平铺尺寸乘连续的 k：1440、竖屏等不是整数倍的
-//                           画幅上纸纹相对画面也一样大）。只对图片纸纹起作用，程序化纸纹本来就按 refHeight 缩放
+//                scaleMode  'pixel'（默认，按上面的整数倍 kp 平铺、双线性取样，与以前逐像素相同）
+//                           | 'refHeight'：平铺尺寸乘连续的 k（1440、竖屏等不是整数倍的画幅上纸纹相对画面也一样大），并按面积取样
+//                           （compose.js：纸纹按 1080 设计稿的样子等比放大，原生 4K 缩回 1080 与 1080 直出逐像素相同；双线性放大
+//                           会把纸纹的高频糊掉约两成——实测 paper.png 在 2160 高缩回 1080 后高频能量 −20%）。
+//                           只对图片纸纹起作用，程序化纸纹本来就按 refHeight 缩放
 //                anchor     纸纹跟着画面里的一点走（推拉摇移时纸不再"钉在玻璃上"），默认关：
 //                           { pos: [x, y], origin: [x0, y0], zoom }——锚点此刻的屏幕位置、铺纸那一帧的位置（实际像素，左上为原点）、
 //                           此刻相对铺纸那一帧的缩放。纸纹点 = (像素 − pos) / zoom + origin。用 paperAnchor(now, ref) 从两次
@@ -131,8 +135,9 @@ export function createPaper(fx, renderer, { url = null, refHeight = 1080 } = {})
       throw new TypeError(`纸纹 scaleMode 只能是 ${SCALE_MODES.join(' / ')}，收到 ${JSON.stringify(p.scaleMode)}`);
     }
     if (!tex) return withAnchor({ tex: target.texture, strength: p ? p.strength : 0, mid, w: target.width, h: target.height }, anchor);
-    const img = tex.image, sc = (p?.scale ?? 1) * (p?.scaleMode === 'refHeight' ? k : kp);
-    return withAnchor({ tex, strength: p ? p.strength : 0, mid: p?.tex ? (p.mid ?? .5) : extMid, w: (img?.width || 1024) * sc, h: (img?.height || 1024) * sc }, anchor);
+    const refH = p?.scaleMode === 'refHeight', img = tex.image, iw = img?.width || 1024, ih = img?.height || 1024, sc = (p?.scale ?? 1) * (refH ? k : kp);
+    const o = withAnchor({ tex, strength: p ? p.strength : 0, mid: p?.tex ? (p.mid ?? .5) : extMid, w: iw * sc, h: ih * sc }, anchor);
+    return refH ? { ...o, texels: [iw, ih] } : o;   // texels：compose 换用面积取样（pixel 模式不带，返回值与以前逐字段相同）
   }
 
   return {

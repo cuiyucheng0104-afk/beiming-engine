@@ -4,7 +4,7 @@
 //     弯曲钩子、阴影深度材质）：全部锚点都找得到，注入的片段确实进了着色器；
 //   · engine 七层源码里写到的每个 #include <块名> 在 THREE.ShaderChunk 里都存在；
 //   · 故意写错锚点、或 three 的块里少了投影量化锚点时，直接抛错并说出是哪个锚点（不会悄悄失效）；
-//   · engine/look/compose.js 的纸纹锚点变体对得上 FINAL_FS。
+//   · engine/look/compose.js 的纸纹变体（锚点、面积取样）对得上 FINAL_FS，默认仍用 FINAL_FS 原文。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -15,7 +15,7 @@ import { inject, patchVertex, quantizeShadow, makeDepthMaterial } from '../../en
 import { toonKind } from '../../engine/shade/toon.js';
 import { patchLayer, paintLayer, muralLayer } from '../../engine/shade/surface.js';
 import { pitchWave, pitchYawWave, pitchYawLinearWave, frameWave } from '../../engine/form/bend.js';
-import { anchoredFinalFs, FINAL_FS } from '../../engine/look/compose.js';
+import { anchoredFinalFs, FINAL_FS, createCompose } from '../../engine/look/compose.js';
 
 // 模拟 WebGLRenderer 编译前交给 onBeforeCompile 的对象
 const shaderOf = lib => ({ vertexShader: THREE.ShaderLib[lib].vertexShader, fragmentShader: THREE.ShaderLib[lib].fragmentShader, uniforms: {}, defines: {} });
@@ -116,4 +116,35 @@ test('compose.js：纸纹锚点变体只换取样那一行，对得上当前的 
   assert.match(fs2, /\(\(gl_FragCoord\.xy - uPaperPos\) \/ uPaperZoom \+ uPaperOrigin\) \/ uPaperSize/);
   assert.equal(fs2.split('\n').length, FINAL_FS.split('\n').length, '只改行内内容，不增删行');
   assert.throws(() => anchoredFinalFs(FINAL_FS.replace('gl_FragCoord.xy / uPaperSize', 'vUv')), /锚点变体对不上/);
+  // 与加面积取样之前的写法逐字相同（两个替换直接写在这里）
+  const before = FINAL_FS.replace('float pp = texture2D(tPaper, gl_FragCoord.xy / uPaperSize).r;', 'float pp = texture2D(tPaper, ((gl_FragCoord.xy - uPaperPos) / uPaperZoom + uPaperOrigin) / uPaperSize).r;')
+    .replace('uniform vec2 uRes, uPaperSize;', 'uniform vec2 uRes, uPaperSize, uPaperPos, uPaperOrigin; uniform float uPaperZoom;');
+  assert.equal(fs2, before);
+});
+
+test('compose.js：按 paper.layer 的返回值选着色器——都不带用 FINAL_FS 原文；texels → 面积取样；anchor + texels → 两样都换', () => {
+  const made = [], drawn = [];
+  const fx = { material: (fs, uniforms) => { const m = { fs, uniforms, dispose() { m.disposed = true; } }; made.push(m); return m; }, draw: m => drawn.push(m) };
+  const C = createCompose(fx);
+  const base = { src: null, line: null, ink: { color: '#203040', tint: .3, darken: .5 }, vignette: 0, grain: 0, grainSeed: 0, w: 64, h: 32 };
+  const paper = { tex: null, strength: .12, mid: .5, w: 1024, h: 1024 };
+  C.render({ ...base, paper });
+  assert.equal(drawn.at(-1), made[0]); assert.equal(made[0].fs, FINAL_FS, '默认（pixel 模式、不带锚点）：着色器源码与以前一字不差');
+  C.render({ ...base, ink: null, paper: { ...paper, w: 1365.33, h: 1365.33, texels: [1024, 1024] } });
+  const area = drawn.at(-1), u = area.uniforms;
+  assert.notEqual(area, made[0]);
+  assert.ok(area.fs.includes('float pp = paperArea(gl_FragCoord.xy / uPaperSize * uPaperTexels, .5 * uPaperTexels / (uPaperSize));'), '取样点与像素半宽按纸纹像素算');
+  assert.ok(area.fs.includes('uniform vec2 uRes, uPaperSize, uPaperTexels;') && /float paperArea\(vec2 u, vec2 hw\)[\s\S]*void main\(\)\{/.test(area.fs), '面积取样函数在 main 之前');
+  assert.match(area.fs, /textureLod\(tPaper, \(b - \.5 \+ a\) \/ uPaperTexels, 0\.\)/, '放大时只取第 0 级（不让 mip 糊进相邻格）');
+  assert.deepEqual([u.uPaperTexels.value.x, u.uPaperTexels.value.y, u.uPaperSize.value.x], [1024, 1024, 1365.33]);
+  assert.deepEqual([u.uInk.value.toArray(), u.uInkTint.value, u.uInkDark.value], [made[0].uniforms.uInk.value.toArray(), .3, .5], 'ink 为空时沿用上一次的墨色（各变体共用）');
+  C.render({ ...base, paper: { ...paper, texels: [512, 256], anchor: { pos: [10, 4], origin: [3, 2], zoom: 2 } } });
+  const both = drawn.at(-1);
+  assert.ok(both.fs.includes('float pp = paperArea(((gl_FragCoord.xy - uPaperPos) / uPaperZoom + uPaperOrigin) / uPaperSize * uPaperTexels, .5 * uPaperTexels / (uPaperSize * uPaperZoom));'), '锚点的缩放也算进像素半宽');
+  assert.deepEqual([both.uniforms.uPaperZoom.value, both.uniforms.uPaperPos.value.toArray(), both.uniforms.uPaperTexels.value.toArray()], [2, [10, 28], [512, 256]], '锚点换成左下原点');
+  C.render({ ...base, paper: { ...paper, texels: [1024, 1024] } });
+  assert.equal(drawn.at(-1), area, '变体建一次、反复用');
+  assert.equal(made.length, 3);
+  C.dispose();
+  assert.ok(made.every(m => m.disposed), 'dispose 释放默认与全部变体');
 });
