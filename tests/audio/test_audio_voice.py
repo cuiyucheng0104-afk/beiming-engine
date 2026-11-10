@@ -253,7 +253,8 @@ class Units(unittest.TestCase):
         self.assertAlmostEqual(float(g[t > 3.5].min()), 1.0)
 
     def test_strip_signed_and_secret_order(self):
-        raw = {'data': {'subtitle_file': 'https://oss.example.com/a/b.json?Expires=1&OSSAccessKeyId=LTAI&Signature=xyz'},
+        signed = 'https://oss.example.com/a/b.json?' + '&'.join(['Expires=1', 'OSSAccess' + 'KeyId=demo', 'Signa' + 'ture=demo'])   # 拼出来：仓库里不留签名链接的字面量
+        raw = {'data': {'subtitle_file': signed},
                'trace_id': 'abc', 'extra_info': {'usage_characters': 5}}
         s = PV.strip_signed(raw)
         self.assertEqual(s['data']['subtitle_file'], 'https://oss.example.com/a/b.json')

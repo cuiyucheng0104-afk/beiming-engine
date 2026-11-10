@@ -183,7 +183,7 @@ export const command = defineCommand({
     timeout: { type: 'number', arg: '<秒>', describe: '单个文件的超时（默认 300）' },
     manifest: { type: 'string', arg: '<文件>', describe: '换一份清单（测试用）' },
   },
-  examples: ['node tools/audio/fetch-samples.mjs --dry-run', 'node tools/audio/fetch-samples.mjs --dest D:/beiming/samples', 'node tools/audio/fetch-samples.mjs --verify-only --json'],
+  examples: ['node tools/audio/fetch-samples.mjs --dry-run', 'node tools/audio/fetch-samples.mjs --dest ../beiming-samples', 'node tools/audio/fetch-samples.mjs --verify-only --json'],
   exitCodes: { 0: '齐全', 2: '用法错误', 3: '网络或目录不可用；--verify-only 时缺文件', 4: '内容与固定版本不符', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
   run: main,
 });

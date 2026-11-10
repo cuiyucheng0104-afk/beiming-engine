@@ -7,6 +7,11 @@
 import { isMain, runCli } from '../lib/cli.mjs';
 import { pythonCommand } from './lib/front.mjs';
 
+const str = (arg, describe) => ({ type: 'string', arg, describe });
+const int = (arg, describe) => ({ type: 'integer', arg, describe });
+const num = (arg, describe) => ({ type: 'number', arg, describe });
+const flag = describe => ({ type: 'boolean', describe });
+
 export const command = pythonCommand({
   name: 'audio:qa',
   summary: '声音 QA 门：按 film.json 与交付档位逐项判定混音（格式、长度、满幅、积分响度、真峰值、直流、单声道兼容、首尾、切点爆音、频段）',
@@ -19,17 +24,17 @@ export const command = pythonCommand({
     '整段按 10 秒一块读盘，十分钟级的混音也只占几十 MB 内存。',
   ],
   options: {
-    film: { type: 'string', arg: '<作品>', describe: '作品目录或 film.json（给出时长、帧率、镜头切点、混音目标与档位）' },
-    wav: { type: 'string', arg: '<混音>', describe: '要查的混音（默认按作品找：audio.wav、out/latest 指向的运行目录、out/mix.wav、media/mix.wav）' },
-    profile: { type: 'string', arg: '<档位>', describe: '交付档位（默认 film.json 的 output.profile，再缺省 web-1080p24）' },
-    frames: { type: 'integer', arg: '<帧数>', describe: '画面帧数（没有 film.json 时用来查长度，与 --fps 一起给）' },
-    fps: { type: 'integer', arg: '<帧率>', describe: '帧率（与 --frames 一起给）' },
-    'target-lufs': { type: 'number', arg: '<LUFS>', describe: '混音目标积分响度' },
-    'tol-lu': { type: 'number', arg: '<LU>', describe: '积分响度容差（默认 0.5，不会宽于档位）' },
-    'max-tp': { type: 'number', arg: '<dBTP>', describe: '真峰值上限' },
-    report: { type: 'string', arg: '<文件>', describe: '报告写到哪里（默认混音旁边的 <名>.qa.json）' },
-    'no-report': { type: 'boolean', describe: '不写报告文件（只打印 / --json）' },
-    'fail-on-warn': { type: 'boolean', describe: '告警也算不通过' },
+    film: str('<作品>', '作品目录或 film.json（给出时长、帧率、镜头切点、混音目标与档位）'),
+    wav: str('<混音>', '要查的混音（默认按作品找：audio.wav、out/latest 指向的运行目录、out/mix.wav、media/mix.wav）'),
+    profile: str('<档位>', '交付档位（默认 film.json 的 output.profile，再缺省 web-1080p24）'),
+    frames: int('<帧数>', '画面帧数（没有 film.json 时用来查长度，与 --fps 一起给）'),
+    fps: int('<帧率>', '帧率（与 --frames 一起给）'),
+    'target-lufs': num('<LUFS>', '混音目标积分响度'),
+    'tol-lu': num('<LU>', '积分响度容差（默认 0.5，不会宽于档位）'),
+    'max-tp': num('<dBTP>', '真峰值上限'),
+    report: str('<文件>', '报告写到哪里（默认混音旁边的 <名>.qa.json）'),
+    'no-report': flag('不写报告文件（只打印 / --json）'),
+    'fail-on-warn': flag('告警也算不通过'),
   },
   examples: ['node tools/audio/qa.mjs --film films/dawn --json', 'node tools/audio/qa.mjs --wav out/mix.wav --profile beiming-1040p24 --frames 240 --fps 24'],
 });
