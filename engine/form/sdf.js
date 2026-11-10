@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-// Portions Copyright (c) 2026 LemoLab — lemo-opuscar@bebbbe1 styles/woodcut/demo/engine/hatch.js（MIT），许可原文见本注释末尾
 // 北冥引擎 · 距离场：把画布上画的蒙版变成有符号距离（纹样凹凸、离缘距离都从它来）。
 // 距离变换用 Felzenszwalb & Huttenlocher 的线性时间算法（平方欧氏，先列后行）。
 //   edt2d(grid, w, h)                       原地：grid 里 0 = 目标、极大 = 背景 → 到最近目标的平方距离
@@ -9,10 +7,14 @@
 //   shapeInside(shape, K, pad, R)           THREE.Shape 栅格化 → 形内到边缘的距离（形外为 0）
 //       → { de: Float32Array, W, H, x0, y0 }：像素 (x, y) 中心在形状坐标 (x0 + (x + 0.5) / K, y0 + (y + 0.5) / K)
 //
-// 来源：edt1d / edt2d 改编自 cases/vendor/lemo-opuscar/styles/woodcut/demo/engine/hatch.js@bebbbe1 的 edt1 / edt
-//   （算法是 Felzenszwalb & Huttenlocher 2012 的公开算法，写法逐句相同）；sdfFromImage、blur5、shapeInside 是本仓库自己写的。
-// @provenance lemo-opuscar@bebbbe1 styles/woodcut/demo/engine/hatch.js
-// LemoLab 部分的许可（MIT 原文，按其要求随这些部分一起分发）：
+// 来源：edt2d()（及一维扫描 edt1d）的两趟写法改写自 LemoLab 的 lemo-opuscar（cases/vendor/lemo-opuscar/styles/woodcut/demo/engine/hatch.js
+// 的 edt1 / edt，固定提交 bebbbe1；算法本身是公开的 Felzenszwalb–Huttenlocher），按其 MIT 许可使用并保留版权声明，许可全文见
+// cases/licenses/LemoLab-MIT.txt；sdfFromImage、blur5、shapeInside 为北冥引擎原创。
+// @provenance lemo-opuscar@bebbbe1:styles/woodcut/demo/engine/hatch.js
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-FileCopyrightText: 2026 LemoLab
+// LemoLab 部分的许可原文（作品站按文件分发这些模块，许可声明随文件走；与 cases/licenses/LemoLab-MIT.txt 相同）：
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 //   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
 //   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and

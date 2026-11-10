@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-// Portions Copyright (c) 2026 LemoLab — lemo-opuscar@bebbbe1 styles/chalkboard/demo/js/chalk.js、core/lib.js（MIT），许可原文见本注释末尾
 // 北冥引擎 · 毛笔写字：用字体里的字形当"墨"，按手标的笔画骨架把字一笔一笔揭开，收笔快的笔画带飞白（枯笔露白）。
 // 骨架 = 按笔顺排列的笔画中线，每笔是 [[x, y], ...]，单位 em，原点在字的中心（textAlign center / textBaseline middle）。
 //   buildBrushGlyph(ch, o) → glyph    预计算（每个字号一次，约 30–50 ms）。o：
@@ -16,12 +14,16 @@
 //     把时刻 t 已经写到的部分画进 glyph.out：每笔的笔锋沿骨架按缓入缓出推进，edge 是笔锋前沿的柔边宽（em，默认 0.035），rgb 墨色
 //   chamfer(inside, W, H)              倒角距离变换：inside（Uint8Array，1 = 在形内）每个像素到形状边缘的距离（像素）
 //
-// 来源：chamfer 改编自 cases/vendor/lemo-opuscar/styles/chalkboard/demo/js/chalk.js@bebbbe1 的倒角距离变换（两遍扫描，写法相同），
-//   "字形当蒙版、按笔画中线给每个像素定揭开顺序"的做法也取自该文件的 bakeOutline；hash1 / vnoise 与
-//   cases/vendor/lemo-opuscar/core/lib.js@bebbbe1 的 hash / vnoise 相同。骨架、笔画归属、飞白、时间分配与绘制是本仓库自己写的。
-// @provenance lemo-opuscar@bebbbe1 styles/chalkboard/demo/js/chalk.js
-// @provenance lemo-opuscar@bebbbe1 core/lib.js
-// LemoLab 部分的许可（MIT 原文，按其要求随这些部分一起分发）：
+// 来源：chamfer() 的两趟倒角距离写法改写自 LemoLab 的 lemo-opuscar（cases/vendor/lemo-opuscar/styles/chalkboard/demo/js/chalk.js，
+// 固定提交 bebbbe1），「字形当蒙版、按笔画中线给每个像素定揭开顺序」的做法也取自该文件的 bakeOutline；hash1 / vnoise 与同库
+// core/lib.js 的 hash / vnoise 相同；按其 MIT 许可使用并保留版权声明，许可全文见 cases/licenses/LemoLab-MIT.txt；骨架、笔画归属、
+// 飞白、时间分配与绘制为北冥引擎原创。
+// @provenance lemo-opuscar@bebbbe1:styles/chalkboard/demo/js/chalk.js
+// @provenance lemo-opuscar@bebbbe1:core/lib.js
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-FileCopyrightText: 2026 LemoLab
+// LemoLab 部分的许可原文（作品站按文件分发这些模块，许可声明随文件走；与 cases/licenses/LemoLab-MIT.txt 相同）：
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 //   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
 //   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and

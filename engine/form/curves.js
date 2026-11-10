@@ -1,5 +1,3 @@
-// SPDX-License-Identifier: MIT
-// Portions Copyright (c) 2026 LemoLab — lemo-opuscar@bebbbe1 styles/scifi-toon/demo/toon.js（MIT），许可原文见本注释末尾
 // 北冥引擎 · 曲线：平面折线（样条、圆旋涡、方旋涡）、路径 → THREE.Shape，以及沿空间曲线的变径管。
 //   catmull(pts, per, closed)                 Catmull-Rom 样条把 [[x, y], ...] 加密成折线，每段 per 个点
 //   spiral(cx, cy, r0, turns, dir, a0, pitch) 圆旋涡：从外半径 r0、角度 a0 起向内卷 turns 圈；dir = 1 逆时针；pitch 圈距（默认铺满）
@@ -8,10 +6,14 @@
 //   pathShape(cmds, sx, sy)                   [['M', x, y], ['L', x, y], ['C', x1, y1, x2, y2, x, y], ...] → THREE.Shape（x、y 分别缩放）
 //   taperTube(curve, seg, radial, radiusAt)   沿曲线的管，半径 radiusAt(a)（a = 沿程 0..1）；返回 { g, along }，along 是每个顶点的 a
 //
-// 来源：catmull 改编自 cases/vendor/lemo-opuscar/styles/scifi-toon/demo/toon.js@bebbbe1 的 spline（结构与逐段求值相同；
-//   同样的写法也见于该库的 rubber-hose、urban-sketch 示例）；其余函数是本仓库自己写的。
-// @provenance lemo-opuscar@bebbbe1 styles/scifi-toon/demo/toon.js
-// LemoLab 部分的许可（MIT 原文，按其要求随这些部分一起分发）：
+// 来源：catmull()（Catmull-Rom 样条加密）改写自 LemoLab 的 lemo-opuscar（cases/vendor/lemo-opuscar/styles/rubber-hose/demo/toon.js
+// 的 spline，固定提交 bebbbe1；同库 styles/scifi-toon/demo/toon.js 里是同一段），按其 MIT 许可使用并保留版权声明，许可全文见
+// cases/licenses/LemoLab-MIT.txt；其余函数为北冥引擎原创。
+// @provenance lemo-opuscar@bebbbe1:styles/rubber-hose/demo/toon.js
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-FileCopyrightText: 2026 LemoLab
+// LemoLab 部分的许可原文（作品站按文件分发这些模块，许可声明随文件走；与 cases/licenses/LemoLab-MIT.txt 相同）：
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 //   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
 //   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
