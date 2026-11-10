@@ -14,6 +14,8 @@
 //   shotAt(film, f) / localFrame(film, f)     帧 → 镜头 / { shot, local, frame }；globalFrame(film, id, local) 反过来
 //   cutList(film)                             切点 [{ frame, from, to, transition }]（不含第 0 帧）
 //   stageShots(film, byId)                    给 engine/stage/film.js 的 run({ shots })：[{ at: in / fps, shot }]
+//   pageTiming(json)                          页面读 film.json 的统一入口（v1 / v2）：DUR、镜头起止秒、t → { shot, local, frame }、事件秒；
+//                                             window.DUR = timing.DUR 满足页面约定 v1 的 round(DUR × fps) = frameCount（附录 C5）
 //   retimeShot(film, id, { out | length }, { mode: 'ripple' | 'roll' })
 //                                             改一个镜头的出点：ripple 后续镜头、事件、刻意画面（qa.intentional）、豁免帧段、海报帧、角色起点整体顺延，总帧数随之变；
 //                                             roll 只挪本镜与下一镜之间的切点，总帧数不变。返回新对象，不改入参
@@ -216,6 +218,52 @@ export function stageShots(film, byId) {
     if (!shot) throw new TimelineError('shot-builder-missing', `镜头 ${s.id} 没有对应的镜头对象`, '把 film.json 里的每个镜头 id 都交给 stageShots 的第二个参数');
     return { at: s.in / fps, shot };
   });
+}
+
+/**
+ * 页面读 film.json 的统一入口（纯函数，浏览器与 Node 都能用）：
+ *   const timing = pageTiming(await (await fetch('./film.json')).json());
+ *   window.DUR = timing.DUR;                         // 页面约定 v1：round(DUR × fps) = output.frameCount
+ *   const { shot, local } = timing.at(t);            // t 所在的镜头与镜头内秒数（帧取 floor：画面先到）
+ *   const T = timing.event('title.bei').t;           // 事件的结果帧换成秒
+ * 镜头与事件都从 film.json 来：改一个镜头的 out（film.js retime），页面的切点与事件时刻跟着变，不改页面代码。
+ * @returns {{ version, fps, frameCount, DUR, width, height, shots: Array<{id, in, out, t0, t1, dur}>, events: Array<{id, frame, t, shot, end?, t1?, audio?, visual?, sync?}>,
+ *             at(t: number), frameOf(t: number), shot(id: string), event(id: string) }}
+ */
+export function pageTiming(json) {
+  const tm = timingOf(json);
+  const { fps, frameCount } = tm;
+  const film = { output: { fps, frameCount }, shots: tm.shots };
+  requireShots(film);
+  const shots = tm.shots.map(s => ({ id: s.id, in: s.in, out: s.out, t0: s.in / fps, t1: s.out / fps, dur: (s.out - s.in) / fps }));
+  const byId = new Map(shots.map(s => [s.id, s]));
+  const events = (tm.version === 2 && Array.isArray(json.events) ? json.events : []).filter(isObj).map(e => {
+    const out = { id: e.id, frame: e.frame, t: e.frame / fps, shot: e.shot };
+    if (Number.isInteger(e.end)) { out.end = e.end; out.t1 = e.end / fps; }
+    for (const k of ['audio', 'visual', 'sync', 'domain']) if (e[k] !== undefined) out[k] = e[k];
+    return out;
+  });
+  const evById = new Map(events.map(e => [e.id, e]));
+  const frameOf = t => Math.min(frameCount - 1, Math.max(0, Math.floor(t * fps + FRAME_EPS)));
+  return {
+    version: tm.version, fps, frameCount, DUR: frameCount / fps, width: tm.width, height: tm.height, shots, events,
+    frameOf,
+    at(t) {
+      if (!Number.isFinite(t)) throw new TimelineError('seconds-invalid', `秒数必须是有限数字，收到 ${JSON.stringify(t)}`);
+      const frame = frameOf(t), s = shotAt(film, frame);
+      return { shot: s.id, index: s.index, local: t - s.in / fps, localFrame: frame - s.in, frame };
+    },
+    shot(id) {
+      const s = byId.get(id);
+      if (!s) throw new TimelineError('shot-unknown', `没有镜头 ${id}`, `可用：${shots.map(x => x.id).join('、')}`);
+      return s;
+    },
+    event(id) {
+      const e = evById.get(id);
+      if (!e) throw new TimelineError('event-unknown', `没有事件 ${id}`, '事件写在 film.json 的 events[]（id、frame、shot）');
+      return e;
+    },
+  };
 }
 
 // ───────────────────────── 改切点 ─────────────────────────

@@ -8,7 +8,7 @@ import { loadFilm, qaExpectations, retime, validateFilm } from '../../engine/pro
 import {
   TimelineError, beatAt, beatGrid, beatOf, cutList, eventsSignature, frameOfBeat, frameToSeconds, globalFrame, legacyEvents, legacyTimeline,
   localFrame, offGrid, parseTimecode, retimeShot, secondsToFrame, sectionsFromTempo, shotAt, shotSignature, stageShots, tempoSecs, timecode,
-  timingOf, timingSignature, filmTempo,
+  timingOf, timingSignature, filmTempo, pageTiming,
 } from '../../engine/production/timeline.js';
 import { createTempo, createTempoFromFrames } from '../../engine/core/tempo.js';
 import { REPO, minimalFilm } from './helpers.mjs';
@@ -201,4 +201,29 @@ test('签名：事件改动不影响切点签名，切点改动不影响事件�
   g.events.find(e => e.id === 'hud.scan').frame += 1;
   assert.equal(timingSignature(g), timingSignature(f));
   assert.notEqual(eventsSignature(g), eventsSignature(f));
+});
+
+test('pageTiming：页面从 film.json 读出 DUR、镜头起止秒、事件秒；改一个镜头的 out，页面拿到的切点与事件跟着变', () => {
+  const raw = beiming();
+  const p = pageTiming(raw);
+  assert.equal(p.DUR, 10);
+  assert.equal(Math.round(p.DUR * p.fps), p.frameCount);   // 页面约定 v1（附录 C5）
+  assert.deepEqual(p.shots.map(s => [s.id, s.t0, s.t1]), [['A', 0, 3], ['B', 3, 5], ['C', 5, 10]]);
+  assert.deepEqual(p.at(3), { shot: 'B', index: 1, local: 0, localFrame: 0, frame: 72 });
+  assert.equal(p.at(2.999).shot, 'A');
+  assert.equal(p.at(10).frame, 239);   // 末尾夹到最后一帧
+  assert.equal(p.event('hud.scan').t, 131 / 24);
+  assert.equal(p.event('c.amb_open').t1, 10);
+  assert.throws(() => p.event('nope'), e => e.code === 'event-unknown');
+  // 只改镜头 B 的 out：页面不改代码，切点、镜头内时间与事件时刻都变
+  const q = pageTiming(retime(raw, 'B', { out: 132 }).film);
+  assert.equal(q.DUR, 10.5);
+  assert.equal(q.shot('C').t0, 5.5);
+  assert.equal(q.at(5.25).shot, 'B');
+  assert.equal(q.at(5.5).local, 0);
+  assert.equal(q.event('hud.scan').frame, 143);
+  // v1 记录：整片一个镜头，没有事件
+  const v1 = pageTiming({ route: 'c', title: 'x', dur: 3, fps: 24, size: [1920, 1080] });
+  assert.deepEqual([v1.version, v1.frameCount, v1.shots.length, v1.events.length], [1, 72, 1, 0]);
+  assert.throws(() => pageTiming({ schemaVersion: 2, output: { fps: 24, frameCount: 96 }, shots: [{ id: 'S1', in: 0, out: 40 }] }), e => e.code === 'shots-coverage');
 });
