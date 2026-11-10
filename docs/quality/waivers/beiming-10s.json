@@ -1,0 +1,43 @@
+{
+  "$comment": "《北冥》10 秒样片（films/beiming-10s）的豁免。下面全部是 agent 起草、待用户批准的草稿（status: proposed），QA 不采用；用户在会话里明确同意后，由人填上原话、出处、日期并删掉 status 才生效（D08）。依据：机器 QA 2026-11-10 实测（docs/quality/known-issues.json 的 QA-A-003）；加固计划 v1 P07「核实修正」写明片尾副标题按豁免处理、不改 src/——那是集成负责人的处理意见，不是用户原话，所以仍待用户批准。",
+  "film": "beiming-10s",
+  "waivers": [
+    {
+      "status": "proposed",
+      "check": "texts.duration",
+      "target": "subtitle",
+      "frames": [228, 240],
+      "reason": "片尾副标题在最后 0.35 秒淡入并停在最后一帧（src/hud.js:56），完全显现只有 0.29 秒；播放器停在末帧时观众能读到",
+      "approvedBy": "",
+      "quote": "",
+      "source": "待用户批准"
+    },
+    {
+      "status": "proposed",
+      "check": "texts.duration",
+      "target": "hud-recog",
+      "reason": "「识别中…」是眼镜识别状态的一闪（0.50 秒），设计上不要求读完；「未能识别」紧随其后接上",
+      "approvedBy": "",
+      "quote": "",
+      "source": "待用户批准"
+    },
+    {
+      "status": "proposed",
+      "check": "texts.duration",
+      "target": "hud-recog:未能识别",
+      "reason": "「未能识别」是识别失败的小抖动（0.58 秒），VISUAL-DESIGN §6.2：识别失败只做 0.4 秒内衰减完的小抖动",
+      "approvedBy": "",
+      "quote": "",
+      "source": "待用户批准"
+    },
+    {
+      "status": "proposed",
+      "check": "texts.contrast",
+      "target": "*",
+      "reason": "显示层是浅色半透明的眼镜界面（「科技是环境，不是奇观」），已在 v1.0 正片里公开；对比度 1.2–2.1:1 低于 3:1，是否加暗晕要用户定",
+      "approvedBy": "",
+      "quote": "",
+      "source": "待用户批准"
+    }
+  ]
+}

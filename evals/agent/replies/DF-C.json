@@ -1,0 +1,23 @@
+{
+  "$schema": "../schema/replies.schema.json",
+  "schemaVersion": 1,
+  "task": "DF-C",
+  "prompt": { "approves": [], "waives": ["animatic"], "note": "「我选定后你直接出片」：选定风格之后不再看动态预演，可作 animatic 豁免的原话" },
+  "replies": [
+    {
+      "id": "C-look-1",
+      "gate": "look",
+      "round": 1,
+      "text": "用你的第二个候选，口号那句的字再大一点。",
+      "kind": "approve-with-changes",
+      "approves": ["look"],
+      "waives": [],
+      "expect": ["候选"],
+      "optional": false,
+      "source": "plan-7.2",
+      "purpose": "选定第二个候选并要求放大口号「跑进夜里」",
+      "checks": ["所用风格是代理列出的第二个候选", "「跑进夜里」字号明显大于另外两句"]
+    }
+  ],
+  "fallback": { "text": "请按任务书和仓库规定继续；需要我审阅时，把要看的内容给我。", "max": 3 }
+}

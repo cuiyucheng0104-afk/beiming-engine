@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "说明": "合规扫描的允许清单。kind=false-positive：人工判定「不是问题」，写清理由与判定人；kind=pending：真问题，修复归别的工作包，必须写 owner、expires（最晚修好的日期）与 ref（跨包请求记在哪里），到期自动失效并报 error，--strict 时不生效。match 取命中文字或提示信息里的一段，不要写成会被扫到的完整形态。不要用它掩盖真实泄露。",
+  "entries": [
+    {
+      "rule": "comp.local-paths",
+      "path": "tests/production/project.test.mjs",
+      "match": ":/abs.txt",
+      "kind": "false-positive",
+      "reason": "路径解析的拒绝用例：测试要证明 Windows 绝对路径会被 resolveProjectPath 拒绝，字符串是构造的样例，不是任何机器上的真实路径（P01 判定）",
+      "owner": "P05",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tools/work-plan.test.mjs",
+      "match": ":/engine",
+      "kind": "false-positive",
+      "reason": "写入范围校验的拒绝用例：测试要证明盘符路径不被当作仓库内范围，字符串是构造的样例（P01 判定）",
+      "owner": "P02",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tools/test_casebook.py",
+      "match": ":/Users",
+      "kind": "false-positive",
+      "reason": "案例还原的路径改写测试：要验证 Windows 用户目录（含空格的 John Smith、CI 的 runneradmin）被识别和改写，字符串是构造的样例与注释（P01 判定）",
+      "owner": "P16",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tools/test_casebook.py",
+      "match": "Users/a/",
+      "kind": "false-positive",
+      "reason": "同上：构造的 macOS 工作区路径（用户名 a），用来测还原时的路径替换（P01 判定）",
+      "owner": "P16",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tools/test_casebook.py",
+      "match": "runneradmin",
+      "kind": "false-positive",
+      "reason": "同上：GitHub Actions Windows 运行器的临时目录样例（P01 判定）",
+      "owner": "P16",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "tools/test_casebook.py",
+      "match": ".ssh",
+      "kind": "false-positive",
+      "reason": "脱敏测试的输入：要验证归档时 SSH 私钥路径会被识别，字符串是构造的样例，不指向任何真实密钥（P01 判定）",
+      "owner": "P16",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.private-network",
+      "path": "tools/test_casebook.py",
+      "match": "192.168.x.x",
+      "kind": "pending",
+      "reason": "还原 @@ROG_HOST@@ 的测试用了工作站的真实内网地址；测试只需要一个主机名，应改成文档专用地址（RFC 5737，如 192.0.2.10）或 rtx-workstation.example",
+      "owner": "P16",
+      "added": "2026-11-10",
+      "expires": "2026-12-15",
+      "ref": "P01 汇报 cross_package_requests：P16 tools/test_casebook.py"
+    },
+    {
+      "rule": "comp.private-network",
+      "path": "tools/test_casebook.py",
+      "match": "RO…@192",
+      "kind": "pending",
+      "reason": "同上一条：同一行的 SSH 目标写了真实工作站地址",
+      "owner": "P16",
+      "added": "2026-11-10",
+      "expires": "2026-12-15",
+      "ref": "P01 汇报 cross_package_requests：P16 tools/test_casebook.py"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "engine/render/page.mjs",
+      "match": ":\\beiming",
+      "kind": "pending",
+      "reason": "注释举例用了工作站上的真实目录（目录联接的两端）；改成中性占位（如「仓库所在盘上的链接目录 → 真实目录」）",
+      "owner": "P04",
+      "added": "2026-11-10",
+      "expires": "2026-12-15",
+      "ref": "P01 汇报 cross_package_requests：P04 engine/render/page.mjs"
+    },
+    {
+      "rule": "comp.local-paths",
+      "path": "examples/raea/README.md",
+      "match": ":\\北冥",
+      "kind": "pending",
+      "reason": "PowerShell 示例写了工作站上运行时的真实安装路径；改成占位（如 '<运行时目录>\\raea\\bin\\raea.exe'）",
+      "owner": "P14",
+      "added": "2026-11-10",
+      "expires": "2026-12-15",
+      "ref": "P01 汇报 cross_package_requests：P14 examples/raea/README.md"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "engine/core/math.js",
+      "match": "cases/vendor/lemo-opuscar/core/lib.js",
+      "kind": "pending",
+      "reason": "审计 COMP-09：monotone() 等与 LemoLab core/lib.js 逐句一致，按 MIT 派生代码处理；来源头的确切文字已交 P13",
+      "owner": "P13",
+      "added": "2026-11-10",
+      "expires": "2026-12-15",
+      "ref": "P01 汇报 cross_package_requests：P13 engine/core/math.js"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "engine/form/curves.js",
+      "match": "cases/vendor/lemo-opuscar/styles/rubber-hose/demo/toon.js",
+      "kind": "pending",
+      "reason": "catmull() 与 LemoLab rubber-hose 的 spline() 结构、写法与变量名逐句一致，按派生处理；来源头文字已交 P13",
+      "owner": "P13",
+      "added": "2026-11-10",
+      "expires": "2026-12-15",
+      "ref": "P01 汇报 cross_package_requests：P13 engine/form/curves.js"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "engine/paint/affine.js",
+      "match": "cases/vendor/lemo-opuscar/styles/papercut-red/demo/rig.js",
+      "kind": "pending",
+      "reason": "mul/平移/旋转与 LemoLab papercut-red rig.js 同构，注释写法也一致；矩阵展开式虽由数学决定，按从严口径作派生处理；来源头文字已交 P13",
+      "owner": "P13",
+      "added": "2026-11-10",
+      "expires": "2026-12-15",
+      "ref": "P01 汇报 cross_package_requests：P13 engine/paint/affine.js"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "engine/audio/dsp.py",
+      "match": "data-physical/demo/mix.py",
+      "kind": "false-positive",
+      "reason": "SciPy 文档里的标准用法（butter(..., output='sos') + sosfilt），截止频率限在奈奎斯特以下是通用做法；函数名与组织不同，只占本文件 4%（P01 判定）",
+      "owner": "P11",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "engine/core/stroke.js",
+      "match": "silent-film/demo/engine/figure.js",
+      "kind": "false-positive",
+      "reason": "折线按法线向两侧偏移的通用写法（单位切向量取垂直、左右各推半宽），任何实现都是这个形状；端点处理与取弦方式不同（P01 判定）",
+      "owner": "P13",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "engine/paint/ink.js",
+      "match": "cel-anime-80s/demo/cel.js",
+      "kind": "false-positive",
+      "reason": "同 stroke.js：法线偏移的通用写法，四行，后续笔触抖动与宽度函数不同（P01 判定）",
+      "owner": "P13",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "engine/overlay/widgets.js",
+      "match": "crayon-book/demo/end.js",
+      "kind": "false-positive",
+      "reason": "Canvas 2D 用四个 arcTo 画圆角矩形是公开的标准写法（MDN 示例同形）（P01 判定）",
+      "owner": "P13",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.provenance",
+      "path": "site/js/main.js",
+      "match": "urban-sketch/demo/world.js",
+      "kind": "false-positive",
+      "reason": "记号形状巧合：本文件是「键: $('#选择器')」的元素表，上游是「键: hex('#颜色')」的色板表，归一化后都成了「I: I(S)」序列；内容毫不相干（P01 判定）",
+      "owner": "site-session",
+      "added": "2026-11-10"
+    },
+    {
+      "rule": "comp.aigc",
+      "path": "docs/TRACKS.md",
+      "match": "手绘底板",
+      "kind": "pending",
+      "reason": "审计 COMP-04：A 路线「画面语言」一栏写「手绘底板视差」，而《北冥》的绘画底板是 AI 生成后人工整理的；根文档由整合包统一改（建议改为「AI 生成后整理的绘画底板视差」）",
+      "owner": "PZ",
+      "added": "2026-11-10",
+      "expires": "2026-12-31",
+      "ref": "P01 汇报 root_docs_text：docs/TRACKS.md"
+    },
+    {
+      "rule": "comp.aigc",
+      "path": "site/index.html",
+      "match": "手绘底板",
+      "kind": "pending",
+      "reason": "审计 COMP-04：作品站「景」一步写「手绘底板分层摆进三维空间」（图片 alt 也写「手绘的黄昏天空」）；建议改为「绘画底板（AI 生成后整理）分层摆进三维空间」，改后跑 tools/site-qa.mjs",
+      "owner": "site-session",
+      "added": "2026-11-10",
+      "expires": "2026-12-31",
+      "ref": "P01 汇报 cross_package_requests：作品站 site/index.html"
+    }
+  ]
+}

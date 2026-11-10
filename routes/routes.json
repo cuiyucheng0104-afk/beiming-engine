@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "about": "三条路线的唯一注册表。new-film、repo-check、引擎工程待办（work-plan）、作品描述校验器（engine/production/film.js）与出片命令（npm run film）都从这里读路线 id、目录、品牌名、上游项目、渲染器、手册、模版与出片命令；字段说明见 docs/CLI.md「路线注册表」一节，读取与校验在 tools/lib/routes.mjs。",
+  "decisions": "docs/decisions/2026-11-10-industrial-baseline.md",
+  "defaultProfile": "web-1080p24",
+  "renderers": {
+    "page": {
+      "title": "页面渲染器",
+      "entry": "engine/render",
+      "tools": ["engine/render/still.mjs", "engine/render/video.mjs", "engine/render/mux.sh", "engine/render/build.mjs"],
+      "runtime": "无头 Chrome（playwright-core 1.63.0 自带的 headless shell）逐帧截图，FFmpeg 编码",
+      "contract": "页面约定 v1：window.DUR、window.render(t)、window.READY，可选 TEXTS / EV / TIMELINE"
+    },
+    "native": {
+      "title": "原生渲染入口",
+      "entry": "engine/render/native.mjs",
+      "tools": ["engine/native/prepare.mjs", "engine/render/native.mjs"],
+      "runtime": "RAEA 原生运行时 0.1.0-canary.2（Rust + Bevy），不随仓库分发，用环境变量 RAEA_BIN 指向可执行文件",
+      "contract": "作品 film.tsx 只读 useCurrentFrame()；素材由 prepare 放进作品的 media/"
+    }
+  },
+  "routes": [
+    {
+      "id": "a",
+      "slug": "a-webgl",
+      "brand": "北冥风格路线 · WebGL 三渲二",
+      "label": "A · 北冥风格路线 · WebGL 三渲二",
+      "summary": "北冥画风的确定性三渲二：程序化造型、三档卡通着色、屏幕空间墨线、Kuwahara 笔触与底板视差，无头 Chrome 的 WebGL 逐帧出片。",
+      "chooseWhen": "延续《北冥》画风，或要精确控制色阶、阴影、墨线、纸纹与二维三维比例的三渲二作品。",
+      "aliases": ["a-webgl", "beiming"],
+      "legacyId": "beiming",
+      "backend": "three",
+      "backends": ["three"],
+      "renderer": ["page"],
+      "upstream": [],
+      "manual": "routes/a-webgl/README.md",
+      "template": "routes/a-webgl/template",
+      "templateDefaults": {
+        "audio": { "mode": "script", "script": "sound.py" },
+        "style": { "id": "a-template", "version": 1, "note": "模版 main.js 自带的色板 C 与后期参数 lookAt；look 闸定调通过后改成本片自己的风格 id 与版本" },
+        "aigc": { "contains": false, "note": "模版画面全部由代码程序化绘制，没有 AI 生成的图像或声音" },
+        "credits": [
+          { "what": "字体子集 Barlow 300 / 500（片名与副标题）", "owner": "The Barlow Project Authors", "license": "OFL-1.1", "source": "fonts/LICENSE.md" }
+        ]
+      },
+      "next": [
+        { "stage": "look", "title": "先出三张关键帧（开头、中段、结尾），给用户定画风（D08 的 look 闸）",
+          "run": ["node", "engine/render/still.mjs", "{dir}", "0", "{mid}", "{last}", "--size", "{size}", "--out", "{dir}/out/stills"],
+          "requires": ["chrome"] },
+        { "stage": "build", "title": "一键出片：关键帧 → 声音 → 逐帧视频 → 音画封装 → ffprobe 核对",
+          "run": ["sh", "{dir}/build.sh"],
+          "env": { "PYTHON": { "describe": "装了 requirements.txt 的 Python（numpy、scipy、numba、soundfile）", "default": "python3" } },
+          "requires": ["sh", "python", "ffmpeg", "chrome"],
+          "output": "{dir}/out/film.mp4" },
+        { "stage": "check", "title": "改完后跑仓库规范检查", "run": ["npm", "run", "check:repo"] }
+      ]
+    },
+    {
+      "id": "b",
+      "slug": "b-native",
+      "brand": "北冥原生 · BNE",
+      "label": "B · 北冥原生 · BNE",
+      "abbr": { "BNE": "Beiming Native Edition，「北冥原生」的英文缩写，不表示自研运行时" },
+      "summary": "通用原生渲染（render anything）：作品写成一个 TSX 编排文件，由原生 GPU 运行时逐帧确定性渲出；可以复用北冥资产，但不要求北冥画风。",
+      "chooseWhen": "要原生 GPU、要把模型、图片、视频与页面作品放进同一个三维空间、要骨骼或 morph 动画，或作品不依赖 A 的屏幕墨线与 Kuwahara 笔触。",
+      "aliases": ["b-native", "raea"],
+      "legacyId": "raea",
+      "backend": "native",
+      "backends": ["native"],
+      "renderer": ["native", "page"],
+      "upstream": [
+        {
+          "name": "RAEA",
+          "repository": "shinyobjectz/raea",
+          "license": "FSL-1.1-ALv2",
+          "pinned": "0.1.0-canary.2",
+          "distributed": false,
+          "env": "RAEA_BIN",
+          "role": "原生 GPU 运行时；BNE 是本仓库在它之上的通用原生层",
+          "use": "只做内部制作层：自制影片与向客户交付成片，不作为对外的产品、SDK 或渲染服务（D03）",
+          "internalDirs": ["examples/raea", "docs/raea"],
+          "naming": "技术说明、署名与许可说明里如实写 RAEA；不得用作我方的产品名、路线名、目录名或文件名（D04）"
+        }
+      ],
+      "manual": "routes/b-native/README.md",
+      "template": "routes/b-native/template",
+      "templateDefaults": {
+        "audio": { "mode": "native" },
+        "aigc": { "contains": true, "note": "模版底板 sky_dawn、mist_low 取自 assets/plates/，由 Midjourney V8 与 GPT Image 2.5 生成后人工整理（见 assets/plates/plates.json）" },
+        "credits": [
+          { "what": "底板 sky_dawn、mist_low", "owner": "北冥引擎", "license": "LicenseRef-AllRightsReserved", "source": "assets/plates/plates.json" }
+        ]
+      },
+      "next": [
+        { "stage": "build", "title": "准备素材：复制底板、导出道具 GLB（带 Idle 动作）、生成声音，写 media/prepared.json",
+          "run": ["node", "engine/native/prepare.mjs", "{dir}"],
+          "env": { "PYTHON": { "describe": "装了 requirements.txt 的 Python（numpy、scipy、soundfile、numba）", "default": "python3" } },
+          "requires": ["python", "chrome"] },
+        { "stage": "check", "title": "预检：运行时版本、命令与素材（不启动 GPU）",
+          "run": ["node", "engine/render/native.mjs", "{dir}", "--check-only"],
+          "env": { "RAEA_BIN": { "describe": "RAEA 原生运行时可执行文件的绝对路径（0.1.0-canary.2，不随仓库分发）", "required": true } },
+          "requires": ["raea", "ffmpeg"] },
+        { "stage": "look", "title": "先渲三帧给用户定画风（D08 的 look 闸），PNG 在 {dir}/out/stills/",
+          "run": ["node", "engine/render/native.mjs", "{dir}", "--at", "0,{midFrame},{lastFrame}"],
+          "env": { "RAEA_BIN": { "describe": "同上", "required": true } },
+          "requires": ["raea", "gpu"] },
+        { "stage": "build", "title": "出片：原生渲染 → 封装 → ffprobe 核对，技术报告写到 out/technical.json",
+          "run": ["node", "engine/render/native.mjs", "{dir}"],
+          "env": { "RAEA_BIN": { "describe": "同上", "required": true } },
+          "requires": ["raea", "gpu", "ffmpeg"],
+          "output": "{dir}/out/{name}.mp4" },
+        { "stage": "check", "title": "改完后跑仓库规范检查", "run": ["npm", "run", "check:repo"] }
+      ]
+    },
+    {
+      "id": "c",
+      "slug": "c-style",
+      "brand": "北冥代码动画风格 · 86 式",
+      "label": "C · 北冥代码动画风格 · 86 式",
+      "summary": "页面型代码动画的方法库，外加可直接出片的 C 模版：Canvas 2D / SVG / DOM / WebGL 各自实现画法，一张时间表驱动画面与声音；与 A 共用页面渲染器，不是第三个 GPU 后端（D01）。",
+      "chooseWhen": "要一种现成的代码动画风格（水墨、油画、浮世绘、白板讲解……）、PPT 或故事介绍片、信息图与排版节奏；复刻历史作品也走这里。",
+      "aliases": ["c-style"],
+      "legacyId": null,
+      "backend": "canvas",
+      "backends": ["canvas", "svg", "dom", "three", "webgl"],
+      "renderer": ["page"],
+      "upstream": [
+        {
+          "name": "sy-style-100",
+          "repository": "xiaoxiong20xx-code/sy-style-100",
+          "license": "MIT",
+          "pinned": "e41dee31a5c05dffa12b2f241378e648d2a22df6",
+          "snapshot": "cases/vendor/sy-style-100",
+          "role": "第三方风格库快照（20 种风格），只读，用来学画法"
+        },
+        {
+          "name": "lemo-opuscar",
+          "repository": "lemomo-ai/lemo-opuscar",
+          "license": "MIT",
+          "pinned": "bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00",
+          "snapshot": "cases/vendor/lemo-opuscar",
+          "role": "第三方风格库快照（66 种风格），只读，用来学画法"
+        }
+      ],
+      "manual": "routes/c-style/README.md",
+      "template": "routes/c-style/template",
+      "templateDefaults": {
+        "audio": { "mode": "script", "script": "mix.py" },
+        "aigc": { "contains": false, "note": "模版画面与声音全部由代码程序化生成，没有 AI 生成的图像或声音" },
+        "credits": [
+          { "what": "字体子集 Noto Sans SC（可变字重，片名）", "owner": "Adobe / Google", "license": "OFL-1.1", "source": "fonts/LICENSE.md" }
+        ]
+      },
+      "next": [
+        { "stage": "look", "title": "先出三张关键帧给用户定画风（D08 的 look 闸）",
+          "run": ["node", "engine/render/still.mjs", "{dir}", "0.5", "{mid}", "{last}", "--size", "{size}", "--out", "{dir}/out/stills"],
+          "requires": ["chrome"] },
+        { "stage": "build", "title": "出片：事件表 → 混音 → 拍点核对 → 逐帧视频 → 封装（−14 LUFS）→ 海报 → 规格核对",
+          "run": ["node", "engine/render/build.mjs", "{dir}"],
+          "env": { "BEIMING_PY": { "describe": "装了 requirements.txt 的 Python（numpy、scipy、numba、soundfile）", "default": "python3" } },
+          "requires": ["python", "ffmpeg", "chrome"],
+          "output": "{dir}/out/{name}.mp4" },
+        { "stage": "check", "title": "改完后跑仓库规范检查", "run": ["npm", "run", "check:repo"] }
+      ]
+    }
+  ]
+}
