@@ -31,12 +31,12 @@
 //   beatOf(grid, sectionId, bar, beat, frac)  "段·小节·拍"地址 → 绝对拍号（与 tempo.at 的地址写法一致）
 //   offGrid(grid)                             不落整帧的拍点：[{ beat, frame, errorMs }]
 //   sectionsFromTempo(secs, fps) / tempoSecs(timeline, fps) / filmTempo(film)
-//                                             与 tempo.js 的 { id, t0, bpm, meter } 互转；filmTempo 直接返回 createTempo 的对象
+//                                             与 tempo.js 的 { id, t0, bpm, meter } 互转；filmTempo 返回 createTempoFromFrames 的对象（页面与 Node 同一套换算）
 // 给旧消费者的导出（engine/audio/cues.py、cuecheck.py 读的外形）
 //   legacyTimeline(film) → { fps, frameCount, dur, secs?, shots, t }    legacyEvents(film) → { dur, ev: [{ t, type, id, frame, shot, cue? }] }
 //
 // 出错一律抛 TimelineError（code、message、hint），不静默修正。
-import { createTempo } from '../core/tempo.js';
+import { createTempoFromFrames } from '../core/tempo.js';
 
 /** 帧号比较的容差：1e-6 帧（24 fps 下约 42 纳秒），只用来吸收浮点乘法误差。 */
 export const FRAME_EPS = 1e-6;
@@ -477,7 +477,8 @@ export function tempoSecs(timeline, fps) {
 
 export function filmTempo(film) {
   const fps = film?.output?.fps;
-  return createTempo(tempoSecs(film?.timeline, fps), { fps });
+  tempoSecs(film?.timeline, fps);   // 只接受按 BPM 分段的写法，其他写法在这里报 timeline-form
+  return createTempoFromFrames(film.timeline.sections, { fps });
 }
 
 // ───────────────────────── 给旧消费者的导出 ─────────────────────────
