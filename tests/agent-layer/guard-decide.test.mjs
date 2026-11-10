@@ -15,6 +15,8 @@ const HOME = path.join(os.tmpdir(), 'beiming-guard-test-home-does-not-exist');
 const R = (...p) => path.join(ROOT, ...p);
 const H = (...p) => path.join(HOME, ...p);
 const POSIX_HOME = HOME.split(path.sep).join('/');
+// 嵌进 Shell 命令的路径一律用正斜杠：Bash 里反斜杠是转义符，Windows 路径原样写进命令会被吃掉
+const SH = p => p.split(path.sep).join('/');
 
 function run(tool, input, { env = {}, cwd = ROOT, root = ROOT, home = HOME, platform } = {}) {
   return decide({ tool_name: tool, tool_input: input, cwd }, { root, home, env, platform });
@@ -87,7 +89,7 @@ test('git：整树暂存与强推在哪里都拒绝，而且不能解锁', () =>
   const always = [
     ['git add -A', 'git-add-all'], ['git add --all', 'git-add-all'], ['git add -A films/x', 'git-add-all'],
     ['git add .', 'git-add-dot'], ['git add -- .', 'git-add-dot'], ['git add *', 'git-add-dot'], ['git add :/', 'git-add-dot'],
-    ['git add ./', 'git-add-dot'], ['git -C films/demo add -A', 'git-add-all'], [`git add ${ROOT}`, 'git-add-dot'],
+    ['git add ./', 'git-add-dot'], ['git -C films/demo add -A', 'git-add-all'], [`git add ${SH(ROOT)}`, 'git-add-dot'],
     ['git push --force', 'git-push-force'], ['git push -f origin main', 'git-push-force'], ['git push origin +main', 'git-push-force'],
     ['git push --force-with-lease origin main', 'git-push-force'], ['git push --mirror', 'git-push-force'],
     ['cd films/demo && git add -A', 'git-add-all'], ['bash -c "git add -A"', 'git-add-all'], ['sh -c \'git push -f\'', 'git-push-force'],
@@ -117,7 +119,7 @@ test('git：只改工作区的规则只管本仓库，BEIMING_GUARD_UNLOCK=git �
     expectAllow(bash(cmd, { env: { BEIMING_GUARD_UNLOCK: 'git' } }), `${cmd}（解锁 git 后）`);
     expectAllow(bash(cmd, { cwd: os.tmpdir() }), `${cmd}（在别的仓库里）`);
   }
-  expectAllow(bash(`git -C ${os.tmpdir()} reset --hard`), 'git -C 别处 reset --hard');
+  expectAllow(bash(`git -C ${SH(os.tmpdir())} reset --hard`), 'git -C 别处 reset --hard');
 });
 
 test('git：删远端与全局改钩子路径在哪里都拒绝，可解锁', () => {
@@ -166,7 +168,7 @@ test('Shell：作品目录、out/、临时目录的写入与只读命令放行',
     'rg window.render cases/vendor', 'grep -rn READY cases/source | head', 'find cases/vendor -name STYLE.md',
     'find . -name "*.js" -exec grep -l READY {} +', 'python3 tools/casebook.py restore style-02 --out out/casebook',
     'ls cases/vendor', 'echo "rm -rf src" > films/demo/note.txt', 'ffmpeg -i films/demo/out/a.mp4 -f null -',
-    `echo x > ${path.join(os.tmpdir(), 'a.txt')}`, 'cd films/demo && node main.js']) {
+    `echo x > ${SH(path.join(os.tmpdir(), 'a.txt'))}`, 'cd films/demo && node main.js']) {
     expectAllow(bash(cmd), cmd);
   }
 });
@@ -259,7 +261,7 @@ test('符号链接指进受保护区域：按解析后的真实路径拒绝', (t
   try {
     fs.symlinkSync(R('src'), path.join(dir, 'src-link'));
     expectDeny(write(path.join(dir, 'src-link', 'main.js')), 'zone-src', '经符号链接写 src');
-    expectDeny(bash(`echo x > ${path.join(dir, 'src-link', 'main.js')}`), 'zone-src', 'Shell 经符号链接写 src');
+    expectDeny(bash(`echo x > ${SH(path.join(dir, 'src-link', 'main.js'))}`), 'zone-src', 'Shell 经符号链接写 src');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
