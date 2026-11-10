@@ -32,6 +32,9 @@ import { envelope, emit } from './output.mjs';
 
 let current = null;
 let signalled = false;
+// 不走 openSession 的命令（check、qa）登记自己的收尾（删临时目录、放锁），收到中断时一并执行
+const cleanups = new Set();
+export function onInterrupt(fn) { cleanups.add(fn); return () => cleanups.delete(fn); }
 
 // 收到中断：结束子进程树、还原旧位置、写 run.json、放锁，再按附录 C2 输出信封（--json 时 stdout 仍只有一个对象），以 130 / 143 退出。
 // 第二次中断立即退出（不再等清理）。
@@ -46,6 +49,7 @@ function onSignal(sig) {
   (ctx ? closeSession(ctx, { error: err, complete: false }) : killAll())
     .catch(() => {})
     .finally(() => {
+      for (const fn of cleanups) { try { fn(); } catch { /* 尽力而为 */ } }
       const env = envelope({ command: argv[0] && !argv[0].startsWith('-') ? `film ${argv[0]}` : 'film', exitCode: code, error: err,
         outputs: ctx?.outputs || [], runJson: ctx ? rel(path.join(ctx.run.dir, 'run.json')) : null, warnings: ctx?.warnings || [] });
       emit(env, { json: argv.includes('--json') });

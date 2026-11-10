@@ -13,6 +13,7 @@ import { readLatest, acquireLock, writeAtomic } from '../lib/rundir.mjs';
 import { exec, isolatedEnv, killAll } from '../lib/proc.mjs';
 import { runQa } from '../lib/qa.mjs';
 import { envelope } from '../lib/output.mjs';
+import { onInterrupt } from '../lib/session.mjs';
 import { fmt } from './build.mjs';
 
 export const qaSpec = {
@@ -52,6 +53,7 @@ export async function qaCommand(opts, positionals) {
 
   const lock = acquireLock(outRoot, { command: 'qa', kind: 'qa' }, warnings);
   const tmp = path.join(dir, 'work', `tmp-qa-${process.pid}`);
+  const undo = onInterrupt(() => { fs.rmSync(tmp, { recursive: true, force: true }); lock.release(); });
   let r;
   try {
     const env = isolatedEnv(process.env, tmp);
@@ -61,6 +63,7 @@ export async function qaCommand(opts, positionals) {
     await killAll().catch(() => {});
     fs.rmSync(tmp, { recursive: true, force: true });
     lock.release();
+    undo();
   }
   if (r.status === 'not-run') throw new FilmError(EXIT.ENV, r.reason || 'qa-missing', r.message, '机器 QA 门由 P07 提供（tools/qa/cli.mjs）；合入后重跑 npm run film -- qa ' + film.relDir);
 

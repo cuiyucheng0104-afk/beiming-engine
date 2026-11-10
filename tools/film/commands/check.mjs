@@ -14,6 +14,7 @@ import { resolveProfile, framesAt } from '../lib/profiles.mjs';
 import { exec } from '../lib/proc.mjs';
 import { raeaInfo } from '../lib/native-steps.mjs';
 import { envelope } from '../lib/output.mjs';
+import { onInterrupt } from '../lib/session.mjs';
 import { fmt } from './build.mjs';
 
 export const checkSpec = {
@@ -86,6 +87,7 @@ export async function checkCommand(opts, positionals) {
     add('page', 'fail', `页面目录 ${rel(film.pageDir)} 下没有 index.html`);
   } else {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'film-check-'));
+    const undo = onInterrupt(() => fs.rmSync(tmp, { recursive: true, force: true }));
     try {
       const pf = path.join(tmp, 'probe.json');
       const size = profile ? `${profile.width}x${profile.height}` : `${film.width}x${film.height}`;
@@ -101,7 +103,7 @@ export async function checkCommand(opts, positionals) {
         if (!p.hasTexts) add('texts', 'warn', '页面没有 window.TEXTS(t)：文字检查无从做起');
       }
     } catch (e) { add('page', e.exitCode === EXIT.TIMEOUT ? 'fail' : 'env', `页面探测失败：${e.message}`); }
-    finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+    finally { fs.rmSync(tmp, { recursive: true, force: true }); undo(); }
   }
 
   // 闸门要求
