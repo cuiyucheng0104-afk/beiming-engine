@@ -9,8 +9,8 @@ import {
   FilmError, assertValidFilm, filmSummary, loadFilm, loadProfiles, qaExpectations, retime, upgradeFilm, validateFilm, writeFilmJson,
 } from './film.js';
 import { cleanupTemps, formatJson, readJsonFile, repoRelative, toPosix, writeJsonAtomic } from './io.js';
-import { DECISIONS, RECORD_GATES, REVIEWER_KINDS, SOURCE_KINDS, buildReview, isoLocal, validateReview, writeReview } from './review.js';
-import { GateError, assertDelivered, assertFinalAllowed, filmStatus, validateQaReport, validateRunRecord } from './state.js';
+import { DECISIONS, RECORD_GATES, REVIEWER_KINDS, SOURCE_KINDS, isoLocal } from './review.js';
+import { GateError, assertDelivered, assertFinalAllowed, filmStatus, recordReview, validateQaReport, validateRunRecord } from './state.js';
 import { cutList, legacyEvents, legacyTimeline } from './timeline.js';
 
 const PROG = 'node engine/production/film.js';
@@ -236,7 +236,7 @@ function cmdReview({ pos, flags }) {
   for (const k of ['reviewer-kind', 'recorded-by-kind']) if (flags[k] && !REVIEWER_KINDS.includes(flags[k])) throw new UsageError(`--${k} 只能是 ${REVIEWER_KINDS.join(' / ')}`);
   const quote = flags['quote-file'] !== undefined ? readQuoteFile(flags['quote-file']) : flags.quote;
   const L = loadFilm(pos[0]);
-  const film = assertValidFilm(L, 'film.json');
+  assertValidFilm(L, 'film.json');
   const reviewed = (flags.file ?? []).map(p => {
     const abs = resolve(p);
     const rel = relative(L.pathBase, abs);
@@ -245,7 +245,7 @@ function cmdReview({ pos, flags }) {
   });
   const human = ['approve', 'reject', 'waive'].includes(flags.decision);
   const input = {
-    film, pathBase: L.pathBase, gate: flags.gate, decision: flags.decision, quote,
+    gate: flags.gate, decision: flags.decision, quote,
     source: human || flags['source-ref'] ? { kind: flags['source-kind'] ?? 'session', ref: flags['source-ref'], at: flags['source-at'] ?? isoLocal() } : undefined,
     reviewer: { kind: flags['reviewer-kind'] ?? (human ? 'human' : 'ai'), name: flags.reviewer ?? (human ? '用户' : 'agent') },
     recordedBy: { kind: flags['recorded-by-kind'] ?? 'ai', name: flags['recorded-by'] ?? 'agent' },
@@ -254,21 +254,17 @@ function cmdReview({ pos, flags }) {
     rejectedOn: flags['rejected-on'] ? flags['rejected-on'].split(',').map(s => s.trim()).filter(Boolean) : undefined,
     mustChange: flags['must-change'], summary: flags.summary, notes: flags.notes,
   };
-  let record;
-  try { record = buildReview(input); } catch (error) {
+  let r;
+  try { r = recordReview(L.filmDir, input, { dryRun: Boolean(flags['dry-run']) }); } catch (error) {
     if (error.code === 'review-files') throw new UsageError(error.message);
+    if (error instanceof FilmError && error.diagnostics?.length) {
+      return { ok: false, exitCode: 4, text: ['✗ 记录不合格，没有写文件：', ...error.diagnostics.map(fmtDiag)].join('\n'), warnings: warnStrings(error.diagnostics), result: { diagnostics: error.diagnostics },
+        error: { code: error.code, message: error.message, hint: error.hint } };
+    }
     throw error;
   }
-  const v = validateReview(record, { film });
-  const errors = v.diagnostics.filter(d => d.level === 'error');
-  if (errors.length) {
-    return { ok: false, exitCode: 4, text: ['✗ 记录不合格，没有写文件：', ...v.diagnostics.map(fmtDiag)].join('\n'), warnings: warnStrings(v.diagnostics), result: { record, diagnostics: v.diagnostics },
-      error: { code: errors[0].code, message: errors[0].message, hint: errors[0].hint } };
-  }
-  if (flags['dry-run']) return { ok: true, exitCode: 0, text: `（--dry-run，没有写文件）\n${formatJson(record).trimEnd()}`, warnings: warnStrings(v.diagnostics), result: { record, diagnostics: v.diagnostics } };
-  const w = writeReview(L.filmDir, record);
-  const s = filmStatus(L.filmDir);
-  return { ok: true, exitCode: 0, text: `✓ 已记录 ${shown(w.path)}\n${statusText(s)}`, outputs: [{ path: shown(w.path), sha256: w.sha256, kind: 'review' }], warnings: warnStrings(v.diagnostics), result: { record, file: shown(w.path), status: { state: s.state, label: s.label } } };
+  if (!r.path) return { ok: true, exitCode: 0, text: `（--dry-run，没有写文件）\n${formatJson(r.record).trimEnd()}`, warnings: warnStrings(r.diagnostics), result: { record: r.record, diagnostics: r.diagnostics } };
+  return { ok: true, exitCode: 0, text: `✓ 已记录 ${shown(r.path)}\n${statusText(r.status)}`, outputs: [{ path: shown(r.path), sha256: r.sha256, kind: 'review' }], warnings: warnStrings(r.diagnostics), result: { record: r.record, file: shown(r.path), status: { state: r.status.state, label: r.status.label } } };
 }
 
 function readQuoteFile(p) {

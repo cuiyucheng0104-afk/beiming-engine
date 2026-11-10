@@ -266,3 +266,30 @@ test('命令行：review 原样记录用户原话与所看文件的 sha256；不
     assert.equal(usage.status, 2);
   } finally { t.cleanup(); }
 });
+
+test('给出片编排（P06）的库路径：没有 animatic 认可时终渲被拒（exit 4）；recordReview 记下原话与文件 sha256 后放行', async () => {
+  const { recordReview } = await import('../../engine/production/state.js');
+  const t = tempFilm(minimalFilm(), { 'stills/look.png': 'LOOK-PNG' });
+  try {
+    assert.throws(() => assertFinalAllowed(t.dir), e => e instanceof GateError && e.exitCode === 4);
+    const look = recordReview(t.dir, { gate: 'look', decision: 'approve', ...HUMAN, reviewed: [{ path: 'stills/look.png' }] });
+    assert.equal(look.status.state, 'look-approved');
+    const rec = JSON.parse(readFileSync(look.path, 'utf8'));
+    assert.equal(rec.quote, HUMAN.quote);
+    assert.equal(rec.reviewed[0].sha256, sha('LOOK-PNG'));
+    assert.throws(() => recordReview(t.dir, { gate: 'animatic', decision: 'waive', ...HUMAN, reviewer: { kind: 'ai', name: 'agent' } }), e => e.code === 'review-ai-decision' && e.exitCode === 4);
+    assert.throws(() => recordReview(t.dir, { gate: 'animatic', decision: 'waive', ...HUMAN, quote: '用户原话' }), e => e.code === 'review-quote-placeholder');
+    const dry = recordReview(t.dir, { gate: 'animatic', decision: 'waive', ...HUMAN, quote: '预演不用看了，直接出。' }, { dryRun: true });
+    assert.equal(dry.path, null);
+    assert.throws(() => assertFinalAllowed(t.dir), e => e.exitCode === 4);
+    recordReview(t.dir, { gate: 'animatic', decision: 'waive', ...HUMAN, quote: '预演不用看了，直接出。' });
+    assert.equal(assertFinalAllowed(t.dir).canFinal, true);
+  } finally { t.cleanup(); }
+});
+
+test('交付字样检查：引号里提到词本身、否定说法放行；直接声称的才算', () => {
+  assert.deepEqual(findUnbackedClaims('只有 accepted 才能写「已交付」。', 'draft'), []);
+  assert.deepEqual(findUnbackedClaims('本片未交付', 'draft'), []);
+  assert.deepEqual(findUnbackedClaims('本片已交付', 'qa-passed').map(x => x.claim), ['已交付']);
+  assert.deepEqual(findUnbackedClaims('本片已交付', 'accepted'), []);
+});

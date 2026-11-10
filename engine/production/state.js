@@ -5,6 +5,7 @@
 //   filmStatus(target)               → { state, label, film, gates, run, qa, canFinal, diagnostics, next }
 //   assertFinalAllowed(target)       终渲前调用：look 与 animatic 都已认可或豁免才放行，否则抛 GateError（退出码 4）
 //   assertDelivered(target)          只有 accepted 才放行（生成「已交付」字样之前调用）
+//   recordReview(target, input)      记一条审片结论：拼记录、算所看文件 sha256、校验，合格才原子地写 review/<闸>-<日期>.json
 //   deliveryLabel(state)             状态 → 对外文字；只有 accepted 得到「已交付 · 用户已认可」
 //   findUnbackedClaims(text, state)  在说明文字里找没有 accepted 撑腰的「已交付」「用户已认可」一类说法
 //   validateRunRecord(run, { film, runDir }) / validateQaReport(report, { film, runShas })   运行记录（附录 C8）与 QA 报告的最小校验
@@ -15,7 +16,7 @@ import { join, resolve } from 'node:path';
 import { FilmError, loadFilm } from './film.js';
 import { REPO_ROOT, readJsonFile } from './io.js';
 import { validateRenderResult } from './project.js';
-import { GATES, gateVerdict, readReviews } from './review.js';
+import { GATES, buildReview, gateVerdict, readReviews, validateReview, writeReview } from './review.js';
 
 export const STATES = Object.freeze(['draft', 'look-approved', 'animatic-approved', 'rendered', 'qa-passed', 'accepted']);
 export const STATE_LABELS = Object.freeze({
@@ -50,15 +51,22 @@ export function deliveryLabel(state) {
   return STATE_LABELS[typeof state === 'string' ? state : state?.state] ?? STATE_LABELS.invalid;
 }
 
+/** 引号里的词是在说这个词本身（「已交付」只能由 accepted 生成），不是声称已交付。 */
+const QUOTE_PAIRS = { '「': '」', '『': '』', '“': '”', '"': '"', "'": "'", '`': '`', '《': '》', '‘': '’' };
+
 export function findUnbackedClaims(text, state) {
   if ((typeof state === 'string' ? state : state?.state) === 'accepted') return [];
-  const out = [];
+  const s = String(text), out = [];
   for (const claim of RESERVED_CLAIMS) {
-    let i = String(text).indexOf(claim);
+    let i = s.indexOf(claim);
     while (i >= 0) {
-      const before = String(text).slice(Math.max(0, i - 2), i);
-      if (!/[未不没非]$/.test(before)) out.push({ claim, index: i });   // 「未交付」「不算已验收」这类否定说法放行
-      i = String(text).indexOf(claim, i + claim.length);
+      const before = s.slice(Math.max(0, i - 2), i), open = s[i - 1], close = s[i + claim.length];
+      const negated = /[未不没非]$/.test(before);                       // 「未交付」「不算已验收」这类否定说法放行
+      const quoted = Object.hasOwn(QUOTE_PAIRS, open ?? '') && QUOTE_PAIRS[open] === close;   // 「已交付」这样提到词本身也放行
+      // 「用户认可」被更长的「用户已认可」覆盖时只报一次
+      const covered = out.some(o => o.index <= i && i + claim.length <= o.index + o.claim.length);
+      if (!negated && !quoted && !covered) out.push({ claim, index: i });
+      i = s.indexOf(claim, i + claim.length);
     }
   }
   return out.sort((a, b) => a.index - b.index);
@@ -203,6 +211,27 @@ export function filmStatus(target, { loaded = null } = {}) {
   else if (!accepted) next.push(`⛔4 成片：把这次的成片给用户全速带声看完，记录认可：${cmd} --gate final --decision approve --file <成片> --quote "<原话>" --source-ref "<出处>"`);
 
   return { state, label: STATE_LABELS[state], film: { id: film.id, title: film.title, frameCount: film.output.frameCount, fps: film.output.fps, profile: film.output.profile }, filmDir: L.filmDir, gates, run: runInfo, qa: qaInfo, canFinal: animaticOk, diagnostics, next };
+}
+
+/**
+ * 记一条审片结论（命令行 film.js review 与 tools/film 共用）：按作品拼记录、算所看文件的 sha256、校验，合格才写文件。
+ * input 同 review.js 的 buildReview（不含 film / pathBase）；所看文件 reviewed[].path 相对作品的路径基准（镜像作品是仓库根）。
+ * 不合格时抛 FilmError（code 是第一条错误的 code，exitCode 4，diagnostics 是全部诊断），不写任何文件。
+ * @returns {{ record: object, path: string | null, sha256: string | null, diagnostics: object[], status: object | null }}
+ */
+export function recordReview(target, input, { dryRun = false, now = new Date() } = {}) {
+  const L = loadFilm(target);
+  if (!L.ok) {
+    const e = L.diagnostics.find(d => d.level === 'error');
+    throw new FilmError('contract', `film.json 不合格，不能记录审片：[${e.code}] ${e.path}：${e.message}`, { exitCode: 4, hint: e.hint || 'node engine/production/film.js check <作品>', diagnostics: L.diagnostics });
+  }
+  const record = buildReview({ ...input, film: L.film, pathBase: L.pathBase }, { now });
+  const v = validateReview(record, { film: L.film });
+  const errors = v.diagnostics.filter(d => d.level === 'error');
+  if (errors.length) throw new FilmError(errors[0].code, `审片记录不合格，没有写文件：${errors[0].message}`, { exitCode: 4, hint: errors[0].hint, diagnostics: v.diagnostics });
+  if (dryRun) return { record, path: null, sha256: null, diagnostics: v.diagnostics, status: null };
+  const w = writeReview(L.filmDir, record);
+  return { record, path: w.path, sha256: w.sha256, diagnostics: v.diagnostics, status: filmStatus(L.filmDir) };
 }
 
 export function assertFinalAllowed(target, opts = {}) {
