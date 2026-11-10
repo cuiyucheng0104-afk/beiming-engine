@@ -128,19 +128,38 @@ async function ruleVersions(ctx) {
 }
 
 // ── 6 环境变量：代码里读到的 ⊆ spec 登记 = docs/ENVIRONMENT.md 的表 ──
-const READ_PATTERNS = [
-  /process\.env\.([A-Z][A-Z0-9_]*)/g, /process\.env\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g, /\benv\.([A-Z][A-Z0-9_]{2,})\b/g, /\benv\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g,
-  /os\.environ(?:\.get)?\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g, /os\.environ\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g, /os\.getenv\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g, /\$\{([A-Z_][A-Z0-9_]*):-/g,
-];
+// 按语言分开匹配：Python 文件里的 JS 字符串（测试夹具）不算 JS 读取，反之亦然
+const READ_PATTERNS = {
+  js: [/process\.env\.([A-Z][A-Z0-9_]*)/g, /process\.env\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g, /\benv\.([A-Z][A-Z0-9_]{2,})\b/g, /\benv\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g],
+  py: [/os\.environ(?:\.get)?\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g, /os\.environ\[['"]([A-Z_][A-Z0-9_]*)['"]\]/g, /os\.getenv\(\s*['"]([A-Z_][A-Z0-9_]*)['"]/g],
+  sh: [/\$\{([A-Z_][A-Z0-9_]*):?[-=]/g],
+};
+const LANG = { mjs: 'js', cjs: 'js', js: 'js', ts: 'js', tsx: 'js', py: 'py', sh: 'sh' };
 const SCAN = /^(engine|tools|routes|examples|audio|src|lab)\/|^[^/]+\.sh$/;
 const CODE_EXT = /\.(mjs|cjs|js|ts|tsx|py|sh)$/;
+// sh 里 ${NAME:-默认} 既可能读环境变量，也可能只是脚本自己的变量：同一文件里先赋过值的（NAME=…）算脚本变量，不算读环境
+const shAssigned = text => new Set([...text.matchAll(/(?:^|[\s;&|(])([A-Z_][A-Z0-9_]*)=/gm)].map(m => m[1]));
+export function envReadsInText(text, lang) {
+  const names = new Set();
+  for (const re of READ_PATTERNS[lang] || []) for (const m of text.matchAll(re)) names.add(m[1]);
+  if (lang === 'sh') {
+    const local = shAssigned(text);
+    // 「PY=${PYTHON:-python3}」里 PYTHON 是读环境，PY 是脚本变量；只有在读取它之前没赋值过的名字才算环境变量
+    for (const n of [...names]) {
+      const firstRead = text.search(new RegExp(`\\$\\{${n}:?[-=]`));
+      const firstAssign = text.search(new RegExp(`(?:^|[\\s;&|(])${n}=`, 'm'));
+      if (local.has(n) && firstAssign >= 0 && firstAssign < firstRead) names.delete(n);
+    }
+  }
+  return names;
+}
 export function scanEnvReads(ctx) {
   const reads = new Map();
   for (const p of ctx.tracked()) {
     if (!SCAN.test(p) || !CODE_EXT.test(p) || p.startsWith('tools/repo-check/rules/env/')) continue;
     const t = ctx.read(p);
     if (!t) continue;
-    for (const re of READ_PATTERNS) for (const m of t.matchAll(re)) { if (!reads.has(m[1])) reads.set(m[1], new Set()); reads.get(m[1]).add(p); }
+    for (const n of envReadsInText(t, LANG[p.split('.').pop()])) { if (!reads.has(n)) reads.set(n, new Set()); reads.get(n).add(p); }
   }
   return reads;
 }
@@ -211,13 +230,16 @@ async function ruleNoHostPaths(ctx) {
 }
 
 // ── 9 npm 脚本：不直接调用 python3 / python / sh（Windows 上不可用），经 tools/env/py.mjs 与 Node 入口 ──
+const PY_CALL = /(^|&&|\|\||;)\s*python3?\s/;
+// 把命令里每一段开头的 python / python3 换成 node tools/env/py.mjs（&& || ; 分隔的每一段都换）
+export const pyViaNode = cmd => cmd.replace(/(^|&&|\|\||;)(\s*)python3?(?=\s)/g, '$1$2node tools/env/py.mjs');
 async function ruleNpmScripts(ctx) {
   let pkg = {};
   try { pkg = JSON.parse(ctx.read('package.json')); } catch { return []; }
   const f = [];
   for (const [k, v] of Object.entries(pkg.scripts || {})) {
-    if (/(^|&&|\|\||;)\s*python3?\s/.test(v)) f.push({ file: 'package.json', message: `npm 脚本 ${k} 直接调用 python：「${v}」（Windows 上 python3 常是空壳，macOS 上没有 python）`, fix: `改成 node tools/env/py.mjs ${v.replace(/^\s*python3?\s+/, '')}` });
-    if (/(^|&&|\|\||;)\s*sh\s/.test(v)) f.push({ file: 'package.json', message: `npm 脚本 ${k} 依赖 sh：「${v}」（Windows PowerShell 下没有 sh）`, fix: '换成 Node 入口（见 P06 tools/film 与 P04 的 Node 版封装）' });
+    if (PY_CALL.test(v)) f.push({ file: 'package.json', message: `npm 脚本 ${k} 直接调用 python：「${v}」（Windows 上 python3 常是空壳，macOS 上没有 python）`, fix: `改成「${pyViaNode(v)}」` });
+    if (/(^|&&|\|\||;)\s*sh\s/.test(v)) f.push({ file: 'package.json', message: `npm 脚本 ${k} 依赖 sh：「${v}」（Windows PowerShell 下没有 sh）`, fix: '换成 Node 入口（见 docs/ENVIRONMENT.md「sh 入口盘点」：P06 tools/film、P04 的 Node 版封装）' });
   }
   return f;
 }

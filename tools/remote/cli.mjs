@@ -51,6 +51,8 @@ Python 环境按锁文件哈希在远端共享。产物逐个核对 sha256 后�
 退出码：远端命令的退出码原样返回；2 用法错误；3 连不上或远端缺工具；5 远端槽位被占；1 传输或核对失败；130/143 中断（远端随即停止并清理）。`;
 
 const sha256File = p => createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+// 输出里的路径：仓库内写相对仓库根的路径（/ 分隔），仓库外写绝对路径，不写成 ../../ 这种难读的形式
+const shown = p => { const r = path.relative(ROOT, p); return (r.startsWith('..') || path.isAbsolute(r) ? path.resolve(p) : r).split(path.sep).join('/'); };
 function git(args, opts = {}) {
   const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 << 20, ...opts });
   if (r.error) throw new CliError(EXIT.ENV, 'git-missing', '控制机上没有 git', '安装 git');
@@ -139,7 +141,7 @@ async function remoteRun(m, { sha, cmd, fetch = [], setup = true, wait = 0, keep
       await t.get(t.remotePath(res.runDir, ...f.path.split('/')), local);
       const got = sha256File(local);
       if (got !== f.sha256) { bad.push(`${f.path}：sha256 不一致（远端 ${f.sha256.slice(0, 12)}，取回 ${got.slice(0, 12)}）`); fs.rmSync(local, { force: true }); continue; }
-      fetched.push({ path: path.relative(ROOT, local).split(path.sep).join('/'), sha256: got, kind: 'remote-output', size: f.size });
+      fetched.push({ path: shown(local), sha256: got, kind: 'remote-output', size: f.size });
     }
   }
   let manifestLocal = null;
@@ -155,13 +157,13 @@ async function remoteRun(m, { sha, cmd, fetch = [], setup = true, wait = 0, keep
 function finish(r, label) {
   const remoteCode = r.res.exitCode ?? EXIT.FAIL;
   const exitCode = remoteCode !== 0 ? remoteCode : r.bad.length ? EXIT.FAIL : EXIT.OK;
-  const outputs = [...r.fetched, ...(r.manifestLocal ? [{ path: path.relative(ROOT, r.manifestLocal).split(path.sep).join('/'), sha256: sha256File(r.manifestLocal), kind: 'remote-run' }] : [])];
+  const outputs = [...r.fetched, ...(r.manifestLocal ? [{ path: shown(r.manifestLocal), sha256: sha256File(r.manifestLocal), kind: 'remote-run' }] : [])];
   return {
-    exitCode, outputs, runJson: r.manifestLocal ? path.relative(ROOT, r.manifestLocal).split(path.sep).join('/') : null,
+    exitCode, outputs, runJson: r.manifestLocal ? shown(r.manifestLocal) : null,
     error: remoteCode !== 0 ? (r.res.error || { code: 'remote-failed', message: `远端退出码 ${remoteCode}`, hint: '看上面转发的日志' })
       : r.bad.length ? { code: 'fetch-mismatch', message: `取回校验失败：${r.bad.join('；')}`, hint: '重跑；已核对通过的文件保留在本地' } : null,
     remote: { runId: r.runId, machine: r.res.manifest?.machine || null, timing: r.res.manifest?.timing || null, envelope: r.res.manifest?.envelope || null },
-    human: `${label}：远端退出码 ${remoteCode}；取回 ${r.fetched.length} 个文件（sha256 全部核对${r.bad.length ? `，${r.bad.length} 个失败` : '通过'}）；运行记录 ${r.manifestLocal ? path.relative(ROOT, r.manifestLocal) : '无'}；用时 ${r.seconds} 秒${r.fetched.length ? `\n${r.fetched.map(f => `  ${f.path}  ${f.sha256.slice(0, 16)}…`).join('\n')}` : ''}`,
+    human: `${label}：远端退出码 ${remoteCode}；取回 ${r.fetched.length} 个文件（sha256 全部核对${r.bad.length ? `，${r.bad.length} 个失败` : '通过'}）；运行记录 ${r.manifestLocal ? shown(r.manifestLocal) : '无'}；用时 ${r.seconds} 秒${r.fetched.length ? `\n${r.fetched.map(f => `  ${f.path}  ${f.sha256.slice(0, 16)}…`).join('\n')}` : ''}`,
   };
 }
 

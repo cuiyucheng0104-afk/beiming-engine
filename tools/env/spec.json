@@ -134,7 +134,7 @@
       "d3d9",
       "swiftshader"
     ],
-    "softwarePattern": "swiftshader|llvmpipe|softpipe|software|basic render",
+    "softwarePattern": "swiftshader|llvmpipe|softpipe|software|basic render|\\bwarp\\b",
     "integratedPattern": "intel\\(r\\) (uhd|iris|hd)|intel.*graphics|radeon\\(tm\\) graphics|amd radeon\\(tm\\) graphics"
   },
   "raea": {
@@ -155,11 +155,48 @@
     "linuxCjkFix": "sudo apt-get install fonts-noto-cjk（页面字体缺字时浏览器回退到系统字体；没有中文字体会出方块）"
   },
   "shEntrypoints": [
-    "build.sh",
-    "audio/build.sh",
-    "engine/render/mux.sh",
-    "routes/a-webgl/template/build.sh",
-    "fonts/fetch_fonts.sh"
+    {
+      "path": "build.sh",
+      "owner": "P06",
+      "spawnedBy": [
+        "npm run build"
+      ],
+      "replacement": "node tools/film/cli.mjs build . --profile beiming-1040p24（build.sh 留作兼容壳）"
+    },
+    {
+      "path": "audio/build.sh",
+      "owner": "P11",
+      "spawnedBy": [
+        "build.sh"
+      ],
+      "replacement": "Python 或 Node 入口（例如 node tools/env/py.mjs audio/build.py），由 tools/film 的 mix 步骤调用"
+    },
+    {
+      "path": "engine/render/mux.sh",
+      "owner": "P04",
+      "spawnedBy": [
+        "build.sh",
+        "engine/render/build.mjs",
+        "engine/render/native.mjs",
+        "audio/check.py",
+        "routes/a-webgl/template/build.sh"
+      ],
+      "replacement": "engine/render/lib/mux.mjs（P04·R3），mux.sh 改为调用它的薄壳"
+    },
+    {
+      "path": "routes/a-webgl/template/build.sh",
+      "owner": "P12",
+      "spawnedBy": [
+        "films/<名>/build.sh"
+      ],
+      "replacement": "npm run film -- build films/<名>（P06），模版不再带 build.sh"
+    },
+    {
+      "path": "fonts/fetch_fonts.sh",
+      "owner": "P12",
+      "spawnedBy": [],
+      "replacement": "Node 版取字体脚本（只用 fetch 与 node:crypto 校验 sha256）"
+    }
   ],
   "systemVars": [
     "HOME",
@@ -182,6 +219,7 @@
     "NO_COLOR",
     "VIRTUAL_ENV",
     "SYSTEMROOT",
+    "WINDIR",
     "COMSPEC"
   ],
   "envVars": [
@@ -210,6 +248,24 @@
         "tools/site-qa.mjs",
         "tools/env/lib/checks.mjs",
         "tools/env/setup.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_READY_TIMEOUT",
+      "group": "渲染（engine/render）",
+      "purpose": "等页面声明 window.READY 的上限（秒）",
+      "default": "180",
+      "readBy": [
+        "engine/render/page.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_FRAME_TIMEOUT",
+      "group": "渲染（engine/render）",
+      "purpose": "单帧 render(t) 的上限（秒），超时按失败处理",
+      "default": "300",
+      "readBy": [
+        "engine/render/video.mjs"
       ]
     },
     {
@@ -338,6 +394,24 @@
         "audio/mix.py",
         "audio/build.sh",
         "tools/env/lib/checks.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_CJK_FONT",
+      "group": "声音",
+      "purpose": "声音自检图（engine/audio/scope.py）用的中文字体文件；找不到系统中文字体时设它",
+      "default": "按 macOS / Windows（%WINDIR%\\Fonts）/ Linux 的常见位置查找",
+      "readBy": [
+        "engine/audio/scope.py"
+      ]
+    },
+    {
+      "name": "BEIMING_SH",
+      "group": "过渡期 sh",
+      "purpose": "POSIX sh 的完整路径（Windows 上 Git for Windows 装在非默认位置时用）；sh 入口全部改成 Node 后不再需要",
+      "default": "PATH 里的 sh；Windows 上再找 Git for Windows 的 bin\\sh.exe",
+      "readBy": [
+        "tools/env/lib/sh.mjs"
       ]
     },
     {

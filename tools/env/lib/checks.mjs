@@ -11,6 +11,7 @@ import { resolvePython, pythonEnv, venvPython } from './python.mjs';
 import { parseLock, pinsFor, sha256 } from './lockfile.mjs';
 import { probeFfmpeg, missingComponents } from './ffmpeg.mjs';
 import { headlessShell, resolveAngle, probeGpu, classifyRenderer, nvidiaSmi } from './browser.mjs';
+import { findSh, shFix } from './sh.mjs';
 
 export const loadSpec = root => JSON.parse(fs.readFileSync(path.join(root, 'tools/env/spec.json'), 'utf8'));
 export const pf = (map, platform = process.platform) => (map ? map[platform] || map.linux || null : null);
@@ -141,7 +142,7 @@ export async function checkGpu(root, spec, { env = process.env, gpuMode = 'softw
     detail = '有 NVIDIA 显卡，但 WebGL 落在核显上（Windows 默认 D3D11 的常见问题）';
   }
   out.push(mk('gpu.renderer', 'WebGL 实际使用的 GPU', { status, required: strict, found: `${p.renderer}（${p.vendor}）`, expected: strict ? '硬件 GPU（--gpu required）' : '硬件 GPU；软件渲染只告警', fix, detail,
-    data: { kind, angle: a.angle, browser: p.version, maxTexture: p.maxTexture } }));
+    data: { kind, angle: a.angle, browser: p.version, maxTexture: p.maxTexture, args: p.args, argsSource: p.argsSource } }));
   return out;
 }
 
@@ -324,14 +325,17 @@ export function checkFonts(root, spec) {
   return out;
 }
 
-export function checkSh(spec, root) {
-  const sh = which('sh');
-  const present = spec.shEntrypoints.filter(p => fs.existsSync(path.join(root, p)));
-  return mk('shell.sh', 'POSIX sh（出片封装仍要用）', {
-    status: sh ? 'pass' : present.length ? 'fail' : 'pass', found: sh || '没有 sh',
-    expected: present.length ? `仍在用的 sh 入口：${present.join('、')}` : '已无 sh 入口',
-    fix: sh ? null : process.platform === 'win32' ? '安装 Git for Windows（winget install --id Git.Git -e），把 C:\\Program Files\\Git\\usr\\bin 加进 PATH' : '安装 dash 或 bash',
-    detail: sh ? null : 'A 的 build.sh、C 的 engine/render/build.mjs、B 的 native.mjs 都调用 engine/render/mux.sh；Node 版封装合入后这一项不再必需',
+export function checkSh(spec, root, env = process.env) {
+  const sh = findSh({ env });
+  const present = spec.shEntrypoints.filter(p => fs.existsSync(path.join(root, p.path)));
+  const onPath = sh.source === 'PATH';
+  const status = !present.length ? 'pass' : !sh.path ? 'fail' : onPath || sh.source === 'BEIMING_SH' ? 'pass' : 'warn';
+  return mk('shell.sh', 'POSIX sh（过渡期：出片封装仍要用）', {
+    status, found: sh.path ? `${sh.path}（${sh.source}）` : `没有 sh：${sh.tried.join('；')}`,
+    expected: present.length ? `仍在用的 sh 入口：${present.map(p => p.path).join('、')}` : '已无 sh 入口',
+    fix: !sh.path ? shFix() : status === 'warn' ? `PATH 里没有 sh：直接调用 sh 的入口（${present.filter(p => p.spawnedBy?.length).flatMap(p => p.spawnedBy).join('、') || '各 sh 入口'}）在它们改成 Node 之前仍要它在 PATH 里，当前窗口执行 $env:Path += ';${path.win32.dirname(sh.path)}'` : null,
+    detail: present.length ? `这些 sh 入口改成 Node 实现后（见 docs/ENVIRONMENT.md「sh 入口盘点」），这一项不再必需` : null,
+    data: { sh: sh.path, source: sh.source || null, entrypoints: present.map(p => p.path) },
   });
 }
 

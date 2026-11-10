@@ -4,8 +4,9 @@
 //   browsersDir(env, platform)            Playwright 浏览器目录（尊重 PLAYWRIGHT_BROWSERS_PATH；=0 时在 playwright-core 包内）
 //   headlessShell({root, spec, env})      → {installed, dir, executable, revision, browserVersion, reason}
 //   resolveAngle(env, platform)           → {angle, source, valid, allowed}；与 engine/render/page.mjs 的默认值一致
-//   chromeArgs(angle)                     → 启动参数（与 engine/render/page.mjs 相同：同一组参数才能代表真实渲染）
-//   probeGpu({root, angle, chrome, timeout})  → Promise<{ok, version, webgl2, renderer, vendor, maxTexture, shaderOk, ms, error}>
+//   chromeArgs(angle)                     → 启动参数的备用副本（与 engine/render/page.mjs 相同：同一组参数才能代表真实渲染）
+//   rendererArgs(root, angle)             → Promise<{args, source}>：优先用 engine/render/page.mjs 导出的 chromeArgs
+//   probeGpu({root, angle, chrome, timeout})  → Promise<{ok, version, webgl2, renderer, vendor, maxTexture, shaderOk, args, argsSource, ms, error}>
 //   classifyRenderer(renderer, spec)      → 'software' | 'integrated' | 'hardware' | 'unknown'
 //   nvidiaSmi()                           → Promise<{ok, gpus:[{name, driver, memoryMiB, util}], error}>（Windows / Linux）
 import fs from 'node:fs';
@@ -47,11 +48,22 @@ export function resolveAngle(spec, env = process.env, platform = process.platfor
   return { angle, source: raw ? 'BEIMING_ANGLE' : '平台默认', valid: spec.gpu.angles.includes(angle), allowed: spec.gpu.angles };
 }
 
+// 备用副本：engine/render/page.mjs 能加载时一律用它导出的 chromeArgs（见 rendererArgs），这份只在 npm 依赖没装好时兜底；
+// tests/env 有测试核对两者逐项相同，page.mjs 改了启动参数而这里没跟上会直接失败。
 export function chromeArgs(angle) {
   return [
     ...(angle === 'default' ? [] : [`--use-angle=${angle}`]),
     '--enable-gpu', '--ignore-gpu-blocklist', '--font-render-hinting=none', '--force-color-profile=srgb',
   ];
+}
+
+// 渲染器自己的启动参数：import engine/render/page.mjs（它在顶层 import playwright-core，所以只在 npm 依赖装好之后调用）
+export async function rendererArgs(root, angle) {
+  try {
+    const page = await import(pathToFileURL(path.join(root, 'engine', 'render', 'page.mjs')).href);
+    if (typeof page.chromeArgs === 'function') return { args: page.chromeArgs(angle), source: 'engine/render/page.mjs' };
+  } catch { /* 下面用备用副本 */ }
+  return { args: chromeArgs(angle), source: 'tools/env/lib/browser.mjs（备用副本）' };
 }
 
 export function classifyRenderer(renderer, spec) {
@@ -70,8 +82,9 @@ export async function probeGpu({ root, angle, chrome, timeout = 45_000 }) {
     return { ok: false, error: `加载 playwright-core 失败（${e.code || e.message}）`, ms: Date.now() - t0 };
   }
   let browser = null, timer;
+  const { args, source } = await rendererArgs(root, angle);
   const work = (async () => {
-    browser = await pw.chromium.launch({ executablePath: chrome || undefined, args: chromeArgs(angle), timeout: Math.max(5_000, timeout - 5_000) });
+    browser = await pw.chromium.launch({ executablePath: chrome || undefined, args, timeout: Math.max(5_000, timeout - 5_000) });
     const page = await browser.newPage({ viewport: { width: 64, height: 64 } });
     const info = await page.evaluate(() => {
       const c = document.createElement('canvas');
@@ -93,10 +106,10 @@ export async function probeGpu({ root, angle, chrome, timeout = 45_000 }) {
   })();
   try {
     const r = await Promise.race([work, new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`浏览器在 ${timeout / 1000} 秒内没有完成启动与探测`)), timeout); })]);
-    return { ...r, ms: Date.now() - t0 };
+    return { ...r, args, argsSource: source, ms: Date.now() - t0 };
   } catch (e) {
     const msg = String(e.message || e).split('\n').find(l => l.trim()) || String(e);
-    return { ok: false, error: /Executable doesn't exist/.test(e.message || '') ? '锁定的 headless shell 没装' : msg.slice(0, 300), ms: Date.now() - t0 };
+    return { ok: false, args, argsSource: source, error: /Executable doesn't exist/.test(e.message || '') ? '锁定的 headless shell 没装' : msg.slice(0, 300), ms: Date.now() - t0 };
   } finally {
     clearTimeout(timer);
     // 超时时 launch 可能还挂着：等它落地再关；playwright 在进程退出时也会结束它启动的浏览器

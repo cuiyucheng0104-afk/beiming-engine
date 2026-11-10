@@ -46,9 +46,9 @@ export async function runCleanups() {
   }
 }
 
-// 写完再退出：管道上 stdout 可能是异步的，直接 process.exit 会截断 JSON
-export function writeAndExit(text, code) {
-  const done = () => process.exit(code);
+// 写完再退出：管道上 stdout 可能是异步的，直接 process.exit 会截断 JSON。after 在 stdout 写完、退出之前执行（例如把错误摘要写到 stderr）
+export function writeAndExit(text, code, after = null) {
+  const done = () => { if (after) after(); process.exit(code); };
   if (text) process.stdout.write(text.endsWith('\n') ? text : text + '\n', done);
   else done();
 }
@@ -77,8 +77,8 @@ export async function runCli({ command, argv = process.argv.slice(2), help, opti
     finished = true;
     await runCleanups();
     if (json) return writeAndExit(JSON.stringify(envelope({ command, exitCode, error, outputs, warnings, ...extra })), exitCode);
-    if (error) log(`${command}：${error.message}${error.hint ? `\n下一步：${error.hint}` : ''}`);
-    return writeAndExit(human, exitCode);
+    // 先出报告（stdout），最后一行是错误与下一步（stderr）：终端里读到的最后一句就是该做什么
+    return writeAndExit(human, exitCode, error ? () => log(`${command}：${error.message}${error.hint ? `\n下一步：${error.hint}` : ''}`) : null);
   };
   for (const [sig, code] of [['SIGINT', EXIT.SIGINT], ['SIGTERM', EXIT.SIGTERM]]) {
     process.on(sig, () => {
