@@ -175,6 +175,23 @@ test('规则文件加载问题：全量检查照报（exit 1）；--only 只报�
   assert.equal(loaderErrors(broken.json).length, 1);
 });
 
+test('规则拿到的 ctx 带上 --strict（规则自己的待修豁免也要跟着失效，如 comp 的允许清单）', () => {
+  const tool = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-gov-tool-'));
+  made.push(tool);
+  for (const rel of ['tools/repo-check.mjs', 'tools/repo-check/core', 'tools/repo-check/rules/core', 'tools/lib']) fs.cpSync(path.join(ROOT, rel), path.join(tool, rel), { recursive: true });
+  fs.mkdirSync(path.join(tool, 'tools/repo-check/rules/probe'), { recursive: true });
+  fs.writeFileSync(path.join(tool, 'tools/repo-check/rules/probe/ctx.mjs'),
+    "export default { id: 'probe.ctx', title: '探针', run: ctx => [{ level: 'info', message: `strict=${ctx.strict} staged=${ctx.staged === null ? 'null' : 'set'}` }] };\n");
+  const dir = cleanRepo();
+  const probe = args => {
+    const r = spawnSync(process.execPath, [path.join(tool, 'tools/repo-check.mjs'), '--root', dir, '--only', 'probe', ...args, '--json'], { encoding: 'utf8', timeout: 120_000 });
+    assert.equal(r.status, 0, r.stderr);
+    return JSON.parse(r.stdout).data.findings.find(f => f.rule === 'probe.ctx').message;
+  };
+  assert.equal(probe([]), 'strict=false staged=null');
+  assert.equal(probe(['--strict']), 'strict=true staged=null');
+});
+
 test('本仓库：core 规则全部通过（存量问题有限期豁免）', () => {
   const r = check(['--only', 'core', '--json']);
   assert.equal(r.code, 0, JSON.stringify(r.json?.data?.findings?.filter(f => f.level === 'error'), null, 2));

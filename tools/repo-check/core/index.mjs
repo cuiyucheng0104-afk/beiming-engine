@@ -60,7 +60,7 @@ async function run(ctx) {
     if (!g.ok) throw new CliError('env.git', '--staged 需要在 git 检出里运行，且能执行 git', '不用 --staged，或在仓库根目录里运行');
     staged = new Set(g.stdout.split('\0').filter(Boolean));
   }
-  const rctx = createContext({ root, staged });
+  const rctx = createContext({ root, staged, strict: !!opts.strict });
   let findings = loadProblems.map(p => ({ ...normalizeFinding('core.loader', { level: 'error', file: p.file, message: p.message, hint: '修好或删掉这个规则文件' }), internal: true }));
   for (const rule of selected) {
     ctx.log.info(`检查 ${rule.id}`);
