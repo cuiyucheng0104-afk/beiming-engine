@@ -65,7 +65,7 @@ export function redactLocalPaths(value, home = homeDir()) {
     let out = toPosix(s);
     if (h && out.includes(h)) { out = out.split(h).join('~'); hits++; }
     const before = out;
-    out = out.replace(/\/(Users|home)\/[^/\s"'，。；]+/g, '~').replace(/[A-Za-z]:\/Users\/[^/\s"'，。；]+/gi, '~');
+    out = out.replace(/[A-Za-z]:\/Users\/[^/\s"'，。；]+/gi, '~').replace(/\/(Users|home)\/[^/\s"'，。；]+/g, '~');
     if (out !== before) hits++;
     return out === toPosix(s) ? s : out;
   };

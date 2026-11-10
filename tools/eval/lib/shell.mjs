@@ -174,6 +174,16 @@ function simpleCommands(tokens) {
 }
 
 const WRAPPERS = new Set(['sudo', 'env', 'command', 'builtin', 'nohup', 'time', 'exec', 'nice', 'ionice', 'stdbuf', 'caffeinate']);
+// 包装命令里「后面跟一个值」的选项（sudo -u 用户、env -C 目录、nice -n 10…），跳过时连值一起跳
+const WRAPPER_VALUE_OPTS = {
+  sudo: new Set(['-u', '-g', '-h', '-p', '-C', '-D', '-r', '-t', '-U', '-T']),
+  env: new Set(['-u', '-C', '-S', '--unset', '--chdir', '--split-string']),
+  nice: new Set(['-n', '--adjustment']),
+  ionice: new Set(['-c', '-n', '-p', '--class', '--classdata']),
+  stdbuf: new Set(['-i', '-o', '-e']),
+  caffeinate: new Set(['-t', '-w']),
+  exec: new Set(['-a']),
+};
 
 /** 去掉前缀环境变量与包装命令，返回 { env, name, args }。 */
 function unwrap(words) {
@@ -190,7 +200,8 @@ function unwrap(words) {
     const b = path.basename(w);
     if (WRAPPERS.has(b)) {
       i++;
-      while (i < words.length && words[i].startsWith('-')) i++;   // sudo -u x 之类的参数尽量跳过
+      const valueOpts = WRAPPER_VALUE_OPTS[b] ?? new Set();
+      while (i < words.length && words[i].startsWith('-')) { i += valueOpts.has(words[i]) ? 2 : 1; }
       continue;
     }
     if (b === 'timeout') { i++; while (i < words.length && words[i].startsWith('-')) i++; i++; continue; }
@@ -279,7 +290,9 @@ export function analyzeShell(command, { cwd, home = homeDir() } = {}) {
       if (WRITE_REDIRECTS.has(r.op) || (r.op === '>&' && r.target && !/^(\d+|-)$/.test(r.target))) write(r.target, `重定向 ${r.fd}${r.op}`);
       if (r.op === '<' && r.target) read(r.target, '重定向 <');
     }
-    const { env, name, args } = unwrap(sc.words);
+    const unwrapped = unwrap(sc.words);
+    const { env, name } = unwrapped;
+    let { args } = unwrapped;
     result.commands.push({ name, args, env, redirects: sc.redirects });
     if (!name) continue;
     const base = path.basename(name).replace(/\.exe$/i, '');
@@ -311,6 +324,9 @@ export function analyzeShell(command, { cwd, home = homeDir() } = {}) {
     }
     if (['chmod', 'chown', 'chgrp'].includes(base)) { for (const p of plain.slice(1)) write(p, base); continue; }
     if (base === 'sed') {
+      // BSD / macOS 的 sed -i 后面单独跟一个备份后缀（'' 或 .bak）；GNU 的 -i 不带值。后缀不能当成脚本或文件
+      const bsdSuffix = args.findIndex((a, k) => a === '-i' && k + 1 < args.length && (args[k + 1] === '' || /^\.[\w~-]*$/.test(args[k + 1])));
+      if (bsdSuffix >= 0) args = [...args.slice(0, bsdSuffix + 1), ...args.slice(bsdSuffix + 2)];
       const inPlace = args.some(a => a.startsWith('--in-place') || (/^-[a-zA-Z]*i/.test(a) && !a.startsWith('--')));
       const hasScriptOpt = args.some(a => a === '-e' || a === '-f' || a.startsWith('--expression') || a.startsWith('--file'));
       const pos = positional(args, new Set(['-e', '-f', '--expression', '--file', '-l', '--line-length']));

@@ -27,7 +27,8 @@ function resultText(block) {
   return '';
 }
 
-const DENIAL = /permission to use .* (has been|was) denied|has been denied|was blocked|blocked by (a )?hook|not allowed|拒绝|已阻止|被阻止|denied by/i;
+// 工具调用被拦下的说法：设置里的 deny、--permission-prompts none 自动拒绝（"haven't granted"）、钩子阻止
+const DENIAL = /permission to use .* (has been|was) denied|has been denied|was blocked|blocked by (a )?hook|hook .*(block|denied)|haven't granted|not allowed|拒绝|已阻止|被阻止|denied by/i;
 
 function emptyTranscript() {
   return { source: 'none', files: [], badLines: 0, inits: [], results: [], toolUses: [], userTexts: [], assistantTexts: [], hookEvents: [], actors: {}, finalText: '' };
