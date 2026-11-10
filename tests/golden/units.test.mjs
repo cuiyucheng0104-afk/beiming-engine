@@ -10,9 +10,9 @@ import { decodePNG, encodePNG, pixelSha256 } from '../../tools/baseline/lib/png.
 import { compareImages, judge, diffHeatmap, downscale, contactSheet } from '../../tools/baseline/lib/metrics.mjs';
 import { validateSets, loadSets, setHash, expandSet, resolveTimes, frameId, frameFile } from '../../tools/baseline/lib/sets.mjs';
 import { backendOf, isSoftware, deviceSlug } from '../../tools/baseline/lib/platform.mjs';
-import { framesDigest, toBaseline, validateManifest, diffFrames } from '../../tools/baseline/lib/manifest.mjs';
+import { framesDigest, toBaseline, validateManifest, validatePlatform, diffFrames, listManifests, listReferences, readManifest } from '../../tools/baseline/lib/manifest.mjs';
 import { stripCode, scanFiles } from '../../tools/baseline/lib/scan.mjs';
-import { parseArgs, parseSize } from '../../tools/baseline/lib/cli.mjs';
+import { parseSize, codeFor, EXIT } from '../../tools/baseline/lib/cli.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const img = (w, h, f) => { const rgb = Buffer.alloc(w * h * 3); for (let i = 0; i < w * h; i++) { const [r, g, b] = f(i % w, Math.floor(i / w)); rgb[i * 3] = r; rgb[i * 3 + 1] = g; rgb[i * 3 + 2] = b; } return { width: w, height: h, rgb }; };
@@ -111,6 +111,13 @@ test('集合哈希：改帧会变、改说明不变；结构错误给出中文�
   assert.match(errs, /不存在的页面 nope/); assert.match(errs, /size/); assert.match(errs, /times/);
 });
 
+test('集合哈希与已登记的清单、冻结的认可参照一致（算法不能改，改了全部清单都会被判成「定义已变」）', () => {
+  const sets = loadSets(`${ROOT}tools/baseline/sets.json`);
+  const all = [...listManifests(ROOT).map(x => x.m), ...listReferences(ROOT).map(x => readManifest(x.file))];
+  assert.ok(all.length >= 5, '至少有 darwin-metal 的四套基线与 beiming-original@v1');
+  for (const m of all) assert.equal(m.setHash, setHash(sets, m.set), `${m.platformKey}/${m.set}`);
+});
+
 test('帧编号与文件名：可读、可移植、不撞名', () => {
   const g = { pageId: 'lab:kun', query: 'test=kun', clip: null };
   assert.equal(frameId(g, 1920, 1040, { t: 1 / 3 }), 'lab:kun?test=kun@1920x1040#t=0.3333');
@@ -145,6 +152,17 @@ test('基线清单：摘要可复算，手改帧会被发现，审批字段必�
   assert.match(validateManifest(noApproval).join(), /approval/);
   const dirty = structuredClone(m); dirty.source.dirty = true;
   assert.match(validateManifest(dirty).join(), /已提交/);
+  // 待审批候选：没有 approval、带像素路径摘要；默认不放行，审批时（allowCandidate）合法
+  const cand = toBaseline({ ...cap, source: { ...cap.source, pixelTree: 'e'.repeat(64), pixelPaths: ['engine'] } }, null);
+  assert.equal(cand.status, 'candidate'); assert.equal(cand.approval, null);
+  assert.match(validateManifest(cand).join(), /候选/);
+  assert.deepEqual(validateManifest(cand, { allowCandidate: true }), []);
+  const noTree = structuredClone(cand); delete noTree.source.pixelTree;
+  assert.match(validateManifest(noTree, { allowCandidate: true }).join(), /pixelTree/);
+  // 平台清单：键与内容、平台键一致
+  assert.deepEqual(validatePlatform({ schema: 'beiming-golden-platform/v1', platformKey: 'darwin-metal', sets: { fixtures: m } }, 'darwin-metal'), []);
+  assert.match(validatePlatform({ schema: 'beiming-golden-platform/v1', platformKey: 'darwin-metal', sets: { other: m } }, 'darwin-metal').join(), /键是 other/);
+  assert.match(validatePlatform({ schema: 'beiming-golden-platform/v1', platformKey: 'linux-swiftshader', sets: { fixtures: m } }, 'linux-swiftshader').join(), /不属于/);
   assert.deepEqual(diffFrames([{ id: 'a', pixelSha256: '1' }, { id: 'b', pixelSha256: '2' }], [{ id: 'b', pixelSha256: '3' }, { id: 'c', pixelSha256: '4' }]),
     { added: ['c'], removed: ['a'], changed: ['b'] });
 });
@@ -171,17 +189,14 @@ test('静态扫描：只认代码里的不确定 API，注释与字符串不算�
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('严格参数：未知参数、缺值、重复单值参数都是用法错误', () => {
-  const spec = { flags: { '--set': 'list', '--jobs': 'int', '--json': 'bool' }, positionals: [0, 1] };
-  assert.deepEqual(parseArgs(['--set', 'a,b', '--set=c', 'x', '--jobs', '3'], spec).opts.set, ['a', 'b', 'c']);
-  assert.throws(() => parseArgs(['--nope'], spec), e => e.exitCode === 2);
-  assert.throws(() => parseArgs(['--jobs'], spec), e => e.exitCode === 2);
-  assert.throws(() => parseArgs(['--jobs', '2', '--jobs', '3'], spec), e => e.exitCode === 2);
-  assert.throws(() => parseArgs(['--jobs', 'x'], spec), e => e.exitCode === 2);
-  assert.throws(() => parseArgs(['a', 'b'], spec), e => e.exitCode === 2);
-  assert.throws(() => parseArgs(['--json=1'], spec), e => e.exitCode === 2);
+test('尺寸参数与错误码前缀：--size 要偶数宽高；子进程的短错误名按退出码补前缀', () => {
   assert.deepEqual(parseSize('3840x2080'), [3840, 2080]);
-  assert.throws(() => parseSize('1921x1080'), e => e.exitCode === 2);
+  assert.throws(() => parseSize('1921x1080'), e => e.exitCode === 2 && e.code === 'usage.bad-argument');
+  assert.equal(codeFor(EXIT.ENV, 'no-browser'), 'env.no-browser');
+  assert.equal(codeFor(EXIT.CONTRACT, 'missing-page'), 'contract.missing-page');
+  assert.equal(codeFor(EXIT.FAIL, 'render-failed'), 'failure.render-failed');
+  assert.equal(codeFor(EXIT.TIMEOUT, 'timeout'), 'timeout.timeout');
+  assert.equal(codeFor(EXIT.ENV, 'env.already'), 'env.already');
 });
 
 test('页面快照：只导出指定路径，字节与提交里一致，不建 worktree', async t => {
