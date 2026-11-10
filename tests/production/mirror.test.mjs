@@ -96,7 +96,8 @@ test('命令行：一致 exit 0；临时副本漂移 exit 4（--json 信封）�
     assert.equal(bad.status, 4, bad.stderr);
     const env = JSON.parse(bad.stdout);
     assert.equal(env.ok, false);
-    assert.equal(env.error.code, 'mirror-drift');
+    assert.equal(env.error.code, 'contract.mirror-drift');
+    assert.equal(env.schemaVersion, 1);
     // 镜像自己被改：事件帧号不对
     const f = JSON.parse(readFileSync(join(MIRROR, 'film.json'), 'utf8'));
     f.events.find(e => e.id === 'hud.scan').frame = 132;
@@ -104,8 +105,10 @@ test('命令行：一致 exit 0；临时副本漂移 exit 4（--json 信封）�
     writeFileSync(filmCopy, JSON.stringify(f));
     const self = run(['--film', filmCopy, '--json']);
     assert.equal(self.status, 4);
-    assert.ok(JSON.parse(self.stdout).result.diagnostics.some(d => d.code === 'mirror-event-frame' || d.code === 'mirror-av-sync'));
+    assert.ok(JSON.parse(self.stdout).data.diagnostics.some(d => d.code === 'mirror-event-frame' || d.code === 'mirror-av-sync'));
   } finally { c.cleanup(); }
   assert.equal(run(['--nope']).status, 2);
+  assert.equal(JSON.parse(run(['--nope', '--json']).stdout).error.code, 'usage.unknown-option');
+  assert.equal(run(['--film', join(MIRROR, 'nope.json')]).status, 2);
   assert.equal(run(['--help']).status, 0);
 });

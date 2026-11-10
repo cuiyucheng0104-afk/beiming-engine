@@ -5,7 +5,7 @@
   "decision": "comment",
   "reviewer": { "kind": "ai", "name": "agent（P05 代理审片样例）" },
   "recordedBy": { "kind": "ai", "name": "agent" },
-  "recordedAt": "2026-11-10T17:33:20+08:00",
+  "at": "2026-11-10T17:33:20+08:00",
   "shots": [{ "id": "A", "verdict": "pass" }, { "id": "B", "verdict": "pass" }, { "id": "C", "verdict": "fail", "note": "片尾片名与副标题停留不足（R1、R2）" }],
   "issues": [
     {

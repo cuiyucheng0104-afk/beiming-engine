@@ -576,7 +576,8 @@ function qaReportProblem(report) {
  * strict（运行记录一律用它）另加两条：accepted 必须有人工认可的评审（reviews[]，不再接受只写 events / styleComparison 的旧形状）；
  * 技术验收 passed 必须指向 QA 报告，给了 runDir 时还要读出来、ok = true。
  * @param {unknown} result
- * @param {{ expectedFrameCount?: number, strict?: boolean, runDir?: string, registry?: object }} [options]
+ * @param {{ expectedFrameCount?: number, strict?: boolean, runDir?: string, repoRoot?: string, registry?: object }} [options]
+ *   repoRoot：运行目录所在的仓库根；技术证据写成仓库相对路径时据此解析（tools/qa 的写法）
  * @returns {{ ok: boolean, diagnostics: Array<{code:string,path:string,message:string}> }}
  */
 export function validateRenderResult(result, options = {}) {
@@ -666,7 +667,10 @@ export function validateRenderResult(result, options = {}) {
       push('technical-evidence-not-qa', 'technicalAcceptance.evidence', '技术验收通过必须指向一份 QA 报告（相对运行目录的 qa/report.json）；命令行和日志只能作补充证据');
     } else if (isNonEmptyString(options.runDir)) {
       for (const rel of reports) {
-        const file = resolve(options.runDir, ...normalizeRelativePath(rel.trim()).segments);
+        // 证据路径相对运行目录（qa/report.json），或相对仓库根（tools/qa 写的是 films/<名>/out/<run-id>/qa/report.json）
+        const segs = normalizeRelativePath(rel.trim()).segments;
+        const bases = [options.runDir, options.repoRoot].filter(isNonEmptyString);
+        const file = bases.map(b => resolve(b, ...segs)).find(f => existsSync(f)) ?? resolve(options.runDir, ...segs);
         let report = null, problem = null;
         try { report = JSON.parse(readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); } catch (error) { problem = error.code === 'ENOENT' ? '文件不存在' : `读不出或不是合法 JSON（${error.code ?? error.message}）`; }
         problem ??= qaReportProblem(report);

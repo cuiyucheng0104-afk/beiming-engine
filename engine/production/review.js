@@ -1,4 +1,6 @@
-// 北冥引擎 · 创作闸门的审片记录（决策 D08）：films/<名>/review/<闸>-<日期>[-n].json，一条记录一个文件，只增不改。
+// 北冥引擎 · 创作闸门的审片记录（决策 D08）：films/<名>/review/<闸>-<日期>[-n].json，一条记录一个文件，只增不改；
+// 另认 films/<名>/review/waivers.json（{ "waivers": [ 豁免记录… ] }，给命令行之外录入的豁免用，每条按 decision = waive 校验）。
+// 字段与验收题库 H6 对齐（tools/eval/lib/review.mjs）：gate、decision、quote（用户原话，逐字）、source（出处）、at（写记录的时间）。
 // 三道阻断闸 look（风格关键帧）→ animatic（动态预演）→ final（终渲成片），另有只记录、不阻断的 structure（导演方法 ⛔1 结构确认）。
 // 对应 routes/directing/DIRECTING.md 的关口：⛔1 = structure、⛔2 = look、⛔3 = animatic、⛔4 = final。
 //
@@ -14,7 +16,8 @@
 //   buildReview(input, { now })        由命令行参数拼出记录：算所看文件的 sha256、冻结镜头表 / 风格版本
 //   validateReview(record, { film })   → { ok, diagnostics }
 //   writeReview(filmDir, record)       原子地新建 review/<闸>-<YYYY-MM-DD>[-n].json，不覆盖已有记录，返回 { path, sha256 }
-//   readReviews(filmDir, { film })     → { records: [{ file, name, record, valid, diagnostics }], diagnostics }
+//   readReviews(filmDir, { film })     → { records: [{ file, name, record, valid, diagnostics }], diagnostics }（含 waivers.json 的每一条，name 写成 waivers.json#<序号>）
+//   recordTime(record)                 写记录的时间（at；旧记录的 recordedAt 也认）
 //   gateVerdict(records, gate, film)   某道闸的当前结论：approved / waived / rejected / stale / missing，附依据记录
 //   validateCreativeAcceptance(c)      RenderResult.creativeAcceptance 的 v2 规则：accepted 至少要一条人工认可（带原话与出处）
 //   常量：GATES、RECORD_GATES、DECISIONS、REVIEWER_KINDS、SOURCE_KINDS、RUBRIC_DIMENSIONS、VETOES、ISSUE_LAYERS、ISSUE_PRIORITIES
@@ -35,8 +38,12 @@ export const REVIEW_SCHEMA_VERSION = 1;
 export const GATES = Object.freeze(['look', 'animatic', 'final']);
 export const RECORD_GATES = Object.freeze(['structure', ...GATES]);
 
-const FIELDS = ['schemaVersion', 'film', 'gate', 'decision', 'reviewer', 'quote', 'source', 'recordedBy', 'recordedAt', 'reviewed', 'timing', 'style',
+const FIELDS = ['schemaVersion', 'film', 'gate', 'decision', 'reviewer', 'quote', 'source', 'recordedBy', 'at', 'recordedAt', 'reviewed', 'timing', 'style',
   'shots', 'issues', 'scores', 'vetoes', 'evidenceFrames', 'rejectedOn', 'mustChange', 'summary', 'notes'];
+export const WAIVERS_FILE = 'waivers.json';
+
+/** 写记录的时间：at（现行写法）；早期记录写的是 recordedAt。 */
+export const recordTime = record => record?.at ?? record?.recordedAt;
 const SHA = /^[0-9a-f]{64}$/;
 const ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -84,7 +91,15 @@ export function validateReview(record, { film = null } = {}) {
 
   const rb = record.recordedBy;
   if (!isObj(rb) || !isStr(rb.name) || !REVIEWER_KINDS.includes(rb.kind)) err('review-recorded-by', 'recordedBy', 'recordedBy 是录入这条记录的人或 agent：{ kind: human | ai, name }');
-  if (!(isStr(record.recordedAt) && ISO.test(record.recordedAt) && !Number.isNaN(Date.parse(record.recordedAt)))) err('review-recorded-at', 'recordedAt', 'recordedAt 写录入时间（ISO 8601）');
+  const at = recordTime(record);
+  if (record.at !== undefined && record.recordedAt !== undefined) err('review-at', 'at', 'at 与 recordedAt 只写一个（recordedAt 是旧写法）');
+  else if (!(isStr(at) && ISO.test(at) && !Number.isNaN(Date.parse(at)))) err('review-at', 'at', 'at 写录入这条记录的时间（ISO 8601，如 2026-11-10T15:40:00+08:00）');
+  else {
+    if (record.recordedAt !== undefined) warn('review-legacy-field', 'recordedAt', 'recordedAt 是旧写法，现行字段名是 at（写记录的时间）');
+    // 记录只能在用户说话之后写（验收题库 H6 同一规则）：允许 2 秒的时钟误差
+    const said = Date.parse(record.source?.at ?? '');
+    if (human && Number.isFinite(said) && Date.parse(at) + 2000 < said) err('review-at-before-quote', 'at', `记录时间 ${at} 早于用户说这句话的时间 ${record.source.at}：原话只能在听到之后记`, '核对 source.at 写的是用户说话的时间、at 是录入时间');
+  }
 
   if (record.decision === 'waive') {
     if (record.gate === 'final') err('review-final-waive', 'gate', 'final 不能豁免：「已交付 · 用户已认可」必须有用户对成片的认可原话', '用户不看片就要交，状态停在 qa-passed，对外写「技术检查通过，未经用户审看」');
@@ -216,7 +231,7 @@ export function buildReview(input, { now = new Date() } = {}) {
     quote: input.quote,
     source: input.source,
     recordedBy: input.recordedBy ?? { kind: 'ai', name: 'agent' },
-    recordedAt: isoLocal(now),
+    at: isoLocal(now),
     reviewed: reviewed.length ? reviewed : undefined,
     timing: gate === 'animatic' ? timingSnapshot(film) : undefined,
     style: gate === 'look' && film.style ? { id: film.style.id, version: film.style.version } : undefined,
@@ -234,7 +249,7 @@ export function reviewDir(filmDir) {
 export function writeReview(filmDir, record) {
   const dir = reviewDir(filmDir);
   mkdirSync(dir, { recursive: true });
-  const d = new Date(Date.parse(record.recordedAt));
+  const d = new Date(Date.parse(recordTime(record)));
   const stem = `${record.gate}-${dateStamp(Number.isNaN(d.getTime()) ? new Date() : d)}`;
   const names = [`${stem}.json`, ...Array.from({ length: 98 }, (_, i) => `${stem}-${i + 2}.json`)];
   const text = formatJson(record);
@@ -251,6 +266,7 @@ export function readReviews(filmDir, { film = null } = {}) {
   for (const name of readdirSync(dir).sort()) {
     if (name.startsWith('.') || !name.endsWith('.json')) continue;
     const file = join(dir, name);
+    if (name === WAIVERS_FILE) { readWaiversFile(file, { film, records, diagnostics }); continue; }
     if (!REVIEW_FILE.test(name)) {
       diagnostics.push({ level: 'warning', code: 'review-file-name', path: `review/${name}`, message: `review/${name} 不是 <闸>-<YYYY-MM-DD>[-n].json，状态计算不读它`, hint: '用 film.js review 生成记录' });
       continue;
@@ -267,11 +283,31 @@ export function readReviews(filmDir, { film = null } = {}) {
     records.push({ file, name, record: r.value, valid, diagnostics: v.diagnostics });
   }
   // 先按录入时间，同一秒内按文件序号（<闸>-<日期>.json 是第 1 条，-2、-3… 依次往后）：最后一条才是现行结论
-  const seq = name => { const m = /-(\d+)\.json$/.exec(name.replace(/^[a-z]+-\d{4}-\d{2}-\d{2}/, '')); return m ? Number(m[1]) : 1; };
+  const seq = name => { const m = /-(\d+)\.json$/.exec(name.replace(/^[a-z]+-\d{4}-\d{2}-\d{2}/, '')) ?? /#(\d+)$/.exec(name); return m ? Number(m[1]) : 1; };
   const day = name => (/\d{4}-\d{2}-\d{2}/.exec(name) ?? [''])[0];
-  records.sort((a, b) => (Date.parse(a.record?.recordedAt ?? '') || 0) - (Date.parse(b.record?.recordedAt ?? '') || 0)
+  records.sort((a, b) => (Date.parse(recordTime(a.record) ?? '') || 0) - (Date.parse(recordTime(b.record) ?? '') || 0)
     || day(a.name).localeCompare(day(b.name)) || seq(a.name) - seq(b.name) || a.name.localeCompare(b.name));
   return { records, diagnostics };
+}
+
+/**
+ * review/waivers.json：{ "schemaVersion": 1, "waivers": [ { gate, quote, source, reviewer, recordedBy, at, … } ] }（也接受直接写数组）。
+ * 每条按 decision = waive 的审片记录校验（没写 decision 的补上；写了别的判错），与单独的记录文件一起参与闸门结论。
+ */
+function readWaiversFile(file, { film, records, diagnostics }) {
+  const r = readJsonFile(file);
+  if (!r.ok) { records.push({ file, name: WAIVERS_FILE, record: null, valid: false, diagnostics: [{ level: 'error', code: r.code, path: `review/${WAIVERS_FILE}`, message: r.message, hint: '' }] }); return; }
+  const list = Array.isArray(r.value) ? r.value : r.value?.waivers;
+  if (!Array.isArray(list)) { diagnostics.push({ level: 'error', code: 'review-waivers-invalid', path: `review/${WAIVERS_FILE}`, message: `${WAIVERS_FILE} 要写成 { "waivers": [ … ] }`, hint: '每条是一条豁免记录：gate、quote（用户原话）、source、at' }); return; }
+  list.forEach((w, i) => {
+    const name = `${WAIVERS_FILE}#${i + 1}`;
+    if (!isObj(w)) { records.push({ file, name, record: null, valid: false, diagnostics: [{ level: 'error', code: 'review-invalid', path: `review/${name}`, message: '每条豁免是一个对象', hint: '' }] }); return; }
+    // 文件就在作品的 review/ 里：作品 id 与版本号可以省略
+    const record = { schemaVersion: REVIEW_SCHEMA_VERSION, decision: 'waive', ...(film?.id ? { film: film.id } : {}), ...w };
+    const v = validateReview(record, { film });
+    if (w.decision !== undefined && w.decision !== 'waive') v.diagnostics.push({ level: 'error', code: 'review-waivers-decision', path: `review/${name}`, message: `${WAIVERS_FILE} 里只放豁免（decision = waive），这里是 ${w.decision}`, hint: '认可与否定写成单独的 review/<闸>-<日期>.json' });
+    records.push({ file, name, record, valid: !v.diagnostics.some(d => d.level === 'error'), diagnostics: v.diagnostics });
+  });
 }
 
 /**
@@ -286,7 +322,7 @@ export function gateVerdict(records, gate, film) {
   const base = { gate, records: mine.length, invalid: invalid.map(r => r.name), comments: comments.length };
   const last = decisions.at(-1);
   if (!last) return { ...base, status: 'missing', record: null, reason: invalid.length ? `有 ${invalid.length} 条无效记录（${invalid.map(r => r.name).join('、')}），不算数` : '没有记录' };
-  const rec = last.record, at = { file: last.name, quote: rec.quote, source: rec.source, recordedAt: rec.recordedAt };
+  const rec = last.record, at = { file: last.name, quote: rec.quote, source: rec.source, at: recordTime(rec) };
   if (rec.decision === 'reject') return { ...base, status: 'rejected', record: at, reason: `用户否定：${rec.quote}` };
   if (rec.decision === 'waive') return { ...base, status: 'waived', record: at, reason: `用户豁免：${rec.quote}` };
   if (gate === 'animatic' && film) {

@@ -11,6 +11,7 @@ import { buildReview, gateVerdict, readReviews, validateReview, writeReview } fr
 import {
   GateError, assertDelivered, assertFinalAllowed, deliveryLabel, filmStatus, findUnbackedClaims, validateRunRecord,
 } from '../../engine/production/state.js';
+import { buildReport, technicalAcceptanceFrom } from '../../tools/qa/lib/report.mjs';
 import { HUMAN, minimalFilm, runFilm, tempFilm } from './helpers.mjs';
 
 const sha = text => createHash('sha256').update(text).digest('hex');
@@ -25,23 +26,35 @@ function record(dir, gate, decision, extra = {}) {
   return writeReview(dir, rec);
 }
 
-/** 写一次终渲：out/<run-id>/run.json + web.mp4 + latest 指针；qa 给出时写 qa/report.json。 */
-function writeRun(dir, { runId = '20261110-120000-abc1234', status = 'rendered', kind = 'final', video = 'FAKE-MP4-BYTES', qa = null, film = minimalFilm() } = {}) {
+/** 机器 QA 的报告（tools/qa/lib/report.mjs 的 buildReport，与 node tools/qa/cli.mjs report 写出的同一形状）。 */
+function qaReport(film, { ok = true, inputSha, profile = 'web-1080p24' } = {}) {
+  return buildReport({
+    film: { id: film.id, title: film.title, route: film.route, frameCount: film.output.frameCount },
+    input: { path: 'web.mp4', sha256: inputSha },
+    profile: { id: profile, source: 'engine/production/profiles.json' },
+    checks: [{ id: 'delivery.size', group: 'delivery', title: '尺寸', severity: 'hard', status: ok ? 'pass' : 'fail', value: '1920×1080', expected: '1920×1080', evidence: {} }],
+  });
+}
+
+/**
+ * 写一次终渲：out/<run-id>/run.json + web.mp4 + latest 指针；qa 给出时写 qa/report.json。
+ * evidence = 'run'（默认，相对运行目录 qa/report.json）或 'repo'（tools/qa 的写法：仓库相对路径，repoRoot 是临时目录的根）。
+ */
+function writeRun(dir, { runId = '20261110-120000-abc1234', status = 'rendered', kind = 'final', video = 'FAKE-MP4-BYTES', qa = null, film = minimalFilm(), evidence = 'run', root = null } = {}) {
   const runDir = join(dir, 'out', runId);
   mkdirSync(join(runDir, 'qa'), { recursive: true });
   writeFileSync(join(runDir, 'web.mp4'), video);
+  const report = qa ? qaReport(film, { ok: qa.ok, inputSha: qa.sha ?? sha(video), profile: qa.profile }) : null;
+  const reportPath = evidence === 'repo' ? join(dir, 'out', runId, 'qa', 'report.json').slice(root.length + 1).split(/[\\/]/).join('/') : 'qa/report.json';
   const run = {
     schemaVersion: 1, kind, status, projectId: film.id, shotId: 'film', route: film.route, backend: film.backend,
     sourceCommit: 'abc1234', actualDevice: 'Apple M5 Pro', actualGraphicsBackend: 'ANGLE-metal', actualEncoder: 'libx264',
     output: { path: 'web.mp4', sha256: sha(video), width: 1920, height: 1080, fps: 24, frames: film.output.frameCount, pixFmt: 'yuv420p' },
-    technicalAcceptance: qa?.ok && status === 'passed' ? { status: 'passed', evidence: ['qa/report.json'] } : { status: 'not-run', evidence: [] },
+    technicalAcceptance: report?.ok && status === 'passed' ? technicalAcceptanceFrom(report, reportPath) : { status: 'not-run', evidence: [] },
     creativeAcceptance: { status: 'not-reviewed', reviews: [] },
   };
   writeFileSync(join(runDir, 'run.json'), JSON.stringify(run, null, 2));
-  if (qa) {
-    const report = { schemaVersion: 1, film: film.id, input: { path: 'web.mp4', sha256: qa.sha ?? sha(video) }, profile: 'web-1080p24', checks: [{ id: 'delivery.spec', status: qa.ok ? 'pass' : 'fail' }], ok: qa.ok };
-    writeFileSync(join(runDir, 'qa', 'report.json'), JSON.stringify(report, null, 2));
-  }
+  if (report) writeFileSync(join(runDir, 'qa', 'report.json'), JSON.stringify(report, null, 1));
   writeFileSync(join(dir, 'out', 'latest'), `${runId}\n`);
   return { runDir, sha: sha(video), runId };
 }
@@ -147,7 +160,7 @@ test('认可之后改了切点：animatic 认可自动失效（stale），终渲
     const g = runFilm(['gate', t.dir, 'final', '--json']);
     assert.equal(g.status, 4);
     assert.equal(g.json.ok, false);
-    assert.equal(g.json.error.code, 'gate-closed');
+    assert.equal(g.json.error.code, 'contract.gate-closed');
     // 再给用户看一次并认可，就恢复
     record(t.dir, 'animatic', 'approve', { quote: '新节奏也可以。', reviewed: [{ path: 'p.mp4' }] });
     assert.equal(filmStatus(t.dir).canFinal, true);
@@ -247,7 +260,7 @@ test('命令行：review 原样记录用户原话与所看文件的 sha256；不
   try {
     const bad = runFilm(['review', t.dir, '--gate', 'look', '--decision', 'approve', '--reviewer-kind', 'ai', '--quote', '可以', '--source-ref', '会话第 2 条', '--file', join(t.dir, 'stills', 'a.png'), '--json']);
     assert.equal(bad.status, 4);
-    assert.equal(bad.json.error.code, 'review-ai-decision');
+    assert.equal(bad.json.error.code, 'contract.review-ai-decision');
     assert.equal(existsSync(join(t.dir, 'review')), false);
     const dry = runFilm(['review', t.dir, '--gate', 'look', '--decision', 'approve', '--quote', '就这个方向。', '--source-ref', '会话第 2 条', '--file', join(t.dir, 'stills', 'a.png'), '--dry-run', '--json']);
     assert.equal(dry.status, 0, dry.stderr);
@@ -261,7 +274,7 @@ test('命令行：review 原样记录用户原话与所看文件的 sha256；不
     assert.equal(rec.recordedBy.kind, 'ai');
     assert.deepEqual(rec.reviewed, [{ path: 'stills/a.png', sha256: sha('STILL-A') }]);
     assert.deepEqual(rec.shots, [{ id: 'S1', verdict: 'pass' }, { id: 'S2', verdict: 'note', note: '天空再亮一点' }]);
-    assert.equal(ok.json.result.status.state, 'look-approved');
+    assert.equal(ok.json.data.status.state, 'look-approved');
     const usage = runFilm(['review', t.dir, '--gate', 'storyboard', '--decision', 'approve']);
     assert.equal(usage.status, 2);
   } finally { t.cleanup(); }
@@ -294,4 +307,60 @@ test('交付字样检查：引号里提到词本身、否定说法放行；直�
   assert.deepEqual(findUnbackedClaims('用户认可了', 'draft').map(x => x.claim), ['用户认可']);
   assert.deepEqual(findUnbackedClaims('本片已交付', 'qa-passed').map(x => x.claim), ['已交付']);
   assert.deepEqual(findUnbackedClaims('本片已交付', 'accepted'), []);
+});
+
+test('review/waivers.json：命令行之外录入的豁免也算数，按 decision = waive 校验；记录时间不能早于用户说话的时间', () => {
+  const t = tempFilm(minimalFilm());
+  try {
+    mkdirSync(join(t.dir, 'review'), { recursive: true });
+    const w = (over = {}) => ({ gate: 'animatic', quote: '预演不用给我看了，直接出全片。', source: { kind: 'session', ref: '会话第 3 条', at: '2026-11-10T10:00:00+08:00' }, reviewer: { kind: 'human', name: '用户' }, recordedBy: { kind: 'ai', name: 'agent' }, at: '2026-11-10T10:01:00+08:00', ...over });
+    writeFileSync(join(t.dir, 'review', 'waivers.json'), JSON.stringify({ schemaVersion: 1, waivers: [w(), w({ gate: 'final', at: '2026-11-10T10:02:00+08:00' })] }));
+    record(t.dir, 'look', 'waive', { quote: '风格帧不用看了。' });
+    const s = filmStatus(t.dir);
+    assert.equal(s.gates.animatic.status, 'waived');
+    assert.equal(s.gates.animatic.record.file, 'waivers.json#1');
+    assert.equal(s.canFinal, true);
+    // final 不能豁免：waivers.json 里的那条无效，并报出位置
+    assert.ok(s.diagnostics.some(d => d.code === 'review-final-waive' && d.path.startsWith('review/waivers.json#2')));
+    // 记录时间早于用户说话的时间：无效
+    const early = buildReview({ film: loadFilm(t.dir).film, pathBase: t.dir, gate: 'look', decision: 'waive', ...HUMAN, source: { ...HUMAN.source, at: '2099-01-01T00:00:00+08:00' } });
+    assert.ok(codesOf(validateReview(early, { film: loadFilm(t.dir).film })).includes('review-at-before-quote'));
+    // 写成别的决定、不是数组：判错
+    writeFileSync(join(t.dir, 'review', 'waivers.json'), JSON.stringify({ waivers: [w({ decision: 'approve' })] }));
+    assert.ok(filmStatus(t.dir).diagnostics.some(d => d.code === 'review-waivers-decision'));
+    writeFileSync(join(t.dir, 'review', 'waivers.json'), JSON.stringify({ waivers: 'animatic' }));
+    assert.ok(filmStatus(t.dir).diagnostics.some(d => d.code === 'review-waivers-invalid'));
+  } finally { t.cleanup(); }
+});
+
+test('记录字段与验收题库 H6 对齐：gate、decision、quote、source、at；旧记录的 recordedAt 仍能读，提示改名', () => {
+  const t = tempFilm(minimalFilm(), { 'stills/a.png': 'A' });
+  try {
+    const r = record(t.dir, 'look', 'approve', { reviewed: [{ path: 'stills/a.png' }] });
+    const rec = JSON.parse(readFileSync(r.path, 'utf8'));
+    for (const k of ['gate', 'decision', 'quote', 'source', 'at']) assert.ok(rec[k] !== undefined, k);
+    assert.equal(rec.recordedAt, undefined);
+    const legacy = { ...rec, recordedAt: rec.at }; delete legacy.at;
+    const v = validateReview(legacy, { film: loadFilm(t.dir).film });
+    assert.equal(v.ok, true);
+    assert.ok(v.diagnostics.some(d => d.code === 'review-legacy-field'));
+    assert.ok(codesOf(validateReview({ ...rec, recordedAt: rec.at }, { film: loadFilm(t.dir).film })).includes('review-at'));
+  } finally { t.cleanup(); }
+});
+
+test('技术证据写成仓库相对路径（tools/qa 的写法）也认；报告结构按机器 QA 的 validateReport 判', () => {
+  const t = tempFilm(minimalFilm());
+  try {
+    const { runDir } = writeRun(t.dir, { status: 'passed', qa: { ok: true }, evidence: 'repo', root: t.root });
+    const run = JSON.parse(readFileSync(join(runDir, 'run.json'), 'utf8'));
+    assert.match(run.technicalAcceptance.evidence[0], /^tfilm\/out\/20261110-120000-abc1234\/qa\/report\.json$/);
+    const L = loadFilm(t.dir);
+    assert.deepEqual(codesOf(validateRunRecord(run, { film: L.film, runDir, repoRoot: t.root })), []);
+    // 手写的报告缺了机器 QA 要求的字段：结构不合格
+    const report = JSON.parse(readFileSync(join(runDir, 'qa', 'report.json'), 'utf8'));
+    delete report.checks[0].expected;
+    writeFileSync(join(runDir, 'qa', 'report.json'), JSON.stringify(report));
+    const s = filmStatus(t.dir);
+    assert.ok(s.diagnostics.some(d => d.code === 'qa-report-invalid' && /expected/.test(d.path)));
+  } finally { t.cleanup(); }
 });

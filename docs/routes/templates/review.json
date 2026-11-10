@@ -8,7 +8,7 @@
   "quote": "{{用户原话，原样照录}}",
   "source": { "kind": "session", "ref": "{{能找回这句话的出处}}", "at": "2026-11-10T15:32:00+08:00" },
   "recordedBy": { "kind": "ai", "name": "agent" },
-  "recordedAt": "2026-11-10T15:35:12+08:00",
+  "at": "2026-11-10T15:35:12+08:00",
   "reviewed": [ { "path": "stills/look_01.png", "sha256": "{{所看文件的 sha256}}" } ],
   "style": { "id": "beiming-original", "version": 1 },
   "shots": [ { "id": "S1", "verdict": "pass" }, { "id": "S2", "verdict": "note", "note": "天空再亮一点" } ],

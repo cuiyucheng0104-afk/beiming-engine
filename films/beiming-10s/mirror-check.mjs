@@ -8,7 +8,7 @@
 // 写法超出它（例如函数调用）时报 mirror-parse，而不是猜。
 //
 //   node films/beiming-10s/mirror-check.mjs [--root <仓库根>] [--asset-root <目录>] [--film <film.json>] [--json]
-//   退出码：0 一致；4 有漂移（逐条列出）；2 用法错误；1 读不出文件
+//   退出码：0 一致；4 有漂移（逐条列出）；2 用法错误或找不到文件；1 读不出文件。命令约定见 docs/CLI.md（--json 信封的结果在 data）
 //
 // 换算规则（与 engine/production/timeline.js 的 secondsToFrame 一致）：
 //   镜头起止            t × fps 必须正好是整数帧（exact）
@@ -16,9 +16,10 @@
 //   声音事件            起音在第 floor(t × fps) 帧之内（画面先到、声音晚不到 1 帧）；有 t_end 时 end = ceil(t_end × fps)
 //   同一时刻两处都写的  画面阈值与声音 cue 必须是同一个秒数，且声音相对结果帧的偏差在同步容差内（晚 ≤ 1 帧、早 ≤ 10 ms）
 // 库接口：readSources(root) → { 相对路径: 文本 }；parseSources(texts)；expectedMirror(values)；checkMirror(film, texts, { root, assetRoot })
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
+import { CliError, defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_ROOT = resolve(HERE, '../..');
@@ -369,52 +370,38 @@ export function checkMirror(film, texts, { root = DEFAULT_ROOT, assetRoot = root
   return { ok: !diagnostics.some(x => x.level === 'error'), diagnostics, expected: exp, values: v };
 }
 
-// ───────────────────────── 命令行 ─────────────────────────
+// ───────────────────────── 命令行（tools/lib/cli.mjs：docs/CLI.md 的约定） ─────────────────────────
 
-const HELP = `node films/beiming-10s/mirror-check.mjs [--root <仓库根>] [--asset-root <目录>] [--film <film.json>] [--json]
-  比对 films/beiming-10s/film.json 与《北冥》样片源码（${SOURCE_FILES.join('、')}）。只读，不改文件。
-  --root         去哪里读样片源码（默认本仓库根；测试时指向改过的临时副本）
-  --asset-root   去哪里核对资产文件（默认同 --root；临时副本只放源码时指向仓库根）
-  --film         镜像文件（默认与本脚本同目录的 film.json）
-退出码：0 一致；4 有漂移；2 用法错误；1 读不出文件`;
-
-async function main(argv) {
-  const json = argv.includes('--json');
-  const out = (env, text) => {
-    if (json) process.stdout.write(`${JSON.stringify({ ok: env.ok, exitCode: env.exitCode, command: 'mirror-check', error: env.error ?? null, outputs: [], runJson: null, warnings: env.warnings ?? [], result: env.result ?? null }, null, 2)}\n`);
-    else process[env.exitCode === 0 || env.exitCode === 4 ? 'stdout' : 'stderr'].write(`${text}\n`);
-    return env.exitCode;
-  };
-  if (argv.includes('--help') || argv.includes('-h')) { process.stdout.write(`${HELP}\n`); return 0; }
-  const opts = { root: DEFAULT_ROOT, film: join(HERE, 'film.json'), 'asset-root': null };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--json') continue;
-    if (a === '--root' || a === '--film' || a === '--asset-root') {
-      const val = argv[++i];
-      if (val === undefined || val.startsWith('--')) return out({ ok: false, exitCode: 2, error: { code: 'usage', message: `${a} 后面要跟路径`, hint: HELP.split('\n')[0] } }, `${a} 后面要跟路径`);
-      opts[a.slice(2)] = resolve(val);
-      continue;
+export const command = defineCommand({
+  name: 'mirror-check',
+  summary: '比对《北冥》样片镜像 films/beiming-10s/film.json 与样片源码、声音表（只读，不改文件）',
+  usage: ['node films/beiming-10s/mirror-check.mjs [--root <仓库根>] [--asset-root <目录>] [--film <film.json>] [--json]'],
+  description: `读 ${SOURCE_FILES.join('、')}，按文件头的换算规则推出应有的镜头表与事件帧，与镜像逐项比对；任何漂移都失败。`,
+  options: {
+    root: { type: 'string', arg: '<仓库根>', describe: '去哪里读样片源码（默认本仓库根；测试时指向改过的临时副本）' },
+    'asset-root': { type: 'string', arg: '<目录>', describe: '去哪里核对资产文件（默认同 --root；临时副本只放源码时指向仓库根）' },
+    film: { type: 'string', arg: '<film.json>', describe: '镜像文件（默认与本脚本同目录的 film.json）' },
+  },
+  exitCodes: { 0: '一致', 4: '有漂移（逐条列出）', 2: '用法错误或找不到文件', 1: '读不出文件' },
+  async run(ctx) {
+    const root = ctx.opts.root ? resolve(ctx.opts.root) : DEFAULT_ROOT;
+    const filmFile = ctx.opts.film ? resolve(ctx.opts.film) : join(HERE, 'film.json');
+    const { loadFilm, assertValidFilm } = await import('../../engine/production/film.js');
+    let film, texts;
+    try {
+      film = assertValidFilm(loadFilm(filmFile), 'films/beiming-10s/film.json');
+      texts = readSources(root);
+    } catch (error) {
+      const prefix = { 2: 'usage', 4: 'contract' }[error.exitCode] ?? 'failure';
+      throw new CliError(`${prefix}.${error.code ?? 'unreadable'}`, error.message, { hint: error.hint || null, exitCode: error.exitCode ?? 1 });
     }
-    return out({ ok: false, exitCode: 2, error: { code: 'usage', message: `未知参数 ${a}`, hint: '可用：--root --asset-root --film --json --help' } }, `未知参数 ${a}\n${HELP}`);
-  }
-  const { loadFilm, assertValidFilm } = await import('../../engine/production/film.js');
-  let film, texts;
-  try {
-    film = assertValidFilm(loadFilm(opts.film), 'films/beiming-10s/film.json');
-    texts = readSources(opts.root);
-  } catch (error) {
-    const code = error.exitCode ?? 1;
-    return out({ ok: false, exitCode: code, error: { code: error.code ?? 'unreadable', message: error.message, hint: error.hint ?? '' } }, `${error.message}${error.hint ? `\n→ ${error.hint}` : ''}`);
-  }
-  const r = checkMirror(film, texts, { root: opts.root, assetRoot: opts['asset-root'] ?? opts.root });
-  const lines = r.ok
-    ? [`✓ 镜像与样片一致：${film.shots.length} 镜 [${film.shots.map(s => `${s.id} ${s.in}–${s.out}`).join('，')}]，${film.events.length} 个事件，${film.output.frameCount} 帧`]
-    : [`✗ 镜像与样片不一致（${r.diagnostics.length} 处）：`, ...r.diagnostics.map(x => `  [${x.code}] ${x.path}：${x.message}${x.hint ? `\n    → ${x.hint}` : ''}`)];
-  return out({ ok: r.ok, exitCode: r.ok ? 0 : 4, error: r.ok ? null : { code: 'mirror-drift', message: r.diagnostics[0].message, hint: r.diagnostics[0].hint }, result: { diagnostics: r.diagnostics } }, lines.join('\n'));
-}
+    const r = checkMirror(film, texts, { root, assetRoot: ctx.opts['asset-root'] ? resolve(ctx.opts['asset-root']) : root });
+    ctx.out(r.ok
+      ? `✓ 镜像与样片一致：${film.shots.length} 镜 [${film.shots.map(s => `${s.id} ${s.in}–${s.out}`).join('，')}]，${film.events.length} 个事件，${film.output.frameCount} 帧`
+      : [`✗ 镜像与样片不一致（${r.diagnostics.length} 处）：`, ...r.diagnostics.map(x => `  [${x.code}] ${x.path}：${x.message}${x.hint ? `\n    → ${x.hint}` : ''}`)].join('\n'));
+    if (r.ok) return { data: { diagnostics: [] } };
+    return { exitCode: 4, data: { diagnostics: r.diagnostics }, error: { code: 'contract.mirror-drift', message: r.diagnostics[0].message, hint: r.diagnostics[0].hint || '确认样片源码是否被改过；镜像只描述样片现状' } };
+  },
+});
 
-const direct = (() => {
-  try { return Boolean(process.argv[1]) && pathToFileURL(realpathSync(resolve(process.argv[1]))).href === import.meta.url; } catch { return false; }
-})();
-if (direct) main(process.argv.slice(2)).then(code => { process.exitCode = code; }, error => { console.error(error?.stack ?? error); process.exitCode = 1; });
+if (isMain(import.meta.url)) await runCli(command);

@@ -8,7 +8,10 @@
 //   recordReview(target, input)      记一条审片结论：拼记录、算所看文件 sha256、校验，合格才原子地写 review/<闸>-<日期>.json
 //   deliveryLabel(state)             状态 → 对外文字；只有 accepted 得到「已交付 · 用户已认可」
 //   findUnbackedClaims(text, state)  在说明文字里找没有 accepted 撑腰的「已交付」「用户已认可」一类说法
-//   validateRunRecord(run, { film, runDir }) / validateQaReport(report, { film, runShas })   运行记录（附录 C8）与 QA 报告的最小校验
+//   validateRunRecord(run, { film, runDir, repoRoot }) 运行记录（附录 C8，RenderResult 严格口径）
+//   validateQaReport(report, { film, runShas })       QA 报告：结构用机器 QA 自己的 validateReport（tools/qa/lib/report.mjs，同一把尺子），
+//                                                    再核对它查的是这次运行的成片、档位在作品的交付清单里
+//   qaReportIds(report)              QA 报告里的作品 id 与档位 id（报告写成对象 { id, … }，附录 C8 的最小写法是字符串，两种都认）
 //   readLatestRun(loaded)            按 latest 指针文件找最近一次运行（不跟符号链接）
 // 运行目录：普通作品 films/<名>/out/<run-id>/；镜像作品用 film.json 的 mirror.outDir（如 out/beiming/<run-id>/）。
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -16,6 +19,7 @@ import { join, resolve } from 'node:path';
 import { FilmError, loadFilm } from './film.js';
 import { REPO_ROOT, readJsonFile } from './io.js';
 import { validateRenderResult } from './project.js';
+import { validateReport as validateQaReportShape } from '../../tools/qa/lib/report.mjs';
 import { GATES, buildReview, gateVerdict, readReviews, validateReview, writeReview } from './review.js';
 
 export const STATES = Object.freeze(['draft', 'look-approved', 'animatic-approved', 'rendered', 'qa-passed', 'accepted']);
@@ -79,14 +83,14 @@ export function findUnbackedClaims(text, state) {
  * 运行记录（附录 C8：RenderResult v1 扩展）。按 project.js 的 validateRenderResult 的 strict 口径校验：
  * accepted 必须有人工认可的评审，技术验收 passed 必须指向运行目录里一份 ok = true 的 QA 报告；另查 kind 与作品是否对得上。
  */
-export function validateRunRecord(run, { film = null, runDir = null } = {}) {
+export function validateRunRecord(run, { film = null, runDir = null, repoRoot = REPO_ROOT } = {}) {
   const diagnostics = [];
   const err = (code, path, message, hint = '') => diagnostics.push({ level: 'error', code, path, message, hint });
   const warn = (code, path, message, hint = '') => diagnostics.push({ level: 'warning', code, path, message, hint });
   if (!isObj(run)) { err('run-invalid', '$', 'run.json 必须是 JSON 对象'); return { ok: false, diagnostics }; }
   if (run.schemaVersion === 1) {
     const expectedFrameCount = film && run.kind === 'final' ? film.output.frameCount : undefined;
-    for (const d of validateRenderResult(run, { strict: true, runDir, expectedFrameCount }).diagnostics) {
+    for (const d of validateRenderResult(run, { strict: true, runDir, repoRoot, expectedFrameCount }).diagnostics) {
       err(d.code, d.path, d.message, d.code === 'technical-evidence-not-qa' ? 'QA 判定由 tools/qa 写进 <run-id>/qa/report.json；渲染器只写 not-run' : '');
     }
   } else err('run-schema', 'schemaVersion', `run.json 的 schemaVersion 必须是 1（RenderResult v1 扩展），收到 ${JSON.stringify(run.schemaVersion)}`);
@@ -102,24 +106,30 @@ export function validateRunRecord(run, { film = null, runDir = null } = {}) {
   return { ok: !diagnostics.some(d => d.level === 'error'), diagnostics };
 }
 
-/** QA 报告（附录 C8）：{ schemaVersion: 1, film, input: { path, sha256 }, profile, checks: [{ id, status, value, expected, evidence, waiver? }], ok } */
+const idOf = v => (isObj(v) ? v.id : v);
+export function qaReportIds(report) {
+  return { film: idOf(report?.film) ?? null, profile: idOf(report?.profile) ?? null };
+}
+
+/**
+ * QA 报告（附录 C8；tools/qa 写的 qa/report.json）：结构按机器 QA 的 validateReport 判（不另立一套），
+ * 再核对：属于这部作品、查的是这次运行的产物（input.sha256 在运行记录的产物里）、档位在作品的交付清单里、ok 与检查项一致。
+ */
 export function validateQaReport(report, { film = null, runShas = null } = {}) {
   const diagnostics = [];
   const err = (code, path, message, hint = '') => diagnostics.push({ level: 'error', code, path, message, hint });
-  if (!isObj(report)) { err('qa-invalid', '$', 'qa/report.json 必须是 JSON 对象'); return { ok: false, diagnostics }; }
-  if (report.schemaVersion !== 1) err('qa-schema', 'schemaVersion', 'QA 报告的 schemaVersion 必须是 1');
-  if (film && report.film !== film.id) err('qa-film', 'film', `报告属于 ${JSON.stringify(report.film)}，不是 ${film.id}`);
-  if (!isObj(report.input) || !isStr(report.input.path) || !SHA.test(report.input.sha256 ?? '')) err('qa-input', 'input', 'input 是 { path, sha256 }：QA 查的是哪个文件');
-  else if (runShas && !runShas.has(report.input.sha256)) err('qa-input-stale', 'input.sha256', 'QA 报告查的文件不是这次运行的产物（sha256 对不上）', '对最新成片重跑 QA');
-  if (film && !film.deliveries.includes(report.profile)) err('qa-profile', 'profile', `报告用的档位 ${JSON.stringify(report.profile)} 不在作品的 deliveries 里`);
-  if (!Array.isArray(report.checks)) err('qa-checks', 'checks', 'checks 是检查项数组');
-  else report.checks.forEach((c, i) => {
-    if (!isObj(c) || !isStr(c.id) || !['pass', 'fail', 'warn', 'waived'].includes(c.status)) err('qa-check', `checks[${i}]`, '每项写 { id, status: pass | fail | warn | waived, value, expected, evidence }');
-    else if (c.status === 'waived' && !(isStr(c.waiver) || isObj(c.waiver))) err('qa-waiver', `checks[${i}].waiver`, `检查 ${c.id} 标成 waived 却没写豁免依据`);
-  });
+  if (!isObj(report)) { err('qa-invalid', '$', 'qa/report.json 必须是 JSON 对象'); return { ok: false, diagnostics, passed: false }; }
+  for (const e of validateQaReportShape(report).errors) {
+    const i = e.indexOf('：');
+    err('qa-report-invalid', i > 0 ? e.slice(0, i) : '$', i > 0 ? e.slice(i + 1) : e, '报告由 node tools/qa/cli.mjs report <成片> 生成，不要手写；结构见 docs/quality/QA-GATE.md');
+  }
+  const ids = qaReportIds(report);
+  if (film && ids.film !== null && ids.film !== film.id) err('qa-film', 'film', `报告属于 ${JSON.stringify(ids.film)}，不是 ${film.id}`);
+  if (isObj(report.input) && SHA.test(report.input.sha256 ?? '') && runShas && !runShas.has(report.input.sha256)) {
+    err('qa-input-stale', 'input.sha256', 'QA 报告查的文件不是这次运行的产物（sha256 对不上）', '对最新成片重跑 QA：node tools/qa/cli.mjs report <run-id>/master.mp4');
+  }
+  if (film && isStr(ids.profile) && !film.deliveries.includes(ids.profile)) err('qa-profile', 'profile', `报告用的档位 ${JSON.stringify(ids.profile)} 不在作品的 deliveries 里`);
   const failed = Array.isArray(report.checks) && report.checks.some(c => c?.status === 'fail');
-  if (typeof report.ok !== 'boolean') err('qa-ok', 'ok', 'ok 必须是布尔值');
-  else if (report.ok && failed) err('qa-ok-inconsistent', 'ok', '有 fail 的检查项，ok 却是 true');
   return { ok: !diagnostics.some(d => d.level === 'error'), diagnostics, passed: report.ok === true && !failed };
 }
 
