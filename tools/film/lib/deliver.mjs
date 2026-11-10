@@ -93,7 +93,7 @@ export const player = {
   async run(ctx) {
     const video = ctx.art.web || ctx.art.animatic || ctx.art.master;
     const meta = {
-      title: ctx.film.title, film: ctx.film.id, run: ctx.run.id, kind: ctx.kind, profile: ctx.profile.id, fps: ctx.fps, frames: ctx.frames,
+      title: ctx.film.title, film: ctx.film.id, run: ctx.run.id, kind: ctx.kind, final: !!ctx.final, profile: ctx.profile.id, fps: ctx.fps, frames: ctx.frames,
       width: ctx.width, height: ctx.height, duration: ctx.frames / ctx.fps,
       shots: ctx.shots.filter(s => !s.implicit).map(s => ({ id: s.id, in: s.in, out: s.out })), cuts: ctx.cuts,
       aigc: ctx.film.raw?.aigc?.contains === true ? (ctx.film.raw.aigc.note || '含 AI 生成画面') : null,

@@ -96,7 +96,7 @@ def main(argv):
     ap.add_argument('dst', help='输出 HTML')
     ap.add_argument('--title', help='标题（默认取 film.json 或清单里的 title）')
     ap.add_argument('--film', help='作品目录或 film.json：标题、帧率、镜头表、AIGC 标识')
-    ap.add_argument('--meta', help='编排器写的清单 JSON（title film run kind profile fps frames width height duration shots cuts aigc）')
+    ap.add_argument('--meta', help='编排器写的清单 JSON（title film run kind final profile fps frames width height duration shots cuts aigc）')
     ap.add_argument('--embed', choices=['auto', 'always', 'never'], default='auto', help='是否把视频内嵌进 HTML（默认 auto：40 MB 以内内嵌）')
     ap.error = lambda msg: die(f'用法错误：{msg}（加 --help 看用法）', 2)
     a = ap.parse_args(argv)
@@ -149,7 +149,7 @@ def main(argv):
         reel = ''
         video_src = os.path.relpath(src.resolve(), dst.resolve().parent).replace(os.sep, '/')
 
-    public = {k: meta.get(k) for k in ('title', 'film', 'run', 'kind', 'profile', 'fps', 'frames', 'width', 'height', 'duration', 'shots', 'cuts', 'aigc')}
+    public = {k: meta.get(k) for k in ('title', 'film', 'run', 'kind', 'final', 'profile', 'fps', 'frames', 'width', 'height', 'duration', 'shots', 'cuts', 'aigc')}
     page = (HTML.replace('__TITLE__', html.escape(meta['title']))
             .replace('__W__', str(int(meta['width']))).replace('__H__', str(int(meta['height'])))
             .replace('__META__', json.dumps(public, ensure_ascii=False).replace('</', '<\\/'))
@@ -226,7 +226,9 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     v.src = URL.createObjectURL(new Blob([u8], { type: 'video/mp4' }));
   }
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  $('top').innerHTML = `<b>${esc(M.title)}</b>` + (M.run ? `<br>${esc([M.kind, M.profile, M.run].filter(Boolean).join(' · '))}` : '') + (M.aigc ? `<br><span class="aigc">${esc(M.aigc)}</span>` : '');
+  const KIND = { build: '工作版出片', animatic: '动态预演', stills: '风格关键帧', render: '帧段' };
+  const kind = M.final ? '终渲' : (KIND[M.kind] || M.kind);
+  $('top').innerHTML = `<b>${esc(M.title)}</b>` + (M.run ? `<br>${esc([kind, M.profile, M.run].filter(Boolean).join(' · '))}` : '') + (M.aigc ? `<br><span class="aigc">${esc(M.aigc)}</span>` : '');
   // 镜头分段与切点
   const sh = $('shots');
   for (const s of M.shots || []) {
