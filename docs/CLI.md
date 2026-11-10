@@ -159,7 +159,7 @@
 ## 11. 新建作品（`npm run new`）
 
 ```sh
-npm run new -- <a|b|c> <名字> [--title 片名] [--profile 档位] [--dry-run] [--json]
+npm run new -- <a|b|c> <名字> [--title 片名] [--profile 档位] [--dry-run] [--check-timeout 秒] [--json]
 ```
 
 - **名字**：小写字母、数字、连字符，字母或数字开头，最长 64；同时是目录名、film.json 的 `id` 与输出文件名。不得是 Windows 保留名，不得含上游项目名。片名用 `--title` 另给（不能含 `` " ' ` \ < > `` 与控制字符）。
@@ -169,7 +169,7 @@ npm run new -- <a|b|c> <名字> [--title 片名] [--profile 档位] [--dry-run] 
 - **换帧率**：`--profile` 的帧率与模版不同时，镜头、事件、停顿、海报帧按比例换算并提示；按节拍（`beat`）写的事件不自动换算，退出 4。
 - **校验后落盘**：先写进 `films/.new-*` 暂存目录；有 `engine/production/film.js` 时在暂存目录上跑 `film.js check --json`，通过才整体改名为 `films/<名字>/`；不通过退出 4、校验器自身出错退出 1，两种情况都不留目录。`--dry-run` 不写任何文件，也不调用校验器。
 - **下一步**：取模版 film.json 的 `next`，没有就取注册表这条路线的 `next`；`--json` 的 `data.next` 给出 argv、环境变量与产物路径，编排器不用解析 shell。
-- 退出码：0 成功；1 写盘失败或校验器自身出错；2 路线、名字、片名、档位不合法或目录已存在；4 模版、注册表或生成的 film.json 不合格。
+- 退出码：0 成功；1 写盘失败或校验器自身出错；2 路线、名字、片名、档位不合法或目录已存在；4 模版、注册表或生成的 film.json 不合格；124 校验器超时（`--check-timeout <秒>`，默认 60）；130 / 143 被中断，已杀掉校验器、删掉暂存目录。
 
 ## 12. 仓库规范检查（`npm run check:repo`）
 

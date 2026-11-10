@@ -35,7 +35,7 @@ const SKIP_EXT = new Set(['.pyc']);
 const FONT_EXT = new Set(['.woff', '.woff2', '.ttf', '.otf']);
 const LICENSE_RE = /^(licen[cs]e|ofl|copying)/i;
 const VALIDATOR = 'engine/production/film.js';
-const VALIDATOR_TIMEOUT_MS = 60_000;
+const VALIDATOR_TIMEOUT_S = 60;
 /** 暂存目录名带来的「id 与目录名不同」不是作品的问题。 */
 const STAGING_NOISE = new Set(['id-dir-mismatch']);
 const toPosix = p => p.split(path.sep).join('/');
@@ -221,7 +221,7 @@ function parseValidator(r, fromRel, toRel) {
  * target 是仓库相对的暂存目录（films/.new-*）；诊断里的暂存路径换回最终的 films/<名字>。
  * 返回 Promise<{ status: passed|failed|error|skipped, … }>，只读，不改任何文件。
  */
-function runValidator({ target, fromRel, toRel, scope, onCleanup }) {
+function runValidator({ target, fromRel, toRel, scope, onCleanup, timeoutS = VALIDATOR_TIMEOUT_S }) {
   const command = ['node', VALIDATOR, 'check', toRel, '--json'];
   if (!fs.existsSync(path.join(ROOT, VALIDATOR))) return Promise.resolve({ status: 'skipped', scope, reason: `${VALIDATOR} 还没有（作品描述包落地后自动启用）`, command, diagnostics: [] });
   return new Promise(settle => {
@@ -232,7 +232,7 @@ function runValidator({ target, fromRel, toRel, scope, onCleanup }) {
     const cap = (acc, d) => (acc.length > 16 << 20 ? acc : acc + d);
     child.stdout.setEncoding('utf8').on('data', d => { stdout = cap(stdout, d); });
     child.stderr.setEncoding('utf8').on('data', d => { stderr = cap(stderr, d); });
-    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, VALIDATOR_TIMEOUT_MS);
+    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, timeoutS * 1000);
     const unregister = onCleanup(() => { if (!done) child.kill('SIGKILL'); });
     const finish = (status, error = null) => {
       if (done) return;
@@ -241,7 +241,7 @@ function runValidator({ target, fromRel, toRel, scope, onCleanup }) {
       unregister();
       const { env, diagnostics } = parseValidator({ stdout }, fromRel, toRel);
       const base = { scope, command, exitCode: status, diagnostics };
-      if (error || timedOut) return settle({ ...base, status: 'error', reason: timedOut ? `超过 ${VALIDATOR_TIMEOUT_MS / 1000} 秒没有返回` : `没跑起来（${error.code ?? error.message}）` });
+      if (error || timedOut) return settle({ ...base, status: 'error', timedOut, reason: timedOut ? `超过 ${timeoutS} 秒没有返回，已结束它（--check-timeout 可调）` : `没跑起来（${error.code ?? error.message}）` });
       if (status === 0) return settle({ ...base, status: 'passed' });
       if (status === 4) return settle({ ...base, status: 'failed', message: env?.error?.message ?? null });
       const tail = `${stdout}${stderr}`.trim().split('\n').slice(-8).join('\n');
@@ -264,7 +264,7 @@ function settleValidation(v, ctx, data) {
       { hint: `这是模版或注册表的问题：按诊断改 ${data.route.template}/ 或 routes/routes.json 的 templateDefaults 后重跑（这次什么都没写）；--dry-run --json 可看生成的 film.json`, data });
   }
   if (v.status === 'error') {
-    throw new CliError('failure.film-check', `作品描述校验器 ${VALIDATOR} 自身出错，无法确认作品合格：${v.reason}`,
+    throw new CliError(v.timedOut ? 'timeout.film-check' : 'failure.film-check', `作品描述校验器 ${VALIDATOR} 自身出错，无法确认作品合格：${v.reason}`,
       { hint: `单独跑 ${v.command.join(' ')} 看完整输出；修好校验器再重跑（这次什么都没写）`, data });
   }
   if (v.status === 'skipped') ctx.log.info(`作品描述校验：跳过（${v.reason}）`);
@@ -423,7 +423,7 @@ async function run(ctx) {
       throw new CliError('failure.io', `写 ${dirRel} 失败：${e.message}`, '检查磁盘空间与目录权限后重跑（这次没有留下半个目录）');
     }
     // 5 作品描述校验器（在暂存目录上，文件、路径、页面时间常量一起查）
-    data.validation = await runValidator({ target: `films/${stagingName}`, fromRel: `films/${stagingName}`, toRel: dirRel, scope: 'full', onCleanup: ctx.onCleanup });
+    data.validation = await runValidator({ target: `films/${stagingName}`, fromRel: `films/${stagingName}`, toRel: dirRel, scope: 'full', onCleanup: ctx.onCleanup, timeoutS: opts['check-timeout'] ?? VALIDATOR_TIMEOUT_S });
     settleValidation(data.validation, ctx, data);
     try { fs.renameSync(tmp, dst); } catch (e) {
       if (['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(e.code) && fs.existsSync(dst)) throw new CliError('usage.exists', `${dirRel} 刚被别的进程建好了：不覆盖`, '换个名字重跑');
@@ -461,13 +461,14 @@ export const command = defineCommand({
     title: { type: 'string', arg: '<片名>', describe: '片名，默认等于名字；不能含 " \' ` \\ < >', example: '破晓' },
     profile: { type: 'string', arg: '<档位>', describe: '交付档位，默认取模版声明的，否则 web-1080p24（D07）', example: 'vertical-1080x1920-30' },
     'dry-run': { type: 'boolean', describe: '只列出将要写的文件、film.json 与下一步命令，不写任何文件（也不调用校验器）' },
+    'check-timeout': { type: 'number', arg: '<秒>', describe: `作品描述校验器的超时，默认 ${VALIDATOR_TIMEOUT_S} 秒；超时退出 124`, min: 0.1, example: '120' },
   },
   examples: [
     'node tools/new-film.mjs a dawn-test --title 破晓',
     'node tools/new-film.mjs c ink-note --title 墨记 --dry-run --json',
     'npm run new -- b buoy --profile web-1080p24',
   ],
-  exitCodes: { 0: '成功', 1: '写盘失败或作品描述校验器自身出错', 2: '用法错误（路线、名字、片名、档位不合法，或目标目录已存在）', 4: '模版、注册表或生成的 film.json 不合格（含校验器 check 不通过）', 130: '被 Ctrl+C 中断，已清理', 143: '被终止，已清理' },
+  exitCodes: { 0: '成功', 1: '写盘失败或作品描述校验器自身出错', 2: '用法错误（路线、名字、片名、档位不合法，或目标目录已存在）', 4: '模版、注册表或生成的 film.json 不合格（含校验器 check 不通过）', 124: '校验器超时（--check-timeout，默认 60 秒）', 130: '被 Ctrl+C 中断，已清理', 143: '被终止，已清理' },
   run,
 });
 

@@ -292,7 +292,7 @@ test('模版带字体：与 fonts/ 同一份时附上 fonts/LICENSE.md；来历�
   assert.ok(!fs.existsSync(path.join(dir, 'films/f2')));
 });
 
-test('作品描述校验器在暂存目录上跑：通过才落盘；不过退出 4、什么都不留；校验器自身出错退出 1', () => {
+test('作品描述校验器在暂存目录上跑：通过才落盘；不过退出 4、什么都不留；校验器自身出错退出 1、超时退出 124', () => {
   const dir = sandbox();
   fakeValidator(dir, { exit: 0, diagnostics: [{ level: 'warning', code: 'legacy-mirror', path: '$', message: '<目录> 保留了兼容镜像' }] });
   const ok = newFilm(dir, ['a', 'v1', '--json']);
@@ -318,6 +318,12 @@ test('作品描述校验器在暂存目录上跑：通过才落盘；不过退�
   assert.equal(crash.code, 1);
   assert.equal(crash.json.error.code, 'failure.film-check');
   assert.match(crash.json.error.message, /退出码 1：校验器崩了/);
+  assert.deepEqual(listFilms(dir).sort(), ['v1']);
+
+  fakeValidator(dir, { exit: 0, raw: 'setTimeout(() => {}, 30000);\n' });
+  const slow = newFilm(dir, ['a', 'v4', '--json', '--check-timeout', '0.3']);
+  assert.equal(slow.code, 124, '校验器超时按附录 C1 退出 124');
+  assert.equal(slow.json.error.code, 'timeout.film-check');
   assert.deepEqual(listFilms(dir).sort(), ['v1']);
 });
 
