@@ -33,6 +33,7 @@ export const PAL = {
   pine: '#4B5A88', pineShade1: '#2F3B66', pineShade2: '#1F2748', trunk: '#3A2F4E',   // 松：比峰再暗一档，剪影在天上一眼可读
   reflect: '#2E3160',                                                   // 水里的倒影：峰的二影色，比水面暗
   sun: '#FFA45C', sunCore: '#FFF4E0', lamp: '#FFC46B',                  // 强调色：只给太阳与船灯（日晕偏橙，日轮白热）
+  sunGlazeIn: '#FFD27A', sunGlazeOut: '#FF9A5C',                        // 太阳四周的罩色：近处暖黄、外圈橙（同属太阳的强调色）
 };
 
 // ───────── 卡通材质族：一族材质共享着色器，每个物体一个 ID（墨线在物体之间也画得出） ─────────
@@ -202,16 +203,34 @@ const SUN_FS = `
 uniform vec3 color, halo; uniform float amt, glint, rd; varying vec2 vUv;
 void main(){
   vec2 d = (vUv - .5) * 2.; float r = length(d);
-  float disc = 1. - smoothstep(rd - .02, rd + .006, r);              // 实的日轮：白热的芯，边缘略软（Kuwahara 的高光保护会留住它）
-  float corona = exp(-pow(max(r - rd, 0.) / .07, 2.)) * (1. - disc);  // 贴着日轮的一圈饱和暖色：日轮不至于发白发灰
-  float h = exp(-r * r * 9.) * .55 + exp(-r * r * 40.) * .8;          // 两层日晕
+  float disc = 1. - smoothstep(rd - .02, rd + .006, r);              // 实的日轮：白热的芯，边缘略软（HDR 超过 1，Kuwahara 的高光保护会留住它）
+  float corona = exp(-pow(max(r - rd, 0.) / .09, 2.)) * (1. - disc);  // 贴着日轮的一圈饱和暖色：后期的高光肩压过之后，日轮仍是暖的，不发灰
+  float h = exp(-r * r * 9.) * .55 + exp(-r * r * 40.) * .9;          // 两层日晕
   float star = glint * exp(-r * r * 2.5) * (exp(-abs(d.y) * 55.) + exp(-abs(d.x) * 55.) * .45);   // 冲顶那一下的光芒
-  gl_FragColor = vec4((color * disc * 1.8 + halo * (corona * 1.2 + h * .8) + mix(halo, color, .5) * star * 3.) * amt, 1.);
+  gl_FragColor = vec4((color * disc * 3.2 + halo * (corona * 1.8 + h) + mix(halo, color, .5) * star * 3.5) * amt, 1.);
 }`;
 export function sunDisc({ order = 0.6 } = {}) {
   const mat = new THREE.ShaderMaterial({
     uniforms: { color: { value: new THREE.Color(PAL.sunCore) }, halo: { value: new THREE.Color(PAL.sun) }, amt: { value: 1 }, glint: { value: 0 }, rd: { value: 0.2 } },
     vertexShader: SUN_VS, fragmentShader: SUN_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+  m.renderOrder = order; m.frustumCulled = false; m.userData.outline = false;
+  return m;
+}
+// 日光的罩色（glaze）：太阳四周一圈暖色的透明罩染，从近日轮的暖黄过渡到外圈的橙，越往外越透明（普通混合，不是加色）。
+// 在亮的晨空上加色只会让天更白，日轮反而读不出来；罩一层暖色，白热的日轮才「亮」出来——水彩画太阳的做法：留白的日轮 + 四周罩暖色。
+const GLAZE_FS = `
+uniform vec3 inner, outer; uniform float amt, squash; varying vec2 vUv;
+void main(){
+  vec2 d = (vUv - .5) * 2.; d.y *= squash; float r = length(d);
+  float a = amt * (exp(-r * r * 4.5) * .75 + exp(-r * r * 18.) * .25) * (1. - smoothstep(.85, 1., r));
+  gl_FragColor = vec4(mix(inner, outer, smoothstep(.05, .7, r)), a);
+}`;
+export function sunGlaze({ order = 0.55 } = {}) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { inner: { value: new THREE.Color(PAL.sunGlazeIn) }, outer: { value: new THREE.Color(PAL.sunGlazeOut) }, amt: { value: 0 }, squash: { value: 1.15 } },
+    vertexShader: SUN_VS, fragmentShader: GLAZE_FS, transparent: true, depthWrite: false, toneMapped: false,
   });
   const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
   m.renderOrder = order; m.frustumCulled = false; m.userData.outline = false;

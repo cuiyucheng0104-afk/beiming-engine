@@ -78,23 +78,28 @@ if (sil) {
 }
 const silPost = { ready: Promise.resolve(), render(scene, camera) { film.renderer.setRenderTarget(null); film.renderer.render(scene, camera); } };
 
-// ── 显示层：片名在 S2 左上的天空留白里显影；副标题随后淡入。位置按设计稿像素 × K ──
+// ── 显示层：片名在 S2 左上的天空留白里题写（墨色，像山水画的题款）；副标题随后落款。位置按设计稿像素 × K ──
+// 字重从 film.json 的 fonts 读（子集就是按这个字重生成的），不在这里另写一份
+const INK = [42, 45, 82];   // 画风的墨（world.js 的 PAL.ink）：片名、副标题与山石的墨线同一种墨
+const weightOf = fam => (FILM.fonts || []).find(f => f.family === fam)?.weight ?? 400;
 const tTitle = TEXT.get('title'), tSub = TEXT.get('subtitle');
 const fIn = eventFrame('title-in');
-const T = createTitle({ text: tTitle.text, font: fontSpec(400, 158 * K, [tTitle.font]), size: 158 * K, x: 214 * K, y: 330 * K, ls: 0.06 });
-const nG = T.glyphs.length, stagger = nG > 1 ? Math.min(8, 12 / (nG - 1)) : 0, dev = 22;   // 字越多错开越小：整行约 1.3 秒显完
-const fFull = fIn + Math.round(stagger * (nG - 1)) + dev;
-const titleP = f => { const h = fIn + hold(f - fIn, 2) * 2; return T.glyphs.map((_, i) => eo(seg(h, fIn + i * stagger, fIn + i * stagger + dev))); };   // 一拍二地洇开；先快后慢（墨落纸上洇得快、越往外越慢）
-const subF = fontSpec(400, 30 * K, [tSub.font]), subX = 222 * K, subY = 330 * K + 158 * K * 0.55 + 62 * K, subLs = 0.2 * 30 * K;
-const subA = f => ss(seg(f, fFull - 10, fFull + 6));   // 副标题在片名收尾时淡入：完整停留 ≥ 字数 × 0.12 秒（QA 的读字时长门）
+const T = createTitle({ text: tTitle.text, font: fontSpec(weightOf(tTitle.font), 158 * K, [tTitle.font]), size: 158 * K, x: 214 * K, y: 330 * K, ls: 0.06, color: INK });
+const nG = T.glyphs.length, stagger = nG > 1 ? Math.min(8, 12 / (nG - 1)) : 0, dev = 26;   // 字越多错开越小：每个字约 1.1 秒洇满，整行约 1.4 秒
+// 一拍二地洇开，先快后慢（墨落纸上洇得快、越往外越慢；二次缓出，留出看得见的洇开过程）。事件帧就是第一笔墨落纸的那一帧：画面在这一帧已经有墨，
+// 声音（sound.py 的落笔声）同帧起音——结果帧对拍，声音不抢在画面前面（craft/animation.md §5.4、§5.7）
+const titleP = f => { const h = hold(f - fIn, 2) * 2 + 2; return T.glyphs.map((_, i) => { const u = seg(h, i * stagger, i * stagger + dev); return 1 - (1 - u) * (1 - u); }); };
+const subStart = fIn + Math.round(stagger * (nG - 1)) + 8;   // 最后一个字洇开一阵之后再落款：先读片名，再读副标题
+const subF = fontSpec(weightOf(tSub.font), 32 * K, [tSub.font]), subX = 222 * K, subY = 330 * K + 158 * K * 0.55 + 62 * K, subLs = 0.18 * 32 * K;
+const subA = f => ss(seg(f, subStart, subStart + 10));   // 完整停留 ≥ 字数 ÷ 4.5 + 1.5 秒（DIRECTING 步骤 9 的读字时长）
 function drawText(ctx, f) {
   if (q.has('notext') || f < fIn) return;
   T.draw(ctx, titleP(f));
   const a = subA(f);
   if (a > 0.003) {
     ctx.save(); ctx.font = subF; ctx.textBaseline = 'alphabetic'; ctx.letterSpacing = `${subLs.toFixed(2)}px`;
-    ctx.shadowColor = `rgba(36,30,86,${(0.7 * a).toFixed(3)})`; ctx.shadowBlur = 14 * K;      // 暗晕托底：浅色字压在亮天上也够对比度
-    ctx.fillStyle = `rgba(255,248,240,${(0.94 * a).toFixed(3)})`; ctx.fillText(tSub.text, subX, subY);
+    ctx.shadowColor = `rgba(255,246,236,${(0.45 * a).toFixed(3)})`; ctx.shadowBlur = 10 * K;   // 一圈很淡的纸色：小字压在云纹上也清楚（不靠它过对比度）
+    ctx.fillStyle = `rgba(${INK.join(',')},${(0.95 * a).toFixed(3)})`; ctx.fillText(tSub.text, subX, subY);
     ctx.restore();
   }
 }

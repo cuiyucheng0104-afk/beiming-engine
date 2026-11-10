@@ -7,8 +7,9 @@
   日出前    一口气慢慢吸上来（带通噪声由暗变亮），事件前 6 帧收成近静默——「最重要的一声」靠静默反衬
   sun-break 太阳核心露出远山的那一帧（结果帧），一口铜钟在同一帧起音：偏右（太阳在画右）、长混响；
             钟声之后水声与风回来，低处垫一层暖的持续音（假暖退场、真暖登场）
-  title-in  片名显影：一声很轻的纸上洇墨（宽带噪声缓起缓落），偏左上（片名在左上）
-对位核对：写完 wav 后在混音上测钟声的起音，和 sun-break 的帧差超过 1 帧就失败（craft/animation.md §5.7）。
+  title-in  第一笔墨落纸的那一帧：笔尖触纸的一声轻擦（短促、起音清楚），随后墨洇开的沙沙声缓起缓落；偏左上（片名在左上）
+对位核对：写完 wav 后在混音上测两个事件的起音（钟声、落笔声），和事件帧差超过 1 帧就失败（craft/animation.md §5.7）。
+声音不能抢在画面前面：事件帧是结果帧，画面在这一帧已经变了（太阳露头、第一笔墨落纸），声音同帧或稍后起音。
 
 用法：统一出片会自动调用（npm run film -- build films/{{NAME}} 的 mix 步骤，写到运行目录）。单独跑（在仓库根目录）：
   node tools/env/py.mjs films/{{NAME}}/sound.py [films/{{NAME}}] [--out <wav>]
@@ -128,31 +129,50 @@ def build(film_dir):
     warm = (np.sin(2 * np.pi * 87.3 * t) * 0.6 + np.sin(2 * np.pi * 130.8 * t + 1.1) * 0.35 + np.sin(2 * np.pi * 174.6 * t + 2.3) * 0.18)
     warm, _, _ = match_level(stereo(lp(warm * warm_env, 600, 2), 0.1), -27.0, 'win', min(D - 0.5, t_sun + 1.6), D)
 
-    # ── 片名洇墨：宽带噪声缓起缓落（约 1.2 秒），偏左（片名在左上） ──
+    # ── 片名落笔：笔尖触纸的一声轻擦（1.5 ms 起音的短促高频擦声 + 一点笔杆的木声）在事件帧起音，接着墨洇开的沙沙声
+    #    （缓起缓落约 1.2 秒，比触纸更轻）；偏左（片名在左上）。缓起的声音量不出起音，对位要靠触纸这一下 ──
+    rk = rng(41)
+    td = min(0.14, D - t_title)
+    tt = T(td)
+    tick = bp(white(N(td), rk), 2600, 9500, 2) * smoothstep(0, 0.0015, tt) * np.exp(-tt / 0.024)
+    knock = lp(white(N(td), rk), 700, 2) * smoothstep(0, 0.002, tt) * np.exp(-tt / 0.035) * 0.6
+    touch = np.zeros((n, 2))
+    place(touch, tick + knock, t_title, 1.0, -0.45)
+    touch, _, _ = match_level(touch, -25.0, 'mom', t_title, min(D, t_title + 0.4))
     ink_d = min(1.4, D - t_title)
     ink_t = T(ink_d)
-    rk = rng(41)
-    ink = bp(white(N(ink_d), rk), 1800, 7500, 2) * (smoothstep(0, 0.25, ink_t) * np.exp(-np.maximum(0, ink_t - 0.25) / 0.45))
+    ink = bp(white(N(ink_d), rk), 1800, 7500, 2) * (smoothstep(0.03, 0.3, ink_t) * np.exp(-np.maximum(0, ink_t - 0.3) / 0.45))
     inks = np.zeros((n, 2))
     place(inks, ink, t_title, 1.0, -0.45)
-    inks, _, _ = match_level(inks, -30.0, 'mom', t_title, min(D, t_title + ink_d))
+    inks, _, _ = match_level(inks, -32.0, 'mom', t_title, min(D, t_title + ink_d))
 
-    stems = {'bed': bed, 'swell': swell, 'bell': bells, 'warm': warm, 'ink': inks}
+    stems = {'bed': bed, 'swell': swell, 'bell': bells, 'warm': warm, 'touch': touch, 'ink': inks}
     mix = fade(sum(stems.values()), 0.25, 0.35)
     mix, gain_db, _ = loudness_to(mix, -14.0, -1.5)
-    ctx = {'fps': fps, 'n': n, 't_sun': t_sun, 'EV': EV, 'gain_db': float(gain_db), 'SR': SR}
+    ctx = {'fps': fps, 'n': n, 't_sun': t_sun, 't_title': t_title, 'EV': EV, 'gain_db': float(gain_db), 'SR': SR}
     return mix, ctx, stems
 
 
-def strike(mix, t0, fps, sr):
-    """事件附近（±6 帧）响度上升最陡的时刻：4 ms 包络的对数在 4 ms 内的最大升幅。比峰值门限稳，不会被水声颗粒骗。"""
+def strike(mix, t0, fps, sr, half=6):
+    """事件附近（±half 帧）响度上升最陡的时刻：4 ms 包络的对数在 4 ms 内的最大升幅。比峰值门限稳，不会被水声颗粒骗。
+    全频带与 2.5–12 kHz 两路各找一次，取升幅大的那一路（钟声的余音很响时，轻的高频擦声在全频带里显不出来，高频里很清楚；
+    QA 门 tools/qa 的起音检测也是这两路）。"""
     import numpy as np
     from scipy.ndimage import uniform_filter1d
+    from engine.audio.dsp import bp
     w = max(1, int(round(0.004 * sr)))
-    a, b = max(0, int(round((t0 - 6 / fps) * sr))), min(len(mix), int(round((t0 + 6 / fps) * sr)))
-    env = 20 * np.log10(np.sqrt(uniform_filter1d((mix[a:b] ** 2).mean(1), w)) + 1e-9)
-    rise = env[w:] - env[:-w]
-    return round((a + int(np.argmax(rise)) + w // 2) / sr, 4)
+    a, b = max(0, int(round((t0 - half / fps) * sr))), min(len(mix), int(round((t0 + half / fps) * sr)))
+    pre = max(0, a - int(0.05 * sr))                      # 带通先跑 50 ms 再取，避开滤波器的起振
+    best = None
+    for band in (None, (2500, 12000)):
+        x = mix[pre:b] if band is None else bp(mix[pre:b], band[0], band[1], 2)
+        x = x[a - pre:]
+        env = 20 * np.log10(np.sqrt(uniform_filter1d((x ** 2).mean(1), w)) + 1e-9)
+        rise = env[w:] - env[:-w]
+        k = int(np.argmax(rise))
+        if best is None or rise[k] > best[0]:
+            best = (float(rise[k]), k)
+    return round((a + best[1] + w // 2) / sr, 4)
 
 
 def main():
@@ -165,15 +185,20 @@ def main():
     import numpy as np
     import soundfile as sf
     from engine.audio.meter import integrated, true_peak
-    fps, n, t_sun, EV, SR, gain_db = ctx['fps'], ctx['n'], ctx['t_sun'], ctx['EV'], ctx['SR'], ctx['gain_db']
+    fps, n, EV, SR, gain_db = ctx['fps'], ctx['n'], ctx['EV'], ctx['SR'], ctx['gain_db']
 
-    # ── 自检：时长逐样本对齐；钟声起音与 sun-break 同帧（±1 帧）；响度与真峰值 ──
+    # ── 自检：时长逐样本对齐；钟声、落笔声的起音与各自的事件同帧（声音不早于画面，晚不超过 1 帧）；响度与真峰值 ──
     if len(mix) != n:
         die(4, f'声音长 {len(mix)} 样本，画面要 {n}')
-    on = strike(mix, t_sun, fps, SR)
-    if on is None or abs(on - t_sun) > 1 / fps:
-        die(4, f'钟声起音 {on} 秒，与 sun-break（第 {EV["sun-break"]["frame"]} 帧 = {t_sun:.4f} 秒）差超过 1 帧',
-            '检查 bell 的摆放与事件表；不要手抄秒数')
+    onsets = {}
+    gap = abs(EV['title-in']['frame'] - EV['sun-break']['frame'])
+    for eid, what in (('sun-break', '钟声'), ('title-in', '落笔声')):
+        t0 = EV[eid]['frame'] / fps
+        on = strike(mix, t0, fps, SR, half=max(1, min(6, gap // 2)))
+        if on is None or on < t0 - 0.25 / fps or on > t0 + 1 / fps:
+            die(4, f'{what}起音 {on} 秒，与 {eid}（第 {EV[eid]["frame"]} 帧 = {t0:.4f} 秒）对不上（要同帧或晚不超过 1 帧）',
+                f'检查 {what}的摆放与事件表；不要手抄秒数')
+        onsets[eid] = {'frame': EV[eid]['frame'], 'onset': on, 'errFrames': round((on - t0) * fps, 3)}
     lufs, tp = integrated(mix), 20 * np.log10(true_peak(mix) + 1e-12)
 
     out = a.out or os.environ.get('BEIMING_AUDIO_OUT') or os.path.join(film_dir, 'out', 'mix.wav')
@@ -187,7 +212,7 @@ def main():
         shown = os.path.basename(out)
     print(json.dumps({'path': shown if not shown.startswith('..') else os.path.basename(out), 'seconds': round(len(mix) / SR, 4),
                       'lufs': round(lufs, 2), 'truePeakDbTP': round(float(tp), 2), 'gainDb': round(float(gain_db), 2),
-                      'events': {'sun-break': {'frame': EV['sun-break']['frame'], 'onset': on, 'errFrames': round((on - t_sun) * fps, 3)}}},
+                      'events': onsets},
                      ensure_ascii=False))
 
 

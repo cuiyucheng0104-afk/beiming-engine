@@ -7,7 +7,7 @@ import { aimCamera, placeOnScreen, screenToPlane, project, dirOf } from '../../.
 import { plate, glowSprite, tileRepeat } from '../../../engine/stage/plates.js';
 import { hold, frameOf } from '../../../engine/core/clock.js';
 import { DEG, eo, ss, seg, lerp } from '../../../engine/core/math.js';
-import { PAL, SUN, setToon, frameCamera, peakPoint, sunrise, sunDisc, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, loadPlate, ISLET } from '../world.js';
+import { PAL, SUN, setToon, frameCamera, peakPoint, sunrise, sunDisc, sunGlaze, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, loadPlate, ISLET } from '../world.js';
 import { billboard } from './s1.js';
 
 export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFrame }) {
@@ -29,6 +29,7 @@ export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFram
   const halo = glowSprite(PAL.sun, { order: 0.5, amt: 0.4, core: 0.25, squash: 2.4 });
   placeOnScreen(halo, cam0, DW, DH, sunX, 770, 1150, 15000, 1150);
   const disc = sunDisc({ order: 0.6 });
+  const glaze = sunGlaze({ order: 0.55 });   // 日轮四周的暖色罩染：露头之后才罩上来，跟着日轮走
 
   // ── 远山：山脊在太阳正下方那一点的高度，按「事件帧日轮刚露出一半」反算摆位（构图服从事件，不手调） ──
   const W2 = DW * 1.5, H2 = 720, left = DW / 2 - W2 / 2;
@@ -38,7 +39,7 @@ export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFram
   const ridgeFar = plate(far.tex, 1); placeOnScreen(ridgeFar, cam0, DW, DH, DW / 2, crestY - far.topAt(uSun) * H2 + H2 / 2, W2, 4200, H2);
   const mid = ridgeTexture({ seed: 83, color: PAL.ridgeMid, light: PAL.ridgeLight, base: 0.62, amp: 0.2, sunU: uSun });
   const ridgeMid = plate(mid.tex, 2); placeOnScreen(ridgeMid, cam0, DW, DH, DW / 2, crestY + 22 - mid.topAt(uSun) * H2 + H2 / 2, W2, 2600, H2);   // 近山在太阳下方更低：挡住日轮的是远山
-  scene.add(sky, halo, disc, ridgeFar, ridgeMid);
+  scene.add(sky, halo, glaze, disc, ridgeFar, ridgeMid);
   const mists = [[806, 180, 1800, 3, 0.8, 5], [902, 120, 330, 5, 0.62, 13], [1050, 230, 150, 7, 0.3, 17]].map(([y, h, D, order, op, seed]) => {   // 远雾压地平线；礁脚雾贴着峰脚（峰脚在 y≈900）
     const m = mistTexture({ seed }); m.repeat.x = tileRepeat(m, DW * 1.6, h);
     const p = plate(m, order, { opacity: op }); placeOnScreen(p, cam0, DW, DH, DW / 2, y, DW * 1.6, D, h); scene.add(p); return m;
@@ -61,9 +62,12 @@ export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFram
     mists.forEach((m, i) => { m.offset.x = (0.003 + 0.002 * i) * t; });
     const sp = sun.place(disc, cam0, DW, DH, f, { size: 300, D: 15000 });
     const k = kAt(f), glint = disc.material.uniforms.glint.value;
-    disc.material.uniforms.amt.value = lerp(0.85, 1.2, k);
-    placeOnScreen(halo, cam0, DW, DH, sp.x, Math.max(sp.y, 700) + 30, lerp(1150, 1500, k), 15000, lerp(1150, 1500, k));   // 日晕跟着日轮走，升起后变大
-    halo.material.uniforms.amt.value = lerp(0.4, 1.25, k) + 0.3 * glint;
+    disc.material.uniforms.amt.value = lerp(0.85, 1.3, k);
+    placeOnScreen(halo, cam0, DW, DH, sp.x, Math.max(sp.y, 700) + 30, lerp(1150, 1600, k), 15000, lerp(1150, 1600, k));   // 日晕跟着日轮走，升起后变大、变实
+    halo.material.uniforms.amt.value = lerp(0.4, 1.6, k) + 0.45 * glint;
+    halo.material.uniforms.core.value = lerp(0.25, 0.9, k);
+    placeOnScreen(glaze, cam0, DW, DH, sp.x, sp.y, 760, 15100, 760);
+    glaze.material.uniforms.amt.value = 0.82 * k + 0.12 * glint;
     veil.material.uniforms.amt.value = 0.42 * k + 0.25 * glint;
     sunrise(k);
     boatPose(boat, boatBase, 2.2, lf / fps, hold(f, 2), 2);
