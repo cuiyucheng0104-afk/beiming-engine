@@ -42,6 +42,8 @@ export const setToon = g => setToonShared(TOON, g);
 const kind = toonKind({ name: 'tpl', shared: TOON, firstId: 1, layers: [patchLayer()] });
 
 // 皴：山石陡面上断续的竖向细线，画在材质里（toonInk），随 uInkTime 一拍二换形——线的沸腾节拍跟山石的绘制节拍一致。
+// 层理：石峰一级级的台阶，在陡面上画断续的横向裂隙（按物体空间的高度，约 9 m 一层，层距与起伏随种子变）。
+// 竖皴 + 横向层理是「石头」的读法；只有竖向的明暗条，峰看上去像打磨过的柱子（craft/toon.md 判据 8：线跟着形走）。
 // aRock = (高度比例 hf, cos 绕轴角, sin 绕轴角, 种子)，由 engine/form/rock.js 的 spire 写进几何。
 const CUN = {
   vertexPars: 'attribute vec4 aRock;\nvarying vec4 vRock;\nvarying vec3 vRockN;\n',
@@ -51,13 +53,20 @@ const CUN = {
   {
     float hf = vRock.x, up = normalize( vRockN ).y;
     float ang = atan( vRock.z, vRock.y ) / 6.2831853;
-    float f = ang * 14.0 + toonNoise( vec3( hf * 4.0, vRock.w * 7.0, uInkTime * 0.37 ) ) * 0.4 + toonNoise( vToonObj * 0.05 ) * 0.3;
+    float steep = smoothstep( 0.55, 0.2, abs( up ) );
+    float f = ang * 10.0 + toonNoise( vec3( hf * 4.0, vRock.w * 7.0, uInkTime * 0.37 ) ) * 0.45 + toonNoise( vToonObj * 0.05 ) * 0.3;
     float dd = fract( f + 0.5 ) - 0.5, fw = max( fwidth( f ), 1e-4 );
-    float cun = ( 1.0 - smoothstep( 0.06 - fw, 0.06 + fw, abs( dd ) ) ) * smoothstep( 0.55, 0.2, abs( up ) ) * smoothstep( 0.04, 0.16, hf );
+    float cun = ( 1.0 - smoothstep( 0.1 - fw, 0.1 + fw, abs( dd ) ) ) * steep * smoothstep( 0.04, 0.16, hf );   // 笔宽要经得住后期的 Kuwahara（细到 1–2 px 的线会被抹掉）
     cun *= smoothstep( -0.15, 0.3, toonNoise( vec3( ang * 36.0, hf * 7.0, vRock.w + uInkTime * 0.11 ) ) );
     cun *= 1.0 - smoothstep( 0.1, 0.32, fw );   // 远了、细到画不出就淡掉，不闪
-    toonInk = max( toonInk, cun * 0.5 );
-    diffuseColor.rgb *= mix( 0.86, 1.04, smoothstep( 0.0, 0.85, hf ) );   // 山脚近水更深一点，山顶迎天更亮一点
+    // 层理：横向的断续裂隙；层面高度带一点起伏（不是尺子画的），只在一半左右的周长上出现
+    float sy = vToonObj.y / ( 8.0 + 3.0 * fract( vRock.w * 13.7 ) ) + toonNoise( vec3( ang * 5.0, vRock.w * 3.0, 0.0 ) ) * 0.55 + toonNoise( vec3( ang * 23.0, hf * 2.0, uInkTime * 0.21 ) ) * 0.12;
+    float sd = fract( sy + 0.5 ) - 0.5, sw = max( fwidth( sy ), 1e-4 );
+    float strata = ( 1.0 - smoothstep( 0.07 - sw, 0.07 + sw, abs( sd ) ) ) * steep * smoothstep( 0.06, 0.18, hf ) * ( 1.0 - smoothstep( 0.92, 1.0, hf ) );
+    strata *= smoothstep( 0.05, 0.35, toonNoise( vec3( ang * 9.0, floor( sy ) * 1.7, vRock.w ) ) );
+    strata *= 1.0 - smoothstep( 0.12, 0.35, sw );
+    toonInk = max( toonInk, max( cun * 0.7, strata * 0.62 ) );
+    diffuseColor.rgb *= mix( 0.86, 1.04, smoothstep( 0.0, 0.85, hf ) ) * ( 1.0 - 0.06 * strata );   // 山脚近水更深一点，山顶迎天更亮一点；裂隙里略暗
   }`,
 };
 const ROCK = {
