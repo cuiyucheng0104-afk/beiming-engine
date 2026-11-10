@@ -61,6 +61,7 @@
       "earlyFrames": 0.25,
       "lateFrames": 1,
       "lipLateFrames": 2,
+      "minRiseDb": 8,
       "searchEarlySec": 0.15,
       "searchLateSec": 0.25
     },

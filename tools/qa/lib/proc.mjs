@@ -51,7 +51,7 @@ export function run(cmd, args, { timeoutMs = 10 * 60 * 1000, onStdout = null, ma
     });
     cp.on('close', (code, signal) => {
       if (overflow) {
-        done(reject, new QaError('runtime', `${cmd} 的输出超过 ${maxStdout >> 20} MB 上限`, { exitCode: EXIT.RUNTIME }));
+        done(reject, new QaError('runtime', `${cmd} 的输出超过 ${Math.round(maxStdout / 2 ** 20)} MB 上限`, { exitCode: EXIT.RUNTIME }));
         return;
       }
       done(resolve, { code: code ?? (signal ? 128 : 1), signal, stdout: Buffer.concat(out), stderr: err });

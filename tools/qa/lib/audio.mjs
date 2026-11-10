@@ -3,12 +3,14 @@
 //
 //   measureLoudness(file)   → { integrated, lra, truePeak, maxMomentary, maxShortTerm, threshold }（LUFS / LU / dBTP）
 //   decodeMono(file, sr)    → Float32Array（声道平均，sr 默认 48000）
-//   findOnset(x, sr, t, { early, late })   在 [t−early, t+late] 里找最像「这一下」的起音，返回
-//        { t: 起音秒, riseDb, floorDb, peakDb, candidates } 或 null
+//   findOnset(x, sr, t, { early, late, minRiseDb })   在 [t−early, t+late] 里找最像「这一下」的起音，返回
+//        { t: 起音秒, riseDb, floorDb, peakDb, band, candidates } 或 null
 //
-// 起音的定义（docs/quality/QA-GATE.md「sync」）：先做一阶预加重突出瞬态，取 2 ms 窗、0.5 ms 步长的 RMS 包络；
-// 候选点是包络比此前 5–20 ms 的底噪抬高 ≥ 9 dB 的局部峰；起音时刻取峰前包络首次越过「底噪 + 20%×(峰 − 底噪)」的位置（线性插值）。
-// 用合成点击与短音实测，误差在 ±1.5 ms 内（tests/qa/sync.test.mjs）。
+// 起音的定义（docs/quality/QA-GATE.md「sync」）：把这一段分成全频带、150–1000 Hz、1–4 kHz、4–12 kHz 四路（RBJ 带通各串两级），
+// 每路取 2 ms 窗、0.5 ms 步长的 RMS 包络；候选点是包络比此前 5–20 ms 的底噪抬高 ≥ minRiseDb（默认 8 dB）的局部峰；
+// 四路的候选放在一起，取抬升最大的，若另一个候选抬升不低于它的 70% 且更靠近事件时刻，取那一个（混音里低频很满时，
+// 界面提示音这类高频短音只在它自己的频带里看得出抬升）。起音时刻取峰前包络首次越过「底噪 + 20%×(峰 − 底噪)」的位置（线性插值）。
+// 用合成点击、短音与「低频垫底上的弱提示音」实测，误差在 ±1.5 ms 内（tests/qa/sync.test.mjs）。
 import { run, tool, tail } from './proc.mjs';
 import { QaError, EXIT } from './cli-kit.mjs';
 
@@ -45,54 +47,80 @@ export async function measureLoudness(file, { timeoutMs } = {}) {
 
 export async function decodeMono(file, { sampleRate = 48000, timeoutMs } = {}) {
   const r = await run(tool('ffmpeg'), ['-v', 'error', '-nostdin', '-i', file, '-map', '0:a:0', '-vn', '-ac', '1', '-ar', String(sampleRate),
-    '-f', 'f32le', 'pipe:1'], { timeoutMs, maxStdout: 2 << 30 });
+    '-f', 'f32le', 'pipe:1'], { timeoutMs, maxStdout: 2 ** 31 });
   if (r.code !== 0) throw new QaError('input.decode', `解码音轨失败：${tail(r.stderr)}`, { exitCode: EXIT.GATE });
   const b = r.stdout;
   const ab = b.buffer.slice(b.byteOffset, b.byteOffset + (b.length - (b.length % 4)));
   return new Float32Array(ab);
 }
 
-// 2 ms 窗 RMS 包络，步长 0.5 ms；emph = 预加重系数（0 = 全频带，0.97 = 突出高频瞬态）；只算 [s0, s1) 这段
-function envelope(x, sr, s0, s1, emph) {
+// RBJ 带通（0 dB 峰值增益），对 x[a..b) 原地生成新数组；两级串联让带外衰减更陡
+function bandpass(x, sr, lo, hi, a, b) {
+  const f0 = Math.sqrt(lo * hi), Q = f0 / (hi - lo), w0 = 2 * Math.PI * f0 / sr, al = Math.sin(w0) / (2 * Q);
+  const a0 = 1 + al, b0 = al / a0, b2 = -al / a0, a1 = -2 * Math.cos(w0) / a0, a2 = (1 - al) / a0;
+  let y = Float32Array.from(x.subarray(a, b));
+  for (let pass = 0; pass < 2; pass++) {
+    const out = new Float32Array(y.length);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < y.length; i++) {
+      const v = b0 * y[i] + b2 * x2 - a1 * y1 - a2 * y2;
+      x2 = x1; x1 = y[i]; y2 = y1; y1 = v; out[i] = v;
+    }
+    y = out;
+  }
+  return y;
+}
+
+// 2 ms 窗 RMS 包络，步长 0.5 ms；sig 是从样本 base 开始的一段
+function envelope(sig, sr, base) {
   const win = Math.max(8, Math.round(sr * 0.002)), hop = Math.max(1, Math.round(sr * 0.0005));
-  const a = Math.max(1, s0), b = Math.min(x.length, s1);
-  const n = Math.max(0, Math.floor((b - a - win) / hop));
+  const n = Math.max(0, Math.floor((sig.length - win) / hop));
   const env = new Float64Array(n);
   for (let k = 0; k < n; k++) {
     let s = 0;
-    const st = a + k * hop;
-    for (let i = st; i < st + win; i++) { const y = x[i] - emph * x[i - 1]; s += y * y; }
+    const st = k * hop;
+    for (let i = st; i < st + win; i++) s += sig[i] * sig[i];
     env[k] = Math.sqrt(s / win);
   }
   // 包络第 k 点代表窗中心；win 用于把「越过阈值的窗中心」换算回信号起点（见 onsetIn 的偏差修正）
-  return { env, t0: (a + win / 2) / sr, hop: hop / sr, win: win / sr };
+  return { env, t0: (base + win / 2) / sr, hop: hop / sr, win: win / sr };
 }
 
-// 全频带与高频强调两路各找一次，取抬升更大的那一路（低沉的撞击与清脆的点击都能抓到）
-export function findOnset(x, sr, t, opts = {}) {
-  const a = onsetIn(x, sr, t, { ...opts, emph: 0 });
-  const b = onsetIn(x, sr, t, { ...opts, emph: 0.97 });
-  if (!a) return b;
-  if (!b) return a;
-  return b.riseDb > a.riseDb + 3 ? b : a;
+export const ONSET_BANDS = [['全频带', null, null], ['150–1000 Hz', 150, 1000], ['1–4 kHz', 1000, 4000], ['4–12 kHz', 4000, 12000]];
+
+export function findOnset(x, sr, t, { early = 0.15, late = 0.25, minRiseDb = 8 } = {}) {
+  const warm = 0.05, pre = 0.03;
+  const a = Math.max(0, Math.floor((t - early - pre - warm) * sr)), b = Math.min(x.length, Math.ceil((t + late + 0.03) * sr));
+  if (b - a < sr * 0.02) return null;
+  const all = [];
+  for (const [band, lo, hi] of ONSET_BANDS) {
+    if (hi && hi >= sr / 2) continue;
+    const sig = lo ? bandpass(x, sr, lo, hi, a, b) : x.subarray(a, b);
+    const skip = lo ? Math.round(warm * sr) : 0;   // 带通的起振段不用
+    for (const c of onsetIn(sig.subarray(skip), sr, a + skip, t, { early, late, minRiseDb })) all.push({ ...c, band });
+  }
+  if (!all.length) return null;
+  all.sort((p, q) => q.rise - p.rise);
+  let best = all[0];
+  for (const c of all.slice(1)) if (c.rise >= 0.7 * best.rise && Math.abs(c.t - t) < Math.abs(best.t - t)) best = c;
+  return { t: best.t, riseDb: +best.rise.toFixed(1), floorDb: +best.floorDb.toFixed(1), peakDb: +best.peakDb.toFixed(1), band: best.band, candidates: all.length };
 }
 
-function onsetIn(x, sr, t, { early = 0.15, late = 0.25, minRiseDb = 9, emph = 0 } = {}) {
-  const pre = 0.03;
-  const s0 = Math.floor((t - early - pre) * sr), s1 = Math.ceil((t + late + 0.03) * sr);
-  const { env, t0, hop, win } = envelope(x, sr, Math.max(1, s0), s1, emph);
-  if (env.length < 8) return null;
-  const k0 = Math.max(0, Math.round((t - early - t0) / hop)), k1 = Math.min(env.length - 1, Math.round((t + late - t0) / hop));
+// 一路包络里的全部候选：{ t: 起音秒, rise, floorDb, peakDb }
+function onsetIn(sig, sr, base, t, { early, late, minRiseDb }) {
+  const { env, t0, hop, win } = envelope(sig, sr, base);
+  if (env.length < 8) return [];
+  const k0 = Math.max(1, Math.round((t - early - t0) / hop)), k1 = Math.min(env.length - 2, Math.round((t + late - t0) / hop));
   const fl0 = Math.round(0.005 / hop), fl1 = Math.round(0.02 / hop);
   const floorAt = k => {
-    const a = Math.max(0, k - fl1), b = Math.max(0, k - fl0);
-    if (b <= a) return env[0];
-    const seg = Array.from(env.subarray(a, b)).sort((p, q) => p - q);
+    const lo = Math.max(0, k - fl1), hi = Math.max(0, k - fl0);
+    if (hi <= lo) return env[0];
+    const seg = Array.from(env.subarray(lo, hi)).sort((p, q) => p - q);
     return seg[Math.floor(seg.length / 2)];
   };
-  const cands = [];
-  for (let k = Math.max(1, k0); k <= k1; k++) {
-    if (!(env[k] >= env[k - 1] && env[k] >= (env[k + 1] ?? 0))) continue;
+  const out = [];
+  for (let k = k0; k <= k1; k++) {
+    if (!(env[k] >= env[k - 1] && env[k] >= env[k + 1])) continue;
     // 峰：往后 10 ms 内的最大值
     let pk = k;
     for (let j = k; j <= Math.min(env.length - 1, k + Math.round(0.01 / hop)); j++) if (env[j] > env[pk]) pk = j;
@@ -100,25 +128,12 @@ function onsetIn(x, sr, t, { early = 0.15, late = 0.25, minRiseDb = 9, emph = 0 
     const fl = floorAt(k);
     const rise = db(env[k] + 1e-9) - db(fl + 1e-9);
     if (rise < minRiseDb) continue;
-    cands.push({ k, rise, fl, pk: env[k] });
+    const thr = fl + 0.2 * (env[k] - fl);
+    let j = k;
+    while (j > 0 && env[j - 1] >= thr) j--;
+    const jj = j > 0 ? j - 1 + (thr - env[j - 1]) / Math.max(1e-12, env[j] - env[j - 1]) : 0;
+    // 阶跃信号的 RMS 窗只进了 4% 时才到 20% 阈值：那时窗中心 = 起点 − 0.46×窗长，所以起点 = 越线时的窗中心 + 0.46×窗长
+    out.push({ t: Number((t0 + jj * hop + 0.46 * win).toFixed(5)), rise, floorDb: db(fl + 1e-9), peakDb: db(env[k] + 1e-9) });
   }
-  if (!cands.length) return null;
-  // 先取最强的；若另一个候选的抬升不低于最强的 70% 且更靠近事件时刻，取那一个
-  cands.sort((a, b) => b.rise - a.rise);
-  let best = cands[0];
-  for (const c of cands.slice(1)) {
-    if (c.rise >= 0.7 * best.rise && Math.abs(t0 + c.k * hop - t) < Math.abs(t0 + best.k * hop - t)) best = c;
-  }
-  const thr = best.fl + 0.2 * (best.pk - best.fl);
-  let k = best.k;
-  while (k > 0 && env[k - 1] >= thr) k--;
-  const kk = k > 0 ? k - 1 + (thr - env[k - 1]) / Math.max(1e-12, env[k] - env[k - 1]) : 0;
-  // 窗中心越过 20% 阈值时，稳态信号只进窗 4%：起点 ≈ 中心 − 0.46×窗长，修正回去
-  return {
-    t: +(t0 + kk * hop + 0.46 * win).toFixed(5),
-    riseDb: +best.rise.toFixed(1),
-    floorDb: +db(best.fl + 1e-9).toFixed(1),
-    peakDb: +db(best.pk + 1e-9).toFixed(1),
-    candidates: cands.length,
-  };
+  return out;
 }
