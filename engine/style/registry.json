@@ -24,15 +24,15 @@
   ],
   "variants": {
     "kun": {
-      "$comment": "六种鲲造型（media/styles.jpg 从左到右）。认可状态都没有书面记录（craft/toon.md §0），所以 approval 一律写 none；设定图不在仓库里，入库前要先确认来源与权利（审计 CRAFT-05 / CRAFT-08）。自测页经仓库根 index.html?test=<名> 打开；带「正片后期」的页面才和正片走同一条后期管线（lab/kun.js:6 的临时描边不能证明正片一致）。",
+      "$comment": "六种鲲造型（media/styles.jpg 从左到右）。认可状态都没有书面记录（craft/toon.md §0），所以 approval 一律写 none；设定图不在仓库里，入库前要先确认来源与权利（审计 CRAFT-05 / CRAFT-08）。自测页经仓库根 index.html?test=<名> 打开；自测页默认走正片后期（src/look.js → engine/look，与正片同一条管线；lab/kun_bench.js 的 labPipeline），&ink=lab 回退旧的临时描边——只有正片后期渲出的帧能当画风依据（lab/README.md）。",
       "sheet": "media/styles.jpg",
       "items": [
-        { "label": "原版", "module": "src/kun.js", "toon": "src/toon.js", "test": "kun", "productionLook": false, "inFilm": true, "designRef": null, "approval": "none", "note": "正片 src/shotA.js:6、src/shotC.js:7 用的就是它" },
-        { "label": "东方化", "module": "src/kun_refine.js", "toon": "src/toon_refine.js", "test": "kun_refine", "productionLook": "kun_refine&post=look", "inFilm": false, "designRef": null, "approval": "none", "note": "文件头自称「原版精修」，图上标「东方化」，是同一个变体" },
-        { "label": "青绿仙山", "module": "src/kun_qinglv.js", "toon": "src/toon_qinglv.js", "test": "kun_qinglv", "productionLook": "kun_qinglv_look", "inFilm": false, "designRef": "鲲设定/鲲_v2-1_青绿仙山.png（不在仓库，src/kun_qinglv.js:1 注释）", "approval": "none" },
-        { "label": "玄鲲云纹", "module": "src/kun_xuan.js", "toon": "src/toon_xuan.js", "test": "kun_xuan", "productionLook": false, "inFilm": false, "designRef": "鲲_v2-2_玄鲲云纹（不在仓库，src/kun_xuan.js:1 注释）", "approval": "none" },
-        { "label": "青铜古鲲", "module": "src/kun_bronze.js", "toon": "src/toon_bronze.js", "test": "kun_bronze", "productionLook": false, "inFilm": false, "designRef": null, "approval": "none" },
-        { "label": "鲲鹏将化", "module": "src/kun_peng.js", "toon": "src/toon_peng.js", "test": "kun_peng", "productionLook": false, "inFilm": false, "designRef": "鲲设定/鲲_v2-3_鲲鹏将化.png（不在仓库，src/kun_peng.js:2 注释）", "approval": "none" }
+        { "label": "原版", "module": "src/kun.js", "toon": "src/toon.js", "test": "kun", "productionLook": true, "inFilm": true, "designRef": null, "approval": "none", "note": "正片 src/shotA.js:6、src/shotC.js:7 用的就是它" },
+        { "label": "东方化", "module": "src/kun_refine.js", "toon": "src/toon_refine.js", "test": "kun_refine", "productionLook": true, "inFilm": false, "designRef": null, "approval": "none", "note": "文件头自称「原版精修」，图上标「东方化」，是同一个变体" },
+        { "label": "青绿仙山", "module": "src/kun_qinglv.js", "toon": "src/toon_qinglv.js", "test": "kun_qinglv", "productionLook": true, "inFilm": false, "designRef": "鲲设定/鲲_v2-1_青绿仙山.png（不在仓库，src/kun_qinglv.js:1 注释）", "approval": "none" },
+        { "label": "玄鲲云纹", "module": "src/kun_xuan.js", "toon": "src/toon_xuan.js", "test": "kun_xuan", "productionLook": true, "inFilm": false, "designRef": "鲲_v2-2_玄鲲云纹（不在仓库，src/kun_xuan.js:1 注释）", "approval": "none" },
+        { "label": "青铜古鲲", "module": "src/kun_bronze.js", "toon": "src/toon_bronze.js", "test": "kun_bronze", "productionLook": true, "inFilm": false, "designRef": null, "approval": "none" },
+        { "label": "鲲鹏将化", "module": "src/kun_peng.js", "toon": "src/toon_peng.js", "test": "kun_peng", "productionLook": true, "inFilm": false, "designRef": "鲲设定/鲲_v2-3_鲲鹏将化.png（不在仓库，src/kun_peng.js:2 注释）", "approval": "none" }
       ]
     }
   }
