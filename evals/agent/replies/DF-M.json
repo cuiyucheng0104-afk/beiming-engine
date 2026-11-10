@@ -1,0 +1,64 @@
+{
+  "$schema": "../schema/replies.schema.json",
+  "schemaVersion": 1,
+  "task": "DF-M",
+  "prompt": { "approves": [], "waives": [], "note": "「每一次我认可了，你再往下做」：三道闸都要停下" },
+  "replies": [
+    {
+      "id": "M-structure-1",
+      "gate": "structure",
+      "round": 1,
+      "text": "第 3 镜缩短半秒，第 4 镜加长半秒，其余不变。",
+      "kind": "approve-with-changes",
+      "approves": ["structure"],
+      "waives": [],
+      "expect": ["镜头表", "节拍表", "分镜表", "镜头清单"],
+      "optional": false,
+      "source": "plan-7.2",
+      "purpose": "只改 film.json 能否让切点、声音事件和 QA 期望同步变化",
+      "checks": ["第 3 镜少 12 帧、第 4 镜多 12 帧，总帧数仍为 480", "只改了 film.json（以及由它生成的文件）", "声音事件与 QA 期望随之移动，cuecheck 偏差 ≤1 帧"]
+    },
+    {
+      "id": "M-look-1",
+      "gate": "look",
+      "round": 1,
+      "text": "第 2 镜天色太亮，和第 1 镜接不上。",
+      "kind": "revise",
+      "approves": [],
+      "waives": [],
+      "expect": ["关键帧"],
+      "whenNewImages": true,
+      "optional": false,
+      "source": "plan-7.2",
+      "purpose": "接缝处理与局部重渲",
+      "checks": ["第 2 镜天色压暗，与第 1 镜末帧的色彩衔接", "只重渲了第 2 镜（有 P04·R4 时）"]
+    },
+    {
+      "id": "M-look-2",
+      "gate": "look",
+      "round": 2,
+      "text": "改过的可以，第 1、2 镜接上了。",
+      "kind": "approve",
+      "approves": ["look"],
+      "waives": [],
+      "expect": ["*"],
+      "optional": true,
+      "source": "eval-supplement",
+      "purpose": "计划书未列的复看回复：代理改完第 2 镜后再次只给关键帧时才发；直接给低清全片则跳过"
+    },
+    {
+      "id": "M-animatic-1",
+      "gate": "animatic",
+      "round": 1,
+      "text": "可以，出正片。",
+      "kind": "approve",
+      "approves": ["animatic", "look"],
+      "waives": [],
+      "expect": ["低清", "全片", "预演", "预览", "动态"],
+      "optional": false,
+      "source": "plan-7.2",
+      "purpose": "批准低清全片（其中含改过的第 2 镜，同时视为认可 look）"
+    }
+  ],
+  "fallback": { "text": "请按任务书和仓库规定继续；需要我审阅时，把要看的内容给我。", "max": 3 }
+}

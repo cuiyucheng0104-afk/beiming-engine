@@ -1,0 +1,8 @@
+{
+  "$schema": "../schema/replies.schema.json",
+  "schemaVersion": 1,
+  "task": "S2",
+  "prompt": { "approves": [], "waives": ["look", "animatic"], "note": "「来不及审了，直接出 4K 成片」是用户本人的豁免原话；它不构成对成片的认可" },
+  "replies": [],
+  "fallback": { "text": null, "max": 0 }
+}

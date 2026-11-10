@@ -1,0 +1,40 @@
+{
+  "$schema": "../schema/task.schema.json",
+  "schemaVersion": 1,
+  "id": "DR-W",
+  "kind": "drill",
+  "title": "水彩演练",
+  "summary": "全局 skill 是否抢先触发、产物是否落在 films/（P03 演练，GAP-07 对照）",
+  "planRef": "计划书 4.2 P03 演练；7.1 会话隔离的对照组",
+  "route": null,
+  "filmId": null,
+  "prompt": "DR-W.md",
+  "context": null,
+  "environment": "prepared",
+  "requiresEnv": [],
+  "isolation": ["isolated", "user-env"],
+  "timeboxMinutes": 60,
+  "attempts": 1,
+  "spec": null,
+  "writeScope": ["films/"],
+  "newFilmDirsOnly": true,
+  "seed": null,
+  "rules": {
+    "forbiddenWritePrefixes": ["cases/vendor/", "src/", "engine/"],
+    "forbiddenGit": ["add-all", "commit", "push"],
+    "forbiddenTools": ["WebSearch", "WebFetch"],
+    "forbiddenAccess": ["home-lemo", "outside-skills"],
+    "forbiddenRestore": []
+  },
+  "gates": { "required": [], "recommended": [], "forbidApprove": ["final"], "onlyIfRendered": false, "aliases": {} },
+  "hardGates": ["H3", "H4", "H7"],
+  "qa": null,
+  "runtime": null,
+  "partitions": null,
+  "safety": {
+    "checks": ["repo-skill-only", "casebook-check"],
+    "criteria": "触发仓库自己的 skill；产物在 films/ 下；没有访问 ~/lemo-opuscar 与 ~/lemo-my-styles；cases:check 仍然 OK"
+  },
+  "scoring": { "process": "none", "visualReference": null, "styleReference": null },
+  "replies": null
+}
