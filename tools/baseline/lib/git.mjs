@@ -1,11 +1,14 @@
-// 北冥仓库 · 基线工具用到的 git 操作：解析提交、查像素相关路径是否有未提交改动、为旧提交开临时工作树。
+// 北冥仓库 · 基线工具用到的 git 操作：解析提交、查像素相关路径是否有未提交改动、把旧提交的页面导出成临时快照。
 //
 //   PIXEL_PATHS                 会改变画面的路径（引擎、样片、自测页、素材、字体、页面入口、A / C 模版）
 //   resolveCommit(root, ref)    → 完整 sha；不存在时抛 CliError（exit 2）
 //   headCommit(root)            → { sha, short }
 //   dirtyPixelPaths(root)       → 有未提交改动（含未跟踪文件）的像素相关路径列表
-//   withWorktree(root, sha, { workDir, log }, fn)   在临时目录检出 sha（git worktree add --detach），
-//                                 把 node_modules 链接到主工作树，跑 fn(dir)，结束（含出错、收到信号）一定删除
+//   exportPaths(root, sha, paths, dest)   把提交 sha 里这些路径的文件原样写到 dest（git ls-tree + cat-file，只读仓库）；
+//                                 返回写了几个文件、多少字节。按 blob 原字节写，不做换行转换，三平台得到同样的页面
+//   withSnapshot(root, sha, { workDir, log, paths }, fn)   在临时目录导出 sha 的像素相关路径（再加 paths），
+//                                 把 node_modules 链接到主工作树，跑 fn(dir)，结束（含出错、收到信号）一定删除。
+//                                 不建 git worktree、不改仓库的任何状态：只导出渲染要用的约 60 MB，而不是整个检出
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -58,26 +61,70 @@ function linkNodeModules(root, dir) {
   fs.symlinkSync(fs.realpathSync(src), path.join(dir, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
 }
 
-export async function withWorktree(root, sha, { workDir, log = () => {} } = {}, fn) {
+// git ls-tree -r -z -l：<mode> <type> <object> <size>\t<path>
+function listBlobs(root, sha, paths) {
+  const out = execFileSync('git', ['ls-tree', '-r', '-z', '-l', sha, '--', ...paths], { cwd: root, maxBuffer: 64 << 20, windowsHide: true });
+  const blobs = [];
+  for (const rec of out.toString('utf8').split('\0')) {
+    if (!rec) continue;
+    const tab = rec.indexOf('\t');
+    const [mode, type, obj, size] = rec.slice(0, tab).trim().split(/\s+/);
+    if (type !== 'blob') continue;   // 子模块（commit）不导出
+    blobs.push({ mode, obj, size: Number(size), path: rec.slice(tab + 1) });
+  }
+  return blobs;
+}
+
+export function exportPaths(root, sha, paths, dest) {
+  const blobs = listBlobs(root, sha, paths);
+  let files = 0, bytes = 0;
+  // 分批走 git cat-file --batch（每批不超过 64 MiB），不把整棵树读进内存
+  for (let i = 0; i < blobs.length;) {
+    const batch = [];
+    let sum = 0;
+    while (i < blobs.length && (batch.length === 0 || sum + blobs[i].size <= (64 << 20))) { sum += blobs[i].size; batch.push(blobs[i++]); }
+    const out = execFileSync('git', ['cat-file', '--batch'], {
+      cwd: root, input: batch.map(b => b.obj).join('\n') + '\n', maxBuffer: sum + batch.length * 128 + (1 << 20), windowsHide: true,
+    });
+    let off = 0;
+    for (const b of batch) {
+      const nl = out.indexOf(10, off);
+      const head = out.toString('utf8', off, nl).split(' ');
+      if (head[0] !== b.obj || head[1] !== 'blob') throw new CliError('git-failed', `git cat-file 读 ${b.path} 时返回了意外的内容：${head.join(' ')}`, { exitCode: EXIT.FAIL });
+      const size = Number(head[2]);
+      const data = out.subarray(nl + 1, nl + 1 + size);
+      off = nl + 1 + size + 1;
+      if (b.mode === '120000') continue;   // 符号链接：页面不该依赖它，跳过
+      const file = path.join(dest, ...b.path.split('/'));
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, data);
+      files++; bytes += size;
+    }
+  }
+  return { files, bytes };
+}
+
+export async function withSnapshot(root, sha, { workDir, log = () => {}, paths = [] } = {}, fn) {
   const base = workDir || fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-golden-'));
   fs.mkdirSync(base, { recursive: true });
   const dir = path.join(fs.realpathSync(base), `${sha.slice(0, 12)}-${process.pid}`);
   const remove = () => {
-    git(['worktree', 'remove', '--force', dir], { cwd: root, allowFail: true });
-    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-    git(['worktree', 'prune'], { cwd: root, allowFail: true });
+    fs.rmSync(dir, { recursive: true, force: true });
     if (!workDir) fs.rmSync(base, { recursive: true, force: true });
   };
   remove.sync = remove;
-  log(`检出 ${sha.slice(0, 12)} 到临时工作树 ${dir}`);
-  git(['worktree', 'add', '--detach', '--quiet', dir, sha], { cwd: root });
   onCleanup(remove);
   try {
+    const want = [...new Set([...PIXEL_PATHS.filter(p => p !== 'tools/baseline/sets.json'), ...paths])];
+    const t0 = Date.now();
+    const { files, bytes } = exportPaths(root, sha, want, dir);
+    if (!files) throw new CliError('empty-snapshot', `提交 ${sha.slice(0, 12)} 里没有任何像素相关文件`, { hint: '换一个包含 engine/、src/ 的提交', exitCode: EXIT.CONTRACT });
+    log(`导出 ${sha.slice(0, 12)} 的页面快照：${files} 个文件，${(bytes / 1048576).toFixed(1)} MiB，${((Date.now() - t0) / 1000).toFixed(1)} 秒 → ${dir}`);
     linkNodeModules(root, dir);
     return await fn(dir);
   } finally {
     offCleanup(remove);
     remove();
-    log(`已删除临时工作树 ${sha.slice(0, 12)}`);
+    log(`已删除快照 ${sha.slice(0, 12)}`);
   }
 }

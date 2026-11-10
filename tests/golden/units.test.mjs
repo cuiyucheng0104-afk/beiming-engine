@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { decodePNG, encodePNG, pixelSha256 } from '../../tools/baseline/lib/png.mjs';
 import { compareImages, judge, diffHeatmap, downscale, contactSheet } from '../../tools/baseline/lib/metrics.mjs';
 import { validateSets, loadSets, setHash, expandSet, resolveTimes, frameId, frameFile } from '../../tools/baseline/lib/sets.mjs';
@@ -180,4 +181,22 @@ test('严格参数：未知参数、缺值、重复单值参数都是用法错�
   assert.throws(() => parseArgs(['--json=1'], spec), e => e.exitCode === 2);
   assert.deepEqual(parseSize('3840x2080'), [3840, 2080]);
   assert.throws(() => parseSize('1921x1080'), e => e.exitCode === 2);
+});
+
+test('页面快照：只导出指定路径，字节与提交里一致，不建 worktree', async t => {
+  const { isGitRepo, exportPaths, git } = await import('../../tools/baseline/lib/git.mjs');
+  if (!isGitRepo(ROOT)) return t.skip('不在 git 工作树里');
+  const dir = fs.mkdtempSync(`${ROOT}out/.snap-test-`);
+  const before = git(['worktree', 'list', '--porcelain'], { cwd: ROOT });
+  try {
+    const r = exportPaths(ROOT, 'HEAD', ['tests/golden/fixtures', 'tools/baseline/sets.json'], dir);
+    assert.ok(r.files >= 4, `至少导出 3 个夹具页与 sets.json，实际 ${r.files}`);
+    for (const f of ['tests/golden/fixtures/pure/index.html', 'tools/baseline/sets.json']) {
+      const want = execFileSync('git', ['cat-file', 'blob', `HEAD:${f}`], { cwd: ROOT });   // 原字节，不经 trim
+      const got = fs.readFileSync(`${dir}/${f}`);
+      assert.equal(crypto.createHash('sha256').update(got).digest('hex'), crypto.createHash('sha256').update(want).digest('hex'), f);
+    }
+    assert.equal(fs.existsSync(`${dir}/engine`), false, '没要的路径不导出');
+    assert.equal(git(['worktree', 'list', '--porcelain'], { cwd: ROOT }), before, '不改仓库的 worktree 列表');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

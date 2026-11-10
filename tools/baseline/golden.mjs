@@ -9,7 +9,7 @@ import { runMain, CliError, EXIT, usage, log, onCleanup, offCleanup, sha256File,
 import { loadSets, setHash } from './lib/sets.mjs';
 import { captureSet, captureUsable, assertCaptured } from './lib/capture.mjs';
 import { compareFrames, summaryLine, worstStats } from './lib/compare.mjs';
-import { headCommit, resolveCommit, dirtyPixelPaths, withWorktree, runId, isGitRepo } from './lib/git.mjs';
+import { git, headCommit, resolveCommit, dirtyPixelPaths, withSnapshot, runId, isGitRepo } from './lib/git.mjs';
 import { manifestPath, toBaseline, validateManifest, diffFrames, appendApproval, readManifest, listManifests, APPROVALS } from './lib/manifest.mjs';
 import { osKey } from './lib/platform.mjs';
 
@@ -31,7 +31,8 @@ const HELP = `北冥仓库 · 金标准基线（golden）
 
 compare 的参照（三选一）：
   默认              tests/golden/manifests/<平台键>/<集合>.json；哈希不同的帧自动现渲清单的源提交取参照像素，再按容差判定
-  --against <提交>  在临时工作树里现场渲染该提交（结束即删），逐帧比；用来二分定位是哪个提交改了像素
+  --against <提交>  把该提交的页面（引擎、样片、自测页、素材、字体、模版，约 60 MB）导出到临时目录现场渲染，结束即删；
+                    逐帧比，用来二分定位是哪个提交改了像素。不建 git worktree，不改仓库任何状态
   --ref-dir <目录>  另一台机器 capture 出来的目录（含 capture.json 与 frames/）；平台键不同时按跨平台容差（SSIM / PSNR）比
 
 选项：
@@ -43,7 +44,7 @@ compare 的参照（三选一）：
   --jobs <n>               同时开几个页面（默认 2）
   --frame-timeout <秒>     单帧 render + 截图的上限（默认 60）
   --out <目录>             capture / compare 的输出目录
-  --work-dir <目录>        --against 与现渲参照的临时工作树放哪（默认系统临时目录）
+  --work-dir <目录>        --against 与现渲参照的临时快照放哪（默认系统临时目录）
   --by <名字>              update：审批人（人名或角色，不能空）
   --reason <理由>          update：为什么要更新基线（引用审批来源，如 PR 链接或用户原话出处）
   --commit <提交>          update：登记哪个提交；必须等于当前 HEAD，且像素相关路径没有未提交改动
@@ -144,23 +145,40 @@ async function captureCurrent(sets, setName, opts, dir) {
   return { manifest, dir };
 }
 
-// 参照：现场渲染某个提交（有缓存且环境一致就复用）
-async function captureCommit(sets, setName, sha, opts, want) {
-  const dir = cacheDir(sha, setName);
-  if (!opts.noCache) {
-    const m = captureUsable(dir, { setHash: setHash(sets, setName), ...want });
-    if (m) { log(`参照 ${sha.slice(0, 7)} 用缓存 ${rel(dir)}`); return { manifest: m, dir }; }
+// 参照：现场渲染提交（有缓存且环境一致就复用）。requests = [{ setName, sha, want }]，同一个提交的多个集合只导出一次快照
+const refKey = (sha, setName) => `${sha}/${setName}`;
+function pagePaths(sets, names) {
+  const ps = new Set();
+  for (const n of names) for (const g of sets.sets[n].shots) {
+    const p = sets.pages[g.page];
+    for (const r of [p.dir, p.template, p.requires]) if (r && r !== '.') ps.add(r);
   }
-  const head = headCommit(ROOT).sha;
-  if (sha === head && dirtyPixelPaths(ROOT).length === 0) {
-    log(`参照 ${sha.slice(0, 7)} 就是当前工作树（干净），直接截`);
-    const manifest = await captureInto({ tree: ROOT, sets, setName, dir, opts, source: { commit: sha, dirty: false } });
-    return { manifest, dir };
-  }
-  const manifest = await withWorktree(ROOT, sha, { workDir: opts.workDir, log }, tree =>
-    captureInto({ tree, sets, setName, dir, opts, source: { commit: sha, dirty: false } }));
-  return { manifest, dir };
+  return [...ps];
 }
+async function captureRefs(sets, requests, opts) {
+  const got = new Map(), todo = new Map();
+  for (const r of requests) {
+    const dir = cacheDir(r.sha, r.setName);
+    const m = opts.noCache ? null : captureUsable(dir, { setHash: setHash(sets, r.setName), ...r.want });
+    if (m) { log(`参照 ${r.sha.slice(0, 7)} / ${r.setName} 用缓存 ${rel(dir)}`); got.set(refKey(r.sha, r.setName), { manifest: m, dir }); continue; }
+    if (!todo.has(r.sha)) todo.set(r.sha, []);
+    todo.get(r.sha).push(r);
+  }
+  const head = headCommit(ROOT).sha, clean = dirtyPixelPaths(ROOT).length === 0;
+  for (const [sha, reqs] of todo) {
+    const run = async tree => {
+      for (const r of reqs) {
+        const dir = cacheDir(sha, r.setName);
+        const manifest = await captureInto({ tree, sets, setName: r.setName, dir, opts, source: { commit: sha, dirty: false } });
+        got.set(refKey(sha, r.setName), { manifest, dir });
+      }
+    };
+    if (sha === head && clean) { log(`参照 ${sha.slice(0, 7)} 就是当前工作树（干净），直接截`); await run(ROOT); }
+    else await withSnapshot(ROOT, sha, { workDir: opts.workDir, log, paths: pagePaths(sets, reqs.map(r => r.setName)) }, run);
+  }
+  return got;
+}
+const commitExists = sha => git(['rev-parse', '--verify', '--quiet', `${sha}^{commit}`], { cwd: ROOT, allowFail: true }) != null;
 
 function normalizeOpts(o) {
   const gpu = o.gpu || 'required';
@@ -191,31 +209,32 @@ async function cmdCapture(opts, sets) {
 }
 
 // ── compare ──
+// 三步：① 截当前工作树的每个集合；② 定参照（--against / --ref-dir / 本平台清单），需要现渲的按提交分组、每个提交只导出一次快照；③ 逐集合比对、出报告
 async function cmdCompare(opts, sets) {
   const names = needSets(sets, opts.set);
   if (opts.against && opts.refDir) throw usage('--against 与 --ref-dir 只能二选一');
+  const againstSha = opts.against ? resolveCommit(ROOT, opts.against) : null;
   const id = runId(ROOT);
   const reportRoot = opts.out ? path.resolve(opts.out) : path.join(OUT, 'compare', id);
   const outputs = [], warnings = [], result = [];
   let failed = false, envMissing = false;
+
+  // ① 当前
+  const cur = {};
+  for (const s of names) cur[s] = await captureCurrent(sets, s, opts, path.join(reportRoot, 'current', s));
+
+  // ② 参照
+  const plan = {}, requests = [];
   for (const s of names) {
-    const cur = await captureCurrent(sets, s, opts, path.join(reportRoot, 'current', s));
-    const curM = cur.manifest;
-    const tolAll = sets.sets[s].tolerance || {};
-    let ref, refLabel, mode, drift = [];
-    if (opts.against) {
-      const sha = resolveCommit(ROOT, opts.against);
-      const r = await captureCommit(sets, s, sha, opts, { platformKey: curM.platformKey, device: curM.device, browser: curM.browser });
-      ref = { frames: r.manifest.frames, dir: r.dir };
-      refLabel = `提交 ${sha.slice(0, 12)}（现场渲染）`;
-      mode = r.manifest.platformKey === curM.platformKey ? 'same-platform' : 'cross-platform';
+    const curM = cur[s].manifest, want = { platformKey: curM.platformKey, device: curM.device, browser: curM.browser };
+    if (againstSha) {
+      plan[s] = { kind: 'against', sha: againstSha };
+      requests.push({ setName: s, sha: againstSha, want });
     } else if (opts.refDir) {
       const d = path.resolve(opts.refDir, fs.existsSync(path.join(opts.refDir, s, 'capture.json')) ? s : '');
       const m = readManifest(path.join(d, 'capture.json'));
       if (!m) throw new CliError('no-ref', `--ref-dir 里找不到 ${s} 的 capture.json：${d}`, { hint: '传 golden capture 输出的目录（含 capture.json 与 frames/）', exitCode: EXIT.ENV });
-      ref = { frames: m.frames, dir: d };
-      refLabel = `目录 ${d}（${m.platformKey}，${m.device}）`;
-      mode = m.platformKey === curM.platformKey ? 'same-platform' : 'cross-platform';
+      plan[s] = { kind: 'dir', m, dir: d };
     } else {
       const mf = manifestPath(ROOT, curM.platformKey, s);
       const m = readManifest(mf);
@@ -229,37 +248,57 @@ async function cmdCompare(opts, sets) {
       if (errs.length) throw new CliError('bad-manifest', `${rel(mf)} 不合法：${errs.join('；')}`, { hint: '清单只能由 golden update 生成', exitCode: EXIT.CONTRACT });
       if (m.setHash !== curM.setHash) warnings.push(`${s}：集合定义与基线清单不一致（sets.json 改过），多出 / 缺少的帧要经审批 update`);
       if (m.device !== curM.device || m.browser !== curM.browser) warnings.push(`${s}：基线来自 ${m.device} / 浏览器 ${m.browser}，本机是 ${curM.device} / ${curM.browser}；哈希不同的帧会现渲基线提交来区分「代码改动」与「环境漂移」`);
-      ref = { frames: m.frames, dir: null };
-      refLabel = `清单 ${rel(mf)}（源提交 ${m.source.commit.slice(0, 12)}）`;
-      mode = 'same-platform';
       const curById = new Map(curM.frames.map(f => [f.id, f]));
       const differing = m.frames.filter(f => curById.get(f.id) && curById.get(f.id).pixelSha256 !== f.pixelSha256);
+      plan[s] = { kind: 'manifest', m, mf, differing: differing.length };
       if (differing.length && !opts.noRenderRef) {
-        log(`${differing.length} 帧哈希与清单不同：现渲基线源提交 ${m.source.commit.slice(0, 7)} 取参照像素`);
-        let r = null;
-        try {
-          r = await captureCommit(sets, s, m.source.commit, opts, { platformKey: curM.platformKey, device: curM.device, browser: curM.browser });
-        } catch (e) {
-          if (e instanceof CliError && e.exitCode === EXIT.USAGE) warnings.push(`基线源提交 ${m.source.commit.slice(0, 12)} 在本仓库里找不到，无法取参照像素`);
-          else throw e;
+        if (!commitExists(m.source.commit)) warnings.push(`${s}：基线源提交 ${m.source.commit.slice(0, 12)} 在本仓库里找不到（浅克隆？），${differing.length} 帧哈希不同却拿不到参照像素`);
+        else {
+          log(`${s}：${differing.length} 帧哈希与清单不同，现渲基线源提交 ${m.source.commit.slice(0, 7)} 取参照像素`);
+          requests.push({ setName: s, sha: m.source.commit, want });
         }
-        if (r) {
-          const local = new Map(r.manifest.frames.map(f => [f.id, f]));
-          // 本机渲染基线提交得到的哈希与清单不同 = 环境漂移（设备、驱动、浏览器）；此时拿本机渲染的基线提交当参照
-          drift = m.frames.filter(f => local.get(f.id) && local.get(f.id).pixelSha256 !== f.pixelSha256).map(f => f.id);
-          ref = { frames: m.frames.map(f => local.get(f.id) || f), dir: r.dir };
-          if (drift.length) warnings.push(`${s}：${drift.length} 帧环境漂移（本机渲染基线提交 ≠ 清单）；这些帧改为与本机渲染的基线提交比较。漂移确认无害后，经审批为本机环境重建基线`);
-        }
+      }
+    }
+  }
+  const refs = requests.length ? await captureRefs(sets, requests, opts) : new Map();
+
+  // ③ 比对
+  for (const s of names) {
+    const P = plan[s];
+    if (!P) continue;
+    const curM = cur[s].manifest, tolAll = sets.sets[s].tolerance || {};
+    let ref, refLabel, mode, drift = [];
+    if (P.kind === 'against') {
+      const r = refs.get(refKey(P.sha, s));
+      ref = { frames: r.manifest.frames, dir: r.dir };
+      refLabel = `提交 ${P.sha.slice(0, 12)}（现场渲染）`;
+      mode = r.manifest.platformKey === curM.platformKey ? 'same-platform' : 'cross-platform';
+    } else if (P.kind === 'dir') {
+      ref = { frames: P.m.frames, dir: P.dir };
+      refLabel = `目录 ${P.dir}（${P.m.platformKey}，${P.m.device}）`;
+      mode = P.m.platformKey === curM.platformKey ? 'same-platform' : 'cross-platform';
+    } else {
+      const m = P.m;
+      ref = { frames: m.frames, dir: null };
+      refLabel = `清单 ${rel(P.mf)}（源提交 ${m.source.commit.slice(0, 12)}）`;
+      mode = 'same-platform';
+      const r = refs.get(refKey(m.source.commit, s));
+      if (r) {
+        const local = new Map(r.manifest.frames.map(f => [f.id, f]));
+        // 本机渲染基线提交得到的哈希与清单不同 = 环境漂移（设备、驱动、浏览器）；此时拿本机渲染的基线提交当参照
+        drift = m.frames.filter(f => local.get(f.id) && local.get(f.id).pixelSha256 !== f.pixelSha256).map(f => f.id);
+        ref = { frames: m.frames.map(f => local.get(f.id) || f), dir: r.dir };
+        if (drift.length) warnings.push(`${s}：${drift.length} 帧环境漂移（本机渲染基线提交 ≠ 清单）；这些帧改为与本机渲染的基线提交比较。漂移确认无害后，经审批为本机环境重建基线`);
       }
     }
     const tolerance = mode === 'cross-platform' ? (tolAll.crossPlatform || {}) : (tolAll.samePlatform || {});
     const strict = opts.strict && mode !== 'cross-platform';
     if (opts.strict && mode === 'cross-platform') warnings.push(`${s}：跨平台比对不可能逐像素一致，--strict 不适用，按跨平台容差判定`);
     const dir = path.join(reportRoot, s);
-    const cmp = compareFrames({ ref, cur: { frames: curM.frames, dir: cur.dir }, tolerance, strict, outDir: dir, log });
+    const cmp = compareFrames({ ref, cur: { frames: curM.frames, dir: cur[s].dir }, tolerance, strict, outDir: dir, log });
     const report = {
       schemaVersion: 1, kind: 'golden-compare', set: s, mode, strict, tolerance,
-      reference: refLabel, current: { dir: rel(cur.dir), source: curM.source, platformKey: curM.platformKey, device: curM.device, renderer: curM.renderer, browser: curM.browser, env: curM.env },
+      reference: refLabel, current: { dir: rel(cur[s].dir), source: curM.source, platformKey: curM.platformKey, device: curM.device, renderer: curM.renderer, browser: curM.browser, env: curM.env },
       ok: cmp.ok, summary: cmp.summary, worst: worstStats(cmp.frames), drift, contact: cmp.contact,
       frames: cmp.frames,
     };
