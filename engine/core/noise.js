@@ -1,6 +1,8 @@
 // 北冥引擎 · 单纯形噪声（2D / 3D），由一个确定性随机函数打乱置换表。
 // 用法：const n = createNoise3D(mulberry(7)); n(x, y, z) → 约 [-1, 1]
 // 同一个种子永远给出同一张噪声场，所以墨线抖动、斑驳纹理在每次重渲时都逐帧一致。
+// 必须传随机函数：不传时不会退回 Math.random——那样分段渲染的每个 Chrome、单帧重渲各得一张不同的置换表，
+// 墨线和纸纹会在段边界突变，所以直接报错。
 
 const F2 = 0.5 * (Math.sqrt(3) - 1), G2 = (3 - Math.sqrt(3)) / 6;
 const F3 = 1 / 3, G3 = 1 / 6;
@@ -13,7 +15,10 @@ const GRAD3 = new Float32Array([
 ]);
 
 // 0..255 的置换表（从前往后的 Fisher–Yates 洗牌），复制一遍省去取模
-function permutation(random) {
+function permutation(random, name) {
+  if (typeof random !== 'function') {
+    throw new TypeError(`${name} 需要一个确定性随机函数，例如 ${name}(mulberry(7))；不传种子的噪声在分段渲染和单帧重渲时对不上`);
+  }
   const p = new Uint8Array(256);
   for (let i = 0; i < 256; i++) p[i] = i;
   for (let i = 0; i < 255; i++) {
@@ -25,8 +30,8 @@ function permutation(random) {
   return { perm, g };
 }
 
-export function createNoise2D(random = Math.random) {
-  const { perm, g } = permutation(random);
+export function createNoise2D(random) {
+  const { perm, g } = permutation(random, 'createNoise2D');
   const corner = (x, y, gi) => {
     const t = 0.5 - x * x - y * y;
     if (t < 0) return 0;
@@ -47,8 +52,8 @@ export function createNoise2D(random = Math.random) {
   };
 }
 
-export function createNoise3D(random = Math.random) {
-  const { perm, g } = permutation(random);
+export function createNoise3D(random) {
+  const { perm, g } = permutation(random, 'createNoise3D');
   const corner = (x, y, z, gi) => {
     const t = 0.6 - x * x - y * y - z * z;
     if (t < 0) return 0;

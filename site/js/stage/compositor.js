@@ -32,6 +32,8 @@ uniform sampler2D tC, tN, tD, tSky, tPaper;
 uniform vec2 uRes, uPaperSize;
 uniform float uNear, uFar, uInkT, uK;
 uniform float uLW, uLWv, uJit;                         // 线宽、线宽起伏、抖动（1080 高度下的像素）
+uniform float uLineK, uOutline;                        // 线宽倍数；外轮廓（剪影边）再按多少倍线宽取样。实时都是 1，只给缩小显示的静帧加粗用
+uniform float uLineSolid;                              // “形”的线压在半透明的鳍上也画实（0..1）。实时为 0，静帧用
 uniform float uToon, uLineForm, uInkAmt, uGrain, uSky, uHaze;   // 各层权重
 uniform float uPaperMid;
 uniform vec2 uLineFade;                                 // 墨线随距离变淡的区间（视空间深度）
@@ -57,7 +59,7 @@ void main() {
   vec2 uv = vUv + j;
   vec4 n0 = texture2D( tN, uv ); float z0 = vz( uv );
   vec3 m0 = n0.xyz * 2.0 - 1.0; float w0 = length( m0 ); m0 /= max( w0, 1e-4 );
-  float lw = max( 1.0, ( uLW + uLWv * ln2( fp / 30.0 + uInkT * 3.3 ) ) * uK );
+  float lw = max( 1.0, ( uLW + uLWv * ln2( fp / 30.0 + uInkT * 3.3 ) ) * uK * uLineK );
   float e = 0.0, bg = 0.0;                             // bg：邻居里有没有空白（外轮廓）
   vec3 nAcc = vec3( 0.0 );
   for ( int i = 0; i < 8; i ++ ) {
@@ -69,6 +71,8 @@ void main() {
     vec3 m1 = n1.xyz * 2.0 - 1.0; float w1 = length( m1 ); m1 /= max( w1, 1e-4 );
     float has1 = step( 0.001, n1.a );
     bg = max( bg, 1.0 - has1 );
+    // 外轮廓加粗（静帧缩小显示时用）：剪影边再往里多取一圈。uOutline 是 uniform，实时画面恒为 1，这一支整片跳过
+    if ( uOutline > 1.001 ) bg = max( bg, 1.0 - step( 0.001, texture2D( tN, uv + o * uOutline ).a ) );
     nAcc += m1 * has1;
     float dn = smoothstep( 0.45, 0.7, 1.0 - dot( m0, m1 ) ) * has1;
     float di = step( 0.003, abs( n0.a - n1.a ) ) * step( z0, z1 + 0.5 );
@@ -85,7 +89,8 @@ void main() {
   vec3 clay = mix( uClayShade, uClayLit, smoothstep( 0.2, 0.9, hl ) );
   clay = mix( clay, uClayDeep, pow( 1.0 - clamp( nC.z, 0.0, 1.0 ), 3.0 ) * 0.45 );   // 侧面转过去的地方压一点淡墨
   // 外轮廓用满浓度（对纸色 ≥ 3:1，看得出形），内部的结构线略淡（0.85），小尺寸时仙岛上不至于一团乱线
-  clay = mix( clay, uLineInk, max( e * 0.85, bg * step( 0.001, n0.a ) ) * uLineForm );
+  float lineF = max( e * 0.85, bg * step( 0.001, n0.a ) ) * uLineForm;
+  clay = mix( clay, uLineInk, lineF );
 
   // —— 光：彩色通道（预乘 → 直通）——
   vec3 sc = a > 0.001 ? c.rgb / a : clay;
@@ -110,6 +115,7 @@ void main() {
   skyc *= g;
 
   // —— 叠到天空上（预乘），换到 sRGB 后再乘 alpha：浏览器按 sRGB 预乘合成到纸面 ——
+  a = max( a, lineF * uLineSolid );                    // 鳍是半透明的：线在上面只剩一半浓度，缩小看就没了；静帧把线画实
   vec3 rgbP = obj * a + skyc * ( 1.0 - a ) * uSky;
   float A = a + ( 1.0 - a ) * uSky;
   gl_FragColor = vec4( A > 1e-4 ? rgbP / A : vec3( 0.0 ), 1.0 );
@@ -132,7 +138,7 @@ export function createCompositor(renderer, { msaa = 4 } = {}) {
     tC: { value: null }, tN: { value: null }, tD: { value: null }, tSky: { value: blank }, tPaper: { value: null },
     uRes: { value: new THREE.Vector2(1, 1) }, uPaperSize: { value: new THREE.Vector2(1, 1) }, uPaperMid: { value: 0.5 },
     uNear: { value: 5 }, uFar: { value: 6000 }, uInkT: { value: 0 }, uK: { value: 1 },
-    uLW: { value: 1.9 }, uLWv: { value: 0.7 }, uJit: { value: 0.6 },
+    uLW: { value: 1.9 }, uLWv: { value: 0.7 }, uJit: { value: 0.6 }, uLineK: { value: 1 }, uOutline: { value: 1 }, uLineSolid: { value: 0 },
     uToon: { value: 1 }, uLineForm: { value: 0 }, uInkAmt: { value: 1 }, uGrain: { value: 0.12 }, uSky: { value: 1 }, uHaze: { value: 1 },
     uInk: { value: linVec('#2A2D52') }, uLineInk: { value: linVec(CLAY.line) },
     uClayLit: { value: linVec(CLAY.lit) }, uClayShade: { value: linVec(CLAY.shade) }, uClayDeep: { value: linVec(CLAY.deep) },
@@ -170,12 +176,16 @@ export function createCompositor(renderer, { msaa = 4 } = {}) {
    *   target        输出目标（默认 null = 画布）
    *   composite     false = 只画两遍、不合成（预热用）
    *   only          'color' | 'normal'：只画其中一遍、不合成（预热用）
+   *   lineK         线宽倍数（默认 1）；outline 外轮廓取样半径再乘的倍数（默认 1 = 与线宽相同）；
+   *   lineSolid     0..1，“形”的线压在半透明的鳍上也画实（默认 0）。
+   *                 这三个实时画面都不传；拆层静帧在页面上缩小到约一半显示，“形”那张靠它们把轮廓画粗、画实（FINAL-12）
    * }
    */
   function render(scene, camera, p) {
     paper.prepare();
     const layer = paper.layer({ strength: p.grain ?? 0 });
     U.tPaper.value = layer.tex; U.uPaperSize.value.set(layer.w, layer.h); U.uPaperMid.value = layer.mid;
+    U.uLineK.value = p.lineK ?? 1; U.uOutline.value = Math.max(1, p.outline ?? 1); U.uLineSolid.value = p.lineSolid ?? 0;
     U.uToon.value = p.toon; U.uLineForm.value = p.lineForm; U.uInkAmt.value = p.ink; U.uGrain.value = layer.strength;
     U.uSky.value = p.sky; U.uHaze.value = p.haze; U.uInkT.value = p.inkT;
     if (p.skyUV) U.uSkyUV.value.copy(p.skyUV);

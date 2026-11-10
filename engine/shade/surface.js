@@ -7,7 +7,8 @@
 //   paintLayer                            绘画感：三档植被斑驳、干笔笔触 stroke、颜料颗粒 grain、锈斑撕边 / 积色边 / 甩点 / 海绵点、
 //                                         藻斑撕边、成簇斑点；斑块可沿物体 X 轴拉长（patchStretch < 1）
 //   muralLayer                            壁画风化：褪色大斑（向地仗色 muralGround 靠）、干笔飞白、剥落块、氧化暗斑、细碎点；
-//                                         钩子可写 toonMuralP（风化坐标）、toonMuralK（本像素风化量倍率）
+//                                         钩子可写 toonMuralP（风化坐标）、toonMuralK（本像素风化量倍率，负值按 0 算）
+//                                         分支只看 uniform（uMuralAmt），fwidth 都在一致控制流里算，K 逐像素变也不会让导数失效
 import { colorOf, vec3Of } from './patch.js';
 import { AA_GLSL, glf } from './util.glsl.js';
 
@@ -180,9 +181,9 @@ vec3 toonMuralP = vToonObj;     // 钩子可写：风化噪声坐标
 float toonMuralK = 1.0;         // 钩子可写：本像素风化量倍率
 `,
   post: /* glsl */`
-if ( uMuralAmt > 0.0 && toonMuralK > 0.0 ) {
+if ( uMuralAmt > 0.0 ) {         // 只按 uniform 分支：toonMuralK 可以逐像素变，放进条件里 fwidth 就是非一致控制流里的导数（未定义）
   vec3 Pm = toonMuralP * uMuralScale;
-  float amt = uMuralAmt * toonMuralK;
+  float amt = uMuralAmt * max( toonMuralK, 0.0 );   // K = 0 时下面每一步都 mix(x, y, 0) = x，不改色
   // 1) 褪色大斑：颜料层变薄，向地仗色靠（软边，分两档）
   float fn = toonFbm( Pm * 0.45 + vec3( 3.1, 7.7, 1.3 ) );
   float fa = max( fwidth( fn ), 1e-4 );

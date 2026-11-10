@@ -11,4 +11,5 @@
   scope      自检画图：频谱、波形、曲线、声场宽度
 
 用法：把仓库根放进 sys.path，再 from engine.audio import dsp, mixing ...
+测试：仓库根下 python -m unittest engine.audio.test_audio（合成信号，几秒）；整段混音的时间表用例在 audio/test_timeline.py
 """

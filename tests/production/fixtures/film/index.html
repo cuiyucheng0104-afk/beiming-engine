@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>渲染管线测试片</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head><body>
+<canvas id="c"></canvas>
+<script>
+// 渲染管线回归测试用的小影片（tests/production/render-pipeline.test.mjs），满足 engine/render/page.mjs 的页面约定。
+// 用 query 参数注入失败：
+//   dur=秒（默认 1）       fps=声明 window.FPS（不写就不声明；帧号仍按 24 算）
+//   fail=throw             从第 at 帧起 render(t) 抛错
+//   fail=pageerror         从第 at 帧起在页面里抛一个未捕获的异步异常
+//   fail=missing           页面加载一个不存在的脚本（404）
+//   fail=never             永远不置 READY
+//   fail=hang              从第 at 帧起 render(t) 死循环，永不返回
+//   slow=毫秒              每帧额外忙等这么久（给“中途杀 FFmpeg”留时间）
+// 每帧画面：底色随帧号变；左上角 8 个 8×8 色块是帧号的二进制（白 = 1），解码后可读回帧号。
+const q = new URLSearchParams(location.search);
+const c = document.getElementById('c');
+c.width = innerWidth; c.height = innerHeight;
+const g = c.getContext('2d');
+const fail = q.get('fail'), at = Number(q.get('at') || 0), slow = Number(q.get('slow') || 0);
+window.DUR = q.has('dur') ? Number(q.get('dur')) : 1;
+if (q.has('fps')) window.FPS = Number(q.get('fps'));
+window.render = t => {
+  const f = Math.round(t * 24);
+  if (fail === 'throw' && f >= at) throw new Error(`注入的渲染错误：第 ${f} 帧`);
+  if (fail === 'pageerror' && f >= at) setTimeout(() => { throw new Error(`注入的页面错误：第 ${f} 帧`); });
+  if (fail === 'hang' && f >= at) for (;;) { /* 卡死 */ }
+  const end = performance.now() + slow;
+  while (performance.now() < end) { /* 忙等，模拟重帧 */ }
+  g.fillStyle = `hsl(${(f * 37) % 360} 60% 45%)`;
+  g.fillRect(0, 0, c.width, c.height);
+  for (let b = 0; b < 8; b++) { g.fillStyle = (f >> b) & 1 ? '#fff' : '#000'; g.fillRect(b * 8, 0, 8, 8); }
+};
+if (fail === 'missing') { const s = document.createElement('script'); s.src = './does-not-exist.js'; document.head.appendChild(s); }
+if (fail !== 'never') window.READY = true;
+</script>
+</body></html>

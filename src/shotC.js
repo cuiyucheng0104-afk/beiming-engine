@@ -2,22 +2,30 @@
 // 天空 / 云堤 / 天际线 / 低雾是以相机为心的穹顶面片（摇镜时不变形）；前景两堵云墙是相机前 110 m 的平面，5.0–5.6 拉开露出鲲眼；
 // 鲲（近景 LOD 1）一拍三，从右向左、向上游过头顶，镜头 24 fps 平滑上摇、左摇，头部微晃 < 1°；
 // 云片在鲲前后穿过；9.0–10.0 地平线第一缕日光整体提亮。
-// 每帧把鲲眼和导航线投影成屏幕坐标交给 hud.js（hudState）。
+// 每帧把鲲眼和导航线投影成屏幕坐标交给 hud.js（hudState）；hudAt(t) 给 window.TEXTS 按 t 单独取同样的量。
+// 时间：本镜头的编排按设计稿写成全局秒（镜头 C 从 5.0 起、片尾 10.0，见 src/timeline.js 的 DESIGN）。
+//       成片里镜头 C 的起点是 TIMELINE.C；改了它，update / look / hudAt 先把全局时间平移成设计稿时间，整段编排跟着走。
+// 鲲：用 kun.js 的 createKun；换别的鲲变体时 buildShotC({ makeKun }) 传进来（或改下面的 import）。
+//     本镜头对鲲的要求：group、setPose(ts, { look })、eyes（mountEyes 的眼窝）、eyeWorld、eyeRadius、fitShadow；
+//     可选：fins 里有 { side, pivot } 刚体胸鳍时，7.1–7.9 收起远侧那片；名为 kun-body / kun-flukes / kun-fin-barnacles 的网格调城市暖光。
 import * as THREE from 'three';
 import { createKun } from './kun.js';
 import { setToonGlobals } from './toon.js';
+import { TIMELINE, DESIGN } from './timeline.js';
 import { lerp, seg, ss, ss5, eo, DEG } from '../engine/core/math.js';
-import { hold, heldTime } from '../engine/core/clock.js';
+import { hold, heldTime, frameOf } from '../engine/core/clock.js';
 import { plate, plateCopy, cropPlate, glowSprite } from '../engine/stage/plates.js';
 import { domePlate } from '../engine/stage/dome.js';
 import { aimCamera, dirOf, yawPitchOf, wrapAngle, placeOnScreen, project, projectAll } from '../engine/stage/camera.js';
 import { headingQuat, integratePath, bezierPoints } from '../engine/stage/motion.js';
 import { wireOutlines } from '../engine/stage/outline.js';
 
-export const C_START = 5.0;
+export const C_START = TIMELINE.C;   // 本镜头在成片里的起点（全局秒）
+const C0 = DESIGN.C;                  // 设计稿里的起点：本文件里的秒数都按它写
 
-export function buildShotC({ W, H, tex, q }) {
+export function buildShotC({ W, H, tex, q, makeKun = createKun }) {
   const P = (k, d) => (q && q.has(k) ? parseFloat(q.get(k)) : d);   // 调试：URL 参数覆盖
+  const SHIFT = C_START - C0, FSHIFT = frameOf(SHIFT);               // 成片时间 → 设计稿时间（秒 / 帧）
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2('#B8A6DD', P('fog', 0.00085));
   const cam = new THREE.PerspectiveCamera(31, W / H, 1, 60000);
@@ -31,12 +39,12 @@ export function buildShotC({ W, H, tex, q }) {
     const a = ss5(seg(t, 6.35, 8.7));
     let yaw = lerp(Y0, Y1, a), pitch = lerp(P0, P1, a);
     // 5.0–6.4：几乎不动，只有很慢的漂移（盯着眼睛）
-    yaw += 0.6 * seg(t, 5.0, 6.4); pitch += 0.4 * seg(t, 5.0, 6.4);
+    yaw += 0.6 * seg(t, C0, 6.4); pitch += 0.4 * seg(t, C0, 6.4);
     // 头部微晃（< 1°，低频，不做手持抖动）
     const sy = 0.32 * Math.sin(t * 1.13 + 0.4) + 0.12 * Math.sin(t * 2.31 + 1.7);
     const sp = 0.22 * Math.sin(t * 0.87 + 1.1) + 0.08 * Math.sin(t * 1.93);
     const sr = 0.18 * Math.sin(t * 0.61 + 2.0);
-    const pos = DECK.clone().add(new THREE.Vector3(-2.6 * (t - C_START), 0.18 * Math.sin(t * 1.4), -1.2 * (t - C_START)));   // 渡船缓缓前行 + 起伏
+    const pos = DECK.clone().add(new THREE.Vector3(-2.6 * (t - C0), 0.18 * Math.sin(t * 1.4), -1.2 * (t - C0)));   // 渡船缓缓前行 + 起伏
     return { yaw: (yaw + sy) * DEG, pitch: (pitch + sp) * DEG, roll: sr * DEG, pos, swayYaw: sy * DEG, swayPitch: sp * DEG };
   }
 
@@ -58,13 +66,13 @@ export function buildShotC({ W, H, tex, q }) {
   { const d = dirOf(DAWN_YAW, DAWN_PITCH).multiplyScalar(20000); sun.position.copy(d); sun.lookAt(0, 0, 0); sun.scale.set(9000, 9000, 1); }
 
   // ── 前景云墙（相机前 110 m 的平面，按 t=5.0 机位摆）──
-  const c0 = camPose(C_START);
+  const c0 = camPose(C0);
   const cam0 = cam.clone(); aimCamera(cam0, c0.pos, Y0 * DEG, P0 * DEG);
   const wallA = plate(tex.clouds_front_a, 6), wallB = plate(tex.clouds_front_b, 7);
   scene.add(wallA, wallB);
   const WALL_D = P('walld', 60);
   function placeWalls(t) {
-    const open = eo(seg(t, 5.0, 5.62)), drift = 60 * Math.max(0, t - 5.62) + 140 * Math.max(0, t - 6.4) ** 1.5;
+    const open = eo(seg(t, C0, 5.62)), drift = 60 * Math.max(0, t - 5.62) + 140 * Math.max(0, t - 6.4) ** 1.5;
     const fade = 1 - ss(seg(t, 6.6, 7.8));                 // 拉开后的云墙慢慢散开
     wallA.material.opacity = fade; wallB.material.opacity = fade;
     wallA.visible = wallB.visible = fade > 0.01;
@@ -75,10 +83,19 @@ export function buildShotC({ W, H, tex, q }) {
   }
 
   // ── 鲲 ──
-  const kun = createKun({ lod: 1, wisps: false, blinkPeriod: 4, blinkOffset: 2.375 });
-  // 腹部城市暖光：仰拍时腹部法线只有约 0.8 朝下，把两档阈值放低，让腹沟一带被映成暖橙（只改本镜头的鲲）
-  kun.group.traverse(o => { const u = o.material?.userData?.toon; if (!u || !o.name.match(/kun-(body|fin|flukes)/)) return;
-    u.uFillStep.value = P('cs1', 0.38); u.uFillStep2.value = P('cs2', 0.72); u.uFillW1.value = 0.5; u.uFillAmt.value = P('ca', 1.0); });
+  // 胸鳍摆动按 YXZ 合成：v1.0 成片的胸鳍就是这个顺序（kun.js 的 finEulerOrder），每一帧都一样，与渲染顺序无关
+  const kun = makeKun({ lod: 1, wisps: false, blinkPeriod: 4, blinkOffset: 2.375, finEulerOrder: 'YXZ' });
+  // 腹部城市暖光：仰拍时腹部法线只有约 0.8 朝下，把两档阈值放低，让腹沟一带被映成暖橙（只改本镜头的鲲）。
+  // 改哪些网格写成明确的名单，不靠名字子串匹配：身体、尾鳍、两片胸鳍上的藤壶（kun-fin-barnacles）。
+  // 成片（v1.0 起，已认可）里胸鳍网格本身没调、调到的是鳍上藤壶（当年的正则 /kun-(body|fin|flukes)/ 只命中它们），这里照成片保留。
+  // ?finwarm=1 换成原注释的本意：胸鳍网格变暖、鳍上藤壶回到默认值（只供审片对比，默认关）。
+  const byName = n => kun.group.getObjectsByProperty('name', n);
+  const finMeshes = (kun.fins ?? []).map(f => f.mesh).filter(Boolean);
+  const warmTargets = [...byName('kun-body'), ...byName('kun-flukes'), ...(P('finwarm', 0) > 0 ? finMeshes : byName('kun-fin-barnacles'))];
+  for (const o of warmTargets) {
+    const u = o.material?.userData?.toon; if (!u) continue;
+    u.uFillStep.value = P('cs1', 0.38); u.uFillStep2.value = P('cs2', 0.72); u.uFillW1.value = 0.5; u.uFillAmt.value = P('ca', 1.0);
+  }
   wireOutlines(kun.group, { alpha: 1, group: null });
   scene.add(kun.group);
   const eyeL = kun.eyes.find(e => e.side === -1).group.position.clone();   // -Z 侧的眼（朝镜头那侧）
@@ -98,8 +115,8 @@ export function buildShotC({ W, H, tex, q }) {
   // 转身以身体后段为支点（PIV），这样头扭向远处时尾巴不会甩到镜头跟前；之后整条鲲沿新航向游走。
   const PIV = new THREE.Vector3(P('piv', -150), 0, 0);
   const kq = new THREE.Quaternion();
-  headingQuat(heading(C_START), rollAt(C_START), kq);
-  const pivAt = integratePath(E0.clone().sub(eyeL.clone().sub(PIV).applyQuaternion(kq)), heading, speed, { t0: C_START, steps: 130 });   // 每帧积分支点位置
+  headingQuat(heading(C0), rollAt(C0), kq);
+  const pivAt = integratePath(E0.clone().sub(eyeL.clone().sub(PIV).applyQuaternion(kq)), heading, speed, { t0: C0, steps: 130 });   // 每帧积分支点位置
   const _pp = new THREE.Vector3();
   function kunPose(ts) {
     headingQuat(heading(ts), rollAt(ts), kq);
@@ -133,7 +150,9 @@ export function buildShotC({ W, H, tex, q }) {
   const hudState = { eye: null, nav: [], head: { yaw: 0, pitch: 0 } };
   const _e = new THREE.Vector3(), _r = new THREE.Vector3(), _v = new THREE.Vector3();
 
-  // 跟拍：瞄准鲲身上一个沿身体往后滑的点（用连续、未量化的姿态 → 镜头 24 fps 平滑；鲲本身一拍三）
+  // 调试用跟拍（?tk=1 打开，ax1 / ax2 / ay1 / az1 / poff 是它的参数）：瞄准鲲身上一个沿身体往后滑的点
+  // （用连续、未量化的姿态 → 镜头 24 fps 平滑；鲲本身一拍三）。成片不用（tk 默认 0），这时整段不算。
+  const TK = P('tk', 0);
   const _aq = new THREE.Quaternion(), _ap = new THREE.Vector3(), _ad = new THREE.Vector3();
   function trackAim(t, pos) {
     headingQuat(heading(t), rollAt(t), _aq);
@@ -143,14 +162,16 @@ export function buildShotC({ W, H, tex, q }) {
     _ap.set(ax, ay, az).applyQuaternion(_aq).add(g);
     return yawPitchOf(_ad.copy(_ap).sub(pos).normalize());
   }
-  function update(t, f) {
+  const FIN0 = P('fin0', 7.1), FIN1 = P('fin1', 7.9);
+  const farFin = (kun.fins ?? []).find(f => f.side === -1 && f.pivot?.isObject3D);   // 只认刚体胸鳍枢轴；没有就不收
+  function update(tg, fg) {
+    const t = tg - SHIFT, f = fg - FSHIFT;                  // 设计稿时间（镜头 C 从 5.0 起）
     const c = camPose(t);
-    const w = ss(seg(t, 6.25, 7.1));
+    const w = TK !== 0 ? ss(seg(t, 6.25, 7.1)) : 0;
     if (w > 0) {
       const a = trackAim(t, c.pos);
       const dy = wrapAngle(a.yaw - c.yaw);
-      const tk = P('tk', 0);
-      c.yaw += dy * w * tk; c.pitch += (Math.min(a.pitch + P('poff', -2) * DEG, 52 * DEG) - c.pitch) * w * tk;
+      c.yaw += dy * w * TK; c.pitch += (Math.min(a.pitch + P('poff', -2) * DEG, 52 * DEG) - c.pitch) * w * TK;
     }
     // 片尾：不再跟着鲲往上看，顺着它游去的方向缓缓下摇、左摇，看向海平线的曙光（鲲从画面上方离开，导航线的终点落在曙光里）
     const e = ss5(seg(t, P('e0', 8.35), 10.0));
@@ -168,14 +189,13 @@ export function buildShotC({ W, H, tex, q }) {
     const lookAt = t < 7.2 ? cam.position : null;           // 揭眼阶段眼珠看镜头
     kun.setPose(ts, lookAt ? { look: lookAt } : {});
     // 鲲转身滚转后，远侧胸鳍会竖到背上像一块板：在它转到背后的过程中收进身体（只影响本镜头，那时它几乎不在画面里）
-    { const fr = kun.fins.find(f => f.side === -1), k = ss(seg(ts, P('fin0', 7.1), P('fin1', 7.9)));
-      if (fr) { const sc = 1 - 0.9 * k; fr.pivot.scale.setScalar(sc); fr.pivot.visible = sc > 0.12; } }
+    if (farFin) { const k = ss(seg(ts, FIN0, FIN1)), sc = 1 - 0.9 * k; farFin.pivot.scale.setScalar(sc); farFin.pivot.visible = sc > 0.12; }
     key.position.copy(KEY_DIR); key.target.position.set(0, 0, 0);
     kun.fitShadow(key, { size: 4096 });
 
     // 云片漂移
     for (const pf of puffs) {
-      _v.copy(pf.base); _v.x += pf.v * (t - C_START);
+      _v.copy(pf.base); _v.x += pf.v * (t - C0);
       pf.p.position.copy(_v);
       pf.p.quaternion.copy(cam.quaternion);
       pf.p.scale.set(pf.w, pf.w / pf.p.userData.aspect, 1);
@@ -198,10 +218,18 @@ export function buildShotC({ W, H, tex, q }) {
     setToonGlobals({ inkTime: hold(f, 2), fillGain: lerp(1.0, 0.62, end), exposure: lerp(1.0, 1.12, end), fillDir: [0.08, -1, 0.1], keyDir: KEY_DIR.toArray(), skyGain: 1 });
   }
 
-  const look = t => {
-    const end = ss(seg(t, 9.0, 10.0));
+  // 时刻 t（成片全局秒）显示层要的屏幕量 { eye, nav, head }，与 render(t) 交给 drawHUD 的完全相同，只依赖 t（给 window.TEXTS）。
+  // 做法是把本镜头按 t 重摆一遍（就是 update，不渲染）再读 hudState；render 每帧都先 update，所以不影响任何画面。
+  function hudAt(tg) {
+    update(tg, frameOf(tg));
+    const s = hudState;
+    return { eye: s.eye && { ...s.eye }, nav: s.nav.map(p => ({ ...p })), head: { ...s.head } };
+  }
+
+  const look = tg => {
+    const end = ss(seg(tg - SHIFT, 9.0, 10.0));
     return {
-      t,
+      t: tg,
       outline: { width: 2.6, near: 90, far: 700, farScale: 0.55, wobble: 1.2, tint: 0.15 },
       kuwahara: { radius: 4, farRadius: 7, farStart: 900, farEnd: 3000, strength: 1 },
       bloom: { strength: lerp(0.6, 1.05, end), threshold: lerp(0.72, 0.6, end), radius: lerp(0.7, 0.8, end), knee: 0.25 },
@@ -231,5 +259,5 @@ export function buildShotC({ W, H, tex, q }) {
     }
     ctx.restore();
   }
-  return { scene, camera: cam, update, look, hudState, kun, markers };
+  return { scene, camera: cam, update, look, hudState, hudAt, kun, markers };
 }

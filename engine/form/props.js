@@ -5,7 +5,8 @@
 //   scallop()                       带放射肋的扇面穹顶 + 小耳朵
 //   petalDisc({ rings, segs, lobes, base, amp, sharp, height(r), attrs })  极坐标花盘：半径按 |cos(瓣数·θ)| 起瓣，
 //       高度 height(r)；attrs[名] = r => 值（逐顶点一维属性）。返回带索引的几何体
-//   flowerHead({ disc, stalk: { r0, r1, h }, bud: { r, y } })  花盘 + 可选短柱、花苞
+//   flowerHead({ disc, stalk: { r0, r1, h, y }, bud: { r, y } })  花盘 + 可选短柱、花苞；y 是中心高度（短柱缺省 h/2 = 底在 0，
+//       花苞缺省 disc.height(0) = 花心）；花盘带 attrs 时短柱和花苞补同名属性（取花心 r = 0 的值），合并不会因属性不齐失败
 //   petalFan({ petals, petal: rgb, heart: rgb })  五瓣扇形小片 + 花心（顶点色）
 //   branchCoral(seed, { fan, ... })  分叉珊瑚：fan = false 立体分叉；true 枝条压在一个平面里成扇
 //   dome(ws, hs, [sx, sy, sz], keepUV)  半球压扁（疙瘩、玉片）
@@ -95,9 +96,16 @@ export function petalDisc({ rings, segs, lobes, base, amp, sharp, height, attrs 
 
 export function flowerHead({ disc, stalk = null, bud = null }) {
   const parts = [petalDisc(disc).toNonIndexed()];
-  if (stalk) { const s = new THREE.CylinderGeometry(stalk.r0, stalk.r1, stalk.h, 8, 1, true); s.translate(0, stalk.y, 0); s.deleteAttribute('uv'); parts.push(s.toNonIndexed()); }
-  if (bud) { const b = new THREE.SphereGeometry(bud.r, 8, 6); b.translate(0, bud.y, 0); b.deleteAttribute('uv'); parts.push(b.toNonIndexed()); }
-  return mergeGeometries(parts);
+  // mergeGeometries 要求各部分属性一致：花盘的逐顶点属性给短柱、花苞补上花心处的值
+  const fill = g => {
+    for (const n in disc.attrs || {}) g.setAttribute(n, new THREE.Float32BufferAttribute(new Array(g.attributes.position.count).fill(disc.attrs[n](0)), 1));
+    return g;
+  };
+  if (stalk) { const s = new THREE.CylinderGeometry(stalk.r0, stalk.r1, stalk.h, 8, 1, true); s.translate(0, stalk.y ?? stalk.h / 2, 0); s.deleteAttribute('uv'); parts.push(fill(s.toNonIndexed())); }
+  if (bud) { const b = new THREE.SphereGeometry(bud.r, 8, 6); b.translate(0, bud.y ?? disc.height(0), 0); b.deleteAttribute('uv'); parts.push(fill(b.toNonIndexed())); }
+  const g = mergeGeometries(parts);
+  if (!g) throw new Error('flowerHead：花盘、短柱、花苞的顶点属性对不上，合并失败');
+  return g;
 }
 
 export function petalFan({ petals = 5, petal, heart }) {

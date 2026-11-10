@@ -1,5 +1,8 @@
 // 北冥引擎 · 基础数学：区间、插值、缓动、确定性随机、单调样条。
-// 全部是纯函数：同样的输入永远得到同样的输出，任意一帧都能单独重渲。
+// 除 mulberry 外都是纯函数：同样的输入永远得到同样的输出，任意一帧都能单独重渲。
+// mulberry(seed) 本身是纯的，但它返回的生成器每调用一次都改写内部状态——只能在构建期（建场景、撒实例、
+// 交给 createNoise2D/3D 洗牌）用；放进 render(t) 里逐帧取值，结果会依赖渲染顺序，分段并行时在段边界跳变。
+// 逐帧随机一律用 hashi(帧号或拍号)。
 
 export const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 export const lerp = (a, b, t) => a + (b - a) * t;
@@ -19,7 +22,7 @@ export const ss5 = t => { t = clamp(t); return t * t * t * (t * (t * 6 - 15) + 1
 // 整数 → [0, 1) 的确定性哈希（帧号、实例号取随机值用）
 export const hashi = n => { let h = (n | 0) * 374761393 + 668265263; h = (h ^ (h >>> 13)) * 1274126177; h ^= h >>> 16; return (h >>> 0) / 4294967296; };
 
-// 32 位整数种子的伪随机数发生器（Mulberry32）：返回 () => [0, 1)
+// 32 位整数种子的伪随机数发生器（Mulberry32）：返回 () => [0, 1)。返回的生成器有状态，只在构建期用（见文件头）
 export function mulberry(seed) {
   let s = seed | 0;
   return () => {

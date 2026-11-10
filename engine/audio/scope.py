@@ -2,7 +2,8 @@
 """北冥引擎 · 声音示波图（PIL）：频谱图、波形图、曲线面板、声场宽度，给混音自检拼图用。
 
 接口（sig 是立体声或单声道，t0/t1 是秒，w/h 是像素）：
-  font(size)                                       系统中文字体，找不到就用 PIL 默认字体
+  font(size)                                       中文字体：先看环境变量 BEIMING_CJK_FONT（字体文件路径），再按 macOS / Windows / Linux
+                                                   的常见位置找；都没有就用 PIL 默认字体（不含中文，图里的中文会是方框，会打印一次提示）
   heat(v)                                          0..1 → 深紫—橙—浅黄的热度色（uint8 RGB）
   spectrogram(sig, t0, t1, w, h, fmin, fmax, dbr, nfft, hop) → (图, 每行对应的频率)；对数频率轴，dbr 是显示的 dB 范围
   waveform(sig, t0, t1, w, h, ref_db)              左右声道各占一半高度；ref_db 给了就在 ±该电平处画参考线
@@ -10,25 +11,45 @@
   side_mid(st, win, hop)                           声场宽度：侧/中信号能量比 dB → (窗中心秒, dB)；单声道很低，左右不相关约 0
 """
 import os
+import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from .dsp import SR, N, undb
 
-FONT_CANDS = ['/System/Library/Fonts/STHeiti Medium.ttc', '/System/Library/Fonts/Hiragino Sans GB.ttc']
+FONT_CANDS = [
+    # macOS
+    '/System/Library/Fonts/STHeiti Medium.ttc', '/System/Library/Fonts/Hiragino Sans GB.ttc', '/System/Library/Fonts/PingFang.ttc',
+    # Windows（系统盘不一定是 C:，按 WINDIR 找）
+    *[os.path.join(os.environ.get('WINDIR', 'C:/Windows'), 'Fonts', f) for f in ('msyh.ttc', 'msyh.ttf', 'simhei.ttf', 'simsun.ttc')],
+    # Linux（Noto CJK / 文泉驿 / Droid）
+    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc', '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+    '/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf', '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+    '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc', '/usr/share/fonts/wenquanyi/wqy-microhei/wqy-microhei.ttc',
+    '/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf',
+]
+_WARNED = []
 HEAT = np.array([[8, 8, 24], [48, 18, 92], [120, 28, 120], [190, 55, 95], [240, 110, 60], [252, 185, 70], [252, 250, 200]], float)
 BG = (14, 14, 26)
 
 
 def font(sz):
-    for p in FONT_CANDS:
+    env = os.environ.get('BEIMING_CJK_FONT', '')
+    for p in ([env] if env else []) + FONT_CANDS:
         if os.path.exists(p):
             try:
                 return ImageFont.truetype(p, sz)
             except OSError:
                 pass
-    return ImageFont.load_default(sz)
+    if not _WARNED:
+        _WARNED.append(1)
+        print('[scope] 没找到中文字体，自检图里的中文会显示成方框；用环境变量 BEIMING_CJK_FONT 指定一个字体文件即可', file=sys.stderr)
+    try:
+        return ImageFont.load_default(sz)          # Pillow ≥ 10.1 才收字号
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def heat(v):
