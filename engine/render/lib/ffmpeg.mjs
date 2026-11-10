@@ -106,6 +106,23 @@ export async function probe(file, { signal } = {}) {
   };
 }
 
+/**
+ * 视频流的“能不能直接拼接”签名（不数包，快）：编码、档次、像素格式、画幅、帧率、时间基与色彩标记。
+ * concat 复制拼接要求各段这些都相同。
+ */
+export async function streamSignature(file, { signal } = {}) {
+  const r = await run(FFPROBE(), ['-v', 'error', '-select_streams', 'v:0', '-show_entries',
+    'stream=codec_name,profile,pix_fmt,width,height,r_frame_rate,time_base,color_range,color_space,color_primaries,color_transfer',
+    '-of', 'json', file], { capture: true, signal });
+  if (r.error) throw new RenderError('env.ffprobe-missing', `无法运行 ffprobe（${FFPROBE()}：${r.error.message}）`, { hint: '装 FFmpeg ≥ 7（带 ffprobe），或设 FFPROBE 为完整路径' });
+  if (r.code !== 0) throw new RenderError('contract.probe', `读不出媒体信息：${file}（${firstLine(r.stderr)}）`, { hint: '文件可能不完整或不是视频；重新生成它' });
+  const v = (JSON.parse(r.stdout || '{}').streams ?? [])[0] ?? {};
+  return {
+    codec: v.codec_name ?? null, profile: v.profile ?? null, pixFmt: v.pix_fmt ?? null, size: `${v.width}x${v.height}`, rate: v.r_frame_rate ?? null,
+    timeBase: v.time_base ?? null, range: v.color_range ?? null, space: v.color_space ?? null, primaries: v.color_primaries ?? null, transfer: v.color_transfer ?? null,
+  };
+}
+
 /** framemd5 风格的逐帧解码哈希（测试与确定性核对用）：返回每帧一个 md5 字符串 */
 export async function frameMd5(file, { signal } = {}) {
   const r = await run(FFMPEG(), ['-v', 'error', '-i', file, '-map', '0:v:0', '-f', 'framemd5', '-'], { capture: true, signal });

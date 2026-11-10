@@ -54,10 +54,25 @@ export function sha256File(file) {
 
 export const sha256 = buf => createHash('sha256').update(buf).digest('hex');
 
-/** 仓库相对路径（POSIX 分隔符）；在仓库外就写绝对路径 */
+const inside = r => r !== '' && !(r === '..' || r.startsWith('..' + path.sep) || path.isAbsolute(r));
+/** 最近一个存在的上级目录的真实路径，再接上不存在的那一截（文件还没写出来时也能比） */
+function realish(p) {
+  const rest = [];
+  for (let a = path.resolve(p); ; a = path.dirname(a)) {
+    try { return path.join(fs.realpathSync(a), ...rest.reverse()); } catch {}
+    if (path.dirname(a) === a) return path.resolve(p);
+    rest.push(path.basename(a));
+  }
+}
+/**
+ * 仓库相对路径（POSIX 分隔符）：先按字面比，不在仓库里再按真实路径比（macOS 的 /var → /private/var、符号链接、
+ * Windows 目录联接进来的路径也认得出）；真的在仓库外才写绝对路径。
+ */
 export function repoPath(root, p) {
-  const r = path.relative(root, path.resolve(p));
-  return r && !r.startsWith('..') && !path.isAbsolute(r) ? r.split(path.sep).join('/') : path.resolve(p);
+  const abs = path.resolve(p);
+  let r = path.relative(root, abs);
+  if (!inside(r)) r = path.relative(realish(root), realish(abs));
+  return inside(r) ? r.split(path.sep).join('/') : (r === '' ? '.' : abs);
 }
 
 export function baseRecord({ command, argv, env, projectId, shotId = 'film', route = null, backend = 'page' }) {

@@ -12,7 +12,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { openFilm, renderFrame, finalFaultCheck } from '../page.mjs';
 import { RenderError } from './errors.mjs';
-import { FFMPEG, probe } from './ffmpeg.mjs';
+import { FFMPEG, probe, streamSignature, must } from './ffmpeg.mjs';
 import { sha256 } from './record.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms).unref());
@@ -134,11 +134,12 @@ export async function renderRange(o) {
     const partial = outputs.map(x => files[x.kind][i].replace(/\.mp4$/, '.partial.mp4'));
     const input = intermediate === 'png' ? ['-c:v', 'png'] : ['-c:v', 'mjpeg'];
     const args = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), ...input, '-i', '-'];
-    if (outputs.length === 1) args.push('-vf', outputs[0].vf, ...outputs[0].args, path.basename(partial[0]));
+    // 输出写绝对路径：命令行里看得出它属于哪部作品、哪次运行（P17 的 H7 据此认残留进程）；编码结果与写相对路径相同
+    if (outputs.length === 1) args.push('-vf', outputs[0].vf, ...outputs[0].args, partial[0]);
     else {
       const labels = outputs.map((_, j) => `[o${j}]`);
       args.push('-filter_complex', `[0:v]split=${outputs.length}${outputs.map((_, j) => `[s${j}]`).join('')};` + outputs.map((x, j) => `[s${j}]${x.vf}${labels[j]}`).join(';'));
-      outputs.forEach((x, j) => args.push('-map', labels[j], ...x.args, path.basename(partial[j])));
+      outputs.forEach((x, j) => args.push('-map', labels[j], ...x.args, partial[j]));
     }
     const ff = spawn(FFMPEG(), args, { cwd: workDir, stdio: ['pipe', 'ignore', 'inherit'] });
     live.add(ff);
@@ -230,14 +231,27 @@ const metaPath = file => `${file}.json`;
 function readMeta(file) { try { return JSON.parse(fs.readFileSync(metaPath(file), 'utf8')); } catch { return null; } }
 function writeMeta(file, meta) { const tmp = `${metaPath(file)}.tmp`; fs.writeFileSync(tmp, JSON.stringify(meta)); fs.renameSync(tmp, metaPath(file)); }
 
-/** 把几段同参数的 H.264 无损拼接（concat 复制，不重编码），核对帧数后原子改名；metadata 是附加的 -metadata 参数（AIGC 标识） */
+/**
+ * 把几段同参数的 H.264 无损拼接（concat 复制，不重编码），核对帧数后原子改名；metadata 是附加的 -metadata 参数（AIGC 标识）。
+ * 拼接前先核对每段的编码、像素格式、画幅、帧率、时间基与色彩标记都和第一段相同（不同就是 contract.concat-mismatch，退出码 4：
+ * 拼出来的片子会在段落处花屏或变速）。
+ */
 export async function concatChunks(list, out, { expectFrames, signal, live, workDir, metadata = [] }) {
+  if (!list.length) throw new RenderError('contract.concat-empty', `没有可拼接的片段：${out}`, { hint: '帧区间是空的：检查 --frames / --shot' });
+  const sig = await Promise.all(list.map(f => streamSignature(f, { signal })));
+  for (let i = 1; i < sig.length; i++) {
+    const diff = Object.keys(sig[0]).filter(k => sig[i][k] !== sig[0][k]);
+    if (diff.length) {
+      throw new RenderError('contract.concat-mismatch', `第 ${i + 1} 段（${path.basename(list[i])}）的 ${diff.map(k => `${k}=${sig[i][k]}`).join('、')} 与第一段（${diff.map(k => sig[0][k]).join('、')}）不同，不能直接拼接`, {
+        hint: '片段来自不同参数的渲染：去掉 --resume 重渲，或给镜头缓存加 --force',
+      });
+    }
+  }
   const listFile = path.join(workDir, `concat-${process.pid}-${path.basename(out)}.txt`);
   fs.writeFileSync(listFile, list.map(f => `file '${path.relative(workDir, f).split(path.sep).join('/').replace(/'/g, "'\\''")}'`).join('\n') + '\n');
   const partial = path.join(workDir, `merged-${process.pid}-${path.basename(out)}`);
   try {
-    const { must } = await import('./ffmpeg.mjs');
-    await must(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', path.basename(listFile), '-c', 'copy', ...metadata, path.basename(partial)], '拼接', { cwd: workDir, signal, live });
+    await must(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', ...metadata, partial], '拼接', { cwd: workDir, signal, live });
     const p = await probe(partial, { signal });
     if (p.video?.frames !== expectFrames) throw new RenderError('contract.frame-count', `拼接后是 ${p.video?.frames} 帧，应为 ${expectFrames} 帧`, { hint: '块文件不完整或参数不一致：去掉 --resume 重渲' });
     fs.mkdirSync(path.dirname(out), { recursive: true });

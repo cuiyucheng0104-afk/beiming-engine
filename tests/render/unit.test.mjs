@@ -13,7 +13,7 @@ import { planChunks, planFilmChunks } from '../../engine/render/lib/chunks.mjs';
 import { checkTexts } from '../../engine/render/lib/contract.mjs';
 import { aigcMetadata, AIGC_PRODUCER } from '../../engine/render/lib/mux.mjs';
 import { describeError, RenderError, EXIT } from '../../engine/render/lib/errors.mjs';
-import { loadProfiles, resolveProfile, BUILTIN_PROFILES } from '../../engine/render/lib/profiles.mjs';
+import { loadProfiles, resolveProfile } from '../../engine/render/lib/profiles.mjs';
 import { resolveRequest, createServer } from '../../engine/render/lib/server.mjs';
 import { runId } from '../../engine/render/lib/record.mjs';
 import { parseImplicitLabel } from '../../tools/compliance/lib/aigc.mjs';
@@ -138,22 +138,25 @@ test('错误归类：错误码前缀决定退出码；别处带数字退出码�
   assert.match(d.hint, /BEIMING_DEBUG=1/);
 });
 
-test('交付档位：内置表照抄 D07（profiles.json 落地前）；不认识的档位列出可用值；运行号符合附录 C4', () => {
+test('交付档位：读取与兜底走 tools/lib/profiles.mjs（profiles.json 落地前用 D07 兜底表）；不认识的档位列出可用值；运行号符合附录 C4', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-prof-'));
   try {
     const { profiles, source } = loadProfiles(tmp);
-    assert.match(source, /builtin/);
-    assert.deepEqual([...profiles.keys()].sort(), Object.keys(BUILTIN_PROFILES).sort());
+    assert.equal(source, 'fallback');
+    assert.deepEqual([...profiles.keys()].sort(), ['beiming-1040p24', 'broadcast-1080p25', 'master-1080p24', 'uhd-2160p24', 'vertical-1080x1920-30', 'web-1080p24']);
+    assert.deepEqual([profiles.get('master-1080p24').video.crf, profiles.get('web-1080p24').video.crf], [10, 14], 'master-* 档位默认高码率母版');
+    assert.equal(profiles.get('web-1080p24').audio.toleranceLU, 1);
     assert.deepEqual([profiles.get('vertical-1080x1920-30').width, profiles.get('vertical-1080x1920-30').height, profiles.get('vertical-1080x1920-30').fps], [1080, 1920, 30]);
     assert.equal(profiles.get('broadcast-1080p25').audio.targetLUFS, -23);
     assert.equal(profiles.get('beiming-1040p24').height, 1040);
     throwsCode(() => resolveProfile('web-1080p23', tmp), 'usage.profile-unknown');
     // profiles.json 的正式写法（作品描述包）：{ default, profiles: { id: { video: { width, height, fps }, audio: { loudness: { integratedLUFS } } } } }
     fs.mkdirSync(path.join(tmp, 'engine', 'production'), { recursive: true });
-    fs.writeFileSync(path.join(tmp, 'engine', 'production', 'profiles.json'), JSON.stringify({ default: 'web-1080p24', profiles: { 'web-1080p24': { video: { width: 1920, height: 1080, fps: 24 }, audio: { loudness: { integratedLUFS: -14 }, truePeakMaxDbTP: -1 } } } }));
+    fs.writeFileSync(path.join(tmp, 'engine', 'production', 'profiles.json'), JSON.stringify({ default: 'web-1080p24', profiles: { 'web-1080p24': { video: { width: 1920, height: 1080, fps: 24, crf: 16 }, audio: { loudness: { integratedLUFS: -16, toleranceLU: 0.5 }, truePeakMaxDbTP: -2 } } } }));
     const p = resolveProfile('web-1080p24', tmp);
     assert.equal(p.source, 'engine/production/profiles.json');
-    assert.deepEqual([p.width, p.height, p.fps], [1920, 1080, 24]);
+    assert.deepEqual([p.width, p.height, p.fps, p.video.crf, p.video.preset], [1920, 1080, 24, 16, 'medium']);
+    assert.deepEqual([p.audio.targetLUFS, p.audio.toleranceLU, p.audio.truePeakDbTP], [-16, 0.5, -2]);
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   assert.match(runId({ sourceCommit: 'abcdef0123456789', dirty: true }, new Date(2026, 10, 10, 9, 5, 7)), /^20261110-090507-abcdef0-dirty$/);
   assert.match(runId({ sourceCommit: 'abcdef0123456789', dirty: false }), /^\d{8}-\d{6}-[0-9a-f]{7}$/);
