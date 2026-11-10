@@ -32,7 +32,7 @@ sh build.sh --4k     # 原生 4K：out/beiming_4k.mp4（3840×2080）
 ```bash
 python3 -m http.server 8080
 # http://127.0.0.1:8080/              正片
-# http://127.0.0.1:8080/?test=kun     单个模块的自测页（lab/ 下每个文件对应一个名字）
+# http://127.0.0.1:8080/?test=kun     单个模块的自测页（名字对应 lab/ 下的自测页文件，例如 kun 对应 lab/kun.js）
 ```
 
 ### 构建作品站

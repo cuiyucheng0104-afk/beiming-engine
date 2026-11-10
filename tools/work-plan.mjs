@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Read-only work-plan inspection. This does not render or claim implementation completion.
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, resolve, isAbsolute } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const STATES = new Set(['planned', 'in-progress', 'blocked', 'done']);
@@ -108,6 +108,13 @@ function main() {
   if (list) for (const task of result.waiting) console.log(`待前置：${task.id} ← ${task.dependencies.map(dep => `${dep.id}[${dep.route}/${dep.status}]`).join(', ') || '无未完成依赖'}${task.blocker ? `；阻塞原因：${task.blocker}` : ''}`);
   for (const conflict of result.conflicts) console.log(`不可并行写入：${conflict.tasks.join(' / ')}（${conflict.scopes.map(s => s.join(' ↔ ')).join(', ')}）`);
 }
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+// Node realpaths the entry module (symlinks, Windows junctions, macOS /tmp -> /private/tmp) before it
+// builds import.meta.url but leaves argv[1] as typed, so compare both sides after realpath. A mismatch
+// here used to skip main() and exit 0, silently passing a broken plan.
+export function isEntryPoint(argv1 = process.argv[1], moduleUrl = import.meta.url) {
+  if (!argv1) return false;
+  try { return realpathSync(resolve(argv1)) === realpathSync(fileURLToPath(moduleUrl)); } catch { return false; }
+}
+if (isEntryPoint()) {
   try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

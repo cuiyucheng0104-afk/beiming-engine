@@ -1,12 +1,23 @@
-// 检查无头 Chrome 各 ANGLE 后端的 WebGL 落在哪块 GPU 上，并粗测一个重着色器的帧时间
-// 用法：node tools/rtx/gpucheck.mjs（Windows 默认用系统 Chrome；可用 BEIMING_CHROME 指定可执行文件）
+// 检查无头 Chrome 各 ANGLE 后端的 WebGL 落在哪块 GPU 上，并粗测一个重着色器的帧时间。
+// 用法：node tools/rtx/gpucheck.mjs
+// 浏览器与启动参数和渲染器（engine/render/page.mjs）完全一致：默认是 Playwright 自带的 chromium-headless-shell，
+// 设了 BEIMING_CHROME 才用它指定的可执行文件（例如系统 Chrome）。渲染器实际会用的后端（BEIMING_ANGLE；
+// 没设时 macOS 为 metal、其它为 default）标 ★。
+// 退出码：★ 后端拿到硬件 GPU 为 0；它落到软件渲染（SwiftShader / llvmpipe / WARP 即 Microsoft Basic Render
+// Driver）或启动失败为 1，并列出可用的硬件后端，可以放在渲染脚本前当前置检查。
 import { chromium } from 'playwright-core';
-const exe = process.env.BEIMING_CHROME || (process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : undefined);
-for (const angle of ['default', 'd3d11', 'vulkan', 'gl']) {
-  const args = [...(angle === 'default' ? [] : [`--use-angle=${angle}`]), '--enable-gpu', '--ignore-gpu-blocklist', '--force-color-profile=srgb'];
+import { chromeArgs, chromeExecutable, defaultAngle, isSoftwareRenderer } from '../../engine/render/page.mjs';
+
+const chosen = defaultAngle();
+const backends = [...new Set([chosen, 'default', ...(process.platform === 'darwin' ? ['metal'] : ['d3d11']), 'vulkan', 'gl'])];
+const exe = chromeExecutable();
+console.log(`浏览器：${exe || 'Playwright 自带的 chromium-headless-shell'}；渲染器会用的后端：${chosen}（★）`);
+
+const results = {};
+for (const angle of backends) {
   let browser;
   try {
-    browser = await chromium.launch({ executablePath: exe, args });
+    browser = await chromium.launch({ executablePath: exe, args: chromeArgs(angle) });
     const page = await browser.newPage({ viewport: { width: 1920, height: 1040 } });
     await page.setContent('<canvas id=c width=1920 height=1040></canvas>');
     const r = await page.evaluate(async () => {
@@ -30,7 +41,20 @@ void main(){ vec2 u = gl_FragCoord.xy/1000.; float a = 0.; for(int i=0;i<400;i++
       run(3); const ms = run(20);
       return { name, msPerFrame: +ms.toFixed(2) };
     });
-    console.log(angle.padEnd(8), JSON.stringify(r));
-  } catch (e) { console.log(angle.padEnd(8), 'ERROR', e.message.split('\n')[0]); }
-  finally { await browser?.close(); }
+    const kind = r.err ? 'error' : isSoftwareRenderer(r.name) ? 'software' : 'hardware';
+    results[angle] = kind;
+    console.log(`${angle === chosen ? '★' : ' '} ${angle.padEnd(8)} ${{ hardware: '硬件', software: '软件', error: '失败' }[kind]}  ${JSON.stringify(r)}`);
+  } catch (e) {
+    results[angle] = 'error';
+    console.log(`${angle === chosen ? '★' : ' '} ${angle.padEnd(8)} 失败  ${e.message.split('\n')[0]}`);
+  } finally { await browser?.close(); }
+}
+
+const hardware = backends.filter(a => results[a] === 'hardware');
+if (results[chosen] === 'hardware') {
+  console.log(`通过：渲染器会用的 ${chosen} 后端落在硬件 GPU 上`);
+} else {
+  console.error(`不通过：渲染器会用的 ${chosen} 后端${results[chosen] === 'software' ? '落到了软件渲染' : '启动失败'}。`
+    + (hardware.length ? `可用的硬件后端：${hardware.join('、')}，例如设置 BEIMING_ANGLE=${hardware[0]}` : '没有任何后端拿到硬件 GPU：检查显卡驱动，或用 BEIMING_CHROME 换浏览器'));
+  process.exitCode = 1;
 }

@@ -1,5 +1,5 @@
 {
- "说明": "《北冥》10 秒概念样片的声音时间表（全局秒；帧号 = t × 24）。audio/mix.py 读这里的 t / pan / gain_db 生成 out/mix.wav。画面时间变了就改这里的 t，再跑 sh audio/build.sh。gain_db 是相对当前平衡的微调，默认 0。 frame / frame_end 是 24 fps 下的帧号（可以是小数）。实测结果见 audio/check/report.json 与 render.json。",
+ "说明": "《北冥》10 秒概念样片的声音时间表（全局秒；帧号 = t × 24）。audio/mix.py 读这里的 t / t_end / pan / gain_db 生成 out/mix.wav，audio/check.py 也按这里的时间做自检。画面时间变了就改这里的 t（镜头切点改 shots 的 t），再跑 sh audio/build.sh：三段环境声底层按镜头长度重新生成，各元素的放置、声像和定电平区间都跟着走。例外是配乐：layer = music 的事件（strings_in、chord_*、harp_gliss、apex、air_end）只是标注，配乐的时间写在 audio/score.py，要改配乐就改那里再跑 sh audio/build.sh --score；mix.py 会核对这里的标注和 score.py 是否一致，不一致会告警。apex 的 gain_db 是整条配乐的增益微调，其他配乐事件的 gain_db 不起作用。pan：数字是固定声像（−1 左 … 1 右）；pigeons 的 [起飞处中心, 飞去那一侧] 决定鸽群的起点和去向；kun_pass、seaweed 的 [起, 止] 是掠过时声像移动的两端（海草默认跟着鲲走）。gain_db 是相对当前平衡的微调，默认 0。frame / frame_end 是 24 fps 下的帧号（可以是小数），只是给人看的，和 t 对不上时 mix.py 会告警。实测结果见 audio/check/report.json 与 render.json。",
  "dur": 10.0,
  "sr": 48000,
  "fps": 24,

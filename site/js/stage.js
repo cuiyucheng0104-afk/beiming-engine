@@ -12,9 +12,9 @@
 //                     舞台已自行销毁）。
 //                     调用方把海报接回来；'context' 之后可能还有 'stage:restored'，'slow' 之后不会再有。
 //   'stage:restored'  上下文恢复、管线重新预热完，时间回到 t = 0（与海报同一姿态），可以再交叉淡入一次。
-//   'stage:deferred'  这台设备建鲲要占主线程较久（detail.estMs），舞台会等访客停下来（detail.needScroll：还要先滚动过）、
-//                     主线程空闲时再建；在那之前 createStage 不返回，海报一直在。
-//   'stage:skipped'   createStage 即将返回 null 的原因：detail.reason = 'software'（软件渲染）或 'cpu'（建鲲预计 > 800 ms），
+//   'stage:deferred'  这台设备建鲲要占主线程较久（detail.estMs 预估，detail.judgeMs 判档值 = 预估 × 1.2），舞台会等访客停下来
+//                     （detail.needScroll：还要先滚动过）、主线程空闲时再建；在那之前 createStage 不返回，海报一直在。
+//   'stage:skipped'   createStage 即将返回 null 的原因：detail.reason = 'software'（软件渲染）或 'cpu'（判档值 > 800 ms），
 //                     调用方可以据此写更准确的读数（不支持 WebGL2 时不派发）。
 //   'stage:beat'      鲲一拍三换姿态的那一帧（约每秒 8 次）：detail = { frame（24 fps 的全局帧号）, beat, scene, layer }，
 //                     给“时”这一步的帧条之类的东西对拍用。
@@ -59,9 +59,13 @@ const FIRST_TIMEOUT_MS = 15000;                // 页面可见的时间累计 15
 // 建鲲是一整块同步计算（影片源码，拆不开；Worker 里用不了 importmap，也挪不过去），只能挑时机（UX-9）：
 // 先用 cpuProbe() 探一下 CPU，按标定比例预估它要占多久主线程。实测（M5 Pro，Chrome 降速 1–6 倍；探针热身后取最快）
 // 建鲲 ≈ 探针 × 39–49，手机档 lod 0.3 也一样（lod 只省 GPU，不省这段 CPU），取 46。
-// ≤ 300 ms 直接建（M5 Pro 实测 130–210 ms）；≤ 500 ms 等访客 0.8 秒没有操作、主线程空闲时再建；
-// ≤ 800 ms 还要等访客先滚动过（首屏的按钮不会被它卡住）；再慢（约比 M5 Pro 慢 5 倍以上的 CPU）就不建，只留海报和静帧。
-const PROBE_K = 46, BUILD_NOW_MS = 300, BUILD_SCROLL_MS = 500, BUILD_MAX_MS = 800;
+// 判档用“预估 × 1.2”（FINAL-16）：比例本身在 39–49 之间浮动，探针取最快一次又偏乐观，边缘设备宁可往“晚点建 / 不建”那边分。
+// 判档值 ≤ 300 ms 直接建（M5 Pro 探针约 2–3 ms，判档值约 110–170；实测建鲲 130–210 ms）；≤ 500 ms 等访客 0.8 秒没有操作、
+// 主线程空闲时再建；≤ 800 ms 还要等访客先滚动过（首屏的按钮不会被它卡住）；再慢（探针 > 14.5 ms，约比 M5 Pro 慢 5 倍以上）
+// 就不建，只留海报和静帧。Chrome 降速模拟（site/dev/stage/check.mjs 第 9 段，跑了三次，读数会浮动）：1–2 倍直接建；
+// 3 倍推迟（判档值 324–399）；4 倍推迟，读数偏高时还要先滚动（460–580）；6 倍要先滚动或不建（692–878）。
+// 这几档只在 M5 Pro 上用 Chrome 降速模拟过，没有在真的低端手机、旧笔记本上验证。
+const PROBE_K = 46, PROBE_MARGIN = 1.2, BUILD_NOW_MS = 300, BUILD_SCROLL_MS = 500, BUILD_MAX_MS = 800;
 // 软件渲染（SwiftShader、llvmpipe、Windows 基本显示驱动）：直接放弃。一定要拿原始串判断：解析成显示名之后，
 // 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device …), SwiftShader driver)' 只剩 'Vulkan 1.3.0'，会漏判（UX-3）
 const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|lavapipe|software|basic render|microsoft basic/i;
@@ -204,17 +208,18 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
   let probeMs = Infinity;
   for (let i = 0; i < 4; i++) { probeMs = Math.min(probeMs, cpuProbe(3)); await idle(); }
   const estMs = probeMs * PROBE_K;
+  const judgeMs = estMs * PROBE_MARGIN;              // 判档值：预估留 20% 余量
   let deferMs = 0;
   if (defer && !reducedMotion) {
-    if (estMs > BUILD_MAX_MS) {
-      console.warn(`[stage] 这台设备建鲲预计要占主线程约 ${Math.round(estMs)} ms，只保留海报`);
+    if (judgeMs > BUILD_MAX_MS) {
+      console.warn(`[stage] 这台设备建鲲预计要占主线程约 ${Math.round(estMs)} ms（判档值 ${Math.round(judgeMs)} ms），只保留海报`);
       renderer.dispose(); loseContext(gl);
-      canvas.dispatchEvent(new CustomEvent('stage:skipped', { detail: { reason: 'cpu', estMs: Math.round(estMs) } }));
+      canvas.dispatchEvent(new CustomEvent('stage:skipped', { detail: { reason: 'cpu', estMs: Math.round(estMs), judgeMs: Math.round(judgeMs) } }));
       return null;
     }
-    if (estMs > BUILD_NOW_MS) {
-      const needScroll = estMs > BUILD_SCROLL_MS;
-      canvas.dispatchEvent(new CustomEvent('stage:deferred', { detail: { estMs: Math.round(estMs), needScroll } }));
+    if (judgeMs > BUILD_NOW_MS) {
+      const needScroll = judgeMs > BUILD_SCROLL_MS;
+      canvas.dispatchEvent(new CustomEvent('stage:deferred', { detail: { estMs: Math.round(estMs), judgeMs: Math.round(judgeMs), needScroll } }));
       deferMs = await quietMoment({ quietMs: 800, needScroll });
     }
   }
@@ -246,6 +251,7 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
     lastTs: NaN, pr: tier.ladder[0], cw: 0, ch: 0, aspect: 16 / 9, tune: null,
     raf: 0, lastNow: -1, prevRaf: -1, acc: 0, frames: 0, statT: 0, statFrames: 0, statGaps: [], calls: 0, firstDone: false, warm: false,
     boost: 0, forceBoost: null, flicks: [], swimOff: 0, flickOn: false, nextFlick: 0, lowSecs: 0,
+    drawMs: -1, cleared: false, look: null,
   };
   const center = KUN_CENTER.clone();
   const gaze = new THREE.Vector3();
@@ -278,7 +284,8 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
     if (!force && cw === S.cw && ch === S.ch && renderer.getPixelRatio() === S.pr) return;
     S.cw = cw; S.ch = ch; S.aspect = cw / ch;
     renderer.setPixelRatio(S.pr);
-    renderer.setSize(cw, ch, false);
+    renderer.setSize(cw, ch, false);                      // 改画布尺寸会清空绘图缓冲：下一次 rAF 必须重画（高刷屏不许跳过）
+    S.cleared = true;
     const db = renderer.getDrawingBufferSize(new THREE.Vector2());
     comp.setSize(db.x, db.y);
     if (!S.playing || S.hidden || reducedMotion) requestStill();
@@ -348,12 +355,17 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
       if (k >= 1) S.from = null;
     } else { S.from = null; S.shot = copyShot(target, S.shot || {}); }
     dist = applyShot(camera, S.shot, S.aspect, center, S.pointerS, S.par);
-    // 天空：cover 铺满，随机位轻微平移（远景视差）
-    const zoom = 1.08, a = S.aspect / SKY_ASPECT;
+    // 天空：先 cover 铺满机位的参考画幅（ref），随机位轻微平移（远景视差），再和鲲一样按 cover 居中裁到实际画幅。
+    // 海报就是参考画幅渲的、页面上也按 cover 居中裁，这样交叉淡入时云和海报对得上（以前直接按实际画幅铺，
+    // 画幅和参考画幅不同时云会错开：1440×900 约 9 像素，3:4 竖屏海报在 390×844 上约 15 像素）
+    const zoom = 1.08, ref = S.shot.ref, a = ref / SKY_ASPECT;
     let sx = 1 / zoom, sy = 1 / zoom;
     if (a > 1) sy /= a; else sx *= a;
     const px = -S.shot.yaw * 0.12 + S.pointerS.x * 0.012 * S.par, py = -S.shot.pitch * 0.25 + S.pointerS.y * 0.01 * S.par;
-    skyUV.set(sx, sy, clamp01((1 - sx) * (0.5 + px)), clamp01((1 - sy) * (0.42 + py)));
+    let ox = clamp01((1 - sx) * (0.5 + px)), oy = clamp01((1 - sy) * (0.42 + py));
+    if (S.aspect < ref) { const k = S.aspect / ref; ox += sx * (1 - k) / 2; sx *= k; }      // 比参考画幅窄：裁左右
+    else if (S.aspect > ref) { const k = ref / S.aspect; oy += sy * (1 - k) / 2; sy *= k; } // 宽：裁上下
+    skyUV.set(sx, sy, ox, oy);
   }
 
   function poseKun(stepAmt, live, force) {
@@ -400,7 +412,9 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
       sky: sky ? clamp01(L - 2) : 0, haze: clamp01(L - 2),
       inkT: L >= 1.5 ? hold(f, 2) : 0,                  // 墨线一拍二抖动
       skyUV, fog: fogAt(), shadow, lineFade: [dist * 0.75, dist * 1.7],
+      ...(S.look || {}),                                // 只有出静帧时才有（debug.look）：线宽、外轮廓加粗
     });
+    S.cleared = false;
     S.calls = renderer.info.render.calls;
     S.frames++;
     if (!S.firstDone) {
@@ -439,7 +453,8 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
     if (S.prevRaf >= 0) S.acc += now - S.prevRaf;
     S.prevRaf = now;
     if (S.lastNow >= 0) {
-      if (S.acc < FRAME_MS * 0.9) return;              // 高刷屏：攒够约一帧（60 fps）的时间再画
+      // 高刷屏：攒够约一帧（60 fps）的时间再画。画布刚被清空（改了尺寸）时这一帧不能跳过，否则空白画布会被显示出来
+      if (S.acc < FRAME_MS * 0.9 && !S.cleared) return;
       S.acc -= FRAME_MS;
       if (S.acc < 0 || S.acc > FRAME_MS) S.acc = 0;    // 慢帧不追赶
     }
@@ -450,9 +465,12 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
     S.t += dt * wake();
     updateBoost(dt, false);
     scheduleFlicks();
+    // 降档要在画之前判（FINAL-10）：降档会改像素比、改画布尺寸，而改尺寸会清空绘图缓冲。以前画完才判，
+    // 降档那一帧画好的内容被清掉，浏览器把空白画布显示一帧（闪一下）。这一帧的绘制耗时还没有，先用上一帧的
+    if (frameMs > 0) governor.frame(frameMs, now, S.drawMs);
     const t0 = performance.now();
     draw(dt, false, true);
-    if (frameMs > 0) governor.frame(frameMs, now, performance.now() - t0);
+    S.drawMs = performance.now() - t0;
     stats(now, frameMs);
   }
   function stats(now, frameMs) {
@@ -709,6 +727,9 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
       },
       setPixelRatio(pr) { S.pr = pr; resize(true); },
       tune(o) { S.tune = o || null; },               // 调机位用：临时覆盖当前场景的机位参数
+      // 出静帧用：{ lineK, outline, lineSolid } 线宽倍数、外轮廓加粗倍数、鳍上的线画实（见 compositor.js 的 render 参数）；
+      // null 恢复实时的默认值
+      look(o) { S.look = o ? { lineK: o.lineK ?? 1, outline: o.outline ?? 1, lineSolid: o.lineSolid ?? 0 } : null; },
       // “时”这一步：boost 固定放大量（null = 按场景 / 层 / 进度自动），flicks 指定摆尾开始时刻（动画时间，秒）
       timeFx({ boost = null, flicks = null } = {}) {
         S.forceBoost = boost;
@@ -718,7 +739,7 @@ async function build(canvas, renderer, { reducedMotion, quality, onStats, T0, lo
       loseContext() { loseExt = loseExt || gl.getExtension('WEBGL_lose_context'); loseExt?.loseContext(); },
       restoreContext() { loseExt?.restoreContext(); },
       get info() {
-        return { buildMs, probeMs, estMs, deferMs, uploadMs, compileMs, warmMs, warmSteps: warmLog.slice(), firstFrameMs, triangles, lod: tier.lod, tier: tier.name, shadow: tier.shadow, msaa: tier.msaa,
+        return { buildMs, probeMs, estMs, judgeMs, deferMs, uploadMs, compileMs, warmMs, warmSteps: warmLog.slice(), firstFrameMs, triangles, lod: tier.lod, tier: tier.name, shadow: tier.shadow, msaa: tier.msaa,
           pr: S.pr, prCap: tier.prCap, ladder: tier.ladder, step: governor.step, ema: governor.ema, drawEma: governor.drawEma, prLog: governor.log, gpu, drawingBuffer: comp.size, calls: S.calls,
           scene: S.scene, layer: S.layer, t: S.t, liveMs: S.liveMs, boost: S.boost, flicks: S.flicks.slice(), frames: S.frames, outlineMeshes: kun.outlineMeshes.length };
       },

@@ -1,14 +1,16 @@
 // 鲲鹏将化（片尾化鹏前一刻的形态）——三渲二配方第 1、2、4 层。
-// 设定图：鲲设定/鲲_v2-3_鲲鹏将化.png。鱼身修长；胸鳍正在由鳞化羽，长成层层叠叠的鹤羽翅膀（鳍根是鳞，鳍尖是羽）；
+// 设定图「鲲_v2-3_鲲鹏将化」（美术设定稿，不在本仓库里）。鱼身修长；胸鳍正在由鳞化羽，长成层层叠叠的鹤羽翅膀（鳍根是鳞，鳍尖是羽）；
 // 尾鳍裂成长长的凤尾翎（带眼斑、梢部回卷）；背上、腹下的鳍是朱砂火焰舌；口有长须，眼是丹凤眼，腮上一朵祥云纹；
 // 敦煌矿物色（石青、石绿、朱砂、赭石、土黄、月白），壁画式斑驳风化 + 细墨线。
 //
 // 坐标与 src/kun.js 一致：鲲局部空间，头朝 +X，上为 +Y，原点在身体中心；吻端 x≈+318，尾柄末端 x≈-196，凤尾翎拖到 x≈-420；
 //   名义体长 length = 600（与旧版相同，正片里按它取景的镜头不用改）。
-// 接口与 createKun 一致：{ group, setPose(ts, o), eyeWorld(target, ref), fitShadow(light, o), outlineMeshes, length, eyeRadius, wisps, uniforms, fins, eyes }
+// 接口与 createKun 一致：{ group, setPose(ts, o), eyeWorld(target, ref), fitShadow(light, o), outlineMeshes, length, eyeRadius, wisps, uniforms, fins, eyes }，另有 wings、flapPose。
+//   fins 为空：胸鳍已经化成翅膀，不是 kun.js 那种 { side, pivot } 刚体胸鳍（镜头 C 的「收远侧胸鳍」对它不做）；翅膀在 wings 里。
+//   换进正片镜头 C：buildShotC({ makeKun: createKun })（或改 shotC.js 的 import）。
 //   setPose(ts, { wingT, blink, look })
-//     ts     身体时钟，调用方按一拍三量化（f = Math.round(t*24); ts = Math.floor(f/3)*3/24）
-//     wingT  翅膀时钟，按一拍二量化（Math.floor(f/2)*2/24）；不给就用 ts（翅膀也一拍三）
+//     ts     身体时钟，调用方按一拍三量化（ts = heldTime(frameOf(t), 3)，engine/core/clock.js）
+//     wingT  翅膀时钟，按一拍二量化（heldTime(frameOf(t), 2)）；不给就用 ts（翅膀也一拍三）
 //     blink  0 睁 → 1 闭（不给就按周期自动眨）；look：世界坐标 Vector3，眼珠转向它（限幅）
 // 形变全部在 CPU 上做（脊柱波动、翅膀骨骼、凤尾翎和长须的波动）：
 //   · 阴影、toon 测试页的屏幕描边、look.js 的 ID 图描边都直接拿到形变后的几何，不需要任何顶点着色器钩子（不用 outlineVertex）
@@ -20,6 +22,7 @@ import { profileBody, sideAngle, axisStations, ringsAt, loftRings, loftWing } fr
 import { card } from '../engine/form/props.js';
 import { autoBlink, pickEye } from '../engine/form/eye.js';
 import { makePengMaterial, bindPeng, PENG } from './toon_peng.js';
+import { fitShadowTo } from './shadow.js';
 
 const sstep = (a, b, x) => ss(seg(x, a, b));
 const UP = new THREE.Vector3(0, 1, 0), AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0), AZ = new THREE.Vector3(0, 0, 1);
@@ -180,10 +183,10 @@ const PLUME_CW = [
 ];
 
 /**
- * createKun(opts) → { group, setPose(ts, o), eyeWorld(target, ref), fitShadow(light, o), outlineMeshes, length, eyeRadius, wisps, uniforms, fins, eyes }
+ * createKun(opts) → { group, setPose(ts, o), eyeWorld(target, ref), fitShadow(light, o), outlineMeshes, length, eyeRadius, wisps, uniforms, fins（空）, wings, eyes, flapPose }
  * opts.lod   0.1–1：网格密度倍率（大远景 0.35–0.5）
  * opts.seed  散布种子（默认 20261103）
- * opts.flapPeriod  扇翅周期（秒，默认 5，和脊柱波动同步）；opts.flapPhase 相位偏移（0..1）
+ * opts.flapPeriod  扇翅周期（秒，默认 10/3 ≈ 3.33，与身体随扇翅的上下起伏同周期；脊柱波动是 5 秒）；opts.flapPhase 相位偏移（0..1）
  * opts.blinkPeriod / blinkOffset：自动眨眼的周期 / 首次时刻（秒，默认 4 / 1.5）
  */
 export function createKun(opts = {}) {
@@ -396,8 +399,10 @@ export function createKun(opts = {}) {
       uZhu: { value: C('zhusha') }, uZhuL: { value: C('zhushaL') }, uGold: { value: C('gold') },
     },
     vertexPars: 'uniform mat4 uRestM;\nvarying vec3 vEyeRest;\n',
-    // 着色法线向眼丘外法线（局部 +Z，近似头部体表法线）收拢：眼丘只鼓轮廓、不在眼下压出一道暗月牙
-    vertexBegin: 'vEyeRest = ( uRestM * vec4( position, 1.0 ) ).xyz;\nvNormal = normalize( mix( vNormal, normalize( normalMatrix * vec3( 0.0, 0.0, 1.0 ) ), 0.8 ) );',
+    // 着色法线向眼丘外法线（局部 +Z，近似头部体表法线）收拢：眼丘只鼓轮廓、不在眼下压出一道暗月牙。
+    // 这一行只在卡通材质里编（TOON 是 three 卡通材质顶点着色器自带的宏）：镜头 C 的 wireOutlines 会把 vertexBegin 原样抄进
+    // 后期 ID 图的着色器，那里没有 vNormal，不加这层会编译失败、眼丘从墨线 ID 图里消失
+    vertexBegin: 'vEyeRest = ( uRestM * vec4( position, 1.0 ) ).xyz;\n#ifdef TOON\nvNormal = normalize( mix( vNormal, normalize( normalMatrix * vec3( 0.0, 0.0, 1.0 ) ), 0.8 ) );\n#endif',
     fragmentPars: /* glsl */`
       uniform float uSide, uOpen; uniform vec2 uLook;
       uniform vec3 uSkin, uSclera, uIrisIn, uIrisOut, uRing, uPupilCol, uCatchCol, uLid, uZhu, uZhuL, uGold, uSec, uQing, uQingL, uQingD;
@@ -1062,21 +1067,8 @@ export function createKun(opts = {}) {
   }
   const eyeWorld = (target, ref) => pickEye(eyes, target, ref);
   // 主光阴影相机罩住鲲（含翅膀和尾翎）；光的方向不变。鲲移动后每帧调一次
-  function fitShadow(light, { size = 4096, radius = 470 } = {}) {
-    group.updateMatrixWorld(true);
-    const c = new THREE.Vector3(-45, 20, 0).applyMatrix4(group.matrixWorld);
-    const sc = group.matrixWorld.getMaxScaleOnAxis(), Rr = radius * sc;
-    const dir = light.position.clone().sub(light.target.position);
-    if (dir.lengthSq() < 1e-9) dir.set(0.75, 0.1, 0.65); dir.normalize();
-    light.target.position.copy(c); light.target.updateMatrixWorld();
-    light.position.copy(c).addScaledVector(dir, Rr * 3);
-    const cam = light.shadow.camera;
-    Object.assign(cam, { left: -Rr, right: Rr, top: Rr, bottom: -Rr, near: Rr * 0.5, far: Rr * 5.5 });
-    cam.updateProjectionMatrix();
-    if (light.shadow.mapSize.x !== size) { light.shadow.mapSize.set(size, size); light.shadow.map?.dispose(); light.shadow.map = null; }
-    light.shadow.normalBias = 1.2 * sc; light.shadow.bias = -0.0005; light.shadow.radius = 2;
-    light.castShadow = true;
-  }
+  // 法线偏移 1.2（其它鲲是 1.5）：v1.0 起就是这个值，翅膀和尾翎薄，没再核对过改成 1.5 的效果；要统一先渲 ?test=kun_peng 对比
+  const fitShadow = (light, { size = 4096, radius = 470 } = {}) => fitShadowTo(light, group, { center: [-45, 20, 0], radius, size, normalBias: 1.2 });
   setPose(0);
-  return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, wisps: [], uniforms: U, fins: wings, wings, eyes, flapPose };
+  return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, wisps: [], uniforms: U, fins: [], wings, eyes, flapPose };
 }

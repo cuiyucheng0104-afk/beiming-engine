@@ -8,7 +8,7 @@
         tiles: [{file, frame, shot, cut}], strips: [{cut, tiles: [...]}], truncatedStrips }
       每格标帧号、时间码（时:分:秒:帧）、镜头号；切点帧左侧加一道醒目竖条，切点逐帧条里切点前后用竖线分开。
   python tools/contact_sheet.py <输出.jpg> a.jpg b.jpg … [--cols 4] [--w 480]
-      旧用法：按给定顺序拼图，格子标文件名。
+      旧用法：按给定顺序拼图，每格上方标文件名（Windows 反斜杠路径也只显示文件名）。
 
 只用 Pillow。字体：拉丁字母与数字用仓库的 fonts/Barlow-500.woff2；标题里的中文依次试 BEIMING_SHEET_FONT、
 仓库 fonts/ 子集与系统中文字体，都缺字时改用作品 id（只影响审片图，不影响成片）。
@@ -246,7 +246,8 @@ def legacy_sheet(out, files, cols, width):
     for k, f in enumerate(files):
         x, y = (k % cols) * width, (k // cols) * (height + 22)
         sheet.paste(fit(Image, open_rgb(Image, f), width, height), (x, y + 22))
-        draw.text((x + 6, y + 4), Path(f).name, fill=(230, 230, 230), font=font)
+        # Windows 反斜杠路径也只显示文件名（main 62ad28e 的修复：POSIX 上 Path 不把 \ 当分隔符）
+        draw.text((x + 6, y + 4), os.path.basename(str(f).replace('\\', '/')), fill=(230, 230, 230), font=font)
     out.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(out, quality=88)
     return sheet.size
@@ -274,6 +275,8 @@ def main(argv):
                 die(f'读不了清单 {a.manifest}：{e}', 2)
             size = manifest_sheet(out, m, a.width)
         else:
+            if not a.images:
+                die('用法错误：要么给 --manifest <清单.json>，要么给至少一张图（旧用法：out.jpg a.jpg b.jpg …）', 2)
             if a.cols < 1 or a.w < 16:
                 die('用法错误：--cols 至少 1，--w 至少 16', 2)
             size = legacy_sheet(out, a.images, a.cols, a.w)
