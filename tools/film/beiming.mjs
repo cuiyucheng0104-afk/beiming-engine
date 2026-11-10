@@ -92,9 +92,7 @@ export const command = defineCommand({
     for (const [from, to] of legacy) {
       const src = path.join(run, from), dst = path.join(ROOT, 'out', to);
       if (!fs.existsSync(src)) throw new CliError('failure.run-incomplete', `运行目录里缺 ${from}：${runDir}`, { hint: '看本次运行的 run.json 与 logs/' });
-      const tmp = `${dst}.${process.pid}.tmp`;
-      try { fs.rmSync(tmp, { force: true }); fs.linkSync(src, tmp); } catch { fs.copyFileSync(src, tmp); }
-      fs.renameSync(tmp, dst);
+      placeLegacy(src, dst);
       placed.push({ path: `out/${to}`, sha256: sha256(fs.readFileSync(dst)), kind: `legacy:${from}` });
     }
     ctx.out(`《北冥》样片：${runDir}/（run.json、QA 报告、联系表都在这里）\n旧文件名：${placed.map(p => p.path).join('  ')}`);
@@ -106,6 +104,22 @@ export const command = defineCommand({
     return { outputs: [...env.outputs, ...placed], runJson: env.runJson, data };
   },
 });
+
+// 把运行目录里的产物放到旧文件名：同一文件系统上硬链接（不占双份空间），否则复制；先放到临时名再原子改名。
+// 目标已经是同一个文件时（步骤缓存命中：上一次放过去的 out/mix.wav 与这次运行目录里的 audio/mix.wav 是同一份硬链接）什么都不做——
+// POSIX 的 rename() 在新旧两个名字指向同一文件时是空操作、会把临时名留下来（实测留下过 out/mix.wav.<pid>.tmp）。
+export function placeLegacy(src, dst) {
+  try {
+    const a = fs.statSync(src), b = fs.statSync(dst);
+    if (a.ino === b.ino && a.dev === b.dev && a.ino !== 0) return 'same';
+  } catch { /* 目标还不存在 */ }
+  const tmp = `${dst}.${process.pid}.tmp`;
+  try {
+    try { fs.rmSync(tmp, { force: true }); fs.linkSync(src, tmp); } catch { fs.copyFileSync(src, tmp); }
+    fs.renameSync(tmp, dst);
+  } finally { fs.rmSync(tmp, { force: true }); }
+  return 'placed';
+}
 
 // --4k 是旧参数名（命令约定的选项名不能以数字开头）：换成 --uhd 再解析；`--` 之后的不动
 export function mapLegacyArgs(argv) {

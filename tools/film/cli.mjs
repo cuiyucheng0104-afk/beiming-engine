@@ -49,7 +49,7 @@ const TOP_DESCRIPTION = [
   '  status <作品目录>                        闸门、最近运行与下一步',
   '',
   '产物只写进 <作品>/out/<run-id>/（master.mp4 web.mp4 player.html contact.jpg poster.jpg run.json qa/report.json），',
-  '最近一次跑完的出片记在 out/latest（指针文件）。每个子命令都有 --help；--json 时 stdout 只有一个 JSON 对象。',
+  '最近一次整条链跑完且没失败的 build 记在 out/latest（指针文件；含 --no-qa、--size 的工作版）。每个子命令都有 --help；--json 时 stdout 只有一个 JSON 对象。',
   '《北冥》10 秒样片：npm run beiming:build（= node tools/film/beiming.mjs；sh build.sh 是同一件事的兼容壳）。',
   '说明：tools/film/README.md；命令约定：docs/CLI.md。',
 ];

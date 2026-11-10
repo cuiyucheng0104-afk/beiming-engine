@@ -426,3 +426,20 @@ test('QA 的命令行：生效描述、页面与视口、页面导出的事件�
   assert.equal(b[b.indexOf('--film') + 1], path.join('/f', 'film.json'), '没有生效描述时给 film.json');
   assert.ok(!b.includes('--size') && !b.includes('--page'), '没有页面（B）时不给视口');
 });
+
+test('《北冥》旧文件名：放过去后不留临时文件；目标已是同一份硬链接（步骤缓存命中）时什么都不做', async () => {
+  const { placeLegacy } = await import('../../tools/film/beiming.mjs');
+  const dir = tmp();
+  try {
+    const src = path.join(dir, 'mix.wav'), dst = path.join(dir, 'out-mix.wav');
+    fs.writeFileSync(src, 'A');
+    assert.equal(placeLegacy(src, dst), 'placed');
+    assert.equal(fs.readFileSync(dst, 'utf8'), 'A');
+    assert.equal(placeLegacy(src, dst), 'same', '同一份硬链接：不改名、不留临时名');
+    const other = path.join(dir, 'mix2.wav');
+    fs.writeFileSync(other, 'B');
+    assert.equal(placeLegacy(other, dst), 'placed');
+    assert.equal(fs.readFileSync(dst, 'utf8'), 'B');
+    assert.deepEqual(fs.readdirSync(dir).filter(n => n.endsWith('.tmp')), [], '不该留下 <名>.<pid>.tmp');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

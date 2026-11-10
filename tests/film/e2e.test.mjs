@@ -135,19 +135,6 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
     assert.equal(vq.stubArgs.events, path.join(vDir, 'events.json'), 'film.json 没写 events：页面导出的事件表交给声画同步');
   }
   assert.equal(vr.technicalAcceptance.film, `${vr.runDir}/film.effective.json`);
-  // --size 改画幅：工作版、不是交付件——不跑交付 QA，规格核对通过即退出码 0
-  const sz = runCli(['build', w.rel, '--size', '960x540', '--json'], { env: env(tmp) });
-  assert.equal(sz.code, 0, sz.stderr.slice(-1500));
-  assert.equal(sz.json.data.deliverable, false);
-  assert.ok(sz.json.warnings.some(x => x.code === 'size-not-deliverable'));
-  const sr = readRun(sz.json.runJson);
-  assert.ok(['rendered', 'blocked'].includes(sr.status), `--size 工作版的状态 ${sr.status}`);
-  assert.equal(sr.technicalAcceptance.status, 'not-run');
-  assert.equal(sr.specCheck?.status, 'passed');
-  assert.deepEqual([sr.output.width, sr.output.height], [960, 540]);
-  assert.equal(sr.steps.find(s => s.id === 'qa')?.status, 'skipped');
-  assert.ok(!fs.existsSync(path.join(ROOT, sr.runDir, 'qa', 'report.json')));
-  assert.equal(runCli(['qa', w.rel, '--run', sr.runId, '--json'], { env: env(tmp) }).code, 2, 'film qa 不审 --size 的工作版');
   // 内部豁免不放行终渲；带用户原话的豁免放行；终渲的 run.json 记 kind = final 与放行依据
   assert.equal(runCli(['build', w.rel, '--final', '--json'], { env: env(tmp) }).code, 4);
   const uw = runCli(['review', 'waive', 'look,animatic', w.rel, '--reason', '用户说直接出', '--quote', '不用给我看预演了，直接出成片', '--source', '端到端测试会话 第 1 条', '--json'], { env: env(tmp) });
@@ -170,6 +157,20 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   assert.equal(acc.creativeAcceptance.reviews.at(-1).reviewerKind, 'human');
   const status = runCli(['status', w.rel, '--json'], { env: env(tmp) });
   assert.equal(status.json.data.lastFinal.delivered, true);
+  // --size 改画幅：工作版、不是交付件——不跑交付 QA，规格核对通过即退出码 0。放在最后：步骤缓存每步只留 2 份，
+  // 夹在工作版与终渲之间会把工作版的逐帧视频挤出缓存，终渲就复用不到了
+  const sz = runCli(['build', w.rel, '--size', '960x540', '--json'], { env: env(tmp) });
+  assert.equal(sz.code, 0, sz.stderr.slice(-1500));
+  assert.equal(sz.json.data.deliverable, false);
+  assert.ok(sz.json.warnings.some(x => x.code === 'size-not-deliverable'));
+  const sr = readRun(sz.json.runJson);
+  assert.ok(['rendered', 'blocked'].includes(sr.status), `--size 工作版的状态 ${sr.status}`);
+  assert.equal(sr.technicalAcceptance.status, 'not-run');
+  assert.equal(sr.specCheck?.status, 'passed');
+  assert.deepEqual([sr.output.width, sr.output.height], [960, 540]);
+  assert.equal(sr.steps.find(s => s.id === 'qa')?.status, 'skipped');
+  assert.ok(!fs.existsSync(path.join(ROOT, sr.runDir, 'qa', 'report.json')));
+  assert.equal(runCli(['qa', w.rel, '--run', sr.runId, '--json'], { env: env(tmp) }).code, 2, 'film qa 不审 --size 的工作版');
 });
 
 test('竖屏档位交给真 QA 的口径（FILM_E2E_REAL_QA=1）：C 模版按竖屏 30 fps 出片，交付规格四项与文字视口都按档位判', { skip: skip || (!process.env.FILM_E2E_REAL_QA && '设 FILM_E2E_REAL_QA=1 才跑（真 QA，约 1–2 分钟）'), timeout: 900000 }, () => {
