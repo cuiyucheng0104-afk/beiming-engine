@@ -1,0 +1,11 @@
+# 北冥仓库 · Python 顶层依赖（声音链路 engine/audio、audio/、模版声音脚本与 tools/ 下的 Python 工具）
+# 解释器：Python 3.12（.python-version）。可复现安装用 requirements.lock（node tools/env/lock.mjs 生成，不要手改）：
+#   npm run setup            建 .venv 并按锁文件安装
+#   node tools/env/lock.mjs  改了本文件之后重新生成锁文件；--upgrade 取最新版本
+# 范围的上限是「升大版本要先过金标准与混音哈希比对」的提醒，不是兼容性结论。
+numpy>=2.2,<3
+scipy>=1.14,<2
+numba>=0.61,<1
+soundfile>=0.13,<1
+soxr>=0.5,<2
+pillow>=11,<14
