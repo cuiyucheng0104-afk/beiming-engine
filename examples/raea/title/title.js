@@ -10,6 +10,7 @@ import { buildBrushGlyph, paintBrushGlyph } from '../../../engine/overlay/brush.
 import { shadowOnly } from '../../../engine/paint/canvas.js';
 import { loadFonts } from '../../../engine/overlay/text.js';
 import { __TITLE_SKEL as SKEL } from '../../../src/hud.js';
+import * as V from '../../../engine/native/view.js';
 import { layout, titleBox } from '../layout.js';
 
 const DRY = { '北': [0, 0, 0.7, 0.6, 0.45], '冥': [0, 0.4, 0, 0.25, 0, 0, 0, 0.5, 0.7, 0.35] };
@@ -27,7 +28,7 @@ let G = null, T = null;
 async function init() {
   await loadFonts([[FAMILY, new URL('../../../fonts/MaShanZheng-400.woff2', import.meta.url).href, '400']]);
   const film = await (await fetch(new URL('../film.json', import.meta.url))).json();
-  const L = layout({ W, H, FPS: film.fps, frames: Math.round(film.dur * film.fps) });
+  const L = layout({ W, H, FPS: film.fps, frames: Math.round(film.dur * film.fps) }, V);
   T = titleBox({ W, H }, L.title);
   G = T.glyphs.map(([ch]) => buildBrushGlyph(ch, { font: `400 ${T.F.toFixed(2)}px "${FAMILY}"`, size: T.F, strokes: SKEL[ch], span: SPAN[ch], dry: DRY[ch] }));
   window.READY = true;

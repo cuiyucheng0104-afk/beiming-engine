@@ -12,8 +12,8 @@ import { AmbientLight, DirectionalLight } from 'raea/light';
 import { Transform } from 'raea/transform';
 import { ToneMapping, Bloom, Shadows, ShaderMesh, Canvas3D } from 'raea/3d';
 import {
-  palette, shotAt, skyShift, ShotCamera, Backdrop, PlateCard, ToonBox, ToonModel, FrameSequence, PaperOverlay, Vignette,
-  waterWesl, ribbonWesl,
+  palette, shotAt, skyShift, headingYaw, behind, cardInView, ShotCamera, Backdrop, PlateCard, ToonBox, ToonModel, FrameSequence,
+  PaperOverlay, Vignette, waterWesl, ribbonWesl,
 } from '../../engine/native/index.ts';
 import { layout, eventSeconds } from './layout.js';
 import film from './film.json';
@@ -22,7 +22,7 @@ import titleSheet from './media/title.json';
 
 const P = palette(data);
 const [W, H] = film.size, FPS = film.fps, FRAMES = Math.round(film.dur * FPS);
-const L = layout({ W, H, FPS, frames: FRAMES });
+const L = layout({ W, H, FPS, frames: FRAMES }, { shotAt, skyShift, headingYaw, behind, cardInView });
 const EV = eventSeconds(film);
 
 // 近岸栏杆：与阴影同色的实心卡通块（只在第一镜，给出可量的前景视差）
