@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path';
 import { FilmError, loadFilm } from './film.js';
 import { REPO_ROOT, readJsonFile } from './io.js';
 import { validateRenderResult } from './project.js';
-import { GATES, gateVerdict, readReviews, validateCreativeAcceptance } from './review.js';
+import { GATES, gateVerdict, readReviews } from './review.js';
 
 export const STATES = Object.freeze(['draft', 'look-approved', 'animatic-approved', 'rendered', 'qa-passed', 'accepted']);
 export const STATE_LABELS = Object.freeze({
@@ -64,14 +64,20 @@ export function findUnbackedClaims(text, state) {
 
 // ───────────────────────── 运行记录与 QA 报告 ─────────────────────────
 
-/** 运行记录（附录 C8：RenderResult v1 扩展）。schemaVersion 1 时同时跑 project.js 的 validateRenderResult。 */
+/**
+ * 运行记录（附录 C8：RenderResult v1 扩展）。按 project.js 的 validateRenderResult 的 strict 口径校验：
+ * accepted 必须有人工认可的评审，技术验收 passed 必须指向运行目录里一份 ok = true 的 QA 报告；另查 kind 与作品是否对得上。
+ */
 export function validateRunRecord(run, { film = null, runDir = null } = {}) {
   const diagnostics = [];
   const err = (code, path, message, hint = '') => diagnostics.push({ level: 'error', code, path, message, hint });
   const warn = (code, path, message, hint = '') => diagnostics.push({ level: 'warning', code, path, message, hint });
   if (!isObj(run)) { err('run-invalid', '$', 'run.json 必须是 JSON 对象'); return { ok: false, diagnostics }; }
   if (run.schemaVersion === 1) {
-    for (const d of validateRenderResult(run, { expectedFrameCount: film && run.kind === 'final' ? film.output.frameCount : undefined }).diagnostics) err(d.code, d.path, d.message);
+    const expectedFrameCount = film && run.kind === 'final' ? film.output.frameCount : undefined;
+    for (const d of validateRenderResult(run, { strict: true, runDir, expectedFrameCount }).diagnostics) {
+      err(d.code, d.path, d.message, d.code === 'technical-evidence-not-qa' ? 'QA 判定由 tools/qa 写进 <run-id>/qa/report.json；渲染器只写 not-run' : '');
+    }
   } else err('run-schema', 'schemaVersion', `run.json 的 schemaVersion 必须是 1（RenderResult v1 扩展），收到 ${JSON.stringify(run.schemaVersion)}`);
   if (run.kind === undefined) warn('run-kind-missing', 'kind', 'run.json 没有 kind，无法确认是终渲', `写 kind：${RUN_KINDS.join(' / ')}（终渲写 final）`);
   else if (!RUN_KINDS.includes(run.kind)) err('run-kind', 'kind', `kind 只能是 ${RUN_KINDS.join(' / ')}`);
@@ -82,20 +88,6 @@ export function validateRunRecord(run, { film = null, runDir = null } = {}) {
     for (const [k, v] of Object.entries(want)) if (o[k] !== v) err('run-output-mismatch', `output.${k}`, `终渲 ${k}=${JSON.stringify(o[k])}，作品要求 ${v}`);
   }
   if (o.sha256 !== undefined && o.sha256 !== null && !SHA.test(o.sha256)) err('run-output-sha', 'output.sha256', 'output.sha256 是 64 位小写十六进制');
-  for (const d of validateCreativeAcceptance(run.creativeAcceptance)) diagnostics.push(d);
-  const t = run.technicalAcceptance;
-  if (isObj(t) && t.status === 'passed') {
-    const ev = Array.isArray(t.evidence) ? t.evidence : [];
-    const reports = ev.filter(e => typeof e === 'string' && /report\.json$/.test(e));
-    if (!reports.length) err('technical-evidence-missing', 'technicalAcceptance.evidence', '技术验收通过必须指向 QA 报告（如 qa/report.json）', 'QA 判定由 tools/qa 写，渲染器只写 not-run');
-    else if (runDir) {
-      for (const rel of reports) {
-        const r = readJsonFile(resolve(runDir, rel));
-        if (!r.ok) err('technical-evidence-unparseable', 'technicalAcceptance.evidence', `QA 报告读不出来：${r.message}`);
-        else if (r.value?.ok !== true) err('technical-evidence-failed', 'technicalAcceptance.evidence', `${rel} 的 ok 不是 true，技术验收不能写 passed`);
-      }
-    }
-  }
   return { ok: !diagnostics.some(d => d.level === 'error'), diagnostics };
 }
 

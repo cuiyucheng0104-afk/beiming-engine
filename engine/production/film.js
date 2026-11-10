@@ -15,14 +15,15 @@
 //   retime(raw, shotId, change, opts)                                  改切点（ripple / roll），见 timeline.js 的 retimeShot
 //   qaExpectations(film) → 尺寸、帧率、帧数、像素格式、色彩、音频、响度窗口、安全区、切点、事件、停顿、AIGC 标识（QA 的全部期望值）
 //   loadProfiles() / getProfile(id) / matchProfile({ width, height, fps }) / ffprobeExpect(id)
-//   loadRouteRegistry() / resolveRoute(value)                          路线注册表（routes/routes.json 存在时读它，否则用内置三条）
-//   toProjectSpec(film, opts) / fromProjectSpec(spec)                  与 engine/production/project.js 的 ProjectSpec v1 互相映射（不改 project.js）
+//   loadRouteRegistry() / resolveRoute(value)                          路线注册表（routes/routes.json 存在时读它，否则用内置三条；实现在 routes.js）
+//   toProjectSpec(film, opts) / fromProjectSpec(spec)                  与 engine/production/project.js 的 ProjectSpec v1 互相映射（路线 a / b / c，旧值 beiming / raea 作别名）
 //   formatFilmJson / writeFilmJson                                     稳定排版、原子写
 // 路径一律相对"路径基准"：普通作品是作品目录；镜像作品（mirror.paths = "repo"，如 films/beiming-10s）是仓库根。
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { normalizeRelativePath, validateProjectSpec } from './project.js';
+import { canonicalRoute, normalizeRelativePath, validateProjectSpec } from './project.js';
+import { BUILTIN_ROUTES, loadRouteRegistry, resolveRoute } from './routes.js';
 import { REPO_ROOT, formatJson, readJsonFile, repoRelative, sha256Text, writeJsonAtomic } from './io.js';
 import {
   FRAME_EPS, TimelineError, beatGrid, checkShots, frameOfBeat, offGrid, retimeShot, secondsToFrame, stableStringify, timingOf,
@@ -149,37 +150,8 @@ export function ffprobeExpect(profileOrId, profiles = loadProfiles()) {
 
 // ───────────────────────── 路线注册表 ─────────────────────────
 
-const BUILTIN_ROUTES = Object.freeze([
-  { id: 'a', slug: 'a-webgl', brand: '北冥风格路线 · WebGL 三渲二', legacyId: 'beiming', backends: ['three'], manual: 'routes/a-webgl/README.md', renderer: 'page' },
-  { id: 'b', slug: 'b-native', brand: '北冥原生 · BNE', legacyId: 'raea', backends: ['native'], manual: 'routes/b-native/README.md', renderer: 'native' },
-  { id: 'c', slug: 'c-style', brand: '北冥代码动画风格 · 86 式', legacyId: null, backends: ['canvas', 'svg', 'dom', 'three', 'webgl'], manual: 'routes/c-style/README.md', renderer: 'page' },
-]);
-
-export function loadRouteRegistry(root = REPO_ROOT) {
-  const file = join(root, 'routes', 'routes.json');
-  let routes = BUILTIN_ROUTES.map(r => ({ ...r })), source = 'builtin';
-  if (existsSync(file)) {
-    const r = readJsonFile(file);
-    const list = r.ok ? (Array.isArray(r.value) ? r.value : r.value?.routes) : null;
-    if (!Array.isArray(list) || !list.length || !list.every(x => isStr(x?.id))) {
-      throw new FilmError('routes-invalid', `路线注册表 routes/routes.json 不合格：${r.ok ? '需要 routes 数组，每项有 id' : r.message}`, { exitCode: 1 });
-    }
-    routes = list.map(x => {
-      const b = BUILTIN_ROUTES.find(y => y.id === x.id) ?? {};
-      return { ...b, ...x, backends: Array.isArray(x.backends) ? x.backends : (b.backends ?? null), renderer: b.renderer ?? x.renderer };
-    });
-    source = 'routes/routes.json';
-  }
-  const aliases = new Map();
-  for (const r of routes) for (const a of [r.id, r.slug, r.legacyId].filter(Boolean)) aliases.set(String(a).toLowerCase(), r.id);
-  return { routes, source, aliases };
-}
-
-export function resolveRoute(value, registry = loadRouteRegistry()) {
-  if (typeof value !== 'string') return null;
-  const id = registry.aliases.get(value.toLowerCase());
-  return id ? { id, alias: id !== value, route: registry.routes.find(r => r.id === id) } : null;
-}
+// 读取与别名解析在 routes.js（project.js 也用它）；这里转出，保持 film.js 的库接口不变
+export { BUILTIN_ROUTES, loadRouteRegistry, resolveRoute };
 
 // ───────────────────────── v1 → v2 ─────────────────────────
 
@@ -833,42 +805,49 @@ export function qaExpectations(film, { profiles = loadProfiles() } = {}) {
 
 // ───────────────────────── 与 ProjectSpec v1 的映射 ─────────────────────────
 
-const PROJECT_ROUTE = { a: { route: 'beiming', backend: 'three' }, b: { route: 'raea', backend: 'raea' } };
-
 /**
  * film v2 → ProjectSpec v1（engine/production/project.js）。返回 { spec, diagnostics }；spec 已用 validateProjectSpec 自检。
- * runtime / execution 是 ProjectSpec 必填而 film.json 不记录的内容，由调用方给出。
+ * 路线写注册表 id（a / b / c），后端照抄（B 路线是 native）。runtime / execution 是 ProjectSpec 必填而 film.json 不记录的内容，由调用方给出。
+ * 镜像作品（mirror.paths = repo）的路径本来就相对仓库根；普通作品的路径相对作品目录，给出 filmDir（仓库相对）时换成仓库相对路径。
  */
-export function toProjectSpec(film, { runtime = null, execution = null, outputDir = 'out/', profiles = loadProfiles() } = {}) {
+export function toProjectSpec(film, { runtime = null, execution = null, outputDir = null, filmDir = null, profiles = loadProfiles() } = {}) {
   const diagnostics = [];
-  const m = PROJECT_ROUTE[film.route];
-  if (!m) {
-    diagnostics.push({ level: 'error', code: 'projectspec-route-unsupported', path: 'route', message: `ProjectSpec v1 只有 beiming / raea 两条路线，${film.route} 路线无法表达`, hint: '等 project.js 接受注册表路线（P05 第二波）' });
-    return { spec: null, diagnostics };
-  }
   const p = getProfile(film.output.profile, profiles);
+  const isMirror = film.mirror?.paths === 'repo';
+  const base = isMirror ? '' : (typeof filmDir === 'string' && filmDir ? `${filmDir.replace(/\\/g, '/').replace(/\/+$/, '')}/` : '');
+  const rel = x => (typeof x === 'string' ? posix.normalize(`${base}${x.replace(/\\/g, '/')}`) : x);   // ../../media/x.jpg 这类上溯路径按作品目录折算成仓库相对路径
   const spec = {
     schemaVersion: 1,
     projectId: film.id,
-    route: m.route,
-    backend: m.backend,
-    entry: film.entry,
+    route: film.route,
+    backend: film.backend,
+    entry: rel(film.entry),
     runtime: runtime ?? {},
-    output: { width: film.output.width, height: film.output.height, fps: film.output.fps, frameCount: film.output.frameCount, outputDir },
-    style: film.style ? { id: film.style.id, version: typeof film.style.version === 'number' ? `v${film.style.version}` : film.style.version, ...(film.style.baseline ? { baseline: film.style.baseline } : {}) } : { id: 'unspecified', version: 'v0' },
-    assets: { inline: (film.assets ?? []).map(id => ({ id })), scope: '来自 film.json v2 的资产 id；完整清单见 engine/assets' },
-    audio: { sampleRate: p.audio.sampleRate, channels: p.audio.channels, targetLUFS: film.audio?.targetLUFS ?? p.audio.loudness.integratedLUFS, truePeakLimitDbTP: p.audio.truePeakMaxDbTP },
+    output: { width: film.output.width, height: film.output.height, fps: film.output.fps, frameCount: film.output.frameCount, outputDir: outputDir ?? (isMirror ? `${film.mirror.outDir}/` : `${base}out/`) },
+    style: film.style
+      ? { id: film.style.id, version: typeof film.style.version === 'number' ? `v${film.style.version}` : String(film.style.version), baseline: film.style.baseline ? rel(film.style.baseline) : null }
+      : { id: 'unspecified', version: 'v0', baseline: null },
+    assets: { inline: (film.assets ?? []).map(id => ({ id })), scope: '来自 film.json v2 的资产 id；文件与 sha256 见 engine/assets' },
+    audio: { sampleRate: p.audio.sampleRate, channels: p.audio.channels, targetLUFS: film.audio?.targetLUFS ?? p.audio.loudness.integratedLUFS, truePeakLimitDbTP: film.audio?.truePeakDbTP ?? p.audio.truePeakMaxDbTP },
     execution: execution ?? { target: 'local', graphicsBackend: 'auto', evidence: null },
   };
-  for (const d of validateProjectSpec(spec).diagnostics) diagnostics.push({ level: 'error', ...d, hint: d.code === 'runtime-incomplete' ? '传入 runtime：{ three: "0.170.0", sourceCommit: "<提交>" } 或 { package, sourceSnapshot }' : '' });
+  const hints = {
+    'runtime-incomplete': '传入 runtime：A / C 路线 { three: "<three 版本>", sourceCommit: "<提交>" }，B 路线 { package: "<原生运行时版本>", sourceSnapshot: "<快照>" }',
+    'style-baseline-missing': 'A 路线在 film.json 的 style.baseline 写视觉基准',
+    'style-migration-required': 'A 风格搬到原生执行要在 ProjectSpec 里补 style.migration',
+  };
+  for (const d of validateProjectSpec(spec).diagnostics) diagnostics.push({ level: 'error', ...d, hint: hints[d.code] ?? '' });
   return { spec, diagnostics };
 }
 
-/** ProjectSpec v1 → film v2 的骨架（单镜头、无事件；credits / aigc 需要补）。 */
+/** ProjectSpec v1 → film v2 的骨架（单镜头、无事件；credits / aigc 需要补）。路线接受 a / b / c 与旧值 beiming / raea。 */
 export function fromProjectSpec(spec, { profiles = loadProfiles() } = {}) {
   const diagnostics = [];
-  const route = spec?.route === 'beiming' ? 'a' : spec?.route === 'raea' ? 'b' : null;
-  if (!route) diagnostics.push({ level: 'error', code: 'projectspec-route-unknown', path: 'route', message: `不认识的 ProjectSpec 路线 ${JSON.stringify(spec?.route)}` });
+  const { routeId: route, backend } = canonicalRoute(spec ?? {});
+  if (!route) diagnostics.push({ level: 'error', code: 'projectspec-route-unknown', path: 'route', message: `不认识的 ProjectSpec 路线 ${JSON.stringify(spec?.route)}`, hint: '路线写 a / b / c（旧值 beiming、raea）' });
+  if (route === 'a' && backend === 'native') {
+    diagnostics.push({ level: 'error', code: 'projectspec-migration', path: 'backend', message: 'A 风格的原生迁移（route a + backend native）在 film.json 里是 B 路线作品：route 改 b，style 写北冥风格并在 notes 里说明迁移状态', hint: '' });
+  }
   const o = spec?.output ?? {};
   const profile = matchProfile({ width: o.width, height: o.height, fps: o.fps }, profiles);
   if (!profile) diagnostics.push({ level: 'error', code: 'profile-unmatched', path: 'output', message: `${o.width}×${o.height}@${o.fps} 不对应任何交付档位` });
@@ -877,8 +856,8 @@ export function fromProjectSpec(spec, { profiles = loadProfiles() } = {}) {
     schemaVersion: FILM_SCHEMA_VERSION,
     id: String(spec?.projectId ?? '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, ''),
     title: spec?.projectId,
-    route,
-    backend: route ? DEFAULT_BACKEND[route] : undefined,
+    route: route === 'a' && backend === 'native' ? 'b' : route,
+    backend: route === 'a' && backend === 'native' ? 'native' : (backend ?? (route ? DEFAULT_BACKEND[route] : undefined)),
     entry: spec?.entry,
     output: { profile: profile ?? undefined, width: o.width, height: o.height, fps: o.fps, frameCount: o.frameCount },
     shots: [{ id: 'S1', in: 0, out: o.frameCount }],
@@ -888,7 +867,7 @@ export function fromProjectSpec(spec, { profiles = loadProfiles() } = {}) {
     credits: [],
     aigc: undefined,
   };
-  diagnostics.push({ level: 'warning', code: 'projectspec-partial', path: '$', message: 'ProjectSpec 不含镜头表、事件、署名与 AIGC 标识：转换结果只是骨架，要补 shots / events / credits / aigc' });
+  diagnostics.push({ level: 'warning', code: 'projectspec-partial', path: '$', message: 'ProjectSpec 不含镜头表、事件、署名与 AIGC 标识：转换结果只是骨架，要补 shots / events / credits / aigc；路径相对仓库根，放进作品目录时改成相对作品目录' });
   return { film, diagnostics };
 }
 

@@ -21,41 +21,19 @@
 // 评分维度与一票否决项的含义见 docs/creative-review/RUBRIC.md（两边的 id 由测试保持一致）。
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { normalizeRelativePath } from './project.js';
+import { normalizeRelativePath, validateCreativeAcceptance as validateCreativeContract } from './project.js';
 import { createExclusive, formatJson, readJsonFile, sha256File, sha256Text } from './io.js';
 import { eventsSignature, timingSignature } from './timeline.js';
+import {
+  DECISIONS, HUMAN_DECISIONS, ISSUE_LAYERS, ISSUE_PRIORITIES, ISSUE_STATUSES, REVIEWER_KINDS, RUBRIC_DIMENSIONS, SOURCE_KINDS, VERDICTS, VETOES, isPlaceholderQuote,
+} from './vocab.js';
+
+// 取值表在 vocab.js（project.js 的 RenderResult 校验也用它）；这里转出，保持 review.js 的接口不变
+export { DECISIONS, HUMAN_DECISIONS, ISSUE_LAYERS, ISSUE_PRIORITIES, ISSUE_STATUSES, REVIEWER_KINDS, RUBRIC_DIMENSIONS, SOURCE_KINDS, VERDICTS, VETOES, isPlaceholderQuote };
 
 export const REVIEW_SCHEMA_VERSION = 1;
 export const GATES = Object.freeze(['look', 'animatic', 'final']);
 export const RECORD_GATES = Object.freeze(['structure', ...GATES]);
-export const DECISIONS = Object.freeze(['approve', 'reject', 'waive', 'comment']);
-export const HUMAN_DECISIONS = Object.freeze(['approve', 'reject', 'waive']);
-export const REVIEWER_KINDS = Object.freeze(['human', 'ai']);
-export const SOURCE_KINDS = Object.freeze(['session', 'chat', 'im', 'email', 'meeting', 'document', 'other']);
-export const VERDICTS = Object.freeze(['pass', 'fail', 'note']);
-export const ISSUE_PRIORITIES = Object.freeze(['P0', 'P1', 'P2', 'P3']);
-export const ISSUE_STATUSES = Object.freeze(['open', 'fixed', 'verified', 'wontfix']);
-export const RUBRIC_DIMENSIONS = Object.freeze({
-  style: '画风与质感',
-  subject: '主体与构图',
-  camera: '镜头与连续性',
-  motion: '动作与表演',
-  rhythm: '节奏与声音',
-  text: '文字与信息',
-});
-export const VETOES = Object.freeze({
-  'edge-exposed': '底板露边或截断边',
-  'frame-defect': '断帧、跳帧、黑帧或意外静帧',
-  flicker: '闪烁或拍内跳变',
-  'text-defect': '文字越出安全区、缺字或读不完',
-  'look-missing': '承诺的画风层缺失（墨线、笔触、纸纹等没出来）',
-  'av-desync': '声画不同步（超出同步容差）',
-  'rights-issue': '素材、字体、IP 的权利问题',
-});
-export const ISSUE_LAYERS = Object.freeze({
-  model: '造型', material: '材质与着色', lighting: '灯光', plate: '底板', post: '后期',
-  performance: '动作与表演', camera: '镜头与运镜', edit: '剪辑与节奏', overlay: '显示层', text: '文字', sound: '声音', tech: '技术与编码',
-});
 
 const FIELDS = ['schemaVersion', 'film', 'gate', 'decision', 'reviewer', 'quote', 'source', 'recordedBy', 'recordedAt', 'reviewed', 'timing', 'style',
   'shots', 'issues', 'scores', 'vetoes', 'evidenceFrames', 'rejectedOn', 'mustChange', 'summary', 'notes'];
@@ -64,17 +42,6 @@ const ISO = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d
 const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isStr = v => typeof v === 'string' && v.trim().length > 0;
 
-/** 一眼就是占位符、或是 agent 自评口吻的"原话"：这些记录无效。 */
-const PLACEHOLDER_QUOTES = [
-  /\{\{[^}]*\}\}/, /^<[^>]*>$/, /^[（(\[【].*[）)\]】]$/,
-  /^(todo|tbd|tbc|n\/a|na|null|none|undefined|placeholder|xxx+|-+|—+|…+|\.{3,}|待补|待填|待定|略|无|空|示例|样例|原话|用户原话|用户的原话)$/i,
-  /^(代理检查通过|代理审片通过|自检通过|ai\s*审片通过|agent\s*(approved|checked))[。.!！]?$/i,
-];
-export function isPlaceholderQuote(text) {
-  if (!isStr(text)) return true;
-  const t = text.trim();
-  return PLACEHOLDER_QUOTES.some(re => re.test(t));
-}
 const PRIVATE_PATH = /(\/Users\/[^/\s]+|\/home\/[^/\s]+|[A-Za-z]:\\Users\\|~\/\.)/;
 
 // ───────────────────────── 校验 ─────────────────────────
@@ -348,30 +315,14 @@ function shotDiff(before, after) {
 
 /**
  * creativeAcceptance: { status, reviews: [{ reviewerKind, reviewer, decision, quote, source, scores, vetoes, evidenceFrames }] }
+ * 规则实现在 project.js 的 validateCreativeAcceptance；这里按 strict（运行记录口径）包一层，返回带 level 的诊断：
  * accepted 至少要一条 reviewerKind = human、decision = approve、带原话与出处的评审；只有 AI 评审时最多是 ai-reviewed。
  */
 export function validateCreativeAcceptance(creative, { path = 'creativeAcceptance' } = {}) {
-  const out = [];
-  const err = (code, p, message, hint = '') => out.push({ level: 'error', code, path: p, message, hint });
-  if (creative === undefined) return out;
-  if (!isObj(creative)) { err('creative-invalid', path, 'creativeAcceptance 必须是对象'); return out; }
-  const reviews = creative.reviews ?? [];
-  if (!Array.isArray(reviews)) { err('creative-invalid', `${path}.reviews`, 'reviews 必须是数组'); return out; }
-  reviews.forEach((r, i) => {
-    const p = `${path}.reviews[${i}]`;
-    if (!isObj(r) || !REVIEWER_KINDS.includes(r.reviewerKind) || !isStr(r.reviewer)) { err('creative-review-invalid', p, '每条评审写 { reviewerKind: human | ai, reviewer, decision, quote, source }'); return; }
-    if (r.reviewerKind === 'human' && HUMAN_DECISIONS.includes(r.decision)) {
-      if (!isStr(r.quote) || isPlaceholderQuote(r.quote)) err('creative-review-quote', `${p}.quote`, '人工评审必须带审阅人原话');
-      if (!(isObj(r.source) && isStr(r.source.ref))) err('creative-review-source', `${p}.source`, '人工评审必须带出处 source { kind, ref, at }');
-    }
-    if (r.reviewerKind === 'ai' && HUMAN_DECISIONS.includes(r.decision)) err('creative-ai-decision', `${p}.decision`, 'AI 评审只能是 comment（代理审片），不能 approve / reject / waive');
-    if (r.scores !== undefined && !(isObj(r.scores) && Object.entries(r.scores).every(([k, v]) => Object.hasOwn(RUBRIC_DIMENSIONS, k) && Number.isInteger(v) && v >= 1 && v <= 10))) {
-      err('creative-review-scores', `${p}.scores`, '分数用 RUBRIC 维度 id，1–10 的整数');
-    }
-  });
-  if (creative.status === 'accepted') {
-    const ok = reviews.some(r => isObj(r) && r.reviewerKind === 'human' && r.decision === 'approve' && isStr(r.quote) && !isPlaceholderQuote(r.quote) && isObj(r.source) && isStr(r.source.ref));
-    if (!ok) err('creative-accepted-without-human', `${path}.status`, 'accepted 至少要一条人工认可（reviewerKind = human、decision = approve、带原话与出处）', '只有 AI 评审时最多写 ai-reviewed');
+  const r = validateCreativeContract(creative, { path });
+  const out = r.diagnostics.map(d => ({ level: 'error', hint: '', ...d }));
+  if (creative && typeof creative === 'object' && creative.status === 'accepted' && !r.humanApproved) {
+    out.push({ level: 'error', code: 'creative-accepted-without-human', path: `${path}.status`, message: 'accepted 至少要一条人工认可（reviewerKind = human、decision = approve、带原话与出处）', hint: '只有 AI 评审时最多写 ai-reviewed' });
   }
   return out;
 }
