@@ -167,7 +167,7 @@ export function createFilm({ width, height, designWidth, designHeight, fit, fps,
   const F = designFit({ width: W, height: H, designWidth, designHeight, fit });
   const { K, DW, DH } = F;
   if (fps != null && !isPos(fps)) throw new TypeError(`createFilm：fps 要是正数（不写或 null：按渲染器注入的帧率，再不然由 run 定），收到 ${show(fps)}`);
-  const fps0 = fps ?? R?.fps;   // 都没指定（含注入的 fps 为 null）时不设：clock 保持默认 24，run 再定
+  const fps0 = fps ?? R?.fps;   // 都没指定（含注入的 fps 为 null）时不设：clock 保持当前值（新页面是默认 24），run 再定
   if (fps0 != null) setFilmFps(fps0);   // 建镜头时（run 之前）frameOf / heldTime 就按这部片的帧率
 
   const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
