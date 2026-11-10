@@ -172,7 +172,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   let out, runDir = null;
   if (opts.out) out = path.resolve(opts.out);
   else if (!opts.plan) { runDir = await runDirectory(dir, env); out = path.join(runDir.dir, 'master.mp4'); }
-  else out = path.resolve('out', 'plan.mp4');               // --plan 不写输出，只用来定临时目录的位置
+  else out = path.join(path.resolve(dir) === ROOT ? path.join(ROOT, 'out', 'beiming') : path.join(path.resolve(dir), 'out'), 'plan.mp4');   // --plan 不写输出：按运行目录的位置量磁盘、放试编码的临时文件
   const web = opts.web ? path.resolve(opts.web) : null;
   if (web && web === out) throw new RenderError('usage.conflict', '--web 不能与输出是同一个文件', { hint: '网页版另起一个文件名，例如 out/x_web.mp4' });
   const runJsonPath = path.resolve(opts['run-json'] ?? (runDir ? path.join(runDir.dir, 'run.json') : `${out}.run.json`));
