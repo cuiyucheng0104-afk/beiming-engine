@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "$comment": "交付档位（决策 D07、计划附录 C7）。QA（tools/qa）、渲染器（engine/render）、出片编排（tools/film）都只读这一份；每个档位完整展开，不做继承，方便机器直接比对。ffprobeFields 给出字段到 ffprobe 输出键的对照。读取与校验用 engine/production/film.js 的 loadProfiles / getProfile / ffprobeExpect。",
+  "default": "web-1080p24",
+  "ffprobeFields": {
+    "video.codec": "codec_name",
+    "video.codecProfile": "profile",
+    "video.pixFmt": "pix_fmt",
+    "video.sar": "sample_aspect_ratio",
+    "video.fieldOrder": "field_order",
+    "video.color.range": "color_range",
+    "video.color.matrix": "color_space",
+    "video.color.primaries": "color_primaries",
+    "video.color.transfer": "color_transfer",
+    "video.width": "width",
+    "video.height": "height",
+    "video.fps": "r_frame_rate 与 avg_frame_rate（写成 <fps>/1）",
+    "audio.codec": "codec_name",
+    "audio.sampleRate": "sample_rate",
+    "audio.channels": "channels",
+    "audio.channelLayout": "channel_layout"
+  },
+  "profiles": {
+    "web-1080p24": {
+      "label": "网页 1080p24（新作品默认）",
+      "role": "delivery",
+      "purpose": "网页、社交平台、客户预览的默认成片",
+      "source": "决策 D07（docs/decisions/2026-11-10-industrial-baseline.md）",
+      "video": {
+        "width": 1920, "height": 1080, "fps": 24, "cfr": true,
+        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
+      },
+      "audio": {
+        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
+        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
+        "truePeakMaxDbTP": -1.0
+      },
+      "container": { "format": "mp4", "faststart": true },
+      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "safeArea": {
+        "unit": "每边内缩占画面宽或高的比例",
+        "title": { "top": 0.1, "bottom": 0.1, "left": 0.1, "right": 0.1 },
+        "action": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
+        "source": "保守取传统口径：标题安全框 80%、动作安全框 90%"
+      }
+    },
+    "master-1080p24": {
+      "label": "母版 1080p24",
+      "role": "master",
+      "purpose": "存档与二次剪辑：中间帧无损，成片高码率；网页版从同一组中间帧另编",
+      "source": "决策 D07；计划附录 C7「无损中间件加高码率母版」",
+      "video": {
+        "width": 1920, "height": 1080, "fps": 24, "cfr": true,
+        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" },
+        "intermediate": "lossless"
+      },
+      "audio": {
+        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
+        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
+        "truePeakMaxDbTP": -1.0
+      },
+      "container": { "format": "mp4", "faststart": true },
+      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "safeArea": {
+        "unit": "每边内缩占画面宽或高的比例",
+        "title": { "top": 0.1, "bottom": 0.1, "left": 0.1, "right": 0.1 },
+        "action": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
+        "source": "保守取传统口径：标题安全框 80%、动作安全框 90%"
+      }
+    },
+    "uhd-2160p24": {
+      "label": "超高清 2160p24",
+      "role": "delivery",
+      "purpose": "大屏与高分辨率交付；页面按设计高度放大原生渲染，不从 1080 放大",
+      "source": "决策 D07",
+      "video": {
+        "width": 3840, "height": 2160, "fps": 24, "cfr": true,
+        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
+      },
+      "audio": {
+        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
+        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
+        "truePeakMaxDbTP": -1.0
+      },
+      "container": { "format": "mp4", "faststart": true },
+      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "safeArea": {
+        "unit": "每边内缩占画面宽或高的比例",
+        "title": { "top": 0.1, "bottom": 0.1, "left": 0.1, "right": 0.1 },
+        "action": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
+        "source": "保守取传统口径：标题安全框 80%、动作安全框 90%"
+      }
+    },
+    "vertical-1080x1920-30": {
+      "label": "竖屏 1080×1920 30 fps",
+      "role": "delivery",
+      "purpose": "手机竖屏短视频平台；需要单独的竖屏版式，不能从横屏裁",
+      "source": "决策 D07；安全区为通用工艺建议值",
+      "video": {
+        "width": 1080, "height": 1920, "fps": 30, "cfr": true,
+        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
+      },
+      "audio": {
+        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
+        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
+        "truePeakMaxDbTP": -1.0
+      },
+      "container": { "format": "mp4", "faststart": true },
+      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "safeArea": {
+        "unit": "每边内缩占画面宽或高的比例",
+        "title": { "top": 0.1, "bottom": 0.2, "left": 0.06, "right": 0.12 },
+        "action": { "top": 0.05, "bottom": 0.12, "left": 0.04, "right": 0.08 },
+        "source": "按 9:16 平台界面的常见遮挡取保守值：底部描述与按钮最多、右侧有互动按钮、顶部有状态栏；以目标平台实看为准"
+      }
+    },
+    "broadcast-1080p25": {
+      "label": "广播 1080p25（EBU R128）",
+      "role": "delivery",
+      "purpose": "电视或按 EBU R128 收片的平台；电视台另有封装要求（MXF、PCM 等）时按台方规范另做",
+      "source": "决策 D07；响度 EBU R128（−23 LUFS，文件交付 ±0.5 LU，真峰值 −1 dBTP）；安全区 EBU R95",
+      "video": {
+        "width": 1920, "height": 1080, "fps": 25, "cfr": true,
+        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
+      },
+      "audio": {
+        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
+        "loudness": { "integratedLUFS": -23, "toleranceLU": 0.5, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
+        "truePeakMaxDbTP": -1.0
+      },
+      "container": { "format": "mp4", "faststart": true },
+      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "safeArea": {
+        "unit": "每边内缩占画面宽或高的比例",
+        "title": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
+        "action": { "top": 0.035, "bottom": 0.035, "left": 0.035, "right": 0.035 },
+        "source": "EBU R95：16:9 高清的图文安全框 90%、动作安全框 93%"
+      }
+    },
+    "beiming-1040p24": {
+      "label": "《北冥》样片专用档 1920×1040 24 fps",
+      "role": "delivery",
+      "purpose": "只给仓库根的《北冥》10 秒样片及其镜像 films/beiming-10s；新作品不要选它",
+      "source": "决策 D07；响度与真峰值取 docs/routes/validation-and-rtx.md 第 2 节与 docs/routes/templates/project-beiming.json；色彩按 D07 统一为 BT.709 限范围（现有 media/beiming.mp4 未达标，见集成实测发现第 1 条）",
+      "video": {
+        "width": 1920, "height": 1040, "fps": 24, "cfr": true,
+        "codec": "h264", "codecProfile": "High", "pixFmt": "yuv420p", "sar": "1:1", "fieldOrder": "progressive",
+        "color": { "range": "tv", "matrix": "bt709", "primaries": "bt709", "transfer": "bt709" }
+      },
+      "audio": {
+        "codec": "aac", "sampleRate": 48000, "channels": 2, "channelLayout": "stereo",
+        "loudness": { "integratedLUFS": -14, "toleranceLU": 1, "measure": "最终 AAC 文件；ITU-R BS.1770 门限积分（ffmpeg ebur128）" },
+        "truePeakMaxDbTP": -1.2
+      },
+      "container": { "format": "mp4", "faststart": true },
+      "sync": { "avStartEndMaxFrames": 1, "cueLateMaxFrames": 1, "cueEarlyMaxMs": 10 },
+      "safeArea": {
+        "unit": "每边内缩占画面宽或高的比例",
+        "title": { "top": 0.1, "bottom": 0.1, "left": 0.1, "right": 0.1 },
+        "action": { "top": 0.05, "bottom": 0.05, "left": 0.05, "right": 0.05 },
+        "source": "保守取传统口径：标题安全框 80%、动作安全框 90%"
+      }
+    }
+  }
+}
