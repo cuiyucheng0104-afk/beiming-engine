@@ -1,5 +1,5 @@
 // engine/stage 的纯函数测试（Node）：film.js 的页面约定 v1（__RENDER）、设计画幅适配、镜头表与局部时间、TEXTS 规整；
-// camera.js 的 screenAnchor。浏览器里的整片验证（25 / 30 fps 帧号、镜头加长后像素一致）在 browser.test.mjs。
+// camera.js 的 screenAnchor。浏览器里的整片验证（25 / 30 fps 帧号、镜头加长后像素一致、纸纹地址失败）在 film.browser.test.mjs。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';

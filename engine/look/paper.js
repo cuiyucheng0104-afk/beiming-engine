@@ -85,17 +85,20 @@ export function createPaper(fx, renderer, { url = null, refHeight = 1080 } = {})
 
   const ready = (async () => {
     if (!url) return;
+    // 报错里写出页面实际去取的完整地址：相对路径按页面地址解析，写错一层目录时一眼能看出来
+    let where = String(url);
+    try { const abs = new URL(url, document.baseURI).href; if (abs !== where) where += `（解析为 ${abs}）`; } catch { /* 解析不了就只报原文 */ }
     const img = await new Promise((res, rej) => {
       const im = new Image();
       im.onload = () => res(im);
-      im.onerror = () => rej(new Error(`纸纹图加载失败：${url}（文件不存在或不是图片）。检查路径（相对页面）；不想用外部纸纹就别传 paperUrl，引擎会用程序化纸纹`));
+      im.onerror = () => rej(new Error(`纸纹图加载失败：${where}，文件不存在或不是图片。检查路径（相对页面）；不想用外部纸纹就别传 paperUrl，引擎会用程序化纸纹`));
       im.src = url;
     });
     const cv = document.createElement('canvas'); cv.width = cv.height = 64;
     const g = cv.getContext('2d'); g.drawImage(img, 0, 0, 64, 64);
     let d;
     try { d = g.getImageData(0, 0, 64, 64).data; }
-    catch (e) { throw new Error(`纸纹图读不到像素：${url}（${e && e.message || e}；跨域图片要和页面同源）`); }
+    catch (e) { throw new Error(`纸纹图读不到像素：${where}（${e && e.message || e}；跨域图片要和页面同源）`); }
     let s = 0;
     for (let i = 0; i < d.length; i += 4) s += (d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722) / 255;
     extMid = s / (d.length / 4);
