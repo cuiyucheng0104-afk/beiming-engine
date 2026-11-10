@@ -107,11 +107,13 @@ films/<名字>/
 
 | 项 | 命令 | 判据 / 2026-11-10 macOS（Apple M5 Pro、Metal、VideoToolbox）实测 |
 |---|---|---|
-| 工具与版式 | `node --test 'tests/native/*.test.mjs'` | 全过（80 项，含资产桥重导出、R01 睑缘墨线断言） |
+| 工具与版式 | `node --test 'tests/native/*.test.mjs'` | 全过（83 项，约 10 秒：资产桥重导出与基准逐字节比对、R01 睑缘墨线断言、逐帧版式、命令约定、仓库规则） |
+| 仓库规则 | `node tools/repo-check/rules/route-b/index.mjs` | 七条全过（Windows / Linux 可执行文件哈希未锁为提示） |
+| 中断与清理 | 出片中途 Ctrl+C | exit 130，原生进程被整组终止，`.part` 删除，run.json 记 interrupted |
 | 缺运行时 | `node engine/render/native.mjs films/<名字> --check-only`（不设 `RAEA_BIN`） | 一行中文指引，exit 3 |
-| 模版出片 | `new-film b` → `prepare` → `native.mjs` | exit 0：1920×1080 / 24fps / 108 帧，web-1080p24，−14.1 LUFS / −1.5 dBTP，`raea check` 4 段文字全过 |
+| 模版出片 | `new-film b` → `prepare` → `native.mjs` | exit 0：1920×1080 / 24fps / 108 帧，web-1080p24，−14.1 LUFS / −1.5 dBTP，`raea check` 4 段文字全过（含对比度 ≥ 3:1），原生渲染 2.8 秒 |
 | 例片出片 | `prepare examples/raea` → `native.mjs examples/raea` | exit 0：1920×1040 / 240 帧，beiming-1040p24，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题，28 秒 |
-| 可复现性 | 同一源码渲两次，逐帧比对 `framemd5.txt` 或解码比对 | 历史阈值：最大差 ≤ 8、PSNR ≥ 70 dB（canary.2 原生编码不是逐位确定） |
+| 可复现性 | 同一提交渲两次，比对两次的 `framemd5.txt` | 例片 240/240 帧解码后逐帧相同；原生 VideoToolbox 码流两次不同，网页版视频与音频码流逐字节相同。（历史 5090 记录：197/240 相同、最大差 6，所以阈值仍写「最大差 ≤ 8、PSNR ≥ 70 dB」） |
 
 看片规则：技术检查通过 ≠ 画面通过。至少看 `contact.jpg` 与整片，切点邻帧、片名、截断边、黑场与静帧；原生速度与画风质量分别评价，不把 A 路的 WebGL 数据当原生证据。
 
