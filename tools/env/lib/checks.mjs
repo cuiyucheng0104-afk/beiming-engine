@@ -3,12 +3,13 @@
 //   ok = status 不是 fail；required 的项 fail 时 doctor 退出 3。fix 是可以直接复制执行的命令或一句明确的动作。
 //
 // 接口：loadSpec(root)、check 函数若干（见下方 export）、pf(map)（按平台取修复命令）。
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { run, which } from './proc.mjs';
 import { resolvePython, pythonEnv, venvPython } from './python.mjs';
-import { parseLock, pinsFor, sha256 } from './lockfile.mjs';
+import { parseLock, pinsFor } from './lockfile.mjs';
 import { probeFfmpeg, missingComponents, ffmpegBins } from './ffmpeg.mjs';
 import { headlessShell, resolveAngle, probeGpu, classifyRenderer, nvidiaSmi } from './browser.mjs';
 import { findSh, shFix } from './sh.mjs';
@@ -26,6 +27,10 @@ const cmpSemver = (a, b) => {
   return 0;
 };
 const readJson = p => JSON.parse(fs.readFileSync(p, 'utf8'));
+export const fileSha256 = p => new Promise((resolve, reject) => {
+  const h = createHash('sha256');
+  fs.createReadStream(p).on('data', d => h.update(d)).on('error', reject).on('end', () => resolve(h.digest('hex')));
+});
 
 // ── Node 与 npm 依赖 ──
 export function checkNode(spec) {
@@ -266,7 +271,7 @@ export async function checkPython(root, spec, { env = process.env, imports = tru
     found: wrong.length || failedImports.length ? [...wrong, ...failedImports].join('；') : `${pins.length} 个包与锁文件一致；${spec.python.imports.join('、')} 可导入（${slow.toFixed(1)} 秒）`,
     expected: `${pins.length} 个包按 ${spec.python.lock} 安装`,
     fix: wrong.length || failedImports.length ? (py.source === '.venv' ? 'npm run setup' : `npm run setup，并取消 ${py.source}（让工具用 .venv）`) : null,
-    detail: slow > spec.python.slowImportSeconds ? `首次导入用了 ${slow.toFixed(0)} 秒：新环境第一次加载原生库就是这么慢（macOS 上常见 30–60 秒），再跑一次会降到 1–2 秒` : null,
+    detail: slow > spec.python.slowImportSeconds ? `首次导入用了 ${slow.toFixed(0)} 秒：新环境第一次加载原生库就是这么慢（macOS 上实测 40–80 秒），再跑一次会降到 1–2 秒` : null,
   }));
   for (const o of spec.python.optional) {
     out.push(mk(`python.optional.${o.module}`, `可选 Python 包 ${o.module}`, { status: res.optional[o.module] ? 'pass' : 'info', required: false,
@@ -403,7 +408,7 @@ export async function checkRaea(root, spec, { env = process.env, required = true
   try { version = fs.readFileSync(vf, 'utf8').trim(); } catch { /* 缺版本文件 */ }
   if (!version) return mk('raea.runtime', 'B 路线原生运行时', { ...base, status: 'fail', found: `缺 ${vf}`, fix: '安装包不完整：重新解压完整发行包（保留 bin/ 与 share/raea/VERSION）' });
   const allowed = version === want || version === env.BNE_ALLOW_VERSION;
-  const digest = sha256(fs.readFileSync(real));
+  const digest = await fileSha256(real);          // 运行时可执行文件有几百 MB：流式计算，不整个读进内存
   return mk('raea.runtime', 'B 路线原生运行时', { ...base, status: allowed ? 'pass' : 'fail', found: `${version}（${real}，sha256 ${digest.slice(0, 16)}…）`,
     fix: allowed ? null : `换回已验证的 ${want}；确实要用 ${version} 时先按 routes/b-native/README.md 重跑验收，再设 BNE_ALLOW_VERSION=${version}`,
     data: { version, path: real, sha256: digest } });

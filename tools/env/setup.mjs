@@ -119,6 +119,12 @@ async function baseInterpreter(o, spec) {
   return { tried };
 }
 
+// 让 git 忽略整个虚拟环境：uv 与 Python 3.13+ 的 venv 会自己写 .gitignore，Python 3.12 的 python -m venv 不写
+function ensureVenvIgnored(venv) {
+  const p = path.join(venv, '.gitignore');
+  try { if (!fs.existsSync(p)) fs.writeFileSync(p, '# 由 npm run setup 写入：虚拟环境不进 git\n*\n'); } catch { /* 只读的旧环境 */ }
+}
+
 async function venvState(venv, spec, lockSha) {
   if (!fs.existsSync(venv)) return { exists: false };
   let stamp = null;
@@ -144,7 +150,10 @@ async function stepPython(o, spec) {
   let st = await venvState(venv, spec, lockSha);
   if (st.exists && st.versionOk && st.lockOk && !o['recreate-venv']) {
     const v = await verifyVenv(venv, spec);
-    if (v.ok) return finishStep(s, 'skipped', `已与锁文件一致：${v.found}`);
+    if (v.ok) {
+      if (!o['dry-run']) ensureVenvIgnored(venv);
+      return finishStep(s, 'skipped', `已与锁文件一致：${v.found}`);
+    }
   }
   const uv = o['no-uv'] ? null : which('uv');
   const base = uv ? null : await baseInterpreter(o, spec);
@@ -171,6 +180,7 @@ async function stepPython(o, spec) {
     else await must(s, base.cmd, [...base.args, '-m', 'venv', venv], { timeout: 5 * 60_000, env, what: '建虚拟环境（python -m venv）' });
   }
   const py = venvPython(venv);
+  ensureVenvIgnored(venv);
   const writeStamp = state => { try { fs.writeFileSync(path.join(venv, STAMP), JSON.stringify({ state, lockSha256: lockSha, python: spec.python.version, installer: uv ? 'uv' : 'pip', at: new Date().toISOString() }, null, 2) + '\n'); } catch { /* 只读的旧环境 */ } };
   if (exact) writeStamp('installing');
   if (uv) {
