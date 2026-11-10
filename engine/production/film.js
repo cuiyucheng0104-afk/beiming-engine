@@ -24,6 +24,7 @@ import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'n
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { canonicalRoute, normalizeRelativePath, validateProjectSpec } from './project.js';
 import { BUILTIN_ROUTES, loadRouteRegistry, resolveRoute } from './routes.js';
+import { checkAssets, loadRegistry as loadAssetRegistry, resolveAsset } from '../assets/manifest.js';
 import { REPO_ROOT, formatJson, readJsonFile, repoRelative, sha256Text, writeJsonAtomic } from './io.js';
 import {
   FRAME_EPS, TimelineError, beatGrid, checkShots, frameOfBeat, offGrid, retimeShot, secondsToFrame, stableStringify, timingOf,
@@ -34,7 +35,6 @@ export const FILM_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const SHOT_OR_TRACK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const EVENT_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const CUE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
-const ASSET_ID = /^[a-z][a-z0-9-]*(?::[A-Za-z0-9._-]+)?(?:@v?\d+(?:\.\d+)*)?$/;
 const PLACEHOLDER = /\{\{\s*([^{}\s]*)\s*\}\}/g;
 
 export const EVALUATIONS = Object.freeze(['absolute', 'baked', 'sequential']);
@@ -597,10 +597,19 @@ export function validateFilm(input, opts = {}) {
     if (f.style.lock !== undefined) checkPath(f.style.lock, 'style.lock', { up: true });
   }
   if (f.assets !== undefined) {
-    if (!Array.isArray(f.assets)) err('assets-invalid', 'assets', 'assets 是资产 id 数组，如 ["kun@v1", "plate:sky_dawn"]');
+    if (!Array.isArray(f.assets)) err('assets-invalid', 'assets', 'assets 是资产 id 数组，如 ["model:kun@v1", "plate:sky_dawn", "local:assets/hero.png"]');
     else {
-      f.assets.forEach((a, i) => { if (!(typeof a === 'string' && ASSET_ID.test(a))) err('asset-id-invalid', `assets[${i}]`, `资产 id 写成「种类:名字@版本」，收到 ${JSON.stringify(a)}`); });
       if (new Set(f.assets).size !== f.assets.length) err('assets-invalid', 'assets', 'assets 有重复');
+      // 共享资产按 engine/assets/manifest.js 的注册表核对：不认识、版本不对、文件缺失判错，哈希与锁文件不符只提示
+      const reg = opts.assetRegistry ?? loadAssetRegistry();
+      if (checkFiles && !template) {
+        for (const d of checkAssets(f.assets, { registry: reg, filmDir: pathBase }).diagnostics) {
+          if (d.code === 'asset-registry') continue;
+          (d.level === 'error' ? err : warn)(d.code, d.path, d.message, d.hint);
+        }
+      } else {
+        f.assets.forEach((a, i) => { const r = resolveAsset(a, reg); if (r.error) err(r.error, `assets[${i}]`, r.message, r.hint); });
+      }
     }
   }
   if (f.credits === undefined) (upgraded ? warn : err)('credits-missing', 'credits', '没有 credits：列出字体、采样、素材、第三方代码的署名与许可（没有就写 []）');
