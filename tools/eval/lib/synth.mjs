@@ -64,6 +64,7 @@ export function makeSourceRepo(dir) {
     'cases/vendor/lemo-opuscar/README.md': '# vendor 快照\n',
     'cases/vendor/lemo-opuscar/styles/watercolor/STYLE.md': '# 水彩\n',
     'tools/casebook.py': CASEBOOK_STUB,
+    'evals/agent/replies/DF-A.json': '{ "$comment": "夹具：评测题库（prepare 会从被测检出里移除）" }\n',
     '.claude/skills/film-qc/SKILL.md': '---\nname: film-qc\ndescription: 仓库自带的出片质检 skill（夹具）\n---\n\n# film-qc\n',
     'package.json': '{ "name": "beiming-fixture", "private": true, "type": "module" }\n',
   };

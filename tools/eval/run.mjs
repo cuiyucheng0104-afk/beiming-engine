@@ -6,7 +6,8 @@
 //        校验题库：任务配置、发给代理的原文、脚本化回复互相一致；列出全部题目
 //   node tools/eval/run.mjs prepare --task <题号> [--commit <提交>] [--root <评测根>] [--isolation isolated|user-env]
 //                                   [--env cold|prepared] [--node-modules link|install|none] [--attempt <n>]
-//        为指定提交在仓库外建干净检出（git clone，删除远端），按题目准备环境与预置文件，写隔离的会话配置、记录基线
+//        为指定提交在仓库外建干净检出（git clone，删除远端；题库 evals/ 由评测方提交删掉），按题目准备环境与预置文件，
+//        写隔离的会话配置、记录基线
 //   node tools/eval/run.mjs drive <运行目录> [--claude <可执行文件>] [--model <模型>] [--effort <档>] [--turns <n>]
 //        无头驱动：claude -p 发任务书；代理停在闸门时按 evals/agent/replies/ 的脚本以「用户」身份回复，再 --resume 继续，
 //        直到完成、时间盒到点或出错；每轮的 stream-json 存 transcript/turn-NN.jsonl，墙钟只计代理在跑的时间
@@ -32,7 +33,7 @@ import { buildMaterials } from './lib/materials.mjs';
 import { homeDir, toPosix } from './lib/paths.mjs';
 import { RUN_KIND, filmDirOf, filmRenderRuns, latestFilmRun, loadRun, newRunId } from './lib/rundir.mjs';
 import {
-  assertEvalRoot, assertRequiredEnv, captureBaseline, cloneAt, commandText, lemoEnvVars, platformInfo, prepareEnvironment,
+  assertEvalRoot, assertRequiredEnv, captureBaseline, cloneAt, commandText, hideAnswerKey, lemoEnvVars, platformInfo, prepareEnvironment,
   resolveEvalRoot, seedWorktree, writeSessionConfig,
 } from './lib/sandbox.mjs';
 import { buildSheet, scoreRun } from './lib/scoring.mjs';
@@ -104,6 +105,7 @@ async function cmdPrepare({ opts }, ctx) {
     const worktree = path.join(runDir, 'worktree');
     ctx.log(`建检出：${task.id} @ ${commit.slice(0, 12)} → ${toPosix(runDir)}`);
     cloneAt(repo, commit, worktree);
+    const { baseCommit, hidden } = hideAnswerKey(worktree);
     const envSteps = prepareEnvironment(worktree, repo, { mode: environment, nodeModules, log: ctx.log });
     const seedSteps = seedWorktree(worktree, task.seed, { log: ctx.log });
     const sessionDir = path.join(runDir, 'session');
@@ -114,10 +116,10 @@ async function cmdPrepare({ opts }, ctx) {
     writeJson(path.join(runDir, 'replies.json'), replies);
     fs.writeFileSync(path.join(runDir, 'prompt.txt'), prompt);
     const tmpDir = path.join(runDir, 'tmp');
-    const baseline = captureBaseline({ worktree, tmpDir, commit });
+    const baseline = captureBaseline({ worktree, tmpDir, commit: baseCommit });
     writeJson(path.join(runDir, 'baseline.json'), baseline);
     const meta = {
-      kind: RUN_KIND, schemaVersion: 1, runId, task: task.id, attempt, commit, commitShort: commit.slice(0, 7),
+      kind: RUN_KIND, schemaVersion: 1, runId, task: task.id, attempt, commit, commitShort: commit.slice(0, 7), baseCommit, hidden,
       isolation, environment, nodeModules, worktree: 'worktree', tmp: 'tmp', session: 'session',
       createdAt: new Date().toISOString(), platform: platformInfo(), source: toPosix(repo), sourceDirty,
       envSteps, seedSteps, denyWeb,

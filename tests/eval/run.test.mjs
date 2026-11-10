@@ -118,7 +118,12 @@ describe('DF-A 完整评测流程（Claude CLI 测试桩扮演代理）', { skip
     assert.equal(run.meta.task, 'DF-A');
     assert.equal(run.meta.environment, 'cold');
     assert.equal(git(run.worktree, 'remote').trim(), '');
-    assert.equal(git(run.worktree, 'rev-parse', 'HEAD').trim(), SRC.commit);
+    assert.equal(git(run.worktree, 'rev-parse', 'HEAD~1').trim(), SRC.commit, '被测提交之上只多一个评测方提交');
+    assert.equal(git(run.worktree, 'rev-parse', 'HEAD').trim(), run.meta.baseCommit);
+    assert.match(git(run.worktree, 'log', '-1', '--format=%s'), /评测方：从被测检出移除 evals\//);
+    assert.equal(fs.existsSync(path.join(run.worktree, 'evals')), false, '题库不留在被测检出里');
+    assert.deepEqual(run.meta.hidden, ['evals/']);
+    assert.equal(git(run.worktree, 'status', '--porcelain').trim(), '');
     assert.equal(fs.existsSync(path.join(run.worktree, 'node_modules')), false, '冷启动不预装 node_modules');
     const settings = JSON.parse(fs.readFileSync(path.join(run.sessionDir, 'settings.json'), 'utf8'));
     assert.deepEqual(settings.permissions.deny, ['WebSearch', 'WebFetch']);

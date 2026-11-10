@@ -3,13 +3,15 @@
 // 安全与隔离要点：
 //   - 检出用 git clone（不是 git worktree）：不共享源仓库的配置与引用；clone 后删除 origin，push 不可能离开本机；
 //     设置本地提交身份，代理若提交（S3）只落在沙箱里。Windows 上 clone 时开 core.longpaths。
+//   - 题库 evals/ 从被测检出里删掉（评测方的一个提交，hideAnswerKey）：代理 grep 片名时不会搜到脚本化回复；
+//     判定以这个提交为基线（meta.baseCommit），被测提交另记 meta.commit。
 //   - 评测根不能在源仓库里，也不能在任何 .claude/worktrees/ 下；隔离模式下评测根的祖先目录不能有
 //     CLAUDE.md / AGENTS.md（Claude Code 会沿父目录加载它们，等于把评测机的个人指令带进会话）。
 //   - 会话配置：CLAUDE_CONFIG_DIR 指向空目录（不加载个人 CLAUDE.md、自动记忆、全局 skill 与插件），
 //     只加载项目设置（--setting-sources project），不加载任何 MCP（--strict-mcp-config + 空配置），
 //     TMPDIR/TMP/TEMP 指向本次运行的 tmp/。凭据只透传环境变量，工具不读取、不落盘。
 // 接口：resolveEvalRoot(opt)、assertEvalRoot(root, repo, { isolation, allowAncestors })、ancestorInstructionFiles(dir)、
-//       cloneAt(repo, commit, dest)、prepareEnvironment(wt, repo, mode, log)、seedWorktree(wt, seed)、
+//       cloneAt(repo, commit, dest)、hideAnswerKey(wt)、prepareEnvironment(wt, repo, mode, log)、seedWorktree(wt, seed)、
 //       captureBaseline(run)、writeSessionConfig(runDir, opts)、sessionEnv(run, extra)、lemoEnvVars(env, home)、writeWavTone(file, seconds)
 
 import { spawnSync } from 'node:child_process';
@@ -73,6 +75,17 @@ export function cloneAt(repo, commit, dest) {
   git(['config', 'user.name', 'beiming-eval'], { cwd: dest });
   git(['config', 'user.email', 'beiming-eval@localhost.invalid'], { cwd: dest });
   git(['config', 'commit.gpgsign', 'false'], { cwd: dest });
+}
+
+/** 题库（含脚本化回复与评分）不能让代理读到：从被测检出删掉 evals/，作为评测方的一个提交；返回新的基线提交。 */
+export const HIDDEN_PATHS = Object.freeze(['evals']);
+
+export function hideAnswerKey(wt) {
+  const present = HIDDEN_PATHS.filter(p => fs.existsSync(path.join(wt, p)));
+  if (!present.length) return { baseCommit: git(['rev-parse', 'HEAD'], { cwd: wt }).stdout.trim(), hidden: [] };
+  git(['rm', '-r', '-q', '--', ...present], { cwd: wt });
+  git(['commit', '-q', '--no-verify', '-m', `评测方：从被测检出移除 ${present.map(p => `${p}/`).join('、')}（题库与脚本化回复不给代理看）`], { cwd: wt });
+  return { baseCommit: git(['rev-parse', 'HEAD'], { cwd: wt }).stdout.trim(), hidden: present.map(p => `${p}/`) };
 }
 
 function runStep(cmd, args, { cwd, timeoutMs, env = process.env }) {
