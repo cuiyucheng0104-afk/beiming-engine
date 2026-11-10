@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- 测试夹具（tests/golden）：只依赖 t 的 2D 画布页。确定性检查应判通过（exit 0）。
+     ?shift=<像素> 把方块整体平移，测试用它模拟「参数被改动」：金标准比对应判不通过并出差异热图。 -->
+<html lang="zh-CN"><head><meta charset="utf-8"><title>fixture-pure</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas><script>
+const c = document.getElementById('c');
+c.width = innerWidth; c.height = innerHeight;
+const g = c.getContext('2d');
+const SHIFT = Number(new URLSearchParams(location.search).get('shift') || 0);
+window.DUR = 2;
+window.render = t => {
+  const W = c.width, H = c.height, f = Math.round(t * 24);
+  g.fillStyle = '#f2ebdb'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#1d1b1a';
+  const x = (W - 40) * (t / window.DUR);
+  g.fillRect(Math.round(x) + SHIFT, Math.round(H / 2 - 20), 40, 40);
+  g.fillStyle = `rgb(${(f * 37) % 256}, 90, 120)`;
+  g.fillRect(8, 8, 24, 24);
+};
+window.render(0);
+window.READY = true;
+</script></body></html>

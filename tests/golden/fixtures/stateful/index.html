@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- 测试夹具（tests/golden）：故意违反页面约定的反例——render(t) 累加内部状态（x 每调一次就增加），
+     结果取决于之前调过几次 render。确定性检查必须判失败（exit 4），证明检查抓得到这类错误。不要照抄。 -->
+<html lang="zh-CN"><head><meta charset="utf-8"><title>fixture-stateful</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas><script>
+const c = document.getElementById('c');
+c.width = innerWidth; c.height = innerHeight;
+const g = c.getContext('2d');
+let x = 0;   // 累计状态：反例
+window.DUR = 2;
+window.render = t => {
+  x += 7;
+  const W = c.width, H = c.height;
+  g.fillStyle = '#f2ebdb'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#1d1b1a';
+  g.fillRect(x % (W - 40), Math.round(H / 2 - 20 + 30 * Math.sin(t)), 40, 40);
+};
+window.render(0);
+window.READY = true;
+</script></body></html>
