@@ -1,4 +1,4 @@
-// 玄鲲（变体「玄鲲云纹」，设定图 鲲_v2-2_玄鲲云纹）
+// 玄鲲（变体「玄鲲云纹」，设定图「鲲_v2-2_玄鲲云纹」是美术设定稿，不在本仓库里）
 // 东方神话的“鱼”，不是鲸：鲤 / 鲶式大头圆吻、侧扁的鱼身、竖直尾鳍；墨玉（玄青）鱼身 + 漆器描金的祥云纹和海浪纹，
 // 月白腹带淡金鳞，长鲤须，眼后一抹朱砂；胸鳍、尾鳍化作很长的月白丝绸飘带（敦煌飞天披帛），逆光下透亮。
 // 三渲二配方：
@@ -17,7 +17,10 @@ import { pitchYawLinearWave } from '../engine/form/bend.js';
 import { flake } from '../engine/form/props.js';
 import { weightedSampler, withWeights, placeOnSurface as place, pickFrom as pick, instanced } from '../engine/form/scatter.js';
 import { autoBlink, poseEyes, pickEye, mountEyes, lidShells, eyeFrame } from '../engine/form/eye.js';
+import { frameOf, heldTime } from '../engine/core/clock.js';
 import { makeXuanMaterial, bindXuan, XUAN, XUAN_PRESETS, tintFrom } from './toon_xuan.js';
+import { fitShadowTo } from './shadow.js';
+import { EYE_GLSL } from './eye_shade.js';
 
 const sstep = (a, b, x) => ss(seg(x, a, b));
 const UP = new THREE.Vector3(0, 1, 0);
@@ -393,8 +396,10 @@ const RIB_C = 150;   // 跟随身体的波沿飘带的传播速度（单位 / �
 
 // ───────────────────────── 主体 ─────────────────────────
 /**
- * createKun(opts) → { group, setPose(ts, o), eyeWorld(target, ref), fitShadow(light, o), outlineMeshes, length, eyeRadius, uniforms, ribbons, eyes, checkClearance }
- * 与 src/kun.js 的 createKun 同接口、同坐标约定（长约 600、头朝 +X、上为 +Y、原点在身体中心），换进正片只改 import。
+ * createKun(opts) → { group, setPose(ts, o), eyeWorld(target, ref), fitShadow(light, o), outlineMeshes, length, eyeRadius, uniforms, fins（空）, ribbons, barbels, eyes, checkClearance, bendPoint }
+ * 与 src/kun.js 的 createKun 同坐标约定（长约 600、头朝 +X、上为 +Y、原点在身体中心），镜头 C 用到的接口都有。
+ * fins 为空：胸鳍是丝绸飘带（ribbons），不是 kun.js 那种 { side, pivot } 刚体胸鳍，镜头 C 的「收远侧胸鳍」对它不做。
+ * 换进正片镜头 C：buildShotC({ makeKun: createKun })（或改 shotC.js 的 import）。
  * opts.lod   0.1–1：网格密度与金箔片数量倍率（大远景 0.35–0.5）
  * opts.seed  散布种子（默认 20261103）
  * opts.ribbonInk  飘带进不进描边（默认 true：飘带外轮廓有细墨线；false：只靠自身金边）
@@ -458,7 +463,7 @@ export function createKun(opts = {}) {
       uCatch1: { value: new THREE.Vector4(0, 0, 1, 0.985) }, uCatch2: { value: new THREE.Vector4(0, 0, 1, 0.997) }, uCatchCol: { value: new THREE.Color('#fffaf2') },
       uLidU: { value: new THREE.Vector3(0, 1, 0) }, uLidL: { value: new THREE.Vector3(0, -1, 0) },
     },
-    fragmentPars: 'uniform float uIrisA, uPupilA;\nuniform vec3 uIrisCol, uIrisCol2, uRingCol, uPupilCol, uCatchCol, uLidU, uLidL, uReflCol;\nuniform vec4 uCatch1, uCatch2;\n',
+    fragmentPars: 'uniform float uIrisA, uPupilA;\nuniform vec3 uIrisCol, uIrisCol2, uRingCol, uPupilCol, uCatchCol, uLidU, uLidL, uReflCol;\nuniform vec4 uCatch1, uCatch2;\n' + EYE_GLSL,
     fragmentAlbedo: /* glsl */`
     {
       vec3 d = normalize( vToonObj );
@@ -482,13 +487,10 @@ export function createKun(opts = {}) {
       diffuseColor.rgb = mix( diffuseColor.rgb, uPupilCol, pupil );
       toonInk = max( toonInk, ( 1.0 - smoothstep( 0.7 * fa, 2.2 * fa, abs( ang - uIrisA ) ) ) * 0.95 );
       toonInk = max( toonInk, ( 1.0 - smoothstep( 0.7 * fp, 1.8 * fp, abs( pa - uPupilA ) ) ) * 0.5 );
-      float c1 = dot( d, uCatch1.xyz ), c2 = dot( d, uCatch2.xyz );
-      float fc = max( fwidth( c1 ), 1e-5 );
-      float k = max( smoothstep( uCatch1.w - fc, uCatch1.w + fc, c1 ), smoothstep( uCatch2.w - fc, uCatch2.w + fc, c2 ) );
-      float du = dot( d, uLidU ), dl = dot( d, uLidL ), fd = max( fwidth( du ), 1e-5 );
+      float k = eyeCatch( d, uCatch1, uCatch2 );
+      float du = dot( d, uLidU ), dl = dot( d, uLidL );
       float front = smoothstep( 0.1, 0.6, d.z );
-      float lash = ( 1.0 - smoothstep( 0.12 * front + 0.02 - fd, 0.12 * front + 0.02 + fd, - du ) ) * front;
-      float low = ( 1.0 - smoothstep( 0.035 - fd, 0.035 + fd, - dl ) ) * front;
+      vec2 lid = eyeLidLines( du, dl, front, 0.12, 0.035 ); float lash = lid.x, low = lid.y;
       toonInk = max( toonInk, max( lash * 0.95, low * 0.6 ) );
       float refl = smoothstep( -0.5, -0.4, du ) * ( 1.0 - smoothstep( -0.3, -0.22, du ) ) * smoothstep( 0.35, 0.75, d.z ) * iris * ( 1.0 - pupil );
       toonOverlay = vec4( uReflCol, refl * 0.28 );
@@ -638,7 +640,6 @@ export function createKun(opts = {}) {
   function updateRibbon(r, ts, tr) {
     const s = r.spec, side = r.side || 1, L = s.L, nS = r.nS, nW = r.nW, ds = L / (nS - 1);
     // 根部位置与身体切向（身体时间 ts：根永远贴在身上）
-    let tyRoot = 0, tzRoot = 0;
     if (s.kind === 'tail') {
       const xr = X_TAIL + 22;
       bendPoint(_tmp.set(xr, (fT(xr) + fB(xr)) / 2 + s.dy, s.dz), ts, _root);
@@ -647,7 +648,6 @@ export function createKun(opts = {}) {
     }
     const p = _cp.copy(_root);
     const pos = r.mesh.geometry.attributes.position.array;
-    let yawPrev = 0;
     for (let i = 0; i < nS; i++) {
       const sl = i * ds, u = sl / L;
       const env = sstep(0.0, 0.3, u) * (0.4 + 0.6 * u);
@@ -658,7 +658,7 @@ export function createKun(opts = {}) {
       const bb = jsBend(xr, tb);
       if (s.kind === 'tail') { fp = -bb[1]; fy = -bb[3]; } else { fp = -bb[1] * 0.35; fy = -bb[3] * 0.35; }
       const pitch = lerp(s.p0, s.p1, sstep(0, 0.85, u)) + fp + s.ap * env * Math.sin(TAU * s.k * u - s.om * tr + s.fph) + (s.cu || 0) * sstep(0.7, 1.0, u);
-      let yaw = lerp(s.y0, s.y1, u) * (s.kind === 'pec' ? side : 1) + fy + s.ay * env * Math.sin(TAU * s.k * 0.8 * u - s.om * 0.9 * tr + s.fph + 1.3) * (s.kind === 'pec' ? side : 1);
+      const yaw = lerp(s.y0, s.y1, u) * (s.kind === 'pec' ? side : 1) + fy + s.ay * env * Math.sin(TAU * s.k * 0.8 * u - s.om * 0.9 * tr + s.fph + 1.3) * (s.kind === 'pec' ? side : 1);
       _d.set(-Math.cos(pitch) * Math.cos(yaw), Math.sin(pitch), Math.cos(pitch) * Math.sin(yaw));
       // 宽向：“上”投影到垂直于中线的平面，再绕中线扭
       _B.copy(UP).addScaledVector(_d, -UP.dot(_d)).normalize();
@@ -676,7 +676,6 @@ export function createKun(opts = {}) {
         pos[k + 2] = p.z + B.z * w * hw + N2.z * cup * hw * (w * w - 0.33) - r.center.z;
       }
       p.addScaledVector(_d, ds);
-      yawPrev = yaw;
     }
     const g = r.mesh.geometry;
     g.attributes.position.needsUpdate = true;
@@ -713,7 +712,6 @@ export function createKun(opts = {}) {
     const pos = bb.mesh.geometry.attributes.position.array;
     const p = _cp.copy(bb.root);
     bb.pts.length = 0;
-    let prevA = null;
     for (let i = 0; i < nS; i++) {
       const u = i / (nS - 1);
       // 须：先往外、往下，再往后；摆动一拍二
@@ -808,7 +806,7 @@ export function createKun(opts = {}) {
   }
 
   // —— 姿态 ——
-  const qTwo = t => Math.floor(Math.round(t * 24) / 2) * 2 / 24;   // 一拍二
+  const qTwo = t => heldTime(frameOf(t), 2);   // 一拍二（从整数帧号量化）
   function setPose(ts, po = {}) {
     U.uKunT.value = ts;
     const tr = po.t !== undefined ? qTwo(po.t) : ts;
@@ -818,28 +816,14 @@ export function createKun(opts = {}) {
     poseEyes(eyes, po.blink ?? autoBlink(ts, o.blinkPeriod, o.blinkOffset), po.look, group, { lidU: [-0.5, 0.03], lidL: [0.3, -0.03], catches: CATCH });
   }
   const eyeWorld = (target, ref) => pickEye(eyes, target, ref);
-  function fitShadow(light, { size = 4096, radius = 420 } = {}) {
-    group.updateMatrixWorld(true);
-    const c = new THREE.Vector3(-60, -20, 0).applyMatrix4(group.matrixWorld);
-    const sc = group.matrixWorld.getMaxScaleOnAxis(), Rr = radius * sc;
-    const dir = light.position.clone().sub(light.target.position);
-    if (dir.lengthSq() < 1e-9) dir.set(0.75, 0.1, 0.65); dir.normalize();
-    light.target.position.copy(c); light.target.updateMatrixWorld();
-    light.position.copy(c).addScaledVector(dir, Rr * 3);
-    const cam = light.shadow.camera;
-    Object.assign(cam, { left: -Rr, right: Rr, top: Rr, bottom: -Rr, near: Rr * 0.5, far: Rr * 5.5 });
-    cam.updateProjectionMatrix();
-    if (light.shadow.mapSize.x !== size) { light.shadow.mapSize.set(size, size); light.shadow.map?.dispose(); light.shadow.map = null; }
-    light.shadow.normalBias = 1.5 * sc; light.shadow.bias = -0.0005; light.shadow.radius = 2;
-    light.castShadow = true;
-  }
+  const fitShadow = (light, { size = 4096, radius = 420 } = {}) => fitShadowTo(light, group, { center: [-60, -20, 0], radius, size });
 
   // —— 穿插自检：飘带 / 须 / 背鳍两两最小距离，以及有没有扎进身体（自测页 &check=1 调用）——
   function checkClearance(times) {
     const res = { minPair: Infinity, pair: '', bodyHits: 0, worst: '' };
     const cell = 6, key = (x, y, z) => `${Math.floor(x / cell)},${Math.floor(y / cell)},${Math.floor(z / cell)}`;
     for (const t of times) {
-      const ts = Math.floor(Math.round(t * 24) / 3) * 3 / 24;
+      const ts = heldTime(frameOf(t), 3);
       setPose(ts, { t });
       const sets = [];
       // 飘带：沿长、沿宽加密采样（宽向插到 9 点）
@@ -879,5 +863,5 @@ export function createKun(opts = {}) {
   }
 
   setPose(0);
-  return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, uniforms: U, ribbons, barbels, eyes, checkClearance, bendPoint };
+  return { group, setPose, eyeWorld, fitShadow, outlineMeshes, length: 600, eyeRadius: RE, uniforms: U, fins: [], ribbons, barbels, eyes, checkClearance, bendPoint };
 }

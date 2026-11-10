@@ -11,13 +11,17 @@
 //     opts.ss 2           墨线超采样倍数（ID 图和笔画在 w*ss × h*ss 上算，合成时双线性下采样 → 线自带抗锯齿）；1 更快、线略硬
 //     opts.msaa 4         主场景 MSAA 采样数
 //     opts.paperUrl null  外部纸纹图；没有或加载失败就用程序化纸纹
-//     opts.defaults       每帧参数的默认值，结构同 LOOK_BASE（影片把自己的一套整体传进来）
-//     opts.refHeight 1080 像素量（线宽、抖动、笔触半径）的标定高度：内部乘 输出高度 / refHeight，换分辨率画面一致
+//     opts.defaults       每帧参数的默认值，结构同 LOOK_BASE（影片把自己的一套传进来）；和 LOOK_BASE 逐项合并，
+//                         只写了部分字段的项，其余字段仍取 LOOK_BASE 的（墨色、深度阈值等不会变成 undefined）
+//     opts.refHeight 1080 像素量（线宽、抖动、笔触半径）的标定高度：内部乘 输出高度 / refHeight，换分辨率画面一致；
+//                         bloom 的 mip 链按 log2(输出高度 / refHeight) 多降几级，图片纸纹与颗粒按整数倍 round(输出高度 / refHeight) 放大
+//                         （原生 4K 对 1080 标定：bloom 多降 1 级、纸纹平铺与颗粒格子 2 倍；1080 附近都不变）
 //     opts.fogColor       雾没写颜色时用的颜色（默认白）
 //     opts.fps 24         颗粒换种子的频率
 //   await look.ready 之后再出第一帧（外部纸纹图要先载好）。
 //
-// p（每帧参数；某一项不写 = 用 defaults；写 false / null = 关掉这一项；写对象 = 覆盖默认里的同名字段）：
+// p（每帧参数；某一项不写 = 用 defaults；写 false / null = 关掉这一项；写对象 = 覆盖默认里的同名字段；
+//    写数字 = 只改它的量：outline → opacity，kuwahara / bloom / paper → strength，fog → density；grade 没有单一的量，写数字报错）：
 //   t         全局时间（秒）
 //   outline   墨线：{ width, color, wobble, boilFps, warp, pressure, breakup, inner, silhouette, depthThreshold,
 //                     near, far, farScale, opacity, tint, darken, fogFade }        各字段见 ink.js、compose.js
@@ -61,12 +65,45 @@ export const LOOK_BASE = {
   grain: 0,
 };
 
+// 某一项写成数字时代表的字段（vignette / grain 本身就是数）；grade 不在表里：写数字报错
+const SCALAR = { outline: 'opacity', kuwahara: 'strength', bloom: 'strength', fog: 'density', paper: 'strength' };
+const ITEMS = ['outline', 'kuwahara', 'bloom', 'grade', 'fog', 'paper'];
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+function scalarItem(key, v, where) {
+  if (typeof v !== 'number') return v;
+  if (!SCALAR[key]) throw new TypeError(`look：${where}.${key} 不能写成数字（${v}），请写对象，例如 { exposure: ${v} }`);
+  return { [SCALAR[key]]: v };
+}
+const amountOf = (v, field) => isObj(v) ? v[field] ?? 0 : +v || 0;
+
+// opts.defaults 与 LOOK_BASE 逐项合并：对象项按字段覆盖，false / null 照样表示默认关
+export function lookDefaults(d) {
+  if (!d) return LOOK_BASE;
+  const o = { ...LOOK_BASE };
+  for (const k of Object.keys(d)) {
+    if (d[k] === undefined) continue;
+    const v = ITEMS.includes(k) ? scalarItem(k, d[k], 'defaults') : d[k];
+    o[k] = ITEMS.includes(k) && isObj(v) && isObj(LOOK_BASE[k]) ? { ...LOOK_BASE[k], ...v } : v;
+  }
+  o.vignette = amountOf(o.vignette, 'strength'); o.grain = amountOf(o.grain, 'amount');
+  return o;
+}
+
+// 每帧参数 p 和（合并过的）默认值 D → 各项的最终参数；null = 这一项关
+export function lookParams(p, D = LOOK_BASE) {
+  const r = {};
+  for (const k of ITEMS) r[k] = mergeParam(scalarItem(k, p[k], 'p'), D[k]);
+  r.vignette = p.vignette === undefined ? D.vignette : amountOf(p.vignette, 'strength');
+  r.grain = p.grain === undefined ? D.grain : amountOf(p.grain, 'amount');
+  return r;
+}
+
 export function createLook(renderer, w, h, opts = {}) {
   const ss = opts.ss ?? 2, msaa = opts.msaa ?? 4, refHeight = opts.refHeight ?? 1080, fps = opts.fps ?? 24;
-  const D = opts.defaults ?? LOOK_BASE, fogColor = opts.fogColor;
+  const D = lookDefaults(opts.defaults), fogColor = opts.fogColor;
 
   const fx = createFullscreen(renderer);
-  const ids = createIdPass(renderer), ink = createInk(fx), fog = createFogPass(fx), bloom = createBloom(fx);
+  const ids = createIdPass(renderer), ink = createInk(fx), fog = createFogPass(fx), bloom = createBloom(fx, { refHeight });
   const grade = createGrade(fx), kuwa = createKuwahara(fx), compose = createCompose(fx), debug = createDebugView(fx);
   const paper = createPaper(fx, renderer, { url: opts.paperUrl ?? null, refHeight });
   const out = new OutputPass();
@@ -90,11 +127,8 @@ export function createLook(renderer, w, h, opts = {}) {
   const _cc = new THREE.Color();
 
   function render(scene, camera, p = {}) {
-    const t = p.t ?? 0, k = H / refHeight;
-    const OL = mergeParam(p.outline, D.outline), KU = mergeParam(p.kuwahara, D.kuwahara), BL = mergeParam(p.bloom, D.bloom);
-    const GR = mergeParam(p.grade, D.grade), FG = mergeParam(p.fog, D.fog), PA = mergeParam(p.paper, D.paper);
-    const VG = p.vignette === undefined ? D.vignette : (typeof p.vignette === 'object' && p.vignette ? p.vignette.strength ?? 0 : +p.vignette || 0);
-    const GN = p.grain === undefined ? D.grain : (typeof p.grain === 'object' && p.grain ? p.grain.amount ?? 0 : +p.grain || 0);
+    const t = p.t ?? 0, k = H / refHeight, kp = Math.max(1, Math.round(k));   // kp：图片纸纹 / 颗粒的整数像素倍率
+    const { outline: OL, kuwahara: KU, bloom: BL, grade: GR, fog: FG, paper: PA, vignette: VG, grain: GN } = lookParams(p, D);
     const target = p.target ?? null;
 
     const prevRT = renderer.getRenderTarget(), prevAuto = renderer.autoClear, prevAlpha = renderer.getClearAlpha();
@@ -130,11 +164,11 @@ export function createLook(renderer, w, h, opts = {}) {
       if (KU && KU.strength > 0 && KU.radius > 0) {
         kuwa.render({ src: col, depth: T.scene.depthTexture, camera, p: KU, k, w: W, h: H }, T.kuwa); col = T.kuwa.texture;
       }
-      const layer = paper.layer(PA);
+      const layer = paper.layer(PA, kp);
       if (p.debug) {
         debug.render(p.debug, { id: T.id.texture, depth: T.id.depthTexture, edge: T.edge.texture, line: T.line.texture, bloom: glow, paper: layer.tex, kuwahara: col, scene: T.scene.texture }, camera, target);
       } else {
-        compose.render({ src: col, line: lineOn ? T.line.texture : null, ink: OL, paper: layer, vignette: VG, grain: GN, grainSeed: Math.floor(t * fps + 1e-6), w: W, h: H }, target);
+        compose.render({ src: col, line: lineOn ? T.line.texture : null, ink: OL, paper: layer, vignette: VG, grain: GN, grainSeed: Math.floor(t * fps + 1e-6), grainCell: kp, w: W, h: H }, target);
       }
     } finally {
       renderer.autoClear = prevAuto; renderer.setClearColor(_cc, prevAlpha); renderer.setRenderTarget(prevRT);
@@ -143,8 +177,8 @@ export function createLook(renderer, w, h, opts = {}) {
 
   function dispose() {
     for (const k in T) if (k !== 'paper') T[k]?.dispose?.();
-    for (const m of [ink, fog, bloom, grade, kuwa, compose, debug, paper, fx]) m.dispose();
-    out.dispose();
+    for (const m of [ids, ink, fog, bloom, grade, kuwa, compose, debug, paper, fx]) m.dispose();
+    out.material.dispose();   // 不调 out.dispose()：它经 FullScreenQuad.dispose 删掉 three 全局共享的全屏几何体（见 pass.js）
   }
 
   return {

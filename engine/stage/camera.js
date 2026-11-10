@@ -11,7 +11,10 @@
 //   screenToWorld(cam, W, H, cx, cy, D)       屏幕像素 + 深度 → 世界坐标
 //   screenToPlane(cam, W, H, cx, cy, plane)   屏幕像素的视线与平面（缺省水平面 y = 0）的交点
 //   project(cam, W, H, p) / projectAll(cam, W, H, pts, zMin)   世界坐标 → 屏幕 { x, y, z }（z = 到相机平面的距离）；后者只留 z > zMin 的点
-// 调用前相机的世界矩阵要是新的（aimCamera 会更新）。
+// 调用前相机的世界矩阵要是新的（aimCamera 会更新）；改了 zoom / filmOffset / setViewOffset 之后先 updateProjectionMatrix。
+// 屏幕坐标都指相机此刻实际渲出的 W×H 画面：placeOnScreen / screenToWorld 和 project / screenToPlane 一样计入 zoom、filmOffset
+// 和 setViewOffset（分块渲染时按整幅画面摆，就在开分块之前摆好）。placeOnScreen 摆的是世界位置，面片挂在带变换的父节点下也对：
+// 会换算到父节点空间（父节点有不等比缩放又带旋转时，面片会被剪切，换不回纯 TRS，仍按最接近的分解写入）。
 import * as THREE from 'three';
 import { clamp, DEG } from '../core/math.js';
 
@@ -27,13 +30,36 @@ export function dirOf(yaw, pitch, out = new THREE.Vector3()) {
 export const yawPitchOf = d => ({ yaw: Math.atan2(-d.x, -d.z), pitch: Math.asin(clamp(d.y, -1, 1)) });
 export const wrapAngle = a => Math.atan2(Math.sin(a), Math.cos(a));
 
+// 深度 D 处的画面矩形（相机局部坐标），与 three r170 PerspectiveCamera.updateProjectionMatrix 同一套 zoom / filmOffset / view 规则：
+// 屏幕 (cx, cy) → 局部 (x, y)，屏幕宽高 → 局部宽高。zoom = 1、filmOffset = 0、不分块时和原来的式子逐位相同。
+function frameAt(cam, D) {
+  const hh = D * Math.tan(cam.fov * DEG / 2) / cam.zoom, hw = hh * cam.aspect;
+  const sx = cam.filmOffset ? D * cam.filmOffset / cam.getFilmWidth() : 0;
+  const v = cam.view && cam.view.enabled ? cam.view : null;
+  return { hh, hw, sx, v, fw: v ? 2 * hw * v.width / v.fullWidth : 0, fh: v ? 2 * hh * v.height / v.fullHeight : 0 };
+}
+const localX = (F, W, cx) => F.v ? -F.hw + F.v.offsetX * 2 * F.hw / F.v.fullWidth + F.sx + cx / W * F.fw : (cx / W - 0.5) * 2 * F.hw + F.sx;
+const localY = (F, H, cy) => F.v ? F.hh - F.v.offsetY * 2 * F.hh / F.v.fullHeight - cy / H * F.fh : (0.5 - cy / H) * 2 * F.hh;
+const spanX = (F, W, wpx) => F.v ? wpx / W * F.fw : wpx / W * 2 * F.hw;
+const spanY = (F, H, hpx) => F.v ? hpx / H * F.fh : hpx / H * 2 * F.hh;
+
+const IDENTITY = new THREE.Matrix4(), _wm = new THREE.Matrix4(), _pi = new THREE.Matrix4(), _ws = new THREE.Vector3();
 export function placeOnScreen(mesh, cam, W, H, cx, cy, wpx, D, hpx) {
-  const hh = D * Math.tan(cam.fov * DEG / 2), hw = hh * cam.aspect;
-  const x = (cx / W - 0.5) * 2 * hw, y = (0.5 - cy / H) * 2 * hh;
-  const w = wpx / W * 2 * hw, h = hpx !== undefined ? hpx / H * 2 * hh : w / (mesh.userData.aspect || 1);
+  const F = frameAt(cam, D);
+  const x = localX(F, W, cx), y = localY(F, H, cy);
+  const w = spanX(F, W, wpx), h = hpx !== undefined ? spanY(F, H, hpx) : w / (mesh.userData.aspect || 1);
   mesh.position.set(x, y, -D).applyMatrix4(cam.matrixWorld);
   cam.getWorldQuaternion(mesh.quaternion);
   mesh.scale.set(w, h, 1);
+  // 上面是世界变换；挂在带变换的父节点下时换到父节点空间（父节点是单位变换时跳过，结果与直接写入逐位相同）
+  const parent = mesh.parent;
+  if (parent) {
+    parent.updateWorldMatrix(true, false);
+    if (!parent.matrixWorld.equals(IDENTITY)) {
+      _wm.compose(mesh.position, mesh.quaternion, _ws.set(w, h, 1)).premultiply(_pi.copy(parent.matrixWorld).invert());
+      _wm.decompose(mesh.position, mesh.quaternion, mesh.scale);
+    }
+  }
   return mesh;
 }
 export const fillScreen = (mesh, cam, W, H, D) => placeOnScreen(mesh, cam, W, H, W / 2, H / 2, W, D, H);
@@ -46,8 +72,8 @@ export function placeStrip(mesh, cam, W, H, a, b, hpx, dy = 0) {
 }
 
 export function screenToWorld(cam, W, H, cx, cy, D, out = new THREE.Vector3()) {
-  const hh = D * Math.tan(cam.fov * DEG / 2), hw = hh * cam.aspect;
-  return out.set((cx / W - 0.5) * 2 * hw, (0.5 - cy / H) * 2 * hh, -D).applyMatrix4(cam.matrixWorld);
+  const F = frameAt(cam, D);
+  return out.set(localX(F, W, cx), localY(F, H, cy), -D).applyMatrix4(cam.matrixWorld);
 }
 const _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2();
 export function screenToPlane(cam, W, H, cx, cy, plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), out = new THREE.Vector3()) {

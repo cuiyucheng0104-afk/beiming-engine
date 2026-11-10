@@ -1,16 +1,19 @@
 // 北冥引擎 · 游动弯曲：沿主轴 x 往后传的行波把长条形体弯起来——GLSL 顶点钩子 + 同一公式的 JS 镜像（CPU 摆位的挂件、眼睛用）。
 // 包络：s = (半长 - x) / 全长，头部为 0，往尾巴按 smoothstep(e0, 1, s) 加大；相位 2π·s·波数 - 角频率·t。
 // 名字前缀 p（如 'fish'）：uniform 叫 uFishT / uFishAmp …，GLSL 函数叫 fishBendPos / fishBendNormal / fishBendMatrix …，
-// 同一个材质里能放两套互不干扰的弯曲。四种形式：
+// 同一个材质里能放两套弯曲（钩子按顺序拼起来就是逐层复合：先 p1 再 p2；实例化网格的 instanceMatrix 也逐层复合）。四种形式：
 //   pitchWave(p, { e0, sMax })        只有竖向波（XY 平面内转）。uniform：T Amp Wave Omega HalfL
 //   pitchYawWave(p, { e0, sMax })     竖向 + 横向两个分量，先俯仰后偏航的精确转动。uniform：T Amp AmpZ Wave Omega HalfL PhZ
 //   pitchYawLinearWave(p, { e0, sMax }) 同上两个分量，但位移按一阶近似叠加（两个分量各自独立好调）
-//   frameWave(p, { e0, sMax, pow })   横摆为主、竖向为辅，转动由斜率直接构造（不走三角函数）；另有整块刚体弯 BendRigid。
+//   frameWave(p, { e0, sMax, pow })   横摆为主、竖向为辅，转动由斜率直接构造（不走三角函数）。
 //                                     uniform：T AmpY AmpZ Wave Omega HalfL PhY
-// 每种形式返回 { unif, funcs, glsl, inst, js(U), hooks(o), outline(U, o), modeHooks(U, o) }：
+// 四种形式都有整块刚体弯 BendRigid( p, ax )：按轴位置 ax 处的位移和转动（与 BendMatrix 同一套转动）整块搬动顶点；
+//   frameWave 的写在 funcs 里，其余三种只在 modeHooks 的 'rigid' 模式里才拼进着色器（rigidGlsl），不改别的模式的着色器。
+// 每种形式返回 { unif, funcs, glsl, inst, rigidGlsl, js(U), hooks(o), outline(U, o), modeHooks(U, o) }：
 //   glsl = uniform 声明 + 函数；inst = 实例化网格的钩子（把 instanceMatrix 换成弯过的矩阵，three 自带 chunk 无须改）
-//   js(U) → 绑在 uniform 对象上的 CPU 镜像（各形式见下）
-//   hooks({ bend, extraPars, extraBegin, extraNormal, preBend, normalX })：材质钩子（vertexPars / MainStart / Begin / Normal）
+//   js(U) → 绑在 uniform 对象上的 CPU 镜像（各形式见下；都带 rigid(p, ax, t, out)，与 GLSL 的 BendRigid 一致）
+//   hooks({ bend, extraPars, extraBegin, extraNormal, preBend, normalX })：材质钩子（vertexPars / MainStart / Begin / Normal）；
+//     preBend（弯曲前改 transformed）、extraNormal（改 objectNormal）末尾不带换行也行；bend = false 时它们照样生效，只是不弯
 //   outline(U, { bend, pars, begin, uniforms })：给 ID 图描边的同款顶点形变 { head, body, uniforms }
 //   modeHooks(U, { mode, dispPars, disp, varPars, varBegin, extraUniforms })：mode = 'vertex' 逐顶点 / 'rigid' 按 aAnchor 整块 /
 //     'inst' 按实例原点 / 'none'；disp 是弯曲前的顶点位移（也交给 ID 图）；带 outlineVertex
@@ -20,23 +23,35 @@ const sstep = (a, b, x) => ss(seg(x, a, b));
 const lit = v => Number.isInteger(v) ? v.toFixed(1) : String(v);
 const uName = p => 'u' + p[0].toUpperCase() + p.slice(1);
 
-function finish(p, unif, funcs, js) {
+// 拼接 GLSL 片段时保证预处理指令落在行首
+const nl = s => s && !s.endsWith('\n') ? s + '\n' : s;
+
+function finish(p, unif, funcs, js, rigidGlsl = '') {
   const glsl = '\n' + unif + funcs;
+  // 同一个材质里第二套弯曲：GetIM 展开时取到的是上一套的 IM（宏），先 #undef 再重定义 → 逐层复合，不会宏重定义
   const inst = `
 #ifdef USE_INSTANCING
 mat4 ${p}GetIM() { return instanceMatrix; }
 mat4 ${p}IM;
+#ifdef instanceMatrix
+#undef instanceMatrix
+#endif
 #define instanceMatrix ${p}IM
 #endif
 `;
   const mainStart = `#ifdef USE_INSTANCING\n${p}IM = ${p}BendMatrix( ${p}GetIM() );\n#endif`;
   function hooks({ bend = true, extraPars = '', extraBegin = '', extraNormal = '', preBend = '', normalX = 'position.x' } = {}) {
-    if (!bend) return extraPars || extraBegin ? { vertexPars: extraPars, vertexBegin: extraBegin } : {};
+    if (!bend) {
+      if (!extraPars && !extraBegin && !preBend && !extraNormal) return {};
+      const h = { vertexPars: extraPars, vertexBegin: preBend ? nl(extraBegin) + preBend : extraBegin };
+      if (extraNormal) h.vertexNormal = extraNormal;
+      return h;
+    }
     return {
       vertexPars: glsl + inst + extraPars,
       vertexMainStart: mainStart,
-      vertexBegin: extraBegin + '\n' + preBend + `#ifndef USE_INSTANCING\ntransformed = ${p}BendPos( transformed );\n#endif`,
-      vertexNormal: extraNormal + `#ifndef USE_INSTANCING\nobjectNormal = ${p}BendNormal( objectNormal, ${normalX} );\n#endif`,
+      vertexBegin: extraBegin + '\n' + nl(preBend) + `#ifndef USE_INSTANCING\ntransformed = ${p}BendPos( transformed );\n#endif`,
+      vertexNormal: nl(extraNormal) + `#ifndef USE_INSTANCING\nobjectNormal = ${p}BendNormal( objectNormal, ${normalX} );\n#endif`,
     };
   }
   function outline(U, { bend = true, pars = '', begin = '', uniforms = {} } = {}) {
@@ -47,7 +62,7 @@ mat4 ${p}IM;
   }
   function modeHooks(U, { mode = 'none', dispPars = '', disp = '', varPars = '', varBegin = '', extraUniforms = {} } = {}) {
     const bend = mode !== 'none';
-    const pars = unif + (bend ? '\n' + funcs + inst : '') + (mode === 'rigid' ? 'attribute float aAnchor;\n' : '') + dispPars;
+    const pars = unif + (bend ? '\n' + funcs + (mode === 'rigid' ? rigidGlsl : '') + inst : '') + (mode === 'rigid' ? 'attribute float aAnchor;\n' : '') + dispPars;
     const bendPos = mode === 'vertex' ? `transformed = ${p}BendPos( transformed );` : mode === 'rigid' ? `transformed = ${p}BendRigid( transformed, aAnchor );` : '';
     const bendNrm = mode === 'vertex' ? `objectNormal = ${p}BendNormal( objectNormal, position.x );` : mode === 'rigid' ? `objectNormal = ${p}BendNormal( objectNormal, aAnchor );` : '';
     const ms = bend ? mainStart : '';
@@ -55,10 +70,10 @@ mat4 ${p}IM;
     if (bend || disp) out.outlineVertex = { head: pars, body: ms + '\n' + disp + '\n' + bendPos, uniforms: { ...U, ...extraUniforms } };
     return out;
   }
-  return { unif, funcs, glsl, inst, js, hooks, outline, modeHooks };
+  return { unif, funcs, glsl, inst, rigidGlsl, js, hooks, outline, modeHooks };
 }
 
-// js(U) → { dy(x, t), bend(x, t) → [dy, 俯仰角] }
+// js(U) → { dy(x, t), bend(x, t) → [dy, 俯仰角], rigid(p, ax, t, out) }
 export function pitchWave(p, { e0 = 0.22, sMax = 1.15 } = {}) {
   const u = uName(p);
   const unif = `uniform float ${u}T, ${u}Amp, ${u}Wave, ${u}Omega, ${u}HalfL;\n`;
@@ -88,16 +103,26 @@ mat4 ${p}BendMatrix( mat4 im ) {
   return T1 * R * T0 * im;
 }
 `;
+  const rigid = `vec3 ${p}BendRigid( vec3 p, float ax ) {
+  vec2 b = ${p}Bend( ax ); float c = cos( b.y ), s = sin( b.y );
+  vec3 v = p - vec3( ax, 0.0, 0.0 );
+  return vec3( ax + v.x * c - v.y * s, b.x + v.x * s + v.y * c, v.z );
+}
+`;
   const js = U => {
     const A = U[u + 'Amp'], Wv = U[u + 'Wave'], Om = U[u + 'Omega'], H = U[u + 'HalfL'];
     const dy = (x, T) => { const s = clamp((H.value - x) / (2 * H.value), 0, sMax), e = sstep(e0, 1, s); return A.value * e * e * Math.sin(TAU * s * Wv.value - Om.value * T); };
     const bend = (x, T) => [dy(x, T), Math.atan((dy(x + 1, T) - dy(x - 1, T)) / 2)];
-    return { dy, bend };
+    function rigid(q, ax, T, out) {
+      const [b0, th] = bend(ax, T), c = Math.cos(th), s = Math.sin(th), vx = q.x - ax;
+      return out.set(ax + vx * c - q.y * s, b0 + vx * s + q.y * c, q.z);
+    }
+    return { dy, bend, rigid };
   };
-  return finish(p, unif, funcs, js);
+  return finish(p, unif, funcs, js, rigid);
 }
 
-// js(U) → { d(x, t) → [dy, dz], point(p, t, out) }
+// js(U) → { d(x, t) → [dy, dz], point(p, t, out), rigid(p, ax, t, out) }
 export function pitchYawWave(p, { e0 = 0.2, sMax = 1.15 } = {}) {
   const u = uName(p);
   const unif = `uniform float ${u}T, ${u}Amp, ${u}AmpZ, ${u}Wave, ${u}Omega, ${u}HalfL, ${u}PhZ;\n`;
@@ -130,6 +155,8 @@ mat4 ${p}BendMatrix( mat4 im ) {
   return T1 * Ry * Rp * T0 * im;
 }
 `;
+  const rigid = `vec3 ${p}BendRigid( vec3 p, float ax ) { vec4 b = ${p}Bend( ax ); return vec3( ax, b.x, b.y ) + ${p}Rot( p - vec3( ax, 0.0, 0.0 ), b ); }
+`;
   const js = U => {
     const A = U[u + 'Amp'], AZ = U[u + 'AmpZ'], Wv = U[u + 'Wave'], Om = U[u + 'Omega'], H = U[u + 'HalfL'], PZ = U[u + 'PhZ'];
     const d = (x, T) => {
@@ -137,19 +164,23 @@ mat4 ${p}BendMatrix( mat4 im ) {
       const ph = TAU * s * Wv.value - Om.value * T;
       return [A.value * e * Math.sin(ph), AZ.value * e * Math.sin(ph + PZ.value)];
     };
-    function point(q, T, out) {
-      const d0 = d(q.x, T), d1 = d(q.x + 1, T), dm = d(q.x - 1, T);
+    // 先俯仰再偏航，转 (vx, vy, vz)，再平移到轴位置 x0 的弯曲点
+    function place(x0, vx, vy, vz, T, out) {
+      const d0 = d(x0, T), d1 = d(x0 + 1, T), dm = d(x0 - 1, T);
       const th = Math.atan((d1[0] - dm[0]) / 2), ps = Math.atan((d1[1] - dm[1]) / 2);
       const c = Math.cos(th), s = Math.sin(th), cy = Math.cos(ps), sy = Math.sin(ps);
-      const rx = -q.y * s, ry = q.y * c, rz = q.z;
-      return out.set(q.x + rx * cy - rz * sy, d0[0] + ry, d0[1] + rx * sy + rz * cy);
+      const rx = vx * c - vy * s, ry = vx * s + vy * c, rz = vz;
+      return out.set(x0 + rx * cy - rz * sy, d0[0] + ry, d0[1] + rx * sy + rz * cy);
     }
-    return { d, point };
+    const point = (q, T, out) => place(q.x, 0, q.y, q.z, T, out);
+    const rigid = (q, ax, T, out) => place(ax, q.x - ax, q.y, q.z, T, out);
+    return { d, point, rigid };
   };
-  return finish(p, unif, funcs, js);
+  return finish(p, unif, funcs, js, rigid);
 }
 
-// js(U) → { dy, dz, bend(x, t) → [dy, 俯仰角, dz, 偏航角], point(p, t, out), dir(n, x, t, out) }
+// js(U) → { dy, dz, bend(x, t) → [dy, 俯仰角, dz, 偏航角], point(p, t, out), dir(n, x, t, out), rigid(p, ax, t, out) }
+// 逐顶点（BendPos / point）按一阶近似叠加两个分量；整块（BendMatrix / BendRigid / rigid）用先俯仰后偏航的真转动。
 export function pitchYawLinearWave(p, { e0 = 0.18, sMax = 1.25 } = {}) {
   const u = uName(p);
   const unif = `uniform float ${u}T, ${u}Amp, ${u}AmpZ, ${u}Wave, ${u}Omega, ${u}HalfL, ${u}PhZ;\n`;
@@ -179,6 +210,13 @@ mat4 ${p}BendMatrix( mat4 im ) {
   return T1 * Rh * Rv * T0 * im;
 }
 `;
+  const rigid = `vec3 ${p}BendRigid( vec3 p, float ax ) {
+  vec4 b = ${p}Bend( ax ); float cy = cos( b.y ), sy = sin( b.y ), cz = cos( b.w ), sz = sin( b.w );
+  vec3 v = p - vec3( ax, 0.0, 0.0 );
+  vec3 m = vec3( v.x * cy - v.y * sy, v.x * sy + v.y * cy, v.z );
+  return vec3( ax + m.x * cz - m.z * sz, b.x + m.y, b.z + m.x * sz + m.z * cz );
+}
+`;
   const js = U => {
     const A = U[u + 'Amp'], AZ = U[u + 'AmpZ'], Wv = U[u + 'Wave'], Om = U[u + 'Omega'], H = U[u + 'HalfL'], PZ = U[u + 'PhZ'];
     const kS = x => clamp((H.value - x) / (2 * H.value), 0, sMax);
@@ -195,9 +233,14 @@ mat4 ${p}BendMatrix( mat4 im ) {
       const mx = n.x * cy - n.y * sy, my = n.x * sy + n.y * cy, mz = n.z;
       return out.set(mx * cz - mz * sz, my, mx * sz + mz * cz);
     }
-    return { dy, dz, bend, point, dir };
+    function rigid(q, ax, T, out) {
+      const [by, , bz] = bend(ax, T);
+      dir({ x: q.x - ax, y: q.y, z: q.z }, ax, T, out);
+      return out.set(ax + out.x, by + out.y, bz + out.z);
+    }
+    return { dy, dz, bend, point, dir, rigid };
   };
-  return finish(p, unif, funcs, js);
+  return finish(p, unif, funcs, js, rigid);
 }
 
 // js(U) → { off(x, t) → [dy, dz], rigid(p, ax, t, out)（整块按轴位置 ax 弯，与 GLSL 的 BendRigid 一致） }

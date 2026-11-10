@@ -2,10 +2,11 @@
 // 背景：assets/ref/sky_test.png 裁一块亮的地平线区域，轻微虚焦（近景浅景深），随镜头做弱视差推进；
 // 上面叠 drawGirl 画的人物层；再做一个「近似正片」的简易后期（bloom、暖调、暗角、可选颗粒），只用于自查。
 // 查询参数：
-//   bg=a（默认，地平线亮区）| b（整张天空）| c（平涂亮渐变，只看剪影）
+//   bg=a（默认，地平线亮区）| b（整张天空，按 cover 铺满画面）| c（平涂亮渐变，只看剪影）
 //   post=0 关掉简易后期；grain=1 加颗粒；layer=1 只看人物层（棋盘格底）；debug=1 标锚点；cam=0 关掉推镜
 import { drawGirl, drawGirlMotes, girlCamera, GIRL_SHOT } from '../src/girl.js';
 import { mulberry } from '../engine/core/math.js';
+import { frameOf } from '../engine/core/clock.js';
 
 const q = new URLSearchParams(location.search);
 const W = innerWidth, H = innerHeight;
@@ -36,11 +37,17 @@ function drawBg(t, cam) {
     g.addColorStop(0, '#8C86D4'); g.addColorStop(0.5, '#F2A6AA'); g.addColorStop(0.85, '#FFC27E'); g.addColorStop(1, '#FFD9B5');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   } else {
-    // a：取原图右侧、地平线附近的亮区；b：整张铺满
-    const [sx, sy, sw] = BG === 'b' ? [0, 0, img.width] : [700, 250, 1074];
-    const sh = sw * H / W;
     ctx.filter = 'blur(2.2px) brightness(1.06) saturate(1.05)';
-    ctx.drawImage(img, sx, sy, sw, Math.min(sh, img.height - sy), 0, 0, W, Math.min(H, (img.height - sy) * W / sw));
+    if (BG === 'b') {
+      // b：整张天空按 cover 铺满（同 lab/hud.js）：比例按图本身算，多出的一边居中裁掉，画面四边都盖满
+      const sc = Math.max(W / img.width, H / img.height), sw = W / sc, sh = H / sc;
+      ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, W, H);
+    } else {
+      // a：取原图右侧、地平线附近的亮区
+      const [sx, sy, sw] = [700, 250, 1074];
+      const sh = sw * H / W;
+      ctx.drawImage(img, sx, sy, sw, Math.min(sh, img.height - sy), 0, 0, W, Math.min(H, (img.height - sy) * W / sw));
+    }
     ctx.filter = 'none';
   }
   ctx.restore();
@@ -84,6 +91,6 @@ window.render = (t) => {
   // 光尘放在人物后面（只在天空里浮动，不在脸上起斑点）
   if (q.get('motes') !== '0' && q.get('layer') !== '1') drawGirlMotes(ctx, tl, W, H, { cam: q.get('cam') === '0' ? false : cam });
   ctx.drawImage(fig, 0, 0);
-  if (q.get('post') !== '0' && q.get('layer') !== '1') post(Math.floor(t * 24 + 1e-6));
+  if (q.get('post') !== '0' && q.get('layer') !== '1') post(frameOf(t));
 };
 window.READY = true;
