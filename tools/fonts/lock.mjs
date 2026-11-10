@@ -3,7 +3,7 @@
 //   cacheDir(lock, override?) → 绝对路径  --cache > 环境变量 BEIMING_FONT_CACHE > 清单的 cacheDir（相对仓库根）
 //   cacheStatus(lock, dir, ids?) → [{ id, file, path, state: 'ok' | 'missing' | 'mismatch', sha256? }]
 //   fontById(lock, id)                  没有这个 id → CliError（退出码 4，列出可用 id）
-//   findPython(override?) → { cmd, args, version }   找装了 fontTools 与 brotli 的 Python：--python > BEIMING_PY > python3 > python
+//   findPython(override?) → { cmd, args, version }   找装了 fontTools 与 brotli 的 Python（顺序见 pythonCandidates）
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -68,12 +68,21 @@ export function licenseText(f) {
   return txt;
 }
 
-export function findPython(override) {
+// 解释器查找顺序与仓库统一约定一致（加固计划 P10 的 tools/env/py.mjs）：--python > PYTHON > BEIMING_PYTHON >
+// BEIMING_PY（旧名，保留一个版本）> 仓库根 .venv > python3 > python > py -3。
+export function pythonCandidates(override, env = process.env, platform = process.platform) {
   const tries = [];
   if (override) tries.push([override]);
-  if (process.env.BEIMING_PY) tries.push([process.env.BEIMING_PY]);
+  for (const k of ['PYTHON', 'BEIMING_PYTHON', 'BEIMING_PY']) if (env[k]) tries.push([env[k]]);
+  const venv = platform === 'win32' ? path.join(ROOT, '.venv', 'Scripts', 'python.exe') : path.join(ROOT, '.venv', 'bin', 'python');
+  if (fs.existsSync(venv)) tries.push([venv]);
   tries.push(['python3'], ['python']);
-  if (process.platform === 'win32') tries.push(['py', '-3']);
+  if (platform === 'win32') tries.push(['py', '-3']);
+  return tries;
+}
+
+export function findPython(override) {
+  const tries = pythonCandidates(override);
   const probe = 'import fontTools, fontTools.subset, brotli; print(fontTools.version)';
   const seen = [];
   for (const [cmd, ...pre] of tries) {
@@ -82,5 +91,5 @@ export function findPython(override) {
     seen.push(`${[cmd, ...pre].join(' ')}：${r.error ? r.error.code || r.error.message : (r.stderr || '').trim().split('\n').pop()}`);
   }
   throw new CliError(EXIT.ENV, 'python-missing', `找不到装了 fontTools 与 brotli 的 Python（试过：${seen.join('；')}）`,
-    '装好仓库的 Python 依赖（fonttools、brotli），或设环境变量 BEIMING_PY / 加 --python 指向装好的解释器');
+    '装好仓库的 Python 依赖（fonttools、brotli），或设环境变量 PYTHON 指向装好的解释器（也可加 --python）');
 }

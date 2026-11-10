@@ -21,7 +21,7 @@ const USAGE = `
   source 是 fonts/fonts.lock.json 里的 id；weight 给可变字体定字重（定成静态实例，更小）；extra 是要额外收的字（数字等动态文字）。
   --check   不生成，只核对现有子集：覆盖不了当前文字、文件被改、原始字体换了版本都算过期（退出码 4）
   --cache   原始字体缓存目录（默认环境变量 BEIMING_FONT_CACHE，否则 .cache/fonts）；先跑 node tools/fonts/fetch.mjs
-  --python  装了 fontTools、brotli 的 Python（默认环境变量 BEIMING_PY，否则 python3 / python）
+  --python  装了 fontTools、brotli 的 Python（默认环境变量 PYTHON，其次 BEIMING_PYTHON、旧名 BEIMING_PY、仓库 .venv、python3）
 退出码：0 成功；2 用法错误；3 缺原始字体或缺 Python 依赖；4 film.json 不合格、缺字、子集过期；1 子集化本身失败。
 `;
 
