@@ -44,7 +44,8 @@ export const LOOK_DEFAULTS = {
   fog: null,             // 默认关。{ color, colorHigh, density, start, max, baseHeight, falloff, cutoff, sky }
   paper: { strength: 0.12, scale: 1 },
   vignette: 0.22,
-  grain: 0,              // 页面内颗粒默认关（交给 ffmpeg mux）；要让 HUD 不带颗粒时可以在这里开、mux 关
+  grain: 0,              // 页面内颗粒的默认值（关）。本片三个镜头的 look(t) 都显式开 0.65，颗粒画在显示层之下、HUD 不带颗粒；
+                         // 所以封装时不再加（build.sh 给 mux.sh 传 grain=0）。别在 mux 里再开，会叠成两层颗粒
 };
 
 export function createLook(renderer, w, h, opts = {}) {

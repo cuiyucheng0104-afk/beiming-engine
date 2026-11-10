@@ -111,7 +111,6 @@ const kind = toonKind({ name: 'toon-refine', shared: TOON_SHARED, firstId: 101, 
  * fragmentAlbedo 里可写 diffuseColor.rgb、toonInk、toonOverlay、toonRelief；fragmentNormal 里可改 normal
  */
 export const makeToonMaterial = (opts = {}) => kind.make({ ...TOON_DEFAULTS, ...opts });
-export const makeToonDepthMaterial = kind.depth;
 
 // 挂材质 + 投影深度材质 + 描边标记（userData 同时写 toon.js 的 outlineWeight 和 look.js 的 outlineWidth）
 export function bindToon(mesh, mat, opts) {
