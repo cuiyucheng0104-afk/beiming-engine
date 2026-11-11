@@ -1,0 +1,23 @@
+{
+ "schema": "beiming.score-cache/1",
+ "说明": "配乐缓存的输入键：audio/mix.py 默认读缓存前先核对这里登记的输入，不一致就拒绝静默沿用（退出码 4），要么 --score 重渲，要么 --accept-stale-score 明确接受旧配乐（会记进 render.json）。",
+ "cache": {
+  "file": "score_cache.npz",
+  "sha256": "70d7eef75281cef804a6de4a9e845f9d08fa0a3e1b928cb94034b4abf48df102",
+  "musSha256": "7aec0fa9cf96fa306786c83a626d089978fe4174671abd5c06d6ff2132c28270",
+  "samples": 480000,
+  "sampleRate": 48000
+ },
+ "frozen": true,
+ "freeze": {
+  "date": "2026-11-10",
+  "code": {
+   "audio/score.py": "2ff27859f8c88d2c7bc23b089144e11d582c995aa87d0b3c796bec0af4f99fc9"
+  },
+  "dur": 10.0,
+  "reason": "《北冥》10 秒样片的定稿配乐（计划 P05 核实修正：样片的配乐来自定稿缓存，不迁移、不重渲）。"
+ },
+ "inputs": null,
+ "renderedWith": null,
+ "note": "这份缓存早于输入键：渲它时用的 score.py、engine/audio 代码和采样库版本都没有登记，现有代码不能逐样本重渲出它。2026-11-10 用固定版本的完整采样库（engine/audio/samples.json，224 个乐器文件按 sha256 逐个核对通过）实测：--score 重渲的配乐与这份缓存不是同一版（逐样本差的均方根只比配乐本身低 2.9 dB），母带增益 4.55 dB（读这份缓存时 4.89 dB）。【推断】原因之一是 62ad28e 改了 engine/audio/sampler.py 的力度解析（文件名里的 F4 不再被误读成 forte），选中的采样层随之变化。所以冻结：只登记乐谱源码 audio/score.py，它改了说明作者想改配乐，默认构建就拒绝沿用缓存；引擎代码或采样库变化不影响定稿配乐。想听当前代码渲出的配乐：node tools/audio/build.mjs --score（会覆盖缓存并写入完整输入键，frozen 变成 false；重渲当次与之后读缓存的混音逐样本一致）。"
+}

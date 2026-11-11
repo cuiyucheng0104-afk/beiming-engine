@@ -6,9 +6,19 @@
 判定分两级：problems（成片响度偏离 cues.json 的目标超过 ±0.3 LU、真峰值高于 −1.0 dBTP、文件格式不对、mux.sh 跑不通或跑不了）
 会让本脚本以退出码 1 结束；warnings（loudnorm 测量偏差、环境声空洞、分轨超满幅、频段越界等）只记录和打印。
 
-用法：python audio/check.py
-需要 ffmpeg；成片响度这一项还要用 sh 跑 engine/render/mux.sh（mux.sh 另外用到 ffprobe。macOS / Linux 的终端都有 sh，
-Windows 请在 Git Bash 或 WSL 里跑）。PATH 里找不到 sh、或 mux.sh 起不来、跑不通时，这一项记进 problems，其余照常测完，报告照常写出。
+用法：python audio/check.py              旧口径：打印 report.json，problems 非空时退出码 1（--json 只在门禁模式下可用）
+      python audio/check.py --strict     门禁模式（sh audio/build.sh / python audio/build.py 默认用它）：在 report.json 之外按附录 C8 写
+                                         audio/check/qa.json（engine/audio/qa.py 的通用检查 + 本片的成片响度、提示音信噪比、音高、分轨），
+                                         打印逐项结论；退出码按附录 C1：硬项不达标 4，缺 ffmpeg / 没有 out/mix.wav 3，其余 0
+      --report <文件>                    C8 报告换个位置；--json 时 stdout 只输出一个信封（附录 C2）
+门禁的门槛写在 audio/cues.json 的 qa 段（混音积分响度容差、提示音带内信噪比下限、音高容差）；混音目标仍是 target 段。
+需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指定完整路径，同 tools/env）；成片响度这一项还要用 sh 跑 engine/render/mux.sh
+（mux.sh 另外用到 ffprobe）。sh 按 BEIMING_SH → PATH 里的 sh →（Windows）Git for Windows 的 Git\\bin\\sh.exe 的顺序找
+（engine/audio/_env.py，同 tools/env/lib/sh.mjs）；仓库里有 Node 版封装（engine/render/lib/mux.mjs 或 engine/render/mux.mjs，P04）时优先用
+node 跑它，不需要 sh。找不到 sh、或 mux.sh
+起不来、跑不通时，这一项记进 problems（门禁模式下：跑不了记为「未执行」的告警，跑了但不达标才算硬项失败），其余照常测完，报告照常写出。
+音高与和弦核对用 librosa（可选依赖）：没装时报告里记「未执行」，不再把导入错误当成测量结果吞掉。
+外部程序都有超时（按片长给），被 SIGTERM / Ctrl+C 打断时连同起的 ffmpeg、sh 一起结束、删掉临时目录，退出码 143 / 130。
 """
 import os
 import sys
@@ -26,17 +36,53 @@ from PIL import Image, ImageDraw  # noqa: E402
 from engine.audio.dsp import SR, N, db  # noqa: E402
 from engine.audio.meter import loudness_curve, integrated, band_energy, band_snr, ebur128, loudnorm_linear, true_peak  # noqa: E402
 from engine.audio.scope import font, spectrogram, waveform, curves, side_mid  # noqa: E402
+from engine.audio import _cli  # noqa: E402
+from engine.audio import _env as E  # noqa: E402
+
+E.utf8_stdio()
+E.exit_on_sigterm()
+
+
+def _usage_exit(e):
+    """用法错误：说明打到 stderr；带了 --json 时 stdout 照样只有一个信封（附录 C2）"""
+    print(f'错误[{e.code}]：{e.message}' + (f'\n提示：{e.hint}' if e.hint else ''), file=sys.stderr)
+    if '--json' in sys.argv[1:]:
+        print(json.dumps(_cli.envelope('audio:check', e.exit_code, e), ensure_ascii=False, indent=2))
+    sys.exit(e.exit_code)
+
+
+# 参数先解析：--help 与用法错误在任何写盘之前就结束
+_P = _cli.ArgumentParser(prog='python audio/check.py', description='《北冥》混音自检；--strict 是门禁模式（附录 C8 报告 + 附录 C1 退出码）。'
+                         '--json 只在门禁模式下可用（旧口径打印的是整份报告，不是信封）')
+_P.add_argument('--strict', action='store_true', help='门禁模式：写 audio/check/qa.json，硬项不达标退出码 4')
+_P.add_argument('--report', help='门禁报告写到哪里（默认 audio/check/qa.json；给了就按门禁模式写）')
+try:
+    ARGS = _P.parse_args()
+except _cli.CliError as _e:
+    _usage_exit(_e)
+GATE = ARGS.strict or bool(ARGS.report)
+if ARGS.json and not GATE:
+    _usage_exit(_cli.CliError('usage.json-needs-strict', '--json 只在门禁模式下可用：旧口径会把整份报告打到 stdout，不是附录 C2 的信封',
+                              hint='加 --strict（或 --report <文件>）'))
 
 OUT = os.path.join(ROOT, 'out', 'mix.wav')
 MUX = os.path.join(ROOT, 'engine', 'render', 'mux.sh')
+MUX_MJS = next((p for p in (os.path.join(ROOT, 'engine', 'render', 'lib', 'mux.mjs'), os.path.join(ROOT, 'engine', 'render', 'mux.mjs'))
+                if os.path.exists(p)), None)        # P04 的 Node 版封装（同样的位置参数与退出码）；有它就优先用，不需要 sh
 CK = os.path.join(HERE, 'check')
+QA_REPORT = os.path.abspath(ARGS.report) if ARGS.report else os.path.join(CK, 'qa.json')
 os.makedirs(CK, exist_ok=True)
-if os.path.exists(os.path.join(CK, 'report.json')):
-    os.remove(os.path.join(CK, 'report.json'))      # 中途出错时不留上一次的报告冒充这一次
+for _old in (os.path.join(CK, 'report.json'), QA_REPORT if GATE else None):
+    if _old and os.path.exists(_old):
+        os.remove(_old)                              # 中途出错时不留上一次的报告冒充这一次
+if not os.path.exists(OUT):
+    print('[check] 没有 out/mix.wav：先跑 python audio/mix.py（或 sh audio/build.sh）', file=sys.stderr)
+    sys.exit(3 if GATE else 1)
 CUES = json.load(open(os.path.join(HERE, 'cues.json'), encoding='utf-8'))
 RENDER = json.load(open(os.path.join(CK, 'render.json'), encoding='utf-8')) if os.path.exists(os.path.join(CK, 'render.json')) else {}
 DUR = float(CUES['dur'])
 FPS = int(CUES.get('fps', 24))
+TMO = 120 + 6 * DUR                 # 外部程序（ffmpeg、mux.sh）的超时：10 秒片 3 分钟；卡住时按超时收场，不无限等
 C = {c['id']: c for c in CUES['cues']}
 SH = {s['id']: s for s in CUES['shots']}
 CUTS = [float(SH['B']['t']), float(SH['C']['t'])]
@@ -63,7 +109,14 @@ if not REP['format']['ok']:
     PROBLEMS.append(f'out/mix.wav 格式不对：{sr} Hz、{x.shape[1]} 声道、{len(x)} 个样本（应为 {CUES.get("sr", 48000)} Hz、2 声道、{N(DUR)} 个样本）')
 
 # ———— 2. ffmpeg ebur128 ————
-REP['ebur128'] = ebur128(OUT)
+try:
+    REP['ebur128'] = ebur128(OUT)
+except (OSError, RuntimeError) as _e:      # OSError：PATH 里没有 ffmpeg；RuntimeError：ffmpeg 跑了但测不出
+    if not GATE:
+        raise
+    print(f'[check] ffmpeg 测不了响度（{type(_e).__name__}）：{_e}\n[check] 下一步：装 FFmpeg ≥ 7（带 ebur128、loudnorm）并放进 PATH',
+          file=sys.stderr)
+    sys.exit(3)
 
 # ———— 3. 成片响度：用真的 engine/render/mux.sh 把 mix.wav 和一段同长的黑画面封装一遍，再测成片 ————
 #   mux.sh 怎么归一化（两遍 loudnorm、按 ebur128 算增益……）都以它自己为准，这里只看结果是不是落在目标上。
@@ -75,25 +128,30 @@ def mux_probe():
     """真的跑一遍 mux.sh，返回探针成片的测量值。跑不了时返回 {'error': 原因}，由下面记进 problems（报告照常写出、退出码 1），
     不让异常把整个自检打断：没有 mux.sh、PATH 里没有 sh（例如在 Windows 的 PowerShell / cmd 里直接跑本脚本）、
     ffmpeg 或 sh 起不来（找不到、没有执行权限、格式不对）、临时目录建不了、探针成片测不出响度，都算这一类。"""
-    if not os.path.exists(MUX):
-        return {'error': f'找不到 {MUX}'}
-    sh = shutil.which('sh')
-    if sh is None:
-        return {'error': '找不到 sh：这一项要用 sh 跑 engine/render/mux.sh。请在带 sh 的终端里跑'
-                         '（macOS / Linux 的终端；Windows 用 Git Bash 或 WSL），或把 sh 所在目录加进 PATH'}
+    # 返回里的 kind：env = 环境里缺东西（sh、mux.sh、进程起不来），run = 真的跑了但没跑通（门禁模式据此分「未执行」与「不达标」）
+    sh, why = E.find_sh()
+    node = shutil.which('node')
+    if node and MUX_MJS:
+        cmd = [node, MUX_MJS]          # Node 版封装（Windows 的 PowerShell / cmd 里也能跑）
+    elif not os.path.exists(MUX):
+        return {'error': f'找不到 {MUX}', 'kind': 'env'}
+    elif sh is None:
+        return {'error': f'找不到 sh（{why}）：这一项要用 sh 跑 engine/render/mux.sh。{E.sh_fix()}', 'kind': 'env'}
+    else:
+        cmd = [sh, MUX]
     td = None
     try:
         td = tempfile.mkdtemp(prefix='beiming-mux-')
         v, o = os.path.join(td, 'black.mp4'), os.path.join(td, 'probe.mp4')
-        r = subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'lavfi', '-i', f'color=c=black:s=64x36:r={FPS}:d={DUR}',
-                            '-c:v', 'libx264', '-pix_fmt', 'yuv420p', v], capture_output=True, encoding='utf-8', errors='replace')
+        r = E.run([E.ffmpeg(), '-y', '-v', 'error', '-f', 'lavfi', '-i', f'color=c=black:s=64x36:r={FPS}:d={DUR}',
+                   '-c:v', 'libx264', '-pix_fmt', 'yuv420p', v], capture_output=True, encoding='utf-8', errors='replace', timeout=TMO)
         if r.returncode != 0:
-            return {'error': f'生成探针画面失败：{_tail(r.stderr)}'}
-        r = subprocess.run([sh, MUX, v, OUT, o, str(FPS), '0'], capture_output=True, encoding='utf-8', errors='replace')
+            return {'error': f'生成探针画面失败：{_tail(r.stderr)}', 'kind': 'env'}
+        r = E.run(cmd + [v, OUT, o, str(FPS), '0'], capture_output=True, encoding='utf-8', errors='replace', timeout=TMO)
         if r.returncode != 0 or not os.path.exists(o):
-            return {'error': f'mux.sh 退出码 {r.returncode}：{_tail(r.stderr or r.stdout)}'}
+            return {'error': f'{os.path.basename(cmd[-1])} 退出码 {r.returncode}：{_tail(r.stderr or r.stdout)}', 'kind': 'run'}
         e = ebur128(o)
-        pcm = subprocess.run(['ffmpeg', '-v', 'error', '-i', o, '-vn', '-ac', '2', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
+        pcm = E.run([E.ffmpeg(), '-v', 'error', '-i', o, '-vn', '-ac', '2', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True, timeout=TMO)
         a = np.frombuffer(pcm.stdout, dtype='<f4').astype(np.float64).reshape(-1, 2) if pcm.returncode == 0 else None
         res = {'I_LUFS': e['I_LUFS'], 'TP_dBTP': e['TP_dBTP'], 'LRA_LU': e['LRA_LU']}
         if a is not None and len(a):
@@ -102,7 +160,10 @@ def mux_probe():
             res['seconds'] = round(len(a) / SR, 3)
         return res
     except (OSError, RuntimeError) as e:     # OSError：进程起不来、临时目录；RuntimeError：engine.audio.meter 测不出响度
-        return {'error': f'mux.sh 探针跑不下去（{type(e).__name__}）：{e}'}
+        return {'error': f'mux.sh 探针跑不下去（{type(e).__name__}）：{e}', 'kind': 'env' if isinstance(e, OSError) else 'run'}
+    except subprocess.TimeoutExpired as e:  # 卡住：已连同子进程一起结束
+        name = 'mux' if MUX in e.cmd or (MUX_MJS and MUX_MJS in e.cmd) else os.path.basename(str(e.cmd[0]))
+        return {'error': f'{name} 超过 {TMO:.0f} 秒没有结束（已连同子进程结束）', 'kind': 'run'}
     finally:
         if td:
             shutil.rmtree(td, ignore_errors=True)   # 清理失败不影响结果
@@ -205,9 +266,17 @@ try:
 except Exception as e:  # noqa: BLE001
     REP['ui_snr_error'] = repr(e)
 
-# ———— 6. 音高与和声 ————
+# ———— 6. 音高与和声（librosa 是可选依赖：没装 → 未执行；装了但测量出错 → 记成错误，门禁模式下算不通过） ————
 try:
     import librosa
+    REP['pitch_status'] = 'ok'
+except ImportError as e:
+    librosa = None
+    REP['pitch_status'] = 'not-run'
+    REP['pitch_error'] = f'未执行：没有安装 librosa（可选依赖，pip install librosa 后重跑）：{e}'
+try:
+    if librosa is None:
+        raise LookupError('skip')
     el = np.load(os.path.join(CK, 'elements.npz'))
 
     def f0_med(sig, t0, t1, fmin, fmax):
@@ -250,7 +319,10 @@ try:
         v = ch[:, (tch >= a) & (tch < b)].mean(1)
         order = np.argsort(v)[::-1][:5]
         REP['chords'][lab] = [f'{names[i]}:{v[i]:.2f}' for i in order]
+except LookupError:
+    pass                                    # librosa 没装：上面已记成「未执行」
 except Exception as e:  # noqa: BLE001
+    REP['pitch_status'] = 'error'
     REP['pitch_error'] = repr(e)
 
 # ———— 7. 画图 ————
@@ -325,9 +397,12 @@ figs = [figure(os.path.join(CK, 'overview.png'), 0.0, DUR, f'《北冥》{DUR:g}
                f'镜头 B→C：触碰、提示音、暗影、{BC:.1f} 打开、鲲鸣起音', fmax=8000, lanes=False),
         figure(os.path.join(CK, 'zoom_C.png'), BC, DUR, f'镜头 C 鲲现：鲲鸣 A2→D2、掠过、导航、顶点 {APEX:.1f}', fmin=40, fmax=4000, lanes=False)]
 
-# ffmpeg 自己的频谱图作旁证
-subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', OUT, '-lavfi',
-                'showspectrumpic=s=1600x700:legend=1:scale=log:fscale=log:color=magma', os.path.join(CK, 'ffmpeg_spectrum.png')])
+# ffmpeg 自己的频谱图作旁证（画不出来不影响判定）
+try:
+    E.run([E.ffmpeg(), '-y', '-v', 'error', '-i', OUT, '-lavfi',
+           'showspectrumpic=s=1600x700:legend=1:scale=log:fscale=log:color=magma', os.path.join(CK, 'ffmpeg_spectrum.png')], timeout=TMO)
+except (OSError, subprocess.TimeoutExpired) as _e:
+    WARNINGS.append(f'ffmpeg 频谱图没画出来：{_e}')
 REP['figures'] = figs + [os.path.join(CK, 'ffmpeg_spectrum.png')]
 
 # 混音阶段（mix.py）记下的时间表告警也并进来
@@ -335,8 +410,98 @@ WARNINGS.extend(f'mix.py：{w}' for w in RENDER.get('warnings', []))
 REP['problems'], REP['warnings'], REP['ok'] = PROBLEMS, WARNINGS, not PROBLEMS
 
 _d = lambda o: o.item() if hasattr(o, 'item') else str(o)  # noqa: E731
+
+
+def gate():
+    """门禁模式：engine/audio/qa.py 的通用检查 + 本片专有的几项 → 附录 C8 报告；返回报告"""
+    from engine.audio import qa as AQ
+    QC = CUES.get('qa', {})
+    tol, snr_min, pitch_tol = float(QC.get('mix_tol_lu', 0.5)), float(QC.get('ui_band_snr_min_db', 3.0)), float(QC.get('pitch_tol_cents', 50))
+    frames = int(round(DUR * FPS))
+    checks, _ = AQ.analyze(OUT, fps=FPS, frames=frames, cuts=[int(round(c * FPS)) for c in CUTS], target_lufs=TGT_I, tol_lu=tol,
+                           max_tp=float(CUES['target']['true_peak_dbtp']))
+    chk = AQ._chk
+    want = f'{TGT_I:g} ± {TOL_I} LUFS、真峰值 ≤ {MAX_TP} dBTP'
+    if 'error' in dl:
+        env = dl.get('kind') == 'env'
+        checks.append(chk('audio.deliverable', '成片响度（真的经 engine/render/mux.sh 封装再测）', 'warn' if env else 'fail',
+                          ('未执行：' if env else '没跑通：') + dl['error'], want, {'notRun': env, 'kind': dl.get('kind')},
+                          '封装探针跑不了（环境里缺东西）：成片响度改由 tools/qa 在最终文件上判' if env else '封装探针没跑通',
+                          hint='在有 sh 的终端里跑（macOS / Linux；Windows 用 Git Bash 或 WSL）' if env else '看 audio/check/report.json 的 deliverable.error',
+                          severity='soft' if env else 'hard'))
+    else:
+        i_meas = dl.get('I_internal', dl['I_LUFS'])
+        checks.append(chk('audio.deliverable', '成片响度（真的经 engine/render/mux.sh 封装再测）', 'pass' if dl['ok'] else 'fail',
+                          f'I {i_meas} LUFS · 真峰值 {dl["TP_dBTP"]} dBTP', want, {k: v for k, v in dl.items() if k != 'ok'},
+                          '' if dl['ok'] else '；'.join(p for p in PROBLEMS if p.startswith('成片')),
+                          hint=None if dl['ok'] else '成片响度不对多半是封装的归一化问题（engine/render/mux.sh），混音本身看 audio.loudness'))
+    snr = REP.get('ui_band_snr_db')
+    if snr is None:
+        checks.append(chk('audio.ui-snr', '眼镜提示音带内信噪比', 'fail', f'未执行：{REP.get("ui_snr_error")}', f'每条 ≥ {snr_min:g} dB',
+                          {'notRun': True}, '没有分轨 audio/stems/，量不了提示音会不会被盖住', hint='先跑 python audio/mix.py'))
+    else:
+        low = {k: v for k, v in snr.items() if v < snr_min}
+        checks.append(chk('audio.ui-snr', '眼镜提示音带内信噪比', 'fail' if low else 'pass', ' · '.join(f'{k} {v} dB' for k, v in snr.items()),
+                          f'每条 ≥ {snr_min:g} dB（audio/cues.json qa.ui_band_snr_min_db）', {'snrDb': snr, 'minDb': snr_min},
+                          '' if not low else '提示音被盖住：' + '、'.join(low),
+                          hint=None if not low else '给 ui 总线让路（mixing.duck）或抬提示音的 gain_db；改完看 audio/check/zoom_BC.png'))
+    st = REP.get('pitch_status')
+    if st == 'not-run':
+        checks.append(chk('audio.pitch', '汽笛与鲲鸣的音高', 'warn', '未执行：没有安装 librosa（可选依赖）', f'偏差 ≤ {pitch_tol:g} 音分',
+                          {'notRun': True}, REP.get('pitch_error', ''), hint='pip install librosa 后重跑', severity='soft'))
+    elif st == 'error':
+        checks.append(chk('audio.pitch', '汽笛与鲲鸣的音高', 'fail', f'测量出错：{REP.get("pitch_error")}', f'偏差 ≤ {pitch_tol:g} 音分', {},
+                          '音高核对本身出错（不是没装 librosa）', hint='设 BEIMING_DEBUG=1 后单独跑 python audio/check.py 看完整报错'))
+    else:
+        off = {k: v['cents_off'] for k, v in REP.get('pitch', {}).items()}
+        bad = {k: c for k, c in off.items() if c is None or abs(c) > pitch_tol}
+        checks.append(chk('audio.pitch', '汽笛与鲲鸣的音高', 'warn' if bad else 'pass', ' · '.join(f'{k} {c:+}' if c is not None else f'{k} 测不出'
+                          for k, c in off.items()), f'偏差 ≤ {pitch_tol:g} 音分', {'centsOff': off}, '' if not bad else '音高偏离设计值：' + '、'.join(bad),
+                          hint='对照 audio/design.py 的 horn / kun_call 音高曲线' if bad else None, severity='soft'))
+    sp = (REP.get('stems') or {}).get('peak_dbfs', {})
+    sub = (REP.get('stems') or {}).get('subtype', {})
+    over = {k: v for k, v in sp.items() if v >= -0.1}
+    clipped = [k for k in over if sub.get(k) not in ('FLOAT', 'DOUBLE')]
+    checks.append(chk('audio.stems', '分轨不削波', 'fail' if clipped else ('warn' if over else 'pass'),
+                      ' · '.join(f'{k} {v:+.2f} dBFS' for k, v in sp.items()) or '没有分轨', '整数格式的分轨峰值 < −0.1 dBFS',
+                      {'peakDbfs': sp, 'subtype': sub}, ('、'.join(clipped) + ' 是整数格式且顶到满幅：已经削波') if clipped else
+                      ('、'.join(over) + ' 超过满幅（浮点存储没有削波，转整数前要先降电平）' if over else ''),
+                      severity='hard' if clipped else 'soft'))
+    gaps = REP.get('amb_gaps') or []
+    checks.append(chk('audio.amb-gaps', '环境声没有空洞', 'warn' if gaps else 'pass', f'{len(gaps)} 段 50 ms 掉到 −60 dBFS 以下', '0 段',
+                      {'gaps': gaps[:50]}, '环境声在镜头内断了' if gaps else '', hint='查镜头切点与环境声底层（audio/cues.json 的 shots）' if gaps else None,
+                      severity='soft'))
+    tw = RENDER.get('warnings', [])
+    checks.append(chk('audio.timeline', '时间表自洽（mix.py 的告警）', 'warn' if tw else 'pass', f'{len(tw)} 条告警', '0 条', {'warnings': tw},
+                      '；'.join(tw[:3]), severity='soft'))
+    film = {'id': 'beiming-10s', 'title': '北冥', 'route': 'a', 'file': os.path.join(HERE, 'cues.json'), 'frameCount': frames}
+    rep = AQ.build_report(checks, film=film, wav=OUT, profile_id='beiming-1040p24')
+    AQ._write_json(QA_REPORT, rep)
+    return rep
+
+
+if GATE:
+    QA = gate()
+    REP['gate'] = {'report': QA_REPORT, 'ok': QA['ok'], 'hardFailures': QA['summary']['hardFailures']}
 json.dump(REP, open(os.path.join(CK, 'report.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1, default=_d)
-print(json.dumps(REP, ensure_ascii=False, indent=1, default=_d))
-if PROBLEMS:
-    print('[check] 没通过：\n  ' + '\n  '.join(PROBLEMS), file=sys.stderr)
-    sys.exit(1)
+if not GATE:
+    print(json.dumps(REP, ensure_ascii=False, indent=1, default=_d))
+    if PROBLEMS:
+        print('[check] 没通过：\n  ' + '\n  '.join(PROBLEMS), file=sys.stderr)
+        sys.exit(1)
+else:
+    _rc = 0 if QA['ok'] else 4
+    _rel = os.path.relpath(QA_REPORT, ROOT).replace(os.sep, '/') if not os.path.relpath(QA_REPORT, ROOT).startswith('..') else QA_REPORT
+    if ARGS.json:
+        _err = None if QA['ok'] else {'code': 'contract.audio-check', 'message': '声音门禁有硬项不达标：' + '、'.join(QA['summary']['hardFailures']),
+                                     'hint': '逐项原因见 ' + _rel}
+        print(json.dumps(_cli.envelope('audio:check', _rc, _err, [{'path': _rel, 'sha256': _cli.sha256_file(QA_REPORT), 'kind': 'qa-report'}],
+                                       None, [], {'ok': QA['ok'], 'summary': QA['summary']}), ensure_ascii=False, indent=2))
+    elif not ARGS.quiet:
+        _mark = {'pass': '✓', 'warn': '!', 'fail': '✗', 'waived': '~'}
+        for _c in QA['checks']:
+            print(f"  {_mark[_c['status']]} {_c['id']:17} {_c['value']}" + (f"  —— {_c['message']}" if _c['message'] else ''))
+        print('AUDIO CHECK ' + ('OK' if QA['ok'] else 'FAIL') + f'（门禁报告 {_rel}）')
+    if not QA['ok']:
+        print('[check] 门禁没通过：' + '、'.join(QA['summary']['hardFailures']), file=sys.stderr)
+    sys.exit(_rc)

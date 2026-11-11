@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """《北冥》混音时间表的回归测试：照 cues.json 的说明“改 t 再跑”，混音要跟着走、出错要说清楚（R48、R49）。
 
-每个用例把 audio/ 和 engine/audio/ 拷到临时目录，只改那里的 cues.json，再跑一遍 mix.py（每个用例约 10 秒），不碰仓库里的产物。
+每个用例把 audio/、engine/audio/ 和 tools/lib/cli.py 拷到临时目录，只改那里的 cues.json，再跑一遍 mix.py（每个用例约 10 秒），不碰仓库里的产物。
 用法（仓库根）：python -m unittest audio.test_timeline
 """
 import json
@@ -27,6 +27,8 @@ def run_mix(edit):
     os.makedirs(os.path.join(td, 'engine'))
     shutil.copytree(os.path.join(ROOT, 'engine', 'audio'), os.path.join(td, 'engine', 'audio'), ignore=SKIP)
     shutil.copy(os.path.join(ROOT, 'engine', '__init__.py'), os.path.join(td, 'engine')) if os.path.exists(os.path.join(ROOT, 'engine', '__init__.py')) else None
+    os.makedirs(os.path.join(td, 'tools', 'lib'))          # 命令约定库（mix.py 经 engine/audio/_cli.py 按路径加载它解析参数）
+    shutil.copy(os.path.join(ROOT, 'tools', 'lib', 'cli.py'), os.path.join(td, 'tools', 'lib'))
     p = os.path.join(td, 'audio', 'cues.json')
     with open(p, encoding='utf-8') as fh:
         d = json.load(fh)
