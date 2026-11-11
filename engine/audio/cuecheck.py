@@ -8,18 +8,24 @@
          [--measure] [--early-ms 10.4] [--late-frames 1] [--report <cuecheck.json>] [--json]
 
 事件表（与路线无关，找到的都核对）：
-  · <作品>/events.json（页面 window.EV 导出，C 路线）：带 cue（或历史写法的 hit）的事件是画面打点；snap: false 的不对网格（刻意离拍）
-  · film.json v2 的 events[]：cue: true 是画面打点（frame 是整数帧，只写了 t 秒时按 round(t × fps) 取帧；有 beat 时核对
-    frame = floor(拍点帧)）；audio 引用一个声音，声音时刻依次从两处找：声音表（film.json audio.cues 指向的文件，A 路线《北冥》是
-    audio/cues.json，取 cue 的 t）→ 声音脚本登记的起音（out/score_onsets.json 的 onsets，B、C 路线的声音脚本用
-    engine.audio.cues.Onsets.mark(t, 标签) 登记，标签写 audio 的值或事件 id）。核对"声音时刻 − 画面结果帧"落在同步容差里：
-    声音晚 0 – late-frames 帧（默认 1 帧）、早不超过 early-ms（默认 0.25 帧 ≈ 10.4 ms @24 fps）；sync: "lip"（或 visual: "lip"）
-    允许晚 2 帧，sync: "soft" 只告警，sync: false / "none" 不查（routes/directing/craft/animation.md §5.7，与 tools/qa 的 sync 同口径）。
-    两处都查不到这个声音时记一条告警（不静默跳过）：声明了声音却没有登记，只能等成片由 tools/qa sync 实测
-节拍网格：timeline.json 的 secs（与 engine/core/tempo.js 同一张表）；film.json v2 的 timeline.sections（start 为帧号）；
-  或历史写法的全局 BPM（另有 METER / E8 / E16 时照用）。--grid 是一拍细分：2 八分、3 三连、4 十六分、6、8……
-关键事件集合：--keys、film.json cuecheck.keys、timeline.json 的 keys / KEYS / KEY，或事件自己 key: true；写法是事件类型或 cue / id。
-  关键事件必须有同一时刻（≤ tol）的音乐起音（score_onsets.json 的 notes 里任意一个，不要求打标签），否则判不通过。
+  · <作品>/events.json（页面 window.EV 导出，C 路线）：带 cue（或历史写法的 hit）的事件是画面打点；snap: false 的不对网格（刻意离拍）；
+    key: true 是关键事件
+  · film.json v2 的 events[]（字段以作品描述 engine/production/film.js 为准：id、frame、shot、audio、visual、domain、sync、beat……；
+    时间只认整数帧 frame）：
+    - 写了 beat（从 0 起的绝对拍号，可带小数）的事件是对拍的画面打点：画面在第 floor(拍点帧) 帧（画面先到），核对 frame 与拍号一致、
+      拍号落在 --grid 细分上（十六分写 --grid 4）、有登记的音乐起音时离拍点 ≤ tol；拍点不落整帧时不判「离整帧」（作品描述只提示）
+    - 写了 audio（声音表里的 cue id）的事件核对声画同步，声音时刻依次从两处找：声音表（film.json audio.cues 指向的文件，A 路线《北冥》
+      是 audio/cues.json，取 cue 的 t）→ 声音脚本登记的起音（out/score_onsets.json 的 onsets，B、C 路线的声音脚本用
+      engine.audio.cues.Onsets.mark(t, 标签) 登记，标签写 audio 的值或事件 id）。核对"声音时刻 − 画面结果帧"落在同步容差里：
+      声音晚 0 – late-frames 帧（默认 1 帧）、早不超过 early-ms（默认 0.25 帧 ≈ 10.4 ms @24 fps）；sync: "lip" 允许晚 2 帧，
+      "soft" 只告警，"none" 不查，不写就是硬门（routes/directing/craft/animation.md §5.7，与 tools/qa 的 sync 同口径）。
+      两处都查不到这个声音时记一条告警（不静默跳过）：声明了声音却没有登记，只能等成片由 tools/qa sync 实测
+节拍网格：timeline.json 的 secs（页面导出，与 engine/core/tempo.js 同一张表）；film.json v2 的 timeline（三种写法都认，与
+  engine/production/timeline.js 的 beatGrid 同一换算：sections [{id, start 帧, bpm, meter}]、beats [逐拍帧…]、bars [[每拍帧数…]…]，
+  写法不对退出 4）；或历史写法的全局 BPM。--grid 是一拍细分：2 八分、3 三连、4 十六分、6、8……
+关键事件集合：--keys、film.json 的 cuecheck.keys、timeline.json 的 keys / KEYS / KEY，或 events.json 的事件自己 key: true；写法是事件类型
+  或 cue / id。关键事件必须有同一时刻（≤ tol）的音乐起音（score_onsets.json 的 notes 里任意一个，不要求打标签），否则判不通过。
+默认值：--grid、--tol-ms、--silence、--quiet-db 没给时取 film.json 的 cuecheck.{grid, tolMs, silence, quietDb}，再缺省 2 / 0.5 / 无 / 15。
 --measure：在混音（有分轨时用该声音所在总线的分轨）里实测瞬态类声音事件的起音（2 ms 包络、抬升 ≥ 9 dB、峰前 20% 处），
   按同步容差再看一遍；实测只给告警，成片的声画同步以 tools/qa 对最终文件的 sync 检查为准。
 
@@ -29,7 +35,9 @@
 接口：check(film_dir, tol_ms=0.5, grid=2, silences=(), quiet_db=15.0, out=print, **选项) → bool（旧调用照用）
       run_check(...) → 报告 dict
 """
+import bisect
 import json
+import math
 import os
 import sys
 from fractions import Fraction
@@ -61,8 +69,81 @@ def _load_json(p, what):
         raise CliError('contract.json', f'{what} 不是合法 JSON：{p}（{e}）', hint='重新导出（node engine/render/events.mjs <作品>）') from None
 
 
+class BeatGrid:
+    """film.json v2 的 timeline 统一成逐拍帧表（与 engine/production/timeline.js 的 beatGrid、frameOfBeat 同一换算）：
+    sections 每段按 BPM 从 start 帧起排拍；beats 原样；bars 从 start 帧起逐小节累加每拍帧数。
+    off_grid(t, div) 离最近的 1/div 拍有多远（秒）；address(t, div) "段小节.拍+分数"；frame_of_beat(拍号) → 帧（可带小数，超出节拍表 None）；
+    by_id 段落 → {t0, t1}（静默段用）"""
+
+    def __init__(self, tl, fps, frame_count):
+        forms = [k for k in ('sections', 'beats', 'bars') if tl.get(k) is not None]
+        if len(forms) != 1:
+            raise ValueError(f'必须且只能用一种写法（sections / beats / bars），收到 {" + ".join(forms) or "都没有"}')
+        self.form, self.fps, self.beats, self.bar_starts, self.secs = forms[0], fps, [], [], []
+        if self.form == 'sections':
+            ss = tl['sections']
+            for k, s in enumerate(ss):
+                end = ss[k + 1]['start'] if k + 1 < len(ss) else frame_count
+                fpb, meter, first, n = fps * 60 / s['bpm'], s.get('meter', 4), len(self.beats), 0
+                while s['start'] + n * fpb < end - 1e-6:
+                    if n % meter == 0:
+                        self.bar_starts.append(len(self.beats))
+                    self.beats.append(s['start'] + n * fpb)
+                    n += 1
+                self.secs.append({'id': s['id'], 'start': s['start'], 'end': end, 'fpb': fpb, 'first': first})
+        else:
+            if self.form == 'beats':
+                self.beats = [float(f) for f in tl['beats']]
+                self.bar_starts = list(range(0, len(self.beats), tl.get('meter', 4)))
+                start = tl['beats'][0]
+            else:
+                f = start = tl.get('start', 0)
+                for bar in tl['bars']:
+                    self.bar_starts.append(len(self.beats))
+                    for n in bar:
+                        self.beats.append(float(f))
+                        f += n
+            self.secs.append({'id': tl.get('id', 'M'), 'start': start, 'end': frame_count, 'fpb': None, 'first': 0})
+        if not self.beats:
+            raise ValueError('节拍表里一拍都没有')
+        for s in self.secs:
+            s['t0'], s['t1'] = s['start'] / fps, s['end'] / fps
+        self.by_id = {s['id']: s for s in self.secs}
+
+    def _at(self, f):
+        """f 帧所在的拍 k 与这一拍的长度（帧）；第一拍之前、最后一拍之后按相邻一拍外推"""
+        b = self.beats
+        k = max(0, bisect.bisect_right(b, f + 1e-6) - 1)
+        if k + 1 < len(b):
+            return k, b[k + 1] - b[k]
+        return k, self.secs[-1]['fpb'] or (b[k] - b[k - 1] if k else float(self.fps))
+
+    def off_grid(self, t, div=2):
+        f = t * self.fps
+        k, n = self._at(f)
+        step = n / div
+        return abs(f - (self.beats[k] + round((f - self.beats[k]) / step) * step)) / self.fps
+
+    def frame_of_beat(self, beat):
+        k = int(math.floor(beat + 1e-6))
+        if k < 0:
+            return None
+        if k >= len(self.beats):
+            s = self.secs[-1]
+            return s['start'] + (beat - s['first']) * s['fpb'] if s['fpb'] else None
+        return self.beats[k] + (beat - k) * self._at(self.beats[k])[1]
+
+    def address(self, t, div=2):
+        f = t * self.fps
+        k, n = self._at(f)
+        sec = next((s for s in reversed(self.secs) if s['first'] <= k), self.secs[0])
+        bars = [i for i in self.bar_starts if sec['first'] <= i <= k]
+        frac = Fraction((f - self.beats[k]) / n).limit_denominator(max(8, int(div) * 4))
+        return f"{sec['id']}{len(bars)}.{k - (bars[-1] if bars else sec['first']) + 1}" + (f'+{frac.numerator}/{frac.denominator}' if frac else '')
+
+
 def tempo_of(tl, film=None):
-    """时间表 → (Tempo 或 None, 说明)。支持 secs / SECS、全局 BPM，以及 film.json v2 的 timeline.sections（帧号）"""
+    """时间表 → (Tempo / BeatGrid 或 None, 说明)。timeline.json 的 secs / SECS、全局 BPM 优先；其次 film.json v2 的 timeline（三种写法）"""
     if tl:
         fps = _ci(tl, 'fps') or (film or {}).get('fps') or 24
         secs = _ci(tl, 'secs')
@@ -72,16 +153,20 @@ def tempo_of(tl, film=None):
         if isinstance(bpm, (int, float)) and bpm > 0:
             meter = _ci(tl, 'meter', 'bar_beats') or 4
             return Tempo([{'id': 'A', 't0': 0.0, 'bpm': float(bpm), 'meter': meter}], fps, digits=None), 'timeline.BPM'
-    t2 = (film or {}).get('timeline') or {}
-    secs = t2.get('sections') if isinstance(t2, dict) else None
-    if film and isinstance(secs, list) and secs:
-        fps = film['fps']
-        ss = [{'id': s.get('id', f'S{i + 1}'), 't0': s['start'] / fps, 'bpm': s['bpm'], 'meter': s.get('meter', 4)} for i, s in enumerate(secs)]
-        return Tempo(ss, fps, digits=None), 'film.json timeline.sections'
+    t2 = (film or {}).get('timeline')
+    if film and isinstance(t2, dict) and any(t2.get(k) is not None for k in ('sections', 'beats', 'bars')):
+        try:
+            g = BeatGrid(t2, film['fps'], film['frameCount'])
+        except (ValueError, KeyError, TypeError, ZeroDivisionError) as e:
+            raise CliError('contract.timeline', f'film.json 的 timeline 读不了：{e}',
+                           hint='node engine/production/film.js check <作品> 看完整诊断（写法见 engine/production/timeline.js 的 beatGrid）') from None
+        return g, f'film.json timeline.{g.form}'
     return None, None
 
 
 def _address(tempo, t, grid):
+    if hasattr(tempo, 'address'):
+        return tempo.address(t, grid)
     s = tempo.section(t)
     b = (t - s['t0']) / (60 / s['bpm'])
     bar, beat = int(b // s['meter']) + 1, b % s['meter']
@@ -153,7 +238,7 @@ def _keyset(cli_keys, film, tl):
     return keys
 
 
-def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0, keys=None, film_json=None, events=None,
+def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None, keys=None, film_json=None, events=None,
               timeline=None, onsets=None, mix=None, measure=False, early_ms=None, late_frames=1.0, out=print):
     from . import filmspec as F
     here = os.path.abspath(film_dir)
@@ -164,6 +249,13 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
             film = F.load(fj)
         except F.FilmSpecError as e:
             raise CliError(e.code, e.message, hint=e.hint) from None
+    cc = (film or {}).get('cuecheck') or {}             # 没给的参数取 film.json 的 cuecheck 段（作品描述 P05 的字段）
+    tol_ms = float(F.pick(tol_ms, cc.get('tolMs'), DEF_TOL_MS))
+    grid = F.pick(grid, cc.get('grid'), 2)
+    silences = F.pick(silences, cc.get('silence'), ())
+    quiet_db = float(F.pick(quiet_db, cc.get('quietDb'), 15.0))
+    if not (isinstance(grid, (int, float)) and grid > 0):
+        raise CliError('usage.bad-value', f'网格细分要正数，收到 {grid!r}（--grid 或 film.json 的 cuecheck.grid）')
     ev_path = events or os.path.join(here, 'events.json')
     tl_path = timeline or os.path.join(here, 'timeline.json')
     so_path = onsets or os.path.join(here, 'out', 'score_onsets.json')
@@ -177,6 +269,7 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
                        hint='C 路线先导出：node engine/render/events.mjs <作品目录>；A / B 路线在 film.json 的 events 里写事件')
     fps = (_ci(TL or {}, 'fps') or (film or {}).get('fps') or 24)
     tempo, tempo_src = tempo_of(TL, film)
+    fgrid = tempo if isinstance(tempo, BeatGrid) else (tempo_of(None, film)[0] if film else None)   # film.json 事件的 beat 按它换算
     keyset = _keyset(keys, film, TL)
     tl_t = (_ci(TL or {}, 't') or {}) if TL else {}
     notes = sorted(float(n) for n in SO.get('notes', []))
@@ -216,28 +309,16 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
         return None, None, None
     for e in (film or {}).get('events', []) if film and film['version'] == 2 else []:
         eid, frame = e.get('id'), e.get('frame')
-        if not isinstance(frame, int) and isinstance(e.get('t'), (int, float)) and not isinstance(e.get('t'), bool):
-            frame = int(round(float(e['t']) * fps))
         if not isinstance(frame, int) or isinstance(frame, bool):
-            continue
-        is_key = bool(e.get('key')) or eid in keyset
-        if e.get('cue') is True and eid not in seen:
-            r = _hit(eid, frame / fps, fps, tempo, grid, None, tags.get(eid), notes, is_key, source='film.json', etype=e.get('domain'))
-            if e.get('beat') is not None and tempo is not None:
-                bt = float(e['beat'])
-                s0 = tempo.secs[0]
-                want = int(np.floor((s0['t0'] + bt * 60 / s0['bpm']) * fps + 1e-6)) if len(tempo.secs) == 1 else None
-                if want is not None and want != frame:
-                    r['problems'].append(f'beat {bt} 在第 {want} 帧，事件写第 {frame} 帧')
-                    r['status'] = 'fail'
-            rows.append(r)
-        sync = e.get('sync', True)
+            continue                    # frame 必填、整数帧：写错的事件由 node engine/production/film.js check 报
+        bt = e.get('beat')
+        if isinstance(bt, (int, float)) and not isinstance(bt, bool) and eid not in seen:
+            rows.append(_beat_hit(e, frame, fgrid, fps, grid, tags, notes, eid in keyset or e.get('domain') in keyset))
+        sync = e.get('sync') if e.get('sync') in ('lip', 'soft', 'none') else None     # 不写（或旧的布尔值）= 硬门，同 tools/qa
         ref = e.get('audio')
-        if not ref or sync in (False, 'none'):
+        if not ref or sync == 'none':
             continue
         ref = str(ref)
-        if e.get('visual') == 'lip' and sync is True:
-            sync = 'lip'
         t_snd, src, _ = sound_time(ref, eid)
         t_vis = frame / fps
         if t_snd is None:
@@ -255,7 +336,7 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
         d = t_snd - t_vis
         st = 'pass' if -early - 1e-9 <= d <= late + 1e-9 else ('warn' if sync == 'soft' else 'fail')
         sync_rows.append({'id': eid, 'audio': ref, 'frame': frame, 'soundT': round(t_snd, 6), 'soundFrom': src, 'deltaMs': round(d * 1e3, 2),
-                          'deltaFrames': round(d * fps, 3), 'status': st, 'kind': 'declared', 'sync': sync,
+                          'deltaFrames': round(d * fps, 3), 'status': st, 'kind': 'declared', 'sync': sync or 'default',
                           'problems': [] if st == 'pass' else [f'声音比画面{"早" if d < 0 else "晚"} {abs(d) * 1e3:.1f} ms（容差：早 ≤ {early * 1e3:.1f} ms、晚 ≤ {late * 1e3:.1f} ms）']})
     _judge(rows, tol_ms)
     # —— 3. 实测起音（可选） ——
@@ -355,6 +436,23 @@ def run_check(film_dir, *, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0
     return rep
 
 
+def _beat_hit(e, frame, fgrid, fps, grid, tags, notes, is_key):
+    """film.json 写了 beat 的事件：拍点时刻 = frame_of_beat(beat) / fps；画面在 floor(拍点帧)（画面先到，作品描述的量化），
+    所以「离整帧」不判，改核对 frame 与拍号一致；网格与音乐起音按拍点时刻量"""
+    eid, bt = e['id'], float(e['beat'])
+    at = fgrid.frame_of_beat(bt) if fgrid is not None else None
+    r = _hit(eid, (at if at is not None else frame) / fps, fps, fgrid, grid, None, tags.get(eid), notes, is_key, source='film.json',
+             etype=e.get('domain') or e.get('visual'))
+    r['frame'], r['offFrameMs'] = frame, 0.0
+    if fgrid is None:
+        r['problems'].append('写了 beat，但 film.json 没有 timeline（节拍表）')
+    elif at is None:
+        r['problems'].append(f'beat {bt:g} 不在节拍表里（拍号从 0 起，共 {len(fgrid.beats)} 拍）')
+    elif math.floor(at + 1e-6) != frame:
+        r['problems'].append(f'beat {bt:g} 在第 {at:.3f} 帧（取 floor → {math.floor(at + 1e-6)}），事件写第 {frame} 帧')
+    return r
+
+
 def _hit(name, t, fps, tempo, grid, tl_t, tag_t, notes, is_key, grid_exempt=False, source='', etype=None):
     """一个画面打点的各项偏差（秒 → 毫秒）；判定在 _judge"""
     f = abs(t * fps - round(t * fps)) / fps
@@ -376,7 +474,7 @@ def _hit(name, t, fps, tempo, grid, tl_t, tag_t, notes, is_key, grid_exempt=Fals
 
 def _judge(rows, tol_ms):
     for r in rows:
-        p = r['problems']
+        p = r['problems']           # _beat_hit 可能已经放进了拍号与帧号对不上的问题
         if r['offFrameMs'] > tol_ms:
             p.append(f'离整帧 {r["offFrameMs"]:.2f} ms')
         if r['offGridMs'] is not None and r['offGridMs'] > tol_ms:
@@ -429,7 +527,7 @@ def _report(film, input_path, rows, sync_rows, sil_rows, ok, tol_ms, grid, tempo
             'grid': grid, 'tolMs': tol_ms, 'tempo': tempo_src, 'keys': sorted(keyset)}
 
 
-def check(film_dir, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0, out=print, **kw):
+def check(film_dir, tol_ms=None, grid=None, silences=None, quiet_db=None, out=print, **kw):
     """旧接口：打印核对表，返回是否通过（缺输入时打印原因并返回 False）"""
     try:
         return run_check(film_dir, tol_ms=tol_ms, grid=grid, silences=silences, quiet_db=quiet_db, out=out, **kw)['ok']
@@ -441,11 +539,11 @@ def check(film_dir, tol_ms=DEF_TOL_MS, grid=2, silences=(), quiet_db=15.0, out=p
 def make_parser():
     p = ArgumentParser(prog='python -m engine.audio.cuecheck', description='声画拍点核对：退出码 0 通过、4 超差、2 用法错误、3 缺输入')
     p.add_argument('film', help='作品目录（读 events.json、timeline.json、film.json、out/score_onsets.json、out/mix.wav）')
-    p.add_argument('--tol-ms', type=float, default=DEF_TOL_MS, help='打点对整帧 / 网格 / 时间线 / 音乐起音的容差（毫秒，默认 0.5）')
-    p.add_argument('--grid', type=float, default=2, help='一拍细分：2 八分（默认）、3 三连、4 十六分……')
-    p.add_argument('--keys', default='', help='关键事件集合：事件类型或 cue / id，逗号分隔')
-    p.add_argument('--silence', default='', help='要求安静的段落 id（timeline.json 的 secs），逗号分隔')
-    p.add_argument('--quiet-db', type=float, default=15.0, help='静默段至少比全片 RMS 低多少 dB（默认 15）')
+    p.add_argument('--tol-ms', type=float, help='打点对整帧 / 网格 / 时间线 / 音乐起音的容差（毫秒；默认 film.json 的 cuecheck.tolMs，再缺省 0.5）')
+    p.add_argument('--grid', type=float, help='一拍细分：2 八分、3 三连、4 十六分……（默认 film.json 的 cuecheck.grid，再缺省 2）')
+    p.add_argument('--keys', default='', help='关键事件集合：事件类型或 cue / id，逗号分隔（另认 film.json 的 cuecheck.keys）')
+    p.add_argument('--silence', help='要求安静的段落 id（节拍表的段落），逗号分隔（默认 film.json 的 cuecheck.silence）')
+    p.add_argument('--quiet-db', type=float, help='静默段至少比全片 RMS 低多少 dB（默认 film.json 的 cuecheck.quietDb，再缺省 15）')
     p.add_argument('--film-json', dest='film_json', help='film.json（默认 <作品>/film.json）')
     p.add_argument('--events', help='events.json（默认 <作品>/events.json）')
     p.add_argument('--timeline', help='timeline.json（默认 <作品>/timeline.json）')
@@ -459,12 +557,12 @@ def make_parser():
 
 
 def main_cli(args, ctx):
-    if args.grid <= 0:
+    if args.grid is not None and args.grid <= 0:
         raise CliError('usage.bad-value', f'--grid 要正数，收到 {args.grid}')
     if not os.path.isdir(args.film):
         raise CliError('env.film-missing', f'作品目录不存在：{args.film}')
     lines = []
-    rep = run_check(args.film, tol_ms=args.tol_ms, grid=args.grid, silences=[s for s in args.silence.split(',') if s],
+    rep = run_check(args.film, tol_ms=args.tol_ms, grid=args.grid, silences=None if args.silence is None else [s for s in args.silence.split(',') if s],
                     quiet_db=args.quiet_db, keys=args.keys or None, film_json=args.film_json, events=args.events, timeline=args.timeline,
                     onsets=args.onsets, mix=args.mix, measure=args.measure, early_ms=args.early_ms, late_frames=args.late_frames,
                     out=lines.append)

@@ -10,7 +10,7 @@
   loudness_targets(档位) → (积分响度目标, 容差, 真峰值上限)：认权威表的 audio.loudness.{integrated, tolerance, truePeak}，
                           也认早期草案的 integratedLUFS / toleranceLU / audio.truePeakMaxDbTP（同 tools/qa/lib/profiles.mjs 的 adapt）；缺的项给 None
   resolve(film, rel) → 相对路径基准的绝对路径
-  event_times(film) → {事件 id: 秒}          film.json v2 的 events（frame / fps；只写了 t 的照用）
+  event_times(film) → {事件 id: 秒}          film.json v2 的 events（frame / fps；时间只认整数帧，同作品描述）
   shot_spans(film) → {镜头 id: (起秒, 止秒)}   film.json v2 的 shots（[in, out) 帧 / fps）
   声音脚本按这两张表摆声音（而不是在脚本里写死秒数），改镜头长度只改 film.json，声音跟着走（DF-M 的「同源时间」）。
 """
@@ -131,8 +131,6 @@ def event_times(film):
             continue
         if isinstance(e.get('frame'), int) and not isinstance(e.get('frame'), bool):
             out[eid] = e['frame'] / film['fps']
-        elif isinstance(e.get('t'), (int, float)) and not isinstance(e.get('t'), bool):
-            out[eid] = float(e['t'])
     return out
 
 

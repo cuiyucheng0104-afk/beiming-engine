@@ -9,6 +9,8 @@
     把 ui_fail 的画面帧挪 2 帧 → 声音晚 83.3 ms → 退出 4；sync: lip 允许晚 2 帧，soft 只告警，none 不查。
   · B 路线：film.json v2 的 events 引用声音脚本登记的起音（out/score_onsets.json 的 onsets）：一致通过，错 2 帧退出 4；
     查不到登记时记告警、不静默跳过。
+  · film.json v2 的 beat 事件（作品描述 P05 的写法）：timeline 的 sections / beats / bars 三种写法都换算成拍点帧；frame 与拍号对不上、
+    拍号不在网格细分上、音乐起音离拍点都退出 4；网格等默认值取 film.json 的 cuecheck 段；timeline 写法不对退出 4（不静默当成没有网格）。
   · Node 入口 tools/audio/cuecheck.mjs：--json 时 stdout 只有一个信封，退出码与 Python 一侧相同；--report 是附录 C8 的结构。
 C 路线的用例要 node（导出 timeline.js）；其余只要 Python。用法（仓库根）：python -m unittest discover -s tests/audio -p "test_audio_cuecheck.py"
 """
@@ -183,8 +185,8 @@ def beiming_events(shift=None):
     ids = ['horn', 'pigeons', 'touch', 'wake_ping', 'kun_call', 'ui_scan', 'ui_fail', 'ui_nav']
     ev = []
     for i in ids:
-        f = int(cues[i]['t'] * FPS + 1e-9)
-        ev.append({'id': f'v_{i}', 'frame': f + (shift[1] if shift and shift[0] == i else 0), 'audio': i, 'visual': 'motion'})
+        f = int(cues[i]['t'] * FPS + 1e-9) + (shift[1] if shift and shift[0] == i else 0)
+        ev.append({'id': f'v_{i}', 'frame': f, 'shot': 'S1' if f < 72 else ('S2' if f < 120 else 'S3'), 'audio': i, 'visual': 'motion'})
     return ev
 
 
@@ -300,6 +302,85 @@ class BRouteOnsets(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertIn('查不到 glass_bell 的时刻', msgs(env))
         self.assertEqual(env['data']['problems'][0]['status'], 'warn')
+
+
+class FilmJsonBeats(unittest.TestCase):
+    """film.json v2 的 events[].beat + timeline（sections / beats / bars），写法与 engine/production（P05）一致"""
+
+    def setUp(self):
+        self.td = H.tmpdir('cue-beats')
+
+    def tearDown(self):
+        shutil.rmtree(self.td, ignore_errors=True)
+
+    def film(self, timeline, events, cuecheck=None, tags=None):
+        extra = {'timeline': timeline}
+        if cuecheck is not None:
+            extra['cuecheck'] = cuecheck
+        H.film_json(self.td, frames=96, fps=FPS, cuts=(48,), events=events, **extra)
+        write(os.path.join(self.td, 'out', 'score_onsets.json'), {'onsets': tags or {}, 'notes': sorted((tags or {}).values())})
+
+    @staticmethod
+    def ev(eid, frame, beat, **kw):
+        return dict({'id': eid, 'frame': frame, 'shot': 'S1' if frame < 48 else 'S2', 'beat': beat, 'visual': '落笔'}, **kw)
+
+    def test_sections_beat_events(self):
+        tl = {'sections': [{'id': 'A', 'start': 0, 'bpm': 120, 'meter': 4}]}            # 一拍 12 帧
+        self.film(tl, [self.ev('h1', 30, 2.5), self.ev('h2', 60, 5)], tags={'h1': 30 / FPS})
+        r, env = cuecheck(self.td, '--report', os.path.join(self.td, 'rep.json'))
+        self.assertEqual(r.returncode, 0, msgs(env) + r.stderr[-500:])
+        self.assertEqual(env['data']['tempo'], 'film.json timeline.sections')
+        rep = H.read_json(os.path.join(self.td, 'rep.json'))
+        self.assertEqual([(e['id'], e['address']) for e in rep['events']], [('h1', 'A1.3+1/2'), ('h2', 'A2.2')])
+        # 十六分位置：八分网格不过、十六分过
+        self.film(tl, [self.ev('h1', 27, 2.25)])
+        r, env = cuecheck(self.td)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('h1：离网格 125.00 ms', msgs(env))
+        r, _ = cuecheck(self.td, '--grid', '4')
+        self.assertEqual(r.returncode, 0)
+        # 网格写在 film.json 的 cuecheck 段：不给 --grid 也按它判
+        self.film(tl, [self.ev('h1', 27, 2.25)], cuecheck={'grid': 4, 'tolMs': 0.5})
+        r, env = cuecheck(self.td)
+        self.assertEqual((r.returncode, env['data']['grid']), (0, 4))
+
+    def test_frame_must_match_beat_and_music_onset(self):
+        tl = {'sections': [{'id': 'A', 'start': 0, 'bpm': 120, 'meter': 4}]}
+        self.film(tl, [self.ev('h1', 32, 2.5)])                                       # 第 2.5 拍在第 30 帧
+        r, env = cuecheck(self.td)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('beat 2.5 在第 30.000 帧（取 floor → 30），事件写第 32 帧', msgs(env))
+        self.film(tl, [self.ev('h1', 30, 2.5)], tags={'h1': 32 / FPS})                # 登记的音乐起音晚 2 帧
+        r, env = cuecheck(self.td)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('离音乐起音 83.33 ms', msgs(env))
+
+    def test_beats_and_bars_forms(self):
+        beats = {'beats': [0, 10, 22, 30, 41, 52, 60, 70], 'meter': 4}               # 逐拍帧表：拍长不一
+        self.film(beats, [self.ev('b2', 22, 2), self.ev('b35', 35, 3.5)])           # 3.5 拍 = 30 + 0.5 × 11 = 35.5 → 第 35 帧
+        r, env = cuecheck(self.td)
+        self.assertEqual(r.returncode, 0, msgs(env))
+        self.assertEqual(env['data']['tempo'], 'film.json timeline.beats')
+        self.film(beats, [self.ev('b35', 36, 3.5)])
+        r, env = cuecheck(self.td)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('取 floor → 35', msgs(env))
+        bars = {'bars': [[12, 12, 12, 12], [10, 10, 10, 10]], 'start': 0}           # 第二小节变快：拍点 48、58、68、78
+        self.film(bars, [self.ev('k5', 58, 5), self.ev('k55', 63, 5.5)])
+        r, env = cuecheck(self.td)
+        self.assertEqual(r.returncode, 0, msgs(env))
+        self.assertEqual(env['data']['tempo'], 'film.json timeline.bars')
+
+    def test_bad_timeline_is_a_contract_error_not_no_grid(self):
+        self.film({'sections': [{'id': 'A', 'start': 0, 'bpm': 120}], 'beats': [0, 12]}, [self.ev('h1', 24, 2)])
+        r, env = cuecheck(self.td)
+        self.assertEqual((r.returncode, env['error']['code']), (4, 'contract.timeline'))
+
+    def test_beat_without_timeline_fails(self):
+        H.film_json(self.td, frames=96, fps=FPS, cuts=(48,), events=[self.ev('h1', 24, 2)])
+        r, env = cuecheck(self.td)
+        self.assertEqual(r.returncode, 4)
+        self.assertIn('写了 beat，但 film.json 没有 timeline', msgs(env))
 
 
 @unittest.skipUnless(NODE, '需要 node')

@@ -298,8 +298,10 @@ class FilmSpec(unittest.TestCase):
         td = H.tmpdir('filmspec')
         try:
             H.film_json(td, frames=480, fps=24, cuts=(96, 228, 360),
-                        events=[{'id': 'kun-rise', 'frame': 130, 'audio': 'kun'}, {'id': 'late', 't': 12.5}, {'frame': 5}])
+                        events=[{'id': 'kun-rise', 'frame': 130, 'shot': 'S2', 'audio': 'kun'}, {'id': 'late', 'frame': 300, 'shot': 'S3'},
+                                {'id': 'secs-only', 't': 12.5}, {'frame': 5}])
             f = F.load(td)
+            # 时间只认整数帧（作品描述把只写秒数的 t 判为没有消费者的时间字段）：只写 t 的事件不进表
             self.assertEqual(F.event_times(f), {'kun-rise': 130 / 24, 'late': 12.5})
             sp = F.shot_spans(f)
             self.assertEqual(sp['S2'], (4.0, 9.5))
