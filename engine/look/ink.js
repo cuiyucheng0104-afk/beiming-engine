@@ -1,8 +1,9 @@
 // 北冥引擎 · 屏幕空间手绘墨线：ID 图 + 深度 → 边缘（近的一侧拥有这条线）→ 笔画（圆头笔 + 域扭曲抖动 + 笔压 + 断线）。
-// 抖动的种子 = floor(t * boilFps)，同一拍内线不动、换拍整体「沸腾」一次（boilFps 12 即一拍二）。
+// 抖动的种子 = floor(t * boilFps)，同一拍内线不动、换拍整体「沸腾」一次（24 fps 下 boilFps 12 即一拍二）。
+// 写了 boilHold 就按帧：种子 = floor(帧号 / boilHold)，帧号按影片帧率取（engine/core/clock.js），换成 25 / 30 fps 也是每 boilHold 帧一沸。
 //
 //   createInk(fx) → {
-//     render({ ids, edge, line, camera, p, fog, fogColor, t, k, ss, maxWidth })
+//     render({ ids, edge, line, camera, p, fog, fogColor, t, k, ss, maxWidth, fps })   fps：影片帧率（boilHold 用；look 会传）
 //       ids        ID 图渲染目标（createIdPass 的输出，带 depthTexture）
 //       edge/line  边缘图（Nearest，HalfFloat）/ 笔画覆盖率图，和 ID 图同尺寸
 //       p          墨线参数（见下）；fog：雾参数或 null（线在雾里按 fogFade 变淡）
@@ -11,7 +12,8 @@
 //   }
 //
 // 墨线参数 p（像素量按标定高度给，内部乘 k·ss）：
-//   width 外轮廓线宽  wobble 抖动幅度  warp 抖动波长  boilFps 沸腾频率  pressure 笔压起伏（±比例）  breakup 断线阈值
+//   width 外轮廓线宽  wobble 抖动幅度  warp 抖动波长  boilFps 沸腾频率（每秒几次）  boilHold 可选：每几帧沸腾一次（优先于 boilFps）
+//   pressure 笔压起伏（±比例）  breakup 断线阈值
 //   inner 内部线相对外轮廓的粗细  silhouette 深度相对差大于它算外轮廓  depthThreshold 1/z 二阶差分的折痕阈值
 //   near / far / farScale 线宽随深度变细的区间与远处系数  opacity 不透明度  fogFade 雾里变淡的程度
 // 墨色叠加（color / tint / darken）在合成那一步，见 compose.js。
@@ -19,6 +21,15 @@
 import * as THREE from 'three';
 import { HASH_NOISE } from './glsl.js';
 import { FOG_GLSL, fogUniforms, setFog } from './fog.js';
+
+// 墨线沸腾的种子：boilHold（整数 ≥ 1）按帧，否则按 boilFps（与以前逐位相同）
+export function boilSeed(t, p, fps = 24) {
+  if (p.boilHold !== undefined && p.boilHold !== null) {
+    if (!(Number.isInteger(p.boilHold) && p.boilHold >= 1)) throw new TypeError(`墨线 boilHold 要是 ≥ 1 的整数（每几帧沸腾一次），收到 ${JSON.stringify(p.boilHold)}`);
+    return Math.floor(Math.round(t * fps) / p.boilHold) % 100000;
+  }
+  return Math.floor(t * p.boilFps + 1e-6) % 100000;
+}
 
 // 边缘检测：ID 跳变 + 深度断层 / 折痕；输出 (浓度, 半线宽, 深度差, 1)
 const EDGE_FS = /* glsl */`
@@ -113,7 +124,7 @@ export function createInk(fx) {
     return strokeMats.get(R);
   };
 
-  function render({ ids, edge, line, camera, p, fog, fogColor, t, k, ss, maxWidth }) {
+  function render({ ids, edge, line, camera, p, fog, fogColor, t, k, ss, maxWidth, fps = 24 }) {
     const LW = ids.width, LH = ids.height;
     const e = edgeMat.uniforms;
     e.tId.value = ids.texture; e.tDepth.value = ids.depthTexture; e.uRes.value.set(LW, LH);
@@ -128,7 +139,7 @@ export function createInk(fx) {
     const sm = strokeMat(R), s = sm.uniforms;
     s.tEdge.value = edge.texture; s.uRes.value.set(LW, LH);
     s.uWobble.value = p.wobble * k * ss; s.uWarp.value = p.warp * k * ss; s.uPressure.value = p.pressure; s.uBreakup.value = p.breakup;
-    s.uSeed.value = Math.floor(t * p.boilFps + 1e-6) % 100000;
+    s.uSeed.value = boilSeed(t, p, fps);
     fx.draw(sm, line);
   }
 

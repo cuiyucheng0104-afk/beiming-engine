@@ -13,8 +13,12 @@
 //                                             先画一层模糊暗晕托底（halo，亮背景上也看得清），再画带细辉光（glow）的字；S = 画面高 / 1040
 //     O.glowStroke(ctx, path, rgb, a, lineWidth, S, glow)   path = ctx => void，圆头圆角的辉光描线
 //     O.card(ctx, x, y, w, h, r, a, S)        半透明暗底 + 细辉光描边的圆角卡片
-//     O.rec(id, text, x0, y0, x1, y1, a)      记一个文字方框（a > 0.02 才算看得见）
-//     O.collect(fn)                           以"只量不画"跑 fn，返回期间记下的方框 [{ id, text, x0, y0, x1, y1 }]
+//     O.rec(id, text, x0, y0, x1, y1, a, font)  记一个文字方框（a > 0.02 才算看得见）；font 是画这段字的 CSS font 串（可省）
+//     O.collect(fn)                           以"只量不画"跑 fn，返回期间记下的方框
+//                                             [{ id, text, x0, y0, x1, y1, box: [x, y, w, h], alpha, font? }]（给 window.TEXTS，页面约定 v1）
+//                                             x0..y1 向外取整；box 由它们算；alpha 是记下时的不透明度（保留 4 位小数）
+// TEXTS 记录的出处：{ id, text, x0, y0, x1, y1 } 沿用 lemo-opuscar@bebbbe1 core/README.md「The page contract」（MIT，LemoLab）；
+// box、alpha、font 是本仓库页面约定 v1 的扩展，旧字段的含义不变。
 
 import { clamp } from '../core/math.js';
 import { roundRect } from './widgets.js';
@@ -68,8 +72,12 @@ export function createOverlay(theme) {
     ctx.restore();
     O.glowStroke(ctx, c => roundRect(c, x, y, w, h, r), O.theme.ink, 0.78 * a, 1.6 * S, S, 0.45);
   };
-  O.rec = (id, text, x0, y0, x1, y1, a) => {
-    if (O.out && a > 0.02) O.out.push({ id, text, x0: Math.floor(x0), y0: Math.floor(y0), x1: Math.ceil(x1), y1: Math.ceil(y1) });
+  O.rec = (id, text, x0, y0, x1, y1, a, font) => {
+    if (!O.out || !(a > 0.02)) return;
+    const r = { id, text, x0: Math.floor(x0), y0: Math.floor(y0), x1: Math.ceil(x1), y1: Math.ceil(y1) };
+    r.box = [r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0]; r.alpha = +Math.min(1, a).toFixed(4);
+    if (font) r.font = font;
+    O.out.push(r);
   };
   O.collect = fn => {
     const out = []; O.draw = false; O.out = out;

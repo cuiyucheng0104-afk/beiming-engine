@@ -489,7 +489,9 @@ describe('H5 运行记录', () => {
   it('判定工具没有 film.js 时退回 project.js 的 validateRenderResult', async () => {
     const tools = path.join(ROOT, `project-only-${++n}`, 'engine', 'production');
     fs.mkdirSync(tools, { recursive: true });
-    fs.copyFileSync(path.join(REPO, 'engine', 'production', 'project.js'), path.join(tools, 'project.js'));
+    // project.js 依赖同目录的 routes.js、vocab.js、io.js：整目录复制再去掉 film.js，才是「没有 film.js」的判定工具
+    fs.cpSync(path.join(REPO, 'engine', 'production'), tools, { recursive: true });
+    fs.rmSync(path.join(tools, 'film.js'));
     const { report } = await h5({}, 'DF-A', { toolsRoot: path.resolve(tools, '..', '..') });
     assert.equal(report.gates.H5.status, 'pass', JSON.stringify(report.gates.H5.findings));
     assert.match(report.gates.H5.evidence.validateResult.tool, /project\.js/);

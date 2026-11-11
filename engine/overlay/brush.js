@@ -13,6 +13,28 @@
 //   paintBrushGlyph(glyph, t, { edge, rgb }) → 是否有像素露出
 //     把时刻 t 已经写到的部分画进 glyph.out：每笔的笔锋沿骨架按缓入缓出推进，edge 是笔锋前沿的柔边宽（em，默认 0.035），rgb 墨色
 //   chamfer(inside, W, H)              倒角距离变换：inside（Uint8Array，1 = 在形内）每个像素到形状边缘的距离（像素）
+//
+// 来源：chamfer() 的两趟倒角距离写法改写自 LemoLab 的 lemo-opuscar（cases/vendor/lemo-opuscar/styles/chalkboard/demo/js/chalk.js，
+// 固定提交 bebbbe1），「字形当蒙版、按笔画中线给每个像素定揭开顺序」的做法也取自该文件的 bakeOutline；hash1 / vnoise 与同库
+// core/lib.js 的 hash / vnoise 相同；按其 MIT 许可使用并保留版权声明，许可全文见 cases/licenses/LemoLab-MIT.txt；骨架、笔画归属、
+// 飞白、时间分配与绘制为北冥引擎原创。
+// @provenance lemo-opuscar@bebbbe1:styles/chalkboard/demo/js/chalk.js
+// @provenance lemo-opuscar@bebbbe1:core/lib.js
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-FileCopyrightText: 2026 LemoLab
+// LemoLab 部分的许可原文（作品站按文件分发这些模块，许可声明随文件走；与 cases/licenses/LemoLab-MIT.txt 相同）：
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//   to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//   The above copyright notice and this permission notice shall be included in all copies or substantial portions
+//   of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+//   THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+//   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//   IN THE SOFTWARE.
 
 import { clamp, lerp, ss, seg } from '../core/math.js';
 import { catmullRom, project } from '../paint/curve.js';

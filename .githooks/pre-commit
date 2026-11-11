@@ -1,0 +1,11 @@
+#!/bin/sh
+# 北冥仓库 · git 提交前检查入口（POSIX sh；Windows 上由 Git 自带的 sh 执行，PowerShell 里照常 git commit 即可）
+# 检查逻辑在同目录的 pre-commit.mjs（需要 Node 22 及以上），检查项与临时放行方法：node .githooks/pre-commit.mjs --help
+# 启用：npm run setup 会在本仓库设 git config core.hooksPath .githooks（只作用于本仓库，setup --no-hooks 跳过），也可以自己执行这条命令。
+# 停用：git config --unset core.hooksPath。不改全局或系统级 git 配置。
+hook_dir=$(dirname "$0")
+if command -v node >/dev/null 2>&1; then
+  exec node "$hook_dir/pre-commit.mjs"
+fi
+echo "北冥 pre-commit：找不到 node（需要 Node 22 及以上），提交已中止。装好 Node 后重试；确认要跳过这道检查，请由你本人执行 git commit --no-verify。" >&2
+exit 3

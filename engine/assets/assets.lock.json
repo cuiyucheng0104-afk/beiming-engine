@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "$comment": "共享资产的 sha256（engine/assets/manifest.js 生成：node engine/assets/manifest.js lock --write）。资产文件改了而这里没更新时，film.js check 提示「资产哈希变化」：依赖它的镜头缓存失效，用户认可过的风格帧要复核。",
+  "assets": {
+    "character:birds@v1": {
+      "sha256": "39c1679322c15cc7192791062460a79497a070188ce2c4bc585e0f699e299881",
+      "files": { "src/birds.js": "bf206700990d6ae60c338eb6098a549a7f674208e47a51db01c057900e7caae2" }
+    },
+    "character:girl@v1": {
+      "sha256": "334d5c25a96686966de7445ae553642fe8e9cb208f54fe236e89f66e0fa0b585",
+      "files": {
+        "src/girl.js": "a4c72ff8d4defb519fb44385300157036026af73ed886cb56f4f9527d2c9294a",
+        "src/timeline.js": "48c1acb41c6d40375d5ab7ab4a4eba1ffda9abebfc9470e6e0b3c3caff3bd34e"
+      }
+    },
+    "font:barlow@v1": {
+      "sha256": "9a3a7b896a76facb0c6b47aaff978ebf0db6c8f03ae04cf05685087d3daa7840",
+      "files": {
+        "fonts/Barlow-300.woff2": "245125f111c1d241eb7fd3c3e089c31d3a280bd5cb2b29c99ba686febd1e4868",
+        "fonts/Barlow-400.woff2": "6a3a4ad894d1bf6590cd1afb7cd4ab3ee4c58301e108fbf57384f6048a43e61a",
+        "fonts/Barlow-500.woff2": "141443c0ca1b84ee0d04d9ceb2ed1bec793ceb3b00e6ef30a6ecd29f2ec70f85"
+      }
+    },
+    "font:ma-shan-zheng@v1": {
+      "sha256": "afeb5d49f6e2daf30a0af5906b35b4ffafb020e8355edbaa5da5187d29cd495c",
+      "files": { "fonts/MaShanZheng-400.woff2": "8fa2437ac8801063d9bb6319c5a35e60b53842cc835cc515e163e09be33c5fcf" }
+    },
+    "font:noto-sans-sc@v1": {
+      "sha256": "b541c04937b4004869d6b4196f3c91c68174b63dd990a5c9b7fc25fdeb12a90e",
+      "files": { "fonts/NotoSansSC-var.woff2": "917e2a1b6215cd1f344844065ff8cb47e522e45180f83cee85d199969320b5a0" }
+    },
+    "material:toon@v1": {
+      "sha256": "7f50b798ad58751e6706ea003e621438bf3f6f0d917d417d7f4d32fdfaa020a3",
+      "files": { "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75" }
+    },
+    "material:toon_bronze@v1": {
+      "sha256": "19230d8162bdb926603f11ef6f926c4f5323b343113d9439f337032efe05323e",
+      "files": {
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_bronze.js": "bc330a5a4f5c231c70450dc900150ed86a9bc71dc66f5cdc2f7eee70752d76ea"
+      }
+    },
+    "material:toon_peng@v1": {
+      "sha256": "e6d01f0a8808d5d2975daa94ec4b55a1056b22578e37fbca52e43108ff2e36e8",
+      "files": {
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_peng.js": "34f6718f2d5ae01b47449a46b6b30cd3fe68d711b475ad5c6558ede4a48650c8"
+      }
+    },
+    "material:toon_qinglv@v1": {
+      "sha256": "619e95b89f4ec896e0d093e9236d973a9dc57998e765bb837e7f736a92468385",
+      "files": {
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_qinglv.js": "fdd03bbfb863cf6d9d7d56c072669b5cb83fabd45cd819f2e0e9071be42fe0e1"
+      }
+    },
+    "material:toon_refine@v1": {
+      "sha256": "a87503144ed544c7add440d42f820cc8e3726b8c5b69583d870dc1d253686868",
+      "files": {
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_refine.js": "4e9622f8a8cdc28c517ddc367b003f8abf3d35a9a82390a43d24c668facf6e7c"
+      }
+    },
+    "material:toon_xuan@v1": {
+      "sha256": "1d7d5567669e54bc9325437544a6506eed6dde55dd4316c7ccacd7a3596d3897",
+      "files": {
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_xuan.js": "2c51b148d7d74af0936c9dcb38271afc3b2252fdfab91bb678c4c0ae81c89256"
+      }
+    },
+    "model:ferry@v1": {
+      "sha256": "68153b0f8c77e9c1626434d26a9087ac1d1e459b760499a2b67fd440d13d9baa",
+      "files": {
+        "src/ferry.js": "08d411e6ad6d98078d19d01f7d05ad11ca645e5907aa03de7479d439bef0e4d5",
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75"
+      }
+    },
+    "model:kun@v1": {
+      "sha256": "c5d0c4ee8c8c8cb944568deebc74258e5f82c0fbf2b4b7328805b87ceb82dbb8",
+      "files": {
+        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "src/kun.js": "e9b8017c4fbe7caceb9c16db2adfa1cf90336eb356cc70ca853ba29ccec70033",
+        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75"
+      }
+    },
+    "model:kun_bronze@v1": {
+      "sha256": "5354aa17c6bcdb2f4b574830cf4a28364a890f170a63084ebb406629f0afc67d",
+      "files": {
+        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "src/kun_bronze.js": "0a03bc839cb702f52f69c859a3ffe0c86db1b96c6b5ed254aa6e8b389eeb23f8",
+        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_bronze.js": "bc330a5a4f5c231c70450dc900150ed86a9bc71dc66f5cdc2f7eee70752d76ea"
+      }
+    },
+    "model:kun_peng@v1": {
+      "sha256": "30e5e81c997c7dd56d3535375f4350576b9dc109ca77cac12379f837448f0645",
+      "files": {
+        "src/kun_peng.js": "0e40c5857f7b2e83d2b68cb9f75e6bab82cd3cf1f8092a498986739e677e21a4",
+        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_peng.js": "34f6718f2d5ae01b47449a46b6b30cd3fe68d711b475ad5c6558ede4a48650c8"
+      }
+    },
+    "model:kun_qinglv@v1": {
+      "sha256": "da1fa9d6c0ca926dd1582dbda55e6066e5ddb2215865e425a2abad5cdc5b44d4",
+      "files": {
+        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "src/kun_qinglv.js": "5785ebb8210f08b63682946ac94be9cb0fa4eb4e8ca90f301b465fd80a517896",
+        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_qinglv.js": "fdd03bbfb863cf6d9d7d56c072669b5cb83fabd45cd819f2e0e9071be42fe0e1"
+      }
+    },
+    "model:kun_refine@v1": {
+      "sha256": "6d0e54c4db779f2cabdddc602abda4c191c2f76b6b2827f29877cf86f5fc30c7",
+      "files": {
+        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "src/kun.js": "e9b8017c4fbe7caceb9c16db2adfa1cf90336eb356cc70ca853ba29ccec70033",
+        "src/kun_refine.js": "83578e659a3342501f35c7de464c74c4d8f00184a74d851dbcab67f3f14c3131",
+        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_refine.js": "4e9622f8a8cdc28c517ddc367b003f8abf3d35a9a82390a43d24c668facf6e7c"
+      }
+    },
+    "model:kun_xuan@v1": {
+      "sha256": "e9e09ffa95edb8ac68e97e26497cb975658c8373d0725e9a4be481d4c3abf149",
+      "files": {
+        "src/eye_shade.js": "e454da554d511758436a0eb7d257c264dd72f428053a79c2cc03a336c3861ab4",
+        "src/kun_xuan.js": "40e18643e35904ead92d1b30b00c8bcbda5c4c89ccdf2a06f625af6933a56a1b",
+        "src/shadow.js": "4d48d2f0b73f7a1a0c779322b6c2f4696c344fff8af818fb85e6389a806aad2b",
+        "src/toon.js": "c5c0adf6586524d7fe817333368bf62c6e625245584a74798f9aeb39e3a4bf75",
+        "src/toon_xuan.js": "2c51b148d7d74af0936c9dcb38271afc3b2252fdfab91bb678c4c0ae81c89256"
+      }
+    },
+    "plate:clouds_back@v1": {
+      "sha256": "827b615c01d8a047429f6e3b2ac65c1a2fa714039f021d878739237ad74a97d2",
+      "files": { "assets/plates/clouds_back.png": "86c44b80d485708ebebfbeae9a588ec218400d7fa5c2e18993edd7752585683f" }
+    },
+    "plate:clouds_front_a@v1": {
+      "sha256": "7436b96e1a1760c953b10eacbb8ad53facad2ef49f4c125f2c8755cb6e19552e",
+      "files": { "assets/plates/clouds_front_a.png": "57e364b6631f0203eaa6029ade956ad3e7f3233ff4f7029163b0724895364ac3" }
+    },
+    "plate:clouds_front_b@v1": {
+      "sha256": "8216722b9a1ae6b138cdedb85665cf3ed86641464a8674c4f698d3c7126115f6",
+      "files": { "assets/plates/clouds_front_b.png": "830e9192d1216643d32b96a22ec18dc4c3a470eed4d27ac0590bf5652f0cae20" }
+    },
+    "plate:mist_low@v1": {
+      "sha256": "6ffbbd7537223ed47a99a2def0294eaec87e0510452f2d5cbf9534d685211422",
+      "files": { "assets/plates/mist_low.png": "c86a0b17bb4d83634d91598aa2c3214c4fed7a6914b1a4ba3bfaeece79fdc40e" }
+    },
+    "plate:paper@v1": {
+      "sha256": "7c19c3250867bb3466ae7aba90fa35dd0e7703186c7b19ac940c86bb867b16e2",
+      "files": { "assets/plates/paper.png": "3c4a651d00953aa5ac8adf50891bfbf60e5b0cb4fb0b14a6dc4dda39ff2e0fed" }
+    },
+    "plate:river@v1": {
+      "sha256": "4ae20f8f252f89c8266f893c63e14753afcbdc5abaee1290464a0666f5af36ca",
+      "files": { "assets/plates/river.png": "8be1300191ea73862b0e0038401717e4680452b07cf7b4433203e45935c4c6a6" }
+    },
+    "plate:shotB_sky@v1": {
+      "sha256": "e571d7d5ea01ee6555ccf63f0a7be29d3780e01021f8e2e90e650e4fb62802fa",
+      "files": { "assets/plates/shotB_sky.png": "6ac3ceeef4a6c029de8efb2a6bfb066aac26f7a7a3b6d6b32175d7038e4282c2" }
+    },
+    "plate:sky_dawn@v1": {
+      "sha256": "54fbbb0426b4c2b26b0900b1b56467b5cea077be53562c82bf239abb349b370e",
+      "files": { "assets/plates/sky_dawn.png": "a55afb992dcd8c1780609eeb7c818d7878e13d118a6479d8ee4b5515b3c3cf4e" }
+    },
+    "plate:sky_tall@v1": {
+      "sha256": "480880eb720d49dd64dfff9fbe19e1b12f9782f2c387e9210b431f85d7883f29",
+      "files": { "assets/plates/sky_tall.png": "cea9d9aacc995a0ae5b3f120de402f3130fc505bc0601e59f31973d6c116c516" }
+    },
+    "plate:sky_zenith@v1": {
+      "sha256": "8d142696b68e09fa74b3a4ad038f26e32478fd57ca4e3ccffc11e9a6a6bad87b",
+      "files": { "assets/plates/sky_zenith.png": "6ea40ed96c0f490df464083ce8bdd5571936e3c7b1b171c80c64a16485aedba6" }
+    },
+    "plate:skyline_bund@v1": {
+      "sha256": "d0affd5ecbc8bdab2c9af5354620287d27bbc689e102aa07bd0a224fb6c968fe",
+      "files": { "assets/plates/skyline_bund.png": "39f6509300a3c8e50e638a788cb0d8b5846ab7491ded4c8151328bfafe082f9d" }
+    },
+    "plate:skyline_pudong@v1": {
+      "sha256": "3c5ce154cf32090e57d83739bfecca6c87e02d1c13d964da8b05f7da2cd4b48f",
+      "files": { "assets/plates/skyline_pudong.png": "829e5256fa53cb30dbc8f7e62cab65feaaf8655ca14df65c6a0be040cff00089" }
+    },
+    "plate:skyline_pudong_reflect@v1": {
+      "sha256": "071bd04594a4118ef66a526d3e2b1c8db0c2c65c029252418ed28ce4e6a1fcf8",
+      "files": { "assets/plates/skyline_pudong_reflect.png": "5be85803d872a16d43be2d609f1f48f8f119b301e8056a0065b54947c1bdd52c" }
+    },
+    "ref:sky_test@v1": {
+      "sha256": "257cfc5a29044c7b7887cb4dffe98b60b8e7f368a9ce130e1fa6651ba65c38ee",
+      "files": { "assets/ref/sky_test.png": "0f260a169fde7094e1106176fdbcb42652d2b0155ab3c09f0b4b641e8bcae942" }
+    }
+  }
+}
