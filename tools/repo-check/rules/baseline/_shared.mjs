@@ -8,7 +8,6 @@ export const SETS = 'tools/baseline/sets.json';
 // 清单里不该出现的本机绝对路径（macOS / Linux 家目录、Windows 用户目录、系统临时目录）
 export const LOCAL_PATH = /(?:\/Users\/[^/"]+\/|\/home\/[^/"]+\/|[A-Za-z]:\\\\Users\\\\|\/private\/var\/|\/private\/tmp\/)/;
 export const IMAGE_OR_VIDEO = /\.(png|jpe?g|webp|gif|avif|bmp|mp4|mov|webm|mkv|exr|tiff?)$/i;
-export const KEYFRAME_MAX_BYTES = 5 * 1024 * 1024;   // D10：单个文件不超过 5 MiB
 
 /** tools/baseline/sets.json → { sets } 或 { error }（结构不合法时 sets 为 null）。 */
 export function loadSets(ctx) {

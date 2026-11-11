@@ -1,6 +1,6 @@
 # beiming-original@v1 · 《北冥》认可画面参照
 
-读者｜延续北冥画风的新作品、做风格校准的 agent、审片人　状态｜已登记（darwin-metal），**认可状态待用户确认**　登记提交｜`abfdc83`（routes-template，含 main 62ad28e）　清单｜[darwin-metal.json](darwin-metal.json)　关键帧｜[keyframes/](keyframes/)（[keyframes.json](keyframes.json)）
+读者｜延续北冥画风的新作品、做风格校准的 agent、审片人　状态｜已登记（darwin-metal），**认可状态待用户确认**　登记提交｜`abfdc83`（routes-template，含 main 62ad28e）　清单｜[darwin-metal.json](darwin-metal.json)　关键帧｜登记 [keyframes.json](keyframes.json)（PNG 不入库，在 darwin-metal 上本机重建）
 
 《北冥》10 秒样片的画风，冻结成 20 张无损帧。新片说「延续北冥画风」，look 闸门（D08）就拿它的关键帧并排对照；引擎改动想知道「北冥原本的样子」变没变，也和它比。它不随代码走：代码有意改了画面，回归金标准跟着更新，这一份不动。规则见 [../POLICY.md](../POLICY.md)。
 
@@ -8,7 +8,9 @@
 
 六个关键时刻，各一张带显示层、一张不带（`?nohud=1`，纯画面）。`film.json` 里镜头的 `lookPreset` 写 `beiming-original@v1/<名字>`，对照的是**不带显示层**的那张。
 
-这六张不带显示层的帧，原样 PNG 就在本目录的 `keyframes/<名字>.png`（1920×1040，每张 2.7–3.0 MiB）。打开就能并排看，不用先渲。[keyframes.json](keyframes.json) 记了每张对应的帧编号、字节哈希和像素哈希。这些图由 `golden keyframes` 从登记提交原样导出，像素与 [darwin-metal.json](darwin-metal.json) 里的同名帧逐位相同；仓库规范检查 `baseline.references` 会逐张解码核对。
+这六张不带显示层的帧（1920×1040 原样 PNG，每张 2.7–3.0 MiB，共约 17 MiB）是渲染产物，按 D10 **不入库**。仓库里只有登记 [keyframes.json](keyframes.json)：每张对应的帧编号、像素哈希（与 [darwin-metal.json](darwin-metal.json) 里的同名帧相同）和首次导出时的 PNG 字节哈希。
+
+要看图，在 darwin-metal（Apple 芯片的 Mac，与登记时同一版无头浏览器）上跑一次 `node tools/baseline/golden.mjs keyframes --reference beiming-original@v1`：工具现渲登记提交，逐张核对像素与清单完全一致后，写到 `out/style-baselines/beiming-original@v1/keyframes/<名字>.png`（`out/` 不入库）。别的平台渲不出逐位相同的像素，工具会拒绝（`env.no-reference-platform` 或 `contract.reference-drift`）。要给没有这类设备的人看，只能作为 Release 附件分发（公开动作，先经用户授权），下载后按登记里的字节哈希校验。规范检查 `baseline.references` 核对登记与参照清单一致，`baseline.no-render-products` 拒绝把这些 PNG 提交进仓库。
 
 | 名字（关键帧图） | 时刻 | 镜头 | 画面 | 看什么 |
 |---|---|---|---|---|
@@ -45,9 +47,9 @@
 |---|---|
 | 现代码还是不是这份画面 | `node tools/baseline/golden.mjs compare --set beiming-original-v1 --reference beiming-original@v1`（darwin-metal 上应 20/20 逐像素一致；62ad28e 之后的画面改动都已在登记时包含） |
 | 拿到登记提交渲出的二十张 PNG | `node tools/baseline/golden.mjs compare --set beiming-original-v1 --against abfdc83`：参照 PNG 在 `out/golden/cache/abfdc83…/<系统-后端>/beiming-original-v1/frames/`，当前工作树的在 `out/golden/compare/<运行编号>/current/` |
-| 新片 look 闸门 | 新片的风格关键帧与 `keyframes/` 里同名的图并排：远景对 `wide`，人物对 `figure`，特写对 `eye` / `underside`。看色板、墨线粗细与墨色、纸纹与颗粒的分寸。内容不同的画面之间不算 SSIM / PSNR，那没有意义 |
-| 自动参考指标（评测题库 DF-A、DF-M） | `tools/eval` 从 `keyframes/` 读图，算色板 ΔE00 中位数、墨线覆盖率、纸纹与颗粒的高频能量。这些只是参考，不计分 |
-| 关键帧图丢了或要核对 | `node tools/baseline/golden.mjs keyframes --reference beiming-original@v1`：现渲登记提交，像素与清单逐位一致才写；已有的图像素对不上就拒绝 |
+| 新片 look 闸门 | 先按上文在本机重建关键帧，新片的风格关键帧与 `out/style-baselines/beiming-original@v1/keyframes/` 里同名的图并排：远景对 `wide`，人物对 `figure`，特写对 `eye` / `underside`。看色板、墨线粗细与墨色、纸纹与颗粒的分寸。内容不同的画面之间不算 SSIM / PSNR，那没有意义 |
+| 自动参考指标（评测题库 DF-A、DF-M） | `tools/eval` 用这六张图算色板 ΔE00 中位数、墨线覆盖率、纸纹与颗粒的高频能量，只作参考、不计分。图要先在本机重建；评测工具目前在本目录下找图，找不到时记「基线未入库」（改为也读 `out/style-baselines/` 的请求已提给集成负责人） |
+| 拿到关键帧图 | `node tools/baseline/golden.mjs keyframes --reference beiming-original@v1`：现渲登记提交，像素与清单逐位一致才写到 `out/style-baselines/beiming-original@v1/keyframes/`；不改任何入库文件。只能在 darwin-metal 上做 |
 | 其它平台 | 在那台机器上用同一提交 `golden reference --set beiming-original-v1 --id beiming-original@v1 --commit abfdc83 …` 补登记 `<平台键>.json`；与 darwin-metal 之间按跨平台容差比 |
 
 ## 认可依据
@@ -62,4 +64,4 @@
 
 ## 版本
 
-- v1（2026-11-10）：20 帧，darwin-metal，登记提交 `abfdc83`。冻结，不改。同日补入六张关键帧原图（`keyframes/`），像素即清单里的同名帧，不算改版。
+- v1（2026-11-10）：20 帧，darwin-metal，登记提交 `abfdc83`。冻结，不改。同日补入六张关键帧的登记 `keyframes.json`，像素即清单里的同名帧，不算改版。关键帧 PNG 曾随登记一起入库，11-11 按 D10 移出仓库，改为本机重建。

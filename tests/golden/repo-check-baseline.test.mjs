@@ -38,7 +38,8 @@ test('本仓库：画面基线规则 0 个错误', () => {
   assert.deepEqual(findings.filter(f => f.level === 'error').map(f => `${f.rule} ${f.file || ''} ${f.message}`), []);
 });
 
-// 最小仓库：集合定义、darwin-metal 的 lab 基线、审批记录、认可参照（连同关键帧，如果已登记），再放一个假 media 文件和它的来源记录
+// 最小仓库：集合定义、darwin-metal 的 lab 基线、审批记录、认可参照与它的关键帧登记（只有 keyframes.json，没有 PNG：PNG 不入库），
+// 再放一个假 media 文件和它的来源记录
 function miniRepo() {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-rule-'));
   const cp = rel => { fs.mkdirSync(path.dirname(path.join(d, rel)), { recursive: true }); fs.cpSync(path.join(ROOT, rel), path.join(d, rel), { recursive: true }); };
@@ -49,6 +50,7 @@ function miniRepo() {
   fs.mkdirSync(path.join(d, 'tests/golden/darwin-metal'), { recursive: true });
   fs.writeFileSync(path.join(d, 'tests/golden/darwin-metal/manifest.json'), JSON.stringify({ ...real, sets: { lab } }, null, 1));
   cp('docs/style-baselines/beiming-original@v1');
+  fs.rmSync(path.join(d, 'docs/style-baselines/beiming-original@v1/keyframes'), { recursive: true, force: true });   // 本机若有旧工具留下的 PNG，不带进来
   const ref = JSON.parse(fs.readFileSync(path.join(d, 'docs/style-baselines/beiming-original@v1/darwin-metal.json'), 'utf8'));
   const appr = [
     { at: 'x', kind: 'golden-baseline', set: 'lab', platformKey: 'darwin-metal', by: '测试', reason: '测试', commit: lab.source.commit, after: lab.framesDigest },
@@ -67,8 +69,10 @@ function miniRepo() {
 test('最小仓库是干净的；逐条造错，各规则都抓得到', () => {
   const d = miniRepo();
   try {
+    const refDir = path.join(d, 'docs/style-baselines/beiming-original@v1');
+    assert.ok(fs.existsSync(path.join(refDir, 'keyframes.json')) && !fs.existsSync(path.join(refDir, 'keyframes')), '前提：关键帧登记在、PNG 不在');
     const clean = check(d);
-    assert.deepEqual(clean.findings.filter(f => f.level === 'error').map(f => `${f.rule} ${f.message}`), [], '没造错之前应当 0 个错误');
+    assert.deepEqual(clean.findings.filter(f => f.level === 'error').map(f => `${f.rule} ${f.message}`), [], '没造错之前应当 0 个错误（关键帧 PNG 不在不算错）');
     assert.equal(clean.code, clean.expect);
     const mf = path.join(d, 'tests/golden/darwin-metal/manifest.json');
     const orig = fs.readFileSync(mf, 'utf8');
@@ -100,12 +104,17 @@ test('最小仓库是干净的；逐条造错，各规则都抓得到', () => {
     fs.rmSync(path.join(d, 'tests/golden/mac'), { recursive: true });
     fs.writeFileSync(mf, orig);
 
-    // 5 基线目录里入库了 PNG；风格基线目录里放了没登记的图
+    // 5 基线目录里入库了 PNG；风格基线目录里放了图；认可参照的关键帧 PNG 入了库（D10：同样不许）
     fs.writeFileSync(path.join(d, 'tests/golden/frame.png'), 'x');
-    fs.writeFileSync(path.join(d, 'docs/style-baselines/beiming-original@v1/extra.jpg'), 'x');
-    assert.equal(check(d).errors('baseline.no-render-products').length, 2);
+    fs.writeFileSync(path.join(refDir, 'extra.jpg'), 'x');
+    fs.mkdirSync(path.join(refDir, 'keyframes'));
+    fs.writeFileSync(path.join(refDir, 'keyframes/wide.png'), 'x');
+    const nr = check(d).errors('baseline.no-render-products');
+    assert.equal(nr.length, 3);
+    assert.ok(nr.some(e => /keyframes\/wide\.png$/.test(e.file) && /关键帧 PNG 入库/.test(e.message) && /golden\.mjs keyframes/.test(e.hint)));
     fs.rmSync(path.join(d, 'tests/golden/frame.png'));
-    fs.rmSync(path.join(d, 'docs/style-baselines/beiming-original@v1/extra.jpg'));
+    fs.rmSync(path.join(refDir, 'extra.jpg'));
+    fs.rmSync(path.join(refDir, 'keyframes'), { recursive: true });
 
     // 6 media 文件换了、来源记录没更新；多一个没记录的 media 文件
     fs.writeFileSync(path.join(d, 'media/a.bin'), 'changed');
@@ -122,17 +131,18 @@ test('最小仓库是干净的；逐条造错，各规则都抓得到', () => {
     fs.renameSync(path.join(d, 'x.md'), path.join(d, 'docs/style-baselines/beiming-original@v1/README.md'));
     fs.rmdirSync(path.join(d, 'docs/style-baselines/bad-name'));
 
-    // 8 关键帧（已登记时）：换了图的像素 → 字节与像素都对不上
-    const kfDir = path.join(d, 'docs/style-baselines/beiming-original@v1/keyframes');
-    if (fs.existsSync(kfDir)) {
-      const first = fs.readdirSync(kfDir).filter(f => f.endsWith('.png')).sort()[0];
-      const keep = fs.readFileSync(path.join(kfDir, first));
-      const other = fs.readdirSync(kfDir).filter(f => f.endsWith('.png') && f !== first)[0];
-      fs.copyFileSync(path.join(kfDir, other), path.join(kfDir, first));
-      const ke = check(d).errors('baseline.references').map(e => e.message).join('\n');
-      assert.match(ke, /字节哈希/); assert.match(ke, /像素与认可参照/);
-      fs.writeFileSync(path.join(kfDir, first), keep);
-    }
+    // 8 关键帧登记：像素哈希被手改、帧编号不在参照里 → 错误；只写了名字与帧编号的草稿 → 提示（不算错）
+    const kfFile = path.join(refDir, 'keyframes.json');
+    const kfOrig = fs.readFileSync(kfFile, 'utf8');
+    const editKf = fn => { const j = JSON.parse(kfOrig); fn(j); fs.writeFileSync(kfFile, JSON.stringify(j)); };
+    editKf(j => { j.keyframes[0].pixelSha256 = '0'.repeat(64); j.keyframes[1].frame = 'film@1x1#t=0'; });
+    const ke = check(d).errors('baseline.references').map(e => e.message).join('\n');
+    assert.match(ke, /登记的像素哈希与认可参照清单/); assert.match(ke, /不在认可参照/);
+    editKf(j => { delete j.platformKey; delete j.commit; j.keyframes = j.keyframes.map(k => ({ name: k.name, frame: k.frame })); });
+    const draft = check(d);
+    assert.equal(draft.errors('baseline.references').length, 0);
+    assert.ok(draft.findings.some(f => f.rule === 'baseline.references' && f.level === 'warn' && /草稿/.test(f.message)));
+    fs.writeFileSync(kfFile, kfOrig);
 
     // 9 新作品的渲染代码用了 Math.random
     fs.mkdirSync(path.join(d, 'films/x'), { recursive: true });

@@ -16,7 +16,7 @@ import {
   platformRel, readPlatform, writePlatform, emptyPlatform, referencePath, toBaseline, validateManifest, diffFrames,
   appendApproval, readManifest, listManifests, listReferences, APPROVALS, PK_RE, REFERENCE_DIR,
 } from './lib/manifest.mjs';
-import { decodePNG, encodePNG, pixelSha256 } from './lib/png.mjs';
+import { decodePNG, encodePNG } from './lib/png.mjs';
 import { contactSheet, downscale } from './lib/metrics.mjs';
 import { osKey } from './lib/platform.mjs';
 
@@ -499,14 +499,16 @@ async function cmdApprove(opts, sets) {
   return { outputs: [out(f, 'golden-manifest'), out(path.join(ROOT, APPROVALS), 'approval-log')], data: result };
 }
 
-// ── keyframes：把认可参照的关键帧原样（登记提交渲出的 PNG）放进 docs/style-baselines/<名@v版本>/keyframes/ ──
-// 关键帧清单 docs/style-baselines/<名@v版本>/keyframes.json 先写好「名字 → 帧编号」，本命令负责出图与登记：
-// 现渲认可参照的登记提交，逐帧核对像素哈希与认可参照清单完全一致，再把这几帧的 PNG 拷进去并写下哈希。
-// 只能在认可参照已登记的平台上做（像素必须与参照逐位相同）；已有的关键帧像素对不上就拒绝（认可参照冻结，不改）。
+// ── keyframes：在本机重建认可参照的关键帧（登记提交渲出的原样 PNG），写到 out/style-baselines/<名@v版本>/keyframes/ ──
+// PNG 是渲染产物，不入库（D10）；入库的只有登记 docs/style-baselines/<名@v版本>/keyframes.json（名字 → 帧编号、像素哈希、
+// 首次导出时的字节哈希）。先在登记里写好「名字 → 帧编号」，本命令现渲认可参照的登记提交，逐帧核对像素与认可参照清单完全一致后出图；
+// 登记里还没有像素哈希（草稿）时顺带补全并写回登记，已登记完整时不改任何入库文件。
+// 只能在认可参照已登记的平台上做（像素必须与那个平台的参照清单逐位相同）。
+const KEYFRAMES_OUT = path.join(ROOT, 'out/style-baselines');
 async function cmdKeyframes(opts, sets) {
   if (!opts.reference) throw usage('keyframes 要用 --reference 指明认可参照，例如 --reference beiming-original@v1');
   checkRefId(opts.reference);
-  const id = opts.reference, dir = path.join(ROOT, REFERENCE_DIR, id), kfFile = path.join(dir, 'keyframes.json');
+  const id = opts.reference, kfFile = path.join(ROOT, REFERENCE_DIR, id, 'keyframes.json');
   const kf = readManifest(kfFile);
   if (!kf || !Array.isArray(kf.keyframes) || !kf.keyframes.length) {
     throw new CliError('contract.no-keyframes', `没有 ${rel(kfFile)}（或里面没有 keyframes）`, { hint: '先写好 { "schema": "beiming-style-keyframes/v1", "reference": "<名@v版本>", "keyframes": [{ "name": "wide", "frame": "<帧编号>" }] }', exitCode: EXIT.CONTRACT });
@@ -526,34 +528,43 @@ async function cmdKeyframes(opts, sets) {
   const pk = r.manifest.platformKey;
   const refM = readManifest(referencePath(ROOT, id, pk));
   if (!refM) throw new CliError('env.no-reference-platform', `认可参照 ${id} 没有本机平台 ${pk} 的清单，关键帧只能从与参照逐像素一致的渲染导出`, { hint: `在已登记的平台上做：${refs.map(x => x.platformKey).join('、')}`, exitCode: EXIT.ENV });
+  // 登记记的是哪个平台的像素：本机就是那个平台（或登记还是草稿）时逐条核对并可补全；别的平台只按本平台的参照清单出图，不碰登记
+  const own = !kf.platformKey || kf.platformKey === pk;
   const refById = new Map(refM.frames.map(f => [f.id, f])), gotById = new Map(r.manifest.frames.map(f => [f.id, f]));
   const plan = [];
   for (const k of kf.keyframes) {
     const want = refById.get(k.frame), have = gotById.get(k.frame);
     if (!want) throw new CliError('contract.bad-keyframes', `关键帧 ${k.name} 的帧 ${k.frame} 不在认可参照 ${id} 里`, { hint: `可用帧：${refM.frames.map(f => f.id).join('、')}`, exitCode: EXIT.CONTRACT });
+    if (own && k.pixelSha256 && k.pixelSha256 !== want.pixelSha256) {
+      throw new CliError('contract.bad-keyframes', `${rel(kfFile)} 里关键帧 ${k.name} 登记的像素哈希与认可参照清单里 ${k.frame} 的不同`, { hint: '登记由本命令生成、冻结不改：手改了就 git checkout 还原', exitCode: EXIT.CONTRACT });
+    }
     if (!have || have.pixelSha256 !== want.pixelSha256) {
       throw new CliError('contract.reference-drift', `本机渲出的登记提交 ${sha.slice(0, 12)} 在 ${k.frame} 与认可参照 ${pk} 清单不一致`, { hint: '本机环境（设备、驱动、浏览器）与登记时不同；在登记那台机器上做，或先查清漂移', exitCode: EXIT.CONTRACT });
     }
     plan.push({ k, want, src: path.join(r.dir, have.file) });
   }
-  const kfDir = path.join(dir, 'keyframes');
-  const entries = [], outputs = [];
+  const kfDir = path.join(KEYFRAMES_OUT, id, 'keyframes');
+  const entries = [], outputs = [], warnings = [];
   for (const { k, want, src } of plan) {
     const file = path.join(kfDir, `${k.name}.png`);
-    const existing = fs.existsSync(file) ? fs.readFileSync(file) : null;
-    if (existing && pixelSha256(decodePNG(existing)) !== want.pixelSha256) {
-      throw new CliError('contract.reference-frozen', `${rel(file)} 已存在，像素与认可参照不一致`, { hint: '认可参照的关键帧冻结不改：确认是误改就 git checkout 还原', exitCode: EXIT.CONTRACT });
-    }
-    const bytes = existing || fs.readFileSync(src);
-    if (!existing && !opts.dryRun) { fs.mkdirSync(kfDir, { recursive: true }); fs.writeFileSync(file, bytes); }
+    const bytes = fs.readFileSync(src), h = sha256(bytes);
+    if (!opts.dryRun) { fs.mkdirSync(kfDir, { recursive: true }); fs.writeFileSync(file, bytes); outputs.push(out(file, 'style-keyframe')); }
+    if (own && k.sha256 && k.sha256 !== h) warnings.push(`${k.name}：像素与登记一致，PNG 字节与首次导出的不同（浏览器的 PNG 编码器换了）；以像素哈希为准`);
     entries.push({ name: k.name, frame: k.frame, t: want.t, ...(k.shot ? { shot: k.shot } : {}), ...(k.看什么 ? { 看什么: k.看什么 } : {}),
-      file: `keyframes/${k.name}.png`, width: want.width, height: want.height, pixelSha256: want.pixelSha256, sha256: sha256(bytes), bytes: bytes.length });
-    log(`${existing ? '已有' : opts.dryRun ? '将写' : '写入'} ${rel(file)}（${(bytes.length / 1048576).toFixed(2)} MiB，像素与 ${pk} 认可参照一致）`);
-    if (!opts.dryRun) outputs.push(out(file, 'style-keyframe'));
+      file: `keyframes/${k.name}.png`, width: want.width, height: want.height, pixelSha256: want.pixelSha256,
+      sha256: own && k.sha256 ? k.sha256 : h, bytes: own && k.bytes ? k.bytes : bytes.length });
+    log(`${opts.dryRun ? '将写' : '写入'} ${rel(file)}（${(bytes.length / 1048576).toFixed(2)} MiB，像素与 ${pk} 认可参照一致）`);
   }
-  const doc = { schema: 'beiming-style-keyframes/v1', reference: id, ...(kf.说明 ? { 说明: kf.说明 } : {}), platformKey: pk, commit: sha, set: setName, keyframes: entries };
-  if (!opts.dryRun) { fs.writeFileSync(kfFile, JSON.stringify(doc, null, 1) + '\n'); outputs.push(out(kfFile, 'style-keyframes')); }
-  return { outputs, data: { reference: id, platformKey: pk, commit: sha, keyframes: entries.map(e => ({ name: e.name, file: e.file, bytes: e.bytes })), dryRun: !!opts.dryRun } };
+  const draft = own && kf.keyframes.some(k => !k.pixelSha256);
+  if (!own) warnings.push(`${rel(kfFile)} 登记的是 ${kf.platformKey} 的关键帧；本机（${pk}）按本平台的认可参照清单出图，不改登记`);
+  if (draft && !opts.dryRun) {
+    const doc = { schema: 'beiming-style-keyframes/v1', reference: id, ...(kf.说明 ? { 说明: kf.说明 } : {}), platformKey: pk, commit: sha, set: setName, keyframes: entries };
+    fs.writeFileSync(kfFile, JSON.stringify(doc, null, 1) + '\n');
+    outputs.push(out(kfFile, 'style-keyframes'));
+    log(`补全登记 ${rel(kfFile)}（${entries.length} 个关键帧的像素哈希与字节哈希）：它要入库，PNG 不入库`);
+  }
+  return { outputs, warnings, data: { reference: id, platformKey: pk, commit: sha, dir: rel(kfDir), registered: draft && !opts.dryRun,
+    keyframes: entries.map(e => ({ name: e.name, frame: e.frame, file: rel(path.join(kfDir, `${e.name}.png`)), pixelSha256: e.pixelSha256 })), dryRun: !!opts.dryRun } };
 }
 
 // ── list ──
@@ -611,7 +622,8 @@ export const command = defineCommand({
     '  update     把当前提交的截帧登记为本平台基线，并在 tests/golden/approvals.jsonl 追加审批记录（必须 --by --reason --commit）',
     '  approve    把另一台机器（通常是 CI）采集的待审批候选转正：不重渲，核对集合定义与像素路径摘要后写审批记录',
     '  reference  冻结一份认可参照 docs/style-baselines/<名@v版本>/<平台键>.json，已存在就拒绝（只增不改）',
-    '  keyframes  按 docs/style-baselines/<名@v版本>/keyframes.json 把认可参照的关键帧原样 PNG 放进 keyframes/（像素必须与参照逐位相同）',
+    '  keyframes  按登记 docs/style-baselines/<名@v版本>/keyframes.json 在本机重建认可参照的关键帧原样 PNG，写到 out/style-baselines/<名@v版本>/keyframes/',
+    '             （像素必须与参照逐位相同，所以只能在参照已登记的平台上做；PNG 不入库，登记还是草稿时顺带补全登记）',
     '  list       列出集合、平台清单与认可参照',
     `集合（tools/baseline/sets.json）：${(() => { try { return Object.keys(JSON.parse(fs.readFileSync(SETS_FILE, 'utf8')).sets).join('、'); } catch { return '（读不出来）'; } })()}`,
     '平台键 = <系统>-<WebGL 后端>，由 WebGL 实际报出的渲染器决定：darwin-metal、win-vulkan、win-d3d11、linux-swiftshader……',

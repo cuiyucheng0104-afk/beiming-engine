@@ -1,7 +1,7 @@
 {
  "schema": "beiming-style-keyframes/v1",
  "reference": "beiming-original@v1",
- "说明": "认可参照 beiming-original@v1 的六张关键帧（不带显示层，1920×1040 原样 PNG）：film.json 里 lookPreset 写 beiming-original@v1/<name>，look 闸门并排对照的就是这些图；P17 的 A 路线与 DF-M 风格参考指标（色板 ΔE00、墨线覆盖率、颗粒能量）也从这里读。图由 node tools/baseline/golden.mjs keyframes --reference beiming-original@v1 从登记提交原样导出，像素与 darwin-metal.json 里同名帧逐位相同；冻结，不改。",
+ "说明": "认可参照 beiming-original@v1 六张关键帧（不带显示层，1920×1040）的登记：名字 → 帧编号、像素哈希（与 darwin-metal.json 里同名帧相同）、首次导出时的 PNG 字节哈希。PNG 是渲染产物，不入库（D10）：在 darwin-metal 上用 node tools/baseline/golden.mjs keyframes --reference beiming-original@v1 从登记提交重建到 out/style-baselines/beiming-original@v1/keyframes/<name>.png（file 字段相对于 out/style-baselines/beiming-original@v1/），像素逐位核对后才写。film.json 里 lookPreset 写 beiming-original@v1/<name>，look 闸门并排对照、评测的风格参考指标用的就是这些图。冻结，不改。",
  "platformKey": "darwin-metal",
  "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
  "set": "beiming-original-v1",

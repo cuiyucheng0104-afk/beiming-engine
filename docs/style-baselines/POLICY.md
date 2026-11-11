@@ -10,7 +10,7 @@
 |---|---|---|
 | 回答的问题 | 这次改动有没有把画面改坏 | 画风有没有偏离用户认可的那一版 |
 | 用什么渲 | 现代码（最近一次经审批登记的提交） | 冻结在登记那一刻的提交 |
-| 存在哪 | `tests/golden/<平台键>/manifest.json`（一个平台一份，含该平台登记过的全部集合） | `docs/style-baselines/<名>@v<版本>/<平台键>.json`，外加关键帧图 `keyframes/` |
+| 存在哪 | `tests/golden/<平台键>/manifest.json`（一个平台一份，含该平台登记过的全部集合） | `docs/style-baselines/<名>@v<版本>/<平台键>.json`，外加关键帧登记 `keyframes.json`（PNG 本机重建，不入库） |
 | 画面有意改了 | `golden update` 更新（另一台机器采集的候选用 `golden approve` 转正），留审批记录 | **不改**；用户认可了新画面就另立 `@v<版本+1>` |
 | 怎么比 | `golden compare --set <集合>` | `golden compare --set <集合> --reference <名>@v<版本>` |
 
@@ -21,7 +21,7 @@
 - **只存清单**：每帧的像素哈希、PNG 字节哈希、尺寸、时刻、查询串、裁切框，外加平台键、设备、渲染器串、浏览器版本、Node / playwright / three 版本、源提交、审批。清单由工具生成，`framesDigest` 防手改。
 - **像素哈希**：`sha256("RGB8 <宽>x<高>\n" + RGB 字节)`，只看像素、不看 PNG 压缩参数，所以浏览器换了 PNG 编码器、像素没变时哈希也不变。
 - **回归金标准的 PNG 永不入库**：它是渲染产物。本地缓存在 `out/golden/cache/<提交>/<系统-后端>/<集合>/frames/`，比对报告、差异热图、接触印在 `out/golden/compare/<运行编号>/`。需要给别人看时，作为 Release 附件分发（公开动作，先经用户授权），清单里的 `pngSha256` 用来校验下载。
-- **唯一的例外：认可参照的关键帧**。`docs/style-baselines/<名>@v<版本>/keyframes/<名字>.png` 是冻结的认可参照的一部分（look 闸门并排对照、`lookPreset` 指向它、评测的风格参考指标从这里读），不是出片产物：只能由 `golden keyframes` 从登记提交原样导出，像素与参照清单里同名帧逐位相同，登记在同目录的 `keyframes.json`（字节哈希、像素哈希），单张不超过 5 MiB（D10）。`beiming-original@v1` 六张共 17.1 MiB，一次性入库、之后不改。规范检查 `baseline.no-render-products` 只放行这种图，`baseline.references` 逐张解码核对。
+- **认可参照的关键帧同样不入库**。仓库里只有登记 `docs/style-baselines/<名>@v<版本>/keyframes.json`：名字 → 帧编号、像素哈希、首次导出时的 PNG 字节哈希。look 闸门、`lookPreset`、评测的风格参考指标都按名字找图。图本身用 `golden keyframes` 在认可参照已登记的平台上（`beiming-original@v1` 目前只有 darwin-metal）从登记提交重建到 `out/style-baselines/<名>@v<版本>/keyframes/<名字>.png`，像素与参照清单逐位一致才写；别的平台渲不出同样的像素，工具拒绝。跨机器分发走 Release 附件（公开动作，先经用户授权），用登记里的字节哈希校验。规范检查 `baseline.no-render-products` 拒绝 `tests/golden/`（夹具除外）与 `docs/style-baselines/` 下任何入库的图片或视频，`baseline.references` 核对登记与参照清单一致。
 - 同一平台上，登记提交可以逐像素重现全部 PNG（2026-11-10 实测：复跑 153/153 帧逐像素一致），所以基线不依赖附件；附件只是给没有这台设备的人看。
 
 ## 3. 平台键与容差
@@ -106,7 +106,7 @@
 - 登记：`node tools/baseline/golden.mjs reference --set <集合> --id <名>@v<版本> --by <登记人> --reason <认可依据> --commit <提交>`。已存在的平台文件拒绝覆盖；给新平台补登记时必须用同一提交、同一份集合定义。
 - 认可状态以用户的话为准：README 里引用用户原话和出处；没有原话的写「待用户确认」，不得写成「用户已认可」（D08）。
 - 用户认可了新的画面 → 另立 `@v<版本+1>`，旧版本保留做历史对照。
-- 关键帧：先在 `keyframes.json` 写好「名字 → 帧编号」，再 `node tools/baseline/golden.mjs keyframes --reference <名>@v<版本>`。工具现渲登记提交、逐帧核对像素与参照清单完全一致后，把原样 PNG 放进 `keyframes/` 并写下字节哈希与像素哈希；只能在参照已登记的平台上做，已有的图像素对不上就拒绝。
+- 关键帧：先在 `keyframes.json` 写好「名字 → 帧编号」（草稿），再在参照已登记的平台上跑 `node tools/baseline/golden.mjs keyframes --reference <名>@v<版本>`。工具现渲登记提交、逐帧核对像素与参照清单完全一致后，把原样 PNG 写到 `out/style-baselines/<名>@v<版本>/keyframes/`，并补全登记（像素哈希、平台键、登记提交、首次导出的字节哈希）。提交的只有 `keyframes.json`。之后重跑只重建 PNG、不改登记；登记的像素哈希与参照清单对不上就拒绝。
 - `film.json` 里延续某个风格时写 `"style": { "id": "beiming-original", "version": 1 }`，镜头的 `lookPreset` 指向参照里的关键帧，例如 `beiming-original@v1/wide`（各关键帧的名字见该参照的 README）。
 
 ## 8. 集合一览（2026-11-10，Apple M5 Pro / Metal 实测耗时）

@@ -257,3 +257,42 @@ test('候选 → 审批：capture --platform 写待审批候选（不参与比�
     assert.equal(JSON.parse(fs.readFileSync(manifest, 'utf8')).sets.fixtures.approval.by, '测试审批人');
   } finally { fs.rmSync(d, { recursive: true, force: true }); }
 });
+
+test('关键帧：PNG 重建到 out/style-baselines/（不入库）；草稿登记补全一次，之后重跑不改任何入库文件；登记被手改就拒绝', { skip: !browserOk && '没装无头浏览器' }, () => {
+  const { d, git, golden } = sandboxRepo();
+  const g = args => run(golden, [...args, '--gpu', gpuEnv, '--json'], { cwd: d });
+  try {
+    const ref = g(['reference', '--set', 'fixtures', '--id', 'sand@v1', '--by', '测试', '--reason', '测试', '--commit', 'HEAD']);
+    assert.equal(ref.code, 0, ref.err);
+    const pk = envelope(ref.out).data[0].platformKey;
+    const refDir = path.join(d, 'docs/style-baselines/sand@v1'), kfFile = path.join(refDir, 'keyframes.json');
+    const frame = 'fixture:pure@320x180#f=12';
+    fs.writeFileSync(kfFile, JSON.stringify({ schema: 'beiming-style-keyframes/v1', reference: 'sand@v1', keyframes: [{ name: 'mid', frame }] }));
+    git('add', '-A'); git('commit', '-q', '-m', '认可参照与关键帧草稿');
+
+    const first = g(['keyframes', '--reference', 'sand@v1']);
+    assert.equal(first.code, 0, first.err);
+    const png = path.join(d, 'out/style-baselines/sand@v1/keyframes/mid.png');
+    assert.ok(fs.existsSync(png), 'PNG 写到 out/style-baselines/<名@v版本>/keyframes/');
+    assert.equal(fs.existsSync(path.join(refDir, 'keyframes')), false, '不往入库目录写 PNG');
+    assert.equal(envelope(first.out).data.registered, true, '草稿登记要补全');
+    const want = JSON.parse(fs.readFileSync(path.join(refDir, `${pk}.json`), 'utf8')).frames.find(f => f.id === frame);
+    const reg = JSON.parse(fs.readFileSync(kfFile, 'utf8'));
+    assert.equal(reg.platformKey, pk);
+    assert.equal(reg.keyframes[0].pixelSha256, want.pixelSha256);
+    assert.equal(reg.keyframes[0].file, 'keyframes/mid.png');
+    git('add', '-A'); git('commit', '-q', '-m', '关键帧登记');
+
+    fs.rmSync(path.join(d, 'out/style-baselines'), { recursive: true });
+    const again = g(['keyframes', '--reference', 'sand@v1']);
+    assert.equal(again.code, 0, again.err);
+    assert.equal(envelope(again.out).data.registered, false);
+    assert.ok(fs.existsSync(png), '重建出 PNG');
+    assert.equal(git('status', '--porcelain'), '', '登记完整时重跑不改任何入库文件');
+
+    fs.writeFileSync(kfFile, JSON.stringify({ ...reg, keyframes: [{ ...reg.keyframes[0], pixelSha256: '0'.repeat(64) }] }));
+    const bad = g(['keyframes', '--reference', 'sand@v1']);
+    assert.equal(bad.code, 4, bad.err);
+    assert.equal(envelope(bad.out).error.code, 'contract.bad-keyframes');
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+});
