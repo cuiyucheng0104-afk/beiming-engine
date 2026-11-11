@@ -95,7 +95,13 @@ node .claude/hooks/guard.mjs --explain --input event.json      # 一个 PreToolU
 
 ## 跨平台
 
-钩子命令写成 `node "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.mjs"`：macOS、Linux 与装了 Git Bash 的 Windows 用 bash 展开环境变量；没有 Git Bash 的 Windows 用 PowerShell，Claude Code 会把带花括号的 `${CLAUDE_PROJECT_DIR}` 改写成 `${env:CLAUDE_PROJECT_DIR}`（不带花括号的 `$CLAUDE_PROJECT_DIR` 在 PowerShell 里是未定义变量，不要这样写）。路径判断同时认 POSIX 与 Windows 写法（盘符、反斜杠、`~`、`$HOME`、`$env:USERPROFILE`、`%USERPROFILE%`），macOS 与 Windows 上按大小写不敏感比较，并按解析符号链接后的真实路径判断。只需要 Node 22 及以上，不依赖任何 npm 包。
+钩子命令写成 `node "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.mjs"`（shell 写法；不用较新的 `args` 写法，老版本 Claude Code 不认那个字段）：
+
+- macOS、Linux 与装了 Git Bash 的 Windows：Claude Code 用 bash 跑钩子，bash 展开环境变量。
+- 没有 Git Bash 的 Windows：Claude Code 用 PowerShell 跑，执行前把带花括号的 `${CLAUDE_PROJECT_DIR}` 改写成 `${env:CLAUDE_PROJECT_DIR}`，并在会话里提示一次「Git Bash wasn't found, so a PreToolUse hook ran in PowerShell」——我们的命令两种 shell 都能跑，这条提示可以不管。不带花括号的 `$CLAUDE_PROJECT_DIR` 在 PowerShell 里是未定义变量，不要这样写。
+- 依据与实测状态：上面两条读自 Claude Code 2.1.322 安装包里的实现（选 shell：找得到 Git Bash 用 bash，否则 PowerShell；PowerShell 下把 `${CLAUDE_PROJECT_DIR}`、`${CLAUDE_PLUGIN_ROOT}`、`${CLAUDE_PLUGIN_DATA}` 改写成 `${env:…}`）。`tests/agent-layer/config.test.mjs` 在有 PowerShell 的机器上照这条规则改写后真跑一次。**还没有在没有 Git Bash 的 Windows 上用真实会话实测过**；实测办法：在那台机器上新开会话，让 agent 写 `cases/vendor/x.txt`，应看到「北冥护栏拒绝」，把结果与 Claude Code 版本号补记在这里。万一钩子在那里起不来，Claude Code 按「钩子出错」放行，这时仍有 `permissions.deny`（写快照与归档、整树暂存、强推、全局风格库）和提交前检查兜底。
+
+路径判断同时认 POSIX 与 Windows 写法（盘符、反斜杠、`~`、`$HOME`、`$env:USERPROFILE`、`%USERPROFILE%`），macOS 与 Windows 上按大小写不敏感比较，并按解析符号链接后的真实路径判断。只需要 Node 22 及以上，不依赖任何 npm 包。
 
 ## 局限
 
@@ -105,7 +111,7 @@ node .claude/hooks/guard.mjs --explain --input event.json      # 一个 PreToolU
 
 ## 改护栏
 
-规则数据在 `lib/policy.mjs`（区域、规则说明、解锁名、家目录例外），判定在 `lib/decide.mjs`，路径归一在 `lib/paths.mjs`，命令切词在 `lib/shell.mjs`，日志在 `lib/log.mjs`。规范检查与提交前检查从 `policy.mjs` 取同一份指令文件名单；区域或规则有增减时，同步看一眼 `.githooks/pre-commit.mjs` 与 `tools/repo-check/rules/agent/`（一个文件一条规则，共用部分在 `_shared.mjs`）。改完：
+规则数据在 `lib/policy.mjs`（区域、规则说明、解锁名、家目录风格库），判定在 `lib/decide.mjs`，路径归一在 `lib/paths.mjs`，命令切词在 `lib/shell.mjs`，日志在 `lib/log.mjs`。规范检查与提交前检查从 `policy.mjs` 取同一份指令文件名单；区域或规则有增减时，同步看一眼 `.githooks/pre-commit.mjs` 与 `tools/repo-check/rules/agent/`（一个文件一条规则，共用部分在 `_shared.mjs`）。改完：
 
 ```sh
 node --test tests/agent-layer

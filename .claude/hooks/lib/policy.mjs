@@ -31,7 +31,7 @@ export const ZONES = [
     id: 'source', kind: 'archive', unlock: 'source',
     prefixes: ['cases/source/'], files: [],
     title: 'cases/source/ 是历史源码归档（catalog.json 记录每个文件的哈希），只读',
-    next: '要看或重跑历史作品：python3 tools/casebook.py restore <案例 id> --out out/casebook 还原到 out/ 再改；新作品放 films/<名字>/',
+    next: '要看或重跑历史作品：node tools/env/py.mjs tools/casebook.py restore <案例 id> --out out/casebook 还原到 out/ 再改；新作品放 films/<名字>/',
   },
   {
     id: 'src', kind: 'baseline', unlock: 'src',
@@ -49,7 +49,7 @@ export const ZONES = [
     id: 'catalog', kind: 'generated', unlock: 'catalog',
     prefixes: [], files: ['cases/catalog.json'],
     title: 'cases/catalog.json 由案例库工具生成并被 casebook check 校验，不手改',
-    next: '改案例目录请用 tools/casebook.py 的子命令，改完跑 python3 tools/casebook.py check',
+    next: '改案例目录请用 tools/casebook.py 的子命令（node tools/env/py.mjs tools/casebook.py <子命令>），改完跑 npm run cases:check',
   },
   {
     id: 'agent-layer', kind: 'guard', unlock: 'agent-layer',
@@ -122,7 +122,7 @@ export const RULES = {
   },
   'archive-exec': {
     title: '不在 cases/vendor/、cases/source/ 里运行代码：上游的 make.js、build.sh、setup.sh 会把产物写进只读快照，setup.sh 还会克隆或 reset --hard 家目录里的上游库',
-    next: '历史作品用 python3 tools/casebook.py restore <id> --out out/casebook 还原后在 out/casebook 里看；做片用本仓库的 npm run / engine/render 命令，产物只写 films/<名字>/out/',
+    next: '历史作品用 node tools/env/py.mjs tools/casebook.py restore <id> --out out/casebook 还原后在 out/casebook 里看；做片用本仓库的 npm run / engine/render 命令，产物只写 films/<名字>/out/',
   },
   'git-add-all': {
     title: '不用 git add -A / --all（git stage 同理）：整树暂存会把别人的改动、成片、媒体和客户材料一起带进提交',

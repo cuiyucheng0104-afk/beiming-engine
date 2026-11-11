@@ -15,7 +15,7 @@ description: 在北冥仓库（本仓库）里审片、验收、做交付前检�
 终渲之后、交给人看之前，在仓库根目录：
 
 ```sh
-node tools/qa/cli.mjs report films/<名字>/out/<运行目录>/master.mp4      # 注册后：npm run qa -- report …
+node tools/qa/cli.mjs report films/<名字>/out/<运行目录>/master.mp4      # 同 npm run qa -- report …
 ```
 
 - 退出码：0 硬门全过（可以有「注意」）；4 硬门不通过；3 环境缺失（FFmpeg ≥ 7、无头浏览器）；2 用法错误；1 运行失败。**只有 exit 0 才能写「代理检查通过」**。

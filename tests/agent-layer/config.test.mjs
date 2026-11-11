@@ -1,7 +1,7 @@
 // 北冥仓库 · agent 配置测试（node --test tests/agent-layer）
 // 测什么：根 CLAUDE.md 桥接；.claude/settings.json 的拒绝规则、钩子接线（跨平台写法）、插件禁用、上游 CLAUDE.md 排除；
 //         仓库 skill 的头信息、触发词与流程要点；检索范围 .ignore；vendor README 顶部警示，以及改完 casebook check 仍 OK。
-// 只读：不改任何文件。casebook check 要 Python（PYTHON 环境变量或 python3 / python），找不到就跳过那一项。
+// 只读：不改任何文件。casebook check 与 npm run cases:check 同一条命令（tools/env/py.mjs 按仓库的顺序找 Python），找不到 Python 就跳过那一项。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -81,10 +81,12 @@ test('settings.json 的钩子命令经真实 shell 展开后能跑：拒绝写�
     if (spawnSync('sh', ['-c', 'exit 0'], { windowsHide: true }).status === 0) {
       shells.push(['sh', file => spawnSync('sh', ['-c', hook.command], { cwd: dir, env, input: fs.readFileSync(file), encoding: 'utf8', timeout: 30000, windowsHide: true })]);
     }
-    // 没有 Git Bash 的 Windows：Claude Code 用 PowerShell 跑钩子，并把 ${CLAUDE_PROJECT_DIR} 改写成 ${env:CLAUDE_PROJECT_DIR}
+    // 没有 Git Bash 的 Windows：Claude Code 用 PowerShell 跑钩子，执行前把 ${CLAUDE_PROJECT_DIR} 改写成 ${env:CLAUDE_PROJECT_DIR}。
+    // 注意：这一支验证的是「照这条改写规则改写后，我们的命令在 PowerShell 里能跑」，不是验证 Claude Code 真的这样改写。
+    // 改写规则的依据是 Claude Code 2.1.322 安装包里的实现（.claude/hooks/README.md「跨平台」节），真会话实测见同一节。
     for (const ps of ['pwsh', 'powershell']) {
       if (spawnSync(ps, ['-NoProfile', '-Command', 'exit 0'], { windowsHide: true }).status !== 0) continue;
-      const cmd = hook.command.replace('${CLAUDE_PROJECT_DIR}', '${env:CLAUDE_PROJECT_DIR}');
+      const cmd = ['CLAUDE_PROJECT_DIR', 'CLAUDE_PLUGIN_ROOT', 'CLAUDE_PLUGIN_DATA'].reduce((c, n) => c.replaceAll(`\${${n}}`, `\${env:${n}}`), hook.command);
       shells.push([ps, file => spawnSync(ps, ['-NoProfile', '-NonInteractive', '-Command',
         `[Console]::OutputEncoding = [Text.Encoding]::UTF8; $OutputEncoding = [Text.Encoding]::UTF8; Get-Content -Raw -LiteralPath '${file.replace(/'/g, "''")}' | ${cmd}; exit $LASTEXITCODE`],
       { cwd: dir, env, encoding: 'utf8', timeout: 60000, windowsHide: true })]);
@@ -166,17 +168,20 @@ test('cases/vendor/README.md：顶部有给 agent 的优先级警示，冲突对
   assert.match(text, /lemo-opuscar\/AGENTS\.md:85/);
 });
 
-test('改过 vendor README 后 casebook check 仍然 OK（README 不在 lock.json 的快照范围里）', (t) => {
+test('改过 vendor README 后 casebook check 仍然通过（README 不在 lock.json 的快照范围里）', (t) => {
   const lock = JSON.parse(read('cases/vendor/lock.json'));
   for (const repo of lock.repositories) {
     assert.ok(!repo.files.some(f => `cases/${repo.path}/${f.path}` === 'cases/vendor/README.md'));
   }
-  const candidates = [process.env.PYTHON, 'python3', 'python'].filter(Boolean);
-  const py = candidates.find(c => spawnSync(c, ['-c', 'import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)'], { encoding: 'utf8' }).status === 0);
-  if (!py) { t.skip('找不到 Python 3，跳过 casebook check'); return; }
-  const r = spawnSync(py, [path.join(ROOT, 'tools', 'casebook.py'), 'check'], { cwd: ROOT, encoding: 'utf8', timeout: 300000 });
-  assert.equal(r.status, 0, `casebook check 失败：\n${r.stdout}\n${r.stderr}`);
-  assert.match(r.stdout, /^OK:/m);
+  // 判 --json 信封（docs/CLI.md 的 C2），不认人读输出的措辞：casebook 的人读输出改过一次（OK: → 通过：）
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'env', 'py.mjs'), path.join(ROOT, 'tools', 'casebook.py'), 'check', '--json'],
+    { cwd: ROOT, encoding: 'utf8', timeout: 300000, windowsHide: true });
+  if (r.status === 3 && !r.stdout.trim()) { t.skip(`找不到可用的 Python，跳过 casebook check：${r.stderr.trim().split('\n').pop()}`); return; }
+  let out = null;
+  try { out = JSON.parse(r.stdout); } catch { assert.fail(`casebook check --json 的输出不是 JSON（退出码 ${r.status}）：\n${r.stdout}\n${r.stderr}`); }
+  assert.equal(out.ok, true, `casebook check 不通过：${JSON.stringify(out.error)}；问题：${JSON.stringify((out.data?.problems ?? []).slice(0, 5))}`);
+  assert.equal(r.status, 0);
+  assert.ok(out.data?.vendorRepos >= 2 && out.data?.vendorFiles > 0, `casebook check 没有核对 vendor 快照：${JSON.stringify(out.data)}`);
 });
 
 test('本机装了 Claude Code 时：claude doctor 不报项目设置无效（钩子条目写坏会让整份设置失效）', (t) => {

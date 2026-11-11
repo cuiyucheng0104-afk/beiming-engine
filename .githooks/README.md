@@ -28,7 +28,7 @@ node .githooks/pre-commit.mjs --help         # 检查项、放行办法、退出
 | id | 拦下什么 | 怎么改 |
 |---|---|---|
 | `vendor` | 改动 `cases/vendor/` 里的第三方快照（`cases/vendor/README.md` 除外） | `git restore --staged -- <文件>`；作品放 `films/<名字>/` |
-| `source` | 修改或删除 `cases/source/` 里已归档的文件（新增放行） | 历史作品先 `python3 tools/casebook.py restore <id> --out out/casebook` 再改 |
+| `source` | 修改或删除 `cases/source/` 里已归档的文件（新增放行） | 历史作品先 `node tools/env/py.mjs tools/casebook.py restore <id> --out out/casebook` 再改 |
 | `films-out` | `films/<名字>/out/` 下的渲染产物、`films/` 下的音视频 | 渲染产物永不入库（决定 D10） |
 | `instructions` | 不在白名单里的 agent 指令文件（子目录 `AGENTS.md`、`CLAUDE.md`、新 `SKILL.md`、`.claude/` 配置） | 子目录说明写成 `README.md`；新增仓库 skill 先在 `tools/repo-check/rules/agent/instruction-files.json` 登记 |
 | `bridge` | 根目录 `CLAUDE.md` 不是一行 `@AGENTS.md`，或被删 | 规则只写在 `AGENTS.md` |

@@ -256,7 +256,7 @@ function ownChecks(root, { all, changes, want }) {
   const sizes = blobSizes(root, files.map(f => f.sha));
 
   if (all && want('vendor')) checkVendorAgainstLock(root, add, notes);
-  if (all && want('source')) notes.push('--all 没有可比的基线，跳过 source（归档完整性用 python3 tools/casebook.py check 核对）');
+  if (all && want('source')) notes.push('--all 没有可比的基线，跳过 source（归档完整性用 npm run cases:check 核对）');
   if (!all) {
     for (const c of changes) {
       const p = c.path;
@@ -264,7 +264,7 @@ function ownChecks(root, { all, changes, want }) {
         add('vendor', p, `${c.status === 'D' ? '删除' : '改动'}了第三方快照里的 ${p}：cases/vendor/ 由 cases/vendor/lock.json 逐字节锁定，只读。撤回暂存：git restore --staged -- "${p}"；作品放 films/<名字>/。维护者确实在升级快照（重新固定版本并更新 lock.json）时，由用户本人在 Claude Code 之外的终端里用 ${ALLOW_ENV}=vendor 只放行这一次（agent 会话里设置无效）`);
       }
       if (want('source') && p.startsWith('cases/source/') && c.status !== 'A') {
-        add('source', p, `${c.status === 'D' ? '删除' : '修改'}了已归档的 ${p}：cases/catalog.json 按哈希记录归档文件，改了 casebook check 会失败。撤回暂存：git restore --staged -- "${p}"；要改历史作品先 python3 tools/casebook.py restore <id> --out out/casebook 还原到 out/ 再改`);
+        add('source', p, `${c.status === 'D' ? '删除' : '修改'}了已归档的 ${p}：cases/catalog.json 按哈希记录归档文件，改了 casebook check 会失败。撤回暂存：git restore --staged -- "${p}"；要改历史作品先 node tools/env/py.mjs tools/casebook.py restore <id> --out out/casebook 还原到 out/ 再改`);
       }
       if (want('bridge') && p === 'CLAUDE.md' && c.status === 'D') {
         add('bridge', p, '删除了根目录 CLAUDE.md：只认 CLAUDE.md 的工具会拿不到本仓库规则。恢复：git restore --staged --worktree -- CLAUDE.md');
