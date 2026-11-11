@@ -13,7 +13,8 @@
 //   与页面帧率不一致直接失败（退出码 4）；页面确实与帧率无关、或明知节奏会不均还要换帧率时加 --any-fps。
 // 失败：任何一块出错（render 抛错、页面报错、缺素材、着色器错误、上下文丢失、软件渲染、FFmpeg 退出、收到 SIGINT / SIGTERM）都会
 //   停下其余各块，关掉所有浏览器和 FFmpeg，删掉临时目录 <输出目录>/.segs-*，写 status=failed 的运行记录，以约定的退出码退出。
-//   --resume 时块放在 <输出>.parts/，失败后保留，下次加 --resume 只补渲没完成的块。
+//   --resume 时块放在 <输出>.parts/，失败后保留，下次加 --resume 只补渲没完成的块：开渲前先写下这次的参数键（parts.json），
+//   参数、浏览器构建或 GPU 后端变了就整个清空重渲；每块的旁注另记渲它时加载过的文件的内容哈希，文件变了的块重渲。
 // AIGC（D11）：film.json 声明 aigc.contains 时，成片的 comment 元数据写隐式标识（tools/compliance/lib/aigc.mjs）。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -261,15 +262,17 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
 
     // 2) 块目录：默认临时目录（任何结局都删）；--resume / --keep-segments 用 <输出>.parts/
     const persistent = Boolean(opts.resume || opts['keep-segments']);
-    const key = sha256(JSON.stringify({ dir: repoPath(ROOT, dir), q: opts.query, w, h, FPS, a, b, chunks, outputs: outputs.map(x => [x.kind, x.vf, x.args]), intermediate, settle, r: record.render.renderer })).slice(0, 16);
+    const { browserVersion: browser, angle, software } = probeFilm.info;   // 换了浏览器构建或 GPU 后端，像素可能不同：不能与旧块混拼
+    const key = sha256(JSON.stringify({ dir: repoPath(ROOT, dir), q: opts.query, w, h, FPS, a, b, chunks, outputs: outputs.map(x => [x.kind, x.vf, x.args]), intermediate, settle, r: record.render.renderer, browser, angle, software })).slice(0, 16);
     if (persistent) {
       workDir = `${out}.parts`;
-      const manifest = readJson(path.join(workDir, 'parts.json'));
-      if (manifest && (manifest.key !== key || !depsUnchanged(manifest.deps))) {
-        log.info(`${repoPath(ROOT, workDir)} 里的块与这次的参数或源文件不符：清空后重渲`);
+      // 开渲前先写下参数键：中断或失败后换了参数再续跑，旧块一块都不留（源文件变没变由每块的旁注核对，见 lib/chunks.mjs）
+      if (fs.existsSync(workDir) && readJson(path.join(workDir, 'parts.json'))?.key !== key) {
+        log.info(`${repoPath(ROOT, workDir)} 里的块与这次的参数不符：清空后重渲`);
         fs.rmSync(workDir, { recursive: true, force: true });
       }
       fs.mkdirSync(workDir, { recursive: true });
+      writeJson(path.join(workDir, 'parts.json'), { key });
     } else {
       workDir = fs.mkdtempSync(path.join(path.dirname(out), '.segs-'));
     }
@@ -278,11 +281,10 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     const tr = Date.now();
     const r = await renderRange({
       dir, query: opts.query, w, h, fps: FPS, chunks, workers: opts.workers, intermediate, outputs, workDir,
-      reuse: Boolean(opts.resume), openOptions, firstFilm: probeFilm, signal, live: life.procs, settle,
+      reuse: Boolean(opts.resume), key, openOptions, firstFilm: probeFilm, signal, live: life.procs, settle,
       frameTimeoutMs: opts['frame-timeout'] ? opts['frame-timeout'] * 1000 : undefined,
       onProgress: makeProgress(log, b - a),
     });
-    if (persistent) writeJson(path.join(workDir, 'parts.json'), { key, deps: await hashDeps(r.deps) });
     record.timing.renderSeconds = +((Date.now() - tr) / 1000).toFixed(2);
     record.render.reusedChunks = r.stats.reusedChunks;
     record.render.renderedFrames = r.stats.renderedFrames;
@@ -329,15 +331,6 @@ async function hashDeps(deps) {
   const out = {};
   for (const p of [...deps.keys()].sort()) { try { out[p] = await sha256File(path.join(ROOT, p)); } catch { out[p] = null; } }
   return out;
-}
-function depsUnchanged(recorded) {
-  if (!recorded) return false;
-  for (const [p, h] of Object.entries(recorded)) {
-    let now = null;
-    try { now = createHash('sha256').update(fs.readFileSync(path.join(ROOT, p))).digest('hex'); } catch {}
-    if (now !== h) return false;
-  }
-  return true;
 }
 
 /**

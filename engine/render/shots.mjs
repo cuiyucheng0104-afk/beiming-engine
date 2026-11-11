@@ -3,7 +3,7 @@
 // 需要 film.json v2 的镜头表 shots: [{ id, in, out, module }]（帧号含头不含尾）。每个镜头渲成一段无声 H.264（块的切法与
 // video.mjs 渲整片时完全相同），存进缓存 <影片>/out/cache/shots/<镜头>.<键>.mp4 与同名 .json；给了 --out 就按镜头表的顺序
 // 拼成一部（复制，不重编码），核对总帧数。
-// 缓存键 = sha256(渲染器版本、画幅、帧率、档位、截图与编码参数、URL 参数、film.json 里与画面有关的作品级字段、这个镜头在
+// 缓存键 = sha256(渲染器版本、浏览器构建与 GPU 后端、画幅、帧率、档位、截图与编码参数、URL 参数、film.json 里与画面有关的作品级字段、这个镜头在
 //   film.json 里的条目与它的事件、页面实际加载过的本地文件的内容哈希——减去别的镜头独有的模块（lib/deps.mjs）)。
 //   键没变就跳过（0 帧重渲）；只改了镜头 B 的模块就只重渲 B；改了某个镜头的 out 帧，只重渲它和后面接着的那个镜头。
 //   film.json 本身不按整份文件算（否则改一个镜头所有镜头都失效）：作品级字段与本镜头字段分别进键。
@@ -119,7 +119,9 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     const outputs = [{ kind: 'master', vf: COLOR[intermediate], args: [...x264Args({ crf, preset }), ...TAGS] }];
     const settle = opts.settle === 'auto' ? (probeFilm.info.angle === 'vulkan' ? 'raf2' : 'none') : opts.settle;
     const filmLevel = stable(Object.fromEntries(Object.entries(film.raw).filter(([k]) => !NON_PICTURE.has(k))));
-    const base = { r: rendererFingerprint(), w, h, FPS, profile: profile?.id ?? null, intermediate, outputs: outputs.map(x => [x.vf, x.args]), q: opts.query, settle, chunk: opts.chunk ?? 'auto', filmLevel };
+    // 浏览器构建与 GPU 后端也进键：升级 headless shell、或换到 SwiftShader 补渲时，别的镜头不能命中另一种后端渲的缓存
+    const { browserVersion: browser, angle, software } = probeFilm.info;
+    const base = { r: rendererFingerprint(), browser, angle, software, w, h, FPS, profile: profile?.id ?? null, intermediate, outputs: outputs.map(x => [x.vf, x.args]), q: opts.query, settle, chunk: opts.chunk ?? 'auto', filmLevel };
     const events = Array.isArray(film.raw.events) ? film.raw.events : [];
     const filmJsonRel = repoPath(ROOT, film.file);
     const exclusions = shotExclusions(ROOT, filmRel, film.shots);

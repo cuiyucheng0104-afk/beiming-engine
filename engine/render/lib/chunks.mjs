@@ -2,7 +2,8 @@
 // 每块一个 FFmpeg（截图经管道进去，只做一次色彩换算，编成一段或几段 H.264），块写完先核对帧数再原子改名。
 //
 // 块的边界只由帧区间与帧率决定（planChunks），与 --workers 无关：同一个区间不管开几路，切出来的块一样，成片逐字节一样；
-// 中途停下后（--resume）已写完的块原样复用，补渲剩下的块，结果与一次跑完相同。
+// 中途停下后（--resume）已写完的块原样复用，补渲剩下的块，结果与一次跑完相同。块的旁注（<块>.mp4.json）记着这次的参数键
+// 与页面加载过的每个本地文件的内容哈希：参数键不同、或其中任何一个文件后来变了，这一块就重渲，绝不把新旧画面拼在一起。
 //   planChunks(a, b, { chunk, fps })   chunk='auto'：块长 = clamp(ceil(总帧 / 8), 1 秒, 10 秒)，再均分；或给定帧数
 //   renderRange(o)                     渲染并返回 { files: { 输出类别: [块文件…] }, hashes, deps, info, contract, warnings, stats }
 // 每帧：render(t)（t = 帧号 / fps）→ 截图（png：CDP 无损；jpeg：q95，只用于 --fast 预览）→ sha256 前 16 位记进 hashes →
@@ -10,7 +11,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { openFilm, renderFrame, finalFaultCheck } from '../page.mjs';
+import { createHash } from 'node:crypto';
+import { openFilm, renderFrame, finalFaultCheck, ROOT } from '../page.mjs';
 import { RenderError } from './errors.mjs';
 import { FFMPEG, probe, streamSignature, must } from './ffmpeg.mjs';
 import { sha256 } from './record.mjs';
@@ -84,14 +86,15 @@ async function feed(ff, buf, exited, signal, where) {
  * @param {'png'|'jpeg'} o.intermediate
  * @param {Array<{kind: string, vf: string, args: string[]}>} o.outputs   每块的输出（第一个是主输出）
  * @param {string} o.workDir                       块文件目录（调用方负责创建与清理）
- * @param {boolean} [o.reuse]                      已存在且帧数对的块直接复用（--resume）
+ * @param {boolean} [o.reuse]                      已存在、帧数对、参数键相同、依赖文件都没变的块直接复用（--resume）
+ * @param {string} [o.key]                         这次的参数键（写进块的旁注；复用时必须相同）
  * @param {object} o.openOptions                   openFilm 的选项
  * @param {object} [o.firstFilm]                   已打开的探测页，给第 0 路复用（省一次冷启动）
  * @param {AbortSignal} o.signal @param {Set} o.live  还没退出的子进程（调用方在 exit 钩子里杀）
  * @param {(e: {done:number, total:number, reused:number}) => void} [o.onProgress]
  */
 export async function renderRange(o) {
-  const { dir, query, fps, chunks, intermediate, outputs, workDir, reuse = false, openOptions, signal: outer, live, onProgress, settle = 'none', frameTimeoutMs } = o;
+  const { dir, query, fps, chunks, intermediate, outputs, workDir, reuse = false, key = null, openOptions, signal: outer, live, onProgress, settle = 'none', frameTimeoutMs } = o;
   const ac = new AbortController();
   const abort = e => { if (!ac.signal.aborted) ac.abort(e); };
   const onOuter = () => abort(outer.reason);
@@ -106,17 +109,27 @@ export async function renderRange(o) {
   const perFrame = [];
   let done = 0, rendered = 0, reused = 0, info = null, contract = null;
   const files = Object.fromEntries(outputs.map(x => [x.kind, chunks.map(([a, b]) => path.join(workDir, chunkName(x.kind, a, b)))]));
+  // 依赖文件的内容哈希：这一趟里每个文件只读一次（各路开好页面时先记下，读不到记 null）
+  const memo = new Map();
+  const hashOf = p => {
+    if (!memo.has(p)) { let h = null; try { h = createHash('sha256').update(fs.readFileSync(path.join(ROOT, p))).digest('hex'); } catch {} memo.set(p, h); }
+    return memo.get(p);
+  };
+  const changed = d => Object.entries(d).find(([p, v]) => !Array.isArray(v) || hashOf(p) !== v[1])?.[0] ?? null;   // 第一个变了的文件
 
-  // 复用：主输出与所有附加输出都在、帧数对，且有记录逐帧哈希的旁注文件
+  // 复用：主输出与所有附加输出都在、帧数对、旁注里的参数键与这次相同，且渲它时加载过的文件一个都没变
   const todo = [];
   for (let i = 0; i < chunks.length; i++) {
     const [a, b] = chunks[i];
     if (reuse) {
       const meta = readMeta(files[outputs[0].kind][i]);
-      const ok = meta && meta.a === a && meta.b === b && outputs.every(x => fs.existsSync(files[x.kind][i]));
-      if (ok && (await Promise.all(outputs.map(x => probe(files[x.kind][i]).then(p => p.video?.frames === b - a).catch(() => false)))).every(Boolean)) {
+      const ok = meta && meta.a === a && meta.b === b && meta.key === key && Array.isArray(meta.hashes) && meta.deps && typeof meta.deps === 'object'
+        && outputs.every(x => fs.existsSync(files[x.kind][i]));
+      const stale = ok ? changed(meta.deps) : null;
+      if (stale) openOptions?.log?.info?.(`第 ${a}–${b - 1} 帧这一块渲好之后 ${stale} 变了：重渲`);
+      if (ok && !stale && (await Promise.all(outputs.map(x => probe(files[x.kind][i]).then(p => p.video?.frames === b - a).catch(() => false)))).every(Boolean)) {
         meta.hashes.forEach((h, k) => hashes.set(a + k, h));
-        for (const [p, s] of Object.entries(meta.deps ?? {})) deps.set(p, s);
+        for (const [p, [s]] of Object.entries(meta.deps)) deps.set(p, s);
         reused++; done += b - a;
         continue;
       }
@@ -176,7 +189,7 @@ export async function renderRange(o) {
         if (n !== b - a) throw new RenderError('contract.frame-count', `第 ${a}–${b - 1} 帧这一块编出来是 ${n} 帧，应为 ${b - a} 帧`, { hint: '编码器丢帧或重复帧：带上日志报告' });
       }
       for (let j = 0; j < outputs.length; j++) fs.renameSync(partial[j], files[outputs[j].kind][i]);
-      writeMeta(files[outputs[0].kind][i], { a, b, hashes: blockHashes, deps: Object.fromEntries(film.requests) });
+      writeMeta(files[outputs[0].kind][i], { a, b, key, hashes: blockHashes, deps: Object.fromEntries([...film.requests].map(([p, s]) => [p, [s, hashOf(p)]])) });
     } finally {
       signal.removeEventListener('abort', stop);
       if (ff.exitCode === null && ff.signalCode === null) stop();
@@ -192,6 +205,7 @@ export async function renderRange(o) {
       if (signal.aborted) throw signal.reason;
       if (claimPeek() === null && !film) return;   // 没活：不必开浏览器
       film ??= await openFilm(dir, { ...openOptions, handleSignals: false, signal });
+      for (const p of film.requests.keys()) hashOf(p);   // 页面刚就绪时的内容：渲染中途有人改文件，旁注也不会记成改后的
       info ??= film.info; contract ??= film.contract;
       for (let i = claim(); i !== null; i = claim()) await renderChunk(film, i, k);
       await finalFaultCheck(film);

@@ -7,7 +7,7 @@
 //   node --test tests/render/shots.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { run, skip, frames, framemd5, miniRepo, segs, posix } from './helpers.mjs';
 
@@ -65,6 +65,12 @@ test('镜头缓存：命中 0 帧重渲；只改一个镜头的模块只重渲�
     await t.test('改共享模块 shared.js：三个镜头都重渲', async () => {
       edit(join(m.film, 'shared.js'), "'#20242c'", "'#24202c'");
       const r = await shots();
+      assert.equal(r.code, 0, r.log);
+      assert.equal(rendered(r), 72);
+    });
+    await t.test('换 GPU 后端（--angle）：浏览器构建与后端在键里，三个镜头都重渲，不命中另一种后端渲的缓存', async () => {
+      const other = String(process.env.BEIMING_ANGLE ?? '').trim().toLowerCase() === 'swiftshader' ? 'default' : 'swiftshader';
+      const r = await shots('--angle', other);
       assert.equal(r.code, 0, r.log);
       assert.equal(rendered(r), 72);
     });
@@ -138,6 +144,54 @@ test('续跑：--resume 时中途被杀，再跑只补渲没完成的块，成�
     const third = await run(m.script('video.mjs'), [m.film, '--size', '64x64', '--chunk', '24', '--workers', '1', '--query', 'dur=4', '--out', once, '--progress', 'none'], { cwd: m.repo, timeout: 120000 });
     assert.equal(third.code, 0, third.log);
     assert.deepEqual(framemd5(out), framemd5(once));
+    assert.deepEqual(segs(m.base), []);
+  } finally { m.cleanup(); }
+});
+
+test('续跑：中断后改了页面源文件或参数（--crf）再 --resume，旧块一律不复用；成片与改后一次跑完逐帧相同', { skip: skip || (!posix && '需要 POSIX 信号'), timeout: 300000 }, async () => {
+  const m = miniRepo('page', 'slow');
+  try {
+    const out = join(m.base, 'r.mp4');
+    const args = [m.film, '--size', '64x64', '--chunk', '24', '--workers', '1', '--query', 'dur=4&slow=40', '--out', out, '--resume', '--json', '--progress', 'none'];
+    // 跑到第一块写完（块目录里出现块的旁注）就 SIGTERM，留下 <输出>.parts/
+    const interrupted = async () => {
+      const r = await run(m.script('video.mjs'), args, {
+        cwd: m.repo, timeout: 60000,
+        onStart: p => {
+          const poll = setInterval(() => {
+            if (p.exitCode !== null) return clearInterval(poll);
+            const parts = `${out}.parts`;
+            if (existsSync(parts) && readdirSync(parts).some(n => n.endsWith('.mp4.json'))) { clearInterval(poll); process.kill(p.pid, 'SIGTERM'); }
+          }, 50);
+        },
+      });
+      assert.equal(r.code, 143, r.log);
+      assert.ok(readdirSync(`${out}.parts`).some(n => n.endsWith('.mp4')), '中断后要留下已完成的块');
+    };
+    const fresh = async () => {
+      const f = join(m.base, 'fresh.mp4');
+      rmSync(f, { force: true });
+      const r = await run(m.script('video.mjs'), [m.film, '--size', '64x64', '--chunk', '24', '--workers', '1', '--query', 'dur=4', '--out', f, '--progress', 'none'], { cwd: m.repo, timeout: 120000 });
+      assert.equal(r.code, 0, r.log);
+      return framemd5(f);
+    };
+
+    // 1) 改页面：块的旁注记着当时加载的文件内容哈希，对不上就不复用
+    await interrupted();
+    edit(join(m.film, 'index.html'), '60% 45%', '90% 45%');
+    const a = await run(m.script('video.mjs'), args, { cwd: m.repo, timeout: 120000 });
+    assert.equal(a.code, 0, a.log);
+    assert.equal(json(a).data.reusedChunks, 0, '页面改了，旧块不能复用');
+    assert.equal(json(a).data.renderedFrames, 96);
+    assert.deepEqual(framemd5(out), await fresh(), '成片要与改后的页面一次跑完逐帧相同');
+
+    // 2) 改参数：开渲前就写下这次的参数键，中断后换 --crf 再续跑，块目录整个清空重渲
+    rmSync(out, { force: true });
+    await interrupted();
+    const b = await run(m.script('video.mjs'), [...args, '--crf', '30'], { cwd: m.repo, timeout: 120000 });
+    assert.equal(b.code, 0, b.log);
+    assert.equal(json(b).data.reusedChunks, 0, '--crf 变了，旧块不能复用');
+    assert.match(b.stderr, /不符：清空后重渲/);
     assert.deepEqual(segs(m.base), []);
   } finally { m.cleanup(); }
 });
