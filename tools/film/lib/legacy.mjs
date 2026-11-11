@@ -59,9 +59,9 @@ export class Legacy {
   }
 }
 
-// 旧位置的文件与别的名字共用一份数据（硬链接）时先换成独立的一份：《北冥》的 out/mix.wav 是上一次运行目录与步骤缓存里
-// 那份混音的硬链接（tools/film/beiming.mjs 的 placeLegacy），而 audio/mix.py 用 soundfile 按截断方式原地覆写 out/mix.wav——
-// 不先断开，重新混音会顺带改掉上一次运行的产物和缓存（之后命中这条缓存就拿到错的混音）。
+// 旧位置的文件与别的名字共用一份数据（硬链接）时先换成独立的一份：audio/mix.py 用 soundfile 按截断方式原地覆写 out/mix.wav，
+// 而早先版本的 tools/film/beiming.mjs 把 out/mix.wav 硬链接到上一次运行目录与步骤缓存里那份混音（现在改放独立的一份，
+// 存量检出里仍可能是硬链接）——不先断开，重新混音会顺带改掉上一次运行的产物和缓存（之后命中这条缓存就拿到错的混音）。
 function unshare(p) {
   const st = fs.lstatSync(p);
   if (!st.isFile() || st.nlink < 2) return;
