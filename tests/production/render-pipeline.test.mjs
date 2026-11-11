@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,16 +49,16 @@ test('video.mjs：各种失败都在有限时间内非零退出，且不留 .seg
   const cases = [
     ['render 抛错', ['--query', 'fail=throw&at=5'], {}, 1, /render 出错/],
     ['页面未捕获异常', ['--query', 'fail=pageerror&at=5'], {}, 1, /页面错误/],
-    ['缺少必需脚本', ['--query', 'fail=missing'], {}, 1, /缺少必需文件/],
-    ['等 READY 超时', ['--query', 'fail=never'], { BEIMING_READY_TIMEOUT: '1' }, 1, /超时/],
-    ['render 卡死（单帧超时）', ['--query', 'fail=hang&at=5'], { BEIMING_FRAME_TIMEOUT: '1' }, 1, /没有返回/],
-    ['DUR 不是正数', ['--query', 'dur=0'], {}, 1, /window\.DUR/],
-    ['DUR 是 NaN：报错照实写出 NaN', ['--query', 'dur=abc'], {}, 1, /window\.DUR 必须是正数（秒），收到 NaN/],
-    ['FPS 是 NaN：报错照实写出 NaN', ['--query', 'fps=abc'], {}, 1, /window\.FPS 必须是正数，收到 NaN/],
-    ['--fps 与页面声明的 FPS 不一致', ['--query', 'fps=30', '--fps', '24'], {}, 2, /不一致/],
-    ['页面没声明 FPS（按 24 量化）时 --fps 30 报错', ['--fps', '30'], {}, 2, /页面没有声明 window\.FPS[\s\S]*--any-fps/],
+    ['缺少必需脚本', ['--query', 'fail=missing'], {}, 1, /缺少文件/],
+    ['等 READY 超时', ['--query', 'fail=never'], { BEIMING_READY_TIMEOUT: '1' }, 124, /超时/],
+    ['render 卡死（单帧超时）', ['--query', 'fail=hang&at=5'], { BEIMING_FRAME_TIMEOUT: '1' }, 124, /没有返回/],
+    ['DUR 不是正数', ['--query', 'dur=0'], {}, 4, /window\.DUR/],
+    ['DUR 是 NaN：报错照实写出 NaN', ['--query', 'dur=abc'], {}, 4, /window\.DUR 必须是正数（秒），收到 NaN/],
+    ['FPS 是 NaN：报错照实写出 NaN', ['--query', 'fps=abc'], {}, 4, /window\.FPS 必须是正数，收到 NaN/],
+    ['--fps 与页面声明的 FPS 不一致', ['--query', 'fps=30', '--fps', '24'], {}, 4, /不一致/],
+    ['页面没声明 FPS（按 24 量化）时 --fps 30 报错', ['--fps', '30'], {}, 4, /页面没有声明 window\.FPS[\s\S]*--any-fps/],
     ['找不到影片页面', [], {}, 2, /找不到影片页面/, 'tests/production/fixtures/nope'],
-    ['--workers 不是正整数', ['--workers', 'abc'], {}, 2, /正整数/],
+    ['--workers 不是正整数', ['--workers', 'abc'], {}, 2, /--workers/],
   ];
   for (const [name, extra, env, code, pattern, film] of cases) {
     await t.test(name, async () => {
@@ -82,7 +82,7 @@ test('video.mjs：FFmpeg 中途被杀、收到 SIGTERM 都能收尾退出', { sk
     try { return Number(execFileSync('pgrep', ['-P', String(pid), 'ffmpeg'], { encoding: 'utf8', timeout: PROBE_MS }).trim().split('\n')[0]) || null; } catch { return null; }
   };
   for (const [name, inject, code, pattern] of [
-    ['FFmpeg 被 SIGKILL', p => { const ff = ffmpegChild(p.pid); if (ff) { process.kill(ff, 'SIGKILL'); return true; } return false; }, 1, /FFmpeg 在第 \d 段中途退出/],
+    ['FFmpeg 被 SIGKILL', p => { const ff = ffmpegChild(p.pid); if (ff) { process.kill(ff, 'SIGKILL'); return true; } return false; }, 1, /FFmpeg 在第 \d+ 路第 \d+ 帧/],
     ['SIGTERM', p => { process.kill(p.pid, 'SIGTERM'); return true; }, 143, /收到 SIGTERM/],
   ]) {
     await t.test(name, async () => {
@@ -119,7 +119,7 @@ test('video.mjs：成功时帧数 = round(DUR × fps)，输出有限范围 BT.70
     // 页面没声明 FPS：--any-fps 明确跳过检查才按 30 fps 渲，并打印提示
     r = await run(...video(join(dir, 'any30.mp4'), '--query', 'dur=1', '--fps', '30', '--any-fps'));
     assert.equal(r.code, 0, r.log);
-    assert.match(r.log, /\[提示\] --any-fps/);
+    assert.match(r.log, /警告\[fps-mismatch-allowed\]：--any-fps/);
     assert.match(probe(join(dir, 'any30.mp4'), 'stream=nb_read_packets,r_frame_rate'), fps30);
     assert.deepEqual(segs(dir), []);
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -140,7 +140,7 @@ test('still.mjs：--range 写错立即报错（不启动浏览器）；经符号
       symlinkSync(ROOT, link);
       const r = await run(join(link, 'engine/render/still.mjs'), [join(link, FILM), '0', '0.5', '--size', '64x64', '--out', join(dir, 'stills')]);
       assert.equal(r.code, 0, r.log);
-      assert.deepEqual(readdirSync(join(dir, 'stills')).sort(), ['s_0.5.jpg', 's_0.jpg']);
+      assert.deepEqual(readdirSync(join(dir, 'stills')).filter(n => n.endsWith('.jpg')).sort(), ['s_0.5.jpg', 's_0.jpg']);   // 另有运行记录 s_still.run.json
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
   // 仓库里的影片目录本身是指向仓库外的链接：照样能渲（静态服务器跟随链接）；仓库外的目录仍然拒绝。
@@ -149,8 +149,8 @@ test('still.mjs：--range 写错立即报错（不启动浏览器）；经符号
     const dir = tmp();
     try {
       const repo = join(dir, 'repo'), outside = join(dir, 'outside', 'film');
-      mkdirSync(join(repo, 'engine', 'render'), { recursive: true });
-      for (const f of ['page.mjs', 'still.mjs', 'args.mjs']) copyFileSync(join(ROOT, 'engine/render', f), join(repo, 'engine/render', f));
+      // 渲染器 v2 依赖仓库的命令约定库、FFmpeg 定位与 AIGC 标识：与 tests/render/helpers.mjs 的 RENDERER_DIRS 相同
+      for (const d of ['engine/render', 'tools/lib', 'tools/env/lib', 'tools/compliance/lib']) cpSync(join(ROOT, d), join(repo, d), { recursive: true });
       symlinkSync(join(ROOT, 'node_modules'), join(repo, 'node_modules'));
       mkdirSync(outside, { recursive: true });
       copyFileSync(join(ROOT, FILM, 'index.html'), join(outside, 'index.html'));
@@ -159,7 +159,7 @@ test('still.mjs：--range 写错立即报错（不启动浏览器）；经符号
       const still = join(repo, 'engine/render/still.mjs');
       let r = await run(still, [join(repo, 'films', 'ext'), '0', '--size', '64x64', '--out', join(dir, 'stills')]);
       assert.equal(r.code, 0, r.log);
-      assert.deepEqual(readdirSync(join(dir, 'stills')), ['s_0.jpg']);
+      assert.deepEqual(readdirSync(join(dir, 'stills')).filter(n => n.endsWith('.jpg')), ['s_0.jpg']);
       r = await run(still, [outside, '0', '--size', '64x64', '--out', join(dir, 'stills2')]);
       assert.equal(r.code, 2, r.log);
       assert.match(r.log, /找不到影片页面/);
@@ -189,7 +189,7 @@ test('mux.sh：音频短几毫秒也不丢末帧；线性增益到 −14 LUFS、
     assert.ok(out.TP <= -1.2, `TP=${out.TP}`);
     assert.ok(Math.abs(out.LRA - src.LRA) <= 0.5, `线性增益不改 LRA：${src.LRA} → ${out.LRA}`);
     const bad = mux(join(dir, 'v101.mp4'), join(dir, 'a.wav'), join(dir, 'x.mp4'), '30');
-    assert.equal(bad.status, 2, bad.stderr);
+    assert.equal(bad.status, 4, bad.stderr);   // 帧率不符是契约不通过（附录 C1）
     // 输入没有范围标记（H.264 默认有限范围）：不能当全范围再压一次（那样黑会抬到约 16、白会掉到约 235）。
     // 用左黑右白的平涂画面，避开中间的边，逐像素比解码后的电平
     ff('-f', 'lavfi', '-i', 'color=c=black:s=32x64:r=24[a];color=c=white:s=32x64:r=24[b];[a][b]hstack[out0]', '-frames:v', '24',
@@ -274,6 +274,7 @@ test('CRLF 检出：mux.sh 去掉 CR 后照常封装，build.sh 跑到参数解�
   const ff = (...a) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...a], { timeout: TOOL_MS });
   const crlf = (src, dst) => { mkdirSync(join(dst, '..'), { recursive: true }); writeFileSync(dst, readFileSync(src, 'utf8').replace(/\n/g, '\r\n')); };
   try {
+    for (const d of ['engine/render/lib', 'tools/lib', 'tools/env/lib', 'tools/compliance/lib']) cpSync(join(ROOT, d), join(dir, d), { recursive: true });   // mux.sh 是调 lib/mux.mjs 的兼容壳
     crlf(join(ROOT, 'engine/render/mux.sh'), join(dir, 'engine/render/mux.sh'));
     crlf(join(ROOT, 'build.sh'), join(dir, 'build.sh'));
     ff('-f', 'lavfi', '-i', 'testsrc=size=64x64:rate=24', '-frames:v', '24', '-c:v', 'libx264', '-qp', '0', '-pix_fmt', 'yuv420p', join(dir, 'v.mp4'));
@@ -283,7 +284,7 @@ test('CRLF 检出：mux.sh 去掉 CR 后照常封装，build.sh 跑到参数解�
     const r = spawnSync(SH, ['engine/render/mux.sh', 'v.mp4', 'a.wav', 'o.mp4', '24'], { cwd: dir, encoding: 'utf8', env, timeout: SCRIPT_MS });
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.match(r.stderr, /CRLF 换行：已去掉 CR 后运行/);
-    assert.match(r.stdout, /原色 bt709、传递特性 bt709）/);
+    assert.match(r.stderr, /原色 bt709、传递特性 bt709）/);   // 日志走 stderr（docs/CLI.md 第 2 节）
     assert.ok(probe(join(dir, 'o.mp4'), 'stream=nb_read_packets').includes('nb_read_packets=24'));
     const b = spawnSync(SH, ['build.sh', '--bogus'], { cwd: dir, encoding: 'utf8', env: { ...env, WORKERS: 'abc' }, timeout: SCRIPT_MS });
     assert.equal(b.status, 2, b.stdout + b.stderr);
