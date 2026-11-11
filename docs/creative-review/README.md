@@ -78,7 +78,7 @@ node engine/production/film.js gate films/<名> deliver   # 能否写「已交�
 
 ## 4. agent 能做什么、不能做什么
 
-- **不能自己批准**：approve / reject / waive 只能由用户或指定审片人做。记录里 `reviewer.kind` 必须是 `human`，并带原话与出处；没有原话、原话是占位符（`用户原话`、`{{…}}`、`TODO`、`代理检查通过`……）或自评口吻的记录无效，状态计算当它不存在。`recordedBy` 写实际录入的人或 agent（默认 agent）。
+- **不能自己批准**：approve / reject / waive 只能由用户或指定审片人做。记录里 `reviewer.kind` 必须是 `human`，`reviewer.name` 写用户或指定审片人（命令行默认「用户」）——名字一眼就是 agent 的（`claude`、`Claude Code`、`codex`、`AI 助手`、`助手`、`代理`……，名单在 `engine/production/vocab.js` 的 `isAgentName`，与 `qa.waivers[].approvedBy` 同一份）判 `review-agent-reviewer`；并带原话与出处；没有原话、原话是占位符（`用户原话`、`{{…}}`、`TODO`、`代理检查通过`……）或自评口吻的记录无效，状态计算当它不存在。`recordedBy` 写实际录入的人或 agent（默认 agent）。
 - **不能替人看片**：全速带声的完整观看只能由人做；agent 不能写「已带声看过」。
 - **能做代理审片**：按 [RUBRIC.md](RUBRIC.md) §3 的规程看联系表、切点帧条、事件帧条、声画数据、读字与安全区，按评分标尺打分并写问题条目（[issue.schema.json](issue.schema.json)），用 `--decision comment` 记录。代理审片的结论只能写「代理检查通过 / 未通过」。
 - **不能编原话**：二手转述不是原话。例如九分钟版文档转述过「用户要求完全沿用原版十秒」，那是转述，不能补成样片的审片记录。

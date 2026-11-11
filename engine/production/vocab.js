@@ -7,6 +7,7 @@
 //   VETOES              一票否决项（出现任一项，画面分记 0，不能送审成片；docs/quality/RUBRIC.md §3）
 //   ISSUE_LAYERS / ISSUE_PRIORITIES / ISSUE_STATUSES   问题条目定位到哪一层、多急、处理到哪
 //   isPlaceholderQuote(text)   一眼就是占位符或 agent 自评口吻的"原话"：这种记录无效
+//   isAgentName(name)          一眼就是 agent 的名字：这种人不能批准、否决或豁免
 
 export const REVIEWER_KINDS = Object.freeze(['human', 'ai']);
 export const DECISIONS = Object.freeze(['approve', 'reject', 'waive', 'comment']);
@@ -52,3 +53,11 @@ export function isPlaceholderQuote(text) {
   const t = text.trim();
   return PLACEHOLDER_QUOTES.some(re => re.test(t));
 }
+
+/**
+ * agent 不能自己批准、否决或豁免（D08）：审片记录的 reviewer.name、RenderResult 的 reviews[].reviewer、film.json 的 qa.waivers[].approvedBy
+ * 都用这一份名单（与 tools/qa/lib/waivers.mjs 同一组词）。英文名看开头那个词（claude、Claude Code、GPT-5、gpt4o、AI 助手 算；aiden、botanist 不算），
+ * 中文名看开头（助手、代理审片 算）——旧写法 \b 在中文后面永远不成立，「助手」「代理」会漏过去。原话真伪仍由验收题库 H6 核对，这里只拦一眼能看出的自批。
+ */
+const AGENT_NAME = /^(?:(?:agent|ai|claude|assistant|bot|gpt|codex)(?![a-z])|代理|助手|智能体|机器人)/i;
+export const isAgentName = name => typeof name === 'string' && AGENT_NAME.test(name.trim());

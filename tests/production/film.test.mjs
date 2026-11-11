@@ -56,6 +56,13 @@ test('事件：落在所属镜头里、在片长之内、id 唯一、end 在 fra
   assert.ok(errors(v(end)).includes('event-end-invalid'));
   const frac = minimalFilm(); frac.events[0].frame = 60.5;
   assert.ok(errors(v(frac)).includes('event-frame-invalid'));
+  // audio 写中文：报错写明允许的字符与收到的值，提示中文说明写到 visual / desc
+  const zh = minimalFilm(); zh.events[0].audio = '玻璃铃';
+  const za = v(zh).diagnostics.find(d => d.code === 'event-audio-invalid');
+  assert.ok(za && za.level === 'error');
+  assert.match(za.message, /"玻璃铃"/);
+  assert.match(za.message, /英文字母、数字和 \. _ : -/);
+  assert.match(za.hint, /visual \/ desc/);
   const silent = minimalFilm(); delete silent.events[0].audio; delete silent.events[0].visual;
   assert.ok(warnings(v(silent)).includes('event-empty'));
 });
@@ -350,7 +357,8 @@ test('qa 段：刻意画面是整数帧半开区间、要写理由；顶层 hold
   assert.ok(errors(v(minimalFilm({ qa: { clearColor: 'black' } }))).includes('qa-override-invalid'));
   const waiver = { check: 'texts.duration', target: 'subtitle', frames: [90, 96], reason: '片尾副标题随最后一拍落定', approvedBy: '用户', quote: '最后那行字停短点没关系', source: '会话 2026-11-10 第 12 条' };
   assert.deepEqual(errors(v(minimalFilm({ qa: { waivers: [waiver] } }))), []);
-  assert.ok(errors(v(minimalFilm({ qa: { waivers: [{ ...waiver, approvedBy: 'agent' }] } }))).includes('qa-waiver-agent'));
+  for (const approvedBy of ['agent', 'Claude Code', '助手', '代理审片', '智能体']) assert.ok(errors(v(minimalFilm({ qa: { waivers: [{ ...waiver, approvedBy }] } }))).includes('qa-waiver-agent'), approvedBy);
+  assert.deepEqual(errors(v(minimalFilm({ qa: { waivers: [{ ...waiver, approvedBy: 'Aiden' }] } }))), []);
   assert.ok(errors(v(minimalFilm({ qa: { waivers: [{ ...waiver, quote: undefined }] } }))).includes('qa-waiver-invalid'));
   assert.ok(warnings(v(minimalFilm({ qa: { waivers: [{ check: 'texts.duration', status: 'proposed' }] } }))).includes('qa-waiver-proposed'));
   assert.ok(errors(v(minimalFilm({ qa: { waivers: [{ ...waiver, frames: [90, 100] }] } }))).includes('qa-waiver-invalid'));

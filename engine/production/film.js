@@ -31,18 +31,19 @@ import { canonicalRoute, normalizeRelativePath, validateProjectSpec } from './pr
 import { BUILTIN_ROUTES, loadRouteRegistry, resolveRoute } from './routes.js';
 import { checkAssets, loadRegistry as loadAssetRegistry, resolveAsset } from '../assets/manifest.js';
 import { REPO_ROOT, formatJson, readJsonFile, repoRelative, sha256Text, writeJsonAtomic } from './io.js';
-import { isPlaceholderQuote } from './vocab.js';
+import { isAgentName, isPlaceholderQuote } from './vocab.js';
 import { validateSteps } from '../../tools/lib/routes.mjs';
 import { createTempo } from '../core/tempo.js';
 import {
-  FRAME_EPS, TimelineError, beatGrid, checkShots, frameOfBeat, offGrid, retimeShot, secondsToFrame, stableStringify, timingOf,
+  FRAME_EPS, SHOT_ID, TimelineError, beatGrid, checkShots, frameOfBeat, offGrid, retimeShot, secondsToFrame, stableStringify, timingOf,
 } from './timeline.js';
 
 export const FILM_SCHEMA_VERSION = 2;
 export const FILM_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-const SHOT_OR_TRACK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const EVENT_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const CUE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+/** 各个 id 字段的规则；film.schema.json 里对应字段的 pattern 与它逐字相同（tests/production/schema.test.mjs 守住）。 */
+export const ID_PATTERNS = Object.freeze({ film: FILM_ID, shot: SHOT_ID, track: SHOT_ID, event: EVENT_ID, cue: CUE_ID });
 const PLACEHOLDER = /\{\{\s*([^{}\s]*)\s*\}\}/g;
 
 export const EVALUATIONS = Object.freeze(['absolute', 'baked', 'sequential']);
@@ -86,8 +87,6 @@ const FIELDS = {
 };
 /** qa 段里按档位阈值覆盖的四段：键名必须是档位里已有的（engine/production/profiles.json），否则 QA 不会读。 */
 const QA_OVERRIDES = Object.freeze(['texts', 'visual', 'sync', 'plates']);
-/** 豁免的批准人不能是 agent（D08；与 tools/qa/lib/waivers.mjs 同一口径）。 */
-const AGENT_APPROVER = /^(agent|ai|claude|assistant|bot|gpt|codex|代理|助手|智能体|机器人)\b/i;
 /** 各层字段白名单（与 engine/production/film.schema.json 一致，由 tests/production/schema.test.mjs 守住）。 */
 export const FILM_FIELDS = Object.freeze(Object.fromEntries(Object.entries(FIELDS).map(([k, v]) => [k, Object.freeze([...v])])));
 /**
@@ -563,7 +562,7 @@ export function validateFilm(input, opts = {}) {
     if (tracks !== undefined) {
       if (!Array.isArray(tracks)) err('shot-tracks-invalid', `${p}.tracks`, 'tracks 必须是 [{ id, step }] 数组');
       else tracks.forEach((tr, k) => {
-        if (!isObj(tr) || !SHOT_OR_TRACK_ID.test(tr.id ?? '')) { err('shot-tracks-invalid', `${p}.tracks[${k}]`, '每条轨道要有合法 id'); return; }
+        if (!isObj(tr) || !SHOT_ID.test(tr.id ?? '')) { err('shot-tracks-invalid', `${p}.tracks[${k}]`, '每条轨道要有合法 id'); return; }
         if (trackIds.has(tr.id)) err('shot-tracks-invalid', `${p}.tracks[${k}]`, `轨道 id 重复：${tr.id}`);
         trackIds.add(tr.id);
         if (!(Number.isInteger(tr.step) && tr.step >= 1 && tr.step <= 12)) err('shot-tracks-invalid', `${p}.tracks[${k}].step`, 'step（一拍几）必须是 1–12 的整数');
@@ -643,7 +642,10 @@ export function validateFilm(input, opts = {}) {
       if (!nonNegInt(e.end) || e.end <= e.frame) err('event-end-invalid', `${p}.end`, `end（不含）必须是大于 frame 的整数帧，收到 ${JSON.stringify(e.end)}`);
       else if (frameCount !== null && e.end > frameCount) err('event-end-invalid', `${p}.end`, `end=${e.end} 超出整片 ${frameCount}`);
     }
-    if (e.audio !== undefined && !(isStr(e.audio) && CUE_ID.test(e.audio))) err('event-audio-invalid', `${p}.audio`, 'audio 是声音表里的 cue id（字符串）');
+    if (e.audio !== undefined && !(isStr(e.audio) && CUE_ID.test(e.audio))) {
+      err('event-audio-invalid', `${p}.audio`, `audio 写声音表里的 cue id：字母或数字开头，只用英文字母、数字和 . _ : -，最长 128 个字符；收到 ${JSON.stringify(e.audio)}`,
+        '中文说明写进 visual / desc，audio 只写声音表里的英文 cue id（如 bell.glass）');
+    }
     if (e.visual !== undefined && !isStr(e.visual)) err('event-visual-invalid', `${p}.visual`, 'visual 是这一帧看得见的结果（非空字符串）');
     if (e.audio === undefined && e.visual === undefined && e.domain === undefined) warn('event-empty', p, `事件 ${e.id} 既没有 visual 也没有 audio`, '写明这一帧看见什么（visual）或响什么（audio），否则没人消费它');
     if (e.domain !== undefined && !EVENT_DOMAINS.includes(e.domain)) err('event-domain-invalid', `${p}.domain`, `domain 只能是 ${EVENT_DOMAINS.join(' / ')}`);
@@ -1009,7 +1011,7 @@ function validateQa(q, { err, warn, known, frameCount, shotById, shotsOk, profil
       } else {
         if (w.status !== undefined && w.status !== 'approved') err('qa-waiver-invalid', `${p}.status`, 'status 只能是 proposed（agent 起草，待批）或 approved');
         for (const k of ['reason', 'approvedBy', 'quote', 'source']) if (!isStr(w[k])) err('qa-waiver-invalid', `${p}.${k}`, `缺 ${k}：豁免必须写明谁批准、用户原话与出处，否则 QA 不采用`);
-        if (isStr(w.approvedBy) && AGENT_APPROVER.test(w.approvedBy.trim())) err('qa-waiver-agent', `${p}.approvedBy`, 'approvedBy 不能是 agent 自己：豁免只能由用户或集成负责人批准（D08）');
+        if (isAgentName(w.approvedBy)) err('qa-waiver-agent', `${p}.approvedBy`, 'approvedBy 不能是 agent 自己：豁免只能由用户或集成负责人批准（D08）');
         if (isStr(w.quote) && isPlaceholderQuote(w.quote)) err('qa-waiver-invalid', `${p}.quote`, `quote 是占位符或自评口吻（${JSON.stringify(w.quote)}）：只能写用户原话`);
       }
       if (w.frames !== undefined) {
