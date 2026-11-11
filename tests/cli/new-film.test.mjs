@@ -29,6 +29,7 @@ function sandbox({ withEngine = false } = {}) {
     // 联调：真实的引擎目录（含作品描述包）复制进来，共享素材 assets/ 用目录链接（Windows 上 junction 不要管理员权限）
     fs.cpSync(path.join(ROOT, 'engine'), path.join(dir, 'engine'), { recursive: true });
     fs.symlinkSync(path.join(ROOT, 'assets'), path.join(dir, 'assets'), 'junction');
+    fs.symlinkSync(path.join(ROOT, 'media'), path.join(dir, 'media'), 'junction');   // A 模版的 style.baseline 指向 media/shot_1.6.jpg
   } else {
     fs.mkdirSync(path.join(dir, 'engine/render'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'engine/render/native.mjs'), '// 沙盒占位：注册表要求渲染器入口存在\n');
@@ -100,7 +101,7 @@ test('--dry-run --json：退出 0、不写盘、给出文件清单、v2 film.jso
   assert.equal(r.json.data.validation.status, 'skipped', '演练不调用校验器');
 });
 
-test('正式生成 A：v2 + 镜头表 + 风格 + 兼容镜像、稳定排版、占位符替换、可执行位、没有暂存目录残留', () => {
+test('正式生成 A：v2 + 两镜头 + 事件 + 画风 + 文字与字体、稳定排版、占位符替换、没有暂存目录残留', () => {
   const dir = sandbox();
   const r = newFilm(dir, ['a', 'dawn', '--title', '破晓', '--json']);
   assert.equal(r.code, 0, r.err);
@@ -108,22 +109,18 @@ test('正式生成 A：v2 + 镜头表 + 风格 + 兼容镜像、稳定排版、�
   const text = fs.readFileSync(path.join(d, 'film.json'), 'utf8');
   const fj = JSON.parse(text);
   assert.equal(text, formatFilmJson(fj), '按稳定排版写');
-  assert.match(text, /^ {2}"size": \[1920, 1080\]$/m, '短数组写在一行');
-  assert.equal(fj.output.profile, 'web-1080p24');
-  assert.deepEqual([fj.dur, fj.fps, fj.size], [3, 24, [1920, 1080]], '兼容字段按 output 重写');
-  assert.match(fj.$comment, /兼容镜像/);
+  assert.deepEqual(fj.output, { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 192 });
   assert.equal(fj.backend, 'three');
-  assert.deepEqual(fj.shots, [{ id: 'S1', in: 0, out: 72 }]);
-  assert.deepEqual(fj.audio, { mode: 'script', script: 'sound.py' }, '响度目标跟档位走，不写死');
-  assert.equal(fj.style.id, 'a-template', 'A 路线必须写 style');
-  assert.ok(r.json.warnings.some(w => w.code === 'template.size-changed'), '模版 1920×1040 → 档位 1920×1080 要提示');
+  assert.deepEqual(fj.shots.map(s => [s.id, s.in, s.out]), [['S1', 0, 72], ['S2', 72, 192]]);
+  assert.deepEqual(fj.events.map(e => [e.id, e.shot]), [['sun-break', 'S2'], ['title-in', 'S2']]);
+  assert.equal(fj.style.id, 'beiming-original', 'A 路线必须写 style');
+  assert.equal(fj.texts.find(t => t.id === 'title').text, '破晓', '片名占位符替换');
   assert.match(fs.readFileSync(path.join(d, 'README.md'), 'utf8'), /^# 破晓/);
-  assert.doesNotMatch(fs.readFileSync(path.join(d, 'build.sh'), 'utf8'), /\{\{/);
-  if (process.platform !== 'win32') assert.ok(fs.statSync(path.join(d, 'build.sh')).mode & 0o100, 'build.sh 保留可执行位');
+  for (const f of ['main.js', 'sound.py', 'index.html']) assert.doesNotMatch(fs.readFileSync(path.join(d, f), 'utf8'), /\{\{[A-Z_]+\}\}/, f);
   assert.deepEqual(listFilms(dir), ['dawn'], '不留 .new-* 暂存目录');
   assert.equal(r.json.outputs.length, r.json.data.files.length);
   assert.ok(r.json.outputs.find(o => o.path === 'films/dawn/film.json').kind === 'film-json');
-  assert.match(r.json.data.next[0].display, /^node engine\/render\/still\.mjs films\/dawn 0 1\.5 2\.958 --size 1920x1080/);
+  assert.match(r.json.data.next[0].display, /^node tools\/fonts\/subset\.mjs films\/dawn/, '第一步是按本片文字生成字体子集');
 });
 
 test('C：v1 的 poster（秒）换成 posterFrame（帧），cuecheck 原样保留', () => {

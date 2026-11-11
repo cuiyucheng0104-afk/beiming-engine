@@ -1,0 +1,5 @@
+{
+  "description": "A 路线（北冥风格路线 · WebGL 三渲二）的工具与规则：画风注册表 engine/style、字体链路 tools/fonts（锁定、缓存核对、按作品子集化与覆盖率）、底板准入 tools/plates（来源链、原图尺寸、四边 alpha、纹素密度、出血）、仓库规则 route-a（含镜像作品）、命令约定，以及模版 render(t) 与渲染历史无关的回归。真正的子集化与模版渲染要 fontTools 与字体缓存（BEIMING_PYTHON、BEIMING_FONT_CACHE），模版渲染另要浏览器；缺了就跳过并写明原因。不联网。",
+  "timeoutSec": 300,
+  "testTimeoutSec": 120
+}

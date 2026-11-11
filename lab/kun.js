@@ -3,19 +3,20 @@
 //   1.5–3.0  ② 从下方仰视腹部和头（镜头 C 那种渡船甲板机位）
 //   3.0–4.0  ③ 眼睛特写
 // 背景：assets/ref/sky_test.png（cover 铺满）。主光 = 破晓低角度逆光；城市暖光自下而上。
-// 描边：这里临时写了一个屏幕空间描边（深度 + 法线 + 物体/实例 ID，按一拍二抖动），只为看效果；正片描边归后期代理。
-// 渲染器、合成、机位表、三遍渲染在 lab/kun_bench.js（各变体页共用）。
-// 可选参数：&lod=0.3（实例密度）&noink=1（关描边）&pass=1（看法线/ID 通道，左右条纹交替）
+// 后期：默认走正片的后期管线（src/look.js → engine/look：ID 图墨线、Kuwahara、bloom、调色、纸纹），这里调好的换进正片不会变样；
+//       &ink=lab 回退到旧的临时屏幕描边（深度 + 法线 + 物体/实例 ID，一拍二抖动），只给对照旧截图用，它不能证明正片后期一致。
+// 渲染器、后期选择、机位表在 lab/kun_bench.js（各变体页共用）。
+// 可选参数：&lod=0.3（实例密度）&noink=1（关描边）&pass=1（看 ID 图；临时描边下是法线/ID 通道左右条纹交替）&dbg=<后期中间缓冲>
 //   &view=side|top|far|eye|under|reveal（固定机位）&roll=-0.5（鲲侧倾，弧度）&look=1（眼珠看镜头）
 import * as THREE from 'three';
 import { createKun } from '../src/kun.js';
 import { PALETTE, setToonGlobals } from '../src/toon.js';
-import { labRenderer, kunStats, keyLight, inkComposite, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, drawPasses } from './kun_bench.js';
+import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);
 // &roll=0.4：鲲绕身体长轴侧倾（弧度），让一侧肋部和背上的植被朝向镜头；&look=1：眼珠看向镜头
 const ROLL = +(q.get('roll') || 0), LOOK = !!q.get('look');
-const { renderer, W, H, RW, RH } = labRenderer(2);
+const { renderer, W, H, RW, RH } = labRenderer(labPixelRatio(q));
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, W / H, 5, 6000);
@@ -27,7 +28,7 @@ kunStats('kun', kun);
 scene.add(kun.group);
 
 const { key } = keyLight(scene, setToonGlobals);
-const { rtC, rtN, comp, skyCover } = await inkComposite({ RW, RH, W, H, PALETTE, q });
+const { skyCover, draw } = await labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q });   // 默认正片后期；&ink=lab 回退临时描边
 
 const ev = new THREE.Vector3();
 const EXTRA = baseExtra(ev);
@@ -38,14 +39,14 @@ const forced = EXTRA[q.get('view')];
 window.DUR = 4;
 window.render = t => {
   const { v, k } = pickView(BASE_VIEWS, forced, t, window.DUR);
-  const { ts, inkT } = frameTimes(t);                       // 鲲：一拍三（8 fps）；墨线一拍二
+  const { fr, ts, inkT } = frameTimes(t);                       // 鲲：一拍三（8 fps）；墨线一拍二
   camera.fov = v.fov; camera.updateProjectionMatrix();
   kun.group.updateMatrixWorld(true); kun.eyeWorld(ev, -1);
   if (v.cam) { camera.position.set(...v.cam(k)); camera.lookAt(...v.look(k)); }
   else eyeCloseup(camera, kun, ev, k);                      // 眼睛特写：从眼睛外侧略偏下看
   kun.setPose(ts, LOOK ? { look: camera.position } : {});   // 相机就位后再摆姿态（眼珠要看相机）
   skyCover(...v.sky);
-  drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlobals, inkT });
+  draw({ camera, setToonGlobals, inkT, fr });
 };
 const tw = performance.now();
 window.render(0); window.render(1.6); window.render(3.2);

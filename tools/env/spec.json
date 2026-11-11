@@ -81,7 +81,9 @@
       "numba",
       "soundfile",
       "soxr",
-      "PIL.Image"
+      "PIL.Image",
+      "fontTools.subset",
+      "brotli"
     ],
     "optional": [
       {
@@ -188,24 +190,9 @@
         "engine/render/build.mjs",
         "engine/render/native.mjs",
         "audio/check.py",
-        "routes/a-webgl/template/build.sh",
         "tests/production/render-pipeline.test.mjs"
       ],
       "replacement": "engine/render/lib/mux.mjs（P04·R3）：同样的参数与退出码，ffmpeg 经 FFMPEG / FFPROBE 解析，两遍响度用 ebur128 的 JSON 结果在 Node 里算；mux.sh 改成调用它的薄壳"
-    },
-    {
-      "path": "routes/a-webgl/template/build.sh",
-      "owner": "P12",
-      "spawnedBy": [
-        "films/<名>/build.sh"
-      ],
-      "replacement": "npm run film -- build films/<名>（P06 按 film.json 分派）；模版不再带 build.sh"
-    },
-    {
-      "path": "fonts/fetch_fonts.sh",
-      "owner": "P12",
-      "spawnedBy": [],
-      "replacement": "node tools/fonts/fetch.mjs（P12）：只用 fetch 与 node:crypto，按锁定清单校验 sha256，不覆盖已入库的子集"
     }
   ],
   "systemVars": [
@@ -239,11 +226,11 @@
       "name": "BEIMING_ANGLE",
       "group": "渲染（engine/render）",
       "purpose": "无头浏览器的 ANGLE 后端：metal / vulkan / gl / d3d11 / swiftshader / default",
-      "default": "macOS 为 metal，其它平台不传参数（Windows 双显卡机上会落到核显，NVIDIA 机器设 vulkan）",
+      "default": "macOS metal、Windows vulkan、Linux 不传参数（default）；写错或平台不对时渲染器退出 2",
       "readBy": [
-        "engine/render/page.mjs",
-        "tools/site-qa.mjs",
-        "tools/env/lib/browser.mjs"
+        "engine/render/lib/gpu.mjs",
+        "tools/env/lib/browser.mjs",
+        "tools/site-qa.mjs"
       ]
     },
     {
@@ -252,7 +239,7 @@
       "purpose": "改用指定的浏览器可执行文件（完整路径）",
       "default": "playwright-core 1.63.0 锁定的 chromium-headless-shell 153（不设最好：换浏览器会破坏跨机器一致性）",
       "readBy": [
-        "engine/render/page.mjs",
+        "engine/render/lib/gpu.mjs",
         "tools/rtx/gpucheck.mjs",
         "engine/native/prepare.mjs",
         "engine/native/bridge/export.mjs",
@@ -275,9 +262,55 @@
       "name": "BEIMING_FRAME_TIMEOUT",
       "group": "渲染（engine/render）",
       "purpose": "单帧 render(t) 的上限（秒），超时按失败处理",
-      "default": "300",
+      "default": "60",
       "readBy": [
-        "engine/render/video.mjs"
+        "engine/render/page.mjs",
+        "tools/lookdev/sweep.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_GPU",
+      "group": "渲染（engine/render）",
+      "purpose": "--gpu 的默认值：required（软件渲染判失败，退出 3）/ any（允许并记提示）/ software-ok（CI、没有 GPU 的机器、资产烘焙）",
+      "default": "required",
+      "readBy": [
+        "engine/render/lib/gpu.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_SLOT_DIR",
+      "group": "渲染（engine/render）",
+      "purpose": "机器级渲染槽位的目录（多个渲染排队用）",
+      "default": "<系统临时目录>/beiming-render-slots-<用户>",
+      "readBy": [
+        "engine/render/lib/slots.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_SLOT_HELD",
+      "group": "渲染（engine/render）",
+      "purpose": "设为 1 表示外层调度已替这次渲染占了槽位，渲染器不再另占",
+      "default": "不设",
+      "readBy": [
+        "engine/render/lib/slots.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_GPU_BUSY_UTIL",
+      "group": "渲染（engine/render）",
+      "purpose": "共享 GPU 守卫：任一 NVIDIA 卡占用率（%）高于它就排队等",
+      "default": "10",
+      "readBy": [
+        "engine/render/lib/slots.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_GPU_MIN_FREE_MB",
+      "group": "渲染（engine/render）",
+      "purpose": "共享 GPU 守卫：任一 NVIDIA 卡空闲显存（MB）低于它就排队等",
+      "default": "2048",
+      "readBy": [
+        "engine/render/lib/slots.mjs"
       ]
     },
     {
@@ -301,7 +334,7 @@
     {
       "name": "FFMPEG",
       "group": "编码",
-      "purpose": "ffmpeg 可执行文件（完整路径）。目前只有 B 路线入口与 tools/env 识别；engine/render/video.mjs、mux.sh、build.sh、audio/check.py 仍从 PATH 调用（Node 入口改用 tools/env/lib/ffmpeg.mjs 的 ffmpegBins 即可统一）",
+      "purpose": "ffmpeg 可执行文件（完整路径）。engine/render（video / shots / mux）与 tools/env 都经 tools/env/lib/ffmpeg.mjs 的 ffmpegBins 解析；build.sh、audio/check.py 仍从 PATH 调用",
       "default": "PATH 里的 ffmpeg",
       "readBy": [
         "engine/render/native.mjs",
@@ -353,7 +386,6 @@
       "readBy": [
         "build.sh",
         "audio/build.sh",
-        "routes/a-webgl/template/build.sh",
         "engine/native/prepare.mjs",
         "tools/env/lib/python.mjs",
         "tools/env/setup.mjs"
@@ -420,6 +452,42 @@
       ]
     },
     {
+      "name": "BEIMING_AUDIO_OUT",
+      "group": "声音",
+      "purpose": "统一出片传给作品声音脚本的输出 wav 路径（out/<运行号>/audio/mix.wav；工具设置，不要手动设）",
+      "default": "由统一出片设置；单独跑 sound.py 时写 films/<名>/out/mix.wav",
+      "readBy": [
+        "routes/a-webgl/template/sound.py"
+      ]
+    },
+    {
+      "name": "BEIMING_FPS",
+      "group": "声音",
+      "purpose": "统一出片传给声音脚本的帧率；A 模版 sound.py 与 film.json 不一致时退出 4（换了档位却没改作品描述）",
+      "default": "由统一出片设置",
+      "readBy": [
+        "routes/a-webgl/template/sound.py"
+      ]
+    },
+    {
+      "name": "BEIMING_FRAMES",
+      "group": "声音",
+      "purpose": "统一出片传给声音脚本的总帧数；核对方式同 BEIMING_FPS",
+      "default": "由统一出片设置",
+      "readBy": [
+        "routes/a-webgl/template/sound.py"
+      ]
+    },
+    {
+      "name": "BEIMING_FONT_CACHE",
+      "group": "字体（tools/fonts）",
+      "purpose": "原始 OFL 字体的缓存目录（fetch 下载、subset 子集化都读它）；多个检出可以共用一份",
+      "default": "仓库根的 .cache/fonts（已被 git 忽略）",
+      "readBy": [
+        "tools/fonts/lock.mjs"
+      ]
+    },
+    {
       "name": "BEIMING_SH",
       "group": "过渡期 sh",
       "purpose": "POSIX sh 的完整路径（Windows 上 Git for Windows 装在非默认位置时用）；sh 入口全部改成 Node 后不再需要",
@@ -464,6 +532,7 @@
       "purpose": "共享 GPU 检查时查询的 ComfyUI 队列地址",
       "default": "http://127.0.0.1:8188",
       "readBy": [
+        "engine/render/lib/slots.mjs",
         "engine/render/native.mjs"
       ]
     },
@@ -533,9 +602,11 @@
     {
       "name": "RENDER_SLOTS",
       "group": "C 路线历史复刻",
-      "purpose": "风格库甲渲染核心的整机并发名额",
+      "purpose": "整机渲染并发名额：engine/render（--slots 的默认值，不设不限）与风格库甲的渲染核心都认",
       "default": "该库默认",
-      "readBy": [],
+      "readBy": [
+        "engine/render/lib/slots.mjs"
+      ],
       "external": "cases/vendor/lemo-opuscar/core/render/slot.mjs"
     },
     {
