@@ -10,5 +10,5 @@ soundfile>=0.13,<1
 soxr>=0.5,<2
 pillow>=11,<14
 # A 路线按作品生成字体子集（tools/fonts/subset.mjs 调 fontTools 的 subset；woff2 压缩要 brotli）
-fonttools>=4.60,<5
+fonttools>=4.68.0,<5
 brotli>=1.1,<2
