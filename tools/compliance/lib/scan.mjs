@@ -100,13 +100,15 @@ export function scanRepository({ root = REPO_ROOT, staged = false, only = null, 
     }
   }
 
-  // 2) 个人邮箱：公开历史只报告；D02 之后的新提交仍用个人邮箱则阻断；当前 git 配置是个人邮箱给提示
+  // 2) 个人邮箱：公开历史（D02 之前的，或已在远端的）只报告；D02 之后、还没推送的提交仍用个人邮箱则阻断；当前 git 配置是个人邮箱给提示
   if (want('comp.personal-email') && !staged && source === 'git') {
     const log = gitLines(root, ['log', '--format=%h%x09%ae%x09%ce%x09%cI']) || [];
+    // 已经在远端（git branch -r 能看到的任何分支）上的提交是公开历史：按 D02 不改写，只报告，不然它们会永远阻断
+    const published = new Set(gitLines(root, ['log', '--remotes', '--format=%h']) || []);
     const old = [], fresh = [], unlinked = [];
     for (const row of log) {
       const [h, ae, ce, cd] = row.split('\t');
-      const isNew = Date.parse(cd) >= Date.parse(NOREPLY_SINCE);
+      const isNew = Date.parse(cd) >= Date.parse(NOREPLY_SINCE) && !published.has(h);
       if (isNew && [ae, ce].some(isUnlinkedNoreply)) unlinked.push(h);
       if (!isPersonalEmail(ae) && !isPersonalEmail(ce)) continue;
       (isNew ? fresh : old).push(h);

@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { REPO, j, hasGit, mkRepo, git, rm, runCli, parseEnvelope, worktreeState } from './helpers.mjs';
 
 const CLIS = ['tools/compliance/scan.mjs', 'tools/compliance/rights-inventory.mjs', 'tools/compliance/signed-urls.mjs', 'tools/compliance/aigc.mjs'];
@@ -152,4 +153,27 @@ test('rights-inventory：登记册与案例目录一致；--check 与 --write �
   assert.ok(ids.includes('R01') && ids.includes('R02') && ids.includes('R03'), '上美影、乐奇、参考图三类必须在册');
   assert.equal(runCli('tools/compliance/rights-inventory.mjs', ['--check', '--write']).code, 2);
   assert.equal(runCli('tools/compliance/rights-inventory.mjs', ['--root', path.join(REPO, 'no-such-dir')]).code, 3);
+});
+
+test('scan personal-email：D02 之后用个人邮箱的提交，没推送时阻断，已在远端（公开历史）时只报告', { skip: !hasGit }, () => {
+  const personal = j('someone', '@', 'gmail', '.com');   // 拼出来：源码里不出现完整地址
+  const repo = mkRepo({ 'a.txt': '1\n' });
+  const bare = fs.mkdtempSync(path.join(path.dirname(repo), 'beiming-comp-remote-'));
+  try {
+    fs.writeFileSync(path.join(repo, 'b.txt'), '2\n');
+    git(repo, ['add', '--', 'b.txt']);
+    const env = { GIT_AUTHOR_DATE: '2026-11-11T12:00:00+08:00', GIT_COMMITTER_DATE: '2026-11-11T12:00:00+08:00' };
+    const r0 = spawnSync('git', ['-C', repo, '-c', `user.email=${personal}`, '-c', 'user.name=x', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'late'], { env: { ...process.env, ...env }, encoding: 'utf8' });
+    assert.equal(r0.status, 0, r0.stderr);
+    const scan = () => runCli('tools/compliance/scan.mjs', ['--root', repo, '--json', '--only', 'personal-email', '--allowlist', 'none']);
+    const before = scan();
+    assert.equal(before.code, 4, '没推送的个人邮箱提交是阻断级');
+    git(bare, ['init', '-q', '--bare']);
+    git(repo, ['remote', 'add', 'origin', bare]);
+    git(repo, ['push', '-q', 'origin', 'HEAD:refs/heads/main']);
+    git(repo, ['fetch', '-q', 'origin']);
+    const after = scan();
+    assert.equal(after.code, 0, `推到远端之后只报告：${after.stdout}`);
+    assert.ok(parseEnvelope(after.stdout).result.findings.some(f => f.rule === 'comp.personal-email' && f.blocking === false), '仍然报告（不阻断）');
+  } finally { rm(repo); rm(bare); }
 });
