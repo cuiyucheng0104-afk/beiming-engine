@@ -7,11 +7,11 @@
 // 软件渲染：CI 上设 BEIMING_ANGLE=swiftshader（Linux 无显卡）；macOS 本机同样用 BEIMING_ANGLE=swiftshader 模拟。
 //
 // 阶段：
-//   a        new-film a → films/<临时名>/build.sh --size 384x208（关键帧 → 声音 → 逐帧 → 封装）→ 核对成片与中段关键帧
-//   c        new-film c → film.json 的 size 改成 320x180 → engine/render/build.mjs（事件 → 混音 → 拍点 → 逐帧 → 封装 → 海报 → 核对）
+//   a        new-film a → 字体子集 → film build --size 384x216（统一出片入口）→ 核对成片与联系表
+//   c        new-film c → film build --size 320x180（统一出片入口：事件 → 混音 → 拍点 → 逐帧 → 封装 → 海报）→ 核对成片与海报
 //   b        new-film b → engine/native/prepare.mjs（资产桥导出 GLB、底板、声音；不需要原生运行时）→ 声明的素材齐全、
 //            prepared.json 的哈希与文件一致；再准备一遍，两次产物逐字节相同（资产桥的确定性）
-//   b-render 只在设了 RAEA_BIN（原生运行时，仓库不分发）时运行：engine/render/native.mjs 以小尺寸出片并核对；没设就跳过并写明
+//   b-render 只在设了 RAEA_BIN（原生运行时，仓库不分发）时运行：film build 按模版原尺寸出片并核对（B 没有小画幅工作版）；没设就跳过
 //   beiming  《北冥》1.5 / 4.0 / 7.6 秒与 lab 自测页 look 的静帧（默认 384x208）→ 不是黑屏、不是纯色
 //   golden   tools/baseline/golden.mjs（P08）：tests/golden/<平台键>/manifest.json 在就 compare，不在就 capture 并把结果放进 --out
 //   最后总会把本次的静帧拼成 <out>/contact.jpg（只用来看一眼，不参与判定）。
@@ -57,7 +57,7 @@ export const HELP = `北冥仓库 · 无 GPU 冒烟出片（CI smoke-render）
 
   --only <阶段,…> / --skip <阶段,…>   阶段：${PHASES.join('、')}
   --out <目录>            产物与报告目录（默认 out/ci/smoke）
-  --size-a <WxH>          A 模版出片尺寸（默认 384x208，与 1920x1040 同比例）
+  --size-a <WxH>          A 模版出片尺寸（默认 384x216，16:9；A 模版按 16:9 构图）
   --size-c <WxH>          C 模版出片尺寸（默认 320x180）
   --size-beiming <WxH>    《北冥》静帧尺寸（默认 384x208）
   --golden <模式>         auto（默认：有清单就比对，没有就采集）、compare、capture、off
@@ -148,7 +148,7 @@ export async function main(argv = process.argv.slice(2)) {
     ctx = {
       root, opts, golden, warnings, created,
       out: path.resolve(opts.out || path.join(root, 'out/ci/smoke')),
-      sizeA: sizeOf(opts['size-a'] || '384x208', 'size-a'), sizeC: sizeOf(opts['size-c'] || '320x180', 'size-c'),
+      sizeA: sizeOf(opts['size-a'] || '384x216', 'size-a'), sizeC: sizeOf(opts['size-c'] || '320x180', 'size-c'),
       sizeB: sizeOf(opts['size-beiming'] || '384x208', 'size-beiming'),
       platform: opts.platform || (software ? `${osKey}-swiftshader` : null), sets: opts['golden-set'].length ? opts['golden-set'] : ['beiming-core', 'lab'],
       timeoutMs: 1000 * (opts.timeout || 600), tag: crypto.randomBytes(3).toString('hex'),
@@ -241,12 +241,12 @@ function planOf(id, ctx) {
   const r = p => path.relative(ctx.root, p).split(path.sep).join('/');
   const film = route => `films/ci-smoke-${route}-${ctx.tag}`;
   switch (id) {
-    case 'a': return [`node tools/new-film.mjs a ${film('a').slice(6)} --title 冒烟试映`, `PYTHON=<python> sh ${film('a')}/build.sh --size ${ctx.sizeA.join('x')}`, `核对 ${film('a')}/out/film.mp4 与 out/stills/`];
-    case 'c': return [`node tools/new-film.mjs c ${film('c').slice(6)} --title 冒烟试映`, `把 ${film('c')}/film.json 的 size 改成 [${ctx.sizeC}]`, `BEIMING_PY=<python> node engine/render/build.mjs ${film('c')}`, `核对 ${film('c')}/out/${film('c').slice(6)}.mp4 与 poster.jpg`];
+    case 'a': return [`node tools/new-film.mjs a ${film('a').slice(6)} --title 冒烟试映`, `node tools/fonts/subset.mjs ${film('a')}`, `node tools/film/cli.mjs build ${film('a')} --size ${ctx.sizeA.join('x')} --gpu software-ok`, `核对 ${film('a')}/out/<run-id>/master.mp4 与 contact.jpg`];
+    case 'c': return [`node tools/new-film.mjs c ${film('c').slice(6)} --title 冒烟试映`, `node tools/film/cli.mjs build ${film('c')} --size ${ctx.sizeC.join('x')} --gpu software-ok`, `核对 ${film('c')}/out/<run-id>/master.mp4 与 poster.jpg`];
     case 'b': return [`node tools/new-film.mjs b ${film('b').slice(6)} --title 冒烟试映`, `PYTHON=<python> node engine/native/prepare.mjs ${film('b')}`,
       `核对 ${film('b')}/media/ 的素材与 prepared.json，再准备一遍比对哈希`];
     case 'b-render': return process.env.RAEA_BIN
-      ? [`把 ${film('b')}/film.json 的 size 改成 [${ctx.sizeC}]`, `RAEA_BIN=${process.env.RAEA_BIN} node engine/render/native.mjs ${film('b')} --quality draft`, '核对成片规格']
+      ? [`RAEA_BIN=${process.env.RAEA_BIN} node tools/film/cli.mjs build ${film('b')} --gpu software-ok`, '核对成片规格']
       : ['跳过：没有设 RAEA_BIN（原生运行时不随仓库分发）'];
     case 'beiming': return [`node engine/render/still.mjs . 1.5 4.0 7.6 --size ${ctx.sizeB.join('x')} --out ${r(path.join(ctx.out, 'beiming'))}`,
       `node engine/render/still.mjs . 1.0 --query test=look --size ${ctx.sizeB.join('x')} --out ${r(path.join(ctx.out, 'lab'))} --prefix look_`];
@@ -292,7 +292,22 @@ async function newFilm(ph, ctx, route) {
   ctx.created.push(dir);
   await step(ctx, 'new-film', process.execPath, [path.join(ctx.root, 'tools/new-film.mjs'), route, name, '--title', '冒烟试映']);
   ph.check('new-film 建出作品目录', fs.existsSync(path.join(dir, 'film.json')), `films/${name}`, '存在 film.json');
-  return { name, dir, rel: `films/${name}`, film: JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')) };
+  return { name, route, dir, rel: `films/${name}`, film: JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')) };
+}
+
+// 三条路线都走统一出片入口（tools/film/cli.mjs build）：A、C 用 --size 出小尺寸工作版（不跑交付 QA，规格由下面的 checkFilm 核对）；
+// B 的画幅只来自 film.json（调用方已改小），不传 --size。--gpu software-ok 允许 CI 的 SwiftShader；
+// 成片在运行目录 <作品>/out/<run-id>/master.mp4（out/latest 指向它）
+async function filmBuild(ph, ctx, f, w, h, env = {}) {
+  const size = f.route === 'b' ? [] : ['--size', `${w}x${h}`];
+  await step(ctx, `${f.route.toUpperCase()} 出片（film build${size.length ? ` --size ${w}x${h}` : ''}）`, process.execPath,
+    [path.join(ctx.root, 'tools/film/cli.mjs'), 'build', f.dir, ...size, '--gpu', 'software-ok'], { PYTHON: ctx.pyExe, ...env });
+  let runId = null;
+  try { runId = fs.readFileSync(path.join(f.dir, 'out', 'latest'), 'utf8').trim(); } catch { /* 下面判 */ }
+  const runDir = runId ? path.join(f.dir, 'out', runId) : null;
+  const mp4 = runDir ? path.join(runDir, 'master.mp4') : null;
+  const ok = ph.check('成片存在', !!mp4 && fs.existsSync(mp4), mp4 ? path.relative(ctx.root, mp4).split(path.sep).join('/') : `${f.rel}/out/latest 没写`, '存在');
+  return ok ? { runDir, mp4 } : null;
 }
 
 function keep(ph, ctx, src, dstRel, kind) {
@@ -329,32 +344,30 @@ const RUNNERS = {
   async a(ph, ctx) {
     const f = await newFilm(ph, ctx, 'a');
     const [w, h] = ctx.sizeA;
-    await step(ctx, 'A 出片（build.sh）', 'sh', [path.join(f.dir, 'build.sh'), '--size', `${w}x${h}`], { PYTHON: ctx.pyExe });
-    const mp4 = path.join(f.dir, 'out/film.mp4');
-    if (!ph.check('成片存在', fs.existsSync(mp4), `${f.rel}/out/film.mp4`, '存在')) return;
-    checkFilm(ph, mp4, { w, h, frames: Math.round(f.film.dur * f.film.fps), fps: f.film.fps });
-    keep(ph, ctx, mp4, 'a/film.mp4', 'video');
-    const stills = fs.readdirSync(path.join(f.dir, 'out/stills')).filter(x => x.endsWith('.jpg')).sort((x, y) => parseFloat(x.slice(2)) - parseFloat(y.slice(2)));
-    ph.check('关键帧 3 张', stills.length === 3, stills.length, 3);
-    stills.forEach((s, i) => {
-      const dst = keep(ph, ctx, path.join(f.dir, 'out/stills', s), `a/${s}`, 'still');
-      if (i === 1) { const st = lumaStats(dst); ph.check(`中段关键帧 ${s} 不是黑屏或纯色`, notBlank(st), `YMAX ${st.ymax}，YLOW–YHIGH ${st.ylow}–${st.yhigh}`, 'YMAX ≥ 32 且 YHIGH − YLOW ≥ 6'); }
-    });
+    await step(ctx, 'A 字体子集（tools/fonts/subset.mjs）', process.execPath, [path.join(ctx.root, 'tools/fonts/subset.mjs'), f.dir], { PYTHON: ctx.pyExe });
+    const r = await filmBuild(ph, ctx, f, w, h);
+    if (!r) return;
+    const o = f.film.output || {};
+    checkFilm(ph, r.mp4, { w, h, frames: o.frameCount, fps: o.fps });
+    keep(ph, ctx, r.mp4, 'a/film.mp4', 'video');
+    const contact = path.join(r.runDir, 'contact.jpg');
+    if (ph.check('联系表存在', fs.existsSync(contact), path.relative(ctx.root, contact), '存在')) {
+      const st = lumaStats(keep(ph, ctx, contact, 'a/contact.jpg', 'still'));
+      ph.check('联系表不是黑屏或纯色', notBlank(st), `YMAX ${st.ymax}，YLOW–YHIGH ${st.ylow}–${st.yhigh}`, 'YMAX ≥ 32 且 YHIGH − YLOW ≥ 6');
+    }
   },
 
   async c(ph, ctx) {
     const f = await newFilm(ph, ctx, 'c');
     const [w, h] = ctx.sizeC;
-    const fj = path.join(f.dir, 'film.json');
-    fs.writeFileSync(fj, JSON.stringify({ ...f.film, size: [w, h] }, null, 2) + '\n');
-    await step(ctx, 'C 出片（build.mjs）', process.execPath, [path.join(ctx.root, 'engine/render/build.mjs'), f.dir], { BEIMING_PY: ctx.pyExe });
-    const mp4 = path.join(f.dir, 'out', `${f.name}.mp4`), poster = path.join(f.dir, 'out/poster.jpg');
-    if (!ph.check('成片存在', fs.existsSync(mp4), `${f.rel}/out/${f.name}.mp4`, '存在')) return;
-    checkFilm(ph, mp4, { w, h, frames: Math.round(f.film.dur * f.film.fps), fps: f.film.fps });
-    keep(ph, ctx, mp4, 'c/film.mp4', 'video');
-    if (ph.check('海报存在', fs.existsSync(poster), `${f.rel}/out/poster.jpg`, '存在')) {
-      const dst = keep(ph, ctx, poster, 'c/poster.jpg', 'still');
-      const st = lumaStats(dst);
+    const r = await filmBuild(ph, ctx, f, w, h);
+    if (!r) return;
+    const o = f.film.output || {};
+    checkFilm(ph, r.mp4, { w, h, frames: o.frameCount, fps: o.fps });
+    keep(ph, ctx, r.mp4, 'c/film.mp4', 'video');
+    const poster = path.join(r.runDir, 'poster.jpg');
+    if (ph.check('海报存在', fs.existsSync(poster), path.relative(ctx.root, poster), '存在')) {
+      const st = lumaStats(keep(ph, ctx, poster, 'c/poster.jpg', 'still'));
       ph.check('海报不是黑屏或纯色', notBlank(st), `YMAX ${st.ymax}，YLOW–YHIGH ${st.ylow}–${st.yhigh}`, 'YMAX ≥ 32 且 YHIGH − YLOW ≥ 6');
     }
   },
@@ -411,17 +424,17 @@ const RUNNERS = {
       f = await newFilm(ph, ctx, 'b');
       await step(ctx, 'B 素材准备（prepare.mjs）', process.execPath, [path.join(ctx.root, 'engine/native/prepare.mjs'), f.dir], { PYTHON: ctx.pyExe });
     }
-    const [w, h] = ctx.sizeC;
-    const fj = path.join(f.dir, 'film.json');
-    const film = { ...JSON.parse(fs.readFileSync(fj, 'utf8')), size: [w, h] };
-    fs.writeFileSync(fj, JSON.stringify(film, null, 2) + '\n');
-    await step(ctx, 'B 出片（native.mjs）', process.execPath, [path.join(ctx.root, 'engine/render/native.mjs'), f.dir, '--quality', 'draft'], { RAEA_BIN: bin });
-    const outRel = film.native?.output || `out/${f.name}.mp4`, mp4 = path.join(f.dir, ...outRel.split('/'));
-    if (!ph.check('成片存在', fs.existsSync(mp4), `${f.rel}/${outRel}`, '存在')) return;
-    checkFilm(ph, mp4, { w, h, frames: Math.round(film.dur * film.fps), fps: film.fps });
-    keep(ph, ctx, mp4, 'b/film.mp4', 'video');
-    const mid = Math.floor(Math.round(film.dur * film.fps) / 2), still = path.join(ctx.out, 'b', `mid_${mid}.jpg`);
-    const x = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', mp4, '-vf', `select=eq(n\\,${mid})`, '-frames:v', '1', '-q:v', '3', still]);
+    // B 的画幅只来自 film.json，而 film.json 必须声明交付档位：没有合法的小画幅工作版，按模版原尺寸出（4.5 秒，GPU 上约 20 秒）
+    const film = JSON.parse(fs.readFileSync(path.join(f.dir, 'film.json'), 'utf8'));
+    const [w, h] = [film.output?.width ?? film.size[0], film.output?.height ?? film.size[1]];
+    const r = await filmBuild(ph, ctx, f, w, h, { RAEA_BIN: bin });
+    if (!r) return;
+    const o = film.output || {};
+    const frames = o.frameCount ?? Math.round(film.dur * film.fps), fps = o.fps ?? film.fps;
+    checkFilm(ph, r.mp4, { w, h, frames, fps });
+    keep(ph, ctx, r.mp4, 'b/film.mp4', 'video');
+    const mid = Math.floor(frames / 2), still = path.join(ctx.out, 'b', `mid_${mid}.jpg`);
+    const x = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', r.mp4, '-vf', `select=eq(n\\,${mid})`, '-frames:v', '1', '-q:v', '3', still]);
     if (x.status === 0 && fs.existsSync(still)) ph.outputs.push({ path: path.relative(ctx.root, still).split(path.sep).join('/'), sha256: sha256(still), kind: 'still' });
   },
 

@@ -95,10 +95,10 @@ node tests/ci/smoke-render.mjs --out out/ci/smoke
 
 | 阶段 | 做什么 | 核对 |
 |---|---|---|
-| a | `new-film a` → 作品自带的 `build.sh --size 384x208` | 尺寸、帧数 = round(dur × fps)、帧率、H.264 yuv420p、BT.709 有限范围且四项标注齐全、AAC 48 kHz 立体声、−14 ± 1 LUFS、真峰值 ≤ −1.0 dBTP、中段一帧不是黑屏或纯色、关键帧 |
-| c | `new-film c`，把尺寸改成 320x180 → `engine/render/build.mjs` | 同上，外加海报 |
+| a | `new-film a` → `tools/fonts/subset.mjs`（按本片文字生成字体子集）→ `film build --size 384x216 --gpu software-ok` | 尺寸、帧数 = film.json 的 output.frameCount、帧率、H.264 yuv420p、BT.709 有限范围且四项标注齐全、AAC 48 kHz 立体声、−14 ± 1 LUFS、真峰值 ≤ −1.0 dBTP、中段一帧不是黑屏或纯色、联系表 |
+| c | `new-film c` → `film build --size 320x180 --gpu software-ok` | 同上，外加海报 |
 | b | `new-film b` → `engine/native/prepare.mjs`（资产桥） | 声明的素材齐全、GLB 有效、prepared.json 的哈希与文件一致；再准备一遍，产物逐字节相同 |
-| b-render | 只在设了 `RAEA_BIN` 时运行：`engine/render/native.mjs --quality draft` | 与 a、c 相同的成片核对 |
+| b-render | 只在设了 `RAEA_BIN` 时运行：`film build --gpu software-ok`（B 的画幅只来自 film.json，按模版原尺寸出） | 与 a、c 相同的成片核对 |
 | beiming | 《北冥》1.5、4.0、7.6 秒与 lab 自测页 look 的静帧 | 不是黑屏或纯色 |
 | golden | 有 `tools/baseline/golden.mjs` 时：清单在就比对，不在就首次采集 | 与金标准一致（退出码 4 表示像素变了） |
 
