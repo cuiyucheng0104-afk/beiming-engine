@@ -6,6 +6,24 @@
 //                        float toonFbm( vec3 )    4 层 fbm（倍频 2.03，每层错开）
 //   HASH13_GLSL          float toonHash13( vec3 ) → [0, 1)
 //   voronoiGlsl(name)    vec3 name( vec2 p )：x = 最近距离 F1，y = 次近 F2，z = 最近格子的哈希（0..1）；依赖 NOISE_GLSL
+//
+// 来源：toonHash33、toonHash13 的公式取自 David Hoskins 的 Hash without Sine（https://www.shadertoy.com/view/4djSRW 的 hash33、
+// hash13；toonHash33 另把结果映射到 [-1, 1]），按其 MIT 许可使用并保留版权声明；toonNoise、toonFbm、voronoiGlsl 为北冥引擎原创。
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-FileCopyrightText: 2014 David Hoskins
+// David Hoskins 部分的许可原文（作品站按文件分发本模块，许可声明随文件走）：
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//   to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//   The above copyright notice and this permission notice shall be included in all copies or substantial portions
+//   of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+//   THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+//   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//   IN THE SOFTWARE.
 
 export const NOISE_GLSL = /* glsl */`
 vec3 toonHash33( vec3 p3 ) {
