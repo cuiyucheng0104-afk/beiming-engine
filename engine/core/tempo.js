@@ -3,6 +3,8 @@
 // 地址换算出的秒数按 digits 位小数取整，页面（JS）与 Python（engine/audio/cues.py 的 Tempo）得到同一个数。
 // 作品的时间以 film.json v2 为准（整数帧；见 engine/production/timeline.js）：页面读 film.json 的 timeline.sections
 // 时用 createTempoFromFrames，事件帧用 tempo.frame（floor：画面先到，与 timeline.js 的 frameOfBeat 取整一致）。
+// C 路线模版的页面直接读 film.json 的 tempo（本文件的 secs）与 cues（打点地址），用 createTempo；
+// engine/production/film.js 校验时用同一个 tempo.at 算打点，要求落在整帧、在片长之内。
 //
 //   createTempo(secs, { fps = 24, digits = 6 }) → tempo
 //     secs = [{ id, t0, bpm, meter, t1? }]   t0 段落起点（秒）；meter 每小节拍数；t1 省略时取下一段的 t0（末段到无穷）
