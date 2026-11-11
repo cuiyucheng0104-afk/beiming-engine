@@ -20,6 +20,7 @@ npm run film -- review approve final films/my-film --quote "…" --source "…" 
 npm run film -- status films/my-film                  # 任何时候：闸门、最近运行、下一步
 ```
 
+- A 路线模版（film.json 写了 `fonts` 与 `texts`）只用本片的字体子集：新建后、以及改了 `texts` / `fonts` 之后先跑 `node tools/fonts/subset.mjs films/my-film`（要 Python fontTools 与字体缓存，见 routes/a-webgl/template/README.md）。没生成或过期时 `check` 的 fonts 一项不过，`build` / `stills` / `animatic` / `render` 在开运行目录之前退出码 4 并给出这条命令（与 `subset.mjs --check` 同一段代码，只核对、不代跑）。
 - 工作版（不加 `--final`）随时可出，不查闸门；终渲（`build --final`、`render --final`）没有 look、animatic 的用户认可或**带用户原话的**豁免时退出码 4，一帧不渲、不建运行目录。
 - 用户明确说不用看时记豁免：`npm run film -- review waive look,animatic films/my-film --reason "<理由>" --quote "<用户原话>" --source "<出处>"`；也可以出片时一并记（`build … --waive look,animatic --reason … --quote … --source …`）。**没有 `--quote/--source` 的豁免只记一条内部说明（comment），不放行终渲**——自检（如 G1）用它出工作版。final 闸不能豁免。
 - agent 自己的审片结论用 `review note`（记为 comment），留证据、不放行任何闸。
@@ -191,7 +192,7 @@ node tests/film/e2e-run.mjs                                                     
 node tools/repo-check.mjs --only film                                                  # 出片相关的仓库规范检查
 ```
 
-`npm test -- --only film` 走测试总入口（`tests/film/suite.json` 声明时限）。端到端测试的临时作品放在 `FILM_TEST_ROOT`（默认系统临时目录），`films/` 里只留链接（B 例外：真实目录，测完删除）；`FILM_TEST_KEEP=1` 保留产物；`FILM_E2E_REAL_QA=1` 用真 QA 门（默认用测试替身，只验编排器的接线）。
+`npm test -- --only film` 走测试总入口（`tests/film/suite.json` 声明时限）。端到端测试的临时作品放在 `FILM_TEST_ROOT`（默认系统临时目录），`films/` 里只留链接（B 例外：真实目录，测完删除）；`FILM_TEST_KEEP=1` 保留产物；`FILM_E2E_REAL_QA=1` 用真 QA 门（默认用测试替身，只验编排器的接线）。替身由测试进程用预加载钩子接上（`node --import tests/film/fixtures/qa-stub-hook.mjs`，只换掉对 `tools/qa/cli.mjs` 的那一次调用）：编排器本身没有换 QA 实现的环境变量或选项——那等于绕过硬门的后门。A 路线的测试作品由 `makeWork` 代跑 `tools/fonts/subset.mjs`，所以端到端测试另需 Python fontTools、brotli 与字体缓存（`node tools/fonts/fetch.mjs`，或 `BEIMING_FONT_CACHE` 指向已有缓存）。
 
 ## 13. 已知限制
 
