@@ -65,8 +65,8 @@ def build(film_dir):
         die(3, f'缺 Python 依赖：{e}', '在仓库根目录运行 npm run setup，再用 node tools/env/py.mjs 启动（或设 BEIMING_PYTHON 指向装好依赖的解释器）')
 
     film, fps, nf, EV, cuts = load_film(film_dir)
-    for k, want in (('BEIMING_FPS', fps), ('BEIMING_FRAMES', nf)):   # 统一出片给的规格：和作品描述不一致就是换了档位却没改 film.json
-        got = os.environ.get(k)
+    # 统一出片给的规格：和作品描述不一致就是换了档位却没改 film.json（变量名写全，环境变量登记检查才认得出）
+    for k, got, want in (('BEIMING_FPS', os.environ.get('BEIMING_FPS'), fps), ('BEIMING_FRAMES', os.environ.get('BEIMING_FRAMES'), nf)):
         if got and abs(float(got) - want) > 1e-9:
             die(4, f'{k}={got} 与 film.json 的 {want} 不一致', '改 film.json 的 output（或按 film.json 的档位出片），声音和画面才对得上')
     D = nf / fps                       # 时长 = 帧数 ÷ 帧率，和画面逐样本对齐

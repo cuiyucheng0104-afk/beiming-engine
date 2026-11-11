@@ -13,7 +13,9 @@
 //   cells.json               每格的参数、时刻、文件、sha256，以及作品、源提交、尺寸
 //   grid.png                 全部格子拼成的网格（行 = 格子，列 = 时刻；ffmpeg tile）
 //   index.html               离线对照页：图 + 参数标签，直接用浏览器打开
-// 退出码：0 成功；2 用法错误；3 缺 ffmpeg 或浏览器；1 页面报错或渲染失败（附录 C1）。--json 输出附录 C2 信封。
+// 时限：单帧 render(t) 超过 BEIMING_FRAME_TIMEOUT 秒（默认 300，与 engine/render/video.mjs 同一个变量）、ffmpeg 拼网格超过
+//   60 秒 + 每张 2 秒、ffmpeg -version 与 git 超过 30 秒都算超时：结束子进程、关浏览器，退出码 124。
+// 退出码：0 成功；2 用法错误；3 缺 ffmpeg 或浏览器；1 页面报错或渲染失败；124 超时（附录 C1）。--json 输出附录 C2 信封。
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -64,7 +66,19 @@ function product(axes) {
 }
 const sha256 = buf => crypto.createHash('sha256').update(buf).digest('hex');
 function sourceCommit() {
-  try { return execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
+  try { return execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30e3, windowsHide: true }).trim(); } catch { return null; }
+}
+// 子进程一律带时限：卡住就结束它，抛 timeout.*（退出码 124），不让整条命令挂死
+function runFF(FF, args, ms, what) {
+  const r = spawnSync(FF, args, { encoding: 'utf8', windowsHide: true, timeout: ms, killSignal: 'SIGKILL', maxBuffer: 16 << 20 });
+  if (r.error?.code === 'ETIMEDOUT') throw new CliError('timeout.ffmpeg', `ffmpeg ${what}超过 ${ms / 1000} 秒没结束，已终止`, '检查 ffmpeg 是否被别的进程占住，或减少格数（--look / --q 的取值、--t 的时刻）');
+  return r;
+}
+// 单帧时限：页面卡在着色器编译或死循环里时，按超时退出而不是一直等
+function withTimeout(promise, ms, message) {
+  let timer;
+  const t = new Promise((_, reject) => { timer = setTimeout(() => reject(new CliError('timeout.frame', message, '单独渲这一帧看页面报错：node engine/render/still.mjs <作品目录> <时刻>；确实慢就调大 BEIMING_FRAME_TIMEOUT')), ms); });
+  return Promise.race([promise, t]).finally(() => clearTimeout(timer));
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -108,7 +122,8 @@ export const command = defineCommand({
     const thumb = opts.thumb ?? 480;
     if (!(Number.isInteger(thumb) && thumb >= 64 && thumb % 2 === 0)) throw new CliError('usage.bad-thumb', `--thumb 要是 ≥64 的偶数，收到 ${opts.thumb}`, null);
     const FF = ffmpegBins(ctx.env).ffmpeg;
-    const ff = spawnSync(FF, ['-version'], { encoding: 'utf8', windowsHide: true });
+    const frameMs = (Number(ctx.env.BEIMING_FRAME_TIMEOUT) > 0 ? Number(ctx.env.BEIMING_FRAME_TIMEOUT) : 300) * 1e3;
+    const ff = runFF(FF, ['-version'], 30e3, '-version ');
     if (ff.error || ff.status !== 0) throw new CliError('env.no-ffmpeg', `找不到 ffmpeg（拼网格要用；试的是 ${FF}）`, '装 FFmpeg ≥ 7 并放进 PATH，或设 FFMPEG 为完整路径（npm run env:doctor 会检查）');
 
     const spec = { film: rel(dir), times, axes: axes.map(({ kind, key, vals }) => ({ kind, key, vals })), size: [w, h], query: opts.query || '' };
@@ -139,7 +154,7 @@ export const command = defineCommand({
           await film.page.evaluate(ld => { window.__LOOKDEV = Object.keys(ld).length ? ld : null; }, lookdev);
           const shots = [];
           for (const t of times) {
-            await Promise.race([film.page.evaluate(async t => { await window.render(t); }, t), film.failed]);
+            await withTimeout(Promise.race([film.page.evaluate(async t => { await window.render(t); }, t), film.failed]), frameMs, `第 ${i + 1} 格 t=${t} 超过 ${frameMs / 1000} 秒没画完`);
             film.check();
             const file = path.join(outDir, `cell-${String(i).padStart(3, '0')}-t${t}.png`);
             const buf = await film.page.screenshot({ type: 'png' });
@@ -166,9 +181,10 @@ export const command = defineCommand({
     const inputs = list.flatMap(f => ['-i', f]);
     const filt = list.map((_, k) => `[${k}:v]scale=${thumb}:${th}:flags=area[s${k}]`).join(';') + ';' + list.map((_, k) => `[s${k}]`).join('') +
       `xstack=inputs=${list.length}:layout=${list.map((_, k) => `${(k % times.length) * thumb}_${Math.floor(k / times.length) * th}`).join('|')}[g]`;
+    const gridMs = 60e3 + 2e3 * list.length;
     const r = list.length === 1
-      ? spawnSync(FF, ['-v', 'error', '-y', '-i', list[0], '-vf', `scale=${thumb}:${th}:flags=area`, '-frames:v', '1', grid], { encoding: 'utf8', windowsHide: true })
-      : spawnSync(FF, ['-v', 'error', '-y', ...inputs, '-filter_complex', filt, '-map', '[g]', '-frames:v', '1', grid], { encoding: 'utf8', windowsHide: true, maxBuffer: 16 << 20 });
+      ? runFF(FF, ['-v', 'error', '-y', '-i', list[0], '-vf', `scale=${thumb}:${th}:flags=area`, '-frames:v', '1', grid], gridMs, '拼网格')
+      : runFF(FF, ['-v', 'error', '-y', ...inputs, '-filter_complex', filt, '-map', '[g]', '-frames:v', '1', grid], gridMs, '拼网格');
     if (r.status !== 0) throw new CliError('failure.grid', `拼网格失败：${(r.stderr || '').trim().split('\n').slice(-2).join(' | ')}`, '单格 PNG 已写好；检查 ffmpeg 版本（≥ 7）');
     out(grid, 'lookdev-grid');
 
