@@ -162,8 +162,8 @@ export function initWorks(root, options = {}) {
     const group = frame.closest('.wk-group');
     let host = stripHosts.get(group);
     if (!host) {
-      host = document.createElement('div');
-      host.className = 'wk-screen-row wk-screen-row--strip';
+      host = document.createElement(group.classList.contains('wk-group--films') ? 'li' : 'div');
+      host.className = 'wk-screen-row' + (group.classList.contains('wk-group--films') ? '' : ' wk-screen-row--strip');
       stripHosts.set(group, host);
     }
     return host;
@@ -174,7 +174,7 @@ export function initWorks(root, options = {}) {
     const top = frame.offsetTop;
     let end = frame;
     for (let n = frame.nextElementSibling; n; n = n.nextElementSibling) {
-      if (n === sheetHost || n.hidden) continue;
+      if (n.classList.contains('wk-screen-row') || n.hidden) continue;
       if (n.offsetTop !== top) break;
       end = n;
     }
@@ -182,7 +182,7 @@ export function initWorks(root, options = {}) {
   }
 
   function placeHost(frame, host) {
-    if (host === sheetHost) {
+    if (host === sheetHost || frame.closest('.wk-group--films')) {
       const end = rowEnd(frame);
       if (end.nextElementSibling !== host) end.after(host);
     } else {
@@ -220,8 +220,10 @@ export function initWorks(root, options = {}) {
     $('.wk-screen-style').textContent = frame.querySelector('.wk-style').textContent.trim();
     $('.wk-screen-dur').textContent = frame.querySelector('.wk-dur').textContent.trim();
     $('.wk-screen-blurb').textContent = img ? img.alt : '';
-    $('.wk-screen-case').href = frame.dataset.case;
-    $('.wk-screen-source').href = frame.dataset.source;
+    $('.wk-screen-case').hidden = !frame.dataset.case;
+    $('.wk-screen-case').href = frame.dataset.case || '#';
+    $('.wk-screen-source').hidden = !frame.dataset.source;
+    $('.wk-screen-source').href = frame.dataset.source || '#';
     video.poster = img ? img.currentSrc || img.src : '';
     video.src = frame.dataset.preview || link.href;
     video.title = `《${title}》`;

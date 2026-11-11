@@ -615,3 +615,6 @@
   .wk-frame.is-current .wk-link { outline: 2px solid CanvasText; }
   .wk-mark { display: none; }
 }
+
+/* 仅有成片的案例不展示档案与源码链接。 */
+.wk-screen a[hidden] { display: none; }
