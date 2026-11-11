@@ -3,7 +3,7 @@
   "audio": "<n02.wav>",
   "status": 2,
   "ced": "",
-  "subtitle_file": "https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/audio%2Ftts-20261102231039-phrxKJAiAwjUHTcs.titles?Expires=1793718640&OSSAccessKeyId=LTAI5t6b6ytykqLxpkHbMvhN&Signature=SCPjGJGeIGBtevGBbu3LQX%2B9K60%3D"
+  "subtitle_file": "https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/audio%2Ftts-20261102231039-phrxKJAiAwjUHTcs.titles"
  },
  "extra_info": {
   "audio_length": 8467,
