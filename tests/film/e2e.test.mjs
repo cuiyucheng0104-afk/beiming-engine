@@ -60,11 +60,13 @@ function buildAndCheck(route) {
   assert.equal(run.technicalAcceptance.status, 'passed');
   assert.deepEqual(run.technicalAcceptance.evidence, ['qa/report.json'], '技术验收证据相对运行目录');
   assert.ok(run.preflight?.ok, '渲染前跑过环境预检');
+  // 片长取作品自己的 film.json（模版片长归各路线包，会变：A、B 3 秒，C 8 秒）
+  const spec = JSON.parse(fs.readFileSync(path.join(w.dir, 'film.json'), 'utf8')).output;
   assert.equal(run.output.frames, run.expected.frames, '帧数等于 film.json');
-  assert.equal(run.output.frames, 72, '模版是 3 秒 × 24 fps');
+  assert.equal(run.output.frames, spec.frameCount, 'web-1080p24 与模版同帧率：帧数就是 film.json 的 frameCount');
   assert.deepEqual([run.output.width, run.output.height, run.output.fps], [1920, 1080, 24]);
   assert.deepEqual(run.output.color, { range: 'tv', space: 'bt709', transfer: 'bt709', primaries: 'bt709' });
-  assert.equal(run.frameHashes.length, 72);
+  assert.equal(run.frameHashes.length, spec.frameCount);
   assert.equal(run.softwareFallback, false);
   assert.ok(run.rerun.startsWith('node tools/film/cli.mjs build '));
   const v = validateRenderResult(run, { strict: true, runDir, expectedFrameCount: run.expected.frames });
@@ -117,15 +119,16 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   const v = runCli(['build', w.rel, '--profile', 'vertical-1080x1920-30', '--waive', 'look,animatic', '--reason', 'G1 自检', '--json'], { env: env(tmp) });
   assert.equal(v.code, 0, v.stderr.slice(-1500));
   const vr = readRun(v.json.runJson);
-  assert.deepEqual([vr.output.width, vr.output.height, vr.output.fps, vr.output.frames], [1080, 1920, 30, 90]);
+  const vFrames = Math.round(run.expected.frames * 30 / 24);
+  assert.deepEqual([vr.output.width, vr.output.height, vr.output.fps, vr.output.frames], [1080, 1920, 30, vFrames]);
   // 档位与 film.json 不同：QA 拿到的是运行目录里换算好的生效描述（帧数、帧率、画幅与档位一致），视口是竖屏；film.json 没改
   const vDir = path.join(ROOT, vr.runDir);
   assert.equal(vr.filmEffective?.path, `${vr.runDir}/film.effective.json`);
   assert.equal(v.json.data.filmEffective, vr.filmEffective.path);
   const eff = JSON.parse(fs.readFileSync(path.join(vDir, 'film.effective.json'), 'utf8'));
-  assert.deepEqual(eff.output, { profile: 'vertical-1080x1920-30', width: 1080, height: 1920, fps: 30, frameCount: 90 });
+  assert.deepEqual(eff.output, { profile: 'vertical-1080x1920-30', width: 1080, height: 1920, fps: 30, frameCount: vFrames });
   assert.equal(eff.id, w.name);
-  assert.equal(eff.shots.at(-1).out, 90);
+  assert.equal(eff.shots.at(-1).out, vFrames);
   assert.equal(JSON.parse(fs.readFileSync(path.join(w.dir, 'film.json'), 'utf8')).output.width, 1920, 'film.json 不改');
   const vq = JSON.parse(fs.readFileSync(path.join(vDir, 'qa', 'report.json'), 'utf8'));
   if (vq.stubArgs) {

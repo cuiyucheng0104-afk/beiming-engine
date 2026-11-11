@@ -395,11 +395,14 @@ test('出片前的检查（planSession）：不写文件；竖屏档位要生效
   const w = makeWork('c');
   try {
     const before = fs.readdirSync(w.dir).sort();
+    // 帧数从模版的 film.json 算（模版片长归 P15，会变）：竖屏 30 fps 的帧数 = frameCount × 30 / fps
+    const out = JSON.parse(fs.readFileSync(path.join(w.dir, 'film.json'), 'utf8')).output;
+    const want = Math.round(out.frameCount * 30 / out.fps);
     const v = planSession({ kind: 'build', filmArg: w.dir, opts: { profile: 'vertical-1080x1920-30' } });
-    assert.deepEqual([v.width, v.height, v.fps, v.frames], [1080, 1920, 30, 90]);
+    assert.deepEqual([v.width, v.height, v.fps, v.frames], [1080, 1920, 30, want]);
     assert.equal(v.effective, true);
     assert.equal(v.sizeWork, false);
-    assert.equal(v.shots.at(-1).out, 90, '镜头表按帧率换算，最后一镜止于新帧数');
+    assert.equal(v.shots.at(-1).out, want, '镜头表按帧率换算，最后一镜止于新帧数');
     const s = planSession({ kind: 'build', filmArg: w.dir, opts: { size: '960x540' } });
     assert.equal(s.sizeWork, true);
     assert.equal(s.effective, false, '--size 的工作版不跑交付 QA，不写生效描述');
