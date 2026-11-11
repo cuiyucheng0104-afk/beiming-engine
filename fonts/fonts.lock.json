@@ -1,0 +1,129 @@
+{
+  "$comment": "完整 OFL 原始字体的锁定清单：作品的字体子集只能从这里列的文件、按这里的 sha256 生成（tools/fonts/subset.mjs），不在线抓取、不覆盖 fonts/ 下《北冥》已有的子集。字体本体不进 git（docs/decisions D10）：node tools/fonts/fetch.mjs 按 urls 顺序下载到缓存目录并逐字节核对 sha256，任何一个镜像都行，内容必须一致。许可全文与版权行在 licenseFile，子集化时随字体一起复制到 films/<名>/fonts/。",
+  "schema": "beiming.fonts-lock/1",
+  "cacheDir": ".cache/fonts",
+  "$cacheDir": "相对仓库根；可用环境变量 BEIMING_FONT_CACHE 或 --cache 改到别处（多个检出共用一份缓存）。目录要被 git 忽略。",
+  "fonts": [
+    {
+      "id": "ma-shan-zheng",
+      "family": "Ma Shan Zheng",
+      "style": "Regular",
+      "weight": 400,
+      "variable": false,
+      "version": "2.003",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-mashanzheng.txt",
+      "licenseSha256": "d7bdb1cee215b689e23c2f95672a6084c790542170648267a55114103d756a08",
+      "copyright": "Copyright 2018 The MaShanZheng Project Authors (https://github.com/googlefonts/mashanzheng)",
+      "reservedFontNames": [],
+      "file": "MaShanZheng-Regular.ttf",
+      "bytes": 5857936,
+      "sha256": "6d2546bb189c732a8ca29af9e22457b152387d158aa459e4ac2ce1e51788b7fb",
+      "codepoints": 7015,
+      "coverage": "GB2312 一、二级汉字 6763 个 + 常用标点与拉丁字母；生僻字可能没有，子集化前会逐字核对",
+      "role": "片名毛笔楷书（与《北冥》片名字体 BM Title 同一字体）",
+      "source": { "repo": "https://github.com/google/fonts", "commit": "406197b91ff39a93061c2c2eeaee67ddf2ae1f0d", "path": "ofl/mashanzheng/MaShanZheng-Regular.ttf", "committed": "2026-07-23" },
+      "urls": [
+        "https://raw.githubusercontent.com/google/fonts/406197b91ff39a93061c2c2eeaee67ddf2ae1f0d/ofl/mashanzheng/MaShanZheng-Regular.ttf",
+        "https://cdn.jsdelivr.net/gh/google/fonts@406197b91ff39a93061c2c2eeaee67ddf2ae1f0d/ofl/mashanzheng/MaShanZheng-Regular.ttf"
+      ]
+    },
+    {
+      "id": "noto-sans-sc",
+      "family": "Noto Sans SC",
+      "style": "Regular",
+      "weight": [100, 900],
+      "variable": true,
+      "axes": [{ "tag": "wght", "min": 100, "default": 100, "max": 900 }],
+      "version": "2.004",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-notosanssc.txt",
+      "licenseSha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9",
+      "copyright": "(c) 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.",
+      "reservedFontNames": ["Source"],
+      "file": "NotoSansSC[wght].ttf",
+      "bytes": 17772300,
+      "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+      "codepoints": 30890,
+      "coverage": "简体中文通用规范汉字、繁体常用字、拉丁、标点（汉字 20976 个）",
+      "role": "中文正文、副标题、字幕、界面字（与《北冥》BM HUD SC 同一字体）",
+      "source": { "repo": "https://github.com/google/fonts", "commit": "2894aab31764f10f29c421bdfd2340d3b382d384", "path": "ofl/notosanssc/NotoSansSC[wght].ttf", "committed": "2022-12-09" },
+      "urls": [
+        "https://raw.githubusercontent.com/google/fonts/2894aab31764f10f29c421bdfd2340d3b382d384/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+        "https://cdn.jsdelivr.net/gh/google/fonts@2894aab31764f10f29c421bdfd2340d3b382d384/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf"
+      ]
+    },
+    {
+      "id": "barlow-light",
+      "family": "Barlow",
+      "style": "Light",
+      "weight": 300,
+      "variable": false,
+      "version": "1.408",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-barlow.txt",
+      "licenseSha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f",
+      "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+      "reservedFontNames": [],
+      "file": "Barlow-Light.ttf",
+      "bytes": 103136,
+      "sha256": "20b1375c0c6606701867bf34c7cc97f44087850567a36587d25abb9510b183cc",
+      "codepoints": 525,
+      "coverage": "拉丁字母、数字与常用符号，没有汉字",
+      "role": "数字与西文（与《北冥》BM HUD Latin 同一字体）",
+      "source": { "repo": "https://github.com/google/fonts", "commit": "89f5431ff0db41bd2fe3f7ba21a723a01622428b", "path": "ofl/barlow/Barlow-Light.ttf", "committed": "2018-12-05" },
+      "urls": [
+        "https://raw.githubusercontent.com/google/fonts/89f5431ff0db41bd2fe3f7ba21a723a01622428b/ofl/barlow/Barlow-Light.ttf",
+        "https://cdn.jsdelivr.net/gh/google/fonts@89f5431ff0db41bd2fe3f7ba21a723a01622428b/ofl/barlow/Barlow-Light.ttf"
+      ]
+    },
+    {
+      "id": "barlow-regular",
+      "family": "Barlow",
+      "style": "Regular",
+      "weight": 400,
+      "variable": false,
+      "version": "1.408",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-barlow.txt",
+      "licenseSha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f",
+      "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+      "reservedFontNames": [],
+      "file": "Barlow-Regular.ttf",
+      "bytes": 104068,
+      "sha256": "95aa02c7c43096e0dd44d787ba6216864a67157e402adab59b35572e0c1577ea",
+      "codepoints": 525,
+      "coverage": "拉丁字母、数字与常用符号，没有汉字",
+      "role": "数字与西文",
+      "source": { "repo": "https://github.com/google/fonts", "commit": "89f5431ff0db41bd2fe3f7ba21a723a01622428b", "path": "ofl/barlow/Barlow-Regular.ttf", "committed": "2018-12-05" },
+      "urls": [
+        "https://raw.githubusercontent.com/google/fonts/89f5431ff0db41bd2fe3f7ba21a723a01622428b/ofl/barlow/Barlow-Regular.ttf",
+        "https://cdn.jsdelivr.net/gh/google/fonts@89f5431ff0db41bd2fe3f7ba21a723a01622428b/ofl/barlow/Barlow-Regular.ttf"
+      ]
+    },
+    {
+      "id": "barlow-medium",
+      "family": "Barlow",
+      "style": "Medium",
+      "weight": 500,
+      "variable": false,
+      "version": "1.408",
+      "license": "OFL-1.1",
+      "licenseFile": "fonts/licenses/OFL-barlow.txt",
+      "licenseSha256": "186d750eb496a4c17a76385f82be6aea2ac1cf2de074a811d63786cf374ea73f",
+      "copyright": "Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)",
+      "reservedFontNames": [],
+      "file": "Barlow-Medium.ttf",
+      "bytes": 103536,
+      "sha256": "f8906f762cb73dca441da034bc363b2d8e2e68bc10d5c05e58717646c20cc4b4",
+      "codepoints": 525,
+      "coverage": "拉丁字母、数字与常用符号，没有汉字",
+      "role": "数字与西文（强调）",
+      "source": { "repo": "https://github.com/google/fonts", "commit": "89f5431ff0db41bd2fe3f7ba21a723a01622428b", "path": "ofl/barlow/Barlow-Medium.ttf", "committed": "2018-12-05" },
+      "urls": [
+        "https://raw.githubusercontent.com/google/fonts/89f5431ff0db41bd2fe3f7ba21a723a01622428b/ofl/barlow/Barlow-Medium.ttf",
+        "https://cdn.jsdelivr.net/gh/google/fonts@89f5431ff0db41bd2fe3f7ba21a723a01622428b/ofl/barlow/Barlow-Medium.ttf"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "about": "agent 指令文件白名单：会被 Claude Code、Codex 等工具当成指令或配置自动加载的文件（AGENTS.md、CLAUDE.md、GEMINI.md、SKILL.md、DIRECTOR.md、.claude/ 配置、.claude-plugin/*.json、.mcp.json、.cursorrules 等）。规则 agent.instruction-files 要求仓库里的这类文件与本表完全一致。本仓库只有根目录 AGENTS.md 一份指令；cases/vendor/ 下的是上游原件（lock.json 锁定，只当资料）。新增仓库 skill 时在这里登记。",
+  "files": [
+    { "path": "AGENTS.md", "role": "本仓库给 agent 的唯一指令来源" },
+    { "path": "CLAUDE.md", "role": "桥接：内容只有一行 @AGENTS.md" },
+    { "path": ".claude/settings.json", "role": "仓库级权限、PreToolUse 钩子、插件开关与 CLAUDE.md 加载排除" },
+    { "path": ".claude/skills/beiming-film/SKILL.md", "role": "仓库 skill：做片入口流程" },
+    { "path": ".claude/skills/beiming-review/SKILL.md", "role": "仓库 skill：审片、验收与交付记录" },
+    { "path": "cases/vendor/lemo-opuscar/.claude-plugin/marketplace.json", "role": "上游资料（风格库甲的插件市场清单），只读快照" },
+    { "path": "cases/vendor/lemo-opuscar/AGENTS.md", "role": "上游资料，只读快照，不是本仓库指令" },
+    { "path": "cases/vendor/lemo-opuscar/CLAUDE.md", "role": "上游资料（@AGENTS.md 桥接），已由 claudeMdExcludes 屏蔽自动加载" },
+    { "path": "cases/vendor/lemo-opuscar/DIRECTOR.md", "role": "上游资料（导演手册），方法转述见 routes/directing/SOURCES.md" },
+    { "path": "cases/vendor/lemo-opuscar/plugin/.claude-plugin/plugin.json", "role": "上游资料（插件清单），只读快照" },
+    { "path": "cases/vendor/lemo-opuscar/plugin/skills/lemo-opuscar/SKILL.md", "role": "上游资料（全局 skill 原件），本仓库禁用该 skill" },
+    { "path": "cases/vendor/lemo-opuscar/tools/directory/SKILL.md", "role": "上游资料，只读快照" },
+    { "path": "cases/vendor/sy-style-100/AGENTS.md", "role": "上游资料，只读快照，不是本仓库指令" },
+    { "path": "cases/vendor/sy-style-100/CLAUDE.md", "role": "上游资料（@AGENTS.md 桥接），已由 claudeMdExcludes 屏蔽自动加载" },
+    { "path": "cases/vendor/sy-style-100/SKILL.md", "role": "上游资料，只读快照" },
+    { "path": "cases/vendor/sy-style-100/skills/sy-style-100/SKILL.md", "role": "上游资料（skill 原件），本仓库禁用该 skill" },
+    { "path": "cases/vendor/sy-style-100/styles/SKILL.md", "role": "上游资料，只读快照" },
+    { "path": "cases/vendor/sy-style-100/vol2/AGENTS.md", "role": "上游资料，只读快照，不是本仓库指令" },
+    { "path": "cases/vendor/sy-style-100/vol2/CLAUDE.md", "role": "上游资料（@AGENTS.md 桥接），已由 claudeMdExcludes 屏蔽自动加载" }
+  ]
+}

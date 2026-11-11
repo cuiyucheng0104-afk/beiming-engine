@@ -81,7 +81,9 @@
       "numba",
       "soundfile",
       "soxr",
-      "PIL.Image"
+      "PIL.Image",
+      "fontTools.subset",
+      "brotli"
     ],
     "optional": [
       {
@@ -188,24 +190,9 @@
         "engine/render/build.mjs",
         "engine/render/native.mjs",
         "audio/check.py",
-        "routes/a-webgl/template/build.sh",
         "tests/production/render-pipeline.test.mjs"
       ],
       "replacement": "engine/render/lib/mux.mjs（P04·R3）：同样的参数与退出码，ffmpeg 经 FFMPEG / FFPROBE 解析，两遍响度用 ebur128 的 JSON 结果在 Node 里算；mux.sh 改成调用它的薄壳"
-    },
-    {
-      "path": "routes/a-webgl/template/build.sh",
-      "owner": "P12",
-      "spawnedBy": [
-        "films/<名>/build.sh"
-      ],
-      "replacement": "npm run film -- build films/<名>（P06 按 film.json 分派）；模版不再带 build.sh"
-    },
-    {
-      "path": "fonts/fetch_fonts.sh",
-      "owner": "P12",
-      "spawnedBy": [],
-      "replacement": "node tools/fonts/fetch.mjs（P12）：只用 fetch 与 node:crypto，按锁定清单校验 sha256，不覆盖已入库的子集"
     }
   ],
   "systemVars": [
@@ -277,7 +264,8 @@
       "purpose": "单帧 render(t) 的上限（秒），超时按失败处理",
       "default": "300",
       "readBy": [
-        "engine/render/video.mjs"
+        "engine/render/video.mjs",
+        "tools/lookdev/sweep.mjs"
       ]
     },
     {
@@ -353,7 +341,6 @@
       "readBy": [
         "build.sh",
         "audio/build.sh",
-        "routes/a-webgl/template/build.sh",
         "engine/native/prepare.mjs",
         "tools/env/lib/python.mjs",
         "tools/env/setup.mjs"
@@ -417,6 +404,42 @@
       "default": "按 macOS / Windows（%WINDIR%\\Fonts）/ Linux 的常见位置查找",
       "readBy": [
         "engine/audio/scope.py"
+      ]
+    },
+    {
+      "name": "BEIMING_AUDIO_OUT",
+      "group": "声音",
+      "purpose": "统一出片传给作品声音脚本的输出 wav 路径（out/<运行号>/audio/mix.wav；工具设置，不要手动设）",
+      "default": "由统一出片设置；单独跑 sound.py 时写 films/<名>/out/mix.wav",
+      "readBy": [
+        "routes/a-webgl/template/sound.py"
+      ]
+    },
+    {
+      "name": "BEIMING_FPS",
+      "group": "声音",
+      "purpose": "统一出片传给声音脚本的帧率；A 模版 sound.py 与 film.json 不一致时退出 4（换了档位却没改作品描述）",
+      "default": "由统一出片设置",
+      "readBy": [
+        "routes/a-webgl/template/sound.py"
+      ]
+    },
+    {
+      "name": "BEIMING_FRAMES",
+      "group": "声音",
+      "purpose": "统一出片传给声音脚本的总帧数；核对方式同 BEIMING_FPS",
+      "default": "由统一出片设置",
+      "readBy": [
+        "routes/a-webgl/template/sound.py"
+      ]
+    },
+    {
+      "name": "BEIMING_FONT_CACHE",
+      "group": "字体（tools/fonts）",
+      "purpose": "原始 OFL 字体的缓存目录（fetch 下载、subset 子集化都读它）；多个检出可以共用一份",
+      "default": "仓库根的 .cache/fonts（已被 git 忽略）",
+      "readBy": [
+        "tools/fonts/lock.mjs"
       ]
     },
     {

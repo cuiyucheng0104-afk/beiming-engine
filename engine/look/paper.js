@@ -1,18 +1,34 @@
-// 北冥引擎 · 纸纹：有外部纸纹图就用它（重复平铺，均值自动测出当中性点），否则程序化生成整屏一张。
+// 北冥引擎 · 纸纹：给了外部纸纹图（url）就用它（重复平铺，均值自动测出当中性点；载不到直接报错，不换纸），没给才程序化生成整屏一张。
 // 程序化纸纹 = 1 像素颗粒 + 颗粒团 + 很淡的纸齿浮雕（左上来光）+ 大块斑驳 + 极淡的纤维；以 0.5 附近为中性、对比很低。
 //
 //   createPaper(fx, renderer, { url = null, refHeight = 1080 }?) → {
-//     ready                 Promise：外部纸纹图载好（或确认没有）后 resolve
+//     ready                 Promise：外部纸纹图载好（或确认没有）后 resolve；给了 url 却加载失败（文件不存在、不是图片、
+//                           跨域读不到像素）就 reject，错误信息带上地址——不再悄悄换成程序化纸纹（换了画面质感就变了）
 //     resize(w, h)          按输出尺寸重建程序化纸纹（下次 prepare 时生成）
 //     prepare()             需要时生成程序化纸纹并量均值（整幅均匀取 128×128 个点在 GPU 上平均，再读回 16×16：
 //                           任何尺寸都量得到、换分辨率中性点不漂；以前只读左下角 128×128，画面不到 128 像素时读不到、中性点成 0）
-//     layer(p, kp = 1) → { tex, strength, mid, w, h }   本帧用哪张纸纹、强度、中性亮度、平铺尺寸（像素）
-//                p：{ strength, scale, tex, mid } 或空；tex 是自带贴图（优先于 url），mid 是它的中性亮度（默认 .5）
+//     layer(p, kp = 1, k = kp) → { tex, strength, mid, w, h, anchor?, texels? }   本帧用哪张纸纹、强度、中性亮度、平铺尺寸（像素）、
+//                锚点（只在给了锚点时有）、按面积取样时纸纹图的像素数 [宽, 高]（只在 scaleMode 'refHeight' 的图片纸纹上有）
+//                p：{ strength, scale, tex, mid, scaleMode, anchor } 或空；tex 是自带贴图（优先于 url），mid 是它的中性亮度（默认 .5）
 //                kp：整数像素倍率（look 按 round(输出高度 / refHeight) 给，原生 4K 为 2）：图片纸纹按 1 图像像素 = kp 输出像素平铺，
 //                    换分辨率纸纹相对画面一样大；1080 附近 kp = 1，和原来一样
+//                k：连续倍率 输出高度 / refHeight（look 给）
+//                scaleMode  'pixel'（默认，按上面的整数倍 kp 平铺、双线性取样，与以前逐像素相同）
+//                           | 'refHeight'：平铺尺寸乘连续的 k（1440、竖屏等不是整数倍的画幅上纸纹相对画面也一样大），并按面积取样
+//                           （compose.js：纸纹按 1080 设计稿的样子等比放大，原生 4K 缩回 1080 与 1080 直出逐像素相同；双线性放大
+//                           会把纸纹的高频糊掉约两成——实测 paper.png 在 2160 高缩回 1080 后高频能量 −20%）。
+//                           只对图片纸纹起作用，程序化纸纹本来就按 refHeight 缩放
+//                anchor     纸纹跟着画面里的一点走（推拉摇移时纸不再"钉在玻璃上"），默认关：
+//                           { pos: [x, y], origin: [x0, y0], zoom }——锚点此刻的屏幕位置、铺纸那一帧的位置（实际像素，左上为原点）、
+//                           此刻相对铺纸那一帧的缩放。纸纹点 = (像素 − pos) / zoom + origin。用 paperAnchor(now, ref) 从两次
+//                           screenAnchor（engine/stage/camera.js）的结果算。配可平铺的图片纸纹；程序化纸纹挪动时会在画面宽高处露接缝
 //     target                程序化纸纹的渲染目标
 //     dispose()
 //   }
+//   paperAnchor(now, ref) → anchor   now / ref = { x, y, s }（screenAnchor 的结果：屏幕位置与锚点处一段长度的像素长）
+//   canvasPaper(canvas, { strength = 0.12 }) → { tex, mid, strength }   画布做的纸纹（例如 engine/paint/xuan.js 的 xuanPaper，
+//                         默认可平铺），直接当每帧参数 p.paper（tex 优先于 paperUrl）。mid 取 R 通道的均值——合成取的就是 R，
+//                         这样叠上去整体不提亮也不压暗
 // 程序化纸纹的颗粒尺度按 max(.5, 高度 / refHeight) 缩放，换分辨率看起来一样粗；图片纸纹按 layer 的 kp 放大平铺。
 
 import * as THREE from 'three';
@@ -46,6 +62,26 @@ void main(){
   gl_FragColor = vec4(vec3(s / 64.), 1.);
 }`;
 
+const SCALE_MODES = ['pixel', 'refHeight'];
+const finite2 = v => Array.isArray(v) && v.length === 2 && v.every(Number.isFinite);
+// 锚点参数：没给 = null（走默认着色器，旧输出逐像素不变）；给了就校验
+function anchorOf(a) {
+  if (a === undefined || a === null || a === false) return null;
+  const zoom = a.zoom ?? 1;
+  if (!finite2(a.pos) || !finite2(a.origin ?? a.pos) || !(Number.isFinite(zoom) && zoom > 0)) {
+    throw new TypeError(`纸纹 anchor 要写成 { pos: [x, y], origin: [x0, y0], zoom > 0 }，收到 ${JSON.stringify(a)}`);
+  }
+  return { pos: a.pos, origin: a.origin ?? a.pos, zoom };
+}
+// layer 的返回值只在给了锚点时带 anchor 字段（没有锚点时与以前的对象逐字段相同）
+const withAnchor = (o, a) => (a ? { ...o, anchor: a } : o);
+export function paperAnchor(now, ref) {
+  for (const [k, v] of [['now', now], ['ref', ref]]) {
+    if (!v || ![v.x, v.y, v.s].every(Number.isFinite) || !(v.s > 0)) throw new TypeError(`paperAnchor：${k} 要是 { x, y, s > 0 }（screenAnchor 的结果），收到 ${JSON.stringify(v)}`);
+  }
+  return { pos: [now.x, now.y], origin: [ref.x, ref.y], zoom: now.s / ref.s };
+}
+
 export function createPaper(fx, renderer, { url = null, refHeight = 1080 } = {}) {
   const mat = fx.material(PAPER_FS, { uK: { value: 1 } });
   const meanMat = fx.material(MEAN_FS, { tIn: { value: null } });
@@ -53,15 +89,24 @@ export function createPaper(fx, renderer, { url = null, refHeight = 1080 } = {})
 
   const ready = (async () => {
     if (!url) return;
-    try {
-      const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
-      const cv = document.createElement('canvas'); cv.width = cv.height = 64;
-      const g = cv.getContext('2d'); g.drawImage(img, 0, 0, 64, 64);
-      const d = g.getImageData(0, 0, 64, 64).data; let s = 0;
-      for (let i = 0; i < d.length; i += 4) s += (d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722) / 255;
-      extMid = s / (d.length / 4);
-      ext = new THREE.Texture(img); ext.wrapS = ext.wrapT = THREE.RepeatWrapping; ext.needsUpdate = true;
-    } catch { ext = null; }   // 没有文件：用程序化纸纹
+    // 报错里写出页面实际去取的完整地址：相对路径按页面地址解析，写错一层目录时一眼能看出来
+    let where = String(url);
+    try { const abs = new URL(url, document.baseURI).href; if (abs !== where) where += `（解析为 ${abs}）`; } catch { /* 解析不了就只报原文 */ }
+    const img = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => rej(new Error(`纸纹图加载失败：${where}，文件不存在或不是图片。检查路径（相对页面）；不想用外部纸纹就别传 paperUrl，引擎会用程序化纸纹`));
+      im.src = url;
+    });
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const g = cv.getContext('2d'); g.drawImage(img, 0, 0, 64, 64);
+    let d;
+    try { d = g.getImageData(0, 0, 64, 64).data; }
+    catch (e) { throw new Error(`纸纹图读不到像素：${where}（${e && e.message || e}；跨域图片要和页面同源）`); }
+    let s = 0;
+    for (let i = 0; i < d.length; i += 4) s += (d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722) / 255;
+    extMid = s / (d.length / 4);
+    ext = new THREE.Texture(img); ext.wrapS = ext.wrapT = THREE.RepeatWrapping; ext.needsUpdate = true;
   })();
 
   function resize(w, h) {
@@ -84,11 +129,15 @@ export function createPaper(fx, renderer, { url = null, refHeight = 1080 } = {})
     mid = s / (MEAN_N * MEAN_N); dirty = false;
   }
 
-  function layer(p, kp = 1) {
-    const tex = p?.tex || ext;
-    if (!tex) return { tex: target.texture, strength: p ? p.strength : 0, mid, w: target.width, h: target.height };
-    const img = tex.image, sc = (p?.scale ?? 1) * kp;
-    return { tex, strength: p ? p.strength : 0, mid: p?.tex ? (p.mid ?? .5) : extMid, w: (img?.width || 1024) * sc, h: (img?.height || 1024) * sc };
+  function layer(p, kp = 1, k = kp) {
+    const tex = p?.tex || ext, anchor = anchorOf(p?.anchor);
+    if (p?.scaleMode !== undefined && p.scaleMode !== null && !SCALE_MODES.includes(p.scaleMode)) {
+      throw new TypeError(`纸纹 scaleMode 只能是 ${SCALE_MODES.join(' / ')}，收到 ${JSON.stringify(p.scaleMode)}`);
+    }
+    if (!tex) return withAnchor({ tex: target.texture, strength: p ? p.strength : 0, mid, w: target.width, h: target.height }, anchor);
+    const refH = p?.scaleMode === 'refHeight', img = tex.image, iw = img?.width || 1024, ih = img?.height || 1024, sc = (p?.scale ?? 1) * (refH ? k : kp);
+    const o = withAnchor({ tex, strength: p ? p.strength : 0, mid: p?.tex ? (p.mid ?? .5) : extMid, w: iw * sc, h: ih * sc }, anchor);
+    return refH ? { ...o, texels: [iw, ih] } : o;   // texels：compose 换用面积取样（pixel 模式不带，返回值与以前逐字段相同）
   }
 
   return {
@@ -97,4 +146,14 @@ export function createPaper(fx, renderer, { url = null, refHeight = 1080 } = {})
     get mid() { return mid; },
     dispose() { target?.dispose(); meanT?.dispose(); mat.dispose(); meanMat.dispose(); ext?.dispose(); },
   };
+}
+
+export function canvasPaper(canvas, { strength = 0.12 } = {}) {
+  if (!canvas || !(canvas.width > 0) || !(canvas.height > 0)) throw new TypeError('canvasPaper：要一张有尺寸的画布（例如 xuanPaper({ width: 1024, height: 1024 })）');
+  const n = 64, cv = document.createElement('canvas'); cv.width = cv.height = n;
+  const g = cv.getContext('2d'); g.drawImage(canvas, 0, 0, n, n);
+  const d = g.getImageData(0, 0, n, n).data; let s = 0;
+  for (let i = 0; i < d.length; i += 4) s += d[i] / 255;
+  const tex = new THREE.Texture(canvas); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.needsUpdate = true;
+  return { tex, mid: s / (n * n), strength };
 }

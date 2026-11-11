@@ -3,20 +3,19 @@
 // DUR = 4 秒，三个机位按时间分段（同 lab/kun.js）：0–1.5 大远景侧面 / 1.5–3.0 渡船甲板仰视 / 3.0–4.0 眼睛特写
 // 可选参数（同 lab/kun.js）：&lod=0.3 &noink=1 &pass=1 &view=side|top|far|eye|under|reveal|hero|hero2|ferry &roll=-0.5 &look=1
 // 本页另加：&nopine=1（不要小松）&nowhisk=1（不要龙须）&noclouds=1（不要祥云纹）&nowisps=1（不要飘带）
-//           &ink=2（手绘感更强的描边：线宽按笔压起伏、偶尔断笔、墨色吸一点底色；默认 1 = 与 lab/kun.js 完全相同）
-//           &post=look（改走正片的后期管线 src/look.js：ID 图描边（用鲲网格上的 userData.outlineVertex）+ Kuwahara + bloom + 调色 + 纸纹，
-//                       验证换进正片的后期；天空图作为 scene.background）
+//           后期：默认走正片的后期管线 src/look.js（ID 图描边用鲲网格上的 userData.outlineVertex + Kuwahara + bloom + 调色 + 纸纹，
+//                 天空图作为 scene.background），与 lab/kun.js 等各页相同（lab/kun_bench.js 的 labPipeline）；
+//           &ink=lab 回退到自测页的临时屏幕描边（旧截图对照用）；&ink=2 是它的手绘加强版（笔压起伏、偶尔断笔、墨色吸一点底色）；
+//           &post=look 是旧写法，现在就是默认，保留不报错
 //           &cam=x,y,z&at=x,y,z&fov=&sky=zoom,ox,oy（自由机位）&pitch=（鲲绕 Z 轴俯仰，弧度）
 import * as THREE from 'three';
 import { createKun } from '../src/kun_refine.js';
 import { PALETTE, setToonGlobals } from '../src/toon_refine.js';
-import { createLook } from '../src/look.js';
-import { labRenderer, kunStats, keyLight, inkComposite, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, drawPasses } from './kun_bench.js';
+import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);
-const POST = q.get('post') === 'look';
 const ROLL = +(q.get('roll') || 0), LOOK = !!q.get('look');
-const { renderer, W, H, RW, RH } = labRenderer(POST ? 1 : 2);
+const { renderer, W, H, RW, RH } = labRenderer(labPixelRatio(q));
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, W / H, 5, 6000);
@@ -29,15 +28,7 @@ kunStats('kun_refine', kun);
 scene.add(kun.group);
 
 const { key } = keyLight(scene, setToonGlobals);
-const { rtC, rtN, sky, comp, skyCover: coverComp } = await inkComposite({ RW, RH, W, H, PALETTE, q, ink2: q.get('ink') === '2' });
-function skyCover(zoom, ox, oy) {
-  const [sx, sy, offX, offY] = coverComp(zoom, ox, oy);
-  if (POST) { skyBg.repeat.set(sx, sy); skyBg.offset.set(offX, offY); }
-}
-// 正片后期（&post=look）：天空图当 scene.background（同样 cover 裁切），交给 look.js
-const skyBg = sky.clone(); skyBg.colorSpace = THREE.SRGBColorSpace; skyBg.needsUpdate = true;
-const look = POST ? createLook(renderer, W, H, { ss: 2 }) : null;
-if (POST) { scene.background = skyBg; await look.ready; }
+const { skyCover, draw } = await labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q });   // 默认正片后期；&ink=lab / &ink=2 回退临时描边
 
 const ev = new THREE.Vector3();
 const EXTRA = {
@@ -68,13 +59,7 @@ window.render = t => {
   else eyeCloseup(camera, kun, ev, k);
   kun.setPose(ts, LOOK ? { look: camera.position } : {});
   skyCover(...v.sky);
-  if (POST) {                                                // 正片后期管线：墨线一拍二沸腾由 look.js 按 t 自己算
-    setToonGlobals({ inkTime: inkT, pass: 0 });
-    renderer.shadowMap.autoUpdate = true;
-    look.render(scene, camera, { t: fr / 24 });
-    return;
-  }
-  drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlobals, inkT });
+  draw({ camera, setToonGlobals, inkT, fr });
 };
 const tw = performance.now();
 window.render(0); window.render(1.6); window.render(3.2);
