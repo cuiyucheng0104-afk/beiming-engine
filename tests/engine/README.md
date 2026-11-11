@@ -2,11 +2,11 @@
 
 读者｜改 engine/core、form、shade、stage、look、paint、overlay 的人与 agent　维护｜P13
 
-改了引擎先跑这一组，再看像素（金标准 `npm run golden -- compare`，P08）。
+改了引擎先跑这一组，再看像素：金标准 `node tools/baseline/golden.mjs compare --set beiming-core,lab,beiming-detail --strict`（P08 的工具，合入后可用；同平台逐像素比对本机清单）。
 
 ```sh
 node --test "tests/engine/**/*.test.mjs"      # 本目录，约 1–2 秒（Node 24 的 node --test 要写 glob）
-node tools/run-tests.mjs --only engine,lab    # 连同 engine/*/ 里的老测试与 lab 回归，约 5 秒；软件渲染约 30 秒
+node tools/run-tests.mjs --only engine,lab    # 连同 engine/*/ 里的老测试与 lab 回归，约 6 秒；软件渲染约 40 秒
 ```
 
 带 `.browser` 的文件要无头浏览器（`npm run setup` 装）；没装时整组跳过，不算失败。`BEIMING_ANGLE=swiftshader` 可在没有显卡的机器上跑。
@@ -26,6 +26,6 @@ node tools/run-tests.mjs --only engine,lab    # 连同 engine/*/ 里的老测试
 
 **有意改了 API**（删、改名、新增 stable 模块的导出）：确认后运行 `node tests/engine/lib/api-snapshot.mjs --write` 更新快照，在 CHANGELOG 的 [Unreleased] 记一笔。新模块按 experimental 登记，稳定后在 `api-snapshot.json` 里改成 stable。
 
-**改着色器补丁或升级 three**：先跑 `shade-anchors.test.mjs`，再跑 `engine/look/gpu.test.mjs`（要 GPU 或 `BEIMING_ANGLE=swiftshader`；R61–R63 守纸纹锚点、scaleMode 与「原生 4K 缩回 1080 与 1080 直出高频能量相同」）。
+**改着色器补丁或升级 three**：先跑 `shade-anchors.test.mjs`，再跑 `engine/look/gpu.test.mjs`（要 GPU 或 `BEIMING_ANGLE=swiftshader`；R61–R63 守纸纹锚点、scaleMode 与「原生 4K 缩回 1080 与 1080 直出高频能量相同」，R63 把各情形的实测高频差打在测试输出的诊断行里）。
 
 **像素纪律**：《北冥》（src/）、作品站（src/kun_qinglv.js 等的 import 链）与 lab 的画面不许无意改变。新参数一律默认关；本目录里「与改动前逐位相同」的用例就是守这条的。
