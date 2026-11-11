@@ -410,6 +410,29 @@ test('生效作品描述：档位换了画幅与帧率时 output、镜头、事�
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('本片字体子集（A 模版写了 fonts）：没生成时 build 在开运行目录前退出码 4 并给出生成命令；声明写错同样 4；B、没写 fonts 的不适用', async () => {
+  const { planSession } = await import('../../tools/film/lib/session.mjs');
+  const { fontsCheck } = await import('../../tools/film/lib/fonts.mjs');
+  const { makeWork } = await import('./helpers.mjs');
+  const w = makeWork('a', { fonts: false });
+  try {
+    const before = fs.readdirSync(w.dir).sort();
+    throwsCode(() => planSession({ kind: 'build', filmArg: w.dir, opts: {} }), EXIT.CONTRACT, 'fonts-stale');
+    const view = () => ({ route: 'a', dir: w.dir, relDir: w.rel, raw: JSON.parse(fs.readFileSync(path.join(w.dir, 'film.json'), 'utf8')) });
+    const r = fontsCheck(view());
+    assert.equal(r.ok, false);
+    assert.ok(r.hint.includes(`node tools/fonts/subset.mjs ${w.rel}`), r.hint);
+    assert.deepEqual(fs.readdirSync(w.dir).sort(), before, '只核对：不写作品目录、不建 out/');
+    // 字体声明写错（texts 用了没声明的字族）：同样退出码 4，信息来自字体工具
+    fs.writeFileSync(path.join(w.dir, 'film.json'), JSON.stringify({ ...view().raw, texts: [{ id: 'x', text: '晨', font: 'No Such Family' }] }));
+    const bad = fontsCheck(view());
+    assert.equal(bad.exitCode, EXIT.CONTRACT);
+    assert.equal(bad.code, 'fonts-spec');
+  } finally { w.cleanup(); }
+  assert.equal(fontsCheck({ route: 'b', raw: { fonts: [{ family: 'x', source: 'y' }] } }), null, 'B 路线没有页面字体');
+  assert.equal(fontsCheck({ route: 'c', raw: {} }), null, '没写 fonts 的作品不适用');
+});
+
 test('出片前的检查（planSession）：不写文件；竖屏档位要生效描述；--size 是非交付的工作版；终渲档位要在 deliveries 里；预演、静帧不要生效描述', async () => {
   const { planSession } = await import('../../tools/film/lib/session.mjs');
   const { makeWork } = await import('./helpers.mjs');

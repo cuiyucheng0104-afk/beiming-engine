@@ -79,7 +79,8 @@ test('闸门：没有 look / animatic 认可时 build --final 与 render --final
 });
 
 test('审阅记录：approve 要原话、出处与审阅人；agent 的 note 与没有原话的豁免只记 comment、不放行终渲；final 不能豁免', () => {
-  const w = makeWork('a');
+  // 这条只测审阅记录与闸门，用 C 模版：A 模版要先生成字体子集（要 Python fontTools 与字体缓存），秒级单元测试不该依赖它
+  const w = makeWork('c');
   works.push(w);
   assert.equal(runCli(['review', 'approve', 'look', w.rel]).code, 2, '没有原话');
   assert.equal(runCli(['review', 'approve', 'look', w.rel, '--quote', '可以', '--source', '会话']).code, 2, '没有审阅人');
