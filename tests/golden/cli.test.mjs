@@ -139,7 +139,7 @@ test('确定性：纯函数夹具通过（exit 0），有累计状态的反例�
 });
 
 test('金标准：同一页面自比逐像素一致；页面被改动（方块平移 3 像素）→ exit 4 并出差异热图与接触印', { skip: !browserOk && '没装无头浏览器' }, () => {
-  const tmp = repoTmp('.golden-test-');
+  const tmp = repoTmp('golden-test-')   /* 页面服务拒绝以点开头的路径段，临时作品目录名不能带前导点 */;
   try {
     // 被改动的页面放在仓库内的临时目录，页面名不变，所以帧编号与参照一一对应
     const shifted = path.join(tmp, 'pure-shifted');

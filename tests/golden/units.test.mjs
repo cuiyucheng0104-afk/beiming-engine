@@ -190,7 +190,7 @@ test('静态扫描：只认代码里的不确定 API，注释与字符串不算�
   assert.equal(code.split('\n').length, 6);
   assert.ok(!/Math\.random/.test(code.split('\n')[0]) && !/Date\.now/.test(code.split('\n')[1]));
   fs.mkdirSync(`${ROOT}out`, { recursive: true });   // 扫描只认仓库里的文件；out/ 被 gitignore，新检出的仓库里还没有它
-  const dir = fs.mkdtempSync(`${ROOT}out/.scan-test-`);
+  const dir = fs.mkdtempSync(`${ROOT}out/scan-test-`);
   try {
     fs.writeFileSync(`${dir}/a.js`, src);
     const rel = dir.slice(ROOT.length) + '/a.js';
@@ -239,9 +239,16 @@ test('模版在运行时按 ../../ 读到的仓库文件都在像素相关路径
     let refs = 0;
     for (const f of fs.readdirSync(path.join(ROOT, tpl), { recursive: true })) {
       if (!/\.(m?js|html|json|css)$/.test(f)) continue;   // README 等文档里的链接不在运行时读
-      for (const m of fs.readFileSync(path.join(ROOT, tpl, f), 'utf8').matchAll(/['"`(]\.\.\/\.\.\/([^'"`)\s?#]+)/g)) {
+      const text = fs.readFileSync(path.join(ROOT, tpl, f), 'utf8');
+      for (const m of text.matchAll(/['"`(]((?:\.\.\/)+)([^'"`)\s?#]+)/g)) {
+        // 模版实例化后在 films/<名>/ 下运行（与仓库根隔两级）：按文件在那里的位置解析，shots/ 里的 ../../../engine 也是仓库根的 engine
+        const line = text.slice(text.lastIndexOf('\n', m.index) + 1, text.indexOf('\n', m.index) >>> 0);
+        if (/"baseline"\s*:/.test(line)) continue;   // 画风基准图只给审片指标读，页面运行时不读
+        const rel = path.posix.normalize(path.posix.join('films/_t', path.posix.dirname(f.split(path.sep).join('/')), m[1] + m[2]));
+        if (rel.startsWith('..') || rel.startsWith('films/_t/')) continue;
         refs++;
-        if (!inside(m[1])) outside.push(`${tpl}/${f} → ${m[1]}`);
+        if (m[2].includes('${')) continue;   // 运行时由画风登记拼出的路径（纸纹 assets/plates/paper.png），已在 assets 下
+        if (!inside(rel)) outside.push(`${tpl}/${f} → ${rel}`);
       }
     }
     assert.ok(refs > 0, `${tpl} 里一处 ../../ 引用都没扫到，扫描写法可能失效了`);
