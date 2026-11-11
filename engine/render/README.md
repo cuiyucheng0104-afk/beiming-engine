@@ -56,7 +56,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 - 写了 `--out`：成片就是它，运行记录是 `<输出>.run.json`。
 - 不写 `--out`：作品出到 `films/<名字>/out/<运行号>/master.mp4`，《北冥》样片出到 `out/beiming/<运行号>/master.mp4`；运行记录是同目录的 `run.json`；成功后把运行号写进指针文件 `…/out/latest`（不用符号链接）。运行号 `YYYYMMDD-HHMMSS-<短提交>[-dirty]`。
 - 出片编排（`tools/film`）有两种接法：不写 `--out`，由渲染器建运行目录，从 `--json` 信封的 `data.runId`、`data.runDir` 取位置；或者自己定运行目录，写 `--out <运行目录>/master.mp4 --web <运行目录>/web.mp4 --run-json <运行目录>/run.json`。
-- 写盘一律先写临时名再改名：失败或被中断不留半成品；分段临时目录 `<输出目录>/.segs-*` 任何结局都删。
+- 写盘一律先写临时名再改名：失败或被中断不留半成品；分段临时目录 `<输出目录>/.segs-*` 任何结局都删。拼接与封装的结果先写成**目标文件所在目录**里的 `.<名>.partial-<pid>.mp4` 再改名，所以 `--web`、镜头缓存的 `--out` 可以落在另一个卷上（另一个盘符、tmpfs）；这些半成品与 `mux` 的临时目录都登记在收尾里，收到 SIGINT / SIGTERM 也删。
 
 运行记录每次都写，失败也写（开渲前先写一份占位，旧记录不会被误当成这次的结果）。主要字段：
 
@@ -96,7 +96,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 - **ANGLE 后端**：`--angle` / `BEIMING_ANGLE` / 平台默认（macOS `metal`、Windows `vulkan`、Linux `default`）。先转小写再按平台校验：Mac 上写 `vulkan`、Windows 上写 `metal` 直接退出 2（以前会静默落到软件渲染）。`default` 表示不传 `--use-angle`。
 - **GPU 策略**：`--gpu required`（默认）落到软件渲染（SwiftShader、llvmpipe、WARP）退出 3；`any` 放行并记警告；`software-ok` 明确要软件渲染（CI 冒烟、没有 GPU 的机器）。没写 `--gpu` 时读 `BEIMING_GPU`，写错同样退出 2。实测设备记进运行记录的 `actualDevice`、`softwareFallback`。
 - **浏览器**：Playwright 自带、`package.json` 锁定的 chromium-headless-shell（`BEIMING_CHROME` 可换）。渲染器、`gpucheck.mjs` 与 `npm run env:doctor` 用同一个启动函数和同一组参数，所以自检看到的就是渲染时的 GPU。Windows Vulkan 下 `--settle auto` 会在截图前多等两帧（显示层残留的对策，`tests/render/fixtures/residue` 是回归页）。
-- **输出锁**：`<输出>.lock`（记 pid 与心跳）。同一个输出第二次渲染退出 5；崩溃留下的锁按 pid 与心跳自动接管。
+- **输出锁**：`<输出>.lock`（记 pid 与心跳）。同一个输出第二次渲染退出 5；崩溃留下的锁按 pid 与心跳自动接管；读不出内容的锁（别人刚建出、还没写入）10 秒内也算有人持有。
 - **渲染槽位**（可选）：设 `RENDER_SLOTS=N`（或 `--slots N`）时整台机器同时最多 N 个渲染，多出来的排队（`--no-wait` 直接退出 5，等超过 `--wait-timeout` 退出 124）。
 - **共享 GPU 守卫**：有 `nvidia-smi` 的工作站开渲前采样，任一卡占用 > `BEIMING_GPU_BUSY_UTIL`（默认 10%）、空闲显存 < `BEIMING_GPU_MIN_FREE_MB`（默认 2048）或 ComfyUI 队列（`COMFY_URL`）有任务就等；从不终止别人的进程。`--no-guard` 关掉。
 
@@ -140,7 +140,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `env.gpu-not-hardware` | 3 | gpucheck：渲染器会用的后端不是硬件 GPU | 按推荐设 `BEIMING_ANGLE` |
 | `env.browser-launch` | 3 | 无头浏览器起不来 | `npm run setup` 装锁定的 headless shell |
 | `env.playwright-missing` | 3 | 加载不了 playwright-core（没装 npm 依赖） | 在仓库根 `npm ci` |
-| `env.ffmpeg-missing`、`env.ffprobe-missing`、`env.ffmpeg-encoder-missing`、`env.ffmpeg-spawn` | 3 | 找不到 FFmpeg / ffprobe、缺 libx264 或 aac、起不来 | 装 FFmpeg ≥ 7，或设 `FFMPEG` / `FFPROBE` |
+| `env.ffmpeg-missing`、`env.ffprobe-missing`、`env.ffmpeg-encoder-missing`、`env.ffmpeg-spawn` | 3 | 找不到 FFmpeg / ffprobe、缺 libx264 或 aac、起不来；预检时 15 秒没有响应（`FFMPEG` 指向卡住的程序） | 装 FFmpeg ≥ 7，或设 `FFMPEG` / `FFPROBE` 为本机能直接运行的可执行文件 |
 | `env.disk-insufficient` | 3 | `--plan` 估算磁盘不够 1.5 倍余量 | 换输出目录或清理磁盘 |
 | `env.lock-io`、`env.listen` | 3 | 输出目录不可写；预览服务监听失败 | 查权限 |
 | `contract.dur`、`contract.render`、`contract.fps`、`contract.texts`、`contract.version` | 4 | 页面约定不符（第 2 节） | 按报错改页面 |
