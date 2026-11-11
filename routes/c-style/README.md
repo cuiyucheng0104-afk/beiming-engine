@@ -211,4 +211,4 @@ films/<名字>/
   - SY（肖雄 XIAOXIONG）：[README.md](../../cases/vendor/sy-style-100/README.md)、[SKILL.md](../../cases/vendor/sy-style-100/SKILL.md)
 - **我们的 66 部风格实验与 PPT 片**：[cases/README.md](../../cases/README.md)、[cases/INDEX.md](../../cases/INDEX.md)；两库源码对比见 [docs/cases/comparison.md](../../docs/cases/comparison.md)。
 - **导演与工艺规范**：[routes/directing/](../directing/README.md)（导演十步、画面设计、五章工艺）。
-- **C 的公共件**（tempo.js、cues.py、cuecheck.py、events.mjs、build.mjs）抽自我们 66 部风格实验的共同写法。抽取时做过改动前后的逐字节比对，记录在提交 e76c9d5 的说明里，之后没有重跑。
+- **C 的公共件**（tempo.js、cues.py、cuecheck.py、events.mjs、build.mjs）抽自我们 66 部风格实验的共同写法。抽取时做过改动前后的逐字节比对，记录在提交 d5b21ac 的说明里，之后没有重跑。

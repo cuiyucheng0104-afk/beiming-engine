@@ -123,7 +123,7 @@
 
 CI 建议只比 `ci` 集合：`compare --set ci --platform linux-swiftshader`。原生 4K、全分辨率与 `lab:kun_peng` 由 GPU 平台的 beiming-core、lab 守。
 
-已有基线：`darwin-metal` 上五套。beiming-core、lab、beiming-detail 登记于 abfdc83，11-10 在底座 2a0a0f3、11-11 在 fb0b841 上复核逐像素一致。templates 在 P15 重写 C 模版后于 fb0b841 重新登记。fixtures（含灰阶色卡，守截图链路本身改色）11-11 首次登记。见 [records/2026-11-10-rebase-2a0a0f3.md](records/2026-11-10-rebase-2a0a0f3.md)、[records/2026-11-11-review-fixes.md](records/2026-11-11-review-fixes.md)。**还没有**：`win-vulkan`（RTX 工作站）、`linux-swiftshader`（CI 首跑采集候选后按第 6 节第 3 条转正）。
+已有基线：`darwin-metal` 上五套。beiming-core、lab、beiming-detail 登记于 c49da14，11-10 在底座 87fd5bf、11-11 在 9682eee 上复核逐像素一致。templates 在 P15 重写 C 模版后于 9682eee 重新登记。fixtures（含灰阶色卡，守截图链路本身改色）11-11 首次登记。见 [records/2026-11-10-rebase-87fd5bf.md](records/2026-11-10-rebase-87fd5bf.md)、[records/2026-11-11-review-fixes.md](records/2026-11-11-review-fixes.md)。**还没有**：`win-vulkan`（RTX 工作站）、`linux-swiftshader`（CI 首跑采集候选后按第 6 节第 3 条转正）。
 
 ## 9. 与色彩链、编码的关系
 

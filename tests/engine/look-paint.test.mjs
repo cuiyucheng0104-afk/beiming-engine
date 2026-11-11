@@ -1,5 +1,5 @@
 // engine/look、paint、overlay 里不碰 GPU 与画布的纯函数（Node）：
-//   · 后期的颗粒 / 墨线沸腾的种子、颗粒格子、纸纹 layer 与锚点：默认参数下与改动前（abfdc83）的式子逐位相同，
+//   · 后期的颗粒 / 墨线沸腾的种子、颗粒格子、纸纹 layer 与锚点：默认参数下与改动前（c49da14）的式子逐位相同，
 //     新参数（holdFrames、size、boilHold、scaleMode、anchor）按影片帧率 / 分辨率工作；
 //   · paint 的仿射矩阵、平滑曲线与弧长、毛笔飞白的笔毛干段、宣纸的亮度场与纤维清单；
 //   · overlay 的倒角距离变换；显示层文字方框记录（window.TEXTS 的 box、alpha、font）。
@@ -24,7 +24,7 @@ const R = mulberry(20261110);
 test('look：颗粒种子与格子——不写 holdFrames / size 时与改动前逐位相同；holdFrames 按影片帧率每 n 帧换一次', () => {
   for (let i = 0; i < 20000; i++) {
     const t = R() * 600, fps = [24, 25, 30][i % 3];
-    assert.equal(grainSeedOf(t, fps, null), Math.floor(t * fps + 1e-6), '默认：与 abfdc83 的 Math.floor(t * fps + 1e-6) 相同');
+    assert.equal(grainSeedOf(t, fps, null), Math.floor(t * fps + 1e-6), '默认：与 c49da14 的 Math.floor(t * fps + 1e-6) 相同');
     assert.equal(grainSeedOf(t, fps, 1), Math.floor(t * fps + 1e-6));
   }
   for (const fps of [24, 25, 30]) for (const n of [2, 3]) {

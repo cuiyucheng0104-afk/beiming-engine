@@ -64,7 +64,7 @@ node engine/render/native.mjs examples/raea                  # 出片
 - `run.json`：运行时版本与哈希、实际编码器、显卡与图形后端、全部输入与素材哈希、响度实测、逐帧哈希、各阶段耗时；
 - `check.json`：运行时自带的成片检查（P0 / P1 问题即 exit 4）；`qa/report.md`：仓库的机器 QA 门（规格、色彩、响度、画面、声画、底板，硬门不通过 exit 4）；`contact.jpg` 联系表；`player.html` 本地看片页。
 
-2026-11-10 macOS（Apple M5 Pro、Metal、VideoToolbox）实测（提交 `ca5361e`）：原生渲染 4.8 秒，全程 33–85 秒（视机器负载）；240 帧，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题；机器 QA 27 过、3 提示（底板静态找边看的是原图、原生片没有页面量不了贴图密度、船笛 / 鲲鸣 / 和弦是缓起的声音只给软项）、1 个硬门 `known-issues.open`：台账 `docs/quality/known-issues.json` 里 QA-B-001（云堤直线淡出，本次已修，待 QA 包按回归命令核对后关闭）与 QA-B-002（三维物体没有空气透视，未修）仍是 open，所以目前 exit 4、run.json 记 failed。技术检查通过不等于画面通过：看 `contact.jpg` 与整片。
+2026-11-10 macOS（Apple M5 Pro、Metal、VideoToolbox）实测（提交 `0d78ff4`）：原生渲染 4.8 秒，全程 33–85 秒（视机器负载）；240 帧，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题；机器 QA 27 过、3 提示（底板静态找边看的是原图、原生片没有页面量不了贴图密度、船笛 / 鲲鸣 / 和弦是缓起的声音只给软项）、1 个硬门 `known-issues.open`：台账 `docs/quality/known-issues.json` 里 QA-B-001（云堤直线淡出，本次已修，待 QA 包按回归命令核对后关闭）与 QA-B-002（三维物体没有空气透视，未修）仍是 open，所以目前 exit 4、run.json 记 failed。技术检查通过不等于画面通过：看 `contact.jpg` 与整片。
 
 ## 4. 如何修改
 

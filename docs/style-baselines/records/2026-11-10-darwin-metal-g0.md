@@ -2,7 +2,7 @@
 
 读者｜集成负责人、改引擎的维护者　状态｜已登记，待集成负责人复核　依据｜加固计划 P08·G0；规则见 [../POLICY.md](../POLICY.md)
 
-> 2026-11-10 晚补记：清单已从 `tests/golden/manifests/<平台键>/<集合>.json` 原样并进 `tests/golden/<平台键>/manifest.json`（内容逐项不变）；合入新底座 2a0a0f3 后复核仍逐像素一致。见 [2026-11-10-rebase-2a0a0f3.md](2026-11-10-rebase-2a0a0f3.md)。下表保留登记当时的路径。
+> 2026-11-10 晚补记：清单已从 `tests/golden/manifests/<平台键>/<集合>.json` 原样并进 `tests/golden/<平台键>/manifest.json`（内容逐项不变）；合入新底座 87fd5bf 后复核仍逐像素一致。见 [2026-11-10-rebase-87fd5bf.md](2026-11-10-rebase-87fd5bf.md)。下表保留登记当时的路径。
 
 ## 登记了什么
 
@@ -14,13 +14,13 @@
 | beiming-detail | 37（切点 ±1、声画事件帧、关键时刻、无显示层、后期中间层） | `tests/golden/manifests/darwin-metal/beiming-detail.json` |
 | beiming-original-v1（认可参照） | 20 | `docs/style-baselines/beiming-original@v1/darwin-metal.json` |
 
-- 登记提交 `abfdc83`（routes-template：8c07cb8 合进 main 的 62ad28e）。截帧在工作分支上进行，工具先核对这些集合用到的像素相关路径与 `abfdc83` 逐字节相同（`git diff` 为空），清单的 `source.renderedAt` 记实际的工作分支提交。
+- 登记提交 `c49da14`（routes-template：97aca16 合进 main 的 62ad28e）。截帧在工作分支上进行，工具先核对这些集合用到的像素相关路径与 `c49da14` 逐字节相同（`git diff` 为空），清单的 `source.renderedAt` 记实际的工作分支提交。
 - 环境：Apple M5 Pro，ANGLE Metal；chromium-headless-shell 153.0.8010.12（playwright-core 1.63.0）；Node 24.13.1；three 0.170.0；FFmpeg 8.0.1。
 - 复跑：`node tools/baseline/golden.mjs compare --set beiming-core,lab,templates,beiming-detail --strict` → 153/153 逐像素一致，exit 0，36.7 秒；`… compare --set beiming-original-v1 --reference beiming-original@v1 --strict` → 20/20，exit 0。
 
 ## 与合并前的差异，逐帧归因
 
-合进 main 的 62ad28e 有意改了画面，所以新基线与合并前的 routes-template（`8c07cb8`）不同。做法：`compare --against 8c07cb8 --strict` 找出全部不一致的帧，再在 HEAD 的临时副本里把候选文件逐个还原成 8c07cb8 的版本重截，还原后与 8c07cb8 逐像素一致，就说明差异完全来自这些文件。
+合进 main 的 62ad28e 有意改了画面，所以新基线与合并前的 routes-template（`97aca16`）不同。做法：`compare --against 97aca16 --strict` 找出全部不一致的帧，再在 HEAD 的临时副本里把候选文件逐个还原成 97aca16 的版本重截，还原后与 97aca16 逐像素一致，就说明差异完全来自这些文件。
 
 | 集合 | 一致 | 不一致的帧 | 差多少 | 还原哪些文件后逐像素一致 | 归因 |
 |---|---|---|---|---|---|
@@ -37,7 +37,7 @@
 
 4K 修复的目标是「4K 缩回 1080 后与 1080 直出观感一致」。量这一点：原生 4K 用 2×2 盒式缩到 1920×1040，与同一时刻的 1080 直出比较——
 
-| 时刻 | 合并前（8c07cb8） | 现在（abfdc83） |
+| 时刻 | 合并前（97aca16） | 现在（c49da14） |
 |---|---|---|
 | 1.6 秒 | SSIM 0.652，PSNR 30.2 dB | SSIM 0.991，PSNR 41.1 dB |
 | 4.0 秒 | 0.664，30.3 dB | 0.994，42.4 dB |
@@ -46,7 +46,7 @@
 
 4K 的差异与修复意图一致。7.6 秒仍最低，显示层文字和导航线在两种分辨率下各自光栅化，属预期。
 
-另用 `--against ed11b83` 复核：现代码与 v1.0 在 4.0、9.9 秒的 1080 画面逐像素一致，差别只在 R24、R30、R66 三处，说明 v1.0 到 8c07cb8 之间的重构没有改 1080 像素。
+另用 `--against ed11b83` 复核：现代码与 v1.0 在 4.0、9.9 秒的 1080 画面逐像素一致，差别只在 R24、R30、R66 三处，说明 v1.0 到 97aca16 之间的重构没有改 1080 像素。
 
 ## 确定性（同日实测）
 

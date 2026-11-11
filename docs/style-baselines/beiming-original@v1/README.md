@@ -1,6 +1,6 @@
 # beiming-original@v1 · 《北冥》认可画面参照
 
-读者｜延续北冥画风的新作品、做风格校准的 agent、审片人　状态｜已登记（darwin-metal），**认可状态待用户确认**　登记提交｜`abfdc83`（routes-template，含 main 62ad28e）　清单｜[darwin-metal.json](darwin-metal.json)　关键帧｜登记 [keyframes.json](keyframes.json)（PNG 不入库，在 darwin-metal 上本机重建）
+读者｜延续北冥画风的新作品、做风格校准的 agent、审片人　状态｜已登记（darwin-metal），**认可状态待用户确认**　登记提交｜`c49da14`（routes-template，含 main 62ad28e）　清单｜[darwin-metal.json](darwin-metal.json)　关键帧｜登记 [keyframes.json](keyframes.json)（PNG 不入库，在 darwin-metal 上本机重建）
 
 《北冥》10 秒样片的画风，冻结成 20 张无损帧。新片说「延续北冥画风」，look 闸门（D08）就拿它的关键帧并排对照；引擎改动想知道「北冥原本的样子」变没变，也和它比。它不随代码走：代码有意改了画面，回归金标准跟着更新，这一份不动。规则见 [../POLICY.md](../POLICY.md)。
 
@@ -46,11 +46,11 @@
 | 要做的事 | 命令 |
 |---|---|
 | 现代码还是不是这份画面 | `node tools/baseline/golden.mjs compare --set beiming-original-v1 --reference beiming-original@v1`（darwin-metal 上应 20/20 逐像素一致；62ad28e 之后的画面改动都已在登记时包含） |
-| 拿到登记提交渲出的二十张 PNG | `node tools/baseline/golden.mjs compare --set beiming-original-v1 --against abfdc83`：参照 PNG 在 `out/golden/cache/abfdc83…/<系统-后端>/beiming-original-v1/frames/`，当前工作树的在 `out/golden/compare/<运行编号>/current/` |
+| 拿到登记提交渲出的二十张 PNG | `node tools/baseline/golden.mjs compare --set beiming-original-v1 --against c49da14`：参照 PNG 在 `out/golden/cache/c49da14…/<系统-后端>/beiming-original-v1/frames/`，当前工作树的在 `out/golden/compare/<运行编号>/current/` |
 | 新片 look 闸门 | 先按上文在本机重建关键帧，新片的风格关键帧与 `out/style-baselines/beiming-original@v1/keyframes/` 里同名的图并排：远景对 `wide`，人物对 `figure`，特写对 `eye` / `underside`。看色板、墨线粗细与墨色、纸纹与颗粒的分寸。内容不同的画面之间不算 SSIM / PSNR，那没有意义 |
 | 自动参考指标（评测题库 DF-A、DF-M） | `tools/eval` 用这六张图算色板 ΔE00 中位数、墨线覆盖率、纸纹与颗粒的高频能量，只作参考、不计分。图要先在本机重建；评测工具目前在本目录下找图，找不到时记「基线未入库」（改为也读 `out/style-baselines/` 的请求已提给集成负责人） |
 | 拿到关键帧图 | `node tools/baseline/golden.mjs keyframes --reference beiming-original@v1`：现渲登记提交，像素与清单逐位一致才写到 `out/style-baselines/beiming-original@v1/keyframes/`；不改任何入库文件。只能在 darwin-metal 上做 |
-| 其它平台 | 在那台机器上用同一提交 `golden reference --set beiming-original-v1 --id beiming-original@v1 --commit abfdc83 …` 补登记 `<平台键>.json`；与 darwin-metal 之间按跨平台容差比 |
+| 其它平台 | 在那台机器上用同一提交 `golden reference --set beiming-original-v1 --id beiming-original@v1 --commit c49da14 …` 补登记 `<平台键>.json`；与 darwin-metal 之间按跨平台容差比 |
 
 ## 认可依据
 
@@ -64,4 +64,4 @@
 
 ## 版本
 
-- v1（2026-11-10）：20 帧，darwin-metal，登记提交 `abfdc83`。冻结，不改。同日补入六张关键帧的登记 `keyframes.json`，像素即清单里的同名帧，不算改版。关键帧 PNG 曾随登记一起入库，11-11 按 D10 移出仓库，改为本机重建。
+- v1（2026-11-10）：20 帧，darwin-metal，登记提交 `c49da14`。冻结，不改。同日补入六张关键帧的登记 `keyframes.json`，像素即清单里的同名帧，不算改版。关键帧 PNG 曾随登记一起入库，11-11 按 D10 移出仓库，改为本机重建。

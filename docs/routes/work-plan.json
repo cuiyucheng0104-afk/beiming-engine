@@ -180,7 +180,7 @@
       "route": "b",
       "ownerRole": "原生场景工程师",
       "status": "superseded",
-      "superseded": { "by": ["H14"], "reason": "engine/native 通用原生层（b6bbd44）已实现独立作品目录与基础场景，由 B 路线包维护（D06）" },
+      "superseded": { "by": ["H14"], "reason": "engine/native 通用原生层（6e1e4be）已实现独立作品目录与基础场景，由 B 路线包维护（D06）" },
       "dependsOn": ["T00"],
       "inputs": ["examples/raea 已跑通例片", "固定 RAEA runtime 与 SDK"],
       "writeScope": ["examples/raea-starter/"],
@@ -237,7 +237,7 @@
       "route": "b",
       "ownerRole": "原生运行工程师",
       "status": "superseded",
-      "superseded": { "by": ["H14"], "reason": "engine/native 与 engine/render/native.mjs（b6bbd44）已是项目级运行包装，由 B 路线包维护（D06）" },
+      "superseded": { "by": ["H14"], "reason": "engine/native 与 engine/render/native.mjs（6e1e4be）已是项目级运行包装，由 B 路线包维护（D06）" },
       "dependsOn": ["T09", "T01"],
       "inputs": ["现有入口 examples/raea/tools/render.mjs 与 examples/raea/tools/prepare.mjs", "项目记录契约 docs/routes/contracts.md"],
       "writeScope": ["engine/backends/raea/run.mjs", "tests/backends/raea/"],
@@ -356,7 +356,7 @@
       "claim": {
         "by": "集成负责人",
         "session": "routes-template",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -382,7 +382,7 @@
       "claim": {
         "by": "P01 属主代理（加固工作流）",
         "session": "hard/P01",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-11-24"
       },
@@ -401,8 +401,8 @@
         "1c：git log --all --format=%ae | sort -u 只剩 noreply；git log --all -- <清单路径> 为空"
       ],
       "evidence": [
-        { "kind": "commit", "ref": "9f58ebe62357b475e5a7a701c4e4084b21c60740", "note": "合并 hard/P01 进集成分支" },
-        { "kind": "commit", "ref": "14f6c0db28b6f79aec92ffc9268e95d88601d1ee", "note": "集成修复：comp 阻断级发现清零" },
+        { "kind": "commit", "ref": "79f9eaad31f675ac7ea352a9affeabe465355a8f", "note": "合并 hard/P01 进集成分支" },
+        { "kind": "commit", "ref": "d0dfbb280b7284e3480de4dc951fef8386dd66f1", "note": "集成修复：comp 阻断级发现清零" },
         { "kind": "command", "ref": "node tools/repo-check.mjs --only comp --json", "note": "2026-11-10 集成后 0 error；包状态 ready。仍待：1a 撤下受限 Release 资产要用户授权，licenseInfo 要推送后核对，1c 按 D02 不改写历史，39 个授权字段待用户补，派生文件来源头等 P13、P04、P06 修（待修豁免 12-15 到期）" }
       ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
@@ -416,7 +416,7 @@
       "claim": {
         "by": "P02 属主代理（加固工作流）",
         "session": "hard/P02",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-11-24"
       },
@@ -453,9 +453,9 @@
         "node tools/repo-check.mjs --json 在 main 上 exit 0；tests/governance/fixtures 的每种违规都给出对应规则 id 并 exit 4（附录 C1：契约不通过）"
       ],
       "evidence": [
-        { "kind": "commit", "ref": "d2f4810040411bbf52058ba7387ea935f715a90c", "note": "合并 hard/P02 进集成分支" },
-        { "kind": "commit", "ref": "cdcf92b1370fb4ffd0db51ba4e7eb4ba2c5c8766", "note": "集成修复：规则加载器认域模块写法" },
-        { "kind": "commit", "ref": "ab01fea0fe4fce76d094bab27b427ccdfac8cdcd", "note": "集成修复：契约测试覆盖 38 个 npm 脚本" },
+        { "kind": "commit", "ref": "c08aa378c1a178e062b316428ac3e296be1e1816", "note": "合并 hard/P02 进集成分支" },
+        { "kind": "commit", "ref": "7ca05b2b0017cce01b3ec69d6ebdca5c909e614f", "note": "集成修复：规则加载器认域模块写法" },
+        { "kind": "commit", "ref": "0a715aeebf68e74f513aba1856164e334d9b6fa9", "note": "集成修复：契约测试覆盖 38 个 npm 脚本" },
         { "kind": "command", "ref": "node --test tests/cli tests/governance tools/work-plan.test.mjs", "note": "2026-11-10 集成后全过；包状态 ready。new-film 与 film.js 的两条联调用例等 P05 合入后自动启用" }
       ],
       "playbook": "docs/CLI.md"
@@ -469,7 +469,7 @@
       "claim": {
         "by": "P03 属主代理（加固工作流）",
         "session": "hard/P03",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -510,7 +510,7 @@
       "claim": {
         "by": "P04 属主代理（加固工作流）",
         "session": "hard/P04",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -554,7 +554,7 @@
       "claim": {
         "by": "P05 属主代理（加固工作流）",
         "session": "hard/P05",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -598,7 +598,7 @@
       "claim": {
         "by": "P06 属主代理（加固工作流）",
         "session": "hard/P06",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -638,7 +638,7 @@
       "claim": {
         "by": "P07 属主代理（加固工作流）",
         "session": "hard/P07",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-11-24"
       },
@@ -657,7 +657,7 @@
         "qa 报告可作为 RenderResult.technicalAcceptance.evidence 被 P05 的校验器解析"
       ],
       "evidence": [
-        { "kind": "commit", "ref": "96a0df2010869b92d7af2af541838acca0725cb4", "note": "合并 hard/P07 进集成分支" },
+        { "kind": "commit", "ref": "0effc4f49c835419a3598919e7a2f3997ef88138", "note": "合并 hard/P07 进集成分支" },
         { "kind": "command", "ref": "node --test \"tests/qa/*.test.mjs\"", "note": "2026-11-10 集成后 52 项全过；包状态 ready。《北冥》跑 qa report 仍按实情 exit 4：AIGC 元数据等 P04、P06，texts 两项要用户批准豁免" }
       ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
@@ -671,7 +671,7 @@
       "claim": {
         "by": "P08 属主代理（加固工作流）",
         "session": "hard/P08",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -698,7 +698,7 @@
       "claim": {
         "by": "P09 属主代理（加固工作流）",
         "session": "hard/P09",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-11-24"
       },
@@ -728,7 +728,7 @@
         "推 v* 标签 → release.yml 跑完整 CI 并附接触印与静帧；CHANGELOG.md 有对应条目"
       ],
       "evidence": [
-        { "kind": "commit", "ref": "1a7aa0af268a9e76f95dff933b654e6e9fa300a0", "note": "合并 hard/P09 进集成分支" },
+        { "kind": "commit", "ref": "edbd14cef1cff17170943e1951a86d55fa320cef", "note": "合并 hard/P09 进集成分支" },
         { "kind": "command", "ref": "node tools/run-tests.mjs", "note": "2026-11-10 集成后已合入各域全过；包状态 needs-config：CI 还没在 GitHub 上首跑，分支保护、仓库变量与发布标签要用户授权，金标准清单等 P08" }
       ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
@@ -742,7 +742,7 @@
       "claim": {
         "by": "P10 属主代理（加固工作流）",
         "session": "hard/P10",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-11-24"
       },
@@ -775,8 +775,8 @@
         "E3：films/x/ 放 20 MB 文件 git add -A 不纳入，强行 add 时 check:repo 失败；tools/remote 在工作站按指定 sha 出片并回传哈希一致的成片与 run.json"
       ],
       "evidence": [
-        { "kind": "commit", "ref": "376bd373b19881c722b37ab8a703cfca81c830e6", "note": "合并 hard/P10 进集成分支" },
-        { "kind": "commit", "ref": "bac6a82098af9f60494d3fe915aeac2a6d0cbb58", "note": "集成修复：登记合入后新读到的环境变量" },
+        { "kind": "commit", "ref": "8882b3518dafb78013edc4d0daf5504de57015b9", "note": "合并 hard/P10 进集成分支" },
+        { "kind": "commit", "ref": "53413ec168d23f565614493928959da6d3f92390", "note": "集成修复：登记合入后新读到的环境变量" },
         { "kind": "command", "ref": "node --test \"tests/env/*.test.mjs\"", "note": "2026-11-10 集成后全过，env 规则 0 error；包状态 needs-config：Windows 真机与工作站远程出片未实测，要用户授权或由 CI 的 windows-latest 覆盖" }
       ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"
@@ -790,7 +790,7 @@
       "claim": {
         "by": "P11 属主代理（加固工作流）",
         "session": "hard/P11",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -821,7 +821,7 @@
       "claim": {
         "by": "P12 属主代理（加固工作流）",
         "session": "hard/P12",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -870,7 +870,7 @@
       "claim": {
         "by": "P13 属主代理（加固工作流）",
         "session": "hard/P13",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -913,7 +913,7 @@
       "claim": {
         "by": "P14 属主代理（加固工作流）",
         "session": "hard/P14",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -953,7 +953,7 @@
       "claim": {
         "by": "P15 属主代理（加固工作流）",
         "session": "hard/P15",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -984,7 +984,7 @@
       "claim": {
         "by": "P16 属主代理（加固工作流）",
         "session": "hard/P16",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-12-15",
         "note": "集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致"
@@ -1031,7 +1031,7 @@
       "claim": {
         "by": "P17 属主代理（加固工作流）",
         "session": "hard/P17",
-        "baseCommit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+        "baseCommit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
         "startedAt": "2026-11-10",
         "expiresAt": "2026-11-24"
       },
@@ -1045,7 +1045,7 @@
         "evals/results/<日期>.json 记录首个基线：每题 2 次独立运行的硬门、分项分与过程指标"
       ],
       "evidence": [
-        { "kind": "commit", "ref": "43bbc9c14f0f9304379723c291395c5f287ff930", "note": "合并 hard/P17 进集成分支" },
+        { "kind": "commit", "ref": "392f776343817e1989ca557c86002904e2d5dbbd", "note": "合并 hard/P17 进集成分支" },
         { "kind": "command", "ref": "node --test \"tests/eval/*.test.mjs\" && node tools/eval/score.mjs --self-test", "note": "2026-11-10 集成后 155 项全过；包状态 needs-config：首个基线 evals/results/<日期>.json 未记录，要等 G1、评测方凭据与家目录之外的评测根" }
       ],
       "playbook": "docs/decisions/2026-11-10-industrial-baseline.md"

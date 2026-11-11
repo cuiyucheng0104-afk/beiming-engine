@@ -19,17 +19,17 @@
     "gpuPolicy": "required"
    },
    "source": {
-    "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+    "commit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
     "dirty": false,
-    "renderedAt": "249efccc25cacd0dc9218be8110402eac6c45be3"
+    "renderedAt": "820cb03cbd9d8433c7e45cc79b3da171637f3d89"
    },
    "capturedAt": "2026-11-10T09:18:40.703Z",
    "framesDigest": "dd00b14f6d55d39b64808d44a5bd1c779980d91a58b1ec4f3f415dd1f2e9b542",
    "frameCount": 44,
    "approval": {
     "by": "P08 属主（Claude Opus 5.5 工作包代理，待集成负责人复核）",
-    "reason": "G0 首次建立 darwin-metal 回归基线。底座 routes-template@abfdc83（含 main 62ad28e）；与合并前 8c07cb8 逐帧比对的全部差异已按文件还原实验归因到 62ad28e 的有意修复（R24 渡船航行灯、R30 鸽群黑边、R66 导航线线头；4K 专属 R17/R19/R31/R32/R45；engine/look/paper.js 程序化纸纹中性点；engine/shade/surface.js 风化分支），无法归因的差异 0 帧",
-    "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+    "reason": "G0 首次建立 darwin-metal 回归基线。底座 routes-template@c49da14（含 main 62ad28e）；与合并前 97aca16 逐帧比对的全部差异已按文件还原实验归因到 62ad28e 的有意修复（R24 渡船航行灯、R30 鸽群黑边、R66 导航线线头；4K 专属 R17/R19/R31/R32/R45；engine/look/paper.js 程序化纸纹中性点；engine/shade/surface.js 风化分支），无法归因的差异 0 帧",
+    "commit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
     "at": "2026-11-10T09:18:40.704Z",
     "ref": "docs/style-baselines/records/2026-11-10-darwin-metal-g0.md"
    },
@@ -581,17 +581,17 @@
     "gpuPolicy": "required"
    },
    "source": {
-    "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+    "commit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
     "dirty": false,
-    "renderedAt": "249efccc25cacd0dc9218be8110402eac6c45be3"
+    "renderedAt": "820cb03cbd9d8433c7e45cc79b3da171637f3d89"
    },
    "capturedAt": "2026-11-10T09:19:03.240Z",
    "framesDigest": "c7a147ecbe96ff63f4d6890f53f7fc69eff6ea533f69b1c9c23a0b537587a111",
    "frameCount": 37,
    "approval": {
     "by": "P08 属主（Claude Opus 5.5 工作包代理，待集成负责人复核）",
-    "reason": "G0 首次建立 darwin-metal 回归基线。底座 routes-template@abfdc83（含 main 62ad28e）；与合并前 8c07cb8 逐帧比对的全部差异已按文件还原实验归因到 62ad28e 的有意修复（R24 渡船航行灯、R30 鸽群黑边、R66 导航线线头；4K 专属 R17/R19/R31/R32/R45；engine/look/paper.js 程序化纸纹中性点；engine/shade/surface.js 风化分支），无法归因的差异 0 帧",
-    "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+    "reason": "G0 首次建立 darwin-metal 回归基线。底座 routes-template@c49da14（含 main 62ad28e）；与合并前 97aca16 逐帧比对的全部差异已按文件还原实验归因到 62ad28e 的有意修复（R24 渡船航行灯、R30 鸽群黑边、R66 导航线线头；4K 专属 R17/R19/R31/R32/R45；engine/look/paper.js 程序化纸纹中性点；engine/shade/surface.js 风化分支），无法归因的差异 0 帧",
+    "commit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
     "at": "2026-11-10T09:19:03.240Z",
     "ref": "docs/style-baselines/records/2026-11-10-darwin-metal-g0.md"
    },
@@ -1090,7 +1090,7 @@
     "gpuPolicy": "required"
    },
    "source": {
-    "commit": "b0bc23a11d5b2688436763d976438e9e6cd0575b",
+    "commit": "2dc0166723b2d8258ca249d67389d752ac454277",
     "dirty": false,
     "pixelTree": "6b5ace5e434095efc2848e5b382eef59dac903b1ddd72bd5918e59d85655efdb",
     "pixelPaths": [
@@ -1113,7 +1113,7 @@
    "approval": {
     "by": "P08 属主（Claude Opus 5.5 工作包代理，待集成负责人复核）",
     "reason": "G0 补登记灰阶色卡：darwin-metal 已登记的四套集合里没有 fixture:graycard，GPU 平台的截图链路（色彩配置、合成器、ANGLE 后端输出）改色没有基线守（复核意见 should #2）。fixtures 是测试夹具集合：纯函数画布页 4 帧 + 灰阶与色块卡 1 帧，夹具未改动，首次登记；不改动已有集合",
-    "commit": "b0bc23a11d5b2688436763d976438e9e6cd0575b",
+    "commit": "2dc0166723b2d8258ca249d67389d752ac454277",
     "at": "2026-11-11T11:22:35.328Z",
     "ref": "docs/style-baselines/records/2026-11-11-review-fixes.md"
    },
@@ -1201,17 +1201,17 @@
     "gpuPolicy": "required"
    },
    "source": {
-    "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+    "commit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
     "dirty": false,
-    "renderedAt": "249efccc25cacd0dc9218be8110402eac6c45be3"
+    "renderedAt": "820cb03cbd9d8433c7e45cc79b3da171637f3d89"
    },
    "capturedAt": "2026-11-10T09:18:50.913Z",
    "framesDigest": "0146cd28400b5b52bb70b2eaed4f7e69581ba7435f4c33bafd0e539fb5cad9b0",
    "frameCount": 60,
    "approval": {
     "by": "P08 属主（Claude Opus 5.5 工作包代理，待集成负责人复核）",
-    "reason": "G0 首次建立 darwin-metal 回归基线。底座 routes-template@abfdc83（含 main 62ad28e）；与合并前 8c07cb8 逐帧比对的全部差异已按文件还原实验归因到 62ad28e 的有意修复（R24 渡船航行灯、R30 鸽群黑边、R66 导航线线头；4K 专属 R17/R19/R31/R32/R45；engine/look/paper.js 程序化纸纹中性点；engine/shade/surface.js 风化分支），无法归因的差异 0 帧",
-    "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+    "reason": "G0 首次建立 darwin-metal 回归基线。底座 routes-template@c49da14（含 main 62ad28e）；与合并前 97aca16 逐帧比对的全部差异已按文件还原实验归因到 62ad28e 的有意修复（R24 渡船航行灯、R30 鸽群黑边、R66 导航线线头；4K 专属 R17/R19/R31/R32/R45；engine/look/paper.js 程序化纸纹中性点；engine/shade/surface.js 风化分支），无法归因的差异 0 帧",
+    "commit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
     "at": "2026-11-10T09:18:50.913Z",
     "ref": "docs/style-baselines/records/2026-11-10-darwin-metal-g0.md"
    },
@@ -2015,9 +2015,9 @@
     "gpuPolicy": "required"
    },
    "source": {
-    "commit": "fb0b841d0718bb6f02081a784dc29a1436f199e3",
+    "commit": "9682eee494a0a92b089411a65a3a8791dfd9b3f8",
     "dirty": false,
-    "renderedAt": "b0bc23a11d5b2688436763d976438e9e6cd0575b",
+    "renderedAt": "2dc0166723b2d8258ca249d67389d752ac454277",
     "pixelTree": "00ece61d402f85f4409b2d9856867b44881443c848d747ec34b2d7afcae503be",
     "pixelPaths": [
      "assets",
@@ -2036,10 +2036,10 @@
    "frameCount": 12,
    "approval": {
     "by": "集成负责人（批准依据见 ref；P08 工作包代理代为执行登记，待集成负责人复核）",
-    "reason": "P15 重写 C 模版（片名改用马善政毛笔楷书分片字体、film.json 升 v2、片长 3→8 秒、笔触按笔压定快慢、染色去竖缝），经独立复核通过后由集成负责人合入 routes-template（fb0b841）。归因：tpl:a 6/6 逐像素一致；tpl:c 片长变了，取样时刻全部改变（删 6 帧、增 6 帧，无同编号帧变化）；像素相关路径从 abfdc83 到 fb0b841 只有 routes/c-style/template 与 routes/c-style/fonts 变化（P15 的提交），engine、src、lab、assets、fonts、index.html、A 模版逐字节不变；新 C 模版确定性检查 15 帧通过，画面已查看（毛笔楷书片名、印文北冥，无字体回落）",
-    "commit": "fb0b841d0718bb6f02081a784dc29a1436f199e3",
+    "reason": "P15 重写 C 模版（片名改用马善政毛笔楷书分片字体、film.json 升 v2、片长 3→8 秒、笔触按笔压定快慢、染色去竖缝），经独立复核通过后由集成负责人合入 routes-template（9682eee）。归因：tpl:a 6/6 逐像素一致；tpl:c 片长变了，取样时刻全部改变（删 6 帧、增 6 帧，无同编号帧变化）；像素相关路径从 c49da14 到 9682eee 只有 routes/c-style/template 与 routes/c-style/fonts 变化（P15 的提交），engine、src、lab、assets、fonts、index.html、A 模版逐字节不变；新 C 模版确定性检查 15 帧通过，画面已查看（毛笔楷书片名、印文北冥，无字体回落）",
+    "commit": "9682eee494a0a92b089411a65a3a8791dfd9b3f8",
     "at": "2026-11-11T11:22:34.757Z",
-    "ref": "fb0b841（合并 hard/P15 537cade：属主完成并经独立复核通过）；docs/style-baselines/records/2026-11-11-review-fixes.md"
+    "ref": "9682eee（合并 hard/P15 5d098f7：属主完成并经独立复核通过）；docs/style-baselines/records/2026-11-11-review-fixes.md"
    },
    "frames": [
     {

@@ -118,7 +118,7 @@ test('集合哈希：改帧会变、改说明不变；结构错误给出中文�
 });
 
 test('集合哈希的算法不能改：固定定义的哈希钉死；冻结的认可参照与登记时一致', () => {
-  // 算法一改，已登记的清单与冻结的认可参照会全部被判成「集合定义已变」（WIP 44d8ad9 改过一次，那个算法这里算出 e9e625e4…）。
+  // 算法一改，已登记的清单与冻结的认可参照会全部被判成「集合定义已变」（WIP e871994 改过一次，那个算法这里算出 e9e625e4…）。
   // 回归基线「定义改了、待经审批重新登记」是正常的过渡状态（规则 baseline.manifests 给提示），不在这里查。
   const fixed = { schema: 'beiming-golden-sets/v1', pages: { p: { dir: '.', 说明: '页面说明进哈希' } }, sets: { s: { description: '集合说明不进哈希', shots: [{ page: 'p', size: [16, 16], times: [0] }] } } };
   assert.equal(setHash(fixed, 's'), '9ea6fc6461652e92c8e850483d8523652e90e386cfcd6baab6ee623de0dc1a01');

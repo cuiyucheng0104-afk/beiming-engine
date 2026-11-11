@@ -63,7 +63,7 @@ test('math：monotone 过关键帧、不过冲、在单调关键帧之间单调'
 });
 
 // ── clock ──
-// 改动前的实现（engine/core/clock.js@abfdc83），用来证明 24 fps 下数值逐位不变
+// 改动前的实现（engine/core/clock.js@c49da14），用来证明 24 fps 下数值逐位不变
 const OLD = {
   frameOf: (t, fps = 24) => Math.round(t * fps),
   hold: (f, n) => Math.floor(f / n),
@@ -150,14 +150,14 @@ test('noise：同种子逐值相同、不同种子不同，值域约 [-1, 1] 且
 // ── stroke ──
 const wave = (n = 60) => samples(n + 1, i => [i * 6, 200 + 30 * Math.sin(i / 8), 0.5 + 0.3 * Math.sin(i / 11)]);
 
-test('stroke：inkStroke 的输出锁定（改动前的实现 abfdc83 上的哈希），单点画整圆、空输入返回空', () => {
+test('stroke：inkStroke 的输出锁定（改动前的实现 c49da14 上的哈希），单点画整圆、空输入返回空', () => {
   const h = pts => { let x = 0; for (const [a, b] of pts) x = (Math.imul(x, 31) + Math.round(a * 1000) * 7 + Math.round(b * 1000)) | 0; return [pts.length, x]; };
   assert.deepEqual(h(inkStroke(wave(), { size: 14, thinning: 0.6, streamline: 0.2, start: { taper: 30 }, end: { taper: 50 } })), INK_LOCK[0]);
   assert.deepEqual(h(inkStroke(wave(30), { size: 9 })), INK_LOCK[1]);
   assert.equal(inkStroke([[10, 10, 0.5]], { size: 8 }).length, 16);
   assert.deepEqual(inkStroke([]), []);
 });
-// 在 abfdc83（改动前）上算出的值：inkStroke 不许被本包的改动影响
+// 在 c49da14（改动前）上算出的值：inkStroke 不许被本包的改动影响
 const INK_LOCK = [[124, -1583957250], [82, 1423821878]];
 
 test('stroke：brushOutline 起收笔造型——露锋 / 出锋收成尖、藏锋笔头鼓在按笔方向一侧、两端有限闭合', () => {

@@ -218,7 +218,7 @@ flowchart LR
 ### T09 · RAEA 独立新作品目录与基础场景
 
 - 路线：`b`；角色：原生场景工程师；状态：`superseded`。
-- 取代：由 H14 取代；engine/native 通用原生层（b6bbd44）已实现独立作品目录与基础场景，由 B 路线包维护（D06）。
+- 取代：由 H14 取代；engine/native 通用原生层（6e1e4be）已实现独立作品目录与基础场景，由 B 路线包维护（D06）。
 - 依赖：T00。
 - 输入：examples/raea 已跑通例片；固定 RAEA runtime 与 SDK。
 - 写入范围：`examples/raea-starter/`。
@@ -259,7 +259,7 @@ flowchart LR
 ### T13 · RAEA 项目级运行包装与参数解耦
 
 - 路线：`b`；角色：原生运行工程师；状态：`superseded`。
-- 取代：由 H14 取代；engine/native 与 engine/render/native.mjs（b6bbd44）已是项目级运行包装，由 B 路线包维护（D06）。
+- 取代：由 H14 取代；engine/native 与 engine/render/native.mjs（6e1e4be）已是项目级运行包装，由 B 路线包维护（D06）。
 - 依赖：T09、T01。
 - 输入：现有入口 examples/raea/tools/render.mjs 与 examples/raea/tools/prepare.mjs；项目记录契约 docs/routes/contracts.md。
 - 写入范围：`engine/backends/raea/run.mjs`、`tests/backends/raea/`。
@@ -343,7 +343,7 @@ flowchart LR
 ### H00 · P00 决策与冻结点
 
 - 路线：`shared`；角色：集成负责人；状态：`in-progress`。
-- 认领：集成负责人；会话 `routes-template`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：集成负责人；会话 `routes-template`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01–D11（全部）；差距 GAP-14（加固差距清单）。
 - 写入范围：`docs/decisions`、`package.json`、`package-lock.json`、`.gitignore`。
@@ -354,31 +354,31 @@ flowchart LR
 ### H01 · P01 合规：止损、历史清理与许可治理
 
 - 路线：`shared`；角色：合规包属主；状态：`done`。
-- 认领：P01 属主代理（加固工作流）；会话 `hard/P01`；基线 `abfdc83`；2026-11-10 起，2026-11-24 到期。
+- 认领：P01 属主代理（加固工作流）；会话 `hard/P01`；基线 `c49da14`；2026-11-10 起，2026-11-24 到期。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D02、D03、D04；差距 COMP-01、GAP-11、COMP-13、COMP-02、COMP-09、GAP-13、COMP-04、COMP-08、COMP-07（加固差距清单）；前置里程碑 P02.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`LICENSE`、`REUSE.toml`、`LICENSES`、`SECURITY.md`、`.mailmap`、`docs/rights`、`tools/compliance`、`tools/repo-check/rules/comp`、`tests/comp`。
 - 交付：受限资产止损（需用户授权）；docs/rights/ 授权台账；REUSE 许可标注与 SECURITY.md；check:repo 的 comp 规则；FSL 与 LemoLab 署名边界说明。
 - 验收：1a（需用户授权）：gh release view casebook-2026.11 --json assets 不再含 node tools/compliance/restricted-packs.mjs 列出的受限包；1b：node tools/repo-check.mjs --only comp --json → 0 error（密钥、本机路径、内网地址、签名 URL、FSL 文本误入 MIT 目录、派生文件缺来源头）；1b：gh repo view --json licenseInfo -q .licenseInfo.key → mit；REUSE 规则检查通过；1c：git log --all --format=%ae | sort -u 只剩 noreply；git log --all -- <清单路径> 为空。
-- 证据：提交 `9f58ebe`（合并 hard/P01 进集成分支）；提交 `14f6c0d`（集成修复：comp 阻断级发现清零）；`node tools/repo-check.mjs --only comp --json`（2026-11-10 集成后 0 error；包状态 ready。仍待：1a 撤下受限 Release 资产要用户授权，licenseInfo 要推送后核对，1c 按 D02 不改写历史，39 个授权字段待用户补，派生文件来源头等 P13、P04、P06 修（待修豁免 12-15 到期））。
+- 证据：提交 `79f9eaa`（合并 hard/P01 进集成分支）；提交 `d0dfbb2`（集成修复：comp 阻断级发现清零）；`node tools/repo-check.mjs --only comp --json`（2026-11-10 集成后 0 error；包状态 ready。仍待：1a 撤下受限 Release 资产要用户授权，licenseInfo 要推送后核对，1c 按 D02 不改写历史，39 个授权字段待用户补，派生文件来源头等 P13、P04、P06 修（待修豁免 12-15 到期））。
 - 详细指引：[2026-11-10-industrial-baseline.md](../decisions/2026-11-10-industrial-baseline.md)。
 
 ### H02 · P02 治理骨架：路线注册表、命令约定、规范检查框架、新建作品、工程计划
 
 - 路线：`shared`；角色：治理骨架属主；状态：`done`。
-- 认领：P02 属主代理（加固工作流）；会话 `hard/P02`；基线 `abfdc83`；2026-11-10 起，2026-11-24 到期。
+- 认领：P02 属主代理（加固工作流）；会话 `hard/P02`；基线 `c49da14`；2026-11-10 起，2026-11-24 到期。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01、D04、D06；差距 ENTRY-01、ENTRY-10、ENTRY-03、TOOLS-15、ORCH-11、ORCH-12、ENTRY-13、TOOLS-02、ENTRY-07（加固差距清单）；前置里程碑 F0、P05.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`routes/README.md`、`routes/routes.json`、`tools/new-film.mjs`、`tools/repo-check.mjs`、`tools/repo-check/core`、`tools/repo-check/rules/core`、`tools/lib`、`tools/work-plan.mjs`、`tools/work-plan.test.mjs`、`docs/routes/README.md`、`docs/routes/work-plan.json`、`docs/routes/work-breakdown.md`、`docs/CLI.md`、`tests/cli`、`tests/governance`。
 - 交付：路线注册表 routes/routes.json；命令约定库 tools/lib/；可插拔规范检查 tools/repo-check/；new-film 生成并校验 film.json v2；引擎工程待办 v2（plan:check、plan:next、verify-diff）；docs/CLI.md 与 tests/cli、tests/governance。
 - 验收：node tools/work-plan.mjs --ready --route c --json → exit 0；--route nope → exit 2 并列出注册表里的合法取值；node tools/new-film.mjs a t8 --title 试映 --json --dry-run → exit 0 且 git status 无变化；正式生成后 node engine/production/film.js check films/t8 → exit 0；重复生成 → exit 2；node --test tests/cli tests/governance tools/work-plan.test.mjs 全过；contract.test 覆盖 package.json 全部脚本（--help 无副作用、未知参数 exit 2）；node tools/repo-check.mjs --json 在 main 上 exit 0；tests/governance/fixtures 的每种违规都给出对应规则 id 并 exit 4（附录 C1：契约不通过）。
-- 证据：提交 `d2f4810`（合并 hard/P02 进集成分支）；提交 `cdcf92b`（集成修复：规则加载器认域模块写法）；提交 `ab01fea`（集成修复：契约测试覆盖 38 个 npm 脚本）；`node --test tests/cli tests/governance tools/work-plan.test.mjs`（2026-11-10 集成后全过；包状态 ready。new-film 与 film.js 的两条联调用例等 P05 合入后自动启用）。
+- 证据：提交 `c08aa37`（合并 hard/P02 进集成分支）；提交 `7ca05b2`（集成修复：规则加载器认域模块写法）；提交 `0a715ae`（集成修复：契约测试覆盖 38 个 npm 脚本）；`node --test tests/cli tests/governance tools/work-plan.test.mjs`（2026-11-10 集成后全过；包状态 ready。new-film 与 film.js 的两条联调用例等 P05 合入后自动启用）。
 - 详细指引：[CLI.md](../CLI.md)。
 
 ### H03 · P03 agent 执行层与指令优先级
 
 - 路线：`shared`；角色：agent 执行层属主；状态：`in-progress`。
-- 认领：P03 属主代理（加固工作流）；会话 `hard/P03`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P03 属主代理（加固工作流）；会话 `hard/P03`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01–D11（全部）；差距 ENTRY-02、COMP-10、GAP-07、GAP-08（加固差距清单）；前置里程碑 P02.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`CLAUDE.md`、`.claude/settings.json`、`.claude/skills`、`.claude/hooks`、`.githooks`、`.ignore`、`cases/vendor/README.md`、`tools/repo-check/rules/agent`、`tests/agent-layer`。
@@ -389,7 +389,7 @@ flowchart LR
 ### H04 · P04 渲染器 v2
 
 - 路线：`shared`；角色：渲染器属主；状态：`in-progress`。
-- 认领：P04 属主代理（加固工作流）；会话 `hard/P04`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P04 属主代理（加固工作流）；会话 `hard/P04`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D07、D09；差距 TOOLS-01、CODE-02、CODE-03、GAP-01、ENV-07、ORCH-09、QUAL-14、TOOLS-07、CODE-05、CODE-08、CODE-13、COMP-14、ENV-15、ENV-05、TOOLS-14、ORCH-06、TOOLS-06、QUAL-03、CODE-06、QUAL-04、QUAL-05、QUAL-06、TOOLS-05、CODE-07、ENV-06、ORCH-05、TOOLS-20、GAP-15、TOOLS-17、CODE-11、GAP-02（加固差距清单）；前置里程碑 P02.M0、P05.M0、P08.G0（按里程碑对接，不等整包完成）。
 - 写入范围：`engine/render/page.mjs`、`engine/render/still.mjs`、`engine/render/video.mjs`、`engine/render/mux.sh`、`engine/render/serve.mjs`、`engine/render/shots.mjs`、`engine/render/README.md`、`engine/render/lib`、`tools/rtx`、`tests/render`、`docs/渲染与4K.md`、`tools/repo-check/rules/render`。
@@ -400,7 +400,7 @@ flowchart LR
 ### H05 · P05 作品描述、时间轴、状态与创作闸门
 
 - 路线：`shared`；角色：作品描述包属主；状态：`in-progress`。
-- 认领：P05 属主代理（加固工作流）；会话 `hard/P05`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P05 属主代理（加固工作流）；会话 `hard/P05`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01、D07、D08；差距 ORCH-01、ORCH-03、ORCH-14、ORCH-15、ORCH-02、ORCH-13、QUAL-11、CRAFT-02（加固差距清单）；前置里程碑 P02.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`engine/production`、`engine/assets`、`engine/core/tempo.js`、`docs/routes/contracts.md`、`docs/routes/templates`、`docs/creative-review`、`films/beiming-10s`、`tests/production`、`tests/assets`、`tools/repo-check/rules/spec`。
@@ -411,7 +411,7 @@ flowchart LR
 ### H06 · P06 出片编排 CLI（tools/film）
 
 - 路线：`shared`；角色：出片编排属主；状态：`in-progress`。
-- 认领：P06 属主代理（加固工作流）；会话 `hard/P06`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P06 属主代理（加固工作流）；会话 `hard/P06`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D07、D08；差距 TOOLS-03、ORCH-10、ENTRY-05、TOOLS-08、TOOLS-19（加固差距清单）；前置里程碑 F0、P02.M0、P04.R1、P05.M0、P07.M0、P10.E1（按里程碑对接，不等整包完成）。
 - 写入范围：`tools/film`、`engine/render/build.mjs`、`engine/render/events.mjs`、`build.sh`、`tools/contact_sheet.py`、`tools/make_html.py`、`tests/film`、`tools/repo-check/rules/film`。
@@ -422,19 +422,19 @@ flowchart LR
 ### H07 · P07 机器 QA 门（tools/qa）
 
 - 路线：`shared`；角色：机器 QA 属主；状态：`done`。
-- 认领：P07 属主代理（加固工作流）；会话 `hard/P07`；基线 `abfdc83`；2026-11-10 起，2026-11-24 到期。
+- 认领：P07 属主代理（加固工作流）；会话 `hard/P07`；基线 `c49da14`；2026-11-10 起，2026-11-24 到期。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D07；差距 QUAL-02、ORCH-07、QUAL-08、CRAFT-09、GAP-03、QUAL-07（加固差距清单）；前置里程碑 P02.M0、P05.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`tools/qa`、`tests/qa`、`docs/quality`、`docs/routes/validation-and-rtx.md`、`tools/repo-check/rules/qa`。
 - 交付：QA 报告 schema；delivery、visual、texts、plates 四组检查；已知问题台账 docs/quality/。
 - 验收：node tools/qa/cli.mjs delivery out/beiming.mp4 --profile web-1080p24 --json：P04·R3 前因色彩标签 FAIL，R3 后 PASS；tests/qa 合成样本（25 fps、缺音轨、截短、黑帧、静帧 12 帧、单帧 +20 亮度、多余切点、缺字、文字越界）各自以指定检查项 FAIL；qa plates 对《北冥》与 B 例片报出 clouds_back / clouds_front_a / clouds_front_b 的直线淡出；docs/quality/known-issues.json 有 QA-A-001/002、QA-B-001/002；qa 报告可作为 RenderResult.technicalAcceptance.evidence 被 P05 的校验器解析。
-- 证据：提交 `96a0df2`（合并 hard/P07 进集成分支）；`node --test "tests/qa/*.test.mjs"`（2026-11-10 集成后 52 项全过；包状态 ready。《北冥》跑 qa report 仍按实情 exit 4：AIGC 元数据等 P04、P06，texts 两项要用户批准豁免）。
+- 证据：提交 `0effc4f`（合并 hard/P07 进集成分支）；`node --test "tests/qa/*.test.mjs"`（2026-11-10 集成后 52 项全过；包状态 ready。《北冥》跑 qa report 仍按实情 exit 4：AIGC 元数据等 P04、P06，texts 两项要用户批准豁免）。
 - 详细指引：[2026-11-10-industrial-baseline.md](../decisions/2026-11-10-industrial-baseline.md)。
 
 ### H08 · P08 金标准基线、确定性与认可参照
 
 - 路线：`shared`；角色：金标准属主；状态：`in-progress`。
-- 认领：P08 属主代理（加固工作流）；会话 `hard/P08`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P08 属主代理（加固工作流）；会话 `hard/P08`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D05；差距 QUAL-01、ENV-02、CRAFT-10、GAP-12、QUAL-10、ORCH-08（加固差距清单）。
 - 写入范围：`tools/baseline`、`tests/golden`、`docs/style-baselines`、`media`、`tools/repo-check/rules/baseline`。
@@ -445,31 +445,31 @@ flowchart LR
 ### H09 · P09 测试入口、CI 与发布
 
 - 路线：`shared`；角色：测试与 CI 属主；状态：`done`。
-- 认领：P09 属主代理（加固工作流）；会话 `hard/P09`；基线 `abfdc83`；2026-11-10 起，2026-11-24 到期。
+- 认领：P09 属主代理（加固工作流）；会话 `hard/P09`；基线 `c49da14`；2026-11-10 起，2026-11-24 到期。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D09；差距 CODE-01、TOOLS-09、QUAL-13、ENTRY-14、CODE-14、CODE-09（加固差距清单）；前置里程碑 P02.M0、P04.R1、P08.G0、P10.E1（按里程碑对接，不等整包完成）。
 - 写入范围：`.github/workflows/ci.yml`、`.github/workflows/release.yml`、`.github/dependabot.yml`、`tools/run-tests.mjs`、`tools/check-all.mjs`、`eslint.config.js`、`ruff.toml`、`.editorconfig`、`CHANGELOG.md`、`tests/ci`。
 - 交付：统一测试入口 tools/run-tests.mjs 与 check-all.mjs；CI 工作流 ci.yml、release.yml；CHANGELOG.md。
 - 验收：node tools/run-tests.mjs → 发现并运行 tests/**/*.test.mjs、tools/*.test.mjs 与 Python unittest，exit 0，unit job < 3 min；PR 上 unit、smoke-render（SwiftShader 金标准 linux-swiftshader、失败夹具、模版片 320×180 出片）、windows-paths 三个 job 为必需检查且全绿；在测试 PR 中故意改坏 engine/shade 锚点或 render(t) → CI 变红；推 v* 标签 → release.yml 跑完整 CI 并附接触印与静帧；CHANGELOG.md 有对应条目。
-- 证据：提交 `1a7aa0a`（合并 hard/P09 进集成分支）；`node tools/run-tests.mjs`（2026-11-10 集成后已合入各域全过；包状态 needs-config：CI 还没在 GitHub 上首跑，分支保护、仓库变量与发布标签要用户授权，金标准清单等 P08）。
+- 证据：提交 `edbd14c`（合并 hard/P09 进集成分支）；`node tools/run-tests.mjs`（2026-11-10 集成后已合入各域全过；包状态 needs-config：CI 还没在 GitHub 上首跑，分支保护、仓库变量与发布标签要用户授权，金标准清单等 P08）。
 - 详细指引：[2026-11-10-industrial-baseline.md](../decisions/2026-11-10-industrial-baseline.md)。
 
 ### H10 · P10 环境、安装与跨平台
 
 - 路线：`shared`；角色：环境包属主；状态：`done`。
-- 认领：P10 属主代理（加固工作流）；会话 `hard/P10`；基线 `abfdc83`；2026-11-10 起，2026-11-24 到期。
+- 认领：P10 属主代理（加固工作流）；会话 `hard/P10`；基线 `c49da14`；2026-11-10 起，2026-11-24 到期。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D09、D10；差距 ENV-01、TOOLS-04、ENV-11、ENV-12、TOOLS-21、ENV-03、TOOLS-16、CODE-12、ENV-08、TOOLS-10、ENTRY-08、ENV-04、ENTRY-17、ENTRY-09、GAP-06、GAP-09（加固差距清单）；前置里程碑 P02.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`tools/env`、`tools/remote`、`requirements.txt`、`requirements.in`、`requirements.lock`、`.python-version`、`.nvmrc`、`.gitattributes`、`LARGE-FILES.allow`、`docs/ENVIRONMENT.md`、`docs/RTX工作站.md`、`tests/env`、`tools/repo-check/rules/env`。
 - 交付：env:doctor 与 setup；Python 锁文件、.python-version 与 .nvmrc；.gitattributes；docs/ENVIRONMENT.md；tools/remote 工作站协作协议。
 - 验收：E1：node tools/env/doctor.mjs --route a --json 在只装 Node 的干净 macOS 上列出全部缺项与可复制修复命令并 exit 3；照做后 exit 0；E1：node tools/env/setup.mjs 按 requirements.lock 建 .venv，第二次运行不再下载；node tools/env/py.mjs -c 'import numpy, scipy, numba, soundfile, soxr' 在无 python 别名的 macOS 与无 python3 的 Windows 上 exit 0；E2：Windows autocrlf=true 全新克隆后 cases/ 以外无 w/crlf；PYTHONIOENCODING=gbk 下 node tools/env/py.mjs tools/casebook.py list > x.txt → exit 0；E3：films/x/ 放 20 MB 文件 git add -A 不纳入，强行 add 时 check:repo 失败；tools/remote 在工作站按指定 sha 出片并回传哈希一致的成片与 run.json。
-- 证据：提交 `376bd37`（合并 hard/P10 进集成分支）；提交 `bac6a82`（集成修复：登记合入后新读到的环境变量）；`node --test "tests/env/*.test.mjs"`（2026-11-10 集成后全过，env 规则 0 error；包状态 needs-config：Windows 真机与工作站远程出片未实测，要用户授权或由 CI 的 windows-latest 覆盖）。
+- 证据：提交 `8882b35`（合并 hard/P10 进集成分支）；提交 `53413ec`（集成修复：登记合入后新读到的环境变量）；`node --test "tests/env/*.test.mjs"`（2026-11-10 集成后全过，env 规则 0 error；包状态 needs-config：Windows 真机与工作站远程出片未实测，要用户授权或由 CI 的 windows-latest 覆盖）。
 - 详细指引：[2026-11-10-industrial-baseline.md](../decisions/2026-11-10-industrial-baseline.md)。
 
 ### H11 · P11 声音链路
 
 - 路线：`shared`；角色：声音链路属主；状态：`in-progress`。
-- 认领：P11 属主代理（加固工作流）；会话 `hard/P11`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P11 属主代理（加固工作流）；会话 `hard/P11`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D07、D11；差距 QUAL-09、QUAL-15、CODE-10、GAP-04（加固差距清单）；前置里程碑 F0、P05.M0、P02.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`engine/audio`、`audio`、`tools/audio`、`tests/audio`。
@@ -480,7 +480,7 @@ flowchart LR
 ### H12 · P12 A 路线：模版、手册、字体与工艺工具
 
 - 路线：`a`；角色：A 路线属主；状态：`in-progress`。
-- 认领：P12 属主代理（加固工作流）；会话 `hard/P12`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P12 属主代理（加固工作流）；会话 `hard/P12`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01、D05、D07、D08；差距 TOOLS-13、ENV-14、CRAFT-01、CRAFT-05、CRAFT-06、CRAFT-03、CRAFT-08、CRAFT-15、CRAFT-07、CRAFT-04、CRAFT-16（加固差距清单）；前置里程碑 F0、P05.M0、P06、P07.M0、P08.G0（按里程碑对接，不等整包完成）。
 - 写入范围：`routes/a-webgl`、`engine/style`、`engine/performance`、`lab`、`assets`、`fonts`、`tools/fonts`、`tools/plates`、`tools/lookdev`、`tools/form`、`tools/title`、`docs/craft`、`docs/routes/beiming-style.md`、`docs/北冥样片.md`、`tests/style`、`tests/performance`、`tools/repo-check/rules/route-a`。
@@ -491,7 +491,7 @@ flowchart LR
 ### H13 · P13 引擎九层维护
 
 - 路线：`shared`；角色：引擎九层属主；状态：`in-progress`。
-- 认领：P13 属主代理（加固工作流）；会话 `hard/P13`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P13 属主代理（加固工作流）；会话 `hard/P13`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01–D11（全部）；差距 ORCH-04、CODE-04、CRAFT-12（加固差距清单）；前置里程碑 P08.G0、P04.R2（按里程碑对接，不等整包完成）。
 - 写入范围：`engine/core/clock.js`、`engine/core/math.js`、`engine/core/noise.js`、`engine/core/stroke.js`、`engine/form`、`engine/shade`、`engine/stage`、`engine/look`、`engine/paint`、`engine/overlay`、`tests/engine`。
@@ -502,7 +502,7 @@ flowchart LR
 ### H14 · P14 B 路线（北冥原生 · BNE，render anything）
 
 - 路线：`b`；角色：B 路线属主；状态：`in-progress`。
-- 认领：P14 属主代理（加固工作流）；会话 `hard/P14`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P14 属主代理（加固工作流）；会话 `hard/P14`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D03、D04；差距 CRAFT-14、TOOLS-11、QUAL-12、ENV-09、CODE-16（加固差距清单）；前置里程碑 F0、P04.R2、P05.M0、P07.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`engine/native`、`engine/render/native.mjs`、`examples/raea`、`routes/b-native`、`docs/routes/raea-native.md`、`docs/raea`、`tests/native`、`tools/repo-check/rules/route-b`。
@@ -513,7 +513,7 @@ flowchart LR
 ### H15 · P15 C 路线：手册、86 式风格索引与历史复刻运行时
 
 - 路线：`c`；角色：C 路线属主；状态：`in-progress`。
-- 认领：P15 属主代理（加固工作流）；会话 `hard/P15`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P15 属主代理（加固工作流）；会话 `hard/P15`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01；差距 CRAFT-13、ENTRY-04、COMP-03、TOOLS-12、ENV-10（加固差距清单）；前置里程碑 F0、P16.T1、P11.M1（按里程碑对接，不等整包完成）。
 - 写入范围：`routes/c-style`、`tools/c-styles.mjs`、`tools/c-runtime.mjs`、`tests/c-style`、`tools/repo-check/rules/route-c`。
@@ -524,7 +524,7 @@ flowchart LR
 ### H16 · P16 案例库工具与数据治理
 
 - 路线：`shared`；角色：案例库属主；状态：`in-progress`。
-- 认领：P16 属主代理（加固工作流）；会话 `hard/P16`；基线 `abfdc83`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
+- 认领：P16 属主代理（加固工作流）；会话 `hard/P16`；基线 `c49da14`；2026-11-10 起，2026-12-15 到期（集成负责人 2026-11-10 续期：加固工作流各包仍在并行开发，原定 11-24 到期赶不上集成；续到 12-15，与合规待修豁免的到期日一致）。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D02；差距 GAP-05、TOOLS-18、ENV-13、CODE-15、COMP-05、COMP-12、COMP-06、QUAL-16、CRAFT-11、COMP-11、ENTRY-15（加固差距清单）；前置里程碑 P01.1a、P02.M0（按里程碑对接，不等整包完成）。
 - 写入范围：`cases/INDEX.md`、`cases/NOTICES.md`、`cases/README.md`、`cases/catalog.json`、`cases/entries`、`cases/index.html`、`cases/licenses`、`cases/manifests`、`cases/previews`、`cases/references.json`、`cases/source`、`tools/casebook.py`、`tools/test_casebook.py`、`docs/cases`、`tools/repo-check/rules/cases`。
@@ -535,13 +535,13 @@ flowchart LR
 ### H17 · P17 agent 验收题库与 dogfood
 
 - 路线：`shared`；角色：验收题库属主；状态：`done`。
-- 认领：P17 属主代理（加固工作流）；会话 `hard/P17`；基线 `abfdc83`；2026-11-10 起，2026-11-24 到期。
+- 认领：P17 属主代理（加固工作流）；会话 `hard/P17`；基线 `c49da14`；2026-11-10 起，2026-11-24 到期。
 - 依赖：无。
 - 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D01–D11（全部）；差距 GAP-10（加固差距清单）；前置里程碑 G1（按里程碑对接，不等整包完成）。
 - 写入范围：`evals`、`tools/eval`、`tests/eval`。
 - 交付：evals 题库（DF-A、DF-B、DF-C、DF-M 与安全题 S1–S3）；tools/eval 运行器与评分器；首个基线结果。
 - 验收：evals/agent/tasks/ 有 DF-A、DF-B、DF-C、DF-M 与安全题 S1–S3；tools/eval/score.mjs --self-test 在合成会话记录上通过；tools/eval/run.mjs 为每题在仓库外建独立工作树、无头运行并保存会话记录；evals/results/<日期>.json 记录首个基线：每题 2 次独立运行的硬门、分项分与过程指标。
-- 证据：提交 `43bbc9c`（合并 hard/P17 进集成分支）；`node --test "tests/eval/*.test.mjs" && node tools/eval/score.mjs --self-test`（2026-11-10 集成后 155 项全过；包状态 needs-config：首个基线 evals/results/<日期>.json 未记录，要等 G1、评测方凭据与家目录之外的评测根）。
+- 证据：提交 `392f776`（合并 hard/P17 进集成分支）；`node --test "tests/eval/*.test.mjs" && node tools/eval/score.mjs --self-test`（2026-11-10 集成后 155 项全过；包状态 needs-config：首个基线 evals/results/<日期>.json 未记录，要等 G1、评测方凭据与家目录之外的评测根）。
 - 详细指引：[2026-11-10-industrial-baseline.md](../decisions/2026-11-10-industrial-baseline.md)。
 
 ### H18 · PZ 根文档整合（最后一个包）

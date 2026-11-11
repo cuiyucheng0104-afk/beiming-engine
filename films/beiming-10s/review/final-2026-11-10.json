@@ -61,5 +61,5 @@
   "vetoes": [],
   "evidenceFrames": [69, 71, 72, 84, 119, 120, 131, 150, 216, 224, 227, 230, 232, 239],
   "summary": "代理检查未通过：片尾片名与副标题停留不足（声画与文字 5 分，低于送审线 8 分；机器 QA 的 texts.duration 硬门同样不通过），没有一票否决项。看过的其余维度代理检查通过：三张底板、卡通着色鲲与纸纹在三个镜头里一致，A→B、B→C 两个硬切成立。叙事（预备—动作—结果要看连续帧）未评，声画只评了文字部分（只看了静帧，没有看连续帧与带声成片）。样片源码冻结，问题按 QA 豁免登记，作为新作品的反例。",
-  "notes": "证据是 HEAD 渲染的 960×520 静帧（src/ 与 abfdc83 相同）：node engine/render/still.mjs . <秒…> --size 960x520 --out <仓库外目录>，秒 = 帧 / 24；渲染产物不入库（决策 D10）。按 docs/creative-review/RUBRIC.md §3 与 docs/quality/RUBRIC.md §1 看了两个切点各前后 3 帧与 9 个事件帧。这是 AI 的代理审片，不是用户认可，不推进状态。"
+  "notes": "证据是 HEAD 渲染的 960×520 静帧（src/ 与 c49da14 相同）：node engine/render/still.mjs . <秒…> --size 960x520 --out <仓库外目录>，秒 = 帧 / 24；渲染产物不入库（决策 D10）。按 docs/creative-review/RUBRIC.md §3 与 docs/quality/RUBRIC.md §1 看了两个切点各前后 3 帧与 9 个事件帧。这是 AI 的代理审片，不是用户认可，不推进状态。"
 }

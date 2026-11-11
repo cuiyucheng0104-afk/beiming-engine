@@ -15,9 +15,9 @@
   "gpuPolicy": "required"
  },
  "source": {
-  "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+  "commit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
   "dirty": false,
-  "renderedAt": "93c894158169019146b66f20302b0964ea9ca622"
+  "renderedAt": "ba589c9616648193eb7c1b93558a197bea3959a7"
  },
  "capturedAt": "2026-11-10T09:20:32.295Z",
  "framesDigest": "df4d689ddf70dff4df83b804257d35b6fab873af480621e93a479bb51a9a6dc7",
@@ -25,7 +25,7 @@
  "approval": {
   "by": "P08 属主（Claude Opus 5.5 工作包代理）登记；认可状态待用户确认",
   "reason": "认可依据：①用户项目档存档的 07:40 版样片（北冥样片_0740版_*，4K 实测对比报告的对象）就是现代码的画面，v1.0 与它在 0、1.5、6、7 秒逐像素一致；②62ad28e（PR #1，用户已合并）列明的画面修复 R24/R30/R66 与 4K 修复 R17/R19/R31/R32/R45；③公开成片 media/beiming.mp4 的红珊瑚版是 v1.0 提交前噪声初稿的残留产物（D05 调查），不作认可参照",
-  "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+  "commit": "c49da141c6d897f13f1df85da5eb249284aed1f5",
   "at": "2026-11-10T09:20:32.297Z",
   "ref": "docs/style-baselines/beiming-original@v1/README.md"
  },

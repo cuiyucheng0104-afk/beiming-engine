@@ -19,7 +19,7 @@ const ROOT = dirname(HERE);
 const CLI = join(HERE, 'work-plan.mjs');
 const task = (id, extra = {}) => ({ id, title: id, ownerRole: 'owner', route: 'shared', status: 'planned', dependsOn: [], inputs: ['source'], writeScope: [`engine/${id}/`], outputs: ['result'], acceptance: ['verified'], evidence: [], ...extra });
 const plan = tasks => ({ schemaVersion: 1, tasks });
-const claim = (extra = {}) => ({ by: '代理甲', session: 'hard/X', baseCommit: 'abfdc83', startedAt: '2026-11-10', ...extra });
+const claim = (extra = {}) => ({ by: '代理甲', session: 'hard/X', baseCommit: 'c49da14', startedAt: '2026-11-10', ...extra });
 const plan2 = tasks => ({ schemaVersion: 2, claimTtlDays: 14, tasks: tasks.map(t => ({ playbook: 'docs/x.md', ...t })) });
 // Git for Windows 默认按 CRLF 检出：发布的文档按同一方式解析
 const readDoc = rel => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n?/g, '\n');

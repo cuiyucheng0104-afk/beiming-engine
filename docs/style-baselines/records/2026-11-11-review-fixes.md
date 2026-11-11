@@ -1,13 +1,13 @@
-# 2026-11-11 · 复核意见修复与新底座 fb0b841 上的复核
+# 2026-11-11 · 复核意见修复与新底座 9682eee 上的复核
 
 读者｜集成负责人　状态｜修复完成；两条新登记待集成负责人复核　依据｜独立复核意见（3 条 must、3 条 should）；规则见 [../POLICY.md](../POLICY.md)
 
-`hard/P08` 已合入集成分支 `routes-template@fb0b841`，比上一版底座多了 P15（C 路线）与 P16（案例库）。本页记录：合入后基线还成不成立、复核意见每一条怎么改、怎么验证。环境：Apple M5 Pro，ANGLE Metal；chromium-headless-shell 153.0.8010.12；Node 24.13.1。
+`hard/P08` 已合入集成分支 `routes-template@9682eee`，比上一版底座多了 P15（C 路线）与 P16（案例库）。本页记录：合入后基线还成不成立、复核意见每一条怎么改、怎么验证。环境：Apple M5 Pro，ANGLE Metal；chromium-headless-shell 153.0.8010.12；Node 24.13.1。
 
 ## 1. 合入后的像素相关路径
 
-- `git diff --stat abfdc83 fb0b841 -- engine src lab assets fonts index.html routes/a-webgl/template`：没有改动。
-- 变了的只有 `routes/c-style/template`（11 个文件）与 `routes/c-style/fonts`（17 个文件），都是 P15 的提交（25c4bea 片名字体与 film.json v2、1bda4f9 笔触与染色等）。
+- `git diff --stat c49da14 9682eee -- engine src lab assets fonts index.html routes/a-webgl/template`：没有改动。
+- 变了的只有 `routes/c-style/template`（11 个文件）与 `routes/c-style/fonts`（17 个文件），都是 P15 的提交（db8da8a 片名字体与 film.json v2、be1dd93 笔触与染色等）。
 
 ## 2. 复核结果
 
@@ -24,8 +24,8 @@ tpl:c 缺帧、多帧的原因：P15 把 C 模版的片长从 3 秒改成 8 秒�
 
 ## 3. templates 重新登记（复核意见 should #1）
 
-- **归因**：tpl:a 逐像素不变；tpl:c 的变化全部来自第 1 节列的 P15 改动。P15 经独立复核通过，集成负责人在 fb0b841 合入，这就是批准依据。新画面已逐帧查看：毛笔楷书片名竖排、朱印「北冥」，没有字体回落。新 C 模版的确定性检查也通过（第 2 节）。
-- **登记**：`golden update --set templates --commit fb0b841`。登记的是集成分支上的提交：它在像素相关路径上与本分支逐字节相同，工作分支压扁合并后清单里的提交仍然找得到。审批记录的 `by` 写的是集成负责人，并注明由本包代理代为执行、待集成负责人复核。不同意的话，回退提交 c164b08 里 templates 那一项。
+- **归因**：tpl:a 逐像素不变；tpl:c 的变化全部来自第 1 节列的 P15 改动。P15 经独立复核通过，集成负责人在 9682eee 合入，这就是批准依据。新画面已逐帧查看：毛笔楷书片名竖排、朱印「北冥」，没有字体回落。新 C 模版的确定性检查也通过（第 2 节）。
+- **登记**：`golden update --set templates --commit 9682eee`。登记的是集成分支上的提交：它在像素相关路径上与本分支逐字节相同，工作分支压扁合并后清单里的提交仍然找得到。审批记录的 `by` 写的是集成负责人，并注明由本包代理代为执行、待集成负责人复核。不同意的话，回退提交 ed088d3 里 templates 那一项。
 - **验证**：登记后 `compare --set templates --strict --no-cache`（独立重截一遍）→ 12/12 逐像素一致。
 
 ## 4. fixtures 首次登记：灰阶色卡（复核意见 should #2）
@@ -34,7 +34,7 @@ darwin-metal 原先登记的四套集合里没有 `fixture:graycard`，GPU 平�
 
 ## 5. 关键帧 PNG 移出仓库（复核意见 must #1，D10）
 
-- 仓库只留登记 `beiming-original@v1/keyframes.json`，内容是名字 → 帧编号、像素哈希、首次导出的字节哈希。六张 PNG（17.1 MiB）在新提交里删除；历史里的 d0adc31 怎么处理由集成负责人在合入时定。
+- 仓库只留登记 `beiming-original@v1/keyframes.json`，内容是名字 → 帧编号、像素哈希、首次导出的字节哈希。六张 PNG（17.1 MiB）在新提交里删除；历史里的 84c92dd 怎么处理由集成负责人在合入时定。
 - `golden keyframes` 改为重建到 `out/style-baselines/<名@v版本>/keyframes/`。登记完整时不改任何入库文件，登记被手改就拒绝。实测：darwin-metal 上 17 秒重建六张，与登记**逐字节**相同（6/6 sha256 一致），`git status` 干净。
 - 规则：`baseline.references` 只核对登记，不再要求 PNG 在库；`baseline.no-render-products` 拒绝 `docs/style-baselines/` 下任何入库的图片或视频，关键帧 PNG 会给出移出与重建的命令。
 - 只能在 darwin-metal 上重建。跨机器分发走 Release 附件，属于公开动作，要用户授权。
