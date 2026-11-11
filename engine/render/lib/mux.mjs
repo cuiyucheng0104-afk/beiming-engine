@@ -51,8 +51,11 @@ async function measure(file, signal) {
   return { I: field(r.stderr, 'I:'), LRA: field(r.stderr, 'LRA:'), Peak: field(r.stderr, 'Peak:') };
 }
 
-/** 封装：返回 { out, video{…}, loudness{…}, comment }；metadata 是要原样拼进 ffmpeg 的 -metadata 参数（AIGC 标识，见 aigcMetadata） */
-export async function mux({ video, audio, out, fps = null, frames = null, grain = 0, target = -14, tolerance = 0.5, truePeak = -1.0, metadata = [], signal, log }) {
+/**
+ * 封装：返回 { out, video{…}, loudness{…}, comment }；metadata 是要原样拼进 ffmpeg 的 -metadata 参数（AIGC 标识，见 aigcMetadata）。
+ * life（可选，lib/command.mjs 的 Lifecycle）：临时目录与半成品登记进它的收尾——收到信号时外壳不等这里的 finally 就退出。
+ */
+export async function mux({ video, audio, out, fps = null, frames = null, grain = 0, target = -14, tolerance = 0.5, truePeak = -1.0, metadata = [], signal, log, life }) {
   const LIM = 0.81, AIM = truePeak - 0.2;   // 限幅线 0.81 ≈ −1.8 dBFS，给 AAC 编码留余量；触发限幅的线比上限再低 0.2 dB
   if (!fs.existsSync(video)) throw new RenderError('usage.input-missing', `找不到画面文件：${video}`, { hint: '先用 node engine/render/video.mjs 出无声视频' });
   if (audio !== null && !fs.existsSync(audio)) throw new RenderError('usage.input-missing', `找不到声音文件：${audio}`, { hint: '无声片把音频写成 -' });
@@ -75,6 +78,8 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
   const VD = (NF / VFPS).toFixed(6);
   const T = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-mux-'));
   const partial = path.join(path.dirname(out), `.${path.basename(out, path.extname(out))}.partial-${process.pid}.mp4`);
+  const cleanup = () => { fs.rmSync(T, { recursive: true, force: true }); fs.rmSync(partial, { force: true }); };
+  const undo = life?.defer(cleanup);
   try {
     // 声音：对齐到画面时长（48 kHz，补静音或截断），之后的测量和增益都针对成片里真正出现的那段
     let loud = null, G = null, LIMITED = false, I0 = null, P0 = null;
@@ -175,8 +180,8 @@ export async function mux({ video, audio, out, fps = null, frames = null, grain 
     fs.renameSync(partial, out);
     return { out, ...result };
   } finally {
-    fs.rmSync(T, { recursive: true, force: true });
-    fs.rmSync(partial, { force: true });
+    cleanup();
+    undo?.();
   }
 }
 
@@ -236,7 +241,7 @@ export const command = renderCommand({
     'node engine/render/lib/mux.mjs films/x/out/video.mp4 films/x/out/mix.wav films/x/out/x.mp4 --frames 192 --film films/x',
     'node engine/render/lib/mux.mjs films/x/out/video.mp4 - films/x/out/x.mp4        无声片',
   ],
-}, async ({ opts, args, log, signal }) => {
+}, async ({ opts, args, log, life, signal }) => {
   const num = (v, label) => {
     if (v === null || v === undefined || v === '') return null;
     const n = Number(v);
@@ -259,7 +264,7 @@ export const command = renderCommand({
     video: path.resolve(args.video), audio: args.audio === '-' ? null : path.resolve(args.audio), out: path.resolve(args.out),
     fps: opts.fps ?? fpsP ?? null, frames: opts.frames ?? null, grain: opts.grain ?? grainP ?? 0,
     target, tolerance: Math.min(0.5, profile?.audio.toleranceLU ?? 0.5), truePeak: opts['true-peak'] ?? profile?.audio.truePeakDbTP ?? -1.0,
-    metadata: meta.args, signal, log,
+    metadata: meta.args, signal, log, life,
   });
   const sha = await sha256File(r.out);
   return {

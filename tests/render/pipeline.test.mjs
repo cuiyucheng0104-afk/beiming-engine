@@ -11,10 +11,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import fs, { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { run, skip, tmp, segs, FIX, posix, probe, frames, framemd5, miniRepo } from './helpers.mjs';
 import { parseImplicitLabel } from '../../tools/compliance/lib/aigc.mjs';
+import { concatChunks } from '../../engine/render/lib/chunks.mjs';
 
 const PAGE = `${FIX}/page`;
 const json = r => { try { return JSON.parse(r.stdout); } catch { throw new Error(`stdout 不是一个 JSON 对象：\n${r.stdout}\n${r.log}`); } };
@@ -246,6 +247,44 @@ test('封装 lib/mux.mjs：帧率 / 帧数不符退出码 4；画面拷贝不重
       });
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('帧率自适应的页面：写 window.FPS = window.__RENDER?.fps ?? 24，按 --fps 30 渲出 30 帧、帧号连续', { skip, timeout: 120000 }, async () => {
+  const dir = tmp();
+  try {
+    const out = join(dir, 'v30.mp4');
+    const r = await run('engine/render/video.mjs', [PAGE, '--size', '64x64', '--fps', '30', '--query', 'fps=auto', '--out', out, '--json', '--progress', 'none']);
+    assert.equal(r.code, 0, r.log);
+    assert.equal(json(r).data.fps, 30);
+    assert.deepEqual(frameNumbers(out), Array.from({ length: 30 }, (_, i) => i));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('拼接：结果先写在目标文件所在的目录再改名（--web、镜头缓存的 --out 在另一个卷上也不会 EXDEV），失败不留半成品', { skip, timeout: 60000 }, async () => {
+  const work = tmp(), dest = tmp();
+  const real = fs.renameSync;
+  try {
+    const seg = (name, d) => execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', `testsrc2=s=64x64:r=24:d=${d}`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+      '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv', join(work, name)]);
+    seg('a.mp4', 1); seg('b.mp4', 0.5);
+    // 跨目录的改名一律按跨卷处理（EXDEV）：本机两个临时目录在同一个卷上，靠这个替身把问题暴露出来
+    fs.renameSync = (from, to) => {
+      if (dirname(from) !== dirname(to)) throw Object.assign(new Error(`EXDEV: cross-device link not permitted, rename '${from}' -> '${to}'`), { code: 'EXDEV' });
+      return real(from, to);
+    };
+    const out = join(dest, 'web.mp4');
+    const p = await concatChunks([join(work, 'a.mp4'), join(work, 'b.mp4')], out, { expectFrames: 36, signal: new AbortController().signal, live: new Set(), workDir: work });
+    assert.equal(p.video.frames, 36);
+    assert.equal(frames(out), 36);
+    assert.deepEqual(readdirSync(dest), ['web.mp4'], '目标目录里只留成片');
+    await assert.rejects(concatChunks([join(work, 'a.mp4')], join(dest, 'bad.mp4'), { expectFrames: 99, signal: new AbortController().signal, live: new Set(), workDir: work }),
+      e => e.code === 'contract.frame-count');
+    assert.deepEqual(readdirSync(dest), ['web.mp4'], '帧数不对时不留半成品');
+    assert.deepEqual(readdirSync(work).sort(), ['a.mp4', 'b.mp4'], '块目录里不留拼接清单');
+  } finally {
+    fs.renameSync = real;
+    rmSync(work, { recursive: true, force: true }); rmSync(dest, { recursive: true, force: true });
+  }
 });
 
 test('Vulkan 显示层残留的回归页：--settle raf2 时奇数帧左上角不残留上一帧的白块', { skip, timeout: 120000 }, async () => {

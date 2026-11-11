@@ -3,7 +3,8 @@
 // ffmpeg / ffprobe，全仓库同一口径）。所有路径参数都按 argv 传，不经 shell，Windows 上不需要 sh。
 //
 //   preflight()                 ffmpeg / ffprobe 能跑、带 libx264 与 aac：返回 { ffmpeg, ffprobe, version, line }；
-//                               缺了 → env.ffmpeg-missing / env.ffprobe-missing / env.ffmpeg-encoder-missing（退出码 3），带安装提示（FFmpeg ≥ 7，D09）
+//                               缺了 → env.ffmpeg-missing / env.ffprobe-missing / env.ffmpeg-encoder-missing（退出码 3），带安装提示（FFmpeg ≥ 7，D09）；
+//                               每次调用最多等 15 秒（FFMPEG 指向卡住的程序时不会永远挂在预检里），超时同样按缺 FFmpeg 报
 //   run(bin, args, { cwd, signal, input })   跑完返回 { code, stdout, stderr }；中止时 SIGKILL 并抛 signal.reason
 //   probe(file)                 ffprobe JSON：{ video: {…, frames}, audio, format }；frames 按 count_packets 数（不解码）
 //   COLOR.png / COLOR.jpeg      截图 → 有限范围 BT.709 yuv420p 的唯一一次换算，并写明标记（见 README「编码链」）
@@ -36,19 +37,25 @@ export function x264Args({ crf = 14, preset = 'medium', web = false, fps = 24, m
 const firstLine = s => String(s || '').split('\n').find(l => l.trim()) ?? '';
 
 const cached = new Map();
+const PREFLIGHT_TIMEOUT_MS = 15000;
 export function preflight() {
   const ff = FFMPEG(), fp = FFPROBE();
   if (cached.has(`${ff}\0${fp}`)) return cached.get(`${ff}\0${fp}`);
   const hint = '装 FFmpeg ≥ 7（带 libx264、aac、ebur128）：macOS brew install ffmpeg；Windows winget install Gyan.FFmpeg；'
     + 'Linux 用发行版的 ffmpeg 包。装在别处就设 FFMPEG / FFPROBE 为可执行文件的完整路径';
-  const v = spawnSync(ff, ['-hide_banner', '-version'], { encoding: 'utf8' });
-  if (v.error || v.status !== 0) throw new RenderError('env.ffmpeg-missing', `找不到能运行的 FFmpeg（${ff}：${v.error?.code ?? `退出码 ${v.status}`}）`, { hint });
-  const p = spawnSync(fp, ['-version'], { encoding: 'utf8' });
-  if (p.error || p.status !== 0) throw new RenderError('env.ffprobe-missing', `找不到能运行的 ffprobe（${fp}：${p.error?.code ?? `退出码 ${p.status}`}）`, { hint });
-  const enc = spawnSync(ff, ['-hide_banner', '-encoders'], { encoding: 'utf8' }).stdout ?? '';
+  const call = (bin, args, code, what) => {
+    const r = spawnSync(bin, args, { encoding: 'utf8', timeout: PREFLIGHT_TIMEOUT_MS, killSignal: 'SIGKILL' });
+    if (!r.error && r.status === 0) return r.stdout ?? '';
+    const stuck = r.error?.code === 'ETIMEDOUT';
+    throw new RenderError(code, `找不到能运行的 ${what}（${bin}：${stuck ? `${PREFLIGHT_TIMEOUT_MS / 1000} 秒没有响应，已终止` : r.error?.code ?? `退出码 ${r.status}`}）`, {
+      hint: stuck ? `${bin} 卡住了（网络盘、包装脚本？）：把 FFMPEG / FFPROBE 设成本机能直接运行的可执行文件。${hint}` : hint,
+    });
+  };
+  const line = firstLine(call(ff, ['-hide_banner', '-version'], 'env.ffmpeg-missing', 'FFmpeg'));
+  call(fp, ['-version'], 'env.ffprobe-missing', 'ffprobe');
+  const enc = call(ff, ['-hide_banner', '-encoders'], 'env.ffmpeg-missing', 'FFmpeg');
   const missing = ['libx264', 'aac'].filter(e => !new RegExp(`\\s${e}\\s`).test(enc));
   if (missing.length) throw new RenderError('env.ffmpeg-encoder-missing', `这个 FFmpeg（${ff}）缺编码器：${missing.join('、')}`, { hint });
-  const line = firstLine(v.stdout);
   const r = { ffmpeg: ff, ffprobe: fp, line, version: /version\s+(\S+)/.exec(line)?.[1] ?? 'unknown' };
   cached.set(`${ff}\0${fp}`, r);
   return r;

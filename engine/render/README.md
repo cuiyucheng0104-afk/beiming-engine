@@ -35,11 +35,11 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `window.DUR` | 必选。片长（秒），有限正数；帧数 = `round(DUR × fps)`，要等于 film.json 的 `output.frameCount`（不等退出 4） |
 | `window.render(t)` | 必选。把画面画到时刻 `t`（秒），可同步也可返回 Promise。**必须确定**：只依赖 `t`，任意帧可单独、乱序重渲 |
 | `window.READY` | 必选。贴图、字体、着色器都就绪后置 `true`；上限 180 秒（`--ready-timeout`），15 秒还没好先打印已看到的报错与没回来的请求 |
-| `window.FPS` | 可选。页面按什么帧率量化一拍二 / 一拍三；不写按 24。与请求的帧率不同退出 4（`--any-fps` 放行并记警告） |
+| `window.FPS` | 可选。页面按什么帧率量化一拍二 / 一拍三；不写按 24。与请求的帧率不同退出 4（`--any-fps` 放行并记警告）。**帧率自适应的页面**（跟着交付档位走，例如竖屏 30 fps）写 `window.FPS = window.__RENDER?.fps ?? 24`：只读 `__RENDER.fps` 而不声明 `window.FPS` 时，渲染器仍按 24 核对 |
 | `window.TEXTS(t)` | 推荐。该时刻画面上的文字：`[{ text, box: [x, y, w, h], alpha, font }]`（画布像素、0–1 不透明度、CSS 字体串）。QA 用它查安全区、停留、对比度与缺字。旧写法 `{ id, text, x0, y0, x1, y1 }` 仍认，但会提示补 `alpha`、`font`；`still.mjs --texts` 逐张读回核对 |
 | `window.EV`、`window.TIMELINE` | 可选。声画事件表 / 节拍表（`events.mjs` 导出） |
 | `window.BEIMING_CONTRACT` | 可选，缺省 1；本渲染器只认 1 |
-| `window.__RENDER` | 渲染器在页面脚本之前注入（只读）：`{ fps, width, height, profile, frameCount, contract }`。页面要按交付档位的帧率量化时读 `__RENDER.fps` |
+| `window.__RENDER` | 渲染器在页面脚本之前注入（只读）：`{ fps, width, height, profile, frameCount, contract }`；没请求帧率时 `fps` 为 `null`。页面要按交付档位的帧率量化时读 `__RENDER.fps`，并照上一行声明 `window.FPS` |
 
 禁止：渲染路径里用 `Math.random`、`Date.now`、`performance.now`（计时除外）；渲染时读回 GPU 画布（会把画布从 GPU 光栅切到 CPU 光栅，破坏分段一致）；访问外网（默认拦截并判失败，`--allow-network` 放行并记进运行记录）。
 
@@ -144,7 +144,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `env.disk-insufficient` | 3 | `--plan` 估算磁盘不够 1.5 倍余量 | 换输出目录或清理磁盘 |
 | `env.lock-io`、`env.listen` | 3 | 输出目录不可写；预览服务监听失败 | 查权限 |
 | `contract.dur`、`contract.render`、`contract.fps`、`contract.texts`、`contract.version` | 4 | 页面约定不符（第 2 节） | 按报错改页面 |
-| `contract.fps-mismatch` | 4 | 请求的帧率与页面帧率不同 | 去掉 `--fps`，或页面读 `__RENDER.fps`，或 `--any-fps` |
+| `contract.fps-mismatch` | 4 | 请求的帧率与页面帧率不同 | 去掉 `--fps`；或页面写 `window.FPS = window.__RENDER?.fps ?? 24`；或 `--any-fps` |
 | `contract.frame-count` | 4 | 页面帧数与 film.json 不一致；块或拼接后的帧数不对 | 页面时长从 film.json 推出 |
 | `contract.film-json`、`contract.film-shots` | 4 | film.json 不是合法 JSON、镜头表帧号不对 | 修好文件（档位表读不出时按 D07 兜底，并记一条警告） |
 | `contract.concat-mismatch`、`contract.concat-empty` | 4 | 待拼接的片段参数不一致；区间为空 | 去掉 `--resume` 或加 `--force` 重渲 |

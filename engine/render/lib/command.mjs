@@ -4,7 +4,8 @@
 //   renderCommand(spec, main)   → defineCommand(...)：spec 与 defineCommand 相同（name、summary、usage、positionals、options、examples）；
 //                                 main(c) 收到 c = { opts, args, ctx, log, life, signal, setRunJson }，返回 { outputs?, data? }；
 //                                 抛 RenderError / CliError 表示可预期的失败：这里先收尾，再把错误连同 runJson、警告一起交回外壳
-//                                 （信封里照样有 runJson），退出码由错误码前缀决定
+//                                 （信封里照样有 runJson），退出码由错误码前缀决定。收到信号时信封由命令约定库的信号处理写：
+//                                 setRunJson 同时转给 ctx.setRunJson（命令约定库提供时），那份信封里也有 runJson
 //   Lifecycle                   一次运行的收尾：AbortController、子进程登记（中止时 SIGKILL）、异步关闭（浏览器、服务器）、
 //                                 同步收尾（删临时目录、释放锁与槽位、补写失败的运行记录，按登记的逆序）。收到 SIGINT / SIGTERM 时
 //                                 立刻中止并收尾，退出码 130 / 143（外壳负责）；SIGHUP 按 SIGTERM 处理；收尾时再按一次 Ctrl-C 立即退出。
@@ -211,7 +212,8 @@ export function renderCommand(spec, main) {
       const life = new Lifecycle(ctx, { log });
       let runJson = null;
       try {
-        const r = (await main({ opts: ctx.opts, args: ctx.args, ctx, log, life, signal: life.signal, setRunJson: p => { runJson = p; } })) ?? {};
+        const setRunJson = p => { runJson = p; ctx.setRunJson?.(p); };
+        const r = (await main({ opts: ctx.opts, args: ctx.args, ctx, log, life, signal: life.signal, setRunJson })) ?? {};
         if (life.signal.aborted) throw life.signal.reason;
         await life.teardown();
         return { data: r.data ?? null, outputs: r.outputs ?? [], runJson, warnings: log.warnings };

@@ -249,8 +249,10 @@ function writeMeta(file, meta) { const tmp = `${metaPath(file)}.tmp`; fs.writeFi
  * 把几段同参数的 H.264 无损拼接（concat 复制，不重编码），核对帧数后原子改名；metadata 是附加的 -metadata 参数（AIGC 标识）。
  * 拼接前先核对每段的编码、像素格式、画幅、帧率、时间基与色彩标记都和第一段相同（不同就是 contract.concat-mismatch，退出码 4：
  * 拼出来的片子会在段落处花屏或变速）。
+ * 拼接结果先写成目标目录里的 .<名>.partial-<pid>.mp4 再改名：--web、镜头缓存的 --out 可以在另一个卷上（另一个盘符、tmpfs），
+ * 跨卷改名会 EXDEV。life（lib/command.mjs 的 Lifecycle）在时把半成品登记进收尾，收到信号也不留。
  */
-export async function concatChunks(list, out, { expectFrames, signal, live, workDir, metadata = [] }) {
+export async function concatChunks(list, out, { expectFrames, signal, live, workDir, metadata = [], life }) {
   if (!list.length) throw new RenderError('contract.concat-empty', `没有可拼接的片段：${out}`, { hint: '帧区间是空的：检查 --frames / --shot' });
   const sig = await Promise.all(list.map(f => streamSignature(f, { signal })));
   for (let i = 1; i < sig.length; i++) {
@@ -263,16 +265,18 @@ export async function concatChunks(list, out, { expectFrames, signal, live, work
   }
   const listFile = path.join(workDir, `concat-${process.pid}-${path.basename(out)}.txt`);
   fs.writeFileSync(listFile, list.map(f => `file '${path.relative(workDir, f).split(path.sep).join('/').replace(/'/g, "'\\''")}'`).join('\n') + '\n');
-  const partial = path.join(workDir, `merged-${process.pid}-${path.basename(out)}`);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  const partial = path.join(path.dirname(out), `.${path.basename(out, path.extname(out))}.partial-${process.pid}.mp4`);
+  const undo = life?.defer(() => fs.rmSync(partial, { force: true }));
   try {
     await must(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', ...metadata, partial], '拼接', { cwd: workDir, signal, live });
     const p = await probe(partial, { signal });
     if (p.video?.frames !== expectFrames) throw new RenderError('contract.frame-count', `拼接后是 ${p.video?.frames} 帧，应为 ${expectFrames} 帧`, { hint: '块文件不完整或参数不一致：去掉 --resume 重渲' });
-    fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.renameSync(partial, out);
     return p;
   } finally {
     fs.rmSync(listFile, { force: true });
     fs.rmSync(partial, { force: true });
+    undo?.();
   }
 }

@@ -2,7 +2,8 @@
 // 方法借鉴 cases/vendor/lemo-opuscar/core/render/video.mjs@bebbbe1（<out>.lock 记 pid、过期接管），这里是独立实现：
 //   - 用 open(…, 'wx') 原子创建；锁里写 { pid, host, started, argv, nonce }，每 30 秒刷新一次修改时间（心跳）
 //   - 已有锁：同一台机器上 pid 还活着且心跳在 5 分钟内 → busy.output-locked（退出码 5），提示换 --out 或等它结束；
-//     pid 已不在、或心跳过期（进程卡死、pid 被别的进程复用）→ 视为残留：先原子改名再重建，两个进程同时接管也只有一个成功
+//     pid 已不在、或心跳过期（进程卡死、pid 被别的进程复用）→ 视为残留：先原子改名再重建，两个进程同时接管也只有一个成功；
+//     读不出内容的锁（别人刚用 'wx' 建出、还没写进去）10 秒内也算有人持有（与 slots.mjs 的 MUTEX_STALE_MS 同口径）
 //   - 释放时只删自己的锁（nonce 对得上才删），进程退出（含异常、信号）时自动释放
 //   acquireLock(target, { argv }) → release()
 import fs from 'node:fs';
@@ -10,7 +11,7 @@ import os from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { RenderError } from './errors.mjs';
 
-const HEARTBEAT_MS = 30000, STALE_MS = 5 * 60 * 1000;
+const HEARTBEAT_MS = 30000, STALE_MS = 5 * 60 * 1000, EMPTY_GRACE_MS = 10000;
 export const lockPath = target => `${target}.lock`;
 
 export const alive = pid => {
@@ -34,9 +35,9 @@ export function acquireLock(target, { argv = process.argv.slice(1), now = Date.n
     const other = readLock(file);
     const fresh = now() - mtime(file) < STALE_MS;
     const sameHost = other?.host === os.hostname();
-    const owned = other && fresh && (sameHost ? alive(other.pid) : true);
+    const owned = other ? fresh && (sameHost ? alive(other.pid) : true) : now() - mtime(file) < EMPTY_GRACE_MS;
     if (owned) {
-      throw new RenderError('busy.output-locked', `另一次渲染（pid ${other.pid}，${other.started} 开始）正在写 ${target}`, {
+      throw new RenderError('busy.output-locked', `另一次渲染（${other ? `pid ${other.pid}，${other.started} 开始` : '刚建出锁'}）正在写 ${target}`, {
         hint: `给这次渲染换一个 --out，或等它结束；确认没有渲染在跑（崩溃留下的锁）就删掉 ${file}`,
       });
     }

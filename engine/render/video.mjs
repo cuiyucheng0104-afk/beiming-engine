@@ -71,7 +71,7 @@ export function decideFps({ requested, pageFps, anyFps, log }) {
   if (requested !== null && requested !== undefined && Math.abs(requested - pageRate) > 1e-9) {
     if (!anyFps) {
       throw new RenderError('contract.fps-mismatch', `请求的帧率 ${requested} 与${whose}不一致：一拍二 / 一拍三按 ${pageRate} fps 量化，换成 ${requested} fps 节奏会抖`, {
-        hint: `去掉 --fps 按 ${pageRate} fps 渲；页面按别的帧率编写就在页面里声明 window.FPS（或读 window.__RENDER.fps）；确认与帧率无关或接受节奏不均，加 --any-fps`,
+        hint: `去掉 --fps 按 ${pageRate} fps 渲；页面要跟着交付帧率走，就在页面里写 window.FPS = window.__RENDER?.fps ?? 24（只读 __RENDER.fps、不声明 window.FPS 时仍按 24 核对）；确认与帧率无关或接受节奏不均，加 --any-fps`,
       });
     }
     log.warn(`--any-fps：按 ${requested} fps 渲染，但${whose}，一拍二 / 一拍三的节奏可能不均匀`, 'fps-mismatch-allowed');
@@ -300,7 +300,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     const te = Date.now();
     const outputsDone = [];
     for (const x of outputs) {
-      const p = await concatChunks(r.files[x.kind], x.file, { expectFrames: b - a, signal, live: life.procs, workDir, metadata: aigc.args });
+      const p = await concatChunks(r.files[x.kind], x.file, { expectFrames: b - a, signal, live: life.procs, workDir, metadata: aigc.args, life });
       const sha = await sha256File(x.file);
       outputsDone.push({ path: repoPath(ROOT, x.file), sha256: sha, kind: x.kind === 'master' ? 'video' : 'web', probe: p });
     }

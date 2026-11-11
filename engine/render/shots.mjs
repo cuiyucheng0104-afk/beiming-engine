@@ -171,7 +171,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
         const key = keyOf(p.s, deps);
         const mine = chunks.map((c, i) => [c, rendered.files.master[i]]).filter(([[a, b]]) => a >= p.s.in && b <= p.s.out).map(([, f]) => f);
         const clip = path.join(cache, `${p.s.id}.${key.slice(0, 12)}.mp4`);
-        await concatChunks(mine, clip, { expectFrames: p.s.out - p.s.in, signal, live: life.procs, workDir });
+        await concatChunks(mine, clip, { expectFrames: p.s.out - p.s.in, signal, live: life.procs, workDir, life });
         for (const old of fs.readdirSync(cache)) if (old.startsWith(`${p.s.id}.`) && old.endsWith('.mp4') && path.join(cache, old) !== clip) fs.rmSync(path.join(cache, old), { force: true });
         const hashes = Array.from({ length: p.s.out - p.s.in }, (_, k) => rendered.hashMap.get(p.s.in + k) ?? null);
         const meta = { key, shot: p.s.raw, frames: p.s.out - p.s.in, deps, hashes, sha256: await sha256File(clip), renderedAt: new Date().toISOString() };
@@ -194,7 +194,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     if (out) {
       workDir ??= fs.mkdtempSync(path.join(cache, '.work-'));
       const frames = plan.reduce((n, p) => n + (p.s.out - p.s.in), 0);
-      const pr = await concatChunks(plan.map(p => p.clip), out, { expectFrames: frames, signal, live: life.procs, workDir, metadata: aigc.args });
+      const pr = await concatChunks(plan.map(p => p.clip), out, { expectFrames: frames, signal, live: life.procs, workDir, metadata: aigc.args, life });
       const sha = await sha256File(out);
       record.output = { path: repoPath(ROOT, out), sha256: sha, width: pr.video.width, height: pr.video.height, fps: pr.video.fps, frames: pr.video.frames, duration: +(pr.video.frames / FPS).toFixed(6), codec: pr.video.codec, pixFmt: pr.video.pixFmt, color: pr.video.color };
       record.frameHashes = { algo: `sha256/16 of ${intermediate} capture`, first: plan[0].s.in, values: plan.flatMap(p => p.meta.hashes) };

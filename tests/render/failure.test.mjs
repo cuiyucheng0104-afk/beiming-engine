@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { run, skip, tmp, segs, FIX, posix } from './helpers.mjs';
 
@@ -139,9 +139,65 @@ test('video.mjs：收到 SIGTERM / SIGINT、FFmpeg 中途被杀，都能收尾�
         if (code !== 1) assert.equal(rec.error.code, code === 130 ? 'signal.sigint' : 'signal.sigterm');
         const envl = JSON.parse(r.stdout);
         assert.equal(envl.exitCode, code);
+        // 收到信号时信封由命令约定库写：它提供 ctx.setRunJson 后（已请 P02 加），runJson 要指向这次的失败记录
+        if (envl.runJson !== null) assert.equal(realpathSync(envl.runJson), realpathSync(join(dir, 'v.mp4.run.json')));
       } finally { rmSync(dir, { recursive: true, force: true }); }
     });
   }
+});
+
+test('FFMPEG 指向卡住不返回的程序：预检 15 秒后按缺 FFmpeg 退出 3，点名是哪个程序，不留子进程', { skip: skip || (!posix && '需要 POSIX 可执行脚本'), timeout: 60000 }, async () => {
+  const dir = tmp();
+  try {
+    const fake = join(dir, 'ffmpeg-hang');
+    writeFileSync(fake, '#!/bin/sh\nexec sleep 1000\n', { mode: 0o755 });
+    const [script, args] = video(join(dir, 'v.mp4'), PAGE);
+    const r = await run(script, args, { env: { FFMPEG: fake }, timeout: 45000 });
+    assert.equal(r.signal, null, `挂住了\n${r.log}`);
+    assert.equal(r.code, 3, r.log);
+    assert.ok(r.ms < 30000, `用了 ${r.ms} ms`);
+    const e = JSON.parse(r.stdout).error;
+    assert.equal(e.code, 'env.ffmpeg-missing');
+    assert.match(e.message, /ffmpeg-hang：15 秒没有响应，已终止/);
+    assert.match(e.hint, /卡住了/);
+    assert.deepEqual(r.leftovers, [], '残留子进程');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('mux.mjs：重编码画面时收到 SIGTERM / SIGINT，退出 143 / 130，不留 .partial、临时目录与子进程', { skip: skip || (!posix && '需要 POSIX 信号与 pgrep'), timeout: 120000 }, async t => {
+  const src = tmp();
+  try {
+    const ff = (...a) => execFileSync('ffmpeg', ['-v', 'error', '-y', ...a], { stdio: 'ignore' });
+    ff('-f', 'lavfi', '-i', 'testsrc2=s=1280x720:r=24:d=10', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', join(src, 'v.mp4'));
+    ff('-f', 'lavfi', '-i', 'sine=frequency=440:duration=10', '-ac', '2', join(src, 'mix.wav'));
+    for (const [sig, code] of [['SIGTERM', 143], ['SIGINT', 130]]) {
+      await t.test(sig, async () => {
+        const dir = tmp(), tdir = tmp('beiming-tmpdir-');
+        try {
+          let injected = false;
+          // --grain 2：画面要重编码，有足够长的一段时间里 <输出目录>/.o.partial-<pid>.mp4 与系统临时目录下的 beiming-mux-* 都在
+          const r = await run('engine/render/lib/mux.mjs', [join(src, 'v.mp4'), join(src, 'mix.wav'), join(dir, 'o.mp4'), '--grain', '2', '--json'], {
+            env: { TMPDIR: tdir },
+            onStart: p => {
+              const poll = setInterval(() => {
+                if (injected || p.exitCode !== null) return clearInterval(poll);
+                if (!readdirSync(dir).some(n => n.includes('.partial-'))) return;
+                process.kill(p.pid, sig);
+                injected = true;
+              }, 20);
+            },
+          });
+          assert.ok(injected, `没等到重编码开始\n${r.log}`);
+          assert.equal(r.signal, null, `挂住了\n${r.log}`);
+          assert.equal(r.code, code, r.log);
+          assert.equal(JSON.parse(r.stdout).exitCode, code);
+          assert.deepEqual(readdirSync(dir), [], '输出目录里不能留半成品');
+          assert.deepEqual(readdirSync(tdir), [], '系统临时目录里不能留 beiming-mux-*');
+          assert.deepEqual(r.leftovers, [], '残留子进程');
+        } finally { rmSync(dir, { recursive: true, force: true }); rmSync(tdir, { recursive: true, force: true }); }
+      });
+    }
+  } finally { rmSync(src, { recursive: true, force: true }); }
 });
 
 test('输出锁：同一个 --out 并发第二个渲染退出码 5，第一个照常完成', { skip, timeout: 120000 }, async () => {

@@ -247,6 +247,14 @@ test('输出锁：同一进程第二次取同一个锁是资源忙（5）；pid 
     fs.writeFileSync(lockPath(target), JSON.stringify({ pid: process.pid, host: os.hostname(), nonce: 'someone-else' }));
     again();
     assert.ok(fs.existsSync(lockPath(target)), '只删自己的锁');
+    // 别人刚用 open('wx') 建出锁、内容还没写进去：读到空文件也算有人持有（10 秒宽限，与渲染槽位同口径），不能抢
+    fs.writeFileSync(lockPath(target), '');
+    throwsCode(() => acquireLock(target), 'busy.output-locked');
+    // 空锁放了超过宽限（建锁的进程在写入前崩了）：按残留接管
+    const old = new Date(Date.now() - 20000);
+    fs.utimesSync(lockPath(target), old, old);
+    acquireLock(target)();
+    assert.equal(fs.existsSync(lockPath(target)), false);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

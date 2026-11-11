@@ -5,6 +5,7 @@
 <script>
 // 渲染器 v2 的测试片（tests/render/*.test.mjs），满足页面约定 v1。用 URL 参数注入各种失败：
 //   dur=秒（默认 1；dur=none 不设 DUR）     fps=声明 window.FPS（不写就不声明；帧号按 __RENDER.fps，再按 24）
+//   fps=auto           帧率自适应的推荐写法：window.FPS = window.__RENDER?.fps ?? 24（按交付档位的帧率量化）
 //   fail=throw         从第 at 帧起 render(t) 同步抛错          fail=reject     从第 at 帧起 render(t) 返回 reject 的 Promise
 //   fail=pageerror     从第 at 帧起抛一个未捕获的异步异常        fail=hang       从第 at 帧起 render(t) 死循环
 //   fail=never         永远不置 READY                            fail=norender   window.render 不是函数
@@ -20,9 +21,10 @@ const c = document.getElementById('c');
 c.width = innerWidth; c.height = innerHeight;
 const g = c.getContext('2d');
 const fail = q.get('fail'), at = Number(q.get('at') || 0), slow = Number(q.get('slow') || 0);
-const FPS = q.has('fps') ? Number(q.get('fps')) : (window.__RENDER && window.__RENDER.fps) || 24;
+const auto = (window.__RENDER && window.__RENDER.fps) || 24;
+const FPS = q.get('fps') === 'auto' ? auto : q.has('fps') ? Number(q.get('fps')) : auto;
 if (q.get('dur') !== 'none') window.DUR = q.has('dur') ? Number(q.get('dur')) : 1;
-if (q.has('fps')) window.FPS = Number(q.get('fps'));
+if (q.has('fps')) window.FPS = FPS;
 if (fail === 'texts') window.TEXTS = 42;
 if (q.get('texts') === 'good') window.TEXTS = t => [{ text: `第${Math.round(t * FPS)}帧`, box: [0, 8, 64, 16], alpha: 1, font: '12px sans-serif' }];
 if (q.get('texts') === 'legacy') window.TEXTS = t => [{ id: 'f', text: `第${Math.round(t * FPS)}帧`, x0: 0, y0: 8, x1: 64, y1: 24 }];
