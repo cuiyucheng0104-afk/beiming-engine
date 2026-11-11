@@ -501,7 +501,7 @@ export function beatGrid(timeline, { fps, frameCount } = {}) {
   const forms = ['sections', 'beats', 'bars'].filter(k => timeline[k] !== undefined);
   if (forms.length !== 1) throw new TimelineError('timeline-invalid', `timeline 必须且只能用一种写法：sections（按 BPM 分段）、beats（逐拍帧表）或 bars（小节数组），收到 ${forms.join(' + ') || '都没有'}`);
   const form = forms[0];
-  let secs = [], beats = [], barStarts = [];
+  let secs, beats = [], barStarts = [];   // secs 每种写法都会赋值；beats / barStarts 逐拍累加
   if (form === 'sections') {
     if (!Array.isArray(timeline.sections) || !timeline.sections.length) throw new TimelineError('timeline-invalid', 'timeline.sections 必须是非空数组');
     ({ secs, beats, barStarts } = sectionGrid(timeline.sections, fps, frameCount));

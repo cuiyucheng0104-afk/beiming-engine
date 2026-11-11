@@ -24,6 +24,7 @@
 //   formatFilmJson / writeFilmJson                                     稳定排版、原子写
 // 路径一律相对"路径基准"：普通作品是作品目录；镜像作品（mirror.paths = "repo"，如 films/beiming-10s）是仓库根。
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import process from 'node:process';
 import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { canonicalRoute, normalizeRelativePath, validateProjectSpec } from './project.js';
@@ -498,6 +499,7 @@ export function validateFilm(input, opts = {}) {
     const goesUp = up && /^(\.\.[\\/])+/.test(value.replace(/^\.[\\/]/, ''));
     if (goesUp) {
       const posix = value.replace(/\\/g, '/');
+      // eslint-disable-next-line no-control-regex -- 有意拒绝路径里的控制字符
       if (isAbsolute(value) || /^[A-Za-z]:/.test(value) || /[\u0000-\u001f<>:"|?*]/.test(posix)) { err('path-invalid', path, `只能用相对路径：${value}`); return null; }
       if (upBase) {
         const abs = resolve(upBase, posix);
@@ -834,6 +836,8 @@ export function validateFilm(input, opts = {}) {
 
 /** 打点只能落在整帧上的容差（帧）：与 C 模版 timeline.js 的页面自检相同（秒按 6 位小数取整后乘 fps 的误差远小于它）。 */
 const CUE_FRAME_TOL = 1e-4;
+/** 报错时给的「每拍整帧」候选速度：与 C 模版 timeline.js 的 wholeBeats 同一张表。 */
+const WHOLE_BEAT_BPMS = [60, 72, 75, 80, 90, 96, 100, 120, 125, 144, 150, 160, 180];
 
 /**
  * C 路线的节拍写法（routes/c-style/template）：tempo 是 engine/core/tempo.js 的段落表 [{ id, t0（秒）, bpm, meter }]，
@@ -886,7 +890,7 @@ function validateTempoCues(f, { err, known, fps, frameCount }) {
     if ((a[2] ?? 1) > sec.meter) { err('cue-invalid', p, `第 ${a[2]} 拍超出段落 ${a[0]} 的 ${sec.meter} 拍小节`, '下一小节的第 1 拍写成 [段落, 小节 + 1, 1]'); continue; }
     const at = tempo.calc.at(...a), x = at * fps;
     if (Math.abs(x - Math.round(x)) > CUE_FRAME_TOL) {
-      err('cue-off-frame', p, `打点 ${name} 在 ${at} 秒，落在第 ${+x.toFixed(3)} 帧，不是整帧（结果帧必须是整帧）`, `换每拍整帧的速度（${fps} fps 下 ${[60, 72, 80, 90, 96, 120, 144, 160].filter(b => Number.isInteger(+(60 * fps / b).toFixed(9))).join(' / ')} BPM），或改拍内分数`);
+      err('cue-off-frame', p, `打点 ${name} 在 ${at} 秒，落在第 ${+x.toFixed(3)} 帧，不是整帧（结果帧必须是整帧）`, `换每拍整帧的速度（${fps} fps 下 ${WHOLE_BEAT_BPMS.filter(b => Number.isInteger(+(60 * fps / b).toFixed(9))).join(' / ') || '没有常用值'} BPM），或改拍内分数`);
     } else if (frameCount !== null && Math.round(x) >= frameCount) err('cue-out-of-range', p, `打点 ${name} 在第 ${Math.round(x)} 帧，超出整片 [0, ${frameCount})`, '把打点挪进片长，或加长 output.frameCount');
   }
 }
@@ -1222,7 +1226,7 @@ export const filmFingerprint = raw => sha256Text(stableStringify(raw));
 // ───────────────────────── 命令行入口 ─────────────────────────
 
 const invokedDirectly = (() => {
-  if (typeof process === 'undefined' || !process.argv?.[1]) return false;
+  if (!process.argv?.[1]) return false;
   if (typeof import.meta.main === 'boolean') return import.meta.main;
   try { return pathToFileURL(realpathSync(resolve(process.argv[1]))).href === import.meta.url; } catch { return false; }
 })();

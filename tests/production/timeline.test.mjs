@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadFilm, qaExpectations, retime, validateFilm } from '../../engine/production/film.js';
+import { qaExpectations, retime, validateFilm } from '../../engine/production/film.js';
 import {
   TimelineError, beatAt, beatGrid, beatOf, cutList, eventsSignature, frameOfBeat, frameToSeconds, globalFrame, legacyEvents, legacyTimeline,
   localFrame, offGrid, parseTimecode, retimeShot, secondsToFrame, sectionsFromTempo, shotAt, shotSignature, stageShots, tempoSecs, timecode,

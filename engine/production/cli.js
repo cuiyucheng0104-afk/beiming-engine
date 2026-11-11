@@ -119,7 +119,7 @@ function findFilmOfRun(runDir, root) {
     if (existsSync(join(d, 'film.json'))) return d;
   }
   const filmsDir = join(root, 'films');
-  let names = [];
+  let names;
   try { names = readdirSync(filmsDir); } catch { return null; }
   const rel = toPosix(relative(root, dirname(runDir)));
   for (const name of names) {
@@ -264,7 +264,7 @@ function parseScores(list) {
   return out;
 }
 function readTextFile(p, flag) {
-  try { return readFileSync(p, 'utf8').replace(/^﻿/, ''); } catch (e) {
+  try { return readFileSync(p, 'utf8').replace(/^\uFEFF/, ''); } catch (e) {
     if (e.code === 'ENOENT') throw usage('not-found', `${flag} 文件不存在：${shown(resolve(p))}`);
     throw new CliError('failure.unreadable', `${flag} 读不出来（${e.code ?? e.message}）：${shown(resolve(p))}`);
   }

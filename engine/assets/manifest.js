@@ -23,9 +23,11 @@
 //   node engine/assets/manifest.js list [--kind <种类>] [--json]
 //   node engine/assets/manifest.js check [<资产 id>…] [--film <作品目录>] [--strict] [--json]
 //   node engine/assets/manifest.js lock [--write] [--json]
+import { Buffer } from 'node:buffer';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, posix, resolve } from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { CliError, defineCommand, isMain, runCli, suggest } from '../../tools/lib/cli.mjs';
 
@@ -75,7 +77,6 @@ export class AssetError extends Error {
   }
 }
 
-const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const sha = buf => createHash('sha256').update(buf).digest('hex');
 
 function readJson(path) {

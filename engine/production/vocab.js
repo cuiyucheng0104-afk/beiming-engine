@@ -42,7 +42,7 @@ export const ISSUE_PRIORITIES = Object.freeze(['P0', 'P1', 'P2', 'P3']);
 export const ISSUE_STATUSES = Object.freeze(['open', 'fixed', 'verified', 'wontfix']);
 
 const PLACEHOLDER_QUOTES = [
-  /\{\{[^}]*\}\}/, /^<[^>]*>$/, /^[（(\[【].*[）)\]】]$/,
+  /\{\{[^}]*\}\}/, /^<[^>]*>$/, /^[（([【].*[）)\]】]$/,
   /^(todo|tbd|tbc|n\/a|na|null|none|undefined|placeholder|xxx+|-+|—+|…+|\.{3,}|待补|待填|待定|略|无|空|示例|样例|原话|用户原话|用户的原话)$/i,
   /^(代理检查通过|代理审片通过|自检通过|ai\s*审片通过|agent\s*(approved|checked))[。.!！]?$/i,
 ];

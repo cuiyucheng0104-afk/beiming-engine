@@ -60,6 +60,7 @@ export const CREATIVE_STATUSES = Object.freeze(['not-reviewed', 'ai-reviewed', '
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+// eslint-disable-next-line no-control-regex -- 有意匹配控制字符（路径与 id 里不许出现）
 const CONTROL_CHAR = /[\u0000-\u001f\u007f]/;
 const WINDOWS_RESERVED = /[<>:"|?*]/;
 

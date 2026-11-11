@@ -158,7 +158,7 @@ export function readLatestRun(loaded) {
     diagnostics.push({ level: 'error', code: 'latest-not-pointer', path: 'out/latest', message: 'out/latest 应是指针文件（写 run-id），不是目录或符号链接', hint: 'Windows 上符号链接不可靠：写一行 run-id' });
     return { outRoot, runId: null, runDir: null, run: null, qa: null, diagnostics };
   }
-  let text = readFileSync(pointer, 'utf8').replace(/^﻿/, '').trim(), runId = text;
+  let text = readFileSync(pointer, 'utf8').replace(/^\uFEFF/, '').trim(), runId = text;
   if (text.startsWith('{')) { try { runId = JSON.parse(text).runId; } catch { runId = null; } }
   if (!isStr(runId) || !SAFE_NAME.test(runId) || runId.includes('..')) {
     diagnostics.push({ level: 'error', code: 'latest-invalid', path: 'out/latest', message: `latest 指针内容不合格：${JSON.stringify(text.slice(0, 80))}` });
