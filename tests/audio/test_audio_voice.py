@@ -10,6 +10,7 @@
 """
 import json
 import os
+import sys
 import shutil
 import unittest
 
@@ -269,6 +270,20 @@ class Units(unittest.TestCase):
         self.assertIn('security add-generic-password', hint)
         self.assertIn('secret-tool store', hint)
         self.assertIn('cmdkey /generic', hint)
+
+    def test_keychain_query_times_out_instead_of_hanging(self):
+        """钥匙串要授权时 security / secret-tool 会弹窗等人：查询有上限，超时按没有密钥处理，原因进 how_to_set 的说明"""
+        import time
+        old = SEC.TIMEOUT
+        SEC.TIMEOUT = 0.5
+        try:
+            t0 = time.time()
+            self.assertIsNone(SEC._query([sys.executable, '-c', 'import time; time.sleep(30)']))
+            self.assertLess(time.time() - t0, 10)
+        finally:
+            SEC.TIMEOUT = old
+        self.assertIn('没有返回', SEC.how_to_set('beiming-minimax', ('MINIMAX_API_KEY',)))
+        SEC._NOTES.clear()
 
     def test_cache_key_covers_identity_and_text(self):
         from engine.audio.voice import cache as CA

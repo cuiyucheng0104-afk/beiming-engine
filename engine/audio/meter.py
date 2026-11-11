@@ -24,7 +24,7 @@ import numpy as np
 from scipy.signal import lfilter, resample_poly
 
 from .dsp import SR, N, stereo, undb
-from ._env import ffmpeg as _ffmpeg_bin
+from ._env import ffmpeg as _ffmpeg_bin, run as _run
 
 # ITU-R BS.1770 在 48 kHz 下的 K 加权两级双二阶系数
 _KB1 = np.array([1.53512485958697, -2.69169618940638, 1.19839281085285])
@@ -123,10 +123,23 @@ def _tail(s, n=6):
     return '\n'.join((s or '').strip().splitlines()[-n:])
 
 
+def _budget(path):
+    """测量的超时（秒）：按音频时长给（ffmpeg 测一分钟音频不到一秒）；读不出时长（mp4 等）给 30 分钟"""
+    try:
+        import soundfile as sf
+        return 120 + 4 * sf.info(path).duration
+    except Exception:
+        return 1800.0
+
+
 def _ffmpeg(path, af):
-    """跑一遍只测量的 ffmpeg，返回 stderr 文本（UTF-8 解码，坏字节替换掉）"""
-    r = subprocess.run([_ffmpeg_bin(), '-hide_banner', '-nostats', '-i', path, '-vn', '-af', af, '-f', 'null', '-'],
-                       capture_output=True, encoding='utf-8', errors='replace')
+    """跑一遍只测量的 ffmpeg，返回 stderr 文本（UTF-8 解码，坏字节替换掉）；超时或被打断时连同 ffmpeg 一起结束"""
+    t = _budget(path)
+    try:
+        r = _run([_ffmpeg_bin(), '-hide_banner', '-nostats', '-i', path, '-vn', '-af', af, '-f', 'null', '-'],
+                 capture_output=True, encoding='utf-8', errors='replace', timeout=t)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f'ffmpeg 测量超过 {t:.0f} 秒没有结束（已结束它）：{path}') from None
     if r.returncode != 0:
         raise RuntimeError(f'ffmpeg 测量失败（退出码 {r.returncode}）：{path}\n{_tail(r.stderr)}')
     return r.stderr or ''

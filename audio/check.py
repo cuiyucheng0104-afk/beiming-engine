@@ -6,18 +6,19 @@
 判定分两级：problems（成片响度偏离 cues.json 的目标超过 ±0.3 LU、真峰值高于 −1.0 dBTP、文件格式不对、mux.sh 跑不通或跑不了）
 会让本脚本以退出码 1 结束；warnings（loudnorm 测量偏差、环境声空洞、分轨超满幅、频段越界等）只记录和打印。
 
-用法：python audio/check.py              旧口径：打印 report.json，problems 非空时退出码 1
+用法：python audio/check.py              旧口径：打印 report.json，problems 非空时退出码 1（--json 只在门禁模式下可用）
       python audio/check.py --strict     门禁模式（sh audio/build.sh / python audio/build.py 默认用它）：在 report.json 之外按附录 C8 写
                                          audio/check/qa.json（engine/audio/qa.py 的通用检查 + 本片的成片响度、提示音信噪比、音高、分轨），
                                          打印逐项结论；退出码按附录 C1：硬项不达标 4，缺 ffmpeg / 没有 out/mix.wav 3，其余 0
       --report <文件>                    C8 报告换个位置；--json 时 stdout 只输出一个信封（附录 C2）
 门禁的门槛写在 audio/cues.json 的 qa 段（混音积分响度容差、提示音带内信噪比下限、音高容差）；混音目标仍是 target 段。
 需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指定完整路径，同 tools/env）；成片响度这一项还要用 sh 跑 engine/render/mux.sh
-（mux.sh 另外用到 ffprobe）。sh 按 BEIMING_SH → PATH 里的 sh →（Windows）Git for Windows 的 Git\bin\sh.exe 的顺序找
+（mux.sh 另外用到 ffprobe）。sh 按 BEIMING_SH → PATH 里的 sh →（Windows）Git for Windows 的 Git\\bin\\sh.exe 的顺序找
 （engine/audio/_env.py，同 tools/env/lib/sh.mjs）；仓库里有 Node 版封装（engine/render/lib/mux.mjs 或 engine/render/mux.mjs，P04）时优先用
 node 跑它，不需要 sh。找不到 sh、或 mux.sh
 起不来、跑不通时，这一项记进 problems（门禁模式下：跑不了记为「未执行」的告警，跑了但不达标才算硬项失败），其余照常测完，报告照常写出。
 音高与和弦核对用 librosa（可选依赖）：没装时报告里记「未执行」，不再把导入错误当成测量结果吞掉。
+外部程序都有超时（按片长给），被 SIGTERM / Ctrl+C 打断时连同起的 ffmpeg、sh 一起结束、删掉临时目录，退出码 143 / 130。
 """
 import os
 import sys
@@ -39,17 +40,30 @@ from engine.audio import _cli  # noqa: E402
 from engine.audio import _env as E  # noqa: E402
 
 E.utf8_stdio()
+E.exit_on_sigterm()
+
+
+def _usage_exit(e):
+    """用法错误：说明打到 stderr；带了 --json 时 stdout 照样只有一个信封（附录 C2）"""
+    print(f'错误[{e.code}]：{e.message}' + (f'\n提示：{e.hint}' if e.hint else ''), file=sys.stderr)
+    if '--json' in sys.argv[1:]:
+        print(json.dumps(_cli.envelope('audio:check', e.exit_code, e), ensure_ascii=False, indent=2))
+    sys.exit(e.exit_code)
+
 
 # 参数先解析：--help 与用法错误在任何写盘之前就结束
-_P = _cli.ArgumentParser(prog='python audio/check.py', description='《北冥》混音自检；--strict 是门禁模式（附录 C8 报告 + 附录 C1 退出码）')
+_P = _cli.ArgumentParser(prog='python audio/check.py', description='《北冥》混音自检；--strict 是门禁模式（附录 C8 报告 + 附录 C1 退出码）。'
+                         '--json 只在门禁模式下可用（旧口径打印的是整份报告，不是信封）')
 _P.add_argument('--strict', action='store_true', help='门禁模式：写 audio/check/qa.json，硬项不达标退出码 4')
 _P.add_argument('--report', help='门禁报告写到哪里（默认 audio/check/qa.json；给了就按门禁模式写）')
 try:
     ARGS = _P.parse_args()
 except _cli.CliError as _e:
-    print(f'错误[{_e.code}]：{_e.message}' + (f'\n提示：{_e.hint}' if _e.hint else ''), file=sys.stderr)
-    sys.exit(_e.exit_code)
+    _usage_exit(_e)
 GATE = ARGS.strict or bool(ARGS.report)
+if ARGS.json and not GATE:
+    _usage_exit(_cli.CliError('usage.json-needs-strict', '--json 只在门禁模式下可用：旧口径会把整份报告打到 stdout，不是附录 C2 的信封',
+                              hint='加 --strict（或 --report <文件>）'))
 
 OUT = os.path.join(ROOT, 'out', 'mix.wav')
 MUX = os.path.join(ROOT, 'engine', 'render', 'mux.sh')
@@ -68,6 +82,7 @@ CUES = json.load(open(os.path.join(HERE, 'cues.json'), encoding='utf-8'))
 RENDER = json.load(open(os.path.join(CK, 'render.json'), encoding='utf-8')) if os.path.exists(os.path.join(CK, 'render.json')) else {}
 DUR = float(CUES['dur'])
 FPS = int(CUES.get('fps', 24))
+TMO = 120 + 6 * DUR                 # 外部程序（ffmpeg、mux.sh）的超时：10 秒片 3 分钟；卡住时按超时收场，不无限等
 C = {c['id']: c for c in CUES['cues']}
 SH = {s['id']: s for s in CUES['shots']}
 CUTS = [float(SH['B']['t']), float(SH['C']['t'])]
@@ -128,15 +143,15 @@ def mux_probe():
     try:
         td = tempfile.mkdtemp(prefix='beiming-mux-')
         v, o = os.path.join(td, 'black.mp4'), os.path.join(td, 'probe.mp4')
-        r = subprocess.run([E.ffmpeg(), '-y', '-v', 'error', '-f', 'lavfi', '-i', f'color=c=black:s=64x36:r={FPS}:d={DUR}',
-                            '-c:v', 'libx264', '-pix_fmt', 'yuv420p', v], capture_output=True, encoding='utf-8', errors='replace')
+        r = E.run([E.ffmpeg(), '-y', '-v', 'error', '-f', 'lavfi', '-i', f'color=c=black:s=64x36:r={FPS}:d={DUR}',
+                   '-c:v', 'libx264', '-pix_fmt', 'yuv420p', v], capture_output=True, encoding='utf-8', errors='replace', timeout=TMO)
         if r.returncode != 0:
             return {'error': f'生成探针画面失败：{_tail(r.stderr)}', 'kind': 'env'}
-        r = subprocess.run(cmd + [v, OUT, o, str(FPS), '0'], capture_output=True, encoding='utf-8', errors='replace')
+        r = E.run(cmd + [v, OUT, o, str(FPS), '0'], capture_output=True, encoding='utf-8', errors='replace', timeout=TMO)
         if r.returncode != 0 or not os.path.exists(o):
             return {'error': f'{os.path.basename(cmd[-1])} 退出码 {r.returncode}：{_tail(r.stderr or r.stdout)}', 'kind': 'run'}
         e = ebur128(o)
-        pcm = subprocess.run([E.ffmpeg(), '-v', 'error', '-i', o, '-vn', '-ac', '2', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
+        pcm = E.run([E.ffmpeg(), '-v', 'error', '-i', o, '-vn', '-ac', '2', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True, timeout=TMO)
         a = np.frombuffer(pcm.stdout, dtype='<f4').astype(np.float64).reshape(-1, 2) if pcm.returncode == 0 else None
         res = {'I_LUFS': e['I_LUFS'], 'TP_dBTP': e['TP_dBTP'], 'LRA_LU': e['LRA_LU']}
         if a is not None and len(a):
@@ -146,6 +161,9 @@ def mux_probe():
         return res
     except (OSError, RuntimeError) as e:     # OSError：进程起不来、临时目录；RuntimeError：engine.audio.meter 测不出响度
         return {'error': f'mux.sh 探针跑不下去（{type(e).__name__}）：{e}', 'kind': 'env' if isinstance(e, OSError) else 'run'}
+    except subprocess.TimeoutExpired as e:  # 卡住：已连同子进程一起结束
+        name = 'mux' if MUX in e.cmd or (MUX_MJS and MUX_MJS in e.cmd) else os.path.basename(str(e.cmd[0]))
+        return {'error': f'{name} 超过 {TMO:.0f} 秒没有结束（已连同子进程结束）', 'kind': 'run'}
     finally:
         if td:
             shutil.rmtree(td, ignore_errors=True)   # 清理失败不影响结果
@@ -379,9 +397,12 @@ figs = [figure(os.path.join(CK, 'overview.png'), 0.0, DUR, f'《北冥》{DUR:g}
                f'镜头 B→C：触碰、提示音、暗影、{BC:.1f} 打开、鲲鸣起音', fmax=8000, lanes=False),
         figure(os.path.join(CK, 'zoom_C.png'), BC, DUR, f'镜头 C 鲲现：鲲鸣 A2→D2、掠过、导航、顶点 {APEX:.1f}', fmin=40, fmax=4000, lanes=False)]
 
-# ffmpeg 自己的频谱图作旁证
-subprocess.run([E.ffmpeg(), '-y', '-v', 'error', '-i', OUT, '-lavfi',
-                'showspectrumpic=s=1600x700:legend=1:scale=log:fscale=log:color=magma', os.path.join(CK, 'ffmpeg_spectrum.png')])
+# ffmpeg 自己的频谱图作旁证（画不出来不影响判定）
+try:
+    E.run([E.ffmpeg(), '-y', '-v', 'error', '-i', OUT, '-lavfi',
+           'showspectrumpic=s=1600x700:legend=1:scale=log:fscale=log:color=magma', os.path.join(CK, 'ffmpeg_spectrum.png')], timeout=TMO)
+except (OSError, subprocess.TimeoutExpired) as _e:
+    WARNINGS.append(f'ffmpeg 频谱图没画出来：{_e}')
 REP['figures'] = figs + [os.path.join(CK, 'ffmpeg_spectrum.png')]
 
 # 混音阶段（mix.py）记下的时间表告警也并进来

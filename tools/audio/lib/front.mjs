@@ -4,11 +4,12 @@
 //   pythonCommand({ name, summary, usage, description, examples, exitCodes, positionals, options, module | script, cwd })
 //     → defineCommand 的声明。run 时把解析好的参数还原成 Python 的命令行（位置参数在前，选项按声明顺序），
 //       普通模式下子进程的 stdout / stderr 直接接到终端；--json 时收下子进程 stdout 里的那一个信封，转成本命令的信封
-//       （stdout 仍然只有一个 JSON 对象）。Ctrl+C / SIGTERM 时先结束子进程再退出（130 / 143）。
+//       （stdout 仍然只有一个 JSON 对象）。Ctrl+C / SIGTERM 时先结束子进程再退出（130 / 143）：POSIX 上给 Python 发 SIGTERM，
+//       由它结束自己起的进程（engine/audio/_env.py 的 run）；Windows 没有可捕获的 SIGTERM，用 taskkill /T 连子进程一起结束。
 //   toPythonArgv(decl, opts, args) → 字符串数组（导出给测试：Node 声明与 Python 的 argparse 要一一对应）
 //
 // 选项名两边一样（kebab-case）。list 类型按 split 拼回一个值（Python 一侧收逗号分隔的字符串）。
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CliError, EXIT, defineCommand } from '../../lib/cli.mjs';
@@ -69,7 +70,8 @@ export function pythonCommand({ module, script, cwd = ROOT, ...spec }) {
       });
       const undo = ctx.onCleanup(async () => {
         if (child.exitCode === null && child.signalCode === null) {
-          try { child.kill('SIGTERM'); } catch { /* 已经退出 */ }
+          if (process.platform === 'win32') spawnSync('taskkill', ['/T', '/F', '/PID', String(child.pid)], { stdio: 'ignore', windowsHide: true });
+          else try { child.kill('SIGTERM'); } catch { /* 已经退出 */ }
           await closed.catch(() => {});
         }
       });

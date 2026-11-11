@@ -29,16 +29,29 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path[:0] = [HERE, ROOT]          # 同目录的 design / score，仓库根下的 engine.audio
 
+from engine.audio import _cli, _env  # noqa: E402
+
+_env.utf8_stdio()                    # Windows 的 GBK 控制台与管道里打印中文不出错（只影响输出编码，不影响样本）
+_env.exit_on_sigterm()               # 被 SIGTERM 时按附录 C1 以 143 退出（build.py 中断时会这样结束它）
+# 参数先解析：--help 与拼错的参数在任何计算、写盘之前就结束（--help 退出 0，未知参数退出 2）
+_P = _cli.ArgumentParser(prog='python audio/mix.py', add_globals=False,
+                         description='《北冥》混音：读 audio/cues.json → out/mix.wav、audio/stems/、audio/check/render.json。'
+                                     '一般经 node tools/audio/build.mjs（混音 + 门禁）调用。退出码：0 完成；2 用法；4 配乐缓存与输入不一致；1 运行失败')
+_P.add_argument('--score', action='store_true', help='用采样库重渲配乐（需要 BEIMING_SAMPLES；取样：node tools/audio/fetch-samples.mjs），同时重写缓存与输入键')
+_P.add_argument('--accept-stale-score', action='store_true', help='配乐缓存与当前乐谱对不上时仍用旧配乐（记进 render.json 的 warnings）')
+try:
+    ARGS = _P.parse_args()
+except _cli.CliError as _e:
+    print(f'错误[{_e.code}]：{_e.message}' + (f'\n提示：{_e.hint}' if _e.hint else ''), file=sys.stderr)
+    sys.exit(_e.exit_code)
+
 import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
 from engine.audio.dsp import SR, N, smoothstep, undb, db, stereo, width, make_ir, reverb, echoes, hp, lp, shelf, fade  # noqa: E402
 from engine.audio.meter import true_peak, integrated, momentary_max, band_energy, onset  # noqa: E402
 from engine.audio import mixing as M, ambience as A, sampler  # noqa: E402
 from engine.audio import scorecache as SC  # noqa: E402
-from engine.audio import _env  # noqa: E402
 import design as D  # noqa: E402
-
-_env.utf8_stdio()                    # Windows 的 GBK 控制台与管道里打印中文不出错（只影响输出编码，不影响样本）
 import score  # noqa: E402  只取配乐的时间表（CUE_TIMES / LEVEL_WIN）；--score 时才真的渲染
 
 T_START = time.time()
@@ -311,7 +324,7 @@ ELEM['wake_ping'] = wp
 CACHE, CACHE_LOCK = os.path.join(HERE, 'score_cache.npz'), os.path.join(HERE, 'score_cache.lock.json')
 SCORE_CODE = ['audio/score.py', 'engine/audio/dsp.py', 'engine/audio/sampler.py', 'engine/audio/orchestra.py']   # score.render 用到的源码
 SCORE_SEED = 2026                                                                                               # score.render 的默认种子
-if '--score' in sys.argv:
+if ARGS.score:
     import score  # noqa: E402
     mus, sections, harmony = score.render(DUR)
     USED = sorted(score.USED)
@@ -328,7 +341,7 @@ else:
     try:
         _m, harmony, USED, SCORE_CACHE = SC.load(
             CACHE, CACHE_LOCK, NT, lambda used: SC.inputs(ROOT, SCORE_CODE, DUR, SCORE_SEED, used),
-            accept_stale='--accept-stale-score' in sys.argv)
+            accept_stale=ARGS.accept_stale_score)
     except SC.StaleCache as e:
         print(f'[mix] 停下：{e.message}\n[mix] 下一步：{e.hint}', file=sys.stderr)
         sys.exit(e.exit_code)

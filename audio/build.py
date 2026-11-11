@@ -52,17 +52,13 @@ def _missing_deps():
 
 
 def _run(cmd, ctx, capture=False):
-    """起一个子进程（同一个解释器）；被 Ctrl+C / SIGTERM 中断时由 ctx 的清理结束它"""
+    """起一个子进程（同一个解释器）。被中断时（Ctrl+C；SIGTERM 由 cli.run 变成异常；或任何异常）E.run 先结束子进程和它起的
+    ffmpeg / sh、等它们退出，再把异常交给 cli.run 收尾（130 / 143）：不留下还在改写 out/mix.wav、audio/check/ 的孤儿进程"""
     env = dict(os.environ, PYTHONIOENCODING='utf-8', PYTHONUTF8='1')
     # --json 时子进程的 stdout 也不能进本命令的 stdout（那里只能有一个信封）：混音日志改走 stderr
     out = subprocess.PIPE if capture else (sys.stderr if ctx.json else None)
-    p = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=out, stderr=None, text=capture, encoding='utf-8' if capture else None)
-    undo = ctx.on_cleanup(lambda: p.poll() is None and p.terminate())
-    try:
-        stdout, _ = p.communicate()
-    finally:
-        undo()
-    return p.returncode, stdout
+    r = E.run(cmd, cwd=ROOT, env=env, stdout=out, encoding='utf-8' if capture else None)
+    return r.returncode, r.stdout
 
 
 def main(args, ctx):

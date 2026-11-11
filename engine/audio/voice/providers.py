@@ -68,7 +68,10 @@ def read_audio(path):
         ff = shutil.which(E.ffmpeg())
         if not ff:
             raise VoiceError('env.ffmpeg', f'读不了 {os.path.basename(path)}，解码要 ffmpeg', '装 FFmpeg ≥ 7 并放进 PATH，或设 FFMPEG 为完整路径') from None
-        r = subprocess.run([ff, '-v', 'error', '-i', path, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True)
+        try:
+            r = E.run([ff, '-v', 'error', '-i', path, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'], capture_output=True, timeout=600)
+        except subprocess.TimeoutExpired:
+            raise VoiceError('failure.decode', f'ffmpeg 解码 {os.path.basename(path)} 超过 600 秒没有结束（已结束它）') from None
         if r.returncode != 0:
             raise VoiceError('failure.decode', f'ffmpeg 解不开 {os.path.basename(path)}：{r.stderr.decode("utf-8", "replace")[-300:]}') from None
         return np.frombuffer(r.stdout, dtype='<f4').astype(np.float64)
@@ -163,7 +166,10 @@ class MacSay(Provider):
     def available(self):
         if sys.platform != 'darwin' or not shutil.which('say'):
             return False, '只有 macOS 有 say', '其他系统用 command（本地 TTS）或 minimax / edge'
-        r = subprocess.run(['say', '-v', '?'], capture_output=True, text=True)
+        try:
+            r = E.run(['say', '-v', '?'], capture_output=True, text=True, timeout=30)
+        except subprocess.TimeoutExpired:
+            return False, 'say -v ? 30 秒没有返回', '先在终端里跑 say -v ? 看系统语音服务是否正常'
         names = {ln.split('  ')[0].strip() for ln in r.stdout.splitlines()}
         if self.voice not in names:
             return False, f'没有 say 音色 {self.voice}', '系统设置 → 辅助功能 → 朗读内容 → 系统声音里下载，或换 voice（say -v ? 列出可用的）'
@@ -177,8 +183,11 @@ class MacSay(Provider):
         tf, out = os.path.join(workdir, 'say.txt'), os.path.join(workdir, 'say.wav')
         with open(tf, 'w', encoding='utf-8') as f:
             f.write(text)
-        r = subprocess.run(['say', '-v', self.voice, '-r', str(rate), '-f', tf, '-o', out, '--file-format=WAVE', '--data-format=LEI16@48000'],
-                           capture_output=True, text=True, timeout=float(self.params.get('timeout', 120)))
+        try:
+            r = E.run(['say', '-v', self.voice, '-r', str(rate), '-f', tf, '-o', out, '--file-format=WAVE', '--data-format=LEI16@48000'],
+                      capture_output=True, text=True, timeout=float(self.params.get('timeout', 120)))
+        except subprocess.TimeoutExpired:
+            raise VoiceError('timeout', f'say 超过 {self.params.get("timeout", 120)} 秒没有结束（已结束它）', '句子太长就拆开，或在 params.timeout 放宽') from None
         if r.returncode != 0 or not os.path.exists(out):
             raise VoiceError('failure.voice-provider', f'say 失败（退出码 {r.returncode}）：{(r.stderr or r.stdout).strip()[-300:]}')
         return Result(read_audio(out), None, {'engine': 'macOS say', 'voice': self.voice, 'rate': rate})
@@ -208,9 +217,9 @@ class Command(Provider):
         argv = [str(a).format(**sub) for a in self.params['argv']]
         stdin = str(self.params['stdin']).format(**sub) if self.params.get('stdin') else None
         try:
-            r = subprocess.run(argv, input=stdin, capture_output=True, text=True, timeout=float(self.params.get('timeout', 300)))
+            r = E.run(argv, input=stdin, capture_output=True, text=True, timeout=float(self.params.get('timeout', 300)))
         except subprocess.TimeoutExpired:
-            raise VoiceError('timeout', f'TTS 命令超过 {self.params.get("timeout", 300)} 秒') from None
+            raise VoiceError('timeout', f'TTS 命令超过 {self.params.get("timeout", 300)} 秒（已连同它起的子进程结束）') from None
         if r.returncode != 0 or not os.path.exists(out):
             raise VoiceError('failure.voice-provider', f'TTS 命令失败（退出码 {r.returncode}）：{(r.stderr or r.stdout).strip()[-300:]}',
                              '先在终端里单独跑这条命令确认能出 wav')

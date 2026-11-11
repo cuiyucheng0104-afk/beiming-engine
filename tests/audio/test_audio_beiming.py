@@ -8,7 +8,10 @@
   · 把 audio/cues.json 的混音目标抬高 6 dB 后整个 build 退出 4；
   · 配乐缓存：乐谱 audio/score.py 改过就退出 4（不静默沿用旧配乐），--accept-stale-score 明确接受时通过并记进 render.json；
     缓存文件被换掉时 --accept-stale-score 也不放行；
-  · sh audio/build.sh 与 node tools/audio/build.mjs 两个入口：--help 退出 0，未知参数退出 2；
+  · sh audio/build.sh 与 node tools/audio/build.mjs 两个入口：--help 退出 0，未知参数退出 2；mix.py --help 不写盘、拼错的参数退出 2；
+    check.py 旧口径带 --json 时退出 2 并只输出一个信封；
+  · 中断不留孤儿进程（POSIX）：SIGTERM 给 python audio/build.py、SIGINT 只给 node tools/audio/build.mjs，混音子进程都跟着结束、
+    之后没有进程再写 out/mix.wav；SIGTERM 给正在跑封装探针的 audio/check.py，ffmpeg / sh 跟着结束、临时目录删掉，退出码 143；
   · 设了 BEIMING_SAMPLES（固定版本的采样库）时：--score 重渲可复现，重渲当次与之后读缓存的混音逐字节相同。
 门禁需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指完整路径）；没有时门禁的用例跳过，金标准与配乐缓存的用例照常跑。
 每次构建约 5–10 秒（numba 缓存冷时多十几秒）。
@@ -16,6 +19,10 @@
 import json
 import os
 import shutil
+import signal
+import subprocess
+import sys
+import time
 import unittest
 
 import numpy as np
@@ -197,6 +204,87 @@ class ScoreRerender(unittest.TestCase):
             shutil.rmtree(td, ignore_errors=True)
 
 
+@unittest.skipUnless(os.name == 'posix' and shutil.which('ps'), '信号与进程表：只在 POSIX 上测')
+class Interrupt(unittest.TestCase):
+    """中断时不留孤儿进程：被结束的命令要先结束自己起的子进程（mix.py、check.py、ffmpeg、sh），等它们退出再退出"""
+
+    def setUp(self):
+        self.td = H.sound_tree(H.tmpdir('beiming-int'))
+        self.tmp = os.path.join(self.td, 'tmp')               # 子进程的临时目录也放进树里：看得见删没删
+        os.makedirs(self.tmp)
+        self.log = open(os.path.join(self.td, 'stderr.log'), 'w+', encoding='utf-8')
+
+    def tearDown(self):
+        for pid in self.leftovers():
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+        self.log.close()
+        shutil.rmtree(self.td, ignore_errors=True)
+
+    def leftovers(self):
+        """命令行里带着这棵临时树的路径、还活着的进程（macOS 上 cwd 解析后是 /private/var/…，两种写法都认）"""
+        keys = {self.td, os.path.realpath(self.td)}
+        out = subprocess.run(['ps', '-A', '-o', 'pid=,command='], capture_output=True, text=True).stdout
+        return [int(ln.split(None, 1)[0]) for ln in out.splitlines() if any(k in ln for k in keys) and int(ln.split(None, 1)[0]) != os.getpid()]
+
+    def start(self, argv, until, timeout=90):
+        """起命令（自成一组，测试失败时好收拾），等 until() 为真（子进程真的跑起来）再返回"""
+        p = subprocess.Popen(argv, cwd=self.td, env=H.env(PYTHON=sys.executable, TMPDIR=self.tmp), stdout=subprocess.DEVNULL,
+                             stderr=self.log, start_new_session=True)
+        t0 = time.time()
+        while not until():
+            if p.poll() is not None or time.time() - t0 > timeout:
+                self.log.seek(0)
+                self.fail(f'没等到要中断的时刻（退出码 {p.poll()}）：{self.log.read()[-1500:]}')
+            time.sleep(0.05)
+        return p
+
+    def mixing(self):
+        return any('mix.py' in c for c in self.cmdlines())
+
+    def cmdlines(self):
+        keys = {self.td, os.path.realpath(self.td)}
+        out = subprocess.run(['ps', '-A', '-o', 'command='], capture_output=True, text=True).stdout
+        return [ln for ln in out.splitlines() if any(k in ln for k in keys)]
+
+    def assert_clean_exit(self, p, code):
+        try:
+            rc = p.wait(60)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL)
+            self.fail('收到信号 60 秒后还没退出')
+        self.log.seek(0)
+        self.assertEqual(rc, code, self.log.read()[-1500:])
+        self.assertEqual(self.cmdlines(), [], '命令退出了，它起的进程还在跑')
+
+    def test_sigterm_to_build_py_ends_mix(self):
+        p = self.start([sys.executable, 'audio/build.py'], self.mixing)
+        time.sleep(0.5)
+        os.kill(p.pid, signal.SIGTERM)                           # 只给 build.py（编排器超时、kill 都是这样）
+        self.assert_clean_exit(p, 143)
+        self.assertFalse(os.path.exists(os.path.join(self.td, 'out', 'mix.wav')), '中断后还有进程写出了 out/mix.wav')
+
+    @unittest.skipUnless(NODE, '需要 node')
+    def test_sigint_to_node_front_ends_python(self):
+        p = self.start(['node', 'tools/audio/build.mjs'], self.mixing)
+        time.sleep(0.5)
+        os.kill(p.pid, signal.SIGINT)                            # 只给 Node 进程，不是整个进程组
+        self.assert_clean_exit(p, 130)
+        self.assertFalse(os.path.exists(os.path.join(self.td, 'out', 'mix.wav')))
+
+    @unittest.skipUnless(FF and SH, '需要 ffmpeg / ffprobe 与 sh')
+    def test_sigterm_to_check_py_during_mux_probe(self):
+        r = H.run(['python', 'audio/mix.py'], cwd=self.td)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        probe = lambda: any(n.startswith('beiming-mux-') for n in os.listdir(self.tmp))  # noqa: E731
+        p = self.start([sys.executable, 'audio/check.py', '--strict'], probe)
+        os.kill(p.pid, signal.SIGTERM)
+        self.assert_clean_exit(p, 143)
+        self.assertEqual([n for n in os.listdir(self.tmp) if n.startswith('beiming-mux-')], [], '封装探针的临时目录没删')
+
+
 @unittest.skipUnless(NODE, '需要 node')
 class Entrypoints(unittest.TestCase):
     def test_node_front(self):
@@ -207,6 +295,23 @@ class Entrypoints(unittest.TestCase):
         r = H.run(['node', 'tools/audio/build.mjs', '--no-such-flag', '--json'])
         self.assertEqual(r.returncode, 2)
         self.assertEqual(H.envelope(r)['error']['code'], 'usage.unknown-option')
+
+    def test_mix_py_parses_arguments_before_any_work(self):
+        td = H.sound_tree(H.tmpdir('beiming-args'))
+        try:
+            r = H.run(['python', 'audio/mix.py', '--help'], cwd=td)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn('--accept-stale-score', r.stdout)
+            self.assertFalse(os.path.exists(os.path.join(td, 'out')), '--help 不能写盘')
+            r = H.run(['python', 'audio/mix.py', '--acept-stale-score'], cwd=td)
+            self.assertEqual(r.returncode, 2, r.stderr)
+            self.assertIn('是不是想写 --accept-stale-score', r.stderr)
+            self.assertFalse(os.path.exists(os.path.join(td, 'out')))
+            r = H.run(['python', 'audio/check.py', '--json'], cwd=td)           # 旧口径打印的是整份报告：--json 要配门禁模式
+            self.assertEqual(r.returncode, 2, r.stderr)
+            self.assertEqual(H.envelope(r)['error']['code'], 'usage.json-needs-strict')
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
 
     @unittest.skipUnless(SH, '需要 sh')
     def test_sh_entry(self):
