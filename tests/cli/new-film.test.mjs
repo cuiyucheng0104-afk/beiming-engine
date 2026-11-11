@@ -89,13 +89,13 @@ test('--dry-run --json：退出 0、不写盘、给出文件清单、v2 film.jso
   assert.equal(fj.title, '试映');
   assert.equal(fj.route, 'b');
   assert.equal(fj.backend, 'native', 'B 的 backend 与作品描述包同口径');
-  assert.deepEqual(fj.output, { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 72 });
-  assert.deepEqual(fj.shots, [{ id: 'S1', in: 0, out: 72 }], 'v1 模版没有镜头表：整片一个镜头');
-  assert.deepEqual(fj.events, []);
+  assert.deepEqual(fj.output, { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 108 }, 'B 模版 4.5 秒');
+  assert.deepEqual(fj.shots, [{ id: 'S1', in: 0, out: 108 }], 'v1 模版没有镜头表：整片一个镜头');
+  assert.deepEqual(fj.events.map(e => [e.id, e.frame, e.shot]), [['title', 30, 'S1']], '片名落定的事件原样带过来');
   assert.deepEqual(fj.audio, { mode: 'native' }, 'B 的声音由 native.audio 准备');
   assert.deepEqual(fj.gates, { look: 'required', animatic: 'required', final: 'required' });
   assert.equal(fj.aigc.contains, true);
-  assert.equal(fj.native.output, 'out/t8.mp4');
+  assert.equal(fj.native.output, undefined, '产物统一写进 <作品>/out/<run-id>/，不再写 native.output');
   assert.equal(fj.next, undefined, '生成的 film.json 不保留 next');
   assert.deepEqual(r.json.data.next[0].argv, ['node', 'engine/native/prepare.mjs', 'films/t8'], 'B 的第一步是 prepare');
   assert.equal(r.json.data.validation.status, 'skipped', '演练不调用校验器');
@@ -123,16 +123,16 @@ test('正式生成 A：v2 + 两镜头 + 事件 + 画风 + 文字与字体、稳�
   assert.match(r.json.data.next[0].display, /^node tools\/fonts\/subset\.mjs films\/dawn/, '第一步是按本片文字生成字体子集');
 });
 
-test('C：v1 的 poster（秒）换成 posterFrame（帧），cuecheck 原样保留', () => {
+test('C：模版的 posterFrame（帧）与 cuecheck 原样带过来，不出现 v1 的 poster（秒）', () => {
   const dir = sandbox();
   const r = newFilm(dir, ['c', 'ink', '--json']);
   assert.equal(r.code, 0, r.err);
   const fj = readJson(path.join(dir, 'films/ink/film.json'));
   assert.equal(fj.poster, undefined);
-  assert.equal(fj.posterFrame, 66, '2.75 秒 × 24 fps');
+  assert.equal(fj.posterFrame, 180, '模版写的是第 180 帧（8 秒 192 帧的片子）');
   assert.deepEqual(fj.cuecheck, { grid: 2, tolMs: 0.5 });
   assert.equal(fj.backend, 'canvas');
-  assert.deepEqual(fj.audio, { mode: 'script', script: 'mix.py' });
+  assert.deepEqual(fj.audio, { mode: 'script', script: 'mix.py', targetLUFS: -14, truePeakDbTP: -1 });
 });
 
 test('重复生成退出 2 且不动已有目录', () => {
@@ -150,7 +150,8 @@ test('B 模版的 JSX 花括号原样保留，{{TITLE}} 被替换', () => {
   assert.equal(newFilm(dir, ['b', 'buoy', '--title', '浮标']).code, 0);
   const tsx = fs.readFileSync(path.join(dir, 'films/buoy/film.tsx'), 'utf8');
   assert.match(tsx, /style=\{\{ background: P\.sky \}\}/);
-  assert.match(tsx, /text="浮标"/);
+  assert.match(tsx, /const TITLE = '浮标'/);
+  assert.doesNotMatch(tsx, /\{\{[A-Z_]+\}\}/, '不留占位符');
   assert.ok(fs.existsSync(path.join(dir, 'films/buoy/.gitignore')));
 });
 
@@ -201,9 +202,9 @@ test('--profile 换档位：画幅、帧率、帧数、海报帧跟着变，并�
   const r = newFilm(dir, ['c', 'tall', '--profile', 'vertical-1080x1920-30', '--json']);
   assert.equal(r.code, 0, r.err);
   const fj = readJson(path.join(dir, 'films/tall/film.json'));
-  assert.deepEqual(fj.output, { profile: 'vertical-1080x1920-30', width: 1080, height: 1920, fps: 30, frameCount: 90 });
-  assert.deepEqual(fj.shots, [{ id: 'S1', in: 0, out: 90 }]);
-  assert.equal(fj.posterFrame, 83, '2.75 秒 × 30 fps 四舍五入');
+  assert.deepEqual(fj.output, { profile: 'vertical-1080x1920-30', width: 1080, height: 1920, fps: 30, frameCount: 240 }, '8 秒 × 30 fps');
+  assert.deepEqual(fj.shots, [{ id: 'S1', in: 0, out: 240 }]);
+  assert.equal(fj.posterFrame, 225, '第 180 帧按 30/24 换算');
   assert.deepEqual([fj.fps, fj.size], [30, [1080, 1920]]);
   assert.deepEqual(fj.deliveries, ['vertical-1080x1920-30']);
   const codes = r.json.warnings.map(w => w.code);
