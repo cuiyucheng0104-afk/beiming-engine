@@ -12,8 +12,9 @@
     check.py 旧口径带 --json 时退出 2 并只输出一个信封；
   · 中断不留孤儿进程（POSIX）：SIGTERM 给 python audio/build.py、SIGINT 只给 node tools/audio/build.mjs，混音子进程都跟着结束、
     之后没有进程再写 out/mix.wav；SIGTERM 给正在跑封装探针的 audio/check.py，ffmpeg / sh 跟着结束、临时目录删掉，退出码 143；
-    对调用方整组发 SIGKILL（python audio/build.py、正在封装探针的 check.py）或 SIGHUP（node tools/audio/build.mjs），谁也来不及收拾，
-    子进程留在同一组里一起结束：没有进程被系统收养后接着跑，out/mix.wav 不会在之后被写出；
+    对调用方整组发 Ctrl+C（SIGINT：build.py 与 mix.py 一起收到，退出 130、不打堆栈）、SIGKILL（python audio/build.py、
+    正在封装探针的 check.py）或 SIGHUP（node tools/audio/build.mjs）：子进程留在同一组里一起结束，没有进程被系统收养后
+    接着跑，out/mix.wav 不会在之后被写出；
   · 设了 BEIMING_SAMPLES（固定版本的采样库）时：--score 重渲可复现，重渲当次与之后读缓存的混音逐字节相同。
 门禁需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指完整路径）；没有时门禁的用例跳过，金标准与配乐缓存的用例照常跑。
 每次构建约 5–10 秒（numba 缓存冷时多十几秒）。
@@ -274,6 +275,15 @@ class Interrupt(unittest.TestCase):
         time.sleep(0.5)
         os.kill(p.pid, signal.SIGINT)                            # 只给 Node 进程，不是整个进程组
         self.assert_clean_exit(p, 130)
+        self.assertFalse(os.path.exists(os.path.join(self.td, 'out', 'mix.wav')))
+
+    def test_ctrl_c_to_callers_group_exits_130_without_traceback(self):
+        p = self.start([sys.executable, 'audio/build.py'], self.mixing)
+        time.sleep(0.5)
+        os.killpg(p.pid, signal.SIGINT)   # 终端 Ctrl+C：build.py 与同组的 mix.py 一起收到
+        self.assert_clean_exit(p, 130)
+        self.log.seek(0)
+        self.assertNotIn('Traceback', self.log.read(), 'mix.py 收到 Ctrl+C 要照常收尾退出，不打 KeyboardInterrupt 堆栈')
         self.assertFalse(os.path.exists(os.path.join(self.td, 'out', 'mix.wav')))
 
     def assert_nothing_left(self, t_kill, settle=3.0):
