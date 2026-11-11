@@ -157,13 +157,14 @@ films/<名>/out/
 | `BEIMING_ANGLE` / `BEIMING_CHROME` / `BEIMING_READY_TIMEOUT` / `BEIMING_FRAME_TIMEOUT` | 页面渲染器的 GPU 后端、浏览器、等就绪与单帧上限（见 `engine/render/page.mjs`） |
 | `RAEA_BIN` | B 路线原生运行时（不随仓库分发，D03）；没设时 B 的命令退出码 3 并给出设法 |
 | `FILM_QA_CLI` | 机器 QA 门的实现路径（默认 `tools/qa/cli.mjs`；测试用 `tests/film/fixtures/qa-stub.mjs`） |
-| `FILM_REVIEW_LIB=builtin` | 强制用内置的闸门记录实现（测试用） |
+| `BEIMING_CJK_FONT` | 联系表标注用的中文字体文件（与声音自检图共用这一个设置）；不设时找系统里同时含中文与拉丁字母的字体 |
+| `BEIMING_DEBUG=1` | 编排器自身的内部错误（退出码 1、`failure.internal`）另在 stderr 打印堆栈 |
 
 ## 9. 跨平台
 
 - macOS（Apple Silicon，Metal）：全部命令实测（单元、契约、端到端 A / B / C、真 QA 的竖屏口径）。
 - Linux：设计上全部命令可用（只用 Node、ffmpeg、Python 与无头 Chrome，不依赖 shell 语法），**尚未实测**，交给 P09 的 CI（ubuntu 作业）跑 `node --test tests/film/*.test.mjs` 与 `node tests/film/e2e-run.mjs`。
-- Windows（PowerShell）：**尚未实测**（交给 P09 的 CI）。设计上编排器本身、页面渲染、联系表、播放页、QA 都不经 shell；**音画封装 `engine/render/mux.sh` 与 `.sh` 声音脚本（如《北冥》的 `audio/build.sh`）目前仍要 POSIX sh**，预检会说清；Git for Windows 装在默认位置时自动找到，不用改 PATH。渲染器 v2 的 Node 封装合入后去掉这个依赖。PowerShell 设环境变量：`$env:PYTHON="C:\路径\python.exe"; npm run film -- build films\my-film`。
+- Windows（PowerShell）：**尚未实测**（交给 P09 的 CI）。设计上编排器本身、页面渲染、联系表、播放页、QA 都不经 shell；**音画封装 `engine/render/mux.sh` 与 `.sh` 声音脚本（如《北冥》的 `audio/build.sh`）目前仍要 POSIX sh**，预检会说清；Git for Windows 装在默认位置时自动找到，不用改 PATH。渲染器 v2 的 Node 封装合入后去掉这个依赖。PowerShell 设环境变量：`$env:PYTHON="<盘符>:\<路径>\python.exe"; npm run film -- build films\my-film`。
 - 子进程整棵树清理：POSIX 上按进程组与父子关系结束（含 Playwright 自建进程组的浏览器），Windows 上 `taskkill /T /F`。子进程的 TMPDIR 指到运行目录（`work/tmp`，结束整体删除），浏览器配置目录也在其中。
 - B 路线的作品目录必须**真实位于**仓库的 `films/` 下：原生运行时按真实路径打包 `film.tsx`，指向仓库外的链接会找不到 `../../engine/native`，编排器提前以用法错误拒绝。
 

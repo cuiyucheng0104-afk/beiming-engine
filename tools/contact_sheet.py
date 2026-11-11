@@ -11,7 +11,7 @@
   python tools/contact_sheet.py <输出.jpg> a.jpg b.jpg … [--cols 4] [--w 480]
       旧用法：按给定顺序拼图，每格上方标文件名（Windows 反斜杠路径也只显示文件名）。
 
-只用 Pillow。字体：逐段检查字形覆盖，依次试 BEIMING_SHEET_FONT、系统里同时含中文与拉丁字母的字体
+只用 Pillow。字体：逐段检查字形覆盖，依次试 BEIMING_CJK_FONT（与声音自检图共用的中文字体设置）、系统里同时含中文与拉丁字母的字体
 （macOS 冬青黑体 / 华文黑体、Linux Noto Sans CJK / 文泉驿、Windows 微软雅黑 / 黑体）、系统拉丁字体，最后用 Pillow 自带字体；
 仓库 fonts/ 里的是成片用的字形子集，不拿来写标注。找不到中文字体时标注改用英文、片名改用作品 id（只影响审片图，不影响成片）。
 退出码：0 成功；1 读不了图或写不了文件；2 用法错误；3 缺 Pillow。出错只打印一行原因。stdout / stderr 一律 UTF-8。
@@ -77,7 +77,7 @@ class Fonts:
         self.loaded = {}
         self.missing = {}
         self.glyph = {}
-        env = os.environ.get('BEIMING_SHEET_FONT')
+        env = os.environ.get('BEIMING_CJK_FONT')  # 已在 tools/env/spec.json 登记的中文字体变量（声音自检图也读它）
         self.paths = ([env] if env else []) + [p for p in FONT_CANDIDATES if os.path.exists(p)]
 
     def _load(self, path, size):
@@ -190,7 +190,7 @@ def manifest_sheet(out, m, tile_w):
     f_cap = F.pick(14, 'F0123456789:' + shot_ids) or F.pick(14, 'F0123456789:')
     f_small = F.pick(12, '0123456789:' + shot_ids) or F.pick(12, '0123456789:')
     if not (f_title and f_meta and f_cap and f_small):
-        raise SheetError('找不到能写标注的字体（Pillow 太旧且系统没有可用字体）：升级 Pillow ≥ 10.1，或设 BEIMING_SHEET_FONT=<字体文件>')
+        raise SheetError('找不到能写标注的字体（Pillow 太旧且系统没有可用字体）：升级 Pillow ≥ 10.1，或设 BEIMING_CJK_FONT=<字体文件>')
 
     grid_w = cols * tile_w + (cols - 1) * 8
     strip_tile_w = max(120, (grid_w - 150 - 5 * 6) // 6)

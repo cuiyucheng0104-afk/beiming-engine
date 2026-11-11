@@ -13,7 +13,7 @@ import { Legacy } from '../../tools/film/lib/legacy.mjs';
 import * as cache from '../../tools/film/lib/cache.mjs';
 import { resolveProfile, framesAt, BUILTIN } from '../../tools/film/lib/profiles.mjs';
 import { parseFilm, shotsAt, cutsOf, normalizeRoute } from '../../tools/film/lib/spec.mjs';
-import { gateStatus, assertFinalAllowed, passes, reviewProblems, buildRecord, writeRecord, recordWaivers, sourceOf, timingSnapshot, filmView } from '../../tools/film/lib/gates.mjs';
+import { gateStatus, assertFinalAllowed, passes, reviewProblems, buildRecord, writeRecord, recordWaivers, sourceOf, timingSnapshot, filmView, useBuiltinReviewLib } from '../../tools/film/lib/gates.mjs';
 import { imageSize, encoderInfo, clickTrack, timecode } from '../../tools/film/lib/media.mjs';
 import { rerunCommand } from '../../tools/film/lib/session.mjs';
 import { ROOT } from './helpers.mjs';
@@ -195,8 +195,7 @@ test('作品描述：v1 自动换算帧数、v2 读 output、坏镜头表只告�
 
 test('闸门（内置实现，与 engine/production/review.js 同格式）：没有记录拒绝终渲；agent 记录与内部豁免说明不放行；用户豁免与用户认可放行；改切点后预演认可失效', async () => {
   const dir = tmp();
-  const prev = process.env.FILM_REVIEW_LIB;
-  process.env.FILM_REVIEW_LIB = 'builtin';
+  useBuiltinReviewLib();
   try {
     const raw = { schemaVersion: 2, output: { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 96 }, shots: [{ id: 'S1', in: 0, out: 48 }, { id: 'S2', in: 48, out: 96 }], events: [] };
     const film = { dir, relDir: 'films/t', id: 't', raw, fps: 24, frameCount: 96, gates: { look: 'required', animatic: 'required', final: 'required' } };
@@ -243,7 +242,7 @@ test('闸门（内置实现，与 engine/production/review.js 同格式）：没
     throwsCode(() => sourceOf('会话', { kind: 'telepathy' }), EXIT.USAGE);
     throwsCode(() => sourceOf('会话', { at: '昨天' }), EXIT.USAGE);
   } finally {
-    if (prev === undefined) delete process.env.FILM_REVIEW_LIB; else process.env.FILM_REVIEW_LIB = prev;
+    useBuiltinReviewLib(false);
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

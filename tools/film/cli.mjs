@@ -125,7 +125,7 @@ export function subcommand(name, m, t = SUBCOMMANDS[name]) {
       try { r = await t.run(m, opts, pos); } catch (e) {
         if (wasSignalled()) return silent();
         const fe = asFilmError(e);
-        if (fe.short === 'internal' && fe.details?.stack && (process.env.BEIMING_DEBUG || process.env.FILM_DEBUG)) process.stderr.write(`${fe.details.stack}\n`);
+        if (fe.short === 'internal' && fe.details?.stack && process.env.BEIMING_DEBUG) process.stderr.write(`${fe.details.stack}\n`);
         return { exitCode: fe.exitCode, error: fe, outputs: e?.outputs || [], runJson: e?.runJson || null, warnings: e?.warnings || [], data: e?.data ?? null };
       }
       if (wasSignalled()) return silent();

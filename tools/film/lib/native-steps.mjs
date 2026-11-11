@@ -28,7 +28,7 @@ export function requireRaea(ctx) {
   if (r.ok) return r;
   const why = r.reason === 'unset' ? '没有设 RAEA_BIN' : r.reason === 'missing' ? `RAEA_BIN 指向的文件不存在：${r.bin}` : `RAEA_BIN 的安装包里没有 share/raea/VERSION：${r.bin}`;
   ctx.fail(3, 'raea-missing', `B 路线需要单独安装的原生运行时（${why}）`,
-    '把 RAEA_BIN 设为运行时可执行文件的完整路径（安装包保留 bin/ 与 share/，版本 0.1.0-canary.2），例：macOS / Linux `RAEA_BIN=/路径/raea npm run film -- build films/<名>`；PowerShell `$env:RAEA_BIN="D:\\路径\\raea.exe"`');
+    '把 RAEA_BIN 设为运行时可执行文件的完整路径（安装包保留 bin/ 与 share/，版本 0.1.0-canary.2），例：macOS / Linux `RAEA_BIN=/<路径>/raea npm run film -- build films/<名>`；PowerShell `$env:RAEA_BIN="<盘符>:\\<路径>\\raea.exe"`');
 }
 
 function legacyNative(ctx) {

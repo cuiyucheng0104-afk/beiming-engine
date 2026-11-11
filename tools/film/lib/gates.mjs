@@ -12,7 +12,7 @@
 //   - waive 只能用于 look / animatic；final 不能豁免。没有用户原话的 --waive 只记一条 comment（内部豁免说明），不放行终渲。
 //   - 每道闸取最后一条有效的人工决定：approved / waived / rejected / stale / missing。
 // 作品描述包（engine/production/review.js + film.js）在仓库里时，生成、校验、读取与判定全部转调它；还没合入时用下面同格式的内置实现
-// （FILM_REVIEW_LIB=builtin 可强制用内置实现，测试用）。签名公式与 engine/production/timeline.js 的 timingSignature / eventsSignature 相同。
+// （测试用 useBuiltinReviewLib() 在本进程内强制用内置实现）。签名公式与 engine/production/timeline.js 的 timingSignature / eventsSignature 相同。
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -33,10 +33,11 @@ export const STATE_LABEL = { approved: '已认可', waived: '已豁免（用户�
 // ───────────────────────── 作品描述包的库（有就用） ─────────────────────────
 
 let lib = undefined;
+// 测试用：本进程内强制用内置实现（作品描述包在仓库里时也一样）；useBuiltinReviewLib(false) 恢复自动选择
+export function useBuiltinReviewLib(on = true) { lib = on ? null : undefined; }
 export async function productionLib() {
   if (lib !== undefined) return lib;
   lib = null;
-  if (process.env.FILM_REVIEW_LIB === 'builtin') return lib;
   const rv = path.join(ROOT, 'engine/production/review.js'), fj = path.join(ROOT, 'engine/production/film.js');
   if (!fs.existsSync(rv) || !fs.existsSync(fj)) return lib;
   try {
