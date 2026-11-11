@@ -32,6 +32,16 @@ CRLF_HINT = ('这些文件只差换行：Git 检出时把 LF 改成了 CRLF（Gi
              '再执行 git rm --cached -r -q . 和 git reset --hard 重新检出（这两步会丢弃未提交的改动）；'
              '新克隆可先设置 git config --global core.autocrlf false。')
 # Operating-system clutter and per-checkout installs that never belong to a vendored snapshot.
+# 案例状态的全部取值。作品站按它策展（tools/build-showcase.py 的 excludeStatuses），拼错一个值
+# 被否定的片子就会悄悄上线，所以 check 只认这里登记过的值；新增状态先在这里登记并写明含义。
+CASE_STATUSES = {
+    'historical-render': '已输出的成片（不等于用户认可）',
+    'experiment': '实验，未成片',
+    'interactive': '交互页面，不是影片',
+    'previs': '预演',
+    'support': '辅助材料',
+    'rejected': '用户已否定',
+}
 JUNK_FILES = {'.DS_Store', 'Thumbs.db', 'desktop.ini'}
 LOCAL_DIRS = {'node_modules', '.venv', '__pycache__', '.git'}
 
@@ -663,6 +673,8 @@ def check(manifest, summary=None):
         if case['id'] in ids:
             raise ValueError('Duplicate case ID')
         ids.add(case['id'])
+        if 'status' in case and case['status'] not in CASE_STATUSES:
+            raise ValueError(f'Unknown status {case["status"]!r}: {case["id"]}（可用：{" / ".join(CASE_STATUSES)}）')
         safe_path(ROOT / 'out', case['workspacePath'])
         paths = set()
         for item in case['files']:

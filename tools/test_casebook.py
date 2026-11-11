@@ -221,6 +221,12 @@ class CasebookTests(unittest.TestCase):
         self.assertTrue((p/'main.js').exists())
         self.assertFalse((p/'assets/a.bin').exists())
 
+    def test_case_status_must_be_registered(self):
+        self.m['cases'][0]['status'] = 'rejected'
+        self.assertEqual(cb.check(self.m), (1, 1))
+        self.m['cases'][0]['status'] = 'reject'          # 拼错：被否定的片子会被作品站当成可展示
+        with self.assertRaisesRegex(ValueError, 'Unknown status'): cb.check(self.m)
+
     def test_case_collision(self):
         f = dict(self.m['cases'][0]['files'][0], path='MAIN.JS')
         self.m['cases'][0]['files'].append(f)

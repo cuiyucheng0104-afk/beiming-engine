@@ -540,15 +540,18 @@ export function initWorks(root, options = {}) {
     }
   }
 
-  function applyFamily(key, chip) {
+  function applyFamily(key, chip, { instant = false } = {}) {
     if (key === family) return;
+    const url = new URL(location.href);
+    if (key === 'all') url.searchParams.delete('f'); else url.searchParams.set('f', key);
+    history.replaceState(history.state, '', url);
     if (current && currentHost === sheetHost) closeNow();
     stopHover();
     revealFrames(frames, true);
     // 印样后面的分组与注也交给 Flip：和格子一起滑到新位置，不先跳过去
     const after = canFlip ? Array.from(box.querySelectorAll('.wk-group--strip, .wk-note')) : [];
-    const state = canFlip ? Flip.getState([...sheetFrames, ...after]) : null;
-    const h0 = paperState();
+    const state = canFlip && !instant ? Flip.getState([...sheetFrames, ...after]) : null;
+    const h0 = instant ? 0 : paperState();
     let shown = 0;
     for (const frame of sheetFrames) {
       const on = key === 'all' || frame.dataset.family === key;
@@ -657,6 +660,13 @@ export function initWorks(root, options = {}) {
       const frame = e.target.closest && e.target.closest('.wk-frame');
       if (frame) revealFrames([frame]);
     });
+  }
+
+  // 筛选写在地址栏 ?f=家族（锚点 #works 不动）：刷新、分享、代理直接打开某一家族都能还原。
+  // 放在最后：applyFamily 用到上面各段的状态（入场队列等），提前调会撞上 const 的暂时性死区
+  if (filter && sheetFrames.length) {
+    const initial = chips.find((c) => c.dataset.family === new URLSearchParams(location.search).get('f'));
+    if (initial && initial.dataset.family !== 'all') applyFamily(initial.dataset.family, initial, { instant: true });
   }
 
   function destroy() {
