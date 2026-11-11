@@ -320,6 +320,16 @@ class Interrupt(unittest.TestCase):
         self.assert_nothing_left(time.time(), settle=0.3)   # 封装探针一两秒就跑完：要趁它还在时看
 
     @unittest.skipUnless(FF and SH, '需要 ffmpeg / ffprobe 与 sh')
+    def test_sighup_to_callers_group_during_mux_probe_removes_tmp(self):
+        r = H.run(['python', 'audio/mix.py'], cwd=self.td)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        probe = lambda: any(n.startswith('beiming-mux-') for n in os.listdir(self.tmp))  # noqa: E731
+        p = self.start([sys.executable, 'audio/check.py', '--strict'], probe)
+        os.killpg(p.pid, signal.SIGHUP)   # 关终端：check.py 与它起的封装一起收到；按 SIGTERM 收尾（143），探针临时目录要删掉
+        self.assert_clean_exit(p, 143)
+        self.assertEqual([n for n in os.listdir(self.tmp) if n.startswith('beiming-mux-')], [], '关终端后封装探针的临时目录没删')
+
+    @unittest.skipUnless(FF and SH, '需要 ffmpeg / ffprobe 与 sh')
     def test_sigterm_to_check_py_during_mux_probe(self):
         r = H.run(['python', 'audio/mix.py'], cwd=self.td)
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
