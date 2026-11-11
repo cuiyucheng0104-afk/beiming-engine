@@ -1,0 +1,137 @@
+{
+  "schema": "beiming-golden-sets/v1",
+  "说明": "金标准集合定义。改这里（加帧、换时刻、改容差）会改变集合哈希，已有清单会提示「集合定义已变」，要重新截帧并经审批 update。时刻写法见 tools/baseline/lib/sets.mjs 开头；容差含义与标定数据见 docs/style-baselines/POLICY.md（同平台：差 >1 级的像素占比；跨平台：SSIM、PSNR、差 >2 级的像素占比，按 2026-11-10 Metal 对 SwiftShader、Mac 对 RTX 的实测定）。",
+  "annotations": {
+    "film": {"shots": [["A", 0], ["B", 3], ["C", 5]], "说明": "与 src/timeline.js 的 TIMELINE 一致：A 雾江 0–3 秒、B 她 3–5 秒、C 鲲现 5–10 秒。compare 报告据此标出差异帧属于哪个镜头，determinism 对仓库根目录据此取切点 ±1 帧。镜头表改了同步改这里（不影响集合哈希）"}
+  },
+  "pages": {
+    "film": {"dir": ".", "fps": 24, "说明": "《北冥》10 秒样片正片（src/main.js）"},
+    "lab:girl": {"dir": ".", "query": "test=girl", "requires": "lab/girl.js"},
+    "lab:hud": {"dir": ".", "query": "test=hud", "requires": "lab/hud.js"},
+    "lab:kun": {"dir": ".", "query": "test=kun", "requires": "lab/kun.js"},
+    "lab:kun_bronze": {"dir": ".", "query": "test=kun_bronze", "requires": "lab/kun_bronze.js"},
+    "lab:kun_peng": {"dir": ".", "query": "test=kun_peng", "requires": "lab/kun_peng.js"},
+    "lab:kun_qinglv": {"dir": ".", "query": "test=kun_qinglv", "requires": "lab/kun_qinglv.js"},
+    "lab:kun_qinglv_look": {"dir": ".", "query": "test=kun_qinglv_look", "requires": "lab/kun_qinglv_look.js"},
+    "lab:kun_refine": {"dir": ".", "query": "test=kun_refine", "requires": "lab/kun_refine.js"},
+    "lab:kun_xuan": {"dir": ".", "query": "test=kun_xuan", "requires": "lab/kun_xuan.js"},
+    "lab:look": {"dir": ".", "query": "test=look", "requires": "lab/look.js"},
+    "tpl:a": {"template": "routes/a-webgl/template", "vars": {"NAME": "golden-a", "TITLE": "AI 2026"}, "说明": "A 模版；片名只用 Barlow 子集里有的字，减少跨平台字体回落"},
+    "tpl:c": {"template": "routes/c-style/template", "vars": {"NAME": "golden-c", "TITLE": "概念样片"}, "说明": "C 模版；片名「概念样片」与印文「北冥」用 C 路线的马善政毛笔楷书分片字体（routes/c-style/fonts/，已在像素相关路径里）"},
+    "fixture:pure": {"dir": "tests/golden/fixtures/pure", "fps": 24, "说明": "测试夹具：只依赖 t 的 2D 画布页"},
+    "fixture:graycard": {"dir": "tests/golden/fixtures/graycard", "fps": 24, "说明": "灰阶与色块卡：截图链路本身是否改色"}
+  },
+  "sets": {
+    "beiming-core": {
+      "description": "《北冥》整片 40 帧（t = 0.05 + 0.25·i）与原生 4K 4 帧，与九层重构时的 104 帧取法一致",
+      "tolerance": {
+        "samePlatform": {"maxFracAbove1": 0.001},
+        "crossPlatform": {"ssimMin": 0.985, "psnrMin": 40, "maxFracAbove2": 0.05}
+      },
+      "shots": [
+        {"page": "film", "size": [1920, 1040], "times": {"start": 0.05, "step": 0.25, "count": 40}},
+        {"page": "film", "size": [3840, 2080], "times": [1.6, 4.0, 7.6, 9.9]}
+      ]
+    },
+    "lab": {
+      "description": "10 个自测页各 6 帧，t = (i + 0.5)·DUR / 6",
+      "tolerance": {
+        "samePlatform": {"maxFracAbove1": 0.001},
+        "crossPlatform": {"ssimMin": 0.98, "psnrMin": 38, "maxFracAbove2": 0.12}
+      },
+      "shots": [
+        {"page": "lab:girl", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:hud", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:kun", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:kun_bronze", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:kun_peng", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:kun_qinglv", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:kun_qinglv_look", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:kun_refine", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:kun_xuan", "size": [1920, 1040], "times": {"uniformMid": 6}},
+        {"page": "lab:look", "size": [1920, 1040], "times": {"uniformMid": 6}}
+      ]
+    },
+    "templates": {
+      "description": "A、C 两个模版按 film.json 画幅各 6 帧（t = (i + 0.5)·DUR / 6），模版改动不能悄悄改坏新作品的起点",
+      "tolerance": {
+        "samePlatform": {"maxFracAbove1": 0.001},
+        "crossPlatform": {"ssimMin": 0.985, "psnrMin": 40, "maxFracAbove2": 0.05}
+      },
+      "shots": [
+        {"page": "tpl:a", "size": "film.json", "times": {"uniformMid": 6}},
+        {"page": "tpl:c", "size": "film.json", "times": {"uniformMid": 6}}
+      ]
+    },
+    "beiming-detail": {
+      "description": "《北冥》细项：两个切点 ±1 帧、声画事件帧、六个关键时刻、无显示层与后期中间层（dbg）",
+      "tolerance": {
+        "samePlatform": {"maxFracAbove1": 0.001},
+        "crossPlatform": {"ssimMin": 0.98, "psnrMin": 38, "maxFracAbove2": 0.12}
+      },
+      "shots": [
+        {"page": "film", "size": [1920, 1040], "times": {"frames": [71, 72, 73, 119, 120, 121]}},
+        {"page": "film", "size": [1920, 1040], "times": {"frames": [10, 19, 28, 85, 86, 91, 127, 131, 150, 154, 168, 177, 206, 216, 220, 230, 235]}},
+        {"page": "film", "size": [1920, 1040], "times": [1.5, 2.95, 4.0, 5.3, 7.6, 9.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1", "times": [1.5, 4.0, 7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=id", "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=edge", "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=line", "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=kuwahara", "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=paper", "times": [7.6]}
+      ]
+    },
+    "beiming-original-v1": {
+      "description": "认可参照 beiming-original@v1 的 20 帧：六个关键时刻（远景 1.5、转场前 2.95、人物 4.0、鲲眼特写 5.3、鲲腹仰拍 7.6、片名 9.6 秒）带与不带显示层各一张，原生 4K 下纸纹、墨线、颗粒的三块 1280×720 局部，7.6 秒的五个后期中间层（dbg）",
+      "tolerance": {
+        "samePlatform": {"maxFracAbove1": 0.001},
+        "crossPlatform": {"ssimMin": 0.98, "psnrMin": 38, "maxFracAbove2": 0.12}
+      },
+      "shots": [
+        {"page": "film", "size": [1920, 1040], "times": [1.5, 2.95, 4.0, 5.3, 7.6, 9.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1", "times": [1.5, 2.95, 4.0, 5.3, 7.6, 9.6]},
+        {"page": "film", "size": [3840, 2080], "clip": [1900, 60, 1280, 720], "times": [1.5]},
+        {"page": "film", "size": [3840, 2080], "clip": [1000, 500, 1280, 720], "times": [4.0]},
+        {"page": "film", "size": [3840, 2080], "clip": [1500, 300, 1280, 720], "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=id", "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=edge", "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=line", "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=kuwahara", "times": [7.6]},
+        {"page": "film", "size": [1920, 1040], "query": "nohud=1&dbg=paper", "times": [7.6]}
+      ]
+    },
+    "ci": {
+      "description": "CI 冒烟（无显卡，SwiftShader）专用：半分辨率 960×520，《北冥》13 个整数帧（三个镜头、切点 72 / 120 ±1、分段边界 60、红珊瑚那一帧 177）、9 个自测页各 2 帧、A / C 模版各 3 帧、灰阶色卡 1 帧，共 38 帧。不含原生 4K（SwiftShader 下 4K 开页加首帧约 3.5 分钟）；不含 lab:kun_peng（SwiftShader 下它每次渲染轮廓上有 4–19 个像素随机不同，Metal 下逐像素稳定，见 POLICY 第 3 节）。4K、全分辨率与 kun_peng 由 GPU 平台的 beiming-core、lab 守",
+      "tolerance": {
+        "samePlatform": {"maxFracAbove1": 0.001},
+        "crossPlatform": {"ssimMin": 0.98, "psnrMin": 38, "maxFracAbove2": 0.12}
+      },
+      "shots": [
+        {"page": "film", "size": [960, 520], "times": {"frames": [24, 60, 71, 72, 73, 96, 119, 120, 121, 132, 177, 182, 228]}},
+        {"page": "lab:girl", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:hud", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_bronze", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_qinglv", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_qinglv_look", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_refine", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:kun_xuan", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "lab:look", "size": [960, 520], "times": {"uniformMid": 2}},
+        {"page": "tpl:a", "size": [960, 520], "times": {"uniformMid": 3}},
+        {"page": "tpl:c", "size": [960, 540], "times": {"uniformMid": 3}},
+        {"page": "fixture:graycard", "size": [640, 360], "times": [0]}
+      ]
+    },
+    "fixtures": {
+      "description": "测试夹具（tests/golden 用）：纯函数页与灰阶色卡，几秒内跑完",
+      "tolerance": {
+        "samePlatform": {"maxFracAbove1": 0},
+        "crossPlatform": {"ssimMin": 0.999, "psnrMin": 50, "maxFracAbove2": 0.001}
+      },
+      "shots": [
+        {"page": "fixture:pure", "size": [320, 180], "times": {"frames": [0, 12, 24, 47]}},
+        {"page": "fixture:graycard", "size": [640, 360], "times": [0]}
+      ]
+    }
+  }
+}

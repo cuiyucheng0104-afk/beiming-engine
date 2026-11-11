@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- 测试夹具（tests/golden）：灰阶与色块卡。上半是 2D 画布的 0–255 灰阶（32 级）与 24 个色块，下排是 WebGL2 清屏色块。
+     用来发现截图链路本身改色（色彩配置、合成器、ANGLE 后端输出）：这页在任何后端上都应逐像素一致。 -->
+<html lang="zh-CN"><head><meta charset="utf-8"><title>fixture-graycard</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block;position:absolute;left:0}</style></head>
+<body><canvas id="c" style="top:0"></canvas><canvas id="gl"></canvas><script>
+const W = innerWidth, H = innerHeight, H2 = Math.round(H * 0.75);
+const c = document.getElementById('c'); c.width = W; c.height = H2;
+const g = c.getContext('2d');
+const glc = document.getElementById('gl'); glc.width = W; glc.height = H - H2; glc.style.top = H2 + 'px';
+const gl = glc.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
+// 24 色：常见色卡的 sRGB 近似值（只作固定输入，不代表任何标准的精确数值）
+const PATCHES = ['#735244', '#c29682', '#627a9d', '#576c43', '#8580b1', '#67bdaa', '#d67e2c', '#505ba6', '#c15a63', '#5e3c6c', '#9dbc40', '#e0a32e',
+  '#383d96', '#469449', '#af363c', '#e7c71f', '#bb5695', '#0885a1', '#f3f3f2', '#c8c8c8', '#a0a0a0', '#7a7a79', '#555555', '#343434'];
+window.DUR = 1;
+window.render = () => {
+  const n = 32, bw = W / n, rh = H2 * 0.4;
+  for (let i = 0; i < n; i++) { const v = Math.round((i * 255) / (n - 1)); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(Math.floor(i * bw), 0, Math.ceil(bw), rh); }
+  const pw = W / 12, ph = (H2 - rh) / 2;
+  PATCHES.forEach((col, i) => { g.fillStyle = col; g.fillRect(Math.floor((i % 12) * pw), Math.floor(rh + Math.floor(i / 12) * ph), Math.ceil(pw), Math.ceil(ph)); });
+  if (gl) {
+    gl.enable(gl.SCISSOR_TEST);
+    const cols = [[0, 0, 0], [0.25, 0.25, 0.25], [0.5, 0.5, 0.5], [0.75, 0.75, 0.75], [1, 1, 1], [1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    const cw = W / cols.length;
+    cols.forEach(([r, gg, b], i) => { gl.scissor(Math.floor(i * cw), 0, Math.ceil(cw), glc.height); gl.clearColor(r, gg, b, 1); gl.clear(gl.COLOR_BUFFER_BIT); });
+  }
+};
+window.render(0);
+window.READY = true;
+</script></body></html>
