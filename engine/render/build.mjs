@@ -189,9 +189,8 @@ const video = {
     const out = path.join(ctx.run.work, 'video.mp4');
     const per = Math.ceil(ctx.frames / ctx.opts.workers);
     const timeoutSec = ctx.opts.timeout || Math.round(240 + per * (ctx.opts.gpu === 'required' ? 6 : 12));
-    let r;
     try {
-      r = await ctx.exec(process.execPath, [R('video.mjs'), ctx.film.pageDir, ...videoArgs(ctx), '--out', out],
+      await ctx.exec(process.execPath, [R('video.mjs'), ctx.film.pageDir, ...videoArgs(ctx), '--out', out],
         { label: '逐帧渲染（video.mjs）', timeoutSec, stallSec: ctx.opts.stall || 300 });
     } finally {
       // video.mjs 在部分失败路径上会留下 .segs-*（加固计划 TOOLS-08）：段目录只会出现在输出旁，这里统一扫掉
