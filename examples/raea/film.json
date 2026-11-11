@@ -5,16 +5,16 @@
   "fps": 24,
   "size": [1920, 1040],
   "shots": [
-    { "id": "S1", "in": 0, "out": 84, "visual": "渡船建立尺度，巨鲲从上方横穿" },
-    { "id": "S2", "in": 84, "out": 144, "visual": "鲲眼近景" },
-    { "id": "S3", "in": 144, "out": 240, "visual": "拉开全景，收片名" }
+    { "id": "S1", "in": 0, "out": 84, "purpose": "渡船建立尺度，巨鲲从上方横穿" },
+    { "id": "S2", "in": 84, "out": 144, "purpose": "鲲眼近景" },
+    { "id": "S3", "in": 144, "out": 240, "purpose": "拉开全景，收片名" }
   ],
   "events": [
-    { "id": "horn", "frame": 11, "shot": "S1", "visual": "第一镜：渡船在画面中下方前行", "audio": "低船笛（0.9 秒缓起的气息，不是敲击）", "sync": "soft" },
-    { "id": "kun-call", "frame": 89, "shot": "S2", "visual": "第二镜开始：鲲眼近景", "audio": "鲲鸣抬起（1.5 秒缓起，三次回声）", "sync": "soft" },
-    { "id": "blink", "frame": 111, "shot": "S2", "visual": "鲲眼睑完全闭合（Swim 片段 6.625 秒，一拍三）", "audio": "一次细小铃音" },
-    { "id": "chord", "frame": 142, "shot": "S2", "visual": "第二镜末尾、切全景之前", "audio": "弓弦和弦进入（0.95 秒渐强，跨过切点）", "sync": "soft" },
-    { "id": "title", "frame": 194, "shot": "S3", "visual": "片名「北」起笔（毛笔逐笔写出，0.86 秒写完）", "audio": "玻璃铃，第二声落在「冥」起笔" }
+    { "id": "horn", "frame": 11, "shot": "S1", "visual": "第一镜：渡船在画面中下方前行", "audio": "horn", "note": "低船笛（0.9 秒缓起的气息，不是敲击）", "sync": "soft" },
+    { "id": "kun-call", "frame": 89, "shot": "S2", "visual": "第二镜开始：鲲眼近景", "audio": "kun.call", "note": "鲲鸣抬起（1.5 秒缓起，三次回声）", "sync": "soft" },
+    { "id": "blink", "frame": 111, "shot": "S2", "visual": "鲲眼睑完全闭合（Swim 片段 6.625 秒，一拍三）", "audio": "blink.bell", "note": "一次细小铃音" },
+    { "id": "chord", "frame": 142, "shot": "S2", "visual": "第二镜末尾、切全景之前", "audio": "chord", "note": "弓弦和弦进入（0.95 秒渐强，跨过切点）", "sync": "soft" },
+    { "id": "title", "frame": 194, "shot": "S3", "visual": "片名「北」起笔（毛笔逐笔写出，0.86 秒写完）", "audio": "title.bell", "note": "玻璃铃，第二声落在「冥」起笔" }
   ],
   "aigc": { "contains": true, "note": "天空、云、天际线、江面底板由 AI 生成后人工整理（assets/plates/plates.json）；鲲、渡船、水面着色与片名由代码合成" },
   "credits": [
