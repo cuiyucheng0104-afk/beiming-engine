@@ -219,7 +219,7 @@ Character 必须用自身 `position / yaw / scale` 放置，不能套 Group 来�
 ```sh
 npm run setup                                          # node 依赖、无头 Chromium、仓库内 .venv（声音脚本的 numpy / scipy / soundfile / numba）
 node engine/native/runtime.mjs fetch --accept-license  # 读过上游许可后获取运行时并校验哈希
-export RAEA_BIN="<RAEA安装包绝对目录>/bin/raea"
+export RAEA_BIN="<runtime-dir>/raea/bin/raea"                # fetch 打印的完整路径
 node engine/native/prepare.mjs examples/raea           # = npm run raea:prepare
 node engine/render/native.mjs examples/raea --check-only
 node engine/render/native.mjs examples/raea            # 产物在 examples/raea/out/<run-id>/
@@ -227,7 +227,7 @@ node engine/render/native.mjs examples/raea            # 产物在 examples/raea
 
 > 下表是重构前包装脚本的职责记录，保留作对照；现行行为（母版逐位复制、网页版 BT.709、运行时自带成片检查、run.json）见 B 路线手册。
 
-`<RAEA安装包绝对目录>` 需替换为实际绝对目录。Windows 使用 PowerShell 设置 `$env:RAEA_BIN` 为完整 exe 路径，按需要设置 `$env:WGPU_BACKEND = 'vulkan'`；工具不在 PATH 时设置 `FFMPEG / FFPROBE`，要用 `.venv` 以外的 Python 时设置 `BEIMING_PYTHON`。安装包必须保留 `bin` 与 `share` 相对布局。canary.2 没有 `--version` 命令，包装脚本从实际可执行文件旁的 `../share/raea/VERSION` 读取版本。
+`<runtime-dir>` 换成 fetch 打印的安装目录（运行时与仓库都放在纯英文路径下：中文路径曾让外部字体加载失败）。Windows 使用 PowerShell 设置 `$env:RAEA_BIN = '<runtime-dir>\raea\bin\raea.exe'`，按需要设置 `$env:WGPU_BACKEND = 'vulkan'`；工具不在 PATH 时设置 `FFMPEG / FFPROBE`，要用 `.venv` 以外的 Python 时设置 `BEIMING_PYTHON`。安装包必须保留 `bin` 与 `share` 相对布局。canary.2 没有 `--version` 命令，包装脚本从实际可执行文件旁的 `../share/raea/VERSION` 读取版本。
 
 | 阶段／文件与函数 | 输入与步骤 | 输出及失败判断 |
 |---|---|---|

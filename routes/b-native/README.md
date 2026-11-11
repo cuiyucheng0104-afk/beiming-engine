@@ -26,7 +26,7 @@ node engine/render/native.mjs films/my-film                 # 出片 + 成片检
 node tools/run-tests.mjs --only native                 # 版式逐帧核对与工具单测（不启动 GPU）
 ```
 
-每个命令都用仓库的命令约定（[docs/CLI.md](../../docs/CLI.md)）：`--help` 只打印用法、无副作用；`--json` 时 stdout 只输出一个信封 `{schemaVersion, ok, exitCode, command, error:{code,message,hint}, outputs, runJson, warnings, data}`，日志走 stderr；未知参数 exit 2。退出码：0 成功 · 1 渲染 / 编码失败（含运行时日志里的 ERROR）· 2 用法 · 3 运行时 / 工具 / 素材缺失或不合格（含不在 git 工作树里）· 4 契约、交付规格、成片检查或机器 QA 硬门不通过 · 5 共享 GPU 忙 · 124 超时 · 130 / 143 中断（已清理）。出错时 stderr 写「错误[码]：原因」与「提示：下一步」两行。Python 走仓库统一的查找（`.venv` → `BEIMING_PYTHON` / `PYTHON`），FFmpeg 认 `FFMPEG` / `FFPROBE`。
+每个命令都用仓库的命令约定（[docs/CLI.md](../../docs/CLI.md)）：`--help` 只打印用法、无副作用；`--json` 时 stdout 只输出一个信封 `{schemaVersion, ok, exitCode, command, error:{code,message,hint}, outputs, runJson, warnings, data}`，日志走 stderr；未知参数 exit 2。退出码：0 成功 · 1 渲染 / 编码失败（含运行时日志里的 ERROR）· 2 用法 · 3 运行时 / 工具 / 素材缺失或不合格（含不在 git 工作树里）· 4 契约、交付规格、成片检查或机器 QA 硬门不通过 · 5 共享 GPU 忙 · 124 超时 · 130 / 143 中断（已清理）。出错时 stderr 写「错误[码]：原因」与「提示：下一步」两行；出片入口在运行目录建好之后的失败（QA 门、成片检查、编码、中断）信封里照样有 `runJson` 和已产出的文件（`outputs` 按 `kind` 取：master、web、run-json、raea-check、qa-report、contact-sheet、player、log）。超时一律用选项给：`native.mjs --timeout <秒>`（原生渲染与母版封装各自的上限，默认 120 + 2 × 帧数）、`prepare.mjs --timeout <秒>`（资产桥整批 / 声音脚本，默认 900 / 600）与 `--frame-timeout <秒>`（页面序列帧每帧，默认 30），非数字或小于 1 是用法错误。Python 走仓库统一的查找（`.venv` → `BEIMING_PYTHON` / `PYTHON`），FFmpeg 认 `FFMPEG` / `FFPROBE`。
 
 ## 一部作品的目录
 
@@ -61,7 +61,7 @@ films/<名字>/
 
 ## 契约
 
-- **film.json**：v1 `{ route: "b", title, dur, fps, size: [宽, 高], events?, aigc?, credits?, native }`，或 v2（`output.{profile,width,height,fps,frameCount}`，见加固计划附录 C6）。帧数 = `round(dur × fps)`；尺寸是 ≥ 16 的偶数。交付档位取 `output.profile`，否则按尺寸与帧率推断，对不上用自定义档并提示。
+- **film.json**：v1 `{ route: "b", title, dur, fps, size: [宽, 高], events?, aigc?, credits?, native }`，或 v2（`output.{profile,width,height,fps,frameCount}`，见加固计划附录 C6）。帧数 = `round(dur × fps)`；尺寸是 ≥ 16 的偶数。交付档位取 `output.profile`，否则按尺寸与帧率推断，对不上用自定义档并提示。v2 里 `dur` / `fps` / `size` 是 v1 兼容镜像，必须与 `output` 相同——**改画幅、帧率、时长时两处一起改**（换画幅时 `output.profile` 也换成匹配的档位，或删掉它与 `deliveries` 落到自定义档）；不一致 exit 4，不会悄悄按其中一处渲。
 - **film.tsx**：`registerRoot` 一个 `Composition`，宽高帧率帧数从 film.json 读（模版直接 `import film from './film.json'`），`id` 只用字母、数字、连字符。画面只读 `useCurrentFrame()`；不用 `useState`、计时器、`Date.now`、无种子随机。
 - **import**：`film.tsx` 用 `import … from '../../engine/native/index.ts'` 取通用件（作品放在仓库内两级深的目录）；作品目录里的其他模块只能 import 作品目录里的文件；组件库不 import three 或 Node 模块。
 - **素材路径**：`staticFile('x')` = 作品 `media/x`；`ShaderMesh` 的纹理写 `'media/x.png'`。渲染入口按 film.json 与源码里的字面量逐个检查素材，并核对 `media/prepared.json` 的 sha256（prepare 之后被改过 → exit 4）。
@@ -108,11 +108,12 @@ films/<名字>/
 
 | 项 | 命令 | 判据 / 2026-11-10 macOS（Apple M5 Pro、Metal、VideoToolbox）实测 |
 |---|---|---|
-| 工具与版式 | `node tools/run-tests.mjs --only native` | 全过（90 项，约 4–10 秒：资产桥重导出与基准逐字节比对、R01 睑缘墨线断言、逐帧版式、云堤收边的找边回归、预检拒绝路径、命令约定、仓库规则） |
-| 仓库规则 | `node tools/repo-check.mjs --only route-b` | 八条 0 错误（Windows / Linux 可执行文件哈希未锁为提示） |
+| 工具与版式 | `node tools/run-tests.mjs --only native` | 全过（97 项，约 5–10 秒：资产桥重导出与基准逐字节比对、R01 睑缘墨线断言、逐帧版式、云堤收边的找边回归、预检拒绝路径、GPU 守卫与成片检查两道闸、失败信封、命令约定、仓库规则） |
+| 仓库规则 | `node tools/repo-check.mjs --only route-b` | 八条 0 错误 0 提示（三平台可执行文件哈希都已锁定；Windows / Linux 的哈希由官方归档解包计算，尚未在该平台运行验收） |
 | 中断与清理 | 出片中途 Ctrl+C | exit 130，原生进程被整组终止，`.part` 删除，run.json 记 interrupted |
 | 缺运行时 | `node engine/render/native.mjs films/<名字> --check-only`（不设 `RAEA_BIN`） | exit 3，stderr 两行：`错误[env.no-runtime]：…` 与 `提示：…runtime.mjs fetch --accept-license` |
 | 预检拒绝 | `tests/native/preflight.test.mjs`（假运行时） | 不在 git 工作树 exit 3；素材被改 exit 4；素材清单改了没重新准备 exit 4（提示 `--only <类>`） |
+| 两道闸 | `tests/native/gates.test.mjs`（假运行时 + FFmpeg 造片） | ComfyUI 队列忙时草图帧也 exit 5、不建运行目录；成片检查 P1 → exit 4、`checks.raeaCheck.ok = false`；失败信封带 `runJson` 与成片 |
 | 模版出片 | `new-film b` → `prepare` → `native.mjs` | exit 0：1920×1080 / 24fps / 108 帧，web-1080p24，−14.1 LUFS / −1.5 dBTP，`raea check` 文字全过（含对比度 ≥ 3:1），机器 QA 通过（29 过 2 提示），run.json `status: passed`、`selfCheck.ok` |
 | 例片出片 | `prepare examples/raea` → `native.mjs examples/raea` | 1920×1040 / 240 帧，beiming-1040p24，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题；机器 QA 唯一的硬门是 `known-issues.open`（台账里 QA-B-001 仍是 open，待 QA 包核对关闭；QA-B-002 未修）→ 目前 exit 4，这是如实的结论 |
 | 可复现性 | 同一提交渲两次，比对两次的 `framemd5.txt` | 模版与例片的母版解码后逐帧相同；网页版视频与音频码流逐字节相同（只有 comment 里的运行 id 不同）；原生 VideoToolbox 码流两次不同。（历史 5090 记录：197/240 相同、最大差 6，所以阈值仍写「最大差 ≤ 8、PSNR ≥ 70 dB」） |
@@ -137,7 +138,8 @@ films/<名字>/
 - **图集上限** 8192 像素且整张进显存；长序列用 `output: "frames"`。
 - **资产桥用软件 GL**（SwiftShader）：只做转换与烘焙，不占独显；换成硬件 GL 可能改变贴图字节。
 - **原生 GPU 与编码器分开记录**（run.json 自动记）：macOS 是 VideoToolbox；Windows canary 默认 OpenH264 软件编码，不能写成 NVENC。共享工作站先查队列（入口自动查，`--require-idle-check` 查不到也拒绝）。
-- **换运行时版本**：入口只放行锁文件里的版本与哈希；新版本先重跑本手册「验收」，再用 `BNE_ALLOW_VERSION` 临时放行，补齐锁文件后再去掉。
+- **换运行时版本**：入口只放行锁文件里的版本与哈希；新版本先重跑本手册「验收」，再用 `BNE_ALLOW_VERSION` 临时放行，补齐锁文件后再去掉。各平台可执行文件哈希不必在该平台上算：`node engine/native/runtime.mjs fetch --accept-license --platform <平台> --from <官方归档> --dest <新目录> --json` 的 `data.binarySha256` 就是。
+- **`fetch --dest` 只认新目录**：目录已有内容、又不是上次 fetch 装的（没有 `.beiming-runtime.json` 标记）时拒绝覆盖（exit 2）；先解包到旁边的临时目录、哈希通过才替换，失败时旧安装原样不动。
 - **对外命名**：对外只叫「北冥原生 · BNE」；`raea` 只留在 `examples/raea`、`raea:*` 命令、`RAEA_BIN`、`import … from 'raea'` 与许可署名里。
 - **AI 生成内容标识（决定 D11）**：用了 AI 生成底板的作品，film.json 写 `aigc: { contains: true, note }`，渲染入口在 mp4 comment 与 `player.html` 写「含 AI 生成画面」。
 

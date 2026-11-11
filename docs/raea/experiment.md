@@ -80,3 +80,14 @@
 | 模版（对照） | `new-film b` → `prepare` → `native.mjs`，连渲两次 | 两次都 exit 0、机器 QA 通过；母版解码后逐帧相同；网页版视频与音频码流逐字节相同（只有 comment 里的运行 id 不同） |
 
 与上一节相比的画面改动（有意的）：第三镜鲲上方那团积云的左端从竖直刀口变成圆形收边；云堤整体右移 16 米，第一镜的右端收边落到右侧近景云后面（不让陆家嘴高楼从半透明收边里透出来）。其余画面不变。仍未做：三维物体的空气透视（QA-B-002，实验记录见 B 路线手册「边界与常见坑」）；Windows / 5090 用新入口重跑。
+
+## 合入集成底座 fb0b841 后的复现（2026-11-11，P14 复核返修）
+
+基线：分支 `hard/P14`（已合入 `routes-template@fb0b841`），同一台 macOS 26.5 · Apple M5 Pro · Metal · VideoToolbox；运行时 `0.1.0-canary.2`（可执行文件 sha256 与锁一致，`runtime.verified = true`）。这一轮只改工具行为（超时改为命令行选项、v1 镜像与 v2 output 不一致报错、失败信封带运行记录、`fetch --dest` 不删用户目录），画面不变：
+
+| 步骤 | 命令 | 结果 |
+|---|---|---|
+| 模版 | `node tools/new-film.mjs b p14-r2 --title 云海浮标` → `prepare` → `native.mjs --run-id r2a / r2b` | 准备 2.7 秒；出片各约 15 秒（原生渲染 4.0 秒），exit 0、`status: passed`、机器 QA 29 过 2 提示、−14.1 LUFS / −1.5 dBTP。两次母版 `framemd5.txt` 相同，且与上一轮（`films/p14-final` final-a）及 `19d5486` 的模版渲染逐字节相同（sha256 `4ddd608d…`）；网页版视频、音频码流两次 md5 相同 |
+| 例片 | `node examples/raea/tools/prepare.mjs` → `node examples/raea/tools/render.mjs --run-id r2` | 准备 12 秒（鲲 `8f77f664…`、渡船 `c34e6996…`、mix.wav `aece35a9…` 与上一轮相同）；出片 34 秒，`framemd5.txt` 与上一轮 `final`（`ca5361e`）逐字节相同（sha256 `f950ef70…`）；240 帧、1920×1040、−14.0 LUFS / −3.2 dBTP、`raea check` 无问题；机器 QA 27 过 3 提示，唯一硬门仍是台账 `known-issues.open`（QA-B-001 / 002 未关）→ exit 4，信封给出 `runJson` 与全部产物 |
+| 冒烟（P09 的 b-render 按新接口改写后） | `RAEA_BIN=… node tests/ci/smoke-render.mjs --only b,b-render --golden off` | b 7/7、b-render 11/11：320×180 自定义档、108 帧、H.264 yuv420p、BT.709 tv、AAC 48 kHz、−14.1 LUFS / −1.5 dBTP。未改写的旧版冒烟只改 `size` 不改 `output`，现在明确 exit 4（`film.json 的 size [320,180] 与 output 的 1920×1080 不符`），不再悄悄渲成 1920×1080 |
+| Windows / Linux 运行时哈希 | `node engine/native/runtime.mjs fetch --accept-license --platform <平台> --from <官方归档> --dest <新目录> --json` | 两个归档的 sha256 与锁一致；解出的 `raea.exe` = `ed5f6379…c305`、Linux `raea` = `6d9a78b0…c0b`（shasum 复核），已写进 `engine/native/runtime.lock.json`。只是哈希核对：两个平台上都还没运行、没验收渲染 |
