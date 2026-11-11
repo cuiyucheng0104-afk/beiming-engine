@@ -366,6 +366,23 @@ window.RESULT = { same: shiftErr(ref, still, W, H, 0, 0), best: best[0], second:
   assert.ok(r.best[0] < 0.6 && r.best[0] * 3 < r.unshifted, `平移后对齐的残差 ${r.best[0].toFixed(3)}（不平移 ${r.unshifted.toFixed(2)}）`);
 });
 
+// CRAFT-12 验收「开启 anchor 后，推镜段纸纹位移与锚层误差 ≤ 1px」：R61 只验了平移，这里验推镜（锚点处放大 + 平移）
+gpuTest('R64 纸纹锚点推镜：锚点处放大 1.5 倍并平移时，纸纹绕锚点等比放大、跟着走（位置误差 ≤ 1 像素）', async t => {
+  const r = await run('r64', PAPER_PROBE + `
+const W = 320, H = 240, base = { strength: 0.6, scale: 1 }, Z = 1.5, P = [171, 113], O = [160, 120];
+const ref = await lum(W, H, { ...base, anchor: { pos: O, origin: O, zoom: 1 } });
+const pushed = await lum(W, H, { ...base, anchor: { pos: P, origin: O, zoom: Z } });
+function bil(A, x, y) { const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, g = (i, j) => A[j * W + i]; return (g(x0, y0) * (1 - fx) + g(x0 + 1, y0) * fx) * (1 - fy) + (g(x0, y0 + 1) * (1 - fx) + g(x0 + 1, y0 + 1) * fx) * fy; }
+// 推镜后像素中心 c 在铺纸那一帧的位置 = (c − 锚点) / z + origin（左上为原点，像素中心 +0.5）；只看映射回去仍离边 8 像素以内的部分
+function err(px, py, z) { let s = 0, n = 0; for (let y = 8; y < H - 8; y++) for (let x = 8; x < W - 8; x++) { const rx = (x + .5 - px) / z + O[0] - .5, ry = (y + .5 - py) / z + O[1] - .5; if (rx < 8 || ry < 8 || rx > W - 9 || ry > H - 9) continue; s += Math.abs(pushed[y * W + x] - bil(ref, rx, ry)); n++; } return s / n; }
+const grid = []; for (let dy = -3; dy <= 3; dy += .5) for (let dx = -3; dx <= 3; dx += .5) grid.push([err(P[0] + dx, P[1] + dy, Z), dx, dy]);
+grid.sort((a, b) => a[0] - b[0]);
+window.RESULT = { best: grid[0], noZoom: err(P[0], P[1], 1), wrongZoom: err(P[0], P[1], 1.25), pinned: err(O[0], O[1], 1) };`, { w: 64, h: 64 });
+  t.diagnostic(`R64 最佳对位偏差 (${r.best[1]}, ${r.best[2]}) 像素、残差 ${r.best[0].toFixed(3)}；只平移不放大 ${r.noZoom.toFixed(2)}、放大量写错（1.25）${r.wrongZoom.toFixed(2)}、纸钉在屏幕上 ${r.pinned.toFixed(2)}`);
+  assert.ok(Math.hypot(r.best[1], r.best[2]) <= 1, `推镜后纸纹的对位偏差 (${r.best[1]}, ${r.best[2]}) 超过 1 像素`);
+  for (const k of ['noZoom', 'wrongZoom', 'pinned']) assert.ok(r.best[0] * 3 < r[k], `按锚点放大对位的残差 ${r.best[0].toFixed(3)} 要明显小于 ${k} 的 ${r[k].toFixed(2)}`);
+});
+
 gpuTest('R62 纸纹 scaleMode：refHeight 下 1440 高与 1080 高的纸纹平铺尺寸相对画高一致；默认 pixel 按整数倍（与以前相同）', async () => {
   const r = await run('r62', `
 import * as THREE from 'three';

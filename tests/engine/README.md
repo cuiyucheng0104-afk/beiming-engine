@@ -26,6 +26,6 @@ node tools/run-tests.mjs --only engine,lab    # 连同 engine/*/ 里的老测试
 
 **有意改了 API**（删、改名、新增 stable 模块的导出）：确认后运行 `node tests/engine/lib/api-snapshot.mjs --write` 更新快照，在 CHANGELOG 的 [Unreleased] 记一笔。新模块按 experimental 登记，稳定后在 `api-snapshot.json` 里改成 stable。
 
-**改着色器补丁或升级 three**：先跑 `shade-anchors.test.mjs`，再跑 `engine/look/gpu.test.mjs`（要 GPU 或 `BEIMING_ANGLE=swiftshader`；R61–R63 守纸纹锚点、scaleMode 与「原生 4K 缩回 1080 与 1080 直出高频能量相同」，R63 把各情形的实测高频差打在测试输出的诊断行里）。
+**改着色器补丁或升级 three**：先跑 `shade-anchors.test.mjs`，再跑 `engine/look/gpu.test.mjs`（要 GPU 或 `BEIMING_ANGLE=swiftshader`；R61 / R64 守纸纹锚点的平移与推镜（位置误差 ≤ 1 像素），R62 / R63 守 scaleMode 与「原生 4K 缩回 1080 与 1080 直出高频能量相同」；R63、R64 把实测值打在测试输出的诊断行里）。
 
 **像素纪律**：《北冥》（src/）、作品站（src/kun_qinglv.js 等的 import 链）与 lab 的画面不许无意改变。新参数一律默认关；本目录里「与改动前逐位相同」的用例就是守这条的。
