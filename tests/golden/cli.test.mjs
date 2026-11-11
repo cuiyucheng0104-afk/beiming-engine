@@ -32,6 +32,8 @@ function snapshot(dir) {
   walk(dir);
   return out.sort().join('\n');
 }
+// 页面要在仓库里才能被页面服务器读到，所以这类临时目录放 out/ 下；out/ 被 gitignore，新检出的仓库（CI）里还没有它
+const repoTmp = prefix => { fs.mkdirSync(path.join(ROOT, 'out'), { recursive: true }); return fs.mkdtempSync(path.join(ROOT, 'out', prefix)); };
 // 入库的清单、审批记录、认可参照：任何测试都不能改它们
 const trackedState = () => ['tests/golden', 'docs/style-baselines'].map(d => snapshot(path.join(ROOT, d))).join('|');
 
@@ -121,7 +123,7 @@ try {
 const gpuEnv = process.env.BEIMING_TEST_GPU || (process.platform === 'darwin' ? 'any' : 'software-ok');
 
 test('确定性：纯函数夹具通过（exit 0），有累计状态的反例夹具判不通过（exit 4）', { skip: !browserOk && '没装无头浏览器' }, () => {
-  const tmp = fs.mkdtempSync(path.join(ROOT, 'out', '.det-test-'));
+  const tmp = repoTmp('.det-test-');
   try {
     const ok = run(DET, ['tests/golden/fixtures/pure', '--size', '320x180', '--gpu', gpuEnv, '--no-scan', '--out', path.join(tmp, 'pure'), '--json']);
     assert.equal(ok.code, 0, ok.err);
@@ -137,7 +139,7 @@ test('确定性：纯函数夹具通过（exit 0），有累计状态的反例�
 });
 
 test('金标准：同一页面自比逐像素一致；页面被改动（方块平移 3 像素）→ exit 4 并出差异热图与接触印', { skip: !browserOk && '没装无头浏览器' }, () => {
-  const tmp = fs.mkdtempSync(path.join(ROOT, 'out', '.golden-test-'));
+  const tmp = repoTmp('.golden-test-');
   try {
     // 被改动的页面放在仓库内的临时目录，页面名不变，所以帧编号与参照一一对应
     const shifted = path.join(tmp, 'pure-shifted');

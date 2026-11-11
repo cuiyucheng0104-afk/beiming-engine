@@ -1,6 +1,8 @@
 // 北冥仓库 · 基线工具用到的 git 操作：解析提交、查像素相关路径是否有未提交改动、把旧提交的页面导出成临时快照。
 //
-//   PIXEL_PATHS                 会改变画面的路径（引擎、样片、自测页、素材、字体、页面入口、A / C 模版）
+//   PIXEL_PATHS                 会改变画面的路径（引擎、样片、自测页、素材、字体、页面入口、A / C 模版、C 模版运行时读的片名字体）。
+//                                 模版在运行时按 ../../<路径> 读到的仓库文件都必须在这里，否则 --against 等现渲旧提交的快照里缺文件
+//                                 （tests/golden/units.test.mjs 扫两个模版核对）
 //   resolveCommit(root, ref)    → 完整 sha；不存在时抛 CliError（exit 2）
 //   commitExists(root, sha)     → 本仓库里有没有这个提交（浅克隆、CI 的合并提交可能没有）
 //   pixelTreeDigest(root, sha, paths)  → 提交里这些路径的内容摘要（git ls-tree 的模式、对象号、路径取 sha256）。
@@ -20,7 +22,7 @@ import { execFileSync } from 'node:child_process';
 import { CliError, EXIT, onCleanup, offCleanup } from './cli.mjs';
 
 export const PIXEL_PATHS = ['engine', 'src', 'lab', 'assets', 'fonts', 'index.html',
-  'routes/a-webgl/template', 'routes/c-style/template', 'tests/golden/fixtures', 'tools/baseline/sets.json'];
+  'routes/a-webgl/template', 'routes/c-style/template', 'routes/c-style/fonts', 'tests/golden/fixtures', 'tools/baseline/sets.json'];
 
 export function git(args, { cwd, allowFail = false } = {}) {
   try {

@@ -2,6 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -10,7 +12,7 @@ import { decodePNG, encodePNG, pixelSha256 } from '../../tools/baseline/lib/png.
 import { compareImages, judge, diffHeatmap, downscale, contactSheet } from '../../tools/baseline/lib/metrics.mjs';
 import { validateSets, loadSets, setHash, expandSet, resolveTimes, frameId, frameFile } from '../../tools/baseline/lib/sets.mjs';
 import { backendOf, isSoftware, deviceSlug } from '../../tools/baseline/lib/platform.mjs';
-import { framesDigest, toBaseline, validateManifest, validatePlatform, diffFrames, listManifests, listReferences, readManifest } from '../../tools/baseline/lib/manifest.mjs';
+import { framesDigest, toBaseline, validateManifest, validatePlatform, diffFrames, listReferences, readManifest } from '../../tools/baseline/lib/manifest.mjs';
 import { stripCode, scanFiles } from '../../tools/baseline/lib/scan.mjs';
 import { parseSize, codeFor, EXIT } from '../../tools/baseline/lib/cli.mjs';
 
@@ -115,11 +117,15 @@ test('集合哈希：改帧会变、改说明不变；结构错误给出中文�
   assert.match(errs, /不存在的页面 nope/); assert.match(errs, /size/); assert.match(errs, /times/);
 });
 
-test('集合哈希与已登记的清单、冻结的认可参照一致（算法不能改，改了全部清单都会被判成「定义已变」）', () => {
+test('集合哈希的算法不能改：固定定义的哈希钉死；冻结的认可参照与登记时一致', () => {
+  // 算法一改，已登记的清单与冻结的认可参照会全部被判成「集合定义已变」（WIP 44d8ad9 改过一次，那个算法这里算出 e9e625e4…）。
+  // 回归基线「定义改了、待经审批重新登记」是正常的过渡状态（规则 baseline.manifests 给提示），不在这里查。
+  const fixed = { schema: 'beiming-golden-sets/v1', pages: { p: { dir: '.', 说明: '页面说明进哈希' } }, sets: { s: { description: '集合说明不进哈希', shots: [{ page: 'p', size: [16, 16], times: [0] }] } } };
+  assert.equal(setHash(fixed, 's'), '9ea6fc6461652e92c8e850483d8523652e90e386cfcd6baab6ee623de0dc1a01');
   const sets = loadSets(`${ROOT}tools/baseline/sets.json`);
-  const all = [...listManifests(ROOT).map(x => x.m), ...listReferences(ROOT).map(x => readManifest(x.file))];
-  assert.ok(all.length >= 5, '至少有 darwin-metal 的四套基线与 beiming-original@v1');
-  for (const m of all) assert.equal(m.setHash, setHash(sets, m.set), `${m.platformKey}/${m.set}`);
+  const refs = listReferences(ROOT).map(x => readManifest(x.file));
+  assert.ok(refs.length >= 1, '至少有 beiming-original@v1');
+  for (const m of refs) assert.equal(m.setHash, setHash(sets, m.set), `认可参照 ${m.referenceId}（${m.platformKey}）的集合定义冻结，不能改`);
 });
 
 test('帧编号与文件名：可读、可移植、不撞名', () => {
@@ -183,6 +189,7 @@ test('静态扫描：只认代码里的不确定 API，注释与字符串不算�
   const code = stripCode(src);
   assert.equal(code.split('\n').length, 6);
   assert.ok(!/Math\.random/.test(code.split('\n')[0]) && !/Date\.now/.test(code.split('\n')[1]));
+  fs.mkdirSync(`${ROOT}out`, { recursive: true });   // 扫描只认仓库里的文件；out/ 被 gitignore，新检出的仓库里还没有它
   const dir = fs.mkdtempSync(`${ROOT}out/.scan-test-`);
   try {
     fs.writeFileSync(`${dir}/a.js`, src);
@@ -206,7 +213,7 @@ test('尺寸参数与错误码前缀：--size 要偶数宽高；子进程的短�
 test('页面快照：只导出指定路径，字节与提交里一致，不建 worktree', async t => {
   const { isGitRepo, exportPaths, git } = await import('../../tools/baseline/lib/git.mjs');
   if (!isGitRepo(ROOT)) return t.skip('不在 git 工作树里');
-  const dir = fs.mkdtempSync(`${ROOT}out/.snap-test-`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-snap-test-'));   // 导出目标不必在仓库里
   const before = git(['worktree', 'list', '--porcelain'], { cwd: ROOT });
   try {
     const r = exportPaths(ROOT, 'HEAD', ['tests/golden/fixtures', 'tools/baseline/sets.json'], dir);
@@ -219,4 +226,25 @@ test('页面快照：只导出指定路径，字节与提交里一致，不建 w
     assert.equal(fs.existsSync(`${dir}/engine`), false, '没要的路径不导出');
     assert.equal(git(['worktree', 'list', '--porcelain'], { cwd: ROOT }), before, '不改仓库的 worktree 列表');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('模版在运行时按 ../../ 读到的仓库文件都在像素相关路径里（--against、自动现渲源提交、keyframes 导出的快照才完整）', async () => {
+  const { PIXEL_PATHS } = await import('../../tools/baseline/lib/git.mjs');
+  const exported = PIXEL_PATHS.filter(p => p !== 'tools/baseline/sets.json');   // withSnapshot 导出的就是这些
+  const inside = rel => exported.some(p => rel === p || rel.startsWith(`${p}/`));
+  const templates = [...new Set(Object.values(loadSets(`${ROOT}tools/baseline/sets.json`).pages).filter(p => p.template).map(p => p.template))];
+  assert.ok(templates.length >= 2, `sets.json 里应有 A、C 两个模版页，实际 ${templates.join('、')}`);
+  const outside = [];
+  for (const tpl of templates) {
+    let refs = 0;
+    for (const f of fs.readdirSync(path.join(ROOT, tpl), { recursive: true })) {
+      if (!/\.(m?js|html|json|css)$/.test(f)) continue;   // README 等文档里的链接不在运行时读
+      for (const m of fs.readFileSync(path.join(ROOT, tpl, f), 'utf8').matchAll(/['"`(]\.\.\/\.\.\/([^'"`)\s?#]+)/g)) {
+        refs++;
+        if (!inside(m[1])) outside.push(`${tpl}/${f} → ${m[1]}`);
+      }
+    }
+    assert.ok(refs > 0, `${tpl} 里一处 ../../ 引用都没扫到，扫描写法可能失效了`);
+  }
+  assert.deepEqual(outside, [], '这些文件不在 tools/baseline/lib/git.mjs 的 PIXEL_PATHS 里：把所在目录加进去');
 });

@@ -17,7 +17,7 @@
     "lab:kun_xuan": {"dir": ".", "query": "test=kun_xuan", "requires": "lab/kun_xuan.js"},
     "lab:look": {"dir": ".", "query": "test=look", "requires": "lab/look.js"},
     "tpl:a": {"template": "routes/a-webgl/template", "vars": {"NAME": "golden-a", "TITLE": "AI 2026"}, "说明": "A 模版；片名只用 Barlow 子集里有的字，减少跨平台字体回落"},
-    "tpl:c": {"template": "routes/c-style/template", "vars": {"NAME": "golden-c", "TITLE": "概念样片"}, "说明": "C 模版；片名只用 NotoSansSC 子集里有的字"},
+    "tpl:c": {"template": "routes/c-style/template", "vars": {"NAME": "golden-c", "TITLE": "概念样片"}, "说明": "C 模版；片名「概念样片」与印文「北冥」用 C 路线的马善政毛笔楷书分片字体（routes/c-style/fonts/，已在像素相关路径里）"},
     "fixture:pure": {"dir": "tests/golden/fixtures/pure", "fps": 24, "说明": "测试夹具：只依赖 t 的 2D 画布页"},
     "fixture:graycard": {"dir": "tests/golden/fixtures/graycard", "fps": 24, "说明": "灰阶与色块卡：截图链路本身是否改色"}
   },
