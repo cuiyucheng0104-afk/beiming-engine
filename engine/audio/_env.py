@@ -15,8 +15,8 @@
   kill_tree(popen, grace=5) → 结束 popen 和它的全部子孙：先按父子关系取下整棵树（Linux 读 /proc，其余用 ps；要在中间一层
       退出、孙进程被系统收养之前取），逐个 SIGTERM，grace 秒后还在的 SIGKILL（同 tools/film/lib/proc.mjs 的 treeOf）；
       Windows：taskkill /T /F
-  exit_on_sigterm() → 没走 cli.run 的脚本（audio/mix.py、audio/check.py）：SIGTERM 变成 SystemExit(143)，finally 照常执行
-      （临时目录删掉、run 起的子进程一并结束），退出码 143（附录 C1）
+  exit_on_sigterm() → 没走 cli.run 的脚本（audio/mix.py、audio/check.py）：SIGTERM / SIGINT 变成 SystemExit(143 / 130)，
+      finally 照常执行（临时目录删掉、run 起的子进程一并结束），不打印 KeyboardInterrupt 堆栈，退出码按附录 C1
 """
 import os
 import shutil
@@ -138,6 +138,8 @@ def kill_tree(p, grace=5.0):
             subprocess.run(['taskkill', '/T', '/F', '/PID', str(p.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         p.wait()
         return
+    # shortcut: 直接子进程已先退出、孙进程已被系统收养时按父子关系找不到它；它仍在调用方的进程组里，整组信号照样收到。
+    # 要彻底兜住时改用 Linux 的 PR_SET_CHILD_SUBREAPER 或给子进程单独的作业对象
     tree = [p.pid] + _descendants(p.pid) if p.returncode is None else []    # 已回收的 pid 可能被别人重用：不碰
 
     def alive(pid):
@@ -165,8 +167,9 @@ def kill_tree(p, grace=5.0):
 
 def exit_on_sigterm():
     def _raise(signum, frame):
-        raise SystemExit(143)
-    try:
-        signal.signal(signal.SIGTERM, _raise)
-    except (ValueError, OSError):               # 非主线程，或平台没有 SIGTERM
-        pass
+        raise SystemExit(130 if signum == signal.SIGINT else 143)
+    for sig in (signal.SIGTERM, signal.SIGINT):     # 终端 Ctrl+C 现在也直接到子进程：照常清理，不打 KeyboardInterrupt 堆栈
+        try:
+            signal.signal(sig, _raise)
+        except (ValueError, OSError):               # 非主线程，或平台没有这个信号
+            pass

@@ -32,7 +32,7 @@ sys.path[:0] = [HERE, ROOT]          # 同目录的 design / score，仓库根�
 from engine.audio import _cli, _env  # noqa: E402
 
 _env.utf8_stdio()                    # Windows 的 GBK 控制台与管道里打印中文不出错（只影响输出编码，不影响样本）
-_env.exit_on_sigterm()               # 被 SIGTERM 时按附录 C1 以 143 退出（build.py 中断时会这样结束它）
+_env.exit_on_sigterm()               # 被 SIGTERM / Ctrl+C 时按附录 C1 以 143 / 130 退出（build.py 中断时会这样结束它）
 # 参数先解析：--help 与拼错的参数在任何计算、写盘之前就结束（--help 退出 0，未知参数退出 2）
 _P = _cli.ArgumentParser(prog='python audio/mix.py', add_globals=False,
                          description='《北冥》混音：读 audio/cues.json → out/mix.wav、audio/stems/、audio/check/render.json。'
