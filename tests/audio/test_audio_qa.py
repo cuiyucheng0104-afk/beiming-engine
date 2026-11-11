@@ -207,6 +207,73 @@ class QaGate(unittest.TestCase):
 
 
 
+class AuthoritativeProfiles(unittest.TestCase):
+    """交付档位权威表 engine/production/profiles.json（P05）的写法：audio.loudness.{integrated, tolerance, truePeak}。
+    在临时目录放一份同形状的表，进程内把 filmspec.PROFILES 指过去，走与命令行同一条 qa.main 路径（不写仓库）。"""
+
+    TABLE = {'schemaVersion': 2, 'default': 'web-1080p24', 'profiles': {
+        'web-1080p24': {'video': {'width': 1920, 'height': 1080, 'fps': 24},
+                        'audio': {'codec': 'aac', 'sampleRate': 48000, 'channels': 2,
+                                  'loudness': {'integrated': -14, 'tolerance': 1, 'truePeak': -1, 'measure': '最终 AAC 文件'}}},
+        'broadcast-1080p25': {'video': {'width': 1920, 'height': 1080, 'fps': 25},
+                              'audio': {'codec': 'aac', 'sampleRate': 48000, 'channels': 2,
+                                        'loudness': {'integrated': -23, 'tolerance': 0.5, 'truePeak': -1}}}}}
+
+    def setUp(self):
+        from engine.audio import filmspec as F
+        self.F = F
+        self.td = H.tmpdir('audio-qa-profiles')
+        p = os.path.join(self.td, 'profiles.json')
+        with open(p, 'w', encoding='utf-8') as f:
+            json.dump(self.TABLE, f, ensure_ascii=False)
+        self.old, F.PROFILES = F.PROFILES, p
+
+    def tearDown(self):
+        self.F.PROFILES = self.old
+        shutil.rmtree(self.td, ignore_errors=True)
+
+    def qa(self, *argv):
+        import io
+        from engine.audio import qa as Q
+        out, err = io.StringIO(), io.StringIO()
+        code = Q.run(Q.main, Q.make_parser(), argv=[*argv, '--json'], command='audio:qa', stdout=out, stderr=err)
+        env = json.loads(out.getvalue())
+        self.assertEqual(env['exitCode'], code)
+        return code, env
+
+    def test_reads_authoritative_keys_and_legacy_draft(self):
+        F = self.F
+        self.assertEqual(F.loudness_targets(F.profile('broadcast-1080p25')), (-23, 0.5, -1))
+        self.assertEqual(F.loudness_targets(F.profile()), (-14, 1, -1))
+        draft = {'audio': {'loudness': {'integratedLUFS': -16, 'toleranceLU': 1}, 'truePeakMaxDbTP': -2}}
+        self.assertEqual(F.loudness_targets(draft), (-16, 1, -2))
+        self.assertEqual(F.loudness_targets({'audio': {}}), (None, None, None))
+
+    def test_gate_runs_with_authoritative_table(self):
+        film = os.path.join(self.td, 'film')
+        H.film_json(film, frames=240, fps=24, cuts=(120,))                      # audio.targetLUFS = −14
+        H.write_wav(os.path.join(film, 'out', 'mix.wav'), H.mastered(10.0, lufs=-14.0, tp=-1.5, seed=3))
+        code, env = self.qa('--film', film, '--no-report')
+        self.assertEqual(code, 0, env)
+        # film.json 没写目标、强制在混音一步定：目标取档位（广播 −23），同一份 −14 的混音判响度不通过
+        H.film_json(film, frames=250, fps=25, cuts=(125,), profile='broadcast-1080p25', audio={'mode': 'script', 'script': 'sound.py'})
+        code, env = self.qa('--film', film, '--loudness-at', 'mix', '--no-report')
+        self.assertEqual(code, 4, env)
+        loud = next(c for c in env['data']['checks'] if c['id'] == 'audio.loudness')
+        self.assertEqual(loud['expected'], '-23 ± 0.5 LUFS')
+
+    def test_profile_without_targets_is_a_contract_error(self):
+        table = json.loads(json.dumps(self.TABLE))
+        del table['profiles']['web-1080p24']['audio']['loudness']
+        with open(self.F.PROFILES, 'w', encoding='utf-8') as f:
+            json.dump(table, f)
+        film = os.path.join(self.td, 'film2')
+        H.film_json(film, frames=240, fps=24, cuts=(120,), audio={'mode': 'script', 'script': 'sound.py'})
+        H.write_wav(os.path.join(film, 'out', 'mix.wav'), H.mastered(10.0, seed=3))
+        code, env = self.qa('--film', film, '--no-report')
+        self.assertEqual((code, env['error']['code']), (4, 'contract.profile-audio'), env)
+
+
 class FilmSpec(unittest.TestCase):
     """声音脚本取同源时间：改镜头长度只改 film.json，事件与镜头的秒数跟着变"""
 

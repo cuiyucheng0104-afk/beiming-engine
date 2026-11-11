@@ -7,6 +7,8 @@
        fps, frameCount, seconds, width, height, profile, shots: [{id, in, out}], cuts: [帧…], events: [...],
        audio: {mode, script, wav, cues, targetLUFS, truePeakDbTP, …}, cuecheck, timeline, voice, raw}
   profile(pid=None) → 交付档位（engine/production/profiles.json；没有这个文件时用决策 D07 的兜底表）
+  loudness_targets(档位) → (积分响度目标, 容差, 真峰值上限)：认权威表的 audio.loudness.{integrated, tolerance, truePeak}，
+                          也认早期草案的 integratedLUFS / toleranceLU / audio.truePeakMaxDbTP（同 tools/qa/lib/profiles.mjs 的 adapt）；缺的项给 None
   resolve(film, rel) → 相对路径基准的绝对路径
   event_times(film) → {事件 id: 秒}          film.json v2 的 events（frame / fps；只写了 t 的照用）
   shot_spans(film) → {镜头 id: (起秒, 止秒)}   film.json v2 的 shots（[in, out) 帧 / fps）
@@ -39,11 +41,23 @@ def _profiles():
             d = json.load(f)
         return d.get('default', DEFAULT_PROFILE), d['profiles']
     out = {}
-    for k, (w, h, fps, lufs, tol, tp) in _FALLBACK.items():
+    for k, (w, h, fps, lufs, tol, tp) in _FALLBACK.items():      # 与权威表同一写法（engine/production/profiles.json）
         out[k] = {'video': {'width': w, 'height': h, 'fps': fps},
                   'audio': {'codec': 'aac', 'sampleRate': 48000, 'channels': 2,
-                            'loudness': {'integratedLUFS': lufs, 'toleranceLU': tol}, 'truePeakMaxDbTP': tp}}
+                            'loudness': {'integrated': lufs, 'tolerance': tol, 'truePeak': tp}}}
     return DEFAULT_PROFILE, out
+
+
+def pick(*vals):
+    return next((v for v in vals if v is not None), None)
+
+
+def loudness_targets(prof):
+    a = prof.get('audio') or {}
+    lo = a.get('loudness') or {}
+    return (pick(lo.get('integrated'), lo.get('integratedLUFS'), lo.get('target'), a.get('targetLUFS')),
+            pick(lo.get('tolerance'), lo.get('toleranceLU'), a.get('tolerance')),
+            pick(lo.get('truePeak'), a.get('truePeakMaxDbTP'), a.get('truePeakDbTP'), a.get('truePeak')))
 
 
 def profile(pid=None):
@@ -56,7 +70,7 @@ def profile(pid=None):
 
 def _match_profile(w, h, fps):
     default, ps = _profiles()
-    hits = [k for k, p in ps.items() if (p['video']['width'], p['video']['height'], p['video']['fps']) == (w, h, fps)]
+    hits = [k for k, p in ps.items() if tuple((p.get('video') or {}).get(x) for x in ('width', 'height', 'fps')) == (w, h, fps)]
     if default in hits:
         return default
     return hits[0] if hits else None

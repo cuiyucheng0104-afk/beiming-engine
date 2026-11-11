@@ -11,9 +11,9 @@
   响度在哪一步定（--loudness-at，默认自动：命令行给了 --target-lufs 或 film.json 的 audio 写了 targetLUFS → mix，
   有作品描述但没写 → deliver；只给 --wav → mix）：
   mix（声音脚本自己母带到目标）：
-  audio.loudness    hard  BS.1770 积分响度 = 混音目标 ± 容差（目标：film.json audio.targetLUFS，否则档位的 integratedLUFS；
+  audio.loudness    hard  BS.1770 积分响度 = 混音目标 ± 容差（目标：film.json audio.targetLUFS，否则档位的 audio.loudness.integrated；
                           容差默认 0.5 LU，不宽于档位容差。成片以最终 AAC 为准由 tools/qa 复测）
-  audio.truepeak    hard  4 倍过采样真峰值 ≤ audio.truePeakDbTP（否则档位的 truePeakMaxDbTP），测量容差 0.05 dB
+  audio.truepeak    hard  4 倍过采样真峰值 ≤ audio.truePeakDbTP（否则档位的 audio.loudness.truePeak），测量容差 0.05 dB
                           （限制器正好压在上限时，24 bit 量化后的实测会高出万分之几 dB）
   deliver（封装时 engine/render/mux.sh 整段乘一个增益到目标，真峰值超限才加限幅）：响度只记录；改判峰值余量——
   audio.headroom    hard > 3 dB、soft > 0   线性增益到目标后的真峰值 = 真峰值 + (目标 − 积分响度)，超出上限多少 dB 就要被限幅削多少
@@ -370,11 +370,15 @@ def main(args, ctx):
     if not wav or not os.path.exists(wav):
         raise CliError('env.mix-missing', f'找不到混音：{args.wav or "（按作品找了 audio.wav、out/latest、out/mix.wav、media/mix.wav）"}',
                        hint='先跑作品的声音脚本出混音（或整片出片），或用 --wav 指定混音文件')
-    pa = prof['audio']
+    p_lufs, p_tol, p_tp = F.loudness_targets(prof)
     fa = (film or {}).get('audio') or {}
-    target = args.target_lufs if args.target_lufs is not None else fa.get('targetLUFS', pa['loudness']['integratedLUFS'])
-    tol = min(args.tol_lu, float(pa['loudness'].get('toleranceLU', args.tol_lu)))
-    max_tp = args.max_tp if args.max_tp is not None else fa.get('truePeakDbTP', pa['truePeakMaxDbTP'])
+    target = F.pick(args.target_lufs, fa.get('targetLUFS'), p_lufs)
+    max_tp = F.pick(args.max_tp, fa.get('truePeakDbTP'), p_tp)
+    if target is None or max_tp is None:
+        raise CliError('contract.profile-audio', f'交付档位 {prof["id"]} 没写{"积分响度目标" if target is None else "真峰值上限"}，作品描述里也没有',
+                       hint='engine/production/profiles.json 的 audio.loudness.{integrated, truePeak}，或 film.json 的 audio.targetLUFS / truePeakDbTP；'
+                            '也可以用 --target-lufs / --max-tp 直接给')
+    tol = min(args.tol_lu, float(p_tol)) if p_tol is not None else args.tol_lu
     fps = film['fps'] if film else args.fps
     frames = film['frameCount'] if film else args.frames
     at = args.loudness_at or ('mix' if (args.target_lufs is not None or 'targetLUFS' in fa or not film) else 'deliver')
