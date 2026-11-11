@@ -117,7 +117,7 @@
         {"page": "lab:kun_refine", "size": [960, 520], "times": {"uniformMid": 2}},
         {"page": "lab:kun_xuan", "size": [960, 520], "times": {"uniformMid": 2}},
         {"page": "lab:look", "size": [960, 520], "times": {"uniformMid": 2}},
-        {"page": "tpl:a", "size": [960, 520], "times": {"uniformMid": 3}},
+        {"page": "tpl:a", "size": [960, 540], "times": {"uniformMid": 3}},
         {"page": "tpl:c", "size": [960, 540], "times": {"uniformMid": 3}},
         {"page": "fixture:graycard", "size": [640, 360], "times": [0]}
       ]
