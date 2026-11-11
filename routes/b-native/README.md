@@ -139,7 +139,7 @@ films/<名字>/
 - **资产桥用软件 GL**（SwiftShader）：只做转换与烘焙，不占独显；换成硬件 GL 可能改变贴图字节。
 - **原生 GPU 与编码器分开记录**（run.json 自动记）：macOS 是 VideoToolbox；Windows canary 默认 OpenH264 软件编码，不能写成 NVENC。共享工作站先查队列（入口自动查，`--require-idle-check` 查不到也拒绝）。
 - **换运行时版本**：入口只放行锁文件里的版本与哈希；新版本先重跑本手册「验收」，再用 `BNE_ALLOW_VERSION` 临时放行，补齐锁文件后再去掉。各平台可执行文件哈希不必在该平台上算：`node engine/native/runtime.mjs fetch --accept-license --platform <平台> --from <官方归档> --dest <新目录> --json` 的 `data.binarySha256` 就是。
-- **`fetch --dest` 只认新目录**：目录已有内容、又不是上次 fetch 装的（没有 `.beiming-runtime.json` 标记）时拒绝覆盖（exit 2）；先解包到旁边的临时目录、哈希通过才替换，失败时旧安装原样不动。
+- **`fetch --dest` 只认新目录**：给的目录已有内容、又不是上次 fetch 装的（没有 `.beiming-runtime.json` 标记）时拒绝覆盖（exit 2；不给 `--dest` 时用的默认缓存目录归工具管理，照常替换）；先解包到旁边的临时目录、哈希通过才替换，失败时旧安装原样不动。
 - **对外命名**：对外只叫「北冥原生 · BNE」；`raea` 只留在 `examples/raea`、`raea:*` 命令、`RAEA_BIN`、`import … from 'raea'` 与许可署名里。
 - **AI 生成内容标识（决定 D11）**：用了 AI 生成底板的作品，film.json 写 `aigc: { contains: true, note }`，渲染入口在 mp4 comment 与 `player.html` 写「含 AI 生成画面」。
 

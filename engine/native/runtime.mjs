@@ -8,8 +8,8 @@
 //   node engine/native/runtime.mjs fetch --accept-license [--platform macos-arm64|windows-x64|linux-x64] [--dest 目录] [--from 本地归档]
 //        从锁里的官方发行地址下载归档（或用 --from 指定已下载的归档），校验归档 sha256 → 先解包到 <dest> 旁边的临时目录 →
 //        校验可执行文件 sha256 → 才换名成 <dest>（默认 <缓存>/beiming/raea/<版本>/<平台>/）→ 打印 RAEA_BIN 应设的值。
-//        不传 --accept-license 拒绝执行（exit 2）。<dest> 已有内容、又不是 fetch 装的（没有标记文件 .beiming-runtime.json）时拒绝覆盖
-//        （exit 2，防止 --dest 指错目录把别的东西删掉）；任何一步失败，<dest> 原样不动、临时目录删掉。
+//        不传 --accept-license 拒绝执行（exit 2）。用户给的 --dest 已有内容、又不是 fetch 装的（没有标记文件 .beiming-runtime.json）时
+//        拒绝覆盖（exit 2，防止 --dest 指错目录把别的东西删掉）；任何一步失败，<dest> 原样不动、临时目录删掉。
 //        缓存位置：XDG_CACHE_HOME 或 ~/.cache（Windows 用 %LOCALAPPDATA%）。
 //
 // 代码里：resolveRuntime({ allowVersion }) → { exe, version, platform, binarySha256, lock, entry, verified, problems }
@@ -116,7 +116,7 @@ async function cmdFetch(a) {
   const platform = a.platform || platformKey(), entry = lock.platforms[platform];
   if (!entry) throw fail(EXIT.USAGE, 'platform', `锁里没有平台 ${platform}`, `可用：${Object.keys(lock.platforms).join('、')}`);
   const dest = resolve(a.dest || join(cacheRoot(), 'raea', lock.version, platform));
-  await assertReplaceable(dest);
+  if (a.dest) await assertReplaceable(dest);   // 默认缓存目录（<缓存>/beiming/raea/<版本>/<平台>）归本工具管，旧版 fetch 装的没有标记也照常替换
   const archive = a.from ? resolve(a.from) : join(dest, '..', entry.archive);
   if (!a.from) { log(`下载 ${lock.downloadBase}${entry.archive}（约 ${(entry.size / 1e6).toFixed(0)} MB）……`); await download(lock.downloadBase + entry.archive, archive, 30 * 60 * 1000); }
   if (!existsSync(archive)) throw fail(EXIT.USAGE, 'no-archive', `找不到归档 ${archive}`);

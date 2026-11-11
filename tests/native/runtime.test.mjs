@@ -115,5 +115,14 @@ test('fetch --dest：已有内容、又不是 fetch 装的目录 → exit 2，�
     assert.equal(JSON.parse(bad.stdout).error.code, 'env.archive-hash');
     assert.equal(readFileSync(join(old, 'raea'), 'utf8'), 'old install');
     assert.deepEqual(readdirSync(dir).sort(), ['empty', 'fake.tar.gz', 'old', 'tools']);
+    // 不给 --dest：默认缓存目录归工具管理，旧版 fetch 装的（没有标记）不拒绝；这次归档不对 → exit 3，旧安装照样不动
+    const cache = join(dir, 'cache'), lock = await loadLock();
+    const def = join(cache, 'beiming', 'raea', lock.version, platformKey());
+    mkdirSync(def, { recursive: true });
+    writeFileSync(join(def, 'raea'), 'legacy install');
+    const d = spawnSync(process.execPath, [ENTRY, 'fetch', '--accept-license', '--from', join(dir, 'fake.tar.gz'), '--json'], { encoding: 'utf8', env: { ...env, XDG_CACHE_HOME: cache, LOCALAPPDATA: cache }, timeout: 30000 });
+    assert.equal(d.status, EXIT.ENV, d.stderr);
+    assert.equal(JSON.parse(d.stdout).error.code, 'env.archive-hash');
+    assert.equal(readFileSync(join(def, 'raea'), 'utf8'), 'legacy install');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
