@@ -68,11 +68,16 @@ CASES_PAGE = f'{REPO}/tree/main/cases'
 #   · 只保留有观看预览的成片
 #   · 下掉「自研动画与预演」整组
 #   · 下掉状态为 rejected / support / interactive / previs 的记录
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location('casebook', Path(__file__).with_name('casebook.py'))
+_casebook = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_casebook)
+CASE_STATUSES = _casebook.CASE_STATUSES
 CURATION = {
     'excludeGroups': {'local-films'},
     'excludeStatuses': {'rejected', 'support', 'interactive', 'previs'},
     'requirePreview': True,
 }
+assert CURATION['excludeStatuses'] <= CASE_STATUSES.keys(), '策展排除了没登记的状态（见 tools/casebook.py 的 CASE_STATUSES）'
 
 # 作品分组：标题与说明照 site/DESIGN.md 第 7 节定稿文案；范围用 durationRange 校验，文案和数据对不上就报错
 GROUPS = [
@@ -171,6 +176,8 @@ def rel_posix(path: Path, base: Path) -> str:
 def keep_case(case: dict) -> bool:
     if case['group'] in CURATION['excludeGroups']:
         return False
+    if case['status'] not in CASE_STATUSES:
+        raise BuildError(f'{case["id"]}：未登记的状态 {case["status"]!r}，先在 tools/casebook.py 的 CASE_STATUSES 里登记')
     if case['status'] in CURATION['excludeStatuses']:
         return False
     if CURATION['requirePreview'] and not (case.get('preview') or {}).get('url'):
