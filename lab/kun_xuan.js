@@ -6,11 +6,11 @@
 import * as THREE from 'three';
 import { createKun } from '../src/kun_xuan.js';
 import { PALETTE, setToonGlobals } from '../src/toon.js';
-import { labRenderer, kunStats, keyLight, inkComposite, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, drawPasses } from './kun_bench.js';
+import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);
 const ROLL = +(q.get('roll') || 0), YAW = +(q.get('yaw') || 0), PITCH = +(q.get('pitch') || 0), LOOK = !!q.get('look');
-const { renderer, W, H, RW, RH } = labRenderer(2);
+const { renderer, W, H, RW, RH } = labRenderer(labPixelRatio(q));
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, W / H, 5, 6000);
@@ -27,7 +27,7 @@ if (q.get('city')) setToonGlobals({ fillGain: +q.get('city') });   // 调试：�
 if (q.get('skyg')) setToonGlobals({ skyGain: +q.get('skyg') });    // 调试：天空冷光倍率
 if (q.get('noshadow')) key.castShadow = false;
 
-const { rtC, rtN, comp, skyCover } = await inkComposite({ RW, RH, W, H, PALETTE, q });
+const { skyCover, draw } = await labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q });   // 默认正片后期；&ink=lab 回退临时描边
 
 // 机位：与 lab/kun.js 相同（横向对比用）；poster / tail / front 是本变体加的
 const ev = new THREE.Vector3();
@@ -55,7 +55,7 @@ let tAcc = 0, nAcc = 0;
 window.render = t => {
   const tw0 = performance.now();
   const { v, k } = pickView(BASE_VIEWS, forced, t, window.DUR);
-  const { ts, inkT } = frameTimes(t);                       // 身体：一拍三；墨线一拍二
+  const { fr, ts, inkT } = frameTimes(t);                       // 身体：一拍三；墨线一拍二
   camera.fov = v.fov; camera.updateProjectionMatrix();
   kun.group.updateMatrixWorld(true); kun.eyeWorld(ev, -1);
   if (v.cam) { camera.position.set(...v.cam(k)); camera.lookAt(...v.look(k)); }
@@ -63,7 +63,7 @@ window.render = t => {
   camera.updateMatrixWorld();
   kun.setPose(ts, LOOK ? { look: camera.position, t } : { t });   // 飘带一拍二：给原始时间
   skyCover(...v.sky);
-  drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlobals, inkT });
+  draw({ camera, setToonGlobals, inkT, fr });
   tAcc += performance.now() - tw0; nAcc++;
   if (nAcc % 24 === 0) console.warn(`[kun_xuan] 平均每帧 CPU 提交 ${(tAcc / nAcc).toFixed(1)} ms（${nAcc} 帧）`);
 };

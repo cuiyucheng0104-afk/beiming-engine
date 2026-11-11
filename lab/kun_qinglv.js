@@ -6,11 +6,11 @@
 import * as THREE from 'three';
 import { createKun } from '../src/kun_qinglv.js';
 import { PALETTE, setToonGlobals } from '../src/toon.js';
-import { labRenderer, kunStats, keyLight, inkComposite, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, drawPasses, lerpN } from './kun_bench.js';
+import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, lerpN, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);
 const ROLL = +(q.get('roll') || 0), LOOK = !!q.get('look');
-const { renderer, W, H, RW, RH } = labRenderer(2);
+const { renderer, W, H, RW, RH } = labRenderer(labPixelRatio(q));
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, W / H, 5, 6000);
@@ -21,7 +21,7 @@ kunStats('kun_qinglv', kun);
 scene.add(kun.group);
 
 const { key } = keyLight(scene, setToonGlobals);
-const { rtC, rtN, comp, skyCover } = await inkComposite({ RW, RH, W, H, PALETTE, q });
+const { skyCover, draw } = await labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q });   // 默认正片后期；&ink=lab 回退临时描边
 
 const ev = new THREE.Vector3();
 const EXTRA = {
@@ -39,14 +39,14 @@ const forced = EXTRA[q.get('view')];
 window.DUR = 4;
 window.render = t => {
   const { v, k } = pickView(BASE_VIEWS, forced, t, window.DUR);
-  const { ts, inkT } = frameTimes(t);                       // 鲲：一拍三（8 fps）；墨线、瀑布：一拍二
+  const { fr, ts, inkT } = frameTimes(t);                       // 鲲：一拍三（8 fps）；墨线、瀑布：一拍二
   camera.fov = v.fov; camera.updateProjectionMatrix();
   kun.group.updateMatrixWorld(true); kun.eyeWorld(ev, -1);
   if (v.cam) { camera.position.set(...v.cam(k)); camera.lookAt(...v.look(k)); }
   else eyeCloseup(camera, kun, ev, k);
   kun.setPose(ts, LOOK ? { look: camera.position } : {});
   skyCover(...v.sky);
-  drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlobals, inkT });
+  draw({ camera, setToonGlobals, inkT, fr });
 };
 const tw = performance.now();
 window.render(0); window.render(1.6); window.render(3.2);
