@@ -11,6 +11,9 @@
 //   screenToWorld(cam, W, H, cx, cy, D)       屏幕像素 + 深度 → 世界坐标
 //   screenToPlane(cam, W, H, cx, cy, plane)   屏幕像素的视线与平面（缺省水平面 y = 0）的交点
 //   project(cam, W, H, p) / projectAll(cam, W, H, pts, zMin)   世界坐标 → 屏幕 { x, y, z }（z = 到相机平面的距离）；后者只留 z > zMin 的点
+//   screenAnchor(cam, W, H, p, span)          世界点 p 此刻的屏幕位置，和 p 处沿相机右方 span 长的一段在屏幕上的像素长 → { x, y, s }；
+//                                             铺纸那一帧取一次、每帧再取一次，交给 engine/look/paper.js 的 paperAnchor 得到纸纹锚点
+//                                             （纸纹锚点用实际像素：W×H 传 film.W、film.H，而不是设计尺寸）
 // 调用前相机的世界矩阵要是新的（aimCamera 会更新）；改了 zoom / filmOffset / setViewOffset 之后先 updateProjectionMatrix。
 // 屏幕坐标都指相机此刻实际渲出的 W×H 画面：placeOnScreen / screenToWorld 和 project / screenToPlane 一样计入 zoom、filmOffset
 // 和 setViewOffset（分块渲染时按整幅画面摆，就在开分块之前摆好）。placeOnScreen 摆的是世界位置，面片挂在带变换的父节点下也对：
@@ -86,6 +89,14 @@ export function project(cam, W, H, p) {
   _pc.copy(p).applyMatrix4(cam.matrixWorldInverse);
   _pv.copy(p).project(cam);
   return { x: (_pv.x * 0.5 + 0.5) * W, y: (0.5 - _pv.y * 0.5) * H, z: -_pc.z };
+}
+const _ar = new THREE.Vector3();
+export function screenAnchor(cam, W, H, p, span = 1) {
+  if (!(span > 0)) throw new TypeError(`screenAnchor：span 要是正数，收到 ${span}`);
+  const a = project(cam, W, H, p);
+  if (!(a.z > 0)) throw new RangeError('screenAnchor：锚点在相机背后，投不到屏幕上');
+  const b = project(cam, W, H, _ar.setFromMatrixColumn(cam.matrixWorld, 0).normalize().multiplyScalar(span).add(p));
+  return { x: a.x, y: a.y, s: Math.hypot(b.x - a.x, b.y - a.y) };
 }
 export function projectAll(cam, W, H, pts, zMin = 0) {
   const out = [];

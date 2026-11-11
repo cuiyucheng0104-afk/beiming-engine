@@ -6,6 +6,26 @@
 //   blur5(a, W, H)                          原地 1-4-6-4-1 可分离模糊（抹掉覆盖率在等值线上留下的亚像素梳齿）
 //   shapeInside(shape, K, pad, R)           THREE.Shape 栅格化 → 形内到边缘的距离（形外为 0）
 //       → { de: Float32Array, W, H, x0, y0 }：像素 (x, y) 中心在形状坐标 (x0 + (x + 0.5) / K, y0 + (y + 0.5) / K)
+//
+// 来源：edt2d()（及一维扫描 edt1d）的两趟写法改写自 LemoLab 的 lemo-opuscar（cases/vendor/lemo-opuscar/styles/woodcut/demo/engine/hatch.js
+// 的 edt1 / edt，固定提交 bebbbe1；算法本身是公开的 Felzenszwalb–Huttenlocher），按其 MIT 许可使用并保留版权声明，许可全文见
+// cases/licenses/LemoLab-MIT.txt；sdfFromImage、blur5、shapeInside 为北冥引擎原创。
+// @provenance lemo-opuscar@bebbbe1:styles/woodcut/demo/engine/hatch.js
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-FileCopyrightText: 2026 LemoLab
+// LemoLab 部分的许可原文（作品站按文件分发这些模块，许可声明随文件走；与 cases/licenses/LemoLab-MIT.txt 相同）：
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//   to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//   The above copyright notice and this permission notice shall be included in all copies or substantial portions
+//   of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+//   THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+//   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//   IN THE SOFTWARE.
 import { clamp } from '../core/math.js';
 
 const INF = 1e20;
