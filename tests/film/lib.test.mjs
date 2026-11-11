@@ -448,7 +448,7 @@ test('QA 的命令行：生效描述、页面与视口、页面导出的事件�
   assert.ok(!b.includes('--size') && !b.includes('--page'), '没有页面（B）时不给视口');
 });
 
-test('《北冥》旧文件名：放过去后不留临时文件；目标已是同一份硬链接（步骤缓存命中）时什么都不做', async () => {
+test('《北冥》旧文件名：放过去的是独立的一份（cp 原地替换 out/mix.wav 不会改到运行目录与缓存），不留临时文件', async () => {
   const { placeLegacy } = await import('../../tools/film/beiming.mjs');
   const dir = tmp();
   try {
@@ -456,7 +456,11 @@ test('《北冥》旧文件名：放过去后不留临时文件；目标已是�
     fs.writeFileSync(src, 'A');
     assert.equal(placeLegacy(src, dst), 'placed');
     assert.equal(fs.readFileSync(dst, 'utf8'), 'A');
-    assert.equal(placeLegacy(src, dst), 'same', '同一份硬链接：不改名、不留临时名');
+    assert.equal(fs.statSync(src).nlink, 1, '不是硬链接');
+    fs.writeFileSync(dst, 'mine');  // 与 cp 一样原地覆写旧文件名
+    assert.equal(fs.readFileSync(src, 'utf8'), 'A', '运行目录里那份不能被改');
+    assert.equal(placeLegacy(src, dst), 'placed', '再放一次：照常覆盖');
+    assert.equal(fs.readFileSync(dst, 'utf8'), 'A');
     const other = path.join(dir, 'mix2.wav');
     fs.writeFileSync(other, 'B');
     assert.equal(placeLegacy(other, dst), 'placed');

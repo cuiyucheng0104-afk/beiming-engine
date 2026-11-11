@@ -5,7 +5,7 @@
 //   作品描述 films/beiming-10s/film.json（作品描述包维护的镜像：路径相对仓库根，页面是仓库根的 index.html + src/）；
 //   声音是《北冥》自己的 audio/build.sh（混音 + 自检）；产物在 out/beiming/<run-id>/（run.json、QA 报告、联系表、播放页），
 //   最近一次在 out/beiming/latest。
-// 旧文件名（老文档、脚本引用的位置）从本次运行目录放过去（同一文件系统上用硬链接，不占双份空间）：
+// 旧文件名（老文档、脚本引用的位置）从本次运行目录放过去（独立的一份；支持写时复制的文件系统上是克隆，不占双份空间）：
 //   out/video[_4k].mp4  逐帧中间件      out/beiming[_4k].mp4  成片（画面逐位复制中间件 + AAC）   out/beiming_web.mp4  网页版
 //   out/beiming.html    单文件播放页    out/contact_sheet.jpg  联系表（本次运行的帧）            out/mix.wav          混音
 // 旧版另有的 out/stills/s_*.jpg（0.5 秒一张的样张）不再单独出：联系表直接从本次成片按 0.5 秒取帧。
@@ -105,17 +105,13 @@ export const command = defineCommand({
   },
 });
 
-// 把运行目录里的产物放到旧文件名：同一文件系统上硬链接（不占双份空间），否则复制；先放到临时名再原子改名。
-// 目标已经是同一个文件时（步骤缓存命中：上一次放过去的 out/mix.wav 与这次运行目录里的 audio/mix.wav 是同一份硬链接）什么都不做——
-// POSIX 的 rename() 在新旧两个名字指向同一文件时是空操作、会把临时名留下来（实测留下过 out/mix.wav.<pid>.tmp）。
+// 把运行目录里的产物放到旧文件名：写成独立的一份（APFS / Btrfs / XFS 上是写时复制的克隆，不占双份空间；别的文件系统是普通复制），
+// 先放到临时名再原子改名。不用硬链接：旧文件名是给人用、会被原地替换的位置（--no-audio 就是让人把自己的混音 cp 到 out/mix.wav），
+// 硬链接时 cp 会顺带改掉运行目录里那份和步骤缓存，之后命中缓存就拿到错的产物。
 export function placeLegacy(src, dst) {
-  try {
-    const a = fs.statSync(src), b = fs.statSync(dst);
-    if (a.ino === b.ino && a.dev === b.dev && a.ino !== 0) return 'same';
-  } catch { /* 目标还不存在 */ }
   const tmp = `${dst}.${process.pid}.tmp`;
   try {
-    try { fs.rmSync(tmp, { force: true }); fs.linkSync(src, tmp); } catch { fs.copyFileSync(src, tmp); }
+    fs.copyFileSync(src, tmp, fs.constants.COPYFILE_FICLONE);
     fs.renameSync(tmp, dst);
   } finally { fs.rmSync(tmp, { force: true }); }
   return 'placed';
