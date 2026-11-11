@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>渲染器 WebGL 测试片</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script></head><body>
+<script type="module">
+// 渲染器 v2 的 WebGL 测试片（tests/render/failure.test.mjs）：一块随帧号变色的平面，用 three.js 渲染。
+//   fail=shader        片元着色器引用未声明的变量：three.js 在第一次渲染时报 "Shader Error … VALIDATE_STATUS false"
+//   fail=ctxlost&at=N  第 N 帧调用 renderer.forceContextLoss()（模拟显存超额、驱动 TDR），之后的帧全黑
+//   dur=秒（默认 1）
+import * as THREE from 'three';
+const q = new URLSearchParams(location.search);
+const fail = q.get('fail'), at = Number(q.get('at') || 0);
+const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(), camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const uniforms = { uF: { value: 0 } };
+const material = new THREE.ShaderMaterial({
+  uniforms,
+  vertexShader: 'void main(){ gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: fail === 'shader'
+    ? 'uniform float uF; void main(){ gl_FragColor = vec4(undefinedVar, uF, 0.5, 1.0); }'
+    : 'uniform float uF; void main(){ gl_FragColor = vec4(fract(uF * 0.037), 0.4, 0.6, 1.0); }',
+});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
+window.DUR = q.has('dur') ? Number(q.get('dur')) : 1;
+window.render = t => {
+  const f = Math.round(t * 24);
+  if (fail === 'ctxlost' && f === at) renderer.forceContextLoss();
+  uniforms.uF.value = f;
+  renderer.render(scene, camera);
+};
+window.READY = true;
+</script>
+</body></html>

@@ -1,0 +1,30 @@
+{
+  "$comment": "film.json v2 样例（计划附录 C6）：一部虚构的 8 秒 A 路线短片。新作品由 node tools/new-film.mjs <a|b|c> <名字> 从路线模版生成，不必抄这里；字段说明见 engine/production/README.md，结构见 engine/production/film.schema.json。",
+  "schemaVersion": 2,
+  "id": "chendu",
+  "title": "晨渡",
+  "route": "a",
+  "backend": "three",
+  "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 192 },
+  "shots": [
+    {
+      "id": "S1",
+      "in": 0,
+      "out": 96,
+      "module": "shots/s1/shot.js",
+      "evaluation": "absolute",
+      "tracks": [{ "id": "kun", "step": 3 }],
+      "actorClockOrigin": { "kun": 0 }
+    },
+    { "id": "S2", "in": 96, "out": 192, "module": "shots/s2/shot.js", "evaluation": "absolute" }
+  ],
+  "events": [{ "id": "kun.rise", "frame": 130, "shot": "S2", "audio": "kun_breath", "visual": "鲲背出水" }],
+  "audio": { "mode": "script", "script": "audio/sound.py" },
+  "deliveries": ["web-1080p24"],
+  "style": { "id": "beiming-original", "version": 1, "baseline": "../../media/shot_7.6.jpg" },
+  "assets": ["model:kun@v1", "plate:sky_dawn", "local:assets/far_hills.png"],
+  "credits": [{ "what": "字体子集 Noto Sans SC", "owner": "Adobe / Google", "license": "OFL-1.1", "source": "fonts/LICENSE.md" }],
+  "aigc": { "contains": true, "kinds": ["visual"], "note": "远山底板由图像模型生成后手工整理" },
+  "gates": { "look": "required", "animatic": "required", "final": "required" },
+  "qa": { "intentional": [{ "kind": "black", "from": 186, "to": 192, "reason": "片尾黑场" }] }
+}

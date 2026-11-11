@@ -1,0 +1,19 @@
+<!doctype html>
+<!-- tests/engine 的失败夹具：look 传了 paperUrl，但这张纸纹图故意不存在。
+     期望：look.ready 拒绝 → film.run 抛错 → 页面报错（错误里带纸纹地址），READY 永远不置位，渲染器非零退出。
+     用法见 tests/engine/film.browser.test.mjs；不要往这个目录放 paper-missing.png。 -->
+<html><head><meta charset="utf-8"><title>夹具：纸纹地址不存在</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<style>html,body{margin:0;background:#000;overflow:hidden}</style>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { createFilm } from '/engine/stage/film.js';
+import { createLook } from '/engine/look/index.js';
+
+const film = createFilm({ designHeight: 1040 });
+const look = createLook(film.renderer, film.W, film.H, { paperUrl: './paper-missing.png' });
+const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(30, film.W / film.H, 0.1, 100);
+await film.run({ dur: 1, post: look, warm: [], shots: [{ in: 0, id: 'S1', shot: { scene, camera, update() {}, look: () => ({}) } }] });
+</script>
+</body></html>

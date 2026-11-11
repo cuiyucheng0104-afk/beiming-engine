@@ -1,0 +1,272 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "beiming/plates.schema.json",
+  "title": "底板登记表（plates.json）",
+  "description": "A 路线二维底板的登记表：每张底板的文件、尺寸、原图尺寸与放大方法、透明、色彩空间、四条边怎么处理、来源链。准入检查：node tools/plates/check.mjs <plates.json>（按本 schema 校验，再逐张读 PNG 核对尺寸、色彩与四边 alpha）。字段说明见 craft/two-five-d.md §2.7，做法见 assets/plates/RECIPE.md，来源链的写法见 docs/rights/aigc.md（决定 D11）。",
+  "type": "object",
+  "required": [
+    "plates"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "plates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/plate"
+      }
+    }
+  },
+  "$defs": {
+    "policy": {
+      "description": "边策略。offscreen：这条边在整段运动中都留在画外（截断边、直线淡出、不透明底板的边）；covered：在画内，但被同色同纹理的层或更近的层盖住；organic-mask：使用时用 cropPlate 椭圆软遮罩裁成有机外形（engine/stage/plates.js）；natural：已经是自然外形的柔和淡出，可以进画；tiled：四方连续纹理（纸纹），不当底板摆；waived：豁免，必须在 edgeNote 写理由。",
+      "enum": [
+        "offscreen",
+        "covered",
+        "organic-mask",
+        "natural",
+        "tiled",
+        "waived"
+      ]
+    },
+    "plate": {
+      "type": "object",
+      "required": [
+        "name",
+        "file",
+        "size",
+        "transparent",
+        "colorSpace",
+        "edgePolicy"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_]*$",
+          "description": "代码里引用的名字：ASCII 字母、数字、下划线；新底板一律小写（已有的 shotB_sky 不改名）"
+        },
+        "file": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_]*\\.png$",
+          "description": "相对 plates.json 所在目录的文件名；新底板一律小写"
+        },
+        "url": {
+          "type": "string"
+        },
+        "size": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[宽, 高]，必须与 PNG 实际尺寸一致"
+        },
+        "sourceSize": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "原图（生成或扫描得到、放大之前）的 [宽, 高]。没放大过就等于 size。纹素密度按文件像素判定，细节密度按它报告：4K 交付要据此说明哪些层是放大来的（QA 台账 QA-A-004）"
+        },
+        "upscale": {
+          "description": "放大：没放大写 null；放大过写 factor（倍数）与 method（方法与工具；不知道写「待补」），size 必须约等于 sourceSize × factor",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "factor",
+                "method"
+              ],
+              "properties": {
+                "factor": {
+                  "type": "number",
+                  "minimum": 1
+                },
+                "method": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "alpha": {
+                  "type": "string"
+                },
+                "basis": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "aspect": {
+          "type": "number"
+        },
+        "transparent": {
+          "type": "boolean",
+          "description": "有 alpha 通道并且确实有透明像素"
+        },
+        "colorSpace": {
+          "enum": [
+            "srgb",
+            "data"
+          ],
+          "description": "srgb：彩色底板，贴图 SRGBColorSpace；data：纸纹这类数据贴图，NoColorSpace"
+        },
+        "edgePolicy": {
+          "description": "一个字符串（四边相同）或按边写的对象",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/policy"
+            },
+            {
+              "type": "object",
+              "required": [
+                "left",
+                "right",
+                "top",
+                "bottom"
+              ],
+              "properties": {
+                "left": {
+                  "$ref": "#/$defs/policy"
+                },
+                "right": {
+                  "$ref": "#/$defs/policy"
+                },
+                "top": {
+                  "$ref": "#/$defs/policy"
+                },
+                "bottom": {
+                  "$ref": "#/$defs/policy"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "edgeNote": {
+          "type": "string",
+          "description": "边策略的理由；有 waived 时必填"
+        },
+        "usage": {
+          "type": "array",
+          "description": "在哪里用、在设计稿上最大摆多宽：给纹素密度预算（每个交付档位算 图宽 ÷ 屏幕宽 × 设计高 ÷ 档位高）",
+          "items": {
+            "type": "object",
+            "required": [
+              "where",
+              "screenWidth",
+              "designHeight"
+            ],
+            "properties": {
+              "where": {
+                "type": "string"
+              },
+              "screenWidth": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "designHeight": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "profiles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "只按这些交付档位算（缺省 = 全部档位）"
+              }
+            }
+          }
+        },
+        "aigc": {
+          "type": "boolean",
+          "description": "是否 AI 生成（决定 D11）；true 时必须写「来源」，用到它的成片在 film.json 的 aigc 与 credits 里写明"
+        },
+        "来源": {
+          "type": "object",
+          "description": "逐张来源链（docs/rights/aigc.md「来源链」）：八个字段都要有，不知道的写「待补」，不要编；可另加「依据」说明哪些字段是按清单级记录推定的",
+          "required": [
+            "工具",
+            "模型",
+            "日期",
+            "提示词",
+            "参考图",
+            "原图sha256",
+            "操作",
+            "人工修改"
+          ],
+          "properties": {
+            "工具": {
+              "type": "string"
+            },
+            "模型": {
+              "type": "string"
+            },
+            "日期": {
+              "type": "string"
+            },
+            "提示词": {
+              "type": "string",
+              "description": "提示词全文或其文件路径"
+            },
+            "参考图": {
+              "type": "string"
+            },
+            "原图sha256": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{64}|待补.*)$"
+            },
+            "操作": {
+              "type": "string",
+              "description": "操作人"
+            },
+            "人工修改": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "依据": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "aigc": {
+                "const": true
+              }
+            },
+            "required": [
+              "aigc"
+            ]
+          },
+          "then": {
+            "required": [
+              "来源"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

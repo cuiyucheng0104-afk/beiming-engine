@@ -5,6 +5,26 @@
 //   squareSpiral(L, R, B, T, p)               方旋涡（回纹）：盒子 [L, R] × [B, T] 从左上角起往下、逐圈向内，圈距 p
 //   pathShape(cmds, sx, sy)                   [['M', x, y], ['L', x, y], ['C', x1, y1, x2, y2, x, y], ...] → THREE.Shape（x、y 分别缩放）
 //   taperTube(curve, seg, radial, radiusAt)   沿曲线的管，半径 radiusAt(a)（a = 沿程 0..1）；返回 { g, along }，along 是每个顶点的 a
+//
+// 来源：catmull()（Catmull-Rom 样条加密）改写自 LemoLab 的 lemo-opuscar（cases/vendor/lemo-opuscar/styles/rubber-hose/demo/toon.js
+// 的 spline，固定提交 bebbbe1；同库 styles/scifi-toon/demo/toon.js 里是同一段），按其 MIT 许可使用并保留版权声明，许可全文见
+// cases/licenses/LemoLab-MIT.txt；其余函数为北冥引擎原创。
+// @provenance lemo-opuscar@bebbbe1:styles/rubber-hose/demo/toon.js
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
+// SPDX-FileCopyrightText: 2026 LemoLab
+// LemoLab 部分的许可原文（作品站按文件分发这些模块，许可声明随文件走；与 cases/licenses/LemoLab-MIT.txt 相同）：
+//   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+//   documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+//   the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+//   to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+//   The above copyright notice and this permission notice shall be included in all copies or substantial portions
+//   of the Software.
+//   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+//   THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+//   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//   IN THE SOFTWARE.
 import * as THREE from 'three';
 import { clamp, TAU } from '../core/math.js';
 

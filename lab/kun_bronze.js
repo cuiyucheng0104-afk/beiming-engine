@@ -2,13 +2,13 @@
 //   0.0–1.5  ① 大远景侧面全身（镜头 C 的朝向：头朝画左，逆光从画左后方来）
 //   1.5–3.0  ② 从下方仰视腹部和头（镜头 C 渡船甲板机位）
 //   3.0–4.0  ③ 眼睛特写
-// 描边：临时屏幕空间描边（深度 + 法线 + 物体/实例 ID，按一拍二抖动），与 lab/kun.js 同一段代码，只为看效果。
+// 后期：默认走正片后期管线（与 lab/kun.js 相同，lab/kun_bench.js 的 labPipeline）；&ink=lab 回退旧的临时屏幕描边，只给对照旧截图用。
 // 可选参数：&lod=0.3 &noink=1 &pass=1 &view=side|top|far|eye|under|reveal|hero|hero_full|hero_low|front|tail &roll=-0.5 &look=1（玉眼看镜头）
 //   &dbg=pattern（不渲染 3D，直接看身体纹样展开图）&dbg=fins（看各类鳍的离缘距离场）
 import * as THREE from 'three';
 import { createKun } from '../src/kun_bronze.js';
 import { PALETTE, setToonGlobals } from '../src/toon.js';
-import { labRenderer, kunStats, keyLight, inkComposite, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, drawPasses } from './kun_bench.js';
+import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);
 const ROLL = +(q.get('roll') || 0), LOOK = !!q.get('look');
@@ -41,14 +41,14 @@ if (DBG) {
   await new Promise(() => {});   // 调试模式到此为止：模块停在这里，不再建 3D 场景
 }
 
-const { renderer, RW, RH } = labRenderer(2);
+const { renderer, RW, RH } = labRenderer(labPixelRatio(q));
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, W / H, 5, 6000);
 kunStats('kun_bronze', kun);
 scene.add(kun.group);
 
 const { key } = keyLight(scene, setToonGlobals);
-const { rtC, rtN, comp, skyCover } = await inkComposite({ RW, RH, W, H, PALETTE, q });
+const { skyCover, draw } = await labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q });   // 默认正片后期；&ink=lab 回退临时描边
 
 const ev = new THREE.Vector3();
 const EXTRA = {
@@ -67,14 +67,14 @@ const forced = EXTRA[q.get('view')];
 window.DUR = 4;
 window.render = t => {
   const { v, k } = pickView(BASE_VIEWS, forced, t, window.DUR);
-  const { ts, inkT } = frameTimes(t);                       // 鲲：一拍三（8 fps）；墨线一拍二
+  const { fr, ts, inkT } = frameTimes(t);                       // 鲲：一拍三（8 fps）；墨线一拍二
   camera.fov = v.fov; camera.updateProjectionMatrix();
   kun.group.updateMatrixWorld(true); kun.eyeWorld(ev, -1);
   if (v.cam) { camera.position.set(...v.cam(k)); camera.lookAt(...v.look(k)); }
   else eyeCloseup(camera, kun, ev, k);
   kun.setPose(ts, LOOK || v.eyeContact ? { look: camera.position } : {});
   skyCover(...v.sky);
-  drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlobals, inkT });
+  draw({ camera, setToonGlobals, inkT, fr });
 };
 const tw = performance.now();
 window.render(0); window.render(1.6); window.render(3.2);

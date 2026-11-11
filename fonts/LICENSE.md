@@ -1,6 +1,23 @@
 # fonts/ 字体许可说明
 
-本目录的字体全部是 **SIL Open Font License 1.1（OFL）**，可商用、可嵌入、可随作品分发，但不能单独出售字体本身。文件都是 **子集**：只含《北冥》显示层与片名用到的字，不是完整字体。子集由 Google Fonts CSS2 API 的 `&text=` 参数生成（2026-11-03 取得），重新生成见 `fetch_fonts.sh`。
+本目录的字体全部是 **SIL Open Font License 1.1（OFL）**，可商用、可嵌入、可随作品分发，但不能单独出售字体本身。`*.woff2` 都是 **子集**：只含《北冥》显示层与片名用到的字，不是完整字体。子集由 Google Fonts CSS2 API 的 `&text=` 参数生成（2026-11-03 取得，来历见下面「《北冥》共用子集的来历」）；它们是《北冥》的冻结基准（src/hud.js 与作品站都在用），**新作品不要重抓、不要改动**——新作品按自己的文字从锁定的原始字体子集化（下一节）。
+
+## 新作品的字体：锁定原始字体 + 按作品子集化
+
+- `fonts.lock.json` 锁定完整的 OFL 原始字体（Ma Shan Zheng 2.003、Noto Sans SC 2.004、Barlow 1.408 三个字重）：版本、上游提交、下载地址、大小与 sha256、版权行、保留字体名。字体本体不进 git（决定 D10），`node tools/fonts/fetch.mjs` 一次下载到缓存目录 `.cache/fonts/`（或环境变量 `BEIMING_FONT_CACHE`）并逐字节核对。
+- `licenses/` 是每款字体随发布的 OFL 全文（`fonts.lock.json` 里记了它们的 sha256）；子集化时随字体复制进作品目录。
+- `node tools/fonts/subset.mjs films/<名>` 按作品 `film.json` 的 `texts`（画面文字白名单）与 `fonts`（字族 → 锁定字体）离线生成 `films/<名>/fonts/*.woff2` + `fonts.json` 清单；原始字体里没有的字直接失败并列出该字。页面用 `engine/style/fonts.js` 读同一份清单，画字前再核对一遍，缺字就报错，绝不回退系统字体。
+- 子集化用 Python fontTools（`npm run setup` 装好；解释器按 `tools/env/py.mjs` 的统一顺序找，也可设 `BEIMING_PYTHON`）；同样的输入得到逐字节相同的子集（固定 `SOURCE_DATE_EPOCH`）。`fonts.json` 里附逐条文字的覆盖率报告。
+
+## 《北冥》共用子集的来历
+
+2026-11-03 用 Google Fonts CSS2 API 的 `&text=` 参数在线取得（当时的脚本 `fonts/fetch_fonts.sh` 已删除：它联网、不校验哈希、会覆盖这几个冻结文件；原文见提交 42ecc79 及以前的历史）。请求参数原样记在这里，**只用于核对来历，不要再跑**：
+
+| 文件 | CSS2 请求 | `&text=` 收的字（去重排序后 URL 编码） |
+|---|---|---|
+| `NotoSansSC-var.woff2` | `family=Noto+Sans+SC:wght@300..500` | `05:54 远洋聘书·回复截止06:00 识别中…未能识别 导航·吴淞口23km AI眼镜·品牌短片·概念样片 提醒距还有分钟已发送0123456789%` |
+| `Barlow-300/400/500.woff2` | `family=Barlow:wght@300;400;500` | `0123456789:·…%. kmAIKM` |
+| `MaShanZheng-400.woff2` | `family=Ma+Shan+Zheng` | `北冥` |
 
 | 文件 | 字体（字重） | 子集内容 | 用途 | 版权行（读自字体 name 表 ID 0） | 许可地址（name 表 ID 14） |
 |---|---|---|---|---|---|

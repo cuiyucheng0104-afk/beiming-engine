@@ -29,7 +29,7 @@ npm run env:doctor -- --route a
 | Python | 3.12 | `.python-version`；`requirements.in` → `requirements.lock`（macOS arm64、Windows x64、Linux x64，带哈希，只用二进制轮子） | `python.interpreter`、`python.packages` |
 | 原生运行时（B 路线） | 0.1.0-canary.2 | `RAEA_BIN` 指向的安装包里的 `share/raea/VERSION`；可执行文件的 sha256 与 `tools/env/spec.json` 的 `raea.knownBinaries` 按平台登记的已验证构建比对（不同则告警） | `raea.runtime`（`--route b`） |
 
-锁文件里的 Python 包：numpy 2.5.4、scipy 1.18.1、numba 0.68.1（llvmlite 0.50.0）、soundfile 0.14.0、soxr 1.1.0、pillow 13.0.0，以及它们的依赖。完整清单与哈希见 [`requirements.lock`](../requirements.lock)。三个目标平台解析出同一组版本，且都有 Python 3.12 的二进制轮子（`node tools/env/lock.mjs --check` 核对）。在锁定环境里重建《北冥》混音，`out/mix.wav` 的 sha256 是 `aebcb955d73e…`，与 numpy 2.5.3 / numba 0.67.0 的旧环境逐字节相同（2026-11-10，macOS arm64）；各平台的混音金标准由声音链路维护。
+锁文件里的 Python 包：numpy 2.5.4、scipy 1.18.1、numba 0.68.1（llvmlite 0.50.0）、soundfile 0.14.0、soxr 1.1.0、pillow 13.0.0、fonttools 4.68.0、brotli 1.2.1（A 路线字体子集化），以及它们的依赖。完整清单与哈希见 [`requirements.lock`](../requirements.lock)。三个目标平台解析出同一组版本，且都有 Python 3.12 的二进制轮子（`node tools/env/lock.mjs --check` 核对）。在锁定环境里重建《北冥》混音，`out/mix.wav` 的 sha256 是 `aebcb955d73e…`，与 numpy 2.5.3 / numba 0.67.0 的旧环境逐字节相同（2026-11-10，macOS arm64）；各平台的混音金标准由声音链路维护。
 
 QA 还会用到 blackdetect、freezedetect、signalstats、select、gblur、ssim、psnr 滤镜和 framemd5 封装；缺了只告警。Playwright 安装浏览器时会顺带下载一个精简版 ffmpeg，它没有 libx264，不能用来出片，doctor 会指出来。
 
@@ -141,13 +141,18 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 
 | 变量 | 归属 | 作用 | 默认 |
 |---|---|---|---|
-| `BEIMING_ANGLE` | 渲染（engine/render） | 无头浏览器的 ANGLE 后端：metal / vulkan / gl / d3d11 / swiftshader / default | macOS 为 metal，其它平台不传参数；Windows 双显卡机上会落到核显，NVIDIA 机器设 vulkan |
+| `BEIMING_ANGLE` | 渲染（engine/render） | 无头浏览器的 ANGLE 后端：metal / vulkan / gl / d3d11 / swiftshader / default | macOS metal、Windows vulkan、Linux 不传参数；写错或平台不对时渲染器退出 2 |
 | `BEIMING_CHROME` | 渲染（engine/render） | 改用指定的浏览器可执行文件 | 锁定的 headless shell 153；不设最好，换浏览器会破坏跨机器一致性 |
 | `BEIMING_READY_TIMEOUT` | 渲染（engine/render） | 等页面声明 `window.READY` 的上限（秒） | 180 |
-| `BEIMING_FRAME_TIMEOUT` | 渲染（engine/render） | 单帧 `render(t)` 的上限（秒），超时按失败处理 | 300 |
+| `BEIMING_FRAME_TIMEOUT` | 渲染（engine/render） | 单帧 `render(t)` 的上限（秒），超时按失败处理 | 60 |
+| `BEIMING_GPU` | 渲染（engine/render） | `--gpu` 的默认值：required（软件渲染判失败，退出 3）/ any（允许并记提示）/ software-ok（CI、没有 GPU 的机器、资产烘焙） | required |
+| `BEIMING_SLOT_DIR` | 渲染（engine/render） | 机器级渲染槽位的目录（多个渲染排队用） | <系统临时目录>/beiming-render-slots-<用户> |
+| `BEIMING_SLOT_HELD` | 渲染（engine/render） | 设为 1 表示外层调度已替这次渲染占了槽位，渲染器不再另占 | 不设 |
+| `BEIMING_GPU_BUSY_UTIL` | 渲染（engine/render） | 共享 GPU 守卫：任一 NVIDIA 卡占用率（%）高于它就排队等 | 10 |
+| `BEIMING_GPU_MIN_FREE_MB` | 渲染（engine/render） | 共享 GPU 守卫：任一 NVIDIA 卡空闲显存（MB）低于它就排队等 | 2048 |
 | `WORKERS` | 渲染（engine/render） | `build.sh` 1080p 出片时并行的浏览器数 | 4 |
 | `WORKERS_4K` | 渲染（engine/render） | `build.sh --4k` 时并行的浏览器数 | 8 |
-| `FFMPEG` | 编码 | ffmpeg 可执行文件（完整路径）。目前只有 B 路线入口与 `tools/env` 识别；`engine/render/video.mjs`、`mux.sh`、`build.sh`、`audio/check.py` 仍从 PATH 调用 | PATH 里的 ffmpeg |
+| `FFMPEG` | 编码 | ffmpeg 可执行文件（完整路径）。`engine/render`（video / shots / mux）与 `tools/env` 都经 `ffmpegBins` 解析；`build.sh`、`audio/check.py` 仍从 PATH 调用 | PATH 里的 ffmpeg |
 | `FFPROBE` | 编码 | ffprobe 可执行文件，识别范围同上 | PATH 里的 ffprobe |
 | `BEIMING_PYTHON` | Python | 指定解释器（正式名，优先级最高） | 按上一节的顺序查找 |
 | `BEIMING_PY` | Python | `BEIMING_PYTHON` 的别名（C 路线 `build.mjs` 沿用） | 同上 |
@@ -158,6 +163,10 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `NUMBA_CACHE_DIR` | Python（numba） | numba 编译缓存目录；仓库目录只读时改到可写处 | `engine/audio/__pycache__` |
 | `BEIMING_SAMPLES` | 声音 | CC0 采样库目录；只有重渲配乐（`sh audio/build.sh --score`）需要 | 不设，用 `audio/score_cache.npz` |
 | `BEIMING_CJK_FONT` | 声音 | 声音自检图（`engine/audio/scope.py`）用的中文字体文件；找不到系统中文字体时设它 | 按 macOS、Windows（`%WINDIR%\Fonts`）、Linux 的常见位置查找 |
+| `BEIMING_AUDIO_OUT` | 声音 | 统一出片传给作品声音脚本的输出 wav 路径（`out/<运行号>/audio/mix.wav`），不要手动设 | 由统一出片设置；单独跑 `sound.py` 时写 `films/<名>/out/mix.wav` |
+| `BEIMING_FPS` | 声音 | 统一出片传给声音脚本的帧率；A 模版 `sound.py` 与 `film.json` 不一致时退出 4 | 由统一出片设置 |
+| `BEIMING_FRAMES` | 声音 | 统一出片传给声音脚本的总帧数，核对方式同上 | 由统一出片设置 |
+| `BEIMING_FONT_CACHE` | 字体（tools/fonts） | 原始 OFL 字体的缓存目录（`fetch` 下载、`subset` 子集化都读它）；多个检出可以共用一份 | 仓库根的 `.cache/fonts`（已被 git 忽略） |
 | `BEIMING_SH` | 过渡期 sh | POSIX sh 的完整路径；Windows 上 Git for Windows 装在非默认位置时用。sh 入口全部改成 Node 后不再需要 | PATH 里的 sh；Windows 上再找 Git for Windows 的 `bin\sh.exe` |
 | `RAEA_BIN` | B 路线 | 原生运行时可执行文件的完整路径；安装包要保留 `bin/` 与 `share/` | 不设（B 路线必需） |
 | `BNE_ALLOW_VERSION` | B 路线 | 临时放行未验证的运行时版本（先重跑验收） | 不设 |
@@ -170,7 +179,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `RAEA_BAKE_WORKERS` | B 路线（原生运行时） | 运行时的烘焙并发；逐帧比对时设 1 | 运行时默认 |
 | `LEMO_ANGLE` | C 路线历史复刻 | 风格库甲（`cases/vendor/lemo-opuscar`）渲染核心的 ANGLE 后端，作用同 `BEIMING_ANGLE` | 该库默认 |
 | `PLAYWRIGHT_CHROME` | C 路线历史复刻 | 风格库甲渲染核心的浏览器可执行文件，作用同 `BEIMING_CHROME` | 该库默认 |
-| `RENDER_SLOTS` | C 路线历史复刻 | 风格库甲渲染核心的整机并发名额 | 该库默认 |
+| `RENDER_SLOTS` | C 路线历史复刻 | 整机渲染并发名额：`engine/render`（`--slots` 的默认值）与风格库甲的渲染核心都认 | 不设不限（风格库甲按该库默认） |
 | `HWGPU` | C 路线历史复刻 | 风格库乙（`cases/vendor/sy-style-100`）的 `render.js` 设 1 才用显卡，等同 `--hwgpu` | 不设时软件渲染 |
 | `PLAYWRIGHT_BROWSERS_PATH` | 安装与镜像（playwright） | 浏览器安装目录；设成仓库内 `.cache/ms-playwright` 可避免与别的项目共用全局缓存 | macOS `~/Library/Caches/ms-playwright`；Linux `~/.cache/ms-playwright`；Windows `%LOCALAPPDATA%\ms-playwright` |
 | `PLAYWRIGHT_DOWNLOAD_HOST` | 安装与镜像（playwright） | 浏览器下载镜像 | cdn.playwright.dev |
@@ -260,15 +269,13 @@ npm run setup
 
 ## sh 入口盘点
 
-仓库里还有 5 个 POSIX sh 入口。它们是 Windows 上「PowerShell 里直接跑」的主要障碍，按下表改成 Node 或 Python 入口后，doctor 的 `shell.sh` 一项自动消失（清单的机器可读版本在 `tools/env/spec.json` 的 `shEntrypoints`，doctor 与本表同源）。
+仓库里还有 3 个 POSIX sh 入口（A 模版的 `build.sh` 与 `fonts/fetch_fonts.sh` 已删，分别由 `npm run film -- build` 与 `node tools/fonts/fetch.mjs` 取代）。它们是 Windows 上「PowerShell 里直接跑」的主要障碍，按下表改成 Node 或 Python 入口后，doctor 的 `shell.sh` 一项自动消失（清单的机器可读版本在 `tools/env/spec.json` 的 `shEntrypoints`，doctor 与本表同源）。
 
 | 入口 | 属主 | 谁在调用 | 替代方案 |
 |---|---|---|---|
 | `build.sh` | P06 | `npm run build`；`tests/production/render-pipeline.test.mjs` | `node tools/film/cli.mjs build . --profile beiming-1040p24`；`build.sh` 留一个版本作兼容壳 |
 | `audio/build.sh` | P11 | `build.sh` | Python 入口 `audio/build.py`，经 `node tools/env/py.mjs audio/build.py` 调用，由 tools/film 的混音步骤接上 |
-| `engine/render/mux.sh` | P04 | `build.sh`、`engine/render/build.mjs`、`engine/render/native.mjs`、`audio/check.py`、A 模版的 `build.sh`、`tests/production/render-pipeline.test.mjs` | `engine/render/lib/mux.mjs`：参数与退出码不变；ffmpeg 经 `FFMPEG` / `FFPROBE` 解析；两遍响度用 ebur128 的结果在 Node 里算；`mux.sh` 改成调用它的薄壳 |
-| `routes/a-webgl/template/build.sh` | P12 | 复制成 `films/<名>/build.sh` | `npm run film -- build films/<名>`（P06 按 `film.json` 分派），模版不再带 `build.sh` |
-| `fonts/fetch_fonts.sh` | P12 | 手动运行 | `node tools/fonts/fetch.mjs`：只用 `fetch` 与 `node:crypto`，按锁定清单校验 sha256 |
+| `engine/render/mux.sh` | P04 | `build.sh`、`engine/render/build.mjs`、`engine/render/native.mjs`、`audio/check.py`、`tests/production/render-pipeline.test.mjs` | `engine/render/lib/mux.mjs`：参数与退出码不变；ffmpeg 经 `FFMPEG` / `FFPROBE` 解析；两遍响度用 ebur128 的结果在 Node 里算；`mux.sh` 改成调用它的薄壳 |
 
 给改写这些入口的人，`tools/env/` 里有现成的跨平台积木，不要再各写一套：
 

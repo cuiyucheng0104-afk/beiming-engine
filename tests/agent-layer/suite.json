@@ -1,0 +1,4 @@
+{
+  "description": "agent 执行层：护栏钩子 .claude/hooks 的判定与命令行、提交前检查 .githooks（一次性 git 仓库里真由 git 调起）、仓库设置与 skill、检索范围 .ignore、规范检查 agent 域规则",
+  "timeoutSec": 300
+}
