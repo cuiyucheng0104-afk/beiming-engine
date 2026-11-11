@@ -12,7 +12,7 @@ import { join, relative } from 'node:path';
 import { chromium } from 'playwright-core';
 import { REPO, runFilm } from './helpers.mjs';
 
-const has = cmd => spawnSync(cmd, ['-version'], { stdio: 'ignore' }).status === 0;
+const has = cmd => spawnSync(cmd, ['-version'], { stdio: 'ignore', timeout: 10_000 }).status === 0;   // 同步子进程一律限时（阻塞事件循环，用例超时打断不了）
 const browserOk = (() => { try { return Boolean(process.env.BEIMING_CHROME) || existsSync(chromium.executablePath()); } catch { return false; } })();
 const skip = !has('ffmpeg') || !has('ffprobe') ? '没有 FFmpeg / ffprobe' : !browserOk ? '没有 Playwright 浏览器（npm run setup）' : false;
 
@@ -68,7 +68,7 @@ test('只改一个镜头的 out：渲染出的切点、QA 检出的切点、QA �
 
     // 4. 重新渲染：画面切点跟着 film.json 到了 [60, 84]，帧数 132，QA 通过
     const after = render(film, work, 'after');
-    const frames = spawnSync('ffprobe', ['-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', after], { encoding: 'utf8' }).stdout.trim();
+    const frames = spawnSync('ffprobe', ['-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', after], { encoding: 'utf8', timeout: 60_000 }).stdout.trim();
     assert.equal(Number(frames), 132);
     const q1 = qaCuts(after, film);
     assert.equal(q1.status, 'pass', JSON.stringify(q1.cuts));
