@@ -134,6 +134,46 @@ test('刻意画面与豁免帧段（qa 段）也跟着镜头走：ripple 平移�
   assert.equal(shotSignature(r.normalized, 'S2'), shotSignature(validateFilm(film, { checkFiles: false }).film, 'S2'));
 });
 
+test('roll 换了归属的那几帧：贴切点的刻意画面与豁免跟着切点走，整段让给另一镜或被碰到的拒绝；校验器核对写了 shot 的刻意画面在那一镜里', () => {
+  const film = minimalFilm({
+    output: { ...minimalFilm().output, frameCount: 120 },
+    shots: [{ id: 'S1', in: 0, out: 48 }, { id: 'S2', in: 48, out: 72 }, { id: 'S3', in: 72, out: 120 }],
+    qa: { intentional: [{ kind: 'black', from: 48, to: 52, shot: 'S2', reason: 'S2 开头黑一下再亮' }] },
+  });
+  assert.deepEqual(validateFilm(film, { checkFiles: false }).diagnostics.filter(d => d.level === 'error'), []);
+  // 复核意见的复现：切点往后挪到 56，S2 开头的黑场 [48, 52) 整段会变成 S1 的画面 → 拒绝（原来静默通过，QA 会把 S1 的帧当成刻意黑场放行）
+  assert.throws(() => retime(film, 'S1', { out: 56 }, { mode: 'roll' }), e => e.code === 'retime-conflict' && /qa\.intentional\[0\] \[48, 52\) 从切点开始/.test(e.message));
+  // 不越过它的止点：贴着切点的那一端跟着切点走，仍在 S2 里
+  const ok = retime(film, 'S1', { out: 50 }, { mode: 'roll' });
+  assert.deepEqual([ok.film.qa.intentional[0].from, ok.film.qa.intentional[0].to], [50, 52]);
+  assert.deepEqual(ok.moved.ranges, [{ label: 'qa.intentional[0]', from: [48, 52], to: [50, 52] }]);
+  // 切点往前挪到 40：[40, 48) 改归 S2。S1 里不贴切点却落在这几帧上的停住拒绝；到切点为止、整段让出去的拒绝；跨过新旧两个切点的不动
+  const back = structuredClone(film);
+  back.qa.intentional = [
+    { kind: 'freeze', from: 42, to: 46, reason: 'S1 里停一下' },
+    { kind: 'freeze', from: 44, to: 48, reason: 'S1 结尾停住' },
+    { kind: 'flash', from: 30, to: 60, reason: '跨切点的长闪白' },
+  ];
+  assert.throws(() => retime(back, 'S1', { out: 40 }, { mode: 'roll' }), e => e.code === 'retime-conflict'
+    && /qa\.intentional\[0\] \[42, 46\) 碰到换了镜头的 \[40, 48\)：roll 后这几帧是 S2 的画面/.test(e.message)
+    && /qa\.intentional\[1\] \[44, 48\) 到切点为止，整段落在让给 S2 的 \[40, 48\) 里/.test(e.message)
+    && !/qa\.intentional\[2\]/.test(e.message));
+  back.qa.intentional.splice(0, 2);
+  assert.deepEqual(retime(back, 'S1', { out: 40 }, { mode: 'roll' }).film.qa.intentional[0], back.qa.intentional[0]);
+  // 豁免帧段同一规则
+  const w = structuredClone(film);
+  w.qa = { waivers: [{ check: 'texts.duration', target: 'sub', frames: [50, 54], reason: '字幕短闪', approvedBy: '用户', quote: '那行字闪一下就行', source: '会话第 7 条' }] };
+  assert.throws(() => retime(w, 'S1', { out: 56 }, { mode: 'roll' }), e => e.code === 'retime-conflict' && /qa\.waivers\[0\]\.frames/.test(e.message));
+  // 手改切点（不走 retime）让写了 shot 的刻意画面落到别的镜头：校验器判错并说出它实际落在哪一镜
+  const hand = structuredClone(film);
+  hand.shots[0].out = 56; hand.shots[1].in = 56;
+  const d = validateFilm(hand, { checkFiles: false }).diagnostics.find(x => x.code === 'qa-intentional-outside-shot');
+  assert.ok(d && d.level === 'error' && /不在它标注的镜头 S2 \[56, 72\) 里（它落在 S1）/.test(d.message), JSON.stringify(d));
+  // 跨切点的刻意画面不写 shot：不判
+  const span = structuredClone(film); span.qa.intentional = [{ kind: 'flash', from: 44, to: 52, reason: '跨切点的闪白' }];
+  assert.deepEqual(validateFilm(span, { checkFiles: false }).diagnostics.filter(x => x.level === 'error'), []);
+});
+
 test('缩短镜头时会被剪掉的事件拒绝改动，不替你删；节拍主导的片子不许 ripple', () => {
   const raw = beiming();
   assert.throws(() => retime(raw, 'B', { out: 84 }), err => err.code === 'retime-conflict' && /girl\.touch/.test(err.message));

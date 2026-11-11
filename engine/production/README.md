@@ -46,7 +46,7 @@
 | `output` | `profile` 必填，宽、高、帧率必须等于档位；`frameCount` 是时长的唯一来源。新作品默认 `web-1080p24`；`beiming-1040p24` 只给《北冥》样片 |
 | `shots` | 半开区间 `[in, out)`，首尾相接，正好覆盖 `[0, frameCount)`；切点要落在本镜各轨道一拍 n 的公倍数帧（`tracks[].step`、`actorClockOrigin`），否则提示 `cut-off-step`。作品必填；模版可以不写（`new-film` 生成作品时补整片一个镜头 `S1`，`check --template` 按同一口径读） |
 | `events` | `frame` 是结果帧（看见或听见的那一帧），必须落在 `shot` 里；`end` 不含；写了 `beat` 就必须与 `frame` 同源（第 b 拍所在帧取 floor）；声音写 `audio`（声音表的 cue id）。`sync` 与机器 QA 同口径：不写 = 起音对结果帧的硬门，`lip` 口型类可晚 2 帧，`soft` 缓起类超出只记注意，`none` 不查（铺底、渐入） |
-| `qa` | 机器 QA 段（`tools/qa` 读它，[QA-GATE.md](../../docs/quality/QA-GATE.md)）：`intentional` 是刻意的静帧、黑场、闪白（`{ kind, from, to, reason }`，半开区间、写理由；是设计声明，不是豁免）；`safeArea` / `texts` / `visual` / `sync` / `plates` 按键覆盖档位阈值（键名必须是档位里有的）；`clearColor`；`waivers` 是用户批准的 QA 豁免（`approvedBy`、`quote`、`source` 必填，不能是 agent）。改切点时 `intentional` 与豁免帧段跟着镜头走 |
+| `qa` | 机器 QA 段（`tools/qa` 读它，[QA-GATE.md](../../docs/quality/QA-GATE.md)）：`intentional` 是刻意的静帧、黑场、闪白（`{ kind, from, to, reason }`，半开区间、写理由；是设计声明，不是豁免）；`safeArea` / `texts` / `visual` / `sync` / `plates` 按键覆盖档位阈值（键名必须是档位里有的）；`clearColor`；`waivers` 是用户批准的 QA 豁免（`approvedBy`、`quote`、`source` 必填，不能是 agent）。改切点时 `intentional` 与豁免帧段跟着镜头走；`intentional[].shot` 写了就必须落在那一镜里（`qa-intentional-outside-shot`），跨切点的不写 `shot` |
 | `timeline` | 节拍三种写法只能用一种：`sections`（按 BPM 分段，`start` 为整数帧）、`beats`（逐拍帧表）、`bars`（小节数组，每小节逐拍帧数）。`drive: "beat"` 时必填（C 路线写 `tempo`） |
 | `tempo` / `cues` | C 路线页面的节拍写法（`routes/c-style/template`）：`tempo` 是 `engine/core/tempo.js` 的段落表 `[{ id, t0, bpm, meter }]`（`t0` 秒，必须落在整帧），`cues` 是画面打点 `{ 名字: [段落, 小节, 拍, 拍内分数] }`。与 `timeline` 只能写一种。校验用页面的同一公式（`createTempo().at`）：每个打点要落在整帧（容差 1e-4 帧，与页面自检相同）、在片长之内，段落存在、拍号不超出小节 |
 | `audio` | `mode`：`script`（声音脚本）、`wav`（现成混音）、`none`、`native`（B 路线）。`targetLUFS` 省略时取档位值 |
@@ -72,6 +72,7 @@
   - `ripple`：本镜之后的镜头、事件、刻意画面与豁免帧段（`qa`）、海报帧与角色时钟起点整体平移，总帧数随之变；节拍主导的片子拒绝 ripple。
   - `roll`：只挪本镜与下一镜之间的切点，总帧数不变。
   - 贴着切点的事件跟着切点走：本镜里 `end` 等于旧出点的（整镜铺底）改到新出点；roll 时下一镜落在旧切点上的事件与从切点起算的角色时钟改到新切点。会让事件落到镜头外的改动一律拒绝（exit 4），不替你删改。
+  - 刻意画面与豁免帧段（`qa`）同一规则：roll 时新旧切点之间那几帧换了镜头，贴着切点的区间那一端跟着切点走；整段让给另一镜的、不贴切点却碰到这几帧的一律拒绝（不让「S2 的刻意黑场」静默落进 S1）；跨过新旧两个切点的不动。
 - 签名：`timingSignature`（切点）、`eventsSignature`（事件）给闸门判断「认可之后改没改」；`shotSignature(film, id)` 与镜头在片中的位置无关（只平移不改内容的镜头不重渲），给镜头级缓存键。
 - 节拍：`beatGrid(timeline, { fps, frameCount })` 把三种写法统一成拍点帧表；`frameOfBeat`、`beatAt`、`beatOf`、`offGrid`（不落整帧的拍点）。与 `engine/core/tempo.js` 同一公式：页面读 film.json 的 `timeline.sections` 时用 `createTempoFromFrames`，事件帧用 `tempo.frame(段, 小节, 拍, 拍内分数)`。
 
