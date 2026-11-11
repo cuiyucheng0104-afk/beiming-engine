@@ -28,7 +28,7 @@ node tools/audio/voice.mjs providers                              # 列出服务
   { "id": "L1", "speaker": "narrator", "text": "北冥有鱼，其名为鲲。", "at": 24 },
   { "id": "L2", "speaker": "girl", "text": "鲲之大，不知其几千里也。", "read": "鲲之大，<#0.3#>不知其几千里也。", "at": 96, "end": 216 }
  ],
- "subtitles": { "maxChars": 18, "maxLines": 2 }
+ "subtitles": { "maxLines": 2 }
 }
 ```
 
@@ -49,7 +49,7 @@ node tools/audio/voice.mjs providers                              # 列出服务
 | `onsets.json` | `{onsets: {句子: 开口秒}}`，`node tools/audio/cuecheck.mjs <作品> --onsets <它>` 可以核对画面事件 |
 | `voice.json` | 每句的服务、缓存键、计时方法（`tts` 逐字时间戳 / `proportional` 比例分配）、开口与说完的时刻、警告 |
 
-字幕规则（数字都能在 `subtitles` 段改）：跟着声音起止；每行 ≤ 18 字、最多两行、每条 ≤ 7 秒，超了在标点处拆；断行守避头尾；停留 ≥ max(1.8 秒, 台词时长 + 0.6 秒) 但给下一条留 2 帧间隔；说完后离切点不到 12 帧吸附到切点；每秒超过 9 字只告警。中文影视字幕习惯：行末的全角 ，。、；： 去掉，行内的 ，、 换空格（`"punct": "keep"` 关掉）。依据：`routes/directing/DIRECTING.md` 步骤 9、`VISUAL-DESIGN.md` §6.3、`craft/animation.md` §5.6。
+字幕规则（数字都能在 `subtitles` 段改）：跟着声音起止；每行字数按画幅（图文安全区宽 ÷ 字高：横屏 18 字、竖屏 1080×1920 为 10 字；`maxChars` 写得更大会报 `voice.subtitle-too-wide`）、最多两行、每条 ≤ 7 秒，超了在标点处拆；断行守避头尾；停留 ≥ max(1.8 秒, 台词时长 + 0.6 秒) 但给下一条留 2 帧间隔；说完后离切点不到 12 帧吸附到切点；每秒超过 9 字只告警。中文影视字幕习惯：行末的全角 ，。、；： 去掉，行内的 ，、 换空格（`"punct": "keep"` 关掉）。依据：`routes/directing/DIRECTING.md` 步骤 9、`VISUAL-DESIGN.md` §6.3、`craft/animation.md` §5.6。
 
 ## 接进作品
 

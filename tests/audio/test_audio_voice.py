@@ -271,6 +271,29 @@ class Units(unittest.TestCase):
         self.assertIn('secret-tool store', hint)
         self.assertIn('cmdkey /generic', hint)
 
+    def test_vertical_frame_lines_fit_title_safe(self):
+        """竖屏 1080×1920（D07 的 vertical-1080x1920-30）：每行字数缺省按画幅（10 字），17 字的句子拆行后每行都在图文安全区里
+        （宽度按 texts.mjs 的排版估算：全角 1 em、其他 0.55 em，字高 = 画高 × 4.5%）"""
+        self.assertEqual((ST.fit_chars(1920, 1080), ST.fit_chars(1080, 1920), ST.fit_chars(3840, 2160)), (18, 10, 18))
+        film = H.tmpdir('voice-vertical')
+        self.addCleanup(shutil.rmtree, film, True)
+        H.film_json(film, frames=300, fps=30, cuts=(150,), profile='vertical-1080x1920-30', size=(1080, 1920))
+        dialogue(film, lines=[{'id': 'V1', 'speaker': 'narrator', 'text': '北冥有鱼其名为鲲鲲之大不知其几千里也', 'at': 30}])
+        r, env = voice('build', film)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        texts = H.read_json(os.path.join(film, 'out', 'dialogue', 'texts.json'))
+        px = round(0.045 * 1920)
+        lines = [ln for c in texts['cues'] for ln in c['lines']]
+        self.assertGreater(len(lines), 1)
+        for ln in lines:
+            em = sum(1.0 if AL._is_cjk(ch) or ord(ch) >= 0x2E80 else 0.55 for ch in ln)
+            self.assertLessEqual(em * px, 0.9 * 1080, f'{ln!r} 超出图文安全区')
+        self.assertFalse([w for w in env['warnings'] if w['code'] == 'voice.subtitle-too-wide'])
+        dialogue(film, lines=[{'id': 'V1', 'speaker': 'narrator', 'text': '北冥有鱼', 'at': 30}], subtitles={'maxChars': 18})
+        r, env = voice('build', film)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        self.assertIn('voice.subtitle-too-wide', [w['code'] for w in env['warnings']])
+
     def test_keychain_query_times_out_instead_of_hanging(self):
         """钥匙串要授权时 security / secret-tool 会弹窗等人：查询有上限，超时按没有密钥处理，原因进 how_to_set 的说明"""
         import time

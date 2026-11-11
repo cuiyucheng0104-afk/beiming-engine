@@ -3,7 +3,8 @@
 
 规则（routes/directing/DIRECTING.md 步骤 9、VISUAL-DESIGN.md §6.3、craft/animation.md §5.6；数字都可在 dialogue.json 的 subtitles 段改）：
   · 字幕跟着声音起止：起点 = 这一条第一个字开口的那一帧（floor，字幕不晚于声音），台词说完后再留一会儿；
-  · 每行不超过 maxChars（默认 18，汉字与全角标点算 1，拉丁字母与数字算 0.5），最多 maxLines 行（默认 2），每条最长 maxSec（默认 7 秒）；
+  · 每行不超过 maxChars（汉字与全角标点算 1，拉丁字母与数字算 0.5；默认按画幅：图文安全区宽 ÷ 字高，最多 18——横屏 1920×1080
+    是 18，竖屏 1080×1920 是 10，见 fit_chars），最多 maxLines 行（默认 2），每条最长 maxSec（默认 7 秒）；
     超出就在标点处（其次在字与字之间）切成几条，每条的时间取它自己那几个字的时间；
   · 断行守避头尾（W3C clreq）：行首不放 ，。、；：？！）》」』】… 这类收尾标点，行尾不放（《「『【 这类开头标点；两行尽量等长；
   · 停留：每条不少于 max(minSec 1.8 秒, 台词时长 + holdSec 0.6 秒)，但给下一条让出 gapFrames（默认 2 帧）的间隔
@@ -16,6 +17,7 @@
 
 接口：
   Config(**dialogue.json 的 subtitles 段)
+  fit_chars(width, height) → 这个画幅一行放得下的字数（maxChars 的缺省值；写得比它大会出图文安全区）
   tokens(text) → [Tok(text, kind, start, end, width)]       kind：char / word / punct；start/end 是在原文里的下标（保留原文的空格）
   cue_texts(text, units_timed, cfg) → [{text, lines, t0, t1, chars}]   units_timed = [[单位, 起秒, 止秒], …]（align 的输出，绝对时间）
   layout_frames(cues, fps, cfg, cuts=(), frames=None) → (cues 加 startFrame / endFrame / speechEndFrame, warnings)
@@ -33,6 +35,13 @@ OPEN = AL.OPEN
 DROP_END = set('，。、；：')         # 只动全角（中文）标点；拉丁文字幕的标点照原样
 SOFT_INNER = set('，、。；：')        # 行内的这些换成空格（？！… 保留）
 BREAK_AFTER = {3: set('。！？!?…'), 2: set('；;：:'), 1: set('，,、—')}
+
+
+SIZE_RATIO, SAFE_W, WORST_EM = 0.045, 0.9, 1.1   # 字高占画高、图文安全区占画宽（同 texts.mjs 的排版）；一个字数单位最宽 1.1 em（拉丁 0.55 em 算半个）
+
+
+def fit_chars(width, height, cap=18):
+    return max(4, min(cap, int(SAFE_W * width / (WORST_EM * round(SIZE_RATIO * height)))))
 
 
 class Config:

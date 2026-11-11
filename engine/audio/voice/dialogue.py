@@ -16,7 +16,7 @@ dialogue.json（schema "beiming.dialogue/1"，放在作品目录；别的位置�
         "audio": "vo/L1.wav",                        可选：已经录好的音频（相对本文件），不走 TTS
         "gainDb": 0, "pan": 0, "visemes": [...]     可选
       } ],
-    "subtitles": { "maxChars": 18, "maxLines": 2, … }   可选，字段见 engine/audio/voice/subtitles.py 的 Config
+    "subtitles": { "maxLines": 2, … }                   可选，字段见 engine/audio/voice/subtitles.py 的 Config（maxChars 缺省按画幅）
     "lips": { "leadFrames": 1, "step": 1 }             可选：口型比声音提前几帧、几帧出一个口型（一拍二写 2）
   }
 
@@ -207,12 +207,16 @@ def build(dialogue, film=None, out=None, cache=None, offline=False, provider=Non
     base = (fs or {}).get('filmDir') or os.path.dirname(dpath)
     out = os.path.abspath(out or os.path.join(base, 'out', 'dialogue'))
     cache_dir = os.path.abspath(cache or os.path.join(base, 'out', 'cache', 'voice'))
-    cfg = ST.Config(**(d.get('subtitles') or {}))
+    fit = ST.fit_chars(*size)
+    cfg = ST.Config(**dict({'maxChars': fit}, **(d.get('subtitles') or {})))     # 每行字数缺省按画幅（竖屏放不下 18 字）
     lips_cfg = {'leadFrames': 1, 'step': 1}
     lips_cfg.update(d.get('lips') or {})
     store = CA.Cache(cache_dir)
     os.makedirs(out, exist_ok=True)
     warns, rows, cues, lip_rows, placed = [], [], [], [], []
+    if cfg.maxChars > fit:
+        warns.append({'code': 'voice.subtitle-too-wide', 'message': f'subtitles.maxChars = {cfg.maxChars}：{size[0]}×{size[1]} 的画面按 4.5% 字高'
+                      f'一行只放得下 {fit} 个字，长句会超出图文安全区', 'hint': f'删掉 maxChars（按画幅取 {fit}），或写不大于 {fit} 的数'})
     wd = PV.workdir()
     try:
         for ln in d['lines']:
