@@ -59,17 +59,6 @@
     {
       "rule": "comp.private-network",
       "path": "tools/test_casebook.py",
-      "match": "192.168.x.x",
-      "kind": "pending",
-      "reason": "还原 @@ROG_HOST@@ 的测试用了工作站的真实内网地址；测试只需要一个主机名，应改成文档专用地址（RFC 5737，如 192.0.2.10）或 rtx-workstation.example",
-      "owner": "P16",
-      "added": "2026-11-10",
-      "expires": "2026-12-15",
-      "ref": "P01 汇报 cross_package_requests：P16 tools/test_casebook.py"
-    },
-    {
-      "rule": "comp.private-network",
-      "path": "tools/test_casebook.py",
       "match": "RO…@192",
       "kind": "pending",
       "reason": "同上一条：同一行的 SSH 目标写了真实工作站地址",
@@ -77,61 +66,6 @@
       "added": "2026-11-10",
       "expires": "2026-12-15",
       "ref": "P01 汇报 cross_package_requests：P16 tools/test_casebook.py"
-    },
-    {
-      "rule": "comp.local-paths",
-      "path": "engine/render/page.mjs",
-      "match": ":\\beiming",
-      "kind": "pending",
-      "reason": "注释举例用了工作站上的真实目录（目录联接的两端）；改成中性占位（如「仓库所在盘上的链接目录 → 真实目录」）",
-      "owner": "P04",
-      "added": "2026-11-10",
-      "expires": "2026-12-15",
-      "ref": "P01 汇报 cross_package_requests：P04 engine/render/page.mjs"
-    },
-    {
-      "rule": "comp.local-paths",
-      "path": "examples/raea/README.md",
-      "match": ":\\北冥",
-      "kind": "pending",
-      "reason": "PowerShell 示例写了工作站上运行时的真实安装路径；改成占位（如 '<运行时目录>\\raea\\bin\\raea.exe'）",
-      "owner": "P14",
-      "added": "2026-11-10",
-      "expires": "2026-12-15",
-      "ref": "P01 汇报 cross_package_requests：P14 examples/raea/README.md"
-    },
-    {
-      "rule": "comp.provenance",
-      "path": "engine/core/math.js",
-      "match": "cases/vendor/lemo-opuscar/core/lib.js",
-      "kind": "pending",
-      "reason": "审计 COMP-09：monotone() 等与 LemoLab core/lib.js 逐句一致，按 MIT 派生代码处理；来源头的确切文字已交 P13",
-      "owner": "P13",
-      "added": "2026-11-10",
-      "expires": "2026-12-15",
-      "ref": "P01 汇报 cross_package_requests：P13 engine/core/math.js"
-    },
-    {
-      "rule": "comp.provenance",
-      "path": "engine/form/curves.js",
-      "match": "cases/vendor/lemo-opuscar/styles/rubber-hose/demo/toon.js",
-      "kind": "pending",
-      "reason": "catmull() 与 LemoLab rubber-hose 的 spline() 结构、写法与变量名逐句一致，按派生处理；来源头文字已交 P13",
-      "owner": "P13",
-      "added": "2026-11-10",
-      "expires": "2026-12-15",
-      "ref": "P01 汇报 cross_package_requests：P13 engine/form/curves.js"
-    },
-    {
-      "rule": "comp.provenance",
-      "path": "engine/paint/affine.js",
-      "match": "cases/vendor/lemo-opuscar/styles/papercut-red/demo/rig.js",
-      "kind": "pending",
-      "reason": "mul/平移/旋转与 LemoLab papercut-red rig.js 同构，注释写法也一致；矩阵展开式虽由数学决定，按从严口径作派生处理；来源头文字已交 P13",
-      "owner": "P13",
-      "added": "2026-11-10",
-      "expires": "2026-12-15",
-      "ref": "P01 汇报 cross_package_requests：P13 engine/paint/affine.js"
     },
     {
       "rule": "comp.provenance",
@@ -177,17 +111,6 @@
       "reason": "记号形状巧合：本文件是「键: $('#选择器')」的元素表，上游是「键: hex('#颜色')」的色板表，归一化后都成了「I: I(S)」序列；内容毫不相干（P01 判定）",
       "owner": "site-session",
       "added": "2026-11-10"
-    },
-    {
-      "rule": "comp.aigc",
-      "path": "docs/TRACKS.md",
-      "match": "手绘底板",
-      "kind": "pending",
-      "reason": "审计 COMP-04：A 路线「画面语言」一栏写「手绘底板视差」，而《北冥》的绘画底板是 AI 生成后人工整理的；根文档由整合包统一改（建议改为「AI 生成后整理的绘画底板视差」）",
-      "owner": "PZ",
-      "added": "2026-11-10",
-      "expires": "2026-12-31",
-      "ref": "P01 汇报 root_docs_text：docs/TRACKS.md"
     },
     {
       "rule": "comp.aigc",
