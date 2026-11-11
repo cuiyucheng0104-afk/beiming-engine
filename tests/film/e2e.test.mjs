@@ -211,14 +211,17 @@ test('中断：渲染中收到 SIGINT 退出码 130，run.json 记 interrupted�
   const child = spawn(process.execPath, [...(STUB_QA ? QA_NODE_ARGS : []), CLI, 'build', w.rel, '--profile', 'web-1080p24', '--no-cache', '--json'], { cwd: ROOT, env: { ...process.env, ...env(tmp) }, stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '', err = '';
   child.stdout.on('data', b => { out += b; });
-  const started = new Promise(resolve => child.stderr.on('data', b => { err += b; if (/▶ 逐帧渲染/.test(err)) resolve(); }));
+  // 先挂上退出监听：命令要是在渲染前就失败退出（例如预检不过），不能等到测试超时
+  const closed = new Promise(r => child.on('close', c => r(c)));
+  const started = new Promise(resolve => child.stderr.on('data', b => { err += b; if (/▶ 逐帧渲染/.test(err)) resolve('started'); }));
   // 最多等 2 分钟渲染开始；race 之后清掉定时器（不清的话 node --test 跑完还要空等到它到点）
   let guard;
-  await Promise.race([started, new Promise(r => { guard = setTimeout(r, 120000); })]);
+  const first = await Promise.race([started, closed.then(() => 'exited'), new Promise(r => { guard = setTimeout(() => r('timeout'), 120000); })]);
   clearTimeout(guard);
+  assert.notEqual(first, 'exited', `渲染开始前命令就退出了：${err.slice(-1500)}`);
   await new Promise(r => setTimeout(r, 1500));
   child.kill('SIGINT');
-  const code = await new Promise(r => child.on('close', c => r(c)));
+  const code = await closed;
   assert.equal(code, 130, err.slice(-1500));
   const env1 = JSON.parse(out);
   assert.equal(env1.exitCode, 130);
