@@ -38,6 +38,16 @@ test('v2：output.frameCount 为准，dur 与之冲突报契约错误', async ()
   try { await assert.rejects(readFilmSpec(bad), e => e.exitCode === EXIT.CONTRACT); } finally { cleanup(bad); }
 });
 
+test('v1 兼容镜像与 v2 output 不一致：size / fps 与时长同一口径报契约错误（不悄悄取 output），提示两处一起改', async () => {
+  const output = { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 108 };
+  const ok = film({ schemaVersion: 2, route: 'b', output, dur: 4.5, fps: 24, size: [1920, 1080] });
+  try { assert.equal((await readFilmSpec(ok)).width, 1920); } finally { cleanup(ok); }
+  for (const mirror of [{ size: [320, 180] }, { fps: 30 }, { dur: 3 }]) {
+    const d = film({ schemaVersion: 2, route: 'b', output, dur: 4.5, fps: 24, size: [1920, 1080], ...mirror });
+    try { await assert.rejects(readFilmSpec(d), e => e.exitCode === EXIT.CONTRACT && /两处一起改/.test(e.hint), JSON.stringify(mirror)); } finally { cleanup(d); }
+  }
+});
+
 test('错误分类：没有 film.json / 路线不是 b → 2；字段不合法 → 4', async () => {
   const empty = mkdtempSync(join(tmpdir(), 'bne-film-'));
   try { await assert.rejects(readFilmSpec(empty), e => e.exitCode === EXIT.USAGE); } finally { cleanup(empty); }

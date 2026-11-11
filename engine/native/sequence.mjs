@@ -17,8 +17,9 @@
 //   node engine/native/sequence.mjs page   <作品目录> --from 0 --until 2 --fps 12 --size 1920x1040 --cell 480x260 --out <图集.png> [--query k=v] [--alpha] [--crop x,y,w,h]
 //   node engine/native/sequence.mjs video  <文件.mp4> --from 0 --until 2 --fps 12 --cell 480x270 --out <图集.png>
 //   node engine/native/sequence.mjs frames <图片目录> --fps 12 --cell 480x270 --out <图集.png>
-//   加 --output frames 时 --out 是目录。退出码：0 · 1 渲染 / 抽帧失败 · 2 用法 · 3 缺 FFmpeg / 输入 · 4 图集超限 · 124 超时
-// 代码里：import { makeSequence } from 'engine/native/sequence.mjs'; await makeSequence({ kind, src, from, until, fps, size, cell, out, output, alpha, crop })
+//   加 --output frames 时 --out 是目录；page 每帧 render(t) 的超时用 --frame-timeout（秒，默认 30）。FFmpeg 认 FFMPEG / FFPROBE（ffmpegBins）。
+//   退出码：0 · 1 渲染 / 抽帧失败 · 2 用法 · 3 缺 FFmpeg / 输入 · 4 图集超限 · 124 超时
+// 代码里：import { makeSequence } from 'engine/native/sequence.mjs'; await makeSequence({ kind, src, from, until, fps, size, cell, out, output, alpha, crop, frameTimeoutMs })
 //
 // 限制：图集最长边不超过 8192 像素（常见 GPU 纹理上限），超了就报错让你缩小 cell 或减少帧数；整张图集一次进显存，
 // 所以它适合几秒的小窗口 / 屏幕 / 贴图动画；更长或全画幅的叠层用 output: "frames"。
@@ -37,7 +38,6 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // 记录里的来源路径：仓库内写相对仓库根的路径，仓库外只写文件名（不把本机绝对路径写进素材记录）
 const portable = src => { const r = relative(ROOT, resolve(String(src))); return r.startsWith('..') || isAbsolute(r) ? basename(String(src)) : r.split(sep).join('/'); };
 const ffmpeg = () => ffmpegBins(process.env).ffmpeg;
-const FRAME_TIMEOUT = () => 1000 * Number(process.env.BNE_FRAME_TIMEOUT || 30);
 function run(args, timeoutMs = 600000) {
   const p = runQuick(ffmpeg(), ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', ...args], { timeoutMs, label: 'FFmpeg' });
   if (p.status !== 0) throw fail(EXIT.FAIL, 'ffmpeg', `FFmpeg 失败：${p.stderr.trim().slice(0, 400)}`);
@@ -57,9 +57,9 @@ export function frameIndex(sheet, t, start = 0, fps = sheet.fps, loop = false) {
   return Math.max(0, Math.min(sheet.frames - 1, n));
 }
 
-const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(fail(EXIT.TIMEOUT, 'timeout', `${what} 超过 ${ms / 1000} 秒`, '页面 render(t) 卡住了：单独打开页面查控制台；或调大 BNE_FRAME_TIMEOUT')), ms).unref())]);
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(fail(EXIT.TIMEOUT, 'timeout', `${what} 超过 ${ms / 1000} 秒`, '页面 render(t) 卡住了：单独打开页面查控制台；确实慢就加 --frame-timeout <秒>（默认 30）')), ms).unref())]);
 
-async function pageFrames(dir, tmp, { from, until, fps, size, query, alpha, crop }) {
+async function pageFrames(dir, tmp, { from, until, fps, size, query, alpha, crop, frameTimeoutMs }) {
   const { openFilm, closeServer } = await import('../render/page.mjs');
   const [w, h] = size;
   const { browser, page } = await openFilm(dir, { w, h, query });
@@ -71,7 +71,7 @@ async function pageFrames(dir, tmp, { from, until, fps, size, query, alpha, crop
     if (alpha) await page.evaluate(() => { document.documentElement.style.background = 'transparent'; document.body.style.background = 'transparent'; });
     const clip = crop ? { x: crop[0], y: crop[1], width: crop[2], height: crop[3] } : undefined;
     for (let i = 0; i < n; i++) {
-      await withTimeout(page.evaluate(t => window.render(t), from + i / fps), FRAME_TIMEOUT(), `页面第 ${i} 帧 render(t)`);
+      await withTimeout(page.evaluate(t => window.render(t), from + i / fps), frameTimeoutMs, `页面第 ${i} 帧 render(t)`);
       await page.screenshot({ path: join(tmp, `f${String(i).padStart(5, '0')}.png`), type: 'png', omitBackground: Boolean(alpha), clip });
     }
     return n;
@@ -90,7 +90,7 @@ async function dirFrames(src, tmp) {
   files.forEach((f, i) => run(['-i', join(src, f), join(tmp, `f${String(i).padStart(5, '0')}.png`)]));
 }
 
-export async function makeSequence({ kind, src, from = 0, until, fps = 12, size = [1920, 1080], cell, out, query = '', output = 'atlas', alpha = false, crop }) {
+export async function makeSequence({ kind, src, from = 0, until, fps = 12, size = [1920, 1080], cell, out, query = '', output = 'atlas', alpha = false, crop, frameTimeoutMs = 30000 }) {
   if (!['page', 'video', 'frames'].includes(kind)) throw fail(EXIT.USAGE, 'bad-value', `kind 只能是 page / video / frames：${kind}`);
   if (!['atlas', 'frames'].includes(output)) throw fail(EXIT.USAGE, 'bad-value', `output 只能是 atlas / frames：${output}`);
   if (!out || (output === 'atlas' && !cell)) throw fail(EXIT.USAGE, 'bad-value', output === 'atlas' ? '图集需要 cell 与 out' : '需要 out');
@@ -98,7 +98,7 @@ export async function makeSequence({ kind, src, from = 0, until, fps = 12, size 
   const tmp = await mkdtemp(join(tmpdir(), 'bne-seq-'));
   const drop = onCleanup(() => rm(tmp, { recursive: true, force: true }));
   try {
-    if (kind === 'page') await pageFrames(src, tmp, { from, until, fps, size, query, alpha, crop });
+    if (kind === 'page') await pageFrames(src, tmp, { from, until, fps, size, query, alpha, crop, frameTimeoutMs });
     else if (kind === 'video') videoFrames(src, tmp, { from, until, fps });
     else await dirFrames(src, tmp);
     const list = (await readdir(tmp)).filter(f => f.endsWith('.png')).sort();
@@ -154,6 +154,7 @@ export const command = defineCommand({
     alpha: { type: 'boolean', describe: 'page：透明背景、保留 alpha' },
     crop: { type: 'string', arg: '<x,y,w,h>', describe: 'page：只截这一块（像素）' },
     query: { type: 'string', arg: '<k=v>', describe: '原样传给页面' },
+    'frame-timeout': { type: 'number', arg: '<秒>', min: 1, describe: 'page：每帧 render(t) 的超时（默认 30）' },
   },
   exitCodes: { 0: '成功', 1: '渲染 / 抽帧失败', 2: '用法错误', 3: '缺 FFmpeg 或输入', 4: '图集超限或页面契约不符', 124: '超时' },
   examples: ['node engine/native/sequence.mjs page films/a-demo --from 0 --until 2 --fps 12 --size 1920x1040 --cell 480x260 --out out/screen.png'],
@@ -167,7 +168,7 @@ export const command = defineCommand({
       kind, src, from: a.from ?? 0, until: a.until ?? undefined, fps: a.fps ?? 12,
       size: a.size ? pair(a.size, '--size') : undefined, cell: a.cell ? pair(a.cell, '--cell') : undefined,
       out: a.out, query: a.query || '', output: a.output || 'atlas', alpha: Boolean(a.alpha),
-      crop: a.crop ? a.crop.split(',').map(Number) : undefined,
+      crop: a.crop ? a.crop.split(',').map(Number) : undefined, frameTimeoutMs: 1000 * (a['frame-timeout'] ?? 30),
     });
     log(`序列帧：${sheet.frames} 帧 → ${a.out}`);
     return { outputs: [{ path: portable(a.out), sha256: sheet.sha256 ?? null, kind: sheet.output === 'frames' ? 'frames' : 'atlas' }], data: sheet };

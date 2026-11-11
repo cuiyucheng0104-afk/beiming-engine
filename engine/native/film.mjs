@@ -9,7 +9,7 @@
 //     raw }                                                           原始 JSON
 //   v1：{ route: "b", title, dur, fps, size: [宽, 高], native: {…} }
 //   v2：{ schemaVersion: 2, id, title, route: "b", output: { profile, width, height, fps, frameCount }, audio, deliveries, native }
-//   不合法时抛 CliError：路由不是 b → 2（用法：给错了目录）；字段缺失或不合法 → 4（契约）
+//   不合法时抛 CliError：路由不是 b → 2（用法：给错了目录）；字段缺失或不合法、v1 镜像（size / fps / dur）与 v2 output 不一致 → 4（契约）
 //
 //   declaredAssets(spec) → [{ name, kind: 'file' | 'frames', from }]   film.json 声明、prepare 会放进 media/ 的全部产物
 //   referencedAssets(dir) → Set<name>     作品目录里 .tsx / .ts / .js 源码的字面量引用：staticFile('x') 与 'media/x'
@@ -36,6 +36,10 @@ export async function readFilmSpec(dir) {
   const fps = out.fps ?? raw.fps;
   const [w1, h1] = Array.isArray(raw.size) ? raw.size : [];
   const width = out.width ?? w1, height = out.height ?? h1;
+  // v1 兼容镜像（size / fps）与 v2 的 output 不一致时不悄悄取一边：与下面 dur × fps 对 frameCount 同一口径
+  const twoPlaces = '两处一起改：v2 的 output（width / height / fps / frameCount）是准，v1 兼容镜像 size / fps / dur 要与它相同；换画幅时 output.profile 也要换成匹配的档位或删掉';
+  if (raw.output && Array.isArray(raw.size) && (w1 !== width || h1 !== height)) throw contract(`film.json 的 size ${JSON.stringify(raw.size)} 与 output 的 ${width}×${height} 不符`, twoPlaces);
+  if (raw.output && raw.fps !== undefined && out.fps !== undefined && raw.fps !== out.fps) throw contract(`film.json 的 fps ${raw.fps} 与 output.fps ${out.fps} 不符`, twoPlaces);
   if (!(Number.isInteger(fps) && fps > 0)) throw contract(`fps 必须是正整数：${JSON.stringify(fps)}`, 'film.json 写 "fps": 24（v2 写在 output.fps）');
   for (const [k, v] of [['宽', width], ['高', height]]) {
     if (!(Number.isInteger(v) && v >= 16 && v % 2 === 0)) throw contract(`画面${k}必须是不小于 16 的偶数：${JSON.stringify(v)}`, 'H.264 yuv420p 要求偶数尺寸；film.json 写 "size": [1920, 1080]');
@@ -46,7 +50,7 @@ export async function readFilmSpec(dir) {
     frames = Math.round(dur * fps);
   }
   if (!(Number.isInteger(frames) && frames > 0)) throw contract(`帧数必须是正整数：${JSON.stringify(frames)}`);
-  if (dur !== undefined && Math.round(dur * fps) !== frames) throw contract(`dur × fps = ${dur * fps}，与 output.frameCount ${frames} 不符`, '只保留一个时长来源，或让两者一致');
+  if (dur !== undefined && Math.round(dur * fps) !== frames) throw contract(`dur × fps = ${dur * fps}，与 output.frameCount ${frames} 不符`, twoPlaces);
   dur = frames / fps;
   const native = { entry: 'film.tsx', images: [], models: [], sequences: [], ...(raw.native || {}) };
   if (typeof native.entry !== 'string' || !/\.(tsx|ts|jsx|js)$/.test(native.entry)) throw contract(`native.entry 要指向 .tsx 编排文件：${JSON.stringify(native.entry)}`);

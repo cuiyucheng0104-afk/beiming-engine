@@ -15,7 +15,7 @@
 //   node engine/native/bridge/export.mjs --module <模块.js> --export <函数名> [--args '<JSON>'] [--length 米 | --scale 倍]
 //        [--clip '{"name":"Idle","pose":"pose","duration":4,"fps":30}'] [--prefix 名] --out <输出.glb>
 //        临时导出一个对象（模块路径相对当前目录，须在仓库内）
-//   退出码：0 · 1 导出 / 回读失败 · 2 用法 · 3 缺浏览器或依赖 · 4 结构检查不通过 · 124 超时（BNE_BRIDGE_TIMEOUT 秒，默认 900）
+//   退出码：0 · 1 导出 / 回读失败 · 2 用法 · 3 缺浏览器或依赖 · 4 结构检查不通过 · 124 超时（--timeout 秒，默认 900）
 //
 // models 条目（film.json，路径相对作品目录）
 //   { "to": "ferry.glb", "module": "../../src/ferry.js", "export": "createFerry", "args": {…},
@@ -104,7 +104,7 @@ export async function exportModels(models, { baseDir, outDir, preview = false, l
     page.on('console', m => { if (m.type() !== 'warning' || !/GPU stall due to ReadPixels|non-normalized/.test(m.text())) say(`[browser:${m.type()}] ${m.text()}`); });
     page.on('pageerror', e => { pageErrors.push(e.message); say(`[browser:pageerror] ${e.message}`); });
     await page.goto(`http://127.0.0.1:${port}/`);
-    const timer = new Promise((_, rej) => setTimeout(() => rej(fail(EXIT.TIMEOUT, 'timeout', `资产桥超过 ${Math.round(timeoutMs / 1000)} 秒未完成，已终止`, '确认没有卡死后调大 BNE_BRIDGE_TIMEOUT（秒）')), timeoutMs).unref());
+    const timer = new Promise((_, rej) => setTimeout(() => rej(fail(EXIT.TIMEOUT, 'timeout', `资产桥超过 ${Math.round(timeoutMs / 1000)} 秒未完成，已终止`, '确认没有卡死后加 --timeout <秒> 重跑（默认 900）')), timeoutMs).unref());
     try {
       reports = await Promise.race([page.evaluate(() => window.task), timer]);
     } catch (e) {
@@ -160,7 +160,7 @@ export const command = defineCommand({
   description: [
     '第一种读 <作品目录>/film.json 的 native.models 里由代码生成的条目（带 module 或 recipe），写进 <作品目录>/media/；',
     '第二种临时导出一个对象（模块路径相对当前目录，须在仓库内）。条目字段见本文件开头注释。',
-    '起一个只读的回环服务与无头 Chromium（SwiftShader，只做转换，不占独显）；超时用 BNE_BRIDGE_TIMEOUT（秒，默认 900）。',
+    '起一个只读的回环服务与无头 Chromium（SwiftShader，只做转换，不占独显）；整批超时用 --timeout（秒，默认 900）。',
   ],
   positionals: [{ name: 'film', label: '<作品目录>', describe: 'B 路线作品目录（用 --module 时不给）', required: false }],
   options: {
@@ -174,6 +174,7 @@ export const command = defineCommand({
     clip: { type: 'string', arg: '<JSON>', describe: '临时导出：动作采样，例 \'{"name":"Idle","pose":"pose","duration":4,"fps":30}\'' },
     prefix: { type: 'string', arg: '<名>', describe: '临时导出：未命名网格 / 材质的名字前缀' },
     out: { type: 'string', arg: '<输出.glb>', describe: '临时导出：输出文件（默认 out/model.glb）' },
+    timeout: { type: 'number', arg: '<秒>', min: 1, describe: '整批导出的超时（默认 900）' },
   },
   exitCodes: { 0: '成功', 1: '导出 / 回读失败', 2: '用法错误', 3: '缺浏览器或依赖', 4: '结构检查不通过', 124: '超时', 130: '中断（已清理）' },
   examples: ['node engine/native/bridge/export.mjs films/my-film', 'node engine/native/bridge/export.mjs examples/raea --only ferry.glb'],
@@ -181,7 +182,7 @@ export const command = defineCommand({
     bind(ctx);
     const a = ctx.opts;
     const json = k => { try { return JSON.parse(a[k]); } catch (e) { throw fail(EXIT.USAGE, 'bad-value', `--${k} 不是合法 JSON：${e.message}`); } };
-    const timeoutMs = 1000 * Number(process.env.BNE_BRIDGE_TIMEOUT || 900);
+    const timeoutMs = 1000 * (a.timeout ?? 900);
     if (a.module) {
       if (ctx.args.film) throw fail(EXIT.USAGE, 'extra-argument', '--module 临时导出时不要再给作品目录', '二选一：作品目录，或 --module … --export … --out …');
       if (!a.export) throw fail(EXIT.USAGE, 'missing-option', '--module 要配 --export <函数名>');

@@ -2,7 +2,7 @@
 // 在临时造的反例仓库上逐条抓到问题。只看 route-b 域的结论（别的域的规则文件好坏不归本包管）。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -29,10 +29,34 @@ test('加载器认得 route-b 的每个规则文件（一个文件一条规则�
     'route-b.no-hardcoded-contract', 'route-b.no-runtime-distribution', 'route-b.runtime-lock', 'route-b.spawn-timeout']);
 });
 
-test('本仓库：B 路线规则没有错误（只允许 Windows / Linux 可执行文件哈希未锁的提示）', () => {
-  const { rules } = check(null);
+test('本仓库：B 路线规则没有错误；三平台可执行文件哈希都已锁定（runtime-lock 没有提示）', () => {
+  const { rules, findings } = check(null);
   assert.equal(Object.keys(rules).length, 8);
   for (const r of Object.values(rules)) assert.notEqual(r.status, 'fail', `${r.id} 不通过`);
+  assert.deepEqual(findings.filter(f => f.rule === 'route-b.runtime-lock' && f.level !== 'info'), []);
+  assert.match(findings.find(f => f.rule === 'route-b.runtime-lock').message, /三平台都已锁定/);
+});
+
+test('锁里缺某个平台的可执行文件哈希：逐个提示，info 列出还没锁的平台（不说「已锁定」）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'bne-lock-'));
+  try {
+    const lock = JSON.parse(readFileSync(join(ROOT, 'engine/native/runtime.lock.json'), 'utf8'));
+    lock.platforms['windows-x64'].binarySha256 = null;
+    lock.platforms['linux-x64'].binarySha256 = null;
+    mkdirSync(join(root, 'engine/native'), { recursive: true });
+    mkdirSync(join(root, 'engine/render'), { recursive: true });
+    writeFileSync(join(root, 'package.json'), '{"name":"t","private":true}');
+    writeFileSync(join(root, 'engine/native/runtime.lock.json'), JSON.stringify(lock));
+    writeFileSync(join(root, 'engine/render/native.mjs'), `export const VALIDATED = '${lock.version}';\n`);
+    spawnSync('git', ['init', '-q'], { cwd: root, timeout: 30000 });
+    spawnSync('git', ['add', '-A'], { cwd: root, timeout: 30000 });
+    const { rules, findings } = check(root);
+    assert.notEqual(rules['route-b.runtime-lock'].status, 'fail');
+    const mine = findings.filter(f => f.rule === 'route-b.runtime-lock');
+    assert.deepEqual(mine.filter(f => f.level === 'warn').map(f => f.message.split(' ')[0]).sort(), ['linux-x64', 'windows-x64']);
+    const info = mine.find(f => f.level === 'info').message;
+    assert.match(info, /已锁定 1 个平台，windows-x64、linux-x64 还没有/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('反例：写死契约、锁文件残缺、辅助模块越界 import、缺 aigc、直接 spawnSync、手册缺许可边界、入口不用命令约定库、运行时二进制入库都被抓到', () => {

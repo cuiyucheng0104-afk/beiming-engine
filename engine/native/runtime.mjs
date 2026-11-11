@@ -6,8 +6,10 @@
 //   node engine/native/runtime.mjs status [--json]       读 RAEA_BIN：版本、平台、可执行文件 sha256 是否与锁一致（不启动 GPU）
 //   node engine/native/runtime.mjs hash [--json]         打印 RAEA_BIN 的可执行文件与 VERSION 哈希（给维护者补齐锁里 null 的平台）
 //   node engine/native/runtime.mjs fetch --accept-license [--platform macos-arm64|windows-x64|linux-x64] [--dest 目录] [--from 本地归档]
-//        从锁里的官方发行地址下载归档（或用 --from 指定已下载的归档），校验归档 sha256 → 解包到
-//        <缓存>/beiming/raea/<版本>/<平台>/ → 校验可执行文件 sha256 → 打印 RAEA_BIN 应设的值。不传 --accept-license 拒绝执行（exit 2）。
+//        从锁里的官方发行地址下载归档（或用 --from 指定已下载的归档），校验归档 sha256 → 先解包到 <dest> 旁边的临时目录 →
+//        校验可执行文件 sha256 → 才换名成 <dest>（默认 <缓存>/beiming/raea/<版本>/<平台>/）→ 打印 RAEA_BIN 应设的值。
+//        不传 --accept-license 拒绝执行（exit 2）。<dest> 已有内容、又不是 fetch 装的（没有标记文件 .beiming-runtime.json）时拒绝覆盖
+//        （exit 2，防止 --dest 指错目录把别的东西删掉）；任何一步失败，<dest> 原样不动、临时目录删掉。
 //        缓存位置：XDG_CACHE_HOME 或 ~/.cache（Windows 用 %LOCALAPPDATA%）。
 //
 // 代码里：resolveRuntime({ allowVersion }) → { exe, version, platform, binarySha256, lock, entry, verified, problems }
@@ -15,16 +17,18 @@
 //   verified：true 哈希与锁一致；'unlocked' 该平台锁里还没有哈希；'allowed' 用 BNE_ALLOW_VERSION 放行的未验证版本。
 //   版本不符、哈希不符、文件缺失 / 不可执行 → exit 3（env.*）。
 // 退出码：0 · 2 用法（含未接受许可）· 3 运行时缺失或不合格 · 124 下载 / 解包超时。
-import { access, constants, mkdir, readFile, readdir, realpath, rm } from 'node:fs/promises';
+import { access, chmod, constants, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { createWriteStream, existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { EXIT, bind, exitWith, fail, log, runQuick, sha256File, warn } from './cli.mjs';
+import { EXIT, bind, exitWith, fail, log, offCleanup, onCleanup, runQuick, sha256File, warn } from './cli.mjs';
 import { defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const LOCK_PATH = join(HERE, 'runtime.lock.json');
+// fetch 装好后写在 <dest> 里的标记：只有带这个标记（或空）的目录才允许被下一次 fetch 整个替换
+export const INSTALL_MARK = '.beiming-runtime.json';
 export const loadLock = async () => JSON.parse(await readFile(LOCK_PATH, 'utf8'));
 
 export function platformKey(platform = process.platform, arch = process.arch) {
@@ -93,6 +97,16 @@ async function findBinary(dir, name) {
   return null;
 }
 
+// <dest> 不存在、是空目录、或是上一次 fetch 装的（有标记文件）才允许整个替换；否则拒绝（exit 2），一个文件都不动
+export async function assertReplaceable(dest) {
+  if (!existsSync(dest)) return;
+  let entries;
+  try { entries = await readdir(dest); } catch { throw fail(EXIT.USAGE, 'dest', `--dest ${dest} 不是目录`, '给一个新目录，或省略 --dest 用默认缓存位置'); }
+  if (entries.length && !entries.includes(INSTALL_MARK)) {
+    throw fail(EXIT.USAGE, 'dest-not-empty', `--dest ${dest} 里已有 ${entries.length} 项内容，且不是 fetch 装的运行时（没有 ${INSTALL_MARK}）：拒绝覆盖`, '给一个新的空目录（例如 <目录>/raea-0.1.0-canary.2），或省略 --dest 用默认缓存位置');
+  }
+}
+
 async function cmdFetch(a) {
   const lock = await loadLock();
   if (!a['accept-license']) {
@@ -102,21 +116,31 @@ async function cmdFetch(a) {
   const platform = a.platform || platformKey(), entry = lock.platforms[platform];
   if (!entry) throw fail(EXIT.USAGE, 'platform', `锁里没有平台 ${platform}`, `可用：${Object.keys(lock.platforms).join('、')}`);
   const dest = resolve(a.dest || join(cacheRoot(), 'raea', lock.version, platform));
+  await assertReplaceable(dest);
   const archive = a.from ? resolve(a.from) : join(dest, '..', entry.archive);
   if (!a.from) { log(`下载 ${lock.downloadBase}${entry.archive}（约 ${(entry.size / 1e6).toFixed(0)} MB）……`); await download(lock.downloadBase + entry.archive, archive, 30 * 60 * 1000); }
   if (!existsSync(archive)) throw fail(EXIT.USAGE, 'no-archive', `找不到归档 ${archive}`);
   const archiveSha = await sha256File(archive);
   if (entry.sha256 && archiveSha !== entry.sha256) throw fail(EXIT.ENV, 'archive-hash', `归档 sha256 ${archiveSha} 与锁定值 ${entry.sha256} 不符`, '删掉这个归档重新下载；仍不符说明上游重打了同名包，先停下来核对');
   if (!entry.sha256) warn(`锁里 ${platform} 没有归档哈希；本次实测 ${archiveSha}，核对上游发行页的 .sha256 后再补进 runtime.lock.json`);
-  await rm(dest, { recursive: true, force: true });
-  await mkdir(dest, { recursive: true });
-  log(`解包到 ${dest} ……`);
-  const t = runQuick('tar', ['-xf', archive, '-C', dest], { timeoutMs: 10 * 60 * 1000, label: 'tar 解包' });
-  if (t.status !== 0) throw fail(EXIT.ENV, 'extract', `解包失败：${t.stderr.trim()}`, 'Windows 10 及以上自带 tar（bsdtar）可解 zip；更旧的系统请手动解压后用 RAEA_BIN 指向 bin/raea.exe');
-  const exe = await findBinary(dest, entry.binary);
-  if (!exe) throw fail(EXIT.ENV, 'extract', `解包后找不到 ${entry.binary}`, '归档结构与锁里登记的不同：核对上游发行页');
-  const binSha = await sha256File(exe);
-  if (entry.binarySha256 && binSha !== entry.binarySha256) throw fail(EXIT.ENV, 'runtime-hash', `可执行文件 sha256 ${binSha} 与锁定值不符`);
+  await mkdir(dirname(dest), { recursive: true });
+  const staging = await mkdtemp(join(dirname(dest), `.${basename(dest)}.part-`));
+  const dropStaging = onCleanup(() => rm(staging, { recursive: true, force: true }));
+  let exe, binSha;
+  try {
+    log(`解包到 ${staging} ……`);
+    const t = runQuick('tar', ['-xf', archive, '-C', staging], { timeoutMs: 10 * 60 * 1000, label: 'tar 解包' });
+    if (t.status !== 0) throw fail(EXIT.ENV, 'extract', `解包失败：${t.stderr.trim()}`, 'Windows 10 及以上自带 tar（bsdtar）可解 zip；更旧的系统请手动解压后用 RAEA_BIN 指向 bin/raea.exe');
+    const found = await findBinary(staging, entry.binary);
+    if (!found) throw fail(EXIT.ENV, 'extract', `解包后找不到 ${entry.binary}`, '归档结构与锁里登记的不同：核对上游发行页');
+    binSha = await sha256File(found);
+    if (entry.binarySha256 && binSha !== entry.binarySha256) throw fail(EXIT.ENV, 'runtime-hash', `可执行文件 sha256 ${binSha} 与锁定值不符`, '删掉这个归档重新下载；仍不符说明上游重打了同名包，先停下来核对');
+    await writeFile(join(staging, INSTALL_MARK), JSON.stringify({ version: lock.version, platform, archiveSha256: archiveSha, binarySha256: binSha, installedAt: new Date().toISOString() }, null, 2) + '\n');
+    await chmod(staging, 0o755);   // mkdtemp 建的是 0700；装好的运行时与以前 mkdir 的权限一致
+    if (existsSync(dest)) await rm(dest, { recursive: true, force: true });   // 上面已确认它是空的或是上一次 fetch 装的
+    await rename(staging, dest);
+    exe = join(dest, relative(staging, found));
+  } finally { offCleanup(dropStaging); await rm(staging, { recursive: true, force: true }); }
   log(`已安装 ${lock.version}（${platform}）。设置：`);
   log(process.platform === 'win32' ? `  $env:RAEA_BIN = '${exe}'` : `  export RAEA_BIN="${exe}"`);
   // 运行时装在仓库外：信封的 outputs 只列仓库内产物，可执行文件路径放在 data（给人设 RAEA_BIN 用）
@@ -157,7 +181,7 @@ export const command = defineCommand({
   options: {
     'accept-license': { type: 'boolean', describe: 'fetch：已阅读并接受上游许可（runtime.lock.json 的 licenseUrl）' },
     platform: { type: 'string', arg: '<平台>', choices: ['macos-arm64', 'windows-x64', 'linux-x64'], describe: 'fetch：要获取的平台（默认本机）' },
-    dest: { type: 'string', arg: '<目录>', describe: 'fetch：解包目录（默认 <缓存>/beiming/raea/<版本>/<平台>/）' },
+    dest: { type: 'string', arg: '<目录>', describe: 'fetch：安装目录（默认 <缓存>/beiming/raea/<版本>/<平台>/）；要是新目录、空目录或上次 fetch 装的，否则拒绝覆盖' },
     from: { type: 'string', arg: '<归档>', describe: 'fetch：用已下载的发行归档，不联网' },
   },
   exitCodes: { 0: '成功', 2: '用法错误或未接受许可', 3: '运行时缺失、版本或哈希不符', 124: '下载 / 解包超时' },

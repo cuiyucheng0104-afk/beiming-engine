@@ -2,7 +2,7 @@
 // 北冥引擎 · 原生层 · 作品准备：按 <作品目录>/film.json 的 native 段，把原生场景要用的素材全部放进 <作品目录>/media/。
 // 原生运行时只认作品自己的 media/（staticFile('x') = media/x），所以图片、模型、序列帧、声音都要先落到这里。
 //
-//   node engine/native/prepare.mjs <作品目录> [--only images,models,sequences,audio] [--preview] [--json]
+//   node engine/native/prepare.mjs <作品目录> [--only images,models,sequences,audio] [--preview] [--timeout 秒] [--frame-timeout 秒] [--json]
 //
 // film.json → native 段（路径都相对作品目录；to 是 media/ 下的文件名）
 //   images     [{ to, from, edge?, crop?, flip? }]      复制图片 / 字体 / 许可文件；edge 给透明底板的截断边烘有机软边或圆形收边，
@@ -22,7 +22,8 @@
 // 改过——例如改了 edge 参数却没重新准备——也拒绝，并说明要重做哪一类）。
 // Python 用仓库统一的解释器查找（tools/env/lib/python.mjs：BEIMING_PYTHON → BEIMING_PY → PYTHON → .venv → python3 …；npm run setup 建 .venv），
 // 子进程环境 PYTHONUTF8=1、PYTHONPATH 前置仓库根。FFmpeg 认 FFMPEG / FFPROBE（tools/env/lib/ffmpeg.mjs 的 ffmpegBins）。
-// 环境变量：BEIMING_PYTHON / PYTHON、FFMPEG、BEIMING_CHROME、BNE_AUDIO_TIMEOUT / BNE_BRIDGE_TIMEOUT（秒）。
+// 环境变量：BEIMING_PYTHON / PYTHON、FFMPEG、BEIMING_CHROME。超时用选项：--timeout（资产桥整批、声音脚本各自的上限，默认 900 / 600 秒）、
+// --frame-timeout（页面序列帧每帧 render(t)，默认 30 秒）。
 // 退出码：0 · 1 生成失败 · 2 用法 · 3 缺来源文件 / Python 依赖 / FFmpeg · 4 film.json 或产物不合格 · 124 超时 · 130 / 143 中断
 import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -57,7 +58,7 @@ const canon = v => Array.isArray(v) ? `[${v.map(canon).join(',')}]` : v && typeo
 // 没写与空数组算同一份清单（readFilmSpec 会把缺省的 images / models / sequences 补成 []）
 export const specHash = (native, kind) => { const v = native?.[kind]; return createHash('sha256').update(canon(Array.isArray(v) && !v.length ? null : v ?? null)).digest('hex'); };
 
-export async function prepare(dir, { only = null, preview = false } = {}) {
+export async function prepare(dir, { only = null, preview = false, timeout = null, frameTimeout = 30 } = {}) {
   dir = resolve(dir);
   const spec = await readFilmSpec(dir), N = spec.native, media = resolve(dir, 'media'), made = [], inputs = {};
   const want = k => !only || only.includes(k);
@@ -93,7 +94,7 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
     }
     const gen = (N.models || []).filter(isGenerated);
     if (gen.length) {
-      const reports = await exportModels(gen, { baseDir: dir, outDir: media, preview, timeoutMs: 1000 * Number(process.env.BNE_BRIDGE_TIMEOUT || 900) });
+      const reports = await exportModels(gen, { baseDir: dir, outDir: media, preview, timeoutMs: 1000 * (timeout ?? 900) });
       const rt = Object.values(reports).find(r => r?.runtime)?.runtime;
       if (rt) Object.assign(tools, { three: rt.three, playwright: rt.playwright, browser: rt.browser });
       for (const m of gen) { made.push(m.to, m.report || m.to.replace(/\.glb$/i, '-report.json')); for (const [f, h] of Object.entries(reports[m.to]?.sourceHashes || {})) inputs[`repo:${f}`] = h; }
@@ -107,7 +108,7 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
     if (!kind) throw fail(EXIT.CONTRACT, 'sequence-entry', `sequences 条目要有 page / video / frames 之一：${JSON.stringify(s)}`);
     const src = need(resolve(dir, s[kind]), kind === 'page' ? '页面作品目录' : kind === 'video' ? '视频' : '图片目录');
     const out = resolve(media, name(s.to));
-    const sheet = await makeSequence({ kind, src, from: s.from ?? 0, until: s.until, fps: s.fps ?? spec.fps, size: s.size ?? [spec.width, spec.height], cell: s.cell, out, query: s.query || '', output: s.output || 'atlas', alpha: Boolean(s.alpha), crop: s.crop });
+    const sheet = await makeSequence({ kind, src, from: s.from ?? 0, until: s.until, fps: s.fps ?? spec.fps, size: s.size ?? [spec.width, spec.height], cell: s.cell, out, query: s.query || '', output: s.output || 'atlas', alpha: Boolean(s.alpha), crop: s.crop, frameTimeoutMs: 1000 * frameTimeout });
     log(`序列帧 ${s.to}：${kind} → ${sheet.frames} 帧${sheet.grid ? `，图集 ${sheet.grid.join('×')} 格` : '，逐帧 PNG'}`);
     const base = name(s.to);
     made.push(base, s.output === 'frames' ? `${base}.json` : base.replace(/\.png$/i, '.json'));
@@ -122,7 +123,7 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
     const label = `${py.source}（${[py.cmd, ...py.args].join(' ')}）`;
     log(`声音：Python ${py.versionString}（${py.source}）运行 ${posix(relative(ROOT, script))}`);
     const p = await spawnStream(py.cmd, [...py.args, script], {
-      cwd: dir, timeoutMs: 1000 * Number(process.env.BNE_AUDIO_TIMEOUT || 600), label: '声音脚本',
+      cwd: dir, timeoutMs: 1000 * (timeout ?? 600), label: '声音脚本',
       env: { ...pythonEnv(process.env, { root: ROOT }), BNE_OUT: part, BNE_DUR: String(spec.dur), BNE_FILM: dir },
     });
     if (p.code !== 0) {
@@ -157,19 +158,21 @@ export async function prepare(dir, { only = null, preview = false } = {}) {
 export const command = defineCommand({
   name: 'native:prepare',
   summary: '按 film.json 的 native 段把底板、模型、序列帧、声音准备进 <作品目录>/media/，写 media/prepared.json',
-  usage: ['node engine/native/prepare.mjs <作品目录> [--only images,models,sequences,audio] [--preview] [--json]'],
+  usage: ['node engine/native/prepare.mjs <作品目录> [--only images,models,sequences,audio] [--preview] [--timeout <秒>] [--json]'],
   description: '每个产物先写临时文件、检查通过才换名；prepared.json 记每个产物的 sha256，渲染入口据此拒绝被改过的素材。',
   positionals: [{ name: 'film', label: '<作品目录>', describe: 'films/<名字>（B 路线作品，film.json 的 route 是 "b"）' }],
   options: {
     only: { type: 'list', split: ',', arg: '<类别,…>', choices: ['images', 'models', 'sequences', 'audio'], describe: '只做其中几类；其余产物的旧哈希保留' },
     preview: { type: 'boolean', describe: '资产桥另存一张回读预览图（film.json 的 models[].preview）' },
+    timeout: { type: 'number', arg: '<秒>', min: 1, describe: '资产桥（整批）与声音脚本各自的超时（默认 900 秒、600 秒）' },
+    'frame-timeout': { type: 'number', arg: '<秒>', min: 1, describe: '页面序列帧每帧 render(t) 的超时（默认 30 秒）' },
   },
   exitCodes: { 0: '成功', 1: '生成失败', 2: '用法错误', 3: '缺来源文件、Python 依赖或 FFmpeg', 4: 'film.json 或产物不合格', 124: '超时', 130: '中断（已清理）' },
   examples: ['node engine/native/prepare.mjs films/my-film', 'node engine/native/prepare.mjs films/my-film --only audio'],
   async run(ctx) {
     bind(ctx);
     const only = ctx.opts.only.length ? [...new Set(ctx.opts.only)] : null;
-    const hashes = await prepare(ctx.args.film, { only, preview: ctx.opts.preview });
+    const hashes = await prepare(ctx.args.film, { only, preview: ctx.opts.preview, timeout: ctx.opts.timeout, frameTimeout: ctx.opts['frame-timeout'] ?? 30 });
     const media = resolve(ctx.args.film, 'media');
     return { outputs: Object.entries(hashes).map(([f, sha256]) => ({ path: posix(relative(ROOT, resolve(media, f))), sha256, kind: 'asset' })) };
   },

@@ -24,7 +24,7 @@
 // 产物：<作品>/out/<run-id>/{master.mp4, web.mp4, run.json, check.json, qa/, render.json, render.log, framemd5.txt, contact.jpg, player.html}
 //       run-id = YYYYMMDD-HHMMSS-<短提交>[-dirty]；<作品>/out/latest 是写着最近一次成功 run-id 的指针文件。草图帧在 <run>/stills/f<帧号>.png。
 //       编排器（npm run film）用 --run-dir <目录> 指定运行目录、--json 读信封里的 outputs 与 runJson。
-// 环境变量：RAEA_BIN（必需）、FFMPEG、FFPROBE、WGPU_BACKEND（Windows 默认 vulkan）、COMFY_URL、BNE_ALLOW_VERSION、BNE_RENDER_TIMEOUT（秒）。
+// 环境变量：RAEA_BIN（必需）、FFMPEG、FFPROBE、WGPU_BACKEND（Windows 默认 vulkan）、COMFY_URL、BNE_ALLOW_VERSION。超时用 --timeout（秒）。
 import { mkdir, readFile, rename, rm, writeFile, readdir } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
 import { cpus, release, totalmem } from 'node:os';
@@ -293,7 +293,7 @@ export const command = defineCommand({
     '→ 逐帧哈希、联系表、播放页 → 运行时自带的 raea check → 机器 QA 门；产物在 <作品>/out/<run-id>/，out/latest 指向最近一次成功的运行。',
     `交付档位：${Object.keys(D.PROFILES).join(' / ')}（默认取 film.json，没有就按尺寸与帧率推断）。`,
     '环境变量：RAEA_BIN（必需，运行时不随仓库分发：node engine/native/runtime.mjs fetch --accept-license）、FFMPEG、FFPROBE、',
-    'WGPU_BACKEND（Windows 默认 vulkan）、COMFY_URL、BNE_ALLOW_VERSION、BNE_RENDER_TIMEOUT（秒）。作品要在 git 工作树里。',
+    'WGPU_BACKEND（Windows 默认 vulkan）、COMFY_URL、BNE_ALLOW_VERSION。作品要在 git 工作树里。',
   ],
   positionals: [{ name: 'film', label: '<作品目录>', describe: 'films/<名字>（film.json 的 route 是 "b"）' }],
   options: {
@@ -309,7 +309,7 @@ export const command = defineCommand({
     'require-idle-check': { type: 'boolean', describe: '查不到 ComfyUI 队列时也拒绝渲染（exit 5）' },
     'run-id': { type: 'string', arg: '<id>', describe: '指定运行目录名（<作品>/out/<id>/）' },
     'run-dir': { type: 'string', arg: '<目录>', describe: '指定运行目录（给编排器用，例如 <编排器的运行目录>/native）' },
-    timeout: { type: 'number', arg: '<秒>', min: 1, describe: '原生渲染超时（默认 120 + 2 × 帧数；也可用 BNE_RENDER_TIMEOUT）' },
+    timeout: { type: 'number', arg: '<秒>', min: 1, describe: '原生渲染与母版封装各自的超时（默认 120 + 2 × 帧数）' },
     mux: { type: 'string', arg: '<copy>', describe: '已停用：母版总是逐位复制原生视频轨（只接受 copy，并提示去掉）' },
     out: { type: 'string', arg: '<路径>', describe: '已停用：产物统一写进运行目录，用 --run-dir' },
   },
@@ -335,7 +335,7 @@ async function run(ctx) {
   }
   if (a.at !== null && a.frame !== null) throw fail(EXIT.USAGE, 'conflicting-options', '--at 与 --frame 只能用一个', '多帧用 --at 0,36,71');
   const stillFrames = a.at !== null ? parseFrames(a.at) : a.frame !== null ? [a.frame] : null;
-  const timeoutS = a.timeout ?? Number(process.env.BNE_RENDER_TIMEOUT || 0);
+  const timeoutS = a.timeout ?? 0;
   const quality = a.quality;
 
   const spec = await readFilmSpec(ctx.args.film);
