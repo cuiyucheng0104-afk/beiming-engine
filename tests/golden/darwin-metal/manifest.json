@@ -1073,6 +1073,117 @@
     }
    ]
   },
+  "fixtures": {
+   "schema": "beiming-golden-manifest/v1",
+   "set": "fixtures",
+   "setHash": "d96f5880043298b056bd11cf230dfcd93de076ce47e637fcd40c6c8e24db6a14",
+   "platformKey": "darwin-metal",
+   "device": "apple-m5-pro",
+   "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
+   "browser": "153.0.8010.12",
+   "env": {
+    "os": "darwin 25.5.0 arm64",
+    "node": "24.13.1",
+    "playwright": "1.63.0",
+    "three": "0.170.0",
+    "angle": "default",
+    "gpuPolicy": "required"
+   },
+   "source": {
+    "commit": "b0bc23a11d5b2688436763d976438e9e6cd0575b",
+    "dirty": false,
+    "pixelTree": "6b5ace5e434095efc2848e5b382eef59dac903b1ddd72bd5918e59d85655efdb",
+    "pixelPaths": [
+     "assets",
+     "engine",
+     "fonts",
+     "index.html",
+     "lab",
+     "routes/a-webgl/template",
+     "routes/c-style/fonts",
+     "routes/c-style/template",
+     "src",
+     "tests/golden/fixtures/graycard",
+     "tests/golden/fixtures/pure"
+    ]
+   },
+   "capturedAt": "2026-11-11T11:22:35.326Z",
+   "framesDigest": "52d68ddf0cf14ef601f8e4fc0fb19712a6f23af485ffb65e38857734095d7cc5",
+   "frameCount": 5,
+   "approval": {
+    "by": "P08 属主（Claude Opus 5.5 工作包代理，待集成负责人复核）",
+    "reason": "G0 补登记灰阶色卡：darwin-metal 已登记的四套集合里没有 fixture:graycard，GPU 平台的截图链路（色彩配置、合成器、ANGLE 后端输出）改色没有基线守（复核意见 should #2）。fixtures 是测试夹具集合：纯函数画布页 4 帧 + 灰阶与色块卡 1 帧，夹具未改动，首次登记；不改动已有集合",
+    "commit": "b0bc23a11d5b2688436763d976438e9e6cd0575b",
+    "at": "2026-11-11T11:22:35.328Z",
+    "ref": "docs/style-baselines/records/2026-11-11-review-fixes.md"
+   },
+   "frames": [
+    {
+     "id": "fixture:graycard@640x360#t=0.0000",
+     "page": "fixture:graycard",
+     "t": 0,
+     "w": 640,
+     "h": 360,
+     "width": 640,
+     "height": 360,
+     "pixelSha256": "74877c20891d712aaa68c8c8fcdd10a5a870bb0f4700443b40cc65b5719764fe",
+     "pngSha256": "2af32b9475771a490914a799692c83d49bfd09a7c47e00dab6f0b6a1b99024f3",
+     "bytes": 1731
+    },
+    {
+     "id": "fixture:pure@320x180#f=0",
+     "page": "fixture:pure",
+     "t": 0,
+     "f": 0,
+     "w": 320,
+     "h": 180,
+     "width": 320,
+     "height": 180,
+     "pixelSha256": "47394f448d00fcfa41d2fe6f5b23ff8b6236468d23db69a98dda08f653b9f6c8",
+     "pngSha256": "84537cbc00a17989d6e604117caadb4734f7d81b5554e66b96ef546905dba298",
+     "bytes": 667
+    },
+    {
+     "id": "fixture:pure@320x180#f=12",
+     "page": "fixture:pure",
+     "t": 0.5,
+     "f": 12,
+     "w": 320,
+     "h": 180,
+     "width": 320,
+     "height": 180,
+     "pixelSha256": "656d7b1967265b2e7e07083fc264b8e917fe131a9a47379c31967ff51bad3eab",
+     "pngSha256": "b4b9980b6cdfea3267ad8ad48f0143c7f1b29b3d7d3c2b7137016a50f64fd3c3",
+     "bytes": 670
+    },
+    {
+     "id": "fixture:pure@320x180#f=24",
+     "page": "fixture:pure",
+     "t": 1,
+     "f": 24,
+     "w": 320,
+     "h": 180,
+     "width": 320,
+     "height": 180,
+     "pixelSha256": "8b2dd1b9a2738320bc64858bb825220ec372952e5f0183be0289cc9f6063b7c4",
+     "pngSha256": "91ee6afe204a48a01822ab1595bc69c348a247704d25cf7754288b4931d40285",
+     "bytes": 671
+    },
+    {
+     "id": "fixture:pure@320x180#f=47",
+     "page": "fixture:pure",
+     "t": 1.9583333333333333,
+     "f": 47,
+     "w": 320,
+     "h": 180,
+     "width": 320,
+     "height": 180,
+     "pixelSha256": "d76e668758166a940e382607a74fad2e624815dde10cb6fc08cba2df66fc5ba4",
+     "pngSha256": "cc41379a1bbf4b7c9ab66367120bbde41d566f9e24c49c54f73d5128e096e955",
+     "bytes": 673
+    }
+   ]
+  },
   "lab": {
    "schema": "beiming-golden-manifest/v1",
    "set": "lab",
@@ -1890,7 +2001,7 @@
   "templates": {
    "schema": "beiming-golden-manifest/v1",
    "set": "templates",
-   "setHash": "b3915d2e54e8b83dbd7c45fbfb1b68979808e4ed0739dab3d469b65528cad43a",
+   "setHash": "17dbd799223ca839c412c143a38b8227fd6ccaf28891c958ce8a4cdea9f142d4",
    "platformKey": "darwin-metal",
    "device": "apple-m5-pro",
    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5 Pro, Unspecified Version)",
@@ -1904,19 +2015,31 @@
     "gpuPolicy": "required"
    },
    "source": {
-    "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
+    "commit": "fb0b841d0718bb6f02081a784dc29a1436f199e3",
     "dirty": false,
-    "renderedAt": "249efccc25cacd0dc9218be8110402eac6c45be3"
+    "renderedAt": "b0bc23a11d5b2688436763d976438e9e6cd0575b",
+    "pixelTree": "00ece61d402f85f4409b2d9856867b44881443c848d747ec34b2d7afcae503be",
+    "pixelPaths": [
+     "assets",
+     "engine",
+     "fonts",
+     "index.html",
+     "lab",
+     "routes/a-webgl/template",
+     "routes/c-style/fonts",
+     "routes/c-style/template",
+     "src"
+    ]
    },
-   "capturedAt": "2026-11-10T09:18:53.611Z",
-   "framesDigest": "e94b3d076b3b764a1e282f6304500d0c1d3e9b69400a10dc8f0eb465a3ef3e77",
+   "capturedAt": "2026-11-11T11:22:34.754Z",
+   "framesDigest": "5530d45995716e7556a8aab97e03334a4423193a2289f3f2e42538d3d9f7af95",
    "frameCount": 12,
    "approval": {
-    "by": "P08 属主（Claude Opus 5.5 工作包代理，待集成负责人复核）",
-    "reason": "G0 首次建立 darwin-metal 回归基线。底座 routes-template@abfdc83（含 main 62ad28e）；与合并前 8c07cb8 逐帧比对的全部差异已按文件还原实验归因到 62ad28e 的有意修复（R24 渡船航行灯、R30 鸽群黑边、R66 导航线线头；4K 专属 R17/R19/R31/R32/R45；engine/look/paper.js 程序化纸纹中性点；engine/shade/surface.js 风化分支），无法归因的差异 0 帧",
-    "commit": "abfdc8302e582d5e6f0d815d7b05103cbb7fddd0",
-    "at": "2026-11-10T09:18:53.613Z",
-    "ref": "docs/style-baselines/records/2026-11-10-darwin-metal-g0.md"
+    "by": "集成负责人（批准依据见 ref；P08 工作包代理代为执行登记，待集成负责人复核）",
+    "reason": "P15 重写 C 模版（片名改用马善政毛笔楷书分片字体、film.json 升 v2、片长 3→8 秒、笔触按笔压定快慢、染色去竖缝），经独立复核通过后由集成负责人合入 routes-template（fb0b841）。归因：tpl:a 6/6 逐像素一致；tpl:c 片长变了，取样时刻全部改变（删 6 帧、增 6 帧，无同编号帧变化）；像素相关路径从 abfdc83 到 fb0b841 只有 routes/c-style/template 与 routes/c-style/fonts 变化（P15 的提交），engine、src、lab、assets、fonts、index.html、A 模版逐字节不变；新 C 模版确定性检查 15 帧通过，画面已查看（毛笔楷书片名、印文北冥，无字体回落）",
+    "commit": "fb0b841d0718bb6f02081a784dc29a1436f199e3",
+    "at": "2026-11-11T11:22:34.757Z",
+    "ref": "fb0b841（合并 hard/P15 537cade：属主完成并经独立复核通过）；docs/style-baselines/records/2026-11-11-review-fixes.md"
    },
    "frames": [
     {
@@ -1992,76 +2115,76 @@
      "bytes": 2236839
     },
     {
-     "id": "tpl:c@1920x1080#t=0.2500",
+     "id": "tpl:c@1920x1080#t=0.6667",
      "page": "tpl:c",
-     "t": 0.25,
+     "t": 0.666667,
      "w": 1920,
      "h": 1080,
      "width": 1920,
      "height": 1080,
-     "pixelSha256": "250265a8680f31417f0e4752fbaf8fc527f3a66b6db4b352b921afc23d0d3494",
-     "pngSha256": "b71a59ba9f6276038677e9bc5156d01e5324e0ae2bf744c6517465502c7a9a60",
-     "bytes": 913434
+     "pixelSha256": "bd42a1c236f75de959383245f87ff18dc4996bb85903f19bf8e155b004c1438a",
+     "pngSha256": "ccbfb0e5e7c36391d6196989f5d2b19dc80828b2c06e828756c79820aa0bcdc2",
+     "bytes": 1623478
     },
     {
-     "id": "tpl:c@1920x1080#t=0.7500",
+     "id": "tpl:c@1920x1080#t=2.0000",
      "page": "tpl:c",
-     "t": 0.75,
+     "t": 2,
      "w": 1920,
      "h": 1080,
      "width": 1920,
      "height": 1080,
-     "pixelSha256": "92f51c2e662130cee4b9c7484427d99b4c21a412fffa26365495137991199208",
-     "pngSha256": "691a7326c8baf8f12aec4be7d74e290c4326148e825e6132783b610e00d6db28",
-     "bytes": 913117
+     "pixelSha256": "91757610f96114d7441489b7618284a9d86235dafe9035edc4f67b6f06c365a9",
+     "pngSha256": "33bfbda228b1c6bdedef8c7b58fcf77888eaa5eeb53b0cc9fdfb06fa2c6c1a80",
+     "bytes": 1715380
     },
     {
-     "id": "tpl:c@1920x1080#t=1.2500",
+     "id": "tpl:c@1920x1080#t=3.3333",
      "page": "tpl:c",
-     "t": 1.25,
+     "t": 3.333333,
      "w": 1920,
      "h": 1080,
      "width": 1920,
      "height": 1080,
-     "pixelSha256": "519fa075c1dd852ed87104f1b06849ab153c9178de9de37e328d228bf0bb2203",
-     "pngSha256": "867bb327d3f44ca950c1158408898f90f7cb6b53303ab57f7b69176ec76f0eb5",
-     "bytes": 912149
+     "pixelSha256": "49b1f473b5e565330b013cc7c435b4d8b6fab5d0cbba4bf29e89ea4d9c4de374",
+     "pngSha256": "4da6ef2bb09fb75be59d587806f811a3aea372c5d479a35942e950867c87b609",
+     "bytes": 1739476
     },
     {
-     "id": "tpl:c@1920x1080#t=1.7500",
+     "id": "tpl:c@1920x1080#t=4.6667",
      "page": "tpl:c",
-     "t": 1.75,
+     "t": 4.666667,
      "w": 1920,
      "h": 1080,
      "width": 1920,
      "height": 1080,
-     "pixelSha256": "8a342ae841c57a9f4819f33f6f6a19b16b17986c6acf796079b2ff135df0e9d1",
-     "pngSha256": "a8f1ceb22eee08d05873b2dfed0af15086dc8d4e1dbf9ebeb9f7cad5534f2be0",
-     "bytes": 909901
+     "pixelSha256": "d23979bcb602f93f0c290f7c606d6ca03547ed0f91f9dde40021f1cf4b87a6c7",
+     "pngSha256": "60effbdb86d1c76085ae4693284d22e9654271b4561709655721eba4fe1025fa",
+     "bytes": 1735909
     },
     {
-     "id": "tpl:c@1920x1080#t=2.2500",
+     "id": "tpl:c@1920x1080#t=6.0000",
      "page": "tpl:c",
-     "t": 2.25,
+     "t": 6,
      "w": 1920,
      "h": 1080,
      "width": 1920,
      "height": 1080,
-     "pixelSha256": "827bf146bad6607b97b74a03f655e990cb608fc5a1891bfbd4fb8975ef2504f1",
-     "pngSha256": "b978bc4f5b53ae4fad82985d2e55fd38d46e6edc4dd0ea05b1f8f301fd6a73df",
-     "bytes": 915644
+     "pixelSha256": "bb408f29c01767496b216eacc1c006d25aba5503710628e70660c00fe58b7f1d",
+     "pngSha256": "aea83738e1d5eec75b942266b918fb68a9955fd8827653901e9255579e011c18",
+     "bytes": 1778131
     },
     {
-     "id": "tpl:c@1920x1080#t=2.7500",
+     "id": "tpl:c@1920x1080#t=7.3333",
      "page": "tpl:c",
-     "t": 2.75,
+     "t": 7.333333,
      "w": 1920,
      "h": 1080,
      "width": 1920,
      "height": 1080,
-     "pixelSha256": "375b9fc26ce6f6fa2108be877ad58668cce88647080de044230f47c82f9cfa29",
-     "pngSha256": "3188e1c8148bd59842ea0621f33e067d97c54d21a1fb2be3db59d7bde3cec09d",
-     "bytes": 917495
+     "pixelSha256": "bb833df6254375c80b8a0df61652bbe85f7169e78e1b36b758865221b432757d",
+     "pngSha256": "d33378f31d746bddf81fb96925b84ad0a251d9daec80e73d3e681d106781aa56",
+     "bytes": 1773939
     }
    ]
   }
