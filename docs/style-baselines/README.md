@@ -19,6 +19,7 @@ exit 0 就是逐像素没变；不是 0 就看报告里的差异热图与接触�
 | [records/2026-11-10-d05-media-provenance.md](records/2026-11-10-d05-media-provenance.md) | D05 调查：公开成片里的红珊瑚从哪来、两种处理各改哪些文件 |
 | [records/2026-11-10-d05-review.md](records/2026-11-10-d05-review.md) | D05 复核：读原始会话记录、独立重渲第 177 帧；结论成立，补了「复制早于 4K 构建结束」的时序证据 |
 | [records/2026-11-10-rebase-2a0a0f3.md](records/2026-11-10-rebase-2a0a0f3.md) | 合入新底座后的复核（153/153 + 20/20 逐像素一致）、确定性实测、清单布局迁移 |
+| [records/2026-11-11-review-fixes.md](records/2026-11-11-review-fixes.md) | 复核意见修复：底座 fb0b841 上的复核、templates 重新登记（P15 的 C 模版）、灰阶色卡登记、关键帧 PNG 移出仓库、C 路线字体纳入像素路径、CI 冒烟补丁 |
 
 清单在 `tests/golden/<平台键>/manifest.json`（一个平台一份），审批记录在 `tests/golden/approvals.jsonl`，集合定义在 `tools/baseline/sets.json`。PNG 一律不进仓库（D10）：回归金标准的帧缓存在本机 `out/golden/`，认可参照的关键帧用 `golden keyframes` 重建到本机 `out/style-baselines/`（POLICY 第 2 节）。
 
