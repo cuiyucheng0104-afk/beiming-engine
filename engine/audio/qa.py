@@ -147,7 +147,11 @@ def _grade(value, soft_bad, hard_bad):
 def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.5, max_tp=-1.0, chunk_s=10.0, loudness_at='mix'):
     """→ (checks, info)。cuts 是切点帧号；loudness_at 见文件头（mix / deliver）。"""
     import soundfile as sf
-    info = sf.info(wav)
+    try:
+        info = sf.info(wav)
+    except Exception as e:      # 不是音频、写到一半被打断的文件：说清楚是哪个文件、怎么办，而不是「内部错误」
+        raise CliError('contract.audio-unreadable', f'读不了混音 {_rel(wav)}：{e}',
+                       hint='要 libsndfile 能读的音频（WAV / FLAC；MP3 先转 WAV）；文件可能没写完——重跑声音脚本') from None
     checks = []
     fmt_ok = info.samplerate == SR and info.channels == 2
     if info.channels not in (1, 2):
@@ -166,6 +170,12 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
                                                          'nonFinite': A.nonfinite},
                        '' if fmt_ok else '交付要 48 kHz 立体声：单声道会被当成两边相同、采样率不对会被重采样',
                        hint=None if fmt_ok else '在声音脚本里按 engine.audio.dsp.SR（48000）合成，写 (样本数, 2) 的数组'))
+    if A.n == 0:                # 空文件：长度与响度直接判失败，后面的统计量都没有意义
+        want = int(round(frames / fps * info.samplerate)) if frames and fps else None
+        checks.append(_chk('audio.length', '长度 = 画面帧数 / fps', 'fail', '0 个样本（空文件）', f'{want} 个样本' if want else '至少 1 个样本',
+                           {'samples': 0, 'expected': want}, '混音是空的：声音脚本没写进样本，或写到一半被打断', hint='重跑声音脚本，看它的日志有没有报错'))
+        checks.append(_chk('audio.loudness', '积分响度', 'fail', '没有样本', f'{target_lufs:g} ± {tol_lu:g} LUFS', {'loudnessAt': loudness_at}, '混音是空的'))
+        return checks, {'samples': 0, 'seconds': 0.0, 'subtype': info.subtype}
 
     if frames and fps:
         want = int(round(frames / fps * info.samplerate))

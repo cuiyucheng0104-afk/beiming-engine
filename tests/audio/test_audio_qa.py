@@ -184,6 +184,22 @@ class QaGate(unittest.TestCase):
         r, env = self.qa('--wav', self.wav, '--profile', 'no-such-profile')
         self.assertEqual(r.returncode, 2)
 
+    def test_empty_and_unreadable_files_are_actionable(self):
+        """0 样本的 WAV 判长度、响度不通过（退出 4，不是内部错误）；不是音频的文件报 contract.audio-unreadable（退出 4）"""
+        import soundfile as sf
+        empty = os.path.join(self.td, 'empty.wav')
+        sf.write(empty, np.zeros((0, 2)), H.SR, subtype='PCM_24')
+        r, env = self.qa('--wav', empty, '--frames', '240', '--fps', '24', '--no-report')
+        self.assertEqual(r.returncode, 4, r.stderr[-800:])
+        self.assertEqual(set(env['data']['summary']['hardFailures']), {'audio.length', 'audio.loudness'})
+        junk = os.path.join(self.td, 'junk.wav')
+        with open(junk, 'w', encoding='utf-8') as f:
+            f.write('这不是音频')
+        r, env = self.qa('--wav', junk, '--no-report')
+        self.assertEqual(r.returncode, 4, r.stderr[-800:])
+        self.assertEqual(env['error']['code'], 'contract.audio-unreadable')
+        self.assertIn('junk.wav', env['error']['message'])
+
     def test_v1_film_json_is_read(self):
         d = os.path.join(self.td, 'v1')
         os.makedirs(os.path.join(d, 'out'))
