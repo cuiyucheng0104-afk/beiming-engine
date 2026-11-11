@@ -4,7 +4,7 @@
 // 运行结束（成功、失败、被中断都一样）后还原：原来没有的删掉，原来有的按备份写回。产物只留在 out/<run-id>/。
 //   const L = new Legacy(backupDir)
 //   L.protect(absPath, { move })   登记一个旧位置（文件或目录）；原来存在就先备份：默认复制，move = true 时改为移走
-//                                 （只用于 out/ 下的大体积旧产物，省一次复制）
+//                                 （只用于 out/ 下的大体积旧产物，省一次复制）；复制备份时原位置若是硬链接，先换成独立的一份
 //   L.place(absPath, src)       登记后把 src 复制过去（给只认旧位置的脚本读）
 //   L.collect(absPath, dest)    把脚本写到旧位置的产物移进运行目录；返回是否收到
 //   L.restore() → [{ path, action }]   全部还原；可重复调用
@@ -23,7 +23,7 @@ export class Legacy {
       backup = path.join(this.backupDir, String(++this.n), path.basename(p));
       fs.mkdirSync(path.dirname(backup), { recursive: true });
       if (move) { try { fs.renameSync(p, backup); } catch { fs.cpSync(p, backup, { recursive: true, preserveTimestamps: true }); fs.rmSync(p, { recursive: true, force: true }); } }
-      else fs.cpSync(p, backup, { recursive: true, preserveTimestamps: true });
+      else { fs.cpSync(p, backup, { recursive: true, preserveTimestamps: true }); unshare(p); }
     }
     this.items.set(p, { existed: backup !== null, backup, createdDirs: missingParents(p) });
   }
@@ -57,6 +57,16 @@ export class Legacy {
     this.items.clear();
     return done;
   }
+}
+
+// 旧位置的文件与别的名字共用一份数据（硬链接）时先换成独立的一份：《北冥》的 out/mix.wav 是上一次运行目录与步骤缓存里
+// 那份混音的硬链接（tools/film/beiming.mjs 的 placeLegacy），而 audio/mix.py 用 soundfile 按截断方式原地覆写 out/mix.wav——
+// 不先断开，重新混音会顺带改掉上一次运行的产物和缓存（之后命中这条缓存就拿到错的混音）。
+function unshare(p) {
+  const st = fs.lstatSync(p);
+  if (!st.isFile() || st.nlink < 2) return;
+  const tmp = `${p}.unshare-${process.pid}`;
+  try { fs.copyFileSync(p, tmp); fs.renameSync(tmp, p); } finally { fs.rmSync(tmp, { force: true }); }
 }
 
 // 登记时还不存在的上级目录（还原时若已空就删掉，例如作品目录下原本没有 out/）

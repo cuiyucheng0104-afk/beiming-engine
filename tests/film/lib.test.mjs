@@ -121,6 +121,25 @@ test('旧位置工作区：登记前不存在的删掉、原有的按备份还�
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test('旧位置工作区：旧位置是硬链接（《北冥》的 out/mix.wav 链到上次运行与缓存）时，脚本原地覆写不会改到另一头', () => {
+  const root = tmp();
+  try {
+    const cached = path.join(root, 'cache', 'mix.wav'), legacy = path.join(root, 'out', 'mix.wav');
+    fs.mkdirSync(path.dirname(cached), { recursive: true });
+    fs.mkdirSync(path.dirname(legacy), { recursive: true });
+    fs.writeFileSync(cached, 'run-1 mix');
+    fs.linkSync(cached, legacy);
+    const L = new Legacy(path.join(root, 'backup'));
+    L.protect(legacy);
+    assert.equal(fs.statSync(legacy).nlink, 1, '登记后旧位置是独立的一份');
+    fs.writeFileSync(legacy, 'run-2 mix');  // 与 soundfile 一样按截断方式原地写
+    assert.equal(fs.readFileSync(cached, 'utf8'), 'run-1 mix', '上次运行与缓存里的混音不能被改');
+    L.restore();
+    assert.equal(fs.readFileSync(legacy, 'utf8'), 'run-1 mix');
+    assert.deepEqual(fs.readdirSync(path.dirname(legacy)), ['mix.wav'], '不留临时文件');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test('步骤缓存：存入、命中、文件缺失或大小不对就不命中、每步只留 2 份', () => {
   const root = tmp();
   try {
