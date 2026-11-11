@@ -33,10 +33,10 @@ export function repoRootOf(p) {
 export function findFilm({ film = null, input = null }) {
   if (film) {
     const p = path.resolve(film);
-    if (!fs.existsSync(p)) throw new QaError('usage', `找不到作品描述：${film}`, { hint: '--film 给作品目录或它的 film.json', exitCode: EXIT.USAGE });
+    if (!fs.existsSync(p)) throw new QaError('usage.no-file', `找不到作品描述：${film}`, { hint: '--film 给作品目录或它的 film.json', exitCode: EXIT.USAGE });
     if (fs.statSync(p).isDirectory()) {
       const f = path.join(p, 'film.json');
-      if (!fs.existsSync(f)) throw new QaError('usage', `目录 ${film} 里没有 film.json`, { exitCode: EXIT.USAGE });
+      if (!fs.existsSync(f)) throw new QaError('usage.no-file', `目录 ${film} 里没有 film.json`, { exitCode: EXIT.USAGE });
       return f;
     }
     return p;
@@ -171,10 +171,10 @@ function normEvent(e, i, fps) {
 export function loadEvents(file, fps) {
   let raw;
   try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
-    throw new QaError('usage', `事件表 ${file} 读不出来：${e.message}`, { exitCode: EXIT.USAGE });
+    throw new QaError('usage.bad-value', `事件表 ${file} 读不出来：${e.message}`, { exitCode: EXIT.USAGE });
   }
   const f = parseFps(raw.fps) || fps;
   const list = Array.isArray(raw) ? raw : Array.isArray(raw.events) ? raw.events : Array.isArray(raw.ev) ? raw.ev : null;
-  if (!list) throw new QaError('usage', `事件表 ${file} 里找不到 events[] 或 ev[]`, { exitCode: EXIT.USAGE });
+  if (!list) throw new QaError('usage.bad-value', `事件表 ${file} 里找不到 events[] 或 ev[]`, { exitCode: EXIT.USAGE });
   return list.filter(isObj).map((e, i) => normEvent(e, i, f)).filter(Boolean);
 }

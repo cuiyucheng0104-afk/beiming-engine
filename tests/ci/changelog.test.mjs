@@ -124,7 +124,7 @@ test('命令行：--help 无副作用；子命令与参数错误 exit 2；版本
   for (const bad of [[], ['publish'], ['check', 'v1'], ['notes'], ['notes', 'v1.0', '--unreleased'], ['check', '--nope']]) {
     const r = await runNode(TOOL, [...bad, '--file', path.join(root, 'CHANGELOG.md'), '--json']);
     assert.equal(r.code, 2, `${bad.join(' ')}：${r.stderr}`);
-    assert.equal(r.json.error.code, 'USAGE');
+    assert.match(r.json.error.code, /^usage\./);
   }
   const mismatch = await runNode(TOOL, ['notes', 'v1.0', '--file', path.join(root, 'CHANGELOG.md'), '--package', path.join(root, 'package.json'), '--json']);
   assert.equal(mismatch.code, 4);

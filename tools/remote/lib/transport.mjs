@@ -63,7 +63,7 @@ export function makeTransport(m) {
   const scp = async (from, to) => {
     const r = await spawnCollect('scp', ['-q', ...base, from, to], { onStderr: null });
     if (r.error) throw Object.assign(new Error(`无法运行 scp（${r.error.code || r.error.message}）`), { hint: '安装 OpenSSH 客户端（macOS 与 Windows 10+ 自带）' });
-    if (r.code !== 0) throw Object.assign(new Error(`scp 失败（退出码 ${r.code}）：${r.stderr.trim().split('\n').pop() || ''}`), { hint: '检查远端路径与磁盘空间；Windows 远端的 root 用 D:/xxx 这种写法' });
+    if (r.code !== 0) throw Object.assign(new Error(`scp 失败（退出码 ${r.code}）：${r.stderr.trim().split('\n').pop() || ''}`), { hint: '检查远端路径与磁盘空间；Windows 远端的 root 用 <盘符>:/<目录> 这种正斜杠写法' });
   };
   return {
     kind: 'ssh',

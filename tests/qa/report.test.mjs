@@ -37,7 +37,8 @@ test('用法错误 exit 2：未知参数、缺成片、成片不存在、未知�
     const r = qa(args, { cwd: dir });
     assert.equal(r.code, 2, `${args.join(' ')} → ${r.code} ${r.stderr}`);
     assert.equal(r.env.exitCode, 2);
-    assert.equal(r.env.error.code, 'usage');
+    assert.match(r.env.error.code, /^usage\./, '用法错误码是 usage.*（与 tools/lib/cli.mjs 同一套）');
+    assert.equal(r.env.schemaVersion, 1);
     assert.ok(r.env.error.hint, '要给出下一步提示');
     assert.equal(r.stdout.trim().split('\n').length, 1);
   }
@@ -143,7 +144,7 @@ test('档位：权威表缺失或缺字段时用内置值并报 warn；film.json
 test('参数解析：未知参数、缺值、数字、列表', () => {
   const spec = { options: { '--n': { type: 'number', min: 1 }, '--l': { type: 'list' }, '--b': { type: 'boolean' } }, positionals: { min: 0, max: 1 } };
   assert.deepEqual(parseArgs(['--n', '3', '--l', 'a,b', '--l=c', '--b', 'x'], spec), { opts: { n: 3, l: ['a', 'b', 'c'], b: true }, positionals: ['x'] });
-  assert.throws(() => parseArgs(['--zz'], spec), /未知参数/);
+  assert.throws(() => parseArgs(['--zz'], spec), /不认识的选项 --zz/);
   assert.throws(() => parseArgs(['--n'], spec), /要跟一个值/);
   assert.throws(() => parseArgs(['--n', '0'], spec), /不能小于/);
   assert.throws(() => parseArgs(['a', 'b'], spec), /多余/);

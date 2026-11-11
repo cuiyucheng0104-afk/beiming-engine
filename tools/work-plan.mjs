@@ -10,8 +10,8 @@
 // 计划 schemaVersion 2（v1 照样能读）：
 //   task.route      注册表 id（a / b / c，见 routes/routes.json）或 shared；旧名 beiming / raea 等按别名认，v2 里会提示改写
 //   task.status     planned | in-progress | blocked | done | superseded
-//   task.claim      { by, session, baseCommit, startedAt, expiresAt? }：in-progress 与 blocked 必须有；过了到期日（默认开工后
-//                   claimTtlDays 天）算认领过期
+//   task.claim      { by, session, baseCommit, startedAt, expiresAt?, note? }：in-progress 与 blocked 必须有；过了到期日（默认开工后
+//                   claimTtlDays 天）算认领过期；续期时改 expiresAt，并在 note 写明谁、哪天、为什么续
 //   task.evidence   [{ kind: file | result | command | commit, ref, note?, sha256? }]：done 至少一条；file / result 要存在，commit 要能在 git 里找到
 //   task.superseded { by: [任务 id], reason }：被别的任务或已有实现取代；依赖它的任务要改成依赖取代者
 //   task.playbook   详细指引（仓库相对路径，必须存在）
@@ -128,6 +128,7 @@ export function diagnosePlan(plan, { reg = defaultRegistry() } = {}) {
         ...(SHA.test(c.baseCommit ?? '') ? [] : ['baseCommit（7–40 位提交号）']),
         ...(ISO_DATE.test(c.startedAt ?? '') && !Number.isNaN(Date.parse(c.startedAt)) ? [] : ['startedAt（ISO 日期）']),
         ...(c.expiresAt === undefined || (ISO_DATE.test(c.expiresAt) && Date.parse(c.expiresAt) > Date.parse(c.startedAt)) ? [] : ['expiresAt（晚于 startedAt 的 ISO 日期）']),
+        ...(c.note === undefined || isStr(c.note) ? [] : ['note（非空字符串）']),
       ];
       if (bad.length) E(id, 'task.claim', `${id}：claim 格式不对（${bad.join('、')}）`, '写成 { "by": "<谁>", "session": "<分支或会话>", "baseCommit": "<开工时的提交>", "startedAt": "YYYY-MM-DD" }');
       if (task.status === 'planned') W(id, 'task.claim-planned', `${id}：还是 planned 却有认领记录`, '开工就改成 in-progress；放弃就删掉 claim');
@@ -381,7 +382,7 @@ function evidenceText(x) {
 export function formatCard(t, { ttlDays = DEFAULT_CLAIM_TTL_DAYS } = {}) {
   const lines = [`### ${t.id} · ${t.title}`, ''];
   lines.push(`- 路线：${code(t.route)}；角色：${t.ownerRole}；状态：${code(t.status)}。`);
-  if (t.claim) lines.push(`- 认领：${t.claim.by}；会话 ${code(t.claim.session)}；基线 ${code(t.claim.baseCommit.slice(0, 7))}；${t.claim.startedAt.slice(0, 10)} 起，${day(claimExpiry(t.claim, ttlDays))} 到期。`);
+  if (t.claim) lines.push(`- 认领：${t.claim.by}；会话 ${code(t.claim.session)}；基线 ${code(t.claim.baseCommit.slice(0, 7))}；${t.claim.startedAt.slice(0, 10)} 起，${day(claimExpiry(t.claim, ttlDays))} 到期${t.claim.note ? `（${t.claim.note}）` : ''}。`);
   if (t.status === 'blocked') lines.push(`- 阻塞：${sentence(t.blocker)}`);
   if (t.superseded) lines.push(`- 取代：由 ${t.superseded.by.join('、')} 取代；${sentence(t.superseded.reason)}`);
   lines.push(`- 依赖：${t.dependsOn.join('、') || '无'}。`);
