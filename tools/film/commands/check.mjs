@@ -1,6 +1,7 @@
 // 北冥仓库 · film check：出片前的只读检查（不渲帧、不写作品目录、不建运行目录）。
 //   1. 作品描述：转调 node engine/production/film.js check <作品> --json（P05，附录 C6 的 validateFilm）；它还不存在时退出码 3 并说明
-//   2. A / C：页面契约探测（engine/render/events.mjs --probe --no-events：render 是函数、DUR 有限正数、round(DUR×fps) = 帧数、GPU 不是软件渲染）
+//   2. A / C：页面契约探测（engine/render/events.mjs --probe --no-events：render 是函数、DUR 有限正数、round(DUR×fps) = 帧数、GPU 不是软件渲染）；
+//      film.json 写了 fonts 的（A 模版）先核对本片字体子集（tools/fonts/subset.mjs --check 同口径），不合格就不开页面
 //      B：原生预检（engine/render/native.mjs --check-only：运行时版本、工具与 media/ 素材）
 //   3. 编排视图：路线、档位、帧数、镜头表能否标切点、闸门要求
 // 退出码取最严重的一项：契约不过 4 > 缺环境 3 > 0。
@@ -12,6 +13,7 @@ import { ROOT, rel, findPython } from '../lib/repo.mjs';
 import { filmJsonProblems } from '../../lib/filmspec.mjs';
 import { readRegistry } from '../../lib/routes.mjs';
 import { loadFilm, shotsAt } from '../lib/spec.mjs';
+import { fontsCheck } from '../lib/fonts.mjs';
 import { resolveProfile, framesAt } from '../lib/profiles.mjs';
 import { exec } from '../lib/proc.mjs';
 import { raeaInfo } from '../lib/native-steps.mjs';
@@ -31,7 +33,7 @@ export const CHECK_DOC = {
   usage: ['npm run film -- check <作品目录> [--profile <档位>] [--page <目录>] [--json]'],
   description: [
     '  1. 作品描述  node engine/production/film.js check（作品描述包的校验器：镜头首尾相接、事件落在镜头内、引用存在…）',
-    '  2. 页面契约  A / C 打开页面等 READY，查 render / DUR / 帧数 / 软件渲染；B 跑 native.mjs --check-only',
+    '  2. 页面契约  A / C 打开页面等 READY，查 render / DUR / 帧数 / 软件渲染（写了 fonts 的先核对本片字体子集）；B 跑 native.mjs --check-only',
     '  3. 编排视图  路线、档位、帧数、切点、闸门要求',
   ],
   examples: ['npm run film -- check films/my-film'],
@@ -78,7 +80,9 @@ export async function checkCommand(opts, positionals) {
   add('shots', shots.length > 1 || !shots[0].implicit ? 'pass' : 'info', shots[0].implicit ? '没有镜头表：联系表不标切点（v2 作品写 shots）' : `${shots.length} 个镜头，切点 ${shots.slice(1).map(s => s.in).join('、') || '无'}`);
   if (film.route === 'b' && profile && (profile.width !== film.width || profile.height !== film.height || profile.fps !== film.fps)) add('profile-native', 'fail', `档位 ${profile.id} 与 B 作品的 film.json 画幅帧率不一致（原生按 film.json 出片）`);
 
-  // 2 页面契约 / 原生预检
+  // 2 页面契约 / 原生预检；本片字体子集（A 模版）不合格时页面一打开就报错，不再开页面
+  const fonts = fontsCheck(film);
+  if (fonts) add('fonts', fonts.ok ? 'pass' : fonts.exitCode === EXIT.CONTRACT ? 'fail' : 'env', fonts.message, fonts.ok ? {} : { hint: fonts.hint });
   if (film.route === 'b') {
     const r = raeaInfo();
     if (!r.ok) add('native', 'env', r.reason === 'unset' ? '没有设 RAEA_BIN：B 路线的原生运行时不随仓库分发' : `RAEA_BIN 不可用（${r.reason}）`, { hint: '把 RAEA_BIN 设为运行时可执行文件的完整路径（版本 0.1.0-canary.2）' });
@@ -91,6 +95,8 @@ export async function checkCommand(opts, positionals) {
     }
   } else if (!fs.existsSync(path.join(film.pageDir, 'index.html'))) {
     add('page', 'fail', `页面目录 ${rel(film.pageDir)} 下没有 index.html`);
+  } else if (fonts && !fonts.ok) {
+    add('page', 'info', '没有探测页面：先按上面 fonts 一项生成本片字体子集');
   } else {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'film-check-'));
     const undo = onInterrupt(() => fs.rmSync(tmp, { recursive: true, force: true }));

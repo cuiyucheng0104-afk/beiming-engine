@@ -28,6 +28,7 @@ import { pathToFileURL } from 'node:url';
 import { EXIT, FilmError, asFilmError } from './exit.mjs';
 import { ROOT, rel, gitInfo, toolVersions, findPython, hashTree, hashJson, fileHash, sha256File } from './repo.mjs';
 import { preflight as envPreflight } from '../../env/preflight.mjs';
+import { fontsCheck } from './fonts.mjs';
 import { pythonEnv } from '../../env/lib/python.mjs';
 import { findSh, shFix } from '../../env/lib/sh.mjs';
 import { loadFilm, cutsOf } from './spec.mjs';
@@ -97,7 +98,7 @@ export function parseGpu(s) {
   return { device: device || s, backend: backend ? `WebGL2 / ANGLE ${backend}` : 'WebGL2 / ANGLE' };
 }
 
-// 开运行目录之前的全部检查与换算：作品描述、页面目录、--size / --final、交付档位、B 路线的档位一致性、--audio、本次规格
+// 开运行目录之前的全部检查与换算：作品描述、页面目录、本片字体子集（A）、--size / --final、交付档位、B 路线的档位一致性、--audio、本次规格
 // （画幅、帧率、帧数、镜头表）。不写任何文件、不起进程：用法或契约有问题都在这里抛（退出码 2 / 4），
 // build 的 --waive 在它之后才写审片记录，所以用法错误不会留下记录。
 export function planSession({ kind, filmArg, opts }) {
@@ -118,6 +119,8 @@ export function planSession({ kind, filmArg, opts }) {
     const rr = path.relative(fs.realpathSync(ROOT), real);
     if (rr.startsWith('..') || path.isAbsolute(rr)) throw new FilmError(EXIT.USAGE, 'native-outside', `B 路线作品目录的真实位置不在仓库里（${real}）：原生运行时按真实路径打包 film.tsx，../../engine/native 会找不到`, '把作品目录本身放进仓库的 films/ 下（不要用指向仓库外的链接）');
   }
+  const fonts = fontsCheck(film);
+  if (fonts && !fonts.ok) throw new FilmError(fonts.exitCode, fonts.code, fonts.message, fonts.hint);
   if (opts.size && opts.final) throw new FilmError(EXIT.USAGE, 'size-final', '--final 只按交付档位出片，不能再用 --size 改画幅', '要别的画幅就换档位：--profile <档位>');
   const size = opts.size ? parseSize(opts.size) : null;
   if (size && film.route === 'b') throw new FilmError(EXIT.USAGE, 'size-native', 'B 路线的画幅来自 film.json（native.mjs 与 film.tsx 都读它），不能用 --size 覆盖', '改 film.json 的 size');

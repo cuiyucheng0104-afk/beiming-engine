@@ -2,7 +2,7 @@
 //   A / C 页面型：probe → mix → cuecheck → video → mux → web → poster → contact → player → qa   （步骤见 engine/render/build.mjs）
 //   B 原生：      prepare → preflight → native → web → poster → contact → player → qa          （见 tools/film/lib/native-steps.mjs）
 //   预演（animatic）：A / C probe → mix → video（半分辨率、previs=1）→ preview → contact → player；B prepare → preflight → native（draft）→ contact → player
-// 顺序：用法与契约检查（planSession：作品描述、页面、档位、--size / --final、步骤名）→ 写审片记录（--waive）→ 闸门（--final）→ 开运行目录；
+// 顺序：用法与契约检查（planSession：作品描述、页面、本片字体子集、档位、--size / --final、步骤名）→ 写审片记录（--waive）→ 闸门（--final）→ 开运行目录；
 // 前面任何一项不过都直接退出，不写记录、不建目录。
 // --final 先查闸门（D08）：required 的 look 与 animatic 必须是用户通过或带用户原话的豁免，否则退出码 4，一帧不渲。
 // --profile 换了画幅或帧率时，QA 读运行目录里的 film.effective.json（tools/film/lib/effective.mjs）；--size 的工作版不跑交付 QA。

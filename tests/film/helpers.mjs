@@ -1,10 +1,12 @@
 // tests/film 共用的小工具：在仓库根跑出片命令、建临时作品（放仓库外，films/ 里只留链接）、比对目录前后。
 //   runCli(args, { env, stubQa }) → { code, stdout, stderr, json }   json = stdout 整体解析出的单个对象（--json 时；解析不了为 null）
 //     stubQa: true 时用预加载钩子把机器 QA 门换成测试替身（QA_NODE_ARGS，见 fixtures/qa-stub-hook.mjs）
-//   makeWork(route, { title }) → { name, rel, dir, real, cleanup() }
+//   makeWork(route, { title, fonts }) → { name, rel, dir, real, cleanup() }
 //     A / C：作品本体放在 FILM_TEST_ROOT（默认系统临时目录下的 beiming-film-tests-<pid>），films/<名> 是指向它的链接
 //            （Windows 用目录联接，不需要管理员权限）；B：原生运行时按真实路径打包，作品必须真实位于 films/ 下，结束时删除
 //     FILM_TEST_KEEP=1 时不删作品本体，方便事后看产物
+//     film.json 写了 fonts 的（A 模版）按模版说明接着生成本片字体子集（tools/fonts/subset.mjs：要 Python fontTools 与字体缓存，
+//     缓存见 node tools/fonts/fetch.mjs 或 BEIMING_FONT_CACHE）；fonts: false 时不生成（测「没生成子集」的用例）
 //   snapshotDir(dir) → Set(名字)   newEntries(before, dir) → 新出现的名字
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -28,7 +30,7 @@ export function runCli(args, { env = {}, timeout = 600000, stubQa = false } = {}
 }
 
 let seq = 0;
-export function makeWork(route, { title = '自检短片' } = {}) {
+export function makeWork(route, { title = '自检短片', fonts = true } = {}) {
   const name = `p06t-${route}-${process.pid}-${++seq}`;
   const rel = `films/${name}`;
   const inRepo = path.join(ROOT, rel);
@@ -41,7 +43,7 @@ export function makeWork(route, { title = '自检短片' } = {}) {
     fs.renameSync(inRepo, real);
     fs.symlinkSync(real, inRepo, process.platform === 'win32' ? 'junction' : 'dir');
   }
-  return {
+  const w = {
     name, rel, dir: inRepo, real,
     cleanup() {
       if (route !== 'b') {
@@ -54,6 +56,11 @@ export function makeWork(route, { title = '自检短片' } = {}) {
       } else fs.rmSync(inRepo, { recursive: true, force: true });
     },
   };
+  if (fonts && JSON.parse(fs.readFileSync(path.join(inRepo, 'film.json'), 'utf8')).fonts?.length) {
+    const s = spawnSync(process.execPath, [path.join(ROOT, 'tools/fonts/subset.mjs'), inRepo, '--quiet'], { cwd: ROOT, encoding: 'utf8' });
+    if (s.status !== 0) { w.cleanup(); throw new Error(`字体子集没生成（退出码 ${s.status}）：${s.stderr.trim()}`); }
+  }
+  return w;
 }
 
 // 删链接本身（不碰链接指向的目录）：POSIX 符号链接用 unlink，Windows 目录联接用 rmdir

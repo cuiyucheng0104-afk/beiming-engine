@@ -1,7 +1,8 @@
 // 出片端到端测试：三条路线的模版各建一部临时作品，按 G1 自检的命令跑通 build，再验复用、帧段缓存、中断清理。
 // 会真的启动浏览器、渲染、编码（A / C 各约 10–20 秒，B 另需原生运行时），所以默认跳过：
 //   FILM_E2E=1 node --test tests/film/e2e.test.mjs
-// 需要：ffmpeg / ffprobe、装了 requirements.txt 的 Python（PYTHON=…）、Playwright 的 headless shell；B 另需 RAEA_BIN。
+// 需要：ffmpeg / ffprobe、装了 requirements.txt 的 Python（PYTHON=…）、Playwright 的 headless shell；B 另需 RAEA_BIN；
+// A 模版要先生成本片字体子集（helpers.mjs 的 makeWork 代跑 tools/fonts/subset.mjs），另需 Python fontTools 与字体缓存（node tools/fonts/fetch.mjs，或 BEIMING_FONT_CACHE）。
 // 机器 QA 门：默认用测试替身 tests/film/fixtures/qa-stub.mjs（只验编排器的接线：模版画面能不能过真 QA 是各路线模版的事），
 // 由预加载钩子 fixtures/qa-stub-hook.mjs 接上（编排器里没有换 QA 实现的开关）；
 // FILM_E2E_REAL_QA=1 时用仓库里的 tools/qa/cli.mjs（模版过不了硬门时 build 退出码 4，测试会如实失败），并加跑「竖屏档位交给真 QA 的口径」：
