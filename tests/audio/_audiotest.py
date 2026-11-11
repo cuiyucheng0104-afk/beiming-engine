@@ -98,15 +98,16 @@ def film_json(d, frames=240, fps=24, cuts=(120,), profile='web-1080p24', size=(1
 
 
 def sound_tree(dst):
-    """临时仓库树：audio/（不含分轨、自检、采样、测试）、engine/audio、engine/render/mux.sh、tools/lib（命令约定库）、
-    tools/env（audio/build.sh 经 node tools/env/py.mjs 调用）、tools/audio（Node 入口）。在它里面跑《北冥》声音构建，
-    不碰真实仓库的 out/ 与 audio/check/"""
+    """临时仓库树：audio/（不含分轨、自检、采样、测试）、engine/audio、engine/render/mux.sh 与它转交的 engine/render/lib/mux.mjs
+    （P04 渲染器 v2；连同它 import 的 tools/compliance/lib）、tools/lib（命令约定库）、tools/env（audio/build.sh 经
+    node tools/env/py.mjs 调用）、tools/audio（Node 入口）。在它里面跑《北冥》声音构建，不碰真实仓库的 out/ 与 audio/check/"""
     shutil.copytree(os.path.join(ROOT, 'audio'), os.path.join(dst, 'audio'), ignore=SKIP)
     os.makedirs(os.path.join(dst, 'engine', 'render'), exist_ok=True)
     shutil.copytree(os.path.join(ROOT, 'engine', 'audio'), os.path.join(dst, 'engine', 'audio'), ignore=SKIP)
     shutil.copy(os.path.join(ROOT, 'engine', 'render', 'mux.sh'), os.path.join(dst, 'engine', 'render'))
-    for sub in ('lib', 'env', 'audio'):
-        shutil.copytree(os.path.join(ROOT, 'tools', sub), os.path.join(dst, 'tools', sub), ignore=SKIP)
+    # 目录清单同 tests/render/helpers.mjs 的 RENDERER_DIRS（tools/env/lib 随 tools/env 整拷）
+    for d in (('engine', 'render', 'lib'), ('tools', 'compliance', 'lib'), ('tools', 'lib'), ('tools', 'env'), ('tools', 'audio')):
+        shutil.copytree(os.path.join(ROOT, *d), os.path.join(dst, *d), ignore=SKIP)
     with open(os.path.join(dst, 'package.json'), 'w', encoding='utf-8') as f:
         f.write('{"name": "beiming-sound-tree", "private": true, "type": "module"}\n')
     return dst
