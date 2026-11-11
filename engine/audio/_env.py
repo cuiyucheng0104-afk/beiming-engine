@@ -9,10 +9,12 @@
   sh_fix() → 一句可执行的修复建议
   utf8_stdio() → stdout / stderr 改成 UTF-8（Windows 的 GBK 控制台与管道里打印中文不抛 UnicodeEncodeError）
   run(cmd, timeout=None, input=None, capture_output=False, **Popen 参数) → CompletedProcess
-      subprocess.run 的替身：子进程自成一个进程组（POSIX 新会话 / Windows 新进程组），stdin 默认接空设备；超时
-      （抛 subprocess.TimeoutExpired）、Ctrl+C、SIGTERM（由 exit_on_sigterm 或 cli.run 转成异常）或任何异常时，连同它起的
-      孙进程（sh → ffmpeg）一起结束再把异常抛上去，不留孤儿进程
-  kill_tree(popen, grace=5) → 结束一个进程组：先 SIGTERM（Windows：taskkill /T），grace 秒后还在就强制
+      subprocess.run 的替身：子进程留在调用方的进程组里（对整组发的 Ctrl+C、SIGHUP、SIGKILL 一起收到，不会被系统收养后
+      接着跑），stdin 默认接空设备；超时（抛 subprocess.TimeoutExpired）、Ctrl+C、SIGTERM（由 exit_on_sigterm 或 cli.run
+      转成异常）或任何异常时，连同它起的孙进程（sh → ffmpeg）一起结束再把异常抛上去，不留孤儿进程
+  kill_tree(popen, grace=5) → 结束 popen 和它的全部子孙：先按父子关系取下整棵树（Linux 读 /proc，其余用 ps；要在中间一层
+      退出、孙进程被系统收养之前取），逐个 SIGTERM，grace 秒后还在的 SIGKILL（同 tools/film/lib/proc.mjs 的 treeOf）；
+      Windows：taskkill /T /F
   exit_on_sigterm() → 没走 cli.run 的脚本（audio/mix.py、audio/check.py）：SIGTERM 变成 SystemExit(143)，finally 照常执行
       （临时目录删掉、run 起的子进程一并结束），退出码 143（附录 C1）
 """
@@ -21,6 +23,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 
 
 def _pick(name, default):
@@ -86,10 +89,6 @@ def run(cmd, timeout=None, input=None, capture_output=False, **kw):
     if capture_output:
         kw['stdout'] = kw['stderr'] = subprocess.PIPE
     kw.setdefault('stdin', subprocess.PIPE if input is not None else subprocess.DEVNULL)
-    if os.name == 'nt':
-        kw['creationflags'] = kw.get('creationflags', 0) | subprocess.CREATE_NEW_PROCESS_GROUP
-    else:
-        kw['start_new_session'] = True
     with subprocess.Popen(cmd, **kw) as p:
         try:
             out, err = p.communicate(input, timeout=timeout)
@@ -99,26 +98,68 @@ def run(cmd, timeout=None, input=None, capture_output=False, **kw):
     return subprocess.CompletedProcess(cmd, p.returncode, out, err)
 
 
+def _children():
+    """{父 pid: [子 pid…]}：Linux 读 /proc（精简容器可能没装 ps），其余 POSIX 用 ps"""
+    rows = []
+    if os.path.isdir('/proc/self/task'):
+        for d in os.listdir('/proc'):
+            if d.isdigit():
+                try:
+                    with open(f'/proc/{d}/stat', 'rb') as f:
+                        st = f.read()
+                    rows.append((int(d), int(st[st.rindex(b')') + 2:].split()[1])))   # "pid (名字) 状态 ppid …"，名字里可能有空格和括号
+                except (OSError, ValueError, IndexError):
+                    pass                                                             # 读的时候进程退出了
+    else:
+        try:
+            out = subprocess.run(['ps', '-A', '-o', 'pid=,ppid='], capture_output=True, text=True, timeout=10).stdout
+        except (OSError, subprocess.SubprocessError):
+            out = ''
+        rows = [tuple(map(int, f)) for f in (ln.split() for ln in out.splitlines()) if len(f) == 2 and f[0].isdigit() and f[1].isdigit()]
+    kids = {}
+    for pid, ppid in rows:
+        kids.setdefault(ppid, []).append(pid)
+    return kids
+
+
+def _descendants(root):
+    kids, found, todo = _children(), [], [root]
+    while todo:
+        for c in kids.get(todo.pop(), ()):
+            if c not in found and c != os.getpid():
+                found.append(c)
+                todo.append(c)
+    return found
+
+
 def kill_tree(p, grace=5.0):
     if os.name == 'nt':
         if p.poll() is None:
             subprocess.run(['taskkill', '/T', '/F', '/PID', str(p.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         p.wait()
         return
+    tree = [p.pid] + _descendants(p.pid) if p.returncode is None else []    # 已回收的 pid 可能被别人重用：不碰
+
+    def alive(pid):
+        if pid == p.pid:
+            return p.poll() is None             # 直接子进程用 poll（顺带收尸），不对已回收的 pid 发信号
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:                         # 已退出（或 pid 已归别的用户）
+            return False
     for sig in (signal.SIGTERM, signal.SIGKILL):
-        try:
-            os.killpg(p.pid, sig)               # run 起的子进程是组长：组号 = 它的 pid，孙进程在同一组里
-        except (ProcessLookupError, PermissionError):
-            break                               # 组里已经没人了
-        try:
-            p.wait(grace)
-        except subprocess.TimeoutExpired:
-            continue
-        try:
-            os.killpg(p.pid, signal.SIGKILL)    # 组长退了，孙进程可能还在（例如 sh 先退、ffmpeg 还在写）
-        except (ProcessLookupError, PermissionError):
-            pass
-        break
+        for pid in tree:
+            if alive(pid):
+                try:
+                    os.kill(pid, sig)
+                except OSError:
+                    pass
+        until = time.monotonic() + grace
+        while time.monotonic() < until and any(alive(x) for x in tree):
+            time.sleep(0.05)
+        if not any(alive(x) for x in tree):
+            break
     p.wait()
 
 

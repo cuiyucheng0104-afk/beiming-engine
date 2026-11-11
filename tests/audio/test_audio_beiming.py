@@ -12,6 +12,8 @@
     check.py 旧口径带 --json 时退出 2 并只输出一个信封；
   · 中断不留孤儿进程（POSIX）：SIGTERM 给 python audio/build.py、SIGINT 只给 node tools/audio/build.mjs，混音子进程都跟着结束、
     之后没有进程再写 out/mix.wav；SIGTERM 给正在跑封装探针的 audio/check.py，ffmpeg / sh 跟着结束、临时目录删掉，退出码 143；
+    对调用方整组发 SIGKILL（python audio/build.py、正在封装探针的 check.py）或 SIGHUP（node tools/audio/build.mjs），谁也来不及收拾，
+    子进程留在同一组里一起结束：没有进程被系统收养后接着跑，out/mix.wav 不会在之后被写出；
   · 设了 BEIMING_SAMPLES（固定版本的采样库）时：--score 重渲可复现，重渲当次与之后读缓存的混音逐字节相同。
 门禁需要 ffmpeg（环境变量 FFMPEG / FFPROBE 可指完整路径）；没有时门禁的用例跳过，金标准与配乐缓存的用例照常跑。
 每次构建约 5–10 秒（numba 缓存冷时多十几秒）。
@@ -273,6 +275,38 @@ class Interrupt(unittest.TestCase):
         os.kill(p.pid, signal.SIGINT)                            # 只给 Node 进程，不是整个进程组
         self.assert_clean_exit(p, 130)
         self.assertFalse(os.path.exists(os.path.join(self.td, 'out', 'mix.wav')))
+
+    def assert_nothing_left(self, t_kill, settle=3.0):
+        """整组被杀时谁也来不及收拾，所以过一会儿再看：没有带这棵树路径的进程，out/mix.wav 没在被杀之后写出"""
+        time.sleep(settle)                # 子进程若在别的会话里，被 PID 1 收养后约 1.4 s 写出 out/mix.wav（复核实测）：等够再看
+        self.assertEqual(self.cmdlines(), [], '整组被杀后还有进程在跑（子进程不在调用方的进程组里，被系统收养了）')
+        mix = os.path.join(self.td, 'out', 'mix.wav')
+        self.assertFalse(os.path.exists(mix) and os.path.getmtime(mix) >= t_kill, '整组被杀后还有进程写出了 out/mix.wav')
+
+    def test_sigkill_to_callers_group_leaves_nothing(self):
+        p = self.start([sys.executable, 'audio/build.py'], self.mixing)
+        t = time.time()
+        os.killpg(p.pid, signal.SIGKILL)  # 对调用方整组硬杀：run-tests 收到 Ctrl+C 或超时硬杀、tools/env/lib/proc.mjs 的 killTree 都这样
+        p.wait()
+        self.assert_nothing_left(t)
+
+    @unittest.skipUnless(NODE, '需要 node')
+    def test_sighup_to_node_front_group_leaves_nothing(self):
+        p = self.start(['node', 'tools/audio/build.mjs'], self.mixing)
+        t = time.time()
+        os.killpg(p.pid, signal.SIGHUP)   # 关终端：整组收到 SIGHUP
+        p.wait(60)
+        self.assert_nothing_left(t)
+
+    @unittest.skipUnless(FF and SH, '需要 ffmpeg / ffprobe 与 sh')
+    def test_sigkill_to_callers_group_during_mux_probe(self):
+        r = H.run(['python', 'audio/mix.py'], cwd=self.td)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        p = self.start([sys.executable, 'audio/check.py', '--strict'],
+                       lambda: any('ffmpeg' in c or 'mux.sh' in c for c in self.cmdlines()))
+        os.killpg(p.pid, signal.SIGKILL)  # check.py 起的 ffmpeg / sh 也在这一组里，一起收到
+        p.wait()
+        self.assert_nothing_left(time.time(), settle=0.3)   # 封装探针一两秒就跑完：要趁它还在时看
 
     @unittest.skipUnless(FF and SH, '需要 ffmpeg / ffprobe 与 sh')
     def test_sigterm_to_check_py_during_mux_probe(self):
