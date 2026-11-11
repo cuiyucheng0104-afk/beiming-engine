@@ -3,7 +3,7 @@
 
 把 site/ 装配成可以直接发布的静态站，按 site/CONTRACT.md 第 5 节的七步执行：
 
-  1. 读 cases/catalog.json + 策展规则 CURATION + site/data/works-meta.json，得到作品列表（79 部：66 / 7 / 6）
+  1. 读 cases/catalog.json + 策展规则 CURATION + site/data/works-meta.json，得到作品列表（97 部：66 / 7 / 24）
   2. 复制 site/（不含 *.md、dev/、data/works-meta.json）到输出目录；作品区标记填进 <!-- @works -->；写 data/works.json
   3. 从 site/js/ 下每一个 .js 出发解析 import 图（静态、动态、new URL(…, import.meta.url)），
      只复制用到的 engine/、src/、three 与 three/addons 文件；缺文件就报错退出
@@ -82,15 +82,15 @@ GROUPS = [
     {'key': 'ppt-stories', 'title': 'PPT 故事介绍片', 'layout': 'strip',
      'desc': '2 到 4 分钟的品牌故事片。原画来自提案，分层、时间线、镜头与混音由代码完成。',
      'durationRange': (120, 240)},
-    {'key': 'ppt-keynote', 'title': '发布会动画', 'layout': 'strip',
-     'desc': '开场、段落与落版，20 秒到 3 分钟，同一套管线批量出片。',
+    {'key': 'ppt-keynote', 'title': '发布会动画', 'layout': 'films',
+     'desc': 'WONDER 项目案例。',
      'durationRange': (19.5, 181)},
 ]
 # 站上多处文案写死了这些数字（DESIGN.md 第 7 节）；策展结果变了必须先改文案再改这里
-EXPECTED_COUNTS = {'styles': 66, 'ppt-stories': 7, 'ppt-keynote': 6}
+EXPECTED_COUNTS = {'styles': 66, 'ppt-stories': 7, 'ppt-keynote': 24}
 
 LEDE = '{all} 部成片，每一部都由代码合成出片：镜头、版式、笔触与混音都写在程序里。'
-NOTE = '注：部分作品以提案原画、AI 生成的画面或公有领域影像为素材，来源写在每部的案例卡里。站内播放的是历史成片的 960 宽转码；原始画质与素材包在 {release}，每部的归档源码与案例卡在 {cases}。'
+NOTE = '注：部分作品以提案原画、AI 生成的画面或公有领域影像为素材，来源写在每部的案例卡里。历史作品播放 960 宽转码，WONDER 项目案例播放 720p 完整成片；历史作品的原始画质与素材包在 {release}，每部的归档源码与案例卡在 {cases}。'
 
 # 站点可见文字里不能出现的内容（AGENTS.md 对外名称、DESIGN.md 第 7 节文案规则）
 FORBIDDEN_TERMS = ['RAEA', 'raea', 'Lemo', 'lemo', 'Opuscar', 'opuscar', 'SY100', 'sy-style-100',
@@ -252,6 +252,7 @@ def load_works(site: Path, previews_dir: Path | None, log: Log) -> dict:
         m = entries[case['id']]
         return (order[case['group']], m.get('order', 0), position[case['id']])
 
+    kept = [c for c in kept if c['group'] != 'ppt-keynote']
     kept.sort(key=sort_key)
     works = []
     counters = {g['key']: 0 for g in GROUPS}
@@ -320,6 +321,23 @@ def load_works(site: Path, previews_dir: Path | None, log: Log) -> dict:
         })
     log.check('整理作品数据')
 
+    # 项目案例只发布成片，不创建虚构的源码或归档入口。
+    films = json.loads((site / 'data' / 'wonder-films.json').read_text(encoding='utf-8'))
+    for n, film in enumerate(films, 1):
+        ident, filename = film['id'], film['filename']
+        works.append({
+            'id': ident, 'group': 'ppt-keynote', 'family': None, 'n': n,
+            'title': film['title'], 'styleName': film['styleName'],
+            'blurb': film['title'] + '项目成片',
+            'duration': film['duration'], 'durationLabel': fmt_duration(film['duration']),
+            'poster': f'media/posters/{ident}.jpg',
+            'preview': f'media/previews/{filename}' if previews_dir else f'{REPO}/releases/download/wonder-films-2026.11/{filename}',
+            'previewBytes': film['size'], 'previewStart': film.get('previewStart', 5),
+            'caseUrl': '', 'sourceUrl': '',
+            '_posterSrc': site / 'data' / 'posters' / f'{ident}.jpg',
+            '_previewFile': filename, '_previewSha': film['sha256'],
+        })
+    counters['ppt-keynote'] = len(films)
     counts = {g['key']: counters[g['key']] for g in GROUPS}
     for key, expected in EXPECTED_COUNTS.items():
         if counts.get(key) != expected:
@@ -511,7 +529,13 @@ def works_markup(data: dict) -> str:
         head = f'''<header class="wk-group-head">
     <h3 class="wk-group-title" id="{gid}-title">{esc(g['title'])}<span class="wk-group-n">{len(items)} 部</span></h3>
     <p class="wk-group-desc">{esc(g['desc'])}</p>'''
-        if g['layout'] == 'sheet':
+        if g['layout'] == 'films':
+            frames = '\n'.join(frame_html(w, wide=False) for w in items)
+            parts.append(f'''<section class="wk-group wk-group--films" id="{gid}" data-group="{g['key']}" aria-labelledby="{gid}-title">
+  {head}</header>
+  <ol class="wk-sheet">{frames}</ol>
+</section>''')
+        elif g['layout'] == 'sheet':
             chips = [f'<button type="button" class="wk-chip" data-family="all" aria-pressed="true">'
                      f'全部<span class="wk-chip-n">{len(items)}</span></button>']
             chips += [f'<button type="button" class="wk-chip" data-family="{esc(f["key"])}" aria-pressed="false">'
@@ -561,7 +585,7 @@ def site_files(site: Path):
         rel = rel_posix(path, site)
         if rel.startswith('dev/') or path.suffix.lower() == '.md' or path.name == '.DS_Store':
             continue
-        if rel == 'data/works-meta.json' or rel.startswith('data/posters/'):
+        if rel in {'data/works-meta.json', 'data/wonder-films.json'} or rel.startswith('data/posters/'):
             continue          # 策展源数据与海报覆盖只给构建器用；海报由第 6 步放进 media/posters/
         yield rel, path
 

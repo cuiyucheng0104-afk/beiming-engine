@@ -50,14 +50,14 @@ const LIMIT = { heroMs: 2500, bytes: 2_500_000, fps: 50, contrast: 4.5, contrast
 const STEPS = ['intro', 'form', 'shade', 'look', 'stage', 'time', 'rest'];
 const LAYERS = ['form', 'shade', 'look', 'stage', 'time'];
 const GLYPH = { intro: '拆开', form: '形', shade: '光', look: '笔', stage: '景', time: '时', rest: '收尾' };
-const GROUP_COUNTS = { styles: 66, 'ppt-stories': 7, 'ppt-keynote': 6 };
-const DATA_COUNTS = { all: 79, styles: 66, 'ppt-stories': 7, 'ppt-keynote': 6, archived: 96 };
+const GROUP_COUNTS = { styles: 66, 'ppt-stories': 7, 'ppt-keynote': 24 };
+const DATA_COUNTS = { all: 97, styles: 66, 'ppt-stories': 7, 'ppt-keynote': 24, archived: 96 };
 const FORBIDDEN_TERMS = ['RAEA', 'raea', 'Lemo', 'lemo', 'Opuscar', 'opuscar', 'SY100', 'sy-style-100',
   'TREATMENT', 'Treatment', '导演阐述', '处理方案', '风格样片'];
 const FORBIDDEN_DASHES = ['——', '—', '--'];
-// DESIGN.md 第 7 节定稿文案里的数字：页面可见文字里必须能读到（作品引言里的“79 部成片”归下面的口径检查）
-const FACTS = ['79 部作品', '1080p', '原生 4K', '10 秒', '0.52 毫秒', 'RTX 5090', '31 秒', '240 帧', 'SSIM 0.973',
-  '第 137 帧', '86 式', '66 部成片与 20 种方法模板', '10 秒实验已跑通', '每部 18 到 20 秒', '2 到 4 分钟', '20 秒到 3 分钟', '960 宽'];
+// DESIGN.md 第 7 节定稿文案里的数字：页面可见文字里必须能读到（作品引言里的“97 部成片”归下面的口径检查）
+const FACTS = ['97 部作品', '1080p', '原生 4K', '10 秒', '0.52 毫秒', 'RTX 5090', '31 秒', '240 帧', 'SSIM 0.973',
+  '第 137 帧', '86 式', '66 部成片与 20 种方法模板', '10 秒实验已跑通', '每部 18 到 20 秒', '2 到 4 分钟', 'WONDER 项目案例', '960 宽'];
 // 作品口径（DESIGN.md 第 7 节，主会话定）：成片“由代码合成出片”，素材来源写在案例卡里。
 // 旧说法“每一帧都由代码渲染 / 画出来，不是素材剪辑”言过其实（部分作品用了提案原画、AI 生成的画面与公有领域影像），不能再出现
 const CLAIM = {
@@ -243,7 +243,7 @@ function staticChecks(dir) {
   let works = null;
   try { works = JSON.parse(fs.readFileSync(path.join(dir, 'data', 'works.json'), 'utf8')); } catch { /* 下面报 */ }
   const okCounts = works && Object.entries(DATA_COUNTS).every(([k, v]) => works.counts?.[k] === v);
-  check('S1', 'data/works.json 数量与契约一致（79 = 66 + 7 + 6，档案 96）', okCounts, works ? JSON.stringify(works.counts) : '缺少 data/works.json');
+  check('S1', 'data/works.json 数量与契约一致（97 = 66 + 7 + 24，档案 96）', okCounts, works ? JSON.stringify(works.counts) : '缺少 data/works.json');
   let size = 0;
   for (const f of files) { const r = path.relative(dir, f); if (!r.startsWith(`media${path.sep}`) && !fs.lstatSync(f).isSymbolicLink()) size += fs.statSync(f).size; }
   METRICS.build = { marker, files: files.length, refs: nRefs, imports: nImports, sizeExceptMedia: size };
@@ -1128,7 +1128,7 @@ async function sceneDesktop(browser, base) {
 async function worksDesktop(page) {
   const w0 = await P(page, 'works');
   check('S4', '作品区脚本已接管（initWorks → [data-works].is-enhanced）', w0.enhanced);
-  check('S4', '开 JS：79 部作品都在，每格都链到预览视频', w0.all === 79 && w0.links === 79, `共 ${w0.all}，链接 ${w0.links}`);
+  check('S4', '开 JS：97 部作品都在，每格都链到预览视频', w0.all === 97 && w0.links === 97, `共 ${w0.all}，链接 ${w0.links}`);
   await scrollToSel(page, '#works', 0);
   await sleep(1400);
   await page.mouse.move(8, 450);
@@ -1307,7 +1307,7 @@ async function copyChecks(page, label) {
   const ledeN = lede ? Number(lede[1]) : null;
   const stale = [];
   for (const [name, text] of Object.entries(corpora)) for (const t of CLAIM.old) if (text.includes(t)) stale.push(`${name}有旧说法「${t}」`);
-  check('S8', `${label}：作品口径：引言写“79 部成片，每一部都由代码合成出片”，注写明素材来源在案例卡里，旧说法（每一帧都由代码渲染、不是素材剪辑）不再出现`,
+  check('S8', `${label}：作品口径：引言写“97 部成片，每一部都由代码合成出片”，注写明素材来源在案例卡里，旧说法（每一帧都由代码渲染、不是素材剪辑）不再出现`,
     ledeN === DATA_COUNTS.all && CLAIM.source.test(c.note) && stale.length === 0,
     `引言「${c.lede.slice(0, 40) || '没找到 #works .wk-lede'}」；注${CLAIM.source.test(c.note) ? '写了素材来源' : `没写素材来源：「${c.note.slice(0, 40)}」`}${stale.length ? `；${stale.slice(0, 4).join('；')}` : ''}`);
   const flat = c.visible.replace(/\s+/g, ' ');
@@ -1316,7 +1316,7 @@ async function copyChecks(page, label) {
   const w = await P(page, 'works');
   const groupsOk = w.groups.length === 3 && w.groups.every(g => GROUP_COUNTS[g.key] === g.n && g.label === `${g.n} 部` && (g.toc === '' || g.toc === String(g.n)));
   const ledeCount = /(\d+) 部成片/.exec(c.lede);                 // 只核数字；措辞归上面的口径检查
-  check('S8', `${label}：各组实际格数 = 组标题数字 = 目录数字（66 / 7 / 6），合计 79 与引言一致`, groupsOk && w.all === 79 && !!ledeCount && Number(ledeCount[1]) === w.all,
+  check('S8', `${label}：各组实际格数 = 组标题数字 = 目录数字（66 / 7 / 24），合计 97 与引言一致`, groupsOk && w.all === 97 && !!ledeCount && Number(ledeCount[1]) === w.all,
     `${w.groups.map(g => `${g.key} ${g.n}（标题 ${g.label}，目录 ${g.toc}）`).join('，')}；引言 ${ledeCount ? ledeCount[1] : '读不出'} 部，实际 ${w.all} 部`);
   const badName = w.names.filter(n => !n || /TREATMENT|Treatment|导演阐述|处理方案|风格样片|\d+\s*秒|^\d+[\s._-]|[A-Za-z]{2,}-\d|_/.test(n));
   const badDur = w.durs.filter(d => !DURATION.test(d) || /\b0\d/.test(d));
@@ -1482,7 +1482,7 @@ async function sceneNoWebGL(base) {
     check('S5', '禁用 WebGL：拆层照常固定滚动，五张静帧按层交叉淡入，文字同步', !!steps && JSON.stringify(steps.order) === JSON.stringify(STEPS) && res.length === 5 && res.every(r => r.ok),
       steps ? res.map(r => `${GLYPH[r.k]}${r.ok ? '✓' : `✗(${r.cur})`}`).join(' ') : '没有固定滚动');
     const w = await P(page, 'works');
-    check('S5', '禁用 WebGL：作品区照常（79 部，脚本已接管）', w.all === 79 && w.enhanced, `共 ${w.all}`);
+    check('S5', '禁用 WebGL：作品区照常（97 部，脚本已接管）', w.all === 97 && w.enhanced, `共 ${w.all}`);
     errorsCheck('S5', rec, '禁用 WebGL');
   } finally { await ctx.close(); await browser.close(); }
 }
@@ -1529,7 +1529,7 @@ async function sceneNoJS(browser, base) {
       `导航 ${ovPaper?.position}、配色 ${ovPaper?.theme}、底色 ${ovPaper?.background}；纸面上导航文字对比度 ${navPaper.map(r => `「${r.text}」${r.p10}:1`).join(' ')}；` +
       `叠字：纸面 ${ovPaper?.n ?? 0} 处${ovPaper?.n ? `（${ovPaper.hits.join('、')}）` : ''}，作品区 ${ovNight?.n ?? 0} 处${ovNight?.n ? `（${ovNight.hits.join('、')}）` : ''}`);
     const w = await P(page, 'works');
-    check('S4', '关掉 JS：79 部作品都可见、都链到预览视频，筛选按钮不出现', w.all === 79 && w.visible === 79 && w.links === 79 && w.filterHidden, `共 ${w.all}，可见 ${w.visible}，链接 ${w.links}`);
+    check('S4', '关掉 JS：97 部作品都可见、都链到预览视频，筛选按钮不出现', w.all === 97 && w.visible === 97 && w.links === 97 && w.filterHidden, `共 ${w.all}，可见 ${w.visible}，链接 ${w.links}`);
     await copyChecks(page, 'JS 关闭');
     errorsCheck('S4', rec, '关掉 JS');
   } finally { await ctx.close(); }
