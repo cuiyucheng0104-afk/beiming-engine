@@ -23,14 +23,15 @@
 //              （渲染器只记实测事实），由编排器或 npm run qa 判定。技术检查通过 ≠ 画面通过：仍要看片。
 // 产物：<作品>/out/<run-id>/{master.mp4, web.mp4, run.json, check.json, qa/, render.json, render.log, framemd5.txt, contact.jpg, player.html}
 //       run-id = YYYYMMDD-HHMMSS-<短提交>[-dirty]；<作品>/out/latest 是写着最近一次成功 run-id 的指针文件。草图帧在 <run>/stills/f<帧号>.png。
-//       编排器（npm run film）用 --run-dir <目录> 指定运行目录、--json 读信封里的 outputs 与 runJson。
+//       编排器（npm run film）用 --run-dir <目录> 指定运行目录、--json 读信封里的 outputs 与 runJson。运行目录建好之后的失败
+//       （QA 门不通过、成片检查 P0 / P1、编码失败、中断）信封里照样有 runJson 与已经产出的文件（含 render.log），按 kind 取用。
 // 环境变量：RAEA_BIN（必需）、FFMPEG、FFPROBE、WGPU_BACKEND（Windows 默认 vulkan）、COMFY_URL、BNE_ALLOW_VERSION。超时用 --timeout（秒）。
 import { mkdir, readFile, rename, rm, writeFile, readdir } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
 import { cpus, release, totalmem } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { EXIT, bind, exitWith, fail, getWarnings, log, onCleanup, offCleanup, runQuick, sha256File, spawnStream, warn } from '../native/cli.mjs';
+import { CliError, EXIT, bind, cleanupAll, exitWith, fail, getWarnings, log, onCleanup, offCleanup, runQuick, sha256File, spawnStream, warn } from '../native/cli.mjs';
 import { defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs';
 import { ffmpegBins } from '../../tools/env/lib/ffmpeg.mjs';
 import { preflight } from '../../tools/env/preflight.mjs';
@@ -580,11 +581,7 @@ async function run(ctx) {
     // out/latest 只在运行目录是 <作品>/out/<run-id>/ 时写；--run-dir 由编排器管理自己的指针
     if (!a['run-dir']) await writeFile(join(spec.dir, 'out', 'latest'), `${runId}\n`);
     offCleanup(cleanup);
-    const outputs = [];
-    for (const [kind, f] of [['master', 'master.mp4'], ['web', 'web.mp4'], ['run-json', 'run.json'], ['raea-check', 'check.json'], ['qa-report', 'qa/report.json'], ['contact-sheet', 'contact.jpg'], ['player', 'player.html']]) {
-      const file = join(runDir, f);
-      if (existsSync(file)) outputs.push({ path: repoRel(file), sha256: kind === 'master' ? record.outputs.master.sha256 : kind === 'web' ? record.outputs.web.sha256 : await sha256File(file), kind });
-    }
+    const outputs = await runOutputs(runDir, record);
     log(`已出片 ${repoRel(runDir)}/：母版 ${(statSync(master).size / 1e6).toFixed(1)} MB（原生编码器 ${record.encoders.master || '未知'}）${record.outputs.web ? `、网页版 ${(statSync(join(runDir, 'web.mp4')).size / 1e6).toFixed(1)} MB` : ''}；`
       + `${spec.width}×${spec.height} ${spec.fps}fps ${spec.frames} 帧${record.audio?.web ? `，${record.audio.web.I} LUFS / ${record.audio.web.TP} dBTP` : ''}；原生渲染 ${timing.render.toFixed(1)} 秒；`
       + `${record.status === 'passed' ? '机器 QA 通过' : '机器 QA 没跑（status = rendered）'}。技术检查通过 ≠ 画面通过：看 contact.jpg 与整片。`);
@@ -598,9 +595,25 @@ async function run(ctx) {
       record.finishedAt = new Date().toISOString();
       try { record.selfCheck = await selfCheck(record, spec.frames); await save(); } catch { /* 运行目录可能不可写 */ }
     }
-    if (e && typeof e === 'object' && 'hint' in e && !String(e.hint ?? '').includes('run.json')) e.hint = `${e.hint ? `${e.hint}；` : ''}运行记录：${repoRel(runJsonPath)}`;
-    throw e;
+    await cleanupAll();   // 不再抛给命令约定库（它只在抛错时清理）：这里自己终止可能残留的子进程
+    // 运行目录已经建好：不抛出，而是把运行记录与已产出的文件交回信封，编排器按 runJson / outputs 找 run.json、QA 报告与日志
+    const err = e instanceof CliError ? e : fail(EXIT.FAIL, 'internal', `内部错误：${e?.message ?? e}`, '设环境变量 BEIMING_DEBUG=1 重跑可看到堆栈；仍出错请把命令与 run.json 一起报告');
+    if (!(e instanceof CliError) && process.env.BEIMING_DEBUG && e?.stack) log(e.stack);
+    if (!String(err.hint ?? '').includes('run.json')) err.hint = `${err.hint ? `${err.hint}；` : ''}运行记录：${repoRel(runJsonPath)}`;
+    return { exitCode: err.exitCode, error: err, runJson: repoRel(runJsonPath), outputs: await runOutputs(runDir, record).catch(() => []), data: { runId, status: record.status } };
   }
+}
+
+// 运行目录里已有的产物（成功与失败同一份清单，按 kind 取用；母版与网页版的哈希取自 run.json，避免再读一遍大文件）
+const OUTPUT_KINDS = [['master', 'master.mp4'], ['web', 'web.mp4'], ['run-json', 'run.json'], ['raea-check', 'check.json'], ['qa-report', 'qa/report.json'],
+  ['contact-sheet', 'contact.jpg'], ['player', 'player.html'], ['log', 'render.log']];
+async function runOutputs(runDir, record) {
+  const outputs = [];
+  for (const [kind, f] of OUTPUT_KINDS) {
+    const file = join(runDir, f);
+    if (existsSync(file)) outputs.push({ path: repoRel(file), sha256: record.outputs?.[kind]?.sha256 ?? await sha256File(file), kind });
+  }
+  return outputs;
 }
 
 const pad = n => String(n).padStart(6, '0');

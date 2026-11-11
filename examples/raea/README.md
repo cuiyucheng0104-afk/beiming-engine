@@ -39,7 +39,7 @@ export RAEA_BIN=/absolute/path/to/raea/bin/raea
 node engine/native/runtime.mjs status           # 版本与可执行文件 sha256 是否与 engine/native/runtime.lock.json 一致
 ```
 
-Windows PowerShell：`$env:RAEA_BIN = '<运行时目录>\raea\bin\raea.exe'`（换成 `runtime.mjs fetch` 打印的路径）；`WGPU_BACKEND` 默认设为 `vulkan`；工具不在 PATH 时设 `FFMPEG`、`FFPROBE`，要用别的 Python 时设 `BEIMING_PYTHON`。作品要在 git 工作树里（`git archive` 导出的目录会被运行时拒绝）。不需要 Git Bash（交付编码直接调 FFmpeg，不经 `sh`）。新入口尚未在 Windows / 5090 上重跑。
+Windows PowerShell：`$env:RAEA_BIN = '<runtime-dir>\raea\bin\raea.exe'`（换成 `runtime.mjs fetch` 打印的路径）。运行时与仓库都放在**纯英文路径**下（含中文的路径曾让外部字体加载失败，见 [docs/raea/experiment.md](../../docs/raea/experiment.md)）；`WGPU_BACKEND` 默认设为 `vulkan`；工具不在 PATH 时设 `FFMPEG`、`FFPROBE`，要用别的 Python 时设 `BEIMING_PYTHON`。作品要在 git 工作树里（`git archive` 导出的目录会被运行时拒绝）。不需要 Git Bash（交付编码直接调 FFmpeg，不经 `sh`）。新入口尚未在 Windows / 5090 上重跑。
 
 ## 2. 准备素材
 
