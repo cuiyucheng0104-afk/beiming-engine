@@ -184,7 +184,7 @@ const video = {
     frameTimeout: process.env.BEIMING_FRAME_TIMEOUT || null,
   }),
   outputs: () => ({ video: 'work/video.mp4' }),
-  restored: (ctx, meta) => { ctx.gpu = meta.gpu || ctx.gpu; },
+  restored: (ctx, meta) => { ctx.gpu = meta.gpu || ctx.meta.probe?.gpu || ctx.gpu; },
   async run(ctx) {
     const out = path.join(ctx.run.work, 'video.mp4');
     const per = Math.ceil(ctx.frames / ctx.opts.workers);
@@ -197,7 +197,7 @@ const video = {
       // video.mjs 在部分失败路径上会留下 .segs-*（加固计划 TOOLS-08）：段目录只会出现在输出旁，这里统一扫掉
       for (const n of fs.existsSync(ctx.run.work) ? fs.readdirSync(ctx.run.work) : []) if (n.startsWith('.segs-')) fs.rmSync(path.join(ctx.run.work, n), { recursive: true, force: true });
     }
-    const gpu = (/GPU：(.+)/.exec(r.stdout) || [])[1]?.trim() || null;
+    const gpu = renderedGpu(out) || ctx.meta.probe?.gpu || null;
     const info = await ctx.media.probe(ctx.exec, out);
     const bad = [];
     if (info.frames !== ctx.frames) bad.push(`帧数 ${info.frames}（应为 ${ctx.frames}）`);
@@ -209,12 +209,20 @@ const video = {
   },
 };
 
+// 实际用的 GPU：渲染器 v2 写在运行记录 <输出>.run.json 的 gpu.renderer（日志文字不作接口，见 engine/render/README.md 第 9 节）；
+// 读不到时退回页面探测（probe）看到的同一个 GPU 字符串
+function renderedGpu(out) {
+  try { const rec = JSON.parse(fs.readFileSync(`${out}.run.json`, 'utf8')); return rec.gpu?.renderer || rec.actualDevice || null; } catch { return null; }
+}
+
 // 传给 video.mjs 的参数：画幅、帧率、路数、查询串；页面帧率与档位不同的工作版加 --any-fps。
 // 渲染器 v2（P04）认 --gpu / --profile 时一并传（看 video.mjs 的用法文字，不写死版本）。--profile 只在画幅与帧率正好是档位的
 // 时候传：v2 把「--size 与档位不一致」当用法错误，而预演（半分辨率）与 --size 改画幅的工作版本来就不按档位出。
+// 档位换了帧率时 video.mjs 拿作品目录里 film.json 的帧数核对会必然不符（它不读运行目录的生效描述）：这时也加 --any-fps，
+// 帧数已由 probe 步骤按本次规格核对过（round(DUR × fps) = ctx.frames）。
 function videoArgs(ctx) {
   const a = ['--size', sizeArg(ctx), '--fps', String(ctx.fps), '--workers', String(ctx.opts.workers), ...queryArgs(ctx)];
-  if (ctx.anyFps) a.push('--any-fps');
+  if (ctx.anyFps || ctx.fps !== ctx.film.fps) a.push('--any-fps');
   if (ctx.supports('video.mjs', '--gpu')) a.push('--gpu', ctx.opts.gpu);
   const onProfile = !ctx.profile.custom && ctx.width === ctx.profile.width && ctx.height === ctx.profile.height && ctx.fps === ctx.profile.fps;
   if (onProfile && ctx.supports('video.mjs', '--profile')) a.push('--profile', ctx.profile.id);
