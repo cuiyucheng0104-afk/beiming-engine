@@ -3,7 +3,7 @@
 // 守的是复核 must-1：两镜共用材质的日出受光边曾只在 S2 里改、S1 不复位，S1 的画面取决于此前渲过哪一帧 S2
 // （正常出片时预热以最后一帧结束，S1 一直带着日出后的受光边）。完整的三种渲法比对用 P08 的 tools/baseline/determinism.mjs。
 // 要浏览器（playwright-core 的 headless shell）、装了 fontTools 的 Python 与字体缓存（模版页面只认本片字体子集）；缺了就跳过并写明原因。
-// 在仓库外搭小仓库（复制 engine/、routes/、tools/new-film.mjs 与 tools/lib，链接 node_modules、assets、fonts），不碰仓库里的 films/。
+// 在仓库外搭小仓库（复制 engine/、routes/、tools/new-film.mjs 与 tools/lib，链接 node_modules、assets、fonts、media），不碰仓库里的 films/。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -28,7 +28,7 @@ test('模版 render(t) 与渲染历史无关：S1 的帧在渲过 S2 前后逐�
   let film = null, page = null;
   try {
     for (const rel of ['engine', 'routes', 'tools/new-film.mjs', 'tools/lib', 'package.json']) fs.cpSync(path.join(ROOT, rel), path.join(d, rel), { recursive: true });
-    for (const rel of ['node_modules', 'assets', 'fonts']) fs.symlinkSync(path.join(ROOT, rel), path.join(d, rel), 'junction');
+    for (const rel of ['node_modules', 'assets', 'fonts', 'media']) fs.symlinkSync(path.join(ROOT, rel), path.join(d, rel), 'junction');   // media/：style.baseline 指的参考帧（作品描述校验器查它在不在）
     let r = node([path.join(d, 'tools/new-film.mjs'), 'a', 'det', '--title', '晨渡', '--quiet'], d);
     assert.equal(r.status, 0, `new-film：${r.stderr}`);
     const dir = path.join(d, 'films/det');
