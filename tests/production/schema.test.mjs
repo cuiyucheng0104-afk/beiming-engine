@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AIGC_KINDS, AUDIO_MODES, DRIVES, EVALUATIONS, EVENT_DOMAINS, EVENT_SYNCS, FILM_FIELDS, GATE_KEYS, INTENTIONAL_KINDS, TRANSITIONS, validateFilm } from '../../engine/production/film.js';
+import { AIGC_KINDS, AUDIO_MODES, DRIVES, EVALUATIONS, EVENT_DOMAINS, EVENT_SYNCS, FILM_FIELDS, GATE_KEYS, ID_PATTERNS, INTENTIONAL_KINDS, TRANSITIONS, validateFilm } from '../../engine/production/film.js';
 import { BUILTIN_ROUTES } from '../../engine/production/routes.js';
 import { REPO, minimalFilm } from './helpers.mjs';
 
@@ -29,6 +29,23 @@ test('顶层与各段的字段集合和校验器的白名单相同', () => {
   assert.deepEqual(keys(P.mirror.properties), [...FILM_FIELDS.mirror].sort());
   assert.deepEqual(keys(P.cuecheck.properties), [...FILM_FIELDS.cuecheck].sort());
   assert.deepEqual(keys(P.methodRefs.items.properties), [...FILM_FIELDS.methodRef].sort());
+});
+
+test('各个 id 字段的 pattern 与校验器的规则逐字相同（按 schema 写的编辑器与 agent 不会写出校验器拒收的值）', () => {
+  const S = P.shots.items.properties;
+  const E = P.events.items.properties;
+  assert.equal(P.id.pattern, ID_PATTERNS.film.source);
+  assert.equal(S.id.pattern, ID_PATTERNS.shot.source);
+  assert.equal(S.tracks.items.properties.id.pattern, ID_PATTERNS.track.source);
+  assert.equal(E.id.pattern, ID_PATTERNS.event.source);
+  assert.equal(E.audio.pattern, ID_PATTERNS.cue.source);
+  // 校验器真用的是这几条：schema 判不合格的值，校验器也判错
+  const f = minimalFilm(); f.events[0].audio = '玻璃铃';
+  assert.equal(new RegExp(E.audio.pattern).test('玻璃铃'), false);
+  assert.ok(validateFilm(f, { checkFiles: false }).diagnostics.some(d => d.code === 'event-audio-invalid'));
+  const g = minimalFilm(); g.shots[0].id = '镜头一';
+  assert.equal(new RegExp(S.id.pattern).test('镜头一'), false);
+  assert.ok(validateFilm(g, { checkFiles: false }).diagnostics.some(d => d.code === 'shot-id-invalid'));
 });
 
 test('取值表相同：路线、后端、评估方式、转场、事件域、声画同步、声音方式、节拍主导、刻意画面种类、AIGC 种类、闸门', () => {

@@ -117,6 +117,10 @@ test('评审条目：AI 只能 comment；只有 AI 评审时 accepted 被拒；�
   assert.ok(codes(validateRenderResult(aiApprove)).includes('creative-ai-decision'));
   const ok = passed({ status: 'accepted', creativeAcceptance: { status: 'accepted', reviews: [ai, human] } });
   assert.deepEqual(validateRenderResult(ok).diagnostics, []);
+  // 名字一眼就是 agent 的「人工」认可不算数
+  const selfApprove = codes(validateRenderResult(passed({ status: 'accepted', creativeAcceptance: { status: 'accepted', reviews: [{ ...human, reviewer: 'claude' }] } })));
+  assert.ok(selfApprove.includes('creative-agent-reviewer'));
+  assert.ok(selfApprove.includes('creative-accepted-without-human'));
   for (const bad of [{ quote: undefined }, { quote: '用户原话' }, { source: undefined }, { source: { kind: 'session', ref: '待补' } }]) {
     const r = passed({ status: 'accepted', creativeAcceptance: { status: 'accepted', reviews: [{ ...human, ...bad }] } });
     assert.ok(codes(validateRenderResult(r)).includes('creative-accepted-without-human'), JSON.stringify(bad));

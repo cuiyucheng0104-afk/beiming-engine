@@ -41,7 +41,7 @@
           "evaluation": { "enum": ["absolute", "baked", "sequential"], "description": "docs/routes/contracts.md §5：absolute 任意帧可单独求值；baked 预烘；sequential 只能顺序求值" },
           "lookPreset": { "type": "string" },
           "transition": { "enum": ["cut", "continuous", "dissolve", "fade"], "description": "进入本镜的方式；第一镜只能 cut 或 fade" },
-          "tracks": { "type": "array", "items": { "type": "object", "required": ["id", "step"], "properties": { "id": { "type": "string" }, "step": { "type": "integer", "minimum": 1, "maximum": 12, "description": "一拍几" }, "note": { "type": "string" } }, "additionalProperties": false } },
+          "tracks": { "type": "array", "items": { "type": "object", "required": ["id", "step"], "properties": { "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" }, "step": { "type": "integer", "minimum": 1, "maximum": 12, "description": "一拍几" }, "note": { "type": "string" } }, "additionalProperties": false } },
           "actorClockOrigin": { "type": "object", "additionalProperties": { "type": "integer" }, "description": "{ 轨道 id: 角色时钟起点（全局帧，不晚于本镜入点） }" },
           "framing": { "type": "string" }, "angle": { "type": "string" }, "camera": {}, "sound": {}, "desc": { "type": "string" }, "note": { "type": "string" }
         },
@@ -59,7 +59,7 @@
           "frame": { "type": "integer", "minimum": 0 },
           "shot": { "type": "string" },
           "end": { "type": "integer", "minimum": 1, "description": "结束帧（不含）" },
-          "audio": { "type": "string", "description": "声音表里的 cue id" },
+          "audio": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", "description": "声音表里的 cue id（英文字母、数字和 . _ : -，如 bell.glass）；中文说明写进 visual / desc" },
           "visual": { "type": "string", "description": "这一帧看得见的结果" },
           "domain": { "enum": ["picture", "ui", "text", "sfx", "music", "vo", "amb", "mix"] },
           "sync": { "enum": ["lip", "soft", "none"], "description": "声画同步口径（与 tools/qa 一致）：不写 = 起音对结果帧的硬门；lip 口型类可晚 2 帧；soft 缓起类超出只记注意；none 不查（铺底、渐入）" },

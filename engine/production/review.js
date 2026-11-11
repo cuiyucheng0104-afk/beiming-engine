@@ -5,7 +5,7 @@
 // 对应 routes/directing/DIRECTING.md 的关口：⛔1 = structure、⛔2 = look、⛔3 = animatic、⛔4 = final。
 //
 // 规则（validateReview 逐条检查，不合格的记录在状态计算里当作不存在）：
-//   - approve / reject / waive 只能由人做：reviewer.kind 必须是 human，并带用户原话 quote 与出处 source { kind, ref, at }。
+//   - approve / reject / waive 只能由人做：reviewer.kind 必须是 human、reviewer.name 不能是 agent（vocab.js 的 isAgentName），并带用户原话 quote 与出处 source { kind, ref, at }。
 //     记录里没有原话（或原话是占位符）就无效。agent 只能写 decision = comment 的代理审片记录，永远推不动状态。
 //   - approve 必须列出用户看过的文件 reviewed[{ path, sha256 }]；animatic 认可同时冻结当时的镜头表（timing），
 //     之后切点改了，这条认可自动失效（status 显示 stale 与差异）；look 认可冻结 style 的 id / version。
@@ -28,7 +28,7 @@ import { normalizeRelativePath, validateCreativeAcceptance as validateCreativeCo
 import { createExclusive, formatJson, readJsonFile, sha256File, sha256Text } from './io.js';
 import { eventsSignature, timingSignature } from './timeline.js';
 import {
-  DECISIONS, HUMAN_DECISIONS, ISSUE_LAYERS, ISSUE_PRIORITIES, ISSUE_STATUSES, REVIEWER_KINDS, RUBRIC_DIMENSIONS, SOURCE_KINDS, VERDICTS, VETOES, isPlaceholderQuote,
+  DECISIONS, HUMAN_DECISIONS, ISSUE_LAYERS, ISSUE_PRIORITIES, ISSUE_STATUSES, REVIEWER_KINDS, RUBRIC_DIMENSIONS, SOURCE_KINDS, VERDICTS, VETOES, isAgentName, isPlaceholderQuote,
 } from './vocab.js';
 
 // 取值表在 vocab.js（project.js 的 RenderResult 校验也用它）；这里转出，保持 review.js 的接口不变
@@ -70,6 +70,9 @@ export function validateReview(record, { film = null } = {}) {
   if (!isObj(rv) || !REVIEWER_KINDS.includes(rv.kind) || !isStr(rv.name)) err('review-reviewer', 'reviewer', 'reviewer 是 { kind: human | ai, name }');
   else if (human && rv.kind !== 'human') {
     err('review-ai-decision', 'reviewer.kind', `${record.decision} 只能由用户或指定审片人做；agent 不能自己批准、否决或豁免`, '代理审片写 decision = comment；用户的结论由他说、你照原话记录');
+  } else if (human && isAgentName(rv.name)) {
+    err('review-agent-reviewer', 'reviewer.name', `reviewer 写的是 agent（${JSON.stringify(rv.name)}）：${record.decision} 只能由用户或指定审片人做，agent 不能自己批准、否决或豁免`,
+      '用户的结论由他说；reviewer 写用户或指定审片人（命令行默认「用户」），录入的 agent 写在 recordedBy');
   }
 
   if (human) {

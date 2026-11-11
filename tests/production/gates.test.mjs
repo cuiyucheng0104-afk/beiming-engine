@@ -120,6 +120,10 @@ test('agent 不能自己批准：AI 的 approve / waive、没有原话、占位�
     const check = over => codesOf(validateReview(buildReview({ ...base, ...over }), { film: L.film }));
     assert.ok(check({ reviewer: { kind: 'ai', name: 'agent' } }).includes('review-ai-decision'));
     assert.ok(check({ decision: 'waive', reviewer: { kind: 'ai', name: 'agent' } }).includes('review-ai-decision'));
+    // kind 写 human、名字一眼就是 agent 也不行（与 qa.waivers 的 approvedBy 同一份名单：vocab.js 的 isAgentName）
+    for (const name of ['claude', 'Claude Code', 'agent', 'codex', 'AI 助手', 'AI助手', 'GPT-5', 'gpt4o', '助手', '代理', '代理审片', '智能体', '机器人'])
+      for (const decision of ['approve', 'reject', 'waive']) assert.ok(check({ decision, reviewer: { kind: 'human', name } }).includes('review-agent-reviewer'), `${decision} ${name}`);
+    for (const name of ['用户', '张导', 'Aiden', 'Botanist', 'Gaia']) assert.deepEqual(check({ reviewer: { kind: 'human', name } }), [], name);
     assert.ok(check({ quote: undefined }).includes('review-quote-missing'));
     for (const q of ['用户原话', '{{QUOTE}}', '（用户认可）', 'TODO', '代理检查通过', '…']) assert.ok(check({ quote: q }).includes('review-quote-placeholder'), q);
     assert.ok(check({ source: undefined }).includes('review-source-missing'));
@@ -302,6 +306,10 @@ test('命令行：review 原样记录用户原话与所看文件的 sha256；不
     const bad = runFilm(['review', t.dir, '--gate', 'look', '--decision', 'approve', '--reviewer-kind', 'ai', '--quote', '可以', '--source-ref', '会话第 2 条', '--file', join(t.dir, 'stills', 'a.png'), '--json']);
     assert.equal(bad.status, 4);
     assert.equal(bad.json.error.code, 'contract.review-ai-decision');
+    assert.equal(existsSync(join(t.dir, 'review')), false);
+    const self = runFilm(['review', t.dir, '--gate', 'look', '--decision', 'approve', '--reviewer', 'claude', '--quote', '可以，就这样。', '--source-ref', '会话第 1 条', '--file', join(t.dir, 'stills', 'a.png'), '--json']);
+    assert.equal(self.status, 4, self.stderr);
+    assert.equal(self.json.error.code, 'contract.review-agent-reviewer');
     assert.equal(existsSync(join(t.dir, 'review')), false);
     const dry = runFilm(['review', t.dir, '--gate', 'look', '--decision', 'approve', '--quote', '就这个方向。', '--source-ref', '会话第 2 条', '--file', join(t.dir, 'stills', 'a.png'), '--dry-run', '--json']);
     assert.equal(dry.status, 0, dry.stderr);

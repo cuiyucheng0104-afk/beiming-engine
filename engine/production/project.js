@@ -28,7 +28,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BACKEND_ALIASES, BUILTIN_ROUTES, RouteRegistryError, builtinRegistry, loadRouteRegistry, resolveRoute } from './routes.js';
-import { DECISIONS, HUMAN_DECISIONS, REVIEWER_KINDS, RUBRIC_DIMENSIONS, SOURCE_KINDS, VETOES, isPlaceholderQuote } from './vocab.js';
+import { DECISIONS, HUMAN_DECISIONS, REVIEWER_KINDS, RUBRIC_DIMENSIONS, SOURCE_KINDS, VETOES, isAgentName, isPlaceholderQuote } from './vocab.js';
 
 export const SCHEMA_VERSION = 1;
 /** 内置注册表的路线 id（规范值）；别名见 LEGACY_ROUTES 与 routes.js。 */
@@ -491,7 +491,7 @@ const ISO_TIME = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2
  * creativeAcceptance 的评审条目（附录 C8 的 reviews[]）：
  *   { reviewerKind: 'human' | 'ai', reviewer, decision: approve | reject | waive | comment, quote, source: { kind, ref, at },
  *     scores?: { 维度 id: 1–10 }, vetoes?: [否决项 id], evidenceFrames?: [帧号], record?: 'review/<闸>-<日期>.json' }
- * 规则：AI 评审只能是 comment（代理审片）；人工的 approve / reject / waive 必须带审阅人原话与出处（占位符或自评口吻无效）。
+ * 规则：AI 评审只能是 comment（代理审片）；人工的 approve / reject / waive 必须带审阅人原话与出处（占位符或自评口吻无效），reviewer 不能是 agent 的名字。
  * 维度与否决项的 id 见 engine/production/vocab.js 与 docs/creative-review/RUBRIC.md。
  * @param {unknown} creative
  * @param {{ path?: string }} [options]
@@ -525,6 +525,10 @@ export function validateCreativeAcceptance(creative, options = {}) {
     }
     let complete = true;
     if (r.reviewerKind === 'human' && human) {
+      if (isAgentName(r.reviewer)) {
+        push('creative-agent-reviewer', `${p}.reviewer`, `reviewer 写的是 agent（${JSON.stringify(r.reviewer)}）：${r.decision} 只能由用户或指定审片人做，agent 不能自己批准、否决或豁免`);
+        complete = false;
+      }
       if (!isNonEmptyString(r.quote) || isPlaceholderQuote(r.quote)) {
         push('creative-review-quote', `${p}.quote`, '人工评审必须带审阅人原话（原样照录；占位符或自评口吻无效）');
         complete = false;

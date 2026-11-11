@@ -42,6 +42,8 @@ import { createTempoFromFrames } from '../core/tempo.js';
 
 /** 帧号比较的容差：1e-6 帧（24 fps 下约 42 纳秒），只用来吸收浮点乘法误差。 */
 export const FRAME_EPS = 1e-6;
+/** 镜头 id（轨道 id 同一规则）；film.schema.json 的 pattern 与它一致，由 tests/production/schema.test.mjs 守住。 */
+export const SHOT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
 export class TimelineError extends Error {
   /** @param {string} code @param {string} message @param {string} [hint] */
@@ -145,7 +147,7 @@ export function checkShots(shots, frameCount) {
   shots.forEach((s, i) => {
     const p = `shots[${i}]`;
     if (!isObj(s)) { push('shot-invalid', p, '镜头必须是对象'); return; }
-    if (typeof s.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(s.id)) push('shot-id-invalid', `${p}.id`, `镜头 id 只能用字母、数字、点、下划线、短横线，且字母或数字开头：${JSON.stringify(s.id)}`);
+    if (typeof s.id !== 'string' || !SHOT_ID.test(s.id)) push('shot-id-invalid', `${p}.id`, `镜头 id 只能用字母、数字、点、下划线、短横线，且字母或数字开头：${JSON.stringify(s.id)}`);
     else if (seen.has(s.id)) push('shot-id-duplicate', `${p}.id`, `镜头 id 重复：${s.id}`);
     else seen.add(s.id);
     if (!nonNegInt(s.in)) push('shot-frame-invalid', `${p}.in`, `in 必须是非负整数帧，收到 ${JSON.stringify(s.in)}`, '时间只写整数帧；秒由 帧 / fps 推出');
