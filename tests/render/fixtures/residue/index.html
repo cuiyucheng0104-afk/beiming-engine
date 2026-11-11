@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>显示层残留测试页</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block;position:absolute;left:0;top:0}</style></head><body>
+<canvas id="gl" style="z-index:1"></canvas>
+<canvas id="hud" style="z-index:10"></canvas>
+<script>
+// 显示层残留测试页（tests/render/pipeline.test.mjs；Windows Vulkan 上的回归检查，见 engine/render/README.md「Vulkan 显示层」）：
+// 底下一块 WebGL 画布每帧清成随帧号变的颜色；上面一块 2D 显示层，偶数帧在左上 24×24 画白块，奇数帧清空。
+// 截图里奇数帧左上角若还是白的，就是上一帧的显示层没有及时清屏提交（9 分钟片在 RTX / Vulkan 上遇到过）。
+const W = innerWidth, H = innerHeight;
+const gl = document.getElementById('gl'), hud = document.getElementById('hud');
+gl.width = hud.width = W; gl.height = hud.height = H;
+const ctx3 = gl.getContext('webgl2', { preserveDrawingBuffer: true }), ctx2 = hud.getContext('2d');
+window.DUR = 1;
+window.render = t => {
+  const f = Math.round(t * 24);
+  ctx3.clearColor(0.2, (f % 12) / 12, 0.4, 1); ctx3.clear(ctx3.COLOR_BUFFER_BIT);
+  ctx2.clearRect(0, 0, W, H);
+  if (f % 2 === 0) { ctx2.fillStyle = '#fff'; ctx2.fillRect(0, 0, 24, 24); }
+};
+window.READY = true;
+</script>
+</body></html>

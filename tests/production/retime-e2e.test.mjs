@@ -3,7 +3,7 @@
 // QA 期望（film.js expect）同步变化；拿旧成片对新的 film.json 核对，切点检查不通过（说明检查不是摆设）。
 // 夹具页面 tests/production/fixtures/retime/index.html 只用 engine/production/timeline.js 的 pageTiming 读时间。
 // 需要 FFmpeg 与 Playwright 的无头浏览器（npm run setup）；缺了整组跳过。
-// 夹具复制到仓库的 out/.p05-e2e-*（渲染器只认仓库内的影片目录；out/ 被 .gitignore 忽略），测试结束删除。
+// 夹具复制到仓库的 out/p05-e2e-*（渲染器只认仓库内的影片目录，页面服务拒绝点开头的路径段，所以目录名不带点；out/ 被 .gitignore 忽略），测试结束删除。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -39,7 +39,7 @@ function qaCuts(video, filmDir) {
 test('只改一个镜头的 out：渲染出的切点、QA 检出的切点、QA 期望都跟着 film.json 走，不改页面代码', { skip, timeout: 600_000 }, () => {
   const outRoot = join(REPO, 'out'), createdOut = !existsSync(outRoot);
   mkdirSync(outRoot, { recursive: true });
-  const work = mkdtempSync(join(outRoot, '.p05-e2e-'));
+  const work = mkdtempSync(join(outRoot, 'p05-e2e-'));
   const film = join(work, 'retime');
   try {
     cpSync(join(REPO, 'tests', 'production', 'fixtures', 'retime'), film, { recursive: true });
