@@ -2,7 +2,7 @@
 """audio/check.py 的回归测试：成片响度这一项跑不了（PATH 里没有 sh、sh 起不来）时，要把原因记进 problems、
 其余各项照常测完、照常写出 audio/check/report.json，而不是带着 traceback 崩掉、连报告都没有（R47 门禁引入的回归）。
 
-把 audio/、engine/audio/ 和 engine/render/mux.sh 拷到临时目录，先跑一遍 mix.py 生成 out/mix.wav 和分轨，
+把 audio/、engine/audio/、engine/render/mux.sh 与它依赖的渲染器目录拷到临时目录，先跑一遍 mix.py 生成 out/mix.wav 和分轨，
 再换不同的 PATH 跑 check.py（每次约 5 秒），不碰仓库里的产物。
 用法（仓库根）：python -m unittest audio.test_check
 需要 ffmpeg 与 ffprobe；用符号链接搭“只有 ffmpeg / ffprobe 的 PATH”，所以只在 POSIX 上跑。
@@ -30,6 +30,9 @@ class TestCheckWhenMuxCannotRun(unittest.TestCase):
         os.makedirs(os.path.join(cls.td, 'engine', 'render'))
         shutil.copytree(os.path.join(ROOT, 'engine', 'audio'), os.path.join(cls.td, 'engine', 'audio'), ignore=SKIP)
         shutil.copy(os.path.join(ROOT, 'engine', 'render', 'mux.sh'), os.path.join(cls.td, 'engine', 'render'))
+        # mux.sh 是 node engine/render/lib/mux.mjs 的薄壳（P04）：连同它 import 的几处一起拷，目录清单与 tests/render/helpers.mjs 的 RENDERER_DIRS 相同
+        for d in (('engine', 'render', 'lib'), ('tools', 'lib'), ('tools', 'env', 'lib'), ('tools', 'compliance', 'lib')):
+            shutil.copytree(os.path.join(ROOT, *d), os.path.join(cls.td, *d), ignore=SKIP, dirs_exist_ok=True)
         cls.env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONIOENCODING='utf-8')
         cls.env.setdefault('NUMBA_CACHE_DIR', os.path.join(tempfile.gettempdir(), 'beiming-numba-cache'))
         r = subprocess.run([sys.executable, os.path.join(cls.td, 'audio', 'mix.py')], cwd=cls.td, env=cls.env,

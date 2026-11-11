@@ -1,0 +1,5 @@
+{
+  "description": "渲染器 v2（engine/render、tools/rtx）：失败语义、成功路径、镜头缓存与续跑、单元测试。要真的启动无头 Chrome 与 FFmpeg 的用例在缺它们时自行跳过；同一时刻只跑一个文件，免得几路浏览器抢 GPU 与渲染槽位。",
+  "timeoutSec": 900,
+  "concurrency": 1
+}

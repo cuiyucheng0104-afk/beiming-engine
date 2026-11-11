@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>色卡</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head><body>
+<canvas id="c"></canvas>
+<script>
+// 色卡（tests/render/pipeline.test.mjs）：4 × 2 块平涂色（sRGB 码值写在 window.PATCHES 里），每块 32×32 像素。
+// 渲染 → 编码（有限范围 BT.709）→ 按标记精确解码后，色块内部（离边 6 像素以上）每个通道与原值相差不超过 2 级。
+// 第一行是灰阶（黑 16、中灰 128、亮 235、白 255 的 sRGB 值），第二行是肤色、天蓝、墨绿、朱红。
+window.PATCHES = [[16, 16, 16], [128, 128, 128], [235, 235, 235], [255, 255, 255], [224, 172, 140], [96, 160, 220], [40, 92, 64], [200, 60, 40]];
+const c = document.getElementById('c');
+c.width = 128; c.height = 64;
+const g = c.getContext('2d');
+window.DUR = 0.25;
+window.render = () => {
+  window.PATCHES.forEach(([r, gg, b], i) => { g.fillStyle = `rgb(${r},${gg},${b})`; g.fillRect((i % 4) * 32, Math.floor(i / 4) * 32, 32, 32); });
+};
+window.READY = true;
+</script>
+</body></html>

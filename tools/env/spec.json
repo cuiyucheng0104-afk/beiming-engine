@@ -226,11 +226,11 @@
       "name": "BEIMING_ANGLE",
       "group": "渲染（engine/render）",
       "purpose": "无头浏览器的 ANGLE 后端：metal / vulkan / gl / d3d11 / swiftshader / default",
-      "default": "macOS 为 metal，其它平台不传参数（Windows 双显卡机上会落到核显，NVIDIA 机器设 vulkan）",
+      "default": "macOS metal、Windows vulkan、Linux 不传参数（default）；写错或平台不对时渲染器退出 2",
       "readBy": [
-        "engine/render/page.mjs",
-        "tools/site-qa.mjs",
-        "tools/env/lib/browser.mjs"
+        "engine/render/lib/gpu.mjs",
+        "tools/env/lib/browser.mjs",
+        "tools/site-qa.mjs"
       ]
     },
     {
@@ -239,7 +239,7 @@
       "purpose": "改用指定的浏览器可执行文件（完整路径）",
       "default": "playwright-core 1.63.0 锁定的 chromium-headless-shell 153（不设最好：换浏览器会破坏跨机器一致性）",
       "readBy": [
-        "engine/render/page.mjs",
+        "engine/render/lib/gpu.mjs",
         "tools/rtx/gpucheck.mjs",
         "engine/native/prepare.mjs",
         "engine/native/bridge/export.mjs",
@@ -262,10 +262,55 @@
       "name": "BEIMING_FRAME_TIMEOUT",
       "group": "渲染（engine/render）",
       "purpose": "单帧 render(t) 的上限（秒），超时按失败处理",
-      "default": "300",
+      "default": "60",
       "readBy": [
-        "engine/render/video.mjs",
+        "engine/render/page.mjs",
         "tools/lookdev/sweep.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_GPU",
+      "group": "渲染（engine/render）",
+      "purpose": "--gpu 的默认值：required（软件渲染判失败，退出 3）/ any（允许并记提示）/ software-ok（CI、没有 GPU 的机器、资产烘焙）",
+      "default": "required",
+      "readBy": [
+        "engine/render/lib/gpu.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_SLOT_DIR",
+      "group": "渲染（engine/render）",
+      "purpose": "机器级渲染槽位的目录（多个渲染排队用）",
+      "default": "<系统临时目录>/beiming-render-slots-<用户>",
+      "readBy": [
+        "engine/render/lib/slots.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_SLOT_HELD",
+      "group": "渲染（engine/render）",
+      "purpose": "设为 1 表示外层调度已替这次渲染占了槽位，渲染器不再另占",
+      "default": "不设",
+      "readBy": [
+        "engine/render/lib/slots.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_GPU_BUSY_UTIL",
+      "group": "渲染（engine/render）",
+      "purpose": "共享 GPU 守卫：任一 NVIDIA 卡占用率（%）高于它就排队等",
+      "default": "10",
+      "readBy": [
+        "engine/render/lib/slots.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_GPU_MIN_FREE_MB",
+      "group": "渲染（engine/render）",
+      "purpose": "共享 GPU 守卫：任一 NVIDIA 卡空闲显存（MB）低于它就排队等",
+      "default": "2048",
+      "readBy": [
+        "engine/render/lib/slots.mjs"
       ]
     },
     {
@@ -289,7 +334,7 @@
     {
       "name": "FFMPEG",
       "group": "编码",
-      "purpose": "ffmpeg 可执行文件（完整路径）。目前只有 B 路线入口与 tools/env 识别；engine/render/video.mjs、mux.sh、build.sh、audio/check.py 仍从 PATH 调用（Node 入口改用 tools/env/lib/ffmpeg.mjs 的 ffmpegBins 即可统一）",
+      "purpose": "ffmpeg 可执行文件（完整路径）。engine/render（video / shots / mux）与 tools/env 都经 tools/env/lib/ffmpeg.mjs 的 ffmpegBins 解析；build.sh、audio/check.py 仍从 PATH 调用",
       "default": "PATH 里的 ffmpeg",
       "readBy": [
         "engine/render/native.mjs",
@@ -487,6 +532,7 @@
       "purpose": "共享 GPU 检查时查询的 ComfyUI 队列地址",
       "default": "http://127.0.0.1:8188",
       "readBy": [
+        "engine/render/lib/slots.mjs",
         "engine/render/native.mjs"
       ]
     },
@@ -556,9 +602,11 @@
     {
       "name": "RENDER_SLOTS",
       "group": "C 路线历史复刻",
-      "purpose": "风格库甲渲染核心的整机并发名额",
+      "purpose": "整机渲染并发名额：engine/render（--slots 的默认值，不设不限）与风格库甲的渲染核心都认",
       "default": "该库默认",
-      "readBy": [],
+      "readBy": [
+        "engine/render/lib/slots.mjs"
+      ],
       "external": "cases/vendor/lemo-opuscar/core/render/slot.mjs"
     },
     {
