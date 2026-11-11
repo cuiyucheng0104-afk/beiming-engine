@@ -33,7 +33,8 @@
 报告：--report 写一份 JSON（附录 C8 的 checks 加逐事件明细 events、silences，结构见 routes/directing/PRODUCTION-SPEC.md §9）。
   maxDeltaMs（报告与 --json 的 data 都有）：所有硬门核对项里最大的偏差（毫秒）＝ 画面打点离整帧 / 网格 / 时间线 / 音乐起音，
   与声画同步声明值的 |声音时刻 − 画面结果帧|（sync 写 soft 的只告警、--measure 的实测只作参考，都不计入）。
-  A 路线只有同步核对时它就是最大的同步偏差；1 帧 = 1000 / fps 毫秒。
+  A 路线只有同步核对时它就是最大的同步偏差；1 帧 = 1000 / fps 毫秒。一项都没量到（例如声音时刻都查不到、只有告警）时是 null，
+  不写 0：0 读起来像「全部对齐」。
 
 接口：check(film_dir, tol_ms=0.5, grid=2, silences=(), quiet_db=15.0, out=print, **选项) → bool（旧调用照用）
       run_check(...) → 报告 dict
@@ -431,7 +432,7 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
         out(f"silence {s['t0']}–{s['t1']} s: {s['noteOnsets']} note onsets · RMS {s['rmsDb']:.1f} dBFS (film {s['filmRmsDb']:.1f}, "
             f"first 0.5 s after {s['afterDb']:.1f}) → {s['afterDb'] - s['rmsDb']:.1f} dB jump")
     if not rows and not sync_rows:
-        out('没有可核对的事件：events.json 里没有带 cue 的打点，film.json 的事件也没有 cue: true 或 audio')
+        out('没有可核对的事件：events.json 里没有带 cue 的打点，film.json 的事件也没有写 beat 或 audio')
     ok = all(r['status'] != 'fail' for r in rows + sync_rows + sil_rows)
     out('CUECHECK ' + ('OK' if ok else 'FAIL'))
     rep = _report(film, ev_path if EVJ is not None else (film or {}).get('file'), rows, sync_rows, sil_rows, ok, tol_ms, grid, tempo_src,
@@ -529,7 +530,7 @@ def _report(film, input_path, rows, sync_rows, sil_rows, ok, tol_ms, grid, tempo
             'profile': {'id': (film or {}).get('profile') or 'n/a', 'source': 'film.json'},
             'groups': ['sync'], 'skipped': [], 'checks': checks,
             'summary': {s: sum(1 for c in checks if c['status'] == s) for s in ('pass', 'fail', 'warn', 'waived')},
-            'ok': ok, 'events': ev, 'sync': sync_rows, 'silences': sil_rows, 'maxDeltaMs': round(max(devs), 4) if devs else 0.0,
+            'ok': ok, 'events': ev, 'sync': sync_rows, 'silences': sil_rows, 'maxDeltaMs': round(max(devs), 4) if devs else None,
             'grid': grid, 'tolMs': tol_ms, 'tempo': tempo_src, 'keys': sorted(keyset)}
 
 

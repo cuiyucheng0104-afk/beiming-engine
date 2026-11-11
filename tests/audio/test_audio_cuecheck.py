@@ -336,6 +336,8 @@ class BRouteOnsets(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertIn('查不到 glass_bell 的时刻', msgs(env))
         self.assertEqual(env['data']['problems'][0]['status'], 'warn')
+        # 一项都没量到：maxDeltaMs 是 null，不写 0（0 读起来像「全部对齐」，A 模版没登记起音时就是这种情况）
+        self.assertIsNone(env['data']['maxDeltaMs'])
 
 
 class FilmJsonBeats(unittest.TestCase):
