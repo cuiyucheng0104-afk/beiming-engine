@@ -331,16 +331,34 @@ export function retimeShot(film, shotId, change = {}, { mode = 'ripple' } = {}) 
       if (e.shot === after.id && e.frame < newOut && !onCut(e)) conflicts.push(`事件 ${e.id}（第 ${e.frame} 帧）属于 ${after.id}，会落进 ${shot.id}`);
       if (onCut(e) && e.end !== undefined && e.end <= newOut) conflicts.push(`事件 ${e.id} 贴着切点开始，挪到第 ${newOut} 帧后会超过它的 end=${e.end}`);
     }
-    if (conflicts.length) throw new TimelineError('retime-conflict', `roll 冲突：\n- ${conflicts.join('\n- ')}`, '先把这些事件改到新切点的正确一侧（或改它的 shot），再 roll');
+    // 刻意画面 / 豁免帧段与事件同一规则：roll 让 [lo, hi) 这段帧换了镜头（切点往后挪时归本镜，往前挪时归下一镜）。
+    //   贴着切点的（到切点为止的、从切点开始的）：贴着的那一端跟着切点走，另一端留在原来的全局帧；挪完整段落到另一镜就是冲突；
+    //   新旧切点都在区间里的（跨切点的整段豁免这类）：仍然跨切点，不动；
+    //   其余碰到 [lo, hi) 的：它声明的那几帧换成了另一镜的画面，冲突——不能让「S2 的刻意黑场」静默落进 S1。
+    const lo = Math.min(oldOut, newOut), hi = Math.max(oldOut, newOut);
+    const gainer = delta > 0 ? shot.id : after.id;   // [lo, hi) 归谁
+    const rangeMoves = [];
+    for (const r of ranges) {
+      const [a, b] = r.get();
+      if (b === oldOut) {
+        if (a < newOut) rangeMoves.push([r, a, newOut]);
+        else conflicts.push(`${r.label} [${a}, ${b}) 到切点为止，整段落在让给 ${after.id} 的 [${newOut}, ${oldOut}) 里`);
+      } else if (a === oldOut) {
+        if (newOut < b) rangeMoves.push([r, newOut, b]);
+        else conflicts.push(`${r.label} [${a}, ${b}) 从切点开始，整段落在让给 ${shot.id} 的 [${oldOut}, ${newOut}) 里`);
+      } else if (b <= lo || a >= hi || (a < lo && b > hi)) {
+        continue;
+      } else conflicts.push(`${r.label} [${a}, ${b}) 碰到换了镜头的 [${lo}, ${hi})：roll 后这几帧是 ${gainer} 的画面`);
+    }
+    if (conflicts.length) throw new TimelineError('retime-conflict', `roll 冲突：\n- ${conflicts.join('\n- ')}`, '先把这些事件 / 刻意画面 / 豁免帧段改到新切点的正确一侧（事件改 frame 或 shot，区间改 from / to 或 frames），再 roll');
     for (const e of events) {
       if (onCut(e)) { e.frame = newOut; result.moved.events.push({ id: e.id, frame: [oldOut, newOut] }); }
       else if (e.shot === shot.id && e.end === oldOut) { e.end = newOut; result.moved.events.push({ id: e.id, end: [oldOut, newOut] }); }
     }
-    // 贴着切点的刻意画面 / 豁免帧段跟着切点走（到切点为止的、从切点开始的）；其余区间留在原来的全局帧
-    for (const r of ranges) {
-      const [a, b] = r.get();
-      if (b === oldOut && a < newOut) { r.set(a, newOut); result.moved.ranges.push({ label: r.label, from: [a, b], to: [a, newOut] }); }
-      else if (a === oldOut && newOut < b) { r.set(newOut, b); result.moved.ranges.push({ label: r.label, from: [a, b], to: [newOut, b] }); }
+    for (const [r, a, b] of rangeMoves) {
+      const from = r.get();
+      r.set(a, b);
+      result.moved.ranges.push({ label: r.label, from, to: [a, b] });
     }
     // 下一镜里从切点起算的角色时钟（起点 = 旧切点）跟着切点走；其余起点不动（内容留在原来的全局时刻）
     if (isObj(after.actorClockOrigin)) {

@@ -661,7 +661,7 @@ export function validateFilm(input, opts = {}) {
   });
 
   // 12. 机器 QA 段（tools/qa 读它；docs/quality/QA-GATE.md「film.json 的 qa 段」）：刻意画面的声明、阈值覆盖、豁免
-  if (f.qa !== undefined) validateQa(f.qa, { err, warn, known, frameCount, shotById, profile });
+  if (f.qa !== undefined) validateQa(f.qa, { err, warn, known, frameCount, shotById, shotsOk, profile });
   if (f.posterFrame !== undefined && !(nonNegInt(f.posterFrame) && (frameCount === null || f.posterFrame < frameCount))) {
     err('poster-invalid', 'posterFrame', `posterFrame 是 [0, ${frameCount ?? 'frameCount'}) 里的整数帧`);
   }
@@ -871,7 +871,7 @@ function validateNative(n, { err, warn, known, checkPath }) {
  * intentional（以及同义的旧列表 holds / blackouts / flashes）是刻意的静帧、黑场、闪白：半开区间 [from, to) 整数帧，要写理由；
  * texts / visual / sync / plates 按键覆盖档位阈值，键名必须是档位里有的；waivers 的规则与 tools/qa/lib/waivers.mjs 一致（agent 不能批准）。
  */
-function validateQa(q, { err, warn, known, frameCount, shotById, profile }) {
+function validateQa(q, { err, warn, known, frameCount, shotById, shotsOk, profile }) {
   if (!isObj(q)) { err('qa-invalid', 'qa', 'qa 是对象：{ intentional, safeArea, texts, visual, sync, plates, clearColor, waivers }（docs/quality/QA-GATE.md）'); return; }
   known(q, FIELDS.qa, 'qa');
   const range = (o, p, label) => {
@@ -893,9 +893,18 @@ function validateQa(q, { err, warn, known, frameCount, shotById, profile }) {
       known(it, FIELDS.intentional, p);
       const kind = it.kind ?? (list === 'intentional' ? undefined : INTENTIONAL_ALIASES[list]);
       if (!INTENTIONAL_KINDS.includes(kind)) err('qa-intentional-invalid', `${p}.kind`, `kind 只能是 ${INTENTIONAL_KINDS.join(' / ')}（静帧 / 黑场 / 闪白）`);
-      range(it, p, '刻意画面');
+      const fr = range(it, p, '刻意画面');
       if (!isStr(it.reason)) err('qa-intentional-invalid', `${p}.reason`, '写明为什么是刻意的（审片时对照阐述核对）；不要为了过检写声明', '例："开场空纸等第一笔落拍"');
       if (it.shot !== undefined && !shotById.has(it.shot)) err('qa-intentional-invalid', `${p}.shot`, `没有镜头 ${it.shot}`);
+      else if (it.shot !== undefined && fr && shotsOk) {
+        // 写了 shot 就是在说「这是那一镜的刻意画面」：区间必须落在那一镜里，否则 QA 会把别的镜头的帧当成刻意画面放行
+        const s = shotById.get(it.shot);
+        if (fr[0] < s.in || fr[1] > s.out) {
+          const real = [...shotById.values()].filter(x => x.in < fr[1] && fr[0] < x.out).map(x => x.id);
+          err('qa-intentional-outside-shot', p, `刻意画面 [${fr[0]}, ${fr[1]}) 不在它标注的镜头 ${it.shot} [${s.in}, ${s.out}) 里（它落在 ${real.join('、')}）`,
+            '改切点用 film.js retime（刻意画面跟着镜头走，挪不动时拒绝）；手改了切点就把区间改回那一镜里；跨切点的刻意画面不写 shot');
+        }
+      }
     });
   }
   if (q.safeArea !== undefined) {
