@@ -40,11 +40,15 @@ test('规则文件按治理骨架的加载器加载：7 条 route-a 规则，id 
   assert.deepEqual(A.map(r => r.id).sort(), ['route-a.film-fonts', 'route-a.film-style', 'route-a.film-timeline', 'route-a.fonts-lock', 'route-a.kun-variants', 'route-a.plates', 'route-a.style-registry']);
 });
 
-test('当前仓库：route-a 规则没有错误（node tools/repo-check.mjs --only route-a --json）', () => {
+test('当前仓库：已跟踪的内容 route-a 规则没有错误（node tools/repo-check.mjs --only route-a --json）', () => {
   const r = spawnSync(process.execPath, [path.join(ROOT, 'tools/repo-check.mjs'), '--only', 'route-a', '--json'], { encoding: 'utf8' });
   const env = JSON.parse(r.stdout);
   const mine = env.data.findings.filter(f => f.rule.startsWith('route-a.'));
-  assert.deepEqual(mine.filter(f => f.level === 'error'), []);
+  // 本地在制、还没提交的作品（例如刚 npm run new、还没跑 subset）不让单元测试变红——那是 check:repo 的事；不是 git 检出时 films/ 一律不看
+  const g = spawnSync('git', ['-C', ROOT, 'ls-files', '--', 'films'], { encoding: 'utf8' });
+  const tracked = new Set(g.status === 0 ? g.stdout.split('\n').map(f => /^films\/([^/]+)\//.exec(f)?.[1]).filter(Boolean) : []);
+  const local = f => { const m = /^films\/([^/]+)\//.exec(f.file || ''); return !!m && !tracked.has(m[1]); };
+  assert.deepEqual(mine.filter(f => f.level === 'error' && !local(f)), []);
   assert.equal(env.data.rules.filter(x => x.id.startsWith('route-a.')).length, 7);
   assert.ok(mine.some(f => f.rule === 'route-a.film-style' && /beiming-original@v1/.test(f.message)), '模版的画风被核对过');
 });
@@ -74,6 +78,33 @@ test('镜头表断开、没覆盖到片尾、事件不在所属镜头里、事�
     assert.match(e, new RegExp(`frameCount 是 ${f.output.frameCount}`));
     assert.match(e, /事件 x 在第 10 帧，不在镜头 S2/);
     assert.match(e, /事件 y 的 frame 要是整数帧/);
+  } finally { cleanup(d); }
+});
+
+test('镜像作品（mirror.paths = repo，如 P05 的 films/beiming-10s）：模块按仓库根找、没写 lookPreset 只记提示；照模版做的作品没写仍报错', async () => {
+  const mir = { schemaVersion: 2, id: 'mir', title: '北冥', route: 'a', backend: 'three', mirror: { paths: 'repo', frozen: true },
+    output: { profile: 'beiming-1040p24', width: 1920, height: 1040, fps: 24, frameCount: 120 },
+    shots: [{ id: 'A', in: 0, out: 72, module: 'src/shotA.js' }, { id: 'B', in: 72, out: 120, module: 'src/shotB.js' }],
+    events: [{ id: 'touch', frame: 84, shot: 'B' }], style: { id: 'beiming-original', version: 1 } };
+  const plain = instance();
+  delete plain.shots[0].lookPreset;
+  const d = miniRepo({ plain });
+  fs.mkdirSync(path.join(d, 'films/mir'));   // miniRepo 把占位模块放在作品目录里；镜像作品的模块在仓库根，这里自己摆
+  fs.writeFileSync(path.join(d, 'films/mir/film.json'), JSON.stringify(mir));
+  fs.mkdirSync(path.join(d, 'src'));
+  fs.writeFileSync(path.join(d, 'src/shotA.js'), '// 测试用');
+  const of = async (id, name) => (await rule(id).run(createContext({ root: d }))).filter(f => f.file === `films/${name}/film.json`);
+  try {
+    let tl = (await of('route-a.film-timeline', 'mir')).filter(f => f.level === 'error').map(f => f.message);
+    assert.deepEqual(tl, ['镜头 B 的模块 src/shotB.js 不存在'], 'shotA 在仓库根找到了，shotB 缺了照样报');
+    fs.writeFileSync(path.join(d, 'src/shotB.js'), '// 测试用');
+    tl = await of('route-a.film-timeline', 'mir');
+    assert.deepEqual(tl.filter(f => f.level === 'error'), []);
+    const st = await of('route-a.film-style', 'mir');
+    assert.deepEqual(st.filter(f => f.level === 'error'), []);
+    assert.ok(st.some(f => f.level === 'info' && /2 个镜头没写（镜像作品/.test(f.message)));
+    const pe = (await of('route-a.film-style', 'plain')).filter(f => f.level === 'error').map(f => f.message).join('\n');
+    assert.match(pe, /镜头 S1 没写 lookPreset（A 模版的页面按它取后期预设/);
   } finally { cleanup(d); }
 });
 

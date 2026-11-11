@@ -30,6 +30,9 @@ export function aFilms(ctx) {
   });
 }
 
+/** 镜头模块相对哪里：镜像作品（mirror.paths = "repo"，例如 films/beiming-10s 描述仓库根的《北冥》样片）相对仓库根，其余相对作品目录。 */
+export const moduleBase = (dir, film) => (film.mirror?.paths === 'repo' ? '' : `${dir}/`);
+
 /** --staged 时只查暂存区动到的作品；平时全查。 */
 export const touched = (ctx, dir) => !ctx.staged || [...ctx.staged].some(f => f === dir || f.startsWith(`${dir}/`));
 

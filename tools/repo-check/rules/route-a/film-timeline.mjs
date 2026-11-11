@@ -1,6 +1,6 @@
 // route-a.film-timeline：A 路线作品的镜头表与事件表（film.json v2，单位：帧）——镜头半开区间 [in, out) 首尾相接覆盖 [0, frameCount)、
-// 镜头模块文件存在、事件帧是整数且落在所属镜头内。画面、声音、字幕都读这一张表（附录 C6），表断了三者就对不上。
-import { aFilms, touched } from './_shared.mjs';
+// 镜头模块文件存在（镜像作品 mirror.paths = "repo" 时按仓库根找）、事件帧是整数且落在所属镜头内。画面、声音、字幕都读这一张表（附录 C6），表断了三者就对不上。
+import { aFilms, touched, moduleBase } from './_shared.mjs';
 
 export default {
   id: 'route-a.film-timeline',
@@ -16,7 +16,7 @@ export default {
         if (!(Number.isInteger(s.in) && Number.isInteger(s.out) && s.out > s.in)) { out.push({ level: 'error', file, message: `镜头 ${s.id}：in / out 要是整数帧且 out > in` }); continue; }
         if (s.in !== at) out.push({ level: 'error', file, message: `镜头 ${s.id} 从第 ${s.in} 帧开始，上一镜到第 ${at} 帧为止`, hint: '镜头是半开区间 [in, out)，下一镜的 in 等于上一镜的 out' });
         at = s.out;
-        if (!s.module || !ctx.exists(`${dir}/${s.module}`)) out.push({ level: 'error', file, message: `镜头 ${s.id} 的模块 ${s.module} 不存在` });
+        if (!s.module || !ctx.exists(`${moduleBase(dir, film)}${s.module}`)) out.push({ level: 'error', file, message: `镜头 ${s.id} 的模块 ${s.module} 不存在` });
       }
       if (Number.isInteger(N) && at !== N) out.push({ level: 'error', file, message: `镜头表到第 ${at} 帧结束，output.frameCount 是 ${N}`, hint: '改时长只改 film.json：最后一镜的 out 等于 frameCount' });
       for (const e of film.events || []) {
