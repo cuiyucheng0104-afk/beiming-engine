@@ -1,0 +1,23 @@
+# 检索范围：ripgrep、fd 与 Claude Code 的 Grep（基于 ripgrep，实测不带 --no-ignore）默认遵守本文件；
+# Claude Code 的 Glob 视版本与 CLAUDE_CODE_GLOB_NO_IGNORE 设置而定；git grep 不读本文件。
+#
+# 默认不搜下面这些历史归档与第三方快照：里面是契约不同、已被否定或带 @@…@@ 还原标记的旧代码，
+# 照抄会出错，还会把引擎、路线、作品里的真正写法淹没（例如 window.render 的命中九成在这里）。
+# cases/entries/、cases/INDEX.md、cases/README.md 等案例卡仍然可以搜。
+#
+# 需要时显式搜归档（仍遵守 .gitignore）：
+#   rg <词> cases/vendor               直接把被跳过的目录写成搜索路径，就会搜它
+#   rg <词> cases/source
+#   rg --no-ignore-dot <词> cases      关掉本文件，搜整个 cases/
+#   rg --files cases/vendor | rg STYLE.md
+# 风格文档按 routes/c-style/STYLES.md 里的链接直接读，不要靠不带路径的 Glob 在 cases/vendor 下找。
+#
+# 规则写法同 .gitignore，路径相对仓库根。改动后跑 node --test tests/agent-layer。
+
+cases/vendor/
+cases/source/
+cases/catalog.json
+cases/previews/
+
+# 本机临时工作树（整份仓库的副本），不属于本检出
+.claude/worktrees/

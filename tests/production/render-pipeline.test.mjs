@@ -11,18 +11,24 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
+import { findSh } from '../../tools/env/lib/sh.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const FILM = 'tests/production/fixtures/film';
-const has = cmd => spawnSync(cmd, ['-version'], { stdio: 'ignore' }).status === 0;
+// 同步子进程一律限时：spawnSync / execFileSync 会阻塞事件循环，node:test 的用例超时打断不了它，卡住的子进程只能靠这里的 timeout 收掉
+const PROBE_MS = 10_000, TOOL_MS = 60_000, SCRIPT_MS = 120_000;
+const has = cmd => spawnSync(cmd, ['-version'], { stdio: 'ignore', timeout: PROBE_MS }).status === 0;
 const browserOk = (() => { try { return Boolean(process.env.BEIMING_CHROME) || existsSync(chromium.executablePath()); } catch { return false; } })();
 const skip = !has('ffmpeg') || !has('ffprobe') ? '没有 FFmpeg / ffprobe' : !browserOk ? '没有 Playwright 浏览器（npm run setup）' : false;
 const posix = process.platform !== 'win32';
+// mux.sh 与 build.sh 要 POSIX sh：Windows 上用 Git for Windows 的 sh（tools/env/lib/sh.mjs 的 findSh），找不到才跳过
+const SH = findSh().path;
+const shSkip = SH ? false : '没有 POSIX sh（Windows 装 Git for Windows，或用 BEIMING_SH 指定 sh.exe）';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'beiming-render-'));
 const segs = dir => readdirSync(dir).filter(n => n.startsWith('.segs-'));
 const probe = (file, entries) => execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', entries,
-  '-of', 'default=nw=1', file], { encoding: 'utf8' });
+  '-of', 'default=nw=1', file], { encoding: 'utf8', timeout: TOOL_MS });
 
 // 跑一个脚本并等它退出；超时就杀掉整个进程组并判失败（失败路径必须有限时间退出）
 function run(script, args, { env = {}, timeout = 30000, onStart } = {}) {
@@ -73,7 +79,7 @@ test('video.mjs：各种失败都在有限时间内非零退出，且不留 .seg
 
 test('video.mjs：FFmpeg 中途被杀、收到 SIGTERM 都能收尾退出', { skip: skip || (!posix && '需要 POSIX 信号与 pgrep'), timeout: 120000 }, async t => {
   const ffmpegChild = pid => {
-    try { return Number(execFileSync('pgrep', ['-P', String(pid), 'ffmpeg'], { encoding: 'utf8' }).trim().split('\n')[0]) || null; } catch { return null; }
+    try { return Number(execFileSync('pgrep', ['-P', String(pid), 'ffmpeg'], { encoding: 'utf8', timeout: PROBE_MS }).trim().split('\n')[0]) || null; } catch { return null; }
   };
   for (const [name, inject, code, pattern] of [
     ['FFmpeg 被 SIGKILL', p => { const ff = ffmpegChild(p.pid); if (ff) { process.kill(ff, 'SIGKILL'); return true; } return false; }, 1, /FFmpeg 在第 \d 段中途退出/],
@@ -161,12 +167,12 @@ test('still.mjs：--range 写错立即报错（不启动浏览器）；经符号
   });
 });
 
-test('mux.sh：音频短几毫秒也不丢末帧；线性增益到 −14 LUFS、LRA 不变；帧率不符报错；输出 BT.709 标记', { skip: skip || (!posix && '需要 sh'), timeout: 120000 }, async () => {
+test('mux.sh：音频短几毫秒也不丢末帧；线性增益到 −14 LUFS、LRA 不变；帧率不符报错；输出 BT.709 标记', { skip: skip || shSkip, timeout: 120000 }, async () => {
   const dir = tmp();
-  const ff = (...a) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...a]);
-  const mux = (...a) => spawnSync('sh', [join(ROOT, 'engine/render/mux.sh'), ...a], { encoding: 'utf8' });
+  const ff = (...a) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...a], { timeout: TOOL_MS });
+  const mux = (...a) => spawnSync(SH, [join(ROOT, 'engine/render/mux.sh'), ...a], { encoding: 'utf8', timeout: SCRIPT_MS });
   const loud = file => {
-    const m = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', file, '-vn', '-af', 'ebur128=peak=true:framelog=quiet', '-f', 'null', '-'], { encoding: 'utf8' }).stderr;
+    const m = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', file, '-vn', '-af', 'ebur128=peak=true:framelog=quiet', '-f', 'null', '-'], { encoding: 'utf8', timeout: TOOL_MS }).stderr;
     const get = k => Number([...m.matchAll(new RegExp(`^\\s+${k}:\\s+(-?[\\d.]+)`, 'gm'))].at(-1)?.[1]);
     return { I: get('I'), LRA: get('LRA'), TP: get('Peak') };
   };
@@ -191,7 +197,7 @@ test('mux.sh：音频短几毫秒也不丢末帧；线性增益到 −14 LUFS、
     assert.ok(probe(join(dir, 'bw.mp4'), 'stream=color_range').includes('color_range=unknown'));
     assert.equal(mux(join(dir, 'bw.mp4'), join(dir, 'a.wav'), join(dir, 'bw-out.mp4')).status, 0);
     const rgb = (file, matrix) => execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-frames:v', '1', '-vf',
-      `scale=flags=accurate_rnd+full_chroma_int:in_range=limited:in_color_matrix=${matrix},format=rgb24`, '-f', 'rawvideo', '-']);
+      `scale=flags=accurate_rnd+full_chroma_int:in_range=limited:in_color_matrix=${matrix},format=rgb24`, '-f', 'rawvideo', '-'], { timeout: TOOL_MS });
     const a = rgb(join(dir, 'bw.mp4'), 'bt601'), b = rgb(join(dir, 'bw-out.mp4'), 'bt709');
     let worst = 0;
     for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
@@ -216,17 +222,17 @@ function patchError(rgb) {
   return worst;
 }
 
-test('mux.sh：bt2020nc、fcc、smpte240m、RGB（libx264rgb）输入换算成 BT.709 并保留原色 / 传递特性；换算不了的矩阵原样透传', { skip: skip || (!posix && '需要 sh'), timeout: 120000 }, async t => {
+test('mux.sh：bt2020nc、fcc、smpte240m、RGB（libx264rgb）输入换算成 BT.709 并保留原色 / 传递特性；换算不了的矩阵原样透传', { skip: skip || shSkip, timeout: 120000 }, async t => {
   const dir = tmp();
-  const ff = (...a) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...a]);
+  const ff = (...a) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...a], { timeout: TOOL_MS });
   const SW = 'flags=accurate_rnd+full_chroma_int';
   try {
     ff('-f', 'lavfi', '-i', 'aevalsrc=0.1*sin(2*PI*440*t)*(0.6+0.4*sin(2*PI*0.7*t)):s=48000:d=1:c=stereo', join(dir, 'a.wav'));
     const make = (name, ...enc) => { ff('-f', 'lavfi', '-i', PATCH_SRC, '-frames:v', '24', ...enc, join(dir, `${name}.mp4`)); return join(dir, `${name}.mp4`); };
     const tags = file => probe(file, 'stream=color_range,color_space,color_primaries,color_transfer');
-    const mux = (input, name) => spawnSync('sh', [join(ROOT, 'engine/render/mux.sh'), input, join(dir, 'a.wav'), join(dir, `${name}-out.mp4`)], { encoding: 'utf8' });
+    const mux = (input, name) => spawnSync(SH, [join(ROOT, 'engine/render/mux.sh'), input, join(dir, 'a.wav'), join(dir, `${name}-out.mp4`)], { encoding: 'utf8', timeout: SCRIPT_MS });
     const decode709 = file => execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-frames:v', '1', '-vf',
-      `scale=in_range=limited:in_color_matrix=bt709:${SW},format=rgb24`, '-f', 'rawvideo', '-']);
+      `scale=in_range=limited:in_color_matrix=bt709:${SW},format=rgb24`, '-f', 'rawvideo', '-'], { timeout: TOOL_MS });
     for (const [name, enc, primaries, transfer] of [
       ['bt2020nc', ['-vf', `scale=out_color_matrix=bt2020:out_range=tv:${SW},format=yuv420p,setparams=colorspace=bt2020nc:range=tv:color_primaries=bt2020:color_trc=bt709`,
         '-c:v', 'libx264', '-qp', '0'], 'bt2020', 'bt709'],
@@ -251,7 +257,7 @@ test('mux.sh：bt2020nc、fcc、smpte240m、RGB（libx264rgb）输入换算成 B
       assert.equal(r.status, 0, r.stdout + r.stderr);
       assert.match(r.stderr, /换算不了/);
       assert.ok(tags(join(dir, 'ycgco-out.mp4')).includes('color_space=ycgco'));
-      const raw = file => execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'yuv420p', '-']);
+      const raw = file => execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'yuv420p', '-'], { timeout: TOOL_MS });
       const a = raw(input), b = raw(join(dir, 'ycgco-out.mp4'));
       let worst = 0;
       for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
@@ -263,9 +269,9 @@ test('mux.sh：bt2020nc、fcc、smpte240m、RGB（libx264rgb）输入换算成 B
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('CRLF 检出：mux.sh 去掉 CR 后照常封装，build.sh 跑到参数解析；UTF-8 区域设置下中文提示不被吞字', { skip: skip || (!posix && '需要 sh'), timeout: 120000 }, async () => {
+test('CRLF 检出：mux.sh 去掉 CR 后照常封装，build.sh 跑到参数解析；UTF-8 区域设置下中文提示不被吞字', { skip: skip || shSkip, timeout: 120000 }, async () => {
   const dir = tmp();
-  const ff = (...a) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...a]);
+  const ff = (...a) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...a], { timeout: TOOL_MS });
   const crlf = (src, dst) => { mkdirSync(join(dst, '..'), { recursive: true }); writeFileSync(dst, readFileSync(src, 'utf8').replace(/\n/g, '\r\n')); };
   try {
     crlf(join(ROOT, 'engine/render/mux.sh'), join(dir, 'engine/render/mux.sh'));
@@ -274,15 +280,15 @@ test('CRLF 检出：mux.sh 去掉 CR 后照常封装，build.sh 跑到参数解�
     ff('-f', 'lavfi', '-i', 'aevalsrc=0.1*sin(2*PI*440*t)*(0.6+0.4*sin(2*PI*0.7*t)):s=48000:d=1:c=stereo', join(dir, 'a.wav'));
     // macOS 的 /bin/sh（bash 3.2）在 UTF-8 区域设置下会把紧跟在 $变量 后面的中文首字节当成变量名的一部分
     const env = { ...process.env, LC_ALL: 'en_US.UTF-8' };
-    const r = spawnSync('sh', ['engine/render/mux.sh', 'v.mp4', 'a.wav', 'o.mp4', '24'], { cwd: dir, encoding: 'utf8', env });
+    const r = spawnSync(SH, ['engine/render/mux.sh', 'v.mp4', 'a.wav', 'o.mp4', '24'], { cwd: dir, encoding: 'utf8', env, timeout: SCRIPT_MS });
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.match(r.stderr, /CRLF 换行：已去掉 CR 后运行/);
     assert.match(r.stdout, /原色 bt709、传递特性 bt709）/);
     assert.ok(probe(join(dir, 'o.mp4'), 'stream=nb_read_packets').includes('nb_read_packets=24'));
-    const b = spawnSync('sh', ['build.sh', '--bogus'], { cwd: dir, encoding: 'utf8', env: { ...env, WORKERS: 'abc' } });
+    const b = spawnSync(SH, ['build.sh', '--bogus'], { cwd: dir, encoding: 'utf8', env: { ...env, WORKERS: 'abc' }, timeout: SCRIPT_MS });
     assert.equal(b.status, 2, b.stdout + b.stderr);
     assert.match(b.stderr, /不认识的参数：--bogus（可用/);
-    const w = spawnSync('sh', ['build.sh'], { cwd: dir, encoding: 'utf8', env: { ...env, WORKERS: 'abc' } });
+    const w = spawnSync(SH, ['build.sh'], { cwd: dir, encoding: 'utf8', env: { ...env, WORKERS: 'abc' }, timeout: SCRIPT_MS });
     assert.equal(w.status, 2, w.stdout + w.stderr);
     assert.match(w.stderr, /（收到 abc）/);
   } finally { rmSync(dir, { recursive: true, force: true }); }

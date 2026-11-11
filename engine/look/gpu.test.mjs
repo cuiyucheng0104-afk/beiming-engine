@@ -24,7 +24,7 @@ const TAIL = `
 </script></body></html>`;
 const PAGES = {};
 
-let browser = null, server = null, port = 0, skip = null;
+let browser = null, server = null, port = 0, skip = null, soft = false;
 test.before(async () => {
   let chromium;
   try { ({ chromium } = await import('playwright-core')); } catch { skip = '没有 playwright-core'; return; }
@@ -39,7 +39,12 @@ test.before(async () => {
   const angle = process.env.BEIMING_ANGLE || (process.platform === 'darwin' ? 'metal' : 'default');
   try {
     browser = await chromium.launch({ executablePath: process.env.BEIMING_CHROME || undefined, args: [...(angle === 'default' ? [] : [`--use-angle=${angle}`]), '--enable-gpu', '--ignore-gpu-blocklist'] });
-  } catch (e) { skip = '无头 Chrome 起不来（先 npm run setup）：' + String(e.message).split('\n')[0]; }
+  } catch (e) { skip = '无头 Chrome 起不来（先 npm run setup）：' + String(e.message).split('\n')[0]; return; }
+  // 软件渲染（CI 的 SwiftShader、没有显卡的 Linux）：大画幅的用例按比例缩小尺寸，时限放宽
+  const probe = await browser.newPage();
+  const gpu = await probe.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'), e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)) : ''; });
+  await probe.close();
+  soft = /swiftshader|llvmpipe|softpipe|software/i.test(gpu);
 });
 test.after(async () => { await browser?.close(); server?.close(); });
 
@@ -49,14 +54,17 @@ async function run(name, body, { w = 400, h = 300, timeout = 120000 } = {}) {
   const logs = [];
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.text().slice(0, 200)); });
   try {
-    await page.goto(`http://127.0.0.1:${port}/__gpu__/${name}`);
-    await page.waitForFunction(() => window.RESULT !== undefined, null, { timeout });
+    // 测试页的模块用顶层 await 跑完整个用例，load 事件要等它跑完：导航只等提交，实际时限交给下面等 RESULT
+    // （以前用 goto 默认的 30 秒，软件渲染下 R35 跑 60 秒就在 goto 上超时）
+    const limit = soft ? timeout * 3 : timeout;
+    await page.goto(`http://127.0.0.1:${port}/__gpu__/${name}`, { waitUntil: 'commit', timeout: limit });
+    await page.waitForFunction(() => window.RESULT !== undefined, null, { timeout: limit });
     const r = await page.evaluate(() => window.RESULT);
     if (r.error) throw new Error(r.error);
     return Object.defineProperty(r, 'logs', { value: logs, enumerable: false });   // 控制台告警留着看，不混进结果的键
   } finally { await page.close(); }
 }
-const gpuTest = (title, fn) => test(title, async t => { if (skip) return t.skip(skip); await fn(); });
+const gpuTest = (title, fn) => test(title, async t => { if (skip) return t.skip(skip); await fn(t); });
 
 gpuTest('R30 抠像面片：半透明的部分和身后的透明底板混合，不和清屏色（黑）混合；遮罩照样写深度', async () => {
   const r = await run('r30', `
@@ -316,7 +324,149 @@ async function lw(W, H, ol) {
   const L = look.targets.line, b = new Uint8Array(L.width * 4); renderer.readRenderTargetPixels(L, 0, L.height >> 1, L.width, 1, b);
   let s = 0; for (let x = 0; x < L.width / 2; x++) s += b[x * 4] / 255; look.dispose(); return s / 2 / H;
 }
-const out = {}; for (const [k, ol] of Object.entries({ w6: { width: 6, farScale: 1 }, far3: { width: 2.6, farScale: 3 } })) out[k] = (await lw(3840, 2080, ol)) / (await lw(1920, 1040, ol));
+// 软件渲染下宽度取高度的 0.75 倍（方块仍整块在画面里，线宽只按画高标定）：像素量降到 4 成，2080 / 1040 的比较不变
+const SOFT = ${soft}, wOf = h => SOFT ? h * 3 / 4 : h * 24 / 13;
+const out = {}; for (const [k, ol] of Object.entries({ w6: { width: 6, farScale: 1 }, far3: { width: 2.6, farScale: 3 } })) out[k] = (await lw(wOf(2080), 2080, ol)) / (await lw(wOf(1040), 1040, ol));
 window.RESULT = out;`, { timeout: 180000 });
   for (const [k, v] of Object.entries(r)) assert.ok(Math.abs(v - 1) < .02, `${k}：2080 / 1040 线宽比 ${v.toFixed(3)}（修改前 w6 为 0.735、far3 为 0.833）`);
+});
+
+// CRAFT-12 的新选项（默认都关）：纸纹锚点跟着画面里的一点走；scaleMode 'refHeight' 让图片纸纹在非整数倍画幅上相对画高一样大
+const PAPER_PROBE = `
+import * as THREE from 'three';
+import { createLook } from '/engine/look/index.js';
+const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(1); renderer.setSize(64, 64); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#8a7fb8');
+const cam = new THREE.PerspectiveCamera(30, 1, 1, 100);
+async function lum(W, H, paper) {
+  const look = createLook(renderer, W, H, { paperUrl: '/assets/plates/paper.png' }); await look.ready;
+  const rt = new THREE.WebGLRenderTarget(W, H);
+  look.render(scene, cam, { t: 1, outline: false, kuwahara: false, bloom: false, grade: false, vignette: 0, grain: 0, paper, target: rt });
+  const b = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(rt, 0, 0, W, H, b); rt.dispose(); look.dispose();
+  const L = new Float32Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) L[y * W + x] = b[((H - 1 - y) * W + x) * 4 + 1];   // 行序翻成左上为原点
+  return L;
+}
+// a 平移 (dx, dy) 后与 b 的差（只看两者都在画内的部分）：返回平均绝对差
+function shiftErr(a, b, W, H, dx, dy) { let s = 0, n = 0; for (let y = 8; y < H - 8; y++) for (let x = 8; x < W - 8; x++) { const xs = x - dx, ys = y - dy; if (xs < 0 || ys < 0 || xs >= W || ys >= H) continue; s += Math.abs(b[y * W + x] - a[ys * W + xs]); n++; } return s / n; }
+`;
+
+gpuTest('R61 纸纹锚点：锚点在屏幕上平移 (dx, dy) 时纸纹整块跟着平移（误差 < 1 像素），不写锚点的纸纹钉在屏幕上', async () => {
+  const r = await run('r61', PAPER_PROBE + `
+const W = 320, H = 240, base = { strength: 0.6, scale: 1 };
+const ref = await lum(W, H, { ...base, anchor: { pos: [160, 120], origin: [160, 120], zoom: 1 } });
+const still = await lum(W, H, base);
+const moved = await lum(W, H, { ...base, anchor: { pos: [167, 116], origin: [160, 120], zoom: 1 } });
+const best = []; for (let dy = -6; dy <= 2; dy++) for (let dx = 4; dx <= 10; dx++) best.push([shiftErr(ref, moved, W, H, dx, dy), dx, dy]);
+best.sort((a, b) => a[0] - b[0]);
+let sd = 0, m = 0; for (const v of ref) m += v; m /= ref.length; for (const v of ref) sd += (v - m) ** 2; sd = Math.sqrt(sd / ref.length);
+window.RESULT = { same: shiftErr(ref, still, W, H, 0, 0), best: best[0], second: best[1], unshifted: shiftErr(ref, moved, W, H, 0, 0), sd };`, { w: 64, h: 64 });
+  assert.ok(r.sd > 2, `纸纹要看得出来（亮度标准差 ${r.sd.toFixed(2)}）`);
+  assert.ok(r.same < 1e-9, `锚点在铺纸那一点（pos = origin, zoom = 1）时与不写锚点逐像素相同：${r.same}`);
+  assert.deepEqual(r.best.slice(1), [7, -4], `纸纹位移 = 锚点位移 (7, −4)，实际最佳 ${r.best.slice(1)}`);
+  assert.ok(r.best[0] < 0.6 && r.best[0] * 3 < r.unshifted, `平移后对齐的残差 ${r.best[0].toFixed(3)}（不平移 ${r.unshifted.toFixed(2)}）`);
+});
+
+// CRAFT-12 验收「开启 anchor 后，推镜段纸纹位移与锚层误差 ≤ 1px」：R61 只验了平移，这里验推镜（锚点处放大 + 平移）
+gpuTest('R64 纸纹锚点推镜：锚点处放大 1.5 倍并平移时，纸纹绕锚点等比放大、跟着走（位置误差 ≤ 1 像素）', async t => {
+  const r = await run('r64', PAPER_PROBE + `
+const W = 320, H = 240, base = { strength: 0.6, scale: 1 }, Z = 1.5, P = [171, 113], O = [160, 120];
+const ref = await lum(W, H, { ...base, anchor: { pos: O, origin: O, zoom: 1 } });
+const pushed = await lum(W, H, { ...base, anchor: { pos: P, origin: O, zoom: Z } });
+function bil(A, x, y) { const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, g = (i, j) => A[j * W + i]; return (g(x0, y0) * (1 - fx) + g(x0 + 1, y0) * fx) * (1 - fy) + (g(x0, y0 + 1) * (1 - fx) + g(x0 + 1, y0 + 1) * fx) * fy; }
+// 推镜后像素中心 c 在铺纸那一帧的位置 = (c − 锚点) / z + origin（左上为原点，像素中心 +0.5）；只看映射回去仍离边 8 像素以内的部分
+function err(px, py, z) { let s = 0, n = 0; for (let y = 8; y < H - 8; y++) for (let x = 8; x < W - 8; x++) { const rx = (x + .5 - px) / z + O[0] - .5, ry = (y + .5 - py) / z + O[1] - .5; if (rx < 8 || ry < 8 || rx > W - 9 || ry > H - 9) continue; s += Math.abs(pushed[y * W + x] - bil(ref, rx, ry)); n++; } return s / n; }
+const grid = []; for (let dy = -3; dy <= 3; dy += .5) for (let dx = -3; dx <= 3; dx += .5) grid.push([err(P[0] + dx, P[1] + dy, Z), dx, dy]);
+grid.sort((a, b) => a[0] - b[0]);
+window.RESULT = { best: grid[0], noZoom: err(P[0], P[1], 1), wrongZoom: err(P[0], P[1], 1.25), pinned: err(O[0], O[1], 1) };`, { w: 64, h: 64 });
+  t.diagnostic(`R64 最佳对位偏差 (${r.best[1]}, ${r.best[2]}) 像素、残差 ${r.best[0].toFixed(3)}；只平移不放大 ${r.noZoom.toFixed(2)}、放大量写错（1.25）${r.wrongZoom.toFixed(2)}、纸钉在屏幕上 ${r.pinned.toFixed(2)}`);
+  assert.ok(Math.hypot(r.best[1], r.best[2]) <= 1, `推镜后纸纹的对位偏差 (${r.best[1]}, ${r.best[2]}) 超过 1 像素`);
+  for (const k of ['noZoom', 'wrongZoom', 'pinned']) assert.ok(r.best[0] * 3 < r[k], `按锚点放大对位的残差 ${r.best[0].toFixed(3)} 要明显小于 ${k} 的 ${r[k].toFixed(2)}`);
+});
+
+gpuTest('R62 纸纹 scaleMode：refHeight 下 1440 高与 1080 高的纸纹平铺尺寸相对画高一致；默认 pixel 按整数倍（与以前相同）', async () => {
+  const r = await run('r62', `
+import * as THREE from 'three';
+import { createPaper } from '/engine/look/paper.js';
+import { createFullscreen } from '/engine/look/pass.js';
+const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(1); renderer.setSize(64, 64);
+const fx = createFullscreen(renderer), paper = createPaper(fx, renderer, { url: '/assets/plates/paper.png' }); await paper.ready;
+const out = {};
+for (const H of [1080, 1440, 2160]) {
+  const k = H / 1080, kp = Math.max(1, Math.round(k));
+  const px = paper.layer({ strength: .12, scale: 1 }, kp, k), rh = paper.layer({ strength: .12, scale: 1, scaleMode: 'refHeight' }, kp, k);
+  out[H] = { pixel: px.w / H, ref: rh.w / H, anchor: 'anchor' in px, pxTexels: 'texels' in px, texels: rh.texels };
+}
+let bad = null; try { paper.layer({ strength: .1, scaleMode: 'zoom' }, 1, 1); } catch (e) { bad = String(e.message); }
+window.RESULT = { out, bad };`, { w: 64, h: 64 });
+  const { out, bad } = r;
+  assert.ok(Math.abs(out[1440].ref / out[1080].ref - 1) < 1e-9 && Math.abs(out[2160].ref / out[1080].ref - 1) < 1e-9, `refHeight：平铺尺寸 / 画高 一致 ${JSON.stringify(out)}`);
+  assert.ok(Math.abs(out[1440].pixel / out[1080].pixel - 1080 / 1440) < 1e-9, 'pixel（默认）：1440 高按整数倍 1，纸纹相对画面变细（与以前相同）');
+  assert.ok(Math.abs(out[2160].pixel / out[1080].pixel - 1) < 1e-9, 'pixel：2160 高按整数倍 2，与 1080 相对一致（R32）');
+  assert.ok(!out[1080].anchor, '不写锚点时 layer 的结果不带 anchor 字段（走默认着色器）');
+  for (const H of [1080, 1440, 2160]) {
+    assert.equal(out[H].pxTexels, false, 'pixel 模式不带 texels（compose 用默认着色器，与以前逐像素相同）');
+    assert.deepEqual(out[H].texels, [1024, 1024], 'refHeight 模式带纸纹图的像素数，compose 据此按面积取样（R63）');
+  }
+  assert.match(bad || '', /scaleMode 只能是 pixel \/ refHeight/);
+});
+
+
+// CRAFT-12 的验收：新模式（纸纹 scaleMode 'refHeight' + 颗粒 size）下，同一平涂区 1080 直出与高分辨率缩回 1080 的高频能量差 ≤ 3%。
+// 高频能量 = 亮度减 5×5 盒模糊后的标准差（审计 CRAFT-12 的量法）；缩回 1080 用按面积的盒滤波（2160 → 1080 就是 2×2 平均）。
+const HF_PROBE = `
+import * as THREE from 'three';
+import { createLook } from '/engine/look/index.js';
+const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(1); renderer.setSize(64, 64); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#8a7fb8');   // 平涂区：整幅一个颜色，只剩纸纹与颗粒
+const cam = new THREE.PerspectiveCamera(30, 1, 1, 100);
+async function lum(W, H, p) {
+  const look = createLook(renderer, W, H, { paperUrl: '/assets/plates/paper.png', ss: 1 }); await look.ready;
+  const rt = new THREE.WebGLRenderTarget(W, H);
+  look.render(scene, cam, { t: 1, outline: false, kuwahara: false, bloom: false, grade: false, vignette: 0, ...p, target: rt });
+  const b = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(rt, 0, 0, W, H, b); rt.dispose(); look.dispose();
+  const L = new Float32Array(W * H); for (let i = 0; i < W * H; i++) L[i] = .2126 * b[i * 4] + .7152 * b[i * 4 + 1] + .0722 * b[i * 4 + 2]; return L;
+}
+// 按面积重采样（可缩可放）：目标像素 = 它在源图上盖住的各像素按重叠长度加权（逐轴）
+function axisW(N, n) { const s = N / n, w = []; for (let j = 0; j < n; j++) { const a = j * s, b = a + s, r = []; for (let x = Math.floor(a); x < Math.ceil(b - 1e-9); x++) { const o = Math.min(b, x + 1) - Math.max(a, x); if (o > 1e-9) r.push([x, o / s]); } w.push(r); } return w; }
+function resample(A, W, H, w, h) {
+  const wx = axisW(W, w), wy = axisW(H, h), T = new Float32Array(w * H), O = new Float32Array(w * h);
+  for (let y = 0; y < H; y++) for (let j = 0; j < w; j++) { let s = 0; for (const [x, k] of wx[j]) s += A[y * W + x] * k; T[y * w + j] = s; }
+  for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) { let s = 0; for (const [y, k] of wy[i]) s += T[y * w + j] * k; O[i * w + j] = s; }
+  return O;
+}
+function hf(L, w, h, m = 8) { let s = 0, s2 = 0, n = 0; for (let y = m; y < h - m; y++) for (let x = m; x < w - m; x++) { let b = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) b += L[(y + dy) * w + x + dx]; const d = L[y * w + x] - b / 25; s += d; s2 += d * d; n++; } const mu = s / n; return Math.sqrt(s2 / n - mu * mu); }
+function corr(a, b) { const n = a.length; let ma = 0, mb = 0; for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i]; } ma /= n; mb /= n; let va = 0, vb = 0, cv = 0; for (let i = 0; i < n; i++) { const x = a[i] - ma, y = b[i] - mb; va += x * x; vb += y * y; cv += x * y; } return cv / Math.sqrt(va * vb); }
+`;
+
+gpuTest('R63 纸纹 refHeight + 颗粒 size：原生 4K 缩回 1080 与 1080 直出的高频能量差 ≤ 3%；1440 上颗粒 size 3 等比、纸纹不比理想放大多损失', async t => {
+  const r = await run('r63', HF_PROBE + `
+const w = 540, h = 1080, out = {};   // 宽取高的一半：结论只跟画高有关，像素量省一半
+const PAPER = { strength: .14, scaleMode: 'refHeight' };
+const CASES = { new1: { paper: PAPER, grain: { amount: .65, size: 1 } }, new3: { paper: PAPER, grain: { amount: .65, size: 3 } },
+  grain3: { paper: false, grain: { amount: .65, size: 3 } }, paper: { paper: PAPER, grain: 0 }, legacy: { paper: { strength: .14 }, grain: .65 } };
+const HS = { new1: [2160], new3: [2160, 1440], grain3: [1440], paper: [2160, 1440], legacy: [2160] };
+for (const [k, p] of Object.entries(CASES)) {
+  const a = await lum(w, h, p), o = { hf1080: hf(a, w, h) };
+  for (const H of HS[k]) { const W = H / 2, B = resample(await lum(W, H, p), W, H, w, h); o[H] = { r: hf(B, w, h) / o.hf1080, c: corr(a, B) }; }
+  // 1440 的理想：把 1080 直出按面积放大到 1440 再缩回（整像素画面在非整数倍上能做到的最好），纸纹不该比它多损失
+  if (k === 'paper') o.ideal1440 = hf(resample(resample(a, w, h, 720, 1440), 720, 1440, w, h), w, h) / o.hf1080;
+  out[k] = o;
+}
+window.RESULT = out;`, { w: 64, h: 64, timeout: 240000 });
+  const pct = v => `${((v - 1) * 100).toFixed(1)}%`;
+  // 实测值写进测试输出（node --test 的诊断行），复核不用另写探针
+  for (const [k, o] of Object.entries(r)) {
+    const parts = Object.entries(o).filter(([H]) => /^\d+$/.test(H)).map(([H, v]) => `${H} 缩回 1080 高频 ${pct(v.r)}、相关 ${v.c.toFixed(4)}`);
+    t.diagnostic(`R63 ${k}：${parts.join('；')}${o.ideal1440 ? `；1440 理想放大 ${pct(o.ideal1440)}` : ''}`);
+  }
+  for (const k of ['new1', 'new3', 'paper']) {
+    assert.ok(Math.abs(r[k][2160].r - 1) <= .03, `${k}：2160 缩回 1080 的高频能量 ${pct(r[k][2160].r)}（双线性取样纸纹时 −6% 到 −20%）`);
+    assert.ok(r[k][2160].c > .99, `${k}：2160 缩回 1080 与 1080 直出相关 ${r[k][2160].c.toFixed(4)}`);
+  }
+  assert.ok(Math.abs(r.grain3[1440].r - 1) <= .03 && r.grain3[1440].c > .99, `颗粒 size 3（1080 / 1440 上 3 / 4 像素）：1440 缩回 1080 ${pct(r.grain3[1440].r)}，相关 ${r.grain3[1440].c.toFixed(4)}`);
+  assert.ok(r.paper.ideal1440 < .97, `1440 的理想放大本身就损失高频（${pct(r.paper.ideal1440)}）：整像素画面做不到逐像素等比，所以 1440 只比理想`);
+  assert.ok(Math.abs(r.paper[1440].r / r.paper.ideal1440 - 1) <= .03, `纸纹 1440：${pct(r.paper[1440].r)}，理想 ${pct(r.paper.ideal1440)}——面积取样不比理想多损失（双线性是 −23%）`);
+  assert.ok(r.paper[1440].c > .98, `纸纹 1440 缩回 1080 与 1080 直出相关 ${r.paper[1440].c.toFixed(4)}（纸纹相对画高一样大、对得上位置）`);
+  // 默认 pixel 模式不在这条验收里（旧输出逐像素不变，由金标准守）：记一下它 4K 缩回的高频损失，供对照
+  assert.ok(r.legacy[2160].r < .97, `默认模式（双线性、整数倍 kp）2160 缩回 1080：${pct(r.legacy[2160].r)}——新模式就是为它加的`);
 });
