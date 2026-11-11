@@ -22,7 +22,7 @@
 - **时间**：`output.frameCount` 是时长的唯一来源；镜头 `shots[]` 是半开区间 `[in, out)`，首尾相接覆盖 `[0, frameCount)`；事件 `events[]` 写结果帧 `frame` 与所属镜头 `shot`；秒只由 帧 / fps 推出。改切点用 `node engine/production/film.js retime`，事件跟着镜头走。
 - **路线**：`route` 取路线注册表 id（`a` / `b` / `c`），`backend` 按路线取值；交付规格只引用档位 `output.profile`。
 - **声画同步与刻意画面**：`events[].sync` 与机器 QA 同口径（不写 = 硬门、`lip`、`soft`、`none`）；刻意的静帧、黑场、闪白写在 `qa.intentional`（写理由），QA 的阈值覆盖与用户批准的豁免也在 `qa` 段（[QA-GATE.md](../quality/QA-GATE.md)）。
-- **不许有没有消费者的时间字段**：时间只写在 `shots`、`events`、`timeline`、`qa`（`intentional` 的 `from` / `to`、豁免的 `frames`）、`posterFrame`。
+- **不许有没有消费者的时间字段**：时间只写在 `shots`、`events`、`timeline`（C 路线页面读的是 `tempo` + `cues`：节拍段落与画面打点，`engine/core/tempo.js` 换算，打点必须落整帧）、`qa`（`intentional` 的 `from` / `to`、豁免的 `frames`）、`posterFrame`。
 - **校验**：`node engine/production/film.js check films/<名> [--json]`（退出码 0 / 2 / 4；`--json` 的诊断在 `data.diagnostics`）；模版用 `--template`。
 
 ### 0.2 页面约定 v1（A、C 路线）
