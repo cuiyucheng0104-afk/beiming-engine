@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """声画拍点核对 engine/audio/cuecheck.py（npm run audio:cuecheck）：事件表与路线无关，超差退出 4。
 
-  · C 路线：真的用 routes/c-style/template（timeline.js → events.json / timeline.json → 模版 mix.py → out/score_onsets.json），
-    原样通过；把一个打点挪 2 帧（声音跟着挪）→ 离八分网格 → 退出 4；只挪画面不重出声音 → 离音乐起音 → 退出 4。
+  · C 路线：真的用 routes/c-style/template（film.json 的 tempo / cues → timeline.js → events.json / timeline.json → 模版 mix.py
+    → out/score_onsets.json），原样通过；把一个打点挪 2 帧（只改 film.json 的 cues，声音跟着挪）→ 离八分网格 → 退出 4；
+    只挪画面不重出声音 → 离音乐起音 → 退出 4。
   · 十六分网格与关键事件集合（style-16 那种写法）：十六分位置的打点 --grid 2 不通过、--grid 4 通过；关键事件没有同拍的音乐起音不通过。
   · A 路线：film.json v2 的 events 引用声音表（《北冥》的 audio/cues.json，经 mirror.paths = repo）：声明值都在同步容差里；
     把 ui_fail 的画面帧挪 2 帧 → 声音晚 83.3 ms → 退出 4；sync: lip 允许晚 2 帧，soft 只告警，none 不查。
@@ -13,7 +14,6 @@ C 路线的用例要 node（导出 timeline.js）；其余只要 Python。用法
 """
 import json
 import os
-import re
 import shutil
 import unittest
 
@@ -79,13 +79,12 @@ class CRouteTemplate(unittest.TestCase):
         return cuecheck(self.film, '--grid', str(cfg['grid']), '--tol-ms', str(cfg['tolMs']), *args, cwd=self.td)
 
     def set_s2(self, addr):
-        p = os.path.join(self.film, 'timeline.js')
-        with open(p, encoding='utf-8') as f:
-            s = f.read()
-        s2 = re.sub(r"s2: \[[^\]]*\]", f's2: {addr}', s)
-        self.assertNotEqual(s, s2)
-        with open(p, 'w', encoding='utf-8') as f:
-            f.write(s2)
+        """打点地址只写在 film.json 的 cues（模版的唯一时间源）：[段落, 小节, 拍, 拍内分数]"""
+        p = os.path.join(self.film, 'film.json')
+        d = H.read_json(p)
+        self.assertNotEqual(d['cues']['s2'], addr)
+        d['cues']['s2'] = addr
+        write(p, d)
 
     def test_template_then_move_one_cue_two_frames(self):
         self.build()
@@ -93,8 +92,10 @@ class CRouteTemplate(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-800:])
         self.assertTrue(env['ok'])
         self.assertEqual(env['data']['maxDeltaMs'] <= 0.5, True, env['data'])
-        # 声音没重出、只挪画面：第二笔晚 2 帧（120 BPM 一拍 12 帧，2 帧 = 1/6 拍）
-        self.set_s2("['A', 1, 3, 1 / 6]")
+        # 声音没重出、只挪画面：第二笔晚 2 帧（模版 90 BPM、24 fps，一拍 16 帧，2 帧 = 1/8 拍）
+        fj = H.read_json(os.path.join(self.film, 'film.json'))
+        self.assertEqual((fj['tempo'][0]['bpm'], fj['output']['fps'], fj['cues']['s2']), (90, 24, ['A', 1, 4]), '模版的节拍或打点改了：同步改这条用例')
+        self.set_s2(['A', 1, 4, 0.125])
         H.run(['node', os.path.join(H.ROOT, 'tests', 'audio', '_dump_events.mjs'), self.film], cwd=self.td)
         r, env = self.check()
         self.assertEqual(r.returncode, 4)
@@ -114,7 +115,7 @@ class CRouteTemplate(unittest.TestCase):
         self.assertEqual([e['id'] for e in bad], ['s2'])
         self.assertLess(bad[0]['musicOnsetMs'], 0.5)
         # 挪回网格上（后半拍）：通过
-        self.set_s2("['A', 1, 3, 0.5]")
+        self.set_s2(['A', 1, 4, 0.5])
         self.build()
         r, env = self.check()
         self.assertEqual(r.returncode, 0, r.stdout)
