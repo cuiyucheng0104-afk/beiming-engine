@@ -312,9 +312,10 @@ class Interrupt(unittest.TestCase):
     def test_sigkill_to_callers_group_during_mux_probe(self):
         r = H.run(['python', 'audio/mix.py'], cwd=self.td)
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
-        p = self.start([sys.executable, 'audio/check.py', '--strict'],
-                       lambda: any('ffmpeg' in c or 'mux.sh' in c for c in self.cmdlines()))
-        os.killpg(p.pid, signal.SIGKILL)  # check.py 起的 ffmpeg / sh 也在这一组里，一起收到
+        # 等到封装本身在跑（mux.sh → node lib/mux.mjs → ffmpeg，约一两秒）；只等 ffmpeg 会落在前面零点几秒就测完的 ebur128 上，
+        # 子进程不在同组时也来不及暴露
+        p = self.start([sys.executable, 'audio/check.py', '--strict'], lambda: any('mux.' in c for c in self.cmdlines()))
+        os.killpg(p.pid, signal.SIGKILL)  # check.py 起的 sh / node / ffmpeg 也在这一组里，一起收到
         p.wait()
         self.assert_nothing_left(time.time(), settle=0.3)   # 封装探针一两秒就跑完：要趁它还在时看
 
