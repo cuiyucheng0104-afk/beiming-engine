@@ -64,7 +64,7 @@ async function run(name, body, { w = 400, h = 300, timeout = 120000 } = {}) {
     return Object.defineProperty(r, 'logs', { value: logs, enumerable: false });   // 控制台告警留着看，不混进结果的键
   } finally { await page.close(); }
 }
-const gpuTest = (title, fn) => test(title, async t => { if (skip) return t.skip(skip); await fn(); });
+const gpuTest = (title, fn) => test(title, async t => { if (skip) return t.skip(skip); await fn(t); });
 
 gpuTest('R30 抠像面片：半透明的部分和身后的透明底板混合，不和清屏色（黑）混合；遮罩照样写深度', async () => {
   const r = await run('r30', `
@@ -421,7 +421,7 @@ function hf(L, w, h, m = 8) { let s = 0, s2 = 0, n = 0; for (let y = m; y < h - 
 function corr(a, b) { const n = a.length; let ma = 0, mb = 0; for (let i = 0; i < n; i++) { ma += a[i]; mb += b[i]; } ma /= n; mb /= n; let va = 0, vb = 0, cv = 0; for (let i = 0; i < n; i++) { const x = a[i] - ma, y = b[i] - mb; va += x * x; vb += y * y; cv += x * y; } return cv / Math.sqrt(va * vb); }
 `;
 
-gpuTest('R63 纸纹 refHeight + 颗粒 size：原生 4K 缩回 1080 与 1080 直出的高频能量差 ≤ 3%；1440 上颗粒 size 3 等比、纸纹不比理想放大多损失', async () => {
+gpuTest('R63 纸纹 refHeight + 颗粒 size：原生 4K 缩回 1080 与 1080 直出的高频能量差 ≤ 3%；1440 上颗粒 size 3 等比、纸纹不比理想放大多损失', async t => {
   const r = await run('r63', HF_PROBE + `
 const w = 540, h = 1080, out = {};   // 宽取高的一半：结论只跟画高有关，像素量省一半
 const PAPER = { strength: .14, scaleMode: 'refHeight' };
@@ -437,6 +437,11 @@ for (const [k, p] of Object.entries(CASES)) {
 }
 window.RESULT = out;`, { w: 64, h: 64, timeout: 240000 });
   const pct = v => `${((v - 1) * 100).toFixed(1)}%`;
+  // 实测值写进测试输出（node --test 的诊断行），复核不用另写探针
+  for (const [k, o] of Object.entries(r)) {
+    const parts = Object.entries(o).filter(([H]) => /^\d+$/.test(H)).map(([H, v]) => `${H} 缩回 1080 高频 ${pct(v.r)}、相关 ${v.c.toFixed(4)}`);
+    t.diagnostic(`R63 ${k}：${parts.join('；')}${o.ideal1440 ? `；1440 理想放大 ${pct(o.ideal1440)}` : ''}`);
+  }
   for (const k of ['new1', 'new3', 'paper']) {
     assert.ok(Math.abs(r[k][2160].r - 1) <= .03, `${k}：2160 缩回 1080 的高频能量 ${pct(r[k][2160].r)}（双线性取样纸纹时 −6% 到 −20%）`);
     assert.ok(r[k][2160].c > .99, `${k}：2160 缩回 1080 与 1080 直出相关 ${r[k][2160].c.toFixed(4)}`);
