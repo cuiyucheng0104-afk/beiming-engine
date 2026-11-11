@@ -11,7 +11,7 @@ const works = [];
 const statusBefore = new Set(gitStatus() || []);
 after(() => { for (const w of works) w.cleanup(); cleanupTestRoot(); });
 
-const SUBS = ['new', 'check', 'stills', 'animatic', 'build', 'mix', 'assemble', 'render', 'qa', 'review', 'approve', 'status'];
+const SUBS = ['new', 'check', 'plan', 'stills', 'animatic', 'build', 'mix', 'assemble', 'render', 'qa', 'review', 'approve', 'status'];
 const ENVELOPE_KEYS = ['schemaVersion', 'ok', 'exitCode', 'command', 'error', 'outputs', 'runJson', 'warnings', 'data'];
 
 test('--help：总帮助与每个子命令都打印用法与退出码到 stdout、退出码 0、不建任何目录', () => {
@@ -45,6 +45,7 @@ test('用法错误：没有子命令、不认识的子命令、未知选项、�
     [['build', 'films/x', '--workers', 'abc', '--json'], 'usage.bad-value'],
     [['build', 'films/x', '--gpu', 'maybe', '--json'], 'usage.bad-value'],
     [['render', 'films/x', '--frames', '1:0', '--shot', 'S1', '--json'], null],
+    [['plan', 'films/x', '--workers', '0', '--json'], 'usage.bad-value'],
   ];
   for (const [args, code] of cases) {
     const r = runCli(args);
@@ -154,6 +155,17 @@ test('build --waive：用法或契约有错时（档位拼错、坏画幅、--si
     assert.ok(!fs.existsSync(path.join(w.dir, 'review')), `${extra.join(' ')}：不该写审片记录`);
     assert.ok(!fs.existsSync(path.join(w.dir, 'out')), `${extra.join(' ')}：不该建运行目录`);
   }
+});
+
+test('film plan：B 路线没有估算接口，用法错误（退出码 2）并指向 animatic；不起浏览器、不写作品目录', () => {
+  const w = makeWork('b');
+  works.push(w);
+  const before = fs.readdirSync(w.dir).sort();
+  const r = runCli(['plan', w.rel, '--json']);
+  assert.equal(r.code, 2, r.stderr);
+  assert.equal(r.json.error.code, 'usage.plan-native');
+  assert.match(r.json.error.hint, /animatic/);
+  assert.deepEqual(fs.readdirSync(w.dir).sort(), before);
 });
 
 test('仓库卫生：上面这些命令跑完，除了测试作品自己，工作区没有多出任何改动', () => {

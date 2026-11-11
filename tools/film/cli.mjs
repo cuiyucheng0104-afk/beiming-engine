@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 北冥仓库 · 出片编排命令（npm run film -- <子命令>）：一条 Node 命令依据作品描述 film.json 出片，三条路线、三个平台同一套参数。
-//   node tools/film/cli.mjs <new|check|stills|animatic|build|mix|assemble|render|qa|review|approve|status> … [--json] [--help]
+//   node tools/film/cli.mjs <new|check|plan|stills|animatic|build|mix|assemble|render|qa|review|approve|status> … [--json] [--help]
 // 参数解析、--help、--json 信封与退出码都用命令约定库 tools/lib/cli.mjs（P02，docs/CLI.md）：
 //   退出码 C1：0 成功 · 1 运行失败 · 2 用法错误 · 3 缺环境 · 4 契约 / 验收 / 闸门不通过 · 5 资源忙 · 124 超时 · 130/143 中断
 //   --json C2：stdout 只输出一个对象 { schemaVersion, ok, exitCode, command, error, outputs[], runJson, warnings[], data }；过程日志一律走 stderr
@@ -22,6 +22,7 @@ const EXIT_CODES = {
 export const SUBCOMMANDS = {
   new: { mod: './commands/new.mjs', spec: 'newSpec', doc: 'NEW_DOC', run: (m, o, p) => m.newCommand(o, p) },
   check: { mod: './commands/check.mjs', spec: 'checkSpec', doc: 'CHECK_DOC', run: (m, o, p) => m.checkCommand(o, p) },
+  plan: { mod: './commands/plan.mjs', spec: 'planSpec', doc: 'PLAN_DOC', run: (m, o, p) => m.planCommand(o, p) },
   stills: { mod: './commands/frames.mjs', spec: 'stillsSpec', doc: 'STILLS_DOC', run: (m, o, p) => m.framesCommand('stills', o, p) },
   animatic: { mod: './commands/build.mjs', spec: 'animaticSpec', doc: 'ANIMATIC_DOC', run: (m, o, p) => m.buildCommand(o, p, 'animatic') },
   build: { mod: './commands/build.mjs', spec: 'buildSpec', doc: 'BUILD_DOC', run: (m, o, p) => m.buildCommand(o, p, 'build') },
@@ -38,6 +39,7 @@ const TOP_DESCRIPTION = [
   '做一部片的顺序（三道闸 look → animatic → final，决定 D08；每道闸都要用户看过、按原话记录，agent 不得自己批准）：',
   '  new <a|b|c> <名字> [--title 标题]       新建作品（转调 tools/new-film.mjs）',
   '  check <作品目录>                         只读检查：作品描述（P05）、页面契约 / 原生预检、档位与镜头表',
+  '  plan <作品目录>                          开渲前估算整片耗时与磁盘（A / C，转调 video.mjs --plan；只读）',
   '  stills <作品目录>                        风格关键帧 + 联系表                  → review approve look',
   '  animatic <作品目录>                      低清动态预演 + 联系表 + 播放页        → review approve animatic',
   '  build <作品目录> [--final]               整条出片链 → out/<run-id>/           → review approve final（之后才能称「已交付」）',

@@ -32,6 +32,7 @@ npm run film -- status films/my-film                  # 任何时候：闸门、
 |---|---|---|
 | `new <a\|b\|c> <名字> [--title] [--profile] [--dry-run]` | 参数先按同一套规则检查，再转调 `tools/new-film.mjs`；信封转交它的结果，另给下一步命令 | `films/<名字>/` |
 | `check <作品>` | 只读：作品描述校验（`engine/production/film.js check`；没有时用 `tools/lib/filmspec.mjs` 做结构自检）、页面契约探测或原生预检、档位、切点、闸门要求 | 无（不建运行目录） |
+| `plan <作品> [--profile] [--workers N]` | 开渲前估算（A、C）：转调渲染器 v2 的 `video.mjs --plan`，按出片同一口径（档位、路数）各路试渲几帧、试编码，给出整片耗时、成片体积与要的磁盘；磁盘不够 1.5 倍余量退出码 3。B 没有估算接口（用法错误，先出 `animatic`） | 无（试编码的临时文件放系统临时目录，结束即删） |
 | `stills <作品> [--frames … \| --times …]` | 风格关键帧：缺省每个镜头取中间一帧，单镜头取片长 1/6、1/2、5/6 | `stills/` `frames.json` `contact.jpg` |
 | `animatic <作品>` | 半分辨率预演：页面加 `previs=1`；临时声用作品混音，没有声音就按事件与切点生成提示音；B 用原生 `--quality draft` | `animatic.mp4` `contact.jpg` `player.html` |
 | `build <作品> [--final] [--profile] [--size]` | 整条出片链（§4）；`--from` / `--to` 只跑一段；输入没变的步骤复用缓存；`--profile` 换档位（画幅或帧率与 film.json 不同时 QA 读生效描述，§4）；`--size` 出改画幅的工作版（不是交付件，不跑交付 QA） | `master.mp4` `web.mp4` `player.html` `contact.jpg` `poster.jpg` `qa/`（换了档位另有 `film.effective.json`） |
@@ -177,7 +178,7 @@ films/<名>/out/
 | 机器 QA `tools/qa/cli.mjs` | `report` 子命令（§4）；`film qa` 补跑 |
 | 合规 `tools/compliance/lib/aigc.mjs` | `ffmpegMetadataArgs` 写隐式标识 |
 | 作品描述包 `engine/production/` | `film.js check`（film check）；`review.js` 的 buildReview / validateReview / writeReview / readReviews / gateVerdict（闸门记录）；`project.js` 的 validateRenderResult（run.json 自检）；`profiles.json`（档位） |
-| 渲染器 `engine/render/` | 读 `video.mjs --help` 探测能力（认 `--gpu`、`--profile` 时传）；编排层兜底超时、看门狗、进程树清理、`.segs-*` 清扫；渲染器 v2 的局部重渲与 Node 封装合入后切换（见 §13） |
+| 渲染器 `engine/render/` | 读 `video.mjs --help` 探测能力（认 `--gpu`、`--profile` 时传；`--size` 的工作版不传档位，档位换了帧率时加 `--any-fps`）；实际 GPU 读 `<输出>.run.json` 的 `gpu.renderer`（日志文字不作接口）；`lib/mux.mjs` 在就用 Node 封装；`plan` 转调 `video.mjs --plan`；编排层兜底超时、看门狗、进程树清理、`.segs-*` 清扫；按镜头局部重渲（`shots.mjs`）还没接（见 §13） |
 | 路线模版 | 模版的 film.json 能被 `parseFilm` 读懂（规范检查 `film.templates` 把关）；模版画面能否过真 QA 由各路线包负责 |
 
 ## 11. 《北冥》样片
@@ -196,6 +197,6 @@ node tools/repo-check.mjs --only film                                           
 
 ## 13. 已知限制
 
-- `render` 现在是逐帧静帧（still.mjs / native.mjs --at）加帧缓存；整片按镜头局部重渲属于渲染器 v2（`video.mjs --frames/--shot`、`shots.mjs`）。
+- `render` 现在是逐帧静帧（still.mjs / native.mjs --at）加帧缓存；整片按镜头局部重渲（渲染器 v2 的 `shots.mjs` 镜头缓存）还没接进 `build` 的 video 步骤：现在整片的逐帧视频按输入哈希整体复用，改了一个镜头就整片重渲。
 - 原生静帧（`native.mjs --at`）不保存运行时日志，记不到实际设备：这类运行的 status 是 blocked（look 闸照样能审，因为审的是画面）。
 - 软件渲染判定只看 WebGL 渲染器字符串；GPU 占用、共享工作站槽位、显存预算属于渲染器 v2。
