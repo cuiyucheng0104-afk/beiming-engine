@@ -1,0 +1,5 @@
+{
+  "description": "出片编排命令 tools/film：参数与信封契约、闸门记录、运行目录与缓存、出片规范检查（秒级）；端到端渲染要设 FILM_E2E=1（node tests/film/e2e-run.mjs）",
+  "timeoutSec": 1800,
+  "testTimeoutSec": 900
+}
