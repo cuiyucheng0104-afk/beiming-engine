@@ -111,36 +111,33 @@
 | `env:doctor`、`env:preflight`、`env:lock`、`env:large-files` | `tools/env/doctor.mjs`、`preflight.mjs`、`lock.mjs`、`large-files.mjs` | 环境 | 已接入 |
 | `env:py` | `tools/env/py.mjs` | 环境 | 例外（不适用）：Python 启动器，除 `--help` 外的参数原样交给 Python |
 | `remote` | `tools/remote/cli.mjs` | 环境 | 已接入 |
-| `env:gpu` | `tools/rtx/gpucheck.mjs` | 渲染器 | 在建（文件已有，不读参数） |
-| `serve` | `engine/render/serve.mjs` | 渲染器 | 在建 |
-| `film` | `tools/film/cli.mjs` | 出片编排 | 在建：三条路线统一的 `npm run film -- build films/<名字>` |
+| `env:gpu` | `tools/rtx/gpucheck.mjs` | 渲染器 | 已接入 |
+| `serve`、`site:serve` | `engine/render/serve.mjs`（`site:serve` 加 `--root out/site --port 8090`） | 渲染器 | 已接入；只监听 127.0.0.1 |
+| `stills`、`video`、`video:4k` | `engine/render/still.mjs`、`video.mjs`（《北冥》样片） | 渲染器 | 已接入 |
+| `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：三条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / render / review / status / qa / plan） |
+| `beiming:build`、`build` | `tools/film/beiming.mjs` | 出片编排 | 已接入；《北冥》样片一键重建，`build` 是旧名，`sh build.sh` 是兼容壳 |
+| `c:events`、`c:build` | `engine/render/events.mjs`、`build.mjs` | 出片编排 | 已接入（旧入口；新作品用 `npm run film -- build`） |
 | `qa` | `tools/qa/cli.mjs` | 机器 QA | 已接入 |
-| `golden`、`determinism` | `tools/baseline/` | 金标准 | 在建 |
-| `test`、`check`、`lint` | `tools/run-tests.mjs`、`tools/check-all.mjs` | 测试与 CI | 已接入；旧名 `test:routes`、`test:engine`、`test:audio`、`test:cases` 是 `tools/run-tests.mjs --only <域>` 的别名，已接入，保留一个版本 |
+| `golden`、`determinism` | `tools/baseline/golden.mjs`、`determinism.mjs` | 金标准 | 已接入 |
+| `audio:build`、`audio:qa`、`audio:cuecheck`、`audio:voice`、`audio:samples` | `tools/audio/build.mjs`、`qa.mjs`、`cuecheck.mjs`、`voice.mjs`、`fetch-samples.mjs` | 声音 | 已接入 |
+| `fonts:fetch`、`fonts:subset` | `tools/fonts/fetch.mjs`、`subset.mjs` | A 路线 | 已接入；A 作品出片前先 `fonts:subset films/<名字>` |
+| `plates:check`、`plates:bleed`、`lookdev:sweep` | `tools/plates/check.mjs`、`bleed.mjs`、`tools/lookdev/sweep.mjs` | A 路线 | 已接入 |
+| `b:preflight`、`b:render`、`b:prepare`、`b:runtime` | `engine/render/native.mjs --check-only`、`native.mjs`、`engine/native/prepare.mjs`、`runtime.mjs` | B 路线 | 已接入；旧名 `native:*`、`raea:*`（例片 `examples/raea`）已接入，保留一个版本 |
+| `native:prepare`、`native:check`、`native:render`、`native:bridge`、`native:sequence` | `engine/native/…`、`engine/render/native.mjs` | B 路线 | 已接入（旧名） |
+| `raea:prepare`、`raea:check`、`raea:render` | `engine/native/prepare.mjs examples/raea`、`engine/render/native.mjs examples/raea [--check-only]` | B 路线 | 已接入（例片的旧名，保留一个版本） |
+| `c:styles`、`c:styles:check` | `tools/c-styles.mjs` | C 路线 | 已接入 |
+| `c:setup`、`c:runtime`、`c:fonts:check` | `tools/c-runtime.mjs setup`、`c-runtime.mjs`、`routes/c-style/fonts/fetch.mjs --check` | C 路线 | 已接入 |
+| `test`、`check`、`lint` | `tools/run-tests.mjs`、`tools/check-all.mjs` | 测试与 CI | 已接入；旧名 `test:routes`、`test:engine`、`test:audio`、`test:cases` 是 `tools/run-tests.mjs --only <域>` 的别名 |
+| `test:film`、`test:style`、`test:native` | `tools/run-tests.mjs --only film`、`style`、`native` | 各域属主 | 已接入 |
 | `changelog:check`、`ci:smoke`、`ci:paths` | `tests/ci/changelog.mjs check`、`smoke-render.mjs`、`windows-paths.mjs` | 测试与 CI | 已接入 |
 | `comp:scan`、`comp:rights`、`comp:signed-urls`、`comp:aigc` | `tools/compliance/scan.mjs`、`rights-inventory.mjs --check`、`signed-urls.mjs list`、`aigc.mjs` | 合规 | 已接入 |
 | `eval:bank`、`eval:prepare`、`eval:drive`、`eval:reply`、`eval:finish`、`eval:status`、`eval:clean` | `tools/eval/run.mjs <子命令>` | 评测 | 已接入 |
 | `eval:gates`、`eval:score`、`eval:summary`、`eval:selftest` | `tools/eval/gates.mjs`、`tools/eval/score.mjs run`、`summary`、`--self-test` | 评测 | 已接入 |
 | `test:env`、`test:qa`、`test:comp`、`test:eval` | `node --test "tests/<域>/*.test.mjs"` | 各域属主 | 例外（不适用）：参数由 Node 的测试运行器解释；总入口 `npm test` 已接入 |
-| `cases:list`、`cases:check` | `tools/casebook.py` 经 `tools/env/py.mjs` | 案例库、环境 | 待改造（argparse 已拒绝未知参数，`--json` 未接入） |
-| `cases:restore`、`cases:index`、`cases:ingest`、`cases:pack` | `tools/casebook.py` 经 `tools/env/py.mjs` | 案例库、环境 | 在建 |
-| `c:styles`、`c:styles:check` | `tools/c-styles.mjs` | C 路线 | 待改造 |
-| `c:setup` | `tools/c-runtime.mjs` | C 路线 | 在建 |
-| `b:preflight`、`b:render` | `engine/render/native.mjs` | B 路线 | 在建；现为 `native:check`、`native:render`（待改造） |
-| `beiming:build` | `build.sh` | 出片编排 | 在建；现为 `build`（待改造） |
+| `cases:list`、`cases:check`、`cases:restore`、`cases:index`、`cases:rights` | `tools/casebook.py` 经 `tools/env/py.mjs` | 案例库 | `casebook.py` 已接入 `cli.py`；经 `py.mjs` 启动的写法契约测试还认不出，登记为已知例外 |
+| `site:build`、`site:qa` | `tools/build-showcase.py`、`tools/site-qa.mjs` | 作品站会话 | 待改造（作品站维护）：`site:build` 会重建 `out/site`，`site:qa` 的 `--json` 信封未接入 |
 
-现有的其他脚本都是**待改造**，属主与原因以 `tests/cli/contract.test.mjs` 的 `KNOWN_EXCEPTIONS` 为准：
-
-| 脚本 | 属主 | 现状 |
-|---|---|---|
-| `build` | 出片编排 | `--help` 会直接重建《北冥》 |
-| `stills`、`video`、`video:4k` | 渲染器 | `--help` 会渲出静帧或被当成作品目录 |
-| `raea:prepare`、`raea:check`、`raea:render` | B 路线 | 例片入口（旧名）；拼错 `--check-only` 会直接开始原生渲染 |
-| `native:prepare`、`native:check`、`native:render`、`native:bridge`、`native:sequence` | B 路线 | 不拒绝未知参数，退出码对齐附录 C1 在改造 |
-| `c:events`、`c:build` | 出片编排 | 并入 `npm run film -- build` |
-| `site:build`、`site:serve`、`site:qa` | 作品站会话 | 作品站维护 |
-
-其中 `build`、`stills`、`video`、`video:4k`、`raea:render`、`native:render` 的 `--help` 或拼错的参数目前会直接渲染或覆盖产物：不要拿 `--help` 试探它们，读文件头注释。
+属主与原因以 `tests/cli/contract.test.mjs` 的 `KNOWN_EXCEPTIONS` 为准；表里没有、`package.json` 里新加的脚本会让契约测试失败。
 
 ## 10. 路线注册表（`routes/routes.json`）
 

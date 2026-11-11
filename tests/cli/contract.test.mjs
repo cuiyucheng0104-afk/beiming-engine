@@ -22,13 +22,6 @@ const SCRIPTS = PKG.scripts ?? {};
 
 /** 还没接入命令约定库的脚本：属主包与原因（改造完成后从这里删掉，测试会自动开始验证它）。 */
 export const KNOWN_EXCEPTIONS = Object.freeze({
-  build: ['P06 出片编排', 'sh build.sh：--help 会直接重建《北冥》；改为 beiming:build 兼容壳'],
-  stills: ['P04 渲染器', 'engine/render/still.mjs：--help 会渲出静帧（s_--help.jpg）'],
-  video: ['P04 渲染器', 'engine/render/video.mjs：参数必须写在目录之后，--help 会被当成作品目录'],
-  'video:4k': ['P04 渲染器', '同 video'],
-  'raea:prepare': ['P14 B 路线', 'examples/raea 例片的准备脚本（旧名，保留一个版本）'],
-  'raea:check': ['P14 B 路线', 'examples/raea/tools/render.mjs：缺 RAEA_BIN 时抛堆栈'],
-  'raea:render': ['P14 B 路线', 'examples/raea/tools/render.mjs：拼错 --check-only 会直接开始原生渲染'],
   'test:env': ['P10 环境', '设计上不适用：node --test 的 glob，参数由 Node 的测试运行器解释（总入口 npm test 已接入）'],
   'test:qa': ['P07 机器 QA', '同 test:env'],
   'test:comp': ['P01 合规', '同 test:env'],
@@ -36,18 +29,11 @@ export const KNOWN_EXCEPTIONS = Object.freeze({
   'env:py': ['P10 环境', '设计上不适用：Python 启动器，除 --help 外的参数原样交给 Python 解释器（未知参数由 Python 报错、退出 2），没有 --json 信封；真正的命令是后面的 .py'],
   'cases:check': ['P16 案例库', 'tools/casebook.py：argparse 已拒绝未知参数（退出 2），--json 信封未接入'],
   'cases:list': ['P16 案例库', '同 cases:check'],
+  'cases:restore': ['P16 案例库', '经 tools/env/py.mjs 启动，契约测试认不出这种包装；tools/casebook.py 本身已接入 cli.py（--help、未知参数退出 2、--json 信封）'],
+  'cases:index': ['P16 案例库', '同 cases:restore'],
+  'cases:rights': ['P16 案例库', '同 cases:restore'],
   'site:build': ['作品站会话', 'tools/build-showcase.py：会重建 out/site（作品站维护）'],
-  'site:serve': ['作品站会话', 'python3 -m http.server：本地预览'],
   'site:qa': ['作品站会话', 'tools/site-qa.mjs：-h / --help 合规，--json 信封未接入（作品站维护）'],
-  'native:prepare': ['P14 B 路线', 'engine/native/prepare.mjs：--help 只打用法，但不拒绝未知参数，报错是原始堆栈（附录 C1 对齐在改造）'],
-  'native:check': ['P14 B 路线', 'engine/render/native.mjs --check-only：--help 只打用法，但不拒绝未知参数；缺 RAEA_BIN 的退出码在改造'],
-  'native:render': ['P14 B 路线', 'engine/render/native.mjs：不拒绝未知参数，拼错的选项会被忽略后直接开渲'],
-  'native:bridge': ['P14 B 路线', 'engine/native/bridge/export.mjs：--help 只打用法，未知参数与 --json 未接入'],
-  'native:sequence': ['P14 B 路线', 'engine/native/sequence.mjs：位置参数直接取用，没有 --help 与未知参数检查'],
-  'c:styles': ['P15 C 路线', 'tools/c-styles.mjs：只认 --check，其他参数一律忽略'],
-  'c:styles:check': ['P15 C 路线', '同 c:styles'],
-  'c:events': ['P06 出片编排', 'engine/render/events.mjs：没有 --help，参数不校验（会写作品的 events.json）'],
-  'c:build': ['P06 出片编排', 'engine/render/build.mjs：并入 npm run film -- build'],
 });
 
 /** 脚本 → { runner, file, args }：只认「node|python <文件> [参数]」这种单条命令。 */
