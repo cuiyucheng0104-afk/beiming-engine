@@ -56,7 +56,7 @@ export async function build({ shot, fps, DW, DH, preset, sun }) {
     boat.updateMatrixWorld(); lampAt.set(5.2, 2.3, 0).applyMatrix4(boat.matrixWorld);
     billboard(lamp, cam, lampAt, 18, DH);
     waterFrame(water, cam, DW, DH, { t, held: hold(f, 2), sunAz: sun.az, sunUp: 0 });
-    setToon({ inkTime: hold(f, 2), keyDir: sun.keyDir().toArray(), fillDir: [0, -1, 0], fillGain: 0.8, skyGain: 1, exposure: 1 });
+    setToon({ inkTime: hold(f, 2), keyDir: sun.keyDir().toArray(), fillDir: [0, -1, 0], fillGain: 0.8, skyGain: 1, exposure: 1, sunUp: 0 });   // 晨前：受光边是弱的（日出在 S2）
   }
   const P = preset();   // film.json 里本镜头的 lookPreset（beiming-original@v1/wide），不另写一份后期数值
   return { scene, camera: cam, update, look: t => ({ t, ...P }) };

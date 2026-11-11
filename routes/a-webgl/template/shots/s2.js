@@ -7,7 +7,7 @@ import { aimCamera, placeOnScreen, screenToPlane, project, dirOf } from '../../.
 import { plate, glowSprite, tileRepeat } from '../../../engine/stage/plates.js';
 import { hold, frameOf } from '../../../engine/core/clock.js';
 import { DEG, eo, ss, seg, lerp } from '../../../engine/core/math.js';
-import { PAL, SUN, setToon, frameCamera, peakPoint, sunrise, sunDisc, sunGlaze, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, loadPlate, ISLET } from '../world.js';
+import { PAL, SUN, setToon, frameCamera, peakPoint, sunDisc, sunGlaze, buildIslet, buildBoat, buildWake, boatPose, keyLight, buildWater, waterFrame, ridgeTexture, mistTexture, loadPlate, ISLET } from '../world.js';
 import { billboard } from './s1.js';
 
 export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFrame }) {
@@ -69,13 +69,12 @@ export async function build({ shot, fps, DW, DH, preset, mixLook, sun, eventFram
     placeOnScreen(glaze, cam0, DW, DH, sp.x, sp.y, 760, 15100, 760);
     glaze.material.uniforms.amt.value = 0.82 * k + 0.12 * glint;
     veil.material.uniforms.amt.value = 0.42 * k + 0.25 * glint;
-    sunrise(k);
     boatPose(boat, boatBase, 2.2, lf / fps, hold(f, 2), 2);
     wake.position.set(boat.position.x, 0, boat.position.z);
     boat.updateMatrixWorld(); lampAt.set(5.2, 2.3, 0).applyMatrix4(boat.matrixWorld);
     billboard(lamp, cam, lampAt, 16, DH);
     waterFrame(water, cam, DW, DH, { t, held: hold(f, 2), sunAz: sun.az, sunUp: k });
-    setToon({ inkTime: hold(f, 2), keyDir: sun.keyDir().toArray(), fillDir: [0, -1, 0], fillGain: lerp(0.8, 0.62, k), skyGain: 1, exposure: lerp(1, 1.12, k) });
+    setToon({ inkTime: hold(f, 2), keyDir: sun.keyDir().toArray(), fillDir: [0, -1, 0], fillGain: lerp(0.8, 0.62, k), skyGain: 1, exposure: lerp(1, 1.12, k), sunUp: k });
   }
   // 光的剧本：画风登记的 hero → hero-sunrise 两态之间按事件进度插值（allowedOverrides「日出过渡」）
   const A = preset('hero'), B = preset('hero-sunrise');

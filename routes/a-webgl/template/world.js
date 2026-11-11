@@ -38,7 +38,9 @@ export const PAL = {
 
 // ───────── 卡通材质族：一族材质共享着色器，每个物体一个 ID（墨线在物体之间也画得出） ─────────
 export const TOON = makeToonShared({ fillDir: [0, -1, 0], skyDir: [0, 1, 0] });
-export const setToon = g => setToonShared(TOON, g);
+// 每个镜头每帧都调一次 setToon：两个镜头共用的材质，逐帧状态（墨线时钟、光向、补光、曝光、日出受光边 sunUp）全从这里写。
+// 不在别处单独改共享 uniform——否则 S1 的画面会取决于此前渲过哪一帧 S2，render(t) 就不确定了（附录 C5）。
+export const setToon = ({ sunUp = 0, ...g }) => { setToonShared(TOON, g); sunrise(sunUp); };
 const kind = toonKind({ name: 'tpl', shared: TOON, firstId: 1, layers: [patchLayer()] });
 
 // 皴：山石陡面上断续的竖向细线，画在材质里（toonInk），随 uInkTime 一拍二换形——线的沸腾节拍跟山石的绘制节拍一致。
@@ -97,8 +99,8 @@ export const MAT = {
     fragmentPars: 'varying float vPart;\nuniform vec3 uTrunk;\n',
     fragmentBase: 'diffuseColor.rgb = mix( uTrunk, diffuseColor.rgb, step( 0.5, vPart ) );' }),
 };
-// 日出过渡：受光侧边缘光从晨前的弱亮边推到逆光的亮边（色彩脚本第二段，由 film.json 的日出事件驱动）
-export function sunrise(k) {
+// 日出过渡：受光侧边缘光从晨前的弱亮边推到逆光的亮边（色彩脚本第二段，由 film.json 的日出事件驱动；只经 setToon 的 sunUp 调用）
+function sunrise(k) {
   for (const m of [MAT.rock, MAT.rockFar, MAT.pine]) { const u = m.userData.toon; u.uRimLitAmt.value = lerp(m === MAT.pine ? 0.8 : 0.5, 1.7, k); u.uRimAmt.value = lerp(0.45, 0.7, k); }
 }
 
