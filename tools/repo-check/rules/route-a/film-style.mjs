@@ -30,7 +30,9 @@ export default {
           n++;
         } catch (e) { out.push({ level: 'error', file, message: `镜头 ${s.id} 的 lookPreset ${JSON.stringify(s.lookPreset)}：${e.message}`, hint: '预设名见画风锁定文件的 lookPresets；覆盖只能改 allowedOverrides 允许的字段与范围' }); }
       }
-      if (n + free === (film.shots || []).length) out.push({ level: 'info', file, message: `画风 ${st.key}，${n} 个镜头的 lookPreset 都可解析${free ? `；${free} 个镜头没写（镜像作品，画面由源码决定）` : ''}` });
+      if (n + free === (film.shots || []).length) out.push({ level: 'info', file, message: free
+        ? `画风 ${st.key}；镜像作品，${free} 个镜头没写 lookPreset（画面由源码决定，不核对）${n ? `，另 ${n} 个可解析` : ''}`
+        : `画风 ${st.key}，${n} 个镜头的 lookPreset 都可解析` });
     }
     return out;
   },

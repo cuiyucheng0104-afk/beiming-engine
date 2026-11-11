@@ -102,7 +102,7 @@ test('镜像作品（mirror.paths = repo，如 P05 的 films/beiming-10s）：�
     assert.deepEqual(tl.filter(f => f.level === 'error'), []);
     const st = await of('route-a.film-style', 'mir');
     assert.deepEqual(st.filter(f => f.level === 'error'), []);
-    assert.ok(st.some(f => f.level === 'info' && /2 个镜头没写（镜像作品/.test(f.message)));
+    assert.ok(st.some(f => f.level === 'info' && /镜像作品，2 个镜头没写 lookPreset/.test(f.message)));
     const pe = (await of('route-a.film-style', 'plain')).filter(f => f.level === 'error').map(f => f.message).join('\n');
     assert.match(pe, /镜头 S1 没写 lookPreset（A 模版的页面按它取后期预设/);
   } finally { cleanup(d); }
