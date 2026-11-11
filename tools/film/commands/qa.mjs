@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, FilmError, usage } from '../lib/exit.mjs';
-import { ROOT, rel } from '../lib/repo.mjs';
+import { ROOT, rel, sha256File } from '../lib/repo.mjs';
 import { loadFilm } from '../lib/spec.mjs';
 import { resolveProfile } from '../lib/profiles.mjs';
 import { readLatest, acquireLock, writeAtomic, jobOf } from '../lib/rundir.mjs';
@@ -93,10 +93,12 @@ export async function qaCommand(opts, positionals) {
   run.qaRuns = [...(run.qaRuns || []), { at, status: r.status, report: r.reportPath ? rel(r.reportPath) : null, by: 'film qa' }];
   writeAtomic(runFile, JSON.stringify(run, null, 2) + '\n');
 
-  const outputs = [{ path: rel(r.reportPath), sha256: null, kind: 'qa-report' }, { path: rel(runFile), sha256: null, kind: 'run-json' }];
-  const human = `${r.message}\n  报告    ${rel(r.reportPath)}\n  run.json ${rel(runFile)}（status = ${run.status}）`;
+  // 信封的 outputs 与 build 同口径（仓库相对路径带 sha256，远程出片按它核对）；QA 退出码 4 却没给报告时只列 run.json
+  const outputs = [[r.reportPath, 'qa-report'], [runFile, 'run-json']].filter(([f]) => f && fs.existsSync(f)).map(([f, kind]) => ({ path: rel(f), sha256: sha256File(f), kind }));
+  const report = r.reportPath ? rel(r.reportPath) : `（QA 没有给出报告，原始输出见 ${rel(path.join(dir, 'qa'))}/）`;
+  const human = `${r.message}\n  报告    ${report}\n  run.json ${rel(runFile)}（status = ${run.status}）`;
   if (r.status !== 'passed') {
-    const e = new FilmError(EXIT.CONTRACT, 'qa-failed', r.message, `逐项见 ${rel(r.reportPath)}；改完重新出片：npm run film -- build ${film.relDir}`);
+    const e = new FilmError(EXIT.CONTRACT, 'qa-failed', r.message, `逐项见 ${report}；改完重新出片：npm run film -- build ${film.relDir}`);
     e.outputs = outputs; e.runJson = rel(runFile); e.warnings = warnings;
     throw e;
   }
