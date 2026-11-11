@@ -1,147 +1,150 @@
 # B · 北冥原生 · BNE 路线手册
 
-通用原生渲染层，定位 **render anything**：作品写成一个 TSX 编排文件，由外部原生 GPU 运行时（Rust + Bevy，不随仓库分发）逐帧、确定性地渲出来。画面来源不限于《北冥》：程序化造型、外部模型、图片、视频，以及 A / C 路线的页面作品都能进同一个原生场景。
-
 ## 这条路线是什么
 
-- **执行面**：原生运行时把 React/TypeScript 编排送进 Rust 引擎，三维走 Bevy，页面层走原生排版，GPU 合成后编码。时间只由帧号决定（`useCurrentFrame()`），同一帧重渲结果一致（实测见「验收」）。
-- **仓库里的部分**：`engine/native/`（TSX 组件库 + 准备阶段工具 + 通用资产桥）、`engine/render/native.mjs`（通用渲染入口）、`routes/b-native/template/`（最小作品模版）、`examples/raea/`（《北冥》10 秒例片）。
-- **运行时不在仓库里**：固定版本 `0.1.0-canary.2`，用环境变量 `RAEA_BIN` 指向它的可执行文件（安装包需完整保留 `bin/` 与 `share/`，版本声明在 `share/raea/VERSION`）。许可与来源见 `THIRD-PARTY.md`。
-- **什么时候选它**：要原生 GPU、要把多种来源的画面放进一个三维空间、要骨骼 / morph 动画模型、或作品不依赖 A 路的屏幕墨线与 Kuwahara 笔触。要逐帧延续《北冥》原画风时选 A 路。
+**北冥原生 · BNE**（Beiming Native Edition，北冥原生版）是本仓库的通用原生渲染路线，定位 **render anything**：作品写成一个 TSX 编排文件，由外部原生 GPU 运行时逐帧、确定性地渲出来；程序化造型、外部模型、绘画底板、视频、A / C 路线的页面作品都能进同一个原生场景，不必套北冥画风。**基于 `RAEA` 原生运行时（FSL-1.1-ALv2）**：BNE 是我方路线名，不是自研运行时；运行时与 SDK 归上游所有，不随仓库分发，本路线只作内部制作层（自制影片、向客户交付成片，决定 D03）。许可边界见下文「边界与常见坑」与 [docs/rights/fsl-boundary.md](../../docs/rights/fsl-boundary.md)。
+
+- **执行面**：React/TypeScript 编排 → Rust 引擎（三维走 Bevy，页面层走原生排版）→ GPU 合成 → 编码。画面只由帧号决定（`useCurrentFrame()`），同一帧重渲在可复现误差内一致。
+- **仓库里的部分**：`engine/native/`（TSX 组件库 + 准备阶段工具 + 资产桥 + 交付）、`engine/render/native.mjs`（唯一出片入口）、`routes/b-native/template/`（最小作品模版）、`routes/b-native/recipes/`（四类画面配方样张）、`examples/raea/`（《北冥》10 秒例片；目录名是上游项目名，内部沿用）。
+- **运行时版本锁**：`engine/native/runtime.lock.json` 记版本 `0.1.0-canary.2`、上游源码提交、许可、三平台归档 sha256 与可执行文件 sha256；`RAEA_BIN` 指向它的可执行文件。**作品必须在 git 工作树里**：运行时按工作树认「项目目录」，`git archive` 导出的目录会被拒绝（REFUSED「outside raea's home and the project's folder」），入口预检时就以 exit 3 说明。
+- **什么时候选它**：要原生 GPU、要把多种来源的画面放进一个三维空间、要骨骼 / morph 动画模型、或作品不依赖 A 路的屏幕墨线与 Kuwahara 笔触。要逐帧延续《北冥》原画风选 A。
 
 ## 最快上手
 
-在仓库根目录：
+在仓库根目录（macOS / Linux 用 export，Windows PowerShell 用 `$env:RAEA_BIN = '…'`；不需要 Git Bash）：
 
 ```sh
-npm run setup                                    # three / playwright-core / 无头 Chromium（资产桥与页面序列帧要用）
-export PYTHON=/path/to/python                    # 需 numpy scipy soundfile numba（声音脚本用 engine/audio）
-export RAEA_BIN=/absolute/path/to/raea/bin/raea  # 原生运行时
+npm run setup                                         # node 依赖、无头 Chromium、仓库内 .venv（声音脚本的 numpy / scipy / soundfile / numba）
+node engine/native/runtime.mjs fetch --accept-license # 读过上游许可后获取运行时、校验哈希，打印 RAEA_BIN 应设的值
+export RAEA_BIN=/absolute/path/to/raea/bin/raea
 
-node tools/new-film.mjs b 我的片子                # 从 routes/b-native/template 复制到 films/我的片子/（替换 {{NAME}} {{TITLE}}）
-npm run native:prepare -- films/我的片子          # 素材进 media/：复制底板、导出道具 GLB（带 Idle 动作）、生成声音
-npm run native:check -- films/我的片子            # 版本、工具、素材预检，不启动 GPU
-node engine/render/native.mjs films/我的片子 --at 0,36,71   # 先渲三帧看（PNG 在 films/我的片子/out/stills/，按顺序命名）
-npm run native:render -- films/我的片子           # 出片：films/我的片子/out/我的片子.mp4 + out/technical.json
+node tools/new-film.mjs b my-film --title 我的片子     # 从 routes/b-native/template 复制到 films/my-film/（名字只用小写 ASCII）
+node engine/native/prepare.mjs films/my-film           # 素材进 media/：底板（含软边）、道具 GLB（Idle 动作）、声音，写 prepared.json
+node engine/render/native.mjs films/my-film --check-only    # 预检：运行时版本与哈希、git 工作树、FFmpeg、素材哈希；不启动 GPU
+node engine/render/native.mjs films/my-film --at 0,30,107   # 草图帧 → films/my-film/out/<run-id>/stills/f<帧号>.png
+node engine/render/native.mjs films/my-film                 # 出片 + 成片检查 + 机器 QA → films/my-film/out/<run-id>/
+node tools/run-tests.mjs --only native                 # 版式逐帧核对与工具单测（不启动 GPU）
 ```
 
-《北冥》例片沿用原命令：`npm run raea:prepare && npm run raea:check && npm run raea:render`（成片 `examples/raea/delivery/beiming-raea-10s.mp4`）。
+每个命令都用仓库的命令约定（[docs/CLI.md](../../docs/CLI.md)）：`--help` 只打印用法、无副作用；`--json` 时 stdout 只输出一个信封 `{schemaVersion, ok, exitCode, command, error:{code,message,hint}, outputs, runJson, warnings, data}`，日志走 stderr；未知参数 exit 2。退出码：0 成功 · 1 渲染 / 编码失败（含运行时日志里的 ERROR）· 2 用法 · 3 运行时 / 工具 / 素材缺失或不合格（含不在 git 工作树里）· 4 契约、交付规格、成片检查或机器 QA 硬门不通过 · 5 共享 GPU 忙 · 124 超时 · 130 / 143 中断（已清理）。出错时 stderr 写「错误[码]：原因」与「提示：下一步」两行；出片入口在运行目录建好之后的失败（QA 门、成片检查、编码、中断）信封里照样有 `runJson` 和已产出的文件（`outputs` 按 `kind` 取：master、web、run-json、raea-check、qa-report、contact-sheet、player、log）。超时一律用选项给：`native.mjs --timeout <秒>`（原生渲染与母版封装各自的上限，默认 120 + 2 × 帧数）、`prepare.mjs --timeout <秒>`（资产桥整批 / 声音脚本，默认 900 / 600）与 `--frame-timeout <秒>`（页面序列帧每帧，默认 30），非数字或小于 1 是用法错误。Python 走仓库统一的查找（`.venv` → `BEIMING_PYTHON` / `PYTHON`），FFmpeg 认 `FFMPEG` / `FFPROBE`。
 
 ## 一部作品的目录
 
 ```text
 films/<名字>/
-  film.json      片长、帧率、尺寸 + native 段（素材清单、入口、输出、封装方式）——唯一的配置源
-  film.tsx       编排：镜头、站位、时间、字幕；import '../../engine/native/index.ts' 取通用件
-  palette.json   色板（film.tsx 按名字取色）
-  prop.js        作品自己的造型函数（浏览器端 three.js，准备阶段导出成 GLB）
-  sound.py       声音脚本（from engine.audio import …）
-  README.md      三五行：改哪里、怎么出片
-  .gitignore     media/ 与 out/ 不提交
-  media/         prepare 生成：图片、GLB 与报告、序列帧图集与 JSON、mix.wav、prepared.json（SHA256）
-  out/           native.mp4（原生编码）、render.json / 日志、成片、technical.json、stills/
+  film.json      唯一配置源：片长、帧率、尺寸、events（帧号）、aigc、credits、native 段（素材清单）
+  film.tsx       编排；只能从作品目录之外 import engine/native/index.ts
+  layout.js      机位、主体、片名框、面片（纯函数；tests/native 逐帧核对）
+  motion.js      道具动作公式（纯函数，prop.js 与 film.tsx 共用）
+  palette.json   色板（按名字取色）     prop.js   造型（浏览器端 three.js，准备阶段导出 GLB）     sound.py   声音
+  media/         prepare 生成，不提交   out/<run-id>/  渲染产物，不提交；out/latest 是最近一次成功的 run-id
 ```
 
-`film.json` 的 native 段（路径相对作品目录，`to` 是 `media/` 下的文件名）：
+`out/<run-id>/`（run-id = `YYYYMMDD-HHMMSS-<短提交>[-dirty]`）：`master.mp4`（原生视频轨**逐位复制** + AAC 48 kHz，母版不二次有损）、`web.mp4`（交付网页版：H.264 High、yuv420p、BT.709 有限范围且四个色彩标签写全、AAC 48 kHz 立体声、−14 LUFS ±1、真峰值 ≤ −1 dBTP；交付档位按 film.json 或尺寸帧率推断，见 `engine/native/delivery.mjs`）、`check.json`（运行时自带的成片检查：字幕裁切、安全区、对比度、冻帧、响度；P0 / P1 即 exit 4）、`qa/report.json` 与 `qa/report.md`（仓库的机器 QA 门 `tools/qa`：规格、色彩、响度、画面、声画、底板；硬门不通过 exit 4）、`run.json`、`contact.jpg`、`player.html`、`framemd5.txt`、`render.log`。
+
+`run.json`（附录 C8）：`tools.raea` 是运行时版本，`runtime` 记平台、可执行文件实测与锁定 sha256；`actualDevice`（显卡）、`actualGraphicsBackend`（运行时日志里认出的 metal / vulkan / dx12）、`softwareFallback`、`actualEncoder`（母版的原生编码器与网页版的 libx264）；`inputs` 记作品每个源文件（含 film.tsx）与每个素材的 sha256、准备阶段的工具版本；`output` 是交付件的路径、哈希、尺寸、帧数、像素格式与色彩；`frameHashes`、`audio`（实测响度与增益）、`aigc`、`timing`。`status`：机器 QA 通过记 `passed`（`technicalAcceptance` 同时记 passed 并附报告路径），`--skip-qa` 或草图帧记 `rendered`，失败记 `failed`；`creativeAcceptance` 始终是 not-reviewed——技术通过不等于用户认可（D08）。末尾用 `engine/production/project.js` 的校验器自检，结论在 `selfCheck`。
+
+## 能力清单
+
+| 输入（render anything） | 做法 | 状态 |
+|---|---|---|
+| 浏览器里能用 engine 搭的 three.js 对象 | `models` 写 `module / export / args`：资产桥在无头 Chromium 里导出 GLB（材质转 PBR，源材质有名字就沿用），`clip` 逐帧调 `pose(t)` 采样动作 | 已实测：渡船、模版浮标（Idle） |
+| GPU 着色器里的程序形变 | 写配方 `recipe`：`bridge/rig.mjs` 把弯曲波换成骨骼、`geometry.mjs` 合并实例 / morph、`bake.mjs` 烘反照率 | 已实测：鲲（回归基准 `examples/raea/expected-assets.json`） |
+| 外部 GLB / glTF | `models` 写 `from`；`.glb` 复制后做结构检查 | `.glb` 已实测；`.gltf` 未实测 |
+| 图片 | `images`（`edge` 有机软边 / 圆形收边，`crop` 裁一块、`flip` 翻转）；`<Backdrop>` 二维底板、`<PlateCard>` 三维面片 | 已实测（`crop` / `flip` 只有单测） |
+| A / C 路线的页面作品 | `sequences` 写 `page`：逐帧渲成图集（`<SequencePlane>`）或透明逐帧 PNG（`<FrameSequence>`） | 已实测：《北冥》页面 → 面片；毛笔片名页面 → 透明叠层 |
+| 视频 / 图片序列 | `sequences` 写 `video` / `frames` | 视频已实测；图片目录未单独实测 |
+
+组件库 `engine/native/index.ts`：`math.ts`（re-export `engine/core` 的确定性数学与一拍二 / 一拍三时钟）、`palette.ts`、`camera.tsx`（`ShotCamera` 分段机位）、`view.js`（投影 / 反投影、`cardInView` 按屏幕框摆卡片、`skyShift` 天空跟镜头、`headingYaw` / `behind` 载具朝向与尾迹）、`layers.tsx`（`Backdrop`、`PlateCard`、`SequencePlane`、`FrameSequence`、`PaperOverlay`、`Vignette`、`Glow`）、`toon.tsx`（`ToonModel` 分材质卡通覆盖、`ToonBox`）、`title.tsx`（`TitleReveal` 逐字落定、`Caption` 字幕）、`post.ts`（`gradePass`、`paperPass`）、`surface.ts`（`waterWesl`、`ribbonWesl`）。Node 侧：`prepare.mjs`、`sequence.mjs`、`edge.mjs`、`film.mjs`、`delivery.mjs`、`runtime.mjs`、`cli.mjs`、`bridge/*.mjs`。
+
+**未实现**（不要报告成已有）：A 路的屏幕 ID 墨线、Kuwahara、三色双羽化卡通材质的原生移植；`gradePass` 与 A 路同参数的逐像素等价；人物表演；视频直接作动态纹理；超过 8192 像素的图集；Windows / 5090 上用新入口重跑。
+
+## 契约
+
+- **film.json**：v1 `{ route: "b", title, dur, fps, size: [宽, 高], events?, aigc?, credits?, native }`，或 v2（`output.{profile,width,height,fps,frameCount}`，见加固计划附录 C6）。帧数 = `round(dur × fps)`；尺寸是 ≥ 16 的偶数。交付档位取 `output.profile`，否则按尺寸与帧率推断，对不上用自定义档并提示。v2 里 `dur` / `fps` / `size` 是 v1 兼容镜像，必须与 `output` 相同——**改画幅、帧率、时长时两处一起改**（换画幅时 `output.profile` 也换成匹配的档位，或删掉它与 `deliveries` 落到自定义档）；不一致 exit 4，不会悄悄按其中一处渲。
+- **film.tsx**：`registerRoot` 一个 `Composition`，宽高帧率帧数从 film.json 读（模版直接 `import film from './film.json'`），`id` 只用字母、数字、连字符。画面只读 `useCurrentFrame()`；不用 `useState`、计时器、`Date.now`、无种子随机。
+- **import**：`film.tsx` 用 `import … from '../../engine/native/index.ts'` 取通用件（作品放在仓库内两级深的目录）；作品目录里的其他模块只能 import 作品目录里的文件；组件库不 import three 或 Node 模块。
+- **素材路径**：`staticFile('x')` = 作品 `media/x`；`ShaderMesh` 的纹理写 `'media/x.png'`。渲染入口按 film.json 与源码里的字面量逐个检查素材，并核对 `media/prepared.json` 的 sha256（prepare 之后被改过 → exit 4）。
+- **资产桥**：`export(args)` 返回 `Object3D` 或 `{ group | scene | root | object, length?, pose?(t) }`；动作只在 `pose(t)` 改子节点；`loop` 时最后一帧用 `pose(0)`。先写 `.part`，回读与结构检查都过才换名。
+- **序列帧**：图集 `{ grid, frames, fps, cell, source, sha256 }`；逐帧目录 `{ output: "frames", frames, fps, size, source }`。第 n 帧 = `floor((t − start) · fps)`。
+- **声音**：`audio.script` 由 prepare 调用，环境变量 `BNE_OUT`、`BNE_DUR`、`BNE_FILM`，`PYTHONPATH` = 仓库根；脚本自己母带到 −14 LUFS、真峰值限 −1.5 dBTP，渲染入口只做线性增益核对（峰值与响度之比太大 → exit 4）。没有 `audio` 时母版无声、网页版补静音立体声。
+
+`film.json` 的 native 段（路径相对作品目录，`to` 是 `media/` 下的名字）：
 
 ```json
 {
   "entry": "film.tsx",
-  "output": "out/<名字>.mp4",
-  "mux": "mux.sh",
-  "images":    [{ "to": "backdrop.png", "from": "../../assets/plates/sky_dawn.png" }],
-  "models":    [{ "to": "prop.glb", "module": "prop.js", "export": "createProp", "args": {}, "length": 1.6,
-                  "clip": { "name": "Idle", "pose": "pose", "duration": 3, "fps": 24 },
-                  "validate": { "animated": true, "clip": "Idle" } },
+  "images":    [{ "to": "mist.png", "from": "../../assets/plates/mist_low.png", "edge": { "left": 0.16, "right": 0.16, "jitter": 0.7, "lobes": 3 } }],
+  "models":    [{ "to": "prop.glb", "module": "prop.js", "export": "createProp", "length": 1.6,
+                  "clip": { "name": "Idle", "pose": "pose", "duration": 3, "fps": 24 }, "validate": { "animated": true, "clip": "Idle" } },
                 { "to": "boat.glb", "from": "../../examples/raea/media/ferry.glb" }],
-  "sequences": [{ "to": "screen.png", "page": "../..", "from": 3, "until": 5, "fps": 12, "size": [960, 520], "cell": [480, 260] }],
+  "sequences": [{ "to": "title", "page": "title", "until": 1.0, "output": "frames", "alpha": true }],
   "audio":     { "script": "sound.py", "out": "mix.wav" }
 }
 ```
 
-## 能力清单
+## 画面工艺
 
-**render anything：输入类型与做法**
+技术通过只是下限。照 [routes/directing](../directing/README.md) 的规范做，模版和例片已经把下面几条落到代码里（改它们时保持住）：
 
-| 输入 | 做法 | 状态 |
-|---|---|---|
-| 浏览器里能用 engine 搭出来的 three.js 对象（模块 + 导出名 + 参数） | `models` 写 `module / export / args`；`engine/native/bridge/export.mjs` 在无头 Chromium 里调用，材质转普通 PBR（MeshBasic 视为自发光），统一缩放，导出 GLB；`clip` 逐帧调 `pose(t)` 采样子节点 TRS 与 morph 权重 | 已实测：`src/ferry.js:createFerry` 导出与基线逐字节一致；模版 `prop.js` 带 Idle 动作导出、回读、原生出片 |
-| GPU 着色器里的程序形变（不在 CPU 上的动作） | 写配方 `recipe`：用 `bridge/rig.mjs` 把 `engine/form/bend.js` 的弯曲波换成站点骨骼，`bridge/geometry.mjs` 合并实例 / morph，`bridge/bake.mjs` 烘反照率 | 已实测：鲲（`examples/raea/tools/export-kun-browser.mjs`）与基线逐字节一致 |
-| 外部 GLB / glTF | `models` 写 `from`；`.glb` 复制后做结构检查，`.gltf` 只复制（外部 .bin / 贴图要列进 `images`） | `.glb` 已实测（渡船 GLB 当外部模型放进模版场景）；`.gltf` 未实测 |
-| 图片 | `images` 复制；`<Backdrop>`（二维底板视差）或 `<PlateCard>`（三维面片视差） | 已实测 |
-| A / C 路线的页面作品（满足 `window.DUR / render(t) / READY`） | `sequences` 写 `page`：`engine/native/sequence.mjs` 用 `engine/render/page.mjs` 逐帧渲成图集，原生端 `<SequencePlane>` 按帧号取格子 | 已实测：仓库根的《北冥》A 路页面 3–5 秒 → 24 帧图集 → 原生面片，逐帧推进 |
-| 视频 | `sequences` 写 `video`：FFmpeg 按 fps 抽帧成图集 | 已实测（例片成片 4–6 秒 → 24 帧） |
-| 图片序列目录 | `sequences` 写 `frames` | 代码已写，未单独实测 |
+1. **构图与读字**：主体在三分线，片名 / 字幕在安全区（左右各 ≥ 5% 画宽、上下各 ≥ 120/1080 画高）、不压主体、与背后像素对比 ≥ 3:1。机位与版式写进 `layout.js`，`tests/native/layout.test.mjs` 每一帧投影核对；`raea check` 再核对成片里的文字。
+2. **片名有动画**：`TitleReveal` 逐字落定（模版）；要书法笔顺就用 A 路页面经 `sequences` 渲透明逐帧 PNG、`<FrameSequence>` 叠上（例片的毛笔「北冥」）。片名起笔 / 落定的帧号写在 film.json `events`，声音脚本读同一个帧号。
+3. **纸纹不钉在屏幕上**：`<PaperOverlay>` 页面层整幅 multiply，一拍二换一张「纸」，按 H/1040 缩放；不要用只盖三维层、逐像素固定的颗粒冒充纸纹。
+4. **雾与云片不露截断边**：卡片按镜头摆（`cardInView`：先定屏幕框和深度再换算世界坐标，与画面平行），被画幅截断的竖边每一帧都在画外；上下截断边若进画，`images[].edge` 给那条边烘有机软边（安全网，不是借口）。确实要在画内结束的远景云堤（原图两端是沿竖线的线性淡出），把端头烘成**圆形收边**：`edge` 宽 ≥ 0.15、`round` ≥ 0.5，淡出线弯成圆弧并带低频起伏（相当于 A 路 `cropPlate` 的椭圆软边），QA 门的找边检测对处理后的图报「没有直线边」；收边的半透明区不要压在后面的实物（楼、船）上，否则它们会「透」出来——例片把云堤挪到近景云后面。不开距离雾（见「边界与常见坑」），空气感靠画出来的雾层和远层冷色；三维物体的空气透视还没做（QA-B-002，未关闭）。
+5. **天空像在无穷远**：页面层天空加 `skyShift(t)`，随摇 / 仰反向移动；铺法按原图等比、按镜头运动范围留出血。
+6. **一个时钟**：角色的位置、姿态、动作片段同一个量化时钟（例片鲲一拍三）；摄影、船、水面按 24 帧。载具朝速度方向，尾迹与船同一个偏航。
+7. **发光体**：灯的材质单独一层卡通覆盖并保留自发光，灯晕用页面层 `<Glow>`（投影锚点）——layered 画布里三维 Bloom 的光晕在天空前看不到。
 
-**组件库（`engine/native/`，TSX，运行时侧）**
+**画面配方**（每类给灯光、色板、材质、后期顺序；四类的可渲实现在 [recipes/](recipes/README.md)，样张用 `node engine/render/native.mjs routes/b-native/recipes --at 12,36,60,84` 现渲，不入库）：
 
-| 模块 → 能做什么 | 仓库里的例子 |
-|---|---|
-| `math.ts` → 直接 re-export `engine/core/math.js` 与 `clock.js`（同一份源码，数值逐位一致）+ `sinHash`、`ease` | 例片鲲一拍三 `heldTime(f, 3, FPS)` |
-| `palette.ts` → 从 `palette.json` 读色、校验十六进制、按名取色、`rgb()` 给着色器 | `examples/raea/palette.json`、模版 `palette.json` |
-| `camera.tsx` → `<ShotCamera shots>`：分段机位曲线（起止 eye / at / fov + 缓动） | 例片三个镜头 `SHOTS`；模版一镜推近 |
-| `layers.tsx` → `<Backdrop>` 二维底板漂移、`<PlateCard>` 三维绘画面片漂移、`<SequencePlane>` 序列帧面片、`drift()` | 例片天空 / 云 / 天际线；模版底板与雾 |
-| `toon.tsx` → `<ToonModel>` GLB + 全局与分材质卡通覆盖、`<ToonMesh>` / `<ToonBox>` 带材质基本体、`place()`、`toonFromShade()`（只对应颜色语义） | 例片鲲（6 个材质分组覆盖）、渡船、栏杆 |
-| `title.tsx` → `<FontFace>`、`<TitleCard>` 片名淡入、`<Caption>` 字幕条、`fadeWindow()` | 例片「北冥」片名（内嵌字体）；模版字幕 |
-| `post.ts` → `paperPass()` 颗粒 + 暗角、`gradePass()` 调色（逐行对应 `engine/look/grade.js` 公式） | 例片纸面颗粒；模版调色 + 颗粒 |
-| `surface.ts` → `waterWesl()` 绘画水面、`ribbonWesl()` 尾迹 / 拖痕（WESL 着色器生成） | 例片江面与渡船尾迹 |
-
-**准备与出片工具（Node / Python，准备阶段）**
-
-| 模块 → 能做什么 | 例子 |
-|---|---|
-| `engine/native/prepare.mjs` → 按 film.json 准备全部素材，写 `media/prepared.json`（SHA256） | `npm run native:prepare -- films/<名字>` |
-| `engine/native/bridge/export.mjs` → 通用资产桥；也可临时导出：`--module src/ferry.js --export createFerry --length 2 --out out/x.glb` | `npm run native:bridge -- examples/raea` |
-| `engine/native/bridge/validate.mjs` → GLB 二进制结构检查（访问器、权重和、骨骼、内嵌贴图、动画首尾一致） | `node engine/native/bridge/validate.mjs x.glb --expect '{"animated":true}'` |
-| `engine/native/sequence.mjs` → page / video / frames → 图集 PNG + JSON | `npm run native:sequence -- page . --from 3 --until 5 --fps 12 --size 960x520 --cell 480x260 --out out/seq.png` |
-| `engine/render/native.mjs` → 版本预检、素材检查、共享 GPU 检查、原生渲染、`engine/render/mux.sh` 封装、帧数 / 尺寸 / 帧率 / AAC / 完整解码核对 | `npm run native:render -- films/<名字>` |
-| `engine/audio`（Python）→ 环境声、合成器件、摆位、母带响度 | 模版 `sound.py`、例片 `examples/raea/tools/sound.py` |
-
-**未实现**（不要报告成已有）：A 路的屏幕空间 ID 墨线、Kuwahara 笔触、三色双羽化卡通材质在原生端的移植（原生只有自己的分档 toon + rim + 描边）；`gradePass` 与 A 路同参数的逐像素等价；人物表演（视线、手脚接触）；视频直接作为动态纹理（目前一律转图集）；超过 8192 像素图集的长序列；Windows / 5090 上用新入口重跑。
-
-## 契约
-
-- **film.json**：`{ "route": "b", "title", "dur", "fps", "size": [宽, 高], "native": {…} }`。`native.entry` 默认 `film.tsx`，`output` 默认 `out/<目录名>.mp4`，`mux` 默认 `mux.sh`。帧数契约 = `round(dur × fps)`。
-- **film.tsx**：`registerRoot` 一个 `Composition`，宽高帧率与 film.json 一致（模版直接 `import film from './film.json'`）。画面只读 `useCurrentFrame()`；不用 `useState`、计时器、`Date.now`、无种子随机。全局时间 `t = f / fps`，动作相位单独量化（`heldTime`）。
-- **import 路径**：原生运行时能解析作品目录之外的相对 import（`.tsx / .ts / .js / .json` 均实测），所以组件库不复制进作品，统一 `import … from '../../engine/native/index.ts'`。作品必须放在仓库内两级深的目录（`films/<名字>/`、`examples/<名字>/`）。组件库里不能 import three 或 Node 模块。
-- **素材路径**：`staticFile('x')` = 作品 `media/x`；`ShaderMesh` 的纹理写项目相对路径 `'media/x.png'`。所有素材都由 prepare 放进 `media/`，渲染入口会按 film.json 与 film.tsx 里的字面量引用逐个检查。
-- **资产桥**：`export(args)` 返回 `Object3D` 或 `{ group | scene | root | object, length?, pose?(t) }`；根节点不记动作；动作只在 `pose(t)` 改子节点；`loop: true` 时最后一帧用 `pose(0)` 保证首尾一致。输出名只能是 `media/` 下的 `.glb` 文件名；每个模型旁边写 `<名>-report.json`（结构检查 + 回读 + 源文件哈希）。
-- **序列帧图集**：`{ grid: [列, 行], frames, fps, cell, source, sha256 }`；`<SequencePlane sheet={…}>` 第 n 帧 = `floor((t − start) · fps)`，`loop` 取模，否则夹在首尾。
-- **声音**：`audio.script` 由 prepare 调用，环境变量 `BNE_OUT`（输出 wav）、`BNE_DUR`、`BNE_FILM`，`PYTHONPATH` 指向仓库根。封装时 `mux.sh` 两遍线性 loudnorm 到 −14 LUFS / −1.2 dBTP。没有 `audio` 时成片无声，technical.json 会写明。
-- **失败语义**：版本不对、缺素材、ComfyUI 队列有任务、`nvidia-smi` 利用率 > 10%、输出帧数 / 尺寸 / 帧率 / 音轨 / 时长不符，一律非零退出并说明原因；从不终止其他进程。
+| 配方 | 灯光 | 色板 | 材质 | 后期顺序 | 样张 |
+|---|---|---|---|---|---|
+| Toon 三渲二（模版） | 一盏暖主光从天空底板太阳一侧来 + 偏冷环境光 | 暗部偏冷紫，主体明度与天空拉开 ≥ 0.15（OKLab L） | `ToonModel` steps 3、shadow_color、rim（暖）、outline 1.6 px 墨色；发光件单独覆盖 | 三维 → 灯晕 → 纸纹 → 暗角 → 片名 | 模版 `--at 0,30,107`；recipes `--at 12` |
+| 绘画卡片合成（例片） | 同上，阴影级联只给近处 | 远层冷、近层暖；底板向共享色板对齐 | `PlateCard` 直通 alpha、截断边软边、`cardInView` 按屏幕框摆；水面 `waterWesl`、尾迹 `ribbonWesl` | 天空（skyShift）→ 卡片 → 三维 → 纸纹 → 暗角 → 毛笔片名 | 例片 `--at 0,111,239`；recipes `--at 60` |
+| PBR 风格化 | 三点光（暖主光、冷补光、背后轮廓光）；AgX 色调映射 | 低饱和中间调 + 一个强调色 | 不覆盖颜色，按材质名给粗糙度 / 金属度 / 清漆（`StandardMaterial material=…`） | 三维 → `gradePass` → 灯晕 → 暗角 | recipes `--at 36` |
+| 水墨线描 | 顶光平光，steps 2 | 纸白、淡墨、一条朱砂 | 按材质名逐个给色（全局覆盖不换色）、outline 2.8 px、灯关掉自发光 | 三维 → 纸纹（opacity 0.22）、不加暗角 | recipes `--at 84` |
 
 ## 验收
 
-每次改动都要有实际跑过的命令和结果（macOS / Apple M 系列 GPU / VideoToolbox 编码，2026-11-09）：
-
-| 项 | 命令 | 结果 |
+| 项 | 命令 | 判据 / 2026-11-10 macOS（Apple M5 Pro、Metal、VideoToolbox）实测 |
 |---|---|---|
-| 原生渲染可复现性 | 同一源码渲两次，逐帧解码比对 | 240 帧中 197 帧逐像素相同，最大差 6/255，最低 PSNR 79.2 dB，无像素差 > 8 → 以后用「最大差 ≤ 8、PSNR ≥ 70 dB」作阈值 |
-| 例片重构前后 | `npm run raea:prepare / raea:check / raea:render`，原生视频与基线逐帧比对 | 198/240 相同，最大差 6，最低 PSNR 82.3 dB（在可复现误差内） |
-| 鲲 / 渡船 GLB | prepare 后看 `media/prepared.json` | SHA256 与重构前基线逐字节一致：`75b00f72…41dd`、`1c627f59…173e` |
-| 成片契约 | `technical.json` | 1920×1040、24fps、完整解码 240 帧、AAC、10.000 秒 |
-| 封装差异 | 成片与基线成片逐帧比对 | `mux.sh` 用 x264 crf 19 重编码画面：最低 PSNR 35.4 dB、中位 38.6 dB（颗粒区最明显）；`--mux copy` 画面逐位保留：197/240 相同、最大差 6 |
-| 模版 | 复制到 `films/demo-b` → prepare → render | 1920×1080、24fps、72 帧、AAC、3.000 秒；关键帧看到底板、雾面片视差、浮标灯卡通描边与 Idle 起伏、风标转动、字幕淡入淡出 |
-| render anything | 模版加 `sequences`（A 路页面 + 视频）与外部 GLB | 页面 3–5 秒 → 24 帧 4×6 图集，原生面片上手部动作逐帧推进并循环；视频图集与外部渡船同场出片 |
+| 工具与版式 | `node tools/run-tests.mjs --only native` | 全过（97 项，约 5–10 秒：资产桥重导出与基准逐字节比对、R01 睑缘墨线断言、逐帧版式、云堤收边的找边回归、预检拒绝路径、GPU 守卫与成片检查两道闸、失败信封、命令约定、仓库规则） |
+| 仓库规则 | `node tools/repo-check.mjs --only route-b` | 八条 0 错误 0 提示（三平台可执行文件哈希都已锁定；Windows / Linux 的哈希由官方归档解包计算，尚未在该平台运行验收） |
+| 中断与清理 | 出片中途 Ctrl+C | exit 130，原生进程被整组终止，`.part` 删除，run.json 记 interrupted |
+| 缺运行时 | `node engine/render/native.mjs films/<名字> --check-only`（不设 `RAEA_BIN`） | exit 3，stderr 两行：`错误[env.no-runtime]：…` 与 `提示：…runtime.mjs fetch --accept-license` |
+| 预检拒绝 | `tests/native/preflight.test.mjs`（假运行时） | 不在 git 工作树 exit 3；素材被改 exit 4；素材清单改了没重新准备 exit 4（提示 `--only <类>`） |
+| 两道闸 | `tests/native/gates.test.mjs`（假运行时 + FFmpeg 造片） | ComfyUI 队列忙时草图帧也 exit 5、不建运行目录；成片检查 P1 → exit 4、`checks.raeaCheck.ok = false`；失败信封带 `runJson` 与成片 |
+| 模版出片 | `new-film b` → `prepare` → `native.mjs` | exit 0：1920×1080 / 24fps / 108 帧，web-1080p24，−14.1 LUFS / −1.5 dBTP，`raea check` 文字全过（含对比度 ≥ 3:1），机器 QA 通过（29 过 2 提示），run.json `status: passed`、`selfCheck.ok` |
+| 例片出片 | `prepare examples/raea` → `native.mjs examples/raea` | 1920×1040 / 240 帧，beiming-1040p24，−14.0 LUFS / −3.2 dBTP，`raea check` 无问题；机器 QA 唯一的硬门是 `known-issues.open`（台账里 QA-B-001 仍是 open，待 QA 包核对关闭；QA-B-002 未修）→ 目前 exit 4，这是如实的结论 |
+| 可复现性 | 同一提交渲两次，比对两次的 `framemd5.txt` | 模版与例片的母版解码后逐帧相同；网页版视频与音频码流逐字节相同（只有 comment 里的运行 id 不同）；原生 VideoToolbox 码流两次不同。（历史 5090 记录：197/240 相同、最大差 6，所以阈值仍写「最大差 ≤ 8、PSNR ≥ 70 dB」） |
 
-看片规则：技术检查通过 ≠ 画面通过。至少抽 `--at` 关键帧与 4fps 帧条看构图、动作、片名 / 字幕、黑场与静帧；原生速度与画风质量分别评价，不把 A 路的 WebGL 数据当成原生证据。
+看片规则：技术检查通过 ≠ 画面通过。至少看 `contact.jpg` 与整片，切点邻帧、片名、截断边、黑场与静帧；原生速度与画风质量分别评价，不把 A 路的 WebGL 数据当原生证据。
 
 ## 边界与常见坑
 
-- **GLB 不带屏幕后期**：A 路的屏幕描边、墨线抖动、Kuwahara、视角相关卡通光都不在模型里；原生端用 `ToonMaterial` 重新给光。覆盖材质时保留 `baseColorTexture` 与 `COLOR_0`：带贴图 / 顶点色的部位不要写 `base_color`，否则体色、眼睛纹样会被纯色盖掉。
-- **透明面片别开距离雾**：canary 版的预乘雾会露出面片矩形边缘（例片因此关雾）。天空用二维 `Backdrop` 叠 `Canvas3D layered`。
-- **字体**：外部字体在 Windows 中文路径下曾加载失败；要跨机一致就像例片一样内嵌 data URL（`examples/raea/title-font.ts`）。模版字幕用系统字体，换机器字形可能不同。
-- **Composition 的 id 只能是字母、数字、连字符**：中文作品名不能当 id（运行时会拒绝），模版固定写 `id="film"`；作品目录名可以是中文（已实测 `films/测试片`）。
-- **`--at` 的 PNG 按顺序命名**（`frame-00000.png` 对应 `--at` 里的第一个帧号），不是按帧号命名。
-- **图集上限**：最长边 8192 像素，整张进显存；长视频请缩小 `cell`、降低 `fps` 或拆成几段。
-- **`mux.sh` 会重编码画面**（x264 crf 19），要和原生渲染逐帧比对、或交付 master 画质时用 `--mux copy`。Windows 需要 `sh`（Git Bash）才能跑 `mux.sh`。
-- **资产桥用软件 GL**（SwiftShader）：只做转换与反照率烘焙，不占独显；烘焙结果依赖这一路径，换成硬件 GL 可能改变贴图字节。
-- **原生 GPU 与编码器分开记录**：macOS 实测编码器是 VideoToolbox；Windows canary 默认 OpenH264 软件编码，不能写成 NVENC / DLSS。共享工作站先看队列再渲。
-- **换运行时版本**：渲染入口只放行 `0.1.0-canary.2`；新版本先重跑本节全部验收，再用 `BNE_ALLOW_VERSION` 放行。
-- **对外命名**：对外只叫「北冥原生 · BNE」；`raea` 只留在 `examples/raea`、`raea:*` 命令、`RAEA_BIN` 与 `import … from 'raea'` 这些技术标识里。
+- **FSL 使用边界（决定 D03，全文见 [docs/rights/fsl-boundary.md](../../docs/rights/fsl-boundary.md)）**：上游运行时以 FSL-1.1-ALv2 发布（每个版本发布满两年转 Apache-2.0；canary.2 于 2028-10-31 转换）。本仓库**只把它用作内部制作层**——自制影片、向客户交付成片。agent 照这五条做：
+  1. RAEA 是第三方 FSL 软件：只在本机或工作站上调用，不提交、不打包、不随成片给出（`runtime.mjs fetch` 必须显式 `--accept-license`，装在仓库外的缓存目录）。
+  2. `engine/native/` 只写调用 RAEA 公开接口的自有代码；不复制 SDK 或运行时源码，不加 Rust / WESL 文件（读上游文档与类型定义来写调用代码可以；着色器写成我方 `.ts` 里的字符串）。
+  3. 交付物只有影片；有人要「把渲染做成服务」「把 BNE 给别人用」，停下来问用户。商业化对外提供之前，先取得上游书面许可或法律意见。
+  4. 对外只用「北冥原生 · BNE」，并带署名句「北冥原生 · BNE 基于第三方原生运行时 RAEA（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）。运行时不随本仓库分发，需单独取得并遵守其许可。」；不写「自研原生引擎」。
+  5. 升级运行时版本：同一提交里更新 `engine/native/runtime.lock.json`、`engine/render/native.mjs` 的 `VALIDATED`、fsl-boundary.md 与 THIRD-PARTY.md 的版本、发布日和 Apache-2.0 转换日期，并重跑本手册「验收」。
+- **作品必须在 git 工作树里**：运行时按 git 工作树认「项目目录」，在 `git archive` 导出的目录或仓库外的拷贝里渲染会 REFUSED「outside raea's home and the project's folder」（P07 实测）；入口预检时就 exit 3 并说明。作品放仓库检出的 `films/<名字>/`，CI 或临时检出用 `git clone` / `git worktree`，不用 `git archive`。
+- **辅助模块不能 import 作品目录之外**：运行时把作品模块复制到临时目录打包，只有入口 `film.tsx` 的外部相对 import 被改写；`layout.js` 之类再 import `../../engine/…` 会 REFUSED。辅助模块写成纯函数，需要的引擎函数由 `film.tsx` 传进去；也不能 import three。
+- **GLB 不带屏幕后期**：墨线、Kuwahara、视角相关卡通光都不在模型里，原生端用 `ToonMaterial` 重新给光；覆盖时保留 `baseColorTexture` 与 `COLOR_0`（带贴图 / 顶点色的部位不写 `base_color`）。
+- **同名实体跨帧沿用**：运行时按 `name` 跨帧沿用实体；同一个模型在不同镜头换材质覆盖时，每个镜头给不同的 `name`，否则后面镜头的覆盖不生效。全局卡通覆盖只换明暗处理、不换各材质自己的颜色，换色要按材质名逐个给（`parts`）。
+- **透明面片别开距离雾**：canary 的预乘雾会露出面片矩形边（图片卡的透明区被染成雾色，整张卡变成一块雾色矩形，实测盖住页面层天空）。换成 `Mesh3d` + `StandardMaterial`（`unlit`、`alpha_mode="Blend"`、`fog_enabled={false}`）的卡片不吃雾、三维物体照常吃雾，但同一张雾带比 `ImagePlane` 更实更饱和（同帧 PSNR 27.5 dB），要改卡片实现就得重调全部卡片的不透明度——这是 QA-B-002 的下一步，还没做。**Bloom 在 layered 画布里只落在三维像素上**；**页面层「径向渐变 + mix-blend-mode」不出图**（纯色块加 blend 可以）。
+- **字体**：外部字体在 Windows 中文路径下曾加载失败；片名用 A 路页面渲成 PNG（例片），或内嵌 data URL。模版字幕用系统字体，换机器字形可能不同。
+- **Composition id** 只能是字母、数字、连字符（模版固定 `id="film"`）；作品目录名可以是中文。
+- **图集上限** 8192 像素且整张进显存；长序列用 `output: "frames"`。
+- **资产桥用软件 GL**（SwiftShader）：只做转换与烘焙，不占独显；换成硬件 GL 可能改变贴图字节。
+- **原生 GPU 与编码器分开记录**（run.json 自动记）：macOS 是 VideoToolbox；Windows canary 默认 OpenH264 软件编码，不能写成 NVENC。共享工作站先查队列（入口自动查，`--require-idle-check` 查不到也拒绝）。
+- **换运行时版本**：入口只放行锁文件里的版本与哈希；新版本先重跑本手册「验收」，再用 `BNE_ALLOW_VERSION` 临时放行，补齐锁文件后再去掉。各平台可执行文件哈希不必在该平台上算：`node engine/native/runtime.mjs fetch --accept-license --platform <平台> --from <官方归档> --dest <新目录> --json` 的 `data.binarySha256` 就是。
+- **`fetch --dest` 只认新目录**：给的目录已有内容、又不是上次 fetch 装的（没有 `.beiming-runtime.json` 标记）时拒绝覆盖（exit 2；不给 `--dest` 时用的默认缓存目录归工具管理，照常替换）；先解包到旁边的临时目录、哈希通过才替换，失败时旧安装原样不动。
+- **对外命名**：对外只叫「北冥原生 · BNE」；`raea` 只留在 `examples/raea`、`raea:*` 命令、`RAEA_BIN`、`import … from 'raea'` 与许可署名里。
+- **AI 生成内容标识（决定 D11）**：用了 AI 生成底板的作品，film.json 写 `aigc: { contains: true, note }`，渲染入口在 mp4 comment 与 `player.html` 写「含 AI 生成画面」。
 
 ## 参考作品
 
-- `routes/b-native/template/`：最小作品（程序化 GLB + 图片底板 + 雾面片 + 字幕 + 声音），新作品从这里复制。
-- `examples/raea/`：《北冥》10 秒例片——三个镜头、骨骼鲲（配方导出）、渡船（通用导出）、绘画水面与尾迹着色器、片名、`engine/audio` 声音；只写编排的 `film.tsx` 是组件库的完整用法示范。资产桥细节见 `examples/raea/ASSET-BRIDGE.md`。
-- 原生运行时自带的写作指南：`$(dirname $RAEA_BIN)/../share/raea/skills/raea/SKILL.md` 与 `raea guide bevy`（三维组件全集）。
+- `routes/b-native/template/`：最小作品——程序化浮标（Idle）+ 天空底板 + 前后两层云海（软边、截断端在画外）+ 灯晕 + 纸纹 + 逐字片名 + 声音，新作品从这里复制。
+- `examples/raea/`：《北冥》10 秒例片——三个镜头、骨骼鲲（配方导出）、渡船（通用导出、朝速度方向）、绘画水面与尾迹着色器、按镜头摆的云、天空跟镜头、毛笔片名、事件表驱动的声音；资产桥细节见 `examples/raea/ASSET-BRIDGE.md`。
+- 深入资料：[原生运行时模块详解](../../docs/routes/raea-native.md)、[源码对照、实验记录与集成设计](../../docs/raea/README.md)。运行时自带写作指南：`$(dirname $RAEA_BIN)/../share/raea/skills/raea/SKILL.md`。

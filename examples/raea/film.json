@@ -4,23 +4,38 @@
   "dur": 10,
   "fps": 24,
   "size": [1920, 1040],
+  "shots": [
+    { "id": "S1", "in": 0, "out": 84, "purpose": "渡船建立尺度，巨鲲从上方横穿" },
+    { "id": "S2", "in": 84, "out": 144, "purpose": "鲲眼近景" },
+    { "id": "S3", "in": 144, "out": 240, "purpose": "拉开全景，收片名" }
+  ],
+  "events": [
+    { "id": "horn", "frame": 11, "shot": "S1", "visual": "第一镜：渡船在画面中下方前行", "audio": "horn", "note": "低船笛（0.9 秒缓起的气息，不是敲击）", "sync": "soft" },
+    { "id": "kun-call", "frame": 89, "shot": "S2", "visual": "第二镜开始：鲲眼近景", "audio": "kun.call", "note": "鲲鸣抬起（1.5 秒缓起，三次回声）", "sync": "soft" },
+    { "id": "blink", "frame": 111, "shot": "S2", "visual": "鲲眼睑完全闭合（Swim 片段 6.625 秒，一拍三）", "audio": "blink.bell", "note": "一次细小铃音" },
+    { "id": "chord", "frame": 142, "shot": "S2", "visual": "第二镜末尾、切全景之前", "audio": "chord", "note": "弓弦和弦进入（0.95 秒渐强，跨过切点）", "sync": "soft" },
+    { "id": "title", "frame": 194, "shot": "S3", "visual": "片名「北」起笔（毛笔逐笔写出，0.86 秒写完）", "audio": "title.bell", "note": "玻璃铃，第二声落在「冥」起笔" }
+  ],
+  "aigc": { "contains": true, "note": "天空、云、天际线、江面底板由 AI 生成后人工整理（assets/plates/plates.json）；鲲、渡船、水面着色与片名由代码合成" },
+  "credits": [
+    { "what": "片名字体子集（马善政，只含「北冥」两字）", "license": "OFL-1.1", "source": "fonts/LICENSE.md" },
+    { "what": "原生运行时（上游项目名 RAEA）", "license": "FSL-1.1-ALv2", "source": "engine/native/runtime.lock.json" }
+  ],
   "native": {
     "entry": "film.tsx",
-    "output": "delivery/beiming-raea-10s.mp4",
     "images": [
       { "to": "sky_dawn.png", "from": "../../assets/plates/sky_dawn.png" },
-      { "to": "clouds_back.png", "from": "../../assets/plates/clouds_back.png" },
+      { "to": "clouds_back.png", "from": "../../assets/plates/clouds_back.png", "edge": { "left": 0.22, "right": 0.2, "round": 1, "center": 0.47, "jitter": 0.35, "lobes": 2, "seed": 4 } },
       { "to": "skyline_pudong.png", "from": "../../assets/plates/skyline_pudong.png" },
-      { "to": "clouds_front_a.png", "from": "../../assets/plates/clouds_front_a.png" },
-      { "to": "clouds_front_b.png", "from": "../../assets/plates/clouds_front_b.png" },
+      { "to": "clouds_front_a.png", "from": "../../assets/plates/clouds_front_a.png", "edge": { "left": 0.14, "top": 0.12, "bottom": 0.14, "jitter": 0.7, "lobes": 4, "seed": 3 } },
+      { "to": "clouds_front_b.png", "from": "../../assets/plates/clouds_front_b.png", "edge": { "right": 0.14, "top": 0.12, "bottom": 0.14, "jitter": 0.7, "lobes": 4, "seed": 5 } },
       { "to": "river.png", "from": "../../assets/plates/river.png" },
-      { "to": "FONT-LICENSE.md", "from": "../../fonts/LICENSE.md" }
+      { "to": "paper.png", "from": "../../assets/plates/paper.png" }
     ],
     "models": [
       {
         "to": "kun.glb", "recipe": "tools/export-kun-browser.mjs", "lod": 0.5,
         "report": "kun-report.json", "preview": "kun-preview.png",
-        "sources": ["../../src/kun.js", "../../engine/form/bend.js"],
         "validate": {
           "animated": true, "clip": "Swim", "duration": 10, "skinnedMin": 2,
           "nodes": ["kun-fin-R", "kun-fin-L", "kun-eyelid-upper-R", "kun-eyelid-lower-L"],
@@ -33,6 +48,9 @@
         "meta": { "forward": "+X", "up": "+Y", "lights": "Original emissive window and navigation-light meshes; no source punctual lights" },
         "report": "ferry-report.json"
       }
+    ],
+    "sequences": [
+      { "to": "title", "page": "title", "from": 0, "until": 1.0, "output": "frames", "alpha": true }
     ],
     "audio": { "script": "tools/sound.py", "out": "mix.wav" }
   }

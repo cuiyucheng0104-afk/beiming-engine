@@ -1,0 +1,37 @@
+{
+  "$note": "北冥原生 · BNE 使用的外部原生运行时锁定记录。仓库不分发运行时、不复制其源码（docs/decisions/2026-11-10-industrial-baseline.md D03）；这里只记版本、来源、许可与哈希，供 engine/native/runtime.mjs（status / hash / fetch）与渲染入口 engine/render/native.mjs 核对。sha256 是发行归档的哈希，binarySha256 是从该归档解出的可执行文件的哈希（与在哪个平台解包无关）；verified 写明每个平台实测到哪一步（哈希核对、能否在该平台运行、渲染是否验收）。binarySha256 为 null 的平台渲染时提示「该平台未锁定」并把实测哈希记进 run.json；补齐用 node engine/native/runtime.mjs fetch --accept-license --platform <平台> --from <归档> --dest <新目录>（任何平台都能算）或在该平台运行 node engine/native/runtime.mjs hash。",
+  "upstream": "RAEA（上游项目名；仓库内目录与命令沿用 raea）",
+  "version": "0.1.0-canary.2",
+  "tag": "v0.1.0-canary.2",
+  "sourceCommit": "fb3f70844e03cc40185e3a06c394060d26c5cd38",
+  "license": "FSL-1.1-ALv2",
+  "licenseUrl": "https://github.com/shinyobjectz/raea/blob/fb3f70844e03cc40185e3a06c394060d26c5cd38/LICENSE",
+  "releaseUrl": "https://github.com/shinyobjectz/raea/releases/tag/v0.1.0-canary.2",
+  "downloadBase": "https://github.com/shinyobjectz/raea/releases/download/v0.1.0-canary.2/",
+  "platforms": {
+    "macos-arm64": {
+      "archive": "raea-0.1.0-canary.2-macos-arm64.tar.gz",
+      "size": 154057905,
+      "sha256": "bc48a94af99f7626a83f930a5d7ecfd2464218ad8b2b06169a8248a514dfa280",
+      "binary": "raea/bin/raea",
+      "binarySha256": "91a6630a067a700992f3d22f0f0e38349d4c1ba92755b4b7fae1ad5d4cb0dbb6",
+      "verified": "2026-11-10 macOS 26 · Apple M5 Pro 实测：归档 sha256 与随包的 .sha256 文件、GitHub 发行页资产 digest 三者一致；binarySha256 由该归档解出的 raea/bin/raea 计算（tar -xzf 后 shasum -a 256 复核）"
+    },
+    "windows-x64": {
+      "archive": "raea-0.1.0-canary.2-windows-x86_64.zip",
+      "size": 144917515,
+      "sha256": "528709da6008646b8f8e8992ff7b4ecedadf798660919a35a4b7982515e970c6",
+      "binary": "raea/bin/raea.exe",
+      "binarySha256": "ed5f6379ba4293c5c4df309ddd3daf0c53a69e5390821de5de348fb88046c305",
+      "verified": "归档 sha256 取自 GitHub 发行页资产 digest（2026-11-10 用 gh api repos/shinyobjectz/raea/releases/tags/v0.1.0-canary.2 查询），2026-11-11 下载复核一致；binarySha256 由该归档经 node engine/native/runtime.mjs fetch --platform windows-x64 --from <归档> 解出的 raea/bin/raea.exe 计算（在 macOS 上解包，shasum -a 256 复核；share/raea/VERSION = 0.1.0-canary.2）。尚未在 Windows 上运行与验收渲染（D07 交付口径、色彩与响度未在 Windows 核对）"
+    },
+    "linux-x64": {
+      "archive": "raea-0.1.0-canary.2-linux-x86_64.tar.gz",
+      "size": 162710576,
+      "sha256": "fdd463d64ae62a4eef30ebbca0bbe6694d1147096cf571d0e9fa3d3f66b11e4e",
+      "binary": "raea/bin/raea",
+      "binarySha256": "6d9a78b0aa11f0ae8534e046fb8b5dc9da28380a92a589816bb19930c3d46c0b",
+      "verified": "归档 sha256 取自 GitHub 发行页资产 digest（同上查询），2026-11-11 下载复核一致；binarySha256 由该归档经 node engine/native/runtime.mjs fetch --platform linux-x64 --from <归档> 解出的 raea/bin/raea 计算（在 macOS 上解包，shasum -a 256 复核；share/raea/VERSION = 0.1.0-canary.2）。Linux 上未运行、渲染结果未核对"
+    }
+  }
+}

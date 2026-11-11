@@ -15,6 +15,25 @@ import { spineRig, poseSpine } from '../../../engine/native/bridge/rig.mjs';
 const SCALE = 1/20, TAU = Math.PI*2, DURATION = 10, FPS = 30, SPACING = 15;
 const vec = new T.Vector3(), matrix = new T.Matrix4();
 const assert = (ok, message) => { if(!ok) throw new Error(message); };
+// 构建时记下的眼睑墨线色与 LOD，回读断言与预览用（同一页面、同一模块实例）
+const STATE = { lidInk: null, lod: null };
+
+// 眼睑壳 UV 对齐整球（审查 R01）：反照率是在整球 SphereGeometry 的 UV 上烘的，而 engine/form/eye.js 的 lidShells 是两个半球
+// （thetaLength = π/2），three 会把半球的 v 重新归一到 0–1。直接贴会把整球贴图纵向压一半：睑缘墨线落到眼睑中部、上睑褶线跑到下睑。
+// 这里按每个顶点的真实位置重算整球参数 v = 1 − θ/π（θ = acos(y / r)，u 不变，两者经度参数相同），并核对与闭式
+// （上睑 0.5 + 0.5·v，下睑 0.5·v）一致，防止将来 lidShells 的参数化变了却悄悄贴错。
+function lidUV(geometry, r, part) {
+  const p = geometry.attributes.position, uv = geometry.attributes.uv;
+  let worst = 0;
+  for (let i = 0; i < p.count; i++) {
+    const v0 = uv.getY(i), v = 1 - Math.acos(T.MathUtils.clamp(p.getY(i) / r, -1, 1)) / Math.PI;
+    worst = Math.max(worst, Math.abs(v - (part === 'upper' ? 0.5 + 0.5 * v0 : 0.5 * v0)));
+    uv.setY(i, v);
+  }
+  assert(worst < 1e-4, `Eyelid ${part} shell UV is not the expected hemisphere parameterisation (max deviation ${worst})`);
+  uv.needsUpdate = true;
+  return geometry;
+}
 // 小装饰的降面比例（海葵最碎，海带不降）
 const RATIO = name => name.includes('anemones')?.35:name.includes('weed')?.65:name.includes('kelp')?1:.55;
 
@@ -45,6 +64,7 @@ function kelpDeform(mesh) {
 export async function build({ renderer }, { lod = 0.5 }) {
   const tex = (g, m, name, w, h) => texturePBR(renderer, g, m, name, w, h, name.includes('eye-ball')?.28:.87);
   const sourceMeshes = [], details = [];
+  STATE.lod=lod;
   const kun=createKun({lod,seed:20261103,wisps:false,blinkPeriod:5,blinkOffset:1.5});
   kun.group.traverse(o=>{if(o.isMesh)sourceMeshes.push(o);});
   const wave=pitchWave('kun',{e0:.22,sMax:1.15}).js(kun.uniforms);
@@ -81,10 +101,15 @@ export async function build({ renderer }, { lod = 0.5 }) {
     socket.position.copy(eye.group.position).multiplyScalar(SCALE);socket.quaternion.copy(eye.group.quaternion);root.add(socket);
     if(!eyeMat)eyeMat=tex(eye.ball.geometry,eye.ball.material,'kun-eye-ball-PBR',1024,512);
     const ball=new T.Mesh(eye.ball.geometry.clone().scale(SCALE,SCALE,SCALE),eyeMat);ball.name='kun-eye-ball-'+side;socket.add(ball);
-    if(!lidMat)lidMat=tex(new T.SphereGeometry(12*1.07,80,48),eye.lidU.children[0].material,'kun-eyelids-PBR',512,256);
+    const lidR=kun.eyeRadius*1.07;   // 与 src/kun.js 的 lidShells(RE * 1.07, …) 同一个半径
+    if(!lidMat){
+      const source=eye.lidU.children[0].material;
+      lidMat=tex(new T.SphereGeometry(lidR,80,48),source,'kun-eyelids-PBR',512,256);
+      STATE.lidInk=source.userData.toon.uInkColor.value.toArray();   // 线性 RGB
+    }
     for(const [part,source]of [['upper',eye.lidU],['lower',eye.lidL]]){
       const pivot=new T.Group();pivot.name=`kun-eyelid-${part}-${side}`;socket.add(pivot);
-      const shell=new T.Mesh(source.children[0].geometry.clone().scale(SCALE,SCALE,SCALE),lidMat);shell.name=pivot.name+'-shell';pivot.add(shell);
+      const shell=new T.Mesh(lidUV(source.children[0].geometry.clone(),lidR,part).scale(SCALE,SCALE,SCALE),lidMat);shell.name=pivot.name+'-shell';pivot.add(shell);
       lidNodes.push({pivot,source});
     }
   }
@@ -137,7 +162,7 @@ export async function build({ renderer }, { lod = 0.5 }) {
   assert(maxError<.025,'Spine approximation error exceeds 2.5 cm');
   pose(0);root.updateMatrixWorld(true);skeleton.update();
   const scene=new T.Scene();scene.name='Beiming-Kun';scene.add(root);
-  return {scene,clips:[clip],report:{lod,sourceTriangles:sourceMeshes.reduce((n,m)=>n+triangles(m.geometry)*(m.isInstancedMesh?m.count:1),0),sourceInstances:details.reduce((n,d)=>n+d.instances,0),decimation:details,skinWaveError:{maxWorldUnits:maxError,rmsWorldUnits:Math.sqrt(sumSq/samples),samples},mechanism:'41 independent spine stations + root bone; two joint weights per body vertex and per decoration anchor; original fin pivot motion; STEP eyelid rotations; four analytic kelp morph targets',retiming:{spineSeconds:5,pectoralSeconds:5,originalPectoralSeconds:6,blinkPeriodSeconds:5,originalBlinkPeriodSeconds:4,kelpCyclesPer10Seconds:[3,4]},limits:['Fin-tip cloud wisps omitted (scene VFX).','View-dependent toon lighting/outline and ink jitter are not baked; RAEA supplies lighting and toon treatment.','Eye gaze and catchlights baked at the original neutral gaze; eyelid shell motion remains animated.','Preserve baseColorTexture and COLOR_0 when overriding PBR materials with ToonMaterial.','glTF has no loop flag: runtime must repeat the 10-second Swim clip.','Small decorations decimated; all source LOD 0.5 instances retained.']}};
+  return {scene,clips:[clip],report:{lod,sourceTriangles:sourceMeshes.reduce((n,m)=>n+triangles(m.geometry)*(m.isInstancedMesh?m.count:1),0),sourceInstances:details.reduce((n,d)=>n+d.instances,0),decimation:details,skinWaveError:{maxWorldUnits:maxError,rmsWorldUnits:Math.sqrt(sumSq/samples),samples},mechanism:'41 independent spine stations + root bone; two joint weights per body vertex and per decoration anchor; original fin pivot motion; STEP eyelid rotations; four analytic kelp morph targets',retiming:{spineSeconds:5,pectoralSeconds:5,originalPectoralSeconds:6,blinkPeriodSeconds:5,originalBlinkPeriodSeconds:4,kelpCyclesPer10Seconds:[3,4]},limits:['Fin-tip cloud wisps omitted (scene VFX).','View-dependent toon lighting/outline and ink jitter are not baked; RAEA supplies lighting and toon treatment.','Eye gaze and catchlights baked at the original neutral gaze; eyelid shell motion remains animated.','Preserve baseColorTexture and COLOR_0 when overriding PBR materials with ToonMaterial.','glTF has no loop flag: runtime must repeat the 10-second Swim clip.',`Small decorations decimated; all source LOD ${lod} instances retained.`]}};
 }
 
 // 回读：GLTFLoader 解析导出的字节，AnimationMixer 采样尾端、胸鳍尖、吻端、海草的真实顶点
@@ -157,7 +182,8 @@ export async function verify({ renderer, preview }, bytes, assets = {}) {
   for(const value of Object.values(movement))assert(value.loopEndpointDistance<1e-5,'Reloaded clip has a loop seam');
   const lid=scene.getObjectByName('kun-eyelid-upper-R');at(0);const open=lid.quaternion.clone();at(1.7);const angle=open.angleTo(lid.quaternion);assert(angle>.5,'Eyelid did not close');
   at(0);const size=new T.Box3().setFromObject(scene,true).getSize(new T.Vector3());assert(size.x>28&&size.x<32,'Unexpected kun scale');
-  const result={loadedWith:'three GLTFLoader r170 + AnimationMixer (exported bytes)',boundsXYZ:size.toArray(),movement,upperLidBlinkAngleRadians:angle,materialsAllStandard:true};
+  const eyelidRimInk=await lidRimCheck(bytes,scene);
+  const result={loadedWith:`three GLTFLoader r${T.REVISION} + AnimationMixer (exported bytes)`,boundsXYZ:size.toArray(),movement,upperLidBlinkAngleRadians:angle,eyelidRimInk,materialsAllStandard:true};
   scene.traverse(o=>{if(o.isMesh)assert(o.material.isMeshStandardMaterial,'Nonstandard material after reload');});
   if(preview) {
     const ferry=assets['ferry.glb']?(await new GLTFLoader().parseAsync(assets['ferry.glb'],'')).scene:null;
@@ -166,12 +192,49 @@ export async function verify({ renderer, preview }, bytes, assets = {}) {
   return result;
 }
 
+// 回读断言（审查 R01）：从导出字节里直接解出眼睑贴图（不经 three 的翻转约定），按回读网格的真实 UV 取样——
+// 睑缘一圈（壳局部 y≈0、朝前 z/r>0.6）的 texel 必须是墨线色：在线性空间里它到墨线色的距离，要小于同经度、
+// 离睑缘 0.2 rad 处（睑缘与褶线之间的素色区）到墨线色距离的 0.35 倍（烘焙时睑缘是 85% 墨线）；
+// 另核对上睑专用的第二道褶线（仰角 0.66 rad）不出现在下睑。旧的半球 UV 会让睑缘采到极点，比值约为 1，断言失败。
+async function lidRimCheck(bytes,scene){
+  const dv=new DataView(bytes),jsonLen=dv.getUint32(12,true);
+  const json=JSON.parse(new TextDecoder().decode(new Uint8Array(bytes,20,jsonLen))),bin=20+jsonLen+8;
+  const mat=json.materials.find(m=>m.name==='kun-eyelids-PBR');
+  assert(mat?.pbrMetallicRoughness?.baseColorTexture,'Eyelid material lost its albedo texture');
+  const img=json.images[json.textures[mat.pbrMetallicRoughness.baseColorTexture.index].source],bv=json.bufferViews[img.bufferView];
+  const bmp=await createImageBitmap(new Blob([new Uint8Array(bytes,bin+(bv.byteOffset||0),bv.byteLength)],{type:img.mimeType||'image/png'}));
+  const c=new OffscreenCanvas(bmp.width,bmp.height),g=c.getContext('2d');g.drawImage(bmp,0,0);
+  const px=g.getImageData(0,0,bmp.width,bmp.height).data,W=bmp.width,H=bmp.height;
+  const lin=x=>{x/=255;return x<=.04045?x/12.92:Math.pow((x+.055)/1.055,2.4);};
+  const at=(u,v)=>{const x=Math.min(W-1,Math.max(0,Math.floor(u*W))),y=Math.min(H-1,Math.max(0,Math.floor(v*H))),i=(y*W+x)*4;return [lin(px[i]),lin(px[i+1]),lin(px[i+2])];};
+  const ink=STATE.lidInk,dist=a=>Math.hypot(a[0]-ink[0],a[1]-ink[1],a[2]-ink[2]);
+  assert(ink,'Eyelid ink colour was not recorded during build');
+  const out={texture:[W,H],shells:{}};
+  for(const name of ['kun-eyelid-upper-R-shell','kun-eyelid-lower-R-shell','kun-eyelid-upper-L-shell','kun-eyelid-lower-L-shell']){
+    const mesh=scene.getObjectByName(name);assert(mesh?.isMesh,`Missing ${name}`);
+    const p=mesh.geometry.attributes.position,uv=mesh.geometry.attributes.uv,upper=name.includes('upper');
+    let r=0;for(let i=0;i<p.count;i++)r=Math.max(r,Math.hypot(p.getX(i),p.getY(i),p.getZ(i)));
+    const ctrlV=upper?.5+.2/Math.PI:.5-.2/Math.PI,fold2V=upper?.5+.66/Math.PI:.5-.66/Math.PI;
+    let n=0,rim=0,ctrl=0,fold2=0;
+    for(let i=0;i<p.count;i++){
+      if(Math.abs(p.getY(i))>1e-4*r||p.getZ(i)/r<.6)continue;
+      const u=uv.getX(i);rim+=dist(at(u,uv.getY(i)));ctrl+=dist(at(u,ctrlV));fold2+=dist(at(u,fold2V));n++;
+    }
+    assert(n>=3,`${name}: no front-facing rim vertices found`);
+    const s={samples:n,rimUV_v:+uv.getY([...Array(p.count).keys()].find(i=>Math.abs(p.getY(i))<=1e-4*r)).toFixed(4),rimToInk:rim/n,plainToInk:ctrl/n,ratio:rim/ctrl,fold2Ratio:fold2/ctrl};
+    out.shells[name]=s;
+    assert(s.ratio<.35,`${name}: rim texels are not ink-coloured (ratio ${s.ratio.toFixed(3)}; expected < 0.35)`);
+    if(!upper)assert(s.fold2Ratio>.6,`${name}: the upper-lid-only fold appears on the lower lid (ratio ${s.fold2Ratio.toFixed(3)})`);
+  }
+  return out;
+}
+
 function makePreview(renderer,model,at,ferry) {
   // 只是几张 GLB 回读静帧，不渲时间线、不占外部端口
   const sheet=document.createElement('canvas');sheet.width=1600;sheet.height=1120;
   const ctx=sheet.getContext('2d');ctx.fillStyle='#121c2d';ctx.fillRect(0,0,1600,1120);
   ctx.fillStyle='#f2efdc';ctx.font='bold 27px sans-serif';ctx.fillText('BEIMING KUN  /  PORTABLE GLB',36,42);
-  ctx.fillStyle='#96abc2';ctx.font='17px sans-serif';ctx.fillText('PBR albedo • GLTFLoader round trip • Swim / 10 s loop • LOD 0.5',36,71);
+  ctx.fillStyle='#96abc2';ctx.font='17px sans-serif';ctx.fillText(`PBR albedo • GLTFLoader round trip • Swim / 10 s loop • LOD ${STATE.lod}`,36,71);
   const stage=new T.Scene();stage.background=new T.Color('#203249');stage.add(model);
   stage.add(new T.HemisphereLight(0xf8faff,0x525c74,2.5));
   const key=new T.DirectionalLight(0xffefd9,3.0);key.position.set(5,16,14);stage.add(key);
