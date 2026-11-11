@@ -44,10 +44,11 @@
 |---|---|
 | `route` / `backend` | 注册表 id：`a`（`three`）、`b`（`native`）、`c`（`canvas` / `svg` / `dom` / `three` / `webgl`）。别名 beiming、raea、a-webgl… 能读，但提示改成规范值 |
 | `output` | `profile` 必填，宽、高、帧率必须等于档位；`frameCount` 是时长的唯一来源。新作品默认 `web-1080p24`；`beiming-1040p24` 只给《北冥》样片 |
-| `shots` | 半开区间 `[in, out)`，首尾相接，正好覆盖 `[0, frameCount)`；切点要落在本镜各轨道一拍 n 的公倍数帧（`tracks[].step`、`actorClockOrigin`），否则提示 `cut-off-step` |
+| `shots` | 半开区间 `[in, out)`，首尾相接，正好覆盖 `[0, frameCount)`；切点要落在本镜各轨道一拍 n 的公倍数帧（`tracks[].step`、`actorClockOrigin`），否则提示 `cut-off-step`。作品必填；模版可以不写（`new-film` 生成作品时补整片一个镜头 `S1`，`check --template` 按同一口径读） |
 | `events` | `frame` 是结果帧（看见或听见的那一帧），必须落在 `shot` 里；`end` 不含；写了 `beat` 就必须与 `frame` 同源（第 b 拍所在帧取 floor）；声音写 `audio`（声音表的 cue id）。`sync` 与机器 QA 同口径：不写 = 起音对结果帧的硬门，`lip` 口型类可晚 2 帧，`soft` 缓起类超出只记注意，`none` 不查（铺底、渐入） |
 | `qa` | 机器 QA 段（`tools/qa` 读它，[QA-GATE.md](../../docs/quality/QA-GATE.md)）：`intentional` 是刻意的静帧、黑场、闪白（`{ kind, from, to, reason }`，半开区间、写理由；是设计声明，不是豁免）；`safeArea` / `texts` / `visual` / `sync` / `plates` 按键覆盖档位阈值（键名必须是档位里有的）；`clearColor`；`waivers` 是用户批准的 QA 豁免（`approvedBy`、`quote`、`source` 必填，不能是 agent）。改切点时 `intentional` 与豁免帧段跟着镜头走 |
-| `timeline` | 节拍三种写法只能用一种：`sections`（按 BPM 分段，`start` 为整数帧）、`beats`（逐拍帧表）、`bars`（小节数组，每小节逐拍帧数）。`drive: "beat"` 时必填 |
+| `timeline` | 节拍三种写法只能用一种：`sections`（按 BPM 分段，`start` 为整数帧）、`beats`（逐拍帧表）、`bars`（小节数组，每小节逐拍帧数）。`drive: "beat"` 时必填（C 路线写 `tempo`） |
+| `tempo` / `cues` | C 路线页面的节拍写法（`routes/c-style/template`）：`tempo` 是 `engine/core/tempo.js` 的段落表 `[{ id, t0, bpm, meter }]`（`t0` 秒，必须落在整帧），`cues` 是画面打点 `{ 名字: [段落, 小节, 拍, 拍内分数] }`。与 `timeline` 只能写一种。校验用页面的同一公式（`createTempo().at`）：每个打点要落在整帧（容差 1e-4 帧，与页面自检相同）、在片长之内，段落存在、拍号不超出小节 |
 | `audio` | `mode`：`script`（声音脚本）、`wav`（现成混音）、`none`、`native`（B 路线）。`targetLUFS` 省略时取档位值 |
 | `deliveries` | 档位 id；帧率与画幅比必须与渲染档相同（换帧率、换画幅要另一份描述） |
 | `style` | A 路线必填（含视觉基准）；look 认可冻结 id 与 version |
@@ -58,7 +59,7 @@
 | `mirror` | 只给描述冻结样片的镜像作品（`films/beiming-10s`）：路径相对仓库根，`frozen: true` 时不许写回切点 |
 | `next` | 模版专用：新建后的下一步命令（格式同 `routes/routes.json` 的 `next`），`new-film` 生成作品时去掉；作品里写了只提示 |
 
-不允许出现没有消费者的时间字段（`orphan-time-field`，判错）：时间只写在 `shots[].in / out`、`events[].frame / end`、`qa.intentional[].from / to`、`qa.waivers[].frames`、`timeline` 与 `posterFrame`。白名单之外的字段，只要名字像时间就判错，不管写在顶层、镜头、事件、`output` 还是 `qa` 段：常见时间名本身（`poster`、`dur`、`duration`、`t`、`t0`、`start`、`at`、`delay`、`fps`、`tempo`…）；最后一段是时间单位（`startSec`、`durationMs`、`holdSec`、`fadeFrames`、`startTime`、`beatSec`）；`t` 加大写或数字开头（`tStart`、`t_end`）；时间动词加时刻或长度（`fadeIn`、`cutAt`、`inPoint`、`frameCount`）。字段名按 camelCase / 下划线切段再判，`items`、`endCard`、`fadeColor`、`startScale` 这类不会误判；值是布尔的不算。规则实现与测试：`film.js` 的 `isTimeLikeField`、`tests/production/film.test.mjs`。其他未知字段只提示。完整字段见 `film.schema.json`。
+不允许出现没有消费者的时间字段（`orphan-time-field`，判错）：时间只写在 `shots[].in / out`、`events[].frame / end`、`qa.intentional[].from / to`、`qa.waivers[].frames`、`timeline`（C 路线是 `tempo` + `cues`）与 `posterFrame`。白名单之外的字段，只要名字像时间就判错，不管写在顶层、镜头、事件、`output` 还是 `qa` 段：常见时间名本身（`poster`、`dur`、`duration`、`t`、`t0`、`start`、`at`、`delay`、`fps`、`tempo`…）；最后一段是时间单位（`startSec`、`durationMs`、`holdSec`、`fadeFrames`、`startTime`、`beatSec`）；`t` 加大写或数字开头（`tStart`、`t_end`）；时间动词加时刻或长度（`fadeIn`、`cutAt`、`inPoint`、`frameCount`）。字段名按 camelCase / 下划线切段再判，`items`、`endCard`、`fadeColor`、`startScale` 这类不会误判；值是布尔的不算。规则实现与测试：`film.js` 的 `isTimeLikeField`、`tests/production/film.test.mjs`。其他未知字段只提示。完整字段见 `film.schema.json`。
 
 **v1 兼容**：没有 `schemaVersion` 的 v1 记录 `{ route, title, dur, fps, size, native?, poster?, cuecheck? }` 自动升级读取（`frameCount = round(dur × fps)`，整片一个镜头），并提示迁移：`node engine/production/film.js upgrade <作品> --write`。v2 里可以暂留 `dur` / `fps` / `size` 作兼容镜像（给还没改读 film.js 的旧工具），但必须与 `output` 一致。早期 v2 草稿的旧写法（顶层 `holds`、`sync: true / false`、事件里的 `cue`）判错并给出搬法，`upgrade --write` 自动换成现行写法（库：`migrateV2`）。
 

@@ -20,6 +20,7 @@ test('顶层与各段的字段集合和校验器的白名单相同', () => {
   assert.deepEqual(keys(schema.$defs.intentional.properties), [...FILM_FIELDS.intentional].sort());
   assert.deepEqual(keys(schema.$defs.waiver.properties), [...FILM_FIELDS.waiver].sort());
   assert.deepEqual(keys(P.timeline.properties), [...FILM_FIELDS.timeline].sort());
+  assert.deepEqual(keys(P.tempo.items.properties), [...FILM_FIELDS.tempo].sort());
   assert.deepEqual(keys(P.audio.properties), [...FILM_FIELDS.audio].sort());
   assert.deepEqual(keys(P.style.properties), [...FILM_FIELDS.style].sort());
   assert.deepEqual(keys(P.credits.items.properties), [...FILM_FIELDS.credit].sort());

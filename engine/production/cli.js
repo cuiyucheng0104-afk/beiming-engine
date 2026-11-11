@@ -82,10 +82,11 @@ const check = defineCommand({
       const s = filmSummary(L.film);
       lines.push(`${ok ? '✓' : '✗'} ${shown(L.file)}：${L.upgraded ? 'v1（已自动升级读取）' : 'v2'}，路线 ${s.route} / ${s.backend}，档位 ${s.profile}，${s.size.replace('x', '×')}@${s.fps}，${s.frameCount} 帧（${+s.seconds.toFixed(3)} 秒），${s.shots} 镜，${s.events} 个事件`);
     } else lines.push(`✗ ${shown(L.file)}：不合格`);
+    if (!L.upgraded) for (const n of L.notes) lines.push(`· ${n}`);   // v1 升级的说明已写在 v1-upgraded 提示里
     for (const d of [...errors, ...warnings]) lines.push(fmtDiag(d));
     lines.push(`${errors.length} 个错误，${warnings.length} 个提示${ctx.opts.strict && warnings.length ? '（--strict：提示也算失败）' : ''}`);
     ctx.out(lines.join('\n'));
-    const data = { file: shown(L.file), upgraded: L.upgraded, summary: L.film ? filmSummary(L.film) : null, diagnostics: L.diagnostics };
+    const data = { file: shown(L.file), upgraded: L.upgraded, summary: L.film ? filmSummary(L.film) : null, notes: L.notes, diagnostics: L.diagnostics };
     if (ok) return { data, warnings: diagWarnings(L.diagnostics) };
     const e = errors[0];
     return {

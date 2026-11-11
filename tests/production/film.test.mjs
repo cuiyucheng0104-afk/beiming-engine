@@ -107,6 +107,7 @@ test('没有消费者的时间字段判错；未知字段只警告', () => {
     for (const [level, put] of Object.entries(LEVELS)) {
       if (level === 'output' && ['fps', 'frameCount'].includes(key)) continue;   // output 的 fps / frameCount 是正经字段
       if (level === '顶层' && key === 'fps') continue;                            // 顶层 fps 是 v1 兼容镜像（与 output 不一致另判 legacy-mirror-mismatch）
+      if (level === '顶层' && key === 'tempo') continue;                          // 顶层 tempo 是 C 路线的节拍段落表（见下一条用例）
       const f = minimalFilm(); put(f, key, 1.5);
       const r = v(f);
       const d = r.diagnostics.find(x => x.code === 'orphan-time-field');
@@ -135,6 +136,57 @@ test('没有消费者的时间字段判错；未知字段只警告', () => {
   // 兼容镜像 dur / fps / size：与 output 一致时只提示，不一致判错
   assert.ok(warnings(v(minimalFilm({ dur: 4, fps: 24, size: [1920, 1080] }))).includes('legacy-mirror'));
   assert.ok(errors(v(minimalFilm({ dur: 5 }))).includes('legacy-mirror-mismatch'));
+});
+
+test('C 路线的节拍写法 tempo + cues：与页面同一公式，段落起点与打点要落整帧、在片长内；与 timeline 只能写一种', async () => {
+  const { createTempo } = await import('../../engine/core/tempo.js');
+  const TEMPO = [{ id: 'A', t0: 0, bpm: 90, meter: 4 }];   // 90 BPM @24 = 每拍 16 帧
+  const c = (cues, extra = {}) => minimalFilm({ tempo: clone(TEMPO), cues, ...extra });
+  const good = c({ touch: ['A', 1, 1], s1: ['A', 1, 3], half: ['A', 1, 2, 0.5], land: ['A', 2, 1] });   // 0、32、24、64 帧
+  const r = v(good);
+  assert.deepEqual(errors(r), []);
+  assert.ok(!warnings(r).includes('unknown-field'), 'tempo / cues 是登记过的字段');
+  // 与页面 timeline.js 的换算相同：A 段第 3 小节第 1 拍 = 8 拍 × 16 帧 = 第 128 帧（秒按 6 位小数取整，所以整帧判定留 1e-4 帧的容差）
+  assert.ok(Math.abs(createTempo(TEMPO, { fps: 24 }).at('A', 3, 1) * 24 - 128) < 1e-4);
+  // C 模版本身：同一公式下每个打点都落整帧、在片长内
+  const tpl = JSON.parse(readFileSync(join(REPO, 'routes', 'c-style', 'template', 'film.json'), 'utf8'));
+  const tempo = createTempo(tpl.tempo, { fps: tpl.output.fps });
+  for (const [k, a] of Object.entries(tpl.cues)) {
+    const x = tempo.at(...a) * tpl.output.fps;
+    assert.ok(Math.abs(x - Math.round(x)) < 1e-4 && x < tpl.output.frameCount, k);
+  }
+  // 打点不落整帧（第 1 拍的 1/3 = 5.33 帧）、超出片长（96 帧 = 6 拍）、段落不存在、拍号超出小节、写法不对
+  assert.ok(errors(v(c({ x: ['A', 1, 1, 1 / 3] }))).includes('cue-off-frame'));
+  assert.ok(errors(v(c({ x: ['A', 2, 3] }))).includes('cue-out-of-range'));
+  assert.ok(errors(v(c({ x: ['B', 1, 1] }))).includes('cue-section-unknown'));
+  assert.ok(errors(v(c({ x: ['A', 1, 5] }))).includes('cue-invalid'));
+  for (const bad of [['A'], ['A', 0, 1], ['A', 1.5], ['A', 1, 1, 1], 'A:1:1', { id: 'A' }]) assert.ok(errors(v(c({ x: bad }))).includes('cue-invalid'), JSON.stringify(bad));
+  // 段落表：起点不落整帧、不递增、id 重复、速度与拍号不对
+  const tempoErr = t => errors(v(minimalFilm({ tempo: t })));
+  assert.ok(tempoErr([{ id: 'A', t0: 0.01, bpm: 90, meter: 4 }]).includes('tempo-off-frame'));
+  assert.ok(tempoErr([{ id: 'A', t0: 1, bpm: 90, meter: 4 }, { id: 'B', t0: 0.5, bpm: 90, meter: 4 }]).includes('tempo-invalid'));
+  assert.ok(tempoErr([{ id: 'A', t0: 0, bpm: 90, meter: 4 }, { id: 'A', t0: 2, bpm: 90, meter: 4 }]).includes('tempo-invalid'));
+  assert.ok(tempoErr([{ id: 'A', t0: 0, bpm: 0, meter: 4 }]).includes('tempo-invalid'));
+  assert.ok(tempoErr([{ id: 'A', t0: 0, bpm: 90, meter: 3.5 }]).includes('tempo-invalid'));
+  assert.ok(tempoErr([]).includes('tempo-invalid'));
+  // 段落里只认 id / t0 / t1 / bpm / meter / note：别的时间字段照样判没有消费者
+  assert.ok(tempoErr([{ id: 'A', t0: 0, bpm: 90, meter: 4, startSec: 0 }]).includes('orphan-time-field'));
+  // 两种节拍写法只能用一种；没有 tempo 的 cues 换算不出时间；drive = beat 时 tempo 也算节拍表
+  assert.ok(errors(v(c({ x: ['A', 1, 1] }, { timeline: { sections: [{ id: 'A', start: 0, bpm: 90, meter: 4 }] } }))).includes('tempo-duplicate'));
+  assert.ok(errors(v(minimalFilm({ cues: { x: ['A', 1, 1] } }))).includes('cues-without-tempo'));
+  assert.deepEqual(errors(v(c({ x: ['A', 1, 1] }, { drive: 'beat' }))), []);
+});
+
+test('模版可以不写镜头表（new-film 生成作品时补整片一个镜头 S1）；作品必须写', () => {
+  const tpl = minimalFilm({ id: '{{NAME}}', title: '{{TITLE}}', events: [] });
+  delete tpl.shots;
+  const r = v(tpl, { template: true });
+  assert.deepEqual(errors(r), []);
+  assert.deepEqual(r.film.shots, [{ id: 'S1', in: 0, out: 96 }]);
+  assert.ok(r.notes.some(n => /整片一个镜头 S1 \[0, 96\)/.test(n)), r.notes.join('；'));
+  const film = minimalFilm({ events: [] });
+  delete film.shots;
+  assert.ok(errors(v(film)).includes('shots-missing'));
 });
 
 test('交付档位：必须存在、画幅帧率与档位一致；《北冥》专用档对新作品只是提示', () => {

@@ -82,6 +82,16 @@
       },
       "additionalProperties": false
     },
+    "tempo": {
+      "type": "array", "minItems": 1,
+      "description": "C 路线的节拍段落表（engine/core/tempo.js 的 secs）：t0 是段落起点（秒，必须落在整帧），与 timeline 只能写一种；页面的 timeline.js 用 createTempo 换算",
+      "items": { "type": "object", "required": ["id", "t0", "bpm", "meter"], "properties": { "id": { "type": "string", "minLength": 1 }, "t0": { "type": "number", "minimum": 0 }, "t1": { "type": "number" }, "bpm": { "type": "number", "exclusiveMinimum": 0 }, "meter": { "type": "integer", "minimum": 1 }, "note": { "type": "string" } }, "additionalProperties": false }
+    },
+    "cues": {
+      "type": "object",
+      "description": "C 路线的画面打点：{ 名字: [段落, 小节, 拍, 拍内分数] }（小节、拍从 1 数；拍内分数 0 ≤ x < 1，可省略）；按 tempo 换算后必须落在整帧、在片长之内",
+      "additionalProperties": { "type": "array", "minItems": 2, "maxItems": 4, "prefixItems": [{ "type": "string" }, { "type": "integer", "minimum": 1 }, { "type": "integer", "minimum": 1 }, { "type": "number", "minimum": 0, "exclusiveMaximum": 1 }] }
+    },
     "audio": {
       "type": "object",
       "properties": {

@@ -32,6 +32,7 @@ import { checkAssets, loadRegistry as loadAssetRegistry, resolveAsset } from '..
 import { REPO_ROOT, formatJson, readJsonFile, repoRelative, sha256Text, writeJsonAtomic } from './io.js';
 import { isPlaceholderQuote } from './vocab.js';
 import { validateSteps } from '../../tools/lib/routes.mjs';
+import { createTempo } from '../core/tempo.js';
 import {
   FRAME_EPS, TimelineError, beatGrid, checkShots, frameOfBeat, offGrid, retimeShot, secondsToFrame, stableStringify, timingOf,
 } from './timeline.js';
@@ -60,7 +61,7 @@ export const AIGC_KINDS = Object.freeze({ visual: '含 AI 生成画面', voice: 
 export const AIGC_MARK = AIGC_KINDS.visual;
 
 const FIELDS = {
-  top: ['schemaVersion', '$comment', 'id', 'title', 'route', 'backend', 'entry', 'output', 'shots', 'events', 'drive', 'timeline',
+  top: ['schemaVersion', '$comment', 'id', 'title', 'route', 'backend', 'entry', 'output', 'shots', 'events', 'drive', 'timeline', 'tempo', 'cues',
     'audio', 'deliveries', 'style', 'assets', 'credits', 'aigc', 'gates', 'native', 'cuecheck', 'qa', 'posterFrame', 'docs', 'methodRefs', 'mirror', 'next', 'notes'],
   compat: ['dur', 'fps', 'size'],
   output: ['profile', 'width', 'height', 'fps', 'frameCount'],
@@ -68,6 +69,7 @@ const FIELDS = {
     'framing', 'angle', 'camera', 'sound', 'desc', 'note'],
   event: ['id', 'frame', 'shot', 'end', 'audio', 'visual', 'domain', 'sync', 'beat', 'source', 'desc', 'note'],
   timeline: ['sections', 'beats', 'bars', 'meter', 'start', 'id', 'note'],
+  tempo: ['id', 't0', 't1', 'bpm', 'meter', 'note'],
   audio: ['mode', 'script', 'wav', 'cues', 'targetLUFS', 'truePeakDbTP', 'note'],
   style: ['id', 'version', 'preset', 'baseline', 'lock', 'note'],
   credit: ['what', 'owner', 'license', 'source', 'note'],
@@ -123,7 +125,7 @@ const TIME_HINTS = {
   outframe: 'v2 的镜头区间写 in / out',
 };
 const TIME_HOME = {
-  film: '时间只写在 shots[].in / out、events[].frame / end、qa.intentional[].from / to、qa.waivers[].frames、timeline 与 posterFrame，一律整数帧；秒由 帧 / fps 推出',
+  film: '时间只写在 shots[].in / out、events[].frame / end、qa.intentional[].from / to、qa.waivers[].frames、timeline（C 路线页面读的是 tempo + cues）与 posterFrame，一律整数帧；秒由 帧 / fps 推出',
   shot: '镜头的时间只有 in / out（整数帧，半开区间）；镜头里晚一点发生的事写成 events（frame 落在本镜内），角色时钟的起点写 actorClockOrigin',
   event: '事件的时间只有 frame 与 end（整数帧，end 不含）；按拍写就加 beat（与 frame 同源，第 b 拍所在帧取 floor）',
   output: '整片时长只由 output.frameCount / output.fps 推出；交付帧率取档位',
@@ -528,7 +530,12 @@ export function validateFilm(input, opts = {}) {
   const defaultEntry = route?.id === 'b' ? (f.native?.entry ?? 'film.tsx') : 'index.html';
   checkPath(f.entry ?? defaultEntry, f.entry === undefined ? 'entry（默认）' : 'entry');
 
-  // 9. 镜头表
+  // 9. 镜头表。模版可以不写：new-film 生成作品时补整片一个镜头 S1 [0, frameCount)（tools/new-film.mjs），这里按同一口径读；作品必须写
+  const implicitShots = template && f.shots === undefined && frameCount !== null;
+  if (implicitShots) {
+    f.shots = [{ id: 'S1', in: 0, out: frameCount }];
+    notes = [...notes, `模版没写镜头表：按 new-film 的口径读作整片一个镜头 S1 [0, ${frameCount})`];
+  }
   const shots = Array.isArray(f.shots) ? f.shots : null;
   const shotDiag = checkShots(f.shots, frameCount);
   for (const d of shotDiag) err(d.code, d.path, d.message, d.hint);
@@ -603,7 +610,8 @@ export function validateFilm(input, opts = {}) {
         err(error.code, 'timeline', error.message, error.hint);
       }
     }
-  } else if (f.drive === 'beat') err('timeline-missing', 'timeline', 'drive 为 beat（节拍主导）时必须写 timeline');
+  } else if (f.drive === 'beat' && f.tempo === undefined) err('timeline-missing', 'timeline', 'drive 为 beat（节拍主导）时必须写 timeline（C 路线写 tempo）');
+  validateTempoCues(f, { err, known, fps, frameCount });
 
   // 11. 事件
   const events = f.events ?? [];
@@ -820,8 +828,67 @@ export function validateFilm(input, opts = {}) {
     }
   }
 
-  const film = diagnostics.some(d => d.level === 'error') ? null : normalize(source, { route, profile });
+  const film = diagnostics.some(d => d.level === 'error') ? null : normalize(source, { route, profile, shots: implicitShots ? f.shots : undefined });
   return { ok: !diagnostics.some(d => d.level === 'error'), film, diagnostics, upgraded, notes };
+}
+
+/** 打点只能落在整帧上的容差（帧）：与 C 模版 timeline.js 的页面自检相同（秒按 6 位小数取整后乘 fps 的误差远小于它）。 */
+const CUE_FRAME_TOL = 1e-4;
+
+/**
+ * C 路线的节拍写法（routes/c-style/template）：tempo 是 engine/core/tempo.js 的段落表 [{ id, t0（秒）, bpm, meter }]，
+ * cues 是画面打点 { 名字: [段落, 小节, 拍, 拍内分数] }；页面的 timeline.js 用 createTempo 换成秒与帧，声音与 cuecheck 读它导出的表。
+ * 与 timeline.sections 是同一份节拍表的两种写法，只能写一种。这里用页面的同一个公式（tempo.at）算打点：段落起点与每个打点都要落在整帧、
+ * 在片长之内——页面遇到同样的问题会在渲染时抛错，校验器提前拦下并说清改哪里。
+ */
+function validateTempoCues(f, { err, known, fps, frameCount }) {
+  let tempo = null;
+  if (f.tempo !== undefined) {
+    if (f.timeline !== undefined) err('tempo-duplicate', 'tempo', 'tempo 与 timeline 是同一份节拍表的两种写法，只能写一种', 'C 路线页面读 tempo + cues（engine/core/tempo.js）；其余路线写 timeline');
+    else if (!Array.isArray(f.tempo) || !f.tempo.length) err('tempo-invalid', 'tempo', 'tempo 是非空的段落数组 [{ id, t0, bpm, meter }]（t0 是秒，engine/core/tempo.js）');
+    else {
+      const ids = new Set();
+      let prev = -Infinity, ok = true;
+      const bad = (path, message, hint = '') => { err('tempo-invalid', path, message, hint); ok = false; };
+      f.tempo.forEach((s, i) => {
+        const p = `tempo[${i}]`;
+        if (!isObj(s)) { bad(p, '段落是 { id, t0, bpm, meter }'); return; }
+        known(s, FIELDS.tempo, p);
+        if (!isStr(s.id)) bad(`${p}.id`, '段落 id 必须是非空字符串（打点按它找段落）');
+        else if (ids.has(s.id)) bad(`${p}.id`, `段落 id 重复：${s.id}`);
+        else ids.add(s.id);
+        if (!(finite(s.t0) && s.t0 >= 0 && s.t0 > prev)) bad(`${p}.t0`, `t0（段落起点，秒）必须是 ≥ 0、逐段严格递增的数字，收到 ${JSON.stringify(s.t0)}`);
+        else {
+          prev = s.t0;
+          if (fps && Math.abs(s.t0 * fps - Math.round(s.t0 * fps)) > FRAME_EPS) {
+            err('tempo-off-frame', `${p}.t0`, `段落 ${s.id ?? i} 的 t0 = ${s.t0} 秒在第 ${+(s.t0 * fps).toFixed(4)} 帧，不落在整帧上（${fps} fps）`, `段落起点写成整帧对应的秒数（帧 / ${fps}）`);
+            ok = false;
+          }
+        }
+        if (s.t1 !== undefined && !(finite(s.t1) && finite(s.t0) && s.t1 > s.t0)) bad(`${p}.t1`, `t1（段落止点，秒）必须大于 t0，收到 ${JSON.stringify(s.t1)}`, '不写就到下一段的 t0');
+        if (!(finite(s.bpm) && s.bpm > 0)) bad(`${p}.bpm`, `bpm 必须是正数，收到 ${JSON.stringify(s.bpm)}`);
+        if (!posInt(s.meter)) bad(`${p}.meter`, `meter（每小节拍数）必须是正整数，收到 ${JSON.stringify(s.meter)}`);
+      });
+      if (ok && fps) tempo = { calc: createTempo(f.tempo, { fps }), byId: new Map(f.tempo.map(s => [s.id, s])) };
+    }
+  }
+  if (f.cues === undefined) return;
+  if (f.tempo === undefined) { err('cues-without-tempo', 'cues', 'cues 是按 tempo 段落写的打点地址：没有 tempo 换算不出时间', '写 tempo: [{ "id": "A", "t0": 0, "bpm": 90, "meter": 4 }]'); return; }
+  if (!isObj(f.cues)) { err('cues-invalid', 'cues', 'cues 是 { 名字: [段落, 小节, 拍, 拍内分数] }（小节、拍从 1 数；拍内分数 0 ≤ x < 1，可省略）'); return; }
+  for (const [name, a] of Object.entries(f.cues)) {
+    const p = `cues.${name}`;
+    const shapeOk = Array.isArray(a) && a.length >= 2 && a.length <= 4 && isStr(a[0]) && posInt(a[1]) && (a[2] === undefined || posInt(a[2]))
+      && (a[3] === undefined || (finite(a[3]) && a[3] >= 0 && a[3] < 1));
+    if (!shapeOk) { err('cue-invalid', p, `打点写成 [段落, 小节, 拍, 拍内分数]（小节、拍从 1 数的整数；拍内分数 0 ≤ x < 1），收到 ${JSON.stringify(a)}`, '例：["A", 3, 1] 是 A 段第 3 小节第 1 拍，["A", 1, 2, 0.5] 是第 2 拍的后半拍'); continue; }
+    if (!tempo) continue;
+    const sec = tempo.byId.get(a[0]);
+    if (!sec) { err('cue-section-unknown', p, `没有段落 ${a[0]}`, `tempo 里的段落：${[...tempo.byId.keys()].join('、')}`); continue; }
+    if ((a[2] ?? 1) > sec.meter) { err('cue-invalid', p, `第 ${a[2]} 拍超出段落 ${a[0]} 的 ${sec.meter} 拍小节`, '下一小节的第 1 拍写成 [段落, 小节 + 1, 1]'); continue; }
+    const at = tempo.calc.at(...a), x = at * fps;
+    if (Math.abs(x - Math.round(x)) > CUE_FRAME_TOL) {
+      err('cue-off-frame', p, `打点 ${name} 在 ${at} 秒，落在第 ${+x.toFixed(3)} 帧，不是整帧（结果帧必须是整帧）`, `换每拍整帧的速度（${fps} fps 下 ${[60, 72, 80, 90, 96, 120, 144, 160].filter(b => Number.isInteger(+(60 * fps / b).toFixed(9))).join(' / ')} BPM），或改拍内分数`);
+    } else if (frameCount !== null && Math.round(x) >= frameCount) err('cue-out-of-range', p, `打点 ${name} 在第 ${Math.round(x)} 帧，超出整片 [0, ${frameCount})`, '把打点挪进片长，或加长 output.frameCount');
+  }
 }
 
 function validateNative(n, { err, warn, known, checkPath }) {
@@ -950,9 +1017,10 @@ function validateQa(q, { err, warn, known, frameCount, shotById, shotsOk, profil
 }
 
 /** 补齐默认值（不改入参）。 */
-function normalize(source, { route, profile }) {
+function normalize(source, { route, profile, shots }) {
   const f = clone(source);
   f.route = route?.id ?? f.route;
+  if (shots) f.shots = clone(shots);
   f.events = Array.isArray(f.events) ? f.events : [];
   f.drive = f.drive ?? 'picture';
   f.gates = { look: 'required', animatic: 'required', final: 'required' };
