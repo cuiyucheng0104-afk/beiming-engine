@@ -28,7 +28,7 @@ if [ "$JSON" = 0 ]; then
     case "$a" in
       --4k) FOURK=1 ;;
       --no-audio|--quiet|--help|-h) ;;
-      *) echo "错误[usage.unknown-option]：不认识的参数 ${a}（可用：--4k --no-audio --json --quiet --help）" >&2; exit 2 ;;
+      *) echo "错误[usage.unknown-option]：不认识的参数：${a}（可用：--4k --no-audio --json --quiet --help）" >&2; exit 2 ;;
     esac
   done
   if [ -n "${WORKERS:-}" ]; then _w=$WORKERS; elif [ "$FOURK" = 1 ]; then _w=${WORKERS_4K:-8}; else _w=4; fi

@@ -1,5 +1,5 @@
 // tools/film 的库单元测试（不渲染、不启动浏览器，秒级）：node --test tests/film/lib.test.mjs
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -16,7 +16,10 @@ import { parseFilm, shotsAt, cutsOf, normalizeRoute } from '../../tools/film/lib
 import { gateStatus, assertFinalAllowed, passes, reviewProblems, buildRecord, writeRecord, recordWaivers, sourceOf, timingSnapshot, filmView, useBuiltinReviewLib } from '../../tools/film/lib/gates.mjs';
 import { imageSize, encoderInfo, clickTrack, timecode } from '../../tools/film/lib/media.mjs';
 import { rerunCommand } from '../../tools/film/lib/session.mjs';
-import { ROOT } from './helpers.mjs';
+import { ROOT, cleanupTestRoot } from './helpers.mjs';
+
+// makeWork 建在 FILM_TEST_ROOT（默认系统临时目录下的 beiming-film-tests-<pid>）：跑完把这个目录一并删掉
+after(cleanupTestRoot);
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'film-lib-'));
 // code 写短名（'film-busy'）或带前缀的全名（'busy.film-busy'）都行

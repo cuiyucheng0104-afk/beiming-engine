@@ -1,5 +1,6 @@
 // tests/film 共用的小工具：在仓库根跑出片命令、建临时作品（放仓库外，films/ 里只留链接）、比对目录前后。
-//   runCli(args, { env, input }) → { code, stdout, stderr, json }   json = stdout 整体解析出的单个对象（--json 时；解析不了为 null）
+//   runCli(args, { env, stubQa }) → { code, stdout, stderr, json }   json = stdout 整体解析出的单个对象（--json 时；解析不了为 null）
+//     stubQa: true 时用预加载钩子把机器 QA 门换成测试替身（QA_NODE_ARGS，见 fixtures/qa-stub-hook.mjs）
 //   makeWork(route, { title }) → { name, rel, dir, real, cleanup() }
 //     A / C：作品本体放在 FILM_TEST_ROOT（默认系统临时目录下的 beiming-film-tests-<pid>），films/<名> 是指向它的链接
 //            （Windows 用目录联接，不需要管理员权限）；B：原生运行时按真实路径打包，作品必须真实位于 films/ 下，结束时删除
@@ -9,15 +10,17 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const CLI = path.join(ROOT, 'tools/film/cli.mjs');
 export const QA_STUB = path.join(ROOT, 'tests/film/fixtures/qa-stub.mjs');
+// 放在 node 与出片命令之间：node ...QA_NODE_ARGS tools/film/cli.mjs …
+export const QA_NODE_ARGS = ['--import', pathToFileURL(path.join(ROOT, 'tests/film/fixtures/qa-stub-hook.mjs')).href];
 export const TEST_ROOT = path.resolve(process.env.FILM_TEST_ROOT || path.join(os.tmpdir(), `beiming-film-tests-${process.pid}`));
 
-export function runCli(args, { env = {}, timeout = 600000 } = {}) {
-  const r = spawnSync(process.execPath, [CLI, ...args], { cwd: ROOT, encoding: 'utf8', timeout, env: { ...process.env, ...env }, maxBuffer: 64 << 20 });
+export function runCli(args, { env = {}, timeout = 600000, stubQa = false } = {}) {
+  const r = spawnSync(process.execPath, [...(stubQa ? QA_NODE_ARGS : []), CLI, ...args], { cwd: ROOT, encoding: 'utf8', timeout, env: { ...process.env, ...env }, maxBuffer: 64 << 20 });
   let json = null;
   const lines = (r.stdout || '').trim().split('\n').filter(Boolean);
   try { json = JSON.parse(r.stdout); } catch { /* 不是（单个）JSON 对象 */ }

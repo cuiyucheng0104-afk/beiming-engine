@@ -3,6 +3,7 @@
 //   FILM_E2E=1 node --test tests/film/e2e.test.mjs
 // 需要：ffmpeg / ffprobe、装了 requirements.txt 的 Python（PYTHON=…）、Playwright 的 headless shell；B 另需 RAEA_BIN。
 // 机器 QA 门：默认用测试替身 tests/film/fixtures/qa-stub.mjs（只验编排器的接线：模版画面能不能过真 QA 是各路线模版的事），
+// 由预加载钩子 fixtures/qa-stub-hook.mjs 接上（编排器里没有换 QA 实现的开关）；
 // FILM_E2E_REAL_QA=1 时用仓库里的 tools/qa/cli.mjs（模版过不了硬门时 build 退出码 4，测试会如实失败），并加跑「竖屏档位交给真 QA 的口径」：
 //   它只要求交付规格四项与文字视口按档位判，不要求模版过全部硬门；单跑它：FILM_E2E=1 FILM_E2E_REAL_QA=1 node --test --test-name-pattern 口径 tests/film/e2e.test.mjs
 // 临时作品放在 FILM_TEST_ROOT（默认系统临时目录），films/ 里只留链接（B 例外，见 helpers.mjs），测完删除；FILM_TEST_KEEP=1 保留产物。
@@ -11,7 +12,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { ROOT, CLI, QA_STUB, TEST_ROOT, runCli, makeWork, gitStatus, cleanupTestRoot } from './helpers.mjs';
+import { ROOT, CLI, QA_NODE_ARGS, TEST_ROOT, runCli, makeWork, gitStatus, cleanupTestRoot } from './helpers.mjs';
 import { validateRenderResult } from '../../engine/production/project.js';
 
 const ON = process.env.FILM_E2E === '1';
@@ -25,11 +26,10 @@ function sysTmp() {
   fs.mkdirSync(TEST_ROOT, { recursive: true });
   return fs.mkdtempSync(path.join(TEST_ROOT, 'tmp-'));
 }
-function env(tmp) {
-  const e = { TMPDIR: tmp, TMP: tmp, TEMP: tmp };
-  if (!process.env.FILM_E2E_REAL_QA) e.FILM_QA_CLI = QA_STUB;
-  return e;
-}
+// 默认用 QA 替身（预加载钩子，编排器里没有换 QA 的开关）；FILM_E2E_REAL_QA=1 时用真 QA
+const STUB_QA = !process.env.FILM_E2E_REAL_QA;
+const env = tmp => ({ TMPDIR: tmp, TMP: tmp, TEMP: tmp });
+const opts = tmp => ({ env: env(tmp), stubQa: STUB_QA });
 const findSegs = dir => (fs.existsSync(dir) ? fs.readdirSync(dir, { recursive: true }).filter(n => String(n).split(/[\\/]/).some(p => p.startsWith('.segs-'))) : []);
 const readRun = runJson => JSON.parse(fs.readFileSync(path.join(ROOT, runJson), 'utf8'));
 
@@ -37,7 +37,7 @@ function buildAndCheck(route) {
   const w = makeWork(route);
   works.push(w);
   const tmp = sysTmp();
-  const r = runCli(['build', w.rel, '--profile', 'web-1080p24', '--waive', 'look,animatic', '--reason', 'G1 自检，非用户审批', '--json'], { env: env(tmp) });
+  const r = runCli(['build', w.rel, '--profile', 'web-1080p24', '--waive', 'look,animatic', '--reason', 'G1 自检，非用户审批', '--json'], opts(tmp));
   assert.equal(r.code, 0, `build 退出码 ${r.code}：${r.stderr.slice(-2000)}`);
   assert.ok(r.json, 'stdout 只有一个 JSON 对象（附录 C2 信封）');
   assert.equal(r.json.schemaVersion, 1);
@@ -55,6 +55,7 @@ function buildAndCheck(route) {
   }
   assert.equal(r.json.runJson, `${w.rel}/out/${r.json.data.runId}/run.json`);
   const run = readRun(r.json.runJson);
+  assert.equal(!!JSON.parse(fs.readFileSync(path.join(runDir, 'qa/report.json'), 'utf8')).stubArgs, STUB_QA, STUB_QA ? '替身钩子没接上：跑的是真 QA' : '要用真 QA');
   assert.equal(run.kind, 'preview', '工作版出片记为 preview（作品描述包的运行类别）');
   assert.equal(run.job, 'build');
   assert.equal(run.technicalAcceptance.status, 'passed');
@@ -93,16 +94,16 @@ function buildAndCheck(route) {
 test('A 路线：模版作品按 G1 命令出片，--from mux 只重跑封装及之后，帧段第二次 0 帧重渲', { skip, timeout: 900000 }, () => {
   const { w } = buildAndCheck('a');
   const tmp = sysTmp();
-  const again = runCli(['build', w.rel, '--profile', 'web-1080p24', '--from', 'mux', '--json'], { env: env(tmp) });
+  const again = runCli(['build', w.rel, '--profile', 'web-1080p24', '--from', 'mux', '--json'], opts(tmp));
   assert.equal(again.code, 0, again.stderr.slice(-1500));
   const st = Object.fromEntries(again.json.data.steps.map(s => [s.id, s.status]));
   assert.equal(st.video, 'cached');
   assert.equal(st.mix, 'cached');
   assert.equal(st.mux, 'done');
-  const one = runCli(['render', w.rel, '--profile', 'web-1080p24', '--frames', '0:4', '--json'], { env: env(tmp) });
+  const one = runCli(['render', w.rel, '--profile', 'web-1080p24', '--frames', '0:4', '--json'], opts(tmp));
   assert.equal(one.code, 0, one.stderr.slice(-1500));
   assert.equal(one.json.data.rendered, 4);
-  const two = runCli(['render', w.rel, '--profile', 'web-1080p24', '--frames', '0:4', '--json'], { env: env(tmp) });
+  const two = runCli(['render', w.rel, '--profile', 'web-1080p24', '--frames', '0:4', '--json'], opts(tmp));
   assert.equal(two.code, 0);
   assert.equal(two.json.data.rendered, 0, '第二次应全部复用');
   assert.equal(two.json.data.reused, 4);
@@ -116,7 +117,7 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   const { w, run } = buildAndCheck('c');
   assert.ok(run.steps.some(s => s.id === 'cuecheck' && s.status === 'done'), 'C 模版写了 cuecheck，应当跑');
   const tmp = sysTmp();
-  const v = runCli(['build', w.rel, '--profile', 'vertical-1080x1920-30', '--waive', 'look,animatic', '--reason', 'G1 自检', '--json'], { env: env(tmp) });
+  const v = runCli(['build', w.rel, '--profile', 'vertical-1080x1920-30', '--waive', 'look,animatic', '--reason', 'G1 自检', '--json'], opts(tmp));
   assert.equal(v.code, 0, v.stderr.slice(-1500));
   const vr = readRun(v.json.runJson);
   const vFrames = Math.round(run.expected.frames * 30 / 24);
@@ -131,7 +132,7 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   assert.equal(eff.shots.at(-1).out, vFrames);
   assert.equal(JSON.parse(fs.readFileSync(path.join(w.dir, 'film.json'), 'utf8')).output.width, 1920, 'film.json 不改');
   const vq = JSON.parse(fs.readFileSync(path.join(vDir, 'qa', 'report.json'), 'utf8'));
-  if (vq.stubArgs) {
+  if (STUB_QA) {
     assert.equal(vq.stubArgs.film, path.join(vDir, 'film.effective.json'));
     assert.equal(vq.stubArgs.size, '1080x1920');
     assert.equal(vq.stubArgs.profile, 'vertical-1080x1920-30');
@@ -139,10 +140,10 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   }
   assert.equal(vr.technicalAcceptance.film, `${vr.runDir}/film.effective.json`);
   // 内部豁免不放行终渲；带用户原话的豁免放行；终渲的 run.json 记 kind = final 与放行依据
-  assert.equal(runCli(['build', w.rel, '--final', '--json'], { env: env(tmp) }).code, 4);
-  const uw = runCli(['review', 'waive', 'look,animatic', w.rel, '--reason', '用户说直接出', '--quote', '不用给我看预演了，直接出成片', '--source', '端到端测试会话 第 1 条', '--json'], { env: env(tmp) });
+  assert.equal(runCli(['build', w.rel, '--final', '--json'], opts(tmp)).code, 4);
+  const uw = runCli(['review', 'waive', 'look,animatic', w.rel, '--reason', '用户说直接出', '--quote', '不用给我看预演了，直接出成片', '--source', '端到端测试会话 第 1 条', '--json'], opts(tmp));
   assert.equal(uw.code, 0, uw.stderr);
-  const fin = runCli(['build', w.rel, '--final', '--json'], { env: env(tmp) });
+  const fin = runCli(['build', w.rel, '--final', '--json'], opts(tmp));
   assert.equal(fin.code, 0, fin.stderr.slice(-1500));
   const fr = readRun(fin.json.runJson);
   assert.equal(fr.kind, 'final');
@@ -152,17 +153,17 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   assert.equal(st.video, 'cached', '画面输入没变：终渲复用工作版的逐帧视频');
   // 用户认可成片 → accepted（「已交付」的唯一来源）
   const styleRef = path.join(w.dir, 'film.json');
-  const ok = runCli(['review', 'approve', 'final', w.rel, '--quote', '可以，就这版', '--source', '端到端测试会话 第 2 条', '--reviewer', '测试用户', '--events', '片名出现', '--style-ref', styleRef, '--json'], { env: env(tmp) });
+  const ok = runCli(['review', 'approve', 'final', w.rel, '--quote', '可以，就这版', '--source', '端到端测试会话 第 2 条', '--reviewer', '测试用户', '--events', '片名出现', '--style-ref', styleRef, '--json'], opts(tmp));
   assert.equal(ok.code, 0, ok.stderr);
   assert.equal(ok.json.data.accepted, true, JSON.stringify(ok.json.warnings));
   const acc = readRun(fin.json.runJson);
   assert.equal(acc.status, 'accepted');
   assert.equal(acc.creativeAcceptance.reviews.at(-1).reviewerKind, 'human');
-  const status = runCli(['status', w.rel, '--json'], { env: env(tmp) });
+  const status = runCli(['status', w.rel, '--json'], opts(tmp));
   assert.equal(status.json.data.lastFinal.delivered, true);
   // --size 改画幅：工作版、不是交付件——不跑交付 QA，规格核对通过即退出码 0。放在最后：步骤缓存每步只留 2 份，
   // 夹在工作版与终渲之间会把工作版的逐帧视频挤出缓存，终渲就复用不到了
-  const sz = runCli(['build', w.rel, '--size', '960x540', '--json'], { env: env(tmp) });
+  const sz = runCli(['build', w.rel, '--size', '960x540', '--json'], opts(tmp));
   assert.equal(sz.code, 0, sz.stderr.slice(-1500));
   assert.equal(sz.json.data.deliverable, false);
   assert.ok(sz.json.warnings.some(x => x.code === 'size-not-deliverable'));
@@ -173,7 +174,7 @@ test('C 路线：模版作品出片（含声画拍点核对），竖屏 30 fps �
   assert.deepEqual([sr.output.width, sr.output.height], [960, 540]);
   assert.equal(sr.steps.find(s => s.id === 'qa')?.status, 'skipped');
   assert.ok(!fs.existsSync(path.join(ROOT, sr.runDir, 'qa', 'report.json')));
-  assert.equal(runCli(['qa', w.rel, '--run', sr.runId, '--json'], { env: env(tmp) }).code, 2, 'film qa 不审 --size 的工作版');
+  assert.equal(runCli(['qa', w.rel, '--run', sr.runId, '--json'], opts(tmp)).code, 2, 'film qa 不审 --size 的工作版');
 });
 
 test('竖屏档位交给真 QA 的口径（FILM_E2E_REAL_QA=1）：C 模版按竖屏 30 fps 出片，交付规格四项与文字视口都按档位判', { skip: skip || (!process.env.FILM_E2E_REAL_QA && '设 FILM_E2E_REAL_QA=1 才跑（真 QA，约 1–2 分钟）'), timeout: 900000 }, () => {
@@ -182,7 +183,7 @@ test('竖屏档位交给真 QA 的口径（FILM_E2E_REAL_QA=1）：C 模版按�
   const w = makeWork('c');
   works.push(w);
   const tmp = sysTmp();
-  const r = runCli(['build', w.rel, '--profile', 'vertical-1080x1920-30', '--waive', 'look,animatic', '--reason', 'G1 自检', '--json'], { env: env(tmp) });
+  const r = runCli(['build', w.rel, '--profile', 'vertical-1080x1920-30', '--waive', 'look,animatic', '--reason', 'G1 自检', '--json'], opts(tmp));
   assert.ok([0, 4].includes(r.code), `退出码 ${r.code}：${r.stderr.slice(-1500)}`);
   assert.ok(r.json?.runJson, '信封要给出 run.json');
   const run = readRun(r.json.runJson);
@@ -207,7 +208,7 @@ test('中断：渲染中收到 SIGINT 退出码 130，run.json 记 interrupted�
   const w = makeWork('a');
   works.push(w);
   const tmp = sysTmp();
-  const child = spawn(process.execPath, [CLI, 'build', w.rel, '--profile', 'web-1080p24', '--no-cache', '--json'], { cwd: ROOT, env: { ...process.env, ...env(tmp) }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [...(STUB_QA ? QA_NODE_ARGS : []), CLI, 'build', w.rel, '--profile', 'web-1080p24', '--no-cache', '--json'], { cwd: ROOT, env: { ...process.env, ...env(tmp) }, stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '', err = '';
   child.stdout.on('data', b => { out += b; });
   const started = new Promise(resolve => child.stderr.on('data', b => { err += b; if (/▶ 逐帧渲染/.test(err)) resolve(); }));

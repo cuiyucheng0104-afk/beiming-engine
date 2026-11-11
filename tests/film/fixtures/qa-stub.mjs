@@ -2,7 +2,8 @@
 // 测试夹具 · 机器 QA 门的替身（只给 tests/film 用，不是交付 QA）：命令行与输出按 tools/qa/cli.mjs report 的约定
 //   node tests/film/fixtures/qa-stub.mjs report <成片> --film <作品描述> --out <目录> [--page <目录>] [--size <宽x高>] [--events <事件表>] [--profile <档位>] --json
 // stdout 是附录 C2 的信封，result 是附录 C8 的报告（含 technicalAcceptance）；报告同时写进 <目录>/report.json。
-// 编排器通过环境变量 FILM_QA_CLI 指到这里，用来把「出片链本身」与「模版画面是否过得了真 QA」分开测。
+// 测试进程用预加载钩子 qa-stub-hook.mjs 把编排器对 tools/qa/cli.mjs 的调用换到这里（编排器里没有换 QA 的开关），
+// 用来把「出片链本身」与「模版画面是否过得了真 QA」分开测。
 //
 // 口径与真 QA 一致（docs/quality/QA-GATE.md §4.1），而且直接用真 QA 自己的库读作品描述与档位（tools/qa/lib/film.mjs、profiles.mjs），
 // 不按编排器的算法另算一遍——否则替身会和编排器一起错（上一版就把期望帧数按档位帧率换算，正好盖住了「竖屏档位交给 QA 的仍是

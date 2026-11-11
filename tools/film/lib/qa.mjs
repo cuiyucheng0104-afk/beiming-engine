@@ -15,14 +15,15 @@
 //          3 → 缺环境（退出码 3）；124 → 超时；其余 → 运行失败。
 // run.json 的 technicalAcceptance.evidence 写相对运行目录的 qa/report.json（作品描述包的运行记录校验器按运行目录解析）；
 // 仓库相对路径另记在 technicalAcceptance.report。
-// FILM_QA_CLI 可以指向另一个实现（测试用 tests/film/fixtures/qa-stub.mjs）。
+// 没有换 QA 实现的开关（环境变量、选项都没有）：那就是绕过硬门的后门。端到端测试的替身由测试进程从外面接上
+// （node --import tests/film/fixtures/qa-stub-hook.mjs，见该文件）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { EXIT, FilmError } from './exit.mjs';
 import { ROOT, rel } from './repo.mjs';
 
 export function qaCli() {
-  const f = process.env.FILM_QA_CLI ? path.resolve(process.env.FILM_QA_CLI) : path.join(ROOT, 'tools/qa/cli.mjs');
+  const f = path.join(ROOT, 'tools/qa/cli.mjs');
   return fs.existsSync(f) ? f : null;
 }
 
