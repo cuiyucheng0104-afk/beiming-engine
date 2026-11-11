@@ -7,9 +7,12 @@
 //     所以未跟踪的草稿目录、没暂存的改动都会被判到。本文件按「发现落在哪个路径上」归属：
 //       · 落在工作区里与这次提交不一致的路径上——未跟踪或被 .gitignore 忽略的文件与目录、有未暂存改动的文件
 //         （按路径提交时没带上的暂存改动也算）、含有这类路径的目录——降为提示，不阻断；
-//       · 落在这次提交改动的路径（或包含它的目录）上、落在工作区与提交一致的路径上、没写路径的发现照常阻断。
-//     仍会误拦的情形：一个与提交一致的文件，因为另一个文件在工作区里的未提交状态被判错（例如它引用的文件在工作区删了、
-//     删除没暂存）。这时报错末尾列出工作区里与提交不同的路径。根治要靠规范检查在 --staged 时读索引（已向 P02 提请求）。
+//       · 落在与提交一致的路径上（或没写路径），但说明里点名的路径只在工作区、不在这次提交里——例如 cases/catalog.json 上的
+//         「Checksum mismatch: lemo-opuscar/AGENTS.md」而那处快照改动没带进这次提交——同样降为提示；
+//       · 其余照常阻断：落在这次提交改动的路径（或包含它的目录）上，或落在与提交一致的路径上、说明里没点名工作区路径。
+//     仍会误拦的情形：与提交一致的文件因为工作区里别处的未提交状态被判错，而说明里没写出那个路径。这时报错末尾列出工作区里
+//     与提交不同的路径。根治要靠规范检查在 --staged 时读索引（已向 P02、P16 提请求）。宁可少拦：提交前检查只是第一道，
+//     CI 的 npm run check 按完整检出再判一次。
 // 检查项（每项一个 id）：
 //   本文件自己判定（不依赖别的工具，毫秒级）：
 //     vendor        改了 cases/vendor/ 里的第三方快照（lock.json 逐字节锁定；只有 cases/vendor/README.md 可以改）
@@ -138,18 +141,36 @@ function worktreeDrift(root) {
   };
 }
 
+// 发现说明里的路径：至少两段（lemo-opuscar/AGENTS.md、films/wip），按中文与常见标点断开
+const PATH_TOKEN = /[^\s，。；：、！？（）()「」『』《》【】`'"<>|,;:]+\/[^\s，。；：、！？（）()「」『』《》【】`'"<>|,;:]+/g;
+
+/** 说明里点名的、只在工作区（不在这次提交里）的路径：点名文件本身、它的路径后缀（相对某个上级目录写的），或它所在的目录。 */
+function namedDrift(text, onlyWorktree) {
+  for (const raw of String(text ?? '').match(PATH_TOKEN) ?? []) {
+    const tok = raw.replace(/^\.\//, '').replace(/[.)\]]+$/, '').replace(/\/+$/, '');
+    if (!tok.includes('/')) continue;
+    for (const d of onlyWorktree) if (d === tok || d.endsWith(`/${tok}`) || d.startsWith(`${tok}/`) || d.includes(`/${tok}/`)) return d;
+  }
+  return null;
+}
+
 /**
  * 一条规范检查发现归到哪里：commit（落在这次提交改动的路径或包含它的目录）、commit-state（与提交一致的路径，或没写路径）、
- * worktree（只在工作区、不在这次提交里：未跟踪、被忽略、有未暂存的改动，或含有这类路径的目录）。worktree 时附原因。
+ * worktree（只在工作区、不在这次提交里：未跟踪、被忽略、有未暂存的改动，或含有这类路径的目录；或者发现落在与提交一致的
+ * 路径上，但说明里点名的路径只在工作区——例如 cases/catalog.json 上的「Checksum mismatch: lemo-opuscar/AGENTS.md」）。
+ * worktree 时附原因。
  */
-function attribute(file, { root, commitPaths, commitDirs, drift }) {
-  const f = String(file ?? '').replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
-  if (!f || f === '.') return { kind: 'commit-state' };
-  if (commitPaths.has(f) || commitDirs.has(f)) return { kind: 'commit' };
-  if (drift.untracked.has(f)) return { kind: 'worktree', why: '未跟踪的文件' };
-  if (drift.modified.has(f)) return { kind: 'worktree', why: drift.index.has(f) && !fs.existsSync(path.join(root, ...f.split('/'))) ? '工作区里删了、删除没有暂存' : '有没暂存进这次提交的改动' };
-  if (drift.driftDirs.has(f)) return { kind: 'worktree', why: '目录里有未跟踪或没暂存进这次提交的改动' };
-  if (!drift.index.has(f) && !drift.indexDirs.has(f) && fs.existsSync(path.join(root, ...f.split('/')))) return { kind: 'worktree', why: '未跟踪或被 .gitignore 忽略' };
+function attribute(f0, { root, commitPaths, commitDirs, drift }) {
+  const f = String(f0.file ?? '').replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
+  if (f && f !== '.') {
+    if (commitPaths.has(f) || commitDirs.has(f)) return { kind: 'commit' };
+    if (drift.untracked.has(f)) return { kind: 'worktree', why: '未跟踪的文件' };
+    if (drift.modified.has(f)) return { kind: 'worktree', why: drift.index.has(f) && !fs.existsSync(path.join(root, ...f.split('/'))) ? '工作区里删了、删除没有暂存' : '有没暂存进这次提交的改动' };
+    if (drift.driftDirs.has(f)) return { kind: 'worktree', why: '目录里有未跟踪或没暂存进这次提交的改动' };
+    if (!drift.index.has(f) && !drift.indexDirs.has(f) && fs.existsSync(path.join(root, ...f.split('/')))) return { kind: 'worktree', why: '未跟踪或被 .gitignore 忽略' };
+  }
+  const named = namedDrift(f0.message, drift.sample.filter(p => !commitPaths.has(p)));
+  if (named) return { kind: 'worktree', why: `说明里点名的 ${named} 只在工作区、不在这次提交里` };
   return { kind: 'commit-state' };
 }
 
@@ -418,7 +439,7 @@ function scopeRepoCheck(v, { root, all, changes }) {
     ? `（这条规则按工作区判定；工作区里另有 ${drift.sample.length} 处与这次提交不同：${drift.sample.slice(0, SHOW_DRIFT).join('、')}${drift.sample.length > SHOW_DRIFT ? ' 等' : ''}。如果是它们引起的，把相关改动一并暂存进这次提交，或由用户决定先收起它们（git stash push --keep-index --include-untracked，提交后 git stash pop）再提交）`
     : '';
   for (const f of v.block) {
-    const a = attribute(f.file, { root, commitPaths, commitDirs, drift });
+    const a = attribute(f, { root, commitPaths, commitDirs, drift });
     if (a.kind === 'worktree') warn.push({ ...f, message: `（只在工作区、不在这次提交里：${a.why}，不阻断）${f.message}` });
     else block.push(a.kind === 'commit-state' && tail ? { ...f, message: `${f.message}${tail}` } : f);
   }
@@ -546,7 +567,8 @@ export const command = defineCommand({
     '交给仓库已有的工具：large（tools/env/large-files.mjs，读索引）、compliance（tools/compliance/scan.mjs --staged，读暂存的版本）、',
     'eol（tools/repo-check/rules/env/index.mjs --only env.eol，读索引）、repo-check（tools/repo-check.mjs --staged）。工具不在时跳过并提示。',
     'repo-check 的规则读的是工作区：发现落在工作区里与这次提交不一致的路径上（未跟踪、被忽略、有没暂存进这次提交的改动，',
-    '  或含有这类路径的目录）时降为提示；落在这次提交改动的路径、或工作区与提交一致的路径上的照常阻断。',
+    '  或含有这类路径的目录），或说明里点名的路径只在工作区时降为提示；其余（落在这次提交改动的路径上，或落在与提交一致的',
+    '  路径上、没点名工作区路径）照常阻断。',
     `临时放行：${ALLOW_ENV}=<id,…>，只对这一次命令生效，只能由用户本人在 Claude Code 之外的终端里设置（CLAUDECODE=1 时不生效）。`,
     `git 子进程超时默认 ${GIT_TIMEOUT_MS / 1000} 秒（退出 124），${GIT_TIMEOUT_ENV}=<毫秒> 可调。`,
     '启用：npm run setup 会在本仓库执行 git config core.hooksPath .githooks（只作用于本仓库，setup --no-hooks 跳过）；停用：git config --unset core.hooksPath。',

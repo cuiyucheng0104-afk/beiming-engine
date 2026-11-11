@@ -350,6 +350,24 @@ test('跨文件：工作区里删了 skill 引用的文档但没暂存，不拦�
   assert.match(bad.stderr, /\[repo-check\] \.claude\/skills\/beiming-film\/SKILL\.md agent\.skills：[^\n]*docs\/guide\.md 不存在/);
 });
 
+test('跨文件：与提交一致的文件上的发现，说明里点名的路径只在工作区时只提示；那个路径带进提交后照常阻断', { skip }, () => {
+  const dir = makeRcRepo();
+  // 夹具规则：工作区里有 drafts/wip/notes.md 时，在与提交一致的 docs/guide.md 上报错，并相对上级目录点名它
+  // （真实仓库里的同类情形：cases.catalog 在 cases/catalog.json 上报「Checksum mismatch: lemo-opuscar/AGENTS.md」）
+  put(dir, 'tools/repo-check/rules/zz/mention.mjs', "export default { id: 'zz.mention', title: '夹具：跨文件发现', run: ctx => (ctx.exists('drafts/wip/notes.md') ? [{ level: 'error', file: 'docs/guide.md', message: '核对不一致：wip/notes.md' }] : []) };\n");
+  assert.equal(git(dir, ['add', '--', 'tools/repo-check/rules/zz/mention.mjs']).status, 0);
+  assert.equal(git(dir, ['commit', '-q', '--no-verify', '-m', 'rule']).status, 0);
+  put(dir, 'drafts/wip/notes.md', '草稿\n');
+  touchKeep(dir, 8);
+  const ok = git(dir, ['commit', '-q', '-m', 'unrelated']);
+  assert.equal(ok.status, 0, `点名的路径只在工作区，不该拦：${ok.stderr}`);
+  assert.match(ok.stderr, /说明里点名的 drafts\/wip\/notes\.md 只在工作区[^\n]*docs\/guide\.md zz\.mention/);
+  assert.equal(git(dir, ['add', '--', 'drafts/wip/notes.md']).status, 0);
+  const bad = git(dir, ['commit', '-q', '-m', 'wip']);
+  assert.notEqual(bad.status, 0, '点名的路径带进了提交，要拦');
+  assert.match(bad.stderr, /\[repo-check\] docs\/guide\.md zz\.mention：核对不一致：wip\/notes\.md/);
+});
+
 test('与提交一致的已跟踪路径上的发现照常阻断，并列出工作区里与提交不同的路径', { skip }, () => {
   const dir = makeRcRepo();
   put(dir, 'tools/中文.js', 'export {};\n');                                       // 先绕过检查提交一个存量问题
