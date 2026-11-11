@@ -141,13 +141,18 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 
 | 变量 | 归属 | 作用 | 默认 |
 |---|---|---|---|
-| `BEIMING_ANGLE` | 渲染（engine/render） | 无头浏览器的 ANGLE 后端：metal / vulkan / gl / d3d11 / swiftshader / default | macOS 为 metal，其它平台不传参数；Windows 双显卡机上会落到核显，NVIDIA 机器设 vulkan |
+| `BEIMING_ANGLE` | 渲染（engine/render） | 无头浏览器的 ANGLE 后端：metal / vulkan / gl / d3d11 / swiftshader / default | macOS metal、Windows vulkan、Linux 不传参数；写错或平台不对时渲染器退出 2 |
 | `BEIMING_CHROME` | 渲染（engine/render） | 改用指定的浏览器可执行文件 | 锁定的 headless shell 153；不设最好，换浏览器会破坏跨机器一致性 |
 | `BEIMING_READY_TIMEOUT` | 渲染（engine/render） | 等页面声明 `window.READY` 的上限（秒） | 180 |
-| `BEIMING_FRAME_TIMEOUT` | 渲染（engine/render） | 单帧 `render(t)` 的上限（秒），超时按失败处理 | 300 |
+| `BEIMING_FRAME_TIMEOUT` | 渲染（engine/render） | 单帧 `render(t)` 的上限（秒），超时按失败处理 | 60 |
+| `BEIMING_GPU` | 渲染（engine/render） | `--gpu` 的默认值：required（软件渲染判失败，退出 3）/ any（允许并记提示）/ software-ok（CI、没有 GPU 的机器、资产烘焙） | required |
+| `BEIMING_SLOT_DIR` | 渲染（engine/render） | 机器级渲染槽位的目录（多个渲染排队用） | <系统临时目录>/beiming-render-slots-<用户> |
+| `BEIMING_SLOT_HELD` | 渲染（engine/render） | 设为 1 表示外层调度已替这次渲染占了槽位，渲染器不再另占 | 不设 |
+| `BEIMING_GPU_BUSY_UTIL` | 渲染（engine/render） | 共享 GPU 守卫：任一 NVIDIA 卡占用率（%）高于它就排队等 | 10 |
+| `BEIMING_GPU_MIN_FREE_MB` | 渲染（engine/render） | 共享 GPU 守卫：任一 NVIDIA 卡空闲显存（MB）低于它就排队等 | 2048 |
 | `WORKERS` | 渲染（engine/render） | `build.sh` 1080p 出片时并行的浏览器数 | 4 |
 | `WORKERS_4K` | 渲染（engine/render） | `build.sh --4k` 时并行的浏览器数 | 8 |
-| `FFMPEG` | 编码 | ffmpeg 可执行文件（完整路径）。目前只有 B 路线入口与 `tools/env` 识别；`engine/render/video.mjs`、`mux.sh`、`build.sh`、`audio/check.py` 仍从 PATH 调用 | PATH 里的 ffmpeg |
+| `FFMPEG` | 编码 | ffmpeg 可执行文件（完整路径）。`engine/render`（video / shots / mux）与 `tools/env` 都经 `ffmpegBins` 解析；`build.sh`、`audio/check.py` 仍从 PATH 调用 | PATH 里的 ffmpeg |
 | `FFPROBE` | 编码 | ffprobe 可执行文件，识别范围同上 | PATH 里的 ffprobe |
 | `BEIMING_PYTHON` | Python | 指定解释器（正式名，优先级最高） | 按上一节的顺序查找 |
 | `BEIMING_PY` | Python | `BEIMING_PYTHON` 的别名（C 路线 `build.mjs` 沿用） | 同上 |
@@ -174,7 +179,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `RAEA_BAKE_WORKERS` | B 路线（原生运行时） | 运行时的烘焙并发；逐帧比对时设 1 | 运行时默认 |
 | `LEMO_ANGLE` | C 路线历史复刻 | 风格库甲（`cases/vendor/lemo-opuscar`）渲染核心的 ANGLE 后端，作用同 `BEIMING_ANGLE` | 该库默认 |
 | `PLAYWRIGHT_CHROME` | C 路线历史复刻 | 风格库甲渲染核心的浏览器可执行文件，作用同 `BEIMING_CHROME` | 该库默认 |
-| `RENDER_SLOTS` | C 路线历史复刻 | 风格库甲渲染核心的整机并发名额 | 该库默认 |
+| `RENDER_SLOTS` | C 路线历史复刻 | 整机渲染并发名额：`engine/render`（`--slots` 的默认值）与风格库甲的渲染核心都认 | 不设不限（风格库甲按该库默认） |
 | `HWGPU` | C 路线历史复刻 | 风格库乙（`cases/vendor/sy-style-100`）的 `render.js` 设 1 才用显卡，等同 `--hwgpu` | 不设时软件渲染 |
 | `PLAYWRIGHT_BROWSERS_PATH` | 安装与镜像（playwright） | 浏览器安装目录；设成仓库内 `.cache/ms-playwright` 可避免与别的项目共用全局缓存 | macOS `~/Library/Caches/ms-playwright`；Linux `~/.cache/ms-playwright`；Windows `%LOCALAPPDATA%\ms-playwright` |
 | `PLAYWRIGHT_DOWNLOAD_HOST` | 安装与镜像（playwright） | 浏览器下载镜像 | cdn.playwright.dev |
