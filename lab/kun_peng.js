@@ -8,11 +8,11 @@ import * as THREE from 'three';
 import { createKun } from '../src/kun_peng.js';
 import { PALETTE, setToonGlobals } from '../src/toon.js';
 import { heldTime } from '../engine/core/clock.js';
-import { labRenderer, kunStats, keyLight, inkComposite, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, drawPasses } from './kun_bench.js';
+import { labRenderer, kunStats, keyLight, BASE_VIEWS, baseExtra, pickView, eyeCloseup, frameTimes, labPipeline, labPixelRatio } from './kun_bench.js';
 
 const q = new URLSearchParams(location.search);
 const ROLL = +(q.get('roll') || 0), LOOK = !!q.get('look');
-const { renderer, W, H, RW, RH } = labRenderer(2);
+const { renderer, W, H, RW, RH } = labRenderer(labPixelRatio(q));
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, W / H, 5, 6000);
@@ -24,7 +24,7 @@ scene.add(kun.group);
 
 // 主光：破晓地平线低角度逆光（同 lab/kun.js）；合成：同 lab/kun.js 的屏幕空间描边 + 空气透视
 const { key } = keyLight(scene, setToonGlobals);
-const { rtC, rtN, comp, skyCover } = await inkComposite({ RW, RH, W, H, PALETTE, q });
+const { skyCover, draw } = await labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q });   // 默认正片后期；&ink=lab 回退临时描边
 
 // 固定机位（前六个与 lab/kun.js 相同；hero / wing / tail 是本变体新增的）
 const ev = new THREE.Vector3();
@@ -59,7 +59,7 @@ window.render = t => {
   else eyeCloseup(camera, kun, ev, k);
   if (LOOK) kun.setPose(ts, { wingT: tw, look: camera.position });
   skyCover(...v.sky);
-  drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlobals, inkT });
+  draw({ camera, setToonGlobals, inkT, fr });
 };
 // 性能：连渲 n 帧（每帧 readPixels 强制同步），返回每帧毫秒
 window.bench = (n = 24, tStart = 0) => {

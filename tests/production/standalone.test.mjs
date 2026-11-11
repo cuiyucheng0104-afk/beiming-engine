@@ -28,6 +28,7 @@ before(() => {
   for (const d of ['engine', 'routes', join('tools', 'lib')]) cpSync(join(REPO, d), join(SBX, d), { recursive: true, filter: s => !/[\\/](node_modules|__pycache__|out)$/.test(s) });
   writeFileSync(join(SBX, 'package.json'), readFileSync(join(REPO, 'package.json')));
   symlinkSync(join(REPO, 'assets'), join(SBX, 'assets'), 'junction');
+  symlinkSync(join(REPO, 'media'), join(SBX, 'media'), 'junction');   // A 模版的 style.baseline 指向 media/shot_1.6.jpg
 });
 after(() => { if (SBX) rmSync(SBX, { recursive: true, force: true }); });
 
