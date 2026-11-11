@@ -410,6 +410,21 @@ test('生效作品描述：档位换了画幅与帧率时 output、镜头、事�
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('交给 video.mjs 的参数：档位换了帧率加 --any-fps（帧数已按本次规格核对）；--size 工作版不再传 --profile（v2 判为用法冲突）', async () => {
+  const { videoArgs } = await import('../../engine/render/build.mjs');
+  const prof = { id: 'web-1080p24', width: 1920, height: 1080, fps: 24 };
+  const ctx = (o = {}) => ({ width: 1920, height: 1080, fps: 24, opts: { workers: 4, gpu: 'required' }, film: { fps: 24 }, profile: prof, anyFps: false, query: null, supports: () => true, ...o });
+  const a = videoArgs(ctx());
+  assert.ok(!a.includes('--any-fps'));
+  assert.deepEqual(a.slice(a.indexOf('--profile'), a.indexOf('--profile') + 2), ['--profile', 'web-1080p24']);
+  const v = videoArgs(ctx({ width: 1080, height: 1920, fps: 30, profile: { id: 'vertical-1080x1920-30', width: 1080, height: 1920, fps: 30 } }));
+  assert.ok(v.includes('--any-fps'), '竖屏 30 fps 对 24 fps 的作品：video.mjs 拿 film.json 的帧数核对会必然不符');
+  assert.ok(v.includes('--profile'));
+  const s = videoArgs(ctx({ width: 960, height: 540, profile: { ...prof, width: 960, height: 540, sizeOverride: true, baseWidth: 1920, baseHeight: 1080 } }));
+  assert.ok(!s.includes('--profile'), '--size 960x540 配 --profile web-1080p24 在 video.mjs v2 是 usage.conflict');
+  assert.deepEqual(s.slice(0, 2), ['--size', '960x540']);
+});
+
 test('本片字体子集（A 模版写了 fonts）：没生成时 build 在开运行目录前退出码 4 并给出生成命令；声明写错同样 4；B、没写 fonts 的不适用', async () => {
   const { planSession } = await import('../../tools/film/lib/session.mjs');
   const { fontsCheck } = await import('../../tools/film/lib/fonts.mjs');

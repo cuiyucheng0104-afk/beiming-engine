@@ -219,11 +219,12 @@ function renderedGpu(out) {
 // 时候传：v2 把「--size 与档位不一致」当用法错误，而预演（半分辨率）与 --size 改画幅的工作版本来就不按档位出。
 // 档位换了帧率时 video.mjs 拿作品目录里 film.json 的帧数核对会必然不符（它不读运行目录的生效描述）：这时也加 --any-fps，
 // 帧数已由 probe 步骤按本次规格核对过（round(DUR × fps) = ctx.frames）。
-function videoArgs(ctx) {
+export function videoArgs(ctx) {
   const a = ['--size', sizeArg(ctx), '--fps', String(ctx.fps), '--workers', String(ctx.opts.workers), ...queryArgs(ctx)];
   if (ctx.anyFps || ctx.fps !== ctx.film.fps) a.push('--any-fps');
   if (ctx.supports('video.mjs', '--gpu')) a.push('--gpu', ctx.opts.gpu);
-  const onProfile = !ctx.profile.custom && ctx.width === ctx.profile.width && ctx.height === ctx.profile.height && ctx.fps === ctx.profile.fps;
+  // --size 的工作版：档位对象的画幅已被换成 --size（sizeOverride），不能再把档位交给 video.mjs
+  const onProfile = !ctx.profile.custom && !ctx.profile.sizeOverride && ctx.width === ctx.profile.width && ctx.height === ctx.profile.height && ctx.fps === ctx.profile.fps;
   if (onProfile && ctx.supports('video.mjs', '--profile')) a.push('--profile', ctx.profile.id);
   return a;
 }
