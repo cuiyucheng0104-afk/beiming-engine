@@ -61,7 +61,7 @@ export function createPaper(fx, renderer, { url = null, refHeight = 1080 } = {})
       for (let i = 0; i < d.length; i += 4) s += (d[i] * .2126 + d[i + 1] * .7152 + d[i + 2] * .0722) / 255;
       extMid = s / (d.length / 4);
       ext = new THREE.Texture(img); ext.wrapS = ext.wrapT = THREE.RepeatWrapping; ext.needsUpdate = true;
-    } catch { ext = null; }   // 没有文件：用程序化纸纹
+    } catch { ext = null; console.error(`[纸纹] 载入失败：${url}，改用程序化纸纹（成片质感会变）`); }
   })();
 
   function resize(w, h) {
