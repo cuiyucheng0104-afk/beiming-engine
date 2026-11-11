@@ -170,7 +170,7 @@ function attribute(f0, { root, commitPaths, commitDirs, drift }) {
     if (!drift.index.has(f) && !drift.indexDirs.has(f) && fs.existsSync(path.join(root, ...f.split('/')))) return { kind: 'worktree', why: '未跟踪或被 .gitignore 忽略' };
   }
   const named = namedDrift(f0.message, drift.sample.filter(p => !commitPaths.has(p)));
-  if (named) return { kind: 'worktree', why: `说明里点名的 ${named} 只在工作区、不在这次提交里` };
+  if (named) return { kind: 'worktree', why: `说明里点名的 ${named}` };
   return { kind: 'commit-state' };
 }
 

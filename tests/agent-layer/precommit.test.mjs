@@ -361,7 +361,7 @@ test('跨文件：与提交一致的文件上的发现，说明里点名的路�
   touchKeep(dir, 8);
   const ok = git(dir, ['commit', '-q', '-m', 'unrelated']);
   assert.equal(ok.status, 0, `点名的路径只在工作区，不该拦：${ok.stderr}`);
-  assert.match(ok.stderr, /说明里点名的 drafts\/wip\/notes\.md 只在工作区[^\n]*docs\/guide\.md zz\.mention/);
+  assert.match(ok.stderr, /只在工作区、不在这次提交里：说明里点名的 drafts\/wip\/notes\.md，不阻断）docs\/guide\.md zz\.mention/);
   assert.equal(git(dir, ['add', '--', 'drafts/wip/notes.md']).status, 0);
   const bad = git(dir, ['commit', '-q', '-m', 'wip']);
   assert.notEqual(bad.status, 0, '点名的路径带进了提交，要拦');
