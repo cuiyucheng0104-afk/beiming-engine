@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """北冥引擎 · 配音 · 对白文件 dialogue.json → 配音轨、字幕（SRT / WebVTT / ASS）、window.TEXTS 的数据、口型提示，同一份时间。
 
-dialogue.json（schema "beiming.dialogue/1"，放在作品目录；film.json 可用 "voice": {"dialogue": "dialogue.json"} 指过来）：
+dialogue.json（schema "beiming.dialogue/1"，放在作品目录；别的位置就把路径直接交给命令）：
   {
     "schema": "beiming.dialogue/1",
     "speakers": {                                    说话人 → 怎么发声（服务见 engine/audio/voice/providers.py）
@@ -146,17 +146,10 @@ def _find_film(dialogue_path, film):
 
 
 def resolve_dialogue(target):
-    """作品目录（film.json 的 voice.dialogue，否则 dialogue.json）或 dialogue.json 的路径 → (dialogue 路径, 作品目录或 None)"""
+    """作品目录（读其中的 dialogue.json）或 dialogue.json 的路径 → (dialogue 路径, 作品目录或 None)"""
     p = os.path.abspath(target)
     if os.path.isdir(p):
-        fj = os.path.join(p, 'film.json')
-        rel = 'dialogue.json'
-        if os.path.exists(fj):
-            with open(fj, encoding='utf-8') as f:
-                raw = json.load(f)
-            rel = ((raw.get('voice') or {}).get('dialogue')) or rel
-            return os.path.join(p, *rel.split('/')), p
-        return os.path.join(p, rel), None
+        return os.path.join(p, 'dialogue.json'), (p if os.path.exists(os.path.join(p, 'film.json')) else None)
     return p, None
 
 
@@ -171,7 +164,7 @@ def _synth(line, spk, prov, cache, offline, workdir, log):
         return audio, meta.get('words'), {'cache': 'hit', 'key': k, 'provider': ident}
     if offline and prov.network:
         raise _err('env.voice-offline', f'离线模式下缓存里没有这句（{line["id"]}，{prov.name}）',
-                   '联网跑一次（去掉 --offline）把它合成进缓存；或设 BEIMING_VOICE_CACHE 指向已有缓存')
+                   '联网跑一次（去掉 --offline）把它合成进缓存；或用 --cache 指向已有缓存')
     ok, why, hint = prov.available()
     if not ok:
         raise _err('env.voice-provider', f'{line["speaker"]} 的配音服务 {prov.name} 用不了：{why}', hint)
@@ -213,7 +206,7 @@ def build(dialogue, film=None, out=None, cache=None, offline=False, provider=Non
     cuts = (fs or {}).get('cuts') or []
     base = (fs or {}).get('filmDir') or os.path.dirname(dpath)
     out = os.path.abspath(out or os.path.join(base, 'out', 'dialogue'))
-    cache_dir = os.path.abspath(cache or os.environ.get('BEIMING_VOICE_CACHE') or os.path.join(base, 'out', 'cache', 'voice'))
+    cache_dir = os.path.abspath(cache or os.path.join(base, 'out', 'cache', 'voice'))
     cfg = ST.Config(**(d.get('subtitles') or {}))
     lips_cfg = {'leadFrames': 1, 'step': 1}
     lips_cfg.update(d.get('lips') or {})

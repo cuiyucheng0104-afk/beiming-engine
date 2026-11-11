@@ -17,10 +17,10 @@ def make_parser():
     p = ArgumentParser(prog='python -m engine.audio.voice', description='配音、字幕与口型：dialogue.json → voice.wav、subtitles.srt/.vtt/.ass、'
                        'texts.json、lips.json。退出码：0 成功；2 用法；3 缺依赖 / 密钥 / 离线缓存；4 对白不合规或放不下；1 运行失败。')
     p.add_argument('action', choices=['build', 'check', 'providers'], help='build 合成并导出；check 只校验；providers 列出服务')
-    p.add_argument('dialogue', nargs='?', help='dialogue.json，或作品目录（读 film.json 的 voice.dialogue，否则 dialogue.json）')
+    p.add_argument('dialogue', nargs='?', help='dialogue.json，或作品目录（读其中的 dialogue.json）')
     p.add_argument('--film', help='film.json 或作品目录（默认在对白文件所在目录与上一级找）')
     p.add_argument('--out', help='输出目录（默认 <作品>/out/dialogue）')
-    p.add_argument('--cache', help='缓存目录（默认 $BEIMING_VOICE_CACHE，再缺省 <作品>/out/cache/voice）')
+    p.add_argument('--cache', help='缓存目录（默认 <作品>/out/cache/voice；付费服务的长片指到仓库外的固定目录）')
     p.add_argument('--offline', action='store_true', help='联网的服务只读缓存（缓存没有就退出 3）；本机的服务照常合成')
     p.add_argument('--provider', choices=sorted(PV.PROVIDERS), help='把所有说话人换成这个服务（动态预演用 synthetic）')
     return p

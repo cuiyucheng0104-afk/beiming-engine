@@ -15,17 +15,17 @@ export const command = pythonCommand({
   module: 'engine.audio.voice',
   positionals: [
     { name: 'action', label: '<build | check | providers>', describe: 'build 合成并导出；check 只校验对白文件；providers 列出配音服务与本机能否使用' },
-    { name: 'dialogue', label: '[作品目录或 dialogue.json]', required: false, describe: '作品目录时读 film.json 的 voice.dialogue，否则 dialogue.json' },
+    { name: 'dialogue', label: '[作品目录或 dialogue.json]', required: false, describe: '作品目录时读其中的 dialogue.json' },
   ],
   description: [
     '写法见 engine/audio/voice/README.md。密钥只从环境变量或系统钥匙串读（MINIMAX_API_KEY 或钥匙串 beiming-minimax），仓库不读任何密钥文件。',
-    '缓存键 = sha256(服务, 模型, 音色, 参数, 原话)：同一句只合成一次（付费服务不重复计费）；缓存目录默认 <作品>/out/cache/voice，长片建议设 BEIMING_VOICE_CACHE 到仓库外。',
+    '缓存键 = sha256(服务, 模型, 音色, 参数, 原话)：同一句只合成一次（付费服务不重复计费）；缓存目录默认 <作品>/out/cache/voice，付费服务的长片建议用 --cache 指到仓库外。',
     '--offline：联网的服务只读缓存；--provider synthetic：确定的临时配音（动态预演用，不是真人声，不能交付）。',
   ],
   options: {
     film: { type: 'string', arg: '<作品>', describe: 'film.json 或作品目录（默认在对白文件所在目录与上一级找）：帧率、片长、切点、画幅' },
     out: { type: 'string', arg: '<目录>', describe: '输出目录（默认 <作品>/out/dialogue）' },
-    cache: { type: 'string', arg: '<目录>', describe: '缓存目录（默认 $BEIMING_VOICE_CACHE，再缺省 <作品>/out/cache/voice）' },
+    cache: { type: 'string', arg: '<目录>', describe: '缓存目录（默认 <作品>/out/cache/voice；付费服务的长片指到仓库外的固定目录）' },
     offline: { type: 'boolean', describe: '联网的服务（minimax、edge）只读缓存，缓存没有就退出 3' },
     provider: { type: 'string', arg: '<服务>', choices: ['synthetic', 'say', 'command', 'minimax', 'edge'], describe: '把所有说话人换成这个服务' },
   },

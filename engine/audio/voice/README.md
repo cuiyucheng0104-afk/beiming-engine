@@ -6,7 +6,7 @@
 ## 一条命令
 
 ```sh
-node tools/audio/voice.mjs build films/<名>                       # 读 films/<名>/dialogue.json（或 film.json 的 voice.dialogue）
+node tools/audio/voice.mjs build films/<名>                       # 读 films/<名>/dialogue.json
 node tools/audio/voice.mjs build films/<名> --provider synthetic  # 动态预演：确定的临时配音，不联网、不花钱（不是真人声，不能交付）
 node tools/audio/voice.mjs build films/<名> --offline             # 联网的服务只读缓存（缓存没有就退出 3）
 node tools/audio/voice.mjs check films/<名>/dialogue.json         # 只校验写法
@@ -74,7 +74,7 @@ window.TEXTS = textsFrom(layout);          // tools/qa texts 读它查安全区�
 ## 凭据、缓存、离线
 
 - 密钥只从环境变量（`MINIMAX_API_KEY`）或系统钥匙串（服务名 `beiming-minimax`：macOS `security`、Linux `secret-tool`、Windows 凭据管理器）读；仓库不读任何密钥文件，也不把密钥写进缓存、日志和报告。`node tools/audio/voice.mjs providers` 会给出三个平台各自的存法。
-- 缓存键 = sha256(服务, 模型, 音色, 影响声音的参数, 原话)。原始响应进缓存前去掉所有地址的查询串（签名、过期时间）和请求追踪号。默认在 `films/<名>/out/cache/voice`（不入库）；付费合成的长片设 `BEIMING_VOICE_CACHE` 到仓库外的固定目录，换检出不用重付。
+- 缓存键 = sha256(服务, 模型, 音色, 影响声音的参数, 原话)。原始响应进缓存前去掉所有地址的查询串（签名、过期时间）和请求追踪号。默认在 `films/<名>/out/cache/voice`（不入库）；付费合成的长片用 `--cache <目录>` 指到仓库外的固定目录，换检出不用重付。
 - `--offline`：联网服务只读缓存；本机服务（synthetic、say、command）照常合成。
 
 ## 限制

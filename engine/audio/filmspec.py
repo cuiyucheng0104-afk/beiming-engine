@@ -5,7 +5,7 @@
   load(target) → dict：target 是 film.json 路径或作品目录
       {file, dir（路径基准：普通作品是作品目录；mirror.paths = "repo" 的镜像作品是仓库根）, id, title, route, version,
        fps, frameCount, seconds, width, height, profile, shots: [{id, in, out}], cuts: [帧…], events: [...],
-       audio: {mode, script, wav, cues, targetLUFS, truePeakDbTP, …}, cuecheck, timeline, voice, raw}
+       audio: {mode, script, wav, cues, targetLUFS, truePeakDbTP, …}, cuecheck, timeline, raw}
   profile(pid=None) → 交付档位（engine/production/profiles.json；没有这个文件时用决策 D07 的兜底表）
   loudness_targets(档位) → (积分响度目标, 容差, 真峰值上限)：认权威表的 audio.loudness.{integrated, tolerance, truePeak}，
                           也认早期草案的 integratedLUFS / toleranceLU / audio.truePeakMaxDbTP（同 tools/qa/lib/profiles.mjs 的 adapt）；缺的项给 None
@@ -116,7 +116,7 @@ def load(target):
     return {'file': file, 'dir': base, 'filmDir': fdir, 'id': raw.get('id') or os.path.basename(fdir), 'title': raw.get('title'),
             'route': raw.get('route'), 'version': version, 'fps': fps, 'frameCount': n, 'seconds': n / fps,
             'width': w, 'height': h, 'profile': pid, 'shots': shots, 'cuts': cuts, 'events': list(raw.get('events') or []),
-            'audio': audio, 'cuecheck': raw.get('cuecheck'), 'timeline': raw.get('timeline'), 'voice': raw.get('voice'), 'raw': raw}
+            'audio': audio, 'cuecheck': raw.get('cuecheck'), 'timeline': raw.get('timeline'), 'raw': raw}
 
 
 def resolve(film, rel):

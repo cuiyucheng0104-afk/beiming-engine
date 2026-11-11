@@ -7,7 +7,7 @@
     .put(k, result, meta) → 条目目录
     .path(k)
 条目：<root>/<k 前两位>/<k>/audio.wav（PCM_24，48 kHz 单声道）+ meta.json（服务、参数、原话、时长、逐字时间、去掉签名地址的原始响应）。
-缓存目录默认 <作品>/out/cache/voice（附录 C4）；付费合成的长片建议设 BEIMING_VOICE_CACHE 到仓库外的固定目录，换检出不用重付。
+缓存目录默认 <作品>/out/cache/voice（附录 C4）；付费合成的长片建议用 --cache 指到仓库外的固定目录，换检出不用重付。
 """
 import datetime
 import hashlib
