@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "$comment": "端到端测试夹具（tests/production/retime-e2e.test.mjs）：页面 index.html 只从这里读时间（engine/production/timeline.js 的 pageTiming）。测试把它复制到仓库的 out/ 下再改切点，不改这里。",
+  "id": "retime",
+  "title": "改切点端到端",
+  "route": "c",
+  "backend": "canvas",
+  "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 120 },
+  "shots": [{ "id": "S1", "in": 0, "out": 48 }, { "id": "S2", "in": 48, "out": 72 }, { "id": "S3", "in": 72, "out": 120 }],
+  "events": [{ "id": "s3.mark", "frame": 96, "shot": "S3", "visual": "镜头 S3 里的白色方块出现" }],
+  "audio": { "mode": "none" },
+  "credits": [],
+  "aigc": { "contains": false }
+}

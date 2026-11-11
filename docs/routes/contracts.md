@@ -1,8 +1,59 @@
-# 数据与模块契约：两条路线如何合作
+# 数据与模块契约：三条路线如何合作
 
-> 读者：设计两条路线共用数据与接口的工程师｜状态：实施规格；`ProjectSpec` 与 `RenderResult` 的校验已实现（T01），其余是设计｜依据：2026-11-06
+> 读者：设计三条路线共用数据与接口的工程师｜状态：实施规格；作品描述 film.json v2、交付档位、创作闸门、`ProjectSpec` 与 `RenderResult` 的校验已实现，ShotSpec / FrameState / BackendAdapter 仍是设计｜依据：2026-11-06，2026-11-10 按决策 D01–D11 修订
 
-本页是实施规格。`ProjectSpec` 与 `RenderResult` 的字段校验、路径诊断已在 [`engine/production/project.js`](../../engine/production/project.js) 实现（T01，仅供测试调用，渲染器不读取）；`ShotSpec / FrameState / BackendAdapter` **尚未作为引擎 API 实现**。当前可运行入口仍是原 Three 页面与独立 RAEA 示例。JSON 模板供项目记录和实现时参照，现有渲染器不会自动读取它们。
+本页是实施规格。已经实现、可以直接调用的部分：
+
+| 契约 | 实现 | 说明 |
+|---|---|---|
+| 作品描述 `films/<名>/film.json` v2 | [`engine/production/film.js`](../../engine/production/film.js)，schema 见 [`film.schema.json`](../../engine/production/film.schema.json) | 每部作品唯一的时间源：镜头表、事件表、节拍、刻意画面都用整数帧；字段与规则见 [engine/production/README.md](../../engine/production/README.md)；本页 §0 摘要 |
+| 交付档位 | [`engine/production/profiles.json`](../../engine/production/profiles.json) | 决策 D07；机器 QA 直接读这一份（不兜底）；本片的 QA 期望值由 `film.js expect` 给出 |
+| 页面约定 v1 | 本页 §0.2 | A、C 路线的页面与渲染器之间的约定（计划附录 C5） |
+| 创作闸门与状态 | [`engine/production/state.js`](../../engine/production/state.js)、[`review.js`](../../engine/production/review.js) | 决策 D08；操作说明见 [docs/creative-review/](../creative-review/README.md) |
+| `ProjectSpec` 与 `RenderResult` | [`engine/production/project.js`](../../engine/production/project.js) | T01 的字段与路径校验；路线改用注册表 id；RenderResult 加了人工评审与 QA 证据规则（§7） |
+| 共享资产 | [`engine/assets/manifest.js`](../../engine/assets/manifest.js) | 资产 id、sha256 与锁文件（§6） |
+
+`ShotSpec / FrameState / BackendAdapter` **尚未作为引擎 API 实现**；渲染器目前也不读 ProjectSpec。JSON 模板（[templates/](templates/)）供作品记录和实现时参照，没有被渲染器消费的字段不得描述为已生效的渲染参数。
+
+## 0. 作品描述与页面约定
+
+### 0.1 film.json v2（摘要）
+
+- **时间**：`output.frameCount` 是时长的唯一来源；镜头 `shots[]` 是半开区间 `[in, out)`，首尾相接覆盖 `[0, frameCount)`；事件 `events[]` 写结果帧 `frame` 与所属镜头 `shot`；秒只由 帧 / fps 推出。改切点用 `node engine/production/film.js retime`，事件跟着镜头走。
+- **路线**：`route` 取路线注册表 id（`a` / `b` / `c`），`backend` 按路线取值；交付规格只引用档位 `output.profile`。
+- **声画同步与刻意画面**：`events[].sync` 与机器 QA 同口径（不写 = 硬门、`lip`、`soft`、`none`）；刻意的静帧、黑场、闪白写在 `qa.intentional`（写理由），QA 的阈值覆盖与用户批准的豁免也在 `qa` 段（[QA-GATE.md](../quality/QA-GATE.md)）。
+- **不许有没有消费者的时间字段**：时间只写在 `shots`、`events`、`timeline`（C 路线页面读的是 `tempo` + `cues`：节拍段落与画面打点，`engine/core/tempo.js` 换算，打点必须落整帧）、`qa`（`intentional` 的 `from` / `to`、豁免的 `frames`）、`posterFrame`。
+- **校验**：`node engine/production/film.js check films/<名> [--json]`（退出码 0 / 2 / 4；`--json` 的诊断在 `data.diagnostics`）；模版用 `--template`。
+
+### 0.2 页面约定 v1（A、C 路线）
+
+渲染器（`engine/render/`）打开作品的 `index.html`，按整数帧逐帧调用 `render(t)`。页面必须遵守：
+
+| 字段 | 要求 |
+|---|---|
+| `window.DUR` | 必选。有限正数（秒），且 `round(DUR × fps)` 必须等于 film.json 的 `output.frameCount`。从 film.json 推出：`window.DUR = pageTiming(film).DUR`（`engine/production/timeline.js`） |
+| `window.render(t)` | 必选。`t` 是秒（= 帧号 / fps）；结果只由 `t` 决定（任意帧单独渲与顺序渲一致）；可以同步执行或返回 Promise，受单帧超时约束 |
+| `window.READY` | 必选。资源加载完、着色器编译完后置为 `true`，须在就绪超时之内 |
+| `window.TEXTS(t)` | 推荐。返回该时刻画面上的文字 `[{ text, box: [x, y, w, h], alpha, font }]`（像素框、0–1 不透明度），给 QA 查安全区、停留时长、对比度与缺字 |
+| `window.EV`、`window.TIMELINE` | 可选。声画事件表与节拍表，`engine/render/events.mjs` 导出成 `events.json` / `timeline.json`；作品有 film.json 时它们必须与 film.json 的事件一致（或直接从 film.json 生成） |
+| `window.__RENDER` | 由渲染器注入：`{ fps, width, height, profile }`；页面据此按档位排版，不自己写死帧率 |
+| `window.BEIMING_CONTRACT` | 可选，页面约定的版本号，缺省按 1 处理 |
+
+禁止：渲染路径里用 `Math.random`、`Date.now`、`performance.now`（只用于计时的除外）、无种子的噪声（`engine/core/noise.js` 不再接受无种子调用）；渲染时读回 GPU 画布；访问外网。
+
+页面的时间从 film.json 读，不在代码里另写切点与事件的秒数：
+
+```js
+import { pageTiming } from '../../engine/production/timeline.js';
+const timing = pageTiming(await (await fetch('./film.json')).json());
+window.DUR = timing.DUR;                       // round(DUR × fps) = output.frameCount
+const { shot, local } = timing.at(t);          // t 所在的镜头与镜头内秒数（画面先到：帧取 floor）
+const tTitle = timing.event('title.in').t;     // 事件的结果帧换成秒
+```
+
+这样改一个镜头的 `out`（`film.js retime`），画面切点、镜头内时间与事件时刻跟着 film.json 变，不改页面代码。还没改读 film.json 的页面，时间常量（例如 `timeline.js` 的 `DUR`、`FPS`）必须与它一致——`film.js check` 会核对作品目录里 `timeline.js` 的 `DUR` 与 `FPS`。
+
+B 路线的原生入口（`film.tsx`）不走页面约定：帧数、尺寸由 film.json 的 `output` 与 `native` 段给出，时间只由 `useCurrentFrame()` 决定。
 
 ## 1. 共用到什么程度
 
@@ -15,7 +66,7 @@
 | 动作 | 二维姿态或三维 clip/目标约束 | RAEA 原生角色与动画能力 | 可共享 clip、世界目标与动作事件 |
 | GPU 与编码 | 浏览器/未来原生适配 | 原生运行时 | 统一记录实际执行证据 |
 
-北冥原生路线必须保留直接使用 RAEA SDK 的空间。统一层第一版只表达已有北冥镜头需要的内容，不尝试把所有 RAEA 功能重新封装一遍。
+北冥原生路线（B）必须保留直接使用原生运行时 SDK 的空间。C 路线（北冥代码动画风格 · 86 式）与 A 共用页面渲染器，只共享作品描述、页面约定与交付记录（决策 D01）。统一层第一版只表达已有北冥镜头需要的内容，不尝试把所有 RAEA 功能重新封装一遍。
 
 ```mermaid
 flowchart TD
@@ -37,15 +88,15 @@ flowchart TD
 
 ## 2. ProjectSpec
 
-模板：[北冥风格路线项目](templates/project-beiming.json)、[北冥原生路线项目](templates/project-raea.json)。
+模板：[北冥风格路线项目](templates/project-beiming.json)、[北冥原生路线项目](templates/project-raea.json)。作品描述 film.json 与 ProjectSpec 互转：`toProjectSpec(film, { runtime, execution, filmDir })` / `fromProjectSpec(spec)`（`engine/production/film.js`）。
 
 | 字段 | 类型/约束 | 含义与校验 |
 |---|---|---|
 | `schemaVersion` | 整数，起始 1 | 配置结构版本；未知版本拒绝自动解释 |
 | `projectId` | 稳定字符串 | 与临时输出名分离；用于镜头和资产记录 |
-| `route` | `beiming` / `raea` | 创作路线，不从后端倒推 |
-| `backend` | `three` / `raea` | 当前执行路径；`beiming + raea` 需标明风格迁移状态 |
-| `entry` | 仓库相对文件路径 | Three 为影片目录的 `index.html`，RAEA 为 TSX |
+| `route` | 路线注册表 id：`a` / `b` / `c`（旧值 `beiming` = a、`raea` = b，目录名 `a-webgl` / `b-native` / `c-style` 也认） | 创作路线，不从后端倒推；注册表 `routes/routes.json`，缺省内置三条 |
+| `backend` | a：`three`；b：`native`（旧写法 `raea`）；c：`canvas` / `svg` / `dom` / `three` / `webgl` | 当前执行路径；a 的风格搬到原生执行（a + native）需标明风格迁移状态 |
+| `entry` | 仓库相对文件路径 | A / C 为作品目录的 `index.html`，B 为原生入口 TSX |
 | `runtime` | 版本对象 | Three/浏览器或 RAEA 包版本；另记源码提交 |
 | `output` | 宽高、fps、frameCount | 时间总长由整数帧推导；H.264 yuv420p 的宽高为偶数 |
 | `style` | id/version/baseline | 北冥风格路线需基准；北冥原生路线可独立定义目标 |
@@ -136,7 +187,9 @@ Three 适配器先包装现有镜头，不直接改写其全局 `update(t,f)` �
 
 ## 6. AssetManifest
 
-模板：[asset.json](templates/asset.json)。每个资产至少包含 ID、来源/版本、文件相对路径、SHA256、单位、前向/上向、包围盒、材质类别、动画片段和形变方式。
+已实现的部分：共享资产注册表 [`engine/assets/manifest.js`](../../engine/assets/manifest.js)。资产 id 写成 `<种类>:<名字>@v<版本>`（种类 model、character、material、plate、font、ref；作品自带的文件写 `local:<相对路径>`），film.json 的 `assets` 只写 id；每个资产的 sha256 记在 `engine/assets/assets.lock.json`，JS 模块的哈希覆盖它在 `src/` 里的 import 闭包。命令：`node engine/assets/manifest.js list | check [--film <作品>] | lock [--write]`。资产改了而锁文件没更新时，`film.js check` 提示 `asset-changed`（用到它的镜头缓存失效，用户认可过的风格帧要复核）。
+
+下面是完整资产记录的设计（模板：[asset.json](templates/asset.json)，尚未实现）。每个资产至少包含 ID、来源/版本、文件相对路径、SHA256、单位、前向/上向、包围盒、材质类别、动画片段和形变方式。
 
 对于 GLB，额外记录：skin/bone 数量、clip 名称和时长、是否循环、morph 数、纹理颜色空间、双面/alpha 模式、是否包含 baked light。对于底板，记录 alpha 是否预乘、边缘处理、宽高比、层级、雾参与、阴影参与与视差规范。
 
@@ -155,6 +208,29 @@ Three 适配器先包装现有镜头，不直接改写其全局 `update(t,f)` �
 | 技术通过但动作/画风不符 | 创作验收不通过 | 对照帧和失败事件，不延长成片凑时长 |
 
 一个结果同时保存 `technicalAcceptance` 与 `creativeAcceptance`。最终 `accepted` 只有两者都满足本项目要求时才成立。
+
+### 7.1 运行记录 run.json（RenderResult v1 扩展，计划附录 C8）
+
+每次运行写进 `films/<名>/out/<run-id>/run.json`（run-id 为 `YYYYMMDD-HHMMSS-<短提交>[-dirty]`），`films/<名>/out/latest` 是写着 run-id 的指针文件。模板：[run.json](templates/run.json)。
+
+| 字段 | 含义 |
+|---|---|
+| `kind` | `final`（终渲）/ `animatic`（动态预演）/ `preview` / `still`；状态机只把 `final` 算作终渲 |
+| `status` | `not-run` → `running` → `rendered`（出片完成、待技术验收，渲染器写）→ `passed`（技术验收通过，QA 判定后写）→ `accepted`（创作验收也通过）；`failed` / `blocked` |
+| `projectId`、`shotId`（整片写 `film`）、`route`、`backend` | 身份；`route` 取注册表 id |
+| `sourceCommit`、`dirty`、`argv`、`tools{node, playwright, browser, ffmpeg, python?, raea?}` | 来源与工具版本 |
+| `actualDevice`、`actualGraphicsBackend`、`actualEncoder`、`softwareFallback` | 实际执行证据（rendered / passed / accepted 必填前三项） |
+| `output{path, sha256, width, height, fps, frames, pixFmt, color}`、`frameHashes`、`timing{阶段: 秒}` | 产物与耗时 |
+| `technicalAcceptance{status, evidence[]}` | 渲染器只写 `not-run`；`passed` 必须指向一份可解析、`ok: true` 的 QA 报告（`tools/qa` 写的仓库相对路径，或相对运行目录的 `qa/report.json`） |
+| `creativeAcceptance{status, reviews[]}` | `status`：`not-reviewed` / `ai-reviewed` / `rejected` / `accepted`；`reviews[]` 每条 `{ reviewerKind: human \| ai, reviewer, decision, quote, source{kind, ref, at}, scores?, vetoes?, evidenceFrames?, record? }`（`scores` / `vetoes` 的 id 见 [docs/creative-review/RUBRIC.md](../creative-review/RUBRIC.md) §1）。AI 只能 `comment`；`accepted` 至少要一条人工 `approve`，带审阅人原话与出处。出片编排用 `creativeAcceptanceOf(作品, { runShas })`（`engine/production/state.js`）从审片记录生成，不手拼 |
+
+校验：`node engine/production/film.js validate-result <run.json> [--film <作品>] [--json]`（不给 `--film` 时按运行目录找作品；exit 0 通过、4 不合格、2 找不到），库 `validateRenderResult(run, { strict: true, runDir, repoRoot })`。T01 的旧形状（`creativeAcceptance` 只写 `events` / `styleComparison`）只在默认口径下兼容，运行记录一律用严格口径。
+
+QA 报告 `qa/report.json` 由 `node tools/qa/cli.mjs report <成片>` 生成，结构以机器 QA 的 `validateReport`（`tools/qa/lib/report.mjs`）为准，最少有 `{ schemaVersion: 1, film, input: { path, sha256 }, profile, checks: [{ id, status: pass | fail | warn | waived, value, expected, evidence, waiver? }], ok }`（`film`、`profile` 可以是带 `id` 的对象）；`input.sha256` 必须是这次运行的成片。
+
+### 7.2 创作闸门
+
+终渲之前 look 与 animatic 必须有用户认可或原话豁免；「已交付」「用户已认可」只能由 accepted 状态生成。状态不写在任何文件里，由 film.json、`review/` 的审片记录与最近一次运行现算（`node engine/production/film.js status <作品>`）。规则与命令见 [docs/creative-review/README.md](../creative-review/README.md)。
 
 ## 8. 按什么顺序实现这些契约
 

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>改切点端到端</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head><body>
+<canvas id="c"></canvas>
+<script type="module">
+// 端到端测试页（tests/production/retime-e2e.test.mjs）：切点与事件时刻全部从 film.json 读（pageTiming），代码里没有一个秒数。
+// 每个镜头一种底色（亮度差得开：切点检测看亮度，红与蓝的亮度几乎一样会漏检），镜头里一条竖条随镜头内时间匀速横移（避免整镜静帧）；
+// 事件 s3.mark 之后右上角出现白方块。
+import { pageTiming } from '/engine/production/timeline.js';
+const timing = pageTiming(await (await fetch('./film.json')).json());
+const c = document.getElementById('c');
+c.width = innerWidth; c.height = innerHeight;
+const g = c.getContext('2d');
+const COLOR = { S1: '#1d2a3a', S2: '#e8d9b0', S3: '#4f8f5a' };   // 亮度约 40 / 215 / 120
+const mark = timing.event('s3.mark').t;
+window.DUR = timing.DUR;
+window.render = t => {
+  const { shot, local } = timing.at(t);
+  const s = timing.shot(shot);
+  g.fillStyle = COLOR[shot] ?? '#777';
+  g.fillRect(0, 0, c.width, c.height);
+  const x = (local / s.dur) * (c.width - c.width / 16);
+  g.fillStyle = 'rgba(255,255,255,0.35)';
+  g.fillRect(x, 0, c.width / 16, c.height);
+  if (t >= mark) { g.fillStyle = '#fff'; g.fillRect(c.width * 0.85, c.height * 0.1, c.width * 0.08, c.width * 0.08); }
+};
+window.READY = true;
+</script>
+</body></html>
