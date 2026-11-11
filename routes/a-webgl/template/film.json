@@ -1,7 +1,79 @@
 {
-  "route": "a",
+  "schemaVersion": 2,
+  "id": "{{NAME}}",
   "title": "{{TITLE}}",
-  "dur": 3,
-  "fps": 24,
-  "size": [1920, 1040]
+  "route": "a",
+  "backend": "three",
+  "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 192 },
+  "shots": [
+    {
+      "id": "S1",
+      "in": 0,
+      "out": 72,
+      "module": "shots/s1.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/wide",
+      "note": "远：晨前江面，孤峰在右三分线，渡船从左下驶向它；长焦缓推（3 秒）"
+    },
+    {
+      "id": "S2",
+      "in": 72,
+      "out": 192,
+      "module": "shots/s2.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/hero",
+      "note": "近：切近孤峰，太阳从峰右的远山后升起，片名在左上天空题写，之后完整停留到片尾（5 秒）"
+    }
+  ],
+  "events": [
+    { "id": "sun-break", "frame": 90, "shot": "S2", "audio": "bell", "visual": "sun", "note": "太阳核心露出远山的那一帧（结果帧）；切镜后 0.75 秒；钟声同一帧起音；光的剧本从这里开始暖" },
+    { "id": "title-in", "frame": 96, "shot": "S2", "audio": "brush", "visual": "title", "note": "第一笔墨落纸的那一帧（画面这一帧已有墨）；落笔声同帧起音；整行约 1.3 秒洇满，之后完整停留到片尾" }
+  ],
+  "texts": [{ "id": "title", "text": "{{TITLE}}", "font": "BM Title" }, { "id": "subtitle", "text": "北冥风格 · 样片", "font": "BM Text" }],
+  "fonts": [{ "family": "BM Title", "source": "ma-shan-zheng" }, { "family": "BM Text", "source": "noto-sans-sc", "weight": 500 }],
+  "audio": { "mode": "script", "script": "sound.py", "targetLUFS": -14, "truePeakDbTP": -1 },
+  "deliveries": ["web-1080p24"],
+  "style": {
+    "id": "beiming-original",
+    "version": 1,
+    "lock": "../../engine/style/beiming-original.v1.json",
+    "baseline": "../../media/shot_1.6.jpg",
+    "note": "画风登记在 engine/style/registry.json；视觉基准取样片的晨江大远景（registry 的 baselineFrames 之一）。定调改了色板或后期就是新版本，按 routes/a-webgl/LOOKDEV.md 签认后登记"
+  },
+  "assets": ["plate:sky_dawn", "paper"],
+  "credits": [
+    { "what": "片名字体子集 Ma Shan Zheng 2.003", "owner": "The MaShanZheng Project Authors", "license": "OFL-1.1", "source": "fonts/fonts.lock.json" },
+    { "what": "文字字体子集 Noto Sans SC 2.004", "owner": "Adobe（Reserved Font Name 'Source'）", "license": "OFL-1.1", "source": "fonts/fonts.lock.json" }
+  ],
+  "aigc": { "contains": true, "note": "天空底板（assets/plates/sky_dawn.png）为 AI 生成后人工整理；片尾或说明写「含 AI 生成画面」" },
+  "gates": { "look": "required", "animatic": "required", "final": "required" },
+  "next": [
+    {
+      "stage": "build",
+      "title": "生成本片字体子集：按 texts 从锁定的 OFL 字体子集化，缺字直接失败（改了 texts 就重跑）",
+      "run": ["node", "tools/fonts/subset.mjs", "{dir}"],
+      "requires": ["python"]
+    },
+    { "stage": "check", "title": "只读检查：作品描述、页面契约、档位、镜头表与闸门", "run": ["npm", "run", "film", "--", "check", "{dir}"], "requires": ["chrome"] },
+    {
+      "stage": "look",
+      "title": "风格关键帧与联系表，给用户定画风（D08 的 look 闸；用户认可之前不把片子做长）",
+      "run": ["npm", "run", "film", "--", "stills", "{dir}"],
+      "requires": ["chrome", "ffmpeg"]
+    },
+    {
+      "stage": "animatic",
+      "title": "半分辨率动态预演（时长、切点、声音事件同正片），给用户确认节奏（animatic 闸）",
+      "run": ["npm", "run", "film", "--", "animatic", "{dir}"],
+      "requires": ["chrome", "ffmpeg", "python"]
+    },
+    {
+      "stage": "build",
+      "title": "出片：声音 → 逐帧 → 封装 → 网页版 → 机器 QA（工作版；终渲加 --final，要先过 look 与 animatic 闸）",
+      "run": ["npm", "run", "film", "--", "build", "{dir}"],
+      "requires": ["chrome", "ffmpeg", "python"],
+      "output": "{dir}/out/latest"
+    },
+    { "stage": "check", "title": "改完后跑仓库规范检查（A 路线规则：画风、镜头表、字体、底板）", "run": ["npm", "run", "check:repo", "--", "--only", "route-a"] }
+  ]
 }

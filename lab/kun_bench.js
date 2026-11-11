@@ -14,10 +14,18 @@
 //   eyeCloseup(camera, kun, ev, k)     眼睛特写机位：从眼睛外侧略偏下看
 //   frameTimes(t)                      → { fr, ts, inkT }：帧号、鲲一拍三的时间、墨线一拍二的拍号（engine/core/clock.js）
 //   drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlobals, inkT })   三遍：彩色 → 法线/ID → 合成到屏幕
-// 描边只是自测用的临时做法；正片的描边在后期（src/look.js → engine/look）。
+//   labPost(q)                         这一页走不走正片后期：默认走；&ink=lab（或 &ink=2）回退到本文件的临时描边
+//   labPixelRatio(q)                   给 labRenderer 的像素比：正片后期 1（后期自己超采样）、临时描边 2（与旧版相同）
+//   labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q })   → { post, skyCover(zoom, ox, oy), draw({ camera, setToonGlobals, inkT, fr }) }
+//       post = true：天空图当 scene.background（同样 cover 裁切），交给 src/look.js 的正片后期（ID 图墨线、Kuwahara、bloom、调色、
+//                    纸纹）；&noink=1 → 关墨线，&pass=1 → 看 ID 图，&dbg=<视图> → 看后期中间缓冲（engine/look/debug.js）
+//       post = false：inkComposite + drawPasses，与旧版逐像素相同
+// 默认走正片后期，是因为在自测页上调好的造型和材质，换进正片时线条、笔触、纸纹不能变样（审计 CRAFT-16）；
+// 本文件的临时屏幕描边只留给对照旧截图（&ink=lab），它不能证明正片后期一致（docs/routes/beiming-style.md:151）。
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { frameOf, heldTime, hold } from '../engine/core/clock.js';
+import { createLook } from '../src/look.js';
 
 // 被当成自测页直接打开（?test=kun_bench）时立刻报错，不让页面一直等不到 READY
 if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('test') === 'kun_bench')
@@ -192,4 +200,33 @@ export function drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlo
   setToonGlobals({ pass: 0 });
   // 3) 合成到屏幕
   renderer.setRenderTarget(null); comp.render(renderer);
+}
+
+// ── 后期管线的选择（见文件头） ──
+export const labPost = q => !['lab', '2'].includes(q.get('ink'));
+export const labPixelRatio = q => (labPost(q) ? 1 : 2);
+export async function labPipeline({ renderer, scene, W, H, RW, RH, PALETTE, q }) {
+  if (!labPost(q)) {
+    const { rtC, rtN, comp, skyCover } = await inkComposite({ RW, RH, W, H, PALETTE, q, ink2: q.get('ink') === '2' });
+    return { post: false, skyCover, draw: ({ camera, setToonGlobals, inkT }) => drawPasses({ renderer, scene, camera, comp, rtC, rtN, setToonGlobals, inkT }) };
+  }
+  const sky = await loadSky();
+  sky.colorSpace = THREE.SRGBColorSpace;
+  scene.background = sky;
+  const IA = sky.image.width / sky.image.height, SA = W / H;
+  const look = createLook(renderer, W, H, { ss: 2 });
+  await look.ready;
+  const debug = q.get('dbg') || (q.get('pass') ? 'id' : undefined);
+  return {
+    post: true,
+    skyCover(zoom = 1, ox = 0.5, oy = 0.5) {   // 与 inkComposite 的 cover 裁切同一个算法（背景贴图的 uv = 屏幕 uv × repeat + offset）
+      const sx = SA / IA / zoom, sy = 1 / zoom;
+      sky.repeat.set(sx, sy); sky.offset.set((1 - sx) * ox, (1 - sy) * oy);
+    },
+    draw({ camera, setToonGlobals, inkT, fr }) {
+      setToonGlobals({ inkTime: inkT, pass: 0 });   // 材质里画的线一拍二沸腾；屏幕墨线的沸腾由 look 按 t 自己算
+      renderer.shadowMap.autoUpdate = true;
+      look.render(scene, camera, { t: fr / 24, ...(q.get('noink') ? { outline: false } : {}), ...(debug ? { debug } : {}) });
+    },
+  };
 }

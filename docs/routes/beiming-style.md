@@ -137,7 +137,7 @@ Kuwahara → 叠加墨线 → 纸纹 → 暗角 → 颗粒
 
 ### 5.2 先建校准场景，再生成变体
 
-建议 T05 新建 `lab/style-calibration/`，固定种子、相机、灯位、曝光和输出尺寸，至少包含球/方体/曲面、有细节的主体、透明植被、底板和中文标题。这个目录目前是任务产物，本文没有生成它。
+校准场景现在直接用 A 路线模版：`node tools/new-film.mjs a <名>-look --title 定调` 生成的作品固定了种子、机位、灯位、曝光和输出尺寸，含三维主体（峰、松、渡船）、底板、水面倒影和中文片名；流程与签认闸见 [routes/a-webgl/LOOKDEV.md](../../routes/a-webgl/LOOKDEV.md)。球、方体这类几何对照仍可在 `lab/look.js` 上做。
 
 按以下顺序保存对照：
 
@@ -148,9 +148,9 @@ Kuwahara → 叠加墨线 → 纸纹 → 暗角 → 颗粒
 5. 底板、雾和空间：确认层次、视差、景别和透明边缘。
 6. 笔触与显示：再调线宽、Kuwahara、纸纹与颗粒；最后加文字。
 
-每个候选保存源提交、参数 JSON、资产哈希、相机/灯位、时刻与无损图。通过 `debug` 选择 `scene / id / depth / edge / line / bloom / kuwahara / paper` 检查中间结果；这些模式见 [`look/debug.js`](../../engine/look/debug.js)，部分是诊断显示，不是最终调色输出。
+每个候选保存源提交、参数 JSON、资产哈希、相机/灯位、时刻与无损图——`node tools/lookdev/sweep.mjs` 一次出齐（无损 PNG 网格、`cells.json`、离线对照页，同样参数两次运行逐字节一致）。通过 `debug` 选择 `scene / id / depth / edge / line / bloom / kuwahara / paper` 检查中间结果；这些模式见 [`look/debug.js`](../../engine/look/debug.js)，部分是诊断显示，不是最终调色输出。
 
-既有 [`lab/kun.js`](../../lab/kun.js) 使用临时描边，不能单独证明正片后期一致；[`lab/look.js`](../../lab/look.js) 使用测试几何和材质，也不能单独证明真实鲲材质一致。最后必须把选定配方放进同一个真实主体场景复核。可用现有静帧工具抽取原片基准（以下渲染命令本次未执行）：
+[`lab/kun.js`](../../lab/kun.js) 等鲲变体页现在默认走正片后期（`&ink=lab` 才回退旧的临时描边，见 [lab/README.md](../../lab/README.md)）；[`lab/look.js`](../../lab/look.js) 使用测试几何和材质，不能单独证明真实鲲材质一致。最后必须把选定配方放进同一个真实主体场景复核。可用现有静帧工具抽取原片基准（以下渲染命令本次未执行）：
 
 ```sh
 node engine/render/still.mjs . 1.5 4 7.5 --size 1920x1040 --out out/style-baseline
@@ -174,7 +174,7 @@ node engine/render/still.mjs . 1.5 4 7.5 --size 1920x1040 --out out/style-baseli
 
 偏平面可减少体积渐变、简化内部线与表面高频、使用更明确的色块及绘画底板；偏立体可让几何转折、接触阴影、法线细节、相机视差和材质响应更明显。两者都保留三维结构时，属于三渲二的不同表达。只加深阴影不能把没有建模的照片变成三维场景；只减弱描边也不会自动变成 PBR。
 
-风格版本应锁定规则，不要求每镜所有数值完全相同。允许调整的字段、范围和理由要写进版本记录；更换色板、光照公式或后期顺序应建立新版本并重做跨镜头对照。
+风格版本应锁定规则，不要求每镜所有数值完全相同。允许调整的字段、范围和理由要写进版本记录；更换色板、光照公式或后期顺序应建立新版本并重做跨镜头对照。版本现在登记在画风注册表 `engine/style/`：《北冥》样片的画风是 `beiming-original@v1`（`engine/style/beiming-original.v1.json`，四个预设 wide / actor / hero / hero-sunrise，`allowedOverrides` 写明镜头级可调的参数与范围）；作品在 film.json 里按 `<画风>@v<版本>/<预设>` 引用，未登记即报错。登记新版本的步骤见 LOOKDEV.md §7。
 
 ## 6. RAEA 应接在哪几处
 
