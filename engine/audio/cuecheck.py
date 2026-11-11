@@ -31,6 +31,9 @@
 
 退出码（附录 C1）：0 全部通过（会打印 CUECHECK OK）；4 有超差（CUECHECK FAIL）；2 用法错误；3 缺事件表 / 时间表 / 混音；1 运行失败。
 报告：--report 写一份 JSON（附录 C8 的 checks 加逐事件明细 events、silences，结构见 routes/directing/PRODUCTION-SPEC.md §9）。
+  maxDeltaMs（报告与 --json 的 data 都有）：所有硬门核对项里最大的偏差（毫秒）＝ 画面打点离整帧 / 网格 / 时间线 / 音乐起音，
+  与声画同步声明值的 |声音时刻 − 画面结果帧|（sync 写 soft 的只告警、--measure 的实测只作参考，都不计入）。
+  A 路线只有同步核对时它就是最大的同步偏差；1 帧 = 1000 / fps 毫秒。
 
 接口：check(film_dir, tol_ms=0.5, grid=2, silences=(), quiet_db=15.0, out=print, **选项) → bool（旧调用照用）
       run_check(...) → 报告 dict
@@ -136,9 +139,10 @@ class BeatGrid:
     def address(self, t, div=2):
         f = t * self.fps
         k, n = self._at(f)
+        frac = Fraction((f - self.beats[k]) / n).limit_denominator(max(8, int(div) * 4))
+        k, frac = k + int(frac), frac - int(frac)   # 差一点就到下一拍（秒只保留 6 位小数）时进位，不写成「x.y+1/1」
         sec = next((s for s in reversed(self.secs) if s['first'] <= k), self.secs[0])
         bars = [i for i in self.bar_starts if sec['first'] <= i <= k]
-        frac = Fraction((f - self.beats[k]) / n).limit_denominator(max(8, int(div) * 4))
         return f"{sec['id']}{len(bars)}.{k - (bars[-1] if bars else sec['first']) + 1}" + (f'+{frac.numerator}/{frac.denominator}' if frac else '')
 
 
@@ -167,12 +171,12 @@ def tempo_of(tl, film=None):
 def _address(tempo, t, grid):
     if hasattr(tempo, 'address'):
         return tempo.address(t, grid)
-    s = tempo.section(t)
-    b = (t - s['t0']) / (60 / s['bpm'])
-    bar, beat = int(b // s['meter']) + 1, b % s['meter']
-    whole = int(beat + 1e-9)
-    frac = Fraction(beat - whole).limit_denominator(max(8, int(grid) * 4))
-    return f"{s['id']}{bar}.{whole + 1}" + (f'+{frac.numerator}/{frac.denominator}' if frac else '')
+    s = tempo.section(t + 1e-6)                 # 秒只保留 6 位小数：差不到 1 µs 就到下一段的，算下一段
+    # 先把拍数整体取成分数再拆小节、拍：90 BPM 下 1.333333 s 是 1.9999995 拍，先拆整拍会得到「A1.2+1/1」（应为 A1.3）
+    q = Fraction((t - s['t0']) / (60 / s['bpm'])).limit_denominator(max(8, int(grid) * 4))
+    bar, beat = divmod(q, s['meter'])
+    frac = beat - int(beat)
+    return f"{s['id']}{int(bar) + 1}.{int(beat) + 1}" + (f'+{frac.numerator}/{frac.denominator}' if frac else '')
 
 
 def measure_onset(x, sr, t, early=0.15, late=0.25, min_rise_db=9.0):
@@ -504,8 +508,10 @@ def _report(film, input_path, rows, sync_rows, sil_rows, ok, tol_ms, grid, tempo
     if keyset:
         ks = [r for r in rows if r['key']]
         checks.append(chk('cuecheck.keys', '关键事件都有同拍的音乐起音', ks, f'{len(ks)} 个关键事件', f'每个都有 ≤ {tol_ms} ms 的音乐起音'))
+    hard_sync = [abs(s['deltaMs']) for s in sync_rows if s['kind'] == 'declared' and s.get('sync') != 'soft' and s['deltaMs'] is not None]
     if sync_rows:
-        checks.append(chk('cuecheck.sync', '声音表时刻对画面结果帧（同步容差）', sync_rows, f'{len(sync_rows)} 条',
+        checks.append(chk('cuecheck.sync', '声音表时刻对画面结果帧（同步容差）', sync_rows,
+                          f'{len(sync_rows)} 条' + (f'，硬门最大 |Δ| {max(hard_sync):.2f} ms' if hard_sync else ''),
                           f'声音晚 0–{late * 1e3:.1f} ms、早不超过 {early * 1e3:.1f} ms'))
     if sil_rows:
         checks.append(chk('cuecheck.silence', '静默段：没有音符起音、确实安静', sil_rows, f'{len(sil_rows)} 段', '段内 0 个起音、RMS 比全片低够'))
@@ -516,8 +522,8 @@ def _report(film, input_path, rows, sync_rows, sil_rows, ok, tol_ms, grid, tempo
     ev = [{'id': r['id'], 'plannedFrame': r['frame'], 'pictureFrame': r['frame'], 't': r['t'], 'address': r['address'],
            'offFrameMs': round(r['offFrameMs'], 4), 'offGridMs': None if r['offGridMs'] is None else round(r['offGridMs'], 4),
            'musicOnsetMs': None if r['musicMs'] is None else round(r['musicMs'], 4), 'key': r['key'], 'status': r['status']} for r in rows]
-    devs = [d for r in rows for d in (r['offFrameMs'], r['offGridMs'] or 0, r['timelineMs'], r['musicMs'] or 0)]
-    return {'schemaVersion': 1, 'tool': {'name': 'beiming-cuecheck', 'version': '2.1.0'},
+    devs = [d for r in rows for d in (r['offFrameMs'], r['offGridMs'] or 0, r['timelineMs'], r['musicMs'] or 0)] + hard_sync
+    return {'schemaVersion': 1, 'tool': {'name': 'beiming-cuecheck', 'version': '2.2.0'},
             'film': {'id': film['id'], 'title': film['title'], 'route': film['route'], 'file': _rel(film['file']), 'frameCount': film['frameCount']} if film else None,
             'input': {'path': _rel(input_path), 'sha256': sha} if sha else None,
             'profile': {'id': (film or {}).get('profile') or 'n/a', 'source': 'film.json'},

@@ -12,6 +12,8 @@
   · film.json v2 的 beat 事件（作品描述 P05 的写法）：timeline 的 sections / beats / bars 三种写法都换算成拍点帧；frame 与拍号对不上、
     拍号不在网格细分上、音乐起音离拍点都退出 4；网格等默认值取 film.json 的 cuecheck 段；timeline 写法不对退出 4（不静默当成没有网格）。
   · Node 入口 tools/audio/cuecheck.mjs：--json 时 stdout 只有一个信封，退出码与 Python 一侧相同；--report 是附录 C8 的结构。
+  · maxDeltaMs 算上硬门同步行的 |声音 − 画面|（A 路线只有同步核对时不再恒为 0；soft 不计入）；「小节.拍」地址在整拍落在
+    6 位小数秒上时进位（C 模版各打点的地址与 film.json 的 cues 一一对应）。
 C 路线的用例要 node（导出 timeline.js）；其余只要 Python。用法（仓库根）：python -m unittest discover -s tests/audio -p "test_audio_cuecheck.py"
 """
 import json
@@ -90,10 +92,15 @@ class CRouteTemplate(unittest.TestCase):
 
     def test_template_then_move_one_cue_two_frames(self):
         self.build()
-        r, env = self.check()
+        rep_p = os.path.join(self.td, 'rep.json')
+        r, env = self.check('--report', rep_p)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-800:])
         self.assertTrue(env['ok'])
         self.assertEqual(env['data']['maxDeltaMs'] <= 0.5, True, env['data'])
+        # 地址与 film.json 的 cues 一一对应：timeline.json 的秒只有 6 位小数，整拍（90 BPM 的 1.333333 s）不能写成「A1.2+1/1」
+        cues = H.read_json(os.path.join(self.film, 'film.json'))['cues']
+        self.assertTrue(all(len(v) == 3 for v in cues.values()), '模版打点带了拍内分数：同步改这条用例')
+        self.assertEqual({e['id']: e['address'] for e in H.read_json(rep_p)['events']}, {k: f'{a}{bar}.{beat}' for k, (a, bar, beat) in cues.items()})
         # 声音没重出、只挪画面：第二笔晚 2 帧（模版 90 BPM、24 fps，一拍 16 帧，2 帧 = 1/8 拍）
         fj = H.read_json(os.path.join(self.film, 'film.json'))
         self.assertEqual((fj['tempo'][0]['bpm'], fj['output']['fps'], fj['cues']['s2']), (90, 24, ['A', 1, 4]), '模版的节拍或打点改了：同步改这条用例')
@@ -102,11 +109,11 @@ class CRouteTemplate(unittest.TestCase):
         r, env = self.check()
         self.assertEqual(r.returncode, 4)
         self.assertEqual(env['error']['code'], 'contract.cuecheck')
-        rep_p = os.path.join(self.td, 'rep.json')
         r, env = self.check('--report', rep_p)
         rep = H.read_json(rep_p)
         bad = [e for e in rep['events'] if e['status'] == 'fail']
         self.assertEqual([e['id'] for e in bad], ['s2'])
+        self.assertEqual(bad[0]['address'], 'A1.4+1/8')
         self.assertAlmostEqual(bad[0]['offGridMs'], 83.333, delta=0.01)
         self.assertAlmostEqual(bad[0]['musicOnsetMs'], 83.333, delta=0.01)
         # 声音也跟着重出：音乐起音对上了，网格仍然不对
@@ -121,6 +128,21 @@ class CRouteTemplate(unittest.TestCase):
         self.build()
         r, env = self.check()
         self.assertEqual(r.returncode, 0, r.stdout)
+
+
+class Address(unittest.TestCase):
+    """「段小节.拍+分数」：秒只保留 6 位小数时，整拍时刻（90 BPM 的 1.333333 s ≈ 1.9999995 拍）要进位，不能写成「A1.2+1/1」；
+    timeline.json 的 secs（Tempo）与 film.json v2 的 timeline（BeatGrid）两条路一致"""
+
+    def test_whole_beats_on_rounded_seconds(self):
+        from engine.audio.cuecheck import BeatGrid, _address
+        from engine.audio.cues import Tempo
+        tempo = Tempo([{'id': 'A', 't0': 0.0, 'bpm': 90, 'meter': 4}, {'id': 'B', 't0': 6.666667, 'bpm': 120, 'meter': 4}], FPS, digits=None)
+        grid = BeatGrid({'sections': [{'id': 'A', 'start': 0, 'bpm': 90, 'meter': 4}, {'id': 'B', 'start': 160, 'bpm': 120, 'meter': 4}]}, FPS, 240)
+        for t, want in ((0.0, 'A1.1'), (0.333333, 'A1.1+1/2'), (1.333333, 'A1.3'), (2.0, 'A1.4'), (2.666667, 'A2.1'), (5.333333, 'A3.1'),
+                        (6.666666, 'B1.1'), (6.666667, 'B1.1'), (7.166667, 'B1.2'), (8.666667, 'B2.1')):
+            self.assertEqual(_address(tempo, t, 2), want, f'timeline.json secs：{t} s')
+            self.assertEqual(grid.address(t, 2), want, f'film.json timeline：{t} s')
 
 
 class GridAndKeys(unittest.TestCase):
@@ -206,10 +228,19 @@ class ARouteSoundTable(unittest.TestCase):
 
     def test_beiming_cues_within_sync_tolerance(self):
         self.film(beiming_events())
-        r, env = cuecheck(self.td)
+        rep_p = os.path.join(self.td, 'rep.json')
+        r, env = cuecheck(self.td, '--report', rep_p)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr[-500:])
         rows = env['data']
         self.assertTrue(rows['ok'])
+        # 只有同步核对（没有画面打点）时，maxDeltaMs 就是最大的 |声音 − 画面|，不再恒为 0
+        rep = H.read_json(rep_p)
+        self.assertEqual(rep['events'], [])
+        worst = max(abs(s['deltaMs']) for s in rep['sync'])
+        self.assertGreater(worst, 0)
+        self.assertEqual(rows['maxDeltaMs'], rep['maxDeltaMs'])
+        self.assertAlmostEqual(rows['maxDeltaMs'], worst, places=2)
+        self.assertLessEqual(rows['maxDeltaMs'], 1000 / FPS, '通过时不超过 1 帧')
 
     def test_move_ui_fail_two_frames(self):
         self.film(beiming_events(shift=('ui_fail', -2)))            # 画面早 2 帧 → 声音晚 83.3 ms
@@ -220,6 +251,8 @@ class ARouteSoundTable(unittest.TestCase):
         bad = [s for s in rep['sync'] if s['status'] == 'fail']
         self.assertEqual([s['audio'] for s in bad], ['ui_fail'])
         self.assertAlmostEqual(bad[0]['deltaMs'], 83.33, delta=0.01)
+        self.assertAlmostEqual(rep['maxDeltaMs'], 83.33, delta=0.01)
+        self.assertAlmostEqual(env['data']['maxDeltaMs'], 83.33, delta=0.01, msg='--json 信封里的 maxDeltaMs 要算上同步偏差')
         self.assertEqual(rep['schemaVersion'], 1)
         self.assertEqual({c['id'] for c in rep['checks'] if c['status'] == 'fail'}, {'cuecheck.sync'})
         self.assertNotIn(H.ROOT, json.dumps(rep, ensure_ascii=False), '报告里不写仓库的本机绝对路径')
@@ -245,6 +278,7 @@ class ARouteSoundTable(unittest.TestCase):
         r, env = cuecheck(self.td)
         self.assertEqual(r.returncode, 0, '软约束只告警')
         self.assertEqual([p['status'] for p in env['data']['problems']], ['warn'])
+        self.assertLess(env['data']['maxDeltaMs'], 1000 / FPS, 'soft 只告警，不计入 maxDeltaMs')
         for e in ev:
             if e['audio'] == 'ui_fail':
                 e['sync'] = 'none'
