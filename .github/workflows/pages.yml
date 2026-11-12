@@ -35,14 +35,14 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
       - name: Install dependencies (three, gsap)
         run: npm ci
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Download preview videos
@@ -59,15 +59,15 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg
           ffmpeg -hide_banner -version | head -n 1
       - name: Cache hover clips
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: out/.cache/hover
           key: hover-${{ hashFiles('cases/catalog.json', 'site/data/works-meta.json', 'tools/build-showcase.py') }}
           restore-keys: hover-
       - name: Build site
         run: python tools/build-showcase.py --out _site --previews-dir _previews --copy-previews
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
