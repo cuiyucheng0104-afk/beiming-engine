@@ -24,8 +24,8 @@
       "archive": "vork-0.5.1-windows-x64.zip",
       "sha256": "bdfa1df80e2f56f20f914a5a3f7c6c964b33424b32c470157d000bb9ce2e4be2",
       "binary": "vork.exe",
-      "binarySha256": null,
-      "verified": "2026-11 在 Windows 11 + RTX 5090（驱动 621.01，Vulkan）实测：归档 sha256 与发行页 digest 一致；解包即用，--version 输出「0.5.1 (commit 626653ebf900; API v2)」；setup 18 秒完成，报告 Ray queries: available；std/final 档 1920x1040 热启动一帧 1.07 秒（8 采样 + 降噪），首次含着色器编译 7.25 秒。可执行文件哈希未算。size 为约数（138 MB），精确字节数未取。"
+      "binarySha256": "a8e448e72ccb2d77d1a8cf4a3cc0f04b8b9842f098e78f520b06fbe39d5df877",
+      "verified": "2026-11 在 Windows 11 + RTX 5090（驱动 621.01，Vulkan）实测：归档 sha256 与发行页 digest 一致；解包即用，--version 输出「0.5.1 (commit 626653ebf900; API v2)」；setup 18 秒完成，报告 Ray queries: available；std/final 档 1920x1040 热启动一帧 1.07 秒（8 采样 + 降噪），首次含着色器编译 7.25 秒。可执行文件哈希未算。size 为约数（138 MB），精确字节数未取。binarySha256 由该归档解出的 vork.exe 计算（macOS 上 unzip 后 shasum -a 256），与工作站上 node engine/native/rt.mjs status 的实测值一致；2026-11-12 在同一台工作站上用 node engine/native/rt.mjs render 端到端跑通（四层与 meta.json 齐全，同种子两次渲染的颜色层 sha256 相同）。"
     },
     "linux-x64": {
       "archive": "vork-0.5.1-linux-x64.tar.gz",

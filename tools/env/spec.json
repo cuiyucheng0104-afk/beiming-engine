@@ -509,11 +509,30 @@
     {
       "name": "BNE_ALLOW_VERSION",
       "group": "B 路线（北冥原生 · BNE）",
-      "purpose": "临时放行未验证的运行时版本（先重跑验收）",
+      "purpose": "临时放行未验证的运行时版本（先重跑验收）；光追外部后端 rt 也认它",
       "default": "不设",
       "readBy": [
         "engine/render/native.mjs",
+        "engine/native/rt.mjs",
         "tools/env/lib/checks.mjs"
+      ]
+    },
+    {
+      "name": "BNE_RT_BIN",
+      "group": "B 路线（北冥原生 · BNE）",
+      "purpose": "光追外部后端 rt（实验）的渲染器可执行文件的完整路径；渲染器不随仓库分发，版本与哈希按 engine/native/rt.lock.json 核对",
+      "default": "不设（只有用 npm run b:rt 时需要）",
+      "readBy": [
+        "engine/native/rt.mjs"
+      ]
+    },
+    {
+      "name": "VORK_CACHE_DIR",
+      "group": "B 路线（北冥原生 · BNE）",
+      "purpose": "光追外部渲染器自己的着色器缓存目录（变量名是上游渲染器定的）；npm run b:rt -- render 没设时替它设成本机缓存下的 ASCII 路径",
+      "default": "不设（由 b:rt 设为 <缓存>/beiming/rt-shader-cache）",
+      "readBy": [
+        "engine/native/rt.mjs"
       ]
     },
     {

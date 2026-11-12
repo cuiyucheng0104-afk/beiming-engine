@@ -427,13 +427,24 @@
       "title": "光追外部后端 rt 在工作站上的端到端验证与锁定补齐",
       "route": "b",
       "ownerRole": "原生路线集成负责人",
-      "status": "planned",
-      "dependsOn": ["T23", "H14"],
+      "status": "done",
+      "claim": {
+        "by": "集成负责人（多代理会话）",
+        "session": "feat/cjk-kinetic-rt",
+        "baseCommit": "847a2425028e1d3b910696324ce5b8ec0503a3bf",
+        "startedAt": "2026-11-12",
+        "expiresAt": "2026-11-26"
+      },
+      "dependsOn": ["T23"],
       "inputs": ["装了渲染器 0.5.1 的 Windows 工作站（BNE_RT_BIN）", "T23 的适配器与自测页"],
       "writeScope": ["engine/native/rt.lock.json", "tests/native/rt.test.mjs"],
       "outputs": ["npm run b:rt -- status / render 在工作站上的运行记录；rt.lock.json 里 windows-x64 的可执行文件哈希"],
       "acceptance": ["工作站上 npm run b:rt -- status 报出版本 0.5.1 与可执行文件 sha256", "工作站上 npm run b:rt -- render 出齐四层与 meta.json，readLayers 核对通过", "rt.lock.json 的 windows-x64 binarySha256 补齐，测试同步"],
-      "evidence": [],
+      "evidence": [
+        {"kind": "file", "ref": "engine/native/rt.lock.json"},
+        {"kind": "command", "ref": "node engine/native/rt.mjs status", "note": "2026-11-12 Windows 11 + RTX 5090（Vulkan，驱动 621.01）：版本 0.5.1，可执行文件 sha256 与锁一致（verified: true）"},
+        {"kind": "command", "ref": "node engine/native/rt.mjs render <场景.json> --out <目录> --at 0 --json", "note": "同一台工作站：exit 0，四层与 meta.json 齐全，20 个物体编号；颜色层 sha256 与此前手工调用的同种子渲染相同。运行的是 git archive 导出的 engine/native 与 tools/lib（不是完整检出）。第一次真机跑出 seed=null 的问题，已修并补回归测试"}
+      ],
       "playbook": "routes/b-native/README.md"
     },
     {

@@ -35,7 +35,8 @@ test('锁文件：字段齐全，三个平台归档哈希都在，许可与边�
     const e = lock.platforms[k];
     assert.match(e.sha256, /^[0-9a-f]{64}$/, k);
     assert.ok(e.archive && e.binary && 'binarySha256' in e && e.verified, k);
-    assert.equal(e.binarySha256, null, `${k} 的可执行文件哈希尚未计算，锁里应为 null`);
+    if (k === 'windows-x64') assert.match(e.binarySha256, /^[0-9a-f]{64}$/, 'windows-x64 的可执行文件哈希已在工作站上核对并锁定');
+    else assert.equal(e.binarySha256, null, `${k} 的可执行文件哈希尚未计算，锁里应为 null`);
   }
   assert.equal(lock.platforms['windows-x64'].binary, 'vork.exe');
 });
@@ -94,6 +95,8 @@ test('buildScene：节点类型、相机、分辨率、曝光', () => {
 
 test('renderArgs：--at 与 --frames 两种 argv 逐项相等', () => {
   assert.deepEqual(renderArgs({ scene: 's.json', out: 'o/', at: 0 }), ['render', 's.json', '--profile', 'std/final', '--at', '0', '--out', 'o/', '--channels', 'color,depth,object_index,view_normal', '--set', 'seed=42', '--diagnostics']);
+  // 命令行没给 --seed / --size 时传进来的是 null：不能拼出 seed=null（2026-11-12 在工作站上真机跑出来的问题）
+  assert.deepEqual(renderArgs({ scene: 's.json', out: 'o/', at: null, frames: null, seed: null, resolution: null, profile: null, channels: null }), renderArgs({ scene: 's.json', out: 'o/', at: 0 }));
   assert.deepEqual(renderArgs({ scene: 's.json', out: 'o/', frames: [0, 23], seed: 7, resolution: '1280x720' }),
     ['render', 's.json', '--profile', 'std/final', '--frame-start', '0', '--frame-end', '23', '--out', 'o/', '--channels', 'color,depth,object_index,view_normal', '--set', 'seed=7', '--set', 'resolution=1280x720', '--diagnostics']);
 });

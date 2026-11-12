@@ -102,7 +102,6 @@ flowchart LR
   T18 --> T20
   T19 --> T20
   T23 --> T24
-  H14 --> T24
   H00 --> H18
   H01 --> H18
   H02 --> H18
@@ -382,12 +381,14 @@ flowchart LR
 
 ### T24 · 光追外部后端 rt 在工作站上的端到端验证与锁定补齐
 
-- 路线：`b`；角色：原生路线集成负责人；状态：`planned`。
-- 依赖：T23、H14。
+- 路线：`b`；角色：原生路线集成负责人；状态：`done`。
+- 认领：集成负责人（多代理会话）；会话 `feat/cjk-kinetic-rt`；基线 `847a242`；2026-11-12 起，2026-11-26 到期。
+- 依赖：T23。
 - 输入：装了渲染器 0.5.1 的 Windows 工作站（BNE_RT_BIN）；T23 的适配器与自测页。
 - 写入范围：`engine/native/rt.lock.json`、`tests/native/rt.test.mjs`。
 - 交付：npm run b:rt -- status / render 在工作站上的运行记录；rt.lock.json 里 windows-x64 的可执行文件哈希。
 - 验收：工作站上 npm run b:rt -- status 报出版本 0.5.1 与可执行文件 sha256；工作站上 npm run b:rt -- render 出齐四层与 meta.json，readLayers 核对通过；rt.lock.json 的 windows-x64 binarySha256 补齐，测试同步。
+- 证据：`engine/native/rt.lock.json`；`node engine/native/rt.mjs status`（2026-11-12 Windows 11 + RTX 5090（Vulkan，驱动 621.01）：版本 0.5.1，可执行文件 sha256 与锁一致（verified: true））；`node engine/native/rt.mjs render <场景.json> --out <目录> --at 0 --json`（同一台工作站：exit 0，四层与 meta.json 齐全，20 个物体编号；颜色层 sha256 与此前手工调用的同种子渲染相同。运行的是 git archive 导出的 engine/native 与 tools/lib（不是完整检出）。第一次真机跑出 seed=null 的问题，已修并补回归测试）。
 - 详细指引：[README.md](../../routes/b-native/README.md)。
 
 ### H00 · P00 决策与冻结点

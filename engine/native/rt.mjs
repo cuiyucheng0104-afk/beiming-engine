@@ -88,7 +88,8 @@ export function renderArgs({ scene, out, at, frames, channels = CHANNELS, seed =
   if (!scene || !out) throw fail(EXIT.USAGE, 'args', 'renderArgs 需要 scene 与 out');
   const when = frames ? ['--frame-start', String(frames[0]), '--frame-end', String(frames[1])] : ['--at', String(at ?? 0)];
   const size = resolution ? ['--set', `resolution=${Array.isArray(resolution) ? resolution.join('x') : resolution}`] : [];
-  return ['render', scene, '--profile', profile, ...when, '--out', out, '--channels', channels.join(','), '--set', `seed=${seed}`, ...size, '--diagnostics'];
+  // 命令行没给的选项传进来是 null（不是 undefined），默认参数接不住，这里再兜一次
+  return ['render', scene, '--profile', profile ?? 'std/final', ...when, '--out', out, '--channels', (channels ?? CHANNELS).join(','), '--set', `seed=${seed ?? 42}`, ...size, '--diagnostics'];
 }
 
 export async function readLayers(dir, frame = 0) {
