@@ -468,6 +468,8 @@ const RUNNERS = {
     const manifestRel = `tests/golden/${ctx.platform}/manifest.json`, manifest = path.join(ctx.root, manifestRel);
     const help = spawnSync(process.execPath, [tool, '--help'], { cwd: ctx.root, encoding: 'utf8', timeout: 30000 });
     const platformArgs = /--platform\b/.test(help.stdout || '') ? ['--platform', ctx.platform] : [];
+    // 软件渲染的单帧上限放宽：GitHub 的 2 核机器上 lab:kun 一类自测页截一帧要 30 秒以上（金标准工具默认 60 秒）
+    if (ctx.platform.endsWith('-swiftshader') && /--frame-timeout\b/.test(help.stdout || '')) platformArgs.push('--frame-timeout', '180');
     const sets = ctx.sets.flatMap(s => ['--set', s]);
     const mode = ctx.golden === 'auto' ? (fs.existsSync(manifest) ? 'compare' : 'capture') : ctx.golden;
     ph.details.mode = mode; ph.details.platform = ctx.platform; ph.details.sets = ctx.sets;

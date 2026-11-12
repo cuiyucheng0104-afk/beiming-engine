@@ -213,7 +213,7 @@ jobs:
         env:
           BEIMING_PY: ${{ steps.py.outputs.python-path }}
           STILLS_SIZE: ${{ inputs.stills-size || '384x208' }}
-        run: node tests/ci/smoke-render.mjs --out out/ci/smoke --size-beiming "$STILLS_SIZE" --report out/ci/smoke/report.json
+        run: node tests/ci/smoke-render.mjs --out out/ci/smoke --size-beiming "$STILLS_SIZE" --timeout 1200 --report out/ci/smoke/report.json
       - name: 上传冒烟产物（成片、静帧、接触印、报告）
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

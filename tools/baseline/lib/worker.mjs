@@ -85,8 +85,9 @@ try {
 
   const shoot = async e => {
     const id = frameId({ pageId: spec.pageId, query: spec.query, clip: spec.clip }, spec.w, spec.h, e);
+    // timeout 交给 --frame-timeout：playwright 截图自带 30 秒默认时限，SwiftShader 下重的自测页会先撞上它
     const png = await withTimeout(page.screenshot({
-      type: 'png',
+      type: 'png', timeout: spec.frameTimeoutMs,
       ...(spec.clip ? { clip: { x: spec.clip[0], y: spec.clip[1], width: spec.clip[2], height: spec.clip[3] } } : {}),
     }), spec.frameTimeoutMs, `截图 ${id} `);
     const file = path.join(spec.outDir, frameFile(id));
