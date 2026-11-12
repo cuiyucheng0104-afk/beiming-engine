@@ -17,7 +17,9 @@ node tools/run-tests.mjs --only engine,lab    # 连同 engine/*/ 里的老测试
 | stage.test.mjs | film.js 的 `__RENDER` 校验（渲染器注入的 `fps: null` = 没指定）、设计画幅适配、镜头表与局部时间（老写法逐位同改动前）、TEXTS 规整、screenAnchor |
 | film.browser.test.mjs | 页面约定 v1 在真浏览器里：24 / 25 / 30 fps 帧号无重复、注入 `fps: null` 时退回页面帧率、镜头 ctx、加长前一镜后一镜逐像素一致、纸纹地址失败时渲染器非零退出且不留图片 |
 | shade-anchors.test.mjs | three r170 着色器锚点：所有材质族与弯曲钩子都注入得进去、`#include` 块都存在、锚点写错直接报错；compose 的纸纹变体（锚点、面积取样）对得上 FINAL_FS，默认仍用原文 |
-| api-snapshot.test.mjs | 50 个模块的导出名（`api-snapshot.json`；stable 逐个锁定，experimental 只要求登记） |
+| api-snapshot.test.mjs | 53 个模块的导出名（`api-snapshot.json`；stable 逐个锁定，experimental 只要求登记） |
+| cjk.test.mjs | 中文排字：规则表与字幕用的 align.py 一致、避头避尾、不可拆分、标点挤压、中西文间距、断行、对齐、确定性与边界 |
+| kinetic.test.mjs | 文字动效：每个动效的起始态与静止态、出场等于入场取反、无内部状态、种子、四种错峰次序、一拍二量化、连通域标记 |
 | form.test.mjs | 弯曲 JS 镜像（头部不动、刚体、周期）、放样、山石、散布、平面曲线的性质 |
 | look-paint.test.mjs | 颗粒 / 墨线沸腾的种子（默认逐位同改动前）、纸纹锚点、仿射、弧长曲线、飞白笔毛、宣纸亮度场、倒角距离、显示层文字方框（TEXTS 的 box / alpha / font） |
 | paint.browser.test.mjs | 毛笔（确定性、不弄脏画布状态、飞白只露纸、按变换画）与宣纸（无缝、纸色、canvasPaper 中性点） |

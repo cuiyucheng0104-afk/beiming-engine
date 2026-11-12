@@ -41,6 +41,7 @@ export const CHECKS = {
   'texts.duration': { group: 'texts', severity: 'hard', title: '完全显现（不透明度 ≥ 该条峰值的 90%）的连续停留 ≥ max(0.8 秒, 字数×0.12 秒)；导演规范的读字时长为软项' },
   'texts.contrast': { group: 'texts', severity: 'hard', title: '文字与周围背景的对比度 ≥ 3:1（同帧开、关文字各渲一次取背景）；低于 4.5:1 为软项' },
   'texts.glyphs': { group: 'texts', severity: 'hard', title: '每个字都在声明的网页字体 cmap 里，没有回退到系统字体' },
+  'texts.cjk-break': { group: 'texts', severity: 'soft', title: '每条文字（含 \\n 分出的每一行）行首没有收尾标点、行尾没有开头标点（clreq 行首行尾禁则）' },
   'plates.inventory': { group: 'plates', severity: 'soft', title: '找得到作品用的底板；页面型作品能逐帧记到贴图面片的屏幕位置' },
   'plates.straight-fade': { group: 'plates', severity: 'soft', title: '透明底板的直线淡出 / 硬切边没有露在画内（静态找边 + 逐帧投影；遮挡不建模，故为软项）' },
   'plates.density': { group: 'plates', severity: 'hard', title: '画内底板的贴图密度 ≥ 0.6 texel/px（低于 1.0 为软项），按交付分辨率量' },

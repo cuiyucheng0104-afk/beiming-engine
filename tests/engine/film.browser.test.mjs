@@ -207,7 +207,9 @@ btest('渲染器对纸纹缺失的页面非零退出，报错带地址（node en
       p.on('close', code => { clearTimeout(kill); resolve({ code, err }); });
     });
     assert.notEqual(r.code, 0, `应当非零退出，实际 ${r.code}`);
-    assert.match(r.err, /纸纹图加载失败/);
+    // 两种报法都算对，谁先到不一定（本机软件渲染下三次里出过一次后者，CI 的 smoke-render 也出过）：
+    // 页面自己抛的「纸纹图加载失败」，或渲染器先看到这张图 404 报的 failure.asset-missing。两种都非零退出、都带地址
+    assert.match(r.err, /纸纹图加载失败|错误\[failure\.asset-missing\]/);
     assert.match(r.err, /paper-missing\.png/, '报错里带纸纹地址');
     // 只查图片与半成品：渲染器按附录 C4 / C8 在输出目录写运行记录（失败也写，如 s_still.run.json），那归渲染器自己的测试管
     const leftovers = fs.readdirSync(out).filter(f => /\.(jpe?g|png|webp)$|\.partial$|\.tmp(-\d+)?$/i.test(f));

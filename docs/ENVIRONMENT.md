@@ -169,7 +169,9 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `BEIMING_FONT_CACHE` | 字体（tools/fonts） | 原始 OFL 字体的缓存目录（`fetch` 下载、`subset` 子集化都读它）；多个检出可以共用一份 | 仓库根的 `.cache/fonts`（已被 git 忽略） |
 | `BEIMING_SH` | 过渡期 sh | POSIX sh 的完整路径；Windows 上 Git for Windows 装在非默认位置时用。sh 入口全部改成 Node 后不再需要 | PATH 里的 sh；Windows 上再找 Git for Windows 的 `bin\sh.exe` |
 | `RAEA_BIN` | B 路线 | 原生运行时可执行文件的完整路径；安装包要保留 `bin/` 与 `share/` | 不设（B 路线必需） |
-| `BNE_ALLOW_VERSION` | B 路线 | 临时放行未验证的运行时版本（先重跑验收） | 不设 |
+| `BNE_ALLOW_VERSION` | B 路线 | 临时放行未验证的运行时版本（先重跑验收）；光追外部后端 rt 也认它 | 不设 |
+| `BNE_RT_BIN` | B 路线 | 光追外部后端 rt（实验）的渲染器可执行文件的完整路径；渲染器不随仓库分发，版本与哈希按 `engine/native/rt.lock.json` 核对 | 不设（只有用 `npm run b:rt` 时需要） |
+| `VORK_CACHE_DIR` | B 路线 | 光追外部渲染器自己的着色器缓存目录（变量名是上游渲染器定的）；`npm run b:rt -- render` 没设时替它设成本机缓存下的 ASCII 路径 | 不设 |
 | `WGPU_BACKEND` | B 路线（wgpu） | 原生运行时的图形后端；与 `BEIMING_ANGLE` 是两套设置 | Windows 上 native.mjs 设为 vulkan |
 | `COMFY_URL` | B 路线 | 共享 GPU 检查时查询的 ComfyUI 队列地址 | `http://127.0.0.1:8188` |
 | `BNE_OUT` | B 路线 | prepare 传给作品 `sound.py` 的输出 wav 路径，不要手动设 | 由 prepare 设置 |

@@ -110,7 +110,7 @@ films/<名字>/
 - `engine/render/mux.sh` → 用 ebur128 测响度，整段线性增益到 −14 LUFS（真峰值 ≤ −1.2 dBTP）；画面已是标注完整的 BT.709 时直接拷贝
 - `engine/core/math.js`（缓动、`mulberry` 种子随机、`monotone` 单调插值）、`clock.js`（`hold`：一拍二、一拍三）、`noise.js`（必须传种子）
 - `engine/paint/curve.js`（Catmull-Rom 与按弧长取点，模版的毛笔用它）、`ink.js`（带笔压起伏、按拍换形的墨线）、`wash.js`、`path.js`、`light.js`、`strand.js`、`canvas.js`（离屏层，模版用它）
-- `engine/overlay/text.js`（`loadFonts`、`fontSpec`、`measure`）、`brush.js`（毛笔逐笔写字）
+- `engine/overlay/text.js`（`loadFonts`、`fontSpec`、`measure`）、`brush.js`（毛笔逐笔写字）、`cjk.js`（中文断行、禁则、标点挤压，实验）、`kinetic.js`（12 个逐字 / 逐碎片的入场出场动效，实验）
 - `engine/audio/dsp.py`、`synth.py`、`mixing.py`（`loudness_to`）、`meter.py`、`sampler.py`（多采样乐器，需要 `BEIMING_SAMPLES`）
 
 **工具**

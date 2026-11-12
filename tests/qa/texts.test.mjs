@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { qa, check, haveBrowser, FIXTURES, TEST_PROFILES } from './helpers.mjs';
-import { readingUnits, parseFontSpec, measureContrast } from '../../tools/qa/checks/texts.mjs';
+import { readingUnits, parseFontSpec, measureContrast, cjkBreaks } from '../../tools/qa/checks/texts.mjs';
 
 const skip = haveBrowser() ? false : '没有无头浏览器（npm run setup 安装 playwright-core 1.63.0 配套的 headless shell），跳过';
 const PAGE = path.join(FIXTURES, 'texts-page');
@@ -63,4 +63,11 @@ test('对比度测量：白字压黑底约 21:1，灰字压灰底低于 3:1（�
   for (let k = 0; k < 6; k++) paint(on2, [10 + k * 10, 12, 14 + k * 10, 28], 140);
   const m2 = measureContrast(on2, off2, [8, 10, 72, 30]);
   assert.ok(m2.separable && m2.ratio < 3, JSON.stringify(m2));
+});
+
+test('行首行尾禁则（纯函数）：硬换行分出的每一行单独查，规则表来自 cjk.js', () => {
+  assert.deepEqual(cjkBreaks('你好，世界。\n（再见'), []);
+  assert.deepEqual(cjkBreaks('远洋聘书\n回复截止'), []);
+  assert.deepEqual(cjkBreaks('你好\n，世界').map(v => [v.kind, v.ch]), [['line-start', '，']]);
+  assert.deepEqual(cjkBreaks('好（\n你').map(v => [v.kind, v.ch]), [['line-end', '（']]);
 });

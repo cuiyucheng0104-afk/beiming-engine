@@ -1,0 +1,38 @@
+{
+  "$note": "北冥原生 · BNE 的第二个外部后端候选「光追」（rt）的锁定记录。仓库不分发它、不复制其源码、不放二进制，只把它当外部命令行工具调用（docs/decisions/2026-11-10-industrial-baseline.md D03、D04）；这里只记版本、来源、许可与哈希，供 engine/native/rt.mjs 核对。上游项目名只在 upstream 字段与许可说明里出现，我方命名一律用 rt / BNE_RT_BIN。sha256 是发行归档的哈希，来自上游发行页资产 digest；binarySha256 是归档里可执行文件的哈希，目前都是 null（还没算），null 时 resolveRt 标 unlocked 并打印实测哈希，由人补进来。",
+  "upstream": "vork（voyager-so/vork，上游项目名；我方命名用 rt）",
+  "version": "0.5.1",
+  "tag": "v0.5.1",
+  "sourceCommit": "626653ebf900",
+  "sourceCommitNote": "短提交哈希，取自 --version 输出「(commit 626653ebf900; API v2)」，不是完整 40 位哈希",
+  "license": "LicenseRef-vork-Preview",
+  "licenseName": "vork Preview License（自定义许可，不是开源）",
+  "licenseUrl": "https://github.com/voyager-so/vork/blob/v0.5.1/LICENSE",
+  "releaseUrl": "https://github.com/voyager-so/vork/releases/tag/v0.5.1",
+  "downloadBase": "https://github.com/voyager-so/vork/releases/download/v0.5.1/",
+  "usageBoundary": "只作内部制作层与学术研究：不分发、不复制源码、不把二进制放进仓库、不做对外渲染服务。",
+  "fetch": "本仓库不提供下载命令：由人按 downloadBase 与各平台 archive 下载官方发行包，核对 sha256 后解包，把 BNE_RT_BIN 指向可执行文件。",
+  "platforms": {
+    "macos-arm64": {
+      "archive": "vork-0.5.1-darwin-arm64.tar.gz",
+      "sha256": "ce9b28b13e002fc93b8017bf0d2e7e05ca1fc00f3232f0c3066814031582a625",
+      "binary": "vork",
+      "binarySha256": null,
+      "verified": "归档 sha256 取自发行页 digest，未在本机下载复核。binary 路径依据上游 install.sh 的只读阅读（解包后直接执行 <解包目录>/vork，未实机确认）；要求 macOS 26 及以上。未运行。"
+    },
+    "windows-x64": {
+      "archive": "vork-0.5.1-windows-x64.zip",
+      "sha256": "bdfa1df80e2f56f20f914a5a3f7c6c964b33424b32c470157d000bb9ce2e4be2",
+      "binary": "vork.exe",
+      "binarySha256": "a8e448e72ccb2d77d1a8cf4a3cc0f04b8b9842f098e78f520b06fbe39d5df877",
+      "verified": "2026-11 在 Windows 11 + RTX 5090（驱动 621.01，Vulkan）实测：归档 sha256 与发行页 digest 一致；解包即用，--version 输出「0.5.1 (commit 626653ebf900; API v2)」；setup 18 秒完成，报告 Ray queries: available；std/final 档 1920x1040 热启动一帧 1.07 秒（8 采样 + 降噪），首次含着色器编译 7.25 秒。可执行文件哈希未算。size 为约数（138 MB），精确字节数未取。binarySha256 由该归档解出的 vork.exe 计算（macOS 上 unzip 后 shasum -a 256），与工作站上 node engine/native/rt.mjs status 的实测值一致；2026-11-12 在同一台工作站上用 node engine/native/rt.mjs render 端到端跑通（四层与 meta.json 齐全，同种子两次渲染的颜色层 sha256 相同）。"
+    },
+    "linux-x64": {
+      "archive": "vork-0.5.1-linux-x64.tar.gz",
+      "sha256": "495cd415273a5a96ef78c148eacce666a8634e8acc30df66f9bba1dd0ef7ff20",
+      "binary": "vork",
+      "binarySha256": null,
+      "verified": "归档 sha256 取自发行页 digest，未在本机下载复核；binary 路径同 macOS（依据 install.sh）；要求 glibc 2.35 及以上。未运行。"
+    }
+  }
+}

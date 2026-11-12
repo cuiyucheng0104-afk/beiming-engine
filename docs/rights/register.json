@@ -498,6 +498,32 @@
         "examples/raea/**",
         "docs/raea/**"
       ]
+    },
+    {
+      "id": "R14",
+      "title": "上游光追渲染器 vork（B 路线光追外部后端 rt 调用，不随仓库分发，实验阶段）",
+      "kind": "upstream-runtime",
+      "holder": "Nullframe, Inc.（上游仓库 voyager-so/vork 的版权人）",
+      "holderBasis": "上游 0.5.1 发行包里的 LICENSE（标题 vork Preview License）；THIRD-PARTY.md 第 1 节",
+      "licensor": "同权利方（按其公开的预览许可）",
+      "scope": "vork Preview License（自定义许可，不是开源许可）：允许任何用途的使用、自用修改、原样分发未改动的副本；未经书面许可不得出售、出租、再许可、分发改动过的版本，不得做成他人提交场景或任务来渲染的托管服务；对用它做出的场景、代码与媒体不主张权利",
+      "term": "许可只覆盖 0.5.1 这一版；以后的版本可以改用别的条款（含收费），已取得版本的权利不因此收回",
+      "writtenEvidence": "公开许可，以发行包里的 LICENSE 为准；条款没有单列的情形（例如复制代码片段进 MIT 仓库）是否允许：待补（需向上游书面确认或取得法律意见）",
+      "status": "license-known",
+      "statusNote": "只作内部制作层与学术研究：仓库只有自有的调用代码与锁定记录，不含它的源码、着色器、文档原文与二进制；实验阶段，尚未用于任何交付作品",
+      "evidence": [
+        "docs/rights/rt-boundary.md（允许与禁止、固定版本、要留意的事）",
+        "engine/native/rt.lock.json（版本、各平台归档 sha256、实测到哪一步）",
+        "THIRD-PARTY.md 第 1 节"
+      ],
+      "obligations": "不分发、不复制或改写其源码与着色器、不把二进制放进仓库；升级版本前重读新版本的 LICENSE，并在同一提交里更新锁文件与 rt-boundary.md",
+      "agentRule": "只写调用它命令行的自有代码；我方命名一律用 rt，不用上游名；有人要把渲染做成对外服务、要分发它或要复制它的代码，先问用户",
+      "distribution": "不分发（每台机器单独取得官方发行包，用 BNE_RT_BIN 指向）",
+      "gitPaths": [
+        "engine/native/rt.mjs",
+        "engine/native/rt.lock.json",
+        "engine/look/layers.js"
+      ]
     }
   ],
   "appendix": [

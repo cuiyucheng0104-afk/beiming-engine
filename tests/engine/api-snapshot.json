@@ -342,6 +342,14 @@
     "createKuwahara"
    ]
   },
+  "engine/look/layers.js": {
+   "stability": "experimental",
+   "exports": [
+    "createLayerLook",
+    "decodePng",
+    "loadLayers"
+   ]
+  },
   "engine/look/paper.js": {
    "stability": "stable",
    "exports": [
@@ -464,6 +472,30 @@
     "buildBrushGlyph",
     "chamfer",
     "paintBrushGlyph"
+   ]
+  },
+  "engine/overlay/cjk.js": {
+   "stability": "experimental",
+   "exports": [
+    "LEAD_BLANK",
+    "LINE_END",
+    "LINE_START",
+    "TRAIL_BLANK",
+    "canvasMeasure",
+    "layoutText",
+    "lintLine"
+   ]
+  },
+  "engine/overlay/kinetic.js": {
+   "stability": "experimental",
+   "exports": [
+    "EFFECTS",
+    "drawKinetic",
+    "glyphState",
+    "labelComponents",
+    "progressOf",
+    "quantizeP",
+    "splitPieces"
    ]
   },
   "engine/overlay/text.js": {

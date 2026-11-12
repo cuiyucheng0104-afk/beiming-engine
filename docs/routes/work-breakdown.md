@@ -101,6 +101,7 @@ flowchart LR
   H05 --> T19
   T18 --> T20
   T19 --> T20
+  T23 --> T24
   H00 --> H18
   H01 --> H18
   H02 --> H18
@@ -108,6 +109,8 @@ flowchart LR
   H05 --> H18
   H06 --> H18
   H10 --> H18
+  T21
+  T22
   H09
   H11
   H13
@@ -339,6 +342,54 @@ flowchart LR
 - 交付：版本化入口和复现命令；完成状态与剩余问题清单。
 - 验收：计划与已实现状态同步；三条路线都能从入口走通；不包含机器私有路径或未经确认的运行结果。
 - 详细指引：[work-breakdown.md](work-breakdown.md)。
+
+### T21 · Canvas 用的中文排字模块与 QA 软检查
+
+- 路线：`shared`；角色：显示层文字属主；状态：`done`。
+- 认领：集成负责人（多代理会话）；会话 `feat/cjk-kinetic-rt`；基线 `847a242`；2026-11-12 起，2026-11-26 到期。
+- 依赖：无。
+- 输入：W3C《中文排版需求》（clreq）的禁则、标点挤压、中西文间距；字幕已在用的避头尾集合 engine/audio/voice/align.py。
+- 写入范围：`engine/overlay/cjk.js`、`tests/engine/cjk.test.mjs`、`lab/cjk.js`。
+- 交付：layoutText / canvasMeasure / lintLine 与规则表；机器 QA 软项 texts.cjk-break；自测页 ?test=cjk。
+- 验收：node --test tests/engine/cjk.test.mjs 全过（含规则表与 align.py 的一致性核对）；npm run test:qa 全过，现有夹具作品的判定不变；新模块不被现有页面 import：金标准 beiming-core、lab、templates、fixtures 逐像素不变。
+- 证据：`engine/overlay/cjk.js`；`node --test tests/engine/cjk.test.mjs`（2026-11-12 macOS：17 项全过）；`npm run test:qa`（2026-11-12 macOS：53 项全过）。
+- 详细指引：[README.md](../../tests/engine/README.md)。
+
+### T22 · 文字动效模块（逐字与逐碎片的入场出场）
+
+- 路线：`shared`；角色：显示层文字属主；状态：`done`。
+- 认领：集成负责人（多代理会话）；会话 `feat/cjk-kinetic-rt`；基线 `847a242`；2026-11-12 起，2026-11-26 到期。
+- 依赖：无。
+- 输入：排字结果的逐字位置 [{ ch, x, y, w, line, index }]；engine/core 的确定性数学与一拍二时钟、engine/overlay/brush.js 的距离场显影。
+- 写入范围：`engine/overlay/kinetic.js`、`tests/engine/kinetic.test.mjs`、`lab/kinetic.js`。
+- 交付：12 个动效、glyphState / progressOf / quantizeP / splitPieces / drawKinetic；自测页 ?test=kinetic。
+- 验收：node --test tests/engine/kinetic.test.mjs 全过（起始态、静止态、无内部状态、种子、次序、量化）；确定性静态扫描对新文件 0 处命中；自测页出静帧，12 格都有字且彼此可区分。
+- 证据：`engine/overlay/kinetic.js`；`node --test tests/engine/kinetic.test.mjs`（2026-11-12 macOS：43 项全过）；`node engine/render/still.mjs . 0.9 2.0 3.2 --size 1280x720 --query test=kinetic --out out/lab/kinetic2`（2026-11-12 macOS：三张静帧已出并读图；浏览器里的碎片拆分与墨洇只有静帧核对，没有自动测试）。
+- 详细指引：[README.md](../../tests/engine/README.md)。
+
+### T23 · B 路线光追外部后端 rt：适配器与分层风格化（实验）
+
+- 路线：`b`；角色：原生路线集成负责人；状态：`done`。
+- 认领：集成负责人（多代理会话）；会话 `feat/cjk-kinetic-rt`；基线 `847a242`；2026-11-12 起，2026-11-26 到期。
+- 依赖：无。
+- 输入：外部光追渲染器 0.5.1 的命令行与分层输出（许可边界 docs/rights/rt-boundary.md）；鲲的 GLB（examples/raea/media/kun.glb）。
+- 写入范围：`engine/native/rt.mjs`、`engine/native/rt.lock.json`、`engine/look/layers.js`、`lab/rt_look.js`、`tests/native/rt.test.mjs`。
+- 交付：npm run b:rt -- status | render；锁定记录；分层风格化 createLayerLook；自测页 ?test=rt_look。
+- 验收：node --test tests/native/rt.test.mjs 全过（假可执行文件：版本、缺失、产物核对）；用真机渲出的鲲分层出一张风格化静帧：有墨线、色阶、纸纹，光追阴影的形状保留。
+- 证据：`engine/native/rt.mjs`；`node --test tests/native/rt.test.mjs`（2026-11-12 macOS：8 项全过（假可执行文件，不启动渲染器））；`node engine/render/still.mjs . 0 --size 1920x1040 --query "test=rt_look&dir=out/rt/kun&split=1" --out out/lab`（2026-11-12：分层由 Windows 11 + RTX 5090（Vulkan，驱动 621.01）上的渲染器 0.5.1 手工调用渲出（1920×1040 一帧热启动 1.07 秒），风格化在 macOS 上做；静帧已读图。密集小物体处线条偏挤，尚未调）。
+- 详细指引：[README.md](../../routes/b-native/README.md)。
+
+### T24 · 光追外部后端 rt 在工作站上的端到端验证与锁定补齐
+
+- 路线：`b`；角色：原生路线集成负责人；状态：`done`。
+- 认领：集成负责人（多代理会话）；会话 `feat/cjk-kinetic-rt`；基线 `847a242`；2026-11-12 起，2026-11-26 到期。
+- 依赖：T23。
+- 输入：装了渲染器 0.5.1 的 Windows 工作站（BNE_RT_BIN）；T23 的适配器与自测页。
+- 写入范围：`engine/native/rt.lock.json`、`tests/native/rt.test.mjs`。
+- 交付：npm run b:rt -- status / render 在工作站上的运行记录；rt.lock.json 里 windows-x64 的可执行文件哈希。
+- 验收：工作站上 npm run b:rt -- status 报出版本 0.5.1 与可执行文件 sha256；工作站上 npm run b:rt -- render 出齐四层与 meta.json，readLayers 核对通过；rt.lock.json 的 windows-x64 binarySha256 补齐，测试同步。
+- 证据：`engine/native/rt.lock.json`；`node engine/native/rt.mjs status`（2026-11-12 Windows 11 + RTX 5090（Vulkan，驱动 621.01）：版本 0.5.1，可执行文件 sha256 与锁一致（verified: true））；`node engine/native/rt.mjs render <场景.json> --out <目录> --at 0 --json`（同一台工作站：exit 0，四层与 meta.json 齐全，20 个物体编号；颜色层 sha256 与此前手工调用的同种子渲染相同。运行的是 git archive 导出的 engine/native 与 tools/lib（不是完整检出）。第一次真机跑出 seed=null 的问题，已修并补回归测试）。
+- 详细指引：[README.md](../../routes/b-native/README.md)。
 
 ### H00 · P00 决策与冻结点
 

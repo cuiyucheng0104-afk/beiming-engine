@@ -9,7 +9,7 @@ export const ALLOWED_PLACEHOLDERS = Object.freeze(['NAME', 'TITLE']);
 
 export const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/;
-const UPSTREAM_NAME_RE = /raea/i;
+const UPSTREAM_NAME_RE = /raea|vork/i;
 const TITLE_FORBIDDEN = /["'`\\<>\u0000-\u001f\u007f\u2028\u2029]/;
 
 /** 文本里所有占位符：[{ name, line }]（line 从 1 起）。 */

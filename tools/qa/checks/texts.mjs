@@ -5,6 +5,7 @@
 //   duration   不透明度 ≥ opaqueAlpha 的连续停留 ≥ max(minHoldSec, 字数×perUnitSec)（硬门）；导演规范的 字数÷4.5＋1.5 秒为软项
 //   contrast   选每条文字最不透明的一帧，开、关文字各截一张无损图：差别大的像素是字，其余是背景；相对亮度对比 < 3:1 硬失败，< 4.5:1 软项
 //   glyphs     每个字按 CSS 字体匹配规则逐家族查 cmap：落到系统字体（含 sans-serif 等通用族）即失败；字体没加载完也算失败
+//   cjk-break  每条文字（\n 分出的每一行）行首不是收尾标点、行尾不是开头标点（规则表来自 engine/overlay/cjk.js；软项）
 // 页面没有 TEXTS 时，用探针记下的画字调用与 DOM 文字代替（「推导模式」，停留时长只给软项）。
 //
 //   runTexts({ pageDir, profile, film, step, readyTimeoutMs, contrast, timeoutMs, root }) → { checks, warnings, summary }
@@ -15,6 +16,7 @@ import { openPage, sampleFrames, fontInventory, screenshotSet } from '../lib/pag
 import { parseFont, parseUnicodeRange, inRanges } from '../lib/font.mjs';
 import { decodePng } from '../lib/png.mjs';
 import { fpsOf, REPO_ROOT } from '../lib/profiles.mjs';
+import { lintLine } from '../../../engine/overlay/cjk.js';
 
 const GENERIC = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded', 'emoji', 'math', 'fangsong']);
 const CJK = /[⺀-⿟぀-ヿ㄀-ㄯ㆐-ㇿ㐀-䶿一-鿿가-힯豈-﫿\u{20000}-\u{3134F}]/u;
@@ -141,12 +143,17 @@ export function measureContrast(on, off, box) {
   return { separable: true, ratio: +ratio(Lf, Lb).toFixed(2), fg: +Lf.toFixed(4), bg: +Lb.toFixed(4), fgPixels: fg.length, bgPixels: bg.length, textIs: bright ? 'lighter' : 'darker' };
 }
 
+// 一条文字里违反行首行尾禁则的行：[{ line, kind, ch }]（\n 是硬换行，每行单独查）
+export function cjkBreaks(text) {
+  return String(text).split('\n').flatMap(line => lintLine(line).map(v => ({ line, kind: v.kind, ch: v.ch })));
+}
+
 export async function runTexts({ pageDir, profile, film = null, step = 1, readyTimeoutMs = 120000, contrast = true, timeoutMs = 600000, root = REPO_ROOT, size = null }) {
   const T = profile.texts;
   const fps = (film?.fps || fpsOf(profile)).value;
   const [W, H] = size || [film?.width || profile.width, film?.height || profile.height];
   const warnings = [];
-  const ids = ['texts.contract', 'texts.inframe', 'texts.safe-area', 'texts.duration', 'texts.contrast', 'texts.glyphs'];
+  const ids = ['texts.contract', 'texts.inframe', 'texts.safe-area', 'texts.duration', 'texts.contrast', 'texts.glyphs', 'texts.cjk-break'];
   const C = Object.fromEntries(ids.map(id => [id, makeCheck(id)]));
   const h = await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs });
   try {
@@ -270,6 +277,17 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
     du.value = durRows.length ? durRows.map(r => `${r.text.slice(0, 12)} ${r.opaqueSec}s`).join('；') : '没有文字';
     du.evidence = { rows: durRows };
     settle(du);
+
+    // ── 行首行尾禁则（软项）──
+    const cb = C['texts.cjk-break'];
+    cb.expected = '每行行首不是收尾标点（，。、；：？！）》」』】〕”’…—），行尾不是开头标点（（《「『【〔“‘）';
+    for (const tr of tracks.values()) {
+      for (const v of cjkBreaks(tr.text)) {
+        finding(cb, { key: `cjk@${tr.id}@${v.kind}`, target: tr.id, message: `「${v.line}」${v.kind === 'line-start' ? '行首是' : '行尾是'}「${v.ch}」`, hint: '用 engine/overlay/cjk.js 的 layoutText 排版（会推出、挤压），或改文案断句' });
+      }
+    }
+    cb.value = `${tracks.size} 条文字，${cb.findings.length} 处违规`;
+    settle(cb);
 
     // ── 缺字（cmap）──
     const gl = C['texts.glyphs'];

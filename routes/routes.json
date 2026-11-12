@@ -80,6 +80,17 @@
           "use": "只做内部制作层：自制影片与向客户交付成片，不作为对外的产品、SDK 或渲染服务（D03）",
           "internalDirs": ["examples/raea", "docs/raea"],
           "naming": "技术说明、署名与许可说明里如实写 RAEA；不得用作我方的产品名、路线名、目录名或文件名（D04）"
+        },
+        {
+          "name": "vork",
+          "repository": "voyager-so/vork",
+          "license": "LicenseRef-vork-Preview",
+          "pinned": "0.5.1",
+          "distributed": false,
+          "env": "BNE_RT_BIN",
+          "role": "外部无头光追渲染器（硬件光追）；B 路线的第二个外部后端候选，实验阶段：出写实光照的分层图（颜色、深度、物体编号、视空间法线），由 engine/look/layers.js 做北冥风格化",
+          "use": "只作内部制作层与学术研究：不分发、不复制其源码与着色器、不做对外渲染服务。许可是上游自定义的预览许可（不是开源许可），只覆盖 0.5.1 这一版（docs/rights/rt-boundary.md）",
+          "naming": "技术说明、署名与许可说明里如实写 vork；我方的文件名、目录名、命令名与环境变量名一律用 rt（D04）"
         }
       ],
       "manual": "routes/b-native/README.md",

@@ -29,6 +29,9 @@
 - 持续集成 `.github/workflows/ci.yml`，五个 job：unit（Node 24 与 22、Python 3.12）；check；smoke-render（SwiftShader 软件 WebGL 与 FFmpeg 8 下再跑一遍全部测试，A、C 模版小尺寸出片并核对尺寸、帧数、BT.709 标注、−14 LUFS 与真峰值，B 模版资产桥导出并核对两次逐字节相同，渲《北冥》与 lab 静帧，与 linux-swiftshader 金标准比对或首次采集）；env-smoke（Linux、macOS、Windows 三平台按锁文件装环境并自检）；windows-paths（PowerShell、无 Git Bash 下的测试、检查、目录联接与中文路径、GBK 管道）。actions 都固定到提交哈希。本机复现方法见 `tests/ci/README.md`。
 - 发布流程 `.github/workflows/release.yml`：推 `v*` 标签后核对标签、版本号与本文件，跑整套 CI，再用本文件的对应段落建草稿 Release，附 CI 接触印与 1920×1040 静帧，人工核对后发布。`tests/ci/changelog.mjs` 校验本文件并取出各版本的说明。
 - 编辑器与静态检查配置：`.editorconfig`；`eslint.config.js` 与 `ruff.toml`（只开真错误类规则，先只报告）；`.github/dependabot.yml`，每周检查 npm、pip、GitHub Actions 的更新（新版本发布满 14 天才提；three 与 playwright-core 不自动升级）。
+- 中文排字 `engine/overlay/cjk.js`（实验）：给 Canvas 逐字画字用的断行与排版纯函数 `layoutText`，按 W3C《中文排版需求》做行首行尾禁则、省略号与破折号不拆、拉丁词与「数字加单位」不拆、标点挤压、中西文间距、两行等长与三种对齐；结果是逐字的位置，可直接交给文字动效。机器 QA 新增软项 `texts.cjk-break`（行首不是收尾标点、行尾不是开头标点，只告警）。自测页 `?test=cjk`。
+- 文字动效 `engine/overlay/kinetic.js`（实验）：12 个逐字或逐碎片的入场 / 出场动效（回弹落位、打字机、字距收拢、翻牌、乱码解析、霓虹点亮、墨洇显影、大小波浪、模糊对焦、遮罩擦出、碎片聚合、碎片依次显现），画面只取决于进度，可一拍二，可任意跳帧。自测页 `?test=kinetic`。
+- B 路线的光追外部后端 rt（实验）：`engine/native/rt.mjs`（`npm run b:rt -- status | render`）按 `engine/native/rt.lock.json` 核对外部光追渲染器的版本并调用它出分层图（颜色、深度、物体编号、视空间法线）；`engine/look/layers.js` 在浏览器里把一帧分层图做成描边、色阶、笔触与纸纹的北冥画风，自测页 `?test=rt_look`。渲染器是第三方预览许可软件，不随仓库分发，边界见 `docs/rights/rt-boundary.md`。现有三条路线的出片链路与画面不受影响。
 
 ### Changed
 
