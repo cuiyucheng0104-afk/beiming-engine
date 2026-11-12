@@ -1,8 +1,10 @@
-// 光追外部后端适配器（engine/native/rt.mjs）：用假的可执行文件核对版本 / 哈希 / 缺失的退出码；锁文件字段；
+// 光追外部后端适配器（engine/native/rt.mjs）：用替身可执行文件核对版本 / 哈希 / 缺失的退出码；锁文件字段；
 // 场景与命令行参数的纯函数输出；分层产物校验（临时目录里造小文件）。不要显卡、不要真渲染器。
+// 替身就是当前的 node：它认 --version、三个平台都是能直接启动的真可执行文件。不用脚本冒充，
+// 因为 Windows 上 Node 不允许不经 shell 直接启动 .cmd / .bat（spawnSync 报 EINVAL，CI 的 windows-paths 上实测）。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -13,16 +15,13 @@ import { platformKey } from '../../engine/native/runtime.mjs';
 import { EXIT } from '../../engine/native/cli.mjs';
 
 const ENTRY = fileURLToPath(new URL('../../engine/native/rt.mjs', import.meta.url));
-const isWin = process.platform === 'win32';
 
-function fakeRt(version = '0.5.1') {
-  const dir = mkdtempSync(join(tmpdir(), 'bne-rt-test-'));
-  const exe = join(dir, isWin ? 'rt.cmd' : 'rt');
-  writeFileSync(exe, isWin ? `@echo ${version} (commit abc; API v2)\r\n` : `#!/bin/sh\necho "${version} (commit abc; API v2)"\n`);
-  chmodSync(exe, 0o755);
-  return { dir, exe, sha: createHash('sha256').update(readFileSync(exe)).digest('hex') };
-}
-const lockWith = binarySha256 => ({ version: '0.5.1', platforms: { [platformKey()]: { binarySha256 } } });
+// 替身渲染器：exe = 当前的 node，--version 报的版本是 NODE_VERSION（如 24.11.0）
+const STAND_IN = process.execPath, NODE_VERSION = process.versions.node;
+let standInSha = null;
+const shaOfStandIn = () => (standInSha ??= createHash('sha256').update(readFileSync(realpathSync(STAND_IN))).digest('hex'));
+const envWith = extra => ({ ...process.env, BNE_ALLOW_VERSION: undefined, ...extra });
+const lockWith = (binarySha256, version = '0.5.1') => ({ version, platforms: { [platformKey()]: { binarySha256 } } });
 const cleanup = d => rmSync(d, { recursive: true, force: true });
 
 test('锁文件：字段齐全，三个平台归档哈希都在，许可与边界已写', async () => {
@@ -47,22 +46,18 @@ test('没设 BNE_RT_BIN / 文件缺失 → exit 3', async () => {
 });
 
 test('版本对得上：哈希 null 记 unlocked，哈希一致记 true，哈希不符 → exit 3', async () => {
-  const f = fakeRt();
-  try {
-    const r = await resolveRt({ env: { BNE_RT_BIN: f.exe }, lock: lockWith(null) });
-    assert.equal(r.version, '0.5.1');
-    assert.equal(r.verified, 'unlocked');
-    assert.equal((await resolveRt({ env: { BNE_RT_BIN: f.exe }, lock: lockWith(f.sha) })).verified, true);
-    await assert.rejects(resolveRt({ env: { BNE_RT_BIN: f.exe }, lock: lockWith('0'.repeat(64)) }), e => e.exitCode === EXIT.ENV && e.code === 'env.rt-hash');
-  } finally { cleanup(f.dir); }
+  const env = envWith({ BNE_RT_BIN: STAND_IN });
+  const r = await resolveRt({ env, lock: lockWith(null, NODE_VERSION) });
+  assert.equal(r.version, NODE_VERSION);
+  assert.equal(r.verified, 'unlocked');
+  assert.equal((await resolveRt({ env, lock: lockWith(shaOfStandIn(), NODE_VERSION) })).verified, true);
+  await assert.rejects(resolveRt({ env, lock: lockWith('0'.repeat(64), NODE_VERSION) }), e => e.exitCode === EXIT.ENV && e.code === 'env.rt-hash');
 });
 
 test('版本对不上 → exit 3；BNE_ALLOW_VERSION 显式放行记 allowed', async () => {
-  const f = fakeRt('0.6.0');
-  try {
-    await assert.rejects(resolveRt({ env: { BNE_RT_BIN: f.exe }, lock: lockWith(null) }), e => e.exitCode === EXIT.ENV && e.code === 'env.rt-version' && /0\.5\.1/.test(e.message));
-    assert.equal((await resolveRt({ env: { BNE_RT_BIN: f.exe, BNE_ALLOW_VERSION: '0.6.0' }, lock: lockWith(null) })).verified, 'allowed');
-  } finally { cleanup(f.dir); }
+  // 锁要 0.5.1，替身报的是 node 的版本
+  await assert.rejects(resolveRt({ env: envWith({ BNE_RT_BIN: STAND_IN }), lock: lockWith(null) }), e => e.exitCode === EXIT.ENV && e.code === 'env.rt-version' && /0\.5\.1/.test(e.message));
+  assert.equal((await resolveRt({ env: envWith({ BNE_RT_BIN: STAND_IN, BNE_ALLOW_VERSION: NODE_VERSION }), lock: lockWith(null) })).verified, 'allowed');
 });
 
 test('命令行：status 没设 BNE_RT_BIN → exit 3，一行原因加一行下一步', () => {
