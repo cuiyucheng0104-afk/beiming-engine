@@ -1018,7 +1018,7 @@ class SchemaV2Tests(unittest.TestCase):
         stale, extra, outputs = cb.index_drift(self.m)
         self.assertEqual(len(stale), 5)
         for rel, text in outputs.items():
-            (cb.ARCHIVE/rel).write_text(text, encoding='utf-8')
+            (cb.ARCHIVE/rel).write_bytes(text.encode('utf-8'))   # 与 cmd_index 一样按字节写；Windows 上 write_text 会写成 CRLF
         self.assertEqual(cb.index_drift(self.m)[:2], ([], []))
         (cb.ARCHIVE/'entries/one.md').write_text(outputs['entries/one.md'] + '手改\n', encoding='utf-8')
         (cb.ARCHIVE/'entries/ghost.md').write_text('# ghost\n', encoding='utf-8')

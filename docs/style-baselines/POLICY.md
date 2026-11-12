@@ -77,7 +77,7 @@
 | 改了 `engine/`、`src/`、`lab/`、`assets/`、`fonts/`、`index.html` 或路线模版，合入前（像素保护） | `node tools/baseline/golden.mjs compare --set beiming-core,lab,templates --strict` | exit 0；不是 0 就看报告里的热图和接触印 |
 | 想知道是哪个提交改了像素 | `… compare --set <集合> --against <提交>` | 只把那个提交的页面（约 60 MB）导出到临时目录现渲，结束即删，不建 worktree |
 | 另一台机器的画面 | 那台机器 `… capture --set <集合> --out <目录>`，拷过来 `… compare --set <集合> --ref-dir <目录>` | 按跨平台容差 |
-| CI 冒烟（`tests/ci/smoke-render.mjs` 的 golden 阶段，`BEIMING_ANGLE=swiftshader`） | 有 `tests/golden/linux-swiftshader/manifest.json`：`… compare --set ci --platform linux-swiftshader --json`（冒烟脚本现在默认 `--golden-set beiming-core,lab`，建议改成 `ci`，见第 8 节）；没有：同样参数的 `capture`，结果作为工件 `golden-capture` 上传 | compare exit 0 通过、4 像素不一致；capture 写出的是待审批候选，按第 6 节转正 |
+| CI 冒烟（`tests/ci/smoke-render.mjs` 的 golden 阶段，`BEIMING_ANGLE=swiftshader`） | 有 `tests/golden/linux-swiftshader/manifest.json`：`… compare --set ci --platform linux-swiftshader --json`（软件渲染下冒烟脚本默认就是 `ci` 集合，见第 8 节）；没有：同样参数的 `capture`，结果作为工件 `golden-capture` 上传 | compare exit 0 通过、4 像素不一致；capture 写出的是待审批候选，按第 6 节转正 |
 | 新作品出片前、改了带累计状态的镜头 | `node tools/baseline/determinism.mjs films/<名> --seams --workers 4` | exit 0：新页面、乱序、顺序三种渲法逐像素一致 |
 | 《北冥》样片 | `node tools/baseline/determinism.mjs . --seams --workers 4 --cuts 72,120 --random 5 --frames 0,239` | 2026-11-10 实测 18 帧通过，41.7 秒 |
 

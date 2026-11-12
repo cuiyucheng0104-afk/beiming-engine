@@ -78,7 +78,8 @@ async function hookMode() {
     process.stderr.write('这是 Claude Code 的 PreToolUse 钩子，从 stdin 读事件 JSON。人工查询请用 --explain，用法见 --help。\n');
     process.exit(2);
   }
-  const raw = await readStdin();
+  // PowerShell 7 往原生命令的管道写 UTF-8 时带 BOM（Windows 上没有 Git Bash 时 Claude Code 用它跑钩子）：去掉再解析
+  const raw = (await readStdin()).replace(/^\uFEFF/, '');
   let event;
   try { event = JSON.parse(raw || '{}'); } catch (e) {
     process.stderr.write(`北冥护栏：钩子输入不是 JSON（${e.message}），本次不判定。\n`);

@@ -62,7 +62,7 @@ export const HELP = `北冥仓库 · 无 GPU 冒烟出片（CI smoke-render）
   --size-beiming <WxH>    《北冥》静帧尺寸（默认 384x208）
   --golden <模式>         auto（默认：有清单就比对，没有就采集）、compare、capture、off
   --platform <平台键>     金标准平台键（默认 <系统>-swiftshader，CI 上是 linux-swiftshader；不是软件渲染时没有默认值）
-  --golden-set <名,…>     金标准集合（默认 beiming-core,lab）
+  --golden-set <名,…>     金标准集合（默认：软件渲染 ci，见 docs/style-baselines/POLICY.md 第 8 节；用 --platform 指明 GPU 平台时 beiming-core,lab）
   --python <解释器>       Python（默认依次找 BEIMING_PY、PYTHON、tools/env/py.mjs、.venv、python3…）
   --timeout <秒>          每一步的时限（默认 600）
   --keep                  保留 films/ 下的临时作品（排查用）
@@ -150,7 +150,7 @@ export async function main(argv = process.argv.slice(2)) {
       out: path.resolve(opts.out || path.join(root, 'out/ci/smoke')),
       sizeA: sizeOf(opts['size-a'] || '384x216', 'size-a'), sizeC: sizeOf(opts['size-c'] || '320x180', 'size-c'),
       sizeB: sizeOf(opts['size-beiming'] || '384x208', 'size-beiming'),
-      platform: opts.platform || (software ? `${osKey}-swiftshader` : null), sets: opts['golden-set'].length ? opts['golden-set'] : ['beiming-core', 'lab'],
+      platform: opts.platform || (software ? `${osKey}-swiftshader` : null), sets: opts['golden-set'].length ? opts['golden-set'] : software ? ['ci'] : ['beiming-core', 'lab'],
       timeoutMs: 1000 * (opts.timeout || 600), tag: crypto.randomBytes(3).toString('hex'),
       // 渲染器 v2（P04）默认拒绝软件渲染；CI 本来就只有软件渲染，显式放行（旧渲染器不认这个变量，没有影响）
       childEnv: software && !process.env.BEIMING_GPU ? { BEIMING_GPU: 'software-ok' } : {},

@@ -153,6 +153,10 @@ test('钩子模式：坏输入 exit 1（非阻断），不抛堆栈到 stdout', 
   assert.match(r.stderr, /不是 JSON/);
   const e = guard([], { input: '' });
   assert.equal(e.status, 0, '空输入按空事件处理并放行');
+  // PowerShell 7 的管道带 UTF-8 BOM：照常判定，不当坏输入
+  const bom = guard([], { input: '\uFEFF' + event('Write', { file_path: path.join(ROOT, 'cases', 'vendor', 'x.js'), content: 'x' }) });
+  assert.equal(bom.status, 0, bom.stderr);
+  assert.equal(JSON.parse(bom.stdout).hookSpecificOutput.permissionDecision, 'deny');
 });
 
 test('解锁变量来自启动环境：BEIMING_GUARD_UNLOCK=src 后放行 src 写入', () => {

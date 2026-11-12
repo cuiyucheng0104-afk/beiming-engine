@@ -40,7 +40,8 @@ export function makeWork(route, { title = '自检短片', fonts = true } = {}) {
   if (route !== 'b') {
     fs.mkdirSync(TEST_ROOT, { recursive: true });
     real = path.join(TEST_ROOT, name);
-    fs.renameSync(inRepo, real);
+    // Windows runner 上仓库在 D:、临时目录在 C:：跨盘不能改名（EXDEV），改成复制后删除
+    try { fs.renameSync(inRepo, real); } catch (e) { if (e.code !== 'EXDEV') throw e; fs.cpSync(inRepo, real, { recursive: true }); fs.rmSync(inRepo, { recursive: true, force: true }); }
     fs.symlinkSync(real, inRepo, process.platform === 'win32' ? 'junction' : 'dir');
   }
   const w = {

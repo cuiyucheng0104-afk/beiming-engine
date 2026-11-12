@@ -45,7 +45,7 @@ describe('Bash 静态分析', () => {
 
   it('读文档：cat、head -n、sed -n 范围都记下大致行数', () => {
     const r = sh("cat AGENTS.md | head -n 50 && sed -n '1,120p' routes/README.md && head -20 docs/x.md");
-    const reads = r.reads.map(x => [path.relative(CWD, x.path), x.lines]);
+    const reads = r.reads.map(x => [path.relative(CWD, x.path).split(path.sep).join('/'), x.lines]);
     assert.deepEqual(reads, [['AGENTS.md', null], ['routes/README.md', 120], ['docs/x.md', 20]]);
   });
 
@@ -57,7 +57,7 @@ describe('Bash 静态分析', () => {
   });
 
   it('~ 展开成给定的家目录', () => {
-    assert.equal(sh('cat ~/lemo-opuscar/README.md').reads[0].path, '/Users/tester/lemo-opuscar/README.md');
+    assert.equal(sh('cat ~/lemo-opuscar/README.md').reads[0].path, path.normalize('/Users/tester/lemo-opuscar/README.md'));
   });
 });
 

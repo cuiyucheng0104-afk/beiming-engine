@@ -56,7 +56,7 @@
 
 ## CI 的五个 job，以及在本机怎么复现
 
-工作流在 `.github/workflows/ci.yml`。下面每条命令都与 job 里的一致，在仓库根目录运行。
+工作流在 `.github/workflows/ci.yml`。下面每条命令都与 job 里的一致，在仓库根目录运行。每个 job 都检出完整历史（`fetch-depth: 0`）：工程计划的证据提交、金标准清单的源提交都要在本仓库里找得到，浅克隆会报「找不到」。
 
 ### unit（Node 24 与 22、Python 3.12）
 
@@ -85,6 +85,7 @@ eslint 要等 `package.json` 的 devDependencies 登记了 eslint、@eslint/js�
 
 ```sh
 ./node_modules/.bin/playwright-core install chromium-headless-shell
+node tools/fonts/fetch.mjs                                      # A 模版的字体子集要锁定的 OFL 原始字体（一次即可）
 export BEIMING_ANGLE=swiftshader BEIMING_GPU=software-ok      # macOS 上也能这样模拟 CI 的软件渲染
 export BEIMING_PY="$PWD/.venv/bin/python"
 node tools/run-tests.mjs --require browser,ffmpeg,python --skip-grep "R35 墨线：宽线"
@@ -108,7 +109,7 @@ node tests/ci/smoke-render.mjs --out out/ci/smoke
 
 ### env-smoke（Linux、macOS、Windows 三平台）
 
-按锁文件一键装环境，再跑 A、C 两条路线的环境自检。B 路线要原生运行时，CI 上没有，所以不自检 B。这两个入口归环境工作包（`tools/env/`）：还没合入时，这两步自动跳过，job 照样是绿的。
+按锁文件一键装环境，装 FFmpeg（Linux、Windows 用与 smoke-render 同一版 BtbN 静态构建并核对 sha256，macOS 用 Homebrew；`setup.mjs` 不装系统工具），再跑 A、C 两条路线的环境自检。B 路线要原生运行时，CI 上没有，所以不自检 B。这两个入口归环境工作包（`tools/env/`）：还没合入时，这两步自动跳过，job 照样是绿的。
 
 ```sh
 node tools/env/setup.mjs
@@ -182,6 +183,3 @@ v1.0 标签停在首个提交，GitHub 上的 Latest 仍指向它。要替换，
 | 现象 | 影响 | 负责的工作包 | 处理与解除条件 |
 |---|---|---|---|
 | `engine/look/gpu.test.mjs` 的「R35 墨线：宽线…」在 SwiftShader 下要 60 秒以上（3840×2080 再 2 倍超采样），超过测试里 `page.goto` 的 30 秒默认时限 | smoke-render 的全部测试一步 | 引擎九层（engine/look） | ci.yml 里用 `--skip-grep "R35 墨线：宽线"` 隔离。测试按软件渲染缩小尺寸或放宽时限后，删掉这个参数。GPU 上照常运行 |
-| 经符号链接或目录联接的绝对路径调用 `tools/new-film.mjs` 时退出码为 0，但什么都没建：入口判断拿 `process.argv[1]` 与真实路径直接比较 | windows-paths 的 new-film 项 | 治理骨架（tools/new-film.mjs） | 入口判断改为比较真实路径（可参考 `tools/run-tests.mjs` 的 `isMain`）。修好、job 转绿后，把仓库变量 `BEIMING_WINDOWS_REQUIRED` 设为 true |
-| `PYTHONIOENCODING=gbk` 时 `tools/casebook.py list` 输出 `−`（U+2212）报 UnicodeEncodeError，退出码 1 | 中文 Windows 上把输出重定向到文件时 | 案例库工具、环境（tools/env/py.mjs） | Python 入口把标准输出改成 UTF-8，或统一经 `tools/env/py.mjs` 启动 |
-| `tools/repo-check.mjs` 在 `routes/directing/craft/*.md` 报 25 处「内部代号」 | check job 的 repo 步骤为红 | 治理骨架（repo-check 规则） | 按 D04 放宽规则：上游名可以出现在技术说明与署名语境中 |

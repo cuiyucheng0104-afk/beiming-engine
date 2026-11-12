@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { parseArgs, parseTap, discover, domainOf, inScope, CliError, EXIT, isMain } from '../../tools/run-tests.mjs';
 import { makeRepo, runNode, RUN_TESTS, REPO, python, alive, waitFor, WIN } from './helpers.mjs';
 
@@ -306,7 +307,7 @@ test('经目录联接 / 符号链接调用时照常工作（入口判断按真�
   const r = await runNode(path.join(alias, 'run-tests.mjs'), ['--help']);
   assert.equal(r.code, 0);
   assert.match(r.stdout, /用法/);
-  assert.equal(isMain(new URL('file:///不是入口.mjs').href), false);
+  assert.equal(isMain(pathToFileURL(path.join(base, '不是入口.mjs')).href), false);
 });
 
 test('parseArgs：逗号与重复合并、--x=v、缺值与类型错误报用法错误', () => {
