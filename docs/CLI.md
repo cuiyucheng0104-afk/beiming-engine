@@ -122,7 +122,7 @@
 | `audio:build`、`audio:qa`、`audio:cuecheck`、`audio:voice`、`audio:samples` | `tools/audio/build.mjs`、`qa.mjs`、`cuecheck.mjs`、`voice.mjs`、`fetch-samples.mjs` | 声音 | 已接入 |
 | `fonts:fetch`、`fonts:subset` | `tools/fonts/fetch.mjs`、`subset.mjs` | A 路线 | 已接入；A 作品出片前先 `fonts:subset films/<名字>` |
 | `plates:check`、`plates:bleed`、`lookdev:sweep` | `tools/plates/check.mjs`、`bleed.mjs`、`tools/lookdev/sweep.mjs` | A 路线 | 已接入 |
-| `b:preflight`、`b:render`、`b:prepare`、`b:runtime` | `engine/render/native.mjs --check-only`、`native.mjs`、`engine/native/prepare.mjs`、`runtime.mjs` | B 路线 | 已接入；旧名 `native:*`、`raea:*`（例片 `examples/raea`）已接入，保留一个版本 |
+| `b:preflight`、`b:render`、`b:prepare`、`b:runtime`、`b:rt` | `engine/render/native.mjs --check-only`、`native.mjs`、`engine/native/prepare.mjs`、`runtime.mjs`、`rt.mjs` | B 路线 | 已接入（`b:rt` 是光追外部后端，实验）；旧名 `native:*`、`raea:*`（例片 `examples/raea`）已接入，保留一个版本 |
 | `native:prepare`、`native:check`、`native:render`、`native:bridge`、`native:sequence` | `engine/native/…`、`engine/render/native.mjs` | B 路线 | 已接入（旧名） |
 | `raea:prepare`、`raea:check`、`raea:render` | `engine/native/prepare.mjs examples/raea`、`engine/render/native.mjs examples/raea [--check-only]` | B 路线 | 已接入（例片的旧名，保留一个版本） |
 | `c:styles`、`c:styles:check` | `tools/c-styles.mjs` | C 路线 | 已接入 |

@@ -348,6 +348,95 @@
       "playbook": "docs/routes/work-breakdown.md"
     },
     {
+      "id": "T21",
+      "title": "Canvas 用的中文排字模块与 QA 软检查",
+      "route": "shared",
+      "ownerRole": "显示层文字属主",
+      "status": "done",
+      "claim": {
+        "by": "集成负责人（多代理会话）",
+        "session": "feat/cjk-kinetic-rt",
+        "baseCommit": "847a2425028e1d3b910696324ce5b8ec0503a3bf",
+        "startedAt": "2026-11-12",
+        "expiresAt": "2026-11-26"
+      },
+      "dependsOn": [],
+      "inputs": ["W3C《中文排版需求》（clreq）的禁则、标点挤压、中西文间距", "字幕已在用的避头尾集合 engine/audio/voice/align.py"],
+      "writeScope": ["engine/overlay/cjk.js", "tests/engine/cjk.test.mjs", "lab/cjk.js"],
+      "outputs": ["layoutText / canvasMeasure / lintLine 与规则表；机器 QA 软项 texts.cjk-break；自测页 ?test=cjk"],
+      "acceptance": ["node --test tests/engine/cjk.test.mjs 全过（含规则表与 align.py 的一致性核对）", "npm run test:qa 全过，现有夹具作品的判定不变", "新模块不被现有页面 import：金标准 beiming-core、lab、templates、fixtures 逐像素不变"],
+      "evidence": [
+        {"kind": "file", "ref": "engine/overlay/cjk.js"},
+        {"kind": "command", "ref": "node --test tests/engine/cjk.test.mjs", "note": "2026-11-12 macOS：17 项全过"},
+        {"kind": "command", "ref": "npm run test:qa", "note": "2026-11-12 macOS：53 项全过"}
+      ],
+      "playbook": "tests/engine/README.md"
+    },
+    {
+      "id": "T22",
+      "title": "文字动效模块（逐字与逐碎片的入场出场）",
+      "route": "shared",
+      "ownerRole": "显示层文字属主",
+      "status": "done",
+      "claim": {
+        "by": "集成负责人（多代理会话）",
+        "session": "feat/cjk-kinetic-rt",
+        "baseCommit": "847a2425028e1d3b910696324ce5b8ec0503a3bf",
+        "startedAt": "2026-11-12",
+        "expiresAt": "2026-11-26"
+      },
+      "dependsOn": [],
+      "inputs": ["排字结果的逐字位置 [{ ch, x, y, w, line, index }]", "engine/core 的确定性数学与一拍二时钟、engine/overlay/brush.js 的距离场显影"],
+      "writeScope": ["engine/overlay/kinetic.js", "tests/engine/kinetic.test.mjs", "lab/kinetic.js"],
+      "outputs": ["12 个动效、glyphState / progressOf / quantizeP / splitPieces / drawKinetic；自测页 ?test=kinetic"],
+      "acceptance": ["node --test tests/engine/kinetic.test.mjs 全过（起始态、静止态、无内部状态、种子、次序、量化）", "确定性静态扫描对新文件 0 处命中", "自测页出静帧，12 格都有字且彼此可区分"],
+      "evidence": [
+        {"kind": "file", "ref": "engine/overlay/kinetic.js"},
+        {"kind": "command", "ref": "node --test tests/engine/kinetic.test.mjs", "note": "2026-11-12 macOS：43 项全过"},
+        {"kind": "command", "ref": "node engine/render/still.mjs . 0.9 2.0 3.2 --size 1280x720 --query test=kinetic --out out/lab/kinetic2", "note": "2026-11-12 macOS：三张静帧已出并读图；浏览器里的碎片拆分与墨洇只有静帧核对，没有自动测试"}
+      ],
+      "playbook": "tests/engine/README.md"
+    },
+    {
+      "id": "T23",
+      "title": "B 路线光追外部后端 rt：适配器与分层风格化（实验）",
+      "route": "b",
+      "ownerRole": "原生路线集成负责人",
+      "status": "done",
+      "claim": {
+        "by": "集成负责人（多代理会话）",
+        "session": "feat/cjk-kinetic-rt",
+        "baseCommit": "847a2425028e1d3b910696324ce5b8ec0503a3bf",
+        "startedAt": "2026-11-12",
+        "expiresAt": "2026-11-26"
+      },
+      "dependsOn": [],
+      "inputs": ["外部光追渲染器 0.5.1 的命令行与分层输出（许可边界 docs/rights/rt-boundary.md）", "鲲的 GLB（examples/raea/media/kun.glb）"],
+      "writeScope": ["engine/native/rt.mjs", "engine/native/rt.lock.json", "engine/look/layers.js", "lab/rt_look.js", "tests/native/rt.test.mjs"],
+      "outputs": ["npm run b:rt -- status | render；锁定记录；分层风格化 createLayerLook；自测页 ?test=rt_look"],
+      "acceptance": ["node --test tests/native/rt.test.mjs 全过（假可执行文件：版本、缺失、产物核对）", "用真机渲出的鲲分层出一张风格化静帧：有墨线、色阶、纸纹，光追阴影的形状保留"],
+      "evidence": [
+        {"kind": "file", "ref": "engine/native/rt.mjs"},
+        {"kind": "command", "ref": "node --test tests/native/rt.test.mjs", "note": "2026-11-12 macOS：8 项全过（假可执行文件，不启动渲染器）"},
+        {"kind": "command", "ref": "node engine/render/still.mjs . 0 --size 1920x1040 --query \"test=rt_look&dir=out/rt/kun&split=1\" --out out/lab", "note": "2026-11-12：分层由 Windows 11 + RTX 5090（Vulkan，驱动 621.01）上的渲染器 0.5.1 手工调用渲出（1920×1040 一帧热启动 1.07 秒），风格化在 macOS 上做；静帧已读图。密集小物体处线条偏挤，尚未调"}
+      ],
+      "playbook": "routes/b-native/README.md"
+    },
+    {
+      "id": "T24",
+      "title": "光追外部后端 rt 在工作站上的端到端验证与锁定补齐",
+      "route": "b",
+      "ownerRole": "原生路线集成负责人",
+      "status": "planned",
+      "dependsOn": ["T23", "H14"],
+      "inputs": ["装了渲染器 0.5.1 的 Windows 工作站（BNE_RT_BIN）", "T23 的适配器与自测页"],
+      "writeScope": ["engine/native/rt.lock.json", "tests/native/rt.test.mjs"],
+      "outputs": ["npm run b:rt -- status / render 在工作站上的运行记录；rt.lock.json 里 windows-x64 的可执行文件哈希"],
+      "acceptance": ["工作站上 npm run b:rt -- status 报出版本 0.5.1 与可执行文件 sha256", "工作站上 npm run b:rt -- render 出齐四层与 meta.json，readLayers 核对通过", "rt.lock.json 的 windows-x64 binarySha256 补齐，测试同步"],
+      "evidence": [],
+      "playbook": "routes/b-native/README.md"
+    },
+    {
       "id": "H00",
       "title": "P00 决策与冻结点",
       "route": "shared",

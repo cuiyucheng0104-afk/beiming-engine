@@ -9,6 +9,7 @@
 | [xiaoxiong20xx-code/sy-style-100](https://github.com/xiaoxiong20xx-code/sy-style-100) | `e41dee31a5c05dffa12b2f241378e648d2a22df6` | MIT（XIAOXIONG） | `cases/vendor/sy-style-100/`（331 个跟踪文件，原样） | 20 风格 / 100 示例、lib、渲染与声音工具；画风参照 | 保留版权声明与 MIT 许可（`cases/licenses/XIAOXIONG-MIT.txt`） |
 | [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) | `bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00` | 代码 MIT（LemoLab）；例片与静帧 CC BY 4.0 | `cases/vendor/lemo-opuscar/`（2478 个跟踪文件，原样） | 66 风格、demo、core、导演与技术文档；历史 66 部风格实验的方法来源 | 保留版权声明与 MIT 许可（`cases/licenses/LemoLab-MIT.txt`）；例片与静帧按 CC BY 4.0 署名 LemoLab；本仓库主体的派生代码见第 8 节 |
 | [shinyobjectz/raea](https://github.com/shinyobjectz/raea) | 源码对照 `fb3f70844e03cc40185e3a06c394060d26c5cd38`；运行发行版 v0.1.0-canary.2（2026-10-31 发布，2028-10-31 转为 Apache-2.0） | FSL-1.1-ALv2（Functional Source License 1.1，到期转 Apache-2.0；版权人 Shane Murphy） | **运行时与 SDK 不随本仓库分发**；仓库仅含源码对照、集成方案与自有的调用代码（`engine/native/`、`examples/raea/`） | B 路线（北冥原生 · BNE）的原生运行时 | 单独取得并按 FSL 条款使用；只作内部制作层（D03），不对外提供基于它的产品、SDK 或渲染服务；不分发运行时、不复制其源码；边界见第 7 节与 [docs/rights/fsl-boundary.md](docs/rights/fsl-boundary.md)；升级版本时同步更新本行的版本、发布日与转换日期 |
+| [voyager-so/vork](https://github.com/voyager-so/vork) | 运行发行版 0.5.1（2026-11-11 发布；`--version` 报的短提交 `626653ebf900`） | vork Preview License（上游自定义的预览许可，不是开源许可；版权人 Nullframe, Inc.） | **渲染器不随本仓库分发**，仓库也不含它的源码、着色器与文档原文；仓库只有自有的调用代码与锁定记录（`engine/native/rt.mjs`、`engine/native/rt.lock.json`）和自有的分层风格化（`engine/look/layers.js`） | B 路线（北冥原生 · BNE）的光追外部后端 rt，实验阶段：出写实光照的分层图，北冥做风格化 | 单独取得官方发行包并核对 sha256；只作内部制作层与学术研究，不分发、不复制其代码、不做对外渲染服务；许可只覆盖这一版，升级前重读新版本的许可；边界见 [docs/rights/rt-boundary.md](docs/rights/rt-boundary.md) |
 
 ## 2. 仓库自有内容
 
@@ -105,5 +106,15 @@ README 署名节与 Release 说明末尾都用这一句（作品站页脚已有�
 |---|---|---|---|
 | 马善政毛笔楷书（Ma Shan Zheng）全部 7015 个字符，按码位切成 13 片 | SIL OFL 1.1，Copyright 2018 The Ma Shan Zheng Project Authors | `routes/c-style/fonts/mashanzheng-*.woff2`，许可全文 [routes/c-style/fonts/OFL.txt](routes/c-style/fonts/OFL.txt) | 来源 google/fonts@406197b，生成方法与各片 sha256 见 `routes/c-style/fonts/fonts.json`；C 模版的片名与印文用它 |
 | 配乐采样库 VS Chamber Orchestra: Community Edition 与 Versilian Community Sample Library | CC0-1.0，Versilian Studios | 不随仓库分发 | 固定提交、逐文件地址与 sha256 见 `engine/audio/samples.json`，下载用 `npm run audio:samples`；《北冥》声音署名见 [audio/CREDITS](audio/CREDITS) |
+
+## 12. 做法参考（没有搬代码）
+
+下面几项只借了做法或规则，代码是本仓库自己写的，所以不带上游版权行；列在这里是如实说明出处。
+
+| 参考 | 许可 | 我方文件 | 借了什么 |
+|---|---|---|---|
+| W3C《中文排版需求》（[clreq](https://www.w3.org/TR/clreq/)） | 以原文页面的许可声明为准 | `engine/overlay/cjk.js` | 行首行尾禁则、符号分离禁则、标点宽度调整、汉字与西文间距的规则 |
+| [852wa/JIZURA](https://github.com/852wa/JIZURA) | MIT，Copyright (c) 2026 hakoniwa | `engine/overlay/kinetic.js` | 文字入场部件的分类方式；用它在中文上渲过样张来挑动效 |
+| [dososo/blcaptain-measure-cjk](https://github.com/dososo/blcaptain-measure-cjk)（分寸 · Measure） | 代码 Apache-2.0；规则文本与数据 CC BY 4.0，作者 爆裂队长NEXT（BLCaptain） | `engine/overlay/cjk.js`、QA 检查 `texts.cjk-break` | 行高取值区间的建议（默认行高 1.7 落在它建议的 1.6–1.9 内）、把排版规则做成机器检查的做法 |
 
 <!-- REUSE-IgnoreEnd -->

@@ -18,7 +18,7 @@ export const REGISTRY_PATH = 'routes/routes.json';
 export const STAGES = Object.freeze(['look', 'animatic', 'build', 'check', 'final']);
 export const STEP_VARS = Object.freeze(['dir', 'name', 'dur', 'fps', 'width', 'height', 'size', 'mid', 'last', 'midFrame', 'lastFrame']);
 /** 上游项目名：可以在技术说明与署名里出现，不得用作我方的产品名、路线名、目录名或文件名（D04）。 */
-export const UPSTREAM_NAME_RE = /raea/i;
+export const UPSTREAM_NAME_RE = /raea|vork/i;
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ENV_RE = /^[A-Z][A-Z0-9_]*$/;

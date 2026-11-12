@@ -84,7 +84,7 @@ films/<名字>/
 | 确定性、分辨率、色彩标签、编码、响度、质量门 | [video.md](../directing/craft/video.md) | `npm run film`（`tools/film`）、`npm run qa`（`tools/qa`）、`engine/render/` | 模版的统一出片 |
 | 材质补丁、形变一致、阴影、后期渲染目标、显存 | [threejs.md](../directing/craft/threejs.md) | `engine/shade/patch.js`、`engine/stage/outline.js` | `src/kun.js` |
 | 程序化造型：放样、山石、植物、器物、散布 | 各模块头注释 | `engine/form/`（`loft`、`rock`、`plants`、`props`、`scatter`） | 模版的峰、松、渡船 |
-| 显示层文字与片名 | [VISUAL-DESIGN §6](../directing/VISUAL-DESIGN.md) | `engine/overlay/text.js`、`engine/overlay/brush.js`（逐笔书写，需笔画骨架）、模版 `title.js`（洇墨题写，任何字） | 《北冥》片名 `src/hud.js`；模版片名 |
+| 显示层文字与片名 | [VISUAL-DESIGN §6](../directing/VISUAL-DESIGN.md) | `engine/overlay/text.js`、`engine/overlay/brush.js`（逐笔书写，需笔画骨架）、模版 `title.js`（洇墨题写，任何字）、`engine/overlay/cjk.js`（中文断行、禁则、标点挤压，实验）、`engine/overlay/kinetic.js`（12 个逐字 / 逐碎片动效，实验） | 《北冥》片名 `src/hud.js`；模版片名 |
 | 画风登记、预设、镜头级允许调整 | [STYLE-LOCK.md](../directing/templates/STYLE-LOCK.md)、[LOOKDEV.md](LOOKDEV.md) | `engine/style/`（`loadStyle`、`resolveLook`、`mixLook`、`checkOverrides`） | 模版 `main.js` |
 | 字体：锁定原始字体、按作品子集化、缺字门禁 | 本手册「契约」 | `tools/fonts/`（fetch、subset）、`engine/style/fonts.js` | 模版 `fonts/` |
 | 底板登记与准入（边策略、来源链、原图尺寸、色彩空间、直线淡出、出血） | [two-five-d §2](../directing/craft/two-five-d.md)、[RECIPE.md](../../assets/plates/RECIPE.md) | `tools/plates/check.mjs`、`tools/plates/bleed.mjs`、`assets/plates/plates.json` | 13 张《北冥》底板 |

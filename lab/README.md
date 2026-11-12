@@ -21,6 +21,9 @@ node tools/lookdev/sweep.mjs . --t 1.0 --q test=look --q kr=3,5,7      # 扫一�
 | `kun_peng` | 鲲鹏将化：身体一拍三、翅膀一拍二 | 是（默认） | 同 `kun`；`wt=` / `bt=` 固定翅膀或身体时钟 |
 | `girl` | Canvas 2D 人物：锚点、单层查看、表演时间点（自带近似正片的简易后期，只供自查） | 否 | `bg post grain layer debug cam`（见页头注释） |
 | `hud` | 显示层：片名逐笔书写、骨架叠图核对、文字方框、界面元素 | 否（显示层本来就不过后期） | `skel=1`、`boxes=1`、`theme=neutral` |
+| `cjk` | 中文排字 `engine/overlay/cjk.js`：不处理与 `layoutText` 的对照、两行等长、居中 | 否（只画 Canvas 文字） | `grid=1` 画每个字的前进宽度；要先把完整的 Noto Sans SC 放到 `out/fonts/NotoSansSC-full.ttf`（步骤见页头注释） |
+| `kinetic` | 文字动效 `engine/overlay/kinetic.js`：12 格循环播放入场、停留、出场 | 否（只画 Canvas 文字） | `fx=<名字>` 只看一个、`text=<字>`、`hold=2` 一拍二、`noblur=1` |
+| `rt_look` | 光追分层风格化 `engine/look/layers.js`：读一帧外部光追渲染器出的分层图，做描边、色阶、笔触、纸纹 | 否（用 layers.js 自己的全屏管线，不是正片后期） | `dir=out/rt/<名>`、`frame=`、`view=color\|ids\|edge\|toon\|final`、`split=1` 左原图右风格化 |
 
 `kun_bench.js` 是各鲲页共用的渲染器、机位表与后期选择，不是自测页（直接打开会报错提示）。`regress.test.mjs` 是正片源码的回归测试：`node --test lab/regress.test.mjs`。
 

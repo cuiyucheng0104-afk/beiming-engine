@@ -95,6 +95,7 @@
     "b:render": "node engine/render/native.mjs",
     "b:prepare": "node engine/native/prepare.mjs",
     "b:runtime": "node engine/native/runtime.mjs",
+    "b:rt": "node engine/native/rt.mjs",
     "test:native": "node tools/run-tests.mjs --only native",
     "c:setup": "node tools/c-runtime.mjs setup",
     "c:runtime": "node tools/c-runtime.mjs",
