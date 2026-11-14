@@ -7,7 +7,7 @@ set -e
 ROOT=$(cd "$(dirname "$0")" && pwd)
 cd "$ROOT"
 PY=${PYTHON:-python3}
-SIZE=1920x1040; WORKERS=${WORKERS:-4}; AUDIO=1; TAG=""
+SIZE=1920x1040; WORKERS=${WORKERS:-2}; AUDIO=1; TAG=""
 for a in "$@"; do
   case "$a" in
     --4k) SIZE=3840x2080; WORKERS=${WORKERS_4K:-8}; TAG=_4k ;;
@@ -16,9 +16,10 @@ for a in "$@"; do
 done
 OUT=out; mkdir -p $OUT/stills
 
-echo "== 1/6 静帧样张（每 0.5 秒一张）"
-node engine/render/still.mjs . --range 0:9.5:0.5 9.95 --size 1920x1040 --out $OUT/stills --prefix s_
-$PY tools/contact_sheet.py $OUT/contact_sheet.jpg $(ls $OUT/stills/s_*.jpg | sort -t_ -k2 -n) --cols 4 --w 480
+echo "== 1/6 静帧样张（每 1 秒一张）"
+rm -f $OUT/stills/s_*.jpg
+node engine/render/still.mjs . --range 0:29:1 29.8 --size 1920x1040 --out $OUT/stills --prefix s_
+$PY tools/contact_sheet.py $OUT/contact_sheet.jpg $(ls $OUT/stills/s_*.jpg | sort -t_ -k2 -n) --cols 6 --w 320
 
 if [ "$AUDIO" = 1 ]; then
   echo "== 2/6 混音"
@@ -31,6 +32,7 @@ node engine/render/video.mjs . --size $SIZE --fps 24 --workers $WORKERS --out $O
 
 echo "== 4/6 音画封装（颗粒已在页面里画好，封装不再加）"
 sh engine/render/mux.sh $OUT/video$TAG.mp4 $OUT/mix.wav $OUT/beiming$TAG.mp4 24 0
+cp -f $OUT/beiming$TAG.mp4 $OUT/beiming_30s$TAG.mp4
 
 echo "== 5/6 网页版（两遍 9 Mbps）"
 PL=$(mktemp -d)/x264

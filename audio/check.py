@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""《北冥》混音自检：ffmpeg 官方响度（ebur128）、模拟 engine/render/mux.sh 的两遍 loudnorm（必须走线性增益）、
-频段能量、音高与和声核对、切点无爆音、单声道兼容，并画图（全片总览 + 三段放大），结果写 audio/check/。
+"""《北冥》30 秒混音自检：ffmpeg 官方响度（ebur128）、模拟 engine/render/mux.sh 的两遍 loudnorm（必须走线性增益）、
+频段能量、音高与和声核对、切点无爆音、关灯段静音核对、单声道兼容，并画图（全片总览 + 三段放大），结果写 audio/check/。
 
 用法：python audio/check.py
 """
@@ -23,6 +23,7 @@ OUT = os.path.join(ROOT, 'out', 'mix.wav')
 CK = os.path.join(HERE, 'check')
 os.makedirs(CK, exist_ok=True)
 CUES = json.load(open(os.path.join(HERE, 'cues.json'), encoding='utf-8'))
+DUR = float(CUES['dur'])
 REP = {}
 
 
@@ -30,7 +31,7 @@ REP = {}
 x, sr = sf.read(OUT, dtype='float64', always_2d=True)
 info = sf.info(OUT)
 REP['format'] = {'sr': sr, 'channels': x.shape[1], 'samples': len(x), 'seconds': len(x) / sr, 'subtype': info.subtype,
-                 'ok': sr == 48000 and x.shape[1] == 2 and len(x) == 480000}
+                 'ok': sr == 48000 and x.shape[1] == 2 and len(x) == N(DUR)}
 
 # ———— 2. ffmpeg ebur128 ————
 REP['ebur128'] = ebur128(OUT)
@@ -46,7 +47,7 @@ REP['band_rel_db'] = band_energy(x)
 REP['band_low_ok'] = REP['band_rel_db']['20-120'] <= -3.0
 REP['band_high_ok'] = REP['band_rel_db']['8k+'] <= -15.0
 
-# ———— 5. 切点 / 首尾 / 直流 / 单声道兼容 ————
+# ———— 5. 切点 / 首尾 / 直流 / 单声道兼容 / 关灯段配乐静音 ————
 def jump_ratio(t):
     a, b = N(t - 0.02), N(t + 0.02)
     d = np.abs(np.diff(x[a:b], axis=0)).max()
@@ -54,13 +55,22 @@ def jump_ratio(t):
     return round(float(d / ref), 2)
 
 
+cuts = [float(s['t']) for s in CUES['shots'] if float(s['t']) > 0]
 REP['edges'] = {'first_sample': float(np.abs(x[0]).max()), 'last_sample': float(np.abs(x[-1]).max()),
                 'dc': [round(float(v), 6) for v in x.mean(0)],
-                'cut_jump_ratio': {str(t): jump_ratio(t) for t in [3.0, 5.0]}}
+                'cut_jump_ratio': {str(t): jump_ratio(t) for t in cuts}}
 corr = float(np.corrcoef(x[:, 0], x[:, 1])[0, 1])
 mono = x.mean(1)
 REP['stereo'] = {'lr_correlation': round(corr, 3),
                  'mono_minus_stereo_LU': round(integrated(np.stack([mono, mono], 1)) - integrated(x), 2)}
+
+try:
+    mus_st, _ = sf.read(os.path.join(HERE, 'stems', 'music.wav'), dtype='float64', always_2d=True)
+    e_seg = mus_st[N(15.0):N(19.0)]
+    REP['shot_e_music_max_abs'] = float(np.abs(e_seg).max())
+    REP['shot_e_music_silent_ok'] = float(np.abs(e_seg).max()) < 1e-6
+except Exception as e:  # noqa: BLE001
+    REP['shot_e_check_error'] = repr(e)
 
 # ———— 5b. 眼镜提示音会不会被盖住：提示音所在频带内，ui 总线能量 vs 其他四条总线能量（起音后一小段） ————
 try:
@@ -74,6 +84,8 @@ try:
         'ui_scan_5.45': band_snr(ui_st, rest, 5.45, 1230, 1880, 0.3),
         'ui_fail_6.25': band_snr(ui_st, rest, 6.25, 1400, 1880, 0.3),
         'ui_nav_7.00': band_snr(ui_st, rest, 7.00, 1100, 1880, 0.4),
+        'ui_route_10.45': band_snr(ui_st, rest, 10.45, 1100, 1880, 0.35),
+        'ui_dark_15.40': band_snr(ui_st, rest, 15.40, 1100, 1550, 0.30),
     }
 except Exception as e:  # noqa: BLE001
     REP['ui_snr_error'] = repr(e)
@@ -101,6 +113,10 @@ try:
         'kun_end_D2': f0_med(k, 7.62, 7.80, 45, 160),
     }
     refs = {'horn_tone1_A3': 220.0, 'horn_tone2_D3': 146.83, 'kun_hold_A2': 110.0, 'kun_end_D2': 73.42}
+    if 'kun_peng_dry' in el:
+        kp = el['kun_peng_dry']
+        pit['peng_crest_A3'] = f0_med(kp, 20.60, 21.10, 140, 320)
+        refs['peng_crest_A3'] = 220.0
     REP['pitch'] = {kk: {'hz': None if v is None else round(v, 2), 'cents_off': cents(v, refs[kk])} for kk, v in pit.items()}
     mus, _ = sf.read(os.path.join(HERE, 'stems', 'music.wav'), dtype='float64', always_2d=True)
     mm = mus.mean(1)
@@ -108,7 +124,9 @@ try:
     ch = librosa.feature.chroma_cqt(y=mm, sr=SR, hop_length=512)
     tch = np.arange(ch.shape[1]) * 512 / SR
     REP['chords'] = {}
-    for lab, a, b in [('D(add9)', 5.7, 6.3), ('D6', 6.9, 7.3), ('G/D', 7.75, 8.1), ('C/D', 8.5, 8.9), ('D', 9.08, 9.5)]:
+    for lab, a, b in [('C_D(add9)', 5.7, 6.3), ('C_D6', 6.9, 7.3), ('C_G/D', 7.75, 8.1), ('C_C/D', 8.2, 8.5),
+                      ('F_D(add9)', 20.0, 21.4), ('F_D6', 22.3, 23.6), ('G_G/D', 24.6, 25.6), ('G_C/D', 26.2, 26.9),
+                      ('G_D_apex', 27.45, 27.9)]:
         v = ch[:, (tch >= a) & (tch < b)].mean(1)
         order = np.argsort(v)[::-1][:5]
         REP['chords'][lab] = [f'{names[i]}:{v[i]:.2f}' for i in order]
@@ -157,7 +175,7 @@ def figure(path, t0, t1, title, fmax=20000, fmin=30, lanes=True, extra=None):
             yy = sy0 + np.argmin(np.abs(ys - fv))
             dr.text((4, yy - 8), f'{fv if fv < 1000 else str(fv // 1000) + "k"}', fill=(160, 160, 190), font=f16)
     # 时间刻度与事件标记
-    step = 0.5 if t1 - t0 > 4 else 0.25
+    step = 1.0 if t1 - t0 > 12 else (0.5 if t1 - t0 > 4 else 0.25)
     for tv in np.arange(np.ceil(t0 / step) * step, t1 + 1e-6, step):
         xx = M + (tv - t0) / (t1 - t0) * (W - M)
         dr.line([(xx, y), (xx, y + 8)], fill=(200, 200, 220))
@@ -171,7 +189,7 @@ def figure(path, t0, t1, title, fmax=20000, fmin=30, lanes=True, extra=None):
         for (yy, hh) in tops:
             for z in range(int(yy), int(yy + hh), 10):
                 dr.line([(xx, z), (xx, z + 5)], fill=(255, 255, 255))
-        dr.text((xx + 3, tops[0][0] + 4 + (k % 6) * 20), cu['id'], fill=(255, 255, 255), font=f16)
+        dr.text((xx + 3, tops[0][0] + 4 + (k % 8) * 20), cu['id'], fill=(255, 255, 255), font=f16)
         k += 1
     if extra:
         extra(dr, M, W, tops, t0, t1)
@@ -179,10 +197,15 @@ def figure(path, t0, t1, title, fmax=20000, fmin=30, lanes=True, extra=None):
     return path
 
 
-figs = [figure(os.path.join(CK, 'overview.png'), 0.0, 10.0, '《北冥》10 秒混音总览 out/mix.wav'),
-        figure(os.path.join(CK, 'zoom_A.png'), 0.0, 3.2, '镜头 A 雾江：汽笛 A3→D3、鸽群、鲲影', fmax=8000, lanes=False),
-        figure(os.path.join(CK, 'zoom_BC.png'), 2.9, 6.6, '镜头 B→C：触碰、提示音、暗影、5.0 打开、鲲鸣起音', fmax=8000, lanes=False),
-        figure(os.path.join(CK, 'zoom_C.png'), 5.0, 10.0, '镜头 C 鲲现：鲲鸣 A2→D2、掠过、导航、顶点 9.0', fmin=40, fmax=4000, lanes=False)]
+for old in ['zoom_A.png', 'zoom_BC.png', 'zoom_C.png']:
+    p = os.path.join(CK, old)
+    if os.path.exists(p):
+        os.remove(p)
+
+figs = [figure(os.path.join(CK, 'overview.png'), 0.0, DUR, '《北冥》30 秒混音总览 out/mix.wav'),
+        figure(os.path.join(CK, 'zoom_0_10.png'), 0.0, 10.0, '前段 0–10 s（雾江 · 她 · 鲲现）：汽笛、触碰、鲲鸣 A2→D2', fmax=8000, lanes=False),
+        figure(os.path.join(CK, 'zoom_10_19.png'), 10.0, 19.0, '中段 10–19 s（离航 · 关灯）：汽笛鲲鸣应答、15.25 断电、鲲深呼吸', fmax=8000, lanes=False),
+        figure(os.path.join(CK, 'zoom_19_30.png'), 19.0, DUR, '后段 19–30 s（化鹏 · 扶摇）：鲲鹏清鸣、振翅、27.4 顶点、空气收尾', fmin=40, fmax=8000, lanes=False)]
 
 # ffmpeg 自己的频谱图作旁证
 subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', OUT, '-lavfi',

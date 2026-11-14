@@ -241,3 +241,144 @@ def seaweed(seed, d, env, pan):
     for tt, i in events(r, d, 7.0, env):
         place(out, bubble(r, 1300, 3800, (0.08, 0.3)), tt, 1.0, float(np.clip(pan[i] + r.uniform(-0.5, 0.5), -1, 1)))
     return lp(hp(out, 300, 2), 7000, 2)
+
+
+# ———————————————————— 镜头 E：关灯与鲲呼吸 ————————————————————
+def switch_off(seed=801):
+    """全船照明拉闸断电：清脆机械拨动咔嗒声 + 120 Hz → 32 Hz（0.65 s）电源下坠次低频。返回干声单声道（0.65 s）。"""
+    r = rng(seed)
+    d = 0.65
+    n = N(d)
+    t = T(d)
+    # 机械开关咔嗒：开关弹片瞬态 + 壳体闷响 + 金属触点余振 + 12 ms 后微弱回弹
+    snap = un_safe(bp(r.standard_normal(n), 1800, 6200, 2)) * np.exp(-t / 0.0014)
+    clack = np.sin(2 * np.pi * 410 * t) * np.exp(-t / 0.0055)
+    detent = np.sin(2 * np.pi * 2650 * t) * np.exp(-t / 0.003)
+    b_t = np.maximum(0.0, t - 0.013)
+    bounce = (t >= 0.013) * (un_safe(bp(r.standard_normal(n), 1600, 5000, 2)) * np.exp(-b_t / 0.0012) * 0.38
+                             + np.sin(2 * np.pi * 1950 * b_t) * np.exp(-b_t / 0.0022) * 0.22)
+    click = snap * 0.70 + clack * 0.42 + detent * 0.28 + bounce
+
+    # 电源下坠：120 Hz → 32 Hz，伴随缓慢收拢的变压器放电滤波扫频
+    f0 = 120.0 * (32.0 / 120.0) ** smoothstep(0.012, 0.62, t)
+    ph = 2 * np.pi * np.cumsum(f0) / SR
+    sub_env = smoothstep(0.004, 0.025, t) * (1 - smoothstep(0.38, d, t))
+    sub = (np.sin(ph) + 0.24 * np.sin(2 * ph) * np.exp(-t / 0.22)) * sub_env
+    sigh_fc = curve([(0.0, 950), (0.18, 360), (0.65, 130)], t)
+    sigh = un_safe(svf(pink(n, r), sigh_fc, 0.8, 'bp')) * smoothstep(0.005, 0.03, t) * np.exp(-t / 0.16) * 0.18
+
+    x = click * 0.90 + sub * 0.85 + sigh
+    return norm(fade(x, 0.0, 0.04))
+
+
+def kun_breath(seed=802, d=1.8):
+    """黑暗静默里的鲲肺深呼吸：深沉缓慢的次低频肺腔吸吐涌动（0–0.95 s 深吸气，0.95–1.80 s 沉缓呼吐）。返回立体声 (N(d), 2)。"""
+    r = rng(seed)
+    n = N(d)
+    t = T(d)
+    inh = smoothstep(0.0, 0.68, t) * (1 - smoothstep(0.68, 1.05, t))
+    exh = smoothstep(0.84, 1.32, t) * (1 - smoothstep(1.42, d, t))
+    env = 0.75 * inh + 1.0 * exh
+
+    lung_air = un_safe(svf(decor_pair(brown, n, r, corr=0.78), 46 + 44 * env, 0.85, 'lp'))
+    f_chest = 48.0 + 12.0 * inh - 7.0 * smoothstep(0.95, d, t)
+    ph = 2 * np.pi * np.cumsum(f_chest) / SR
+    chest = stereo(np.sin(ph) * 0.7 + np.sin(2 * ph) * 0.18, 0.0) * (0.35 * inh + 0.45 * exh)[:, None]
+    airway = un_safe(svf(decor_pair(pink, n, r, corr=0.15), 150 + 320 * inh + 190 * exh, 0.75, 'bp')) * 0.26
+
+    out = (lung_air * 0.95 + airway) * env[:, None] + chest
+    return norm(fade(out, 0.08, 0.08), 0.95)
+
+
+# ———————————————————— 镜头 F / G：鲲鹏振翅与清鸣 ————————————————————
+def wing_flaps(seed=803, d=9.5, period=2.6):
+    """鲲鹏巨翼振风：下扑低频气压重击（55–180 Hz）+ 宽立体声羽翼掠风（400–3500 Hz）+ 下扑瞬间的微妙金色泛音微光。
+    下扑峰值落在 0.30 + k*period（配合 19.3 s 起点，正好对齐 19.6、22.2、24.8、27.4 s）。返回立体声 (N(d), 2)。"""
+    r = rng(seed)
+    n = N(d)
+    t = T(d)
+    out = np.zeros((n, 2))
+    low_src = decor_pair(brown, n, r, corr=0.55)
+    plume_src = decor_pair(pink, n, r, corr=0.05)
+    air_hi = un_safe(bp(decor_pair(white, n, r, corr=0.0), 2200, 6200, 2))
+
+    k = 0
+    while True:
+        tc = 0.30 + k * period
+        if tc >= d - 0.15:
+            break
+        dt = t - tc
+        # 上抬蓄力气流（tc-0.55..tc-0.05）+ 巨翼下扑包络
+        up_env = smoothstep(-0.62, -0.20, dt) * (1 - smoothstep(-0.18, 0.04, dt))
+        dn_att = smoothstep(-0.22, 0.02, dt)
+        dn_dec = np.where(dt >= 0.02, np.exp(-(dt - 0.02) / 0.38), 1.0)
+        dn_env = dn_att * dn_dec
+        strength = 0.78 + 0.10 * min(k, 3)
+
+        # 1) 55–180 Hz 低频气压重击 + 瞬态胸腔气浪
+        whump_fc = 55.0 + 125.0 * dn_env
+        whump = un_safe(svf(low_src, whump_fc, 0.75, 'lp')) * dn_env[:, None]
+        thump_t = np.maximum(0.0, dt + 0.03)
+        thump_f = 50.0 + 42.0 * np.exp(-thump_t / 0.11)
+        thump_ph = 2 * np.pi * np.cumsum(thump_f) / SR
+        thump = stereo(np.sin(thump_ph) * (dt >= -0.03) * np.exp(-thump_t / 0.18), r.uniform(-0.15, 0.15)) * 0.28
+
+        # 2) 400–3500 Hz 宽立体声羽翼掠风 + 错落羽片层叠感
+        plume_fc = 420.0 + 2850.0 * (dn_env ** 0.8) + 650.0 * up_env
+        plume = un_safe(svf(plume_src, plume_fc, 0.60, 'bp')) * (0.30 * up_env + 1.0 * dn_env)[:, None]
+        feathers = np.zeros((n, 2))
+        for fi in range(7):
+            tf = tc - 0.08 + fi * 0.045 + r.uniform(-0.012, 0.012)
+            if 0.0 <= tf < d - 0.05:
+                m = N(0.18)
+                ft = np.arange(m) / SR
+                cf = r.uniform(650, 3200)
+                seg = un_safe(bp(r.standard_normal(m), cf / 1.6, min(cf * 1.6, 4800), 2))
+                seg = seg * np.minimum(1.0, ft / 0.012) * np.exp(-ft / 0.055)
+                pan = r.uniform(-0.85, 0.85)
+                place(feathers, seg, tf, 0.22 * r.uniform(0.7, 1.2), pan)
+
+        # 3) 下扑金色泛音微光（日光穿过羽翼：极柔和的 D 大调泛音空气共鸣）
+        sh_env = smoothstep(-0.02, 0.16, dt) * np.exp(-np.maximum(0.0, dt - 0.16) / 0.55) * (dt >= -0.02)
+        shimmer = np.zeros((n, 2))
+        for freq, amp_s, pan_s in [(293.66, 0.35, -0.3), (440.0, 0.45, 0.25), (587.33, 0.40, -0.45),
+                                   (739.99, 0.28, 0.45), (880.0, 0.22, 0.0)]:
+            mod = 0.55 + 0.45 * un_safe(lp(r.standard_normal(n), 8.0, 1))
+            shimmer += stereo(np.sin(2 * np.pi * freq * t + r.uniform(0, 6)) * np.clip(mod, 0.1, 1.2), pan_s) * amp_s
+        shimmer = (shimmer * 0.065 + air_hi * 0.11) * sh_env[:, None]
+
+        out += (whump * 0.95 + thump + plume * 0.72 + feathers + shimmer) * strength
+        k += 1
+
+    return norm(fade(out, 0.04, 0.15), 0.95)
+
+
+def kun_peng_call(seed=804):
+    """鲲鹏高亢清鸣（~3.2 s）：D3 (146.8 Hz) → A3 (220 Hz) → F#3 (185 Hz) → D3 (146.8 Hz)，
+    使用同一发声器 voice()，窄共振峰从 700 Hz 扫升至 2200 Hz，兼具鲸吟的辽阔与大鹏的亮金感。返回干声单声道（3.2 s）。"""
+    D = 3.2
+    t = T(D)
+    s = -1.2 * (1 - smoothstep(0.0, 0.24, t))        # C#3 抬进 D3
+    s += 7.0 * smoothstep(0.32, 0.95, t)              # D3 → A3
+    s += -3.0 * smoothstep(1.50, 2.10, t)             # A3 → F#3
+    s += -4.0 * smoothstep(2.15, 2.85, t)             # F#3 → D3
+    s += -0.6 * smoothstep(2.88, 3.20, t)             # 尾音轻沉
+    rate = 4.6 + 0.8 * smoothstep(0.5, 1.5, t)
+    depth = 0.22 * smoothstep(0.45, 1.10, t) * (1 - 0.5 * smoothstep(2.40, 3.10, t))
+    s += depth * np.sin(2 * np.pi * np.cumsum(rate) / SR)
+    f0 = 146.83 * 2 ** (s / 12)
+
+    amp = curve([(0, 0), (0.06, 0.35), (0.30, 0.78), (0.95, 1.0), (1.60, 0.94),
+                 (2.25, 0.76), (2.80, 0.38), (3.20, 0.0)], t)
+    F1 = curve([(0, 420), (0.95, 740), (1.75, 580), (2.60, 440), (3.20, 380)], t)
+    F2 = curve([(0, 1100), (0.95, 1680), (1.75, 1380), (2.60, 1020), (3.20, 900)], t)
+    nf = curve([(0.35, 700), (1.55, 1650), (2.55, 2200), (3.15, 1400)], t)
+    ng = curve([(0.30, 0.0), (0.85, 1.4), (1.85, 1.8), (2.75, 0.7), (3.15, 0.0)], t)
+
+    x = voice(f0, amp, seed, kmax=56, tilt=0.68, mids=(3, 8, 1.6), brass=0.12,
+              formants=[(180, 120, 0.4), (F1, 180, 1.0), (F2, 260, 0.65), (2800, 360, 0.28)], floor=0.20,
+              narrow=(nf, 80, ng), breath=0.07, breath_f=(F1, F2))
+    onset = 1 - smoothstep(0.08, 0.42, t)
+    x = x * (1 + 0.16 * onset * np.sin(2 * np.pi * 32 * t))
+    x = np.tanh(1.15 * x / (np.abs(x).max() + 1e-12)) / np.tanh(1.15)
+    return norm(fade(x, 0.01, 0.14))

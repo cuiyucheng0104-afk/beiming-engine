@@ -2,8 +2,8 @@
 //
 // 导出：
 //   loadHUDFonts()                 加载 fonts/ 里的字体子集（READY 之前 await 它）
-//   drawHUD(ctx, t, w, h, s)       显示层，只在镜头 C（5.0–8.9）出现，8.9–9.2 淡出
-//   drawTitle(ctx, t, w, h)        片名，9.0 起一笔一笔写出
+//   drawHUD(ctx, t, w, h, s)       显示层：镜头 C（5.0–9.2）、镜头 D（10.2–14.6）、镜头 E（15.2–18.5）三个时间窗
+//   drawTitle(ctx, t, w, h)        片名，默认 27.4 起一笔一笔写出（可改 HUD_T）
 //   textsAt(t, w, h[, s])          当前画面上的全部文字及其方框（给 window.TEXTS）
 //   setHUDTheme('mono'|'neutral') 显示层配色：mono=AI 眼镜产品图里的单色绿（默认），neutral=共享色板的青白
 //   setTitleLayout({x, y, size, shade, dry})  片名版式（画面比例），默认 {x:.105, y:.262, size:288/1040, shade:0, dry:1}
@@ -47,13 +47,20 @@ const font = (wt, px, fam = 'ui') => fontSpec(wt, px, fam === 'title' ? [FAM_TIT
 
 // ───────────────────────── 时间轴（全局秒） ─────────────────────────
 export const HUD_T = {
+  // 镜头 C（5.0–9.2s）
   on: 5.0, off: 8.9, offEnd: 9.2,             // 显示层整体出现 / 开始收淡 / 完全消失
   clockIn: 5.0, remindIn: 5.2,                // 左上时间、提醒卡
   scan: 5.45, scanLock: 5.9, fail: 6.25,      // 识别框出现、收拢到位、变成「未能识别」
   scanOut: 6.78, scanGone: 7.0,               // 识别框收起（7.0 前收完，保证同时最多 2 行字）
   navIn: 7.0, navDone: 8.4,                   // 导航卡出现、导航线画完
-  titleA: [9.0, 9.34], titleB: [9.38, 9.80],  // 「北」「冥」的书写区间
-  subIn: 9.55, subFull: 9.9,                  // 副标题淡入
+  // 镜头 D（10.2–14.6s）
+  dOn: 10.2, dOnEnd: 10.5, dOff: 14.3, dOffEnd: 14.6,
+  dNavIn: 10.2, dNavDone: 11.6,
+  // 镜头 E（15.2–18.5s）
+  eOn: 15.2, eOnEnd: 15.45, eDim: 15.6, eDimEnd: 15.95, eOff: 18.2, eOffEnd: 18.5,
+  // 片名「北冥」（默认 30s 正片；?dur=10 时由 main.js 通过 Object.assign 覆盖）
+  titleA: [27.4, 27.85], titleB: [27.9, 28.45],
+  subIn: 28.2, subFull: 28.85,
 };
 
 // ───────────────────────── 配色 ─────────────────────────
@@ -72,34 +79,74 @@ export function setHUDTheme(name) { TH = O.theme = THEMES[name] || THEMES.mono; 
 // ───────────────────────── 头部微晃：屏幕固定元素的反向浮动 ─────────────────────────
 // 约 35mm 等效（竖直视场 ~38°）下 1 弧度对应的像素，乘一个小增益：0.5° 晃动 ≈ 2–3 像素
 const headOffset = (s, h) => swayOffset(s?.head, h, { fov: 38, gain: 0.18 });
-const masterAlpha = t => ss(seg(t, HUD_T.on, HUD_T.on + 0.18)) * (1 - ss(seg(t, HUD_T.off, HUD_T.offEnd)));
 
-// ───────────────────────── 1. 左上：时间 + 提醒卡（同一行） ─────────────────────────
-function statusRow(ctx, t, w, h, S, A, off) {
-  const aClock = A * ss(seg(t, HUD_T.clockIn, HUD_T.clockIn + 0.3)) * TH.a;
-  const aCard = A * ss(seg(t, HUD_T.remindIn, HUD_T.remindIn + 0.12)) * TH.a;
+function hudWindow(t) {
+  if (t >= HUD_T.on && t <= HUD_T.offEnd + 0.1) {
+    const A = ss(seg(t, HUD_T.on, HUD_T.on + 0.18)) * (1 - ss(seg(t, HUD_T.off, HUD_T.offEnd)));
+    return {
+      id: 'C', A, clock: '05:54', clockIn: HUD_T.clockIn, cardIn: HUD_T.remindIn, icon: 'bell',
+      cardText: '远洋聘书 · 回复截止 06:00',
+      parts: [['远洋聘书', 'a', 'ink', 1], [' · 回复截止 ', 'a', 'ink', 0.66], ['06:00', 'b', 'hi', 1]],
+      recog: true,
+      nav: { in: HUD_T.navIn, done: HUD_T.navDone, off: HUD_T.off, offEnd: HUD_T.offEnd, dist: '23', delayFade: true },
+    };
+  }
+  if (t >= HUD_T.dOn && t <= HUD_T.dOffEnd + 0.05) {
+    const A = ss(seg(t, HUD_T.dOn, HUD_T.dOnEnd)) * (1 - ss(seg(t, HUD_T.dOff, HUD_T.dOffEnd)));
+    return {
+      id: 'D', A, clock: '05:56', clockIn: HUD_T.dOn, cardIn: HUD_T.dOn + 0.02, icon: 'alert',
+      cardText: '偏离既定航线 · 航向 072° 东海',
+      parts: [['偏离既定航线', 'a', 'hi', 1], [' · 航向 ', 'a', 'ink', 0.66], ['072°', 'b', 'hi', 1], [' 东海', 'a', 'ink', 1]],
+      recog: false,
+      nav: { in: HUD_T.dNavIn, done: HUD_T.dNavDone, off: HUD_T.dOff, offEnd: HUD_T.dOffEnd, dist: '11', delayFade: false },
+    };
+  }
+  if (t >= HUD_T.eOn && t <= HUD_T.eOffEnd + 0.05) {
+    const A = ss(seg(t, HUD_T.eOn, HUD_T.eOnEnd))
+      * lerp(1, 0.65, ss(seg(t, HUD_T.eDim, HUD_T.eDimEnd)))
+      * (1 - ss(seg(t, HUD_T.eOff, HUD_T.eOffEnd)));
+    return {
+      id: 'E', A, clock: '05:58', clockIn: HUD_T.eOn, cardIn: HUD_T.eOn + 0.02, icon: 'power',
+      cardText: '全船照明 · 已关闭 · 航行灯保持',
+      parts: [['全船照明', 'a', 'ink', 0.85], [' · ', 'a', 'ink', 0.55], ['已关闭', 'c', 'hi', 1], [' · ', 'a', 'ink', 0.55], ['航行灯保持', 'a', 'ink', 0.9]],
+      recog: false, nav: null,
+    };
+  }
+  return null;
+}
+
+// ───────────────────────── 1. 左上：时间 + 状态卡（同一行） ─────────────────────────
+function statusRow(ctx, t, w, h, S, A, off, win) {
+  const isC = win.id === 'C';
+  const aClock = A * (isC ? ss(seg(t, win.clockIn, win.clockIn + 0.3)) : 1) * TH.a;
+  const aCard = A * (isC ? ss(seg(t, win.cardIn, win.cardIn + 0.12)) : 1) * TH.a;
   if (aClock <= 0.002 && aCard <= 0.002) return;
   const X = 0.115 * w + off.x, Yc = 0.125 * h + off.y;     // 显示区左上角（不贴画框边，像是浮在镜片里）
   // 时间
-  const fT = font(300, 48 * S), mT = meas('05:54', fT, 1 * S), base = Yc + 17 * S;
-  glowText(ctx, '05:54', X, base, fT, TH.ink, aClock, S, { ls: 1 * S });
-  rec('hud-clock', '05:54', X, base - mT.asc, X + mT.w, base + mT.desc, aClock);
-  // 提醒卡：铃铛 + 远洋聘书 · 回复截止 06:00。两级层次：事项亮、连接词暗、截止时间用高光色
-  // 出场：先冒出一个圆（铃铛），再向右展开成胶囊，文字随展开露出
+  const fT = font(300, 48 * S), mT = meas(win.clock, fT, 1 * S), base = Yc + 17 * S;
+  glowText(ctx, win.clock, X, base, fT, TH.ink, aClock, S, { ls: 1 * S });
+  rec('hud-clock', win.clock, X, base - mT.asc, X + mT.w, base + mT.desc, aClock);
+  // 胶囊卡：图标 + 两级文字层次
   const cx0 = X + mT.w + 26 * S, ch = 48 * S, cy0 = Yc - ch / 2;
-  const fA = font(400, 23 * S), fB = font(500, 25 * S), ls = 0.6 * S;
-  const parts = [['远洋聘书', fA, TH.ink, 1], [' · 回复截止 ', fA, TH.ink, 0.66], ['06:00', fB, TH.hi, 1]];
+  const fonts = { a: font(400, 23 * S), b: font(500, 25 * S), c: font(500, 23 * S) }, ls = 0.6 * S;
+  const parts = win.parts.map(([str, fk, ck, k]) => [str, fonts[fk], TH[ck], k]);
   const ms = parts.map(([str, f]) => meas(str, f, ls)), tw = ms.reduce((a, m) => a + m.w, 0);
   const padL = 48 * S, padR = 24 * S, cw = padL + tw + padR;
-  const pop = eo(seg(t, HUD_T.remindIn, HUD_T.remindIn + 0.16)), unfold = eio(seg(t, HUD_T.remindIn + 0.06, HUD_T.remindIn + 0.36));
+  const pop = eo(seg(t, win.cardIn, win.cardIn + 0.16));
+  const unfold = eio(seg(t, win.cardIn + 0.05, win.cardIn + (isC ? 0.36 : 0.30)));
   const cwNow = lerp(ch, cw, unfold), sc = lerp(0.6, 1, pop);
   if (O.draw && aCard > 0.003) {
     ctx.save();
     ctx.translate(cx0 + ch / 2, Yc); ctx.scale(sc, sc); ctx.translate(-(cx0 + ch / 2), -Yc);
     card(ctx, cx0, cy0, cwNow, ch, ch / 2, aCard, S);
-    // 铃铛：提醒弹出时轻摇两下
-    const ring = Math.sin(seg(t, HUD_T.remindIn + 0.1, HUD_T.remindIn + 0.7) * Math.PI * 4) * (1 - seg(t, HUD_T.remindIn + 0.1, HUD_T.remindIn + 0.7)) * 0.35;
-    bell(ctx, cx0 + 26 * S, Yc, 9 * S, ring, aCard, S);
+    if (win.icon === 'bell') {
+      const ring = Math.sin(seg(t, win.cardIn + 0.1, win.cardIn + 0.7) * Math.PI * 4) * (1 - seg(t, win.cardIn + 0.1, win.cardIn + 0.7)) * 0.35;
+      bell(ctx, cx0 + 26 * S, Yc, 9 * S, ring, aCard, S);
+    } else if (win.icon === 'alert') {
+      alertIcon(ctx, cx0 + 26 * S, Yc, 9 * S, aCard, S);
+    } else if (win.icon === 'power') {
+      powerIcon(ctx, cx0 + 26 * S, Yc, 9 * S, aCard, S);
+    }
     ctx.beginPath(); ctx.rect(cx0, cy0 - 10 * S, cwNow - padR * 0.5, ch + 20 * S); ctx.clip();   // 文字随卡片展开露出
     const tb = Yc + 8.5 * S;
     let xx = cx0 + padL;
@@ -107,7 +154,7 @@ function statusRow(ctx, t, w, h, S, A, off) {
     ctx.restore();
   }
   const tb = Yc + 8.5 * S;
-  rec('hud-remind', '远洋聘书 · 回复截止 06:00', cx0 + padL, tb - Math.max(...ms.map(m => m.asc)), cx0 + padL + tw, tb + Math.max(...ms.map(m => m.desc)), aCard * ss(seg(unfold, 0.25, 0.9)));
+  rec('hud-remind', win.cardText, cx0 + padL, tb - Math.max(...ms.map(m => m.asc)), cx0 + padL + tw, tb + Math.max(...ms.map(m => m.desc)), aCard * ss(seg(unfold, 0.25, 0.9)));
 }
 function bell(ctx, x, y, r, rot, a, S) {
   if (!O.draw || a <= 0.003) return;
@@ -118,6 +165,21 @@ function bell(ctx, x, y, r, rot, a, S) {
     c.quadraticCurveTo(r * 0.86, r * 0.3, r, r * 0.55); c.closePath();
     c.moveTo(-r * 0.22, r * 0.85); c.lineTo(r * 0.22, r * 0.85);
     c.moveTo(0, -r * 0.72); c.lineTo(0, -r * 0.95);
+  }, TH.ink, a, 1.6 * S, S, 0.4);
+}
+function alertIcon(ctx, x, y, r, a, S) {
+  if (!O.draw || a <= 0.003) return;
+  glowStroke(ctx, c => {
+    c.moveTo(x, y - r * 0.86); c.lineTo(x + r * 0.92, y + r * 0.72); c.lineTo(x - r * 0.92, y + r * 0.72); c.closePath();
+    c.moveTo(x, y - r * 0.28); c.lineTo(x, y + r * 0.18);
+    c.moveTo(x, y + r * 0.44); c.lineTo(x, y + r * 0.47);
+  }, TH.hi, a, 1.6 * S, S, 0.4);
+}
+function powerIcon(ctx, x, y, r, a, S) {
+  if (!O.draw || a <= 0.003) return;
+  glowStroke(ctx, c => {
+    c.arc(x, y + r * 0.08, r * 0.78, -Math.PI * 0.3, Math.PI * 1.3);
+    c.moveTo(x, y - r * 0.86); c.lineTo(x, y + r * 0.04);
   }, TH.ink, a, 1.6 * S, S, 0.4);
 }
 
@@ -197,12 +259,12 @@ function face(ctx, x, y, r, failed, a, S, t) {
 // ───────────────────────── 3. 导航线：沿 s.nav 一笔画出 ─────────────────────────
 // 稀疏折线 → Catmull-Rom 平滑（每段 16 份），之后按弧长取点
 const smoothPath = pts => pts.length < 2 ? null : catmullRom(pts.map(p => [p.x, p.y]), 16);
-function navLine(ctx, t, w, h, S, A, s) {
-  if (!s?.nav || s.nav.length < 2 || t < HUD_T.navIn) return;
+function navLine(ctx, t, w, h, S, A, s, navCfg) {
+  if (!s?.nav || s.nav.length < 2 || t < navCfg.in) return;
   const sp = smoothPath(s.nav); if (!sp || sp.total < 4) return;
   // 一笔画出：起笔快、越往天边越慢（也符合透视：远处在屏幕上走得慢）
-  const u = seg(t, HUD_T.navIn, HUD_T.navDone), p = 1 - Math.pow(1 - u, 2.3);
-  const tail = eio(seg(t, HUD_T.off, HUD_T.offEnd + 0.05));   // 收淡时线尾向终点收回
+  const u = seg(t, navCfg.in, navCfg.done), p = 1 - Math.pow(1 - u, 2.3);
+  const tail = eio(seg(t, navCfg.off, navCfg.offEnd + 0.05));   // 收淡时线尾向终点收回
   const d0 = sp.total * tail, d1 = sp.total * p;
   const a = A * TH.a; if (d1 - d0 < 1 || a <= 0.002) return;
   if (O.draw) {
@@ -219,7 +281,7 @@ function navLine(ctx, t, w, h, S, A, s) {
       ctx.restore();
     }
     // 线头的小光点
-    const hp = pointAt(sp, d1), aHead = a * (p < 1 ? 1 : 1 - 0.4 * seg(t, HUD_T.navDone, HUD_T.navDone + 0.3));
+    const hp = pointAt(sp, d1), aHead = a * (p < 1 ? 1 : 1 - 0.4 * seg(t, navCfg.done, navCfg.done + 0.3));
     ctx.save();
     const g = ctx.createRadialGradient(hp[0], hp[1], 0, hp[0], hp[1], 16 * S);
     g.addColorStop(0, rgba(TH.hi, 0.75 * aHead)); g.addColorStop(0.35, rgba(TH.glow, 0.32 * aHead)); g.addColorStop(1, rgba(TH.glow, 0));
@@ -227,17 +289,18 @@ function navLine(ctx, t, w, h, S, A, s) {
     ctx.fillStyle = rgba([255, 255, 255], 0.95 * aHead); ctx.beginPath(); ctx.arc(hp[0], hp[1], 3.4 * S, 0, 7); ctx.fill();
     ctx.restore();
     // 到达终点：一圈光环扩散一次
-    const pr = seg(t, HUD_T.navDone, HUD_T.navDone + 0.5);
+    const pr = seg(t, navCfg.done, navCfg.done + 0.5);
     if (pr > 0 && pr < 1) glowStroke(ctx, c => c.arc(hp[0], hp[1], lerp(5, 24, eo(pr)) * S, 0, 2 * Math.PI), TH.ink, a * 0.8 * (1 - pr), 1.4 * S, S);
   }
 }
-// ───────────────────────── 4. 导航卡：导航 · 吴淞口 23 km ─────────────────────────
-function navCard(ctx, t, w, h, S, A, s, off) {
-  if (t < HUD_T.navIn) return;
-  const a = A * ss(seg(t, HUD_T.navIn, HUD_T.navIn + 0.3)) * TH.a; if (a <= 0.002) return;
-  const rise = (1 - eo(seg(t, HUD_T.navIn, HUD_T.navIn + 0.45))) * 12 * S;
+// ───────────────────────── 4. 导航卡：导航 · 吴淞口 23 / 11 km ─────────────────────────
+function navCard(ctx, t, w, h, S, A, s, off, navCfg) {
+  if (t < navCfg.in) return;
+  const a = A * (navCfg.delayFade ? ss(seg(t, navCfg.in, navCfg.in + 0.3)) : 1) * TH.a;
+  if (a <= 0.002) return;
+  const rise = (1 - eo(seg(t, navCfg.in, navCfg.in + 0.45))) * 12 * S;
   const fA = font(400, 25 * S), fN = font(500, 33 * S), fU = font(400, 21 * S);
-  const sA = '导航 · 吴淞口', sN = '23', sU = ' km';
+  const sA = '导航 · 吴淞口', sN = navCfg.dist, sU = ' km';
   const mA = meas(sA, fA, 0.8 * S), mN = meas(sN, fN, 0.5 * S), mU = meas(sU, fU, 0.5 * S);
   const gap = 18 * S, padL = 54 * S, padR = 26 * S, ch = 60 * S;
   const cw = padL + mA.w + gap + mN.w + mU.w + padR;
@@ -254,7 +317,7 @@ function navCard(ctx, t, w, h, S, A, s, off) {
   glowText(ctx, sA, cx0 + padL, tb, fA, TH.ink, a, S, { ls: 0.8 * S, halo: 0 });
   glowText(ctx, sN, cx0 + padL + mA.w + gap, tb + 1.5 * S, fN, TH.hi, a, S, { ls: 0.5 * S, halo: 0 });
   glowText(ctx, sU, cx0 + padL + mA.w + gap + mN.w, tb, fU, TH.ink, a, S, { ls: 0.5 * S, halo: 0 });
-  rec('hud-nav', '导航 · 吴淞口 23 km', cx0 + padL, tb - mN.asc, cx0 + padL + mA.w + gap + mN.w + mU.w, tb + Math.max(mA.desc, mN.desc), a);
+  rec('hud-nav', `${sA} ${sN}${sU}`, cx0 + padL, tb - mN.asc, cx0 + padL + mA.w + gap + mN.w + mU.w, tb + Math.max(mA.desc, mN.desc), a);
 }
 function navIcon(ctx, x, y, r, a, S) {      // 导航箭头（朝右上）
   if (!O.draw || a <= 0.003) return;
@@ -267,15 +330,18 @@ function navIcon(ctx, x, y, r, a, S) {      // 导航箭头（朝右上）
 
 // ───────────────────────── 显示层入口 ─────────────────────────
 let lastS = null, lastT = NaN;
+function renderHUD(ctx, t, w, h, s, collectOnly = false) {
+  const win = hudWindow(t);
+  if (!win || win.A <= 0.002) return;
+  const S = h / 1040, off = headOffset(s, h);
+  if (win.nav && !collectOnly) navLine(ctx, t, w, h, S, win.A, s, win.nav);   // 先画线，卡片和字压在上面
+  if (win.recog) recognition(ctx, t, w, h, S, win.A, s);
+  statusRow(ctx, t, w, h, S, win.A, off, win);
+  if (win.nav) navCard(ctx, t, w, h, S, win.A, s, off, win.nav);
+}
 export function drawHUD(ctx, t, w, h, s) {
   lastS = s; lastT = t;
-  if (t < HUD_T.on || t > HUD_T.offEnd + 0.1) return;
-  const S = h / 1040, A = masterAlpha(t); if (A <= 0.002) return;
-  const off = headOffset(s, h);
-  navLine(ctx, t, w, h, S, A, s);          // 先画线，卡片和字压在上面
-  recognition(ctx, t, w, h, S, A, s);
-  statusRow(ctx, t, w, h, S, A, off);
-  navCard(ctx, t, w, h, S, A, s, off);
+  renderHUD(ctx, t, w, h, s, false);
 }
 
 // ───────────────────────── 片名「北冥」：字形 + 按笔顺逐步揭开 ─────────────────────────
@@ -364,9 +430,9 @@ export function drawTitle(ctx, t, w, h) {
 export function textsAt(t, w, h, s) {
   if (s === undefined) s = lastT === t ? lastS : null;
   const out = [];
-  if (t >= HUD_T.on && t <= HUD_T.offEnd + 0.1) {
-    const S = h / 1040, A = masterAlpha(t), off = headOffset(s, h), ctx = mctx();
-    out.push(...O.collect(() => { recognition(ctx, t, w, h, S, A, s); statusRow(ctx, t, w, h, S, A, off); navCard(ctx, t, w, h, S, A, s, off); }));
+  if (hudWindow(t)) {
+    const ctx = mctx();
+    out.push(...O.collect(() => renderHUD(ctx, t, w, h, s, true)));
   }
   if (t > HUD_T.titleA[0]) {
     const L = titleLayout(w, h);
