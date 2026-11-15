@@ -85,7 +85,7 @@ export async function checkCommand(opts, positionals) {
   if (fonts) add('fonts', fonts.ok ? 'pass' : fonts.exitCode === EXIT.CONTRACT ? 'fail' : 'env', fonts.message, fonts.ok ? {} : { hint: fonts.hint });
   if (film.route === 'b') {
     const r = raeaInfo();
-    if (!r.ok) add('native', 'env', r.reason === 'unset' ? '没有设 RAEA_BIN：B 路线的原生运行时不随仓库分发' : `RAEA_BIN 不可用（${r.reason}）`, { hint: '把 RAEA_BIN 设为运行时可执行文件的完整路径（版本 0.1.0-canary.2）' });
+    if (!r.ok) add('native', 'env', r.reason === 'unset' ? '没有设 RAEA_BIN：B 路线的原生运行时不随仓库分发' : `RAEA_BIN 不可用（${r.reason}）`, { hint: '把 RAEA_BIN 设为运行时可执行文件的完整路径（版本 0.1.4）' });
     else {
       try {
         const res = await exec(process.execPath, [path.join(ROOT, 'engine/render/native.mjs'), film.dir, '--check-only'], { cwd: ROOT, quiet: true, timeoutSec: 120, okCodes: [0, 1, 2, 3], label: 'native.mjs --check-only', sweep: false });

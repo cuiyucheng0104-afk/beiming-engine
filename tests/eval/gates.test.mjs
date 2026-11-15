@@ -482,7 +482,7 @@ describe('H5 运行记录', () => {
     const c = codes(bad.report, 'H5');
     assert.ok(c.includes('runtime-version'));
     assert.ok(c.includes('graphics-backend-missing'));
-    const good = await h5({ tools: { raea: '0.1.0-canary.2' } }, 'DF-B');
+    const good = await h5({ tools: { raea: '0.1.4' } }, 'DF-B');
     assert.equal(good.report.gates.H5.status, 'pass', JSON.stringify(good.report.gates.H5.findings));
   });
 

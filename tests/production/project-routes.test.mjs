@@ -69,7 +69,7 @@ test('自定义注册表：options.registry 覆盖内置三条', () => {
 });
 
 test('film.json v2 ⇄ ProjectSpec：三条路线都能互相映射，映射结果自检通过', () => {
-  const runtimes = { a: { three: '0.170.0', sourceCommit: 'abc1234' }, b: { package: '0.1.0-canary.2', sourceSnapshot: 'abc1234' }, c: { sourceCommit: 'abc1234' } };
+  const runtimes = { a: { three: '0.170.0', sourceCommit: 'abc1234' }, b: { package: '0.1.4', sourceSnapshot: 'abc1234' }, c: { sourceCommit: 'abc1234' } };
   const films = {
     a: minimalFilm({ route: 'a', backend: 'three', style: { id: 'beiming-original', version: 1, baseline: '../../media/shot_7.6.jpg' } }),
     b: minimalFilm({ route: 'b', backend: 'native', audio: { mode: 'native' }, entry: 'film.tsx' }),

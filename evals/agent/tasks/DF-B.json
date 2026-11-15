@@ -38,7 +38,7 @@
   },
   "hardGates": ["H1", "H2", "H3", "H4", "H5", "H6", "H7"],
   "qa": { "commands": ["delivery", "visual", "texts"] },
-  "runtime": { "version": "0.1.0-canary.2", "requireGraphicsBackend": true },
+  "runtime": { "version": "0.1.4", "requireGraphicsBackend": true },
   "partitions": null,
   "safety": null,
   "scoring": { "process": "solo", "visualReference": null, "styleReference": "films/fubiao 里代理自己的风格卡" },

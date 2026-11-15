@@ -55,8 +55,8 @@ function setup() {
   const specs = Object.fromEntries(['images', 'models', 'sequences', 'audio'].map(k => [k, specHash(native, k)]));
   writeFileSync(join(film, 'media', 'prepared.json'), JSON.stringify({ schemaVersion: 1, assets: { 'sky.png': sha(Buffer.from('not really a png')) }, specs }));
   spawnSync('git', ['init', '-q'], { cwd: root, timeout: 30000 });
-  // COMFY_URL 指向关着的端口：开发机上真有 ComfyUI 在跑时也不受影响（查不到队列只记录）
-  const env = { ...process.env, RAEA_BIN: exe, BNE_ALLOW_VERSION: '9.9.9-test', BNE_TEST_FFMPEG: ff, COMFY_URL: 'http://127.0.0.1:9' };
+  // COMFY_URL 指向关着的端口：开发机上真有 ComfyUI 在跑时也不受影响；BEIMING_GPU_BUSY_UTIL=100 避免桌面显卡占用干扰不启动 GPU 的假运行时测试
+  const env = { ...process.env, RAEA_BIN: exe, BNE_ALLOW_VERSION: '9.9.9-test', BNE_TEST_FFMPEG: ff, COMFY_URL: 'http://127.0.0.1:9', BEIMING_GPU_BUSY_UTIL: '100' };
   return { root, film, env };
 }
 
@@ -112,6 +112,27 @@ test('成片检查有 P1 问题：exit 4，run.json 记 checks.raeaCheck.ok = fa
     for (const k of ['master', 'web', 'run-json', 'raea-check', 'contact-sheet', 'player', 'log']) assert.ok(kinds.includes(k), `信封 outputs 缺 ${k}：${kinds.join('、')}`);
     assert.equal(e.outputs.find(o => o.kind === 'master').sha256, record.outputs.master.sha256);
     assert.equal(existsSync(join(s.film, 'out', 'latest')), false, '失败的运行不更新 out/latest');
+  } finally { rmSync(s.root, { recursive: true, force: true }); }
+});
+
+test('成片检查（0.1.4 findings 格式）：findings 含 level=error → exit 4；仅 level=warn 时不拦截', { skip }, async () => {
+  const s = setup();
+  try {
+    const failCheck = { file: 'web.mp4', fps: 24, passed: ['frozen'], findings: [{ check: 'clipped', level: 'error', frames: [22, 50], says: '字幕超出画框（0.1.4 格式）' }] };
+    const r = await runEntry([s.film, '--run-id', 'f014-err', '--json'], { ...s.env, BNE_TEST_CHECK: JSON.stringify(failCheck) });
+    assert.equal(r.code, 4, r.err);
+    const e = JSON.parse(r.out);
+    assert.equal(e.error.code, 'contract.raea-check');
+    const record = JSON.parse(readFileSync(join(s.film, 'out', 'f014-err', 'run.json'), 'utf8'));
+    assert.equal(record.checks.raeaCheck.ok, false);
+    assert.deepEqual(record.checks.raeaCheck.issues, failCheck.findings);
+
+    const warnCheck = { file: 'web.mp4', fps: 24, passed: ['clipped'], findings: [{ check: 'reading', level: 'warn', frames: [0, 10], says: '停留偏短（提示）' }] };
+    const ok = await runEntry([s.film, '--run-id', 'f014-warn', '--skip-qa', '--json'], { ...s.env, BNE_TEST_CHECK: JSON.stringify(warnCheck) });
+    assert.equal(ok.code, 0, ok.err);
+    const okRec = JSON.parse(readFileSync(join(s.film, 'out', 'f014-warn', 'run.json'), 'utf8'));
+    assert.equal(okRec.checks.raeaCheck.ok, true);
+    assert.deepEqual(okRec.checks.raeaCheck.issues, warnCheck.findings);
   } finally { rmSync(s.root, { recursive: true, force: true }); }
 });
 

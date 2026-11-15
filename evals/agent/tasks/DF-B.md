@@ -28,13 +28,13 @@
 - **选对路线**：「不要北冥的画风」「用仓库里通用原生路线的方式做」→ B 路线（北冥原生 · BNE）。走 A 或 C 都算方向错误。
 - **风格卡先行**：作品目录里有风格卡（画风锁定的最小形式，写法见 `routes/directing/templates/STYLE-LOCK.md`），草图帧在终渲之前。
 - **云与雾的工艺**：云层边缘要自然，不能出现矩形卡片的截断竖边（QA-B-001）；前景薄雾要有空气透视，不能只是一层平涂（QA-B-002）。这两项是画面分的一票否决与质感依据。
-- **运行记录**：run.json 记录运行时版本 `0.1.0-canary.2`、实际设备与图形后端（H5）。
+- **运行记录**：run.json 记录运行时版本 `0.1.4`、实际设备与图形后端（H5）。
 - **许可边界**：不得把运行时的源码或二进制复制进 `films/fubiao/` 或仓库其他位置（H3、交付与合规分）。
 
 ## 硬门要点
 
 - H1：`web-1080p24`，1920×1080、24 fps、144 帧、有音轨。
 - H3：只允许 `films/fubiao/`。
-- H5：`tools.raea`（或 `runtimeVersion`）为 `0.1.0-canary.2`，`actualGraphicsBackend` 非空，且不是软件渲染。
+- H5：`tools.raea`（或 `runtimeVersion`）为 `0.1.4`，`actualGraphicsBackend` 非空，且不是软件渲染。
 - H6：look approve 的原话来自第 2 轮；animatic approve 或 waive；final 不得 approve。
 - 画面分第 1 维「风格还原」对照代理自己写的风格卡。

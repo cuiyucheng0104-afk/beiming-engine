@@ -14,7 +14,7 @@ import { EXIT } from '../../engine/native/cli.mjs';
 
 const ENTRY = fileURLToPath(new URL('../../engine/native/runtime.mjs', import.meta.url));
 
-function fakeRuntime(version = '0.1.0-canary.2') {
+function fakeRuntime(version = '0.1.4') {
   const dir = mkdtempSync(join(tmpdir(), 'bne-rt-'));
   const exe = join(dir, 'raea', 'bin', process.platform === 'win32' ? 'raea.exe' : 'raea');
   mkdirSync(join(dir, 'raea', 'bin'), { recursive: true });
@@ -25,15 +25,19 @@ function fakeRuntime(version = '0.1.0-canary.2') {
   const sha = createHash('sha256').update(readFileSync(exe)).digest('hex');
   return { dir, exe, sha };
 }
-const lockWith = binarySha256 => ({ version: '0.1.0-canary.2', platforms: { [platformKey()]: { binarySha256 } } });
+const lockWith = binarySha256 => ({ version: '0.1.4', platforms: { [platformKey()]: { binarySha256 } } });
 
-test('锁文件：版本、许可、各平台归档哈希都在；macOS arm64 的可执行文件哈希已锁定', async () => {
+test('锁文件：版本、许可、各平台归档与可执行文件哈希都在', async () => {
   const lock = await loadLock();
-  assert.equal(lock.version, '0.1.0-canary.2');
+  assert.equal(lock.version, '0.1.4');
   assert.match(lock.license, /^FSL-1\.1-ALv2$/);
-  for (const k of ['macos-arm64', 'windows-x64', 'linux-x64']) assert.match(lock.platforms[k].sha256, /^[0-9a-f]{64}$/, k);
-  assert.equal(lock.platforms['macos-arm64'].sha256, 'bc48a94af99f7626a83f930a5d7ecfd2464218ad8b2b06169a8248a514dfa280');
-  assert.match(lock.platforms['macos-arm64'].binarySha256, /^[0-9a-f]{64}$/);
+  for (const k of ['macos-arm64', 'windows-x64', 'linux-x64']) {
+    assert.match(lock.platforms[k].sha256, /^[0-9a-f]{64}$/, k);
+    assert.match(lock.platforms[k].binarySha256, /^[0-9a-f]{64}$/, k);
+  }
+  assert.equal(lock.platforms['macos-arm64'].sha256, '41ca0eaa6c2c6613671402836587e1eb83affe3b33ba0cde869fc9d640bbf34b');
+  assert.equal(lock.platforms['linux-x64'].sha256, 'e675f2ef9353d02111f8689cd83bc58cf9c85286e869b0bbcbdee6ea7586af55');
+  assert.equal(lock.platforms['windows-x64'].sha256, 'fc18058983936620e202e46cb34ba55578e475c59cf6681587aaec71d4ec71f8');
 });
 
 test('platformKey', () => {

@@ -103,7 +103,7 @@ export async function assertReplaceable(dest) {
   let entries;
   try { entries = await readdir(dest); } catch { throw fail(EXIT.USAGE, 'dest', `--dest ${dest} 不是目录`, '给一个新目录，或省略 --dest 用默认缓存位置'); }
   if (entries.length && !entries.includes(INSTALL_MARK)) {
-    throw fail(EXIT.USAGE, 'dest-not-empty', `--dest ${dest} 里已有 ${entries.length} 项内容，且不是 fetch 装的运行时（没有 ${INSTALL_MARK}）：拒绝覆盖`, '给一个新的空目录（例如 <目录>/raea-0.1.0-canary.2），或省略 --dest 用默认缓存位置');
+    throw fail(EXIT.USAGE, 'dest-not-empty', `--dest ${dest} 里已有 ${entries.length} 项内容，且不是 fetch 装的运行时（没有 ${INSTALL_MARK}）：拒绝覆盖`, '给一个新的空目录（例如 <目录>/raea-0.1.4），或省略 --dest 用默认缓存位置');
   }
 }
 

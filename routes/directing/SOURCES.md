@@ -21,7 +21,7 @@
 | `$乙` 风格库乙 | `cases/vendor/sy-style-100` | xiaoxiong20xx-code/sy-style-100 `e41dee31a5c05dffa12b2f241378e648d2a22df6` | MIT，Copyright (c) 2026 肖雄 XIAOXIONG | `cases/vendor/sy-style-100/LICENSE`（`vol2/LICENSE` 相同）；`cases/licenses/XIAOXIONG-MIT.txt` | 保留版权与许可声明；作者另外请求转载或二次分发时保留作者署名（`$乙/README.md:23`）；示例画面里带作者署名，`make.js brand` 命令可替换，但不覆盖 `industry/` 下的 6 个文件 |
 | three.js | `node_modules/three`（不进 git） | 0.170.0（`package.json:26`；`package-lock.json:28-32`） | MIT | `cases/licenses/three-MIT.txt`；`THIRD-PARTY.md:21` | 保留声明 |
 | playwright-core | `node_modules` | 1.63.0（`package-lock.json:16-20`） | Apache-2.0 | 随包 | 渲染脚本驱动无头浏览器用 |
-| 原生运行时 | 不在仓库 | 固定版本 `0.1.0-canary.2`（`examples/raea/tools/render.mjs:14`），源码快照见 `docs/raea/architecture.md` | FSL-1.1-ALv2（`THIRD-PARTY.md:11`） | — | 不在本仓库分发，单独取得；**含 Competing Use 限制**（不得用于与许可方竞争的用途），两年后转为 Apache-2.0；B 路线做商用交付前先核对条款 |
+| 原生运行时 | 不在仓库 | 固定版本 `0.1.4`（`engine/render/native.mjs:46`、`engine/native/runtime.lock.json`），源码快照见 `docs/raea/architecture.md` | FSL-1.1-ALv2（`THIRD-PARTY.md:11`） | — | 不在本仓库分发，单独取得；**含 Competing Use 限制**（不得用于与许可方竞争的用途），两年后转为 Apache-2.0；B 路线做商用交付前先核对条款 |
 | 字体（A 路线） | `fonts/` | Barlow、Noto Sans SC、Ma Shan Zheng 的子集（`src/hud.js:32-42`） | SIL OFL 1.1 | `fonts/LICENSE.md`（含 OFL 1.1 全文与各字体版权行） | 按用字子集化、本地托管；不单独出售字体 |
 | 字体（C 路线案例） | 各案例 `fonts/` | 各案例自带 | 多为 SIL OFL 1.1 | 各案例 `fonts/OFL-*.txt` 或 `fonts/LICENSE.md`（例 `cases/source/style-18-art-deco/fonts/OFL-zcoolxiaowei.txt`） | 借用前核对该案例的许可文件 |
 | 底板生成工具 | — | Midjourney V8、GPT Image 2.5（`assets/plates/plates.json:3`；`docs/作品.md:94`） | 各工具服务条款 | — | 《北冥》影片、底板、展示图保留所有权利，代码许可不授权直接使用（`THIRD-PARTY.md:18`；`docs/raea/architecture.md:189`） |

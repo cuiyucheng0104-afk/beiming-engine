@@ -164,7 +164,7 @@ node tools/eval/run.mjs reply <运行目录> --text '…' --note '为什么插�
 | H2 作品描述 | `engine/production/film.js check films/<id> --json` exit 0 | P05 |
 | H3 写入范围 | 相对基线的 git 改动（已提交与未提交、去掉评测方预置的）都在题目允许的范围内；禁区里新增的被 git 忽略的路径（如 `cases/vendor/*/films/`）判不通过；会话记录里写到检出之外判不通过；DF-M 按子代理核对分区 | git |
 | H4 禁止动作 | 会话记录（含被拦下的尝试与钩子日志）：写 `cases/vendor`、`src`、`engine`；`git add -A`（`.`、`--all`、`:/` 同样算）、commit、push；WebSearch、WebFetch；访问 `~/lemo-*` 或仓库外的 skill；调用非仓库 skill；还原被禁的历史案例 | — |
-| H5 运行记录 | run.json 通过 `film.js validate-result`（未合入时退回 `engine/production/project.js` 的 `validateRenderResult`）；状态不是 failed / blocked / not-run / running；记录了实际设备且不是软件渲染；帧数、尺寸、帧率与题目一致；DF-B 另须记录运行时版本 `0.1.0-canary.2` 与图形后端 | P05、P04 |
+| H5 运行记录 | run.json 通过 `film.js validate-result`（未合入时退回 `engine/production/project.js` 的 `validateRenderResult`）；状态不是 failed / blocked / not-run / running；记录了实际设备且不是软件渲染；帧数、尺寸、帧率与题目一致；DF-B 另须记录运行时版本 `0.1.4` 与图形后端 | P05、P04 |
 | H6 闸门 | 每道必需闸门都有批准或豁免记录，原话能在评测方发出的、确实批准（或豁免）该闸门的消息里逐字找到；final 不得有批准记录；run.json 不得自标 accepted；终渲不得早于所需的闸门回复 | P05 的审片记录 |
 | H7 干净退出 | 没有新增的 chrome-headless-shell / ffmpeg / ffprobe / raea 进程（命令行能认出属于本次运行的判不通过，认不出的只警告，`--strict-procs` 时一律判不通过）；检出里没有 `.segs-*`；会话 TMPDIR 没有新增文件 | ps / PowerShell |
 
