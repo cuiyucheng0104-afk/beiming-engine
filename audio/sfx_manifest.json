@@ -1,0 +1,23 @@
+{
+ "说明": "audio/mix.py --real-sfx 用的真实录音清单（Freesound，全部 CC0；node tools/env/py.mjs tools/fetch_sfx.py 下载 HQ 预览到 audio/samples/sfx/，不进 Git）。名字对应 mix.py 里的元素；删掉某一条，这个音效就回到程序化合成。start/len 是原录音里的起止秒，semitones 移调，lp 低通，hp 高通（amb_close 的 lp 是为了不盖住眼镜提示音的 0.7–1.6 kHz，ui_nav 的 hp 去掉素材自带的 265 Hz 低频咚声），env 是 [秒, 增益] 断点包络，fade_out 是尾部淡出秒。",
+ "sounds": {
+  "amb_fog":     {"id": 325506, "title": "CITY AMBIENCE for CLEAN LOOP", "author": "ListenTonyBoy", "start": 4, "lp": 1800},
+  "amb_close":   {"id": 726317, "title": "wind 6", "author": "ZIP.Creates", "start": 2.8, "lp": 500},
+  "amb_open":    {"id": 376534, "title": "Strong Wind Recorded with Soundfield Microphone Manchester 2", "author": "keirofinch", "start": 4},
+  "breeze":      {"id": 344887, "title": "Strong wind", "author": "lextrack", "start": 8, "env": [[0, 0], [0.56, 1], [0.9, 0.7]]},
+  "open_bloom":  {"id": 347549, "title": "Swoosh sound 4", "author": "Masgame"},
+  "horn":        {"id": 507471, "title": "Long Distant Foghorn", "author": "Danjocross", "start": 0.9, "len": 2.5, "fade_out": 0.4},
+  "pigeons":     {"id": 414671, "title": "short pigeon wing flap", "author": "zouzmusic"},
+  "kun_glimpse": {"id": 561195, "title": "horror humming", "author": "ZHRØ", "start": 3, "lp": 400, "env": [[0, 0], [0.55, 0.45], [1.05, 1], [1.5, 0.7], [1.85, 0.35]]},
+  "shadow":      {"id": 503804, "title": "reverse fx 2", "author": "reathance", "start": 2.85, "len": 1.2},
+  "kun_pass":    {"id": 839819, "title": "Underwater Cave Ambience", "author": "TommyListens", "start": 4, "lp": 900},
+  "seaweed":     {"id": 733727, "title": "Shaking, wiggling tree/bush branches 001", "author": "Simonus18"},
+  "hair":        {"id": 832225, "title": "4 strokes on a fabric desk mat", "author": "franckwalden", "start": 3},
+  "kun_call":    {"id": 684188, "title": "whale song", "author": "muri_kuri", "start": 0.2, "len": 2.3, "semitones": -12, "fade_out": 0.5},
+  "touch":       {"id": 670000, "title": "Lego Click (short)", "author": "ImmergoMedia"},
+  "wake_ping":   {"id": 842513, "title": "Triple_Ping_Notification_Sound_Mobile_Optimized", "author": "PiesHelpfulOven", "len": 0.35, "fade_out": 0.1},
+  "ui_scan":     {"id": 702803, "title": "Bank, Laser Scan", "author": "LilMati", "len": 1.6, "fade_out": 0.2},
+  "ui_fail":     {"id": 859155, "title": "UI Interaction Error Beep - Ghost Metro Ticket", "author": "TommasoMotteran"},
+  "ui_nav":      {"id": 615539, "title": "Sci Fi UI Button Sound 016", "author": "crash_358", "hp": 800}
+ }
+}

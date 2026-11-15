@@ -479,6 +479,16 @@
       ]
     },
     {
+      "name": "FREESOUND_TOKEN",
+      "group": "声音",
+      "purpose": "Freesound API Key；仅在用 tools/fetch_sfx.py 搜索或下载 CC0 真实录音音效（供 audio/mix.py --real-sfx）时需要",
+      "default": "不设（默认程序化合成音效不需要它）",
+      "readBy": [
+        "tools/fetch_sfx.py"
+      ],
+      "external": "Freesound"
+    },
+    {
       "name": "BEIMING_FONT_CACHE",
       "group": "字体（tools/fonts）",
       "purpose": "原始 OFL 字体的缓存目录（fetch 下载、subset 子集化都读它）；多个检出可以共用一份",
@@ -698,10 +708,11 @@
     {
       "name": "XDG_CONFIG_HOME",
       "group": "远程工作站（tools/remote）",
-      "purpose": "机器档案的默认所在目录",
+      "purpose": "机器档案与算力池默认配置的所在目录",
       "default": "~/.config",
       "readBy": [
-        "tools/remote/lib/profiles.mjs"
+        "tools/remote/lib/profiles.mjs",
+        "tools/dstack-render.mjs"
       ],
       "external": "XDG"
     },

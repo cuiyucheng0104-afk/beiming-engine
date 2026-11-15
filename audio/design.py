@@ -8,6 +8,8 @@
   对应画面规则“显示层不加颗粒、不受 bloom 影响”。
 """
 import numpy as np
+import soxr
+from engine.audio import library as L
 from engine.audio.dsp import (SR, N, T, smoothstep, curve, fade, rng, norm, un_safe, white, pink, brown,
                               lp, hp, bp, svf, stereo, place, decor_pair)
 from engine.audio.synth import voice, glass_seq, bubble, events
@@ -96,12 +98,19 @@ def _scuffle(r):
     return un_safe(hp(r.standard_normal(m), 2500, 2)) * np.exp(-t / 0.004)
 
 
-def pigeons(seed=303, n_birds=10, d=2.6, heading=0.72, pan=(0.0, 0.7)):
+def _wing_sample(path, r, strength):
+    """真实翼音：从录音里切出的一下扑翼（库已统一到 SR、单段封顶 0.12 s），±6% 变速、均方根归一"""
+    s = L.slices(str(path))
+    x = un_safe(soxr.resample(s[int(r.integers(0, len(s)))], SR * r.uniform(0.94, 1.06), SR))
+    return fade(x * (strength * r.uniform(0.8, 1.1)), 0.004, 0.012)
+
+
+def pigeons(seed=303, n_birds=10, d=2.6, heading=0.72, pan=(0.0, 0.7), sample_path=None):
     """鸽群惊起（时间相对 0.80 s）：起飞时翅膀在背上互击的“啪” + 每次下扑的气流“噗”与羽毛沙沙。
     10 只，0.3 s 内陆续起飞；前几下近、干、响，之后 12–18 m/s 往上往远飞（变小、变闷、混响比例变大），约 1.5 s 后基本听不见。
     pan = (起飞处的声像中心, 飞去那一侧的声像)：每只的起点在 pan[0] ± 0.3 里随机；终点落在 pan[1] 那一侧，
     幅度在 (0.5–0.95) × |pan[1]| / 0.7 里随机（默认 0.7 就是 0.5–0.95）；heading 是飞向 pan[1] 那一侧的比例。
-    返回 (近处立体声, 送混响用的远处立体声)"""
+    sample_path 指向可选真实翼音采样；返回 (近处立体声, 送混响用的远处立体声)"""
     r = rng(seed)
     near = np.zeros((N(d), 2))
     far = np.zeros((N(d), 2))
@@ -122,7 +131,8 @@ def pigeons(seed=303, n_birds=10, d=2.6, heading=0.72, pan=(0.0, 0.7)):
             pan = p0 + (p1 - p0) * smoothstep(0, 1.3, age)
             cut = float(np.clip(15000 * (3.0 / dist) ** 0.55, 2600, 15000))
             period = 1 / (f0 + (f1 - f0) * smoothstep(0, 0.6, age))
-            fl = lp(_flap(r, 1.0 if k < 2 else (0.8 if k < 4 else 0.62)), cut, 2)
+            strength = 1.0 if k < 2 else (0.8 if k < 4 else 0.62)
+            fl = lp(_wing_sample(sample_path, r, strength) if sample_path else _flap(r, strength), cut, 2)
             place(near, fl, tk, g, pan)
             place(far, fl, tk, g * min(1.0, dist / 20), pan)
             if k < 3 and r.random() < 0.85:

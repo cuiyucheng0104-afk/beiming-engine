@@ -48,7 +48,8 @@ export const command = defineCommand({
     out: { type: 'string', arg: '<文件.mp4>', describe: '本地输出 MP4 路径（默认 out/dstack_<影片名>.mp4）' },
     host: { type: 'string', arg: '<ssh别名>', describe: '算力节点 SSH 别名（未传时读 ~/.config/beiming/dstack.json）' },
     server: { type: 'string', arg: '<ssh别名>', describe: 'dstack 控制面 SSH 别名（未传时读 ~/.config/beiming/dstack.json）' },
-    gpu: { type: 'string', arg: '<规格>', describe: 'dstack GPU 资源声明（默认 RTX5090:1）' },
+    backends: { type: 'string', default: 'ssh', arg: '<列表>', describe: '允许调度的 dstack 后端列表，逗号分隔（默认仅 ssh 自有机队，防止误触云端计费实例）' },
+    gpu: { type: 'string', arg: '<规格>', describe: 'dstack GPU 资源声明（默认 RTX5090:1；传 none 可不设显存下界以适配 UMA 节点）' },
     image: { type: 'string', arg: '<镜像>', describe: 'dstack 容器镜像（可指定 tools/dstack/Dockerfile 构建推送后的预装镜像，0s 冷启）' },
     workers: { type: 'integer', min: 1, max: 64, default: 16, arg: '<n>', describe: '远端无头浏览器并发路数（默认 16）' },
     frames: { type: 'string', arg: 'a:b', describe: '只渲染指定帧区间 a:b（用于预览或跨机分片联渲）' },
@@ -81,6 +82,7 @@ export const command = defineCommand({
     const host = ctx.opts.host || userCfg.host;
     const server = ctx.opts.server || userCfg.server;
     const workRoot = ctx.opts['work-root'] || userCfg.workRoot || '/var/tmp/beiming-dstack';
+    const backendsList = (ctx.opts.backends || userCfg.backends || 'ssh').split(',').map(s => s.trim()).filter(Boolean);
     const gpuSpec = ctx.opts.gpu || userCfg.gpu || 'RTX5090:1';
     const imageSpec = ctx.opts.image || userCfg.image || 'nvidia/cuda:13.0.0-base-ubuntu24.04';
     if (!host || !server) {
@@ -148,9 +150,11 @@ node engine/render/video.mjs ${filmRel} \\
 ${doMux ? `node engine/render/lib/mux.mjs /work/out/raw_dstack.mp4 ${filmRel}/media/song.wav /work/out/master_dstack.mp4 ${fps} 0 --frames ${totalFrames} --profile ${ctx.opts.profile} --json` : ''}
 `;
 
+    const gpuYamlLine = gpuSpec && gpuSpec !== 'none' ? `\n  gpu: ${gpuSpec}` : '';
     const taskYaml = `type: task
 name: ${taskName}
 image: ${imageSpec}
+backends: [${backendsList.join(', ')}]
 env:
   - NVIDIA_DRIVER_CAPABILITIES=all
   - BEIMING_ANGLE=vulkan
@@ -160,8 +164,7 @@ commands:
   - bash /work/run_job.sh
 resources:
   cpu: 16..
-  memory: 32GB..
-  gpu: ${gpuSpec}
+  memory: 32GB..${gpuYamlLine}
 retry:
   on_events: [no-capacity]
   duration: 10m
@@ -179,7 +182,7 @@ retry:
       sh('scp', ['-q', ymlFile, `${server}:~/dstack-beiming/${taskName}.dstack.yml`], { label: '上传 dstack YAML' });
 
       // 3. 异步提交并按 dstack ps 轮询判终态（加 -d 避免 dstack apply 末尾日志流断连卡顿 25–30s）
-      ctx.log.info(`2/4 提交 dstack 任务 ${taskName}（GPU=${gpuSpec}, workers=${ctx.opts.workers}）…`);
+      ctx.log.info(`2/4 提交 dstack 任务 ${taskName}（backends=[${backendsList.join(',')}], GPU=${gpuSpec}, workers=${ctx.opts.workers}）…`);
       sh('ssh', ['-o', 'BatchMode=yes', server, `cd ~/dstack-beiming && sudo -n -H /opt/dstack-venv/bin/dstack apply -f ${taskName}.dstack.yml -y -d && rm -f ${taskName}.dstack.yml`], { label: 'dstack apply -d' });
 
       let psOut = '';

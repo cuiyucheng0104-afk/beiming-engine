@@ -166,6 +166,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `BEIMING_AUDIO_OUT` | 声音 | 统一出片传给作品声音脚本的输出 wav 路径（`out/<运行号>/audio/mix.wav`），不要手动设 | 由统一出片设置；单独跑 `sound.py` 时写 `films/<名>/out/mix.wav` |
 | `BEIMING_FPS` | 声音 | 统一出片传给声音脚本的帧率；A 模版 `sound.py` 与 `film.json` 不一致时退出 4 | 由统一出片设置 |
 | `BEIMING_FRAMES` | 声音 | 统一出片传给声音脚本的总帧数，核对方式同上 | 由统一出片设置 |
+| `FREESOUND_TOKEN` | 声音（Freesound） | Freesound API Key；仅在用 `tools/fetch_sfx.py` 搜索或下载 CC0 真实录音音效（供 `audio/mix.py --real-sfx`）时需要 | 不设（默认合成音效不需要） |
 | `BEIMING_FONT_CACHE` | 字体（tools/fonts） | 原始 OFL 字体的缓存目录（`fetch` 下载、`subset` 子集化都读它）；多个检出可以共用一份 | 仓库根的 `.cache/fonts`（已被 git 忽略） |
 | `BEIMING_SH` | 过渡期 sh | POSIX sh 的完整路径；Windows 上 Git for Windows 装在非默认位置时用。sh 入口全部改成 Node 后不再需要 | PATH 里的 sh；Windows 上再找 Git for Windows 的 `bin\sh.exe` |
 | `RAEA_BIN` | B 路线 | 原生运行时可执行文件的完整路径；安装包要保留 `bin/` 与 `share/` | 不设（B 路线必需） |

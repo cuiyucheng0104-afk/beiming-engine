@@ -5,6 +5,7 @@
   synth      合成器件：加法共振峰发声器、玻璃音、气泡、颗粒事件流
   ambience   环境声：城市、水面、风、发丝、阵风
   sampler    多采样乐器采样器（CC0 库，BEIMING_SAMPLES 指路径）
+  library    CC0 真实录音音效库（按清单加载、48 kHz 重采样、等功率交叉循环、包络切片与署名，供 --real-sfx 切换）
   orchestra  编配：两层力度交叉淡化的长音、拨奏
   mixing     混音：时间轴摆放、镜头窗、让路、按目标响度定电平、母带收口
   meter      测量：BS.1770 响度、真峰值、频段能量、起音、ffmpeg 旁证

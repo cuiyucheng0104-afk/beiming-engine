@@ -35,7 +35,8 @@
 - 渲染管线升级（`engine/render/`，默认参数与既有金标准逐像素一致）：`--capture yuv420` 在浏览器 WebGL2 内直接合成画布并按有限范围 BT.709 矩阵转成 `yuv420p` 裸流喂给 FFmpeg，省去 PNG 编解码与 CPU 色彩空间换算；`--samples <N> --shutter <0–1>` 在线性光下累积子帧实现物理快门运动模糊；`engine/render/daemon.mjs` 与 `still.mjs --daemon` 提供常驻热 GPU 浏览器守护与依赖变动自动热重载。
 - 自动书法毛笔骨架提取 `engine/overlay/skeleton.js`：从任意字体渲染出的二值掩码直接提取拓扑单线骨架、交叉直通合并、传统汉字笔顺与收笔飞白权重（`traceMaskSkeleton`、`buildAutoBrushGlyph`），并支持把外部标准笔顺中线沿距离变换脊线吸附到当前字体（`alignMediansToMask`），免除逐字手标骨架。
 - 各向异性 Kuwahara 笔触与湿叠水彩皴擦：`engine/look/kuwahara.js` 新增可选 `anisotropy`（局部结构张量方向场驱动切向椭圆 8 扇区桑原滤波，默认 `0` 保持原单 pass 不变）；`engine/paint/watercolor.js` 提供递归湿边扩散、毛细水渍暗边（`fillWatercolor`）与披麻皴 / 斧劈皴矢量场均匀流线生成（`ridgeField`、`flowHatch`、`drawFlowHatch`）；新增宽松开源原生渲染演进对照文档 `docs/raea/open-native-survey.md`。
-- 算力池远端 GPU 并行渲染 `tools/dstack-render.mjs` 与基础镜像定义 `tools/dstack/Dockerfile`：支持经 dstack 控制面把影片调度到远端独显节点做多路 `ANGLE Vulkan` 无头浏览器并行渲染与响度封装，支持预装镜像 0 秒冷启或宿主 `runtime-layer.tar` 亚秒级增量解包；`engine/render/lib/gpu.mjs` 在 Linux 容器环境自动追加无头浏览器沙箱兼容参数。
+- 算力池远端 GPU 并行渲染 `tools/dstack-render.mjs` 与基础镜像定义 `tools/dstack/Dockerfile`：支持经 dstack 控制面把影片调度到远端独显节点做多路 `ANGLE Vulkan` 无头浏览器并行渲染与响度封装，支持预装镜像 0 秒冷启或宿主 `runtime-layer.tar` 亚秒级增量解包；默认固定 `backends: [ssh]` 只调度自有机队（防误触云端计费实例），支持 `--gpu none` 适配 UMA 统一内存节点；`engine/render/lib/gpu.mjs` 在 Linux 容器环境自动追加无头浏览器沙箱兼容参数。
+- CC0 真实录音音效库与可选切换链路（默认程序化合成逐样本不变）：`engine/audio/library.py` 提供 48 kHz 保音高重采样、起音静音裁剪、等功率底噪循环、翼音短事件包络切片与署名生成；`audio/sfx_manifest.json` 登记《北冥》样片 18 项 CC0 录音映射，`audio/mix.py --real-sfx`（及 `tools/audio/build.mjs --real-sfx`）支持一键切换真实音效并单独写出 `out/CREDITS.real-sfx`；`tools/fetch_sfx.py` 提供 Freesound CC0 六线程并发下载与基于投票数及专业录音描述信号的候选重排。
 
 ### Changed
 
