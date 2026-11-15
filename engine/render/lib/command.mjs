@@ -56,6 +56,24 @@ export function positiveNumber(v, flag) {
   return v;
 }
 
+/** 解析中间帧通道：--capture png|jpeg|yuv420 与 --fast（等价 jpeg，冲突报 usage.conflict） */
+export function resolveCapture(opts) {
+  if (opts.fast && opts.capture && opts.capture !== 'jpeg') {
+    throw new RenderError('usage.conflict', `--fast 与 --capture ${opts.capture} 冲突`, { hint: '--fast 等价于 --capture jpeg；只保留其中一个' });
+  }
+  return opts.capture ?? (opts.fast ? 'jpeg' : 'png');
+}
+
+/** 解析时间超采样运动模糊参数：--samples（默认 1）与 --shutter（(0, 1]，默认 0.5 即 180° 快门） */
+export function resolveMotionBlur(opts) {
+  const samples = opts.samples ?? 1;
+  const shutter = opts.shutter ?? 0.5;
+  if (!(Number.isFinite(shutter) && shutter > 0 && shutter <= 1)) {
+    throw bad('--shutter', '必须在 (0, 1] 之间（0.5 对应 180° 快门）', shutter, '例如 --samples 4 --shutter 0.5');
+  }
+  return { samples, shutter };
+}
+
 // ───────────────────────── 选项声明 ─────────────────────────
 
 const PRESETS = ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'];
@@ -68,6 +86,9 @@ export const RENDER_OPTIONS = Object.freeze({
   chunk: { type: 'integer', min: 1, max: 1000000, arg: '<帧数>', describe: '块长（默认按区间自动：总帧 / 8，夹在 1–10 秒）；改它会改变码流' },
   query: { type: 'string', default: '', arg: 'k=v&…', describe: '页面 URL 参数（例如 test=kun 渲 lab 自测页）' },
   fast: { type: 'boolean', describe: '用 JPEG 截图（预览：快、多一代有损）；默认无损 PNG' },
+  capture: { type: 'string', choices: ['png', 'jpeg', 'yuv420'], arg: '<格式>', describe: '帧捕获通道：png（默认无损）| jpeg（同 --fast）| yuv420（GPU 内直转 BT.709 YUV420p 裸流直推 FFmpeg）' },
+  samples: { type: 'integer', min: 1, max: 32, default: 1, arg: '<n>', describe: '每帧时间超采样数（默认 1 不模糊；>1 在线性光下累积子帧运动模糊）' },
+  shutter: { type: 'number', default: 0.5, arg: '<0–1>', describe: '快门开角比例（配合 --samples > 1，默认 0.5 即 180° 快门）' },
   crf: { type: 'integer', min: 0, max: 51, arg: '<n>', describe: '主输出的 x264 crf（默认按档位，再默认 14）' },
   preset: { type: 'string', choices: PRESETS, arg: '<名字>', describe: '主输出的 x264 preset（默认按档位，再默认 medium）' },
   gpu: { type: 'string', choices: [...GPU_POLICIES], arg: '<策略>', describe: 'required（默认，读 BEIMING_GPU）：软件渲染判失败 | any：允许并记提示 | software-ok：CI / 无 GPU 机器' },

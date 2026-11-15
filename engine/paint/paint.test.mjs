@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parsePath, samplePath } from './path.js';
 import { apply, asMatrix, mul, zoomAt } from './affine.js';
+import { deformPolygon, wetPolygonLayers, fillWatercolor, ridgeField, flowHatch, pointInPolygon } from './watercolor.js';
 
 const P = s => parsePath(s);
 
@@ -62,4 +63,43 @@ test('asMatrix：数组原样返回，DOMMatrix 形状取 a..f，别的类型报
   assert.deepEqual(apply(dm, [10, 10]), apply(m, [10, 10]));
   assert.deepEqual(mul(dm, [1, 0, 0, 1, 5, 5]), mul(m, [1, 0, 0, 1, 5, 5]));
   assert.deepEqual(zoomAt(32, 32, 2), m);
+});
+
+test('watercolor：湿边扩散确定性可复现、按边渗水权重生效、fillWatercolor 输出水渍暗边', () => {
+  const sq = [[20, 20], [120, 20], [120, 120], [20, 120]];
+  const a = deformPolygon(sq, { depth: 3, bleed: 12, seed: 42 });
+  const b = deformPolygon(sq, { depth: 3, bleed: 12, seed: 42 });
+  assert.deepEqual(a, b, '同一种子湿边轮廓逐点一致');
+  assert.equal(a.length, 4 * 8, '递归 3 层后顶点数 = 4 × 2³');
+
+  // 顶边干笔（权重 0.05）几乎不外溢，底边湿笔（权重 1.5）明显向下洇开
+  const weighted = wetPolygonLayers(sq, { layers: 8, depth: 3, bleed: 16, weights: [0.05, 0.2, 1.5, 0.2], seed: 9 });
+  const minTopY = Math.min(...weighted.flat().map(p => p[1]));
+  const maxBotY = Math.max(...weighted.flat().map(p => p[1]));
+  assert.ok(20 - minTopY < (maxBotY - 120) * 0.5, `干边外溢 ${(20 - minTopY).toFixed(2)} 应显著小于湿边外溢 ${(maxBotY - 120).toFixed(2)}`);
+
+  let fills = 0, strokes = 0;
+  const mockCtx = {
+    globalAlpha: 1, fillStyle: '', strokeStyle: '', lineJoin: '', lineWidth: 1,
+    save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {},
+    fill() { fills++; }, stroke() { strokes++; },
+  };
+  fillWatercolor(mockCtx, sq, { layers: 10, edgeDarken: 0.3, seed: 7 });
+  assert.equal(fills, 10);
+  assert.equal(strokes, 1, 'edgeDarken > 0 时绘制一圈毛细水渍暗边');
+});
+
+test('watercolor：披麻皴与斧劈皴流线严格收在多边形内且带起收笔压', () => {
+  const rock = [[10, 10], [150, 15], [140, 130], [20, 120]];
+  const pima = flowHatch(rock, ridgeField({ mode: 'pima', seed: 3 }), { spacing: 10, seed: 5 });
+  const fupi = flowHatch(rock, ridgeField({ mode: 'fupi', seed: 3 }), { spacing: 10, seed: 5 });
+  assert.ok(pima.length >= 8 && fupi.length >= 8, `披麻皴 ${pima.length} 条、斧劈皴 ${fupi.length} 条`);
+  for (const line of pima) {
+    assert.ok(line.length >= 4);
+    for (const [x, y, p] of line) {
+      assert.ok(pointInPolygon(rock, x, y), `皴擦采样点 (${x}, ${y}) 越出山石轮廓`);
+      assert.ok(p >= 0.1 && p <= 1, `笔压 ${p} 越界`);
+    }
+    assert.ok(line[0][2] < line[Math.floor(line.length / 2)][2], '中段笔压应重于起笔锋尖');
+  }
 });

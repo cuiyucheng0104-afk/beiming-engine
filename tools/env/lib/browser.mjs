@@ -51,9 +51,11 @@ export function resolveAngle(spec, env = process.env, platform = process.platfor
 // 备用副本：engine/render/page.mjs 能加载时一律用它导出的 chromeArgs（见 rendererArgs），这份只在 npm 依赖没装好时兜底；
 // tests/env 有测试核对两者逐项相同，page.mjs 改了启动参数而这里没跟上会直接失败。
 export function chromeArgs(angle) {
+  const inContainer = process.platform === 'linux' && (process.getuid?.() === 0 || fs.existsSync('/.dockerenv') || fs.existsSync('/run/.containerenv'));
   return [
     ...(angle === 'default' ? [] : [`--use-angle=${angle}`]),
     '--enable-gpu', '--ignore-gpu-blocklist', '--font-render-hinting=none', '--force-color-profile=srgb',
+    ...(inContainer ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
   ];
 }
 

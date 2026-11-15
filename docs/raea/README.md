@@ -23,6 +23,7 @@ node engine/render/native.mjs examples/raea             # 例片出片 → examp
 | 理解鲲的着色器变形如何转成骨骼动画 | [资产桥接说明](../../examples/raea/ASSET-BRIDGE.md) |
 | 看实际测量与画面限制 | [实测记录](experiment.md)（含 2026-11-10 重构后复现）/ [原始指标](experiment-qa.json) |
 | 理解长片需要补什么制作能力 | [制作层改进](production.md) |
+| 评估宽松开源协议（MIT / Apache-2.0）原生替代与演进路线 | [纯开源原生方案对照](open-native-survey.md) |
 | 程序化查询源码定位 | [source-map.json](source-map.json) |
 
 ## 版本基线

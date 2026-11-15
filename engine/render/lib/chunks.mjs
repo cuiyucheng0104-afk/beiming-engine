@@ -16,6 +16,7 @@ import { openFilm, renderFrame, finalFaultCheck, ROOT } from '../page.mjs';
 import { RenderError } from './errors.mjs';
 import { FFMPEG, probe, streamSignature, must } from './ffmpeg.mjs';
 import { sha256 } from './record.mjs';
+import { captureGpuFrame, rawYuvInputArgs } from './yuv.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms).unref());
 const pad = n => String(n).padStart(6, '0');
@@ -94,7 +95,11 @@ async function feed(ff, buf, exited, signal, where) {
  * @param {(e: {done:number, total:number, reused:number}) => void} [o.onProgress]
  */
 export async function renderRange(o) {
-  const { dir, query, fps, chunks, intermediate, outputs, workDir, reuse = false, key = null, openOptions, signal: outer, live, onProgress, settle = 'none', frameTimeoutMs } = o;
+  const {
+    dir, query, w, h, fps, chunks, intermediate, outputs, workDir, reuse = false, key = null,
+    openOptions, signal: outer, live, onProgress, settle = 'none', frameTimeoutMs,
+    samples = 1, shutter = 0.5,
+  } = o;
   const ac = new AbortController();
   const abort = e => { if (!ac.signal.aborted) ac.abort(e); };
   const onOuter = () => abort(outer.reason);
@@ -145,8 +150,9 @@ export async function renderRange(o) {
   async function renderChunk(film, i, k) {
     const [a, b] = chunks[i];
     const partial = outputs.map(x => files[x.kind][i].replace(/\.mp4$/, '.partial.mp4'));
-    const input = intermediate === 'png' ? ['-c:v', 'png'] : ['-c:v', 'mjpeg'];
-    const args = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), ...input, '-i', '-'];
+    const args = intermediate === 'yuv420'
+      ? ['-y', '-loglevel', 'error', ...rawYuvInputArgs(w, h, fps)]
+      : ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(fps), ...(intermediate === 'png' ? ['-c:v', 'png'] : ['-c:v', 'mjpeg']), '-i', '-'];
     // 输出写绝对路径：命令行里看得出它属于哪部作品、哪次运行（P17 的 H7 据此认残留进程）；编码结果与写相对路径相同
     if (outputs.length === 1) args.push('-vf', outputs[0].vf, ...outputs[0].args, partial[0]);
     else {
@@ -161,6 +167,7 @@ export async function renderRange(o) {
     const stop = () => { try { ff.stdin.destroy(); } catch {} try { ff.kill('SIGKILL'); } catch {} };
     signal.addEventListener('abort', stop, { once: true });
     const blockHashes = [];
+    const useGpuCapture = intermediate === 'yuv420' || samples > 1;
     try {
       const early = await Promise.race([new Promise(r => ff.once('spawn', () => r(null))), exited]);
       if (early) throw new RenderError('env.ffmpeg-spawn', `FFmpeg 没能启动（${describeExit(early)}）`, { hint: '运行 ffmpeg -version 确认可用；或设 FFMPEG 为完整路径' });
@@ -169,11 +176,19 @@ export async function renderRange(o) {
         const t = f / fps;
         const where = `第 ${k} 路第 ${f} 帧（t=${t.toFixed(4)}s）`;
         const f0 = Date.now();
-        await renderFrame(film, t, { timeoutMs: frameTimeoutMs, settle, where, signal });
-        const img = await film.capture(intermediate);
-        film.check();
-        const h = sha256(img).slice(0, 16);
-        hashes.set(f, h); blockHashes.push(h);
+        let img;
+        if (useGpuCapture) {
+          img = await captureGpuFrame(film, t, {
+            w, h, format: intermediate, samples, shutter, fps, dur: film.contract?.dur ?? Infinity,
+            timeoutMs: frameTimeoutMs, settle, where, signal,
+          });
+        } else {
+          await renderFrame(film, t, { timeoutMs: frameTimeoutMs, settle, where, signal });
+          img = await film.capture(intermediate);
+          film.check();
+        }
+        const hsh = sha256(img).slice(0, 16);
+        hashes.set(f, hsh); blockHashes.push(hsh);
         await feed(ff, img, exited, signal, where);
         perFrame.push(Date.now() - f0);
         done++; rendered++;
@@ -268,8 +283,12 @@ export async function concatChunks(list, out, { expectFrames, signal, live, work
   fs.mkdirSync(path.dirname(out), { recursive: true });
   const partial = path.join(path.dirname(out), `.${path.basename(out, path.extname(out))}.partial-${process.pid}.mp4`);
   const undo = life?.defer(() => fs.rmSync(partial, { force: true }));
+  const [tbN, tbD] = String(sig[0]?.timeBase || '1/12288').split('/').map(Number);
+  const [frN, frD] = String(sig[0]?.rate || sig[0]?.rFrameRate || '24/1').split('/').map(Number);
+  const step = tbN > 0 && tbD > 0 && frN > 0 && frD > 0 ? Math.round((tbD * frD) / (tbN * frN)) : 0;
+  const bsf = step > 0 ? ['-bsf:v', `setts=pts=round(PTS/${step})*${step}:dts=round(DTS/${step})*${step}:duration=${step}`] : [];
   try {
-    await must(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', ...metadata, partial], '拼接', { cwd: workDir, signal, live });
+    await must(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', ...bsf, ...metadata, partial], '拼接', { cwd: workDir, signal, live });
     const p = await probe(partial, { signal });
     if (p.video?.frames !== expectFrames) throw new RenderError('contract.frame-count', `拼接后是 ${p.video?.frames} 帧，应为 ${expectFrames} 帧`, { hint: '块文件不完整或参数不一致：去掉 --resume 重渲' });
     fs.renameSync(partial, out);

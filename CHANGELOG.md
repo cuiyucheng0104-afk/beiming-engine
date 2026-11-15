@@ -32,6 +32,10 @@
 - 中文排字 `engine/overlay/cjk.js`（实验）：给 Canvas 逐字画字用的断行与排版纯函数 `layoutText`，按 W3C《中文排版需求》做行首行尾禁则、省略号与破折号不拆、拉丁词与「数字加单位」不拆、标点挤压、中西文间距、两行等长与三种对齐；结果是逐字的位置，可直接交给文字动效。机器 QA 新增软项 `texts.cjk-break`（行首不是收尾标点、行尾不是开头标点，只告警）。自测页 `?test=cjk`。
 - 文字动效 `engine/overlay/kinetic.js`（实验）：12 个逐字或逐碎片的入场 / 出场动效（回弹落位、打字机、字距收拢、翻牌、乱码解析、霓虹点亮、墨洇显影、大小波浪、模糊对焦、遮罩擦出、碎片聚合、碎片依次显现），画面只取决于进度，可一拍二，可任意跳帧。自测页 `?test=kinetic`。
 - B 路线的光追外部后端 rt（实验）：`engine/native/rt.mjs`（`npm run b:rt -- status | render`）按 `engine/native/rt.lock.json` 核对外部光追渲染器的版本并调用它出分层图（颜色、深度、物体编号、视空间法线）；`engine/look/layers.js` 在浏览器里把一帧分层图做成描边、色阶、笔触与纸纹的北冥画风，自测页 `?test=rt_look`。渲染器是第三方预览许可软件，不随仓库分发，边界见 `docs/rights/rt-boundary.md`。现有三条路线的出片链路与画面不受影响。
+- 渲染管线升级（`engine/render/`，默认参数与既有金标准逐像素一致）：`--capture yuv420` 在浏览器 WebGL2 内直接合成画布并按有限范围 BT.709 矩阵转成 `yuv420p` 裸流喂给 FFmpeg，省去 PNG 编解码与 CPU 色彩空间换算；`--samples <N> --shutter <0–1>` 在线性光下累积子帧实现物理快门运动模糊；`engine/render/daemon.mjs` 与 `still.mjs --daemon` 提供常驻热 GPU 浏览器守护与依赖变动自动热重载。
+- 自动书法毛笔骨架提取 `engine/overlay/skeleton.js`：从任意字体渲染出的二值掩码直接提取拓扑单线骨架、交叉直通合并、传统汉字笔顺与收笔飞白权重（`traceMaskSkeleton`、`buildAutoBrushGlyph`），并支持把外部标准笔顺中线沿距离变换脊线吸附到当前字体（`alignMediansToMask`），免除逐字手标骨架。
+- 各向异性 Kuwahara 笔触与湿叠水彩皴擦：`engine/look/kuwahara.js` 新增可选 `anisotropy`（局部结构张量方向场驱动切向椭圆 8 扇区桑原滤波，默认 `0` 保持原单 pass 不变）；`engine/paint/watercolor.js` 提供递归湿边扩散、毛细水渍暗边（`fillWatercolor`）与披麻皴 / 斧劈皴矢量场均匀流线生成（`ridgeField`、`flowHatch`、`drawFlowHatch`）；新增宽松开源原生渲染演进对照文档 `docs/raea/open-native-survey.md`。
+- 算力池远端 GPU 并行渲染 `tools/dstack-render.mjs` 与基础镜像定义 `tools/dstack/Dockerfile`：支持经 dstack 控制面把影片调度到远端独显节点做多路 `ANGLE Vulkan` 无头浏览器并行渲染与响度封装，支持预装镜像 0 秒冷启或宿主 `runtime-layer.tar` 亚秒级增量解包；`engine/render/lib/gpu.mjs` 在 Linux 容器环境自动追加无头浏览器沙箱兼容参数。
 
 ### Changed
 

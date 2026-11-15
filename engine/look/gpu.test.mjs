@@ -470,3 +470,49 @@ window.RESULT = out;`, { w: 64, h: 64, timeout: 240000 });
   // 默认 pixel 模式不在这条验收里（旧输出逐像素不变，由金标准守）：记一下它 4K 缩回的高频损失，供对照
   assert.ok(r.legacy[2160].r < .97, `默认模式（双线性、整数倍 kp）2160 缩回 1080：${pct(r.legacy[2160].r)}——新模式就是为它加的`);
 });
+
+gpuTest('Anisotropic Kuwahara：anisotropy=0 与不传逐字节一致；开启 anisotropy>0 零着色器报错且顺斜棱保留锐度', async () => {
+  const r = await run('aniso_kw', `
+import * as THREE from 'three';
+import { createLook } from '/engine/look/index.js';
+const W = 128, H = 128, renderer = new THREE.WebGLRenderer({ antialias: false });
+renderer.setPixelRatio(1); renderer.setSize(W, H); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
+let shaderErrors = 0; renderer.debug.onShaderError = () => shaderErrors++;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#223344');
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 20); cam.position.set(0, 0, 5); cam.updateMatrixWorld();
+const texData = new Uint8Array(64 * 64 * 4);
+for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+  const k = (y * 64 + x) * 4;
+  const side = x * 0.7 + y * 0.7 > 42;
+  const n = ((x * 73 + y * 37) & 31) - 16;
+  texData[k] = Math.max(0, Math.min(255, (side ? 235 : 45) + n));
+  texData[k + 1] = Math.max(0, Math.min(255, (side ? 180 : 75) - n));
+  texData[k + 2] = Math.max(0, Math.min(255, (side ? 105 : 120) + (n >> 1)));
+  texData[k + 3] = 255;
+}
+const dTex = new THREE.DataTexture(texData, 64, 64, THREE.RGBAFormat); dTex.colorSpace = THREE.SRGBColorSpace; dTex.needsUpdate = true;
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: dTex }));
+scene.add(quad);
+async function grab(kw) {
+  const look = createLook(renderer, W, H, { ss: 1, refHeight: 128 }); await look.ready;
+  const rt = new THREE.WebGLRenderTarget(W, H);
+  look.render(scene, cam, { t: 0, outline: false, bloom: false, paper: false, grade: false, vignette: 0, grain: 0, kuwahara: kw, target: rt });
+  const b = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(rt, 0, 0, W, H, b);
+  rt.dispose(); look.dispose();
+  return b;
+}
+const defPx = await grab({ radius: 6, strength: 1, q: 8 });
+const zeroPx = await grab({ radius: 6, strength: 1, q: 8, anisotropy: 0 });
+const anisoPx = await grab({ radius: 6, strength: 1, q: 8, anisotropy: 1.4, tensorSigma: 1.5 });
+let zeroDiff = 0, anisoDiff = 0;
+for (let i = 0; i < defPx.length; i++) {
+  zeroDiff = Math.max(zeroDiff, Math.abs(defPx[i] - zeroPx[i]));
+  anisoDiff += Math.abs(defPx[i] - anisoPx[i]);
+}
+const centerAniso = [anisoPx[(96 * W + 96) * 4], anisoPx[(96 * W + 96) * 4 + 1], anisoPx[(96 * W + 96) * 4 + 2]];
+window.RESULT = { shaderErrors, zeroDiff, anisoMeanDiff: anisoDiff / (W * H * 4), centerAniso };`, { w: 128, h: 128 });
+  assert.equal(r.shaderErrors, 0, '各向异性 Kuwahara 着色器零编译报错');
+  assert.equal(r.zeroDiff, 0, 'anisotropy=0 与不传参数逐字节完全一致');
+  assert.ok(r.anisoMeanDiff > 0.2, `开启各向异性后在斜细条边缘应有椭圆定向笔触差异：${r.anisoMeanDiff}`);
+  assert.ok(r.centerAniso[0] > 180, `细斜条中心颜色未被法向背景吞蚀：${r.centerAniso}`);
+});

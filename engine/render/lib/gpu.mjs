@@ -12,6 +12,7 @@
 //   resolveGpuPolicy(value?)    --gpu：required（默认，软件渲染判失败，退出码 3）| any（允许软件渲染，记一条提示）|
 //                               software-ok（明确要软件渲染：CI 冒烟、资产烘焙，不提示）；没写参数时读 BEIMING_GPU（同样校验，写错退出码 2）
 //   enforceGpu(info, policy)    按策略判定：要硬件却是软件 → env.software-gl、没有 WebGL2 → env.webgl-unavailable（退出码 3），带修复提示
+import fs from 'node:fs';
 import { RenderError } from './errors.mjs';
 
 // playwright-core 用到时才加载：封装（lib/mux.mjs）、--help、参数校验都不需要装好 npm 依赖
@@ -55,9 +56,11 @@ export const defaultAngle = () => {
 };
 export const chromeExecutable = () => process.env.BEIMING_CHROME || undefined;
 export function chromeArgs(angle = defaultAngle()) {
+  const inContainer = process.platform === 'linux' && (process.getuid?.() === 0 || fs.existsSync('/.dockerenv') || fs.existsSync('/run/.containerenv'));
   return [
     ...(angle === 'default' ? [] : [`--use-angle=${angle}`]),
     '--enable-gpu', '--ignore-gpu-blocklist', '--font-render-hinting=none', '--force-color-profile=srgb',
+    ...(inContainer ? ['--no-sandbox', '--disable-dev-shm-usage'] : []),
   ];
 }
 

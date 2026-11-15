@@ -195,14 +195,14 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | 文件 | 内容 |
 |---|---|
 | `page.mjs` | 打开影片页面：静态服务、无头 Chrome、注入 `__RENDER` 与故障监测、等 READY、核对页面约定、逐帧 `renderFrame`、截图。兼容导出 `chromeArgs`、`SOFTWARE_RENDERER`、`defaultAngle`、`takeSize`、`FilmError` 等（`tools/env`、`engine/native/sequence.mjs`、测试在用；`render.compat-exports` 规则守护） |
-| `still.mjs`、`video.mjs`、`shots.mjs`、`serve.mjs` | 四个命令 |
+| `still.mjs`、`video.mjs`、`shots.mjs`、`serve.mjs`、`daemon.mjs` | 五个命令（静帧、整片视频、镜头缓存视频、预览服务、常驻热浏览器守护） |
 | `mux.sh` | 兼容壳：`exec node lib/mux.mjs "$@"`（用 PATH 里的 node；CRLF 检出时自行去掉 CR 重跑） |
 | `args.mjs` | 旧的参数小工具（`--range` 与时刻），still 仍在用 |
-| `lib/command.mjs` | 渲染命令外壳：收尾（子进程、浏览器、临时目录、锁、失败记录）、信号、日志与 NDJSON 进度、参数取值、共用选项 |
+| `lib/command.mjs` | 渲染命令外壳：收尾（子进程、浏览器、临时目录、锁、失败记录）、信号、日志与 NDJSON 进度、参数取值、共用选项（含 `--capture`、`--samples`、`--shutter`） |
 | `lib/errors.mjs` | `RenderError`（继承命令约定库的 `CliError`）、错误归类、退出码表 |
 | `lib/gpu.mjs` | ANGLE 后端与 GPU 策略、浏览器启动、读实际 GPU、软件渲染判定 |
 | `lib/server.mjs`、`lib/inject.mjs`、`lib/contract.mjs` | 静态服务；注入页面的 `__RENDER` 与上下文丢失监测；文字报告核对 |
-| `lib/chunks.mjs`、`lib/ffmpeg.mjs` | 分块逐帧渲染与拼接；FFmpeg 预检、色彩换算参数、探测 |
+| `lib/chunks.mjs`、`lib/ffmpeg.mjs`、`lib/yuv.mjs` | 分块逐帧渲染与拼接；FFmpeg 预检、色彩换算参数、探测；GPU 帧合成、线性光时间超采样运动模糊与 BT.709 YUV420p 直出 |
 | `lib/record.mjs`、`lib/profiles.mjs`、`lib/film.mjs` | 运行记录；交付档位；读 film.json 的渲染相关字段 |
 | `lib/lock.mjs`、`lib/slots.mjs`、`lib/deps.mjs` | 输出锁；渲染槽位与共享 GPU 守卫；镜头的静态 import 图 |
 | `lib/mux.mjs` | 音画封装（第 6 节） |

@@ -26,7 +26,7 @@
 //   outline   墨线：{ width, color, wobble, boilFps, boilHold, warp, pressure, breakup, inner, silhouette, depthThreshold,
 //                     near, far, farScale, opacity, tint, darken, fogFade }        各字段见 ink.js、compose.js
 //             boilHold 可选：墨线每 boilHold 个输出帧沸腾一次（按影片帧率，换帧率也是一拍 n）；不写按 boilFps（每秒几次）
-//   kuwahara  { radius, strength, q, farRadius, farStart, farEnd, protect }      见 kuwahara.js；protect 见 grade.js
+//   kuwahara  { radius, strength, q, farRadius, farStart, farEnd, protect, anisotropy, tensorSigma } 见 kuwahara.js；protect 见 grade.js
 //   bloom     { strength, threshold, radius, knee, tint }                         见 bloom.js
 //   grade     { exposure, warmth, lift, gamma, gain, saturation, shoulder }      见 grade.js
 //   fog       { color, colorHigh, density, start, max, baseHeight, falloff, cutoff, sky }   见 fog.js
