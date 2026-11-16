@@ -11,13 +11,12 @@ import soundfile as sf
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from engine.audio import foley as F, library as L  # noqa: E402
-from engine.audio.dsp import SR, N, T, rng, make_ir, space_place, doppler, rms  # noqa: E402
+from engine.audio.dsp import SR, N, T, rng, space_place, doppler, rms  # noqa: E402
 
 
 class FoleyAndSpatialTests(unittest.TestCase):
     def test_sync_anchor_separates_pre_whoosh_from_impact(self):
         """带 90 ms 渐起破空 + 0.095 s 处陡峭撞击的复合录音：P-Center 锚点必须落在 0.095 s ± 3 ms，而非开头 5% 处。"""
-        r = rng(7)
         t = T(0.30)
         whoosh = 0.22 * np.sin(2 * np.pi * 420 * t) * np.clip(t / 0.09, 0.0, 1.0) * (t < 0.095)
         hit_t = 0.095
@@ -76,7 +75,6 @@ class FoleyAndSpatialTests(unittest.TestCase):
 
     def test_space_place_distance_dr_ratio_and_mono_compatibility(self):
         """space_place：远处比近处高频更暗、混响湿比更高；极左/极右摆位折单声道相关性仍 ≥ 0（不触发反相门禁）。"""
-        ir = make_ir(rt=1.4, pre=0.02, seed=5)
         t = T(0.08)
         src = np.exp(-t / 0.015) * rng(31).standard_normal(len(t))
 

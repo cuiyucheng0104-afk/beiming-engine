@@ -21,7 +21,7 @@ import math
 import numpy as np
 from scipy.signal import butter, sosfiltfilt
 
-from .dsp import (SR, N, T, smoothstep, undb, fade, stereo, place, space_place,
+from .dsp import (SR, smoothstep, undb, fade, stereo, place, space_place,
                   width as ms_width, lp, hp, shelf, make_ir, reverb)
 from .mixing import window as shot_window, tail_after, match_level, tame_low, loudness_to
 

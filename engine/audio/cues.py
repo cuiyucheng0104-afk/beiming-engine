@@ -26,7 +26,7 @@ from collections import Counter
 
 import numpy as np
 
-from .dsp import SR, N
+from .dsp import SR
 
 
 class Track:
