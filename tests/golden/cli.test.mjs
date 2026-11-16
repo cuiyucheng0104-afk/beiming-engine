@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { browserOk } from '../ci/browser.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const GOLDEN = path.join(ROOT, 'tools/baseline/golden.mjs');
@@ -115,11 +116,6 @@ test('静态扫描：仓库默认范围没有未登记的不确定 API', () => {
 });
 
 // ── 集成（要无头浏览器）──
-let browserOk = false;
-try {
-  const { chromium } = await import('playwright-core');
-  browserOk = fs.existsSync(chromium.executablePath()) || !!process.env.BEIMING_CHROME;
-} catch { browserOk = false; }
 const gpuEnv = process.env.BEIMING_TEST_GPU || (process.platform === 'darwin' ? 'any' : 'software-ok');
 
 test('确定性：纯函数夹具通过（exit 0），有累计状态的反例夹具判不通过（exit 4）', { skip: !browserOk && '没装无头浏览器' }, () => {
