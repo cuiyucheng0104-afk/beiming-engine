@@ -63,7 +63,7 @@ three 只在 `requestAnimationFrame` 回调里推进节点帧号，场景 pass �
 
 - 一个 Node 进程里可以开多部片：每部片一个 `WebGPURenderer` 与一个渲染目标，共用一个 `GPUDevice`（构造时传 `device`）。
 - 读回走流水线：渲第 n 帧、发起读回，不等它完成就渲第 n+1 帧；同时在途的帧数有上限（`inflight`，默认 3）。WebGPU 队列按提交顺序执行，第 n 帧的拷贝排在第 n+1 帧的渲染之前，所以复用同一个渲染目标是安全的；输出顺序按帧号。
-- 编码先用 libx264（与页面渲染器同参数）。并发时 CPU 编码会先成为瓶颈：第一个里程碑只测量，GPU 侧转 YUV（读回字节从 4 B/像素降到 1.5 B/像素）与 NVENC 留到第二个里程碑按数据决定。
+- 编码默认 libx264（与页面渲染器同参数，终渲母版用它）。并发时 x264 会先成为瓶颈，所以可用 `--encoder nvenc` 改走显卡的 h264_nvenc（恒定质量 cq，色彩换算与标记不变），实测见 7.4；GPU 侧转 YUV（读回字节从 4 B/像素降到 1.5 B/像素）与 Dawn→CUDA 零拷贝尚未做。
 
 ## 4. 质量门
 
@@ -128,13 +128,40 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 
 **取舍**：新 C 作品优先在同一 WebGPU 设备上实现绘制与后期；Skia 保留为旧片按需迁移候选，不加进本里程碑依赖。完整文字、路径、纸齿与柔性模糊仍需逐项迁移、过质量门与用户 look 闸。不能把这次实验写成已支持全部 86 式。
 
-### 7.4 快速复查
+### 7.4 编码器：x264 与 NVENC
+
+`--encoder x264|nvenc`（`offscreen render` 与 `offscreen:bench` 都有）。默认 x264，码流与此前相同。
+
+**画质与单路速度**（ffmpeg 单独跑，不含离屏渲染）：取 `media/beiming.mp4` 前 10 秒（1920×1040、240 帧，含 CPU 解码源片），分别用 libx264 medium crf18 与 h264_nvenc p5 cq18 重编码，再对原片算 PSNR。
+
+| 编码器 | 单路 | 码率 | 对原片 PSNR 平均 / 最差帧 |
+|---|---|---|---|
+| libx264 medium crf18 | 85 fps | 15.0 Mbps | 45.6 / 44.0 dB |
+| h264_nvenc p5 cq18 | 206 fps | 15.2 Mbps | 43.7 / 37.2 dB |
+
+同码率下 NVENC 平均低约 2 dB，最差帧低约 7 dB，所以**终渲母版仍走 x264**；NVENC 用于预览与高并发。8 路 NVENC 同时编码全部成功（每路 30–32 fps，合计约 246 fps），没有碰到会话数上限；这只是这台机器与当前驱动的结果，不能外推到别的消费卡或数据中心卡。原片本身是 x264 编码的，所以这里的 PSNR 衡量的是「再编码损失」，不是对无损源的绝对画质。
+
+**离屏链路吞吐**（`offscreen:bench --encode`，演示作品 `ink.mjs`，1080p，每部 480 帧，同进程多部并发）。注意口径：离屏默认 x264 是 crf14，NVENC 用 cq18，两者**质量并不等价**，这里比的是「各自默认设置下的整链路吞吐」。
+
+| 同时出片部数 | x264 crf14 | NVENC cq18 |
+|---|---|---|
+| 4（x264 共 4 次、NVENC 共 5 次） | 62.7–75.2，中位 71.0 | 110.2–160.1，中位 126.4 |
+| 1（单次） | 52.6 | 93.3 |
+| 2（单次） | 69.4 | 94.5 |
+| 8（单次） | 57.2 | 101.1 |
+
+单位：总吞吐，帧/秒。每次运行的逐帧哈希都与单部片基线一致。4 部并发中位数之比约 1.8 倍。运行期间桌面合成器、语音识别与播放器还在占 GPU（15–47%），NVENC 的跑间波动明显大于 x264（同配置出现过 110 与 160）；单次档位的数字只能看量级。
+
+**剩下的瓶颈**：换 NVENC 后总吞吐仍低于只渲染读回的 170–253 帧/秒。NVENC 运行时采样到 Node 主线程约 90–97%，GPU 利用率 15–20%、编码器引擎约 57%，主线程（读回拷贝与管道写入，约 8 MB/帧）是头号嫌疑；CPU 色彩换算单路约 860 fps，不是瓶颈。**这只是两三次采样得出的假设，未做专门验证。**
+
+### 7.5 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080
 npm run offscreen:compare -- lab/offscreen/ink.mjs --frames 0,14,30,40,191 --size 1920x1080
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080 --encode
+npm run offscreen:bench -- lab/offscreen/ink.mjs --films 4 --frames 480 --size 1920x1080 --encode --encoder nvenc
 ```
 
 只执行仓库内受信作品模块，不是任意代码沙箱；以后对外服务必须加独立的任务参数校验与执行隔离。上述命令输出技术实验结果，不表示已通过 `film --final` 或用户交付认可。
