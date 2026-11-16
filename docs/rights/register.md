@@ -166,7 +166,7 @@
 - **Release 预览（1）**：`ppt-jianlong-preview.mp4`
 - **成片（包内路径，2）**：`original-films-04.zip:ppt-jianlong/见龙_印刷水墨版_v2新旁白_3分14秒_手机版.mp4`、`original-films-04.zip:ppt-jianlong/见龙_印刷水墨版_v2新旁白_3分14秒.mp4`
 - **仓库内的海报（1）**：`cases/previews/ppt-jianlong.jpg`
-- **仓库内的归档源文件**：137 个（如 `cases/source/ppt-jianlong/旁白/lines.json`；完整清单用 `node tools/compliance/rights-inventory.mjs --json`）
+- **仓库内的归档源文件**：137 个（如 `cases/source/ppt-jianlong/jianlong/ARCH.md`；完整清单用 `node tools/compliance/rights-inventory.mjs --json`）
 
 ## R05 IP 联名图里的第三方品牌：星巴克、古茗、中信出版
 
