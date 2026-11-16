@@ -80,6 +80,7 @@ npm run test:cases       # 案例库工具与相关规则的测试
 | [A/B 引擎工程手册](routes/README.md) | 改引擎、加共享能力的阅读顺序与现状；`npm run plan:check`、`npm run plan:next` |
 | [工程待办与分工](routes/work-breakdown.md) | T / H 任务的负责人、依赖、写入范围与完成条件 |
 | [数据与模块契约](routes/contracts.md) | film.json、镜头、帧状态、资产与结果的字段约定（FrameState 仍是设计） |
+| [取帧方式对比实验](capture-experiment.md) | 截图与「读画布、显卡里转 YUV」的用时和画面一致性实测；没有接入出片链路，脚本 `tools/rtx/capture-bench.mjs` |
 | [北冥风格路线工程手册](routes/beiming-style.md)、[原生路线工程手册](routes/raea-native.md) | A、B 的引擎层细节与历史实验 |
 | [原生运行时源码与集成](raea/README.md) | B 路线底层：运行时源码对照、10 秒原生实验、集成设计稿 |
 | [命令约定](CLI.md) | 退出码、`--json` 信封、参数规则、全部 npm 脚本的清单与状态 |

@@ -1,0 +1,330 @@
+{
+ "info": {
+  "loadBefore": {
+   "loadavg1": 16.53,
+   "cpus": 24,
+   "gpu": "5 %, 2071 MiB"
+  },
+  "node": "v26.12.0",
+  "platform": "linux",
+  "frames": 240,
+  "reps": 2,
+  "lanes": [
+   1,
+   4,
+   8
+  ],
+  "size": [
+   1920,
+   1040
+  ],
+  "setupFirstSeconds": 1.62,
+  "setupOtherLanesSeconds": 3.18,
+  "gpu": "ANGLE (NVIDIA, Vulkan 1.4.351 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)",
+  "angle": "vulkan",
+  "settleForScreenshots": "raf2",
+  "page": {
+   "W": 1920,
+   "H": 1040
+  },
+  "warmPassSeconds": 3.09,
+  "loadAfter": {
+   "loadavg1": 34.41,
+   "cpus": 24,
+   "gpu": "67 %, 7779 MiB"
+  }
+ },
+ "inPageReadbackMs": {
+  "rgba": 4.7,
+  "nv12": 3.7
+ },
+ "fidelity": [
+  {
+   "frame": 30,
+   "rgb": {
+    "differing": 0,
+    "share": 0,
+    "max": 0,
+    "meanAbs": 0
+   },
+   "y": {
+    "differing": 84120,
+    "share": 4.2127,
+    "max": 1,
+    "meanAbs": 0.0421
+   },
+   "uv": {
+    "differing": 110125,
+    "share": 11.0301,
+    "max": 6,
+    "meanAbs": 0.1157
+   },
+   "rerender": {
+    "differing": 0,
+    "share": 0,
+    "max": 0,
+    "meanAbs": 0
+   }
+  },
+  {
+   "frame": 120,
+   "rgb": {
+    "differing": 0,
+    "share": 0,
+    "max": 0,
+    "meanAbs": 0
+   },
+   "y": {
+    "differing": 85918,
+    "share": 4.3028,
+    "max": 1,
+    "meanAbs": 0.043
+   },
+   "uv": {
+    "differing": 58657,
+    "share": 5.8751,
+    "max": 3,
+    "meanAbs": 0.0593
+   },
+   "rerender": {
+    "differing": 0,
+    "share": 0,
+    "max": 0,
+    "meanAbs": 0
+   }
+  },
+  {
+   "frame": 200,
+   "rgb": {
+    "differing": 8519,
+    "share": 0.1422,
+    "max": 1,
+    "meanAbs": 0.0014
+   },
+   "y": {
+    "differing": 98668,
+    "share": 4.9413,
+    "max": 1,
+    "meanAbs": 0.0494
+   },
+   "uv": {
+    "differing": 128741,
+    "share": 12.8947,
+    "max": 5,
+    "meanAbs": 0.1377
+   },
+   "rerender": {
+    "differing": 219,
+    "share": 0.0037,
+    "max": 23,
+    "meanAbs": 0.0003
+   }
+  }
+ ],
+ "results": [
+  {
+   "method": "png",
+   "label": "现在：PNG 截图",
+   "lanes": 1,
+   "frames": 240,
+   "wallSeconds": 24.91,
+   "fps": 9.6,
+   "grabMsPerFrame": 100.3,
+   "bytes": 99013859,
+   "framesDifferentFromPng": 0,
+   "psnrVsPng": "inf",
+   "ssimVsPng": "1.000000"
+  },
+  {
+   "method": "jpeg",
+   "label": "已有：JPEG 截图（有损）",
+   "lanes": 1,
+   "frames": 240,
+   "wallSeconds": 13.68,
+   "fps": 17.5,
+   "grabMsPerFrame": 54.1,
+   "bytes": 102339779,
+   "framesDifferentFromPng": 240,
+   "psnrVsPng": "41.830628",
+   "ssimVsPng": "0.962349"
+  },
+  {
+   "method": "rgba-b64",
+   "label": "读画布 RGBA，走调试通道",
+   "lanes": 1,
+   "frames": 240,
+   "wallSeconds": 21.03,
+   "fps": 11.4,
+   "grabMsPerFrame": 85,
+   "bytes": 99000591,
+   "framesDifferentFromPng": 167,
+   "psnrVsPng": "46.005311",
+   "ssimVsPng": "0.985930"
+  },
+  {
+   "method": "rgba-ws",
+   "label": "读画布 RGBA，走本地 WebSocket",
+   "lanes": 1,
+   "frames": 240,
+   "wallSeconds": 19.25,
+   "fps": 12.5,
+   "grabMsPerFrame": 77.5,
+   "bytes": 99012226,
+   "framesDifferentFromPng": 167,
+   "psnrVsPng": "45.897828",
+   "ssimVsPng": "0.985479"
+  },
+  {
+   "method": "nv12-b64",
+   "label": "显卡里转 YUV，走调试通道",
+   "lanes": 1,
+   "frames": 240,
+   "wallSeconds": 11.07,
+   "fps": 21.7,
+   "grabMsPerFrame": 43.7,
+   "bytes": 99129813,
+   "framesDifferentFromPng": 240,
+   "psnrVsPng": "43.915455",
+   "ssimVsPng": "0.976762"
+  },
+  {
+   "method": "nv12-ws",
+   "label": "显卡里转 YUV，走本地 WebSocket",
+   "lanes": 1,
+   "frames": 240,
+   "wallSeconds": 9.83,
+   "fps": 24.4,
+   "grabMsPerFrame": 38.6,
+   "bytes": 99135751,
+   "framesDifferentFromPng": 240,
+   "psnrVsPng": "43.915383",
+   "ssimVsPng": "0.976762"
+  },
+  {
+   "method": "nv12-ws-nvenc",
+   "label": "显卡里转 YUV，再换显卡编码",
+   "lanes": 1,
+   "frames": 240,
+   "wallSeconds": 8.65,
+   "fps": 27.8,
+   "grabMsPerFrame": 35.4,
+   "bytes": 21714121,
+   "framesDifferentFromPng": 240,
+   "psnrVsPng": "39.986418",
+   "ssimVsPng": "0.938686"
+  },
+  {
+   "method": "png-again",
+   "label": "现在：PNG 截图（再跑一遍）",
+   "lanes": 1,
+   "frames": 240,
+   "wallSeconds": 24.78,
+   "fps": 9.7,
+   "grabMsPerFrame": 100.2,
+   "bytes": 99000576,
+   "framesDifferentFromPng": 145,
+   "psnrVsPng": "46.639100",
+   "ssimVsPng": "0.987899"
+  },
+  {
+   "method": "png",
+   "label": "现在：PNG 截图",
+   "lanes": 4,
+   "frames": 240,
+   "wallSeconds": 8.23,
+   "fps": 29.1,
+   "grabMsPerFrame": 101,
+   "bytes": 98645433
+  },
+  {
+   "method": "jpeg",
+   "label": "已有：JPEG 截图（有损）",
+   "lanes": 4,
+   "frames": 240,
+   "wallSeconds": 5.14,
+   "fps": 46.7,
+   "grabMsPerFrame": 56.4,
+   "bytes": 102063910
+  },
+  {
+   "method": "rgba-ws",
+   "label": "读画布 RGBA，走本地 WebSocket",
+   "lanes": 4,
+   "frames": 240,
+   "wallSeconds": 7.55,
+   "fps": 31.8,
+   "grabMsPerFrame": 96.9,
+   "bytes": 98639984
+  },
+  {
+   "method": "nv12-ws",
+   "label": "显卡里转 YUV，走本地 WebSocket",
+   "lanes": 4,
+   "frames": 240,
+   "wallSeconds": 4.74,
+   "fps": 50.7,
+   "grabMsPerFrame": 47.6,
+   "bytes": 98766878
+  },
+  {
+   "method": "nv12-ws-nvenc",
+   "label": "显卡里转 YUV，再换显卡编码",
+   "lanes": 4,
+   "frames": 240,
+   "wallSeconds": 3.87,
+   "fps": 62,
+   "grabMsPerFrame": 57,
+   "bytes": 26836691
+  },
+  {
+   "method": "png",
+   "label": "现在：PNG 截图",
+   "lanes": 8,
+   "frames": 240,
+   "wallSeconds": 5.48,
+   "fps": 43.8,
+   "grabMsPerFrame": 104.9,
+   "bytes": 98956211
+  },
+  {
+   "method": "jpeg",
+   "label": "已有：JPEG 截图（有损）",
+   "lanes": 8,
+   "frames": 240,
+   "wallSeconds": 4.17,
+   "fps": 57.6,
+   "grabMsPerFrame": 66.3,
+   "bytes": 102261055
+  },
+  {
+   "method": "rgba-ws",
+   "label": "读画布 RGBA，走本地 WebSocket",
+   "lanes": 8,
+   "frames": 240,
+   "wallSeconds": 7.38,
+   "fps": 32.5,
+   "grabMsPerFrame": 173.7,
+   "bytes": 98938032
+  },
+  {
+   "method": "nv12-ws",
+   "label": "显卡里转 YUV，走本地 WebSocket",
+   "lanes": 8,
+   "frames": 240,
+   "wallSeconds": 4.56,
+   "fps": 52.7,
+   "grabMsPerFrame": 70,
+   "bytes": 99049095
+  },
+  {
+   "method": "nv12-ws-nvenc",
+   "label": "显卡里转 YUV，再换显卡编码",
+   "lanes": 8,
+   "frames": 240,
+   "wallSeconds": 4,
+   "fps": 60,
+   "grabMsPerFrame": 103.9,
+   "bytes": 34385801
+  }
+ ]
+}
