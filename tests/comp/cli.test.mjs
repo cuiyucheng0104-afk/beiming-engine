@@ -155,6 +155,13 @@ test('rights-inventory：登记册与案例目录一致；--check 与 --write �
   assert.equal(runCli('tools/compliance/rights-inventory.mjs', ['--root', path.join(REPO, 'no-such-dir')]).code, 3);
 });
 
+test('rights-inventory：结果与语言环境无关（中文、英文、C 环境下 --check 都通过）', () => {
+  for (const loc of ['zh_CN.UTF-8', 'en_US.UTF-8', 'C.UTF-8']) {
+    const r = runCli('tools/compliance/rights-inventory.mjs', ['--check'], { env: { LANG: loc, LC_ALL: loc } });
+    assert.equal(r.code, 0, `${loc} 下登记册核对失败：${r.stdout}${r.stderr}`);
+  }
+});
+
 test('scan personal-email：D02 之后用个人邮箱的提交，没推送时阻断，已在远端（公开历史）时只报告', { skip: !hasGit }, () => {
   const personal = j('someone', '@', 'gmail', '.com');   // 拼出来：源码里不出现完整地址
   const repo = mkRepo({ 'a.txt': '1\n' });
