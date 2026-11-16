@@ -13,6 +13,7 @@
 
 ### Added
 
+- 离屏出片第一个里程碑（实验，D12）：`engine/offscreen/` 用 Node + Dawn 与 three.js r187 WebGPURenderer 出片，不经过浏览器；提供流水线读回、RGBA → BT.709 编码、Chrome WebGPU 同帧对拍与单 GPU 多部片基准。命令 `offscreen`、`offscreen:compare`、`offscreen:bench`；可选依赖与旧 r170 隔离，不修改旧路线与 `film` 出片链。当前演示仅含三档着色、反向外壳线和纸纹，不代表北冥完整后期迁移或生产并发调度已完成。实测范围与后续阻塞项见 `docs/offscreen/README.md`。
 - 三条路线的模版仓库结构：`routes/README.md` 是总指引；A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）、C（北冥代码动画风格 · 86 式）各有一份路线手册和一个可直接出片的模版。`node tools/new-film.mjs <a|b|c> <名字>` 从模版新建作品到 `films/<名字>/`。
 - 导演与画面规范 `routes/directing/`：导演方法、画面设计、五章工艺，以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
 - 工业级交付基线决策 `docs/decisions/2026-11-10-industrial-baseline.md`（D01–D11）。

@@ -80,7 +80,7 @@ export const command = defineCommand({
     const tmp = encode ? fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-offscreen-bench-')) : null;
     ctx.onCleanup(() => { if (tmp) fs.rmSync(tmp, { recursive: true, force: true }); });
     const common = { gpu, file, width, height, fps, frames, inflight, encode, tmp };
-    let baseline = null, adapter = null;
+    let baseline, adapter;
     const runs = [];
     try {
       // 预热一次（着色器编译、管线创建），并取「单部片」的逐帧哈希当基线；不计入结果

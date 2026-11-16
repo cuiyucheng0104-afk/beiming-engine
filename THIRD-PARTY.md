@@ -107,7 +107,18 @@ README 署名节与 Release 说明末尾都用这一句（作品站页脚已有�
 | 马善政毛笔楷书（Ma Shan Zheng）全部 7015 个字符，按码位切成 13 片 | SIL OFL 1.1，Copyright 2018 The Ma Shan Zheng Project Authors | `routes/c-style/fonts/mashanzheng-*.woff2`，许可全文 [routes/c-style/fonts/OFL.txt](routes/c-style/fonts/OFL.txt) | 来源 google/fonts@406197b，生成方法与各片 sha256 见 `routes/c-style/fonts/fonts.json`；C 模版的片名与印文用它 |
 | 配乐采样库 VS Chamber Orchestra: Community Edition 与 Versilian Community Sample Library | CC0-1.0，Versilian Studios | 不随仓库分发 | 固定提交、逐文件地址与 sha256 见 `engine/audio/samples.json`，下载用 `npm run audio:samples`；《北冥》声音署名见 [audio/CREDITS](audio/CREDITS) |
 
-## 12. 做法参考（没有搬代码）
+## 12. 离屏出片的可选依赖（实验）
+
+这条链路只用于新的 `engine/offscreen/`，不依赖 B 路线的运行时。通过 npm 取得并锁在 `package-lock.json`，不把二进制拷进仓库。用法与验证边界见 [离屏出片](docs/offscreen/README.md)。
+
+| 依赖 | 锁定版本 | 实际许可 | 用途与义务 |
+|---|---|---|---|
+| [three.js](https://github.com/mrdoob/three.js)，npm 别名 `three-webgpu` | `0.187.0` | MIT，Copyright © 2010-2026 three.js authors | WebGPURenderer 与 TSL；旧链路仍用 `three@0.170.0`。保留包内 `LICENSE`，升级时重做预览对拍与确定性验证 |
+| [Dawn Node 绑定](https://github.com/dawn-gpu/node-webgpu)，npm 包 `webgpu` | `0.6.2` | npm 元数据声明 MIT，但发行包 `LICENSE.md` 实际为 BSD-3-Clause，Copyright 2017-2025 The Dawn & Tint Authors；按包内原文履行义务 | Node 离屏 GPU 设备；保留包内版权与免责声明，分发二进制时随附这些内容，不用上游名称背书。不把 npm 元数据代替发行包许可；若以后分发该依赖，另核对二进制附带的全部第三方义务 |
+
+Skia Canvas 仅在仓库外做过 C 模版对照实验（MIT），没有加入产品依赖，也没有复制其代码。
+
+## 13. 做法参考（没有搬代码）
 
 下面几项只借了做法或规则，代码是本仓库自己写的，所以不带上游版权行；列在这里是如实说明出处。
 
