@@ -23,6 +23,43 @@ test('encoderArgs：RGBA 裸帧输入、页面渲染器同款色彩换算、四�
   assert.equal(a.at(-1), '/x/o.mp4');
 });
 
+test('encoderArgs：--encoder nvenc 换成 h264_nvenc + 恒定质量 cq，色彩换算与四项标记不变；默认仍是 libx264', () => {
+  const n = encoderArgs({ width: 64, height: 32, fps: 24, out: '/x/o.mp4', encoder: 'nvenc', cq: 20 });
+  const s = n.join(' ');
+  assert.match(s, /-c:v h264_nvenc -preset p5 -rc vbr -cq 20 -b:v 0/);
+  assert.ok(!s.includes('libx264'));
+  assert.equal(n[n.indexOf('-vf') + 1], COLOR.png);
+  assert.ok(s.includes(TAGS.join(' ')));
+  assert.equal(n.at(-1), '/x/o.mp4');
+  assert.match(encoderArgs({ width: 64, height: 32, fps: 24, out: 'o.mp4' }).join(' '), /-c:v libx264/);
+});
+
+test('encoderArgs：不认识的编码器直接报用法错误，不悄悄退回 x264', () => {
+  assert.throws(() => encoderArgs({ width: 64, height: 32, fps: 24, out: 'o.mp4', encoder: 'av1' }), e => e.code === 'usage.bad-value' && /x264.*nvenc/.test(e.message));
+});
+
+// 机器上有没有能用的 NVENC：试编一帧（没有 NVIDIA 驱动时 ffmpeg 里有编码器名也会失败）
+const hasNvenc = hasFfmpeg && spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=256x256', '-frames:v', '1', '-c:v', 'h264_nvenc', '-f', 'null', '-'], { stdio: 'ignore' }).status === 0;
+
+test('startEncoder：nvenc 编 8 帧纯色 → 8 帧 yuv420p、BT.709 有限范围标记齐全、Y 与参考换算相差 ≤ 2', { skip: !hasNvenc && '没有可用的 NVENC（需要 NVIDIA 驱动）' }, async () => {
+  const dir = tmp();
+  try {
+    const out = join(dir, 'n.mp4'), W = 256, H = 256, rgb = [232, 223, 204];
+    const enc = startEncoder({ width: W, height: H, fps: 24, out, encoder: 'nvenc' });
+    for (let i = 0; i < 8; i++) await enc.write(solid(W, H, rgb));
+    await enc.finish();
+    const p = await probe(out);
+    const tag = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream_tags=encoder', '-of', 'default=nw=1:nk=1', out], { encoding: 'utf8' });
+    assert.match(tag, /h264_nvenc/, '成片不是 NVENC 编的');
+    assert.equal(p.video.frames, 8);
+    assert.equal(p.video.pixFmt, 'yuv420p');
+    assert.deepEqual(p.video.color, { range: 'tv', space: 'bt709', primaries: 'bt709', transfer: 'bt709' });
+    const y = execFileSync('ffmpeg', ['-v', 'error', '-i', out, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'yuv420p', '-'])[0];
+    const ref = Math.round(16 + 219 * (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255);
+    assert.ok(Math.abs(y - ref) <= 2, `Y=${y}，参考 ${ref}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('startEncoder：8 帧纯色 → 8 帧 yuv420p、BT.709 有限范围标记齐全、Y 与参考换算相差 ≤ 1', { skip: !hasFfmpeg && '没有 FFmpeg' }, async () => {
   const dir = tmp();
   try {
