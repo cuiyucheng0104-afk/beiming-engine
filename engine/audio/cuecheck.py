@@ -233,6 +233,59 @@ def _onset_in(x, sr, t, early, late, min_rise_db, emph):
     return t0 + kk * hs + 0.46 * win / sr, rise
 
 
+def measure_pcenter(x, sr, t, early=0.15, late=0.25, min_rise_db=7.5):
+    """在 [t - early, t + late] 内测量复合音效（如前导挥剑风声 + 撞击瞬态）的感知中心 P-Center（Morton 1976 / Scott 1998）：
+    口径与 library.sync_anchor 对齐（宽频 + 1.2 kHz 高频瞬态加权包络的正斜率平方质心），不把前导缓起风声误判为超前起音。"""
+    a = max(0, int(round((t - early - 0.025) * sr)))
+    b = min(len(x), int(np.ceil((t + late + 0.025) * sr)))
+    win = max(8, int(round(sr * 0.0025)))
+    hop = max(1, int(round(sr * 0.0005)))
+    if b - a <= win + 8:
+        return None
+    seg = np.asarray(x[a:b], dtype=float)
+    d = np.diff(seg, prepend=seg[0])
+    hf_scale = sr / (2.0 * math.pi * 1200.0)
+    p = 0.35 * (seg * seg) + 0.65 * ((d * hf_scale) ** 2)
+    cs = np.concatenate([[0.0], np.cumsum(p)])
+    k_cnt = (len(seg) - win) // hop + 1
+    starts = np.arange(k_cnt) * hop
+    env = np.sqrt(np.maximum(0.0, cs[starts + win] - cs[starts]) / win)
+    hs = hop / float(sr)
+    k0 = max(1, int(round(((t - early) * sr - a) / hop)))
+    k1 = min(k_cnt - 2, int(round(((t + late) * sr - a) / hop)))
+    if k1 <= k0:
+        return None
+    sub = env[k0:k1 + 1]
+    emax = float(sub.max())
+    fl = float(np.percentile(env, 20))
+    rise = 20.0 * math.log10((emax + 1e-12) / (fl + 1e-12))
+    if emax < 1e-6 or rise < min_rise_db:
+        return None
+    look_nb = max(1, int(round(0.008 / hs)))
+    k_pk = k0 + int(np.argmax(sub))
+    for k in range(k0, k1 + 1):
+        if env[k] >= 0.72 * emax:
+            hi = min(k_cnt, k + look_nb + 1)
+            if env[k] >= float(env[k:hi].max()) - 1e-12:
+                k_pk = k
+                break
+    s_lo = max(0, k_pk - int(round(0.045 / hs)))
+    slope = np.maximum(0.0, np.diff(env[s_lo:k_pk + 1], prepend=env[s_lo]))
+    if float(slope.max()) <= 1e-15:
+        return round((a + k_pk * hop + 0.5 * win) / sr, 5)
+    k_ms = s_lo + int(np.argmax(slope))
+    rad = max(2, int(round(0.010 / hs)))
+    lo = max(s_lo, k_ms - rad)
+    hi = min(k_pk + 1, k_ms + rad + 1)
+    sl_win = np.maximum(0.0, np.diff(env[max(0, lo - 1):hi], prepend=env[max(0, lo - 1)]))[1 if lo > 0 else 0:]
+    if len(sl_win) != (hi - lo):
+        sl_win = np.maximum(0.0, np.diff(env[lo:hi], prepend=env[lo]))
+    w = sl_win ** 2
+    w_sum = float(w.sum())
+    k_anchor = (float(np.dot(np.arange(lo, hi), w)) / w_sum) if w_sum > 0 else float(k_ms)
+    return round((a + k_anchor * hop + 0.85 * win) / sr, 5)
+
+
 def _keyset(cli_keys, film, tl):
     keys = set()
     for src in (cli_keys, ((film or {}).get('cuecheck') or {}).get('keys'), _ci(tl or {}, 'keys')):
@@ -312,13 +365,33 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
             if k is not None and tags.get(k) is not None:
                 return float(tags[k]), 'score_onsets', {}
         return None, None, None
+    qa_sync = (((film or {}).get('raw') or {}).get('qa') or {}).get('sync') or {}
+    pcenter_set = set()
+    for src_pc in (cc.get('pcenterEvents'), qa_sync.get('pcenterEvents')):
+        if isinstance(src_pc, (list, tuple, set)):
+            pcenter_set |= {str(v) for v in src_pc}
+    def_sync_mode = 'pcenter' if (cc.get('syncMode') == 'pcenter' or qa_sync.get('mode') == 'pcenter') else 'onset'
+    ev_by_id = {}
     for e in (film or {}).get('events', []) if film and film['version'] == 2 else []:
         eid, frame = e.get('id'), e.get('frame')
         if not isinstance(frame, int) or isinstance(frame, bool):
             continue                    # frame 必填、整数帧：写错的事件由 node engine/production/film.js check 报
+        if eid is not None:
+            ev_by_id[eid] = e
         bt = e.get('beat')
         if isinstance(bt, (int, float)) and not isinstance(bt, bool) and eid not in seen:
             rows.append(_beat_hit(e, frame, fgrid, fps, grid, tags, notes, eid in keyset or e.get('domain') in keyset))
+        # 1 拍 N 抽帧保持帧检查（当事件或 cuecheck 声明 holdN >= 2 时）：核对冲击是否落在静止保持帧上
+        hold_n = e.get('holdN') if isinstance(e.get('holdN'), int) else cc.get('holdN')
+        if isinstance(hold_n, int) and hold_n >= 2 and e.get('sync') != 'none' and e.get('domain') not in ('amb', 'music', 'mix'):
+            hold_origin = int(e.get('holdOrigin', cc.get('holdOrigin', 0)) or 0)
+            if (frame - hold_origin) % hold_n != 0:
+                strict_hold = bool(e.get('holdStrict', cc.get('holdStrict', False)))
+                sync_rows.append({
+                    'id': eid, 'audio': str(e.get('audio') or '-'), 'frame': frame, 'deltaMs': None,
+                    'kind': 'hold', 'status': 'fail' if strict_hold else 'warn',
+                    'problems': [f'第 {frame} 帧落在 1 拍 {hold_n} 的静止保持帧上（姿态更新帧满足 (frame − {hold_origin}) % {hold_n} == 0）'],
+                })
         sync = e.get('sync') if e.get('sync') in ('lip', 'soft', 'none') else None     # 不写（或旧的布尔值）= 硬门，同 tools/qa
         ref = e.get('audio')
         if not ref or sync == 'none':
@@ -344,7 +417,7 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
                           'deltaFrames': round(d * fps, 3), 'status': st, 'kind': 'declared', 'sync': sync or 'default',
                           'problems': [] if st == 'pass' else [f'声音比画面{"早" if d < 0 else "晚"} {abs(d) * 1e3:.1f} ms（容差：早 ≤ {early * 1e3:.1f} ms、晚 ≤ {late * 1e3:.1f} ms）']})
     _judge(rows, tol_ms)
-    # —— 3. 实测起音（可选） ——
+    # —— 3. 实测起音 / 感知中心与声像极性（可选） ——
     mix_path = mix or os.path.join(here, 'out', 'mix.wav')
     if film and film['dir'] != here and not mix and not os.path.exists(mix_path):
         mix_path = os.path.join(film['dir'], 'out', 'mix.wav')
@@ -357,31 +430,61 @@ def run_check(film_dir, *, tol_ms=None, grid=None, silences=None, quiet_db=None,
         stem_dirs = [os.path.join(os.path.dirname(mix_path), 'stems')]
         if film and (film.get('audio') or {}).get('cues'):
             stem_dirs.append(os.path.join(os.path.dirname(F.resolve(film, film['audio']['cues'])), 'stems'))
-        stems = {}
+        stems, stems_st = {}, {}
 
         def signal_for(bus):
             """优先用这条声音所在总线的分轨（密的混音里轻的提示音测不准），没有就用混音"""
             if bus and bus not in stems:
                 hit = next((os.path.join(d, f'{bus}.wav') for d in stem_dirs if os.path.exists(os.path.join(d, f'{bus}.wav'))), None)
-                stems[bus] = sf.read(hit, dtype='float64', always_2d=True)[0].mean(axis=1) if hit else None
-            return (stems.get(bus) if bus else None), (f'stems/{bus}.wav' if bus and stems.get(bus) is not None else 'mix')
+                if hit:
+                    st_arr = sf.read(hit, dtype='float64', always_2d=True)[0]
+                    stems_st[bus] = st_arr
+                    stems[bus] = st_arr.mean(axis=1)
+                else:
+                    stems_st[bus] = stems[bus] = None
+            has_b = bool(bus and stems.get(bus) is not None)
+            return (stems.get(bus) if has_b else mono), (stems_st.get(bus) if has_b else x), (f'stems/{bus}.wav' if has_b else 'mix')
         for r in [s for s in sync_rows if s.get('soundT') is not None]:
             cue = cue_tab.get(r['audio'], {})
-            bus = cue.get('bus') or cue.get('layer')
+            ev_obj = ev_by_id.get(r['id'], {})
+            bus = cue.get('bus') or cue.get('layer') or ev_obj.get('bus')
             if bus in ('music', 'amb', 'master', 'mix'):
                 continue                      # 慢起的配乐与环境声没有可测的瞬态：只核对声明值
-            sig, src = signal_for(bus)
-            o = measure_onset(sig if sig is not None else mono, sr, r['soundT'], early=0.04, late=0.08)
+            sig, sig_st, src = signal_for(bus)
+            use_pc = (
+                ev_obj.get('syncMode') == 'pcenter' or cue.get('syncMode') == 'pcenter'
+                or r['id'] in pcenter_set or r['audio'] in pcenter_set or def_sync_mode == 'pcenter'
+            )
+            if use_pc:
+                o = measure_pcenter(sig, sr, r['soundT'], early=0.10, late=0.14)
+            else:
+                o = measure_onset(sig, sr, r['soundT'], early=0.04, late=0.08)
             late = (2.0 if r.get('sync') == 'lip' else late_frames) * fd
             if o is None:
                 sync_rows.append({'id': r['id'], 'audio': r['audio'], 'frame': r['frame'], 'kind': 'measured', 'status': 'warn', 'signal': src,
-                                  'deltaMs': None, 'problems': [f'{src} 里 {r["soundT"]:.3f} s 附近没有检出起音（实测只作参考）']})
+                                  'syncMode': 'pcenter' if use_pc else 'onset',
+                                  'deltaMs': None, 'problems': [f'{src} 里 {r["soundT"]:.3f} s 附近没有检出{"感知中心" if use_pc else "起音"}（实测只作参考）']})
                 continue
             d = o - r['frame'] / fps
-            st = 'pass' if -early - 1e-9 <= d <= late + 1e-9 else 'warn'
+            probs = []
+            if not (-early - 1e-9 <= d <= late + 1e-9):
+                probs.append(f'实测{"感知中心" if use_pc else "起音"}比画面{"早" if d < 0 else "晚"} {abs(d) * 1e3:.1f} ms（{src}；实测只作参考）')
+            # 声像极性一致性复核：声明了明显偏左/偏右 pan 时，核对实测立体声能量不反相偏到另一侧
+            raw_pan = ev_obj.get('pan') if ev_obj.get('pan') is not None else cue.get('pan')
+            exp_pan = float(raw_pan[0]) if isinstance(raw_pan, (list, tuple)) and len(raw_pan) else (float(raw_pan) if isinstance(raw_pan, (int, float)) else None)
+            if exp_pan is not None and abs(exp_pan) >= 0.25 and sig_st is not None and sig_st.ndim == 2 and sig_st.shape[1] >= 2:
+                pa = max(0, int(round((o - 0.005) * sr)))
+                pb = min(len(sig_st), int(round((o + 0.100) * sr)))
+                if pb - pa >= 16:
+                    rl = float(np.sqrt(np.mean(sig_st[pa:pb, 0] ** 2) + 1e-24))
+                    rr = float(np.sqrt(np.mean(sig_st[pa:pb, 1] ** 2) + 1e-24))
+                    mpan = (rr - rl) / (rr + rl + 1e-12)
+                    if exp_pan * mpan < -0.08:
+                        probs.append(f'声像左右极性反转：声明 pan={exp_pan:+.2f}，{src} 实测平衡 {mpan:+.2f}')
+            st = 'warn' if probs else 'pass'
             sync_rows.append({'id': r['id'], 'audio': r['audio'], 'frame': r['frame'], 'kind': 'measured', 'onsetT': o, 'signal': src,
-                              'deltaMs': round(d * 1e3, 2), 'status': st,
-                              'problems': [] if st == 'pass' else [f'实测起音比画面{"早" if d < 0 else "晚"} {abs(d) * 1e3:.1f} ms（{src}；实测只作参考）']})
+                              'syncMode': 'pcenter' if use_pc else 'onset',
+                              'deltaMs': round(d * 1e3, 2), 'status': st, 'problems': probs})
     # —— 4. 静默段 ——
     sil_rows = []
     if silences:

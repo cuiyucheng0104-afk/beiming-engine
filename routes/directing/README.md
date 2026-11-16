@@ -22,7 +22,7 @@
 | 2 | [templates/TREATMENT.md](templates/TREATMENT.md) | 写阐述：23 节、每节一句填写说明、一部虚构 10 秒短片的示例（示例只用仓库已有能力，需新写的都标了出来） |
 | 3 | [VISUAL-DESIGN.md](VISUAL-DESIGN.md) | 定画风、出风格帧和色彩脚本条、定镜头语法与镜头间连续性、做 IP 与地图自查、画面与审美 QA |
 | 4 | [templates/STYLE-LOCK.md](templates/STYLE-LOCK.md) ＋ [style-lock.json](templates/style-lock.json) | 把画风写成"锁规则不锁数值"的版本记录；示例填的是《北冥》样片的真实值 |
-| 5 | [craft/README.md](craft/README.md) | 动手前查工艺：三渲二着色、2.5D 底板、风格动画、出片工程、three.js；统一标注、术语表、C 方法落到 A 路线的对照表在这里 |
+| 5 | [craft/README.md](craft/README.md) | 动手前查工艺：三渲二着色、2.5D 底板、风格动画、出片工程、three.js、音效设计与拟音；统一标注、术语表、C 方法落到 A 路线的对照表在这里 |
 | 6 | [PRODUCTION-SPEC.md](PRODUCTION-SPEC.md) | 建作品目录：一个时钟、一张镜头表、一张事件表，声音、配音、字幕、风格、资产按 id 引用；挂在现有 ProjectSpec 上 |
 | 7 | [EXEMPLARS.md](EXEMPLARS.md) | 做每一步之前看谁的写法可借、谁栽过；被否作品只作反例 |
 | 8 | [SOURCES.md](SOURCES.md) | 引用第三方做法或借 C 路线代码之前看出处、许可与义务 |
@@ -45,4 +45,4 @@ python3 tools/check_directing_docs.py <规范目录>
 
 ## 出处与许可
 
-正文用 `$甲`、`$乙` 指两套第三方风格库快照，展开与许可见 [SOURCES.md](SOURCES.md)。craft 五章以本目录里的文本为唯一源；研究期的组装脚本已停用，不随规范入库。
+正文用 `$甲`、`$乙` 指两套第三方风格库快照，展开与许可见 [SOURCES.md](SOURCES.md)。craft 六章以本目录里的文本为唯一源；研究期的组装脚本已停用，不随规范入库。

@@ -221,6 +221,52 @@ class QaGate(unittest.TestCase):
         self.assertAlmostEqual(L.integrated(), M.integrated(x), delta=1e-9)
         self.assertAlmostEqual(tp.value, M.true_peak(x), delta=1e-9)
 
+    def test_masking_glimpse_passes_and_buried_fx_fails(self):
+        """有分轨 stems/*.wav 与前景声音事件时：中高频有清晰听觉窥视窗口通过，全频带被配乐深埋 −24 dB 判 audio.masking 不通过"""
+        from engine.audio import dsp as D, mixing as MX
+        rng = np.random.default_rng(77)
+        dur = 10.0
+        n = H.N(dur)
+        events = [{'id': 'slash', 'frame': 96, 'shot': 'S1', 'audio': 'slash', 'domain': 'sfx'}]
+        i0 = H.N(96 / 24.0)
+        ln = H.N(0.16)
+
+        # 1) 听觉窥视通过：配乐以中低频为主，前景断水斩击在 2–6 kHz 留出干净切口
+        d_ok = os.path.join(self.td, 'mask-ok')
+        H.film_json(d_ok, frames=240, fps=24, cuts=(120,), events=events)
+        music_low = MX.stereo(D.lp(rng.standard_normal(n), 950.0, 3) * 0.22)
+        fx_cut = np.zeros((n, 2))
+        burst = D.hp(D.lp(rng.standard_normal(ln), 7200.0, 2), 2100.0, 2) * np.hanning(ln) * 0.36
+        fx_cut[i0:i0 + ln] = MX.stereo(burst)
+        mix_ok, _, _ = MX.loudness_to(D.fade(music_low + fx_cut, 0.02, 0.05), -14.0, -1.5)
+        mix_ok[0] = mix_ok[-1] = 0.0
+        H.write_wav(os.path.join(d_ok, 'out', 'stems', 'music.wav'), music_low)
+        H.write_wav(os.path.join(d_ok, 'out', 'stems', 'fx.wav'), fx_cut)
+        H.write_wav(os.path.join(d_ok, 'out', 'mix.wav'), mix_ok)
+        r_ok, _ = self.qa('--film', d_ok)
+        rep_ok = H.read_json(os.path.join(d_ok, 'out', 'mix.qa.json'))
+        validate_c8(self, rep_ok)
+        self.assertEqual(r_ok.returncode, 0, rep_ok)
+        mc_ok = next(c for c in rep_ok['checks'] if c['id'] == 'audio.masking')
+        self.assertEqual(mc_ok['status'], 'pass', mc_ok)
+
+        # 2) 全频带掩蔽失败：前景音效在所有临界频带都低于宽带配乐 > 22 dB
+        d_bad = os.path.join(self.td, 'mask-bad')
+        H.film_json(d_bad, frames=240, fps=24, cuts=(120,), events=events)
+        music_wide = H.music_like(dur, seed=19) * 0.35
+        fx_buried = np.zeros((n, 2))
+        fx_buried[i0:i0 + ln] = MX.stereo(D.lp(rng.standard_normal(ln), 6500.0, 2) * np.hanning(ln) * 0.004)
+        mix_bad, _, _ = MX.loudness_to(D.fade(music_wide + fx_buried, 0.02, 0.05), -14.0, -1.5)
+        mix_bad[0] = mix_bad[-1] = 0.0
+        H.write_wav(os.path.join(d_bad, 'out', 'stems', 'music.wav'), music_wide)
+        H.write_wav(os.path.join(d_bad, 'out', 'stems', 'fx.wav'), fx_buried)
+        H.write_wav(os.path.join(d_bad, 'out', 'mix.wav'), mix_bad)
+        r_bad, _ = self.qa('--film', d_bad)
+        rep_bad = H.read_json(os.path.join(d_bad, 'out', 'mix.qa.json'))
+        validate_c8(self, rep_bad)
+        self.assertEqual(r_bad.returncode, 4, rep_bad)
+        self.assertIn('audio.masking', self.failed(rep_bad))
+
 
 
 class AuthoritativeProfiles(unittest.TestCase):
@@ -309,6 +355,24 @@ class FilmSpec(unittest.TestCase):
             H.film_json(td, frames=480, fps=24, cuts=(96, 216, 360))          # 第 3 镜少 12 帧、第 4 镜多 12 帧
             sp2 = F.shot_spans(F.load(td))
             self.assertEqual((sp2['S2'][1], sp2['S3'][0]), (9.0, 9.0))
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
+
+    def test_windowed_lr_balance_warns_on_unilateral_burst(self):
+        """1.2 s 处出现 300 ms 单侧噪声爆发（全片 mono 相关仍高）：audio.balance 精确定位告警时间码"""
+        from engine.audio import qa as QA
+        td = H.tmpdir('qa-bal')
+        try:
+            x = H.mastered(6.0, lufs=-14.0, tp=-1.5, seed=9)
+            i0, i1 = H.N(1.20), H.N(1.55)
+            x[i0:i1, 0] *= 2.4
+            x[i0:i1, 1] *= 0.25
+            wav = H.write_wav(os.path.join(td, 'skew.wav'), np.clip(x, -0.95, 0.95))
+            checks, _ = QA.analyze(wav, fps=24, frames=144, target_lufs=-14.0, tol_lu=2.0)
+            bal = next(c for c in checks if c['id'] == 'audio.balance')
+            self.assertEqual(bal['status'], 'warn', bal)
+            self.assertGreater(bal['evidence']['maxSustainedSkewDb'], 10.0)
+            self.assertAlmostEqual(bal['evidence']['worstAtSec'], 1.3, delta=0.25)
         finally:
             shutil.rmtree(td, ignore_errors=True)
 

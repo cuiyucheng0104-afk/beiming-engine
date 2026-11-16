@@ -106,6 +106,75 @@ export function findOnset(x, sr, t, { early = 0.15, late = 0.25, minRiseDb = 8 }
   return { t: best.t, riseDb: +best.rise.toFixed(1), floorDb: +best.floorDb.toFixed(1), peakDb: +best.peakDb.toFixed(1), band: best.band, candidates: all.length };
 }
 
+// 复合音效的感知中心（P-Center / Perceptual Attack Time，Morton 1976 / Scott 1998）：
+// 与 engine/audio/library.py sync_anchor、cuecheck.py measure_pcenter 同口径（宽频 + 1.2 kHz 高频瞬态加权包络的正斜率平方质心）。
+// 用于带前导破空风声（pre-whoosh）+ 实际撞击瞬态的音效事件（syncMode: "pcenter"），避免把风声起振误判为撞击超前。
+export function findPCenter(x, sr, t, { early = 0.15, late = 0.25, minRiseDb = 7.5 } = {}) {
+  const a = Math.max(0, Math.floor((t - early - 0.025) * sr));
+  const b = Math.min(x.length, Math.ceil((t + late + 0.025) * sr));
+  const win = Math.max(8, Math.round(sr * 0.0025)), hop = Math.max(1, Math.round(sr * 0.0005));
+  if (b - a <= win + 8) return null;
+  const n = b - a;
+  const hfScale = sr / (2 * Math.PI * 1200);
+  const cs = new Float64Array(n + 1);
+  for (let i = 0; i < n; i++) {
+    const v = x[a + i];
+    const dv = i > 0 ? v - x[a + i - 1] : 0;
+    cs[i + 1] = cs[i] + 0.35 * v * v + 0.65 * (dv * hfScale) * (dv * hfScale);
+  }
+  const kCnt = Math.floor((n - win) / hop) + 1;
+  const env = new Float64Array(kCnt);
+  for (let k = 0; k < kCnt; k++) {
+    const st = k * hop;
+    env[k] = Math.sqrt(Math.max(0, cs[st + win] - cs[st]) / win);
+  }
+  const hs = hop / sr;
+  const k0 = Math.max(1, Math.round(((t - early) * sr - a) / hop));
+  const k1 = Math.min(kCnt - 2, Math.round(((t + late) * sr - a) / hop));
+  if (k1 <= k0) return null;
+  let emax = 0;
+  for (let k = k0; k <= k1; k++) if (env[k] > emax) emax = env[k];
+  const sorted = Array.from(env).sort((p, q) => p - q);
+  const fl = sorted[Math.floor(sorted.length * 0.20)] ?? 0;
+  const rise = db(emax + 1e-12) - db(fl + 1e-12);
+  if (emax < 1e-6 || rise < minRiseDb) return null;
+  const lookNb = Math.max(1, Math.round(0.008 / hs));
+  let kPk = k0;
+  for (let k = k0; k <= k1; k++) if (env[k] > env[kPk]) kPk = k;
+  for (let k = k0; k <= k1; k++) {
+    if (env[k] >= 0.72 * emax) {
+      let localMax = env[k];
+      for (let j = k + 1; j <= Math.min(kCnt - 1, k + lookNb); j++) if (env[j] > localMax) localMax = env[j];
+      if (env[k] >= localMax - 1e-12) { kPk = k; break; }
+    }
+  }
+  const sLo = Math.max(1, kPk - Math.round(0.045 / hs));
+  let kMs = sLo, maxSlope = 0;
+  for (let k = sLo; k <= kPk; k++) {
+    const sl = Math.max(0, env[k] - env[k - 1]);
+    if (sl > maxSlope) { maxSlope = sl; kMs = k; }
+  }
+  if (maxSlope <= 1e-15) return { t: Number(((a + kPk * hop + 0.5 * win) / sr).toFixed(5)), riseDb: +rise.toFixed(1), band: 'P-Center' };
+  const rad = Math.max(2, Math.round(0.010 / hs));
+  const lo = Math.max(1, kMs - rad), hi = Math.min(kPk, kMs + rad);
+  let wSum = 0, wkSum = 0;
+  for (let k = lo; k <= hi; k++) {
+    const sl = Math.max(0, env[k] - env[k - 1]);
+    const w = sl * sl;
+    wSum += w;
+    wkSum += k * w;
+  }
+  const kAnchor = wSum > 0 ? wkSum / wSum : kMs;
+  return {
+    t: Number(((a + kAnchor * hop + 0.85 * win) / sr).toFixed(5)),
+    riseDb: +rise.toFixed(1),
+    floorDb: +db(fl + 1e-9).toFixed(1),
+    peakDb: +db(emax + 1e-9).toFixed(1),
+    band: 'P-Center',
+    candidates: 1,
+  };
+}
+
 // 一路包络里的全部候选：{ t: 起音秒, rise, floorDb, peakDb }
 function onsetIn(sig, sr, base, t, { early, late, minRiseDb }) {
   const { env, t0, hop, win } = envelope(sig, sr, base);

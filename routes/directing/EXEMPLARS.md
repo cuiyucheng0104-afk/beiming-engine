@@ -1,7 +1,7 @@
 # 范例索引
 
 > **解决什么**：做某一步之前，先看仓库里谁的写法可以借、谁在这一步栽过——直接打开对应文件的对应行，照着写，避开同样的坑。
-> **怎么用**：按 §1 导演十步、§2 画面设计、§3 工艺五章查；每格 2–3 个好例子（路径＋为什么好）和反例（问题＋原因）。不知道从哪看起，先读 §0 的十二份范本。借 C 路线作品的写法或代码前，先查 [SOURCES.md §3](SOURCES.md) 它本身从哪来。
+> **怎么用**：按 §1 导演十步、§2 画面设计、§3 工艺六章查；每格 2–3 个好例子（路径＋为什么好）和反例（问题＋原因）。不知道从哪看起，先读 §0 的十二份范本。借 C 路线作品的写法或代码前，先查 [SOURCES.md §3](SOURCES.md) 它本身从哪来。
 > **状态口径**：`cases/source/` 下的条目，除特别注明外，在 `cases/catalog.json` 里都是 **historical-render——出过片，不等于用户认可**；这里的"好"只评阐述与工程写法。注明 support、experiment 的，按其状态理解。**rejected 的三件只出现在反例栏和 §4，不作任何正面依据。** `src/`、`engine/` 是《北冥》10 秒样片与引擎，样片只有间接认可痕迹（`cases/source/local-beiming-film-9min/docs/画风锁定.md:3`）。
 > **来源口径**：66 个 `style-*` 案例是按第三方风格库甲（`$甲`）的方法、在它的运行时上做的；表里"为什么好"说的是本案例的写法，技法本身的出处在标注里给出。
 > 本页每条都给出可直接打开的 `文件:行号`，均属【仓库实证】；"可能原因"一律是【推断】。
@@ -153,7 +153,7 @@
 | 地图 | `S/style-64-newsreel/TREATMENT.md:123`（不画国界） | 仓库没有作品写全 VISUAL §7.4 的中国地图规则 |
 | 画面 QA | `S/style-18-art-deco/tools/motioncheck.py`（成片帧差验证拍点上真的动了）；`S/style-20-stained-glass/tools/statecheck.mjs`（逐帧读画面状态变量）；`S/style-74-isometric-picture-book/tools/edgecheck.mjs`（道具半截入画检查） | 多数作品的联系表、对拍报告没入档，只有海报 |
 
-## 3. 工艺五章
+## 3. 工艺六章
 
 | 章 | 好例子（为什么） | 反例或已知坑 |
 |---|---|---|
@@ -162,6 +162,7 @@
 | [animation](craft/animation.md) | `S/style-34-silent-film/timeline.js:5-75`（段、拍、采样锚点；骨架有 7 行来自 `$甲/styles/silent-film/demo/timeline.js`）；`S/style-66-city-symphony/timeline.js:6-27`（逐拍帧长）；`src/girl.js:284-389`（接触：指尖原点、挂在头部、压入、光、声四条通道） | `src/girl.js:384`（秒数阈值多圈一拍）；`S/style-25-dark-keynote/TREATMENT.md:143`（浮点错拍）；鲲 5 秒游动周期与 0.5 秒眨眼是动物量级，读不出"大"（animation §3.9） |
 | [video](craft/video.md) | `S/style-29-pixel-rpg/tools/cuecheck.py:65-69`（在解码后的 AAC 上验静默）；`S/style-74-isometric-picture-book/build.sh:13-17`（检查放在出视频之前）；`S/keynote-C-kaitou/TREATMENT.md:162-177`（自检全给数字和工具名） | A 管线成片 −14.9 LUFS、BT.601 全范围且原色传递未标、软件渲染只告警（video §0） |
 | [threejs](craft/threejs.md) | `engine/shade/patch.js:18-27`（锚点缺失即报错、程序缓存键）；`engine/shade/toon.js:260-276` 与 `engine/stage/outline.js:9-25`（形变在彩色、投影、墨线三处一致）；`src/kun.js:519-534`（阴影相机每帧贴合主体） | `src/kun_peng.js:900-904` 裸 `replace` 绕过锚点检查；`src/shotA.js:85` 鸽群画布没乘 K；`src/kun.js:531` 的 `radius` 在 PCFSoft 下不起作用 |
+| [sound](craft/sound.md) | `engine/audio/foley.py`（`composite_mechanism` 四层复合与 `precision_gear_turn` 拨齿落锁）；`engine/audio/director.py`（`hitech_laser_trace` 3.5 kHz 防扎耳凹槽、`hitech_micro_beep` 家族同构叠层、`SHOT_PAN_CAP` 景别声像上限）；`engine/audio/library.py`（`load_slice` 洁净增益门禁与 `sync_anchor` P-Center 标定） | <5 ms 针尖脉冲因 200 ms 响度积分听不见；低 `raw_pk` 切片峰值归一化放大底噪 +30～+50 dB；微距斜拍按几何底座算声像导致单耳偏重，而全片 `audio.mono` 仍达 0.97（sound §5） |
 
 运动模糊的写法可以参照三件 C 路线作品（A 路线都【未实现】）：`S/keynote-B-kaitou/main.js:583-590`（按屏幕速度取 4–20 个子采样）；`S/style-52-hologram-hud/film.js:432-440` 与 `S/style-77-desktop-flythrough/src/main.js:39-50`（这两段代码来自 `$甲` 示例，见 SOURCES §3）。
 

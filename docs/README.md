@@ -23,7 +23,7 @@
 | [A · 北冥风格路线 · WebGL 三渲二](../routes/a-webgl/README.md) | 手册：最快上手、能力清单、契约、验收、边界与常见坑 |
 | [B · 北冥原生 · BNE](../routes/b-native/README.md) | 手册：运行时获取、准备素材、草图帧、出片、画面工艺、FSL 使用边界 |
 | [C · 北冥代码动画风格 · 86 式](../routes/c-style/README.md) | 手册：C 模版出片、挑风格（[STYLES.md](../routes/c-style/STYLES.md)）、复刻历史作品（[REPLICATE.md](../routes/c-style/REPLICATE.md)）；片名字体见 [fonts/README.md](../routes/c-style/fonts/README.md) |
-| [导演与画面规范](../routes/directing/README.md) | 导演十步、画面设计、五章工艺（[craft/](../routes/directing/craft/README.md)）、阐述与画风锁定模板 |
+| [导演与画面规范](../routes/directing/README.md) | 导演十步、画面设计、六章工艺（[craft/](../routes/directing/craft/README.md)，含音效设计与拟音 [sound.md](../routes/directing/craft/sound.md)）、阐述与画风锁定模板 |
 | [执行面技术分档](TRACKS.md) | 三条路线各自在哪里执行、做到哪一步、怎么验收 |
 | [出片编排 tools/film](../tools/film/README.md) | 子命令、运行目录、出片链、闸门记录、run.json 与退出码 |
 | [作品描述 engine/production](../engine/production/README.md) | film.json v2、整数帧时间轴、改切点、交付档位、创作闸门与状态机 |

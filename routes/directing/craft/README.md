@@ -1,10 +1,10 @@
 # 工艺手册索引（craft/）
 
-> 解决什么：导演方法（[../DIRECTING.md](../DIRECTING.md)）和画面规范（[../VISUAL-DESIGN.md](../VISUAL-DESIGN.md)）说"要什么"，这五章说"在本仓库里怎么做到、做不到时卡在哪里"。
-> 怎么用：按问题查章；每章开头有"怎么用"。五章的标注、术语、路径缩写都以本页为准；同一主题只在一章里展开，其他章只留指针（见 §3 归口表）。
-> 基线 `origin/main 3b97946`，只读检出。各章的实跑都在 macOS 上完成，没有在 5090 工作站复测。五章以本目录里的文本为唯一源；研究期把专家原稿组装成章的脚本已停用，不随规范入库。
+> 解决什么：导演方法（[../DIRECTING.md](../DIRECTING.md)）和画面规范（[../VISUAL-DESIGN.md](../VISUAL-DESIGN.md)）说"要什么"，这六章说"在本仓库里怎么做到、做不到时卡在哪里"。
+> 怎么用：按问题查章；每章开头有"怎么用"。六章的标注、术语、路径缩写都以本页为准；同一主题只在一章里展开，其他章只留指针（见 §3 归口表）。
+> 基线 `origin/main 3b97946`，只读检出。前五章的实跑在 macOS 上完成，第六章（`sound.md`）的代码护栏与单测在 Linux x86_64 上完成，均没有在 5090 工作站复测。六章以本目录里的文本为唯一源；研究期把专家原稿组装成章的脚本已停用，不随规范入库。
 
-## 1. 五章各管什么
+## 1. 六章各管什么
 
 | 章 | 解决的问题 | 什么时候读 | 主要路线 |
 |---|---|---|---|
@@ -13,6 +13,7 @@
 | [animation.md](animation.md) 风格动画 | 整数帧时钟、分层时钟（一拍 n）、十二法则落到代码、眼／手／呼吸、事件表与对拍 | 写表演、定节拍网格、对字幕之前 | A（C 方法） |
 | [video.md](video.md) 代码渲染视频工程 | 确定性、分辨率无关、色彩管线与 YUV 标签、编码封装、响度、质量门、性能与故障 | 出片、交付、排查渲染问题时 | A（B 封装） |
 | [threejs.md](threejs.md) three.js r170 实践 | 版本锁定与升级、材质补丁与缓存键、形变三处一致、实例化与描边、阴影、后期渲染目标、显存、调试视图 | 改材质、改后期、升级 three 时 | A |
+| [sound.md](sound.md) 音效设计与拟音工艺 | 八条音效法则（因果本体、200 ms 可听积分、洁净增益、焦点声像、四层超真实、家族同构、P-Center 同步、层级留白）、九步工作流、微机械与高科技 HUD 配方库、跨路线参数矩阵、听感词翻译表与审片十问 | 搜音效、切采样、做拟音分层、摆声像、排查听感问题时 | A / B / C 通用 |
 
 B 北冥原生路线 · BNE 的材质、场景与运行在 `docs/routes/raea-native.md`、`docs/raea/`；这五章只写 B 的差异。C 北冥代码动画风格 · 86 式 是方法资料层，新片执行落回 A 或 B（`docs/TRACKS.md:43`）；一种 C 风格怎样落到 A 路线，见 §6 对照表。
 
@@ -46,8 +47,9 @@ B 北冥原生路线 · BNE 的材质、场景与运行在 `docs/routes/raea-nat
 | Kuwahara 按深度变半径 | two-five-d §1.6（机制） | toon 判据 9（分寸） |
 | 4K 显存 | threejs §7.4 | video §7.1 一句 |
 | GPU 后端与软件回退 | video §7.2（实测） | threejs §7.5（识别逻辑） |
-| 声画同步容差 | animation §5.7 | DIRECTING 步骤 7、PRODUCTION-SPEC §4 只引用 |
-| 响度门槛 | ProjectSpec 的 `audio`（交付）与 PRODUCTION-SPEC §5 的 `premaster`（混音） | video §5.8 讲测量与故障，DIRECTING 步骤 8 只引用 |
+| 声画同步容差 | animation §5.7 | DIRECTING 步骤 7、PRODUCTION-SPEC §4、sound §1.7 只引用 |
+| 响度门槛 | ProjectSpec 的 `audio`（交付）与 PRODUCTION-SPEC §5 的 `premaster`（混音） | video §5.8 讲测量与故障，DIRECTING 步骤 8、sound §2.8 只引用 |
+| 音效设计法则、拟音分层配方与听感排障 | sound §1–§7 | DIRECTING 步骤 8 只保留摘要与指针 |
 | 审美失败模式与撮影（合成）层 | toon §6.2–§6.3 | VISUAL-DESIGN §8 的审美复核 |
 | 运动模糊与景深 | two-five-d §3.3、§4.4 | animation §2.9（化鹏频闪） |
 
