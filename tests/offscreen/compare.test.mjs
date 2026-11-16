@@ -36,7 +36,8 @@ test('门槛收紧到做不到（--min-psnr 200）：退出 4、contract.offscre
 test('用法错误：--frames 不是帧号列表、作品不在仓库里 → 退出 2（不需要 GPU）', () => {
   for (const [args, code] of [
     [['lab/offscreen/ink.mjs', '--frames', '0,x'], 'usage.bad-value'],
-    [['/etc/hostname', '--frames', '0'], 'usage.work-outside-repo'],
+    // 要「存在、又在仓库外」的文件，各平台都有的只有 node 自己（/etc/hostname 在 Windows 上不存在，会先报 work-not-found）
+    [[process.execPath, '--frames', '0'], 'usage.work-outside-repo'],
   ]) {
     const r = run(args);
     assert.equal(r.status, 2, `${args.join(' ')}\n${r.stderr}`);
