@@ -16,13 +16,13 @@
 <script type="module">
 import * as THREE from 'three-webgpu/webgpu';
 import * as TSL from 'three-webgpu/tsl';
-import { createPreviewHost } from '/engine/offscreen/preview.js';
+import { createPreviewHost, resolvePreviewWork } from '/engine/offscreen/preview.js';
 
 const q = new URLSearchParams(location.search);
 const msg = t => { document.getElementById('msg').textContent = t; };
 try {
   const workUrl = q.get('work');
-  if (!workUrl || !workUrl.startsWith('/')) throw new Error('要写 ?work=/<仓库内作品模块路径>，例如 ?work=/lab/offscreen/ink.mjs');
+  resolvePreviewWork(workUrl);   // 初始化 GPU 之前拒绝协议相对与跨源 URL
   const [width, height] = (q.get('size') || '960x540').split('x').map(Number);
   const fps = Number(q.get('fps') || 24), frames = Number(q.get('frames') || 192);
   const host = await createPreviewHost({ THREE, TSL, canvas: document.createElement('canvas'), width, height, fps });

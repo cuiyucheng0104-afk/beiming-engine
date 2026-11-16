@@ -10,7 +10,9 @@ export async function renderFrames({ host, work, from, to, inflight = 3, onFrame
   const drain = async () => { const { f, p } = queue.shift(); await onFrame(f, await p); };
   try {
     for (let f = from; f < to; f++) {
-      queue.push({ f, p: host.renderFrame(work, f) });
+      const p = host.renderFrame(work, f);
+      p.catch(() => {});   // 后帧可能比当前 onFrame 更早失败，必须立刻接住，仍由 drain 按顺序抛出
+      queue.push({ f, p });
       if (queue.length >= inflight) await drain();
     }
     while (queue.length) await drain();

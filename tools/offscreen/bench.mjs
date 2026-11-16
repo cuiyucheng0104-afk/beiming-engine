@@ -2,7 +2,7 @@
 // 北冥仓库 · 离屏出片 · 同进程多部片并发基准：一个 Node 进程、一个 GPUDevice 里同时出 N 部片，量总吞吐，并核对并发不改变像素。
 //   node tools/offscreen/bench.mjs <作品.mjs> [--films 1,2,4,8] [--frames 96] [--size 1920x1080] [--fps 24] [--inflight 3] [--encode] [--json]
 // 每一档：第一个宿主建 GPUDevice，其余用 createHost({ device }) 共用它；每部片各自一个渲染器、渲染目标和作品实例，同时 renderFrames。
-// 「确定」的判据：每部片每一帧的 sha256 前 16 位，都与「单部片」跑出来的基线相同（并发不得改变任何一帧的像素）。
+// 「确定」的判据：独立验证遍的每部片每一帧 sha256 前 16 位与单部片基线相同；计时遍不算哈希，避免测量自身卡住主线程。
 // --encode：每部片各接一个 FFmpeg（输出到临时目录），量带编码的吞吐；CPU 编码会先成为瓶颈，所以不带与带各测一次。
 // 信封 data：{ work, size, fps, frames, encode, adapter, runs: [{ films, totalFrames, seconds, totalFps, perFilmFps, deterministic }] }
 // 计时用 process.hrtime；这个文件不在渲染路径上。
@@ -28,7 +28,7 @@ export function parseFilms(s) {
 }
 
 /** 一个进程里同时出 n 部片；返回 { seconds, hashes: string[][]（每部片的逐帧哈希） } */
-async function runFilms({ gpu, n, file, width, height, fps, frames, inflight, encode, tmp }) {
+export async function runFilms({ gpu, n, file, width, height, fps, frames, inflight, encode, tmp, verify = false }) {
   const first = await createHost({ gpu, width, height, fps });
   const hosts = [first];
   for (let i = 1; i < n; i++) hosts.push(await createHost({ gpu, width, height, fps, device: first.device }));
@@ -40,7 +40,7 @@ async function runFilms({ gpu, n, file, width, height, fps, frames, inflight, en
   try {
     await Promise.all(hosts.map((host, i) => renderFrames({
       host, work: works[i], from: 0, to: frames, inflight,
-      onFrame: async (f, px) => { hashes[i][f] = sha16(px); if (encode) await encoders[i].write(px); },
+      onFrame: async (f, px) => { if (verify) hashes[i][f] = sha16(px); if (encode) await encoders[i].write(px); },
     })));
     if (encode) await Promise.all(encoders.map(e => e.finish()));
   } catch (e) {
@@ -84,14 +84,16 @@ export const command = defineCommand({
     const runs = [];
     try {
       // 预热一次（着色器编译、管线创建），并取「单部片」的逐帧哈希当基线；不计入结果
-      const warm = await runFilms({ ...common, n: 1 });
+      const warm = await runFilms({ ...common, n: 1, encode: false, verify: true });
       baseline = warm.hashes[0];
       const info = warm.adapter ?? {};
       adapter = { vendor: info.vendor ?? null, architecture: info.architecture ?? null, description: info.description ?? null };
       for (const n of films) {
         const r = await runFilms({ ...common, n });
         const total = n * frames;
-        const deterministic = r.hashes.every(h => h.length === frames && h.every((x, f) => x === baseline[f]));
+        // 验证遍单独跑，不把逐帧 sha256 的 CPU 成本算进渲染吞吐
+        const verified = await runFilms({ ...common, n, encode: false, verify: true });
+        const deterministic = verified.hashes.every(h => h.length === frames && h.every((x, f) => x === baseline[f]));
         const row = { films: n, totalFrames: total, seconds: +r.seconds.toFixed(2), totalFps: +(total / r.seconds).toFixed(1), perFilmFps: +(frames / r.seconds).toFixed(1), deterministic };
         runs.push(row);
         ctx.out(`${String(n).padStart(2)} 部并发：${total} 帧 ${row.seconds}s  总 ${row.totalFps} 帧/秒（每部 ${row.perFilmFps}）${deterministic ? '' : '  ⚠ 像素与单部片不同'}`);

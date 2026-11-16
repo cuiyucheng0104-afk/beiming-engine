@@ -10,17 +10,44 @@
 // 帧时钟见 clock.mjs：three 在构造渲染器时取全局 self 当动画循环的上下文，所以每个宿主在构造前把自己的时钟装成 self。
 import { pathToFileURL } from 'node:url';
 import { createFrameClock } from './clock.mjs';
+import { CliError, usageError } from '../../tools/lib/cli.mjs';
 
 export async function createHost({ gpu, width, height, fps = 24, device } = {}) {
   const { THREE, TSL } = gpu;
+  let ownsDevice = false;
+  if (!device) {
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter) throw new CliError('env.webgpu-unavailable', 'Dawn 拿不到 WebGPU 适配器', { hint: '检查显卡驱动与 Vulkan / Metal 支持；离屏出片不回退到 WebGL' });
+    try { device = await adapter.requestDevice({ requiredFeatures: [...adapter.features] }); }
+    catch (e) { throw new CliError('env.webgpu-unavailable', `Dawn 创建 GPU 设备失败：${e.message}`, { hint: '检查显卡驱动与当前 GPU 资源' }); }
+    ownsDevice = true;
+  }
+  const limit = device.limits.maxTextureDimension2D;
+  if (width > limit || height > limit) {
+    if (ownsDevice) device.destroy();
+    throw usageError('bad-value', `画幅 ${width}x${height} 超过设备纹理边长上限 ${limit}`, '减小 --size，或使用支持该画幅的 GPU');
+  }
   const clock = createFrameClock();
   globalThis.self = clock.self;
   const canvas = {
     width, height, style: {}, addEventListener() {}, removeEventListener() {},
     getContext() { throw new Error('离屏宿主没有画布上下文：作品只能画进宿主给的渲染目标'); },
   };
-  const renderer = new THREE.WebGPURenderer({ canvas, antialias: false, powerPreference: 'high-performance', ...(device ? { device } : {}) });
-  await renderer.init();
+  const renderer = new THREE.WebGPURenderer({ canvas, antialias: false, device });
+  let fault = null;
+  const recordFault = info => { fault ??= new CliError('failure.gpu', `GPU 错误：${info.message || '设备不可用'}`, { hint: '检查显存与驱动，减少并发或画幅后重试' }); };
+  const onGpuError = event => recordFault(event.error ?? event);
+  renderer.onError = renderer.onDeviceLost = recordFault;
+  try {
+    await renderer.init();
+    if (!renderer.backend.isWebGPUBackend) throw new CliError('env.webgpu-unavailable', 'Dawn 未建立 WebGPU 后端', { hint: '检查显卡驱动，离屏出片不支持 WebGL 回退' });
+  } catch (e) {
+    renderer.dispose();
+    if (ownsDevice) device.destroy();
+    throw e;
+  }
+  device.addEventListener('uncapturederror', onGpuError);
+  const check = () => { if (fault) throw fault; };
   renderer.setSize(width, height, false);
   const target = new THREE.RenderTarget(width, height, { colorSpace: THREE.SRGBColorSpace });
   const pipelines = [], works = [];
@@ -41,16 +68,19 @@ export async function createHost({ gpu, width, height, fps = 24, device } = {}) 
       return work;
     },
     renderFrame(work, f) {
+      check();
       clock.tick((f * 1000) / fps);
       renderer.setRenderTarget(target);
       work.render(f);
-      return renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height);
+      return renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height).then(px => { check(); return px; });
     },
     dispose() {
       for (const w of works) w.dispose?.();
       for (const p of pipelines) p.dispose?.();
+      device.removeEventListener('uncapturederror', onGpuError);
       target.dispose();
       renderer.dispose();
+      if (ownsDevice) device.destroy();
     },
   };
 }

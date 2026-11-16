@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, copyFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,9 +17,10 @@ const tmp = () => mkdtempSync(join(tmpdir(), 'beiming-offscreen-cli-'));
 
 // 能不能真出片：装了可选依赖且拿得到 GPU 适配器
 const probeGpu = spawnSync(process.execPath, ['--input-type=module', '-e',
-  "const { loadGpu } = await import('./engine/offscreen/load.mjs'); const { createHost } = await import('./engine/offscreen/host.mjs'); (await createHost({ gpu: await loadGpu(), width: 64, height: 64 })).dispose();"],
+  "try { const { loadGpu } = await import('./engine/offscreen/load.mjs'); const { createHost } = await import('./engine/offscreen/host.mjs'); (await createHost({ gpu: await loadGpu(), width: 64, height: 64 })).dispose(); } catch(e) { console.error(e.message); process.exitCode=e.code?.startsWith('env.')?3:1; }"],
 { cwd: ROOT, encoding: 'utf8', timeout: 60000 });
-const noGpu = probeGpu.status !== 0 && `离屏出片不可用：${(probeGpu.stderr || '').split('\n').find(l => /Error/.test(l)) ?? `退出码 ${probeGpu.status}`}`;
+assert.ok(probeGpu.status === 0 || probeGpu.status === 3, `GPU 探测出现非环境错误：${probeGpu.stderr}`);
+const noGpu = probeGpu.status === 3 && `离屏出片不可用：${probeGpu.stderr.trim()}`;
 
 test('--help：退出 0，打印用法，不建任何文件', () => {
   const dir = tmp();
@@ -89,6 +90,21 @@ test('出片中途 FFmpeg 退出：退出 1、failure.ffmpeg，不挂住，不�
     assert.equal(envelope(r).error.code, 'failure.ffmpeg');
     assert.deepEqual(readdirSync(dir).filter(f => f !== 'ffmpeg-exit1'), [], '留下了成片或半成品');
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('读回中途拒绝：CLI 返回 JSON 失败并清理半成品，不因未处理拒绝崩溃', { skip: noGpu, timeout: 120000 }, () => {
+  mkdirSync(join(ROOT, 'out'), { recursive: true });
+  const dir = tmp(), fixtureDir = mkdtempSync(join(ROOT, 'out/offscreen-readback-'));
+  try {
+    const work = join(fixtureDir, 'work.mjs');
+    const inkUrl = new URL('../../lab/offscreen/ink.mjs', import.meta.url).href;
+    writeFileSync(work, `import {build as ink} from ${JSON.stringify(inkUrl)}; export function build(ctx) { const {renderer}=ctx; let calls=0; const read=renderer.readRenderTargetPixelsAsync.bind(renderer); renderer.readRenderTargetPixelsAsync=(...a)=> ++calls===3?Promise.reject(new Error('injected readback rejection')):read(...a); return ink(ctx); }`);
+    const r = run(['render', work, '--out', join(dir, 'o.mp4'), '--frames', '0:48', '--size', '320x180', '--json']);
+    assert.equal(r.status, 1, r.stderr);
+    assert.equal(envelope(r).ok, false);
+    assert.deepEqual(readdirSync(dir), []);
+    assert.doesNotMatch(r.stderr, /PromiseRejectionHandledWarning/);
+  } finally { rmSync(fixtureDir, { recursive: true, force: true }); rmSync(dir, { recursive: true, force: true }); }
 });
 
 // 防止「把作品拷进临时目录」的测试写法把仓库外路径当成仓库内：仓库内的符号链接指向仓库外也算仓库外

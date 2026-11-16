@@ -5,6 +5,9 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runFilms } from '../../tools/offscreen/bench.mjs';
+import { loadGpu } from '../../engine/offscreen/load.mjs';
+import { createHost } from '../../engine/offscreen/host.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const run = args => spawnSync(process.execPath, [join(ROOT, 'tools/offscreen/bench.mjs'), ...args, '--json'], { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
@@ -29,6 +32,17 @@ test('--encode：每部片各接一个编码器，帧数核对通过', { timeout
   assert.equal(r.status, 0, r.stderr);
   assert.equal(e.data.encode, true);
   assert.equal(e.data.runs[0].deterministic, true);
+});
+
+test('计时渲染遍不做逐帧哈希；独立验证遍仍返回每一帧的哈希', async t => {
+  let gpu;
+  try { gpu = await loadGpu(); (await createHost({ gpu, width: 64, height: 64 })).dispose(); }
+  catch (e) { if (e.code?.startsWith('env.')) return t.skip(e.message); throw e; }
+  const opts = { gpu, n: 1, file: join(ROOT, 'lab/offscreen/ink.mjs'), width: 64, height: 64, fps: 24, frames: 4, inflight: 3, encode: false };
+  const timed = await runFilms({ ...opts, verify: false });
+  assert.deepEqual(timed.hashes, [[]], '计时遍不应产生哈希');
+  const verified = await runFilms({ ...opts, verify: true });
+  assert.equal(verified.hashes[0].length, 4);
 });
 
 test('用法错误：--films 含 0 或非数字、--frames 不是正整数 → 退出 2', () => {

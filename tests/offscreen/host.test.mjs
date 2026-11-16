@@ -12,7 +12,8 @@ const W = 320, H = 180, WORK = fileURLToPath(new URL('../../lab/offscreen/ink.mj
 const sha = b => createHash('sha256').update(b).digest('hex').slice(0, 16);
 let gpu = null, why = null;
 before(async () => {
-  try { gpu = await loadGpu(); (await createHost({ gpu, width: 64, height: 64 })).dispose(); } catch (e) { why = String(e?.message ?? e).split('\n')[0]; }
+  try { gpu = await loadGpu(); (await createHost({ gpu, width: 64, height: 64 })).dispose(); }
+  catch (e) { if (!e.code?.startsWith('env.')) throw e; why = String(e.message).split('\n')[0]; }
 });
 const skipped = () => `离屏出片不可用：${why}`;
 const fresh = async () => { const host = await createHost({ gpu, width: W, height: H }); return { host, work: await host.load(WORK) }; };
@@ -59,6 +60,28 @@ test('renderFrames 按帧号顺序回调，onFrame 返回的 Promise 会被等�
   } });
   assert.deepEqual(order, [2, 3, 4, 5, 6, 7]);
   host.dispose();
+});
+
+test('超出实际设备纹理尺寸上限：报 usage.bad-value，不生成黑帧', async t => {
+  if (why) return t.skip(skipped());
+  const h = await createHost({ gpu, width: 64, height: 64 });
+  try {
+    await assert.rejects(createHost({ gpu, width: h.device.limits.maxTextureDimension2D + 2, height: 16, device: h.device }), e => e.code === 'usage.bad-value');
+  } finally { h.dispose(); }
+});
+
+test('共用 GPUDevice 的错误必须被两个宿主捕获，不能返回黑帧并成功', async t => {
+  if (why) return t.skip(skipped());
+  const a = await fresh();
+  const b = await createHost({ gpu, width: W, height: H, device: a.host.device });
+  const bw = await b.load(WORK);
+  try {
+    const ev = new Event('uncapturederror');
+    Object.defineProperty(ev, 'error', { value: new Error('injected GPU error') });
+    a.host.device.dispatchEvent(ev);
+    await assert.rejects(async () => a.host.renderFrame(a.work, 0), e => e.code === 'failure.gpu');
+    await assert.rejects(async () => b.renderFrame(bw, 0), e => e.code === 'failure.gpu');
+  } finally { b.dispose(); a.host.dispose(); }
 });
 
 test('renderFrames：inflight 不是 ≥ 1 的数抛 RangeError（不需要 GPU）', async () => {

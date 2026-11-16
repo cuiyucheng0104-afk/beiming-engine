@@ -7,6 +7,12 @@
 //   Host.show(work, f, ctx2d)   渲一帧，把读回的像素画到一个 2D 画布上看（显示的就是对拍用的那份像素）
 //   Host.pipeline(node)         后期管线工厂（关掉管线内的 sRGB 输出变换，理由同 host.mjs）
 // 页面上拿不到 WebGPU 适配器时，WebGPURenderer.init() 会抛错：Linux 的无头浏览器要加 --enable-unsafe-webgpu --enable-features=Vulkan。
+export function resolvePreviewWork(value, base = location.href) {
+  const url = new URL(value, base);
+  if (typeof value !== 'string' || !value.startsWith('/') || url.origin !== new URL(base).origin) throw new Error('作品模块必须是同源仓库路径');
+  return url.href;
+}
+
 export async function createPreviewHost({ THREE, TSL, canvas, width, height, fps = 24 }) {
   if (!navigator.gpu) throw new Error('这个浏览器没有 WebGPU（navigator.gpu 不存在）');
   const renderer = new THREE.WebGPURenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
@@ -25,7 +31,7 @@ export async function createPreviewHost({ THREE, TSL, canvas, width, height, fps
   const host = {
     THREE, TSL, renderer, width, height, fps, pipeline,
     async load(url) {
-      const mod = await import(url);
+      const mod = await import(resolvePreviewWork(url));
       if (typeof mod.build !== 'function') throw new TypeError(`${url} 没有导出 build(ctx)`);
       const work = mod.build({ THREE, TSL, renderer, width, height, fps, pipeline });
       works.push(work);
