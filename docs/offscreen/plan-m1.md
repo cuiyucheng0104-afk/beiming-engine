@@ -10,6 +10,17 @@
 
 **设计**：[README.md](README.md)；决定：[D12](../decisions/2026-11-10-industrial-baseline.md)。
 
+## 执行记录（2026-11-17）
+
+任务 1–6 的实验入口、测试与基准已在本地实现；任务 7 的探针数据已回填 [设计第 7 节](README.md#7-实测结果)。新代码局部 lint 通过，旧 A/C 成片、B 资产桥和《北冥》静帧的软件冒烟通过；全量测试与独立审查另记最终结果。
+
+实施时的明确调整：
+- `--encode` 基准写真实临时 MP4 后删除，不写 `/dev/null`，才能核对输出行为；临时目录不入库。
+- 不把 WebGPU 简化配方当作旧 C 模版完整迁移，未通过画质门的 Skia 不接入生产。
+- `webgpu` 包内许可证是 BSD-3-Clause，npm 元数据写 MIT；登记时按实际原文，不沿用本计划初稿的“绑定 MIT”推断。
+- 发现上游 `docs/rights/register.md` 过期，本分支不修；本机没有已审批的 `linux-vulkan` 金标准，严格比对退出 3，不能写成通过。
+- 正式 agent dogfood、用户 look 签认、macOS/云卡验证不在这次已验证结论里。
+
 ## 全局约束
 
 - 路线仍是 A、B、C 三条；本里程碑**不登记**路线注册表、不进 `npm run film`；不 import `engine/native/`，不读 `RAEA_BIN`、`BNE_RT_BIN`。
