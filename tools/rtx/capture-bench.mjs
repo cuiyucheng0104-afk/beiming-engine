@@ -12,6 +12,7 @@
 // SPDX-License-Identifier: MIT
 // SPDX-FileCopyrightText: 2026 北冥引擎 Beiming Engine
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -169,8 +170,12 @@ function diff(a, b, { skipAlpha = false } = {}) {
   return { differing: n, share: +(n / cnt * 100).toFixed(4), max, meanAbs: +(sum / cnt).toFixed(4) };
 }
 
+// 机器负载：共用的工作站上别的任务会把数字带偏，运行前后各记一次（1 分钟平均负载；有 nvidia-smi 时再记显卡占用与显存）
+const load = () => ({ loadavg1: +os.loadavg()[0].toFixed(2), cpus: os.cpus().length,
+  gpu: spawnSync('nvidia-smi', ['--query-gpu=utilization.gpu,memory.used', '--format=csv,noheader']).stdout?.toString().trim() || null });
+
 // ── 起浏览器、装页内读回、预热 ──
-const info = { node: process.version, platform: process.platform, frames: TOTAL, reps: REPS, lanes: LANE_LIST, size: [W, H] };
+const info = { loadBefore: load(), node: process.version, platform: process.platform, frames: TOTAL, reps: REPS, lanes: LANE_LIST, size: [W, H] };
 let t = now();
 const first = await openFilm(dir, { handleSignals: false });
 info.setupFirstSeconds = +((now() - t) / 1000).toFixed(2);
@@ -186,6 +191,7 @@ for (const f of films) { await f.page.unroute('**/*'); info.page = await f.page.
 t = now();
 await Promise.all(films.map(async f => { for (let i = 0; i < TOTAL; i += 8) { await renderFrame(f, i / FPS, { settle }); await f.capture('png'); } }));
 info.warmPassSeconds = +((now() - t) / 1000).toFixed(2);
+say(`开始时负载 ${info.loadBefore.loadavg1}（${info.loadBefore.cpus} 核），显卡占用 ${info.loadBefore.gpu ?? '未知'}`);
 say(`显卡：${info.gpu}（${info.angle}）；首个浏览器 ${info.setupFirstSeconds} 秒，其余 ${LANES - 1} 路 ${info.setupOtherLanesSeconds} 秒，预热 ${info.warmPassSeconds} 秒`);
 
 // ── 画面一致性：同一次渲染下「截图」对「读画布」；同一帧渲两遍是否一致 ──
@@ -217,6 +223,7 @@ const results = [];
 for (const name of SINGLE) results.push(await runMethod(name, films, 1, settle));
 for (const n of LANE_LIST.filter(n => n > 1)) for (const name of MULTI) results.push(await runMethod(name, films, n, settle));
 await Promise.all(films.map(f => f.close()));
+info.loadAfter = load();
 
 // ── 成片对比：各方法的单路成片逐帧对 PNG 路径的成片 ──
 const refFile = path.join(outDir, 'png-L1-0.mp4');
