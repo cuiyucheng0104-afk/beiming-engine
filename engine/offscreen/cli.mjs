@@ -32,15 +32,26 @@ export function resolveArgs({ sub, work }, opts, cwd = process.cwd()) {
   if (!opts.frames) throw usageError('missing-frames', 'render 需要 --frames a:b（含 a 不含 b 的整数帧号）', '例如 --frames 0:96');
   const fm = /^(\d+):(\d+)$/.exec(opts.frames);
   if (!fm || +fm[2] <= +fm[1]) throw usageError('bad-value', `--frames 要写成 a:b，且止必须大于起，收到「${opts.frames}」`, '例如 --frames 0:96');
-  const sm = /^(\d+)x(\d+)$/.exec(opts.size);
-  if (!sm || +sm[1] % 2 || +sm[2] % 2 || +sm[1] < 16 || +sm[2] < 16) throw usageError('bad-value', `--size 要写成 WxH，宽高都是 ≥ 16 的偶数（yuv420p 的要求），收到「${opts.size}」`, '例如 --size 1920x1080');
+  const sm = [null, ...parseSize(opts.size)];
   if (!(opts.fps >= 1)) throw usageError('bad-value', `--fps 要 ≥ 1，收到 ${opts.fps}`, null);
   if (!(opts.inflight >= 1)) throw usageError('bad-value', `--inflight 要 ≥ 1，收到 ${opts.inflight}`, null);
+  return { file: resolveWork(work, cwd), out: path.resolve(cwd, opts.out), from: +fm[1], to: +fm[2], width: +sm[1], height: +sm[2], fps: opts.fps, inflight: opts.inflight };
+}
+
+/** 作品模块的真实路径（解析符号链接）；不存在 → usage.work-not-found，不在仓库里 → usage.work-outside-repo。只读，不执行作品 */
+export function resolveWork(work, cwd = process.cwd()) {
   let file;
   try { file = fs.realpathSync(path.resolve(cwd, work)); } catch { throw usageError('work-not-found', `找不到作品模块：${work}`, '路径相对当前目录；演示作品是 lab/offscreen/ink.mjs'); }
   const rel = path.relative(ROOT, file);
   if (rel.startsWith('..') || path.isAbsolute(rel)) throw usageError('work-outside-repo', `作品模块不在仓库里：${file}（解析符号链接之后）`, '离屏出片只执行仓库里的作品；把它放进 films/<名字>/ 或 lab/offscreen/');
-  return { file, out: path.resolve(cwd, opts.out), from: +fm[1], to: +fm[2], width: +sm[1], height: +sm[2], fps: opts.fps, inflight: opts.inflight };
+  return file;
+}
+
+/** --size WxH → [w, h]：都是 ≥ 16 的偶数（yuv420p 的要求），否则 usage.bad-value */
+export function parseSize(size) {
+  const sm = /^(\d+)x(\d+)$/.exec(size ?? '');
+  if (!sm || +sm[1] % 2 || +sm[2] % 2 || +sm[1] < 16 || +sm[2] < 16) throw usageError('bad-value', `--size 要写成 WxH，宽高都是 ≥ 16 的偶数（yuv420p 的要求），收到「${size}」`, '例如 --size 1920x1080');
+  return [+sm[1], +sm[2]];
 }
 
 export const command = defineCommand({
