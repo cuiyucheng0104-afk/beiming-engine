@@ -38,7 +38,15 @@ async function previewFrames({ rel, width, height, fps, frames, ctx }) {
   const undo = ctx.onCleanup(close);
   try {
     const { chromium } = await import('playwright-core');
-    browser = await chromium.launch({ executablePath: chromeExecutable(), args: [...chromeArgs(defaultAngle()), ...WEBGPU_ARGS] });
+    try {
+      browser = await chromium.launch({ executablePath: chromeExecutable(), args: [...chromeArgs(defaultAngle()), ...WEBGPU_ARGS] });
+    } catch (e) {
+      // 没装浏览器是环境问题（CI 的 windows-paths 任务就不装），退出码 3，其余启动错误原样抛
+      if (/Executable doesn't exist|browserType\.launch/i.test(String(e?.message ?? e))) {
+        throw new CliError('env.browser', `无头浏览器起不来：${String(e?.message ?? e).split('\n')[0]}`, { hint: 'npm run setup（或 npx playwright-core install chromium-headless-shell）；BEIMING_CHROME 可指定浏览器', cause: e });
+      }
+      throw e;
+    }
     const page = await browser.newPage();
     const pageErrors = [];
     page.on('pageerror', e => pageErrors.push(String(e?.message ?? e)));

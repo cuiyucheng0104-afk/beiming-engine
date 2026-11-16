@@ -4,7 +4,7 @@
 //   startEncoder(同上) → { write(pixels) → Promise<void>, finish() → Promise<void>, abort() → Promise<void> }
 //     write：写一帧（Uint8Array 或 Buffer，width × height × 4 字节）；管道满时等它腾出来（背压）
 //     finish：关上输入、等 FFmpeg 编完；abort：杀掉 FFmpeg、删掉输出
-//     FFmpeg 没能启动或中途退出时，write / finish 抛 CliError('failure.ffmpeg')（退出码 1，消息里带 FFmpeg 最后一行报错），并删掉输出，不挂住
+//     找不到 FFmpeg（没装、FFMPEG 指错）时抛 CliError('env.ffmpeg')（退出码 3）；启动后中途退出抛 CliError('failure.ffmpeg')（退出码 1，消息里带 FFmpeg 最后一行报错），并删掉输出，不挂住
 import fs from 'node:fs';
 import { Buffer } from 'node:buffer';
 import { spawn } from 'node:child_process';
@@ -17,10 +17,19 @@ export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'mediu
 }
 
 const describe = r => (r.error ? `没能启动（${r.error.code ?? r.error.message}）` : r.signal ? `被信号 ${r.signal} 结束` : `退出码 ${r.code}`);
+// 机器上没装 FFmpeg（或 FFMPEG 指错了）是环境问题，退出码 3；CI 的 windows-paths 任务就没有 FFmpeg
+const noFfmpeg = (bin, error) => new CliError('env.ffmpeg', `FFmpeg 没能启动（${error.code ?? error.message}）：${bin}`, {
+  hint: '装带 libx264 的 FFmpeg（npm run setup，或见 docs/ENVIRONMENT.md）；FFMPEG 环境变量可指定可执行文件',
+  cause: error,
+});
 
 export function startEncoder(opts) {
   const { out } = opts;
-  const ff = spawn(FFMPEG(), ['-y', '-loglevel', 'error', ...encoderArgs(opts)], { stdio: ['pipe', 'ignore', 'pipe'] });
+  const bin = FFMPEG();
+  let ff;
+  try {
+    ff = spawn(bin, ['-y', '-loglevel', 'error', ...encoderArgs(opts)], { stdio: ['pipe', 'ignore', 'pipe'] });
+  } catch (e) { throw noFfmpeg(bin, e); }
   let tail = '';
   ff.stderr.setEncoding('utf8');
   ff.stderr.on('data', d => { tail = (tail + d).slice(-2000); });
@@ -30,6 +39,7 @@ export function startEncoder(opts) {
   const failure = async () => {
     const r = await exited;
     removeOut();
+    if (r.error) return noFfmpeg(bin, r.error);
     const last = tail.trim().split('\n').at(-1);
     return new CliError('failure.ffmpeg', `FFmpeg 编码 ${out} 时${describe(r)}${last ? `：${last}` : ''}`, {
       hint: '运行 ffmpeg -version 确认可用（要带 libx264）；常见原因还有磁盘满、输出目录不可写',

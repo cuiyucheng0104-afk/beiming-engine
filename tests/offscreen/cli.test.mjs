@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, copyFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { probe } from '../../engine/render/lib/ffmpeg.mjs';
+import { probe, FFMPEG } from '../../engine/render/lib/ffmpeg.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const CLI = join(ROOT, 'engine/offscreen/cli.mjs');
@@ -21,6 +21,9 @@ const probeGpu = spawnSync(process.execPath, ['--input-type=module', '-e',
 { cwd: ROOT, encoding: 'utf8', timeout: 60000 });
 assert.ok(probeGpu.status === 0 || probeGpu.status === 3, `GPU 探测出现非环境错误：${probeGpu.stderr}`);
 const noGpu = probeGpu.status === 3 && `离屏出片不可用：${probeGpu.stderr.trim()}`;
+// 真出片还要 FFmpeg：CI 的 windows-paths 任务不装它，这些用例在那里跳过
+const ffmpegOk = spawnSync(FFMPEG(), ['-version'], { stdio: 'ignore' }).status === 0;
+const noEncode = noGpu || (!ffmpegOk && '没有 FFmpeg（npm run setup；CI 的 windows-paths 任务不装）');
 
 test('--help：退出 0，打印用法，不建任何文件', () => {
   const dir = tmp();
@@ -62,7 +65,7 @@ test('宽高为奇数、--frames 写反、作品不存在、缺 --out：都是�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('出片：6 帧 320×180 → 成片 6 帧，信封里有逐帧哈希；同参数再跑一次码流逐字节相同', { skip: noGpu, timeout: 180000 }, async () => {
+test('出片：6 帧 320×180 → 成片 6 帧，信封里有逐帧哈希；同参数再跑一次码流逐字节相同', { skip: noEncode, timeout: 180000 }, async () => {
   const dir = tmp();
   try {
     const go = name => run(['render', WORK, '--out', join(dir, name), '--frames', '0:6', '--size', '320x180', '--json']);
@@ -80,7 +83,7 @@ test('出片：6 帧 320×180 → 成片 6 帧，信封里有逐帧哈希；同�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('出片中途 FFmpeg 退出：退出 1、failure.ffmpeg，不挂住，不留成片与半成品', { skip: noGpu || (process.platform === 'win32' && '需要 POSIX 可执行脚本'), timeout: 120000 }, () => {
+test('出片中途 FFmpeg 退出：退出 1、failure.ffmpeg，不挂住，不留成片与半成品', { skip: noEncode || (process.platform === 'win32' && '需要 POSIX 可执行脚本'), timeout: 120000 }, () => {
   const dir = tmp();
   try {
     const fake = join(dir, 'ffmpeg-exit1');
@@ -92,7 +95,7 @@ test('出片中途 FFmpeg 退出：退出 1、failure.ffmpeg，不挂住，不�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('读回中途拒绝：CLI 返回 JSON 失败并清理半成品，不因未处理拒绝崩溃', { skip: noGpu, timeout: 120000 }, () => {
+test('读回中途拒绝：CLI 返回 JSON 失败并清理半成品，不因未处理拒绝崩溃', { skip: noEncode, timeout: 120000 }, () => {
   mkdirSync(join(ROOT, 'out'), { recursive: true });
   const dir = tmp(), fixtureDir = mkdtempSync(join(ROOT, 'out/offscreen-readback-'));
   try {
