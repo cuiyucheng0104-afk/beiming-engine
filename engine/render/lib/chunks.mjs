@@ -7,7 +7,9 @@
 //   planChunks(a, b, { chunk, fps })   chunk='auto'：块长 = clamp(ceil(总帧 / 8), 1 秒, 10 秒)，再均分；或给定帧数
 //   renderRange(o)                     渲染并返回 { files: { 输出类别: [块文件…] }, hashes, deps, info, contract, warnings, stats }
 // 每帧：render(t)（t = 帧号 / fps）→ 截图（png：CDP 无损；jpeg：q95，只用于 --fast 预览）→ sha256 前 16 位记进 hashes →
-// 喂给 FFmpeg。任何一块出错（render 抛错、页面报错、上下文丢失、FFmpeg 退出）立即中止所有块，杀掉 FFmpeg，删掉半成品。
+// 喂给 FFmpeg。一块的帧喂完后，等 FFmpeg 编完、核对帧数、改名放到后台，同一路先去渲下一块（每路最多一块在后台收尾；
+// 输入与参数不变，码流逐字节不变）。任何一块出错（render 抛错、页面报错、上下文丢失、FFmpeg 退出，含后台收尾时）立即中止所有块，
+// 杀掉 FFmpeg，删掉半成品；每路关浏览器之前先等自己的后台收尾结束。
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
@@ -168,6 +170,26 @@ export async function renderRange(o) {
     signal.addEventListener('abort', stop, { once: true });
     const blockHashes = [];
     const useGpuCapture = intermediate === 'yuv420' || samples > 1;
+    const cleanup = async () => {
+      signal.removeEventListener('abort', stop);
+      if (ff.exitCode === null && ff.signalCode === null) stop();
+      await Promise.race([exited, sleep(10000)]);
+      live.delete(ff);
+      for (const p of partial) { try { fs.rmSync(p, { force: true }); } catch {} }
+    };
+    const finish = async meta => {
+      const r = await Promise.race([exited, new Promise((_, reject) => {
+        if (signal.aborted) reject(signal.reason); else signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      })]);
+      if (r.code !== 0) throw new RenderError('failure.ffmpeg', `FFmpeg 编码第 ${a}–${b - 1} 帧时${describeExit(r)}`, { hint: 'FFmpeg 自己的报错见上面' });
+      for (let j = 0; j < outputs.length; j++) {
+        const n = (await probe(partial[j], { signal })).video?.frames;
+        if (n !== b - a) throw new RenderError('contract.frame-count', `第 ${a}–${b - 1} 帧这一块编出来是 ${n} 帧，应为 ${b - a} 帧`, { hint: '编码器丢帧或重复帧：带上日志报告' });
+      }
+      for (let j = 0; j < outputs.length; j++) fs.renameSync(partial[j], files[outputs[j].kind][i]);
+      writeMeta(files[outputs[0].kind][i], meta);
+    };
+    let handedOff = false;
     try {
       const early = await Promise.race([new Promise(r => ff.once('spawn', () => r(null))), exited]);
       if (early) throw new RenderError('env.ffmpeg-spawn', `FFmpeg 没能启动（${describeExit(early)}）`, { hint: '运行 ffmpeg -version 确认可用；或设 FFMPEG 为完整路径' });
@@ -195,39 +217,38 @@ export async function renderRange(o) {
         onProgress?.({ done, total, reused });
       }
       ff.stdin.end();
-      const r = await Promise.race([exited, new Promise((_, reject) => {
-        if (signal.aborted) reject(signal.reason); else signal.addEventListener('abort', () => reject(signal.reason), { once: true });
-      })]);
-      if (r.code !== 0) throw new RenderError('failure.ffmpeg', `FFmpeg 编码第 ${a}–${b - 1} 帧时${describeExit(r)}`, { hint: 'FFmpeg 自己的报错见上面' });
-      for (let j = 0; j < outputs.length; j++) {
-        const n = (await probe(partial[j], { signal })).video?.frames;
-        if (n !== b - a) throw new RenderError('contract.frame-count', `第 ${a}–${b - 1} 帧这一块编出来是 ${n} 帧，应为 ${b - a} 帧`, { hint: '编码器丢帧或重复帧：带上日志报告' });
-      }
-      for (let j = 0; j < outputs.length; j++) fs.renameSync(partial[j], files[outputs[j].kind][i]);
-      writeMeta(files[outputs[0].kind][i], { a, b, key, hashes: blockHashes, deps: Object.fromEntries([...film.requests].map(([p, s]) => [p, [s, hashOf(p)]])) });
+      // 帧都喂完了：等 FFmpeg 编完、核对帧数、改名交给返回的 done，worker 先去渲下一块（输入与参数不变，码流逐字节不变）
+      const meta = { a, b, key, hashes: blockHashes, deps: Object.fromEntries([...film.requests].map(([p, s]) => [p, [s, hashOf(p)]])) };
+      handedOff = true;
+      return { done: finish(meta).finally(cleanup) };
     } finally {
-      signal.removeEventListener('abort', stop);
-      if (ff.exitCode === null && ff.signalCode === null) stop();
-      await Promise.race([exited, sleep(10000)]);
-      live.delete(ff);
-      for (const p of partial) { try { fs.rmSync(p, { force: true }); } catch {} }
+      if (!handedOff) await cleanup();
     }
   }
 
   async function worker(k) {
     let film = k === 0 && o.firstFilm ? o.firstFilm : null;
+    let tail = null;   // 上一块的收尾：每路最多一块在后台收尾
     try {
       if (signal.aborted) throw signal.reason;
       if (claimPeek() === null && !film) return;   // 没活：不必开浏览器
       film ??= await openFilm(dir, { ...openOptions, handleSignals: false, signal });
       for (const p of film.requests.keys()) hashOf(p);   // 页面刚就绪时的内容：渲染中途有人改文件，旁注也不会记成改后的
       info ??= film.info; contract ??= film.contract;
-      for (let i = claim(); i !== null; i = claim()) await renderChunk(film, i, k);
+      for (let i = claim(); i !== null; i = claim()) {
+        const { done: fin } = await renderChunk(film, i, k);
+        fin.catch(abort);   // 收尾出错立即中止所有块，不等下一次 await
+        const prev = tail;
+        tail = fin;
+        if (prev) await prev;
+      }
+      if (tail) await tail;
       await finalFaultCheck(film);
     } catch (e) {
       abort(e);
       throw e;
     } finally {
+      if (tail) await tail.catch(() => {});   // 关浏览器、返回之前，后台收尾的 FFmpeg 与半成品都已清理
       if (film) {
         for (const [p, s] of film.requests) deps.set(p, s);
         for (const u of film.external) external.add(u);
