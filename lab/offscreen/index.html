@@ -1,43 +1,328 @@
 <!doctype html>
-<!-- 离屏出片 · 预览页：在 Chrome 的 WebGPU 里跑作品模块（与 Node 出片加载同一份文件）。
-     ?work=/lab/offscreen/ink.mjs        作品模块（同源路径，必填）
-     &f=30                               只看第 30 帧；不写就按 fps 循环播放
-     &size=960x540  &fps=24  &frames=192 画幅、帧率、循环长度
-     &api=1                              不显示，只把 { host, work } 挂到 window.offscreen 给 tools/offscreen/compare.mjs 用
-     打开方式：npm run serve，再访问 http://127.0.0.1:<端口>/lab/offscreen/index.html?work=/lab/offscreen/ink.mjs
-     无头 Chrome 要加 --enable-unsafe-webgpu --enable-features=Vulkan（Linux）才拿得到 WebGPU 适配器。 -->
-<html lang="zh"><head><meta charset="utf-8"><title>离屏出片预览</title>
+<!-- 离屏出片 · WebGPU 审片工作台：在 Chrome 的 WebGPU 里直接加载同源作品模块（与 Node + Dawn 出片同一份文件）。
+     ?work=/films/chendu/offscreen.mjs   作品模块（同源路径，必填；同目录若有 film.json 自动读片名、帧率、总帧数、镜头切点与事件）
+     &f=30                               初始停在第 30 帧（单帧定格审视；按空格可继续播放）
+     &size=960x540  &fps=24  &frames=192 画幅、帧率、总帧数（不写则优先按 film.json 推导）
+     &msaa=0 &notext=1 &animatic=1       其余查询参数（或 &q=k%3Dv）原样转交给作品 build({ query })
+     &api=1                              无界面机器对拍模式，把 { host, work } 挂到 window.offscreen 供 tools/offscreen/compare.mjs 调用
+     打开方式：npm run serve，再访问 http://127.0.0.1:8080/lab/offscreen/index.html?work=/films/chendu/offscreen.mjs
+     Linux 无头 Chrome 需加 --enable-unsafe-webgpu --enable-features=Vulkan。 -->
+<html lang="zh-CN"><head><meta charset="utf-8"><title>北冥 · WebGPU 离屏预览工作台</title>
 <script type="importmap">{"imports":{
+  "three":"/node_modules/three/build/three.module.js",
+  "three/addons/":"/node_modules/three/examples/jsm/",
   "three-webgpu/webgpu":"/node_modules/three-webgpu/build/three.webgpu.js",
   "three-webgpu/tsl":"/node_modules/three-webgpu/build/three.tsl.js"
 }}</script>
-<style>html,body{margin:0;background:#111;color:#ccc;font:13px sans-serif}canvas{display:block;max-width:100vw;height:auto}#msg{padding:8px}</style>
-</head><body><div id="msg"></div>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#0e0f12;color:#d8dadf;font:13px/1.4 system-ui,-apple-system,sans-serif}
+  #app{display:flex;flex-direction:column;min-height:100vh}
+  #stage{flex:1;display:flex;align-items:center;justify-content:center;padding:12px;min-height:0}
+  canvas{display:block;max-width:100%;max-height:calc(100vh - 110px);height:auto;box-shadow:0 8px 32px rgba(0,0,0,.55);background:#000}
+  #bar{background:#171920;border-top:1px solid #282c37;padding:8px 14px 10px;display:none;flex-direction:column;gap:6px}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  button,select{background:#232733;color:#e4e6eb;border:1px solid #353b4d;border-radius:4px;padding:3px 9px;font:inherit;cursor:pointer}
+  button:hover,select:hover{background:#2d3342}
+  button.active{background:#3b5178;border-color:#5b7db8}
+  #scrubWrap{position:relative;flex:1;min-width:200px;display:flex;align-items:center}
+  #scrub{width:100%;margin:0;accent-color:#6d96d8;cursor:pointer}
+  #ticks{position:absolute;left:6px;right:6px;top:0;bottom:0;pointer-events:none}
+  .tick{position:absolute;top:2px;bottom:2px;width:2px;background:#e0a958;opacity:.75}
+  .evtick{position:absolute;bottom:0;width:4px;height:4px;border-radius:50%;background:#6fd19b;transform:translateX(-2px)}
+  .pill{font-size:12px;padding:2px 7px;border-radius:3px;background:#202430;border:1px solid #2f3546;cursor:pointer;color:#b8bfd0}
+  .pill.cur{background:#314260;border-color:#5a7bb5;color:#fff}
+  #meta{color:#9aa2b4;font-variant-numeric:tabular-nums;margin-left:auto}
+  #msg{padding:8px 14px;color:#cfd3dc}
+  #msg.err{color:#ff8b8b}
+</style>
+</head><body>
+<div id="app">
+  <div id="msg">正在加载 WebGPU 预览宿主…</div>
+  <div id="stage"></div>
+  <div id="bar">
+    <div class="row">
+      <button id="btnPlay" title="空格：播放/暂停">暂停</button>
+      <button id="btnPrev" title="←：上一帧">-1 帧</button>
+      <button id="btnNext" title="→：下一帧">+1 帧</button>
+      <button id="btnShotPrev" title="[：上一镜">上一镜</button>
+      <button id="btnShotNext" title="]：下一镜">下一镜</button>
+      <button id="btnLoopShot" title="只循环当前镜头">单镜循环</button>
+      <div id="scrubWrap">
+        <input id="scrub" type="range" min="0" max="191" value="0" step="1">
+        <div id="ticks"></div>
+      </div>
+      <select id="selDbg" title="切换后期调试视图（驱动 __LOOKDEV.debugView）">
+        <option value="">成片 (final)</option>
+        <option value="scene">场景原色 (scene)</option>
+        <option value="kuwahara">笔触后 (kuwahara)</option>
+        <option value="id">物体编号 (id)</option>
+        <option value="depth">线性深度 (depth)</option>
+        <option value="edge">边缘检测 (edge)</option>
+        <option value="line">墨线遮罩 (line)</option>
+        <option value="bloom">辉光提取 (bloom)</option>
+        <option value="paper">纸纹通道 (paper)</option>
+      </select>
+      <span id="meta"></span>
+    </div>
+    <div class="row" id="shotsRow"></div>
+  </div>
+</div>
 <script type="module">
 import * as THREE from 'three-webgpu/webgpu';
 import * as TSL from 'three-webgpu/tsl';
-import { createPreviewHost, resolvePreviewWork } from '/engine/offscreen/preview.js';
+import { createPreviewHost, resolvePreviewWork, extractWorkQuery } from '/engine/offscreen/preview.js';
 
 const q = new URLSearchParams(location.search);
-const msg = t => { document.getElementById('msg').textContent = t; };
-try {
-  const workUrl = q.get('work');
-  resolvePreviewWork(workUrl);   // 初始化 GPU 之前拒绝协议相对与跨源 URL
-  const [width, height] = (q.get('size') || '960x540').split('x').map(Number);
-  const fps = Number(q.get('fps') || 24), frames = Number(q.get('frames') || 192);
-  const host = await createPreviewHost({ THREE, TSL, canvas: document.createElement('canvas'), width, height, fps });
-  const work = await host.load(workUrl);
-  if (q.get('api') === '1') {
-    window.offscreen = { host, work };
-  } else {
-    const view = document.createElement('canvas'); view.width = width; view.height = height; document.body.appendChild(view);
-    const ctx = view.getContext('2d');
-    if (q.has('f')) { const f = Number(q.get('f')); await host.show(work, f, ctx); msg(`第 ${f} 帧`); }
-    else { for (let f = 0; ; f = (f + 1) % frames) { await host.show(work, f, ctx); msg(`第 ${f} / ${frames} 帧（预览以浏览器刷新率为准，不是 ${fps} fps 实时）`); } }
+const msgEl = document.getElementById('msg');
+const msg = (t, isErr = false) => {
+  msgEl.textContent = t;
+  msgEl.classList.toggle('err', isErr);
+  msgEl.style.display = t ? 'block' : 'none';
+};
+
+async function probeFilmJson(workParam, workHref) {
+  if (!/^\/(films|routes)\//.test(String(workParam || ''))) return null;
+  try {
+    const r = await fetch(new URL('./film.json', workHref));
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+function defaultPreviewSize(filmMeta) {
+  const w = filmMeta?.output?.width ?? filmMeta?.size?.[0] ?? 1920;
+  const h = filmMeta?.output?.height ?? filmMeta?.size?.[1] ?? 1080;
+  if (w >= h) {
+    const pw = 960;
+    const ph = Math.max(2, Math.round(pw * h / w / 2) * 2);
+    return [pw, ph];
   }
-  window.READY = true;
+  const ph = 960;
+  const pw = Math.max(2, Math.round(ph * w / h / 2) * 2);
+  return [pw, ph];
+}
+
+try {
+  const workParam = q.get('work');
+  const workHref = resolvePreviewWork(workParam);
+  const isApi = q.get('api') === '1';
+  const filmMeta = isApi ? null : await probeFilmJson(workParam, workHref);
+
+  const [width, height] = q.has('size')
+    ? q.get('size').split('x').map(Number)
+    : defaultPreviewSize(filmMeta);
+  const fps = q.has('fps')
+    ? Number(q.get('fps'))
+    : (filmMeta?.output?.fps ?? filmMeta?.fps ?? 24);
+  const frames = q.has('frames')
+    ? Number(q.get('frames'))
+    : (filmMeta?.output?.frameCount ?? (filmMeta?.dur ? Math.round(filmMeta.dur * fps) : 192));
+
+  const workQuery = extractWorkQuery(q);
+  const host = await createPreviewHost({ THREE, TSL, canvas: document.createElement('canvas'), width, height, fps, query: workQuery });
+  const work = await host.load(workParam, { query: workQuery });
+
+  if (isApi) {
+    msg('');
+    window.offscreen = { host, work };
+    window.READY = true;
+  } else {
+    const viewCanvas = document.createElement('canvas');
+    viewCanvas.width = width;
+    viewCanvas.height = height;
+    const viewCtx = viewCanvas.getContext('2d');
+    document.getElementById('stage').appendChild(viewCanvas);
+    const bar = document.getElementById('bar');
+    bar.style.display = 'flex';
+    if (filmMeta?.title) document.title = `${filmMeta.title} · WebGPU 预览`;
+
+    const shots = Array.isArray(filmMeta?.shots) && filmMeta.shots.length
+      ? filmMeta.shots
+      : [{ id: 'S1', in: 0, out: frames }];
+    const events = Array.isArray(filmMeta?.events) ? filmMeta.events : [];
+
+    const scrub = document.getElementById('scrub');
+    scrub.max = String(Math.max(0, frames - 1));
+    const ticksEl = document.getElementById('ticks');
+    for (const s of shots) {
+      if (s.in > 0 && s.in < frames) {
+        const d = document.createElement('div');
+        d.className = 'tick';
+        d.style.left = `${(s.in / Math.max(1, frames - 1)) * 100}%`;
+        ticksEl.appendChild(d);
+      }
+    }
+    for (const ev of events) {
+      if (Number.isInteger(ev.frame) && ev.frame >= 0 && ev.frame < frames) {
+        const d = document.createElement('div');
+        d.className = 'evtick';
+        d.style.left = `${(ev.frame / Math.max(1, frames - 1)) * 100}%`;
+        d.title = `${ev.id} @ 帧 ${ev.frame}`;
+        ticksEl.appendChild(d);
+      }
+    }
+
+    const shotsRow = document.getElementById('shotsRow');
+    const shotPills = shots.map(s => {
+      const b = document.createElement('span');
+      b.className = 'pill';
+      b.textContent = `${s.id} [${s.in}..${s.out})`;
+      b.addEventListener('click', () => { seek(s.in); });
+      shotsRow.appendChild(b);
+      return { spec: s, el: b };
+    });
+    for (const ev of events) {
+      const b = document.createElement('span');
+      b.className = 'pill';
+      b.textContent = `♪ ${ev.id} @${ev.frame}`;
+      b.addEventListener('click', () => { setPlaying(false); seek(ev.frame); });
+      shotsRow.appendChild(b);
+    }
+
+    let curFrame = q.has('f') ? Math.max(0, Math.min(frames - 1, Number(q.get('f')))) : 0;
+    let playing = !q.has('f');
+    let loopShot = false;
+    let busy = false;
+    let pendingSeek = null;
+    let lastTs = null;
+    let accMs = 0;
+
+    const btnPlay = document.getElementById('btnPlay');
+    const btnLoopShot = document.getElementById('btnLoopShot');
+    const metaEl = document.getElementById('meta');
+    const selDbg = document.getElementById('selDbg');
+    if (workQuery.get('dbg')) {
+      selDbg.value = workQuery.get('dbg');
+      globalThis.__LOOKDEV = { debugView: selDbg.value };
+    }
+
+    const shotAt = f => shots.find(s => f >= s.in && f < s.out) || shots[shots.length - 1];
+
+    function syncUi() {
+      const s = shotAt(curFrame);
+      scrub.value = String(curFrame);
+      btnPlay.textContent = playing ? '暂停' : '播放';
+      btnLoopShot.classList.toggle('active', loopShot);
+      for (const p of shotPills) p.el.classList.toggle('cur', p.spec === s);
+      const titlePrefix = filmMeta?.title ? `${filmMeta.title} · ` : '';
+      metaEl.textContent = `${titlePrefix}帧 ${String(curFrame).padStart(3, '0')} / ${frames} · ${(curFrame / fps).toFixed(2)}s · ${s.id} · ${width}×${height}@${fps}`;
+    }
+
+    async function drawCurrent() {
+      if (busy) { pendingSeek = curFrame; return; }
+      busy = true;
+      try {
+        do {
+          pendingSeek = null;
+          await host.show(work, curFrame, viewCtx);
+          syncUi();
+        } while (pendingSeek !== null && !playing);
+      } finally {
+        busy = false;
+      }
+    }
+
+    function setPlaying(flag) {
+      playing = !!flag;
+      lastTs = null;
+      accMs = 0;
+      syncUi();
+      if (playing) pump();
+    }
+
+    async function seek(f) {
+      curFrame = ((Math.round(f) % frames) + frames) % frames;
+      syncUi();
+      if (!playing) await drawCurrent();
+    }
+
+    async function pump() {
+      if (busy || !playing) return;
+      busy = true;
+      try {
+        while (playing) {
+          const ts = await host.show(work, curFrame, viewCtx);
+          syncUi();
+          if (!playing) break;
+          if (lastTs !== null) {
+            accMs += Math.min(250, Math.max(0, ts - lastTs));
+            const stepMs = 1000 / fps;
+            if (accMs >= stepMs) {
+              const adv = Math.max(1, Math.floor(accMs / stepMs));
+              accMs -= adv * stepMs;
+              const s = shotAt(curFrame);
+              if (loopShot && s) {
+                const len = Math.max(1, s.out - s.in);
+                curFrame = s.in + ((curFrame - s.in + adv) % len);
+              } else {
+                curFrame = (curFrame + adv) % frames;
+              }
+            }
+          }
+          lastTs = ts;
+        }
+      } finally {
+        busy = false;
+      }
+    }
+
+    btnPlay.addEventListener('click', () => setPlaying(!playing));
+    document.getElementById('btnPrev').addEventListener('click', () => { setPlaying(false); seek(curFrame - 1); });
+    document.getElementById('btnNext').addEventListener('click', () => { setPlaying(false); seek(curFrame + 1); });
+    document.getElementById('btnShotPrev').addEventListener('click', () => {
+      const idx = shots.indexOf(shotAt(curFrame));
+      const curS = shots[Math.max(0, idx)];
+      const target = curFrame > curS.in ? curS.in : shots[(idx - 1 + shots.length) % shots.length].in;
+      seek(target);
+    });
+    document.getElementById('btnShotNext').addEventListener('click', () => {
+      const idx = shots.indexOf(shotAt(curFrame));
+      seek(shots[(idx + 1) % shots.length].in);
+    });
+    btnLoopShot.addEventListener('click', () => { loopShot = !loopShot; syncUi(); });
+    scrub.addEventListener('input', () => { setPlaying(false); seek(Number(scrub.value)); });
+    selDbg.addEventListener('change', () => {
+      globalThis.__LOOKDEV = selDbg.value ? { debugView: selDbg.value } : null;
+      if (!playing) drawCurrent();
+    });
+
+    window.addEventListener('keydown', ev => {
+      if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'SELECT')) return;
+      if (ev.code === 'Space') { ev.preventDefault(); setPlaying(!playing); }
+      else if (ev.code === 'ArrowLeft') { ev.preventDefault(); setPlaying(false); seek(curFrame - 1); }
+      else if (ev.code === 'ArrowRight') { ev.preventDefault(); setPlaying(false); seek(curFrame + 1); }
+      else if (ev.key === '[') { ev.preventDefault(); document.getElementById('btnShotPrev').click(); }
+      else if (ev.key === ']') { ev.preventDefault(); document.getElementById('btnShotNext').click(); }
+    });
+
+    msg('');
+    window.previewPlayer = {
+      host, work, viewCanvas, viewCtx, filmMeta, shots, events,
+      getFrame: () => curFrame,
+      isPlaying: () => playing,
+      seek,
+      setPlaying,
+      setDebugView: async v => {
+        selDbg.value = v || '';
+        globalThis.__LOOKDEV = selDbg.value ? { debugView: selDbg.value } : null;
+        if (!playing) await drawCurrent();
+      },
+    };
+
+    if (playing) {
+      // 先画首帧再置 READY，再进入实时循环
+      lastTs = await host.show(work, curFrame, viewCtx);
+      syncUi();
+      window.READY = true;
+      pump();
+    } else {
+      await drawCurrent();
+      window.READY = true;
+    }
+  }
 } catch (e) {
-  msg(`出错：${e.message}`);
+  msg(`出错：${e?.message ?? e}`, true);
   window.PREVIEW_ERROR = String(e?.message ?? e);
   window.READY = true;
 }

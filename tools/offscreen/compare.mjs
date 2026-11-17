@@ -30,7 +30,7 @@ export function parseFrames(s) {
 }
 
 /** 在预览页里渲这些帧，返回每帧的 RGBA Buffer */
-async function previewFrames({ rel, width, height, fps, frames, ctx }) {
+async function previewFrames({ rel, width, height, fps, frames, query, ctx }) {
   const srv = createServer({ root: ROOT });
   const { url } = await srv.listen(0);
   let browser = null;
@@ -50,7 +50,8 @@ async function previewFrames({ rel, width, height, fps, frames, ctx }) {
     const page = await browser.newPage();
     const pageErrors = [];
     page.on('pageerror', e => pageErrors.push(String(e?.message ?? e)));
-    await page.goto(`${url}lab/offscreen/index.html?work=/${encodeURI(rel)}&size=${width}x${height}&fps=${fps}&api=1`);
+    const qSuffix = query ? `&q=${encodeURIComponent(query)}` : '';
+    await page.goto(`${url}lab/offscreen/index.html?work=/${encodeURI(rel)}&size=${width}x${height}&fps=${fps}&api=1${qSuffix}`);
     await page.waitForFunction(() => window.READY === true, null, { timeout: 60000 });
     const err = (await page.evaluate(() => window.PREVIEW_ERROR ?? null)) ?? pageErrors[0] ?? null;
     if (err) {
@@ -78,19 +79,20 @@ export const command = defineCommand({
     frames: { type: 'string', default: '0,14,40', arg: '<f,f,…>', describe: '要比的帧号（默认 0,14,40）' },
     size: { type: 'string', default: '960x540', arg: '<WxH>', describe: '画幅（默认 960x540）' },
     fps: { type: 'integer', default: 24, arg: '<n>', describe: '帧率（默认 24）' },
+    query: { type: 'string', default: '', arg: '<k=v&…>', describe: '传给两边作品 build({ query }) 的查询参数（如 msaa=0&notext=1）' },
     'min-psnr': { type: 'number', default: 50, arg: '<dB>', describe: 'PSNR 下限（默认 50）' },
     'max-big': { type: 'number', default: 0.001, arg: '<比例>', describe: '差 5 级以上的像素占比上限（默认 0.001 = 0.1%）' },
   },
   exitCodes: { 0: '全部帧过门槛', 1: '渲染失败', 2: '用法错误', 3: '缺依赖或拿不到 WebGPU 适配器', 4: '有帧没过门槛' },
-  examples: ['node tools/offscreen/compare.mjs lab/offscreen/ink.mjs', 'node tools/offscreen/compare.mjs lab/offscreen/ink.mjs --frames 0,30 --size 1920x1080'],
+  examples: ['node tools/offscreen/compare.mjs lab/offscreen/ink.mjs', 'node tools/offscreen/compare.mjs films/chendu/offscreen.mjs --frames 0,48,72 --query msaa=0&notext=1'],
   async run(ctx) {
     const file = resolveWork(ctx.args.work);
     const [width, height] = parseSize(ctx.opts.size);
     const frames = parseFrames(ctx.opts.frames);
-    const fps = ctx.opts.fps, gate = { minPsnr: ctx.opts['min-psnr'], maxBigFraction: ctx.opts['max-big'] };
+    const fps = ctx.opts.fps, query = ctx.opts.query || '', gate = { minPsnr: ctx.opts['min-psnr'], maxBigFraction: ctx.opts['max-big'] };
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
 
-    const host = await createHost({ gpu: await loadGpu(), width, height, fps });
+    const host = await createHost({ gpu: await loadGpu(), width, height, fps, query });
     const info = host.device.adapterInfo ?? {};
     const adapter = { vendor: info.vendor ?? null, architecture: info.architecture ?? null, description: info.description ?? null };
     const offscreen = [];
@@ -99,7 +101,7 @@ export const command = defineCommand({
       for (const f of frames) offscreen.push(Buffer.from(await host.renderFrame(work, f)));
     } finally { host.dispose(); }
 
-    const preview = await previewFrames({ rel, width, height, fps, frames, ctx });
+    const preview = await previewFrames({ rel, width, height, fps, frames, query, ctx });
     const rows = frames.map((f, i) => {
       const s = diffRgba(preview.pixels[i], offscreen[i], { width, height });
       const g = meetsGate(s, gate);
