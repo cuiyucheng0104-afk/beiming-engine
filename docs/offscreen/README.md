@@ -248,7 +248,23 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 - **Canvas 2D**（`engine/offscreen/canvas.mjs`，可选依赖 `@napi-rs/canvas` 1.1.1，Skia）：`loadCanvas()` 给 `createCanvas`；`loadFilmFonts(dir)` 读作品的字体子集清单 `fonts.json` 并按字族名注册，返回值与浏览器版 `engine/style/fonts.js` 相同（两边共用 `fontsOf`），缺字同样抛 `GlyphError`。woff2 子集可以直接注册，`letterSpacing` 可用。**字形与 Chrome 不逐像素相同**：同一段片名（Ma Shan Zheng 110 px，`北冥渡`）墨量差 2%，PSNR 29.9 dB，差 5 级以上的像素 3.2%，全在字形边缘（两边的抗锯齿与字形微调不同）。片名题字的对拍只能到这个量级；QA 的读字与安全区检查用文字框，不受影响。
 - **几何桥**（`engine/offscreen/bridge.mjs`）：`engine/form` 的造型函数顶层 import 了 r170，几何按属性拷进 r187 即可复用（数组共用内存，自定义属性、索引、分组、`userData` 都带过去）。相机工具 `engine/stage/camera.js` 直接操作 r187 的相机就行，不需要桥。所以离屏侧只需要换着色层。
 
-### 7.9 快速复查
+### 7.9 TSL 卡通材质（M3 T2）
+
+`engine/offscreen/tsl/toon.js` 是 `engine/shade/toon.js` 的对应：同一个 `toonKind(spec) → { make, bind, shared }`，参数表 `TOON_BASE`、乘法色调 `tintFrom`、共享状态的写法 `setToonShared` 直接用 GLSL 版导出的，光照合成逐式照搬（三档分色、两道羽化与 fwidth 抗锯齿、交界线噪声、天空冷光、两档补光、两层边缘光与 rimCore 亮芯撕边、墨色、叠加色）。表面层 `tsl/surface.js` 目前只有 `patchLayer`。作品同一份 opts 交给两边：GLSL 钩子写字符串，TSL 版写在 `opts.tsl = { fragmentBase(c), fragmentAlbedo(c), uniforms }` 里，钩子读写 `c.diffuse`、`c.ink`、`c.overlay`，顶点属性直接用 `attribute('aRock')` 取（不需要 GLSL 那样先写 varying）。
+
+**实现方式**：材质继承 `NodeMaterial`、开 `lights`，挂自定义光照模型：`direct()` 逐盏平行光记下方向与阴影量，`finish()` 按 r170 的规则选主光（第一盏投影光，没有就取第一盏平行光）后整套合成，直接改写 `outgoingLight`（r187 先把各项反射光加总进它、再调 `finish`）。场景里没有灯时 r187 不走光照模型，`setupOutgoingLight` 按 GLSL 版用 `uKeyDirW`。同一份材质可以放进不同镜头的场景，跟着各自的主光走。
+
+**投影**：主光先 `useR170Shadow(TSL, light)`，滤波照搬 r170 的 `PCFSoftShadowMap`（4 个整纹素 + 12 个按小数位置插值的取样，深度比较最近邻）；渲染器要设 `shadowMap.type = PCFSoftShadowMap`（`PCFShadowMap` 时 r187 会给深度比较开硬件过滤）。投影量化 `smoothstep(shadowLo, shadowHi)` 在材质里做，只在 `shadow.intensity = 1` 时与 GLSL 版相同（不是 1 抛错）。
+
+**一致性**（480×270，后期全关，同一个场景：显式三档色与乘法色调、rimCore、斑块表面层、带两个钩子的柱子）：不带投影、无灯、换墨线时钟、带主光投影，四组都是 PSNR 68.5–68.6 dB、最大差 1 级、大差像素 0。反例：改分档阈值、去掉亮芯、钩子的墨线时钟不同、锈斑量不同、投影量化窗口不同、关掉投影压档，都过不了质量门。换成 r187 默认的阴影滤波（Vogel 圆盘 + 逐像素旋转）PSNR 53.8 dB、大差像素 95，所以滤波必须照搬。
+
+**踩到的坑**：
+- 合成节点挂在光照模型里，不进 three 的程序缓存键：结构相同的两个材质会共用一份程序、连 uniform 都串用（第二个材质画成第一个的颜色）。卡通材质按 uuid 区分缓存（`customProgramCacheKey`），代价是每个材质各编一次。
+- 一开始漏了投影量化，阴影边界差了约 0.5% 的像素，我先误以为是两个后端阴影图的光栅化差异；是「改量化窗口」这个反例结果纹丝不动才暴露出来。
+
+**不支持**（抛 `unsupported.toon`）：InstancedMesh、半透明 / `translucent`、`map`、`vertexColors`、`rest`、`outlineVertex`、`defines`、顶点形变钩子的 TSL 版（材质只认片元钩子）、`spec.shade` 等 GLSL 插桩、`paintLayer` / `muralLayer`。只给了 GLSL 钩子、没给 `opts.tsl` 也抛错，不静默少画皴线。
+
+### 7.10 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080

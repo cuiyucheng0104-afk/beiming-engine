@@ -36,6 +36,8 @@
 - 测试：spire、mesa、pineTree、boatHull 拷过去后属性与包围盒一致。
 
 ### T2 TSL 卡通材质（`engine/offscreen/tsl/toon.js`）
+
+> **已完成**（2026-11-18）：`tsl/toon.js`、`tsl/surface.js`（`patchLayer`），四组对拍最大差 1 级，详见 [README 7.9](README.md)。钩子只有片元的 `fragmentBase`、`fragmentAlbedo`；顶点形变、实例化、半透明留给 T3 之后按需补。
 - 同 `toonKind(spec) → { make(opts), bind(mesh, mat, opts), shared }` 接口、同 `TOON_BASE` 参数表、同 `makeToonShared / setToonShared`。光照合成逐式照搬 `shadeGlsl`；钩子（`vertexBegin`、`fragmentBase`、`fragmentAlbedo` 等）收 TSL 函数，读写同名变量。
 - 表面层：`surface.js` 的 `patchLayer`（锈斑）给 TSL 版。
 - 投影：主光的阴影量按同一个量化窗口进分档。
