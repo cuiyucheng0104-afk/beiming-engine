@@ -528,7 +528,7 @@ export function validateFilm(input, opts = {}) {
   }
 
   // 8. 入口
-  const defaultEntry = route?.id === 'b' ? (f.native?.entry ?? 'film.tsx') : 'index.html';
+  const defaultEntry = route?.id === 'b' ? (f.native?.entry ?? 'film.tsx') : (f.backend === 'webgpu' ? 'offscreen.mjs' : 'index.html');
   checkPath(f.entry ?? defaultEntry, f.entry === undefined ? 'entry（默认）' : 'entry');
 
   // 9. 镜头表。模版可以不写：new-film 生成作品时补整片一个镜头 S1 [0, frameCount)（tools/new-film.mjs），这里按同一口径读；作品必须写
@@ -1031,7 +1031,7 @@ function normalize(source, { route, profile, shots }) {
   f.drive = f.drive ?? 'picture';
   f.gates = { look: 'required', animatic: 'required', final: 'required' };
   f.deliveries = Array.isArray(f.deliveries) ? f.deliveries : [f.output.profile];
-  f.entry = f.entry ?? (f.route === 'b' ? (f.native?.entry ?? 'film.tsx') : 'index.html');
+  f.entry = f.entry ?? (f.route === 'b' ? (f.native?.entry ?? 'film.tsx') : (f.backend === 'webgpu' ? 'offscreen.mjs' : 'index.html'));
   const a = f.audio ?? { mode: f.route === 'b' ? (f.native?.audio ? 'native' : 'none') : 'none' };
   f.audio = { ...a, targetLUFS: a.targetLUFS ?? profile?.audio.loudness.integrated, truePeakDbTP: a.truePeakDbTP ?? profile?.audio.loudness.truePeak };
   if (isObj(f.aigc) && f.aigc.contains === true && f.aigc.kinds === undefined) f.aigc = { ...f.aigc, kinds: ['visual'] };

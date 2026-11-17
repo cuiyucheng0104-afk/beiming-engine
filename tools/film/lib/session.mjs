@@ -107,7 +107,8 @@ export function planSession({ kind, filmArg, opts }) {
   const warnings = [], notes = [];
   const film = loadFilm(filmArg, { page: opts.page ? path.resolve(opts.page) : null });
   warnings.push(...film.warnings);
-  if (film.route !== 'b' && !fs.existsSync(path.join(film.pageDir, 'index.html'))) {
+  const useOffscreen = opts.renderer === 'offscreen' || (opts.renderer === undefined && film.backend === 'webgpu');
+  if (film.route !== 'b' && !useOffscreen && !fs.existsSync(path.join(film.pageDir, 'index.html'))) {
     throw new FilmError(EXIT.USAGE, 'page-missing', `页面目录 ${rel(film.pageDir)} 下没有 index.html`, film.pageDir === film.dir ? '页面型作品（A / C）要有 index.html；用 film new 生成的作品自带' : '检查 --page 或 film.json 的 page');
   }
   const rp = path.relative(ROOT, film.pageDir);

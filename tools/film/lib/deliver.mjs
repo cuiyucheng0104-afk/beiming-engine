@@ -141,7 +141,7 @@ export const player = {
 // QA 的输入（build 与 film qa 共用）：作品描述（本次规格与 film.json 不同时用运行目录的 film.effective.json）、页面目录与视口、
 // 页面导出的事件表（film.json 没写 events 时）。口径说明见 tools/film/lib/qa.mjs 文件头
 export function qaInputs({ film, runDir, width, height, filmEffective = null }) {
-  const page = film.route !== 'b';
+  const page = film.route !== 'b' && fs.existsSync(path.join(film.pageDir, 'index.html'));
   const ev = path.join(runDir, 'events.json');
   return {
     filmFile: filmEffective || null,

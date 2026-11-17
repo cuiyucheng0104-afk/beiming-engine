@@ -183,11 +183,22 @@ test('D12 backend=webgpu：check 通过；build 默认走 offscreen（无需显�
   assert.equal(pageNvenc.code, 2);
   assert.equal(pageNvenc.json?.error?.code, 'usage.bad-usage');
 
-  // 2) 不写 --renderer 时默认走 offscreen：不会被「页面渲染器只用 x264」拦下，而是在开运行目录前直接检查 offscreen.mjs
-  const autoOff = runCli(['build', w.rel, '--encoder', 'nvenc', '--json']);
-  assert.equal(autoOff.code, 2);
-  assert.equal(autoOff.json?.error?.code, 'usage.no-offscreen-entry', autoOff.stderr);
+  // 2) 不写 --renderer 时默认走 offscreen：build / stills / render 都在开运行目录前直接检查 offscreen.mjs
+  for (const args of [
+    ['build', w.rel, '--encoder', 'nvenc'],
+    ['stills', w.rel],
+    ['render', w.rel, '--frames', '0:2'],
+  ]) {
+    const autoOff = runCli([...args, '--json']);
+    assert.equal(autoOff.code, 2, args.join(' '));
+    assert.equal(autoOff.json?.error?.code, 'usage.no-offscreen-entry', `${args.join(' ')}: ${autoOff.stderr}`);
+  }
   assert.ok(!fs.existsSync(path.join(w.dir, 'out')), '用法错误不建运行目录');
+
+  // 3) backend=webgpu 缺 offscreen.mjs 时 film check 报契约不过（退出码 4），写好最小 offscreen.mjs 且无 index.html 的纯离屏作品也能过 spec 校验
+  const chkMissing = runCli(['check', w.rel, '--json']);
+  assert.equal(chkMissing.code, 4, chkMissing.stderr);
+  assert.ok(chkMissing.json?.data?.checks?.some(c => c.id === 'offscreen' && c.status === 'fail'));
 });
 
 test('仓库卫生：上面这些命令跑完，除了测试作品自己，工作区没有多出任何改动', () => {

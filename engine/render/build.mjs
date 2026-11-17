@@ -50,6 +50,7 @@ const queryArgs = ctx => (ctx.query ? ['--query', ctx.query] : []);
 
 export const probe = {
   id: 'probe', title: '页面契约与事件表（engine/render/events.mjs）',
+  when: ctx => (ctx.opts.renderer === 'offscreen' && !fs.existsSync(path.join(ctx.film.pageDir, 'index.html')) ? '纯离屏作品（无 index.html）：跳过浏览器页面探测' : true),
   outputs: () => ({ events: 'events.json', timeline: 'timeline.json', probe: 'work/probe.json' }),
   async run(ctx) {
     const pf = path.join(ctx.run.work, 'probe.json');
