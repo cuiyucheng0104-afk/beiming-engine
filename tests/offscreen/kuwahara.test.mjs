@@ -42,6 +42,7 @@ test('TSL 对 GLSL：半径 2、4、8（强度 0.7）都过质量门；故意把
     ({ loadGpu: gpu } = await import('../../engine/offscreen/load.mjs'));
     ({ createHost } = await import('../../engine/offscreen/host.mjs'));
     gpu = await gpu();
+    (await createHost({ gpu, width: 64, height: 64 })).dispose(); // 适配器在这里才会拿，拿不到要在 try 里被跳过
     ref = await startReference();
   } catch (e) { if (String(e.code).startsWith('env.')) return t.skip(`Kuwahara 对拍不可用：${e.message}`); throw e; }
   try {
