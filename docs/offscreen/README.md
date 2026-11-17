@@ -179,7 +179,29 @@ TSL 版与现有 GLSL 版在同一量级（KR 6–8 差在 ±15% 内，两边计
 - 耗时（1080p，KR 7，近处 2 → 远处 7，在途 3 帧含读回，同上那台机器，各跑两遍）：不带 far 85.0 / 86.8 fps，带 far 87.3 / 86.2 fps，没有额外成本（循环次数由 KR 决定，每像素半径只改步长）。
 - 没做：正交相机不给 `far`（与 GLSL 一致）；深度图来自真实镜头（带蒙皮、实例化、半透明物体）时的行为要等 T3 的 ID 通道接入后在真实镜头上对拍。
 
-### 7.6 快速复查
+### 7.6 TSL 墨线与 ID 通道（M2 T3）
+
+`engine/offscreen/tsl/idpass.js`（`engine/look/ids.js` 的子集）与 `engine/offscreen/tsl/ink.js`（`engine/look/ink.js` 的对应）：ID 图 + 深度 → 边缘（近的一侧拥有这条线）→ 笔画（圆头笔 + 域扭曲抖动 + 笔压 + 断线）。算法与常数逐项照搬，ID 编码相同（HalfFloat，低 11 位 + 高位 × 2048，线宽系数，可见度），哈希是同一个 PCG。用法：`createInk({ THREE, TSL, renderer }, { width, height }).render({ scene, camera, p, t, k, ss, fps })`，结果在 `ink.line`（R 通道 = 覆盖率）；渲完还原渲染目标，合成时 `texture(ink.line.texture)` 取样。
+
+**一致性**：同一个场景（`tests/offscreen/fixtures/ink-scene.mjs`：两个相交的方块、同组部件、半透明线的球、实心遮挡物与地面、不挡线的加色面片、极远处的方块），GLSL 在无头 Chrome 的 WebGL 里跑，TSL 在 Dawn 里跑，320×180：
+
+| 用例 | 与 GLSL 的差 |
+|---|---|
+| 默认参数（k = 1） | 逐字节相同（PSNR 无穷大，最大差 0） |
+| k = 2、换沸腾拍、断线 0.4、笔压 0.5 | 逐字节相同 |
+| 折痕阈值 0.004、不透明度 0.8、内线 0.4、farScale 0.3、k = 1.5 | PSNR 95.7 dB，最大差 1 级，大差像素 0 |
+
+三组都带有抗锯齿的中间值（有墨的 4147 / 6774 / 6379 个像素里，覆盖率在 8..246 之间的分别是 2698 / 4444 / 6379 个；第三组不透明度 0.8，最浓只有 204，所以全是中间值），不是只对上了「有墨 / 没墨」。负对照：沸腾拍不同、折痕阈值不同都过不了质量门。变异检查：笔画噪声不翻 y，PSNR 11.9 dB；互相穿插时让 ID 小的一侧画，PSNR 31.4 dB；去掉笔压项，PSNR 29.2 dB，测试都变红。`boilSeed` 另有单测与 `engine/look/ink.js` 的同名函数逐帧对拍（不直接 import 它，那个文件顶层会把仓库的 three r170 装进离屏的 r187 进程）。
+
+**坐标约定**：WebGPU 的屏幕坐标是左上角原点，GLSL 的 `gl_FragCoord` 是左下角。边缘检测对翻转对称；笔画的域扭曲噪声按坐标取值，所以笔画那一遍把 y 翻回 GL 约定，这样同一帧同一参数下笔画与 A 路线逐点一致。深度仍是零到一的透视深度（见 7.5）。
+
+**耗时**（1080p 输出，含读回，在途 3 帧，同上那台机器，各跑两遍）：墨线缓冲 1080p（ss = 1）205 / 266 fps；缓冲 3840×2160（ss = 2，A 路线的默认）77 / 79 fps。只量了 TSL，没有量同场景的 GLSL 版；这个场景的搜索半径不大（线宽 2.5、k = 1），k 大了搜索半径随之变大（最多 16），耗时会更高。
+
+**未支持的 ID 语义**（遇到抛 `Error`，`code` 为 `unsupported.outline`，message 里写明物体与原因，抛错后材质与渲染器状态原样还原，不静默画错）：InstancedMesh、SkinnedMesh、BatchedMesh、变形目标；多材质数组；带贴图的 alpha 镂空（`alphaTest` 或 `transparent` + `map`）；材质自带顶点位移（`positionNode`）；`outlineVertex`、`outlinePerInstance: false`；`outlineOccluder` 的 `'soft'`、`'own'`（包括 auto 判成它们的半透明物体、Sprite、ShaderMaterial）。要用到这些的作品，先扩范围再做片。支持的：不透明 Mesh 的 `outline` / `outlineWidth` / `outlineAlpha` / `outlineGroup`、实心遮挡与 `outlineOccluder: false`、材质 `userData.noId`、`visible = false`、Points / Line / 加色 / 正片叠底 / `colorWrite = false` 不挡线。
+
+**没做**：雾里变淡（`fogFade`，GLSL 版在 fog = null 时也是 0）；与真实镜头的对拍（要等 T4 的合成与 T5 的真片）。
+
+### 7.7 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080

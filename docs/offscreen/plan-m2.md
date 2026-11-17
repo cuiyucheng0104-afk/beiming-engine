@@ -31,6 +31,9 @@
 - 记录 1080p 单帧耗时，KR 变体数量与 M1 一样按需编译。
 
 ### T3 ID 通道与屏幕空间墨线（子集）
+
+> **T3 已完成**（范围见下文与 [README 7.6](README.md)）：`engine/offscreen/tsl/idpass.js`、`engine/offscreen/tsl/ink.js`，场景对拍三组与 GLSL 逐字节相同或最大差 1 级，未支持的语义显式抛错。**T1 的独立对拍工具 `tools/offscreen/look-compare.mjs` 没有做**：T2、T3 直接用 `tests/offscreen/glsl-reference.mjs` 在测试里对拍，真片级的对拍留到 T5。
+
 - `engine/offscreen/tsl/idpass.js`：场景遍历换成 ID `NodeMaterial`，RGBA 编码沿用 `(id 低 11 位, id 高位, 线宽系数, 线可见度)`；目标带 DepthTexture、Nearest、无 MSAA。
 - `engine/offscreen/tsl/ink.js`：边缘检测 + 圆头笔 + 域扭曲 + 笔压 + 断线；沸腾种子直接 `import { boilSeed } from '../../look/ink.js'`，保证与 A 同一拍一沸。
 - 测试：两个相交方块 + 一个同组部件 + 一个不描边遮挡物，验证「同组不出内部线、近的一侧拥有这条线、boilHold 帧内不动」；再与 A 参考帧对拍。
