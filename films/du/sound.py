@@ -169,6 +169,13 @@ def main():
 
     out = a.out or os.environ.get('BEIMING_AUDIO_OUT') or os.path.join(film_dir, 'out', 'mix.wav')
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    # 起音登记（标签 = 事件的 audio 字段）：cuecheck 默认读 <作品>/out/score_onsets.json，出片链里另在混音旁边放一份
+    from engine.audio.cues import Onsets
+    on = Onsets()
+    for eid in onsets:
+        on.mark(onsets[eid]['onset'], EV[eid]['audio'])
+    for d in {os.path.join(film_dir, 'out'), os.path.dirname(os.path.abspath(out))}:
+        on.dump(os.path.join(d, 'score_onsets.json'))
     tmp = out + '.part.wav'
     sf.write(tmp, mix.astype(np.float32), SR, subtype='PCM_24')
     os.replace(tmp, out)
