@@ -2,7 +2,7 @@
 // 这里不写任何镜头时间、帧率、画幅的数字：切点、事件、字幕都从 film.json 来，改 film.json 不用改代码（镜头运镜按自己的 in/out 伸缩）。
 // 页面约定（附录 C5）：window.DUR = frameCount / fps；render(t) 确定；READY；TEXTS(t) → [{ id, text, box:[x,y,w,h], alpha, font }]；
 // 另给 window.TIMELINE（镜头表与事件表，单位：帧）。查询参数（都只给自查用，成片不带）：
-//   ?animatic=1  动态预演：关笔触与纸纹、底部画时间条（给 animatic 闸用，DIRECTING.md 步骤 7.5）
+//   ?animatic=1  动态预演：关笔触与纸纹、底部画时间条（给 animatic 闸用，DIRECTING.md 步骤 7.5）；出片链的 film animatic 传的是 previs=1，两个都认
 //   ?guides=1    构图参考线：三分线、图文安全区 90%、动作安全区 93%、本帧文字方框（VISUAL-DESIGN §4.1、§6.3）
 //   ?sil=1       剪影检查：三维主体涂黑、底板与辉光全关、白底、不过后期（VISUAL-DESIGN §3「剪影」）
 //   ?dbg=id|depth|edge|line|bloom|paper|kuwahara|scene 看后期中间缓冲；?notext=1 不画字（出风格帧做对照时用）
@@ -44,7 +44,7 @@ for (const t of TEXT.values()) fonts.assert(t.font, t.text, `texts.${t.id}`);
 const style = await loadStyle(FILM.style);
 const film = createFilm({ designHeight: OUT.height });     // 镜头在 1920×1080 设计稿上摆；4K 时 K = 2，构图不变
 const { W, H, K, DW, DH } = film;
-const animatic = q.has('animatic');
+const animatic = q.has('animatic') || q.has('previs');
 const look = createLook(film.renderer, W, H, {
   ss: animatic ? 1 : 2, msaa: 4, refHeight: style.lookDefaults.refHeight, fogColor: style.lookDefaults.fogColor,
   defaults: style.lookDefaults.params, paperUrl: new URL(`../../${style.lookDefaults.paper.asset}`, import.meta.url).href,
