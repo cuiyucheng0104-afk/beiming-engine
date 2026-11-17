@@ -86,12 +86,10 @@ test('未支持的语义显式抛错（不静默画错），并且抛错后场�
   if (why) return t.skip(`离屏出片不可用：${why}`);
   const { THREE } = gpu, { renderer } = host, tg = target(THREE), ids = createIdPass({ THREE, TSL: gpu.TSL, renderer });
   const cases = {
-    InstancedMesh: (scene, o) => { const m = new THREE.InstancedMesh(o.A.geometry, new THREE.MeshBasicMaterial(), 2); m.userData.outline = true; scene.add(m); },
+    BatchedMesh: (scene, o) => { const m = new THREE.BatchedMesh(2, 64, 128, new THREE.MeshBasicMaterial()); m.userData.outline = true; scene.add(m); },
     '多材质数组的 soft 遮挡': (scene, o) => { o.D.material.transparent = true; o.D.material = [o.D.material, o.D.material.clone()]; },
     '多材质数组': (scene, o) => { o.C.material = [o.C.material, o.C.material.clone()]; },
-    'alpha 镂空': (scene, o) => { o.C.material.map = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); o.C.material.alphaTest = 0.5; },
-    outlineVertex: (scene, o) => { o.C.userData.outlineVertex = { head: '', body: '' }; },
-    '材质顶点位移': (scene, o) => { o.C.material = Object.assign(new THREE.MeshBasicNodeMaterial(), { positionNode: gpu.TSL.positionLocal }); },
+    '只有 GLSL 的 outlineVertex': (scene, o) => { o.C.userData.outlineVertex = { head: '', body: '' }; },
   };
   try {
     for (const [name, mutate] of Object.entries(cases)) {
@@ -101,6 +99,114 @@ test('未支持的语义显式抛错（不静默画错），并且抛错后场�
       assert.throws(() => ids.render(scene, camera, tg), e => e.code === 'unsupported.outline' && /未支持/.test(e.message), name);
       assert.deepEqual([o.A, o.B, o.C, o.D, o.E].map(m => m.material), before, `${name}：材质没有还原`);
       assert.equal(scene.background, bg, `${name}：场景背景没有还原`);
+    }
+  } finally { ids.dispose(); tg.dispose(); tg.depthTexture.dispose(); }
+});
+
+test('InstancedMesh：默认逐实例分配连续 ID，outlinePerInstance=false 或同组共用 ID，实心遮挡写 0', async t => {
+  if (why) return t.skip(`离屏出片不可用：${why}`);
+  const { THREE } = gpu, { renderer } = host, tg = target(THREE), ids = createIdPass({ THREE, TSL: gpu.TSL, renderer });
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, W / H, 0.1, 100);
+  camera.position.set(0, 0, 14); camera.lookAt(0, 0, 0);
+  const geo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
+  const inst = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial(), 3);
+  const xs = [-3.5, 0, 3.5];
+  xs.forEach((x, i) => inst.setMatrixAt(i, new THREE.Matrix4().makeTranslation(x, 0, 0)));
+  inst.instanceMatrix.needsUpdate = true;
+  inst.userData.outline = true;
+  inst.userData.outlineWidth = 1.5;
+  scene.add(inst);
+  const probeAt = async x => probe(THREE, renderer, tg, camera, { position: new THREE.Vector3(x, 0, 0) });
+  try {
+    assert.equal(ids.render(scene, camera, tg), 1.5);
+    const [p0, p1, p2] = await Promise.all(xs.map(probeAt));
+    assert.deepEqual([p1.id - p0.id, p2.id - p0.id], [1, 2], `逐实例应连续递增：${p0.id}, ${p1.id}, ${p2.id}`);
+    assert.equal(p1.w, 1.5);
+
+    inst.userData.outlinePerInstance = false;
+    ids.render(scene, camera, tg);
+    const [s0, s1, s2] = await Promise.all(xs.map(probeAt));
+    assert.ok(s0.id >= 1 && s0.id === s1.id && s1.id === s2.id, 'outlinePerInstance=false 共用一个 ID');
+
+    inst.userData.outline = false;
+    ids.render(scene, camera, tg);
+    const [z0, z1] = await Promise.all([probeAt(xs[0]), probeAt(xs[1])]);
+    assert.deepEqual([z0.id, z1.id], [0, 0], '不描边 InstancedMesh 实心挡线写 0');
+  } finally { ids.dispose(); tg.dispose(); tg.depthTexture.dispose(); }
+});
+
+test('SkinnedMesh、变形目标、带贴图 alpha 镂空与顶点位移（positionNode / outlineVertex.tsl）', async t => {
+  if (why) return t.skip(`离屏出片不可用：${why}`);
+  const { THREE, TSL } = gpu, { renderer } = host, tg = target(THREE), ids = createIdPass({ THREE, TSL, renderer });
+  const camera = new THREE.PerspectiveCamera(35, W / H, 0.1, 100);
+  camera.position.set(0, 0, 14); camera.lookAt(0, 0, 0);
+  const probePos = async (x, y = 0) => probe(THREE, renderer, tg, camera, { position: new THREE.Vector3(x, y, 0) });
+
+  try {
+    // 1) SkinnedMesh：骨骼平移 x = +2.5，ID 应出现在 +2.5 而不是原点
+    {
+      const scene = new THREE.Scene();
+      const g = new THREE.BoxGeometry(1.4, 1.4, 1.4);
+      const n = g.attributes.position.count;
+      g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(n * 4), 4));
+      const w = new Float32Array(n * 4); for (let i = 0; i < n; i++) w[i * 4] = 1;
+      g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(w, 4));
+      const bone = new THREE.Bone();
+      const sk = new THREE.SkinnedMesh(g, new THREE.MeshBasicMaterial());
+      sk.add(bone); sk.updateMatrixWorld(true);
+      sk.bind(new THREE.Skeleton([bone]));
+      bone.position.x = -2.5; sk.updateMatrixWorld(true);
+      sk.userData.outline = true; scene.add(sk);
+      ids.render(scene, camera, tg);
+      assert.equal((await probePos(0)).id, 0);
+      assert.ok((await probePos(-2.5)).id >= 1, '骨骼驱动后的位置应有 ID');
+    }
+
+    // 2) 变形目标：morph 把方块移到 y = +1.8
+    {
+      const scene = new THREE.Scene();
+      const g = new THREE.BoxGeometry(1.4, 1.4, 1.4);
+      const pos = g.attributes.position.array.slice();
+      for (let i = 1; i < pos.length; i += 3) pos[i] += 1.8;
+      g.morphAttributes.position = [new THREE.Float32BufferAttribute(pos, 3)];
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial());
+      m.morphTargetInfluences = [1]; m.userData.outline = true; scene.add(m);
+      ids.render(scene, camera, tg);
+      assert.equal((await probePos(0, 0)).id, 0);
+      assert.ok((await probePos(0, 1.8)).id >= 1, '变形目标偏移后的位置应有 ID');
+    }
+
+    // 3) 带贴图 alpha 镂空：左半透明（露出后面的方块）、右半不透明（写自己的 ID）
+    {
+      const scene = new THREE.Scene();
+      const back = new THREE.Mesh(new THREE.PlaneGeometry(4, 2), new THREE.MeshBasicMaterial());
+      back.position.set(0, 0, -1); back.userData.outline = true; scene.add(back);
+      const tex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 0, 255, 255, 255, 255]), 2, 1, THREE.RGBAFormat);
+      tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true;
+      const front = new THREE.Mesh(new THREE.PlaneGeometry(4, 2), new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5 }));
+      front.position.set(0, 0, 1); front.userData.outline = true; scene.add(front);
+      ids.render(scene, camera, tg);
+      const pLeft = await probePos(-1, 0), pRight = await probePos(1, 0);
+      assert.ok(pLeft.id >= 1 && pRight.id >= 1 && pLeft.id !== pRight.id, `左半镂空露出后方 ID (${pLeft.id})，右半写前景 ID (${pRight.id})`);
+      tex.dispose();
+    }
+
+    // 4) 材质 positionNode 与 userData.outlineVertex.tsl
+    {
+      const scene = new THREE.Scene();
+      const mat = new THREE.MeshBasicNodeMaterial();
+      mat.positionNode = TSL.positionLocal.add(TSL.vec3(2.8, 0, 0));
+      const m1 = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), mat);
+      m1.userData.outline = true; scene.add(m1);
+      const m2 = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshBasicMaterial());
+      m2.userData = { outline: true, outlineVertex: { tsl: ({ TSL: T }) => T.positionLocal.add(T.vec3(-2.8, 0, 0)) } };
+      scene.add(m2);
+      ids.render(scene, camera, tg);
+      assert.equal((await probePos(0)).id, 0);
+      assert.ok((await probePos(2.8)).id >= 1, 'positionNode 位移处应有 ID');
+      assert.ok((await probePos(-2.8)).id >= 1, 'outlineVertex.tsl 位移处应有 ID');
+      mat.dispose();
     }
   } finally { ids.dispose(); tg.dispose(); tg.depthTexture.dispose(); }
 });
