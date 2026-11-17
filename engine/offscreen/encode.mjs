@@ -1,6 +1,7 @@
 // 北冥引擎 · 离屏出片 · FFmpeg 编码器：读回的 RGBA8 裸帧经管道交给 FFmpeg，编成有限范围 BT.709 yuv420p 的 H.264。
 // 色彩换算与 x264 参数沿用页面渲染器（engine/render/lib/ffmpeg.mjs 的 COLOR.png、TAGS、x264Args），两条链路出的片标记一致。
-//   encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium' }) → string[]   FFmpeg 参数（不含 -y、-loglevel）
+//   encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = 18 }) → string[]   FFmpeg 参数（不含 -y、-loglevel）
+//     encoder：x264（默认，crf + preset）或 nvenc（h264_nvenc，cq；crf、preset 不用）；别的值抛 usage.bad-value
 //   startEncoder(同上) → { write(pixels) → Promise<void>, finish() → Promise<void>, abort() → Promise<void> }
 //     write：写一帧（Uint8Array 或 Buffer，width × height × 4 字节）；管道满时等它腾出来（背压）
 //     finish：关上输入、等 FFmpeg 编完；abort：杀掉 FFmpeg、删掉输出
@@ -11,9 +12,14 @@ import { spawn } from 'node:child_process';
 import { COLOR, TAGS, x264Args, FFMPEG } from '../render/lib/ffmpeg.mjs';
 import { CliError } from '../../tools/lib/cli.mjs';
 
-export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium' }) {
+export const ENCODERS = ['x264', 'nvenc'];
+
+// nvenc：恒定质量（-rc vbr -cq N -b:v 0），preset p5 是 4070 上实测的取值；同样码率下画质比 x264 低约 2 dB，终渲母版仍用 x264
+export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = 18 }) {
+  if (!ENCODERS.includes(encoder)) throw new CliError('usage.bad-value', `--encoder 只能是 ${ENCODERS.join(' 或 ')}，收到「${encoder}」`, { hint: '终渲母版用 x264；预览与高并发用 nvenc（需要 NVIDIA 驱动）' });
+  const video = encoder === 'nvenc' ? ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', String(cq), '-b:v', '0'] : x264Args({ crf, preset });
   return ['-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${width}x${height}`, '-framerate', String(fps), '-i', '-',
-    '-vf', COLOR.png, ...x264Args({ crf, preset }), ...TAGS, out];
+    '-vf', COLOR.png, ...video, ...TAGS, out];
 }
 
 const describe = r => (r.error ? `没能启动（${r.error.code ?? r.error.message}）` : r.signal ? `被信号 ${r.signal} 结束` : `退出码 ${r.code}`);

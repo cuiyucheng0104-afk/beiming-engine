@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥引擎 · 离屏出片 · 命令行：在 Node + Dawn 里渲作品模块的一段帧，流水线读回，经 FFmpeg 编成 H.264（实验阶段，不进 npm run film 出片链）。
 //   node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size 1920x1080] [--fps 24] [--inflight 3]
-//                                       [--crf 14] [--preset medium] [--json]
+//                                       [--encoder x264|nvenc] [--crf 14] [--preset medium] [--cq 18] [--json]
 //     作品模块契约见 docs/offscreen/README.md 2.1；作品必须在仓库里（解析符号链接之后），仓库外的文件不执行。
 //     先写到 <输出目录>/.<名>.partial-<pid>.mp4，核对帧数后再改名；失败、收到信号都删掉半成品。
 //     信封 data：{ frames, from, to, width, height, fps, seconds, renderFps, adapter, frameHashes }（frameHashes 是每帧 RGBA 的 sha256 前 16 位）
@@ -57,7 +57,7 @@ export function parseSize(size) {
 export const command = defineCommand({
   name: 'offscreen',
   summary: '离屏出片（实验）：在 Node + Dawn 里渲作品模块，不经过浏览器，编成有限范围 BT.709 的 H.264',
-  usage: ['node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--crf 14] [--preset medium] [--json]'],
+  usage: ['node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--encoder x264|nvenc] [--crf 14] [--preset medium] [--cq 18] [--json]'],
   description: [
     '  offscreen render <作品.mjs>：作品模块契约见 docs/offscreen/README.md；只执行仓库里的作品',
     '  需要可选依赖 webgpu 与 three-webgpu（npm install --include=optional --ignore-scripts）',
@@ -72,7 +72,9 @@ export const command = defineCommand({
     size: { type: 'string', arg: '<WxH>', default: '1920x1080', describe: '画幅（偶数，默认 1920x1080）' },
     fps: { type: 'integer', default: 24, arg: '<n>', describe: '帧率（默认 24）' },
     inflight: { type: 'integer', default: 3, arg: '<n>', describe: '同时在途的读回帧数（默认 3；不改变成片）' },
+    encoder: { type: 'string', default: 'x264', choices: ['x264', 'nvenc'], arg: '<名字>', describe: '编码器（默认 x264；nvenc 走显卡，快一倍多，画质略低，母版不建议）' },
     crf: { type: 'integer', default: 14, arg: '<n>', describe: 'x264 crf（默认 14，与页面渲染器相同）' },
+    cq: { type: 'integer', default: 18, arg: '<n>', describe: 'nvenc 恒定质量 cq（默认 18，数字小画质高）' },
     preset: { type: 'string', default: 'medium', choices: ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'], arg: '<名字>', describe: 'x264 preset（默认 medium）' },
   },
   exitCodes: { 0: '成功', 1: '渲染或编码失败', 2: '用法错误', 3: '缺可选依赖', 4: '成片帧数不符' },
@@ -94,7 +96,7 @@ export const command = defineCommand({
       host.dispose();
     });
     const work = await host.load(a.file);
-    enc = startEncoder({ width: a.width, height: a.height, fps: a.fps, out: partial, crf: ctx.opts.crf, preset: ctx.opts.preset });
+    enc = startEncoder({ width: a.width, height: a.height, fps: a.fps, out: partial, crf: ctx.opts.crf, preset: ctx.opts.preset, encoder: ctx.opts.encoder, cq: ctx.opts.cq });
     const total = a.to - a.from, hashes = [];
     const t1 = process.hrtime.bigint();
     await renderFrames({

@@ -34,6 +34,19 @@ test('--encode：每部片各接一个编码器，帧数核对通过', { timeout
   assert.equal(e.data.runs[0].deterministic, true);
 });
 
+// 机器上有没有能用的 NVENC：试编一帧
+const hasNvenc = spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=256x256', '-frames:v', '1', '-c:v', 'h264_nvenc', '-f', 'null', '-'], { stdio: 'ignore' }).status === 0;
+
+test('--encode --encoder nvenc：每部片接 NVENC，信封记下用的编码器', { timeout: 200000, skip: !hasNvenc && '没有可用的 NVENC' }, t => {
+  const r = run(['lab/offscreen/ink.mjs', '--films', '2', '--frames', '12', '--size', '320x180', '--encode', '--encoder', 'nvenc']);
+  const e = JSON.parse(r.stdout);
+  if (r.status === 3) return t.skip(`离屏基准不可用：${e.error.message}`);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(e.data.encode, true);
+  assert.equal(e.data.encoder, 'nvenc');
+  assert.equal(e.data.runs[0].deterministic, true);
+});
+
 test('计时渲染遍不做逐帧哈希；独立验证遍仍返回每一帧的哈希', async t => {
   let gpu;
   try { gpu = await loadGpu(); (await createHost({ gpu, width: 64, height: 64 })).dispose(); }
