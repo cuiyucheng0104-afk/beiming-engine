@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "film": "chendu",
+  "gate": "look",
+  "decision": "approve",
+  "reviewer": { "kind": "human", "name": "zz8011" },
+  "quote": "拍板的事儿我认可",
+  "source": {
+    "kind": "session",
+    "ref": "Claude Code 会话 2026-11-18，回复「仍等你拍板的事：《晨渡》look 闸与 animatic 闸」（审看 out/20261117-173758-279030d0/contact.jpg 与离屏对照 out/offscreen-look/side-by-side.jpg）",
+    "at": "2026-11-18T03:09:57+08:00"
+  },
+  "recordedBy": { "kind": "ai", "name": "agent（npm run film -- review）" },
+  "at": "2026-11-18T03:11:40+08:00",
+  "reviewed": [
+    { "path": "out/20261117-173758-279030d0/contact.jpg", "sha256": "1931a7924899d22faca56bd06cb8788e70929de69b9b9f95316ae97c82eeaae0", "kind": "image" },
+    { "path": "out/20261117-173758-279030d0/stills/f000036.jpg", "sha256": "0b68ebd187954da8552d44835ec7269c35abe6ffb845d1000361ed4a8be92f19", "kind": "image" },
+    { "path": "out/20261117-173758-279030d0/stills/f000071.jpg", "sha256": "50753630de2595fbaadeb92096f99bbe301550ac8e7551d2436d08521e891ac8", "kind": "image" },
+    { "path": "out/20261117-173758-279030d0/stills/f000072.jpg", "sha256": "c81c8441f89fc7fd028575c4dc584410454561b5c32edc5a9af736f1a5d2620b", "kind": "image" },
+    { "path": "out/20261117-173758-279030d0/stills/f000100.jpg", "sha256": "42d05452011aa06b0b2157423b0a13c68dff165c45c4f7a6fc41e528363b801a", "kind": "image" },
+    { "path": "out/20261117-173758-279030d0/stills/f000150.jpg", "sha256": "68c1e1645679353ac1640b271307009c571a31e27d0fccfe8ae93474bae21083", "kind": "image" },
+    { "path": "out/20261117-173758-279030d0/stills/f000191.jpg", "sha256": "9e4fd80870bc8b9df268183e30337467d46909ecdcdb1cfd73b95b84bffb85b0", "kind": "image" }
+  ],
+  "style": { "id": "beiming-original", "version": 1 }
+}
