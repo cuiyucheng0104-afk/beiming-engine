@@ -140,5 +140,5 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     idTarget.dispose(); idTarget.depthTexture.dispose(); edge.dispose(); line.dispose();
   }
 
-  return { render, line, idTarget, dispose };
+  return { render, line, edge, idTarget, dispose };
 }

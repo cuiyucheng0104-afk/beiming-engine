@@ -118,9 +118,7 @@ test('未支持的语义显式抛错（debug、纸纹 anchor / scaleMode、色�
   const { scene, camera } = inkScene(THREE, 64, 36);
   try {
     const bad = {
-      debug: { debug: 'edge' },
-      'paper.anchor': { paper: { strength: 0.1, anchor: { pos: [0, 0], origin: [0, 0], zoom: 1 } } },
-      'paper.scaleMode': { paper: { strength: 0.1, scaleMode: 'refHeight' } },
+      'paper.url': { paper: { strength: 0.1, url: '/assets/plates/paper.png' } },
     };
     for (const [name, p] of Object.entries(bad)) {
       const before = renderer.getRenderTarget();
