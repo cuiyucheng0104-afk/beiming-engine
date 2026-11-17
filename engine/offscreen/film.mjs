@@ -14,6 +14,7 @@
 // 页面约定里给渲染器的 window.DUR / READY / 预热，这里没有：帧数由宿主的 --frames 决定，着色器在第一帧编译。
 import { shotTable, designFit, normalizeTexts } from '../stage/film.js';
 import { setFilmFps, frameOf, REF_FPS } from '../core/clock.js';
+import { mergeParams } from '../style/index.js';
 import { loadCanvas } from './canvas.mjs';
 
 export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, height: H, designWidth, designHeight, fit, shadows = THREE.PCFShadowMap } = {}) {
@@ -44,7 +45,8 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
         const { entry, ctx: sctx } = table.at(t, frameOf(t, rate));
         const S = entry.shot;
         S.update(t, frameOf(t, rate), sctx);
-        look.render(S.scene, S.camera, S.look(t, sctx));
+        const rawLook = S.look(t, sctx);
+        look.render(S.scene, S.camera, globalThis.__LOOKDEV ? mergeParams(rawLook, globalThis.__LOOKDEV) : rawLook);
         if (draw) {
           ctx.clearRect(0, 0, W, H);
           if (globalThis.__BMQA_OFFSCREEN?.hide !== 'layer') draw(ctx, t, S, sctx);

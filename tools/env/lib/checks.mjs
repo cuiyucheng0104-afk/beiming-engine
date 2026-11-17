@@ -377,6 +377,65 @@ export function checkEnvVars(spec, env = process.env) {
     detail: '完整的变量表见 docs/ENVIRONMENT.md「环境变量」', data: { set: set.map(s => s.split('=')[0]), unknown } });
 }
 
+export function checkOffscreenDeps(root) {
+  const pkg = readJson(path.join(root, 'package.json'));
+  const opt = pkg.optionalDependencies || {};
+  const names = ['webgpu', 'three-webgpu', '@napi-rs/canvas'].filter(k => k in opt);
+  const found = [], missing = [];
+  for (const name of names) {
+    const rawVer = String(opt[name] || '');
+    const wantVer = rawVer.startsWith('npm:') ? rawVer.slice(rawVer.lastIndexOf('@') + 1) : rawVer;
+    let got;
+    try { got = readJson(path.join(root, 'node_modules', name, 'package.json')).version; } catch { got = null; }
+    if (got === wantVer) found.push(`${name}@${got}`);
+    else missing.push(`${name} ${got || '未装'}（期望 ${wantVer}）`);
+  }
+  const ok = missing.length === 0 && found.length === names.length;
+  return mk('offscreen.deps', '离屏出片可选依赖（WebGPU / Dawn / Skia）', {
+    status: ok ? 'pass' : 'info',
+    required: false,
+    found: ok ? found.join('、') : `未完整安装：${missing.join('；')}`,
+    expected: names.map(n => `${n}（${opt[n]}）`).join('、'),
+    fix: ok ? null : '需要离屏出片（D12）时运行：npm install --include=optional --ignore-scripts',
+  });
+}
+
+export async function checkOffscreenGpu(root, { env = process.env, quick = false, depsOk = false } = {}) {
+  if (quick || !depsOk) return [];
+  const probeScript = [
+    'import("webgpu").then(async d => {',
+    '  const g = d.create([]);',
+    '  const a = await g.requestAdapter({ powerPreference: "high-performance" });',
+    '  if (!a) { console.log(JSON.stringify({ ok: false })); return; }',
+    '  const i = a.info || {};',
+    '  console.log(JSON.stringify({ ok: true, vendor: i.vendor || null, architecture: i.architecture || null, description: i.description || null }));',
+    '}).catch(e => console.log(JSON.stringify({ ok: false, error: e.message })));',
+  ].join(' ');
+  const r = await run(process.execPath, ['-e', probeScript], { cwd: root, env, timeout: 15_000 });
+  let info;
+  try { info = JSON.parse((r.stdout || '').trim().split('\n').pop()); } catch { info = null; }
+  if (!info?.ok) {
+    return [mk('offscreen.gpu', '离屏 WebGPU 适配器（Dawn）', {
+      status: 'warn', required: false,
+      found: info?.error ? `探测失败：${info.error}` : '拿不到 WebGPU 适配器',
+      expected: '硬件 Vulkan / Metal / D3D12 适配器',
+      fix: '检查显卡驱动与 Vulkan ICD（Linux NVIDIA 需 nvidia-utils / vulkan-icd-loader）',
+    })];
+  }
+  const desc = [info.vendor, info.architecture, info.description].filter(Boolean).join(' ');
+  const soft = /swiftshader|llvmpipe|lavapipe/i.test(desc);
+  const ff = ffmpegBins(env).ffmpeg;
+  const nv = await run(ff, ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=256x256', '-frames:v', '1', '-c:v', 'h264_nvenc', '-f', 'null', '-'], { env, timeout: 10_000 });
+  const hasNvenc = !nv.error && nv.code === 0;
+  return [mk('offscreen.gpu', '离屏 WebGPU 适配器与硬件编码', {
+    status: soft ? 'warn' : 'pass', required: false,
+    found: `${desc || 'Dawn 适配器'}；NVENC ${hasNvenc ? '可用' : '不可用（编码用 libx264）'}`,
+    expected: '硬件 WebGPU 适配器',
+    fix: soft ? 'Dawn 落在软件光栅上：检查独显驱动与 Vulkan ICD' : null,
+    data: { vendor: info.vendor, architecture: info.architecture, software: soft, nvenc: hasNvenc },
+  })];
+}
+
 export function checkSamples(env = process.env) {
   const s = env.BEIMING_SAMPLES;
   if (!s) return mk('audio.samples', '配乐采样库（可选）', { status: 'info', required: false, found: '未设 BEIMING_SAMPLES：配乐用 audio/score_cache.npz 缓存', detail: '只有 sh audio/build.sh --score 重渲配乐才需要' });

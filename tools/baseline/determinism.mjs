@@ -5,6 +5,7 @@
 //   node tools/baseline/determinism.mjs --template a|c [选项]    检查路线模版（按 new-film 的规则临时实例化，结束即删）
 //   node tools/baseline/determinism.mjs --scan-only [--path <目录>]…   只做静态扫描
 // 命令约定（参数、--help、--json 信封、退出码、信号收尾）用 tools/lib/cli.mjs（docs/CLI.md）。
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,18 +77,29 @@ async function main(opts, positionals) {
   } else {
     dir = path.resolve(positionals[0]);
     const r = path.relative(ROOT, dir);
-    if (r.startsWith('..') || path.isAbsolute(r) || !fs.existsSync(path.join(dir, 'index.html'))) {
-      throw usage(`找不到作品页面：${positionals[0]}/index.html（作品目录要在仓库内）`);
+    const hasIndex = fs.existsSync(path.join(dir, 'index.html'));
+    const hasOffscreen = fs.existsSync(path.join(dir, 'offscreen.mjs'));
+    if (r.startsWith('..') || path.isAbsolute(r) || (!hasIndex && !hasOffscreen)) {
+      throw usage(`找不到作品入口：${positionals[0]}/index.html（或 offscreen.mjs；作品目录要在仓库内）`);
     }
+    if (opts.renderer === 'page' && !hasIndex) throw usage(`--renderer page 要求存在 ${positionals[0]}/index.html`);
+    if (opts.renderer === 'offscreen' && !hasOffscreen) throw usage(`--renderer offscreen 要求存在 ${positionals[0]}/offscreen.mjs`);
     label = r ? `作品 ${r.split(path.sep).join('/')}` : '《北冥》样片（仓库根目录）';
   }
   try {
     const film = readFilm(dir);
+    const hasIndex = fs.existsSync(path.join(dir, 'index.html'));
+    const hasOffscreen = fs.existsSync(path.join(dir, 'offscreen.mjs'));
+    const useOffscreen = !opts.template && (opts.renderer === 'offscreen' || (!opts.renderer && hasOffscreen && (!hasIndex || film?.backend === 'webgpu')));
     const size = opts.size ? parseSize(opts.size) : Array.isArray(film?.size) ? film.size : film?.output ? [film.output.width, film.output.height] : [1920, 1040];
     const fps = opts.fps ?? film?.fps ?? film?.output?.fps ?? 24;
     const id = runId(ROOT);
     const outDir = opts.out ? path.resolve(opts.out) : path.join(ROOT, 'out/determinism', id);
     fs.mkdirSync(outDir, { recursive: true });
+
+    if (useOffscreen) {
+      return await runOffscreenDeterminism({ dir, label, film, size, fps, W, seed, gpu, opts, outDir });
+    }
     const base = { tree: ROOT, dir, pageId: 'film', query: opts.query || '', w: size[0], h: size[1], clip: null, fps, gpu, frameTimeoutMs };
 
     // 先开一次页面拿 DUR（同时验证页面能打开、渲染器不是软件光栅）
@@ -202,6 +214,177 @@ function failWorker(r, what) {
   });
 }
 
+async function runOffscreenDeterminism({ dir, label, film, size, fps, W, seed, gpu, opts, outDir }) {
+  const { loadGpu } = await import('../../engine/offscreen/load.mjs');
+  const { createHost } = await import('../../engine/offscreen/host.mjs');
+  const { renderFrames } = await import('../../engine/offscreen/frames.mjs');
+  const entry = path.join(dir, 'offscreen.mjs');
+  const query = opts.query || '';
+  let loadedGpu, ownerHost = null;
+  try {
+    loadedGpu = await loadGpu();
+    ownerHost = await createHost({ gpu: loadedGpu, width: size[0], height: size[1], fps, query });
+  } catch (e) {
+    const isEnv = String(e?.code || '').startsWith('env.');
+    throw new CliError(isEnv ? codeFor(EXIT.ENV, 'offscreen-env') : codeFor(EXIT.FAIL, 'offscreen-init'), `离屏宿主启动失败：${e.message}`, { hint: e.hint || null, exitCode: isEnv ? EXIT.ENV : EXIT.FAIL });
+  }
+  try {
+    const info = ownerHost.device.adapterInfo ?? {};
+    const rendererStr = `Dawn WebGPU (${[info.vendor, info.architecture, info.description].filter(Boolean).join(' ') || 'unknown'})`;
+    const isSoft = /swiftshader|llvmpipe|lavapipe/i.test(rendererStr);
+    if (isSoft && gpu === 'required') {
+      throw new CliError(codeFor(EXIT.ENV, 'software-fallback'), `Dawn 落到了软件适配器：${rendererStr}`, { hint: '检查 Vulkan / Metal 驱动；CI 冒烟时加 --gpu any 或 software-ok', exitCode: EXIT.ENV });
+    }
+    const probeWork = await ownerHost.load(entry);
+    const N = film?.output?.frameCount ?? (typeof probeWork.dur === 'number' ? Math.round(probeWork.dur * fps) : (typeof probeWork.__module?.DUR === 'number' ? Math.round(probeWork.__module.DUR * fps) : 0));
+    if (N < 2) throw new CliError('contract.too-short', `作品只有 ${N} 帧，没法做确定性检查`, { exitCode: EXIT.CONTRACT });
+    const DUR = N / fps;
+    log(`${label}（离屏 Dawn）：${size.join('x')} @ ${fps} fps，${W} 段`);
+
+    const selectors = opts.seams || opts.cuts.length || opts.random != null || opts.frames.length;
+    const pick = new Map();
+    const add = (f, why) => { if (f >= 0 && f < N) pick.set(f, pick.has(f) ? `${pick.get(f)}、${why}` : why); };
+    const per = Math.ceil(N / W);
+    if (!selectors || opts.seams) for (let k = 1; k < W; k++) { const a = k * per; if (a < N) [a - 1, a, a + 1].forEach(f => add(f, `第 ${k} 段边界（${a}）`)); }
+    let cuts = ints(opts.cuts, '--cuts');
+    if (!selectors || (opts.seams && !opts.cuts.length)) cuts = filmCuts(film, dir, fps);
+    for (const c of cuts) [c - 1, c, c + 1].forEach(f => add(f, `切点 ${c}`));
+    const nRandom = opts.random ?? (selectors ? 0 : 5);
+    const R = mulberry(seed);
+    for (let i = 0, guard = 0; i < nRandom && guard < 1000; guard++) { const f = Math.floor(R() * N); if (!pick.has(f)) { add(f, '随机'); i++; } }
+    for (const f of ints(opts.frames, '--frames')) { if (f >= N) throw usage(`--frames 里的 ${f} 超出作品帧数 ${N}`); add(f, '指定'); }
+    if (!selectors) { add(0, '首帧'); add(N - 1, '尾帧'); }
+    const warnings = [];
+    if ((!selectors || opts.seams) && !cuts.length && !opts.cuts.length) warnings.push('没找到切点信息（作品 film.json 没有 shots[].in 或 cuts），没有查切点；可用 --cuts 指定');
+    const frames = [...pick.keys()].sort((a, b) => a - b);
+    if (!frames.length) throw usage('没有取到任何帧');
+    log(`取样 ${frames.length} 帧（共 ${N} 帧）：${frames.join(' ')}`);
+
+    const shaPx = px => createHash('sha256').update(px).digest('hex');
+    const wantSet = new Set(frames);
+
+    log('① 新宿主单帧（每帧新建独立 Host）');
+    const freshPx = new Map(), freshHash = new Map();
+    for (const f of frames) {
+      const h = await createHost({ gpu: loadedGpu, width: size[0], height: size[1], fps, device: ownerHost.device, query });
+      try {
+        const w = await h.load(entry);
+        const px = Uint8Array.from(await h.renderFrame(w, f));
+        freshPx.set(f, px);
+        freshHash.set(f, shaPx(px));
+      } finally { h.dispose(); }
+    }
+
+    log('② 同一宿主乱序');
+    const shufOrder = [...frames];
+    const Rsh = mulberry(seed ^ 0x9e3779b9);
+    for (let i = shufOrder.length - 1; i > 0; i--) { const j = Math.floor(Rsh() * (i + 1)); [shufOrder[i], shufOrder[j]] = [shufOrder[j], shufOrder[i]]; }
+    const shufHash = new Map();
+    {
+      const h = await createHost({ gpu: loadedGpu, width: size[0], height: size[1], fps, device: ownerHost.device, query });
+      try {
+        const w = await h.load(entry);
+        for (const f of shufOrder) shufHash.set(f, shaPx(await h.renderFrame(w, f)));
+      } finally { h.dispose(); }
+    }
+
+    log(`③ 同一宿主从第 0 帧流水线（inflight=3）顺序渲到第 ${frames.at(-1)} 帧`);
+    const seqPx = new Map(), seqHash = new Map();
+    {
+      const h = await createHost({ gpu: loadedGpu, width: size[0], height: size[1], fps, device: ownerHost.device, query });
+      try {
+        const w = await h.load(entry);
+        await renderFrames({
+          host: h, work: w, from: 0, to: frames.at(-1) + 1, inflight: 3,
+          onFrame: (f, px) => {
+            if (wantSet.has(f)) {
+              const copy = Uint8Array.from(px);
+              seqPx.set(f, copy);
+              seqHash.set(f, shaPx(copy));
+            }
+          },
+        });
+      } finally { h.dispose(); }
+    }
+
+    log('④ 同卡双宿主并发');
+    const concHash = new Map();
+    {
+      const hA = await createHost({ gpu: loadedGpu, width: size[0], height: size[1], fps, device: ownerHost.device, query });
+      const hB = await createHost({ gpu: loadedGpu, width: size[0], height: size[1], fps, device: ownerHost.device, query });
+      try {
+        const [wA, wB] = await Promise.all([hA.load(entry), hB.load(entry)]);
+        const runOne = async (h, w) => {
+          const map = new Map();
+          for (const f of frames) map.set(f, shaPx(await h.renderFrame(w, f)));
+          return map;
+        };
+        const [mA, mB] = await Promise.all([runOne(hA, wA), runOne(hB, wB)]);
+        for (const f of frames) concHash.set(f, mA.get(f) === mB.get(f) ? mA.get(f) : `mismatch:${mA.get(f)}!=${mB.get(f)}`);
+      } finally { hB.dispose(); hA.dispose(); }
+    }
+
+    const rows = [];
+    fs.mkdirSync(path.join(outDir, 'diff'), { recursive: true });
+    for (const f of frames) {
+      const hashes = { fresh: freshHash.get(f) ?? null, shuffled: shufHash.get(f) ?? null, sequential: seqHash.get(f) ?? null, concurrent: concHash.get(f) ?? null };
+      const same = hashes.fresh && hashes.fresh === hashes.shuffled && hashes.fresh === hashes.sequential && hashes.fresh === hashes.concurrent;
+      const row = { f, t: f / fps, why: pick.get(f), status: same ? 'same' : 'differs', hashes };
+      if (!same && freshPx.has(f) && seqPx.has(f)) {
+        const toRgb = px => {
+          const rgb = new Uint8Array(size[0] * size[1] * 3);
+          for (let i = 0, p = 0, q = 0; i < size[0] * size[1]; i++, p += 4, q += 3) { rgb[q] = px[p]; rgb[q + 1] = px[p + 1]; rgb[q + 2] = px[p + 2]; }
+          return { width: size[0], height: size[1], rgb };
+        };
+        const A = toRgb(freshPx.get(f)), C = toRgb(seqPx.get(f));
+        row.stats = compareImages(A, C);
+        if (!row.stats.identical && !row.stats.sizeMismatch) {
+          const fn = path.join('diff', `f${String(f).padStart(5, '0')}-fresh-vs-sequential.png`);
+          fs.writeFileSync(path.join(outDir, fn), encodePNG(diffHeatmap(A, C)));
+          row.diff = fn;
+        }
+        row.differs = Object.entries(hashes).filter(([, h]) => h !== hashes.sequential).map(([k]) => k);
+      }
+      rows.push(row);
+    }
+
+    const bad = rows.filter(r => r.status !== 'same');
+    const scan = opts.noScan ? null : doScan(rel(dir) ? [rel(dir), 'engine'] : ['src', 'engine']);
+    const report = {
+      schemaVersion: 1, kind: 'determinism', film: label, dir: rel(dir) || '.', query,
+      size, fps, DUR, frames: N, workers: W, segmentLength: per, seed,
+      platformKey: `offscreen-${process.platform}-${info.vendor || 'gpu'}`, device: [info.vendor, info.architecture].filter(Boolean).join('-') || 'dawn',
+      renderer: rendererStr, browser: null,
+      source: { commit: headCommit(ROOT).sha, dirty: dirtyPixelPaths(ROOT).length > 0 },
+      modes: ['fresh', 'shuffled', 'sequential', 'concurrent'], samples: rows.length, ok: !bad.length && !(scan?.errors.length),
+      rows, scan: scan && { files: scan.files, findings: scan.findings.length, allowed: scan.allowedCount, errors: scan.errors },
+      warnings,
+    };
+    const rp = path.join(outDir, 'report.json');
+    fs.writeFileSync(rp, JSON.stringify(report, null, 1) + '\n');
+    if (bad.length) {
+      log(`不确定：${bad.length}/${rows.length} 帧四路离屏方式结果不同`);
+      for (const r of bad.slice(0, 12)) log(`  ✗ 第 ${r.f} 帧（${r.why}）：${r.differs?.join('、') || '?'} 与顺序渲染不同`);
+    } else log(`通过：${rows.length} 帧在新宿主、乱序、顺序流水线、同卡并发四路下逐像素一致`);
+    const outputs = [{ path: rel(rp), sha256: sha256File(rp), kind: 'determinism-report' }];
+    if (bad.length) {
+      return {
+        exitCode: EXIT.CONTRACT, outputs, warnings, runJson: rel(rp), data: { ok: false, bad: bad.map(r => r.f) },
+        error: { code: 'contract.nondeterministic', message: `${bad.length} 帧离屏渲染方式结果不同（第 ${bad.map(r => r.f).join('、')} 帧）`, hint: 'render(f) 里有累计状态、未设种子的随机或依赖上一帧的东西：改成只由整数帧号 f 算出' },
+      };
+    }
+    if (scan?.errors.length) {
+      return {
+        exitCode: EXIT.CONTRACT, outputs, warnings, runJson: rel(rp), data: { ok: false, scanErrors: scan.errors.length },
+        error: { code: 'contract.nondeterministic-api', message: `渲染逐像素一致，但静态扫描有 ${scan.errors.length} 处不确定的 API`, hint: '改成由 f 与固定种子算出；只用于计时的写法在同一行加 // determinism-ok: <理由>' },
+      };
+    }
+    return { outputs, warnings, runJson: rel(rp), data: { ok: true, frames: rows.length } };
+  } finally {
+    ownerHost?.dispose();
+  }
+}
+
 const camel = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), v]));
 
 export const command = defineCommand({
@@ -237,7 +420,8 @@ export const command = defineCommand({
     seed: { type: 'integer', arg: '<n>', describe: '随机帧与乱序的种子（默认 1）', example: '1' },
     size: { type: 'string', arg: '<宽x高>', describe: '默认读 film.json 的 size，没有就 1920x1040', example: '960x520' },
     fps: { type: 'integer', arg: '<n>', min: 1, max: 240, describe: '默认读 film.json 的 fps，没有就 24', example: '24' },
-    query: { type: 'string', arg: '<k=v&…>', describe: '页面查询串' },
+    query: { type: 'string', arg: '<k=v&…>', describe: '页面或离屏作品查询串' },
+    renderer: { type: 'string', arg: '<page|offscreen>', choices: ['page', 'offscreen'], describe: '渲染器（默认 page；纯 webgpu 作品自动选 offscreen）' },
     gpu: { type: 'string', arg: '<策略>', choices: ['required', 'any', 'software-ok'], describe: '落到软件渲染时：required 即 exit 3（默认）；any 接受任何后端；software-ok 明确要软件渲染（CI 的 SwiftShader）' },
     jobs: { type: 'integer', arg: '<n>', min: 1, max: 16, describe: '新页面模式同时开几个浏览器（默认 2）', example: '2' },
     'frame-timeout': { type: 'number', arg: '<秒>', min: 1, max: 3600, describe: '单帧上限（默认 60）', example: '60' },
