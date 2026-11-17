@@ -6,6 +6,7 @@
 //   mix       film.json 的 audio         script（.py / .sh / .mjs）或 wav；产物 audio/mix.wav（+ stems/、score_onsets.json）
 //   cuecheck  engine.audio.cuecheck      film.json 写了 cuecheck 才跑；超差即停（退出码 4）
 //   video     engine/render/video.mjs    逐帧 → work/video.mp4；核对帧数、画幅、帧率
+//             --renderer offscreen：改由 engine/offscreen/cli.mjs 渲作品目录的 offscreen.mjs（同画幅、帧率、查询串），产物与核对不变
 //   mux       engine/render/lib/mux.mjs（渲染器 v2 的 Node 封装，在就用它）或 engine/render/mux.sh → master.mp4；
 //             响度线性归一到目标，完整标记的画面逐位复制；无声片补一条静音 AAC
 //   preview   （预演）                    画面逐位复制 + 混音或拍点提示音 → animatic.mp4，不做响度归一
@@ -175,9 +176,37 @@ const cuecheck = {
   },
 };
 
+const OFFSCREEN_CLI = path.resolve(R('.'), '../offscreen/cli.mjs');
+const offscreenEntry = ctx => path.join(ctx.film.dir, 'offscreen.mjs');
+const offscreenArgs = ctx => ['render', offscreenEntry(ctx), '--frames', `0:${ctx.frames}`, '--size', sizeArg(ctx), '--fps', String(ctx.fps), ...queryArgs(ctx)];
+// 离屏出片（--renderer offscreen）：同画幅、同帧率、同查询串，产物同样是 work/video.mp4，后面的封装、网页版、QA 不变。
+// 帧数、画幅、帧率照样核对；GPU 记 Dawn 报告的适配器。
+async function offscreenVideo(ctx) {
+  if (!fs.existsSync(offscreenEntry(ctx))) ctx.fail(2, 'no-offscreen-entry', `--renderer offscreen 要作品目录里有 offscreen.mjs：${path.relative(process.cwd(), offscreenEntry(ctx))} 不存在`, '作品要写成双实现（A 路线页面与离屏共用场景），做法见 docs/offscreen/README.md 7.11；不是双实现就去掉 --renderer');
+  const out = path.join(ctx.run.work, 'video.mp4');
+  const r = await ctx.exec(process.execPath, [OFFSCREEN_CLI, ...offscreenArgs(ctx), '--out', out, '--json'],
+    { label: '离屏出片（engine/offscreen/cli.mjs）', timeoutSec: ctx.opts.timeout || Math.round(240 + ctx.frames * 2), stallSec: ctx.opts.stall || 300 });
+  let adapter = null;
+  try { adapter = JSON.parse(String(r?.stdout ?? '').trim()).data?.adapter ?? null; } catch { /* --json 的 stdout 只有信封；读不到就只记离屏 */ }
+  const name = [adapter?.vendor, adapter?.architecture].filter(Boolean).join(' ') || adapter?.description;   // description 在 Linux 上是驱动版本，厂商与架构更好认
+  const gpu = `Dawn WebGPU（离屏）${name ? `：${name}` : ''}`;
+  const info = await ctx.media.probe(ctx.exec, out);
+  const bad = [];
+  if (info.frames !== ctx.frames) bad.push(`帧数 ${info.frames}（应为 ${ctx.frames}）`);
+  if (info.width !== ctx.width || info.height !== ctx.height) bad.push(`画幅 ${info.width}×${info.height}（应为 ${ctx.width}×${ctx.height}）`);
+  if (Math.abs(info.fps - ctx.fps) > 1e-6) bad.push(`帧率 ${info.fpsRaw}（应为 ${ctx.fps}）`);
+  if (bad.length) ctx.fail(4, 'video-contract', `离屏视频与作品描述不符：${bad.join('、')}`, '看 logs/video.log');
+  ctx.gpu = gpu;
+  return { gpu, renderer: 'offscreen', frames: info.frames, color: info.color, pixFmt: info.pixFmt, encoder: ctx.media.encoderInfo(out), args: offscreenArgs(ctx) };
+}
+
 const video = {
-  id: 'video', title: '逐帧渲染（engine/render/video.mjs）',
-  key: ctx => ctx.hashJson({
+  id: 'video', title: '逐帧渲染（engine/render/video.mjs，或 --renderer offscreen 时 engine/offscreen/cli.mjs）',
+  key: ctx => ctx.opts.renderer === 'offscreen' ? ctx.hashJson({
+    step: 'video-offscreen@1', trees: pageTrees(ctx), offscreen: ctx.hashTree(path.resolve(R('.'), '../offscreen')), args: offscreenArgs(ctx).slice(2),
+    deps: ['webgpu', 'three-webgpu', '@napi-rs/canvas'].map(d => { try { return JSON.parse(fs.readFileSync(path.resolve(R('.'), `../../node_modules/${d}/package.json`), 'utf8')).version; } catch { return null; } }),
+    platform: `${process.platform}-${process.arch}`,
+  }) : ctx.hashJson({
     step: 'video@2', trees: pageTrees(ctx), args: videoArgs(ctx),
     renderer: ['page.mjs', 'video.mjs', 'args.mjs'].map(f => (fs.existsSync(R(f)) ? ctx.fileHash(R(f)) : null)), playwright: ctx.tools.playwright, browser: ctx.tools.browser,
     angle: process.env.BEIMING_ANGLE || null, chrome: process.env.BEIMING_CHROME || null, platform: `${process.platform}-${process.arch}`,
@@ -186,6 +215,7 @@ const video = {
   outputs: () => ({ video: 'work/video.mp4' }),
   restored: (ctx, meta) => { ctx.gpu = meta.gpu || ctx.meta.probe?.gpu || ctx.gpu; },
   async run(ctx) {
+    if (ctx.opts.renderer === 'offscreen') return offscreenVideo(ctx);
     const out = path.join(ctx.run.work, 'video.mp4');
     const per = Math.ceil(ctx.frames / ctx.opts.workers);
     const timeoutSec = ctx.opts.timeout || Math.round(240 + per * (ctx.opts.gpu === 'required' ? 6 : 12));

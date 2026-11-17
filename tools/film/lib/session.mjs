@@ -81,9 +81,11 @@ export function installSignals() {
   for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(s, onSignal);
 }
 
-// ANGLE 的渲染器字符串 → { device, backend }
+// ANGLE 的渲染器字符串（或离屏出片记的「Dawn WebGPU（离屏）：适配器」）→ { device, backend }
 export function parseGpu(s) {
   if (!s) return { device: null, backend: null };
+  const off = /^Dawn WebGPU（离屏）(?:：(.+))?$/.exec(s.trim());   // --renderer offscreen（engine/render/build.mjs 的 offscreenVideo）
+  if (off) return { device: off[1] || 'Dawn 适配器', backend: 'WebGPU / Dawn（离屏）' };
   const m = /^ANGLE \((.*)\)$/.exec(s.trim());
   const body = m ? m[1] : s;
   const backend = /Metal/i.test(body) ? 'Metal' : /Vulkan/i.test(body) ? 'Vulkan' : /Direct3D11|D3D11/i.test(body) ? 'D3D11' : /OpenGL/i.test(body) ? 'OpenGL' : null;

@@ -22,6 +22,7 @@
 - 离屏出片的 TSL 版三档卡通材质（`engine/offscreen/tsl/toon.js`，接口与参数同 `engine/shade/toon.js`，投影滤波照搬 r170 PCFSoft）与斑块表面层（`tsl/surface.js`）：同一场景对 GLSL 版对拍，含投影、表面层与材质钩子，最大差 1 级。
 - 离屏墨线的 ID 通道支持 `outlineOccluder` 的 soft / own（半透明底板与精灵按自身 alpha 半挡线）：对拍与 GLSL 版逐字节相同。
 - 离屏底板工具 `engine/offscreen/tsl/plates.js`（`engine/stage/plates.js` 的同名 r187 版：读登记底板 PNG、Skia 画布贴图、软边裁片、抠像、加色辉光），对 A 路线对拍 PSNR 61.9 dB；离屏作品模块的 `build` 可以是 async。
+- 出片链能用离屏渲画面：`npm run film -- build|animatic <作品> --renderer offscreen`（渲作品目录的 `offscreen.mjs`，其余步骤不变）；离屏作品模块的 `build` 收 `query`。验收片 `films/chendu/`（A 路线模版的双实现）离屏整片过机器 QA 门。
 - 三条路线的模版仓库结构：`routes/README.md` 是总指引；A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）、C（北冥代码动画风格 · 86 式）各有一份路线手册和一个可直接出片的模版。`node tools/new-film.mjs <a|b|c> <名字>` 从模版新建作品到 `films/<名字>/`。
 - 导演与画面规范 `routes/directing/`：导演方法、画面设计、五章工艺，以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
 - 工业级交付基线决策 `docs/decisions/2026-11-10-industrial-baseline.md`（D01–D11）。

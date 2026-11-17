@@ -1,7 +1,8 @@
 // 北冥引擎 · 离屏出片 · 出片宿主：在 Node + Dawn 里替作品模块建渲染器与渲染目标，按帧号渲一帧并读回像素。没有画布，也没有浏览器。
-//   createHost({ gpu, width, height, fps = 24, device }) → Promise<Host>
+//   createHost({ gpu, width, height, fps = 24, device, query = '' }) → Promise<Host>
+//       query：交给作品 build 的查询串（同页面的 location.search，不带 ?），作品按它切预演、调试等模式
 //       gpu 来自 load.mjs 的 loadGpu()；给了 device 就共用它（一张卡上同时出多部片时共用一个 GPUDevice）
-//   Host.load(file)             动态导入作品模块（绝对路径）并调用（await）build({ THREE, TSL, renderer, width, height, fps, pipeline })；
+//   Host.load(file)             动态导入作品模块（绝对路径）并调用（await）build({ THREE, TSL, renderer, width, height, fps, pipeline, query })；
 //                               作品契约见 docs/offscreen/README.md 2.1
 //   Host.renderFrame(work, f)   推进帧时钟（时刻 = f / fps），把 work.render(f) 画进 sRGB 渲染目标，不等待地发起读回；
 //                               返回读回的 Promise<Uint8Array>（RGBA8，行序自上而下）。读回的拷贝命令在返回前已提交，可以接着渲下一帧
@@ -12,7 +13,7 @@ import { pathToFileURL } from 'node:url';
 import { createFrameClock } from './clock.mjs';
 import { CliError, usageError } from '../../tools/lib/cli.mjs';
 
-export async function createHost({ gpu, width, height, fps = 24, device } = {}) {
+export async function createHost({ gpu, width, height, fps = 24, device, query = '' } = {}) {
   const { THREE, TSL } = gpu;
   let ownsDevice = false;
   if (!device) {
@@ -62,7 +63,7 @@ export async function createHost({ gpu, width, height, fps = 24, device } = {}) 
     async load(file) {
       const mod = await import(pathToFileURL(file).href);
       if (typeof mod.build !== 'function') throw new TypeError(`${file} 没有导出 build(ctx)：作品模块契约见 docs/offscreen/README.md 2.1`);
-      const work = await mod.build({ THREE, TSL, renderer, width, height, fps, pipeline });   // build 可以是 async（真片要先载字体、画布）
+      const work = await mod.build({ THREE, TSL, renderer, width, height, fps, pipeline, query: new URLSearchParams(query) });   // build 可以是 async（真片要先载字体、画布）
       if (typeof work?.render !== 'function') throw new TypeError(`${file} 的 build() 要返回 { render(f) }`);
       works.push(work);
       return work;

@@ -23,8 +23,7 @@ const opaque = px => { const o = Uint8Array.from(px); for (let i = 3; i < o.leng
 let host, browser, srv;
 try {
   const gpu = await loadGpu();
-  globalThis.__CHENDU = { msaa: 0, animatic: 'animatic' in extra, notext: 'notext' in extra, lookdev: extra.lookdev ? JSON.parse(extra.lookdev) : null };
-  host = await createHost({ gpu, width: W, height: H, fps: FPS });
+  host = await createHost({ gpu, width: W, height: H, fps: FPS, query: new URLSearchParams({ msaa: '0', ...extra }).toString() });   // 两边同一个查询串
   srv = createServer({ root: ROOT });
   browser = await chromium.launch({ executablePath: chromeExecutable(), args: chromeArgs(defaultAngle()) });
 } catch (e) {

@@ -38,6 +38,7 @@ export function build({ THREE, TSL, renderer, width, height, fps, pipeline }) {
 ```
 
 - `build` 可以是 `async`（M3 起）：宿主等它返回，作品可以先载字体子集、画布与底板。
+- `query`（M3 起）：`URLSearchParams`，内容是 CLI 的 `--query`（出片链会把它的 `--query` 与预演的 `previs=1` 原样转来）。作品按它切预演、调试等模式，参数名与自己的页面一致。
 - `THREE`、`TSL` 由宿主注入，作品**不写 `import ... from 'three'`**：仓库里 `three` 锁在 r170（旧作品用），裸导入在 Node 里会拿到旧版。
 - `pipeline(outputNode)` 是宿主给的后期管线工厂，返回 `RenderPipeline`，已关掉管线内的色彩输出变换（见 2.3）。作品不要自己 `new RenderPipeline`。
 - 时间只从 `f` 来：不用 TSL 的 `time` / `deltaTime`，不用 `Date.now`、`performance.now`、`Math.random`；随机一律 `engine/core/math.js` 的 `mulberry(种子)` 或 TSL `hash`。

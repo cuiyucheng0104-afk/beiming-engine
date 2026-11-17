@@ -59,6 +59,8 @@
 ### T5 离屏影片外壳与出片链接入
 
 > **影片外壳已完成**（2026-11-18）：`engine/offscreen/film.mjs`（选镜头、局部帧号、设计尺寸、文字规范化复用 `engine/stage/film.js` 的纯函数；显示层按 sRGB 数值叠在后期之后）。**出片链接入的做法**：机器 QA 里和页面有关的几项（文字、底板露边）本来就在 Chrome 里开作品页面采样，与成片由哪条链渲出无关；双实现的作品两样都有，所以只把 `video` 这一步换成 `engine/offscreen/cli.mjs render` 渲作品的离屏入口（产物仍是 `work/video.mp4`），声音、封装、网页版、QA 不动。改出片工具要跑 agent 验收。
+
+> **出片链接入已完成**（2026-11-18）：`npm run film -- build|animatic <作品> --renderer offscreen`；作品模块的 `build` 收 `query`（离屏 CLI 的 `--query`，出片链原样转来）。《晨渡》离屏工作版整条链跑通：机器 QA 门 38 项通过、注意 2 项（切点检出 0、边缘线候选 11），页面版同一部片也是这 2 项（候选 10），是作品本身的，不是离屏带来的；两个成片 PSNR 平均 43.7 dB（两边 msaa 4、各自 H.264）。**还没跑 agent 验收**（evals/agent，改出片工具的合入要求）。
 - `engine/offscreen/film.mjs`：读 `film.json` 的镜头表，按帧选镜头、`update(t, f, ctx)`、每镜 `look(t)`；导出每帧的 `TEXTS` 给 QA。
 - `npm run film -- build <作品> --renderer offscreen`（或作品描述里声明）：闸门、机器 QA、网页版照走现有链路。具体接法先读 `tools/film/` 与 `engine/render/` 再定，改出片工具要跑 agent 验收（AGENTS.md「治理改动」）。
 

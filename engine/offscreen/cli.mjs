@@ -57,7 +57,7 @@ export function parseSize(size) {
 export const command = defineCommand({
   name: 'offscreen',
   summary: '离屏出片（实验）：在 Node + Dawn 里渲作品模块，不经过浏览器，编成有限范围 BT.709 的 H.264',
-  usage: ['node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--encoder x264|nvenc] [--crf 14] [--preset medium] [--cq 18] [--json]'],
+  usage: ['node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--encoder x264|nvenc] [--crf 14] [--preset medium] [--cq 18] [--query k=v&…] [--json]'],
   description: [
     '  offscreen render <作品.mjs>：作品模块契约见 docs/offscreen/README.md；只执行仓库里的作品',
     '  需要可选依赖 webgpu 与 three-webgpu（npm install --include=optional --ignore-scripts）',
@@ -75,6 +75,7 @@ export const command = defineCommand({
     encoder: { type: 'string', default: 'x264', choices: ['x264', 'nvenc'], arg: '<名字>', describe: '编码器（默认 x264；nvenc 走显卡，快一倍多，画质略低，母版不建议）' },
     crf: { type: 'integer', default: 14, arg: '<n>', describe: 'x264 crf（默认 14，与页面渲染器相同）' },
     cq: { type: 'integer', default: 18, arg: '<n>', describe: 'nvenc 恒定质量 cq（默认 18，数字小画质高）' },
+    query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（同页面的 location.search，不带 ?；出片链的 --query 与预演的 previs=1 原样转来）' },
     preset: { type: 'string', default: 'medium', choices: ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'], arg: '<名字>', describe: 'x264 preset（默认 medium）' },
   },
   exitCodes: { 0: '成功', 1: '渲染或编码失败', 2: '用法错误', 3: '缺可选依赖', 4: '成片帧数不符' },
@@ -83,7 +84,7 @@ export const command = defineCommand({
     const a = resolveArgs(ctx.args, ctx.opts);
     const t0 = process.hrtime.bigint();
     const gpu = await loadGpu();
-    const host = await createHost({ gpu, width: a.width, height: a.height, fps: a.fps });
+    const host = await createHost({ gpu, width: a.width, height: a.height, fps: a.fps, query: ctx.opts.query });
     const info = host.device.adapterInfo ?? {};
     const adapter = { vendor: info.vendor ?? null, architecture: info.architecture ?? null, description: info.description ?? null };
     if (/swiftshader|llvmpipe|lavapipe/i.test(`${adapter.vendor} ${adapter.description}`)) ctx.warn('env.software-gpu', `Dawn 落在软件适配器上（${adapter.vendor} ${adapter.description}），会很慢`, '检查 NVIDIA 驱动与 Vulkan ICD');
