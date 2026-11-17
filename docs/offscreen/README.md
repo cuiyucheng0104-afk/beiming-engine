@@ -241,7 +241,14 @@ TSL 版与现有 GLSL 版在同一量级（KR 6–8 差在 ±15% 内，两边计
 
 **未支持**（遇到抛 `Error`，`code` 为 `unsupported.look` / `unsupported.paper` / `unsupported.outline`，渲染目标原样还原）：雾（`fog`）；`debug` 视图；色调映射（`renderer.toneMapping` 不是 `NoToneMapping`，与风格锁定一致）；纸纹的 `scaleMode`、`anchor`、每帧换图（`tex` / `url`）。**没做的**：在 Node 里把 `assets/plates/paper.png` 解码成 `DataTexture` 并算 `mid`（风格锁定的纸纹是这张图；调用方解码后经 `paper: { tex, mid }` 交进来，图片纸纹的像素模式已用合成图对拍过）；真实镜头（卡通材质、实例化等）上的对拍，留给 T5。
 
-### 7.8 快速复查
+### 7.8 M3：Canvas 2D 与几何桥
+
+M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头两步：
+
+- **Canvas 2D**（`engine/offscreen/canvas.mjs`，可选依赖 `@napi-rs/canvas` 1.1.1，Skia）：`loadCanvas()` 给 `createCanvas`；`loadFilmFonts(dir)` 读作品的字体子集清单 `fonts.json` 并按字族名注册，返回值与浏览器版 `engine/style/fonts.js` 相同（两边共用 `fontsOf`），缺字同样抛 `GlyphError`。woff2 子集可以直接注册，`letterSpacing` 可用。**字形与 Chrome 不逐像素相同**：同一段片名（Ma Shan Zheng 110 px，`北冥渡`）墨量差 2%，PSNR 29.9 dB，差 5 级以上的像素 3.2%，全在字形边缘（两边的抗锯齿与字形微调不同）。片名题字的对拍只能到这个量级；QA 的读字与安全区检查用文字框，不受影响。
+- **几何桥**（`engine/offscreen/bridge.mjs`）：`engine/form` 的造型函数顶层 import 了 r170，几何按属性拷进 r187 即可复用（数组共用内存，自定义属性、索引、分组、`userData` 都带过去）。相机工具 `engine/stage/camera.js` 直接操作 r187 的相机就行，不需要桥。所以离屏侧只需要换着色层。
+
+### 7.9 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080

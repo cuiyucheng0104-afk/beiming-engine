@@ -18,6 +18,7 @@
 - 离屏出片的 TSL 版 Kuwahara 笔触（`engine/offscreen/tsl/kuwahara.js`；T2b 起支持 `far` 深度换半径，与 GLSL 对拍 PSNR 61 dB、最大差 1 级，并验证了 `pass()` 深度纹理的约定）：与 `engine/look/kuwahara.js` 的 GLSL 在同一张合成输入上对拍，PSNR 约 61 dB、最大差 1 级；对拍的参考侧助手 `tests/offscreen/glsl-reference.mjs` 可复用于后续的墨线与合成。
 - 离屏出片的 TSL 版 ID 通道与屏幕空间墨线（`engine/offscreen/tsl/idpass.js`、`engine/offscreen/tsl/ink.js`，`engine/look/{ids,ink}.js` 的子集）：同一个场景与 GLSL 在无头 Chrome 里对拍，三组用例逐字节相同或最大差 1 级；ID 语义只覆盖不透明 Mesh 的 outline / outlineWidth / outlineAlpha / outlineGroup 与实心遮挡，其余（实例化、蒙皮、镂空、soft / own 遮挡等）抛 `unsupported.outline`，不静默画错。
 - 离屏出片的 A 风格后期链（`engine/offscreen/tsl/{bloom,grade,paper,compose,look}.js`，`engine/look/index.js` 的对应）：bloom、调色、输出变换、Kuwahara、墨线、纸纹（程序化与图片）、暗角、颗粒按同一个顺序串起来，参数合并复用 `engine/look/index.js` 的纯函数；同一场景、风格锁定的真实参数下与 GLSL 在无头 Chrome 里对拍，三组用例最大差 1 级。雾、debug 视图、纸纹 scaleMode / anchor 抛 `unsupported.*`，不静默画错。
+- 离屏出片 M3 起步：Node 里的 Canvas 2D（`engine/offscreen/canvas.mjs`，新增可选依赖 `@napi-rs/canvas` 1.1.1，字体子集注册与缺字报错同浏览器版）与几何桥（`engine/offscreen/bridge.mjs`，`engine/form` 的造型直接拷进 r187）；`engine/style/fonts.js` 抽出 `fontsOf` 供两边共用。
 - 三条路线的模版仓库结构：`routes/README.md` 是总指引；A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）、C（北冥代码动画风格 · 86 式）各有一份路线手册和一个可直接出片的模版。`node tools/new-film.mjs <a|b|c> <名字>` 从模版新建作品到 `films/<名字>/`。
 - 导演与画面规范 `routes/directing/`：导演方法、画面设计、五章工艺，以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
 - 工业级交付基线决策 `docs/decisions/2026-11-10-industrial-baseline.md`（D01–D11）。

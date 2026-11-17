@@ -118,6 +118,7 @@
     "globals": "17.14.0"
   },
   "optionalDependencies": {
+    "@napi-rs/canvas": "1.1.1",
     "three-webgpu": "npm:three@0.187.0",
     "webgpu": "0.6.2"
   }
