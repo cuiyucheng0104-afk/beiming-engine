@@ -24,12 +24,12 @@ const pictureSource = ctx => ctx.art.video || ctx.art.master || ctx.art.animatic
 
 export const web = {
   id: 'web', title: '网页版（H.264 High@4.1，BT.709 tv）',
-  key: ctx => ctx.hashJson({ step: 'web@1', src: ctx.fileHash(pictureSource(ctx)), master: ctx.fileHash(ctx.art.master), fps: ctx.fps, ffmpeg: ctx.tools.ffmpeg }),
+  key: ctx => ctx.hashJson({ step: 'web@1', src: ctx.fileHash(pictureSource(ctx)), master: ctx.fileHash(ctx.art.master), fps: ctx.fps, ffmpeg: ctx.tools.ffmpeg, ...(ctx.opts.encoder && ctx.opts.encoder !== 'x264' ? { encoder: ctx.opts.encoder } : {}) }),
   outputs: () => ({ web: 'web.mp4' }),
   async run(ctx) {
     const src = pictureSource(ctx);
     const info = await ctx.media.probe(ctx.exec, src, { count: false });
-    await ctx.media.encodeWeb(ctx.exec, { src, srcInfo: info, audioFrom: ctx.art.master, out: path.join(ctx.run.dir, 'web.mp4'), fps: ctx.fps, logFile: ctx.logFile('web'), timeoutSec: ctx.opts.timeout || 1800 });
+    await ctx.media.encodeWeb(ctx.exec, { src, srcInfo: info, audioFrom: ctx.art.master, out: path.join(ctx.run.dir, 'web.mp4'), fps: ctx.fps, encoder: ctx.opts.encoder, logFile: ctx.logFile('web'), timeoutSec: ctx.opts.timeout || 1800 });
     return { from: ctx.rel(src), colorIn: info.color };
   },
 };

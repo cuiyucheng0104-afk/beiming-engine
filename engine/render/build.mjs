@@ -178,7 +178,7 @@ const cuecheck = {
 
 const OFFSCREEN_CLI = path.resolve(R('.'), '../offscreen/cli.mjs');
 const offscreenEntry = ctx => path.join(ctx.film.dir, 'offscreen.mjs');
-const offscreenArgs = ctx => ['render', offscreenEntry(ctx), '--frames', `0:${ctx.frames}`, '--size', sizeArg(ctx), '--fps', String(ctx.fps), ...queryArgs(ctx)];
+const offscreenArgs = ctx => ['render', offscreenEntry(ctx), '--frames', `0:${ctx.frames}`, '--size', sizeArg(ctx), '--fps', String(ctx.fps), ...(ctx.opts.encoder ? ['--encoder', ctx.opts.encoder] : []), ...queryArgs(ctx)];
 // 离屏出片（--renderer offscreen）：同画幅、同帧率、同查询串，产物同样是 work/video.mp4，后面的封装、网页版、QA 不变。
 // 帧数、画幅、帧率照样核对；GPU 记 Dawn 报告的适配器。
 async function offscreenVideo(ctx) {
@@ -197,7 +197,8 @@ async function offscreenVideo(ctx) {
   if (Math.abs(info.fps - ctx.fps) > 1e-6) bad.push(`帧率 ${info.fpsRaw}（应为 ${ctx.fps}）`);
   if (bad.length) ctx.fail(4, 'video-contract', `离屏视频与作品描述不符：${bad.join('、')}`, '看 logs/video.log');
   ctx.gpu = gpu;
-  return { gpu, renderer: 'offscreen', frames: info.frames, color: info.color, pixFmt: info.pixFmt, encoder: ctx.media.encoderInfo(out), args: offscreenArgs(ctx) };
+  const encoder = ctx.media.encoderInfo(out) || (ctx.opts.encoder === 'nvenc' ? 'h264_nvenc · preset p5 · cq 18' : null);
+  return { gpu, renderer: 'offscreen', frames: info.frames, color: info.color, pixFmt: info.pixFmt, encoder, args: offscreenArgs(ctx) };
 }
 
 const video = {

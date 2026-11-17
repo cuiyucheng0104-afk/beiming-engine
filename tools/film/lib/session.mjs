@@ -314,9 +314,10 @@ function encoderOf(ctx) {
   if (ctx.kind === 'stills' || ctx.kind === 'render') return ctx.art.frames ? 'JPEG q92（engine/render/still.mjs 截图）' : null;
   const v = ctx.meta.video?.encoder;
   if (!v) return null;
+  const src = ctx.meta.video?.renderer === 'offscreen' ? 'engine/offscreen/cli.mjs' : 'engine/render/video.mjs';
   const mux = ctx.meta.mux;
-  if (!mux || ctx.kind === 'animatic') return `${v}（engine/render/video.mjs）`;
-  return mux.videoCopied ? `${v}（engine/render/video.mjs；封装时画面逐位复制）` : `${v}（video.mjs）→ ${mux.encoder || 'libx264'}（封装时重编码）`;
+  if (!mux || ctx.kind === 'animatic') return `${v}（${src}）`;
+  return mux.videoCopied ? `${v}（${src}；封装时画面逐位复制）` : `${v}（${src}）→ ${mux.encoder || 'libx264'}（封装时重编码）`;
 }
 
 // 复现命令：从仓库根照抄就能重跑（POSIX 单引号；PowerShell 下单引号同样是字面量）

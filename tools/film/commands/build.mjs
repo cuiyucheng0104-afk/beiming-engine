@@ -23,6 +23,7 @@ const COMMON = {
   '--profile': { type: 'string', arg: '<档位>', help: '交付档位（默认 film.json 的 output.profile）' },
   '--workers': { type: 'int', min: 1, max: 32, arg: '<n>', help: '页面渲染并行路数（默认 4）' },
   '--renderer': { type: 'enum', values: ['page', 'offscreen'], arg: '<page|offscreen>', help: 'A、C 路线画面用谁渲：page 无头 Chrome（默认）；offscreen Node + Dawn，渲作品目录的 offscreen.mjs（作品要是双实现，见 docs/offscreen/README.md 7.11）' },
+  '--encoder': { type: 'enum', values: ['x264', 'nvenc'], arg: '<x264|nvenc>', help: '视频编码器：x264（默认）或 nvenc（NVIDIA 硬件编码；逐帧渲染选 nvenc 需配 --renderer offscreen，网页版均可）' },
   '--size': { type: 'string', arg: '<宽x高>', help: '改画幅出工作版：不是交付件，不跑交付 QA（只核对规格）；不能与 --final 同用' },
   '--query': { type: 'string', arg: '<k=v>', help: '原样传给页面的查询串' },
   '--audio': { type: 'string', arg: '<none|x.wav|x.py>', help: '覆盖 film.json 的声音：none、现成混音或声音脚本' },
@@ -153,6 +154,9 @@ export async function runBuild(kind, opts, positionals, command = kind) {
   checkStepName(steps, opts.to, '--to');
   const ids = steps.map(s => s.id);
   if (opts.from && opts.to && ids.indexOf(opts.to) < ids.indexOf(opts.from)) throw new FilmError(EXIT.USAGE, 'step-order', `--to ${opts.to} 在 --from ${opts.from} 之前`, `步骤顺序：${ids.join(' → ')}`);
+  if (opts.encoder === 'nvenc' && plan.film.route !== 'b' && opts.renderer !== 'offscreen' && ids.includes('video') && (!opts.from || ids.indexOf(opts.from) <= ids.indexOf('video'))) {
+    throw usage('--encoder nvenc 在渲染画面时要配 --renderer offscreen（页面渲染器 video.mjs 只用 x264）', '加 --renderer offscreen，或只重编网页版用 assemble --encoder nvenc');
+  }
 
   // 闸门在开运行目录之前判：拒绝终渲时不留任何产物
   let gateBasis = null, waived = null;
