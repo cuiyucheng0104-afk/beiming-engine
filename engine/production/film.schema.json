@@ -11,7 +11,7 @@
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "作品 id，与作品目录名相同" },
     "title": { "type": "string", "minLength": 1, "description": "片名（不含 \" \\ ` < > 与换行）" },
     "route": { "enum": ["a", "b", "c"], "description": "路线注册表 id：a 北冥风格路线 · WebGL 三渲二，b 北冥原生 · BNE，c 北冥代码动画风格 · 86 式；别名 beiming / raea / a-webgl / b-native / c-style 能读但会提示" },
-    "backend": { "enum": ["three", "native", "canvas", "svg", "dom", "webgl"], "description": "a 用 three；b 用 native；c 用 canvas / svg / dom / three / webgl" },
+    "backend": { "enum": ["three", "webgpu", "native", "canvas", "svg", "dom", "webgl"], "description": "a 用 three / webgpu；b 用 native；c 用 canvas / svg / dom / three / webgl / webgpu" },
     "entry": { "type": "string", "description": "入口（相对作品目录）：a / c 默认 index.html，b 默认 native.entry 或 film.tsx" },
     "output": {
       "type": "object",

@@ -14,9 +14,9 @@ import { join } from 'node:path';
 import { REPO_ROOT, readJsonFile } from './io.js';
 
 export const BUILTIN_ROUTES = Object.freeze([
-  Object.freeze({ id: 'a', slug: 'a-webgl', brand: '北冥风格路线 · WebGL 三渲二', legacyId: 'beiming', backends: Object.freeze(['three']), manual: 'routes/a-webgl/README.md', renderer: 'page' }),
+  Object.freeze({ id: 'a', slug: 'a-webgl', brand: '北冥风格路线 · WebGL 三渲二', legacyId: 'beiming', backends: Object.freeze(['three', 'webgpu']), manual: 'routes/a-webgl/README.md', renderer: 'page' }),
   Object.freeze({ id: 'b', slug: 'b-native', brand: '北冥原生 · BNE', legacyId: 'raea', backends: Object.freeze(['native']), manual: 'routes/b-native/README.md', renderer: 'native' }),
-  Object.freeze({ id: 'c', slug: 'c-style', brand: '北冥代码动画风格 · 86 式', legacyId: null, backends: Object.freeze(['canvas', 'svg', 'dom', 'three', 'webgl']), manual: 'routes/c-style/README.md', renderer: 'page' }),
+  Object.freeze({ id: 'c', slug: 'c-style', brand: '北冥代码动画风格 · 86 式', legacyId: null, backends: Object.freeze(['canvas', 'svg', 'dom', 'three', 'webgl', 'webgpu']), manual: 'routes/c-style/README.md', renderer: 'page' }),
 ]);
 
 /** 后端的旧写法：ProjectSpec v1 把原生执行写成 raea。 */

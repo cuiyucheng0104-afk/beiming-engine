@@ -149,13 +149,18 @@ export async function runBuild(kind, opts, positionals, command = kind) {
   // 任何一项不过都在这里退出（2 / 4），review/ 里不会多出记录，也不建运行目录
   const o = { workers: 4, gpu: 'required', ...opts };
   const plan = planSession({ kind, filmArg: positionals[0], opts: o });
+  if (o.renderer === undefined && plan.film.backend === 'webgpu' && plan.film.route !== 'b') o.renderer = 'offscreen';
   const steps = stepsFor({ film: plan.film, kind });
   checkStepName(steps, opts.from, '--from');
   checkStepName(steps, opts.to, '--to');
   const ids = steps.map(s => s.id);
   if (opts.from && opts.to && ids.indexOf(opts.to) < ids.indexOf(opts.from)) throw new FilmError(EXIT.USAGE, 'step-order', `--to ${opts.to} 在 --from ${opts.from} 之前`, `步骤顺序：${ids.join(' → ')}`);
-  if (opts.encoder === 'nvenc' && plan.film.route !== 'b' && opts.renderer !== 'offscreen' && ids.includes('video') && (!opts.from || ids.indexOf(opts.from) <= ids.indexOf('video'))) {
+  if (o.encoder === 'nvenc' && plan.film.route !== 'b' && o.renderer !== 'offscreen' && ids.includes('video') && (!opts.from || ids.indexOf(opts.from) <= ids.indexOf('video'))) {
     throw usage('--encoder nvenc 在渲染画面时要配 --renderer offscreen（页面渲染器 video.mjs 只用 x264）', '加 --renderer offscreen，或只重编网页版用 assemble --encoder nvenc');
+  }
+  if (o.renderer === 'offscreen' && plan.film.route !== 'b' && ids.includes('video') && (!opts.to || ids.indexOf(opts.to) >= ids.indexOf('video'))) {
+    const entry = path.join(plan.film.dir, 'offscreen.mjs');
+    if (!fs.existsSync(entry)) throw new FilmError(EXIT.USAGE, 'usage.no-offscreen-entry', `离屏渲染需要作品目录里有 offscreen.mjs：${rel(entry)} 不存在`, '作品要写成双实现（见 docs/offscreen/README.md 7.11）；只用页面渲染可加 --renderer page');
   }
 
   // 闸门在开运行目录之前判：拒绝终渲时不留任何产物

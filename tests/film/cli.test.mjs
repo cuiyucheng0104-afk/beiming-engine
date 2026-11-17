@@ -170,6 +170,26 @@ test('film plan：B 路线没有估算接口，用法错误（退出码 2）并�
   assert.deepEqual(fs.readdirSync(w.dir).sort(), before);
 });
 
+test('D12 backend=webgpu：check 通过；build 默认走 offscreen（无需显式 --renderer 即可接 --encoder nvenc，--renderer page 仍拒绝 nvenc）', () => {
+  const w = makeWork('c');
+  works.push(w);
+  const fj = path.join(w.dir, 'film.json');
+  const raw = JSON.parse(fs.readFileSync(fj, 'utf8'));
+  raw.backend = 'webgpu';
+  fs.writeFileSync(fj, `${JSON.stringify(raw, null, 2)}\n`);
+
+  // 1) --renderer page --encoder nvenc 仍按页面渲染器拒绝
+  const pageNvenc = runCli(['build', w.rel, '--renderer', 'page', '--encoder', 'nvenc', '--json']);
+  assert.equal(pageNvenc.code, 2);
+  assert.equal(pageNvenc.json?.error?.code, 'usage.bad-usage');
+
+  // 2) 不写 --renderer 时默认走 offscreen：不会被「页面渲染器只用 x264」拦下，而是在开运行目录前直接检查 offscreen.mjs
+  const autoOff = runCli(['build', w.rel, '--encoder', 'nvenc', '--json']);
+  assert.equal(autoOff.code, 2);
+  assert.equal(autoOff.json?.error?.code, 'usage.no-offscreen-entry', autoOff.stderr);
+  assert.ok(!fs.existsSync(path.join(w.dir, 'out')), '用法错误不建运行目录');
+});
+
 test('仓库卫生：上面这些命令跑完，除了测试作品自己，工作区没有多出任何改动', () => {
   const st = gitStatus(works.map(w => w.rel));
   if (st === null) return;   // 不是 git 检出

@@ -95,7 +95,7 @@ flowchart TD
 | `schemaVersion` | 整数，起始 1 | 配置结构版本；未知版本拒绝自动解释 |
 | `projectId` | 稳定字符串 | 与临时输出名分离；用于镜头和资产记录 |
 | `route` | 路线注册表 id：`a` / `b` / `c`（旧值 `beiming` = a、`raea` = b，目录名 `a-webgl` / `b-native` / `c-style` 也认） | 创作路线，不从后端倒推；注册表 `routes/routes.json`，缺省内置三条 |
-| `backend` | a：`three`；b：`native`（旧写法 `raea`）；c：`canvas` / `svg` / `dom` / `three` / `webgl` | 当前执行路径；a 的风格搬到原生执行（a + native）需标明风格迁移状态 |
+| `backend` | a：`three` / `webgpu`；b：`native`（旧写法 `raea`）；c：`canvas` / `svg` / `dom` / `three` / `webgl` / `webgpu` | 当前执行路径；a 的风格搬到原生执行（a + native）需标明风格迁移状态 |
 | `entry` | 仓库相对文件路径 | A / C 为作品目录的 `index.html`，B 为原生入口 TSX |
 | `runtime` | 版本对象 | Three/浏览器或 RAEA 包版本；另记源码提交 |
 | `output` | 宽高、fps、frameCount | 时间总长由整数帧推导；H.264 yuv420p 的宽高为偶数 |
