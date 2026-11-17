@@ -13,6 +13,8 @@
 // 屏幕坐标：WebGPU 是左上角原点，GLSL 版的 gl_FragCoord 是左下角。边缘检测对翻转对称；笔画的域扭曲噪声按坐标取值，这里把 y 翻回 GL 约定，
 // 这样同一帧同一参数下笔画与 A 路线逐点一致。
 import { createIdPass } from './idpass.js';
+import { noise } from './noise.js';
+import { createFullscreen, glCoord } from './pass.js';
 
 // 墨线沸腾的种子：boilHold（整数 ≥ 1）按帧，否则按 boilFps。与 engine/look/ink.js 的 boilSeed 同一个公式（tests/offscreen/ink.test.mjs 对拍）。
 // 不直接 import 它：那个文件顶层 import 了仓库的 three r170，会和离屏用的 r187 同时装进一个进程。
@@ -25,7 +27,7 @@ export function boilSeed(t, p, fps = 24) {
 }
 
 export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
-  const { Fn, If, Loop, float, int, uint, vec2, vec4, ivec2, uniform, texture, screenCoordinate, floor, fract, max, mix, clamp, abs, select, smoothstep, length,
+  const { Fn, If, Loop, float, int, uint, vec2, vec4, ivec2, uniform, texture, screenCoordinate, floor, max, mix, clamp, abs, select, smoothstep, length,
     perspectiveDepthToViewZ, orthographicDepthToViewZ } = TSL;
 
   const NEAREST = { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter };
@@ -33,7 +35,7 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
   const edge = new THREE.RenderTarget(LW, LH, { type: THREE.HalfFloatType, depthBuffer: false, ...NEAREST });
   const line = new THREE.RenderTarget(LW, LH, { type: THREE.UnsignedByteType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
   const idPass = createIdPass({ THREE, TSL, renderer });
-  const quad = new THREE.QuadMesh();
+  const fx = createFullscreen({ THREE, renderer });
 
   const idTex = texture(idTarget.texture), depthTex = texture(idTarget.depthTexture), edgeTex = texture(edge.texture);
   const mx = ivec2(LW - 1, LH - 1);
@@ -76,19 +78,7 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     return select(valid, vec4(strength, hw, gap, 1), vec4(0));
   })();
 
-  // 整数哈希（PCG，Jarzynski & Olano 2020）与五次插值的值噪声：与 engine/look/glsl.js 的 HASH_NOISE 逐式相同
-  const pcgh = Fn(([v]) => {
-    const s = v.mul(uint(747796405)).add(uint(2891336453));
-    const w = s.shiftRight(s.shiftRight(uint(28)).add(uint(4))).bitXor(s).mul(uint(277803737));
-    return w.shiftRight(uint(22)).bitXor(w);
-  });
-  const h21 = Fn(([p, seed]) => float(pcgh(uint(p.x).add(pcgh(uint(p.y).add(seed))))).mul(1 / 4294967295));
-  const vnoise = Fn(([x, seed]) => {
-    const i = floor(x), f = fract(x), ii = ivec2(i);
-    const u = f.mul(f).mul(f).mul(f.mul(f.mul(6).sub(15)).add(10));
-    const a = h21(ii, seed), b = h21(ii.add(ivec2(1, 0)), seed), c = h21(ii.add(ivec2(0, 1)), seed), d = h21(ii.add(ivec2(1, 1)), seed);
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-  });
+  const { vnoise } = noise(TSL);
 
   // 笔画：以边缘像素为圆心画圆头笔，查找坐标做低频域扭曲；SR = 搜索半径（编译期常量，按需要编译几个变体）
   const strokeMats = new Map();
@@ -96,7 +86,7 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     if (strokeMats.has(SR)) return strokeMats.get(SR);
     const m = new THREE.NodeMaterial();
     m.fragmentNode = Fn(() => {
-      const c = vec2(screenCoordinate.x, float(LH).sub(screenCoordinate.y));   // 与 gl_FragCoord 同约定（左下角原点）
+      const c = glCoord(TSL, LH);   // 与 gl_FragCoord 同约定（左下角原点）
       const sd = uint(U.seed).mul(uint(7919)).add(uint(13));
       const a = c.div(U.warp), b = c.div(U.warp.mul(0.31));
       const q = c.add(vec2(vnoise(a, sd), vnoise(a.add(31.7), sd.add(uint(1)))).mul(2).sub(1).mul(U.wobble))
@@ -119,8 +109,6 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     return m;
   };
 
-  const draw = (material, target) => { quad.material = material; renderer.setRenderTarget(target); quad.render(renderer); };
-
   function render({ scene, camera, p, t, k = 1, ss = 1, fps = 24 }) {
     const prev = renderer.getRenderTarget();
     try {
@@ -129,12 +117,12 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
       const hw = p.width * 0.5 * k * ss;
       U.halfW.value = hw; U.depthThr.value = p.depthThreshold; U.inner.value = p.inner; U.sil.value = p.silhouette; U.opacity.value = p.opacity;
       U.wd.value.set(p.near, p.far, p.farScale);
-      draw(edgeMaterial, edge);
+      fx.draw(edgeMaterial, edge);
       const widest = hw * maxWidth * Math.max(1, p.farScale ?? 1) * Math.max(1, p.inner ?? 1) * (1 + Math.max(0, p.pressure ?? 0));
       const R = Math.min(Math.max(8, Math.min(16, Math.ceil(8 * k))), Math.max(2, Math.ceil(widest + 1)));
       U.wobble.value = p.wobble * k * ss; U.warp.value = p.warp * k * ss; U.pressure.value = p.pressure; U.breakup.value = p.breakup;
       U.seed.value = boilSeed(t, p, fps);
-      draw(strokeMaterial(R), line);
+      fx.draw(strokeMaterial(R), line);
     } finally { renderer.setRenderTarget(prev); }
   }
 

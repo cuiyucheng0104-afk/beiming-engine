@@ -17,6 +17,7 @@
 - 离屏出片可选 NVENC 编码：`offscreen render` 与 `offscreen:bench` 加 `--encoder x264|nvenc`（默认 x264，码流不变；nvenc 用 h264_nvenc 恒定质量 `--cq`，色彩换算与 BT.709 标记相同）。同码率下 NVENC 平均低约 2 dB，终渲母版仍走 x264；4 部并发 1080p 带编码实测中位数约 71 对 126 帧/秒（单机、有波动，详见 `docs/offscreen/README.md` 7.4）。
 - 离屏出片的 TSL 版 Kuwahara 笔触（`engine/offscreen/tsl/kuwahara.js`；T2b 起支持 `far` 深度换半径，与 GLSL 对拍 PSNR 61 dB、最大差 1 级，并验证了 `pass()` 深度纹理的约定）：与 `engine/look/kuwahara.js` 的 GLSL 在同一张合成输入上对拍，PSNR 约 61 dB、最大差 1 级；对拍的参考侧助手 `tests/offscreen/glsl-reference.mjs` 可复用于后续的墨线与合成。
 - 离屏出片的 TSL 版 ID 通道与屏幕空间墨线（`engine/offscreen/tsl/idpass.js`、`engine/offscreen/tsl/ink.js`，`engine/look/{ids,ink}.js` 的子集）：同一个场景与 GLSL 在无头 Chrome 里对拍，三组用例逐字节相同或最大差 1 级；ID 语义只覆盖不透明 Mesh 的 outline / outlineWidth / outlineAlpha / outlineGroup 与实心遮挡，其余（实例化、蒙皮、镂空、soft / own 遮挡等）抛 `unsupported.outline`，不静默画错。
+- 离屏出片的 A 风格后期链（`engine/offscreen/tsl/{bloom,grade,paper,compose,look}.js`，`engine/look/index.js` 的对应）：bloom、调色、输出变换、Kuwahara、墨线、纸纹（程序化与图片）、暗角、颗粒按同一个顺序串起来，参数合并复用 `engine/look/index.js` 的纯函数；同一场景、风格锁定的真实参数下与 GLSL 在无头 Chrome 里对拍，三组用例最大差 1 级。雾、debug 视图、纸纹 scaleMode / anchor 抛 `unsupported.*`，不静默画错。
 - 三条路线的模版仓库结构：`routes/README.md` 是总指引；A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）、C（北冥代码动画风格 · 86 式）各有一份路线手册和一个可直接出片的模版。`node tools/new-film.mjs <a|b|c> <名字>` 从模版新建作品到 `films/<名字>/`。
 - 导演与画面规范 `routes/directing/`：导演方法、画面设计、五章工艺，以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
 - 工业级交付基线决策 `docs/decisions/2026-11-10-industrial-baseline.md`（D01–D11）。

@@ -39,6 +39,9 @@
 - 测试：两个相交方块 + 一个同组部件 + 一个不描边遮挡物，验证「同组不出内部线、近的一侧拥有这条线、boilHold 帧内不动」；再与 A 参考帧对拍。
 
 ### T4 纸纹 / 调色 / 合成对齐
+
+> **T4 已完成**（范围比原计划大：加了 bloom 与把整条链串起来的 `look.js`，因为风格锁定的默认参数里 bloom 是开着的）：`engine/offscreen/tsl/{bloom,grade,paper,compose,look}.js`，整链对拍三组最大差 1 级，详见 [README 7.7](README.md)。**没做**：雾、debug 视图、纸纹的 scaleMode / anchor、Node 里解码 `paper.png`；这些在 T5 用到时再补。
+
 - 把 M1 演示里的简化纸纹换成与 `engine/look/paper.js`、`grade.js` 相同的参数与顺序（墨色叠加 color/tint/darken 在合成步）。
 - 测试：同一组参数下合成结果对拍。
 

@@ -201,7 +201,47 @@ TSL 版与现有 GLSL 版在同一量级（KR 6–8 差在 ±15% 内，两边计
 
 **没做**：雾里变淡（`fogFade`，GLSL 版在 fog = null 时也是 0）；与真实镜头的对拍（要等 T4 的合成与 T5 的真片）。
 
-### 7.7 快速复查
+### 7.7 A 风格后期链（M2 T4）
+
+`engine/offscreen/tsl/look.js` 把 `engine/look/index.js` 的后期链按同一个顺序在 TSL 里串起来：主场景（HalfFloat、带深度）→ 墨线（7.6）→ bloom → 调色 → 输出变换（线性 → sRGB 数值）→ Kuwahara（远处换半径，7.5）→ 叠墨线 → 纸纹 → 暗角 →（颗粒）。各道是独立模块：`tsl/{bloom,grade,paper,compose}.js`，共用 `tsl/{noise,pass,color}.js`。参数合并、默认值与种子直接用 `engine/look/index.js` 导出的纯函数（`lookDefaults`、`lookParams`、`grainCellOf`、`grainSeedOf`），语义不另抄一份，风格锁定的 `lookDefaults.params` 原样可用。
+
+用法：`const look = createLook({ THREE, TSL, renderer }, { width, height, ss: 2, msaa: 0, defaults, paper })`；每帧 `look.render(scene, camera, { t, ...每帧参数 })` 画中间缓冲，`pipeline(look.output).render()` 出最终画面。`look.node` 是与 GLSL 版写进目标的字节一致的 sRGB 数值，`look.output` 是它过了 `sRGBTransferEOTF` 的版本：宿主的渲染目标本身是 sRGB 的，直接交 `look.node` 会被编码两次。这一来一回在 8 位上至多差 1 级，是宿主目标约定带来的，不是算法差异。
+
+**一致性**：同一个场景（7.6 的 `ink-scene`），风格锁定 `beiming-original.v1` 的真实参数，GLSL 在无头 Chrome 的 WebGL 里跑 `createLook`（msaa 0），TSL 在 Dawn 里跑，320×180、ss = 2：
+
+| 用例 | PSNR | 最大差 | 大差像素 |
+|---|---|---|---|
+| 风格锁定的真实参数（曝光 1.6，程序化纸纹） | 60.4 dB | 1 级 | 0 |
+| 全部旋钮（调色各字段、墨线色与吸收、Kuwahara 远近换半径、bloom、纸纹放大、暗角、颗粒 size 3 / holdFrames 2） | 60.7 dB | 1 级 | 0 |
+| 图片纸纹（合成的 64×64 纸纹图，scale 1.5） | 60.4 dB | 1 级 | 0 |
+
+逐级开关时（各阶段单独打开，调试时测的）：调色 / 暗角 / 颗粒 / 墨线 / Kuwahara / 纸纹 / bloom 各自的最大差都是 1 级。负对照：bloom 关掉、调色改了、纸纹强度改了、墨线关掉、暗角改了，质量门都过不了。变异检查：去掉高光肩，PSNR 31.6 dB；纸齿浮雕光向反了，31.0 dB；图片纸纹不翻 v，33.5 dB；纤维取非转置，最大差 3（只靠「最大差在舍入范围内」那条断言抓住），测试都变红。
+
+**踩到的两个坑**（写在这里，下一个写 TSL 的人别再踩）：
+- TSL 里 `toVar()` 与 `Loop` 要在 `Fn(() => …)()` 里才生效；用普通箭头函数包着，循环累加出来全是 0，而且不报错。
+- 把 256 个节点连加成一棵表达式树，WGSL 解析器会报 `maximum parser recursive depth reached`；用 `Loop` 累加。
+
+**坐标约定**：纸纹与颗粒按 `gl_FragCoord`（左下角原点）取值，这里用 `glCoord` 翻回 GL 约定；纸纹纹理的行序是自上而下，取样时 v 翻成 1 - v，所以图片纸纹要给「图片的行序（自上而下）」的 `DataTexture`。bloom 是半分辨率的光晕图，调色里按 UV 双线性取样，不能按全分辨率像素 `load`。
+
+**程序化纸纹的中性点**：GLSL 版把整幅纸纹的均值读回 CPU；离屏的读回是异步的，所以在 GPU 里求平均（16×16 的 8 位目标，每格 8×8 个点，再平均到 1×1 的浮点目标），节点直接读它。实测 0.5057，CPU 对同一张图是 0.5063，差异在对拍的 1 级之内。
+
+**MSAA**：`msaa` 默认 0（A 路线默认 4）。msaa = 4 能出画面、深度与墨线照常工作，与 msaa 0 的差只在边缘（PSNR 37.7 dB，最大差 137，1285 个大差像素）；两边 MSAA 的采样位置与解析不保证相同，所以逐字节对拍都用 msaa = 0，msaa = 4 没有与 A 路线对拍过。
+
+**耗时**（1080p、风格锁定的参数、整条链含读回，在途 3 帧，同上那台机器）：
+
+| 配置 | fps |
+|---|---|
+| ss = 2、msaa 0（A 路线的默认超采样） | 63–65 |
+| ss = 2、msaa 4 | 68 |
+| ss = 1、msaa 0 | 193 |
+| ss = 2、关 Kuwahara | 75 |
+| ss = 2、关墨线 | 214 |
+
+墨线在 ss = 2 时是大头（4K 的缓冲，7.6），Kuwahara 约占 15%。只量了 TSL，没有量同场景的 GLSL 版。
+
+**未支持**（遇到抛 `Error`，`code` 为 `unsupported.look` / `unsupported.paper` / `unsupported.outline`，渲染目标原样还原）：雾（`fog`）；`debug` 视图；色调映射（`renderer.toneMapping` 不是 `NoToneMapping`，与风格锁定一致）；纸纹的 `scaleMode`、`anchor`、每帧换图（`tex` / `url`）。**没做的**：在 Node 里把 `assets/plates/paper.png` 解码成 `DataTexture` 并算 `mid`（风格锁定的纸纹是这张图；调用方解码后经 `paper: { tex, mid }` 交进来，图片纸纹的像素模式已用合成图对拍过）；真实镜头（卡通材质、实例化等）上的对拍，留给 T5。
+
+### 7.8 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080
