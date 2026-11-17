@@ -1,6 +1,6 @@
-# 离屏出片（offscreen）：设计与第一个里程碑
+# 离屏出片（offscreen）：设计与实测记录
 
-读者｜做引擎工程、要把新作品改到离屏出片的人与 agent　状态｜第一个里程碑实验入口（2026-11-17，未接入正式出片链）　依据｜[决定书 D12](../decisions/2026-11-10-industrial-baseline.md)
+读者｜做引擎工程、要把新作品改到离屏出片的人与 agent　状态｜M1–M3 已完成（2026-11-18）：已接入 `npm run film -- --renderer offscreen [--encoder nvenc]`，A 路线模版双实现验收片《晨渡》三道闸已认可　依据｜[决定书 D12](../decisions/2026-11-10-industrial-baseline.md)
 
 **一句话**：A、C 的新作品用 three.js r187 的 WebGPURenderer 与 TSL 写成**作品模块**；同一份模块在 Chrome 的 WebGPU 里预览，在 Node + Dawn 里离屏出片，出片不经过浏览器。旧作品与 86 式风格库照旧走页面渲染器（`engine/render`）。
 
@@ -284,6 +284,10 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 
 整片的对拍因此不拿 M1 的门判通过：工具照 M1 报告、退出码 4，上面四类写在这里；离屏成片能不能交付，看它过不过出片链的机器 QA 门与用户的三道闸。
 
+**离屏终渲与三道闸**（RTX 4070 Laptop，1920×1080 · 192 帧 / 8 秒）：
+- `x264` 终渲（`20261117-191141-3e5a0a70`）：纯离屏渲染 + x264 编码 14.29 秒（稳态 14.8 fps），`video` 步骤 20.12 秒，无缓存整条 `film build` 53.96 秒；机器 QA 门 38 项通过、注意 2 项（与页面版相同）。look 认可、animatic 用户豁免、final 认可（用户原话均记入 `films/chendu/review/`），该运行已标为 `accepted`。
+- 全 GPU `nvenc` 终渲（`20261117-192931-5d363c7a`，`--renderer offscreen --encoder nvenc --final`）：纯离屏渲染 + `h264_nvenc`（High@L4.0）9.73 秒（稳态 22.2 fps，提速 32%），`video` 步骤 11.65 秒，`web.mp4`（High@L4.1）1.45 秒，整条终渲总墙钟 35.15 秒（其中机器 QA 12.73 秒）；机器 QA 门同样通过。
+
 **对拍查出的两个真问题**（都已修）：
 - 卡通材质的 uniform 冻在第一帧（7.9 的坑）：先渲第 96 帧再渲第 120 帧，第 120 帧的皴线与层理就不对。
 - **片名的高低随机器的系统字体变——A 路线模版本身的问题**：`title.js` 逐字画进画布时用 `textBaseline = 'middle'`；作品的字体子集不含空格，Chrome 算 `middle` 用「能覆盖空格的主字体」，落到后备的 sans-serif 上，所以片名的竖直位置取决于这台机器的 sans-serif 度量（本机比按片名字体自己的度量高 9 px@540）。Skia 按片名字体算，两边因此差了 9 px。《晨渡》的 `title.js` 改成 alphabetic 基线 + 按字形自己的墨迹外框居中，两边一致（单独画片名逐像素同外框），代价是《晨渡》页面上的片名比模版原样低几像素（有意改动）。**路线模版没改**（受金标准基线保护，改像素要走 POLICY 审批）。
@@ -296,6 +300,7 @@ npm run offscreen:compare -- lab/offscreen/ink.mjs --frames 0,14,30,40,191 --siz
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080 --encode
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 4 --frames 480 --size 1920x1080 --encode --encoder nvenc
+npm run film -- build films/chendu --renderer offscreen --encoder nvenc
 ```
 
 只执行仓库内受信作品模块，不是任意代码沙箱；以后对外服务必须加独立的任务参数校验与执行隔离。上述命令输出技术实验结果，不表示已通过 `film --final` 或用户交付认可。

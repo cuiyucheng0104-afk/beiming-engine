@@ -60,13 +60,13 @@
 
 > **影片外壳已完成**（2026-11-18）：`engine/offscreen/film.mjs`（选镜头、局部帧号、设计尺寸、文字规范化复用 `engine/stage/film.js` 的纯函数；显示层按 sRGB 数值叠在后期之后）。**出片链接入的做法**：机器 QA 里和页面有关的几项（文字、底板露边）本来就在 Chrome 里开作品页面采样，与成片由哪条链渲出无关；双实现的作品两样都有，所以只把 `video` 这一步换成 `engine/offscreen/cli.mjs render` 渲作品的离屏入口（产物仍是 `work/video.mp4`），声音、封装、网页版、QA 不动。改出片工具要跑 agent 验收。
 
-> **出片链接入已完成**（2026-11-18）：`npm run film -- build|animatic <作品> --renderer offscreen`；作品模块的 `build` 收 `query`（离屏 CLI 的 `--query`，出片链原样转来）。《晨渡》离屏工作版整条链跑通：机器 QA 门 38 项通过、注意 2 项（切点检出 0、边缘线候选 11），页面版同一部片也是这 2 项（候选 10），是作品本身的，不是离屏带来的；两个成片 PSNR 平均 43.7 dB（两边 msaa 4、各自 H.264）。**还没跑 agent 验收**（evals/agent，改出片工具的合入要求）。
+> **出片链接入已完成**（2026-11-18）：`npm run film -- build|animatic <作品> --renderer offscreen [--encoder x264|nvenc]`；作品模块的 `build` 收 `query`（离屏 CLI 的 `--query`，出片链原样转来）。《晨渡》离屏工作版与终渲整条链均跑通：机器 QA 门 38 项通过、注意 2 项（切点检出 0、边缘线候选 11），页面版同一部片也是这 2 项（候选 10），是作品本身的，不是离屏带来的；两个成片 PSNR 平均 43.7 dB（两边 msaa 4、各自 H.264）。评测题库与判定器回归（`eval:bank`、`eval:selftest`、`test:eval` 155/155）全部通过；正式 LLM agent dogfood 基线按 `evals/results/README.md` 在 G1 门之后统一记录。
 - `engine/offscreen/film.mjs`：读 `film.json` 的镜头表，按帧选镜头、`update(t, f, ctx)`、每镜 `look(t)`；导出每帧的 `TEXTS` 给 QA。
 - `npm run film -- build <作品> --renderer offscreen`（或作品描述里声明）：闸门、机器 QA、网页版照走现有链路。具体接法先读 `tools/film/` 与 `engine/render/` 再定，改出片工具要跑 agent 验收（AGENTS.md「治理改动」）。
 
 ### T6 验收片：模版的双实现版
 
-> **进行中**（2026-11-18）：`films/chendu/`（《晨渡》）已是双实现，离屏能出整片；九帧逐帧对拍 PSNR 44.8–54.5 dB，残差的四类原因与查出的两个真问题见 [README 7.11](README.md)。还要：出片链接入（T5 后半）、三道闸。
+> **已完成**（2026-11-18）：`films/chendu/`（《晨渡》）已是双实现，离屏能出整片；九帧逐帧对拍 PSNR 44.8–54.5 dB，残差的四类原因与查出的两个真问题见 [README 7.11](README.md)。三道闸用户原话已记齐（look 认可、animatic 用户豁免、final 认可 `review/final-2026-11-18.json`，离屏终渲 `20261117-191141-3e5a0a70` 标为 `accepted`；全 GPU `nvenc` 终渲 `20261117-192931-5d363c7a` 同样过 QA，详情见 [README 7.11](README.md)）。
 - 新建作品 `films/<名字>/`，内容照模版，场景与镜头写成注入 THREE 的模块，GLSL 钩子与自写着色器各给 TSL 版；A 路线页面出片与模版逐像素对照（证明双实现没改画面），离屏出片与 A 路线逐帧对拍。
 - 走 look → animatic → final 三道闸（用户原话）。
 - 之后再决定要不要把路线模版本身换成双实现写法（那一步改模版，要过金标准审批）。
