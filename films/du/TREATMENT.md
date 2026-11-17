@@ -103,4 +103,4 @@
 已输出：终渲 `out/20261117-155648-7ce8fd44/`（master、web、播放页、海报、联系表），离屏对照片 `offscreen.mp4`（同目录）。
 技术检查：`film check` 通过；确定性（9 帧 × 新页面 / 乱序 / 顺序）逐像素一致；`audio:qa`、`audio:cuecheck` 通过；终渲机器 QA 门 38 项通过、注意 0 项；
 离屏对 A 路线（msaa 0、无损）10 帧对拍 PSNR 57.7–58.2 dB 全部过 M1 质量门；两个成片（msaa 4、各自 H.264）PSNR 平均 44.6 dB、最低 43.4 dB。
-用户认可：look、animatic、final 三道闸已认可（原话见 §21）；`film status` 显示已交付（用户已认可）。
+闸门记录：look、animatic、final 三道闸都记了用户原话（`review/`，原话见 §21），终渲运行 `20261117-155648-7ce8fd44` 在出片机上标为 accepted；运行记录在 `out/` 里、不入库，干净检出里 `film status` 读不到它，以出片机上的 `npm run film -- status films/du` 为准。

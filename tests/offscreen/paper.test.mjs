@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { loadPaper } from '../../engine/offscreen/paper.mjs';
 import { encodePng } from '../../tools/plates/png.mjs';
@@ -25,13 +26,13 @@ test('loadPaper：行序、中性点、平铺与过滤', () => {
 });
 
 test('loadPaper：风格锁定的 assets/plates/paper.png 中性点在 0.5 附近', () => {
-  const p = loadPaper(THREE, new URL('../../assets/plates/paper.png', import.meta.url).pathname);
+  const p = loadPaper(THREE, fileURLToPath(new URL('../../assets/plates/paper.png', import.meta.url)));
   assert.deepEqual([p.width, p.height], [1024, 1024]);
   assert.ok(Math.abs(p.mid - 0.5) < 0.02, `mid ${p.mid}`);
 });
 
 test('loadPaper：文件不存在或不是 PNG 时抛 contract.paper，message 带路径', () => {
-  for (const f of ['/nonexistent/paper.png', new URL(import.meta.url).pathname]) {
+  for (const f of ['/nonexistent/paper.png', fileURLToPath(import.meta.url)]) {
     assert.throws(() => loadPaper(THREE, f), e => e.code === 'contract.paper' && e.message.includes(f));
   }
 });
