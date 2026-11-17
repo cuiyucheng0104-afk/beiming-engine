@@ -112,6 +112,7 @@ export const command = defineCommand({
     fps: { type: 'integer', default: 24, arg: '<n>', describe: '帧率（默认 24）' },
     inflight: { type: 'integer', default: 3, arg: '<n>', describe: '同时在途的读回帧数（默认 3；不改变成片）' },
     encoder: { type: 'string', default: 'x264', choices: ['x264', 'nvenc'], arg: '<名字>', describe: '编码器（默认 x264；nvenc 走显卡，快一倍多，画质略低，母版不建议）' },
+    'pix-fmt': { type: 'string', default: 'rgba', choices: ['rgba', 'yuv420p'], arg: '<格式>', describe: '读回与管道像素格式（默认 rgba；yuv420p 在 GPU 侧转有限范围 BT.709，省 62.5% 读回与 CPU swscale）' },
     crf: { type: 'integer', default: 14, arg: '<n>', describe: 'x264 crf（默认 14，与页面渲染器相同）' },
     cq: { type: 'integer', default: 18, arg: '<n>', describe: 'nvenc 恒定质量 cq（默认 18，数字小画质高）' },
     query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（同页面的 location.search，不带 ?；出片链的 --query 与预演的 previs=1 原样转来）' },
@@ -195,12 +196,13 @@ export const command = defineCommand({
       fs.rmSync(partial, { force: true });
       host.dispose();
     });
+    const pixFmt = ctx.opts['pix-fmt'] || 'rgba';
     const work = await host.load(a.file);
-    enc = startEncoder({ width: a.width, height: a.height, fps: a.fps, out: partial, crf: ctx.opts.crf, preset: ctx.opts.preset, encoder: ctx.opts.encoder, cq: ctx.opts.cq });
+    enc = startEncoder({ width: a.width, height: a.height, fps: a.fps, out: partial, crf: ctx.opts.crf, preset: ctx.opts.preset, encoder: ctx.opts.encoder, cq: ctx.opts.cq, pixFmt });
     const total = a.to - a.from, hashes = [];
     const t1 = process.hrtime.bigint();
     await renderFrames({
-      host, work, from: a.from, to: a.to, inflight: a.inflight,
+      host, work, from: a.from, to: a.to, inflight: a.inflight, format: pixFmt,
       onFrame: async (f, px) => {
         hashes.push(sha16(px));
         await enc.write(px);
@@ -216,7 +218,7 @@ export const command = defineCommand({
     undo();
     host.dispose();
     const data = {
-      frames: total, from: a.from, to: a.to, width: a.width, height: a.height, fps: a.fps,
+      frames: total, from: a.from, to: a.to, width: a.width, height: a.height, fps: a.fps, pixFmt,
       seconds: +seconds(t0).toFixed(2), renderFps: +(total / renderS).toFixed(1), adapter, frameHashes: hashes,
     };
     ctx.out(`完成 ${repoRel(a.out).startsWith('..') ? a.out : repoRel(a.out)}  ${total} 帧（${a.from}–${a.to - 1}）  ${a.width}×${a.height} ${a.fps} fps  ${data.seconds}s（渲染+编码 ${data.renderFps} 帧/秒）`);

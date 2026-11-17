@@ -155,7 +155,7 @@ test('stills 与 probe：输出无损 PNG 静帧、核对逐帧哈希、只读�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('film check 与 film stills 闭环：纯 backend=webgpu 作品不经浏览器即可通过 check、出静帧与联系表、二次运行命中缓存', { skip: noEncode, timeout: 180000 }, () => {
+test('film check 与 film stills 闭环：纯 backend=webgpu 作品不经浏览器即可通过 check、出静帧与联系表、二次运行命中缓存', { skip: noEncode, timeout: 180000 }, t => {
   mkdirSync(join(ROOT, 'out'), { recursive: true });
   const filmDir = mkdtempSync(join(ROOT, 'out/offscreen-webgpu-film-'));
   const outRoot = tmp();
@@ -184,6 +184,7 @@ test('film check 与 film stills 闭环：纯 backend=webgpu 作品不经浏览�
     assert.ok(cj.data.checks.some(c => c.id === 'offscreen' && c.status === 'pass' && c.hasTexts === true));
 
     const s1 = runFilm(['stills', filmDir, '--frames', '0,24', '--size', '320x180', '--out-root', outRoot, '--json']);
+    if (s1.status === 3) return t.skip(`环境缺 Python 3.12 锁（film stills 联系表需要）：${s1.stderr.trim().split('\n')[0]}`);
     assert.equal(s1.status, 0, s1.stderr);
     const j1 = JSON.parse(s1.stdout);
     assert.equal(j1.data.rendered, 2);
