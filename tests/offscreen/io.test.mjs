@@ -78,14 +78,14 @@ test('io.mjs 路径与 JSON/字节读取：URL、仓库根路径与相对路径�
   assert.deepEqual(byRoot, byRel);
   assert.deepEqual(byUrl, byRel);
 
-  const subRef = joinRef('assets/paper', 'xuan_256.png');
+  const subRef = joinRef('assets/plates', 'paper.png');
   const b1 = await readBytes(subRef);
-  const b2 = await readBytes(new URL('assets/paper/xuan_256.png', REPO_URL));
+  const b2 = await readBytes(new URL('assets/plates/paper.png', REPO_URL));
   assert.equal(b1.byteLength, b2.byteLength);
 });
 
 test('decodeRgbaPng 与 tools/plates/png.mjs 逐字节一致，坏文件抛错', async () => {
-  const paperBytes = await readBytes('assets/paper/xuan_256.png');
+  const paperBytes = await readBytes('assets/plates/paper.png');
   const ref = refDecodePlatePng(Buffer.from(paperBytes));
   const gotSync = decodeRgbaPngSync(paperBytes);
   const gotAsync = await decodeRgbaPng(paperBytes);
