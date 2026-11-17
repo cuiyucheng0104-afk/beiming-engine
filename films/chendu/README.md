@@ -1,13 +1,17 @@
 # 晨渡
 
-北冥风格路线 · WebGL 三渲二的作品，由 `routes/a-webgl/template` 复制而来。路线手册：[routes/a-webgl/README.md](../../routes/a-webgl/README.md)（「参考作品」一节逐条写了这个模版示范了哪条工艺）。
+北冥风格路线 · WebGL 三渲二的 8 秒样片（两个镜头），由 A 路线模版建，是离屏出片 M3 的验收片（`docs/offscreen/plan-m3.md`）。同一部片两边都能出：
 
-出片（在仓库根目录，按顺序；每道闸停下来请用户看，原话用 `npm run film -- review approve <闸> films/chendu --quote … --source … --reviewer …` 记）：
+- A 路线页面：`index.html` + `main.js`（页面独有：查询参数、剪影检查、构图参考线、预演时间条）+ `rt-page.js`（three r170、GLSL 卡通材质）
+- 离屏出片：`offscreen.mjs`（Node + Dawn，three r187、TSL）
+- 两边共用：`story.js`（事件、字体核对、镜头、片名显示层、TEXTS）、`world.js`（`makeWorld(rt)`：色指定、材质、造型、水面、太阳；手写着色各给 GLSL 与 TSL 两份）、`shots/*.js`、`title.js`
+- `tools/compare.mjs`：两边逐帧对拍（页面无损截图对离屏帧，msaa 0）
 
-1. 字体子集（改了 `film.json` 的 `texts` 就重跑；缺字直接失败）：`node tools/fonts/subset.mjs films/chendu`
-2. 只读检查：`npm run film -- check films/chendu`
-3. 风格关键帧（look 闸）：`npm run film -- stills films/chendu`；自查构图与剪影再加 `--query guides=1`、`--query sil=1` 各出一组
-4. 动态预演（animatic 闸）：`npm run film -- animatic films/chendu`
-5. 终渲（声音 → 逐帧 → 封装 → 网页版 → 机器 QA）：`npm run film -- build films/chendu --final`；不加 `--final` 是不查闸门的工作版
+```sh
+npm run film -- check films/chendu
+npm run film -- stills films/chendu
+node films/chendu/tools/compare.mjs --frames 0,40,71,72,90,96,120,150,191
+npm run offscreen -- render films/chendu/offscreen.mjs --out films/chendu/out/offscreen.mp4 --frames 0:192 --size 1920x1080 --fps 24
+```
 
-改哪里：`film.json`（时长、镜头表、事件、文字、字体、画风预设）→ `world.js`（色指定、材质与皴、主体、水面、太阳）→ `shots/*.js`（每镜的机位、底板、运动）→ `main.js`（片名与副标题的版式和节奏）→ `sound.py`（声音）。`out/` 不提交；`fonts/`、`review/` 随作品提交。
+与模版原样的差别：片名逐字按字形自己的墨迹外框居中（模版用 `textBaseline = 'middle'`，高低随机器的系统字体变，见 docs/offscreen/README.md 7.11）。`out/` 不提交。

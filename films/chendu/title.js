@@ -21,8 +21,11 @@ export function createTitle({ text, font, size, x, y, ls = 0.08, color = [42, 45
   for (const [i, ch] of chars.entries()) {
     const cv = document.createElement('canvas'); cv.width = cv.height = S;
     const c = cv.getContext('2d', { willReadFrequently: true });
-    c.font = font; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff';
-    c.fillText(ch, S / 2, S / 2);
+    // 按这个字自己的墨迹外框竖直居中（alphabetic 基线 + actualBoundingBox），不用 textBaseline 'middle'：本片的字体子集不含空格，
+    // Chrome 算 'middle' 用的是「能覆盖空格的主字体」——落到后备的 sans-serif 上，片名高低就随机器的系统字体变（模版原来的写法有这个问题）
+    c.font = font; c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillStyle = '#fff';
+    const mt = c.measureText(ch);
+    c.fillText(ch, S / 2, S / 2 + (mt.actualBoundingBoxAscent - mt.actualBoundingBoxDescent) / 2);
     const src = c.getImageData(0, 0, S, S).data, n = S * S;
     const inside = new Uint8Array(n); for (let k = 0; k < n; k++) inside[k] = src[k * 4 + 3] > 96 ? 1 : 0;
     const dt = chamfer(inside, S, S);

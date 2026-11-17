@@ -16,7 +16,7 @@ import { aimCamera, dirOf, project, placeOnScreen } from '../../engine/stage/cam
 import { mulberry, lerp, DEG } from '../../engine/core/math.js';
 
 export function makeWorld(rt) {
-  const { THREE, toonKind, makeToonShared, setToonShared, patchLayer, geo } = rt;
+  const { THREE, TSL, toonKind, makeToonShared, setToonShared, patchLayer, geo } = rt;
   const { canvasLayer } = rt.P;
 
   // ───────── 色指定（只用画风 beiming-original@v1 的色板与它的规则；明度用 OKLab L 核对过，见手册） ─────────
@@ -72,6 +72,29 @@ export function makeWorld(rt) {
       toonInk = max( toonInk, max( cun * 0.7, strata * 0.62 ) );
       diffuseColor.rgb *= mix( 0.86, 1.04, smoothstep( 0.0, 0.85, hf ) ) * ( 1.0 - 0.06 * strata );   // 山脚近水更深一点，山顶迎天更亮一点；裂隙里略暗
     }`,
+    // TSL 版（离屏）：同一段皴与层理，逐式照搬；反向的 smoothstep（下沿大于上沿）写成公式，不靠编译器对「未定义」的处理
+    tsl: TSL && {
+      fragmentAlbedo(c) {
+        const { attribute, normalGeometry, float, vec3, abs, atan, fract, floor, max, mix, smoothstep, fwidth, normalize, clamp } = TSL;
+        const ssr = (e0, e1, x) => { const t = clamp(x.sub(e0).div(float(e1).sub(e0)), 0, 1); return t.mul(t).mul(float(3).sub(t.mul(2))); };
+        const N = c.noise.noise, rock = attribute('aRock', 'vec4'), ink = c.u.uInkTime;
+        const hf = rock.x, up = normalize(normalGeometry).y;
+        const ang = atan(rock.z, rock.y).div(6.2831853);
+        const steep = ssr(0.55, 0.2, abs(up));
+        const f = ang.mul(10).add(N(vec3(hf.mul(4), rock.w.mul(7), ink.mul(0.37))).mul(0.45)).add(N(c.obj.mul(0.05)).mul(0.3));
+        const dd = fract(f.add(0.5)).sub(0.5), fw = max(fwidth(f), 1e-4);
+        const cun = float(1).sub(smoothstep(float(0.1).sub(fw), float(0.1).add(fw), abs(dd))).mul(steep).mul(smoothstep(0.04, 0.16, hf))
+          .mul(smoothstep(-0.15, 0.3, N(vec3(ang.mul(36), hf.mul(7), rock.w.add(ink.mul(0.11))))))
+          .mul(float(1).sub(smoothstep(0.1, 0.32, fw)));
+        const sy = c.obj.y.div(fract(rock.w.mul(13.7)).mul(3).add(8)).add(N(vec3(ang.mul(5), rock.w.mul(3), 0)).mul(0.55)).add(N(vec3(ang.mul(23), hf.mul(2), ink.mul(0.21))).mul(0.12));
+        const sd = fract(sy.add(0.5)).sub(0.5), sw = max(fwidth(sy), 1e-4);
+        const strata = float(1).sub(smoothstep(float(0.07).sub(sw), float(0.07).add(sw), abs(sd))).mul(steep).mul(smoothstep(0.06, 0.18, hf)).mul(float(1).sub(smoothstep(0.92, 1, hf)))
+          .mul(smoothstep(0.05, 0.35, N(vec3(ang.mul(9), floor(sy).mul(1.7), rock.w))))
+          .mul(float(1).sub(smoothstep(0.12, 0.35, sw)));
+        c.ink.assign(max(c.ink, max(cun.mul(0.7), strata.mul(0.62))));
+        c.diffuse.mulAssign(mix(float(0.86), float(1.04), smoothstep(0, 0.85, hf)).mul(float(1).sub(strata.mul(0.06))));
+      },
+    },
   };
   const ROCK = {
     color: PAL.rockLit, shade1: PAL.rockShade1, shade2: PAL.rockShade2,
@@ -99,7 +122,9 @@ export function makeWorld(rt) {
       uniforms: { uTrunk: { value: new THREE.Color(PAL.trunk) } },
       vertexPars: 'attribute float aPart;\nvarying float vPart;\n', vertexBegin: 'vPart = aPart;',
       fragmentPars: 'varying float vPart;\nuniform vec3 uTrunk;\n',
-      fragmentBase: 'diffuseColor.rgb = mix( uTrunk, diffuseColor.rgb, step( 0.5, vPart ) );' }),
+      fragmentBase: 'diffuseColor.rgb = mix( uTrunk, diffuseColor.rgb, step( 0.5, vPart ) );',
+      tsl: TSL && { uniforms: { uTrunk: TSL.uniform(new THREE.Color(PAL.trunk)) },
+        fragmentBase: c => c.diffuse.assign(TSL.mix(c.u.uTrunk, c.diffuse, TSL.step(0.5, TSL.attribute('aPart', 'float')))) } }),
   };
   // 日出过渡：受光侧边缘光从晨前的弱亮边推到逆光的亮边（色彩脚本第二段，由 film.json 的日出事件驱动；只经 setToon 的 sunUp 调用）
   function sunrise(k) {
@@ -222,8 +247,11 @@ export function makeWorld(rt) {
     float star = glint * exp(-r * r * 2.5) * (exp(-abs(d.y) * 55.) + exp(-abs(d.x) * 55.) * .45);   // 冲顶那一下的光芒
     gl_FragColor = vec4((color * disc * 3.2 + halo * (corona * 1.8 + h) + mix(halo, color, .5) * star * 3.5) * amt, 1.);
   }`;
+  // TSL 版的面片材质：colorNode 交给调用方算；uniforms 挂在 material.uniforms 上，镜头照样 mat.uniforms.amt.value = …
+  const nodeMat = (U, color, o) => { const m = new THREE.MeshBasicNodeMaterial({ toneMapped: false, fog: false, ...o }); m.colorNode = color; m.uniforms = U; return m; };
+  const tU = vals => Object.fromEntries(Object.entries(vals).map(([k, v]) => [k, TSL.uniform(v)]));
   function sunDisc({ order = 0.6 } = {}) {
-    const mat = new THREE.ShaderMaterial({
+    const mat = TSL ? sunDiscTSL() : new THREE.ShaderMaterial({
       uniforms: { color: { value: new THREE.Color(PAL.sunCore) }, halo: { value: new THREE.Color(PAL.sun) }, amt: { value: 1 }, glint: { value: 0 }, rd: { value: 0.2 } },
       vertexShader: SUN_VS, fragmentShader: SUN_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
     });
@@ -240,8 +268,27 @@ export function makeWorld(rt) {
     float a = amt * (exp(-r * r * 4.5) * .75 + exp(-r * r * 18.) * .25) * (1. - smoothstep(.85, 1., r));
     gl_FragColor = vec4(mix(inner, outer, smoothstep(.05, .7, r)), a);
   }`;
+  function sunDiscTSL() {   // SUN_FS 逐式
+    const { uv, length, exp, abs, max, mix, smoothstep, vec4, float } = TSL;
+    const U = tU({ color: new THREE.Color(PAL.sunCore), halo: new THREE.Color(PAL.sun), amt: 1, glint: 0, rd: 0.2 });
+    const d = uv().sub(0.5).mul(2), r = length(d), r2 = r.mul(r);
+    const disc = float(1).sub(smoothstep(U.rd.sub(0.02), U.rd.add(0.006), r));
+    const q = max(r.sub(U.rd), 0).div(0.09);
+    const corona = exp(q.mul(q).negate()).mul(float(1).sub(disc));
+    const h = exp(r2.mul(-9)).mul(0.55).add(exp(r2.mul(-40)).mul(0.9));
+    const star = U.glint.mul(exp(r2.mul(-2.5))).mul(exp(abs(d.y).mul(-55)).add(exp(abs(d.x).mul(-55)).mul(0.45)));
+    const col = U.color.mul(disc).mul(3.2).add(U.halo.mul(corona.mul(1.8).add(h))).add(mix(U.halo, U.color, 0.5).mul(star).mul(3.5)).mul(U.amt);
+    return nodeMat(U, vec4(col, 1), { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  }
+  function sunGlazeTSL() {   // GLAZE_FS 逐式
+    const { uv, length, exp, mix, smoothstep, vec2, vec4, float } = TSL;
+    const U = tU({ inner: new THREE.Color(PAL.sunGlazeIn), outer: new THREE.Color(PAL.sunGlazeOut), amt: 0, squash: 1.15 });
+    const d0 = uv().sub(0.5).mul(2), d = vec2(d0.x, d0.y.mul(U.squash)), r = length(d), r2 = r.mul(r);
+    const a = U.amt.mul(exp(r2.mul(-4.5)).mul(0.75).add(exp(r2.mul(-18)).mul(0.25))).mul(float(1).sub(smoothstep(0.85, 1, r)));
+    return nodeMat(U, vec4(mix(U.inner, U.outer, smoothstep(0.05, 0.7, r)), a), { transparent: true, depthWrite: false });
+  }
   function sunGlaze({ order = 0.55 } = {}) {
-    const mat = new THREE.ShaderMaterial({
+    const mat = TSL ? sunGlazeTSL() : new THREE.ShaderMaterial({
       uniforms: { inner: { value: new THREE.Color(PAL.sunGlazeIn) }, outer: { value: new THREE.Color(PAL.sunGlazeOut) }, amt: { value: 0 }, squash: { value: 1.15 } },
       vertexShader: SUN_VS, fragmentShader: GLAZE_FS, transparent: true, depthWrite: false, toneMapped: false,
     });
@@ -277,6 +324,7 @@ export function makeWorld(rt) {
     L.shadow.mapSize.set(2048, 2048);
     Object.assign(L.shadow.camera, { left: -150, right: 150, top: 170, bottom: -40, near: 100, far: 1400 });
     L.shadow.bias = -0.0004; L.shadow.normalBias = 1.2;
+    rt.prepLight?.(L);   // 离屏：主光的投影滤波换成与 r170 PCFSoft 同式（engine/offscreen/tsl/toon.js 的 useR170Shadow）
     return L;
   }
 
@@ -347,9 +395,64 @@ export function makeWorld(rt) {
     #include <colorspace_fragment>
   }`;
   // sky：天空底板贴图（loadPlate 读的那张）；skyRect：它在起始机位下摆在设计稿上的矩形 [左, 上, 宽, 高]（与 placeOnScreen 同一组数）
+  // 水面的 TSL 版：WATER_FS 逐式。屏幕坐标用 screenUV（左上原点，与 GLSL 里 vClip 换算出的 px 同义）；峰的倒影把 GLSL 循环里的 continue 写成按条件取 0。
+  // 太阳倒影里的 pow((az − 方位) / 宽, 2.) 底数可能为负（GLSL 里「未定义」，实际编译成平方），这里直接写平方。
+  function waterTSL({ sky, skyRect, DW, DH, flip }) {
+    const { Fn, positionWorld, screenUV, texture, vec2, vec3, vec4, float, fract, floor, dot, mix, smoothstep, length, max, pow, exp, clamp, atan, select } = TSL;
+    const U = tU({ uNear: new THREE.Color(PAL.waterNear), uMid: new THREE.Color(PAL.waterMid), uFar: new THREE.Color(PAL.waterFar), uSun: new THREE.Color(PAL.sun),
+      uCam: new THREE.Vector3(), uRefCol: new THREE.Color(PAL.reflect), uTime: 0, uSunAz: 0, uSunUp: 0, uSeed: 0.37, uHeld: 0, uSkyFlip: flip,
+      uSkyRect: new THREE.Vector4(...skyRect), uView: new THREE.Vector3(DW, DH, DH * 0.7) });
+    const colorNode = Fn(() => {   // toVar / assign 要在 Fn 里才生效（不在 Fn 里不报错、只是什么也不写）
+      const vW = positionWorld;
+      const h21 = p0 => { const p = fract(p0.mul(vec2(123.34, 456.21)).add(U.uSeed)).toVar(); p.addAssign(dot(p, p.add(45.32))); return fract(p.x.mul(p.y)); };
+      const vn = p => { const i = floor(p), f = fract(p), u = f.mul(f).mul(float(3).sub(f.mul(2)));
+        return mix(mix(h21(i), h21(i.add(vec2(1, 0))), u.x), mix(h21(i.add(vec2(0, 1))), h21(i.add(vec2(1, 1))), u.x), u.y); };
+      const d = vW.sub(U.uCam), dist = length(d.xz);
+      const k = smoothstep(80, 4500, dist);
+      const body = mix(U.uNear, U.uMid, smoothstep(0, 0.6, k));
+      const r1 = vn(vec2(vW.x.mul(0.004), vW.z.mul(0.06).add(U.uTime.mul(0.1))));
+      const r2 = vn(vec2(vW.x.mul(0.018).add(7), vW.z.mul(0.22).sub(U.uTime.mul(0.25))));
+      const r3 = vn(vec2(vW.x.mul(0.045).add(3), vW.z.mul(0.5).add(U.uHeld.mul(1.7))));
+      const px = screenUV.mul(vec2(U.uView.x, U.uView.y));
+      const below = max(0, px.y.sub(U.uView.z)), wob = r2.sub(0.5).mul(0.8).add(r3.sub(0.5).mul(0.7));
+      const my = U.uView.z.sub(below.mul(float(1).add(wob.mul(0.45).mul(float(1).sub(k.mul(0.6)))))), mx = px.x.add(r3.sub(0.5).mul(16).mul(float(1).sub(k)));
+      const suv0 = vec2(mx.sub(U.uSkyRect.x).div(U.uSkyRect.z), float(1).sub(my.sub(U.uSkyRect.y).div(U.uSkyRect.w)));
+      const suv = vec2(select(U.uSkyFlip.greaterThan(0.5), float(1).sub(suv0.x), suv0.x), suv0.y);
+      const skyC = texture(sky, clamp(suv, vec2(0.002), vec2(0.998))).rgb;
+      const fr = mix(0.38, 0.88, smoothstep(0, 0.65, k));
+      const col = mix(body, skyC.mul(mix(vec3(0.74, 0.72, 0.88), vec3(0.94, 0.93, 0.98), k)), fr).toVar();
+      const lite = smoothstep(0.7, 0.88, r1.mul(0.45).add(r2.mul(0.55))).mul(smoothstep(0.4, 0.7, r3));
+      const dark = smoothstep(0.64, 0.86, float(1).sub(r1.mul(0.55).add(r2.mul(0.45)))).mul(smoothstep(0.3, 0.6, r3));
+      const fade = float(1).sub(k.mul(0.7));
+      col.assign(mix(col, mix(U.uMid, U.uFar, 0.55).mul(1.12), lite.mul(0.4).mul(fade)));
+      col.assign(mix(col, body.mul(0.82), dark.mul(0.38).mul(fade)));
+      // 峰的倒影：A = (x, z, 可见高, 底半径)，B = (斜 x, 斜 z, 没入水下的深度)，与 GLSL 版的 uRefA / uRefB 同一组数
+      const u2 = vW.xz.sub(U.uCam.xz), refl = float(0).toVar();
+      PEAKS.forEach((p, i) => {
+        const A = vec4(ISLET.x + p.at[0], ISLET.z + p.at[2], p.H + p.at[1], p.Rb), B = vec3(p.lean[0], p.lean[1], -p.at[1]);
+        const s0 = dot(A.xy.sub(vW.xz), u2).div(dot(u2, u2));
+        const h = s0.mul(U.uCam.y).add(B.z).div(A.z.add(B.z));
+        const ax = A.xy.add(B.xy.mul(A.z.add(B.z)).mul(h).mul(h));
+        const r = A.w.mul(pow(max(0, float(1).sub(pow(max(h, 0), 1.85))), 0.6)).mul(1.06);
+        const jit = r3.sub(0.5).mul(0.9).add(vn(vec2(vW.z.mul(0.45).add(i * 7.1), U.uHeld.mul(3.7))).sub(0.5).mul(0.6)).mul(r).mul(float(1).sub(h).mul(0.6).add(0.3));
+        const dd = length(vW.xz.add(u2.mul(s0)).sub(ax)).add(jit);
+        const v = float(1).sub(smoothstep(r.mul(0.8), r.mul(1.02), dd)).mul(float(1).sub(h.mul(0.35)));
+        refl.assign(max(refl, select(s0.greaterThan(0).and(h.lessThanEqual(1)), v, float(0))));
+      });
+      col.assign(mix(col, U.uRefCol, refl.mul(float(1).sub(lite.mul(0.8))).mul(0.8)));
+      // 太阳倒影：方位接近太阳的一条竖带，近宽远窄，碎成横向的闪；日出后才亮
+      const az = atan(d.x, d.z.negate());
+      const q = az.sub(U.uSunAz).div(float(0.005).add(float(1).sub(k).mul(0.05)));
+      const band = exp(q.mul(q).negate());
+      const glit = smoothstep(0.48, 0.78, vn(vec2(vW.x.mul(0.06), vW.z.mul(0.55).add(U.uTime.mul(0.9))))).mul(smoothstep(0.3, 0.6, r3));
+      col.addAssign(U.uSun.mul(band).mul(glit.mul(1.15).add(0.22)).mul(U.uSunUp).mul(k.mul(0.45).add(0.55)));
+      return vec4(col, 1);
+    })();
+    return nodeMat(U, colorNode, {});
+  }
   function buildWater({ sky, skyRect, DW, DH }) {
     const flip = sky.repeat.x < 0 ? 1 : 0;
-    const mat = new THREE.ShaderMaterial({
+    const mat = TSL ? waterTSL({ sky, skyRect, DW, DH, flip }) : new THREE.ShaderMaterial({
       uniforms: {
         uNear: { value: new THREE.Color(PAL.waterNear) }, uMid: { value: new THREE.Color(PAL.waterMid) }, uFar: { value: new THREE.Color(PAL.waterFar) },
         uSun: { value: new THREE.Color(PAL.sun) }, uCam: { value: new THREE.Vector3() }, uRefCol: { value: new THREE.Color(PAL.reflect) },

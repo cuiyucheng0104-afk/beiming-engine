@@ -253,14 +253,14 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 
 `engine/offscreen/tsl/toon.js` 是 `engine/shade/toon.js` 的对应：同一个 `toonKind(spec) → { make, bind, shared }`，参数表 `TOON_BASE`、乘法色调 `tintFrom`、共享状态的写法 `setToonShared` 直接用 GLSL 版导出的，光照合成逐式照搬（三档分色、两道羽化与 fwidth 抗锯齿、交界线噪声、天空冷光、两档补光、两层边缘光与 rimCore 亮芯撕边、墨色、叠加色）。表面层 `tsl/surface.js` 目前只有 `patchLayer`。作品同一份 opts 交给两边：GLSL 钩子写字符串，TSL 版写在 `opts.tsl = { fragmentBase(c), fragmentAlbedo(c), uniforms }` 里，钩子读写 `c.diffuse`、`c.ink`、`c.overlay`，顶点属性直接用 `attribute('aRock')` 取（不需要 GLSL 那样先写 varying）。
 
-**实现方式**：材质继承 `NodeMaterial`、开 `lights`，挂自定义光照模型：`direct()` 逐盏平行光记下方向与阴影量，`finish()` 按 r170 的规则选主光（第一盏投影光，没有就取第一盏平行光）后整套合成，直接改写 `outgoingLight`（r187 先把各项反射光加总进它、再调 `finish`）。场景里没有灯时 r187 不走光照模型，`setupOutgoingLight` 按 GLSL 版用 `uKeyDirW`。同一份材质可以放进不同镜头的场景，跟着各自的主光走。
+**实现方式**：材质继承 `NodeMaterial`、开 `lights`，挂自定义光照模型：`direct()` 逐盏平行光记下方向与阴影量，`finish()` 按 r170 的规则选主光（第一盏投影光，没有就取第一盏平行光），写进属性节点 `toonL`、`toonAtt`，把 `outgoingLight` 置 0（r187 先把各项反射光加总进它、再调 `finish`）；整套合成是 `make()` 时建好的节点，`setupLighting` 把它接在光照输出后面。场景里没有灯时 r187 不走光照模型，`setupOutgoingLight` 交出另一份用 `uKeyDirW`、不接投影的合成（同 GLSL 版）。同一份材质可以放进不同镜头的场景，跟着各自的主光走。
 
-**投影**：主光先 `useR170Shadow(TSL, light)`，滤波照搬 r170 的 `PCFSoftShadowMap`（4 个整纹素 + 12 个按小数位置插值的取样，深度比较最近邻）；渲染器要设 `shadowMap.type = PCFSoftShadowMap`（`PCFShadowMap` 时 r187 会给深度比较开硬件过滤）。投影量化 `smoothstep(shadowLo, shadowHi)` 在材质里做，只在 `shadow.intensity = 1` 时与 GLSL 版相同（不是 1 抛错）。
+**投影**：主光先 `useR170Shadow(TSL, light)`，滤波照搬 r170 的 `PCFSoftShadowMap`（4 个整纹素 + 12 个按小数位置插值的取样，深度比较最近邻）；r187 已删掉 `PCFSoftShadowMap`（设了会被换成 `PCFShadowMap` 并打一条警告），用 `PCFShadowMap` 即可：这时深度纹理开了硬件比较过滤，但照搬的取样点都先对齐到纹素中心，双线性权重是 1/0/0/0，等于逐纹素比较。投影量化 `smoothstep(shadowLo, shadowHi)` 在材质里做，只在 `shadow.intensity = 1` 时与 GLSL 版相同（不是 1 抛错）。
 
 **一致性**（480×270，后期全关，同一个场景：显式三档色与乘法色调、rimCore、斑块表面层、带两个钩子的柱子）：不带投影、无灯、换墨线时钟、带主光投影，四组都是 PSNR 68.5–68.6 dB、最大差 1 级、大差像素 0。反例：改分档阈值、去掉亮芯、钩子的墨线时钟不同、锈斑量不同、投影量化窗口不同、关掉投影压档，都过不了质量门。换成 r187 默认的阴影滤波（Vogel 圆盘 + 逐像素旋转）PSNR 53.8 dB、大差像素 95，所以滤波必须照搬。
 
 **踩到的坑**：
-- 合成节点挂在光照模型里，不进 three 的程序缓存键：结构相同的两个材质会共用一份程序、连 uniform 都串用（第二个材质画成第一个的颜色）。卡通材质按 uuid 区分缓存（`customProgramCacheKey`），代价是每个材质各编一次。
+- **在编译途中现建的节点，它引用的 uniform 之后改值不再上传**（r187）。最初合成节点是在光照模型的 `finish()` 里现建的：结构相同的两个材质串用 uniform（第二个画成第一个的颜色），而且第一帧之后改参数全不生效——墨线时钟、日出时调的边缘光都冻在第一帧。单个场景的对拍测不出来（参数都在第一帧前设好），是《晨渡》逐帧对拍里「先渲第 96 帧再渲第 120 帧、第 120 帧就变了」才暴露的。现在整套合成在 `make()` 时就建成节点，主光方向与阴影量从两个属性节点 `toonL`、`toonAtt` 读，光照模型只给它们赋值；`toon.test.mjs` 有一条「渲染途中改参数」的回归用例。最小复现：同一个 uniform，写在 `colorNode` 里改值即生效，写在 `setupLighting` 或光照模型里现建的节点里就不生效；节点在构造时建好、只在编译时引用则正常。
 - 一开始漏了投影量化，阴影边界差了约 0.5% 的像素，我先误以为是两个后端阴影图的光栅化差异；是「改量化窗口」这个反例结果纹丝不动才暴露出来。
 
 **不支持**（抛 `unsupported.toon`）：InstancedMesh、半透明 / `translucent`、`map`、`vertexColors`、`rest`、`outlineVertex`、`defines`、顶点形变钩子的 TSL 版（材质只认片元钩子）、`spec.shade` 等 GLSL 插桩、`paintLayer` / `muralLayer`。只给了 GLSL 钩子、没给 `opts.tsl` 也抛错，不静默少画皴线。
@@ -271,7 +271,23 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 
 **一致性**（480×270，后期全关，天空 `sky_dawn` + 透明云 `clouds_front_a` 做普通底板、软边裁片、抠像面片，两个辉光，一张画布贴图）：PSNR 61.9 dB、最大差 9 级、差 5 级以上的像素 110 个（0.085%，门槛 0.1%）。大差像素全在画布贴图里一块深色矩形的硬边上：贴图缩小显示时走 mip 链，两个后端各自生成 mip（WebGL 驱动对 three 的降采样），硬边处差几级。变异检查：辉光不压扁 36.7 dB、画布不翻 y 31.8 dB、裁片翻转反了 37.1 dB，都过不了门。
 
-### 7.11 快速复查
+### 7.11 验收片《晨渡》：A 路线模版的双实现（M3 T6）
+
+`films/chendu/` 从 A 路线模版建，改成两边都能跑：`world.js` 包成 `makeWorld(rt)`（THREE、卡通材质、表面层、底板工具、几何桥、读贴图由运行时注入），A 路线页面用 `rt-page.js`，离屏用 `offscreen.mjs` 里的那份；片子本身（事件、字体核对、镜头、片名显示层、TEXTS）在 `story.js`，两边共用；手写的着色（皴与层理、松的干枝色、日轮、日晕罩色、水面）各给一份 TSL 版，算法与常数逐式照搬。改结构这一步 A 路线侧九张关键帧（0…191，含切点两侧）与模版原样出的**逐字节相同**。离屏侧在 Node 里垫了一个只会建画布的 `document`（Skia），片名题字、`engine/paint/canvas.js` 的画笔原样可用。
+
+**逐帧对拍**（`node films/chendu/tools/compare.mjs`：参考侧打开作品真正的页面 `index.html?msaa=0`、无损截图，含浏览器合成的显示层；离屏 msaa 0；960×540，九帧 0、40、71、72、90、96、120、150、191）：PSNR 44.8–54.5 dB，差 5 级以上的像素 0.10–0.86%；只有第 90 帧过 M1 的门（0.1%）。残差逐类看过，都不是算法差异：
+- 片名、副标题的字形边缘（Skia 与 Chrome 的字形光栅化，7.8）：片名在画面时占大差像素的六成，带字的三帧 PSNR 约 45 dB、不画字约 50–54 dB；
+- 画布路径的抗锯齿：程序化远山的剪影边、左下芦苇；
+- 缩小显示的画布贴图走 mip 链，两个后端各自生成 mip：S2 近雾的细丝缕在第 534 行附近成一条亮线；
+- 几何边缘的光栅化：S1 地平线（水面远边）那一行。
+
+整片的对拍因此不拿 M1 的门判通过：工具照 M1 报告、退出码 4，上面四类写在这里；离屏成片能不能交付，看它过不过出片链的机器 QA 门与用户的三道闸。
+
+**对拍查出的两个真问题**（都已修）：
+- 卡通材质的 uniform 冻在第一帧（7.9 的坑）：先渲第 96 帧再渲第 120 帧，第 120 帧的皴线与层理就不对。
+- **片名的高低随机器的系统字体变——A 路线模版本身的问题**：`title.js` 逐字画进画布时用 `textBaseline = 'middle'`；作品的字体子集不含空格，Chrome 算 `middle` 用「能覆盖空格的主字体」，落到后备的 sans-serif 上，所以片名的竖直位置取决于这台机器的 sans-serif 度量（本机比按片名字体自己的度量高 9 px@540）。Skia 按片名字体算，两边因此差了 9 px。《晨渡》的 `title.js` 改成 alphabetic 基线 + 按字形自己的墨迹外框居中，两边一致（单独画片名逐像素同外框），代价是《晨渡》页面上的片名比模版原样低几像素（有意改动）。**路线模版没改**（受金标准基线保护，改像素要走 POLICY 审批）。
+
+### 7.12 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080
