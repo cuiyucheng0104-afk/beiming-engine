@@ -154,7 +154,26 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 
 **剩下的瓶颈**：换 NVENC 后总吞吐仍低于只渲染读回的 170–253 帧/秒。NVENC 运行时采样到 Node 主线程约 90–97%，GPU 利用率 15–20%、编码器引擎约 57%，主线程（读回拷贝与管道写入，约 8 MB/帧）是头号嫌疑；CPU 色彩换算单路约 860 fps，不是瓶颈。**这只是两三次采样得出的假设，未做专门验证。**
 
-### 7.5 快速复查
+### 7.5 TSL Kuwahara 对 GLSL（M2 T2a）
+
+`engine/offscreen/tsl/kuwahara.js` 是 `engine/look/kuwahara.js`（8 扇区，cos⁸ 角向 × 高斯径向，alpha 为保护量）的 TSL 版，算法与常数逐项照搬。**范围：不带远近换半径**（`farRadius`，要深度图）。真片的每个镜头都用了 `farRadius`（6–7，见 `routes/directing/templates/style-lock.json`），所以接进真实镜头之前还要做深度版（T2b），现在的版本不能直接顶替。
+
+**一致性**：同一张合成输入（色块、斜纹渐变、确定性噪点、灯点保护区），GLSL 在无头 Chrome 的 WebGL 里跑，TSL 在 Dawn 里跑，320×180 / 640×360 下，半径 2、4、8（强度 0.7）与 q 取 4 的组合：PSNR 60.8–61.3 dB，最大差 1 级，差 5 级以上的像素为 0（约 12% 的像素有 ±1 的舍入差）。负对照：TSL 的 q 调成 3、GLSL 保持 8，质量门不过。变异检查：把 cos⁸ 改成 cos⁴，PSNR 降到 46.5 dB、最大差 13，测试变红。参考侧用的是页面渲染器同一个浏览器与启动参数（`tests/offscreen/glsl-reference.mjs`）。
+
+**耗时**（1080p，RTX 4070 Laptop，桌面与其他负载共用 GPU，噪声约 ±1 ms；单次或三次量级，不是保证）：
+
+| 采样半径 KR | 流水线吞吐（在途 3 帧，含读回） | 同步口径，仅 Kuwahara：TSL / GLSL（Chrome） |
+|---|---|---|
+| 基线（贴图直出 + 读回） | 216–228 fps | — |
+| 4、5 | 215–225 fps（被读回限制，Kuwahara 看不出额外成本） | KR 4：≈ 0 / 4.5 ms |
+| 6 | ≈ 106 fps | 6.5 / 7.0 ms |
+| 7（真片 `farRadius` 6.5–7 的档位） | 81–84 fps（三次） | 10.0 / 8.7 ms |
+| 8 | 66 fps | 12.2 / 11.0 ms |
+| 10 | 45 fps | — |
+
+TSL 版与现有 GLSL 版在同一量级（KR 6–8 差在 ±15% 内，两边计时口径不完全相同），没有因为换成 TSL 变慢。成本是 Kuwahara 本身的：KR ≥ 6 起它成为 GPU 瓶颈，真片的 KR 7 档单部片就被压到约 83 fps，比读回上限低一大截；并发时 GPU 会先饱和。可选的优化（半分辨率 Kuwahara、减少采样）会改画面，要过 look 闸，目前没有做。
+
+### 7.6 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080

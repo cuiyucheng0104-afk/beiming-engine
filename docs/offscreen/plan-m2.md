@@ -24,6 +24,8 @@
 - 测试：故意把 TSL 版参数调偏，对拍必须 exit 4。
 
 ### T2 TSL Kuwahara（8 扇区，含深度换半径与保护量）
+
+> **T2a 已完成**（不含深度换半径）：`engine/offscreen/tsl/kuwahara.js`，对 GLSL 对拍与耗时见 [README 7.5](README.md)。**T2b 未做**：深度换半径（`farRadius`）要场景深度图，WebGPU 的深度范围与 `perspectiveDepthToViewZ` 约定与 WebGL 不同；真片每个镜头都用它，所以 T2b 是接入真实镜头的前提，在 T3 的 ID 通道（同样要深度）之前后做。
 - `engine/offscreen/tsl/kuwahara.js`：与 GLSL 版同一套扇区权重（cos⁸ 角向 × 高斯径向）、同一 alpha 保护语义。
 - 测试：固定合成图（色块 + 灯点保护区 + 远近两级深度）在两种实现下对拍；先测出实际差距再定阈值，阈值写进测试注释。
 - 记录 1080p 单帧耗时，KR 变体数量与 M1 一样按需编译。
