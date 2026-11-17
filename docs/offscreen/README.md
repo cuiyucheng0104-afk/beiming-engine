@@ -156,7 +156,7 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 
 ### 7.5 TSL Kuwahara 对 GLSL（M2 T2a）
 
-`engine/offscreen/tsl/kuwahara.js` 是 `engine/look/kuwahara.js`（8 扇区，cos⁸ 角向 × 高斯径向，alpha 为保护量）的 TSL 版，算法与常数逐项照搬。**范围：不带远近换半径**（`farRadius`，要深度图）。真片的每个镜头都用了 `farRadius`（6–7，见 `routes/directing/templates/style-lock.json`），所以接进真实镜头之前还要做深度版（T2b），现在的版本不能直接顶替。
+`engine/offscreen/tsl/kuwahara.js` 是 `engine/look/kuwahara.js`（8 扇区，cos⁸ 角向 × 高斯径向，alpha 为保护量）的 TSL 版，算法与常数逐项照搬。远近换半径（`farRadius`）是 T2b，见下文「深度换半径」，不给 `far` 参数就是全幅同一半径。真片的每个镜头都用了 `farRadius`（6–7，见 `routes/directing/templates/style-lock.json`）。
 
 **一致性**：同一张合成输入（色块、斜纹渐变、确定性噪点、灯点保护区），GLSL 在无头 Chrome 的 WebGL 里跑，TSL 在 Dawn 里跑，320×180 / 640×360 下，半径 2、4、8（强度 0.7）与 q 取 4 的组合：PSNR 60.8–61.3 dB，最大差 1 级，差 5 级以上的像素为 0（约 12% 的像素有 ±1 的舍入差）。负对照：TSL 的 q 调成 3、GLSL 保持 8，质量门不过。变异检查：把 cos⁸ 改成 cos⁴，PSNR 降到 46.5 dB、最大差 13，测试变红。参考侧用的是页面渲染器同一个浏览器与启动参数（`tests/offscreen/glsl-reference.mjs`）。
 
@@ -172,6 +172,12 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 | 10 | 45 fps | — |
 
 TSL 版与现有 GLSL 版在同一量级（KR 6–8 差在 ±15% 内，两边计时口径不完全相同），没有因为换成 TSL 变慢。成本是 Kuwahara 本身的：KR ≥ 6 起它成为 GPU 瓶颈，真片的 KR 7 档单部片就被压到约 83 fps，比读回上限低一大截；并发时 GPU 会先饱和。可选的优化（半分辨率 Kuwahara、减少采样）会改画面，要过 look 闸，目前没有做。
+
+**深度换半径（M2 T2b）**：`kuwahara(TSL, { …, far: { depth, radius, start, end, near, farClip } })`。每像素按视距 z 在 `radius` 与 `far.radius` 之间做 smoothstep（`start`、`end` 同 GLSL 的 `farStart`、`farEnd`），深度 ≥ 0.9999999 当无穷远（天空、清屏处）；`KR` 仍由调用方按 `ceil(max(radius, far.radius))` 取。视距用 three 的 `perspectiveDepthToViewZ` 从深度换算，它和 GLSL 版用的是同一个公式，并认 `reversedDepthBuffer`。
+- 对拍：合成深度图（视距沿 x 从 5 铺到 100，右上角一块天空）下，近处 3 → 远处 8、过渡带 20..120：PSNR 61.19 dB，最大差 1 级，差 5 级以上的像素 0。负对照：TSL 不带 far，PSNR 38.5 dB、大差像素 8773；过渡带挪到 40..140，PSNR 47.5 dB、大差像素 460，都过不了质量门。变异检查：去掉天空特判、把 smoothstep 换成线性，测试都变红。
+- 深度约定：WebGPU 的零到一深度与 WebGL 在这个换算上没有差别。用 Dawn 渲一块垂直于视线、离相机 10 与 60 的平面，`pass(scene, camera).getTextureNode('depth')` 经 `perspectiveDepthToViewZ` 换回的视距与真实距离一致（读回与预期的 sRGB 值相同或差 1 级；用例在 `tests/offscreen/kuwahara.test.mjs`）。所以 `pass()` 的深度纹理可以直接当 `far.depth`。
+- 耗时（1080p，KR 7，近处 2 → 远处 7，在途 3 帧含读回，同上那台机器，各跑两遍）：不带 far 85.0 / 86.8 fps，带 far 87.3 / 86.2 fps，没有额外成本（循环次数由 KR 决定，每像素半径只改步长）。
+- 没做：正交相机不给 `far`（与 GLSL 一致）；深度图来自真实镜头（带蒙皮、实例化、半透明物体）时的行为要等 T3 的 ID 通道接入后在真实镜头上对拍。
 
 ### 7.6 快速复查
 
