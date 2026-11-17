@@ -8,11 +8,12 @@
 //     dispose()
 //   }
 //   width × height 是墨线缓冲的尺寸（= 输出尺寸 × ss）。p 的字段、像素量按标定高度给（内部乘 k·ss），与 GLSL 版相同：
-//     width wobble warp boilFps boilHold pressure breakup inner silhouette depthThreshold near far farScale opacity
-//   没有的：雾里变淡（fogFade，GLSL 版在 fog = null 时也是 0）；ID 通道的未支持语义见 idpass.js。
+//     width wobble warp boilFps boilHold pressure breakup inner silhouette depthThreshold near far farScale opacity fogFade
+//   fog：雾参数或 null（线在雾里按 fogFade 变淡）；ID 通道的未支持语义见 idpass.js。
 // 屏幕坐标：WebGPU 是左上角原点，GLSL 版的 gl_FragCoord 是左下角。边缘检测对翻转对称；笔画的域扭曲噪声按坐标取值，这里把 y 翻回 GL 约定，
 // 这样同一帧同一参数下笔画与 A 路线逐点一致。
 import { createIdPass } from './idpass.js';
+import { fogUniforms, setFog, fogNodes } from './fog.js';
 import { noise } from './noise.js';
 import { createFullscreen, glCoord } from './pass.js';
 
@@ -40,10 +41,12 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
   const idTex = texture(idTarget.texture), depthTex = texture(idTarget.depthTexture), edgeTex = texture(edge.texture);
   const mx = ivec2(LW - 1, LH - 1);
   const U = {
-    near: uniform(0.1), far: uniform(100), ortho: uniform(0), halfW: uniform(2), depthThr: uniform(0.03), inner: uniform(0.6), sil: uniform(0.12), opacity: uniform(1),
+    ...fogUniforms({ THREE, TSL }),
+    near: uniform(0.1), far: uniform(100), ortho: uniform(0), halfW: uniform(2), depthThr: uniform(0.03), inner: uniform(0.6), sil: uniform(0.12), opacity: uniform(1), fogFade: uniform(0),
     wd: uniform(new THREE.Vector3()),
     wobble: uniform(1), warp: uniform(60), pressure: uniform(0), breakup: uniform(0), seed: uniform(0),
   };
+  const { viewPosAt, fogAmount } = fogNodes(TSL, U);
 
   // 边缘检测：ID 跳变 + 深度断层 / 折痕；输出 (浓度, 半线宽, 深度差, 1)
   const edgeMaterial = new THREE.NodeMaterial();
@@ -72,7 +75,11 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
       const lap = float(1).div(zp).add(float(1).div(zm)).sub(iz0.mul(2)).div(iz0);
       If(lap.lessThan(U.depthThr.negate()), () => { e.assign(1); gap.assign(max(gap, max(zp, zm).div(z0).sub(1))); });
     }
-    const strength = clamp(s0.w, 0, 1).mul(U.opacity);
+    const uvTop = screenCoordinate.xy.div(vec2(LW, LH));
+    const vp = viewPosAt(uvTop, depthTex.load(p).x);
+    const wp = U.uCamWorld.mul(vec4(vp, 1)).xyz;
+    const f = fogAmount(length(vp), wp.y);
+    const strength = clamp(s0.w, 0, 1).mul(U.opacity).mul(float(1).sub(U.fogFade.mul(f)));
     const hw = U.halfW.mul(s0.z).mul(mix(float(1), U.wd.z, smoothstep(U.wd.x, U.wd.y, z0))).mul(select(gap.greaterThan(U.sil), float(1), U.inner));
     const valid = id0.greaterThanEqual(0.5).and(s0.w.greaterThanEqual(0.002)).and(e.greaterThan(0.5));
     return select(valid, vec4(strength, hw, gap, 1), vec4(0));
@@ -109,13 +116,15 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     return m;
   };
 
-  function render({ scene, camera, p, t, k = 1, ss = 1, fps = 24 }) {
+  function render({ scene, camera, p, fog = null, fogColor, t, k = 1, ss = 1, fps = 24 }) {
     const prev = renderer.getRenderTarget();
     try {
       const maxWidth = idPass.render(scene, camera, idTarget) || 1;
       U.near.value = camera.near; U.far.value = camera.far; U.ortho.value = camera.isOrthographicCamera ? 1 : 0;
       const hw = p.width * 0.5 * k * ss;
       U.halfW.value = hw; U.depthThr.value = p.depthThreshold; U.inner.value = p.inner; U.sil.value = p.silhouette; U.opacity.value = p.opacity;
+      U.fogFade.value = fog ? (p.fogFade ?? 0.9) : 0;
+      setFog(THREE, U, fog, camera, fogColor);
       U.wd.value.set(p.near, p.far, p.farScale);
       fx.draw(edgeMaterial, edge);
       const widest = hw * maxWidth * Math.max(1, p.farScale ?? 1) * Math.max(1, p.inner ?? 1) * (1 + Math.max(0, p.pressure ?? 0));
