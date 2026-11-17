@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "generator": "tools/fonts/subset.mjs@1",
+  "film": "chendu",
+  "inputs": "5c027ef19919c2b0f7eba96ef489b89bd1bc4afa647b63dbb2548e930dbf25cc",
+  "fontTools": "4.68.0",
+  "fonts": [
+    {
+      "family": "BM Title",
+      "file": "bm-title-400.woff2",
+      "weight": "400",
+      "style": "normal",
+      "chars": "晨渡",
+      "codepoints": 2,
+      "unicodeRange": "U+6668, U+6E21",
+      "sha256": "118a2b87903401b2a5681d87775e378d8ebc35c2733c5453e2e28b745deb8477",
+      "bytes": 2052,
+      "texts": [
+        "title"
+      ],
+      "source": {
+        "id": "ma-shan-zheng",
+        "family": "Ma Shan Zheng",
+        "style": "Regular",
+        "version": "2.003",
+        "sha256": "6d2546bb189c732a8ca29af9e22457b152387d158aa459e4ac2ce1e51788b7fb",
+        "license": "OFL-1.1",
+        "licenseFile": "OFL-mashanzheng.txt",
+        "copyright": "Copyright 2018 The MaShanZheng Project Authors (https://github.com/googlefonts/mashanzheng)",
+        "reservedFontNames": []
+      }
+    },
+    {
+      "family": "BM Text",
+      "file": "bm-text-500.woff2",
+      "weight": "500",
+      "style": "normal",
+      "chars": " ·冥北样格片风",
+      "codepoints": 8,
+      "unicodeRange": "U+0020, U+00B7, U+51A5, U+5317, U+6837, U+683C, U+7247, U+98CE",
+      "sha256": "3e5609eb324cabd6aceaa28d55353c44ccaf8627746221caf952a01d5995fb9d",
+      "bytes": 2492,
+      "texts": [
+        "subtitle"
+      ],
+      "source": {
+        "id": "noto-sans-sc",
+        "family": "Noto Sans SC",
+        "style": "Regular",
+        "version": "2.004",
+        "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+        "license": "OFL-1.1",
+        "licenseFile": "OFL-notosanssc.txt",
+        "copyright": "(c) 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.",
+        "reservedFontNames": [
+          "Source"
+        ]
+      }
+    }
+  ],
+  "licenses": [
+    "OFL-mashanzheng.txt",
+    "OFL-notosanssc.txt"
+  ],
+  "coverage": [
+    {
+      "text": "title",
+      "font": "BM Title",
+      "chars": 2,
+      "covered": 2,
+      "missing": [],
+      "source": "ma-shan-zheng@2.003"
+    },
+    {
+      "text": "subtitle",
+      "font": "BM Text",
+      "chars": 8,
+      "covered": 8,
+      "missing": [],
+      "source": "noto-sans-sc@2.004"
+    }
+  ]
+}
