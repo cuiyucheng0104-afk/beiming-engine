@@ -106,3 +106,26 @@ test('未支持的写法显式抛 unsupported.toon：只有 GLSL 钩子没给 TS
   assert.throws(() => k.bind(new THREE.InstancedMesh(new THREE.BoxGeometry(), m, 2), m), bad);
   assert.doesNotThrow(() => k.make({ fragmentAlbedo: 'toonInk = 1.0;', tsl: { fragmentAlbedo: () => {} } }));
 });
+
+test('渲染途中改参数：墨线时钟与边缘光量改了之后，下一帧与一开始就用新值渲的逐字节相同', { timeout: 120000 }, async t => {
+  let gpu, createHost;
+  try {
+    ({ createHost } = await import('../../engine/offscreen/host.mjs'));
+    gpu = await (await import('../../engine/offscreen/load.mjs')).loadGpu();
+    (await createHost({ gpu, width: 64, height: 64 })).dispose();
+  } catch (e) { if (String(e.code).startsWith('env.')) return t.skip(`离屏出片不可用：${e.message}`); throw e; }
+  // 曾经的 bug：合成节点在光照模型里现建，它引用的 uniform 在第一帧之后不再上传（墨线时钟、日出时调的边缘光冻在第一帧）
+  const run = async seq => {
+    const host = await createHost({ gpu, width: W, height: H });
+    try {
+      globalThis.__TOON = { p: OFF, ...seq[0] };
+      const w = await host.load(FIXTURE);
+      let px;
+      for (const o of seq) { globalThis.__TOON = { p: OFF, ...o }; px = await host.renderFrame(w, 0); }
+      return Buffer.from(px);
+    } finally { host.dispose(); }
+  };
+  const fresh = await run([{ inkTime: 3, rimAmt: 1.5 }]), later = await run([{ inkTime: 0, rimAmt: 0.6 }, { inkTime: 3, rimAmt: 1.5 }]);
+  assert.ok(later.equals(fresh), '先渲一帧再改参数，结果应与一开始就用新参数相同');
+  assert.ok(!later.equals(await run([{ inkTime: 0, rimAmt: 0.6 }])), '两组参数的画面本来就不同（否则这条测不出东西）');
+});

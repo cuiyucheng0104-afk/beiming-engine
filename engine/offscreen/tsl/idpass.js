@@ -69,7 +69,7 @@ export function createIdPass({ THREE, TSL, renderer }) {
         outline: u.outline ?? inh.outline, width: u.outlineWidth ?? inh.width, alpha: u.outlineAlpha ?? inh.alpha,
         occ: u.outlineOccluder ?? inh.occ, grp: u.outlineGroup ?? inh.grp,
       };
-      if (u.outlineVertex || u.outlinePerInstance === false) throw unsupported(o, 'outlineVertex / outlinePerInstance');
+      if (u.outlineVertex) throw unsupported(o, 'outlineVertex');   // outlinePerInstance 只对 InstancedMesh 有意义，InstancedMesh 本身由 plain() 拒绝
       const mats = (o.isMesh || o.isSprite || o.isPoints || o.isLine) ? (Array.isArray(o.material) ? o.material : [o.material]) : null;
       const shown = mats ? mats.filter(inId) : [];
       if (shown.length) {

@@ -3,7 +3,8 @@
 // engine/core/clock.js 的 setFilmFps——镜头代码里的 frameOf / hold / heldTime 与页面上逐位同义。
 //
 //   await createFilm({ THREE, TSL, renderer, pipeline, width, height, designWidth, designHeight, fit, shadows })   前五项就是宿主给 build 的同名参数 → { renderer, overlay, ctx, W, H, K, DW, DH, design, fit, work }
-//     width × height 是宿主的画幅；shadows 阴影贴图类型（默认 PCFSoftShadowMap，同 A 路线外壳；false = 不开）
+//     width × height 是宿主的画幅；shadows 阴影贴图类型（默认 PCFShadowMap，false = 不开）。r187 已删掉 PCFSoftShadowMap（A 路线外壳用的那种），
+//     主光的滤波由 tsl/toon.js 的 useR170Shadow 换成与 r170 PCFSoft 同式，类型只决定深度纹理的过滤方式，见那里的说明
 //     overlay / ctx   显示层画布（@napi-rs/canvas，Skia）与它的 2D 上下文；坐标同 A 路线（实际像素，左上原点）
 //   film.work({ dur, fps, shots, look, draw, texts }) → 作品模块的返回值 { render(f), texts(f), dispose() }
 //     shots   同 film.run：[{ in, out?, shot, id? }]（film.json v2 原样）或 [{ at, shot }]；镜头 = { scene, camera, update(t, f, ctx), look(t, ctx) }
@@ -15,7 +16,7 @@ import { shotTable, designFit, normalizeTexts } from '../stage/film.js';
 import { setFilmFps, frameOf, REF_FPS } from '../core/clock.js';
 import { loadCanvas } from './canvas.mjs';
 
-export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, height: H, designWidth, designHeight, fit, shadows = THREE.PCFSoftShadowMap } = {}) {
+export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, height: H, designWidth, designHeight, fit, shadows = THREE.PCFShadowMap } = {}) {
   const { createCanvas } = await loadCanvas();
   const { texture, ivec2, vec4, mix, screenCoordinate, sRGBTransferEOTF } = TSL;
   renderer.toneMapping = THREE.NoToneMapping;   // 保色板（同 A 路线外壳）；宿主的目标已是 sRGB

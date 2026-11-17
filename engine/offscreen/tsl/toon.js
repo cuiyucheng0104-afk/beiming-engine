@@ -10,7 +10,8 @@
 //       opts 里有 GLSL 钩子（vertexBegin、fragmentAlbedo…）却没给 opts.tsl：抛 unsupported.toon（不静默少画皴线）
 //   mat.userData.toon：与 GLSL 版同名的 uniform 节点，运行时照样 u.uRimLitAmt.value = …
 // 主光：第一盏投影的平行光（没有投影光就取第一盏平行光；都没有用 uKeyDirW），与 r170 的灯光排序一致；只取方向与投影，颜色全按参数绝对给定。
-// 投影：主光要先 useR170Shadow(TSL, light)，滤波与 r170 的 PCFSoftShadowMap 同式；量化 smoothstep(shadowLo, shadowHi) 在材质里做，
+// 投影：主光要先 useR170Shadow(TSL, light)，滤波与 r170 的 PCFSoftShadowMap 同式（r187 删掉了 PCFSoft 类型，用 PCFShadowMap 即可：那时深度纹理开了
+//   硬件比较过滤，但照搬的取样点都先对齐到纹素中心，双线性权重是 1/0/0/0，等于逐纹素比较）；量化 smoothstep(shadowLo, shadowHi) 在材质里做，
 //   只在 light.shadow.intensity = 1 时与 GLSL 版相同（不是 1 抛错）。环境光、半球光不进卡通合成（GLSL 版也不进）。
 // 不支持（抛 Error，code unsupported.toon）：InstancedMesh、translucent / transparent、map、vertexColors、rest、outlineVertex、
 //   defines、spec.shade / pars / glsl / vars / uniforms（GLSL 的插桩钩子）。
@@ -51,7 +52,8 @@ export function makeToonShared({ THREE, TSL }, { fillDir = [0, -1, 0], skyDir = 
 
 const R170 = new WeakSet();   // 挂了 r170 滤波的 LightShadow
 
-// 主光的投影滤波：r170 PCFSoftShadowMap 的 getShadow 逐式照搬（4 个整纹素 + 12 个按小数位置插值的取样，/9），深度比较不经硬件过滤（最近邻）。
+// 主光的投影滤波：r170 PCFSoftShadowMap 的 getShadow 逐式照搬（4 个整纹素 + 12 个按小数位置插值的取样，/9）。取样点都在纹素中心，
+// 深度纹理是不是开了硬件比较过滤都一样。
 export function useR170Shadow(TSL, light) {
   const { Fn, vec2, fract, mix, texture } = TSL;
   light.shadow.filterNode = Fn(({ depthTexture, shadowCoord, shadow }) => {
@@ -74,7 +76,7 @@ export function toonKind({ THREE, TSL }, spec = {}) {
   for (const key of ['pars', 'glsl', 'vars', 'uniforms']) if (k[key]) throw unsupported(`spec.${key}（GLSL 插桩），${k.name}`);
   if (Object.keys(k.shade).length) throw unsupported(`spec.shade 的光照钩子（${Object.keys(k.shade).join('、')}），${k.name}`);
   const { uniform, Fn, float, vec3, vec4, dot, max, clamp, mix, select, smoothstep, pow, exp2, fwidth, normalize,
-    normalView, positionViewDirection, positionGeometry, cameraViewMatrix, diffuseColor } = TSL;
+    normalView, positionViewDirection, positionGeometry, cameraViewMatrix, diffuseColor, property } = TSL;
   const shared = k.shared || makeToonShared({ THREE, TSL });
   const L = k.layers;
   const defaults = Object.assign({}, TOON_BASE, ...L.map(l => l.defaults || {}), k.defaults || {});
@@ -84,7 +86,12 @@ export function toonKind({ THREE, TSL }, spec = {}) {
   const C = c => { const x = colorOf(c); return new THREE.Color(x.r, x.g, x.b); };   // GLSL 版的取色约定（sRGB 数组等），换成 r187 的对象
   const V3 = v => { const x = v.isVector3 ? v : vec3Of(v); return new THREE.Vector3(x.x, x.y, x.z); };
 
-  // 光照模型：direct 逐盏光记下（方向、阴影量、是否投影），finish 选主光后做整套卡通合成
+  // 主光方向与阴影量：光照模型在编译时给这两个属性赋值，合成节点（make 时就建好）读它们。
+  // 合成不能在光照模型或 setupLighting 里现建：r187 里编译途中新建的节点所引用的 uniform，之后改值不再上传（墨线时钟、日出时调的边缘光都会冻在第一帧）。
+  const pL = property('vec3', 'toonL'), pAtt = property('float', 'toonAtt');
+  const keyL = () => normalize(cameraViewMatrix.mul(vec4(shared.uKeyDirW, 0)).xyz);
+
+  // 光照模型：direct 逐盏平行光记下（方向、阴影量、是否投影），finish 按 r170 的规则选主光、给 pL / pAtt 赋值
   class ToonModel extends THREE.LightingModel {
     constructor(mat) { super(); this.mat = mat; this.lights = []; }
     start(builder) { this.lights = []; super.start(builder); }
@@ -102,23 +109,18 @@ export function toonKind({ THREE, TSL }, spec = {}) {
     }
     finish(builder) {
       const pick = this.lights.find(l => l.cast) || this.lights[0];
-      const Lv = pick ? pick.L : normalize(cameraViewMatrix.mul(vec4(shared.uKeyDirW, 0)).xyz);
-      const att = pick ? pick.att : float(1);
-      builder.context.outgoingLight.assign(this.mat.toonShade(Lv, att));   // r187 先把 reflectedLight 加总进 outgoingLight 再调 finish，所以直接改它
+      pL.assign(pick ? pick.L : keyL()); pAtt.assign(pick ? pick.att : float(1));
+      builder.context.outgoingLight.assign(vec3(0));   // 出射光整个由合成节点给（setupLighting 里接上）
     }
   }
 
   class ToonNodeMaterial extends THREE.NodeMaterial {
     constructor() { super(); this.lights = true; this.isToonTslMaterial = true; }
     setupLightingModel() { return new ToonModel(this); }
-    // 合成节点挂在光照模型里，不进 three 的缓存键：结构相同的两个材质会共用一份程序、连 uniform 也串用，所以按材质区分
-    customProgramCacheKey() { return this.uuid; }
-    // 场景里一盏灯也没有时 r187 不走光照模型、直接用这里的出射光：同 GLSL 版，主光取 uKeyDirW、不接投影
-    setupOutgoingLight(builder) {
-      const ln = this.lightsNode || builder.lightsNode;
-      if (ln && ln.getScope().hasLights) return vec3(0);   // 有灯：finish 会整个改写出射光
-      return this.toonShade(normalize(cameraViewMatrix.mul(vec4(shared.uKeyDirW, 0)).xyz), float(1));
-    }
+    hasLights(builder) { const ln = this.lightsNode || builder.lightsNode; return !!(ln && ln.getScope().hasLights); }
+    // 有灯：光照模型给 pL / pAtt 赋值、出射光为 0，后面接合成节点；没灯：r187 不走光照模型、直接用 setupOutgoingLight（同 GLSL 版，主光取 uKeyDirW、不接投影）
+    setupLighting(builder) { const o = super.setupLighting(builder); return this.hasLights(builder) ? o.add(this.toonLit) : o; }
+    setupOutgoingLight(builder) { return this.hasLights(builder) ? vec3(0) : this.toonUnlit; }
   }
 
   function make(opts = {}) {
@@ -155,7 +157,7 @@ export function toonKind({ THREE, TSL }, spec = {}) {
     const aa = k.bandAA, sky = k.skyStepUniform ? u.uSkyStep : float(0.3);
 
     // 反照率阶段：钩子可写变量 → fragmentBase → toonBase → 表面层 → fragmentAlbedo → 后置表面层；随后光照合成（shadeGlsl 逐式）
-    mat.toonShade = (Lv, att) => Fn(() => {
+    const toonShade = (Lv, att) => Fn(() => {
       const c = { THREE, TSL, u, obj: positionGeometry, noise: N3, diffuse: diffuseColor.rgb.toVar(), ink: float(0).toVar(), overlay: vec4(0).toVar() };
       o.tsl?.fragmentBase?.(c);
       c.base = c.diffuse.toVar();
@@ -209,6 +211,7 @@ export function toonKind({ THREE, TSL }, spec = {}) {
       col.assign(mix(col, c.overlay.rgb, clamp(c.overlay.a, 0, 1)));
       return col.mul(shared.uExposure);
     })();
+    mat.toonLit = toonShade(pL, pAtt); mat.toonUnlit = toonShade(keyL(), float(1));
     mat.userData.toon = u;
     mat.userData.toonOpts = o;
     if (o.noId) mat.userData.noId = true;
