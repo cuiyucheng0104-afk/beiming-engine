@@ -46,7 +46,7 @@ function createSemaphore(limit) {
   };
 }
 
-export function parseBatchJobs(input, { cwd = process.cwd(), defaults = {} } = {}) {
+export function parseBatchJobs(input, { cwd = process.cwd(), manifestDir = null, defaults = {} } = {}) {
   const rawList = Array.isArray(input) ? input : (input && typeof input === 'object' && Array.isArray(input.jobs) ? input.jobs : null);
   if (!rawList) throw usageError('bad-manifest', '批量清单必须是作业数组或 { jobs: [...] } 对象', '见 offscreen batch --help');
   if (!rawList.length) throw usageError('empty-batch', '批量清单没有作业（jobs 为空）', '至少给 1 个作业');
@@ -58,9 +58,11 @@ export function parseBatchJobs(input, { cwd = process.cwd(), defaults = {} } = {
     const mode = String(item.mode ?? defaults.mode ?? 'render');
     if (mode !== 'render' && mode !== 'stills') throw usageError('bad-value', `作业 ${id} 的 mode 只能是 render 或 stills，收到「${mode}」`, null);
     if (!item.work) throw usageError('missing-work', `作业 ${id} 缺少 work（作品模块路径）`, null);
-    const file = resolveWork(String(item.work), cwd);
+    const workStr = String(item.work);
+    const workBase = manifestDir && !path.isAbsolute(workStr) && fs.existsSync(path.resolve(manifestDir, workStr)) ? manifestDir : cwd;
+    const file = resolveWork(workStr, workBase);
     if (!item.out) throw usageError('missing-out', `作业 ${id} 缺少 out（输出路径）`, null);
-    const out = path.resolve(cwd, String(item.out));
+    const out = path.resolve(manifestDir || cwd, String(item.out));
     const outKey = process.platform === 'win32' || process.platform === 'darwin' ? out.toLowerCase() : out;
     if (seenOuts.has(outKey)) throw usageError('duplicate-out', `批量清单存在重复输出路径：${item.out}（作业 ${id}）`, '每个作业的 out 必须互不重叠');
     seenOuts.add(outKey);

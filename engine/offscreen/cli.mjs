@@ -67,7 +67,7 @@ export function resolveArgs({ sub, work, extra = [] }, opts, cwd = process.cwd()
       let raw;
       try { raw = JSON.parse(fs.readFileSync(mf, 'utf8')); }
       catch (e) { throw usageError('bad-manifest', `批量清单不是合法 JSON：${e.message}`, null); }
-      return { sub: 'batch', jobs: parseBatchJobs(raw, { cwd: path.dirname(mf), defaults }) };
+      return { sub: 'batch', jobs: parseBatchJobs(raw, { cwd, manifestDir: path.dirname(mf), defaults }) };
     }
     if (!opts['out-dir']) throw usageError('missing-out', '多作品直接调用 batch 需要 --out-dir <输出目录>', '或把每项的 out 写进清单 JSON');
     const outDir = path.resolve(cwd, opts['out-dir']);

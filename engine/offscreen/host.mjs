@@ -15,6 +15,14 @@ import { createFrameClock } from './clock.mjs';
 import { createYuvPacker } from './yuv.mjs';
 import { CliError, usageError } from '../../tools/lib/cli.mjs';
 
+// three r187 在 await renderer.init() 内部构造 Animation 时才读取全局 self；并发 createHost 必须串行化这一临界区，避免多个渲染器绑到同一个帧时钟上
+let initChain = Promise.resolve();
+function withInitLock(fn) {
+  const run = initChain.then(fn, fn);
+  initChain = run.catch(() => {});
+  return run;
+}
+
 export async function createHost({ gpu, width, height, fps = 24, device, query = '' } = {}) {
   const { THREE, TSL } = gpu;
   let ownsDevice = false;
@@ -31,21 +39,23 @@ export async function createHost({ gpu, width, height, fps = 24, device, query =
     throw usageError('bad-value', `画幅 ${width}x${height} 超过设备纹理边长上限 ${limit}`, '减小 --size，或使用支持该画幅的 GPU');
   }
   const clock = createFrameClock();
-  globalThis.self = clock.self;
   const canvas = {
     width, height, style: {}, addEventListener() {}, removeEventListener() {},
     getContext() { throw new Error('离屏宿主没有画布上下文：作品只能画进宿主给的渲染目标'); },
   };
-  const renderer = new THREE.WebGPURenderer({ canvas, antialias: false, device });
-  let fault = null;
+  let renderer, fault = null;
   const recordFault = info => { fault ??= new CliError('failure.gpu', `GPU 错误：${info.message || '设备不可用'}`, { hint: '检查显存与驱动，减少并发或画幅后重试' }); };
   const onGpuError = event => recordFault(event.error ?? event);
-  renderer.onError = renderer.onDeviceLost = recordFault;
   try {
-    await renderer.init();
-    if (!renderer.backend.isWebGPUBackend) throw new CliError('env.webgpu-unavailable', 'Dawn 未建立 WebGPU 后端', { hint: '检查显卡驱动，离屏出片不支持 WebGL 回退' });
+    await withInitLock(async () => {
+      globalThis.self = clock.self;
+      renderer = new THREE.WebGPURenderer({ canvas, antialias: false, device });
+      renderer.onError = renderer.onDeviceLost = recordFault;
+      await renderer.init();
+      if (!renderer.backend.isWebGPUBackend) throw new CliError('env.webgpu-unavailable', 'Dawn 未建立 WebGPU 后端', { hint: '检查显卡驱动，离屏出片不支持 WebGL 回退' });
+    });
   } catch (e) {
-    renderer.dispose();
+    renderer?.dispose();
     if (ownsDevice) device.destroy();
     throw e;
   }
