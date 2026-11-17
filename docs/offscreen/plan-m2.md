@@ -47,7 +47,7 @@
 
 ### T5 一部真实短片走 look 闸
 
-> **T5 进行中**（2026-11-17）：验收小片 `films/du/`（《渡》，1 镜 96 帧），场景 `scene.mjs` 由 A 路线页面与离屏共用。look、animatic 闸用户已认可；A 路线终渲机器 QA 通过，离屏对照片已出；离屏对 A 路线 msaa 0 十帧对拍 PSNR 57.7–58.2 dB，全过质量门。**final 闸待用户看**；终渲仍走 Chromium 链，是否切换到离屏出片由用户看过对照片后决定。主体用 MeshToonMaterial，没有材质皴线（离屏还没有 toon.js 的 TSL 版）。
+> **T5 已完成**（2026-11-18）：验收小片 `films/du/`（《渡》，1 镜 96 帧），场景 `scene.mjs` 由 A 路线页面与离屏共用。look、animatic 闸用户已认可；A 路线终渲机器 QA 通过，离屏对照片已出；离屏对 A 路线 msaa 0 十帧对拍 PSNR 57.7–58.2 dB，全过质量门。三道闸用户都已认可，A 路线成片已交付。终渲仍走 Chromium 链；是否切换到离屏出片还没定，等用户决定。主体用 MeshToonMaterial，没有材质皴线（离屏还没有 toon.js 的 TSL 版）。
 - 用 `npm run new -- a <名字>` 建作品（不动别人的 `films/`），镜头控制在 1–2 个、3–5 秒，画面要素覆盖：三渲二主体、墨线（外轮廓 + 折痕 + 沸腾）、Kuwahara 笔触、纸纹与底板。
 - `npm run film -- stills` 出风格关键帧给用户看（look 闸，**用户原话批准**，agent 不自己批）；之后 animatic 闸；终渲仍走现有 Chromium 链，offscreen 出片作为对照版本，直到用户认可才讨论切换。
 - `npm run determinism -- films/<名字> --seams --workers 4` 与 offscreen 自身的逐帧哈希都要过。
