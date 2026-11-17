@@ -15,10 +15,10 @@
 import { shotTable, designFit, normalizeTexts } from '../stage/film.js';
 import { setFilmFps, frameOf, REF_FPS } from '../core/clock.js';
 import { mergeParams } from '../style/index.js';
-import { loadCanvas } from './canvas.mjs';
+import { loadCanvasIso } from './io.mjs';
 
 export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, height: H, designWidth, designHeight, fit, shadows = THREE.PCFShadowMap } = {}) {
-  const { createCanvas } = await loadCanvas();
+  const { createCanvas } = await loadCanvasIso();
   const { texture, ivec2, vec4, mix, screenCoordinate, sRGBTransferEOTF } = TSL;
   renderer.toneMapping = THREE.NoToneMapping;   // 保色板（同 A 路线外壳）；宿主的目标已是 sRGB
   renderer.shadowMap.enabled = shadows !== false;
@@ -29,7 +29,13 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
   overlay.__bmOverlay = true;
   // 显示层贴图：上传时才读画布；行序自上而下，按屏幕坐标逐像素取（不翻 y、不插值）；数值就是 sRGB，不做色彩空间换算
   const ovTex = new THREE.DataTexture(null, W, H, THREE.RGBAFormat);
-  Object.defineProperty(ovTex.image, 'data', { get: () => new Uint8Array(ctx.getImageData(0, 0, W, H).data.buffer), configurable: true });
+  Object.defineProperty(ovTex.image, 'data', {
+    get: () => {
+      const d = ctx.getImageData(0, 0, W, H).data;
+      return new Uint8Array(d.buffer, d.byteOffset, d.byteLength);
+    },
+    configurable: true,
+  });
   ovTex.colorSpace = THREE.NoColorSpace; ovTex.minFilter = ovTex.magFilter = THREE.NearestFilter; ovTex.generateMipmaps = false; ovTex.needsUpdate = true;
 
   function work({ dur, fps, shots, look, draw = null, texts = null }) {
