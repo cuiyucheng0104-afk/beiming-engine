@@ -1,6 +1,6 @@
 # 离屏出片（offscreen）：设计与实测记录
 
-读者｜做引擎工程、要把新作品改到离屏出片的人与 agent　状态｜M1–M4 已完成（2026-11-18）：已按 D12 登记 `offscreen` 渲染器与 `webgpu` 后端，接入 `npm run film`，《晨渡》三道闸已认可，复杂角色与雾/实例化/壁画层均已对齐　依据｜[决定书 D12](../decisions/2026-11-10-industrial-baseline.md)
+读者｜做引擎工程、要把新作品改到离屏出片的人与 agent　状态｜M1–M5 已完成（2026-11-18）：A/C 离屏后期链、静帧/检查/整片 CLI 闭环、C 路线宿主适配均已完备，《晨渡》三道闸已认可，复杂主角片《化鹏闪羽》全 GPU 出片实测 28.9 fps 过 QA　依据｜[决定书 D12](../decisions/2026-11-10-industrial-baseline.md)
 
 **一句话**：A、C 的新作品用 three.js r187 的 WebGPURenderer 与 TSL 写成**作品模块**；同一份模块在 Chrome 的 WebGPU 里预览，在 Node + Dawn 里离屏出片，出片不经过浏览器。旧作品与 86 式风格库照旧走页面渲染器（`engine/render`）。
 
@@ -300,14 +300,24 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 - **场景图桥与鲲鹏验证**（`engine/offscreen/bridge.mjs`）：`geometry` 保留 `InstancedBufferAttribute`；新增 `mirrorObject(THREE, root170, { mapMaterial })`，不改动只读目录 `src/` 即可镜像 `src/kun_peng.js` 的完整角色树（多层 `InstancedMesh` 羽毛、CPU 形变体与尾翎、手动矩阵眼丘），每帧 `setPose` + `sync()` 在 Dawn + `createLook` 下跑通。
 - **D12 正式登记**：`routes/routes.json`、`engine/production/routes.js`、`film.schema.json` 与 `tools/film` 已同步登记 `offscreen` 渲染器与 `webgpu` 后端。
 
-### 7.13 快速复查
+### 7.13 后期全特性收口、静帧闭环、C 路线适配与《化鹏闪羽》验证（M5）
+
+- **纸纹进阶与后期调试视图**（`tsl/paper.js`、`tsl/compose.js`、`tsl/debug.js`、`tsl/look.js`）：补齐图片纸纹 `scaleMode: 'refHeight'`（面积加权取样）、`paperAnchor` 锚点跟移与 `canvasPaper` 每帧贴图，以及全部 8 种 `DEBUG_VIEWS`（`id`、`depth`、`edge`、`line`、`bloom`、`paper`、`kuwahara`、`scene`）；对 WebGL 版对拍最大差 ≤ 1 级，变异全拦下。
+- **离屏静帧、探测与 `film` 全命令闭环**（`engine/offscreen/cli.mjs`、`tools/film/`）：`offscreen` 新增无损静帧子命令 `stills`（纯 Node zlib 编码 PNG，不依赖 FFmpeg）与只读契约探测 `probe`；`npm run film -- check|stills|render|animatic|build` 全链路支持 `--renderer offscreen` 与纯 `backend: "webgpu"`（无 `index.html`）作品。
+- **C 路线（86 式）离屏宿主适配**（`engine/offscreen/c2d.mjs`）：`registerCanvasFonts` 按需注册分片 woff2 毛笔字体，`createCanvasFilm` 打通 `@napi-rs/canvas`、`engine/paint/canvas.js`（`canvasFor`）与 Dawn WebGPU 纸纹/暗角/颗粒后期及 `TEXTS` 导出。
+- **复杂主角片《化鹏闪羽》双实现验证**（工作区 `films/peng-glint`，实施计划见 [plan-m5.md](plan-m5.md)）：不改 `src/` 与页面 `world.js`，经 `mirrorObject` + TSL 映射 `kun_peng` 七种矿物色材质（体鳞、丹凤眼、长须、火焰鳍、多层实例化羽片、翅肉瓣、凤尾翎）、羽根铰链波、微面法线瓣 HDR 闪光、流萤落羽与海面日轮。`film check` 页面与离屏双路通过；关键帧（`0, 58, 66, 72, 120`，两边 `msaa = 4`）对 WebGL 页面 PSNR 36.6–41.9 dB（残差主要来自 400+ 重叠实例化羽片的 4× MSAA 采样位置）；1920×1080 · 144 帧全 GPU `film build --renderer offscreen --encoder nvenc` 离屏渲染 + 编码仅 **5.90 秒（稳态 28.9 fps，快于实时）**，机器 QA 门 **37/37 全过（注意 0 项）**。
+
+### 7.14 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080
+npm run offscreen -- stills lab/offscreen/ink.mjs --out out/offscreen/stills --frames 0,48,96 --size 1920x1080
+npm run offscreen -- probe lab/offscreen/ink.mjs
 npm run offscreen:compare -- lab/offscreen/ink.mjs --frames 0,14,30,40,191 --size 1920x1080
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080 --encode
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 4 --frames 480 --size 1920x1080 --encode --encoder nvenc
+npm run film -- stills films/chendu --renderer offscreen
 npm run film -- build films/chendu --renderer offscreen --encoder nvenc
 ```
 
