@@ -10,6 +10,7 @@
   lp / hp / bp(x, f, o) / peq(x, f, g, q) / shelf(x, f, g, kind, s)   静态滤波与 RBJ 均衡
   svf(x, fc, q, mode)                     时变状态变量滤波（fc/q 可逐样本；立体声逐声道）
   pan_lr / stereo / place / width / decor_pair   等功率摆位、放进缓冲、M/S 宽度、相关噪声对
+  space_place / doppler                   物理空间同化摆位（距离空气吸收、近讲效应、微双耳时差/头影、干湿比耦合）与分数延迟线多普勒
   make_ir(...) / reverb(st, ir, ...) / echoes(st, taps, ...)   多频段衰减的脉冲响应、卷积混响、离散回声
   compress(st, ...) / tp_limit(st, ceil_db, ...)   RMS 压缩、过采样检测的前视限制器
 """
@@ -260,6 +261,134 @@ def decor_pair(make, n, r, corr=0.0):
     k = np.sqrt(max(corr, 0.0))
     j = np.sqrt(1 - max(corr, 0.0))
     return np.stack([k * c + j * a, k * c + j * b], 1)
+
+
+@numba.njit(cache=True)
+def _delay_line(x, delay_samples):
+    """四点三次 Hermite 分数延迟线插值：保高频、无阶跃毛刺。"""
+    n = x.shape[0]
+    y = np.zeros(n)
+    for i in range(n):
+        pos = i - delay_samples[i]
+        if pos < 0.0 or pos >= n - 1:
+            if 0.0 <= pos < n:
+                idx = int(pos)
+                y[i] = x[idx]
+            continue
+        k = int(np.floor(pos))
+        f = pos - k
+        x0 = x[k - 1] if k > 0 else x[0]
+        x1 = x[k]
+        x2 = x[k + 1] if k + 1 < n else x[n - 1]
+        x3 = x[k + 2] if k + 2 < n else x2
+        c0 = x1
+        c1 = 0.5 * (x2 - x0)
+        c2 = x0 - 2.5 * x1 + 2.0 * x2 - 0.5 * x3
+        c3 = 0.5 * (x3 - x0) + 1.5 * (x1 - x2)
+        y[i] = ((c3 * f + c2) * f + c1) * f + c0
+    return y
+
+
+def doppler(x, vel_mps=None, *, dist_m=None, pan=None, c_sound=343.0):
+    """物理多普勒分数延迟线：
+    · vel_mps：朝向听者的径向速度（m/s，标量或逐样本数组；>0 逼近升调，<0 远离降调）；
+    · dist_m：声源到听者的逐样本距离（m；与 vel_mps 二选一，优先 dist_m）；
+    · pan：可选声像标量或曲线，给出时返回立体声。"""
+    x = np.ascontiguousarray(x, dtype=float)
+    n = len(x)
+    if n == 0:
+        return stereo(x, 0.0) if (pan is not None and x.ndim == 1) else x
+    if dist_m is not None:
+        d = _arr(dist_m, n)
+        tau_s = (d - d.min()) / float(c_sound)
+    elif vel_mps is not None:
+        v = _arr(vel_mps, n)
+        tau_raw = -np.cumsum(v) / (float(SR) * float(c_sound))
+        tau_s = tau_raw - tau_raw.min()
+    else:
+        tau_s = np.zeros(n)
+    ds = np.ascontiguousarray(tau_s * SR, dtype=float)
+    if x.ndim == 2:
+        out = np.stack([_delay_line(np.ascontiguousarray(x[:, c]), ds) for c in range(x.shape[1])], 1)
+    else:
+        out = _delay_line(x, ds)
+    if pan is not None:
+        if out.ndim == 1:
+            out = stereo(out, pan)
+        else:
+            l, r = pan_lr(pan)
+            out = np.stack([out[:, 0] * l, out[:, 1] * r], 1)
+    # 延迟线起始建立段平滑过渡，防首样本台阶
+    head = int(min(n // 4, max(0, np.ceil(ds[0])) + N(0.003)))
+    if head > 2:
+        out = fade(out, head / SR, 0.002)
+    return out
+
+
+def space_place(buf, x, at, *, gain=1.0, pan=0.0, dist=2.0, ref_dist=2.0, ir=None, wet=0.22,
+                wet_buf=None, proximity=True, binaural=True):
+    """物理空间同化摆位（Worldizing，Walter Murch）：
+    统一把距离衰减、空气高频吸收、近场 <1.2m 低频近讲效应、单声道安全的微双耳时差（≤0.28ms）+ 对侧头影搁架、
+    以及随距离自动拉开的直达/混响比（D/R）合在一次放置里。
+    · wet_buf 给出时把混响发送写进 wet_buf（多事件共用一次总线卷积更省算力）；否则给 ir 时直接卷积混入 buf。"""
+    if len(x) == 0:
+        return
+    n = len(x)
+    d_arr = _arr(dist, n)
+    d_clamp = np.maximum(d_arr, 0.35)
+    d_mean = float(np.mean(d_clamp))
+    y = np.asarray(x, dtype=float)
+
+    # 1. 距离空气高频吸收（远景去毛刺，近景保留完整材质瞬态）
+    if d_clamp.max() / max(d_clamp.min(), 1e-6) > 1.35:
+        fc_curve = np.clip(19000.0 * (ref_dist / d_clamp) ** 0.65, 1600.0, 20000.0)
+        y = svf(y, fc_curve, 0.707, 'lp')
+    else:
+        fc = float(np.clip(19000.0 * (ref_dist / d_mean) ** 0.65, 1600.0, 20000.0))
+        if fc < 18500.0:
+            y = lp(y, fc, 2)
+
+    # 2. 近场贴身镜近讲效应（<1.2m 抬升温厚近感）
+    if proximity and d_mean < 1.2:
+        boost_db = min(4.5, 3.2 * (1.2 / d_mean - 1.0))
+        if boost_db > 0.15:
+            y = shelf(y, 210.0, boost_db, 'low')
+
+    # 3. 声像摆位 + 瑞利双工定位（Rayleigh Duplex Theory：<900Hz 微双耳时差 ITD + 高频零延迟头影 ILD，折单声道零梳状滤波且相关 >0.8）
+    if y.ndim == 1:
+        st = stereo(y, pan)
+    else:
+        l, r = pan_lr(pan)
+        st = np.stack([y[:, 0] * l, y[:, 1] * r], 1)
+
+    p_mean = float(np.clip(np.mean(pan), -1.0, 1.0))
+    if binaural and abs(p_mean) > 0.08 and n > 24:
+        itd_samples = min(0.00024 * SR, abs(p_mean) * 0.00024 * SR)
+        ds = np.full(n, itd_samples, dtype=float)
+        far_ch = 1 if p_mean < 0 else 0
+        far = np.ascontiguousarray(st[:, far_ch])
+        far_lo_raw = lp(far, 900.0, 2)
+        far_rest = far - far_lo_raw
+        far_lo = _delay_line(np.ascontiguousarray(far_lo_raw), ds)
+        far_hi = shelf(far_rest, 3200.0, -3.0 * abs(p_mean), 'high')
+        st = st.copy()
+        st[:, far_ch] = far_lo + far_hi
+
+    # 4. 直达声按距离衰减，混响发送衰减更慢（远处自然融进空间 D/R）
+    g_dir = (ref_dist / d_clamp) ** 0.95
+    dry_st = st * (gain * g_dir)[:, None]
+    place(buf, dry_st, at, 1.0)
+
+    if wet > 0 and (wet_buf is not None or ir is not None):
+        g_wet = wet * (ref_dist / d_clamp) ** 0.35
+        send_st = st * (gain * g_wet)[:, None]
+        if wet_buf is not None:
+            place(wet_buf, send_st, at, 1.0)
+        elif ir is not None:
+            pad_len = min(len(ir), N(2.5))
+            padded = np.vstack([send_st, np.zeros((pad_len, 2))])
+            rv = reverb(padded, ir, wet=1.0, dry=0.0, cross=0.35, hp_in=140.0)
+            place(buf, rv, at, 1.0)
 
 
 # ———— 混响 ————

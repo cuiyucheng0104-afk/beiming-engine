@@ -24,7 +24,115 @@ import json
 import os
 from collections import Counter
 
+import numpy as np
+
 from .dsp import SR
+
+
+class Track:
+    """画面逐帧连续物理遥测（window.KINEMATICS → kinematics.json）的 48 kHz 连续曲线插值器：
+    将逐帧位置、速度、加速度、风压、景深或接触门限无阶梯重采样到音频采样率，直接驱动 foley / dsp.svf / doppler / space_place。"""
+
+    def __init__(self, channels: dict, fps: float = 24.0, dur: float = None, sr: int = SR):
+        self.channels = {k: np.asarray(v, dtype=float) for k, v in (channels or {}).items() if isinstance(v, (list, tuple, np.ndarray))}
+        self.fps = float(fps)
+        n_frames = max((len(v) for v in self.channels.values()), default=0)
+        self.dur = float(dur) if dur is not None else (n_frames / self.fps if n_frames else 0.0)
+        self.sr = int(sr)
+
+    def arr(self, key: str, default: float = 0.0) -> np.ndarray:
+        n_out = max(1, int(round(self.dur * self.sr)))
+        seq = self.channels.get(key)
+        if seq is None or len(seq) == 0:
+            return np.full(n_out, float(default), dtype=float)
+        if len(seq) == 1:
+            return np.full(n_out, float(seq[0]), dtype=float)
+        t_in = np.arange(len(seq), dtype=float) / self.fps
+        t_out = np.arange(n_out, dtype=float) / self.sr
+        return np.interp(t_out, t_in, seq)
+
+    def speed_of(self, *pos_keys: str, scale: float = 1.0) -> np.ndarray:
+        """从位置通道（如 'x', 'y'）求逐帧欧氏速率并平滑插值到音频采样率。"""
+        n_out = max(1, int(round(self.dur * self.sr)))
+        seqs = [self.channels[k] for k in pos_keys if k in self.channels and len(self.channels[k]) >= 2]
+        if not seqs:
+            return np.zeros(n_out, dtype=float)
+        m = min(len(s) for s in seqs)
+        sq = np.zeros(m, dtype=float)
+        for s in seqs:
+            d = np.gradient(s[:m]) * self.fps
+            sq += d * d
+        spd = np.sqrt(sq) * float(scale)
+        t_in = np.arange(m, dtype=float) / self.fps
+        t_out = np.arange(n_out, dtype=float) / self.sr
+        return np.interp(t_out, t_in, spd)
+
+    def pan(self, key: str = 'x', screen_w: float = 1920.0, spread: float = 0.85) -> np.ndarray:
+        """把画面横向坐标（[0..1] 归一化或 [0..screen_w] 像素，或已是 [-1..1]）映射成 [-spread, +spread] 声像曲线。"""
+        raw = self.arr(key, default=0.5)
+        if np.max(np.abs(raw)) <= 1.05 and np.min(raw) < -0.05:
+            norm = raw
+        elif np.max(np.abs(raw)) <= 2.0:
+            norm = raw * 2.0 - 1.0
+        else:
+            norm = (raw / max(screen_w, 1.0)) * 2.0 - 1.0
+        return np.clip(norm * float(spread), -1.0, 1.0)
+
+    def dist(self, key: str = 'depth', near: float = 0.8, far: float = 12.0) -> np.ndarray:
+        """把景深通道映射成米制物理距离曲线（供 dsp.space_place / doppler 使用）。"""
+        raw = self.arr(key, default=0.25)
+        if np.max(raw) <= 1.05 and np.min(raw) >= -0.05:
+            return near + np.clip(raw, 0.0, 1.0) * (far - near)
+        return np.maximum(0.15, raw)
+
+    def impulses(self, key: str, thresh: float = 0.5, min_gap_s: float = 0.08) -> list:
+        """从接触量或角加速度序列提取离散脉冲事件 [(秒, 强度), ...]，自动抑制微抖动连发。"""
+        seq = self.channels.get(key)
+        if seq is None or len(seq) == 0:
+            return []
+        hits = []
+        min_df = max(1, int(round(min_gap_s * self.fps)))
+        last_f = -min_df - 1
+        for i, v in enumerate(seq):
+            prev_v = seq[i - 1] if i > 0 else 0.0
+            next_v = seq[i + 1] if i + 1 < len(seq) else v
+            if v >= thresh and v >= prev_v and v >= next_v and (i - last_f) >= min_df:
+                if i == 0 or prev_v < thresh or v > prev_v:
+                    hits.append((round(i / self.fps, 6), float(v)))
+                    last_f = i
+        return hits
+
+
+class Kinematics:
+    """多角色连续物理遥测容器：支持 kin['hero'].arr('speed') 或单轨直接 kin.track('default')。"""
+
+    def __init__(self, raw: dict, dur: float = None, sr: int = SR):
+        self.fps = float((raw or {}).get('fps') or 24.0)
+        self.dur = float(dur if dur is not None else ((raw or {}).get('dur') or 0.0))
+        self.sr = int(sr)
+        tracks_raw = (raw or {}).get('tracks')
+        if isinstance(tracks_raw, dict):
+            self.tracks = {k: Track(v, fps=self.fps, dur=self.dur or None, sr=self.sr)
+                           for k, v in tracks_raw.items() if isinstance(v, dict)}
+        else:
+            ch = {k: v for k, v in (raw or {}).items() if k not in ('fps', 'dur') and isinstance(v, (list, tuple, np.ndarray))}
+            self.tracks = {'default': Track(ch, fps=self.fps, dur=self.dur or None, sr=self.sr)} if ch else {}
+
+    def __getitem__(self, name: str) -> Track:
+        return self.tracks[name]
+
+    def get(self, name: str = 'default') -> Track:
+        return self.tracks.get(name) or Track({}, fps=self.fps, dur=self.dur, sr=self.sr)
+
+
+def load_kinematics(source, dur: float = None, sr: int = SR) -> Kinematics:
+    if isinstance(source, str):
+        p = os.path.join(source, 'kinematics.json') if os.path.isdir(source) else source
+        with open(p, encoding='utf-8') as f:
+            raw = json.load(f)
+    else:
+        raw = dict(source or {})
+    return Kinematics(raw, dur=dur, sr=sr)
 
 
 class Tempo:
@@ -85,6 +193,8 @@ class Film:
                 self.timeline = json.load(f)
             if self.timeline.get('secs'):
                 self.tempo = Tempo(self.timeline['secs'], self.timeline.get('fps', 24))
+        kp = os.path.join(self.dir, 'kinematics.json')
+        self.kinematics = load_kinematics(kp, dur=self.dur) if os.path.exists(kp) else None
 
 
 def load(film_dir):

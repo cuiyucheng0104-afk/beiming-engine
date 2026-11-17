@@ -19,10 +19,13 @@
   audio.headroom    hard > 3 dB、soft > 0   线性增益到目标后的真峰值 = 真峰值 + (目标 − 积分响度)，超出上限多少 dB 就要被限幅削多少
   audio.dc          hard > 0.01、soft > 0.001   每个声道的直流偏移
   audio.mono        hard 相关 < −0.3 或折单声道损失 < −8 LU；soft 相关 < 0 或损失 < −4 LU   单声道兼容
+  audio.balance     soft 连续 ≥2 个 100 ms 有声窗（> −26 dBFS）|L−R| > 6 dB   逐窗左右平衡（捕捉全片 audio.mono 掩盖的短促单侧底噪爆发）
   audio.edges       hard > 0.05、soft > 0.003   首尾样本（不归零会在开始 / 结束时"咔"一声）
   audio.cuts        hard 比值 > 6 且跳变 > 0.02；soft 比值 > 3   镜头切点 ±1 ms 内的样本跳变，对比切点两侧 2–30 ms 的
                           99 分位样本差（点击声的判据；有交叉淡化的切点比值约 1）
   audio.bands       soft  20–120 Hz 相对最强频段 > −2 dB（低频糊）或 8 kHz 以上 > −10 dB（刺耳）
+  audio.masking     hard < −16 dB、soft < −8 dB   有分轨 stems/*.wav 且作品声明了前景声音事件时，核对事件窗内前景分轨在自身主能量临界频带
+                          对背景分轨总和的最佳听觉窥视信噪比（Auditory Glimpse SNR），防关键拟音被配乐/环境声彻底淹没
 另报（不判）：响度范围 LRA、最大瞬时 / 短时响度、频段能量、声场相关、样本峰值。
 整段按 10 秒一块读盘，十分钟级的混音内存也只占几十 MB（engine/audio/stream.py 的分块测量）。
 
@@ -67,6 +70,13 @@ class Analyzer:
         self.pw = np.zeros(NFFT // 2 + 1)
         self._spec_rest = np.zeros(0)
         self._win = np.hanning(NFFT)
+        self._bal_w = max(64, int(round(0.100 * sr)))
+        self._bal_rest = np.zeros((0, 2))
+        self._bal_idx = 0
+        self._bal_run = 0
+        self.bal_worst_db = 0.0
+        self.bal_worst_sec = 0.0
+        self.bal_warn_wins = 0
         w = N(0.032)
         self.cuts = {c: [c - w, c + w, []] for c in cuts_samples}
 
@@ -98,6 +108,31 @@ class Analyzer:
             fr = np.lib.stride_tricks.sliding_window_view(buf, NFFT)[::HOP][:k] * self._win
             self.pw += (np.abs(np.fft.rfft(fr, axis=1)) ** 2).sum(0)
         self._spec_rest = buf[k * HOP:]
+        # 逐 100 ms 有声窗左右声道能量偏斜核对（捕捉局部单侧噪声爆发，弥补全片 audio.mono 掩盖短促偏斜）
+        bbuf = np.vstack([self._bal_rest, x]) if len(self._bal_rest) else x
+        bw = self._bal_w
+        nb = len(bbuf) // bw
+        if nb > 0:
+            wins = bbuf[:nb * bw].reshape(nb, bw, 2)
+            l_rms = np.sqrt(np.mean(wins[:, :, 0] ** 2, axis=1) + 1e-24)
+            r_rms = np.sqrt(np.mean(wins[:, :, 1] ** 2, axis=1) + 1e-24)
+            for j in range(nb):
+                mx = max(float(l_rms[j]), float(r_rms[j]))
+                if mx > 10.0 ** (-26.0 / 20.0):
+                    skew = abs(20.0 * np.log10((float(l_rms[j]) + 1e-12) / (float(r_rms[j]) + 1e-12)))
+                    if skew > 6.0:
+                        self._bal_run += 1
+                        if self._bal_run >= 2:
+                            self.bal_warn_wins += 1
+                            if skew > self.bal_worst_db:
+                                self.bal_worst_db = float(skew)
+                                self.bal_worst_sec = round((self._bal_idx + j) * 0.100, 2)
+                    else:
+                        self._bal_run = 0
+                else:
+                    self._bal_run = 0
+            self._bal_idx += nb
+        self._bal_rest = bbuf[nb * bw:]
         # 切点附近的样本
         a0, b0 = self.n, self.n + len(x)
         for c, (lo, hi, parts) in self.cuts.items():
@@ -144,7 +179,160 @@ def _grade(value, soft_bad, hard_bad):
     return 'fail' if hard_bad else ('warn' if soft_bad else 'pass')
 
 
-def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.5, max_tp=-1.0, chunk_s=10.0, loudness_at='mix'):
+_MASK_BANDS = (
+    ('80-250', 80.0, 250.0),
+    ('250-600', 250.0, 600.0),
+    ('600-1.5k', 600.0, 1500.0),
+    ('1.5k-3.5k', 1500.0, 3500.0),
+    ('3.5k-7.5k', 3500.0, 7500.0),
+    ('7.5k-14k', 7500.0, 14000.0),
+)
+_BED_STEMS = {'amb', 'ambience', 'music', 'bgm', 'bed', 'master', 'mix'}
+
+
+def _check_masking(wav, film, sr, n_total):
+    """分轨临界频带听觉窥视掩蔽检查（Auditory Glimpse SNR）：
+    仅在混音旁（或作品声明处）存在 stems/*.wav（≥ 2 条分轨）且作品有前景声音事件时执行。"""
+    import json
+    import soundfile as sf
+    if not film or not film.get('events') or not film.get('fps'):
+        return None
+    fa = film.get('audio') or {}
+    cand_dirs = []
+    if fa.get('stems'):
+        cand_dirs.append(F.resolve(film, fa['stems']))
+    cand_dirs.append(os.path.join(os.path.dirname(os.path.abspath(wav)), 'stems'))
+    if fa.get('cues'):
+        cand_dirs.append(os.path.join(os.path.dirname(F.resolve(film, fa['cues'])), 'stems'))
+    stem_map = None
+    stem_dir = None
+    for d in cand_dirs:
+        if not os.path.isdir(d):
+            continue
+        found = {}
+        for fn in sorted(os.listdir(d)):
+            if not fn.lower().endswith('.wav'):
+                continue
+            k = os.path.splitext(fn)[0]
+            if k.lower() in ('mix', 'master'):
+                continue
+            found[k] = os.path.join(d, fn)
+        if len(found) >= 2:
+            stem_map, stem_dir = found, d
+            break
+    if not stem_map:
+        return None
+    fg_stems = [k for k in stem_map if k.lower() not in _BED_STEMS]
+    if not fg_stems:
+        return None
+
+    cue_tab = {}
+    if fa.get('cues'):
+        cp = F.resolve(film, fa['cues'])
+        if os.path.isfile(cp):
+            try:
+                with open(cp, encoding='utf-8') as f:
+                    cue_tab = {c['id']: c for c in (json.load(f).get('cues') or []) if isinstance(c, dict) and 'id' in c}
+            except Exception:
+                cue_tab = {}
+
+    def read_mono(path, a, b):
+        try:
+            with sf.SoundFile(path) as f:
+                if a >= len(f) or b <= a:
+                    return np.zeros(max(0, b - a))
+                f.seek(a)
+                seg = f.read(min(b, len(f)) - a, dtype='float64', always_2d=True)
+            m = seg.mean(axis=1)
+            if len(m) < b - a:
+                m = np.pad(m, (0, (b - a) - len(m)))
+            return m
+        except Exception:
+            return np.zeros(max(0, b - a))
+
+    fps = film['fps']
+    items, worst_st = [], 'pass'
+    for e in film.get('events') or []:
+        frame = e.get('frame')
+        if not isinstance(frame, int) or isinstance(frame, bool):
+            continue
+        ref = e.get('audio')
+        sync = e.get('sync')
+        if not ref or sync == 'none' or e.get('domain') in ('amb', 'music', 'mix'):
+            continue
+        cue = cue_tab.get(str(ref), {})
+        dom = str(e.get('domain') or '')
+        dom_bus = 'fx' if dom == 'sfx' and 'fx' in stem_map else (dom if dom in stem_map else None)
+        bus = e.get('bus') or cue.get('bus') or cue.get('layer') or (str(ref) if str(ref) in stem_map else dom_bus)
+        if bus and str(bus).lower() in _BED_STEMS:
+            continue
+        t = float(cue['t']) if cue.get('t') is not None else frame / float(fps)
+        a = max(0, int(round((t - 0.015) * sr)))
+        b = min(n_total, int(round((t + 0.220) * sr)))
+        if b - a < 256:
+            continue
+
+        slices = {k: read_mono(p, a, b) for k, p in stem_map.items()}
+        if not bus or bus not in slices:
+            bus = max(fg_stems, key=lambda k: float(np.mean(slices[k] ** 2)))
+        u = slices[bus]
+        other = np.zeros_like(u)
+        for k, s in slices.items():
+            if k != bus:
+                other += s
+
+        u_rms = float(np.sqrt(np.mean(u * u) + 1e-24))
+        soft_ev = (sync == 'soft')
+        if u_rms < 3.16e-4:
+            best_snr, best_band = -99.0, 'silent'
+        else:
+            win = np.hanning(len(u))
+            U = np.abs(np.fft.rfft(u * win)) ** 2
+            O = np.abs(np.fft.rfft(other * win)) ** 2
+            fq = np.fft.rfftfreq(len(u), 1.0 / sr)
+            band_u = [(bn, lo, hi, float(U[(fq >= lo) & (fq < hi)].sum())) for bn, lo, hi in _MASK_BANDS]
+            tot_u = sum(v for _, _, _, v in band_u) + 1e-24
+            dom_bands = [(bn, lo, hi, v) for bn, lo, hi, v in band_u if v / tot_u >= 0.12]
+            if not dom_bands:
+                dom_bands = [max(band_u, key=lambda it: it[3])]
+            if float(O.sum()) < 1e-18:
+                best_snr, best_band = 60.0, dom_bands[0][0]
+            else:
+                best_snr, best_band = -99.0, dom_bands[0][0]
+                for bn, lo, hi, vu in dom_bands:
+                    vo = float(O[(fq >= lo) & (fq < hi)].sum())
+                    snr = 10.0 * np.log10((vu + 1e-24) / (vo + 1e-24))
+                    if snr > best_snr:
+                        best_snr, best_band = snr, bn
+            best_snr = round(float(best_snr), 2)
+
+        st = _grade(best_snr, best_snr < -8.0, (best_snr < -16.0) and not soft_ev)
+        if soft_ev and st == 'fail':
+            st = 'warn'
+        items.append({
+            'id': e.get('id') or str(ref), 'frame': frame, 'seconds': round(t, 4), 'stem': bus,
+            'bestBand': best_band, 'bestBandSnrDb': best_snr, 'status': st,
+        })
+        worst_st = 'fail' if 'fail' in (worst_st, st) else ('warn' if 'warn' in (worst_st, st) else 'pass')
+
+    if not items:
+        return None
+    worst_item = min(items, key=lambda it: it['bestBandSnrDb'])
+    bad = [it for it in items if it['status'] != 'pass']
+    msg = '' if not bad else ('前景音效被背景分轨掩蔽：' + '、'.join(
+        f"{it['id']}（{it['stem']} @ {it['bestBand']} {it['bestBandSnrDb']:+.1f} dB）" for it in bad[:5]))
+    return _chk(
+        'audio.masking', '关键音效带内掩蔽余量（分轨）', worst_st,
+        f"{len(items)} 个前景事件，最低带内余量 {worst_item['bestBandSnrDb']:+.1f} dB（{worst_item['id']} @ {worst_item['bestBand']}）",
+        '主能量临界频带最佳 SNR ≥ −8 dB（< −16 dB 不通过）',
+        {'stemsDir': _rel(stem_dir), 'items': items},
+        msg,
+        hint=None if not bad else '对背景配乐/环境分轨在事件瞬态频带做动态闪避（mixing.duck / sidechain），或补强前景音效 1.5–7.5 kHz 切口',
+        severity='hard' if worst_st == 'fail' else 'soft',
+    )
+
+
+def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.5, max_tp=-1.0, chunk_s=10.0, loudness_at='mix', film=None):
     """→ (checks, info)。cuts 是切点帧号；loudness_at 见文件头（mix / deliver）。"""
     import soundfile as sf
     try:
@@ -194,10 +382,14 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
                        '混音里有样本顶到满幅：整数格式已经削波，浮点格式封装时会削波' if overs else '',
                        hint='母带用 engine.audio.mixing.loudness_to / stream.loudness_to 收口（总增益 + 前视真峰值限制）' if overs else None))
 
-    I = A.L.integrated()
-    li = {'integrated': None if not np.isfinite(I) else round(I, 2), 'momentaryMax': round(A.L.momentary_max(), 2),
-          'shortTermMax': round(A.L.short_term_max(), 2), 'lra': round(A.L.lra(), 2), 'loudnessAt': loudness_at}
+    I, M, S, lra = A.L.integrated(), A.L.momentary_max(), A.L.short_term_max(), A.L.lra()
+    li = {'integrated': None if not np.isfinite(I) else round(I, 2),
+          'momentaryMax': None if not np.isfinite(M) else round(M, 2),
+          'shortTermMax': None if not np.isfinite(S) else round(S, 2),
+          'lra': None if not np.isfinite(lra) else round(lra, 2),
+          'loudnessAt': loudness_at}
     tpd = float(20 * np.log10(A.tp.value)) if A.tp.value > 0 else -np.inf
+    tpd_json = round(tpd, 4) if np.isfinite(tpd) else None
     if not np.isfinite(I) or I <= -70:
         checks.append(_chk('audio.loudness', '积分响度', 'fail', '静音（没有块高于 −70 LUFS）', f'{target_lufs:g} ± {tol_lu:g} LUFS', li,
                            '混音是静音', hint='检查声音脚本有没有写进东西，或 film.json 的 audio.mode 应为 none'))
@@ -224,7 +416,7 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
     if loudness_at != 'deliver':
         ok = tpd <= max_tp + TP_TOL_DB
         checks.append(_chk('audio.truepeak', '真峰值（4 倍过采样）', 'pass' if ok else 'fail', f'{tpd:.2f} dBTP', f'≤ {max_tp:g} dBTP（测量容差 {TP_TOL_DB} dB）',
-                           {'truePeakDbTP': round(tpd, 4), 'samplePeak': round(A.sp, 6), 'toleranceDb': TP_TOL_DB},
+                           {'truePeakDbTP': tpd_json, 'samplePeak': round(A.sp, 6), 'toleranceDb': TP_TOL_DB},
                            '' if ok else f'真峰值 {tpd:.2f} dBTP 高于上限 {max_tp:g}：AAC 编码后会过载失真',
                            hint=None if ok else '母带限制器的上限设到 audio.truePeakDbTP 以下（loudness_to 的 tp 参数）'))
 
@@ -245,6 +437,16 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
                        {'lrCorrelation': round(corr, 3), 'monoMinusStereoLU': round(loss, 2) if np.isfinite(loss) else None},
                        '' if corr >= 0 and loss >= -4 else '左右有明显反相：手机外放、单声道音箱上会抵消',
                        hint=None if corr >= 0 and loss >= -4 else '查加宽（dsp.width > 1.5）、反相的去相关噪声、左右相减的效果'))
+
+    bal_bad = A.bal_warn_wins > 0
+    checks.append(_chk('audio.balance', '逐窗左右平衡（100 ms 有声窗）', 'warn' if bal_bad else 'pass',
+                       f'最大连续偏斜 {A.bal_worst_db:.2f} dB' + (f'（@ {A.bal_worst_sec:.2f} s，共 {A.bal_warn_wins} 窗）' if bal_bad else ''),
+                       '连续 ≥2 个 100 ms 有声窗（> −26 dBFS）|L−R| ≤ 6 dB',
+                       {'maxSustainedSkewDb': round(A.bal_worst_db, 2), 'worstAtSec': A.bal_worst_sec if bal_bad else None,
+                        'skewWindows': A.bal_warn_wins},
+                       '' if not bal_bad else f'{A.bal_worst_sec:.2f} s 附近出现连续单侧偏重（|L−R| = {A.bal_worst_db:.1f} dB）',
+                       hint=None if not bal_bad else '排查微距斜拍声像是否未按景别收束（SHOT_PAN_CAP），或单侧低幅切片归一化放大了底噪（library.load_slice）',
+                       severity='soft'))
 
     e = max(A.first or 0.0, A.last or 0.0)
     checks.append(_chk('audio.edges', '首尾样本归零', _grade(e, e > 0.003, e > 0.05), f'首 {A.first:.4f} · 尾 {A.last:.4f}', '≤ 0.003（> 0.05 不通过）',
@@ -273,6 +475,9 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
                            f'20–120 Hz {be["20-120"]} dB · 8 kHz+ {be["8k+"]} dB（相对最强频段）', '20–120 Hz ≤ −2 dB、8 kHz+ ≤ −10 dB', {'bandRelDb': be},
                            ('低频压过了中频，小音箱上会糊；' if lo_bad else '') + ('高频偏多，听感刺耳' if hi_bad else ''),
                            hint='用 engine.audio.mixing.tame_low 压低频，或给亮的总线加高搁架' if lo_bad or hi_bad else None, severity='soft'))
+    mc = _check_masking(wav, film, info.samplerate, A.n)
+    if mc is not None:
+        checks.append(mc)
     for c in checks:
         if c['id'] in ('audio.dc', 'audio.mono', 'audio.edges') and c['status'] == 'warn':
             c['severity'] = 'soft'
@@ -394,7 +599,7 @@ def main(args, ctx):
     at = args.loudness_at or ('mix' if (args.target_lufs is not None or 'targetLUFS' in fa or not film) else 'deliver')
     ctx.log(f'声音 QA：{_rel(wav)}（档位 {prof["id"]}，目标 {target:g} ± {tol:g} LUFS、真峰值 ≤ {max_tp:g} dBTP；响度在 {at} 定）')
     checks, _ = analyze(wav, fps=fps, frames=frames, cuts=film['cuts'] if film else (), target_lufs=float(target), tol_lu=tol, max_tp=float(max_tp),
-                        loudness_at=at)
+                        loudness_at=at, film=film)
     rep = build_report(checks, film=film, wav=wav, profile_id=prof['id'], fail_on_warn=args.fail_on_warn)
     rep['loudnessAt'] = at
     outputs = []
