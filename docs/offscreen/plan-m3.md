@@ -50,6 +50,8 @@
 - 测试：沿用 T3（M2）的场景，加一块半透明底板压在描边物体前，对 GLSL 版对拍。
 
 ### T4 底板、辉光与显示层
+
+> **底板、辉光、画布贴图已完成**（2026-11-18）：`tsl/plates.js`，见 [README 7.10](README.md)。显示层（片名、副标题的合成）放进 T5 的影片外壳一起做。
 - `engine/offscreen/tsl/plates.js`：`plate / plateMat / cutoutPlane / glowSprite / tileRepeat` 的 r187 版（直通 alpha、不写深度、不受雾与色调映射影响；抠像面片的深度遮罩层）。底板贴图经 `tools/plates/png.mjs` 解码，读 `assets/plates/plates.json` 的登记信息。
 - 显示层：作品的 `draw(ctx, t)` 画在 T0 的画布上，按 A 路线外壳的同一方式叠在后期之后。
 - 测试：底板 + 辉光 + 片名的合成对 A 路线对拍；片名题字的差异单独统计（字形光栅化）。

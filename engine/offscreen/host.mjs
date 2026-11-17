@@ -1,7 +1,7 @@
 // 北冥引擎 · 离屏出片 · 出片宿主：在 Node + Dawn 里替作品模块建渲染器与渲染目标，按帧号渲一帧并读回像素。没有画布，也没有浏览器。
 //   createHost({ gpu, width, height, fps = 24, device }) → Promise<Host>
 //       gpu 来自 load.mjs 的 loadGpu()；给了 device 就共用它（一张卡上同时出多部片时共用一个 GPUDevice）
-//   Host.load(file)             动态导入作品模块（绝对路径）并调用 build({ THREE, TSL, renderer, width, height, fps, pipeline })；
+//   Host.load(file)             动态导入作品模块（绝对路径）并调用（await）build({ THREE, TSL, renderer, width, height, fps, pipeline })；
 //                               作品契约见 docs/offscreen/README.md 2.1
 //   Host.renderFrame(work, f)   推进帧时钟（时刻 = f / fps），把 work.render(f) 画进 sRGB 渲染目标，不等待地发起读回；
 //                               返回读回的 Promise<Uint8Array>（RGBA8，行序自上而下）。读回的拷贝命令在返回前已提交，可以接着渲下一帧
@@ -62,7 +62,7 @@ export async function createHost({ gpu, width, height, fps = 24, device } = {}) 
     async load(file) {
       const mod = await import(pathToFileURL(file).href);
       if (typeof mod.build !== 'function') throw new TypeError(`${file} 没有导出 build(ctx)：作品模块契约见 docs/offscreen/README.md 2.1`);
-      const work = mod.build({ THREE, TSL, renderer, width, height, fps, pipeline });
+      const work = await mod.build({ THREE, TSL, renderer, width, height, fps, pipeline });   // build 可以是 async（真片要先载字体、画布）
       if (typeof work?.render !== 'function') throw new TypeError(`${file} 的 build() 要返回 { render(f) }`);
       works.push(work);
       return work;

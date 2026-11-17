@@ -37,6 +37,7 @@ export function build({ THREE, TSL, renderer, width, height, fps, pipeline }) {
 }
 ```
 
+- `build` 可以是 `async`（M3 起）：宿主等它返回，作品可以先载字体子集、画布与底板。
 - `THREE`、`TSL` 由宿主注入，作品**不写 `import ... from 'three'`**：仓库里 `three` 锁在 r170（旧作品用），裸导入在 Node 里会拿到旧版。
 - `pipeline(outputNode)` 是宿主给的后期管线工厂，返回 `RenderPipeline`，已关掉管线内的色彩输出变换（见 2.3）。作品不要自己 `new RenderPipeline`。
 - 时间只从 `f` 来：不用 TSL 的 `time` / `deltaTime`，不用 `Date.now`、`performance.now`、`Math.random`；随机一律 `engine/core/math.js` 的 `mulberry(种子)` 或 TSL `hash`。
@@ -264,7 +265,13 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 
 **不支持**（抛 `unsupported.toon`）：InstancedMesh、半透明 / `translucent`、`map`、`vertexColors`、`rest`、`outlineVertex`、`defines`、顶点形变钩子的 TSL 版（材质只认片元钩子）、`spec.shade` 等 GLSL 插桩、`paintLayer` / `muralLayer`。只给了 GLSL 钩子、没给 `opts.tsl` 也抛错，不静默少画皴线。
 
-### 7.10 快速复查
+### 7.10 底板、辉光与画布贴图（M3 T4）
+
+`engine/offscreen/tsl/plates.js` 是 `engine/stage/plates.js` 的对应：`await createPlates({ THREE, TSL })` 返回同名同参数的 `loadPlates / plateMat / plate / plateCopy / tileRepeat / canvasLayer / cropPlate / cutoutPlane / glowSprite`。`loadPlates` 读 `plates.json` 与 PNG（`tools/plates/png.mjs` 解码，`dir` 是文件系统路径）；`canvasLayer` 的画布是 Skia，贴图在上传时才读画布像素；`cropPlate`、`glowSprite` 的 GLSL 改成 TSL，`glowSprite` 的材质照样挂 `uniforms`（作品每帧 `mat.uniforms.amt.value = …` 不用改）。贴图约定与 A 路线一致：sRGB、行序按图片、mip 链 + 三线性 + 各向异性 8。作品模块的 `build` 从这一步起可以是 `async`。
+
+**一致性**（480×270，后期全关，天空 `sky_dawn` + 透明云 `clouds_front_a` 做普通底板、软边裁片、抠像面片，两个辉光，一张画布贴图）：PSNR 61.9 dB、最大差 9 级、差 5 级以上的像素 110 个（0.085%，门槛 0.1%）。大差像素全在画布贴图里一块深色矩形的硬边上：贴图缩小显示时走 mip 链，两个后端各自生成 mip（WebGL 驱动对 three 的降采样），硬边处差几级。变异检查：辉光不压扁 36.7 dB、画布不翻 y 31.8 dB、裁片翻转反了 37.1 dB，都过不了门。
+
+### 7.11 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080
