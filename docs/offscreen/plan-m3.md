@@ -44,6 +44,8 @@
 - 测试：一组不带钩子、一组带皴线钩子、一组带投影的场景，对 GLSL 版在无头 Chrome 里对拍（M1 质量门）；变异检查（改分档阈值、去掉边缘光亮芯）必须变红。
 
 ### T3 ID 通道补全：软遮挡与精灵
+
+> **已完成**（2026-11-18）：`tsl/idpass.js` 支持 soft / own（含 Sprite 与半透明物体的 auto 判定），对拍逐字节相同，见 [README 7.6](README.md)。卡通材质的 `translucent` 仍未支持（T2 抛错），模版用不到。
 - `idpass.js` 支持 `outlineOccluder` 的 `'soft'`（半透明底板、精灵按自身 alpha 半挡线）与 `'own'`（自带材质实心挡线）；卡通材质的 `noId`、`translucent`。
 - 测试：沿用 T3（M2）的场景，加一块半透明底板压在描边物体前，对 GLSL 版对拍。
 

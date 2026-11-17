@@ -87,8 +87,7 @@ test('未支持的语义显式抛错（不静默画错），并且抛错后场�
   const { THREE } = gpu, { renderer } = host, tg = target(THREE), ids = createIdPass({ THREE, TSL: gpu.TSL, renderer });
   const cases = {
     InstancedMesh: (scene, o) => { const m = new THREE.InstancedMesh(o.A.geometry, new THREE.MeshBasicMaterial(), 2); m.userData.outline = true; scene.add(m); },
-    '半透明遮挡物（soft）': (scene, o) => { o.D.material.transparent = true; o.D.material.opacity = 0.5; },
-    'outlineOccluder own': (scene, o) => { o.D.userData.outlineOccluder = 'own'; },
+    '多材质数组的 soft 遮挡': (scene, o) => { o.D.material.transparent = true; o.D.material = [o.D.material, o.D.material.clone()]; },
     '多材质数组': (scene, o) => { o.C.material = [o.C.material, o.C.material.clone()]; },
     'alpha 镂空': (scene, o) => { o.C.material.map = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); o.C.material.alphaTest = 0.5; },
     outlineVertex: (scene, o) => { o.C.userData.outlineVertex = { head: '', body: '' }; },

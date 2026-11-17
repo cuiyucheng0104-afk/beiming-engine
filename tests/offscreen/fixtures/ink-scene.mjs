@@ -1,6 +1,7 @@
 // 墨线对拍用的场景：THREE 由调用方传入（GLSL 参考页用仓库的 r170，TSL 夹具用离屏的 r187），两边建出同一个场景。纯函数，不含随机。
 // 覆盖：两个相交的方块、同组部件（outlineGroup，相接处不出内线）、描边球（outlineAlpha / outlineWidth）、实心遮挡物与地面（不描边）、
-// 不挡线的加色面片、极远处的方块（线宽随深度变细）。
+// 不挡线的加色面片、极远处的方块（线宽随深度变细）、半透明面纱与半透明精灵（auto 判成 soft：按自身 alpha 削弱后面的线）、
+// 声明 outlineOccluder: 'own' 的遮挡物（用自己的材质实心挡线）。
 export function inkScene(THREE, W, H) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x808080);
@@ -24,5 +25,10 @@ export function inkScene(THREE, W, H) {
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({ color: 0xffffff, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.4 }));
   glow.position.set(-2.2, 0.3, 3.5); scene.add(glow);   // 加色面片：auto 判成不挡线，它后面的线要照常出
   add(new THREE.BoxGeometry(6, 6, 6), 0x40a0a0, [-7, 2, -35], [0.3, 0.5, 0], { outline: true });
+  const veil = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.4), new THREE.MeshBasicMaterial({ color: 0xe0d8f0, transparent: true, opacity: 0.55, depthWrite: false }));
+  veil.position.set(-2.2, 0.4, 2.4); scene.add(veil);   // 挡住红、蓝两个方块的一部分
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffe0c0, transparent: true, opacity: 0.4, depthWrite: false }));
+  sprite.position.set(3.3, 1.1, 0.6); sprite.scale.set(1.2, 1.2, 1); scene.add(sprite);   // 盖在球上
+  add(new THREE.BoxGeometry(0.6, 0.6, 0.6), 0x303040, [0.3, 0.9, 2.2], [0.4, 0.6, 0], { outlineOccluder: 'own' });
   return { scene, camera };
 }

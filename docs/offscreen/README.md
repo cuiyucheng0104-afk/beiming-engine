@@ -197,7 +197,7 @@ TSL 版与现有 GLSL 版在同一量级（KR 6–8 差在 ±15% 内，两边计
 
 **耗时**（1080p 输出，含读回，在途 3 帧，同上那台机器，各跑两遍）：墨线缓冲 1080p（ss = 1）205 / 266 fps；缓冲 3840×2160（ss = 2，A 路线的默认）77 / 79 fps。只量了 TSL，没有量同场景的 GLSL 版；这个场景的搜索半径不大（线宽 2.5、k = 1），k 大了搜索半径随之变大（最多 16），耗时会更高。
 
-**未支持的 ID 语义**（遇到抛 `Error`，`code` 为 `unsupported.outline`，message 里写明物体与原因，抛错后材质与渲染器状态原样还原，不静默画错）：InstancedMesh、SkinnedMesh、BatchedMesh、变形目标；多材质数组；带贴图的 alpha 镂空（`alphaTest` 或 `transparent` + `map`）；材质自带顶点位移（`positionNode`）；`outlineVertex`、`outlinePerInstance: false`；`outlineOccluder` 的 `'soft'`、`'own'`（包括 auto 判成它们的半透明物体、Sprite、ShaderMaterial）。要用到这些的作品，先扩范围再做片。支持的：不透明 Mesh 的 `outline` / `outlineWidth` / `outlineAlpha` / `outlineGroup`、实心遮挡与 `outlineOccluder: false`、材质 `userData.noId`、`visible = false`、Points / Line / 加色 / 正片叠底 / `colorWrite = false` 不挡线。
+**未支持的 ID 语义**（遇到抛 `Error`，`code` 为 `unsupported.outline`，message 里写明物体与原因，抛错后材质与渲染器状态原样还原，不静默画错）：InstancedMesh、SkinnedMesh、BatchedMesh、变形目标；多材质数组（描边物体与 soft / own 遮挡物）；描边物体带贴图的 alpha 镂空（`alphaTest` 或 `transparent` + `map`）；描边物体的材质自带顶点位移（`positionNode`）；`outlineVertex`、`outlinePerInstance: false`。`outlineOccluder` 的 `'soft'`、`'own'` 在 M3 T3 补上了（包括 auto 判成它们的半透明物体与 Sprite）：沿用物体自己的材质、只临时改混合，同 GLSL 版；对拍场景加了半透明面纱、半透明精灵与 own 遮挡物之后仍与 GLSL 逐字节相同，把 soft 或 own 当成不挡线，PSNR 掉到 24–25 dB。要用到这些的作品，先扩范围再做片。支持的：不透明 Mesh 的 `outline` / `outlineWidth` / `outlineAlpha` / `outlineGroup`、实心遮挡、soft / own 遮挡与 `outlineOccluder: false`、材质 `userData.noId`、`visible = false`、Points / Line / 加色 / 正片叠底 / `colorWrite = false` 不挡线。
 
 **没做**：雾里变淡（`fogFade`，GLSL 版在 fog = null 时也是 0）；与真实镜头的对拍（要等 T4 的合成与 T5 的真片）。
 
