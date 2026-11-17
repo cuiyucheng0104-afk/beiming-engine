@@ -31,8 +31,16 @@ function sandbox({ withEngine = false } = {}) {
     fs.symlinkSync(path.join(ROOT, 'assets'), path.join(dir, 'assets'), 'junction');
     fs.symlinkSync(path.join(ROOT, 'media'), path.join(dir, 'media'), 'junction');   // A 模版的 style.baseline 指向 media/shot_1.6.jpg
   } else {
-    fs.mkdirSync(path.join(dir, 'engine/render'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'engine/render/native.mjs'), '// 沙盒占位：注册表要求渲染器入口存在\n');
+    const reg = JSON.parse(fs.readFileSync(path.join(ROOT, 'routes/routes.json'), 'utf8'));
+    for (const r of Object.values(reg.renderers)) {
+      const target = path.join(dir, ...r.entry.split('/'));
+      if (/\.(mjs|js)$/.test(r.entry)) {
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, '// 沙盒占位：注册表要求渲染器入口存在\n');
+      } else {
+        fs.mkdirSync(target, { recursive: true });
+      }
+    }
   }
   return dir;
 }
