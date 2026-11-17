@@ -220,7 +220,7 @@ async function runOffscreenDeterminism({ dir, label, film, size, fps, W, seed, g
   const { renderFrames } = await import('../../engine/offscreen/frames.mjs');
   const entry = path.join(dir, 'offscreen.mjs');
   const query = opts.query || '';
-  let loadedGpu, ownerHost = null;
+  let loadedGpu, ownerHost;
   try {
     loadedGpu = await loadGpu();
     ownerHost = await createHost({ gpu: loadedGpu, width: size[0], height: size[1], fps, query });

@@ -58,7 +58,7 @@ export const probe = {
       const entry = path.join(ctx.film.dir, 'offscreen.mjs');
       const r = await ctx.exec(process.execPath, [path.resolve(R('.'), '../offscreen/cli.mjs'), 'probe', entry, '--size', sizeArg(ctx), '--fps', String(ctx.fps), '--events-out', ctx.run.dir, ...queryArgs(ctx), '--json'],
         { label: '离屏契约探测（offscreen probe）', timeoutSec: 180, stallSec: 120 });
-      let p = null;
+      let p;
       try { p = JSON.parse(String(r.stdout || '').trim())?.data ?? null; } catch { p = null; }
       if (!p) ctx.fail(1, 'probe-missing', '离屏契约探测没有输出有效 JSON', `看 ${ctx.relLog('probe')}`);
       fs.writeFileSync(pf, JSON.stringify(p, null, 2) + '\n');
