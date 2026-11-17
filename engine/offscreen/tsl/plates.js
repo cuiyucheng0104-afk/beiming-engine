@@ -35,6 +35,7 @@ export async function createPlates({ THREE, TSL }) {
       let png;
       try { png = decodePng(readFileSync(file)); } catch (e) { throw Object.assign(new Error(`底板读不了：${file}（${e.message}）`), { code: 'contract.plate' }); }
       tex[n] = asImage(new THREE.DataTexture(png.data, png.width, png.height, THREE.RGBAFormat), { linear: linear.includes(n) });
+      tex[n].userData.plateFile = file;
     }
     return { meta: M, tex };
   }
@@ -49,6 +50,7 @@ export async function createPlates({ THREE, TSL }) {
   }
   function plateCopy(map, { wrap = false } = {}) {
     const t = map.clone();
+    if (map.userData?.plateFile) t.userData.plateFile = map.userData.plateFile;
     if (wrap) t.wrapS = THREE.RepeatWrapping;
     t.needsUpdate = true;
     return t;
@@ -71,7 +73,7 @@ export async function createPlates({ THREE, TSL }) {
     const d = uv().sub(0.5).mul(2);
     const m = float(1).sub(smoothstep(U.soft, 1, length(d.mul(vec2(1, 1.15)))));
     mat.colorNode = vec4(c.rgb.mul(U.tint), c.a.mul(m).mul(U.opacity));
-    mat.userData.crop = U;
+    mat.userData.crop = { ...U, map };
     const mesh = flat(new THREE.Mesh(UNIT_PLANE, mat), order);
     mesh.userData.aspect = (map.image.width * rect[2]) / (map.image.height * rect[3]);
     return mesh;

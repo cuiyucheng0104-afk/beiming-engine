@@ -39,23 +39,24 @@ function parseOut(stdout) {
 const isReport = j => j && Array.isArray(j.checks) && typeof j.ok === 'boolean';
 const lastLine = s => String(s || '').trim().split('\n').filter(Boolean).slice(-1)[0] || '';
 
-export function qaArgs({ master, film, filmFile = null, profile, runDir, pageDir = null, size = null, events = null }) {
+export function qaArgs({ master, film, filmFile = null, profile, runDir, pageDir = null, size = null, events = null, offscreen = false }) {
   const args = ['report', master, '--film', filmFile || path.join(film.dir, 'film.json'), '--out', path.join(runDir, 'qa')];
   if (pageDir) {
     args.push('--page', pageDir);
     if (size) args.push('--size', `${size[0]}x${size[1]}`);
   }
+  if (offscreen) args.push('--offscreen');
   if (events) args.push('--events', events);
   if (profile && !profile.custom) args.push('--profile', profile.id);
   args.push('--json');
   return args;
 }
 
-export async function runQa({ master, film, filmFile = null, profile, runDir, exec, timeoutSec = 900, pageDir = null, size = null, events = null }) {
+export async function runQa({ master, film, filmFile = null, profile, runDir, exec, timeoutSec = 900, pageDir = null, size = null, events = null, offscreen = false }) {
   timeoutSec = Math.max(timeoutSec, 120);
   const cli = qaCli();
   if (!cli) return { status: 'not-run', reason: 'qa-missing', message: '机器 QA 门 tools/qa/cli.mjs 不存在，本次没有做技术验收' };
-  const args = [cli, ...qaArgs({ master, film, filmFile, profile, runDir, pageDir, size, events })];
+  const args = [cli, ...qaArgs({ master, film, filmFile, profile, runDir, pageDir, size, events, offscreen })];
   let res;
   try {
     // 文字与底板检查要逐帧跑页面，长片可能几分钟不出声：看门狗放宽到 15 分钟，总超时由调用方按帧数给

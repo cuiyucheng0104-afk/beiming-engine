@@ -9,7 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { designFit, normalizeTexts } from '../stage/film.js';
 import { setFilmFps, frameOf, REF_FPS } from '../core/clock.js';
 import { grainCellOf, grainSeedOf } from '../look/index.js';
-import { loadCanvas, loadFilmFonts } from './canvas.mjs';
+import { loadCanvas, loadFilmFonts, recordRegisteredFont } from './canvas.mjs';
 import { createPaper } from './tsl/paper.js';
 import { createCompose } from './tsl/compose.js';
 
@@ -42,6 +42,7 @@ export async function registerCanvasFonts(specs = [], { baseDir = process.cwd(),
         let ok;
         try { ok = !!GlobalFonts.registerFromPath(fPath, s.family); } catch { ok = false; }
         if (!ok) throw new Error(`字体分片注册失败：${fPath}（family=${s.family}）`);
+        recordRegisteredFont({ file: fPath, family: s.family, weight: s.weight ?? c.weight ?? '400', style: s.style ?? c.style ?? 'normal', unicodeRange: c.unicodeRange ?? '' });
         chunksLoaded++;
       }
     } else if (s.src) {
@@ -49,6 +50,7 @@ export async function registerCanvasFonts(specs = [], { baseDir = process.cwd(),
       let ok;
       try { ok = !!GlobalFonts.registerFromPath(fPath, s.family); } catch { ok = false; }
       if (!ok) throw new Error(`字体文件注册失败：${fPath}（family=${s.family}）`);
+      recordRegisteredFont({ file: fPath, family: s.family, weight: s.weight ?? '400', style: s.style ?? 'normal', unicodeRange: s.unicodeRange ?? '' });
       filesLoaded++;
     } else {
       throw new Error(`字体 ${s.family} 要写 src（一个字体文件）或 manifest（分片清单）`);
@@ -64,18 +66,13 @@ export async function createCanvasFilm({
   paper: paperImage = null, refHeight = 1080,
 } = {}) {
   const { createCanvas } = await loadCanvas();
-  globalThis.document ??= {
-    createElement(tag) {
-      if (tag !== 'canvas') throw new Error(`离屏没有 DOM：只能建画布，收到 <${tag}>`);
-      return createCanvas(1, 1);
-    },
-  };
   const subsetFonts = fontsDir ? await loadFilmFonts(fontsDir) : null;
   if (fonts?.length) await registerCanvasFonts(fonts, { baseDir, glyphs });
 
   renderer.toneMapping = THREE.NoToneMapping;
   const F = designFit({ width: W, height: H, designWidth, designHeight, fit });
   const canvas = createCanvas(W, H), ctx = canvas.getContext('2d');
+  canvas.__bmOverlay = true;
 
   const canvasTex = new THREE.DataTexture(null, W, H, THREE.RGBAFormat);
   Object.defineProperty(canvasTex.image, 'data', {
@@ -106,6 +103,7 @@ export async function createCanvasFilm({
     const k = H / refHeight, kp = Math.max(1, Math.round(k));
 
     return {
+      dur,
       render(f) {
         const t = Math.min(f / rate, dur - 1e-6);
         const fn = frameOf(t, rate);

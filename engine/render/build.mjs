@@ -50,10 +50,30 @@ const queryArgs = ctx => (ctx.query ? ['--query', ctx.query] : []);
 
 export const probe = {
   id: 'probe', title: '页面契约与事件表（engine/render/events.mjs）',
-  when: ctx => (ctx.opts.renderer === 'offscreen' && !fs.existsSync(path.join(ctx.film.pageDir, 'index.html')) ? '纯离屏作品（无 index.html）：跳过浏览器页面探测' : true),
   outputs: () => ({ events: 'events.json', timeline: 'timeline.json', probe: 'work/probe.json' }),
   async run(ctx) {
     const pf = path.join(ctx.run.work, 'probe.json');
+    const pureOffscreen = ctx.opts.renderer === 'offscreen' && !fs.existsSync(path.join(ctx.film.pageDir, 'index.html'));
+    if (pureOffscreen) {
+      const entry = path.join(ctx.film.dir, 'offscreen.mjs');
+      const r = await ctx.exec(process.execPath, [path.resolve(R('.'), '../offscreen/cli.mjs'), 'probe', entry, '--size', sizeArg(ctx), '--fps', String(ctx.fps), '--events-out', ctx.run.dir, ...queryArgs(ctx), '--json'],
+        { label: '离屏契约探测（offscreen probe）', timeoutSec: 180, stallSec: 120 });
+      let p = null;
+      try { p = JSON.parse(String(r.stdout || '').trim())?.data ?? null; } catch { p = null; }
+      if (!p) ctx.fail(1, 'probe-missing', '离屏契约探测没有输出有效 JSON', `看 ${ctx.relLog('probe')}`);
+      fs.writeFileSync(pf, JSON.stringify(p, null, 2) + '\n');
+      if (typeof p.dur === 'number' && Number.isFinite(p.dur)) {
+        const got = Math.round(p.dur * ctx.fps);
+        if (got !== ctx.frames) ctx.fail(4, 'offscreen-frames', `offscreen.mjs 的 dur = ${p.dur} 秒（${got} 帧），作品描述要求 ${ctx.frames} 帧`, '让 offscreen.mjs 的 dur 与 film.json 一致');
+      }
+      if (p.software) {
+        const msg = `Dawn WebGPU 落到了软件适配器（${p.adapter?.vendor} ${p.adapter?.description}）：每帧很慢，像素也与硬件不同`;
+        if (ctx.opts.gpu === 'required') ctx.fail(3, 'software-render', msg, '检查 NVIDIA 驱动与 Vulkan ICD；只在 CI 冒烟时加 --gpu software-ok');
+        ctx.warn('software-render', msg);
+      }
+      if (!p.hasTexts) ctx.warn('no-texts', 'offscreen.mjs 没有提供 texts(f)：文字安全区、停留时长与缺字检查只能按画字探针推导');
+      return { dur: p.dur ?? ctx.frames / ctx.fps, gpu: `Dawn WebGPU（离屏）：${[p.adapter?.vendor, p.adapter?.architecture].filter(Boolean).join(' ') || 'unknown'}`, software: !!p.software, evCount: p.evCount ?? 0, hasTimeline: !!p.hasTimeline, hasTexts: !!p.hasTexts, pageFps: ctx.fps };
+    }
     await ctx.exec(process.execPath, [R('events.mjs'), ctx.film.pageDir, '--size', sizeArg(ctx), ...queryArgs(ctx), '--out', ctx.run.dir, '--probe', pf],
       { label: '页面探测（events.mjs）', timeoutSec: 300, stallSec: 240, okCodes: [0, 4] });
     let p;

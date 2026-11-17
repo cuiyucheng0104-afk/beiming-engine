@@ -25,6 +25,7 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
   const F = designFit({ width: W, height: H, designWidth, designHeight, fit });
 
   const overlay = createCanvas(W, H), ctx = overlay.getContext('2d');
+  overlay.__bmOverlay = true;
   // 显示层贴图：上传时才读画布；行序自上而下，按屏幕坐标逐像素取（不翻 y、不插值）；数值就是 sRGB，不做色彩空间换算
   const ovTex = new THREE.DataTexture(null, W, H, THREE.RGBAFormat);
   Object.defineProperty(ovTex.image, 'data', { get: () => new Uint8Array(ctx.getImageData(0, 0, W, H).data.buffer), configurable: true });
@@ -37,13 +38,18 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
     const pipe = draw ? vec4(sRGBTransferEOTF(mix(look.node.rgb, ov.rgb, ov.a)), 1) : look.output;
     const post = pipeline(pipe);
     return {
+      dur,
       render(f) {
         const t = Math.min(f / rate, dur - 1e-6);
         const { entry, ctx: sctx } = table.at(t, frameOf(t, rate));
         const S = entry.shot;
         S.update(t, frameOf(t, rate), sctx);
         look.render(S.scene, S.camera, S.look(t, sctx));
-        if (draw) { ctx.clearRect(0, 0, W, H); draw(ctx, t, S, sctx); ovTex.needsUpdate = true; }
+        if (draw) {
+          ctx.clearRect(0, 0, W, H);
+          if (globalThis.__BMQA_OFFSCREEN?.hide !== 'layer') draw(ctx, t, S, sctx);
+          ovTex.needsUpdate = true;
+        }
         post.render();
       },
       texts: f => (texts ? normalizeTexts(texts(Math.min(f / rate, dur - 1e-6))) : []),

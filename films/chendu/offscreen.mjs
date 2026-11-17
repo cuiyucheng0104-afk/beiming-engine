@@ -38,8 +38,10 @@ export async function build({ THREE, TSL, renderer, pipeline, width: W, height: 
     geo: g => geometry(THREE, g),
     readJson: async url => JSON.parse(readFileSync(fileURLToPath(url), 'utf8')),
     loadTexture: async url => {   // 同 TextureLoader 读图的朝向；作品随后照样设 sRGB、三线性与各向异性
-      const png = decodePng(readFileSync(fileURLToPath(url)));
+      const file = fileURLToPath(url);
+      const png = decodePng(readFileSync(file));
       const t = new THREE.DataTexture(png.data, png.width, png.height, THREE.RGBAFormat);
+      t.userData.plateFile = file;
       t.flipY = true; t.generateMipmaps = true; t.needsUpdate = true;
       return t;
     },

@@ -146,6 +146,7 @@ export const command = defineCommand({
   options: {
     out: { type: 'string', arg: '<路径>', describe: 'render 输出文件（.mp4）或 stills 输出目录' },
     'out-dir': { type: 'string', arg: '<目录>', describe: 'batch 多作品模式下的输出目录' },
+    'events-out': { type: 'string', arg: '<目录>', describe: 'probe 时把模块导出的 EV / TIMELINE 写成 events.json 与 timeline.json' },
     frames: { type: 'string', arg: '<帧>', describe: 'render/batch 用 a:b；stills 用 0,48,96 或 a:b[:step]' },
     size: { type: 'string', arg: '<WxH>', default: '1920x1080', describe: '画幅（偶数，默认 1920x1080）' },
     fps: { type: 'integer', default: 24, arg: '<n>', describe: '帧率（默认 24）' },
@@ -205,10 +206,29 @@ export const command = defineCommand({
       const undo = ctx.onCleanup(() => host.dispose());
       try {
         const work = await host.load(a.file);
+        const mod = work.__module || {};
         const hasTexts = typeof work.texts === 'function';
-        const data = { width: a.width, height: a.height, fps: a.fps, adapter, software, hasTexts, seconds: +seconds(t0).toFixed(2) };
+        const dur = work.dur ?? mod.DUR ?? null;
+        const rawEv = work.events ?? mod.EV ?? mod.events ?? null;
+        const rawTl = work.timeline ?? mod.TIMELINE ?? mod.timeline ?? null;
+        const evList = Array.isArray(rawEv) ? rawEv : [];
+        const hasTimeline = Boolean(rawTl && typeof rawTl === 'object');
+        const outputs = [];
+        if (ctx.opts['events-out']) {
+          const evDir = path.resolve(ctx.opts['events-out']);
+          fs.mkdirSync(evDir, { recursive: true });
+          const evFile = path.join(evDir, 'events.json');
+          const tlFile = path.join(evDir, 'timeline.json');
+          const evJson = JSON.stringify(evList, null, 2) + '\n';
+          const tlJson = JSON.stringify(hasTimeline ? rawTl : { sections: [], cues: [] }, null, 2) + '\n';
+          fs.writeFileSync(evFile, evJson);
+          fs.writeFileSync(tlFile, tlJson);
+          outputs.push({ path: evFile, sha256: shaHex(Buffer.from(evJson)), kind: 'events' });
+          outputs.push({ path: tlFile, sha256: shaHex(Buffer.from(tlJson)), kind: 'timeline' });
+        }
+        const data = { width: a.width, height: a.height, fps: a.fps, adapter, software, hasTexts, dur, evCount: evList.length, hasTimeline, seconds: +seconds(t0).toFixed(2) };
         ctx.out(`离屏契约通过 ${repoRel(a.file)}  ${a.width}×${a.height} ${a.fps} fps  TEXTS:${hasTexts ? '有' : '无'}`);
-        return { data, outputs: [] };
+        return { data, outputs };
       } finally {
         undo();
         host.dispose();
