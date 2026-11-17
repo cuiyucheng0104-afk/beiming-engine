@@ -14,4 +14,4 @@ node films/du/tools/compare.mjs --frames 12,40,66,90                # A 路线�
 npm run offscreen -- render films/du/offscreen.mjs --out films/du/out/offscreen.mp4 --frames 0:96 --size 1920x1080
 ```
 
-声音（`sound.py`）还是模版的，动态预演之前要按 TREATMENT §11 重写。`out/` 不提交。
+声音见 `sound.py`（TREATMENT §13）。`out/` 不提交。

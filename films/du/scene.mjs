@@ -136,10 +136,11 @@ export function buildScene({ THREE, W, H, sky }) {
     return C0.x + d.x * (Z - C0.z) / d.z;
   };
   const side0 = new THREE.Vector3(-44 + 4, 0, 10).project((camera.position.copy(C0), camera.updateMatrixWorld(), camera));
-  const X0 = ray(-1.12, -0.36) - 6, X2 = ray(side0.x, side0.y) - 2, X1 = X2 - 7;
+  const X0 = ray(-1, -0.36) - 5,   // 船头贴着画框左边（舟长 10 m）；从 F_IN - 1 起步，第 24 帧船头刚露出来，和第一桨的水声同帧
+    X2 = ray(side0.x, side0.y) - 2, X1 = X2 - 7;
   const boatX = f => {
-    if (f <= F_IN) return X0;
-    if (f <= F_STOP) return X0 + (X1 - X0) * seg(f, F_IN, F_STOP);
+    if (f <= F_IN - 1) return X0;
+    if (f <= F_STOP) return X0 + (X1 - X0) * seg(f, F_IN - 1, F_STOP);
     const u = seg(f, F_STOP, F_SETTLE); return X1 + (X2 - X1) * (1 - (1 - u) * (1 - u));   // 滑行：二次减到 0
   };
 

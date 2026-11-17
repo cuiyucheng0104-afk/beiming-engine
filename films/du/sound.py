@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 """渡 · 声音：全部程序化合成（engine/audio），同一个种子永远同一段声音；时间全部读 film.json，和画面同源。
 
-声音剧本（与画面的色彩脚本同一条线，routes/directing/DIRECTING.md 步骤 8）：
-  S1 远景   远处江面的水声 + 雾里的远风，宽而闷；镜头越推，风越往里收
-  切点      声音跟着景别走：S2 一进来，水声换成近处、亮一点，左边加一层拍船的水声（渡船在画左）
-  日出前    一口气慢慢吸上来（带通噪声由暗变亮），事件前 6 帧收成近静默——「最重要的一声」靠静默反衬
-  sun-break 太阳核心露出远山的那一帧（结果帧），一口铜钟在同一帧起音：偏右（太阳在画右）、长混响；
-            钟声之后水声与风回来，低处垫一层暖的持续音（假暖退场、真暖登场）
-  title-in  第一笔墨落纸的那一帧：笔尖触纸的一声轻擦（短促、起音清楚），随后墨洇开的沙沙声缓起缓落；偏左上（片名在左上）
-对位核对：写完 wav 后在混音上测两个事件的起音（钟声、落笔声），和事件帧差超过 1 帧就失败（craft/animation.md §5.7）。
-声音不能抢在画面前面：事件帧是结果帧，画面在这一帧已经变了（太阳露头、第一笔墨落纸），声音同帧或稍后起音。
+声音剧本（TREATMENT.md §11）：
+  0–24     远处江面的水声 + 雾里的远风，宽而闷
+  boat-in  第 24 帧舟入画、第一桨落水：一声闷的入水（低频水团 + 一点气泡音高下滑）；之后每 16 帧一桨（24、40、56），
+           声像跟着舟从左往中间走；桨声底下垫一层近处的船边拍水，舟入画才有
+  oar-stop 第 60 帧停桨、桨尖滴水：一声清的水滴（音高上滑的短正弦），前 3 帧把环境压下去一点让它露出来
+  settle   第 78 帧舟停稳：水声与风在 78–84 帧收掉，84 帧起真静默到片尾——静止的画面配静止的声音
+对位核对：写完 wav 后在混音上测两个事件的起音（第一桨、滴水），和事件帧差超过 1 帧就失败（craft/animation.md §5.7）；
+84 帧之后要真静默（RMS 低于 −60 dBFS）。事件帧是结果帧：声音同帧或稍后起音，不抢在画面前面。
 
 用法：统一出片会自动调用（npm run film -- build films/du 的 mix 步骤，写到运行目录）。单独跑（在仓库根目录）：
   node tools/env/py.mjs films/du/sound.py [films/du] [--out <wav>]
@@ -46,7 +45,7 @@ def load_film(film_dir):
     if film.get('schemaVersion') != 2 or not (isinstance(fps, int) and fps > 0 and isinstance(nf, int) and nf > 0):
         die(4, 'film.json 要是 schemaVersion 2，并有正整数的 output.fps 与 output.frameCount')
     ev = {e.get('id'): e for e in film.get('events') or []}
-    for need in ('sun-break', 'title-in'):
+    for need in ('boat-in', 'oar-stop', 'settle'):
         if need not in ev or not isinstance(ev[need].get('frame'), int):
             die(4, f'film.json 的 events 里缺 {need}（整数帧）', '声音读同一张事件表；改了事件 id 要同步改 sound.py')
     cuts = [s['in'] for s in film.get('shots') or [] if isinstance(s.get('in'), int) and s['in'] > 0]
@@ -72,84 +71,47 @@ def build(film_dir):
     D = nf / fps                       # 时长 = 帧数 ÷ 帧率，和画面逐样本对齐
     n = N(D)
     t = T(D)
-    t_sun = EV['sun-break']['frame'] / fps
-    t_title = EV['title-in']['frame'] / fps
-    t_cut = cuts[0] / fps if cuts else D / 2
-    xf = 3 / fps                       # 切点上的交叉淡化：3 帧
+    f_in, f_stop, f_settle = (EV[k]['frame'] for k in ('boat-in', 'oar-stop', 'settle'))
+    t_in, t_stop, t_settle = f_in / fps, f_stop / fps, f_settle / fps
+    t_quiet = (f_settle + 6) / fps                                       # 真静默从这里开始
+    ramp = smoothstep
+    pan_of = lambda tt: -0.85 + 0.7 * ramp(t_in, t_settle, tt)          # 舟在画左入画、停在中间偏左
 
-    def ramp(a0, a1, x):               # a0 → a1 秒内从 0 升到 1
-        return smoothstep(a0, a1, x)
-
-    # 电平一律按响度定（match_level），不按样本幅度瞎乘：环境是底，钟声靠前面的近静默反衬（B 类「最重要的一声」）。
-    # ── 环境：S1 远水 + 远风；S2 近水 + 拍船声（渡船在画左）。切点上 3 帧交叉淡化，声音跟着景别走 ──
+    # ── 环境：远水 + 远风，78–84 帧收掉；舟入画后加一层近处的船边拍水（跟着舟的声像） ──
     far_w, _, _ = match_level(water(D, 11, 'far'), -24.0, 'win', 0.0, D)
-    near_w = water(D, 13, 'far')
-    near_w, _, _ = match_level(hp(near_w, 220, 2) + lp(near_w, 900, 2) * 0.35, -22.5, 'win', 0.0, D)   # 近一点：中高频更清楚
-    hull, _, _ = match_level(stereo(water(D, 17, 'hull').mean(1), -0.55), -29.0, 'win', 0.0, D)       # 拍船声偏左
     air, _ = wind(D, 7, 'far')
-    air, _, _ = match_level(air, -27.0, 'win', 0.0, D)
-    s2 = ramp(t_cut - xf / 2, t_cut + xf / 2, t)[:, None]
-    wind_g = (1.0 - 0.35 * ramp(0, t_cut, t))[:, None]                     # 推镜时风往里收
-    bed = far_w * (1 - s2) + (near_w + hull) * s2 + air * wind_g
+    air, _, _ = match_level(air, -28.0, 'win', 0.0, D)
+    hull, _, _ = match_level(stereo(water(D, 17, 'hull').mean(1), pan_of(t_stop)), -30.0, 'win', 0.0, D)
+    hull = hull * (ramp(t_in, t_in + 0.4, t) * (1 - ramp(t_stop, t_settle, t)))[:, None]
+    out_env = 1 - ramp(t_settle, t_quiet, t)
+    duck = 1 - 0.5 * ramp(t_stop - 3 / fps, t_stop, t) * (1 - ramp(t_stop + 0.1, t_stop + 0.5, t))   # 滴水前压一点，让它露出来
+    bed = (far_w + air + hull) * (out_env * duck)[:, None]
 
-    # ── 日出前的一口气：带通噪声由暗变亮，事件前 6 帧收住 ──
-    r = rng(23)
-    swell_on = ramp(t_cut - 0.4, t_sun - 6 / fps, t) * (1 - ramp(t_sun - 6 / fps, t_sun - 1 / fps, t))
-    src = np.stack([pink(n, r), pink(n, r)], 1)
-    swell = svf(src, 300 + 1500 * ramp(t_cut, t_sun, t), 0.9, 'bp') * (swell_on ** 1.5)[:, None]
-    swell, _, _ = match_level(swell, -26.0, 'mom', t_cut, t_sun)
-    # 近静默：钟前 8→2 帧把环境压下去约 14 dB，钟响后 0.15–0.95 秒回来
-    dip = 1 - 0.8 * ramp(t_sun - 8 / fps, t_sun - 2 / fps, t) * (1 - ramp(t_sun + 0.15, t_sun + 0.95, t))
-    bed = bed * dip[:, None]
+    # ── 桨入水：低频水团（带通噪声，快起慢落）+ 一点气泡音高下滑；起音就在桨落水的那一帧 ──
+    def plop(seed):
+        d = 0.35; tt = T(d); rr = rng(seed)
+        body = bp(white(N(d), rr), 180, 1100, 2) * ramp(0, 0.004, tt) * np.exp(-tt / 0.07)
+        f = 700 * np.exp(-tt / 0.05) + 260
+        bub = np.sin(2 * np.pi * np.cumsum(f) / SR) * ramp(0, 0.003, tt) * np.exp(-tt / 0.04) * 0.5
+        return body / (np.abs(body).max() + 1e-12) + bub
+    oars = np.zeros((n, 2))
+    for i, f in enumerate(range(f_in, f_stop, 16)):                      # scene.mjs：每 16 帧一桨，桨在 24、40、56 帧落水
+        place(oars, plop(31 + i), f / fps, 1.0, pan_of(f / fps))
+    oars = reverb(oars, make_ir(rt=0.9, pre=0.01, seed=5, length=1.0), wet=0.25, dry=1.0)
+    oars, _, _ = match_level(oars, -18.0, 'mom', t_in, t_in + 0.4)
 
-    # ── 铜钟：非谐和分音（每个分音一对略失谐的正弦，拍频给出铜钟的「嗡」）+ 敲击瞬态；起音就在 t_sun 那个样本 ──
-    def bell(f0, d, seed):
-        tt = T(d)
-        rr = rng(seed)
-        parts = [(0.5, 0.55, 7.0), (1.0, 1.0, 5.0), (1.183, 0.42, 3.2), (1.506, 0.32, 2.4), (2.0, 0.46, 2.0),
-                 (2.514, 0.22, 1.3), (2.662, 0.18, 1.1), (3.011, 0.12, 0.8), (4.166, 0.06, 0.45)]
-        x = np.zeros(len(tt))
-        for ratio, amp, tau in parts:
-            f = f0 * ratio
-            beat = 0.6 + 0.9 * rr.random()
-            x += amp * np.exp(-tt / tau) * (np.sin(2 * np.pi * f * tt + rr.random() * 6.28) + 0.6 * np.sin(2 * np.pi * (f + beat) * tt))
-        x *= smoothstep(0, 0.003, tt)                                    # 3 ms 起音，不咔
-        hit = bp(white(N(0.03), rr), 900, 5200, 2) * np.exp(-np.arange(N(0.03)) / (0.006 * SR)) * 0.9
-        x[:len(hit)] += hit
-        return x / (np.abs(x).max() + 1e-12)
+    # ── 桨尖滴水：音高上滑的短正弦（水滴落水的「叮」），偏左 ──
+    dd = 0.18; tt = T(dd)
+    drop = np.sin(2 * np.pi * np.cumsum(1300 + 1400 * ramp(0, 0.05, tt)) / SR) * ramp(0, 0.002, tt) * np.exp(-tt / 0.035)
+    drips = np.zeros((n, 2))
+    place(drips, drop, t_stop, 1.0, pan_of(t_stop))
+    drips = reverb(drips, make_ir(rt=1.2, pre=0.01, seed=9, length=1.2), wet=0.3, dry=1.0)
+    drips, _, _ = match_level(drips, -21.0, 'mom', t_stop, t_stop + 0.25)
 
-    bells = np.zeros((n, 2))
-    place(bells, bell(174.6, D - t_sun, 31), t_sun, 1.0, 0.32)          # F3：低而暖；偏右（太阳在画右）
-    bells = reverb(bells, make_ir(rt=3.6, pre=0.03, seed=5, length=min(4.5, D)), wet=0.55, dry=1.0)
-    bells, _, _ = match_level(bells, -15.0, 'mom', t_sun, min(D, t_sun + 1.5))
-
-    # ── 钟后：一层很低的暖持续音（五度叠成的柔和长音，慢起），撑住「真暖」 ──
-    tw = t - t_sun
-    warm_env = ramp(0.2, 1.6, tw) * (tw > 0)
-    warm = (np.sin(2 * np.pi * 87.3 * t) * 0.6 + np.sin(2 * np.pi * 130.8 * t + 1.1) * 0.35 + np.sin(2 * np.pi * 174.6 * t + 2.3) * 0.18)
-    warm, _, _ = match_level(stereo(lp(warm * warm_env, 600, 2), 0.1), -27.0, 'win', min(D - 0.5, t_sun + 1.6), D)
-
-    # ── 片名落笔：笔尖触纸的一声轻擦（1.5 ms 起音的短促高频擦声 + 一点笔杆的木声）在事件帧起音，接着墨洇开的沙沙声
-    #    （缓起缓落约 1.2 秒，比触纸更轻）；偏左（片名在左上）。缓起的声音量不出起音，对位要靠触纸这一下 ──
-    rk = rng(41)
-    td = min(0.14, D - t_title)
-    tt = T(td)
-    tick = bp(white(N(td), rk), 2600, 9500, 2) * smoothstep(0, 0.0015, tt) * np.exp(-tt / 0.024)
-    knock = lp(white(N(td), rk), 700, 2) * smoothstep(0, 0.002, tt) * np.exp(-tt / 0.035) * 0.6
-    touch = np.zeros((n, 2))
-    place(touch, tick + knock, t_title, 1.0, -0.45)
-    touch, _, _ = match_level(touch, -25.0, 'mom', t_title, min(D, t_title + 0.4))
-    ink_d = min(1.4, D - t_title)
-    ink_t = T(ink_d)
-    ink = bp(white(N(ink_d), rk), 1800, 7500, 2) * (smoothstep(0.03, 0.3, ink_t) * np.exp(-np.maximum(0, ink_t - 0.3) / 0.45))
-    inks = np.zeros((n, 2))
-    place(inks, ink, t_title, 1.0, -0.45)
-    inks, _, _ = match_level(inks, -32.0, 'mom', t_title, min(D, t_title + ink_d))
-
-    stems = {'bed': bed, 'swell': swell, 'bell': bells, 'warm': warm, 'touch': touch, 'ink': inks}
-    mix = fade(sum(stems.values()), 0.25, 0.35)
+    stems = {'bed': bed, 'oar': oars, 'drip': drips}
+    mix = fade(sum(stems.values()), 0.25, 0.0) * (t < t_quiet)[:, None]  # 混响尾巴也在真静默前截掉
     mix, gain_db, _ = loudness_to(mix, -14.0, -1.5)
-    ctx = {'fps': fps, 'n': n, 't_sun': t_sun, 't_title': t_title, 'EV': EV, 'gain_db': float(gain_db), 'SR': SR}
+    ctx = {'fps': fps, 'n': n, 'EV': EV, 'gain_db': float(gain_db), 'SR': SR, 't_quiet': t_quiet}
     return mix, ctx, stems
 
 
@@ -191,14 +153,18 @@ def main():
     if len(mix) != n:
         die(4, f'声音长 {len(mix)} 样本，画面要 {n}')
     onsets = {}
-    gap = abs(EV['title-in']['frame'] - EV['sun-break']['frame'])
-    for eid, what in (('sun-break', '钟声'), ('title-in', '落笔声')):
+    gap = 16                           # 相邻两桨隔 16 帧：只在事件 ±8 帧内找起音
+    for eid, what in (('boat-in', '第一桨'), ('oar-stop', '滴水声')):
         t0 = EV[eid]['frame'] / fps
         on = strike(mix, t0, fps, SR, half=max(1, min(6, gap // 2)))
         if on is None or on < t0 - 0.25 / fps or on > t0 + 1 / fps:
             die(4, f'{what}起音 {on} 秒，与 {eid}（第 {EV[eid]["frame"]} 帧 = {t0:.4f} 秒）对不上（要同帧或晚不超过 1 帧）',
                 f'检查 {what}的摆放与事件表；不要手抄秒数')
         onsets[eid] = {'frame': EV[eid]['frame'], 'onset': on, 'errFrames': round((on - t0) * fps, 3)}
+    q = mix[int(round(ctx['t_quiet'] * SR)):]
+    quiet_db = 20 * np.log10(np.sqrt((q ** 2).mean()) + 1e-12) if len(q) else -999.0
+    if quiet_db > -60:
+        die(4, f'第 {round(ctx["t_quiet"] * fps)} 帧起应是真静默，实测 RMS {quiet_db:.1f} dBFS', '检查环境与混响尾巴的截断')
     lufs, tp = integrated(mix), 20 * np.log10(true_peak(mix) + 1e-12)
 
     out = a.out or os.environ.get('BEIMING_AUDIO_OUT') or os.path.join(film_dir, 'out', 'mix.wav')
