@@ -247,7 +247,7 @@ TSL 版与现有 GLSL 版在同一量级（KR 6–8 差在 ±15% 内，两边计
 
 M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头两步：
 
-- **Canvas 2D**（`engine/offscreen/canvas.mjs`，可选依赖 `@napi-rs/canvas` 1.1.1，Skia）：`loadCanvas()` 给 `createCanvas`；`loadFilmFonts(dir)` 读作品的字体子集清单 `fonts.json` 并按字族名注册，返回值与浏览器版 `engine/style/fonts.js` 相同（两边共用 `fontsOf`），缺字同样抛 `GlyphError`。woff2 子集可以直接注册，`letterSpacing` 可用。**字形与 Chrome 不逐像素相同**：同一段片名（Ma Shan Zheng 110 px，`北冥渡`）墨量差 2%，PSNR 29.9 dB，差 5 级以上的像素 3.2%，全在字形边缘（两边的抗锯齿与字形微调不同）。片名题字的对拍只能到这个量级；QA 的读字与安全区检查用文字框，不受影响。
+- **Canvas 2D**（`engine/offscreen/canvas.mjs`，可选依赖 `@napi-rs/canvas` 1.1.1，Skia）：`loadCanvas()` 给 `createCanvas`；`loadFilmFonts(dir)` 读作品的字体子集清单 `fonts.json` 并按字族名注册，返回值与浏览器版 `engine/style/fonts.js` 相同（两边共用 `fontsOf`），缺字同样抛 `GlyphError`。woff2 子集可以直接注册，`letterSpacing` 可用。**字形与 Chrome 不逐像素相同**：同一段片名（Ma Shan Zheng 110 px，`北冥`）墨量差 3%，PSNR 38.1 dB，差 5 级以上的像素 1.7%，全在字形边缘（两边的抗锯齿与字形微调不同）。片名题字的对拍只能到这个量级；QA 的读字与安全区检查用文字框，不受影响。
 - **几何桥**（`engine/offscreen/bridge.mjs`）：`engine/form` 的造型函数顶层 import 了 r170，几何按属性拷进 r187 即可复用（数组共用内存，自定义属性、索引、分组、`userData` 都带过去）。相机工具 `engine/stage/camera.js` 直接操作 r187 的相机就行，不需要桥。所以离屏侧只需要换着色层。
 
 ### 7.9 TSL 卡通材质（M3 T2）
