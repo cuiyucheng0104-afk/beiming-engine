@@ -1,6 +1,6 @@
 # 离屏出片（offscreen）：设计与实测记录
 
-读者｜做引擎工程、要把新作品改到离屏出片的人与 agent　状态｜M1–M3 已完成（2026-11-18）：已接入 `npm run film -- --renderer offscreen [--encoder nvenc]`，A 路线模版双实现验收片《晨渡》三道闸已认可　依据｜[决定书 D12](../decisions/2026-11-10-industrial-baseline.md)
+读者｜做引擎工程、要把新作品改到离屏出片的人与 agent　状态｜M1–M4 已完成（2026-11-18）：已按 D12 登记 `offscreen` 渲染器与 `webgpu` 后端，接入 `npm run film`，《晨渡》三道闸已认可，复杂角色与雾/实例化/壁画层均已对齐　依据｜[决定书 D12](../decisions/2026-11-10-industrial-baseline.md)
 
 **一句话**：A、C 的新作品用 three.js r187 的 WebGPURenderer 与 TSL 写成**作品模块**；同一份模块在 Chrome 的 WebGPU 里预览，在 Node + Dawn 里离屏出片，出片不经过浏览器。旧作品与 86 式风格库照旧走页面渲染器（`engine/render`）。
 
@@ -78,7 +78,7 @@ three 只在 `requestAnimationFrame` 回调里推进节点帧号，场景 pass �
 
 ## 5. 与现有链路的关系
 
-- 路线仍是 A、B、C 三条（D12）。登记时 A、C 的 `backends` 加 `webgpu`，`renderers` 加第三项 `offscreen`；**第一个里程碑不登记**，不进 `npm run film` 出片链，照 rt 后端的先例做成链路之外的实验入口。
+- 路线仍是 A、B、C 三条（D12）。`routes/routes.json` 的 `renderers` 已登记第三项 `offscreen`，A、C 的 `backends` 已加入 `webgpu`、`renderer` 已加入 `offscreen`；作品 `film.json` 写 `"backend": "webgpu"` 时，`npm run film -- build|animatic` 默认走 `offscreen`（仍可用 `--renderer page` 切回页面渲染器）。
 - 「原生」在仓库里专指 B 路线与 RAEA（`backend: native`、`engine/native/`）；离屏出片不叫原生。
 - 机器 QA 的文字检查靠探 Canvas 2D 的 `fillText`，WebGPU 画的字查不到；接进出片链时，作品要照页面约定给出 `TEXTS`。
 
@@ -292,7 +292,15 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 - 卡通材质的 uniform 冻在第一帧（7.9 的坑）：先渲第 96 帧再渲第 120 帧，第 120 帧的皴线与层理就不对。
 - **片名的高低随机器的系统字体变——A 路线模版本身的问题**：`title.js` 逐字画进画布时用 `textBaseline = 'middle'`；作品的字体子集不含空格，Chrome 算 `middle` 用「能覆盖空格的主字体」，落到后备的 sans-serif 上，所以片名的竖直位置取决于这台机器的 sans-serif 度量（本机比按片名字体自己的度量高 9 px@540）。Skia 按片名字体算，两边因此差了 9 px。《晨渡》的 `title.js` 改成 alphabetic 基线 + 按字形自己的墨迹外框居中，两边一致（单独画片名逐像素同外框），代价是《晨渡》页面上的片名比模版原样低几像素（有意改动）。**路线模版没改**（受金标准基线保护，改像素要走 POLICY 审批）。
 
-### 7.12 快速复查
+### 7.12 复杂角色、雾与 D12 登记（M4）
+
+- **屏幕空间空气透视雾与墨线雾淡出**（`tsl/fog.js`、`tsl/ink.js`、`tsl/look.js`）：透视相机、高度衰减、仰角双色、天空清屏雾、`cutoff` 截止与正交相机三组对 WebGL 版对拍 PSNR 60.53–60.66 dB、最大差 1 级、大差像素 0；关雾、去掉 `fogFade`、去掉 `cutoff` 变异均不过门。
+- **ID 通道补全**（`tsl/idpass.js`）：支持 `InstancedMesh`（逐实例连续 ID 与 `outlinePerInstance: false` 共享 ID）、`SkinnedMesh`、变形目标、贴图 alpha 镂空，以及继承原材质 `positionNode` / `toonPosInit` 或 `outlineVertex.tsl`。
+- **卡通材质进阶与壁画风化层**（`tsl/toon.js`、`tsl/surface.js`）：新增 `muralLayer`（褪色大斑、干笔飞白、剥落块、氧化暗斑、细碎点，钩子可写 `c.muralP` / `c.muralK`）；支持 `InstancedMesh`（实例色与逐实例噪声偏移）、`rest: true`（`aRest` 静止坐标）、`vertexBegin` / `vertexNormal` / `fragmentNormal` 钩子与 `translucent` 半透明。综合对拍 PSNR 74.38 dB、最大差 1 级、大差像素 0，五项变异均不过门。
+- **场景图桥与鲲鹏验证**（`engine/offscreen/bridge.mjs`）：`geometry` 保留 `InstancedBufferAttribute`；新增 `mirrorObject(THREE, root170, { mapMaterial })`，不改动只读目录 `src/` 即可镜像 `src/kun_peng.js` 的完整角色树（多层 `InstancedMesh` 羽毛、CPU 形变体与尾翎、手动矩阵眼丘），每帧 `setPose` + `sync()` 在 Dawn + `createLook` 下跑通。
+- **D12 正式登记**：`routes/routes.json`、`engine/production/routes.js`、`film.schema.json` 与 `tools/film` 已同步登记 `offscreen` 渲染器与 `webgpu` 后端。
+
+### 7.13 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080

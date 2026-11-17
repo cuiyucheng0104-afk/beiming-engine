@@ -58,7 +58,7 @@ export function fogNodes(TSL, u) {
 }
 
 export function createFog({ THREE, TSL, renderer }, { width: W, height: H }) {
-  const { Fn, float, vec2, vec4, ivec2, texture, screenCoordinate, min, mix, normalize, length, select } = TSL;
+  const { Fn, vec2, vec4, ivec2, texture, screenCoordinate, min, mix, normalize, length, select } = TSL;
   const fx = createFullscreen({ THREE, renderer });
   const dummy = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); dummy.needsUpdate = true;
   const dummyDepth = new THREE.DepthTexture(1, 1, THREE.FloatType);
