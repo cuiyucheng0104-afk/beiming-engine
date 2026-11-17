@@ -19,10 +19,10 @@ import { createLook } from '/engine/look/index.js';
 import { inkScene } from '/tests/offscreen/fixtures/ink-scene.mjs';
 import { paperTile } from '/tests/offscreen/fixtures/look-paper.mjs';
 ${PAGE_B64}
-const { W, H, ss, defaults, p, imagePaper } = window.__ARGS;
+const { W, H, ss, defaults, p, imagePaper, paperFile } = window.__ARGS;
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setPixelRatio(1); renderer.setSize(W, H);
-const look = createLook(renderer, W, H, { ss, msaa: 0, fps: 24, defaults });
+const look = createLook(renderer, W, H, { ss, msaa: 0, fps: 24, defaults, paperUrl: paperFile ? '/' + paperFile : null });
 await look.ready;
 const target = new THREE.WebGLRenderTarget(W, H, { type: THREE.UnsignedByteType, depthBuffer: false });
 const { scene, camera } = inkScene(THREE, W, H);
@@ -61,7 +61,7 @@ async function setup(t) {
   const cmp = async (glsl, tslOpts = glsl) => {
     const base = { W, H, ss: 2, defaults: DEFAULTS };
     const g = await ref.render(REF_PAGE, { ...base, ...glsl });
-    const px = await tsl({ ...base, ...tslOpts });
+    const px = await tsl({ ...base, ...tslOpts, paperFile: tslOpts.paperFile ? ROOT + tslOpts.paperFile : undefined });
     const d = diffRgba(opaque(px), opaque(g), { width: W, height: H });
     return { d, ok: meetsGate(d).ok, msg: `PSNR ${d.psnr} 最大差 ${d.maxDelta} 大差像素 ${d.bigPixels}`, px, g };
   };
@@ -81,6 +81,7 @@ test('整链对拍：风格锁定的真实参数；全部旋钮；图片纸纹�
       '风格锁定的真实参数': { p: { t: 0, grade: { exposure: 1.6 } } },
       '全部旋钮': { p: knobs },
       '图片纸纹': { p: { t: 3 / 24, grade: { exposure: 1.6 }, paper: { strength: 0.14, scale: 1.5 } }, imagePaper: true },
+      '风格锁定的纸纹图 paper.png': { p: { t: 0, grade: { exposure: 1.6 } }, paperFile: 'assets/plates/paper.png' },
     };
     for (const [name, o] of Object.entries(cases)) {
       const r = await s.cmp(o);
@@ -97,6 +98,9 @@ test('整链对拍：风格锁定的真实参数；全部旋钮；图片纸纹�
       const r = await s.cmp(base, { ...base, p: { ...base.p, ...patch } });
       assert.equal(r.ok, false, `${name}：质量门应该不过：${r.msg}`);
     }
+    const real = cases['风格锁定的纸纹图 paper.png'];
+    const proc = await s.cmp(real, { ...real, paperFile: undefined });
+    assert.equal(proc.ok, false, `TSL 换回程序化纸纹时质量门应该不过（否则这一组没用上 paper.png）：${proc.msg}`);
   } finally { await s.close(); }
 });
 
