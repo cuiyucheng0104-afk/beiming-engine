@@ -57,6 +57,8 @@
 - 测试：底板 + 辉光 + 片名的合成对 A 路线对拍；片名题字的差异单独统计（字形光栅化）。
 
 ### T5 离屏影片外壳与出片链接入
+
+> **影片外壳已完成**（2026-11-18）：`engine/offscreen/film.mjs`（选镜头、局部帧号、设计尺寸、文字规范化复用 `engine/stage/film.js` 的纯函数；显示层按 sRGB 数值叠在后期之后）。**出片链接入的做法**：机器 QA 里和页面有关的几项（文字、底板露边）本来就在 Chrome 里开作品页面采样，与成片由哪条链渲出无关；双实现的作品两样都有，所以只把 `video` 这一步换成 `engine/offscreen/cli.mjs render` 渲作品的离屏入口（产物仍是 `work/video.mp4`），声音、封装、网页版、QA 不动。改出片工具要跑 agent 验收。
 - `engine/offscreen/film.mjs`：读 `film.json` 的镜头表，按帧选镜头、`update(t, f, ctx)`、每镜 `look(t)`；导出每帧的 `TEXTS` 给 QA。
 - `npm run film -- build <作品> --renderer offscreen`（或作品描述里声明）：闸门、机器 QA、网页版照走现有链路。具体接法先读 `tools/film/` 与 `engine/render/` 再定，改出片工具要跑 agent 验收（AGENTS.md「治理改动」）。
 
