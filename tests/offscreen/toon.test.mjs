@@ -15,16 +15,18 @@ const REF_PAGE = `
 import * as THREE from 'three';
 import { createLook } from '/engine/look/index.js';
 import { toonKind, makeToonShared, setToonShared } from '/engine/shade/toon.js';
-import { toonScene } from '/tests/offscreen/fixtures/toon-scene.mjs';
-import { patchLayer } from '/engine/shade/surface.js';
+import { toonScene, toonAdvancedScene } from '/tests/offscreen/fixtures/toon-scene.mjs';
+import { patchLayer, muralLayer } from '/engine/shade/surface.js';
 ${PAGE_B64}
-const { W, H, p, shadow, inkTime, wide, noLights } = window.__ARGS;
+const { W, H, p, shadow, inkTime, wide, noLights, advanced } = window.__ARGS;
 const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setPixelRatio(1); renderer.setSize(W, H);
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NoToneMapping;
 renderer.shadowMap.enabled = shadow; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const shared = makeToonShared(); setToonShared(shared, { inkTime });
-const { scene, camera } = toonScene({ THREE, kind: toonKind, shared, W, H, shadow, wide, noLights, layers: [patchLayer()] });
+const { scene, camera } = advanced
+  ? toonAdvancedScene({ THREE, kind: toonKind, shared, W, H, mural: muralLayer })
+  : toonScene({ THREE, kind: toonKind, shared, W, H, shadow, wide, noLights, layers: [patchLayer()] });
 const look = createLook(renderer, W, H, { ss: 1, msaa: 0, fps: 24 });
 const target = new THREE.WebGLRenderTarget(W, H, { type: THREE.UnsignedByteType, depthBuffer: false });
 look.render(scene, camera, { t: 0, ...p, target });
@@ -90,7 +92,26 @@ test('卡通着色（主光投影、r170 PCFSoft 同式滤波）：TSL 对 GLSL 
   } finally { await s.close(); }
 });
 
-test('未支持的写法显式抛 unsupported.toon：只有 GLSL 钩子没给 TSL 版、InstancedMesh、半透明、贴图、GLSL 插桩', async t => {
+test('进阶能力对拍：muralLayer 壁画风化、InstancedMesh（实例色与噪声偏移）、rest 静止坐标、vertexBegin/vertexNormal/fragmentNormal 钩子、translucent 半透明', { timeout: 300000 }, async t => {
+  const s = await setup(t); if (!s) return;
+  try {
+    const r = await s.cmp({ advanced: true });
+    console.log('进阶能力', r.msg);
+    assert.ok(r.ok, `进阶能力：${r.msg}`);
+    for (const [name, mut] of [
+      ['关掉 muralLayer', { muralAmt: 0 }],
+      ['去掉实例色', { noInstColor: true }],
+      ['忽略 fragmentNormal', { noFragNormal: true }],
+      ['忽略 vertexBegin', { noVertexHook: true }],
+      ['改半透明不透明度', { veilOpacity: 0.95 }],
+    ]) {
+      const m = await s.cmp({ advanced: true }, { advanced: true, mutate: mut });
+      assert.equal(m.ok, false, `${name}，质量门应该不过：${m.msg}`);
+    }
+  } finally { await s.close(); }
+});
+
+test('未支持的写法显式抛 unsupported.toon：只有 GLSL 钩子没给 TSL 版、贴图、GLSL 插桩', async t => {
   let THREE, TSL;
   try { ({ THREE, TSL } = await (await import('../../engine/offscreen/load.mjs')).loadGpu()); }
   catch (e) { if (String(e.code).startsWith('env.')) return t.skip(`离屏依赖不可用：${e.message}`); throw e; }
@@ -98,12 +119,9 @@ test('未支持的写法显式抛 unsupported.toon：只有 GLSL 钩子没给 TS
   const k = toonKind({ THREE, TSL }, { name: 't' });
   const bad = e => e.code === 'unsupported.toon' && /未支持/.test(e.message);
   assert.throws(() => k.make({ fragmentAlbedo: 'toonInk = 1.0;' }), bad);
-  assert.throws(() => k.make({ translucent: true }), bad);
   assert.throws(() => k.make({ map: new THREE.Texture() }), bad);
   assert.throws(() => toonKind({ THREE, TSL }, { glsl: 'float f(){return 1.0;}' }), bad);
   assert.throws(() => toonKind({ THREE, TSL }, { shade: { final: 'col *= 0.5;' } }), bad);
-  const m = k.make({});
-  assert.throws(() => k.bind(new THREE.InstancedMesh(new THREE.BoxGeometry(), m, 2), m), bad);
   assert.doesNotThrow(() => k.make({ fragmentAlbedo: 'toonInk = 1.0;', tsl: { fragmentAlbedo: () => {} } }));
 });
 

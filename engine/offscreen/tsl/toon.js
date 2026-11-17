@@ -4,17 +4,19 @@
 //   makeToonShared({ THREE, TSL }, init) → shared   与 GLSL 版同名的 uniform 节点（uInkTime、uExposure、uFillDirW…）；setToonShared(S, g) 两边通用
 //   toonKind({ THREE, TSL }, spec) → { make(opts), bind(mesh, mat, opts), shared }
 //     spec：name、shared、firstId、defaults、featherMin、bandAA、skyStepUniform、rimCore、layers（TSL 表面层，见 surface.js 的 TSL 版）
-//     make(opts)：TOON_BASE 里的任意键；材质钩子给 TSL 版 opts.tsl = { fragmentBase(c), fragmentAlbedo(c), uniforms }：
-//       c = { THREE, TSL, diffuse（vec3 可写）, base（vec3，fragmentBase 之后的固有色）, ink（float 可写）, overlay（vec4 可写）,
-//             obj（物体空间坐标，同 vToonObj）, u（本材质的 uniform 节点，含 opts.tsl.uniforms）, noise: { hash33, noise, fbm } }
+//     make(opts)：TOON_BASE 里的任意键，另支持 rest（噪声坐标取 aRest）、translucent / transparent / vertexColors、InstancedMesh（含实例色与逐实例噪声偏移）；
+//       材质钩子给 TSL 版 opts.tsl = { vertexBegin(v), vertexNormal(v), fragmentBase(c), fragmentAlbedo(c), fragmentNormal(c), uniforms }：
+//         v = { THREE, TSL, pos（局部坐标可写）, normal（局部法线可写）, inst（float 实例序号）, u, noise }
+//         c = { THREE, TSL, diffuse（vec3 可写）, alpha（float 可写）, base（vec3，fragmentBase 之后的固有色）, ink（float 可写）, overlay（vec4 可写）,
+//               normal（vec3 视空间法线，fragmentNormal 可写）, viewDir, lightDir, shadowAtt,
+//               obj（物体空间坐标，同 vToonObj）, inst（float 实例序号）, u（本材质的 uniform 节点，含 opts.tsl.uniforms）, noise: { hash33, noise, fbm } }
 //       opts 里有 GLSL 钩子（vertexBegin、fragmentAlbedo…）却没给 opts.tsl：抛 unsupported.toon（不静默少画皴线）
 //   mat.userData.toon：与 GLSL 版同名的 uniform 节点，运行时照样 u.uRimLitAmt.value = …
 // 主光：第一盏投影的平行光（没有投影光就取第一盏平行光；都没有用 uKeyDirW），与 r170 的灯光排序一致；只取方向与投影，颜色全按参数绝对给定。
 // 投影：主光要先 useR170Shadow(TSL, light)，滤波与 r170 的 PCFSoftShadowMap 同式（r187 删掉了 PCFSoft 类型，用 PCFShadowMap 即可：那时深度纹理开了
 //   硬件比较过滤，但照搬的取样点都先对齐到纹素中心，双线性权重是 1/0/0/0，等于逐纹素比较）；量化 smoothstep(shadowLo, shadowHi) 在材质里做，
 //   只在 light.shadow.intensity = 1 时与 GLSL 版相同（不是 1 抛错）。环境光、半球光不进卡通合成（GLSL 版也不进）。
-// 不支持（抛 Error，code unsupported.toon）：InstancedMesh、translucent / transparent、map、vertexColors、rest、outlineVertex、
-//   defines、spec.shade / pars / glsl / vars / uniforms（GLSL 的插桩钩子）。
+// 不支持（抛 Error，code unsupported.toon）：map、defines、spec.shade / pars / glsl / vars / uniforms（GLSL 的插桩钩子）。
 import { TOON_BASE, tintFrom, setToonShared } from '../../shade/toon.js';
 import { colorOf, vec3Of } from '../../shade/patch.js';
 
@@ -76,7 +78,7 @@ export function toonKind({ THREE, TSL }, spec = {}) {
   for (const key of ['pars', 'glsl', 'vars', 'uniforms']) if (k[key]) throw unsupported(`spec.${key}（GLSL 插桩），${k.name}`);
   if (Object.keys(k.shade).length) throw unsupported(`spec.shade 的光照钩子（${Object.keys(k.shade).join('、')}），${k.name}`);
   const { uniform, Fn, float, vec3, vec4, dot, max, clamp, mix, select, smoothstep, pow, exp2, fwidth, normalize,
-    normalView, positionViewDirection, positionGeometry, cameraViewMatrix, diffuseColor, property } = TSL;
+    normalView, normalLocal, positionViewDirection, positionGeometry, positionLocal, cameraViewMatrix, diffuseColor, property, attribute, instanceIndex } = TSL;
   const shared = k.shared || makeToonShared({ THREE, TSL });
   const L = k.layers;
   const defaults = Object.assign({}, TOON_BASE, ...L.map(l => l.defaults || {}), k.defaults || {});
@@ -115,7 +117,12 @@ export function toonKind({ THREE, TSL }, spec = {}) {
   }
 
   class ToonNodeMaterial extends THREE.NodeMaterial {
-    constructor() { super(); this.lights = true; this.isToonTslMaterial = true; }
+    constructor() { super(); this.lights = true; this.isToonTslMaterial = true; this.toonNormalInit = null; this.toonPosInit = null; }
+    setupPosition(builder) {
+      if (this.toonNormalInit) normalLocal.assign(this.toonNormalInit);
+      if (this.toonPosInit) positionLocal.assign(this.toonPosInit);
+      return super.setupPosition(builder);
+    }
     setupLightingModel() { return new ToonModel(this); }
     hasLights(builder) { const ln = this.lightsNode || builder.lightsNode; return !!(ln && ln.getScope().hasLights); }
     // 有灯：光照模型给 pL / pAtt 赋值、出射光为 0，后面接合成节点；没灯：r187 不走光照模型、直接用 setupOutgoingLight（同 GLSL 版，主光取 uKeyDirW、不接投影）
@@ -127,7 +134,8 @@ export function toonKind({ THREE, TSL }, spec = {}) {
     const o = { ...defaults, ...opts };
     const hooked = GLSL_HOOKS.filter(h => o[h]);
     if (hooked.length && !o.tsl) throw unsupported(`材质钩子 ${hooked.join('、')} 只有 GLSL 版：给 opts.tsl 一份 TSL 版（${k.name}）`);
-    for (const key of ['map', 'vertexColors', 'transparent', 'translucent', 'rest', 'outlineVertex']) if (o[key]) throw unsupported(`${key}（${k.name}）`);
+    if (o.map) throw unsupported(`map（${k.name}）`);
+    if (o.outlineVertex && !o.outlineVertex.tsl) throw unsupported(`outlineVertex 只有 GLSL 版（${k.name}）`);
     if (o.defines && Object.keys(o.defines).length) throw unsupported(`defines（${k.name}）`);
     const t1 = o.shade1 ? tintFrom(o.color, o.shade1) : vec3Of(o.shade1Tint);
     const t2 = o.shade2 ? tintFrom(o.color, o.shade2) : vec3Of(o.shade2Tint);
@@ -151,20 +159,53 @@ export function toonKind({ THREE, TSL }, spec = {}) {
       ...shared, ...(o.tsl?.uniforms || {}),
     };
     const mat = new ToonNodeMaterial();
-    mat.side = o.side; mat.fog = o.fog; mat.opacity = o.opacity ?? 1; mat.depthWrite = o.depthWrite ?? true;
+    mat.side = o.side; mat.fog = o.fog;
+    mat.transparent = !!(o.transparent || o.translucent);
+    mat.opacity = o.opacity ?? 1;
+    mat.depthWrite = o.translucent ? false : (o.depthWrite ?? true);
+    if (o.translucent) mat.forceSinglePass = true;
+    mat.vertexColors = !!o.vertexColors;
     mat.color = C(o.color);
     mat.name = k.name;
+    if (o.tsl?.vertexNormal) {
+      mat.toonNormalInit = Fn(() => {
+        const v = { THREE, TSL, u, pos: positionGeometry, normal: normalLocal.toVar(), inst: float(instanceIndex), noise: N3 };
+        o.tsl.vertexNormal(v);
+        return v.normal;
+      })();
+    }
+    if (o.tsl?.vertexBegin) {
+      mat.toonPosInit = Fn(() => {
+        const v = { THREE, TSL, u, pos: positionLocal.toVar(), normal: normalLocal, inst: float(instanceIndex), noise: N3 };
+        o.tsl.vertexBegin(v);
+        return v.pos;
+      })();
+    }
     const aa = k.bandAA, sky = k.skyStepUniform ? u.uSkyStep : float(0.3);
+    const objNode = o.rest
+      ? attribute('aRest', 'vec3')
+      : positionGeometry.add(vec3(1.618, 2.718, 3.1416).mul(float(instanceIndex)));
 
-    // 反照率阶段：钩子可写变量 → fragmentBase → toonBase → 表面层 → fragmentAlbedo → 后置表面层；随后光照合成（shadeGlsl 逐式）
+    // 反照率阶段：表面层变量初始化 → fragmentBase → toonBase → 表面层 → fragmentAlbedo → 后置表面层 → fragmentNormal；随后光照合成（shadeGlsl 逐式）
     const toonShade = (Lv, att) => Fn(() => {
-      const c = { THREE, TSL, u, obj: positionGeometry, noise: N3, diffuse: diffuseColor.rgb.toVar(), ink: float(0).toVar(), overlay: vec4(0).toVar() };
+      const c = {
+        THREE, TSL, u, obj: objNode, inst: float(instanceIndex), noise: N3,
+        diffuse: diffuseColor.rgb.toVar(), alpha: diffuseColor.a.toVar(),
+        ink: float(0).toVar(), overlay: vec4(0).toVar(),
+      };
+      for (const l of L) l.init?.(c);
       o.tsl?.fragmentBase?.(c);
       c.base = c.diffuse.toVar();
       for (const l of L) l.surface?.(c);
       o.tsl?.fragmentAlbedo?.(c);
       for (const l of L) l.post?.(c);
-      const alb = c.diffuse, N = normalView, V = positionViewDirection, Lw = Lv;
+      c.normal = normalView.toVar();
+      c.viewDir = positionViewDirection;
+      c.lightDir = Lv;
+      c.shadowAtt = att;
+      o.tsl?.fragmentNormal?.(c);
+      diffuseColor.a.assign(c.alpha);
+      const alb = c.diffuse, N = c.normal, V = positionViewDirection, Lw = c.lightDir;
       const en = N3.noise(c.obj.mul(u.uEdgeNoiseScale).add(101)).mul(u.uEdgeNoise);
       // 三色分档（半兰伯特 + 两道羽化；羽化取 max(给定值, bandAA 像素)）
       const hl = dot(N, Lw).mul(0.5).add(0.5).add(en);
@@ -218,12 +259,16 @@ export function toonKind({ THREE, TSL }, spec = {}) {
     return mat;
   }
 
-  // 挂材质 + 投影 + 描边标记（与 GLSL 版 bindPatched 同样的 userData）；顶点不形变，不需要另挂深度材质
+  // 挂材质 + 投影 + 描边标记（与 GLSL 版 bindPatched 同样的 userData；顶点形变由 mat.positionNode 自动带进投影与 ID 图）
   function bind(mesh, mat, { castShadow = true, receiveShadow = true, outline = true, perInstance } = {}) {
-    if (mesh.isInstancedMesh) throw unsupported(`InstancedMesh（${k.name}）`);
-    const u = mat.userData.toon;
+    const o = mat.userData.toonOpts || {}, u = mat.userData.toon;
     mesh.material = mat; mesh.castShadow = castShadow; mesh.receiveShadow = receiveShadow;
-    Object.assign(mesh.userData, { outline, outlineId: u.uObjectId.value, outlineWeight: u.uOutlineW.value, outlinePerInstance: perInstance ?? false, instanced: false });
+    Object.assign(mesh.userData, {
+      outline, outlineId: u.uObjectId.value, outlineWeight: u.uOutlineW.value,
+      outlinePerInstance: perInstance ?? (!!mesh.isInstancedMesh && u.uInstIdOn.value > 0.5),
+      instanced: !!mesh.isInstancedMesh,
+    });
+    if (o.outlineVertex) mesh.userData.outlineVertex = o.outlineVertex;
     return mesh;
   }
 

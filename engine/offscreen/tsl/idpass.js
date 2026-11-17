@@ -28,13 +28,20 @@ export function createIdPass({ THREE, TSL, renderer }) {
     const side = m0 ? m0.side : THREE.FrontSide;
     const cut = !!(m0 && m0.map && (m0.alphaTest > 0 || m0.transparent));
     const inst = !!o.isInstancedMesh;
+    const posInit = m0?.toonPosInit ?? null;
     const posSrc = ov ? ov.tsl : (m0?.positionNode ?? null);
-    const sig = `${side}|${inst ? 1 : 0}|${cut ? m0.map.uuid : ''}|${keyOf(posSrc)}`;
+    const sig = `${side}|${inst ? 1 : 0}|${cut ? m0.map.uuid : ''}|${keyOf(posSrc)}|${keyOf(posInit)}`;
     let e = cache.get(o);
     if (!e || e.sig !== sig) {
       if (e) { e.mat.dispose(); made.delete(e.mat); }
       const u = { baseId: uniform(0), perInstance: uniform(0), width: uniform(1), alpha: uniform(1), cutRef: uniform(0.5) };
-      const mat = new THREE.MeshBasicNodeMaterial({ side });
+      class IdNodeMaterial extends THREE.MeshBasicNodeMaterial {
+        setupPosition(builder) {
+          if (posInit) TSL.positionLocal.assign(posInit);
+          return super.setupPosition(builder);
+        }
+      }
+      const mat = posInit ? new IdNodeMaterial({ side }) : new THREE.MeshBasicNodeMaterial({ side });
       if (posSrc) mat.positionNode = typeof posSrc === 'function' ? posSrc({ THREE, TSL }) : posSrc;
       mat.fragmentNode = Fn(() => {
         if (cut) If(texture(m0.map).a.lessThan(u.cutRef), () => { Discard(); });
