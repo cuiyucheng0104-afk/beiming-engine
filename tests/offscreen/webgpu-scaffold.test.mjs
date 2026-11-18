@@ -12,6 +12,7 @@ import { createHost } from '../../engine/offscreen/host.mjs';
 import { loadCanvas } from '../../engine/offscreen/canvas.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const hasFfmpeg = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
 
 let skipGpu = null;
 try {
@@ -112,6 +113,7 @@ test('A 路线 --backend webgpu：新建作品 → 禁用浏览器跑 film check
   assert.equal(qt.status, 0, `${qt.stderr}\n${qt.stdout}`);
   assert.equal(JSON.parse(qt.stdout).ok, true);
 
+  if (!hasFfmpeg) return t.diagnostic('没有 FFmpeg：qa plates 这一步跳过（CI 的 unit / windows-paths 不安装）');
   const qp = runIn(repo, 'tools/qa/cli.mjs', ['plates', '--film', `films/${name}`, '--size', '640x360', '--json'], envNoChrome);
   assert.equal(qp.status, 0, `${qp.stderr}\n${qp.stdout}`);
   assert.equal(JSON.parse(qp.stdout).ok, true);
