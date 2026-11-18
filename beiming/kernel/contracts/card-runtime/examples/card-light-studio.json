@@ -17,13 +17,18 @@
     ],
     "prefix": "light",
     "entities": [
+      "rig",
       "key",
       "fill",
       "rim_L",
       "rim_R",
       "top"
     ],
+    "roots": [
+      "rig"
+    ],
     "merged": [
+      "light",
       "light.key",
       "light.fill",
       "light.rim_L",
@@ -32,6 +37,12 @@
     ],
     "metaKeys": [
       "readings"
+    ],
+    "metaIds": [
+      "keyWatts"
+    ],
+    "mergedMetaIds": [
+      "light.keyWatts"
     ]
   },
   "evaluations": [

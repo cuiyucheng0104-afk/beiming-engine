@@ -1,7 +1,7 @@
 {
   "format": "shot-check/0.1",
   "shot": "s02",
-  "mode": "entry",
+  "mode": "native-code",
   "entry": "shots/s02/shot.js",
   "sources": [
     "three"

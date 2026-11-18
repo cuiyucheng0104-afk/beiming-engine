@@ -10,9 +10,9 @@ export type RngStream = unknown;
 
 export interface ShotCtx {
   tracks: { apply(f: number, sub: number): void; camera?: Native };
-  cards: { use(ref: string, params?: object): Handle };   // ref："<卡名>@<版本>"
+  cards: { use(as: string, runtime?: object): Handle };   // as：这个镜头 cards 里声明过的实例名；runtime：只放写不进 JSON 的东西
   params: object;
-  seed: Seed;
+  seed: Seed;                                              // 这个镜头的镜头种子
   rng(arg: string): RngStream;                             // arg："<用途>/<对象>"
   assets: { load(ref: string): unknown };                  // ref："asset:<名>@<版本>"
   anchor(entity: string, anchor: string): [number, number, number];   // 世界坐标，米
@@ -20,10 +20,12 @@ export interface ShotCtx {
   size: [number, number];                                  // [宽, 高]，像素
   fps: Fps;
   frames: number;                                          // 这个镜头的帧数
+  readonly shot: { id: string; in: number; frames: number };   // in：全片帧号
+  readonly events: Record<string, number>;                 // 键是事件名；值是镜头局部帧号，可以在镜头之外
   THREE?: Native;                                          // three 帧源
   renderer?: Native;                                       // three 帧源
   bpy?: Native;                                            // Blender 帧源
-  scene?: Native;                                          // Blender 帧源
+  hostScene?: Native;                                      // Blender 帧源
 }
 
 export interface Shot {

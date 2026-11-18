@@ -4,7 +4,7 @@
     "violates": [
       "CR1"
     ],
-    "why": "实现文件对外同时提供了 create 和 evaluate 两个入口"
+    "why": "实现文件对外同时提供了 create 和 evaluate 两个卡入口"
   },
   {
     "file": "CR2-evaluate-via-cards-use.json",
@@ -82,5 +82,26 @@
       "CR12"
     ],
     "why": "tracks 里有相机轨道，却取了相机类卡交出的相机"
+  },
+  {
+    "file": "CR13-two-roots.json",
+    "violates": [
+      "CR13"
+    ],
+    "why": "一个 Handle 里有两个实体带 root: true"
+  },
+  {
+    "file": "CR14-text-id-without-prefix.json",
+    "violates": [
+      "CR14"
+    ],
+    "why": "卡交出的文字框 id 并进镜头时没加实例前缀"
+  },
+  {
+    "file": "CR15-overlay-before-cards.json",
+    "violates": [
+      "CR15"
+    ],
+    "why": "叠加层展开出的卡实例 caption 装在了镜头自己的卡前面"
   }
 ]

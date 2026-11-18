@@ -13,6 +13,9 @@
     "particles",
     "title"
   ],
+  "overlays": [
+    "caption"
+  ],
   "orderPairs": [
     [
       "particles",
@@ -23,17 +26,20 @@
     "sky",
     "particles",
     "hdr",
-    "title"
+    "title",
+    "caption"
   ],
   "applyOrder": [
     "tracks",
     "particles",
     "hdr",
-    "title"
+    "title",
+    "caption"
   ],
   "metaOrder": [
     "host",
-    "title"
+    "title",
+    "caption"
   ],
   "camera": {
     "tracksHasCamera": true,

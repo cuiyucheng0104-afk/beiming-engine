@@ -8,14 +8,16 @@
   "additionalProperties": false,
   "properties": {
     "format": { "const": "shot-check/0.1" },
-    "shot": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
-    "mode": { "enum": ["entry", "cards"] },
+    "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
+    "mode": { "enum": ["cards-data", "build-script", "native-code"] },
     "entry": { "type": "string", "minLength": 1 },
     "sources": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
     "languages": { "type": "array", "minItems": 1, "items": { "enum": ["js", "python"] } },
     "buildCalls": { "type": "integer", "minimum": 0 },
     "build": { "enum": ["ok", "failed"] },
+    "error": { "type": "string", "minLength": 1 },
     "entities": { "type": "array", "items": { "type": "string" } },
+    "omittable": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
     "metaEntities": {
       "type": "array",
       "items": {
@@ -24,7 +26,8 @@
         "additionalProperties": false,
         "properties": {
           "f": { "type": "integer", "minimum": 0 },
-          "names": { "type": "array", "items": { "type": "string" } }
+          "names": { "type": "array", "items": { "type": "string" } },
+          "omittedParts": { "type": "integer", "minimum": 1 }
         }
       }
     },
@@ -55,6 +58,20 @@
       }
     },
     "metaKeys": { "type": "array", "items": { "type": "string" } },
+    "declaredCards": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "cardUses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["as"],
+        "additionalProperties": false,
+        "properties": {
+          "as": { "type": "string", "minLength": 1 },
+          "runtimeKeys": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "paramKeys": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
     "scan": {
       "type": "object",
       "required": ["wallClock", "unseededRandom"],
@@ -66,8 +83,14 @@
     },
     "ext": { "type": "object" }
   },
-  "if": { "properties": { "mode": { "const": "entry" } } },
+  "if": {
+    "properties": {
+      "mode": { "enum": ["build-script", "native-code"] },
+      "sources": { "not": { "contains": { "type": "string", "pattern": "^ext\\." } } }
+    }
+  },
   "then": { "required": ["entry"] },
+  "dependentRequired": { "cardUses": ["declaredCards"] },
   "$defs": {
     "scanHit": {
       "type": "object",

@@ -1,7 +1,7 @@
 {
   "format": "shot-check/0.1",
   "shot": "s01",
-  "mode": "entry",
+  "mode": "native-code",
   "entry": "shots/s01/shot.py",
   "sources": [
     "blender"

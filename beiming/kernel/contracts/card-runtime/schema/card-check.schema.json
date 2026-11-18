@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "format": { "const": "card-check/0.1" },
-    "card": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+@[0-9]+(\\.[0-9]+){0,2}$" },
+    "card": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+@[0-9]+$" },
     "impl": { "type": "string", "minLength": 1 },
     "shape": { "enum": ["create", "evaluate"] },
     "entries": { "type": "array", "items": { "type": "string", "minLength": 1 } },
@@ -21,8 +21,11 @@
         "members": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "prefix": { "type": "string", "minLength": 1 },
         "entities": { "type": "array", "items": { "type": "string" } },
+        "roots": { "type": "array", "items": { "type": "string" } },
         "merged": { "type": "array", "items": { "type": "string" } },
-        "metaKeys": { "type": "array", "items": { "type": "string" } }
+        "metaKeys": { "type": "array", "items": { "type": "string" } },
+        "metaIds": { "type": "array", "items": { "type": "string" } },
+        "mergedMetaIds": { "type": "array", "items": { "type": "string" } }
       }
     },
     "evaluations": {

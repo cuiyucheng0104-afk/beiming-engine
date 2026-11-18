@@ -1,7 +1,7 @@
 {
   "format": "shot-check/0.1",
   "shot": "s03",
-  "mode": "cards",
+  "mode": "cards-data",
   "entry": "shots/s03/shot.js",
   "sources": [
     "three"

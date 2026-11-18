@@ -54,5 +54,12 @@
       "S8"
     ],
     "why": "meta(f) 交了 camera，那是宿主量的东西"
+  },
+  {
+    "file": "S9-undeclared-card.json",
+    "violates": [
+      "S9"
+    ],
+    "why": "镜头代码用了片子描述里没声明的实例名 logo，构建却判成了通过，也没报 contract.undeclared-card"
   }
 ]

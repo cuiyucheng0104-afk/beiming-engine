@@ -8,9 +8,10 @@
   "additionalProperties": false,
   "properties": {
     "format": { "const": "load-check/0.1" },
-    "shot": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
     "steps": { "type": "array", "items": { "enum": ["assets", "tracks", "create", "collect"] } },
-    "cards": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "cards": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" } },
+    "overlays": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } },
     "orderPairs": {
       "type": "array",
       "items": {

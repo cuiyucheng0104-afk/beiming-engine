@@ -4,24 +4,24 @@
   "title": "时间核对记录",
   "description": "只管结构。fps 的写法由 T3 管，所以这里只要求是字符串；别的不变量见 CONTRACT.md 第 4 节。",
   "type": "object",
-  "required": ["format", "fps", "seed", "shutterAngleDeg", "shots"],
+  "required": ["format", "fps", "shots"],
   "additionalProperties": false,
   "properties": {
     "format": { "const": "time-check/0.1" },
     "fps": { "type": "string" },
-    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-    "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
     "shots": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "start", "frames"],
+        "required": ["id", "start", "frames", "seed", "shutterAngleDeg"],
         "additionalProperties": false,
         "properties": {
           "id": { "$ref": "#/$defs/shotId" },
           "start": { "type": "integer", "minimum": 0 },
-          "frames": { "type": "integer", "minimum": 1 }
+          "frames": { "type": "integer", "minimum": 1 },
+          "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+          "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 }
         }
       }
     },
@@ -76,6 +76,22 @@
             }
           },
           "aux": { "$ref": "time-key.schema.json" },
+          "auxSample": {
+            "type": "object",
+            "required": ["apertureM", "shutterAngleDeg", "samples", "pixelOffset"],
+            "additionalProperties": false,
+            "properties": {
+              "apertureM": { "type": "number", "minimum": 0 },
+              "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
+              "samples": { "type": "integer", "minimum": 1 },
+              "pixelOffset": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 }
+              }
+            }
+          },
           "postDepth": { "$ref": "time-key.schema.json" }
         }
       }
@@ -90,6 +106,19 @@
           "f": { "type": "integer", "minimum": 0 },
           "n": { "type": "integer", "minimum": 1 },
           "result": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "localized": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shot", "frame", "f"],
+        "additionalProperties": false,
+        "properties": {
+          "shot": { "$ref": "#/$defs/shotId" },
+          "frame": { "type": "integer", "minimum": 0 },
+          "f": { "type": "integer" }
         }
       }
     },
@@ -120,7 +149,7 @@
     "ext": { "type": "object" }
   },
   "$defs": {
-    "shotId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "shotId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
     "digest": { "type": "string", "pattern": "^[0-9a-f]{8,64}$" },
     "scanHit": {
       "type": "object",

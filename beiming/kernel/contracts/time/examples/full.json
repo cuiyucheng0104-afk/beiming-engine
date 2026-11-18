@@ -1,18 +1,20 @@
 {
   "format": "time-check/0.1",
   "fps": "24000/1001",
-  "seed": 20261118,
-  "shutterAngleDeg": 180,
   "shots": [
     {
       "id": "s01",
       "start": 0,
-      "frames": 48
+      "frames": 48,
+      "seed": 31415926,
+      "shutterAngleDeg": 180
     },
     {
       "id": "s02",
       "start": 48,
-      "frames": 48
+      "frames": 48,
+      "seed": 20261118,
+      "shutterAngleDeg": 180
     }
   ],
   "evaluations": [
@@ -84,6 +86,15 @@
       "postDepth": {
         "frame": 47,
         "sub": 0
+      },
+      "auxSample": {
+        "apertureM": 0,
+        "shutterAngleDeg": 0,
+        "samples": 1,
+        "pixelOffset": [
+          0.5,
+          0.5
+        ]
       }
     },
     {
@@ -124,6 +135,15 @@
       "postDepth": {
         "frame": 48,
         "sub": 0
+      },
+      "auxSample": {
+        "apertureM": 0,
+        "shutterAngleDeg": 0,
+        "samples": 1,
+        "pixelOffset": [
+          0.5,
+          0.5
+        ]
       }
     }
   ],
@@ -152,6 +172,23 @@
       "f": 7,
       "n": 3,
       "result": 6
+    }
+  ],
+  "localized": [
+    {
+      "shot": "s02",
+      "frame": 60,
+      "f": 12
+    },
+    {
+      "shot": "s02",
+      "frame": 40,
+      "f": -8
+    },
+    {
+      "shot": "s01",
+      "frame": 60,
+      "f": 60
     }
   ],
   "rng": [
