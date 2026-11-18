@@ -107,7 +107,13 @@ async function rulePythonLock(ctx) {
   const pv = (ctx.read('.python-version') || '').trim();
   if (pv !== s.python.version) f.push({ file: '.python-version', message: `.python-version 是「${pv}」，应为 ${s.python.version}（D09）` });
   const txt = ctx.read('requirements.txt');
-  if (txt !== null && !/^-r\s+requirements\.in\s*$/m.test(txt)) f.push({ level: 'warn', file: 'requirements.txt', message: 'requirements.txt 没有引用 requirements.in：两份依赖清单可能各写各的', fix: '只保留一行 -r requirements.in（加说明注释）' });
+  if (txt !== null && !/^-r\s+requirements\.in\s*$/m.test(txt)) {
+    f.push({
+      file: 'requirements.txt',
+      message: 'requirements.txt 必须只引用 requirements.in（一行 -r requirements.in），不能写成 pin 清单',
+      fix: '恢复为「-r requirements.in」（可加说明注释）；锁文件是 requirements.lock，用 node tools/env/lock.mjs 生成，不要让 Dependabot / pip-compile 改 requirements.txt',
+    });
+  }
   return f;
 }
 

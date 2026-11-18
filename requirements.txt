@@ -1,4 +1,5 @@
 # 北冥仓库 · Python 依赖（宽松范围，给不用 npm run setup 的场景）。
 # 可复现安装请用 npm run setup：按 requirements.lock（带哈希、三平台）在仓库内建 .venv。
 # 顶层依赖只在 requirements.in 里维护，这里直接引用它，不另抄一份。
+# 不要把本文件写成 pin 清单（pip-compile / Dependabot pip 会这样做）；锁文件是 requirements.lock。
 -r requirements.in

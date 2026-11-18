@@ -81,6 +81,29 @@ test('large-files.mjs 命令：违规时 exit 4，信封带违规清单', () => 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('env.python-lock：本仓库三文件协议通过；Dependabot 式 pin 清单与改 .in 不重生锁都是 error', async () => {
+  const ok = await runRules(createContext(ROOT), { only: ['env.python-lock'] });
+  assert.deepEqual(ok[0].findings.filter(f => f.level === 'error'), []);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-pip-lock-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'tools/env'), { recursive: true });
+    for (const f of ['tools/env/spec.json', 'requirements.in', 'requirements.lock', '.python-version']) {
+      fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+    }
+    fs.writeFileSync(path.join(dir, 'requirements.txt'), 'scipy==1.18.1\npillow==13.0.0\n');
+    const pins = await runRules(createContext(dir), { only: ['env.python-lock'] });
+    const pinErr = pins[0].findings.filter(f => f.level === 'error').map(f => f.message);
+    assert.ok(pinErr.some(m => /requirements\.txt/.test(m) && /requirements\.in/.test(m)), pinErr.join('\n'));
+
+    fs.writeFileSync(path.join(dir, 'requirements.txt'), '# 指针\n-r requirements.in\n');
+    fs.appendFileSync(path.join(dir, 'requirements.in'), '\n# dependabot-style range bump without regenerating the lock\n');
+    const stale = await runRules(createContext(dir), { only: ['env.python-lock'] });
+    const staleErr = stale[0].findings.filter(f => f.level === 'error').map(f => f.message);
+    assert.ok(staleErr.some(m => /输入哈希/.test(m)), staleErr.join('\n'));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('env 规则：本仓库的 .gitattributes 语义齐全、索引里没有 CRLF', async () => {
   const res = await runRules(createContext(ROOT), { only: ['env.gitattributes', 'env.eol'] });
   for (const r of res) assert.deepEqual(r.findings.filter(f => f.level === 'error'), [], r.id);
