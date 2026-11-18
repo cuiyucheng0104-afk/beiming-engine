@@ -83,6 +83,11 @@
       "holds": "技术卡：全部卡文件，以及内建能力之外的数据层卡的实现"
     },
     {
+      "path": "cards",
+      "owner": "harvest",
+      "holds": "候选卡"
+    },
+    {
       "path": "bench",
       "owner": "bench",
       "holds": "考题"
@@ -101,11 +106,6 @@
       "path": "crew",
       "owner": "integrator",
       "holds": "多代理施工：总则、角色、任务书模板、配置表"
-    },
-    {
-      "path": "cards",
-      "owner": "harvest",
-      "holds": "候选卡"
     }
   ],
   "placements": [
@@ -130,22 +130,27 @@
   ],
   "packages": [
     {
-      "id": "demo-a",
+      "id": "cards-time",
       "writes": [
-        "kernel/eval"
+        "cards/time/timeline",
+        "cards/time/envelope",
+        "cards/time/events",
+        "cards/time/seeded"
       ]
     },
     {
-      "id": "demo-b",
+      "id": "cards-assembly",
       "writes": [
-        "cards/camera",
-        "cards/time"
+        "cards/assembly/schedule",
+        "cards/assembly/explode",
+        "cards/motion/snap"
       ]
     },
     {
-      "id": "demo-c",
+      "id": "cards-camera",
       "writes": [
-        "cards/particle"
+        "cards/camera/fit",
+        "cards/camera/shake"
       ]
     }
   ]

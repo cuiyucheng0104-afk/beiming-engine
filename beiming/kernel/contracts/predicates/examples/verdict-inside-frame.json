@@ -3,7 +3,7 @@
   "layer": "L3",
   "status": "fail",
   "base": true,
-  "frames": [
+  "atFrames": [
     166,
     179
   ],
@@ -16,7 +16,7 @@
   "hint": "装回末段相机距离不足",
   "fix": {
     "op": "set",
-    "path": "shots/s01/cards/camera.fit@1/margin",
+    "path": "shots/s01/cards/fit/params/margin",
     "value": 0.82,
     "applicability": "maybe"
   }

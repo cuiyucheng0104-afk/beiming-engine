@@ -4,7 +4,7 @@
     "violates": [
       "ER1"
     ],
-    "why": "quota.exceeded 不以六个前缀里的任何一个开头"
+    "why": "quota.exceeded 不以七个前缀里的任何一个开头"
   },
   {
     "file": "ER2-busy-maps-to-4.json",

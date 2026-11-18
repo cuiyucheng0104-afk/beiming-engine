@@ -25,6 +25,6 @@
     "violates": [
       "OW4"
     ],
-    "why": "demo-c 写 cards/camera/fit，落在 demo-b 的 cards/camera 之下"
+    "why": "cards-assembly 写 cards/camera，cards-camera 的 cards/camera/fit 和 cards/camera/shake 落在它之下"
   }
 ]

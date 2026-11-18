@@ -30,6 +30,11 @@
       "prefix": "failure.",
       "exitCode": 1,
       "meaning": "运行失败"
+    },
+    {
+      "prefix": "auth.",
+      "exitCode": 4,
+      "meaning": "没有权限做这次写入"
     }
   ],
   "codes": []

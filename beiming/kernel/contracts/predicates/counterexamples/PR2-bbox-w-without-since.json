@@ -29,7 +29,7 @@
         "film"
       ],
       "requires": [],
-      "milestone": "M1a"
+      "since": "0.1"
     },
     {
       "name": "loudness",
@@ -44,7 +44,7 @@
         "film-audio"
       ],
       "requires": [],
-      "milestone": "M1a"
+      "since": "0.1"
     },
     {
       "name": "true_peak",
@@ -59,7 +59,7 @@
         "film-audio"
       ],
       "requires": [],
-      "milestone": "M1a"
+      "since": "0.1"
     },
     {
       "name": "cut_at",
@@ -75,7 +75,7 @@
         "events"
       ],
       "requires": [],
-      "milestone": "M1a"
+      "since": "0.1"
     },
     {
       "name": "no_cut",
@@ -85,7 +85,7 @@
         "events"
       ],
       "requires": [],
-      "milestone": "M1a"
+      "since": "0.1"
     },
     {
       "name": "inside_frame",
@@ -107,7 +107,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M1a"
+      "since": "0.1"
     },
     {
       "name": "visible",
@@ -125,14 +125,17 @@
         "meta",
         "objectId"
       ],
-      "milestone": "M1a"
+      "since": "0.1"
     },
     {
       "name": "text_matches",
       "params": [
         {
           "name": "text",
-          "type": "text",
+          "type": [
+            "text",
+            "ref"
+          ],
           "required": true
         }
       ],
@@ -143,7 +146,7 @@
       "requires": [
         "texts"
       ],
-      "milestone": "M1a"
+      "since": "0.1"
     },
     {
       "name": "bbox_w",
@@ -178,7 +181,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "margin_lr",
@@ -196,7 +199,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "margin_tb",
@@ -214,7 +217,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "orbit_total",
@@ -236,7 +239,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "camera.height",
@@ -247,7 +250,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "palette_dE",
@@ -267,7 +270,7 @@
         "render-stats"
       ],
       "requires": [],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "highlight_clip_ratio",
@@ -285,7 +288,7 @@
       "requiresPerEntity": [
         "objectId"
       ],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "luma_p99",
@@ -303,7 +306,7 @@
       "requiresPerEntity": [
         "objectId"
       ],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "onset",
@@ -324,7 +327,7 @@
         "events"
       ],
       "requires": [],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "readable",
@@ -357,7 +360,7 @@
       "requires": [
         "texts"
       ],
-      "milestone": "M2"
+      "since": "planned"
     },
     {
       "name": "at_rest",
@@ -375,7 +378,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M3"
+      "since": "planned"
     },
     {
       "name": "no_intersect",
@@ -405,7 +408,7 @@
       "only": [
         "blender"
       ],
-      "milestone": "M3"
+      "since": "planned"
     },
     {
       "name": "contact",
@@ -435,7 +438,7 @@
       "only": [
         "blender"
       ],
-      "milestone": "M3"
+      "since": "planned"
     },
     {
       "name": "key_fill_ratio",
@@ -454,7 +457,7 @@
         "meta",
         "objectId"
       ],
-      "milestone": "M3"
+      "since": "planned"
     },
     {
       "name": "in_focus",
@@ -472,7 +475,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M3"
+      "since": "planned"
     },
     {
       "name": "fx_visible",
@@ -495,7 +498,7 @@
       "requires": [
         "meta"
       ],
-      "milestone": "M3"
+      "since": "planned"
     },
     {
       "name": "no_ghost",
@@ -510,7 +513,7 @@
         "render-stats"
       ],
       "requires": [],
-      "milestone": "M3"
+      "since": "planned"
     },
     {
       "name": "encoded_readback",
@@ -520,7 +523,7 @@
         "render-stats"
       ],
       "requires": [],
-      "milestone": "M3"
+      "since": "planned"
     }
   ],
   "templates": [

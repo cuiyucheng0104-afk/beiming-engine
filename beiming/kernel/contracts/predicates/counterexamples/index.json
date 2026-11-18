@@ -7,11 +7,11 @@
     "why": "visible 登记了两次"
   },
   {
-    "file": "PR2-bbox-w-without-milestone.json",
+    "file": "PR2-bbox-w-without-since.json",
     "violates": [
       "PR2"
     ],
-    "why": "bbox_w 没写 milestone"
+    "why": "bbox_w 没写 since"
   },
   {
     "file": "PR3-template-uses-unregistered.json",
@@ -28,11 +28,11 @@
     "why": "floor 的 1 版只有五条，少了 text_matches(copy)"
   },
   {
-    "file": "PR5-floor-uses-m2-predicate.json",
+    "file": "PR5-floor-uses-planned-predicate.json",
     "violates": [
       "PR5"
     ],
-    "why": "floor 用到的 visible 的 milestone 写成了 M2"
+    "why": "floor 用到的 visible 的 since 写成了 planned"
   },
   {
     "file": "PR6-limited-item-needs-meta.json",
@@ -40,5 +40,12 @@
       "PR6"
     ],
     "why": "floor 第 4 条 limited 是 true，它用的 inside_frame 却要帧源声明 meta"
+  },
+  {
+    "file": "PR7-skipped-without-reason.json",
+    "violates": [
+      "PR7"
+    ],
+    "why": "判定条目：status 是 skipped，没带 reason"
   }
 ]

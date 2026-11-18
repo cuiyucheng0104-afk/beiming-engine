@@ -14,16 +14,14 @@
       "code": "contract.unknown-key",
       "layer": "L1",
       "severity": "error",
-      "at": "shots/s01/cards/camera.fit@1/margn",
-      "message": "camera.fit@1 没有参数 margn",
-      "value": null,
+      "at": "shots/s01/cards/fit/params/margn",
+      "message": "实例 fit（camera.fit@1）没有参数 margn",
       "expected": "margin: 0.7 到 0.98",
-      "frames": [],
-      "evidence": null,
+      "atFrames": [],
       "hint": "最接近的键是 margin",
       "fix": {
         "op": "rename",
-        "path": "shots/s01/cards/camera.fit@1/margn",
+        "path": "shots/s01/cards/fit/params/margn",
         "to": "margin",
         "applicability": "machine"
       }

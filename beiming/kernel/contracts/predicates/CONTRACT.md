@@ -7,7 +7,7 @@
 管：
 
 - 谓词登记表 `predicates/0.1` 的结构。表本身是数据，放在本目录的 `predicates.json`。全系统的谓词只有这一张表。
-- 每个谓词的四项：参数、读什么数据、要帧源声明什么、哪个里程碑有。
+- 每个谓词的四项：参数、读什么数据、要帧源声明什么、从哪个版本起有。
 - 模板怎么登记；最低谓词 `floor` 的 1 版是哪六条。
 - 谓词的写法 `断言 @ 范围`，以及一条断言的谓词名怎么取。
 - 一条谓词的判定结果「判定条目」。
@@ -32,8 +32,8 @@
 | 范围 | 一条断言在哪些帧上判，写在 `@` 后面。 |
 | 登记 | 把一个谓词的名字和四项写进本表。没登记的名字不得出现在模板、题目和卡里。 |
 | 最低谓词 | 名叫 `floor` 的模板：和片型无关，每部片都生效。 |
-| 条目 | 模板里的一项：一条或用 `;` 连起来的几条断言。 |
-| 里程碑 | 一个谓词从哪个交付阶段起可用，写成 `M1a`、`M2`、`M3`。 |
+| 模板条目 | 模板里的一项：一条或用 `;` 连起来的几条断言。 |
+| 起用版本 | 一个谓词从哪个版本起可用：`0.1` 表示 0.1 版就有，`planned` 表示以后的版本才有。 |
 | 判定条目 | 一条谓词在一次验收里的结果。 |
 
 ## 3. 结构
@@ -61,14 +61,14 @@
 | `requires` | 数组 | 是（PR2） | 5.3 的词，不重复；不要求写空数组 | 要帧源声明什么 |
 | `requiresPerEntity` | 数组 | 否 | 5.3 的词，不重复，至少 1 项 | 实参里点了实体、按实体判时另外要声明的 |
 | `only` | 数组 | 否 | 帧源名，见 F 契约 3.1；不重复，至少 1 项 | 只有这几个帧源上能判。不出现表示不限 |
-| `milestone` | 字符串 | 是（PR2） | `M1a`、`M2`、`M3` | 哪个里程碑有 |
+| `since` | 字符串 | 是（PR2） | `0.1`、`planned` | 起用版本：`0.1` 是 0.1 版，`planned` 是以后的版本 |
 
 ### 3.3 `params[]`
 
 | 字段 | 类型 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|
 | `name` | 字符串 | 是 | 字母、数字，以小写字母开头 | 参数名 |
-| `type` | 字符串 | 是 | `entity`、`number`、`frame`、`text`、`ref` | 实参是什么，见 5.4 |
+| `type` | 字符串或数组 | 是 | `entity`、`number`、`frame`、`text`、`ref` 之一；或者这五个词里至少 2 个、不重复的数组 | 实参是什么，见 5.4；写成数组表示这几种都收 |
 | `required` | 布尔 | 是 | | 必不必写 |
 
 ### 3.4 `templates[]`
@@ -78,7 +78,7 @@
 | `name` | 字符串 | 是 | 小写字母、数字、连字符，以字母开头 | 模板名，不带 `template:` 前缀；最低谓词是 `floor` |
 | `version` | 字符串 | 是 | 三段十进制数，用 `.` 连接 | 版本；第一段是引用里的主版本 |
 | `roles` | 数组 | 是 | `hero`、`mustSee`，不重复 | 这个模板要求每个镜头都有的角色 |
-| `items` | 数组 | 是 | 每项见下表 | 条目 |
+| `items` | 数组 | 是 | 每项见下表 | 模板条目 |
 
 `items[]`：
 
@@ -91,19 +91,20 @@
 
 ### 3.5 判定条目
 
-不是顶层对象，嵌在验收的返回里，不带 `format`。
+不是顶层对象，嵌在验收的返回里，不带 `format`。判定条目里没有可以是 `null` 的字段；`value`、`evidence`、`hint`、`reason` 是可选不空，没有就不出现。
 
 | 字段 | 类型 | 单位 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|---|
 | `id` | 字符串 | 无 | 是 | `pred.` 加谓词名 | 哪个谓词 |
 | `layer` | 字符串 | 无 | 是 | `L3` | 哪一层 |
-| `status` | 字符串 | 无 | 是 | `pass`、`fail` | 过没过 |
+| `status` | 字符串 | 无 | 是 | `pass`、`fail`、`skipped` | 过没过；`skipped` 是没判，不算过也不算不过，见 5.3 |
 | `base` | 布尔 | 无 | 是 | | 这一条是不是来自 `predicates.base` |
-| `frames` | 数组 | 帧 | 否 | 全片帧号，整数，≥ 0 | 反例帧 |
-| `value` | 任意 JSON 值 | 无 | 否 | | 实测值 |
+| `atFrames` | 数组 | 帧 | 否 | 全片帧号，整数，≥ 0 | 反例帧 |
+| `value` | 任意 JSON 值，不得是 `null` | 无 | 否 | | 实测值 |
 | `expected` | 字符串 | 无 | 否 | 不空 | 要求是什么 |
-| `evidence` | 字符串或 `null` | 无 | 否 | 不空 | 证据的编号；`null` 表示这次没有 |
-| `hint` | 字符串或 `null` | 无 | 否 | 不空 | 怎么修的提示；`null` 表示这次没有 |
+| `evidence` | 字符串 | 无 | 否 | 不空 | 证据的编号 |
+| `hint` | 字符串 | 无 | 否 | 不空 | 怎么修的提示 |
+| `reason` | 字符串 | 无 | 见 PR7 | 不空 | 为什么没判 |
 | `fix` | 修法 | 无 | 否 | 见 PA 契约 3.3 | 机械的修法 |
 
 ## 4. 不变量
@@ -111,11 +112,12 @@
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
 | PR1 | 谓词的 `name` 不得重复。 | 没有两项的 `name` 逐字符相同 | `PR1-duplicate-name.json` |
-| PR2 | 每个谓词必须同时带 `params`、`reads`、`requires`、`milestone` 四项，`reads` 不得是空数组。 | 逐项看四个键在不在，`reads` 的长度 ≥ 1 | `PR2-bbox-w-without-milestone.json` |
+| PR2 | 每个谓词必须同时带 `params`、`reads`、`requires`、`since` 四项，`reads` 不得是空数组。 | 逐项看四个键在不在，`reads` 的长度 ≥ 1 | `PR2-bbox-w-without-since.json` |
 | PR3 | 模板条目的 `uses` 里的每个名字必须是登记过的谓词名。 | 逐个名字在 `predicates` 的 `name` 里逐字符找 | `PR3-template-uses-unregistered.json` |
 | PR4 | `name` 是 `floor`、`version` 第一段是 1 的模板，`items` 必须正好六条，`expr` 依次等于 5.6 表里的六条。 | 项数等于 6；第 i 项的 `expr` 和表里第 i 行逐字符相同 | `PR4-floor-five-items.json` |
-| PR5 | `name` 是 `floor` 的模板，`uses` 里登记过的谓词的 `milestone` 必须是 `M1a`。 | 逐个 `uses` 里的名字，查到登记项就比 `milestone`；没登记的名字归 PR3 | `PR5-floor-uses-m2-predicate.json` |
-| PR6 | `limited` 是 `true` 的条目，`uses` 里登记过的谓词的 `requires` 不得含 `meta` 或 `objectId`。 | 逐个 `uses` 里的名字，查到登记项就看 `requires`；没登记的名字归 PR3 | `PR6-limited-item-needs-meta.json` |
+| PR5 | `name` 是 `floor` 的模板，`uses` 里登记过的谓词的 `since` 必须是 `0.1`。 | 逐个 `uses` 里的名字，查到登记项就比 `since`；没登记的名字归 PR3 | `PR5-floor-uses-planned-predicate.json` |
+| PR6 | `limited` 是 `true` 的模板条目，`uses` 里登记过的谓词的 `requires` 不得含 `meta` 或 `objectId`。 | 逐个 `uses` 里的名字，查到登记项就看 `requires`；没登记的名字归 PR3 | `PR6-limited-item-needs-meta.json` |
+| PR7 | `status` 是 `skipped` 的判定条目必须带 `reason`。 | `status` 是 `skipped` 时看 `reason` 这个键在不在 | `PR7-skipped-without-reason.json` |
 
 ## 5. 口径
 
@@ -141,13 +143,17 @@
 
 | 词 | 要帧源声明什么 |
 |---|---|
-| `meta` | 交每帧元数据里由宿主量的那部分 |
+| `meta` | 能力声明的 `outputs.meta` 是 `true` |
 | `objectId` | 交物体编号层 |
-| `texts` | 元数据里交文字框 |
+| `texts` | 能力声明的 `metaNull` 里没列 `texts` |
 | `intersect` | 能答 `intersect` 这种场景查询 |
 | `contact` | 能答 `contact` 这种场景查询 |
 
+能力声明、`outputs`、`metaNull`、`sceneQuery`：见 F 契约 3.4。
+
 帧源没声明一个谓词要的东西时，这个谓词在这个帧源的镜头上不判；`only` 之外的帧源同样不判。
+
+合规档是 `limited`、交不出 `entities` 的镜头上，`reads` 里有以 `meta.entities` 开头的词的谓词必须判成 `skipped`，判定条目带 `reason`。`skipped` 不算过，也不算不过。
 
 ### 5.4 参数的 `type`
 
@@ -159,6 +165,8 @@
 | `text` | 用双引号括起来的一段文字 |
 | `ref` | 对片子里别的东西的引用：`film`、`output`、`camera`、`audio`、`script`、`copy`、`shot(镜头的 id)`、`event(事件的 id)`、`text(*)` |
 
+`type` 写成数组时，实参可以是其中任何一种。`text_matches` 的 `text` 参数是 `["text", "ref"]`：可以写一段文字，也可以写 `copy` 这样的引用。
+
 ### 5.5 写法
 
 一条断言写成 `断言 @ 范围`。本版只定下面这些已经出现过的形式，完整的文法见第 6 节。
@@ -166,17 +174,17 @@
 - 调用：`谓词名(实参, 实参, …)`。实参不带名字时按 `params` 的次序对，带名字时写 `参数名=值`。没有实参时可以只写谓词名，例如 `no_cut`。
 - 比较：调用后面可以接 `>= 数`、`<= 数`、`in [下限, 上限]`；`in` 的两端都算在内。
 - 单位后缀：`f` 是帧，`s` 是秒，`mm` 是毫米，`deg` 是度。不带后缀的数没有单位，是比例或计数。
-- 范围：`all` 是全片；`[a,b]` 是含两端的帧区间，`(a,b)` 是不含两端的帧区间，`a`、`b` 是全片帧号；`shot(镜头的 id)` 是那个镜头的区间；`event(事件的 id)` 后面可以接 `+ 帧数f` 或 `- 帧数f`；`cut(帧号)` 是那个切点。
-- 几条断言可以用 ` ; ` 连成一个条目。
+- 范围：`all` 是全片；`[a,b)` 是半开的帧区间，含 `a`、不含 `b`，和片子描述的区间一致，`a`、`b` 是全片帧号；`shot(镜头的 id)` 是那个镜头的区间；`event(事件的 id)` 和 `cut(帧号)` 用 D 契约 5.3 的时刻算式，后面可以接 ` + 整数` 或 ` - 整数`，整数是帧数，不带后缀；`cut(帧号)` 是那个切点。
+- 几条断言可以用 ` ; ` 连成一个模板条目。
 - 一条断言的谓词名：从这条断言的开头起，到第一个 `(`、空格或结尾为止的那一段。
 
 例：
 
 ```text
 inside_frame(hero, margin=0.05) @ shot(s01)
-visible(kit.fan_L) >= 0.6 @ [150,180]
+visible(kit.fan_L) >= 0.6 @ [150,181)
 no_intersect(kit.*, kit.*, tol=0.3mm) @ shot(s01)
-at_rest(kit.*) @ event(lock) + 6f
+at_rest(kit.*) @ event(lock) + 6
 text_matches("BEIMING") @ shot(s02)
 loudness(film) in [-15,-13] ; true_peak(film) <= -1
 ```
@@ -185,7 +193,7 @@ loudness(film) in [-15,-13] ; true_peak(film) <= -1
 
 | # | `expr` | 判法 | `limited` | `when` |
 |---|---|---|---|---|
-| 1 | `delivery(output)` | 成片的尺寸、帧率、帧数、色彩标签和片子描述的 `output` 一致；没有黑帧，没有半秒以上的冻结 | `true` | 不出现 |
+| 1 | `delivery(output)` | 成片的尺寸、帧率、帧数、色彩标签和片子描述的 `output` 一致；除去声明过的 `deliberate` 区间之后，没有黑帧，没有半秒以上的冻结 | `true` | 不出现 |
 | 2 | `loudness(film) in [-15,-13] ; true_peak(film) <= -1` | 整片响度和真峰值 | `true` | `has-audio` |
 | 3 | `cut_at(shots) ; no_cut` | 成片里检出的切点和镜头表的边界一一对应，其余位置没有切 | `true` | 不出现 |
 | 4 | `inside_frame(hero, margin=0.05)` | 每个镜头的 `hero` 从入场到出场都在画内，四边留 5% | `false` | 不出现 |
@@ -197,6 +205,8 @@ loudness(film) in [-15,-13] ; true_peak(film) <= -1
 - `floor` 由服务器加进每部片的 `predicates.base`，选哪个模板都带着它。
 - 第 3 条里的 `shots` 写在帧号的位置上，表示片子描述镜头表的全部切点；`no_cut` 不带范围，表示其余全部位置。
 - 第 1 条里的 `output`：`delivery` 的四个参数都不写、只写 `output` 时，取片子描述的 `output`。
+- 第 1 条里的 `deliberate`：片子描述的镜头条目里声明的刻意静止和黑场区间，见 D 契约 3.3。
+- 第 6 条里的 `copy` 展开成这个范围里所有 `overlays[].text` 加上类型是 `text` 的卡参数的值（卡参数的类型见 CF 契约 3.3）；`has-text` 指 `copy` 不空。
 
 ### 5.7 新谓词怎么加
 
@@ -206,25 +216,24 @@ loudness(film) in [-15,-13] ; true_peak(film) <= -1
 
 | 项 | 现在怎么写 | 等什么 |
 |---|---|---|
-| 谓词名的写法 | 通用口径说谓词名用点分小写；需求来源的名字带下划线，`palette_dE` 还带大写。照需求来源的名字原样登记 | 集成负责人确认 |
 | 参数名 | 需求来源只给了中文的参数说明和几个例子。例子里出现过的名字（`margin`、`tol`、`hold`、`contrast`、`safe`、`width`、`height`、`fps`、`frames`）照用，其余参数名【起草者补】 | 集成负责人确认 |
 | 参数的 `type` 五个词、`required` | 【起草者补】 | 集成负责人确认 |
+| `type` 写成数组 | 【起草者补】`text_matches` 的参数要加收 `ref`；写成 `["text", "ref"]`，别的谓词的 `type` 还是一个词 | 集成负责人确认 |
 | `reads` 和 `requires` 的词表 | 【起草者补】从需求来源每个谓词的中文说明归并出来 | 集成负责人确认 |
-| `requires` 的五个词各对能力声明的哪个字段 | `objectId`、`intersect`、`contact` 对得上 F 契约的 `outputs`、`sceneQuery`；`meta`、`texts` 对哪个字段不定 | 帧源接口契约（F） |
 | `requiresPerEntity` | 【起草者补】为「按实体判时另要编号层」加的字段 | 集成负责人确认 |
 | `only` | 需求来源写的是「只有 Blender」；写成 `["blender"]` | 别的帧源能答这两种查询时改 |
 | `audio` 和 `film-audio` 是不是同一样 | 需求来源一处写「成片音轨」，一处写「音轨」；分成两个词 | 集成负责人确认 |
 | 完整的文法 | 只定了 5.5 的形式。没定的：没写范围时默认是什么；两个调用相减再比较的写法；实参里写比较（`hold>=0.8s`）；范围里 `event` 加减之后是一帧还是一段 | 集成负责人确认 |
 | 响度和真峰值的单位 | 需求来源只有数，没写单位 | 集成负责人确认 |
 | `floor` 第 3 条的 `expr` | 需求来源写的是「`cut_at(镜头表)`；其余位置 `no_cut`」。【起草者补】写成 `cut_at(shots) ; no_cut` | 集成负责人确认 |
-| `floor` 第 6 条的 `expr` | 需求来源写的是「`text_matches(文案)`」。【起草者补】写成 `text_matches(copy)` | 集成负责人确认 |
-| `floor` 第 5 条的后半句 | 需求来源还要求「`hero` 的屏占峰值不低于 5%」，登记表里没有判屏占峰值的 `M1a` 谓词，本版 `expr` 里没有这半句 | 集成负责人定用哪个谓词；`待探针：hero 屏占峰值的下限` |
+| `floor` 第 5 条的后半句 | 需求来源还要求「`hero` 的屏占峰值不低于 5%」，登记表里没有判屏占峰值的 0.1 版谓词，本版 `expr` 里没有这半句 | 集成负责人定用哪个谓词；`待探针：hero 屏占峰值的下限` |
 | 主体本来就小的镜头怎么豁免 | 不定；只知道豁免只能由题目或用户声明 | 集成负责人确认 |
 | `template:assembly`、`template:delivery-web` | 没登记：需求来源只有一句话的内容，没有阈值 | 集成负责人给出条目 |
 | 模板要求「至少一个 `mustSee`」怎么写 | `roles` 只能表达「要有这个角色」 | 登记 `template:assembly` 时定 |
 | 每个谓词怎么算、容差多少、在哪些帧上取样 | 本版不写 | 各谓词实现时提变更单补进第 5 节 |
 | 场景查询的结果各量什么、最严重的 50 项按什么排 | 不定 | `no_intersect`、`contact` 实现时定 |
-| 判定条目的 `status` | 只收 `pass`、`fail`；没判的条目怎么写不定 | 集成负责人确认 |
+| 判定条目的 `status` | 收 `pass`、`fail`、`skipped`。`skipped` 只定了 5.3 那一种情况；别的「不判」（`only` 之外的帧源、没声明 `requires`、`when` 不成立）出不出判定条目不定 | 集成负责人确认 |
+| 判定条目的 `reason` | 【起草者补】`skipped` 要带原因，加了这个字段和 PR7；`reason` 是给人和 agent 读的句子，不是机器接口 | 集成负责人确认 |
 | 判定条目归哪份契约 | 【起草者补】放在本契约 3.5 | 集成负责人确认 |
 | 例子里的参数值、帧号、证据编号 | 示意值 | 不用等 |
 
@@ -233,3 +242,4 @@ loudness(film) in [-15,-13] ; true_peak(film) <= -1
 | 日期 | 改了哪条 | 为什么 |
 |---|---|---|
 | 2026-11-18 | 全部 | 首稿 |
+| 2026-11-18 | 第 2 节、3.2、3.3、3.5、PR2、PR5、PR6、PR7、5.3、5.4、5.5、5.6、第 6 节、`predicates.json` | 照红队和跨契约一致性复核的处理结果改 |

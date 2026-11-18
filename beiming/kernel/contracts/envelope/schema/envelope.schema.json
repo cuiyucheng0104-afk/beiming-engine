@@ -43,8 +43,7 @@
           "type": "object",
           "required": [
             "code",
-            "message",
-            "hint"
+            "message"
           ],
           "additionalProperties": false,
           "properties": {
@@ -57,10 +56,7 @@
               "minLength": 1
             },
             "hint": {
-              "type": [
-                "string",
-                "null"
-              ],
+              "type": "string",
               "minLength": 1
             }
           }
@@ -134,12 +130,16 @@
             "type": "string",
             "minLength": 1
           },
-          "value": {},
+          "value": {
+            "not": {
+              "type": "null"
+            }
+          },
           "expected": {
             "type": "string",
             "minLength": 1
           },
-          "frames": {
+          "atFrames": {
             "type": "array",
             "items": {
               "type": "integer",
@@ -147,17 +147,11 @@
             }
           },
           "evidence": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": "string",
             "minLength": 1
           },
           "hint": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": "string",
             "minLength": 1
           },
           "fix": {

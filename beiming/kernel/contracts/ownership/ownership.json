@@ -122,5 +122,31 @@
       "what": "data-card-impl",
       "where": "cards/<kind>/<name>"
     }
+  ],
+  "packages": [
+    {
+      "id": "cards-time",
+      "writes": [
+        "cards/time/timeline",
+        "cards/time/envelope",
+        "cards/time/events",
+        "cards/time/seeded"
+      ]
+    },
+    {
+      "id": "cards-assembly",
+      "writes": [
+        "cards/assembly/schedule",
+        "cards/assembly/explode",
+        "cards/motion/snap"
+      ]
+    },
+    {
+      "id": "cards-camera",
+      "writes": [
+        "cards/camera/fit",
+        "cards/camera/shake"
+      ]
+    }
   ]
 }

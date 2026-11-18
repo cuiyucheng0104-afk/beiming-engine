@@ -120,22 +120,27 @@
   ],
   "packages": [
     {
-      "id": "demo-a",
+      "id": "cards-time",
       "writes": [
-        "kernel/eval"
+        "cards/time/timeline",
+        "cards/time/envelope",
+        "cards/time/events",
+        "cards/time/seeded"
       ]
     },
     {
-      "id": "demo-b",
+      "id": "cards-assembly",
       "writes": [
-        "cards/camera",
-        "cards/time"
+        "cards/assembly/schedule",
+        "cards/assembly/explode",
+        "cards/motion/snap"
       ]
     },
     {
-      "id": "demo-c",
+      "id": "cards-camera",
       "writes": [
-        "cards/particle"
+        "cards/camera/fit",
+        "cards/camera/shake"
       ]
     }
   ]

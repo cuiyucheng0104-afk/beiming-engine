@@ -4,15 +4,19 @@
     "shots": [
       {
         "id": "s01",
-        "cards": {
-          "camera.fit@1": {
-            "margin": 0.9
+        "cards": [
+          {
+            "as": "fit",
+            "use": "camera.fit@1",
+            "params": {
+              "margin": 0.9
+            }
           }
-        }
+        ]
       },
       {
         "id": "s02",
-        "cards": {}
+        "cards": []
       }
     ],
     "events": [
@@ -42,15 +46,19 @@
     "shots": [
       {
         "id": "s01",
-        "cards": {
-          "camera.fit@1": {
-            "margin": 0.9
+        "cards": [
+          {
+            "as": "fit",
+            "use": "camera.fit@1",
+            "params": {
+              "margin": 0.9
+            }
           }
-        }
+        ]
       },
       {
         "id": "s02",
-        "cards": {}
+        "cards": []
       }
     ],
     "events": [

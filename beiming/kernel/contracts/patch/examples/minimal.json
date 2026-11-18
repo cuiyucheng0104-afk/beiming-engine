@@ -4,7 +4,7 @@
   "ops": [
     {
       "op": "set",
-      "path": "shots/s01/cards/camera.fit@1/margin",
+      "path": "shots/s01/cards/fit/params/margin",
       "value": 0.82
     }
   ]

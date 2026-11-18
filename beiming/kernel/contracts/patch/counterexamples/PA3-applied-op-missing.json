@@ -4,15 +4,19 @@
     "shots": [
       {
         "id": "s01",
-        "cards": {
-          "camera.fit@1": {
-            "margin": 0.9
+        "cards": [
+          {
+            "as": "fit",
+            "use": "camera.fit@1",
+            "params": {
+              "margin": 0.9
+            }
           }
-        }
+        ]
       },
       {
         "id": "s02",
-        "cards": {}
+        "cards": []
       }
     ],
     "events": [
@@ -33,7 +37,7 @@
     "ops": [
       {
         "op": "set",
-        "path": "shots/s01/cards/camera.fit@1/margin",
+        "path": "shots/s01/cards/fit/params/margin",
         "value": 0.82
       },
       {
@@ -51,15 +55,19 @@
     "shots": [
       {
         "id": "s01",
-        "cards": {
-          "camera.fit@1": {
-            "margin": 0.82
+        "cards": [
+          {
+            "as": "fit",
+            "use": "camera.fit@1",
+            "params": {
+              "margin": 0.82
+            }
           }
-        }
+        ]
       },
       {
         "id": "s02",
-        "cards": {}
+        "cards": []
       }
     ],
     "events": [

@@ -5,8 +5,10 @@
   "title": "交付规格",
   "brief": "交一条 1 秒、24 帧每秒、1280×720、没有切点的片子。",
   "deliverable": {
-    "width": 1280,
-    "height": 720,
+    "size": [
+      1280,
+      720
+    ],
     "fps": "24/1",
     "frames": 24,
     "audio": "none"
@@ -29,7 +31,7 @@
   "needs": [],
   "budget": {
     "tokens": 50000,
-    "wallSeconds": 120,
+    "wallMs": 120000,
     "gpuSeconds": 10
   },
   "flags": {

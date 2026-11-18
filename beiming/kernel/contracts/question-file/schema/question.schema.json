@@ -44,21 +44,21 @@
     "deliverable": {
       "type": "object",
       "required": [
-        "width",
-        "height",
+        "size",
         "fps",
         "frames",
         "audio"
       ],
       "additionalProperties": false,
       "properties": {
-        "width": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "height": {
-          "type": "integer",
-          "minimum": 1
+        "size": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
         },
         "fps": {
           "type": "string",
@@ -169,7 +169,7 @@
       "type": "object",
       "required": [
         "tokens",
-        "wallSeconds",
+        "wallMs",
         "gpuSeconds"
       ],
       "additionalProperties": false,
@@ -178,9 +178,9 @@
           "type": "integer",
           "minimum": 1
         },
-        "wallSeconds": {
-          "type": "number",
-          "exclusiveMinimum": 0
+        "wallMs": {
+          "type": "integer",
+          "minimum": 1
         },
         "gpuSeconds": {
           "type": "number",
