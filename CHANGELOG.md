@@ -58,6 +58,7 @@
 
 ### Changed
 
+- Dependabot 不再检查仓库根目录的 pip：它会把 `requirements.txt` 写成无哈希 pin 清单、不重生 `requirements.lock`，PR 永远过不了 `env.python-lock` 与 `tests/env/lockfile.test.mjs`（已关闭的 #26 scipy、#27 soxr、#28 pillow、#29 soundfile）。`/tests/ci` 的 lint 哈希清单、npm、GitHub Actions 仍每周检查。根目录 Python 升级走 `node tools/env/lock.mjs --upgrade`。`requirements.txt` 不是 `-r requirements.in` 指针时，`env.python-lock` 现为 error。
 - 引擎从 v1.0 的 7 个文件重构成九层：core（时间与数学）、form（程序化造型）、shade（卡通着色）、stage（镜头与舞台）、look（后期）、paint（Canvas 2D 绘画）、overlay（显示层）、audio（声音）、render（出片），外加 production（生产契约）。《北冥》样片改为调用这些层，`src/` 只留本片的镜头、造型与色板。
 - 三条路线的对外品牌名统一为：北冥风格路线 · WebGL 三渲二、北冥原生 · BNE、北冥代码动画风格 · 86 式（D04）。README 重写，新增 `docs/README.md` 导航；作品文案改为如实口径（由代码合成出片，素材来源见案例卡）。
 - 出片色彩全链路改为 BT.709 有限范围，并完整标注矩阵、原色、传递特性与范围（成片为 yuv420p / tv / bt709）；以前标的是全范围 BT.601，按 BT.709 解读时绿色通道偏差约 22 级。
@@ -66,6 +67,7 @@
 - `npm run showcase:build` 改名为 `npm run site:build`，另有 `site:serve`、`site:qa`。
 - B 路线（北冥原生 · BNE）锁定的上游原生运行时由 `0.1.0-canary.2` 升级到正式版 `0.1.4`（`v0.1.4`，提交 `d870159c4686bd1fcda094934602463549b26683`，2026-11-15 发布，2028-11-15 转为 Apache-2.0）：同步更新 `engine/native/runtime.lock.json` 与 `tools/env/spec.json` 的 macOS arm64、Windows x64、Linux x64 三平台归档与可执行文件 SHA256，并在 Linux RTX 4070（Vulkan / OpenH264）完成模版出片、四类画面配方与机器 QA 验收；`engine/render/native.mjs` 兼容 `raea check` 新版 `findings`（`error / warn / note`）与旧版 `issues`（`P0–P3`）输出，并接入 `BEIMING_GPU_BUSY_UTIL` / `--max-gpu-util` 守卫阈值。
 - 分块渲染（`engine/render/lib/chunks.mjs`，`video.mjs` 与 `shots.mjs` 共用）：一块的帧喂完后，FFmpeg 收尾（编完、核对帧数、改名）放到后台，同一路先渲下一块，每路最多一块在后台收尾。码流逐字节不变；RTX 4070 笔记本上 A、C 模版 192 帧 4 路交替实测中位快 6–10%（16 组配对 15 组更快）。
+- Python 顶层依赖范围抬到与锁文件已锁定的小版本一致（关闭的 Dependabot #26–#29 按协议重做）：`scipy>=1.18,<2`（锁 1.18.1）、`pillow>=13,<14`（锁 13.0.0）、`soundfile>=0.14,<1`（锁 0.14.0）、`soxr>=1.1,<2`（锁 1.1.0）。`requirements.lock` 按头里的 2026-11-10 时间点重生，针版本未变；`requirements.txt` 仍只引用 `requirements.in`。
 
 ### Removed
 

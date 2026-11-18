@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { checkLargeFiles, readAllow, formatAllow } from '../../tools/env/lib/largefiles.mjs';
-import { rules, createContext, runRules, envReadsInText, scanEnvReads, docEnvTable, dualShellFindings, pyViaNode } from '../../tools/repo-check/rules/env/index.mjs';
+import { rules, createContext, runRules, envReadsInText, scanEnvReads, docEnvTable, dualShellFindings, pyViaNode, requirementsTxtIsPointer } from '../../tools/repo-check/rules/env/index.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SPEC = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/env/spec.json'), 'utf8'));
@@ -78,6 +78,37 @@ test('large-files.mjs 命令：违规时 exit 4，信封带违规清单', () => 
     const j = JSON.parse(r.stdout);
     assert.equal(j.error.code, 'large-file');
     assert.deepEqual(j.largeFiles.violations.map(v => v.path), ['big.bin']);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('env.python-lock：本仓库三文件协议通过；Dependabot 式 pin 清单与改 .in 不重生锁都是 error', async () => {
+  const ok = await runRules(createContext(ROOT), { only: ['env.python-lock'] });
+  assert.deepEqual(ok[0].findings.filter(f => f.level === 'error'), []);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-pip-lock-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'tools/env'), { recursive: true });
+    for (const f of ['tools/env/spec.json', 'requirements.in', 'requirements.lock', '.python-version']) {
+      fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+    }
+    assert.equal(requirementsTxtIsPointer('# 注释\n-r requirements.in\n'), true);
+    assert.equal(requirementsTxtIsPointer('-r requirements.in\nscipy==0.1\n'), false);
+
+    fs.writeFileSync(path.join(dir, 'requirements.txt'), 'scipy==1.18.1\npillow==13.0.0\n');
+    const pins = await runRules(createContext(dir), { only: ['env.python-lock'] });
+    const pinErr = pins[0].findings.filter(f => f.level === 'error').map(f => f.message);
+    assert.ok(pinErr.some(m => /requirements\.txt/.test(m) && /requirements\.in/.test(m)), pinErr.join('\n'));
+
+    fs.writeFileSync(path.join(dir, 'requirements.txt'), '-r requirements.in\nscipy==0.1\n');
+    const mixed = await runRules(createContext(dir), { only: ['env.python-lock'] });
+    const mixedErr = mixed[0].findings.filter(f => f.level === 'error').map(f => f.message);
+    assert.ok(mixedErr.some(m => /夹带 pin/.test(m)), mixedErr.join('\n'));
+
+    fs.writeFileSync(path.join(dir, 'requirements.txt'), '# 指针\n-r requirements.in\n');
+    fs.appendFileSync(path.join(dir, 'requirements.in'), '\n# dependabot-style range bump without regenerating the lock\n');
+    const stale = await runRules(createContext(dir), { only: ['env.python-lock'] });
+    const staleErr = stale[0].findings.filter(f => f.level === 'error').map(f => f.message);
+    assert.ok(staleErr.some(m => /输入哈希/.test(m)), staleErr.join('\n'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

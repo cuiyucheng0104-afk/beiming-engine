@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // 北冥仓库 · 生成与核对 Python 锁文件：requirements.in → requirements.lock（Python 3.12；macOS arm64、Windows x64、Linux x64；带哈希）。
+// Dependabot 的 pip 生态不要覆盖仓库根目录：它会把 requirements.txt 写成无哈希 pin 清单且不调用本脚本（见 .github/dependabot.yml）。
 //   node tools/env/lock.mjs              按锁文件头里记录的 exclude-newer 时间点重新生成（结果可复现）
 //   node tools/env/lock.mjs --upgrade    把时间点挪到今天，取范围内的最新版本
 //   node tools/env/lock.mjs --check      重新解析并与现有锁文件比较，不写文件；过期时 exit 4

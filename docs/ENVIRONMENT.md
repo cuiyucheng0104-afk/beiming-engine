@@ -317,7 +317,7 @@ npm run setup
 
 | 改什么 | 怎么做 |
 |---|---|
-| Python 依赖 | 改 `requirements.in` → `node tools/env/lock.mjs`（按锁文件记录的时间点重新解析；`--upgrade` 取最新）→ 提交两份文件。`lock.mjs` 会对三个目标平台各解析一次，确认都有 Python 3.12 的二进制轮子、版本一致。`node tools/env/lock.mjs --check` 只核对不写文件。 |
+| Python 依赖 | 三文件协议：改 `requirements.in`（手写范围）→ `node tools/env/lock.mjs`（按锁文件记录的时间点重新解析；`--upgrade` 取最新）→ 提交 `.in` 与 `requirements.lock`。`requirements.txt` 只保留一行 `-r requirements.in`，不要写成 pin 清单（锁文件才是带哈希的安装清单）。`lock.mjs` 会对三个目标平台各解析一次，确认都有 Python 3.12 的二进制轮子、版本一致。`node tools/env/lock.mjs --check` 只核对不写文件。根目录 pip **不要**交给 Dependabot：它把 `.in`+`.txt` 当成 pip-compile，会改坏指针且不重生锁（见 [`.github/dependabot.yml`](../.github/dependabot.yml)）。lint 用的 ruff 在 `tests/ci/requirements-lint.txt`，仍由 Dependabot 更新。 |
 | playwright-core | `package.json`、`package-lock.json` 与 `tools/env/spec.json` 的 `playwright` 一起改，并按新版本 `browsers.json` 里的 revision 更新 spec；跑金标准比对后再合入 |
 | Node 最低版本 | `tools/env/spec.json` 的 `node`、`.nvmrc`、`package.json` 的 `engines` 一起改 |
 | 新的环境变量 | 在 `tools/env/spec.json` 的 `envVars` 与本页「环境变量」表各加一行 |

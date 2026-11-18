@@ -1,6 +1,6 @@
 // .github/workflows 的 ci.yml、release.yml 与 .github/dependabot.yml 的静态核对（逐行扫描，不依赖 YAML 库）：
 // actions 固定到 40 位提交哈希并注明版本、每个 job 有时限、run 里不直接展开外部输入（防脚本注入）、
-// 引用的仓库脚本都存在、必需的 job 都在、dependabot 覆盖 npm / pip / GitHub Actions。
+// 引用的仓库脚本都存在、必需的 job 都在、dependabot 覆盖 npm / pip（仅 tests/ci）/ GitHub Actions。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -116,10 +116,12 @@ test('工作流里调用的仓库脚本都存在（node / python 后面的相对
   assert.deepEqual(missing, []);
 });
 
-test('dependabot：每周检查 npm、pip（含 lint 依赖）、GitHub Actions；three 与 playwright-core 不自动升级', () => {
+test('dependabot：每周检查 npm、pip（仅 lint 依赖）、GitHub Actions；根目录 pip 不覆盖；three 与 playwright-core 不自动升级', () => {
   const text = read('.github/dependabot.yml');
   for (const eco of ['npm', 'pip', 'github-actions']) assert.match(text, new RegExp(`package-ecosystem: ${eco}\\b`));
-  assert.match(text, /- \/tests\/ci/);
+  // 根目录是 requirements.in → requirements.lock，Dependabot pip-compile 会改坏 requirements.txt 且不重生锁
+  assert.match(text, /package-ecosystem: pip\s*\n\s*directory: \/tests\/ci/);
+  assert.doesNotMatch(text, /package-ecosystem: pip[\s\S]*?directories:/);
   assert.match(text, /dependency-name: three/);
   assert.match(text, /dependency-name: playwright-core/);
   assert.equal((text.match(/interval: weekly/g) || []).length, 3);
