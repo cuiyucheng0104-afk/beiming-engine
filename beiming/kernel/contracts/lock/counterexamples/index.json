@@ -1,0 +1,65 @@
+[
+  {
+    "file": "LK1-global-key-not-expanded.json",
+    "violates": [
+      "LK1"
+    ],
+    "why": "片子描述里有 style.finish，comp.finish 这一项却没带 from"
+  },
+  {
+    "file": "LK2-verified-on-other-version.json",
+    "violates": [
+      "LK2"
+    ],
+    "why": "light.studio 是在 5.1.0 上验的，锁的 blender 是 5.2.3"
+  },
+  {
+    "file": "LK3-shot-seed-missing.json",
+    "violates": [
+      "LK3"
+    ],
+    "why": "seeds 里没有镜头 s02"
+  },
+  {
+    "file": "LK4-shot-host-not-locked.json",
+    "violates": [
+      "LK4"
+    ],
+    "why": "镜头 s02 的宿主是 headless，锁文件里 three 锁的宿主是 page"
+  },
+  {
+    "file": "LK5-builtin-card-missing.json",
+    "violates": [
+      "LK5"
+    ],
+    "why": "cards 里没有内建卡 time.seeded"
+  },
+  {
+    "file": "LK6-rendered-by-other-version.json",
+    "violates": [
+      "LK6"
+    ],
+    "why": "元数据说这一帧是 blender 5.2.4 渲的，锁的是 5.2.3"
+  },
+  {
+    "file": "LK7-lock-of-another-film.json",
+    "violates": [
+      "LK7"
+    ],
+    "why": "锁文件的 film 是 f_other，片子描述的 id 是 f_8k2"
+  },
+  {
+    "file": "LK8-template-not-locked.json",
+    "violates": [
+      "LK8"
+    ],
+    "why": "predicates.base 引用了 template:assembly@1，templates 里没有 assembly"
+  },
+  {
+    "file": "LK9-view-lut-not-locked.json",
+    "violates": [
+      "LK9"
+    ],
+    "why": "style.view.scene 是 agx-mhc，view 里锁的是 agx-base"
+  }
+]

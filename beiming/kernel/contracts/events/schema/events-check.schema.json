@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "events/events-check.schema.json",
+  "title": "事件核对记录",
+  "description": "只管结构。各段对不对由 EV1 到 EV7 管，所以这里不收紧。",
+  "type": "object",
+  "required": ["format", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "events-check/0.1" },
+    "events": { "$ref": "events.schema.json" },
+    "film": { "$ref": "../film/film.schema.json" },
+    "ext": { "type": "object" }
+  }
+}

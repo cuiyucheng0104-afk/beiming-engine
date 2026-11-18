@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "film/film.schema.json",
+  "title": "片子描述",
+  "description": "只管结构。镜头区间、引用、时刻范围、绑卡由 D1、D2、D8、D10 到 D14 管，这里表达不了。卡的参数、params、style.tokens 的键只查「自由键」的写法。",
+  "type": "object",
+  "required": ["format", "id", "output", "shots", "style", "predicates", "delivery"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "film/3.0" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "title": { "type": "string", "minLength": 1 },
+    "exam": { "type": "string", "minLength": 1 },
+    "output": {
+      "type": "object",
+      "required": ["size", "fps", "frames"],
+      "additionalProperties": false,
+      "properties": {
+        "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+        "fps": { "type": "string", "pattern": "^[1-9][0-9]*/[1-9][0-9]*$" },
+        "frames": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bpm": { "type": "number", "exclusiveMinimum": 0 },
+        "beatFrames": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "shots": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/shot" } },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["at", "type"],
+        "additionalProperties": false,
+        "properties": { "at": { "type": "integer", "minimum": 1 }, "type": { "const": "cut" } }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "frame"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "frame": { "$ref": "#/$defs/moment" },
+          "shot": { "$ref": "#/$defs/id" },
+          "audio": { "type": "string", "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)*$" },
+          "sync": { "enum": ["onset", "pcenter"] }
+        }
+      }
+    },
+    "overlays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "shot", "anchor", "text", "in", "out"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "shot": { "$ref": "#/$defs/id" },
+          "anchor": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*#[A-Za-z0-9_]+$" },
+          "text": { "type": "string", "minLength": 1 },
+          "in": { "$ref": "#/$defs/moment" },
+          "out": { "$ref": "#/$defs/moment" }
+        }
+      }
+    },
+    "style": {
+      "type": "object",
+      "required": ["view"],
+      "additionalProperties": false,
+      "properties": {
+        "tokens": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/freeKey" },
+          "additionalProperties": { "$ref": "#/$defs/color" }
+        },
+        "view": {
+          "type": "object",
+          "required": ["scene", "display"],
+          "additionalProperties": false,
+          "properties": {
+            "scene": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+            "display": { "const": "srgb" },
+            "card": { "$ref": "#/$defs/cardRef" }
+          }
+        },
+        "colorScript": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/id" },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["key", "tol"],
+            "additionalProperties": false,
+            "properties": {
+              "key": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/color" } },
+              "tol": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        "finish": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "grain": { "type": "number", "minimum": 0, "maximum": 1 },
+            "vignette": { "type": "number", "minimum": 0, "maximum": 1 },
+            "card": { "$ref": "#/$defs/cardRef" }
+          }
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["script", "track", "none"] },
+        "loudness": { "type": "number" },
+        "truePeak": { "type": "number" },
+        "card": { "$ref": "#/$defs/cardRef" }
+      }
+    },
+    "predicates": {
+      "type": "object",
+      "required": ["base"],
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(floor|template:[a-z0-9][a-z0-9-]*)@[1-9][0-9]*$" }
+        },
+        "extra": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "required": ["master"],
+      "additionalProperties": false,
+      "properties": {
+        "master": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "web": { "type": "boolean" },
+        "contact": { "type": "boolean" },
+        "card": { "$ref": "#/$defs/cardRef" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "freeKey": { "type": "string", "pattern": "^[^/#\\s]+$" },
+    "color": { "type": "string", "pattern": "^#[0-9A-F]{6}$" },
+    "cardRef": { "type": "string", "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)+@[1-9][0-9]*$" },
+    "entityName": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$" },
+    "moment": {
+      "anyOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "string", "pattern": "^(cut\\((0|[1-9][0-9]*)\\)|event\\([a-z][a-z0-9-]*\\))( \\+ [1-9][0-9]*)?$" }
+      ]
+    },
+    "tier": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "samples": { "type": "integer", "minimum": 1 },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "shot": {
+      "type": "object",
+      "required": ["id", "in", "out", "source", "host", "mode", "colorRef"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
+        "in": { "type": "integer", "minimum": 0 },
+        "out": { "type": "integer", "minimum": 1 },
+        "source": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$" },
+        "host": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["cards-data", "build-script", "native-code"] },
+        "entry": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$" },
+        "colorRef": { "enum": ["scene", "display"] },
+        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "assets": {
+          "type": "object",
+          "propertyNames": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
+          "additionalProperties": { "type": "string", "pattern": "^asset:[a-z0-9][a-z0-9-]*@[1-9][0-9]*$" }
+        },
+        "cards": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/cardRef" },
+          "additionalProperties": { "type": "object", "propertyNames": { "$ref": "#/$defs/freeKey" } }
+        },
+        "params": { "type": "object", "propertyNames": { "$ref": "#/$defs/freeKey" } },
+        "roles": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hero": { "$ref": "#/$defs/entityName" },
+            "mustSee": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/entityName" } }
+          }
+        },
+        "shutter": {
+          "type": "object",
+          "required": ["angleDeg"],
+          "additionalProperties": false,
+          "properties": { "angleDeg": { "type": "number", "minimum": 0, "maximum": 360 } }
+        },
+        "tiers": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "draft": { "$ref": "#/$defs/tier" }, "final": { "$ref": "#/$defs/tier" } }
+        },
+        "handles": {
+          "type": "object",
+          "required": ["head", "tail"],
+          "additionalProperties": false,
+          "properties": {
+            "head": { "type": "integer", "minimum": 0 },
+            "tail": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

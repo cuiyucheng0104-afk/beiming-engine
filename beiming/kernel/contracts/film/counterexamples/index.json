@@ -1,0 +1,107 @@
+[
+  {
+    "file": "D1-shots-end-early.json",
+    "violates": [
+      "D1"
+    ],
+    "why": "最后一个镜头在第 290 帧就结束了，output.frames 是 300"
+  },
+  {
+    "file": "D2-event-refers-undefined.json",
+    "violates": [
+      "D2"
+    ],
+    "why": "事件 title 的算式引用了没定义的事件 nope"
+  },
+  {
+    "file": "D3-card-missing-in-lock.json",
+    "violates": [
+      "D3"
+    ],
+    "why": "镜头 s01 引用了 light.studio@1，锁文件的 cards 里没有这张卡"
+  },
+  {
+    "file": "D4-lock-changed-same-rev.json",
+    "violates": [
+      "D4"
+    ],
+    "why": "两次读到的锁都是修订号 7，摘要不一样"
+  },
+  {
+    "file": "D5-path-by-index.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "补丁的路径用下标 0 指镜头，没有用 id"
+  },
+  {
+    "file": "D6-stale-write-accepted.json",
+    "violates": [
+      "D6"
+    ],
+    "why": "写入带的修订号是 5，服务器已经是 6，写入却生效了"
+  },
+  {
+    "file": "D7-agent-writes-base.json",
+    "violates": [
+      "D7"
+    ],
+    "why": "agent 对 predicates/base 的写入生效了"
+  },
+  {
+    "file": "D8-global-card-in-shot.json",
+    "violates": [
+      "D8"
+    ],
+    "why": "全片级的卡 comp.finish 写进了镜头 s01 的 cards"
+  },
+  {
+    "file": "D9-explain-weaker-layer-wins.json",
+    "violates": [
+      "D9"
+    ],
+    "why": "最后一个带值的层给的是 0.82，顶层的 value 却是更弱那层的 0.9"
+  },
+  {
+    "file": "D10-duplicate-event-id.json",
+    "violates": [
+      "D10"
+    ],
+    "why": "events 里有两个事件的 id 都是 lock"
+  },
+  {
+    "file": "D11-host-not-of-source.json",
+    "violates": [
+      "D11"
+    ],
+    "why": "镜头 s01 的帧源是 blender，宿主却写了 page"
+  },
+  {
+    "file": "D12-native-code-without-entry.json",
+    "violates": [
+      "D12"
+    ],
+    "why": "镜头 s02 的 mode 是 native-code，没有 entry"
+  },
+  {
+    "file": "D13-event-outside-shot.json",
+    "violates": [
+      "D13"
+    ],
+    "why": "事件 late 在第 185 帧，它写的镜头 s01 只到第 180 帧"
+  },
+  {
+    "file": "D14-transition-off-cut.json",
+    "violates": [
+      "D14"
+    ],
+    "why": "transitions 写在第 170 帧，切点在第 180 帧"
+  },
+  {
+    "file": "D15-exam-changed.json",
+    "violates": [
+      "D15"
+    ],
+    "why": "片子创建之后对 exam 的写入生效了"
+  }
+]
