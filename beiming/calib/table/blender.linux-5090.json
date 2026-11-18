@@ -1,0 +1,3380 @@
+{
+ "format": "probe-column/0.1",
+ "source": "blender-cycles（OPTIX：NVIDIA GeForce RTX 5090，64 采样，无降噪，种子 0）",
+ "version": "5.2.3 LTS",
+ "machine": "linux-5090",
+ "rows": [
+  {
+   "row": "颜色层的线性度",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-00 中心像素颜色",
+     "expected": [
+      0,
+      0,
+      0
+     ],
+     "got": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-01 中心像素颜色",
+     "expected": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "got": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "diff": 1e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-02 中心像素颜色",
+     "expected": [
+      0.2,
+      0.2,
+      0.2
+     ],
+     "got": [
+      0.2,
+      0.2,
+      0.2
+     ],
+     "diff": 1e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-03 中心像素颜色",
+     "expected": [
+      0.3,
+      0.3,
+      0.3
+     ],
+     "got": [
+      0.3,
+      0.3,
+      0.3
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-04 中心像素颜色",
+     "expected": [
+      0.4,
+      0.4,
+      0.4
+     ],
+     "got": [
+      0.4,
+      0.4,
+      0.4
+     ],
+     "diff": 2e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-05 中心像素颜色",
+     "expected": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "got": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-06 中心像素颜色",
+     "expected": [
+      0.6,
+      0.6,
+      0.6
+     ],
+     "got": [
+      0.6,
+      0.6,
+      0.6
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-07 中心像素颜色",
+     "expected": [
+      0.7,
+      0.7,
+      0.7
+     ],
+     "got": [
+      0.7,
+      0.7,
+      0.7
+     ],
+     "diff": 4e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-08 中心像素颜色",
+     "expected": [
+      0.8,
+      0.8,
+      0.8
+     ],
+     "got": [
+      0.8,
+      0.8,
+      0.8
+     ],
+     "diff": 5e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-09 中心像素颜色",
+     "expected": [
+      0.9,
+      0.9,
+      0.9
+     ],
+     "got": [
+      0.900001,
+      0.900001,
+      0.900001
+     ],
+     "diff": 5e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-10 中心像素颜色",
+     "expected": [
+      1,
+      1,
+      1
+     ],
+     "got": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-00 中心像素颜色",
+     "expected": [
+      0,
+      0,
+      0
+     ],
+     "got": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-01 中心像素颜色",
+     "expected": [
+      0.015625,
+      0.015625,
+      0.015625
+     ],
+     "got": [
+      0.015625,
+      0.015625,
+      0.015625
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-02 中心像素颜色",
+     "expected": [
+      0.03125,
+      0.03125,
+      0.03125
+     ],
+     "got": [
+      0.03125,
+      0.03125,
+      0.03125
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-03 中心像素颜色",
+     "expected": [
+      0.0625,
+      0.0625,
+      0.0625
+     ],
+     "got": [
+      0.0625,
+      0.0625,
+      0.0625
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-04 中心像素颜色",
+     "expected": [
+      0.125,
+      0.125,
+      0.125
+     ],
+     "got": [
+      0.125,
+      0.125,
+      0.125
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-05 中心像素颜色",
+     "expected": [
+      0.25,
+      0.25,
+      0.25
+     ],
+     "got": [
+      0.25,
+      0.25,
+      0.25
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-06 中心像素颜色",
+     "expected": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "got": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-07 中心像素颜色",
+     "expected": [
+      1,
+      1,
+      1
+     ],
+     "got": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-08 中心像素颜色",
+     "expected": [
+      2,
+      2,
+      2
+     ],
+     "got": [
+      2.0,
+      2.0,
+      2.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-09 中心像素颜色",
+     "expected": [
+      4,
+      4,
+      4
+     ],
+     "got": [
+      4.0,
+      4.0,
+      4.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-10 中心像素颜色",
+     "expected": [
+      8,
+      8,
+      8
+     ],
+     "got": [
+      8.0,
+      8.0,
+      8.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-11 中心像素颜色",
+     "expected": [
+      16,
+      16,
+      16
+     ],
+     "got": [
+      16.0,
+      16.0,
+      16.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-red 中心像素颜色",
+     "expected": [
+      0.8,
+      0,
+      0
+     ],
+     "got": [
+      0.8,
+      0.0,
+      0.0
+     ],
+     "diff": 5e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-green 中心像素颜色",
+     "expected": [
+      0,
+      0.8,
+      0
+     ],
+     "got": [
+      0.0,
+      0.8,
+      0.0
+     ],
+     "diff": 5e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-blue 中心像素颜色",
+     "expected": [
+      0,
+      0,
+      0.8
+     ],
+     "got": [
+      0.0,
+      0.0,
+      0.8
+     ],
+     "diff": 5e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-cyan 中心像素颜色",
+     "expected": [
+      0,
+      0.8,
+      0.8
+     ],
+     "got": [
+      0.0,
+      0.8,
+      0.8
+     ],
+     "diff": 5e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-magenta 中心像素颜色",
+     "expected": [
+      0.8,
+      0,
+      0.8
+     ],
+     "got": [
+      0.8,
+      0.0,
+      0.8
+     ],
+     "diff": 5e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-yellow 中心像素颜色",
+     "expected": [
+      0.8,
+      0.8,
+      0
+     ],
+     "got": [
+      0.8,
+      0.8,
+      0.0
+     ],
+     "diff": 5e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-gray18 中心像素颜色",
+     "expected": [
+      0.18,
+      0.18,
+      0.18
+     ],
+     "got": [
+      0.18,
+      0.18,
+      0.18
+     ],
+     "diff": 1e-07,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-white 中心像素颜色",
+     "expected": [
+      1,
+      1,
+      1
+     ],
+     "got": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "像素 [320.5, 130.5] 第一命中",
+     "expected": "背景",
+     "got": "背景",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "像素 [320.5, 130.5] 背景深度层读数",
+     "expected": "无交点",
+     "got": 10000000000.0,
+     "diff": "无",
+     "unit": "m"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "背景像素 (320.5, 130.5) 颜色",
+     "expected": [
+      0.05,
+      0,
+      0.05
+     ],
+     "got": [
+      0.05,
+      0.0,
+      0.05
+     ],
+     "diff": 0.0,
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "f0000s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": 0.0,
+     "unit": "ratio"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "显示变换",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-00 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "got": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-01 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      81.121,
+      81.12,
+      81.128
+     ],
+     "got": [
+      81.121,
+      81.121,
+      81.128
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-02 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      124.72,
+      124.72,
+      124.729
+     ],
+     "got": [
+      124.72,
+      124.72,
+      124.728
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-03 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      150.437,
+      150.437,
+      150.445
+     ],
+     "got": [
+      150.436,
+      150.436,
+      150.444
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-04 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      166.773,
+      166.773,
+      166.78
+     ],
+     "got": [
+      166.774,
+      166.774,
+      166.778
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-05 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      178.244,
+      178.244,
+      178.251
+     ],
+     "got": [
+      178.245,
+      178.245,
+      178.249
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-06 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      186.933,
+      186.933,
+      186.939
+     ],
+     "got": [
+      186.934,
+      186.934,
+      186.938
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-07 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      193.55,
+      193.55,
+      193.555
+     ],
+     "got": [
+      193.549,
+      193.549,
+      193.556
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-08 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      199.056,
+      199.056,
+      199.061
+     ],
+     "got": [
+      199.054,
+      199.054,
+      199.062
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-09 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      203.55,
+      203.55,
+      203.555
+     ],
+     "got": [
+      203.549,
+      203.549,
+      203.556
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "ldr-10 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "got": [
+      207.514,
+      207.514,
+      207.518
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-00 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "got": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-01 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      17.806,
+      17.805,
+      17.808
+     ],
+     "got": [
+      17.805,
+      17.805,
+      17.809
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-02 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      34.11,
+      34.11,
+      34.114
+     ],
+     "got": [
+      34.109,
+      34.109,
+      34.113
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-03 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      58.362,
+      58.361,
+      58.367
+     ],
+     "got": [
+      58.362,
+      58.362,
+      58.366
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-04 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      93.979,
+      93.978,
+      93.987
+     ],
+     "got": [
+      93.981,
+      93.977,
+      93.988
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-05 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      139.208,
+      139.207,
+      139.216
+     ],
+     "got": [
+      139.206,
+      139.206,
+      139.218
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-06 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      178.244,
+      178.244,
+      178.251
+     ],
+     "got": [
+      178.245,
+      178.245,
+      178.249
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-07 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "got": [
+      207.514,
+      207.514,
+      207.518
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-08 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      228.608,
+      228.608,
+      228.611
+     ],
+     "got": [
+      228.607,
+      228.607,
+      228.611
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-09 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      244.05,
+      244.05,
+      244.052
+     ],
+     "got": [
+      244.051,
+      244.051,
+      244.051
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-10 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      255.004,
+      255.004,
+      255.004
+     ],
+     "got": [
+      255.0,
+      255.0,
+      255.0
+     ],
+     "diff": 0.004,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-11 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      255.004,
+      255.004,
+      255.004
+     ],
+     "got": [
+      255.0,
+      255.0,
+      255.0
+     ],
+     "diff": 0.004,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-red AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      217.746,
+      27.346,
+      0.0
+     ],
+     "got": [
+      217.747,
+      27.346,
+      0.0
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-green AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      83.533,
+      199.634,
+      42.53
+     ],
+     "got": [
+      83.533,
+      199.634,
+      42.529
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-blue AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      3.585,
+      77.152,
+      208.013
+     ],
+     "got": [
+      3.584,
+      77.152,
+      208.012
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-cyan AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      122.321,
+      200.085,
+      200.872
+     ],
+     "got": [
+      122.319,
+      200.086,
+      200.872
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-magenta AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      203.032,
+      101.651,
+      204.874
+     ],
+     "got": [
+      203.031,
+      101.65,
+      204.875
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-yellow AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      202.533,
+      194.758,
+      85.985
+     ],
+     "got": [
+      202.533,
+      194.759,
+      85.984
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-gray18 AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      117.635,
+      117.635,
+      117.644
+     ],
+     "got": [
+      117.634,
+      117.634,
+      117.646
+     ],
+     "diff": 0.002,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "card-white AgX MHC 显示值：渲染存图 vs OCIO 直算",
+     "expected": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "got": [
+      207.514,
+      207.514,
+      207.518
+     ],
+     "diff": 0.001,
+     "unit": "8 位显示码值"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "深度口径",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [72.727, 180] 第一命中",
+     "expected": "plane-1m",
+     "got": "plane-1m",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [72.727, 180] 深度层 vs 平面深度",
+     "expected": 1,
+     "got": 1.0,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [72.727, 180] 深度层 vs 射线距离",
+     "expected": 1.118034,
+     "got": 1.0,
+     "diff": -0.118034,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [122.5, 150.5] 第一命中",
+     "expected": "plane-1m",
+     "got": "plane-1m",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [122.5, 150.5] 深度层 vs 平面深度",
+     "expected": 1,
+     "got": 1.0,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [122.5, 150.5] 深度层 vs 射线距离",
+     "expected": 1.078445,
+     "got": 1.0,
+     "diff": -0.078445,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [245.8181, 180] 第一命中",
+     "expected": "plane-2m",
+     "got": "plane-2m",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [245.8181, 180] 深度层 vs 平面深度",
+     "expected": 2,
+     "got": 2.0,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [245.8181, 180] 深度层 vs 射线距离",
+     "expected": 2.022375,
+     "got": 2.0,
+     "diff": -0.022375,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [295.5, 150.5] 第一命中",
+     "expected": "plane-2m",
+     "got": "plane-2m",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [295.5, 150.5] 深度层 vs 平面深度",
+     "expected": 2,
+     "got": 2.0,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [295.5, 150.5] 深度层 vs 射线距离",
+     "expected": 2.006003,
+     "got": 2.0,
+     "diff": -0.006003,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [399.1273, 180] 第一命中",
+     "expected": "plane-5m",
+     "got": "plane-5m",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [399.1273, 180] 深度层 vs 平面深度",
+     "expected": 5,
+     "got": 5.0,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [399.1273, 180] 深度层 vs 射线距离",
+     "expected": 5.063595,
+     "got": 5.0,
+     "diff": -0.063595,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [448.5, 150.5] 第一命中",
+     "expected": "plane-5m",
+     "got": "plane-5m",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [448.5, 150.5] 深度层 vs 平面深度",
+     "expected": 5,
+     "got": 5.0,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [448.5, 150.5] 深度层 vs 射线距离",
+     "expected": 5.174631,
+     "got": 5.0,
+     "diff": -0.174631,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [557.382, 180] 第一命中",
+     "expected": "plane-10m",
+     "got": "plane-10m",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [557.382, 180] 深度层 vs 平面深度",
+     "expected": 10,
+     "got": 10.0,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [557.382, 180] 深度层 vs 射线距离",
+     "expected": 11.092339,
+     "got": 10.0,
+     "diff": -1.092339,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [606.5, 150.5] 第一命中",
+     "expected": "plane-10m",
+     "got": "plane-10m",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [606.5, 150.5] 深度层 vs 平面深度",
+     "expected": 10,
+     "got": 10.0,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "像素 [606.5, 150.5] 深度层 vs 射线距离",
+     "expected": 11.572247,
+     "got": 10.0,
+     "diff": -1.572247,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "f0000s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": 0.0,
+     "unit": "ratio"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "编号层的边缘",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-thin-geometry",
+     "what": "rod-thin 投影宽度（颜色层覆盖积分，120 行平均）",
+     "expected": 0.659395,
+     "got": 0.654036,
+     "diff": -0.005359,
+     "unit": "px"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "rod-thin 投影宽度（编号层像素数，120 行平均）",
+     "expected": 0.659395,
+     "got": 0.0,
+     "diff": -0.659395,
+     "unit": "px"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "rod-thick 投影宽度（颜色层覆盖积分，120 行平均）",
+     "expected": 3.296973,
+     "got": 3.302865,
+     "diff": 0.005892,
+     "unit": "px"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "rod-thick 投影宽度（编号层像素数，120 行平均）",
+     "expected": 3.296973,
+     "got": 3.0,
+     "diff": -0.296973,
+     "unit": "px"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "sheet-front 编号层反算包围盒对元数据包围盒的交并比",
+     "expected": 1,
+     "got": 0.9879,
+     "diff": -0.0121,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "sheet-back 编号层反算包围盒对元数据包围盒的交并比",
+     "expected": 1,
+     "got": 0.9898,
+     "diff": -0.0102,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "像素 [431.5, 155.5] 第一命中",
+     "expected": "sheet-front",
+     "got": "sheet-front",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "像素 [431.5, 155.5] 深度层 vs 平面深度",
+     "expected": 1.9995,
+     "got": 1.9995,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "像素 [504.5, 118.5] 第一命中",
+     "expected": "sheet-back",
+     "got": "sheet-back",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "像素 [504.5, 118.5] 深度层 vs 平面深度",
+     "expected": 2.0095,
+     "got": 2.0095,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "像素 [270.5, 180.5] 第一命中",
+     "expected": "rod-thick",
+     "got": "rod-thick",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "像素 [270.5, 180.5] 深度层 vs 平面深度",
+     "expected": 2.990026,
+     "got": 2.99003,
+     "diff": 4e-06,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "编号层非整数像素占比（有无抗锯齿）",
+     "expected": 0,
+     "got": 0.0,
+     "diff": 0.0,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "f0000s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": 0.0,
+     "unit": "ratio"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "坐标与相机",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-x 局部点 [0, 0, 0] 第 0 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      401.944965,
+      202.825197
+     ],
+     "got": [
+      401.944965,
+      202.825197
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-x 局部点 [0, 0, 0] 第 0 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      401.944965,
+      202.825197
+     ],
+     "got": [
+      401.944962,
+      202.825159
+     ],
+     "diff": [
+      -3e-06,
+      -3.8e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-x 局部点 [0, 0, 0] 第 0 帧 sub 0（渲染·编号层重心直接对期望值，亚像素差）",
+     "expected": [
+      401.944965,
+      202.825197
+     ],
+     "got": [
+      401.962185,
+      202.869748
+     ],
+     "diff": [
+      0.01722,
+      0.044551
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-y 局部点 [0, 0, 0] 第 0 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      320,
+      88.417419
+     ],
+     "got": [
+      320.0,
+      88.417419
+     ],
+     "diff": [
+      0.0,
+      -0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-y 局部点 [0, 0, 0] 第 0 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      320,
+      88.417419
+     ],
+     "got": [
+      320.0,
+      88.417389
+     ],
+     "diff": [
+      0.0,
+      -3e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-y 局部点 [0, 0, 0] 第 0 帧 sub 0（渲染·编号层重心直接对期望值，亚像素差）",
+     "expected": [
+      320,
+      88.417419
+     ],
+     "got": [
+      320.0,
+      88.321429
+     ],
+     "diff": [
+      0.0,
+      -0.09599
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-z 局部点 [0, 0, 0] 第 0 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      256.082927,
+      211.65094
+     ],
+     "got": [
+      256.082927,
+      211.65094
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-z 局部点 [0, 0, 0] 第 0 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      256.082927,
+      211.65094
+     ],
+     "got": [
+      256.082916,
+      211.650903
+     ],
+     "diff": [
+      -1.1e-05,
+      -3.7e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "tip-z 局部点 [0, 0, 0] 第 0 帧 sub 0（渲染·编号层重心直接对期望值，亚像素差）",
+     "expected": [
+      256.082927,
+      211.65094
+     ],
+     "got": [
+      256.049618,
+      211.591603
+     ],
+     "diff": [
+      -0.033309,
+      -0.059337
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 0 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      399.203312,
+      243.426895
+     ],
+     "got": [
+      399.203312,
+      243.426895
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 0 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      399.203312,
+      243.426895
+     ],
+     "got": [
+      399.2033,
+      243.426851
+     ],
+     "diff": [
+      -1.2e-05,
+      -4.4e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 24 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      367.136484,
+      189.482444
+     ],
+     "got": [
+      367.136484,
+      189.482444
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 24 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      367.136484,
+      189.482444
+     ],
+     "got": [
+      367.136497,
+      189.482403
+     ],
+     "diff": [
+      1.3e-05,
+      -4.1e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 48 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      255.241061,
+      195.783381
+     ],
+     "got": [
+      255.241061,
+      195.783381
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 48 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      255.241061,
+      195.783381
+     ],
+     "got": [
+      255.24107,
+      195.783341
+     ],
+     "diff": [
+      9e-06,
+      -4e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 72 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      258.303983,
+      253.513585
+     ],
+     "got": [
+      258.303983,
+      253.513585
+     ],
+     "diff": [
+      -0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 72 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      258.303983,
+      253.513585
+     ],
+     "got": [
+      258.303986,
+      253.513545
+     ],
+     "diff": [
+      3e-06,
+      -4e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 96 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      399.203312,
+      243.426895
+     ],
+     "got": [
+      399.203312,
+      243.426895
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-marker 局部点 [0, 0, 0] 第 96 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      399.203312,
+      243.426895
+     ],
+     "got": [
+      399.2033,
+      243.42684
+     ],
+     "diff": [
+      -1.2e-05,
+      -5.5e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "像素 [320.5, 88.5] 第一命中",
+     "expected": "tip-y",
+     "got": "tip-y",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "像素 [320.5, 88.5] 深度层 vs 平面深度",
+     "expected": 4.955137,
+     "got": 4.955157,
+     "diff": 2e-05,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-arm 局部点 [0.15, 0, 0] 第 24 帧 sub 0（渲染·位置层近邻重心）",
+     "expected": [
+      256.840837,
+      225.936085
+     ],
+     "got": [
+      256.785714,
+      225.928571
+     ],
+     "diff": [
+      -0.055123,
+      -0.007514
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-arm 局部点 [0.15, 0, 0] 第 24 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      256.840837,
+      225.936085
+     ],
+     "got": [
+      256.840839,
+      225.936048
+     ],
+     "diff": [
+      2e-06,
+      -3.7e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-arm 局部点 [0.15, 0, 0] 第 48 帧 sub 0（渲染·位置层近邻重心）",
+     "expected": [
+      401.010232,
+      216.667855
+     ],
+     "got": [
+      401.1,
+      216.7
+     ],
+     "diff": [
+      0.089768,
+      0.032145
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "turntable-arm 局部点 [0.15, 0, 0] 第 48 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      401.010232,
+      216.667855
+     ],
+     "got": [
+      401.010246,
+      216.667814
+     ],
+     "diff": [
+      1.4e-05,
+      -4.1e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0000s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 4.3e-05,
+     "diff": 4.3e-05,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0024s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 4.3e-05,
+     "diff": 4.3e-05,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0048s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 4.3e-05,
+     "diff": 4.3e-05,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0072s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 4.3e-05,
+     "diff": 4.3e-05,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0096s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 4.3e-05,
+     "diff": 4.3e-05,
+     "unit": "ratio"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "时间键",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-moving-cube",
+     "what": "cube 局部点 [0, 0, 0] 第 0 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      201.308975,
+      180
+     ],
+     "got": [
+      201.289417,
+      180.020087
+     ],
+     "diff": [
+      -0.019558,
+      0.020087
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "cube 局部点 [0, 0, 0] 第 0 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      201.308975,
+      180
+     ],
+     "got": [
+      201.308956,
+      179.999957
+     ],
+     "diff": [
+      -1.9e-05,
+      -4.3e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "cube 局部点 [0, 0, 0] 第 24 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      320,
+      180
+     ],
+     "got": [
+      320.0,
+      180.0
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "cube 局部点 [0, 0, 0] 第 24 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      320,
+      180
+     ],
+     "got": [
+      319.999886,
+      179.999957
+     ],
+     "diff": [
+      -0.000114,
+      -4.3e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "cube 局部点 [0, 0, 0] 第 24 帧 sub 0.5（渲染·编号层重心偏移）",
+     "expected": [
+      322.47273,
+      180
+     ],
+     "got": [
+      322.47273,
+      180.0
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "cube 局部点 [0, 0, 0] 第 24 帧 sub 0.5（求值·依赖图加相机投影）",
+     "expected": [
+      322.47273,
+      180
+     ],
+     "got": [
+      322.47261,
+      179.999957
+     ],
+     "diff": [
+      -0.00012,
+      -4.3e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "开运动模糊（START）时编号层轮廓重心折合的时刻（逐像素随机取快门窗口里的时刻，随种子变），相对 sub = 0",
+     "expected": 0,
+     "got": 0.2494,
+     "diff": 0.2494,
+     "unit": "frame"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "开运动模糊（CENTER）时编号层轮廓重心折合的时刻（逐像素随机取快门窗口里的时刻，随种子变），相对 sub = 0",
+     "expected": 0,
+     "got": -0.0209,
+     "diff": -0.0209,
+     "unit": "frame"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "开运动模糊（START）时种子 7 重渲的编号层轮廓重心折合的时刻（逐像素随机取快门窗口里的时刻，随种子变），相对 sub = 0",
+     "expected": 0,
+     "got": 0.2762,
+     "diff": 0.2762,
+     "unit": "frame"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "开运动模糊（START）时种子 0 的深度层（非背景轮廓）轮廓重心折合的时刻（逐像素随机取快门窗口里的时刻，随种子变），相对 sub = 0",
+     "expected": 0,
+     "got": 0.2494,
+     "diff": 0.2494,
+     "unit": "frame"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "cube 局部点 [0, 0, 0] 第 48 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      438.691025,
+      180
+     ],
+     "got": [
+      438.671428,
+      180.019773
+     ],
+     "diff": [
+      -0.019597,
+      0.019773
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "cube 局部点 [0, 0, 0] 第 48 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      438.691025,
+      180
+     ],
+     "got": [
+      438.690796,
+      179.999957
+     ],
+     "diff": [
+      -0.000229,
+      -4.3e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "highlight 局部点 [0, 0, 0] 第 24 帧 sub 0（渲染·编号层重心偏移）",
+     "expected": [
+      320,
+      169.69696
+     ],
+     "got": [
+      320.0,
+      169.69696
+     ],
+     "diff": [
+      0.0,
+      0.0
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "highlight 局部点 [0, 0, 0] 第 24 帧 sub 0（求值·依赖图加相机投影）",
+     "expected": [
+      320,
+      169.69696
+     ],
+     "got": [
+      319.999886,
+      169.696927
+     ],
+     "diff": [
+      -0.000114,
+      -3.3e-05
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "像素 [320.5, 169.5] 第一命中",
+     "expected": "highlight",
+     "got": "highlight",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "像素 [320.5, 169.5] 深度层 vs 平面深度",
+     "expected": 4.770418,
+     "got": 4.770428,
+     "diff": 1e-05,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0000s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 9e-06,
+     "diff": 9e-06,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": 0.0,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s25 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": 0.0,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s50 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": 0.0,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0048s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 9e-06,
+     "diff": 9e-06,
+     "unit": "ratio"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "快门相位",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-moving-cube",
+     "what": "第 24 帧快门中点：整图亮度重心的位移（亮度的大部分来自高光球），加在 cube 的期望像素上（motion_blur_position=START）",
+     "expected": [
+      321.236365,
+      180
+     ],
+     "got": [
+      321.218342,
+      179.988137
+     ],
+     "diff": [
+      -0.018023,
+      -0.011863
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "拖影中点的相位（START）",
+     "expected": 0.25,
+     "got": 0.2465,
+     "diff": -0.0035,
+     "unit": "frame"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "第 24 帧快门中点：整图亮度重心的位移（亮度的大部分来自高光球），加在 cube 的期望像素上（motion_blur_position=CENTER）",
+     "expected": [
+      321.236365,
+      180
+     ],
+     "got": [
+      319.959517,
+      179.994417
+     ],
+     "diff": [
+      -1.276848,
+      -0.005583
+     ],
+     "unit": "px"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "拖影中点的相位（CENTER）",
+     "expected": 0.25,
+     "got": 0.002,
+     "diff": -0.248,
+     "unit": "frame"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "子帧累积和后期的先后",
+   "status": "not-applicable",
+   "readings": [
+    {
+     "scene": "probe-moving-cube",
+     "what": "第 24 帧整图线性亮度的和（不开模糊）",
+     "expected": "无标准答案",
+     "got": 1806.1,
+     "diff": "无",
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "第 24 帧整图线性亮度的和（帧起点开快门 START）",
+     "expected": "无标准答案",
+     "got": 1791.3,
+     "diff": "无",
+     "unit": "linear"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "第 24 帧整图线性亮度的和（帧中心开快门 CENTER）",
+     "expected": "无标准答案",
+     "got": 1803.6,
+     "diff": "无",
+     "unit": "linear"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "显示变换的整形曲线",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-00（0.0）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "got": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-00（0.0）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "got": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-01（0.015625）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      17.806,
+      17.805,
+      17.808
+     ],
+     "got": [
+      18.054,
+      18.235,
+      18.072
+     ],
+     "diff": 0.429,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-01（0.015625）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      17.806,
+      17.805,
+      17.808
+     ],
+     "got": [
+      15.67,
+      16.567,
+      16.114
+     ],
+     "diff": 2.136,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-02（0.03125）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      34.11,
+      34.11,
+      34.114
+     ],
+     "got": [
+      34.334,
+      34.52,
+      34.352
+     ],
+     "diff": 0.41,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-02（0.03125）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      34.11,
+      34.11,
+      34.114
+     ],
+     "got": [
+      34.11,
+      34.11,
+      34.114
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-03（0.0625）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      58.362,
+      58.361,
+      58.367
+     ],
+     "got": [
+      58.381,
+      58.403,
+      58.388
+     ],
+     "diff": 0.041,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-03（0.0625）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      58.362,
+      58.361,
+      58.367
+     ],
+     "got": [
+      58.362,
+      58.361,
+      58.367
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-04（0.125）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      93.979,
+      93.978,
+      93.987
+     ],
+     "got": [
+      94.714,
+      95.011,
+      94.657
+     ],
+     "diff": 1.033,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-04（0.125）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      93.979,
+      93.978,
+      93.987
+     ],
+     "got": [
+      93.979,
+      93.978,
+      93.987
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-05（0.25）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      139.208,
+      139.207,
+      139.216
+     ],
+     "got": [
+      139.627,
+      139.405,
+      139.288
+     ],
+     "diff": 0.419,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-05（0.25）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      139.208,
+      139.207,
+      139.216
+     ],
+     "got": [
+      139.208,
+      139.207,
+      139.216
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-06（0.5）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      178.244,
+      178.244,
+      178.251
+     ],
+     "got": [
+      178.48,
+      178.269,
+      178.289
+     ],
+     "diff": 0.235,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-06（0.5）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      178.244,
+      178.244,
+      178.251
+     ],
+     "got": [
+      178.244,
+      178.244,
+      178.251
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-07（1.0）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "got": [
+      207.615,
+      207.44,
+      207.493
+     ],
+     "diff": 0.102,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-07（1.0）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "got": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-08（2.0）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      228.608,
+      228.608,
+      228.611
+     ],
+     "got": [
+      228.938,
+      228.637,
+      228.734
+     ],
+     "diff": 0.33,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-08（2.0）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      228.608,
+      228.608,
+      228.611
+     ],
+     "got": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "diff": 21.095,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-09（4.0）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      244.05,
+      244.05,
+      244.052
+     ],
+     "got": [
+      244.315,
+      244.105,
+      244.172
+     ],
+     "diff": 0.265,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-09（4.0）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      244.05,
+      244.05,
+      244.052
+     ],
+     "got": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "diff": 36.537,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-10（8.0）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      255.004,
+      255.004,
+      255.004
+     ],
+     "got": [
+      254.812,
+      254.832,
+      254.811
+     ],
+     "diff": 0.194,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-10（8.0）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      255.004,
+      255.004,
+      255.004
+     ],
+     "got": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "diff": 47.491,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-11（16.0）对数整形后查 33³ 表 vs OCIO 直算",
+     "expected": [
+      255.004,
+      255.004,
+      255.004
+     ],
+     "got": [
+      255.004,
+      255.004,
+      255.004
+     ],
+     "diff": 0.0,
+     "unit": "8 位显示码值"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "hdr-11（16.0）不整形直接查 33³ 表（定义域 0 到 1） vs OCIO 直算",
+     "expected": [
+      255.004,
+      255.004,
+      255.004
+     ],
+     "got": [
+      207.513,
+      207.513,
+      207.518
+     ],
+     "diff": 47.491,
+     "unit": "8 位显示码值"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "可见比例的成本",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-near 编号层反算包围盒对元数据包围盒的交并比",
+     "expected": 1,
+     "got": 0.9938,
+     "diff": -0.0062,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-mid 编号层反算包围盒对元数据包围盒的交并比",
+     "expected": 1,
+     "got": 0.9982,
+     "diff": -0.0018,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-far 编号层反算包围盒对元数据包围盒的交并比",
+     "expected": 1,
+     "got": 0.7151,
+     "diff": -0.2849,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [300.5, 180.5] 第一命中",
+     "expected": "cube-near",
+     "got": "cube-near",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [300.5, 180.5] 深度层 vs 平面深度",
+     "expected": 2.75,
+     "got": 2.75,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [325.5, 180.5] 第一命中",
+     "expected": "cube-mid",
+     "got": "cube-mid",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [325.5, 180.5] 深度层 vs 平面深度",
+     "expected": 3.75,
+     "got": 3.75,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [295.5, 142.5] 第一命中",
+     "expected": "cube-far",
+     "got": "cube-far",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [295.5, 142.5] 深度层 vs 平面深度",
+     "expected": 4.75,
+     "got": 4.75,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [245.5, 229.5] 第一命中",
+     "expected": "cube-near",
+     "got": "cube-near",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [245.5, 229.5] 深度层 vs 平面深度",
+     "expected": 2.75,
+     "got": 2.75,
+     "diff": 0.0,
+     "unit": "m"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [468.5, 31.5] 第一命中",
+     "expected": "背景",
+     "got": "背景",
+     "diff": "一致",
+     "unit": "objectId"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "像素 [468.5, 31.5] 背景深度层读数",
+     "expected": "无交点",
+     "got": 10000000000.0,
+     "diff": "无",
+     "unit": "m"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "f0000s00 编号层对规格编号图的不一致像素占比",
+     "expected": 0,
+     "got": 9e-06,
+     "diff": 9e-06,
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-near 四分之一分辨率单独多渲一遍编号层",
+     "expected": "无标准答案",
+     "got": 291.5,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-near 可见比例（合渲像素 / 单独像素，四分之一分辨率）",
+     "expected": "无标准答案",
+     "got": 1.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-mid 四分之一分辨率单独多渲一遍编号层",
+     "expected": "无标准答案",
+     "got": 305.3,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-mid 可见比例（合渲像素 / 单独像素，四分之一分辨率）",
+     "expected": "无标准答案",
+     "got": 0.7656,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-far 四分之一分辨率单独多渲一遍编号层",
+     "expected": "无标准答案",
+     "got": 279.1,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "cube-far 可见比例（合渲像素 / 单独像素，四分之一分辨率）",
+     "expected": "无标准答案",
+     "got": 0.3432,
+     "diff": "无",
+     "unit": "ratio"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "确定性",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "a755a4aa649c6386c10c76cea7ee4bc4d45cd6dd68deebd96a723cf0d363afec",
+     "got": "7ce55212a47656e298d717d07fcb5bb1c83c52cbb548e0caf827ab345292d35e",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 181.91,
+     "diff": 234,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0000s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0024s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "b811982222a26fffdb31ba8bd5f4e800e08224855ff6d7a81b27b1aa60f69393",
+     "got": "b719253c2859e22bab8f05b95bbdb08fae735e5c698422c296185ddc9f92c641",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0024s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 182.43,
+     "diff": 238,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0024s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0048s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "c46b6c11f718f11243fd66c704103525b63b8b8275b1f0d6513b664b0ab51e17",
+     "got": "63920d1dab8770f433a610315a847c9caba7b748a8d840ce8822ac22b0f69fd2",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0048s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 181.68,
+     "diff": 262,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0048s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0072s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "4b61c7035bf2221d91d44cff6a9cba498108272588a7e4d41b34c18e2e046671",
+     "got": "6b89ad86b397053608ddedd7fa46c791c94d27ad798a4b59a9ee246aadb8e07b",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0072s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 182.09,
+     "diff": 223,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0072s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0096s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "cbff252121165460333336a239cc898a3a6f2367ca0bb224ad4899ec703e91f0",
+     "got": "22a21e8f0f986e1e0c0e29744dad0354d157f9dc46eebcafba0db622e2e05f1d",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0096s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 181.51,
+     "diff": 236,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "f0096s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "87d8611f46e72035a48cf9b3654e17e00a661230537afb15242b9ac185e0b656",
+     "got": "87d8611f46e72035a48cf9b3654e17e00a661230537afb15242b9ac185e0b656",
+     "diff": "相同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "f0000s00.exr 两遍像素逐位比对",
+     "expected": "逐位相同",
+     "got": "逐位相同",
+     "diff": 0,
+     "unit": "个不同的数"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "agx-mhc.png 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "ee071408f5f96cd30e50787c3b48b000d483e4bdb44336c2c102c37e8a8604bd",
+     "got": "ee071408f5f96cd30e50787c3b48b000d483e4bdb44336c2c102c37e8a8604bd",
+     "diff": "相同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "agx-mhc.png 两遍像素逐位比对",
+     "expected": "逐位相同",
+     "got": "逐位相同",
+     "diff": 0,
+     "unit": "个不同的数"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "98c929fbee1fe855f67ee1b181c47ed95476e624b456a06565e29b679265b1c4",
+     "got": "9c4b31d344c85330b0614937de9fa7b2ffc9986768c0f5a8714ce0dbfed562f5",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 198.12,
+     "diff": 60,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0000s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "595271a6be62d45c7b34ce4bb3ff112d53c00b5fed450373fe24e85be6a49ffd",
+     "got": "a35dc50919a78323ab86296832a4aee9bbb00d14ee7cea4cbf700f5952a05134",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 184.5,
+     "diff": 83,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00-blur-center.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "8e966bbc3307e417ebb84baf7db997f0966a460fb17a34b9f280efae8d4af380",
+     "got": "b97ea93b1a15f2e6733b68c40cf622f5b1c015a73d3ce662eb6905c9a127820f",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00-blur-center.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 191.13,
+     "diff": 103,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00-blur-center.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00-blur-start.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "ca22b6f3dac328a54e8c0d877353be56b595d62be6fe2c06511d1269301d29ad",
+     "got": "fd3b19c402536f64e96054bcc7ed303b7a1cd3310ee3b9c91c99d0a95c1e4277",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00-blur-start.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 189.09,
+     "diff": 82,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s00-blur-start.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s25.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "2720dcb86d06b0291a42016151186381f19bde01b8c1d5c7082c886ab68ff9d3",
+     "got": "9723924a9085007299bbb286e537b858969fb0aae90c3e6940facd58920b1b98",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s25.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 187.71,
+     "diff": 79,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s25.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s50.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "8c3cbcc85257b81a9222d580649cb7836544153751fabd00b0d1c078488af839",
+     "got": "77c0d1778e71b8624acd12147fc610f6b6de6e72963083e7766d48103813a3d3",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s50.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 189.27,
+     "diff": 62,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0024s50.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0048s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "8bb20d3d5170f47b918e21f55638544c67518041998337732a4bc4baeac355f3",
+     "got": "459054cd1d78c271f5c3016f7e0b6fd4647c702445d2888ae11c872029a9ee79",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0048s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 186.36,
+     "diff": 69,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "f0048s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "16aa768444d38addd175365ae7910d81ac1c78e2f3aa223367d8039920405f8d",
+     "got": "f390f50e7fdeeec9745948542625a164a93feb42bb84d5493b96e0f00d60c35e",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 179.09,
+     "diff": 233,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "f0000s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "q-all.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "c4543c262b234cae5c9de5aa0c404fcf6c24e9e81acfabd6e50ab127fa19ecb4",
+     "got": "c4543c262b234cae5c9de5aa0c404fcf6c24e9e81acfabd6e50ab127fa19ecb4",
+     "diff": "相同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "q-all.exr 两遍像素逐位比对",
+     "expected": "逐位相同",
+     "got": "逐位相同",
+     "diff": 0,
+     "unit": "个不同的数"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "q-cube-near.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "eae4f16bdd8568a3302d98b42792839b09f2ae79334905534452e4891f1621d9",
+     "got": "eae4f16bdd8568a3302d98b42792839b09f2ae79334905534452e4891f1621d9",
+     "diff": "相同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "q-cube-near.exr 两遍像素逐位比对",
+     "expected": "逐位相同",
+     "got": "逐位相同",
+     "diff": 0,
+     "unit": "个不同的数"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "q-cube-mid.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "4015f2af3f70e27ea3ead11c2e28a1eec6e9f8af43b9792bea3f27472068838f",
+     "got": "4015f2af3f70e27ea3ead11c2e28a1eec6e9f8af43b9792bea3f27472068838f",
+     "diff": "相同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "q-cube-mid.exr 两遍像素逐位比对",
+     "expected": "逐位相同",
+     "got": "逐位相同",
+     "diff": 0,
+     "unit": "个不同的数"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "q-cube-far.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "3c8eb89c58019f21e5cdeb87cfc5e0d456c5d52f034e2ac6109fe96e8822469c",
+     "got": "3c8eb89c58019f21e5cdeb87cfc5e0d456c5d52f034e2ac6109fe96e8822469c",
+     "diff": "相同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "q-cube-far.exr 两遍像素逐位比对",
+     "expected": "逐位相同",
+     "got": "逐位相同",
+     "diff": 0,
+     "unit": "个不同的数"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "811a8d0dd23cef9691082e47bd8b4a8cdc35b9e974420c8d8bbe3720cdd3ac3a",
+     "got": "811a8d0dd23cef9691082e47bd8b4a8cdc35b9e974420c8d8bbe3720cdd3ac3a",
+     "diff": "相同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "f0000s00.exr 两遍像素逐位比对",
+     "expected": "逐位相同",
+     "got": "逐位相同",
+     "diff": 0,
+     "unit": "个不同的数"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
+     "expected": "d2cb370d46e7fd80c00939ee9c3cae1e060da29e640f8bb6f5d2f0fbabf40e87",
+     "got": "9ab07d30abe1e9e77b1246f3a7781258ea6714e10e8ca38d58dcea7d92b83070",
+     "diff": "不同",
+     "unit": "sha256"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
+     "expected": "逐位相同",
+     "got": 182.27,
+     "diff": 106,
+     "unit": "dB（diff 为不同的数的个数）"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "f0000s00.exr 两遍不同：8 位下差 5 级以上的像素占比",
+     "expected": 0,
+     "got": 0.0,
+     "diff": "无",
+     "unit": "ratio"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  },
+  {
+   "row": "耗时",
+   "status": "measured",
+   "readings": [
+    {
+     "scene": "全部",
+     "what": "Blender 冷启动（空脚本进程，两次）",
+     "expected": "无标准答案",
+     "got": [
+      323.7,
+      320.2
+     ],
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "读回一张多层 EXR（平均）",
+     "expected": "无标准答案",
+     "got": 8.8,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "单帧渲染（进程内，平均）",
+     "expected": "无标准答案",
+     "got": 342.5,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-axes-turntable",
+     "what": "整个进程（5 帧，两遍）",
+     "expected": "无标准答案",
+     "got": [
+      2371.0,
+      2330.9
+     ],
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "读回一张多层 EXR（平均）",
+     "expected": "无标准答案",
+     "got": 3.6,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "单帧渲染（进程内，平均）",
+     "expected": "无标准答案",
+     "got": 311.7,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-gray-chart",
+     "what": "整个进程（1 帧，两遍）",
+     "expected": "无标准答案",
+     "got": [
+      737.8,
+      739.0
+     ],
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "读回一张多层 EXR（平均）",
+     "expected": "无标准答案",
+     "got": 2.7,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "单帧渲染（进程内，平均）",
+     "expected": "无标准答案",
+     "got": 316.9,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-moving-cube",
+     "what": "整个进程（7 帧，两遍）",
+     "expected": "无标准答案",
+     "got": [
+      2979.4,
+      3068.2
+     ],
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "读回一张多层 EXR（平均）",
+     "expected": "无标准答案",
+     "got": 3.6,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "单帧渲染（进程内，平均）",
+     "expected": "无标准答案",
+     "got": 277.6,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-occlusion",
+     "what": "整个进程（1 帧，两遍）",
+     "expected": "无标准答案",
+     "got": [
+      1772.8,
+      1743.9
+     ],
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "读回一张多层 EXR（平均）",
+     "expected": "无标准答案",
+     "got": 3.6,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "单帧渲染（进程内，平均）",
+     "expected": "无标准答案",
+     "got": 277.1,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-plane-steps",
+     "what": "整个进程（1 帧，两遍）",
+     "expected": "无标准答案",
+     "got": [
+      628.0,
+      630.8
+     ],
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "读回一张多层 EXR（平均）",
+     "expected": "无标准答案",
+     "got": 4.8,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "单帧渲染（进程内，平均）",
+     "expected": "无标准答案",
+     "got": 288.8,
+     "diff": "无",
+     "unit": "ms"
+    },
+    {
+     "scene": "probe-thin-geometry",
+     "what": "整个进程（1 帧，两遍）",
+     "expected": "无标准答案",
+     "got": [
+      633.7,
+      623.7
+     ],
+     "diff": "无",
+     "unit": "ms"
+    }
+   ],
+   "note": "这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。"
+  }
+ ]
+}

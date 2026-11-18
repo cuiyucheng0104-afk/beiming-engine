@@ -10,6 +10,8 @@ CALIB = os.path.join(ROOT, 'beiming', 'calib')
 OUT = os.path.join(ROOT, 'out', 'probe', 'blender')
 SCENES = sorted(d for d in os.listdir(CALIB) if os.path.isfile(os.path.join(CALIB, d, 'scene.json')))
 SAMPLES, RUNS = 64, 2
+# 在哪台机器、用什么设备跑由环境变量说：BEIMING_PROBE_MACHINE（默认 mac，别的机器另写一份读数表）、BEIMING_PROBE_DEVICE（CPU 或 GPU，默认 CPU）
+MACHINE, DEVICE = os.environ.get('BEIMING_PROBE_MACHINE', 'mac'), os.environ.get('BEIMING_PROBE_DEVICE', 'CPU')
 LOOK = 'AgX - Medium High Contrast'
 AGX_EV = (-12.47393, 12.5260688)  # Blender 配置里 AgX Log 的 lg2 分配范围（相对 0.18，共 25 档），整形曲线用它
 ROW_OF = {'probe-gray-chart': '颜色层的线性度', 'probe-plane-steps': '深度口径', 'probe-thin-geometry': '编号层的边缘', 'probe-axes-turntable': '坐标与相机', 'probe-moving-cube': '时间键', 'probe-occlusion': '可见比例的成本'}
@@ -92,13 +94,24 @@ def mesh(o):
         bmesh.ops.rotate(bm, verts=bm.verts, matrix=Matrix.Rotation(-math.pi / 2, 3, 'X'))
     me = bpy.data.meshes.new(o['id']); bm.to_mesh(me); bm.free(); return me
 
+def gpu_on():  # 打开显卡：先试 OptiX，不行用 CUDA（BEIMING_PROBE_GPU 可以改顺序）；一块显卡都没开上就报错，不悄悄退回 CPU
+    prefs = bpy.context.preferences.addons['cycles'].preferences
+    for kind in os.environ.get('BEIMING_PROBE_GPU', 'OPTIX,CUDA').split(','):
+        try: prefs.compute_device_type = kind
+        except TypeError: continue
+        prefs.refresh_devices(); on = [d for d in prefs.devices if d.type == kind]
+        for d in prefs.devices: d.use = d.type == kind
+        if on: return f"{kind}：{'、'.join(d.name for d in on)}"
+    raise RuntimeError('没有可用的显卡设备')
+
 def build(s):
     sc = bpy.context.scene
     for ob in list(bpy.data.objects): bpy.data.objects.remove(ob)
     c, r, cy = s['camera'], sc.render, sc.cycles
     r.engine, r.resolution_x, r.resolution_y, r.resolution_percentage, r.fps = 'CYCLES', c['widthPx'], c['heightPx'], 100, s['frameRateFps']
     sc.frame_start, sc.frame_end = 0, s['frameRange']['endFrame']
-    cy.device, cy.samples, cy.use_adaptive_sampling, cy.use_denoising, cy.seed, cy.use_animated_seed = 'CPU', SAMPLES, False, False, 0, False
+    cy.device, cy.samples, cy.use_adaptive_sampling, cy.use_denoising, cy.seed, cy.use_animated_seed = DEVICE, SAMPLES, False, False, 0, False
+    if DEVICE == 'GPU': gpu_on()
     sc.view_settings.view_transform, sc.view_settings.look, sc.view_settings.exposure, sc.view_settings.gamma = 'Standard', 'None', 0, 1
     im = r.image_settings; im.media_type = 'MULTI_LAYER_IMAGE'; im.file_format, im.color_depth, im.exr_codec = 'OPEN_EXR_MULTILAYER', '32', 'ZIP'
     vl = sc.view_layers[0]; vl.use_pass_z = vl.use_pass_object_index = vl.use_pass_position = True
@@ -130,7 +143,7 @@ def build(s):
 
 def render(name, run):
     s = load(name); sc, cam, objs = build(s); d = os.path.join(OUT, name, f'run{run}'); os.makedirs(d, exist_ok=True)
-    info = {'version': bpy.app.version_string, 'renderMs': {}, 'evals': {}, 'quarterMs': {}}
+    info = {'version': bpy.app.version_string, 'device': gpu_on() if DEVICE == 'GPU' else 'CPU', 'renderMs': {}, 'evals': {}, 'quarterMs': {}}
     def shot(path):
         # 读时钟只为填「耗时」一行：集成负责人准了这个口子（一次性探针，用完即删，计时不进确定性比较）
         sc.render.filepath = path; t0 = time.perf_counter(); bpy.ops.render.render(write_still=True); return (time.perf_counter() - t0) * 1000
@@ -190,7 +203,7 @@ def analyze():
     proc, timing = json.load(open(os.path.join(OUT, 'process-ms.json'))), []
     for name in SCENES:
         s = load(name); c = s['camera']; W, H = c['widthPx'], c['heightPx']; row = rows[ROW_OF[name]]
-        d1 = os.path.join(OUT, name, 'run1'); info = json.load(open(os.path.join(d1, 'info.json'))); version = info['version']
+        d1 = os.path.join(OUT, name, 'run1'); info = json.load(open(os.path.join(d1, 'info.json'))); version = info['version']; device = info.get('device', 'CPU')
         # 读时钟只为填「耗时」一行：集成负责人准了这个口子（一次性探针，用完即删，计时不进确定性比较）
         t0 = time.perf_counter(); img = {tag(j): read_exr(os.path.join(d1, tag(j) + '.exr')) for j in jobs(s)}
         timing.append(R(name, '读回一张多层 EXR（平均）', '无标准答案', rnd((time.perf_counter() - t0) * 1000 / len(img), 1), '无', 'ms'))
@@ -267,9 +280,9 @@ def analyze():
         determinism(name, s, rows['确定性'])
     rows['耗时'] = [R('全部', 'Blender 冷启动（空脚本进程，两次）', '无标准答案', rnd(proc['coldStartMs'], 1), '无', 'ms')] + timing
     notes = json.load(open(os.path.join(HERE, 'notes.json'), encoding='utf8'))
-    table = {'format': 'probe-column/0.1', 'source': f'blender-cycles（CPU，{SAMPLES} 采样，无降噪，种子 0）', 'version': version, 'machine': 'mac',
-             'rows': [{'row': k, 'status': notes[k][0], 'readings': v, 'note': notes[k][1]} for k, v in rows.items()]}
-    with open(os.path.join(CALIB, 'table', 'blender.json'), 'w', encoding='utf8') as f: json.dump(table, f, ensure_ascii=False, indent=1)
+    table = {'format': 'probe-column/0.1', 'source': f'blender-cycles（{device}，{SAMPLES} 采样，无降噪，种子 0）', 'version': version, 'machine': MACHINE,
+             'rows': [{'row': k, 'status': notes[k][0], 'readings': v, 'note': notes[k][1] if MACHINE == 'mac' else '这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。'} for k, v in rows.items()]}
+    with open(os.path.join(CALIB, 'table', 'blender.json' if MACHINE == 'mac' else f'blender.{MACHINE}.json'), 'w', encoding='utf8') as f: json.dump(table, f, ensure_ascii=False, indent=1)
 
 def display(s, rows, d):  # 显示变换和整形曲线：Blender 自带 OCIO 配置直算 / 渲染存图 / 烘出的两张三维查找表
     import PyOpenColorIO as O

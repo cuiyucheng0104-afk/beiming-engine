@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import { PROBE_ROWS, CALIB_DIR, objectTransform, project, axisAngle } from '../../check.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), REPO = join(HERE, '../../../..');
-const OUT = join(REPO, 'out/probe/three'), TABLE = join(REPO, 'beiming/calib/table/three.json');
+// 在哪台机器上跑由环境变量说：BEIMING_PROBE_MACHINE（默认 mac，别的机器另写一份读数表）、BEIMING_PROBE_CHROME（浏览器可执行文件）、BEIMING_ANGLE（显卡后端）
+const MACHINE = process.env.BEIMING_PROBE_MACHINE || 'mac', ANGLE = process.env.BEIMING_ANGLE;
+const OUT = join(REPO, 'out/probe/three'), TABLE = join(REPO, `beiming/calib/table/three${MACHINE === 'mac' ? '' : '.' + MACHINE}.json`);
 const { chromium } = createRequire(join(OUT, 'package.json'))('playwright-core');
 const VERSION = JSON.parse(readFileSync(join(OUT, 'node_modules/three/package.json'), 'utf8')).version;
 assert.equal(VERSION, '0.187.0', 'three 版本必须锁 0.187.0');
@@ -26,7 +28,7 @@ function serve() {
 
 // 一遍：新起一个浏览器，六个场景依次渲。浏览器静音；显卡后端用机器上默认的那个（Mac 上是 ANGLE Metal）。
 async function run(n, port, scenes) {
-  const t0 = performance.now(), browser = await chromium.launch({ headless: true, args: ['--mute-audio', '--enable-gpu', '--ignore-gpu-blocklist'] });
+  const t0 = performance.now(), browser = await chromium.launch({ headless: true, executablePath: process.env.BEIMING_PROBE_CHROME || undefined, args: ['--mute-audio', '--enable-gpu', '--ignore-gpu-blocklist', ...(ANGLE ? [`--use-angle=${ANGLE}`] : [])] });
   const page = await browser.newPage(); await page.goto(`http://127.0.0.1:${port}/`); await page.waitForFunction(() => window.ready);
   const info = await page.evaluate(() => window.probe.init()), startMs = performance.now() - t0, results = {};
   for (const { name, scene } of scenes) {
@@ -87,9 +89,9 @@ for (const { name } of scenes) {
   const noMs = r => JSON.stringify(Object.values(r.rows).flat().filter(x => x.unit !== 'ms')), sameRows = noMs(a) === noMs(b);
   rows['确定性'].push({ scene: name, what: '两遍除耗时以外的读数是否逐项相同', expected: '相同', got: sameRows ? '相同' : '不同', diff: sameRows ? '无' : '不同', unit: 'reading' });
   runs.forEach((r, i) => [['coldMs', '冷启动（建场景到第一帧读回完成）'], ['frameMs', '单帧（渲一帧加 1 像素读回同步，5 次中位）'], ['readMs', '整张浮点颜色层读回（5 次中位）']].forEach(([k, what]) =>
-    rows['耗时'].push({ scene: name, what: `第 ${i + 1} 遍 ${what}，Mac 读数，待 5090 补跑`, expected: '无标准答案', got: r.results[name].timing[k], diff: '无', unit: 'ms' })));
+    rows['耗时'].push({ scene: name, what: `第 ${i + 1} 遍 ${what}，${MACHINE} 读数`, expected: '无标准答案', got: r.results[name].timing[k], diff: '无', unit: 'ms' })));
 }
-runs.forEach((r, i) => rows['耗时'].push({ scene: '全部', what: `第 ${i + 1} 遍 启动（起浏览器、开页面、建渲染器），渲染器串 ${r.info.gpu}，${r.info.webgl}，Mac 读数，待 5090 补跑`, expected: '无标准答案', got: Math.round(r.startMs * 1e3) / 1e3, diff: '无', unit: 'ms' }));
+runs.forEach((r, i) => rows['耗时'].push({ scene: '全部', what: `第 ${i + 1} 遍 启动（起浏览器、开页面、建渲染器），渲染器串 ${r.info.gpu}，${r.info.webgl}，${MACHINE} 读数`, expected: '无标准答案', got: Math.round(r.startMs * 1e3) / 1e3, diff: '无', unit: 'ms' }));
 
 // 转台小杆：页面交回的单独渲包围盒，在这里补上规格算的期望和正反两种顺序的差。
 const AXES = scenes.find(x => x.name === 'probe-axes-turntable').scene, GAP = {}, STATUS = { '显示变换': 'blocked', '显示变换的整形曲线': 'blocked', '快门相位': 'not-applicable' };
@@ -98,8 +100,8 @@ for (const x of rows['坐标与相机'].filter(x => x.what.startsWith('armBox ')
   const t = +x.what.slice(7), [fw, rv] = [false, true].map(r => armBox(AXES, t, r)); GAP[t] = [maxAbs(x.got, fw), maxAbs(x.got, rv)];
   Object.assign(x, { what: `turntable-arm 第 ${t} 帧单独渲编号层包围盒 [x0, y0, x1, y1]，对规格正顺序 R运动 · R静态 的八角投影包围盒（过线 1 像素；反顺序的包围盒 [${rv}]，和渲染最大差 ${GAP[t][1]}）`, expected: fw, diff: GAP[t][0] });
 }
-const table = { format: 'probe-column/0.1', source: 'three', version: VERSION, machine: 'mac',
-  rows: PROBE_ROWS.map(row => ({ row, status: STATUS[row] ?? 'measured', readings: rows[row], note: typeof NOTE[row] === 'function' ? NOTE[row]() : NOTE[row] })) };
+const table = { format: 'probe-column/0.1', source: 'three', version: VERSION, machine: MACHINE,
+  rows: PROBE_ROWS.map(row => ({ row, status: STATUS[row] ?? 'measured', readings: rows[row], note: MACHINE !== 'mac' ? '这台机器的读数。各行怎么量的说明见同目录不带机器名的那一份（Mac），说明里的数字是 Mac 的，本文件以自己的读数为准。' : typeof NOTE[row] === 'function' ? NOTE[row]() : NOTE[row] })) };
 // 自检：恰好 12 行，每行有读数，每个读数六个字段齐全，数值都是有限数。
 assert.equal(table.rows.length, 12); assert.ok(table.rows.every(r => r.readings.length > 0), '有的行没有读数');
 for (const x of table.rows.flatMap(r => r.readings)) assert.deepEqual(Object.keys(x).sort(), ['diff', 'expected', 'got', 'scene', 'unit', 'what']),
