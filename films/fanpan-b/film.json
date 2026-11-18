@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 2,
+  "$comment": "dur / fps / size 是 v1 兼容镜像：现有出片脚本还在读，数值与 output 一致；改时长或画幅时两处一起改（npm run check:repo 与 film.js check 会核对）",
+  "id": "fanpan-b",
+  "title": "林间擂台",
+  "route": "b",
+  "backend": "native",
+  "output": {
+    "profile": "web-1080p24",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "frameCount": 144
+  },
+  "shots": [
+    {
+      "id": "S1",
+      "in": 0,
+      "out": 144
+    }
+  ],
+  "events": [],
+  "audio": {
+    "mode": "none"
+  },
+  "deliveries": [
+    "web-1080p24"
+  ],
+  "credits": [
+    {
+      "what": "原生运行时（上游项目名 RAEA）",
+      "license": "FSL-1.1-ALv2",
+      "source": "engine/native/runtime.lock.json"
+    },
+    {
+      "what": "画法（只取方法，代码自己写）：像素贴图的微缩场景 + 平面像素角色 + 移轴景深、泛光、暗角",
+      "license": "MIT",
+      "source": "cases/vendor/lemo-opuscar/styles/hd-2d/STYLE.md@bebbbe1（LemoLab）"
+    },
+    {
+      "what": "棋子待机序列帧（units/）",
+      "license": "CC0-1.0",
+      "source": "《一步翻盘》assets/units，原始出处 OpenDuelyst；不使用其名称与商标"
+    },
+    {
+      "what": "对战盘规格（4 路 × 5 格、双方城门与血量、本方 / 敌方配色）",
+      "license": "用户自己的项目",
+      "source": "https://github.com/cuiyucheng0104-afk/yibu-fanpan"
+    },
+    {
+      "what": "three.js r170（只在资产桥里用来搭场景并导出 GLB）",
+      "license": "MIT",
+      "source": "node_modules/three"
+    }
+  ],
+  "aigc": {
+    "contains": false,
+    "note": "场景、贴图、灯光与后期全部由代码生成；棋子是 CC0 像素序列帧"
+  },
+  "gates": {
+    "look": "required",
+    "animatic": "required",
+    "final": "required"
+  },
+  "native": {
+    "entry": "film.tsx",
+    "images": [
+      {
+        "to": "f1_azuritelion_idle.png",
+        "from": "units/f1_azuritelion_idle.png"
+      },
+      {
+        "to": "f1_ironcliffeguardian_idle.png",
+        "from": "units/f1_ironcliffeguardian_idle.png"
+      },
+      {
+        "to": "f1_ranged_idle.png",
+        "from": "units/f1_ranged_idle.png"
+      },
+      {
+        "to": "f1_silverguardsquire_idle.png",
+        "from": "units/f1_silverguardsquire_idle.png"
+      },
+      {
+        "to": "f1_tank_idle.png",
+        "from": "units/f1_tank_idle.png"
+      },
+      {
+        "to": "f4_crawler_idle.png",
+        "from": "units/f4_crawler_idle.png"
+      },
+      {
+        "to": "f4_darkspine_idle.png",
+        "from": "units/f4_darkspine_idle.png"
+      },
+      {
+        "to": "f4_gloomchaser_idle.png",
+        "from": "units/f4_gloomchaser_idle.png"
+      },
+      {
+        "to": "f4_juggernaut_idle.png",
+        "from": "units/f4_juggernaut_idle.png"
+      },
+      {
+        "to": "f4_nightsorrow_idle.png",
+        "from": "units/f4_nightsorrow_idle.png"
+      },
+      {
+        "to": "badge-red-2.png",
+        "from": "marks/badge-red-2.png"
+      },
+      {
+        "to": "badge-red-3.png",
+        "from": "marks/badge-red-3.png"
+      },
+      {
+        "to": "badge-red-4.png",
+        "from": "marks/badge-red-4.png"
+      },
+      {
+        "to": "badge-red-6.png",
+        "from": "marks/badge-red-6.png"
+      },
+      {
+        "to": "badge-teal-1.png",
+        "from": "marks/badge-teal-1.png"
+      },
+      {
+        "to": "badge-teal-2.png",
+        "from": "marks/badge-teal-2.png"
+      },
+      {
+        "to": "badge-teal-3.png",
+        "from": "marks/badge-teal-3.png"
+      },
+      {
+        "to": "badge-teal-4.png",
+        "from": "marks/badge-teal-4.png"
+      },
+      {
+        "to": "badge-teal-5.png",
+        "from": "marks/badge-teal-5.png"
+      },
+      {
+        "to": "ring-red.png",
+        "from": "marks/ring-red.png"
+      },
+      {
+        "to": "ring-teal.png",
+        "from": "marks/ring-teal.png"
+      },
+      {
+        "to": "plaque-own.png",
+        "from": "marks/plaque-own.png"
+      },
+      {
+        "to": "plaque-foe.png",
+        "from": "marks/plaque-foe.png"
+      },
+      {
+        "to": "shaft.png",
+        "from": "marks/shaft.png"
+      }
+    ],
+    "models": [
+      {
+        "to": "arena.glb",
+        "module": "diorama.js",
+        "export": "createDiorama",
+        "scale": 1,
+        "prefix": "arena",
+        "args": {
+          "part": "cast"
+        }
+      },
+      {
+        "to": "arena-soft.glb",
+        "module": "diorama.js",
+        "export": "createDiorama",
+        "scale": 1,
+        "prefix": "arena",
+        "args": {
+          "part": "soft"
+        }
+      }
+    ],
+    "sequences": []
+  },
+  "dur": 6,
+  "fps": 24,
+  "size": [
+    1920,
+    1080
+  ]
+}
