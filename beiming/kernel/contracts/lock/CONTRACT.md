@@ -84,10 +84,10 @@
 | 字段 | 类型 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|
 | `version` | 字符串 | 是 | 不空；`three` 的取值是 `0.187.0` | 帧源的版本，和这个帧源能力声明里的 `version` 是同一个值 |
-| `host` | 字符串 | 是 | 这个帧源的能力声明 `hosts` 里的一项；`three` 的取值 `待定：three 帧源的渲染器主干`，`core` 的取值 `待定：离屏宿主的定位` | 用哪个宿主 |
+| `host` | 字符串 | 是 | 这个帧源的能力声明 `hosts` 里的一项；`three` 用页面宿主，`core` 用离屏宿主（按倾向定，合作者不同意时再改） | 用哪个宿主 |
 | `image` | 字符串 | 是 | 哈希，写法见 5.1 | 运行环境镜像的哈希 |
 | `browser` | 字符串 | 否 | 不空 | 页面类宿主用的浏览器构建的标识 |
-| `scenePacks` | 对象 | 否 | `{ 镜头的 id: 哈希 }` | 只有 `core` 用：`source` 或 `renderer.source` 是 `core` 的每个镜头的场景包的哈希。`待定：离屏宿主的定位` |
+| `scenePacks` | 对象 | 否 | `{ 镜头的 id: 哈希 }` | 只有 `core` 用：`source` 或 `renderer.source` 是 `core` 的每个镜头的场景包的哈希（按倾向定，合作者不同意时再改） |
 
 ### 3.4 `cards` 的卡锁条目
 
@@ -143,17 +143,18 @@
 
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
-| LK1 | 片子描述里出现的每个全片级的键，它绑的卡必须在 `cards` 里并带着等于这个键的 `from`；`from` 是全片级的键的卡锁条目，卡名必须是那个键绑的卡。 | 键什么时候算出现、绑哪张卡，照 D 契约 3.6 的表。出现的键：`cards` 里有那张卡，`from` 等于这个键；键里写了 `card` 时，那张卡的 `version` 的第一段按整数等于 `card` 里的主版本。`cards` 里 `from` 是四个全片级的键之一的每一项：卡名等于表里 `from` 那一行的卡 | `LK1-global-key-not-expanded.json` |
-| LK2 | 有帧源落点的卡，`verified.host` 和 `verified.source` 必须等于 `sources` 里它的某一个落点帧源的 `host` 和 `version`。 | `cards` 里 `impl` 含 `source:<帧源名>` 的每一项：这些帧源名里至少有一个是 `sources` 的键，并且 `verified.host` 和那一项的 `host` 逐字符相同、`verified.source` 和那一项的 `version` 逐字符相同 | `LK2-verified-on-other-version.json` |
-| LK3 | `seeds` 必须有 `film` 和片子描述的每个镜头各一项，不得有别的键，片子描述里写了 `seed` 的镜头两处必须相等。 | `seeds` 的键的集合等于 `film` 加上 `shots` 里全部的 `id`；`shots[i].seed` 出现时等于 `seeds[shots[i].id]` | `LK3-shot-seed-missing.json` |
-| LK4 | 每个镜头的 `source` 和 `renderer.source` 都必须在 `sources` 里，镜头的 `host` 和 `renderer.host` 必须等于各自那一项的 `host`。 | 逐个镜头比；没写 `renderer` 的镜头只比 `source` 和 `host` | `LK4-shot-host-not-locked.json` |
+| LK1 | 片子描述里出现的每个全片级的键，它绑的卡必须在 `cards` 里并带着等于这个键的 `from`；`from` 是全片级的键的卡锁条目，卡名必须是那个键绑的卡；片子描述里没出现的全片级的键，`cards` 里不得有 `from` 是它的项。 | 键什么时候算出现、绑哪张卡，照 D 契约 3.6 的表。出现的键：`cards` 里有那张卡，`from` 等于这个键；键里写了 `card` 时，那张卡的 `version` 的第一段按整数等于 `card` 里的主版本。`cards` 里 `from` 是四个全片级的键之一的每一项：卡名等于表里 `from` 那一行的卡，并且 `from` 写的那个键在片子描述里算出现 | `LK1-global-key-not-expanded.json`、`LK1-global-key-card-missing.json`、`LK1-card-major-differs.json`、`LK1-from-on-wrong-card.json`、`LK1-absent-key-card-left.json` |
+| LK2 | 有帧源落点的卡，`verified.host` 和 `verified.source` 必须等于 `sources` 里它的某一个落点帧源的 `host` 和 `version`。 | `cards` 里 `impl` 含 `source:<帧源名>` 的每一项：它的落点帧源名里存在一个 X，X 是 `sources` 的键，并且 `verified.host`、`verified.source` 分别和 `sources[X].host`、`sources[X].version` 逐字符相同 | `LK2-verified-on-other-version.json` |
+| LK3 | `seeds` 必须有 `film` 和片子描述的每个镜头各一项，不得有别的键，片子描述里写了 `seed` 的镜头两处必须相等。 | `seeds` 的键的集合等于 `film` 加上 `shots` 里全部的 `id`；`shots[i].seed` 出现时等于 `seeds[shots[i].id]` | `LK3-shot-seed-missing.json`、`LK3-extra-seed-key.json`、`LK3-shot-seed-differs.json` |
+| LK4 | 每个镜头的 `source` 和 `renderer.source` 都必须在 `sources` 里，镜头的 `host` 和 `renderer.host` 必须等于各自那一项的 `host`。 | 逐个镜头比；没写 `renderer` 的镜头只比 `source` 和 `host` | `LK4-shot-host-not-locked.json`、`LK4-shot-source-not-locked.json`、`LK4-renderer-source-not-locked.json`、`LK4-renderer-host-not-locked.json` |
 | LK5 | 三张内建卡必须都在 `cards` 里。 | `cards` 有 `time.timeline`、`time.events`、`time.seeded` 三个键 | `LK5-builtin-card-missing.json` |
 | LK6 | 每帧元数据的出帧者必须是 `sources` 的键，元数据里的宿主和版本必须等于那一项的 `host` 和 `version`。 | `renders` 每一项：`sources` 有 `renderer` 这个键；`host`、`version` 和 `sources[renderer]` 的逐字符相同 | `LK6-rendered-by-other-version.json` |
 | LK7 | `film` 必须等于片子描述的 `id`。 | 逐字符比 | `LK7-lock-of-another-film.json` |
 | LK8 | `predicates.base` 引用的最低谓词和每个模板都必须在 `templates` 里，版本的第一段必须等于引用里的主版本。 | `predicates.base` 每一项去掉 `template:` 前缀、拆成名字和主版本：`templates` 有这个名字，它的值的第一段按整数等于主版本 | `LK8-template-not-locked.json` |
 | LK9 | 片子描述的 `style.view.scene` 必须是 `view` 的键。 | 逐字符比 | `LK9-view-lut-not-locked.json` |
-| LK10 | 片子描述的 `overlays` 不空时，`cards` 里必须有 `two-d.overlay`，它的 `from` 必须是 `overlays`，版本的第一段必须是 1；`from` 是 `overlays` 的卡锁条目，卡名必须是 `two-d.overlay`。 | 片子描述有 `overlays` 并且至少 1 项时查前半句；`cards` 里每个 `from` 是 `overlays` 的项查后半句 | `LK10-overlay-card-missing.json` |
-| LK11 | `shots` 必须有片子描述的每个镜头各一项，不得有别的键，片子描述里写了 `shutter.samples` 的镜头两处必须相等。 | `shots` 的键的集合等于片子描述 `shots` 里全部的 `id`；`shots[i].shutter.samples` 出现时等于锁文件 `shots[shots[i].id].shutterSamples` | `LK11-shutter-samples-differ.json` |
+| LK10 | 片子描述的 `overlays` 不空时，`cards` 里必须有 `two-d.overlay`，它的 `from` 必须是 `overlays`，版本的第一段必须是 1；`from` 是 `overlays` 的卡锁条目，卡名必须是 `two-d.overlay`；片子描述的 `overlays` 没出现或是空数组时，`cards` 里不得有 `from` 是 `overlays` 的项。 | 片子描述有 `overlays` 并且至少 1 项时查第一句；`cards` 里每个 `from` 是 `overlays` 的项查第二句；片子描述没有 `overlays` 或它是空数组时，`cards` 里 `from` 是 `overlays` 的项数必须是 0 | `LK10-overlay-card-missing.json`、`LK10-overlay-card-without-from.json`、`LK10-overlay-card-major-not-1.json`、`LK10-from-on-wrong-card.json`、`LK10-no-overlays-card-left.json` |
+| LK11 | `shots` 必须有片子描述的每个镜头各一项，不得有别的键，片子描述里写了 `shutter.samples` 的镜头两处必须相等。 | `shots` 的键的集合等于片子描述 `shots` 里全部的 `id`；`shots[i].shutter.samples` 出现时等于锁文件 `shots[shots[i].id].shutterSamples` | `LK11-shutter-samples-differ.json`、`LK11-shot-entry-missing.json`、`LK11-extra-shot-entry.json` |
+| LK12 | 片子描述里没写 `seed` 的镜头，`seeds` 里它那一项必须等于照 5.7 用 `seeds.film` 和这个镜头的 `id` 派生出来的值。 | `shots[i].seed` 没出现、并且 `seeds` 有 `shots[i].id` 这个键时：`seeds[shots[i].id]` 等于 5.7 的算式用 `seeds.film` 和 `shots[i].id` 算出来的整数。`seeds` 里缺这个键归 LK3 | `LK12-derived-seed-wrong.json` |
 
 ## 5. 口径
 
@@ -174,6 +175,8 @@
 
 片子描述的 `overlays` 不空时，往 `cards` 里放 `two-d.overlay`，`from` 写 `overlays`，锁的版本的第一段是 1：宿主展开叠加层用的是 `two-d.overlay@1`，见 D 契约 5.11。
 
+片子描述里没出现的全片级的键，`cards` 里不得有 `from` 是它的项；片子描述没有叠加层时，`cards` 里不得有 `from` 是 `overlays` 的项（LK1、LK10）。
+
 ### 5.4 验证状态
 
 - 四级从低到高：`read`、`reproduced`、`measured`、`film-verified`。
@@ -190,14 +193,14 @@
 
 ### 5.7 镜头种子怎么派生
 
-全片种子只用来派生镜头种子。片子描述里写了 `seed` 的镜头，镜头种子就是那个值。没写的：镜头种子 = 全片种子和镜头 `id` 的 SHA-256 的前 4 个字节按大端读成的无符号 32 位整数。被哈希的串是十进制写法的全片种子、一个 `:`、镜头的 `id`，UTF-8 编码。例：全片种子 7800、镜头 `s01`，被哈希的串是 `7800:s01`，镜头种子是 2013376959。
+全片种子只用来派生镜头种子。片子描述里写了 `seed` 的镜头，镜头种子就是那个值。没写的：镜头种子 = 全片种子和镜头 `id` 的 SHA-256 的前 4 个字节按大端读成的无符号 32 位整数。被哈希的串是十进制写法的全片种子、一个 `:`、镜头的 `id`，UTF-8 编码。例：全片种子 7800、镜头 `s01`，被哈希的串是 `7800:s01`，镜头种子是 2013376959。没写 `seed` 的镜头，锁里的镜头种子对不对由 LK12 判。
 
 ## 6. 待定
 
 | 项 | 现在怎么写 | 等什么 |
 |---|---|---|
-| `sources.three.host` | 例子用 `page`，是示意 | `待定：three 帧源的渲染器主干` |
-| `sources.core.host`、`sources.core.scenePacks` | 【起草者补】需求来源只说用核心帧源的镜头「另记核心的版本和场景包的哈希」，没给键名。版本记在 `sources.core.version`，场景包的哈希记在 `scenePacks` | `待定：离屏宿主的定位` |
+| `sources.three.host` | three 帧源的渲染器主干过渡期用 WebGL 加 GLSL，宿主照旧是页面宿主；例子用 `page` | 按倾向定，合作者不同意时再改 |
+| `sources.core.host`、`sources.core.scenePacks` | 【起草者补】需求来源只说用核心帧源的镜头「另记核心的版本和场景包的哈希」，没给键名。版本记在 `sources.core.version`，场景包的哈希记在 `scenePacks`。离屏宿主是核心帧源的出片宿主，`sources.core.host` 写离屏宿主；例子用 `offscreen` | 按倾向定，合作者不同意时再改 |
 | `verified.level` 的四个词 | 需求来源用中文词当值；标识符要用 ASCII。【起草者补】`read`、`reproduced`、`measured`、`film-verified` | 集成负责人确认 |
 | `verified.gpu` 没用显卡时 | 需求来源写「无」。【起草者补】写 `none` | 集成负责人确认 |
 | `verified.gpu` 和 `machine` 怎么对 | 不定：`machine` 里没有显卡型号的字段，LK2 只比宿主和版本 | 集成负责人定 |
@@ -209,7 +212,7 @@
 | 验证状态各级的条件、查卡时默认查到哪一级 | 不归本契约 | 卡文件格式契约（CF） |
 | `machine.class`、`machine.driver` 的取值 | 例子里是示意 | 出片机器登记时定 |
 | 换机器类别要不要重新生成锁 | 不定 | 集成负责人定 |
-| 例子里的哈希、版本、种子 | 示意值，不是真算出来的 | 有真实产物后换 |
+| 例子里的哈希、版本、种子 | 示意值，不是真算出来的；没写 `seed` 的镜头的镜头种子除外，它们是照 5.7 算出来的 | 有真实产物后换 |
 | 一张卡有几个帧源落点时的验证状态 | `verified` 只有一组宿主和版本。【起草者补】LK2 判成「至少对上一个锁在 `sources` 里的落点帧源」 | 集成负责人定：`verified` 要不要按落点分开记 |
 | `shots` 里哪些镜头有条目 | 【起草者补】每个镜头都有；片子描述里写了 `shutter.samples` 的照抄 | 集成负责人确认 |
 | `two-d.overlay` 同时被镜头直接引用 | 不定：`cards` 按卡名记一项，`from` 只能写一个 | 集成负责人定 |
@@ -222,3 +225,4 @@
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | LK1、LK2、LK4 的条文或判法；新加 LK10、LK11；3.1 到 3.4、3.6、5.1、5.3 到 5.7；第 2、6 节 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 5.7、第 6 节；例子里派生出来的镜头种子照 5.7 重算；结构定义里 `ext.<名字>` 的正则 | 修订后的对齐收尾 |
+| 2026-11-19 | LK1、LK10 各加半句和判法；LK2 的「怎么查」；新加 LK12；LK1、LK3、LK4、LK10、LK11 补反例；3.3、5.3、5.7、第 6 节 | 键没出现时留在 `cards` 里的项、没写 `seed` 的镜头的种子原来没有条文管；LK2 的查法能读成两种；两个待定按倾向定下来 |

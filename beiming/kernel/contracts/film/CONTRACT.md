@@ -102,7 +102,7 @@
 | `in` | 整数 | 帧 | 是 | ≥ 0 | 镜头区间的起点，全片帧号 |
 | `out` | 整数 | 帧 | 是 | ≥ 1 | 镜头区间的终点，全片帧号，不含 |
 | `source` | 字符串 | 无 | 是 | 帧源名，见 F 契约 3.1 | 哪个帧源渲。写了 `renderer` 时，`source`、`host`、`mode`、`entry` 这一套留作对照，不参与这次出片 |
-| `host` | 字符串 | 无 | 是 | 这个帧源的能力声明 `hosts` 里的一项；`three` 的取值 `待定：three 帧源的渲染器主干`，`core` 的取值 `待定：离屏宿主的定位` | 哪个宿主 |
+| `host` | 字符串 | 无 | 是 | 这个帧源的能力声明 `hosts` 里的一项，登记表见 F 契约 3.4；`three`、`core` 两个帧源下的取值按倾向定，合作者不同意时再改（见第 6 节） | 哪个宿主 |
 | `mode` | 字符串 | 无 | 是 | `cards-data`、`build-script`、`native-code` | 作者模式。三个词各是什么，见 F 契约 3.4 |
 | `entry` | 字符串 | 无 | 见 D12、D17 | 相对路径，写法照通用口径 | 入口文件。`build-script` 和 `native-code` 必填，`cards-data` 不得出现；`source` 是 `ext.<名字>` 的镜头不得出现。片子描述里只有这一处可以写文件路径 |
 | `colorRef` | 字符串 | 无 | 是 | `scene`、`display` | 场景参考镜头，还是显示参考镜头 |
@@ -353,7 +353,7 @@
 | `use` | 字符串 | 是 | `diagnostic.at`、`fix.path`、`explain.path`、`patch.path` | 这条路径出现在哪里：诊断的 `at`、修法的 `path`、`explain` 的 `path`、补丁的路径 |
 | `path` | 字符串 | 是 | 不空 | 路径的原文 |
 
-`writes[]`：一次写入请求和服务器的处理。
+`writes[]`：一次写入请求和服务器的处理。只记片子创建之后的写入，创建片子的那一次不记进来。
 
 | 字段 | 类型 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|
@@ -369,24 +369,24 @@
 
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
-| D1 | 镜头区间必须是半开的整数帧区间，按 `shots` 的书写顺序首尾相接，从第 0 帧起，到 `output.frames` 止；余量帧不计入 `in`、`out`。 | 第一个镜头的 `in` 等于 0；每个镜头 `in` < `out`；每个镜头的 `in` 等于前一个的 `out`；最后一个的 `out` 等于 `output.frames`。有没有 `handles` 都这样比 | `D1-shots-end-early.json` |
-| D2 | 时刻算式和指向镜头的字段只能引用已定义的镜头、切点和事件，事件之间的引用不得成环。 | `events[].shot`、`overlays[].shot`、`style.colorScript` 的键都必须是 `shots` 里的 `id`；`events[].frame`、`overlays[].in`、`overlays[].out`、`audio.narration[].at` 是算式时，`cut(N)` 的 N 必须是切点，`event(x)` 的 x 必须是 `events` 里的 `id`，并且照 5.3 展开时不回到自己 | `D2-event-refers-undefined.json` |
-| D3 | 镜头引用的每张卡、片子描述里的每个资产都必须能在锁文件里找到版本和哈希。 | `shots[].cards` 每一项的 `use`：锁文件 `cards` 里有这个卡名，它的 `version` 的第一段等于引用里的主版本。`shots[].assets` 和全片 `assets` 的每个值：是锁文件 `assets` 的键 | `D3-card-missing-in-lock.json` |
+| D1 | 镜头区间必须是半开的整数帧区间，按 `shots` 的书写顺序首尾相接，从第 0 帧起，到 `output.frames` 止；余量帧不计入 `in`、`out`。 | 第一个镜头的 `in` 等于 0；每个镜头 `in` < `out`；每个镜头的 `in` 等于前一个的 `out`；最后一个的 `out` 等于 `output.frames`。有没有 `handles` 都这样比 | `D1-shots-end-early.json`、`D1-first-shot-not-at-zero.json`、`D1-shot-empty.json`、`D1-shots-overlap.json` |
+| D2 | 时刻算式和指向镜头的字段只能引用已定义的镜头、切点和事件，事件之间的引用不得成环。 | `events[].shot`、`overlays[].shot`、`style.colorScript` 的键都必须是 `shots` 里的 `id`；`events[].frame`、`overlays[].in`、`overlays[].out`、`audio.narration[].at` 是算式时，`cut(N)` 的 N 必须是切点，`event(x)` 的 x 必须是 `events` 里的 `id`，并且照 5.3 展开时不回到自己 | `D2-event-refers-undefined.json`、`D2-event-cycle.json` |
+| D3 | 镜头引用的每张卡、片子描述里的每个资产都必须能在锁文件里找到版本和哈希。 | `shots[].cards` 每一项的 `use`：锁文件 `cards` 里有这个卡名，它的 `version` 的第一段等于引用里的主版本。`shots[].assets` 和全片 `assets` 的每个值：是锁文件 `assets` 的键 | `D3-card-missing-in-lock.json`、`D3-card-major-mismatch.json`、`D3-shot-asset-missing-in-lock.json`、`D3-film-asset-missing-in-lock.json` |
 | D4 | 锁文件必须由服务器生成，同一个修订号的锁文件必须逐位相同。 | `locks` 每项的 `writer` 必须是 `server`；`rev` 相同的项 `digest` 必须逐位相同 | `D4-lock-changed-same-rev.json` |
-| D5 | 路径必须照 5.4 的唯一写法写，数组里的项必须按 `id` 或实例名寻址，不得按下标。 | `paths[].path`、`writes[].path`、`explains[].path` 每一条：符合 5.4 的文法；`shots`、`transitions`、`events`、`overlays`、`audio/narration` 后面那一段必须是 `film` 里对应数组某一项的 `id`；`shots/<镜头的 id>/cards` 后面那一段必须是那个镜头 `cards` 里某一项的 `as` | `D5-path-by-index.json` |
+| D5 | 路径必须照 5.4 的唯一写法写，数组里的项必须按 `id` 或实例名寻址，不得按下标。 | `paths[].path`、`writes[].path`、`explains[].path` 每一条：符合 5.4 的文法；`shots`、`transitions`、`events`、`overlays`、`audio/narration` 后面那一段必须是 `film` 里对应数组某一项的 `id`；`shots/<镜头的 id>/cards` 后面那一段必须是那个镜头 `cards` 里某一项的 `as` | `D5-path-by-index.json`、`D5-path-into-base-array.json` |
 | D6 | 每次写入必须带上读到的修订号，它和服务器当前的修订号不同时必须拒绝，错误码是 `busy.rev-conflict`，并交回最新的修订号。 | `writes` 每一项：`rev` 不等于 `serverRev` 时，`outcome` 必须是 `rejected`，`code` 必须是 `busy.rev-conflict`，`latestRev` 必须出现并等于 `serverRev` | `D6-stale-write-accepted.json` |
-| D7 | `predicates.base` 只有服务器能写，别人的写入必须拒绝，错误码是 `auth.base-readonly`。 | `writes` 里 `by` 是 `agent`、`path` 是 `predicates/base` 或以 `predicates/base/` 开头、`rev` 等于 `serverRev` 的项：`outcome` 必须是 `rejected`，`code` 必须是 `auth.base-readonly`。`rev` 不等于 `serverRev` 的归 D6 | `D7-agent-writes-base.json` |
-| D8 | 全片级的键绑的四张卡不得出现在 `shots[].cards` 里，键里写了 `card` 时卡名必须是这个键绑的那张。 | `shots[].cards` 每一项的 `use` 的卡名不得是 `comp.display`、`comp.finish`、`deliver.encode`、`audio.master`；`style.view`、`style.finish`、`delivery`、`audio` 里的 `card` 的卡名必须等于 3.6 那张表里同一行的卡 | `D8-global-card-in-shot.json` |
+| D7 | `predicates.base` 只有服务器能写，别人的写入必须拒绝，错误码是 `auth.base-readonly`。 | `writes` 里 `by` 是 `agent`、`path` 正好是 `predicates/base`、`rev` 等于 `serverRev` 的项：`outcome` 必须是 `rejected`，`code` 必须是 `auth.base-readonly`。`rev` 不等于 `serverRev` 的归 D6。以 `predicates/base/` 开头的路径照 5.4 不合法，归 D5，这里不判 | `D7-agent-writes-base.json` |
+| D8 | 全片级的键绑的四张卡不得出现在 `shots[].cards` 里，键里写了 `card` 时卡名必须是这个键绑的那张。 | `shots[].cards` 每一项的 `use` 的卡名不得是 `comp.display`、`comp.finish`、`deliver.encode`、`audio.master`；`style.view`、`style.finish`、`delivery`、`audio` 里的 `card` 的卡名必须等于 3.6 那张表里同一行的卡 | `D8-global-card-in-shot.json`、`D8-key-card-mismatch.json` |
 | D9 | `Explain` 的 `layers` 必须按 `card-default`、`template`、`film`、`job` 从弱到强排，`value` 必须等于最后一个带 `value` 的层的 `value`。 | `explains` 每一项：`layers` 各项的层在 5.8 的次序里不降；至少有一项带 `value`；顶层的 `value` 和最后一个带 `value` 的项逐值相等 | `D9-explain-weaker-layer-wins.json` |
-| D10 | `shots`、`transitions`、`events`、`overlays`、`audio.narration` 各自数组里的 `id` 不得重复。 | 五个数组各自比：没有两项的 `id` 逐字符相同 | `D10-duplicate-event-id.json` |
-| D11 | 镜头的 `host` 和 `mode` 必须在它的帧源的能力声明里，`renderer` 里的那一套同样。 | 查 F 契约 3.4 的登记表：`host` 是 `source` 这个帧源 `hosts` 的一项，`mode` 是它 `modes` 的一项；`renderer` 出现时，`renderer.host`、`renderer.mode` 对 `renderer.source` 再比一遍。登记表里取值还是待定的格子不判，登记表里没有的帧源（`legacy-page`、`ext.<名字>`）不判 | `D11-host-not-of-source.json` |
-| D12 | `source` 不是 `ext.<名字>` 的镜头，`mode` 是 `build-script` 或 `native-code` 的必须有 `entry`，`mode` 是 `cards-data` 的不得有 `entry`；`renderer` 里的那一套同样。 | 逐个镜头比 `mode` 和 `entry` 出没出现；`renderer` 出现并且 `renderer.source` 不是 `ext.<名字>` 时，对 `renderer.mode` 和 `renderer.entry` 再比一遍 | `D12-native-code-without-entry.json` |
-| D13 | 事件和旁白展开后的帧号必须落在 `[0, output.frames)` 内，写了 `shot` 的事件还必须落在那个镜头的区间内；叠加层展开后必须 `in` < `out`，并且 `[in, out)` 落在它的镜头的区间内。 | 照 5.3 把 `events[].frame`、`overlays[].in`、`overlays[].out`、`audio.narration[].at` 展开成整数再比。事件和旁白：0 ≤ 帧号 < `output.frames`；事件有 `shot` 时镜头的 `in` ≤ 帧号 < 镜头的 `out`。叠加层：镜头的 `in` ≤ `in` < `out` ≤ 镜头的 `out`。算式引用了没定义的东西、展开不了的，归 D2，这里不判 | `D13-event-outside-shot.json` |
+| D10 | `shots`、`transitions`、`events`、`overlays`、`audio.narration` 各自数组里的 `id` 不得重复。 | 五个数组各自比：没有两项的 `id` 逐字符相同 | `D10-duplicate-event-id.json`、`D10-duplicate-overlay-id.json` |
+| D11 | 镜头的 `host` 和 `mode` 必须在它的帧源的能力声明里，`renderer` 里的那一套同样。 | 查 F 契约 3.4 的登记表：`host` 是 `source` 这个帧源 `hosts` 的一项，`mode` 是它 `modes` 的一项；`renderer` 出现时，`renderer.host`、`renderer.mode` 对 `renderer.source` 再比一遍。登记表的格子里列出了值的，照列出的值判，带不带待定的注都一样；一个值都没列的格子不判；登记表里没有的帧源（`legacy-page`、`ext.<名字>`）不判 | `D11-host-not-of-source.json`、`D11-core-host-not-listed.json` |
+| D12 | `source` 不是 `ext.<名字>` 的镜头，`mode` 是 `build-script` 或 `native-code` 的必须有 `entry`，`mode` 是 `cards-data` 的不得有 `entry`；`renderer` 里的那一套同样。 | 逐个镜头比 `mode` 和 `entry` 出没出现；`renderer` 出现并且 `renderer.source` 不是 `ext.<名字>` 时，对 `renderer.mode` 和 `renderer.entry` 再比一遍 | `D12-native-code-without-entry.json`、`D12-build-script-without-entry.json`、`D12-cards-data-with-entry.json`、`D12-renderer-without-entry.json`、`D12-renderer-cards-data-with-entry.json` |
+| D13 | 事件和旁白展开后的帧号必须落在 `[0, output.frames)` 内，写了 `shot` 的事件还必须落在那个镜头的区间内；叠加层展开后必须 `in` < `out`，并且 `[in, out)` 落在它的镜头的区间内。 | 照 5.3 把 `events[].frame`、`overlays[].in`、`overlays[].out`、`audio.narration[].at` 展开成整数再比。事件和旁白：0 ≤ 帧号 < `output.frames`；事件有 `shot` 时镜头的 `in` ≤ 帧号 < 镜头的 `out`。叠加层：镜头的 `in` ≤ `in` < `out` ≤ 镜头的 `out`。算式引用了没定义的东西、展开不了的，归 D2，这里不判 | `D13-event-outside-shot.json`、`D13-event-past-end.json`、`D13-narration-past-end.json`、`D13-overlay-empty.json`、`D13-overlay-outside-shot.json` |
 | D14 | `transitions[].at` 必须是切点，一个切点最多写一项。 | `transitions` 每项的 `at` 等于某个非首镜头的 `in`；没有两项的 `at` 相等 | `D14-transition-off-cut.json` |
-| D15 | `id` 和 `exam` 在片子创建之后不得改，对它们的写入必须拒绝，错误码是 `contract.immutable-key`。 | `writes` 里 `path` 是 `id` 或 `exam`、`rev` 等于 `serverRev` 的项：`outcome` 必须是 `rejected`，`code` 必须是 `contract.immutable-key`。`rev` 不等于 `serverRev` 的归 D6 | `D15-exam-changed.json` |
+| D15 | `id` 和 `exam` 在片子创建之后任何一方（含服务器）都不得改，对它们的写入必须拒绝，错误码是 `contract.immutable-key`。 | `writes` 里 `path` 是 `id` 或 `exam`、`rev` 等于 `serverRev` 的项，不看 `by` 是谁：`outcome` 必须是 `rejected`，`code` 必须是 `contract.immutable-key`。`rev` 不等于 `serverRev` 的归 D6。`writes` 记的是片子创建之后的写入，创建那一次不算（见 3.8） | `D15-exam-changed.json`、`D15-server-changes-id.json` |
 | D16 | 片子描述里指向文件的值必须是这个镜头或全片 `assets` 里的别名，不得是路径；`entry` 是唯一的例外。 | `audio.narration[].asset` 必须是全片 `assets` 的键；`source` 是 `ext.<名字>` 的镜头的 `params.piece`、卡参数里类型是 `asset` 的值（类型见 CF 契约 3.3）必须照 5.5 找得到别名。卡参数的类型要有卡文件才判得了，手里没有卡文件时只判前两样 | `D16-narration-asset-undefined.json` |
 | D17 | `source` 是 `ext.<名字>` 的镜头，`mode` 必须是 `native-code`，不得有 `entry`，必须有 `params.piece`。 | 逐个镜头比。`params.piece` 是不是资产别名归 D16 | `D17-ext-shot-with-entry.json` |
-| D18 | 一个镜头里，`cards` 各项的 `as` 和贴在这个镜头上的叠加层的 `id` 合在一起不得重复。 | 逐个镜头：把 `cards[].as` 和 `shot` 等于这个镜头的 `overlays[].id` 放在一起，没有两个逐字符相同；每个 `overlays[].id` 不带连字符 | `D18-duplicate-instance-name.json` |
+| D18 | 一个镜头里，`cards` 各项的 `as` 互相不得重复，也不得和贴在这个镜头上的叠加层的 `id` 重复。 | 逐个镜头：`cards[].as` 里没有两个逐字符相同；`shot` 等于这个镜头的每个 `overlays[].id` 不和这个镜头任何一个 `cards[].as` 逐字符相同。叠加层和叠加层之间的重复归 D10，这里不比。每个 `overlays[].id` 不带连字符 | `D18-duplicate-instance-name.json`、`D18-overlay-id-equals-card-as.json` |
 | D19 | `deliberate` 的每一项必须 `in` < `out`，并且 `[in, out)` 落在它的镜头的区间内。 | 镜头的 `in` ≤ 这一项的 `in` < 这一项的 `out` ≤ 镜头的 `out` | `D19-deliberate-outside-shot.json` |
 
 ## 5. 口径
@@ -480,8 +480,8 @@
 
 | 项 | 现在怎么写 | 等什么 |
 |---|---|---|
-| `shots[].host` 在 `three` 下的取值 | 例子用 `page`，是示意 | `待定：three 帧源的渲染器主干` |
-| `shots[].host` 在 `core` 下的取值 | 两处说法：一处说 `core` 配 `dawn`，F 契约的登记表写 `offscreen`、`headless-page`。本契约只引用 F 契约的登记表 | `待定：离屏宿主的定位` |
+| `shots[].host` 在 `three` 下的取值 | 例子用 `page`，是示意 | 按倾向定，合作者不同意时再改 |
+| `shots[].host` 在 `core` 下的取值 | 两处说法：一处说 `core` 配 `dawn`，F 契约的登记表写 `offscreen`、`headless-page`。本契约只引用 F 契约的登记表 | 按倾向定，合作者不同意时再改 |
 | `title` 必不必填 | 【起草者补】不必填 | 集成负责人确认 |
 | `style.view` 的 `scene`、`display` | 【起草者补】两个都必填，不看片子里有没有那一类镜头 | 集成负责人确认 |
 | `delivery` 的 `web`、`contact` | 【起草者补】可以不出现，不出现等于不出 | 集成负责人确认 |
@@ -526,3 +526,4 @@
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | D2、D3、D5、D7、D8、D10 到 D13、D15 的条文或判法；新加 D16 到 D19；3.1 到 3.5、3.7、3.8、5.1、5.3 到 5.6、5.8、5.11；第 2、6 节 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 3.4 的 `overlays[].id`、3.8 的 `locks[].digest` 说明、D18 的判法、5.1、第 6 节；结构定义里叠加层 `id` 的正则和 `ext.<名字>` 的正则 | 修订后的对齐收尾 |
+| 2026-11-19 | D7、D11、D15、D18 的条文或判法；D1、D2、D3、D5、D8、D10 到 D13、D15、D18 补反例；3.3 的 `host`、3.8 的 `writes[]`；第 6 节 `shots[].host` 两行 | 判定函数落地后发现的问题照处理结果改：一种坏法只归一条，条文的每一支配一个反例，两处待定按倾向定 |

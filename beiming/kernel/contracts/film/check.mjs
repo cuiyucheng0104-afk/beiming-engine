@@ -11,10 +11,11 @@ const TERMINAL_ARRAYS = [
   /^style\/colorScript\/[^/]+\/key$/, /^delivery\/layers$/, /^output\/size$/,
 ];
 const TOP_FIELDS = ['format', 'id', 'title', 'exam', 'output', 'timeline', 'assets', 'shots', 'transitions', 'events', 'overlays', 'style', 'audio', 'predicates', 'delivery'];
-// F 契约 3.4 的登记表；null 是取值还待定的格子，不判
+// 抄自帧源接口契约（F）3.4 的登记表，名单以那里为准。格子里列出了值的照列出的值判（带不带待定的注都一样）；
+// null 是一个值都没列的格子，不判
 const REGISTRY = {
   blender: { hosts: ['cycles'], modes: ['cards-data', 'build-script', 'native-code'] },
-  three: { hosts: null, modes: ['cards-data', 'build-script', 'native-code'] },
+  three: { hosts: ['page'], modes: ['cards-data', 'build-script', 'native-code'] },
   core: { hosts: ['offscreen', 'headless-page'], modes: ['cards-data', 'build-script'] },
 };
 const EXPR = /^(?:cut\((0|[1-9]\d*)\)|event\(([a-z][a-z0-9-]*)\))(?: ([+-]) ([1-9]\d*))?$/;
@@ -119,8 +120,8 @@ const mustReject = (writes, match, code) => (writes ?? [])
 
 /** 一套 source/host/mode/entry 的 D11、D12 判法 */
 function capsProblems(who, set) {
+  if (!Object.hasOwn(REGISTRY, set.source)) return []; // 登记表里没有的帧源不判
   const reg = REGISTRY[set.source];
-  if (!reg) return [];
   return [
     ...(reg.hosts && !reg.hosts.includes(set.host) ? [`${who} 的宿主 ${set.host} 不在帧源 ${set.source} 的 hosts 里`] : []),
     ...(reg.modes.includes(set.mode) ? [] : [`${who} 的作者模式 ${set.mode} 不在帧源 ${set.source} 的 modes 里`]),
@@ -237,11 +238,16 @@ const filmChecks = {
     ...(s.params?.piece === undefined ? [`镜头 ${s.id} 的帧源是 ${s.source}，缺 params.piece`] : []),
   ]),
 
+  // 叠加层和叠加层之间的重复归 D10，这里只比卡实例和卡实例、叠加层和卡实例
   D18: (film) => [
-    ...film.shots.flatMap((s) => dupes([
-      ...(s.cards ?? []).map((c) => c.as),
-      ...(film.overlays ?? []).filter((o) => o.shot === s.id).map((o) => o.id),
-    ]).map((n) => `镜头 ${s.id} 里实例名 ${n} 不止一个`)),
+    ...film.shots.flatMap((s) => {
+      const as = (s.cards ?? []).map((c) => c.as);
+      const overlayIds = [...new Set((film.overlays ?? []).filter((o) => o.shot === s.id).map((o) => o.id))];
+      return [
+        ...dupes(as).map((n) => `镜头 ${s.id} 的 cards 里实例名 ${n} 不止一个`),
+        ...overlayIds.filter((id) => as.includes(id)).map((id) => `贴在镜头 ${s.id} 上的叠加层 ${id} 和这个镜头 cards 里的实例名相同`),
+      ];
+    }),
     ...(film.overlays ?? []).filter((o) => o.id.includes('-')).map((o) => `叠加层 ${o.id} 的 id 带连字符`),
   ],
 
@@ -259,11 +265,11 @@ const recordChecks = {
       ...rec.film.shots.flatMap((s) => (s.cards ?? []).flatMap((c) => {
         const name = cardName(c.use);
         const major = Number(c.use.slice(c.use.lastIndexOf('@') + 1));
-        if (!(name in cards)) return [`镜头 ${s.id} 的 ${c.use} 在锁文件 cards 里没有`];
+        if (!Object.hasOwn(cards, name)) return [`镜头 ${s.id} 的 ${c.use} 在锁文件 cards 里没有`];
         return Number(cards[name].version.split('.')[0]) === major ? [] : [`镜头 ${s.id} 的 ${c.use} 和锁文件的版本 ${cards[name].version} 主版本不同`];
       })),
       ...[...rec.film.shots.flatMap((s) => Object.values(s.assets ?? {})), ...Object.values(rec.film.assets ?? {})]
-        .filter((ref) => !(ref in assets)).map((ref) => `资产 ${ref} 在锁文件 assets 里没有`),
+        .filter((ref) => !Object.hasOwn(assets, ref)).map((ref) => `资产 ${ref} 在锁文件 assets 里没有`),
     ];
   },
 
@@ -286,10 +292,12 @@ const recordChecks = {
     .filter((w) => w.outcome !== 'rejected' || w.code !== 'busy.rev-conflict' || w.latestRev !== w.serverRev)
     .map((w) => `对 ${w.path} 的写入带修订号 ${w.rev}，服务器是 ${w.serverRev}，结果是 ${w.outcome}${w.code ? `（${w.code}）` : ''}，latestRev 是 ${w.latestRev}`),
 
-  D7: (rec) => mustReject(rec.writes, (w) => w.by === 'agent' && (w.path === 'predicates/base' || w.path.startsWith('predicates/base/')), 'auth.base-readonly'),
+  // predicates/base/ 开头的路径不合 5.4（寻址到了数组里的项），归 D5，这里不判
+  D7: (rec) => mustReject(rec.writes, (w) => w.by === 'agent' && w.path === 'predicates/base', 'auth.base-readonly'),
 
   D9: (rec) => (rec.explains ?? []).flatMap(explainProblems),
 
+  // 不看 by：服务器也不得改。writes 只记片子创建之后的写入
   D15: (rec) => mustReject(rec.writes, (w) => w.path === 'id' || w.path === 'exam', 'contract.immutable-key'),
 };
 

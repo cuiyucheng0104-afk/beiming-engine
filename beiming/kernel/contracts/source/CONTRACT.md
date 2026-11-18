@@ -64,7 +64,7 @@
 | `three` | three 帧源 |
 | `core` | 核心帧源 |
 | `legacy-page` | 本仓库 `sources/legacy-page` 里的旧页面作品，不交完整元数据 |
-| `ext.<名字>` | 私有外部插件；`<名字>` 是小写字母、数字、连字符 |
+| `ext.<名字>` | 私有外部插件；`<名字>` 只含小写字母、数字、连字符，首字符必须是小写字母或数字 |
 
 别的契约里出现「帧源名」，值域都是这一张表。
 
@@ -193,7 +193,7 @@
 |---|---|---|---|
 | `version` | Blender 的版本号 | `0.187.0` | 锁文件锁定的提交号 |
 | `language` | `python` | `js` | `wgsl` |
-| `hosts` | `cycles` | `待定：three 帧源的渲染器主干` | `offscreen`（`待定：离屏宿主的定位`）、`headless-page` |
+| `hosts` | `cycles` | `page`（按倾向定，合作者不同意时再改） | `offscreen`（按倾向定，合作者不同意时再改）、`headless-page` |
 | `conformance` | `full` | `full` | `full` |
 | `outputs.color.type` | `half` | `half` | `f32` |
 | `outputs.depth` | `f32` | `f32` | `f32` |
@@ -205,7 +205,7 @@
 | `motionBlur.mode` | `native` | `accumulate` | `native` |
 | `motionBlur.auxAt` | `sub0` | `sub0` | `sub0` |
 | `motionBlur.conflicts` | `motion` | 不出现 | 不出现 |
-| `determinism` | `tolerance` | `待探针：three 帧源同机渲两遍是否逐位相同` | `待探针：核心帧源同机渲两遍是否逐位相同` |
+| `determinism` | `tolerance` | `hash-same-machine`（探针数据表第 11 行和「5090 读数」一节，两台机器） | `待探针：核心帧源同机渲两遍是否逐位相同` |
 | `draft` | `cycles-low`，24 次，0.5，降噪 `gpu` | `scale`，1 次，0.5 | `path-low`，24 次，0.5，降噪 `oidn-native` |
 | `granularity`、`randomAccess` | `frame`、`true` | `frame`、`true` | `frame`、`true` |
 | `modes` | 三种全有 | 三种全有 | `cards-data`、`build-script` |
@@ -223,7 +223,9 @@
 | `blender`、`three` | `full` | 无 | 无 |
 | `core` | `full` | 无 | 输出通道契约（PS）的通道口径 |
 | `legacy-page` | `limited` | 元数据里的 `camera` 和 `entities`（写 `null`）；一致性套件里的深度口径、编号与元数据、法线空间、相机约定四项；T2、T11 对第三方源码的静态扫描（改判 T1 的行为门） | 文字框回读，见 5.3 |
-| `ext.<名字>` | `limited` | 逐帧的元数据（只交来源信息，`outputs.meta` 是 `false`）；F4；T2、T11 对第三方源码的静态扫描（改判 T1 的行为门，T1 只判 `sequential` 重复两遍） | 整段成片过片子描述 `delivery` 里的交付规格和像素类检查 |
+| `ext.<名字>` | `limited` | 逐帧的元数据（`outputs.meta` 是 `false`，不交 `meta/0.1`，只交来源信息，见表后）；F4；T2、T11 对第三方源码的静态扫描（改判 T1 的行为门，T1 只判 `sequential` 重复两遍） | 整段成片过片子描述 `delivery` 里的交付规格和像素类检查 |
+
+`ext.<名字>` 交的「来源信息」是一个接口值，不带 `format`：字段、必填和值域见每帧元数据契约（M）3.5 的 `source` 一段，本契约不另抄。它不是 `meta/0.1`。交几个、从哪个接口交，见第 6 节。
 
 档是 `limited` 的帧源出的镜头，不参加依赖 `camera` 和 `entities` 的检查。
 
@@ -382,13 +384,13 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 |---|---|---|---|
 | F1 | 能力声明的 `outputs.meta` 是 `true` 时，成功的 `render` 必须交回元数据；`want` 里有 `color` 时，`layers` 的键必须正好是 `want` 里声明过的像素输出，不得多交；`want` 里没有 `color` 时 `layers` 必须是空的。 | `renders` 里 `status` 是 `ok` 的每一项：`caps.outputs.meta` 是 `true` 时 `meta` 必须是 `true`；`want` 含 `color` 时，`layers` 作为集合必须等于 `want` 去掉 `meta` 之后里面声明过的输出；不含 `color` 时 `layers` 必须是空数组 | `F1-color-not-delivered.json` |
 | F2 | 颜色层的数值必须是线性编码，元数据里的 `colorRef` 必须等于镜头声明的 `colorRef`。 | `renders` 每一项：`colorTransfer` 出现时必须是 `linear`；`colorRef` 出现时必须等于 `shotColorRef` | `F2-color-encoded.json` |
-| F3 | `want` 里有没声明过的输出时，`render` 必须报错，错误码必须是 `contract.unsupported-output`，不得静默降级。 | `renders` 里 `want` 含有 `caps.outputs` 取值是 `false` 的输出的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-output` | `F3-silent-downgrade.json` |
-| F4 | 任意一帧必须能单独渲，哈希档的帧源同一帧不论单独渲、乱序渲、顺序渲还是重复渲，结果必须逐位相同。 | `caps.randomAccess` 必须是 `true`（`ext.<名字>` 不查）；`caps.determinism` 是 `hash-same-machine` 时，`orderRuns` 里 `shotFrame` 相同的各项 `digest` 必须逐位相同。容差档怎么比见 5.4 | `F4-order-dependent.json` |
+| F3 | `want` 里有没声明过的输出时，`render` 必须报错，错误码必须是 `contract.unsupported-output`，不得静默降级。 | `renders` 里 `want` 含有没声明过的输出（定义见第 2 节：`caps.outputs` 里不出现，或取值是 `false`）的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-output` | `F3-silent-downgrade.json`、`F3-undeclared-key-absent.json` |
+| F4 | 任意一帧必须能单独渲，哈希档的帧源同一帧不论单独渲、乱序渲、顺序渲还是重复渲，结果必须逐位相同。 | 帧源名是 `ext.<名字>` 时整条不查。能力声明（单独的，或记录里的 `caps`）：`randomAccess` 必须是 `true`。记录里 `caps.determinism` 是 `hash-same-machine` 时，`orderRuns` 里 `shotFrame` 相同的各项 `digest` 必须逐位相同。容差档怎么比见 5.4 | `F4-order-dependent.json`、`F4-caps-not-random-access.json` |
 | F5 | 开着原生运动模糊时要了 `motionBlur.conflicts` 里列的声明过的输出，`render` 必须报错，错误码必须是 `contract.output-conflict`，不得出帧。 | `caps.motionBlur.mode` 是 `native` 时，`renders` 里 `shutterAngleDeg` 大于 0、`want` 里的输出都声明过、并且 `want` 和 `caps.motionBlur.conflicts` 有交集的每一项：`status` 必须是 `error`，`code` 必须是 `contract.output-conflict`。`want` 里有没声明过的输出的项归 F3 判 | `F5-motion-with-native-blur.json` |
-| F6 | 渲染失败时帧源进程必须在时限内以非零退出码结束，显卡错误必须算渲染失败。 | `failures` 每一项：`exitCode` 必须出现并且不等于 0，`elapsedMs` 必须不大于 `limitMs` | `F6-gpu-error-exit-zero.json` |
+| F6 | 渲染失败时帧源进程必须在时限内以非零退出码结束。 | `failures` 每一项：`exitCode` 必须出现并且不等于 0，`elapsedMs` 必须不大于 `limitMs`。显卡错误算不算渲染失败这里不判，见 5.6 | `F6-gpu-error-exit-zero.json` |
 | F7 | 辅助层和运动矢量层只能用于感知和画风处理，不得用于两个帧源的画面之间的合并。 | `auxUses` 每一项的 `use` 不得是 `cross-source-merge` | `F7-depth-merge-across-sources.json` |
 | F8 | `query` 问了能力声明的 `sceneQuery` 里没列的种类时必须报错，错误码必须是 `contract.unsupported-query`，不得给结果。 | `queries` 里 `kind` 不在 `caps.sceneQuery` 里的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-query` | `F8-undeclared-query-answered.json` |
-| F9 | `QueryResult.items` 不得超过 50 项，超过时必须只交回最严重的 50 项，并且在 `truncated` 里写被截掉的项数。 | `queries` 里 `status` 是 `ok` 的每一项：`returned` 必须等于 `total` 和 50 里小的那个；`total` 大于 50 时 `truncated` 必须等于 `total − 50`，否则 `truncated` 不得出现 | `F9-query-not-truncated.json` |
+| F9 | `QueryResult.items` 不得超过 50 项，超过时必须只交回最严重的 50 项，并且在 `truncated` 里写被截掉的项数。 | `queries` 里 `status` 是 `ok` 的每一项：`returned` 必须等于 `total` 和 50 里小的那个；`total` 大于 50 时 `truncated` 必须等于 `total − 50`，否则 `truncated` 不得出现。留下的是不是最严重的 50 项现在不判，见 5.7 | `F9-query-not-truncated.json`、`F9-returned-too-few.json`、`F9-truncated-wrong-count.json`、`F9-truncated-without-cut.json` |
 | F10 | `blender`、`three`、`core` 的合规档必须是 `full`，`legacy-page` 和 `ext.<名字>` 的合规档必须是 `limited`。 | 能力声明（单独的，或记录里的 `caps`）：`id` 是前三个之一时 `conformance` 必须是 `full`，否则必须是 `limited` | `F10-blender-declares-limited.json` |
 | F11 | 实体清单里的编号和名字都不得重复，每帧元数据里列出的每个实体的编号、名字、类别必须和实体清单里的同一项逐项相同。 | `manifest.entities` 的 `id` 没有重复、`name` 没有重复；`metaEntities` 每一项的每个实体，在 `manifest.entities` 里必须有一项 `id`、`name`、`class` 三样都相同 | `F11-entity-id-changes.json` |
 | F12 | 元数据的 `camera.shutterAngleDeg` 必须等于这次 `render` 生效的快门角。 | `renders` 里 `metaShutterAngleDeg` 出现的每一项：它必须等于 `shutterAngleDeg`（不出现按 0 算），没有容差 | `F12-meta-shutter-differs.json` |
@@ -429,8 +431,11 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 
 - `single`：新开一个会话，只渲这一帧。`shuffled`：把一批帧打乱次序渲。`sequential`：按帧号从小到大渲。`repeat`：同一个会话里把这一帧再渲一遍。
 - `digest` 是颜色层文件内容的 SHA-256；只要元数据时，是去掉 `timing` 之后的元数据的 SHA-256。写法照通用口径：`sha256:` 加 64 位小写十六进制。元数据怎么序列化由做一致性测试的工具定，同一份记录里必须用同一种。
-- 哈希档：同一帧的 `digest` 作为字符串完全相等，没有容差。
-- 容差档：两次结果比两样，峰值信噪比，和 8 位下差 5 级以上的像素占比。门槛是 `待探针：容差档两次渲染的峰值信噪比下限` 和 `待探针：容差档 8 位下差 5 级以上的像素占比上限`。门槛定下来之前，核对记录不收这两个量，F4 对容差档只查 `randomAccess`。
+- 哈希档：同一帧的 `digest` 作为字符串完全相等，没有容差。`three` 帧源是哈希档：颜色层两遍逐位相同（探针数据表第 11 行和「5090 读数」一节，两台机器）。
+- 辅助层：不论哪一档，同一帧渲两遍的辅助层必须逐位相同（探针数据表「5090 读数」一节，5090；探针量过的是深度、编号、位置三层，`normal`、`motion` 没量）。
+- 容差档的颜色层：`blender` 帧源用 CPU 渲时，同一帧渲两遍的颜色层必须逐位相同；用显卡渲时，两遍的颜色层逐通道比相对差，相对差 = |a − b| ÷ max(|a|, 1e-12)，不得超过 1e-5（比值，没有单位）。出处：探针数据表第 11 行和「5090 读数」一节，Mac 的 CPU、5090 的 CPU 和显卡；这个数的适用范围见第 6 节。
+- 容差档另比两样，峰值信噪比，和 8 位下差 5 级以上的像素占比。门槛是 `待探针：容差档两次渲染的峰值信噪比下限` 和 `待探针：容差档 8 位下差 5 级以上的像素占比上限`。门槛定下来之前不比这两样，核对记录不收这两个量。
+- 核对记录里没有辅助层的哈希、没有两遍的相对差、也没有这次用的是 CPU 还是显卡，所以辅助层和容差档的这几句现在是对帧源的要求，不由 F4 判：F4 对容差档只查 `randomAccess`。
 
 ### 5.5 实体名的通配
 
@@ -439,12 +444,12 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 ### 5.6 失败和时限
 
 - 渲染失败指 `render` 没能交出要的东西，原因包括显卡错误（设备丢失、显存不足、驱动重置）。
-- 显卡错误之后帧源不得把一张不完整的画面当成功交出来。
+- 显卡错误之后帧源不得把一张不完整的画面当成功交出来。这一句和上一句里「显卡错误算渲染失败」是对帧源的要求；核对记录里没有「这次调用期间出没出显卡错误」的量，F6 现在不判它们，见第 6 节。
 - 时限由调用方在起帧源进程时给，记在 `limitMs` 里。
 
 ### 5.7 「最严重」
 
-超过 50 项时留哪 50 项，按各种查询自己的严重程度排。排法见第 6 节。
+超过 50 项时留哪 50 项，按各种查询自己的严重程度排。排法见第 6 节。核对记录只记 `total`、`returned`、`truncated` 三个数，看不出留的是哪 50 项；排法定下来之前，F9 里「只交回最严重的 50 项」这半句不判。
 
 ### 5.8 减免怎么套
 
@@ -461,14 +466,18 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 
 | 项 | 现在怎么写 | 等什么 |
 |---|---|---|
-| `render(f, …)`、`query(f, …)` 的时间参数 | 照整数的镜头局部帧号写，子帧相位由帧源在内部按时间键契约取 | `待定：离屏宿主的定位` |
-| `core` 的 `hosts` 里的 `offscreen` | 照「离屏宿主是核心的出片宿主」写 | `待定：离屏宿主的定位` |
-| `three` 的 `hosts`，以及 three 一侧用哪种着色语言 | `hosts` 的取值留空；本契约没有着色语言字段，`language` 说的是镜头代码的语言 | `待定：three 帧源的渲染器主干` |
-| `three`、`core` 的 `determinism` | 留空 | `待探针：three 帧源同机渲两遍是否逐位相同`、`待探针：核心帧源同机渲两遍是否逐位相同` |
+| `render(f, …)`、`query(f, …)` 的时间参数 | 照整数的镜头局部帧号写，子帧相位由帧源在内部按时间键契约取 | 按倾向定，合作者不同意时再改 |
+| `core` 的 `hosts` 里的 `offscreen` | 照「离屏宿主是核心帧源的出片宿主」写 | 按倾向定，合作者不同意时再改 |
+| `three` 的 `hosts`，以及 three 一侧用哪种着色语言 | three 帧源照旧由页面宿主驱动，过渡期渲染器用 WebGL、着色语言用 GLSL。`hosts` 写 `page`：页面宿主的名字，片子描述和锁文件的例子里 three 镜头用的都是这个词；`headless-page` 是另一个宿主（核心帧源的后备宿主），不是它；本契约没有着色语言字段，`language` 说的是镜头代码的语言 | 按倾向定，合作者不同意时再改 |
+| `three` 的 `determinism` | 已定：`hash-same-machine` | 探针数据表第 11 行和「5090 读数」一节，两台机器 |
+| `core` 的 `determinism` | 留空 | `待探针：核心帧源同机渲两遍是否逐位相同` |
+| 容差档颜色层的相对差上限 1e-5 | 实测最大相对差 1.7e-6，留了约 6 倍余量；只在六个校准场景、64 采样、不降噪下量过 | 场景变大、采样数改变、打开降噪之后重新量 |
+| 辅助层逐位相同、`blender` 用 CPU 时颜色层逐位相同、容差档的相对差 | 5.4 写成对帧源的要求，F4 现在不判；能力声明里也没有「用 CPU 还是显卡」的字段，`blender` 的 `determinism` 仍写 `tolerance` | 一致性测试工具要记这几个量时，在核对记录里加字段 |
+| 显卡错误必须算渲染失败、之后不得把不完整的画面当成功交出 | 5.6 写成对帧源的要求，F6 现在不判 | 帧源实现时在 `renders[]` 加记显卡错误的字段 |
 | 一致性套件的五个门槛、容差档的两个门槛 | 留空 | 5.3、5.4 里的七个 `待探针` |
 | 文字框回读的过线 | 留空；核对记录的 `textReadbacks` 只留观测，不判 | `待探针：文字框回读的过线` |
 | 文字框回读比什么、记什么 | 【起草者补】比元数据里的文字和从画面矩形里读回的文字；记录里一个文字框一项 `{ shotFrame, text, read }` | 过线定下来时一起确认 |
-| 例子 `caps-core.json` 里的 `version`、`hosts`、`determinism`、`channels` | 为了让例子成形填的示意值，不是结论 | 上面几行定了以后改例子 |
+| 例子 `caps-core.json` 里的 `version`、`determinism`、`channels` | 为了让例子成形填的示意值，不是结论；`hosts` 已经照上面按倾向定的写法 | 上面几行定了以后改例子 |
 | 私有外部插件的帧源名 | 【起草者补】`ext.<名字>` | 集成负责人确认 |
 | `language` 的写法 | 【起草者补】和镜头契约一致，写 `js`，不写全称 | 集成负责人确认 |
 | `outputs` 各项的形状 | 【起草者补】`false`，或 `{ type, note? }`；颜色层另带 `transfer`、`primaries`。各层的数值定义不在这里写 | 输出通道契约（PS） |
@@ -486,9 +495,9 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | `SceneQuery.against` 不出现时 `intersect`、`contact` 和谁比 | 不定 | 谓词登记表契约（PR） |
 | 通配的写法 | 【起草者补】只收「前缀加 `.*`」 | 集成负责人确认 |
 | `QueryResult.items[]` 在五种查询下各自的 `value` 量什么、`unit` 写什么、`at` 有几个数 | 不定；例子只给了 `intersect` 的一种写法 | 谓词登记表契约（PR） |
-| 「最严重的 50 项」按什么排 | 不定 | 谓词登记表契约（PR） |
+| 「最严重的 50 项」按什么排 | 不定；定下来之前 F9 的这半句不判，见 5.7 | 谓词登记表契约（PR） |
 | `legacy-page` 除了减免表之外还要过哪些 | 两种说法：一种是「表里没写的一条不免」，一种只点了颜色层、F3、F4、F6 四样。取严的：F1 到 F13 都不免 | 集成负责人确认 |
-| 私有外部插件交的「来源信息」是什么结构 | 不定 | 集成负责人确认 |
+| 私有外部插件交的「来源信息」 | 结构照每帧元数据契约（M）3.5 的 `source` 一段，见 3.5；一段成片交几个、从哪个接口交：不定 | 集成负责人确认 |
 
 ## 7. 变更记录
 
@@ -497,3 +506,4 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 第 2 节、3.1 到 3.5、3.8、F1、F4、F5、F8、新加 F12、F13、5.3、5.4、5.8、新加 5.9、第 6 节 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 3.6 的 `orderRuns[].digest` 说明、第 6 节 | 修订后的对齐收尾 |
+| 2026-11-19 | 3.1、3.4 的登记表、3.5、F3、F4、F6、F9、5.4、5.6、5.7、第 6 节 | 照判定函数落地时发现的问题的处理结果改：F3、F4 的查法写全，F6、F9 判不了的半句写明不判，补反例；回填 three 的确定性和容差档的相对差；两个宿主的取值按倾向定 |

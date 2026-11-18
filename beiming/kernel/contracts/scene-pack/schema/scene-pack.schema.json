@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "scene-pack/scene-pack.schema.json",
   "title": "场景包清单",
-  "description": "只管结构。units 的取值由 SP2 管，图案节点名在不在登记表里由 SP5 管，各张表 shape 的取值由 SP8 管，attrs 齐不齐由 SP11 管，link 配不配得到由 SP12 管，in 和 by 指向谁由 SP13 管，实例表只列叶子实体由 SP14 管，同一个实体的 class 由 SP15 管，sensorHeight 什么时候必填由 SP16 管，所以这里不收紧。name 不重复、out 不重复、far 大于 near、e0 小于 e1、dir 的长度是 1 这几样 JSON Schema 写不出来，以 CONTRACT.md 第 3 节为准。",
+  "description": "只管结构。units 的取值由 SP2 管，图案节点名在不在登记表里由 SP5、SP17 管，各张表 shape 的取值由 SP8 管，attrs 齐不齐由 SP11 管，link 配不配得到由 SP12 管，in 和 by 指向谁由 SP13 管，实例表只列叶子实体由 SP14 管，同一个实体的 class 由 SP15 管，sensorHeight 什么时候必填由 SP16 管，所以这里不收紧。name 不重复、out 不重复、far 大于 near、e0 小于 e1、dir 的长度是 1 这几样 JSON Schema 写不出来，以 CONTRACT.md 第 3 节为准。",
   "type": "object",
   "required": ["format", "id", "units", "geometry", "instances", "materials", "lights", "world", "camera", "frames", "source"],
   "additionalProperties": false,
@@ -196,7 +196,7 @@
       "propertyNames": { "enum": ["file", "shape", "fields"] }
     },
     "node": {
-      "description": "登记表里的四个节点各查各的字段；登记表之外的节点名这里放行，由 SP5 判。",
+      "description": "登记表里的四个节点各查各的字段；登记表之外的节点名这里放行，由 SP5、SP17 判。",
       "type": "object",
       "required": ["node"],
       "properties": { "node": { "type": "string", "minLength": 1 } },

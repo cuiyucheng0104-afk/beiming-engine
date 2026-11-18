@@ -33,15 +33,26 @@ function declaredOrder(cards, pairs) {
   return out;
 }
 
-/** 5.3：除第一项外每个名字在 createOrder 里的下标必须严格递增 */
+/** 5.2：先后要求排不出 create 次序（成环，或提到 cards 以外的名字） */
+const unorderable = (rec) => declaredOrder(rec.cards, rec.orderPairs ?? []) === null;
+
+/** 管装载顺序的各条：排不出次序的记录不判，只由 CR9 查 build（5.2） */
+const ordered = (fn) => load((rec) => (unorderable(rec) ? [] : fn(rec)));
+
+/** overlays 里和 cards 重名的名字（CR16） */
+const clashes = (rec) => (rec.overlays ?? []).filter((o) => rec.cards.includes(o));
+
+/** 5.3：除第一项外每个名字都必须在 createOrder 里，下标必须严格递增 */
 function increasing(rec, order, first, label) {
   if (!order) return [];
+  if (!order.length) return [`镜头 ${rec.shot} 的 ${label} 是空数组，第一项必须是 ${first}`];
   const out = order[0] === first ? [] : [`镜头 ${rec.shot} 的 ${label} 第一项是 ${order[0]}，必须是 ${first}`];
   let prev = -1;
   for (const name of order.slice(1)) {
     const i = rec.createOrder.indexOf(name);
-    if (i <= prev) out.push(`镜头 ${rec.shot} 的 ${label} 里 ${name} 没按 createOrder 的次序排`);
-    prev = i;
+    if (i < 0) out.push(`镜头 ${rec.shot} 的 ${label} 里 ${name} 不在 createOrder 里`);
+    else if (i <= prev) out.push(`镜头 ${rec.shot} 的 ${label} 里 ${name} 没按 createOrder 的次序排`);
+    if (i >= 0) prev = i;
   }
   return out;
 }
@@ -60,7 +71,7 @@ const raw = {
   }),
 
   CR3: card((rec) => {
-    if (rec.shape !== 'create') return [];
+    if (rec.shape !== 'create') return rec.handle ? [`evaluate 形状的卡 ${rec.card} 带了 handle`] : [];
     if (!rec.handle) return [`create 形状的卡 ${rec.card} 没有 handle`];
     return rec.handle.members.includes('dispose') ? [] : [`卡 ${rec.card} 的 Handle 没有 dispose`];
   }),
@@ -73,6 +84,7 @@ const raw = {
   CR6: card((rec) => {
     const h = rec.handle;
     if (!h?.merged) return [];
+    if (h.prefix === undefined) return [`卡 ${rec.card} 的 handle.merged 出现了但没有 handle.prefix`];
     const ents = h.entities ?? [];
     const roots = new Set(h.roots ?? []);
     const out = ents.length === h.merged.length ? [] : [`卡 ${rec.card} 的 handle.merged 有 ${h.merged.length} 项，handle.entities 有 ${ents.length} 项`];
@@ -85,20 +97,21 @@ const raw = {
 
   CR7: pureGate('evaluate', 'evaluate'),
 
-  CR8: load((rec) => (JSON.stringify(rec.steps) === '["assets","tracks","create","collect"]'
+  CR8: ordered((rec) => (JSON.stringify(rec.steps) === '["assets","tracks","create","collect"]'
     ? [] : [`镜头 ${rec.shot} 的搭建次序是 ${rec.steps.join('、')}`])),
 
   CR9: load((rec) => {
     const want = declaredOrder(rec.cards, rec.orderPairs ?? []);
-    if (!want) return [`镜头 ${rec.shot} 的 orderPairs 成环或提到了 cards 以外的名字，排不出 create 次序`];
+    if (!want) return rec.build === 'failed' ? [] : [`镜头 ${rec.shot} 的 orderPairs 成环或提到了 cards 以外的名字，排不出 create 次序，build 却是 ${rec.build}`];
+    if (clashes(rec).length) return []; // 重名归 CR16
     const overlays = new Set(rec.overlays ?? []);
     const got = rec.createOrder.filter((n) => !overlays.has(n));
     return JSON.stringify(got) === JSON.stringify(want) ? [] : [`镜头 ${rec.shot} 的 create 次序是 ${got.join('、')}，按 5.2 应是 ${want.join('、')}`];
   }),
 
-  CR10: load((rec) => increasing(rec, rec.applyOrder, 'tracks', 'applyOrder')),
+  CR10: ordered((rec) => increasing(rec, rec.applyOrder, 'tracks', 'applyOrder')),
 
-  CR11: load((rec) => increasing(rec, rec.metaOrder, 'host', 'metaOrder')),
+  CR11: ordered((rec) => increasing(rec, rec.metaOrder, 'host', 'metaOrder')),
 
   CR12: load((rec) => {
     if (!rec.camera) return [];
@@ -111,6 +124,7 @@ const raw = {
   CR14: card((rec) => {
     const h = rec.handle;
     if (!h?.mergedMetaIds) return [];
+    if (h.prefix === undefined) return [`卡 ${rec.card} 的 handle.mergedMetaIds 出现了但没有 handle.prefix`];
     const ids = h.metaIds ?? [];
     const out = ids.length === h.mergedMetaIds.length ? [] : [`卡 ${rec.card} 的 handle.mergedMetaIds 有 ${h.mergedMetaIds.length} 项，handle.metaIds 有 ${ids.length} 项`];
     ids.forEach((id, i) => {
@@ -120,16 +134,28 @@ const raw = {
     return out;
   }),
 
-  CR15: load((rec) => {
+  CR15: ordered((rec) => {
     const overlays = rec.overlays ?? [];
-    if (!overlays.length) return [];
+    if (!overlays.length || clashes(rec).length) return []; // 重名归 CR16
     const cards = new Set(rec.cards);
     const lastCard = rec.createOrder.reduce((m, n, i) => (cards.has(n) ? i : m), -1);
-    const out = overlays.filter((o) => rec.createOrder.indexOf(o) < lastCard)
-      .map((o) => `镜头 ${rec.shot} 的叠加层 ${o} 装在了镜头自己的卡前面`);
+    const out = [];
+    for (const o of overlays) {
+      const i = rec.createOrder.indexOf(o);
+      if (i < 0) out.push(`镜头 ${rec.shot} 的叠加层 ${o} 不在 createOrder 里`);
+      else if (i < lastCard) out.push(`镜头 ${rec.shot} 的叠加层 ${o} 装在了镜头自己的卡前面`);
+    }
     const got = rec.createOrder.filter((n) => overlays.includes(n));
-    if (JSON.stringify(got) !== JSON.stringify(overlays)) out.push(`镜头 ${rec.shot} 的叠加层 create 次序是 ${got.join('、')}，必须是 ${overlays.join('、')}`);
+    const want = overlays.filter((o) => rec.createOrder.includes(o));
+    if (JSON.stringify(got) !== JSON.stringify(want)) out.push(`镜头 ${rec.shot} 的叠加层 create 次序是 ${got.join('、')}，必须是 ${want.join('、')}`);
     return out;
+  }),
+
+  CR16: load((rec) => clashes(rec).map((o) => `镜头 ${rec.shot} 的叠加层 ${o} 和 cards 里的实例名重名`)),
+
+  CR17: card((rec) => {
+    const ents = new Set(rec.handle?.entities ?? []);
+    return (rec.handle?.roots ?? []).filter((r) => !ents.has(r)).map((r) => `卡 ${rec.card} 的 handle.roots 里的 ${r} 不在 handle.entities 里`);
   }),
 };
 

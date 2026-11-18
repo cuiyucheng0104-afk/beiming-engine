@@ -26,5 +26,12 @@
       "EN4"
     ],
     "why": "error.code 是 contract.no-such-code，错误码表里没有登记"
+  },
+  {
+    "file": "EN4-unknown-prefix.json",
+    "violates": [
+      "EN4"
+    ],
+    "why": "error.code 是 foo.bar，前缀不在错误码表里，码也没登记；EN3 找不到前缀，不判"
   }
 ]

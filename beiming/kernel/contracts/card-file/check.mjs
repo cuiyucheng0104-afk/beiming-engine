@@ -39,6 +39,8 @@ const raw = {
     .flatMap(([name, p]) => {
       if (!Array.isArray(p.range)) return [`参数 ${name} 的 type 是 ${p.type}，却没带 range`];
       const [lo, hi] = p.range;
+      // 先看类型：直接比的话 "0.8"、true 会被当成数混过去
+      if (typeof p.default !== 'number') return [`参数 ${name} 的 type 是 ${p.type}，default ${JSON.stringify(p.default)} 却不是数`];
       return lo <= p.default && p.default <= hi ? [] : [`参数 ${name} 的 default 是 ${p.default}，不在 range [${lo}, ${hi}] 里`];
     }),
 
@@ -61,12 +63,14 @@ const raw = {
     ...(card.priors ?? []).flatMap((p, i) => ('source' in p ? [`出现了覆盖层的键 priors[${i}].source`] : [])),
   ],
 
-  // 取谓词名照 PR 契约 5.5：从断言开头到第一个 `(`、空格或结尾；登记表在第二个参数的 registries.predicates 里
+  // 取谓词名照 PR 契约 5.5：从断言开头到第一个 `(`、空格或结尾；登记表在第二个参数的 registries.predicates 里。
+  // ` ; ` 是 PR 契约 5.5 里把几条断言连成一个模板条目的写法，卡的断言一项只写一条，不许带
   CF8: (card, { registries }) => {
     const known = new Set(registries.predicates.predicates.map((p) => p.name));
-    return (card.verify?.predicates ?? [])
-      .filter((expr) => !known.has(/^[^( ]*/.exec(expr)[0]))
-      .map((expr) => `verify.predicates 里的断言 ${JSON.stringify(expr)} 的谓词名没有在谓词登记表里登记`);
+    return (card.verify?.predicates ?? []).flatMap((expr) => [
+      ...(expr.includes(' ; ') ? [`verify.predicates 里的 ${JSON.stringify(expr)} 带了 " ; "，一项只能写一条断言`] : []),
+      ...(known.has(/^[^( ]*/.exec(expr)[0]) ? [] : [`verify.predicates 里的断言 ${JSON.stringify(expr)} 的谓词名没有在谓词登记表里登记`]),
+    ]);
   },
 
   CF9: (card) => onlyOnType(card, 'schema', 'data'),

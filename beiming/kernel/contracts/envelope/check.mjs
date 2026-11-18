@@ -17,7 +17,7 @@ const raw = {
   EN3: (env, { registries }) => {
     if (!isObject(env.error)) return [];
     const hit = registries.errors.prefixes.find((p) => env.error.code.startsWith(p.prefix));
-    if (!hit) return [`error.code ${env.error.code} 的前缀不在错误码表的 prefixes 里`];
+    if (!hit) return []; // 前缀不在表里：本条不判，这种码一定没登记，归 EN4
     return hit.exitCode === env.exitCode ? [] : [`error.code ${env.error.code} 的前缀对到退出码 ${hit.exitCode}，信封的 exitCode 是 ${env.exitCode}`];
   },
 

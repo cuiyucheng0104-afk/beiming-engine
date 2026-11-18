@@ -2,16 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "card-runtime/load-check.schema.json",
   "title": "装载核对记录",
-  "description": "只管结构。各个次序对不对由 CR8 到 CR12 管，所以这里不收紧。",
+  "description": "只管结构。各个次序对不对由 CR8 到 CR12 和 CR15 管，cards 和 overlays 重不重名由 CR16 管，所以这里不收紧。",
   "type": "object",
-  "required": ["format", "shot", "steps", "cards", "createOrder"],
+  "required": ["format", "shot", "build", "steps", "cards", "createOrder"],
   "additionalProperties": false,
   "properties": {
     "format": { "const": "load-check/0.1" },
     "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
+    "build": { "enum": ["ok", "failed"] },
+    "error": { "type": "string", "minLength": 1 },
     "steps": { "type": "array", "items": { "enum": ["assets", "tracks", "create", "collect"] } },
-    "cards": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" } },
-    "overlays": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" } },
+    "cards": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9_]+$", "not": { "enum": ["tracks", "host"] } } },
+    "overlays": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*$", "not": { "enum": ["tracks", "host"] } } },
     "orderPairs": {
       "type": "array",
       "items": {
@@ -22,8 +24,8 @@
       }
     },
     "createOrder": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-    "applyOrder": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "metaOrder": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "applyOrder": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "metaOrder": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
     "camera": {
       "type": "object",
       "required": ["tracksHasCamera", "from"],

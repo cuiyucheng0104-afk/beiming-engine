@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ref-pack/ref-pack-check.schema.json",
   "title": "参考包核对记录",
-  "description": "只管结构。各段的取值由 RP1 到 RP8 管，所以这里不收紧。previous.ref 必须等于 pack.ref，JSON Schema 写不出来，以 CONTRACT.md 为准。",
+  "description": "只管结构。各段的取值由 RP1 到 RP9 管，所以这里不收紧。previous.ref 必须等于 pack.ref，JSON Schema 写不出来，由 RP9 管。",
   "type": "object",
   "required": ["format", "pack"],
   "additionalProperties": false,

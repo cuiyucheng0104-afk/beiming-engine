@@ -26,7 +26,7 @@
         "additionalProperties": false,
         "properties": {
           "f": { "type": "integer", "minimum": 0 },
-          "names": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
           "omittedParts": { "type": "integer", "minimum": 1 }
         }
       }

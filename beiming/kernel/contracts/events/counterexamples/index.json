@@ -47,5 +47,12 @@
       "EV7"
     ],
     "why": "到位条目在第 185 帧，它写的镜头 s01 只到第 180 帧"
+  },
+  {
+    "file": "EV7-frame-past-end.json",
+    "violates": [
+      "EV7"
+    ],
+    "why": "单独的事件表：条目 title 在第 500 帧，frames 只有 300；不带片子描述也判"
   }
 ]

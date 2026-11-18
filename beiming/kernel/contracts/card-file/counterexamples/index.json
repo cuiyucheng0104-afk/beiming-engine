@@ -56,6 +56,13 @@
     "why": "verify.predicates 里的 fits_frame 不在谓词登记表里"
   },
   {
+    "file": "CF8-semicolon-joined.json",
+    "violates": [
+      "CF8"
+    ],
+    "why": "verify.predicates 的一项用 ` ; ` 连了两条断言，两个谓词名都登记过"
+  },
+  {
     "file": "CF9-data-without-schema.json",
     "violates": [
       "CF9"

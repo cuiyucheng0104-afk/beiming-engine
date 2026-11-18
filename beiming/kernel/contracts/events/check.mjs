@@ -1,6 +1,7 @@
 // 事件表契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
 // 收两种对象：事件表（events/0.1）和事件核对记录（events-check/0.1）。EV1 到 EV3 判事件表本身
-// （核对记录里判它的 events 段）；EV4 到 EV7 要对着片子描述判，只在核对记录带 film 段时判。
+// （核对记录里判它的 events 段），EV7 的前一半（frame 落在 [0, frames) 内）也是；
+// EV4 到 EV6 和 EV7 里带 shot 的那一半要对着片子描述判，只在核对记录带 film 段时判。
 
 /** 5.2：逐字符按码点比，短的前缀在前 */
 function cmpId(a, b) {
@@ -70,7 +71,8 @@ export const checks = {
       const e = named.find((x) => x.id === ev.id);
       if (!e) continue;
       const f = expand(film, ev.frame);
-      if (e.frame !== f) out.push(`命名条目 ${e.id} 的 frame 是 ${e.frame}，事件的 frame ${JSON.stringify(ev.frame)} 展开是 ${f ?? '展开不了'}`);
+      // 展开不了的算式归 D 契约的 D2，这一对的 frame 这里不比
+      if (f !== undefined && e.frame !== f) out.push(`命名条目 ${e.id} 的 frame 是 ${e.frame}，事件的 frame ${JSON.stringify(ev.frame)} 展开是 ${f}`);
       if (e.sub !== 0) out.push(`命名条目 ${e.id} 的 sub 是 ${e.sub}，应该是 0`);
       if (!sameOpt(e, ev, 'shot')) out.push(`命名条目 ${e.id} 的 shot 是 ${e.shot ?? '没有'}，事件的是 ${ev.shot ?? '没有'}`);
       if (!sameOpt(e, ev, 'audio')) out.push(`命名条目 ${e.id} 的 audio 是 ${e.audio ?? '没有'}，事件的是 ${ev.audio ?? '没有'}`);
@@ -101,14 +103,19 @@ export const checks = {
     ...(table.frames === film.output?.frames ? [] : [`事件表的 frames 是 ${table.frames}，片子描述的 output.frames 是 ${film.output?.frames}`]),
   ]),
 
-  EV7: onFilm((table, film) => table.events.flatMap((e) => {
-    const out = [];
-    if (!(e.frame >= 0 && e.frame < table.frames)) out.push(`事件条目 ${e.id} 的 frame ${e.frame} 不在 [0, ${table.frames}) 内`);
-    if ('shot' in e) {
-      const s = (film.shots ?? []).find((x) => x.id === e.shot);
-      if (!s) out.push(`事件条目 ${e.id} 的 shot ${e.shot} 不是片子描述里的镜头`);
-      else if (!(s.in <= e.frame && e.frame < s.out)) out.push(`事件条目 ${e.id} 在第 ${e.frame} 帧，不在镜头 ${s.id} 的 [${s.in}, ${s.out}) 内`);
-    }
-    return out;
-  })),
+  EV7: (o) => {
+    const table = tableOf(o);
+    if (!table) return [];
+    const film = o.format === 'events-check/0.1' ? o.film : undefined;
+    return (table.events ?? []).flatMap((e) => {
+      const out = [];
+      if (!(e.frame >= 0 && e.frame < table.frames)) out.push(`事件条目 ${e.id} 的 frame ${e.frame} 不在 [0, ${table.frames}) 内`);
+      if (film && 'shot' in e) {
+        const s = (film.shots ?? []).find((x) => x.id === e.shot);
+        if (!s) out.push(`事件条目 ${e.id} 的 shot ${e.shot} 不是片子描述里的镜头`);
+        else if (!(s.in <= e.frame && e.frame < s.out)) out.push(`事件条目 ${e.id} 在第 ${e.frame} 帧，不在镜头 ${s.id} 的 [${s.in}, ${s.out}) 内`);
+      }
+      return out;
+    });
+  },
 };

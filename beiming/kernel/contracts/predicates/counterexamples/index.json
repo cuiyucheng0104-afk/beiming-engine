@@ -48,5 +48,26 @@
     ],
     "why": "判定条目：status 是 skipped，没带 reason",
     "schema": "verdict.schema.json"
+  },
+  {
+    "file": "PR2-reads-empty.json",
+    "violates": [
+      "PR2"
+    ],
+    "why": "bbox_w 的 reads 是空数组"
+  },
+  {
+    "file": "PR4-floor-expr-differs.json",
+    "violates": [
+      "PR4"
+    ],
+    "why": "floor 的 1 版有六条，第 5 条的 expr 写成了 visible(hero) >= 0.6"
+  },
+  {
+    "file": "PR6-limited-item-needs-object-id.json",
+    "violates": [
+      "PR6"
+    ],
+    "why": "floor 第 1 条 limited 是 true，它用的 delivery 却要帧源交物体编号层"
   }
 ]

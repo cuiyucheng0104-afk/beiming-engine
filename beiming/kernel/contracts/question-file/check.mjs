@@ -14,9 +14,12 @@ export const checks = {
   // 登记表在第二个参数的 registries.predicates 里
   QF2: onQuestion((q, { registries }) => {
     const known = new Set(registries.predicates.predicates.map((p) => p.name));
-    return q.basePredicates
-      .map((a, i) => [i, predicateName(a)])
-      .filter(([, name]) => !known.has(name))
-      .map(([i, name]) => `basePredicates 第 ${i + 1} 条的谓词名 ${JSON.stringify(name)} 没有在谓词登记表里登记`);
+    return q.basePredicates.flatMap((a, i) => {
+      const name = predicateName(a);
+      return [
+        ...(a.includes(' ; ') ? [`basePredicates 第 ${i + 1} 项用 " ; " 连了不止一条断言`] : []),
+        ...(known.has(name) ? [] : [`basePredicates 第 ${i + 1} 条的谓词名 ${JSON.stringify(name)} 没有在谓词登记表里登记`]),
+      ];
+    });
   }),
 };

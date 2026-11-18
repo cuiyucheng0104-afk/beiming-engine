@@ -21,11 +21,25 @@
     "why": "要了没声明的 motion 层，帧源没报错，少交一层就返回了成功"
   },
   {
+    "file": "F3-undeclared-key-absent.json",
+    "violates": [
+      "F3"
+    ],
+    "why": "要了能力声明的 outputs 里根本没有的 albedo，帧源没报错，少交一层就返回了成功"
+  },
+  {
     "file": "F4-order-dependent.json",
     "violates": [
       "F4"
     ],
     "why": "哈希档的帧源，同一帧单独渲和乱序渲的摘要不同"
+  },
+  {
+    "file": "F4-caps-not-random-access.json",
+    "violates": [
+      "F4"
+    ],
+    "why": "单独的一份 Blender 能力声明，randomAccess 写成了 false"
   },
   {
     "file": "F5-motion-with-native-blur.json",
@@ -61,6 +75,27 @@
       "F9"
     ],
     "why": "命中 73 项全部交了回来，没有截到 50 项"
+  },
+  {
+    "file": "F9-returned-too-few.json",
+    "violates": [
+      "F9"
+    ],
+    "why": "命中 73 项，truncated 写对了 23，交回的却只有 40 项，不是 50 项"
+  },
+  {
+    "file": "F9-truncated-wrong-count.json",
+    "violates": [
+      "F9"
+    ],
+    "why": "命中 73 项、交回 50 项，truncated 却写了 20，应该是 23"
+  },
+  {
+    "file": "F9-truncated-without-cut.json",
+    "violates": [
+      "F9"
+    ],
+    "why": "一共只有 3 项、全部交回了，结果里却带着 truncated"
   },
   {
     "file": "F10-blender-declares-limited.json",

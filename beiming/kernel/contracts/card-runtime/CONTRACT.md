@@ -35,7 +35,7 @@
 | `Handle` | `create` 的返回值，宿主和镜头代码通过它驱动这张卡。 |
 | 卡的引用 | 指明用哪张卡哪个主版本的字符串 `<卡名>@<主版本>`。 |
 | 卡实例 | 一个镜头里对一张卡的一次使用：片子描述里这个镜头 `cards` 数组的一项 `{ as, use, params }`，或者宿主由一个叠加层展开出的一项（见 5.5）；同一张卡可以在一个镜头里用多次。 |
-| 实例名 | 卡实例在本镜头里的名字：`cards` 数组那一项的 `as`；叠加层展开出的卡实例的实例名是叠加层的 `id`。在一个镜头里不得重复。 |
+| 实例名 | 卡实例在本镜头里的名字：`cards` 数组那一项的 `as`；叠加层展开出的卡实例的实例名是叠加层的 `id`。在一个镜头里不得重复，不得是 `tracks`、`host`（这两个词在装载核对记录的次序里另有所指，见 5.3）。 |
 | 实例前缀 | 就是实例名；用来给这个卡实例带进来的实体名、文字框的 `id`、读数的名字加前缀。 |
 | 相对名 | `Handle.entities` 里的名字：卡内部给实体起的名字，还没加实例前缀。 |
 | 求值核 | 在渲染之前把片子描述算成 `tracks` 的那部分程序。 |
@@ -92,15 +92,15 @@
 | `shape` | 字符串 | 无 | 是 | `create`、`evaluate` | 卡文件声明的形状 |
 | `entries` | 数组 | 无 | 是 | 字符串 | 实现文件对外提供的全部卡入口名 |
 | `calledVia` | 字符串 | 无 | 是 | `cards.use`、`tracks` | 实际由谁调：`ctx.cards.use`（含固定装载脚本的第 3 步），还是求值核算 `tracks` 时 |
-| `handle` | 对象 | 无 | 否 | | `create` 交回的 `Handle` 的观测；`evaluate` 形状不出现 |
+| `handle` | 对象 | 无 | 否 | | `create` 交回的 `Handle` 的观测；`evaluate` 形状不得出现（CR3） |
 | `handle.members` | 数组 | 无 | 是 | 字符串 | `Handle` 上出现的成员名 |
-| `handle.prefix` | 字符串 | 无 | 否 | 实例名的写法，见 5.4 | 实例前缀，就是这个卡实例的实例名 |
+| `handle.prefix` | 字符串 | 无 | `handle.merged` 或 `handle.mergedMetaIds` 出现时必填 | 实例名的写法，见 5.4 | 实例前缀，就是这个卡实例的实例名 |
 | `handle.entities` | 数组 | 无 | 否 | 字符串 | `Handle.entities` 的键，都是相对名 |
-| `handle.roots` | 数组 | 无 | 否 | `handle.entities` 里的名字 | 带 `root: true` 的实体的相对名；不出现表示一个也没有 |
-| `handle.merged` | 数组 | 无 | 否 | 字符串 | 这些实体并进镜头 `entities` 之后的名字，次序和 `handle.entities` 一一对应 |
+| `handle.roots` | 数组 | 无 | 否 | `handle.entities` 里的名字（CR17） | 带 `root: true` 的实体的相对名；不出现表示一个也没有 |
+| `handle.merged` | 数组 | 无 | 否 | 字符串 | 这些实体并进镜头 `entities` 之后的名字，次序和 `handle.entities` 一一对应，项数相同 |
 | `handle.metaKeys` | 数组 | 无 | 否 | 字符串 | `Handle.meta(f)` 的返回值里出现过的键 |
 | `handle.metaIds` | 数组 | 无 | 否 | 字符串 | `Handle.meta(f)` 交出的文字框的 `id` 和读数的名字 |
-| `handle.mergedMetaIds` | 数组 | 无 | 否 | 字符串 | 它们并进镜头之后的名字，次序和 `handle.metaIds` 一一对应 |
+| `handle.mergedMetaIds` | 数组 | 无 | 否 | 字符串 | 它们并进镜头之后的名字，次序和 `handle.metaIds` 一一对应，项数相同 |
 | `evaluations` | 数组 | 无 | 否 | 每项 `{ f, sub, mode, digest }` | 纯函数门的观测。`create` 形状比的是 `apply` 之后的状态摘要，`evaluate` 形状比的是返回值的摘要；`mode` 的值域是 `single`、`shuffled`、`sequential` |
 | `ext` | 对象 | 无 | 否 | 键带点分前缀 | 私有数据 |
 
@@ -112,13 +112,15 @@
 |---|---|---|---|---|---|
 | `format` | 字符串 | 无 | 是 | `load-check/0.1` | 格式标识 |
 | `shot` | 字符串 | 无 | 是 | 见 D 契约 5.1 | 镜头的标识 |
+| `build` | 字符串 | 无 | 是 | `ok`、`failed` | 这一次装载的构建结论 |
+| `error` | 字符串 | 无 | 否 | 错误码，见错误码表契约（ER） | 构建失败时报的错误码；没报错误码就不出现 |
 | `steps` | 数组 | 无 | 是 | `assets`、`tracks`、`create`、`collect` | 搭建阶段实际执行的次序 |
-| `cards` | 数组 | 无 | 是 | 实例名（`as`，写法见 S 契约 5.2 的一段），不重复 | 这个镜头自己的卡实例，按片子描述里 `cards` 数组的顺序 |
-| `overlays` | 数组 | 无 | 否 | 叠加层的 `id`（写法见 D 契约 5.1），不重复，和 `cards` 里的名字也不重复 | 这个镜头的叠加层展开出的卡实例，按片子描述里 `overlays` 的书写顺序；不出现表示没有 |
+| `cards` | 数组 | 无 | 是 | 实例名（`as`，写法见 S 契约 5.2 的一段），不重复，不得是 `tracks`、`host` | 这个镜头自己的卡实例，按片子描述里 `cards` 数组的顺序 |
+| `overlays` | 数组 | 无 | 否 | 叠加层的 `id`（写法见 D 契约 5.1），不重复，不得是 `tracks`、`host`；和 `cards` 里的名字也不得重复（CR16） | 这个镜头的叠加层展开出的卡实例，按片子描述里 `overlays` 的书写顺序；不出现表示没有 |
 | `orderPairs` | 数组 | 无 | 否 | 每项 `[先, 后]`，都是 `cards` 里的名字 | 从各张卡的 `ports.order` 解出来的先后要求 |
-| `createOrder` | 数组 | 无 | 是 | `cards` 加 `overlays` 的一个排列 | 实际调 `create` 的次序 |
-| `applyOrder` | 数组 | 无 | 否 | `tracks`，或 `cards`、`overlays` 里的名字 | 一帧里实际的写状态次序；`tracks` 表示 `tracks.apply` |
-| `metaOrder` | 数组 | 无 | 否 | `host`，或 `cards`、`overlays` 里的名字 | 一帧里元数据的合并次序；`host` 表示宿主量的那部分 |
+| `createOrder` | 数组 | 无 | 是 | `build` 是 `ok` 时是 `cards` 加 `overlays` 的一个排列；`build` 是 `failed` 时是失败之前已经 `create` 过的那几个，可以是空数组 | 实际调 `create` 的次序 |
+| `applyOrder` | 数组 | 无 | 否 | 至少 1 项；`tracks`，或 `cards`、`overlays` 里的名字 | 一帧里实际的写状态次序；`tracks` 表示 `tracks.apply` |
+| `metaOrder` | 数组 | 无 | 否 | 至少 1 项；`host`，或 `cards`、`overlays` 里的名字 | 一帧里元数据的合并次序；`host` 表示宿主量的那部分 |
 | `camera` | 对象 | 无 | 否 | | 相机从哪里来 |
 | `camera.tracksHasCamera` | 布尔 | 无 | 是 | | `tracks` 里有没有相机轨道 |
 | `camera.from` | 字符串 | 无 | 是 | `tracks`、`card` | 实际取的是 `tracks.camera`，还是相机类卡交出的对象 |
@@ -130,19 +132,21 @@
 |---|---|---|---|
 | CR1 | 卡的一个实现对外必须正好有一个卡入口，是 `create` 或 `evaluate`，并且和卡文件声明的形状相同。 | `entries` 必须正好 1 项，等于 `shape` | `CR1-two-entries.json` |
 | CR2 | `create` 形状的卡必须经 `ctx.cards.use` 调，`evaluate` 形状的卡必须由求值核调，不得经 `ctx.cards.use`。 | `shape` 是 `create` 时 `calledVia` 必须是 `cards.use`；是 `evaluate` 时必须是 `tracks` | `CR2-evaluate-via-cards-use.json` |
-| CR3 | `create` 交回的 `Handle` 必须有 `dispose`。 | `shape` 是 `create` 时必须出现 `handle`，`handle.members` 里必须有 `dispose` | `CR3-handle-without-dispose.json` |
+| CR3 | `create` 交回的 `Handle` 必须有 `dispose`；`evaluate` 形状的卡不得交回 `Handle`。 | `shape` 是 `create` 时必须出现 `handle`，`handle.members` 里必须有 `dispose`；`shape` 是 `evaluate` 时不得出现 `handle` | `CR3-handle-without-dispose.json`、`CR3-create-without-handle.json`、`CR3-evaluate-with-handle.json` |
 | CR4 | `Handle.apply(f, sub)` 必须是纯函数。 | `shape` 是 `create` 时，`evaluations` 里 `f`、`sub` 相同的观测条目 `digest` 必须逐位相同 | `CR4-apply-keeps-state.json` |
 | CR5 | `Handle.meta(f)` 返回的键只能是 `texts`、`anchors`、`readings`。 | `handle.metaKeys` 每项必须是这三个之一 | `CR5-meta-reports-bbox.json` |
-| CR6 | `Handle.entities` 里的相对名并进镜头的 `entities` 时必须写成 `<as>.<相对名>`，带 `root: true` 的那个必须写成 `<as>`；`<as>` 是这个卡实例的实例名。 | `handle.merged` 的第 i 项：`handle.entities` 的第 i 项在 `handle.roots` 里时必须等于 `handle.prefix`，不在时必须等于 `handle.prefix`、`.`、`handle.entities` 的第 i 项连起来 | `CR6-entities-without-prefix.json` |
+| CR6 | `Handle.entities` 里的相对名并进镜头的 `entities` 时必须写成 `<as>.<相对名>`，带 `root: true` 的那个必须写成 `<as>`；`<as>` 是这个卡实例的实例名。 | `handle.merged` 和 `handle.entities` 的项数必须相同（`handle.entities` 没出现算 0 项）；`handle.merged` 的第 i 项：`handle.entities` 的第 i 项在 `handle.roots` 里时必须等于 `handle.prefix`，不在时必须等于 `handle.prefix`、`.`、`handle.entities` 的第 i 项连起来 | `CR6-entities-without-prefix.json`、`CR6-root-with-suffix.json`、`CR6-merged-length-mismatch.json` |
 | CR7 | `evaluate(inputs, params, f, sub)` 必须是这四个参数的纯函数。 | `shape` 是 `evaluate` 时，`evaluations` 里 `f`、`sub` 相同的观测条目 `digest` 必须逐位相同 | `CR7-evaluate-order-dependent.json` |
-| CR8 | 固定装载脚本的搭建阶段必须按载入资产、接 `tracks`、逐张 `create`、收集实体和相机的次序各做一次。 | `steps` 必须正好是 `["assets", "tracks", "create", "collect"]` | `CR8-create-before-tracks.json` |
-| CR9 | `create` 的次序必须满足 `ports.order` 声明的全部先后，没声明先后的卡之间必须保持书写顺序。 | `createOrder` 去掉 `overlays` 里的名字之后，必须等于 5.2 的排法算出的结果 | `CR9-declared-order-ignored.json` |
-| CR10 | 每帧必须先调 `tracks.apply(f, sub)`，再按 `create` 的次序调各张卡的 `apply(f, sub)`。 | `applyOrder` 的第一项必须是 `tracks`，其余各项在 `createOrder` 里的位置必须递增 | `CR10-card-apply-before-tracks.json` |
-| CR11 | 每帧必须由宿主先量元数据，再按 `create` 的次序并进各张卡的 `meta(f)`。 | `metaOrder` 的第一项必须是 `host`，其余各项在 `createOrder` 里的位置必须递增 | `CR11-card-meta-before-host.json` |
+| CR8 | 固定装载脚本的搭建阶段必须按载入资产、接 `tracks`、逐张 `create`、收集实体和相机的次序各做一次。 | `steps` 必须正好是 `["assets", "tracks", "create", "collect"]`。排不出 `create` 次序时本条不判，见 5.2 | `CR8-create-before-tracks.json` |
+| CR9 | `create` 的次序必须满足 `ports.order` 声明的全部先后，没声明先后的卡之间必须保持书写顺序；声明的先后排不出次序时必须判构建失败。 | 照 5.2 排不出次序（`orderPairs` 成环，或提到了 `cards` 里没有的名字）时，`build` 必须是 `failed`，次序不再比。排得出时，`createOrder` 去掉 `overlays` 里的名字之后，必须等于 5.2 的排法算出的结果；`cards` 和 `overlays` 有重名时这一半不判，归 CR16 | `CR9-declared-order-ignored.json`、`CR9-writing-order-swapped.json`、`CR9-order-cycle-build-ok.json`、`CR9-order-unknown-name-build-ok.json` |
+| CR10 | 每帧必须先调 `tracks.apply(f, sub)`，再按 `create` 的次序调各张卡的 `apply(f, sub)`。 | `applyOrder` 的第一项必须是 `tracks`，其余各项必须都在 `createOrder` 里，位置必须递增，见 5.3。排不出 `create` 次序时本条不判，见 5.2 | `CR10-card-apply-before-tracks.json`、`CR10-apply-not-in-create-order.json`、`CR10-apply-name-not-created.json` |
+| CR11 | 每帧必须由宿主先量元数据，再按 `create` 的次序并进各张卡的 `meta(f)`。 | `metaOrder` 的第一项必须是 `host`，其余各项必须都在 `createOrder` 里，位置必须递增，见 5.3。排不出 `create` 次序时本条不判，见 5.2 | `CR11-card-meta-before-host.json`、`CR11-meta-not-in-create-order.json`、`CR11-meta-name-not-created.json` |
 | CR12 | `tracks` 里有相机轨道时相机必须取 `tracks.camera`，没有时才取相机类卡交出的对象。 | `camera.tracksHasCamera` 是 `true` 时 `camera.from` 必须是 `tracks`，是 `false` 时必须是 `card` | `CR12-card-camera-over-tracks.json` |
 | CR13 | 一个 `Handle` 的 `entities` 里带 `root: true` 的实体不得多于 1 个。 | `handle.roots` 出现时至多 1 项 | `CR13-two-roots.json` |
-| CR14 | `Handle.meta(f)` 交出的文字框的 `id` 和读数的名字并进镜头时必须写成 `<as>.<名字>`。 | `handle.mergedMetaIds` 的第 i 项必须等于 `handle.prefix`、`.`、`handle.metaIds` 的第 i 项连起来 | `CR14-text-id-without-prefix.json` |
-| CR15 | 叠加层展开出的卡实例必须装在镜头自己的全部卡之后，彼此之间必须保持 `overlays` 的书写顺序。 | `createOrder` 里 `overlays` 的名字必须全部排在 `cards` 的名字之后，相互的先后必须和 `overlays` 相同 | `CR15-overlay-before-cards.json` |
+| CR14 | `Handle.meta(f)` 交出的文字框的 `id` 和读数的名字并进镜头时必须写成 `<as>.<名字>`。 | `handle.mergedMetaIds` 和 `handle.metaIds` 的项数必须相同（`handle.metaIds` 没出现算 0 项）；`handle.mergedMetaIds` 的第 i 项必须等于 `handle.prefix`、`.`、`handle.metaIds` 的第 i 项连起来 | `CR14-text-id-without-prefix.json`、`CR14-merged-ids-length-mismatch.json` |
+| CR15 | 叠加层展开出的卡实例必须装在镜头自己的全部卡之后，彼此之间必须保持 `overlays` 的书写顺序。 | `overlays` 的每个名字必须在 `createOrder` 里，必须全部排在 `cards` 的名字之后，相互的先后必须和 `overlays` 相同。排不出 `create` 次序（见 5.2）、或 `cards` 和 `overlays` 有重名（归 CR16）时本条不判 | `CR15-overlay-before-cards.json`、`CR15-overlays-out-of-order.json`、`CR15-overlay-not-created.json` |
+| CR16 | 叠加层展开出的卡实例的实例名不得和镜头自己的卡实例的实例名重复。 | `overlays` 的每一项都不得出现在 `cards` 里 | `CR16-overlay-name-same-as-card.json` |
+| CR17 | 卡核对记录里 `handle.roots` 的每一项必须是 `handle.entities` 里的名字。 | `handle.roots` 出现时，每一项都必须在 `handle.entities` 里；`handle.entities` 没出现算空数组 | `CR17-root-not-in-entities.json` |
 
 ## 5. 口径
 
@@ -152,11 +156,11 @@
 
 ### 5.2 `create` 的排法
 
-输入是镜头自己的卡实例的书写顺序 `cards`（就是片子描述里 `cards` 数组的顺序）和先后要求 `orderPairs`；叠加层展开出的卡实例不参加这个排法，见 5.5。每一步在「所有必须排在它前面的卡都已经排好」的卡里，取书写顺序最靠前的那一张。先后要求成环，或者提到了 `cards` 里没有的名字，判构建失败。
+输入是镜头自己的卡实例的书写顺序 `cards`（就是片子描述里 `cards` 数组的顺序）和先后要求 `orderPairs`；叠加层展开出的卡实例不参加这个排法，见 5.5。每一步在「所有必须排在它前面的卡都已经排好」的卡里，取书写顺序最靠前的那一张。先后要求成环，或者提到了 `cards` 里没有的名字，就排不出次序，宿主必须判构建失败：装载核对记录的 `build` 必须是 `failed`（CR9）。排不出次序的记录，CR8、CR10、CR11、CR15 和 CR9 里比次序的那一半都不判；CR12、CR16 照判。
 
 ### 5.3 位置递增
 
-`applyOrder`、`metaOrder` 里除第一项之外的每个名字，都在 `createOrder` 里找它的下标；这串下标必须严格递增。没有 `apply` 或没有 `meta` 的卡可以不出现。
+`applyOrder`、`metaOrder` 里除第一项之外的每个名字，都在 `createOrder` 里找它的下标；这串下标必须严格递增。不在 `createOrder` 里的名字算没按次序排：出现在 `applyOrder` 里违反 CR10，出现在 `metaOrder` 里违反 CR11。没有 `apply` 或没有 `meta` 的卡可以不出现。第一项的 `tracks`、`host` 不是实例名：实例名不得用这两个词。
 
 ### 5.4 加前缀
 
@@ -177,8 +181,8 @@
 
 | 项 | 现在怎么写 | 等什么 |
 |---|---|---|
-| `apply(f, sub)`、`evaluate(…, f, sub)` 的参数形状 | 照 `(f, sub)` 写 | `待定：离屏宿主的定位` |
-| 卡的实现挂在哪些宿主，three 一侧的取值和着色语言 | 本契约不写，归卡文件格式契约（CF） | `待定：three 帧源的渲染器主干` |
+| `apply(f, sub)`、`evaluate(…, f, sub)` 的参数形状 | 照 `(f, sub)` 写 | 离屏宿主的定位：离屏宿主是核心帧源的出片宿主，three 帧源照旧用页面宿主。按倾向定，合作者不同意时再改 |
+| 卡的实现挂在哪些宿主，three 一侧的取值和着色语言 | 本契约不写，归卡文件格式契约（CF） | three 帧源的渲染器主干：过渡期用 WebGL 加 GLSL。按倾向定，合作者不同意时再改 |
 | 形状按什么分 | 【起草者补】按产出分：产出 `tracks` 的一段用 `evaluate`，往场景或后期里放东西用 `create`。落点暂时在帧源一侧、但产出 `tracks` 的卡同样用 `evaluate` | 集成负责人确认 |
 | 落点在帧源一侧的 `evaluate` 卡由谁调 | 按「求值核」写，`calledVia` 记 `tracks` | 集成负责人确认 |
 | `Handle` 上能不能有另外的成员 | 【起草者补】不禁止，宿主不得依赖 | 集成负责人确认 |
@@ -191,6 +195,10 @@
 | 多个叠加层展开出的卡实例之间的先后 | 【起草者补】按 `overlays` 的书写顺序 | 集成负责人确认 |
 | 有入口文件的镜头里，叠加层展开出的卡实例在哪一步装 | 不定；3.4 只管「卡加数据」模式 | 集成负责人定 |
 | 核对记录里的 `handle.roots`、`handle.metaIds`、`handle.mergedMetaIds`、`overlays` | 【起草者补】为了让 CR6、CR13、CR14、CR15 能用数据判定而加 | 集成负责人确认 |
+| 装载核对记录里的 `build`、`error` | 为了分清「宿主正确地判了构建失败」和「违反」而加。【起草者补】`build` 必填，和镜头核对记录一样；`error` 可选 | 集成负责人确认 |
+| 排不出 `create` 次序时报哪个错误码 | 不定；CR9 只要求 `build` 是 `failed` | 集成负责人定 |
+| 因为别的原因构建失败（`build` 是 `failed`、次序排得出）时，管装载顺序的各条判不判 | 【起草者补】照判；只有排不出次序这一种失败不判 | 集成负责人定 |
+| `handle.merged` 和 `handle.entities`、`handle.mergedMetaIds` 和 `handle.metaIds` 项数不同 | 【起草者补】「一一对应」读成项数必须相同，不同算违反 CR6、CR14 | 集成负责人确认 |
 
 ## 7. 变更记录
 
@@ -199,3 +207,4 @@
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 第 1、2 节、3.1 到 3.6、CR1、CR6、CR9、新加 CR13 到 CR15、5.2、5.4、新加 5.5、第 6 节 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 5.4、第 6 节；装载核对记录结构定义里叠加层 `id` 的正则 | 修订后的对齐收尾 |
+| 2026-11-19 | 3.5、3.6（加 `build`、`error`）、CR3、CR6、CR8 到 CR11、CR14、CR15、新加 CR16、CR17、5.2、5.3、第 6 节 | 排不出次序时分不清「正确地判了失败」和「违反」，给装载核对记录加构建结论；条文里写了却没有任何一层去查的搭配（`evaluate` 形状带 `handle`、`overlays` 和 `cards` 重名、`handle.roots` 不在 `handle.entities` 里、实例名叫 `tracks` 或 `host`）落到不变量或结构定义；每种违反方式补齐反例；两个待定按倾向定下来 |

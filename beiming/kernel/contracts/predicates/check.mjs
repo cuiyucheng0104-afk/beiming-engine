@@ -1,5 +1,5 @@
 // 谓词登记表契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// PR1 到 PR6 判谓词登记表（predicates/0.1），PR7 判不带 format 的判定条目；不归这条管的对象返回空数组。
+// PR1 到 PR6 判谓词登记表（predicates/0.1），PR7 判登记成 verdict.schema.json 的判定条目（内嵌值，认对象看第二个参数的 schema）；不归这条管的对象返回空数组。
 
 // 5.6 表里 floor 1 版的六条 expr，次序就是表里的次序
 const FLOOR_V1 = [
@@ -54,6 +54,6 @@ export const checks = {
     .filter(({ pred }) => (pred.requires ?? []).some((r) => r === 'meta' || r === 'objectId'))
     .map(({ tpl, i, name, pred }) => `模板 ${tpl.name} 第 ${i + 1} 条 limited 是 true，它用的 ${name} 的 requires 是 ${JSON.stringify(pred.requires)}`)),
 
-  PR7: (obj) => (obj && obj.format === undefined && obj.status === 'skipped' && !('reason' in obj)
+  PR7: (obj, { schema } = {}) => (schema === 'verdict.schema.json' && obj.status === 'skipped' && !('reason' in obj)
     ? [`判定条目 ${obj.id} 的 status 是 skipped，没带 reason`] : []),
 };

@@ -21,6 +21,13 @@
     "why": "第 1 行的矩阵把 x 取反，行列式是 −1，实例表第四列却是 0"
   },
   {
+    "file": "SP3-flag-without-mirror.json",
+    "violates": [
+      "SP3"
+    ],
+    "why": "第 0 行的矩阵行列式是 +1，实例表第四列却是 1；只抽了这一行"
+  },
+  {
     "file": "SP4-row-drifts.json",
     "violates": [
       "SP4"
@@ -32,7 +39,14 @@
     "violates": [
       "SP5"
     ],
-    "why": "材质里有登记表之外的节点 voronoi，读入方没报错，丢掉它接着读了"
+    "why": "材质里有登记表之外的节点 voronoi：导出器把登记表之外的词写进了场景包清单"
+  },
+  {
+    "file": "SP5-unknown-node-empty-loads.json",
+    "violates": [
+      "SP5"
+    ],
+    "why": "材质里有登记表之外的节点 voronoi，loads 是空数组：没有读入的观测，仍归导出方这一条"
   },
   {
     "file": "SP6-hash-changes-on-rewrite.json",
@@ -56,11 +70,32 @@
     "why": "场景包清单里有 3 盏灯，灯表的第二维却是 2"
   },
   {
+    "file": "SP8-class-too-short.json",
+    "violates": [
+      "SP8"
+    ],
+    "why": "实例表有 9 行，instances.class 却只有 7 项；缺的两项里有 head.eye 的第二行"
+  },
+  {
+    "file": "SP8-observed-rows-short.json",
+    "violates": [
+      "SP8"
+    ],
+    "why": "场景包清单说实例表有 3 行，解出来的 tables.instances 只有 2 行"
+  },
+  {
     "file": "SP9-material-index-out-of-range.json",
     "violates": [
       "SP9"
     ],
     "why": "第 2 行的材质下标是 2，场景包清单里只有 2 个材质"
+  },
+  {
+    "file": "SP9-flag-not-0-or-1.json",
+    "violates": [
+      "SP9"
+    ],
+    "why": "第 1 行的第四列是 2；这一行同时被 frameInstances 和 normalProbes 抽到，SP3、SP7 不判它"
   },
   {
     "file": "SP10-two-ids-one-name.json",
@@ -82,6 +117,13 @@
       "SP12"
     ],
     "why": "灯 rim1 的链接 set.* 一个实体名都配不到"
+  },
+  {
+    "file": "SP12-assembly-bare-name.json",
+    "violates": [
+      "SP12"
+    ],
+    "why": "灯 rim1 的链接写的是装配体的本名 kit：本名不匹配它下面的叶子实体，必须写成 kit.*"
   },
   {
     "file": "SP13-dangling-value-name.json",
@@ -110,5 +152,33 @@
       "SP16"
     ],
     "why": "相机表带 focusDist、fstop 两列，camera 里却没有 sensorHeight"
+  },
+  {
+    "file": "SP17-unknown-node-dropped.json",
+    "violates": [
+      "SP17"
+    ],
+    "why": "材质里有登记表之外的节点 voronoi，读入方没报错，丢掉它接着读了"
+  },
+  {
+    "file": "SP17-wrong-error-code.json",
+    "violates": [
+      "SP17"
+    ],
+    "why": "材质里有登记表之外的节点 voronoi，读入方报了错，错误码却不是 contract.unknown-node"
+  },
+  {
+    "file": "SP18-frame-row-out-of-range.json",
+    "violates": [
+      "SP18"
+    ],
+    "why": "实例表只有 3 行，frameInstances 里有一项的 row 是 3"
+  },
+  {
+    "file": "SP18-probe-row-out-of-range.json",
+    "violates": [
+      "SP18"
+    ],
+    "why": "实例表只有 3 行，normalProbes 里有一项的 row 是 3"
   }
 ]

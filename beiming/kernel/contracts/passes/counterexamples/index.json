@@ -33,5 +33,19 @@
       "PS5"
     ],
     "why": "四个累积样本里只有两个的编号和辅助样本相同，覆盖率应是 0.5，写成了 1"
+  },
+  {
+    "file": "PS6-sides-producer-twice.json",
+    "violates": [
+      "PS6"
+    ],
+    "why": "sides 的两项都是 core：同一个出层方写了两次"
+  },
+  {
+    "file": "PS6-pixel-producer-not-in-sides.json",
+    "violates": [
+      "PS6"
+    ],
+    "why": "sides 里只有 core，pixels 的第 2 项却写着是 oracle 渲的"
   }
 ]

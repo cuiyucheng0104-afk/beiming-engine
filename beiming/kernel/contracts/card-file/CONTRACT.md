@@ -82,7 +82,7 @@
 | `livesIn` | 字符串 | 是 | 5.3 的词 | 这个卡的入口在哪个落点 |
 | `entry` | 字符串 | 是 | 路径，从 `beiming/` 算 | 卡的入口 |
 | `shape` | 字符串 | 是 | `create`、`evaluate` | 形状，见 CR 契约 |
-| `hosts` | 数组 | 是 | 每项 `{ host, version }`，都是不空的字符串；可以是空数组 | 这个卡的入口挂在哪些宿主、各是什么版本。`source:three` 的 `host` 取值 `待定：three 帧源的渲染器主干`，`version` 是 `0.187.0`；`source:core` 的 `host` 取值 `待定：离屏宿主的定位` |
+| `hosts` | 数组 | 是 | 每项 `{ host, version }`，都是不空的字符串；可以是空数组 | 这个卡的入口挂在哪些宿主、各是什么版本。`source:three` 的 `host` 是页面宿主（three 帧源的渲染器主干在过渡期是 WebGL 加 GLSL），`version` 是 `0.187.0`；`source:core` 的 `host` 是离屏宿主。这两处按倾向定，合作者不同意时再改；宿主名怎么拼见第 6 节 |
 | `selftest` | 字符串 | 是 | 路径，从 `beiming/` 算 | 自带测试 |
 
 ### 3.3 参数
@@ -94,7 +94,7 @@
 | `space` | 字符串 | 见 CF5 | `scene-linear-rec709`、`display` | 颜色是场景线性还是显示空间。`scene-linear-rec709` 和输出通道契约（PS）是同一个词 |
 | `range` | 数组 | 见 CF4 | `[下限, 上限]`，双精度，两端都算在内 | 取值范围 |
 | `schema` | 字符串 | 见 CF9 | 路径，从卡文件所在的目录算 | `data` 类型的值的结构定义（JSON Schema 2020-12） |
-| `default` | 任意 JSON 值 | 是 | 和 `type` 相符 | 默认值 |
+| `default` | 任意 JSON 值 | 是 | 和 `type` 相符：`number` 的必须是数，`integer` 的必须是整数，`boolean` 的必须是布尔，`string`、`text` 的必须是字符串；另外四种类型的见第 6 节 | 默认值 |
 | `coupling` | 字符串 | 是 | 5.4 的词 | 耦合 |
 
 | `type` | 值是什么 |
@@ -122,7 +122,7 @@
 |---|---|---|---|---|
 | `selftest` | 字符串 | 是 | 不空 | 自带测试测的是什么 |
 | `parity` | 对象 | 否 | `{ gates, mutation, negative }`；`gates` 是字符串数组，另两个是不空的字符串 | 卡的对拍：门、变异检查、负对照。没有真值的卡不出现 |
-| `predicates` | 数组 | 是 | 不空的字符串，写法见 PR 契约 5.5；可以是空数组 | 卡自带的断言 |
+| `predicates` | 数组 | 是 | 不空的字符串，每项只写一条断言，写法见 PR 契约 5.5，不得带 ` ; `；可以是空数组 | 卡自带的断言 |
 
 ### 3.6 `status[]`
 
@@ -156,11 +156,11 @@
 | CF1 | `impl` 里各项的 `livesIn` 不得重复，它们合起来必须正好是顶层的 `livesIn`。 | `impl[].livesIn` 没有两项相同；作为集合等于顶层 `livesIn` | `CF1-landing-without-impl.json` |
 | CF2 | 落点是 `data` 的卡的入口 `shape` 必须是 `evaluate`，落点以 `source:` 开头或是 `comp` 的卡的入口 `shape` 必须是 `create`。 | 逐项比 `impl[].livesIn` 和 `shape`；`bake` 不判 | `CF2-data-impl-create.json` |
 | CF3 | 落点是 `data` 的卡的入口，`entry` 必须在 `kernel/eval/` 之下，或在 `cards/<本卡的 kind>/` 之下。 | `entry` 以 `kernel/eval/` 开头，或以 `cards/` 加 `kind` 加 `/` 开头 | `CF3-data-impl-outside.json` |
-| CF4 | `type` 是 `number` 或 `integer` 的参数必须带 `range`，并且 `range[0] ≤ default ≤ range[1]`。 | 逐个这两种类型的参数：`range` 在；三个数按数值比 | `CF4-default-out-of-range.json` |
+| CF4 | `type` 是 `number` 或 `integer` 的参数必须带 `range`，并且 `range[0] ≤ default ≤ range[1]`。 | 逐个这两种类型的参数：`range` 在；`default` 是数（JSON 的数，写成字符串或布尔的不算）；三个数按数值比 | `CF4-default-out-of-range.json` |
 | CF5 | `type` 是 `color` 的参数必须带 `space`，别的类型的参数不得带 `space`。 | 逐个参数看 `type` 和 `space` 在不在 | `CF5-space-on-number.json` |
 | CF6 | `status` 里不得有两项的 `host`、`source`、`gpu` 三个都相同。 | 三个字符串逐字符比 | `CF6-duplicate-status-key.json` |
 | CF7 | 卡文件里不得出现 3.7 的五个键。 | 逐个键看在不在 | `CF7-overlay-field-in-card.json` |
-| CF8 | `verify.predicates` 每一条的谓词名必须是谓词登记表里登记过的。 | 照 PR 契约 5.5 取每条断言的谓词名，在 `predicates/predicates.json` 的 `name` 里逐字符找 | `CF8-unregistered-predicate.json` |
+| CF8 | `verify.predicates` 每一项必须只写一条断言，这条断言的谓词名必须是谓词登记表里登记过的。 | 断言里出现 ` ; `（空格、分号、空格）算违反；照 PR 契约 5.5 取每条断言的谓词名，在 `predicates/predicates.json` 的 `name` 里逐字符找 | `CF8-unregistered-predicate.json`、`CF8-semicolon-joined.json` |
 | CF9 | `type` 是 `data` 的参数必须带 `schema`，别的类型的参数不得带 `schema`。 | 逐个参数看 `type` 和 `schema` 在不在 | `CF9-data-without-schema.json` |
 | CF10 | `type` 是 `string` 的参数，`default` 不得是文件路径。 | 逐个这种类型的参数，照 5.10 判 `default` | `CF10-string-default-is-path.json` |
 | CF11 | 参数名以 `Deg` 结尾的，`unit` 必须是 `deg`；`unit` 是 `deg` 的，参数名必须以 `Deg` 结尾；`unit` 不得是 `rad`。 | 逐个参数比参数名的末三个字符和 `unit`，逐字符比 | `CF11-degree-without-suffix.json` |
@@ -257,8 +257,9 @@
 | `entry` 从哪算 | 【起草者补】从 `beiming/` 算，因为实现不一定和卡文件在同一个目录 | 集成负责人确认 |
 | `cards/<类>/<名>/` 里 `<名>` 怎么从卡名得到 | 不定，CF3 只判到 `cards/<kind>/` | 目录归属表契约（OW） |
 | 帧源一侧和合成一侧的卡的入口放哪 | 不定，没有立成不变量 | 目录归属表契约（OW） |
-| `hosts` 的取值 | `source:three` 的 `host` 是 `待定：three 帧源的渲染器主干`，`version` 是 `0.187.0`；`source:core` 的 `host` 是 `待定：离屏宿主的定位`。落点是 `data` 时可以是空数组【起草者补】 | 上面两项定下来 |
-| 着色语言 | 卡文件里没有这个字段 | `待定：three 帧源的渲染器主干` |
+| `hosts` 的取值 | `source:three` 的 `host` 是页面宿主，`version` 是 `0.187.0`；`source:core` 的 `host` 是离屏宿主（离屏宿主是核心帧源的出片宿主，three 帧源照旧用页面宿主）。落点是 `data` 时可以是空数组【起草者补】 | 按倾向定，合作者不同意时再改 |
+| 着色语言 | 卡文件里没有这个字段。three 帧源的渲染器主干在过渡期是 WebGL 加 GLSL | 按倾向定，合作者不同意时再改 |
+| `color`、`time`、`asset`、`data` 四种类型的 `default` | 结构定义不约束它长什么样；`asset`、`time` 另见下面两行 | 第一批卡写出来之后补 |
 | 参数的 `type` 九个词 | 【起草者补】需求来源没列类型。没有向量、枚举 | 第一批卡写出来之后补 |
 | 文件路径怎么认 | 【起草者补】5.10：含 `/` 或 `\` 就算。不带目录的文件名认不出来 | 集成负责人确认 |
 | `schema` 从哪算 | 【起草者补】从卡文件所在的目录算，所以结构定义一定在卡目录里 | 集成负责人确认 |
@@ -288,3 +289,4 @@
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 第 1、2 节，3.1、3.2、3.3、3.5、3.6，CF2、CF3 的措辞，新加 CF9、CF10、CF11，5.3、5.6、5.7，新加 5.10、5.11，第 6 节 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 5.11 | 修订后的对齐收尾 |
+| 2026-11-19 | 3.2、3.3、3.5，CF4 的「怎么查」，CF8 的条文和「怎么查」，第 6 节 | 写判定函数时暴露的问题：卡的断言一项只写一条；`default` 的类型进结构定义；两个等决定的取值按倾向定下来 |

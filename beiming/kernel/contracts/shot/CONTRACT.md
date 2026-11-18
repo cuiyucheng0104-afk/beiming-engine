@@ -166,7 +166,7 @@ def build(ctx):
 | `error` | 字符串 | 无 | 否 | 错误码，见错误码表契约（ER） | 构建失败时报的错误码；没报错误码就不出现 |
 | `entities` | 数组 | 无 | 是 | 字符串 | 构建交出的全部实体名，含卡带进来的 |
 | `omittable` | 数组 | 无 | 否 | `entities` 里的名字，不重复 | `entities` 里类别是 `part`、没有角色的实体名；不出现表示一个也没有 |
-| `metaEntities` | 数组 | 无 | 否 | 每项 `{ f, names, omittedParts? }` | 抽帧时每帧元数据里列出的实体名；`f` 是镜头局部帧号，`names` 是实体名的数组，`omittedParts` 是这一帧元数据的 `omittedParts`（整数，≥ 1，单位个；不出现表示这一帧一个也没省） |
+| `metaEntities` | 数组 | 无 | 否 | 每项 `{ f, names, omittedParts? }` | 抽帧时每帧元数据里列出的实体名；`f` 是镜头局部帧号，`names` 是实体名的数组，不重复，`omittedParts` 是这一帧元数据的 `omittedParts`（整数，≥ 1，单位个；不出现表示这一帧一个也没省） |
 | `evaluations` | 数组 | 无 | 否 | 每项 `{ f, sub, mode, digest }` | 对 `state` 的纯函数门观测；`mode` 的值域是 `single`、`shuffled`、`sequential`、`after-other-shot`，`digest` 是状态摘要 |
 | `patches` | 数组 | 无 | 否 | 每项 `{ id, hits }` | 片段补丁；`id` 是补丁的名字，`hits` 是命中处数，整数，≥ 0 |
 | `metaKeys` | 数组 | 无 | 否 | 字符串 | `meta(f)` 的返回值里出现过的键 |
@@ -182,12 +182,12 @@ def build(ctx):
 | S1 | `state(f, sub)` 必须是纯函数，每次调用把本帧状态整组写全，镜头之间不留状态。 | `evaluations` 里 `f`、`sub` 相同的观测条目，`digest` 必须逐位相同 | `S1-state-accumulates.json` |
 | S2 | `build` 在一个镜头的一次装载里必须正好跑 1 次，不得依赖帧号。 | `buildCalls` 必须等于 1 | `S2-rebuilt-every-frame.json` |
 | S3 | 一次出片里，一个镜头必须只由一个出帧者出，只用一种语言。 | `sources` 正好 1 项，`languages` 正好 1 项 | `S3-two-sources.json` |
-| S4 | `entities` 的名字必须是点分路径，在镜头内唯一；每帧元数据里的实体名必须是 `entities` 的子集，缺的个数必须等于这一帧的 `omittedParts`，缺的只能是类别为 `part`、没有角色的实体。 | `entities` 每项符合 5.2 的写法且没有重复；`metaEntities` 每一项：`names` 每个名字都在 `entities` 里，`entities` 里不在 `names` 里的名字的个数等于 `omittedParts`（不出现算 0），并且这些名字都在 `omittable` 里。见 5.3 | `S4-duplicate-entity.json` |
+| S4 | `entities` 的名字必须是点分路径，在镜头内唯一；每帧元数据里的实体名必须是 `entities` 的子集，缺的个数必须等于这一帧的 `omittedParts`，缺的只能是类别为 `part`、没有角色的实体。 | `entities` 每项符合 5.2 的写法且没有重复；`metaEntities` 每一项：`names` 每个名字都在 `entities` 里，`entities` 里不在 `names` 里的名字的个数等于 `omittedParts`（不出现算 0），并且这些名字都在 `omittable` 里。见 5.3 | `S4-duplicate-entity.json`、`S4-bad-entity-name.json`、`S4-meta-name-not-in-entities.json`、`S4-omitted-count-mismatch.json`、`S4-missing-not-omittable.json` |
 | S5 | 片段补丁没有命中时必须判构建失败，不得只报警告。 | `patches` 里有 `hits` 等于 0 的项时，`build` 必须是 `failed` | `S5-patch-miss-ignored.json` |
-| S6 | 「卡加数据」模式（`cards-data`）的镜头不得有入口文件，必须由宿主用固定装载脚本搭出来。 | `mode` 是 `cards-data` 时不得出现 `entry`；搭建的顺序按 CR 契约判 | `S6-cards-mode-with-entry.json` |
+| S6 | 「卡加数据」模式（`cards-data`）的镜头不得有入口文件，必须由宿主用固定装载脚本搭出来。 | `mode` 是 `cards-data` 时不得出现 `entry`。搭建的顺序不在本条判，归卡的运行时接口契约（CR）里管装载顺序的各条，用装载核对记录判 | `S6-cards-mode-with-entry.json` |
 | S7 | 镜头代码不得读墙钟，不得用不带种子的随机。 | `scan.wallClock` 和 `scan.unseededRandom` 都必须是空数组 | `S7-math-random.json` |
 | S8 | `meta(f)` 返回的键只能是 `texts`、`anchors`、`readings`。 | `metaKeys` 每项必须是这三个之一 | `S8-meta-overrides-camera.json` |
-| S9 | `ctx.cards.use(as, runtime?)` 的 `as` 必须是这个镜头 `cards` 里声明过的实例名，`runtime` 的键不得和这张卡声明的参数同名；违反前一项必须判构建失败并报 `contract.undeclared-card`，违反后一项必须判构建失败并报 `contract.runtime-shadows-param`。 | `cardUses` 里有 `as` 不在 `declaredCards` 里的项时，`build` 必须是 `failed`，`error` 必须是 `contract.undeclared-card`；有 `runtimeKeys` 和 `paramKeys` 含同一个名字的项时，`build` 必须是 `failed`，`error` 必须是 `contract.runtime-shadows-param`。见 5.8 | `S9-undeclared-card.json` |
+| S9 | `ctx.cards.use(as, runtime?)` 的 `as` 必须是这个镜头 `cards` 里声明过的实例名，`runtime` 的键不得和这张卡声明的参数同名；违反前一项必须判构建失败并报 `contract.undeclared-card`，违反后一项必须判构建失败并报 `contract.runtime-shadows-param`；两种违反同时出现时，必须报 `cardUses` 里先出现的那一次调用犯的那一种。 | 从前往后找 `cardUses` 里第一个违反的项：`as` 不在 `declaredCards` 里算前一种；`as` 在 `declaredCards` 里、`runtimeKeys` 和 `paramKeys` 含同一个名字算后一种。找到时 `build` 必须是 `failed`，`error` 必须是这一项对应的码（前一种是 `contract.undeclared-card`，后一种是 `contract.runtime-shadows-param`）；找不到时本条不判。见 5.8 | `S9-undeclared-card.json`、`S9-runtime-shadows-param.json`、`S9-failed-without-code.json`、`S9-reports-later-violation.json` |
 
 ## 5. 口径
 
@@ -224,14 +224,15 @@ def build(ctx):
 - `as` 必须是片子描述里这个镜头 `cards` 声明过的实例名（`cards[].as`，见 D 契约）。没声明就是构建失败，码是 `contract.undeclared-card`。
 - 卡的参数只从片子描述来，入口文件不提供参数层（D 契约 5.8）。
 - `runtime` 只放写不进 JSON 的东西：宿主对象、函数。它的键不得和这张卡声明的参数同名，同名是构建失败，码是 `contract.runtime-shadows-param`。
+- 一次构建只报一个错误码。两种违反同时出现时，报调用次序里先出现的那一次调用犯的那一种；同一次调用里 `as` 没声明、`runtime` 的键又和核对记录里这一项的 `paramKeys` 同名时，算没声明那一种。
 - 内建卡不用声明。哪几张是内建卡见目录归属表契约（OW）。
 
 ## 6. 待定
 
 | 项 | 现在怎么写 | 等什么 |
 |---|---|---|
-| `state(f, sub)`、`tracks.apply(f, sub)` 的参数形状 | 照 `(f, sub)` 写 | `待定：离屏宿主的定位` |
-| S5 的片段补丁针对哪种着色语言 | 条文不分语言 | `待定：three 帧源的渲染器主干` |
+| `state(f, sub)`、`tracks.apply(f, sub)` 的参数形状 | 照 `(f, sub)` 写 | 离屏宿主的定位：离屏宿主是核心帧源的出片宿主，three 帧源照旧用页面宿主。按倾向定，合作者不同意时再改 |
+| S5 的片段补丁针对哪种着色语言 | 条文不分语言 | three 帧源的渲染器主干：过渡期用 WebGL 加 GLSL。按倾向定，合作者不同意时再改 |
 | `sources` 的值域 | 例子只用 `three`、`blender` | 帧源接口契约（F） |
 | `ctx.frames` 的含义 | 【起草者补】这个镜头的帧数 | 集成负责人确认 |
 | `ctx.size` 的形状 | 【起草者补】`[宽, 高]`，像素 | 集成负责人确认 |
@@ -250,6 +251,8 @@ def build(ctx):
 | 内建卡不声明时 `ctx.cards.use` 的第一个参数写什么 | 不定；只写「内建卡不用声明」 | 集成负责人定 |
 | S3 的「只用一种语言」、S4 的「点分路径，镜头内唯一」 | 【起草者补】改写 S3、S4 时保留了原条文里没被点到的这两半句 | 集成负责人确认 |
 | 核对记录里的 `error`、`omittable`、`declaredCards`、`cardUses` | 【起草者补】为了让 S4、S9 能用数据判定而加 | 集成负责人确认 |
+| 补丁没命中时的错误码 | 不定；S5 只要求判构建失败，不要求报哪个码 | 集成负责人定 |
+| 同一次 `ctx.cards.use` 调用两种违反都犯时报哪个码 | 【起草者补】算没声明那一种，报 `contract.undeclared-card`：没声明的实例名对不上任何一张卡，谈不上「这张卡声明的参数」 | 集成负责人确认 |
 
 ## 7. 变更记录
 
@@ -257,3 +260,4 @@ def build(ctx):
 |---|---|---|
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 第 1、2 节、3.1、3.2、3.5、3.6、S3、S4、S6、新加 S9、5.1、5.3、5.7、新加 5.8、第 6 节 | 照红队和跨契约一致性复核的处理结果改 |
+| 2026-11-19 | 3.6（`names` 不重复）、S4 和 S9 的反例、S6「怎么查」、S9、5.8、第 6 节 | S9 两种违反同时出现时没有记录能合法，定成报先出现的那一种；S6 判不了的半句移给卡的运行时接口契约；每种违反方式补齐反例；两个待定按倾向定下来 |

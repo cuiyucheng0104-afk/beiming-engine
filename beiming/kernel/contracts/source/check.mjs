@@ -1,5 +1,5 @@
 // 帧源接口契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// F10 收单独的能力声明（caps/0.1）和核对记录（source-check/0.1）里的 caps，其余各条只收核对记录。
+// F4、F10 收单独的能力声明（caps/0.1）和核对记录（source-check/0.1）里的 caps，其余各条只收核对记录。
 // 记录里没出现的段不判；实体清单、场景查询这些不带 format 的内嵌值不归这些条文管，一律返回空数组。
 
 const FULL_IDS = ['blender', 'three', 'core'];
@@ -32,17 +32,6 @@ const raw = {
   F3: (rec) => (rec.renders ?? [])
     .filter((r) => !allDeclared(rec.caps, r.want) && (r.status !== 'error' || r.code !== 'contract.unsupported-output'))
     .map((r) => `${at(r)} 要了没声明过的输出，结果是 ${r.status}${r.code ? `（${r.code}）` : ''}`),
-
-  // ext.<名字> 按 3.5 整条免掉；容差档的两次比较等实测，现在只查 randomAccess（见 5.4）
-  F4: (rec) => {
-    if (isExt(rec.caps)) return [];
-    const out = rec.caps.randomAccess === true ? [] : [`能力声明的 randomAccess 是 ${rec.caps.randomAccess}`];
-    if (rec.caps.determinism !== 'hash-same-machine') return out;
-    const byFrame = new Map();
-    for (const o of rec.orderRuns ?? []) byFrame.set(o.shotFrame, (byFrame.get(o.shotFrame) ?? new Set()).add(o.digest));
-    for (const [f, digests] of byFrame) if (digests.size > 1) out.push(`哈希档的帧源，第 ${f} 帧各种渲法的 digest 不相同`);
-    return out;
-  },
 
   F5: (rec) => {
     const mb = rec.caps.motionBlur;
@@ -100,9 +89,24 @@ const raw = {
 };
 
 const onRecord = (fn) => (obj) => (obj?.format === 'source-check/0.1' ? fn(obj) : []);
+/** 单独的能力声明，或核对记录里的 caps；别的对象是 null */
+const capsOf = (obj) => (obj?.format === 'caps/0.1' ? obj : obj?.format === 'source-check/0.1' ? obj.caps : null);
+
+// ext.<名字> 按 3.5 整条免掉；randomAccess 一半两种对象都判，digest 一半只有核对记录有。
+// 容差档的几句现在是对帧源的要求，记录里没有判它们要用的量，这里只查 randomAccess（见 5.4）
+const F4 = (obj) => {
+  const caps = capsOf(obj);
+  if (!caps || isExt(caps)) return [];
+  const out = caps.randomAccess === true ? [] : [`能力声明的 randomAccess 是 ${caps.randomAccess}`];
+  if (caps.determinism !== 'hash-same-machine') return out;
+  const byFrame = new Map();
+  for (const o of obj.orderRuns ?? []) byFrame.set(o.shotFrame, (byFrame.get(o.shotFrame) ?? new Set()).add(o.digest));
+  for (const [f, digests] of byFrame) if (digests.size > 1) out.push(`哈希档的帧源，第 ${f} 帧各种渲法的 digest 不相同`);
+  return out;
+};
 
 const F10 = (obj) => {
-  const caps = obj?.format === 'caps/0.1' ? obj : obj?.format === 'source-check/0.1' ? obj.caps : null;
+  const caps = capsOf(obj);
   if (!caps) return [];
   const want = FULL_IDS.includes(caps.id) ? 'full' : 'limited';
   return caps.conformance === want ? [] : [`帧源 ${caps.id} 的合规档是 ${caps.conformance}，应该是 ${want}`];
@@ -110,5 +114,6 @@ const F10 = (obj) => {
 
 export const checks = {
   ...Object.fromEntries(Object.entries(raw).map(([id, fn]) => [id, onRecord(fn)])),
+  F4,
   F10,
 };

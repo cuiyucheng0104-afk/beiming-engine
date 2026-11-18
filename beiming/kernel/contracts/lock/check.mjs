@@ -1,6 +1,7 @@
 // 锁文件契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
 // LK2、LK5 只看锁文件本身，锁文件（lock/1.0）和锁核对记录（lock-check/0.1）里的锁都判；
 // 其余要片子描述或元数据观测的，只在锁核对记录里出现那一段时判。不归这条管的对象返回空数组。
+import { createHash } from 'node:crypto';
 
 // D 契约 3.6：全片级的键、绑的卡、是不是总算出现
 const GLOBAL_KEYS = [
@@ -10,6 +11,10 @@ const GLOBAL_KEYS = [
   { key: 'audio', card: 'audio.master', always: false },
 ];
 const BUILTIN = ['time.timeline', 'time.events', 'time.seeded'];
+
+// 5.7：十进制的全片种子、一个冒号、镜头 id 的 SHA-256，前 4 个字节按大端读成无符号 32 位整数
+const derivedSeed = (filmSeed, shotId) => createHash('sha256').update(`${filmSeed}:${shotId}`, 'utf8').digest().readUInt32BE(0);
+if (derivedSeed(7800, 's01') !== 2013376959) throw new Error('镜头种子的派生算法和 5.7 的算例对不上');
 
 const major = (v) => Number(String(v).split('.')[0]);
 const refMajor = (ref) => Number(String(ref).slice(String(ref).lastIndexOf('@') + 1));
@@ -21,10 +26,11 @@ const lockOf = (obj) => (obj?.format === 'lock/1.0' ? obj : obj?.format === 'loc
 const onLock = (fn) => (obj) => { const lock = lockOf(obj); return lock ? fn(lock) : []; };
 const onFilm = (fn) => (obj) => (obj?.format === 'lock-check/0.1' && obj.film ? fn(obj.lock, obj.film) : []);
 const cardsOf = (lock) => Object.entries(lock.cards ?? {});
+const keyPresent = (film, g) => g.always || at(film, g.key) !== undefined;
 
 export const checks = {
   LK1: onFilm((lock, film) => [
-    ...GLOBAL_KEYS.filter((g) => g.always || at(film, g.key) !== undefined).flatMap((g) => {
+    ...GLOBAL_KEYS.filter((g) => keyPresent(film, g)).flatMap((g) => {
       const c = lock.cards?.[g.card];
       if (!c) return [`片子描述里有 ${g.key}，cards 里没有它绑的 ${g.card}`];
       const out = c.from === g.key ? [] : [`cards.${g.card} 的 from 是 ${c.from}，应该是 ${g.key}`];
@@ -34,7 +40,11 @@ export const checks = {
     }),
     ...cardsOf(lock).flatMap(([name, c]) => {
       const g = GLOBAL_KEYS.find((x) => x.key === c.from);
-      return g && name !== g.card ? [`cards.${name} 的 from 是 ${c.from}，这个键绑的卡是 ${g.card}`] : [];
+      if (!g) return [];
+      return [
+        ...(keyPresent(film, g) ? [] : [`片子描述里没有 ${g.key}，cards.${name} 的 from 却是它`]),
+        ...(name !== g.card ? [`cards.${name} 的 from 是 ${c.from}，这个键绑的卡是 ${g.card}`] : []),
+      ];
     }),
   ]),
 
@@ -87,7 +97,8 @@ export const checks = {
 
   LK10: onFilm((lock, film) => {
     const out = [];
-    if ((film.overlays ?? []).length >= 1) {
+    const hasOverlays = (film.overlays ?? []).length >= 1;
+    if (hasOverlays) {
       const c = lock.cards?.['two-d.overlay'];
       if (!c) out.push('片子描述有叠加层，cards 里没有 two-d.overlay');
       else {
@@ -95,7 +106,11 @@ export const checks = {
         if (major(c.version) !== 1) out.push(`cards.two-d.overlay 锁的是 ${c.version}，第一段必须是 1`);
       }
     }
-    for (const [name, c] of cardsOf(lock)) if (c.from === 'overlays' && name !== 'two-d.overlay') out.push(`cards.${name} 的 from 是 overlays，卡名必须是 two-d.overlay`);
+    for (const [name, c] of cardsOf(lock)) {
+      if (c.from !== 'overlays') continue;
+      if (!hasOverlays) out.push(`片子描述没有叠加层，cards.${name} 的 from 却是 overlays`);
+      if (name !== 'two-d.overlay') out.push(`cards.${name} 的 from 是 overlays，卡名必须是 two-d.overlay`);
+    }
     return out;
   }),
 
@@ -110,4 +125,11 @@ export const checks = {
     }
     return out;
   }),
+
+  // 写了 seed 的镜头、seeds 里缺项的镜头归 LK3
+  LK12: onFilm((lock, film) => (film.shots ?? []).flatMap((s) => {
+    if (s.seed !== undefined || !has(lock.seeds, s.id)) return [];
+    const want = derivedSeed(lock.seeds.film, s.id);
+    return lock.seeds[s.id] === want ? [] : [`镜头 ${s.id} 没写 seed，seeds 里是 ${lock.seeds[s.id]}，照 5.7 派生出来是 ${want}`];
+  })),
 };

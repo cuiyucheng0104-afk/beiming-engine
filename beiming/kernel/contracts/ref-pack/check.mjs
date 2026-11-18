@@ -2,7 +2,10 @@
 // 输入是参考包清单（ref-pack/0.1）或参考包核对记录（ref-pack-check/0.1）；空数组表示没违反。
 // RP1、RP2 的 denoised、RP8 只看清单，对单独的清单和记录里的 pack 都判；其余各条只看记录，记录里没出现的段不判。
 
+// 抄自输出通道契约（PS）3.1 通道登记表：取法 sample 是 sub0 的通道名。那张表改了，这里跟着改。
 const AUX = ['depth', 'objectId', 'normal', 'motion'];
+// RP5 里按集合比的字段（和 RP1 一致）；seeds、files 的次序有含义（5.3），和其余字段一样逐项比。
+const SET_KEYS = ['channels', 'auxSample'];
 const FLOOR_KEYS = ['rerunBitExact', 'seedVsSeedPsnr', 'seedVsSeedFlipMean'];
 
 const packOf = (obj) => (obj?.format === 'ref-pack/0.1' ? obj : obj?.format === 'ref-pack-check/0.1' ? obj.pack : undefined);
@@ -17,6 +20,8 @@ function deepEqual(a, b) {
   const kb = Object.keys(b);
   return ka.length === kb.length && ka.every((k) => Object.hasOwn(b, k) && deepEqual(a[k], b[k]));
 }
+
+const sameSet = (a, b) => a.every((x) => b.includes(x)) && b.every((x) => a.includes(x));
 
 const raw = {
   RP1: onPack((p) => {
@@ -46,9 +51,9 @@ const raw = {
   })),
 
   RP5: onRecord((r) => {
-    if (!r.previous) return [];
+    if (!r.previous || r.previous.ref !== r.pack.ref) return []; // ref 不同归 RP9
     const keys = new Set([...Object.keys(r.pack), ...Object.keys(r.previous)].filter((k) => k !== 'floor' && k !== 'ext'));
-    return [...keys].filter((k) => !deepEqual(r.pack[k], r.previous[k]))
+    return [...keys].filter((k) => !(SET_KEYS.includes(k) ? sameSet(r.pack[k], r.previous[k]) : deepEqual(r.pack[k], r.previous[k])))
       .map((k) => `同一个 ref ${r.pack.ref} 之前存的那份 ${k} 是 ${JSON.stringify(r.previous[k])}，现在是 ${JSON.stringify(r.pack[k])}`);
   }),
 
@@ -62,6 +67,8 @@ const raw = {
     return [['clamp.direct', p.clamp.direct], ['clamp.indirect', p.clamp.indirect], ['filterGlossy', p.filterGlossy]]
       .filter(([, v]) => v !== 0).map(([k, v]) => `参考包 ${p.ref} 的渲染口径是 physical，${k} 却是 ${v}`);
   }),
+
+  RP9: onRecord((r) => (!r.previous || r.previous.ref === r.pack.ref ? [] : [`previous 的 ref 是 ${r.previous.ref}，pack 的 ref 是 ${r.pack.ref}：previous 必须是用同一个 ref 存过的那份`])),
 };
 
 export const checks = raw;

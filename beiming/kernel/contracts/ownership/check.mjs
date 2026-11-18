@@ -69,6 +69,16 @@ const raw = {
     }
     return out;
   },
+
+  OW5: (t) => {
+    const seen = new Set();
+    const out = [];
+    for (const p of t.packages ?? []) {
+      if (seen.has(p.id)) out.push(`packages 里有两项的 id 都是 ${p.id}`);
+      seen.add(p.id);
+    }
+    return out;
+  },
 };
 
 export const checks = Object.fromEntries(Object.entries(raw).map(([id, fn]) => [id, onTable(fn)]));

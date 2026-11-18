@@ -1,6 +1,7 @@
 {
   "format": "load-check/0.1",
   "shot": "s04",
+  "build": "ok",
   "steps": [
     "assets",
     "tracks",

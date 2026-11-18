@@ -28,6 +28,34 @@
     "why": "实体名 kit.fan_L 出现了两次"
   },
   {
+    "file": "S4-bad-entity-name.json",
+    "violates": [
+      "S4"
+    ],
+    "why": "实体名 kit.fan#L 里带了 #，不是点分路径"
+  },
+  {
+    "file": "S4-meta-name-not-in-entities.json",
+    "violates": [
+      "S4"
+    ],
+    "why": "第 10 帧元数据里列了 kit.lid，构建交出的 entities 里没有它"
+  },
+  {
+    "file": "S4-omitted-count-mismatch.json",
+    "violates": [
+      "S4"
+    ],
+    "why": "第 10 帧元数据缺了 kit.fan_R 一个实体，omittedParts 却没写（算 0）"
+  },
+  {
+    "file": "S4-missing-not-omittable.json",
+    "violates": [
+      "S4"
+    ],
+    "why": "第 10 帧元数据缺的是 kit.body，个数和 omittedParts 对得上，但它不在 omittable 里"
+  },
+  {
     "file": "S5-patch-miss-ignored.json",
     "violates": [
       "S5"
@@ -61,5 +89,26 @@
       "S9"
     ],
     "why": "镜头代码用了片子描述里没声明的实例名 logo，构建却判成了通过，也没报 contract.undeclared-card"
+  },
+  {
+    "file": "S9-runtime-shadows-param.json",
+    "violates": [
+      "S9"
+    ],
+    "why": "runtime 的键 text 和卡声明的参数同名，构建却判成了通过，也没报 contract.runtime-shadows-param"
+  },
+  {
+    "file": "S9-failed-without-code.json",
+    "violates": [
+      "S9"
+    ],
+    "why": "用了没声明的实例名 logo，构建判了失败，但没报 contract.undeclared-card"
+  },
+  {
+    "file": "S9-reports-later-violation.json",
+    "violates": [
+      "S9"
+    ],
+    "why": "两种违反同时出现：先出现的是 runtime 键和参数同名，报的却是后出现的那一种 contract.undeclared-card"
   }
 ]

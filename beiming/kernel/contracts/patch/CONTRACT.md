@@ -28,7 +28,7 @@
 |---|---|
 | 补丁 | 带着修订号、对片子描述的一组有次序的操作。 |
 | 操作 | 补丁里的一项：`set`、`remove`、`rename`、`add` 之一。 |
-| 可作用 | 一个操作在当前的片子描述上满足 5.2 的前提。 |
+| 可作用 | 一个满足 PA1 的操作在当前的片子描述上满足 5.2 的前提。 |
 | 修法 | 诊断或判定里给出的一个机械修改：一个操作加上 `applicability`。 |
 | 补丁核对记录 | 一致性测试把一次打补丁前后的片子描述和结果写下来的数据对象，只用来判定不变量。 |
 
@@ -82,10 +82,10 @@
 
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
-| PA1 | `set` 和 `add` 必须带 `value`、不得带 `to`，`rename` 必须带 `to`、不得带 `value`，`remove` 两个都不得带。 | 逐个操作按 `op` 看 `value`、`to` 两个键在不在 | `PA1-rename-without-to.json` |
+| PA1 | `set` 和 `add` 必须带 `value`、不得带 `to`，`rename` 必须带 `to`、不得带 `value`，`remove` 两个都不得带。 | 逐个操作按 `op` 看 `value`、`to` 两个键在不在；核对记录的 `patch` 段同样判 | `PA1-rename-without-to.json`、`PA1-record-set-without-value.json`、`PA1-record-rename-without-to.json` |
 | PA2 | 补丁被拒时，片子描述必须一点都没变。 | `outcome` 是 `rejected` 时，`after` 必须和 `before` 相等，比法见 5.4 | `PA2-rejected-half-applied.json` |
-| PA3 | 补丁里每个操作都可作用、补丁被接受时，结果必须等于把操作按书写顺序逐个作用之后的片子描述。 | 照 5.2 在 `before` 上逐个作用 `ops`；全部可作用且 `outcome` 是 `applied` 时，算出来的结果必须和 `after` 相等 | `PA3-applied-op-missing.json` |
-| PA4 | 补丁里有一个操作不可作用时，整个补丁必须被拒。 | 照 5.2 在 `before` 上逐个作用 `ops`；作用到某一个时不可作用，`outcome` 必须是 `rejected` | `PA4-inapplicable-not-rejected.json` |
+| PA3 | 补丁里每个操作都可作用、补丁被接受时，结果必须等于把操作按书写顺序逐个作用之后的片子描述。 | 照 5.2 在 `before` 上逐个作用 `ops`；全部可作用且 `outcome` 是 `applied` 时，算出来的结果必须和 `after` 相等。`ops` 里有不满足 PA1 的操作时本条不判 | `PA3-applied-op-missing.json` |
+| PA4 | 补丁里有一个操作不可作用时，整个补丁必须被拒。 | 照 5.2 在 `before` 上逐个作用 `ops`；作用到某一个时不可作用，`outcome` 必须是 `rejected`。作用到不满足 PA1 的操作就停，它和它后面的操作本条不判 | `PA4-inapplicable-not-rejected.json` |
 | PA5 | 修法去掉 `applicability` 之后必须是一个满足 PA1 的操作。 | 按修法的 `op` 看 `value`、`to` 两个键在不在，要求同 PA1 | `PA5-fix-rename-without-to.json` |
 
 ## 5. 口径
@@ -97,6 +97,8 @@
 ### 5.2 四种操作
 
 操作按书写顺序作用，后一个看到的是前一个作用之后的结果。
+
+下表的前提和作用只对满足 PA1 的操作说。不满足 PA1 的操作既不算可作用、也不算不可作用，它只违反 PA1：逐个作用时作用到它就停，它和它后面的操作 PA3、PA4 都不判，排在它前面的操作照常判。
 
 | `op` | 前提（都满足才可作用） | 作用 |
 |---|---|---|
@@ -149,3 +151,4 @@
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 3.1、5.1、5.2、第 6 节、全部例子 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 5.1、5.2、第 6 节、例子 `full.json` | 修订后的对齐收尾 |
+| 2026-11-19 | 第 2 节「可作用」、PA1、PA3、PA4、5.2，PA1 补两个核对记录形状的反例 | 写判定函数时暴露的毛病：PA1 判不判核对记录里的补丁、不满足 PA1 的操作算不算可作用，原来都没写；现在写明这种操作只归 PA1 |

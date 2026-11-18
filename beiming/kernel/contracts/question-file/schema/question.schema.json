@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "question-file/question.schema.json",
   "title": "题目文件",
-  "description": "只管结构。权重加起来是不是 1、基础谓词的名字登记没登记由 QF1、QF2 管。",
+  "description": "只管结构。权重加起来是不是 1 由 QF1 管；基础谓词一项是不是只写一条断言、名字登记没登记由 QF2 管。",
   "type": "object",
   "required": [
     "format",

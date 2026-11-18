@@ -1,13 +1,15 @@
 // 每帧元数据契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// M1、M3 判元数据核对记录（meta-check/0.1），其余判每帧元数据（meta/0.1）。
+// M1、M3、M9 判元数据核对记录（meta-check/0.1），其余判每帧元数据（meta/0.1）。
 // 不归这条管的对象、记录里没出现的段一律返回空数组。
 
 const HOST_FIVE = ['camera', 'entities', 'lights', 'stats', 'timing'];
 const SHOT_PATHS = ['entities.*.anchors', 'texts', 'readings'];
 const NULLABLE = new Set(['entities.*.visible', 'stats', 'hash.color', 'camera', 'entities', 'stats.noise', 'stats.tris', 'texts', 'lights']);
 const WAIVED = new Set(['camera', 'entities']);
-const LIMITED_SOURCE = /^(legacy-page|ext\.[a-z0-9-]+)$/;
-const SOURCE_NAME = /^(blender|three|core|legacy-page|ext\.[a-z0-9-]+)$/;
+// 交每帧元数据的帧源里合规档是 limited 的只有它；ext.<名字> 不交每帧元数据（帧源接口契约 3.5）
+const LIMITED_SOURCE = 'legacy-page';
+// 帧源名，出处是帧源接口契约 3.1；和结构定义里 source.id、source.renderer 的模式相同
+const SOURCE_NAME = /^(blender|three|core|legacy-page|ext\.[a-z0-9][a-z0-9-]*)$/;
 
 /** 找出对象里每一个 null 的路径，数组下标写成 *；顶层 ext 不算 */
 function nullPaths(node, path, out) {
@@ -44,10 +46,10 @@ const checks = {
     .filter((r) => r.metaBytes > 65536)
     .map((r) => `第 ${r.call} 次 render 的元数据有 ${r.metaBytes} 字节，超过 65536`)),
 
-  // 可以声明类（stats.noise、stats.tris、texts、lights）的那一半要出帧者能力声明的 metaNull，元数据里没有，这一半等核对记录带上能力声明
+  // 可以声明类（stats.noise、stats.tris、texts、lights）的那一半不在这里判：元数据里没有出帧者的能力声明，见契约第 6 节
   M4: on('meta/0.1', (m) => nullPaths(m, '', []).flatMap((p) => {
     if (!NULLABLE.has(p)) return [`${p} 是 null，它不在可以是 null 的字段表里`];
-    if (WAIVED.has(p) && !LIMITED_SOURCE.test(m.source?.renderer)) return [`${p} 是 null，出帧者 ${m.source?.renderer} 的合规档不是 limited`];
+    if (WAIVED.has(p) && m.source?.renderer !== LIMITED_SOURCE) return [`${p} 是 null，只有 legacy-page 交的每帧元数据可以这样，出帧者是 ${m.source?.renderer}`];
     return [];
   })),
 
@@ -76,6 +78,11 @@ const checks = {
       ...dup('id').map((id) => `实体编号 ${id} 重复`),
       ...dup('name').map((n) => `实体名 ${n} 重复`),
     ];
+  }),
+
+  M9: on('meta-check/0.1', (rec) => {
+    const calls = (rec.renders ?? []).map((r) => r.call);
+    return [...new Set(calls.filter((c, i) => calls.indexOf(c) !== i))].map((c) => `call ${c} 出现了不止一次`);
   }),
 };
 

@@ -1,0 +1,264 @@
+{
+  "format": "lock-check/0.1",
+  "lock": {
+    "format": "lock/1.0",
+    "film": "f_tk1",
+    "rev": 3,
+    "contracts": "0.1.0",
+    "seeds": {
+      "film": 7800,
+      "s01": 2013376959,
+      "s02": 2339195798
+    },
+    "shots": {
+      "s01": {
+        "shutterSamples": 16
+      },
+      "s02": {
+        "shutterSamples": 1
+      }
+    },
+    "sources": {
+      "blender": {
+        "version": "5.2.3",
+        "host": "cycles",
+        "image": "sha256:2be57e65f5a0a6cde494b8c6e65d3b233583f46b3f8af350b9a78b11b1601d48"
+      },
+      "core": {
+        "version": "3f9c2e1",
+        "host": "offscreen",
+        "image": "sha256:ef18dbca2095c5e0ca8627d3a4b387d4ccee9922fe94e16c6140dd2016a8bd95",
+        "scenePacks": {
+          "s01": "sha256:926bea66aec4fa456cc72c0b2487d6a0ba6d26ab0d8abad0fb552d6725c99310"
+        }
+      },
+      "ext.shader-park": {
+        "version": "1.4.0",
+        "host": "page",
+        "image": "sha256:9fbd5b6d32bb9ae7e551d49256ba9e644a7c6121a7c6b7abd7b6b9525dd23113",
+        "browser": "headless-shell-locked"
+      }
+    },
+    "cards": {
+      "blender.state-keys": {
+        "version": "1.0.0",
+        "impl": [
+          "source:blender",
+          "source:core"
+        ],
+        "sha256": "ba3b05c254e3b282509a85724c97336ecd3281e8206cd70738a3d939888bd157",
+        "verified": {
+          "level": "measured",
+          "host": "offscreen",
+          "source": "3f9c2e1",
+          "gpu": "RTX 5090"
+        }
+      },
+      "camera.fit": {
+        "version": "1.0.0",
+        "impl": [
+          "source:blender",
+          "source:core"
+        ],
+        "sha256": "af9f44d55f8d6df15221cd21fb1a6383c143e50b3adda9a0b4b1fc1c39f6d1c9",
+        "verified": {
+          "level": "reproduced",
+          "host": "offscreen",
+          "source": "3f9c2e1",
+          "gpu": "RTX 5090"
+        }
+      },
+      "time.timeline": {
+        "version": "1.0.0",
+        "impl": [
+          "data"
+        ],
+        "sha256": "9d07ab63de1cd8fab1fcbf2ece97e654c062f4faeb4b52341b22749093fe56bf",
+        "verified": {
+          "level": "reproduced",
+          "host": "kernel-eval",
+          "source": "0.1.0",
+          "gpu": "none"
+        }
+      },
+      "time.events": {
+        "version": "1.0.0",
+        "impl": [
+          "data"
+        ],
+        "sha256": "23c88f729f62a316f1473d247f5496f99d26d6bb0f6c2d85e062f90f55a5a272",
+        "verified": {
+          "level": "reproduced",
+          "host": "kernel-eval",
+          "source": "0.1.0",
+          "gpu": "none"
+        }
+      },
+      "time.seeded": {
+        "version": "1.0.0",
+        "impl": [
+          "data"
+        ],
+        "sha256": "f8512824e5c8e7ae9749dab12b29f89b614c2854c341f56fb830f0ee8fd82361",
+        "verified": {
+          "level": "reproduced",
+          "host": "kernel-eval",
+          "source": "0.1.0",
+          "gpu": "none"
+        }
+      },
+      "comp.display": {
+        "version": "1.0.0",
+        "impl": [
+          "comp"
+        ],
+        "sha256": "e48f67971f11278eac109be7ae96517e6913ca6b43d6f5aa2ad3c313808dc98a",
+        "from": "style.view",
+        "verified": {
+          "level": "measured",
+          "host": "ffmpeg",
+          "source": "locked-build",
+          "gpu": "none"
+        }
+      },
+      "deliver.encode": {
+        "version": "1.0.0",
+        "impl": [
+          "comp"
+        ],
+        "sha256": "8dc876326555aaaa5478488221dc07e263c805038593265ce8b2fe6a41e12eba",
+        "from": "delivery",
+        "verified": {
+          "level": "measured",
+          "host": "ffmpeg",
+          "source": "locked-build",
+          "gpu": "none"
+        }
+      }
+    },
+    "assets": {
+      "asset:rtx-card@3": "sha256:e38d60a1de28219026167951818e51a1fd0b4f4d26438226c094d07f522620d0",
+      "asset:outro-piece@2": "sha256:1bf6ad762b9817ab329870b5fb6fdbec43225a1d9b927f9d556a40ebada63f7f"
+    },
+    "templates": {
+      "floor": "1.0.0"
+    },
+    "view": {
+      "agx-mhc": "sha256:a74a605b3486933ec836ad49256566001edd1d36986680affe84f8b9368b501e"
+    },
+    "machine": {
+      "class": "rtx5090-linux",
+      "driver": "pending"
+    }
+  },
+  "film": {
+    "format": "film/3.0",
+    "id": "f_tk1",
+    "title": "接管出帧",
+    "output": {
+      "size": [
+        1920,
+        1080
+      ],
+      "fps": "24/1",
+      "frames": 96
+    },
+    "shots": [
+      {
+        "id": "s01",
+        "in": 0,
+        "out": 72,
+        "source": "blender",
+        "host": "cycles",
+        "mode": "cards-data",
+        "colorRef": "scene",
+        "assets": {
+          "kit_model": "asset:rtx-card@3"
+        },
+        "cards": [
+          {
+            "as": "kit",
+            "use": "blender.state-keys@1",
+            "params": {
+              "model": "kit_model"
+            }
+          },
+          {
+            "as": "cam",
+            "use": "camera.fit@1",
+            "params": {
+              "of": "kit",
+              "azimuthDeg": 35,
+              "elevationDeg": 18,
+              "margin": 0.9
+            }
+          }
+        ],
+        "roles": {
+          "hero": "kit"
+        },
+        "shutter": {
+          "angleDeg": 180
+        },
+        "renderer": {
+          "source": "core",
+          "host": "page",
+          "mode": "cards-data"
+        }
+      },
+      {
+        "id": "s02",
+        "in": 72,
+        "out": 96,
+        "source": "ext.shader-park",
+        "host": "page",
+        "mode": "native-code",
+        "colorRef": "display",
+        "assets": {
+          "outro": "asset:outro-piece@2"
+        },
+        "params": {
+          "piece": "outro"
+        }
+      }
+    ],
+    "transitions": [
+      {
+        "id": "to-s02",
+        "at": 72,
+        "type": "cut"
+      }
+    ],
+    "style": {
+      "view": {
+        "scene": "agx-mhc",
+        "display": "srgb"
+      }
+    },
+    "predicates": {
+      "base": [
+        "floor@1"
+      ]
+    },
+    "delivery": {
+      "master": "h264-crf14-bt709",
+      "layers": [
+        "color",
+        "depth",
+        "objectId"
+      ]
+    }
+  },
+  "renders": [
+    {
+      "renderer": "core",
+      "host": "offscreen",
+      "version": "3f9c2e1"
+    },
+    {
+      "renderer": "ext.shader-park",
+      "host": "page",
+      "version": "1.4.0"
+    }
+  ]
+}

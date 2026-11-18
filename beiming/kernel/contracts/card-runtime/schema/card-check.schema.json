@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "card-runtime/card-check.schema.json",
   "title": "卡核对记录",
-  "description": "只管结构。entries、calledVia、handle 和 shape 的搭配由 CR1 到 CR3 管，所以这里不收紧。",
+  "description": "只管结构。entries、calledVia、handle 和 shape 的搭配由 CR1 到 CR3 管，handle.roots 是不是 handle.entities 里的名字由 CR17 管，所以这里不收紧。",
   "type": "object",
   "required": ["format", "card", "shape", "entries", "calledVia"],
   "additionalProperties": false,
@@ -17,6 +17,7 @@
       "type": "object",
       "required": ["members"],
       "additionalProperties": false,
+      "dependentRequired": { "merged": ["prefix"], "mergedMetaIds": ["prefix"] },
       "properties": {
         "members": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "prefix": { "type": "string", "minLength": 1 },

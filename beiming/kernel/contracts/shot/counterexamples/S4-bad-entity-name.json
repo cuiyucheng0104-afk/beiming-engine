@@ -1,0 +1,18 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s01",
+  "mode": "build-script",
+  "entry": "shots/s01/shot.py",
+  "sources": [
+    "blender"
+  ],
+  "languages": [
+    "python"
+  ],
+  "buildCalls": 1,
+  "build": "ok",
+  "entities": [
+    "kit.body",
+    "kit.fan#L"
+  ]
+}

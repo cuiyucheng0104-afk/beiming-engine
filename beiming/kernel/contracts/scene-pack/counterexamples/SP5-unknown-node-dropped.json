@@ -226,10 +226,5 @@
       "blender": "5.2.3",
       "sha256": "75e0fc7875d0d0fb32b6801d1dc1099e63ec03f20225fad44faa9b793120f083"
     }
-  },
-  "loads": [
-    {
-      "status": "ok"
-    }
-  ]
+  }
 }

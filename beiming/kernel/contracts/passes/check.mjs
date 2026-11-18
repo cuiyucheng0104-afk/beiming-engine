@@ -1,6 +1,6 @@
 // 输出通道契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
 // 输入是通道声明（passes/0.1）或通道核对记录（passes-check/0.1）。PS1 的名字要求对两种都判；
-// 「七个固定通道齐全」、PS2 到 PS5 只看核对记录。记录里没出现的段不判，别的对象一律返回空数组。
+// 「七个固定通道齐全」、PS2 到 PS6 只看核对记录。记录里没出现的段不判，别的对象一律返回空数组。
 
 const RGB = ['R', 'G', 'B'];
 const XYZ = ['X', 'Y', 'Z'];
@@ -67,12 +67,12 @@ export const checks = {
     const core = obj.sides.find((s) => s.producer === 'core');
     const oracle = obj.sides.find((s) => s.producer === 'oracle');
     if (!core || !oracle) return [];
-    const a = new Map(core.table.channels.map((c) => [c.name, c]));
-    const b = new Map(oracle.table.channels.map((c) => [c.name, c]));
+    // 只比通道名的集合；同名通道的字段相等归 PS2
+    const a = new Set(core.table.channels.map((c) => c.name));
+    const b = new Set(oracle.table.channels.map((c) => c.name));
     return [
-      ...[...a.keys()].filter((n) => !b.has(n)).map((n) => `通道 ${n} 只有 core 有，oracle 没有`),
-      ...[...b.keys()].filter((n) => !a.has(n)).map((n) => `通道 ${n} 只有 oracle 有，core 没有`),
-      ...[...a].filter(([n]) => b.has(n)).flatMap(([n, c]) => diffFields(c, b.get(n)).map((k) => `通道 ${n} 的 ${k} 两侧不同`)),
+      ...[...a].filter((n) => !b.has(n)).map((n) => `通道 ${n} 只有 core 有，oracle 没有`),
+      ...[...b].filter((n) => !a.has(n)).map((n) => `通道 ${n} 只有 oracle 有，core 没有`),
     ];
   },
 
@@ -92,4 +92,14 @@ export const checks = {
     const n = p.samples.length;
     return Math.abs(p.out.coverage - k / n) <= 0.000001 ? [] : [`${p.producer} 的像素 (${p.x}, ${p.y}) 交出的 coverage 是 ${p.out.coverage}，样本数出来是 ${k}/${n}`];
   }) : []),
+
+  PS6: (obj) => {
+    if (!isRecord(obj)) return [];
+    const producers = obj.sides.map((s) => s.producer);
+    return [
+      ...[...new Set(producers.filter((p, i) => producers.indexOf(p) !== i))].map((p) => `sides 里 ${p} 出现了不止一次`),
+      ...(obj.pixels ?? []).filter((p) => !producers.includes(p.producer))
+        .map((p) => `像素 (${p.x}, ${p.y}) 的 producer 是 ${p.producer}，sides 里没有它`),
+    ];
+  },
 };

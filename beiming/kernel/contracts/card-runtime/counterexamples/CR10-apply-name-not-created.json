@@ -1,0 +1,24 @@
+{
+  "format": "load-check/0.1",
+  "shot": "s03",
+  "build": "ok",
+  "steps": [
+    "assets",
+    "tracks",
+    "create",
+    "collect"
+  ],
+  "cards": [
+    "light",
+    "title"
+  ],
+  "createOrder": [
+    "light",
+    "title"
+  ],
+  "applyOrder": [
+    "tracks",
+    "light",
+    "glow"
+  ]
+}

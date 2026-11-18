@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "lock/lock.schema.json",
   "title": "锁文件",
-  "description": "只管结构。和片子描述、元数据对不对得上由 LK1 到 LK11 管。seeds 必须有 film 这个键，别的键是镜头的 id；shots 的键是镜头的 id。",
+  "description": "只管结构。和片子描述、元数据对不对得上由 LK1 到 LK12 管。seeds 必须有 film 这个键，别的键是镜头的 id；shots 的键是镜头的 id。",
   "type": "object",
   "required": ["format", "film", "rev", "contracts", "seeds", "shots", "sources", "cards", "assets", "templates", "view", "machine"],
   "additionalProperties": false,

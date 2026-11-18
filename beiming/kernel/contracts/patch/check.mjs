@@ -1,6 +1,6 @@
 // 补丁格式契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
 // 收三种对象：补丁（patch/0.1）、补丁核对记录（patch-check/0.1）、不带 format 的修法；
-// 每个函数只判归它管的那一种，别的返回空数组。
+// 每个函数只判归它管的那一种，别的返回空数组。修法不带 format，从第二个参数的 schema（登记的结构定义文件名）认。
 
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -82,7 +82,7 @@ function applyOp(doc, op) {
       }
       return false;
     case 'rename': {
-      if (!parent || !isObj(parent.value) || !has(parent.value, last) || typeof op.to !== 'string' || has(parent.value, op.to)) return false;
+      if (!parent || !isObj(parent.value) || !has(parent.value, last) || has(parent.value, op.to)) return false;
       const v = parent.value[last];
       delete parent.value[last];
       put(parent.value, op.to, v);
@@ -100,12 +100,19 @@ function applyOp(doc, op) {
   }
 }
 
-/** 照 5.2 在 before 的副本上逐个作用；返回 { result, failedAt }，failedAt 是第一个不可作用的操作的序号（从 1 起），全可作用时为 0 */
+/**
+ * 照 5.2 在 before 的副本上逐个作用；返回 { result, failedAt, complete }。
+ * failedAt 是第一个不可作用的操作的序号（从 1 起），没有就是 0。
+ * 作用到不满足 PA1 的操作就停：它只归 PA1，它和它后面的操作不判，这时 complete 是 false。
+ */
 function simulate(rec) {
   const doc = structuredClone(rec.before);
   const ops = rec.patch?.ops ?? [];
-  for (let i = 0; i < ops.length; i++) if (!applyOp(doc, ops[i])) return { result: doc, failedAt: i + 1 };
-  return { result: doc, failedAt: 0 };
+  for (let i = 0; i < ops.length; i++) {
+    if (shapeProblems(ops[i], '').length) return { result: doc, failedAt: 0, complete: false };
+    if (!applyOp(doc, ops[i])) return { result: doc, failedAt: i + 1, complete: false };
+  }
+  return { result: doc, failedAt: 0, complete: true };
 }
 
 /** 5.4：对象不看键的次序，数组看次序，数按数值比 */
@@ -121,7 +128,7 @@ function equal(a, b) {
 
 const isPatch = (o) => o?.format === 'patch/0.1';
 const isRecord = (o) => o?.format === 'patch-check/0.1';
-const isFix = (o) => isObj(o) && o.format === undefined && has(o, 'applicability');
+const isFix = (schema) => schema === 'fix.schema.json';
 
 export const checks = {
   PA1: (o) => {
@@ -135,8 +142,8 @@ export const checks = {
 
   PA3: (o) => {
     if (!isRecord(o) || o.outcome !== 'applied') return [];
-    const { result, failedAt } = simulate(o);
-    return failedAt === 0 && !equal(result, o.after) ? ['补丁全部可作用并且被接受，after 和逐个作用之后的结果不相等'] : [];
+    const { result, complete } = simulate(o);
+    return complete && !equal(result, o.after) ? ['补丁全部可作用并且被接受，after 和逐个作用之后的结果不相等'] : [];
   },
 
   PA4: (o) => {
@@ -145,8 +152,8 @@ export const checks = {
     return failedAt && o.outcome !== 'rejected' ? [`补丁第 ${failedAt} 个操作不可作用，outcome 却是 ${o.outcome}`] : [];
   },
 
-  PA5: (o) => {
-    if (!isFix(o)) return [];
+  PA5: (o, { schema } = {}) => {
+    if (!isFix(schema)) return [];
     const { applicability, ...op } = o;
     return shapeProblems(op, '修法');
   },

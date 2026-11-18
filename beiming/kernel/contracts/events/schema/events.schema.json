@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "events/events.schema.json",
   "title": "事件表",
-  "description": "只管结构。次序、唯一、和片子描述对不对得上由 EV1 到 EV7 管。kind 是 arrive 时 entity 必填、sync 与 audio 同时出现，这两点这里没有表达，以条文为准。",
+  "description": "只管结构。次序、唯一、和片子描述对不对得上由 EV1 到 EV7 管。kind 是 arrive 时 entity 必填、出现 sync 必须出现 audio，这两点在这里表达；有 audio 的命名条目带不带 sync 由 EV4 管。",
   "type": "object",
   "required": ["format", "film", "fps", "frames", "events"],
   "additionalProperties": false,
@@ -17,6 +17,9 @@
         "type": "object",
         "required": ["id", "frame", "sub", "kind", "from"],
         "additionalProperties": false,
+        "dependentRequired": { "sync": ["audio"] },
+        "if": { "properties": { "kind": { "const": "arrive" } } },
+        "then": { "required": ["entity"] },
         "properties": {
           "id": { "type": "string", "pattern": "^\\S+$" },
           "frame": { "type": "integer", "minimum": 0 },

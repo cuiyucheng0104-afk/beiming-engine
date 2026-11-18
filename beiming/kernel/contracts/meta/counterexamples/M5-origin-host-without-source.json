@@ -220,7 +220,7 @@
   },
   "source": {
     "id": "blender",
-    "renderer": "cycles",
+    "renderer": "blender",
     "host": "cycles",
     "version": "5.2.3",
     "gpu": "RTX 5090",
@@ -240,7 +240,6 @@
       "entities",
       "lights",
       "stats",
-      "source",
       "timing"
     ],
     "shot": [

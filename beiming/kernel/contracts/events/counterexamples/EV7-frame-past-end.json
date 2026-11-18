@@ -1,0 +1,44 @@
+{
+  "format": "events/0.1",
+  "film": "f_8k2",
+  "fps": "30/1",
+  "frames": 300,
+  "events": [
+    {
+      "id": "arrive.kit.fan_L",
+      "frame": 141,
+      "sub": 0,
+      "shot": "s01",
+      "kind": "arrive",
+      "from": "tracks",
+      "entity": "kit.fan_L"
+    },
+    {
+      "id": "lock",
+      "frame": 150,
+      "sub": 0,
+      "shot": "s01",
+      "kind": "named",
+      "from": "film",
+      "audio": "foley.clack",
+      "sync": "pcenter"
+    },
+    {
+      "id": "cut.180",
+      "frame": 180,
+      "sub": 0,
+      "kind": "cut",
+      "from": "film"
+    },
+    {
+      "id": "title",
+      "frame": 500,
+      "sub": 0,
+      "shot": "s02",
+      "kind": "named",
+      "from": "film",
+      "audio": "hit.low",
+      "sync": "onset"
+    }
+  ]
+}

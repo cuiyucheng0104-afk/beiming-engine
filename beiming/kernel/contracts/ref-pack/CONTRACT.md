@@ -137,7 +137,7 @@
 | `pack` | `RefPack` | 无 | 是 | 见 3.2 | 被测的参考包清单 |
 | `colorTransfer` | 字符串 | 无 | 否 | `linear`、`encoded` | 量出来的 `color` 通道是线性编码，还是过了传递函数；量法见 5.2 |
 | `judgings` | 数组 | 无 | 否 | | 拿这个参考包当裁判的观测，一道门一项，每项见下表 |
-| `previous` | `RefPack` | 无 | 否 | `ref` 必须等于 `pack.ref` | 存放处里之前用同一个 `ref` 存过的那份参考包清单 |
+| `previous` | `RefPack` | 无 | 否 | 见 3.2；`ref` 由 RP9 管 | 存放处里之前用同一个 `ref` 存过的那份参考包清单 |
 | `stored` | 对象 | 无 | 否 | 见下表 | 存放处给这个包的地址，和照内容算出的包哈希 |
 | `reads` | 数组 | 无 | 否 | | 有人去读这个包的观测，每项见下表 |
 | `ext` | 对象 | 无 | 否 | 键带点分前缀 | 私有数据 |
@@ -168,14 +168,15 @@
 
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
-| RP1 | `auxSample` 必须正好是 `channels` 里在通道登记表中取法是 `sub0` 的那些通道名，也就是辅助层。 | 把 `channels` 里的 `depth`、`objectId`、`normal`、`motion` 挑出来成一个集合，`auxSample` 作为集合必须等于它 | `RP1-object-id-not-aux.json` |
-| RP2 | 参考包里的颜色必须是场景线性、未降噪的：`denoised` 必须是 `false`，量出来的 `color` 通道必须是线性编码。 | `denoised` 必须是 `false`；`colorTransfer` 出现时必须是 `linear` | `RP2-denoised-reference.json` |
-| RP3 | `floor` 的三个键里有任何一个是 `null` 的参考包，不得拿来当裁判。 | `pack.floor` 的三个键有一个是 `null` 时，`judgings` 必须是空数组 | `RP3-judge-without-floor.json` |
+| RP1 | `auxSample` 必须正好是 `channels` 里在通道登记表中取法是 `sub0` 的那些通道名，也就是辅助层。 | 把 `channels` 里属于「输出通道契约（PS）3.1 的通道登记表中取法是 `sub0` 的通道名」的那些挑出来成一个集合，`auxSample` 作为集合必须等于它：少一个、多一个都算违反 | `RP1-object-id-not-aux.json`、`RP1-color-in-aux.json` |
+| RP2 | 参考包里的颜色必须是场景线性、未降噪的：`denoised` 必须是 `false`，量出来的 `color` 通道必须是线性编码。 | `denoised` 必须是 `false`；`colorTransfer` 出现时必须是 `linear` | `RP2-denoised-reference.json`、`RP2-encoded-color.json` |
+| RP3 | `floor` 的三个键里有任何一个是 `null` 的参考包，不得拿来当裁判。 | `pack.floor` 的三个键有一个是 `null` 时，`judgings` 必须是空数组 | `RP3-judge-without-floor.json`、`RP3-only-rerun-not-measured.json`、`RP3-only-psnr-not-measured.json`、`RP3-only-flip-not-measured.json` |
 | RP4 | 拿参考包当裁判时，每道门的门槛必须等于参考噪声地板里对应的那一项乘以系数 k，不得写死成别的数。 | `judgings` 每一项：`pack.floor[metric]` 不是 `null` 时，`threshold` 和 `pack.floor[metric] × k` 的差的绝对值必须不大于后者的十亿分之一。是 `null` 的归 RP3，这一条不判 | `RP4-fixed-threshold.json` |
-| RP5 | 参考包清单里除 `floor` 之外的任何一项变了，就必须是另一个参考包、用另一个 `ref`，不得覆盖旧的。 | `previous` 出现时：它和 `pack` 除 `floor` 之外的全部字段（`ext` 不算）必须逐项相同 | `RP5-overwritten-after-driver-change.json` |
+| RP5 | 参考包清单里除 `floor` 之外的任何一项变了，就必须是另一个参考包、用另一个 `ref`，不得覆盖旧的。 | `previous` 出现并且 `previous.ref` 等于 `pack.ref` 时：它和 `pack` 除 `floor` 之外的全部字段（`ext` 不算）必须逐项相同。`channels`、`auxSample` 按集合比，次序不算（和 RP1 一致）；`seeds`、`files` 按次序比，同样的项换了次序算不同。`previous.ref` 不等于 `pack.ref` 的归 RP9，这一条不判 | `RP5-overwritten-after-driver-change.json`、`RP5-channel-added.json`、`RP5-seeds-reordered.json`、`RP5-files-reordered.json` |
 | RP6 | 参考包必须按内容寻址：它的地址必须等于由它的全部文件算出的包哈希。 | `stored.address` 必须等于 `stored.hash`，按字符串比 | `RP6-address-not-content-hash.json` |
 | RP7 | 做题的一方不得读到参考包。 | `reads` 里 `reader` 是 `solver` 的每一项，`status` 必须是 `denied` | `RP7-solver-reads-reference.json` |
-| RP8 | 渲染口径是 `physical` 时，`clamp.direct`、`clamp.indirect`、`filterGlossy` 必须都是 0。 | `profile` 是 `physical` 时这三个数逐个和 0 比，没有容差 | `RP8-physical-with-clamp.json` |
+| RP8 | 渲染口径是 `physical` 时，`clamp.direct`、`clamp.indirect`、`filterGlossy` 必须都是 0。 | `profile` 是 `physical` 时这三个数逐个和 0 比，没有容差 | `RP8-physical-with-clamp.json`、`RP8-physical-with-direct-clamp.json`、`RP8-physical-with-filter-glossy.json` |
+| RP9 | 参考包核对记录里的 `previous` 必须是用同一个 `ref` 存过的那份：`previous.ref` 必须等于 `pack.ref`。 | `previous` 出现时：`previous.ref` 和 `pack.ref` 按字符串比，必须相等 | `RP9-previous-other-ref.json` |
 
 ## 5. 口径
 
@@ -208,7 +209,9 @@
 - 由标准答案机第一次出这个包的时候自己量、自己填，别人不得填。
 - `rerunBitExact`：拿同一个种子把同一张种子图重渲一遍，两个文件的像素数据逐位相同记 `true`，否则记 `false`。
 - `seedVsSeedPsnr`、`seedVsSeedFlipMean`：两张种子图的 `color` 通道相比。
-- 三个数现在都没有：`待探针：参考噪声地板，同种子重渲是否逐位相同`、`待探针：参考噪声地板，两个种子之间的峰值信噪比，单位分贝`、`待探针：参考噪声地板，两个种子之间 FLIP 差异图的平均值`。
+- 同种子重渲量过了（探针数据表第 11 行和「5090 读数」一节；Mac 和 5090 两台机器，六个校准场景、64 采样、不降噪）：用 CPU 渲，两遍的全部层逐位相同；用显卡渲（OptiX、CUDA 都一样），量过的辅助层（深度、编号、位置）逐位相同，颜色层不逐位相同，最大相对差 1.7e-6；`normal`、`motion` 两层探针没量。
+- 照这个读数，同一个种子重渲两遍：辅助层必须逐位相同；颜色层（`color` 通道）在 `device` 是 `CPU` 时必须逐位相同；用显卡渲时颜色层逐分量的相对差必须不超过 1e-5，相对差 = |a − b| ÷ max(|a|, 1e-12)，a、b 是两遍里同一个像素同一个分量的读数，无单位。`rerunBitExact` 仍照上面那一条填。
+- 另两个数现在还没有：`待探针：参考噪声地板，两个种子之间的峰值信噪比，单位分贝`、`待探针：参考噪声地板，两个种子之间 FLIP 差异图的平均值`。
 - 三个键都不是 `null`，才叫「地板填了」。
 
 ### 5.5 当裁判
@@ -237,8 +240,10 @@
 
 | 项 | 现在怎么写 | 等什么 |
 |---|---|---|
-| 参考包是哪一帧 | 参考包清单里没有单独的帧号字段，帧只写在 `ref` 的名字里（例子里的 `f0000`）；这一帧对应哪个时间键也不定 | `待定：离屏宿主的定位` |
-| 参考噪声地板的三个数 | 留空 | 5.4 里的三个 `待探针` |
+| 参考包是哪一帧 | 参考包清单里没有单独的帧号字段，帧只写在 `ref` 的名字里（例子里的 `f0000`）；这一帧对应哪个时间键也不定 | 离屏宿主的定位按倾向定（离屏宿主是核心帧源的出片宿主，three 帧源照旧用页面宿主），合作者不同意时再改 |
+| 参考噪声地板的三个数 | 同种子重渲是否逐位相同已定，见 5.4；两个种子之间的峰值信噪比、FLIP 平均值留空 | 5.4 里剩下的两个 `待探针` |
+| 显卡重渲的容差 1e-5 | 实测最大相对差 1.7e-6，留了约 6 倍余量；只在六个校准场景、64 采样、不降噪下量过 | 真实场景、别的采样数、打开降噪之后重新量 |
+| 同种子重渲的口径管哪些通道 | 【起草者补】辅助层和 `color` 通道。分灯组、`denoiseAlbedo`、`denoiseNormal` 探针没量，不定 | 标准答案机的工作条目 |
 | 线性度 | 留空 | `待探针：线性度，灰阶各级读数和已知反射率的相对误差` |
 | `pattern` 的取值 | 字段留着，只要求不空 | `待定：采样图案的取值` |
 | `pixelFilter` 的写法 | 字段留着，只要求不空 | `待定：像素滤波的写法` |
@@ -272,3 +277,4 @@
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 第 2 节，3.2、3.3、3.4，RP1、RP2，5.2、5.3，第 6 节 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 辅助层样本的字段改名为 `auxSample`：3 节的字段表、RP1、第 6 节、结构定义、全部例子和反例 | 修订后的对齐收尾 |
+| 2026-11-19 | RP1 和 RP5 的「怎么查」，新立 RP9，3.4，5.4，第 6 节；RP1、RP2、RP3、RP5、RP8 补反例，补一个 `previous` 只换通道次序的正例 | 写判定函数时暴露的毛病逐条改掉：名单只引用一处、数组比法写明、`previous.ref` 单立一条、每种违反方式各有反例；同种子重渲照探针读数回填；离屏宿主的定位按倾向定 |

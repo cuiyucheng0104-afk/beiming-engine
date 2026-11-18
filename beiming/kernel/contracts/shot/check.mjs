@@ -48,7 +48,7 @@ const raw = {
     .filter((p) => p.hits === 0 && rec.build !== 'failed')
     .map((p) => `片段补丁 ${p.id} 命中 0 处，build 却是 ${rec.build}`),
 
-  // 后一半「搭建的顺序按 CR 契约判」不在镜头核对记录里，归装载核对记录（CR）判
+  // 搭建的顺序不在这里判：归卡的运行时接口契约（CR）里管装载顺序的各条，用装载核对记录判
   S6: (rec) => (rec.mode === 'cards-data' && rec.entry !== undefined ? [`「卡加数据」模式的镜头 ${rec.shot} 带了入口文件 ${rec.entry}`] : []),
 
   S7: (rec) => [
@@ -59,18 +59,17 @@ const raw = {
   S8: (rec) => (rec.metaKeys ?? []).filter((k) => !META_KEYS.has(k)).map((k) => `meta(f) 交了不许交的键：${k}`),
 
   S9: (rec) => {
-    const out = [];
-    const uses = rec.cardUses ?? [];
     const declared = new Set(rec.declaredCards ?? []);
-    const undeclared = uses.filter((u) => !declared.has(u.as));
-    if (undeclared.length && !(rec.build === 'failed' && rec.error === 'contract.undeclared-card')) {
-      out.push(`用了没声明的实例名 ${undeclared.map((u) => u.as).join('、')}，build 是 ${rec.build}，error 是 ${rec.error ?? '没有'}`);
+    // 一次构建只报一个码：取 cardUses 里第一个违反的项；同一项两种都犯算没声明那一种（5.8）
+    for (const u of rec.cardUses ?? []) {
+      const want = !declared.has(u.as) ? 'contract.undeclared-card'
+        : (u.runtimeKeys ?? []).some((k) => (u.paramKeys ?? []).includes(k)) ? 'contract.runtime-shadows-param'
+          : null;
+      if (!want) continue;
+      const what = want === 'contract.undeclared-card' ? `用了没声明的实例名 ${u.as}` : `实例 ${u.as} 的 runtime 键和卡参数同名`;
+      return rec.build === 'failed' && rec.error === want ? [] : [`${what}，必须判构建失败并报 ${want}；build 是 ${rec.build}，error 是 ${rec.error ?? '没有'}`];
     }
-    const shadow = uses.filter((u) => (u.runtimeKeys ?? []).some((k) => (u.paramKeys ?? []).includes(k)));
-    if (shadow.length && !(rec.build === 'failed' && rec.error === 'contract.runtime-shadows-param')) {
-      out.push(`实例 ${shadow.map((u) => u.as).join('、')} 的 runtime 键和卡参数同名，build 是 ${rec.build}，error 是 ${rec.error ?? '没有'}`);
-    }
-    return out;
+    return [];
   },
 };
 

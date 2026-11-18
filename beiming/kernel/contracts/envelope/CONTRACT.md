@@ -112,8 +112,8 @@
 |---|---|---|---|
 | EN1 | `ok` 必须在 `exitCode` 是 0 时是 `true`，不是 0 时是 `false`。 | 比 `ok` 和 `exitCode === 0` | `EN1-ok-false-exit-0.json` |
 | EN2 | `exitCode` 是 0 时 `error` 必须是 `null`，不是 0 时 `error` 必须是对象。 | 看 `exitCode` 和 `error` 的类型 | `EN2-exit-4-without-error.json` |
-| EN3 | `error` 是对象时，`exitCode` 必须等于 `error.code` 的前缀在错误码表里对到的退出码。 | 在错误码表的 `prefixes` 里找 `error.code` 开头的那一项，比它的 `exitCode` 和信封的 `exitCode` | `EN3-busy-code-exit-4.json` |
-| EN4 | `error.code` 和每条诊断的 `code` 必须是错误码表里登记过的码。 | 在错误码表的 `codes` 里逐字符找 | `EN4-unregistered-code.json` |
+| EN3 | `error` 是对象时，`exitCode` 必须等于 `error.code` 的前缀在错误码表里对到的退出码。 | 在错误码表的 `prefixes` 里找 `error.code` 开头的那一项，比它的 `exitCode` 和信封的 `exitCode`；`prefixes` 里找不到这样一项时本条不判，这种码归 EN4 | `EN3-busy-code-exit-4.json` |
+| EN4 | `error.code` 和每条诊断的 `code` 必须是错误码表里登记过的码。 | 在错误码表的 `codes` 里逐字符找 | `EN4-unregistered-code.json`、`EN4-unknown-prefix.json` |
 
 ## 5. 口径
 
@@ -155,3 +155,4 @@ EN3、EN4 说的错误码表是 `errors/errors.json`，结构见 ER 契约。
 |---|---|---|
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 3.1、3.2、3.4、3.7、5.2、第 6 节 | 照红队和跨契约一致性复核的处理结果改 |
+| 2026-11-19 | EN3 的「怎么查」，EN4 加一个反例 | 前缀不在错误码表里的码原先没说归哪条：写明 EN3 不判，只归 EN4 |

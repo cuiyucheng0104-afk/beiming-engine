@@ -28,11 +28,18 @@
     "why": "出帧者是 blender，camera 却写成了 null：只有合规档是 limited 的出帧者能免相机"
   },
   {
-    "file": "M5-renderer-not-a-source.json",
+    "file": "M4-null-camera-from-ext.json",
+    "violates": [
+      "M4"
+    ],
+    "why": "出帧者是 ext.demo，camera 写成了 null：ext 帧源不交每帧元数据，不在减免类的放行名单里"
+  },
+  {
+    "file": "M5-origin-host-without-source.json",
     "violates": [
       "M5"
     ],
-    "why": "source.renderer 写成了宿主名 cycles，不是帧源名"
+    "why": "origin.host 里没有 source：来源信息没登记成宿主填的字段"
   },
   {
     "file": "M6-visible-without-pixels.json",
@@ -54,5 +61,12 @@
       "M8"
     ],
     "why": "fx.sparks 和 kit.fan_L 的编号都是 17"
+  },
+  {
+    "file": "M9-duplicate-call.json",
+    "violates": [
+      "M9"
+    ],
+    "why": "两次 render 的 call 都是 0：靠 call 认不出颜色层出自哪一次"
   }
 ]

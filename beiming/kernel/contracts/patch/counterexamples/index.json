@@ -7,6 +7,20 @@
     "why": "补丁：第 2 个操作是 rename，没带 to"
   },
   {
+    "file": "PA1-record-set-without-value.json",
+    "violates": [
+      "PA1"
+    ],
+    "why": "核对记录：补丁里的 set 没带 value。这个操作只归 PA1，PA3、PA4 不对它判"
+  },
+  {
+    "file": "PA1-record-rename-without-to.json",
+    "violates": [
+      "PA1"
+    ],
+    "why": "核对记录：补丁里的 rename 没带 to，结果写的是 applied。这个操作只归 PA1，不算不可作用，PA4 不对它判"
+  },
+  {
     "file": "PA2-rejected-half-applied.json",
     "violates": [
       "PA2"
