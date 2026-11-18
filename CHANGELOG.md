@@ -19,6 +19,11 @@
 - 离屏出片的 TSL 版 Kuwahara 笔触（`engine/offscreen/tsl/kuwahara.js`；T2b 起支持 `far` 深度换半径，与 GLSL 对拍 PSNR 61 dB、最大差 1 级，并验证了 `pass()` 深度纹理的约定）：与 `engine/look/kuwahara.js` 的 GLSL 在同一张合成输入上对拍，PSNR 约 61 dB、最大差 1 级；对拍的参考侧助手 `tests/offscreen/glsl-reference.mjs` 可复用于后续的墨线与合成。
 - 离屏出片的 TSL 版 ID 通道与屏幕空间墨线（`engine/offscreen/tsl/idpass.js`、`engine/offscreen/tsl/ink.js`，`engine/look/{ids,ink}.js` 的子集）：同一个场景与 GLSL 在无头 Chrome 里对拍，三组用例逐字节相同或最大差 1 级；ID 语义只覆盖不透明 Mesh 的 outline / outlineWidth / outlineAlpha / outlineGroup 与实心遮挡，其余（实例化、蒙皮、镂空、soft / own 遮挡等）抛 `unsupported.outline`，不静默画错。
 - 离屏出片的 A 风格后期链（`engine/offscreen/tsl/{bloom,grade,paper,compose,look}.js`，`engine/look/index.js` 的对应）：bloom、调色、输出变换、Kuwahara、墨线、纸纹（程序化与图片）、暗角、颗粒按同一个顺序串起来，参数合并复用 `engine/look/index.js` 的纯函数；同一场景、风格锁定的真实参数下与 GLSL 在无头 Chrome 里对拍，三组用例最大差 1 级。雾、debug 视图、纸纹 scaleMode / anchor 抛 `unsupported.*`，不静默画错。
+- 离屏出片 M3 起步：Node 里的 Canvas 2D（`engine/offscreen/canvas.mjs`，新增可选依赖 `@napi-rs/canvas` 1.1.1，字体子集注册与缺字报错同浏览器版）与几何桥（`engine/offscreen/bridge.mjs`，`engine/form` 的造型直接拷进 r187）；`engine/style/fonts.js` 抽出 `fontsOf` 供两边共用。
+- 离屏出片的 TSL 版三档卡通材质（`engine/offscreen/tsl/toon.js`，接口与参数同 `engine/shade/toon.js`，投影滤波照搬 r170 PCFSoft）与斑块表面层（`tsl/surface.js`）：同一场景对 GLSL 版对拍，含投影、表面层与材质钩子，最大差 1 级。
+- 离屏墨线的 ID 通道支持 `outlineOccluder` 的 soft / own（半透明底板与精灵按自身 alpha 半挡线）：对拍与 GLSL 版逐字节相同。
+- 离屏底板工具 `engine/offscreen/tsl/plates.js`（`engine/stage/plates.js` 的同名 r187 版：读登记底板 PNG、Skia 画布贴图、软边裁片、抠像、加色辉光），对 A 路线对拍 PSNR 61.9 dB；离屏作品模块的 `build` 可以是 async。
+- 出片链支持离屏渲染与 GPU 硬编：`npm run film -- build|animatic <作品> --renderer offscreen`（渲作品目录的 `offscreen.mjs`，其余步骤不变），`build|animatic|assemble` 新增 `--encoder x264|nvenc`（`nvenc` 让离屏渲染与网页版编码均走 `h264_nvenc`）；离屏作品模块的 `build` 收 `query`。验收片 `films/chendu/`（A 路线模版的双实现）离屏整片过机器 QA 门，look / animatic / final 三道闸用户已认可。
 - 三条路线的模版仓库结构：`routes/README.md` 是总指引；A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）、C（北冥代码动画风格 · 86 式）各有一份路线手册和一个可直接出片的模版。`node tools/new-film.mjs <a|b|c> <名字>` 从模版新建作品到 `films/<名字>/`。
 - 导演与画面规范 `routes/directing/`：导演方法、画面设计、六章工艺（含音效设计与拟音工艺 `craft/sound.md`），以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
 - 工业级交付基线决策 `docs/decisions/2026-11-10-industrial-baseline.md`（D01–D11）。

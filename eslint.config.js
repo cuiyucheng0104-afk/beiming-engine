@@ -6,9 +6,10 @@
 // 规则：@eslint/js 的 recommended（未定义变量、重复声明、恒真条件、不可达代码等真错误），未使用变量降为警告。
 // 运行环境按目录区分：
 //   浏览器端  engine/ 各层、src/、lab/、routes/*/template/、site/ 的页面脚本、films/
-//   Node 端   tools/、tests/、各处的 *.test.*、engine/render/、engine/native/ 与 engine/offscreen/ 的 .mjs 入口脚本、examples/raea/tools/、site/dev/ 的脚本、*.config.*
+//   Node 端   tools/、tests/、各处的 *.test.*、engine/render/、engine/native/ 与 engine/offscreen/ 的 .mjs 入口脚本、examples/raea/tools/、site/dev/ 的脚本、*.config.*、
+//             作品目录里的 tools/*.mjs（离屏对拍之类）
 //   两种都给  会把回调交给 page.evaluate 在页面里执行的 Node 脚本：engine/render、engine/native/bridge、tools/site-qa.mjs、tools/rtx、tools/offscreen/compare.mjs、tests/offscreen/glsl-reference.mjs、
-//             site/dev、examples/raea/tools，以及在测试里搭页面的 *.test.*
+//             site/dev、examples/raea/tools、作品目录里的 tools/*.mjs，以及在测试里搭页面的 *.test.*
 // 不检查：cases/（第三方快照与历史归档，只读）、各类产物目录、测试夹具（里面有故意写坏的文件）、TypeScript（.ts / .tsx 由 B 路线的原生运行时自己校验）。
 import js from '@eslint/js';
 import globals from 'globals';
@@ -18,11 +19,11 @@ const BROWSER = [
 ];
 const NODE = [
   'tools/**/*.{js,mjs,cjs}', 'tests/**/*.{js,mjs,cjs}', '**/*.test.{js,mjs,cjs}', 'engine/render/**/*.mjs', 'engine/native/**/*.mjs', 'engine/offscreen/*.mjs',
-  'examples/raea/tools/*.mjs', 'site/dev/**/*.mjs', '*.config.{js,mjs,cjs}',
+  'examples/raea/tools/*.mjs', 'site/dev/**/*.mjs', '*.config.{js,mjs,cjs}', 'films/*/tools/*.mjs',
 ];
 const DRIVES_BROWSER = [
   'engine/render/**/*.mjs', 'engine/native/bridge/*.mjs', 'tools/site-qa.mjs', 'tools/rtx/*.mjs', 'tools/offscreen/compare.mjs', 'tests/offscreen/glsl-reference.mjs', 'site/dev/**/*.mjs',
-  'examples/raea/tools/*.mjs', '**/*.test.{js,mjs,cjs}',
+  'examples/raea/tools/*.mjs', '**/*.test.{js,mjs,cjs}', 'films/*/tools/*.mjs',
 ];
 
 export default [

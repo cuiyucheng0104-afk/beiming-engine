@@ -146,6 +146,8 @@ test('build --waive：用法或契约有错时（档位拼错、坏画幅、--si
     [['--from', 'no-such-step'], 2, 'usage.step-unknown'],
     [['--from', 'qa', '--to', 'mix'], 2, 'usage.step-order'],
     [['--final'], 2, 'usage.bad-usage'],
+    [['--encoder', 'av1'], 2, null],
+    [['--encoder', 'nvenc'], 2, null],
     [['--final', '--profile', 'vertical-1080x1920-30', '--quote', '直接出', '--source', '测试'], 4, 'contract.profile-not-delivery'],
   ];
   for (const [extra, code, err] of cases) {

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "film": "chendu",
+  "gate": "final",
+  "decision": "approve",
+  "reviewer": { "kind": "human", "name": "zz8011" },
+  "quote": "成片我认可，另一套活跃正在跑 #20,你等他跑完接管，然后继续后续的开发",
+  "source": {
+    "kind": "session",
+    "ref": "Claude Code 会话 2026-11-18，审看《晨渡》离屏终渲（out/20261117-191141-3e5a0a70/master.mp4）后回复 final 闸",
+    "at": "2026-11-18T03:26:56+08:00"
+  },
+  "recordedBy": { "kind": "ai", "name": "agent（npm run film -- review）" },
+  "at": "2026-11-18T03:36:02+08:00",
+  "reviewed": [
+    { "path": "out/20261117-191141-3e5a0a70/master.mp4", "sha256": "a971b7bcc5f24929e65f0711f06b775bf5f26b942fa531b871b3e953ef1739cd", "kind": "video" },
+    { "path": "out/20261117-191141-3e5a0a70/web.mp4", "sha256": "f8a1135963eb3c4a71367a6e040df92d5bbd2b4ee7153be7f3b2f262ce3aebb3", "kind": "video" },
+    { "path": "out/20261117-191141-3e5a0a70/contact.jpg", "sha256": "cba319c949f58cafb51fb6be83f2058bc9609845cc19025f0e46cc1a31752cf0", "kind": "image" }
+  ]
+}

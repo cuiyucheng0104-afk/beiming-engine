@@ -8,6 +8,7 @@
 //     fonts.entry(family)                         清单里的一项；没有这个字族 → GlyphError
 //     fonts.assert(family, text, where)           缺字 → GlyphError，消息里列出缺的字、码位和修法
 //     fonts.list                                  清单原样
+//   fontsOf(manifest) → fonts                     同上的 entry / assert / list，不加载字体（Node 端 engine/offscreen/canvas.mjs 用它）
 // 清单字段（schemaVersion 1）：fonts[{ family, file, weight, style, chars, sha256, source{ id, version, license } }]
 // 浏览器与 Node 通用（Node 只用前两个函数，给 QA 与工具核对 window.TEXTS）。
 
@@ -57,6 +58,11 @@ export async function loadFilmFonts(baseUrl) {
     document.fonts.add(face);
   }));
   await document.fonts.ready;
+  return fontsOf(M);
+}
+
+// 清单 → 字体对象（浏览器与 Node 的离屏出片共用）：list、entry(family)、assert(family, text, where)
+export function fontsOf(M) {
   const entry = family => {
     const e = M.fonts.find(f => f.family === family);
     if (!e) throw new GlyphError(`字体清单里没有字族「${family}」：在 film.json 的 fonts 里声明它，再重跑 tools/fonts/subset.mjs`);

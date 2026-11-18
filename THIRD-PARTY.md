@@ -115,6 +115,7 @@ README 署名节与 Release 说明末尾都用这一句（作品站页脚已有�
 |---|---|---|---|
 | [three.js](https://github.com/mrdoob/three.js)，npm 别名 `three-webgpu` | `0.187.0` | MIT，Copyright © 2010-2026 three.js authors | WebGPURenderer 与 TSL；旧链路仍用 `three@0.170.0`。保留包内 `LICENSE`，升级时重做预览对拍与确定性验证 |
 | [Dawn Node 绑定](https://github.com/dawn-gpu/node-webgpu)，npm 包 `webgpu` | `0.6.2` | npm 元数据声明 MIT，但发行包 `LICENSE.md` 实际为 BSD-3-Clause，Copyright 2017-2025 The Dawn & Tint Authors；按包内原文履行义务 | Node 离屏 GPU 设备；保留包内版权与免责声明，分发二进制时随附这些内容，不用上游名称背书。不把 npm 元数据代替发行包许可；若以后分发该依赖，另核对二进制附带的全部第三方义务 |
+| [@napi-rs/canvas](https://github.com/Brooooooklyn/canvas)，含平台包 `@napi-rs/canvas-linux-x64-gnu` | `1.1.1` | 包与平台包的 npm 元数据都声明 MIT，主包 `LICENSE` 为 MIT（Copyright (c) 2020，作者署名见包内 `LICENSE`）；平台二进制内含 Skia 等 138 个组件，随包 `sbom.cdx.json` 列出的许可有 MIT / Apache-2.0 / BSD / Zlib / ISC，另有 MPL-2.0 4 项、FTL（FreeType）1 项、未声明 9 项（待补） | 离屏出片的 Canvas 2D（程序化贴图、片名与显示层，可选依赖）；只作内部制作，不分发。若以后分发，先按 SBOM 逐项核对义务（MPL-2.0 的源码提供、FTL 的署名），未声明的 9 项先查清 |
 
 Skia Canvas 仅在仓库外做过 C 模版对照实验（MIT），没有加入产品依赖，也没有复制其代码。
 

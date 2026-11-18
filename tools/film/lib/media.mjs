@@ -129,7 +129,7 @@ export function colorChain(color) {
   return `colorspace=space=bt709:ispace=${space}:range=tv:irange=${range}:primaries=bt709:iprimaries=bt709:trc=bt709:itrc=bt709:format=yuv420p`;
 }
 
-export async function encodeWeb(exec, { src, srcInfo, audioFrom, out, fps, logFile, timeoutSec }) {
+export async function encodeWeb(exec, { src, srcInfo, audioFrom, out, fps, encoder = 'x264', logFile, timeoutSec }) {
   // 长边超过 1920 时缩到 1920（竖屏按高），宽高保持偶数
   const long = Math.max(srcInfo.width, srcInfo.height);
   const scale = long > 1920 ? (srcInfo.width >= srcInfo.height ? 'scale=1920:-2:flags=lanczos,' : 'scale=-2:1920:flags=lanczos,') : '';
@@ -139,8 +139,11 @@ export async function encodeWeb(exec, { src, srcInfo, audioFrom, out, fps, logFi
   if (audioFrom) a.push('-i', audioFrom);
   a.push('-map', '0:v:0');
   if (audioFrom) a.push('-map', '1:a:0?');
-  a.push('-vf', vf, '-c:v', 'libx264', '-preset', 'slow', '-crf', '19', '-maxrate', '14M', '-bufsize', '18M',
-    '-profile:v', 'high', '-level:v', '4.1', '-g', String(2 * fps), '-keyint_min', String(fps), '-pix_fmt', 'yuv420p',
+  const vCodec = encoder === 'nvenc'
+    ? ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', '21', '-maxrate', '14M', '-bufsize', '18M']
+    : ['-c:v', 'libx264', '-preset', 'slow', '-crf', '19', '-maxrate', '14M', '-bufsize', '18M', '-keyint_min', String(fps)];
+  a.push('-vf', vf, ...vCodec,
+    '-profile:v', 'high', '-level:v', '4.1', '-g', String(2 * fps), '-pix_fmt', 'yuv420p',
     '-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709');
   if (audioFrom) a.push('-c:a', 'copy');
   a.push('-movflags', '+faststart', tmp);

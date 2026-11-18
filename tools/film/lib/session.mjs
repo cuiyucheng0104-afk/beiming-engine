@@ -81,9 +81,11 @@ export function installSignals() {
   for (const s of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(s, onSignal);
 }
 
-// ANGLE 的渲染器字符串 → { device, backend }
+// ANGLE 的渲染器字符串（或离屏出片记的「Dawn WebGPU（离屏）：适配器」）→ { device, backend }
 export function parseGpu(s) {
   if (!s) return { device: null, backend: null };
+  const off = /^Dawn WebGPU（离屏）(?:：(.+))?$/.exec(s.trim());   // --renderer offscreen（engine/render/build.mjs 的 offscreenVideo）
+  if (off) return { device: off[1] || 'Dawn 适配器', backend: 'WebGPU / Dawn（离屏）' };
   const m = /^ANGLE \((.*)\)$/.exec(s.trim());
   const body = m ? m[1] : s;
   const backend = /Metal/i.test(body) ? 'Metal' : /Vulkan/i.test(body) ? 'Vulkan' : /Direct3D11|D3D11/i.test(body) ? 'D3D11' : /OpenGL/i.test(body) ? 'OpenGL' : null;
@@ -312,9 +314,10 @@ function encoderOf(ctx) {
   if (ctx.kind === 'stills' || ctx.kind === 'render') return ctx.art.frames ? 'JPEG q92（engine/render/still.mjs 截图）' : null;
   const v = ctx.meta.video?.encoder;
   if (!v) return null;
+  const src = ctx.meta.video?.renderer === 'offscreen' ? 'engine/offscreen/cli.mjs' : 'engine/render/video.mjs';
   const mux = ctx.meta.mux;
-  if (!mux || ctx.kind === 'animatic') return `${v}（engine/render/video.mjs）`;
-  return mux.videoCopied ? `${v}（engine/render/video.mjs；封装时画面逐位复制）` : `${v}（video.mjs）→ ${mux.encoder || 'libx264'}（封装时重编码）`;
+  if (!mux || ctx.kind === 'animatic') return `${v}（${src}）`;
+  return mux.videoCopied ? `${v}（${src}；封装时画面逐位复制）` : `${v}（${src}）→ ${mux.encoder || 'libx264'}（封装时重编码）`;
 }
 
 // 复现命令：从仓库根照抄就能重跑（POSIX 单引号；PowerShell 下单引号同样是字面量）

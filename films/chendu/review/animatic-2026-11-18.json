@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "film": "chendu",
+  "gate": "animatic",
+  "decision": "waive",
+  "reviewer": { "kind": "human", "name": "zz8011" },
+  "quote": "拍板的事儿我认可",
+  "source": { "kind": "session", "ref": "Claude Code 会话 2026-11-18，回复建议豁免 animatic 闸与「仍等你拍板的事：《晨渡》look 闸与 animatic 闸」", "at": "2026-11-18T03:09:57+08:00" },
+  "recordedBy": { "kind": "ai", "name": "agent（npm run film -- review）" },
+  "at": "2026-11-18T03:11:40+08:00",
+  "timing": {
+    "fps": 24,
+    "frameCount": 192,
+    "shots": [["S1", 0, 72], ["S2", 72, 192]],
+    "timingSha256": "4ab6a95d00109d2668e0d1d07a493ff8f708394f597574cc52566986b5b25b21",
+    "eventsSha256": "1b417f512b7b996cfa51020d56c1f24452edf225c579ffc7c204ee7340895656"
+  },
+  "summary": "豁免理由：《晨渡》的节奏、镜头和声音全都是 A 路线模版原样，本次只改渲染后端（M3 双实现验收）"
+}
