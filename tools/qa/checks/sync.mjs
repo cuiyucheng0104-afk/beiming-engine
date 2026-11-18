@@ -8,7 +8,7 @@
 //   runSync({ input, profile, film, events, probe, timeoutMs }) → { checks }
 import { makeCheck, finding, settle, notRun } from '../lib/checks.mjs';
 import { probeFile } from '../lib/probe.mjs';
-import { decodeMono, findOnset } from '../lib/audio.mjs';
+import { decodeMono, findOnset, findPCenter } from '../lib/audio.mjs';
 import { fpsOf } from '../lib/profiles.mjs';
 
 export async function runSync({ input, profile, film = null, events, probe = null, timeoutMs }) {
@@ -29,7 +29,10 @@ export async function runSync({ input, profile, film = null, events, probe = nul
     // 相邻事件挨得近时，各自只在到邻居的中点为止的范围里找（免得把前一下的起音认成这一下的）
     const early = Math.min(Y.searchEarlySec, i > 0 ? (t - list[i - 1].t) / 2 : Infinity);
     const late = Math.min(Y.searchLateSec, i + 1 < list.length ? (list[i + 1].t - t) / 2 : Infinity);
-    const on = findOnset(x, sr, t, { early: Math.max(early, 0.5 / fps), late: Math.max(late, 1.5 / fps), minRiseDb: Y.minRiseDb ?? 8 });
+    const searchOpts = { early: Math.max(early, 0.5 / fps), late: Math.max(late, 1.5 / fps), minRiseDb: Y.minRiseDb ?? 8 };
+    const on = e.syncMode === 'pcenter'
+      ? (findPCenter(x, sr, t, { ...searchOpts, minRiseDb: Math.min(searchOpts.minRiseDb, 7.5) }) ?? findOnset(x, sr, t, searchOpts))
+      : findOnset(x, sr, t, searchOpts);
     const lateTol = (e.kind === 'lip' ? Y.lipLateFrames : Y.lateFrames) * fd, earlyTol = Y.earlyFrames * fd;
     const at = e.frame ?? +(t * fps).toFixed(2);
     const fr = Number.isInteger(e.frame) ? [e.frame, e.frame + 1] : undefined;

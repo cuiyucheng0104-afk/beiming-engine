@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import { run, skip, tmp, segs, FIX, posix, probe, frames, framemd5, miniRepo } from './helpers.mjs';
 import { parseImplicitLabel } from '../../tools/compliance/lib/aigc.mjs';
 import { concatChunks } from '../../engine/render/lib/chunks.mjs';
+import { rgbToBt709Yuv420, bt709Yuv420ToRgb } from '../../engine/render/lib/yuv.mjs';
 
 const PAGE = `${FIX}/page`;
 const json = r => { try { return JSON.parse(r.stdout); } catch { throw new Error(`stdout 不是一个 JSON 对象：\n${r.stdout}\n${r.log}`); } };
@@ -300,4 +301,115 @@ test('Vulkan 显示层残留的回归页：--settle raf2 时奇数帧左上角�
       else assert.ok(y > 200, `第 ${f} 帧左上角应是白块，读到 ${y}`);
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('yuv.mjs 参考矩阵 + video.mjs --capture yuv420：GPU 直转 BT.709 裸流帧准确且色卡误差 ≤ 2 级', { skip, timeout: 180000 }, async t => {
+  // 1) Node 纯函数参考核对：中性灰 128 → Y=126, Cb=128, Cr=128
+  const gray = Buffer.alloc(4 * 4 * 4, 128);
+  const yuv = rgbToBt709Yuv420(gray, 4, 4);
+  assert.equal(yuv[0], 126);
+  assert.equal(yuv[16], 128);
+  assert.equal(yuv[20], 128);
+  const back = bt709Yuv420ToRgb(yuv, 4, 4);
+  assert.ok(Math.abs(back[0] - 128) <= 1);
+
+  const dir = tmp();
+  try {
+    await t.test('--capture yuv420 帧号 0…23 连续、色彩标记完整', async () => {
+      const out = join(dir, 'yuv_page.mp4');
+      const r = await run('engine/render/video.mjs', [PAGE, '--size', '64x64', '--workers', '2', '--capture', 'yuv420', '--out', out, '--json', '--progress', 'none']);
+      assert.equal(r.code, 0, r.log);
+      assert.deepEqual(frameNumbers(out), Array.from({ length: 24 }, (_, i) => i));
+      const rec = JSON.parse(readFileSync(`${out}.run.json`, 'utf8'));
+      assert.equal(rec.render.intermediate, 'yuv420');
+      assert.deepEqual(rec.output.color, { range: 'tv', space: 'bt709', primaries: 'bt709', transfer: 'bt709' });
+    });
+
+    await t.test('--capture yuv420 色卡 8 块解码回 sRGB 最大误差 ≤ 2 级', async () => {
+      const out = join(dir, 'yuv_chart.mp4');
+      const r = await run('engine/render/video.mjs', [`${FIX}/colorchart`, '--size', '128x64', '--capture', 'yuv420', '--out', out, '--progress', 'none']);
+      assert.equal(r.code, 0, r.log);
+      const rgb = execFileSync('ffmpeg', ['-v', 'error', '-i', out, '-frames:v', '1', '-vf',
+        'scale=in_range=limited:in_color_matrix=bt709:flags=accurate_rnd+full_chroma_int,format=rgb24', '-f', 'rawvideo', '-'], { maxBuffer: 1 << 24 });
+      const patches = [[16, 16, 16], [128, 128, 128], [235, 235, 235], [255, 255, 255], [224, 172, 140], [96, 160, 220], [40, 92, 64], [200, 60, 40]];
+      let worst = 0;
+      patches.forEach((want, i) => {
+        for (let y = 6; y < 26; y++) for (let x = 6; x < 26; x++) {
+          const px = (Math.floor(i / 4) * 32 + y) * 128 + (i % 4) * 32 + x;
+          for (let c = 0; c < 3; c++) worst = Math.max(worst, Math.abs(rgb[px * 3 + c] - want[c]));
+        }
+      });
+      assert.ok(worst <= 2, `GPU YUV420 色块最大误差 ${worst} 级`);
+    });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('时间超采样运动模糊（--samples 4 --shutter 0.8）：高速横移亮条产生线性光拖影过渡', { skip, timeout: 180000 }, async () => {
+  const m = miniRepo(null, 'mblur');
+  try {
+    fs.mkdirSync(m.film, { recursive: true });
+    writeFileSync(join(m.film, 'index.html'), `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<canvas id="c"></canvas><script>
+const c = document.getElementById('c'); c.width = 128; c.height = 64; const g = c.getContext('2d');
+window.DUR = 0.25; window.FPS = 24;
+window.render = t => {
+  g.fillStyle = '#000'; g.fillRect(0, 0, 128, 64);
+  g.fillStyle = '#fff'; g.fillRect(Math.round(16 + t * 24 * 36), 8, 14, 48);
+};
+window.READY = true;
+</script>`);
+    const sharpOut = join(m.base, 'sharp.mp4');
+    const blurOut = join(m.base, 'blur.mp4');
+    const r1 = await run(m.script('video.mjs'), [m.film, '--size', '128x64', '--frames', '0:2', '--capture', 'yuv420', '--out', sharpOut, '--progress', 'none'], { cwd: m.repo });
+    const r2 = await run(m.script('video.mjs'), [m.film, '--size', '128x64', '--frames', '0:2', '--capture', 'yuv420', '--samples', '4', '--shutter', '0.8', '--out', blurOut, '--progress', 'none'], { cwd: m.repo });
+    assert.equal(r1.code, 0, r1.log);
+    assert.equal(r2.code, 0, r2.log);
+    const midCount = file => {
+      const buf = execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], { maxBuffer: 1 << 20 });
+      let mid = 0;
+      for (let x = 0; x < 128; x++) { const v = buf[32 * 128 + x]; if (v > 35 && v < 215) mid++; }
+      return mid;
+    };
+    assert.ok(midCount(blurOut) > midCount(sharpOut) + 10, `运动模糊帧的半透过渡宽度 ${midCount(blurOut)} 应明显大于单采样帧 ${midCount(sharpOut)}`);
+  } finally { m.cleanup(); }
+});
+
+test('daemon.mjs + still.mjs --daemon：常驻热浏览器复用、源文件改动自动热重载与干净停机', { skip, timeout: 180000 }, async () => {
+  const m = miniRepo(null, 'hot');
+  const stateFile = join(m.base, 'daemon-state.json');
+  try {
+    fs.mkdirSync(m.film, { recursive: true });
+    const writeColor = hex => writeFileSync(join(m.film, 'index.html'), `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<canvas id="c"></canvas><script>
+const c = document.getElementById('c'); c.width = 64; c.height = 64; const g = c.getContext('2d');
+window.DUR = 1; window.FPS = 24;
+window.render = () => { g.fillStyle = '${hex}'; g.fillRect(0, 0, 64, 64); };
+window.READY = true;
+</script>`);
+    writeColor('#d02020');
+    const boot = spawnSync(process.execPath, [m.script('daemon.mjs'), 'start', m.film, '--state-file', stateFile, '--gpu', 'software-ok', '--json'], { cwd: m.repo, encoding: 'utf8' });
+    assert.equal(boot.status, 0, boot.stdout + boot.stderr);
+    assert.equal(JSON.parse(boot.stdout).data.started, true);
+
+    const out1 = join(m.base, 's1');
+    const r1 = await run(m.script('still.mjs'), [m.film, '--frame', '0', '--size', '64x64', '--daemon', '--daemon-state', stateFile, '--out', out1, '--json'], { cwd: m.repo });
+    assert.equal(r1.code, 0, r1.log);
+    assert.deepEqual(r1.leftovers, []);
+
+    const st = await run(m.script('daemon.mjs'), ['status', '--state-file', stateFile, '--json'], { cwd: m.repo });
+    assert.equal(st.code, 0, st.log);
+    assert.equal(json(st).data.running, true);
+
+    // 改动页面颜色并确保 mtime 推进，验证热守护自动监测依赖变动并重载
+    await new Promise(r => setTimeout(r, 25));
+    writeColor('#2060e0');
+    const out2 = join(m.base, 's2');
+    const r2 = await run(m.script('still.mjs'), [m.film, '--frame', '0', '--size', '64x64', '--daemon', '--daemon-state', stateFile, '--out', out2, '--json'], { cwd: m.repo });
+    assert.equal(r2.code, 0, r2.log);
+    assert.notEqual(sha(join(out1, 'f000000.png')), sha(join(out2, 'f000000.png')), '页面源码修改后热守护应自动重载出新颜色');
+  } finally {
+    const stopRes = await run(m.script('daemon.mjs'), ['stop', '--state-file', stateFile, '--json'], { cwd: m.repo });
+    assert.equal(stopRes.code, 0, stopRes.log);
+    m.cleanup();
+  }
 });

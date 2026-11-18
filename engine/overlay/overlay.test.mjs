@@ -90,3 +90,32 @@ test('buildBrushGlyph：字体还在下载时直接报错，下载完正常预�
   assert.equal(r.during, 'threw');
   assert.ok(r.pixels > 100, `字形像素 ${r.pixels}`);
 });
+
+test('buildAutoBrushGlyph：无需手标骨架即可把「北」「冥」按自动推导的笔画逐步写出', async t => {
+  const r = await run(t, async () => {
+    const { loadFonts } = await import('/engine/overlay/text.js');
+    const { paintBrushGlyph } = await import('/engine/overlay/brush.js');
+    const { buildAutoBrushGlyph } = await import('/engine/overlay/skeleton.js');
+    await loadFonts([['T Auto', 'http://bm.test/odd font/auto.woff2', '400']]);
+    const G = buildAutoBrushGlyph('北', { font: '400 96px "T Auto"', size: 96, span: [0, 1] });
+    const countLit = time => {
+      paintBrushGlyph(G, time, { rgb: [20, 20, 25] });
+      const d = G.octx.getImageData(0, 0, G.size, G.size).data;
+      let n = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 16) n++;
+      return n;
+    };
+    return {
+      strokeCount: G.strokes.length,
+      totalIdx: G.idx.length,
+      at0: countLit(0),
+      atMid: countLit(0.5),
+      atEnd: countLit(1.05),
+    };
+  });
+  if (!r) return;
+  assert.ok(r.strokeCount >= 2, `「北」字自动拆出 ${r.strokeCount} 笔`);
+  assert.equal(r.at0, 0);
+  assert.ok(r.atMid > 0 && r.atMid < r.atEnd, `书写中途露出像素 ${r.atMid} 应介于 0 与终态 ${r.atEnd} 之间`);
+  assert.ok(r.atEnd > r.totalIdx * 0.7, `写完后露出像素 ${r.atEnd} / 总像素 ${r.totalIdx}`);
+});

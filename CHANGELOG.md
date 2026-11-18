@@ -14,7 +14,7 @@
 ### Added
 
 - 三条路线的模版仓库结构：`routes/README.md` 是总指引；A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）、C（北冥代码动画风格 · 86 式）各有一份路线手册和一个可直接出片的模版。`node tools/new-film.mjs <a|b|c> <名字>` 从模版新建作品到 `films/<名字>/`。
-- 导演与画面规范 `routes/directing/`：导演方法、画面设计、五章工艺，以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
+- 导演与画面规范 `routes/directing/`：导演方法、画面设计、六章工艺（含音效设计与拟音工艺 `craft/sound.md`），以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
 - 工业级交付基线决策 `docs/decisions/2026-11-10-industrial-baseline.md`（D01–D11）。
 - 仓库规范检查 `tools/repo-check.mjs`（`npm run check:repo`）：检查路线手册的章节、模版的 `film.json`、相对链接、引擎模块的中文头注释、内部代号，以及作品记录。
 - B 路线通用原生层 `engine/native/`：three.js 对象经资产桥导出 GLB（含骨骼与形变动作，导出后做结构检查和回读），另有素材准备、序列帧图集和原生渲染入口 `engine/render/native.mjs`。原生运行时不随仓库分发。
@@ -32,6 +32,12 @@
 - 中文排字 `engine/overlay/cjk.js`（实验）：给 Canvas 逐字画字用的断行与排版纯函数 `layoutText`，按 W3C《中文排版需求》做行首行尾禁则、省略号与破折号不拆、拉丁词与「数字加单位」不拆、标点挤压、中西文间距、两行等长与三种对齐；结果是逐字的位置，可直接交给文字动效。机器 QA 新增软项 `texts.cjk-break`（行首不是收尾标点、行尾不是开头标点，只告警）。自测页 `?test=cjk`。
 - 文字动效 `engine/overlay/kinetic.js`（实验）：12 个逐字或逐碎片的入场 / 出场动效（回弹落位、打字机、字距收拢、翻牌、乱码解析、霓虹点亮、墨洇显影、大小波浪、模糊对焦、遮罩擦出、碎片聚合、碎片依次显现），画面只取决于进度，可一拍二，可任意跳帧。自测页 `?test=kinetic`。
 - B 路线的光追外部后端 rt（实验）：`engine/native/rt.mjs`（`npm run b:rt -- status | render`）按 `engine/native/rt.lock.json` 核对外部光追渲染器的版本并调用它出分层图（颜色、深度、物体编号、视空间法线）；`engine/look/layers.js` 在浏览器里把一帧分层图做成描边、色阶、笔触与纸纹的北冥画风，自测页 `?test=rt_look`。渲染器是第三方预览许可软件，不随仓库分发，边界见 `docs/rights/rt-boundary.md`。现有三条路线的出片链路与画面不受影响。
+- 渲染管线升级（`engine/render/`，默认参数与既有金标准逐像素一致）：`--capture yuv420` 在浏览器 WebGL2 内直接合成画布并按有限范围 BT.709 矩阵转成 `yuv420p` 裸流喂给 FFmpeg，省去 PNG 编解码与 CPU 色彩空间换算；`--samples <N> --shutter <0–1>` 在线性光下累积子帧实现物理快门运动模糊；`engine/render/daemon.mjs` 与 `still.mjs --daemon` 提供常驻热 GPU 浏览器守护与依赖变动自动热重载。
+- 自动书法毛笔骨架提取 `engine/overlay/skeleton.js`：从任意字体渲染出的二值掩码直接提取拓扑单线骨架、交叉直通合并、传统汉字笔顺与收笔飞白权重（`traceMaskSkeleton`、`buildAutoBrushGlyph`），并支持把外部标准笔顺中线沿距离变换脊线吸附到当前字体（`alignMediansToMask`），免除逐字手标骨架。
+- 各向异性 Kuwahara 笔触与湿叠水彩皴擦：`engine/look/kuwahara.js` 新增可选 `anisotropy`（局部结构张量方向场驱动切向椭圆 8 扇区桑原滤波，默认 `0` 保持原单 pass 不变）；`engine/paint/watercolor.js` 提供递归湿边扩散、毛细水渍暗边（`fillWatercolor`）与披麻皴 / 斧劈皴矢量场均匀流线生成（`ridgeField`、`flowHatch`、`drawFlowHatch`）；新增宽松开源原生渲染演进对照文档 `docs/raea/open-native-survey.md`。
+- 算力池远端 GPU 并行渲染 `tools/dstack-render.mjs` 与基础镜像定义 `tools/dstack/Dockerfile`：支持经 dstack 控制面把影片调度到远端独显节点做多路 `ANGLE Vulkan` 无头浏览器并行渲染与响度封装，支持预装镜像 0 秒冷启或宿主 `runtime-layer.tar` 亚秒级增量解包；默认固定 `backends: [ssh]` 只调度自有机队（防误触云端计费实例），支持 `--gpu none` 适配 UMA 统一内存节点；`engine/render/lib/gpu.mjs` 在 Linux 容器环境自动追加无头浏览器沙箱兼容参数。
+- CC0 真实录音音效库与可选切换链路（默认程序化合成逐样本不变）：`engine/audio/library.py` 提供 48 kHz 保音高重采样、起音静音裁剪、等功率底噪循环、翼音短事件包络切片与署名生成；`audio/sfx_manifest.json` 登记《北冥》样片 18 项 CC0 录音映射，`audio/mix.py --real-sfx`（及 `tools/audio/build.mjs --real-sfx`）支持一键切换真实音效并单独写出 `out/CREDITS.real-sfx`；`tools/fetch_sfx.py` 提供 Freesound CC0 六线程并发下载与基于投票数及专业录音描述信号的候选重排。
+- 导演声学谱、感知 HDR 混音、Sound Designer 实录复合拟音、零训练音效取证与工艺规范（默认成片与既有合成链路逐样本兼容）：新增 `routes/directing/craft/sound.md` 第六章音效设计与拟音工艺手册（八条音效法则、九步闭环、微机械与高科技 HUD 配方库、A/B/C 跨路线矩阵、听感词物理量翻译表与审片十问）并同步更新 `DIRECTING.md` 步骤 8；新增 `engine/audio/director.py`（听觉视角预设 `POA_PRESETS`、按景别声像上限 `SHOT_PAN_CAP`、跨切点 `render_shot_poa`、冲击前负空间抽空 `carve_negative_space`、配乐调性协和吸附 `harmonic_freq`、精密工程制图微声 `subtle_precision_cue`、防刺耳高频镭射脉冲走线 `hitech_laser_trace` 与支持双层强调泛音的玻璃态菜单微提示音 `hitech_micro_beep`，以及离线前视 `HDRMixer`：Murch 2.5 声部聚簇裁剪 + 6 临界频带 `sosfiltfilt` 零相位侧链动态让位）；新增 `engine/audio/foley.py`（前导/接触瞬态 MSI/腔体重量/余波四段子事件复合、三层实录认知锚点复合配方 `composite_mechanism`、无源精密齿轮转动与双阶落锁咬合 `precision_gear_turn`、薄壁圆管早反射、保材质移调 `shift_material`、防机关枪重复的 `RoundRobinDeck`、有机颗粒声床 `granular_bed`、剑风/剑鸣/衣袂/断水原型，以及粘滑摩擦 `stick_slip_friction`、精密螺纹 `helical_thread`、色散螺旋弹簧 `spring_coil` 与棘齿卡扣 `ratchet_detent`）；`engine/audio/library.py` 新增洁净增益取证切片加载 `load_slice`（拦截低 `raw_pk` 高噪归一化）、高频加权感知冲击中心检测 `sync_anchor`（P-Center）、亚 20 ms 微瞬态切片 `min_len`、轻柔去底噪/混响门 `de_room_gate` 与无损格式优先加载；`engine/audio/dsp.py` 新增四点三次 Hermite 分数延迟线、物理多普勒 `doppler` 与瑞利双工单声道兼容空间同化摆位 `space_place`；新增 `engine/audio/sfx_judge.py` 零训练物理形态与因果本体取证（含脉冲门控 Schroeder RT20、清单裁剪/滤波意图感知、`mechanical` / `motorized` / `low_drone` / `sustained_tonal` 原型、无源机构电机嗡鸣与循环检测 `judge_ontology` 及多事件独立切片包络测量），接入 `tools/fetch_sfx.py`（支持无源机械物件防电机污染守卫、`hitech`/UI 电子类标签放行、无 `FREESOUND_TOKEN` 时的公开 CC0 双路检索、许可核验与 `sfx_judge` 下载自动筛查）；`engine/audio/qa.py` 新增分轨临界频带听觉窥视掩蔽检查 `audio.masking` 与逐 100 ms 窗左右平衡检查 `audio.balance`；`engine/render/events.mjs` 新增 `--telemetry` 逐帧 GPU 画面运动能量、横向重心声像、切点跳变与 `AUDIO_TELEMETRY` 真遥测采集，对接 `engine/audio/cues.py` 48 kHz 重采样与 `engine/audio/cuecheck.py`、`tools/qa` 的 `syncMode: "pcenter"` 感知锚点对齐校验。
 
 ### Changed
 
@@ -41,6 +47,7 @@
 - 成片响度由 −14.9 LUFS 校正到 −14.0 LUFS（线性增益，不改变动态范围）。
 - 《北冥》1080p 画面有三处有意变化：R24 渡船的红绿航行灯换到正确的舷侧，R30 鸽群的黑边消失，R66 导航线的线头。只在 4K 生效的修复：R17、R19、R31、R32、R45。
 - `npm run showcase:build` 改名为 `npm run site:build`，另有 `site:serve`、`site:qa`。
+- B 路线（北冥原生 · BNE）锁定的上游原生运行时由 `0.1.0-canary.2` 升级到正式版 `0.1.4`（`v0.1.4`，提交 `d870159c4686bd1fcda094934602463549b26683`，2026-11-15 发布，2028-11-15 转为 Apache-2.0）：同步更新 `engine/native/runtime.lock.json` 与 `tools/env/spec.json` 的 macOS arm64、Windows x64、Linux x64 三平台归档与可执行文件 SHA256，并在 Linux RTX 4070（Vulkan / OpenH264）完成模版出片、四类画面配方与机器 QA 验收；`engine/render/native.mjs` 兼容 `raea check` 新版 `findings`（`error / warn / note`）与旧版 `issues`（`P0–P3`）输出，并接入 `BEIMING_GPU_BUSY_UTIL` / `--max-gpu-util` 守卫阈值。
 
 ### Removed
 

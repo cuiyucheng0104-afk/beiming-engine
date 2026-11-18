@@ -37,6 +37,7 @@ def make_parser():
                             '3 缺依赖或缺输入；4 门禁不通过或配乐缓存与输入不一致；1 运行失败。')
     p.add_argument('--score', action='store_true', help='用采样库重渲配乐（需要 BEIMING_SAMPLES 或 audio/samples/）')
     p.add_argument('--accept-stale-score', action='store_true', help='配乐缓存与当前乐谱对不上时仍用旧配乐（记进 render.json）')
+    p.add_argument('--real-sfx', action='store_true', help='音效改用 audio/sfx_manifest.json 里的 CC0 真实录音')
     p.add_argument('--no-strict', action='store_true', help='只跑旧口径自检（problems 非空退出 1），不做门禁')
     return p
 
@@ -66,7 +67,7 @@ def main(args, ctx):
     if miss:
         raise _cli.CliError('env.python-deps', f'当前 Python（{sys.executable}）缺 {"、".join(miss)}',
                             hint='npm run setup（建仓库 .venv），或 pip install -r requirements.txt；指定解释器用 PYTHON=<路径>')
-    mix_flags = [f for f, on in (('--score', args.score), ('--accept-stale-score', args.accept_stale_score)) if on]
+    mix_flags = [f for f, on in (('--score', args.score), ('--accept-stale-score', args.accept_stale_score), ('--real-sfx', args.real_sfx)) if on]
     ctx.log('== 混音（audio/mix.py' + (' ' + ' '.join(mix_flags) if mix_flags else '') + '）')
     rc, _ = _run([sys.executable, os.path.join(HERE, 'mix.py')] + mix_flags, ctx)
     if rc != 0:

@@ -139,7 +139,7 @@ test('未知 schemaVersion 拒绝自动解释', () => {
 test('路线与后端分别校验，beiming + raea 必须声明风格迁移状态', () => {
   const spec = clone(beimingTemplate());
   spec.backend = 'raea';
-  spec.runtime.package = '0.1.0-canary.2';
+  spec.runtime.package = '0.1.4';
   assert.ok(codes(validateProjectSpec(spec)).includes('style-migration-required'));
 
   spec.style.migration = { state: 'partial', evidence: ['docs/style-baselines/migration.md'] };

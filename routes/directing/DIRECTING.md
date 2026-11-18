@@ -276,17 +276,19 @@ node engine/render/video.mjs . --size 960x520 --query previs=1 --out <输出目�
 
 ### 步骤 8 · 声音设计
 
-**产出物**：声音表（段｜环境床｜拟音（标材质）｜音乐状态，三栏改编自 `$甲/DIRECTOR.md §4` 第 7 项）；静默清单（位置、时长、目标电平、是否留底噪、之后第一声是什么）；声音转场清单（J-cut／L-cut）；"最重要的一声"及其类型；混音总线与响度目标；乐器与采样的来源和许可。
+**产出物**：物理本体与发声层清单（对象｜所属层：物理本体／编码界面／意象转译｜动力源｜禁混声族，见 [craft/sound.md §2.1](craft/sound.md)）；全片声音词典（视觉组件类 → 声音词元 → 重点叠层强调方式，[craft/sound.md §2.2](craft/sound.md)）；声音表（段｜环境床｜拟音（标材质）｜音乐状态，三栏改编自 `$甲/DIRECTOR.md §4` 第 7 项）；静默清单（位置、时长、目标电平、是否留底噪、之后第一声是什么）；声音转场清单（J-cut／L-cut）；"最重要的一声"及其类型；混音总线与响度目标；乐器与采样的来源和许可。
 
 **判定标准**
 
 - 承担叙事的动作必须有声；次要动作由环境床覆盖；删声和加声都要写理由。环境、拟音、音乐三层；至少两处真静默，静默后的第一声专门选；至少两次用声音做转场；不用泛泛的钢琴加弦乐铺底（改编自 `$甲/DIRECTOR.md §6`。`$甲` 原文要求"每个可见动作都有声"；北冥定调是配乐稀疏、科技是环境，`docs/作品.md:88-90`，所以本规范改成按叙事取舍）。
+- 因果本体与分层拟音（展开见 [craft/sound.md §1.1、§1.5](craft/sound.md)）：无源机构（手按弹簧、拨盘、冷兵器）严禁混入电机、伺服、持续正弦或 `np.tile` 机械循环；微距与特写关键动作按 `identity`（原调实录认知锚点）＋ `detail`（高频精密机构层）＋ `body`（延后约 1.8 ms 的重量腔体层）构建，不用纯振荡器合成代替熟悉物件。
+- 可听积分与洁净选材（展开见 [craft/sound.md §1.2–§1.4](craft/sound.md)）：前景微动作须满足人耳约 200 ms 响度时间积分（有效包络体 ≥ 30 ms 或对齐画面笔触真实时长，禁用 <10 ms 孤立针尖脉冲）；实录切片归一化增益 $G \le 20\text{ dB}$ 且总线前底噪 $\le -56\text{ dBFS}$（`engine/audio/library.py` 的 `load_slice`）；声像跟随视觉落点并按景别上限收束（`SHOT_PAN_CAP`），配逐 100 ms 窗左右平衡核对（`audio.balance`）。
 - "最重要的一声"写明类型：A 类靠最响，要给出实测领先多少 LU（`style-32-microgame/TREATMENT.md:96` 写成"比全片任何峰值高 ≥2 LU"）；B 类靠前面的静默反衬，不必最响。测量口径统一报两个数：400 ms 瞬时响度和 50 ms 短窗 RMS【通用工艺·建议】。阐述里声称了"最重要的一声"却没写类型的，审片时按 A 类核对。
 - 静默写目标电平，并在最终解码的 AAC 上测（`style-29-pixel-rpg/tools/cuecheck.py:65-69` 在解码后的 AAC 上验证静默为真零）。数字零与近静默按功能选：揭晓或爆发前一拍用数字零；叙事中段的近静默留房间底噪，免得听起来像掉音（`keynote-C-quanpian/TREATMENT.md:14`）。
-- 声画同源：同一物件的声音和画面属于一个家族（`audio/design.py:3-5`：汽笛与鲲鸣同一发声器、同一谐波谱；`keynote-B-kaitou/TREATMENT.md:108`：电流嗡声与乐曲同为 G）。
+- 声画同源与家族同构：同一物件的声音和画面属于一个家族（`audio/design.py:3-5`：汽笛与鲲鸣同一发声器、同一谐波谱；`keynote-B-kaitou/TREATMENT.md:108`：电流嗡声与乐曲同为 G）；同类图形标注或 UI 弹窗全片锁定同一声音词元，核心镜头靠叠入高五度／八度泛音副层强调，不中途换词元（[craft/sound.md §1.6](craft/sound.md)）。
 - 响度门槛只在一处定义：混音目标写在 `sound/cues.json` 的 `premaster`（A 样片 −14 LUFS、−1.7 dBTP，`audio/cues.json:6-9`）；交付判定写在 ProjectSpec 的 `audio`，以最终 AAC 为准：积分响度 −14±1 LU、真峰值不高于 −1.2 dBTP（`docs/routes/validation-and-rtx.md:37`；`docs/routes/templates/project-beiming.json:12`）。10 秒左右的短片另报最大短期响度（3 s）和最大瞬时响度（400 ms）（[craft/video.md §5.8](craft/video.md)）。
 
-**常见错误**：近静默只写"近乎静默"，不写目标电平；封装时再跑 loudnorm，把已母带化的 −14.1 LUFS 压成 −14.9（【仓库实证·实测】[craft/video.md §5.8](craft/video.md)）；在共享检出里跑 `audio/mix.py` 或 `sh audio/build.sh`（后者第 9 行调用前者），会重写被跟踪的 `audio/CREDITS`（`audio/mix.py:277`），`npm run build` 也会走到这一步。
+**常见错误**：把精密微声裁成 <5 ms 针尖脉冲导致积分能量过低完全听不见；截取 `raw_pk < 0.05` 的轻擦或静音缝隙做峰值归一化，把话筒底噪硬抬 +30～+50 dB 炸出单侧嘶声；微距斜拍按零件几何底座算声像导致单耳偏重，却误信全片 `audio.mono` 相关系数高就算通过；无源圆珠笔或机械拨盘混入电动变焦镜头、舵机或循环切片产生电机感（以上四条见 [craft/sound.md §5](craft/sound.md)）；近静默只写"近乎静默"，不写目标电平；封装时再跑 loudnorm，把已母带化的 −14.1 LUFS 压成 −14.9（【仓库实证·实测】[craft/video.md §5.8](craft/video.md)）；在共享检出里跑 `audio/mix.py` 或 `sh audio/build.sh`（后者第 9 行调用前者），会重写被跟踪的 `audio/CREDITS`（`audio/mix.py:277`），`npm run build` 也会走到这一步。
 
 **仓库范例**：`keynote-C-kaitou/TREATMENT.md:123-147`（声音表带"材质"列，两处静默与 J/L-cut 写清位置）；`style-65-countdown/TREATMENT.md:98`（低频分频管理，用倍频程能量核对）；`audio/cues.json`（每个镜头写"声场"：远闷宽／近窄干／第一视角最宽）。
 
@@ -341,7 +343,7 @@ ffmpeg -hide_banner -nostats -i <成片>.mp4 -an -vf "scale=240:-2,gblur=sigma=2
 - [ ] 阐述必填节齐全（小样按模板开头的必填表）；H1 只写作品名；阐述里的数字与时间轴一致。
 - [ ] 风格帧、造型表与比例对照、色彩脚本条、style-lock 入档；用户对结构、画风、动态预演的确认有记录（⛔1–⛔3）。
 - [ ] 时间轴是唯一时间源；所有切点、节拍切换在公倍数帧；拍点帧是结果帧；声画对位按 [craft/animation.md §5.7](craft/animation.md) 的容差表判定。
-- [ ] 声音表每一行都真的在混音里（`$甲/DIRECTOR.md §11`）；静默与"最重要的一声"按口径实测；最终 AAC 的响度与真峰值在 ProjectSpec `audio` 的门槛内。
+- [ ] 声音表每一行都真的在混音里（`$甲/DIRECTOR.md §11`）；本体清单与声音词典已核对（无越界电机或死循环、切片满足洁净增益门禁、逐窗左右平衡 `audio.balance` 无异常偏斜，见 [craft/sound.md §7](craft/sound.md)）；静默与"最重要的一声"按口径实测；最终 AAC 的响度与真峰值在 ProjectSpec `audio` 的门槛内；历次返修曾指出的问题时间码全部复测通过。
 - [ ] 文字全在白名单；读字时长过检或登记了例外；字体子集无缺字；世界内文字另做了可读性检查。
 - [ ] IP、品牌、事实、地图按 [VISUAL-DESIGN.md §7](VISUAL-DESIGN.md) 自查；每一件第三方作品、角色、品牌、地图数据都有权利依据，授权证据写进 CREDITS；事实片有 FACTS.md，虚构片写明"无事实陈述"。
 - [ ] 成片里没有第三方风格库的署名或水印（`$甲/AGENTS.md:16`；`ppt-jianlong/制作规范.md:170`）；工程的 CREDITS 列全第三方素材和许可；沿用了 `$甲` 代码的文件保留版权与许可声明。

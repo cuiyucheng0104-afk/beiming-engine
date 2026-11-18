@@ -135,10 +135,26 @@ export function normalizeFilm(raw, file = null) {
     if (shots[i].in !== shots[i - 1].out) warnings.push(`镜头 ${shots[i - 1].id} 与 ${shots[i].id} 不首尾相接（${shots[i - 1].out} ≠ ${shots[i].in}）`);
   }
   const cuts = shots.slice(1).filter(s => isInt(s.in)).map(s => ({ frame: s.in, shot: s.id, transition: s.transition }));
-  const events = Array.isArray(raw.events) ? raw.events.filter(isObj).map((e, i) => normEvent(e, i, fps)).filter(Boolean) : [];
+  const qa = normalizeQa(raw.qa, fps?.value, warnings);
+  const cueModes = new Map();
+  if (file) {
+    const cueRel = (isObj(raw.audio) && typeof raw.audio.cues === 'string') ? raw.audio.cues : 'cues.json';
+    const cuePath = path.resolve(path.dirname(file), cueRel);
+    try {
+      if (fs.existsSync(cuePath)) {
+        const cj = JSON.parse(fs.readFileSync(cuePath, 'utf8'));
+        for (const c of (Array.isArray(cj?.cues) ? cj.cues : [])) {
+          if (isObj(c) && c.syncMode === 'pcenter') {
+            if (typeof c.id === 'string') cueModes.set(c.id, 'pcenter');
+            if (typeof c.event === 'string') cueModes.set(c.event, 'pcenter');
+          }
+        }
+      }
+    } catch { /* cues.json 可选，解析交由 cuecheck */ }
+  }
+  const events = Array.isArray(raw.events) ? raw.events.filter(isObj).map((e, i) => normEvent(e, i, fps, qa.sync, cueModes)).filter(Boolean) : [];
   const audioMode = isObj(raw.audio) ? raw.audio.mode : undefined;
   const profile = output.profile || (Array.isArray(raw.deliveries) ? raw.deliveries[0] : null) || null;
-  const qa = normalizeQa(raw.qa, fps?.value, warnings);
   return {
     file, dir: file ? path.dirname(file) : null,
     schemaVersion: raw.schemaVersion ?? 1,
@@ -153,7 +169,7 @@ export function normalizeFilm(raw, file = null) {
   };
 }
 
-function normEvent(e, i, fps) {
+function normEvent(e, i, fps, qaSync = null, cueModes = null) {
   const id = String(e.id ?? e.cue ?? `${e.type || 'ev'}#${i}`);
   let frame = isInt(e.frame) ? e.frame : null;
   let t = typeof e.t === 'number' ? e.t : null;
@@ -163,7 +179,10 @@ function normEvent(e, i, fps) {
   const sync = e.sync ?? null;
   const needsSound = sync !== 'none' && (Boolean(e.audio) || e.sfx === true || e.cue != null);
   const kind = sync === 'lip' || e.visual === 'lip' ? 'lip' : 'default';
-  return { id, frame, t, needsSound, kind, soft: sync === 'soft', audio: typeof e.audio === 'string' ? e.audio : null, shot: e.shot ?? null };
+  const pcSet = Array.isArray(qaSync?.pcenterEvents) ? qaSync.pcenterEvents : [];
+  const cuePc = cueModes && (cueModes.get(id) === 'pcenter' || (typeof e.audio === 'string' && cueModes.get(e.audio) === 'pcenter'));
+  const syncMode = (e.syncMode === 'pcenter' || qaSync?.mode === 'pcenter' || cuePc || pcSet.includes(id) || (typeof e.audio === 'string' && pcSet.includes(e.audio))) ? 'pcenter' : 'onset';
+  return { id, frame, t, needsSound, kind, syncMode, soft: sync === 'soft', audio: typeof e.audio === 'string' ? e.audio : null, shot: e.shot ?? null };
 }
 
 // 事件表文件：film.json（events[]）、events.json（{ dur, ev: [{ t, type, cue }] }，C 路线 engine/render/events.mjs 导出）、

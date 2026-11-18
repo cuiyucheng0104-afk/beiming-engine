@@ -16,13 +16,15 @@ import { isMain, runCli } from '../../tools/lib/cli.mjs';
 import { openFilm, locateFilm, renderFrame, closeServer, ROOT } from './page.mjs';
 import { parseTime, rangeTimes } from './args.mjs';
 import { RenderError } from './lib/errors.mjs';
-import { renderCommand, pickOptions, parseFrames, positiveNumber } from './lib/command.mjs';
+import { renderCommand, pickOptions, parseFrames, positiveNumber, resolveMotionBlur } from './lib/command.mjs';
 import { resolveAngle, resolveGpuPolicy } from './lib/gpu.mjs';
 import { acquireLock } from './lib/lock.mjs';
 import { environment, baseRecord, writeRecord, sha256, repoPath, selfCheck } from './lib/record.mjs';
 import { readFilm } from './lib/film.mjs';
 import { checkTexts } from './lib/contract.mjs';
 import { resolveOutputSpec, decideFps } from './video.mjs';
+import { captureGpuFrame } from './lib/yuv.mjs';
+import { defaultStateFile, ensureDaemon, requestDaemon } from './daemon.mjs';
 
 export const command = renderCommand({
   name: 'engine/render/still.mjs',
@@ -41,7 +43,10 @@ export const command = renderCommand({
     prefix: { type: 'string', arg: '<前缀>', describe: '文件名前缀（按秒默认 s_，按帧默认空）' },
     format: { type: 'string', choices: ['png', 'jpeg'], arg: 'png|jpeg', describe: '图片格式（按秒默认 jpeg，按帧默认 png）' },
     quality: { type: 'integer', min: 1, max: 100, default: 92, arg: '<1–100>', describe: 'JPEG 质量（默认 92）' },
+    ...pickOptions(['samples', 'shutter']),
     texts: { type: 'boolean', describe: '每张截完图再读 window.TEXTS(t)，连同形状核对写进运行记录' },
+    daemon: { type: 'boolean', describe: '复用常驻热浏览器守护进程（未启动则自动后台拉起；源文件变动时自动热重载）' },
+    'daemon-state': { type: 'string', arg: '<文件>', describe: '常驻守护进程状态文件路径（配合 --daemon，默认系统临时目录）' },
     ...pickOptions(['gpu', 'angle', 'allow-network', 'lenient-assets', 'allow-gl-errors', 'ready-timeout', 'frame-timeout', 'settle', 'progress']),
     'run-json': { type: 'string', arg: '<文件>', describe: '运行记录（默认 <输出目录>/<前缀>still.run.json）' },
   },
@@ -60,6 +65,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   resolveGpuPolicy(opts.gpu ?? undefined); resolveAngle(opts.angle ?? undefined);
   const film = readFilm(dir);
   const { size: { w, h }, fps: fpsReq, profile } = resolveOutputSpec({ opts, film });
+  const { samples, shutter } = resolveMotionBlur(opts);
   for (const m of profile?.warnings ?? []) log.warn(m, 'profiles', '档位表归作品描述包维护：engine/production/profiles.json');
   const byFrame = Boolean(opts.frame.length || opts.frames);
   const shots = times.map(s => ({ t: parseTime(s), label: s.trim(), frame: null }));
@@ -120,22 +126,82 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     render: { fps: fpsReq, profile: profile?.id ?? null, frameCount: film?.output?.frameCount ?? null },
   };
   if (opts['ready-timeout']) openOptions.readyTimeoutMs = opts['ready-timeout'] * 1000;
+  const frameTimeoutMs = opts['frame-timeout'] ? opts['frame-timeout'] * 1000 : undefined;
+
+  if (opts.daemon) {
+    const stateFile = path.resolve(opts['daemon-state'] ?? defaultStateFile());
+    const d = await ensureDaemon({ stateFile, gpu: opts.gpu ?? undefined, angle: opts.angle ?? undefined, signal });
+    const baseSpec = {
+      dir, w, h, query: opts.query, gpu: opts.gpu ?? undefined, angle: opts.angle ?? undefined,
+      allowNetwork: opts['allow-network'], lenientAssets: opts['lenient-assets'], allowGlErrors: opts['allow-gl-errors'],
+      readyTimeoutMs: openOptions.readyTimeoutMs, frameTimeoutMs,
+      render: openOptions.render,
+    };
+    const probeRes = await requestDaemon(d, '/render', { ...baseSpec, probeOnly: true }, { signal });
+    const fps = byFrame ? decideFps({ requested: fpsReq, pageFps: probeRes.contract.pageFps, anyFps: opts['any-fps'], log }) : (fpsReq ?? probeRes.contract.pageFps ?? 24);
+    const total = byFrame ? Math.round(probeRes.contract.dur * fps) : null;
+    const settle = opts.settle === 'auto' ? (probeRes.info.angle === 'vulkan' ? 'raf2' : 'none') : opts.settle;
+    Object.assign(record, {
+      actualDevice: probeRes.info.renderer || null, actualGraphicsBackend: `ANGLE ${probeRes.info.angle}`,
+      softwareFallback: probeRes.info.software, gpu: probeRes.info, page: probeRes.contract,
+      actualEncoder: `${timeFormat === frameFormat ? timeFormat : `${timeFormat}+${frameFormat}`} 截图（常驻热守护${samples > 1 ? `，${samples}× 超采样` : ''}）`,
+      render: { fps: byFrame ? fps : fpsReq, width: w, height: h, samples, shutter: samples > 1 ? shutter : null, settle, daemon: true },
+    });
+    record.tools.browser = probeRes.info.browserVersion;
+    const texts = opts.texts ? [] : null;
+    for (const [i, p] of plan.entries()) {
+      if (p.frame !== null && p.frame >= total) throw new RenderError('usage.frames-out-of-range', `第 ${p.frame} 帧超出片长（${total} 帧，帧号 0–${total - 1}）`, { hint: '帧号从 0 开始；最后一帧是 round(DUR × fps) − 1' });
+      const t = p.frame !== null ? p.frame / fps : p.t;
+      const s0 = Date.now();
+      const where = p.frame !== null ? `第 ${p.frame} 帧（t=${t.toFixed(4)}s）` : `t=${p.label}s`;
+      const res = await requestDaemon(d, '/render', {
+        ...baseSpec, t, format: p.format, quality: opts.quality, samples, shutter, fps, settle, where, texts: Boolean(texts),
+      }, { signal });
+      const img = Buffer.from(res.imgB64, 'base64');
+      const file = path.join(outDir, p.name), tmp = `${file}.partial`;
+      fs.writeFileSync(tmp, img);
+      fs.renameSync(tmp, file);
+      outputs.push({ path: repoPath(ROOT, file), sha256: sha256(img), kind: 'still', t, frame: p.frame });
+      if (texts) {
+        const c = checkTexts(res.textsRaw, { w, h });
+        texts.push({ name: p.name, t, frame: p.frame, ...c });
+        for (const m of c.problems) log.warn(`${p.name}：${m}`, 'texts-shape', '文字报告的条目写成 { text, box: [x, y, w, h], alpha, font }（页面约定 v1，README「页面约定」）');
+      }
+      log.progress({ stage: 'still', done: i + 1, total: plan.length, file: repoPath(ROOT, file) }, `${repoPath(ROOT, file)}  ${Date.now() - s0}ms`);
+    }
+    if (texts) record.texts = texts;
+    record.stage = 'rendered';
+    await finish('running');
+    return { outputs: outputs.map(({ path: p, sha256: s, kind }) => ({ path: p, sha256: s, kind })), data: { count: outputs.length, dir: repoPath(ROOT, outDir), daemon: true, texts: texts ? texts.map(x => ({ name: x.name, entries: x.entries?.length ?? 0, problems: x.problems })) : null } };
+  }
+
   const f = await openFilm(dir, openOptions);
   life.closer(() => f.close());
   const fps = byFrame ? decideFps({ requested: fpsReq, pageFps: f.contract.pageFps, anyFps: opts['any-fps'], log }) : fpsReq;
+  const motionFps = fps ?? f.contract.pageFps ?? 24;
   const total = byFrame ? Math.round(f.contract.dur * fps) : null;
   const settle = opts.settle === 'auto' ? (f.info.angle === 'vulkan' ? 'raf2' : 'none') : opts.settle;
   Object.assign(record, { actualDevice: f.info.renderer || null, actualGraphicsBackend: `ANGLE ${f.info.angle}`, softwareFallback: f.info.software, gpu: f.info, page: f.contract,
-    actualEncoder: `${timeFormat === frameFormat ? frameFormat : `${timeFormat}+${frameFormat}`} 截图`, render: { fps, width: w, height: h, settle } });
+    actualEncoder: `${timeFormat === frameFormat ? frameFormat : `${timeFormat}+${frameFormat}`} 截图${samples > 1 ? `（${samples}× 超采样）` : ''}`,
+    render: { fps, width: w, height: h, samples, shutter: samples > 1 ? shutter : null, settle } });
   record.tools.browser = f.info.browserVersion;
   const texts = opts.texts ? [] : null;
   for (const [i, p] of plan.entries()) {
     if (p.frame !== null && p.frame >= total) throw new RenderError('usage.frames-out-of-range', `第 ${p.frame} 帧超出片长（${total} 帧，帧号 0–${total - 1}）`, { hint: '帧号从 0 开始；最后一帧是 round(DUR × fps) − 1' });
     const t = p.frame !== null ? p.frame / fps : p.t;
     const s0 = Date.now();
-    await renderFrame(f, t, { settle, signal, where: p.frame !== null ? `第 ${p.frame} 帧（t=${t.toFixed(4)}s）` : `t=${p.label}s`, timeoutMs: opts['frame-timeout'] ? opts['frame-timeout'] * 1000 : undefined });
-    const img = await f.capture(p.format, opts.quality);
-    f.check();
+    const where = p.frame !== null ? `第 ${p.frame} 帧（t=${t.toFixed(4)}s）` : `t=${p.label}s`;
+    let img;
+    if (samples > 1) {
+      img = await captureGpuFrame(f, t, {
+        w, h, format: p.format, quality: opts.quality, samples, shutter, fps: motionFps, dur: f.contract.dur,
+        timeoutMs: frameTimeoutMs, settle, where, signal,
+      });
+    } else {
+      await renderFrame(f, t, { settle, signal, where, timeoutMs: frameTimeoutMs });
+      img = await f.capture(p.format, opts.quality);
+      f.check();
+    }
     const file = path.join(outDir, p.name), tmp = `${file}.partial`;
     fs.writeFileSync(tmp, img);
     fs.renameSync(tmp, file);

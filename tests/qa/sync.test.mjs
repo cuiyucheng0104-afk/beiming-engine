@@ -4,7 +4,7 @@ import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { haveFfmpeg, tmp, cleanup, clip, qa, check, writeJson, TEST_PROFILES } from './helpers.mjs';
-import { findOnset } from '../../tools/qa/lib/audio.mjs';
+import { findOnset, findPCenter } from '../../tools/qa/lib/audio.mjs';
 
 const SR = 48000;
 // 合成：底噪 + 可选 100 Hz 垫底 + 在 at 秒起的一声（freq 正弦、attack 起音、len 长度、amp 幅度）
@@ -54,6 +54,30 @@ test('相邻两声：按中点分窗后各取各的；不分窗时强的一下�
 test('只有底噪：不报假起音', () => {
   const x = synth({ noise: 0.0001 });
   assert.equal(findOnset(x, SR, 1.5, {}), null);
+  assert.equal(findPCenter(x, SR, 1.5, {}), null);
+});
+
+test('复合音效 P-Center：95 ms 低频前导破空风声 + 1.500 s 高频冲击瞬态，findPCenter 精准锁定冲击处（±3 ms）', () => {
+  const x = new Float32Array(3 * SR);
+  let seed = 777;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 2 ** 32 - 0.5; };
+  const hitIdx = Math.round(1.5 * SR);
+  const preLen = Math.round(0.095 * SR);
+  // 95 ms 宽带起振挥袖风声（1.405 s 处起振 ≥ 15 dB，幅度 0.16，模拟真实前导挥剑气流）
+  for (let i = 0; i < preLen; i++) {
+    const env = Math.min(1, i / (0.004 * SR)) * (0.35 + 0.65 * (i / preLen)) * 0.16;
+    x[hitIdx - preLen + i] += env * rnd();
+  }
+  // 1.500 s 处清脆高频断水斩击瞬态（主冲击能量远大于前导风声）
+  const impLen = Math.round(0.055 * SR);
+  for (let i = 0; i < impLen; i++) {
+    const env = Math.exp(-i / (0.008 * SR)) * 0.95;
+    x[hitIdx + i] += env * (0.65 * Math.sin(2 * Math.PI * 3800 * i / SR) + 0.35 * rnd());
+  }
+  const on = findOnset(x, SR, 1.5, { early: 0.14, late: 0.14 });
+  const pc = findPCenter(x, SR, 1.5, { early: 0.14, late: 0.14 });
+  assert.ok(on && on.t < 1.44, `传统 findOnset 应被前导宽带风声起振提前触发：收到 ${JSON.stringify(on)}`);
+  assert.ok(pc && Math.abs(pc.t - 1.5) <= 0.003, `findPCenter 应落在 1.500s ±3ms：收到 ${JSON.stringify(pc)}`);
 });
 
 // ── 命令行：成片里在 1.0 / 2.0 / 3.125 秒各有一声，事件帧写在 24 / 48 / 72 帧 ──

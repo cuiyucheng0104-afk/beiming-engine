@@ -64,7 +64,9 @@ export function loadCatalog(root) {
   return cat;
 }
 
-const uniqSorted = a => [...new Set(a)].sort((x, y) => x.localeCompare(y));
+// 排序固定用 en：不带语言参数的 localeCompare 跟进程的 LANG 走，中文环境下汉字路径排到前面，生成的 register.md 就与入库版对不上
+const byText = (x, y) => x.localeCompare(y, 'en');
+const uniqSorted = a => [...new Set(a)].sort(byText);
 
 export function computeInventory(register, catalog, { root = null } = {}) {
   const byId = new Map(catalog.cases.map(c => [c.id, c]));
@@ -119,7 +121,7 @@ export function computeInventory(register, catalog, { root = null } = {}) {
       }
     }
     const cases = [], gitFiles = [], packs = [], previews = [], posters = [], artifacts = [];
-    for (const [id, h] of [...hits].sort((a, b) => a[0].localeCompare(b[0]))) {
+    for (const [id, h] of [...hits].sort((a, b) => byText(a[0], b[0]))) {
       const c = byId.get(id);
       const files = h.how === 'whole' ? c.files : c.files.filter(f => h.files.has(f.path));
       cases.push({ id, title: c.title, group: c.group, how: h.how, files: h.how === 'uses' ? 0 : files.length });

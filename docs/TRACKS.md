@@ -20,7 +20,7 @@
 
 | 项 | 内容 |
 |---|---|
-| 执行面 | 上游原生运行时 RAEA `0.1.0-canary.2`（Rust + Bevy，原生 GPU）；不随仓库分发，`RAEA_BIN` 指向可执行文件；编码器按实际记录 |
+| 执行面 | 上游原生运行时 RAEA `0.1.4`（Rust + Bevy，原生 GPU）；不随仓库分发，`RAEA_BIN` 指向可执行文件；编码器按实际记录 |
 | 代码入口 | `engine/native/`（TSX 组件库、准备阶段、资产桥、交付）、`engine/render/native.mjs`（唯一出片入口）、`routes/b-native/template/`；`examples/raea/` 是《北冥》10 秒例片 |
 | 命令 | `npm run film -- build films/<名字>`；底层 `npm run b:prepare`、`b:preflight`、`b:render`（旧名 `native:*`、`raea:*` 保留一个版本）；运行时三平台归档与可执行文件哈希锁在 `engine/native/runtime.lock.json`，`npm run b:runtime -- status` 核对 |
 | 资产桥 | 程序化造型 → GLB（几何、顶点色、骨骼或 morph 动画）→ 原生场景；外部 GLB、图片、视频、A / C 的页面作品也能进同一个场景 |

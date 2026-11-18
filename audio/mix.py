@@ -16,6 +16,8 @@ audio/CREDITS、audio/check/render.json。
       python audio/mix.py --score    用采样库重新渲染配乐（需要 BEIMING_SAMPLES，见 engine/audio/sampler.py；
                                      取样库：node tools/audio/fetch-samples.mjs），同时重写缓存与输入键
       python audio/mix.py --accept-stale-score   缓存与当前乐谱对不上时仍用旧配乐（记进 render.json 的 warnings）
+      python audio/mix.py --real-sfx   音效改用 audio/sfx_manifest.json 里的 CC0 真实录音（先用 node tools/env/py.mjs tools/fetch_sfx.py 下载；
+                                       清单里没有的音效仍用合成。录音不进 Git，署名写到 out/CREDITS.real-sfx）
 配乐缓存的输入键在 audio/score_cache.lock.json（engine/audio/scorecache.py）：读缓存前先核对，乐谱源码改了、缓存文件被换了、
 时长变了就以退出码 4 停下并说明下一步，不静默沿用旧配乐。现在这份缓存是冻结的定稿配乐（lock 的 frozen / note）。
 确定性：所有随机都有固定种子，重跑结果逐样本一致。
@@ -39,6 +41,7 @@ _P = _cli.ArgumentParser(prog='python audio/mix.py', add_globals=False,
                                      '一般经 node tools/audio/build.mjs（混音 + 门禁）调用。退出码：0 完成；2 用法；4 配乐缓存与输入不一致；1 运行失败')
 _P.add_argument('--score', action='store_true', help='用采样库重渲配乐（需要 BEIMING_SAMPLES；取样：node tools/audio/fetch-samples.mjs），同时重写缓存与输入键')
 _P.add_argument('--accept-stale-score', action='store_true', help='配乐缓存与当前乐谱对不上时仍用旧配乐（记进 render.json 的 warnings）')
+_P.add_argument('--real-sfx', action='store_true', help='音效改用 audio/sfx_manifest.json 里的 CC0 真实录音（署名写到 out/CREDITS.real-sfx）')
 try:
     ARGS = _P.parse_args()
 except _cli.CliError as _e:
@@ -49,10 +52,19 @@ import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
 from engine.audio.dsp import SR, N, smoothstep, undb, db, stereo, width, make_ir, reverb, echoes, hp, lp, shelf, fade  # noqa: E402
 from engine.audio.meter import true_peak, integrated, momentary_max, band_energy, onset  # noqa: E402
-from engine.audio import mixing as M, ambience as A, sampler  # noqa: E402
+from engine.audio import mixing as M, ambience as A, sampler, library as L  # noqa: E402
 from engine.audio import scorecache as SC  # noqa: E402
 import design as D  # noqa: E402
 import score  # noqa: E402  只取配乐的时间表（CUE_TIMES / LEVEL_WIN）；--score 时才真的渲染
+
+if ARGS.real_sfx:
+    L.use(os.path.join(HERE, 'sfx_manifest.json'), os.path.join(HERE, 'samples', 'sfx'))
+
+
+def sfx(name, synth, dur=None, mono=False):
+    """真实录音（开了 --real-sfx 且清单里有）或程序化合成；dur 给秒数是铺底噪，不给是一次性音效"""
+    x = L.get(name, dur, mono)
+    return synth() if x is None else x
 
 T_START = time.time()
 CUES = json.load(open(os.path.join(HERE, 'cues.json'), encoding='utf-8'))
@@ -190,7 +202,7 @@ def bed_tail(x):
 
 amb = buf()
 A_at, A_len = bed('A')
-a = A.city_hum(A_len, 11, fog=1.25) * 1.0 + A.water(A_len, 12, 'far') * 0.5 + A.wind(A_len, 13, 'far')[0] * 0.55
+a = sfx('amb_fog', lambda: A.city_hum(A_len, 11, fog=1.25) * 1.0 + A.water(A_len, 12, 'far') * 0.5 + A.wind(A_len, 13, 'far')[0] * 0.55, A_len)
 a = bed_tail(width(reverb(a, IR_RIVER, wet=0.12), 0.95))
 a = at(a, A_at) * window(0, CUT_AB)
 a = level('amb_fog', a, A_at + 0.05, CUT_AB - 0.05)
@@ -199,27 +211,28 @@ ELEM['amb_fog'] = a
 
 B_at, B_len = bed('B')
 bw, bgust = A.wind(B_len, 22, 'close')
-b = A.city_hum(B_len, 21, fog=2.2) * 0.35 + bw * 0.85
+b = sfx('amb_close', lambda: A.city_hum(B_len, 21, fog=2.2) * 0.35 + bw * 0.85, B_len)
 b = at(bed_tail(width(b, 0.55)), B_at) * window(CUT_AB, CUT_BC)
 b = level('amb_close', b, CUT_AB + 0.05, CUT_BC - 0.05) * DUCK
 amb += b * G('amb_close')
 ELEM['amb_close'] = b
 
 C_at, C_len = bed('C')
-c = A.city_hum(C_len, 31, fog=1.1) * 0.55 + A.water(C_len, 32, 'hull') * 0.32 + A.wind(C_len, 33, 'open')[0] * 0.62
+c = sfx('amb_open', lambda: A.city_hum(C_len, 31, fog=1.1) * 0.55 + A.water(C_len, 32, 'hull') * 0.32 + A.wind(C_len, 33, 'open')[0] * 0.62, C_len)
 c = bed_tail(width(reverb(c, IR_SKY, wet=0.10), 1.35))
 c = at(c, C_at) * window(CUT_BC, DUR + 1)
 c = level('amb_open', c, CUT_BC + 0.05, DUR - 0.05)
 amb += c * G('amb_open')
 ELEM['amb_open'] = c
 
-ob = at(width(D.open_bloom(), 1.5), CUT_BC)
+ob = at(width(sfx('open_bloom', D.open_bloom), 1.5), CUT_BC)
 ob = (ob + reverb(ob, IR_SKY, wet=1.0, dry=0.0, cross=0.5) * 0.6) * window(CUT_BC, DUR + 1, 0.004)
 ob = level('open_bloom', ob)
 amb += ob * G('open')
 ELEM['open_bloom'] = ob
 
-br = at(A.breeze(DUR - T0('breeze') + 0.05, 34), T0('breeze'))
+bd = DUR - T0('breeze') + 0.05
+br = at(sfx('breeze', lambda: A.breeze(bd, 34), bd), T0('breeze'))
 br = level('breeze', br)
 amb += br * G('breeze')
 ELEM['breeze'] = br
@@ -227,7 +240,7 @@ ELEM['breeze'] = br
 # ———————————————— 音效 fx ————————————————
 fx = buf()
 # 汽笛：远处（江心）→ 空气/雾吸收高频 → 江面混响 + 对岸楼群回声
-h = lp(hp(D.horn(), 90, 2), 2400, 2)
+h = lp(hp(sfx('horn', D.horn, mono=True), 90, 2), 2400, 2)
 hx = at(stereo(h, P('horn')), T0('horn'))
 h_wet = reverb(hx, IR_RIVER, wet=1.0, dry=0.0, cross=0.4)
 h_ech = echoes(hx, [(0.42, -8, 0.55, 1500), (0.78, -12, -0.45, 1200), (1.25, -16, 0.35, 1000), (1.9, -21, -0.2, 800)], seed=51)
@@ -238,7 +251,7 @@ ELEM['horn'] = horn
 ELEM['horn_dry'] = hx
 
 # 鸽群：近处干、远处多送江面混响
-near, far = D.pigeons(pan=P('pigeons', [0.0, 0.7]))
+near, far = D.pigeons(pan=P('pigeons', [0.0, 0.7]), sample_path=L.file('pigeons'))
 pg = at(near, T0('pigeons')) + reverb(at(far, T0('pigeons')), IR_RIVER, wet=1.0, dry=0.0) * 0.5
 pg = pg * tail_after(CUT_AB, 0.2)
 pg = level('pigeons', pg)
@@ -251,19 +264,20 @@ GL1 = min(float(C['kun_glimpse'].get('t_end', CUT_AB)), CUT_AB)
 if GL1 - GL0 < 0.7:
     raise ValueError(f'元素 kun_glimpse 在镜头 A 里只剩 {GL1 - GL0:.2f} s（t={GL0}、t_end/切点={GL1}），太短没法定电平；'
                      f'把它的 t 往前挪，或者把 t_end 和镜头 B 的 t 一起往后挪')
-gx = at(stereo(D.kun_glimpse(d=GL1 - GL0), P('kun_glimpse')), GL0)
+gx = at(stereo(sfx('kun_glimpse', lambda: D.kun_glimpse(d=GL1 - GL0), GL1 - GL0, True), P('kun_glimpse')), GL0)
 gx = (gx + reverb(gx, IR_RIVER, wet=1.0, dry=0.0) * 0.3) * window(0, CUT_AB)
 gx = level('kun_glimpse', gx, GL0 + 0.45 * (GL1 - GL0) / 1.85, GL1 - 0.1)
 fx += gx * G('kun_glimpse')
 ELEM['kun_glimpse'] = gx
 
-hr = at(bed_tail(width(A.hair(B_len, 23, bgust), 0.7)), B_at) * window(CUT_AB, CUT_BC)
+hr = at(bed_tail(width(sfx('hair', lambda: A.hair(B_len, 23, bgust), B_len), 0.7)), B_at) * window(CUT_AB, CUT_BC)
 hr = level('hair', hr, CUT_AB + 0.05, CUT_BC - 0.05)
 hr = hr * DUCK
 fx += hr * G('hair')
 ELEM['hair'] = hr
 
-sw = at(stereo(D.shadow_swell(d=CUT_BC - T0('shadow') + 0.02)), T0('shadow'))
+sd = CUT_BC - T0('shadow') + 0.02
+sw = at(stereo(sfx('shadow', lambda: D.shadow_swell(d=sd), sd, True)), T0('shadow'))
 sw = (sw + reverb(sw, IR_SMALL, wet=1.0, dry=0.0) * 0.3) * window(0, CUT_BC, 0.008)
 sw = level('shadow', sw)
 fx += sw * G('shadow')
@@ -271,6 +285,9 @@ ELEM['shadow'] = sw
 
 t_pass = T0('kun_pass') - 0.10
 ps, ppan, penv = D.kun_pass(pan=P('kun_pass', [0.65, -0.65]))
+rp = L.get('kun_pass', len(penv) / SR)       # 真实录音：按合成版的强度包络起落，声像仍跟 ppan
+if rp is not None:
+    ps = stereo(rp.mean(1) * penv, ppan)
 px = at(ps, t_pass)
 px = px + reverb(px, IR_SKY, wet=1.0, dry=0.0) * 0.35
 px = level('kun_pass', px)
@@ -278,14 +295,15 @@ fx += px * G('kun_pass')
 ELEM['kun_pass'] = px
 
 wpan = D.pass_pan(np.arange(len(penv)) / SR, P('seaweed', P('kun_pass', [0.65, -0.65])))   # 海草跟着鲲走：默认与 kun_pass 同一条声像
-wd = at(D.seaweed(708, len(penv) / SR, penv, wpan), t_pass)
+rw = L.get('seaweed', len(penv) / SR)
+wd = at(D.seaweed(708, len(penv) / SR, penv, wpan) if rw is None else stereo(rw.mean(1) * penv, wpan), t_pass)
 wd = wd + reverb(wd, IR_SKY, wet=1.0, dry=0.0) * 0.3
 wd = level('seaweed', wd)
 fx += wd * G('seaweed')
 ELEM['seaweed'] = wd
 
 # ———————————————— 鲲鸣 kun ————————————————
-kc = hp(D.kun_call(), 55, 2)
+kc = hp(sfx('kun_call', D.kun_call, mono=True), 55, 2)
 kx = at(stereo(kc), T0('kun_call'))
 k_wet = reverb(kx, IR_KUN, wet=1.0, dry=0.0, cross=0.5, hp_in=160.0)
 k_ech = echoes(kx, [(0.55, -11, 0.5, 1800), (1.1, -16, -0.5, 1400), (1.75, -21, 0.25, 1100)], seed=52)
@@ -297,10 +315,10 @@ kun = kun * G('kun_call')
 
 # ———————————————— 眼镜提示音 ui ————————————————
 ui_b = buf()
-tc = at(stereo(D.touch_click(), P('touch')), T0('touch'))
+tc = at(stereo(sfx('touch', D.touch_click, mono=True), P('touch')), T0('touch'))
 tc = level('touch', tc)
 ui_b += tc * G('touch')
-wp = at(stereo(D.ui_seq([(0, 1760.0, 0, 0.26)]), P('wake_ping')), T0('wake_ping'))
+wp = at(stereo(sfx('wake_ping', lambda: D.ui_seq([(0, 1760.0, 0, 0.26)]), mono=True), P('wake_ping')), T0('wake_ping'))
 wp = level('wake_ping', wp)
 ui_b += wp * G('wake_ping')
 ui_b = reverb(ui_b, IR_SMALL, wet=0.25, hp_in=None)          # 第三人称：一点点空气
@@ -310,7 +328,7 @@ for cid, notes, dd in [
         ('ui_scan', [(0, 1318.5, -2, 0.18), (0.075, 1760.0, 0, 0.24)], 1.6),
         ('ui_fail', [(0, 1760.0, 0, 0.20), (0.09, 1480.0, -1.5, 0.30)], 1.6),
         ('ui_nav', [(0, 1174.7, -1, 0.30), (0.065, 1480.0, -1, 0.32), (0.13, 1760.0, 0, 0.45)], 2.2)]:
-    x = at(stereo(D.ui_seq(notes, dd, octave=0.22 if cid == 'ui_nav' else 0.0)), T0(cid))
+    x = at(stereo(sfx(cid, lambda notes=notes, dd=dd, cid=cid: D.ui_seq(notes, dd, octave=0.22 if cid == 'ui_nav' else 0.0), mono=True)), T0(cid))
     x = level(cid, x)
     ELEM[cid] = x
     ui_c += x * G(cid)
@@ -387,17 +405,23 @@ for k, v in BUS.items():
     STEM_PEAK[k] = round(float(db(np.abs(s).max())), 2)
     sf.write(os.path.join(HERE, 'stems', f'{k}.wav'), s.astype(np.float32), SR, subtype='FLOAT')
 
-# 署名
+# 署名（真实录音版写到 out/CREDITS.real-sfx，不改被 git 跟踪的 audio/CREDITS）
 used = USED
 lines = sampler.credits(used)
-with open(os.path.join(HERE, 'CREDITS'), 'w', encoding='utf-8') as f:
+credits_path = os.path.join(ROOT, 'out', 'CREDITS.real-sfx') if L.active() else os.path.join(HERE, 'CREDITS')
+with open(credits_path, 'w', encoding='utf-8') as f:
     f.write('《北冥》10 秒概念样片 · 声音署名\n\n')
     f.write('Music samples / 配乐采样:\n')
     for ln in lines:
         f.write(ln + '\n')
     f.write('Instruments used / 用到的采样乐器: ' + ', '.join(used) + '\n\n')
-    f.write('Sound effects / 音效：环境声、汽笛、鸽群、触碰、眼镜提示音、鲲鸣、鲲掠过、海草，全部为程序化合成'
-            '（numpy/scipy，本项目 audio/design.py 与 engine/audio/），未使用任何外部录音素材。\n')
+    if L.active():
+        f.write('Sound effects / 音效，真实录音（Freesound，CC0）：\n')
+        f.writelines(ln + '\n' for ln in L.credits())
+        f.write('清单里没有的音效为程序化合成（numpy/scipy，本项目 audio/design.py 与 engine/audio/）。\n')
+    else:
+        f.write('Sound effects / 音效：环境声、汽笛、鸽群、触碰、眼镜提示音、鲲鸣、鲲掠过、海草，全部为程序化合成'
+                '（numpy/scipy，本项目 audio/design.py 与 engine/audio/），未使用任何外部录音素材。\n')
 
 
 # 渲染记录（元素电平、起音时间核对、各声部在顶点的响度）
@@ -423,6 +447,7 @@ rep = {
     'limiter_gr_curve_db_50ms': {f'{i * 0.05:.2f}': round(float(-db(gr[N(i * 0.05):N(i * 0.05 + 0.05)].min())), 2)
                                  for i in range(int(DUR / 0.05)) if gr[N(i * 0.05):N(i * 0.05 + 0.05)].min() < undb(-0.3)},
     'band_rel_db': band_energy(mix.astype(float)),
+    'real_sfx': sorted(L.USED),
     'levels': LEVELS, 'onsets': chk, 'music_sections_apex_lufs': sec_lufs, 'harmony': harmony,
     'stems': {'subtype': 'FLOAT', 'peak_dbfs': STEM_PEAK},
     'timeline': {'dur': DUR, 'cuts': [CUT_AB, CUT_BC], 'beds': {'A': [A_at, A_len], 'B': [B_at, B_len], 'C': [C_at, C_len]},

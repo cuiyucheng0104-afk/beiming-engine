@@ -6,7 +6,7 @@
 
 - **执行面**：React/TypeScript 编排 → Rust 引擎（三维走 Bevy，页面层走原生排版）→ GPU 合成 → 编码。画面只由帧号决定（`useCurrentFrame()`），同一帧重渲在可复现误差内一致。
 - **仓库里的部分**：`engine/native/`（TSX 组件库 + 准备阶段工具 + 资产桥 + 交付）、`engine/render/native.mjs`（唯一出片入口）、`routes/b-native/template/`（最小作品模版）、`routes/b-native/recipes/`（四类画面配方样张）、`examples/raea/`（《北冥》10 秒例片；目录名是上游项目名，内部沿用）。
-- **运行时版本锁**：`engine/native/runtime.lock.json` 记版本 `0.1.0-canary.2`、上游源码提交、许可、三平台归档 sha256 与可执行文件 sha256；`RAEA_BIN` 指向它的可执行文件。**作品必须在 git 工作树里**：运行时按工作树认「项目目录」，`git archive` 导出的目录会被拒绝（REFUSED「outside raea's home and the project's folder」），入口预检时就以 exit 3 说明。
+- **运行时版本锁**：`engine/native/runtime.lock.json` 记版本 `0.1.4`、上游源码提交、许可、三平台归档 sha256 与可执行文件 sha256；`RAEA_BIN` 指向它的可执行文件。**作品必须在 git 工作树里**：运行时按工作树认「项目目录」，`git archive` 导出的目录会被拒绝（REFUSED「outside raea's home and the project's folder」），入口预检时就以 exit 3 说明。
 - **什么时候选它**：要原生 GPU、要把多种来源的画面放进一个三维空间、要骨骼 / morph 动画模型、或作品不依赖 A 路的屏幕墨线与 Kuwahara 笔触。要逐帧延续《北冥》原画风选 A。
 
 ## 最快上手
@@ -40,7 +40,7 @@ films/<名字>/
   media/         prepare 生成，不提交   out/<run-id>/  渲染产物，不提交；out/latest 是最近一次成功的 run-id
 ```
 
-`out/<run-id>/`（run-id = `YYYYMMDD-HHMMSS-<短提交>[-dirty]`）：`master.mp4`（原生视频轨**逐位复制** + AAC 48 kHz，母版不二次有损）、`web.mp4`（交付网页版：H.264 High、yuv420p、BT.709 有限范围且四个色彩标签写全、AAC 48 kHz 立体声、−14 LUFS ±1、真峰值 ≤ −1 dBTP；交付档位按 film.json 或尺寸帧率推断，见 `engine/native/delivery.mjs`）、`check.json`（运行时自带的成片检查：字幕裁切、安全区、对比度、冻帧、响度；P0 / P1 即 exit 4）、`qa/report.json` 与 `qa/report.md`（仓库的机器 QA 门 `tools/qa`：规格、色彩、响度、画面、声画、底板；硬门不通过 exit 4）、`run.json`、`contact.jpg`、`player.html`、`framemd5.txt`、`render.log`。
+`out/<run-id>/`（run-id = `YYYYMMDD-HHMMSS-<短提交>[-dirty]`）：`master.mp4`（原生视频轨**逐位复制** + AAC 48 kHz，母版不二次有损）、`web.mp4`（交付网页版：H.264 High、yuv420p、BT.709 有限范围且四个色彩标签写全、AAC 48 kHz 立体声、−14 LUFS ±1、真峰值 ≤ −1 dBTP；交付档位按 film.json 或尺寸帧率推断，见 `engine/native/delivery.mjs`）、`check.json`（运行时自带的成片检查：字幕裁切、安全区、对比度、冻帧、频闪；`error` 或旧版 `P0` / `P1` 即 exit 4）、`qa/report.json` 与 `qa/report.md`（仓库的机器 QA 门 `tools/qa`：规格、色彩、响度、画面、声画、底板；硬门不通过 exit 4）、`run.json`、`contact.jpg`、`player.html`、`framemd5.txt`、`render.log`。
 
 `run.json`（附录 C8）：`tools.raea` 是运行时版本，`runtime` 记平台、可执行文件实测与锁定 sha256；`actualDevice`（显卡）、`actualGraphicsBackend`（运行时日志里认出的 metal / vulkan / dx12）、`softwareFallback`、`actualEncoder`（母版的原生编码器与网页版的 libx264）；`inputs` 记作品每个源文件（含 film.tsx）与每个素材的 sha256、准备阶段的工具版本；`output` 是交付件的路径、哈希、尺寸、帧数、像素格式与色彩；`frameHashes`、`audio`（实测响度与增益）、`aigc`、`timing`。`status`：机器 QA 通过记 `passed`（`technicalAcceptance` 同时记 passed 并附报告路径），`--skip-qa` 或草图帧记 `rendered`，失败记 `failed`；`creativeAcceptance` 始终是 not-reviewed——技术通过不等于用户认可（D08）。末尾用 `engine/production/project.js` 的校验器自检，结论在 `selfCheck`。
 
@@ -109,7 +109,7 @@ films/<名字>/
 | 项 | 命令 | 判据 / 2026-11-10 macOS（Apple M5 Pro、Metal、VideoToolbox）实测 |
 |---|---|---|
 | 工具与版式 | `node tools/run-tests.mjs --only native` | 全过（97 项，约 5–10 秒：资产桥重导出与基准逐字节比对、R01 睑缘墨线断言、逐帧版式、云堤收边的找边回归、预检拒绝路径、GPU 守卫与成片检查两道闸、失败信封、命令约定、仓库规则） |
-| 仓库规则 | `node tools/repo-check.mjs --only route-b` | 八条 0 错误 0 提示（三平台可执行文件哈希都已锁定；Windows / Linux 的哈希由官方归档解包计算，尚未在该平台运行验收） |
+| 仓库规则 | `node tools/repo-check.mjs --only route-b` | 八条 0 错误 0 提示（三平台可执行文件哈希都已锁定；`0.1.4` 已在 Linux RTX 4070 / Vulkan 运行验收，macOS / Windows 的 `0.1.4` 哈希由官方归档解包核对） |
 | 中断与清理 | 出片中途 Ctrl+C | exit 130，原生进程被整组终止，`.part` 删除，run.json 记 interrupted |
 | 缺运行时 | `node engine/render/native.mjs films/<名字> --check-only`（不设 `RAEA_BIN`） | exit 3，stderr 两行：`错误[env.no-runtime]：…` 与 `提示：…runtime.mjs fetch --accept-license` |
 | 预检拒绝 | `tests/native/preflight.test.mjs`（假运行时） | 不在 git 工作树 exit 3；素材被改 exit 4；素材清单改了没重新准备 exit 4（提示 `--only <类>`） |
@@ -122,7 +122,7 @@ films/<名字>/
 
 ## 边界与常见坑
 
-- **FSL 使用边界（决定 D03，全文见 [docs/rights/fsl-boundary.md](../../docs/rights/fsl-boundary.md)）**：上游运行时以 FSL-1.1-ALv2 发布（每个版本发布满两年转 Apache-2.0；canary.2 于 2028-10-31 转换）。本仓库**只把它用作内部制作层**——自制影片、向客户交付成片。agent 照这五条做：
+- **FSL 使用边界（决定 D03，全文见 [docs/rights/fsl-boundary.md](../../docs/rights/fsl-boundary.md)）**：上游运行时以 FSL-1.1-ALv2 发布（每个版本发布满两年转 Apache-2.0；`v0.1.4` 于 2028-11-15 转换）。本仓库**只把它用作内部制作层**——自制影片、向客户交付成片。agent 照这五条做：
   1. RAEA 是第三方 FSL 软件：只在本机或工作站上调用，不提交、不打包、不随成片给出（`runtime.mjs fetch` 必须显式 `--accept-license`，装在仓库外的缓存目录）。
   2. `engine/native/` 只写调用 RAEA 公开接口的自有代码；不复制 SDK 或运行时源码，不加 Rust / WESL 文件（读上游文档与类型定义来写调用代码可以；着色器写成我方 `.ts` 里的字符串）。
   3. 交付物只有影片；有人要「把渲染做成服务」「把 BNE 给别人用」，停下来问用户。商业化对外提供之前，先取得上游书面许可或法律意见。

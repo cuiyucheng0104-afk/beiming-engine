@@ -43,7 +43,7 @@ import * as D from '../native/delivery.mjs';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // 已验证的原生运行时版本：与 engine/native/runtime.lock.json 的 version 相同（tests/native 核对两处一致）；
 // tools/env/spec.json 的 raea.versionSource 按正则读这一行（env:doctor、env:preflight 用）。
-export const VALIDATED = '0.1.0-canary.2';
+export const VALIDATED = '0.1.4';
 const BIN = () => ffmpegBins(process.env);
 const posix = p => p.split(sep).join('/');
 const repoRel = p => { const r = relative(ROOT, p); return r.startsWith('..') ? p : posix(r) || '.'; };
@@ -134,16 +134,19 @@ async function gpuGuard(a) {
     if (a['require-idle-check']) throw fail(EXIT.BUSY, 'idle-unknown', `查不到 ComfyUI 队列（${comfy.reason}），无法确认共享 GPU 空闲`, '确认工作站空闲后去掉 --require-idle-check，或修好 COMFY_URL');
     if (process.env.COMFY_URL) warn(`COMFY_URL 查询失败（${comfy.reason}），按「未检查」记录`);
   }
-  const nvidia = { available: false, busy: false };
+  const rawMax = a['max-gpu-util'] ?? (process.env.BEIMING_GPU_BUSY_UTIL !== undefined && process.env.BEIMING_GPU_BUSY_UTIL !== '' ? Number(process.env.BEIMING_GPU_BUSY_UTIL) : 10);
+  if (!Number.isFinite(rawMax) || rawMax < 0 || rawMax > 100) throw fail(EXIT.USAGE, 'bad-value', `GPU 占用上限要在 0–100 之间：${rawMax}`);
+  const maxGpuUtil = rawMax;
+  const nvidia = { available: false, busy: false, maxUtil: maxGpuUtil };
   try {
     const p = runQuick('nvidia-smi', ['--query-gpu=name,utilization.gpu', '--format=csv,noheader,nounits'], { timeoutMs: 5000, label: 'nvidia-smi' });
     if (p.status === 0) {
       nvidia.available = true;
       nvidia.samples = p.stdout.trim().split(/\r?\n/).filter(Boolean);
-      nvidia.busy = nvidia.samples.some(l => Number(l.split(',').at(-1).trim()) > 10);
+      nvidia.busy = nvidia.samples.some(l => Number(l.split(',').at(-1).trim()) > maxGpuUtil);
     }
   } catch (e) { if (e.exitCode !== EXIT.ENV) throw e; }
-  if (nvidia.busy) throw fail(EXIT.BUSY, 'gpu', `GPU 利用率超过 10%：${nvidia.samples.join('；')}`, '共享工作站空闲后再渲');
+  if (nvidia.busy) throw fail(EXIT.BUSY, 'gpu', `GPU 利用率超过 ${maxGpuUtil}%：${nvidia.samples.join('；')}`, '共享工作站空闲后再渲（桌面自用可设 BEIMING_GPU_BUSY_UTIL 或 --max-gpu-util）');
   return { comfy, nvidia };
 }
 
@@ -198,7 +201,7 @@ async function writeJsonAtomic(file, data) {
 // ───────── 原生运行时调用 ─────────
 async function raeaRender(rt, spec, args, { label, logFile, timeoutMs, env }) {
   const errors = [];
-  let errorTail = 0, stats = null, applied = null, sysinfo = null, backendSeen = null, softwareSeen = false;
+  let errorTail = 0, stats = null, applied = null, sysinfo = null, backendSeen = null, encoderSeen = null, softwareSeen = false;
   const r = await spawnStream(rt.exe, args, {
     cwd: spec.dir, env, timeoutMs, logFile, quiet: true, label,
     onLine: raw => {
@@ -210,6 +213,8 @@ async function raeaRender(rt, spec, args, { label, logFile, timeoutMs, env }) {
       if (/SystemInfo/.test(l) && !sysinfo) sysinfo = l.trim();
       const gb = /\b(metal|vulkan|dx12|direct3d ?12|opengl|gles)\b/i.exec(l);
       if (gb && !backendSeen) backendSeen = gb[1].toLowerCase();
+      if (/\[OpenH264\]/i.test(l) && !encoderSeen) encoderSeen = 'OpenH264';
+      else if (/videotoolbox/i.test(l) && !encoderSeen) encoderSeen = 'VideoToolbox';
       if (/llvmpipe|swiftshader|software rasterizer|Microsoft Basic Render/i.test(l)) softwareSeen = true;
       if (l.startsWith('{') && l.includes('"frames"')) { try { stats = JSON.parse(l); } catch { /* 不是统计行 */ } }
     },
@@ -220,7 +225,7 @@ async function raeaRender(rt, spec, args, { label, logFile, timeoutMs, env }) {
     throw fail(EXIT.FAIL, 'native-render', `${label}失败（运行时退出码 ${r.code ?? r.signal}）${refused ? `：${refused[0].trim()}` : errors[0] ? `：${errors[0].split('\n').slice(0, 4).join(' ')}` : ''}`, `完整日志：${repoRel(logFile)}`);
   }
   if (errors.length) throw fail(EXIT.FAIL, 'native-error', `${label}日志里有 ERROR（运行时仍返回 0，画面可能缺了一层）：${errors[0].split('\n').slice(0, 6).join(' ⏎ ')}`, `完整日志：${repoRel(logFile)}；着色器报错先修对应的 WESL`);
-  return { stats, applied, sysinfo, backend: backendSeen, software: softwareSeen };
+  return { stats, applied, sysinfo, backend: backendSeen, encoder: stats?.video ?? encoderSeen, software: softwareSeen };
 }
 
 async function ffmpegRun(args, label, timeoutMs) {
@@ -308,6 +313,7 @@ export const command = defineCommand({
     'skip-qa': { type: 'boolean', describe: '不跑机器 QA 门：run.json 的 status 记 rendered，交给编排器或 npm run qa 判定' },
     lint: { type: 'boolean', describe: '渲染前跑 raea scene lint（只记录，不判失败）' },
     'require-idle-check': { type: 'boolean', describe: '查不到 ComfyUI 队列时也拒绝渲染（exit 5）' },
+    'max-gpu-util': { type: 'number', arg: '<0-100>', min: 0, describe: 'GPU 守卫的 NVIDIA 占用率上限（%，默认取 BEIMING_GPU_BUSY_UTIL 或 10）' },
     'run-id': { type: 'string', arg: '<id>', describe: '指定运行目录名（<作品>/out/<id>/）' },
     'run-dir': { type: 'string', arg: '<目录>', describe: '指定运行目录（给编排器用，例如 <编排器的运行目录>/native）' },
     timeout: { type: 'number', arg: '<秒>', min: 1, describe: '原生渲染与母版封装各自的超时（默认 120 + 2 × 帧数）' },
@@ -413,8 +419,11 @@ async function run(ctx) {
   const noteDevice = r => {
     record.device.system = parseSysinfo(r.sysinfo);
     if (!record.actualDevice && record.device.system?.cpu) record.actualDevice = record.device.system.cpu;
-    record.actualGraphicsBackend = r.backend || env.WGPU_BACKEND || null;
-    record.softwareFallback = r.software ? true : r.backend ? false : null;
+    const defaultBackend = r.applied
+      ? (process.platform === 'darwin' ? 'metal' : process.platform === 'linux' || process.platform === 'win32' ? 'vulkan' : null)
+      : null;
+    record.actualGraphicsBackend = r.backend || env.WGPU_BACKEND || defaultBackend;
+    record.softwareFallback = r.software ? true : (r.backend || defaultBackend) ? false : null;
     if (r.software) warn('运行时日志显示用的是软件渲染（llvmpipe / SwiftShader 等）：速度与画面都不代表 GPU 结果');
   };
 
@@ -461,8 +470,13 @@ async function run(ctx) {
       { label: '原生渲染', logFile: join(runDir, 'render.log'), timeoutMs, env });
     timing.render = now() - t;
     noteDevice(r);
-    record.encoders.master = r.stats?.video ?? null;
-    record.nativeStats = r.stats ? { frames: r.stats.frames, fpsInclEncode: r.stats.fps_incl_encode, bytes: r.stats.bytes, video: r.stats.video } : null;
+    record.encoders.master = r.encoder ?? (r.applied && process.platform === 'darwin' ? 'VideoToolbox' : null);
+    const appliedMatch = !r.stats && r.applied ? /^APPLIED\s+(\d+)\s+frames\b.*?\(([\d.]+)\s*ms a frame/i.exec(r.applied) : null;
+    record.nativeStats = r.stats
+      ? { frames: r.stats.frames, fpsInclEncode: r.stats.fps_incl_encode, bytes: r.stats.bytes, video: r.stats.video }
+      : appliedMatch
+        ? { frames: Number(appliedMatch[1]), fpsInclEncode: +(1000 / Number(appliedMatch[2])).toFixed(2), bytes: existsSync(native) ? statSync(native).size : null, video: record.encoders.master }
+        : null;
     if (!existsSync(native)) throw fail(EXIT.FAIL, 'native-output', '运行时没有写出 native.mp4', `看 ${repoRel(join(runDir, 'render.log'))}`);
     const nd = D.describeVideo(probe(native));
     const nativeProblems = D.judgeVideo(nd, spec, { audio: false });
@@ -536,13 +550,16 @@ async function run(ctx) {
       let check = null;
       try { check = JSON.parse(await readFile(out, 'utf8')); } catch { /* 下面判 */ }
       if (!check) throw fail(EXIT.FAIL, 'raea-check', `raea check 没有写出结果（退出码 ${c.code}）：${c.stderr.replace(ANSI, '').trim().split('\n').slice(-2).join(' ')}`);
-      const issues = check.issues || [];
-      const rank = i => String(i?.p ?? i?.severity ?? i?.rank ?? (JSON.stringify(i).match(/\bP[0-3]\b/) || [''])[0]);
-      const severe = issues.filter(i => /^P[01]$/.test(rank(i)));
+      const issues = check.findings || check.issues || [];
+      const rank = i => String(i?.level ?? i?.p ?? i?.severity ?? i?.rank ?? (JSON.stringify(i).match(/\b(?:error|warn|note|P[0-3])\b/) || [''])[0]);
+      const severe = issues.filter(i => /^(?:error|P[01])$/i.test(rank(i)));
       record.checks.raeaCheck = { ran: true, exitCode: c.code, ok: c.code === 0 && severe.length === 0, file: repoRel(out), passed: check.passed || [], issues };
       for (const l of (check.passed || [])) log(`  ✓ ${l}`);
-      for (const i of issues) log(`  ✗ [${rank(i) || '?'}] ${i?.says ?? JSON.stringify(i)}${i?.at !== undefined ? `（${Number(i.at).toFixed(2)} 秒）` : ''}`);
-      if (c.code !== 0 || severe.length) throw fail(EXIT.CONTRACT, 'raea-check', `运行时自带的成片检查发现 P0 / P1 问题 ${severe.length || '（退出码 1）'} 项`, `看 ${repoRel(out)} 与 ${repoRel(join(runDir, 'contact.jpg'))}，修好后重渲`);
+      const whereOf = i => i?.frames !== undefined
+        ? `（帧 ${Array.isArray(i.frames) ? i.frames.join('–') : i.frames}）`
+        : i?.at !== undefined ? `（${Number(i.at).toFixed(2)} 秒）` : '';
+      for (const i of issues) log(`  ${/^(?:error|P[01])$/i.test(rank(i)) ? '✗' : '!'} [${rank(i) || '?'}] ${i?.says ?? JSON.stringify(i)}${whereOf(i)}`);
+      if (c.code !== 0 || severe.length) throw fail(EXIT.CONTRACT, 'raea-check', `运行时自带的成片检查发现严重问题 ${severe.length || '（退出码 1）'} 项`, `看 ${repoRel(out)} 与 ${repoRel(join(runDir, 'contact.jpg'))}，修好后重渲`);
     } else record.checks.raeaCheck = { ran: false, status: 'not-run' };
     timing.evidence = now() - t;
     const evidence = ['check.json', 'framemd5.txt', 'contact.jpg'].filter(f => existsSync(join(runDir, f))).map(f => repoRel(join(runDir, f)));

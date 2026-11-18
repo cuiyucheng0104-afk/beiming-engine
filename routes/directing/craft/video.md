@@ -463,7 +463,7 @@ C 路线快照里已有对应实现，可以作为补强 A 路线的参照（MIT
 
 - **风格库甲** = `cases/vendor/lemo-opuscar`：MIT（LemoLab），固定提交 `bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00`（`THIRD-PARTY.md:10`）。本章引用了它的 `core/render/video.mjs`、`core/render/mux.sh`、`core/render/readcheck.mjs`、`core/render/slot.mjs`、`TECHNIQUE.md` §6/§8、`DIRECTOR.md` §11，均为转述，没有复制代码。快照不得就地修改（`AGENTS.md:56`）；移植时保留派生说明与许可（`THIRD-PARTY.md:36`）。
 - **风格库乙** = `cases/vendor/sy-style-100`：许可见 `THIRD-PARTY.md:9` 与其目录内 LICENSE。本章没有引用它的代码。
-- **原生运行时** = RAEA，FSL-1.1-ALv2（`THIRD-PARTY.md:11`），包装要求的固定版本是 `0.1.0-canary.2`（`examples/raea/tools/render.mjs:14`）。不在本仓库分发，单独取得；许可含 Competing Use 限制（不得用于与许可方竞争的用途），两年后转为 Apache-2.0；B 路线做商用交付前先核对条款。
+- **原生运行时** = RAEA，FSL-1.1-ALv2（`THIRD-PARTY.md:11`），包装要求的固定版本是 `0.1.4`（`engine/render/native.mjs:46`、`engine/native/runtime.lock.json`）。不在本仓库分发，单独取得；许可含 Competing Use 限制（不得用于与许可方竞争的用途），两年后转为 Apache-2.0；B 路线做商用交付前先核对条款。
 - **本次实跑的工具链**：Chrome Headless Shell 153.0.8010.12（Playwright 1.63.0，浏览器修订号 1243），three 0.170.0，FFmpeg 8.0.1（Homebrew，libx264），Node 24.13.1，Python 3.12（numpy 2.5.3、scipy 1.18.1、soundfile 0.14.0、numba 0.67.0、Pillow 12.3.0；借用本机另一个项目的虚拟环境，只读使用）。
 
 ---

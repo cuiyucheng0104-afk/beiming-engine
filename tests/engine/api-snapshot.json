@@ -458,6 +458,18 @@
     "washTexture"
    ]
   },
+  "engine/paint/watercolor.js": {
+   "stability": "experimental",
+   "exports": [
+    "deformPolygon",
+    "drawFlowHatch",
+    "fillWatercolor",
+    "flowHatch",
+    "pointInPolygon",
+    "ridgeField",
+    "wetPolygonLayers"
+   ]
+  },
   "engine/paint/xuan.js": {
    "stability": "experimental",
    "exports": [
@@ -496,6 +508,17 @@
     "progressOf",
     "quantizeP",
     "splitPieces"
+   ]
+  },
+  "engine/overlay/skeleton.js": {
+   "stability": "experimental",
+   "exports": [
+    "alignMediansToMask",
+    "buildAutoBrushGlyph",
+    "estimateDryWeights",
+    "extractGlyphStrokes",
+    "thinMask",
+    "traceMaskSkeleton"
    ]
   },
   "engine/overlay/text.js": {

@@ -19,6 +19,7 @@ export const command = pythonCommand({
   options: {
     score: { type: 'boolean', describe: '用采样库重渲配乐（需要 BEIMING_SAMPLES 或 audio/samples/；取样：npm run audio:samples）' },
     'accept-stale-score': { type: 'boolean', describe: '配乐缓存与当前乐谱对不上时仍用旧配乐（记进 audio/check/render.json）' },
+    'real-sfx': { type: 'boolean', describe: '音效改用 audio/sfx_manifest.json 里的 CC0 真实录音（先下载到 audio/samples/sfx/）' },
     'no-strict': { type: 'boolean', describe: '只跑旧口径自检（problems 非空退出 1），不做门禁' },
   },
   examples: ['node tools/audio/build.mjs', 'node tools/audio/build.mjs --json', 'node tools/audio/build.mjs --score'],

@@ -15,7 +15,7 @@
       "title": "原生渲染入口",
       "entry": "engine/render/native.mjs",
       "tools": ["engine/native/prepare.mjs", "engine/render/native.mjs"],
-      "runtime": "RAEA 原生运行时 0.1.0-canary.2（Rust + Bevy），不随仓库分发，用环境变量 RAEA_BIN 指向可执行文件",
+      "runtime": "RAEA 原生运行时 0.1.4（Rust + Bevy），不随仓库分发，用环境变量 RAEA_BIN 指向可执行文件",
       "contract": "作品 film.tsx 只读 useCurrentFrame()；素材由 prepare 放进作品的 media/"
     }
   },
@@ -73,7 +73,7 @@
           "name": "RAEA",
           "repository": "shinyobjectz/raea",
           "license": "FSL-1.1-ALv2",
-          "pinned": "0.1.0-canary.2",
+          "pinned": "0.1.4",
           "distributed": false,
           "env": "RAEA_BIN",
           "role": "原生 GPU 运行时；BNE 是本仓库在它之上的通用原生层",
@@ -109,7 +109,7 @@
           "requires": ["python", "chrome"] },
         { "stage": "check", "title": "预检：运行时版本、命令与素材（不启动 GPU）",
           "run": ["node", "engine/render/native.mjs", "{dir}", "--check-only"],
-          "env": { "RAEA_BIN": { "describe": "RAEA 原生运行时可执行文件的绝对路径（0.1.0-canary.2，不随仓库分发）", "required": true } },
+          "env": { "RAEA_BIN": { "describe": "RAEA 原生运行时可执行文件的绝对路径（0.1.4，不随仓库分发）", "required": true } },
           "requires": ["raea", "ffmpeg"] },
         { "stage": "look", "title": "先渲三帧给用户定画风（D08 的 look 闸），PNG 在 {dir}/out/stills/",
           "run": ["node", "engine/render/native.mjs", "{dir}", "--at", "0,{midFrame},{lastFrame}"],

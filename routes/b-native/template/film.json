@@ -41,7 +41,7 @@
       "stage": "check",
       "title": "预检：运行时版本与哈希、git 工作树、FFmpeg、素材哈希（不启动 GPU）",
       "run": ["node", "engine/render/native.mjs", "{dir}", "--check-only"],
-      "env": { "RAEA_BIN": { "describe": "原生运行时可执行文件的完整路径（0.1.0-canary.2，不随仓库分发；node engine/native/runtime.mjs fetch --accept-license 获取）", "required": true } },
+      "env": { "RAEA_BIN": { "describe": "原生运行时可执行文件的完整路径（0.1.4，不随仓库分发；node engine/native/runtime.mjs fetch --accept-license 获取）", "required": true } },
       "requires": ["raea", "ffmpeg"]
     },
     {

@@ -20,6 +20,16 @@ import { CliError, defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const repoRel = p => path.relative(REPO, p).split(path.sep).join('/');   // 信封里的路径：仓库相对、正斜杠（docs/CLI.md 第 2 节）
+const clamp255 = v => (v < 0 ? 0 : v > 255 ? 255 : v);
+function percentileFromHist(hist, total, q) {
+  const target = total * q;
+  let acc = 0;
+  for (let i = 0; i < 256; i++) {
+    acc += hist[i];
+    if (acc >= target) return i;
+  }
+  return 255;
+}
 
 export const command = defineCommand({
   name: 'c:events',
@@ -33,8 +43,10 @@ export const command = defineCommand({
   options: {
     size: { type: 'string', arg: '<宽x高>', default: '1920x1040', describe: '页面画幅（偶数，默认 1920x1040）' },
     query: { type: 'string', arg: '<k=v>', default: '', describe: '原样传给页面的查询串' },
-    out: { type: 'string', arg: '<目录>', describe: 'events.json / timeline.json 写到哪个目录（默认影片目录）' },
+    out: { type: 'string', arg: '<目录>', describe: 'events.json / timeline.json / kinematics.json 写到哪个目录（默认影片目录）' },
     probe: { type: 'string', arg: '<probe.json>', describe: '另写一份页面契约探测结果' },
+    telemetry: { type: 'boolean', describe: '逐帧执行 render(t) 采集真实画面运动能量、运动重心声像、切点与页面 AUDIO_TELEMETRY 轨迹（写 kinematics.json）' },
+    'telemetry-scale': { type: 'string', arg: '<除数>', default: '8', describe: '遥测采样缩略除数（默认 8，即 1920x1040 按 240x130 采样）' },
     'no-events': { type: 'boolean', describe: '只探测，不写事件表' },
   },
   examples: ['node engine/render/events.mjs films/my-film --out /tmp/ev --probe /tmp/ev/probe.json'],
@@ -44,6 +56,12 @@ export const command = defineCommand({
     const sm = /^(\d+)x(\d+)$/.exec(ctx.opts.size);
     if (!sm || +sm[1] % 2 || +sm[2] % 2 || +sm[1] < 16 || +sm[2] < 16) throw new CliError('usage.bad-value', `--size 要写成 宽x高，且宽高都是 ≥16 的偶数，收到「${ctx.opts.size}」`, { hint: '例如 --size 1920x1080' });
     const w = +sm[1], h = +sm[2];
+    const div = ctx.opts.telemetry ? Number(ctx.opts['telemetry-scale']) : 1;
+    if (ctx.opts.telemetry && !(Number.isFinite(div) && div >= 1 && div <= 32)) {
+      throw new CliError('usage.bad-value', `--telemetry-scale 应为 1..32 之间的数，收到「${ctx.opts['telemetry-scale']}」`, { hint: '默认 8' });
+    }
+    const openW = ctx.opts.telemetry ? Math.max(32, Math.round(w / div) & ~1) : w;
+    const openH = ctx.opts.telemetry ? Math.max(32, Math.round(h / div) & ~1) : h;
     const outDir = path.resolve(ctx.opts.out || dir), query = ctx.opts.query || '';
 
     // 页面服务与浏览器由 page.mjs 提供；动态导入，保证 --help 与用法错误不启动任何东西
@@ -52,21 +70,141 @@ export const command = defineCommand({
     const shut = async () => { await film?.close?.().catch(() => {}); await closeServer().catch(() => {}); };
     ctx.onCleanup(shut);
     try {
-      film = await openFilm(dir, { w, h, query });
+      film = await openFilm(dir, { w: openW, h: openH, query });
       gpu = film.gpu;
       info = await film.page.evaluate(() => {
         const tl = window.TIMELINE || null;
         let texts0 = null;
         try { texts0 = typeof window.TEXTS === 'function' ? (window.TEXTS(0) || []).length : null; } catch { texts0 = 'error'; }
+        let kin = null, kinErr = null;
+        try {
+          if (typeof window.KINEMATICS === 'function') kin = window.KINEMATICS();
+          else if (window.KINEMATICS && typeof window.KINEMATICS === 'object') kin = window.KINEMATICS;
+        } catch (err) { kinErr = String(err?.message || err); }
         const num = v => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
         return {
-          ev: { dur: window.DUR, ev: window.EV || [] }, tl,
+          ev: { dur: window.DUR, ev: window.EV || [] }, tl, kin, kinErr,
+          hasAudioTelemetry: typeof window.AUDIO_TELEMETRY === 'function',
           dur: window.DUR, hasRender: typeof window.render === 'function', hasTexts: typeof window.TEXTS === 'function', texts0,
           fpsDeclared: num(window.FPS), fpsRaw: window.FPS === undefined ? null : String(window.FPS), timelineFps: tl ? num(tl.fps) : null,
           contract: window.BEIMING_CONTRACT ?? 1, title: document.title || null,
         };
       });
       film.check();
+
+      // 逐帧真遥测采样：执行 window.render(f / fps)，同步提取 GPU 亮度平面帧间运动能量、横向视觉重心声像、切点跳变与场景发声体轨迹
+      if (ctx.opts.telemetry && info.hasRender && typeof info.dur === 'number' && Number.isFinite(info.dur) && info.dur > 0 && !info.kinErr) {
+        const { captureGpuFrame } = await import('./lib/yuv.mjs');
+        const fps = info.fpsDeclared ?? info.timelineFps ?? 24;
+        const nFrames = Math.max(1, Math.round(info.dur * fps));
+        const yLen = openW * openH;
+        const blurY = src => {
+          const dst = new Float32Array(yLen);
+          for (let y = 0; y < openH; y++) {
+            const y0 = Math.max(0, y - 1) * openW, y1 = y * openW, y2 = Math.min(openH - 1, y + 1) * openW;
+            for (let x = 0; x < openW; x++) {
+              const x0 = Math.max(0, x - 1), x2 = Math.min(openW - 1, x + 1);
+              dst[y1 + x] = (
+                src[y0 + x0] + src[y0 + x] + src[y0 + x2] +
+                src[y1 + x0] + src[y1 + x] + src[y1 + x2] +
+                src[y2 + x0] + src[y2 + x] + src[y2 + x2]
+              ) / 9;
+            }
+          }
+          return dst;
+        };
+        const luma = [], contrast = [], rawDiff = [], motionPan = [];
+        const dynTracks = {};
+        let prevBlur = null, lastPan = 0;
+        for (let f = 0; f < nFrames; f++) {
+          const t = f / fps;
+          const yuv = await captureGpuFrame(film, t, { w: openW, h: openH, format: 'yuv420', samples: 1, fps, dur: info.dur, where: `遥测帧 ${f}` });
+          const yPlane = yuv.subarray(0, yLen);
+          const curBlur = blurY(yPlane);
+          let sumY = 0;
+          const hist = new Uint32Array(256);
+          for (let i = 0; i < yLen; i++) {
+            const v = clamp255(Math.round((yPlane[i] - 16) * (255 / 219)));
+            sumY += v;
+            hist[v]++;
+          }
+          luma.push(+(sumY / (yLen * 255)).toFixed(4));
+          const p05 = percentileFromHist(hist, yLen, 0.05), p95 = percentileFromHist(hist, yLen, 0.95);
+          contrast.push(+((p95 - p05) / 255).toFixed(4));
+
+          if (prevBlur) {
+            let dSum = 0, wxSum = 0, wActive = 0;
+            for (let y = 0; y < openH; y++) {
+              const row = y * openW;
+              for (let x = 0; x < openW; x++) {
+                const d = Math.abs(curBlur[row + x] - prevBlur[row + x]) / 219;
+                dSum += d;
+                if (d > 0.018) {
+                  const nx = (x / Math.max(1, openW - 1)) * 2 - 1;
+                  wxSum += d * nx;
+                  wActive += d;
+                }
+              }
+            }
+            const md = dSum / yLen;
+            rawDiff.push(md);
+            if (wActive > 0.25) lastPan = lastPan * 0.35 + (wxSum / wActive) * 0.65;
+            motionPan.push(+Math.max(-1, Math.min(1, lastPan)).toFixed(4));
+          } else {
+            rawDiff.push(0);
+            motionPan.push(0);
+          }
+          prevBlur = curBlur;
+
+          if (info.hasAudioTelemetry) {
+            const snap = await film.page.evaluate(({ tt, ff }) => window.AUDIO_TELEMETRY(tt, ff), { tt: t, ff: f });
+            if (snap && typeof snap === 'object') {
+              for (const [tk, chs] of Object.entries(snap)) {
+                if (!chs || typeof chs !== 'object') continue;
+                const dst = (dynTracks[tk] ??= {});
+                for (const [ck, cv] of Object.entries(chs)) {
+                  if (typeof cv === 'number' && Number.isFinite(cv)) {
+                    (dst[ck] ??= new Array(f).fill(0)).push(+cv.toFixed(5));
+                  }
+                }
+              }
+            }
+          }
+        }
+        // 分离切点巨跳与连续运动归一化
+        const sortedDiff = [...rawDiff.slice(1)].sort((a, b) => a - b);
+        const medDiff = sortedDiff.length ? sortedDiff[Math.floor(sortedDiff.length * 0.5)] : 0.01;
+        const p92Diff = sortedDiff.length ? sortedDiff[Math.floor(sortedDiff.length * 0.92)] : 0.05;
+        const cutFlags = new Array(nFrames).fill(0), holdFlags = new Array(nFrames).fill(0), motion = new Array(nFrames).fill(0);
+        const detectedCuts = [];
+        for (let f = 1; f < nFrames; f++) {
+          const prev = f > 1 ? rawDiff[f - 1] : medDiff, next = f + 1 < nFrames ? rawDiff[f + 1] : medDiff;
+          const localBase = Math.max(0.012, Math.min(prev, next));
+          if (rawDiff[f] > 0.065 && rawDiff[f] > localBase * 3.8) {
+            cutFlags[f] = 1;
+            detectedCuts.push(f);
+            motion[f] = motion[f - 1];
+          } else {
+            motion[f] = +Math.min(1, rawDiff[f] / Math.max(0.025, p92Diff * 1.35)).toFixed(4);
+            if (rawDiff[f] < Math.max(0.0018, medDiff * 0.18)) holdFlags[f] = 1;
+          }
+        }
+        if (nFrames > 1) motion[0] = motion[1];
+        const baseTracks = (info.kin && typeof info.kin === 'object')
+          ? (info.kin.tracks && typeof info.kin.tracks === 'object' ? { ...info.kin.tracks } : {})
+          : {};
+        info.kin = {
+          fps,
+          dur: info.dur,
+          sampleSize: [openW, openH],
+          detectedCuts,
+          tracks: {
+            ...baseTracks,
+            ...dynTracks,
+            screen: { luma, contrast, motion, x: motionPan, cut: cutFlags, hold: holdFlags },
+          },
+        };
+      }
     } catch (e) {
       // 页面错误、缺文件、等 READY 超时、找不到页面：一行原因 + 退出码（page.mjs 的错误自带建议的退出码）
       await shut();
@@ -80,9 +218,10 @@ export const command = defineCommand({
     if (!(typeof info.dur === 'number' && Number.isFinite(info.dur) && info.dur > 0)) problems.push(`window.DUR 应为有限正数，现在是 ${JSON.stringify(info.dur)}`);
     if (!Array.isArray(info.ev.ev)) problems.push('window.EV 应为数组');
     if (info.fpsRaw !== null && info.fpsDeclared === null) problems.push(`window.FPS 应为正数，现在是 ${info.fpsRaw}`);
+    if (info.kinErr) problems.push(`window.KINEMATICS 报错：${info.kinErr}`);
     const probe = {
       dur: info.dur, hasRender: info.hasRender, hasTexts: info.hasTexts, texts0: info.texts0,
-      evCount: Array.isArray(info.ev.ev) ? info.ev.ev.length : null, hasTimeline: !!info.tl,
+      evCount: Array.isArray(info.ev.ev) ? info.ev.ev.length : null, hasTimeline: !!info.tl, hasKinematics: !!info.kin,
       fps: info.fpsDeclared ?? info.timelineFps, fpsDeclared: info.fpsDeclared, timelineFps: info.timelineFps, renderFps: info.fpsDeclared ?? 24,
       contract: info.contract, gpu: gpu || null, software: isSoftwareRenderer(gpu), title: info.title, problems,
     };
@@ -97,6 +236,7 @@ export const command = defineCommand({
       fs.writeFileSync(path.join(outDir, 'events.json'), JSON.stringify(info.ev));
       written.push(path.join(outDir, 'events.json'));
       if (info.tl) { fs.writeFileSync(path.join(outDir, 'timeline.json'), JSON.stringify(info.tl, null, 1)); written.push(path.join(outDir, 'timeline.json')); }
+      if (info.kin) { fs.writeFileSync(path.join(outDir, 'kinematics.json'), JSON.stringify(info.kin)); written.push(path.join(outDir, 'kinematics.json')); }
     }
     const outputs = written.map(f => ({ path: repoRel(f), sha256: null, kind: path.basename(f, '.json') }));
     if (problems.length) {

@@ -27,7 +27,7 @@ npm run env:doctor -- --route a
 | 无头浏览器 | chromium-headless-shell r1243（153.0.8010.12） | playwright-core 1.63.0 自带的版本表；setup 用仓库里的 playwright-core 安装 | `browser.headless-shell`、`browser.launch`、`gpu.renderer` |
 | FFmpeg 与 ffprobe | 7 以上；必须有 libx264、aac 编码器，loudnorm、ebur128、apad、aresample、scale、format、fps、noise 滤镜，mp4 封装，concat 与 image2pipe 读入 | 系统安装（各平台命令见下文） | `ffmpeg.version`、`ffmpeg.components`、`ffprobe.version` |
 | Python | 3.12 | `.python-version`；`requirements.in` → `requirements.lock`（macOS arm64、Windows x64、Linux x64，带哈希，只用二进制轮子） | `python.interpreter`、`python.packages` |
-| 原生运行时（B 路线） | 0.1.0-canary.2 | `RAEA_BIN` 指向的安装包里的 `share/raea/VERSION`；可执行文件的 sha256 与 `tools/env/spec.json` 的 `raea.knownBinaries` 按平台登记的已验证构建比对（不同则告警） | `raea.runtime`（`--route b`） |
+| 原生运行时（B 路线） | 0.1.4 | `RAEA_BIN` 指向的安装包里的 `share/raea/VERSION`；可执行文件的 sha256 与 `tools/env/spec.json` 的 `raea.knownBinaries` 按平台登记的已验证构建比对（不同则告警） | `raea.runtime`（`--route b`） |
 
 锁文件里的 Python 包：numpy 2.5.4、scipy 1.18.1、numba 0.68.1（llvmlite 0.50.0）、soundfile 0.14.0、soxr 1.1.0、pillow 13.0.0、fonttools 4.68.0、brotli 1.2.1（A 路线字体子集化），以及它们的依赖。完整清单与哈希见 [`requirements.lock`](../requirements.lock)。三个目标平台解析出同一组版本，且都有 Python 3.12 的二进制轮子（`node tools/env/lock.mjs --check` 核对）。在锁定环境里重建《北冥》混音，`out/mix.wav` 的 sha256 是 `aebcb955d73e…`，与 numpy 2.5.3 / numba 0.67.0 的旧环境逐字节相同（2026-11-10，macOS arm64）；各平台的混音金标准由声音链路维护。
 
@@ -148,7 +148,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `BEIMING_GPU` | 渲染（engine/render） | `--gpu` 的默认值：required（软件渲染判失败，退出 3）/ any（允许并记提示）/ software-ok（CI、没有 GPU 的机器、资产烘焙） | required |
 | `BEIMING_SLOT_DIR` | 渲染（engine/render） | 机器级渲染槽位的目录（多个渲染排队用） | <系统临时目录>/beiming-render-slots-<用户> |
 | `BEIMING_SLOT_HELD` | 渲染（engine/render） | 设为 1 表示外层调度已替这次渲染占了槽位，渲染器不再另占 | 不设 |
-| `BEIMING_GPU_BUSY_UTIL` | 渲染（engine/render） | 共享 GPU 守卫：任一 NVIDIA 卡占用率（%）高于它就排队等 | 10 |
+| `BEIMING_GPU_BUSY_UTIL` | 渲染（engine/render） | 共享 GPU 守卫：任一 NVIDIA 卡占用率（%）高于它就排队等（B 路线 `native.mjs` 退出 5） | 10 |
 | `BEIMING_GPU_MIN_FREE_MB` | 渲染（engine/render） | 共享 GPU 守卫：任一 NVIDIA 卡空闲显存（MB）低于它就排队等 | 2048 |
 | `WORKERS` | 渲染（engine/render） | `build.sh` 1080p 出片时并行的浏览器数 | 4 |
 | `WORKERS_4K` | 渲染（engine/render） | `build.sh --4k` 时并行的浏览器数 | 8 |
@@ -166,6 +166,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `BEIMING_AUDIO_OUT` | 声音 | 统一出片传给作品声音脚本的输出 wav 路径（`out/<运行号>/audio/mix.wav`），不要手动设 | 由统一出片设置；单独跑 `sound.py` 时写 `films/<名>/out/mix.wav` |
 | `BEIMING_FPS` | 声音 | 统一出片传给声音脚本的帧率；A 模版 `sound.py` 与 `film.json` 不一致时退出 4 | 由统一出片设置 |
 | `BEIMING_FRAMES` | 声音 | 统一出片传给声音脚本的总帧数，核对方式同上 | 由统一出片设置 |
+| `FREESOUND_TOKEN` | 声音（Freesound） | Freesound API Key；仅在用 `tools/fetch_sfx.py` 搜索或下载 CC0 真实录音音效（供 `audio/mix.py --real-sfx`）时需要 | 不设（默认合成音效不需要） |
 | `BEIMING_FONT_CACHE` | 字体（tools/fonts） | 原始 OFL 字体的缓存目录（`fetch` 下载、`subset` 子集化都读它）；多个检出可以共用一份 | 仓库根的 `.cache/fonts`（已被 git 忽略） |
 | `BEIMING_SH` | 过渡期 sh | POSIX sh 的完整路径；Windows 上 Git for Windows 装在非默认位置时用。sh 入口全部改成 Node 后不再需要 | PATH 里的 sh；Windows 上再找 Git for Windows 的 `bin\sh.exe` |
 | `RAEA_BIN` | B 路线 | 原生运行时可执行文件的完整路径；安装包要保留 `bin/` 与 `share/` | 不设（B 路线必需） |

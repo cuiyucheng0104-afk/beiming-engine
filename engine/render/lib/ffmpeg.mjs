@@ -24,6 +24,7 @@ const SET = 'setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace
 export const COLOR = Object.freeze({
   png: `scale=out_range=limited:out_color_matrix=bt709:flags=accurate_rnd+full_chroma_int,format=yuv420p,${SET}`,
   jpeg: `scale=in_range=full:in_color_matrix=bt601:out_range=limited:out_color_matrix=bt709:flags=accurate_rnd+full_chroma_int,format=yuv420p,${SET}`,
+  yuv420: SET,
 });
 export const TAGS = Object.freeze(['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv']);
 

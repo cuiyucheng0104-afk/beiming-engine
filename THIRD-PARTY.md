@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | [xiaoxiong20xx-code/sy-style-100](https://github.com/xiaoxiong20xx-code/sy-style-100) | `e41dee31a5c05dffa12b2f241378e648d2a22df6` | MIT（XIAOXIONG） | `cases/vendor/sy-style-100/`（331 个跟踪文件，原样） | 20 风格 / 100 示例、lib、渲染与声音工具；画风参照 | 保留版权声明与 MIT 许可（`cases/licenses/XIAOXIONG-MIT.txt`） |
 | [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) | `bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00` | 代码 MIT（LemoLab）；例片与静帧 CC BY 4.0 | `cases/vendor/lemo-opuscar/`（2478 个跟踪文件，原样） | 66 风格、demo、core、导演与技术文档；历史 66 部风格实验的方法来源 | 保留版权声明与 MIT 许可（`cases/licenses/LemoLab-MIT.txt`）；例片与静帧按 CC BY 4.0 署名 LemoLab；本仓库主体的派生代码见第 8 节 |
-| [shinyobjectz/raea](https://github.com/shinyobjectz/raea) | 源码对照 `fb3f70844e03cc40185e3a06c394060d26c5cd38`；运行发行版 v0.1.0-canary.2（2026-10-31 发布，2028-10-31 转为 Apache-2.0） | FSL-1.1-ALv2（Functional Source License 1.1，到期转 Apache-2.0；版权人 Shane Murphy） | **运行时与 SDK 不随本仓库分发**；仓库仅含源码对照、集成方案与自有的调用代码（`engine/native/`、`examples/raea/`） | B 路线（北冥原生 · BNE）的原生运行时 | 单独取得并按 FSL 条款使用；只作内部制作层（D03），不对外提供基于它的产品、SDK 或渲染服务；不分发运行时、不复制其源码；边界见第 7 节与 [docs/rights/fsl-boundary.md](docs/rights/fsl-boundary.md)；升级版本时同步更新本行的版本、发布日与转换日期 |
+| [shinyobjectz/raea](https://github.com/shinyobjectz/raea) | 源码对照 `fb3f70844e03cc40185e3a06c394060d26c5cd38`；运行发行版 v0.1.4（对应提交 `d870159c4686bd1fcda094934602463549b26683`，2026-11-15 发布，2028-11-15 转为 Apache-2.0；早期基线 v0.1.0-canary.2 为 2026-10-31 → 2028-10-31） | FSL-1.1-ALv2（Functional Source License 1.1，到期转 Apache-2.0；版权人 Shane Murphy） | **运行时与 SDK 不随本仓库分发**；仓库仅含源码对照、集成方案与自有的调用代码（`engine/native/`、`examples/raea/`） | B 路线（北冥原生 · BNE）的原生运行时 | 单独取得并按 FSL 条款使用；只作内部制作层（D03），不对外提供基于它的产品、SDK 或渲染服务；不分发运行时、不复制其源码；边界见第 7 节与 [docs/rights/fsl-boundary.md](docs/rights/fsl-boundary.md)；升级版本时同步更新本行的版本、发布日与转换日期 |
 | [voyager-so/vork](https://github.com/voyager-so/vork) | 运行发行版 0.5.1（2026-11-11 发布；`--version` 报的短提交 `626653ebf900`） | vork Preview License（上游自定义的预览许可，不是开源许可；版权人 Nullframe, Inc.） | **渲染器不随本仓库分发**，仓库也不含它的源码、着色器与文档原文；仓库只有自有的调用代码与锁定记录（`engine/native/rt.mjs`、`engine/native/rt.lock.json`）和自有的分层风格化（`engine/look/layers.js`） | B 路线（北冥原生 · BNE）的光追外部后端 rt，实验阶段：出写实光照的分层图，北冥做风格化 | 单独取得官方发行包并核对 sha256；只作内部制作层与学术研究，不分发、不复制其代码、不做对外渲染服务；许可只覆盖这一版，升级前重读新版本的许可；边界见 [docs/rights/rt-boundary.md](docs/rights/rt-boundary.md) |
 
 ## 2. 仓库自有内容
@@ -68,7 +68,7 @@ node tools/env/py.mjs -m unittest discover -s tools -p test_casebook.py
 B 路线调用的原生运行时 RAEA 以 FSL-1.1-ALv2 发布：每个版本发布满两年后转为 Apache-2.0，在此之前排除「竞争性使用」。本仓库只把它当内部制作工具：自制影片、为客户制作并交付成片、为本身持有 RAEA 许可的客户提供专业服务。
 
 - 不把 BNE、`engine/native/` 或任何基于 RAEA 的东西作为对外的商业产品、SDK 或托管渲染服务；不分发运行时与 SDK；不复制或改写其源码；上游名只在技术说明、署名区块与许可说明里出现。
-- 现用版本 v0.1.0-canary.2，2026-10-31 发布，2028-10-31 转为 Apache-2.0；源码对照固定在完整提交 `fb3f70844e03cc40185e3a06c394060d26c5cd38`。每个版本的转换日期按它自己的发布日单独算。
+- 现用版本 v0.1.4（标签提交 `d870159c4686bd1fcda094934602463549b26683`），2026-11-15 发布，2028-11-15 转为 Apache-2.0（早期基线 v0.1.0-canary.2 于 2026-10-31 发布、2028-10-31 转换）；`docs/raea/` 源码对照固定在完整提交 `fb3f70844e03cc40185e3a06c394060d26c5cd38`。每个版本的转换日期按它自己的发布日单独算。
 - 商业化之前须先取得上游书面许可或法律意见。全文见 [docs/rights/fsl-boundary.md](docs/rights/fsl-boundary.md)。
 
 ## 8. 派生代码（LemoLab MIT）

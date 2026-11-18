@@ -439,5 +439,89 @@ class NodeFront(unittest.TestCase):
             shutil.rmtree(td, ignore_errors=True)
 
 
+class PrecisionSyncAndKinematics(unittest.TestCase):
+    """连续物理遥测 Track/Kinematics、P-Center 感知中心同步、1 拍 N 保持帧告警与立体声声像极性复核。"""
+
+    def setUp(self):
+        self.td = H.tmpdir('cue-pcenter')
+
+    def tearDown(self):
+        shutil.rmtree(self.td, ignore_errors=True)
+
+    def test_kinematics_track_interpolation_and_impulses(self):
+        from engine.audio.cues import load_kinematics
+        raw = {
+            'fps': 24, 'dur': 1.0,
+            'tracks': {
+                'hero': {
+                    'x': [0.0, 0.5, 1.0] + [1.0] * 21,
+                    'depth': [0.0] * 12 + [1.0] * 12,
+                    'contact': [0.0, 0.0, 0.85, 0.2, 0.0, 0.0, 0.92, 0.1] + [0.0] * 16,
+                }
+            }
+        }
+        kin = load_kinematics(raw)
+        tr = kin['hero']
+        self.assertEqual(len(tr.arr('x')), H.SR)
+        pan = tr.pan('x', spread=0.8)
+        self.assertAlmostEqual(float(pan[0]), -0.8, delta=0.02)
+        self.assertAlmostEqual(float(pan[-1]), 0.8, delta=0.02)
+        dist = tr.dist('depth', near=1.0, far=9.0)
+        self.assertAlmostEqual(float(dist[0]), 1.0, delta=0.05)
+        self.assertAlmostEqual(float(dist[-1]), 9.0, delta=0.05)
+        hits = tr.impulses('contact', thresh=0.5, min_gap_s=0.10)
+        self.assertEqual([h[0] for h in hits], [round(2 / 24, 6), round(6 / 24, 6)])
+
+    def test_pcenter_measure_and_pan_polarity_and_hold_frame_checks(self):
+        import numpy as np
+        from engine.audio import dsp as D, foley as FL
+        from engine.audio.cuecheck import measure_onset, measure_pcenter
+
+        rng = np.random.default_rng(31)
+        # 构造「95 ms 前导挥剑风声 + 撞击瞬态」复合波形，按 P-Center 锚定摆在 1.000 s（第 24 帧）
+        pre_n = D.N(0.095)
+        hit_n = D.N(0.060)
+        whoosh = D.lp(rng.standard_normal(pre_n), 950.0, 2) * np.linspace(0.0, 0.28, pre_n)
+        impact = D.hp(rng.standard_normal(hit_n), 2400.0, 2) * np.exp(-np.arange(hit_n) / (D.SR * 0.008)) * 0.85
+        comp = np.concatenate([whoosh, impact])
+
+        buf = np.zeros((D.N(3.0), 2))
+        FL.place_anchored(buf, comp, 1.000, gain=0.8, pan=-0.65)   # 故意摆在左侧 (-0.65)
+        mono = buf.mean(axis=1)
+        # 传统起音会被前导风声提前带偏，而 measure_pcenter 精准落在 1.000 s ± 3 ms
+        on_t = measure_onset(mono, D.SR, 1.000, early=0.12, late=0.12)
+        pc_t = measure_pcenter(mono, D.SR, 1.000, early=0.12, late=0.12)
+        self.assertIsNotNone(pc_t)
+        self.assertLessEqual(abs(pc_t - 1.000), 0.003, f'pcenter={pc_t}, onset={on_t}')
+
+        # 写声音表声明 pan=+0.65（右），而实测波形在左 (-0.65)，外加第 49 帧落在 1 拍 2 保持帧上
+        H.write_wav(os.path.join(self.td, 'out', 'mix.wav'), buf)
+        write(os.path.join(self.td, 'cues.json'), {
+            'cues': [
+                {'id': 'slash', 't': 1.000, 'bus': 'fx', 'pan': 0.65, 'syncMode': 'pcenter'},
+                {'id': 'odd_hit', 't': 49 / 24, 'bus': 'fx'},
+            ]
+        })
+        H.film_json(
+            self.td, frames=72, fps=24, cuts=(36,),
+            audio={'mode': 'script', 'script': 'sound.py', 'cues': 'cues.json'},
+            events=[
+                {'id': 'e_slash', 'frame': 24, 'audio': 'slash'},
+                {'id': 'e_odd', 'frame': 49, 'audio': 'odd_hit'},
+            ],
+            cuecheck={'holdN': 2, 'pcenterEvents': ['e_slash']},
+        )
+        rep_p = os.path.join(self.td, 'rep.json')
+        r, env = cuecheck(self.td, '--measure', '--report', rep_p)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])
+        text = msgs(env)
+        self.assertIn('声像左右极性反转', text)
+        self.assertIn('落在 1 拍 2 的静止保持帧上', text)
+        rep = H.read_json(rep_p)
+        m_slash = next(s for s in rep['sync'] if s['id'] == 'e_slash' and s['kind'] == 'measured')
+        self.assertEqual(m_slash['syncMode'], 'pcenter')
+        self.assertLessEqual(abs(m_slash['deltaMs']), 3.5)
+
+
 if __name__ == '__main__':
     unittest.main()

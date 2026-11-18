@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { isMain, runCli } from '../../tools/lib/cli.mjs';
 import { openFilm, locateFilm, closeServer, ROOT } from './page.mjs';
 import { RenderError } from './lib/errors.mjs';
-import { renderCommand, pickOptions, positiveNumber } from './lib/command.mjs';
+import { renderCommand, pickOptions, positiveNumber, resolveCapture, resolveMotionBlur } from './lib/command.mjs';
 import { resolveAngle, resolveGpuPolicy } from './lib/gpu.mjs';
 import { preflight, COLOR, TAGS, x264Args, probe } from './lib/ffmpeg.mjs';
 import { acquireLock } from './lib/lock.mjs';
@@ -37,7 +37,7 @@ export const command = renderCommand({
     out: { type: 'string', arg: '<文件.mp4>', describe: '把选中的镜头按镜头表顺序拼成一部（不写就只更新缓存）' },
     cache: { type: 'string', arg: '<目录>', describe: '镜头缓存目录（默认 <影片>/out/cache/shots）' },
     force: { type: 'boolean', describe: '不看缓存，选中的镜头全部重渲' },
-    ...pickOptions(['profile', 'size', 'fps', 'any-fps', 'workers', 'chunk', 'query', 'fast', 'crf', 'preset', 'gpu', 'angle',
+    ...pickOptions(['profile', 'size', 'fps', 'any-fps', 'workers', 'chunk', 'query', 'fast', 'capture', 'samples', 'shutter', 'crf', 'preset', 'gpu', 'angle',
       'allow-network', 'lenient-assets', 'allow-gl-errors', 'ready-timeout', 'frame-timeout', 'settle', 'progress',
       'slots', 'no-wait', 'wait-timeout', 'no-guard', 'run-json']),
   },
@@ -64,7 +64,8 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   const selected = opts.shots.length ? shotsByIds(film, opts.shots).sort((x, y) => x.in - y.in) : [...film.shots].sort((x, y) => x.in - y.in);
   const { size: { w, h }, fps: fpsReq, profile } = resolveOutputSpec({ opts, film });
   for (const m of profile?.warnings ?? []) log.warn(m, 'profiles', '档位表归作品描述包维护：engine/production/profiles.json');
-  const intermediate = opts.fast ? 'jpeg' : 'png';
+  const intermediate = resolveCapture(opts);
+  const { samples, shutter } = resolveMotionBlur(opts);
   const cache = path.resolve(opts.cache ?? path.join(dir, 'out', 'cache', 'shots'));
   const out = opts.out ? path.resolve(opts.out) : null;
   const ff = preflight();
@@ -121,7 +122,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     const filmLevel = stable(Object.fromEntries(Object.entries(film.raw).filter(([k]) => !NON_PICTURE.has(k))));
     // 浏览器构建与 GPU 后端也进键：升级 headless shell、或换到 SwiftShader 补渲时，别的镜头不能命中另一种后端渲的缓存
     const { browserVersion: browser, angle, software } = probeFilm.info;
-    const base = { r: rendererFingerprint(), browser, angle, software, w, h, FPS, profile: profile?.id ?? null, intermediate, outputs: outputs.map(x => [x.vf, x.args]), q: opts.query, settle, chunk: opts.chunk ?? 'auto', filmLevel };
+    const base = { r: rendererFingerprint(), browser, angle, software, w, h, FPS, profile: profile?.id ?? null, intermediate, samples, shutter: samples > 1 ? shutter : 0, outputs: outputs.map(x => [x.vf, x.args]), q: opts.query, settle, chunk: opts.chunk ?? 'auto', filmLevel };
     const events = Array.isArray(film.raw.events) ? film.raw.events : [];
     const filmJsonRel = repoPath(ROOT, film.file);
     const exclusions = shotExclusions(ROOT, filmRel, film.shots);
@@ -129,10 +130,12 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
       base, shot: stable(s.raw), events: events.filter(e => e?.shot === s.id || (Number.isInteger(e?.frame) && e.frame >= s.in && e.frame < s.out)).map(stable),
       deps: [...deps].sort().map(p => [p, fileHash(p)]),
     }));
+    const capDesc = intermediate === 'yuv420' ? 'GPU 直出 yuv420p 有限范围 BT.709'
+      : `${intermediate === 'png' ? '无损 PNG 截图' : 'JPEG q95 截图'} → yuv420p 有限范围 BT.709`;
     Object.assign(record, {
       actualDevice: probeFilm.info.renderer || null, actualGraphicsBackend: `ANGLE ${probeFilm.info.angle}`, softwareFallback: probeFilm.info.software, gpu: probeFilm.info, page: probeFilm.contract,
-      actualEncoder: `libx264 crf ${crf} preset ${preset}（${intermediate === 'png' ? '无损 PNG 截图' : 'JPEG q95 截图'} → yuv420p 有限范围 BT.709）`,
-      render: { fps: FPS, width: w, height: h, workers: opts.workers, intermediate, settle, renderer: base.r },
+      actualEncoder: `libx264 crf ${crf} preset ${preset}（${capDesc}${samples > 1 ? `，${samples}× 时间超采样快门 ${shutter}` : ''}）`,
+      render: { fps: FPS, width: w, height: h, workers: opts.workers, intermediate, samples, shutter: samples > 1 ? shutter : null, settle, renderer: base.r },
     });
     record.tools.browser = probeFilm.info.browserVersion;
 
@@ -161,7 +164,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
       handed = true;
       const total = chunks.reduce((n, [a, b]) => n + (b - a), 0);
       rendered = await renderRange({
-        dir, query: opts.query, w, h, fps: FPS, chunks, workers: opts.workers, intermediate, outputs, workDir, openOptions,
+        dir, query: opts.query, w, h, fps: FPS, chunks, workers: opts.workers, intermediate, samples, shutter, outputs, workDir, openOptions,
         firstFilm: probeFilm, signal, live: life.procs, settle, frameTimeoutMs: opts['frame-timeout'] ? opts['frame-timeout'] * 1000 : undefined,
         onProgress: makeProgress(log, total),
       });

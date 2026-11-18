@@ -103,13 +103,14 @@ test('出片途中收到 SIGINT：exit 130、单个信封、run.json 记 interru
   const s = setup();
   try {
     const pidFile = join(s.root, 'child.pid');
-    const child = spawn(process.execPath, [ENTRY, s.film, '--run-id', 'sig', '--json'], { env: { ...s.env, BNE_TEST_PIDFILE: pidFile, COMFY_URL: 'http://127.0.0.1:9' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, [ENTRY, s.film, '--run-id', 'sig', '--json'], { env: { ...s.env, BNE_TEST_PIDFILE: pidFile, COMFY_URL: 'http://127.0.0.1:9', BEIMING_GPU_BUSY_UTIL: '100' }, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '', err = '';
     child.stdout.on('data', d => { out += d; });
     child.stderr.on('data', d => { err += d; });
-    for (let i = 0; i < 200; i++) { try { readFileSync(pidFile); break; } catch { await new Promise(r => setTimeout(r, 50)); } }
-    child.kill('SIGINT');
-    const code = await new Promise(r => child.on('close', c => r(c)));
+    const closed = new Promise(r => child.on('close', c => r(c)));
+    for (let i = 0; i < 200 && child.exitCode === null; i++) { try { readFileSync(pidFile); break; } catch { await new Promise(r => setTimeout(r, 50)); } }
+    if (child.exitCode === null) child.kill('SIGINT');
+    const code = await closed;
     assert.equal(code, 130, err);
     const env = JSON.parse(out);
     assert.equal(env.exitCode, 130);

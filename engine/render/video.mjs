@@ -24,9 +24,10 @@ import { fileURLToPath } from 'node:url';
 import { isMain, runCli } from '../../tools/lib/cli.mjs';
 import { openFilm, locateFilm, renderFrame, closeServer, ROOT } from './page.mjs';
 import { RenderError } from './lib/errors.mjs';
-import { renderCommand, pickOptions, parseSize, parseFrames, positiveNumber } from './lib/command.mjs';
+import { renderCommand, pickOptions, parseSize, parseFrames, positiveNumber, resolveCapture, resolveMotionBlur } from './lib/command.mjs';
 import { resolveAngle, resolveGpuPolicy } from './lib/gpu.mjs';
 import { preflight, COLOR, TAGS, x264Args, FFMPEG } from './lib/ffmpeg.mjs';
+import { captureGpuFrame, rawYuvInputArgs } from './lib/yuv.mjs';
 import { acquireLock } from './lib/lock.mjs';
 import { acquireSlot, guardGpu, slotCount } from './lib/slots.mjs';
 import { environment, baseRecord, writeRecord, writeLatest, sha256File, selfCheck, repoPath, sha256, runId as makeRunId } from './lib/record.mjs';
@@ -122,7 +123,7 @@ const OPTIONS = {
   ...pickOptions(['profile', 'size', 'fps', 'any-fps']),
   frames: { type: 'string', arg: 'a:b', describe: '只渲第 a 到 b−1 帧（整数帧号，含头不含尾）' },
   shot: { type: 'string', arg: '<镜头 id>', describe: '只渲 film.json 镜头表里的这一个镜头（v2 的 shots[].in/out）' },
-  ...pickOptions(['workers', 'chunk', 'query', 'fast', 'crf', 'preset']),
+  ...pickOptions(['workers', 'chunk', 'query', 'fast', 'capture', 'samples', 'shutter', 'crf', 'preset']),
   web: { type: 'string', arg: '<文件.mp4>', describe: '同一遍渲染再出一个网页版（crf 20、码率上限 14M、2 秒关键帧，宽 > 1920 时缩到 1920）' },
   'web-crf': { type: 'integer', min: 0, max: 51, default: 20, arg: '<n>', describe: '网页版的 crf（默认 20）' },
   ...pickOptions(['gpu', 'angle', 'allow-network', 'lenient-assets', 'allow-gl-errors', 'ready-timeout', 'frame-timeout', 'settle']),
@@ -164,7 +165,8 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   if (opts.shot) pickShot(film, opts.shot);
   const { size: { w, h }, fps: fpsReq, profile } = resolveOutputSpec({ opts, film });
   for (const m of profile?.warnings ?? []) log.warn(m, 'profiles', '档位表归作品描述包维护：engine/production/profiles.json');
-  const intermediate = opts.fast ? 'jpeg' : 'png';
+  const intermediate = resolveCapture(opts);
+  const { samples, shutter } = resolveMotionBlur(opts);
   const slots = opts.slots ?? slotCount();
   const ff = preflight();                                  // 缺 FFmpeg：退出码 3
   const env = environment(ROOT, { ffmpegVersion: ff.version });
@@ -196,7 +198,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
   if (opts['ready-timeout']) openOptions.readyTimeoutMs = opts['ready-timeout'] * 1000;
 
   // 计划模式：不写输出，不占锁
-  if (opts.plan) return planMode({ dir, opts, log, signal, w, h, fpsReq, profile, film, intermediate, out, web, openOptions });
+  if (opts.plan) return planMode({ dir, opts, log, signal, w, h, fpsReq, profile, film, intermediate, samples, shutter, out, web, openOptions });
 
   fs.mkdirSync(path.dirname(out), { recursive: true });
   life.defer(acquireLock(out));                            // 同一输出并发：退出码 5
@@ -251,11 +253,13 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
         args: [...x264Args({ crf: opts['web-crf'], preset: 'slow', web: true, fps: FPS }), ...TAGS] });
     }
     const settle = opts.settle === 'auto' ? (probeFilm.info.angle === 'vulkan' ? 'raf2' : 'none') : opts.settle;
+    const capDesc = intermediate === 'yuv420' ? 'GPU 直出 yuv420p 有限范围 BT.709'
+      : `${intermediate === 'png' ? '无损 PNG 截图' : 'JPEG q95 截图'} → yuv420p 有限范围 BT.709`;
     Object.assign(record, {
       actualDevice: probeFilm.info.renderer || null, actualGraphicsBackend: `ANGLE ${probeFilm.info.angle}`, softwareFallback: probeFilm.info.software,
       gpu: probeFilm.info, page: probeFilm.contract,
-      actualEncoder: `libx264 crf ${crf} preset ${preset}（${intermediate === 'png' ? '无损 PNG 截图' : 'JPEG q95 截图'} → yuv420p 有限范围 BT.709）`,
-      render: { fps: FPS, width: w, height: h, frames: [a, b], workers: opts.workers, chunks: chunks.map(([x, y]) => [x, y]), intermediate, settle, renderer: rendererFingerprint() },
+      actualEncoder: `libx264 crf ${crf} preset ${preset}（${capDesc}${samples > 1 ? `，${samples}× 时间超采样快门 ${shutter}` : ''}）`,
+      render: { fps: FPS, width: w, height: h, frames: [a, b], workers: opts.workers, chunks: chunks.map(([x, y]) => [x, y]), intermediate, samples, shutter: samples > 1 ? shutter : null, settle, renderer: rendererFingerprint() },
     });
     record.tools.browser = probeFilm.info.browserVersion;
     record.timing.setupSeconds = +((Date.now() - ts) / 1000).toFixed(2);
@@ -263,7 +267,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     // 2) 块目录：默认临时目录（任何结局都删）；--resume / --keep-segments 用 <输出>.parts/
     const persistent = Boolean(opts.resume || opts['keep-segments']);
     const { browserVersion: browser, angle, software } = probeFilm.info;   // 换了浏览器构建或 GPU 后端，像素可能不同：不能与旧块混拼
-    const key = sha256(JSON.stringify({ dir: repoPath(ROOT, dir), q: opts.query, w, h, FPS, a, b, chunks, outputs: outputs.map(x => [x.kind, x.vf, x.args]), intermediate, settle, r: record.render.renderer, browser, angle, software })).slice(0, 16);
+    const key = sha256(JSON.stringify({ dir: repoPath(ROOT, dir), q: opts.query, w, h, FPS, a, b, chunks, outputs: outputs.map(x => [x.kind, x.vf, x.args]), intermediate, samples, shutter: samples > 1 ? shutter : 0, settle, r: record.render.renderer, browser, angle, software })).slice(0, 16);
     if (persistent) {
       workDir = `${out}.parts`;
       // 开渲前先写下参数键：中断或失败后换了参数再续跑，旧块一块都不留（源文件变没变由每块的旁注核对，见 lib/chunks.mjs）
@@ -280,7 +284,7 @@ async function main({ opts, args, log, life, signal, setRunJson }) {
     handedOver = true;
     const tr = Date.now();
     const r = await renderRange({
-      dir, query: opts.query, w, h, fps: FPS, chunks, workers: opts.workers, intermediate, outputs, workDir,
+      dir, query: opts.query, w, h, fps: FPS, chunks, workers: opts.workers, intermediate, samples, shutter, outputs, workDir,
       reuse: Boolean(opts.resume), key, openOptions, firstFilm: probeFilm, signal, live: life.procs, settle,
       frameTimeoutMs: opts['frame-timeout'] ? opts['frame-timeout'] * 1000 : undefined,
       onProgress: makeProgress(log, b - a),
@@ -339,7 +343,7 @@ async function hashDeps(deps) {
  * 每路一个 FFmpeg 按正式参数编码，等全部编码结束。这样量到的“每路每帧”已经含了几路争 GPU / CPU、截图与编码的开销，
  * 不再用固定的并行效率去猜（单路量完乘效率在本机实测会少估 30–40%）。
  */
-async function planMode({ dir, opts, log, signal, w, h, fpsReq, film, intermediate, out, web, profile, openOptions }) {
+async function planMode({ dir, opts, log, signal, w, h, fpsReq, film, intermediate, samples = 1, shutter = 0.5, out, web, profile, openOptions }) {
   const t0 = Date.now();
   const f = await openFilm(dir, { ...openOptions, handleSignals: false, signal });
   const setupSeconds = (Date.now() - t0) / 1000;
@@ -355,6 +359,12 @@ async function planMode({ dir, opts, log, signal, w, h, fpsReq, film, intermedia
     const k = Math.max(1, Math.min(8, Math.floor(frames / lanes) - 1));
     const crf = opts.crf ?? profile?.video?.crf ?? 14, preset = opts.preset ?? profile?.video?.preset ?? 'medium';
     const settle = opts.settle === 'auto' ? (f.info.angle === 'vulkan' ? 'raf2' : 'none') : opts.settle;
+    const useGpu = intermediate === 'yuv420' || samples > 1;
+    const grab = async (film_, t) => {
+      if (useGpu) return captureGpuFrame(film_, t, { w, h, format: intermediate, samples, shutter, fps: FPS, dur: film_.contract.dur, signal, settle });
+      await renderFrame(film_, t, { signal, settle });
+      return film_.capture(intermediate);
+    };
 
     // 1) 起其余几路浏览器（正式渲染时它们也要起）
     const ts = Date.now();
@@ -365,7 +375,7 @@ async function planMode({ dir, opts, log, signal, w, h, fpsReq, film, intermedia
     // 2) 每路预热一帧（着色器编译），计入起步时间
     const starts = films.map((_, i) => a + Math.min(frames - k - 1, Math.floor(((i + 0.5) * frames) / lanes)));
     const tw = Date.now();
-    await Promise.all(films.map((film_, i) => renderFrame(film_, Math.max(a, starts[i]) / FPS, { signal, settle }).then(() => film_.capture(intermediate))));
+    await Promise.all(films.map((film_, i) => grab(film_, Math.max(a, starts[i]) / FPS)));
     const warmSeconds = (Date.now() - tw) / 1000;
 
     // 3) 几路同时各渲 k 帧，每路一个 FFmpeg 按正式参数编码
@@ -375,15 +385,17 @@ async function planMode({ dir, opts, log, signal, w, h, fpsReq, film, intermedia
     const tc = Date.now();
     const lane = async (film_, i) => {
       const file = path.join(tmp.dir, `lane${i}.mp4`);
-      const p = spawn(FFMPEG(), ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', intermediate === 'png' ? 'png' : 'mjpeg', '-i', '-',
+      const inArgs = intermediate === 'yuv420'
+        ? rawYuvInputArgs(w, h, FPS)
+        : ['-f', 'image2pipe', '-framerate', String(FPS), '-c:v', intermediate === 'png' ? 'png' : 'mjpeg', '-i', '-'];
+      const p = spawn(FFMPEG(), ['-y', '-loglevel', 'error', ...inArgs,
         '-vf', COLOR[intermediate], ...x264Args({ crf, preset }), ...TAGS, file], { stdio: ['pipe', 'ignore', 'inherit'] });
       openOptions.life?.track(p);
       const exited = new Promise(r => { p.once('close', code => r(code)); p.once('error', () => r(-1)); });
       p.stdin.on('error', () => {});
       for (let j = 1; j <= k; j++) {
         const s0 = Date.now();
-        await renderFrame(film_, Math.min(b - 1, Math.max(a, starts[i]) + j) / FPS, { signal, settle });
-        const img = await film_.capture(intermediate);
+        const img = await grab(film_, Math.min(b - 1, Math.max(a, starts[i]) + j) / FPS);
         renderMs.push(Date.now() - s0);
         if (!p.stdin.write(img)) await Promise.race([new Promise(r => p.stdin.once('drain', r)), exited]);
       }

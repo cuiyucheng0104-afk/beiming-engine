@@ -9,6 +9,7 @@ import * as LOOK from './index.js';   // 按命名空间取：修改前的代码
 const { createLook, LOOK_BASE } = LOOK;
 const lookParams = (...a) => LOOK.lookParams(...a), lookDefaults = (...a) => LOOK.lookDefaults(...a);
 import { createBloom } from './bloom.js';
+import { createKuwahara } from './kuwahara.js';
 import { createInk } from './ink.js';
 import { createIdPass } from './ids.js';
 import { mergeParam } from './params.js';
@@ -225,4 +226,24 @@ test('R33 回归 noId：只跳过用 noId 材质画的那一个网格（多材�
   assert.equal(d.veilBlend, THREE.CustomBlending);
   assert.deepEqual(all.map(o => o.material), before, '渲完全部换回原材质');
   assert.equal(veil.blending, THREE.NormalBlending);
+});
+
+test('Kuwahara：默认 anisotropy=0 只画单 pass；开启 anisotropy > 0 时走结构张量 + 方向场 + 椭圆桑原三步并完整释放', () => {
+  const fx = fakeFx();
+  const kw = createKuwahara(fx);
+  const cam = new THREE.PerspectiveCamera();
+  const src = new THREE.Texture(), depth = new THREE.Texture(), out = new THREE.WebGLRenderTarget(64, 64);
+
+  kw.render({ src, depth, camera: cam, p: { radius: 4, strength: 1, q: 8 }, k: 1, w: 64, h: 64 }, out);
+  assert.equal(fx.draws.length, 1, '默认各向同性模式只执行 1 次全屏绘制，零额外开销');
+  assert.equal(fx.draws[0].m.uniforms.tFlow, undefined);
+
+  fx.draws.length = 0;
+  kw.render({ src, depth, camera: cam, p: { radius: 4, strength: 1, q: 8, anisotropy: 1.1, tensorSigma: 1.6 }, k: 1, w: 64, h: 64 }, out);
+  assert.equal(fx.draws.length, 3, '开启 anisotropy 时依次执行结构张量、平滑特征分解、各向异性桑原 3 个 pass');
+  assert.equal(fx.draws[2].target, out);
+  assert.equal(fx.draws[2].m.uniforms.uAniso.value, 1.1);
+
+  kw.dispose();
+  out.dispose();
 });
