@@ -1,0 +1,59 @@
+{
+  "version": "0.1.0",
+  "units": {
+    "contextCap": "起始上下文上限，token：任务书加必读文件的总量",
+    "tokenCap": "一个会话的用量上限，token",
+    "concurrency": "这个角色同时最多几个会话"
+  },
+  "limits": {
+    "engineWriters": 8,
+    "coreWriters": 2,
+    "labWriters": 2,
+    "cleanupPullRequests": 2,
+    "total": 12
+  },
+  "roles": {
+    "integrator": {
+      "file": "roles/integrator.md",
+      "model": "fable", "effort": "high",
+      "contextCap": 40000, "concurrency": 1,
+      "worktree": "integration", "countsAsWriter": false
+    },
+    "contract-author": {
+      "file": "roles/contract-author.md",
+      "model": "fable", "effort": "high",
+      "contextCap": 60000, "tokenCap": 250000, "concurrency": 1,
+      "worktree": "none", "countsAsWriter": false
+    },
+    "reviewer": {
+      "file": "roles/reviewer.md",
+      "model": "fable", "effort": "medium",
+      "contextCap": 25000, "tokenCap": 200000, "concurrency": 6,
+      "worktree": "readonly", "countsAsWriter": false
+    },
+    "red-team": {
+      "file": "roles/red-team.md",
+      "model": "fable", "effort": "high",
+      "contextCap": 40000, "tokenCap": 400000, "concurrency": 3,
+      "worktree": "readonly", "countsAsWriter": false
+    },
+    "implementer": {
+      "file": "roles/implementer.md",
+      "model": "opus", "effort": "medium",
+      "contextCap": 30000, "tokenCap": 400000, "concurrency": 8,
+      "worktree": "required", "countsAsWriter": true
+    },
+    "conformance-tester": {
+      "file": "roles/conformance-tester.md",
+      "model": "opus", "effort": "medium",
+      "contextCap": 30000, "tokenCap": 350000, "concurrency": 1,
+      "worktree": "required", "countsAsWriter": true
+    },
+    "batch": {
+      "file": "roles/batch.md",
+      "model": "sonnet", "effort": "low",
+      "contextCap": 10000, "tokenCap": 250000, "concurrency": 12,
+      "worktree": "cleanup-only", "countsAsWriter": false
+    }
+  }
+}
