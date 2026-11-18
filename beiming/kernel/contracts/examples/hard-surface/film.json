@@ -1,0 +1,45 @@
+{
+  "format": "film/3.0",
+  "id": "f_hs",
+  "title": "硬表面拼装镜头样例",
+  "output": { "size": [1920, 1080], "fps": "30/1", "frames": 180 },
+  "timeline": { "bpm": 150, "beatFrames": 12 },
+  "shots": [
+    {
+      "id": "s01", "in": 0, "out": 180,
+      "source": "blender", "host": "cycles", "mode": "cards-data",
+      "colorRef": "scene", "seed": 5201,
+      "assets": { "kit": "asset:pump-kit@2" },
+      "cards": {
+        "blender.cycles@1": {},
+        "blender.state-keys@1": {},
+        "assembly.schedule@1": { "plan": "data/asm.baked.json", "window": 0.35 },
+        "camera.fit@1": { "of": "kit", "azimuth": 35, "elevation": 18, "margin": 0.9 },
+        "light.studio@1": { "rig": "product-3pt" },
+        "particle.ballistic@1": { "at": "event(lock)", "count": 500 }
+      },
+      "roles": { "hero": "kit", "mustSee": ["kit.rotor", "kit.housing"] },
+      "shutter": { "angleDeg": 180 },
+      "tiers": { "draft": { "samples": 24, "scale": 0.5 }, "final": { "samples": 160 } },
+      "handles": { "head": 0, "tail": 0 }
+    }
+  ],
+  "events": [
+    { "id": "lock", "frame": 150, "shot": "s01", "audio": "foley.clack", "sync": "pcenter" }
+  ],
+  "overlays": [
+    { "id": "callout", "shot": "s01", "anchor": "kit.rotor#hub", "text": "转子到位", "in": "event(lock) + 6", "out": 178 }
+  ],
+  "style": {
+    "tokens": { "accent": "#3D7DD8", "ink": "#1B1A22", "paper": "#F4F0E9" },
+    "view": { "scene": "agx-mhc", "display": "srgb" },
+    "colorScript": { "s01": { "key": ["#101216", "#C8D0D8"], "tol": 10 } },
+    "finish": { "grain": 0.04, "vignette": 0.2 }
+  },
+  "audio": { "mode": "script" },
+  "predicates": {
+    "base": ["floor@1", "template:assembly@1"],
+    "extra": ["visible(kit.rotor) >= 0.6 @ [150,179]"]
+  },
+  "delivery": { "master": "h264-crf14-bt709", "contact": true }
+}
