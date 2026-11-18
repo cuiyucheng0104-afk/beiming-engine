@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "envelope/envelope.schema.json",
+  "title": "信封",
+  "description": "只管结构。ok、exitCode、error 三者的关系和错误码登记没登记由 EN1 到 EN4 管。",
+  "type": "object",
+  "required": [
+    "format",
+    "ok",
+    "exitCode",
+    "error",
+    "outputs",
+    "data",
+    "diagnostics",
+    "cost",
+    "next"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "envelope/0.1"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "exitCode": {
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        124
+      ]
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "hint"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "hint": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "url"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "data": {
+      "type": "object"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "layer",
+          "severity",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+          },
+          "layer": {
+            "enum": [
+              "L1",
+              "L2",
+              "L3",
+              "L4",
+              "L5"
+            ]
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "pattern": "^[^/#\\s]+(/[^/#\\s]+)*$"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {},
+          "expected": {
+            "type": "string",
+            "minLength": 1
+          },
+          "frames": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "evidence": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "fix": {
+            "$ref": "../patch/fix.schema.json"
+          }
+        }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "required": [
+        "tokens",
+        "gpuSeconds",
+        "wallMs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gpuSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "wallMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "next": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "verb"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "verb": {
+            "type": "string",
+            "pattern": "^(GET|POST|PUT|DELETE) /v1/\\S+$"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "ext": {
+      "type": "object"
+    }
+  }
+}

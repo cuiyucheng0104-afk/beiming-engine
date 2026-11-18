@@ -1,0 +1,23 @@
+{
+  "id": "pred.inside_frame",
+  "layer": "L3",
+  "status": "fail",
+  "base": true,
+  "frames": [
+    166,
+    179
+  ],
+  "value": {
+    "overflowPx": 38,
+    "side": "right"
+  },
+  "expected": "margin >= 0.05",
+  "evidence": "h_e91",
+  "hint": "装回末段相机距离不足",
+  "fix": {
+    "op": "set",
+    "path": "shots/s01/cards/camera.fit@1/margin",
+    "value": 0.82,
+    "applicability": "maybe"
+  }
+}

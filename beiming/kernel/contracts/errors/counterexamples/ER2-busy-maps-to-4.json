@@ -1,0 +1,53 @@
+{
+  "format": "errors/0.1",
+  "prefixes": [
+    {
+      "prefix": "usage.",
+      "exitCode": 2,
+      "meaning": "用法错误"
+    },
+    {
+      "prefix": "env.",
+      "exitCode": 3,
+      "meaning": "环境或依赖缺失、不合格"
+    },
+    {
+      "prefix": "contract.",
+      "exitCode": 4,
+      "meaning": "契约、验收或闸门不通过"
+    },
+    {
+      "prefix": "busy.",
+      "exitCode": 4,
+      "meaning": "资源忙"
+    },
+    {
+      "prefix": "timeout.",
+      "exitCode": 124,
+      "meaning": "超时"
+    },
+    {
+      "prefix": "failure.",
+      "exitCode": 1,
+      "meaning": "运行失败"
+    }
+  ],
+  "codes": [
+    {
+      "code": "busy.rev-conflict",
+      "meaning": "写入带的修订号和服务器当前的修订号不同"
+    },
+    {
+      "code": "contract.unknown-key",
+      "meaning": "出现了契约没定义的键"
+    },
+    {
+      "code": "contract.unknown-node",
+      "meaning": "场景包里出现了节点登记表之外的图案节点"
+    },
+    {
+      "code": "contract.unsupported-output",
+      "meaning": "要了帧源没声明过的输出"
+    }
+  ]
+}

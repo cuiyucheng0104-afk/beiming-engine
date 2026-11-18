@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "patch/fix.schema.json",
+  "title": "修法",
+  "description": "嵌在诊断和判定里的值，不带 format。去掉 applicability 之后是不是合法的补丁操作由 PA5 管。",
+  "type": "object",
+  "required": [
+    "op",
+    "path",
+    "applicability"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "op": {
+      "enum": [
+        "set",
+        "remove",
+        "rename",
+        "add"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[^/#\\s]+(/[^/#\\s]+)*$"
+    },
+    "value": {},
+    "to": {
+      "type": "string",
+      "pattern": "^[^/#\\s]+$"
+    },
+    "applicability": {
+      "enum": [
+        "machine",
+        "maybe",
+        "placeholder",
+        "none"
+      ]
+    }
+  }
+}

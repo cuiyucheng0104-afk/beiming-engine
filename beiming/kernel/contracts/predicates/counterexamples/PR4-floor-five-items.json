@@ -1,0 +1,576 @@
+{
+  "format": "predicates/0.1",
+  "predicates": [
+    {
+      "name": "delivery",
+      "params": [
+        {
+          "name": "width",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "height",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "fps",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "frames",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "reads": [
+        "film"
+      ],
+      "requires": [],
+      "milestone": "M1a"
+    },
+    {
+      "name": "loudness",
+      "params": [
+        {
+          "name": "target",
+          "type": "ref",
+          "required": true
+        }
+      ],
+      "reads": [
+        "film-audio"
+      ],
+      "requires": [],
+      "milestone": "M1a"
+    },
+    {
+      "name": "true_peak",
+      "params": [
+        {
+          "name": "target",
+          "type": "ref",
+          "required": true
+        }
+      ],
+      "reads": [
+        "film-audio"
+      ],
+      "requires": [],
+      "milestone": "M1a"
+    },
+    {
+      "name": "cut_at",
+      "params": [
+        {
+          "name": "at",
+          "type": "frame",
+          "required": true
+        }
+      ],
+      "reads": [
+        "film",
+        "events"
+      ],
+      "requires": [],
+      "milestone": "M1a"
+    },
+    {
+      "name": "no_cut",
+      "params": [],
+      "reads": [
+        "film",
+        "events"
+      ],
+      "requires": [],
+      "milestone": "M1a"
+    },
+    {
+      "name": "inside_frame",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        },
+        {
+          "name": "margin",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "reads": [
+        "meta.entities.bbox2d"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M1a"
+    },
+    {
+      "name": "visible",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.entities.visible"
+      ],
+      "requires": [
+        "meta",
+        "objectId"
+      ],
+      "milestone": "M1a"
+    },
+    {
+      "name": "text_matches",
+      "params": [
+        {
+          "name": "text",
+          "type": "text",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.texts",
+        "film-ocr"
+      ],
+      "requires": [
+        "texts"
+      ],
+      "milestone": "M1a"
+    },
+    {
+      "name": "bbox_w",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.entities.bbox2d",
+        "meta.size"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "bbox_h",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.entities.bbox2d",
+        "meta.size"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "margin_lr",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.entities.bbox2d",
+        "meta.size"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "margin_tb",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.entities.bbox2d",
+        "meta.size"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "orbit_total",
+      "params": [
+        {
+          "name": "camera",
+          "type": "ref",
+          "required": true
+        },
+        {
+          "name": "subject",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.camera"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "camera.height",
+      "params": [],
+      "reads": [
+        "meta.camera"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "palette_dE",
+      "params": [
+        {
+          "name": "shot",
+          "type": "ref",
+          "required": true
+        },
+        {
+          "name": "script",
+          "type": "ref",
+          "required": true
+        }
+      ],
+      "reads": [
+        "render-stats"
+      ],
+      "requires": [],
+      "milestone": "M2"
+    },
+    {
+      "name": "highlight_clip_ratio",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": false
+        }
+      ],
+      "reads": [
+        "meta.stats"
+      ],
+      "requires": [],
+      "requiresPerEntity": [
+        "objectId"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "luma_p99",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": false
+        }
+      ],
+      "reads": [
+        "meta.stats"
+      ],
+      "requires": [],
+      "requiresPerEntity": [
+        "objectId"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "onset",
+      "params": [
+        {
+          "name": "audio",
+          "type": "ref",
+          "required": true
+        },
+        {
+          "name": "event",
+          "type": "ref",
+          "required": true
+        }
+      ],
+      "reads": [
+        "audio",
+        "events"
+      ],
+      "requires": [],
+      "milestone": "M2"
+    },
+    {
+      "name": "readable",
+      "params": [
+        {
+          "name": "text",
+          "type": "ref",
+          "required": true
+        },
+        {
+          "name": "hold",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "contrast",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "safe",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "reads": [
+        "meta.texts",
+        "render-stats"
+      ],
+      "requires": [
+        "texts"
+      ],
+      "milestone": "M2"
+    },
+    {
+      "name": "at_rest",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "tracks",
+        "meta.entities.motion"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M3"
+    },
+    {
+      "name": "no_intersect",
+      "params": [
+        {
+          "name": "a",
+          "type": "entity",
+          "required": true
+        },
+        {
+          "name": "b",
+          "type": "entity",
+          "required": true
+        },
+        {
+          "name": "tol",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "reads": [
+        "query"
+      ],
+      "requires": [
+        "intersect"
+      ],
+      "only": [
+        "blender"
+      ],
+      "milestone": "M3"
+    },
+    {
+      "name": "contact",
+      "params": [
+        {
+          "name": "a",
+          "type": "entity",
+          "required": true
+        },
+        {
+          "name": "b",
+          "type": "entity",
+          "required": true
+        },
+        {
+          "name": "max",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "reads": [
+        "query"
+      ],
+      "requires": [
+        "contact"
+      ],
+      "only": [
+        "blender"
+      ],
+      "milestone": "M3"
+    },
+    {
+      "name": "key_fill_ratio",
+      "params": [
+        {
+          "name": "subject",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.lights",
+        "render-stats"
+      ],
+      "requires": [
+        "meta",
+        "objectId"
+      ],
+      "milestone": "M3"
+    },
+    {
+      "name": "in_focus",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.camera",
+        "meta.entities.depth"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M3"
+    },
+    {
+      "name": "fx_visible",
+      "params": [
+        {
+          "name": "entity",
+          "type": "entity",
+          "required": true
+        },
+        {
+          "name": "minArea",
+          "type": "number",
+          "required": true
+        }
+      ],
+      "reads": [
+        "meta.entities.pxArea",
+        "meta.stats"
+      ],
+      "requires": [
+        "meta"
+      ],
+      "milestone": "M3"
+    },
+    {
+      "name": "no_ghost",
+      "params": [
+        {
+          "name": "cut",
+          "type": "frame",
+          "required": true
+        }
+      ],
+      "reads": [
+        "render-stats"
+      ],
+      "requires": [],
+      "milestone": "M3"
+    },
+    {
+      "name": "encoded_readback",
+      "params": [],
+      "reads": [
+        "film",
+        "render-stats"
+      ],
+      "requires": [],
+      "milestone": "M3"
+    }
+  ],
+  "templates": [
+    {
+      "name": "floor",
+      "version": "1.0.0",
+      "roles": [
+        "hero"
+      ],
+      "items": [
+        {
+          "expr": "delivery(output)",
+          "uses": [
+            "delivery"
+          ],
+          "limited": true
+        },
+        {
+          "expr": "loudness(film) in [-15,-13] ; true_peak(film) <= -1",
+          "uses": [
+            "loudness",
+            "true_peak"
+          ],
+          "limited": true,
+          "when": "has-audio"
+        },
+        {
+          "expr": "cut_at(shots) ; no_cut",
+          "uses": [
+            "cut_at",
+            "no_cut"
+          ],
+          "limited": true
+        },
+        {
+          "expr": "inside_frame(hero, margin=0.05)",
+          "uses": [
+            "inside_frame"
+          ],
+          "limited": false
+        },
+        {
+          "expr": "visible(hero) >= 0.5",
+          "uses": [
+            "visible"
+          ],
+          "limited": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,545 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "card-file/card.schema.json",
+  "title": "卡文件",
+  "description": "只管结构。落点和入口对不对得上、参数默认值在不在范围里、状态的键重不重复等由 CF1 到 CF8 管。私有覆盖层的五个键这里特意放行，由 CF7 禁掉。",
+  "type": "object",
+  "required": [
+    "format",
+    "id",
+    "version",
+    "kind",
+    "title",
+    "intent",
+    "livesIn",
+    "impl",
+    "params",
+    "ports",
+    "conditions",
+    "calibration",
+    "verify",
+    "provenance",
+    "status",
+    "exams"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "card/0.1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "kind": {
+      "enum": [
+        "time",
+        "camera",
+        "assembly",
+        "particle",
+        "post",
+        "shading",
+        "lighting",
+        "atmosphere",
+        "form",
+        "material",
+        "motion",
+        "two-d",
+        "audio",
+        "delivery",
+        "asset",
+        "mechanism"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visibleToAgent": {
+      "type": "boolean"
+    },
+    "livesIn": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "data",
+          "source:three",
+          "source:blender",
+          "source:core",
+          "bake",
+          "comp"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "impl": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "livesIn",
+          "entry",
+          "shape",
+          "hosts",
+          "selftest"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "livesIn": {
+            "enum": [
+              "data",
+              "source:three",
+              "source:blender",
+              "source:core",
+              "bake",
+              "comp"
+            ]
+          },
+          "entry": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$"
+          },
+          "shape": {
+            "enum": [
+              "create",
+              "evaluate"
+            ]
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "host",
+                "version"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "host": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "version": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "selftest": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$"
+          }
+        }
+      }
+    },
+    "params": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][A-Za-z0-9]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "type",
+          "unit",
+          "default",
+          "coupling"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "number",
+              "integer",
+              "boolean",
+              "string",
+              "color",
+              "time"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "space": {
+            "enum": [
+              "scene-linear",
+              "display"
+            ]
+          },
+          "range": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            }
+          },
+          "default": {},
+          "coupling": {
+            "enum": [
+              "none",
+              "scene-scale",
+              "view-transform",
+              "resolution",
+              "fps",
+              "asset-batch",
+              "host-api"
+            ]
+          }
+        }
+      }
+    },
+    "ports": {
+      "type": "object",
+      "required": [
+        "in",
+        "out",
+        "order",
+        "requires"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "in": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][A-Za-z0-9]*$"
+              },
+              "type": {
+                "type": "string",
+                "pattern": "^(scene-linear-rgba16f|depth-view-f32|object-id|normal-view|events|frame-meta|bbox-world|tracks\\.[a-z][A-Za-z0-9.]*)$"
+              }
+            }
+          }
+        },
+        "out": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z][A-Za-z0-9]*$"
+              },
+              "type": {
+                "type": "string",
+                "pattern": "^(scene-linear-rgba16f|depth-view-f32|object-id|normal-view|events|frame-meta|bbox-world|tracks\\.[a-z][A-Za-z0-9.]*)$"
+              }
+            }
+          }
+        },
+        "order": {
+          "type": "object",
+          "required": [
+            "before",
+            "after"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "before": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+              },
+              "uniqueItems": true
+            },
+            "after": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "priors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "param",
+          "value",
+          "when",
+          "case"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "param": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {},
+          "when": {
+            "type": "string",
+            "minLength": 1
+          },
+          "case": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {}
+        }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "required": [
+        "appliesWhen",
+        "notWhen"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "appliesWhen": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "notWhen": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "calibration": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verify": {
+      "type": "object",
+      "required": [
+        "selftest",
+        "predicates"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "selftest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parity": {
+          "type": "object",
+          "required": [
+            "gates",
+            "mutation",
+            "negative"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "gates": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "mutation": {
+              "type": "string",
+              "minLength": 1
+            },
+            "negative": {
+              "type": "string",
+              "minLength": 1
+            },
+            "truth": {}
+          }
+        },
+        "predicates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "ablation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "metric",
+          "delta",
+          "unit"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "metric": {
+            "type": "string",
+            "minLength": 1
+          },
+          "delta": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lab": {}
+        }
+      }
+    },
+    "pitfalls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "symptom",
+          "fix"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "symptom": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fix": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "cases",
+        "note"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "studied": {},
+        "lab": {}
+      }
+    },
+    "status": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "level",
+          "host",
+          "source",
+          "gpu",
+          "date"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "enum": [
+              "read",
+              "reproduced",
+              "measured",
+              "film-verified"
+            ]
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "gpu": {
+            "type": "string",
+            "minLength": 1
+          },
+          "parityReport": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          }
+        }
+      }
+    },
+    "exams": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^([1-9][0-9]*-[1-9][0-9]*|cal:[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+)$"
+      },
+      "uniqueItems": true
+    },
+    "cost": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "host",
+          "msPerFrame"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "msPerFrame": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "ext": {
+      "type": "object"
+    }
+  }
+}

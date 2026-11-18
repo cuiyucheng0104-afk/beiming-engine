@@ -1,0 +1,15 @@
+{
+  "format": "envelope/0.1",
+  "ok": true,
+  "exitCode": 0,
+  "error": null,
+  "outputs": [],
+  "data": {},
+  "diagnostics": [],
+  "cost": {
+    "tokens": 0,
+    "gpuSeconds": 0,
+    "wallMs": 0
+  },
+  "next": []
+}

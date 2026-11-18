@@ -1,0 +1,16 @@
+[
+  {
+    "file": "QF1-weights-sum-1.1.json",
+    "violates": [
+      "QF1"
+    ],
+    "why": "三条判分的 weight 是 0.5、0.3、0.3，加起来是 1.1"
+  },
+  {
+    "file": "QF2-unregistered-predicate.json",
+    "violates": [
+      "QF2"
+    ],
+    "why": "第 2 条基础谓词的名字 head_width 不在谓词登记表里"
+  }
+]

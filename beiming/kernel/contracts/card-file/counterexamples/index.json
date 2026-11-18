@@ -1,0 +1,58 @@
+[
+  {
+    "file": "CF1-landing-without-impl.json",
+    "violates": [
+      "CF1"
+    ],
+    "why": "livesIn 里有 comp，impl 里没有落点是 comp 的入口"
+  },
+  {
+    "file": "CF2-data-impl-create.json",
+    "violates": [
+      "CF2"
+    ],
+    "why": "落点是 data 的入口，shape 写成了 create"
+  },
+  {
+    "file": "CF3-data-impl-outside.json",
+    "violates": [
+      "CF3"
+    ],
+    "why": "落点是 data 的入口放在 sources/blender/ 下面"
+  },
+  {
+    "file": "CF4-default-out-of-range.json",
+    "violates": [
+      "CF4"
+    ],
+    "why": "margin 的 default 是 0.5，不在 range 的 0.7 到 0.98 里"
+  },
+  {
+    "file": "CF5-space-on-number.json",
+    "violates": [
+      "CF5"
+    ],
+    "why": "margin 的 type 是 number，却带了 space"
+  },
+  {
+    "file": "CF6-duplicate-status-key.json",
+    "violates": [
+      "CF6"
+    ],
+    "why": "status 里两项的 host、source、gpu 三个都相同"
+  },
+  {
+    "file": "CF7-overlay-field-in-card.json",
+    "violates": [
+      "CF7"
+    ],
+    "why": "priors 第 1 项带了 source，这是私有覆盖层的字段"
+  },
+  {
+    "file": "CF8-unregistered-predicate.json",
+    "violates": [
+      "CF8"
+    ],
+    "why": "verify.predicates 里的 fits_frame 不在谓词登记表里"
+  }
+]

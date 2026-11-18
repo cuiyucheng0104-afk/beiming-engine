@@ -1,0 +1,44 @@
+[
+  {
+    "file": "PR1-duplicate-name.json",
+    "violates": [
+      "PR1"
+    ],
+    "why": "visible 登记了两次"
+  },
+  {
+    "file": "PR2-bbox-w-without-milestone.json",
+    "violates": [
+      "PR2"
+    ],
+    "why": "bbox_w 没写 milestone"
+  },
+  {
+    "file": "PR3-template-uses-unregistered.json",
+    "violates": [
+      "PR3"
+    ],
+    "why": "floor 第 5 条的 uses 里有 screen_share，登记表里没有这个谓词"
+  },
+  {
+    "file": "PR4-floor-five-items.json",
+    "violates": [
+      "PR4"
+    ],
+    "why": "floor 的 1 版只有五条，少了 text_matches(copy)"
+  },
+  {
+    "file": "PR5-floor-uses-m2-predicate.json",
+    "violates": [
+      "PR5"
+    ],
+    "why": "floor 用到的 visible 的 milestone 写成了 M2"
+  },
+  {
+    "file": "PR6-limited-item-needs-meta.json",
+    "violates": [
+      "PR6"
+    ],
+    "why": "floor 第 4 条 limited 是 true，它用的 inside_frame 却要帧源声明 meta"
+  }
+]

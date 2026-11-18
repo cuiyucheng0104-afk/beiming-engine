@@ -1,0 +1,37 @@
+[
+  {
+    "file": "PA1-rename-without-to.json",
+    "violates": [
+      "PA1"
+    ],
+    "why": "补丁：第 2 个操作是 rename，没带 to"
+  },
+  {
+    "file": "PA2-rejected-half-applied.json",
+    "violates": [
+      "PA2"
+    ],
+    "why": "核对记录：整个补丁被拒，after 里 margin 却已经改成 0.82"
+  },
+  {
+    "file": "PA3-applied-op-missing.json",
+    "violates": [
+      "PA3"
+    ],
+    "why": "核对记录：两个操作都能作用、结果写的是 applied，after 里却没有加进去的事件 title"
+  },
+  {
+    "file": "PA4-inapplicable-not-rejected.json",
+    "violates": [
+      "PA4"
+    ],
+    "why": "核对记录：remove 指向不存在的 style/finish/vignette，结果却写成 applied"
+  },
+  {
+    "file": "PA5-fix-rename-without-to.json",
+    "violates": [
+      "PA5"
+    ],
+    "why": "修法：op 是 rename，没带 to，去掉 applicability 之后不是合法的补丁操作"
+  }
+]

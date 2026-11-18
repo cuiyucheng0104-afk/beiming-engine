@@ -1,0 +1,147 @@
+{
+  "format": "ownership/0.1",
+  "root": "beiming",
+  "entries": [
+    {
+      "path": ".",
+      "owner": "integrator",
+      "holds": "根目录下的文件"
+    },
+    {
+      "path": "api",
+      "owner": "api",
+      "holds": "协议：动词、信封、鉴权"
+    },
+    {
+      "path": "jobs",
+      "owner": "jobs",
+      "holds": "作业：调度、缓存、资产库、账本"
+    },
+    {
+      "path": "kernel",
+      "owner": "integrator",
+      "holds": "kernel 下不在子目录里的文件"
+    },
+    {
+      "path": "kernel/contracts",
+      "owner": "integrator",
+      "holds": "契约"
+    },
+    {
+      "path": "kernel/eval",
+      "owner": "kernel-eval",
+      "holds": "求值核：时间线、事件、随机流、插值的实现"
+    },
+    {
+      "path": "sources",
+      "owner": "integrator",
+      "holds": "sources 下不在子目录里的文件"
+    },
+    {
+      "path": "sources/three",
+      "owner": "source-three",
+      "holds": "three 帧源"
+    },
+    {
+      "path": "sources/blender",
+      "owner": "source-blender",
+      "holds": "Blender 帧源"
+    },
+    {
+      "path": "sources/legacy-page",
+      "owner": "source-legacy-page",
+      "holds": "旧的页面作品帧源"
+    },
+    {
+      "path": "sources/core",
+      "owner": "source-core",
+      "holds": "核心帧源"
+    },
+    {
+      "path": "host",
+      "owner": "host",
+      "holds": "宿主"
+    },
+    {
+      "path": "comp",
+      "owner": "comp",
+      "holds": "合成收尾"
+    },
+    {
+      "path": "observe",
+      "owner": "observe",
+      "holds": "感知"
+    },
+    {
+      "path": "verify",
+      "owner": "verify",
+      "holds": "验收"
+    },
+    {
+      "path": "cards",
+      "owner": "cards",
+      "holds": "技术卡：全部卡文件，以及内建能力之外的数据层卡的实现"
+    },
+    {
+      "path": "bench",
+      "owner": "bench",
+      "holds": "考题"
+    },
+    {
+      "path": "harvest",
+      "owner": "harvest",
+      "holds": "收获"
+    },
+    {
+      "path": "calib",
+      "owner": "calib",
+      "holds": "校准场景"
+    },
+    {
+      "path": "crew",
+      "owner": "integrator",
+      "holds": "多代理施工：总则、角色、任务书模板、配置表"
+    }
+  ],
+  "placements": [
+    {
+      "what": "card-file",
+      "where": "cards"
+    },
+    {
+      "what": "builtin-impl",
+      "where": "kernel/eval",
+      "covers": [
+        "timeline",
+        "events",
+        "rng",
+        "interp"
+      ]
+    },
+    {
+      "what": "data-card-impl",
+      "where": "kernel/eval"
+    }
+  ],
+  "packages": [
+    {
+      "id": "demo-a",
+      "writes": [
+        "kernel/eval"
+      ]
+    },
+    {
+      "id": "demo-b",
+      "writes": [
+        "cards/camera",
+        "cards/time"
+      ]
+    },
+    {
+      "id": "demo-c",
+      "writes": [
+        "cards/particle"
+      ]
+    }
+  ]
+}

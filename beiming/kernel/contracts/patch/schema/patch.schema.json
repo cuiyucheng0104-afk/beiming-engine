@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "patch/patch.schema.json",
+  "title": "补丁",
+  "description": "只管结构。哪种操作带 value、带 to 由 PA1 管，这里不收紧。",
+  "type": "object",
+  "required": [
+    "format",
+    "rev",
+    "ops"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "patch/0.1"
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ops": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "op",
+          "path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": [
+              "set",
+              "remove",
+              "rename",
+              "add"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^[^/#\\s]+(/[^/#\\s]+)*$"
+          },
+          "value": {},
+          "to": {
+            "type": "string",
+            "pattern": "^[^/#\\s]+$"
+          }
+        }
+      }
+    }
+  }
+}

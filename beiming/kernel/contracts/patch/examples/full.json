@@ -1,0 +1,28 @@
+{
+  "format": "patch/0.1",
+  "rev": 6,
+  "ops": [
+    {
+      "op": "set",
+      "path": "shots/s01/cards/camera.fit@1/margin",
+      "value": 0.82
+    },
+    {
+      "op": "rename",
+      "path": "shots/s01/cards/camera.fit@1/margn",
+      "to": "margin"
+    },
+    {
+      "op": "remove",
+      "path": "style/finish/grain"
+    },
+    {
+      "op": "add",
+      "path": "events",
+      "value": {
+        "id": "title",
+        "frame": 192
+      }
+    }
+  ]
+}

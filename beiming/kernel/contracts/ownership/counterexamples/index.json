@@ -1,0 +1,30 @@
+[
+  {
+    "file": "OW1-two-owners-for-cards.json",
+    "violates": [
+      "OW1"
+    ],
+    "why": "cards 有两个条目，属主一个是 cards、一个是 harvest"
+  },
+  {
+    "file": "OW2-calib-missing.json",
+    "violates": [
+      "OW2"
+    ],
+    "why": "必有的条目里少了 calib"
+  },
+  {
+    "file": "OW3-data-card-impl-in-eval.json",
+    "violates": [
+      "OW3"
+    ],
+    "why": "data-card-impl 的 where 写成了 kernel/eval，应该是 cards/<kind>/<name>"
+  },
+  {
+    "file": "OW4-packages-overlap.json",
+    "violates": [
+      "OW4"
+    ],
+    "why": "demo-c 写 cards/camera/fit，落在 demo-b 的 cards/camera 之下"
+  }
+]

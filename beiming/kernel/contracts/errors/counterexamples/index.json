@@ -1,0 +1,23 @@
+[
+  {
+    "file": "ER1-code-without-prefix.json",
+    "violates": [
+      "ER1"
+    ],
+    "why": "quota.exceeded 不以六个前缀里的任何一个开头"
+  },
+  {
+    "file": "ER2-busy-maps-to-4.json",
+    "violates": [
+      "ER2"
+    ],
+    "why": "busy. 的退出码写成了 4，应该是 5"
+  },
+  {
+    "file": "ER3-duplicate-code.json",
+    "violates": [
+      "ER3"
+    ],
+    "why": "busy.rev-conflict 登记了两次"
+  }
+]

@@ -1,0 +1,158 @@
+{
+  "format": "card/0.1",
+  "id": "camera.fit",
+  "version": "1.0.0",
+  "kind": "camera",
+  "title": "求解取景",
+  "intent": "让主体在整个镜头里按给定的余量留在画内",
+  "visibleToAgent": true,
+  "livesIn": [
+    "data",
+    "source:blender"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "sources/blender/cards/fit_eval.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/camera/camera.fit/selftest.mjs"
+    },
+    {
+      "livesIn": "source:blender",
+      "entry": "sources/blender/cards/camera_fit.py",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "blender-cli",
+          "version": "4.5.0"
+        }
+      ],
+      "selftest": "sources/blender/cards/camera_fit_test.py"
+    }
+  ],
+  "params": {
+    "margin": {
+      "type": "number",
+      "unit": "none",
+      "range": [
+        0.7,
+        0.98
+      ],
+      "default": 0.9,
+      "coupling": "none"
+    },
+    "target": {
+      "type": "string",
+      "unit": "none",
+      "default": "hero",
+      "coupling": "none"
+    },
+    "settle": {
+      "type": "time",
+      "unit": "frame",
+      "default": 0,
+      "coupling": "fps"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "bbox",
+        "type": "bbox-world"
+      }
+    ],
+    "out": [
+      {
+        "name": "camera",
+        "type": "tracks.camera"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": [
+        "assembly.explode"
+      ]
+    },
+    "requires": [
+      "镜头里有角色是 hero 的实体"
+    ]
+  },
+  "priors": [
+    {
+      "param": "margin",
+      "value": 0.82,
+      "when": "主体是长宽比 2.4 上下的硬表面拼装件",
+      "case": "01"
+    }
+  ],
+  "conditions": {
+    "appliesWhen": [
+      "主体的包围盒逐帧可得"
+    ],
+    "notWhen": [
+      "主体要故意出画的镜头"
+    ]
+  },
+  "calibration": "probe-axes-turntable",
+  "verify": {
+    "selftest": "三个固定包围盒上解出的相机距离和手算值相差不到 1 毫米",
+    "parity": {
+      "gates": [
+        "主体屏幕包围盒四边余量的差不超过 0.01"
+      ],
+      "mutation": "把 margin 改 0.05，门必须判不过",
+      "negative": "关掉本卡的同一个镜头必须判不过"
+    },
+    "predicates": [
+      "inside_frame(hero, margin=0.05) @ all"
+    ]
+  },
+  "ablation": [
+    {
+      "metric": "meta.bbox-limits",
+      "delta": -0.4,
+      "unit": "none"
+    }
+  ],
+  "pitfalls": [
+    {
+      "symptom": "装回末段主体右边出画",
+      "fix": "把 margin 调小"
+    }
+  ],
+  "provenance": {
+    "cases": [
+      "01",
+      "28"
+    ],
+    "note": "示意"
+  },
+  "status": [
+    {
+      "level": "measured",
+      "host": "blender-cli",
+      "source": "4.5.0",
+      "gpu": "rtx-5090",
+      "parityReport": "3b1f0c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c",
+      "date": "2026-11-18"
+    },
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-18"
+    }
+  ],
+  "exams": [
+    "28-1",
+    "cal:camera.fit"
+  ],
+  "cost": [
+    {
+      "host": "blender-cli",
+      "msPerFrame": 3.5
+    }
+  ]
+}

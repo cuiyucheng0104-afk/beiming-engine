@@ -1,0 +1,46 @@
+{
+  "format": "question/0.1",
+  "id": "1-1",
+  "level": 1,
+  "title": "交付规格",
+  "brief": "交一条 1 秒、24 帧每秒、1280×720、没有切点的片子。",
+  "deliverable": {
+    "width": 1280,
+    "height": 720,
+    "fps": "24/1",
+    "frames": 24,
+    "audio": "none"
+  },
+  "assets": {},
+  "basePredicates": [
+    "delivery(width=1280, height=720, fps=24, frames=24)"
+  ],
+  "scoring": [
+    {
+      "metric": "delivery.spec",
+      "pass": "尺寸、帧率、帧数都对",
+      "weight": 1
+    }
+  ],
+  "controls": {
+    "referencePass": "标准答案工程必须得满分",
+    "negative": "帧数少一帧的成片必须判不合格"
+  },
+  "needs": [],
+  "budget": {
+    "tokens": 50000,
+    "wallSeconds": 120,
+    "gpuSeconds": 10
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "示意",
+    "noiseFloor": null,
+    "version": 0
+  }
+}

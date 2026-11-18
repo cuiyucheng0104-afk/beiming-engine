@@ -1,0 +1,43 @@
+{
+  "format": "envelope/0.1",
+  "ok": false,
+  "exitCode": 4,
+  "error": {
+    "code": "contract.unknown-key",
+    "message": "片子描述里有 1 个没定义的键",
+    "hint": "带 applyFixes=machine 重交一次"
+  },
+  "outputs": [],
+  "data": {},
+  "diagnostics": [
+    {
+      "code": "contract.unknown-key",
+      "layer": "L1",
+      "severity": "error",
+      "at": "shots/s01/cards/camera.fit@1/margn",
+      "message": "camera.fit@1 没有参数 margn",
+      "value": null,
+      "expected": "margin: 0.7 到 0.98",
+      "frames": [],
+      "evidence": null,
+      "hint": "最接近的键是 margin",
+      "fix": {
+        "op": "rename",
+        "path": "shots/s01/cards/camera.fit@1/margn",
+        "to": "margin",
+        "applicability": "machine"
+      }
+    }
+  ],
+  "cost": {
+    "tokens": 180,
+    "gpuSeconds": 0,
+    "wallMs": 40
+  },
+  "next": [
+    {
+      "verb": "PUT /v1/films/f_8k2/film?applyFixes=machine",
+      "why": "有 1 条可以机器应用的修法"
+    }
+  ]
+}

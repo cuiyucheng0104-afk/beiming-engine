@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "predicates/verdict.schema.json",
+  "title": "判定条目",
+  "description": "一条谓词的判定结果。嵌在验收的返回里，不带 format。",
+  "type": "object",
+  "required": [
+    "id",
+    "layer",
+    "status",
+    "base"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^pred\\.[a-z][A-Za-z0-9_]*(\\.[a-z][A-Za-z0-9_]*)*$"
+    },
+    "layer": {
+      "const": "L3"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "base": {
+      "type": "boolean"
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "value": {},
+    "expected": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "hint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "fix": {
+      "$ref": "../patch/fix.schema.json"
+    }
+  }
+}

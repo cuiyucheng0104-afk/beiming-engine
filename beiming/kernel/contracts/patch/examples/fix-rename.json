@@ -1,0 +1,6 @@
+{
+  "op": "rename",
+  "path": "shots/s01/cards/camera.fit@1/margn",
+  "to": "margin",
+  "applicability": "machine"
+}

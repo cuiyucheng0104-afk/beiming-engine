@@ -1,0 +1,36 @@
+{
+  "format": "predicates/0.1",
+  "predicates": [
+    {
+      "name": "delivery",
+      "params": [
+        {
+          "name": "width",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "height",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "fps",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "frames",
+          "type": "number",
+          "required": false
+        }
+      ],
+      "reads": [
+        "film"
+      ],
+      "requires": [],
+      "milestone": "M1a"
+    }
+  ],
+  "templates": []
+}

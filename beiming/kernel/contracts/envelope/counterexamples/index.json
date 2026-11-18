@@ -1,0 +1,30 @@
+[
+  {
+    "file": "EN1-ok-false-exit-0.json",
+    "violates": [
+      "EN1"
+    ],
+    "why": "exitCode 是 0，ok 却是 false"
+  },
+  {
+    "file": "EN2-exit-4-without-error.json",
+    "violates": [
+      "EN2"
+    ],
+    "why": "exitCode 是 4，error 却是 null"
+  },
+  {
+    "file": "EN3-busy-code-exit-4.json",
+    "violates": [
+      "EN3"
+    ],
+    "why": "error.code 是 busy.rev-conflict，按错误码表应该是退出码 5，这里是 4"
+  },
+  {
+    "file": "EN4-unregistered-code.json",
+    "violates": [
+      "EN4"
+    ],
+    "why": "error.code 是 contract.no-such-code，错误码表里没有登记"
+  }
+]

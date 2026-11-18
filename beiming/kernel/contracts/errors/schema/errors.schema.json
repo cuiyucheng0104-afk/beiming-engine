@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "errors/errors.schema.json",
+  "title": "错误码表",
+  "description": "只管结构。前缀对不对、码有没有前缀、重不重复由 ER1 到 ER3 管。",
+  "type": "object",
+  "required": [
+    "format",
+    "prefixes",
+    "codes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "errors/0.1"
+    },
+    "prefixes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "prefix",
+          "exitCode",
+          "meaning"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "pattern": "^[a-z]+\\.$"
+          },
+          "exitCode": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 255
+          },
+          "meaning": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "codes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "meaning"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+          },
+          "meaning": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "ext": {
+      "type": "object"
+    }
+  }
+}
