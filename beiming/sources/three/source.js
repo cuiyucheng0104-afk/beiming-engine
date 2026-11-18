@@ -1,0 +1,207 @@
+// three 帧源（页面一侧）：只有这个文件碰渲染器。对外是帧源接口的 caps、open，会话的 manifest、render、query、close。
+// 渲染库由宿主注入（THREE），帧源不自己引入。宿主服务 host 在建帧源时交进来：
+//   host.load(shot, { THREE, renderer })   装载镜头：搭 ctx、调一次 build，交回 { object, size, colorRef }
+//   host.apply(loaded, f, sub, purpose)    把 (f, sub) 的状态写进场景；purpose 是 color、aux、meta 之一，只供宿主记账
+//   host.measure(loaded, f, facts)         量这一帧的元数据（相机、实体、统计、哈希）
+//   host.now()                             单调时钟，毫秒；读数只进元数据的 timing
+import { caps, VERSION } from './caps.mjs';
+import { planRender, SourceError } from './plan.mjs';
+
+const AUX_VS = `
+varying vec3 vView;
+varying vec3 vNormal;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vView = mv.xyz;
+  vNormal = normalMatrix * normal;
+  gl_Position = projectionMatrix * mv;
+}`;
+// uPass 0：平面深度（米）和编号；uPass 1：相机空间的法线
+const AUX_FS = `
+uniform float uId;
+uniform int uPass;
+varying vec3 vView;
+varying vec3 vNormal;
+void main() {
+  if (uPass == 0) { gl_FragColor = vec4(-vView.z, uId, 0.0, 1.0); return; }
+  vec3 n = normalize(vNormal);
+  gl_FragColor = vec4(gl_FrontFacing ? n : -n, 1.0);
+}`;
+
+/** 辅助层画不了的对象：看得见、会被画出来、又不是网格的（点、线、精灵） */
+export function unrenderableInAux(scene) {
+  const out = [];
+  scene.traverseVisible((o) => { if (o.isPoints || o.isLine || o.isSprite) out.push(o); });
+  return out;
+}
+
+export function createThreeSource({ THREE, host }) {
+  if (`0.${THREE.REVISION}.0` !== VERSION) throw new Error(`three 帧源要的渲染库是 ${VERSION}，注入的是 r${THREE.REVISION}`);
+  const CAPS = caps();
+  let shared = null;
+
+  // 一个帧源一个渲染器，各会话共用；每次 render 自己设目标、自己清屏，不留跨帧的状态
+  function renderer() {
+    if (shared) return shared;
+    const r = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    r.setPixelRatio(1);
+    const gl = r.getContext();
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    shared = { r, gl, gpu: String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) };
+    return shared;
+  }
+
+  async function open(shot, env) {
+    if (shot.source !== 'three') throw new Error(`这个镜头的帧源是 ${shot.source}，不是 three`);
+    if (!CAPS.hosts.includes(shot.host) || !CAPS.modes.includes(shot.mode)) throw new Error(`three 帧源不支持宿主 ${shot.host} 加作者模式 ${shot.mode}`);
+    const { r, gl, gpu } = renderer();
+    const loaded = await host.load(shot, { THREE, renderer: r });
+    const { scene, camera, entities } = loaded.object;
+
+    // 编号按实体名的字典序从 1 起；类别从母语对象的形态推
+    const names = Object.keys(entities).sort();
+    const manifest = {
+      frames: shot.out - shot.in,
+      entities: names.map((name, i) => ({
+        id: i + 1,
+        name,
+        class: entities[name].isPoints ? 'particles' : names.some((n) => n.startsWith(`${name}.`)) ? 'assembly' : 'part',
+      })),
+    };
+    // 编号层写叶子实体的编号：先短名后长名，长名盖掉短名
+    const idOf = new Map();
+    for (const e of [...manifest.entities].sort((a, b) => a.name.length - b.name.length)) {
+      entities[e.name].traverse((o) => { if (o.isMesh) idOf.set(o, e.id); });
+    }
+
+    const target = (type) => new THREE.WebGLRenderTarget(1, 1, { type, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    const rtHalf = target(THREE.HalfFloatType), rtFloat = target(THREE.FloatType);
+    const auxMaterials = new Map();
+    const auxFor = (mesh) => {
+      const key = `${idOf.get(mesh) ?? 0}/${mesh.material.side}`;
+      if (!auxMaterials.has(key)) {
+        auxMaterials.set(key, new THREE.ShaderMaterial({
+          uniforms: { uId: { value: idOf.get(mesh) ?? 0 }, uPass: { value: 0 } },
+          vertexShader: AUX_VS, fragmentShader: AUX_FS, side: mesh.material.side,
+        }));
+      }
+      return auxMaterials.get(key);
+    };
+
+    /** 渲进目标再读回成 RGBA 浮点，行序翻成画面从上到下。readPixels 会等绘制做完，所以显卡上的耗时大半记在读回里 */
+    function draw(rt, [w, h], timed) {
+      rt.setSize(w, h);
+      r.setRenderTarget(rt);
+      // 每一遍自己定清屏值 (0, 0, 0, 0)，渲完还原，不把状态留给下一次。镜头设了背景色时渲染库改用背景色、透明度 1 清屏
+      const clearColor = r.getClearColor(new THREE.Color()), clearAlpha = r.getClearAlpha();
+      r.setClearColor(0x000000, 0);
+      try {
+        timed('renderMs', () => r.render(scene, camera));
+      } finally {
+        r.setClearColor(clearColor, clearAlpha);
+      }
+      const raw = new Float32Array(w * h * 4);
+      timed('readbackMs', () => gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, raw));
+      const out = new Float32Array(raw.length);
+      for (let y = 0; y < h; y++) out.set(raw.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
+      return out;
+    }
+
+    /** 辅助层：换上辅助材质、去掉背景，渲一遍 */
+    function drawAux(rt, size, pass, timed) {
+      const swapped = [];
+      scene.traverse((o) => {
+        if (!o.isMesh) return;
+        swapped.push([o, o.material]);
+        o.material = auxFor(o);
+        o.material.uniforms.uPass.value = pass;
+      });
+      const background = scene.background;
+      scene.background = null;
+      try {
+        return draw(rt, size, timed);
+      } finally {
+        scene.background = background;
+        for (const [o, m] of swapped) o.material = m;
+      }
+    }
+
+    const pick = (rgba, channels) => {
+      const n = rgba.length / 4, out = new Float32Array(n * channels.length);
+      for (let i = 0; i < n; i++) channels.forEach((c, k) => { out[i * channels.length + k] = rgba[i * 4 + c]; });
+      return out;
+    };
+
+    let closed = false;
+    const session = {
+      manifest: () => structuredClone(manifest),
+
+      async render(f, opts, want) {
+        if (closed) throw new Error('会话已经关了');
+        if (!Number.isInteger(f) || f < 0 || f >= manifest.frames) throw new RangeError(`镜头局部帧号必须在 [0, ${manifest.frames})，给的是 ${f}`);
+        const plan = planRender(CAPS, shot, loaded.size, env.tier, opts, want);
+        const timing = { stateMs: 0, renderMs: 0, readbackMs: 0 };
+        const timed = (key, fn) => { const t0 = host.now(); const v = fn(); timing[key] += host.now() - t0; return v; };
+        const layers = {};
+        let color = null, tris = null;
+
+        if (plan.layers.length) {
+          // 逐子帧累积：每个子帧渲到场景线性的浮点目标，读回后逐像素取算术平均
+          const sum = new Float64Array(plan.size[0] * plan.size[1] * 4);
+          for (const sub of plan.subs) {
+            timed('stateMs', () => host.apply(loaded, f, sub, 'color'));
+            const px = draw(rtHalf, plan.size, timed);
+            tris = r.info.render.triangles;
+            for (let i = 0; i < sum.length; i++) sum[i] += px[i];
+          }
+          color = Float32Array.from(sum, (v) => v / plan.subs.length);
+          layers.color = { type: 'f32', components: ['R', 'G', 'B', 'A'], size: plan.size, data: color };
+        }
+
+        // 辅助层和元数据取同一个样本：sub = 0，针孔，不累积，像素中心
+        timed('stateMs', () => host.apply(loaded, f, 0, plan.aux ? 'aux' : 'meta'));
+        // 辅助材质只会画网格。点、线、精灵照画就会把自己的颜色写进深度和编号，所以有它们在就不出辅助层
+        const strangers = plan.aux ? unrenderableInAux(scene) : [];
+        if (strangers.length) throw new SourceError('contract.unsupported-output', `场景里有辅助层画不了的对象（${strangers.map((o) => o.name || o.type).join('、')}），交不出 ${plan.layers.filter((n) => n !== 'color').join('、')}`);
+        if (plan.layers.includes('depth') || plan.layers.includes('objectId')) {
+          const px = drawAux(rtFloat, plan.size, 0, timed);
+          if (plan.layers.includes('depth')) layers.depth = { type: 'f32', components: ['Z'], size: plan.size, data: pick(px, [0]) };
+          // shortcut: 编号经 32 位浮点目标读回，超过 16777216 会丢精度；实体多到那个量级时换整数目标
+          if (plan.layers.includes('objectId')) layers.objectId = { type: 'u32', components: ['id'], size: plan.size, data: Uint32Array.from(pick(px, [1])) };
+        }
+        if (plan.layers.includes('normal')) {
+          const px = drawAux(rtHalf, plan.size, 1, timed);
+          layers.normal = { type: 'f32', components: ['X', 'Y', 'Z'], size: plan.size, data: pick(px, [0, 1, 2]) };
+        }
+
+        const meta = await host.measure(loaded, f, {
+          size: plan.size,
+          shutterAngleDeg: plan.angleDeg,
+          color,
+          tris,
+          timing,
+          manifest,
+          source: { id: shot.source, renderer: CAPS.id, host: shot.host, version: VERSION, tier: env.tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
+        });
+        return { meta, layers };
+      },
+
+      // 能力声明的 sceneQuery 是空的：哪种查询都报错，不给结果
+      async query(f, q) {
+        throw new SourceError('contract.unsupported-query', `这个帧源不答 ${q?.kind} 查询`);
+      },
+
+      async close() {
+        if (closed) return;
+        closed = true;
+        loaded.object.dispose();
+        rtHalf.dispose();
+        rtFloat.dispose();
+        for (const m of auxMaterials.values()) m.dispose();
+      },
+    };
+    return session;
+  }
+
+  return { caps, open };
+}

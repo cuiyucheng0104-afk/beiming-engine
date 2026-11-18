@@ -28,6 +28,11 @@
       "holds": "契约"
     },
     {
+      "path": "kernel/conformance",
+      "owner": "conformance",
+      "holds": "一致性测试：把一次运行的观测写成核对记录，过契约校验，对标准答案"
+    },
+    {
       "path": "kernel/eval",
       "owner": "kernel-eval",
       "holds": "求值核：时间线、事件、随机流、插值的实现"

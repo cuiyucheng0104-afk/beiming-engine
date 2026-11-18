@@ -1,0 +1,236 @@
+{
+  "format": "film/3.0",
+  "id": "skeleton-moving-cube",
+  "title": "最小出帧链路：匀速方块，两个镜头",
+  "output": {
+    "size": [
+      640,
+      360
+    ],
+    "fps": "24/1",
+    "frames": 98
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 49,
+      "source": "three",
+      "host": "page",
+      "mode": "native-code",
+      "entry": "moving-cube.shot.js",
+      "colorRef": "scene",
+      "seed": 20261119,
+      "params": {
+        "camera": {
+          "positionM": [
+            0,
+            0,
+            0
+          ],
+          "lookAtM": [
+            0,
+            0,
+            -1
+          ],
+          "upDir": [
+            0,
+            1,
+            0
+          ],
+          "yFovDeg": 40,
+          "widthPx": 640,
+          "heightPx": 360,
+          "nearM": 0.1,
+          "farM": 100,
+          "shutterAngleDeg": 180,
+          "shutterOpens": "frameStart"
+        },
+        "backgroundLinear": [
+          0,
+          0,
+          0
+        ],
+        "objects": [
+          {
+            "id": "cube",
+            "idIndex": 1,
+            "shape": "box",
+            "sizeM": [
+              0.4,
+              0.4,
+              0.4
+            ],
+            "positionM": [
+              -1.2,
+              0,
+              -5
+            ],
+            "emissionLinear": [
+              0.18,
+              0.18,
+              0.18
+            ],
+            "motion": {
+              "kind": "linear",
+              "velocityMPerFrame": [
+                0.05,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "id": "highlight",
+            "idIndex": 2,
+            "shape": "sphere",
+            "radiusM": 0.03,
+            "positionM": [
+              -1.2,
+              0.1,
+              -4.8
+            ],
+            "emissionLinear": [
+              50,
+              50,
+              50
+            ],
+            "motion": {
+              "kind": "linear",
+              "velocityMPerFrame": [
+                0.05,
+                0,
+                0
+              ]
+            }
+          }
+        ]
+      },
+      "shutter": {
+        "angleDeg": 180,
+        "samples": 8
+      },
+      "tiers": {
+        "final": {
+          "samples": 1,
+          "scale": 1
+        }
+      }
+    },
+    {
+      "id": "s02",
+      "in": 49,
+      "out": 98,
+      "source": "three",
+      "host": "page",
+      "mode": "native-code",
+      "entry": "moving-cube.shot.js",
+      "colorRef": "scene",
+      "seed": 20261120,
+      "params": {
+        "camera": {
+          "positionM": [
+            0,
+            0,
+            0
+          ],
+          "lookAtM": [
+            0,
+            0,
+            -1
+          ],
+          "upDir": [
+            0,
+            1,
+            0
+          ],
+          "yFovDeg": 40,
+          "widthPx": 640,
+          "heightPx": 360,
+          "nearM": 0.1,
+          "farM": 100,
+          "shutterAngleDeg": 180,
+          "shutterOpens": "frameStart"
+        },
+        "objects": [
+          {
+            "id": "cube",
+            "idIndex": 1,
+            "shape": "box",
+            "sizeM": [
+              0.4,
+              0.4,
+              0.4
+            ],
+            "positionM": [
+              -1.2,
+              0,
+              -5
+            ],
+            "emissionLinear": [
+              0.18,
+              0.18,
+              0.18
+            ],
+            "motion": {
+              "kind": "linear",
+              "velocityMPerFrame": [
+                0.05,
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "id": "highlight",
+            "idIndex": 2,
+            "shape": "sphere",
+            "radiusM": 0.03,
+            "positionM": [
+              -1.2,
+              0.1,
+              -4.8
+            ],
+            "emissionLinear": [
+              50,
+              50,
+              50
+            ],
+            "motion": {
+              "kind": "linear",
+              "velocityMPerFrame": [
+                0.05,
+                0,
+                0
+              ]
+            }
+          }
+        ]
+      },
+      "shutter": {
+        "angleDeg": 180,
+        "samples": 8
+      },
+      "tiers": {
+        "final": {
+          "samples": 1,
+          "scale": 1
+        }
+      }
+    }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "predicates": {
+    "base": [
+      "floor@1"
+    ]
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709"
+  }
+}
