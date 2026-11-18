@@ -107,11 +107,13 @@ test('A 路线 --backend webgpu：新建作品 → 禁用浏览器跑 film check
   assert.equal(chk.status, 0, `${chk.stderr}\n${chk.stdout}`);
   assert.equal(JSON.parse(chk.stdout).data.checks.find(c => c.id === 'offscreen')?.status, 'pass');
 
-  const qt = runIn(repo, 'tools/qa/cli.mjs', ['texts', '--film', `films/${name}`, '--size', '640x360', '--json'], envNoChrome);
-  assert.equal(qt.status, 0, `${qt.stderr}\n${qt.stdout}`);
+  // 每 24 帧（1 秒）采一次：这里验证的是「免浏览器能跑通」，不是逐帧覆盖；Windows CI 是 WARP 软件适配器，192 帧逐帧跑完整后期链会撞上 120 秒超时
+  const why = r => `${r.error?.code ?? ''} ${r.stderr}\n${r.stdout}`;
+  const qt = runIn(repo, 'tools/qa/cli.mjs', ['texts', '--film', `films/${name}`, '--size', '640x360', '--step', '24', '--json'], envNoChrome);
+  assert.equal(qt.status, 0, why(qt));
   assert.equal(JSON.parse(qt.stdout).ok, true);
 
-  const qp = runIn(repo, 'tools/qa/cli.mjs', ['plates', '--film', `films/${name}`, '--size', '640x360', '--json'], envNoChrome);
-  assert.equal(qp.status, 0, `${qp.stderr}\n${qp.stdout}`);
+  const qp = runIn(repo, 'tools/qa/cli.mjs', ['plates', '--film', `films/${name}`, '--size', '640x360', '--step', '24', '--json'], envNoChrome);
+  assert.equal(qp.status, 0, why(qp));
   assert.equal(JSON.parse(qp.stdout).ok, true);
 });
