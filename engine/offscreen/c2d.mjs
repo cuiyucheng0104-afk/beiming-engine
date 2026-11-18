@@ -43,7 +43,7 @@ export async function createCanvasFilm({
   canvasTex.generateMipmaps = false;
   canvasTex.needsUpdate = true;
 
-  function work({ dur, fps, draw, texts = null, post: postFn = null }) {
+  function work({ dur, fps, draw, texts = null, post: postFn = null, events = null, timeline = null }) {
     if (typeof draw !== 'function') throw new TypeError('createCanvasFilm.work：需要 draw(ctx, t, f) 函数');
     const rate = setFilmFps(fps ?? REF_FPS);
     const { texture, ivec2, vec4, screenCoordinate, sRGBTransferEOTF } = TSL;
@@ -63,6 +63,8 @@ export async function createCanvasFilm({
 
     return {
       dur,
+      ...(events ? { events } : {}),
+      ...(timeline ? { timeline } : {}),
       render(f) {
         const t = Math.min(f / rate, dur - 1e-6);
         const fn = frameOf(t, rate);
@@ -70,7 +72,7 @@ export async function createCanvasFilm({
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1;
         ctx.clearRect(0, 0, W, H);
-        if (globalThis.__BMQA_OFFSCREEN?.hide !== 'layer') draw(ctx, t, fn);
+        draw(ctx, t, fn);
         canvasTex.needsUpdate = true;
         if (postFn) {
           paper.prepare();

@@ -28,6 +28,7 @@ import { CliError, defineCommand, isMain, runCli, sha256, suggest } from './lib/
 import { expandSteps, filmVars, formatStep, loadRegistry, readRegistry, validateRegistry } from './lib/routes.mjs';
 import { DEFAULT_PROFILE, loadProfiles } from './lib/profiles.mjs';
 import { filmJsonProblems, findPlaceholders, formatFilmJson, nameProblem, titleProblem } from './lib/filmspec.mjs';
+import { applyWebgpuScaffold } from './lib/webgpu-scaffold.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SKIP_NAMES = new Set(['out', 'node_modules', '.git', '__pycache__', '.DS_Store', 'Thumbs.db', 'desktop.ini']);
@@ -151,11 +152,11 @@ function pickAudio(tpl, route, files, warn) {
 }
 
 /** 组装 film.json v2（键的顺序即文件里的顺序，与附录 C6 一致）。 */
-function buildFilm({ tpl, timing, route, name, title, profile, profileFromOpt, frameCount, files, warn }) {
+function buildFilm({ tpl, timing, route, name, title, profile, profileFromOpt, backendOpt, frameCount, files, warn }) {
   const d = route.templateDefaults ?? {};
   const where = `${route.template}/film.json`;
   const v2 = tpl.schemaVersion === 2;
-  const backend = tpl.backend ?? route.backend;
+  const backend = backendOpt ?? tpl.backend ?? route.backend;
   if (Array.isArray(route.backends) && !route.backends.includes(backend)) {
     throw new CliError('contract.template', `${where} 的 backend ${JSON.stringify(backend)} 不在路线 ${route.id} 允许的 ${route.backends.join(' / ')} 里`, '改模版 film.json 的 backend（取值见 routes/routes.json 的 backends）');
   }
@@ -282,6 +283,15 @@ async function run(ctx) {
   }
   const route = hit.route;
   if (hit.via === 'alias') ctx.warn('route.alias', `「${args.route}」是旧路线名或目录名，已按路线 ${route.id} 处理`, `以后直接写 ${route.id}`);
+  const requestedBackend = opts.backend ?? undefined;
+  if (requestedBackend !== undefined) {
+    const allowed = Array.isArray(route.backends) ? route.backends : [route.backend];
+    if (!allowed.includes(requestedBackend)) {
+      const s = suggest(String(requestedBackend).toLowerCase(), allowed);
+      throw new CliError('usage.bad-backend', `路线 ${route.id} 不支持后端「${requestedBackend}」；可用：${allowed.join('、')}`,
+        `${s ? `是不是想写 --backend ${s}？` : ''}后端约定见 docs/offscreen/README.md（D12）`);
+    }
+  }
   const np = nameProblem(args.name);
   if (np) throw new CliError('usage.bad-name', `作品名「${args.name}」不合法：${np}`, '例：dawn-test、kun-2；片名用 --title 另给');
   const title = opts.title ?? args.name;
@@ -293,8 +303,9 @@ async function run(ctx) {
   if (fs.existsSync(dst)) throw new CliError('usage.exists', `${dirRel} 已存在：不覆盖已有作品`, '换个名字，或先确认那个目录不再需要再自己处理');
   const tplAbs = path.join(ROOT, route.template);
 
-  // 1–2 读模版、替换占位符、查残留
-  const files = readTemplate(tplAbs, ctx.warn);
+  // 1–2 读模版（--backend webgpu 时切换为同源离屏脚手架）、替换占位符、查残留
+  let files = readTemplate(tplAbs, ctx.warn);
+  if (requestedBackend === 'webgpu') files = applyWebgpuScaffold(ROOT, route.id, files);
   const residual = [];
   const planned = files.map(f => {
     const text = decodeText(f.buf);
@@ -332,7 +343,7 @@ async function run(ctx) {
     ctx.warn('template.size-changed', `模版画幅 ${timing.size.join('×')} 与档位 ${profile.id} 的 ${profile.width}×${profile.height} 不同，已按档位写 film.json`, '构图按新画幅摆：先跑下一步的关键帧命令看一眼');
   }
   const rels = new Set(planned.map(f => f.rel));
-  const { film, notes } = buildFilm({ tpl, timing, route, name: args.name, title, profile, profileFromOpt: !!opts.profile, frameCount, files: rels, warn: ctx.warn });
+  const { film, notes } = buildFilm({ tpl, timing, route, name: args.name, title, profile, profileFromOpt: !!opts.profile, backendOpt: requestedBackend, frameCount, files: rels, warn: ctx.warn });
   if (timing.fps !== profile.fps) {
     ctx.warn('template.fps-changed', `模版帧率 ${timing.fps} 与档位 ${profile.id} 的 ${profile.fps} fps 不同：${notes.filter(n => !n.startsWith('海报')).join('；') || '片长按秒数换算'}`,
       '页面或声音脚本里按旧帧率写死的节拍、一拍 n、切点要一起改；作品描述校验器会核对页面里的 FPS / DUR 常量');
@@ -460,6 +471,7 @@ export const command = defineCommand({
   options: {
     title: { type: 'string', arg: '<片名>', describe: '片名，默认等于名字；不能含 " \' ` \\ < >', example: '破晓' },
     profile: { type: 'string', arg: '<档位>', describe: '交付档位，默认取模版声明的，否则 web-1080p24（D07）', example: 'vertical-1080x1920-30' },
+    backend: { type: 'string', arg: '<后端>', describe: '渲染后端（默认取模版声明的；A、C 可选 webgpu 生成同源离屏作品，D12）', example: 'webgpu' },
     'dry-run': { type: 'boolean', describe: '只列出将要写的文件、film.json 与下一步命令，不写任何文件（也不调用校验器）' },
     'check-timeout': { type: 'number', arg: '<秒>', describe: `作品描述校验器的超时，默认 ${VALIDATOR_TIMEOUT_S} 秒；超时退出 124`, min: 0.1, example: '120' },
   },

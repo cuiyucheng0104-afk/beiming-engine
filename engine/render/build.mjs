@@ -53,8 +53,8 @@ export const probe = {
   outputs: () => ({ events: 'events.json', timeline: 'timeline.json', probe: 'work/probe.json' }),
   async run(ctx) {
     const pf = path.join(ctx.run.work, 'probe.json');
-    const pureOffscreen = ctx.opts.renderer === 'offscreen' && !fs.existsSync(path.join(ctx.film.pageDir, 'index.html'));
-    if (pureOffscreen) {
+    const useOffscreenProbe = ctx.opts.renderer === 'offscreen' && fs.existsSync(path.join(ctx.film.dir, 'offscreen.mjs'));
+    if (useOffscreenProbe) {
       const entry = path.join(ctx.film.dir, 'offscreen.mjs');
       const r = await ctx.exec(process.execPath, [path.resolve(R('.'), '../offscreen/cli.mjs'), 'probe', entry, '--size', sizeArg(ctx), '--fps', String(ctx.fps), '--events-out', ctx.run.dir, ...queryArgs(ctx), '--json'],
         { label: '离屏契约探测（offscreen probe）', timeoutSec: 180, stallSec: 120 });

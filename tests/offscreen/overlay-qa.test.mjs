@@ -117,7 +117,9 @@ export async function build({ THREE, TSL, renderer, width, height, fps, pipeline
   const pj = JSON.parse(pr.stdout);
   assert.equal(pj.data.evCount, 1);
   assert.equal(pj.data.hasTimeline, true);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(evDir, 'events.json'), 'utf8')).length, 1);
+  const evOut = JSON.parse(fs.readFileSync(path.join(evDir, 'events.json'), 'utf8'));
+  assert.equal(evOut.dur, 0.5);
+  assert.equal(evOut.ev.length, 1);
   assert.equal(JSON.parse(fs.readFileSync(path.join(evDir, 'timeline.json'), 'utf8')).cues.length, 1);
 });
 

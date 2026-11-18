@@ -38,7 +38,7 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
   });
   ovTex.colorSpace = THREE.NoColorSpace; ovTex.minFilter = ovTex.magFilter = THREE.NearestFilter; ovTex.generateMipmaps = false; ovTex.needsUpdate = true;
 
-  function work({ dur, fps, shots, look, draw = null, texts = null }) {
+  function work({ dur, fps, shots, look, draw = null, texts = null, events = null, timeline = null }) {
     const rate = setFilmFps(fps ?? REF_FPS);
     const table = shotTable(shots, { fps: rate, dur });
     const ov = texture(ovTex).load(ivec2(screenCoordinate.xy));
@@ -46,6 +46,8 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
     const post = pipeline(pipe);
     return {
       dur,
+      ...(events ? { events } : {}),
+      ...(timeline ? { timeline } : {}),
       render(f) {
         const t = Math.min(f / rate, dur - 1e-6);
         const { entry, ctx: sctx } = table.at(t, frameOf(t, rate));

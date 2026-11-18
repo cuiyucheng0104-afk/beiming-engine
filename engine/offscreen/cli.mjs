@@ -218,13 +218,15 @@ export const command = defineCommand({
           const evDir = path.resolve(ctx.opts['events-out']);
           fs.mkdirSync(evDir, { recursive: true });
           const evFile = path.join(evDir, 'events.json');
-          const tlFile = path.join(evDir, 'timeline.json');
-          const evJson = JSON.stringify(evList, null, 2) + '\n';
-          const tlJson = JSON.stringify(hasTimeline ? rawTl : { sections: [], cues: [] }, null, 2) + '\n';
+          const evJson = JSON.stringify({ dur: dur ?? +(a.frameCount / a.fps).toFixed(6), ev: evList }, null, 2) + '\n';
           fs.writeFileSync(evFile, evJson);
-          fs.writeFileSync(tlFile, tlJson);
           outputs.push({ path: evFile, sha256: shaHex(Buffer.from(evJson)), kind: 'events' });
-          outputs.push({ path: tlFile, sha256: shaHex(Buffer.from(tlJson)), kind: 'timeline' });
+          if (hasTimeline) {
+            const tlFile = path.join(evDir, 'timeline.json');
+            const tlJson = JSON.stringify(rawTl, null, 2) + '\n';
+            fs.writeFileSync(tlFile, tlJson);
+            outputs.push({ path: tlFile, sha256: shaHex(Buffer.from(tlJson)), kind: 'timeline' });
+          }
         }
         const data = { width: a.width, height: a.height, fps: a.fps, adapter, software, hasTexts, dur, evCount: evList.length, hasTimeline, seconds: +seconds(t0).toFixed(2) };
         ctx.out(`离屏契约通过 ${repoRel(a.file)}  ${a.width}×${a.height} ${a.fps} fps  TEXTS:${hasTexts ? '有' : '无'}`);

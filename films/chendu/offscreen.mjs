@@ -18,7 +18,7 @@ export async function build({ THREE, TSL, renderer, pipeline, width: W, height: 
   const FILM = await readJson(new globalThis.URL('./film.json', import.meta.url));
   if (fps !== FILM.output.fps) throw new Error(`[chendu] 离屏帧率 ${fps} 和 film.json 的 ${FILM.output.fps} 不一致：一拍二会错拍，出片时带 --fps ${FILM.output.fps}`);
   if (Math.abs(W / H - FILM.output.width / FILM.output.height) > 0.01) throw new Error(`[chendu] 画幅 ${W}×${H} 和 film.json 的画幅比不同：本片按 16:9 构图`);
-  const msaa = q.has('msaa') ? +q.get('msaa') : 4, animatic = q.has('animatic'), notext = q.has('notext'), lookdev = q.has('lookdev') ? JSON.parse(q.get('lookdev')) : null;
+  const msaa = q.has('msaa') ? +q.get('msaa') : 4, animatic = q.has('animatic') || q.has('previs'), notext = q.has('notext'), lookdev = q.has('lookdev') ? JSON.parse(q.get('lookdev')) : null;
 
   const style = await loadStyle(FILM.style);
   const film = await createFilm({ THREE, TSL, renderer, pipeline, width: W, height: H, designHeight: FILM.output.height });

@@ -79,13 +79,15 @@ function installQaContextHook(createCanvas) {
   }
 }
 
-export function installCanvasDocument(createCanvas) {
+export function installCanvasDocument(createCanvas, canvasMod = mod) {
   globalThis.document ??= {
     createElement(tag) {
       if (tag !== 'canvas') throw new Error(`离屏没有 DOM：只能建画布，收到 <${tag}>`);
       return createCanvas(1, 1);
     },
   };
+  if (canvasMod?.Path2D) globalThis.Path2D ??= canvasMod.Path2D;
+  if (canvasMod?.ImageData) globalThis.ImageData ??= canvasMod.ImageData;
 }
 
 export function recordRegisteredFont({ file, family, weight = '400', style = 'normal', unicodeRange = '' }) {
