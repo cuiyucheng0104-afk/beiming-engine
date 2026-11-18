@@ -88,7 +88,7 @@
       "effort": "medium",
       "contextCap": 80000,
       "tokenCap": 300000,
-      "concurrency": 2,
+      "concurrency": 6,
       "worktree": "readonly",
       "countsAsWriter": false
     }
