@@ -65,7 +65,7 @@
 - `npm run showcase:build` 改名为 `npm run site:build`，另有 `site:serve`、`site:qa`。
 - B 路线（北冥原生 · BNE）锁定的上游原生运行时由 `0.1.0-canary.2` 升级到正式版 `0.1.4`（`v0.1.4`，提交 `d870159c4686bd1fcda094934602463549b26683`，2026-11-15 发布，2028-11-15 转为 Apache-2.0）：同步更新 `engine/native/runtime.lock.json` 与 `tools/env/spec.json` 的 macOS arm64、Windows x64、Linux x64 三平台归档与可执行文件 SHA256，并在 Linux RTX 4070（Vulkan / OpenH264）完成模版出片、四类画面配方与机器 QA 验收；`engine/render/native.mjs` 兼容 `raea check` 新版 `findings`（`error / warn / note`）与旧版 `issues`（`P0–P3`）输出，并接入 `BEIMING_GPU_BUSY_UTIL` / `--max-gpu-util` 守卫阈值。
 - 分块渲染（`engine/render/lib/chunks.mjs`，`video.mjs` 与 `shots.mjs` 共用）：一块的帧喂完后，FFmpeg 收尾（编完、核对帧数、改名）放到后台，同一路先渲下一块，每路最多一块在后台收尾。码流逐字节不变；RTX 4070 笔记本上 A、C 模版 192 帧 4 路交替实测中位快 6–10%（16 组配对 15 组更快）。
-
+- 离屏出片的 TSL Kuwahara 展开成编译期常量：每个采样格的权重只取决于格子位置与 KR，改在 JS 里算好并展开，圆外格子不再采样，每个格子只累加权重非零的 3–4 个扇区，各扇区总权重也是常量。《化鹏闪羽》1080p 稳态每帧约 21.4 → 14.1 ms（整帧约 −34%，单机、GPU 被其他进程分走一部分，两轮交替测量），画面与改前最大差 1 级、PSNR ≥ 81 dB，对 GLSL 版的质量门不变；详见 `docs/offscreen/README.md` 7.17。
 ### Removed
 
 - 不兼容：`engine/core/noise.js` 的 `createNoise2D` / `createNoise3D` 不再接受无种子调用（以前默认用 `Math.random`，分段并行渲染时各段画面会对不上）。调用时传入种子随机源，例如 `createNoise3D(mulberry(7))`。
