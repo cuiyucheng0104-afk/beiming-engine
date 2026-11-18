@@ -104,7 +104,7 @@
 
 | npm 脚本 | 指向 | 属主 | 状态 |
 |---|---|---|---|
-| `new` | `tools/new-film.mjs` | 治理骨架 | 已接入 |
+| `new` | `tools/new-film.mjs` | 治理骨架 | 已接入（支持 `--backend webgpu` 生成 A/C 同源离屏作品，D12） |
 | `check:repo` | `tools/repo-check.mjs` | 治理骨架 | 已接入 |
 | `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入；旧名 `routes:check`、`routes:next` 已接入，保留一个版本，调用时提示改名 |
 | `setup` | `tools/env/setup.mjs` | 环境 | 已接入 |
