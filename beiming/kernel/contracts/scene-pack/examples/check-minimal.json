@@ -1,0 +1,127 @@
+{
+  "format": "scene-pack-check/0.1",
+  "pack": {
+    "format": "scene-pack/0.1",
+    "id": "pack:box@1",
+    "units": {
+      "meter": 1,
+      "up": "Y",
+      "hand": "right"
+    },
+    "geometry": {
+      "file": "geometry.glb",
+      "meshes": [
+        {
+          "name": "box",
+          "tris": 12,
+          "attrs": [
+            "position",
+            "cornerNormal"
+          ]
+        }
+      ]
+    },
+    "instances": {
+      "file": "instances.u32",
+      "shape": [
+        1,
+        4
+      ],
+      "names": [
+        "box"
+      ]
+    },
+    "materials": [
+      {
+        "name": "grey",
+        "closure": "surface",
+        "params": {
+          "baseColor": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "metallic": 0,
+          "roughness": 0.5
+        }
+      }
+    ],
+    "lights": [
+      {
+        "name": "key",
+        "type": "point",
+        "watts": 100,
+        "color": [
+          1,
+          1,
+          1
+        ],
+        "visibleToCamera": false
+      }
+    ],
+    "world": {
+      "color": [
+        0,
+        0,
+        0
+      ],
+      "visibleToCamera": true
+    },
+    "camera": {
+      "type": "persp",
+      "near": 0.1,
+      "far": 100
+    },
+    "frames": {
+      "count": 1,
+      "instances": {
+        "file": "frames/instances.f32",
+        "shape": [
+          1,
+          1,
+          16
+        ],
+        "fields": [
+          "mat16"
+        ]
+      },
+      "camera": {
+        "file": "frames/camera.f32",
+        "shape": [
+          1,
+          17
+        ],
+        "fields": [
+          "mat16",
+          "fovY"
+        ]
+      },
+      "lights": {
+        "file": "frames/lights.f32",
+        "shape": [
+          1,
+          1,
+          16
+        ],
+        "fields": [
+          "mat16"
+        ]
+      }
+    },
+    "source": {
+      "exporter": "sources/blender@0.1",
+      "blender": "5.2.3",
+      "sha256": "a6485068bd927d9078acd55a293021264960098be27bbaacbed9e483c00e0094"
+    }
+  },
+  "tables": {
+    "instances": [
+      [
+        0,
+        0,
+        1,
+        0
+      ]
+    ]
+  }
+}

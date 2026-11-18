@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scene-pack/scene-pack.schema.json",
+  "title": "场景包清单",
+  "description": "只管结构。units 的取值由 SP2 管，图案节点名在不在登记表里由 SP5 管，各张表 shape 的取值由 SP8 管，attrs 齐不齐由 SP11 管，link 配不配得到由 SP12 管，in 和 by 指向谁由 SP13 管，所以这里不收紧。name 不重复、out 不重复、far 大于 near、e0 小于 e1 这几样 JSON Schema 写不出来，以 CONTRACT.md 第 3 节为准。",
+  "type": "object",
+  "required": ["format", "id", "units", "geometry", "instances", "materials", "lights", "world", "camera", "frames", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "scene-pack/0.1" },
+    "id": { "type": "string", "pattern": "^pack:[a-z0-9][a-z0-9-]*@[1-9][0-9]*$" },
+    "units": {
+      "type": "object",
+      "required": ["meter", "up", "hand"],
+      "additionalProperties": false,
+      "properties": { "meter": { "type": "number" }, "up": { "type": "string" }, "hand": { "type": "string" } }
+    },
+    "geometry": {
+      "type": "object",
+      "required": ["file", "meshes"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "$ref": "#/$defs/path", "pattern": "\\.glb$" },
+        "meshes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "tris", "attrs"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "tris": { "type": "integer", "minimum": 1 },
+              "attrs": { "type": "array", "uniqueItems": true, "items": { "enum": ["position", "cornerNormal"] } }
+            }
+          }
+        }
+      }
+    },
+    "instances": {
+      "type": "object",
+      "required": ["file", "shape", "names"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "$ref": "#/$defs/path", "pattern": "\\.u32$" },
+        "shape": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0 } },
+        "names": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "materials": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "closure", "params"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "closure": { "enum": ["surface", "toon", "emission", "transparent"] },
+          "params": { "$ref": "#/$defs/params" },
+          "pattern": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } }
+        },
+        "if": { "properties": { "closure": { "const": "surface" } } },
+        "then": { "properties": { "params": { "required": ["baseColor", "metallic", "roughness"] } } }
+      }
+    },
+    "lights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "watts", "color", "visibleToCamera"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["area-rect", "point"] },
+          "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "exclusiveMinimum": 0 } },
+          "watts": { "type": "number", "minimum": 0 },
+          "color": { "$ref": "#/$defs/rgb" },
+          "visibleToCamera": { "type": "boolean" },
+          "link": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        },
+        "if": { "properties": { "type": { "const": "area-rect" } } },
+        "then": { "required": ["size"] },
+        "else": { "not": { "required": ["size"] } }
+      }
+    },
+    "world": {
+      "type": "object",
+      "required": ["color", "visibleToCamera"],
+      "additionalProperties": false,
+      "properties": { "color": { "$ref": "#/$defs/rgb" }, "visibleToCamera": { "type": "boolean" } }
+    },
+    "camera": {
+      "type": "object",
+      "required": ["type", "near", "far"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["persp", "ortho"] },
+        "near": { "type": "number", "exclusiveMinimum": 0 },
+        "far": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "frames": {
+      "type": "object",
+      "required": ["count", "instances", "camera", "lights"],
+      "additionalProperties": false,
+      "properties": {
+        "count": { "type": "integer", "minimum": 1 },
+        "instances": {
+          "$ref": "#/$defs/table",
+          "properties": { "fields": { "const": ["mat16"] } }
+        },
+        "camera": {
+          "$ref": "#/$defs/table",
+          "properties": {
+            "fields": {
+              "items": { "enum": ["mat16", "fovY", "focusDist", "fstop"] },
+              "allOf": [{ "contains": { "const": "mat16" } }, { "contains": { "const": "fovY" } }]
+            }
+          },
+          "if": { "properties": { "fields": { "contains": { "const": "focusDist" } } } },
+          "then": { "properties": { "fields": { "contains": { "const": "fstop" } } } },
+          "else": { "properties": { "fields": { "not": { "contains": { "const": "fstop" } } } } }
+        },
+        "lights": {
+          "$ref": "#/$defs/table",
+          "properties": { "fields": { "items": { "enum": ["mat16", "watts"] }, "contains": { "const": "mat16" } } }
+        },
+        "materials": { "$ref": "#/$defs/table" }
+      }
+    },
+    "dynamic": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "files"],
+        "additionalProperties": false,
+        "properties": { "name": { "type": "string", "minLength": 1 }, "files": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["exporter", "blender", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "exporter": { "type": "string", "pattern": "^[^@]+@[^@]+$" },
+        "blender": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "ext": { "type": "object" }
+  },
+  "$defs": {
+    "path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$" },
+    "rgb": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": 0 } },
+    "unitRgb": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": 0, "maximum": 1 } },
+    "valueName": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$" },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseColor": { "$ref": "#/$defs/unitRgb" },
+        "metallic": { "type": "number", "minimum": 0, "maximum": 1 },
+        "roughness": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "table": {
+      "type": "object",
+      "required": ["file", "shape", "fields"],
+      "properties": {
+        "file": { "$ref": "#/$defs/path", "pattern": "\\.f32$" },
+        "shape": { "type": "array", "minItems": 2, "maxItems": 3, "items": { "type": "integer", "minimum": 0 } },
+        "fields": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      },
+      "propertyNames": { "enum": ["file", "shape", "fields"] }
+    },
+    "node": {
+      "description": "登记表里的四个节点各查各的字段；登记表之外的节点名这里放行，由 SP5 判。",
+      "type": "object",
+      "required": ["node"],
+      "properties": { "node": { "type": "string", "minLength": 1 } },
+      "allOf": [
+        {
+          "if": { "properties": { "node": { "const": "bevel" } } },
+          "then": {
+            "required": ["radius", "samples", "out"],
+            "additionalProperties": false,
+            "properties": {
+              "node": true,
+              "radius": { "type": "number", "exclusiveMinimum": 0 },
+              "samples": { "type": "integer", "minimum": 1 },
+              "out": { "const": "normal" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "node": { "const": "ao" } } },
+          "then": {
+            "required": ["distance", "samples", "onlyLocal", "out"],
+            "additionalProperties": false,
+            "properties": {
+              "node": true,
+              "distance": { "type": "number", "exclusiveMinimum": 0 },
+              "samples": { "type": "integer", "minimum": 1 },
+              "onlyLocal": { "type": "boolean" },
+              "out": { "$ref": "#/$defs/valueName", "not": { "const": "normal" } }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "node": { "const": "smoothstep" } } },
+          "then": {
+            "required": ["in", "edges", "out"],
+            "additionalProperties": false,
+            "properties": {
+              "node": true,
+              "in": { "$ref": "#/$defs/valueName" },
+              "edges": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+              "out": { "$ref": "#/$defs/valueName", "not": { "const": "normal" } }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "node": { "const": "mix" } } },
+          "then": {
+            "required": ["by", "set"],
+            "additionalProperties": false,
+            "properties": {
+              "node": true,
+              "by": { "$ref": "#/$defs/valueName" },
+              "set": { "$ref": "#/$defs/params", "minProperties": 1 }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

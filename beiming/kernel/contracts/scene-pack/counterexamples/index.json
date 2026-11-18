@@ -1,0 +1,93 @@
+[
+  {
+    "file": "SP1-script-in-pack.json",
+    "violates": [
+      "SP1"
+    ],
+    "why": "包目录里多了一个清单没引用的脚本 scripts/rebuild.py"
+  },
+  {
+    "file": "SP2-z-up.json",
+    "violates": [
+      "SP2"
+    ],
+    "why": "units.up 写成了 Z：导出时没有换轴"
+  },
+  {
+    "file": "SP3-mirror-not-flagged.json",
+    "violates": [
+      "SP3"
+    ],
+    "why": "第 1 行的矩阵把 x 取反，行列式是 −1，实例表第四列却是 0"
+  },
+  {
+    "file": "SP4-row-drifts.json",
+    "violates": [
+      "SP4"
+    ],
+    "why": "相机表第 12 帧单独读和顺序读到的字节不一样"
+  },
+  {
+    "file": "SP5-unknown-node-dropped.json",
+    "violates": [
+      "SP5"
+    ],
+    "why": "材质里有登记表之外的节点 voronoi，读入方没报错，丢掉它接着读了"
+  },
+  {
+    "file": "SP6-hash-changes-on-rewrite.json",
+    "violates": [
+      "SP6"
+    ],
+    "why": "读入再写出之后包哈希变了"
+  },
+  {
+    "file": "SP7-mirror-normal-not-flipped.json",
+    "violates": [
+      "SP7"
+    ],
+    "why": "第 1 行是镜像实例（第四列是 1），读入方用的几何法线却和直接叉乘的方向相同，没有取反"
+  },
+  {
+    "file": "SP8-light-table-too-short.json",
+    "violates": [
+      "SP8"
+    ],
+    "why": "清单里有 3 盏灯，灯表的第二维却是 2"
+  },
+  {
+    "file": "SP9-material-index-out-of-range.json",
+    "violates": [
+      "SP9"
+    ],
+    "why": "第 2 行的材质下标是 2，清单里只有 2 个材质"
+  },
+  {
+    "file": "SP10-two-ids-one-name.json",
+    "violates": [
+      "SP10"
+    ],
+    "why": "编号 1 和编号 2 的两行用了同一个实体名 kit.part"
+  },
+  {
+    "file": "SP11-mesh-without-corner-normal.json",
+    "violates": [
+      "SP11"
+    ],
+    "why": "网格 floor 的 attrs 里没有 cornerNormal"
+  },
+  {
+    "file": "SP12-link-matches-nothing.json",
+    "violates": [
+      "SP12"
+    ],
+    "why": "灯 rim1 的链接 set.* 一个实体名都配不到"
+  },
+  {
+    "file": "SP13-dangling-value-name.json",
+    "violates": [
+      "SP13"
+    ],
+    "why": "mix 的 by 写的是 edge，前面没有哪个节点的 out 叫这个名字"
+  }
+]

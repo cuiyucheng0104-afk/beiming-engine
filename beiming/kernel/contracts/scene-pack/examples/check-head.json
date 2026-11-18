@@ -1,0 +1,592 @@
+{
+  "format": "scene-pack-check/0.1",
+  "pack": {
+    "format": "scene-pack/0.1",
+    "id": "pack:head-turn@1",
+    "units": {
+      "meter": 1,
+      "up": "Y",
+      "hand": "right"
+    },
+    "geometry": {
+      "file": "geometry.glb",
+      "meshes": [
+        {
+          "name": "shell",
+          "tris": 52000,
+          "attrs": [
+            "position",
+            "cornerNormal"
+          ]
+        },
+        {
+          "name": "face",
+          "tris": 18400,
+          "attrs": [
+            "position",
+            "cornerNormal"
+          ]
+        },
+        {
+          "name": "side",
+          "tris": 6400,
+          "attrs": [
+            "position",
+            "cornerNormal"
+          ]
+        },
+        {
+          "name": "fin",
+          "tris": 1200,
+          "attrs": [
+            "position",
+            "cornerNormal"
+          ]
+        },
+        {
+          "name": "eye",
+          "tris": 800,
+          "attrs": [
+            "position",
+            "cornerNormal"
+          ]
+        },
+        {
+          "name": "floor",
+          "tris": 2,
+          "attrs": [
+            "position",
+            "cornerNormal"
+          ]
+        }
+      ]
+    },
+    "instances": {
+      "file": "instances.u32",
+      "shape": [
+        9,
+        4
+      ],
+      "names": [
+        "head.shell",
+        "head.face",
+        "head.side_L",
+        "head.side_R",
+        "head.fin_L",
+        "head.fin_R",
+        "head.eye",
+        "head.eye",
+        "floor"
+      ]
+    },
+    "materials": [
+      {
+        "name": "armor-light",
+        "closure": "surface",
+        "params": {
+          "baseColor": [
+            0.85,
+            0.85,
+            0.83
+          ],
+          "metallic": 0,
+          "roughness": 0.4
+        },
+        "pattern": [
+          {
+            "node": "bevel",
+            "radius": 0.0035,
+            "samples": 4,
+            "out": "normal"
+          },
+          {
+            "node": "ao",
+            "distance": 0.006,
+            "samples": 8,
+            "onlyLocal": false,
+            "out": "ao"
+          },
+          {
+            "node": "smoothstep",
+            "in": "ao",
+            "edges": [
+              0.52,
+              0.88
+            ],
+            "out": "line"
+          },
+          {
+            "node": "mix",
+            "by": "line",
+            "set": {
+              "baseColor": [
+                0,
+                0,
+                0
+              ],
+              "roughness": 0.65
+            }
+          }
+        ]
+      },
+      {
+        "name": "armor-dark",
+        "closure": "surface",
+        "params": {
+          "baseColor": [
+            0.05,
+            0.06,
+            0.1
+          ],
+          "metallic": 0,
+          "roughness": 0.35
+        },
+        "pattern": [
+          {
+            "node": "bevel",
+            "radius": 0.002,
+            "samples": 4,
+            "out": "normal"
+          }
+        ]
+      },
+      {
+        "name": "lens",
+        "closure": "surface",
+        "params": {
+          "baseColor": [
+            0.1,
+            0.6,
+            0.3
+          ],
+          "metallic": 1,
+          "roughness": 0.1
+        }
+      },
+      {
+        "name": "floor",
+        "closure": "surface",
+        "params": {
+          "baseColor": [
+            0.02,
+            0.02,
+            0.02
+          ],
+          "metallic": 0,
+          "roughness": 0.42
+        }
+      }
+    ],
+    "lights": [
+      {
+        "name": "key",
+        "type": "area-rect",
+        "size": [
+          1.5,
+          1
+        ],
+        "watts": 600,
+        "color": [
+          1,
+          0.96,
+          0.9
+        ],
+        "visibleToCamera": false
+      },
+      {
+        "name": "rim",
+        "type": "area-rect",
+        "size": [
+          0.3,
+          1.8
+        ],
+        "watts": 800,
+        "color": [
+          0.9,
+          0.95,
+          1
+        ],
+        "visibleToCamera": false,
+        "link": [
+          "head.*"
+        ]
+      },
+      {
+        "name": "fill",
+        "type": "point",
+        "watts": 60,
+        "color": [
+          1,
+          1,
+          1
+        ],
+        "visibleToCamera": false
+      }
+    ],
+    "world": {
+      "color": [
+        0.002,
+        0.002,
+        0.003
+      ],
+      "visibleToCamera": true
+    },
+    "camera": {
+      "type": "persp",
+      "near": 0.05,
+      "far": 50
+    },
+    "frames": {
+      "count": 96,
+      "instances": {
+        "file": "frames/instances.f32",
+        "shape": [
+          96,
+          9,
+          16
+        ],
+        "fields": [
+          "mat16"
+        ]
+      },
+      "camera": {
+        "file": "frames/camera.f32",
+        "shape": [
+          96,
+          19
+        ],
+        "fields": [
+          "mat16",
+          "fovY",
+          "focusDist",
+          "fstop"
+        ]
+      },
+      "lights": {
+        "file": "frames/lights.f32",
+        "shape": [
+          96,
+          3,
+          17
+        ],
+        "fields": [
+          "mat16",
+          "watts"
+        ]
+      }
+    },
+    "source": {
+      "exporter": "sources/blender@0.1",
+      "blender": "5.2.3",
+      "sha256": "a3276045f8f4e544f280b772db992431f1977632dfc6dcc9995bd97228dcc072"
+    }
+  },
+  "files": [
+    {
+      "path": "frames/camera.f32",
+      "bytes": 7296
+    },
+    {
+      "path": "frames/instances.f32",
+      "bytes": 55296
+    },
+    {
+      "path": "frames/lights.f32",
+      "bytes": 19584
+    },
+    {
+      "path": "geometry.glb",
+      "bytes": 5674768
+    },
+    {
+      "path": "instances.u32",
+      "bytes": 144
+    },
+    {
+      "path": "pack.json",
+      "bytes": 4661
+    }
+  ],
+  "geometry": {
+    "skins": 0,
+    "animations": 0,
+    "morphTargets": 0
+  },
+  "tables": {
+    "instances": [
+      [
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        1,
+        2,
+        0
+      ],
+      [
+        2,
+        0,
+        3,
+        0
+      ],
+      [
+        2,
+        0,
+        4,
+        1
+      ],
+      [
+        3,
+        0,
+        5,
+        0
+      ],
+      [
+        3,
+        0,
+        6,
+        1
+      ],
+      [
+        4,
+        2,
+        7,
+        0
+      ],
+      [
+        4,
+        2,
+        7,
+        1
+      ],
+      [
+        5,
+        3,
+        8,
+        0
+      ]
+    ],
+    "frameInstances": [
+      {
+        "frame": 0,
+        "row": 2,
+        "mat16": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          -0.10999999940395355,
+          1.600000023841858,
+          0,
+          1
+        ]
+      },
+      {
+        "frame": 0,
+        "row": 3,
+        "mat16": [
+          -1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0.10999999940395355,
+          1.600000023841858,
+          0,
+          1
+        ]
+      },
+      {
+        "frame": 0,
+        "row": 6,
+        "mat16": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          -0.03999999910593033,
+          1.6200000047683716,
+          0.10000000149011612,
+          1
+        ]
+      },
+      {
+        "frame": 0,
+        "row": 7,
+        "mat16": [
+          -1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0.03999999910593033,
+          1.6200000047683716,
+          0.10000000149011612,
+          1
+        ]
+      },
+      {
+        "frame": 48,
+        "row": 2,
+        "mat16": [
+          0.7071067690849304,
+          0,
+          -0.7071067690849304,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0.7071067690849304,
+          0,
+          0.7071067690849304,
+          0,
+          -0.10999999940395355,
+          1.600000023841858,
+          0,
+          1
+        ]
+      },
+      {
+        "frame": 48,
+        "row": 3,
+        "mat16": [
+          -0.7071067690849304,
+          0,
+          0.7071067690849304,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0.7071067690849304,
+          0,
+          0.7071067690849304,
+          0,
+          0.10999999940395355,
+          1.600000023841858,
+          0,
+          1
+        ]
+      },
+      {
+        "frame": 48,
+        "row": 6,
+        "mat16": [
+          0.7071067690849304,
+          0,
+          -0.7071067690849304,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0.7071067690849304,
+          0,
+          0.7071067690849304,
+          0,
+          -0.03999999910593033,
+          1.6200000047683716,
+          0.10000000149011612,
+          1
+        ]
+      },
+      {
+        "frame": 48,
+        "row": 7,
+        "mat16": [
+          -0.7071067690849304,
+          0,
+          0.7071067690849304,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0.7071067690849304,
+          0,
+          0.7071067690849304,
+          0,
+          0.03999999910593033,
+          1.6200000047683716,
+          0.10000000149011612,
+          1
+        ]
+      }
+    ]
+  },
+  "reads": [
+    {
+      "table": "instances",
+      "frame": 12,
+      "mode": "single",
+      "digest": "ebb334f8e2db6240"
+    },
+    {
+      "table": "instances",
+      "frame": 12,
+      "mode": "shuffled",
+      "digest": "ebb334f8e2db6240"
+    },
+    {
+      "table": "instances",
+      "frame": 12,
+      "mode": "sequential",
+      "digest": "ebb334f8e2db6240"
+    },
+    {
+      "table": "camera",
+      "frame": 95,
+      "mode": "single",
+      "digest": "1f8c105f5cb4e494"
+    },
+    {
+      "table": "camera",
+      "frame": 95,
+      "mode": "repeat",
+      "digest": "1f8c105f5cb4e494"
+    }
+  ],
+  "loads": [
+    {
+      "status": "ok"
+    }
+  ],
+  "roundTrip": {
+    "before": "sha256:42241f9e9631f34dd0d80622bc45c43ea4d19898f9cbdb0b68886e5854b39e25",
+    "after": "sha256:42241f9e9631f34dd0d80622bc45c43ea4d19898f9cbdb0b68886e5854b39e25"
+  }
+}
