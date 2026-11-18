@@ -16,7 +16,7 @@
       "entry": "sources/blender/cards/fit_eval.mjs",
       "shape": "evaluate",
       "hosts": [],
-      "selftest": "cards/camera/camera.fit/selftest.mjs"
+      "selftest": "cards/camera/fit/selftest.mjs"
     },
     {
       "livesIn": "source:blender",
@@ -40,6 +40,16 @@
         0.98
       ],
       "default": 0.9,
+      "coupling": "none"
+    },
+    "azimuthDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [
+        -180,
+        180
+      ],
+      "default": 35,
       "coupling": "none"
     },
     "target": {
@@ -134,7 +144,7 @@
       "host": "blender-cli",
       "source": "4.5.0",
       "gpu": "rtx-5090",
-      "parityReport": "3b1f0c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c",
+      "parityReport": "sha256:3b1f0c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c",
       "date": "2026-11-18"
     },
     {

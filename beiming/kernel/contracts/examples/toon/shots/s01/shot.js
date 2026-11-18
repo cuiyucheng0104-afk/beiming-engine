@@ -17,7 +17,8 @@ export async function build(ctx) {
   scene.add(hero)
   scene.add(new THREE.DirectionalLight(0xffffff, 3))
 
-  const post = ctx.cards.use('post.hdr-chain@1', {})
+  // 只带实例名：post 是片子描述里这个镜头 cards 的一项，参数从那里来。
+  const post = ctx.cards.use('post')
 
   return {
     scene,

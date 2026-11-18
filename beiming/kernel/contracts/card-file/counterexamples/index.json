@@ -4,21 +4,21 @@
     "violates": [
       "CF1"
     ],
-    "why": "livesIn 里有 comp，impl 里没有落点是 comp 的入口"
+    "why": "livesIn 里有 comp，impl 里没有落点是 comp 的卡的入口"
   },
   {
     "file": "CF2-data-impl-create.json",
     "violates": [
       "CF2"
     ],
-    "why": "落点是 data 的入口，shape 写成了 create"
+    "why": "落点是 data 的卡的入口，shape 写成了 create"
   },
   {
     "file": "CF3-data-impl-outside.json",
     "violates": [
       "CF3"
     ],
-    "why": "落点是 data 的入口放在 sources/blender/ 下面"
+    "why": "落点是 data 的卡的入口放在 sources/blender/ 下面"
   },
   {
     "file": "CF4-default-out-of-range.json",
@@ -54,5 +54,26 @@
       "CF8"
     ],
     "why": "verify.predicates 里的 fits_frame 不在谓词登记表里"
+  },
+  {
+    "file": "CF9-data-without-schema.json",
+    "violates": [
+      "CF9"
+    ],
+    "why": "track 的 type 是 data，却没带 schema"
+  },
+  {
+    "file": "CF10-string-default-is-path.json",
+    "violates": [
+      "CF10"
+    ],
+    "why": "target 的 type 是 string，default 写成了文件路径 data/hero.json"
+  },
+  {
+    "file": "CF11-degree-without-suffix.json",
+    "violates": [
+      "CF11"
+    ],
+    "why": "参数 azimuth 的 unit 是 deg，名字却不以 Deg 结尾"
   }
 ]

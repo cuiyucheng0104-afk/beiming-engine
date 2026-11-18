@@ -6,8 +6,10 @@
   "shots": [
     {
       "id": "s01", "in": 0, "out": 150,
-      "source": "ext.lab", "host": "plugin", "mode": "native-code", "entry": "shots/s01/entry.js",
-      "colorRef": "display", "seed": 6301
+      "source": "ext.lab", "host": "plugin", "mode": "native-code",
+      "colorRef": "display", "seed": 6301,
+      "assets": { "piece": "asset:lab-piece@1" },
+      "params": { "piece": "piece" }
     }
   ],
   "style": {

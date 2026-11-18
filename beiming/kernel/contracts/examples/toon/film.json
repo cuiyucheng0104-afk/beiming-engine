@@ -9,15 +9,18 @@
       "id": "s01", "in": 0, "out": 96,
       "source": "three", "host": "page", "mode": "native-code", "entry": "shots/s01/shot.js",
       "colorRef": "scene", "seed": 4101,
-      "cards": {
-        "camera.spline@1": {
-          "keys": [
-            { "f": 0, "pos": [0.0, 1.2, 4.0], "look": "hero" },
-            { "f": 95, "pos": [1.5, 1.4, 3.2], "look": "hero" }
-          ]
+      "cards": [
+        {
+          "as": "cam", "use": "camera.spline@1",
+          "params": {
+            "keys": [
+              { "f": 0, "pos": [0.0, 1.2, 4.0], "look": "hero" },
+              { "f": 95, "pos": [1.5, 1.4, 3.2], "look": "hero" }
+            ]
+          }
         },
-        "post.hdr-chain@1": {}
-      },
+        { "as": "post", "use": "post.hdr-chain@1", "params": {} }
+      ],
       "params": { "bands": 3 },
       "roles": { "hero": "hero" }
     }

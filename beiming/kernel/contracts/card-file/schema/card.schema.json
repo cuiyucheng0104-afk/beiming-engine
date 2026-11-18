@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "card-file/card.schema.json",
   "title": "卡文件",
-  "description": "只管结构。落点和入口对不对得上、参数默认值在不在范围里、状态的键重不重复等由 CF1 到 CF8 管。私有覆盖层的五个键这里特意放行，由 CF7 禁掉。",
+  "description": "只管结构。落点和入口对不对得上、参数默认值在不在范围里、状态的键重不重复等由 CF1 到 CF11 管。私有覆盖层的五个键这里特意放行，由 CF7 禁掉。",
   "type": "object",
   "required": [
     "format",
@@ -165,7 +165,10 @@
               "boolean",
               "string",
               "color",
-              "time"
+              "time",
+              "asset",
+              "text",
+              "data"
             ]
           },
           "unit": {
@@ -174,7 +177,7 @@
           },
           "space": {
             "enum": [
-              "scene-linear",
+              "scene-linear-rec709",
               "display"
             ]
           },
@@ -185,6 +188,10 @@
             "items": {
               "type": "number"
             }
+          },
+          "schema": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$"
           },
           "default": {},
           "coupling": {
@@ -499,7 +506,7 @@
           },
           "parityReport": {
             "type": "string",
-            "pattern": "^[0-9a-f]{64}$"
+            "pattern": "^sha256:[0-9a-f]{64}$"
           },
           "date": {
             "type": "string",
