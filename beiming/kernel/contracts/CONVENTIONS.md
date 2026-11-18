@@ -100,6 +100,7 @@ kernel/contracts/<名字>/
 | `card-check/0.1` | 卡核对记录 | CR | 收 |
 | `load-check/0.1` | 装载核对记录 | CR | 收 |
 | `caps/0.1` | 能力声明 | F | 收 |
+| `source/0.1` | 帧源登记表 | F | 收 |
 | `source-check/0.1` | 帧源核对记录 | F | 收 |
 | `meta/0.1` | 每帧元数据 | M | 收 |
 | `meta-check/0.1` | 元数据核对记录 | M | 收 |
