@@ -4,7 +4,7 @@
     "violates": [
       "SP1"
     ],
-    "why": "包目录里多了一个清单没引用的脚本 scripts/rebuild.py"
+    "why": "包目录里多了一个场景包清单没引用的脚本 scripts/rebuild.py"
   },
   {
     "file": "SP2-z-up.json",
@@ -53,14 +53,14 @@
     "violates": [
       "SP8"
     ],
-    "why": "清单里有 3 盏灯，灯表的第二维却是 2"
+    "why": "场景包清单里有 3 盏灯，灯表的第二维却是 2"
   },
   {
     "file": "SP9-material-index-out-of-range.json",
     "violates": [
       "SP9"
     ],
-    "why": "第 2 行的材质下标是 2，清单里只有 2 个材质"
+    "why": "第 2 行的材质下标是 2，场景包清单里只有 2 个材质"
   },
   {
     "file": "SP10-two-ids-one-name.json",
@@ -89,5 +89,26 @@
       "SP13"
     ],
     "why": "mix 的 by 写的是 edge，前面没有哪个节点的 out 叫这个名字"
+  },
+  {
+    "file": "SP14-assembly-takes-row.json",
+    "violates": [
+      "SP14"
+    ],
+    "why": "实例表第 0 行的实体名是 kit，第 1 行是 kit.part_R：装配体 kit 自己占了一行"
+  },
+  {
+    "file": "SP15-class-differs-within-entity.json",
+    "violates": [
+      "SP15"
+    ],
+    "why": "head.eye 占两行，一行的 class 是 part，另一行是 particles"
+  },
+  {
+    "file": "SP16-dof-without-sensor-height.json",
+    "violates": [
+      "SP16"
+    ],
+    "why": "相机表带 focusDist、fstop 两列，camera 里却没有 sensorHeight"
   }
 ]

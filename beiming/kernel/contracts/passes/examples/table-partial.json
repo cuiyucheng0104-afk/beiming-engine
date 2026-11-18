@@ -1,0 +1,57 @@
+{
+  "format": "passes/0.1",
+  "channels": [
+    {
+      "name": "color",
+      "components": [
+        {
+          "name": "R",
+          "type": "f32"
+        },
+        {
+          "name": "G",
+          "type": "f32"
+        },
+        {
+          "name": "B",
+          "type": "f32"
+        },
+        {
+          "name": "A",
+          "type": "f32"
+        }
+      ],
+      "colorSpace": "scene-linear-rec709",
+      "sample": "accumulate",
+      "antialiased": true
+    },
+    {
+      "name": "depth",
+      "components": [
+        {
+          "name": "Z",
+          "type": "f32"
+        }
+      ],
+      "colorSpace": "none",
+      "sample": "sub0",
+      "antialiased": false
+    },
+    {
+      "name": "objectId",
+      "components": [
+        {
+          "name": "id",
+          "type": "u32"
+        },
+        {
+          "name": "coverage",
+          "type": "f32"
+        }
+      ],
+      "colorSpace": "none",
+      "sample": "sub0",
+      "antialiased": false
+    }
+  ]
+}

@@ -77,6 +77,17 @@
         "head.eye",
         "head.eye",
         "floor"
+      ],
+      "class": [
+        "part",
+        "part",
+        "part",
+        "part",
+        "part",
+        "part",
+        "part",
+        "part",
+        "part"
       ]
     },
     "materials": [
@@ -191,7 +202,8 @@
           0.96,
           0.9
         ],
-        "visibleToCamera": false
+        "visibleToCamera": false,
+        "group": "front"
       },
       {
         "name": "rim",
@@ -220,7 +232,25 @@
           1,
           1
         ],
-        "visibleToCamera": false
+        "visibleToCamera": false,
+        "group": "front"
+      },
+      {
+        "name": "sky",
+        "type": "sun",
+        "dir": [
+          0.6,
+          0.8,
+          0
+        ],
+        "irradiance": 3,
+        "color": [
+          0.8,
+          0.9,
+          1
+        ],
+        "visibleToCamera": false,
+        "group": "env"
       }
     ],
     "world": {
@@ -234,7 +264,8 @@
     "camera": {
       "type": "persp",
       "near": 0.05,
-      "far": 50
+      "far": 50,
+      "sensorHeight": 0.024
     },
     "frames": {
       "count": 96,
@@ -266,7 +297,7 @@
         "file": "frames/lights.f32",
         "shape": [
           96,
-          3,
+          4,
           17
         ],
         "fields": [
@@ -286,13 +317,13 @@
       "table": "camera",
       "frame": 12,
       "mode": "single",
-      "digest": "f7e6b52a3d903099"
+      "digest": "sha256:87a78b8863ac6d2a63dbfbd8052b912cd6e1a7e6c90c4c72b4c7b5c38a4ce5cc"
     },
     {
       "table": "camera",
       "frame": 12,
       "mode": "sequential",
-      "digest": "4ea51e75a859cf3b"
+      "digest": "sha256:cd18333027c726f03ceff9bcb8478f22d13775f69600d38cbe9aa901efe086e7"
     }
   ]
 }

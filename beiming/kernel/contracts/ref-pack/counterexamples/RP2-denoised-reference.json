@@ -11,7 +11,8 @@
   "oidn": "2.5.0",
   "ocioConfigSha256": "a3c5e7091b2d4f60728394a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f",
   "profile": "production",
-  "spp": 1024,
+  "samples": 1024,
+  "shutterAngleDeg": 180,
   "seeds": [
     0,
     1,
@@ -31,11 +32,11 @@
     15
   ],
   "converged": {
-    "spp": 16384,
+    "samples": 16384,
     "subsets": 16
   },
   "adaptive": false,
-  "denoise": true,
+  "denoised": true,
   "clamp": {
     "direct": 0,
     "indirect": 0

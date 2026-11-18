@@ -77,6 +77,17 @@
         "head.eye",
         "head.eye",
         "floor"
+      ],
+      "class": [
+        "part",
+        "part",
+        "part",
+        "part",
+        "part",
+        "part",
+        "part",
+        "part",
+        "part"
       ]
     },
     "materials": [
@@ -191,7 +202,8 @@
           0.96,
           0.9
         ],
-        "visibleToCamera": false
+        "visibleToCamera": false,
+        "group": "front"
       },
       {
         "name": "rim",
@@ -220,7 +232,25 @@
           1,
           1
         ],
-        "visibleToCamera": false
+        "visibleToCamera": false,
+        "group": "front"
+      },
+      {
+        "name": "sky",
+        "type": "sun",
+        "dir": [
+          0.6,
+          0.8,
+          0
+        ],
+        "irradiance": 3,
+        "color": [
+          0.8,
+          0.9,
+          1
+        ],
+        "visibleToCamera": false,
+        "group": "env"
       }
     ],
     "world": {
@@ -234,7 +264,8 @@
     "camera": {
       "type": "persp",
       "near": 0.05,
-      "far": 50
+      "far": 50,
+      "sensorHeight": 0.024
     },
     "frames": {
       "count": 96,
@@ -266,7 +297,7 @@
         "file": "frames/lights.f32",
         "shape": [
           96,
-          3,
+          4,
           17
         ],
         "fields": [
@@ -292,7 +323,7 @@
     },
     {
       "path": "frames/lights.f32",
-      "bytes": 19584
+      "bytes": 26112
     },
     {
       "path": "geometry.glb",
@@ -304,7 +335,7 @@
     },
     {
       "path": "pack.json",
-      "bytes": 4661
+      "bytes": 5136
     }
   ],
   "geometry": {
@@ -553,31 +584,31 @@
       "table": "instances",
       "frame": 12,
       "mode": "single",
-      "digest": "ebb334f8e2db6240"
+      "digest": "sha256:a80bf8cce75128519a44b28a3e00278a600603b8818e6c3f23bda19fd92b62fb"
     },
     {
       "table": "instances",
       "frame": 12,
       "mode": "shuffled",
-      "digest": "ebb334f8e2db6240"
+      "digest": "sha256:a80bf8cce75128519a44b28a3e00278a600603b8818e6c3f23bda19fd92b62fb"
     },
     {
       "table": "instances",
       "frame": 12,
       "mode": "sequential",
-      "digest": "ebb334f8e2db6240"
+      "digest": "sha256:a80bf8cce75128519a44b28a3e00278a600603b8818e6c3f23bda19fd92b62fb"
     },
     {
       "table": "camera",
       "frame": 95,
       "mode": "single",
-      "digest": "1f8c105f5cb4e494"
+      "digest": "sha256:5493d638b89ae5ed596ac1147695c2e12758448bf40ac382144978ad31594536"
     },
     {
       "table": "camera",
       "frame": 95,
       "mode": "repeat",
-      "digest": "1f8c105f5cb4e494"
+      "digest": "sha256:5493d638b89ae5ed596ac1147695c2e12758448bf40ac382144978ad31594536"
     }
   ],
   "loads": [

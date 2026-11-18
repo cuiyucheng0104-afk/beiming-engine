@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "scene-pack/scene-pack.schema.json",
   "title": "场景包清单",
-  "description": "只管结构。units 的取值由 SP2 管，图案节点名在不在登记表里由 SP5 管，各张表 shape 的取值由 SP8 管，attrs 齐不齐由 SP11 管，link 配不配得到由 SP12 管，in 和 by 指向谁由 SP13 管，所以这里不收紧。name 不重复、out 不重复、far 大于 near、e0 小于 e1 这几样 JSON Schema 写不出来，以 CONTRACT.md 第 3 节为准。",
+  "description": "只管结构。units 的取值由 SP2 管，图案节点名在不在登记表里由 SP5 管，各张表 shape 的取值由 SP8 管，attrs 齐不齐由 SP11 管，link 配不配得到由 SP12 管，in 和 by 指向谁由 SP13 管，实例表只列叶子实体由 SP14 管，同一个实体的 class 由 SP15 管，sensorHeight 什么时候必填由 SP16 管，所以这里不收紧。name 不重复、out 不重复、far 大于 near、e0 小于 e1、dir 的长度是 1 这几样 JSON Schema 写不出来，以 CONTRACT.md 第 3 节为准。",
   "type": "object",
   "required": ["format", "id", "units", "geometry", "instances", "materials", "lights", "world", "camera", "frames", "source"],
   "additionalProperties": false,
@@ -39,12 +39,13 @@
     },
     "instances": {
       "type": "object",
-      "required": ["file", "shape", "names"],
+      "required": ["file", "shape", "names", "class"],
       "additionalProperties": false,
       "properties": {
         "file": { "$ref": "#/$defs/path", "pattern": "\\.u32$" },
         "shape": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0 } },
-        "names": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        "names": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "class": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },
     "materials": {
@@ -68,20 +69,37 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "type", "watts", "color", "visibleToCamera"],
+        "required": ["name", "type", "color", "visibleToCamera"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string", "minLength": 1 },
-          "type": { "enum": ["area-rect", "point"] },
+          "type": { "enum": ["area-rect", "point", "sun"] },
           "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "exclusiveMinimum": 0 } },
           "watts": { "type": "number", "minimum": 0 },
+          "dir": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+          "irradiance": { "type": "number", "minimum": 0 },
           "color": { "$ref": "#/$defs/rgb" },
           "visibleToCamera": { "type": "boolean" },
-          "link": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          "link": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "group": { "$ref": "#/$defs/groupName" }
         },
-        "if": { "properties": { "type": { "const": "area-rect" } } },
-        "then": { "required": ["size"] },
-        "else": { "not": { "required": ["size"] } }
+        "allOf": [
+          {
+            "if": { "properties": { "type": { "const": "area-rect" } } },
+            "then": { "required": ["size"] },
+            "else": { "not": { "required": ["size"] } }
+          },
+          {
+            "if": { "properties": { "type": { "const": "sun" } } },
+            "then": { "required": ["dir", "irradiance"], "not": { "required": ["watts"] } },
+            "else": { "required": ["watts"], "allOf": [{ "not": { "required": ["dir"] } }, { "not": { "required": ["irradiance"] } }] }
+          },
+          {
+            "description": "不写 group 时组名就是灯名，灯名必须符合分灯组名的写法。",
+            "if": { "not": { "required": ["group"] } },
+            "then": { "properties": { "name": { "$ref": "#/$defs/groupName" } } }
+          }
+        ]
       }
     },
     "world": {
@@ -97,7 +115,8 @@
       "properties": {
         "type": { "enum": ["persp", "ortho"] },
         "near": { "type": "number", "exclusiveMinimum": 0 },
-        "far": { "type": "number", "exclusiveMinimum": 0 }
+        "far": { "type": "number", "exclusiveMinimum": 0 },
+        "sensorHeight": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
     "frames": {
@@ -155,6 +174,7 @@
     "path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$" },
     "rgb": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": 0 } },
     "unitRgb": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": 0, "maximum": 1 } },
+    "groupName": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "valueName": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$" },
     "params": {
       "type": "object",

@@ -39,6 +39,11 @@
         "kit.part_L",
         "kit.part_R",
         "floor"
+      ],
+      "class": [
+        "part",
+        "part",
+        "part"
       ]
     },
     "materials": [
@@ -169,7 +174,8 @@
     "camera": {
       "type": "persp",
       "near": 0.1,
-      "far": 100
+      "far": 100,
+      "sensorHeight": 0.024
     },
     "frames": {
       "count": 1,
@@ -239,7 +245,7 @@
     },
     {
       "path": "pack.json",
-      "bytes": 3491
+      "bytes": 3581
     }
   ],
   "geometry": {
@@ -342,19 +348,19 @@
       "table": "instances",
       "frame": 0,
       "mode": "single",
-      "digest": "16407124c6a28b83"
+      "digest": "sha256:f5362b2f19a3815620b7e9f847c295b24e0b1bfc9abcc4322bed218ccc5b1c2e"
     },
     {
       "table": "instances",
       "frame": 0,
       "mode": "repeat",
-      "digest": "16407124c6a28b83"
+      "digest": "sha256:f5362b2f19a3815620b7e9f847c295b24e0b1bfc9abcc4322bed218ccc5b1c2e"
     },
     {
       "table": "lights",
       "frame": 0,
       "mode": "single",
-      "digest": "500a1411fdc42a7b"
+      "digest": "sha256:bbe1ee095ddee8f461a951da96d0e2666527e0dec8bfe42c8f0665dcaf20c9af"
     }
   ],
   "loads": [

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "scene-pack/scene-pack-check.schema.json",
   "title": "场景包核对记录",
-  "description": "只管结构。各段的取值由 SP1 到 SP13 管，所以这里不收紧。normalProbes 出现时 tables.instances 必须出现。",
+  "description": "只管结构。各段的取值由 SP1 到 SP16 管，所以这里不收紧。normalProbes 出现时 tables.instances 必须出现。",
   "type": "object",
   "required": ["format", "pack"],
   "additionalProperties": false,
@@ -64,7 +64,7 @@
           "table": { "enum": ["instances", "camera", "lights", "materials"] },
           "frame": { "type": "integer", "minimum": 0 },
           "mode": { "enum": ["single", "shuffled", "sequential", "repeat"] },
-          "digest": { "type": "string", "pattern": "^[0-9a-f]{8,64}$" }
+          "digest": { "$ref": "#/$defs/packHash" }
         }
       }
     },

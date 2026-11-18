@@ -1,6 +1,6 @@
 [
   {
-    "file": "RP1-object-id-not-first-sample.json",
+    "file": "RP1-object-id-not-aux.json",
     "violates": [
       "RP1"
     ],
@@ -11,7 +11,7 @@
     "violates": [
       "RP2"
     ],
-    "why": "denoise 是 true：参考包里放了降噪过的颜色"
+    "why": "denoised 是 true：参考包里放了降噪过的颜色"
   },
   {
     "file": "RP3-judge-without-floor.json",
@@ -25,7 +25,7 @@
     "violates": [
       "RP4"
     ],
-    "why": "噪声地板是 48 分贝、k 是 0.875，门槛应是 42，却写死成 40"
+    "why": "参考噪声地板是 48 分贝、k 是 0.875，门槛应是 42，却写死成 40"
   },
   {
     "file": "RP5-overwritten-after-driver-change.json",

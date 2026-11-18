@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "passes/pass-table.schema.json",
   "title": "通道声明",
-  "description": "只管结构。含哪些通道由 PS1 管，每个通道的属性取什么值由 PS2 管，所以这里不收紧。",
+  "description": "只管结构。含哪些通道、名字在不在登记表里由 PS1 管，每个通道的属性取什么值由 PS2 管，所以这里不收紧。",
   "type": "object",
   "required": ["format", "channels"],
   "additionalProperties": false,
@@ -31,7 +31,7 @@
             }
           },
           "colorSpace": { "enum": ["scene-linear-rec709", "none"] },
-          "sample": { "enum": ["accumulate", "first-sample"] },
+          "sample": { "enum": ["accumulate", "sub0"] },
           "antialiased": { "type": "boolean" }
         }
       }

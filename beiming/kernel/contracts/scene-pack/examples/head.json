@@ -75,6 +75,17 @@
       "head.eye",
       "head.eye",
       "floor"
+    ],
+    "class": [
+      "part",
+      "part",
+      "part",
+      "part",
+      "part",
+      "part",
+      "part",
+      "part",
+      "part"
     ]
   },
   "materials": [
@@ -189,7 +200,8 @@
         0.96,
         0.9
       ],
-      "visibleToCamera": false
+      "visibleToCamera": false,
+      "group": "front"
     },
     {
       "name": "rim",
@@ -218,7 +230,25 @@
         1,
         1
       ],
-      "visibleToCamera": false
+      "visibleToCamera": false,
+      "group": "front"
+    },
+    {
+      "name": "sky",
+      "type": "sun",
+      "dir": [
+        0.6,
+        0.8,
+        0
+      ],
+      "irradiance": 3,
+      "color": [
+        0.8,
+        0.9,
+        1
+      ],
+      "visibleToCamera": false,
+      "group": "env"
     }
   ],
   "world": {
@@ -232,7 +262,8 @@
   "camera": {
     "type": "persp",
     "near": 0.05,
-    "far": 50
+    "far": 50,
+    "sensorHeight": 0.024
   },
   "frames": {
     "count": 96,
@@ -264,7 +295,7 @@
       "file": "frames/lights.f32",
       "shape": [
         96,
-        3,
+        4,
         17
       ],
       "fields": [

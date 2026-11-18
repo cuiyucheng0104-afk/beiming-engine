@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "passes/passes-check.schema.json",
   "title": "通道核对记录",
-  "description": "只管结构。各段的取值由 PS1 到 PS5 管，所以这里不收紧。sides 的 producer 不得重复；pixels 的 producer 必须在 sides 里出现过；out.normal、out.motion 出现时 samples 的第 0 项必须有同名字段。这三样 JSON Schema 写不出来，以 CONTRACT.md 为准。",
+  "description": "只管结构。各段的取值由 PS1 到 PS5 管，所以这里不收紧。sides 的 producer 不得重复；pixels 的 producer 必须在 sides 里出现过；out.normal、out.motion 出现时 aux 必须有同名字段。这三样 JSON Schema 写不出来，以 CONTRACT.md 为准。",
   "type": "object",
   "required": ["format", "sides"],
   "additionalProperties": false,
@@ -26,27 +26,14 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["producer", "x", "y", "samples", "out"],
+        "required": ["producer", "x", "y", "aux", "samples", "out"],
         "additionalProperties": false,
         "properties": {
           "producer": { "enum": ["core", "oracle"] },
           "x": { "type": "integer", "minimum": 0 },
           "y": { "type": "integer", "minimum": 0 },
-          "samples": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "required": ["id", "depth"],
-              "additionalProperties": false,
-              "properties": {
-                "id": { "type": "integer", "minimum": 0 },
-                "depth": { "type": "number", "minimum": 0 },
-                "normal": { "$ref": "#/$defs/vec3" },
-                "motion": { "$ref": "#/$defs/vec2" }
-              }
-            }
-          },
+          "aux": { "$ref": "#/$defs/sample" },
+          "samples": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/sample" } },
           "out": {
             "type": "object",
             "required": ["depth", "id", "coverage"],
@@ -65,6 +52,17 @@
     "ext": { "type": "object" }
   },
   "$defs": {
+    "sample": {
+      "type": "object",
+      "required": ["id", "depth"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "depth": { "type": "number", "minimum": 0 },
+        "normal": { "$ref": "#/$defs/vec3" },
+        "motion": { "$ref": "#/$defs/vec2" }
+      }
+    },
     "vec2": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
     "vec3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } }
   }

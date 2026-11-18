@@ -39,6 +39,11 @@
         "kit.part_L",
         "kit.part_R",
         "floor"
+      ],
+      "class": [
+        "part",
+        "part",
+        "part"
       ]
     },
     "materials": [
@@ -174,7 +179,8 @@
     "camera": {
       "type": "persp",
       "near": 0.1,
-      "far": 100
+      "far": 100,
+      "sensorHeight": 0.024
     },
     "frames": {
       "count": 1,
