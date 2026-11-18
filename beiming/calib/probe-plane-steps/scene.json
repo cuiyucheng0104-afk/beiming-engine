@@ -1,0 +1,283 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "probe-plane-steps",
+  "title": "平面阶梯：正对相机、距离 1、2、5、10 米的四块平面，各占画面一列",
+  "probeRows": [
+    "深度口径",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 0
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0,
+      0
+    ],
+    "lookAtM": [
+      0,
+      0,
+      -1
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100
+  },
+  "backgroundLinear": [
+    0,
+    0,
+    0
+  ],
+  "objects": [
+    {
+      "id": "plane-1m",
+      "idIndex": 1,
+      "shape": "plane",
+      "sizeM": [
+        0.25,
+        0.15
+      ],
+      "positionM": [
+        -0.5,
+        0,
+        -1
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    },
+    {
+      "id": "plane-2m",
+      "idIndex": 2,
+      "shape": "plane",
+      "sizeM": [
+        0.5,
+        0.3
+      ],
+      "positionM": [
+        -0.3,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    },
+    {
+      "id": "plane-5m",
+      "idIndex": 3,
+      "shape": "plane",
+      "sizeM": [
+        1.25,
+        0.75
+      ],
+      "positionM": [
+        0.8,
+        0,
+        -5
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    },
+    {
+      "id": "plane-10m",
+      "idIndex": 4,
+      "shape": "plane",
+      "sizeM": [
+        2.5,
+        1.5
+      ],
+      "positionM": [
+        4.8,
+        0,
+        -10
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        72.727,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "平面中心像素的射线求交：平面深度 = 1 米，射线距离 = 平面深度 × |像素方向|（像素方向的前向分量为 1）",
+      "intendedHitIds": [
+        "plane-1m"
+      ],
+      "hits": [
+        {
+          "objectId": "plane-1m",
+          "planeDepthM": 1,
+          "rayDistanceM": 1.118034
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        122.5,
+        150.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "平面右上角附近的像素中心：平面深度不变、射线距离随像素位置变，用来分辨深度口径是平面深度还是射线距离",
+      "intendedHitIds": [
+        "plane-1m"
+      ],
+      "hits": [
+        {
+          "objectId": "plane-1m",
+          "planeDepthM": 1,
+          "rayDistanceM": 1.078445
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        245.8181,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "平面中心像素的射线求交：平面深度 = 2 米，射线距离 = 平面深度 × |像素方向|（像素方向的前向分量为 1）",
+      "intendedHitIds": [
+        "plane-2m"
+      ],
+      "hits": [
+        {
+          "objectId": "plane-2m",
+          "planeDepthM": 2,
+          "rayDistanceM": 2.022375
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        295.5,
+        150.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "平面右上角附近的像素中心：平面深度不变、射线距离随像素位置变，用来分辨深度口径是平面深度还是射线距离",
+      "intendedHitIds": [
+        "plane-2m"
+      ],
+      "hits": [
+        {
+          "objectId": "plane-2m",
+          "planeDepthM": 2,
+          "rayDistanceM": 2.006003
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        399.1273,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "平面中心像素的射线求交：平面深度 = 5 米，射线距离 = 平面深度 × |像素方向|（像素方向的前向分量为 1）",
+      "intendedHitIds": [
+        "plane-5m"
+      ],
+      "hits": [
+        {
+          "objectId": "plane-5m",
+          "planeDepthM": 5,
+          "rayDistanceM": 5.063595
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        448.5,
+        150.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "平面右上角附近的像素中心：平面深度不变、射线距离随像素位置变，用来分辨深度口径是平面深度还是射线距离",
+      "intendedHitIds": [
+        "plane-5m"
+      ],
+      "hits": [
+        {
+          "objectId": "plane-5m",
+          "planeDepthM": 5,
+          "rayDistanceM": 5.174631
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        557.382,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "平面中心像素的射线求交：平面深度 = 10 米，射线距离 = 平面深度 × |像素方向|（像素方向的前向分量为 1）",
+      "intendedHitIds": [
+        "plane-10m"
+      ],
+      "hits": [
+        {
+          "objectId": "plane-10m",
+          "planeDepthM": 10,
+          "rayDistanceM": 11.092339
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        606.5,
+        150.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "平面右上角附近的像素中心：平面深度不变、射线距离随像素位置变，用来分辨深度口径是平面深度还是射线距离",
+      "intendedHitIds": [
+        "plane-10m"
+      ],
+      "hits": [
+        {
+          "objectId": "plane-10m",
+          "planeDepthM": 10,
+          "rayDistanceM": 11.572247
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,458 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "probe-axes-turntable",
+  "title": "三轴标记加转台：原点上方 0.5 米处立 +X 红、+Y 绿、+Z 蓝三根 1 米标记杆和端头球；下面一个半径 1.2 米的转台绕 +Y 每 96 帧转一圈，边上一个黄色标记块",
+  "probeRows": [
+    "坐标与相机",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 96
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      3,
+      2.5,
+      4
+    ],
+    "lookAtM": [
+      0,
+      0.5,
+      0
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100
+  },
+  "backgroundLinear": [
+    0,
+    0,
+    0
+  ],
+  "objects": [
+    {
+      "id": "axis-x",
+      "idIndex": 1,
+      "shape": "box",
+      "sizeM": [
+        1,
+        0.04,
+        0.04
+      ],
+      "positionM": [
+        0.5,
+        0.5,
+        0
+      ],
+      "emissionLinear": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "axis-y",
+      "idIndex": 2,
+      "shape": "box",
+      "sizeM": [
+        0.04,
+        1,
+        0.04
+      ],
+      "positionM": [
+        0,
+        1,
+        0
+      ],
+      "emissionLinear": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "id": "axis-z",
+      "idIndex": 3,
+      "shape": "box",
+      "sizeM": [
+        0.04,
+        0.04,
+        1
+      ],
+      "positionM": [
+        0,
+        0.5,
+        0.5
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "tip-x",
+      "idIndex": 4,
+      "shape": "sphere",
+      "radiusM": 0.06,
+      "positionM": [
+        1,
+        0.5,
+        0
+      ],
+      "emissionLinear": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "tip-y",
+      "idIndex": 5,
+      "shape": "sphere",
+      "radiusM": 0.06,
+      "positionM": [
+        0,
+        1.5,
+        0
+      ],
+      "emissionLinear": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "id": "tip-z",
+      "idIndex": 6,
+      "shape": "sphere",
+      "radiusM": 0.06,
+      "positionM": [
+        0,
+        0.5,
+        1
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": "turntable",
+      "idIndex": 7,
+      "shape": "cylinder",
+      "radiusM": 1.2,
+      "heightM": 0.05,
+      "positionM": [
+        0,
+        -0.025,
+        0
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.0654498469
+      }
+    },
+    {
+      "id": "turntable-marker",
+      "idIndex": 8,
+      "shape": "box",
+      "sizeM": [
+        0.15,
+        0.1,
+        0.15
+      ],
+      "positionM": [
+        1,
+        0.05,
+        0
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        0
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.0654498469
+      }
+    },
+    {
+      "id": "turntable-arm",
+      "idIndex": 9,
+      "shape": "box",
+      "sizeM": [
+        0.3,
+        0.04,
+        0.04
+      ],
+      "positionM": [
+        -1,
+        0.2,
+        0
+      ],
+      "rotation": {
+        "axisDir": [
+          0,
+          0,
+          1
+        ],
+        "angleRad": 1.5707963267948966
+      },
+      "emissionLinear": [
+        1,
+        0,
+        1
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.0654498469
+      }
+    }
+  ],
+  "expected": [
+    {
+      "kind": "projectPoint",
+      "objectId": "tip-x",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "端头球心的针孔投影；相机由 lookAt 与 up 建基：前 = 归一(lookAt − 位置)，右 = 归一(前 × up)，上 = 右 × 前",
+      "pixelPx": [
+        401.944965,
+        202.825197
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "tip-y",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "端头球心的针孔投影；相机由 lookAt 与 up 建基：前 = 归一(lookAt − 位置)，右 = 归一(前 × up)，上 = 右 × 前",
+      "pixelPx": [
+        320,
+        88.417419
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "tip-z",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "端头球心的针孔投影；相机由 lookAt 与 up 建基：前 = 归一(lookAt − 位置)，右 = 归一(前 × up)，上 = 右 × 前",
+      "pixelPx": [
+        256.082927,
+        211.65094
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "turntable-marker",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "转台标记中心：绕过原点的 +Y 轴转 ω·0，ω = 2π/96 弧度每帧；右手定则，正角度把 +X 转向 −Z",
+      "pixelPx": [
+        399.203312,
+        243.426895
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "turntable-marker",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "转台标记中心：绕过原点的 +Y 轴转 ω·24，ω = 2π/96 弧度每帧；右手定则，正角度把 +X 转向 −Z",
+      "pixelPx": [
+        367.136484,
+        189.482444
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "turntable-marker",
+      "atFrame": 48,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "转台标记中心：绕过原点的 +Y 轴转 ω·48，ω = 2π/96 弧度每帧；右手定则，正角度把 +X 转向 −Z",
+      "pixelPx": [
+        255.241061,
+        195.783381
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "turntable-marker",
+      "atFrame": 72,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "转台标记中心：绕过原点的 +Y 轴转 ω·72，ω = 2π/96 弧度每帧；右手定则，正角度把 +X 转向 −Z",
+      "pixelPx": [
+        258.303983,
+        253.513585
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "turntable-marker",
+      "atFrame": 96,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "转台标记中心：绕过原点的 +Y 轴转 ω·96，ω = 2π/96 弧度每帧；右手定则，正角度把 +X 转向 −Z",
+      "pixelPx": [
+        399.203312,
+        243.426895
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        320.5,
+        88.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "+Y 端头球所在像素的射线求交",
+      "intendedHitIds": [
+        "tip-y",
+        "axis-y"
+      ],
+      "hits": [
+        {
+          "objectId": "tip-y",
+          "planeDepthM": 4.955137,
+          "rayDistanceM": 5.039237
+        },
+        {
+          "objectId": "axis-y",
+          "planeDepthM": 5.00988,
+          "rayDistanceM": 5.094909
+        }
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "turntable-arm",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0.15,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "转台上的竖杆：局部 +X 端点先做静态旋转（绕 +Z 转 π/2，立成竖直），再随转台绕 +Y 转 ω·24；R = R运动 · R静态。顺序反过来的投影写在 README",
+      "pixelPx": [
+        256.840837,
+        225.936085
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "turntable-arm",
+      "atFrame": 48,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0.15,
+        0,
+        0
+      ],
+      "tolerancePx": 1,
+      "source": "转台上的竖杆：局部 +X 端点先做静态旋转（绕 +Z 转 π/2，立成竖直），再随转台绕 +Y 转 ω·48；R = R运动 · R静态。顺序反过来的投影写在 README",
+      "pixelPx": [
+        401.010232,
+        216.667855
+      ]
+    }
+  ]
+}

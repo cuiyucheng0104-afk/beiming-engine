@@ -1,0 +1,232 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "probe-moving-cube",
+  "title": "匀速方块：0.4 米方块在 5 米外沿 +X 每帧走 5 厘米（第 0 到 48 帧，x 从 −1.2 到 1.2），正面嵌一个线性亮度 50 的小高光球。相机开 180 度快门，从帧起点打开",
+  "probeRows": [
+    "时间键",
+    "快门相位",
+    "子帧累积和后期的先后",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 48
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0,
+      0
+    ],
+    "lookAtM": [
+      0,
+      0,
+      -1
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100,
+    "shutterAngleDeg": 180,
+    "shutterOpens": "frameStart"
+  },
+  "backgroundLinear": [
+    0,
+    0,
+    0
+  ],
+  "objects": [
+    {
+      "id": "cube",
+      "idIndex": 1,
+      "shape": "box",
+      "sizeM": [
+        0.4,
+        0.4,
+        0.4
+      ],
+      "positionM": [
+        -1.2,
+        0,
+        -5
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          0.05,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "highlight",
+      "idIndex": 2,
+      "shape": "sphere",
+      "radiusM": 0.03,
+      "positionM": [
+        -1.2,
+        0.1,
+        -4.8
+      ],
+      "emissionLinear": [
+        50,
+        50,
+        50
+      ],
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          0.05,
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "expected": [
+    {
+      "kind": "projectPoint",
+      "objectId": "cube",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × (帧 + sub)，第 0 帧",
+      "pixelPx": [
+        201.308975,
+        180
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "cube",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × (帧 + sub)，第 24 帧，sub = 0",
+      "pixelPx": [
+        320,
+        180
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "cube",
+      "atFrame": 24,
+      "subFrameRatio": 0.5,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × (帧 + sub)，第 24 帧，sub = 0.5",
+      "pixelPx": [
+        322.47273,
+        180
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "cube",
+      "atFrame": 24,
+      "sampleAt": "shutterMid",
+      "subFrameRatio": 0.25,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "第 24 帧拖影中点：快门从帧起点打开、开 shutterAngleDeg / 360 帧，中点子帧 = shutterAngleDeg / 360 / 2（180 度时是 0.25）；方块中心 = 起点 + 速度 × (帧 + 子帧)",
+      "pixelPx": [
+        321.236365,
+        180
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "cube",
+      "atFrame": 48,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "方块中心 = 起点 + 速度 × (帧 + sub)，第 48 帧",
+      "pixelPx": [
+        438.691025,
+        180
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "highlight",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "高光球心随方块同速平移，第 24 帧",
+      "pixelPx": [
+        320,
+        169.69696
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 24,
+      "pixelPx": [
+        320.5,
+        169.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 24 帧高光球所在像素：先打到高光球，再打到方块正面",
+      "intendedHitIds": [
+        "highlight",
+        "cube"
+      ],
+      "hits": [
+        {
+          "objectId": "highlight",
+          "planeDepthM": 4.770418,
+          "rayDistanceM": 4.771496
+        },
+        {
+          "objectId": "cube",
+          "planeDepthM": 4.8,
+          "rayDistanceM": 4.801084
+        }
+      ]
+    }
+  ]
+}
