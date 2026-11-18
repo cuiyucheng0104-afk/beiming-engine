@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "card-runtime/load-check.schema.json",
+  "title": "装载核对记录",
+  "description": "只管结构。各个次序对不对由 CR8 到 CR12 管，所以这里不收紧。",
+  "type": "object",
+  "required": ["format", "shot", "steps", "cards", "createOrder"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "load-check/0.1" },
+    "shot": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "steps": { "type": "array", "items": { "enum": ["assets", "tracks", "create", "collect"] } },
+    "cards": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "orderPairs": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "createOrder": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "applyOrder": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "metaOrder": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "camera": {
+      "type": "object",
+      "required": ["tracksHasCamera", "from"],
+      "additionalProperties": false,
+      "properties": {
+        "tracksHasCamera": { "type": "boolean" },
+        "from": { "enum": ["tracks", "card"] }
+      }
+    },
+    "ext": { "type": "object" }
+  }
+}

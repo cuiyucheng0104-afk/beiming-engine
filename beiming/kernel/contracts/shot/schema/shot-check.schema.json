@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "shot/shot-check.schema.json",
+  "title": "镜头核对记录",
+  "description": "只管结构。实体名的写法由 S4 管、entry 和 mode 的搭配由 S6 管，所以这里不收紧。",
+  "type": "object",
+  "required": ["format", "shot", "mode", "sources", "languages", "buildCalls", "build", "entities"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "shot-check/0.1" },
+    "shot": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "mode": { "enum": ["entry", "cards"] },
+    "entry": { "type": "string", "minLength": 1 },
+    "sources": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "languages": { "type": "array", "minItems": 1, "items": { "enum": ["js", "python"] } },
+    "buildCalls": { "type": "integer", "minimum": 0 },
+    "build": { "enum": ["ok", "failed"] },
+    "entities": { "type": "array", "items": { "type": "string" } },
+    "metaEntities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["f", "names"],
+        "additionalProperties": false,
+        "properties": {
+          "f": { "type": "integer", "minimum": 0 },
+          "names": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["f", "sub", "mode", "digest"],
+        "additionalProperties": false,
+        "properties": {
+          "f": { "type": "integer", "minimum": 0 },
+          "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+          "mode": { "enum": ["single", "shuffled", "sequential", "after-other-shot"] },
+          "digest": { "type": "string", "pattern": "^[0-9a-f]{8,64}$" }
+        }
+      }
+    },
+    "patches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "hits"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "hits": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "metaKeys": { "type": "array", "items": { "type": "string" } },
+    "scan": {
+      "type": "object",
+      "required": ["wallClock", "unseededRandom"],
+      "additionalProperties": false,
+      "properties": {
+        "wallClock": { "type": "array", "items": { "$ref": "#/$defs/scanHit" } },
+        "unseededRandom": { "type": "array", "items": { "$ref": "#/$defs/scanHit" } }
+      }
+    },
+    "ext": { "type": "object" }
+  },
+  "if": { "properties": { "mode": { "const": "entry" } } },
+  "then": { "required": ["entry"] },
+  "$defs": {
+    "scanHit": {
+      "type": "object",
+      "required": ["path", "call"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "call": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

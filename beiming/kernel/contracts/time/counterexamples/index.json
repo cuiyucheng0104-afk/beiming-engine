@@ -1,0 +1,93 @@
+[
+  {
+    "file": "T1-order-dependent.json",
+    "violates": [
+      "T1"
+    ],
+    "why": "同一个镜头、同一个 f 和 sub，顺序求和乱序求的状态摘要不同"
+  },
+  {
+    "file": "T2-wall-clock.json",
+    "violates": [
+      "T2"
+    ],
+    "why": "镜头代码里调了 performance.now"
+  },
+  {
+    "file": "T3-decimal-fps.json",
+    "violates": [
+      "T3"
+    ],
+    "why": "帧率写成了小数 29.97，不是有理数字符串"
+  },
+  {
+    "file": "T4-sample-from-previous-shot.json",
+    "violates": [
+      "T4"
+    ],
+    "why": "切点后第一帧（第 48 帧，属于 s02）有一个采样是对上一个镜头 s01 的状态求值的"
+  },
+  {
+    "file": "T5-centered-shutter.json",
+    "violates": [
+      "T5"
+    ],
+    "why": "快门以帧为中心打开，第 60 帧有一个采样落在第 59 帧里"
+  },
+  {
+    "file": "T6-average-encoded.json",
+    "violates": [
+      "T6"
+    ],
+    "why": "子帧在编码后的值上取平均，没有先线性化"
+  },
+  {
+    "file": "T7-post-per-sample.json",
+    "violates": [
+      "T7"
+    ],
+    "why": "后期链对 4 个子帧各跑了一次，再平均"
+  },
+  {
+    "file": "T8-aux-mid-shutter.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "辅助层取的是 sub = 0.25 的采样，不是 sub = 0"
+  },
+  {
+    "file": "T9-global-frame-leaked.json",
+    "violates": [
+      "T9"
+    ],
+    "why": "交给镜头代码的帧号是全片帧号 60，应该是 60 − 48 = 12"
+  },
+  {
+    "file": "T10-hold-rounds-up.json",
+    "violates": [
+      "T10"
+    ],
+    "why": "hold(5, 2) 返回了 6，应该是 4"
+  },
+  {
+    "file": "T11-unseeded-random.json",
+    "violates": [
+      "T11"
+    ],
+    "why": "卡的实现里调了 Math.random"
+  },
+  {
+    "file": "T12-stream-name-without-seed.json",
+    "violates": [
+      "T12"
+    ],
+    "why": "流名少了种子那一段"
+  },
+  {
+    "file": "T13-stream-disturbed.json",
+    "violates": [
+      "T13"
+    ],
+    "why": "加了一个对象之后，原有那条流的序列变了"
+  }
+]

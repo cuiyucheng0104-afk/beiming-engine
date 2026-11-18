@@ -1,0 +1,37 @@
+{
+  "format": "time-check/0.1",
+  "fps": "24/1",
+  "seed": 7,
+  "shutterAngleDeg": 180,
+  "shots": [
+    {
+      "id": "s01",
+      "start": 0,
+      "frames": 48
+    },
+    {
+      "id": "s02",
+      "start": 48,
+      "frames": 48
+    }
+  ],
+  "frames": [
+    {
+      "frame": 60,
+      "shot": "s02",
+      "f": 60,
+      "samples": [
+        {
+          "frame": 60,
+          "sub": 0,
+          "shot": "s02"
+        },
+        {
+          "frame": 60,
+          "sub": 0.25,
+          "shot": "s02"
+        }
+      ]
+    }
+  ]
+}

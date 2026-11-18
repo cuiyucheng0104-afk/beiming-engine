@@ -1,0 +1,86 @@
+[
+  {
+    "file": "CR1-two-entries.json",
+    "violates": [
+      "CR1"
+    ],
+    "why": "实现文件对外同时提供了 create 和 evaluate 两个入口"
+  },
+  {
+    "file": "CR2-evaluate-via-cards-use.json",
+    "violates": [
+      "CR2"
+    ],
+    "why": "evaluate 形状的卡被 ctx.cards.use 调了"
+  },
+  {
+    "file": "CR3-handle-without-dispose.json",
+    "violates": [
+      "CR3"
+    ],
+    "why": "create 交回的 Handle 没有 dispose"
+  },
+  {
+    "file": "CR4-apply-keeps-state.json",
+    "violates": [
+      "CR4"
+    ],
+    "why": "同一个 f 和 sub，单独调 apply 和顺序调 apply 之后的状态摘要不同"
+  },
+  {
+    "file": "CR5-meta-reports-bbox.json",
+    "violates": [
+      "CR5"
+    ],
+    "why": "Handle.meta 交了 bbox，那是宿主量的东西"
+  },
+  {
+    "file": "CR6-entities-without-prefix.json",
+    "violates": [
+      "CR6"
+    ],
+    "why": "卡带进来的实体并进镜头时没加实例前缀"
+  },
+  {
+    "file": "CR7-evaluate-order-dependent.json",
+    "violates": [
+      "CR7"
+    ],
+    "why": "同样的输入，单独求和乱序求的返回值摘要不同"
+  },
+  {
+    "file": "CR8-create-before-tracks.json",
+    "violates": [
+      "CR8"
+    ],
+    "why": "还没接 tracks 就先 create 了卡"
+  },
+  {
+    "file": "CR9-declared-order-ignored.json",
+    "violates": [
+      "CR9"
+    ],
+    "why": "hdr 声明了要排在 particles 之后，实际却按书写顺序先 create 了 hdr"
+  },
+  {
+    "file": "CR10-card-apply-before-tracks.json",
+    "violates": [
+      "CR10"
+    ],
+    "why": "一帧里先调了卡的 apply，后调 tracks.apply"
+  },
+  {
+    "file": "CR11-card-meta-before-host.json",
+    "violates": [
+      "CR11"
+    ],
+    "why": "一帧里先并了卡的 meta，后放宿主量的元数据"
+  },
+  {
+    "file": "CR12-card-camera-over-tracks.json",
+    "violates": [
+      "CR12"
+    ],
+    "why": "tracks 里有相机轨道，却取了相机类卡交出的相机"
+  }
+]

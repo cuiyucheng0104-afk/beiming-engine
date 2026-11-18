@@ -1,0 +1,41 @@
+{
+  "format": "time-check/0.1",
+  "fps": "24/1",
+  "seed": 7,
+  "shutterAngleDeg": 180,
+  "shots": [
+    {
+      "id": "s01",
+      "start": 0,
+      "frames": 48
+    },
+    {
+      "id": "s02",
+      "start": 48,
+      "frames": 48
+    }
+  ],
+  "rng": [
+    {
+      "run": "before",
+      "shot": "s02",
+      "arg": "scatter/rock.03",
+      "name": "7/s02/scatter/rock.03",
+      "digest": "77c0a9e1"
+    },
+    {
+      "run": "after-adding-rock-04",
+      "shot": "s02",
+      "arg": "scatter/rock.03",
+      "name": "7/s02/scatter/rock.03",
+      "digest": "5a08c3de"
+    },
+    {
+      "run": "after-adding-rock-04",
+      "shot": "s02",
+      "arg": "scatter/rock.04",
+      "name": "7/s02/scatter/rock.04",
+      "digest": "0d52e6fb"
+    }
+  ]
+}

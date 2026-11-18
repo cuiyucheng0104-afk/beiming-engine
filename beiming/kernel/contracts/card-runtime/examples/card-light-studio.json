@@ -1,0 +1,57 @@
+{
+  "format": "card-check/0.1",
+  "card": "light.studio@1",
+  "impl": "cards/light/studio/blender.py",
+  "shape": "create",
+  "entries": [
+    "create"
+  ],
+  "calledVia": "cards.use",
+  "handle": {
+    "members": [
+      "object",
+      "entities",
+      "apply",
+      "meta",
+      "dispose"
+    ],
+    "prefix": "light",
+    "entities": [
+      "key",
+      "fill",
+      "rim_L",
+      "rim_R",
+      "top"
+    ],
+    "merged": [
+      "light.key",
+      "light.fill",
+      "light.rim_L",
+      "light.rim_R",
+      "light.top"
+    ],
+    "metaKeys": [
+      "readings"
+    ]
+  },
+  "evaluations": [
+    {
+      "f": 8,
+      "sub": 0,
+      "mode": "single",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 8,
+      "sub": 0,
+      "mode": "shuffled",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 8,
+      "sub": 0,
+      "mode": "sequential",
+      "digest": "3f9a1c07"
+    }
+  ]
+}

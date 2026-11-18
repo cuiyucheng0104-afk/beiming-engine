@@ -1,0 +1,18 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s03",
+  "mode": "cards",
+  "sources": [
+    "blender"
+  ],
+  "languages": [
+    "python"
+  ],
+  "buildCalls": 1,
+  "build": "ok",
+  "entities": [
+    "kit.body",
+    "kit.fan_L",
+    "kit.fan_R"
+  ]
+}

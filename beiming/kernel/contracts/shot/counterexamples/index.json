@@ -1,0 +1,58 @@
+[
+  {
+    "file": "S1-state-accumulates.json",
+    "violates": [
+      "S1"
+    ],
+    "why": "同一个 f 和 sub，单独求和顺序求的状态摘要不同：state 在上一帧的基础上累加"
+  },
+  {
+    "file": "S2-rebuilt-every-frame.json",
+    "violates": [
+      "S2"
+    ],
+    "why": "48 帧的镜头 build 跑了 48 次"
+  },
+  {
+    "file": "S3-two-sources.json",
+    "violates": [
+      "S3"
+    ],
+    "why": "一个镜头同时用了 three 和 Blender 两个帧源、两种语言"
+  },
+  {
+    "file": "S4-duplicate-entity.json",
+    "violates": [
+      "S4"
+    ],
+    "why": "实体名 kit.fan_L 出现了两次"
+  },
+  {
+    "file": "S5-patch-miss-ignored.json",
+    "violates": [
+      "S5"
+    ],
+    "why": "片段补丁命中 0 处，构建却判成了通过"
+  },
+  {
+    "file": "S6-cards-mode-with-entry.json",
+    "violates": [
+      "S6"
+    ],
+    "why": "「卡加数据」模式的镜头带了入口文件"
+  },
+  {
+    "file": "S7-math-random.json",
+    "violates": [
+      "S7"
+    ],
+    "why": "镜头代码里调了 Math.random"
+  },
+  {
+    "file": "S8-meta-overrides-camera.json",
+    "violates": [
+      "S8"
+    ],
+    "why": "meta(f) 交了 camera，那是宿主量的东西"
+  }
+]

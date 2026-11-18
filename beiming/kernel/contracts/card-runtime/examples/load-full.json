@@ -1,0 +1,42 @@
+{
+  "format": "load-check/0.1",
+  "shot": "s04",
+  "steps": [
+    "assets",
+    "tracks",
+    "create",
+    "collect"
+  ],
+  "cards": [
+    "sky",
+    "hdr",
+    "particles",
+    "title"
+  ],
+  "orderPairs": [
+    [
+      "particles",
+      "hdr"
+    ]
+  ],
+  "createOrder": [
+    "sky",
+    "particles",
+    "hdr",
+    "title"
+  ],
+  "applyOrder": [
+    "tracks",
+    "particles",
+    "hdr",
+    "title"
+  ],
+  "metaOrder": [
+    "host",
+    "title"
+  ],
+  "camera": {
+    "tracksHasCamera": true,
+    "from": "tracks"
+  }
+}

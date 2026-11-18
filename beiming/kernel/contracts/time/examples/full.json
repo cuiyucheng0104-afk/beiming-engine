@@ -1,0 +1,184 @@
+{
+  "format": "time-check/0.1",
+  "fps": "24000/1001",
+  "seed": 20261118,
+  "shutterAngleDeg": 180,
+  "shots": [
+    {
+      "id": "s01",
+      "start": 0,
+      "frames": 48
+    },
+    {
+      "id": "s02",
+      "start": 48,
+      "frames": 48
+    }
+  ],
+  "evaluations": [
+    {
+      "shot": "s02",
+      "f": 12,
+      "sub": 0,
+      "mode": "single",
+      "digest": "3f9a1c07"
+    },
+    {
+      "shot": "s02",
+      "f": 12,
+      "sub": 0,
+      "mode": "shuffled",
+      "digest": "3f9a1c07"
+    },
+    {
+      "shot": "s02",
+      "f": 12,
+      "sub": 0,
+      "mode": "sequential",
+      "digest": "3f9a1c07"
+    },
+    {
+      "shot": "s02",
+      "f": 12,
+      "sub": 0.25,
+      "mode": "single",
+      "digest": "b61e44d2"
+    }
+  ],
+  "frames": [
+    {
+      "frame": 47,
+      "shot": "s01",
+      "f": 47,
+      "samples": [
+        {
+          "frame": 47,
+          "sub": 0,
+          "shot": "s01"
+        },
+        {
+          "frame": 47,
+          "sub": 0.125,
+          "shot": "s01"
+        },
+        {
+          "frame": 47,
+          "sub": 0.25,
+          "shot": "s01"
+        },
+        {
+          "frame": 47,
+          "sub": 0.375,
+          "shot": "s01"
+        }
+      ],
+      "accumulation": {
+        "average": "linear",
+        "postRuns": 1,
+        "postInput": "average"
+      },
+      "aux": {
+        "frame": 47,
+        "sub": 0
+      },
+      "postDepth": {
+        "frame": 47,
+        "sub": 0
+      }
+    },
+    {
+      "frame": 48,
+      "shot": "s02",
+      "f": 0,
+      "samples": [
+        {
+          "frame": 48,
+          "sub": 0,
+          "shot": "s02"
+        },
+        {
+          "frame": 48,
+          "sub": 0.125,
+          "shot": "s02"
+        },
+        {
+          "frame": 48,
+          "sub": 0.25,
+          "shot": "s02"
+        },
+        {
+          "frame": 48,
+          "sub": 0.375,
+          "shot": "s02"
+        }
+      ],
+      "accumulation": {
+        "average": "linear",
+        "postRuns": 1,
+        "postInput": "average"
+      },
+      "aux": {
+        "frame": 48,
+        "sub": 0
+      },
+      "postDepth": {
+        "frame": 48,
+        "sub": 0
+      }
+    }
+  ],
+  "holds": [
+    {
+      "f": 0,
+      "n": 2,
+      "result": 0
+    },
+    {
+      "f": 1,
+      "n": 2,
+      "result": 0
+    },
+    {
+      "f": 4,
+      "n": 2,
+      "result": 4
+    },
+    {
+      "f": 5,
+      "n": 2,
+      "result": 4
+    },
+    {
+      "f": 7,
+      "n": 3,
+      "result": 6
+    }
+  ],
+  "rng": [
+    {
+      "run": "before",
+      "shot": "s02",
+      "arg": "scatter/rock.03",
+      "name": "20261118/s02/scatter/rock.03",
+      "digest": "77c0a9e1"
+    },
+    {
+      "run": "after-adding-rock-04",
+      "shot": "s02",
+      "arg": "scatter/rock.03",
+      "name": "20261118/s02/scatter/rock.03",
+      "digest": "77c0a9e1"
+    },
+    {
+      "run": "after-adding-rock-04",
+      "shot": "s02",
+      "arg": "scatter/rock.04",
+      "name": "20261118/s02/scatter/rock.04",
+      "digest": "0d52e6fb"
+    }
+  ],
+  "scan": {
+    "wallClock": [],
+    "unseededRandom": []
+  }
+}

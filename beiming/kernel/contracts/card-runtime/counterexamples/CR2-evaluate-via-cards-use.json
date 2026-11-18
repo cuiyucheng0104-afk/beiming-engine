@@ -1,0 +1,10 @@
+{
+  "format": "card-check/0.1",
+  "card": "camera.fit@1",
+  "impl": "cards/camera/fit/blender.py",
+  "shape": "evaluate",
+  "entries": [
+    "evaluate"
+  ],
+  "calledVia": "cards.use"
+}

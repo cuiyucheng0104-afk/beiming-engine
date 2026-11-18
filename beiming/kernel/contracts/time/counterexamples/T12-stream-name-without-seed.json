@@ -1,0 +1,27 @@
+{
+  "format": "time-check/0.1",
+  "fps": "24/1",
+  "seed": 7,
+  "shutterAngleDeg": 180,
+  "shots": [
+    {
+      "id": "s01",
+      "start": 0,
+      "frames": 48
+    },
+    {
+      "id": "s02",
+      "start": 48,
+      "frames": 48
+    }
+  ],
+  "rng": [
+    {
+      "run": "a",
+      "shot": "s02",
+      "arg": "scatter/rock.03",
+      "name": "s02/scatter/rock.03",
+      "digest": "77c0a9e1"
+    }
+  ]
+}

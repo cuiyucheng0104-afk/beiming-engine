@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "time/time-check.schema.json",
+  "title": "时间核对记录",
+  "description": "只管结构。fps 的写法由 T3 管，所以这里只要求是字符串；别的不变量见 CONTRACT.md 第 4 节。",
+  "type": "object",
+  "required": ["format", "fps", "seed", "shutterAngleDeg", "shots"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "time-check/0.1" },
+    "fps": { "type": "string" },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
+    "shots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "start", "frames"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/shotId" },
+          "start": { "type": "integer", "minimum": 0 },
+          "frames": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shot", "f", "sub", "mode", "digest"],
+        "additionalProperties": false,
+        "properties": {
+          "shot": { "$ref": "#/$defs/shotId" },
+          "f": { "type": "integer", "minimum": 0 },
+          "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+          "mode": { "enum": ["single", "shuffled", "sequential"] },
+          "digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["frame", "shot", "f", "samples"],
+        "additionalProperties": false,
+        "properties": {
+          "frame": { "type": "integer", "minimum": 0 },
+          "shot": { "$ref": "#/$defs/shotId" },
+          "f": { "type": "integer", "minimum": 0 },
+          "samples": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["frame", "sub", "shot"],
+              "additionalProperties": false,
+              "properties": {
+                "frame": { "type": "integer", "minimum": 0 },
+                "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+                "shot": { "$ref": "#/$defs/shotId" }
+              }
+            }
+          },
+          "accumulation": {
+            "type": "object",
+            "required": ["average"],
+            "additionalProperties": false,
+            "dependentRequired": { "postRuns": ["postInput"], "postInput": ["postRuns"] },
+            "properties": {
+              "average": { "enum": ["linear", "encoded"] },
+              "postRuns": { "type": "integer", "minimum": 0 },
+              "postInput": { "enum": ["average", "sample"] }
+            }
+          },
+          "aux": { "$ref": "time-key.schema.json" },
+          "postDepth": { "$ref": "time-key.schema.json" }
+        }
+      }
+    },
+    "holds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["f", "n", "result"],
+        "additionalProperties": false,
+        "properties": {
+          "f": { "type": "integer", "minimum": 0 },
+          "n": { "type": "integer", "minimum": 1 },
+          "result": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "rng": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["run", "shot", "arg", "name", "digest"],
+        "additionalProperties": false,
+        "properties": {
+          "run": { "type": "string", "minLength": 1 },
+          "shot": { "$ref": "#/$defs/shotId" },
+          "arg": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "required": ["wallClock", "unseededRandom"],
+      "additionalProperties": false,
+      "properties": {
+        "wallClock": { "type": "array", "items": { "$ref": "#/$defs/scanHit" } },
+        "unseededRandom": { "type": "array", "items": { "$ref": "#/$defs/scanHit" } }
+      }
+    },
+    "ext": { "type": "object" }
+  },
+  "$defs": {
+    "shotId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{8,64}$" },
+    "scanHit": {
+      "type": "object",
+      "required": ["path", "call"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "call": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
