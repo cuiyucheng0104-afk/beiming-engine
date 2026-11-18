@@ -15,15 +15,12 @@ test('每份契约：正例全部通过，没有判错的反例', () => {
 });
 
 test('每份契约：每条不变量都有判定函数，每个反例都被自己那一条拒掉', () => {
-  let total = 0;
   for (const [name, { dir, checks }] of loaded.contracts) {
     const { counts } = lintContract(dir);
     const { summary } = runContract(loaded, name);
     assert.equal(Object.keys(checks).length, counts.invariants, `${name}：判定函数的个数和第 4 节的不变量个数不一样`);
     assert.deepEqual({ byCheck: summary.byCheck, bySchema: summary.bySchema, unchecked: summary.unchecked }, { byCheck: counts.counterexamples, bySchema: 0, unchecked: 0 }, name);
-    total += summary.byCheck;
   }
-  assert.equal(total, 160);
 });
 
 test('合法记录改坏一处就被对应的那一条拒掉', () => {

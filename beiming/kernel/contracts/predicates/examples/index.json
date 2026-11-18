@@ -1,0 +1,10 @@
+[
+  {
+    "file": "verdict-inside-frame.json",
+    "schema": "verdict.schema.json"
+  },
+  {
+    "file": "verdict-skipped.json",
+    "schema": "verdict.schema.json"
+  }
+]

@@ -3,7 +3,8 @@
 // 两层：结构（schema/ 里的 JSON Schema 2020-12，用 ajv 判）加行为（各契约目录里的 check.mjs，
 // 每条不变量一个函数，照 CONTRACT.md 第 4 节「怎么查」一栏写）。
 // 契约目录里和目录同名的 JSON（errors/errors.json、predicates/predicates.json、ownership/ownership.json）是正式的登记表：
-// 它自己当正例跑一遍，同时作为第二个参数 { registries } 交给每个判定函数，给「必须是登记过的」这类条文查。
+// 它自己当正例跑一遍，同时放进判定函数的第二个参数 { registries, schema }，给「必须是登记过的」这类条文查；
+// schema 是不带 format 的内嵌值登记的结构定义文件名，带 format 的对象是 null。
 // 用法：node beiming/kernel/contracts/validate.mjs [契约目录 …]；不带参数跑本目录下全部契约。
 // 退出码 1：正例被拒，或者写了判定函数的不变量没拒掉它的反例、多拒了别的条。还没写判定函数的在这里只计数；全部写齐由 validate.test.mjs 把关。
 import Ajv2020 from 'ajv/dist/2020.js';
@@ -24,7 +25,6 @@ const contractDirs = (root) => readdirSync(root, { withFileTypes: true })
 export async function loadContracts(root = HERE) {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   const byFormat = new Map(); // 格式标识 → { contract, id }
-  const embedded = new Map(); // 契约目录名 → 不带 format 的内嵌值的 schema id
   const contracts = new Map();
   const registries = {}; // 契约目录名 → 那份契约的登记表
   for (const dir of contractDirs(root)) {
@@ -40,8 +40,6 @@ export async function loadContracts(root = HERE) {
       if (typeof format === 'string') {
         byFormat.set(format, { contract: name, id });
         formats.push(format);
-      } else {
-        embedded.set(name, [...(embedded.get(name) ?? []), id]);
       }
     }
     const checkPath = join(dir, 'check.mjs');
@@ -49,28 +47,29 @@ export async function loadContracts(root = HERE) {
     contracts.set(name, { dir, checks, formats });
   }
 
-  /** 判一个顶层对象。schemaErrors：结构上哪里不对；violations：违反了哪几条不变量（只含写了判定函数的）。 */
-  function validate(obj, contract) {
-    const hit = byFormat.get(obj?.format);
-    if (!hit && obj?.format === undefined && embedded.has(contract)) {
-      // shortcut: 内嵌值不带 format，例子文件也没写它是哪个对象，这里只要本契约有一份内嵌值的结构定义收它就算过；
-      // 等例子目录有了「文件对哪份结构定义」的登记再改成精确对应
-      const ok = embedded.get(contract).some((id) => ajv.getSchema(id)(obj));
-      return { contract, schemaErrors: ok ? [] : ['本契约里没有一份内嵌值的结构定义收它'], violations: runChecks(contract, obj) };
+  /**
+   * 判一个对象。schemaErrors：结构上哪里不对；violations：违反了哪几条不变量。
+   * 带 format 的顶层对象按格式标识找结构定义；不带 format 的内嵌值必须说明是哪份结构定义（schemaFile，本契约 schema/ 里的文件名）。
+   * 结构不合法时不再跑判定函数：判定函数只对结构合法的对象负责。
+   */
+  function validate(obj, contract, schemaFile) {
+    const hit = obj?.format === undefined && schemaFile ? { contract, id: `${BASE}${contract}/${schemaFile}` } : byFormat.get(obj?.format);
+    const fn = hit && ajv.getSchema(hit.id);
+    if (!fn) {
+      const why = obj?.format === undefined ? '不带 format 的对象没有登记是哪份结构定义（examples/index.json 或 counterexamples/index.json 的 schema）' : `不认识的格式标识：${JSON.stringify(obj.format)}`;
+      return { contract: null, schemaErrors: [why], violations: {} };
     }
-    if (!hit) return { contract: null, schemaErrors: [`不认识的格式标识：${JSON.stringify(obj?.format)}`], violations: {} };
-    const fn = ajv.getSchema(hit.id);
     const schemaErrors = fn(obj) ? [] : fn.errors.map((e) => `${e.instancePath || '/'} ${e.message}`);
-    return { contract: hit.contract, schemaErrors, violations: runChecks(hit.contract, obj) };
+    return { contract: hit.contract, schemaErrors, violations: schemaErrors.length ? {} : runChecks(hit.contract, obj, schemaFile ?? null) };
   }
 
   /** 本契约的每个判定函数都跑一遍；一份契约有几种对象时，判定函数自己认对象，不归它管的返回空数组 */
-  function runChecks(contract, obj) {
+  function runChecks(contract, obj, schema) {
     const violations = {};
     for (const [id, check] of Object.entries(contracts.get(contract).checks)) {
       let problems;
       try {
-        problems = check(obj, { registries });
+        problems = check(obj, { registries, schema });
       } catch (e) {
         problems = [`判定函数出错：${e.message}`]; // 结构已经坏了时判定函数可能读不到字段
       }
@@ -87,8 +86,9 @@ export function runContract(loaded, name) {
   const { dir, checks } = loaded.contracts.get(name);
   const rows = [];
   const exDir = join(dir, 'examples');
-  for (const f of existsSync(exDir) ? readdirSync(exDir).filter((n) => n.endsWith('.json')).sort() : []) {
-    const r = loaded.validate(readJson(join(exDir, f)), name);
+  const exIndex = existsSync(join(exDir, 'index.json')) ? Object.fromEntries(readJson(join(exDir, 'index.json')).map((e) => [e.file, e.schema])) : {};
+  for (const f of existsSync(exDir) ? readdirSync(exDir).filter((n) => n.endsWith('.json') && n !== 'index.json').sort() : []) {
+    const r = loaded.validate(readJson(join(exDir, f)), name, exIndex[f]);
     const bad = [...r.schemaErrors, ...Object.entries(r.violations).map(([id, p]) => `${id}：${p[0]}`)];
     rows.push({ kind: 'example', file: f, ok: bad.length === 0, detail: bad });
   }
@@ -100,7 +100,7 @@ export function runContract(loaded, name) {
   const idxPath = join(dir, 'counterexamples', 'index.json');
   for (const entry of existsSync(idxPath) ? readJson(idxPath) : []) {
     const want = entry.violates[0];
-    const r = loaded.validate(readJson(join(dir, 'counterexamples', entry.file)), name);
+    const r = loaded.validate(readJson(join(dir, 'counterexamples', entry.file)), name, entry.schema);
     const got = Object.keys(r.violations);
     const extra = got.filter((id) => id !== want);
     let verdict;

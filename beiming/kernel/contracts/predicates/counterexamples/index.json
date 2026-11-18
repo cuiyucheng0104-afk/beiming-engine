@@ -46,6 +46,7 @@
     "violates": [
       "PR7"
     ],
-    "why": "判定条目：status 是 skipped，没带 reason"
+    "why": "判定条目：status 是 skipped，没带 reason",
+    "schema": "verdict.schema.json"
   }
 ]

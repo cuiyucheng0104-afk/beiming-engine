@@ -10,18 +10,21 @@ kernel/contracts/<名字>/
   schema/<对象>.schema.json   数据对象的结构定义（JSON Schema 2020-12）
   types.d.ts             函数接口的签名（只当文档，不编译；没有函数接口就不写）
   examples/<短名>.json    正例
+  examples/index.json    不带 format 的正例各对哪份结构定义（没有这种正例就不写）
   counterexamples/<不变量编号>-<短名>.json   反例
   counterexamples/index.json   每个反例违反哪一条、为什么
   check.mjs              判定函数：每条不变量一个，照第 4 节「怎么查」一栏写
 ```
 
 - `check.mjs` 导出 `checks`，键是不变量编号，值是函数：收一个顶层对象，返回发现的问题（字符串数组），空数组表示没违反。记录里没出现的段不判。判定函数只读传进来的东西，不读文件、不读时钟。
-- 条文要查登记表时（「必须是登记过的」这一类），登记表从第二个参数拿：`(obj, { registries }) => …`。`registries` 的键是契约目录名，值是那个目录里同名的 JSON（`errors/errors.json`、`predicates/predicates.json`、`ownership/ownership.json`）；登记表不抄进判定函数。
+- 条文要查登记表时（「必须是登记过的」这一类），登记表从第二个参数拿：`(obj, { registries, schema }) => …`。`registries` 的键是契约目录名，值是那个目录里同名的 JSON（`errors/errors.json`、`predicates/predicates.json`、`ownership/ownership.json`）；登记表不抄进判定函数。
 - 正例和反例由 `node beiming/kernel/contracts/validate.mjs` 真的跑一遍：正例必须结构合法且一条不违反；反例必须正好被 `index.json` 写的那一条判出来，不多不少。
 
 - 条文和结构定义说法不一样时，以 `CONTRACT.md` 为准，并且算一个缺陷。
 - 反例文件本身是纯数据，不往里加「我违反了哪条」这类字段；这些信息写在 `counterexamples/index.json` 里：`[{ "file": "...", "violates": ["T2"], "why": "一句话" }]`。
-- 一个反例只违反一条不变量，其余全部合法。
+- 一个反例只违反一条不变量，其余全部合法，结构也必须合法：结构不合法的对象校验器不再跑判定函数。
+- 一条不变量可以有不止一个反例。条文里有几种违反方式（「或」「并且」的每一支），每一种配一个反例，文件名都以这条的编号开头。
+- 不带 `format` 的内嵌值当正例或反例时，要登记它是哪份结构定义：正例写在 `examples/index.json`（`[{ "file": "…", "schema": "<schema/ 里的文件名>" }]`），反例在 `counterexamples/index.json` 的那一项里加 `"schema"`。判定函数从第二个参数的 `schema` 认这是哪种内嵌值，不靠字段猜。
 
 ## 2. `CONTRACT.md` 的七节
 

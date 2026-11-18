@@ -32,6 +32,7 @@
     "violates": [
       "PA5"
     ],
-    "why": "修法：op 是 rename，没带 to，去掉 applicability 之后不是合法的补丁操作"
+    "why": "修法：op 是 rename，没带 to，去掉 applicability 之后不是合法的补丁操作",
+    "schema": "fix.schema.json"
   }
 ]

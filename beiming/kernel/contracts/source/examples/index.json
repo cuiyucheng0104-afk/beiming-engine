@@ -1,0 +1,14 @@
+[
+  {
+    "file": "manifest.json",
+    "schema": "manifest.schema.json"
+  },
+  {
+    "file": "query-intersect.json",
+    "schema": "scene-query.schema.json"
+  },
+  {
+    "file": "result-intersect.json",
+    "schema": "query-result.schema.json"
+  }
+]
