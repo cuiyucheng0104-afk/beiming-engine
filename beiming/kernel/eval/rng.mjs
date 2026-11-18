@@ -11,7 +11,7 @@ export function streamName(seed, shotId, arg) {
 }
 
 /**
- * 按流名开一条随机流。next() 返回 [0, 1) 里的数，u32() 返回 32 位无符号整数。
+ * 按流名开一条随机流。next() 返回 [0, 1) 里的数，u32() 返回 32 位无符号整数，name 是流名。
  * 流名先散列成四个 32 位状态（cyrb128），再用 sfc32 出数；每条流的状态只在自己的闭包里。
  */
 export function stream(name) {
@@ -36,5 +36,5 @@ export function stream(name) {
     c = ((c << 21) | (c >>> 11)) + t | 0;
     return t >>> 0;
   };
-  return { u32, next: () => u32() / 4294967296 };
+  return { name, u32, next: () => u32() / 4294967296 };
 }

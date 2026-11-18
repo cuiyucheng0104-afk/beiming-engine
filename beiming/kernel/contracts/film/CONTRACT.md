@@ -62,7 +62,7 @@
 | 字段 | 类型 | 单位 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|---|
 | `format` | 字符串 | 无 | 是 | `film/3.0` | 格式标识 |
-| `id` | 字符串 | 无 | 是 | 见 5.1 | 片子的标识，由服务器给 |
+| `id` | 字符串 | 无 | 是 | 见 5.1 | 片子的标识。创建片子时定下，之后不得改（D15）；有服务器时由服务器给 |
 | `title` | 字符串 | 无 | 否 | 不空 | 片名 |
 | `exam` | 字符串 | 无 | 否 | 题号，见 QF 契约 5.1 | 这部片在做哪道题。只能在创建片子时给 |
 | `output` | 对象 | 无 | 是 | 见 3.2 | 输出规格 |
@@ -104,9 +104,9 @@
 | `source` | 字符串 | 无 | 是 | 帧源名，见 F 契约 3.1 | 哪个帧源渲。写了 `renderer` 时，`source`、`host`、`mode`、`entry` 这一套留作对照，不参与这次出片 |
 | `host` | 字符串 | 无 | 是 | 这个帧源的能力声明 `hosts` 里的一项，登记表见 F 契约 3.4；`three`、`core` 两个帧源下的取值按倾向定，合作者不同意时再改（见第 6 节） | 哪个宿主 |
 | `mode` | 字符串 | 无 | 是 | `cards-data`、`build-script`、`native-code` | 作者模式。三个词各是什么，见 F 契约 3.4 |
-| `entry` | 字符串 | 无 | 见 D12、D17 | 相对路径，写法照通用口径 | 入口文件。`build-script` 和 `native-code` 必填，`cards-data` 不得出现；`source` 是 `ext.<名字>` 的镜头不得出现。片子描述里只有这一处可以写文件路径 |
+| `entry` | 字符串 | 无 | 见 D12、D17 | 相对路径，写法照通用口径 | 入口文件。`build-script` 和 `native-code` 必填，`cards-data` 不得出现；`source` 是 `ext.<名字>` 的镜头不得出现。片子描述里只有这一处可以写文件路径。路径相对片子描述所在的目录，这个目录由 `env.filmDir` 交给帧源（F 契约 3.2） |
 | `colorRef` | 字符串 | 无 | 是 | `scene`、`display` | 场景参考镜头，还是显示参考镜头 |
-| `seed` | 整数 | 无 | 否 | 见 T 契约 3.3 | 这个镜头的镜头种子。不给就由服务器从全片种子派生（算法见 LK 契约 5.7），结果记在锁文件里 |
+| `seed` | 整数 | 无 | 否 | 见 T 契约 3.3 | 这个镜头的镜头种子。不给就由服务器从全片种子派生（算法见 LK 契约 5.7），结果记在锁文件里。没有锁文件时必须写（F 契约 5.11） |
 | `assets` | 对象 | 无 | 否 | `{ 别名: 资产引用 }`，写法见 5.5 | 这个镜头用的资产 |
 | `cards` | 数组 | 无 | 否 | 每项见下表 | 这个镜头的卡实例。数组顺序就是装载的书写顺序，见 5.6 |
 | `params` | 对象 | 无 | 否 | 自由键 | 交给入口文件的参数，就是 `ctx.params`。`source` 是 `ext.<名字>` 的镜头必须带 `piece`，值是资产别名，说重放哪个作品 |
@@ -137,9 +137,9 @@
 | 字段 | 类型 | 单位 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|---|
 | `angleDeg` | 双精度 | 度 | 是 | `[0, 360]` | 快门角。0 是不开运动模糊。`shutter` 不出现等于 0 |
-| `samples` | 整数 | 次 | 否 | ≥ 1 | 子帧采样数。不出现时由帧源定，定下的值记进锁文件 `shots.<id>.shutterSamples` |
+| `samples` | 整数 | 次 | 否 | ≥ 1 | 子帧采样数。不出现时照 F 契约 5.9 取：生效的快门角是 0 就取 1，不是 0 就用帧源能力声明的 `motionBlur.samples`。有锁文件时，锁文件的 `shots.<id>.shutterSamples` 记的就是这个值 |
 
-一次 `render` 生效的快门角和子帧采样数：`RenderOpts.shutter` 出现就用它，不出现就用这里的 `angleDeg` 和 `samples`，见 F 契约。快门角是 0 而采样数大于 1 时帧源报错，码是 `contract.shutter-conflict`。
+一次 `render` 生效的快门角和子帧采样数：`RenderOpts.shutter` 出现就用它，不出现就用这里的 `angleDeg` 和 `samples`，见 F 契约 5.9。快门角是 0 而采样数大于 1 时帧源报错，码是 `contract.shutter-conflict`。
 
 `tiers`：键只能是 `draft`、`final`，两个都可以不出现；每个的值是下表的对象。不出现的项用能力声明定下的值。
 
@@ -173,7 +173,7 @@
 | `mode` | 字符串 | 是 | 同 `shots[].mode` | 它的作者模式 |
 | `entry` | 字符串 | 同 `shots[].entry`，按 `renderer.mode` 判 | 相对路径 | 它的入口文件 |
 
-`renderer` 出现时，这次出片用的是它这一套，镜头顶层的 `source`、`host`、`mode`、`entry` 留作对照。`open(shot, env)` 收到的镜头数据里，出帧者那一套已经由宿主换到顶层，见 F 契约。
+`renderer` 出现时，这次出片用的是它这一套，镜头顶层的 `source`、`host`、`mode`、`entry` 留作对照。`open(input, env)` 收到的镜头输入里，`shot` 就是这个镜头的条目，出帧者那一套已经换到顶层；镜头输入由上层从片子描述算出来，见 F 契约 3.2。
 
 ### 3.4 `transitions[]`、`events[]`、`overlays[]`
 
@@ -325,45 +325,47 @@
 
 ### 3.8 片子核对记录
 
-顶层对象，`format` 是 `film-check/0.1`。记录里出现哪一段，就判哪几条不变量；没出现的段不判。
+顶层对象，`format` 是 `film-check/0.1`。记录里出现哪一段，就判哪几条不变量；没出现的段不判。观测了、结果是空的写空数组；没观测的段不出现。
 
-| 字段 | 类型 | 单位 | 必填 | 值域 | 说明 |
-|---|---|---|---|---|---|
-| `format` | 字符串 | 无 | 是 | `film-check/0.1` | 格式标识 |
-| `film` | 片子描述 | 无 | 是 | 见 3.1 | 被判的片子描述 |
-| `lock` | 锁文件 | 无 | 否 | 见 LK 契约 | 这份片子描述对应的锁文件 |
-| `locks` | 数组 | 无 | 否 | 每项见下表 | 对锁文件的观测 |
-| `paths` | 数组 | 无 | 否 | 每项见下表 | 系统各处吐出来或收进去的路径 |
-| `writes` | 数组 | 无 | 否 | 每项见下表 | 对这份片子描述的写入 |
-| `explains` | 数组 | 无 | 否 | 每项是 `Explain`，见 3.7 | `explain` 的结果 |
-| `ext` | 对象 | 无 | 否 | 键带点分前缀 | 私有数据 |
+「来历」一栏的四个词见契约写法约定 3.1。格式标识、`ext` 和各段的数组本身不是观测，来历写「—」，段里的字段各自标。整份收进来的片子描述、锁文件和 `Explain` 是被判的东西本身，标 `自报`；哪几条的查法只读它们，见第 6 节「只读被判对象自己的条文」一行。
+
+| 字段 | 类型 | 单位 | 必填 | 值域 | 来历 | 说明 |
+|---|---|---|---|---|---|---|
+| `format` | 字符串 | 无 | 是 | `film-check/0.1` | — | 格式标识 |
+| `film` | 片子描述 | 无 | 是 | 见 3.1 | `自报` | 被判的片子描述，整份收进来 |
+| `lock` | 锁文件 | 无 | 否 | 见 LK 契约 | `自报` | 这份片子描述对应的锁文件，整份收进来 |
+| `locks` | 数组 | 无 | 否 | 每项见下表 | — | 对锁文件的观测 |
+| `paths` | 数组 | 无 | 否 | 每项见下表 | — | 系统各处吐出来或收进去的路径 |
+| `writes` | 数组 | 无 | 否 | 每项见下表 | — | 对这份片子描述的写入 |
+| `explains` | 数组 | 无 | 否 | 每项是 `Explain`，见 3.7 | `自报` | `explain` 交回的结果，每项整份收进来 |
+| `ext` | 对象 | 无 | 否 | 键带点分前缀 | — | 私有数据 |
 
 `locks[]`：某一时刻读到的一份锁文件。
 
-| 字段 | 类型 | 必填 | 值域 | 说明 |
-|---|---|---|---|---|
-| `rev` | 整数 | 是 | ≥ 0 | 这份锁的修订号 |
-| `writer` | 字符串 | 是 | `server`、`agent` | 这份锁的内容是谁写出来的 |
-| `digest` | 字符串 | 是 | 哈希，写法见通用口径 | 这份锁的文件内容的哈希，不是状态摘要 |
+| 字段 | 类型 | 必填 | 值域 | 来历 | 说明 |
+|---|---|---|---|---|---|
+| `rev` | 整数 | 是 | ≥ 0 | `量的` | 这份锁的修订号，从读到的锁文件里读出来 |
+| `writer` | 字符串 | 是 | `server`、`agent` | `旁观` | 这份锁的内容是谁写出来的，在锁文件落盘的地方数到的，不取写的一方自己的说法 |
+| `digest` | 字符串 | 是 | 哈希，写法见通用口径 | `量的` | 这份锁的文件内容的哈希，不是状态摘要；测试工具自己对读到的字节算 |
 
 `paths[]`：
 
-| 字段 | 类型 | 必填 | 值域 | 说明 |
-|---|---|---|---|---|
-| `use` | 字符串 | 是 | `diagnostic.at`、`fix.path`、`explain.path`、`patch.path` | 这条路径出现在哪里：诊断的 `at`、修法的 `path`、`explain` 的 `path`、补丁的路径 |
-| `path` | 字符串 | 是 | 不空 | 路径的原文 |
+| 字段 | 类型 | 必填 | 值域 | 来历 | 说明 |
+|---|---|---|---|---|---|
+| `use` | 字符串 | 是 | `diagnostic.at`、`fix.path`、`explain.path`、`patch.path` | `量的` | 这条路径出现在哪里：诊断的 `at`、修法的 `path`、`explain` 的 `path`、补丁的路径 |
+| `path` | 字符串 | 是 | 不空 | `量的` | 路径的原文，从那一处读回来，不改写 |
 
 `writes[]`：一次写入请求和服务器的处理。只记片子创建之后的写入，创建片子的那一次不记进来。
 
-| 字段 | 类型 | 必填 | 值域 | 说明 |
-|---|---|---|---|---|
-| `by` | 字符串 | 是 | `agent`、`server` | 谁发起的 |
-| `path` | 字符串 | 是 | 不空 | 写的是哪里，路径的原文 |
-| `rev` | 整数 | 是 | ≥ 0 | 写入带上的修订号，就是写入方上次读到的那个 |
-| `serverRev` | 整数 | 是 | ≥ 0 | 服务器收到写入时片子描述的修订号 |
-| `outcome` | 字符串 | 是 | `accepted`、`rejected` | 生效了，还是被拒绝 |
-| `code` | 字符串 | `outcome` 是 `rejected` 时必填 | 点分小写 | 错误码 |
-| `latestRev` | 整数 | 否 | ≥ 0 | 拒绝时服务器交回的最新修订号 |
+| 字段 | 类型 | 必填 | 值域 | 来历 | 说明 |
+|---|---|---|---|---|---|
+| `by` | 字符串 | 是 | `agent`、`server` | `旁观` | 谁发起的。在服务器收写入的入口数到的：测试工具自己发的写入和服务器自己发起的写入都从这里过 |
+| `path` | 字符串 | 是 | 不空 | `旁观` | 写的是哪里，路径的原文 |
+| `rev` | 整数 | 是 | ≥ 0 | `旁观` | 写入带上的修订号，就是写入方上次读到的那个 |
+| `serverRev` | 整数 | 是 | ≥ 0 | `量的` | 服务器收到写入时片子描述的修订号，测试工具在这次写入之前读一次得到 |
+| `outcome` | 字符串 | 是 | `accepted`、`rejected` | `量的` | 生效了，还是被拒绝：写入之后把片子描述读回来比 |
+| `code` | 字符串 | `outcome` 是 `rejected` 时必填 | 点分小写 | `量的` | 交回的错误码 |
+| `latestRev` | 整数 | 否 | ≥ 0 | `量的` | 拒绝时服务器交回的最新修订号 |
 
 ## 4. 不变量
 
@@ -379,7 +381,7 @@
 | D8 | 全片级的键绑的四张卡不得出现在 `shots[].cards` 里，键里写了 `card` 时卡名必须是这个键绑的那张。 | `shots[].cards` 每一项的 `use` 的卡名不得是 `comp.display`、`comp.finish`、`deliver.encode`、`audio.master`；`style.view`、`style.finish`、`delivery`、`audio` 里的 `card` 的卡名必须等于 3.6 那张表里同一行的卡 | `D8-global-card-in-shot.json`、`D8-key-card-mismatch.json` |
 | D9 | `Explain` 的 `layers` 必须按 `card-default`、`template`、`film`、`job` 从弱到强排，`value` 必须等于最后一个带 `value` 的层的 `value`。 | `explains` 每一项：`layers` 各项的层在 5.8 的次序里不降；至少有一项带 `value`；顶层的 `value` 和最后一个带 `value` 的项逐值相等 | `D9-explain-weaker-layer-wins.json` |
 | D10 | `shots`、`transitions`、`events`、`overlays`、`audio.narration` 各自数组里的 `id` 不得重复。 | 五个数组各自比：没有两项的 `id` 逐字符相同 | `D10-duplicate-event-id.json`、`D10-duplicate-overlay-id.json` |
-| D11 | 镜头的 `host` 和 `mode` 必须在它的帧源的能力声明里，`renderer` 里的那一套同样。 | 查 F 契约 3.4 的登记表：`host` 是 `source` 这个帧源 `hosts` 的一项，`mode` 是它 `modes` 的一项；`renderer` 出现时，`renderer.host`、`renderer.mode` 对 `renderer.source` 再比一遍。登记表的格子里列出了值的，照列出的值判，带不带待定的注都一样；一个值都没列的格子不判；登记表里没有的帧源（`legacy-page`、`ext.<名字>`）不判 | `D11-host-not-of-source.json`、`D11-core-host-not-listed.json` |
+| D11 | 镜头的 `host` 和 `mode` 必须在它的帧源的能力声明里，`renderer` 里的那一套同样。 | 查帧源登记表（F 契约 3.9，数据在 `source/source.json`）：`host` 是 `sources` 里 `source` 这个帧源那一条 `hosts` 的一项，`mode` 是它 `modes` 的一项；`renderer` 出现时，`renderer.host`、`renderer.mode` 对 `renderer.source` 再比一遍。登记表里没有的帧源（`legacy-page`、`ext.<名字>`）不判。登记表登记的是上限：在登记表里、帧源真的能力声明里却还没有的宿主和作者模式，这里判不出，由 `open` 报错，归 F16 | `D11-host-not-of-source.json`、`D11-core-host-not-listed.json`、`D11-mode-not-of-source.json` |
 | D12 | `source` 不是 `ext.<名字>` 的镜头，`mode` 是 `build-script` 或 `native-code` 的必须有 `entry`，`mode` 是 `cards-data` 的不得有 `entry`；`renderer` 里的那一套同样。 | 逐个镜头比 `mode` 和 `entry` 出没出现；`renderer` 出现并且 `renderer.source` 不是 `ext.<名字>` 时，对 `renderer.mode` 和 `renderer.entry` 再比一遍 | `D12-native-code-without-entry.json`、`D12-build-script-without-entry.json`、`D12-cards-data-with-entry.json`、`D12-renderer-without-entry.json`、`D12-renderer-cards-data-with-entry.json` |
 | D13 | 事件和旁白展开后的帧号必须落在 `[0, output.frames)` 内，写了 `shot` 的事件还必须落在那个镜头的区间内；叠加层展开后必须 `in` < `out`，并且 `[in, out)` 落在它的镜头的区间内。 | 照 5.3 把 `events[].frame`、`overlays[].in`、`overlays[].out`、`audio.narration[].at` 展开成整数再比。事件和旁白：0 ≤ 帧号 < `output.frames`；事件有 `shot` 时镜头的 `in` ≤ 帧号 < 镜头的 `out`。叠加层：镜头的 `in` ≤ `in` < `out` ≤ 镜头的 `out`。算式引用了没定义的东西、展开不了的，归 D2，这里不判 | `D13-event-outside-shot.json`、`D13-event-past-end.json`、`D13-narration-past-end.json`、`D13-overlay-empty.json`、`D13-overlay-outside-shot.json` |
 | D14 | `transitions[].at` 必须是切点，一个切点最多写一项。 | `transitions` 每项的 `at` 等于某个非首镜头的 `in`；没有两项的 `at` 相等 | `D14-transition-off-cut.json` |
@@ -476,6 +478,10 @@
 
 宿主把每个叠加层展开成它那个镜头的一个卡实例：卡是 `two-d.overlay@1`，实例名是叠加层的 `id`，装在镜头自己的卡之后（固定装载顺序见 CR 契约）。这张卡进锁，锁文件里它的 `from` 是 `overlays`（见 LK 契约）。文字框由这个实例交，见 M 契约。实例名在一个镜头里不得重复，所以叠加层的 `id` 不得和它那个镜头 `cards` 里的 `as` 相同（D18）。
 
+### 5.12 只出帧的链路
+
+只出帧、不合成、不验收、不编码的链路不读 `style.view`、`predicates`、`delivery`。这三样照旧必填：片子描述说的是一部要交付的片子，不因为某条链路短就少写。
+
 ## 6. 待定
 
 | 项 | 现在怎么写 | 等什么 |
@@ -518,6 +524,8 @@
 | `renderer` 里的 `host`、`mode`、`entry` | 【起草者补】和镜头顶层那一套一样受 D11、D12 管 | 集成负责人确认 |
 | `two-d.overlay` 能不能直接写进 `shots[].cards` | 不禁止 | 集成负责人定 |
 | `delivery.layers` 里的通道，出帧的帧源交不交得出 | 本契约不判 | 帧源接口契约（F）的能力声明 |
+| 只读被判对象自己的条文 | D1、D2、D8、D10 到 D14、D16 到 D19 判的是片子描述自己写得对不对，D3 拿片子描述和锁文件互相对，判的都是交上来的东西本身，不靠谁的说法。D9 只读 `explain` 自己交回的结果：判得出结果前后自洽，判不出它说的 `value` 是不是真的生效值。这一半现在只有声明，没有判定 | 有了能独立量「一个参数最终生效的值」的办法（例如改这个参数再比出帧），在记录里加 `量的` 字段 |
+| `writes[]` 的 `by`、`path`、`rev` 从哪来，`locks[].writer` 从哪来 | 【起草者补】标 `旁观`：服务器自己发起的写入不经测试工具的手，只有在服务器收写入的入口、锁文件落盘的地方才数得到。选错了要改 3.8 这四格的来历 | 协议组件定下服务器有没有这两个观测点 |
 
 ## 7. 变更记录
 
@@ -527,3 +535,4 @@
 | 2026-11-18 | D2、D3、D5、D7、D8、D10 到 D13、D15 的条文或判法；新加 D16 到 D19；3.1 到 3.5、3.7、3.8、5.1、5.3 到 5.6、5.8、5.11；第 2、6 节 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 3.4 的 `overlays[].id`、3.8 的 `locks[].digest` 说明、D18 的判法、5.1、第 6 节；结构定义里叠加层 `id` 的正则和 `ext.<名字>` 的正则 | 修订后的对齐收尾 |
 | 2026-11-19 | D7、D11、D15、D18 的条文或判法；D1、D2、D3、D5、D8、D10 到 D13、D15、D18 补反例；3.3 的 `host`、3.8 的 `writes[]`；第 6 节 `shots[].host` 两行 | 判定函数落地后发现的问题照处理结果改：一种坏法只归一条，条文的每一支配一个反例，两处待定按倾向定 |
+| 2026-11-19 | 3.1 的 `id`；3.3 的 `entry`、`seed`、`shutter.samples` 和末尾说 `open` 的一句；D11 的「怎么查」和判定函数，补一个作者模式的反例；3.8 加「来历」一栏；新加 5.12；第 6 节加两行 | 第一条照契约出帧的链路跑通后暴露的问题：没有服务器和锁文件时这几个值没有来源，入口文件相对谁没写，D11 用的登记表是判定函数里另抄的一份 |

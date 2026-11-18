@@ -11,17 +11,10 @@ const TERMINAL_ARRAYS = [
   /^style\/colorScript\/[^/]+\/key$/, /^delivery\/layers$/, /^output\/size$/,
 ];
 const TOP_FIELDS = ['format', 'id', 'title', 'exam', 'output', 'timeline', 'assets', 'shots', 'transitions', 'events', 'overlays', 'style', 'audio', 'predicates', 'delivery'];
-// 抄自帧源接口契约（F）3.4 的登记表，名单以那里为准。格子里列出了值的照列出的值判（带不带待定的注都一样）；
-// null 是一个值都没列的格子，不判
-const REGISTRY = {
-  blender: { hosts: ['cycles'], modes: ['cards-data', 'build-script', 'native-code'] },
-  three: { hosts: ['page'], modes: ['cards-data', 'build-script', 'native-code'] },
-  core: { hosts: ['offscreen', 'headless-page'], modes: ['cards-data', 'build-script'] },
-};
 const EXPR = /^(?:cut\((0|[1-9]\d*)\)|event\(([a-z][a-z0-9-]*)\))(?: ([+-]) ([1-9]\d*))?$/;
 
 const filmOf = (obj) => (obj?.format === 'film/3.0' ? obj : obj?.format === 'film-check/0.1' ? obj.film : null);
-const onFilm = (fn) => (obj) => { const film = filmOf(obj); return film ? fn(film) : []; };
+const onFilm = (fn) => (obj, ctx) => { const film = filmOf(obj); return film ? fn(film, ctx) : []; };
 const onRecord = (fn) => (obj) => (obj?.format === 'film-check/0.1' ? fn(obj) : []);
 const isExt = (source) => typeof source === 'string' && source.startsWith('ext.');
 const cardName = (ref) => ref.slice(0, ref.lastIndexOf('@'));
@@ -118,12 +111,12 @@ const mustReject = (writes, match, code) => (writes ?? [])
   .filter((w) => w.rev === w.serverRev && match(w) && (w.outcome !== 'rejected' || w.code !== code))
   .map((w) => `${w.by} 对 ${w.path} 的写入结果是 ${w.outcome}${w.code ? `（${w.code}）` : ''}，应该以 ${code} 拒绝`);
 
-/** 一套 source/host/mode/entry 的 D11、D12 判法 */
-function capsProblems(who, set) {
-  if (!Object.hasOwn(REGISTRY, set.source)) return []; // 登记表里没有的帧源不判
-  const reg = REGISTRY[set.source];
+/** 一套 source/host/mode/entry 的 D11、D12 判法。sources 是帧源登记表（source/source.json）的 sources，由校验器放在 registries.source 里 */
+function capsProblems(who, set, sources) {
+  if (!Object.hasOwn(sources, set.source)) return []; // 登记表里没有的帧源不判
+  const reg = sources[set.source];
   return [
-    ...(reg.hosts && !reg.hosts.includes(set.host) ? [`${who} 的宿主 ${set.host} 不在帧源 ${set.source} 的 hosts 里`] : []),
+    ...(reg.hosts.includes(set.host) ? [] : [`${who} 的宿主 ${set.host} 不在帧源 ${set.source} 的 hosts 里`]),
     ...(reg.modes.includes(set.mode) ? [] : [`${who} 的作者模式 ${set.mode} 不在帧源 ${set.source} 的 modes 里`]),
   ];
 }
@@ -179,9 +172,9 @@ const filmChecks = {
   D10: (film) => [...ID_ARRAYS.map((a) => [a, film[a]]), ['audio.narration', film.audio?.narration]]
     .flatMap(([name, items]) => dupes((items ?? []).map((it) => it.id)).map((id) => `${name} 里有不止一项的 id 是 ${id}`)),
 
-  D11: (film) => film.shots.flatMap((s) => [
-    ...capsProblems(`镜头 ${s.id}`, s),
-    ...(s.renderer ? capsProblems(`镜头 ${s.id} 的 renderer`, s.renderer) : []),
+  D11: (film, { registries }) => film.shots.flatMap((s) => [
+    ...capsProblems(`镜头 ${s.id}`, s, registries.source.sources),
+    ...(s.renderer ? capsProblems(`镜头 ${s.id} 的 renderer`, s.renderer, registries.source.sources) : []),
   ]),
 
   D12: (film) => film.shots.flatMap((s) => [

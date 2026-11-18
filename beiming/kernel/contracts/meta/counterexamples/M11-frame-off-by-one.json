@@ -1,0 +1,17 @@
+{
+  "format": "meta-check/0.1",
+  "shot": "s02",
+  "start": 300,
+  "renders": [
+    {
+      "call": 0,
+      "shotFrame": 150,
+      "metas": 1,
+      "metaBytes": 2048,
+      "metaFrame": 451,
+      "metaShotFrame": 150,
+      "colorFileSha256": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1",
+      "metaHashColor": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1"
+    }
+  ]
+}

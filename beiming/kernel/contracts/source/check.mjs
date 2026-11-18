@@ -1,6 +1,6 @@
 // 帧源接口契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// F4、F10 收单独的能力声明（caps/0.1）和核对记录（source-check/0.1）里的 caps，其余各条只收核对记录。
-// 记录里没出现的段不判；实体清单、场景查询这些不带 format 的内嵌值不归这些条文管，一律返回空数组。
+// F4、F10、F15 收单独的能力声明（caps/0.1）和核对记录（source-check/0.1）里的 caps，其余各条只收核对记录。
+// 记录里没出现的段不判；实体清单、场景查询、镜头输入、层引用这些不带 format 的内嵌值和帧源登记表不归这些条文管，一律返回空数组。
 
 const FULL_IDS = ['blender', 'three', 'core'];
 const QUERY_LIMIT = 50;
@@ -14,6 +14,10 @@ const allDeclared = (caps, want) => want.every((n) => declared(caps, n));
 const isExt = (caps) => caps.id.startsWith('ext.');
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 const at = (r) => `第 ${r.shotFrame} 帧的 render`;
+const failedWith = (x, code) => x.status === 'error' && x.code === code;
+const outcome = (x) => `${x.status}${x.code ? `（${x.code}）` : ''}`;
+/** 镜头条目的 host 和 mode 都在能力声明里 */
+const modeDeclared = (caps, o) => caps.hosts.includes(o.host) && caps.modes.includes(o.mode);
 
 const raw = {
   F1: (rec) => (rec.renders ?? []).filter((r) => r.status === 'ok').flatMap((r) => {
@@ -46,10 +50,6 @@ const raw = {
     ...(x.exitCode === undefined || x.exitCode === 0 ? [`failures[${i}]（${x.cause}）的退出码是 ${x.exitCode ?? '没退出'}`] : []),
     ...(x.elapsedMs > x.limitMs ? [`failures[${i}] 过了 ${x.elapsedMs} 毫秒才结束，时限是 ${x.limitMs} 毫秒`] : []),
   ]),
-
-  F7: (rec) => (rec.auxUses ?? [])
-    .filter((u) => u.use === 'cross-source-merge')
-    .map((u) => `${u.output} 层被拿去做两个帧源之间的合并`),
 
   F8: (rec) => (rec.queries ?? [])
     .filter((q) => !rec.caps.sceneQuery.includes(q.kind) && (q.status !== 'error' || q.code !== 'contract.unsupported-query'))
@@ -86,6 +86,30 @@ const raw = {
     .filter((r) => (r.shutterAngleDeg ?? 0) === 0 && r.shutterSamples > 1 && allDeclared(rec.caps, r.want))
     .filter((r) => r.status !== 'error' || r.code !== 'contract.shutter-conflict')
     .map((r) => `${at(r)} 快门角 0、子帧采样 ${r.shutterSamples}，结果是 ${r.status}${r.code ? `（${r.code}）` : ''}`),
+
+  // host 或 mode 不在能力声明里的 open 归 F16
+  F14: (rec) => (rec.opens ?? [])
+    .filter((o) => !o.hasLock && modeDeclared(rec.caps, o) && (!o.hasSeed || o.usesCards || o.usesAssets))
+    .filter((o) => !failedWith(o, 'env.lock-required'))
+    .map((o) => `没有锁的 open（${o.hasSeed ? '' : '镜头没写种子'}${o.usesCards ? ' 用了卡' : ''}${o.usesAssets ? ' 用了资产' : ''}），结果是 ${outcome(o)}`),
+
+  F16: (rec) => (rec.opens ?? [])
+    .filter((o) => !modeDeclared(rec.caps, o) && !failedWith(o, 'contract.unsupported-mode'))
+    .map((o) => `open 的宿主 ${o.host}、作者模式 ${o.mode} 不全在能力声明里，结果是 ${outcome(o)}`),
+
+  F17: (rec) => (rec.renders ?? []).flatMap((r) => (r.layerRefs ?? []).flatMap((l) => [
+    ...(l.sha256 !== l.fileSha256 ? [`${at(r)} 的 ${l.output} 层引用写的哈希不是层文件内容的哈希`] : []),
+    ...(r.size && (l.shape[0] !== r.size[1] || l.shape[1] !== r.size[0])
+      ? [`${at(r)} 的 ${l.output} 层引用的 shape 是 [${l.shape.join(', ')}]，这次输出是宽 ${r.size[0]}、高 ${r.size[1]}`] : []),
+  ])),
+
+  F18: (rec) => (rec.renders ?? [])
+    .filter((r) => (r.unsupportedOpts ?? []).length > 0 && allDeclared(rec.caps, r.want) && !failedWith(r, 'contract.unsupported-option'))
+    .map((r) => `${at(r)} 要了帧源交不出的 ${r.unsupportedOpts.join('、')}，结果是 ${outcome(r)}`),
+
+  F19: (rec) => (rec.renders ?? [])
+    .filter((r) => (r.unfitOutputs ?? []).some((n) => r.want.includes(n)) && allDeclared(rec.caps, r.want) && !failedWith(r, 'contract.unsupported-object'))
+    .map((r) => `${at(r)} 的场景里有对象放不进要的输出，结果是 ${outcome(r)}`),
 };
 
 const onRecord = (fn) => (obj) => (obj?.format === 'source-check/0.1' ? fn(obj) : []);
@@ -112,8 +136,30 @@ const F10 = (obj) => {
   return caps.conformance === want ? [] : [`帧源 ${caps.id} 的合规档是 ${caps.conformance}，应该是 ${want}`];
 };
 
+// 登记表（registries.source，本目录的 source.json）是上限；逐字段的「之内」见 3.4。登记表里没有的帧源不查
+const F15 = (obj, { registries }) => {
+  const caps = capsOf(obj);
+  const all = registries.source.sources;
+  if (!caps || !Object.hasOwn(all, caps.id)) return [];
+  const reg = all[caps.id];
+  const out = [];
+  for (const key of ['hosts', 'modes', 'sceneQuery']) {
+    for (const v of caps[key]) if (!reg[key].includes(v)) out.push(`能力声明的 ${key} 里有 ${v}，登记表里 ${caps.id} 没有`);
+  }
+  for (const [name, v] of Object.entries(caps.outputs)) {
+    if (name === 'meta' || v === false) continue;
+    const type = Object.hasOwn(reg.outputs, name) ? reg.outputs[name] : false;
+    if (type === false) out.push(`能力声明声明了输出 ${name}，登记表里 ${caps.id} 交不出它`);
+    else if (v.type !== type) out.push(`输出 ${name} 的 type 是 ${v.type}，登记表是 ${type}`);
+  }
+  if (caps.motionBlur.mode !== reg.motionBlur.mode) out.push(`motionBlur.mode 是 ${caps.motionBlur.mode}，登记表是 ${reg.motionBlur.mode}`);
+  if (reg.determinism !== undefined && caps.determinism !== reg.determinism) out.push(`determinism 是 ${caps.determinism}，登记表是 ${reg.determinism}`);
+  return out;
+};
+
 export const checks = {
   ...Object.fromEntries(Object.entries(raw).map(([id, fn]) => [id, onRecord(fn)])),
   F4,
   F10,
+  F15,
 };

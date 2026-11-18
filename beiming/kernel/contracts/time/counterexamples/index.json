@@ -89,5 +89,68 @@
       "T13"
     ],
     "why": "加了一个对象之后，原有那条流的序列变了"
+  },
+  {
+    "file": "T5-override-narrows-window.json",
+    "violates": [
+      "T5"
+    ],
+    "why": "这次调用把快门角覆盖成 90 度，窗口是 [60, 60.25)；有一个采样在 60.3125，照镜头的 180 度才在窗口里"
+  },
+  {
+    "file": "T5-zero-angle-two-samples.json",
+    "violates": [
+      "T5"
+    ],
+    "why": "这次调用把快门角覆盖成 0，却取了两个采样"
+  },
+  {
+    "file": "T8-post-depth-mid-shutter.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "后期链用的深度取在 sub = 0.25，不是辅助层的那个 sub = 0 的样本"
+  },
+  {
+    "file": "T8-aux-aperture-open.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "辅助层的样本是开着 0.025 米孔径取的，不是针孔"
+  },
+  {
+    "file": "T8-aux-shutter-open.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "辅助层的样本是开着 180 度快门取的"
+  },
+  {
+    "file": "T8-aux-accumulated.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "辅助层的样本由 4 个子帧采样平均而成"
+  },
+  {
+    "file": "T8-aux-pixel-corner.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "辅助层的样本取在像素左上角，不是像素中心"
+  },
+  {
+    "file": "T14-samples-front-loaded.json",
+    "violates": [
+      "T14"
+    ],
+    "why": "4 个采样挤在快门窗口的前半（0、0.0625、0.125、0.1875），都在窗口里，却不是居中分层的 0.0625、0.1875、0.3125、0.4375"
+  },
+  {
+    "file": "T14-override-angle-ignored.json",
+    "violates": [
+      "T14"
+    ],
+    "why": "这次调用把快门角覆盖成 360 度，采样却还照镜头的 180 度排在 0.125、0.375，应该在 0.25、0.75"
   }
 ]

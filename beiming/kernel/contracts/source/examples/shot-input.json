@@ -1,0 +1,24 @@
+{
+  "film": "f_min",
+  "output": {
+    "size": [
+      1280,
+      720
+    ],
+    "fps": "24/1"
+  },
+  "shot": {
+    "id": "s01",
+    "in": 0,
+    "out": 48,
+    "source": "three",
+    "host": "page",
+    "mode": "native-code",
+    "entry": "shots/s01.js",
+    "colorRef": "scene",
+    "seed": 7,
+    "shutter": {
+      "angleDeg": 180
+    }
+  }
+}

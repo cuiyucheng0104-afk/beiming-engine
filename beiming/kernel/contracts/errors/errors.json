@@ -75,12 +75,32 @@
       "meaning": "场景包里出现了节点登记表之外的图案节点"
     },
     {
+      "code": "contract.unsupported-mode",
+      "meaning": "镜头条目的宿主或作者模式不在帧源的能力声明里"
+    },
+    {
+      "code": "contract.unsupported-object",
+      "meaning": "场景里有对象放不进这次要的某个输出"
+    },
+    {
+      "code": "contract.unsupported-option",
+      "meaning": "RenderOpts 给了帧源交不出的每像素采样数或缩放"
+    },
+    {
       "code": "contract.unsupported-output",
       "meaning": "要了帧源没声明过的输出"
     },
     {
       "code": "contract.unsupported-query",
       "meaning": "问了帧源没声明过的场景查询种类"
+    },
+    {
+      "code": "env.lock-required",
+      "meaning": "没有锁文件，镜头却要用只有锁文件里才有的东西"
+    },
+    {
+      "code": "usage.bad-argument",
+      "meaning": "调用的参数出了值域"
     }
   ]
 }

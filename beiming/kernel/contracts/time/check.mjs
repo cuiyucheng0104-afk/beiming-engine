@@ -5,6 +5,8 @@
 const shotOf = (rec, id) => rec.shots.find((s) => s.id === id);
 const gcd = (a, b) => (b ? gcd(b, a % b) : a);
 const sameKey = (k, frame) => k.frame === frame && k.sub === 0;
+/** 这一帧生效的快门角：这次 render 覆盖了就用覆盖后的，没覆盖用镜头的 */
+const angleOf = (rec, fr) => fr.shutterAngleDeg ?? shotOf(rec, fr.shot).shutterAngleDeg;
 
 /** 把条目按 key 分组，返回摘要不止一种的组的 key */
 function mixedDigests(items, keyOf) {
@@ -52,7 +54,7 @@ const raw = {
   }),
 
   T5: (rec) => (rec.frames ?? []).flatMap((fr) => {
-    const angle = shotOf(rec, fr.shot).shutterAngleDeg;
+    const angle = angleOf(rec, fr);
     if (angle === 0) {
       return fr.samples.length === 1 && sameKey(fr.samples[0], fr.frame) ? [] : [`第 ${fr.frame} 帧：快门角是 0，必须只有 sub = 0 一个采样`];
     }
@@ -62,7 +64,7 @@ const raw = {
   }),
 
   T6: (rec) => (rec.frames ?? [])
-    .filter((fr) => fr.accumulation && fr.accumulation.average !== 'linear')
+    .filter((fr) => fr.accumulation?.average !== undefined && fr.accumulation.average !== 'linear')
     .map((fr) => `第 ${fr.frame} 帧不是在线性光里取平均`),
 
   T7: (rec) => (rec.frames ?? [])
@@ -73,10 +75,11 @@ const raw = {
     const out = [];
     if (fr.aux && !sameKey(fr.aux, fr.frame)) out.push(`第 ${fr.frame} 帧的辅助层取在 (${fr.aux.frame}, ${fr.aux.sub})`);
     if (fr.postDepth && !sameKey(fr.postDepth, fr.frame)) out.push(`第 ${fr.frame} 帧后期用的深度取在 (${fr.postDepth.frame}, ${fr.postDepth.sub})`);
-    const a = fr.auxSample;
-    if (a && !(a.apertureM === 0 && a.shutterAngleDeg === 0 && a.samples === 1 && a.pixelOffset[0] === 0.5 && a.pixelOffset[1] === 0.5)) {
-      out.push(`第 ${fr.frame} 帧的辅助层样本不是针孔、零快门、单采样、像素中心`);
-    }
+    const a = fr.auxSample ?? {}; // 四个字段各自可选，出现哪个判哪个
+    if (a.apertureM !== undefined && a.apertureM !== 0) out.push(`第 ${fr.frame} 帧的辅助层样本孔径是 ${a.apertureM} 米，不是针孔`);
+    if (a.shutterAngleDeg !== undefined && a.shutterAngleDeg !== 0) out.push(`第 ${fr.frame} 帧的辅助层样本开着 ${a.shutterAngleDeg} 度快门`);
+    if (a.samples !== undefined && a.samples !== 1) out.push(`第 ${fr.frame} 帧的辅助层样本由 ${a.samples} 个子帧采样平均而成`);
+    if (a.pixelOffset && !(a.pixelOffset[0] === 0.5 && a.pixelOffset[1] === 0.5)) out.push(`第 ${fr.frame} 帧的辅助层样本取在像素内的 (${a.pixelOffset[0]}, ${a.pixelOffset[1]})，不是像素中心`);
     return out;
   }),
 
@@ -100,6 +103,12 @@ const raw = {
     .map((r) => `流名 ${r.name} 和参数 ${r.arg} 对不上`),
 
   T13: (rec) => mixedDigests(rec.rng, (r) => r.name).map((k) => `同名的随机流出了不同的序列：${k}`),
+
+  T14: (rec) => (rec.frames ?? []).filter((fr) => fr.accumulation).flatMap((fr) => {
+    const n = fr.samples.length, win = angleOf(rec, fr) / 360;
+    return fr.samples.map((s) => s.sub).sort((a, b) => a - b)
+      .flatMap((sub, i) => (sub === ((i + 0.5) / n) * win ? [] : [`第 ${fr.frame} 帧按相位数的第 ${i} 个采样在 ${sub}，居中分层应该在 ${((i + 0.5) / n) * win}`]));
+  }),
 };
 
 export const checks = Object.fromEntries(Object.entries(raw).map(([id, fn]) => [id, onRecord(fn)]));

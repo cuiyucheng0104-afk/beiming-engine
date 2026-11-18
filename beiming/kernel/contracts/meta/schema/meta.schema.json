@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "meta/meta.schema.json",
   "title": "每帧元数据",
-  "description": "只管结构。哪个 null 在什么时候合法由 M4、M6、M7 管，origin 里列什么由 M2、M5 管，编号不重复由 M8 管，所以这里不收紧。source.renderer 和 source.id 用同一个模式（帧源名，见 F 契约 3.1）。",
+  "description": "只管结构。哪个 null 在什么时候合法由 M4、M6、M7 管，origin 里列什么由 M2、M5 管，编号不重复由 M8 管，stats.clipHigh、stats.clipLow 什么时候必须出现、什么时候不得出现由 M10 管，所以这里不收紧。source.renderer 和 source.id 用同一个模式（帧源名，见 F 契约 3.1）。",
   "type": "object",
-  "required": ["format", "film", "shot", "frame", "shotFrame", "sub", "seed", "fps", "size", "colorRef", "units", "camera", "entities", "lights", "events", "texts", "stats", "source", "timing", "origin", "hash"],
+  "required": ["format", "film", "shot", "frame", "shotFrame", "seed", "fps", "size", "colorRef", "units", "camera", "entities", "lights", "events", "texts", "stats", "source", "timing", "origin", "hash"],
   "additionalProperties": false,
   "properties": {
     "format": { "const": "meta/0.1" },
@@ -12,7 +12,6 @@
     "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
     "frame": { "type": "integer", "minimum": 0 },
     "shotFrame": { "type": "integer", "minimum": 0 },
-    "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
     "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
     "fps": { "type": "string", "pattern": "^[1-9][0-9]*/[1-9][0-9]*$" },
     "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
@@ -121,7 +120,7 @@
     "readings": { "type": "object", "propertyNames": { "minLength": 1 }, "additionalProperties": { "type": "number" } },
     "stats": {
       "type": ["object", "null"],
-      "required": ["luma", "clipHigh", "clipLow", "noise", "tris"],
+      "required": ["luma", "noise", "tris"],
       "additionalProperties": false,
       "properties": {
         "luma": {

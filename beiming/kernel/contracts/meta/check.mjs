@@ -1,5 +1,5 @@
 // 每帧元数据契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// M1、M3、M9 判元数据核对记录（meta-check/0.1），其余判每帧元数据（meta/0.1）。
+// M1、M3、M9、M11 判元数据核对记录（meta-check/0.1），其余判每帧元数据（meta/0.1）。
 // 不归这条管的对象、记录里没出现的段一律返回空数组。
 
 const HOST_FIVE = ['camera', 'entities', 'lights', 'stats', 'timing'];
@@ -8,6 +8,7 @@ const NULLABLE = new Set(['entities.*.visible', 'stats', 'hash.color', 'camera',
 const WAIVED = new Set(['camera', 'entities']);
 // 交每帧元数据的帧源里合规档是 limited 的只有它；ext.<名字> 不交每帧元数据（帧源接口契约 3.5）
 const LIMITED_SOURCE = 'legacy-page';
+const CLIP = ['clipHigh', 'clipLow'];
 // 帧源名，出处是帧源接口契约 3.1；和结构定义里 source.id、source.renderer 的模式相同
 const SOURCE_NAME = /^(blender|three|core|legacy-page|ext\.[a-z0-9][a-z0-9-]*)$/;
 
@@ -29,7 +30,7 @@ const on = (format, fn) => (obj) => (obj?.format === format ? fn(obj) : []);
 const checks = {
   M1: on('meta-check/0.1', (rec) => (rec.renders ?? []).flatMap((r) => [
     ...(r.metas === 1 ? [] : [`第 ${r.call} 次 render 交回了 ${r.metas} 份元数据`]),
-    ...(r.colorCall === undefined || r.colorCall === r.call ? [] : [`第 ${r.call} 次 render 落盘的颜色层出自第 ${r.colorCall} 次调用`]),
+    ...(r.colorFileSha256 === undefined || r.metaHashColor === r.colorFileSha256 ? [] : [`第 ${r.call} 次 render 的元数据 hash.color 是 ${r.metaHashColor ?? 'null'}，交回的颜色层文件重算出的哈希是 ${r.colorFileSha256}`]),
   ])),
 
   M2: on('meta/0.1', (m) => {
@@ -84,6 +85,18 @@ const checks = {
     const calls = (rec.renders ?? []).map((r) => r.call);
     return [...new Set(calls.filter((c, i) => calls.indexOf(c) !== i))].map((c) => `call ${c} 出现了不止一次`);
   }),
+
+  M10: on('meta/0.1', (m) => {
+    if (m.stats === null || m.stats === undefined) return [];
+    const want = m.colorRef === 'display';
+    return CLIP.filter((k) => (m.stats[k] !== undefined) !== want)
+      .map((k) => `colorRef 是 ${m.colorRef}，stats.${k} ${want ? '没出现' : '出现了'}`);
+  }),
+
+  M11: on('meta-check/0.1', (rec) => (rec.renders ?? []).filter((r) => r.metaShotFrame !== undefined).flatMap((r) => [
+    ...(r.metaShotFrame === r.shotFrame ? [] : [`第 ${r.call} 次 render 请求的是局部第 ${r.shotFrame} 帧，元数据的 shotFrame 是 ${r.metaShotFrame}`]),
+    ...(r.metaFrame === r.metaShotFrame + rec.start ? [] : [`第 ${r.call} 次 render 的元数据 frame 是 ${r.metaFrame}，shotFrame ${r.metaShotFrame} 加起始帧 ${rec.start} 应该是 ${r.metaShotFrame + rec.start}`]),
+  ])),
 };
 
 export { checks };

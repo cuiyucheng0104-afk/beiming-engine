@@ -1,11 +1,14 @@
-// three 帧源（页面一侧）：只有这个文件碰渲染器。对外是帧源接口的 caps、open，会话的 manifest、render、query、close。
-// 渲染库由宿主注入（THREE），帧源不自己引入。宿主服务 host 在建帧源时交进来：
-//   host.load(shot, { THREE, renderer })   装载镜头：搭 ctx、调一次 build，交回 { object, size, colorRef }
-//   host.apply(loaded, f, sub, purpose)    把 (f, sub) 的状态写进场景；purpose 是 color、aux、meta 之一，只供宿主记账
+// three 帧源里的渲染器（页面一侧）：只有这个文件碰 WebGL 渲染器。它是一对里算像素的那一半，不是帧源对上层的接口；
+// 对上层的接口在页面宿主的 node 一侧。渲染库由宿主注入（THREE），这里不自己引入。宿主在建渲染器时交进来四个服务：
+//   host.load(shot, { THREE, renderer })   装载镜头：搭 ctx、调一次 build，交回 { object, size }
+//   host.apply(loaded, f, sub)             把 (f, sub) 的状态写进场景
 //   host.measure(loaded, f, facts)         量这一帧的元数据（相机、实体、统计、哈希）
 //   host.now()                             单调时钟，毫秒；读数只进元数据的 timing
 import { caps, VERSION } from './caps.mjs';
 import { planRender, SourceError } from './plan.mjs';
+
+// 辅助样本什么都没打到时深度层写的数，米
+const NO_HIT_DEPTH = 1e10;
 
 const AUX_VS = `
 varying vec3 vView;
@@ -16,7 +19,7 @@ void main() {
   vNormal = normalMatrix * normal;
   gl_Position = projectionMatrix * mv;
 }`;
-// uPass 0：平面深度（米）和编号；uPass 1：相机空间的法线
+// uPass 0：平面深度（米）和编号；uPass 1：相机空间的法线。第四个分量写 1：清屏值是 0，读回时靠它分出「什么都没打到」
 const AUX_FS = `
 uniform float uId;
 uniform int uPass;
@@ -51,11 +54,10 @@ export function createThreeSource({ THREE, host }) {
     return shared;
   }
 
-  async function open(shot, env) {
-    if (shot.source !== 'three') throw new Error(`这个镜头的帧源是 ${shot.source}，不是 three`);
-    if (!CAPS.hosts.includes(shot.host) || !CAPS.modes.includes(shot.mode)) throw new Error(`three 帧源不支持宿主 ${shot.host} 加作者模式 ${shot.mode}`);
+  /** shot 是镜头条目，tier 是档位，locked 是装载计划（planOpen 的返回值）。装得了装不了由宿主先用 planOpen 判 */
+  async function open(shot, tier, locked) {
     const { r, gl, gpu } = renderer();
-    const loaded = await host.load(shot, { THREE, renderer: r });
+    const loaded = await host.load(shot, { THREE, renderer: r }, locked);
     const { scene, camera, entities } = loaded.object;
 
     // 编号按实体名的字典序从 1 起；类别从母语对象的形态推
@@ -74,8 +76,8 @@ export function createThreeSource({ THREE, host }) {
       entities[e.name].traverse((o) => { if (o.isMesh) idOf.set(o, e.id); });
     }
 
-    const target = (type) => new THREE.WebGLRenderTarget(1, 1, { type, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
-    const rtHalf = target(THREE.HalfFloatType), rtFloat = target(THREE.FloatType);
+    // 颜色层和辅助层都渲到同一个 32 位浮点目标：层文件是 32 位，渲染时不先过一道半精度
+    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     const auxMaterials = new Map();
     const auxFor = (mesh) => {
       const key = `${idOf.get(mesh) ?? 0}/${mesh.material.side}`;
@@ -89,7 +91,7 @@ export function createThreeSource({ THREE, host }) {
     };
 
     /** 渲进目标再读回成 RGBA 浮点，行序翻成画面从上到下。readPixels 会等绘制做完，所以显卡上的耗时大半记在读回里 */
-    function draw(rt, [w, h], timed) {
+    function draw([w, h], timed) {
       rt.setSize(w, h);
       r.setRenderTarget(rt);
       // 每一遍自己定清屏值 (0, 0, 0, 0)，渲完还原，不把状态留给下一次。镜头设了背景色时渲染库改用背景色、透明度 1 清屏
@@ -108,7 +110,7 @@ export function createThreeSource({ THREE, host }) {
     }
 
     /** 辅助层：换上辅助材质、去掉背景，渲一遍 */
-    function drawAux(rt, size, pass, timed) {
+    function drawAux(size, pass, timed) {
       const swapped = [];
       scene.traverse((o) => {
         if (!o.isMesh) return;
@@ -119,7 +121,7 @@ export function createThreeSource({ THREE, host }) {
       const background = scene.background;
       scene.background = null;
       try {
-        return draw(rt, size, timed);
+        return draw(size, timed);
       } finally {
         scene.background = background;
         for (const [o, m] of swapped) o.material = m;
@@ -138,8 +140,8 @@ export function createThreeSource({ THREE, host }) {
 
       async render(f, opts, want) {
         if (closed) throw new Error('会话已经关了');
-        if (!Number.isInteger(f) || f < 0 || f >= manifest.frames) throw new RangeError(`镜头局部帧号必须在 [0, ${manifest.frames})，给的是 ${f}`);
-        const plan = planRender(CAPS, shot, loaded.size, env.tier, opts, want);
+        if (!Number.isInteger(f) || f < 0 || f >= manifest.frames) throw new SourceError('usage.bad-argument', `镜头局部帧号必须在 [0, ${manifest.frames})，给的是 ${f}`);
+        const plan = planRender(CAPS, shot, loaded.size, tier, opts ?? {}, want, locked);
         const timing = { stateMs: 0, renderMs: 0, readbackMs: 0 };
         const timed = (key, fn) => { const t0 = host.now(); const v = fn(); timing[key] += host.now() - t0; return v; };
         const layers = {};
@@ -149,8 +151,8 @@ export function createThreeSource({ THREE, host }) {
           // 逐子帧累积：每个子帧渲到场景线性的浮点目标，读回后逐像素取算术平均
           const sum = new Float64Array(plan.size[0] * plan.size[1] * 4);
           for (const sub of plan.subs) {
-            timed('stateMs', () => host.apply(loaded, f, sub, 'color'));
-            const px = draw(rtHalf, plan.size, timed);
+            timed('stateMs', () => host.apply(loaded, f, sub));
+            const px = draw(plan.size, timed);
             tris = r.info.render.triangles;
             for (let i = 0; i < sum.length; i++) sum[i] += px[i];
           }
@@ -159,18 +161,22 @@ export function createThreeSource({ THREE, host }) {
         }
 
         // 辅助层和元数据取同一个样本：sub = 0，针孔，不累积，像素中心
-        timed('stateMs', () => host.apply(loaded, f, 0, plan.aux ? 'aux' : 'meta'));
-        // 辅助材质只会画网格。点、线、精灵照画就会把自己的颜色写进深度和编号，所以有它们在就不出辅助层
+        timed('stateMs', () => host.apply(loaded, f, 0));
+        // 辅助材质只会画网格。点、线、精灵照画就会把自己的颜色写进深度和编号，漏画又等于少交，所以有它们在就报错
         const strangers = plan.aux ? unrenderableInAux(scene) : [];
-        if (strangers.length) throw new SourceError('contract.unsupported-output', `场景里有辅助层画不了的对象（${strangers.map((o) => o.name || o.type).join('、')}），交不出 ${plan.layers.filter((n) => n !== 'color').join('、')}`);
+        if (strangers.length) throw new SourceError('contract.unsupported-object', `场景里有辅助层画不了的对象（${strangers.map((o) => o.name || o.type).join('、')}），交不出 ${plan.layers.filter((n) => n !== 'color').join('、')}`);
         if (plan.layers.includes('depth') || plan.layers.includes('objectId')) {
-          const px = drawAux(rtFloat, plan.size, 0, timed);
-          if (plan.layers.includes('depth')) layers.depth = { type: 'f32', components: ['Z'], size: plan.size, data: pick(px, [0]) };
+          const px = drawAux(plan.size, 0, timed);
+          if (plan.layers.includes('depth')) {
+            const depth = pick(px, [0]);
+            for (let i = 0; i < depth.length; i++) if (px[i * 4 + 3] === 0) depth[i] = NO_HIT_DEPTH;
+            layers.depth = { type: 'f32', components: ['Z'], size: plan.size, data: depth };
+          }
           // shortcut: 编号经 32 位浮点目标读回，超过 16777216 会丢精度；实体多到那个量级时换整数目标
           if (plan.layers.includes('objectId')) layers.objectId = { type: 'u32', components: ['id'], size: plan.size, data: Uint32Array.from(pick(px, [1])) };
         }
         if (plan.layers.includes('normal')) {
-          const px = drawAux(rtHalf, plan.size, 1, timed);
+          const px = drawAux(plan.size, 1, timed);
           layers.normal = { type: 'f32', components: ['X', 'Y', 'Z'], size: plan.size, data: pick(px, [0, 1, 2]) };
         }
 
@@ -181,27 +187,21 @@ export function createThreeSource({ THREE, host }) {
           tris,
           timing,
           manifest,
-          source: { id: shot.source, renderer: CAPS.id, host: shot.host, version: VERSION, tier: env.tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
+          source: { id: shot.source, renderer: CAPS.id, host: shot.host, version: VERSION, tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
         });
         return { meta, layers };
-      },
-
-      // 能力声明的 sceneQuery 是空的：哪种查询都报错，不给结果
-      async query(f, q) {
-        throw new SourceError('contract.unsupported-query', `这个帧源不答 ${q?.kind} 查询`);
       },
 
       async close() {
         if (closed) return;
         closed = true;
         loaded.object.dispose();
-        rtHalf.dispose();
-        rtFloat.dispose();
+        rt.dispose();
         for (const m of auxMaterials.values()) m.dispose();
       },
     };
     return session;
   }
 
-  return { caps, open };
+  return { open };
 }

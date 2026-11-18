@@ -10,5 +10,13 @@
   {
     "file": "result-intersect.json",
     "schema": "query-result.schema.json"
+  },
+  {
+    "file": "shot-input.json",
+    "schema": "shot-input.schema.json"
+  },
+  {
+    "file": "layer-color.json",
+    "schema": "layer-ref.schema.json"
   }
 ]

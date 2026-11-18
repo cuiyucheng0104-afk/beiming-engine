@@ -36,20 +36,23 @@ export function measureEntity(view, proj, size, points) {
   return { bbox2d: box2, bbox3d: box3, pxArea: (w * h) / (size[0] * size[1]), depth };
 }
 
-/** 亮部溢出、暗部压死的门槛：线性亮度不小于 CLIP_HIGH、不大于 CLIP_LOW */
-export const CLIP_HIGH = 1, CLIP_LOW = 0;
-
-/** 画面统计，在颜色层的线性编码数值上算。rgba 是每像素四个数的浮点数组；亮度用 Rec.709 的权重。 */
+/** 亮度的第 1、50、99 百分位，在颜色层的线性编码数值上算。rgba 是每像素四个数的浮点数组；亮度用 Rec.709 的权重。 */
 export function lumaStats(rgba) {
   const n = rgba.length / 4, luma = new Float32Array(n);
-  let high = 0, low = 0;
-  for (let i = 0; i < n; i++) {
-    const y = 0.2126 * rgba[i * 4] + 0.7152 * rgba[i * 4 + 1] + 0.0722 * rgba[i * 4 + 2];
-    luma[i] = y;
-    if (y >= CLIP_HIGH) high++;
-    if (y <= CLIP_LOW) low++;
-  }
+  for (let i = 0; i < n; i++) luma[i] = 0.2126 * rgba[i * 4] + 0.7152 * rgba[i * 4 + 1] + 0.0722 * rgba[i * 4 + 2];
   luma.sort();
   const at = (q) => luma[Math.max(0, Math.ceil(q * n) - 1)];
-  return { luma: { p1: at(0.01), p50: at(0.5), p99: at(0.99) }, clipHigh: high / n, clipLow: low / n };
+  return { p1: at(0.01), p50: at(0.5), p99: at(0.99) };
+}
+
+/** 显示参考镜头的溢出和压死占比：任何一个通道的线性编码值不小于 1 算溢出，三个通道都不大于 0 算压死。 */
+export function clipStats(rgba) {
+  const n = rgba.length / 4;
+  let high = 0, low = 0;
+  for (let i = 0; i < n; i++) {
+    const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+    if (r >= 1 || g >= 1 || b >= 1) high++;
+    if (r <= 0 && g <= 0 && b <= 0) low++;
+  }
+  return { clipHigh: high / n, clipLow: low / n };
 }

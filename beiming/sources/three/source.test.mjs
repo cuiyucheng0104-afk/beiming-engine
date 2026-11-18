@@ -3,11 +3,11 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { loadContracts } from '../../kernel/contracts/validate.mjs';
 import { caps, VERSION } from './caps.mjs';
-import { planRender, SourceError } from './plan.mjs';
+import { planOpen, planRender, SourceError } from './plan.mjs';
 
 const CAPS = caps();
 const SHOT = { shutter: { angleDeg: 180, samples: 4 }, tiers: { final: { samples: 1, scale: 1 } } };
-const plan = (opts, want, shot = SHOT, tier = 'final') => planRender(CAPS, shot, [640, 360], tier, opts, want);
+const plan = (opts, want, shot = SHOT, tier = 'final', locked) => planRender(CAPS, shot, [640, 360], tier, opts, want, locked);
 const code = (c) => (e) => e instanceof SourceError && e.code === c;
 
 test('能力声明过契约的校验，版本就是装着的那个 three', async () => {
@@ -31,6 +31,10 @@ test('生效的快门：这次调用给了用它的，没给用镜头条目的�
   const own = plan({ shutter: { angleDeg: 90, samples: 1 } }, ['color']);
   assert.deepEqual([own.angleDeg, own.shutterSamples, own.subs], [90, 1, [0.125]]);
   assert.deepEqual(plan({}, ['color'], {}).subs, [0]);
+  // 哪里都没写子帧采样数：开着快门用能力声明的默认值，不开取 1；锁文件里记了就用锁里的，这次调用给了还是用这次的
+  assert.equal(plan({}, ['color'], { shutter: { angleDeg: 180 } }).shutterSamples, CAPS.motionBlur.samples);
+  assert.equal(plan({}, ['color'], { shutter: { angleDeg: 180 } }, 'final', { shutterSamples: 3 }).shutterSamples, 3);
+  assert.equal(plan({ shutter: { angleDeg: 90, samples: 2 } }, ['color'], SHOT, 'final', { shutterSamples: 3 }).shutterSamples, 2);
   assert.throws(() => plan({ shutter: { angleDeg: 0, samples: 2 } }, ['color', 'meta']), code('contract.shutter-conflict'));
 });
 
@@ -46,8 +50,27 @@ test('尺寸和每像素采样数：档位、镜头条目、这次调用依次�
   assert.deepEqual(plan({}, ['color']).size, [640, 360]);
   assert.deepEqual(plan({}, ['color'], { shutter: SHOT.shutter }, 'draft').size, [320, 180]);
   assert.deepEqual(plan({ scale: 0.25 }, ['color']).size, [160, 90]);
-  assert.throws(() => plan({ samples: 4 }, ['color']), SourceError);
-  assert.throws(() => plan({ scale: 2 }, ['color']), RangeError);
+  // 镜头条目没写档位的值时用能力声明里这个档位的
+  assert.deepEqual([plan({}, ['color'], {}).size, plan({}, ['color'], {}).pixelSamples], [[640, 360], CAPS.final.samples]);
+  assert.throws(() => plan({ samples: 4 }, ['color']), code('contract.unsupported-option'));
+  for (const bad of [{ scale: 2 }, { scale: 0 }, { samples: 0 }, { shutter: { angleDeg: 400, samples: 1 } }, { shutter: { angleDeg: 90, samples: 0 } }]) assert.throws(() => plan(bad, ['color']), code('usage.bad-argument'), JSON.stringify(bad));
+  assert.throws(() => plan({}, ['color', 'color']), code('usage.bad-argument'));
+  assert.throws(() => plan({}, 'color'), code('usage.bad-argument'));
+});
+
+test('装载之前：没有锁文件时种子必须写在镜头条目里，用了卡或资产必须报错；宿主或作者模式不在能力声明里先报这一条', () => {
+  const input = (patch = {}) => ({ film: 'f_x', output: { size: [640, 360], fps: '24/1' }, shot: { id: 's01', in: 0, out: 10, source: 'three', host: 'page', mode: 'native-code', entry: 'a.js', colorRef: 'scene', seed: 7, ...patch } });
+  const env = { lock: null, tier: 'final' }, lock = { seeds: { film: 1, s01: 9 }, shots: { s01: { shutterSamples: 5 } } };
+  assert.deepEqual(planOpen(CAPS, input(), env), { seed: 7 });
+  assert.deepEqual(planOpen(CAPS, input({ cards: [], assets: {} }), env), { seed: 7 });
+  assert.deepEqual(planOpen(CAPS, input(), { ...env, lock }), { seed: 9, shutterSamples: 5 });
+  assert.throws(() => planOpen(CAPS, input({ seed: undefined }), env), code('env.lock-required'));
+  assert.throws(() => planOpen(CAPS, input({ cards: [{ card: 'x@1', as: 'x' }] }), env), code('env.lock-required'));
+  assert.throws(() => planOpen(CAPS, input({ assets: { kit: 'asset:kit@1' } }), env), code('env.lock-required'));
+  assert.throws(() => planOpen(CAPS, input({ mode: 'cards-data' }), env), code('contract.unsupported-mode'));
+  assert.throws(() => planOpen(CAPS, input({ host: 'cycles', seed: undefined }), env), code('contract.unsupported-mode'));
+  assert.throws(() => planOpen(CAPS, input({ source: 'blender' }), env), code('usage.bad-argument'));
+  assert.throws(() => planOpen(CAPS, input(), { lock: null, tier: 'preview' }), code('usage.bad-argument'));
 });
 
 test('辅助层画不了的对象：看得见的点、线、精灵；网格和藏起来的不算', async () => {

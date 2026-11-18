@@ -1,19 +1,25 @@
 {
   "format": "meta-check/0.1",
   "shot": "s01",
+  "start": 0,
   "renders": [
     {
       "call": 0,
       "shotFrame": 150,
       "metas": 1,
       "metaBytes": 2048,
-      "colorCall": 0
+      "metaFrame": 150,
+      "metaShotFrame": 150,
+      "colorFileSha256": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1",
+      "metaHashColor": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1"
     },
     {
       "call": 0,
       "shotFrame": 151,
       "metas": 1,
-      "metaBytes": 1536
+      "metaBytes": 1536,
+      "metaFrame": 151,
+      "metaShotFrame": 151
     }
   ]
 }

@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "source/caps.schema.json",
   "title": "能力声明 Caps",
-  "description": "只管结构。id 和 conformance 的搭配由 F10 管，所以这里不收紧。",
+  "description": "只管结构。id 和 conformance 的搭配由 F10 管、落没落在帧源登记表之内由 F15 管，所以这里不收紧。",
   "type": "object",
-  "required": ["format", "id", "version", "language", "hosts", "conformance", "outputs", "sceneQuery", "motionBlur", "determinism", "draft", "granularity", "randomAccess", "modes", "cost"],
+  "required": ["format", "id", "version", "language", "hosts", "conformance", "outputs", "sceneQuery", "motionBlur", "determinism", "draft", "final", "granularity", "randomAccess", "modes", "cost"],
   "additionalProperties": false,
   "properties": {
     "format": { "const": "caps/0.1" },
@@ -45,8 +45,11 @@
       "properties": {
         "mode": { "enum": ["native", "accumulate"] },
         "auxAt": { "const": "sub0" },
+        "samples": { "type": "integer", "minimum": 1 },
         "conflicts": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/outputName" } }
-      }
+      },
+      "if": { "properties": { "mode": { "const": "accumulate" } } },
+      "then": { "required": ["samples"] }
     },
     "determinism": { "enum": ["hash-same-machine", "tolerance"] },
     "draft": {
@@ -55,6 +58,16 @@
       "additionalProperties": false,
       "properties": {
         "kind": { "enum": ["cycles-low", "scale", "path-low"] },
+        "samples": { "type": "integer", "minimum": 1 },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "denoise": { "type": "string", "minLength": 1 }
+      }
+    },
+    "final": {
+      "type": "object",
+      "required": ["samples", "scale"],
+      "additionalProperties": false,
+      "properties": {
         "samples": { "type": "integer", "minimum": 1 },
         "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
         "denoise": { "type": "string", "minLength": 1 }
@@ -82,7 +95,7 @@
       "pattern": "^([a-z][A-Za-z0-9]*|lightgroup:[a-z0-9][a-z0-9-]*)$"
     },
     "queryKind": { "enum": ["bbox3d", "anchor", "intersect", "contact", "belowGround"] },
-    "sampleType": { "enum": ["half", "f32", "u32"] },
+    "sampleType": { "description": "层文件里的数值类型，不是渲染时的精度。", "enum": ["f32", "u32"] },
     "pixelOutput": {
       "oneOf": [
         { "const": false },

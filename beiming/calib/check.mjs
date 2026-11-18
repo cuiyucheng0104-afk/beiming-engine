@@ -46,7 +46,7 @@ export function checkUnits(node, path = '', key = null, out = []) {
 // ---------- 格式 ----------
 
 const TOP = { req: ['format', 'id', 'title', 'probeRows', 'colorSpace', 'frameRange', 'frameRateFps', 'camera', 'backgroundLinear', 'objects', 'expected'], opt: ['ext'] };
-const CAMERA = { req: ['positionM', 'lookAtM', 'upDir', 'yFovDeg', 'widthPx', 'heightPx', 'nearM', 'farM'], opt: ['shutterAngleDeg', 'shutterOpens'] };
+const CAMERA = { req: ['positionM', 'lookAtM', 'upDir', 'yFovDeg', 'widthPx', 'heightPx', 'nearM', 'farM'], opt: ['shutterAngleDeg', 'shutterOpens', 'apertureDiameterM', 'focusDistanceM'] };
 const SHAPES = { box: ['sizeM'], plane: ['sizeM'], sphere: ['radiusM'], cylinder: ['radiusM', 'heightM'] };
 const OBJECT_BASE = { req: ['id', 'idIndex', 'shape', 'positionM', 'emissionLinear'], opt: ['rotation', 'motion'] };
 const MOTIONS = { linear: ['velocityMPerFrame'], spin: ['pivotM', 'axisDir', 'angularVelocityRadPerFrame'] };
@@ -348,5 +348,5 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     else console.log(`${name}：通过，核对标准答案 ${scene.expected.length} 个`);
   }
   console.log(`${scenes.length} 个场景，${bad} 个有问题`);
-  process.exitCode = bad || scenes.length !== 6 ? 1 : 0;
+  process.exitCode = bad || scenes.length !== 7 ? 1 : 0;
 }

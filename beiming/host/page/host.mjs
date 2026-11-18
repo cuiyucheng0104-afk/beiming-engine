@@ -1,5 +1,5 @@
-// 页面宿主（node 一侧）：起本机静态服务和无头、静音的浏览器，把片子描述交给页面里的运行时，
-// 再把读回的各层、元数据和预览图落盘。页面一侧在 runtime.js。
+// 页面宿主（node 一侧）：three 帧源对上层的接口就在这里。起本机静态服务和无头、静音的浏览器；
+// open 开一个新页面装载镜头，render 让页面出一帧、把读回的各层写成层文件、交回元数据和层引用。页面一侧在 runtime.js。
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -7,27 +7,40 @@ import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
+import { caps } from '../../sources/three/caps.mjs';
+import { planOpen, SourceError } from '../../sources/three/plan.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 // 页面只拿得到这两处：本系统的代码，和 0.187.0 的 three
 const SERVED = ['beiming/', 'node_modules/three-webgpu/build/'];
 const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json' };
+// 带错误码的错在页面里换成普通对象再过来：错误码过不了页面和 node 之间的序列化
 const PAGE = `<!doctype html><meta charset="utf-8">
 <script type="importmap">{ "imports": { "three": "/node_modules/three-webgpu/build/three.module.js" } }</script>
 <script type="module">
-import { createHost } from '/beiming/host/page/runtime.js';
-window.__createHost = createHost;
+import { openSession } from '/beiming/host/page/runtime.js';
+window.__open = async (cfg) => {
+  try {
+    window.__session = await openSession(cfg);
+    return { ok: true, manifest: window.__session.manifest() };
+  } catch (e) {
+    if (!e.code) throw e;
+    return { ok: false, code: e.code, message: e.message };
+  }
+};
 </script>`;
+const ENV_KEYS = ['lock', 'tier', 'workspace', 'filmDir'];
 
-export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const pad = (n, width) => String(n).padStart(width, '0');
+const rel = (abs) => relative(REPO, abs).split(sep).join('/');
 
 /** 地址里的路径换成仓库里的文件；不在放行目录里、或者想跳出去的，返回 null */
 export function resolveServed(urlPath) {
-  let rel;
-  try { rel = decodeURIComponent(urlPath.split('?')[0]).replace(/^\/+/, ''); } catch { return null; }
-  const abs = resolve(REPO, rel);
-  const back = relative(REPO, abs).split(sep).join('/');
-  return SERVED.some((dir) => back.startsWith(dir)) && MIME[extname(abs)] ? abs : null;
+  let path;
+  try { path = decodeURIComponent(urlPath.split('?')[0]).replace(/^\/+/, ''); } catch { return null; }
+  const abs = resolve(REPO, path);
+  return SERVED.some((dir) => rel(abs).startsWith(dir)) && MIME[extname(abs)] ? abs : null;
 }
 
 async function startServer() {
@@ -42,47 +55,71 @@ async function startServer() {
   return { origin: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((ok) => server.close(ok)) };
 }
 
-/** 把一次成功的 render 落盘：各层是小端的原始数组（<通道名>.<类型>），加 meta.json 和 preview.png。返回每个文件的哈希和大小 */
-export async function writeFrame(dir, result) {
-  await mkdir(dir, { recursive: true });
-  const files = {};
-  const put = async (name, bytes, more = {}) => {
-    await writeFile(join(dir, name), bytes);
-    files[name] = { sha256: sha256(bytes), bytes: bytes.length, ...more };
-  };
-  for (const [name, l] of Object.entries(result.layers)) {
-    await put(`${name}.${l.type}`, Buffer.from(l.base64, 'base64'), { layer: name, type: l.type, components: l.components, size: l.size });
-  }
-  if (result.png) await put('preview.png', Buffer.from(result.png, 'base64'));
-  await put('meta.json', Buffer.from(`${JSON.stringify(result.meta, null, 2)}\n`));
-  return files;
-}
-
 /**
- * 起一个新浏览器，装载 filmPath 这份片子描述里的 shotId。
- * 返回的对象的方法就是页面运行时的方法（caps、openSession、render、evaluate……），都是异步的；用完调 close()。
+ * 起一个 three 帧源：一个浏览器进程。交回 { caps, open, stop }：caps 和 open 是帧源接口，stop 关掉这个进程（起、停进程不属于帧源接口）。
+ * 浏览器起不来就抛错。open 得到的会话有 manifest、render、query、close；每个会话一个新页面，互不共用任何页面里的状态。
  */
-export async function openHost({ filmPath, shotId, tier }) {
-  const film = JSON.parse(await readFile(filmPath, 'utf8'));
-  const filmDir = relative(REPO, dirname(resolve(filmPath))).split(sep).join('/');
+export async function startSource() {
+  const CAPS = caps();
   const server = await startServer();
   // 浏览器起不来时要把刚起的本地服务关掉，不然进程退不出去
   const browser = await chromium.launch({ headless: true, executablePath: chromeExecutable(), args: [...chromeArgs(), '--mute-audio'] })
     .catch(async (e) => { await server.close(); throw e; });
-  const close = async () => { await browser.close(); await server.close(); };
-  try {
+
+  async function open(input, env) {
+    // lock 必须写出来，哪怕是 null：忘了传当场报错
+    const missing = ENV_KEYS.filter((k) => env?.[k] === undefined);
+    if (missing.length) throw new SourceError('usage.bad-argument', `env 缺 ${missing.join('、')}`);
+    planOpen(CAPS, input, env);
+    // shortcut: 入口文件经本机静态服务进页面，片子描述所在的目录必须在放行的目录里；要装别处的片子时给静态服务加一个挂载点
+    const filmDir = rel(resolve(env.filmDir));
+    if (!SERVED.some((dir) => `${filmDir}/`.startsWith(dir))) throw new SourceError('usage.bad-argument', 'env.filmDir 不在页面宿主放行的目录里');
+
     const page = await browser.newPage();
-    const errors = [];
-    page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto(`${server.origin}/`);
-    await page.waitForFunction(() => window.__createHost, null, { timeout: 30000 }).catch(() => { throw new Error(`页面运行时没装起来：${errors.join('；') || '超时'}`); });
-    await page.evaluate((cfg) => { window.__host = window.__createHost(cfg); }, { film, shotId, tier, filmBase: `${server.origin}/${filmDir}/` });
-    const call = (method) => (...args) => page.evaluate(([m, a]) => window.__host[m](...a), [method, args]);
-    const host = { close };
-    for (const m of ['caps', 'openSession', 'closeSession', 'manifest', 'render', 'query', 'evaluate', 'rngProbe', 'observations']) host[m] = call(m);
-    return host;
-  } catch (e) {
-    await close();
-    throw e;
+    let manifest;
+    try {
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(`${server.origin}/`);
+      await page.waitForFunction(() => window.__open, null, { timeout: 30000 }).catch(() => { throw new Error(`页面运行时没装起来：${errors.join('；') || '超时'}`); });
+      const opened = await page.evaluate((cfg) => window.__open(cfg), { input, env: { lock: env.lock, tier: env.tier }, filmBase: `${server.origin}/${filmDir}/` });
+      if (!opened.ok) throw new SourceError(opened.code, opened.message);
+      manifest = opened.manifest;
+    } catch (e) {
+      await page.close();
+      throw e;
+    }
+
+    let renders = 0, closed = false;
+    return {
+      manifest: () => structuredClone(manifest),
+
+      /** 渲一帧：各层写到 env.workspace 下面的 r<这个会话第几次成功的 render>-f<帧号>/<通道名>.<类型>，交回元数据和层引用 */
+      async render(f, opts, want) {
+        const res = await page.evaluate(([frame, o, w]) => window.__session.render(frame, o, w), [f, opts ?? {}, want]);
+        if (!res.ok) throw new SourceError(res.code, res.message);
+        const dir = `r${pad(renders++, 3)}-f${pad(f, 4)}`, layers = {};
+        for (const [name, l] of Object.entries(res.layers)) {
+          const bytes = Buffer.from(l.base64, 'base64'), file = `${dir}/${name}.${l.type}`;
+          await mkdir(join(env.workspace, dir), { recursive: true });
+          await writeFile(join(env.workspace, file), bytes);
+          layers[name] = { file, shape: [l.size[1], l.size[0], l.components.length], components: l.components, sha256: `sha256:${sha256(bytes)}` };
+        }
+        return { meta: res.meta, layers };
+      },
+
+      async query(f, q) {
+        if (!CAPS.sceneQuery.includes(q?.kind)) throw new SourceError('contract.unsupported-query', `这个帧源不答 ${q?.kind} 查询`);
+        throw new Error(`${q.kind} 查询声明了却没实现`);
+      },
+
+      async close() {
+        if (closed) return;
+        closed = true;
+        await page.close();
+      },
+    };
   }
+
+  return { caps, open, stop: async () => { await browser.close(); await server.close(); } };
 }

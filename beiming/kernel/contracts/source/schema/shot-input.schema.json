@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/shot-input.schema.json",
+  "title": "镜头输入 ShotInput",
+  "description": "只管结构。film、output、shot 三样的写法都引用片子描述契约（D）的结构定义，这里不另抄。",
+  "type": "object",
+  "required": ["film", "output", "shot"],
+  "additionalProperties": false,
+  "properties": {
+    "film": { "$ref": "../film/film.schema.json#/properties/id" },
+    "output": {
+      "type": "object",
+      "required": ["size", "fps"],
+      "additionalProperties": false,
+      "properties": {
+        "size": { "$ref": "../film/film.schema.json#/properties/output/properties/size" },
+        "fps": { "$ref": "../film/film.schema.json#/properties/output/properties/fps" }
+      }
+    },
+    "shot": { "$ref": "../film/film.schema.json#/$defs/shot" }
+  }
+}

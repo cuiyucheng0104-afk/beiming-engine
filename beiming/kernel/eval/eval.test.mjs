@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { loadContracts } from '../contracts/validate.mjs';
+import { shotInput } from './input.mjs';
 import { stream, streamName } from './rng.mjs';
 import { globalFrame, hold, shutterSubs } from './time.mjs';
 
@@ -45,10 +47,31 @@ test('同名的流出同样的序列，和别的流、取数先后无关', () =>
   for (let i = 0; i < 16; i++) { y.next(); mixed.push(x.u32()); }
   assert.deepEqual(mixed, alone);
   assert.notDeepEqual(take(stream('7/s01/a/c'), 16), alone);
+  assert.equal(x.name, '7/s01/a/b');
   // 钉住算法：改了出数方法，这个数会变
   assert.deepEqual(take(stream('20261118/s02/scatter/rock.03'), 2), PINNED);
   const s = stream('1/s01/a/b');
   for (let i = 0; i < 1000; i++) { const v = s.next(); assert.ok(v >= 0 && v < 1); }
+});
+
+test('镜头输入：片子标识、画幅、帧率加这个镜头的条目；带 renderer 时出帧者那一套换到顶层', async () => {
+  const film = {
+    id: 'f_x', output: { size: [640, 360], fps: '24/1', frames: 20 },
+    shots: [
+      { id: 's01', in: 0, out: 10, source: 'three', host: 'page', mode: 'native-code', entry: 'a.js', colorRef: 'scene', seed: 7 },
+      { id: 's02', in: 10, out: 20, source: 'blender', host: 'cycles', mode: 'build-script', entry: 'b.py', colorRef: 'scene', renderer: { source: 'core', host: 'offscreen', mode: 'cards-data' } },
+    ],
+  };
+  const input = shotInput(film, 's01');
+  assert.deepEqual(input, { film: 'f_x', output: { size: [640, 360], fps: '24/1' }, shot: film.shots[0] });
+  const { validate } = await loadContracts();
+  assert.deepEqual(validate(input, 'source', 'shot-input.schema.json').schemaErrors, []);
+  // 交出去的是副本：改它不动片子描述
+  input.output.size[0] = 1; input.shot.seed = 8;
+  assert.deepEqual([film.output.size[0], film.shots[0].seed], [640, 7]);
+  const swapped = shotInput(film, 's02').shot;
+  assert.deepEqual([swapped.source, swapped.host, swapped.mode, 'entry' in swapped, 'renderer' in swapped], ['core', 'offscreen', 'cards-data', false, false]);
+  assert.throws(() => shotInput(film, 's09'), RangeError);
 });
 
 const PINNED = [3805304422, 282460036];

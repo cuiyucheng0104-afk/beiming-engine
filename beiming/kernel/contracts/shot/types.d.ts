@@ -9,13 +9,13 @@ export type Native = unknown;
 export type RngStream = unknown;
 
 export interface ShotCtx {
-  tracks: { apply(f: number, sub: number): void; camera?: Native };
+  tracks: { apply(f: number, sub: number): void; camera?: Native };   // 片子没给轨道时 apply 是空操作，camera 不出现
   cards: { use(as: string, runtime?: object): Handle };   // as：这个镜头 cards 里声明过的实例名；runtime：只放写不进 JSON 的东西
   params: object;
   seed: Seed;                                              // 这个镜头的镜头种子
   rng(arg: string): RngStream;                             // arg："<用途>/<对象>"
-  assets: { load(ref: string): unknown };                  // ref："asset:<名>@<版本>"
-  anchor(entity: string, anchor: string): [number, number, number];   // 世界坐标，米
+  assets: { load(ref: string): unknown };                  // ref："asset:<名>@<版本>"；找不到必须报错，不交回空值
+  anchor(entity: string, anchor: string): [number, number, number];   // 世界坐标，米；找不到必须报错
   tokens: object;
   size: [number, number];                                  // [宽, 高]，像素
   fps: Fps;

@@ -4,7 +4,21 @@
     "violates": [
       "M1"
     ],
-    "why": "第 150 帧的元数据出自第 1 次 render，落盘的颜色层却是第 0 次 render 的"
+    "why": "第 151 帧的元数据里 hash.color 是第 150 帧那次的颜色哈希，和这次交回的颜色层文件重算出的哈希不等"
+  },
+  {
+    "file": "M1-meta-hash-missing.json",
+    "violates": [
+      "M1"
+    ],
+    "why": "这次交回了颜色层，元数据的 hash.color 却是 null（记录里 metaHashColor 不出现）"
+  },
+  {
+    "file": "M1-no-meta.json",
+    "violates": [
+      "M1"
+    ],
+    "why": "这次成功的 render 一份元数据也没交回"
   },
   {
     "file": "M2-shot-writes-camera.json",
@@ -67,6 +81,48 @@
     "violates": [
       "M9"
     ],
-    "why": "两次 render 的 call 都是 0：靠 call 认不出颜色层出自哪一次"
+    "why": "两次 render 的 call 都是 0：靠 call 认不出说的是哪一次调用"
+  },
+  {
+    "file": "M10-display-without-clip-high.json",
+    "violates": [
+      "M10"
+    ],
+    "why": "显示参考镜头出了像素，stats 里却没有 clipHigh"
+  },
+  {
+    "file": "M10-display-without-clip-low.json",
+    "violates": [
+      "M10"
+    ],
+    "why": "显示参考镜头出了像素，stats 里却没有 clipLow"
+  },
+  {
+    "file": "M10-scene-with-clip-high.json",
+    "violates": [
+      "M10"
+    ],
+    "why": "场景参考镜头的 stats 里带了 clipHigh"
+  },
+  {
+    "file": "M10-scene-with-clip-low.json",
+    "violates": [
+      "M10"
+    ],
+    "why": "场景参考镜头的 stats 里带了 clipLow"
+  },
+  {
+    "file": "M11-frame-off-by-one.json",
+    "violates": [
+      "M11"
+    ],
+    "why": "镜头从全片第 300 帧起，请求的是局部第 150 帧，元数据的 frame 却写了 451，多 1"
+  },
+  {
+    "file": "M11-shot-frame-not-requested.json",
+    "violates": [
+      "M11"
+    ],
+    "why": "请求的是局部第 150 帧，元数据的 shotFrame 却是 151（frame 451 和它自洽）"
   }
 ]

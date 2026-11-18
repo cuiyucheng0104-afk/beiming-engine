@@ -9,7 +9,7 @@
   "conformance": "full",
   "outputs": {
     "color": {
-      "type": "half",
+      "type": "f32",
       "transfer": "linear",
       "primaries": "rec709",
       "note": "EXR"
@@ -24,7 +24,7 @@
       "note": "不抗锯齿"
     },
     "normal": {
-      "type": "half"
+      "type": "f32"
     },
     "motion": false
   },
@@ -48,6 +48,10 @@
     "samples": 24,
     "scale": 0.5,
     "denoise": "gpu"
+  },
+  "final": {
+    "samples": 64,
+    "scale": 1
   },
   "granularity": "frame",
   "randomAccess": false,

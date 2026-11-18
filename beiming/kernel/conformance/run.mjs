@@ -1,37 +1,45 @@
 #!/usr/bin/env node
-// 最小出帧链路的一致性入口：一份片子描述（两个镜头）→ 页面宿主起无头浏览器 → three 帧源出帧 →
-// 各层、元数据、预览图落盘 → 把这次运行里看到的写成核对记录 → 全部交给契约的校验器 → 对校准场景的标准答案。
+// 最小出帧链路的一致性入口：一份片子描述（三个镜头）→ 求值核算出镜头输入 → three 帧源（页面宿主起无头浏览器）出帧、落层文件 →
+// 把这次运行里看到的写成核对记录 → 全部交给契约的校验器 → 对校准场景的标准答案。
 // 用法：node beiming/kernel/conformance/run.mjs。产物在 out/skeleton/，每次运行先清空。
+// 只经帧源接口（caps、open、manifest、render、query、close）取东西；帧源里面发生了什么，靠夹具里的观测点和读回的像素看。
 // 先写出核对记录再去对答案；对答案出错只算那一步不过，不影响记录。退出码 0 要每一道门都过，门的清单见本目录 README。
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openHost, sha256, writeFrame } from '../../host/page/host.mjs';
+import { startSource } from '../../host/page/host.mjs';
 import { loadContracts } from '../contracts/validate.mjs';
+import { shotInput } from '../eval/input.mjs';
 import { stream, streamName } from '../eval/rng.mjs';
 import { hold } from '../eval/time.mjs';
 import { centroid, classifyAverage, diffLayers, dist, expectedLayers, measurePixelOffset, readLayer } from './compare.mjs';
-import { metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
+import { readObservation } from './fixtures/observe.js';
+import { effectiveShutter, metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
 import { scanFiles, sourceFiles, withDirectImports } from './scan.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../../..');
 const OUT = join(REPO, 'out/skeleton');
-const FILM = join(HERE, 'fixtures/film.json');
-const SCENE = join(REPO, 'beiming/calib/probe-moving-cube/scene.json');
+const FIXTURES = join(HERE, 'fixtures');
 const WANT = ['color', 'meta', 'depth', 'objectId', 'normal'];
-// 判颜色层是不是线性编码时，读数和已知自发光值的相对误差上限（比值）
-const LINEAR_TOL = 1e-3;
+const AUX = ['depth', 'objectId', 'normal'];
+// 辅助样本什么都没打到时深度层该写的数，米
+const NO_HIT_DEPTH = 1e10;
 // 宿主量耗时的单调时钟：全链路只许这一处
 const CLOCK = [{ path: 'beiming/host/page/clock.js', call: ['performance', 'now'].join('.') }];
+const LANGUAGES = { '.js': 'js', '.mjs': 'js', '.py': 'python' };
 
 const rel = (p) => relative(REPO, p).split(sep).join('/');
-const pad = (f) => String(f).padStart(4, '0');
+const pad = (n, width) => String(n).padStart(width, '0');
 const readJson = async (p) => JSON.parse(await readFile(p, 'utf8'));
+const hex = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const r4 = (x) => (x === null || x === undefined ? null : Math.round(x * 1e4) / 1e4);
 const px4 = (p) => (p ? p.map(r4) : null);
 const within = (diff, tol) => diff !== null && diff <= tol;
-const colorApplies = (r) => r.applies.filter((x) => x.purpose === 'color');
+const ok = (one) => one.renders.filter((r) => r.status === 'ok');
+/** 观测点看到的：这次调用里场景停在哪些时刻被画过颜色 */
+const colorSubs = (r) => (r.seen?.states ?? []).filter((s) => s.color > 0).map((s) => s.sub);
 
 /** 用命名随机流打乱；打乱后和原来一样就再来，保证真的换了次序 */
 function shuffled(list, s) {
@@ -43,103 +51,170 @@ function shuffled(list, s) {
 }
 
 const loaded = await loadContracts();
-const film = await readJson(FILM);
-const scene = await readJson(SCENE);
+const film = await readJson(join(FIXTURES, 'film.json'));
+const lock = await readJson(join(FIXTURES, 'lock.json'));
 const [W, H] = film.output.size;
-// 校准场景的答案：帧号是镜头局部帧号，每个镜头各自从场景的第 0 帧演起
-const points = scene.expected.filter((e) => e.kind === 'projectPoint').map((e) => ({ ...e, sub: e.sampleAt === 'shutterMid' ? scene.camera.shutterAngleDeg / 720 : e.subFrameRatio }));
-const FRAMES = [...new Set(points.filter((e) => e.sub === 0).map((e) => e.atFrame))].sort((x, y) => x - y);
-const MOMENTS = [...new Map(points.map((e) => [`${e.atFrame}/${e.sub}`, { f: e.atFrame, sub: e.sub }])).values()].sort((x, y) => x.f - y.f || x.sub - y.sub);
-const MID = points.find((e) => e.sampleAt === 'shutterMid');
-const TOL_PX = MID.tolerancePx;
-const cube = scene.objects.find((o) => o.shape === 'box');
+const problems = [];
+const attempt = (what, fn) => { try { return fn(); } catch (e) { problems.push(`${what}：${e.message}`); return undefined; } };
+
+/** 这个镜头对的是哪个校准场景（入口文件名去掉 .shot.js 就是校准目录里的 probe-<名字>），以及从它的答案里读出的要渲哪些帧、对哪些时刻 */
+async function planOf(shot) {
+  const scene = await readJson(join(REPO, 'beiming/calib', `probe-${shot.entry.replace('.shot.js', '')}`, 'scene.json'));
+  const points = scene.expected.filter((e) => e.kind === 'projectPoint').map((e) => ({ ...e, sub: e.sampleAt === 'shutterMid' ? scene.camera.shutterAngleDeg / 720 : e.subFrameRatio }));
+  const mid = points.find((e) => e.sampleAt === 'shutterMid');
+  // 单独一个子帧采样落在「快门角 ÷ 720」，所以相位到了 0.5 的时刻从帧源接口要不到，不排进去
+  const moments = [...new Map(points.filter((e) => e.sub < 0.5).map((e) => [`${e.atFrame}/${e.sub}`, { f: e.atFrame, sub: e.sub }])).values()].sort((x, y) => x.f - y.f || x.sub - y.sub);
+  return {
+    scene, mid, moments,
+    frames: [...new Set(points.filter((e) => e.sub === 0).map((e) => e.atFrame))].sort((x, y) => x - y),
+    main: scene.objects.find((o) => o.id === mid.objectId),
+    tolPx: mid.tolerancePx,
+    depthTol: scene.expected.find((x) => x.kind === 'pixelHits').toleranceRatio,
+  };
+}
 
 await rm(OUT, { recursive: true, force: true });
 await mkdir(join(OUT, 'checks'), { recursive: true });
 
-// ---------- 出帧：每个镜头两个浏览器 ----------
+// ---------- 出帧：每个镜头两个帧源进程（两个浏览器） ----------
 let caps;
 async function runShot(shot) {
-  const one = { shot, renders: [], loads: [], evaluations: [], rng: [], queries: [], cardUses: [], metaKeys: [], origins: [] };
-  /** 调一次 render。给了 label 就落盘到 out/skeleton/<镜头>/<label>/，没给就只把颜色层留在内存里 */
-  async function render(host, run, label, f, opts, want, order) {
-    const res = await host.render(f, opts, want);
-    const rec = { run, label, call: res.call, f, opts, want, order, status: res.ok ? 'ok' : 'error' };
-    if (!res.ok) rec.code = res.code;
-    else {
-      Object.assign(rec, { meta: res.meta, layers: Object.keys(res.layers) });
-      if (label) {
-        rec.dir = join(OUT, shot.id, label);
-        rec.files = await writeFrame(rec.dir, res);
-        rec.metaBytes = rec.files['meta.json'].bytes;
-      } else {
-        rec.metaBytes = Buffer.byteLength(`${JSON.stringify(res.meta, null, 2)}\n`);
-        if (res.layers.color) rec.color = new Float32Array(new Uint8Array(Buffer.from(res.layers.color.base64, 'base64')).buffer);
-      }
+  const plan = await planOf(shot), input = shotInput(film, shot.id);
+  const files = withDirectImports(REPO, rel(join(FIXTURES, shot.entry)));
+  const one = { shot, plan, input, files, languages: [...new Set(files.map((f) => LANGUAGES[extname(f)]).filter(Boolean))], renders: [], opens: [], evaluations: [], queries: [], rng: [], manifest: null };
+  const midF = plan.mid.atFrame, frames = shot.out - shot.in;
+  const shuffle = stream(streamName(shot.seed, shot.id, 'conformance/shuffle'));
+  const patched = (patch) => ({ ...input, shot: { ...structuredClone(input.shot), ...patch } });
+
+  /** 调一次 open。expect 给了错误码就是故意造的装不了的输入；成功时交回会话和它的产物目录 out/skeleton/<镜头>/<label>/ */
+  async function open(source, label, { inp = input, withLock = false, expect } = {}) {
+    const rec = {
+      plain: inp === input, hasLock: withLock, hasSeed: Number.isInteger(inp.shot.seed),
+      usesCards: (inp.shot.cards ?? []).length > 0, usesAssets: Object.keys(inp.shot.assets ?? {}).length > 0, host: inp.shot.host, mode: inp.shot.mode,
+    };
+    one.opens.push(rec);
+    Object.defineProperty(rec, 'expect', { value: expect }); // 不进记录，只给「报的错对不对」那道门用
+    const workspace = join(OUT, shot.id, label);
+    try {
+      const session = await source.open(inp, { lock: withLock ? lock : null, tier: 'final', workspace, filmDir: FIXTURES });
+      rec.status = 'ok';
+      return { session, workspace, label, locked: withLock };
+    } catch (e) {
+      if (!e.code) throw e;
+      Object.assign(rec, { status: 'error', code: e.code });
+      return null;
     }
+  }
+
+  /** 调一次 render。more 里是这次调用的标记：order（按哪种次序渲的）、expect（故意造的错）、unsupportedOpts、unfitOutputs…… */
+  async function render(s, f, opts, want, more = {}) {
+    const rec = { call: one.renders.length, session: s.label, locked: s.locked, f, opts, want, unsupportedOpts: [], unfitOutputs: [], ...more };
     one.renders.push(rec);
+    try {
+      const res = await s.session.render(f, opts, want);
+      rec.status = 'ok';
+      rec.layers = Object.keys(res.layers);
+      rec.refs = res.layers;
+      // 层文件的哈希自己读文件重算，不抄层引用里写的
+      rec.layerRefs = [];
+      for (const [output, ref] of Object.entries(res.layers)) rec.layerRefs.push({ output, shape: ref.shape, sha256: ref.sha256, fileSha256: `sha256:${hex(await readFile(join(s.workspace, ref.file)))}` });
+      rec.metas = Array.isArray(res.meta) ? res.meta.length : res.meta ? 1 : 0;
+      if (rec.metas === 1) {
+        const text = `${JSON.stringify(res.meta, null, 2)}\n`;
+        Object.assign(rec, { meta: res.meta, metaBytes: Buffer.byteLength(text), seen: readObservation(res.meta.readings) });
+        rec.dir = join(s.workspace, res.layers.color ? dirname(res.layers.color.file) : `meta-only-c${pad(rec.call, 3)}`);
+        await mkdir(rec.dir, { recursive: true });
+        await writeFile(join(rec.dir, 'meta.json'), text);
+      }
+    } catch (e) {
+      if (!e.code) throw e;
+      Object.assign(rec, { status: 'error', code: e.code });
+      // 报错的那次调用可能已经写过几次状态，观测点还攒着；只要元数据渲一次把它们清掉，不然会算到下一次调用头上
+      await s.session.render(midF, {}, ['meta']);
+    }
     return rec;
   }
-  /** 把页面宿主记下的每次调用（状态写了哪些时刻、交了几份元数据）并到这边的记录上 */
-  const merge = (run, log) => {
-    for (const o of log.renders) Object.assign(one.renders.find((r) => r.run === run && r.call === o.call), { applies: o.applies, metas: o.metas });
-    return log;
-  };
-  const note = (log) => { one.loads.push(...log.loads); one.cardUses.push(...log.cardUses); one.metaKeys = [...new Set([...one.metaKeys, ...log.metaKeys])]; };
-  const shuffle = stream(streamName(shot.seed, shot.id, 'conformance/shuffle'));
-  const angle = shot.shutter.angleDeg;
 
-  // 第一个浏览器：顺序出帧、同会话重复、各种探测
-  const a = await openHost({ filmPath: FILM, shotId: shot.id, tier: 'final' });
-  try {
-    caps = await a.caps();
-    await a.openSession();
-    one.manifest = await a.manifest();
-    for (const f of FRAMES) await render(a, 'a', `frames/f${pad(f)}`, f, {}, WANT, 'sequential');
-    await render(a, 'a', `probes/repeat-f${pad(MID.atFrame)}`, MID.atFrame, {}, WANT, 'repeat');
-    // 这次调用自己给快门：只有一个子帧采样，颜色层就是 sub 不为 0 的一个清晰时刻
-    const probe = await render(a, 'a', `probes/shutter1-f${pad(MID.atFrame)}`, MID.atFrame, { shutter: { angleDeg: angle, samples: 1 } }, ['color', 'meta']);
-    merge('a', await a.observations());
-    // 量平均方式要用：把顺序渲的每一帧的各个子帧单独渲一遍。单采样落在哪由帧源定，这里按上面那次探测看到的比例去凑快门角
-    const perDegree = colorApplies(probe)[0].sub / angle;
-    for (const r of one.renders.filter((x) => x.order === 'sequential')) {
-      const subs = colorApplies(r).map((x) => x.sub);
-      r.singles = [];
-      if (!(perDegree > 0) || subs.some((s) => s / perDegree > 360)) continue;
-      for (const s of subs) r.singles.push(await render(a, 'a', null, r.f, { shutter: { angleDeg: s / perDegree, samples: 1 } }, ['color']));
+  /** 纯函数门：对一批时刻各求一次状态。从帧源接口要一个时刻的办法是只取一个子帧采样，它落在「快门角 ÷ 720」；状态摘要取那张颜色层的哈希 */
+  async function evaluate(s, moments, mode) {
+    for (const m of moments) {
+      const r = await render(s, m.f, { shutter: { angleDeg: m.sub * 720, samples: 1 } }, ['color', 'meta'], { moment: m });
+      const at = (r.seen?.states ?? []).filter((x) => x.color > 0);
+      // 观测点看到的时刻必须就是要的那一个，不然这张图不是这个时刻的状态，不记
+      r.landed = r.status === 'ok' && at.length === 1 && at[0].f === m.f && at[0].sub === m.sub;
+      if (r.landed) one.evaluations.push({ f: m.f, sub: m.sub, mode, digest: r.layerRefs.find((x) => x.output === 'color').fileSha256.replace('sha256:', '') });
     }
-    await render(a, 'a', `probes/meta-only-f${pad(MID.atFrame)}`, MID.atFrame, {}, ['meta']);
-    const undeclared = Object.keys(caps.outputs).find((k) => caps.outputs[k] === false);
-    if (undeclared) await render(a, 'a', `probes/undeclared-output-f${pad(MID.atFrame)}`, MID.atFrame, {}, ['color', undeclared]);
-    await render(a, 'a', `probes/shutter-conflict-f${pad(MID.atFrame)}`, MID.atFrame, { shutter: { angleDeg: 0, samples: 4 } }, ['color', 'meta']);
-    const q = await a.query(MID.atFrame, { kind: 'bbox3d', of: [one.manifest.entities[0].name] });
-    if (q.ok) throw new Error('能力声明说不答场景查询，帧源却答了');
-    one.queries.push({ kind: 'bbox3d', status: 'error', code: q.code });
-    await a.closeSession();
-    one.origins = await a.evaluate(MOMENTS, false);
-    one.evaluations.push(...one.origins.map((e) => ({ f: e.f, sub: e.sub, mode: 'sequential', digest: e.digest })));
-    one.evaluations.push(...(await a.evaluate(MOMENTS, true)).map((e) => ({ f: e.f, sub: e.sub, mode: 'single', digest: e.digest })));
-    one.rng.push(...(await a.rngProbe(['probe/alpha', 'probe/beta'], 16)).map((r) => ({ run: 'a', ...r })));
-    note(merge('a', await a.observations()));
-  } finally {
-    await a.close();
   }
 
-  // 第二个浏览器：新会话只渲一帧、再开会话乱序渲
-  const b = await openHost({ filmPath: FILM, shotId: shot.id, tier: 'final' });
+  // 第一个帧源进程：装不了的输入、顺序出帧、同会话重复、各种探测、带锁文件装一次
+  const a = await startSource();
   try {
-    await b.openSession();
-    await render(b, 'b', `rerun/single-f${pad(MID.atFrame)}`, MID.atFrame, {}, WANT, 'single');
-    await b.closeSession();
-    await b.openSession();
-    for (const f of shuffled(FRAMES, shuffle)) await render(b, 'b', `rerun/shuffled-f${pad(f)}`, f, {}, WANT, 'shuffled');
-    await b.closeSession();
-    one.evaluations.push(...(await b.evaluate(shuffled(MOMENTS, shuffle), false)).map((e) => ({ f: e.f, sub: e.sub, mode: 'shuffled', digest: e.digest })));
-    // 换一个取用次序，再多开一条流：同名的流必须还是同样的序列
-    one.rng.push(...(await b.rngProbe(['probe/beta', 'probe/extra', 'probe/alpha'], 16)).map((r) => ({ run: 'b', ...r })));
-    note(merge('b', await b.observations()));
+    caps = a.caps();
+    const noSeed = structuredClone(input);
+    delete noSeed.shot.seed;
+    const rejected = [
+      [noSeed, 'env.lock-required'],
+      [patched({ cards: [{ card: 'probe.card@1', as: 'probe' }] }), 'env.lock-required'],
+      [patched({ assets: { probe: 'asset:probe@1' } }), 'env.lock-required'],
+      [patched({ mode: 'cards-data' }), 'contract.unsupported-mode'],
+      [patched({ host: 'offscreen' }), 'contract.unsupported-mode'],
+    ];
+    for (const [inp, expect] of rejected) await (await open(a, 'a-rejected', { inp, expect }))?.session.close();
+
+    const seq = await open(a, 'a-sequential');
+    one.manifest = seq.session.manifest();
+    for (const f of plan.frames) await render(seq, f, {}, WANT, { order: 'sequential' });
+    await render(seq, midF, {}, WANT, { order: 'repeat' });
+    // 这次调用自己给快门：只有一个子帧采样，颜色层就是 sub 不为 0 的一个清晰时刻
+    await render(seq, midF, { shutter: { angleDeg: shot.shutter.angleDeg, samples: 1 } }, ['color', 'meta'], { probe: 'single-sample' });
+    // 量平均方式要用：把顺序渲的每一帧的各个子帧单独渲一遍
+    for (const r of one.renders.filter((x) => x.order === 'sequential')) {
+      r.singles = [];
+      for (const sub of colorSubs(r)) r.singles.push(await render(seq, r.f, { shutter: { angleDeg: sub * 720, samples: 1 } }, ['color', 'meta'], { singleOf: r.call }));
+    }
+    await render(seq, midF, {}, ['meta']);
+    await render(seq, midF, {}, ['color', 'motion'], { expect: 'contract.unsupported-output' });
+    await render(seq, midF, { shutter: { angleDeg: 0, samples: 4 } }, ['color', 'meta'], { expect: 'contract.shutter-conflict' });
+    await render(seq, midF, { samples: 2 }, ['color', 'meta'], { expect: 'contract.unsupported-option', unsupportedOpts: ['samples'] });
+    await render(seq, frames, {}, ['meta'], { expect: 'usage.bad-argument' });
+    try {
+      const res = await seq.session.query(midF, { kind: 'bbox3d', of: [one.manifest.entities[0].name] });
+      one.queries.push({ kind: 'bbox3d', status: 'ok', total: res.items.length, returned: res.items.length });
+    } catch (e) {
+      if (!e.code) throw e;
+      one.queries.push({ kind: 'bbox3d', status: 'error', code: e.code });
+    }
+    await evaluate(seq, plan.moments, 'sequential');
+    await seq.session.close();
+    for (const [i, m] of plan.moments.entries()) {
+      const s = await open(a, `a-moment-${i}`);
+      await evaluate(s, [m], 'single');
+      await s.session.close();
+    }
+    const locked = await open(a, 'a-locked', { withLock: true });
+    await render(locked, midF, {}, WANT, { probe: 'locked' });
+    await locked.session.close();
+    // 场景里多一条线：辅助层画不了它，要辅助层必须报错；不要辅助层照常出
+    const odd = await open(a, 'a-stranger', { inp: patched({ params: { ...input.shot.params, stranger: 'line' } }) });
+    await render(odd, midF, {}, ['color', 'objectId'], { expect: 'contract.unsupported-object', unfitOutputs: AUX });
+    await render(odd, midF, {}, ['color', 'meta'], { unfitOutputs: AUX });
+    await odd.session.close();
   } finally {
-    await b.close();
+    await a.stop();
+  }
+
+  // 第二个帧源进程：新会话只渲一帧、再开会话乱序渲
+  const b = await startSource();
+  try {
+    const single = await open(b, 'b-single');
+    await render(single, midF, {}, WANT, { order: 'single' });
+    await single.session.close();
+    const mixed = await open(b, 'b-shuffled');
+    for (const f of shuffled(plan.frames, shuffle)) await render(mixed, f, {}, WANT, { order: 'shuffled' });
+    await evaluate(mixed, shuffled(plan.moments, shuffle), 'shuffled');
+    await mixed.session.close();
+  } finally {
+    await b.stop();
   }
   return one;
 }
@@ -147,65 +222,51 @@ const shots = [];
 for (const shot of film.shots) shots.push(await runShot(shot));
 
 // ---------- 量：这些读数要进核对记录。量不出来就不写那一段，对应的门算不过 ----------
-const problems = [];
-const attempt = (what, fn) => { try { return fn(); } catch (e) { problems.push(`${what}：${e.message}`); return undefined; } };
-const integrity = [], averages = [], linearity = [], offsets = [];
+const layerOf = (one, r, name) => readLayer(join(OUT, one.shot.id, r.session, r.refs[name].file), caps.outputs[name].type);
+const shaOf = (r, name) => r.layerRefs.find((x) => x.output === name)?.fileSha256;
+const averages = [], offsets = [], streams = [];
 const diffs = new Map(); // 编号层、深度层对逐像素求交的结果，同一张编号层只算一次，对答案时接着用
-const auxKey = (r) => `${r.f}/${r.files['objectId.u32'].sha256}/${r.files['depth.f32'].sha256}`;
+const auxKey = (one, r) => `${one.shot.id}/${r.f}/${shaOf(r, 'objectId')}/${shaOf(r, 'depth')}`;
 for (const one of shots) {
+  const { scene } = one.plan;
   const ids = Object.fromEntries(one.manifest.entities.map((e) => [e.name, e.id]));
-  const done = one.renders.filter((r) => r.status === 'ok');
-  // 每次调用交回的颜色层的哈希：落了盘的从盘上读回来算
-  for (const r of done) if (r.layers.includes('color')) r.colorSha = sha256(r.dir ? await readFile(join(r.dir, 'color.f32')) : Buffer.from(r.color.buffer));
-  // 颜色层出自哪次调用：元数据里的哈希是页面里对帧源交给宿主的那份颜色算的，拿它去找这次运行里哪次调用交回的颜色层是这个哈希。
-  // 同一帧原样渲了两遍时两次的哈希相同，分不出，算自己那次
-  for (const r of done.filter((x) => x.meta.hash.color)) {
-    const from = done.filter((x) => x.run === r.run && `sha256:${x.colorSha}` === r.meta.hash.color);
-    if (from.length) r.colorCall = from.some((x) => x.call === r.call) ? r.call : from[0].call;
-    integrity.push({ shot: one.shot.id, label: r.label ?? `call ${r.call}`, ok: from.some((x) => x.call === r.call) });
-  }
-  for (const r of done.filter((x) => x.order === 'sequential')) {
-    // 平均方式：各个子帧单独渲的结果自己算两种平均，看帧源交回的累积结果对得上哪一种
-    const subs = colorApplies(r).map((x) => x.sub), got = r.singles.map((x) => (x.status === 'ok' ? colorApplies(x).map((y) => y.sub) : []));
-    const same = got.length === subs.length && got.every((g, i) => g.length === 1 && Math.abs(g[0] - subs[i]) <= 1e-9);
-    const c = same ? attempt(`${one.shot.id} 第 ${r.f} 帧判平均方式`, () => classifyAverage(readLayer(join(r.dir, 'color.f32'), 'f32'), r.singles.map((x) => x.color))) : undefined;
+  for (const r of ok(one).filter((x) => x.order === 'sequential')) {
+    // 平均方式：各个子帧单独渲的结果自己算两种平均，看帧源交回的累积结果对得上哪一种。单独渲的那几次必须正好落在同一批时刻上
+    const subs = colorSubs(r), got = r.singles.map((x) => (x.status === 'ok' ? colorSubs(x) : []));
+    const same = subs.length > 0 && got.length === subs.length && got.every((g, i) => g.length === 1 && g[0] === subs[i]);
+    const c = same ? attempt(`${one.shot.id} 第 ${r.f} 帧判平均方式`, () => classifyAverage(layerOf(one, r, 'color'), r.singles.map((x) => layerOf(one, x, 'color')))) : undefined;
     if (c?.average) r.average = c.average;
     averages.push({ shot: one.shot.id, frame: r.f, subFrames: subs.length, renderedAlone: same, ...(c ?? { average: null }) });
-    for (const x of r.singles) delete x.color;
+    // 单独渲的那些颜色层用完就删，不留在产物里
+    for (const x of r.singles.filter((y) => y.status === 'ok')) { await rm(x.dir, { recursive: true }); x.removed = true; }
   }
-  // 颜色层是不是线性编码：两个已知的自发光量级，读数和规格成不成比例。
-  // 方块取它在编号层里占的像素的中位数；高光球被拖影抹开，取它占的像素里的最大值（被全部子帧盖住的像素）
-  const brightest = Math.max(...scene.objects.map((o) => o.emissionLinear[0]));
-  const byId = new Map();
-  for (const r of done.filter((x) => x.dir && x.layers.includes('color') && x.layers.includes('objectId'))) {
-    const id = readLayer(join(r.dir, 'objectId.u32'), 'u32'), color = readLayer(join(r.dir, 'color.f32'), 'f32');
-    const readings = scene.objects.map((o) => {
-      const v = [];
-      for (let i = 0; i < id.length; i++) if (id[i] === ids[o.id]) v.push(color[i * 4]);
-      v.sort((x, y) => x - y);
-      const reading = o.emissionLinear[0] === brightest ? v.at(-1) : v[v.length >> 1];
-      return { object: o.id, want: o.emissionLinear[0], got: reading ?? null, relErr: reading === undefined ? null : Math.abs(reading / o.emissionLinear[0] - 1) };
-    });
-    // 哪个物体在编号层里一个像素都没有，就量不了，不写
-    if (readings.every((x) => x.relErr !== null)) r.colorTransfer = readings.every((x) => x.relErr <= LINEAR_TOL) ? 'linear' : 'encoded';
-    if (r.order === 'sequential') linearity.push({ shot: one.shot.id, frame: r.f, readings, verdict: r.colorTransfer ?? null });
-    // 辅助层取的是像素里的哪个位置：同一张编号层只量一次
-    if (!r.layers.includes('depth')) continue;
-    const key = `${one.shot.id}/${auxKey(r)}`;
-    if (!byId.has(key)) {
-      byId.set(key, attempt(`${one.shot.id} 第 ${r.f} 帧量像素内位置`, () => {
-        const d = diffLayers({ id, depth: readLayer(join(r.dir, 'depth.f32'), 'f32') }, scene, r.f, ids);
+  // 辅助层取的是像素里的哪个位置：同一张编号层只量一次
+  const measured = new Map();
+  for (const r of ok(one).filter((x) => AUX.every((n) => x.layers.includes(n)))) {
+    const key = auxKey(one, r);
+    if (!measured.has(key)) {
+      measured.set(key, attempt(`${one.shot.id} 第 ${r.f} 帧量像素内位置`, () => {
+        const id = layerOf(one, r, 'objectId');
+        const d = diffLayers({ id, depth: layerOf(one, r, 'depth') }, scene, r.f, ids);
         diffs.set(key, d);
-        return measurePixelOffset(id, scene, r.f, ids, d.edgeLimit);
+        return measurePixelOffset(id, scene, r.f, ids);
       }) ?? null);
     }
-    if (byId.get(key)) r.pixelOffset = byId.get(key);
-    if (r.order === 'sequential') offsets.push({ shot: one.shot.id, frame: r.f, pixelOffset: byId.get(key) });
+    if (measured.get(key)) r.pixelOffset = measured.get(key);
+    if (r.order === 'sequential') offsets.push({ shot: one.shot.id, frame: r.f, pixelOffset: measured.get(key) });
+  }
+  // 命名随机流：观测点两轮取数，各条流的名字对不对由它当场比，取到的数交出来由这里算摘要、对参考序列
+  for (const x of ok(one).find((r) => r.seen)?.seen.rng ?? []) {
+    const name = streamName(one.shot.seed, one.shot.id, x.arg), ref = stream(name);
+    const row = { shot: one.shot.id, run: x.run, arg: x.arg, nameAsExpected: x.nameOk, matchesReference: x.values.every((v) => v === ref.u32()) };
+    streams.push(row);
+    // 名字是帧源里的宿主展开的，这里只在观测点确认过它等于期望的名字时才写进记录
+    if (x.nameOk) one.rng.push({ run: x.run, arg: x.arg, name, digest: hex(Buffer.from(Uint32Array.from(x.values).buffer)) });
   }
 }
 
 // ---------- 静态扫描 ----------
-const shotFiles = [...new Set(film.shots.flatMap((s) => withDirectImports(REPO, rel(join(dirname(FILM), s.entry)))))];
+const shotFiles = [...new Set(shots.flatMap((one) => one.files))];
 const scans = {
   path: scanFiles(REPO, [...sourceFiles(REPO, ['beiming/kernel/eval', 'beiming/sources/three', 'beiming/host/page']), ...shotFiles], CLOCK),
   shot: scanFiles(REPO, shotFiles),
@@ -214,140 +275,157 @@ const scans = {
 // ---------- 核对记录：先写出来，再交给校验器 ----------
 const holds = [];
 for (let f = 0; f < 8; f++) for (let n = 1; n <= 3; n++) holds.push({ f, n, result: hold(f, n) });
-const obs = { film, caps, holds, scans, shots };
+const obs = { film, caps, lock, holds, scans, shots };
 const records = { 'time-check': timeCheck(obs) };
 for (const one of shots) {
   records[`${one.shot.id}.shot-check`] = shotCheck(obs, one);
   records[`${one.shot.id}.source-check`] = sourceCheck(obs, one);
-  records[`${one.shot.id}.meta-check`] = metaCheck(one, 'a');
+  records[`${one.shot.id}.meta-check`] = metaCheck(one);
 }
 for (const [name, rec] of Object.entries(records)) await writeFile(join(OUT, 'checks', `${name}.json`), `${JSON.stringify(rec, null, 2)}\n`);
 
-const judge = (name, obj) => {
-  const v = loaded.validate(obj);
-  return { name, format: obj.format, ok: v.schemaErrors.length === 0 && Object.keys(v.violations).length === 0, schemaErrors: v.schemaErrors, violations: v.violations };
+const judge = (name, obj, schema) => {
+  const v = loaded.validate(obj, 'source', schema);
+  return { name, format: obj.format ?? schema, ok: v.schemaErrors.length === 0 && Object.keys(v.violations).length === 0, schemaErrors: v.schemaErrors, violations: v.violations };
 };
 const all = shots.flatMap((one) => one.renders.map((r) => ({ ...r, shot: one.shot })));
+const metaName = (r) => (r.removed ? `${r.shot.id} call ${r.call}（单独渲的子帧，没留盘）` : rel(join(r.dir, 'meta.json')).replace('out/skeleton/', ''));
 const objects = [
-  judge(rel(FILM), film),
+  judge(rel(join(FIXTURES, 'film.json')), film),
+  judge(rel(join(FIXTURES, 'lock.json')), lock),
   judge('caps()', caps),
-  ...all.filter((r) => r.meta && r.dir).map((r) => judge(`${rel(r.dir).replace('out/skeleton/', '')}/meta.json`, r.meta)),
+  ...shots.flatMap((one) => [judge(`${one.shot.id} 镜头输入`, one.input, 'shot-input.schema.json'), judge(`${one.shot.id} manifest()`, one.manifest, 'manifest.schema.json')]),
+  ...all.filter((r) => r.meta && !r.removed).map((r) => judge(metaName(r), r.meta)),
   ...Object.entries(records).map(([name, rec]) => judge(`checks/${name}.json`, rec)),
 ];
-const unwritten = all.filter((r) => r.meta && !r.dir).map((r) => judge(`${r.shot.id} call ${r.call}`, r.meta));
+// 数量多、不逐个列的：单独渲的子帧的元数据，和每一个层引用
+const quiet = [
+  ...all.filter((r) => r.meta && r.removed).map((r) => judge(metaName(r), r.meta)),
+  ...all.filter((r) => r.refs).flatMap((r) => Object.entries(r.refs).map(([n, ref]) => judge(`${r.shot.id} call ${r.call} 层引用 ${n}`, ref, 'layer-ref.schema.json'))),
+];
 
-// ---------- 两个浏览器、几种渲法：同一帧的每一层逐位相同吗，元数据去掉 timing 之后相同吗 ----------
-const determinism = shots.flatMap((one) => FRAMES.flatMap((f) => {
+// ---------- 两个帧源进程、几种渲法：同一帧的每一层逐位相同吗，元数据去掉 timing 之后相同吗 ----------
+const determinism = shots.flatMap((one) => one.plan.frames.flatMap((f) => {
   const runs = one.renders.filter((r) => r.order && r.f === f);
+  const processes = new Set(runs.map((r) => r.session[0])).size;
   const layers = WANT.filter((n) => n !== 'meta').map((layer) => {
-    const got = runs.map((r) => ({ run: r.run, order: r.order, sha256: Object.values(r.files).find((x) => x.layer === layer).sha256 }));
-    return { shot: one.shot.id, frame: f, layer, same: new Set(got.map((x) => x.sha256)).size === 1, browsers: new Set(got.map((x) => x.run)).size, runs: got };
+    const got = runs.map((r) => ({ session: r.session, order: r.order, sha256: shaOf(r, layer) }));
+    return { shot: one.shot.id, frame: f, layer, same: new Set(got.map((x) => x.sha256)).size === 1, processes, runs: got };
   });
-  return [...layers, { shot: one.shot.id, frame: f, layer: 'meta', same: new Set(runs.map((r) => JSON.stringify({ ...r.meta, timing: null }))).size === 1, browsers: new Set(runs.map((r) => r.run)).size }];
+  return [...layers, { shot: one.shot.id, frame: f, layer: 'meta', same: new Set(runs.map((r) => JSON.stringify({ ...r.meta, timing: null }))).size === 1, processes }];
 }));
 
 // ---------- 对校准场景的标准答案 ----------
-const answer = (f, sub, sampleAt) => points.find((e) => e.objectId === cube.id && e.atFrame === f && e.sub === sub && e.sampleAt === sampleAt);
-const depthTol = scene.expected.find((x) => x.kind === 'pixelHits').toleranceRatio;
 function calibrate(one) {
-  const out = { shot: one.shot.id, idLayer: [], trail: [], probe: [], state: [], pixelHits: [], normal: [] };
+  const { plan } = one, { scene, mid, main } = plan;
+  const out = { shot: one.shot.id, scene: scene.id, idLayer: [], trail: [], probe: [], pixelHits: [], normal: [] };
   // 编号经实体清单按名字查
   const ids = Object.fromEntries(one.manifest.entities.map((e) => [e.name, e.id]));
   for (const o of scene.objects) if (!ids[o.id]) throw new Error(`实体清单里没有规格里的物体 ${o.id}`);
   const emission = Object.fromEntries(scene.objects.map((o) => [ids[o.id], o.emissionLinear[0]]));
-  for (const r of one.renders.filter((x) => x.order === 'sequential')) {
-    const got = { id: readLayer(join(r.dir, 'objectId.u32'), 'u32'), depth: readLayer(join(r.dir, 'depth.f32'), 'f32') };
-    const { want, ...d } = diffs.get(`${one.shot.id}/${auxKey(r)}`) ?? diffLayers(got, scene, r.f, ids);
-    const c = centroid(W, H, (i) => got.id[i] === ids[cube.id]), cw = centroid(W, H, (i) => want.id[i] === ids[cube.id]);
-    const e = answer(r.f, 0);
-    out.idLayer.push({ frame: r.f, pixels: c.count, centroidPx: px4(c.px), raycastCentroidPx: px4(cw.px), vsRaycastPx: r4(dist(c.px, cw.px)), ...d, projectPointPx: e.pixelPx, vsProjectPointPx: r4(dist(c.px, e.pixelPx)) });
+  for (const r of ok(one).filter((x) => x.order === 'sequential')) {
+    const got = { id: layerOf(one, r, 'objectId'), depth: layerOf(one, r, 'depth') }, normal = layerOf(one, r, 'normal');
+    const { want, ...d } = diffs.get(auxKey(one, r)) ?? diffLayers(got, scene, r.f, ids);
+    const c = centroid(W, H, (i) => got.id[i] === ids[main.id]), cw = centroid(W, H, (i) => want.id[i] === ids[main.id]);
+    // 两边都说什么都没打到的像素：深度必须是约定的那个数，法线必须是 (0, 0, 0)
+    let noHit = 0, noHitWrong = 0;
+    for (let i = 0; i < want.id.length; i++) {
+      if (want.id[i] !== 0 || got.id[i] !== 0) continue;
+      noHit++;
+      if (got.depth[i] !== NO_HIT_DEPTH || normal[i * 3] !== 0 || normal[i * 3 + 1] !== 0 || normal[i * 3 + 2] !== 0) noHitWrong++;
+    }
+    out.idLayer.push({ frame: r.f, object: main.id, pixels: c.count, centroidPx: px4(c.px), raycastCentroidPx: px4(cw.px), vsRaycastPx: r4(dist(c.px, cw.px)), ...d, noHit, noHitWrong });
     // 真正累积出来的颜色层：拖影按线性亮度加权的重心，对「快门中点那一刻的画面」按自发光值加权的重心
-    const color = readLayer(join(r.dir, 'color.f32'), 'f32'), mid = expectedLayers(scene, r.f + MID.sub, ids).id;
-    const t = centroid(W, H, (i) => Math.max(0, color[i * 4])), tw = centroid(W, H, (i) => emission[mid[i]] ?? 0);
-    out.trail.push({ frame: r.f, midSub: MID.sub, samples: colorApplies(r).length, centroidPx: px4(t.px), expectedPx: px4(tw.px), diffPx: r4(dist(t.px, tw.px)) });
-    // 规格点名的像素：最先打到谁、平面深度多少
+    const color = layerOf(one, r, 'color'), midIds = expectedLayers(scene, r.f + mid.sub, ids).id;
+    const t = centroid(W, H, (i) => Math.max(0, color[i * 4])), tw = centroid(W, H, (i) => emission[midIds[i]] ?? 0);
+    out.trail.push({ frame: r.f, midSub: mid.sub, samples: colorSubs(r).length, centroidPx: px4(t.px), expectedPx: px4(tw.px), diffPx: r4(dist(t.px, tw.px)) });
+    // 规格点名的像素：最先打到谁、平面深度多少；点名的是背景时编号是 0、深度是约定的那个数
     for (const h of scene.expected.filter((x) => x.kind === 'pixelHits' && x.atFrame === r.f)) {
       const i = Math.floor(h.pixelPx[1]) * W + Math.floor(h.pixelPx[0]);
-      out.pixelHits.push({ frame: r.f, pixelPx: h.pixelPx, wantId: ids[h.hits[0].objectId], gotId: got.id[i], wantDepthM: h.hits[0].planeDepthM, gotDepthM: got.depth[i], toleranceRatio: h.toleranceRatio });
+      out.pixelHits.push({ frame: r.f, pixelPx: h.pixelPx, wantId: h.hits[0] ? ids[h.hits[0].objectId] : 0, gotId: got.id[i], wantDepthM: h.hits[0]?.planeDepthM ?? NO_HIT_DEPTH, gotDepthM: got.depth[i], toleranceRatio: h.toleranceRatio });
     }
-    // 方块正面正对相机：重心那个像素的法线应该是 (0, 0, 1)
+    // 规格里的面都正对相机：重心那个像素的法线应该是 (0, 0, 1)
     if (c.px) {
-      const n = readLayer(join(r.dir, 'normal.f32'), 'f32'), at = (Math.floor(c.px[1]) * W + Math.floor(c.px[0])) * 3;
-      out.normal.push({ frame: r.f, pixelPx: c.px.map(Math.floor), got: [n[at], n[at + 1], n[at + 2]].map(r4), want: [0, 0, 1] });
+      const at = (Math.floor(c.px[1]) * W + Math.floor(c.px[0])) * 3;
+      out.normal.push({ frame: r.f, pixelPx: c.px.map(Math.floor), got: [normal[at], normal[at + 1], normal[at + 2]].map(r4), want: [0, 0, 1] });
     }
   }
   {
-    // sub 不为 0 的一个清晰时刻：单子帧采样的颜色层里方块的重心，对快门中点的答案。采样没落在答案的时刻就算不过，不换别的比法
-    const r = one.renders.find((x) => x.label?.startsWith('probes/shutter1'));
-    const sub = colorApplies(r)[0].sub, onAnswer = Math.abs(sub - MID.sub) <= 1e-9;
-    const row = { frame: r.f, sampleSub: sub, answerSub: MID.sub, onAnswer };
+    // sub 不为 0 的一个清晰时刻：单子帧采样的颜色层里那个物体的重心，对快门中点的答案。采样没落在答案的时刻就算不过，不换别的比法
+    const r = one.renders.find((x) => x.probe === 'single-sample');
+    const sub = colorSubs(r)[0], onAnswer = sub === mid.sub;
+    const row = { frame: r.f, object: main.id, sampleSub: sub ?? null, answerSub: mid.sub, onAnswer };
     if (onAnswer) {
-      const color = readLayer(join(r.dir, 'color.f32'), 'f32'), level = cube.emissionLinear[0];
+      const color = layerOf(one, r, 'color'), level = main.emissionLinear[0];
       const want = expectedLayers(scene, r.f + sub, ids).id;
-      const c = centroid(W, H, (i) => Math.abs(color[i * 4] - level) <= level * 0.01), cw = centroid(W, H, (i) => want[i] === ids[cube.id]);
-      Object.assign(row, { pixels: c.count, centroidPx: px4(c.px), raycastCentroidPx: px4(cw.px), vsRaycastPx: r4(dist(c.px, cw.px)), projectPointPx: MID.pixelPx, vsProjectPointPx: r4(dist(c.px, MID.pixelPx)) });
+      const c = centroid(W, H, (i) => Math.abs(color[i * 4] - level) <= level * 0.01), cw = centroid(W, H, (i) => want[i] === ids[main.id]);
+      Object.assign(row, { pixels: c.count, centroidPx: px4(c.px), raycastCentroidPx: px4(cw.px), vsRaycastPx: r4(dist(c.px, cw.px)), projectPointPx: mid.pixelPx, vsProjectPointPx: r4(dist(c.px, mid.pixelPx)) });
     }
     out.probe.push(row);
   }
-  // 状态本身：每个答案时刻把实体原点用相机矩阵投到屏幕上（没经过光栅化）
-  for (const e of points) {
-    const got = one.origins.find((o) => o.f === e.atFrame && o.sub === e.sub)?.origins[e.objectId] ?? null;
-    out.state.push({ object: e.objectId, frame: e.atFrame, sub: e.sub, wantPx: e.pixelPx, gotPx: px4(got), diffPx: r4(dist(got, e.pixelPx)) });
-  }
-  return out;
+  return { ...out, tolPx: plan.tolPx, depthTol: plan.depthTol };
 }
 const calibration = shots.map((one) => attempt(`${one.shot.id} 对答案`, () => calibrate(one))).filter(Boolean);
-const cal = (key) => calibration.flatMap((c) => c[key]);
+const cal = (key) => calibration.flatMap((c) => c[key].map((x) => ({ ...x, tolPx: c.tolPx, depthTol: c.depthTol })));
 
 // ---------- 结论 ----------
-const sampleCounts = all.filter((r) => r.status === 'ok' && r.layers.includes('color')).map((r) => ({ shot: r.shot.id, label: r.label ?? `call ${r.call}`, want: r.opts.shutter?.samples ?? r.shot.shutter.samples, got: colorApplies(r).length }));
-const metas = all.filter((r) => r.meta);
+const expected = [
+  ...shots.flatMap((one) => one.opens.map((o) => ({ shot: one.shot.id, what: 'open', want: o.expect ?? 'ok', got: o.code ?? o.status }))),
+  ...all.map((r) => ({ shot: r.shot.id, what: `render call ${r.call}`, want: r.expect ?? 'ok', got: r.code ?? r.status })),
+  ...shots.flatMap((one) => one.queries.map((q) => ({ shot: one.shot.id, what: `query ${q.kind}`, want: 'contract.unsupported-query', got: q.code ?? q.status }))),
+];
+const sampleCounts = all.filter((r) => r.status === 'ok' && r.layers.includes('color')).map((r) => ({ shot: r.shot.id, call: r.call, want: effectiveShutter(r, r.shot, caps, lock).samples, got: colorSubs(r).length }));
+const lockedRuns = shots.map((one) => {
+  const withLock = one.renders.find((r) => r.probe === 'locked'), without = one.renders.find((r) => r.order === 'sequential' && r.f === withLock.f);
+  return { shot: one.shot.id, same: withLock.status === 'ok' && WANT.filter((n) => n !== 'meta').every((n) => shaOf(withLock, n) === shaOf(without, n)) };
+});
+const moments = all.filter((r) => r.moment);
 const gates = {
-  'objects valid': objects.every((o) => o.ok) && unwritten.every((o) => o.ok),
-  'layers and meta identical across browsers and orders': determinism.every((d) => d.same && d.browsers === 2),
-  'meta frame and sub are the state that was measured': metas.every((r) => r.meta.shotFrame === r.f && r.meta.frame === r.f + r.shot.in && r.meta.sub === r.applies.at(-1).sub),
-  'color layer returned by each call matches its meta hash': integrity.every((x) => x.ok),
+  'objects valid': [...objects, ...quiet].every((o) => o.ok),
+  'every open, render and query ended as intended (ok, or the intended error code)': expected.every((x) => x.want === x.got),
+  'layers and meta identical across processes and orders': determinism.every((d) => d.same && d.processes === 2),
+  'opening with the example lock gives the same layers': lockedRuns.every((x) => x.same),
   'sub-frame sample count as requested': sampleCounts.every((x) => x.want === x.got),
+  'every single-moment render landed on the requested moment': moments.length > 0 && moments.every((r) => r.landed),
+  'random streams drawn by the shot code have the expected names and equal the reference sequences': streams.length > 0 && streams.every((x) => x.nameAsExpected && x.matchesReference),
   'accumulation average measured on every delivered frame': averages.every((x) => x.average),
   'aux pixel offset measured on at least one delivered frame per shot': shots.every((one) => offsets.some((x) => x.shot === one.shot.id && x.pixelOffset)),
   'no error while measuring or comparing': problems.length === 0 && calibration.length === shots.length,
-  'id layer vs per-pixel raycast: centroid within tolerance, mismatches only on sub-pixel edges': cal('idLayer').every((x) => within(x.vsRaycastPx, TOL_PX) && x.offEdge === 0),
-  'depth layer within calibration tolerance of raycast': cal('idLayer').every((x) => x.depthMaxRatio <= depthTol),
-  'accumulated trail centroid at shutter midpoint': cal('trail').every((x) => within(x.diffPx, TOL_PX)),
-  'single-sample probe lands on the answer moment and matches it': cal('probe').every((x) => x.onAnswer && within(x.vsRaycastPx, TOL_PX)),
-  'state projects onto expected pixels': cal('state').every((x) => within(x.diffPx, TOL_PX)),
+  'id layer vs per-pixel raycast: centroid within tolerance, mismatches only on sub-pixel edges': cal('idLayer').every((x) => within(x.vsRaycastPx, x.tolPx) && x.offEdge === 0),
+  'depth layer within calibration tolerance of raycast': cal('idLayer').every((x) => x.depthMaxRatio <= x.depthTol),
+  'pixels that hit nothing: id 0, depth 1e10, normal (0, 0, 0)': cal('idLayer').every((x) => x.noHit > 0 && x.noHitWrong === 0),
+  'accumulated trail centroid at shutter midpoint': cal('trail').every((x) => within(x.diffPx, x.tolPx)),
+  'single-sample probe lands on the answer moment and matches it': cal('probe').every((x) => x.onAnswer && within(x.vsRaycastPx, x.tolPx)),
   'named pixels hit expected object at expected depth': cal('pixelHits').every((x) => x.gotId === x.wantId && Math.abs(x.gotDepthM / x.wantDepthM - 1) <= x.toleranceRatio),
+  'normal at the object centroid faces the camera': cal('normal').every((x) => x.got.every((v, i) => v === x.want[i])),
 };
-// 另一种比法：编号层重心直接对「方块中心的投影」。方块不在画面中间时侧面会露出来把重心拉偏，所以单列，不进退出码
-const literal = calibration.flatMap((c) => [...c.idLayer, ...c.probe.filter((x) => x.onAnswer)].map((x) => ({ shot: c.shot, frame: x.frame, sub: x.sampleSub ?? 0, vsProjectPointPx: x.vsProjectPointPx, within: within(x.vsProjectPointPx, TOL_PX) })));
-const hashes = Object.fromEntries(all.filter((r) => r.files).flatMap((r) => Object.entries(r.files).filter(([, x]) => x.layer).map(([file, x]) => [`${r.shot.id}/${r.label}/${file}`, x.sha256])));
+const kept = all.filter((r) => r.refs && !r.removed);
+const hashes = Object.fromEntries(kept.flatMap((r) => r.layerRefs.map((x) => [`${r.shot.id}/${r.session}/${r.refs[x.output].file}`, x.fileSha256])));
 const summary = {
   ok: Object.values(gates).every(Boolean),
-  gates, problems, objects, unwrittenMetas: unwritten, determinism, integrity, sampleCounts, averages, auxPixelOffsets: offsets,
-  linearity: { tolerance: LINEAR_TOL, frames: linearity },
-  tolerances: { centroidPx: TOL_PX, depthRatio: depthTol },
-  calibration, centroidVsProjectPoint: literal,
+  gates, problems, objects, quietObjects: { count: quiet.length, bad: quiet.filter((o) => !o.ok) }, expected, determinism, lockedRuns, sampleCounts, averages, auxPixelOffsets: offsets, randomStreams: streams,
+  calibration,
   scan: { files: scans.path.files, wallClock: scans.path.wallClock, unseededRandom: scans.path.unseededRandom, allowedClock: scans.path.allowed },
-  machine: { gpu: metas[0]?.meta.source.gpu, platform: process.platform },
+  machine: { gpu: all.find((r) => r.meta)?.meta.source.gpu, platform: process.platform },
   hashes,
 };
 await writeFile(join(OUT, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`);
 
 const mark = (v) => (v ? '✓' : '✗');
-for (const o of [...objects, ...unwritten.filter((x) => !x.ok)]) {
+for (const o of [...objects, ...quiet.filter((x) => !x.ok)]) {
   console.log(`${mark(o.ok)} ${o.format}  ${o.name}：${o.ok ? '结构合法，违反 0 条' : [...o.schemaErrors, ...Object.entries(o.violations).map(([id, p]) => `${id}：${p[0]}`)].join('；')}`);
 }
-console.log(`  没落盘的元数据 ${unwritten.length} 份（各子帧单独渲的那些），${unwritten.filter((x) => x.ok).length} 份结构合法、违反 0 条`);
+console.log(`  另有 ${quiet.length} 个对象不逐个列（单独渲的子帧的元数据、每一个层引用），${quiet.filter((x) => x.ok).length} 个结构合法、违反 0 条`);
 for (const c of calibration) {
-  for (const x of c.idLayer) console.log(`  ${c.shot} 第 ${x.frame} 帧 编号层：方块 ${x.pixels} 像素；对逐像素求交 重心差 ${x.vsRaycastPx} 像素、编号不同 ${x.idMismatch} 个（上限 ${x.edgeLimit}，不在边上的 ${x.offEdge} 个）、深度最大差 ${x.depthMaxDiff.toExponential(2)} 米`);
+  for (const x of c.idLayer) console.log(`  ${c.shot} 第 ${x.frame} 帧 编号层：${x.object} ${x.pixels} 像素；对逐像素求交 重心差 ${x.vsRaycastPx} 像素、编号不同 ${x.idMismatch} 个（上限 ${x.edgeLimit}，不在边上的 ${x.offEdge} 个）、深度最大差 ${x.depthMaxDiff.toExponential(2)} 米；什么都没打到的 ${x.noHit} 个像素里写得不对的 ${x.noHitWrong} 个`);
   for (const x of c.trail) console.log(`  ${c.shot} 第 ${x.frame} 帧 ${x.samples} 个子帧累积的颜色层：拖影重心 (${x.centroidPx})，快门中点的期望 (${x.expectedPx})，差 ${x.diffPx} 像素`);
-  for (const x of c.probe) console.log(`  ${c.shot} 第 ${x.frame} 帧 单子帧采样落在 sub ${x.sampleSub}（答案时刻 ${x.answerSub}）${x.onAnswer ? `：方块 ${x.pixels} 像素，对逐像素求交差 ${x.vsRaycastPx} 像素` : '：没落在答案时刻，不比'}`);
-  console.log(`  ${c.shot} 状态投影 ${c.state.length} 条，最大差 ${Math.max(...c.state.map((x) => x.diffPx ?? Infinity))} 像素`);
+  for (const x of c.probe) console.log(`  ${c.shot} 第 ${x.frame} 帧 单子帧采样落在 sub ${x.sampleSub}（答案时刻 ${x.answerSub}）${x.onAnswer ? `：${x.object} ${x.pixels} 像素，对逐像素求交差 ${x.vsRaycastPx} 像素` : '：没落在答案时刻，不比'}`);
+  console.log(`  ${c.shot} 点名的像素 ${c.pixelHits.length} 个，对上 ${c.pixelHits.filter((x) => x.gotId === x.wantId).length} 个`);
 }
 for (const x of averages) console.log(`  ${x.shot} 第 ${x.frame} 帧 平均方式：${x.average ?? '量不出'}（${x.subFrames} 个子帧${x.renderedAlone ? '都单独渲到了' : '没能单独渲到同一批时刻'}；分得出两种平均的数 ${x.distinguishing ?? 0} 个，对线性平均最大差 ${(x.maxErrLinear ?? NaN).toExponential(2)}，对编码值平均最大差 ${(x.maxErrEncoded ?? NaN).toExponential(2)}）`);
 for (const x of offsets) console.log(`  ${x.shot} 第 ${x.frame} 帧 辅助层的像素内位置：${x.pixelOffset ? `(${x.pixelOffset})` : '这一帧分不出，不写'}`);
+for (const x of expected.filter((y) => y.want !== y.got)) console.log(`  ${x.shot} ${x.what}：期望 ${x.want}，实际 ${x.got}`);
 for (const p of problems) console.log(`  出错：${p}`);
 for (const [name, v] of Object.entries(gates)) console.log(`${mark(v)} ${name}`);
-console.log(`${mark(literal.length > 0 && literal.every((x) => x.within))} centroid vs projected center within tolerance（不进退出码）：${literal.map((x) => `${x.shot} f${x.frame}+${x.sub} ${x.vsProjectPointPx}`).join('，')}`);
 console.log(`产物在 ${rel(OUT)}/：${Object.keys(hashes).length} 个层文件，${objects.filter((o) => o.format === 'meta/0.1').length} 份落盘的元数据，${Object.keys(records).length} 份核对记录，summary.json`);
 process.exit(summary.ok ? 0 : 1);

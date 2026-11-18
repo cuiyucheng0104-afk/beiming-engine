@@ -1,20 +1,20 @@
 {
   "format": "source-check/0.1",
+  "shot": "s01",
   "caps": {
     "format": "caps/0.1",
-    "id": "blender",
-    "version": "5.2.3",
-    "language": "python",
+    "id": "three",
+    "version": "0.187.0",
+    "language": "js",
     "hosts": [
-      "cycles"
+      "page"
     ],
     "conformance": "full",
     "outputs": {
       "color": {
-        "type": "half",
+        "type": "f32",
         "transfer": "linear",
-        "primaries": "rec709",
-        "note": "EXR"
+        "primaries": "rec709"
       },
       "meta": true,
       "depth": {
@@ -23,44 +23,41 @@
       },
       "objectId": {
         "type": "u32",
-        "note": "不抗锯齿"
+        "note": "不抗锯齿，不带覆盖率"
       },
       "normal": {
-        "type": "half"
+        "type": "f32"
       },
       "motion": false
     },
-    "sceneQuery": [
-      "bbox3d",
-      "anchor",
-      "intersect",
-      "contact",
-      "belowGround"
-    ],
+    "sceneQuery": [],
     "motionBlur": {
-      "mode": "native",
+      "mode": "accumulate",
       "auxAt": "sub0",
-      "conflicts": [
-        "motion"
-      ]
+      "samples": 8
     },
     "determinism": "hash-same-machine",
     "draft": {
-      "kind": "cycles-low",
-      "samples": 24,
-      "scale": 0.5,
-      "denoise": "gpu"
+      "kind": "scale",
+      "samples": 1,
+      "scale": 0.5
+    },
+    "final": {
+      "samples": 1,
+      "scale": 1
     },
     "granularity": "frame",
     "randomAccess": true,
     "modes": [
-      "cards-data",
-      "build-script",
       "native-code"
     ],
     "cost": {
       "unit": "gpu-second"
-    }
+    },
+    "metaNull": [
+      "stats.noise",
+      "lights"
+    ]
   },
   "orderRuns": [
     {

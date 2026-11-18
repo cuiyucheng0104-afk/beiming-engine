@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { resolveServed } from './host.mjs';
-import { lumaStats, measureEntity, toScreen } from './measure.js';
+import { clipStats, lumaStats, measureEntity, toScreen } from './measure.js';
 
 // 相机在原点看向 −Z，竖直视场角 90 度，画面 200 × 100：投影矩阵第 6 个数是 1，第 1 个数是 高 ÷ 宽
 const VIEW = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
@@ -30,16 +30,17 @@ test('实体的包围盒、屏占和平面深度范围', () => {
   assert.ok(Math.abs(half.pxArea - (100 * 20) / (200 * 100)) < 1e-12);
 });
 
-test('画面统计：Rec.709 亮度的百分位和溢出占比', () => {
+test('画面统计：Rec.709 亮度的百分位；溢出和压死按通道判', () => {
   const px = new Float32Array(100 * 4);
   for (let i = 0; i < 100; i++) px.set(i < 90 ? [0, 0, 0, 1] : i < 99 ? [0.5, 0.5, 0.5, 1] : [50, 50, 50, 1], i * 4);
   const s = lumaStats(px);
-  assert.equal(s.luma.p1, 0);
-  assert.equal(s.luma.p50, 0);
-  assert.ok(Math.abs(s.luma.p99 - 0.5) < 1e-6);
-  assert.equal(s.clipHigh, 0.01);
-  assert.equal(s.clipLow, 0.9);
-  assert.ok(Math.abs(lumaStats(new Float32Array([0, 1, 0, 1])).luma.p50 - 0.7152) < 1e-6);
+  assert.deepEqual(Object.keys(s), ['p1', 'p50', 'p99']);
+  assert.deepEqual([s.p1, s.p50], [0, 0]);
+  assert.ok(Math.abs(s.p99 - 0.5) < 1e-6);
+  assert.ok(Math.abs(lumaStats(new Float32Array([0, 1, 0, 1])).p50 - 0.7152) < 1e-6);
+  assert.deepEqual(clipStats(px), { clipHigh: 0.01, clipLow: 0.9 });
+  // 只有一个通道到 1 也算溢出；有一个通道大于 0 就不算压死
+  assert.deepEqual(clipStats(new Float32Array([1, 0, 0, 1, 0, 0.001, 0, 1])), { clipHigh: 0.5, clipLow: 0 });
 });
 
 test('静态服务只放行本系统的代码和 three，跳不出去', () => {

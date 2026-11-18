@@ -61,6 +61,10 @@
     "scale": 0.5,
     "denoise": "oidn-native"
   },
+  "final": {
+    "samples": 64,
+    "scale": 1
+  },
   "granularity": "frame",
   "randomAccess": true,
   "modes": [

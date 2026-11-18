@@ -1,5 +1,6 @@
 {
   "format": "source-check/0.1",
+  "shot": "s01",
   "caps": {
     "format": "caps/0.1",
     "id": "blender",
@@ -11,7 +12,7 @@
     "conformance": "full",
     "outputs": {
       "color": {
-        "type": "half",
+        "type": "f32",
         "transfer": "linear",
         "primaries": "rec709",
         "note": "EXR"
@@ -26,7 +27,7 @@
         "note": "不抗锯齿"
       },
       "normal": {
-        "type": "half"
+        "type": "f32"
       },
       "motion": false
     },
@@ -51,6 +52,10 @@
       "scale": 0.5,
       "denoise": "gpu"
     },
+    "final": {
+      "samples": 64,
+      "scale": 1
+    },
     "granularity": "frame",
     "randomAccess": true,
     "modes": [
@@ -62,6 +67,17 @@
       "unit": "gpu-second"
     }
   },
+  "opens": [
+    {
+      "hasLock": true,
+      "hasSeed": false,
+      "usesCards": true,
+      "usesAssets": true,
+      "host": "cycles",
+      "mode": "cards-data",
+      "status": "ok"
+    }
+  ],
   "renders": [
     {
       "shotFrame": 150,
@@ -83,7 +99,45 @@
       "metaShutterAngleDeg": 180,
       "colorTransfer": "linear",
       "colorRef": "scene",
-      "shotColorRef": "scene"
+      "shotColorRef": "scene",
+      "size": [
+        1920,
+        1080
+      ],
+      "unsupportedOpts": [],
+      "unfitOutputs": [],
+      "layerRefs": [
+        {
+          "output": "color",
+          "shape": [
+            1080,
+            1920,
+            4
+          ],
+          "sha256": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178",
+          "fileSha256": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
+        },
+        {
+          "output": "depth",
+          "shape": [
+            1080,
+            1920,
+            1
+          ],
+          "sha256": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63",
+          "fileSha256": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63"
+        },
+        {
+          "output": "objectId",
+          "shape": [
+            1080,
+            1920,
+            1
+          ],
+          "sha256": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c",
+          "fileSha256": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c"
+        }
+      ]
     },
     {
       "shotFrame": 151,
@@ -155,16 +209,6 @@
       "exitCode": 1,
       "elapsedMs": 8200,
       "limitMs": 600000
-    }
-  ],
-  "auxUses": [
-    {
-      "output": "objectId",
-      "use": "perception"
-    },
-    {
-      "output": "depth",
-      "use": "look"
     }
   ],
   "queries": [

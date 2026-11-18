@@ -56,8 +56,11 @@ export function expectedLayers(scene, t, ids, offset = [0.5, 0.5], region = null
   return { id, depth };
 }
 
-// 光栅化的子像素精度：OpenGL ES 3.0 只保证至少 4 位（SUBPIXEL_BITS ≥ 4），也就是十六分之一像素
+// 光栅化的子像素精度：OpenGL ES 3.0 只保证至少 4 位（SUBPIXEL_BITS ≥ 4），也就是十六分之一像素。
+// 实际读数：在一台苹果芯片的开发机上（WebGL 2，ANGLE 的 Metal 后端）读 SUBPIXEL_BITS 得 4，和规范的下限相同；别的后端没读
 export const SUBPIXEL = 1 / 16;
+// 边缘带挪的 8 个位置：沿 x、沿 y 各挪负一格、零、正一格，除去不挪
+const SHIFTS = [-SUBPIXEL, 0, SUBPIXEL].flatMap((dx) => [-SUBPIXEL, 0, SUBPIXEL].map((dy) => [dx, dy])).filter(([dx, dy]) => dx || dy);
 
 /**
  * 渲出来的编号层、深度层对照规格在像素中心求交的结果。
@@ -71,12 +74,9 @@ export function diffLayers(got, scene, t, ids) {
   const region = boundsOf(w, h, (i) => want.id[i] !== 0 || got.id[i] !== 0, 2);
   const unstable = new Uint8Array(w * h);
   if (region) {
-    for (const dx of [-SUBPIXEL, 0, SUBPIXEL]) {
-      for (const dy of [-SUBPIXEL, 0, SUBPIXEL]) {
-        if (!dx && !dy) continue;
-        const moved = expectedLayers(scene, t, ids, [0.5 + dx, 0.5 + dy], region).id;
-        for (let i = 0; i < moved.length; i++) if (moved[i] !== want.id[i]) unstable[i] = 1;
-      }
+    for (const [dx, dy] of SHIFTS) {
+      const moved = expectedLayers(scene, t, ids, [0.5 + dx, 0.5 + dy], region).id;
+      for (let i = 0; i < moved.length; i++) if (moved[i] !== want.id[i]) unstable[i] = 1;
     }
   }
   let idMismatch = 0, offEdge = 0, edgeLimit = 0, depthMaxDiff = 0, depthMaxRatio = 0;
@@ -92,25 +92,31 @@ export function diffLayers(got, scene, t, ids) {
 }
 
 /**
- * 量辅助层取的是像素里的哪个位置：在四分之一像素的格点上各求交一遍，看编号层和哪一个位置的结果差得最少。
- * margin 是合规的光栅化本来就可以判到任意一边的像素数（diffLayers 的 edgeLimit）：最好的位置必须比第二好的少错不止这么多才算量出来。
- * 返回那个位置 [x, y]；分不出来（这一帧的边没有压在能区分这几个位置的地方）或者场景里没东西时返回 null。只比有东西的那一块。
+ * 量辅助层取的是像素里的哪个位置：在四分之一像素的格点上各求交一遍，看哪个位置解释得了这张编号层。
+ * 「解释得了」是说编号不同的像素全在那个位置的边缘带里（那个位置周围挪一个子像素精度期望编号就会变，合规的光栅化判到哪边都行）。
+ * 正好一个位置解释得了才算量出来，返回它 [x, y]；一个都解释不了、不止一个解释得了（这一帧的边区分不了这几个位置）、
+ * 或者场景里没东西时返回 null。只比有东西的那一块。
  */
-export function measurePixelOffset(gotId, scene, t, ids, margin = 0) {
+export function measurePixelOffset(gotId, scene, t, ids) {
   const { widthPx: w, heightPx: h } = scene.camera;
   const region = boundsOf(w, h, (i) => gotId[i] !== 0, 3);
   if (!region) return null;
-  const rows = [];
+  const idAt = (px, py) => ids[raycast(scene, [px, py], t)[0]?.objectId] ?? 0;
+  const fits = [];
   for (const ox of [0.25, 0.5, 0.75]) {
     for (const oy of [0.25, 0.5, 0.75]) {
       const want = expectedLayers(scene, t, ids, [ox, oy], region).id;
       let miss = 0;
-      for (let y = region.y0; y <= region.y1; y++) for (let x = region.x0; x <= region.x1; x++) if (want[y * w + x] !== gotId[y * w + x]) miss++;
-      rows.push({ offset: [ox, oy], miss });
+      for (let y = region.y0; y <= region.y1 && !miss; y++) {
+        for (let x = region.x0; x <= region.x1 && !miss; x++) {
+          const i = y * w + x;
+          if (want[i] !== gotId[i] && SHIFTS.every(([dx, dy]) => idAt(x + ox + dx, y + oy + dy) === want[i])) miss++;
+        }
+      }
+      if (!miss) fits.push([ox, oy]);
     }
   }
-  rows.sort((a, b) => a.miss - b.miss);
-  return rows[1].miss - rows[0].miss > margin ? rows[0].offset : null;
+  return fits.length === 1 ? fits[0] : null;
 }
 
 const encode = (x) => (x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055);

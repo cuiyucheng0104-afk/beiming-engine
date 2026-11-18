@@ -1,26 +1,35 @@
 {
   "format": "meta-check/0.1",
-  "shot": "s01",
+  "shot": "s02",
+  "start": 300,
   "renders": [
     {
       "call": 0,
       "shotFrame": 150,
       "metas": 1,
       "metaBytes": 2048,
-      "colorCall": 0
+      "metaFrame": 450,
+      "metaShotFrame": 150,
+      "colorFileSha256": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1",
+      "metaHashColor": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1"
     },
     {
       "call": 1,
       "shotFrame": 151,
       "metas": 1,
-      "metaBytes": 1536
+      "metaBytes": 1536,
+      "metaFrame": 451,
+      "metaShotFrame": 151
     },
     {
       "call": 2,
       "shotFrame": 12,
       "metas": 1,
       "metaBytes": 65536,
-      "colorCall": 2
+      "metaFrame": 312,
+      "metaShotFrame": 12,
+      "colorFileSha256": "sha256:9f2d4a1c7be05836c1d94e2a70b6f3581e4c9a0d27b3f6e815ac4d7092e1b3f6",
+      "metaHashColor": "sha256:9f2d4a1c7be05836c1d94e2a70b6f3581e4c9a0d27b3f6e815ac4d7092e1b3f6"
     }
   ]
 }

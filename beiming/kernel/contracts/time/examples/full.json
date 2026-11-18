@@ -55,22 +55,22 @@
       "samples": [
         {
           "frame": 47,
-          "sub": 0,
+          "sub": 0.0625,
           "shot": "s01"
         },
         {
           "frame": 47,
-          "sub": 0.125,
+          "sub": 0.1875,
           "shot": "s01"
         },
         {
           "frame": 47,
-          "sub": 0.25,
+          "sub": 0.3125,
           "shot": "s01"
         },
         {
           "frame": 47,
-          "sub": 0.375,
+          "sub": 0.4375,
           "shot": "s01"
         }
       ],
@@ -104,22 +104,22 @@
       "samples": [
         {
           "frame": 48,
-          "sub": 0,
+          "sub": 0.0625,
           "shot": "s02"
         },
         {
           "frame": 48,
-          "sub": 0.125,
+          "sub": 0.1875,
           "shot": "s02"
         },
         {
           "frame": 48,
-          "sub": 0.25,
+          "sub": 0.3125,
           "shot": "s02"
         },
         {
           "frame": 48,
-          "sub": 0.375,
+          "sub": 0.4375,
           "shot": "s02"
         }
       ],
@@ -145,6 +145,69 @@
           0.5
         ]
       }
+    },
+    {
+      "frame": 60,
+      "shot": "s02",
+      "f": 12,
+      "samples": [
+        {
+          "frame": 60,
+          "sub": 0.125,
+          "shot": "s02"
+        },
+        {
+          "frame": 60,
+          "sub": 0.375,
+          "shot": "s02"
+        }
+      ],
+      "accumulation": {
+        "average": "linear"
+      }
+    },
+    {
+      "frame": 60,
+      "shot": "s02",
+      "f": 12,
+      "shutterAngleDeg": 360,
+      "samples": [
+        {
+          "frame": 60,
+          "sub": 0.25,
+          "shot": "s02"
+        },
+        {
+          "frame": 60,
+          "sub": 0.75,
+          "shot": "s02"
+        }
+      ],
+      "accumulation": {},
+      "aux": {
+        "frame": 60,
+        "sub": 0
+      },
+      "auxSample": {
+        "pixelOffset": [
+          0.5,
+          0.5
+        ]
+      }
+    },
+    {
+      "frame": 61,
+      "shot": "s02",
+      "f": 13,
+      "shutterAngleDeg": 0,
+      "samples": [
+        {
+          "frame": 61,
+          "sub": 0,
+          "shot": "s02"
+        }
+      ],
+      "accumulation": {}
     }
   ],
   "holds": [

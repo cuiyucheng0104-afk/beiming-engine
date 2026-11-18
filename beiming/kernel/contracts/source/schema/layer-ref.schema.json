@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/layer-ref.schema.json",
+  "title": "层引用 LayerRef",
+  "description": "只管结构。shape 和这次输出的宽高对不对、sha256 是不是层文件内容的哈希由 F17 管。",
+  "type": "object",
+  "required": ["file", "shape", "components", "sha256"],
+  "additionalProperties": false,
+  "properties": {
+    "file": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$" },
+    "shape": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 1 } },
+    "components": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

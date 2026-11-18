@@ -1,5 +1,6 @@
 {
   "format": "source-check/0.1",
+  "shot": "s01",
   "caps": {
     "format": "caps/0.1",
     "id": "ext.demo",
@@ -11,7 +12,7 @@
     "conformance": "limited",
     "outputs": {
       "color": {
-        "type": "half",
+        "type": "f32",
         "transfer": "linear",
         "primaries": "rec709"
       },
@@ -24,13 +25,18 @@
     "sceneQuery": [],
     "motionBlur": {
       "mode": "accumulate",
-      "auxAt": "sub0"
+      "auxAt": "sub0",
+      "samples": 8
     },
     "determinism": "tolerance",
     "draft": {
       "kind": "scale",
       "samples": 1,
       "scale": 0.5
+    },
+    "final": {
+      "samples": 1,
+      "scale": 1
     },
     "granularity": "frame",
     "randomAccess": false,

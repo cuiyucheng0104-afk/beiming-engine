@@ -50,6 +50,7 @@
           "frame": { "type": "integer", "minimum": 0 },
           "shot": { "$ref": "#/$defs/shotId" },
           "f": { "type": "integer", "minimum": 0 },
+          "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
           "samples": {
             "type": "array",
             "minItems": 1,
@@ -66,7 +67,6 @@
           },
           "accumulation": {
             "type": "object",
-            "required": ["average"],
             "additionalProperties": false,
             "dependentRequired": { "postRuns": ["postInput"], "postInput": ["postRuns"] },
             "properties": {
@@ -78,7 +78,7 @@
           "aux": { "$ref": "time-key.schema.json" },
           "auxSample": {
             "type": "object",
-            "required": ["apertureM", "shutterAngleDeg", "samples", "pixelOffset"],
+            "minProperties": 1,
             "additionalProperties": false,
             "properties": {
               "apertureM": { "type": "number", "minimum": 0 },

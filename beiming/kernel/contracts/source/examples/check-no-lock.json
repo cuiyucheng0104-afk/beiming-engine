@@ -1,0 +1,220 @@
+{
+  "format": "source-check/0.1",
+  "shot": "s01",
+  "caps": {
+    "format": "caps/0.1",
+    "id": "three",
+    "version": "0.187.0",
+    "language": "js",
+    "hosts": [
+      "page"
+    ],
+    "conformance": "full",
+    "outputs": {
+      "color": {
+        "type": "f32",
+        "transfer": "linear",
+        "primaries": "rec709"
+      },
+      "meta": true,
+      "depth": {
+        "type": "f32",
+        "note": "不抗锯齿"
+      },
+      "objectId": {
+        "type": "u32",
+        "note": "不抗锯齿，不带覆盖率"
+      },
+      "normal": {
+        "type": "f32"
+      },
+      "motion": false
+    },
+    "sceneQuery": [],
+    "motionBlur": {
+      "mode": "accumulate",
+      "auxAt": "sub0",
+      "samples": 8
+    },
+    "determinism": "hash-same-machine",
+    "draft": {
+      "kind": "scale",
+      "samples": 1,
+      "scale": 0.5
+    },
+    "final": {
+      "samples": 1,
+      "scale": 1
+    },
+    "granularity": "frame",
+    "randomAccess": true,
+    "modes": [
+      "native-code"
+    ],
+    "cost": {
+      "unit": "gpu-second"
+    },
+    "metaNull": [
+      "stats.noise",
+      "lights"
+    ]
+  },
+  "opens": [
+    {
+      "hasLock": false,
+      "hasSeed": true,
+      "usesCards": false,
+      "usesAssets": false,
+      "host": "page",
+      "mode": "native-code",
+      "status": "ok"
+    },
+    {
+      "hasLock": false,
+      "hasSeed": false,
+      "usesCards": false,
+      "usesAssets": false,
+      "host": "page",
+      "mode": "native-code",
+      "status": "error",
+      "code": "env.lock-required"
+    },
+    {
+      "hasLock": false,
+      "hasSeed": true,
+      "usesCards": true,
+      "usesAssets": false,
+      "host": "page",
+      "mode": "native-code",
+      "status": "error",
+      "code": "env.lock-required"
+    },
+    {
+      "hasLock": false,
+      "hasSeed": true,
+      "usesCards": false,
+      "usesAssets": true,
+      "host": "page",
+      "mode": "native-code",
+      "status": "error",
+      "code": "env.lock-required"
+    },
+    {
+      "hasLock": false,
+      "hasSeed": true,
+      "usesCards": true,
+      "usesAssets": false,
+      "host": "page",
+      "mode": "cards-data",
+      "status": "error",
+      "code": "contract.unsupported-mode"
+    },
+    {
+      "hasLock": true,
+      "hasSeed": false,
+      "usesCards": true,
+      "usesAssets": true,
+      "host": "page",
+      "mode": "native-code",
+      "status": "ok"
+    }
+  ],
+  "renders": [
+    {
+      "shotFrame": 0,
+      "want": [
+        "color",
+        "meta",
+        "depth",
+        "objectId"
+      ],
+      "shutterAngleDeg": 180,
+      "shutterSamples": 8,
+      "status": "ok",
+      "meta": true,
+      "layers": [
+        "color",
+        "depth",
+        "objectId"
+      ],
+      "metaShutterAngleDeg": 180,
+      "colorTransfer": "linear",
+      "size": [
+        1280,
+        720
+      ],
+      "unsupportedOpts": [],
+      "unfitOutputs": [],
+      "layerRefs": [
+        {
+          "output": "color",
+          "shape": [
+            720,
+            1280,
+            4
+          ],
+          "sha256": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178",
+          "fileSha256": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
+        },
+        {
+          "output": "depth",
+          "shape": [
+            720,
+            1280,
+            1
+          ],
+          "sha256": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63",
+          "fileSha256": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63"
+        },
+        {
+          "output": "objectId",
+          "shape": [
+            720,
+            1280,
+            1
+          ],
+          "sha256": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c",
+          "fileSha256": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c"
+        }
+      ]
+    },
+    {
+      "shotFrame": 0,
+      "want": [
+        "color"
+      ],
+      "unsupportedOpts": [
+        "samples"
+      ],
+      "status": "error",
+      "code": "contract.unsupported-option"
+    },
+    {
+      "shotFrame": 1,
+      "want": [
+        "color",
+        "objectId"
+      ],
+      "unfitOutputs": [
+        "objectId"
+      ],
+      "status": "error",
+      "code": "contract.unsupported-object"
+    },
+    {
+      "shotFrame": 1,
+      "want": [
+        "color",
+        "meta"
+      ],
+      "status": "ok",
+      "meta": true,
+      "layers": [
+        "color"
+      ],
+      "unfitOutputs": [
+        "objectId"
+      ]
+    }
+  ]
+}

@@ -154,6 +154,13 @@
     "why": "镜头 s01 的帧源是 core，宿主写了 page；登记表里 core 的 hosts 列出的是 offscreen、headless-page"
   },
   {
+    "file": "D11-mode-not-of-source.json",
+    "violates": [
+      "D11"
+    ],
+    "why": "镜头 s01 的帧源是 core，宿主 offscreen 在登记表里，作者模式却写了 native-code；登记表里 core 的 modes 只有 cards-data、build-script"
+  },
+  {
     "file": "D12-native-code-without-entry.json",
     "violates": [
       "D12"

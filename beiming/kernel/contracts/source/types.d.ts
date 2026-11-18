@@ -9,8 +9,27 @@ export type ShotEntry = object;
 /** 锁文件，见锁文件契约（LK）。 */
 export type FilmLock = object;
 
-/** 对落盘文件的引用。结构待定。 */
-export type Ref = unknown;
+/** 镜头输入：这个镜头出片要读的片子内容，见 3.2。shot 带 renderer 对象时，出帧者那一套已经换到顶层。 */
+export type ShotInput = {
+  film: string;                                      // 片子的 id
+  output: { size: [number, number]; fps: string };   // size：[宽, 高]，像素
+  shot: ShotEntry;
+};
+
+/** 层引用：指向一个层文件。层文件的格式见 3.3。 */
+export type LayerRef = {
+  file: string;                      // 相对 env.workspace 的路径
+  shape: [number, number, number];   // [高, 宽, 分量数]
+  components: string[];              // 这次交了的分量，名字和次序照输出通道契约（PS）3.1
+  sha256: string;                    // 层文件内容的哈希，sha256: 加 64 位小写十六进制
+};
+
+export type Env = {
+  lock: FilmLock | null;       // null：这次没有锁文件，各值从哪来见 5.11
+  tier: 'draft' | 'final';
+  workspace: string;           // 放产物的目录，可以是绝对路径
+  filmDir: string;             // 片子描述所在的目录，镜头条目的 entry 相对它，可以是绝对路径
+};
 
 /** 能力声明。字段见 CONTRACT.md 3.4 和 schema/caps.schema.json。 */
 export type Caps = object;
@@ -21,14 +40,14 @@ export type ChannelName = string;
 export type OutputName = 'meta' | ChannelName;
 
 export type RenderOpts = {
-  samples?: number;                                  // 每像素采样数，整数，>= 1
+  samples?: number;                                  // 每像素采样数，整数，>= 1。不出现时依次取镜头条目的 tiers、能力声明的 draft 或 final
   scale?: number;                                    // (0, 1]
   shutter?: { angleDeg: number; samples: number };   // angleDeg：度，[0, 360]；samples：整数，>= 1。不出现时用镜头条目的快门，见 5.9
 };
 
 export type FrameResult = {
   meta?: FrameMeta;                        // 能力声明的 outputs.meta 是 true 时必有
-  layers: { [channel: ChannelName]: Ref };   // 像素输出；一层都没交时是空对象
+  layers: { [channel: ChannelName]: LayerRef };   // 像素输出；一层都没交时是空对象
 };
 
 export type Manifest = {
@@ -60,6 +79,6 @@ export interface Session {
 
 export interface FrameSource {
   caps(): Caps;
-  /** shot 带 renderer 对象时，出帧者那一套已经由宿主换到顶层。 */
-  open(shot: ShotEntry, env: { lock: FilmLock; tier: 'draft' | 'final'; workspace: string }): Promise<Session>;
+  /** 这六个函数是帧源对上层的全部接口；宿主和渲染器之间怎么接不立契约。 */
+  open(input: ShotInput, env: Env): Promise<Session>;
 }

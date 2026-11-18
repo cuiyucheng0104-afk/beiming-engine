@@ -6,8 +6,8 @@ const clone = x => JSON.parse(JSON.stringify(x));
 const scenes = loadScenes();
 const get = name => clone(scenes.find(s => s.name === name).scene);
 
-test('六个场景都在，全部通过', () => {
-  assert.deepEqual(scenes.map(s => s.name), ['probe-axes-turntable', 'probe-gray-chart', 'probe-moving-cube', 'probe-occlusion', 'probe-plane-steps', 'probe-thin-geometry']);
+test('七个场景都在，全部通过', () => {
+  assert.deepEqual(scenes.map(s => s.name), ['probe-aux-sample', 'probe-axes-turntable', 'probe-gray-chart', 'probe-moving-cube', 'probe-occlusion', 'probe-plane-steps', 'probe-thin-geometry']);
   for (const { name, scene } of scenes) assert.deepEqual(checkScene(scene, name), [], name);
 });
 
@@ -129,4 +129,22 @@ test('不在单位表里的后缀不猜', () => {
   assert.equal(unitOf('fooPerFrame'), null);
   assert.equal(unitOf('fooPerM'), null);
   assert.equal(checkUnits({ fooPerFrame: 1 }).length, 1);
+});
+
+test('辅助样本场景：点名的像素换一种取法答案就变（挪四分之一像素、取快门中点），答案本身离边不止十六分之一像素', () => {
+  const s = get('probe-aux-sample');
+  const first = (px, t) => raycast(s, px, t)[0]?.objectId ?? null;
+  const hits = s.expected.filter(e => e.kind === 'pixelHits');
+  let byOffset = 0, byTime = 0, nearLens = 0;
+  for (const e of hits) {
+    const [x, y] = e.pixelPx, want = e.intendedHitIds[0] ?? null;
+    for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) assert.equal(first([x + dx / 16, y + dy / 16], e.atFrame), want, e.source);
+    if ([[-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]].some(([dx, dy]) => first([x + dx, y + dy], e.atFrame) !== want)) byOffset++;
+    else if (first(e.pixelPx, e.atFrame + s.camera.shutterAngleDeg / 720) !== want) byTime++;
+    else if (want === null && [-3, 3].some(d => first([x + d, y], e.atFrame) === 'chip')) nearLens++;
+  }
+  assert.deepEqual([hits.length, byOffset, byTime, nearLens], [62, 36, 20, 6]);
+  // 小片离对焦面远：孔径不是 0 时它的弥散圆直径 = 孔径 × 焦距（像素）× |1/物距 − 1/对焦距离|，远大于一个像素
+  const c = s.camera, f = c.heightPx / 2 / Math.tan(c.yFovDeg * Math.PI / 360), chip = s.objects.find(o => o.id === 'chip');
+  assert.ok(c.apertureDiameterM * f * Math.abs(1 / -chip.positionM[2] - 1 / c.focusDistanceM) > 10);
 });
