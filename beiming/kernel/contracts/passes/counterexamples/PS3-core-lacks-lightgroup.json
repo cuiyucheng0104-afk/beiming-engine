@@ -1,0 +1,377 @@
+{
+  "format": "passes-check/0.1",
+  "sides": [
+    {
+      "producer": "core",
+      "table": {
+        "format": "passes/0.1",
+        "channels": [
+          {
+            "name": "color",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              },
+              {
+                "name": "A",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "depth",
+            "components": [
+              {
+                "name": "Z",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "first-sample",
+            "antialiased": false
+          },
+          {
+            "name": "objectId",
+            "components": [
+              {
+                "name": "id",
+                "type": "u32"
+              },
+              {
+                "name": "coverage",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "first-sample",
+            "antialiased": false
+          },
+          {
+            "name": "normal",
+            "components": [
+              {
+                "name": "X",
+                "type": "f32"
+              },
+              {
+                "name": "Y",
+                "type": "f32"
+              },
+              {
+                "name": "Z",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "first-sample",
+            "antialiased": false
+          },
+          {
+            "name": "motion",
+            "components": [
+              {
+                "name": "X",
+                "type": "f32"
+              },
+              {
+                "name": "Y",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "first-sample",
+            "antialiased": false
+          },
+          {
+            "name": "denoiseAlbedo",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "denoiseNormal",
+            "components": [
+              {
+                "name": "X",
+                "type": "f32"
+              },
+              {
+                "name": "Y",
+                "type": "f32"
+              },
+              {
+                "name": "Z",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "lightgroup:key",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "lightgroup:rim1",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          }
+        ]
+      }
+    },
+    {
+      "producer": "oracle",
+      "table": {
+        "format": "passes/0.1",
+        "channels": [
+          {
+            "name": "color",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              },
+              {
+                "name": "A",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "depth",
+            "components": [
+              {
+                "name": "Z",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "first-sample",
+            "antialiased": false
+          },
+          {
+            "name": "objectId",
+            "components": [
+              {
+                "name": "id",
+                "type": "u32"
+              },
+              {
+                "name": "coverage",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "first-sample",
+            "antialiased": false
+          },
+          {
+            "name": "normal",
+            "components": [
+              {
+                "name": "X",
+                "type": "f32"
+              },
+              {
+                "name": "Y",
+                "type": "f32"
+              },
+              {
+                "name": "Z",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "first-sample",
+            "antialiased": false
+          },
+          {
+            "name": "motion",
+            "components": [
+              {
+                "name": "X",
+                "type": "f32"
+              },
+              {
+                "name": "Y",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "first-sample",
+            "antialiased": false
+          },
+          {
+            "name": "denoiseAlbedo",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "denoiseNormal",
+            "components": [
+              {
+                "name": "X",
+                "type": "f32"
+              },
+              {
+                "name": "Y",
+                "type": "f32"
+              },
+              {
+                "name": "Z",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "none",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "lightgroup:key",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "lightgroup:rim1",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          },
+          {
+            "name": "lightgroup:rim2",
+            "components": [
+              {
+                "name": "R",
+                "type": "f32"
+              },
+              {
+                "name": "G",
+                "type": "f32"
+              },
+              {
+                "name": "B",
+                "type": "f32"
+              }
+            ],
+            "colorSpace": "scene-linear-rec709",
+            "sample": "accumulate",
+            "antialiased": true
+          }
+        ]
+      }
+    }
+  ]
+}

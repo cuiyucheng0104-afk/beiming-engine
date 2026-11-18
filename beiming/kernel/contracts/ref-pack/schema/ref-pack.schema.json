@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ref-pack/ref-pack.schema.json",
+  "title": "参考包的清单",
+  "description": "只管结构。firstSample 取什么由 RP1 管，denoise 由 RP2 管，physical 口径下的夹取和滤光泽由 RP8 管，channels 必须含哪些通道由输出通道契约的 PS1 管，所以这里不收紧。firstSample 的每一项必须是 channels 里的名字，JSON Schema 写不出来，以 CONTRACT.md 为准。",
+  "type": "object",
+  "required": [
+    "format", "ref", "scenePack", "producer", "blender", "build", "device", "gpu", "driver", "oidn",
+    "ocioConfigSha256", "profile", "spp", "seeds", "converged", "adaptive", "denoise", "clamp",
+    "filterGlossy", "bounces", "pattern", "pixelFilter", "channels", "firstSample", "files", "floor"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "ref-pack/0.1" },
+    "ref": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*(/[a-z0-9][a-z0-9.-]*)*$" },
+    "scenePack": { "$ref": "#/$defs/packHash" },
+    "producer": { "const": "oracle" },
+    "blender": { "$ref": "#/$defs/nonEmpty" },
+    "build": { "$ref": "#/$defs/nonEmpty" },
+    "device": { "$ref": "#/$defs/nonEmpty" },
+    "gpu": { "$ref": "#/$defs/nonEmpty" },
+    "driver": { "$ref": "#/$defs/nonEmpty" },
+    "oidn": { "$ref": "#/$defs/nonEmpty" },
+    "ocioConfigSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "profile": { "enum": ["physical", "production"] },
+    "spp": { "type": "integer", "minimum": 1 },
+    "seeds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+    },
+    "converged": {
+      "type": "object",
+      "required": ["spp", "subsets"],
+      "additionalProperties": false,
+      "properties": {
+        "spp": { "type": "integer", "minimum": 1 },
+        "subsets": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "adaptive": { "type": "boolean" },
+    "denoise": { "type": "boolean" },
+    "clamp": {
+      "type": "object",
+      "required": ["direct", "indirect"],
+      "additionalProperties": false,
+      "properties": {
+        "direct": { "type": "number", "minimum": 0 },
+        "indirect": { "type": "number", "minimum": 0 }
+      }
+    },
+    "filterGlossy": { "type": "number", "minimum": 0 },
+    "bounces": {
+      "type": "object",
+      "required": ["max", "diffuse", "glossy", "transmission"],
+      "additionalProperties": false,
+      "properties": {
+        "max": { "type": "integer", "minimum": 0 },
+        "diffuse": { "type": "integer", "minimum": 0 },
+        "glossy": { "type": "integer", "minimum": 0 },
+        "transmission": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "pattern": { "$ref": "#/$defs/nonEmpty" },
+    "pixelFilter": { "$ref": "#/$defs/nonEmpty" },
+    "channels": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/channelName" }
+    },
+    "firstSample": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/channelName" }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+\\.exr$" }
+    },
+    "floor": {
+      "type": "object",
+      "required": ["rerunBitExact", "seedVsSeedPsnr", "seedVsSeedFlipMean"],
+      "additionalProperties": false,
+      "properties": {
+        "rerunBitExact": { "type": ["boolean", "null"] },
+        "seedVsSeedPsnr": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "seedVsSeedFlipMean": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+    "ext": { "type": "object" }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "packHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "channelName": {
+      "type": "string",
+      "pattern": "^(color|depth|objectId|normal|motion|denoiseAlbedo|denoiseNormal|lightgroup:[a-z0-9][a-z0-9-]*)$"
+    }
+  }
+}

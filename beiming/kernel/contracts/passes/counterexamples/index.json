@@ -1,0 +1,37 @@
+[
+  {
+    "file": "PS1-missing-denoise-normal.json",
+    "violates": [
+      "PS1"
+    ],
+    "why": "七个固定通道里少了 denoiseNormal"
+  },
+  {
+    "file": "PS2-depth-antialiased.json",
+    "violates": [
+      "PS2"
+    ],
+    "why": "depth 写成了累积、抗锯齿，登记表里是取首个样本、不抗锯齿"
+  },
+  {
+    "file": "PS3-core-lacks-lightgroup.json",
+    "violates": [
+      "PS3"
+    ],
+    "why": "oracle 有 lightgroup:rim2，core 没有：两侧的通道对不上"
+  },
+  {
+    "file": "PS4-depth-id-averaged.json",
+    "violates": [
+      "PS4"
+    ],
+    "why": "边缘像素四个样本的深度是 2、5、5、2，编号是 3、7、7、3；交出来的是平均值 3.5 和 5，不是首个样本的 2 和 3"
+  },
+  {
+    "file": "PS5-coverage-is-one.json",
+    "violates": [
+      "PS5"
+    ],
+    "why": "四个样本里只有两个的编号和首个样本相同，覆盖率应是 0.5，写成了 1"
+  }
+]

@@ -1,0 +1,58 @@
+[
+  {
+    "file": "RP1-object-id-not-first-sample.json",
+    "violates": [
+      "RP1"
+    ],
+    "why": "channels 里有 objectId，firstSample 里却没有它"
+  },
+  {
+    "file": "RP2-denoised-reference.json",
+    "violates": [
+      "RP2"
+    ],
+    "why": "denoise 是 true：参考包里放了降噪过的颜色"
+  },
+  {
+    "file": "RP3-judge-without-floor.json",
+    "violates": [
+      "RP3"
+    ],
+    "why": "floor 三个键都是 null，却被拿去当了一次裁判"
+  },
+  {
+    "file": "RP4-fixed-threshold.json",
+    "violates": [
+      "RP4"
+    ],
+    "why": "噪声地板是 48 分贝、k 是 0.875，门槛应是 42，却写死成 40"
+  },
+  {
+    "file": "RP5-overwritten-after-driver-change.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 driver 是 580.88，现在这份是 580.95：换了驱动却没换 ref"
+  },
+  {
+    "file": "RP6-address-not-content-hash.json",
+    "violates": [
+      "RP6"
+    ],
+    "why": "存放地址和照文件内容算出的包哈希不相等"
+  },
+  {
+    "file": "RP7-solver-reads-reference.json",
+    "violates": [
+      "RP7"
+    ],
+    "why": "做题的一方读参考包读成功了"
+  },
+  {
+    "file": "RP8-physical-with-clamp.json",
+    "violates": [
+      "RP8"
+    ],
+    "why": "profile 是 physical，clamp.indirect 却是 10"
+  }
+]

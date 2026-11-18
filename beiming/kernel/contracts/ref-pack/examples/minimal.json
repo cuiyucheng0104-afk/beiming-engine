@@ -1,0 +1,61 @@
+{
+  "format": "ref-pack/0.1",
+  "ref": "studio/part-pair/f0000/prod",
+  "scenePack": "sha256:5d1f0c7e9a2b4c6d8e0f1a3b5c7d9e1f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d",
+  "producer": "oracle",
+  "blender": "5.2.3",
+  "build": "7c1e9a40b3d2",
+  "device": "CPU",
+  "gpu": "RTX 5090",
+  "driver": "580.95",
+  "oidn": "2.5.0",
+  "ocioConfigSha256": "a3c5e7091b2d4f60728394a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f",
+  "profile": "production",
+  "spp": 1024,
+  "seeds": [
+    0
+  ],
+  "converged": {
+    "spp": 1024,
+    "subsets": 1
+  },
+  "adaptive": false,
+  "denoise": false,
+  "clamp": {
+    "direct": 0,
+    "indirect": 0
+  },
+  "filterGlossy": 0,
+  "bounces": {
+    "max": 32,
+    "diffuse": 32,
+    "glossy": 32,
+    "transmission": 32
+  },
+  "pattern": "sobol-burley",
+  "pixelFilter": "blackman-harris 1.5",
+  "channels": [
+    "color",
+    "depth",
+    "objectId",
+    "normal",
+    "motion",
+    "denoiseAlbedo",
+    "denoiseNormal"
+  ],
+  "firstSample": [
+    "depth",
+    "objectId",
+    "normal",
+    "motion"
+  ],
+  "files": [
+    "seed00.exr",
+    "converged.exr"
+  ],
+  "floor": {
+    "rerunBitExact": null,
+    "seedVsSeedPsnr": null,
+    "seedVsSeedFlipMean": null
+  }
+}
