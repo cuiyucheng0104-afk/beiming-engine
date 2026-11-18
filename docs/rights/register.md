@@ -1,6 +1,6 @@
 # 授权与权利登记册
 
-> 本页由 `node tools/compliance/rights-inventory.mjs --write` 从 [register.json](register.json) 与 `cases/catalog.json` 生成，**不要手改**：改登记内容请改 register.json，再重新生成；`--check` 核对本页是否过期（规范检查 `comp.rights-register` 也会查）。登记日期：2026-11-10。
+> 本页由 `node tools/compliance/rights-inventory.mjs --write` 从 [register.json](register.json) 与 `cases/catalog.json` 生成，**不要手改**：改登记内容请改 register.json，再重新生成；`--check` 核对本页是否过期（规范检查 `comp.rights-register` 也会查）。登记日期：2026-11-18。
 
 ## 登记口径
 
@@ -29,6 +29,7 @@
 | R12 | 《北冥》样片与本项目自有影像（底板、样片、展示图、作品站画面） | 待补（根 LICENSE 与 REUSE.toml 暂写「北冥引擎 Beiming Engine」，这是项目名，不是法律主体） | 不适用（自有作品）；如属委托作品，委托方与权利约定待补 | 保留所有权利（LICENSES/LicenseRef-AllRightsReserved.txt） | 待补 | 待补（若《北冥》属于乐奇项目的委托作品，合同中的权利约定存放位置） | 本项目作品，权利主体待补 | — |
 | R13 | 上游原生运行时 RAEA（B 路线 · 北冥原生 · BNE 调用，不随仓库分发） | Shane Murphy（上游仓库 shinyobjectz/raea 的版权人） | 同权利方（按 FSL-1.1-ALv2 公开许可） | FSL-1.1-ALv2：允许内部使用、为本身持有许可的客户提供专业服务；排除竞争性使用（对外提供替代 RAEA 或功能实质相似的商业产品或服务）；每个版本发布满两年转为 Apache-2.0 | 实际运行的 v0.1.4（2026-11-15 发布）于 2028-11-15 转为 Apache-2.0；升级版本时按新版本的发布日另算 | 公开许可，以上游固定提交的 LICENSE 为准；若要对外商业化，所需的书面商业许可或法律意见：待补 | 公开许可，按许可义务使用 | — |
 | R14 | 上游光追渲染器 vork（B 路线光追外部后端 rt 调用，不随仓库分发，实验阶段） | Nullframe, Inc.（上游仓库 voyager-so/vork 的版权人） | 同权利方（按其公开的预览许可） | vork Preview License（自定义许可，不是开源许可）：允许任何用途的使用、自用修改、原样分发未改动的副本；未经书面许可不得出售、出租、再许可、分发改动过的版本，不得做成他人提交场景或任务来渲染的托管服务；对用它做出的场景、代码与媒体不主张权利 | 许可只覆盖 0.5.1 这一版；以后的版本可以改用别的条款（含收费），已取得版本的权利不因此收回 | 公开许可，以发行包里的 LICENSE 为准；条款没有单列的情形（例如复制代码片段进 MIT 仓库）是否允许：待补（需向上游书面确认或取得法律意见） | 公开许可，按许可义务使用 | — |
+| R15 | 上游路径追踪运行时 ThreeRT（D 路线 · 北冥光追 · 物理路径追踪调用，运行时二进制不入 git 仓库） | Meshy LLC（上游仓库 meshy-dev/ThreeRT 的版权人，2026） | 同权利方（按 MIT 公开开源许可） | MIT 许可：允许商业与非商业使用、复制、修改、合并、发布与分发，须在软件副本或重要部分保留版权与许可声明；若外部运行包启用 --features oidn，动态链接的 Intel Open Image Denoise 按 Apache-2.0 履行许可与 NOTICE 义务 | 公开开源许可，无期限 | 公开许可，以上游固定提交（记录于 engine/pathtrace/runtime.lock.json）的 MIT LICENSE 与仓库 LICENSES/MIT.txt 为准 | 公开许可，按许可义务使用 | — |
 
 ## R01 上海美术电影制片厂（上美影）相关 IP：IP 图、剧照与据此制作的发布会动画
 
@@ -443,6 +444,24 @@
 - **agent 规则**：只写调用它命令行的自有代码；我方命名一律用 rt，不用上游名；有人要把渲染做成对外服务、要分发它或要复制它的代码，先问用户
 - **对外分发点**：不分发（每台机器单独取得官方发行包，用 BNE_RT_BIN 指向）
 - **仓库主体里的相关文件**：`engine/native/rt.mjs`、`engine/native/rt.lock.json`、`engine/look/layers.js`
+
+## R15 上游路径追踪运行时 ThreeRT（D 路线 · 北冥光追 · 物理路径追踪调用，运行时二进制不入 git 仓库）
+
+- **权利方**：Meshy LLC（上游仓库 meshy-dev/ThreeRT 的版权人，2026）（依据：上游仓库 meshy-dev/ThreeRT 的 LICENSE（MIT License，2026 Meshy LLC）；THIRD-PARTY.md 第 1 节）
+- **授权方**：同权利方（按 MIT 公开开源许可）
+- **授权范围**：MIT 许可：允许商业与非商业使用、复制、修改、合并、发布与分发，须在软件副本或重要部分保留版权与许可声明；若外部运行包启用 --features oidn，动态链接的 Intel Open Image Denoise 按 Apache-2.0 履行许可与 NOTICE 义务
+- **期限**：公开开源许可，无期限
+- **书面证据存放位置**：公开许可，以上游固定提交（记录于 engine/pathtrace/runtime.lock.json）的 MIT LICENSE 与仓库 LICENSES/MIT.txt 为准
+- **状态**：公开许可，按许可义务使用；按 D10 与 D13 分层：可执行文件与上游 Rust / WESL / WGSL 源码不入 git 仓库，存放于本地缓存或由 BEIMING_PT_BIN 指向；主仓仅含自有的 MIT 调用与场景封装层（engine/pathtrace/、routes/d-pathtrace/），成片与管线可商业使用
+- **证据位置**：
+  - docs/decisions/2026-11-10-industrial-baseline.md D04、D10、D13
+  - engine/pathtrace/runtime.lock.json（固定 40 位提交哈希、运行包版本与各平台二进制 sha256）
+  - docs/routes/pathtrace.md（直通出片架构、运行时锁与源码边界）
+  - THIRD-PARTY.md 第 1 节与第 9 节
+- **义务与做法**：保留上游 MIT 版权与许可声明；主仓不提交运行时二进制、OIDN 动态库或上游 Rust / WESL / WGSL 源码；若对外分发含 OIDN 的预编译运行包，随附 MIT 与 Apache-2.0 许可及 NOTICE；对外命名遵守 D04（不用上游项目名当我方产品名、路线名或目录名）
+- **agent 规则**：D 路线只写调用公开接口的自有 .js / .ts 模块（自定义材质以 WGSL 字符串内联在自有模块中），不把 threert-render 二进制或 .rs / .wesl / .wgsl / Cargo.toml 提交进 git（route-d.runtime-and-template 把关）
+- **对外分发点**：不随 git 仓库分发（本机缓存 ~/.cache/beiming/pathtrace/<版本>/ 或由 BEIMING_PT_BIN 指向）
+- **仓库主体里的相关文件**：`routes/d-pathtrace/**`、`docs/routes/pathtrace.md`、`tools/repo-check/rules/route-d/**`
 
 ## AI 生成内容的标识（D11）
 

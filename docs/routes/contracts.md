@@ -1,6 +1,6 @@
-# 数据与模块契约：三条路线如何合作
+# 数据与模块契约：四条路线如何合作
 
-> 读者：设计三条路线共用数据与接口的工程师｜状态：实施规格；作品描述 film.json v2、交付档位、创作闸门、`ProjectSpec` 与 `RenderResult` 的校验已实现，ShotSpec / FrameState / BackendAdapter 仍是设计｜依据：2026-11-06，2026-11-10 按决策 D01–D11 修订
+> 读者：设计四条路线共用数据与接口的工程师｜状态：实施规格；作品描述 film.json v2、交付档位、创作闸门、`ProjectSpec` 与 `RenderResult` 的校验已实现，ShotSpec / FrameState / BackendAdapter 仍是设计｜依据：2026-11-06，2026-11-18 按决策 D01–D13 修订
 
 本页是实施规格。已经实现、可以直接调用的部分：
 
@@ -20,7 +20,7 @@
 ### 0.1 film.json v2（摘要）
 
 - **时间**：`output.frameCount` 是时长的唯一来源；镜头 `shots[]` 是半开区间 `[in, out)`，首尾相接覆盖 `[0, frameCount)`；事件 `events[]` 写结果帧 `frame` 与所属镜头 `shot`；秒只由 帧 / fps 推出。改切点用 `node engine/production/film.js retime`，事件跟着镜头走。
-- **路线**：`route` 取路线注册表 id（`a` / `b` / `c`），`backend` 按路线取值；交付规格只引用档位 `output.profile`。
+- **路线**：`route` 取路线注册表 id（`a` / `b` / `c` / `d`），`backend` 按路线取值；D 路线另含顶层 `pathtrace` 采样与降噪配置段（`shotSpp` 只按镜头 ID 索引，不含时间字段）；交付规格只引用档位 `output.profile`。
 - **声画同步与刻意画面**：`events[].sync` 与机器 QA 同口径（不写 = 硬门、`lip`、`soft`、`none`）；刻意的静帧、黑场、闪白写在 `qa.intentional`（写理由），QA 的阈值覆盖与用户批准的豁免也在 `qa` 段（[QA-GATE.md](../quality/QA-GATE.md)）。
 - **不许有没有消费者的时间字段**：时间只写在 `shots`、`events`、`timeline`（C 路线页面读的是 `tempo` + `cues`：节拍段落与画面打点，`engine/core/tempo.js` 换算，打点必须落整帧）、`qa`（`intentional` 的 `from` / `to`、豁免的 `frames`）、`posterFrame`。
 - **校验**：`node engine/production/film.js check films/<名> [--json]`（退出码 0 / 2 / 4；`--json` 的诊断在 `data.diagnostics`）；模版用 `--template`。
@@ -53,7 +53,7 @@ const tTitle = timing.event('title.in').t;     // 事件的结果帧换成秒
 
 这样改一个镜头的 `out`（`film.js retime`），画面切点、镜头内时间与事件时刻跟着 film.json 变，不改页面代码。还没改读 film.json 的页面，时间常量（例如 `timeline.js` 的 `DUR`、`FPS`）必须与它一致——`film.js check` 会核对作品目录里 `timeline.js` 的 `DUR` 与 `FPS`。
 
-B 路线的原生入口（`film.tsx`）不走页面约定：帧数、尺寸由 film.json 的 `output` 与 `native` 段给出，时间只由 `useCurrentFrame()` 决定。
+B 路线的原生入口（`film.tsx`）不走页面约定：帧数、尺寸由 film.json 的 `output` 与 `native` 段给出，时间只由 `useCurrentFrame()` 决定。D 路线的光追场景入口（`scene.ts`）经 `engine/pathtrace/index.js` 的 `definePathtraceFilm` 按整数帧 `frame` 纯函数求值（`evaluation: "absolute"`），通过 `textsAt` 与 `state.hideTexts` 导出 `work/texts.json` 供机器 QA 实测安全区与对比度（详见 [pathtrace.md](pathtrace.md)）。A、C 的 `webgpu` 同源离屏入口（`offscreen.mjs`）详见 [离屏出片](../offscreen/README.md)。
 
 ## 1. 共用到什么程度
 
@@ -94,9 +94,9 @@ flowchart TD
 |---|---|---|
 | `schemaVersion` | 整数，起始 1 | 配置结构版本；未知版本拒绝自动解释 |
 | `projectId` | 稳定字符串 | 与临时输出名分离；用于镜头和资产记录 |
-| `route` | 路线注册表 id：`a` / `b` / `c`（旧值 `beiming` = a、`raea` = b，目录名 `a-webgl` / `b-native` / `c-style` 也认） | 创作路线，不从后端倒推；注册表 `routes/routes.json`，缺省内置三条 |
-| `backend` | a：`three` / `webgpu`；b：`native`（旧写法 `raea`）；c：`canvas` / `svg` / `dom` / `three` / `webgl` / `webgpu` | 当前执行路径；a 的风格搬到原生执行（a + native）需标明风格迁移状态 |
-| `entry` | 仓库相对文件路径 | A / C 为作品目录的 `index.html`，B 为原生入口 TSX |
+| `route` | 路线注册表 id：`a` / `b` / `c` / `d`（旧值 `beiming` = a、`raea` = b，目录名 `a-webgl` / `b-native` / `c-style` / `d-pathtrace` 也认） | 创作路线，不从后端倒推；注册表 `routes/routes.json`，缺省内置四条 |
+| `backend` | a：`three` / `webgpu`；b：`native`（旧写法 `raea`）；c：`canvas` / `svg` / `dom` / `three` / `webgl` / `webgpu`；d：`pathtrace` | 当前执行路径；a 的风格搬到原生执行（a + native）需标明风格迁移状态 |
+| `entry` | 仓库相对文件路径 | A / C 为作品目录的 `index.html`（离屏为 `offscreen.mjs`），B 为原生入口 TSX，D 为光追场景入口 `scene.ts` |
 | `runtime` | 版本对象 | Three/浏览器或 RAEA 包版本；另记源码提交 |
 | `output` | 宽高、fps、frameCount | 时间总长由整数帧推导；H.264 yuv420p 的宽高为偶数 |
 | `style` | id/version/baseline | 北冥风格路线需基准；北冥原生路线可独立定义目标 |

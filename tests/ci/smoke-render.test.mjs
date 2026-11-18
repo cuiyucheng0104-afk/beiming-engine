@@ -17,6 +17,7 @@ test('--help 只打印用法、exit 0', async () => {
   assert.equal(r.code, 0);
   assert.match(r.stdout, /用法：node tests\/ci\/smoke-render\.mjs/);
   assert.match(r.stdout, /b-render/);
+  assert.match(r.stdout, /d-render/);
 });
 
 test('参数错误 exit 2，信封里写明原因', async () => {
@@ -40,12 +41,13 @@ test('参数错误 exit 2，信封里写明原因', async () => {
 
 test('--plan：列出每段的命令，不建作品、不建输出目录', async () => {
   const out = tmpOut(), before = smokeFilms();
-  const r = await runNode(TOOL, ['--plan', '--out', out, '--json'], { env: { BEIMING_ANGLE: 'swiftshader', RAEA_BIN: '' } });
+  const r = await runNode(TOOL, ['--plan', '--out', out, '--json'], { env: { BEIMING_ANGLE: 'swiftshader', RAEA_BIN: '', BEIMING_PT_BIN: '' } });
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(r.json.phases.map(p => p.id), ['a', 'c', 'b', 'b-render', 'beiming', 'golden']);
+  assert.deepEqual(r.json.phases.map(p => p.id), ['a', 'c', 'b', 'b-render', 'd-render', 'beiming', 'golden']);
   assert.match(r.json.phases[0].commands.join('\n'), /node tools\/new-film\.mjs a ci-smoke-a-[0-9a-f]{6}/);
   assert.match(r.json.phases[3].commands[0], /跳过：没有设 RAEA_BIN/);
-  assert.match(r.json.phases[5].commands[0], /tests\/golden\/(darwin|linux|win)-swiftshader\/manifest\.json/);
+  assert.match(r.json.phases[4].commands[0], /跳过：软件渲染模式/);
+  assert.match(r.json.phases[6].commands[0], /tests\/golden\/(darwin|linux|win)-swiftshader\/manifest\.json/);
   assert.equal(fs.existsSync(out), false);
   assert.deepEqual(smokeFilms(), before);
   const gpu = await runNode(TOOL, ['--plan', '--only', 'golden', '--json'], { env: { BEIMING_ANGLE: 'metal' } });

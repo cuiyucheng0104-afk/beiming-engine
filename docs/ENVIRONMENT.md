@@ -13,7 +13,7 @@ npm run env:doctor -- --route a
 ```
 
 - `npm run setup` 建好全部依赖：npm 包、锁定版本的无头浏览器、仓库内的 Python 3.12 虚拟环境 `.venv`。它是幂等的，第二次运行不下载任何东西。
-- `npm run env:doctor` 只读体检。每一项给出「修复」命令，必需项不合格时退出码 3；照着修完再跑，直到退出码 0。`--route a|b|c` 只看某条路线需要的项。
+- `npm run env:doctor` 只读体检。每一项给出「修复」命令，必需项不合格时退出码 3；照着修完再跑，直到退出码 0。`--route a|b|c|d` 只看某条路线需要的项。
 - 脚本注册之前，直接运行同一个文件：`node tools/env/setup.mjs`、`node tools/env/doctor.mjs`。
 
 新环境第一次跑 setup 大约 3 分钟：2026-11-10 在 macOS arm64 的全新克隆上实测 2 分 58 秒，其中下载浏览器 60 秒，Python 依赖下载 45 秒，加上第一次导入 70 秒（见「第一次为什么慢」）。第二次运行 0.8 秒，什么都不下载。doctor 第一次约 4 秒（含一次浏览器冷启动），之后约 2 秒。
@@ -28,6 +28,7 @@ npm run env:doctor -- --route a
 | FFmpeg 与 ffprobe | 7 以上；必须有 libx264、aac 编码器，loudnorm、ebur128、apad、aresample、scale、format、fps、noise 滤镜，mp4 封装，concat 与 image2pipe 读入 | 系统安装（各平台命令见下文） | `ffmpeg.version`、`ffmpeg.components`、`ffprobe.version` |
 | Python | 3.12 | `.python-version`；`requirements.in` → `requirements.lock`（macOS arm64、Windows x64、Linux x64，带哈希，只用二进制轮子） | `python.interpreter`、`python.packages` |
 | 原生运行时（B 路线） | 0.1.4 | `RAEA_BIN` 指向的安装包里的 `share/raea/VERSION`；可执行文件的 sha256 与 `tools/env/spec.json` 的 `raea.knownBinaries` 按平台登记的已验证构建比对（不同则告警） | `raea.runtime`（`--route b`） |
+| 路径追踪运行时（D 路线） | 0.1.1-beiming.1 | `BEIMING_PT_BIN` 或默认缓存 `~/.cache/beiming/pathtrace/<版本>/bin/threert-render`；可执行文件的 sha256 与 `engine/pathtrace/runtime.lock.json` 按平台锁定值核对 | `pathtrace.runtime`（`--route d`） |
 
 锁文件里的 Python 包：numpy 2.5.4、scipy 1.18.1、numba 0.68.1（llvmlite 0.50.0）、soundfile 0.14.0、soxr 1.1.0、pillow 13.0.0、fonttools 4.68.0、brotli 1.2.1（A 路线字体子集化），以及它们的依赖。完整清单与哈希见 [`requirements.lock`](../requirements.lock)。三个目标平台解析出同一组版本，且都有 Python 3.12 的二进制轮子（`node tools/env/lock.mjs --check` 核对）。在锁定环境里重建《北冥》混音，`out/mix.wav` 的 sha256 是 `aebcb955d73e…`，与 numpy 2.5.3 / numba 0.67.0 的旧环境逐字节相同（2026-11-10，macOS arm64）；各平台的混音金标准由声音链路维护。
 
@@ -118,7 +119,7 @@ npm run env:doctor -- --route a
 
 | 选项 | 作用 |
 |---|---|
-| `--route a\|b\|c` | 只看某条路线需要的项；可以重复或用逗号分隔。不写时检查通用项，B 路线的原生运行时只作提示 |
+| `--route a\|b\|c\|d` | 只看某条路线需要的项；可以重复或用逗号分隔。不写时检查通用项，B 路线与 D 路线的外部运行时只作提示 |
 | `--gpu required` | 要求硬件 GPU：软件渲染，或者有 NVIDIA 显卡却落到核显，都判失败 |
 | `--quick` | 不启动浏览器、不导入 Python 模块、不跑案例库校验，约 1 秒 |
 | `--out <文件>` | 另把报告写到文件 |
@@ -180,6 +181,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `BNE_FILM` | B 路线 | prepare 传给 `sound.py` 的作品目录 | 由 prepare 设置 |
 | `RAEA_EXPORT_CACHE` | B 路线（原生运行时） | 运行时的导出缓存开关；验收时设 0 | 运行时默认 |
 | `RAEA_BAKE_WORKERS` | B 路线（原生运行时） | 运行时的烘焙并发；逐帧比对时设 1 | 运行时默认 |
+| `BEIMING_PT_BIN` | D 路线（北冥光追） | 路径追踪运行时 `threert-render` 可执行文件的完整路径；版本与 sha256 按 `engine/pathtrace/runtime.lock.json` 核对 | `~/.cache/beiming/pathtrace/<版本>/bin/threert-render`（Windows 下 `.exe`） |
 | `LEMO_ANGLE` | C 路线历史复刻 | 风格库甲（`cases/vendor/lemo-opuscar`）渲染核心的 ANGLE 后端，作用同 `BEIMING_ANGLE` | 该库默认 |
 | `PLAYWRIGHT_CHROME` | C 路线历史复刻 | 风格库甲渲染核心的浏览器可执行文件，作用同 `BEIMING_CHROME` | 该库默认 |
 | `RENDER_SLOTS` | C 路线历史复刻 | 整机渲染并发名额：`engine/render`（`--slots` 的默认值）与风格库甲的渲染核心都认 | 不设不限（风格库甲按该库默认） |
@@ -212,6 +214,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | 风格库甲的渲染核心 | C 路线 66 部历史作品的 `build.sh` | `LEMO_ANGLE` | `PLAYWRIGHT_CHROME` | `RENDER_SLOTS` |
 | 风格库乙的 `render.js` | C 路线 20 种方法模板 | `--hwgpu` 或 `HWGPU=1`（不设就是软件渲染） | 该库默认 | — |
 | 原生运行时（B） | B 路线 | `WGPU_BACKEND` | 不用浏览器 | 运行时自己管理 |
+| 路径追踪运行时（D） | D 路线 | wgpu 硬件光追 / Compute BVH 回退 | 不用浏览器（`BEIMING_PT_BIN`） | 常驻 `serve` 热进程按帧缓存 |
 
 在 NVIDIA 工作站上复刻历史作品时，三套变量要一起设：
 

@@ -17,6 +17,7 @@ import { frameCacheDir, linkOrCopy } from '../lib/cache.mjs';
 import { writeContactSheet } from '../lib/deliver.mjs';
 import { imageSize } from '../lib/media.mjs';
 import { nativeStills, nativeKey, raeaInfo, prepare as nativePrepare } from '../lib/native-steps.mjs';
+import { renderPathtraceFrames } from '../lib/pathtrace-steps.mjs';
 import { probe as pageProbe, pageTrees } from '../../../engine/render/build.mjs';
 import { envelope } from '../lib/output.mjs';
 import { withRunJson } from './build.mjs';
@@ -132,8 +133,8 @@ export async function runFrames(kind, opts, positionals) {
   if (kind === 'render' && !opts.frames && !opts.shot) throw usage('render 要给 --frames <帧段> 或 --shot <镜头 id>', '例：npm run film -- render films/my-film --frames 72:120；整片终渲用 npm run film -- build <作品目录> --final');
   const o = { gpu: 'required', ...opts };
   const plan = planSession({ kind, filmArg: positionals[0], opts: o });
-  if (o.renderer === undefined && plan.film.backend === 'webgpu' && plan.film.route !== 'b') o.renderer = 'offscreen';
-  if (o.renderer === 'offscreen' && plan.film.route !== 'b') {
+  if (o.renderer === undefined && plan.film.backend === 'webgpu' && plan.film.route !== 'b' && plan.film.route !== 'd') o.renderer = 'offscreen';
+  if (o.renderer === 'offscreen' && plan.film.route !== 'b' && plan.film.route !== 'd') {
     const entry = path.join(plan.film.dir, 'offscreen.mjs');
     if (!fs.existsSync(entry)) throw new FilmError(EXIT.USAGE, 'usage.no-offscreen-entry', `离屏渲染需要作品目录里有 offscreen.mjs：${rel(entry)} 不存在`, '作品要写成双实现（见 docs/offscreen/README.md 7.11）；只用页面渲染可加 --renderer page');
   }
@@ -171,6 +172,11 @@ export async function runFrames(kind, opts, positionals) {
       if (todo.length) { await nativeStills(ctx, todo, cdir); rendered = todo.length; }
       for (const f of frames) linkOrCopy(path.join(cdir, `f${String(f).padStart(6, '0')}.${ext}`), path.join(dest, `f${String(f).padStart(6, '0')}.${ext}`));
       extra.ext = ext;
+    } else if (ctx.film.route === 'd') {
+      const r = await renderPathtraceFrames(ctx, frames, dest);
+      rendered = r.rendered;
+      cacheKey = r.cacheKey;
+      extra.ext = r.ext;
     } else if (ctx.opts.renderer === 'offscreen') {
       const ext = 'png';
       const offEntry = path.join(ctx.film.dir, 'offscreen.mjs');

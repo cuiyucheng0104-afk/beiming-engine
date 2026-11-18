@@ -94,7 +94,7 @@
 | `ROUTES.md` | 10 行（只做跳转页） |
 | 每份路线手册 | 300 行 |
 | `AGENTS.md` + `routes/README.md` + 手册里到第一条命令 | 300 行 |
-| 从 `AGENTS.md` 沿链接到三份路线手册 | 不超过 3 跳 |
+| 从 `AGENTS.md` 沿链接到四份路线手册 | 不超过 3 跳 |
 
 预算改动先在这里写明理由，再改 `tools/repo-check/rules/core/entry-budget.mjs`。
 
@@ -115,7 +115,7 @@
 | `serve`、`site:serve` | `engine/render/serve.mjs`（`site:serve` 加 `--root out/site --port 8090`） | 渲染器 | 已接入；只监听 127.0.0.1 |
 | `stills`、`video`、`video:4k` | `engine/render/still.mjs`、`video.mjs`（《北冥》样片） | 渲染器 | 已接入 |
 | `offscreen`、`offscreen:compare`、`offscreen:bench` | `engine/offscreen/cli.mjs`、`tools/offscreen/compare.mjs`、`bench.mjs` | 离屏出片 | 已接入：`render` 视频（含 `--pix-fmt yuv420p` GPU 侧打包）、`stills` 无损静帧、`probe` 契约与事件探测、`batch` 单卡异构并发调度、对拍与并发基准；`npm run film -- check\|stills\|render\|animatic\|build <作品> [--renderer offscreen] [--encoder nvenc]`（`backend=webgpu` 默认走离屏），详见 [离屏出片](offscreen/README.md) |
-| `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：三条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / render / review / status / qa / plan） |
+| `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：四条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / render / review / status / qa / plan） |
 | `beiming:build`、`build` | `tools/film/beiming.mjs` | 出片编排 | 已接入；《北冥》样片一键重建，`build` 是旧名，`sh build.sh` 是兼容壳 |
 | `c:events`、`c:build` | `engine/render/events.mjs`、`build.mjs` | 出片编排 | 已接入（旧入口；新作品用 `npm run film -- build`） |
 | `qa` | `tools/qa/cli.mjs` | 机器 QA | 已接入 |
@@ -142,20 +142,20 @@
 
 ## 10. 路线注册表（`routes/routes.json`）
 
-三条路线的唯一注册表；读取与校验在 [tools/lib/routes.mjs](../tools/lib/routes.mjs)，`npm run check:repo` 的 `core.registry` 规则执行同一份校验。new-film、规范检查、工程计划与作品描述校验器都从这里读路线。
+四条路线的唯一注册表；读取与校验在 [tools/lib/routes.mjs](../tools/lib/routes.mjs)，`npm run check:repo` 的 `core.registry` 规则执行同一份校验。new-film、规范检查、工程计划与作品描述校验器都从这里读路线。
 
 | 字段 | 说明 |
 |---|---|
 | `defaultProfile` | 新作品的默认交付档位（D07：`web-1080p24`） |
-| `renderers` | 渲染器表：`page`（`engine/render`，无头 Chrome）、`native`（`engine/render/native.mjs` + 原生运行时） |
-| `routes[].id` | 路线 id：`a`、`b`、`c`。film.json、工程计划与所有命令只认这三个值（工程计划另有 `shared`） |
+| `renderers` | 渲染器表：`page`（`engine/render`，无头 Chrome）、`native`（`engine/render/native.mjs` + 原生运行时）、`offscreen`（`engine/offscreen/cli.mjs`，Node + Dawn WebGPU 离屏，D12）、`pathtrace`（`engine/pathtrace/runtime.mjs` + 路径追踪运行时，D13） |
+| `routes[].id` | 路线 id：`a`、`b`、`c`、`d`。film.json、工程计划与所有命令只认这四个值（工程计划另有 `shared`） |
 | `routes[].slug` | 目录名：`routes/<slug>/` |
-| `routes[].brand`、`label` | 对外品牌名（D04），不带 RTX、不用上游项目名 |
+| `routes[].brand`、`label` | 对外品牌名（D04、D13），不带 RTX、不用上游项目名 |
 | `routes[].summary`、`chooseWhen` | 一句话定位与适用场景（与 `routes/README.md` 一致） |
-| `routes[].aliases`、`legacyId` | 旧名与目录名（`beiming`、`raea`、`a-webgl`……）：命令接受并提示改写；`legacyId` 是工程计划 v1 与 ProjectSpec 用过的旧路线名（C 没有，写 `null`） |
-| `routes[].backend`、`backends` | film.json 的 `backend` 默认值与允许值，与 `engine/production/film.js` 同口径：A `three`；B `native`；C `canvas`（也可 `svg`、`dom`、`three`、`webgl`） |
-| `routes[].renderer` | 用到的渲染器 id |
-| `routes[].upstream` | 上游项目：名字、仓库、许可、固定版本、是否随仓库分发、使用边界（D03、D04） |
+| `routes[].aliases`、`legacyId` | 旧名与目录名（`beiming`、`raea`、`a-webgl`、`d-pathtrace`……）：命令接受并提示改写；`legacyId` 是工程计划 v1 与 ProjectSpec 用过的旧路线名（C、D 没有，写 `null`） |
+| `routes[].backend`、`backends` | film.json 的 `backend` 默认值与允许值，与 `engine/production/film.js` 同口径：A `three`（也可 `webgpu`）；B `native`；C `canvas`（也可 `svg`、`dom`、`three`、`webgl`、`webgpu`）；D `pathtrace` |
+| `routes[].renderer` | 用到的渲染器 id（或渲染器数组） |
+| `routes[].upstream` | 上游项目：名字、仓库、许可、固定版本、是否随仓库分发、使用边界（D03、D04、D13） |
 | `routes[].manual`、`template` | 路线手册与模版目录 |
 | `routes[].templateDefaults` | 模版 film.json 还是 v1 时，new-film 用它补齐 v2 的 `audio`、`style`（A 路线必填）、`aigc`、`credits` |
 | `routes[].next` | 新建后的下一步：`[{stage, title, run: argv[], env?, requires?, output?}]`，`stage` 取 `look`、`animatic`、`build`、`check`、`final`；`run` 里可用 `{dir} {name} {dur} {fps} {width} {height} {size} {mid} {last} {midFrame} {lastFrame}`。模版 film.json 写了 `next` 就以模版为准 |
@@ -163,7 +163,7 @@
 ## 11. 新建作品（`npm run new`）
 
 ```sh
-npm run new -- <a|b|c> <名字> [--title 片名] [--profile 档位] [--dry-run] [--check-timeout 秒] [--json]
+npm run new -- <a|b|c|d> <名字> [--title 片名] [--profile 档位] [--backend 后端] [--dry-run] [--check-timeout 秒] [--json]
 ```
 
 - **名字**：小写字母、数字、连字符，字母或数字开头，最长 64；同时是目录名、film.json 的 `id` 与输出文件名。不得是 Windows 保留名，不得含上游项目名。片名用 `--title` 另给（不能含 `` " ' ` \ < > `` 与控制字符）。
@@ -181,7 +181,7 @@ npm run new -- <a|b|c> <名字> [--title 片名] [--profile 档位] [--dry-run] 
 npm run check:repo                              # 全部规则；--json、--only <域或规则>、--list、--strict、--staged、--root <目录>
 ```
 
-- 规则按域放在 `tools/repo-check/rules/<域>/`：`core` 由治理骨架维护；`comp`（合规）、`agent`（agent 执行层）、`render`、`spec`、`film`、`qa`、`baseline`、`env`、`route-a`、`route-b`、`route-c`、`cases` 由各自的工作包维护。写规则见 [tools/repo-check/core/README.md](../tools/repo-check/core/README.md)。
+- 规则按域放在 `tools/repo-check/rules/<域>/`：`core` 由治理骨架维护；`comp`（合规）、`agent`（agent 执行层）、`render`、`spec`、`film`、`qa`、`baseline`、`env`、`route-a`、`route-b`、`route-c`、`route-d`、`cases` 由各自的工作包维护。写规则见 [tools/repo-check/core/README.md](../tools/repo-check/core/README.md)。
 - core 规则：路线注册表、路线 id、三份手册的 8 节、三个模版、全部非 vendor Markdown 的链接与锚点、入口口径（三条路线、上游项目名、产品名不带 RTX、选路线的判据只在 `routes/README.md`）、入口预算与可达性、根目录 CLAUDE.md 桥接、作品的 film.json 与占位符、`films/` 不提交媒体、`routes/` `films/` `tools/` `engine/` 的路径只用 ASCII、`engine/` 模块的中文注释、脚本与文档命令能照抄执行、`cases/vendor/` 快照只读。每条规则在 `tests/governance/fixtures/violations.json` 里至少有一个违规夹具，`node --test tests/governance` 断言报出对应规则 id 并退出 4。
 - 退出码：0 没有错误（可以有提示）；4 有规范错误；2 用法错误；1 有规则自身出错（结果不完整）。
 - **限期豁免**：属主还没轮到改的存量问题记在 `tools/repo-check/core/waivers.json`（规则、文件、匹配文字、属主、原因）；命中的错误降为提示并标出属主，`--strict` 时不降。问题修好后条目不再命中，检查会提示删掉它：豁免只减不增。
@@ -192,7 +192,7 @@ npm run check:repo                              # 全部规则；--json、--only
 
 ```sh
 npm run plan:check                              # = node tools/work-plan.mjs --check；--strict、--json、--now <ISO 日期>、--file <计划>
-npm run plan:next -- --route c                  # = node tools/work-plan.mjs --ready；路线 a / b / c / shared，旧名也认
+npm run plan:next -- --route c                  # = node tools/work-plan.mjs --ready；路线 a / b / c / d / shared，旧名也认
 node tools/work-plan.mjs --verify-diff <任务>   # 基线（默认取认领记录）以来的改动是否都在写入范围里
 node tools/work-plan.mjs --cards                # 按 JSON 生成 work-breakdown.md 的依赖总览与任务卡
 ```

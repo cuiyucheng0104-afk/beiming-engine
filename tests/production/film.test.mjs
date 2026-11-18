@@ -296,22 +296,40 @@ test('AIGC 的显式标识文字与合规库 tools/compliance/lib/aigc.mjs 一�
 
 test('路线：注册表 id 是规范值，别名只提示；后端按路线校验', () => {
   assert.ok(warnings(v(minimalFilm({ route: 'c-style' }))).includes('route-alias'));
-  assert.ok(errors(v(minimalFilm({ route: 'd' }))).includes('route-invalid'));
+  assert.ok(warnings(v(minimalFilm({ route: 'pathtrace', backend: 'pathtrace' }))).includes('route-alias'));
+  assert.ok(errors(v(minimalFilm({ route: 'z' }))).includes('route-invalid'));
   assert.ok(errors(v(minimalFilm({ backend: 'native' }))).includes('backend-invalid'));
   assert.ok(errors(v(minimalFilm({ backend: undefined }))).includes('backend-missing'));
-  for (const backend of ['canvas', 'svg', 'dom', 'three', 'webgl']) assert.deepEqual(errors(v(minimalFilm({ backend }))), [], backend);
-  // A 路线必须写 style；B 路线只能 native
+  for (const backend of ['canvas', 'svg', 'dom', 'three', 'webgl', 'webgpu']) assert.deepEqual(errors(v(minimalFilm({ backend }))), [], backend);
+  // A 路线必须写 style；B 路线只能 native；D 路线只能 pathtrace 且默认 entry 是 scene.ts
   assert.ok(errors(v(minimalFilm({ route: 'a', backend: 'three' }))).includes('style-missing'));
   assert.deepEqual(errors(v(minimalFilm({ route: 'a', backend: 'three', style: { id: 'beiming-original', version: 1 } }))), []);
+  assert.equal(v(minimalFilm({ route: 'a', backend: 'webgpu', style: { id: 'beiming-original', version: 1 } })).film.entry, 'offscreen.mjs');
   assert.ok(errors(v(minimalFilm({ route: 'b', backend: 'three' }))).includes('backend-invalid'));
+  assert.ok(errors(v(minimalFilm({ route: 'd', backend: 'three' }))).includes('backend-invalid'));
+  const d = v(minimalFilm({ route: 'd', backend: 'pathtrace' }));
+  assert.deepEqual(errors(d), []);
+  assert.equal(d.film.entry, 'scene.ts');
 });
 
-test('路线专属段：native 只属于 B，cuecheck 只属于页面型路线', () => {
+test('路线专属段：native 只属于 B，pathtrace 只属于 D，cuecheck 允许 A / C / D', () => {
   assert.ok(errors(v(minimalFilm({ native: { entry: 'film.tsx' } }))).includes('native-wrong-route'));
+  assert.ok(errors(v(minimalFilm({ pathtrace: { spp: 32 } }))).includes('pathtrace-wrong-route'));
   const b = minimalFilm({ route: 'b', backend: 'native', audio: { mode: 'native' }, native: { entry: 'film.tsx', mux: 'copy', images: [{ from: 'x.png', to: 'x.png' }] } });
   assert.deepEqual(errors(v(b)), []);
   b.native.mux = 'ffmpeg';
   assert.ok(errors(v(b)).includes('native-invalid'));
+  const d = minimalFilm({
+    route: 'd', backend: 'pathtrace', cuecheck: { grid: 2, tolMs: 1 },
+    pathtrace: { preset: 'cinematic', spp: 32, animaticSpp: 4, denoise: 'auto', seed: 2026, shotSpp: { S1: 24, S2: 64 }, overlay: 'none', note: '光追参数' },
+  });
+  assert.deepEqual(errors(v(d)), []);
+  const dBadShot = minimalFilm({ route: 'd', backend: 'pathtrace', pathtrace: { shotSpp: { S99: 64 } } });
+  assert.ok(errors(v(dBadShot)).includes('pathtrace-shot-unknown'));
+  const dBadSpp = minimalFilm({ route: 'd', backend: 'pathtrace', pathtrace: { spp: 0, preset: 'ultra', denoise: 'dlss', overlay: 'dom' } });
+  assert.ok(errors(v(dBadSpp)).includes('pathtrace-invalid'));
+  const dOrphanTime = minimalFilm({ route: 'd', backend: 'pathtrace', pathtrace: { spp: 32, durationSec: 3 } });
+  assert.ok(errors(v(dOrphanTime)).includes('orphan-time-field'));
   assert.ok(errors(v(minimalFilm({ route: 'b', backend: 'native', cuecheck: { grid: 2 } }))).includes('cuecheck-wrong-route'));
   assert.deepEqual(errors(v(minimalFilm({ cuecheck: { grid: 2, tolMs: 0.5, silence: ['A'], quietDb: 15 } }))), []);
   assert.ok(errors(v(minimalFilm({ cuecheck: { grid: 0 } }))).includes('cuecheck-invalid'));

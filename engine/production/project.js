@@ -51,6 +51,8 @@ export const RESULT_STATUSES = Object.freeze([
   'accepted',
 ]);
 export const STYLE_MIGRATION_STATES = Object.freeze(['design-only', 'partial', 'verified']);
+/** 各路线的默认后端（与 film.js 的 DEFAULT_BACKEND 同口径）。 */
+export const DEFAULT_BACKEND = Object.freeze({ a: 'three', b: 'native', c: 'canvas', d: 'pathtrace' });
 /** technicalAcceptance.status 的取值；passed / accepted 的结果要求它是 passed。 */
 export const TECHNICAL_STATUSES = Object.freeze(['not-run', 'running', 'blocked', 'failed', 'passed']);
 /** creativeAcceptance.status 的取值；accepted 的结果要求它是 accepted；只有 AI 评审（代理审片）时最多是 ai-reviewed。 */
@@ -188,7 +190,7 @@ function registryFor(options, push) {
     return loadRouteRegistry();
   } catch (error) {
     if (!(error instanceof RouteRegistryError)) throw error;
-    push('routes-invalid', 'route', `${error.message}；本次按内置的 a / b / c 校验`);
+    push('routes-invalid', 'route', `${error.message}；本次按内置的 a / b / c / d 校验`);
     return builtinRegistry();
   }
 }
@@ -266,7 +268,7 @@ export function validateProjectSpec(spec, options = {}) {
 
   // 3. 入口与路径解析：entry 必填，且是文件；checkFiles 时核对它真实存在。
   if (!isNonEmptyString(spec.entry)) {
-    push('entry-missing', 'entry', 'entry 必须是仓库相对文件路径（A / C 路线是页面 index.html，B 路线是原生入口 film.tsx）');
+    push('entry-missing', 'entry', 'entry 必须是仓库相对文件路径（A / C 路线是页面 index.html 或离屏 offscreen.mjs，B 路线是原生入口 film.tsx，D 路线是光追场景 scene.ts）');
   }
   resolvePathField(spec.entry, 'entry', rootDir, push, { checkFiles, kind: 'file', label: '入口文件', missing: 'entry-missing', wrongKind: 'entry-not-file' });
   resolvePathField(spec.output?.outputDir, 'output.outputDir', rootDir, push, { checkFiles, kind: 'dir', label: '输出目录', mustExist: false, wrongKind: 'output-dir-not-dir' });

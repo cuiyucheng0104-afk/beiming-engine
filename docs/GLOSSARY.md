@@ -1,6 +1,6 @@
 # 术语与命名表
 
-> 读者：读文档时遇到不认识的词、写对外材料前要确认能不能用某个词的人与 agent｜状态：导航｜依据：2026-11-12；命名口径以[决定书](decisions/2026-11-10-industrial-baseline.md) D01、D03、D04 为准
+> 读者：读文档时遇到不认识的词、写对外材料前要确认能不能用某个词的人与 agent｜状态：导航｜依据：2026-11-18；命名口径以[决定书](decisions/2026-11-10-industrial-baseline.md) D01、D03、D04、D12、D13 为准
 
 「对外」一栏：**可以** = 作品站、README、发布说明与对外交流里可以直接用；**限定** = 只在技术说明、署名区块与许可说明里如实写，不当我方的产品名、路线名、目录名；**内部** = 工程术语，对外材料里不出现或要先换成白话。每条的出处链接是详细说明，以出处为准。
 
@@ -11,8 +11,11 @@
 | 北冥风格路线 · WebGL 三渲二（A） | A 路线：北冥画风的确定性三渲二，无头 Chrome 的 WebGL 逐帧出片 | 可以 | [A 手册](../routes/a-webgl/README.md) |
 | 北冥原生 · BNE（B） | B 路线：通用原生渲染（render anything），可以复用北冥资产，但不要求北冥画风 | 可以；产品名不带 RTX，技术说明写「基于 RAEA 原生运行时（FSL-1.1-ALv2）」 | [B 手册](../routes/b-native/README.md) |
 | BNE | Beiming Native Edition，「北冥原生」的英文缩写；不表示自研运行时，不写成「BEIMING NATIVE ENGINE」「自研原生引擎」 | 可以（只作 B 路线名的一部分） | [fsl-boundary.md](rights/fsl-boundary.md) |
-| 北冥代码动画风格 · 86 式（C） | C 路线：页面型代码动画的方法库，外加可直接出片的 C 模版；与 A 共用页面渲染器，不是第三个 GPU 后端 | 可以 | [C 手册](../routes/c-style/README.md) |
+| 北冥代码动画风格 · 86 式（C） | C 路线：页面型代码动画的方法库，外加可直接出片的 C 模版；与 A 共用页面/离屏渲染器，不是第三个 GPU 后端 | 可以 | [C 手册](../routes/c-style/README.md) |
+| 北冥光追 · 物理路径追踪（D） | D 路线：基于硬件光追与 Compute BVH 回退的确定性物理三维出片路线（MIT，商业可用） | 可以；产品名不带 RTX，技术说明写「基于 ThreeRT 路径追踪运行时（MIT）」 | [D 手册](../routes/d-pathtrace/README.md) |
 | 86 式 | 两套第三方 MIT 风格库固定快照合起来的风格索引：86 式 = Lemo 66 + SY 20。是索引，不是我方原创的画法 | 可以；说明来源时带上两套库的署名 | [STYLES.md](../routes/c-style/STYLES.md) |
+| 离屏出片（offscreen） | A、C 新作品可选的 WebGPU + TSL 同源离屏出片（Chrome WebGPU 预览，Node + Dawn 出片，D12）；不叫「原生」（「原生」专指 B 路线） | 内部 | [offscreen/README.md](offscreen/README.md) |
+| ThreeRT | 上游路径追踪运行时（meshy-dev/ThreeRT，MIT）；不随仓库提交二进制或源码，由 `BEIMING_PT_BIN` 或本地缓存指向 | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | Lemo / lemo-opuscar | 第三方风格库（LemoLab，MIT），快照在 `cases/vendor/lemo-opuscar`，固定提交 `bebbbe1`；66 种风格 | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | SY / sy-style-100 | 第三方风格库（肖雄 XIAOXIONG，MIT），快照在 `cases/vendor/sy-style-100`，固定提交 `e41dee3`；20 种风格 | 限定 | [THIRD-PARTY.md](../THIRD-PARTY.md) |
 | RAEA | 上游原生 GPU 运行时（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）；不随仓库分发，B 路线只把它当内部制作层 | 限定 | [fsl-boundary.md](rights/fsl-boundary.md) |
@@ -75,4 +78,4 @@
 |---|---|---|---|
 | 集成负责人 | 统一改根文档、注册文件与工程计划状态的角色；单代理会话默认兼任 | 内部 | [AGENTS.md](../AGENTS.md#多代理与集成负责人) |
 | T / H 编号 | 引擎工程待办里的任务编号：T 是早先拆出的工程任务，H 是工业级加固的工作包；做作品不用它们 | 内部 | [work-breakdown.md](routes/work-breakdown.md) |
-| D01–D11 | 决定书里的十一项决定（三条路线、FSL 边界、命名、交付档位、创作闸门、运行时版本、存储、AI 标识等） | 内部 | [决定书](decisions/2026-11-10-industrial-baseline.md) |
+| D01–D13 | 决定书里的十三项决定（四条路线、FSL 边界、命名、交付档位、创作闸门、运行时版本、存储、AI 标识、A/C 离屏出片、D 路线物理光追等） | 内部 | [决定书](decisions/2026-11-10-industrial-baseline.md) |

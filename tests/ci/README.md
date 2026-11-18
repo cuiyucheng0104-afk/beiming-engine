@@ -9,7 +9,7 @@
 | 跑全部测试 | `node tools/run-tests.mjs`（`npm test`） | 退出码 0 通过；1 有失败；3 环境缺依赖；124 超时 |
 | 跑全部检查 | `node tools/check-all.mjs`（`npm run check`） | 规范、工程计划、测试、风格索引、案例库、导演规范、语法、更新日志 |
 | 只看 lint 告警 | `node tools/check-all.mjs --only lint`（`npm run lint`） | 只报告，不影响退出码 |
-| 无显卡冒烟出片 | `node tests/ci/smoke-render.mjs` | 三条路线的模版与《北冥》都真出一遍 |
+| 无显卡冒烟出片 | `node tests/ci/smoke-render.mjs` | 四条路线的模版与《北冥》都真出一遍（无外部运行时或无 GPU 时 b-render / d-render 自动跳过） |
 | 路径与编码检查 | `node tests/ci/windows-paths.mjs` | 目录联接、中文与空格路径、GBK 管道 |
 | 校验更新日志 | `node tests/ci/changelog.mjs check` | Keep a Changelog 结构 |
 
@@ -100,12 +100,13 @@ node tests/ci/smoke-render.mjs --out out/ci/smoke
 | c | `new-film c` → `film build --size 320x180 --gpu software-ok` | 同上，外加海报 |
 | b | `new-film b` → `engine/native/prepare.mjs`（资产桥） | 声明的素材齐全、GLB 有效、prepared.json 的哈希与文件一致；再准备一遍，产物逐字节相同 |
 | b-render | 只在设了 `RAEA_BIN` 时运行：`film build --gpu software-ok`（B 的画幅只来自 film.json，按模版原尺寸出） | 与 a、c 相同的成片核对 |
+| d-render | 只在本机有光追运行时缓存（或设了 `BEIMING_PT_BIN`）且 GPU 探测可用时运行：`new-film d` → `film build --size 384x216` | 与 a、c 相同的成片核对与中段静帧接触印 |
 | beiming | 《北冥》1.5、4.0、7.6 秒与 lab 自测页 look 的静帧 | 不是黑屏或纯色 |
 | golden | 有 `tools/baseline/golden.mjs` 时：清单在就比对，不在就首次采集 | 与金标准一致（退出码 4 表示像素变了） |
 
 临时作品建在 `films/ci-smoke-*/`（页面服务只认仓库内的目录），结束、出错或被中断时都会删掉；加 `--keep` 可以保留下来排查。产物、报告和接触印 `contact.jpg` 放在 `--out` 指定的目录。`--plan` 只打印每段要跑的命令，不执行。
 
-原生运行时不随仓库分发（D03），所以 CI 上的 b-render 总是跳过；在工作站上设好 `RAEA_BIN`，就能把三条路线都完整走一遍。
+外部运行时不随仓库分发（D03、D13），所以无显卡 CI 上的 b-render 与 d-render 总是跳过；在工作站上设好 `RAEA_BIN` 与光追运行时缓存（或 `BEIMING_PT_BIN`），就能把四条路线都完整走一遍。
 
 ### env-smoke（Linux、macOS、Windows 三平台）
 

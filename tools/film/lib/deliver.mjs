@@ -141,18 +141,22 @@ export const player = {
 // QA 的输入（build 与 film qa 共用）：作品描述（本次规格与 film.json 不同时用运行目录的 film.effective.json）、页面目录与视口、
 // 页面导出的事件表（film.json 没写 events 时）。口径说明见 tools/film/lib/qa.mjs 文件头
 export function qaInputs({ film, runDir, width, height, filmEffective = null, renderer = null }) {
-  const hasPage = film.route !== 'b' && fs.existsSync(path.join(film.pageDir, 'index.html'));
-  const hasOff = film.route !== 'b' && fs.existsSync(path.join(film.dir, 'offscreen.mjs'));
+  const dNoOverlay = film.route === 'd' && film.pathtrace?.overlay !== 'page';
+  const hasPage = film.route !== 'b' && !dNoOverlay && fs.existsSync(path.join(film.pageDir, 'index.html'));
+  const hasOff = film.route !== 'b' && film.route !== 'd' && fs.existsSync(path.join(film.dir, 'offscreen.mjs'));
   const useOff = hasOff && (renderer === 'offscreen' || !hasPage || (renderer === null && film.backend === 'webgpu'));
   const active = hasPage || useOff;
   const ev = path.join(runDir, 'events.json');
+  const texts = !active && film.route === 'd' ? path.join(runDir, 'work', 'texts.json') : null;
+  const hasTexts = Boolean(texts && fs.existsSync(texts));
   const out = {
     filmFile: filmEffective || null,
     pageDir: useOff ? film.dir : (hasPage ? film.pageDir : null),
-    size: active ? [width, height] : null,
-    events: active && !film.events.length && fs.existsSync(ev) ? ev : null,
+    size: active || hasTexts ? [width, height] : null,
+    events: (active || film.route === 'd') && !film.events.length && fs.existsSync(ev) ? ev : null,
   };
   if (useOff) out.offscreen = true;
+  if (hasTexts) out.texts = texts;
   return out;
 }
 

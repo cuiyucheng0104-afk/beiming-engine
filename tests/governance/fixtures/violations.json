@@ -27,7 +27,7 @@
     { "rule": "core.scripts", "title": "脚本指向不存在的文件", "patch": { "package.json": [["scripts.ghost", "node tools/ghost.mjs"]] }, "expect": "tools/ghost.mjs" },
     { "rule": "core.scripts", "title": "脚本串联了不存在的脚本", "patch": { "package.json": [["scripts.all", "npm run new && npm run nope"]] }, "expect": "npm run nope" },
     { "rule": "core.doc-commands", "title": "文档里的新建命令照抄会失败", "append": { "routes/README.md": "\n```sh\nnpm run new -- b 我的片子\n```\n" }, "expect": "我的片子" },
-    { "rule": "core.doc-commands", "title": "文档里的新建命令路线不在注册表", "append": { "routes/README.md": "\n```sh\nnpm run new -- d my-film\n```\n" }, "expect": "不在注册表里" },
+    { "rule": "core.doc-commands", "title": "文档里的新建命令路线不在注册表", "append": { "routes/README.md": "\n```sh\nnpm run new -- z my-film\n```\n" }, "expect": "不在注册表里" },
     { "rule": "core.vendor-immutable", "title": "作品被放进第三方快照", "write": { "cases/vendor/lock.json": "{ \"repositories\": [{ \"name\": \"demo\", \"path\": \"vendor/demo\", \"files\": [{ \"path\": \"README.md\", \"size\": 7 }] }] }\n", "cases/vendor/demo/README.md": "# demo\n", "cases/vendor/demo/films/x/index.html": "<p>x</p>\n" }, "expect": "films/" },
     { "rule": "core.vendor-immutable", "title": "快照里多了锁文件没登记的文件", "write": { "cases/vendor/lock.json": "{ \"repositories\": [{ \"name\": \"demo\", \"path\": \"vendor/demo\", \"files\": [{ \"path\": \"README.md\", \"size\": 7 }] }] }\n", "cases/vendor/demo/README.md": "# demo\n", "cases/vendor/demo/extra.js": "1\n" }, "expect": "没登记" },
     { "rule": "core.waivers", "title": "豁免条目缺属主与原因", "write": { "tools/repo-check/core/waivers.json": "{ \"waivers\": [{ \"rule\": \"core.terms\", \"file\": \"AGENTS.md\" }] }\n" }, "only": "core", "expect": "缺字段" }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "about": "三条路线的唯一注册表。new-film、repo-check、引擎工程待办（work-plan）、作品描述校验器（engine/production/film.js）与出片命令（npm run film）都从这里读路线 id、目录、品牌名、上游项目、渲染器、手册、模版与出片命令；字段说明见 docs/CLI.md「路线注册表」一节，读取与校验在 tools/lib/routes.mjs。",
+  "about": "四条路线的唯一注册表。new-film、repo-check、引擎工程待办（work-plan）、作品描述校验器（engine/production/film.js）与出片命令（npm run film）都从这里读路线 id、目录、品牌名、上游项目、渲染器、手册、模版与出片命令；字段说明见 docs/CLI.md「路线注册表」一节，读取与校验在 tools/lib/routes.mjs。",
   "decisions": "docs/decisions/2026-11-10-industrial-baseline.md",
   "defaultProfile": "web-1080p24",
   "renderers": {
@@ -24,6 +24,13 @@
       "tools": ["engine/offscreen/cli.mjs", "tools/offscreen/compare.mjs", "tools/offscreen/bench.mjs"],
       "runtime": "Node + Dawn（webgpu 0.6.2）与 three.js r187 WebGPURenderer 逐帧渲染，FFmpeg（libx264 或 h264_nvenc）编码",
       "contract": "离屏作品模块 build(ctx) → { render(f), dispose?() }（不经过浏览器；双实现作品放在 offscreen.mjs，与页面预览共用）"
+    },
+    "pathtrace": {
+      "title": "物理路径追踪渲染入口",
+      "entry": "engine/pathtrace/runtime.mjs",
+      "tools": ["engine/pathtrace/runtime.mjs", "engine/pathtrace/bundle.mjs", "tools/film/lib/pathtrace-steps.mjs"],
+      "runtime": "ThreeRT 原生路径追踪运行时（Rust + wgpu + QuickJS，MIT），不进 git，由 BEIMING_PT_BIN 或默认缓存指向",
+      "contract": "作品 scene.ts 经 definePathtraceFilm 纯帧号求值；时间唯一取自 film.json"
     }
   },
   "routes": [
@@ -178,6 +185,53 @@
           "env": { "BEIMING_PY": { "describe": "装了 requirements.txt 的 Python（numpy、scipy、numba、soundfile）", "default": "python3" } },
           "requires": ["python", "ffmpeg", "chrome"],
           "output": "{dir}/out/{name}.mp4" },
+        { "stage": "check", "title": "改完后跑仓库规范检查", "run": ["npm", "run", "check:repo"] }
+      ]
+    },
+    {
+      "id": "d",
+      "slug": "d-pathtrace",
+      "brand": "北冥光追 · 物理路径追踪",
+      "label": "D · 北冥光追 · 物理路径追踪",
+      "summary": "物理路径追踪路线（D13）：基于硬件光追与 Compute BVH 的确定性三维渲染，多次弹射全局光照、面光源软阴影、拉丝金属与体积特效直出成片。",
+      "chooseWhen": "硬表面工业产品、物理金属与镜面光学、建筑空间、体积烟火流体或高能科幻奇观短片。",
+      "aliases": ["d-pathtrace", "pathtrace"],
+      "legacyId": null,
+      "backend": "pathtrace",
+      "backends": ["pathtrace"],
+      "renderer": ["pathtrace"],
+      "upstream": [
+        {
+          "name": "ThreeRT",
+          "repository": "meshy-dev/ThreeRT",
+          "license": "MIT",
+          "pinned": "c946cc9",
+          "distributed": false,
+          "env": "BEIMING_PT_BIN",
+          "role": "原生硬件路径追踪与 Compute BVH 运行时（MIT）",
+          "naming": "技术说明与署名里如实写 ThreeRT；不得用作我方产品名、路线名、目录名或文件名（D04）"
+        }
+      ],
+      "manual": "routes/d-pathtrace/README.md",
+      "template": "routes/d-pathtrace/template",
+      "templateDefaults": {
+        "audio": { "mode": "script", "script": "mix.py" },
+        "aigc": { "contains": false, "note": "模版画面与声音全部由代码程序化生成，没有 AI 生成的图像或声音" },
+        "credits": [
+          { "what": "字体子集 Noto Sans SC（可变字重，片名与三维 HUD）", "owner": "Adobe / Google", "license": "OFL-1.1", "source": "fonts/LICENSE.md" }
+        ]
+      },
+      "next": [
+        { "stage": "look", "title": "先出三张风格关键帧给用户定画风（D08 的 look 闸）",
+          "run": ["npm", "run", "film", "--", "stills", "{dir}"],
+          "requires": ["gpu", "ffmpeg", "python"] },
+        { "stage": "animatic", "title": "出半分辨率低采样动态预演给用户看节奏（D08 的 animatic 闸）",
+          "run": ["npm", "run", "film", "--", "animatic", "{dir}"],
+          "requires": ["gpu", "ffmpeg", "python"] },
+        { "stage": "build", "title": "出片（工作版）：打包场景 → 混音 → 路径追踪 → 封装（−14 LUFS）→ 海报 → 联系表 → 机器 QA",
+          "run": ["npm", "run", "film", "--", "build", "{dir}"],
+          "requires": ["gpu", "ffmpeg", "python"],
+          "output": "{dir}/out/latest" },
         { "stage": "check", "title": "改完后跑仓库规范检查", "run": ["npm", "run", "check:repo"] }
       ]
     }

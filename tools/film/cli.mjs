@@ -14,7 +14,7 @@ import { camel } from './lib/args.mjs';
 import { installSignals, wasSignalled } from './lib/session.mjs';
 
 const EXIT_CODES = {
-  0: '成功', 1: '运行失败', 2: '用法错误', 3: '缺环境（ffmpeg、Python 包、浏览器、RAEA_BIN、软件渲染）',
+  0: '成功', 1: '运行失败', 2: '用法错误', 3: '缺环境（ffmpeg、Python 包、浏览器、RAEA_BIN、BEIMING_PT_BIN、软件渲染）',
   4: '契约 / QA / 闸门不通过', 5: '作品正被另一次运行占用', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理',
 };
 
@@ -37,9 +37,9 @@ const ALIASES = { approve: ['review', 'approve'] };
 
 const TOP_DESCRIPTION = [
   '做一部片的顺序（三道闸 look → animatic → final，决定 D08；每道闸都要用户看过、按原话记录，agent 不得自己批准）：',
-  '  new <a|b|c> <名字> [--title 标题]       新建作品（转调 tools/new-film.mjs）',
-  '  check <作品目录>                         只读检查：作品描述（P05）、页面契约 / 原生预检、档位与镜头表',
-  '  plan <作品目录>                          开渲前估算整片耗时与磁盘（A / C，转调 video.mjs --plan；只读）',
+  '  new <a|b|c|d> <名字> [--title 标题]     新建作品（转调 tools/new-film.mjs）',
+  '  check <作品目录>                         只读检查：作品描述（P05）、页面契约 / 离屏 / 原生或光追预检、档位与镜头表',
+  '  plan <作品目录>                          开渲前估算整片耗时与磁盘（A / C / D；只读）',
   '  stills <作品目录>                        风格关键帧 + 联系表                  → review approve look',
   '  animatic <作品目录>                      低清动态预演 + 联系表 + 播放页        → review approve animatic',
   '  build <作品目录> [--final]               整条出片链 → out/<run-id>/           → review approve final（之后才能称「已交付」）',

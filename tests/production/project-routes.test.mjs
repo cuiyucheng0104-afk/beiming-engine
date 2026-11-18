@@ -14,16 +14,18 @@ const codes = r => r.diagnostics.map(d => d.code);
 const spec = over => Object.assign(template('project-beiming.json'), over);
 
 test('路线：注册表 id 是规范值，旧值与目录名都是别名；未知路线列出合法取值', () => {
-  assert.deepEqual(ROUTES, ['a', 'b', 'c']);
+  assert.deepEqual(ROUTES, ['a', 'b', 'c', 'd']);
   assert.deepEqual(LEGACY_ROUTES, { beiming: 'a', raea: 'b' });
   for (const route of ['a', 'beiming', 'a-webgl', 'A']) assert.deepEqual(validateProjectSpec(spec({ route })).diagnostics, [], route);
-  const bad = validateProjectSpec(spec({ route: 'd' }));
+  const bad = validateProjectSpec(spec({ route: 'z' }));
   assert.deepEqual(codes(bad), ['route-invalid']);
-  assert.match(bad.diagnostics[0].message, /a \/ b \/ c/);
+  assert.match(bad.diagnostics[0].message, /a \/ b \/ c \/ d/);
   assert.match(bad.diagnostics[0].message, /beiming（= a）/);
   assert.deepEqual(canonicalRoute({ route: 'raea', backend: 'raea' }), { routeId: 'b', backend: 'native', routeAlias: true });
   assert.equal(resolveRoute('C-Style').id, 'c');
-  // 治理骨架的注册表 routes/routes.json 已入库：以它为准；内置三条只是注册表文件缺失时的退路
+  assert.equal(resolveRoute('d-pathtrace').id, 'd');
+  assert.equal(resolveRoute('pathtrace').id, 'd');
+  // 治理骨架的注册表 routes/routes.json 已入库：以它为准；内置四条只是注册表文件缺失时的退路
   assert.equal(loadRouteRegistry().source, existsSync(join(REPO, 'routes', 'routes.json')) ? 'routes/routes.json' : 'builtin');
 });
 
@@ -68,12 +70,18 @@ test('自定义注册表：options.registry 覆盖内置三条', () => {
   assert.deepEqual(codes(validateProjectSpec(spec({ route: 'c', backend: 'canvas', style: { id: 's', version: 'v1', baseline: null } }), { registry: reg })), ['route-invalid', 'backend-invalid']);
 });
 
-test('film.json v2 ⇄ ProjectSpec：三条路线都能互相映射，映射结果自检通过', () => {
-  const runtimes = { a: { three: '0.170.0', sourceCommit: 'abc1234' }, b: { package: '0.1.4', sourceSnapshot: 'abc1234' }, c: { sourceCommit: 'abc1234' } };
+test('film.json v2 ⇄ ProjectSpec：四条路线都能互相映射，映射结果自检通过', () => {
+  const runtimes = {
+    a: { three: '0.170.0', sourceCommit: 'abc1234' },
+    b: { package: '0.1.4', sourceSnapshot: 'abc1234' },
+    c: { sourceCommit: 'abc1234' },
+    d: { pathtrace: '0.1.1-beiming.1', sourceCommit: 'abc1234' },
+  };
   const films = {
     a: minimalFilm({ route: 'a', backend: 'three', style: { id: 'beiming-original', version: 1, baseline: '../../media/shot_7.6.jpg' } }),
     b: minimalFilm({ route: 'b', backend: 'native', audio: { mode: 'native' }, entry: 'film.tsx' }),
     c: minimalFilm(),
+    d: minimalFilm({ route: 'd', backend: 'pathtrace', entry: 'scene.ts', pathtrace: { preset: 'cinematic', spp: 24, animaticSpp: 4, denoise: 'auto', seed: 42, shotSpp: { S2: 48 }, overlay: 'none' } }),
   };
   for (const [id, f] of Object.entries(films)) {
     const film = validateFilm(f, { checkFiles: false }).film;

@@ -1,14 +1,14 @@
 # 引擎工程待办与多代理分工
 
-> 读者：分派与领取引擎、工具工程任务的人｜状态：任务卡由 work-plan.json 生成，状态以 JSON 为准｜依据：[决定书](../decisions/2026-11-10-industrial-baseline.md) D06
+> 读者：分派与领取引擎、工具工程任务的人｜状态：任务卡由 work-plan.json 生成，状态以 JSON 为准｜依据：[决定书](../decisions/2026-11-10-industrial-baseline.md) D06、D13
 
-做作品不看这一页：新片按[三路线总指引](../../routes/README.md)选路线，用 `npm run new` 建作品，作品的进度由 `film.json` 与 `films/<名>/review/` 记录（D06）。这一页只管引擎与工具的工程任务：T 编号是早先拆出的工程任务，H 编号是工业级加固的 19 个工作包（H00–H17 对应 P00–P17，H18 对应 PZ）。机器可读的状态在 [work-plan.json](work-plan.json)，下面的依赖图与任务卡都由它生成。
+做作品不看这一页：新片按[四条路线总指引](../../routes/README.md)选路线，用 `npm run new` 建作品，作品的进度由 `film.json` 与 `films/<名>/review/` 记录（D06）。这一页只管引擎与工具的工程任务：T 编号是早先拆出的工程任务，H 编号是工业级加固的 19 个工作包（H00–H17 对应 P00–P17，H18 对应 PZ）。机器可读的状态在 [work-plan.json](work-plan.json)，下面的依赖图与任务卡都由它生成。
 
 ## 怎样领取工作
 
 ```sh
 npm run plan:check                           # 结构、依赖、认领与过期、证据与指引路径、写入范围冲突
-npm run plan:next -- --route a               # 依赖已满足、可以领取的任务（a / b / c / shared）
+npm run plan:next -- --route a               # 依赖已满足、可以领取的任务（a / b / c / d / shared）
 node tools/work-plan.mjs --verify-diff H02   # 改动是否都落在该任务的写入范围里（基线默认取认领记录）
 node tools/work-plan.mjs --check --strict --json
 ```
@@ -102,6 +102,7 @@ flowchart LR
   T18 --> T20
   T19 --> T20
   T23 --> T24
+  T25 --> T26
   H00 --> H18
   H01 --> H18
   H02 --> H18
@@ -390,6 +391,30 @@ flowchart LR
 - 验收：工作站上 npm run b:rt -- status 报出版本 0.5.1 与可执行文件 sha256；工作站上 npm run b:rt -- render 出齐四层与 meta.json，readLayers 核对通过；rt.lock.json 的 windows-x64 binarySha256 补齐，测试同步。
 - 证据：`engine/native/rt.lock.json`；`node engine/native/rt.mjs status`（2026-11-12 Windows 11 + RTX 5090（Vulkan，驱动 621.01）：版本 0.5.1，可执行文件 sha256 与锁一致（verified: true））；`node engine/native/rt.mjs render <场景.json> --out <目录> --at 0 --json`（同一台工作站：exit 0，四层与 meta.json 齐全，20 个物体编号；颜色层 sha256 与此前手工调用的同种子渲染相同。运行的是 git archive 导出的 engine/native 与 tools/lib（不是完整检出）。第一次真机跑出 seed=null 的问题，已修并补回归测试）。
 - 详细指引：[README.md](../../routes/b-native/README.md)。
+
+### T25 · 物理路径追踪运行时锁、确定性场景底座与三维晶圆 HUD
+
+- 路线：`d`；角色：光追路线集成负责人；状态：`done`。
+- 认领：集成负责人（多代理会话）；会话 `feat/route-d-pathtrace`；基线 `0e3ac4a`；2026-11-18 起，2026-12-02 到期。
+- 依赖：无。
+- 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D04、D09、D10、D13；上游路径追踪运行时 ThreeRT（meshy-dev/ThreeRT，MIT）外部缓存与预设。
+- 写入范围：`engine/pathtrace/`、`tests/pathtrace/`。
+- 交付：运行时版本锁 engine/pathtrace/runtime.lock.json 与解析命令 runtime.mjs；esbuild 场景打包与探测 bundle.mjs；纯 ESM 场景底座 index.js、camera.js、hud.js（配套 .d.ts，Node 22+ 兼容）。
+- 验收：node --test tests/pathtrace/runtime.test.mjs 全过（无需 --experimental-strip-types，兼容 Node 22+）；node engine/pathtrace/runtime.mjs status 在装有锁定运行时的机器上核对 binarySha256 通过并退出 0；createWaferHudMaterial 注入 o.base = 0 与 o.specular = 0，placeInCameraFrustum 锁定近裁面铭牌厚度 z <= 0.0015。
+- 证据：`engine/pathtrace/runtime.lock.json`；`engine/pathtrace/index.js`；`node --test tests/pathtrace/runtime.test.mjs`（2026-11-18 Linux x64：运行时解析、锁校验、打包探测与纯 ESM 场景底座单测全过）；`npm run env:doctor -- --route d`（2026-11-18 Linux x64 + RTX 4070 Laptop GPU（HWRT）：光追运行时 0.1.1-beiming.1 sha256 核对通过，exit 0）。
+- 详细指引：[pathtrace.md](pathtrace.md)。
+
+### T26 · D 路线注册、无浏览器直通出片链、起步模版与三维文字真值对比度 QA
+
+- 路线：`d`；角色：光追路线集成负责人；状态：`done`。
+- 认领：集成负责人（多代理会话）；会话 `feat/route-d-pathtrace`；基线 `0e3ac4a`；2026-11-18 起，2026-12-02 到期。
+- 依赖：T25。
+- 输入：决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D04、D07、D08、D10、D13；T25 的光追引擎底座与统一出片编排 tools/film/。
+- 写入范围：`routes/d-pathtrace/`、`routes/routes.json`、`tools/film/lib/pathtrace-steps.mjs`、`tools/repo-check/rules/route-d/`、`docs/routes/pathtrace.md`、`tests/ci/smoke-render.mjs`。
+- 交付：D 路线注册与 film.json v2 pathtrace 段；直通出片步骤 pathtrace-steps.mjs 与单帧哈希缓存；D 路线手册与 3 秒两镜头模版；state.hideTexts 三维文字对比度 QA；route-d 护栏与 CI d-render 阶段。
+- 验收：npm run check:repo -- --only route-d,core 与 npm run comp:rights 全过；node --test tests/film/pathtrace-pipeline.test.mjs 全过；RTX 4070 上新建模版跑 stills -> animatic -> build 两次 --no-cache 产物逐字节一致，QA 硬门全过；node tests/ci/smoke-render.mjs --only d-render --golden off 在有运行时与 GPU 时出片通过，无运行时时干净跳过并退出 0。
+- 证据：`routes/d-pathtrace/README.md`；`tools/repo-check/rules/route-d/runtime-and-template.mjs`；`node tools/run-tests.mjs --only pathtrace,offscreen,film,cli,production,env,governance,qa`（2026-11-18 Linux x64：8 组测试全部通过）；`npm run new -- d pt-e2e-smoke --title 光追端到端验证 && npm run film -- build films/pt-e2e-smoke`（2026-11-18 Linux x64 + RTX 4070 Laptop GPU：72 帧 1920x1080@24 直通封装 master.mp4，两次 --no-cache 冷渲 SHA-256 逐字节一致，QA 实测 texts.contrast 16.73:1，exit 0）。
+- 详细指引：[README.md](../../routes/d-pathtrace/README.md)。
 
 ### H00 · P00 决策与冻结点
 

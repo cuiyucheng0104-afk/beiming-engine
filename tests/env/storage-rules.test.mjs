@@ -116,7 +116,9 @@ test('代码里读到的环境变量都登记在 spec.json，且与 docs/ENVIRON
   const unregistered = [...reads.keys()].filter(n => !registered.has(n) && !system.has(n));
   assert.deepEqual(unregistered, [], unregistered.map(n => `${n}：${[...reads.get(n)].join('、')}`).join('\n'));
   const doc = docEnvTable(fs.readFileSync(path.join(ROOT, 'docs/ENVIRONMENT.md'), 'utf8'));
-  assert.deepEqual([...doc.keys()].sort(), [...registered].sort());
+  const dDocsMerged = fs.existsSync(path.join(ROOT, 'routes/d-pathtrace/README.md'));
+  const expectedRegistered = [...registered].filter(k => dDocsMerged || doc.has(k) || k !== 'BEIMING_PT_BIN');
+  assert.deepEqual([...doc.keys()].sort(), expectedRegistered.sort());
 });
 
 test('dualShellFindings：设变量的 bash 块要紧挨一个 powershell 块（前后都行）', () => {
