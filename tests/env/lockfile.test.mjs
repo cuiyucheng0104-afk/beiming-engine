@@ -18,8 +18,8 @@ const PROBES = {
 
 test('仓库的 requirements.txt 只引用 requirements.in，不是 pin 清单（锁文件才是 requirements.lock）', () => {
   const text = fs.readFileSync(path.join(ROOT, 'requirements.txt'), 'utf8');
-  assert.match(text, /^-r\s+requirements\.in\s*$/m);
-  assert.doesNotMatch(text, /^[A-Za-z0-9._-]+==/m);
+  const specs = text.split(/\r?\n/).map(l => l.replace(/#.*$/, '').trim()).filter(Boolean);
+  assert.deepEqual(specs, ['-r requirements.in']);
 });
 
 test('仓库的 requirements.lock：文件头完整、每个包都固定版本并带哈希、输入哈希与 requirements.in 一致', () => {
