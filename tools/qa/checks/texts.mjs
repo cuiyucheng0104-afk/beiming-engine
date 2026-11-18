@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { makeCheck, finding, settle, notRun } from '../lib/checks.mjs';
 import { openPage, sampleFrames, fontInventory, screenshotSet } from '../lib/page.mjs';
+import { openOffscreen, sampleFramesOffscreen, fontInventoryOffscreen, screenshotSetOffscreen } from '../lib/offscreen.mjs';
 import { parseFont, parseUnicodeRange, inRanges } from '../lib/font.mjs';
 import { decodePng } from '../lib/png.mjs';
 import { fpsOf, REPO_ROOT } from '../lib/profiles.mjs';
@@ -148,18 +149,20 @@ export function cjkBreaks(text) {
   return String(text).split('\n').flatMap(line => lintLine(line).map(v => ({ line, kind: v.kind, ch: v.ch })));
 }
 
-export async function runTexts({ pageDir, profile, film = null, step = 1, readyTimeoutMs = 120000, contrast = true, timeoutMs = 600000, root = REPO_ROOT, size = null }) {
+export async function runTexts({ pageDir, profile, film = null, step = 1, readyTimeoutMs = 120000, contrast = true, timeoutMs = 600000, root = REPO_ROOT, size = null, offscreen = false }) {
   const T = profile.texts;
   const fps = (film?.fps || fpsOf(profile)).value;
   const [W, H] = size || [film?.width || profile.width, film?.height || profile.height];
   const warnings = [];
   const ids = ['texts.contract', 'texts.inframe', 'texts.safe-area', 'texts.duration', 'texts.contrast', 'texts.glyphs', 'texts.cjk-break'];
   const C = Object.fromEntries(ids.map(id => [id, makeCheck(id)]));
-  const h = await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs });
+  const h = offscreen
+    ? await openOffscreen({ root, pageDir, width: W, height: H, fps, film })
+    : await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs });
   try {
     const frameCount = film?.frameCount ?? Math.round(h.info.dur * fps);
     const contract = C['texts.contract'];
-    contract.value = `${h.info.hasTexts ? '有' : '没有'} window.TEXTS；DUR ${h.info.dur} 秒；GPU ${h.info.gpu || '未知'}`;
+    contract.value = `${h.info.hasTexts ? '有' : '没有'} ${offscreen ? 'work.texts' : 'window.TEXTS'}；DUR ${h.info.dur} 秒；GPU ${h.info.gpu || '未知'}`;
     contract.evidence = { dur: h.info.dur, frames: frameCount, viewport: h.info.viewport, gpu: h.info.gpu, step };
     if (Math.round(h.info.dur * fps) !== frameCount) finding(contract, { key: 'dur', message: `round(DUR×fps) = ${Math.round(h.info.dur * fps)}，与作品描述的 frameCount ${frameCount} 不一致（附录 C5）` });
     if (!h.info.hasTexts) finding(contract, { key: 'no-texts', message: '页面没有 window.TEXTS(t)：改用画字探针与 DOM 文字推导（停留时长只作软项）', hint: '按附录 C5 实现 TEXTS(t)，返回 [{ text, box:[x,y,w,h], alpha, font }]' });
@@ -168,7 +171,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
     const frames = [];
     for (let f = 0; f < frameCount; f += step) frames.push(f);
     if (frames[frames.length - 1] !== frameCount - 1) frames.push(frameCount - 1);
-    const samples = await sampleFrames(h, frames, { fps, dom: true, timeoutMs });
+    const samples = offscreen ? await sampleFramesOffscreen(h, frames, { fps }) : await sampleFrames(h, frames, { fps, dom: true, timeoutMs });
     if (h.externalRequests.length) finding(contract, { key: 'external', message: `页面请求了外网资源（已拦截）：${[...new Set(h.externalRequests)].slice(0, 3).join('、')}`, hint: '素材、字体、库全部放进仓库或作品目录（附录 C5 禁止访问外网）' });
     const badItems = new Set(), textsErrors = new Set();
 
@@ -292,7 +295,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
     // ── 缺字（cmap）──
     const gl = C['texts.glyphs'];
     gl.expected = '每个字都落在声明的网页字体里，没有回退到系统字体';
-    const inv = await fontInventory(h);
+    const inv = offscreen ? await fontInventoryOffscreen(h) : await fontInventory(h);
     for (const e of inv.errors) warnings.push(e);
     const faces = [];
     const seenFace = new Set();
@@ -391,7 +394,7 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
       for (const tr of tracks.values()) { const f = pickFrame(tr); if (f === null) continue; if (!byFrame.has(f)) byFrame.set(f, []); byFrame.get(f).push(tr); }
       const rows = [];
       for (const [f, list] of [...byFrame.entries()].sort((a, b) => a[0] - b[0])) {
-        const shots = await screenshotSet(h, f, fps);
+        const shots = offscreen ? await screenshotSetOffscreen(h, f, fps) : await screenshotSet(h, f, fps);
         const A = decodePng(shots.on), Bt = decodePng(shots.text);
         let Bl = null;
         for (const tr of list) {

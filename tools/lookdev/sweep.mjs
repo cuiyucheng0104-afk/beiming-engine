@@ -97,6 +97,7 @@ export const command = defineCommand({
     look: { type: 'list', arg: '<路径>=<值,…>', describe: '后期参数，可写多次；例：--look kuwahara.radius=2,3,4' },
     q: { type: 'list', arg: '<键>=<值,…>', describe: '页面查询参数，可写多次；例：--q kr=3,5,7' },
     size: { type: 'string', arg: '<宽x高>', describe: '渲染尺寸，默认 960x540；要和作品画幅比一致' },
+    renderer: { type: 'string', arg: '<page|offscreen>', choices: ['page', 'offscreen'], describe: '渲染器（默认 page；纯 webgpu 作品自动选 offscreen，免启动浏览器）' },
     query: { type: 'string', arg: '<k=v&…>', describe: '每格都带的固定查询参数，例如 notext=1' },
     thumb: { type: 'integer', arg: '<像素>', describe: '网格里每格的宽度，默认 480' },
     name: { type: 'string', arg: '<名字>', describe: '产物子目录名（默认按参数自动生成）' },
@@ -108,7 +109,14 @@ export const command = defineCommand({
     const opts = ctx.opts, out = (file, kind) => outputs.push({ path: rel(file), sha256: sha256(fs.readFileSync(file)), kind }), log = m => ctx.log.info(m);
     const outputs = [];
     const dir = path.resolve(ctx.args.film);
-    if (!fs.existsSync(path.join(dir, 'index.html'))) throw new CliError('usage.not-a-film', `${rel(dir)} 下没有 index.html`, '给作品目录（films/<名>）或仓库根（. ，配合 --q test=<自测页>）');
+    const hasIndex = fs.existsSync(path.join(dir, 'index.html'));
+    const hasOffscreen = fs.existsSync(path.join(dir, 'offscreen.mjs'));
+    let filmJson;
+    try { filmJson = JSON.parse(fs.readFileSync(path.join(dir, 'film.json'), 'utf8')); } catch { filmJson = null; }
+    if (!hasIndex && !hasOffscreen) throw new CliError('usage.not-a-film', `${rel(dir)} 下没有 index.html（也没有 offscreen.mjs）`, '给作品目录（films/<名>）或仓库根（. ，配合 --q test=<自测页>）');
+    if (opts.renderer === 'page' && !hasIndex) throw new CliError('usage.not-a-film', `${rel(dir)} 下没有 index.html`, '去掉 --renderer page 或改用 --renderer offscreen');
+    if (opts.renderer === 'offscreen' && !hasOffscreen) throw new CliError('usage.not-a-film', `${rel(dir)} 下没有 offscreen.mjs`, '去掉 --renderer offscreen 或补齐 offscreen.mjs');
+    const useOffscreen = opts.renderer === 'offscreen' || (!opts.renderer && hasOffscreen && (!hasIndex || filmJson?.backend === 'webgpu'));
     const times = opts.t.map(Number);
     if (!times.length || times.some(t => !Number.isFinite(t) || t < 0)) throw new CliError('usage.bad-times', `--t 要给非负的秒数，收到 ${opts.t.join(',') || '（空）'}`, '例：--t 1.5,6.5');
     if (times.length > MAX_TIMES) throw new CliError('usage.too-many-times', `--t 最多 ${MAX_TIMES} 个时刻，收到 ${times.length} 个`, '分几次扫');
@@ -133,45 +141,93 @@ export const command = defineCommand({
     fs.mkdirSync(outDir, { recursive: true });
     for (const f of fs.readdirSync(outDir)) if (/^cell-\d+-t[\d.]+\.png$/.test(f)) fs.rmSync(path.join(outDir, f));   // 只清本工具的旧产物
 
-    const { openFilm, closeServer } = await import('../../engine/render/page.mjs');
-    let film = null;
     const cells = new Array(combos.length);
-    const undo = ctx.onCleanup(async () => { if (film) await film.close().catch(() => {}); await closeServer(); });
-    try {
-      // 按「查询参数」分组：同一组只开一次页面，组内换 window.__LOOKDEV
-      const groups = new Map();
-      combos.forEach((c, i) => {
-        const qs = c.filter(a => a.kind === 'q').map(a => `${encodeURIComponent(a.key)}=${encodeURIComponent(a.v)}`);
-        const query = [opts.query, ...qs].filter(Boolean).join('&');
-        if (!groups.has(query)) groups.set(query, []);
-        groups.get(query).push(i);
+    const groups = new Map();
+    combos.forEach((c, i) => {
+      const qs = c.filter(a => a.kind === 'q').map(a => `${encodeURIComponent(a.key)}=${encodeURIComponent(a.v)}`);
+      const query = [opts.query, ...qs].filter(Boolean).join('&');
+      if (!groups.has(query)) groups.set(query, []);
+      groups.get(query).push(i);
+    });
+
+    if (useOffscreen) {
+      const { loadGpu } = await import('../../engine/offscreen/load.mjs');
+      const { createHost } = await import('../../engine/offscreen/host.mjs');
+      const { encodePng } = await import('../plates/png.mjs');
+      const fps = filmJson?.output?.fps ?? filmJson?.fps ?? 24;
+      const entry = path.join(dir, 'offscreen.mjs');
+      const gpu = await loadGpu();
+      let ownerHost = null, curHost = null;
+      const undo = ctx.onCleanup(() => {
+        globalThis.__LOOKDEV = null;
+        if (curHost) { try { curHost.dispose(); } catch { /* 忽略 */ } curHost = null; }
+        if (ownerHost) { try { ownerHost.dispose(); } catch { /* 忽略 */ } ownerHost = null; }
       });
-      for (const [query, idxs] of groups) {
-        film = await openFilm(dir, { w, h, query, handleSignals: false });
-        for (const i of idxs) {
-          const lookdev = {};
-          for (const a of combos[i]) if (a.kind === 'look') setPath(lookdev, a.key, a.v);
-          await film.page.evaluate(ld => { window.__LOOKDEV = Object.keys(ld).length ? ld : null; }, lookdev);
-          const shots = [];
-          for (const t of times) {
-            await withTimeout(Promise.race([film.page.evaluate(async t => { await window.render(t); }, t), film.failed]), frameMs, `第 ${i + 1} 格 t=${t} 超过 ${frameMs / 1000} 秒没画完`);
-            film.check();
-            const file = path.join(outDir, `cell-${String(i).padStart(3, '0')}-t${t}.png`);
-            const buf = await film.page.screenshot({ type: 'png' });
-            fs.writeFileSync(file, buf);
-            shots.push({ t, file: path.basename(file), sha256: sha256(buf) });
-            out(file, 'lookdev-cell');
+      try {
+        ownerHost = await createHost({ gpu, width: 16, height: 16, fps });
+        for (const [query, idxs] of groups) {
+          curHost = await createHost({ gpu, width: w, height: h, fps, device: ownerHost.device, query });
+          const work = await curHost.load(entry);
+          for (const i of idxs) {
+            const lookdev = {};
+            for (const a of combos[i]) if (a.kind === 'look') setPath(lookdev, a.key, a.v);
+            globalThis.__LOOKDEV = Object.keys(lookdev).length ? lookdev : null;
+            const shots = [];
+            for (const t of times) {
+              const f = Math.max(0, Math.round(t * fps));
+              const px = await withTimeout(curHost.renderFrame(work, f), frameMs, `第 ${i + 1} 格 t=${t} 超过 ${frameMs / 1000} 秒没画完`);
+              const opaque = Uint8Array.from(px);
+              for (let k = 3; k < opaque.length; k += 4) opaque[k] = 255;
+              const file = path.join(outDir, `cell-${String(i).padStart(3, '0')}-t${t}.png`);
+              const buf = encodePng({ width: w, height: h, data: opaque, channels: 4 });
+              fs.writeFileSync(file, buf);
+              shots.push({ t, file: path.basename(file), sha256: sha256(buf) });
+              out(file, 'lookdev-cell');
+            }
+            cells[i] = { index: i, params: Object.fromEntries(combos[i].map(a => [`${a.kind}:${a.key}`, a.v])), lookdev, query, shots };
+            log(`格 ${i + 1}/${combos.length}  ${combos[i].map(a => `${a.key}=${JSON.stringify(a.v)}`).join('  ')}`);
           }
-          cells[i] = { index: i, params: Object.fromEntries(combos[i].map(a => [`${a.kind}:${a.key}`, a.v])), lookdev, query, shots };
-          log(`格 ${i + 1}/${combos.length}  ${combos[i].map(a => `${a.key}=${JSON.stringify(a.v)}`).join('  ')}`);
+          curHost.dispose();
+          curHost = null;
         }
-        await film.close(); film = null;
+      } finally {
+        globalThis.__LOOKDEV = null;
+        if (curHost) { try { curHost.dispose(); } catch { /* 忽略 */ } curHost = null; }
+        if (ownerHost) { try { ownerHost.dispose(); } catch { /* 忽略 */ } ownerHost = null; }
+        undo();
       }
-    } finally {
-      if (film) await film.close().catch(() => {});
-      film = null;
-      await closeServer();
-      undo();
+    } else {
+      const { openFilm, closeServer } = await import('../../engine/render/page.mjs');
+      let film = null;
+      const undo = ctx.onCleanup(async () => { if (film) await film.close().catch(() => {}); await closeServer(); });
+      try {
+        for (const [query, idxs] of groups) {
+          film = await openFilm(dir, { w, h, query, handleSignals: false });
+          for (const i of idxs) {
+            const lookdev = {};
+            for (const a of combos[i]) if (a.kind === 'look') setPath(lookdev, a.key, a.v);
+            await film.page.evaluate(ld => { window.__LOOKDEV = Object.keys(ld).length ? ld : null; }, lookdev);
+            const shots = [];
+            for (const t of times) {
+              await withTimeout(Promise.race([film.page.evaluate(async t => { await window.render(t); }, t), film.failed]), frameMs, `第 ${i + 1} 格 t=${t} 超过 ${frameMs / 1000} 秒没画完`);
+              film.check();
+              const file = path.join(outDir, `cell-${String(i).padStart(3, '0')}-t${t}.png`);
+              const buf = await film.page.screenshot({ type: 'png' });
+              fs.writeFileSync(file, buf);
+              shots.push({ t, file: path.basename(file), sha256: sha256(buf) });
+              out(file, 'lookdev-cell');
+            }
+            cells[i] = { index: i, params: Object.fromEntries(combos[i].map(a => [`${a.kind}:${a.key}`, a.v])), lookdev, query, shots };
+            log(`格 ${i + 1}/${combos.length}  ${combos[i].map(a => `${a.key}=${JSON.stringify(a.v)}`).join('  ')}`);
+          }
+          await film.close(); film = null;
+        }
+      } finally {
+        if (film) await film.close().catch(() => {});
+        film = null;
+        await closeServer();
+        undo();
+      }
     }
 
     // 网格：行 = 格子，列 = 时刻

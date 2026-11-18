@@ -104,7 +104,7 @@
 
 | npm 脚本 | 指向 | 属主 | 状态 |
 |---|---|---|---|
-| `new` | `tools/new-film.mjs` | 治理骨架 | 已接入 |
+| `new` | `tools/new-film.mjs` | 治理骨架 | 已接入（支持 `--backend webgpu` 生成 A/C 同源离屏作品，D12） |
 | `check:repo` | `tools/repo-check.mjs` | 治理骨架 | 已接入 |
 | `plan:check`、`plan:next` | `tools/work-plan.mjs --check`、`--ready` | 治理骨架 | 已接入；旧名 `routes:check`、`routes:next` 已接入，保留一个版本，调用时提示改名 |
 | `setup` | `tools/env/setup.mjs` | 环境 | 已接入 |
@@ -114,7 +114,7 @@
 | `env:gpu` | `tools/rtx/gpucheck.mjs` | 渲染器 | 已接入 |
 | `serve`、`site:serve` | `engine/render/serve.mjs`（`site:serve` 加 `--root out/site --port 8090`） | 渲染器 | 已接入；只监听 127.0.0.1 |
 | `stills`、`video`、`video:4k` | `engine/render/still.mjs`、`video.mjs`（《北冥》样片） | 渲染器 | 已接入 |
-| `offscreen`、`offscreen:compare`、`offscreen:bench` | `engine/offscreen/cli.mjs`、`tools/offscreen/compare.mjs`、`bench.mjs` | 离屏出片 | 已接入：单模块渲染、对拍与并发基准；双实现作品可用 `npm run film -- build\|animatic <作品> --renderer offscreen [--encoder nvenc]` 走正式出片链，详见 [离屏出片](offscreen/README.md) |
+| `offscreen`、`offscreen:compare`、`offscreen:bench` | `engine/offscreen/cli.mjs`、`tools/offscreen/compare.mjs`、`bench.mjs` | 离屏出片 | 已接入：`render` 视频（含 `--pix-fmt yuv420p` GPU 侧打包）、`stills` 无损静帧、`probe` 契约与事件探测、`batch` 单卡异构并发调度、对拍与并发基准；`npm run film -- check\|stills\|render\|animatic\|build <作品> [--renderer offscreen] [--encoder nvenc]`（`backend=webgpu` 默认走离屏），详见 [离屏出片](offscreen/README.md) |
 | `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：三条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / render / review / status / qa / plan） |
 | `beiming:build`、`build` | `tools/film/beiming.mjs` | 出片编排 | 已接入；《北冥》样片一键重建，`build` 是旧名，`sh build.sh` 是兼容壳 |
 | `c:events`、`c:build` | `engine/render/events.mjs`、`build.mjs` | 出片编排 | 已接入（旧入口；新作品用 `npm run film -- build`） |

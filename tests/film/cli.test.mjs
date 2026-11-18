@@ -170,6 +170,37 @@ test('film plan：B 路线没有估算接口，用法错误（退出码 2）并�
   assert.deepEqual(fs.readdirSync(w.dir).sort(), before);
 });
 
+test('D12 backend=webgpu：check 通过；build 默认走 offscreen（无需显式 --renderer 即可接 --encoder nvenc，--renderer page 仍拒绝 nvenc）', () => {
+  const w = makeWork('c');
+  works.push(w);
+  const fj = path.join(w.dir, 'film.json');
+  const raw = JSON.parse(fs.readFileSync(fj, 'utf8'));
+  raw.backend = 'webgpu';
+  fs.writeFileSync(fj, `${JSON.stringify(raw, null, 2)}\n`);
+
+  // 1) --renderer page --encoder nvenc 仍按页面渲染器拒绝
+  const pageNvenc = runCli(['build', w.rel, '--renderer', 'page', '--encoder', 'nvenc', '--json']);
+  assert.equal(pageNvenc.code, 2);
+  assert.equal(pageNvenc.json?.error?.code, 'usage.bad-usage');
+
+  // 2) 不写 --renderer 时默认走 offscreen：build / stills / render 都在开运行目录前直接检查 offscreen.mjs
+  for (const args of [
+    ['build', w.rel, '--encoder', 'nvenc'],
+    ['stills', w.rel],
+    ['render', w.rel, '--frames', '0:2'],
+  ]) {
+    const autoOff = runCli([...args, '--json']);
+    assert.equal(autoOff.code, 2, args.join(' '));
+    assert.equal(autoOff.json?.error?.code, 'usage.no-offscreen-entry', `${args.join(' ')}: ${autoOff.stderr}`);
+  }
+  assert.ok(!fs.existsSync(path.join(w.dir, 'out')), '用法错误不建运行目录');
+
+  // 3) backend=webgpu 缺 offscreen.mjs 时 film check 报契约不过（退出码 4），写好最小 offscreen.mjs 且无 index.html 的纯离屏作品也能过 spec 校验
+  const chkMissing = runCli(['check', w.rel, '--json']);
+  assert.equal(chkMissing.code, 4, chkMissing.stderr);
+  assert.ok(chkMissing.json?.data?.checks?.some(c => c.id === 'offscreen' && c.status === 'fail'));
+});
+
 test('仓库卫生：上面这些命令跑完，除了测试作品自己，工作区没有多出任何改动', () => {
   const st = gitStatus(works.map(w => w.rel));
   if (st === null) return;   // 不是 git 检出

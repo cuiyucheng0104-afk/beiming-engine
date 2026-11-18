@@ -17,6 +17,13 @@
       "tools": ["engine/native/prepare.mjs", "engine/render/native.mjs"],
       "runtime": "RAEA 原生运行时 0.1.4（Rust + Bevy），不随仓库分发，用环境变量 RAEA_BIN 指向可执行文件",
       "contract": "作品 film.tsx 只读 useCurrentFrame()；素材由 prepare 放进作品的 media/"
+    },
+    "offscreen": {
+      "title": "离屏渲染器",
+      "entry": "engine/offscreen/cli.mjs",
+      "tools": ["engine/offscreen/cli.mjs", "tools/offscreen/compare.mjs", "tools/offscreen/bench.mjs"],
+      "runtime": "Node + Dawn（webgpu 0.6.2）与 three.js r187 WebGPURenderer 逐帧渲染，FFmpeg（libx264 或 h264_nvenc）编码",
+      "contract": "离屏作品模块 build(ctx) → { render(f), dispose?() }（不经过浏览器；双实现作品放在 offscreen.mjs，与页面预览共用）"
     }
   },
   "routes": [
@@ -30,8 +37,8 @@
       "aliases": ["a-webgl", "beiming"],
       "legacyId": "beiming",
       "backend": "three",
-      "backends": ["three"],
-      "renderer": ["page"],
+      "backends": ["three", "webgpu"],
+      "renderer": ["page", "offscreen"],
       "upstream": [],
       "manual": "routes/a-webgl/README.md",
       "template": "routes/a-webgl/template",
@@ -133,8 +140,8 @@
       "aliases": ["c-style"],
       "legacyId": null,
       "backend": "canvas",
-      "backends": ["canvas", "svg", "dom", "three", "webgl"],
-      "renderer": ["page"],
+      "backends": ["canvas", "svg", "dom", "three", "webgl", "webgpu"],
+      "renderer": ["page", "offscreen"],
       "upstream": [
         {
           "name": "sy-style-100",

@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { makeCheck, finding, settle, notRun } from '../lib/checks.mjs';
 import { openPage, samplePlates } from '../lib/page.mjs';
+import { openOffscreen, samplePlatesOffscreen } from '../lib/offscreen.mjs';
 import { analyzePlate } from '../lib/plate-edges.mjs';
 import { fpsOf, REPO_ROOT } from '../lib/profiles.mjs';
 
@@ -88,7 +89,7 @@ function resolveSrc(src, origin, root) {
   } catch { return null; }
 }
 
-export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, film = null, step = 1, images = [], readyTimeoutMs = 120000, timeoutMs = 600000, size = null }) {
+export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, film = null, step = 1, images = [], readyTimeoutMs = 120000, timeoutMs = 600000, size = null, offscreen = false }) {
   const T = profile.plates;
   const [W, H] = size || [film?.width || profile.width, film?.height || profile.height];
   const sides = new Set(T.sides || ['left', 'right']);
@@ -115,18 +116,20 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
     else if (f) warnings.push(`film.json 的 native.images 引用的 ${im.from || im.to} 找不到，跳过`);
   }
 
-  // ── 来源三：页面逐帧投影 ──
+  // ── 来源三：页面或离屏宿主逐帧投影 ──
   let projected = false, frames = 0, placementsSeen = 0;
   const vis = new Map();      // `${file}|${side}` → { frames: [], box, maxOpacity, edge }
   const dmin = new Map();     // file → { value, frame, at }
   if (pageDir) {
-    const h = await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs, shimThree: true });
+    const h = offscreen
+      ? await openOffscreen({ root, pageDir, width: W, height: H, fps, film, shimThree: true })
+      : await openPage({ root, pageDir, width: W, height: H, fps, profileId: profile.id, readyTimeoutMs, shimThree: true });
     try {
       const frameCount = film?.frameCount ?? Math.round(h.info.dur * fps);
       const list = [];
       for (let f = 0; f < frameCount; f += step) list.push(f);
       if (list[list.length - 1] !== frameCount - 1) list.push(frameCount - 1);
-      const samples = await samplePlates(h, list, { fps, timeoutMs });
+      const samples = offscreen ? await samplePlatesOffscreen(h, list) : await samplePlates(h, list, { fps, timeoutMs });
       frames = samples.length;
       if (h.platesErr) warnings.push(`面片探针出错（结果可能不全）：${h.platesErr}`);
       if (!h.three) {
@@ -134,10 +137,11 @@ export async function runPlates({ pageDir = null, root = REPO_ROOT, profile, fil
       } else projected = true;
       for (const s of samples) {
         for (const P of s.plates) {
-          const f = resolveSrc(P.src, h.origin, root);
+          const direct = P.file ? path.resolve(P.file) : null;
+          const f = (direct && direct.startsWith(path.resolve(root)) && fs.existsSync(direct)) ? direct : resolveSrc(P.src, h.origin, root);
           if (!f) continue;
           placementsSeen++;
-          const rec = await addFile(f, '页面');
+          const rec = await addFile(f, offscreen ? '离屏' : '页面');
           if (P.opacity >= T.minOpacity) {
             const d = density(P, W, H);
             if (d) {

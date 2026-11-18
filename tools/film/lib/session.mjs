@@ -107,7 +107,8 @@ export function planSession({ kind, filmArg, opts }) {
   const warnings = [], notes = [];
   const film = loadFilm(filmArg, { page: opts.page ? path.resolve(opts.page) : null });
   warnings.push(...film.warnings);
-  if (film.route !== 'b' && !fs.existsSync(path.join(film.pageDir, 'index.html'))) {
+  const useOffscreen = opts.renderer === 'offscreen' || (opts.renderer === undefined && film.backend === 'webgpu');
+  if (film.route !== 'b' && !useOffscreen && !fs.existsSync(path.join(film.pageDir, 'index.html'))) {
     throw new FilmError(EXIT.USAGE, 'page-missing', `页面目录 ${rel(film.pageDir)} 下没有 index.html`, film.pageDir === film.dir ? '页面型作品（A / C）要有 index.html；用 film new 生成的作品自带' : '检查 --page 或 film.json 的 page');
   }
   const rp = path.relative(ROOT, film.pageDir);
@@ -236,10 +237,11 @@ function audioOverride(film, raw) {
 //   B      browser（素材准备导出 GLB）、raea（RAEA_BIN 指向的原生运行时）
 export function preflightNeeds(ctx) {
   const page = ctx.film.route !== 'b';
+  const isOffscreen = page && (ctx.opts?.renderer === 'offscreen' || (ctx.opts?.renderer === undefined && ctx.film.backend === 'webgpu'));
   const a = ctx.audio;
   const script = a.mode === 'script' ? path.extname(a.path).toLowerCase() : null;
   const delivers = ['build', 'animatic'].includes(ctx.kind);
-  const needs = new Set(['ffmpeg', 'python', 'browser']);
+  const needs = new Set(['ffmpeg', 'python', ...(isOffscreen ? [] : ['browser'])]);
   // 封装要 sh 只在渲染器 v2 的 Node 封装（engine/render/lib/mux.mjs）还没有时
   const muxNeedsSh = !fs.existsSync(path.join(ROOT, 'engine/render/lib/mux.mjs'));
   if (page && ctx.kind === 'build' && a.mode !== 'none' && muxNeedsSh) needs.add('sh');

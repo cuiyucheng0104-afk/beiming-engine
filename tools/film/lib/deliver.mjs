@@ -140,15 +140,20 @@ export const player = {
 
 // QA 的输入（build 与 film qa 共用）：作品描述（本次规格与 film.json 不同时用运行目录的 film.effective.json）、页面目录与视口、
 // 页面导出的事件表（film.json 没写 events 时）。口径说明见 tools/film/lib/qa.mjs 文件头
-export function qaInputs({ film, runDir, width, height, filmEffective = null }) {
-  const page = film.route !== 'b';
+export function qaInputs({ film, runDir, width, height, filmEffective = null, renderer = null }) {
+  const hasPage = film.route !== 'b' && fs.existsSync(path.join(film.pageDir, 'index.html'));
+  const hasOff = film.route !== 'b' && fs.existsSync(path.join(film.dir, 'offscreen.mjs'));
+  const useOff = hasOff && (renderer === 'offscreen' || !hasPage || (renderer === null && film.backend === 'webgpu'));
+  const active = hasPage || useOff;
   const ev = path.join(runDir, 'events.json');
-  return {
+  const out = {
     filmFile: filmEffective || null,
-    pageDir: page ? film.pageDir : null,
-    size: page ? [width, height] : null,
-    events: page && !film.events.length && fs.existsSync(ev) ? ev : null,
+    pageDir: useOff ? film.dir : (hasPage ? film.pageDir : null),
+    size: active ? [width, height] : null,
+    events: active && !film.events.length && fs.existsSync(ev) ? ev : null,
   };
+  if (useOff) out.offscreen = true;
+  return out;
 }
 
 export const qa = {
@@ -156,9 +161,9 @@ export const qa = {
   when: ctx => (ctx.opts.noQa ? '加了 --no-qa' : ctx.sizeWork ? '按 --size 改了画幅的工作版不是交付件：不跑交付 QA（规格核对见 checks/output.json）' : true),
   outputs: () => ({ qaReport: 'qa/report.json', qaMarkdown: 'qa/report.md', qaContact: 'qa/contact.jpg' }),
   async run(ctx) {
-    // 页面型作品把页面目录与视口交给 QA（文字、底板两组要打开页面逐帧读；《北冥》样片的页面在仓库根）；B 没有页面，QA 自己跳过这两组。
+    // 页面型作品把页面目录与视口交给 QA（纯 webgpu 或 --renderer offscreen 时交给离屏宿主，免启动浏览器）；B 没有页面，QA 自己跳过这两组。
     // 本次规格与 film.json 不同（--profile 换了画幅或帧率）时，作品描述给运行目录里换算好的 film.effective.json
-    const inputs = qaInputs({ film: ctx.film, runDir: ctx.run.dir, width: ctx.width, height: ctx.height, filmEffective: ctx.filmEffective?.path });
+    const inputs = qaInputs({ film: ctx.film, runDir: ctx.run.dir, width: ctx.width, height: ctx.height, filmEffective: ctx.filmEffective?.path, renderer: ctx.opts.renderer });
     // QA 要整片解码好几遍、文字组还要逐帧开页面：总时限按帧数给（每帧约 1.5 秒上限，最少 15 分钟）
     const r = await runQa({ master: ctx.art.master, film: ctx.film, profile: ctx.profile, runDir: ctx.run.dir, exec: ctx.exec, ...inputs, timeoutSec: ctx.opts.timeout ? Math.max(ctx.opts.timeout, 900) : Math.max(900, Math.round(ctx.frames * 1.5)) });
     for (const o of r.outputs || []) if (o?.path && /^qa-/.test(String(o.kind || ''))) ctx.qaOutputs = [...(ctx.qaOutputs || []), o];

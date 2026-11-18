@@ -46,11 +46,14 @@ export async function doctor({ routes = [], gpuMode = 'software-ok', quick = fal
   const needWebgl = routes.length === 0 || routes.includes('a') || routes.includes('b');
   const t0 = Date.now();
   const sync = [C.checkNode(spec), C.checkNpm(root), C.checkPlaywright(root, spec), C.checkHeadlessShell(root, spec, env)];
+  const offDeps = want('a') || want('c') ? C.checkOffscreenDeps(root) : null;
+  if (offDeps) sync.push(offDeps);
   const browserReady = sync[1].ok && sync[2].ok && sync[3].ok;
   const tasks = [
     quick || !browserReady
       ? Promise.resolve([C.mk('browser.launch', '浏览器启动与 WebGL', { status: 'skip', required: false, found: quick ? '--quick：没有启动浏览器' : '前面的依赖或浏览器没装好，先修它们' })])
       : C.checkGpu(root, spec, { env, gpuMode, needWebgl }),
+    offDeps ? C.checkOffscreenGpu(root, { env, quick, depsOk: offDeps.status === 'pass' }) : Promise.resolve([]),
     C.checkFfmpeg(spec, env, { full: !quick }).then(r => r.checks),
     C.checkPython(root, spec, { env, imports: !quick }).then(r => r.checks),
     Promise.resolve(C.checkFonts(root, spec)),

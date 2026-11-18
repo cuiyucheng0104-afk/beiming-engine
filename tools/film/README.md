@@ -31,14 +31,14 @@ npm run film -- status films/my-film                  # 任何时候：闸门、
 | 子命令 | 做什么 | 产物（都在运行目录里） |
 |---|---|---|
 | `new <a\|b\|c> <名字> [--title] [--profile] [--dry-run]` | 参数先按同一套规则检查，再转调 `tools/new-film.mjs`；信封转交它的结果，另给下一步命令 | `films/<名字>/` |
-| `check <作品>` | 只读：作品描述校验（`engine/production/film.js check`；没有时用 `tools/lib/filmspec.mjs` 做结构自检）、页面契约探测或原生预检、档位、切点、闸门要求 | 无（不建运行目录） |
+| `check <作品>` | 只读：作品描述校验（`engine/production/film.js check`；没有时用 `tools/lib/filmspec.mjs` 做结构自检）、页面契约探测或离屏 `offscreen probe` 或原生预检、档位、切点、闸门要求 | 无（不建运行目录） |
 | `plan <作品> [--profile] [--workers N]` | 开渲前估算（A、C）：转调渲染器 v2 的 `video.mjs --plan`，按出片同一口径（档位、路数）各路试渲几帧、试编码，给出整片耗时、成片体积与要的磁盘；磁盘不够 1.5 倍余量退出码 3。B 没有估算接口（用法错误，先出 `animatic`） | 无（试编码的临时文件放系统临时目录，结束即删） |
-| `stills <作品> [--frames … \| --times …]` | 风格关键帧：缺省每个镜头取中间一帧，单镜头取片长 1/6、1/2、5/6 | `stills/` `frames.json` `contact.jpg` |
+| `stills <作品> [--frames … \| --times …] [--renderer]` | 风格关键帧：缺省每个镜头取中间一帧，单镜头取片长 1/6、1/2、5/6；`--renderer offscreen`（`backend=webgpu` 时默认）经 `offscreen stills` 输出无损 PNG | `stills/` `frames.json` `contact.jpg` |
 | `animatic <作品> [--renderer] [--encoder]` | 半分辨率预演：页面加 `previs=1`（`--renderer offscreen` 时同一个查询串交给离屏入口）；临时声用作品混音，没有声音就按事件与切点生成提示音；B 用原生 `--quality draft` | `animatic.mp4` `contact.jpg` `player.html` |
-| `build <作品> [--final] [--profile] [--size] [--renderer] [--encoder]` | 整条出片链（§4）；`--renderer offscreen`（A、C 路线）把逐帧渲染换成离屏出片（`engine/offscreen/cli.mjs` 渲作品目录的 `offscreen.mjs`，作品要是双实现，见 `docs/offscreen/README.md` 7.11）；`--encoder nvenc` 让离屏渲染与网页版编码都走 NVIDIA 硬件编码；`--from` / `--to` 只跑一段；输入没变的步骤复用缓存；`--profile` 换档位（画幅或帧率与 film.json 不同时 QA 读生效描述，§4）；`--size` 出改画幅的工作版（不是交付件，不跑交付 QA） | `master.mp4` `web.mp4` `player.html` `contact.jpg` `poster.jpg` `qa/`（换了档位另有 `film.effective.json`） |
+| `build <作品> [--final] [--profile] [--size] [--renderer] [--encoder]` | 整条出片链（§4）；`--renderer offscreen`（A、C 路线，`backend=webgpu` 时默认）把逐帧渲染换成离屏出片（`engine/offscreen/cli.mjs` 渲作品目录的 `offscreen.mjs`，见 `docs/offscreen/README.md` 7.11）；`--encoder nvenc` 让离屏渲染与网页版编码都走 NVIDIA 硬件编码；`--from` / `--to` 只跑一段；输入没变的步骤复用缓存；`--profile` 换档位（画幅或帧率与 film.json 不同时 QA 读生效描述，§4）；`--size` 出改画幅的工作版（不是交付件，不跑交付 QA） | `master.mp4` `web.mp4` `player.html` `contact.jpg` `poster.jpg` `qa/`（换了档位另有 `film.effective.json`） |
 | `mix <作品>` | 只做声音：A、C 跑到声画拍点核对（`build --to cuecheck`），B 跑原生素材准备（`--to prepare`） | `audio/mix.wav` `audio/stems/` `audio/cuecheck.txt` |
 | `assemble <作品>` | 画面与声音复用缓存，只重做封装及之后（A、C `build --from mux`，B `--from web`） | 同 build |
-| `render <作品> --frames a:b \| --shot S [--clip] [--final]` | 只渲指定帧段或镜头，逐帧缓存（同一命令第二次 0 帧重渲）；`--final` 先查闸门，不给帧段时等于 `build --final` | `frames/` `frames.json` `contact.jpg`（`--clip` 另有 `range.mp4`） |
+| `render <作品> --frames a:b \| --shot S [--clip] [--renderer] [--final]` | 只渲指定帧段或镜头，逐帧缓存（同一命令第二次 0 帧重渲）；支持 `--renderer offscreen`；`--final` 先查闸门，不给帧段时等于 `build --final` | `frames/` `frames.json` `contact.jpg`（`--clip` 另有 `range.mp4`） |
 | `qa <作品> [--run <id>]` | 对已出的片子补跑机器 QA 门，回写那次的 run.json；作品描述与出片时同一口径（用那次的 `film.effective.json`）；`--size` 的工作版不审（用法错误） | `qa/` |
 | `review approve\|reject\|waive\|note\|status …` | 闸门审阅记录（§6）；`approve …` 是 `review approve …` 的简写 | `films/<名>/review/<闸>-<日期>.json`（随作品源码提交） |
 | `status <作品>` | 闸门、最近各类运行、下一步命令 | 无 |

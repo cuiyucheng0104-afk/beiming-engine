@@ -104,7 +104,7 @@ test('整链对拍：风格锁定的真实参数；全部旋钮；图片纸纹�
   } finally { await s.close(); }
 });
 
-test('未支持的语义显式抛错（雾、debug、纸纹 anchor / scaleMode、色调映射），不静默画错', { timeout: 120000 }, async t => {
+test('未支持的语义显式抛错（debug、纸纹 anchor / scaleMode、色调映射），不静默画错', { timeout: 120000 }, async t => {
   let gpu, createHost;
   try {
     ({ createHost } = await import('../../engine/offscreen/host.mjs'));
@@ -118,9 +118,7 @@ test('未支持的语义显式抛错（雾、debug、纸纹 anchor / scaleMode�
   const { scene, camera } = inkScene(THREE, 64, 36);
   try {
     const bad = {
-      fog: { fog: { density: 0.02 } }, debug: { debug: 'edge' },
-      'paper.anchor': { paper: { strength: 0.1, anchor: { pos: [0, 0], origin: [0, 0], zoom: 1 } } },
-      'paper.scaleMode': { paper: { strength: 0.1, scaleMode: 'refHeight' } },
+      'paper.url': { paper: { strength: 0.1, url: '/assets/plates/paper.png' } },
     };
     for (const [name, p] of Object.entries(bad)) {
       const before = renderer.getRenderTarget();

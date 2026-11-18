@@ -1,6 +1,6 @@
 # 离屏出片（offscreen）：设计与实测记录
 
-读者｜做引擎工程、要把新作品改到离屏出片的人与 agent　状态｜M1–M3 已完成（2026-11-18）：已接入 `npm run film -- --renderer offscreen [--encoder nvenc]`，A 路线模版双实现验收片《晨渡》三道闸已认可　依据｜[决定书 D12](../decisions/2026-11-10-industrial-baseline.md)
+读者｜做引擎工程、要把新作品改到离屏出片的人与 agent　状态｜M1–M7 已完成（2026-11-18）：同源跨端底座与交互式 WebGPU 审片工作台、`new-film --backend webgpu`（A/C 免浏览器全链路出片）、GPU 侧 YUV420p 加速（1080p 并发 136 fps）、异构并发调度 `batch`、免浏览器 QA 与分层风格化 `tsl/layers.js` 均已完备　依据｜[决定书 D12](../decisions/2026-11-10-industrial-baseline.md)
 
 **一句话**：A、C 的新作品用 three.js r187 的 WebGPURenderer 与 TSL 写成**作品模块**；同一份模块在 Chrome 的 WebGPU 里预览，在 Node + Dawn 里离屏出片，出片不经过浏览器。旧作品与 86 式风格库照旧走页面渲染器（`engine/render`）。
 
@@ -65,7 +65,7 @@ three 只在 `requestAnimationFrame` 回调里推进节点帧号，场景 pass �
 
 - 一个 Node 进程里可以开多部片：每部片一个 `WebGPURenderer` 与一个渲染目标，共用一个 `GPUDevice`（构造时传 `device`）。
 - 读回走流水线：渲第 n 帧、发起读回，不等它完成就渲第 n+1 帧；同时在途的帧数有上限（`inflight`，默认 3）。WebGPU 队列按提交顺序执行，第 n 帧的拷贝排在第 n+1 帧的渲染之前，所以复用同一个渲染目标是安全的；输出顺序按帧号。
-- 编码默认 libx264（与页面渲染器同参数，终渲母版用它）。并发时 x264 会先成为瓶颈，所以可用 `--encoder nvenc` 改走显卡的 h264_nvenc（恒定质量 cq，色彩换算与标记不变），实测见 7.4；GPU 侧转 YUV（读回字节从 4 B/像素降到 1.5 B/像素）与 Dawn→CUDA 零拷贝尚未做。
+- 编码默认 libx264（与页面渲染器同参数，终渲母版用它）。并发时 x264 会先成为瓶颈，可用 `--encoder nvenc` 改走显卡的 h264_nvenc（恒定质量 cq，色彩换算与标记不变），并可配 `--pix-fmt yuv420p` 在 GPU 侧直接打包有限范围 BT.709 平面字节（读回与管道从 4 B/像素降到 1.5 B/像素，免除 FFmpeg 的 CPU `swscale`），实测见 7.4 与 7.14；Dawn→CUDA 跨 API 零拷贝尚未做。
 
 ## 4. 质量门
 
@@ -78,7 +78,7 @@ three 只在 `requestAnimationFrame` 回调里推进节点帧号，场景 pass �
 
 ## 5. 与现有链路的关系
 
-- 路线仍是 A、B、C 三条（D12）。登记时 A、C 的 `backends` 加 `webgpu`，`renderers` 加第三项 `offscreen`；**第一个里程碑不登记**，不进 `npm run film` 出片链，照 rt 后端的先例做成链路之外的实验入口。
+- 路线仍是 A、B、C 三条（D12）。`routes/routes.json` 的 `renderers` 已登记第三项 `offscreen`，A、C 的 `backends` 已加入 `webgpu`、`renderer` 已加入 `offscreen`；作品 `film.json` 写 `"backend": "webgpu"` 时，`npm run film -- build|animatic` 默认走 `offscreen`（仍可用 `--renderer page` 切回页面渲染器）。
 - 「原生」在仓库里专指 B 路线与 RAEA（`backend: native`、`engine/native/`）；离屏出片不叫原生。
 - 机器 QA 的文字检查靠探 Canvas 2D 的 `fillText`，WebGPU 画的字查不到；接进出片链时，作品要照页面约定给出 `TEXTS`。
 
@@ -292,14 +292,51 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 - 卡通材质的 uniform 冻在第一帧（7.9 的坑）：先渲第 96 帧再渲第 120 帧，第 120 帧的皴线与层理就不对。
 - **片名的高低随机器的系统字体变——A 路线模版本身的问题**：`title.js` 逐字画进画布时用 `textBaseline = 'middle'`；作品的字体子集不含空格，Chrome 算 `middle` 用「能覆盖空格的主字体」，落到后备的 sans-serif 上，所以片名的竖直位置取决于这台机器的 sans-serif 度量（本机比按片名字体自己的度量高 9 px@540）。Skia 按片名字体算，两边因此差了 9 px。《晨渡》的 `title.js` 改成 alphabetic 基线 + 按字形自己的墨迹外框居中，两边一致（单独画片名逐像素同外框），代价是《晨渡》页面上的片名比模版原样低几像素（有意改动）。**路线模版没改**（受金标准基线保护，改像素要走 POLICY 审批）。
 
-### 7.12 快速复查
+### 7.12 复杂角色、雾与 D12 登记（M4）
+
+- **屏幕空间空气透视雾与墨线雾淡出**（`tsl/fog.js`、`tsl/ink.js`、`tsl/look.js`）：透视相机、高度衰减、仰角双色、天空清屏雾、`cutoff` 截止与正交相机三组对 WebGL 版对拍 PSNR 60.53–60.66 dB、最大差 1 级、大差像素 0；关雾、去掉 `fogFade`、去掉 `cutoff` 变异均不过门。
+- **ID 通道补全**（`tsl/idpass.js`）：支持 `InstancedMesh`（逐实例连续 ID 与 `outlinePerInstance: false` 共享 ID）、`SkinnedMesh`、变形目标、贴图 alpha 镂空，以及继承原材质 `positionNode` / `toonPosInit` 或 `outlineVertex.tsl`。
+- **卡通材质进阶与壁画风化层**（`tsl/toon.js`、`tsl/surface.js`）：新增 `muralLayer`（褪色大斑、干笔飞白、剥落块、氧化暗斑、细碎点，钩子可写 `c.muralP` / `c.muralK`）；支持 `InstancedMesh`（实例色与逐实例噪声偏移）、`rest: true`（`aRest` 静止坐标）、`vertexBegin` / `vertexNormal` / `fragmentNormal` 钩子与 `translucent` 半透明。综合对拍 PSNR 74.38 dB、最大差 1 级、大差像素 0，五项变异均不过门。
+- **场景图桥与鲲鹏验证**（`engine/offscreen/bridge.mjs`）：`geometry` 保留 `InstancedBufferAttribute`；新增 `mirrorObject(THREE, root170, { mapMaterial })`，不改动只读目录 `src/` 即可镜像 `src/kun_peng.js` 的完整角色树（多层 `InstancedMesh` 羽毛、CPU 形变体与尾翎、手动矩阵眼丘），每帧 `setPose` + `sync()` 在 Dawn + `createLook` 下跑通。
+- **D12 正式登记**：`routes/routes.json`、`engine/production/routes.js`、`film.schema.json` 与 `tools/film` 已同步登记 `offscreen` 渲染器与 `webgpu` 后端。
+
+### 7.13 后期全特性收口、静帧闭环、C 路线适配与《化鹏闪羽》验证（M5）
+
+- **纸纹进阶与后期调试视图**（`tsl/paper.js`、`tsl/compose.js`、`tsl/debug.js`、`tsl/look.js`）：补齐图片纸纹 `scaleMode: 'refHeight'`（面积加权取样）、`paperAnchor` 锚点跟移与 `canvasPaper` 每帧贴图，以及全部 8 种 `DEBUG_VIEWS`（`id`、`depth`、`edge`、`line`、`bloom`、`paper`、`kuwahara`、`scene`）；对 WebGL 版对拍最大差 ≤ 1 级，变异全拦下。
+- **离屏静帧、探测与 `film` 全命令闭环**（`engine/offscreen/cli.mjs`、`tools/film/`）：`offscreen` 新增无损静帧子命令 `stills`（纯 Node zlib 编码 PNG，不依赖 FFmpeg）与只读契约探测 `probe`；`npm run film -- check|stills|render|animatic|build` 全链路支持 `--renderer offscreen` 与纯 `backend: "webgpu"`（无 `index.html`）作品。
+- **C 路线（86 式）离屏宿主适配**（`engine/offscreen/c2d.mjs`）：`registerCanvasFonts` 按需注册分片 woff2 毛笔字体，`createCanvasFilm` 打通 `@napi-rs/canvas`、`engine/paint/canvas.js`（`canvasFor`）与 Dawn WebGPU 纸纹/暗角/颗粒后期及 `TEXTS` 导出。
+- **复杂主角片《化鹏闪羽》双实现验证**（工作区 `films/peng-glint`，实施计划见 [plan-m5.md](plan-m5.md)）：不改 `src/` 与页面 `world.js`，经 `mirrorObject` + TSL 映射 `kun_peng` 七种矿物色材质（体鳞、丹凤眼、长须、火焰鳍、多层实例化羽片、翅肉瓣、凤尾翎）、羽根铰链波、微面法线瓣 HDR 闪光、流萤落羽与海面日轮。`film check` 页面与离屏双路通过；关键帧（`0, 58, 66, 72, 120`，两边 `msaa = 4`）对 WebGL 页面 PSNR 36.6–41.9 dB（残差主要来自 400+ 重叠实例化羽片的 4× MSAA 采样位置）；1920×1080 · 144 帧全 GPU `film build --renderer offscreen --encoder nvenc` 离屏渲染 + 编码仅 **5.90 秒（稳态 28.9 fps，快于实时）**，机器 QA 门 **37/37 全过（注意 0 项）**。
+
+### 7.14 GPU 侧 YUV420p 打包加速、异构并发调度、免浏览器 QA 与工具全闭环（M6）
+
+- **GPU 侧 RGBA→BT.709 限范围 YUV420p 与读回缓冲池**（`engine/offscreen/yuv.mjs`、`host.mjs`、`encode.mjs`，实施计划见 [plan-m6.md](plan-m6.md)）：同一 `GPUDevice` 上的 16 位定点 WGSL 计算管线把 `rgba8unorm-srgb` 目标转成平面 `Y|U|V`（任意中性灰严格 `Cb = Cr = 128`，CPU 与 WGSL 逐字节一致；对 FFmpeg `COLOR.png` 亮度 `Y` 最大差 ≤ 1、PSNR 69.3 dB，整体 PSNR 54.0–55.0 dB），配合可复用 `MAP_READ` 缓冲池，读回与管道带宽降 62.5% 并免除 FFmpeg CPU `swscale`（`--pix-fmt yuv420p`）。RTX 4070 Laptop 实测（`ink.mjs` + `nvenc`）：
+  - **1080p**：1 路 **71.0 → 114.7 fps（+61.5%）**，4 路并发 **84.0 → 136.3 fps（+62.3%）**；
+  - **4K（3840×2160）**：1 路 **27.7 → 35.1 fps（+26.7%）**，2 路并发 **34.3 → 42.1 fps（+22.7%）**。
+- **生产级单卡异构并发调度器**（`engine/offscreen/batch.mjs`、`offscreen batch`）：支持 JSON 清单或多作品命令行直接并发调度 `render` / `stills` 混合任务，共用单 `GPUDevice`、独立信号量限制并发编码器会话数、单任务异常隔离并清理半成品；同时串行化 `host.mjs` 里 `renderer.init()` 绑定全局帧时钟 `self` 的临界区，消除并发建宿主的帧号串扰。《晨渡》+《化鹏闪羽》+ `ink` 三部异构作品 1080p 同卡并发一次跑通（总吞吐 29.8 fps），逐帧哈希与单跑逐位一致。
+- **`engine/overlay` 全库解锁与免浏览器机器 QA**（`canvas.mjs`、`tools/qa/lib/offscreen.mjs`、`tools/qa/cli.mjs`）：`loadCanvas()` 统一安装画布 `document` 垫片、已注册字体表与零开销画字探针，`engine/overlay/{brush,kinetic,text}.js` 与 `engine/paint/xuan.js` 直接可用；纯 `backend: "webgpu"` 作品与 `--renderer offscreen` 构建直接在 Dawn 宿主里完成 `texts`（越界、安全区、停留时长、标点禁则、字形 cmap、WCAG 对比度）与 `plates`（直线露边、贴图密度，对《晨渡》检出 `sky_dawn 1.319` 与浏览器版一致）检查，无需启动无头 Chrome；`offscreen probe --events-out` 支持纯离屏模块导出 `events.json` / `timeline.json`。
+- **确定性、定调扫参与环境自检支持离屏**（`determinism.mjs`、`lookdev/sweep.mjs`、`env/doctor.mjs`）：`determinism --renderer offscreen` 跑新宿主单帧、乱序、顺序流水线、同卡双宿主并发四路逐像素核对（抓出并修复工作区《化鹏闪羽》先 `setPose` 后设组旋转造成的 34 像素瞳孔朝向跨帧泄漏，修复后《晨渡》14 帧、《化鹏闪羽》11 帧四路全过）；`lookdev:sweep --renderer offscreen` 免浏览器高速扫 `--look` / `--q` 网格；`env:doctor` 新增 `offscreen.deps` 与 `offscreen.gpu` 检查项。
+
+### 7.15 同源跨端底座、WebGPU 审片工作台、`--backend webgpu` 脚手架与分层风格化（M7）
+
+- **同源跨端运行时与真实作品同源化**（`engine/offscreen/io.mjs`、`film.mjs`、`c2d.mjs`、`paper.mjs`、`tsl/plates.js`，实施计划见 [plan-m7.md](plan-m7.md)）：新增零顶层 `node:*` 静态导入的 `io.mjs`（Node 走 `process.getBuiltinModule` + `@napi-rs/canvas`，浏览器走 `fetch` + `<canvas>` + `FontFace` + `DecompressionStream`），消除真实 A/C 作品模块在浏览器侧的 `node:*` 解析阻断。《晨渡》（`films/chendu/offscreen.mjs`）与工作区《化鹏闪羽》（`films/peng-glint/offscreen.mjs`）均已改为真同源模块：Node + Dawn 端关键帧哈希与改前逐字节一致；在 Chrome WebGPU 与 Node + Dawn 之间实测对拍（`msaa=0, notext=1`），《晨渡》四帧 PSNR **62.77–66.33 dB**、差 5 级以上像素 **0.018–0.034%**（全部过 M1 门），《化鹏闪羽》两帧**逐字节相同**。
+- **WebGPU 交互式审片工作台**（`engine/offscreen/preview.js`、`lab/offscreen/index.html`、`tools/offscreen/compare.mjs`）：`preview.js` 补齐 `await mod.build({ ..., query })`；沿用离屏 sRGB `RenderTarget` + 2D 显示画布呈现（避免 Linux Chromium Vulkan `OpaqueFD` 交换链外部内存尺寸不匹配错误，显示像素与 `renderFrame` 逐字节一致）；`lab/offscreen/index.html` 补齐 `three` importmap、自动探测同目录 `film.json`（带入片名、帧率、总帧数、镜头切点与事件刻度），提供实时 `fps` 播控、逐帧/切镜跳转、单镜循环及 8 种后期调试视图切换；`compare.mjs` 新增 `--query`。
+- **一等公民 `--backend webgpu` 新片脚手架与全链路免浏览器预检**（`tools/lib/webgpu-scaffold.mjs`、`tools/new-film.mjs`、`tools/film/commands/new.mjs`、`tools/film/lib/session.mjs`）：不触碰受金标准保护的路线模版，`npm run new -- <a|c> <名字> --backend webgpu`（或 `npm run film -- new <a|c> <名字> --backend webgpu`）直接生成可同时在 Chrome WebGPU 预览与 Node + Dawn 出片的同源新片；补齐 `canvas.mjs` 的 `Path2D`/`ImageData` 全局注入、`offscreen probe --events-out` 的 `{ dur, ev }` 契约对齐及离屏出片预检免 `browser` 要求。A、C 路线新建 `webgpu` 作品在无浏览器环境下 `new` → `check` → `stills` → `build`（含 `mix`、`cuecheck` 与 38 项机器 QA）全链路通过。
+- **分层风格化 TSL 离屏化**（`engine/offscreen/tsl/layers.js`）：严守 D03 / D12 / `rt-boundary.md`（纯自写宽松许可代码，不依赖 `engine/native/` 与外部专有渲染器），对照 `engine/look/layers.js` 实现同源 8/16 位 PNG 解码、`loadLayers` 与 `createLayerLook`（4 邻域 ID 轮廓 + `1/z` 二阶差分折痕 + 法线夹角内线、圆头笔域扭曲抖动、保色相色阶量化、Kuwahara、纸纹及 5 种视图 + `split`）。对 WebGL 版逐视图对拍：`color` / `ids` 逐字节相同，`edge` 最大差 1，`toon` PSNR **63.84 dB**（最大差 1），`final` PSNR **61.31 dB**（最大差 2、大差像素 0），`split` PSNR **64.10 dB**（最大差 2、大差像素 0）。
+
+### 7.16 快速复查
 
 ```sh
-npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080
-npm run offscreen:compare -- lab/offscreen/ink.mjs --frames 0,14,30,40,191 --size 1920x1080
-npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080
-npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080 --encode
-npm run offscreen:bench -- lab/offscreen/ink.mjs --films 4 --frames 480 --size 1920x1080 --encode --encoder nvenc
+npm run film -- new a my-dawn --title 破晓 --backend webgpu
+npm run film -- new c my-ink --title 云山 --backend webgpu
+npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080 --encoder nvenc --pix-fmt yuv420p
+npm run offscreen -- stills lab/offscreen/ink.mjs --out out/offscreen/stills --frames 0,48,96 --size 1920x1080
+npm run offscreen -- probe lab/offscreen/ink.mjs
+npm run offscreen -- batch films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/offscreen/batch --frames 0:48 --encoder nvenc --pix-fmt yuv420p
+npm run offscreen:compare -- films/chendu/offscreen.mjs --frames 0,48,72,90 --size 960x540 --query "msaa=0&notext=1"
+npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080 --encode --encoder nvenc --pix-fmt yuv420p
+npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams
+npm run lookdev:sweep -- films/chendu --renderer offscreen --t 1.5 --look vignette=0,0.35 --query msaa=0
+npm run qa -- texts --film films/chendu --offscreen
 npm run film -- build films/chendu --renderer offscreen --encoder nvenc
 ```
 

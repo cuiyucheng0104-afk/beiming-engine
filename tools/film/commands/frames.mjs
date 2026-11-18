@@ -6,12 +6,12 @@
 // render --clip 另把连续帧段按帧率拼成 range.mp4（看动作用，不是交付件）。
 import fs from 'node:fs';
 import path from 'node:path';
-import { usage } from '../lib/exit.mjs';
+import { EXIT, FilmError, usage } from '../lib/exit.mjs';
 import { loadFilm } from '../lib/spec.mjs';
 import { gateStatus, assertFinalAllowed } from '../lib/gates.mjs';
 import { ROOT, rel, sha256File } from '../lib/repo.mjs';
 import { parseFrames, parseTimes } from '../lib/args.mjs';
-import { openSession, closeSession, addOutput } from '../lib/session.mjs';
+import { planSession, openSession, closeSession, addOutput } from '../lib/session.mjs';
 import { runSteps } from '../lib/pipeline.mjs';
 import { frameCacheDir, linkOrCopy } from '../lib/cache.mjs';
 import { writeContactSheet } from '../lib/deliver.mjs';
@@ -22,12 +22,14 @@ import { envelope } from '../lib/output.mjs';
 import { withRunJson } from './build.mjs';
 
 const STILL = path.join(ROOT, 'engine/render/still.mjs');
+const OFFSCREEN_CLI = path.join(ROOT, 'engine/offscreen/cli.mjs');
 const frameSizes = async files => files.map(file => ({ file, ...imageSize(file) }));
 
 const COMMON = {
   '--profile': { type: 'string', arg: '<档位>', help: '交付档位（决定画幅；默认 film.json 的 output.profile）' },
   '--size': { type: 'string', arg: '<宽x高>', help: '改画幅（只看构图时可用小画幅）' },
-  '--query': { type: 'string', arg: '<k=v>', help: '原样传给页面的查询串' },
+  '--renderer': { type: 'enum', values: ['page', 'offscreen'], arg: '<page|offscreen>', help: 'A、C 路线画面用谁渲：page 无头 Chrome（默认）；offscreen Node + Dawn，渲作品目录的 offscreen.mjs（backend=webgpu 时默认）' },
+  '--query': { type: 'string', arg: '<k=v>', help: '原样传给页面或离屏入口的查询串' },
   '--workers': { type: 'int', min: 1, max: 16, arg: '<n>', help: '并行渲染路数（默认 2；帧少时自动减少）' },
   '--page': { type: 'string', arg: '<目录>', help: '页面目录（默认作品目录）' },
   '--out-root': { type: 'string', arg: '<目录>', help: '运行目录的上层（默认 <作品>/out）' },
@@ -128,7 +130,14 @@ export async function runFrames(kind, opts, positionals) {
     gateBasis = { checked: true, by: status.by, basis: assertFinalAllowed(film, status) };
   }
   if (kind === 'render' && !opts.frames && !opts.shot) throw usage('render 要给 --frames <帧段> 或 --shot <镜头 id>', '例：npm run film -- render films/my-film --frames 72:120；整片终渲用 npm run film -- build <作品目录> --final');
-  const ctx = await openSession({ command: kind, kind, filmArg: positionals[0], opts: { gpu: 'required', ...opts } });
+  const o = { gpu: 'required', ...opts };
+  const plan = planSession({ kind, filmArg: positionals[0], opts: o });
+  if (o.renderer === undefined && plan.film.backend === 'webgpu' && plan.film.route !== 'b') o.renderer = 'offscreen';
+  if (o.renderer === 'offscreen' && plan.film.route !== 'b') {
+    const entry = path.join(plan.film.dir, 'offscreen.mjs');
+    if (!fs.existsSync(entry)) throw new FilmError(EXIT.USAGE, 'usage.no-offscreen-entry', `离屏渲染需要作品目录里有 offscreen.mjs：${rel(entry)} 不存在`, '作品要写成双实现（见 docs/offscreen/README.md 7.11）；只用页面渲染可加 --renderer page');
+  }
+  const ctx = await openSession({ command: kind, kind, filmArg: positionals[0], opts: o, plan });
   ctx.gateBasis = gateBasis;
   let error = null, output = null;
   let frames = [];
@@ -160,6 +169,34 @@ export async function runFrames(kind, opts, positionals) {
       const todo = opts.noCache ? frames : frames.filter(f => !fs.existsSync(path.join(cdir, `f${String(f).padStart(6, '0')}.${ext}`)));
       ctx.currentStep = 'native-stills';
       if (todo.length) { await nativeStills(ctx, todo, cdir); rendered = todo.length; }
+      for (const f of frames) linkOrCopy(path.join(cdir, `f${String(f).padStart(6, '0')}.${ext}`), path.join(dest, `f${String(f).padStart(6, '0')}.${ext}`));
+      extra.ext = ext;
+    } else if (ctx.opts.renderer === 'offscreen') {
+      const ext = 'png';
+      const offEntry = path.join(ctx.film.dir, 'offscreen.mjs');
+      cacheKey = ctx.hashJson({
+        step: 'frames-offscreen@1', trees: pageTrees(ctx), offscreen: ctx.hashTree(path.join(ROOT, 'engine/offscreen')),
+        size: `${ctx.width}x${ctx.height}`, fps: ctx.fps, query: ctx.query || '',
+        deps: ['webgpu', 'three-webgpu', '@napi-rs/canvas'].map(d => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'node_modules', d, 'package.json'), 'utf8')).version; } catch { return null; } }),
+        platform: `${process.platform}-${process.arch}`,
+      });
+      const cdir = frameCacheDir(ctx.outRoot, cacheKey);
+      if (opts.noCache) for (const f of frames) fs.rmSync(path.join(cdir, `f${String(f).padStart(6, '0')}.${ext}`), { force: true });
+      const todo = frames.filter(f => !fs.existsSync(path.join(cdir, `f${String(f).padStart(6, '0')}.${ext}`)));
+      ctx.currentStep = 'stills';
+      const t0 = Date.now();
+      if (todo.length) {
+        const args = ['stills', offEntry, '--out', cdir, '--frames', todo.join(','), '--size', `${ctx.width}x${ctx.height}`, '--fps', String(ctx.fps), ...(ctx.query ? ['--query', ctx.query] : []), '--json'];
+        const r = await ctx.exec(process.execPath, [OFFSCREEN_CLI, ...args],
+          { label: `离屏静帧 ${todo.length} 张（offscreen stills）`, timeoutSec: ctx.opts.timeout || 180 + todo.length * 4, stallSec: 300, logFile: ctx.logFile('stills-offscreen') });
+        let adapter = null;
+        try { adapter = JSON.parse(String(r?.stdout ?? '').trim()).data?.adapter ?? null; } catch { /* 读不到只记离屏 */ }
+        const name = [adapter?.vendor, adapter?.architecture].filter(Boolean).join(' ') || adapter?.description;
+        ctx.gpu = `Dawn WebGPU（离屏）${name ? `：${name}` : ''}`;
+        rendered = todo.length;
+      }
+      ctx.timing.stills = +((Date.now() - t0) / 1000).toFixed(2);
+      ctx.steps.push({ id: 'stills', title: '逐帧静帧（offscreen stills）', status: rendered ? 'done' : 'cached', rendered, reused: frames.length - rendered, seconds: ctx.timing.stills });
       for (const f of frames) linkOrCopy(path.join(cdir, `f${String(f).padStart(6, '0')}.${ext}`), path.join(dest, `f${String(f).padStart(6, '0')}.${ext}`));
       extra.ext = ext;
     } else {

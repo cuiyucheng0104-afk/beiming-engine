@@ -6,12 +6,22 @@
 //                               作品契约见 docs/offscreen/README.md 2.1
 //   Host.renderFrame(work, f)   推进帧时钟（时刻 = f / fps），把 work.render(f) 画进 sRGB 渲染目标，不等待地发起读回；
 //                               返回读回的 Promise<Uint8Array>（RGBA8，行序自上而下）。读回的拷贝命令在返回前已提交，可以接着渲下一帧
+//   Host.renderFrameYuv(work,f) 同上，但经 GPU 计算管线直接打包成有限范围 BT.709 yuv420p（width×height×1.5 字节，省 62.5% 读回与 CPU swscale）
 //   Host.pipeline(node)         后期管线工厂：RenderPipeline，关掉管线内的 sRGB 输出变换（渲染目标已经是 sRGB，再转一次会亮一截）
 //   Host.dispose()              释放作品、管线、渲染目标与渲染器（自己建的设备随渲染器销毁；共用的设备不动）
 // 帧时钟见 clock.mjs：three 在构造渲染器时取全局 self 当动画循环的上下文，所以每个宿主在构造前把自己的时钟装成 self。
 import { pathToFileURL } from 'node:url';
 import { createFrameClock } from './clock.mjs';
+import { createYuvPacker } from './yuv.mjs';
 import { CliError, usageError } from '../../tools/lib/cli.mjs';
+
+// three r187 在 await renderer.init() 内部构造 Animation 时才读取全局 self；并发 createHost 必须串行化这一临界区，避免多个渲染器绑到同一个帧时钟上
+let initChain = Promise.resolve();
+function withInitLock(fn) {
+  const run = initChain.then(fn, fn);
+  initChain = run.catch(() => {});
+  return run;
+}
 
 export async function createHost({ gpu, width, height, fps = 24, device, query = '' } = {}) {
   const { THREE, TSL } = gpu;
@@ -29,21 +39,23 @@ export async function createHost({ gpu, width, height, fps = 24, device, query =
     throw usageError('bad-value', `画幅 ${width}x${height} 超过设备纹理边长上限 ${limit}`, '减小 --size，或使用支持该画幅的 GPU');
   }
   const clock = createFrameClock();
-  globalThis.self = clock.self;
   const canvas = {
     width, height, style: {}, addEventListener() {}, removeEventListener() {},
     getContext() { throw new Error('离屏宿主没有画布上下文：作品只能画进宿主给的渲染目标'); },
   };
-  const renderer = new THREE.WebGPURenderer({ canvas, antialias: false, device });
-  let fault = null;
+  let renderer, fault = null;
   const recordFault = info => { fault ??= new CliError('failure.gpu', `GPU 错误：${info.message || '设备不可用'}`, { hint: '检查显存与驱动，减少并发或画幅后重试' }); };
   const onGpuError = event => recordFault(event.error ?? event);
-  renderer.onError = renderer.onDeviceLost = recordFault;
   try {
-    await renderer.init();
-    if (!renderer.backend.isWebGPUBackend) throw new CliError('env.webgpu-unavailable', 'Dawn 未建立 WebGPU 后端', { hint: '检查显卡驱动，离屏出片不支持 WebGL 回退' });
+    await withInitLock(async () => {
+      globalThis.self = clock.self;
+      renderer = new THREE.WebGPURenderer({ canvas, antialias: false, device });
+      renderer.onError = renderer.onDeviceLost = recordFault;
+      await renderer.init();
+      if (!renderer.backend.isWebGPUBackend) throw new CliError('env.webgpu-unavailable', 'Dawn 未建立 WebGPU 后端', { hint: '检查显卡驱动，离屏出片不支持 WebGL 回退' });
+    });
   } catch (e) {
-    renderer.dispose();
+    renderer?.dispose();
     if (ownsDevice) device.destroy();
     throw e;
   }
@@ -52,6 +64,7 @@ export async function createHost({ gpu, width, height, fps = 24, device, query =
   renderer.setSize(width, height, false);
   const target = new THREE.RenderTarget(width, height, { colorSpace: THREE.SRGBColorSpace });
   const pipelines = [], works = [];
+  let yuvPacker = null;
   const pipeline = node => {
     const p = new THREE.RenderPipeline(renderer, node);
     p.outputColorTransform = false;
@@ -65,8 +78,16 @@ export async function createHost({ gpu, width, height, fps = 24, device, query =
       if (typeof mod.build !== 'function') throw new TypeError(`${file} 没有导出 build(ctx)：作品模块契约见 docs/offscreen/README.md 2.1`);
       const work = await mod.build({ THREE, TSL, renderer, width, height, fps, pipeline, query: new URLSearchParams(query) });   // build 可以是 async（真片要先载字体、画布）
       if (typeof work?.render !== 'function') throw new TypeError(`${file} 的 build() 要返回 { render(f) }`);
+      Object.defineProperty(work, '__module', { value: mod, configurable: true });
       works.push(work);
       return work;
+    },
+    stepFrame(work, f) {
+      check();
+      clock.tick((f * 1000) / fps);
+      renderer.setRenderTarget(target);
+      work.render(f);
+      check();
     },
     renderFrame(work, f) {
       check();
@@ -75,9 +96,20 @@ export async function createHost({ gpu, width, height, fps = 24, device, query =
       work.render(f);
       return renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height).then(px => { check(); return px; });
     },
+    renderFrameYuv(work, f) {
+      check();
+      clock.tick((f * 1000) / fps);
+      renderer.setRenderTarget(target);
+      work.render(f);
+      yuvPacker ??= createYuvPacker({ device: renderer.backend.device, width, height });
+      const gpuTex = renderer.backend.get(target.texture)?.texture;
+      if (!gpuTex) throw new CliError('failure.gpu', '渲染目标未分配 GPU 纹理（作品 render(f) 没有向目标绘制任何内容）', null);
+      return yuvPacker.packTexture(gpuTex).then(px => { check(); return px; });
+    },
     dispose() {
       for (const w of works) w.dispose?.();
       for (const p of pipelines) p.dispose?.();
+      yuvPacker?.dispose();
       device.removeEventListener('uncapturederror', onGpuError);
       target.dispose();
       renderer.dispose();

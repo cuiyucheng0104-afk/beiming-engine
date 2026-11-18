@@ -15,6 +15,7 @@ export const newSpec = {
   options: {
     '--title': { type: 'string', arg: '<片名>', help: '片名，默认等于名字' },
     '--profile': { type: 'string', arg: '<档位>', help: '交付档位，默认取模版声明的，否则 web-1080p24（D07）' },
+    '--backend': { type: 'string', arg: '<后端>', help: '渲染后端（默认取模版声明的；A、C 可选 webgpu 生成同源离屏作品，D12）' },
     '--dry-run': { type: 'bool', help: '只列出将要写的文件与 film.json，不写任何文件' },
     '--check-timeout': { type: 'int', min: 1, arg: '<秒>', help: '作品描述校验器的超时（默认 60 秒）' },
   },
@@ -49,6 +50,7 @@ export async function newCommand(opts, positionals) {
   const pass = [route, name];
   if (opts.title !== undefined) pass.push('--title', opts.title);
   if (opts.profile !== undefined) pass.push('--profile', opts.profile);
+  if (opts.backend !== undefined) pass.push('--backend', opts.backend);
   if (opts.dryRun) pass.push('--dry-run');
   if (opts.checkTimeout !== undefined) pass.push('--check-timeout', String(opts.checkTimeout));
   const r = await exec(process.execPath, [NEW, ...pass, '--json'], { cwd: ROOT, quiet: true, timeoutSec: 180, label: 'tools/new-film.mjs', okCodes: [0, 1, 2, 3, 4, 124], sweep: false });

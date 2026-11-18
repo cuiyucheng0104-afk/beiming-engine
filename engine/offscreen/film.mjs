@@ -14,10 +14,11 @@
 // 页面约定里给渲染器的 window.DUR / READY / 预热，这里没有：帧数由宿主的 --frames 决定，着色器在第一帧编译。
 import { shotTable, designFit, normalizeTexts } from '../stage/film.js';
 import { setFilmFps, frameOf, REF_FPS } from '../core/clock.js';
-import { loadCanvas } from './canvas.mjs';
+import { mergeParams } from '../style/index.js';
+import { loadCanvasIso } from './io.mjs';
 
 export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, height: H, designWidth, designHeight, fit, shadows = THREE.PCFShadowMap } = {}) {
-  const { createCanvas } = await loadCanvas();
+  const { createCanvas } = await loadCanvasIso();
   const { texture, ivec2, vec4, mix, screenCoordinate, sRGBTransferEOTF } = TSL;
   renderer.toneMapping = THREE.NoToneMapping;   // 保色板（同 A 路线外壳）；宿主的目标已是 sRGB
   renderer.shadowMap.enabled = shadows !== false;
@@ -25,25 +26,40 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
   const F = designFit({ width: W, height: H, designWidth, designHeight, fit });
 
   const overlay = createCanvas(W, H), ctx = overlay.getContext('2d');
+  overlay.__bmOverlay = true;
   // 显示层贴图：上传时才读画布；行序自上而下，按屏幕坐标逐像素取（不翻 y、不插值）；数值就是 sRGB，不做色彩空间换算
   const ovTex = new THREE.DataTexture(null, W, H, THREE.RGBAFormat);
-  Object.defineProperty(ovTex.image, 'data', { get: () => new Uint8Array(ctx.getImageData(0, 0, W, H).data.buffer), configurable: true });
+  Object.defineProperty(ovTex.image, 'data', {
+    get: () => {
+      const d = ctx.getImageData(0, 0, W, H).data;
+      return new Uint8Array(d.buffer, d.byteOffset, d.byteLength);
+    },
+    configurable: true,
+  });
   ovTex.colorSpace = THREE.NoColorSpace; ovTex.minFilter = ovTex.magFilter = THREE.NearestFilter; ovTex.generateMipmaps = false; ovTex.needsUpdate = true;
 
-  function work({ dur, fps, shots, look, draw = null, texts = null }) {
+  function work({ dur, fps, shots, look, draw = null, texts = null, events = null, timeline = null }) {
     const rate = setFilmFps(fps ?? REF_FPS);
     const table = shotTable(shots, { fps: rate, dur });
     const ov = texture(ovTex).load(ivec2(screenCoordinate.xy));
     const pipe = draw ? vec4(sRGBTransferEOTF(mix(look.node.rgb, ov.rgb, ov.a)), 1) : look.output;
     const post = pipeline(pipe);
     return {
+      dur,
+      ...(events ? { events } : {}),
+      ...(timeline ? { timeline } : {}),
       render(f) {
         const t = Math.min(f / rate, dur - 1e-6);
         const { entry, ctx: sctx } = table.at(t, frameOf(t, rate));
         const S = entry.shot;
         S.update(t, frameOf(t, rate), sctx);
-        look.render(S.scene, S.camera, S.look(t, sctx));
-        if (draw) { ctx.clearRect(0, 0, W, H); draw(ctx, t, S, sctx); ovTex.needsUpdate = true; }
+        const rawLook = S.look(t, sctx);
+        look.render(S.scene, S.camera, globalThis.__LOOKDEV ? mergeParams(rawLook, globalThis.__LOOKDEV) : rawLook);
+        if (draw) {
+          ctx.clearRect(0, 0, W, H);
+          if (globalThis.__BMQA_OFFSCREEN?.hide !== 'layer') draw(ctx, t, S, sctx);
+          ovTex.needsUpdate = true;
+        }
         post.render();
       },
       texts: f => (texts ? normalizeTexts(texts(Math.min(f / rate, dur - 1e-6))) : []),

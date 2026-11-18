@@ -64,3 +64,103 @@ export function toonScene({ THREE, kind, shared, W, H, shadow = false, tsl = nul
   tsl?.(sun);
   return { scene, camera, sun, mats };
 }
+
+// M4 T3 进阶能力对拍场景：muralLayer 壁画风化（含钩子改 muralP / muralK）、InstancedMesh（实例色 + 逐实例噪声偏移）、
+// rest: true（CPU 形变网格固定纹理坐标）、fragmentNormal（微面闪光法线扰动 + overlay）、vertexBegin（顶点弯曲形变）、translucent 半透明面。
+export function toonAdvancedScene({ THREE, kind, shared, W, H, TSL = null, mural = null, mutate = null }) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x525882);
+  const camera = new THREE.PerspectiveCamera(32, W / H, 0.5, 200);
+  camera.position.set(0, 2.6, 13); camera.lookAt(0, 0.5, 0);
+  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  sun.position.set(5, 8, 5);
+  scene.add(sun);
+
+  const km = kind({ name: 'tMural', shared, firstId: 1, layers: mural ? [mural] : [] });
+  const kp = kind({ name: 'tPlain', shared, firstId: 40 });
+  const mut = mutate || {};
+
+  // 1) muralLayer + rest: true（顶点已做正弦弯曲，但 aRest 保持未弯曲坐标）
+  const muralMat = km.make({
+    color: '#3E7A9C', shade1: '#284E6E', shade2: '#1B334C', rest: true,
+    muralAmt: mut.muralAmt ?? 0.85, muralScale: 1.4, muralGround: '#E6D3AC', stainTint: [0.58, 0.5, 0.6],
+    fadeAmt: 0.45, fleckAmt: 0.6, chipAmt: 0.65, stainAmt: 0.5, dotAmt: 0.5,
+    fragmentBase: 'toonMuralP = vToonObj * 1.2 + vec3(0.3, 0.0, 0.0);\ntoonMuralK = step(-0.5, vToonObj.y);',
+    tsl: TSL && {
+      fragmentBase: c => {
+        c.muralP.assign(c.obj.mul(1.2).add(TSL.vec3(0.3, 0, 0)));
+        c.muralK.assign(TSL.step(-0.5, c.obj.y));
+      },
+    },
+  });
+  const restGeo = new THREE.CylinderGeometry(0.75, 0.85, 2.8, 32, 16);
+  const posAttr = restGeo.attributes.position;
+  const restArr = new Float32Array(posAttr.array);   // 形变前的静止坐标
+  restGeo.setAttribute('aRest', new THREE.BufferAttribute(restArr, 3));
+  for (let i = 0; i < posAttr.count; i++) {
+    const y = posAttr.getY(i);
+    posAttr.setX(i, posAttr.getX(i) + (mut.ignoreRest ? 0 : 0.45 * Math.sin(y * 1.4)));
+  }
+  posAttr.needsUpdate = true;
+  restGeo.computeVertexNormals();
+  const muralMesh = km.bind(new THREE.Mesh(restGeo, muralMat), muralMat);
+  muralMesh.position.set(-3.4, 0.8, 0);
+  scene.add(muralMesh);
+
+  // 2) InstancedMesh（3 个实例，各自带 instanceColor，且依赖 gl_InstanceID / instanceIndex 的噪声偏移）
+  const instMat = kp.make({
+    color: '#ffffff', shade1Tint: [0.6, 0.64, 0.84], shade2Tint: [0.35, 0.38, 0.62],
+    edgeNoise: 0.14, edgeNoiseScale: 1.5, rimColor: '#FFD3B0', rimAmt: 0.75,
+  });
+  const instGeo = new THREE.SphereGeometry(0.78, 32, 20);
+  const inst = kp.bind(new THREE.InstancedMesh(instGeo, instMat, 3), instMat);
+  const colors = ['#E2683C', '#76BE9E', '#EBC57A'];
+  for (let i = 0; i < 3; i++) {
+    const m = new THREE.Matrix4().makeTranslation(-0.9 + i * 1.15, 0.3 + i * 0.45, -0.4 + i * 0.35);
+    inst.setMatrixAt(i, m);
+    inst.setColorAt(i, new THREE.Color(mut.noInstColor ? '#ffffff' : colors[i]));
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+  scene.add(inst);
+
+  // 3) fragmentNormal + vertexBegin 钩子（波浪形变面片 + 微面法线偏转与亮金叠色）
+  const glintColor = new THREE.Color('#FFE484');
+  const hookMat = kp.make({
+    color: '#2C5C9C', shade1: '#1F3F78', shade2: '#16294F', rimColor: '#F2A0A6', rimAmt: 0.6,
+    uniforms: { uGlint: { value: glintColor } },
+    vertexBegin: 'transformed.z += sin( position.y * 2.2 ) * 0.25;',
+    vertexNormal: 'objectNormal = normalize( objectNormal + vec3( 0.0, -cos( position.y * 2.2 ) * 0.55, 0.0 ) );',
+    fragmentPars: 'uniform vec3 uGlint;\n',
+    fragmentNormal: mut.noFragNormal ? '' : `{
+      normal = normalize( normal + vec3( 0.35, 0.2, 0.0 ) );
+      float spec = smoothstep( 0.72, 0.96, dot( normal, normalize( normalize( vViewPosition ) + directionalLights[0].direction ) ) );
+      toonOverlay = vec4( uGlint, spec * 0.85 );
+    }`,
+    tsl: TSL && {
+      uniforms: { uGlint: TSL.uniform(glintColor) },
+      vertexBegin: v => { v.pos.z.addAssign(TSL.sin(v.pos.y.mul(2.2)).mul(mut.noVertexHook ? 0 : 0.25)); },
+      vertexNormal: v => { v.normal.assign(TSL.normalize(v.normal.add(TSL.vec3(0, TSL.cos(v.pos.y.mul(2.2)).mul(-0.55), 0)))); },
+      fragmentNormal: mut.noFragNormal ? undefined : c => {
+        const { normalize, vec3, vec4, smoothstep, dot } = TSL;
+        c.normal.assign(normalize(c.normal.add(vec3(0.35, 0.2, 0))));
+        const spec = smoothstep(0.72, 0.96, dot(c.normal, normalize(c.viewDir.add(c.lightDir))));
+        c.overlay.assign(vec4(c.u.uGlint, spec.mul(0.85)));
+      },
+    },
+  });
+  const wing = kp.bind(new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.4, 0.35, 8, 24, 4), hookMat), hookMat);
+  wing.position.set(3.2, 0.9, 0.2); wing.rotation.set(0.15, -0.35, 0.1);
+  scene.add(wing);
+
+  // 4) translucent 半透明薄翼（盖在实例化球前面一部分）
+  const veilMat = kp.make({
+    color: '#A79AD6', shade1: '#6F6AAB', shade2: '#454A80',
+    translucent: true, opacity: mut.veilOpacity ?? 0.52, side: THREE.DoubleSide, rimColor: '#FFF4EA', rimAmt: 0.7,
+  });
+  const veil = kp.bind(new THREE.Mesh(new THREE.PlaneGeometry(2.1, 1.5), veilMat), veilMat, { castShadow: false, outline: false });
+  veil.position.set(0.2, 0.4, 2.2); veil.rotation.set(-0.1, 0.2, 0.05);
+  scene.add(veil);
+
+  return { scene, camera, sun };
+}

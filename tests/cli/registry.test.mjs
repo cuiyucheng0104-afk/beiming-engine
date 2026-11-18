@@ -31,11 +31,15 @@ test('注册表合格，三条路线按 D01 / D04 登记', () => {
   assert.equal(b.upstream[0].license, 'FSL-1.1-ALv2');
   assert.equal(b.upstream[0].distributed, false);
   assert.match(reg.get('c').summary, /不是第三个 GPU 后端/);
-  assert.deepEqual(reg.get('c').renderer, ['page'], 'C 与 A 共用页面渲染器（D01）');
+  assert.deepEqual(reg.get('a').renderer, ['page', 'offscreen'], 'A 支持页面与离屏两种渲染器（D12）');
+  assert.deepEqual(reg.get('c').renderer, ['page', 'offscreen'], 'C 与 A 共用页面与离屏渲染器（D01、D12）');
+  assert.ok(reg.renderers.offscreen, 'renderers 表登记 offscreen（D12）');
+  assert.doesNotMatch(JSON.stringify(reg.renderers.offscreen), /原生/, '离屏出片不叫「原生」（D04、D12）');
   assert.deepEqual(reg.routes.map(r => r.legacyId), ['beiming', 'raea', null], '计划 M1 的 legacyId');
   assert.deepEqual(reg.routes.map(r => r.backend), ['three', 'native', 'canvas'], 'backend 默认值与 engine/production/film.js 同口径');
   for (const r of reg.routes) assert.ok(r.backends.includes(r.backend), r.id);
-  assert.deepEqual(reg.get('c').backends, ['canvas', 'svg', 'dom', 'three', 'webgl']);
+  assert.deepEqual(reg.get('a').backends, ['three', 'webgpu']);
+  assert.deepEqual(reg.get('c').backends, ['canvas', 'svg', 'dom', 'three', 'webgl', 'webgpu']);
 });
 
 test('id 与别名都能找到路线；旧名是别名；找不到返回 null', () => {
