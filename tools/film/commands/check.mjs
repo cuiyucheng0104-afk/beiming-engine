@@ -137,7 +137,8 @@ export async function checkCommand(opts, positionals) {
           const ad = j.data?.adapter;
           const gpuName = [ad?.vendor, ad?.architecture].filter(Boolean).join(' ') || ad?.description || '未知';
           add('offscreen', 'pass', `离屏契约满足：build(ctx) → render(f)，TEXTS ${j.data.hasTexts ? '有' : '无'}（Dawn：${gpuName}）`, { hasTexts: !!j.data.hasTexts });
-          if (j.data?.software) add('offscreen-gpu', 'env', `Dawn 落到了软件适配器（${gpuName}）`, { hint: '检查 NVIDIA 驱动与 Vulkan ICD' });
+          const softOk = /^(any|software-ok)$/i.test(String(process.env.BEIMING_GPU || '').trim());
+          if (j.data?.software) add('offscreen-gpu', softOk ? 'info' : 'env', `Dawn 落到了软件适配器（${gpuName}）`, softOk ? {} : { hint: '检查 NVIDIA 驱动与 Vulkan ICD（CI 可设 BEIMING_GPU=software-ok）' });
         } else if (res.code === 3) {
           add('offscreen', 'env', `离屏环境未就绪：${j?.error?.message || res.stderr.trim()}`);
         } else {

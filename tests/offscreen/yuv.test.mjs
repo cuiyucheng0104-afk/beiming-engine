@@ -13,6 +13,7 @@ import { encoderArgs, startEncoder } from '../../engine/offscreen/encode.mjs';
 import { COLOR, FFMPEG, probe } from '../../engine/render/lib/ffmpeg.mjs';
 
 let gpu = null, skipReason = null;
+const hasFfmpeg = spawnSync(FFMPEG(), ['-version'], { stdio: 'ignore' }).status === 0;
 try {
   gpu = await loadGpu();
   const h = await createHost({ gpu, width: 32, height: 32, fps: 24 });
@@ -121,6 +122,7 @@ test('encode.mjs pixFmt=yuv420p：参数免除 swscale 缩放、写出完整 BT.
   assert.ok(args.includes('yuv420p'));
   const vfIdx = args.indexOf('-vf');
   assert.ok(vfIdx >= 0 && !args[vfIdx + 1].includes('scale='), 'yuv420p 直通不应再跑 CPU swscale');
+  if (!hasFfmpeg) return t.skip('没有可用的 FFmpeg（CI 的 unit / windows-paths 不安装）');
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-yuv-enc-'));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));

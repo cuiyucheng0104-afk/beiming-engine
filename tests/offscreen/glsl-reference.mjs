@@ -20,6 +20,9 @@ ${body}
 </script></body></html>`;
 
 export async function startReference() {
+  if (defaultAngle() === 'swiftshader') {
+    throw new CliError('env.software-angle', 'BEIMING_ANGLE=swiftshader 强制浏览器走软件光栅，跳过与 Dawn GPU 的同卡像素对拍', { hint: '取消 BEIMING_ANGLE=swiftshader 后重跑对拍' });
+  }
   const srv = createServer({ root: ROOT });
   const { url } = await srv.listen(0);
   let browser;

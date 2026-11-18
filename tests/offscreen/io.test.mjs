@@ -73,9 +73,11 @@ test('io.mjs 路径与 JSON/字节读取：URL、仓库根路径与相对路径�
   assert.equal(IS_NODE, true);
   const byRel = await readJson('films/chendu/film.json');
   const byRoot = await readJson('/films/chendu/film.json');
+  const byRootWithBase = await readJson('/films/chendu/film.json', import.meta.url);
   const byUrl = await readJson(pathToFileURL(path.join(ROOT, 'films/chendu/film.json')));
   assert.equal(byRel.id, 'chendu');
   assert.deepEqual(byRoot, byRel);
+  assert.deepEqual(byRootWithBase, byRel);
   assert.deepEqual(byUrl, byRel);
 
   const subRef = joinRef('assets/plates', 'paper.png');

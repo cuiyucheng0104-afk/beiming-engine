@@ -423,7 +423,7 @@ export async function checkOffscreenGpu(root, { env = process.env, quick = false
     })];
   }
   const desc = [info.vendor, info.architecture, info.description].filter(Boolean).join(' ');
-  const soft = /swiftshader|llvmpipe|lavapipe/i.test(desc);
+  const soft = /swiftshader|llvmpipe|lavapipe|microsoft basic render|\bwarp\b/i.test(desc);
   const ff = ffmpegBins(env).ffmpeg;
   const nv = await run(ff, ['-v', 'error', '-f', 'lavfi', '-i', 'color=s=256x256', '-frames:v', '1', '-c:v', 'h264_nvenc', '-f', 'null', '-'], { env, timeout: 10_000 });
   const hasNvenc = !nv.error && nv.code === 0;

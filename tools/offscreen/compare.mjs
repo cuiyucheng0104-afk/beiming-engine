@@ -95,6 +95,11 @@ export const command = defineCommand({
     const host = await createHost({ gpu: await loadGpu(), width, height, fps, query });
     const info = host.device.adapterInfo ?? {};
     const adapter = { vendor: info.vendor ?? null, architecture: info.architecture ?? null, description: info.description ?? null };
+    const dawnSoft = /swiftshader|llvmpipe|lavapipe|microsoft basic render|\bwarp\b/i.test(`${adapter.vendor} ${adapter.description}`);
+    if (defaultAngle() === 'swiftshader' && !dawnSoft) {
+      host.dispose();
+      throw new CliError('env.software-angle', 'BEIMING_ANGLE=swiftshader 强制浏览器走软件光栅，无法与 Dawn 硬件 GPU 做同卡对拍', { hint: '取消 BEIMING_ANGLE=swiftshader 后重跑对拍' });
+    }
     const offscreen = [];
     try {
       const work = await host.load(file);

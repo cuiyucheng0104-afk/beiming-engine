@@ -160,7 +160,7 @@ test('film check 与 film stills 闭环：纯 backend=webgpu 作品不经浏览�
   const filmDir = mkdtempSync(join(ROOT, 'out/offscreen-webgpu-film-'));
   const outRoot = tmp();
   const FILM_CLI = join(ROOT, 'tools/film/cli.mjs');
-  const runFilm = args => spawnSync(process.execPath, [FILM_CLI, ...args], { cwd: ROOT, encoding: 'utf8', timeout: 120000 });
+  const runFilm = args => spawnSync(process.execPath, [FILM_CLI, ...args], { cwd: ROOT, env: { ...process.env, BEIMING_GPU: 'software-ok' }, encoding: 'utf8', timeout: 120000 });
   try {
     const inkUrl = new URL('../../lab/offscreen/ink.mjs', import.meta.url).href;
     writeFileSync(join(filmDir, 'offscreen.mjs'), `import { build as ink } from ${JSON.stringify(inkUrl)};\nexport function build(ctx) { return { ...ink(ctx), texts: () => [] }; }\n`);

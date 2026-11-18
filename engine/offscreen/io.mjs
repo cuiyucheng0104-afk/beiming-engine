@@ -40,17 +40,19 @@ export function resolveNodePath(ref, base) {
   }
   const str = String(ref ?? '');
   if (str.startsWith('file://')) return url.fileURLToPath(str);
+  if (path.isAbsolute(str)) {
+    if (fs.existsSync(str)) return str;
+    if (str.startsWith('/') && !str.startsWith('//')) {
+      const candidate = path.join(repoRoot, str.replace(/^\/+/, ''));
+      if (fs.existsSync(candidate)) return candidate;
+    }
+    return str;
+  }
   if (base !== undefined && base !== null) {
     if (base instanceof globalThis.URL || String(base).startsWith('file://')) {
       return url.fileURLToPath(new globalThis.URL(str, base));
     }
     return path.resolve(String(base), str);
-  }
-  if (path.isAbsolute(str)) {
-    if (fs.existsSync(str)) return str;
-    const candidate = path.join(repoRoot, str.replace(/^\/+/, ''));
-    if (fs.existsSync(candidate)) return candidate;
-    return str;
   }
   const cwdAbs = path.resolve(str);
   if (fs.existsSync(cwdAbs)) return cwdAbs;

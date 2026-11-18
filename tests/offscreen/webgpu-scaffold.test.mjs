@@ -8,13 +8,16 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadGpu } from '../../engine/offscreen/load.mjs';
+import { createHost } from '../../engine/offscreen/host.mjs';
 import { loadCanvas } from '../../engine/offscreen/canvas.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 let skipGpu = null;
 try {
-  await loadGpu();
+  const gpu = await loadGpu();
+  const h = await createHost({ gpu, width: 32, height: 32, fps: 24 });
+  h.dispose();
   await loadCanvas();
 } catch (e) {
   skipGpu = e.message;
@@ -66,7 +69,7 @@ test('--backend 参数校验：B 路线拒绝 webgpu（退出码 2），--dry-ru
 test('C 路线 --backend webgpu：新建作品 → 禁用浏览器跑 film check、offscreen probe --events-out 与 qa texts', { skip: skipGpu || false }, t => {
   const repo = makeRepoSandbox(t);
   const name = 'm7-c-cloud';
-  const envNoChrome = { BEIMING_CHROME: '/nonexistent/no-browser' };
+  const envNoChrome = { BEIMING_CHROME: '/nonexistent/no-browser', BEIMING_GPU: 'software-ok' };
 
   const n = runIn(repo, 'tools/film/cli.mjs', ['new', 'c', name, '--title', '云山', '--backend', 'webgpu', '--json'], envNoChrome);
   assert.equal(n.status, 0, n.stderr);
@@ -94,7 +97,7 @@ test('C 路线 --backend webgpu：新建作品 → 禁用浏览器跑 film check
 test('A 路线 --backend webgpu：新建作品 → 禁用浏览器跑 film check、qa texts 与 qa plates', { skip: skipGpu || false }, t => {
   const repo = makeRepoSandbox(t);
   const name = 'm7-a-dawn';
-  const envNoChrome = { BEIMING_CHROME: '/nonexistent/no-browser' };
+  const envNoChrome = { BEIMING_CHROME: '/nonexistent/no-browser', BEIMING_GPU: 'software-ok' };
 
   const n = runIn(repo, 'tools/film/cli.mjs', ['new', 'a', name, '--title', '晨渡', '--backend', 'webgpu', '--json'], envNoChrome);
   assert.equal(n.status, 0, n.stderr);

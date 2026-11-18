@@ -181,7 +181,7 @@ export const command = defineCommand({
         onCleanup: fn => ctx.onCleanup(fn),
         onJobDone: r => ctx.log.info(`作业 ${r.id}：${r.ok ? `完成（${r.frames} 帧，${r.seconds}s）` : `失败（${r.error.message}）`}`),
       });
-      const software = /swiftshader|llvmpipe|lavapipe/i.test(`${res.adapter.vendor} ${res.adapter.description}`);
+      const software = /swiftshader|llvmpipe|lavapipe|microsoft basic render|\bwarp\b/i.test(`${res.adapter.vendor} ${res.adapter.description}`);
       if (software) ctx.warn('env.software-gpu', `Dawn 落在软件适配器上（${res.adapter.vendor} ${res.adapter.description}），会很慢`, '检查 NVIDIA 驱动与 Vulkan ICD');
       ctx.out(`批量完成 ${res.succeeded}/${res.total} 个作业（共 ${res.totalFrames} 帧，${res.seconds}s，总吞吐 ${res.totalFps} 帧/秒）`);
       if (!res.ok) {
@@ -199,7 +199,7 @@ export const command = defineCommand({
     const host = await createHost({ gpu, width: a.width, height: a.height, fps: a.fps, query: ctx.opts.query });
     const info = host.device.adapterInfo ?? {};
     const adapter = { vendor: info.vendor ?? null, architecture: info.architecture ?? null, description: info.description ?? null };
-    const software = /swiftshader|llvmpipe|lavapipe/i.test(`${adapter.vendor} ${adapter.description}`);
+    const software = /swiftshader|llvmpipe|lavapipe|microsoft basic render|\bwarp\b/i.test(`${adapter.vendor} ${adapter.description}`);
     if (software) ctx.warn('env.software-gpu', `Dawn 落在软件适配器上（${adapter.vendor} ${adapter.description}），会很慢`, '检查 NVIDIA 驱动与 Vulkan ICD');
 
     if (a.sub === 'probe') {
