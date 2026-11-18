@@ -13,6 +13,7 @@
 
 ### Added
 
+- A 路线模版：片名逐字按字形自己的墨迹外框竖直居中（原来的 `textBaseline = 'middle'` 在字体子集不含空格时取后备字体的度量，片名高低随机器的系统字体变）；`?previs=1`（`film animatic` 传的参数）与 `?animatic=1` 一样进入预演模式，预演才真的关掉笔触与纸纹。模版有片名的 3 帧金标准截帧变了（只有片名字形），待按 POLICY 第 6 节审批。
 - 三条路线的模版仓库结构：`routes/README.md` 是总指引；A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）、C（北冥代码动画风格 · 86 式）各有一份路线手册和一个可直接出片的模版。`node tools/new-film.mjs <a|b|c> <名字>` 从模版新建作品到 `films/<名字>/`。
 - 导演与画面规范 `routes/directing/`：导演方法、画面设计、六章工艺（含音效设计与拟音工艺 `craft/sound.md`），以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
 - 工业级交付基线决策 `docs/decisions/2026-11-10-industrial-baseline.md`（D01–D11）。
