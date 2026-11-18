@@ -10,7 +10,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright-core';
+import { browserOk } from '../ci/browser.mjs';
 import { findSh } from '../../tools/env/lib/sh.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -18,7 +18,6 @@ const FILM = 'tests/production/fixtures/film';
 // 同步子进程一律限时：spawnSync / execFileSync 会阻塞事件循环，node:test 的用例超时打断不了它，卡住的子进程只能靠这里的 timeout 收掉
 const PROBE_MS = 10_000, TOOL_MS = 60_000, SCRIPT_MS = 120_000;
 const has = cmd => spawnSync(cmd, ['-version'], { stdio: 'ignore', timeout: PROBE_MS }).status === 0;
-const browserOk = (() => { try { return Boolean(process.env.BEIMING_CHROME) || existsSync(chromium.executablePath()); } catch { return false; } })();
 const skip = !has('ffmpeg') || !has('ffprobe') ? '没有 FFmpeg / ffprobe' : !browserOk ? '没有 Playwright 浏览器（npm run setup）' : false;
 const posix = process.platform !== 'win32';
 // mux.sh 与 build.sh 要 POSIX sh：Windows 上用 Git for Windows 的 sh（tools/env/lib/sh.mjs 的 findSh），找不到才跳过

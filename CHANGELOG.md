@@ -64,6 +64,9 @@
 - 作品站首屏剧照 404：Pages 构建现在会传入 media 前缀。
 - 首次在 GitHub 上跑 CI 时暴露的问题：各 job 改为检出完整历史（工程计划的证据提交、金标准源提交在浅克隆里找不到）；smoke-render 先取锁定的 OFL 字体，A 模版才能出片；软件渲染下冒烟只比对 `ci` 金标准集合（`beiming-core` 含原生 4K，SwiftShader 下采不完）；env-smoke 先装 FFmpeg 再自检，A、C 两份自检都写出报告；金标准截图沿用 `--frame-timeout`（原来用 playwright 自带的 30 秒，SwiftShader 下重的自测页会先撞上），冒烟在软件渲染下单帧放宽到 180 秒；护栏钩子去掉 PowerShell 7 管道带的 UTF-8 BOM 再解析；几处测试在 Windows 上的跨盘改名、8.3 短路径、反斜杠与 CRLF 写法。
 - 作品站的画风筛选写进地址栏（`?f=<家族>`，锚点不动）：刷新、分享、代理直接打开某一家族都能还原；选「全部」时去掉参数，不认识的值按「全部」处理（取自 PR #3 的前一半）。
+- 授权登记册 `docs/rights/register.md` 的核对不再随语言环境变化：`tools/compliance/lib/rights.mjs` 排序固定用 `en`，中文环境下 `rights-inventory --check` 不再误报「过期」（CI 英文环境本来就通过）；`tests/comp/cli.test.mjs` 新增中、英、C 三种环境下的核对。
+- 测试判断「有没有无头浏览器」改用与 `npm test` 的 `requires: browser` 同一个探测（`tests/ci/browser.mjs`）：原先用 `chromium.executablePath()` 指向完整 Chromium，而渲染器与 CI 装的是 chromium-headless-shell，渲染管线、生产管线、重排切点、确定性与金标准、例片资产桥共 5 个测试文件在 CI 里一直显示「跳过」而没有运行；`tests/ci/browser-skip.test.mjs` 防止再写回去。
+- 例片资产桥测试 `tests/native/bridge.test.mjs`：GLB 总字节数含贴图的 PNG 编码，随平台变化，改为与 sha256 一样只在登记过哈希的平台上比对（与 `examples/raea/expected-assets.json` 的 `$note` 一致），其余结构摘要仍在任何平台比对；基准文件未改。
 
 ## [1.0.0] - 2026-11-04
 

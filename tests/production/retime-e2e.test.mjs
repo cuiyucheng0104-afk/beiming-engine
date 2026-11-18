@@ -9,11 +9,10 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, rmdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { chromium } from 'playwright-core';
+import { browserOk } from '../ci/browser.mjs';
 import { REPO, runFilm } from './helpers.mjs';
 
 const has = cmd => spawnSync(cmd, ['-version'], { stdio: 'ignore', timeout: 10_000 }).status === 0;   // 同步子进程一律限时（阻塞事件循环，用例超时打断不了）
-const browserOk = (() => { try { return Boolean(process.env.BEIMING_CHROME) || existsSync(chromium.executablePath()); } catch { return false; } })();
 const skip = !has('ffmpeg') || !has('ffprobe') ? '没有 FFmpeg / ffprobe' : !browserOk ? '没有 Playwright 浏览器（npm run setup）' : false;
 
 const node = (args, opts = {}) => spawnSync(process.execPath, args, { cwd: REPO, encoding: 'utf8', timeout: 240_000, ...opts });

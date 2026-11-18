@@ -5,13 +5,12 @@ import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, symlinkSync } fro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright-core';
+import { browserOk } from '../ci/browser.mjs';
 
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const FIX = 'tests/render/fixtures';
 export const posix = process.platform !== 'win32';
 const has = cmd => spawnSync(cmd, ['-version'], { stdio: 'ignore' }).status === 0;
-const browserOk = (() => { try { return Boolean(process.env.BEIMING_CHROME) || existsSync(chromium.executablePath()); } catch { return false; } })();
 /** 整组跳过的原因（false = 不跳过） */
 export const skip = !has('ffmpeg') || !has('ffprobe') ? '没有 FFmpeg / ffprobe' : !browserOk ? '没有 Playwright 浏览器（npm run setup）' : false;
 

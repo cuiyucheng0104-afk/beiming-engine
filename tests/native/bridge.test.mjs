@@ -4,22 +4,17 @@
 // 需要 playwright-core 的无头 Chromium（npm run setup）；没有时跳过。约 6–10 秒。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platformKey } from '../../engine/native/runtime.mjs';
+import { browserOk } from '../ci/browser.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const EXAMPLE = join(ROOT, 'examples/raea');
 
-let chromiumOk = false;
-try {
-  const { chromium } = await import('playwright-core');
-  chromiumOk = existsSync(process.env.BEIMING_CHROME || chromium.executablePath());
-} catch { chromiumOk = false; }
-
-test('例片资产桥：重导出与基准一致；睑缘是墨线色；报告完整；没有 .part 残留', { skip: !chromiumOk && '没有 playwright-core 的 Chromium（npm run setup）', timeout: 300000 }, async () => {
+test('例片资产桥：重导出与基准一致；睑缘是墨线色；报告完整；没有 .part 残留', { skip: !browserOk && '没有 playwright-core 的 chromium-headless-shell（npm run setup）', timeout: 300000 }, async () => {
   const { exportModels } = await import('../../engine/native/bridge/export.mjs');
   const film = JSON.parse(readFileSync(join(EXAMPLE, 'film.json'), 'utf8'));
   const expected = JSON.parse(readFileSync(join(EXAMPLE, 'expected-assets.json'), 'utf8'));
@@ -31,13 +26,16 @@ test('例片资产桥：重导出与基准一致；睑缘是墨线色；报告�
     for (const m of models) {
       const r = reports[m.to], want = expected.assets[m.to], sv = r.structuralValidation;
       assert.ok(want, `expected-assets.json 里没有 ${m.to}`);
-      const got = { bytes: r.bytes, triangles: sv.sceneTriangles, vertices: sv.vertices, nodes: sv.nodes, materials: sv.materials, embeddedTextures: sv.embeddedTextures,
+      const got = { triangles: sv.sceneTriangles, vertices: sv.vertices, nodes: sv.nodes, materials: sv.materials, embeddedTextures: sv.embeddedTextures,
         skinnedMeshes: sv.skinnedMeshes, morphMeshes: sv.morphMeshes, clips: sv.animations.map(a => ({ name: a.name, duration: a.duration, channels: a.channels })) };
-      const { sha256, ...shape } = want;
+      const { sha256, bytes, ...shape } = want;
       assert.deepEqual(got, shape, `${m.to} 的结构与基准不同`);
       const plat = platformKey();
-      if (sha256[plat]) assert.equal(r.sha256, sha256[plat], `${m.to} 在 ${plat} 上的字节与基准不同`);
-      else console.log(`# ${m.to}：${plat} 没有登记哈希，本次 ${r.sha256}`);
+      // bytes 含贴图的 PNG 编码，随平台变（与 sha256 同属平台相关）：只在登记过哈希的平台上比，跟 expected-assets.json 的 $note 一致
+      if (sha256[plat]) {
+        assert.equal(r.sha256, sha256[plat], `${m.to} 在 ${plat} 上的字节与基准不同`);
+        assert.equal(r.bytes, bytes, `${m.to} 在 ${plat} 上的总字节数与基准不同`);
+      } else console.log(`# ${m.to}：${plat} 没有登记哈希，本次 ${r.sha256}`);
       // R08：依赖记录来自实际请求，不写死
       assert.ok(Object.keys(r.sourceHashes).length >= 5, '源文件哈希太少');
       assert.ok(r.runtime.three.startsWith('r') && r.runtime.playwright && r.runtime.browser);
