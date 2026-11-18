@@ -52,13 +52,18 @@ export async function loadContracts(root = HERE) {
       // shortcut: 内嵌值不带 format，例子文件也没写它是哪个对象，这里只要本契约有一份内嵌值的结构定义收它就算过；
       // 等例子目录有了「文件对哪份结构定义」的登记再改成精确对应
       const ok = embedded.get(contract).some((id) => ajv.getSchema(id)(obj));
-      return { contract, schemaErrors: ok ? [] : ['本契约里没有一份内嵌值的结构定义收它'], violations: {} };
+      return { contract, schemaErrors: ok ? [] : ['本契约里没有一份内嵌值的结构定义收它'], violations: runChecks(contract, obj) };
     }
     if (!hit) return { contract: null, schemaErrors: [`不认识的格式标识：${JSON.stringify(obj?.format)}`], violations: {} };
     const fn = ajv.getSchema(hit.id);
     const schemaErrors = fn(obj) ? [] : fn.errors.map((e) => `${e.instancePath || '/'} ${e.message}`);
+    return { contract: hit.contract, schemaErrors, violations: runChecks(hit.contract, obj) };
+  }
+
+  /** 本契约的每个判定函数都跑一遍；一份契约有几种对象时，判定函数自己认对象，不归它管的返回空数组 */
+  function runChecks(contract, obj) {
     const violations = {};
-    for (const [id, check] of Object.entries(contracts.get(hit.contract).checks)) {
+    for (const [id, check] of Object.entries(contracts.get(contract).checks)) {
       let problems;
       try {
         problems = check(obj);
@@ -67,7 +72,7 @@ export async function loadContracts(root = HERE) {
       }
       if (problems.length) violations[id] = problems;
     }
-    return { contract: hit.contract, schemaErrors, violations };
+    return violations;
   }
 
   return { validate, contracts };

@@ -1,6 +1,6 @@
 // 时间键契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
 // 输入是一份时间核对记录（time-check/0.1），返回这条不变量下发现的问题；空数组表示没违反。
-// 记录里没出现的段不判。
+// 记录里没出现的段不判。本契约的内嵌值（时间键、帧率）单独出现时不归这些条文管，一律返回空数组。
 
 const shotOf = (rec, id) => rec.shots.find((s) => s.id === id);
 const gcd = (a, b) => (b ? gcd(b, a % b) : a);
@@ -28,7 +28,9 @@ function extraFps(node, path, out) {
   return out;
 }
 
-export const checks = {
+const onRecord = (fn) => (obj) => (obj?.format === 'time-check/0.1' ? fn(obj) : []);
+
+const raw = {
   T1: (rec) => mixedDigests(rec.evaluations, (e) => `${e.shot} f=${e.f} sub=${e.sub}`)
     .map((k) => `同一个时刻求出了不同的状态：${k}`),
 
@@ -99,3 +101,5 @@ export const checks = {
 
   T13: (rec) => mixedDigests(rec.rng, (r) => r.name).map((k) => `同名的随机流出了不同的序列：${k}`),
 };
+
+export const checks = Object.fromEntries(Object.entries(raw).map(([id, fn]) => [id, onRecord(fn)]));
