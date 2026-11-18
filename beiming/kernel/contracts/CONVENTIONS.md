@@ -12,7 +12,11 @@ kernel/contracts/<名字>/
   examples/<短名>.json    正例
   counterexamples/<不变量编号>-<短名>.json   反例
   counterexamples/index.json   每个反例违反哪一条、为什么
+  check.mjs              判定函数：每条不变量一个，照第 4 节「怎么查」一栏写
 ```
+
+- `check.mjs` 导出 `checks`，键是不变量编号，值是函数：收一个顶层对象，返回发现的问题（字符串数组），空数组表示没违反。记录里没出现的段不判。判定函数只读传进来的对象，不读文件、不读时钟。
+- 正例和反例由 `node beiming/kernel/contracts/validate.mjs` 真的跑一遍：正例必须结构合法且一条不违反；反例必须正好被 `index.json` 写的那一条判出来，不多不少。
 
 - 条文和结构定义说法不一样时，以 `CONTRACT.md` 为准，并且算一个缺陷。
 - 反例文件本身是纯数据，不往里加「我违反了哪条」这类字段；这些信息写在 `counterexamples/index.json` 里：`[{ "file": "...", "violates": ["T2"], "why": "一句话" }]`。
