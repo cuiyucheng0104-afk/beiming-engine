@@ -25,14 +25,14 @@
     "violates": [
       "M4"
     ],
-    "why": "出帧者是 blender，camera 却写成了 null：只有 legacy-page 能免相机"
+    "why": "出帧者是 blender，camera 却写成了 null：只有合规档是 limited 的出帧者能免相机"
   },
   {
     "file": "M5-renderer-not-a-source.json",
     "violates": [
       "M5"
     ],
-    "why": "source.renderer 写成了宿主名 cycles，不是四个出帧者之一"
+    "why": "source.renderer 写成了宿主名 cycles，不是帧源名"
   },
   {
     "file": "M6-visible-without-pixels.json",

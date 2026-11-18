@@ -70,8 +70,8 @@
         "meta"
       ],
       "status": "ok",
-      "delivered": [
-        "meta",
+      "meta": true,
+      "layers": [
         "color"
       ],
       "colorTransfer": "encoded",

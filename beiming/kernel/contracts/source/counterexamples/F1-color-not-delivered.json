@@ -71,8 +71,8 @@
         "depth"
       ],
       "status": "ok",
-      "delivered": [
-        "meta",
+      "meta": true,
+      "layers": [
         "depth"
       ]
     }

@@ -1,0 +1,81 @@
+{
+  "format": "source-check/0.1",
+  "caps": {
+    "format": "caps/0.1",
+    "id": "blender",
+    "version": "5.2.3",
+    "language": "python",
+    "hosts": [
+      "cycles"
+    ],
+    "conformance": "full",
+    "outputs": {
+      "color": {
+        "type": "half",
+        "transfer": "linear",
+        "primaries": "rec709",
+        "note": "EXR"
+      },
+      "meta": true,
+      "depth": {
+        "type": "f32",
+        "note": "不抗锯齿"
+      },
+      "objectId": {
+        "type": "u32",
+        "note": "不抗锯齿"
+      },
+      "normal": {
+        "type": "half"
+      },
+      "motion": false
+    },
+    "sceneQuery": [
+      "bbox3d",
+      "anchor",
+      "intersect",
+      "contact",
+      "belowGround"
+    ],
+    "motionBlur": {
+      "mode": "native",
+      "auxAt": "sub0",
+      "conflicts": [
+        "motion"
+      ]
+    },
+    "determinism": "tolerance",
+    "draft": {
+      "kind": "cycles-low",
+      "samples": 24,
+      "scale": 0.5,
+      "denoise": "gpu"
+    },
+    "granularity": "frame",
+    "randomAccess": true,
+    "modes": [
+      "cards-data",
+      "build-script",
+      "native-code"
+    ],
+    "cost": {
+      "unit": "gpu-second"
+    }
+  },
+  "renders": [
+    {
+      "shotFrame": 150,
+      "want": [
+        "color",
+        "meta"
+      ],
+      "shutterAngleDeg": 180,
+      "status": "ok",
+      "meta": true,
+      "layers": [
+        "color"
+      ],
+      "metaShutterAngleDeg": 0
+    }
+  ]
+}

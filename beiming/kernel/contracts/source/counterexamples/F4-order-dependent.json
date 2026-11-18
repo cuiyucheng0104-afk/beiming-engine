@@ -66,12 +66,12 @@
     {
       "shotFrame": 150,
       "mode": "single",
-      "digest": "c41f0a7e93b25d68"
+      "digest": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
     },
     {
       "shotFrame": 150,
       "mode": "shuffled",
-      "digest": "7be2905f1ac4d306"
+      "digest": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63"
     }
   ]
 }

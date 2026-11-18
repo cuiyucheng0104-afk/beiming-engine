@@ -15,8 +15,13 @@
     "conformance": { "enum": ["full", "limited"] },
     "outputs": {
       "type": "object",
+      "description": "六个键必填。别的键只收 PS 3.1 的固定通道名和 lightgroup:*；名字在不在 PS 的登记表里由条文管，这里只管写法。",
       "required": ["color", "meta", "depth", "objectId", "normal", "motion"],
       "additionalProperties": false,
+      "patternProperties": {
+        "^(?!(color|meta)$)[a-z][A-Za-z0-9]*$": { "$ref": "#/$defs/pixelOutput" },
+        "^lightgroup:\\*$": { "$ref": "#/$defs/pixelOutput" }
+      },
       "properties": {
         "color": {
           "type": "object",
@@ -29,11 +34,7 @@
             "note": { "type": "string", "minLength": 1 }
           }
         },
-        "meta": { "type": "boolean" },
-        "depth": { "$ref": "#/$defs/pixelOutput" },
-        "objectId": { "$ref": "#/$defs/pixelOutput" },
-        "normal": { "$ref": "#/$defs/pixelOutput" },
-        "motion": { "$ref": "#/$defs/pixelOutput" }
+        "meta": { "type": "boolean" }
       }
     },
     "sceneQuery": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/queryKind" } },
@@ -43,7 +44,7 @@
       "additionalProperties": false,
       "properties": {
         "mode": { "enum": ["native", "accumulate"] },
-        "auxAt": { "enum": ["sub0", "first-sample"] },
+        "auxAt": { "const": "sub0" },
         "conflicts": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/outputName" } }
       }
     },
@@ -71,11 +72,15 @@
     "input": { "type": "string", "pattern": "^[a-z][a-z0-9-]*/[0-9]+\\.[0-9]+$" },
     "solvers": { "type": "array", "uniqueItems": true, "items": { "enum": ["path"] } },
     "channels": { "type": "string", "pattern": "^[a-z][a-z0-9-]*/[0-9]+\\.[0-9]+$" },
-    "metaNull": { "type": "array", "uniqueItems": true, "items": { "enum": ["camera.focusDist", "camera.fstop", "stats.noise", "lights"] } },
+    "metaNull": { "type": "array", "uniqueItems": true, "items": { "enum": ["stats.noise", "stats.tris", "texts", "lights"] } },
     "ext": { "type": "object" }
   },
   "$defs": {
-    "outputName": { "enum": ["color", "meta", "depth", "objectId", "normal", "motion"] },
+    "outputName": {
+      "description": "meta，或 PS 3.1 的通道名（含 lightgroup:<名>）。名字在不在 PS 的登记表里由条文管，这里只管写法。",
+      "type": "string",
+      "pattern": "^([a-z][A-Za-z0-9]*|lightgroup:[a-z0-9][a-z0-9-]*)$"
+    },
     "queryKind": { "enum": ["bbox3d", "anchor", "intersect", "contact", "belowGround"] },
     "sampleType": { "enum": ["half", "f32", "u32"] },
     "pixelOutput": {

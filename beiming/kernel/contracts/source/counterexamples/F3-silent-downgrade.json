@@ -71,8 +71,8 @@
       ],
       "shutterAngleDeg": 0,
       "status": "ok",
-      "delivered": [
-        "meta",
+      "meta": true,
+      "layers": [
         "color"
       ]
     }

@@ -2,14 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "meta/meta.schema.json",
   "title": "每帧元数据",
-  "description": "只管结构。哪个 null 在什么时候合法由 M4、M6、M7 管，origin 里列什么由 M2、M5 管，renderer 的值域由 M5 管，编号不重复由 M8 管，所以这里不收紧。",
+  "description": "只管结构。哪个 null 在什么时候合法由 M4、M6、M7 管，origin 里列什么由 M2、M5 管，renderer 的值域（帧源名，见 F 契约 3.1）由 M5 管，编号不重复由 M8 管，所以这里不收紧。",
   "type": "object",
   "required": ["format", "film", "shot", "frame", "shotFrame", "sub", "seed", "fps", "size", "colorRef", "units", "camera", "entities", "lights", "events", "texts", "stats", "source", "timing", "origin", "hash"],
   "additionalProperties": false,
   "properties": {
     "format": { "const": "meta/0.1" },
     "film": { "type": "string", "minLength": 1 },
-    "shot": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
     "frame": { "type": "integer", "minimum": 0 },
     "shotFrame": { "type": "integer", "minimum": 0 },
     "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
@@ -25,7 +25,8 @@
     },
     "camera": {
       "type": ["object", "null"],
-      "required": ["world", "proj", "fovYDeg", "near", "far", "focusDist", "fstop", "shutterAngleDeg"],
+      "required": ["world", "proj", "fovYDeg", "near", "far", "shutterAngleDeg"],
+      "dependentRequired": { "focusDist": ["sensorHeightM"], "fstop": ["sensorHeightM"] },
       "additionalProperties": false,
       "properties": {
         "world": { "$ref": "#/$defs/mat4" },
@@ -33,8 +34,9 @@
         "fovYDeg": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180 },
         "near": { "type": "number", "exclusiveMinimum": 0 },
         "far": { "type": "number", "exclusiveMinimum": 0 },
-        "focusDist": { "type": ["number", "null"], "exclusiveMinimum": 0 },
-        "fstop": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "focusDist": { "type": "number", "exclusiveMinimum": 0 },
+        "fstop": { "type": "number", "exclusiveMinimum": 0 },
+        "sensorHeightM": { "type": "number", "exclusiveMinimum": 0 },
         "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 }
       }
     },
@@ -82,16 +84,20 @@
       "type": ["array", "null"],
       "items": {
         "type": "object",
-        "required": ["name", "type", "pos", "power", "unit", "color"],
+        "required": ["name", "type", "color"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string", "minLength": 1 },
-          "type": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["area-rect", "point", "sun"] },
           "pos": { "$ref": "#/$defs/vec3" },
-          "power": { "type": "number", "minimum": 0 },
-          "unit": { "const": "W" },
+          "watts": { "type": "number", "minimum": 0 },
+          "dir": { "$ref": "#/$defs/vec3" },
+          "irradiance": { "type": "number", "minimum": 0 },
           "color": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": 0 } }
-        }
+        },
+        "if": { "properties": { "type": { "const": "sun" } } },
+        "then": { "required": ["dir", "irradiance"], "properties": { "pos": false, "watts": false } },
+        "else": { "required": ["pos", "watts"], "properties": { "dir": false, "irradiance": false } }
       }
     },
     "events": {
@@ -104,7 +110,7 @@
       }
     },
     "texts": {
-      "type": "array",
+      "type": ["array", "null"],
       "items": {
         "type": "object",
         "required": ["text", "bbox2d"],
@@ -131,7 +137,7 @@
         "clipHigh": { "type": "number", "minimum": 0, "maximum": 1 },
         "clipLow": { "type": "number", "minimum": 0, "maximum": 1 },
         "noise": { "type": ["number", "null"], "minimum": 0 },
-        "tris": { "type": "integer", "minimum": 0 }
+        "tris": { "type": ["integer", "null"], "minimum": 0 }
       }
     },
     "source": {

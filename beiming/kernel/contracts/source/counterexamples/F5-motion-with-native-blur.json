@@ -73,8 +73,8 @@
       ],
       "shutterAngleDeg": 180,
       "status": "ok",
-      "delivered": [
-        "meta",
+      "meta": true,
+      "layers": [
         "color",
         "motion"
       ]

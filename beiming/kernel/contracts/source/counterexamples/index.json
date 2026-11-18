@@ -75,5 +75,19 @@
       "F11"
     ],
     "why": "kit.fan_L 在实体清单里是 17 号，到第 151 帧的元数据里变成了 18 号"
+  },
+  {
+    "file": "F12-meta-shutter-differs.json",
+    "violates": [
+      "F12"
+    ],
+    "why": "这次 render 生效的快门角是 180 度，交回的元数据里 camera.shutterAngleDeg 却写了 0"
+  },
+  {
+    "file": "F13-zero-angle-multi-sample.json",
+    "violates": [
+      "F13"
+    ],
+    "why": "生效的快门角是 0、子帧采样数是 4，帧源没报错，照样出了帧"
   }
 ]

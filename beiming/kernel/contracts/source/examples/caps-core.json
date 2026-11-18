@@ -31,6 +31,15 @@
     },
     "motion": {
       "type": "f32"
+    },
+    "denoiseAlbedo": {
+      "type": "f32"
+    },
+    "denoiseNormal": {
+      "type": "f32"
+    },
+    "lightgroup:*": {
+      "type": "f32"
     }
   },
   "channels": "passes/0.1",
@@ -43,7 +52,7 @@
   ],
   "motionBlur": {
     "mode": "native",
-    "auxAt": "first-sample"
+    "auxAt": "sub0"
   },
   "determinism": "tolerance",
   "draft": {

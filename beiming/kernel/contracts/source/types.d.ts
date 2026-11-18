@@ -15,17 +15,20 @@ export type Ref = unknown;
 /** 能力声明。字段见 CONTRACT.md 3.4 和 schema/caps.schema.json。 */
 export type Caps = object;
 
-export type OutputName = 'color' | 'meta' | 'depth' | 'objectId' | 'normal' | 'motion';
+/** 通道名：输出通道契约（PS）3.1 登记表里的名字，含 `lightgroup:<名>`。 */
+export type ChannelName = string;
+
+export type OutputName = 'meta' | ChannelName;
 
 export type RenderOpts = {
   samples?: number;                                  // 每像素采样数，整数，>= 1
   scale?: number;                                    // (0, 1]
-  shutter?: { angleDeg: number; samples: number };   // angleDeg：度，[0, 360]；samples：整数，>= 1
+  shutter?: { angleDeg: number; samples: number };   // angleDeg：度，[0, 360]；samples：整数，>= 1。不出现时用镜头条目的快门，见 5.9
 };
 
 export type FrameResult = {
-  meta: FrameMeta;
-  color?: Ref; depth?: Ref; objectId?: Ref; normal?: Ref; motion?: Ref;
+  meta?: FrameMeta;                        // 能力声明的 outputs.meta 是 true 时必有
+  layers: { [channel: ChannelName]: Ref };   // 像素输出；一层都没交时是空对象
 };
 
 export type Manifest = {
@@ -57,5 +60,6 @@ export interface Session {
 
 export interface FrameSource {
   caps(): Caps;
+  /** shot 带 renderer 对象时，出帧者那一套已经由宿主换到顶层。 */
   open(shot: ShotEntry, env: { lock: FilmLock; tier: 'draft' | 'final'; workspace: string }): Promise<Session>;
 }
