@@ -17,6 +17,11 @@
       "path": "style/finish/grain"
     },
     {
+      "op": "set",
+      "path": "transitions/cut-180/type",
+      "value": "cut"
+    },
+    {
       "op": "add",
       "path": "events",
       "value": {

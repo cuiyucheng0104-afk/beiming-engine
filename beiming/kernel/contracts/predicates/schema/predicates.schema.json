@@ -133,7 +133,7 @@
             "minItems": 1,
             "items": {
               "type": "string",
-              "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$"
+              "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$"
             },
             "uniqueItems": true
           },

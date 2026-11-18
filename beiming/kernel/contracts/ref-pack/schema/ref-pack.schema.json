@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ref-pack/ref-pack.schema.json",
   "title": "参考包清单",
-  "description": "只管结构。firstSample 取什么由 RP1 管，denoised 由 RP2 管，physical 渲染口径下的夹取和滤光泽由 RP8 管，channels 必须含哪些通道由输出通道契约的 PS1 管，所以这里不收紧。firstSample 的每一项必须是 channels 里的名字，JSON Schema 写不出来，以 CONTRACT.md 为准。",
+  "description": "只管结构。auxSample 取什么由 RP1 管，denoised 由 RP2 管，physical 渲染口径下的夹取和滤光泽由 RP8 管，channels 必须含哪些通道由输出通道契约的 PS1 管，所以这里不收紧。auxSample 的每一项必须是 channels 里的名字，JSON Schema 写不出来，以 CONTRACT.md 为准。",
   "type": "object",
   "required": [
     "format", "ref", "scenePack", "producer", "blender", "build", "device", "gpu", "driver", "oidn",
     "ocioConfigSha256", "profile", "samples", "shutterAngleDeg", "seeds", "converged", "adaptive", "denoised", "clamp",
-    "filterGlossy", "bounces", "pattern", "pixelFilter", "channels", "firstSample", "files", "floor"
+    "filterGlossy", "bounces", "pattern", "pixelFilter", "channels", "auxSample", "files", "floor"
   ],
   "additionalProperties": false,
   "properties": {
@@ -70,7 +70,7 @@
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/channelName" }
     },
-    "firstSample": {
+    "auxSample": {
       "type": "array",
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/channelName" }

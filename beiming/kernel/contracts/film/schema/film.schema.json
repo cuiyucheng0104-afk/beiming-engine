@@ -62,7 +62,7 @@
         "required": ["id", "shot", "anchor", "text", "in", "out"],
         "additionalProperties": false,
         "properties": {
-          "id": { "$ref": "#/$defs/id" },
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" },
           "shot": { "$ref": "#/$defs/id" },
           "anchor": { "type": "string", "pattern": "^(screen|[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*#[A-Za-z0-9_]+)$" },
           "pos": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 1 } },
@@ -203,7 +203,7 @@
         "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
         "in": { "type": "integer", "minimum": 0 },
         "out": { "type": "integer", "minimum": 1 },
-        "source": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$" },
+        "source": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
         "host": { "type": "string", "minLength": 1 },
         "mode": { "enum": ["cards-data", "build-script", "native-code"] },
         "entry": { "$ref": "#/$defs/entry" },
@@ -271,7 +271,7 @@
           "required": ["source", "host", "mode"],
           "additionalProperties": false,
           "properties": {
-            "source": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$" },
+            "source": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
             "host": { "type": "string", "minLength": 1 },
             "mode": { "enum": ["cards-data", "build-script", "native-code"] },
             "entry": { "$ref": "#/$defs/entry" }

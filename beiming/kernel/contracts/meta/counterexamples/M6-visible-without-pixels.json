@@ -89,7 +89,7 @@
         3.16
       ],
       "cards": [
-        "assembly.schedule@1.0.2"
+        "assembly.schedule@1"
       ]
     },
     {
@@ -149,7 +149,7 @@
       "pxArea": 0.107,
       "count": 500,
       "cards": [
-        "particle.ballistic@1.0.0"
+        "particle.ballistic@1"
       ]
     }
   ],

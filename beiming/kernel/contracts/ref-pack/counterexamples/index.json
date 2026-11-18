@@ -4,7 +4,7 @@
     "violates": [
       "RP1"
     ],
-    "why": "channels 里有 objectId，firstSample 里却没有它"
+    "why": "channels 里有 objectId，auxSample 里却没有它"
   },
   {
     "file": "RP2-denoised-reference.json",

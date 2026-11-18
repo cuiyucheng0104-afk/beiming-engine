@@ -23,6 +23,7 @@
   "events": [],
   "texts": [
     {
+      "id": "chapter",
       "text": "第一章",
       "bbox2d": [
         160,

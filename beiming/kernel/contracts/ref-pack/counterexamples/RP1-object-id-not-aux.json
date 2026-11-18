@@ -62,7 +62,7 @@
     "lightgroup:rim1",
     "lightgroup:rim2"
   ],
-  "firstSample": [
+  "auxSample": [
     "depth",
     "normal",
     "motion"

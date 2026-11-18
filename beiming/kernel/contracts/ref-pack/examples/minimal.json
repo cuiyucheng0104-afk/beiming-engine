@@ -44,7 +44,7 @@
     "denoiseAlbedo",
     "denoiseNormal"
   ],
-  "firstSample": [
+  "auxSample": [
     "depth",
     "objectId",
     "normal",

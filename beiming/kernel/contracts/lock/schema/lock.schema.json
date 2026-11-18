@@ -30,7 +30,7 @@
     "sources": {
       "type": "object",
       "minProperties": 1,
-      "propertyNames": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$" },
+      "propertyNames": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
       "additionalProperties": {
         "type": "object",
         "required": ["version", "host", "image"],

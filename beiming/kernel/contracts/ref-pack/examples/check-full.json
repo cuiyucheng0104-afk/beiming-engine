@@ -64,7 +64,7 @@
       "lightgroup:rim1",
       "lightgroup:rim2"
     ],
-    "firstSample": [
+    "auxSample": [
       "depth",
       "objectId",
       "normal",
@@ -172,7 +172,7 @@
       "lightgroup:rim1",
       "lightgroup:rim2"
     ],
-    "firstSample": [
+    "auxSample": [
       "depth",
       "objectId",
       "normal",

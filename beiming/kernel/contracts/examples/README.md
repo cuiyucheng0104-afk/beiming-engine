@@ -52,7 +52,6 @@ D3、D4、D5、D6、D7、D9、D15 判的是锁文件、路径、写入和 `expla
 | `style.colorScript.*.tol` | `10`，示意 | `待探针：色彩脚本主色的色差公式和容差的量法` |
 | 卡的参数名和参数值 | 示意 | 卡文件 |
 | 入口文件里，卡带进来的实体由谁并进 `entities` | `film-hard-surface/` 的 `s02` 照镜头契约 3.5 的示意，由镜头代码交 `{ title: title.object }` | 镜头契约（S）、卡的运行时接口契约（CR） |
-| 资产带进来的实体上的锚点由谁交 | `hard-surface/`、`film-hard-surface/` 的叠加层锚在 `kit.rotor#hub`、`kit.fan_L#hub` 上，这两个实体是资产带进来的，不是卡带进来的；样例只写了锚点名 | 卡的运行时接口契约（CR） |
 | 片名定住从哪一帧起 | `film-min/` 的 `deliberate` 写 `[222, 300)`，示意 | 卡文件 |
 
 ## 4. 样例里没有的文件

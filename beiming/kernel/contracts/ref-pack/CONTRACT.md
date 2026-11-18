@@ -89,7 +89,7 @@
 | `pattern` | 字符串 | 无 | 是 | 不空；`待定：采样图案的取值` | 采样图案。全部参考包必须用同一种 |
 | `pixelFilter` | 字符串 | 无 | 是 | 不空；`待定：像素滤波的写法` | 像素滤波的类型和宽度 |
 | `channels` | 数组 | 无 | 是 | 每项是输出通道契约（PS）3.1 的通道名，不重复；必须含哪些由 PS1 管 | 每个 EXR 文件里有哪些通道 |
-| `firstSample` | 数组 | 无 | 是 | 每项是 `channels` 里的名字，不重复；取值由 RP1 管 | `channels` 里的辅助层：取辅助样本、不做样本累积的那几个 |
+| `auxSample` | 数组 | 无 | 是 | 每项是 `channels` 里的名字，不重复；取值由 RP1 管 | `channels` 里的辅助层：取辅助样本、不做样本累积的那几个 |
 | `files` | 数组 | 无 | 是 | 至少 1 项，不重复；每项是相对路径，以 `.exr` 结尾 | 包里的 EXR 文件 |
 | `floor` | 对象 | 无 | 是 | 见 3.3 | 参考噪声地板 |
 | `ext` | 对象 | 无 | 否 | 键带点分前缀 | 私有数据 |
@@ -168,7 +168,7 @@
 
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
-| RP1 | `firstSample` 必须正好是 `channels` 里在通道登记表中取法是 `sub0` 的那些通道名，也就是辅助层。 | 把 `channels` 里的 `depth`、`objectId`、`normal`、`motion` 挑出来成一个集合，`firstSample` 作为集合必须等于它 | `RP1-object-id-not-aux.json` |
+| RP1 | `auxSample` 必须正好是 `channels` 里在通道登记表中取法是 `sub0` 的那些通道名，也就是辅助层。 | 把 `channels` 里的 `depth`、`objectId`、`normal`、`motion` 挑出来成一个集合，`auxSample` 作为集合必须等于它 | `RP1-object-id-not-aux.json` |
 | RP2 | 参考包里的颜色必须是场景线性、未降噪的：`denoised` 必须是 `false`，量出来的 `color` 通道必须是线性编码。 | `denoised` 必须是 `false`；`colorTransfer` 出现时必须是 `linear` | `RP2-denoised-reference.json` |
 | RP3 | `floor` 的三个键里有任何一个是 `null` 的参考包，不得拿来当裁判。 | `pack.floor` 的三个键有一个是 `null` 时，`judgings` 必须是空数组 | `RP3-judge-without-floor.json` |
 | RP4 | 拿参考包当裁判时，每道门的门槛必须等于参考噪声地板里对应的那一项乘以系数 k，不得写死成别的数。 | `judgings` 每一项：`pack.floor[metric]` 不是 `null` 时，`threshold` 和 `pack.floor[metric] × k` 的差的绝对值必须不大于后者的十亿分之一。是 `null` 的归 RP3，这一条不判 | `RP4-fixed-threshold.json` |
@@ -243,7 +243,6 @@
 | `pattern` 的取值 | 字段留着，只要求不空 | `待定：采样图案的取值` |
 | `pixelFilter` 的写法 | 字段留着，只要求不空 | `待定：像素滤波的写法` |
 | 字段名的大小写 | 【起草者补】通用口径规定字段名用小驼峰，所以写 `ocioConfigSha256`、`filterGlossy`、`pixelFilter`、`rerunBitExact`、`seedVsSeedPsnr`、`seedVsSeedFlipMean` | 集成负责人确认 |
-| `firstSample` 这个字段名 | 【起草者补】辅助层不再取「首个样本」，字段名没有跟着改，只改了说明 | 集成负责人定：要不要改名 |
 | 参考包清单的文件名 | 【起草者补】`ref.json` | 集成负责人确认 |
 | `ref` 的写法，各段各是什么意思 | 【起草者补】只定了字符集；例子是「场景／对象／帧／渲染口径」四段，没有立成规矩 | 集成负责人确认 |
 | 对照帧另立契约 | `producer` 只收 `oracle`，值域不改。实验室帧、核心帧源的帧要当对照答案时不放进参考包：参考包的必填字段只对 Cycles 有意义。对照帧由另一份契约管 | 对照帧的契约起草时 |
@@ -272,3 +271,4 @@
 |---|---|---|
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 第 2 节，3.2、3.3、3.4，RP1、RP2，5.2、5.3，第 6 节 | 照红队和跨契约一致性复核的处理结果改 |
+| 2026-11-18 | 辅助层样本的字段改名为 `auxSample`：3 节的字段表、RP1、第 6 节、结构定义、全部例子和反例 | 修订后的对齐收尾 |

@@ -26,7 +26,7 @@
     "camera": {
       "type": ["object", "null"],
       "required": ["world", "proj", "fovYDeg", "near", "far", "shutterAngleDeg"],
-      "dependentRequired": { "focusDist": ["sensorHeightM"], "fstop": ["sensorHeightM"] },
+      "dependentRequired": { "focusDist": ["sensorHeightM", "fstop"], "fstop": ["sensorHeightM", "focusDist"] },
       "additionalProperties": false,
       "properties": {
         "world": { "$ref": "#/$defs/mat4" },
@@ -56,7 +56,7 @@
           "visible": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
           "pxArea": { "type": "number", "minimum": 0, "maximum": 1 },
           "depth": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
-          "cards": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+@[0-9]+(\\.[0-9]+){0,2}$" } },
+          "cards": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+@[1-9][0-9]*$" } },
           "anchors": {
             "type": "object",
             "additionalProperties": {
@@ -115,7 +115,7 @@
         "type": "object",
         "required": ["text", "bbox2d"],
         "additionalProperties": false,
-        "properties": { "text": { "type": "string", "minLength": 1 }, "bbox2d": { "$ref": "#/$defs/box2" } }
+        "properties": { "id": { "type": "string", "minLength": 1 }, "text": { "type": "string", "minLength": 1 }, "bbox2d": { "$ref": "#/$defs/box2" } }
       }
     },
     "readings": { "type": "object", "propertyNames": { "minLength": 1 }, "additionalProperties": { "type": "number" } },

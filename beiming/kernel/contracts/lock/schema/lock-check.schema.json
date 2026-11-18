@@ -17,7 +17,7 @@
         "required": ["renderer", "host", "version"],
         "additionalProperties": false,
         "properties": {
-          "renderer": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$" },
+          "renderer": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
           "host": { "type": "string", "minLength": 1 },
           "version": { "type": "string", "minLength": 1 }
         }
