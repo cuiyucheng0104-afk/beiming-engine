@@ -1,0 +1,79 @@
+[
+  {
+    "file": "F1-color-not-delivered.json",
+    "violates": [
+      "F1"
+    ],
+    "why": "要了颜色层，返回成功，交回的东西里却没有颜色层"
+  },
+  {
+    "file": "F2-color-encoded.json",
+    "violates": [
+      "F2"
+    ],
+    "why": "颜色层交的是编码后的数值，不是线性编码"
+  },
+  {
+    "file": "F3-silent-downgrade.json",
+    "violates": [
+      "F3"
+    ],
+    "why": "要了没声明的 motion 层，帧源没报错，少交一层就返回了成功"
+  },
+  {
+    "file": "F4-order-dependent.json",
+    "violates": [
+      "F4"
+    ],
+    "why": "哈希档的帧源，同一帧单独渲和乱序渲的摘要不同"
+  },
+  {
+    "file": "F5-motion-with-native-blur.json",
+    "violates": [
+      "F5"
+    ],
+    "why": "原生运动模糊开着（快门角 180 度）时要了冲突表里的 motion 层，帧源照样出了帧"
+  },
+  {
+    "file": "F6-gpu-error-exit-zero.json",
+    "violates": [
+      "F6"
+    ],
+    "why": "显卡出错之后进程用退出码 0 结束"
+  },
+  {
+    "file": "F7-depth-merge-across-sources.json",
+    "violates": [
+      "F7"
+    ],
+    "why": "拿深度层去做两个帧源之间的合并"
+  },
+  {
+    "file": "F8-undeclared-query-answered.json",
+    "violates": [
+      "F8"
+    ],
+    "why": "能力声明里没列 intersect，问了却照样给了结果"
+  },
+  {
+    "file": "F9-query-not-truncated.json",
+    "violates": [
+      "F9"
+    ],
+    "why": "命中 73 项全部交了回来，没有截到 50 项"
+  },
+  {
+    "file": "F10-blender-declares-limited.json",
+    "violates": [
+      "F10"
+    ],
+    "why": "Blender 帧源把合规档写成了 limited"
+  },
+  {
+    "file": "F11-entity-id-changes.json",
+    "violates": [
+      "F11"
+    ],
+    "why": "kit.fan_L 在实体清单里是 17 号，到第 151 帧的元数据里变成了 18 号"
+  }
+]

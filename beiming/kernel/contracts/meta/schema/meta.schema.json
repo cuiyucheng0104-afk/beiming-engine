@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "meta/meta.schema.json",
+  "title": "每帧元数据",
+  "description": "只管结构。哪个 null 在什么时候合法由 M4、M6、M7 管，origin 里列什么由 M2、M5 管，renderer 的值域由 M5 管，编号不重复由 M8 管，所以这里不收紧。",
+  "type": "object",
+  "required": ["format", "film", "shot", "frame", "shotFrame", "sub", "seed", "fps", "size", "colorRef", "units", "camera", "entities", "lights", "events", "texts", "stats", "source", "timing", "origin", "hash"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "meta/0.1" },
+    "film": { "type": "string", "minLength": 1 },
+    "shot": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "frame": { "type": "integer", "minimum": 0 },
+    "shotFrame": { "type": "integer", "minimum": 0 },
+    "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "fps": { "type": "string", "pattern": "^[1-9][0-9]*/[1-9][0-9]*$" },
+    "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+    "colorRef": { "enum": ["scene", "display"] },
+    "units": {
+      "type": "object",
+      "required": ["meter", "up", "hand"],
+      "additionalProperties": false,
+      "properties": { "meter": { "const": 1 }, "up": { "const": "Y" }, "hand": { "const": "right" } }
+    },
+    "camera": {
+      "type": ["object", "null"],
+      "required": ["world", "proj", "fovYDeg", "near", "far", "focusDist", "fstop", "shutterAngleDeg"],
+      "additionalProperties": false,
+      "properties": {
+        "world": { "$ref": "#/$defs/mat4" },
+        "proj": { "$ref": "#/$defs/mat4" },
+        "fovYDeg": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180 },
+        "near": { "type": "number", "exclusiveMinimum": 0 },
+        "far": { "type": "number", "exclusiveMinimum": 0 },
+        "focusDist": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "fstop": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 }
+      }
+    },
+    "entities": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "class", "bbox2d", "visible", "pxArea"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "name": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$" },
+          "class": { "type": "string", "minLength": 1 },
+          "role": { "enum": ["hero", "mustSee"] },
+          "bbox2d": { "$ref": "#/$defs/box2" },
+          "bbox3d": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "type": "number" } },
+          "visible": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "pxArea": { "type": "number", "minimum": 0, "maximum": 1 },
+          "depth": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+          "cards": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+@[0-9]+(\\.[0-9]+){0,2}$" } },
+          "anchors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["world", "screen"],
+              "additionalProperties": false,
+              "properties": {
+                "world": { "$ref": "#/$defs/vec3" },
+                "screen": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+              }
+            }
+          },
+          "motion": {
+            "type": "object",
+            "required": ["speed", "unit"],
+            "additionalProperties": false,
+            "properties": { "speed": { "type": "number", "minimum": 0 }, "unit": { "const": "m/frame" } }
+          },
+          "count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "omittedParts": { "type": "integer", "minimum": 1 },
+    "lights": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "pos", "power", "unit", "color"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "minLength": 1 },
+          "pos": { "$ref": "#/$defs/vec3" },
+          "power": { "type": "number", "minimum": 0 },
+          "unit": { "const": "W" },
+          "color": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number", "minimum": 0 } }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "frame"],
+        "additionalProperties": false,
+        "properties": { "id": { "type": "string", "minLength": 1 }, "frame": { "type": "integer", "minimum": 0 } }
+      }
+    },
+    "texts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "bbox2d"],
+        "additionalProperties": false,
+        "properties": { "text": { "type": "string", "minLength": 1 }, "bbox2d": { "$ref": "#/$defs/box2" } }
+      }
+    },
+    "readings": { "type": "object", "propertyNames": { "minLength": 1 }, "additionalProperties": { "type": "number" } },
+    "stats": {
+      "type": ["object", "null"],
+      "required": ["luma", "clipHigh", "clipLow", "noise", "tris"],
+      "additionalProperties": false,
+      "properties": {
+        "luma": {
+          "type": "object",
+          "required": ["p1", "p50", "p99"],
+          "additionalProperties": false,
+          "properties": {
+            "p1": { "type": "number", "minimum": 0 },
+            "p50": { "type": "number", "minimum": 0 },
+            "p99": { "type": "number", "minimum": 0 }
+          }
+        },
+        "clipHigh": { "type": "number", "minimum": 0, "maximum": 1 },
+        "clipLow": { "type": "number", "minimum": 0, "maximum": 1 },
+        "noise": { "type": ["number", "null"], "minimum": 0 },
+        "tris": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["id", "renderer", "host", "version", "tier"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
+        "renderer": { "type": "string", "minLength": 1 },
+        "host": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "tier": { "enum": ["draft", "final"] },
+        "gpu": { "type": "string", "minLength": 1 },
+        "backend": { "type": "string", "minLength": 1 },
+        "samples": { "type": "integer", "minimum": 1 },
+        "denoise": { "type": "string", "minLength": 1 }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "required": ["stateMs", "renderMs", "readbackMs"],
+      "additionalProperties": false,
+      "properties": {
+        "stateMs": { "type": "number", "minimum": 0 },
+        "renderMs": { "type": "number", "minimum": 0 },
+        "readbackMs": { "type": "number", "minimum": 0 }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "required": ["host", "shot", "kernel"],
+      "additionalProperties": false,
+      "properties": {
+        "host": { "$ref": "#/$defs/paths" },
+        "shot": { "$ref": "#/$defs/paths" },
+        "kernel": { "$ref": "#/$defs/paths" }
+      }
+    },
+    "hash": {
+      "type": "object",
+      "required": ["color"],
+      "additionalProperties": false,
+      "properties": { "color": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" } }
+    },
+    "ext": { "type": "object" }
+  },
+  "$defs": {
+    "mat4": { "type": "array", "minItems": 16, "maxItems": 16, "items": { "type": "number" } },
+    "vec3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+    "box2": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+    "paths": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  }
+}

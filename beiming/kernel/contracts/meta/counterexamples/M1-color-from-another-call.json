@@ -1,0 +1,13 @@
+{
+  "format": "meta-check/0.1",
+  "shot": "s01",
+  "renders": [
+    {
+      "call": 1,
+      "shotFrame": 150,
+      "metas": 1,
+      "metaBytes": 2048,
+      "colorCall": 0
+    }
+  ]
+}

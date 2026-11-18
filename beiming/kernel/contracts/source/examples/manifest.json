@@ -1,0 +1,20 @@
+{
+  "frames": 240,
+  "entities": [
+    {
+      "id": 1,
+      "name": "kit",
+      "class": "assembly"
+    },
+    {
+      "id": 17,
+      "name": "kit.fan_L",
+      "class": "part"
+    },
+    {
+      "id": 40,
+      "name": "fx.sparks",
+      "class": "particles"
+    }
+  ]
+}

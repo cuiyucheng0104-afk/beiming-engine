@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/source-check.schema.json",
+  "title": "帧源核对记录",
+  "description": "只管结构。F1 到 F11 管的搭配这里不收紧，反例才能通过结构检查。",
+  "type": "object",
+  "required": ["format", "caps"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "source-check/0.1" },
+    "caps": { "$ref": "caps.schema.json" },
+    "renders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shotFrame", "want", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "shotFrame": { "type": "integer", "minimum": 0 },
+          "want": { "type": "array", "uniqueItems": true, "items": { "$ref": "caps.schema.json#/$defs/outputName" } },
+          "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
+          "status": { "enum": ["ok", "error"] },
+          "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" },
+          "delivered": { "type": "array", "uniqueItems": true, "items": { "$ref": "caps.schema.json#/$defs/outputName" } },
+          "colorTransfer": { "enum": ["linear", "encoded"] },
+          "colorRef": { "enum": ["scene", "display"] },
+          "shotColorRef": { "enum": ["scene", "display"] }
+        },
+        "allOf": [
+          { "if": { "properties": { "status": { "const": "error" } } }, "then": { "required": ["code"] }, "else": { "required": ["delivered"] } }
+        ],
+        "dependentRequired": { "colorRef": ["shotColorRef"] }
+      }
+    },
+    "orderRuns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shotFrame", "mode", "digest"],
+        "additionalProperties": false,
+        "properties": {
+          "shotFrame": { "type": "integer", "minimum": 0 },
+          "mode": { "enum": ["single", "shuffled", "sequential", "repeat"] },
+          "digest": { "type": "string", "pattern": "^[0-9a-f]{8,64}$" }
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cause", "elapsedMs", "limitMs"],
+        "additionalProperties": false,
+        "properties": {
+          "cause": { "enum": ["gpu-error", "other"] },
+          "exitCode": { "type": "integer" },
+          "elapsedMs": { "type": "number", "minimum": 0 },
+          "limitMs": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    "auxUses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["output", "use"],
+        "additionalProperties": false,
+        "properties": {
+          "output": { "enum": ["depth", "objectId", "normal", "motion"] },
+          "use": { "enum": ["perception", "look", "cross-source-merge"] }
+        }
+      }
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "$ref": "caps.schema.json#/$defs/queryKind" },
+          "status": { "enum": ["ok", "error"] },
+          "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" },
+          "total": { "type": "integer", "minimum": 0 },
+          "returned": { "type": "integer", "minimum": 0 },
+          "truncated": { "type": "integer", "minimum": 1 }
+        },
+        "if": { "properties": { "status": { "const": "error" } } },
+        "then": { "required": ["code"] },
+        "else": { "required": ["total", "returned"] }
+      }
+    },
+    "manifest": { "$ref": "manifest.schema.json" },
+    "metaEntities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shotFrame", "entities"],
+        "additionalProperties": false,
+        "properties": {
+          "shotFrame": { "type": "integer", "minimum": 0 },
+          "entities": { "type": "array", "items": { "$ref": "manifest.schema.json#/$defs/entity" } }
+        }
+      }
+    },
+    "ext": { "type": "object" }
+  },
+  "dependentRequired": { "manifest": ["metaEntities"], "metaEntities": ["manifest"] }
+}

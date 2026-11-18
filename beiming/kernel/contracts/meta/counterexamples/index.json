@@ -1,0 +1,58 @@
+[
+  {
+    "file": "M1-color-from-another-call.json",
+    "violates": [
+      "M1"
+    ],
+    "why": "第 150 帧的元数据出自第 1 次 render，落盘的颜色层却是第 0 次 render 的"
+  },
+  {
+    "file": "M2-shot-writes-camera.json",
+    "violates": [
+      "M2"
+    ],
+    "why": "camera 从 origin.host 挪到了 origin.shot：相机成了镜头代码能写的字段"
+  },
+  {
+    "file": "M3-over-64kb.json",
+    "violates": [
+      "M3"
+    ],
+    "why": "一份元数据序列化后 70211 字节，超过 65536"
+  },
+  {
+    "file": "M4-null-camera-from-blender.json",
+    "violates": [
+      "M4"
+    ],
+    "why": "出帧者是 blender，camera 却写成了 null：只有 legacy-page 能免相机"
+  },
+  {
+    "file": "M5-renderer-not-a-source.json",
+    "violates": [
+      "M5"
+    ],
+    "why": "source.renderer 写成了宿主名 cycles，不是四个出帧者之一"
+  },
+  {
+    "file": "M6-visible-without-pixels.json",
+    "violates": [
+      "M6"
+    ],
+    "why": "这一帧没出像素（hash.color 和 stats 都是 null），kit 和 kit.fan_L 的 visible 却有数"
+  },
+  {
+    "file": "M7-visible-without-role.json",
+    "violates": [
+      "M7"
+    ],
+    "why": "fx.sparks 没有 role，visible 却算了 1"
+  },
+  {
+    "file": "M8-duplicate-entity-id.json",
+    "violates": [
+      "M8"
+    ],
+    "why": "fx.sparks 和 kit.fan_L 的编号都是 17"
+  }
+]

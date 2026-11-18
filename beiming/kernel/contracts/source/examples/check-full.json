@@ -1,0 +1,229 @@
+{
+  "format": "source-check/0.1",
+  "caps": {
+    "format": "caps/0.1",
+    "id": "blender",
+    "version": "5.2.3",
+    "language": "python",
+    "hosts": [
+      "cycles"
+    ],
+    "conformance": "full",
+    "outputs": {
+      "color": {
+        "type": "half",
+        "transfer": "linear",
+        "primaries": "rec709",
+        "note": "EXR"
+      },
+      "meta": true,
+      "depth": {
+        "type": "f32",
+        "note": "不抗锯齿"
+      },
+      "objectId": {
+        "type": "u32",
+        "note": "不抗锯齿"
+      },
+      "normal": {
+        "type": "half"
+      },
+      "motion": false
+    },
+    "sceneQuery": [
+      "bbox3d",
+      "anchor",
+      "intersect",
+      "contact",
+      "belowGround"
+    ],
+    "motionBlur": {
+      "mode": "native",
+      "auxAt": "sub0",
+      "conflicts": [
+        "motion"
+      ]
+    },
+    "determinism": "tolerance",
+    "draft": {
+      "kind": "cycles-low",
+      "samples": 24,
+      "scale": 0.5,
+      "denoise": "gpu"
+    },
+    "granularity": "frame",
+    "randomAccess": true,
+    "modes": [
+      "cards-data",
+      "build-script",
+      "native-code"
+    ],
+    "cost": {
+      "unit": "gpu-second"
+    }
+  },
+  "renders": [
+    {
+      "shotFrame": 150,
+      "want": [
+        "color",
+        "meta",
+        "depth",
+        "objectId"
+      ],
+      "shutterAngleDeg": 180,
+      "status": "ok",
+      "delivered": [
+        "meta",
+        "color",
+        "depth",
+        "objectId"
+      ],
+      "colorTransfer": "linear",
+      "colorRef": "scene",
+      "shotColorRef": "scene"
+    },
+    {
+      "shotFrame": 151,
+      "want": [
+        "meta"
+      ],
+      "status": "ok",
+      "delivered": [
+        "meta"
+      ]
+    },
+    {
+      "shotFrame": 150,
+      "want": [
+        "color",
+        "motion"
+      ],
+      "shutterAngleDeg": 0,
+      "status": "error",
+      "code": "contract.unsupported-output"
+    }
+  ],
+  "orderRuns": [
+    {
+      "shotFrame": 150,
+      "mode": "single",
+      "digest": "c41f0a7e93b25d68"
+    },
+    {
+      "shotFrame": 150,
+      "mode": "shuffled",
+      "digest": "c41f0a7e93b25d68"
+    },
+    {
+      "shotFrame": 150,
+      "mode": "sequential",
+      "digest": "c41f0a7e93b25d68"
+    },
+    {
+      "shotFrame": 150,
+      "mode": "repeat",
+      "digest": "c41f0a7e93b25d68"
+    },
+    {
+      "shotFrame": 12,
+      "mode": "single",
+      "digest": "7be2905f1ac4d306"
+    },
+    {
+      "shotFrame": 12,
+      "mode": "shuffled",
+      "digest": "7be2905f1ac4d306"
+    }
+  ],
+  "failures": [
+    {
+      "cause": "gpu-error",
+      "exitCode": 1,
+      "elapsedMs": 8200,
+      "limitMs": 600000
+    }
+  ],
+  "auxUses": [
+    {
+      "output": "objectId",
+      "use": "perception"
+    },
+    {
+      "output": "depth",
+      "use": "look"
+    }
+  ],
+  "queries": [
+    {
+      "kind": "bbox3d",
+      "status": "ok",
+      "total": 3,
+      "returned": 3
+    },
+    {
+      "kind": "intersect",
+      "status": "ok",
+      "total": 73,
+      "returned": 50,
+      "truncated": 23
+    }
+  ],
+  "manifest": {
+    "frames": 240,
+    "entities": [
+      {
+        "id": 1,
+        "name": "kit",
+        "class": "assembly"
+      },
+      {
+        "id": 17,
+        "name": "kit.fan_L",
+        "class": "part"
+      },
+      {
+        "id": 40,
+        "name": "fx.sparks",
+        "class": "particles"
+      }
+    ]
+  },
+  "metaEntities": [
+    {
+      "shotFrame": 150,
+      "entities": [
+        {
+          "id": 1,
+          "name": "kit",
+          "class": "assembly"
+        },
+        {
+          "id": 17,
+          "name": "kit.fan_L",
+          "class": "part"
+        },
+        {
+          "id": 40,
+          "name": "fx.sparks",
+          "class": "particles"
+        }
+      ]
+    },
+    {
+      "shotFrame": 151,
+      "entities": [
+        {
+          "id": 1,
+          "name": "kit",
+          "class": "assembly"
+        },
+        {
+          "id": 17,
+          "name": "kit.fan_L",
+          "class": "part"
+        }
+      ]
+    }
+  ]
+}

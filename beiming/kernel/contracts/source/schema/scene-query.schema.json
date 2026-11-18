@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/scene-query.schema.json",
+  "title": "SceneQuery",
+  "type": "object",
+  "required": ["kind", "of"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "enum": ["bbox3d", "anchor", "intersect", "contact", "belowGround"] },
+    "of": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/target" } },
+    "against": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/target" } },
+    "tol": { "type": "number", "minimum": 0 }
+  },
+  "$defs": {
+    "target": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*(\\.\\*)?$" }
+  }
+}
