@@ -40,7 +40,8 @@ function makeRepoSandbox(t) {
 const runIn = (repoDir, script, args, env = {}) => spawnSync(
   process.execPath,
   [path.join(repoDir, script), ...args],
-  { cwd: repoDir, encoding: 'utf8', timeout: 120000, env: { ...process.env, ...env } },
+  // 没有显卡的 Windows runner 用软件适配器，A 路线的逐帧读文字一步就超过 120 秒（PR #24 的 windows-paths 因此被杀，status 为 null）
+  { cwd: repoDir, encoding: 'utf8', timeout: 360000, env: { ...process.env, ...env } },
 );
 
 test('--backend 参数校验：B 路线拒绝 webgpu（退出码 2），--dry-run 生成纯 offscreen 清单不写盘', () => {
