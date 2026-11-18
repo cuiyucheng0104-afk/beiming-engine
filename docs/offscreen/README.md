@@ -156,7 +156,7 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 
 ### 7.5 TSL Kuwahara 对 GLSL（M2 T2a）
 
-`engine/offscreen/tsl/kuwahara.js` 是 `engine/look/kuwahara.js`（8 扇区，cos⁸ 角向 × 高斯径向，alpha 为保护量）的 TSL 版，算法与常数逐项照搬。**范围：不带远近换半径**（`farRadius`，要深度图）。真片的每个镜头都用了 `farRadius`（6–7，见 `routes/directing/templates/style-lock.json`），所以接进真实镜头之前还要做深度版（T2b），现在的版本不能直接顶替。
+`engine/offscreen/tsl/kuwahara.js` 是 `engine/look/kuwahara.js`（8 扇区，cos⁸ 角向 × 高斯径向，alpha 为保护量）的 TSL 版，算法与常数逐项照搬。远近换半径（`farRadius`）是 T2b，见下文「深度换半径」，不给 `far` 参数就是全幅同一半径。真片的每个镜头都用了 `farRadius`（6–7，见 `routes/directing/templates/style-lock.json`）。
 
 **一致性**：同一张合成输入（色块、斜纹渐变、确定性噪点、灯点保护区），GLSL 在无头 Chrome 的 WebGL 里跑，TSL 在 Dawn 里跑，320×180 / 640×360 下，半径 2、4、8（强度 0.7）与 q 取 4 的组合：PSNR 60.8–61.3 dB，最大差 1 级，差 5 级以上的像素为 0（约 12% 的像素有 ±1 的舍入差）。负对照：TSL 的 q 调成 3、GLSL 保持 8，质量门不过。变异检查：把 cos⁸ 改成 cos⁴，PSNR 降到 46.5 dB、最大差 13，测试变红。参考侧用的是页面渲染器同一个浏览器与启动参数（`tests/offscreen/glsl-reference.mjs`）。
 
@@ -173,7 +173,75 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 
 TSL 版与现有 GLSL 版在同一量级（KR 6–8 差在 ±15% 内，两边计时口径不完全相同），没有因为换成 TSL 变慢。成本是 Kuwahara 本身的：KR ≥ 6 起它成为 GPU 瓶颈，真片的 KR 7 档单部片就被压到约 83 fps，比读回上限低一大截；并发时 GPU 会先饱和。可选的优化（半分辨率 Kuwahara、减少采样）会改画面，要过 look 闸，目前没有做。
 
-### 7.6 快速复查
+**深度换半径（M2 T2b）**：`kuwahara(TSL, { …, far: { depth, radius, start, end, near, farClip } })`。每像素按视距 z 在 `radius` 与 `far.radius` 之间做 smoothstep（`start`、`end` 同 GLSL 的 `farStart`、`farEnd`），深度 ≥ 0.9999999 当无穷远（天空、清屏处）；`KR` 仍由调用方按 `ceil(max(radius, far.radius))` 取。视距用 three 的 `perspectiveDepthToViewZ` 从深度换算，它和 GLSL 版用的是同一个公式，并认 `reversedDepthBuffer`。
+- 对拍：合成深度图（视距沿 x 从 5 铺到 100，右上角一块天空）下，近处 3 → 远处 8、过渡带 20..120：PSNR 61.19 dB，最大差 1 级，差 5 级以上的像素 0。负对照：TSL 不带 far，PSNR 38.5 dB、大差像素 8773；过渡带挪到 40..140，PSNR 47.5 dB、大差像素 460，都过不了质量门。变异检查：去掉天空特判、把 smoothstep 换成线性，测试都变红。
+- 深度约定：WebGPU 的零到一深度与 WebGL 在这个换算上没有差别。用 Dawn 渲一块垂直于视线、离相机 10 与 60 的平面，`pass(scene, camera).getTextureNode('depth')` 经 `perspectiveDepthToViewZ` 换回的视距与真实距离一致（读回与预期的 sRGB 值相同或差 1 级；用例在 `tests/offscreen/kuwahara.test.mjs`）。所以 `pass()` 的深度纹理可以直接当 `far.depth`。
+- 耗时（1080p，KR 7，近处 2 → 远处 7，在途 3 帧含读回，同上那台机器，各跑两遍）：不带 far 85.0 / 86.8 fps，带 far 87.3 / 86.2 fps，没有额外成本（循环次数由 KR 决定，每像素半径只改步长）。
+- 没做：正交相机不给 `far`（与 GLSL 一致）；深度图来自真实镜头（带蒙皮、实例化、半透明物体）时的行为要等 T3 的 ID 通道接入后在真实镜头上对拍。
+
+### 7.6 TSL 墨线与 ID 通道（M2 T3）
+
+`engine/offscreen/tsl/idpass.js`（`engine/look/ids.js` 的子集）与 `engine/offscreen/tsl/ink.js`（`engine/look/ink.js` 的对应）：ID 图 + 深度 → 边缘（近的一侧拥有这条线）→ 笔画（圆头笔 + 域扭曲抖动 + 笔压 + 断线）。算法与常数逐项照搬，ID 编码相同（HalfFloat，低 11 位 + 高位 × 2048，线宽系数，可见度），哈希是同一个 PCG。用法：`createInk({ THREE, TSL, renderer }, { width, height }).render({ scene, camera, p, t, k, ss, fps })`，结果在 `ink.line`（R 通道 = 覆盖率）；渲完还原渲染目标，合成时 `texture(ink.line.texture)` 取样。
+
+**一致性**：同一个场景（`tests/offscreen/fixtures/ink-scene.mjs`：两个相交的方块、同组部件、半透明线的球、实心遮挡物与地面、不挡线的加色面片、极远处的方块），GLSL 在无头 Chrome 的 WebGL 里跑，TSL 在 Dawn 里跑，320×180：
+
+| 用例 | 与 GLSL 的差 |
+|---|---|
+| 默认参数（k = 1） | 逐字节相同（PSNR 无穷大，最大差 0） |
+| k = 2、换沸腾拍、断线 0.4、笔压 0.5 | 逐字节相同 |
+| 折痕阈值 0.004、不透明度 0.8、内线 0.4、farScale 0.3、k = 1.5 | PSNR 95.7 dB，最大差 1 级，大差像素 0 |
+
+三组都带有抗锯齿的中间值（有墨的 4147 / 6774 / 6379 个像素里，覆盖率在 8..246 之间的分别是 2698 / 4444 / 6379 个；第三组不透明度 0.8，最浓只有 204，所以全是中间值），不是只对上了「有墨 / 没墨」。负对照：沸腾拍不同、折痕阈值不同都过不了质量门。变异检查：笔画噪声不翻 y，PSNR 11.9 dB；互相穿插时让 ID 小的一侧画，PSNR 31.4 dB；去掉笔压项，PSNR 29.2 dB，测试都变红。`boilSeed` 另有单测与 `engine/look/ink.js` 的同名函数逐帧对拍（不直接 import 它，那个文件顶层会把仓库的 three r170 装进离屏的 r187 进程）。
+
+**坐标约定**：WebGPU 的屏幕坐标是左上角原点，GLSL 的 `gl_FragCoord` 是左下角。边缘检测对翻转对称；笔画的域扭曲噪声按坐标取值，所以笔画那一遍把 y 翻回 GL 约定，这样同一帧同一参数下笔画与 A 路线逐点一致。深度仍是零到一的透视深度（见 7.5）。
+
+**耗时**（1080p 输出，含读回，在途 3 帧，同上那台机器，各跑两遍）：墨线缓冲 1080p（ss = 1）205 / 266 fps；缓冲 3840×2160（ss = 2，A 路线的默认）77 / 79 fps。只量了 TSL，没有量同场景的 GLSL 版；这个场景的搜索半径不大（线宽 2.5、k = 1），k 大了搜索半径随之变大（最多 16），耗时会更高。
+
+**未支持的 ID 语义**（遇到抛 `Error`，`code` 为 `unsupported.outline`，message 里写明物体与原因，抛错后材质与渲染器状态原样还原，不静默画错）：InstancedMesh、SkinnedMesh、BatchedMesh、变形目标；多材质数组；带贴图的 alpha 镂空（`alphaTest` 或 `transparent` + `map`）；材质自带顶点位移（`positionNode`）；`outlineVertex`、`outlinePerInstance: false`；`outlineOccluder` 的 `'soft'`、`'own'`（包括 auto 判成它们的半透明物体、Sprite、ShaderMaterial）。要用到这些的作品，先扩范围再做片。支持的：不透明 Mesh 的 `outline` / `outlineWidth` / `outlineAlpha` / `outlineGroup`、实心遮挡与 `outlineOccluder: false`、材质 `userData.noId`、`visible = false`、Points / Line / 加色 / 正片叠底 / `colorWrite = false` 不挡线。
+
+**没做**：雾里变淡（`fogFade`，GLSL 版在 fog = null 时也是 0）；与真实镜头的对拍（要等 T4 的合成与 T5 的真片）。
+
+### 7.7 A 风格后期链（M2 T4）
+
+`engine/offscreen/tsl/look.js` 把 `engine/look/index.js` 的后期链按同一个顺序在 TSL 里串起来：主场景（HalfFloat、带深度）→ 墨线（7.6）→ bloom → 调色 → 输出变换（线性 → sRGB 数值）→ Kuwahara（远处换半径，7.5）→ 叠墨线 → 纸纹 → 暗角 →（颗粒）。各道是独立模块：`tsl/{bloom,grade,paper,compose}.js`，共用 `tsl/{noise,pass,color}.js`。参数合并、默认值与种子直接用 `engine/look/index.js` 导出的纯函数（`lookDefaults`、`lookParams`、`grainCellOf`、`grainSeedOf`），语义不另抄一份，风格锁定的 `lookDefaults.params` 原样可用。
+
+用法：`const look = createLook({ THREE, TSL, renderer }, { width, height, ss: 2, msaa: 0, defaults, paper })`；每帧 `look.render(scene, camera, { t, ...每帧参数 })` 画中间缓冲，`pipeline(look.output).render()` 出最终画面。`look.node` 是与 GLSL 版写进目标的字节一致的 sRGB 数值，`look.output` 是它过了 `sRGBTransferEOTF` 的版本：宿主的渲染目标本身是 sRGB 的，直接交 `look.node` 会被编码两次。这一来一回在 8 位上至多差 1 级，是宿主目标约定带来的，不是算法差异。
+
+**一致性**：同一个场景（7.6 的 `ink-scene`），风格锁定 `beiming-original.v1` 的真实参数，GLSL 在无头 Chrome 的 WebGL 里跑 `createLook`（msaa 0），TSL 在 Dawn 里跑，320×180、ss = 2：
+
+| 用例 | PSNR | 最大差 | 大差像素 |
+|---|---|---|---|
+| 风格锁定的真实参数（曝光 1.6，程序化纸纹） | 60.4 dB | 1 级 | 0 |
+| 全部旋钮（调色各字段、墨线色与吸收、Kuwahara 远近换半径、bloom、纸纹放大、暗角、颗粒 size 3 / holdFrames 2） | 60.7 dB | 1 级 | 0 |
+| 图片纸纹（合成的 64×64 纸纹图，scale 1.5） | 60.4 dB | 1 级 | 0 |
+
+逐级开关时（各阶段单独打开，调试时测的）：调色 / 暗角 / 颗粒 / 墨线 / Kuwahara / 纸纹 / bloom 各自的最大差都是 1 级。负对照：bloom 关掉、调色改了、纸纹强度改了、墨线关掉、暗角改了，质量门都过不了。变异检查：去掉高光肩，PSNR 31.6 dB；纸齿浮雕光向反了，31.0 dB；图片纸纹不翻 v，33.5 dB；纤维取非转置，最大差 3（只靠「最大差在舍入范围内」那条断言抓住），测试都变红。
+
+**踩到的两个坑**（写在这里，下一个写 TSL 的人别再踩）：
+- TSL 里 `toVar()` 与 `Loop` 要在 `Fn(() => …)()` 里才生效；用普通箭头函数包着，循环累加出来全是 0，而且不报错。
+- 把 256 个节点连加成一棵表达式树，WGSL 解析器会报 `maximum parser recursive depth reached`；用 `Loop` 累加。
+
+**坐标约定**：纸纹与颗粒按 `gl_FragCoord`（左下角原点）取值，这里用 `glCoord` 翻回 GL 约定；纸纹纹理的行序是自上而下，取样时 v 翻成 1 - v，所以图片纸纹要给「图片的行序（自上而下）」的 `DataTexture`。bloom 是半分辨率的光晕图，调色里按 UV 双线性取样，不能按全分辨率像素 `load`。
+
+**程序化纸纹的中性点**：GLSL 版把整幅纸纹的均值读回 CPU；离屏的读回是异步的，所以在 GPU 里求平均（16×16 的 8 位目标，每格 8×8 个点，再平均到 1×1 的浮点目标），节点直接读它。实测 0.5057，CPU 对同一张图是 0.5063，差异在对拍的 1 级之内。
+
+**MSAA**：`msaa` 默认 0（A 路线默认 4）。msaa = 4 能出画面、深度与墨线照常工作，与 msaa 0 的差只在边缘（PSNR 37.7 dB，最大差 137，1285 个大差像素）；两边 MSAA 的采样位置与解析不保证相同，所以逐字节对拍都用 msaa = 0，msaa = 4 没有与 A 路线对拍过。
+
+**耗时**（1080p、风格锁定的参数、整条链含读回，在途 3 帧，同上那台机器）：
+
+| 配置 | fps |
+|---|---|
+| ss = 2、msaa 0（A 路线的默认超采样） | 63–65 |
+| ss = 2、msaa 4 | 68 |
+| ss = 1、msaa 0 | 193 |
+| ss = 2、关 Kuwahara | 75 |
+| ss = 2、关墨线 | 214 |
+
+墨线在 ss = 2 时是大头（4K 的缓冲，7.6），Kuwahara 约占 15%。只量了 TSL，没有量同场景的 GLSL 版。
+
+**未支持**（遇到抛 `Error`，`code` 为 `unsupported.look` / `unsupported.paper` / `unsupported.outline`，渲染目标原样还原）：雾（`fog`）；`debug` 视图；色调映射（`renderer.toneMapping` 不是 `NoToneMapping`，与风格锁定一致）；纸纹的 `scaleMode`、`anchor`、每帧换图（`tex` / `url`）。**没做的**：在 Node 里把 `assets/plates/paper.png` 解码成 `DataTexture` 并算 `mid`（风格锁定的纸纹是这张图；调用方解码后经 `paper: { tex, mid }` 交进来，图片纸纹的像素模式已用合成图对拍过）；真实镜头（卡通材质、实例化等）上的对拍，留给 T5。
+
+### 7.8 快速复查
 
 ```sh
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080

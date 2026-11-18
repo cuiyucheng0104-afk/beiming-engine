@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "film": "du",
+  "gate": "look",
+  "decision": "approve",
+  "reviewer": { "kind": "human", "name": "zz8011" },
+  "quote": "我认可之前的方案，继续",
+  "source": {
+    "kind": "session",
+    "ref": "Claude Code 会话 2026-11-17，回复 look 闸请求（关键帧 out/20261117-113419-cb9479a6/contact.jpg 与离屏对照 out/offscreen-look/side-by-side.jpg；用户原本想经 Telegram 收图，随后说先不发）",
+    "at": "2026-11-17T23:31:59+08:00"
+  },
+  "recordedBy": { "kind": "ai", "name": "agent（npm run film -- review）" },
+  "at": "2026-11-17T23:31:59+08:00",
+  "reviewed": [
+    { "path": "out/20261117-113419-cb9479a6/contact.jpg", "sha256": "94e9a2953f72f49857e508b4fce79ebf13b2aede6b1f94e1fd07c770ab750c51", "kind": "image" },
+    { "path": "out/20261117-113419-cb9479a6/stills/f000012.jpg", "sha256": "2f56d52b2194df8f30ea709fe04863aec406051d31352ce58ae3e2b45d1cc9ec", "kind": "image" },
+    { "path": "out/20261117-113419-cb9479a6/stills/f000040.jpg", "sha256": "2d19945607a3dfed31daf2084909dec06586dff97b38d3b3d54b99ccd3a53403", "kind": "image" },
+    { "path": "out/20261117-113419-cb9479a6/stills/f000066.jpg", "sha256": "c3f1195fb33a3192d1d4ed55651a5a83c407effc93c9d7bdc6d447ae5bbc9bbf", "kind": "image" },
+    { "path": "out/20261117-113419-cb9479a6/stills/f000090.jpg", "sha256": "11176ab60dd4733dc62654f951350876065b2e22d442d404290231656e0bda2b", "kind": "image" }
+  ],
+  "style": { "id": "beiming-original", "version": 1 }
+}

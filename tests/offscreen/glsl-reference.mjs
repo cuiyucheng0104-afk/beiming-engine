@@ -11,7 +11,7 @@ import { CliError } from '../../tools/lib/cli.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const PAGE = body => `<!doctype html><html><head><meta charset="utf-8">
-<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
 <script>
 window.addEventListener('error', e => { window.RESULT ??= { error: String(e.message || e) }; });
 window.addEventListener('unhandledrejection', e => { window.RESULT ??= { error: String((e.reason && e.reason.stack) || e.reason) }; });

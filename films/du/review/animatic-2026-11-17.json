@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "film": "du",
+  "gate": "animatic",
+  "decision": "approve",
+  "reviewer": { "kind": "human", "name": "zz8011" },
+  "quote": "继续",
+  "source": {
+    "kind": "session",
+    "ref": "Claude Code 会话 2026-11-17，回复 animatic 闸请求（预演 out/20261117-154849-9f8f839a/animatic.mp4、contact.jpg；请求原文写明「认可的话请回一句原话」「要改就直接说哪里」）",
+    "at": "2026-11-17T23:56:07+08:00"
+  },
+  "recordedBy": { "kind": "ai", "name": "agent（npm run film -- review）" },
+  "at": "2026-11-17T23:56:07+08:00",
+  "reviewed": [
+    { "path": "out/20261117-154849-9f8f839a/animatic.mp4", "sha256": "12cd30fa4dafb18bdd41924bb90694afb8e05db9e182f358c12e929f247f7d96", "kind": "video" },
+    { "path": "out/20261117-154849-9f8f839a/contact.jpg", "sha256": "a23e062c99267a08f35ff17ec2ea56976fa790984e78e211ed6a7a02f4d18dd5", "kind": "image" }
+  ],
+  "timing": {
+    "fps": 24,
+    "frameCount": 96,
+    "shots": [["S1", 0, 96]],
+    "timingSha256": "85c09013c74fe0aa56fac56a97aad7321ab3308e602ad3826f6b9d3c196646c8",
+    "eventsSha256": "a1188556aa0aa68a1d4a1477cb89edd9406bdc20ee3075a3ff8015c05a655f15"
+  }
+}

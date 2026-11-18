@@ -25,21 +25,29 @@
 
 ### T2 TSL Kuwahara（8 扇区，含深度换半径与保护量）
 
-> **T2a 已完成**（不含深度换半径）：`engine/offscreen/tsl/kuwahara.js`，对 GLSL 对拍与耗时见 [README 7.5](README.md)。**T2b 未做**：深度换半径（`farRadius`）要场景深度图，WebGPU 的深度范围与 `perspectiveDepthToViewZ` 约定与 WebGL 不同；真片每个镜头都用它，所以 T2b 是接入真实镜头的前提，在 T3 的 ID 通道（同样要深度）之前后做。
+> **T2a、T2b 已完成**：`engine/offscreen/tsl/kuwahara.js`，T2a 是 8 扇区本体，T2b 是 `far` 参数（深度换半径，视距经 `perspectiveDepthToViewZ` 换算，已与 GLSL 对拍并用 Dawn 的 `pass()` 深度纹理验证约定），对拍与耗时见 [README 7.5](README.md)。接真实镜头的前提已具备，下一步 T3 的 ID 通道同样吃这份深度。
 - `engine/offscreen/tsl/kuwahara.js`：与 GLSL 版同一套扇区权重（cos⁸ 角向 × 高斯径向）、同一 alpha 保护语义。
 - 测试：固定合成图（色块 + 灯点保护区 + 远近两级深度）在两种实现下对拍；先测出实际差距再定阈值，阈值写进测试注释。
 - 记录 1080p 单帧耗时，KR 变体数量与 M1 一样按需编译。
 
 ### T3 ID 通道与屏幕空间墨线（子集）
+
+> **T3 已完成**（范围见下文与 [README 7.6](README.md)）：`engine/offscreen/tsl/idpass.js`、`engine/offscreen/tsl/ink.js`，场景对拍三组与 GLSL 逐字节相同或最大差 1 级，未支持的语义显式抛错。**T1 的独立对拍工具 `tools/offscreen/look-compare.mjs` 没有做**：T2、T3 直接用 `tests/offscreen/glsl-reference.mjs` 在测试里对拍，真片级的对拍留到 T5。
+
 - `engine/offscreen/tsl/idpass.js`：场景遍历换成 ID `NodeMaterial`，RGBA 编码沿用 `(id 低 11 位, id 高位, 线宽系数, 线可见度)`；目标带 DepthTexture、Nearest、无 MSAA。
 - `engine/offscreen/tsl/ink.js`：边缘检测 + 圆头笔 + 域扭曲 + 笔压 + 断线；沸腾种子直接 `import { boilSeed } from '../../look/ink.js'`，保证与 A 同一拍一沸。
 - 测试：两个相交方块 + 一个同组部件 + 一个不描边遮挡物，验证「同组不出内部线、近的一侧拥有这条线、boilHold 帧内不动」；再与 A 参考帧对拍。
 
 ### T4 纸纹 / 调色 / 合成对齐
+
+> **T4 已完成**（范围比原计划大：加了 bloom 与把整条链串起来的 `look.js`，因为风格锁定的默认参数里 bloom 是开着的）：`engine/offscreen/tsl/{bloom,grade,paper,compose,look}.js`，整链对拍三组最大差 1 级，详见 [README 7.7](README.md)。**没做**：雾、debug 视图、纸纹的 scaleMode / anchor、Node 里解码 `paper.png`；这些在 T5 用到时再补。
+
 - 把 M1 演示里的简化纸纹换成与 `engine/look/paper.js`、`grade.js` 相同的参数与顺序（墨色叠加 color/tint/darken 在合成步）。
 - 测试：同一组参数下合成结果对拍。
 
 ### T5 一部真实短片走 look 闸
+
+> **T5 已完成**（2026-11-18）：验收小片 `films/du/`（《渡》，1 镜 96 帧），场景 `scene.mjs` 由 A 路线页面与离屏共用。look、animatic 闸用户已认可；A 路线终渲机器 QA 通过，离屏对照片已出；离屏对 A 路线 msaa 0 十帧对拍 PSNR 57.7–58.2 dB，全过质量门。三道闸用户都已认可，A 路线成片已交付。终渲仍走 Chromium 链；是否切换到离屏出片还没定，等用户决定。主体用 MeshToonMaterial，没有材质皴线（离屏还没有 toon.js 的 TSL 版）。
 - 用 `npm run new -- a <名字>` 建作品（不动别人的 `films/`），镜头控制在 1–2 个、3–5 秒，画面要素覆盖：三渲二主体、墨线（外轮廓 + 折痕 + 沸腾）、Kuwahara 笔触、纸纹与底板。
 - `npm run film -- stills` 出风格关键帧给用户看（look 闸，**用户原话批准**，agent 不自己批）；之后 animatic 闸；终渲仍走现有 Chromium 链，offscreen 出片作为对照版本，直到用户认可才讨论切换。
 - `npm run determinism -- films/<名字> --seams --workers 4` 与 offscreen 自身的逐帧哈希都要过。

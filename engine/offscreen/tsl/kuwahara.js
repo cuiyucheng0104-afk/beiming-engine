@@ -2,17 +2,22 @@
 // 扇区权重 cos⁸ 角向 × 高斯径向）在 WebGPU 里的对应，算法与常数逐项照搬，作品在 Node + Dawn 与 Chrome WebGPU 里用同一份。
 // 在 sRGB 数值空间里做（输入是 sRGB 编码的数值，不是线性光）；输入 alpha 是「保护量」，保护处保留原图（灯点不被抹成星形）。
 //
-//   kuwahara(TSL, { input, KR, radius, q, strength, texel }) → vec4 节点（rgb 笔触结果，a = 1）
+//   kuwahara(TSL, { input, KR, radius, q, strength, texel, far }) → vec4 节点（rgb 笔触结果，a = 1）
 //     input     texture 节点（支持 .sample(uv)）
 //     KR        采样半径格数，编译期常量，整数 2..10（与 GLSL 版相同）；每个 KR 是一个独立的着色器变体
 //     radius    笔触半径（像素，已按画幅缩放）的 uniform 节点；采样步长 = radius / KR
 //     q         扇区选择的锐度的 uniform 节点（GLSL 默认 8）
 //     strength  0..1 混合量的 uniform 节点
 //     texel     vec2 uniform 节点，1 / 输入尺寸
-//   不支持：远近换半径（farRadius，需要深度图），调用方传 farRadius 要自己先报错，不静默按近半径画。
-export function kuwahara(TSL, { input, KR, radius, q, strength, texel }) {
+//     far       可选，远处换更大的笔触（GLSL 的 farRadius / farStart / farEnd），不给就是全幅 radius。透视相机才用，正交相机不要给（与 GLSL 一致）
+//               { depth, radius, start, end, near, farClip }
+//               depth   texture 节点，.x 是场景深度（0..1，WebGPU 的零到一深度；不是反向深度也行，用 three 的 perspectiveDepthToViewZ 换算，它认 renderer.reversedDepthBuffer）
+//               radius  远处半径（像素）的 uniform 节点；start / end 从多远开始变、多远完全变成远处半径（视空间距离，世界单位）；near / farClip 相机的近远面
+//               深度 ≥ 0.9999999 当作无穷远（天空、清屏处）。KR 要自己按 ceil(max(radius, far.radius)) 取，同 GLSL 的调用方。
+//               真实深度：pass(scene, camera).getTextureNode('depth') 可以直接当 far.depth（已用 Dawn 实测，见 tests/offscreen/kuwahara.test.mjs 的深度约定用例）
+export function kuwahara(TSL, { input, KR, radius, q, strength, texel, far }) {
   if (!Number.isInteger(KR) || KR < 2 || KR > 10) throw new RangeError(`Kuwahara 的 KR 要是 2..10 的整数，收到 ${KR}`);
-  const { Fn, Loop, float, int, vec2, vec3, vec4, uv, dot, exp, max, mix, pow, select, step, inversesqrt } = TSL;
+  const { Fn, Loop, float, int, vec2, vec3, vec4, uv, dot, exp, max, mix, pow, select, step, inversesqrt, smoothstep, perspectiveDepthToViewZ } = TSL;
   return Fn(() => {
     const coord = uv();
     const c0 = input.sample(coord).level(0).toVar();
@@ -20,7 +25,13 @@ export function kuwahara(TSL, { input, KR, radius, q, strength, texel }) {
     const S = Array.from({ length: 8 }, () => vec3(0).toVar());
     const WA = vec4(0).toVar(), WB = vec4(0).toVar();
     const prot = float(0).toVar();
-    const stp = radius.div(KR);
+    let rad = radius;
+    if (far) {   // 底板（远处、清屏处）用更大的笔触，3D 主体保持小笔触
+      const d = far.depth.sample(coord).level(0).x;
+      const z = select(d.greaterThanEqual(0.9999999), float(1e9), perspectiveDepthToViewZ(d, far.near, far.farClip).negate());
+      rad = mix(radius, far.radius, smoothstep(far.start, far.end, z)).toVar();
+    }
+    const stp = rad.div(KR);
     Loop({ start: int(-KR), end: int(KR), type: 'int', condition: '<=', name: 'j' }, { start: int(-KR), end: int(KR), type: 'int', condition: '<=', name: 'i' }, ({ i, j }) => {
       const v = vec2(float(i), float(j)).div(KR);
       const r2 = dot(v, v);

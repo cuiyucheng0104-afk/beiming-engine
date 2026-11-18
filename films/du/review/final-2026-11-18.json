@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "film": "du",
+  "gate": "final",
+  "decision": "approve",
+  "reviewer": { "kind": "human", "name": "zz8011" },
+  "quote": "可以",
+  "source": {
+    "kind": "session",
+    "ref": "Claude Code 会话 2026-11-18，回复 final 闸请求（成片 out/20261117-155648-7ce8fd44/master.mp4 与离屏对照 offscreen.mp4；请求原文写明「全速带声看完」「认可的话请回一句原话」）",
+    "at": "2026-11-18T00:04:48+08:00"
+  },
+  "recordedBy": { "kind": "ai", "name": "agent（npm run film -- review）" },
+  "at": "2026-11-18T00:04:48+08:00",
+  "reviewed": [
+    { "path": "out/20261117-155648-7ce8fd44/master.mp4", "sha256": "04bb44abab32f56ac6b88c8d24f24890f47b4cc033db62bf6142ff38f9212ae1", "kind": "video" },
+    { "path": "out/20261117-155648-7ce8fd44/web.mp4", "sha256": "aaabcb014b6815ad9a98715a218191572bc71be52161fe75f055c4f3eae6a967", "kind": "video" },
+    { "path": "out/20261117-155648-7ce8fd44/contact.jpg", "sha256": "c6fe85ddbd858e8d6d1d6fa527b31c024675f148f3f2d3c30cc4a63b60912234", "kind": "image" }
+  ]
+}

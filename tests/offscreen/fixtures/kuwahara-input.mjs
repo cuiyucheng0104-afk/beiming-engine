@@ -16,3 +16,15 @@ export function kuwaharaInput(w, h) {
   }
   return px;
 }
+
+// 深度换半径对拍用的合成深度图：0..1 的透视深度（单通道 float，行序同上）。视距沿 x 从 5 铺到 100（跨过 farStart / farEnd 的过渡带），
+// 右上角一块天空（深度 1，当作无穷远）。near / far 是相机近远面，与两边的相机一致。纯函数，Node 与浏览器共用。
+export const KUWA_NEAR = 0.1, KUWA_FAR = 100;
+export function kuwaharaDepth(w, h) {
+  const d = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const z = 5 + 95 * (x / (w - 1));
+    d[y * w + x] = x > 0.55 * w && y < 0.15 * h ? 1 : KUWA_FAR * (z - KUWA_NEAR) / (z * (KUWA_FAR - KUWA_NEAR));
+  }
+  return d;
+}

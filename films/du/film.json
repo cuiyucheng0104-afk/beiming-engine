@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 2,
+  "id": "du",
+  "title": "渡",
+  "route": "a",
+  "backend": "three",
+  "output": {
+    "profile": "web-1080p24",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "frameCount": 96
+  },
+  "shots": [
+    {
+      "id": "S1",
+      "in": 0,
+      "out": 96,
+      "module": "shots/s1.js",
+      "evaluation": "absolute",
+      "lookPreset": "beiming-original@v1/hero",
+      "note": "晨江一个长焦镜头：孤峰在右三分线，伴礁在左，地平线在下三分线；镜头缓推 20 m。乌篷小舟从左入画划向伴礁，停桨滑行，静止（4 秒）。场景在 scene.mjs，A 路线页面与离屏出片共用"
+    }
+  ],
+  "events": [
+    {
+      "id": "boat-in",
+      "frame": 24,
+      "shot": "S1",
+      "audio": "oar",
+      "visual": "boat",
+      "note": "舟开始入画、第一桨落水（承的起点）"
+    },
+    {
+      "id": "oar-stop",
+      "frame": 60,
+      "shot": "S1",
+      "audio": "drip",
+      "visual": "oar",
+      "note": "停桨：桨抬出水面的那一帧，桨尖滴水（转）"
+    },
+    {
+      "id": "settle",
+      "frame": 78,
+      "shot": "S1",
+      "visual": "boat",
+      "note": "舟停稳，之后只有墨线沸腾与极轻的起伏（合）；水声在 78–84 帧收掉，84 帧起真静默到片尾"
+    }
+  ],
+  "audio": {
+    "mode": "script",
+    "script": "sound.py",
+    "targetLUFS": -14,
+    "truePeakDbTP": -1
+  },
+  "deliveries": [
+    "web-1080p24"
+  ],
+  "style": {
+    "id": "beiming-original",
+    "version": 1,
+    "lock": "../../engine/style/beiming-original.v1.json",
+    "baseline": "../../media/shot_1.6.jpg",
+    "note": "画风 beiming-original@v1，镜头预设 hero（不开雾）。主体用 MeshToonMaterial 近似三档卡通（没有材质里的皴线），原因见 TREATMENT.md"
+  },
+  "assets": [
+    "plate:sky_dawn",
+    "paper"
+  ],
+  "credits": [
+    {
+      "what": "场景、造型、运动（scene.mjs）",
+      "owner": "北冥引擎 Beiming Engine",
+      "license": "随本仓分发（LICENSE）",
+      "source": "films/du/scene.mjs"
+    }
+  ],
+  "aigc": {
+    "contains": true,
+    "note": "天空底板（assets/plates/sky_dawn.png）为 AI 生成后人工整理；片尾或说明写「含 AI 生成画面」"
+  },
+  "gates": {
+    "look": "required",
+    "animatic": "required",
+    "final": "required"
+  }
+}
