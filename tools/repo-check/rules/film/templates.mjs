@@ -11,6 +11,7 @@ export default {
     const out = [];
     for (const [route, rel] of Object.entries(TEMPLATES)) {
       const file = `${rel}/film.json`;
+      if (route === 'd' && !ctx.exists('routes/d-pathtrace/README.md') && !ctx.exists(file)) continue;
       if (!ctx.exists(file)) { out.push({ level: 'error', file, message: '模版缺 film.json' }); continue; }
       if (!ctx.inScope(file)) continue;
       let raw;
@@ -19,10 +20,11 @@ export default {
       try {
         const film = parseFilm(raw, { dir: ctx.abs(rel) });
         if (film.route !== route) out.push({ level: 'error', file, message: `route 是 ${film.route}，模版目录属于 ${route}` });
-        if (route !== 'b' && !fs.existsSync(path.join(ctx.abs(rel), 'index.html'))) out.push({ level: 'error', file: `${rel}/`, message: '页面型模版缺 index.html' });
+        if ((route === 'a' || route === 'c') && !fs.existsSync(path.join(ctx.abs(rel), 'index.html'))) out.push({ level: 'error', file: `${rel}/`, message: '页面型模版缺 index.html' });
+        if (route === 'd' && !fs.existsSync(path.join(ctx.abs(rel), film.entry || 'scene.ts'))) out.push({ level: 'error', file: `${rel}/`, message: `光追模版缺入口 ${film.entry || 'scene.ts'}` });
       } catch (e) { out.push({ level: 'error', file, message: String(e.message).split('\n')[0] }); }
     }
-    if (!out.length) out.push({ level: 'info', message: '三个路线模版都能直接交给 npm run film -- build' });
+    if (!out.length) out.push({ level: 'info', message: '路线模版都能直接交给 npm run film -- build' });
     return out;
   },
 };

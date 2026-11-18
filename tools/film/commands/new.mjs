@@ -11,7 +11,7 @@ import { envelope } from '../lib/output.mjs';
 const NEW = path.join(ROOT, 'tools/new-film.mjs');
 
 export const newSpec = {
-  positionals: [{ name: '路线', describe: 'a / b / c（怎么选见 routes/README.md）', required: true }, { name: '名字', describe: '作品名：小写字母、数字、连字符', required: true }],
+  positionals: [{ name: '路线', describe: 'a / b / c / d（怎么选见 routes/README.md）', required: true }, { name: '名字', describe: '作品名：小写字母、数字、连字符', required: true }],
   options: {
     '--title': { type: 'string', arg: '<片名>', help: '片名，默认等于名字' },
     '--profile': { type: 'string', arg: '<档位>', help: '交付档位，默认取模版声明的，否则 web-1080p24（D07）' },
@@ -23,7 +23,7 @@ export const newSpec = {
 
 export const NEW_DOC = {
   summary: '新建作品：转调 node tools/new-film.mjs（把 routes/<路线>/template 复制到 films/<名字>/ 并生成 film.json v2）',
-  usage: ['npm run film -- new <a|b|c> <名字> [--title 片名] [--profile 档位] [--dry-run] [--json]'],
+  usage: ['npm run film -- new <a|b|c|d> <名字> [--title 片名] [--profile 档位] [--backend 后端] [--dry-run] [--json]'],
   description: [
     '之后的顺序：',
     '  npm run film -- check    films/<名字>         只读检查',

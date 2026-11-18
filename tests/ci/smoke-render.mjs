@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// 北冥仓库 · 无 GPU 冒烟出片（CI 的 smoke-render job；本机也能跑）：用小尺寸把三条路线的模版与《北冥》真实走一遍出片链路，
+// 北冥仓库 · 无 GPU 冒烟出片（CI 的 smoke-render job；本机也能跑）：用小尺寸把四条路线的模版与《北冥》真实走一遍出片链路，
 // 检查帧数、尺寸、音轨、画面不是黑屏 / 纯色，拼一张接触印，再交给 P08 的金标准工具比对（还没有清单时首次采集）。
-//   node tests/ci/smoke-render.mjs                          全部阶段（a c b beiming golden）
+//   node tests/ci/smoke-render.mjs                          全部阶段（a c b b-render d-render beiming golden）
 //   node tests/ci/smoke-render.mjs --only beiming,golden    只跑其中几段
 //   node tests/ci/smoke-render.mjs --plan                   只打印每段要跑的命令，不执行
 // 软件渲染：CI 上设 BEIMING_ANGLE=swiftshader（Linux 无显卡）；macOS 本机同样用 BEIMING_ANGLE=swiftshader 模拟。
@@ -12,10 +12,11 @@
 //   b        new-film b → engine/native/prepare.mjs（资产桥导出 GLB、底板、声音；不需要原生运行时）→ 声明的素材齐全、
 //            prepared.json 的哈希与文件一致；再准备一遍，两次产物逐字节相同（资产桥的确定性）
 //   b-render 只在设了 RAEA_BIN（原生运行时，仓库不分发）时运行：film build 按模版原尺寸出片并核对（B 没有小画幅工作版）；没设就跳过
+//   d-render 只在本机安装了 D 路线光追运行时缓存（或设了 BEIMING_PT_BIN）且 GPU 探测可用时运行：new-film d → film build --size 384x216 → 核对成片与中段静帧；无运行时或无 GPU 时跳过
 //   beiming  《北冥》1.5 / 4.0 / 7.6 秒与 lab 自测页 look 的静帧（默认 384x208）→ 不是黑屏、不是纯色
 //   golden   tools/baseline/golden.mjs（P08）：tests/golden/<平台键>/manifest.json 在就 compare，不在就 capture 并把结果放进 --out
 //   最后总会把本次的静帧拼成 <out>/contact.jpg（只用来看一眼，不参与判定）。
-// 成片核对（a、c、b-render）：尺寸、帧数 = round(dur × fps)、帧率、H.264 yuv420p、BT.709 有限范围且标注完整、AAC 48 kHz 立体声、
+// 成片核对（a、c、b-render、d-render）：尺寸、帧数 = round(dur × fps)、帧率、H.264 yuv420p、BT.709 有限范围且标注完整、AAC 48 kHz 立体声、
 //   积分响度 −14 ± 1 LUFS、真峰值 ≤ −1.0 dBTP（D07）、中段一帧不是黑屏或纯色。这些是冒烟级的规格核对，完整的机器 QA 门见 tools/qa（P07）。
 // 平台键：默认 <系统>-swiftshader（BEIMING_ANGLE=swiftshader 时；CI 上是 linux-swiftshader）。不是软件渲染时不做金标准比对，
 //   除非用 --golden compare 并用 --platform 指明平台键。
@@ -30,24 +31,26 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import {
   ROOT, EXIT, CliError, parseArgs, envelope, writeReport, isMain, run, onSignals, resolvePython, pythonEnv, probeCapability,
   inActions, annotate, stepSummary, mdCell, table, fmtSec,
 } from '../../tools/run-tests.mjs';
 
-const PHASES = ['a', 'c', 'b', 'b-render', 'beiming', 'golden'];
+const PHASES = ['a', 'c', 'b', 'b-render', 'd-render', 'beiming', 'golden'];
 const NEEDS = {   // 每段要的能力（预检；缺了 exit 3）
   a: ['browser', 'ffmpeg', 'sh', 'python', 'python:numpy+scipy+soundfile+numba'],
   c: ['browser', 'ffmpeg', 'sh', 'python', 'python:numpy+scipy+soundfile+numba'],
   b: ['browser', 'python', 'python:numpy+soundfile'],
   'b-render': ['ffmpeg', 'sh', 'python', 'python:numpy+soundfile'],
+  'd-render': ['ffmpeg', 'python', 'python:numpy+scipy+soundfile'],
   beiming: ['browser', 'ffmpeg'],
   golden: [],
 };
 const TILE = [384, 208];   // 接触印每格的尺寸（与静帧尺寸无关）
 const SPEC = {
   only: { type: 'list' }, skip: { type: 'list' }, out: { type: 'string' }, python: { type: 'string' }, root: { type: 'string' },
-  'size-a': { type: 'string' }, 'size-c': { type: 'string' }, 'size-beiming': { type: 'string' },
+  'size-a': { type: 'string' }, 'size-c': { type: 'string' }, 'size-d': { type: 'string' }, 'size-beiming': { type: 'string' },
   golden: { type: 'string' }, platform: { type: 'string' }, 'golden-set': { type: 'list' },
   keep: { type: 'bool' }, plan: { type: 'bool' }, json: { type: 'bool' }, report: { type: 'string' }, timeout: { type: 'int' }, help: { type: 'bool', short: 'h' },
 };
@@ -59,6 +62,7 @@ export const HELP = `北冥仓库 · 无 GPU 冒烟出片（CI smoke-render）
   --out <目录>            产物与报告目录（默认 out/ci/smoke）
   --size-a <WxH>          A 模版出片尺寸（默认 384x216，16:9；A 模版按 16:9 构图）
   --size-c <WxH>          C 模版出片尺寸（默认 320x180）
+  --size-d <WxH>          D 模版出片尺寸（默认 384x216，16:9）
   --size-beiming <WxH>    《北冥》静帧尺寸（默认 384x208）
   --golden <模式>         auto（默认：有清单就比对，没有就采集）、compare、capture、off
   --platform <平台键>     金标准平台键（默认 <系统>-swiftshader，CI 上是 linux-swiftshader；不是软件渲染时没有默认值）
@@ -71,7 +75,7 @@ export const HELP = `北冥仓库 · 无 GPU 冒烟出片（CI smoke-render）
   -h, --help              显示本说明
 
 环境：CI 上设 BEIMING_ANGLE=swiftshader；需要 playwright-core 的 chromium-headless-shell、FFmpeg（ffmpeg + ffprobe）、POSIX sh、
-      装了 requirements 的 Python。b-render 另要 RAEA_BIN（原生运行时，仓库不分发；没有就跳过这一段）。
+      装了 requirements 的 Python。b-render 另要 RAEA_BIN（没有就跳过）；d-render 另要光追运行时缓存或 BEIMING_PT_BIN 及可用 GPU（没有就跳过）。
 退出码：0 通过；1 失败；2 用法错误；3 环境缺失；4 金标准不一致；124 超时；130/143 被中断`;
 
 const sha256 = f => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
@@ -149,6 +153,7 @@ export async function main(argv = process.argv.slice(2)) {
       root, opts, golden, warnings, created,
       out: path.resolve(opts.out || path.join(root, 'out/ci/smoke')),
       sizeA: sizeOf(opts['size-a'] || '384x216', 'size-a'), sizeC: sizeOf(opts['size-c'] || '320x180', 'size-c'),
+      sizeD: sizeOf(opts['size-d'] || '384x216', 'size-d'),
       sizeB: sizeOf(opts['size-beiming'] || '384x208', 'size-beiming'),
       platform: opts.platform || (software ? `${osKey}-swiftshader` : null), sets: opts['golden-set'].length ? opts['golden-set'] : software ? ['ci'] : ['beiming-core', 'lab'],
       timeoutMs: 1000 * (opts.timeout || 600), tag: crypto.randomBytes(3).toString('hex'),
@@ -234,7 +239,7 @@ export async function main(argv = process.argv.slice(2)) {
   return finish(exitCode, { outputs, phases }, error);
 }
 
-const TITLES = { a: 'A 模版出片', c: 'C 模版出片', b: 'B 模版素材准备（资产桥）', 'b-render': 'B 模版出片（需原生运行时）', beiming: '《北冥》与 lab 静帧', golden: '金标准（P08）', contact: '接触印' };
+const TITLES = { a: 'A 模版出片', c: 'C 模版出片', b: 'B 模版素材准备（资产桥）', 'b-render': 'B 模版出片（需原生运行时）', 'd-render': 'D 模版出片（需光追运行时与 GPU）', beiming: '《北冥》与 lab 静帧', golden: '金标准（P08）', contact: '接触印' };
 
 // 命令一览（--plan 与报告共用）
 function planOf(id, ctx) {
@@ -248,6 +253,16 @@ function planOf(id, ctx) {
     case 'b-render': return process.env.RAEA_BIN
       ? [`RAEA_BIN=${process.env.RAEA_BIN} node tools/film/cli.mjs build ${film('b')} --gpu software-ok`, '核对成片规格']
       : ['跳过：没有设 RAEA_BIN（原生运行时不随仓库分发）'];
+    case 'd-render':
+      if ((process.env.BEIMING_ANGLE || '').toLowerCase() === 'swiftshader' && !process.env.BEIMING_PT_BIN) {
+        return ['跳过：软件渲染模式（BEIMING_ANGLE=swiftshader）且未设 BEIMING_PT_BIN'];
+      }
+      return process.env.BEIMING_PT_BIN
+        ? [`BEIMING_PT_BIN=${process.env.BEIMING_PT_BIN} node tools/new-film.mjs d ${film('d').slice(6)} --title 冒烟试映`,
+          `BEIMING_PT_BIN=${process.env.BEIMING_PT_BIN} node tools/film/cli.mjs build ${film('d')} --size ${ctx.sizeD.join('x')}`,
+          '核对成片规格与中段静帧']
+        : [`若有光追运行时缓存与可用 GPU：node tools/new-film.mjs d ${film('d').slice(6)} --title 冒烟试映`,
+          `node tools/film/cli.mjs build ${film('d')} --size ${ctx.sizeD.join('x')}；无运行时或无 GPU 时自动跳过`];
     case 'beiming': return [`node engine/render/still.mjs . 1.5 4.0 7.6 --size ${ctx.sizeB.join('x')} --out ${r(path.join(ctx.out, 'beiming'))}`,
       `node engine/render/still.mjs . 1.0 --query test=look --size ${ctx.sizeB.join('x')} --out ${r(path.join(ctx.out, 'lab'))} --prefix look_`];
     case 'golden': return ctx.platform
@@ -436,6 +451,65 @@ const RUNNERS = {
     const mid = Math.floor(frames / 2), still = path.join(ctx.out, 'b', `mid_${mid}.jpg`);
     const x = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', r.mp4, '-vf', `select=eq(n\\,${mid})`, '-frames:v', '1', '-q:v', '3', still]);
     if (x.status === 0 && fs.existsSync(still)) ph.outputs.push({ path: path.relative(ctx.root, still).split(path.sep).join('/'), sha256: sha256(still), kind: 'still' });
+  },
+
+  // 只在本机安装了 D 路线光追运行时缓存（或设了 BEIMING_PT_BIN）且 GPU 适配器探测可用时跑；GitHub Actions 无显卡 CI 自动跳过。
+  async 'd-render'(ph, ctx) {
+    if ((process.env.BEIMING_ANGLE || '').toLowerCase() === 'swiftshader' && !process.env.BEIMING_PT_BIN) {
+      ph.status = 'skip';
+      ph.reason = '软件渲染模式（BEIMING_ANGLE=swiftshader）且未设 BEIMING_PT_BIN：跳过 D 路线光追出片';
+      process.stderr.write(`  · ${ph.reason}\n`);
+      return;
+    }
+    const rtModPath = path.join(ctx.root, 'engine/pathtrace/runtime.mjs');
+    if (!fs.existsSync(rtModPath)) {
+      ph.status = 'skip';
+      ph.reason = 'engine/pathtrace/runtime.mjs 尚未合入：跳过 D 路线光追出片';
+      process.stderr.write(`  · ${ph.reason}\n`);
+      return;
+    }
+    const { resolvePathtrace, probePathtraceGpu } = await import(pathToFileURL(rtModPath).href);
+    let rt;
+    try {
+      rt = await resolvePathtrace({ env: process.env, cwd: ctx.root });
+    } catch (e) {
+      ph.status = 'skip';
+      ph.reason = `${e.message || '未安装光追运行时缓存或未设 BEIMING_PT_BIN'}：跳过 D 路线光追出片`;
+      process.stderr.write(`  · ${ph.reason}\n`);
+      return;
+    }
+    if (!fs.existsSync(rt.presetsDir) || !fs.existsSync(rt.sdkDir)) {
+      ph.status = 'skip';
+      ph.reason = '光追运行时缓存缺少配套 presets/ 或 sdk/ 目录：跳过 D 路线光追出片';
+      process.stderr.write(`  · ${ph.reason}\n`);
+      return;
+    }
+    const gpu = probePathtraceGpu(rt.exe, { env: process.env });
+    const softwareAdapter = /\b(llvmpipe|lavapipe|swiftshader|basic render driver|software|warp)\b/i.test(String(gpu?.adapter || '')) || gpu?.device_type === 'Cpu';
+    if (!gpu?.ok || (softwareAdapter && !process.env.BEIMING_PT_BIN)) {
+      ph.status = 'skip';
+      ph.reason = !gpu?.ok
+        ? `光追 GPU 适配器探测不可用（${gpu?.error || '无可用 GPU'}）：跳过 D 路线光追出片`
+        : `仅探测到软件渲染适配器（${gpu.adapter}）且未显式设 BEIMING_PT_BIN：跳过 D 路线光追出片`;
+      process.stderr.write(`  · ${ph.reason}\n`);
+      return;
+    }
+    ph.details.gpu = gpu;
+    const f = await newFilm(ph, ctx, 'd');
+    const [w, h] = ctx.sizeD;
+    const r = await filmBuild(ph, ctx, f, w, h, { BEIMING_PT_BIN: rt.exe });
+    if (!r) return;
+    const o = f.film.output || {};
+    const frames = o.frameCount ?? Math.round(f.film.dur * f.film.fps);
+    const fps = o.fps ?? f.film.fps;
+    checkFilm(ph, r.mp4, { w, h, frames, fps });
+    keep(ph, ctx, r.mp4, 'd/film.mp4', 'video');
+    const mid = Math.floor(frames / 2), still = path.join(ctx.out, 'd', `mid_${mid}.jpg`);
+    const x = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', r.mp4, '-vf', `select=eq(n\\,${mid})`, '-frames:v', '1', '-q:v', '3', still]);
+    if (x.status === 0 && fs.existsSync(still)) {
+      ph.outputs.push({ path: path.relative(ctx.root, still).split(path.sep).join('/'), sha256: sha256(still), kind: 'still' });
+    }
+    if (!ctx.opts.keep) fs.rmSync(f.dir, { recursive: true, force: true });
   },
 
   async beiming(ph, ctx) {

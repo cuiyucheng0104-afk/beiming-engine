@@ -37,6 +37,7 @@ const pick = (...keys) => Object.fromEntries(keys.map(k => [k, COMMON[k]]));
 const PAGE = {
   '--page': { type: 'string', desc: '页面目录（含 index.html 或 offscreen.mjs）；缺省用作品目录' },
   '--offscreen': { type: 'boolean', desc: '用离屏宿主（offscreen.mjs）做文字与底板检查，不启动无头浏览器；纯 webgpu 作品自动启用' },
+  '--texts': { type: 'string', desc: '离线文字采样表（如 D 路线 work/texts.json）；没有 index.html 时用它代替浏览器采样' },
   '--step': { type: 'number', min: 1, desc: '每隔几帧采一次（默认 1，即逐帧）' },
   '--ready-timeout': { type: 'number', min: 1, desc: '等 window.READY 的秒数（默认 120）' },
   '--no-contrast': { type: 'boolean', desc: '跳过对比度（不截图，快）' },
@@ -164,8 +165,24 @@ async function runGroups(sub, opts, input) {
         const hasOff = !!(pageDir && fs.existsSync(path.join(pageDir, 'offscreen.mjs')));
         const useOffscreen = Boolean(opts.offscreen || (!hasPage && hasOff) || (ctx.film?.backend === 'webgpu' && hasOff && !opts.page));
         if (opts.offscreen && !hasOff) throw new QaError('usage.bad-value', `${opts.page || pageDir || '(未指定)'} 里没有 offscreen.mjs`, { exitCode: EXIT.USAGE });
+        const explicitTexts = opts.texts ? path.resolve(opts.texts) : null;
+        if (explicitTexts && !fs.existsSync(explicitTexts)) throw new QaError('usage.no-file', `找不到文字采样表：${opts.texts}`, { exitCode: EXIT.USAGE });
+        const autoTexts = !hasPage && !useOffscreen && input && runDirOf(input) ? path.join(runDirOf(input), 'work', 'texts.json') : null;
+        const textsFile = explicitTexts || (autoTexts && fs.existsSync(autoTexts) ? autoTexts : null);
+        if (textsFile && (explicitTexts || (!hasPage && !useOffscreen))) {
+          const { runTextsFromJson } = await import('./checks/texts.mjs');
+          log(`▶ texts：读取离线文字采样表 ${rel(textsFile)}`);
+          const r = await runTextsFromJson({
+            textsFile, contrastDir: path.join(path.dirname(textsFile), 'contrast'),
+            size: pageSize(opts), profile: ctx.profile, film: ctx.film, step: opts.step || 1, contrast: !opts.noContrast,
+          });
+          checks.push(...r.checks); warnings.push(...r.warnings); extra.texts = r.summary;
+          for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
+          foi = [...new Set(foi)].sort((a, b) => a - b);
+          continue;
+        }
         if (!pageDir || (!hasPage && !useOffscreen)) {
-          const why = opts.page ? `${opts.page} 里没有 index.html（也没有 offscreen.mjs）` : '没有可打开的作品页面或 offscreen.mjs（B 路线原生片没有页面；页面型或离屏作品用 --page 或 --film 指定）';
+          const why = opts.page ? `${opts.page} 里没有 index.html（也没有 offscreen.mjs）` : '没有可打开的作品页面、offscreen.mjs 或 work/texts.json（B 路线原生片没有页面；页面型或离屏作品用 --page 或 --film 指定）';
           if (sub === 'texts') throw new QaError('usage.bad-value', why, { exitCode: EXIT.USAGE });
           skipped.push({ group: 'texts', reason: why });
           continue;
@@ -199,8 +216,12 @@ async function runGroups(sub, opts, input) {
         for (const c of r.checks) for (const f of c.findings || []) if ((f.status === 'fail' || f.status === 'warn') && f.frames) foi.push(f.frames[0]);
         foi = [...new Set(foi)].sort((a, b) => a - b);
       } else if (g === 'sync') {
-        // 事件表：--events 优先；作品描述没写 events 时，用作品目录里 C 路线导出的 events.json（engine/render/events.mjs）
+        // 事件表：--events 优先；作品描述没写 events 时，先找运行目录的 events.json，再找作品目录的 events.json
         let evFile = opts.events ? path.resolve(opts.events) : null;
+        if (!evFile && !(ctx.film?.events || []).length && input && runDirOf(input) && fs.existsSync(path.join(runDirOf(input), 'events.json'))) {
+          evFile = path.join(runDirOf(input), 'events.json');
+          warnings.push(`作品描述没有 events，声画同步改用 ${rel(evFile)}`);
+        }
         if (!evFile && !(ctx.film?.events || []).length && ctx.film?.dir && fs.existsSync(path.join(ctx.film.dir, 'events.json'))) {
           evFile = path.join(ctx.film.dir, 'events.json');
           warnings.push(`作品描述没有 events，声画同步改用 ${rel(evFile)}`);
@@ -267,7 +288,7 @@ function defaultOutDir(input) {
 
 function printHuman(report) {
   const W = { pass: '通过', fail: '不通过', warn: '注意', waived: '豁免' };
-  const lines = [`${report.ok ? '✔ 机器检查通过' : '✘ 机器检查不通过'}　档位 ${report.profile.id}${report.input ? `　${report.input.path}` : ''}`];
+  const lines = [`${report.ok ? '✔ 机器检查通过' : '✘ 机器检查不通过'}\u3000档位 ${report.profile.id}${report.input ? `\u3000${report.input.path}` : ''}`];
   for (const c of report.checks) {
     lines.push(`  ${W[c.status].padEnd(4)} ${c.id.padEnd(22)} ${String(c.value ?? '').slice(0, 70)}`);
     for (const f of (c.findings || []).filter(x => x.status === 'fail' || x.status === 'warn').slice(0, 4)) lines.push(`         · ${f.message}`);

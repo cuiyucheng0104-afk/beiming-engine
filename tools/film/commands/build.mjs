@@ -15,15 +15,16 @@ import { planSession, openSession, closeSession, addOutput, parseGpu } from '../
 import { runSteps, checkStepName } from '../lib/pipeline.mjs';
 import { deliverSteps } from '../lib/deliver.mjs';
 import { nativeSteps } from '../lib/native-steps.mjs';
+import { pathtraceSteps } from '../lib/pathtrace-steps.mjs';
 import { pageSteps } from '../../../engine/render/build.mjs';
-import { gateStatus, assertFinalAllowed, recordWaivers, GATES, SOURCE_KINDS } from '../lib/gates.mjs';
+import { gateStatus, assertFinalAllowed, recordWaivers, GATES } from '../lib/gates.mjs';
 import { envelope } from '../lib/output.mjs';
 
 const COMMON = {
   '--profile': { type: 'string', arg: '<档位>', help: '交付档位（默认 film.json 的 output.profile）' },
   '--workers': { type: 'int', min: 1, max: 32, arg: '<n>', help: '页面渲染并行路数（默认 4）' },
   '--renderer': { type: 'enum', values: ['page', 'offscreen'], arg: '<page|offscreen>', help: 'A、C 路线画面用谁渲：page 无头 Chrome（默认）；offscreen Node + Dawn，渲作品目录的 offscreen.mjs（作品要是双实现，见 docs/offscreen/README.md 7.11）' },
-  '--encoder': { type: 'enum', values: ['x264', 'nvenc'], arg: '<x264|nvenc>', help: '视频编码器：x264（默认）或 nvenc（NVIDIA 硬件编码；逐帧渲染选 nvenc 需配 --renderer offscreen，网页版均可）' },
+  '--encoder': { type: 'enum', values: ['x264', 'nvenc'], arg: '<x264|nvenc>', help: '视频编码器：x264（默认）或 nvenc（NVIDIA 硬件编码；A、C 逐帧渲染选 nvenc 需配 --renderer offscreen，D 光追与网页版均可）' },
   '--size': { type: 'string', arg: '<宽x高>', help: '改画幅出工作版：不是交付件，不跑交付 QA（只核对规格）；不能与 --final 同用' },
   '--query': { type: 'string', arg: '<k=v>', help: '原样传给页面的查询串' },
   '--audio': { type: 'string', arg: '<none|x.wav|x.py>', help: '覆盖 film.json 的声音：none、现成混音或声音脚本' },
@@ -63,6 +64,7 @@ export const BUILD_DOC = {
     '出片链（--from / --to 用这些步骤名）：',
     '  A / C 页面型  probe → mix → cuecheck → video → mux → web → label → poster → contact → player → qa',
     '  B 原生        prepare → preflight → native → web → label → poster → contact → player → qa',
+    '  D 光追        preflight → bundle → mix → cuecheck → pathtrace → mux → web → label → poster → contact → player → qa',
     '产物：master.mp4 web.mp4 player.html contact.jpg poster.jpg run.json qa/report.json。',
     'out/latest：整条链跑完且没有失败时指向这次（--no-qa、--size 的工作版也更新，它们的 run.json 分别记 blocked、rendered）；',
     '  --to 提前停、失败、被中断都不更新。',
@@ -131,7 +133,11 @@ export async function assembleCommand(opts, positionals) {
 
 
 function stepsFor(ctx) {
-  const route = ctx.film.route === 'b' ? nativeSteps({ kind: ctx.kind }) : pageSteps({ kind: ctx.kind });
+  const route = ctx.film.route === 'b'
+    ? nativeSteps({ kind: ctx.kind })
+    : ctx.film.route === 'd'
+      ? pathtraceSteps({ kind: ctx.kind })
+      : pageSteps({ kind: ctx.kind });
   return [...route, ...deliverSteps({ kind: ctx.kind })];
 }
 
@@ -189,6 +195,7 @@ export async function runBuild(kind, opts, positionals, command = kind) {
     const kinds = { master: 'master', animatic: 'animatic', web: 'web', player: 'player', contact: 'contact', poster: 'poster', qaReport: 'qa-report', qaMarkdown: 'qa-markdown', qaContact: 'qa-contact-sheet', mix: 'audio', events: 'events', timeline: 'timeline', technical: 'technical', manifest: 'native-manifest', cuecheckLog: 'cuecheck' };
     for (const [k, kd] of Object.entries(kinds)) addOutput(ctx, ctx.art[k], kd);
     if (ctx.film.route === 'b' && !ctx.nativeDevice && ctx.meta.native?.device) ctx.nativeDevice = ctx.meta.native.device;
+    if (ctx.film.route === 'd' && !ctx.nativeDevice && ctx.meta.pathtrace?.device) ctx.nativeDevice = ctx.meta.pathtrace.device;
     if (!ctx.nativeDevice && !ctx.gpu && ctx.meta.video?.gpu) ctx.gpu = ctx.meta.video.gpu;
     if (main && complete) {
       ({ output, frameHashes } = await checkOutput(ctx, main));

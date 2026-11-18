@@ -19,9 +19,10 @@ import { EXIT, FilmError } from './exit.mjs';
 import { ROOT, rel } from './repo.mjs';
 
 const BUILTIN_ROUTES = {
-  a: { slug: 'a-webgl', brand: '北冥风格路线 · WebGL 三渲二', renderer: 'page', backend: 'three', legacy: ['beiming'] },
-  b: { slug: 'b-native', brand: '北冥原生 · BNE', renderer: 'native', backend: 'native', legacy: ['raea'] },
-  c: { slug: 'c-style', brand: '北冥代码动画风格 · 86 式', renderer: 'page', backend: 'page', legacy: [] },
+  a: { slug: 'a-webgl', brand: '北冥风格路线 · WebGL 三渲二', renderer: 'page', backend: 'three', legacy: ['beiming'], aliases: [] },
+  b: { slug: 'b-native', brand: '北冥原生 · BNE', renderer: 'native', backend: 'native', legacy: ['raea'], aliases: [] },
+  c: { slug: 'c-style', brand: '北冥代码动画风格 · 86 式', renderer: 'page', backend: 'page', legacy: [], aliases: [] },
+  d: { slug: 'd-pathtrace', brand: '北冥光追 · 物理路径追踪', renderer: 'pathtrace', backend: 'pathtrace', legacy: [], aliases: ['pathtrace'] },
 };
 
 function loadRegistry() {
@@ -32,11 +33,17 @@ function loadRegistry() {
     const list = Array.isArray(j) ? j : Array.isArray(j.routes) ? j.routes : Object.entries(j).map(([id, v]) => ({ id, ...v }));
     const out = {};
     for (const r of list) {
-      if (!r || !['a', 'b', 'c'].includes(r.id)) continue;
+      if (!r || !['a', 'b', 'c', 'd'].includes(r.id)) continue;
       const base = BUILTIN_ROUTES[r.id];
-      out[r.id] = { ...base, slug: r.slug || base.slug, brand: r.brand || base.brand, legacy: [...new Set([...(base.legacy || []), r.legacyId].filter(Boolean))] };
+      out[r.id] = {
+        ...base,
+        slug: r.slug || base.slug,
+        brand: r.brand || base.brand,
+        legacy: [...new Set([...(base.legacy || []), r.legacyId].filter(Boolean))],
+        aliases: [...new Set([...(base.aliases || []), ...(Array.isArray(r.aliases) ? r.aliases : [])].filter(Boolean))],
+      };
     }
-    return Object.keys(out).length === 3 ? out : BUILTIN_ROUTES;
+    return Object.keys(out).length >= 3 ? { ...BUILTIN_ROUTES, ...out } : BUILTIN_ROUTES;
   } catch { return BUILTIN_ROUTES; }
 }
 export const ROUTE_INFO = loadRegistry();
@@ -45,7 +52,7 @@ export function normalizeRoute(raw) {
   const v = String(raw ?? '').trim().toLowerCase();
   for (const [id, r] of Object.entries(ROUTE_INFO)) {
     if (v === id || v === r.slug) return { id, legacy: false };
-    if (r.legacy.includes(v)) return { id, legacy: true };
+    if (r.legacy.includes(v) || (r.aliases && r.aliases.includes(v))) return { id, legacy: true };
   }
   return null;
 }
@@ -63,7 +70,7 @@ export function loadFilm(dirArg, { page = null } = {}) {
   const dir = path.resolve(dirArg);
   const file = path.join(dir, 'film.json');
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
-    throw new FilmError(EXIT.USAGE, 'film-dir-missing', `作品目录不存在：${dirArg}`, '先 node tools/film/cli.mjs new <a|b|c> <名字> 新建，或检查路径（相对当前目录）');
+    throw new FilmError(EXIT.USAGE, 'film-dir-missing', `作品目录不存在：${dirArg}`, '先 node tools/film/cli.mjs new <a|b|c|d> <名字> 新建，或检查路径（相对当前目录）');
   }
   if (!fs.existsSync(file)) {
     throw new FilmError(EXIT.USAGE, 'film-json-missing', `${rel(dir)} 下没有 film.json，不是作品目录`, '作品目录由 node tools/film/cli.mjs new 生成；《北冥》样片的作品描述在 films/beiming-10s/');
@@ -85,7 +92,7 @@ export function parseFilm(raw, { dir, file = path.join(dir, 'film.json'), page =
   if (raw.schemaVersion !== undefined && ![1, 2].includes(raw.schemaVersion)) problems.push(`schemaVersion 只能是 1 或 2，现在是 ${JSON.stringify(raw.schemaVersion)}`);
 
   const r = normalizeRoute(raw.route);
-  if (!r) problems.push(`route 不认识：${JSON.stringify(raw.route)}（只能是 a / b / c）`);
+  if (!r) problems.push(`route 不认识：${JSON.stringify(raw.route)}（只能是 a / b / c / d）`);
   else if (r.legacy) warnings.push({ code: 'route-legacy-alias', message: `film.json 的 route 写的是旧名 ${JSON.stringify(raw.route)}，按 ${r.id} 处理；请改成 "${r.id}"` });
 
   const title = typeof raw.title === 'string' ? raw.title.trim() : '';
@@ -147,6 +154,8 @@ export function parseFilm(raw, { dir, file = path.join(dir, 'film.json'), page =
   else posterFrame = Math.round(frameCount * 0.6);
   posterFrame = Math.min(frameCount - 1, Math.max(0, posterFrame));
 
+  const defaultEntry = r.id === 'b' ? (raw.native?.entry ?? 'film.tsx') : (r.id === 'd' ? 'scene.ts' : (raw.backend === 'webgpu' ? 'offscreen.mjs' : 'index.html'));
+  const entry = typeof raw.entry === 'string' && raw.entry ? raw.entry : defaultEntry;
   // 页面目录：--page > film.json 的 page > entry 所在目录（相对路径基准）> 作品目录
   const entryDir = typeof raw.entry === 'string' && raw.entry && /\.html?$/i.test(raw.entry) ? path.dirname(path.resolve(pathBase, raw.entry)) : null;
   const pageRel = page ?? (typeof raw.page === 'string' && raw.page ? path.resolve(dir, raw.page) : entryDir ?? dir);
@@ -157,9 +166,10 @@ export function parseFilm(raw, { dir, file = path.join(dir, 'film.json'), page =
     dir, relDir: rel(dir), file, raw, schemaVersion: v2 ? 2 : 1,
     id: typeof raw.id === 'string' && raw.id ? raw.id : path.basename(dir),
     title, route: r.id, routeInfo: ROUTE_INFO[r.id], backend: typeof raw.backend === 'string' ? raw.backend : ROUTE_INFO[r.id].backend,
-    fps, frameCount, dur, width, height, profileId, shots, events, audio, gates,
+    entry, fps, frameCount, dur, width, height, profileId, shots, events, audio, gates,
     cuecheck: raw.cuecheck && typeof raw.cuecheck === 'object' ? raw.cuecheck : null,
-    posterFrame, native: raw.native || null, pageDir, pathBase, outRoot, mirror, warnings,
+    posterFrame, native: raw.native || null, pathtrace: raw.pathtrace && typeof raw.pathtrace === 'object' ? raw.pathtrace : null,
+    pageDir, pathBase, outRoot, mirror, warnings,
   };
 }
 

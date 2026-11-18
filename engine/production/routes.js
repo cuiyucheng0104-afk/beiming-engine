@@ -1,12 +1,12 @@
 // 北冥引擎 · 路线注册表的读取（film.js 与 project.js 共用）。
-// 规范值是注册表 id：a（北冥风格路线 · WebGL 三渲二）、b（北冥原生 · BNE）、c（北冥代码动画风格 · 86 式），见决策 D01、D04。
-// routes/routes.json（P02 维护）存在时以它为准；不存在时用下面的内置三条。旧值 beiming / raea 与目录名 a-webgl / b-native / c-style 都是别名。
+// 规范值是注册表 id：a（北冥风格路线 · WebGL 三渲二）、b（北冥原生 · BNE）、c（北冥代码动画风格 · 86 式）、d（北冥光追 · 物理路径追踪），见决策 D01、D04、D13。
+// routes/routes.json（P02 维护）存在时以它为准；不存在时用下面的内置四条。旧值 beiming / raea 与目录名 a-webgl / b-native / c-style / d-pathtrace / pathtrace 都是别名。
 //
-//   BUILTIN_ROUTES                       内置注册表（与 D01、D04 一致）
+//   BUILTIN_ROUTES                       内置注册表（与 D01、D04、D13 一致）
 //   loadRouteRegistry(root?)             → { routes: [{ id, slug, brand, legacyId, backends, manual, renderer }], source, aliases: Map }
-//   builtinRegistry()                    只用内置三条（注册表文件坏了时的退路，或测试用）
+//   builtinRegistry()                    只用内置四条（注册表文件坏了时的退路，或测试用）
 //   resolveRoute(value, registry?)       任意写法 → { id, alias: 是否写成了别名, route } | null（大小写不敏感）
-//   routeIds(registry?)                  ['a', 'b', 'c']
+//   routeIds(registry?)                  ['a', 'b', 'c', 'd']
 //   BACKEND_ALIASES                      后端别名：raea → native（ProjectSpec v1 的旧写法）
 // 注册表文件读不出或结构不对时抛 RouteRegistryError（exitCode 1：仓库自带的文件坏了，不是用户输入的问题）。
 import { existsSync } from 'node:fs';
@@ -17,6 +17,7 @@ export const BUILTIN_ROUTES = Object.freeze([
   Object.freeze({ id: 'a', slug: 'a-webgl', brand: '北冥风格路线 · WebGL 三渲二', legacyId: 'beiming', backends: Object.freeze(['three', 'webgpu']), manual: 'routes/a-webgl/README.md', renderer: 'page' }),
   Object.freeze({ id: 'b', slug: 'b-native', brand: '北冥原生 · BNE', legacyId: 'raea', backends: Object.freeze(['native']), manual: 'routes/b-native/README.md', renderer: 'native' }),
   Object.freeze({ id: 'c', slug: 'c-style', brand: '北冥代码动画风格 · 86 式', legacyId: null, backends: Object.freeze(['canvas', 'svg', 'dom', 'three', 'webgl', 'webgpu']), manual: 'routes/c-style/README.md', renderer: 'page' }),
+  Object.freeze({ id: 'd', slug: 'd-pathtrace', brand: '北冥光追 · 物理路径追踪', legacyId: null, backends: Object.freeze(['pathtrace']), manual: 'routes/d-pathtrace/README.md', renderer: 'pathtrace', aliases: Object.freeze(['d-pathtrace', 'pathtrace']) }),
 ]);
 
 /** 后端的旧写法：ProjectSpec v1 把原生执行写成 raea。 */

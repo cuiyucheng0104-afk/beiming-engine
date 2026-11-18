@@ -1,16 +1,18 @@
-# A/B 引擎工程手册
+# 引擎工程手册
 
-> 读者：改引擎、加共享能力、分派工程任务的人｜状态：工程手册入口｜依据：[决定书](../decisions/2026-11-10-industrial-baseline.md) D01、D06；任务状态以 [work-plan.json](work-plan.json) 为准
+> 读者：改引擎、加共享能力、分派工程任务的人｜状态：工程手册入口｜依据：[决定书](../decisions/2026-11-10-industrial-baseline.md) D01、D06、D12、D13；任务状态以 [work-plan.json](work-plan.json) 为准
 
-做作品不从这里开始：新片按[三路线总指引](../../routes/README.md)在 A、B、C 里选一条，用 `npm run new` 建作品，进度由作品的 `film.json` 与 `films/<名>/review/` 记录（D06）。本手册给要改 `engine/`、加共享能力或领取工程任务的人：A（北冥风格路线 · WebGL 三渲二）与 B（北冥原生 · BNE）各自的工程细节、两者共用的契约、验收与工作站，以及任务怎么领。C（北冥代码动画风格 · 86 式）与 A 共用页面渲染器 `engine/render`（D01），没有单独的后端工程。
+做作品不从这里开始：新片按[四条路线总指引](../../routes/README.md)在 A、B、C、D 里选一条，用 `npm run new` 建作品，进度由作品的 `film.json` 与 `films/<名>/review/` 记录（D06）。本手册给要改 `engine/`、加共享能力或领取工程任务的人：A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）与 D（北冥光追 · 物理路径追踪）各自的工程细节、共用的契约、验收与工作站，以及任务怎么领。C（北冥代码动画风格 · 86 式）与 A 共用页面渲染器 `engine/render`（D01，新片也可走离屏渲染器 `engine/offscreen`，见 [离屏出片](../offscreen/README.md)，D12）。
 
 ## 按要做的事阅读
 
 | 你要做什么 | 先读 | 接着 |
 |---|---|---|
 | 延续或扩展北冥画风的引擎能力（造型、着色、墨线、笔触、底板） | [北冥风格路线工程手册](beiming-style.md) | 找到真实参数与层级，在固定场景里做单变量实验 |
+| A、C 路线的 WebGPU + TSL 同源离屏渲染（Node + Dawn，D12） | [离屏出片](../offscreen/README.md) | 从 `engine/offscreen/` 与 `tests/offscreen/` 的对拍套件开始 |
 | 原生场景、外部模型、骨骼与材质（B） | [原生路线工程手册](raea-native.md) | 从 `engine/native/` 与 `engine/render/native.mjs` 的现有入口开始 |
-| 两条执行线共用的数据与接口 | [模块契约](contracts.md) | 作品描述以 `film.json` v2 为准，校验器 `engine/production/film.js` 由作品描述包在建 |
+| 硬件光追、WGSL 程序材质、三维晶圆 HUD 与帧级缓存（D） | [北冥光追路线工程手册](pathtrace.md) | 从 `engine/pathtrace/` 与 `tools/film/lib/pathtrace-steps.mjs` 开始 |
+| 各执行线共用的数据与接口 | [模块契约](contracts.md) | 作品描述以 `film.json` v2 为准，校验器 `engine/production/film.js` 统一核对 |
 | 在 5090 出片、比较质量与速度 | [验收与 RTX](validation-and-rtx.md) | 运行环境、画面、动作、技术输出与性能分开检查 |
 | 分派多代理、领取工程任务 | [工作分解](work-breakdown.md) | `npm run plan:next`，按任务卡的写入范围分工 |
 | 追问某项原生能力的实际源码 | [固定版本源码对照](../raea/architecture.md) | 沿函数、调用者与条件分支核对 |
@@ -19,8 +21,8 @@
 
 | 状态 | 内容 |
 |---|---|
-| 已运行 | 《北冥》10 秒样片；B 路线 10 秒原生例片；GLB 转换与回读；历史 5090 与目录迁移后的 Mac 验证 |
-| 已有工具 | 引擎工程待办 `npm run plan:check`、`npm run plan:next`；新建作品 `npm run new`；仓库规范检查 `npm run check:repo` |
+| 已运行 | 《北冥》10 秒样片；B 路线 10 秒原生例片与 GLB 转换回读；A/C 离屏出片《晨渡》对拍；D 路线模版在 RTX 4070 双次冷渲逐字节确定性验证 |
+| 已有工具 | 引擎工程待办 `npm run plan:check`、`npm run plan:next`；新建作品 `npm run new`；统一出片 `npm run film`；仓库规范检查 `npm run check:repo` |
 | 设计与待实现 | FrameState、跨后端适配、风格等价、完整人物表演；以 work-plan.json 里 planned 的任务为准，不报告成已有 API |
 
 ## 引擎工程的顺序
@@ -36,7 +38,7 @@
 
 ```sh
 npm run plan:check                  # 结构、依赖、认领与过期、证据与指引路径、写入范围冲突
-npm run plan:next -- --route a      # 依赖已满足、可以领取的任务：a / b / c / shared（旧名 beiming、raea 也认）
+npm run plan:next -- --route a      # 依赖已满足、可以领取的任务：a / b / c / d / shared（旧名 beiming、raea 等也认）
 node tools/work-plan.mjs --verify-diff <任务>   # 改动是否都在该任务的写入范围里
 ```
 

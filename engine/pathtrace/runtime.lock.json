@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "upstream": "ThreeRT (meshy-dev/ThreeRT)",
+  "commit": "c946cc96bdb08979224e851a7fc67a066b1b456b",
+  "version": "0.1.1-beiming.1",
+  "license": "MIT",
+  "platforms": {
+    "linux-x64": {
+      "binary": "bin/threert-render",
+      "binarySha256": "74837b4d48c0b48a171b909a96cec9070c78d8c5883f7d3e1054d3767bc5bfe9",
+      "oidn": false
+    },
+    "macos-arm64": {
+      "binary": "bin/threert-render",
+      "binarySha256": null,
+      "oidn": false
+    },
+    "windows-x64": {
+      "binary": "bin/threert-render.exe",
+      "binarySha256": null,
+      "oidn": false
+    }
+  }
+}

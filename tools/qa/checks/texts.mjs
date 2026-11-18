@@ -421,3 +421,171 @@ export async function runTexts({ pageDir, profile, film = null, step = 1, readyT
     await h.close();
   }
 }
+
+/**
+ * 离线文字采样表模式（D 路线光追没有 HTML 页面，由 bundle 阶段逐帧调用 scene.textsAt(frame) 写出 work/texts.json，
+ * 并在 pathtrace 阶段对代表帧渲出 work/contrast/{on,off}_NNNNNN.png）：复用同一套画内、安全区、停留时长、禁则与 WCAG 对比度规则。
+ */
+export async function runTextsFromJson({ textsFile, contrastDir = null, profile, film = null, step = 1, contrast = true, size = null }) {
+  const T = profile.texts;
+  const doc = JSON.parse(fs.readFileSync(textsFile, 'utf8'));
+  const fps = (film?.fps || fpsOf(profile)).value;
+  const [W, H] = size || [doc.width || film?.width || profile.width, doc.height || film?.height || profile.height];
+  const frameCount = film?.frameCount ?? doc.frameCount ?? 0;
+  const warnings = [];
+  const ids = ['texts.contract', 'texts.inframe', 'texts.safe-area', 'texts.duration', 'texts.contrast', 'texts.glyphs', 'texts.cjk-break'];
+  const C = Object.fromEntries(ids.map(id => [id, makeCheck(id)]));
+
+  const contract = C['texts.contract'];
+  contract.value = `离线文字采样表（${Array.isArray(doc.frames) ? doc.frames.length : 0} 帧记录；总帧数 ${frameCount}）`;
+  contract.evidence = { source: 'texts.json', frames: frameCount, viewport: [W, H], step };
+  if (Number.isInteger(doc.frameCount) && frameCount && doc.frameCount !== frameCount) {
+    finding(contract, { key: 'dur', message: `texts.json 的 frameCount = ${doc.frameCount}，与作品描述的 frameCount ${frameCount} 不一致` });
+  }
+
+  const badItems = new Set();
+  const tracks = new Map();
+  const rawFrames = Array.isArray(doc.frames) ? doc.frames : [];
+  for (const fr of rawFrames) {
+    const f = Number.isInteger(fr?.frame) ? fr.frame : fr?.f;
+    if (!Number.isInteger(f) || f < 0 || (frameCount && f >= frameCount) || f % step !== 0) continue;
+    const rawItems = Array.isArray(fr.items) ? fr.items : (Array.isArray(fr.texts) ? fr.texts : []);
+    for (const rawIt of rawItems) {
+      const it = normalizeItem(rawIt, W, H);
+      if (!it) continue;
+      if (it.bad) { badItems.add(it.text || '(空)'); continue; }
+      const alpha = it.alpha ?? 1;
+      const key = `${it.id}\u0000${it.text}`;
+      let tr = tracks.get(key);
+      if (!tr) {
+        const sameId = [...tracks.values()].some(x => x.id === it.id);
+        tr = { key, id: sameId ? `${it.id}:${it.text}` : it.id, text: it.text, frames: new Map(), fonts: new Set(), alphaKnown: true, peak: 0 };
+        tracks.set(key, tr);
+      }
+      tr.frames.set(f, { box: it.box, alpha, font: it.font });
+      if (it.font) tr.fonts.add(it.font);
+      tr.peak = Math.max(tr.peak, alpha);
+    }
+  }
+  if (badItems.size) finding(contract, { key: 'bad-items', message: `texts.json 有 ${badItems.size} 种条目缺方框或方框不是数字：${[...badItems].slice(0, 3).join('、')}` });
+  settle(contract);
+
+  const sa = profile.safeArea.title;
+  const safe = [sa.left * W, sa.top * H, W - sa.right * W, H - sa.bottom * H];
+  const inf = C['texts.inframe'], saf = C['texts.safe-area'];
+  inf.expected = `方框在 0–${W} × 0–${H} 内`;
+  saf.expected = `图文安全区 x ${safe[0].toFixed(0)}–${safe[2].toFixed(0)}、y ${safe[1].toFixed(0)}–${safe[3].toFixed(0)}（每边 上${sa.top * 100}% 右${sa.right * 100}% 下${sa.bottom * 100}% 左${sa.left * 100}%）`;
+  for (const tr of tracks.values()) {
+    const outF = [], unsafeF = [];
+    let worstOut = 0, worstUnsafe = 0;
+    for (const [f, d] of tr.frames) {
+      if ((d.alpha ?? 1) <= 0.02) continue;
+      const b = d.box;
+      const o = Math.max(0 - b[0], 0 - b[1], b[2] - W, b[3] - H);
+      if (o > 0.5) { outF.push(f); worstOut = Math.max(worstOut, o); }
+      const u = Math.max(safe[0] - b[0], safe[1] - b[1], b[2] - safe[2], b[3] - safe[3]);
+      if (u > 0.5) { unsafeF.push(f); worstUnsafe = Math.max(worstUnsafe, u); }
+    }
+    const span = list => [Math.min(...list), Math.max(...list) + 1];
+    if (outF.length) finding(inf, { key: `out@${tr.id}`, target: tr.id, frames: span(outF), message: `「${tr.text}」出画 ${worstOut.toFixed(0)} px（${outF.length} 帧，第 ${Math.min(...outF)}–${Math.max(...outF)} 帧）`, hint: '三维铭牌或 HUD 投射方框必须完整落在画内（用 placeInCameraFrustum / projectBoxToPixels 对齐）' });
+    if (unsafeF.length) finding(saf, { key: `unsafe@${tr.id}`, target: tr.id, frames: span(unsafeF), message: `「${tr.text}」越出图文安全区 ${worstUnsafe.toFixed(0)} px（${unsafeF.length} 帧，第 ${Math.min(...unsafeF)}–${Math.max(...unsafeF)} 帧）`, hint: '往画面内收，或缩小三维文字尺寸' });
+  }
+  inf.value = `${tracks.size} 条文字，${inf.findings.length} 条出画`;
+  saf.value = `${tracks.size} 条文字，${saf.findings.length} 条越出安全区`;
+  settle(inf); settle(saf);
+
+  const du = C['texts.duration'];
+  du.expected = `完全显现（不透明度 ≥ 该条峰值的 ${Math.round(T.opaqueAlpha * 100)}%）连续 ≥ max(${T.minHoldSec} 秒, 字数×${T.perUnitSec} 秒)；建议 ≥ 字数÷${T.targetUnitsPerSec}＋${T.targetBaseSec} 秒`;
+  const durRows = [];
+  for (const tr of tracks.values()) {
+    const fs2 = [...tr.frames.keys()].sort((a, b) => a - b);
+    const apps = [];
+    for (const f of fs2) { const last = apps[apps.length - 1]; if (last && f - last[last.length - 1] <= step) last.push(f); else apps.push([f]); }
+    const units = readingUnits(tr.text);
+    const need = Math.max(T.minHoldSec, units * T.perUnitSec), target = units / T.targetUnitsPerSec + T.targetBaseSec;
+    for (const app of apps) {
+      let best = 0, cur = 0;
+      for (let k = 0; k < app.length; k++) {
+        const a = tr.frames.get(app[k]).alpha;
+        const opaque = a === null ? true : a >= T.opaqueAlpha * (tr.peak || 1) - 1e-6;
+        const contiguous = k > 0 && app[k] - app[k - 1] <= step;
+        cur = opaque ? (contiguous && cur > 0 ? cur + 1 : 1) : 0;
+        best = Math.max(best, cur);
+      }
+      const sec = (best * step) / fps;
+      const range = [app[0], app[app.length - 1] + 1];
+      const atEnd = range[1] >= frameCount - step + 1;
+      durRows.push({ id: tr.id, text: tr.text, frames: range, opaqueSec: +sec.toFixed(3), needSec: +need.toFixed(3), targetSec: +target.toFixed(3), alphaKnown: true, peakAlpha: +tr.peak.toFixed(3) });
+      if (sec + 1e-9 < need) {
+        finding(du, { key: `short@${tr.id}@${range[0]}`, target: tr.id, frames: range,
+          message: `「${tr.text}」完全显现只有 ${sec.toFixed(2)} 秒（${Math.round(sec * fps)} 帧），下限 ${need.toFixed(2)} 秒${atEnd ? '；它停在片尾，实际停留还取决于播放器是否停在最后一帧' : ''}`,
+          hint: '拉长停留或减字；刻意的快闪要由用户批准后写进豁免（docs/quality/QA-GATE.md「豁免」）' });
+      } else if (sec + 1e-9 < target) {
+        finding(du, { key: `brief@${tr.id}@${range[0]}`, target: tr.id, frames: range, status: 'warn', message: `「${tr.text}」停留 ${sec.toFixed(2)} 秒，低于导演规范建议的 ${target.toFixed(2)} 秒（字数÷4.5＋1.5）` });
+      }
+    }
+  }
+  du.value = durRows.length ? durRows.map(r => `${r.text.slice(0, 12)} ${r.opaqueSec}s`).join('；') : '没有文字';
+  du.evidence = { rows: durRows };
+  settle(du);
+
+  const cb = C['texts.cjk-break'];
+  cb.expected = '每行行首不是收尾标点（，。、；：？！）》」』】〕”’…—），行尾不是开头标点（（《「『【〔“‘）';
+  for (const tr of tracks.values()) {
+    for (const v of cjkBreaks(tr.text)) {
+      finding(cb, { key: `cjk@${tr.id}@${v.kind}`, target: tr.id, message: `「${v.line}」${v.kind === 'line-start' ? '行首是' : '行尾是'}「${v.ch}」`, hint: '改文案断句或离线重排贴图' });
+    }
+  }
+  cb.value = `${tracks.size} 条文字，${cb.findings.length} 处违规`;
+  settle(cb);
+
+  const gl = C['texts.glyphs'];
+  gl.expected = '每个字都由确定性几何体或预烘焙贴图提供，不依赖运行机器系统字体';
+  gl.value = tracks.size ? `三维场景文字 ${tracks.size} 条（几何体或预烘焙贴图，不经过浏览器 CSS 字体回退）` : '没有文字';
+  gl.evidence = { mode: 'texts-json', tracks: tracks.size };
+  settle(gl);
+
+  const ct = C['texts.contrast'];
+  ct.expected = `≥ ${T.minContrast}:1（建议 ≥ ${T.goodContrast}:1）`;
+  if (!contrast) notRun(ct, '用了 --no-contrast');
+  else if (!tracks.size) { ct.value = '没有文字'; settle(ct); }
+  else {
+    const pad6 = n => String(n).padStart(6, '0');
+    const pickFrame = tr => {
+      const list = [...tr.frames.entries()].filter(([, d]) => (d.alpha ?? 1) > 0.02);
+      if (!list.length) return null;
+      const top = Math.max(...list.map(([, d]) => d.alpha ?? 1));
+      const best = list.filter(([, d]) => (d.alpha ?? 1) >= top - 1e-6).map(([f]) => f).sort((a, b) => a - b);
+      return best[Math.floor(best.length / 2)];
+    };
+    const rows = [];
+    for (const tr of tracks.values()) {
+      const f = pickFrame(tr);
+      if (f === null) continue;
+      const d = tr.frames.get(f);
+      const onFile = contrastDir ? path.join(contrastDir, `on_${pad6(f)}.png`) : null;
+      const offFile = contrastDir ? path.join(contrastDir, `off_${pad6(f)}.png`) : null;
+      let m = null;
+      if (onFile && offFile && fs.existsSync(onFile) && fs.existsSync(offFile)) {
+        const A = decodePng(fs.readFileSync(onFile));
+        const B = decodePng(fs.readFileSync(offFile));
+        m = measureContrast(A, B, d.box);
+      }
+      rows.push({ id: tr.id, text: tr.text, frame: f, alpha: d.alpha, via: 'pathtrace-hideTexts', ...(m || { separable: false }) });
+      if (!m || !m.separable) {
+        finding(ct, { key: `unmeasured@${tr.id}`, target: tr.id, frames: [f, f + 1], status: 'warn', message: `「${tr.text}」第 ${f} 帧未能分离三维文字与背景，对比度需人工看关键帧核对`, hint: '在 scene.ts 中按 state.hideTexts 隐藏文字网格即可自动实测 WCAG 对比度' });
+        continue;
+      }
+      if (m.ratio < T.minContrast) finding(ct, { key: `low@${tr.id}`, target: tr.id, frames: [f, f + 1], message: `「${tr.text}」第 ${f} 帧对比度 ${m.ratio}:1，低于 ${T.minContrast}:1`, hint: '提高发光字自发光强度或加深晶圆底板对比度' });
+      else if (m.ratio < T.goodContrast) finding(ct, { key: `fair@${tr.id}`, target: tr.id, frames: [f, f + 1], status: 'warn', message: `「${tr.text}」第 ${f} 帧对比度 ${m.ratio}:1，低于建议的 ${T.goodContrast}:1` });
+    }
+    ct.value = rows.filter(r => r.separable).map(r => `${r.text.slice(0, 10)} ${r.ratio}:1`).join('；') || '没测到';
+    ct.evidence = { rows, method: '同帧正常渲染与 state.hideTexts 关文字各渲一张无损 PNG，按 WCAG 相对亮度算比值' };
+    settle(ct);
+  }
+  return {
+    checks: ids.map(id => (C[id].status === 'pass' && !C[id].findings.length ? settle(C[id]) : C[id])),
+    warnings,
+    summary: { frames: frameCount, sampled: rawFrames.length, step, derived: false, mode: 'texts-json', texts: [...tracks.values()].map(t => ({ id: t.id, text: t.text, frames: t.frames.size })) },
+  };
+}

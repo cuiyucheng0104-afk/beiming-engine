@@ -36,11 +36,28 @@ function sandbox({ withEngine = false } = {}) {
       const target = path.join(dir, ...r.entry.split('/'));
       if (/\.(mjs|js)$/.test(r.entry)) {
         fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.writeFileSync(target, '// 沙盒占位：注册表要求渲染器入口存在\n');
+        fs.writeFileSync(target, '// 沙盒占位：注册表要求渲染器入口存在\nexport {};\n');
       } else {
         fs.mkdirSync(target, { recursive: true });
       }
     }
+  }
+  if (!fs.existsSync(path.join(dir, 'routes/d-pathtrace/template/film.json'))) {
+    fs.mkdirSync(path.join(dir, 'routes/d-pathtrace/template'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'routes/d-pathtrace/README.md'), '# D · 北冥光追 · 物理路径追踪\n');
+    fs.writeFileSync(path.join(dir, 'routes/d-pathtrace/template/film.json'), formatFilmJson({
+      schemaVersion: 2, id: '{{NAME}}', title: '{{TITLE}}', route: 'd', backend: 'pathtrace', entry: 'scene.ts',
+      output: { profile: 'web-1080p24', width: 1920, height: 1080, fps: 24, frameCount: 72 },
+      shots: [{ id: 'S01', in: 0, out: 36 }, { id: 'S02', in: 36, out: 72 }],
+      events: [{ id: 'reveal-lock', frame: 40, shot: 'S02', audio: 'reveal-lock', visual: '铭牌落定' }],
+      audio: { mode: 'script', script: 'mix.py' }, deliveries: ['web-1080p24'],
+      pathtrace: { preset: 'cinematic', spp: 24, animaticSpp: 4, denoise: 'auto', seed: 2026, shotSpp: { S02: 48 }, overlay: 'none' },
+      credits: [{ what: '路径追踪运行时（ThreeRT）', owner: 'meshy-dev / ThreeRT contributors', license: 'MIT', source: 'https://github.com/meshy-dev/ThreeRT' }],
+      aigc: { contains: false, note: '纯程序化三维几何与合成声音，不含 AI 生成内容' },
+    }));
+    fs.writeFileSync(path.join(dir, 'routes/d-pathtrace/template/scene.ts'), '// {{TITLE}}\nexport default {};\n');
+    fs.writeFileSync(path.join(dir, 'routes/d-pathtrace/template/mix.py'), '# audio\n');
+    fs.writeFileSync(path.join(dir, 'routes/d-pathtrace/template/README.md'), '# {{TITLE}}\n');
   }
   return dir;
 }
@@ -166,9 +183,10 @@ test('B 模版的 JSX 花括号原样保留，{{TITLE}} 被替换', () => {
 test('路线、名字、片名、档位不合法都是用法错误（2），什么都不写', () => {
   const dir = sandbox();
   const cases = [
-    [['d', 'x'], 'usage.unknown-route'],
+    [['z', 'x'], 'usage.unknown-route'],
     [['b', '我的片子'], 'usage.bad-name'],
     [['b', 'raea-test'], 'usage.bad-name'],
+    [['d', 'threert-test'], 'usage.bad-name'],
     [['a', 'con'], 'usage.bad-name'],
     [['a', 'x', '--title', 'a"b'], 'usage.bad-title'],
     [['c', 'x', '--title', "it's"], 'usage.bad-title'],
@@ -182,7 +200,7 @@ test('路线、名字、片名、档位不合法都是用法错误（2），什�
     assert.equal(r.code, 2, `${args.join(' ')}：${r.err}`);
     assert.equal(r.json.error.code, code, args.join(' '));
   }
-  assert.match(newFilm(dir, ['d', 'x']).err, /a（北冥风格路线 · WebGL 三渲二）、b（北冥原生 · BNE）、c（北冥代码动画风格 · 86 式）/);
+  assert.match(newFilm(dir, ['z', 'x']).err, /a（北冥风格路线 · WebGL 三渲二）、b（北冥原生 · BNE）、c（北冥代码动画风格 · 86 式）、d（北冥光追 · 物理路径追踪）/);
   assert.match(newFilm(dir, ['a', 'x', '--profile', 'web-1080p42', '--json']).json.error.hint, /web-1080p24/);
   assert.equal(listFilms(dir), null);
 });
@@ -389,22 +407,22 @@ test('写盘失败：退出 1，不留半个目录', { skip: process.platform ==
 const HAS_VALIDATOR = fs.existsSync(path.join(ROOT, 'engine/production/film.js'));
 const HAS_IO = fs.existsSync(path.join(ROOT, 'engine/production/io.js'));
 
-test('联调：三条路线各生成一部，engine/production/film.js check 全部 exit 0', { skip: HAS_VALIDATOR ? false : '仓库里还没有 engine/production/film.js（作品描述包合入后自动启用）' }, () => {
+test('联调：四条路线各生成一部，engine/production/film.js check 全部 exit 0', { skip: HAS_VALIDATOR ? false : '仓库里还没有 engine/production/film.js（作品描述包合入后自动启用）' }, () => {
   const dir = sandbox({ withEngine: true });
-  for (const r of ['a', 'b', 'c']) {
+  for (const r of ['a', 'b', 'c', 'd']) {
     const res = newFilm(dir, [r, `ci-${r}`, '--title', '试映', '--json']);
     assert.equal(res.code, 0, `${r}：${res.out}${res.err}`);
     assert.equal(res.json.data.validation.status, 'passed', r);
     const check = spawnSync(process.execPath, ['engine/production/film.js', 'check', `films/ci-${r}`], { cwd: dir, encoding: 'utf8', timeout: 60_000 });
     assert.equal(check.status, 0, `${r}：${check.stdout}${check.stderr}`);
   }
-  assert.deepEqual(listFilms(dir).sort(), ['ci-a', 'ci-b', 'ci-c'], '不留暂存目录');
+  assert.deepEqual(listFilms(dir).sort(), ['ci-a', 'ci-b', 'ci-c', 'ci-d'], '不留暂存目录');
 });
 
 test('稳定排版与作品描述包的 formatJson 逐字节一致', { skip: HAS_IO ? false : '仓库里还没有 engine/production/io.js（作品描述包合入后自动启用）' }, async () => {
   const { formatJson } = await import(pathToFileURL(path.join(ROOT, 'engine/production/io.js')).href);
   const dir = sandbox();
-  for (const r of ['a', 'b', 'c']) {
+  for (const r of ['a', 'b', 'c', 'd']) {
     const res = newFilm(dir, [r, `fmt-${r}`, '--json', '--dry-run']);
     assert.equal(res.code, 0, res.err);
     assert.equal(formatFilmJson(res.json.data.filmJson), formatJson(res.json.data.filmJson), r);

@@ -30,7 +30,7 @@ const R = p => path.join(HERE, p);
 // 页面依赖的源码：作品目录（不含产物）+ 页面常用的共享目录；页面目录不是作品目录时（《北冥》样片在仓库根）再加页面源码。
 // engine/ 里只算页面会 import 的层：render（渲染器本身另按文件哈希）、audio（Python 声音库）、native（B 路线）、production（Node 侧校验）不进画面
 const SHARED_TREES = ['engine', 'fonts', 'assets', 'src'];
-const ENGINE_NOT_PAGE = ['render', 'audio', 'native', 'production'];
+const ENGINE_NOT_PAGE = ['render', 'audio', 'native', 'pathtrace', 'production'];
 const FILM_EXCLUDE = ['out', 'media', 'review', 'events.json', 'timeline.json'];
 const PAGE_EXCLUDE = ['node_modules', 'cases', 'out', 'films', 'docs', 'media', 'site', 'tests', 'tools', 'examples', 'routes', 'audio', 'lab', '.github', '.claude', 'engine', 'fonts', 'assets', 'src'];
 export function pageTrees(ctx) {
@@ -112,7 +112,7 @@ function placeEventsForLegacy(ctx) {
   if (ctx.art.timeline) ctx.legacy.place(path.join(ctx.film.dir, 'timeline.json'), ctx.art.timeline);
 }
 
-const mix = {
+export const mix = {
   id: 'mix', title: '声音',
   when: ctx => (ctx.audio.mode === 'none' ? '无声片（audio.mode = none）' : true),
   key: ctx => ctx.hashJson({
@@ -172,7 +172,7 @@ async function checkWav(ctx, file, extra) {
   return { ...extra, sampleRate: Number(a.sample_rate), channels: a.channels, duration: dur };
 }
 
-const cuecheck = {
+export const cuecheck = {
   id: 'cuecheck', title: '声画拍点核对（engine.audio.cuecheck）',
   when: ctx => (!ctx.film.cuecheck ? 'film.json 没有 cuecheck' : !ctx.art.mix ? '没有混音' : !ctx.art.timeline ? '页面没有导出 window.TIMELINE' : true),
   key: ctx => ctx.hashJson({
@@ -286,7 +286,7 @@ export function videoArgs(ctx) {
 export const MUX_NODE = R('lib/mux.mjs');
 export const muxerOf = () => (fs.existsSync(MUX_NODE) ? 'node' : 'sh');
 
-const mux = {
+export const mux = {
   id: 'mux', title: '音画封装（engine/render/lib/mux.mjs 或 mux.sh）',
   key: ctx => ctx.hashJson({
     step: 'mux@3', video: ctx.fileHash(ctx.art.video), mix: ctx.art.mix ? ctx.fileHash(ctx.art.mix) : null, fps: ctx.fps, frames: ctx.frames,
@@ -329,7 +329,7 @@ const mux = {
 const MUX_SH_LUFS = -14;
 
 // 预演：不经 mux.sh（不重编码画面、不做响度归一）；声音用作品混音，没有就按事件与切点生成提示音
-const preview = {
+export const preview = {
   id: 'preview', title: '预演封装（复制画面 + 临时声）',
   outputs: () => ({ animatic: 'animatic.mp4' }),
   async run(ctx) {

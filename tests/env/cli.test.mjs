@@ -58,10 +58,20 @@ test('参数缺值、开关带值、多余的位置参数：exit 2，错误码�
   assert.equal(code(['tools/env/doctor.mjs', 'extra', '--json']), 'usage.extra-argument');
 });
 
-test('枚举参数写错时列出合法取值', () => {
-  const r = node(['tools/env/doctor.mjs', '--route', 'd', '--json']);
+test('枚举参数写错时列出合法取值；--route d 检查光追运行时', () => {
+  const r = node(['tools/env/doctor.mjs', '--route', 'z', '--json']);
   assert.equal(r.status, 2);
-  assert.match(JSON.parse(r.stdout).error.message, /a \/ b \/ c/);
+  assert.match(JSON.parse(r.stdout).error.message, /a \/ b \/ c \/ d/);
+  const dMissing = node(['tools/env/doctor.mjs', '--route', 'd', '--quick', '--json'], {
+    env: { ...process.env, BEIMING_PT_BIN: missing('threert-render') },
+  });
+  assert.equal(dMissing.status, 3);
+  const dj = JSON.parse(dMissing.stdout);
+  const ptCheck = dj.checks.find(c => c.id === 'pathtrace.runtime');
+  assert.ok(ptCheck);
+  assert.equal(ptCheck.status, 'fail');
+  assert.equal(ptCheck.required, true);
+  assert.match(ptCheck.fix, /BEIMING_PT_BIN/);
   const p = node(['tools/env/preflight.mjs', '--need', 'gpu']);
   assert.equal(p.status, 2);
   assert.match(p.stderr, /可选：node、npm、browser/);
