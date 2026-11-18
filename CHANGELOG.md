@@ -48,6 +48,7 @@
 - 《北冥》1080p 画面有三处有意变化：R24 渡船的红绿航行灯换到正确的舷侧，R30 鸽群的黑边消失，R66 导航线的线头。只在 4K 生效的修复：R17、R19、R31、R32、R45。
 - `npm run showcase:build` 改名为 `npm run site:build`，另有 `site:serve`、`site:qa`。
 - B 路线（北冥原生 · BNE）锁定的上游原生运行时由 `0.1.0-canary.2` 升级到正式版 `0.1.4`（`v0.1.4`，提交 `d870159c4686bd1fcda094934602463549b26683`，2026-11-15 发布，2028-11-15 转为 Apache-2.0）：同步更新 `engine/native/runtime.lock.json` 与 `tools/env/spec.json` 的 macOS arm64、Windows x64、Linux x64 三平台归档与可执行文件 SHA256，并在 Linux RTX 4070（Vulkan / OpenH264）完成模版出片、四类画面配方与机器 QA 验收；`engine/render/native.mjs` 兼容 `raea check` 新版 `findings`（`error / warn / note`）与旧版 `issues`（`P0–P3`）输出，并接入 `BEIMING_GPU_BUSY_UTIL` / `--max-gpu-util` 守卫阈值。
+- 分块渲染（`engine/render/lib/chunks.mjs`，`video.mjs` 与 `shots.mjs` 共用）：一块的帧喂完后，FFmpeg 收尾（编完、核对帧数、改名）放到后台，同一路先渲下一块，每路最多一块在后台收尾。码流逐字节不变；RTX 4070 笔记本上 A、C 模版 192 帧 4 路交替实测中位快 6–10%（16 组配对 15 组更快）。
 
 ### Removed
 

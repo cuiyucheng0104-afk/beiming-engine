@@ -164,6 +164,27 @@ test('FFMPEG 指向卡住不返回的程序：预检 15 秒后按缺 FFmpeg 退�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('块收尾在后台：第一块编完后 FFmpeg 报错，正在渲的下一块随之中止，退出 1，不留半成品与子进程', { skip: skip || (!posix && '需要 POSIX 可执行脚本'), timeout: 60000 }, async () => {
+  const dir = tmp();
+  try {
+    const real = process.env.FFMPEG || execFileSync('sh', ['-c', 'command -v ffmpeg'], { encoding: 'utf8' }).trim();
+    const fake = join(dir, 'ffmpeg-fail-first');
+    // 第一块（输出名含 -000000-）照常编完再以 1 退出；预检、其余块、拼接原样转给真的 FFmpeg
+    writeFileSync(fake, `#!/bin/sh\ncase "$*" in *-000000-*) "${real}" "$@"; exit 1;; esac\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const [script, args] = video(join(dir, 'v.mp4'), PAGE, '--workers', '1', '--chunk', '4', '--query', 'dur=2&slow=20');
+    const r = await run(script, args, { env: { FFMPEG: fake }, timeout: 45000 });
+    assert.equal(r.signal, null, `挂住了\n${r.log}`);
+    assert.equal(r.code, 1, r.log);
+    const e = JSON.parse(r.stdout).error;
+    assert.equal(e.code, 'failure.ffmpeg', r.log);
+    assert.match(e.message, /第 0–3 帧/);
+    assert.deepEqual(segs(dir), [], '临时目录、锁或半成品没删');
+    assert.equal(existsSync(join(dir, 'v.mp4')), false, '失败时不能留下成片');
+    assert.deepEqual(r.leftovers, [], '残留子进程');
+    assert.equal(JSON.parse(readFileSync(join(dir, 'v.mp4.run.json'), 'utf8')).status, 'failed');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('mux.mjs：重编码画面时收到 SIGTERM / SIGINT，退出 143 / 130，不留 .partial、临时目录与子进程', { skip: skip || (!posix && '需要 POSIX 信号与 pgrep'), timeout: 120000 }, async t => {
   const src = tmp();
   try {
