@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "film/film-check.schema.json",
   "title": "片子核对记录",
-  "description": "只管结构。各段对不对由 D1 到 D15 管，所以这里不收紧。",
+  "description": "只管结构。各段对不对由 D1 到 D19 管，所以这里不收紧。",
   "type": "object",
   "required": ["format", "film"],
   "additionalProperties": false,
@@ -19,7 +19,7 @@
         "properties": {
           "rev": { "type": "integer", "minimum": 0 },
           "writer": { "enum": ["server", "agent"] },
-          "digest": { "type": "string", "pattern": "^[0-9a-f]{8,64}$" }
+          "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
         }
       }
     },

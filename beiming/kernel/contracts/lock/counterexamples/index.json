@@ -61,5 +61,19 @@
       "LK9"
     ],
     "why": "style.view.scene 是 agx-mhc，view 里锁的是 agx-base"
+  },
+  {
+    "file": "LK10-overlay-card-missing.json",
+    "violates": [
+      "LK10"
+    ],
+    "why": "片子描述里有叠加层，cards 里没有 two-d.overlay"
+  },
+  {
+    "file": "LK11-shutter-samples-differ.json",
+    "violates": [
+      "LK11"
+    ],
+    "why": "镜头 s01 在片子描述里写的子帧采样数是 8，锁文件里记的是 4"
   }
 ]

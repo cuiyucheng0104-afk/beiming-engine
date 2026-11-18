@@ -46,7 +46,7 @@
     "violates": [
       "D7"
     ],
-    "why": "agent 对 predicates/base 的写入生效了"
+    "why": "agent 对 predicates/base 的写入生效了，没有被拒绝"
   },
   {
     "file": "D8-global-card-in-shot.json",
@@ -102,6 +102,34 @@
     "violates": [
       "D15"
     ],
-    "why": "片子创建之后对 exam 的写入生效了"
+    "why": "片子创建之后对 exam 的写入生效了，没有被拒绝"
+  },
+  {
+    "file": "D16-narration-asset-undefined.json",
+    "violates": [
+      "D16"
+    ],
+    "why": "旁白 vo-open 的 asset 写了 vo_missing，全片 assets 里没有这个别名"
+  },
+  {
+    "file": "D17-ext-shot-with-entry.json",
+    "violates": [
+      "D17"
+    ],
+    "why": "镜头 s02 的帧源是 ext.shader-park，却带了 entry"
+  },
+  {
+    "file": "D18-duplicate-instance-name.json",
+    "violates": [
+      "D18"
+    ],
+    "why": "镜头 s01 的 cards 里有两项的 as 都是 cam"
+  },
+  {
+    "file": "D19-deliberate-outside-shot.json",
+    "violates": [
+      "D19"
+    ],
+    "why": "镜头 s01 声明的静止区间到第 190 帧，镜头只到第 180 帧"
   }
 ]

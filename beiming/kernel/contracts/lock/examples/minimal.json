@@ -7,6 +7,11 @@
     "film": 7800,
     "s01": 7801
   },
+  "shots": {
+    "s01": {
+      "shutterSamples": 1
+    }
+  },
   "sources": {
     "blender": {
       "version": "5.2.3",
@@ -17,7 +22,9 @@
   "cards": {
     "time.timeline": {
       "version": "1.0.0",
-      "impl": "kernel/eval",
+      "impl": [
+        "data"
+      ],
       "sha256": "9d07ab63de1cd8fab1fcbf2ece97e654c062f4faeb4b52341b22749093fe56bf",
       "verified": {
         "level": "reproduced",
@@ -28,7 +35,9 @@
     },
     "time.events": {
       "version": "1.0.0",
-      "impl": "kernel/eval",
+      "impl": [
+        "data"
+      ],
       "sha256": "23c88f729f62a316f1473d247f5496f99d26d6bb0f6c2d85e062f90f55a5a272",
       "verified": {
         "level": "reproduced",
@@ -39,7 +48,9 @@
     },
     "time.seeded": {
       "version": "1.0.0",
-      "impl": "kernel/eval",
+      "impl": [
+        "data"
+      ],
       "sha256": "f8512824e5c8e7ae9749dab12b29f89b614c2854c341f56fb830f0ee8fd82361",
       "verified": {
         "level": "reproduced",
@@ -50,7 +61,9 @@
     },
     "comp.display": {
       "version": "1.0.0",
-      "impl": "comp",
+      "impl": [
+        "comp"
+      ],
       "sha256": "e48f67971f11278eac109be7ae96517e6913ca6b43d6f5aa2ad3c313808dc98a",
       "from": "style.view",
       "verified": {
@@ -62,7 +75,9 @@
     },
     "deliver.encode": {
       "version": "1.0.0",
-      "impl": "comp",
+      "impl": [
+        "comp"
+      ],
       "sha256": "8dc876326555aaaa5478488221dc07e263c805038593265ce8b2fe6a41e12eba",
       "from": "delivery",
       "verified": {

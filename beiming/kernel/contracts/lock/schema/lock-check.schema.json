@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "lock/lock-check.schema.json",
   "title": "锁核对记录",
-  "description": "只管结构。各段对不对由 LK1 到 LK9 管，所以这里不收紧。",
+  "description": "只管结构。各段对不对由 LK1 到 LK11 管，所以这里不收紧。",
   "type": "object",
   "required": ["format", "lock"],
   "additionalProperties": false,
@@ -17,7 +17,7 @@
         "required": ["renderer", "host", "version"],
         "additionalProperties": false,
         "properties": {
-          "renderer": { "enum": ["blender", "three", "core", "legacy-page"] },
+          "renderer": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$" },
           "host": { "type": "string", "minLength": 1 },
           "version": { "type": "string", "minLength": 1 }
         }

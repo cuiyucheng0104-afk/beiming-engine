@@ -27,11 +27,11 @@
     "coupling": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "affects": {
       "type": "object",
-      "required": ["shots", "frames"],
+      "required": ["shots", "frameRange"],
       "additionalProperties": false,
       "properties": {
         "shots": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } },
-        "frames": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0 } }
+        "frameRange": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0 } }
       }
     }
   }

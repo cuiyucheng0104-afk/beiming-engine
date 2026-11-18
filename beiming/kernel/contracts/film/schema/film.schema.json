@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "film/film.schema.json",
   "title": "片子描述",
-  "description": "只管结构。镜头区间、引用、时刻范围、绑卡由 D1、D2、D8、D10 到 D14 管，这里表达不了。卡的参数、params、style.tokens 的键只查「自由键」的写法。",
+  "description": "只管结构。镜头区间、引用、时刻范围、绑卡、资产别名、实例名由 D1、D2、D8、D10 到 D14、D16 到 D19 管，这里表达不了。卡的参数、params、style.tokens 的键只查「自由键」的写法。exam 的题号写法见 QF 契约 5.1，delivery.layers 的通道名见 PS 契约 3.1，这里不列举。",
   "type": "object",
   "required": ["format", "id", "output", "shots", "style", "predicates", "delivery"],
   "additionalProperties": false,
@@ -10,7 +10,7 @@
     "format": { "const": "film/3.0" },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
     "title": { "type": "string", "minLength": 1 },
-    "exam": { "type": "string", "minLength": 1 },
+    "exam": { "type": "string", "pattern": "^[1-9][0-9]*-[1-9][0-9]*$" },
     "output": {
       "type": "object",
       "required": ["size", "fps", "frames"],
@@ -29,14 +29,15 @@
         "beatFrames": { "type": "integer", "minimum": 1 }
       }
     },
+    "assets": { "$ref": "#/$defs/assets" },
     "shots": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/shot" } },
     "transitions": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["at", "type"],
+        "required": ["id", "at", "type"],
         "additionalProperties": false,
-        "properties": { "at": { "type": "integer", "minimum": 1 }, "type": { "const": "cut" } }
+        "properties": { "id": { "$ref": "#/$defs/id" }, "at": { "type": "integer", "minimum": 1 }, "type": { "const": "cut" } }
       }
     },
     "events": {
@@ -63,11 +64,15 @@
         "properties": {
           "id": { "$ref": "#/$defs/id" },
           "shot": { "$ref": "#/$defs/id" },
-          "anchor": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*#[A-Za-z0-9_]+$" },
+          "anchor": { "type": "string", "pattern": "^(screen|[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*#[A-Za-z0-9_]+)$" },
+          "pos": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 1 } },
           "text": { "type": "string", "minLength": 1 },
           "in": { "$ref": "#/$defs/moment" },
           "out": { "$ref": "#/$defs/moment" }
-        }
+        },
+        "if": { "required": ["anchor"], "properties": { "anchor": { "const": "screen" } } },
+        "then": { "required": ["pos"] },
+        "else": { "not": { "required": ["pos"] } }
       }
     },
     "style": {
@@ -121,6 +126,19 @@
         "mode": { "enum": ["script", "track", "none"] },
         "loudness": { "type": "number" },
         "truePeak": { "type": "number" },
+        "narration": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "at", "asset"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "at": { "$ref": "#/$defs/moment" },
+              "asset": { "$ref": "#/$defs/alias" }
+            }
+          }
+        },
         "card": { "$ref": "#/$defs/cardRef" }
       }
     },
@@ -132,7 +150,7 @@
         "base": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^(floor|template:[a-z0-9][a-z0-9-]*)@[1-9][0-9]*$" }
+          "items": { "type": "string", "pattern": "^(floor|template:[a-z][a-z0-9-]*)@[1-9][0-9]*$" }
         },
         "extra": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
@@ -145,6 +163,7 @@
         "master": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
         "web": { "type": "boolean" },
         "contact": { "type": "boolean" },
+        "layers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "card": { "$ref": "#/$defs/cardRef" }
       }
     }
@@ -153,12 +172,19 @@
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "freeKey": { "type": "string", "pattern": "^[^/#\\s]+$" },
     "color": { "type": "string", "pattern": "^#[0-9A-F]{6}$" },
-    "cardRef": { "type": "string", "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)+@[1-9][0-9]*$" },
+    "cardRef": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+@[1-9][0-9]*$" },
+    "alias": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
+    "assets": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/alias" },
+      "additionalProperties": { "type": "string", "pattern": "^asset:[a-z0-9][a-z0-9-]*@[1-9][0-9]*$" }
+    },
+    "entry": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$" },
     "entityName": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$" },
     "moment": {
       "anyOf": [
         { "type": "integer", "minimum": 0 },
-        { "type": "string", "pattern": "^(cut\\((0|[1-9][0-9]*)\\)|event\\([a-z][a-z0-9-]*\\))( \\+ [1-9][0-9]*)?$" }
+        { "type": "string", "pattern": "^(cut\\((0|[1-9][0-9]*)\\)|event\\([a-z][a-z0-9-]*\\))( [+-] [1-9][0-9]*)?$" }
       ]
     },
     "tier": {
@@ -180,18 +206,22 @@
         "source": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$" },
         "host": { "type": "string", "minLength": 1 },
         "mode": { "enum": ["cards-data", "build-script", "native-code"] },
-        "entry": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$" },
+        "entry": { "$ref": "#/$defs/entry" },
         "colorRef": { "enum": ["scene", "display"] },
         "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "assets": {
-          "type": "object",
-          "propertyNames": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
-          "additionalProperties": { "type": "string", "pattern": "^asset:[a-z0-9][a-z0-9-]*@[1-9][0-9]*$" }
-        },
+        "assets": { "$ref": "#/$defs/assets" },
         "cards": {
-          "type": "object",
-          "propertyNames": { "$ref": "#/$defs/cardRef" },
-          "additionalProperties": { "type": "object", "propertyNames": { "$ref": "#/$defs/freeKey" } }
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["as", "use", "params"],
+            "additionalProperties": false,
+            "properties": {
+              "as": { "$ref": "#/$defs/alias" },
+              "use": { "$ref": "#/$defs/cardRef" },
+              "params": { "type": "object", "propertyNames": { "$ref": "#/$defs/freeKey" } }
+            }
+          }
         },
         "params": { "type": "object", "propertyNames": { "$ref": "#/$defs/freeKey" } },
         "roles": {
@@ -206,7 +236,7 @@
           "type": "object",
           "required": ["angleDeg"],
           "additionalProperties": false,
-          "properties": { "angleDeg": { "type": "number", "minimum": 0, "maximum": 360 } }
+          "properties": { "angleDeg": { "type": "number", "minimum": 0, "maximum": 360 }, "samples": { "type": "integer", "minimum": 1 } }
         },
         "tiers": {
           "type": "object",
@@ -220,6 +250,31 @@
           "properties": {
             "head": { "type": "integer", "minimum": 0 },
             "tail": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "deliberate": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kind", "in", "out", "why"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": { "enum": ["freeze", "black"] },
+              "in": { "type": "integer", "minimum": 0 },
+              "out": { "type": "integer", "minimum": 1 },
+              "why": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "renderer": {
+          "type": "object",
+          "required": ["source", "host", "mode"],
+          "additionalProperties": false,
+          "properties": {
+            "source": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9-]+)$" },
+            "host": { "type": "string", "minLength": 1 },
+            "mode": { "enum": ["cards-data", "build-script", "native-code"] },
+            "entry": { "$ref": "#/$defs/entry" }
           }
         }
       }

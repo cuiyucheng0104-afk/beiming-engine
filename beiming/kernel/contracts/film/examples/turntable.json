@@ -25,34 +25,48 @@
       "colorRef": "scene",
       "seed": 7802,
       "assets": {
-        "kit": "asset:rtx-card@1"
+        "kit_model": "asset:rtx-card@1"
       },
-      "cards": {
-        "camera.spline@1": {
-          "keys": [
-            {
-              "f": 0,
-              "pos": [
-                0.31,
-                0.24,
-                0.85
-              ],
-              "look": "kit"
-            },
-            {
-              "f": 179,
-              "pos": [
-                0.56,
-                0.22,
-                0.21
-              ],
-              "look": "kit"
-            }
-          ]
+      "cards": [
+        {
+          "as": "cam",
+          "use": "camera.spline@1",
+          "params": {
+            "keys": [
+              {
+                "f": 0,
+                "pos": [
+                  0.31,
+                  0.24,
+                  0.85
+                ],
+                "look": "kit"
+              },
+              {
+                "f": 179,
+                "pos": [
+                  0.56,
+                  0.22,
+                  0.21
+                ],
+                "look": "kit"
+              }
+            ]
+          }
         },
-        "blender.cycles@1": {},
-        "blender.state-keys@1": {}
-      },
+        {
+          "as": "render",
+          "use": "blender.cycles@1",
+          "params": {}
+        },
+        {
+          "as": "kit",
+          "use": "blender.state-keys@1",
+          "params": {
+            "model": "kit_model"
+          }
+        }
+      ],
       "roles": {
         "hero": "kit"
       },
@@ -78,12 +92,16 @@
       "mode": "cards-data",
       "colorRef": "display",
       "seed": 7803,
-      "cards": {
-        "overlay.title@1": {
-          "text": "RTX 5090",
-          "enter": "event(title)"
+      "cards": [
+        {
+          "as": "title",
+          "use": "overlay.title@1",
+          "params": {
+            "text": "RTX 5090",
+            "enter": "event(title)"
+          }
         }
-      },
+      ],
       "roles": {
         "hero": "title"
       }
@@ -91,6 +109,7 @@
   ],
   "transitions": [
     {
+      "id": "to-s02",
       "at": 180,
       "type": "cut"
     }
