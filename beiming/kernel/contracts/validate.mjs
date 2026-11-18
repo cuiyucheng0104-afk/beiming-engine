@@ -2,8 +2,10 @@
 // 契约的可执行校验：把正例和反例真的跑一遍。
 // 两层：结构（schema/ 里的 JSON Schema 2020-12，用 ajv 判）加行为（各契约目录里的 check.mjs，
 // 每条不变量一个函数，照 CONTRACT.md 第 4 节「怎么查」一栏写）。
+// 契约目录里和目录同名的 JSON（errors/errors.json、predicates/predicates.json、ownership/ownership.json）是正式的登记表：
+// 它自己当正例跑一遍，同时作为第二个参数 { registries } 交给每个判定函数，给「必须是登记过的」这类条文查。
 // 用法：node beiming/kernel/contracts/validate.mjs [契约目录 …]；不带参数跑本目录下全部契约。
-// 退出码 1：正例被拒，或者写了判定函数的不变量没拒掉它的反例、多拒了别的条。还没写判定函数的只计数，不算失败。
+// 退出码 1：正例被拒，或者写了判定函数的不变量没拒掉它的反例、多拒了别的条。还没写判定函数的在这里只计数；全部写齐由 validate.test.mjs 把关。
 import Ajv2020 from 'ajv/dist/2020.js';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -24,8 +26,10 @@ export async function loadContracts(root = HERE) {
   const byFormat = new Map(); // 格式标识 → { contract, id }
   const embedded = new Map(); // 契约目录名 → 不带 format 的内嵌值的 schema id
   const contracts = new Map();
+  const registries = {}; // 契约目录名 → 那份契约的登记表
   for (const dir of contractDirs(root)) {
     const name = basename(dir);
+    if (existsSync(join(dir, `${name}.json`))) registries[name] = readJson(join(dir, `${name}.json`));
     const formats = [];
     const schemaDir = join(dir, 'schema');
     for (const f of existsSync(schemaDir) ? readdirSync(schemaDir).filter((n) => n.endsWith('.json')) : []) {
@@ -66,7 +70,7 @@ export async function loadContracts(root = HERE) {
     for (const [id, check] of Object.entries(contracts.get(contract).checks)) {
       let problems;
       try {
-        problems = check(obj);
+        problems = check(obj, { registries });
       } catch (e) {
         problems = [`判定函数出错：${e.message}`]; // 结构已经坏了时判定函数可能读不到字段
       }
@@ -87,6 +91,11 @@ export function runContract(loaded, name) {
     const r = loaded.validate(readJson(join(exDir, f)), name);
     const bad = [...r.schemaErrors, ...Object.entries(r.violations).map(([id, p]) => `${id}：${p[0]}`)];
     rows.push({ kind: 'example', file: f, ok: bad.length === 0, detail: bad });
+  }
+  if (existsSync(join(dir, `${name}.json`))) {
+    const r = loaded.validate(readJson(join(dir, `${name}.json`)), name);
+    const bad = [...r.schemaErrors, ...Object.entries(r.violations).map(([id, p]) => `${id}：${p[0]}`)];
+    rows.push({ kind: 'example', file: `${name}.json（登记表）`, ok: bad.length === 0, detail: bad });
   }
   const idxPath = join(dir, 'counterexamples', 'index.json');
   for (const entry of existsSync(idxPath) ? readJson(idxPath) : []) {

@@ -15,7 +15,8 @@ kernel/contracts/<名字>/
   check.mjs              判定函数：每条不变量一个，照第 4 节「怎么查」一栏写
 ```
 
-- `check.mjs` 导出 `checks`，键是不变量编号，值是函数：收一个顶层对象，返回发现的问题（字符串数组），空数组表示没违反。记录里没出现的段不判。判定函数只读传进来的对象，不读文件、不读时钟。
+- `check.mjs` 导出 `checks`，键是不变量编号，值是函数：收一个顶层对象，返回发现的问题（字符串数组），空数组表示没违反。记录里没出现的段不判。判定函数只读传进来的东西，不读文件、不读时钟。
+- 条文要查登记表时（「必须是登记过的」这一类），登记表从第二个参数拿：`(obj, { registries }) => …`。`registries` 的键是契约目录名，值是那个目录里同名的 JSON（`errors/errors.json`、`predicates/predicates.json`、`ownership/ownership.json`）；登记表不抄进判定函数。
 - 正例和反例由 `node beiming/kernel/contracts/validate.mjs` 真的跑一遍：正例必须结构合法且一条不违反；反例必须正好被 `index.json` 写的那一条判出来，不多不少。
 
 - 条文和结构定义说法不一样时，以 `CONTRACT.md` 为准，并且算一个缺陷。

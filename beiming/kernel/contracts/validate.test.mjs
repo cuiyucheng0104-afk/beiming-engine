@@ -1,6 +1,7 @@
-// 契约校验器的自测：正例全过；写了判定函数的不变量正好拒掉自己的反例。
+// 契约校验器的自测：正例全过；每条不变量都有判定函数，正好拒掉自己的反例。
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { lintContract } from './lint.mjs';
 import { loadContracts, runContract } from './validate.mjs';
 
 const loaded = await loadContracts();
@@ -13,10 +14,16 @@ test('每份契约：正例全部通过，没有判错的反例', () => {
   }
 });
 
-test('时间键：13 条不变量各有判定函数，13 个反例各被自己那一条拒掉', () => {
-  const { summary } = runContract(loaded, 'time');
-  assert.equal(Object.keys(loaded.contracts.get('time').checks).length, 13);
-  assert.deepEqual({ byCheck: summary.byCheck, bySchema: summary.bySchema, unchecked: summary.unchecked }, { byCheck: 13, bySchema: 0, unchecked: 0 });
+test('每份契约：每条不变量都有判定函数，每个反例都被自己那一条拒掉', () => {
+  let total = 0;
+  for (const [name, { dir, checks }] of loaded.contracts) {
+    const { counts } = lintContract(dir);
+    const { summary } = runContract(loaded, name);
+    assert.equal(Object.keys(checks).length, counts.invariants, `${name}：判定函数的个数和第 4 节的不变量个数不一样`);
+    assert.deepEqual({ byCheck: summary.byCheck, bySchema: summary.bySchema, unchecked: summary.unchecked }, { byCheck: counts.counterexamples, bySchema: 0, unchecked: 0 }, name);
+    total += summary.byCheck;
+  }
+  assert.equal(total, 160);
 });
 
 test('合法记录改坏一处就被对应的那一条拒掉', () => {
