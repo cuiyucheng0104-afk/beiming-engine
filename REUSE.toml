@@ -143,3 +143,10 @@ path = ["cases/vendor/lemo-opuscar/core/fonts/f6.woff2", "cases/vendor/lemo-opus
 precedence = "closest"
 SPDX-FileCopyrightText = "(c) 2007 Igino Marini (www.iginomarini.com) With Reserved Font Name IM FELL English Italic / IM FELL English Roman"
 SPDX-License-Identifier = "OFL-1.1"
+
+# ── 音效分类与同义词表：Universal Category System (UCS) v8.2.1（公有领域）──
+[[annotations]]
+path = "engine/audio/ucs_vocab.json"
+precedence = "closest"
+SPDX-FileCopyrightText = "Universal Category System (https://universalcategorysystem.com)"
+SPDX-License-Identifier = "CC0-1.0"

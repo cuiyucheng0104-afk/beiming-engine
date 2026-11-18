@@ -30,6 +30,7 @@
 | [创作闸门与审片](creative-review/README.md) | 什么时候能终渲、什么时候能说「已交付」；生产链 SOP 与审片落分 |
 | [渲染器 engine/render](../engine/render/README.md) | 渲染器 v2 规格：页面约定（含 `__RENDER`）、编码链、错误码、镜头缓存与续跑 |
 | [配音、字幕与口型](../engine/audio/voice/README.md) | `dialogue.json` 写法、配音服务、字幕与口型提示 |
+| [音效设计理论与声学工程手册](audio/SOUND-THEORY.md) | 视听契约、物理建模合成、心理声学掩蔽十二原则与「搜索、合成、编辑、贴合、混音」五段管线定量映射 |
 | [渲染与 4K](渲染与4K.md) | 4K 实测与怎么出 4K（含底板分辨率预算） |
 
 ## 环境与工作站

@@ -169,6 +169,31 @@ class FoleyAndSpatialTests(unittest.TestCase):
             self.assertAlmostEqual(gear_anc, 0.14, delta=0.002)
             self.assertGreater(rms(gear_w[N(0.135):N(0.165)]), rms(gear_w[:N(0.11)]) * 1.6)
 
+    def test_action_variation_deck_uniform_vs_combo_punches_anti_fatigue(self):
+        """验证同质符号复用（uniform）与连续出拳三级防听觉疲劳（多 take 轮询 / 力度副层叠加 / 单样本微移调防复读）。"""
+        r = rng(55)
+        t = T(0.12)
+        single_punch = np.exp(-t / 0.022) * np.sin(2 * np.pi * (140.0 + 280.0 * np.exp(-t / 0.008)) * t)
+        heavy_layer = np.exp(-t / 0.035) * r.standard_normal(len(t)) * 0.6
+
+        # 1. uniform 模式：同质视觉元素完全复用同一波形
+        u_deck = F.ActionVariationDeck([single_punch], policy='uniform')
+        w1, _, _ = u_deck.trigger(force=0.5)
+        w2, _, _ = u_deck.trigger(force=0.9)
+        self.assertTrue(np.allclose(w1, w2))
+
+        # 2. anti_fatigue 单样本保底模式：连续 5 拳即使只有 1 条主素材，相邻音高与波形也绝不完全相同，且重拳叠入副层
+        af_deck = F.ActionVariationDeck([single_punch], accent_takes=[heavy_layer], policy='anti_fatigue', seed=9, accent_thresh=0.75)
+        forces = [0.45, 0.55, 0.65, 0.85, 1.15]
+        outs = [af_deck.trigger(force=f) for f in forces]
+        for (wa, _, ma), (wb, _, mb) in zip(outs, outs[1:]):
+            self.assertGreaterEqual(abs(ma['semitones'] - mb['semitones']), 0.30)
+            m = min(len(wa), len(wb))
+            self.assertFalse(np.allclose(wa[:m], wb[:m]))
+        self.assertFalse(outs[0][2]['accentAdded'])
+        self.assertTrue(outs[-1][2]['accentAdded'])
+        self.assertGreater(rms(outs[-1][0]), rms(outs[0][0]) * 1.6)
+
 
 if __name__ == '__main__':
     unittest.main()

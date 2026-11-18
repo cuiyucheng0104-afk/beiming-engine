@@ -157,7 +157,7 @@ class QaGate(unittest.TestCase):
             clicks[i:i + H.N(0.004)] = 0.85                           # 几下很响的短瞬态：积分响度低、峰值高
         x = bed + clicks
         x[0] = x[-1] = 0.0
-        r, env, rep = self.bad('deliver-peaky', x, audio=plain)
+        r, _, rep = self.bad('deliver-peaky', x, audio=plain)
         head = next(c for c in rep['checks'] if c['id'] == 'audio.headroom')
         self.assertGreater(head['evidence']['overDb'], 3.0, head)
         self.assertEqual(r.returncode, 4)
@@ -206,7 +206,7 @@ class QaGate(unittest.TestCase):
         with open(os.path.join(d, 'film.json'), 'w', encoding='utf-8') as f:
             json.dump({'route': 'c', 'title': 'v1', 'dur': 10, 'fps': 24, 'size': [1920, 1080]}, f)
         shutil.copy(self.wav, os.path.join(d, 'out', 'mix.wav'))
-        r, env = self.qa('--film', d)
+        r, _ = self.qa('--film', d)
         self.assertEqual(r.returncode, 0, r.stderr[-800:])
 
     def test_chunked_measurement_matches_whole_signal(self):
@@ -266,6 +266,137 @@ class QaGate(unittest.TestCase):
         validate_c8(self, rep_bad)
         self.assertEqual(r_bad.returncode, 4, rep_bad)
         self.assertIn('audio.masking', self.failed(rep_bad))
+
+    def test_tightened_masking_hero_threshold_and_music_dominance_warn(self):
+        """收紧掩蔽门限：普通事件 −6.5 dB（旧门限放行）现报 warn；hero < −1 dB 报 warn；music 比 fx+foley 高 >9 dB 触发 music_dominance 告警"""
+        from engine.audio import dsp as D, mixing as MX
+        rng = np.random.default_rng(131)
+        dur = 6.0
+        n = H.N(dur)
+        i0 = H.N(2.0)
+        ln = H.N(0.20)
+
+        # 1) 普通事件最佳频带约 −6.5 dB（低于新门限 −5.0 dB，高于硬门 −12.0 dB）→ warn，且 --fail-on-warn 退出 4
+        d_warn = os.path.join(self.td, 'mask-tight-warn')
+        ev_norm = [{'id': 'chain', 'frame': 48, 'shot': 'S1', 'audio': 'chain', 'domain': 'sfx', 'bus': 'fx'}]
+        H.film_json(d_warn, frames=144, fps=24, cuts=(), events=ev_norm)
+        mus = H.music_like(dur, seed=21) * 0.30
+        fx_weak = np.zeros((n, 2))
+        # 复制同频谱片段并精确衰减 −6.8 dB，使各临界频带 SNR 均约 −6.8 dB ∈ (−12, −5)
+        fx_weak[i0:i0 + ln] = mus[i0:i0 + ln] * (10.0 ** (-6.8 / 20.0))
+        mix_w, g_w, _ = MX.loudness_to(D.fade(mus + fx_weak, 0.02, 0.05), -14.0, -1.5)
+        mix_w[0] = mix_w[-1] = 0.0
+        sc = 10.0 ** (g_w / 20.0)
+        H.write_wav(os.path.join(d_warn, 'out', 'stems', 'music.wav'), mus * sc)
+        H.write_wav(os.path.join(d_warn, 'out', 'stems', 'fx.wav'), fx_weak * sc)
+        H.write_wav(os.path.join(d_warn, 'out', 'mix.wav'), mix_w)
+        r_w, _ = self.qa('--film', d_warn)
+        rep_w = H.read_json(os.path.join(d_warn, 'out', 'mix.qa.json'))
+        validate_c8(self, rep_w)
+        self.assertEqual(r_w.returncode, 0)
+        mc_w = next(c for c in rep_w['checks'] if c['id'] == 'audio.masking')
+        self.assertEqual(mc_w['status'], 'warn', mc_w)
+        r_fow, _ = self.qa('--film', d_warn, '--fail-on-warn', '--no-report')
+        self.assertEqual(r_fow.returncode, 4)
+
+        # 2) hero 事件最佳频带约 −3.0 dB（高于普通门限 −5 dB，但低于 hero 门限 −1 dB） + 持续低电平 foley 使配乐高出 >9 dB → 双重检出
+        d_dom = os.path.join(self.td, 'mask-hero-and-dom')
+        ev_hero = [{'id': 'hat_catch', 'frame': 48, 'shot': 'S1', 'audio': 'hat_catch', 'domain': 'sfx', 'bus': 'fx', 'role': 'hero'}]
+        H.film_json(d_dom, frames=144, fps=24, cuts=(), events=ev_hero)
+        fx_hero_low = np.zeros((n, 2))
+        fx_hero_low[i0:i0 + ln] = mus[i0:i0 + ln] * (10.0 ** (-3.0 / 20.0))
+        foley_buried = MX.stereo(D.bp(rng.standard_normal(n), 300.0, 4000.0, 2) * 0.012)
+        mix_d, g_d, _ = MX.loudness_to(D.fade(mus + fx_hero_low + foley_buried, 0.02, 0.05), -14.0, -1.5)
+        mix_d[0] = mix_d[-1] = 0.0
+        sc_d = 10.0 ** (g_d / 20.0)
+        H.write_wav(os.path.join(d_dom, 'out', 'stems', 'music.wav'), mus * sc_d)
+        H.write_wav(os.path.join(d_dom, 'out', 'stems', 'fx.wav'), fx_hero_low * sc_d)
+        H.write_wav(os.path.join(d_dom, 'out', 'stems', 'foley.wav'), foley_buried * sc_d)
+        H.write_wav(os.path.join(d_dom, 'out', 'mix.wav'), mix_d)
+        r_d, _ = self.qa('--film', d_dom)
+        self.assertEqual(r_d.returncode, 0)
+        rep_d = H.read_json(os.path.join(d_dom, 'out', 'mix.qa.json'))
+        validate_c8(self, rep_d)
+        mc_d = next(c for c in rep_d['checks'] if c['id'] == 'audio.masking')
+        self.assertEqual(mc_d['status'], 'warn', mc_d)
+        self.assertEqual(mc_d['evidence']['items'][0]['status'], 'warn')
+        self.assertTrue(mc_d['evidence']['musicDominance']['warn'], mc_d['evidence']['musicDominance'])
+        self.assertGreater(mc_d['evidence']['musicDominance']['musicMinusFgDb'], 9.0)
+        self.assertIn('music_dominance', mc_d['message'])
+
+    def test_music_buried_warns_when_music_stem_crushed_below_master(self):
+        """双向乐效平衡守卫反向检查：存在非静音 music.wav 但比总母带低 >8.5 LU 时（如 -25 LUFS vs -14 LUFS）触发 music_buried 告警。"""
+        from engine.audio import dsp as D, mixing as MX
+        rng = np.random.default_rng(211)
+        dur = 6.0
+        n = H.N(dur)
+        i0 = H.N(2.0)
+        ln = H.N(0.24)
+        ev = [{'id': 'snap', 'frame': 48, 'shot': 'S1', 'audio': 'snap', 'domain': 'sfx', 'bus': 'fx', 'role': 'hero'}]
+
+        # 1) 配乐被双重压死在约 -25.1 LUFS（比 -14.0 母带低 ~11.1 LU > 8.5 LU）：触发 music_buried 告警，--fail-on-warn 退出 4
+        d_buried = os.path.join(self.td, 'mask-music-buried')
+        H.film_json(d_buried, frames=144, fps=24, cuts=(), events=ev)
+        amb_loud = D.hp(D.lp(D.decor_pair(D.pink, n, rng, corr=0.45), 5200.0, 2), 115.0, 2) * 0.14
+        fx_loud = np.zeros((n, 2))
+        fx_loud[i0:i0 + ln] = MX.stereo(D.bp(rng.standard_normal(ln), 1400.0, 6200.0, 2) * np.hanning(ln) * 0.55)
+        mus_crushed, _, _ = MX.match_level(D.lp(H.music_like(dur, seed=31), 5600.0, 2), -29.0, 'win', 0.0, dur)
+        raw_sum = D.fade(amb_loud + fx_loud + mus_crushed, 0.02, 0.05)
+        mix_b, g_b, _ = MX.loudness_to(raw_sum, -14.0, -1.5)
+        mix_b[0] = mix_b[-1] = 0.0
+        sc_b = 10.0 ** (g_b / 20.0)
+        H.write_wav(os.path.join(d_buried, 'out', 'stems', 'amb.wav'), amb_loud * sc_b)
+        H.write_wav(os.path.join(d_buried, 'out', 'stems', 'fx.wav'), fx_loud * sc_b)
+        H.write_wav(os.path.join(d_buried, 'out', 'stems', 'music.wav'), mus_crushed * sc_b)
+        H.write_wav(os.path.join(d_buried, 'out', 'mix.wav'), mix_b)
+
+        r_b, _ = self.qa('--film', d_buried)
+        self.assertEqual(r_b.returncode, 0)
+        rep_b = H.read_json(os.path.join(d_buried, 'out', 'mix.qa.json'))
+        validate_c8(self, rep_b)
+        mc_b = next(c for c in rep_b['checks'] if c['id'] == 'audio.masking')
+        self.assertEqual(mc_b['status'], 'warn', mc_b)
+        self.assertTrue(mc_b['evidence']['musicBuried']['warn'], mc_b['evidence']['musicBuried'])
+        self.assertGreater(mc_b['evidence']['musicBuried']['belowMasterLu'], 8.5)
+        self.assertIn('music_buried', mc_b['message'])
+        self.assertIn('配乐被过度压制', mc_b['message'])
+        r_b_fow, _ = self.qa('--film', d_buried, '--fail-on-warn', '--no-report')
+        self.assertEqual(r_b_fow.returncode, 4)
+
+        # 2) 均衡乐效配比（配乐约 -16.5 LUFS，母带 -13.4 LUFS，差 ~3.1 LU ≤ 8.5 LU）+ 无配乐纯音效片（music.wav 全 0）均 0 告警通过
+        d_bal = os.path.join(self.td, 'mask-music-balanced')
+        H.film_json(
+            d_bal, frames=144, fps=24, cuts=(), events=ev,
+            audio={'mode': 'script', 'script': 'sound.py', 'targetLUFS': -13.4, 'truePeakDbTP': -1.5},
+        )
+        mus_healthy, _, _ = MX.match_level(D.lp(H.music_like(dur, seed=31), 5600.0, 2), -17.0, 'win', 0.0, dur)
+        amb_soft, _, _ = MX.match_level(D.hp(D.lp(D.decor_pair(D.pink, n, rng, corr=0.5), 5200.0, 2), 115.0, 2), -24.0, 'win', 0.0, dur)
+        mix_h, g_h, _ = MX.loudness_to(D.fade(amb_soft + fx_loud + mus_healthy, 0.02, 0.05), -13.4, -1.5)
+        mix_h[0] = mix_h[-1] = 0.0
+        sc_h = 10.0 ** (g_h / 20.0)
+        H.write_wav(os.path.join(d_bal, 'out', 'stems', 'amb.wav'), amb_soft * sc_h)
+        H.write_wav(os.path.join(d_bal, 'out', 'stems', 'fx.wav'), fx_loud * sc_h)
+        H.write_wav(os.path.join(d_bal, 'out', 'stems', 'music.wav'), mus_healthy * sc_h)
+        H.write_wav(os.path.join(d_bal, 'out', 'mix.wav'), mix_h)
+        r_h, _ = self.qa('--film', d_bal, '--fail-on-warn')
+        self.assertEqual(r_h.returncode, 0, r_h.stdout + r_h.stderr)
+        rep_h = H.read_json(os.path.join(d_bal, 'out', 'mix.qa.json'))
+        mc_h = next(c for c in rep_h['checks'] if c['id'] == 'audio.masking')
+        self.assertEqual(mc_h['status'], 'pass', mc_h)
+        self.assertFalse(mc_h['evidence']['musicBuried']['warn'])
+
+        # 3) 无配乐影片（music.wav 为全静音）不应误报 music_buried
+        d_nomus = os.path.join(self.td, 'mask-music-silent')
+        H.film_json(d_nomus, frames=144, fps=24, cuts=(), events=ev)
+        mix_nm, g_nm, _ = MX.loudness_to(D.fade(amb_loud + fx_loud, 0.02, 0.05), -14.0, -1.5)
+        mix_nm[0] = mix_nm[-1] = 0.0
+        sc_nm = 10.0 ** (g_nm / 20.0)
+        H.write_wav(os.path.join(d_nomus, 'out', 'stems', 'amb.wav'), amb_loud * sc_nm)
+        H.write_wav(os.path.join(d_nomus, 'out', 'stems', 'fx.wav'), fx_loud * sc_nm)
+        H.write_wav(os.path.join(d_nomus, 'out', 'stems', 'music.wav'), np.zeros((n, 2)))
+        H.write_wav(os.path.join(d_nomus, 'out', 'mix.wav'), mix_nm)
+        r_nm, _ = self.qa('--film', d_nomus, '--fail-on-warn')
+        self.assertEqual(r_nm.returncode, 0, r_nm.stdout + r_nm.stderr)
 
 
 

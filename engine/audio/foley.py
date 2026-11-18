@@ -119,6 +119,122 @@ class RoundRobinDeck:
         return y, sync_anchor(y, SR), jit, idx
 
 
+class ActionVariationDeck:
+    """通用同质复用 vs. 连续动作三级防听觉疲劳演化器（Consistency vs. Anti-Fatigue Variation）：
+    · policy='uniform'：同质视觉符号（如统一规格的 HUD 刻度、制式按钮）保持原样复用，建立界面秩序感；
+    · policy='anti_fatigue'：连续物理动作（连续出拳、脚步、挥砍、敲击、拼插）按三级优先级消除机关枪效应，同时守住主音色辨识度：
+      1) 首选多条实录轮询（takes ≥ 2 时相邻绝不重复同一条 take）；
+      2) 次选按动作力度叠加副层（force 越大，主音色高频瞬态越亮，并在阈值之上按比例叠入 accent_takes 低频体量/擦碰质感层）；
+      3) 单样本保底微移调（即使只有 1 条 take，也按力度偏置施加保材质瞬态的微移调与微均衡，确保相邻两次波形绝不雷同）。"""
+
+    def __init__(self, takes, *, accent_takes=None, policy='anti_fatigue', seed=1,
+                 pitch_st=1.1, eq_db=1.4, accent_thresh=0.45, accent_gain=0.42):
+        if isinstance(takes, np.ndarray) and takes.ndim == 1:
+            takes = [takes]
+        elif isinstance(takes, (str, bytes)):
+            takes = lib_slices(str(takes))
+        self.takes = [np.asarray(c, dtype=float) for c in takes if len(c) > 0]
+        if not self.takes:
+            raise ValueError('ActionVariationDeck：至少需要一段非空主素材')
+        if accent_takes is None:
+            self.accent_takes = []
+        elif isinstance(accent_takes, np.ndarray) and accent_takes.ndim == 1:
+            self.accent_takes = [np.asarray(accent_takes, dtype=float)]
+        else:
+            self.accent_takes = [np.asarray(c, dtype=float) for c in accent_takes if len(c) > 0]
+        if policy not in ('uniform', 'anti_fatigue'):
+            raise ValueError(f"ActionVariationDeck：未知 policy={policy!r}（应为 'uniform' 或 'anti_fatigue'）")
+        self.policy = policy
+        self.r = rng(seed)
+        self.pitch_st = float(pitch_st)
+        self.eq_db = float(eq_db)
+        self.accent_thresh = float(accent_thresh)
+        self.accent_gain = float(accent_gain)
+        self._bag = []
+        self._last_idx = -1
+        self._last_st = 0.0
+        self._accent_idx = 0
+
+    def _next_take(self) -> int:
+        n = len(self.takes)
+        if n == 1:
+            return 0
+        if not self._bag:
+            order = list(range(n))
+            self.r.shuffle(order)
+            if order[0] == self._last_idx:
+                order[0], order[-1] = order[-1], order[0]
+            self._bag = order
+        idx = self._bag.pop(0)
+        self._last_idx = idx
+        return idx
+
+    def trigger(self, force: float = 0.65) -> tuple:
+        """按动作力度 force ∈ [0.1, 1.5] 生成单次事件，返回 (波形, P-Center 锚点秒, 元信息 dict)。"""
+        f_val = float(np.clip(force, 0.1, 1.5))
+        if self.policy == 'uniform':
+            base = self.takes[0].copy()
+            anc = sync_anchor(base, SR)
+            return base, anc, {'takeIndex': 0, 'semitones': 0.0, 'accentAdded': False, 'policy': 'uniform'}
+
+        idx = self._next_take()
+        x = self.takes[idx]
+        # 力度耦合微音高：重击略微下沉显厚重，轻击略微上扬显轻巧；单条素材时强制相邻两次音高差 ≥ 0.35 半音防复读感
+        force_bias = -0.55 * (f_val - 0.65)
+        span = max(0.45, self.pitch_st) if len(self.takes) == 1 else self.pitch_st
+        st = force_bias + (float(self.r.uniform(-span, span)) if span > 0 else 0.0)
+        if len(self.takes) == 1 and span > 0 and abs(st - self._last_st) < 0.35:
+            st += 0.55 if st >= self._last_st else -0.55
+        st = float(np.clip(st, -2.4, 2.4))
+        self._last_st = st
+
+        y = shift_material(x, st, preserve_msi=0.60) if abs(st) > 0.03 else x.copy()
+        if self.eq_db > 0 and len(y) > 32:
+            fc = float(self.r.uniform(850.0, 3600.0))
+            y = peq(y, fc, float(self.r.uniform(-self.eq_db, self.eq_db)), q=1.05)
+            # 力量越大，高频瞬态咬合越清晰、低频拳风越扎实
+            y = shelf(y, 2300.0, float(np.clip(3.8 * (f_val - 0.65), -3.5, 4.0)), 'high')
+            if f_val > 0.80:
+                y = shelf(y, 160.0, float(min(3.0, 4.0 * (f_val - 0.80))), 'low')
+
+        anc = sync_anchor(y, SR)
+        accent_used = False
+        if self.accent_takes and f_val >= self.accent_thresh:
+            ac = self.accent_takes[self._accent_idx % len(self.accent_takes)]
+            self._accent_idx += 1
+            ac_st = float(self.r.uniform(-0.9, 0.9))
+            ac_w = shift_material(ac, ac_st, preserve_msi=0.50) if abs(ac_st) > 0.05 else ac.copy()
+            ac_anc = sync_anchor(ac_w, SR)
+            # 将副层与主音色的 P-Center 严格对齐叠加，既丰富重击层次又不破坏起音锐度
+            pre_len = max(int(round(anc * SR)), int(round(ac_anc * SR)))
+            post_len = max(len(y) - int(round(anc * SR)), len(ac_w) - int(round(ac_anc * SR)))
+            tot = max(1, pre_len + post_len)
+            merged = np.zeros((tot, 2), dtype=float) if (y.ndim == 2 or ac_w.ndim == 2) else np.zeros(tot, dtype=float)
+            y_off = pre_len - int(round(anc * SR))
+            a_off = pre_len - int(round(ac_anc * SR))
+            w_scale = self.accent_gain * float(np.clip((f_val - self.accent_thresh) / max(0.25, 1.0 - self.accent_thresh), 0.25, 1.35))
+            if merged.ndim == 2:
+                y2 = _to_stereo(y)
+                a2 = _to_stereo(ac_w)
+                merged[y_off:y_off + len(y2)] += y2
+                merged[a_off:a_off + len(a2)] += a2 * w_scale
+            else:
+                merged[y_off:y_off + len(y)] += y
+                merged[a_off:a_off + len(ac_w)] += ac_w * w_scale
+            y = merged
+            anc = pre_len / float(SR)
+            accent_used = True
+
+        gain = 0.45 + 0.65 * (f_val ** 0.90)
+        return y * gain, float(anc), {
+            'takeIndex': idx,
+            'semitones': round(st, 3),
+            'accentAdded': accent_used,
+            'force': round(f_val, 3),
+            'policy': 'anti_fatigue',
+        }
+
+
 def _unpack_layer(spec):
     if spec is None:
         return None

@@ -361,8 +361,10 @@ def space_place(buf, x, at, *, gain=1.0, pan=0.0, dist=2.0, ref_dist=2.0, ir=Non
         l, r = pan_lr(pan)
         st = np.stack([y[:, 0] * l, y[:, 1] * r], 1)
 
-    p_mean = float(np.clip(np.mean(pan), -1.0, 1.0))
-    if binaural and abs(p_mean) > 0.08 and n > 24:
+    p_arr = np.asarray(pan, dtype=float)
+    p_mean = float(np.clip(np.mean(p_arr), -1.0, 1.0))
+    p_span = float(np.max(p_arr) - np.min(p_arr)) if p_arr.ndim > 0 and p_arr.size > 1 else 0.0
+    if binaural and p_span <= 0.25 and abs(p_mean) > 0.08 and n > 24:
         itd_samples = min(0.00024 * SR, abs(p_mean) * 0.00024 * SR)
         ds = np.full(n, itd_samples, dtype=float)
         far_ch = 1 if p_mean < 0 else 0

@@ -7,8 +7,11 @@
   sampler    多采样乐器采样器（CC0 库，BEIMING_SAMPLES 指路径）
   library    CC0 真实录音音效库（按清单加载、48 kHz 重采样、感知锚点 P-Center 标定、过零切片与署名，供 --real-sfx 切换）
   foley      物理拟音层：子事件复合（Pre/Transient/Body/Tail）、P-Center 锚定放置、防机关枪轮询池与运动学颗粒声床
+  procedural 物理因果与风格化音效程序化合成：刚体模态撞击、PhISEM 随机粒子碰撞、Strouhal 涡街破空、Minnaert 气泡共振与卡通合成原语
+  editorial  智能剪辑、运动声像贴合与三干线乐效混音工作台：过程/冲击时值精裁、连击 IOI 防疲劳编排、三维轨迹声像耦合与 ThreeStemWorkstation
   director   导演声学谱与感知 HDR 混音层：听觉视角 POA、峰值前负空间抽空、乐效调性吸附、Murch 2.5 声部聚簇与 6 临界频带动态让位
   sfx_judge  音效物理形态与取证判定（Stage 1，零训练 Timbre Toolbox 描述符：筛伪升频、削波、电源哼声、动作包络错配与口技/合成器谐波污染）
+  sfx_vocab  音效库检索词表与世界观三干线锁池（UCS v8.2.1 82 大类 / 753 子类 ucs_vocab.json、24 类复合配方、六种世界观加权与全片音效池规划）
   orchestra  编配：两层力度交叉淡化的长音、拨奏
   mixing     混音：时间轴摆放、镜头窗、让路、按目标响度定电平、母带收口
   meter      测量：BS.1770 响度、真峰值、频段能量、起音、ffmpeg 旁证
