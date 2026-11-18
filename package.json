@@ -102,7 +102,10 @@
     "c:fonts:check": "node routes/c-style/fonts/fetch.mjs --check",
     "cases:restore": "node tools/env/py.mjs tools/casebook.py restore",
     "cases:index": "node tools/env/py.mjs tools/casebook.py index",
-    "cases:rights": "node tools/env/py.mjs tools/casebook.py rights --check"
+    "cases:rights": "node tools/env/py.mjs tools/casebook.py rights --check",
+    "offscreen": "node engine/offscreen/cli.mjs",
+    "offscreen:compare": "node tools/offscreen/compare.mjs",
+    "offscreen:bench": "node tools/offscreen/bench.mjs"
   },
   "dependencies": {
     "gsap": "3.15.1",
@@ -113,5 +116,9 @@
     "@eslint/js": "10.0.1",
     "eslint": "10.14.0",
     "globals": "17.14.0"
+  },
+  "optionalDependencies": {
+    "three-webgpu": "npm:three@0.187.0",
+    "webgpu": "0.6.2"
   }
 }

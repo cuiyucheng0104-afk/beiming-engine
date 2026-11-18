@@ -14,6 +14,9 @@
 ### Added
 
 - A 路线模版：片名逐字按字形自己的墨迹外框竖直居中（原来的 `textBaseline = 'middle'` 在字体子集不含空格时取后备字体的度量，片名高低随机器的系统字体变）；`?previs=1`（`film animatic` 传的参数）与 `?animatic=1` 一样进入预演模式，预演才真的关掉笔触与纸纹。模版有片名的 3 帧金标准截帧变了（只有片名字形），待按 POLICY 第 6 节审批。
+- 离屏出片第一个里程碑（实验，D12）：`engine/offscreen/` 用 Node + Dawn 与 three.js r187 WebGPURenderer 出片，不经过浏览器；提供流水线读回、RGBA → BT.709 编码、Chrome WebGPU 同帧对拍与单 GPU 多部片基准。命令 `offscreen`、`offscreen:compare`、`offscreen:bench`；可选依赖与旧 r170 隔离，不修改旧路线与 `film` 出片链。当前演示仅含三档着色、反向外壳线和纸纹，不代表北冥完整后期迁移或生产并发调度已完成。实测范围与后续阻塞项见 `docs/offscreen/README.md`。
+- 离屏出片可选 NVENC 编码：`offscreen render` 与 `offscreen:bench` 加 `--encoder x264|nvenc`（默认 x264，码流不变；nvenc 用 h264_nvenc 恒定质量 `--cq`，色彩换算与 BT.709 标记相同）。同码率下 NVENC 平均低约 2 dB，终渲母版仍走 x264；4 部并发 1080p 带编码实测中位数约 71 对 126 帧/秒（单机、有波动，详见 `docs/offscreen/README.md` 7.4）。
+- 离屏出片的 TSL 版 Kuwahara 笔触（`engine/offscreen/tsl/kuwahara.js`，不含远近换半径）：与 `engine/look/kuwahara.js` 的 GLSL 在同一张合成输入上对拍，PSNR 约 61 dB、最大差 1 级；对拍的参考侧助手 `tests/offscreen/glsl-reference.mjs` 可复用于后续的墨线与合成。
 - 三条路线的模版仓库结构：`routes/README.md` 是总指引；A（北冥风格路线 · WebGL 三渲二）、B（北冥原生 · BNE）、C（北冥代码动画风格 · 86 式）各有一份路线手册和一个可直接出片的模版。`node tools/new-film.mjs <a|b|c> <名字>` 从模版新建作品到 `films/<名字>/`。
 - 导演与画面规范 `routes/directing/`：导演方法、画面设计、六章工艺（含音效设计与拟音工艺 `craft/sound.md`），以及阐述与画风锁定模版；`tools/check_directing_docs.py` 检查其中的命名与路径。
 - 工业级交付基线决策 `docs/decisions/2026-11-10-industrial-baseline.md`（D01–D11）。

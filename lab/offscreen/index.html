@@ -1,0 +1,44 @@
+<!doctype html>
+<!-- 离屏出片 · 预览页：在 Chrome 的 WebGPU 里跑作品模块（与 Node 出片加载同一份文件）。
+     ?work=/lab/offscreen/ink.mjs        作品模块（同源路径，必填）
+     &f=30                               只看第 30 帧；不写就按 fps 循环播放
+     &size=960x540  &fps=24  &frames=192 画幅、帧率、循环长度
+     &api=1                              不显示，只把 { host, work } 挂到 window.offscreen 给 tools/offscreen/compare.mjs 用
+     打开方式：npm run serve，再访问 http://127.0.0.1:<端口>/lab/offscreen/index.html?work=/lab/offscreen/ink.mjs
+     无头 Chrome 要加 --enable-unsafe-webgpu --enable-features=Vulkan（Linux）才拿得到 WebGPU 适配器。 -->
+<html lang="zh"><head><meta charset="utf-8"><title>离屏出片预览</title>
+<script type="importmap">{"imports":{
+  "three-webgpu/webgpu":"/node_modules/three-webgpu/build/three.webgpu.js",
+  "three-webgpu/tsl":"/node_modules/three-webgpu/build/three.tsl.js"
+}}</script>
+<style>html,body{margin:0;background:#111;color:#ccc;font:13px sans-serif}canvas{display:block;max-width:100vw;height:auto}#msg{padding:8px}</style>
+</head><body><div id="msg"></div>
+<script type="module">
+import * as THREE from 'three-webgpu/webgpu';
+import * as TSL from 'three-webgpu/tsl';
+import { createPreviewHost, resolvePreviewWork } from '/engine/offscreen/preview.js';
+
+const q = new URLSearchParams(location.search);
+const msg = t => { document.getElementById('msg').textContent = t; };
+try {
+  const workUrl = q.get('work');
+  resolvePreviewWork(workUrl);   // 初始化 GPU 之前拒绝协议相对与跨源 URL
+  const [width, height] = (q.get('size') || '960x540').split('x').map(Number);
+  const fps = Number(q.get('fps') || 24), frames = Number(q.get('frames') || 192);
+  const host = await createPreviewHost({ THREE, TSL, canvas: document.createElement('canvas'), width, height, fps });
+  const work = await host.load(workUrl);
+  if (q.get('api') === '1') {
+    window.offscreen = { host, work };
+  } else {
+    const view = document.createElement('canvas'); view.width = width; view.height = height; document.body.appendChild(view);
+    const ctx = view.getContext('2d');
+    if (q.has('f')) { const f = Number(q.get('f')); await host.show(work, f, ctx); msg(`第 ${f} 帧`); }
+    else { for (let f = 0; ; f = (f + 1) % frames) { await host.show(work, f, ctx); msg(`第 ${f} / ${frames} 帧（预览以浏览器刷新率为准，不是 ${fps} fps 实时）`); } }
+  }
+  window.READY = true;
+} catch (e) {
+  msg(`出错：${e.message}`);
+  window.PREVIEW_ERROR = String(e?.message ?? e);
+  window.READY = true;
+}
+</script></body></html>
