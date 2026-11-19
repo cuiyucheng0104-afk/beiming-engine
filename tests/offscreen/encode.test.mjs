@@ -26,7 +26,7 @@ test('encoderArgs：RGBA 裸帧输入、页面渲染器同款色彩换算、四�
 test('encoderArgs：--encoder nvenc 换成 h264_nvenc + 恒定质量 cq，色彩换算与四项标记不变；默认仍是 libx264', () => {
   const n = encoderArgs({ width: 64, height: 32, fps: 24, out: '/x/o.mp4', encoder: 'nvenc', cq: 20 });
   const s = n.join(' ');
-  assert.match(s, /-c:v h264_nvenc -preset p5 -rc vbr -cq 20 -b:v 0/);
+  assert.match(s, /-c:v h264_nvenc -preset p5 -rc vbr -cq 20 -b:v 0 -maxrate 240M -bufsize 480M/);
   assert.ok(!s.includes('libx264'));
   assert.equal(n[n.indexOf('-vf') + 1], COLOR.png);
   assert.ok(s.includes(TAGS.join(' ')));
@@ -57,6 +57,38 @@ test('startEncoder：nvenc 编 8 帧纯色 → 8 帧 yuv420p、BT.709 有限范�
     const y = execFileSync('ffmpeg', ['-v', 'error', '-i', out, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'yuv420p', '-'])[0];
     const ref = Math.round(16 + 219 * (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255);
     assert.ok(Math.abs(y - ref) <= 2, `Y=${y}，参考 ${ref}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// 平滑渐变 + 少量噪声的 yuv420p 帧（JS 生成，确定）：码率高到会撞上 NVENC 按自动 Level 设的码率上限，又不是纯随机噪声
+// （纯噪声在 cq 6 这种极端画质下 NVENC 会出解码报错的码流，真实画面不会这样）
+function gradientYuv(w, h, n) {
+  const frame = f => {
+    const b = Buffer.alloc(w * h * 1.5);
+    let s = (f + 1) * 2654435761 >>> 0;
+    const rnd = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return (s >>> 24) / 255 - 0.5; };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) b[y * w + x] = Math.max(16, Math.min(235, 16 + ((x + y + f * 3) % 220) + 40 * rnd()));
+    for (let i = 0; i < (w * h) / 2; i++) b[w * h + i] = Math.max(16, Math.min(240, 128 + 60 * Math.sin(i / 37 + f) + 20 * rnd()));
+    return b;
+  };
+  return Array.from({ length: n }, (_, f) => frame(f));
+}
+
+test('startEncoder：nvenc 的 --cq 真的控制画质——cq 6 的码流明显大于 cq 14（不被自动 Level 的码率上限截住），两者都能无错解码', { skip: !hasNvenc && '没有可用的 NVENC（需要 NVIDIA 驱动）', timeout: 60000 }, async () => {
+  const dir = tmp();
+  try {
+    const W = 320, H = 180, frames = gradientYuv(W, H, 24), size = {};
+    for (const cq of [6, 14]) {
+      const out = join(dir, `cq${cq}.mp4`);
+      const enc = startEncoder({ width: W, height: H, fps: 24, out, encoder: 'nvenc', cq, pixFmt: 'yuv420p' });
+      for (const f of frames) await enc.write(f);
+      await enc.finish();
+      const dec = spawnSync('ffmpeg', ['-nostdin', '-v', 'error', '-i', out, '-f', 'null', '-'], { encoding: 'utf8' });
+      assert.equal(dec.stderr.trim(), '', `cq ${cq} 的码流解码报错`);
+      size[cq] = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=size', '-of', 'csv=p=0', out], { encoding: 'utf8' }).trim() * 1;
+    }
+    // 截顶时两档输出字节数完全相同（320×180 自动选 Level 1.2）；不截顶时 cq 6 实测约大 16%
+    assert.ok(size[6] > size[14] * 1.05, `cq 6 ${size[6]} 字节，cq 14 ${size[14]} 字节：低 cq 没有换来更高码率，说明被码率上限截住了`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

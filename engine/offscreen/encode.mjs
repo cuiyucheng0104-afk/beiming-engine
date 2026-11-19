@@ -16,12 +16,14 @@ export const ENCODERS = ['x264', 'nvenc'];
 export const PIX_FMTS = ['rgba', 'yuv420p'];
 const YUV_SETPARAMS = 'setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709';
 
-// nvenc：恒定质量（-rc vbr -cq N -b:v 0），preset p5 是 4070 上实测的取值；同样码率下画质比 x264 低约 2 dB，终渲母版仍用 x264
+// nvenc：恒定质量（-rc vbr -cq N -b:v 0），preset p5 是 4070 上实测的取值；终渲母版仍用 x264（画质对比见 docs/offscreen/README.md 7.4 与 7.18）。
+//   必须显式给 -maxrate：不给时 NVENC 按分辨率自动选 Level（1080p24 是 4.0），再按这个 Level 的最大码率封顶（约 25 Mbps），
+//   cq 低于约 18 时全被截住，--cq 18 与 --cq 10 输出相同。240M 让 Level 升到 5.1，在 master-1080p24（Level ≤ 5.1）与 uhd-2160p24（≤ 5.2）允许的范围内。
 // pixFmt：rgba（默认，走 COLOR.png 的 swscale）或 yuv420p（GPU 已转好有限范围 BT.709，只过零拷贝 setparams 打标记，免 CPU swscale）
 export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = 18, pixFmt = 'rgba' }) {
   if (!ENCODERS.includes(encoder)) throw new CliError('usage.bad-value', `--encoder 只能是 ${ENCODERS.join(' 或 ')}，收到「${encoder}」`, { hint: '终渲母版用 x264；预览与高并发用 nvenc（需要 NVIDIA 驱动）' });
   if (!PIX_FMTS.includes(pixFmt)) throw new CliError('usage.bad-value', `--pix-fmt 只能是 ${PIX_FMTS.join(' 或 ')}，收到「${pixFmt}」`, { hint: 'rgba 走 FFmpeg swscale；yuv420p 由 GPU 直接输出 BT.709 限范围平面字节' });
-  const video = encoder === 'nvenc' ? ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', String(cq), '-b:v', '0'] : x264Args({ crf, preset });
+  const video = encoder === 'nvenc' ? ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', String(cq), '-b:v', '0', '-maxrate', '240M', '-bufsize', '480M'] : x264Args({ crf, preset });
   if (pixFmt === 'yuv420p') {
     return ['-f', 'rawvideo', '-pix_fmt', 'yuv420p', ...TAGS, '-s', `${width}x${height}`, '-framerate', String(fps), '-i', '-',
       '-vf', YUV_SETPARAMS, ...video, ...TAGS, out];
