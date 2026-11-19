@@ -91,6 +91,13 @@
     "why": "镜头代码里调了 Math.random"
   },
   {
+    "file": "S7-indirect-import-random.json",
+    "violates": [
+      "S7"
+    ],
+    "why": "Math.random 写在第二层引用的本镜头文件里（入口文件引用 scene.js，scene.js 再引用 jitter.js），顺着引用追到了它"
+  },
+  {
     "file": "S8-meta-overrides-camera.json",
     "violates": [
       "S8"

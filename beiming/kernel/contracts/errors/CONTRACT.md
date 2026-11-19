@@ -94,7 +94,7 @@
 | `contract.immutable-key` | 改了创建之后不得改的键 | D15 |
 | `contract.output-conflict` | 开着原生运动模糊时要了和它冲突的输出 | F5 |
 | `contract.order-cycle` | 卡的先后要求排不出次序：成环，或提到了镜头里没有的卡 | CR 契约 5.2（CR9 不比码） |
-| `contract.patch-not-applicable` | 补丁里有一个操作不可作用 | PA 契约 5.2（PA4 不比码） |
+| `contract.patch-not-applicable` | 补丁里有一个操作不可作用 | PA 契约 5.3（PA4 不比码） |
 | `contract.runtime-shadows-param` | `ctx.cards.use` 的 `runtime` 里有键和这张卡声明的参数同名 | 镜头契约（S）管 `ctx.cards.use` 的那条不变量 |
 | `contract.shutter-conflict` | 快门角是 0 而子帧采样数大于 1 | 帧源接口契约（F）管快门的条文 |
 | `contract.undeclared-card` | `ctx.cards.use` 用了这个镜头的 `cards` 里没声明过的实例名 | 镜头契约（S）管 `ctx.cards.use` 的那条不变量 |
@@ -146,3 +146,4 @@
 | 2026-11-19 | 第 6 节「帧源装不了卡、资产、叠加层时用哪个码」一行 | 这个码和点名它的 F26 已经确认，原来还挂着等确认；帧源接口契约第 6 节同一件事的那一行一起改成已定 |
 | 2026-11-19 | 5.3、`errors.json` | 加 `contract.bad-path`：片子描述契约 D5 拒收不合 5.4 的写入路径时要报的码，原来没有登记；路径里有没定义的键的那一种仍报 `contract.unknown-key` |
 | 2026-11-19 | 5.3、`errors.json` | 加 `contract.order-cycle`、`contract.patch-not-applicable`：卡的运行时接口、补丁两份契约要求报登记过的码，这两种失败原来没有码可报 |
+| 2026-11-19 | 5.3 `contract.patch-not-applicable` 的「哪条条文点名的」一格 | 点名这个码的是补丁契约讲全成或全不成的 5.3（有一个操作不可作用就整个拒掉），不是讲四种操作的 5.2 |

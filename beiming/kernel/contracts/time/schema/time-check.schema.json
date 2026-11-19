@@ -131,7 +131,7 @@
         "unseededRandom": { "type": "array", "items": { "$ref": "#/$defs/scanHit" } }
       }
     },
-    "ext": { "type": "object" }
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
   },
   "$defs": {
     "shotId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },

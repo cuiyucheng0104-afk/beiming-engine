@@ -174,7 +174,7 @@ def build(ctx):
 | `metaKeys` | 数组 | 无 | 否 | 字符串 | `旁观` | 镜头代码的 `meta(f)` 的返回值里出现过的键，夹具镜头代码外面的观测点数的：观测点把 `build` 交回的 `meta(f)` 包一层，在返回值上读键。没有入口文件的镜头这一项不得出现。宿主在接返回值的地方记的是 `自报`，不得填进这个字段 |
 | `declaredCards` | 数组 | 无 | `cardUses` 出现时必填 | 字符串，不重复 | `请求` | 片子描述里这个镜头 `cards` 声明过的实例名 |
 | `cardUses` | 数组 | 无 | 否 | 每项 `{ as, runtimeKeys?, paramKeys? }` | `as`、`runtimeKeys`：`旁观`；`paramKeys`：`请求` | 镜头代码对 `ctx.cards.use` 的每一次调用，按调用的先后排，不记内建卡，夹具镜头代码外面的观测点数的：观测点把交给 `build` 的 `ctx.cards.use` 包一层，每次调用记下传进来的参数。`as` 是传进去的实例名，`runtimeKeys` 是 `runtime` 的键，`paramKeys` 是这张卡声明的参数名，取自卡的声明。没有入口文件的镜头这一项不得出现。宿主在 `ctx.cards.use` 里记的是 `自报`，不得填进这个字段 |
-| `scan` | 对象 | 无 | 否 | `{ wallClock, unseededRandom }` | `量的` | 对镜头代码的静态扫描命中，结构同 T 契约 3.6 的 `scan`；测试工具自己扫文件 |
+| `scan` | 对象 | 无 | 否 | `{ wallClock, unseededRandom }` | `量的` | 对镜头代码的静态扫描命中，结构同 T 契约 3.6 的 `scan`；测试工具自己扫文件，扫哪些文件见 5.7 |
 | `ctx` | 数组 | 无 | 否 | 每项 `{ want, seen }` | `want`：`请求`；`seen`：`旁观` | 交给镜头代码的 `ctx` 里五个值的观测，一次装载一项；同一个镜头装载了不止一次时各项独立判，不合并。`want` 是这五个值该是什么，测试工具照自己发出去的镜头输入和 `env` 算：`{ seed, fps, frames, shotIn, size? }`，算法见 5.10；`shotIn` 对的是 `ctx.shot.in`，单位帧；`fps` 的值域同镜头输入的 `output.fps`（T 契约 3.2）；`size` 在缩放不是 1 的装载里不出现。`seen` 是观测点在 `build` 收到的 `ctx` 上读到的 `{ seed?, fps?, frames?, shotIn?, size? }`，类型同 `want`，不限值域；`ctx` 里没有的那一项不出现。观测点是测试工具放在夹具镜头代码外面的代码，不是帧源或宿主的代码；宿主自己报的不得填进 `seen` |
 | `ext` | 对象 | 无 | 否 | 键带点分前缀 | — | 私有数据 |
 
@@ -188,7 +188,7 @@ def build(ctx):
 | S4 | `entities` 的名字必须是点分路径，在镜头内唯一；每帧元数据里的实体名必须是 `entities` 的子集，缺的个数必须等于这一帧的 `omittedParts`，缺的只能是类别为 `part`、没有角色的实体。 | `entities` 每项符合 5.2 的写法且没有重复；`metaEntities` 每一项：`names` 每个名字都在 `entities` 里，`entities` 里不在 `names` 里的名字的个数等于 `omittedParts`（不出现算 0），并且这些名字都在 `omittable` 里。见 5.3 | `S4-duplicate-entity.json`、`S4-bad-entity-name.json`、`S4-meta-name-not-in-entities.json`、`S4-omitted-count-mismatch.json`、`S4-missing-not-omittable.json` |
 | S5 | 片段补丁没有命中时必须判构建失败，不得只报警告。 | `patches` 里有 `hits` 等于 0 的项时，`build` 必须是 `failed` | `S5-patch-miss-ignored.json` |
 | S6 | 「卡加数据」模式（`cards-data`）的镜头不得有入口文件，必须由宿主用固定装载脚本搭出来。 | `mode` 是 `cards-data` 时不得出现 `entry`。搭建的顺序不在本条判，归卡的运行时接口契约（CR）里管装载顺序的各条，用装载核对记录判 | `S6-cards-mode-with-entry.json` |
-| S7 | 镜头代码不得读墙钟，不得用不带种子的随机。 | `scan.wallClock` 和 `scan.unseededRandom` 都必须是空数组 | `S7-math-random.json` |
+| S7 | 镜头代码不得读墙钟，不得用不带种子的随机。 | `scan.wallClock` 和 `scan.unseededRandom` 都必须是空数组；扫哪些文件见 5.7 | `S7-math-random.json`、`S7-indirect-import-random.json` |
 | S8 | `meta(f)` 返回的键只能是 `texts`、`anchors`、`readings`。 | `metaKeys` 每项必须是这三个之一 | `S8-meta-overrides-camera.json` |
 | S9 | `ctx.cards.use(as, runtime?)` 的 `as` 必须是这个镜头 `cards` 里声明过的实例名，`runtime` 的键不得和这张卡声明的参数同名；违反前一项必须判构建失败并报 `contract.undeclared-card`，违反后一项必须判构建失败并报 `contract.runtime-shadows-param`；两种违反同时出现时，必须报 `cardUses` 里先出现的那一次调用犯的那一种。 | 从前往后找 `cardUses` 里第一个违反的项：`as` 不在 `declaredCards` 里算前一种；`as` 在 `declaredCards` 里、`runtimeKeys` 和 `paramKeys` 含同一个名字算后一种。找到时 `build` 必须是 `failed`，`error` 必须是这一项对应的码（前一种是 `contract.undeclared-card`，后一种是 `contract.runtime-shadows-param`）；找不到时本条不判。见 5.8 | `S9-undeclared-card.json`、`S9-runtime-shadows-param.json`、`S9-failed-without-code.json`、`S9-reports-later-violation.json`、`S9-same-call-both-wrong-code.json` |
 | S10 | 交给镜头代码的 `ctx.seed`、`ctx.fps`、`ctx.frames`、`ctx.shot.in`、`ctx.size` 必须都出现，并且依次等于这次装载生效的镜头种子、镜头输入的帧率、这个镜头的帧数、镜头条目的起始帧、镜头输入的画幅。 | `ctx` 每一项：`want` 里出现的每个字段，`seen` 里必须有同名字段，并且值相等；`fps` 逐字符相同，`size` 项数相同、逐项相等。`want` 里没出现的字段不判。见 5.10 | `S10-seed-off-by-one.json`、`S10-wrong-fps.json`、`S10-fps-not-a-fraction.json`、`S10-wrong-frames.json`、`S10-wrong-shot-in.json`、`S10-wrong-size.json`、`S10-ctx-field-missing.json` |
@@ -222,7 +222,7 @@ def build(ctx):
 
 ### 5.7 静态扫描
 
-扫描清单同 T 契约 5.3，扫描范围是入口文件和它直接引用的本镜头文件。
+扫描清单同 T 契约 5.3。扫描范围是入口文件，加上从入口文件出发顺着引用（`import`、`require` 这一类）一直追下去能到的全部本镜头文件：入口文件引用的文件再引用的本镜头文件也扫，追到没有新文件为止，不只扫入口文件直接引用的那一层。追到的本仓库里不是本镜头文件的文件不记进本契约的 `scan`，它们在渲染路径里，由 T 契约 5.3 扫，归 T2、T11 判。
 
 ### 5.8 `ctx.cards.use`
 
@@ -234,7 +234,7 @@ def build(ctx):
 
 ### 5.9 数据从哪进
 
-- 成块的静态数据（规格表、查找表这一类）放在入口文件旁边的本镜头文件里，由入口文件直接引用：本镜头文件是和入口文件在同一个目录里的文件，它们在 5.7 的扫描范围里，和入口文件一样不进锁文件（见锁文件契约（LK）第 6 节）。
+- 成块的静态数据（规格表、查找表这一类）放在入口文件旁边的本镜头文件里，由入口文件直接或间接引用：本镜头文件是和入口文件在同一个目录里的文件，它们在 5.7 的扫描范围里，和入口文件一样不进锁文件（见锁文件契约（LK）第 6 节）。
 - `ctx.params` 放调参用的值。
 - 要记版本和哈希的数据走资产，从 `ctx.assets` 取；「卡加数据」模式没有入口文件，数据只能走卡的参数或资产。
 
@@ -288,7 +288,7 @@ S10 只对 `ctx` 里这五项负责；`ctx` 其余各项现在有没有观测见
 | 同一次 `ctx.cards.use` 调用两种违反都犯时报哪个码 | 【起草者补】算没声明那一种，报 `contract.undeclared-card`：没声明的实例名对不上任何一张卡，谈不上「这张卡声明的参数」 | 集成负责人确认 |
 | `assets.load` 找不到资产时报哪个错误码 | `待定：assets.load 找不到资产时报的错误码`；3.2 只要求必须报错、不得交回空值 | 资产有了实现；码先登记进错误码表（ER 契约 5.4），再回来点名 |
 | `ctx.anchor` 找不到实体或锚点时报哪个错误码 | `待定：ctx.anchor 找不到锚点时报的错误码`；3.2 只要求必须报错、不得交回猜的坐标 | 锚点有了实现；码先登记进错误码表，再回来点名 |
-| 「本镜头文件」的范围 | 【起草者补】和入口文件在同一个目录里的文件；子目录里的算不算不定。5.7 的扫描范围用的是同一个词，这个范围改了，S7 扫哪些文件跟着变 | 集成负责人确认 |
+| 「本镜头文件」的范围 | 【起草者补】和入口文件在同一个目录里的文件；子目录里的算不算不定。5.7 的扫描范围用的是同一个词：顺着引用一直追已定，这个范围改了，S7 扫哪些文件跟着变 | 集成负责人确认 |
 | 入口文件和本镜头文件进不进锁文件 | 不进，照锁文件契约（LK）第 6 节现在的写法；本契约不另定 | 锁文件契约的那个决定；定成「进」时本镜头文件要一起进，5.9 跟着改 |
 | 只有声明、没有判定的条文 | S3 的「只由一个出帧者出」这一半：`sources` 是帧源在元数据里自己写的。这一处现在只有声明，没有判定。S2、S8 的 `buildCalls`、`metaKeys` 由夹具镜头代码外面的观测点数，不在这一行 | 出帧者有了能从产物上独立认的办法；有了以后 `sources` 的来历改成 `量的` |
 | 没有入口文件的镜头的 S2 | `buildCalls` 只能由包在入口文件 `build` 外面的观测点数。「卡加数据」模式的镜头和 `source` 是 `ext.<名字>` 的镜头没有入口文件，`buildCalls` 不出现，S2 对它们不判：固定装载脚本的搭建步骤跑没跑重，本契约现在没有记录能看出来。`metaKeys`、`cardUses` 在这种镜头上也不出现，那里没有镜头代码，S8、S9 没有东西可判 | 集成负责人定要不要给固定装载脚本立一个从外面数得到的观测；立了以后改 3.6 的 `buildCalls` 一行和 S2 的「怎么查」 |
@@ -313,3 +313,4 @@ S10 只对 `ctx` 里这五项负责；`ctx` 其余各项现在有没有观测见
 | 2026-11-19 | 3.2 `anchor`、第 6 节（`ctx.anchor` 的返回值、核对记录里的 `ctx`、`buildCalls` 等三项的观测点） | `ctx.anchor` 的形状照每帧元数据契约已经写定的 `anchors.*.world`；`ctx[].want.shotIn` 必填和三项观测点标 `旁观` 已经确认，不再挂起草者补；`ctx` 这一段整体和 S10 算不算确认还挂着 |
 | 2026-11-19 | 3.2 `tokens`，第 6 节改两行、加一行 | 画风令牌经镜头输入的 `tokens` 进，`ctx.tokens` 就是它；S9 在构建失败时判不全的那一半登记成只有声明 |
 | 2026-11-19 | 3.6 的 `error`、`cardUses` 两行，结构定义（`build` 是 `ok` 时不得出现 `error`），新加 S11 和它的反例，S9 补一个反例，第 6 节加一行 | `cardUses` 的次序就是调用的次序原来没写，S9 却靠它定「先出现」；同一次调用两种都犯算没声明的那一种没有反例看着；`error` 报了没登记的码、构建通过却带着码，原来没人拦 |
+| 2026-11-19 | 3.6 `scan`、S7 的「怎么查」和反例、5.7、5.9、第 6 节「本镜头文件」的范围 | 5.7 原来只扫入口文件直接引用的那一层，和 T 契约 5.3「渲染路径里本仓库的文件」不一致：放在第二层引用文件里的 `Math.random`，照 T 扫判 T11 违反，照本契约扫 S7 却过。改成顺着引用一直追，补一个随机调用在第二层引用文件里的反例 |

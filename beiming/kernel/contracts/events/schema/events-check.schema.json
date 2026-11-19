@@ -10,6 +10,6 @@
     "format": { "const": "events-check/0.1" },
     "events": { "$ref": "events.schema.json" },
     "film": { "$ref": "../film/film.schema.json" },
-    "ext": { "type": "object" }
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
   }
 }

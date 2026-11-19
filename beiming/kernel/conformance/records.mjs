@@ -36,6 +36,18 @@ export function effectiveShutter(r, shot, caps, lock) {
 }
 
 /**
+ * 这一帧的 linearErr 为什么量不出，量得出时是 null。预言图是针孔、像素中心：生效的每像素采样数（这次调用 → 镜头条目的档位 → 能力声明）
+ * 大于 1，或者带景深（校准场景规格写了孔径、元数据带 focusDist 或 fstop），预言图都定不下来。没要元数据的调用看不出带不带景深，也不量
+ */
+export function linearErrBlocked(r, shot, caps, scene) {
+  const pixelSamples = r.opts?.samples ?? shot.tiers?.[r.tier]?.samples ?? caps[r.tier].samples;
+  if (pixelSamples > 1) return '每像素采样数大于 1';
+  const cam = r.meta?.camera ?? {};
+  if (scene.camera.apertureDiameterM !== undefined || cam.focusDist !== undefined || cam.fstop !== undefined) return '这一帧带景深';
+  return r.meta ? null : '这次调用没要元数据，看不出带不带景深';
+}
+
+/**
  * 一次出了颜色层的调用的逐帧采样观测。观测点没交出东西、没看到任何一遍颜色、或者在 ctx.shot.id 上没读到镜头的标识时返回 null：
  * 旁观的字段没有来源，这一项不出现。入口有一道门盯着每次这样的调用都有一项，少一项就不过。
  */

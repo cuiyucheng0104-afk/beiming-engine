@@ -1,7 +1,7 @@
 // 静态扫描：在渲染路径的文件里找读墙钟和不带种子的随机。
 // shortcut: 只认直接写出来的调用，Python 的 random 模块不认；渲染路径里有 Python 文件、或者要追间接调用时换成语法树上的扫描
 // 这个目录自己也会被同样的规则搜，所以被找的调用名在这里一律拆开写，不出现字面量。
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 /** 取成员的一条规则：点号取（含 ?.）和方括号里写字符串取都算 */
@@ -42,11 +42,21 @@ export function sourceFiles(root, dirs) {
   return out.sort();
 }
 
-/** 入口文件加它直接引用的相对路径文件（只跟一层） */
-export function withDirectImports(root, entry) {
-  const text = readFileSync(join(root, entry), 'utf8');
-  const deps = Array.from(text.matchAll(/\bfrom\s+['"](\.{1,2}\/[^'"]+)['"]/g), (m) => relative(root, resolve(root, dirname(entry), m[1])).split(sep).join('/'));
-  return [entry, ...deps];
+// 相对路径的引用：静态 from、只引不取的 import、写死字符串的 import() 和 require()
+// shortcut: 拼出来的路径追不到，注释里写的引用也会追（指向不存在的文件的跳过）；镜头代码里出现这两种写法时换成语法树上的扫描
+const IMPORT = /(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*['"](\.{1,2}\/[^'"]+)['"]/g;
+
+/** 入口文件加从它出发顺着相对路径引用一直追到的全部文件，去重，入口在前，其余按追到的先后 */
+export function withImports(root, entry) {
+  const seen = [entry];
+  for (let i = 0; i < seen.length; i++) {
+    if (!/\.[mc]?js$/.test(seen[i])) continue;
+    for (const m of readFileSync(join(root, seen[i]), 'utf8').matchAll(IMPORT)) {
+      const dep = relative(root, resolve(root, dirname(seen[i]), m[1])).split(sep).join('/');
+      if (!seen.includes(dep) && existsSync(join(root, dep))) seen.push(dep);
+    }
+  }
+  return seen;
 }
 
 /**

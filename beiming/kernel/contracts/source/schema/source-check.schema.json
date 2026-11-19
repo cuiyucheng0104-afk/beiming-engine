@@ -161,7 +161,7 @@
         }
       }
     },
-    "ext": { "type": "object" }
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
   },
   "dependentRequired": { "manifest": ["metaEntities"], "metaEntities": ["manifest"] }
 }

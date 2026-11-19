@@ -16,8 +16,8 @@ import { stream, streamName } from '../eval/rng.mjs';
 import { hold } from '../eval/time.mjs';
 import { boxOfIds, centroid, diffLayers, dist, expectedLayers, iou, linearError, predictAccumulation, readLayer } from './compare.mjs';
 import { readObservation } from './fixtures/observe.js';
-import { effectiveShutter, metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
-import { scanFiles, sourceFiles, withDirectImports } from './scan.mjs';
+import { effectiveShutter, linearErrBlocked, metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
+import { scanFiles, sourceFiles, withImports } from './scan.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../../..');
@@ -91,8 +91,10 @@ await mkdir(join(OUT, 'checks'), { recursive: true });
 let caps;
 async function runShot(shot) {
   const plan = await planOf(shot), input = shotInput(film, shot.id, events);
-  const files = withDirectImports(REPO, rel(join(FIXTURES, renderingOf(shot).entry)));
-  const one = { shot, plan, input, files, languages: [...new Set(files.map((f) => LANGUAGES[extname(f)]).filter(Boolean))], renders: [], opens: [], probes: [], loads: [], evaluations: [], queries: [], badArgs: [], rng: [], localized: [], metaFrames: [], manifest: null };
+  const entry = rel(join(FIXTURES, renderingOf(shot).entry)), files = withImports(REPO, entry);
+  // 本镜头文件是和入口同目录的那些：只有它们进镜头核对记录的扫描，追到的别处文件归渲染路径的扫描
+  const own = files.filter((f) => dirname(f) === dirname(entry));
+  const one = { shot, plan, input, files, own, languages: [...new Set(files.map((f) => LANGUAGES[extname(f)]).filter(Boolean))], renders: [], opens: [], probes: [], loads: [], evaluations: [], queries: [], badArgs: [], rng: [], localized: [], metaFrames: [], manifest: null };
   const midF = plan.mid.atFrame, frames = shot.out - shot.in;
   const shuffle = stream(streamName(shot.seed, shot.id, 'conformance/shuffle'));
   const patched = (patch) => ({ ...structuredClone(input), shot: { ...structuredClone(input.shot), ...patch } });
@@ -304,6 +306,11 @@ for (const one of shots) {
   for (const r of ok(one).filter((x) => x.refs.color && !x.offSpec && x.refs.color.shape[0] === H && x.refs.color.shape[1] === W)) {
     const { angleDeg, samples } = effectiveShutter(r, one.shot, caps, lock);
     if (samples === 1) continue;
+    const unmeasurable = linearErrBlocked(r, one.shot, caps, scene);
+    if (unmeasurable) {
+      if (r.order === 'sequential') accumulations.push({ shot: one.shot.id, frame: r.f, subFrames: samples, linearErr: null, unmeasurable });
+      continue;
+    }
     const key = shaOf(r, 'color');
     if (!errors.has(key)) {
       errors.set(key, attempt(`${one.shot.id} 第 ${r.f} 帧量累积颜色层对预言图的差`, () => {
@@ -349,8 +356,8 @@ for (const one of shots) {
 // ---------- 静态扫描 ----------
 const shotFiles = [...new Set(shots.flatMap((one) => one.files))];
 const scans = {
-  path: scanFiles(REPO, [...sourceFiles(REPO, ['beiming/kernel/eval', 'beiming/sources/three', 'beiming/host/page']), ...shotFiles], CLOCK),
-  shot: scanFiles(REPO, shotFiles),
+  path: scanFiles(REPO, [...new Set([...sourceFiles(REPO, ['beiming/kernel/eval', 'beiming/sources/three', 'beiming/host/page']), ...shotFiles])], CLOCK),
+  shot: scanFiles(REPO, [...new Set(shots.flatMap((one) => one.own))]),
 };
 
 // ---------- 核对记录：先写出来，再交给校验器 ----------
@@ -511,7 +518,7 @@ const gates = {
   'meta source.id is the source written at the top of the shot entry, source.renderer and source.host are the ones that rendered': metas.length > 0 && metas.every((r) => r.meta.source.id === r.shot.source && r.meta.source.renderer === caps.id && r.meta.source.host === renderingOf(r.shot).host),
   'ctx.events holds every named event of the shot input': named.length > 0 && shots.every((one) => one.localized.length === named.length),
   'meta events are the events of the shot input that land on that frame': metas.every((r) => JSON.stringify(r.meta.events) === JSON.stringify(eventsAt(r.f + r.shot.in))) && metas.some((r) => r.meta.events.length > 0),
-  'accumulated color vs linear average of predicted images measured on every delivered frame': accumulations.length > 0 && accumulations.every((x) => x.linearErr !== null),
+  'accumulated color vs linear average of predicted images measured on every delivered frame that can be measured': accumulations.some((x) => !x.unmeasurable) && accumulations.every((x) => x.unmeasurable || x.linearErr !== null),
   'id layer vs predicted image (aux mismatch) measured on every delivered frame': auxMismatches.length > 0 && auxMismatches.every((x) => x.auxMismatch !== null),
   'no error while measuring or comparing': problems.length === 0 && calibration.length === shots.length,
   'id layer vs per-pixel raycast: centroid within tolerance, mismatches only on sub-pixel edges': cal('idLayer').every((x) => within(x.vsRaycastPx, x.tolPx) && x.offEdge === 0),
@@ -547,7 +554,7 @@ for (const c of calibration) {
   for (const x of c.moments) console.log(`  ${c.shot} 第 ${x.frame} 帧 sub ${x.sub} 的清晰时刻${x.landed ? `：${x.object} ${x.pixels} 像素，对逐像素求交差 ${x.vsRaycastPx} 像素` : '：没落在要的时刻，不比'}`);
   console.log(`  ${c.shot} 点名的像素 ${c.pixelHits.length} 个，对上 ${c.pixelHits.filter((x) => x.gotId === x.wantId).length} 个`);
 }
-for (const x of accumulations) console.log(`  ${x.shot} 第 ${x.frame} 帧 ${x.subFrames} 个子帧累积的颜色层对线性平均的预言图：边缘带之外最大差 ${sci(x.linearErr)}（进记录的数；各时刻预言不全相同的像素 ${x.moving ?? 0} 个），连边缘带的 ${x.edgePixels ?? 0} 个像素一起比是 ${sci(x.wholeFrame)}`);
+for (const x of accumulations) console.log(x.unmeasurable ? `  ${x.shot} 第 ${x.frame} 帧 ${x.subFrames} 个子帧累积的颜色层：量不出（${x.unmeasurable}），T6 对这一帧不判` : `  ${x.shot} 第 ${x.frame} 帧 ${x.subFrames} 个子帧累积的颜色层对线性平均的预言图：边缘带之外最大差 ${sci(x.linearErr)}（进记录的数；各时刻预言不全相同的像素 ${x.moving ?? 0} 个），连边缘带的 ${x.edgePixels ?? 0} 个像素一起比是 ${sci(x.wholeFrame)}`);
 for (const x of auxMismatches) console.log(`  ${x.shot} 第 ${x.frame} 帧 编号层对 sub = 0、针孔、像素中心的预言图：${x.auxMismatch === null ? '量不出' : `边缘带之外对不上 ${x.auxMismatch} 个像素（进记录的数；连边缘带一共 ${x.idMismatch} 个，边缘带 ${x.edgeLimit} 个像素）`}`);
 for (const x of unverified) console.log(`  没验：能力声明里列了 ${x}，这次没有夹具`);
 for (const x of frameRows.filter((y) => y.want !== y.got)) console.log(`  ${x.shot} 出了颜色层的成功 render ${x.want} 次，时间核对记录的 frames 里只有 ${x.got} 项`);

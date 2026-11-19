@@ -63,7 +63,7 @@
         "required": ["id", "shot", "anchor", "text", "in", "out"],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" },
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*$", "not": { "enum": ["tracks", "host"] } },
           "shot": { "$ref": "#/$defs/id" },
           "anchor": { "type": "string", "pattern": "^(screen|[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*#[A-Za-z0-9_]+)$" },
           "pos": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number", "minimum": 0, "maximum": 1 } },
@@ -218,7 +218,7 @@
             "required": ["as", "use", "params"],
             "additionalProperties": false,
             "properties": {
-              "as": { "$ref": "#/$defs/alias" },
+              "as": { "$ref": "#/$defs/alias", "not": { "enum": ["tracks", "host"] } },
               "use": { "$ref": "#/$defs/cardRef" },
               "params": { "type": "object", "propertyNames": { "$ref": "#/$defs/freeKey" } }
             }

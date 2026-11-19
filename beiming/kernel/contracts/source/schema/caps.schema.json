@@ -86,7 +86,7 @@
     "solvers": { "type": "array", "uniqueItems": true, "items": { "enum": ["path"] } },
     "channels": { "type": "string", "pattern": "^[a-z][a-z0-9-]*/[0-9]+\\.[0-9]+$" },
     "metaNull": { "type": "array", "uniqueItems": true, "items": { "enum": ["stats.noise", "stats.tris", "texts", "lights"] } },
-    "ext": { "type": "object" }
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
   },
   "$defs": {
     "outputName": {

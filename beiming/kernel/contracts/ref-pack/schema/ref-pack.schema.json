@@ -91,7 +91,7 @@
         "seedVsSeedFlipMean": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
       }
     },
-    "ext": { "type": "object" }
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
   },
   "$defs": {
     "nonEmpty": { "type": "string", "minLength": 1 },

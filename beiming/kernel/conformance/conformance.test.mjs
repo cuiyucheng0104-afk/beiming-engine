@@ -6,8 +6,8 @@ import { loadContracts } from '../contracts/validate.mjs';
 import { eventsTable, renderingOf } from '../eval/input.mjs';
 import { boundsOf, boxOfIds, centroid, diffLayers, dist, expectedLayers, iou, linearError, predictAccumulation } from './compare.mjs';
 import { observed, readObservation, RNG_RUNS } from './fixtures/observe.js';
-import { effectiveShutter, metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
-import { scanFiles, scanText, sourceFiles, withDirectImports } from './scan.mjs';
+import { effectiveShutter, linearErrBlocked, metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
+import { scanFiles, scanText, sourceFiles, withImports } from './scan.mjs';
 
 const REPO = new URL('../../../', import.meta.url);
 const readJson = (rel) => JSON.parse(readFileSync(new URL(rel, REPO), 'utf8'));
@@ -65,7 +65,11 @@ test('静态扫描认得出墙钟和不带种子的随机，白名单只放行�
   const strict = scanFiles(root, files), lenient = scanFiles(root, files, [{ path: 'beiming/host/page/clock.js', call: perf }]);
   assert.deepEqual(strict.wallClock, [{ path: 'beiming/host/page/clock.js', call: perf }]);
   assert.deepEqual([lenient.wallClock, lenient.allowed], [[], strict.wallClock]);
-  assert.deepEqual(withDirectImports(root, 'beiming/kernel/conformance/compare.mjs'), ['beiming/kernel/conformance/compare.mjs', 'beiming/calib/check.mjs']);
+  assert.deepEqual(withImports(root, 'beiming/kernel/conformance/compare.mjs'), ['beiming/kernel/conformance/compare.mjs', 'beiming/calib/check.mjs']);
+  // 两层：run.mjs 不直接引 calib/check.mjs，经 compare.mjs 才到；每个文件只出现一次
+  const deep = withImports(root, 'beiming/kernel/conformance/run.mjs');
+  assert.ok(deep.includes('beiming/kernel/conformance/compare.mjs') && deep.includes('beiming/calib/check.mjs'));
+  assert.equal(new Set(deep).size, deep.length);
 });
 
 test('重心：按像素中心算，可以加权', () => {
@@ -354,4 +358,16 @@ test('观测里的毛病原样进记录，被对应的条文判出来', () => {
     mutate(obs.shots, obs);
     assert.deepEqual(build(obs).flatMap(violations), id.trim().split(','), `改坏之后应该只判出 ${id}`);
   }
+});
+
+test('linearErr 量不出的情形：每像素多个样本、带景深、没要元数据', () => {
+  const caps = { final: { samples: 1 } }, pinhole = { camera: {} }, meta = { camera: {} };
+  const r = (more = {}) => ({ tier: 'final', meta, ...more });
+  assert.equal(linearErrBlocked(r(), {}, caps, pinhole), null);
+  assert.equal(linearErrBlocked(r({ opts: { samples: 4 } }), {}, caps, pinhole), '每像素采样数大于 1');
+  assert.equal(linearErrBlocked(r(), { tiers: { final: { samples: 2 } } }, caps, pinhole), '每像素采样数大于 1');
+  assert.equal(linearErrBlocked(r({ opts: { samples: 1 } }), {}, { final: { samples: 8 } }, pinhole), null);
+  assert.equal(linearErrBlocked(r(), {}, caps, { camera: { apertureDiameterM: 0.05 } }), '这一帧带景深');
+  assert.equal(linearErrBlocked(r({ meta: { camera: { focusDist: 5, fstop: 2.8, sensorHeightM: 0.024 } } }), {}, caps, pinhole), '这一帧带景深');
+  assert.equal(linearErrBlocked(r({ meta: undefined }), {}, caps, pinhole), '这次调用没要元数据，看不出带不带景深');
 });
