@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ROOT, gitStatus } from './helpers.mjs';
+import { ROOT, gitStatus, removeLink } from './helpers.mjs';
 import { browserOk } from '../ci/browser.mjs';
 import { ffmpegBins } from '../../tools/env/lib/ffmpeg.mjs';
 
@@ -20,13 +20,16 @@ const skipPipeline = skipPyAudio
   || (!hasBin(ffmpeg) || !hasBin(ffprobe) ? '缺少 ffmpeg / ffprobe' : false)
   || (!browserOk ? '缺少 Playwright 无头浏览器' : false);
 
-const statusBefore = new Set(gitStatus() || []);
-const SANDBOX = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-audio-pipeline-'));
+// 并发跑 tests/film/*.test.mjs 时，兄弟进程会在根 films/p06t-* 建临时链接并在各自结束时删除；排除该前缀，核查本文件自身零泄漏。
+const SIBLING_PREFIXES = ['films/p06t-'];
+const statusBefore = new Set(gitStatus(SIBLING_PREFIXES) || []);
+const SANDBOX = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-audio-pipeline-')));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(SANDBOX, 'package.json'));
 for (const rel of ['routes', 'engine', 'tools']) {
   fs.cpSync(path.join(ROOT, rel), path.join(SANDBOX, rel), { recursive: true, filter: src => !src.includes('__pycache__') });
 }
-for (const rel of ['node_modules', 'assets', 'media', 'fonts', '.venv']) {
+const SANDBOX_LINKS = ['node_modules', 'assets', 'media', 'fonts', '.venv'];
+for (const rel of SANDBOX_LINKS) {
   if (fs.existsSync(path.join(ROOT, rel))) {
     fs.symlinkSync(path.join(ROOT, rel), path.join(SANDBOX, rel), process.platform === 'win32' ? 'junction' : 'dir');
   }
@@ -34,6 +37,7 @@ for (const rel of ['node_modules', 'assets', 'media', 'fonts', '.venv']) {
 fs.mkdirSync(path.join(SANDBOX, 'films'), { recursive: true });
 
 after(() => {
+  for (const rel of SANDBOX_LINKS) removeLink(path.join(SANDBOX, rel));
   fs.rmSync(SANDBOX, { recursive: true, force: true });
 });
 
@@ -319,7 +323,7 @@ test('4. 自动对白构建与可选画面遥测：dialogue.json 自动生成配
 });
 
 test('仓库卫生：声音出片链测试跑完，主仓库工作区没有多出任何未跟踪或被改文件', () => {
-  const st = gitStatus();
+  const st = gitStatus(SIBLING_PREFIXES);
   if (st === null) return;
   assert.deepEqual(st.filter(l => !statusBefore.has(l)), []);
 });
