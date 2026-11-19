@@ -8,7 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..', '..'))
 CALIB = os.path.join(ROOT, 'beiming', 'calib')
 OUT = os.path.join(ROOT, 'out', 'probe', 'blender')
-SCENES = sorted(d for d in os.listdir(CALIB) if os.path.isfile(os.path.join(CALIB, d, 'scene.json')))
+SCENES = sorted(d for d in os.listdir(CALIB) if os.path.isfile(os.path.join(CALIB, d, 'scene.json')) and d != 'probe-aux-sample')  # 辅助层取样场景归最小出帧链路量，不进探针表
 SAMPLES, RUNS = 64, 2
 # 在哪台机器、用什么设备跑由环境变量说：BEIMING_PROBE_MACHINE（默认 mac，别的机器另写一份读数表）、BEIMING_PROBE_DEVICE（CPU 或 GPU，默认 CPU）
 MACHINE, DEVICE = os.environ.get('BEIMING_PROBE_MACHINE', 'mac'), os.environ.get('BEIMING_PROBE_DEVICE', 'CPU')

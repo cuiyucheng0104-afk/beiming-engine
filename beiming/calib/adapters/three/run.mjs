@@ -73,7 +73,9 @@ const NOTE = {
 };
 
 // 探针表目录 table/ 也以 probe- 开头，会被检查器的 loadScenes 当成场景；这里先只留有 scene.json 的目录（见汇报的变更单）。
-const scenes = readdirSync(CALIB_DIR).filter(n => n.startsWith('probe-') && existsSync(join(CALIB_DIR, n, 'scene.json'))).sort()
+// 探针表只管这六个场景；后来加的辅助层取样场景归最小出帧链路量，不进这张表
+const TABLE_SCENES = ['probe-axes-turntable', 'probe-gray-chart', 'probe-moving-cube', 'probe-occlusion', 'probe-plane-steps', 'probe-thin-geometry'];
+const scenes = readdirSync(CALIB_DIR).filter(n => TABLE_SCENES.includes(n) && existsSync(join(CALIB_DIR, n, 'scene.json'))).sort()
   .map(name => ({ name, scene: JSON.parse(readFileSync(join(CALIB_DIR, name, 'scene.json'), 'utf8')) }));
 assert.equal(scenes.length, 6);
 const server = await serve(), runs = [];
