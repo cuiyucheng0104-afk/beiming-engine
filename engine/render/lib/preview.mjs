@@ -413,7 +413,7 @@ export function createPreviewMiddleware({ root, repoRoot } = {}) {
       const isSampleRoot = relDir === '.' && (path.resolve(filmDir) === path.resolve(REPO) || isFile(path.join(filmDir, 'films', 'beiming-10s', 'film.json')));
       let args;
       if (hasFilmJson && isFile(filmCli)) {
-        args = [filmCli, 'mix', filmDir, '--no-cache', '--json'];
+        args = [filmCli, 'mix', filmDir, '--gpu', 'software-ok', '--no-cache', '--json'];
       } else if (isSampleRoot && isFile(sampleAudioCli)) {
         args = [sampleAudioCli, '--json'];
       } else {
