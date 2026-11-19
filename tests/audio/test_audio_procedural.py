@@ -287,6 +287,243 @@ class ProceduralAudioTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             P.stylized_cartoon('honk_unknown')
 
+    # ———— 6. 四大场景物理因果全带宽（0–20 kHz）合成器与薄板加速度辐射测试 ————
+    def _assert_clean_stereo(self, x: np.ndarray, anc: float, expected_dur: float = None, msg: str = ''):
+        self.assertIsInstance(x, np.ndarray, msg)
+        self.assertEqual(x.ndim, 2, msg)
+        self.assertEqual(x.shape[1], 2, msg)
+        self.assertEqual(x.dtype, np.float64, msg)
+        if expected_dur is not None:
+            self.assertEqual(len(x), N(expected_dur), msg)
+        self.assertTrue(np.all(np.isfinite(x)), f'存在 NaN/Inf: {msg}')
+        pk = float(np.max(np.abs(x)))
+        self.assertLessEqual(pk, 0.92 + 1e-6, f'峰值超出 0.92 安全上限 ({pk}): {msg}')
+        self.assertGreater(rms(x), 1e-4, f'信号过弱或全静音: {msg}')
+        self.assertLess(float(np.max(np.abs(np.mean(x, axis=0)))), 0.01, f'直流偏移偏大: {msg}')
+        # 首尾零台阶（防咔嗒）
+        self.assertLess(float(np.max(np.abs(x[0]))), 1e-4, f'首样本存在咔嗒台阶: {msg}')
+        self.assertLess(float(np.max(np.abs(x[-1]))), 1e-4, f'末样本存在咔嗒台阶: {msg}')
+        dur_actual = (len(x) - 1) / float(SR)
+        self.assertGreaterEqual(anc, 0.0, f'锚点为负 ({anc}): {msg}')
+        self.assertLessEqual(anc, dur_actual + 1e-9, f'锚点越界 ({anc} > {dur_actual}): {msg}')
+
+    @staticmethod
+    def _band_energy_ratio(x: np.ndarray, f_lo: float, f_hi: float = None) -> float:
+        w = np.asarray(x, dtype=float)
+        if w.ndim == 2:
+            w = w.mean(axis=1)
+        spec = np.abs(np.fft.rfft(w)) ** 2
+        freqs = np.fft.rfftfreq(len(w), 1.0 / float(SR))
+        tot = float(np.sum(spec))
+        if tot <= 1e-30:
+            return 0.0
+        mask = (freqs >= f_lo) if f_hi is None else ((freqs >= f_lo) & (freqs <= f_hi))
+        return float(np.sum(spec[mask])) / tot
+
+    @staticmethod
+    def _band_centroid(x: np.ndarray, f_lo: float, f_hi: float) -> float:
+        w = np.asarray(x, dtype=float)
+        if w.ndim == 2:
+            w = w.mean(axis=1)
+        mag = np.abs(np.fft.rfft(w * np.hanning(len(w))))
+        freqs = np.fft.rfftfreq(len(w), 1.0 / float(SR))
+        mask = (freqs >= f_lo) & (freqs <= f_hi)
+        denom = float(np.sum(mag[mask]))
+        return float(np.dot(freqs[mask], mag[mask]) / denom) if denom > 1e-20 else 0.0
+
+    def test_modal_impact_accel_radiation_and_bit_identity(self):
+        # 1) 默认 radiation='disp' 必须与未传参完全逐位一致（100% 向后兼容）
+        for mat in P.MATERIAL_MODES:
+            w_def, a_def = P.modal_impact(mat, dur=0.36, hardness=0.55, seed=23)
+            w_disp, a_disp = P.modal_impact(mat, dur=0.36, hardness=0.55, radiation='disp', seed=23)
+            np.testing.assert_array_equal(w_def, w_disp)
+            self.assertEqual(a_def, a_disp)
+
+        # 2) 软槌敲击木腔/陶瓷时，无限障板加速度辐射 radiation='accel' 的 <100 Hz 亚模态闷击能量占比显著低于 'disp'
+        for mat in ('wood_hollow', 'ceramic'):
+            w_d, a_d = P.modal_impact(mat, dur=0.40, hardness=0.12, size_scale=1.15, radiation='disp', seed=9)
+            w_a, a_a = P.modal_impact(mat, dur=0.40, hardness=0.12, size_scale=1.15, radiation='accel', seed=9)
+            self._assert_clean_wave(w_a, a_a, expected_dur=0.40, msg=f'{mat}_accel')
+            sub_disp = self._band_energy_ratio(w_d, 0.0, 100.0)
+            sub_accel = self._band_energy_ratio(w_a, 0.0, 100.0)
+            self.assertLess(
+                sub_accel, sub_disp * 0.10,
+                f'{mat} accel 未显著消除 <100 Hz 亚模态低频闷响: disp={sub_disp:.3e}, accel={sub_accel:.3e}',
+            )
+
+        with self.assertRaises(ValueError):
+            P.modal_impact('wood_hollow', radiation='invalid_rad')
+
+    def test_thunder_strike_3d_propagation_absorption_and_stereo(self):
+        self.assertEqual(set(P.THUNDER_GEOMETRIES), {'overhead', 'diagonal', 'distant_roll'})
+
+        for geom in P.THUNDER_GEOMETRIES:
+            w1, a1 = P.thunder_strike(2.6, distance_m=420.0, geometry=geom, branches=4, strokes=2, seed=11)
+            w2, a2 = P.thunder_strike(2.6, distance_m=420.0, geometry=geom, branches=4, strokes=2, seed=11)
+            w3, _ = P.thunder_strike(2.6, distance_m=420.0, geometry=geom, branches=4, strokes=2, seed=12)
+            self._assert_clean_stereo(w1, a1, expected_dur=2.6, msg=f'thunder_{geom}')
+            np.testing.assert_array_equal(w1, w2)
+            self.assertEqual(a1, a2)
+            self.assertFalse(np.allclose(w1, w3))
+            corr = float(np.corrcoef(w1[:, 0], w1[:, 1])[0, 1])
+            self.assertGreater(corr, 0.10, f'{geom} 双耳相关性过低存在反相风险: {corr}')
+            self.assertLess(corr, 0.98, f'{geom} 缺少三维空间立体声去相关宽度: {corr}')
+
+        # 近顶雷击（overhead, 80m）相较远方滚雷（distant_roll, 1800m）：>3 kHz 电弧撕裂占比更高、主峰更早到达
+        w_oh, a_oh = P.thunder_strike(3.2, distance_m=80.0, geometry='overhead', branches=5, strokes=2, seed=5)
+        w_dr, a_dr = P.thunder_strike(3.2, distance_m=1800.0, geometry='distant_roll', branches=5, strokes=2, seed=5)
+        self._assert_clean_stereo(w_oh, a_oh, expected_dur=3.2, msg='overhead_80m')
+        self._assert_clean_stereo(w_dr, a_dr, expected_dur=3.2, msg='distant_1800m')
+
+        hi_oh = self._band_energy_ratio(w_oh, 3000.0, 20000.0)
+        hi_dr = self._band_energy_ratio(w_dr, 3000.0, 20000.0)
+        self.assertGreater(hi_oh, hi_dr * 25.0, f'近顶雷 >3 kHz 能量占比未显著高于远雷: oh={hi_oh}, dr={hi_dr}')
+        self.assertGreater(self._band_energy_ratio(w_oh, 12000.0, 20000.0), 1e-3, '近顶雷缺少 >12 kHz 全带宽电弧空气感')
+
+        pk_t_oh = int(np.argmax(np.abs(w_oh).max(axis=1))) / float(SR)
+        pk_t_dr = int(np.argmax(np.abs(w_dr).max(axis=1))) / float(SR)
+        self.assertLess(pk_t_oh, pk_t_dr, f'近顶雷峰值时刻 ({pk_t_oh:.3f}s) 应早于远方滚雷 ({pk_t_dr:.3f}s)')
+        self.assertLess(a_oh, a_dr, f'近顶雷同步锚点 ({a_oh:.3f}s) 应早于远方滚雷 ({a_dr:.3f}s)')
+
+        corr_oh = float(np.corrcoef(w_oh[:, 0], w_oh[:, 1])[0, 1])
+        corr_dr = float(np.corrcoef(w_dr[:, 0], w_dr[:, 1])[0, 1])
+        self.assertTrue(0.10 < corr_oh < 0.98)
+        self.assertTrue(0.10 < corr_dr < 0.98)
+
+        with self.assertRaises(ValueError):
+            P.thunder_strike(1.5, geometry='zigzag_invalid')
+
+    def test_pouring_vessel_rising_quarter_wave_formant(self):
+        w1, a1 = P.pouring_vessel(1.8, fill_start=0.10, fill_end=0.90, height_cm=18.0, radius_cm=3.6, flow_rate=0.65, seed=7)
+        w2, a2 = P.pouring_vessel(1.8, fill_start=0.10, fill_end=0.90, height_cm=18.0, radius_cm=3.6, flow_rate=0.65, seed=7)
+        self._assert_clean_wave(w1, a1, expected_dur=1.8, msg='pouring_vessel')
+        self.assertLessEqual(float(np.max(np.abs(w1))), 0.92 + 1e-6)
+        np.testing.assert_array_equal(w1, w2)
+        self.assertEqual(a1, a2)
+
+        # 液面从 0.1 升至 0.9，四分之一波长空气柱缩短，300–4000 Hz 共振峰质心跨四等分段严格单调上升
+        q = len(w1) // 4
+        c_quarters = [self._band_centroid(w1[i * q:(i + 1) * q], 300.0, 4000.0) for i in range(4)]
+        for idx in range(3):
+            self.assertLess(
+                c_quarters[idx], c_quarters[idx + 1],
+                f'注水共振峰质心未单调上升: {c_quarters}',
+            )
+        self.assertGreater(c_quarters[3], c_quarters[0] * 1.35)
+        # 保留 >12 kHz 全频带水流细沫空气感
+        self.assertGreater(self._band_energy_ratio(w1, 12000.0, 20000.0), 0.005)
+
+        # 零流量静默保护
+        w_zero, a_zero = P.pouring_vessel(0.5, flow_rate=0.0, seed=1)
+        self.assertEqual(float(np.max(np.abs(w_zero))), 0.0)
+        self.assertEqual(a_zero, 0.0)
+
+    def test_bouncing_disc_doublet_modes_acceleration_and_euler_spin(self):
+        from scipy.signal import find_peaks
+        from engine.audio.dsp import bp
+
+        self.assertEqual(set(P.DISC_MATERIALS), {'coin_brass', 'coin_silver', 'jade_token', 'stone_go'})
+
+        for mat in P.DISC_MATERIALS:
+            w1, a1 = P.bouncing_disc(1.2, material=mat, bounces=7, spin_tail=True, seed=3)
+            w2, a2 = P.bouncing_disc(1.2, material=mat, bounces=7, spin_tail=True, seed=3)
+            self._assert_clean_stereo(w1, a1, expected_dur=1.2, msg=f'disc_{mat}')
+            self.assertLess(a1, 0.04, f'{mat} 首击锚点应紧贴首次落桌时刻')
+            np.testing.assert_array_equal(w1, w2)
+            self.assertEqual(a1, a2)
+
+            corr = float(np.corrcoef(w1[:, 0], w1[:, 1])[0, 1])
+            self.assertTrue(0.10 < corr < 0.98, f'{mat} 双音简并立体声相关性越界: {corr}')
+
+            # 提取桌面接触频带（低于盘体基频的 150–800 Hz 短促接触包络）验证弹跳间隔严格递减加速
+            m = w1.mean(axis=1)
+            wt = bp(m, 150.0, 800.0, 2)
+            win = N(0.003)
+            env = np.sqrt(np.convolve(wt * wt, np.ones(win) / float(win), mode='same'))
+            b_end = N(0.395 * 1.2)
+            pks_b, _ = find_peaks(env[:b_end], distance=N(0.015), prominence=float(np.max(env[:b_end])) * 0.04)
+            dts_b = np.diff(pks_b) / float(SR)
+            self.assertGreaterEqual(len(dts_b), 4, f'{mat} 检出弹跳脉冲不足: {dts_b}')
+            for dt_prev, dt_next in zip(dts_b, dts_b[1:]):
+                self.assertGreater(dt_prev, dt_next, f'{mat} 弹跳脉冲间隔未单调加速收拢: {dts_b}')
+
+            # 验证 spin_tail=True 产生欧拉盘加速颤振，且在平拍止音后尾段安静无残响
+            s_a, s_b = N(0.45 * 1.2), N(0.81 * 1.2)
+            pks_s, _ = find_peaks(env[s_a:s_b], distance=N(0.007), prominence=float(np.max(env[s_a:s_b])) * 0.08)
+            dts_s = np.diff(pks_s) / float(SR)
+            self.assertGreaterEqual(len(dts_s), 6, f'{mat} 欧拉盘滚振颤振脉冲不足')
+            self.assertLess(float(np.mean(dts_s[-3:])), float(np.mean(dts_s[:3])) * 0.72)
+
+            spin_rms = rms(w1[s_a:s_b])
+            post_settle_rms = rms(w1[N(0.88 * 1.2):])
+            self.assertGreater(spin_rms, 0.002)
+            self.assertLess(post_settle_rms, 1e-4, f'{mat} 平拍止音后仍残留明显振铃: {post_settle_rms}')
+
+        # 金属硬币具备延伸至 >12 kHz 的高频双音闪烁，且 spin_tail=False 与 True 形态显著不同
+        w_spin, _ = P.bouncing_disc(1.2, material='coin_brass', bounces=7, spin_tail=True, seed=5)
+        w_nospin, _ = P.bouncing_disc(1.2, material='coin_brass', bounces=7, spin_tail=False, seed=5)
+        self.assertGreater(self._band_energy_ratio(w_spin, 12000.0, 20000.0), 0.003)
+        self.assertFalse(np.allclose(w_spin, w_nospin))
+
+        with self.assertRaises(ValueError):
+            P.bouncing_disc(1.0, material='plastic_poker')
+
+    def test_shock_blast_friedlander_nwave_and_full_bandwidth(self):
+        self.assertEqual(set(P.BLAST_KINDS), {'firework', 'cannon', 'cork_pop', 'whip_crack'})
+
+        expected_anchors = {
+            'firework': (0.030, 0.068),
+            'cannon': (0.020, 0.060),
+            'cork_pop': (0.070, 0.115),
+            'whip_crack': (0.130, 0.180),
+        }
+        for kind in P.BLAST_KINDS:
+            w1, a1 = P.shock_blast(1.4, kind=kind, distance_m=25.0, mach_crack=True, seed=6)
+            w2, a2 = P.shock_blast(1.4, kind=kind, distance_m=25.0, mach_crack=True, seed=6)
+            w_nomach, _ = P.shock_blast(1.4, kind=kind, distance_m=25.0, mach_crack=False, seed=6)
+            self._assert_clean_stereo(w1, a1, expected_dur=1.4, msg=f'blast_{kind}')
+            np.testing.assert_array_equal(w1, w2)
+            self.assertEqual(a1, a2)
+            self.assertFalse(np.allclose(w1, w_nomach))
+
+            lo_a, hi_a = expected_anchors[kind]
+            self.assertGreaterEqual(a1, lo_a, f'{kind} 冲击锚点过早 ({a1:.4f}s)')
+            self.assertLessEqual(a1, hi_a, f'{kind} 冲击锚点过晚 ({a1:.4f}s)')
+
+            # 证明 4 类冲击波全部保留 >12 kHz（12–20 kHz）真实空气脆度，零 12 kHz 砖墙截断
+            hi_12k = self._band_energy_ratio(w1, 12000.0, 20500.0)
+            self.assertGreater(hi_12k, 0.0015, f'{kind} 缺少 >12 kHz 超压前沿高频空气能量 ({hi_12k:.6f})')
+
+            corr = float(np.corrcoef(w1[:, 0], w1[:, 1])[0, 1])
+            self.assertTrue(0.10 < corr < 0.98, f'{kind} 立体声相关性异常: {corr}')
+
+        # 距离大气衰减：近距 15 m 高频丰富度高于远距 320 m
+        w_near, _ = P.shock_blast(1.2, kind='firework', distance_m=15.0, seed=8)
+        w_far, _ = P.shock_blast(1.2, kind='firework', distance_m=320.0, seed=8)
+        self.assertGreater(_spectral_centroid(w_near), _spectral_centroid(w_far) * 1.25)
+
+        with self.assertRaises(ValueError):
+            P.shock_blast(1.0, kind='dynamite_unknown')
+
+    def test_scene_synthesizers_foley_and_editorial_compatibility(self):
+        from engine.audio import editorial as E, foley as F
+
+        buf = np.zeros((N(4.0), 2), dtype=np.float64)
+        samples = [
+            P.pouring_vessel(1.2, seed=2),
+            P.bouncing_disc(1.0, material='jade_token', seed=2),
+            P.shock_blast(1.0, kind='cork_pop', seed=2),
+            P.thunder_strike(1.6, distance_m=220.0, geometry='diagonal', seed=2),
+        ]
+        for idx, (wave, anc) in enumerate(samples):
+            info = F.place_anchored(buf, wave, t_hit=0.4 + 0.7 * idx, anchor=anc, gain=0.5, pan=-0.2 + 0.15 * idx)
+            self.assertIn('placed_at', info)
+            edited, ed_anc = E.smart_edit_clip(wave, 0.85, mode='impulsive', anchor=anc, seed=idx + 1)
+            self.assertTrue(np.all(np.isfinite(edited)))
+            self.assertGreaterEqual(ed_anc, 0.0)
+        self.assertTrue(np.all(np.isfinite(buf)))
+        self.assertGreater(rms(buf), 1e-3)
+
 
 if __name__ == '__main__':
     unittest.main()

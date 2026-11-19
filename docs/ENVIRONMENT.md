@@ -155,7 +155,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `FFMPEG` | 编码 | ffmpeg 可执行文件（完整路径）。`engine/render`（video / shots / mux）与 `tools/env` 都经 `ffmpegBins` 解析；`build.sh`、`audio/check.py` 仍从 PATH 调用 | PATH 里的 ffmpeg |
 | `FFPROBE` | 编码 | ffprobe 可执行文件，识别范围同上 | PATH 里的 ffprobe |
 | `BEIMING_PYTHON` | Python | 指定解释器（正式名，优先级最高） | 按上一节的顺序查找 |
-| `BEIMING_PY` | Python | `BEIMING_PYTHON` 的别名（C 路线 `build.mjs` 沿用） | 同上 |
+| `BEIMING_PY` | Python | `BEIMING_PYTHON` 的别名（历史脚本与命令行习惯沿用） | 同上 |
 | `PYTHON` | Python | 旧写法：sh 入口与 B 路线 prepare 用它指定解释器 | `python3`（Windows 上 prepare 用 `python`） |
 | `PYTHONPATH` | Python | py.mjs 与 B 路线 prepare 把仓库根加到最前面，脚本里可以直接 `import engine.audio` | 由工具设置 |
 | `PYTHONUTF8` | Python | py.mjs 固定设为 1 | 由工具设置 |
@@ -163,7 +163,11 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `NUMBA_CACHE_DIR` | Python（numba） | numba 编译缓存目录；仓库目录只读时改到可写处 | `engine/audio/__pycache__` |
 | `BEIMING_SAMPLES` | 声音 | CC0 采样库目录；只有重渲配乐（`sh audio/build.sh --score`）需要 | 不设，用 `audio/score_cache.npz` |
 | `BEIMING_CJK_FONT` | 声音 | 声音自检图（`engine/audio/scope.py`）用的中文字体文件；找不到系统中文字体时设它 | 按 macOS、Windows（`%WINDIR%\Fonts`）、Linux 的常见位置查找 |
-| `BEIMING_AUDIO_OUT` | 声音 | 统一出片传给作品声音脚本的输出 wav 路径（`out/<运行号>/audio/mix.wav`），不要手动设 | 由统一出片设置；单独跑 `sound.py` 时写 `films/<名>/out/mix.wav` |
+| `BEIMING_AUDIO_OUT` | 声音 | 统一出片传给作品声音脚本的输出 wav 路径（`out/<运行号>/audio/mix.wav`），不要手动设 | 由统一出片设置；单独跑 `sound.py` / `mix.py` 时写 `films/<名>/out/mix.wav` |
+| `BEIMING_AUDIO_STEMS` | 声音 | 统一出片传给作品声音脚本的分轨输出目录（`out/<运行号>/audio/stems`），不要手动设 | 由统一出片设置；单独跑声音脚本时写 `<mix.wav 所在目录>/stems` |
+| `BEIMING_DIALOGUE_DIR` | 声音 | 统一出片自动合成 `dialogue.json` 后传给作品声音脚本的对白产物目录（含 `voice.wav`、`voice.json`），不要手动设 | 由统一出片设置（没有对白时为空） |
+| `BEIMING_KINEMATICS` | 声音 | 统一出片开启 `audio.telemetry` 时传给作品声音脚本的逐帧画面遥测路径（`out/<运行号>/kinematics.json`），不要手动设 | 由统一出片设置（未开启遥测时为空） |
+| `BEIMING_ACESTEP_URL` | 声音（ACE-Step 1.5） | `npm run audio:music`（`engine.audio.music_gen`）的 ACE-Step 1.5 Cover 配乐服务端地址；`--endpoint` 优先，未设时可用 `--ssh` 建临时本地端口转发 | 不设（离线导引轨 `--provider guide` 不需要） |
 | `BEIMING_FPS` | 声音 | 统一出片传给声音脚本的帧率；A 模版 `sound.py` 与 `film.json` 不一致时退出 4 | 由统一出片设置 |
 | `BEIMING_FRAMES` | 声音 | 统一出片传给声音脚本的总帧数，核对方式同上 | 由统一出片设置 |
 | `FREESOUND_TOKEN` | 声音（Freesound） | Freesound API Key；仅在用 `tools/fetch_sfx.py` 搜索或下载 CC0 真实录音音效（供 `audio/mix.py --real-sfx`）时需要 | 不设（默认合成音效不需要） |

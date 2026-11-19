@@ -27,6 +27,8 @@
   audio.masking     hard < −12 dB（hero < −8 dB）、soft < −5 dB（hero < −1 dB），另查双向乐效平衡守卫：
                           music_dominance（配乐高于 fx+foley > +9 dB 告警）与 music_buried（有配乐但终混比总母带低 > 8.5 LU 告警）
                           有分轨 stems/*.wav 时核对前景事件在主能量临界频带的听觉窥视信噪比与双向乐效能量配比
+  audio.dialogue    hard 1–4 kHz 信噪比 < −2 dB 或对白样本削波；soft 信噪比 ∈ [−2, +2) dB（dialogue_masked）或有声窗 RMS 越出 [−28, −11] dBFS
+                          存在非静音 stems/vo.wav（或 dialogue.wav）时核对有声段共振峰清晰度与电平
 另报（不判）：响度范围 LRA、最大瞬时 / 短时响度、频段能量、声场相关、样本峰值。
 整段按 10 秒一块读盘，十分钟级的混音内存也只占几十 MB（engine/audio/stream.py 的分块测量）。
 
@@ -352,7 +354,8 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
     if not stem_map:
         return None
     fg_stems = [k for k in stem_map if k.lower() not in _BED_STEMS]
-    if not fg_stems:
+    sfx_fg_stems = [k for k in fg_stems if k.lower() not in ('vo', 'dialogue', 'voice')]
+    if not sfx_fg_stems and not fg_stems:
         return None
 
     if master_lufs is None:
@@ -403,7 +406,7 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
             continue
         ref = e.get('audio')
         sync = e.get('sync')
-        if not ref or sync == 'none' or e.get('domain') in ('amb', 'music', 'mix'):
+        if not ref or sync == 'none' or e.get('domain') in ('amb', 'music', 'mix', 'vo', 'dialogue', 'voice'):
             continue
         cue = cue_tab.get(str(ref), {})
         dom = str(e.get('domain') or '')
@@ -426,7 +429,8 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
 
         slices = {k: read_mono(p, a, b) for k, p in stem_map.items()}
         if not bus or bus not in slices:
-            bus = max(fg_stems, key=lambda k: float(np.mean(slices[k] ** 2)))
+            cand_fg = sfx_fg_stems or fg_stems
+            bus = max(cand_fg, key=lambda k: float(np.mean(slices[k] ** 2)))
         u = slices[bus]
         other = np.zeros_like(u)
         for k, s in slices.items():
@@ -535,6 +539,214 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
         '；'.join(msgs),
         hint=hint_msg,
         severity='hard' if worst_st == 'fail' else 'soft',
+    )
+
+
+DIALOGUE_GATE_DBFS = -42.0
+DIALOGUE_FAIL_SNR_DB = -2.0
+DIALOGUE_PASS_SNR_DB = 2.0
+DIALOGUE_MIN_RMS_DBFS = -28.0
+DIALOGUE_MAX_RMS_DBFS = -11.0
+
+
+def _check_dialogue(wav, film, sr):
+    """对白清晰度门禁（Dialogue Intelligibility Gate）：
+    当存在 stems/vo.wav 或 stems/dialogue.wav 且含 ≥100 ms 有声段（50 ms 窗 RMS > −42 dBFS）时，
+    计算有声段 1.0–4.0 kHz 对白能量相对伴奏总和（music + amb + fx + foley + ui，无伴奏分轨时回退 mix − vo）的信噪比，
+    并核对对白有声段电平与峰值削波。无对白分轨或对白全静音时不产出此检查项。"""
+    import math
+    import soundfile as sf
+
+    fa = (film or {}).get('audio') or {}
+    cand_dirs = []
+    if film and fa.get('stems'):
+        cand_dirs.append(F.resolve(film, fa['stems']))
+    cand_dirs.append(os.path.join(os.path.dirname(os.path.abspath(wav)), 'stems'))
+    if film and fa.get('cues'):
+        cand_dirs.append(os.path.join(os.path.dirname(F.resolve(film, fa['cues'])), 'stems'))
+
+    vo_path = None
+    acc_paths = []
+    for d in cand_dirs:
+        if not os.path.isdir(d):
+            continue
+        found = {}
+        for fn in sorted(os.listdir(d)):
+            if not fn.lower().endswith('.wav'):
+                continue
+            k = os.path.splitext(fn)[0]
+            found[k] = os.path.join(d, fn)
+        vo_key = next((k for k in found if k.lower() == 'vo'), None)
+        if vo_key is None:
+            vo_key = next((k for k in found if k.lower() == 'dialogue'), None)
+        if vo_key is not None:
+            vo_path = found[vo_key]
+            acc_paths = [
+                p for k, p in found.items()
+                if k != vo_key and k.lower() not in ('vo', 'dialogue', 'voice', 'mix', 'master')
+            ]
+            break
+
+    if not vo_path or not os.path.isfile(vo_path):
+        return None
+
+    win_n = max(64, int(round(0.050 * sr)))
+    blk_n = win_n * 200
+    thr_lin = 10.0 ** (DIALOGUE_GATE_DBFS / 20.0)
+    han_2d = np.hanning(win_n)[:, None]
+    fq = np.fft.rfftfreq(win_n, 1.0 / float(sr))
+    m14 = (fq >= 1000.0) & (fq <= 4000.0)
+
+    def _to_st(seg):
+        if seg.shape[1] == 1:
+            return np.repeat(seg, 2, axis=1)
+        return seg[:, :2]
+
+    vo_sp = 0.0
+    vo_clip = 0
+    active_wins = 0
+    active_ms_sum = 0.0
+    e_vo_1k_4k = 0.0
+    e_acc_1k_4k = 0.0
+    L_vo = Loudness()
+    use_acc_stems = len(acc_paths) > 0
+    acc_source = 'stems' if use_acc_stems else 'mix_minus_vo'
+
+    f_vo = None
+    f_mix = None
+    f_accs = []
+    try:
+        f_vo = sf.SoundFile(vo_path)
+        if f_vo.samplerate != sr:
+            return None
+        if use_acc_stems:
+            for p in acc_paths:
+                fa_h = sf.SoundFile(p)
+                if fa_h.samplerate == sr:
+                    f_accs.append(fa_h)
+            if not f_accs:
+                use_acc_stems = False
+                acc_source = 'mix_minus_vo'
+        if not use_acc_stems:
+            f_mix = sf.SoundFile(wav)
+
+        vo_rest = np.zeros((0, 2), dtype=float)
+        acc_rest = np.zeros((0, 2), dtype=float)
+        while True:
+            v_seg = f_vo.read(blk_n, dtype='float64', always_2d=True)
+            if len(v_seg) == 0:
+                break
+            v_seg = _to_st(v_seg)
+            m_len = len(v_seg)
+
+            av = np.abs(v_seg)
+            vo_sp = max(vo_sp, float(av.max()))
+            vo_clip += int((av >= FS).any(axis=1).sum())
+
+            a_seg = np.zeros((m_len, 2), dtype=float)
+            if use_acc_stems:
+                for fh in f_accs:
+                    s_blk = fh.read(m_len, dtype='float64', always_2d=True)
+                    if len(s_blk) > 0:
+                        s_blk = _to_st(s_blk)
+                        a_seg[:len(s_blk)] += s_blk
+            elif f_mix is not None:
+                mx_blk = f_mix.read(m_len, dtype='float64', always_2d=True)
+                if len(mx_blk) > 0:
+                    mx_blk = _to_st(mx_blk)
+                    k_m = min(m_len, len(mx_blk))
+                    a_seg[:k_m] = mx_blk[:k_m] - v_seg[:k_m]
+
+            v_buf = np.vstack([vo_rest, v_seg]) if len(vo_rest) else v_seg
+            a_buf = np.vstack([acc_rest, a_seg]) if len(acc_rest) else a_seg
+            nw = len(v_buf) // win_n
+            if nw > 0:
+                vw = v_buf[:nw * win_n].reshape(nw, win_n, 2)
+                aw = a_buf[:nw * win_n].reshape(nw, win_n, 2)
+                w_ms = np.mean(vw * vw, axis=(1, 2))
+                w_rms = np.sqrt(w_ms + 1e-24)
+                act = w_rms > thr_lin
+                n_act = int(np.sum(act))
+                if n_act > 0:
+                    active_wins += n_act
+                    active_ms_sum += float(w_ms[act].sum())
+                    act_vw = vw[act]
+                    act_aw = aw[act]
+                    L_vo.feed(act_vw.reshape(-1, 2))
+                    sp_v = np.abs(np.fft.rfft(act_vw * han_2d[None, :, :], axis=1)) ** 2
+                    sp_a = np.abs(np.fft.rfft(act_aw * han_2d[None, :, :], axis=1)) ** 2
+                    e_vo_1k_4k += float(0.5 * sp_v[:, m14, :].sum())
+                    e_acc_1k_4k += float(0.5 * sp_a[:, m14, :].sum())
+            vo_rest = v_buf[nw * win_n:]
+            acc_rest = a_buf[nw * win_n:]
+    except Exception:
+        return None
+    finally:
+        for fh in [f_vo, f_mix, *f_accs]:
+            if fh is not None:
+                try:
+                    fh.close()
+                except Exception:
+                    pass
+
+    active_sec = round(active_wins * (win_n / float(sr)), 3)
+    if active_sec < 0.100 - 1e-9:
+        return None
+
+    raw_snr = 10.0 * math.log10(max(e_vo_1k_4k, 1e-30) / max(e_acc_1k_4k, 1e-20))
+    snr_1k_4k_db = round(float(np.clip(raw_snr, -99.0, 60.0)), 2)
+    gated_rms = math.sqrt(active_ms_sum / max(1, active_wins))
+    gated_rms_db = round(20.0 * math.log10(max(gated_rms, 1e-12)), 2)
+    gated_lufs = L_vo.integrated()
+    gated_lufs_json = round(float(gated_lufs), 2) if np.isfinite(gated_lufs) else None
+
+    hard_bad = (snr_1k_4k_db < DIALOGUE_FAIL_SNR_DB) or (vo_clip > 0)
+    masked_warn = (DIALOGUE_FAIL_SNR_DB <= snr_1k_4k_db < DIALOGUE_PASS_SNR_DB)
+    rms_warn = (gated_rms_db < DIALOGUE_MIN_RMS_DBFS) or (gated_rms_db > DIALOGUE_MAX_RMS_DBFS)
+    status = _grade(snr_1k_4k_db, masked_warn or rms_warn, hard_bad)
+
+    msgs = []
+    if vo_clip > 0:
+        msgs.append(f'对白分轨存在 {vo_clip} 个满幅削波样本（≥ {FS}）')
+    if snr_1k_4k_db < DIALOGUE_FAIL_SNR_DB:
+        msgs.append(f'对白被伴奏淹没：有声段 1–4 kHz 信噪比 {snr_1k_4k_db:+.2f} dB（< {DIALOGUE_FAIL_SNR_DB:g} dB）')
+    elif masked_warn:
+        msgs.append(f'dialogue_masked：有声段 1–4 kHz 信噪比 {snr_1k_4k_db:+.2f} dB 偏紧（< +{DIALOGUE_PASS_SNR_DB:g} dB）')
+    if rms_warn:
+        msgs.append(
+            f'对白有声段电平 {gated_rms_db:+.2f} dBFS 越出推荐区间 [{DIALOGUE_MIN_RMS_DBFS:g}, {DIALOGUE_MAX_RMS_DBFS:g}] dBFS'
+        )
+
+    hint_msg = None
+    if status != 'pass':
+        hint_msg = (
+            '使用 FourStemWorkstation.set_dialogue（自动执行 -16 LUFS 有声门限定标、sculpt_stem_eq 与 '
+            'carve_dialogue_pocket 共振峰动态让位，不伤配乐低音）'
+        )
+
+    evidence = {
+        'voStem': _rel(vo_path),
+        'accompanimentSource': acc_source,
+        'activeSpeechSec': active_sec,
+        'activeWindows': active_wins,
+        'snr1k4kDb': snr_1k_4k_db,
+        'speechGatedRmsDbfs': gated_rms_db,
+        'speechGatedLufs': gated_lufs_json,
+        'samplePeak': round(vo_sp, 6),
+        'fullScaleSamples': vo_clip,
+        'dialogueMasked': bool(masked_warn or snr_1k_4k_db < DIALOGUE_FAIL_SNR_DB),
+    }
+    return _chk(
+        'audio.dialogue',
+        '对白共振峰清晰度与有声段电平（分轨）',
+        status,
+        f'1–4 kHz 信噪比 {snr_1k_4k_db:+.2f} dB · 有声段 {gated_rms_db:+.2f} dBFS（{active_sec:.2f} s）',
+        f'1–4 kHz SNR ≥ +{DIALOGUE_PASS_SNR_DB:g} dB（< {DIALOGUE_FAIL_SNR_DB:g} dB 不通过）、'
+        f'有声段 RMS ∈ [{DIALOGUE_MIN_RMS_DBFS:g}, {DIALOGUE_MAX_RMS_DBFS:g}] dBFS、0 削波',
+        evidence,
+        '；'.join(msgs),
+        hint=hint_msg,
+        severity='hard' if status == 'fail' else 'soft',
     )
 
 
@@ -684,6 +896,9 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
     mc = _check_masking(wav, film, info.samplerate, A.n, master_lufs=I)
     if mc is not None:
         checks.append(mc)
+    dc_chk = _check_dialogue(wav, film, info.samplerate)
+    if dc_chk is not None:
+        checks.append(dc_chk)
     for c in checks:
         if c['id'] in ('audio.dc', 'audio.mono', 'audio.edges') and c['status'] == 'warn':
             c['severity'] = 'soft'

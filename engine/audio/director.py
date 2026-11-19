@@ -17,18 +17,20 @@
   harmonic_freq(hz, root='D', ...)    把金属剑鸣、钟声、UI 音吸附到配乐调性主干音级（五度/八度/五声和弦音）
   carve_negative_space(n, specs, ...) 在关键事件冲击帧前挖出负空间静默包络 (n, 1)
   volume_curve(n, points, ...)        推子音量包络曲线 [(t_s, gain_db), ...] → (n, 1) 余弦/线性平滑自动化（Fader Riding）
-  sculpt_stem_eq(stems, ...)          分轨互补 EQ 分槽（AMB 让出 <110Hz 与 800Hz 暖中频槽位，Foley/FX 清低中频泥沼，配乐微让位）
+  sculpt_stem_eq(stems, ...)          分轨互补 EQ 分槽（AMB 让出 <110Hz 与 800Hz 暖中频槽位，Foley/FX 清低中频泥沼，VO 清胸腔轰鸣提咬字，配乐微让位）
+  carve_dialogue_pocket(stems, vo, ...) 对白共振峰动态频带挖槽（仅动态衰减配乐 800–4200Hz 共振峰带，100% 守护 <350Hz 大提琴/低音底盘）
   render_shot_poa(st, in_s, out_s, dur, poa='fog_wide', ...)  按镜头 POA 自动施加宽度、滤波、近讲搁架、脉冲混响与切出 L-cut
-  HDRMixer(dur, fps=24.0, ...)        离线前视感知 HDR 总线：互补 EQ + 推子包络 + Murch 聚簇 + 轻柔频带让位 + SSL 总线粘合母带
+  HDRMixer(dur, fps=24.0, ...)        离线前视感知 HDR 总线：互补 EQ + 对白共振峰让位 + 推子包络 + Murch 聚簇 + SSL 总线粘合母带
 """
 import math
+import os
 import numpy as np
 from scipy.ndimage import maximum_filter1d, uniform_filter1d
-from scipy.signal import butter, lfilter, sosfilt, sosfiltfilt
+from scipy.signal import butter, lfilter, resample_poly, sosfilt, sosfiltfilt
 
-from .dsp import (SR, smoothstep, undb, fade, stereo, place, space_place, doppler,
-                  width as ms_width, lp, hp, shelf, make_ir, reverb, tp_limit)
-from .meter import integrated, true_peak
+from .dsp import (SR, smoothstep, undb, fade, pan_lr, stereo, place, space_place, doppler,
+                  width as ms_width, lp, hp, shelf, make_ir, reverb, tp_limit, _follow)
+from .meter import integrated, kweight, true_peak
 from .mixing import window as shot_window, tail_after, match_level, tame_low, loudness_to, _master_chain_core
 from .stream import Loudness
 
@@ -105,6 +107,40 @@ def volume_curve(
     return undb(db_c)[:, None]
 
 
+def _preserve_silent_gaps(
+    arr: np.ndarray,
+    orig_abs: np.ndarray,
+    *,
+    min_gap_s: float = 0.020,
+    taper_s: float = 0.004,
+    hold_tail_s: float = 0.0,
+    sr: int = SR,
+) -> np.ndarray:
+    """在台词句间静音隙（连续为 0 达 min_gap_s 以上）严格保持 0.0，并在进入静音隙前做微余弦阻尼消除滤波尾音台阶。"""
+    n = len(arr)
+    if n == 0 or not np.any(orig_abs == 0.0):
+        return arr
+    min_gap = max(8, int(round(float(min_gap_s) * float(sr))))
+    taper_n = max(4, int(round(float(taper_s) * float(sr))))
+    hold_n = max(0, int(round(float(hold_tail_s) * float(sr))))
+    is_zero = (orig_abs == 0.0).astype(np.int8)
+    edges = np.flatnonzero(np.diff(is_zero, prepend=0, append=0) != 0)
+    if len(edges) == 0:
+        return arr
+    gate = np.ones(n, dtype=float)
+    for s0, e0 in zip(edges[0::2], edges[1::2]):
+        if e0 - s0 < min_gap:
+            continue
+        eff_s0 = min(e0, s0 + hold_n) if s0 > 0 else 0
+        if eff_s0 < e0:
+            gate[eff_s0:e0] = 0.0
+            if eff_s0 > 0:
+                k = min(taper_n, eff_s0)
+                w = np.cos(0.5 * np.pi * np.linspace(0.0, 1.0, k, dtype=float)) ** 2
+                gate[eff_s0 - k:eff_s0] = np.minimum(gate[eff_s0 - k:eff_s0], w)
+    return arr * (gate[:, None] if arr.ndim == 2 else gate)
+
+
 def sculpt_stem_eq(
     stems: dict,
     *,
@@ -113,10 +149,12 @@ def sculpt_stem_eq(
     music_presence_dip_db: float = -1.0,
     sr: int = SR,
 ) -> dict:
-    """分轨互补 EQ 分槽（Complementary Pocket EQ）：用频谱镶嵌替代粗暴降音量，让音效长在音乐里面：
+    """分轨互补 EQ 分槽（Complementary Pocket EQ）：用频谱镶嵌替代粗暴降音量，让对白与音效长在音乐里面：
     · amb: 110 Hz 高通清底 + 800 Hz (Q=0.75) 暖中频让位凹槽（把 450–1800 Hz 旋律和声核心区让给配乐）；
     · foley: 130 Hz 高通 + 320 Hz (-2.0 dB) 去低中频闷泥；
     · fx: 30 Hz 次声波清理（完整保留 55–140 Hz 滚雷/灯塔胸腔重音）+ 280 Hz 低中频去泥沼；
+    · vo / dialogue: 85 Hz 二阶高通（清喷麦超低频）+ 240 Hz (-1.8 dB, Q=1.1) 清低中频轰鸣
+      + 3.0 kHz (+1.2 dB, Q=0.9) 提辅音清晰度 + 7.2 kHz (-1.0 dB, Q=2.0) 柔化齿音，并严格保留句间静音 0.0；
     · music: 保留 100% 饱满低音与中频基音，仅在 3.2 kHz 拟音咬合区微让位 music_presence_dip_db。"""
     out = {}
     pad_n = max(8, int(round(0.010 * float(sr))))
@@ -142,6 +180,13 @@ def sculpt_stem_eq(
             arr = _hp_sr(arr, 30.0, 2, sr)
             if abs(float(fx_mud_cut_db)) > 1e-4:
                 arr = _peq_sr(arr, 280.0, float(fx_mud_cut_db), q=0.90, sr=sr)
+        elif kl in ('vo', 'dialogue', 'voice'):
+            arr = _hp_sr(arr, 85.0, 2, sr)
+            arr = _peq_sr(arr, 240.0, -1.8, q=1.1, sr=sr)
+            arr = _peq_sr(arr, 3000.0, 1.2, q=0.9, sr=sr)
+            arr = _peq_sr(arr, 7200.0, -1.0, q=2.0, sr=sr)
+            if has_zero_gaps:
+                arr = _preserve_silent_gaps(arr, orig_abs, min_gap_s=0.020, taper_s=0.004, sr=sr)
         elif kl in ('music', 'bgm'):
             if abs(float(music_presence_dip_db)) > 1e-4:
                 arr = _peq_sr(arr, 3200.0, float(music_presence_dip_db), q=0.85, sr=sr)
@@ -152,6 +197,157 @@ def sculpt_stem_eq(
             arr = arr * (gate[:, None] if arr.ndim == 2 else gate)
         out[k] = arr
     return out
+
+
+def _speech_envelope(
+    vo: np.ndarray,
+    n_out: int,
+    *,
+    spans: list = None,
+    lookahead_ms: float = 15.0,
+    attack_ms: float = 20.0,
+    release_ms: float = 180.0,
+    sr: int = SR,
+) -> np.ndarray:
+    """提取平滑前视对白包络（15 ms 前视、20 ms 起音、180 ms 释放，可结合 voice.json 的 spans 句段区间）。"""
+    if n_out <= 0:
+        return np.zeros(0, dtype=float)
+    sr_f = float(sr)
+    vo_env = np.zeros(n_out, dtype=float)
+    if vo is not None and len(vo) > 0:
+        vo_arr = np.asarray(vo, dtype=float)
+        mono = vo_arr.mean(axis=1) if vo_arr.ndim == 2 else vo_arr.reshape(-1)
+        if len(mono) < n_out:
+            mono = np.pad(mono, (0, n_out - len(mono)))
+        elif len(mono) > n_out:
+            mono = mono[:n_out]
+        w_rms = max(8, int(round(0.015 * sr_f)))
+        rms_s = np.sqrt(np.maximum(0.0, uniform_filter1d(mono * mono, size=w_rms)) + 1e-24)
+        pk_rms = float(np.max(rms_s))
+        if pk_rms > 1e-5:
+            gate_lin = 10.0 ** (-42.0 / 20.0)
+            act = rms_s > min(gate_lin, pk_rms * 0.15)
+            ref_rms = float(np.percentile(rms_s[act], 75)) if np.any(act) else pk_rms
+            rel_db = 20.0 * np.log10(rms_s / max(ref_rms, 1e-12) + 1e-12)
+            floor_lin = min(gate_lin * 0.5, pk_rms * 0.06)
+            drive = np.where(rms_s > floor_lin, np.clip((rel_db + 20.0) / 17.0, 0.0, 1.0), 0.0)
+            look_n = max(1, int(round(max(0.0, float(lookahead_ms)) * 1e-3 * sr_f)))
+            win_la = look_n + 1
+            drive_la = maximum_filter1d(np.pad(drive, (0, look_n)), size=win_la, origin=-(win_la // 2))[:n_out]
+            a_att = float(math.exp(-1.0 / (max(1e-4, float(attack_ms) * 1e-3) * sr_f)))
+            a_rel = float(math.exp(-1.0 / (max(1e-3, float(release_ms) * 1e-3) * sr_f)))
+            vo_env = _follow(np.ascontiguousarray(drive_la, dtype=float), a_att, a_rel)
+
+    if spans:
+        t = np.arange(n_out, dtype=float) / sr_f
+        span_env = np.zeros(n_out, dtype=float)
+        pre_s = max(0.005, (float(lookahead_ms) + float(attack_ms)) * 1e-3)
+        rel_s = max(0.020, float(release_ms) * 1e-3)
+        for item in spans:
+            t0_s, t1_s = float(item[0]), float(item[1])
+            if t1_s > t0_s:
+                up = smoothstep(t0_s - pre_s, t0_s + 0.005, t)
+                dn = 1.0 - smoothstep(t1_s, t1_s + rel_s, t)
+                span_env = np.maximum(span_env, up * dn)
+        if float(np.max(vo_env)) > 1e-4:
+            vo_env = np.maximum(vo_env, 0.85 * span_env)
+        else:
+            vo_env = span_env
+
+    return np.clip(vo_env, 0.0, 1.0)
+
+
+def carve_dialogue_pocket(
+    stems: dict,
+    vo: np.ndarray,
+    *,
+    spans: list = None,
+    formant_duck_db: float = 4.2,
+    amb_duck_db: float = 2.5,
+    fx_duck_db: float = 1.8,
+    sr: int = SR,
+) -> dict:
+    """对白共振峰动态频带挖槽（Formant-Band Dynamic Pocket Ducking）：
+    严禁宽带死压配乐！仅在对白有声期间对伴奏做零相位临界频带动态凹槽：
+      · music: < 350 Hz 大提琴/低音温暖底盘 100% 零衰减（0.0 dB），> 6500 Hz 泛音空气层衰减 ≤ 0.5 dB，
+               仅在 800–4200 Hz 人声共振峰/辅音清晰度核心带按包络动态让位 formant_duck_db（默认 ~4.2 dB）；
+      · amb: 600–4500 Hz 频带温和让位 amb_duck_db（默认 ~2.5 dB）；
+      · foley / fx: 1.2–4.2 kHz 临场齿擦带轻柔让位 fx_duck_db（默认 ~1.8 dB），既不踩台词字头又完整保留低频冲击体感。"""
+    if not stems:
+        return {}
+    ref_n = len(vo) if (vo is not None and len(vo) > 0) else max((len(v) for v in stems.values()), default=0)
+    base_env = _speech_envelope(vo, ref_n, spans=spans, sr=sr)
+    if ref_n <= 64 or float(np.max(base_env)) <= 1e-4:
+        return {k: np.asarray(v, dtype=float).copy() for k, v in stems.items()}
+
+    out = {}
+    pad_n = max(8, int(round(0.010 * float(sr))))
+    taper_n = max(4, int(round(0.005 * float(sr))))
+    for k, v in stems.items():
+        arr = np.asarray(v, dtype=float).copy()
+        n_s = len(arr)
+        if n_s <= 64 or float(np.max(np.abs(arr))) <= 1e-8:
+            out[k] = arr
+            continue
+        env = base_env if n_s == ref_n else (
+            base_env[:n_s] if n_s < ref_n else np.pad(base_env, (0, n_s - ref_n))
+        )
+        kl = str(k).lower()
+        if kl in ('music', 'bgm') and float(formant_duck_db) > 1e-4:
+            band = _zero_phase_bp(arr, 800.0, 4200.0, sr=sr, order=4)
+            depth = 1.0 - undb(-float(formant_duck_db) * env)
+            arr = arr - band * (depth[:, None] if arr.ndim == 2 else depth)
+        elif kl in ('amb', 'ambience') and float(amb_duck_db) > 1e-4:
+            band = _zero_phase_bp(arr, 600.0, 4500.0, sr=sr, order=3)
+            depth = 1.0 - undb(-float(amb_duck_db) * env)
+            arr = arr - band * (depth[:, None] if arr.ndim == 2 else depth)
+        elif kl in ('foley', 'fx', 'sfx') and float(fx_duck_db) > 1e-4:
+            orig_abs = np.max(np.abs(arr), axis=1) if arr.ndim == 2 else np.abs(arr)
+            has_zero_gaps = bool(np.any(orig_abs == 0.0))
+            band = _zero_phase_bp(arr, 1200.0, 4200.0, sr=sr, order=3)
+            depth = 1.0 - undb(-float(fx_duck_db) * env)
+            arr = arr - band * (depth[:, None] if arr.ndim == 2 else depth)
+            if has_zero_gaps:
+                act = maximum_filter1d((orig_abs > 0.0).astype(float), size=2 * pad_n + 1)
+                gate = uniform_filter1d(act, size=taper_n)
+                gate = np.where(act == 0.0, 0.0, gate)
+                arr = arr * (gate[:, None] if arr.ndim == 2 else gate)
+        out[k] = arr
+    return out
+
+
+def _speech_gated_lufs(st: np.ndarray, sr: int = SR, gate_dbfs: float = -42.0) -> tuple:
+    """测量对白有声窗（50 ms 窗 RMS > gate_dbfs，剔除句间静音停顿）的 BS.1770 响度。"""
+    arr = np.asarray(st, dtype=float)
+    if arr.ndim == 1:
+        arr = stereo(arr, 0.0)
+    win_n = max(64, int(round(0.050 * float(sr))))
+    n_wins = len(arr) // win_n
+    if n_wins == 0:
+        if len(arr) == 0 or float(np.max(np.abs(arr))) <= 1e-7:
+            return -np.inf, np.zeros(0, dtype=bool)
+        kw = kweight(arr)
+        lufs = -0.691 + 10.0 * math.log10(float(np.sum(kw * kw) / max(1, len(arr))) + 1e-24)
+        return float(lufs), np.ones(1, dtype=bool)
+
+    wins = arr[:n_wins * win_n].reshape(n_wins, win_n, 2)
+    win_rms = np.sqrt(np.mean(wins * wins, axis=(1, 2)) + 1e-24)
+    thr = 10.0 ** (float(gate_dbfs) / 20.0)
+    act = win_rms > thr
+    if not np.any(act):
+        pk_w = float(np.max(win_rms))
+        if pk_w <= 1e-5:
+            return -np.inf, act
+        act = win_rms > (pk_w * 0.12)
+    active_concat = wins[act].reshape(-1, 2)
+    if len(active_concat) >= int(round(0.40 * float(sr))):
+        lufs = integrated(active_concat)
+    else:
+        lufs = -np.inf
+    if not np.isfinite(lufs) or lufs <= -70.0:
+        kw = kweight(active_concat)
+        lufs = -0.691 + 10.0 * math.log10(float(np.sum(kw * kw) / max(1, len(active_concat))) + 1e-24)
+    return float(lufs), act
 
 # 与 engine/audio/qa.py _MASK_BANDS 完全同构的 6 个听觉临界频带
 CRITICAL_BANDS = (
@@ -296,6 +492,7 @@ def render_shot_poa(st: np.ndarray, in_s: float, out_s: float, dur: float, poa='
 ROLE_DEFAULTS = {
     'hero': {'priority': 95.0, 'target_lufs': -15.5, 'bus': 'fx', 'duck_db': 8.5},
     'ui': {'priority': 88.0, 'target_lufs': -23.0, 'bus': 'ui', 'duck_db': 7.5},
+    'accent': {'priority': 80.0, 'target_lufs': -19.5, 'bus': 'fx', 'duck_db': 5.0},
     'subtle_ui': {'priority': 76.0, 'target_lufs': -31.5, 'bus': 'ui', 'duck_db': 2.0},
     'support': {'priority': 70.0, 'target_lufs': -21.5, 'bus': 'fx', 'duck_db': 4.5},
     'foley': {'priority': 58.0, 'target_lufs': -22.5, 'bus': 'foley', 'duck_db': 3.0},
@@ -742,8 +939,86 @@ class HDRMixer:
         self._cues = []
         self._vacuums = []
         self._ir_cache = {}
+        self._dialogue = None
         if music_focus_windows:
             self.set_music_focus_windows(music_focus_windows)
+
+    def set_dialogue(
+        self,
+        wave_or_path,
+        *,
+        spans=None,
+        voice_json=None,
+        target_lufs: float = -16.0,
+        formant_duck_db: float = 4.2,
+        amb_duck_db: float = 2.5,
+        fx_duck_db: float = 1.8,
+        gain_db: float = 0.0,
+        pan: float = 0.0,
+        room_wet: float = 0.04,
+        curve_points=None,
+    ):
+        """设置四干线对白轨（VO / Dialogue）：
+        · 支持传入 (n, 2) / (n,) 波形数组、voice.wav 路径或 dialogue 构建目录；传入 voice_json 时自动经 dialogue.spans 解析句段区间；
+        · 执行有声窗门限响度匹配（> -42 dBFS 的 50 ms 有声窗定电平至 target_lufs=-16.0 LUFS + gain_db，不统计句间静音）；
+        · 可选施加极克制早期反射空间融合（room_wet=0.04, rt=0.32s）消除干瘪贴玻璃感，并在 render() 中自动联动 sculpt_stem_eq 与 carve_dialogue_pocket。"""
+        if wave_or_path is None:
+            self._dialogue = None
+            return self
+
+        if isinstance(wave_or_path, (str, bytes)) or hasattr(wave_or_path, '__fspath__'):
+            import soundfile as sf
+            p = os.fspath(wave_or_path)
+            if isinstance(p, bytes):
+                p = p.decode('utf-8')
+            if os.path.isdir(p):
+                vj_cand = os.path.join(p, 'voice.json')
+                if voice_json is None and os.path.isfile(vj_cand):
+                    voice_json = vj_cand
+                p = os.path.join(p, 'voice.wav')
+            raw_w, sr_in = sf.read(p, dtype='float64', always_2d=False)
+            if int(sr_in) != self.sr and len(raw_w) > 0:
+                g_sr = math.gcd(self.sr, int(sr_in))
+                raw_w = resample_poly(raw_w, self.sr // g_sr, int(sr_in) // g_sr, axis=0)
+        else:
+            raw_w = np.asarray(wave_or_path, dtype=float)
+
+        eff_spans = None
+        if spans is not None:
+            eff_spans = [(float(s[0]), float(s[1])) for s in spans]
+        elif voice_json is not None:
+            from .voice.dialogue import spans as _dialogue_spans
+            eff_spans = [(float(s[0]), float(s[1])) for s in _dialogue_spans(voice_json)]
+
+        pan_f = float(np.clip(float(pan), -1.0, 1.0))
+        if raw_w.ndim == 1:
+            st = stereo(raw_w, pan_f)
+        elif raw_w.shape[1] == 1:
+            st = stereo(raw_w[:, 0], pan_f)
+        else:
+            st = raw_w[:, :2].copy()
+            if abs(pan_f) > 1e-4:
+                l_g, r_g = pan_lr(pan_f)
+                st = np.stack([st[:, 0] * l_g, st[:, 1] * r_g], axis=1)
+
+        full = np.zeros((self.n, 2), dtype=float)
+        m = min(self.n, len(st))
+        if m > 0:
+            full[:m] = st[:m]
+
+        self._dialogue = {
+            'wave': full,
+            'spans': eff_spans,
+            'target_lufs': None if target_lufs is None else float(target_lufs),
+            'formant_duck_db': max(0.0, float(formant_duck_db)),
+            'amb_duck_db': max(0.0, float(amb_duck_db)),
+            'fx_duck_db': max(0.0, float(fx_duck_db)),
+            'gain_db': float(gain_db),
+            'pan': pan_f,
+            'room_wet': 0.0 if room_wet is None else max(0.0, float(room_wet)),
+            'curve_points': curve_points,
+        }
+        return self
 
     def set_music_focus_windows(self, windows: list, *, is_climax: bool = True):
         """设置音乐主导窗口列表：
@@ -1226,15 +1501,90 @@ class HDRMixer:
                         band_m = _zero_phase_bp(stems['music'], lo, hi, sr=self.sr, order=2)
                         stems['music'] = stems['music'] - band_m * cv_m[:, None]
 
+        # 4b. 对白轨（VO）声学塑形、有声门限响度校准、早期反射融合与共振峰动态挖槽（保护配乐 <350Hz 大提琴低音底盘）
+        vo_st = None
+        has_vo_sig = False
+        vo_snr_1k_4k_db = None
+        if self._dialogue is not None:
+            dlg = self._dialogue
+            vo_st = dlg['wave'].copy()
+            orig_vo_abs = np.max(np.abs(vo_st), axis=1) if len(vo_st) > 0 else np.zeros(0, dtype=float)
+            has_vo_sig = bool(self.n > 64 and len(orig_vo_abs) > 0 and float(np.max(orig_vo_abs)) > 1e-7)
+            if has_vo_sig:
+                vo_st = sculpt_stem_eq({'vo': vo_st}, sr=self.sr)['vo']
+                fq_v = np.fft.rfftfreq(len(vo_st), 1.0 / float(self.sr))
+                sp_v = np.abs(np.fft.rfft(vo_st.mean(axis=1))) ** 2
+                tot_v = float(sp_v.sum()) + 1e-24
+                e14_v = float(sp_v[(fq_v >= 1000.0) & (fq_v <= 4000.0)].sum())
+                frac_14_db = 10.0 * math.log10(e14_v / tot_v + 1e-24)
+                if frac_14_db < -11.0:
+                    art_boost = min(3.5, (-10.5 - frac_14_db) * 0.65)
+                    vo_st = _peq_sr(vo_st, 2500.0, art_boost, q=0.75, sr=self.sr)
+                    if np.any(orig_vo_abs == 0.0):
+                        vo_st = _preserve_silent_gaps(vo_st, orig_vo_abs, min_gap_s=0.020, taper_s=0.004, sr=self.sr)
+
+                vo_lufs, _ = _speech_gated_lufs(vo_st, sr=self.sr, gate_dbfs=-42.0)
+                if dlg['target_lufs'] is not None and np.isfinite(vo_lufs) and vo_lufs > -70.0:
+                    vo_st = vo_st * undb((dlg['target_lufs'] - vo_lufs) + dlg['gain_db'])
+                elif abs(dlg['gain_db']) > 1e-6:
+                    vo_st = vo_st * undb(dlg['gain_db'])
+
+                if dlg['room_wet'] > 1e-4:
+                    if '__vo_room__' not in self._ir_cache:
+                        self._ir_cache['__vo_room__'] = make_ir(
+                            rt=0.32,
+                            pre=0.006,
+                            tone=(0.75, 1.0, 0.85, 0.58),
+                            er=12,
+                            er_span=(0.005, 0.038),
+                            er_gain=0.65,
+                            er_lp=6800,
+                            seed=53,
+                        )
+                    vo_st = reverb(
+                        vo_st,
+                        self._ir_cache['__vo_room__'],
+                        wet=dlg['room_wet'],
+                        dry=1.0,
+                        cross=0.22,
+                        hp_in=160.0,
+                    )
+                    if np.any(orig_vo_abs == 0.0):
+                        vo_st = _preserve_silent_gaps(
+                            vo_st,
+                            orig_vo_abs,
+                            min_gap_s=0.38,
+                            taper_s=0.015,
+                            hold_tail_s=0.32,
+                            sr=self.sr,
+                        )
+
+                if dlg['curve_points']:
+                    vo_st = vo_st * volume_curve(self.n, dlg['curve_points'], dur=self.dur, sr=self.sr)
+
+                stems = carve_dialogue_pocket(
+                    stems,
+                    vo_st,
+                    spans=dlg['spans'],
+                    formant_duck_db=dlg['formant_duck_db'],
+                    amb_duck_db=dlg['amb_duck_db'],
+                    fx_duck_db=dlg['fx_duck_db'],
+                    sr=self.sr,
+                )
+            stems['vo'] = vo_st
+
         # 5. 配乐黄金配比控制（默认 music_ceiling_offset_db=-2.6 dB，使终混配乐稳立在 -16.0 ~ -17.5 LUFS）与高潮窗释放
         music_narr_trim_db = 0.0
+        has_fg_or_vo = has_fg_narr or has_vo_sig
         if (
             self.music_ceiling_offset_db is not None
-            and has_fg_narr
+            and has_fg_or_vo
             and self.dur >= 0.45
             and float(np.abs(stems['music']).max()) > 1e-6
         ):
             other_bus = stems['amb'] + stems['fx'] + stems['foley'] + stems['ui']
+            if 'vo' in stems:
+                other_bus = other_bus + stems['vo']
             narr_sel = focus_mask < 0.5
             mus_probe = stems['music'][narr_sel] if int(np.sum(narr_sel)) >= int(0.45 * self.sr) else stems['music']
             mus_narr_lufs = integrated(mus_probe)
@@ -1280,6 +1630,51 @@ class HDRMixer:
                         stems['music'] = mus_0
         elif float(np.max(focus_lift_db)) > 0.05 and float(np.abs(stems['music']).max()) > 1e-6:
             stems['music'] = stems['music'] * undb(np.minimum(focus_lift_db, 4.5))[:, None]
+
+        # 5b. 核对有声窗 1–4 kHz 对白清晰度信噪比：若伴奏在共振峰带仍偏厚，仅在 800–4200 Hz 追加微凹槽（绝不动 <350Hz 低频）
+        if has_vo_sig and self._dialogue is not None:
+            dlg = self._dialogue
+            win_n = max(64, int(round(0.050 * self.sr)))
+            nw = self.n // win_n
+            if nw >= 2:
+                vo_w = stems['vo'][:nw * win_n].reshape(nw, win_n, 2)
+                vo_w_rms = np.sqrt(np.mean(vo_w * vo_w, axis=(1, 2)) + 1e-24)
+                act_w = vo_w_rms > (10.0 ** (-42.0 / 20.0))
+                if int(np.sum(act_w)) >= 2:
+                    han = np.hanning(win_n)[None, :, None]
+                    fq_w = np.fft.rfftfreq(win_n, 1.0 / float(self.sr))
+                    m14 = (fq_w >= 1000.0) & (fq_w <= 4000.0)
+
+                    def _band_1k_4k_energy(st_arr):
+                        aw = st_arr[:nw * win_n].reshape(nw, win_n, 2)[act_w] * han
+                        sp = np.abs(np.fft.rfft(aw, axis=1)) ** 2
+                        return float(0.5 * sp[:, m14, :].sum())
+
+                    acc_bus = stems['music'] + stems['amb'] + stems['fx'] + stems['foley'] + stems['ui']
+                    e_vo = _band_1k_4k_energy(stems['vo'])
+                    e_acc = _band_1k_4k_energy(acc_bus)
+                    vo_snr_1k_4k_db = 10.0 * math.log10(max(e_vo, 1e-30) / max(e_acc, 1e-20))
+                    if (
+                        vo_snr_1k_4k_db < 4.5
+                        and dlg['formant_duck_db'] > 0.5
+                        and dlg['gain_db'] >= -3.0
+                        and e_acc > 1e-18
+                    ):
+                        extra_dip = min(5.5, (4.5 - vo_snr_1k_4k_db) + 0.8)
+                        acc_stems = {k: stems[k] for k in ('music', 'amb', 'fx', 'foley') if k in stems}
+                        acc_stems = carve_dialogue_pocket(
+                            acc_stems,
+                            stems['vo'],
+                            spans=dlg['spans'],
+                            formant_duck_db=extra_dip,
+                            amb_duck_db=extra_dip * 0.75,
+                            fx_duck_db=extra_dip * 0.55,
+                            sr=self.sr,
+                        )
+                        stems.update(acc_stems)
+                        acc_bus = stems['music'] + stems['amb'] + stems['fx'] + stems['foley'] + stems['ui']
+                        e_acc = _band_1k_4k_energy(acc_bus)
+                        vo_snr_1k_4k_db = 10.0 * math.log10(max(e_vo, 1e-30) / max(e_acc, 1e-20))
 
         # 6. 总线粘合压缩与透明母带收口（master_glue=True 走 SSL G-Bus 粘合母带链，分轨保持标量校准增益防跨轨抽吸）
         raw_mix = fade(sum(stems.values()), min(0.02, self.dur * 0.05), min(0.18, self.dur * 0.1))
@@ -1349,5 +1744,7 @@ class HDRMixer:
             'stemTpLimited': stem_tp_limited,
             'lowTrimDb': round(float(low_trim_db), 2),
             'masterGainDb': round(float(master_gain_db), 2),
+            'dialogueEnabled': bool(self._dialogue is not None),
+            'dialogueSnr1k4kDb': round(float(vo_snr_1k_4k_db), 2) if vo_snr_1k_4k_db is not None else None,
         }
         return master, out_stems, diag

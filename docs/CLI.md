@@ -112,15 +112,15 @@
 | `env:py` | `tools/env/py.mjs` | 环境 | 例外（不适用）：Python 启动器，除 `--help` 外的参数原样交给 Python |
 | `remote` | `tools/remote/cli.mjs` | 环境 | 已接入 |
 | `env:gpu` | `tools/rtx/gpucheck.mjs` | 渲染器 | 已接入 |
-| `serve`、`site:serve` | `engine/render/serve.mjs`（`site:serve` 加 `--root out/site --port 8090`） | 渲染器 | 已接入；只监听 127.0.0.1 |
+| `serve`、`site:serve` | `engine/render/serve.mjs [--port 8080] [--root <目录>] [--no-preview] [--json]`（`site:serve` 加 `--root out/site --port 8090`） | 渲染器 | 已接入；只监听 127.0.0.1。影片页面地址加 `?preview=1` 开启 WebAudio 相位锁定分轨调片预览条（`Space` 播放/暂停、`←/→` 逐帧步进、`[/]` 跳镜头切点、`L` 循环、`amb/fx/foley/music/vo/ui` 分轨实时 Mute/Solo 与 `↻ 重混声音` 热重载；`--no-preview` 关闭） |
 | `stills`、`video`、`video:4k` | `engine/render/still.mjs`、`video.mjs`（《北冥》样片） | 渲染器 | 已接入 |
 | `offscreen`、`offscreen:compare`、`offscreen:bench` | `engine/offscreen/cli.mjs`、`tools/offscreen/compare.mjs`、`bench.mjs` | 离屏出片 | 已接入：`render` 视频（含 `--pix-fmt yuv420p` GPU 侧打包）、`stills` 无损静帧、`probe` 契约与事件探测、`batch` 单卡异构并发调度、对拍与并发基准；`npm run film -- check\|stills\|render\|animatic\|build <作品> [--renderer offscreen] [--encoder nvenc]`（`backend=webgpu` 默认走离屏），详见 [离屏出片](offscreen/README.md) |
-| `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：三条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / render / review / status / qa / plan） |
+| `film` | `tools/film/cli.mjs` | 出片编排 | 已接入：三条路线统一的 `npm run film -- build films/<名字>`（子命令 new / check / stills / animatic / build / mix / assemble / render / review / status / qa / plan；A/C 支持 `audio.telemetry: true` 导出 `kinematics.json` / `BEIMING_KINEMATICS`、`dialogue.json` 自动合成 `BEIMING_DIALOGUE_DIR`、`BEIMING_AUDIO_STEMS` 分轨收集，以及 `mix` 阶段 `engine.audio.qa` 前置快败硬门 `audio/qa.json`） |
 | `beiming:build`、`build` | `tools/film/beiming.mjs` | 出片编排 | 已接入；《北冥》样片一键重建，`build` 是旧名，`sh build.sh` 是兼容壳 |
 | `c:events`、`c:build` | `engine/render/events.mjs`、`build.mjs` | 出片编排 | 已接入（旧入口；新作品用 `npm run film -- build`） |
 | `qa` | `tools/qa/cli.mjs` | 机器 QA | 已接入 |
 | `golden`、`determinism` | `tools/baseline/golden.mjs`、`determinism.mjs` | 金标准 | 已接入 |
-| `audio:build`、`audio:qa`、`audio:cuecheck`、`audio:voice`、`audio:samples` | `tools/audio/build.mjs`、`qa.mjs`、`cuecheck.mjs`、`voice.mjs`、`fetch-samples.mjs` | 声音 | 已接入 |
+| `audio:build`、`audio:qa`、`audio:cuecheck`、`audio:voice`、`audio:music`、`audio:samples` | `tools/audio/build.mjs`、`qa.mjs`、`cuecheck.mjs`、`voice.mjs`、`music.mjs`、`fetch-samples.mjs` | 声音 | 已接入（`audio:music` 为程序化情绪导引乐谱与 ACE-Step 1.5 Cover 配乐生成 `guide\|build\|probe`，读 `BEIMING_ACESTEP_URL` 或 `--endpoint` / `--ssh`） |
 | `fonts:fetch`、`fonts:subset` | `tools/fonts/fetch.mjs`、`subset.mjs` | A 路线 | 已接入；A 作品出片前先 `fonts:subset films/<名字>` |
 | `plates:check`、`plates:bleed`、`lookdev:sweep` | `tools/plates/check.mjs`、`bleed.mjs`、`tools/lookdev/sweep.mjs` | A 路线 | 已接入 |
 | `b:preflight`、`b:render`、`b:prepare`、`b:runtime`、`b:rt` | `engine/render/native.mjs --check-only`、`native.mjs`、`engine/native/prepare.mjs`、`runtime.mjs`、`rt.mjs` | B 路线 | 已接入（`b:rt` 是光追外部后端，实验）；旧名 `native:*`、`raea:*`（例片 `examples/raea`）已接入，保留一个版本 |

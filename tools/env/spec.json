@@ -381,10 +381,9 @@
     {
       "name": "BEIMING_PY",
       "group": "Python",
-      "purpose": "BEIMING_PYTHON 的别名（C 路线 build.mjs 沿用）",
+      "purpose": "BEIMING_PYTHON 的别名（历史出片脚本与命令行习惯沿用）",
       "default": "同上",
       "readBy": [
-        "engine/render/build.mjs",
         "tools/env/lib/python.mjs",
         "tools/env/setup.mjs"
       ]
@@ -466,10 +465,52 @@
       "name": "BEIMING_AUDIO_OUT",
       "group": "声音",
       "purpose": "统一出片传给作品声音脚本的输出 wav 路径（out/<运行号>/audio/mix.wav；工具设置，不要手动设）",
-      "default": "由统一出片设置；单独跑 sound.py 时写 films/<名>/out/mix.wav",
+      "default": "由统一出片设置；单独跑 sound.py / mix.py 时写 films/<名>/out/mix.wav",
       "readBy": [
-        "routes/a-webgl/template/sound.py"
+        "engine/render/build.mjs",
+        "routes/a-webgl/template/sound.py",
+        "routes/c-style/template/mix.py"
       ]
+    },
+    {
+      "name": "BEIMING_AUDIO_STEMS",
+      "group": "声音",
+      "purpose": "统一出片传给作品声音脚本的分轨输出目录（out/<运行号>/audio/stems；工具设置，不要手动设）",
+      "default": "由统一出片设置；单独跑声音脚本时写 <mix.wav 所在目录>/stems",
+      "readBy": [
+        "engine/render/build.mjs",
+        "routes/a-webgl/template/sound.py",
+        "routes/c-style/template/mix.py"
+      ]
+    },
+    {
+      "name": "BEIMING_DIALOGUE_DIR",
+      "group": "声音",
+      "purpose": "统一出片自动合成 dialogue.json 后传给作品声音脚本的对白产物目录（含 voice.wav、voice.json；工具设置，不要手动设）",
+      "default": "由统一出片设置（没有对白时为空）",
+      "readBy": [
+        "engine/render/build.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_KINEMATICS",
+      "group": "声音",
+      "purpose": "统一出片开启 audio.telemetry 时传给作品声音脚本的逐帧画面遥测路径（out/<运行号>/kinematics.json；工具设置，不要手动设）",
+      "default": "由统一出片设置（未开启遥测时为空）",
+      "readBy": [
+        "engine/render/build.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_ACESTEP_URL",
+      "group": "声音",
+      "purpose": "ACE-Step 1.5 Cover 配乐生成的 HTTP 服务地址（npm run audio:music 与 engine.audio.music_gen 读取；--endpoint 优先，未设时可用 --ssh 临时端口转发）",
+      "default": "不设（离线导引轨 --provider guide 不需要它）",
+      "readBy": [
+        "engine/audio/music_gen.py",
+        "tools/audio/music.mjs"
+      ],
+      "external": "ACE-Step 1.5"
     },
     {
       "name": "BEIMING_FPS",
