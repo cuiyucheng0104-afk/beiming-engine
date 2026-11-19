@@ -53,15 +53,33 @@ node tools/audio/voice.mjs providers                              # 列出服务
 
 ## 接进作品
 
-声音脚本（`sound.py`）里把配音放进混音，并让配乐与环境声让路：
+作品目录含 `dialogue.json`（且 `film.json` 未设 `audio.dialogue = false`）时，`npm run film -- build <作品>`（与 `animatic` / `mix`）会在运行声音脚本前**自动调用 `engine.audio.voice build`** 生成配音产物，并通过环境变量 `BEIMING_DIALOGUE_DIR` 将目录传给声音脚本（`animatic` 自动用 `synthetic` 离线临时配音）。
+
+声音脚本（`sound.py` / `mix.py`）里推荐使用四干线混音工作台 `FourStemWorkstation.set_dialogue(...)`（底层调 `director.carve_dialogue_pocket` 与 `sculpt_stem_eq`），不要再用全频段宽带乘法 `music * duck[:, None]` 硬砍配乐：
+
+- **共振峰精准让位，保留配乐低频温暖度**：15 ms 前视、零相位动态挖槽仅在有声句段衰减配乐 `800–4200 Hz` 共振峰带（默认 `4.2 dB`；环境声 `600–4500 Hz` `2.5 dB`、拟音/硬效 `1.2–4.2 kHz` `1.8 dB`），配乐 `< 350 Hz` 大提琴与低音底盘 **100% 零衰减**，杜绝宽带闪避造成的呼吸抽吸感。
+- **有声窗响度定标与分轨门禁**：自动按 `> -42 dBFS` 有声窗将人声定标至 `-16.0 LUFS`、做 `85 Hz` 清底与 `+1.2 dB @ 3.0 kHz` 齿音清晰度雕塑，并导出 `stems/vo.wav`；`engine.audio.qa` 自动启用 `audio.dialogue` 门禁核查有声句段 `1–4 kHz` 清晰度信噪比（`>= +2.0 dB` 通过，`[-2.0, 2.0) dB` 软告警，`< -2.0 dB` 或满幅削波退出 4）。
 
 ```python
-from engine.audio.voice import dialogue as DL
-import soundfile as sf
-vo, _ = sf.read('films/<名>/out/dialogue/voice.wav', always_2d=True)
-duck = DL.duck_curve(np.arange(len(vo)) / SR, DL.spans('films/<名>/out/dialogue/voice.json'), depth=0.5)
-mix = music * duck[:, None] + amb * duck[:, None] + vo
+import os
+from engine.audio import cues
+from engine.audio.editorial import FourStemWorkstation
+
+dlg_dir = os.environ.get('BEIMING_DIALOGUE_DIR') or 'films/<名>/out/dialogue'
+ws = FourStemWorkstation(dur=12.0, fps=24.0, world='poetic', target_lufs=-13.5, max_tp=-1.5)
+ws.set_scenes([{'in_s': 0.0, 'out_s': 12.0, 'wave': amb_st, 'transition': 'hard_cut'}])
+ws.set_music(music_st, key='D', target_lufs=-18.5)
+ws.set_dialogue(
+    os.path.join(dlg_dir, 'voice.wav'),
+    voice_json=os.path.join(dlg_dir, 'voice.json'),
+    target_lufs=-16.0,
+    formant_duck_db=4.2,
+)
+master_st, stems, report = ws.mixdown()
+cues.write(os.path.dirname(os.environ.get('BEIMING_AUDIO_OUT', 'films/<名>/out/mix.wav')), master_st, stems=stems)
 ```
+
+若在底层自定义脚本中直接处理分轨字典，可单独调用 `from engine.audio.director import carve_dialogue_pocket, sculpt_stem_eq`。
 
 页面（字幕画在显示层，位置与 `window.TEXTS` 同一份数）：
 

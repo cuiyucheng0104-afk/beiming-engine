@@ -31,7 +31,7 @@ const R = p => path.join(HERE, p);
 // engine/ 里只算页面会 import 的层：render（渲染器本身另按文件哈希）、audio（Python 声音库）、native（B 路线）、production（Node 侧校验）不进画面
 const SHARED_TREES = ['engine', 'fonts', 'assets', 'src'];
 const ENGINE_NOT_PAGE = ['render', 'audio', 'native', 'pathtrace', 'production'];
-const FILM_EXCLUDE = ['out', 'media', 'review', 'events.json', 'timeline.json'];
+const FILM_EXCLUDE = ['out', 'media', 'review', 'events.json', 'timeline.json', 'kinematics.json'];
 const PAGE_EXCLUDE = ['node_modules', 'cases', 'out', 'films', 'docs', 'media', 'site', 'tests', 'tools', 'examples', 'routes', 'audio', 'lab', '.github', '.claude', 'engine', 'fonts', 'assets', 'src'];
 export function pageTrees(ctx) {
   const t = { film: ctx.hashTree(ctx.film.dir, { exclude: FILM_EXCLUDE }) };
@@ -50,7 +50,7 @@ const queryArgs = ctx => (ctx.query ? ['--query', ctx.query] : []);
 
 export const probe = {
   id: 'probe', title: '页面契约与事件表（engine/render/events.mjs）',
-  outputs: () => ({ events: 'events.json', timeline: 'timeline.json', probe: 'work/probe.json' }),
+  outputs: () => ({ events: 'events.json', timeline: 'timeline.json', kinematics: 'kinematics.json', probe: 'work/probe.json' }),
   async run(ctx) {
     const pf = path.join(ctx.run.work, 'probe.json');
     const useOffscreenProbe = ctx.opts.renderer === 'offscreen' && fs.existsSync(path.join(ctx.film.dir, 'offscreen.mjs'));
@@ -72,10 +72,15 @@ export const probe = {
         ctx.warn('software-render', msg);
       }
       if (!p.hasTexts) ctx.warn('no-texts', 'offscreen.mjs 没有提供 texts(f)：文字安全区、停留时长与缺字检查只能按画字探针推导');
-      return { dur: p.dur ?? ctx.frames / ctx.fps, gpu: `Dawn WebGPU（离屏）：${[p.adapter?.vendor, p.adapter?.architecture].filter(Boolean).join(' ') || 'unknown'}`, software: !!p.software, evCount: p.evCount ?? 0, hasTimeline: !!p.hasTimeline, hasTexts: !!p.hasTexts, pageFps: ctx.fps };
+      return { dur: p.dur ?? ctx.frames / ctx.fps, gpu: `Dawn WebGPU（离屏）：${[p.adapter?.vendor, p.adapter?.architecture].filter(Boolean).join(' ') || 'unknown'}`, software: !!p.software, evCount: p.evCount ?? 0, hasTimeline: !!p.hasTimeline, hasKinematics: !!p.hasKinematics, hasTexts: !!p.hasTexts, pageFps: ctx.fps };
     }
-    await ctx.exec(process.execPath, [R('events.mjs'), ctx.film.pageDir, '--size', sizeArg(ctx), ...queryArgs(ctx), '--out', ctx.run.dir, '--probe', pf],
-      { label: '页面探测（events.mjs）', timeoutSec: 300, stallSec: 240, okCodes: [0, 4] });
+    const wantTelemetry = ctx.film.raw?.audio?.telemetry === true;
+    const telemetryArgs = wantTelemetry
+      ? ['--telemetry', ...(Number.isFinite(ctx.film.raw?.audio?.telemetryScale) ? ['--telemetry-scale', String(ctx.film.raw.audio.telemetryScale)] : [])]
+      : [];
+    const probeTimeout = wantTelemetry ? Math.max(300, ctx.opts.timeout || Math.round(180 + ctx.frames * 2)) : 300;
+    await ctx.exec(process.execPath, [R('events.mjs'), ctx.film.pageDir, '--size', sizeArg(ctx), ...queryArgs(ctx), ...telemetryArgs, '--out', ctx.run.dir, '--probe', pf],
+      { label: wantTelemetry ? '页面探测与画面遥测（events.mjs --telemetry）' : '页面探测（events.mjs）', timeoutSec: probeTimeout, stallSec: 240, okCodes: [0, 4] });
     let p;
     try { p = JSON.parse(fs.readFileSync(pf, 'utf8')); } catch { ctx.fail(1, 'probe-missing', '页面探测没有写出结果（events.mjs 中途退出）', `看 ${ctx.relLog('probe')}`); }
     if (p.problems?.length) ctx.fail(4, 'page-contract', `页面约定不满足：${p.problems.join('；')}`, '页面要设 window.DUR（有限正数）、window.render(t)（函数）并在资源就绪后置 window.READY = true（附录 C5）');
@@ -99,45 +104,164 @@ export const probe = {
       ctx.warn('software-render', msg);
     }
     if (!p.hasTexts) ctx.warn('no-texts', '页面没有 window.TEXTS(t)：文字安全区、停留时长与缺字检查无从做起（附录 C5 推荐提供）');
-    return { dur: p.dur, gpu: p.gpu, software: p.software, evCount: p.evCount, hasTimeline: p.hasTimeline, hasTexts: p.hasTexts, pageFps: pageRate, fpsDeclared: p.fpsDeclared ?? null, timelineFps: p.timelineFps ?? null, anyFps: ctx.anyFps, title: p.title };
+    return { dur: p.dur, gpu: p.gpu, software: p.software, evCount: p.evCount, hasTimeline: p.hasTimeline, hasKinematics: !!p.hasKinematics, telemetry: wantTelemetry, hasTexts: p.hasTexts, pageFps: pageRate, fpsDeclared: p.fpsDeclared ?? null, timelineFps: p.timelineFps ?? null, anyFps: ctx.anyFps, title: p.title };
   },
 };
 
 // 现有声音脚本写死的输出位置（按约定）：页面目录与作品目录下的 out/
 const legacyOut = ctx => [...new Set([path.join(ctx.film.pageDir, 'out'), path.join(ctx.film.dir, 'out')])];
+const dialoguePathOf = ctx => path.join(ctx.film.dir, 'dialogue.json');
+const hasDialogueSpec = ctx => ctx.audio.mode === 'script' && ctx.film.raw?.audio?.dialogue !== false && fs.existsSync(dialoguePathOf(ctx));
+const shouldRunAudioQa = ctx => ctx.kind === 'build' && !ctx.opts.noQa && !ctx.sizeWork && ctx.film.raw?.audio?.qa !== false;
 
 function placeEventsForLegacy(ctx) {
-  // C 路线 mix.py / cuecheck 只认作品目录里的 events.json、timeline.json：临时放一份，运行结束还原
+  // C 路线 mix.py / cuecheck 只认作品目录里的 events.json、timeline.json（及可选 kinematics.json）：临时放一份，运行结束还原
   if (ctx.art.events) ctx.legacy.place(path.join(ctx.film.dir, 'events.json'), ctx.art.events);
   if (ctx.art.timeline) ctx.legacy.place(path.join(ctx.film.dir, 'timeline.json'), ctx.art.timeline);
+  const kin = ctx.art.kinematics || path.join(ctx.run.dir, 'kinematics.json');
+  if (fs.existsSync(kin)) ctx.legacy.place(path.join(ctx.film.dir, 'kinematics.json'), kin);
+}
+
+async function runDialogueBuild(ctx, audioDir) {
+  const dialogueDir = path.join(audioDir, 'dialogue');
+  const filmPath = ctx.filmEffective?.path || path.join(ctx.film.dir, 'film.json');
+  const cacheDir = path.join(ctx.outRoot, 'cache', 'voice');
+  const args = [
+    '-m', 'engine.audio.voice', 'build', ctx.film.dir,
+    '--film', filmPath,
+    '--out', dialogueDir,
+    '--cache', cacheDir,
+    ...(ctx.kind === 'animatic' ? ['--provider', 'synthetic'] : []),
+    '--json',
+  ];
+  const r = await ctx.exec(...ctx.py(args), {
+    label: '对白与字幕生成（engine.audio.voice）',
+    timeoutSec: ctx.opts.timeout || 900,
+    stallSec: ctx.opts.stall || 300,
+    quiet: true,
+    okCodes: [0, 3, 4],
+  });
+  let env;
+  try { env = JSON.parse(String(r.stdout || '').trim()); } catch { env = null; }
+  if (r.code !== 0 || env?.ok === false) {
+    const err = env?.error || {};
+    ctx.fail(r.code || 1, r.code === 3 ? 'dialogue-env' : 'dialogue-failed', err.message || `对白生成失败（退出码 ${r.code}）`, err.hint || `看 ${ctx.relLog('mix')}`);
+  }
+  for (const w of env?.warnings || []) {
+    if (w?.message) ctx.warn(w.code || 'dialogue-warn', w.message);
+  }
+  return { dir: dialogueDir, data: env?.data || null };
+}
+
+async function runAudioQa(ctx, wavFile, audioDir) {
+  const filmPath = ctx.filmEffective?.path || path.join(ctx.film.dir, 'film.json');
+  const reportPath = path.join(audioDir, 'qa.json');
+  const args = [
+    '-m', 'engine.audio.qa',
+    '--film', filmPath,
+    '--wav', wavFile,
+    '--report', reportPath,
+    ...(ctx.profile.custom ? [] : ['--profile', ctx.profile.id]),
+    '--json',
+  ];
+  const r = await ctx.exec(...ctx.py(args), {
+    label: '声音门禁（engine.audio.qa）',
+    timeoutSec: 300,
+    stallSec: 180,
+    quiet: true,
+    sweep: false,
+    okCodes: [0, 4],
+  });
+  let env;
+  try { env = JSON.parse(String(r.stdout || '').trim()); } catch { env = null; }
+  let report = null;
+  if (fs.existsSync(reportPath)) {
+    try { report = JSON.parse(fs.readFileSync(reportPath, 'utf8')); } catch { /* 报告未写完时走信封兜底 */ }
+  }
+  const data = env?.data || env?.result || report || {};
+  const checks = report?.checks || data.checks || [];
+  if (r.code === 4 || data.ok === false || env?.ok === false) {
+    const failedIds = data.summary?.hardFailures?.length
+      ? data.summary.hardFailures
+      : checks.filter(c => c.status === 'fail').map(c => c.id);
+    const detail = failedIds.length ? failedIds.join('、') : (env?.error?.message || '存在不达标硬项');
+    ctx.fail(4, 'audio-qa-failed', `声音机器 QA 不通过：${detail}`, `逐项原因与修复建议见 ${ctx.rel(reportPath)}`);
+  }
+  const warnChecks = checks.filter(c => c.status === 'warn');
+  const qaWarnings = [];
+  if (warnChecks.length) {
+    const detail = warnChecks.map(c => `${c.id}（${c.message || c.value}）`).join('；');
+    const msg = `声音 QA 软告警：${detail}（见 ${ctx.rel(reportPath)}）`;
+    ctx.warn('audio-qa-warn', msg);
+    qaWarnings.push(msg);
+  }
+  return { ok: true, report: ctx.rel(reportPath), summary: data.summary || null, qaWarnings };
 }
 
 export const mix = {
   id: 'mix', title: '声音',
   when: ctx => (ctx.audio.mode === 'none' ? '无声片（audio.mode = none）' : true),
-  key: ctx => ctx.hashJson({
-    step: 'mix@1', mode: ctx.audio.mode, path: ctx.rel(ctx.audio.path), audio: ctx.fileHash(ctx.audio.path),
-    scriptDir: ctx.audio.mode === 'script' && !ctx.audio.path.startsWith(ctx.film.dir + path.sep) ? ctx.hashTree(path.dirname(ctx.audio.path), { exclude: ['out', 'check', 'stems', 'samples'] }) : null,
-    film: ctx.hashTree(ctx.film.dir, { exclude: FILM_EXCLUDE }), engineAudio: ctx.hashTree(path.join(ROOT, 'engine/audio')),
-    events: ctx.art.events ? ctx.fileHash(ctx.art.events) : null, timeline: ctx.art.timeline ? ctx.fileHash(ctx.art.timeline) : null,
-    python: ctx.tools.python || null, samples: process.env.BEIMING_SAMPLES || null, frames: ctx.frames, fps: ctx.fps,
+  key: ctx => {
+    const dlgFile = dialoguePathOf(ctx);
+    const useDlg = hasDialogueSpec(ctx);
+    return ctx.hashJson({
+      step: 'mix@2', mode: ctx.audio.mode, path: ctx.rel(ctx.audio.path), audio: ctx.fileHash(ctx.audio.path),
+      scriptDir: ctx.audio.mode === 'script' && !ctx.audio.path.startsWith(ctx.film.dir + path.sep) ? ctx.hashTree(path.dirname(ctx.audio.path), { exclude: ['out', 'check', 'stems', 'samples'] }) : null,
+      film: ctx.hashTree(ctx.film.dir, { exclude: FILM_EXCLUDE }), engineAudio: ctx.hashTree(path.join(ROOT, 'engine/audio')),
+      events: ctx.art.events ? ctx.fileHash(ctx.art.events) : null, timeline: ctx.art.timeline ? ctx.fileHash(ctx.art.timeline) : null,
+      kinematics: ctx.art.kinematics ? ctx.fileHash(ctx.art.kinematics) : null,
+      dialogue: fs.existsSync(dlgFile) && ctx.film.raw?.audio?.dialogue !== false ? ctx.fileHash(dlgFile) : null,
+      dialogueProvider: useDlg && ctx.kind === 'animatic' ? 'synthetic' : null,
+      python: ctx.tools.python || null, samples: process.env.BEIMING_SAMPLES || null, frames: ctx.frames, fps: ctx.fps,
+    });
+  },
+  outputs: ctx => ({
+    mix: 'audio/mix.wav',
+    onsets: 'audio/score_onsets.json',
+    audioQa: 'audio/qa.json',
+    stems: listRel(ctx.run.dir, 'audio/stems'),
+    dialogue: listRel(ctx.run.dir, 'audio/dialogue'),
   }),
-  outputs: ctx => ({ mix: 'audio/mix.wav', onsets: 'audio/score_onsets.json', stems: listRel(ctx.run.dir, 'audio/stems') }),
+  async restored(ctx, meta) {
+    if (!shouldRunAudioQa(ctx)) return;
+    const audioDir = path.join(ctx.run.dir, 'audio');
+    const reportPath = path.join(audioDir, 'qa.json');
+    if (!fs.existsSync(reportPath) && fs.existsSync(path.join(audioDir, 'mix.wav'))) {
+      const qa = await runAudioQa(ctx, path.join(audioDir, 'mix.wav'), audioDir);
+      meta.audioQa = qa;
+      ctx.art.audioQa = reportPath;
+      return;
+    }
+    for (const msg of meta?.audioQa?.qaWarnings || []) ctx.warn('audio-qa-warn', msg);
+  },
   async run(ctx) {
     const audioDir = path.join(ctx.run.dir, 'audio');
+    const stemsDir = path.join(audioDir, 'stems');
     fs.mkdirSync(audioDir, { recursive: true });
     const out = path.join(audioDir, 'mix.wav');
     if (ctx.audio.mode === 'wav') {
       fs.copyFileSync(ctx.audio.path, out);
-      return checkWav(ctx, out, { source: ctx.rel(ctx.audio.path) });
+      const wavMeta = await checkWav(ctx, out, { source: ctx.rel(ctx.audio.path) });
+      const audioQa = shouldRunAudioQa(ctx) ? await runAudioQa(ctx, out, audioDir) : null;
+      return { ...wavMeta, ...(audioQa ? { audioQa } : {}) };
     }
     const script = ctx.audio.path, ext = path.extname(script).toLowerCase();
     const outs = legacyOut(ctx);
     for (const o of outs) for (const n of ['mix.wav', 'stems', 'score_onsets.json']) ctx.legacy.protect(path.join(o, n));
     placeEventsForLegacy(ctx);
+    let dialogueDir = '';
+    let dialogueMeta = null;
+    if (hasDialogueSpec(ctx)) {
+      const dlgRes = await runDialogueBuild(ctx, audioDir);
+      dialogueDir = dlgRes.dir;
+      dialogueMeta = dlgRes.data;
+    }
+    const kinFile = ctx.art.kinematics || path.join(ctx.run.dir, 'kinematics.json');
+    const kinPath = fs.existsSync(kinFile) ? kinFile : '';
     const env = {
       ...ctx.env,
       BEIMING_FILM: ctx.film.dir, BEIMING_RUN: ctx.run.dir, BEIMING_AUDIO_OUT: out,
+      BEIMING_AUDIO_STEMS: stemsDir, BEIMING_DIALOGUE_DIR: dialogueDir, BEIMING_KINEMATICS: kinPath,
       BEIMING_EVENTS: ctx.art.events || '', BEIMING_TIMELINE: ctx.art.timeline || '',
       BEIMING_DUR: String(ctx.frames / ctx.fps), BEIMING_FPS: String(ctx.fps), BEIMING_FRAMES: String(ctx.frames),
       BEIMING_WIDTH: String(ctx.width), BEIMING_HEIGHT: String(ctx.height), BEIMING_PROFILE: ctx.profile.id,
@@ -151,11 +275,26 @@ export const mix = {
       if (!hit) ctx.fail(1, 'mix-no-output', `声音脚本跑完了，但没有写出 mix.wav`, `脚本应写到 $BEIMING_AUDIO_OUT（${ctx.rel(out)}），或按旧约定写 <作品>/out/mix.wav`);
       fs.copyFileSync(hit, out);
       const dir = path.dirname(hit);
-      if (fs.existsSync(path.join(dir, 'score_onsets.json'))) fs.copyFileSync(path.join(dir, 'score_onsets.json'), path.join(audioDir, 'score_onsets.json'));
-      if (fs.existsSync(path.join(dir, 'stems'))) fs.cpSync(path.join(dir, 'stems'), path.join(audioDir, 'stems'), { recursive: true });
+      if (!fs.existsSync(path.join(audioDir, 'score_onsets.json')) && fs.existsSync(path.join(dir, 'score_onsets.json'))) {
+        fs.copyFileSync(path.join(dir, 'score_onsets.json'), path.join(audioDir, 'score_onsets.json'));
+      }
+      if (!listRel(ctx.run.dir, 'audio/stems').length && fs.existsSync(path.join(dir, 'stems'))) {
+        fs.cpSync(path.join(dir, 'stems'), stemsDir, { recursive: true });
+      }
       ctx.note('legacy-audio-out', `声音脚本按旧约定写到 ${ctx.rel(hit)}，已收进运行目录并将在结束时还原原位置`);
+    } else {
+      if (!fs.existsSync(path.join(audioDir, 'score_onsets.json'))) {
+        const onsetHit = outs.map(o => path.join(o, 'score_onsets.json')).find(f => fs.existsSync(f) && fs.statSync(f).mtimeMs >= t0);
+        if (onsetHit) fs.copyFileSync(onsetHit, path.join(audioDir, 'score_onsets.json'));
+      }
+      if (!listRel(ctx.run.dir, 'audio/stems').length) {
+        const stemHit = outs.map(o => path.join(o, 'stems')).find(d => fs.existsSync(d) && fs.statSync(d).mtimeMs >= t0);
+        if (stemHit) fs.cpSync(stemHit, stemsDir, { recursive: true });
+      }
     }
-    return checkWav(ctx, out, { script: ctx.rel(script) });
+    const wavMeta = await checkWav(ctx, out, { script: ctx.rel(script) });
+    const audioQa = shouldRunAudioQa(ctx) ? await runAudioQa(ctx, out, audioDir) : null;
+    return { ...wavMeta, ...(dialogueMeta ? { dialogue: dialogueMeta } : {}), ...(audioQa ? { audioQa } : {}) };
   },
 };
 

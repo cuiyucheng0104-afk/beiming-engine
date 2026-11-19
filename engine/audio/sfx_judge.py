@@ -2,13 +2,14 @@
 """北冥引擎 · 音效物理形态与录音取证判定器（Stage 1，零训练确定性信号特征）。
 
 依据 Geoffroy Peeters et al. (2011)《The Timbre Toolbox》正交物理描述符与录音取证判据，
-在不依赖神经网络权重训练的前提下，筛查外部 CC0 录音或合成音效的六类常见缺陷：
+在不依赖神经网络权重训练的前提下，筛查外部 CC0 录音或合成音效的七类常见缺陷：
   1. 削波过载 / 直流偏移（clipped_samples / dc_offset）
   2. 伪高采样率升频（8/11 kHz 老旧电话或游戏素材转存 48 kHz，bandwidth_95_hz 过低）
   3. 50/60 Hz 交流电源哼声与底噪过高（hum_prominence_db / snr_db）
   4. 录死的大堂混响尾音（近景拟音混入长 RT20，破坏混音空间同化）
   5. 动作包络错配（Log-Attack Time 与波峰因数 Crest Factor：如衣袂摩擦里混入机械硬刺 H1，或撞击音效起音拖沓）
   6. 非乐音拟音里混入合成器周期振荡或人声口技谐波梳（频谱白化自相关 pitch_prominence）
+  7. 高频程序化合成伪影（>6 kHz 周期颗粒/帧跳包络调制电嗡声 hf_envelope_buzz 与 4–16 kHz 窄带金属哨音尖刺 hf_whistle_db）
 
 接口：
   infer_archetype(name_or_query) → 原型名
@@ -23,7 +24,8 @@ import re
 import sys
 
 import numpy as np
-from scipy.ndimage import uniform_filter1d
+from scipy.ndimage import median_filter, uniform_filter1d
+from scipy.signal import butter, sosfiltfilt
 import soundfile as sf
 
 from ._cli import ArgumentParser, CliError, rel as _rel, run as run_cli
@@ -31,7 +33,8 @@ from .dsp import SR
 
 # 各拟音原型的物理形态约束：
 # lat = (最小 log10(起音秒), 最大 log10(起音秒))；crest_max = 最大允许波峰因数 dB；
-# min_bw = 95% 能量带宽下限 Hz；tonal_max = 频谱白化谐波显著度上限；rt20_max = 20dB 衰减秒上限
+# min_bw = 95% 能量带宽下限 Hz；tonal_max = 频谱白化谐波显著度上限；rt20_max = 20dB 衰减秒上限；
+# hf_buzz_max = >6 kHz 包络周期调制上限；hf_whistle_max_db = 4–16 kHz 窄带哨音尖刺上限 dB（仅设于宽带非乐音原型）
 ARCHETYPES = {
     'friction_cloth': {
         'lat': (-1.90, 0.05),       # 真实衣料/织物摩擦起音 ≥ 12.5 ms；机械咔嗒/脆刺 LAT < -2.0
@@ -39,6 +42,8 @@ ARCHETYPES = {
         'min_bw': 3200.0,
         'tonal_max': 0.42,          # 排除木门吱呀粘滑谐波与嘴吹嘘声
         'rt20_max': 0.48,
+        'hf_buzz_max': 0.50,
+        'hf_whistle_max_db': 17.0,
     },
     'whoosh': {
         'lat': (-1.75, 0.15),       # 破空挥动需有气动建立过程（≥ 18 ms）
@@ -46,6 +51,8 @@ ARCHETYPES = {
         'min_bw': 2600.0,
         'tonal_max': 0.44,          # 排除合成器扫频振荡器与口技“咻”声
         'rt20_max': 0.55,
+        'hf_buzz_max': 0.50,
+        'hf_whistle_max_db': 17.0,
     },
     'water': {
         'lat': (-3.20, -0.35),
@@ -53,6 +60,8 @@ ARCHETYPES = {
         'min_bw': 3800.0,           # 水花/断水撕裂必须有中高频水沫细节
         'tonal_max': 0.42,
         'rt20_max': 0.85,
+        'hf_buzz_max': 0.55,
+        'hf_whistle_max_db': 18.5,
     },
     'metal_blade': {
         'lat': (-3.50, -1.10),      # 金属撞击/出鞘瞬态需干脆（≤ 80 ms）
@@ -67,6 +76,8 @@ ARCHETYPES = {
         'min_bw': 1800.0,
         'tonal_max': 0.48,
         'rt20_max': 0.60,
+        'hf_buzz_max': 0.58,
+        'hf_whistle_max_db': 19.5,
     },
     'wood': {
         'lat': (-3.50, -1.25),      # 木质敲击起音短促（≤ 56 ms）
@@ -74,6 +85,8 @@ ARCHETYPES = {
         'min_bw': 2600.0,
         'tonal_max': 0.55,
         'rt20_max': 0.45,
+        'hf_buzz_max': 0.58,
+        'hf_whistle_max_db': 19.5,
     },
     'foley_snap': {
         'lat': (-3.60, -1.50),
@@ -81,6 +94,8 @@ ARCHETYPES = {
         'min_bw': 3600.0,
         'tonal_max': 0.45,
         'rt20_max': 0.38,
+        'hf_buzz_max': 0.55,
+        'hf_whistle_max_db': 18.5,
     },
     'mechanical': {
         'lat': (-3.65, -0.85),      # 涵盖圆珠笔微动按压、塑料螺纹破拆、棘轮咬合、机械快门与钟表擒纵（0.2–140 ms）
@@ -96,6 +111,8 @@ ARCHETYPES = {
         'tonal_max': 0.55,
         'rt20_max': None,
         'allow_low_snr': True,
+        'hf_buzz_max': 0.52,
+        'hf_whistle_max_db': 18.0,
     },
     'low_drone': {
         'lat': (-3.60, 1.60),       # 超低频气压/巨物体感/水下低鸣允许慢起与持续包络
@@ -225,6 +242,123 @@ def _estimate_rt20(env: np.ndarray, hop_s: float, pk_idx: int, crest_db: float =
     return round((k1 - k0) * hop_s, 4)
 
 
+def _hf_envelope_buzz(m: np.ndarray, sr: int) -> float:
+    """检测 >6 kHz 频段内由朴素颗粒投放、等间距脉冲列或无随机化帧跳合成留下的 33–500 Hz（滞后 2–30 ms）周期幅度调制电嗡声。"""
+    if sr < 16000 or len(m) < int(round(0.085 * sr)):
+        return 0.0
+    thr_lin = 10.0 ** (-38.0 / 20.0)
+    env_full = uniform_filter1d(np.abs(m), max(1, int(round(0.004 * sr))), mode='nearest')
+    pk_full = float(env_full.max())
+    if pk_full <= 1e-8:
+        return 0.0
+    act_full = np.flatnonzero(env_full > pk_full * thr_lin)
+    if len(act_full) == 0 or (int(act_full[-1]) - int(act_full[0]) + 1) / float(sr) < 0.085:
+        return 0.0
+
+    fc = min(6000.0, 0.35 * float(sr))
+    sos = butter(4, fc / (0.5 * float(sr)), btype='highpass', output='sos')
+    x_hp = sosfiltfilt(sos, m)
+
+    env = uniform_filter1d(np.abs(x_hp), max(1, int(round(0.0005 * sr))), mode='nearest')
+    env_span = uniform_filter1d(env, max(3, int(round(0.020 * sr))), mode='nearest')
+    pk_hp = float(env_span.max())
+    if pk_hp <= 1e-12:
+        return 0.0
+    mask_hp = env_span > pk_hp * thr_lin
+    idx_hp = np.flatnonzero(mask_hp)
+    if len(idx_hp) == 0 or float(np.sum(mask_hp)) / float(sr) < 0.085:
+        return 0.0
+    i0, i1 = int(idx_hp[0]), int(idx_hp[-1]) + 1
+    if (i1 - i0) / float(sr) < 0.085:
+        return 0.0
+
+    rms_full = float(np.sqrt(np.mean(m[int(act_full[0]):int(act_full[-1]) + 1] ** 2) + 1e-24))
+    rms_hp = float(np.sqrt(np.mean(x_hp[i0:i1] ** 2) + 1e-24))
+    if rms_hp <= rms_full * (10.0 ** (-55.0 / 20.0)):
+        return 0.0
+
+    env_act = env[i0:i1]
+    env_det = env_act - uniform_filter1d(env_act, max(3, int(round(0.040 * sr))), mode='nearest')
+    dec = max(1, int(round(sr / 4000.0)))
+    sr_d = float(sr) / float(dec)
+    n_d = len(env_det) // dec
+    if n_d < 32:
+        return 0.0
+    y = env_det[:n_d * dec].reshape(n_d, dec).mean(axis=1)
+
+    taper = min(max(4, int(round(0.006 * sr_d))), n_d // 8)
+    w = np.ones(n_d, dtype=float)
+    if taper > 0:
+        ramp = 0.5 * (1.0 - np.cos(np.pi * np.arange(taper) / float(taper)))
+        w[:taper] = ramp
+        w[-taper:] = ramp[::-1]
+    yw = (y - float(np.dot(w, y)) / max(float(np.sum(w)), 1e-12)) * w
+    e0 = float(np.dot(yw, yw))
+    if e0 <= 1e-24:
+        return 0.0
+
+    l0 = max(1, int(round(0.002 * sr_d)))
+    l1 = min(n_d // 2, int(round(0.030 * sr_d)))
+    if l1 <= l0:
+        return 0.0
+
+    n_fft = 1 << (2 * n_d - 1).bit_length()
+    ry = np.fft.irfft(np.abs(np.fft.rfft(yw, n=n_fft)) ** 2, n=n_fft)[:l1 + 1]
+    rw = np.fft.irfft(np.abs(np.fft.rfft(w, n=n_fft)) ** 2, n=n_fft)[:l1 + 1]
+    acf = (ry / e0) / np.maximum(rw / rw[0], 0.65)
+    z = np.flatnonzero(acf[1:] <= 0.0)
+    s0 = max(l0, int(z[0]) + 1) if len(z) > 0 else l0
+    if s0 > l1:
+        return 0.0
+    return round(float(np.clip(np.max(acf[s0:l1 + 1]), 0.0, 1.0)), 4)
+
+
+def _hf_whistle_db(m: np.ndarray, sr: int) -> float:
+    """检测 4.0–16.0 kHz 频段内非自然的窄带金属哨音反馈峰或梳状滤波尖刺（相对 ±400 Hz 中值局部基底的突出 dB）。"""
+    if sr < 12000 or len(m) < 1024:
+        return 0.0
+    env_c = uniform_filter1d(np.abs(m), max(1, int(round(0.004 * sr))), mode='nearest')
+    pk = float(env_c.max())
+    if pk <= 1e-8:
+        return 0.0
+    act_mask = env_c > pk * (10.0 ** (-38.0 / 20.0))
+    if int(np.sum(act_mask)) < 1024:
+        return 0.0
+
+    nfft, hop = 4096, 1024
+    # 居中填充半窗零样本，确保 t=0 附近的毫秒级敲击接触宽带瞬态（MSI）不被首帧 Hann 窗左缘归零抹除
+    m_pad = np.pad(m, nfft // 2, mode='constant')
+    fr = np.lib.stride_tricks.sliding_window_view(m_pad, nfft)[::hop]
+    w_hann = np.hanning(nfft)
+    fr_win = fr * w_hann
+    fr_rms = np.sqrt(np.mean(fr_win * fr_win, axis=1) + 1e-24)
+    rmax = float(fr_rms.max())
+    act_fr = fr_win[fr_rms >= 0.10 * rmax]
+    if len(act_fr) == 0:
+        act_fr = fr_win
+    pw = np.mean(np.abs(np.fft.rfft(act_fr, axis=1)) ** 2, axis=0)
+
+    freqs = np.fft.rfftfreq(nfft, 1.0 / float(sr))
+    f_hi = min(16000.0, 0.45 * float(sr))
+    bmask = (freqs >= 4000.0) & (freqs <= f_hi)
+    if not np.any(bmask):
+        return 0.0
+    bpw = pw[bmask]
+    tot_max, band_max = float(np.max(pw)), float(np.max(bpw))
+    if band_max <= 1e-30 or tot_max <= 1e-30:
+        return 0.0
+    tot_db = 10.0 * np.log10(tot_max)
+    max_band_db = 10.0 * np.log10(band_max)
+    if max_band_db <= tot_db - 68.0:
+        return 0.0
+    floor_db = max(max_band_db - 45.0, tot_db - 68.0)
+    spec_db = np.maximum(10.0 * np.log10(np.maximum(bpw, 1e-30)), floor_db)
+    df = float(freqs[1] - freqs[0]) if len(freqs) > 1 else (float(sr) / nfft)
+    bins_in_800 = max(5, int(round(800.0 / max(df, 1e-6))) | 1)
+    baseline_db = median_filter(spec_db, size=bins_in_800, mode='nearest')
+    return round(float(max(0.0, np.max(spec_db - baseline_db))), 2)
+
+
 def extract_metrics(x: np.ndarray, sr: int = SR) -> dict:
     """提取单声道或立体声信号的确定性物理形态与取证指标。"""
     arr = np.asarray(x, dtype=float)
@@ -329,6 +463,8 @@ def extract_metrics(x: np.ndarray, sr: int = SR) -> dict:
 
     pitch_prom = _whitened_pitch_prominence(act_fr, sr)
     rt20_s = _estimate_rt20(env2, hop2_s, pk_idx, crest_db)
+    hf_buzz = _hf_envelope_buzz(m, sr)
+    hf_whistle = _hf_whistle_db(m, sr)
 
     return {
         'empty_or_nan': False,
@@ -347,6 +483,8 @@ def extract_metrics(x: np.ndarray, sr: int = SR) -> dict:
         'bandwidth_95_hz': round(bw95, 1),
         'spectral_flatness': round(flatness, 4),
         'pitch_prominence': round(pitch_prom, 4),
+        'hf_envelope_buzz': hf_buzz,
+        'hf_whistle_db': hf_whistle,
         'hum_prominence_db': round(hum_db, 2),
         'snr_db': round(snr_db, 2) if snr_db is not None else None,
         'rt20_s': rt20_s,
@@ -481,6 +619,28 @@ def judge_wave(x: np.ndarray, sr: int = SR, archetype: str = 'generic', *, spec:
     elif m['pitch_prominence'] > cfg['tonal_max']:
         soft.append(f"周期谐波偏强（pitch={m['pitch_prominence']:.2f} > {cfg['tonal_max']:.2f}）")
         score -= 15.0
+
+    # 3b. 高频程序化合成伪影（>6 kHz 颗粒/脉冲周期调制电嗡声与 4–16 kHz 窄带哨音尖刺，仅约束宽带非乐音拟音）
+    if explicit_lp is None or explicit_lp >= 4000.0:
+        buzz_max = cfg.get('hf_buzz_max')
+        if buzz_max is not None:
+            buzz = float(m.get('hf_envelope_buzz', 0.0))
+            if buzz > buzz_max + 0.07:
+                hard.append(f"高频包络呈周期性调制电嗡声（hf_envelope_buzz={buzz:.3f} > {buzz_max}）")
+                score -= 36.0
+            elif buzz > buzz_max:
+                soft.append(f"高频包络呈周期性调制电嗡声（hf_envelope_buzz={buzz:.3f} > {buzz_max}）")
+                score -= 15.0
+
+        whistle_max = cfg.get('hf_whistle_max_db')
+        if whistle_max is not None:
+            whistle = float(m.get('hf_whistle_db', 0.0))
+            if whistle > whistle_max + 1.8:
+                hard.append(f"高频存在窄带哨音尖刺（hf_whistle_db={whistle:.1f} dB > {whistle_max} dB）")
+                score -= 36.0
+            elif whistle > whistle_max:
+                soft.append(f"高频存在窄带哨音尖刺（hf_whistle_db={whistle:.1f} dB > {whistle_max} dB）")
+                score -= 15.0
 
     # 4. 录死混响尾音（仅对脉冲型衰减信号生效）
     if cfg['rt20_max'] is not None and m['rt20_s'] is not None and m['duration_s'] >= 0.45:
