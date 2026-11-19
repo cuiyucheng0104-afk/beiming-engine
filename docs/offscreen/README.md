@@ -154,7 +154,7 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 
 单位：总吞吐，帧/秒。每次运行的逐帧哈希都与单部片基线一致。4 部并发中位数之比约 1.8 倍。运行期间桌面合成器、语音识别与播放器还在占 GPU（15–47%），NVENC 的跑间波动明显大于 x264（同配置出现过 110 与 160）；单次档位的数字只能看量级。
 
-**剩下的瓶颈**：换 NVENC 后总吞吐仍低于只渲染读回的 170–253 帧/秒。NVENC 运行时采样到 Node 主线程约 90–97%，GPU 利用率 15–20%、编码器引擎约 57%，主线程（读回拷贝与管道写入，约 8 MB/帧）是头号嫌疑；CPU 色彩换算单路约 860 fps，不是瓶颈。**这只是两三次采样得出的假设，未做专门验证。**
+**剩下的瓶颈**：换 NVENC 后总吞吐仍低于只渲染读回的 170–253 帧/秒。NVENC 运行时采样到 Node 主线程约 90–97%，GPU 利用率 15–20%、编码器引擎约 57%，主线程（读回拷贝与管道写入，约 8 MB/帧）是头号嫌疑；CPU 色彩换算单路约 860 fps，不是瓶颈。**这只是两三次采样得出的假设，未做专门验证。** 后来的剖析（7.17）显示：对复杂的《化鹏闪羽》这个假设不成立，稳态瓶颈是 GPU 本身；主线程的高占用大半是原生模块反复 `setImmediate` 轮询 GPU 完成。`ink` 这类轻作品主线程仍有约 40% 空闲，瓶颈不在主线程。
 
 ### 7.5 TSL Kuwahara 对 GLSL（M2 T2a）
 
@@ -322,6 +322,18 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 - **WebGPU 交互式审片工作台**（`engine/offscreen/preview.js`、`lab/offscreen/index.html`、`tools/offscreen/compare.mjs`）：`preview.js` 补齐 `await mod.build({ ..., query })`；沿用离屏 sRGB `RenderTarget` + 2D 显示画布呈现（避免 Linux Chromium Vulkan `OpaqueFD` 交换链外部内存尺寸不匹配错误，显示像素与 `renderFrame` 逐字节一致）；`lab/offscreen/index.html` 补齐 `three` importmap、自动探测同目录 `film.json`（带入片名、帧率、总帧数、镜头切点与事件刻度），提供实时 `fps` 播控、逐帧/切镜跳转、单镜循环及 8 种后期调试视图切换；`compare.mjs` 新增 `--query`。
 - **一等公民 `--backend webgpu` 新片脚手架与全链路免浏览器预检**（`tools/lib/webgpu-scaffold.mjs`、`tools/new-film.mjs`、`tools/film/commands/new.mjs`、`tools/film/lib/session.mjs`）：不触碰受金标准保护的路线模版，`npm run new -- <a|c> <名字> --backend webgpu`（或 `npm run film -- new <a|c> <名字> --backend webgpu`）直接生成可同时在 Chrome WebGPU 预览与 Node + Dawn 出片的同源新片；补齐 `canvas.mjs` 的 `Path2D`/`ImageData` 全局注入、`offscreen probe --events-out` 的 `{ dur, ev }` 契约对齐及离屏出片预检免 `browser` 要求。A、C 路线新建 `webgpu` 作品在无浏览器环境下 `new` → `check` → `stills` → `build`（含 `mix`、`cuecheck` 与 38 项机器 QA）全链路通过。
 - **分层风格化 TSL 离屏化**（`engine/offscreen/tsl/layers.js`）：严守 D03 / D12 / `rt-boundary.md`（纯自写宽松许可代码，不依赖 `engine/native/` 与外部专有渲染器），对照 `engine/look/layers.js` 实现同源 8/16 位 PNG 解码、`loadLayers` 与 `createLayerLook`（4 邻域 ID 轮廓 + `1/z` 二阶差分折痕 + 法线夹角内线、圆头笔域扭曲抖动、保色相色阶量化、Kuwahara、纸纹及 5 种视图 + `split`）。对 WebGL 版逐视图对拍：`color` / `ids` 逐字节相同，`edge` 最大差 1，`toon` PSNR **63.84 dB**（最大差 1），`final` PSNR **61.31 dB**（最大差 2、大差像素 0），`split` PSNR **64.10 dB**（最大差 2、大差像素 0）。
+
+### 7.17 瓶颈剖析与 Kuwahara 展开（M7 之后）
+
+测量口径：RTX 4070 Laptop，1080p，`offscreen:bench` 读回（`--pix-fmt yuv420p`），用 48 与 144 帧两点估稳态斜率与启动开销；每个点只跑一次，两轮交替对比时每组两轮。测量期间 `recordian` 的语音识别进程一直占着 GPU（空闲基线 15–44%），绝对数字偏低、跑间波动大，只能看结构与相对比例。
+
+- **瓶颈是 GPU，不是主线程**（以《化鹏闪羽》为例）：稳态段 `nvidia-smi` 的 GPU 利用率 96–100%、功耗约 55 W；启动编译段只有 18–25%。去掉编码只读回是 31 fps，带 NVENC 是 29.5 fps，编码与管道都不是瓶颈。`--cpu-prof` 里稳态段主线程约 80–88% 在忙，其中 `processImmediate` 自身占 35–40%，它的调用者没有 JS 栈（原生模块自己重新排队），与「忙等轮询 GPU 完成」一致，这一条是推断，没有直接证实。`ink`：主线程约 40% 空闲，稳态约 3.7 ms/帧。
+- **一次性启动开销**：《化鹏闪羽》约 1.1–1.6 秒（管线创建、TSL 构建、模块与底板解码），`ink` 约 0.4 秒；对很短的片和批量任务不可忽略，管线缓存是后续可做的项。
+- **分辨率有悬崖**：540p / 720p / 1080p 每帧约 0.9 / 2.3 / 22.6 ms，1080p 比像素数预期多出约 4 倍；Kuwahara 的循环是 (2KR+1)²，KR 随画幅放大。
+- **逐项关掉**（1080p，每帧）：基线 22.9 ms；`msaa=0` 20.4；`ss=1` 16.6；关 Kuwahara 8.9。Kuwahara 约占 61%。
+- **展开优化**（`engine/offscreen/tsl/kuwahara.js`）：每个格子的权重（高斯径向 × 8 扇区 cos⁸ 角向 × 圆内判定）只取决于 `(i, j, KR)`，在编译期由 `kuwaharaTaps(KR)` 算成常量并展开；圆外格子不再采样，每个格子只累加权重非零的 3–4 个扇区，扇区总权重是常量。交替两轮：新 13.3 / 14.8 ms，旧 23.2 / 19.6 ms，整帧约 −34%，Kuwahara 自身约 14 → 5 ms。启动开销没有可见变化（噪声范围内）。
+- **画面不变**：对优化前原样副本（`tests/offscreen/fixtures/kuwahara-legacy.js`）逐像素对照，KR 2、4、8、10、强度 0.7、q 5、深度换半径，最大差 1 级、PSNR 81–90 dB（每 23 万个通道值只有 10–88 个差 1 级）；对 GLSL 版的质量门测试（`kuwahara.test.mjs`）原样通过。变异检查：轴系数偏 1%（PSNR 75 dB）被 PSNR ≥ 78 dB 的断言拦下，cos⁸ 改 cos⁶（最大差 10 级）也被拦下。
+- **没有做的**：多进程分片。在这台单卡上，复杂片 GPU 已满载、轻作品主线程有空闲，没有证据表明分片能提高单卡吞吐；多卡或多机才有意义。ss 与 MSAA 的取舍（`ss=1` 约 −27%）会改画面，需要走 look 闸，不属于这次优化。金标准比对（`npm run golden`）在这台机器上因缺 `brotli`（系统 Python 3.14，锁定要 3.12）以退出码 3 中止；金标准各集的页面都不加载 `engine/offscreen`，这次改动不会影响它们。
 
 ### 7.16 快速复查
 

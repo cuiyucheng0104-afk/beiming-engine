@@ -15,15 +15,43 @@
 //               radius  远处半径（像素）的 uniform 节点；start / end 从多远开始变、多远完全变成远处半径（视空间距离，世界单位）；near / farClip 相机的近远面
 //               深度 ≥ 0.9999999 当作无穷远（天空、清屏处）。KR 要自己按 ceil(max(radius, far.radius)) 取，同 GLSL 的调用方。
 //               真实深度：pass(scene, camera).getTextureNode('depth') 可以直接当 far.depth（已用 Dawn 实测，见 tests/offscreen/kuwahara.test.mjs 的深度约定用例）
-export function kuwahara(TSL, { input, KR, radius, q, strength, texel, far }) {
+//
+// 性能：每个采样格的权重（高斯径向 × 8 扇区 cos⁸ 角向 × 圆内判定）只取决于 (i, j, KR)，与像素无关，所以在编译期用 kuwaharaTaps(KR) 算成常量并在着色器里展开：
+//   · 圆外的格子整格省掉（不采样、不累加）；每个格子只累加权重非零的 3–4 个扇区（cos⁸ 在背向半圆为 0）；
+//   · 各扇区的总权重（分母）是常量，不再逐像素累加；exp / cos⁸ / inversesqrt 都不在着色器里算。
+// 画面与展开前（tests/offscreen/fixtures/kuwahara-legacy.js 的原样副本）逐像素一致（最大差 ≤ 1 级，见 tests/offscreen/kuwahara-fast.test.mjs）。
+// shortcut: 完全展开，KR=10 时约 350 个采样、着色器源码很长，首次编译比循环版慢；以后若在 WARP 等软件适配器上编译过慢，再改成按行分块的循环。
+
+/** 编译期格子表：圆内每个格子的 { i, j, prot, w }（prot = 灯点保护的距离衰减 1 - 0.6 r²；w = 8 个扇区的权重，前 4 个是 0°/45°/90°/135° 轴的正半，后 4 个是负半），以及 8 个扇区的总权重 W。 */
+export function kuwaharaTaps(KR) {
   if (!Number.isInteger(KR) || KR < 2 || KR > 10) throw new RangeError(`Kuwahara 的 KR 要是 2..10 的整数，收到 ${KR}`);
-  const { Fn, Loop, float, int, vec2, vec3, vec4, uv, dot, exp, max, mix, pow, select, step, inversesqrt, smoothstep, perspectiveDepthToViewZ } = TSL;
+  const p8 = p => { const a = Math.max(p, 0), a2 = a * a, a4 = a2 * a2; return a4 * a4; };   // cos⁸：相邻扇区在 ±22.5° 处各占一半
+  const taps = [], W = Array(8).fill(0);
+  for (let j = -KR; j <= KR; j++) for (let i = -KR; i <= KR; i++) {
+    const vx = i / KR, vy = j / KR, r2 = vx * vx + vy * vy;
+    if (r2 > 1.0001) continue;   // 圆外的格子（GLSL 里是 continue）
+    const g = Math.exp(-2 * r2);
+    let w;
+    if (i === 0 && j === 0) w = Array(8).fill(g * 0.125);
+    else {
+      const s = 1 / Math.sqrt(Math.max(r2, 1e-8)), nx = vx * s, ny = vy * s;
+      const pr = [nx, (nx + ny) * 0.70710678, ny, (ny - nx) * 0.70710678];   // 0°/45°/90°/135° 四根轴
+      w = [...pr.map(p => p8(p) * g), ...pr.map(p => p8(-p) * g)].map(x => (x > 1e-9 ? x : 0));   // 1e-9 以下的权重（正交时的浮点残渣）对结果的影响 < 1e-8，直接当 0
+    }
+    for (let k = 0; k < 8; k++) W[k] += w[k];
+    taps.push({ i, j, prot: 1 - 0.6 * r2, w });
+  }
+  return { taps, W };
+}
+
+export function kuwahara(TSL, { input, KR, radius, q, strength, texel, far }) {
+  const { taps, W } = kuwaharaTaps(KR);
+  const { Fn, float, vec2, vec3, vec4, uv, max, mix, pow, select, smoothstep, perspectiveDepthToViewZ } = TSL;
   return Fn(() => {
     const coord = uv();
     const c0 = input.sample(coord).level(0).toVar();
     const M = Array.from({ length: 8 }, () => vec3(0).toVar());
     const S = Array.from({ length: 8 }, () => vec3(0).toVar());
-    const WA = vec4(0).toVar(), WB = vec4(0).toVar();
     const prot = float(0).toVar();
     let rad = radius;
     if (far) {   // 底板（远处、清屏处）用更大的笔触，3D 主体保持小笔触
@@ -31,33 +59,17 @@ export function kuwahara(TSL, { input, KR, radius, q, strength, texel, far }) {
       const z = select(d.greaterThanEqual(0.9999999), float(1e9), perspectiveDepthToViewZ(d, far.near, far.farClip).negate());
       rad = mix(radius, far.radius, smoothstep(far.start, far.end, z)).toVar();
     }
-    const stp = rad.div(KR);
-    Loop({ start: int(-KR), end: int(KR), type: 'int', condition: '<=', name: 'j' }, { start: int(-KR), end: int(KR), type: 'int', condition: '<=', name: 'i' }, ({ i, j }) => {
-      const v = vec2(float(i), float(j)).div(KR);
-      const r2 = dot(v, v);
-      const inside = step(r2, 1.0001);   // 圆外的格子（GLSL 里是 continue）：照常采样，权重乘 0
-      const cs = input.sample(coord.add(vec2(float(i), float(j)).mul(stp).mul(texel))).level(0);
-      const c = cs.rgb, c2 = c.mul(c);
-      const g = exp(r2.mul(-2));
-      prot.assign(max(prot, inside.mul(cs.a).mul(float(1).sub(r2.mul(0.6)))));
-      const n = v.mul(inversesqrt(max(r2, 1e-8)));
-      const pr = vec4(n.x, n.x.add(n.y).mul(0.70710678), n.y, n.y.sub(n.x).mul(0.70710678));   // 0°/45°/90°/135° 四根轴
-      const pow8 = p => { const a = max(p, 0), a2 = a.mul(a), a4 = a2.mul(a2); return a4.mul(a4); };   // cos⁸：相邻扇区在 ±22.5° 处各占一半
-      const center = i.equal(0).and(j.equal(0));
-      const wc = vec4(g.mul(0.125));
-      const wa = select(center, wc, pow8(pr).mul(g)).mul(inside);
-      const wb = select(center, wc, pow8(pr.negate()).mul(g)).mul(inside);
-      WA.addAssign(wa); WB.addAssign(wb);
-      for (let k = 0; k < 8; k++) {
-        const w = k < 4 ? [wa.x, wa.y, wa.z, wa.w][k] : [wb.x, wb.y, wb.z, wb.w][k - 4];
-        M[k].addAssign(w.mul(c)); S[k].addAssign(w.mul(c2));
-      }
-    });
+    const step = rad.div(KR).mul(texel).toVar();   // 一格的 uv 步长
+    for (const t of taps) {
+      const cs = input.sample(coord.add(step.mul(vec2(t.i, t.j)))).level(0).toVar();
+      const c = cs.rgb, c2 = c.mul(c).toVar();
+      prot.assign(max(prot, cs.a.mul(t.prot)));
+      for (let k = 0; k < 8; k++) if (t.w[k] > 0) { M[k].addAssign(c.mul(t.w[k])); S[k].addAssign(c2.mul(t.w[k])); }
+    }
     const acc = vec3(0).toVar(), as = float(0).toVar();
     for (let k = 0; k < 8; k++) {
-      const W = k < 4 ? [WA.x, WA.y, WA.z, WA.w][k] : [WB.x, WB.y, WB.z, WB.w][k - 4];
-      const m = M[k].div(W);
-      const v = max(S[k].div(W).sub(m.mul(m)), 0);
+      const m = M[k].div(W[k]);
+      const v = max(S[k].div(W[k]).sub(m.mul(m)), 0);
       const s2 = v.x.add(v.y).add(v.z).mul(65025);   // 方差按 0..255 计，和论文的尺度一致
       const a = float(1).div(float(1).add(pow(s2, q.mul(0.5))));
       acc.addAssign(a.mul(m)); as.addAssign(a);
@@ -65,3 +77,4 @@ export function kuwahara(TSL, { input, KR, radius, q, strength, texel, far }) {
     return vec4(mix(c0.rgb, acc.div(as), strength.mul(float(1).sub(prot))), 1);
   })();
 }
+

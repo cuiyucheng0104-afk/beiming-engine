@@ -68,6 +68,7 @@
 - B 路线（北冥原生 · BNE）锁定的上游原生运行时由 `0.1.0-canary.2` 升级到正式版 `0.1.4`（`v0.1.4`，提交 `d870159c4686bd1fcda094934602463549b26683`，2026-11-15 发布，2028-11-15 转为 Apache-2.0）：同步更新 `engine/native/runtime.lock.json` 与 `tools/env/spec.json` 的 macOS arm64、Windows x64、Linux x64 三平台归档与可执行文件 SHA256，并在 Linux RTX 4070（Vulkan / OpenH264）完成模版出片、四类画面配方与机器 QA 验收；`engine/render/native.mjs` 兼容 `raea check` 新版 `findings`（`error / warn / note`）与旧版 `issues`（`P0–P3`）输出，并接入 `BEIMING_GPU_BUSY_UTIL` / `--max-gpu-util` 守卫阈值。
 - 分块渲染（`engine/render/lib/chunks.mjs`，`video.mjs` 与 `shots.mjs` 共用）：一块的帧喂完后，FFmpeg 收尾（编完、核对帧数、改名）放到后台，同一路先渲下一块，每路最多一块在后台收尾。码流逐字节不变；RTX 4070 笔记本上 A、C 模版 192 帧 4 路交替实测中位快 6–10%（16 组配对 15 组更快）。
 - Python 顶层依赖范围抬到与锁文件已锁定的小版本一致（关闭的 Dependabot #26–#29 按协议重做）：`scipy>=1.18,<2`（锁 1.18.1）、`pillow>=13,<14`（锁 13.0.0）、`soundfile>=0.14,<1`（锁 0.14.0）、`soxr>=1.1,<2`（锁 1.1.0）。`requirements.lock` 按头里的 2026-11-10 时间点重生，针版本未变；`requirements.txt` 仍只引用 `requirements.in`。
+- 离屏出片的 TSL Kuwahara 展开成编译期常量：每个采样格的权重只取决于格子位置与 KR，改在 JS 里算好并展开，圆外格子不再采样，每个格子只累加权重非零的 3–4 个扇区，各扇区总权重也是常量。《化鹏闪羽》1080p 稳态每帧约 21.4 → 14.1 ms（整帧约 −34%，单机、GPU 被其他进程分走一部分，两轮交替测量），画面与改前最大差 1 级、PSNR ≥ 81 dB，对 GLSL 版的质量门不变；详见 `docs/offscreen/README.md` 7.17。
 
 ### Removed
 
