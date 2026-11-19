@@ -21,7 +21,7 @@ export function eventsTable(film) {
 
 /**
  * film 是片子描述，shotId 是镜头的标识，events 是已经展开成全片帧号的事件表（没有就不传）。
- * 返回 { film, output: { size, fps }, shot, assets?, events?, overlays? }：镜头条目原样（带 renderer 时也原样带着）；
+ * 返回 { film, output: { size, fps }, shot, assets?, events?, overlays?, tokens? }：镜头条目原样（带 renderer 时也原样带着）；
  * assets 是全片的资产表，overlays 是贴在这个镜头上的叠加层条目，片子里没有就不出现。
  */
 export function shotInput(film, shotId, events) {
@@ -35,5 +35,6 @@ export function shotInput(film, shotId, events) {
     ...(film.assets ? { assets: film.assets } : {}),
     ...(events ? { events } : {}),
     ...(overlays.length ? { overlays } : {}),
+    ...(film.style?.tokens ? { tokens: film.style.tokens } : {}),
   });
 }

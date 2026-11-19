@@ -58,7 +58,7 @@ const raw = {
     const mb = rec.caps.motionBlur;
     if (mb.mode !== 'native') return [];
     return (rec.renders ?? [])
-      .filter((r) => (r.shutterAngleDeg ?? 0) > 0 && allDeclared(rec.caps, r.want) && r.want.some((n) => (mb.conflicts ?? []).includes(n)))
+      .filter((r) => r.shutterAngleDeg > 0 && allDeclared(rec.caps, r.want) && r.want.some((n) => (mb.conflicts ?? []).includes(n)))
       .filter((r) => r.status !== 'error' || r.code !== 'contract.output-conflict')
       .map((r) => `${at(r)} 开着原生运动模糊要了冲突的输出，结果是 ${r.status}${r.code ? `（${r.code}）` : ''}`);
   },
@@ -96,11 +96,11 @@ const raw = {
   },
 
   F12: (rec) => (rec.renders ?? [])
-    .filter((r) => r.metaShutterAngleDeg !== undefined && r.metaShutterAngleDeg !== (r.shutterAngleDeg ?? 0))
-    .map((r) => `${at(r)} 元数据的快门角是 ${r.metaShutterAngleDeg}，生效的是 ${r.shutterAngleDeg ?? 0}`),
+    .filter((r) => r.metaShutterAngleDeg !== undefined && r.metaShutterAngleDeg !== r.shutterAngleDeg)
+    .map((r) => `${at(r)} 元数据的快门角是 ${r.metaShutterAngleDeg}，生效的是 ${r.shutterAngleDeg}`),
 
   F13: (rec) => (rec.renders ?? [])
-    .filter((r) => (r.shutterAngleDeg ?? 0) === 0 && r.shutterSamples > 1 && allDeclared(rec.caps, r.want))
+    .filter((r) => r.shutterAngleDeg === 0 && r.shutterSamples > 1 && allDeclared(rec.caps, r.want))
     .filter((r) => r.status !== 'error' || r.code !== 'contract.shutter-conflict')
     .map((r) => `${at(r)} 快门角 0、子帧采样 ${r.shutterSamples}，结果是 ${r.status}${r.code ? `（${r.code}）` : ''}`),
 
@@ -113,6 +113,10 @@ const raw = {
   F16: (rec) => (rec.opens ?? [])
     .filter((o) => !modeDeclared(rec.caps, o) && !failedWith(o, 'contract.unsupported-mode'))
     .map((o) => `open 的宿主 ${o.host}、作者模式 ${o.mode} 不全在能力声明里，结果是 ${outcome(o)}`),
+
+  F27: (rec) => (rec.renders ?? []).flatMap((r) => (r.layerRefs ?? [])
+    .filter((l) => l.fileBytes !== l.shape.reduce((a, b) => a * b, 4))
+    .map((l) => `${at(r)} 的 ${l.output} 层文件是 ${l.fileBytes} 字节，shape [${l.shape.join(', ')}] 算出来应该是 ${l.shape.reduce((a, b) => a * b, 4)}`)),
 
   F17: (rec) => (rec.renders ?? []).flatMap((r) => (r.layerRefs ?? []).flatMap((l) => [
     ...(l.hash !== l.fileHash ? [`${at(r)} 的 ${l.output} 层引用写的哈希不是层文件内容的哈希`] : []),

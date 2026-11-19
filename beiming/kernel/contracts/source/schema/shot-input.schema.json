@@ -20,6 +20,7 @@
     "shot": { "$ref": "../film/film.schema.json#/$defs/shot" },
     "assets": { "$ref": "../film/film.schema.json#/$defs/assets" },
     "events": { "$ref": "../events/events.schema.json" },
-    "overlays": { "type": "array", "items": { "$ref": "../film/film.schema.json#/properties/overlays/items" } }
+    "overlays": { "type": "array", "items": { "$ref": "../film/film.schema.json#/properties/overlays/items" } },
+    "tokens": { "$ref": "../film/film.schema.json#/properties/style/properties/tokens" }
   }
 }

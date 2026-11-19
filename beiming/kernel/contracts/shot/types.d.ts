@@ -16,7 +16,7 @@ export interface ShotCtx {
   rng(arg: string): RngStream;                             // arg："<用途>/<对象>"
   assets: { load(ref: string): unknown };                  // ref："asset:<名>@<版本>"；能用的是镜头条目的 assets 和镜头输入的 assets（全片的）；找不到必须报错，不交回空值
   anchor(entity: string, anchor: string): [number, number, number];   // 世界坐标，米；找不到必须报错
-  tokens: object;                                          // 镜头输入现在不带画风令牌，现在是空对象
+  tokens: object;                                          // 镜头输入的 tokens（片子描述的 style.tokens 原样），没有时是空对象
   size: [number, number];                                  // [宽, 高]，像素：镜头输入的 output.size；缩放不是 1 时跟不跟着缩放待定
   fps: Fps;                                                // 镜头输入的 output.fps
   frames: number;                                          // 这个镜头的帧数：镜头条目的 out 减 in

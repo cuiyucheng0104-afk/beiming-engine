@@ -20,7 +20,7 @@ export const caps = () => ({
     motion: false,
   },
   sceneQuery: [],
-  // 默认的子帧采样数 8 是暂定的数：契约的登记表里这一格还没定
+  // 默认的子帧采样数 8：帧源接口契约 3.4 登记表里 three 的这一格
   motionBlur: { mode: 'accumulate', auxAt: 'sub0', samples: 8 },
   determinism: 'hash-same-machine',
   draft: { kind: 'scale', samples: 1, scale: 0.5 },

@@ -56,7 +56,7 @@ test('同名的流出同样的序列，和别的流、取数先后无关', () =>
   for (let i = 0; i < 1000; i++) { const v = s.next(); assert.ok(v >= 0 && v < 1); }
 });
 
-test('镜头输入：片子标识、画幅、帧率加这个镜头的条目，原样；全片资产、事件表、贴在这个镜头上的叠加层有才带', async () => {
+test('镜头输入：片子标识、画幅、帧率加这个镜头的条目，原样；全片资产、事件表、贴在这个镜头上的叠加层、画风令牌有才带', async () => {
   const film = {
     id: 'f_x', output: { size: [640, 360], fps: '24/1', frames: 20 },
     shots: [
@@ -77,12 +77,12 @@ test('镜头输入：片子标识、画幅、帧率加这个镜头的条目，�
   assert.deepEqual([renderingOf(kept).source, renderingOf(film.shots[0]).source], ['core', 'three']);
   assert.throws(() => shotInput(film, 's09'), RangeError);
 
-  const rich = { ...film, assets: { vo: 'asset:vo@1' }, overlays: [{ id: 'tag', shot: 's02', anchor: 'screen', pos: [0.5, 0.5], text: 'x', in: 12, out: 15 }] };
+  const rich = { ...film, style: { tokens: { ink: '#1A1A1A' } }, assets: { vo: 'asset:vo@1' }, overlays: [{ id: 'tag', shot: 's02', anchor: 'screen', pos: [0.5, 0.5], text: 'x', in: 12, out: 15 }] };
   const table = eventsTable(rich);
   const full = shotInput(rich, 's02', table);
-  assert.deepEqual([full.assets, full.events, full.overlays], [rich.assets, table, rich.overlays]);
+  assert.deepEqual([full.assets, full.events, full.overlays, full.tokens], [rich.assets, table, rich.overlays, rich.style.tokens]);
   assert.deepEqual(validate(full, 'source', 'shot-input.schema.json').schemaErrors, []);
-  assert.deepEqual(Object.keys(shotInput(rich, 's01', table)), ['film', 'output', 'shot', 'assets', 'events']);
+  assert.deepEqual(Object.keys(shotInput(rich, 's01', table)), ['film', 'output', 'shot', 'assets', 'events', 'tokens']);
 });
 
 test('事件表：命名条目和切点条目，按帧号再按标识排；时刻算式不会展开就报错', async () => {

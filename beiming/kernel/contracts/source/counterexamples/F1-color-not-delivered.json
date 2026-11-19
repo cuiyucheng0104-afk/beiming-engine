@@ -75,6 +75,7 @@
         "meta",
         "depth"
       ],
+      "shutterAngleDeg": 0,
       "status": "ok",
       "meta": true,
       "layers": [

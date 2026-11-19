@@ -97,6 +97,10 @@
     "view": {
       "scene": "agx-mhc",
       "display": "srgb"
+    },
+    "tokens": {
+      "ink": "#1A1A1A",
+      "paper": "#F2EBDD"
     }
   },
   "predicates": {

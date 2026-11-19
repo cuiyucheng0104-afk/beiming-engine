@@ -33,7 +33,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["shotFrame", "want", "status"],
+        "required": ["shotFrame", "want", "shutterAngleDeg", "status"],
         "additionalProperties": false,
         "properties": {
           "shotFrame": { "type": "integer", "minimum": 0 },
@@ -55,13 +55,14 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["output", "shape", "hash", "fileHash"],
+              "required": ["output", "shape", "hash", "fileHash", "fileBytes"],
               "additionalProperties": false,
               "properties": {
                 "output": { "$ref": "caps.schema.json#/$defs/outputName" },
                 "shape": { "$ref": "layer-ref.schema.json#/properties/shape" },
                 "hash": { "$ref": "layer-ref.schema.json#/properties/hash" },
-                "fileHash": { "$ref": "layer-ref.schema.json#/properties/hash" }
+                "fileHash": { "$ref": "layer-ref.schema.json#/properties/hash" },
+                "fileBytes": { "type": "integer", "minimum": 0 }
               }
             }
           }

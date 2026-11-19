@@ -22,6 +22,7 @@
       "frame": 60,
       "shot": "s02",
       "f": 12,
+      "shutterAngleDeg": 180,
       "samples": [
         {
           "frame": 60,
@@ -45,7 +46,7 @@
         }
       ],
       "accumulation": {
-        "linearErr": 0.0000018,
+        "linearErr": 1.8e-06,
         "postRuns": 4,
         "postInput": "sample"
       }

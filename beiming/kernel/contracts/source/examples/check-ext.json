@@ -53,6 +53,7 @@
       "want": [
         "color"
       ],
+      "shutterAngleDeg": 0,
       "status": "ok",
       "meta": false,
       "layers": [
@@ -66,6 +67,7 @@
         "color",
         "depth"
       ],
+      "shutterAngleDeg": 0,
       "status": "error",
       "code": "contract.unsupported-output"
     }

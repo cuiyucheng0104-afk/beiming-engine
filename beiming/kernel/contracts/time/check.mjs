@@ -5,8 +5,8 @@
 const shotOf = (rec, id) => rec.shots.find((s) => s.id === id);
 const gcd = (a, b) => (b ? gcd(b, a % b) : a);
 const sameKey = (k, frame) => k.frame === frame && k.sub === 0;
-/** 这一帧生效的快门角：这次 render 覆盖了就用覆盖后的，没覆盖用镜头的 */
-const angleOf = (rec, fr) => fr.shutterAngleDeg ?? shotOf(rec, fr.shot).shutterAngleDeg;
+/** 这一帧生效的快门角，记录里每帧都写 */
+const angleOf = (rec, fr) => fr.shutterAngleDeg;
 
 /** 把条目按 key 分组，返回摘要不止一种的组的 key */
 function mixedDigests(items, keyOf) {

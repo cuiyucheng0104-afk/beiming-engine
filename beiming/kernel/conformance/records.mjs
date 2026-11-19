@@ -17,7 +17,7 @@
 //     evaluations[]  { f, sub, mode, digest }；rng[] { run, arg, name（观测点拿到的流名）, digest }；queries[] { kind, status, code?, total?, returned? }
 //     badArgs[]      故意把一个参数传出值域的调用：{ call, arg, status, code? }
 //     renders[]      每次参数都在值域里的 render：{ call, f, opts, want, locked, tier, status, code?, order?, unsupportedOpts?, unfitOutputs?,
-//                    metas（交回了几份元数据）, meta?, metaBytes?, layers?, layerRefs?[{ output, shape, hash, fileHash }], fileBytes?{ <输出>: 层文件的字节数 },
+//                    metas（交回了几份元数据）, meta?, metaBytes?, layers?, layerRefs?[{ output, shape, hash, fileHash, fileBytes }], fileBytes?{ <输出>: 层文件的字节数 },
 //                    seen?（观测点交出来的 { builds, shot?, metaF?, cardUses[{ as, runtimeKeys }], metaKeys, states[{ f, sub, color, aux }], ctx{ seed?, fps?, frames?, shotIn?, size? } }）,
 //                    linearErr?（量出来的累积颜色层对线性平均预言图的差）, auxMismatch?（量出来的编号层对预言图、边缘带之外对不上的像素数） }
 // 报的错不带错误码时 code 不出现。
@@ -47,7 +47,7 @@ function frameOf(r, obs, shot) {
     frame: r.f + shot.in,
     shot: shot.id,
     f: color[0].f,
-    ...(r.opts?.shutter ? { shutterAngleDeg: r.opts.shutter.angleDeg } : {}),
+    shutterAngleDeg: effectiveShutter(r, shot, obs.caps, obs.lock).angleDeg,
     // 这个采样是对哪个镜头的状态求值：观测点在 build 收到的 ctx.shot.id 上读到的原文，不替它对，对不对由条文判
     samples: color.map((s) => ({ ...key(s), shot: r.seen.shot })),
     // 逐子帧累积的帧源才有这一段；对预言图的差没量出来就是空的

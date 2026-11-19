@@ -22,6 +22,7 @@
       "frame": 60,
       "shot": "s02",
       "f": 12,
+      "shutterAngleDeg": 180,
       "samples": [
         {
           "frame": 61,

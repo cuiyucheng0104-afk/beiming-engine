@@ -146,5 +146,8 @@
       "in": "event(lock) + 6",
       "out": 178
     }
-  ]
+  ],
+  "tokens": {
+    "ink": "#1A1A1A"
+  }
 }

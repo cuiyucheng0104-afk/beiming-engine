@@ -391,5 +391,12 @@
       "F26"
     ],
     "why": "带着锁文件、镜头用了这个帧源还没接的卡，open 报了错，码却借用了 usage.bad-argument"
+  },
+  {
+    "file": "F27-file-shorter-than-shape.json",
+    "violates": [
+      "F27"
+    ],
+    "why": "层文件比 shape 算出来的少 4 个字节，少了一个数；哈希照样对得上，F17 看不出来"
   }
 ]

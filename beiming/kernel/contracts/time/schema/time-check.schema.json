@@ -44,7 +44,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["frame", "shot", "f", "samples"],
+        "required": ["frame", "shot", "f", "samples", "shutterAngleDeg"],
         "additionalProperties": false,
         "properties": {
           "frame": { "type": "integer", "minimum": 0 },

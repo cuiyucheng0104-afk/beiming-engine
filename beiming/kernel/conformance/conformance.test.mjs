@@ -193,7 +193,7 @@ function observation() {
   const one = (id, start, shutter) => {
     const meta = { film: 'f_x', shot: id, fps: '24/1', frame: start + 3, shotFrame: 3, seed: 7, size: [640, 360], colorRef: 'scene', camera: { shutterAngleDeg: 180 }, entities: [{ id: 1, name: 'cube', class: 'part' }], source: { id: 'three', renderer: 'three', tier: 'final' }, hash: { color: sha } };
     const seen = (states) => ({ builds: 1, shot: id, metaF: 3, cardUses: [], metaKeys: [], states, ctx: { seed: 7, fps: '24/1', frames: 10, shotIn: start, size: [640, 360] } });
-    const ref = (output, n) => ({ output, shape: [360, 640, n], hash: sha, fileHash: sha });
+    const ref = (output, n) => ({ output, shape: [360, 640, n], hash: sha, fileHash: sha, fileBytes: 360 * 640 * n * 4 });
     const full = (call, order) => ({
       call, f: 3, opts: {}, want: ['color', 'meta', 'depth'], locked: false, tier: 'final', status: 'ok', metas: 1, meta, metaBytes: 900, layers: ['color', 'depth'], layerRefs: [ref('color', 4), ref('depth', 1)], fileBytes: { color: 360 * 640 * 4 * 4, depth: 360 * 640 * 4 }, order, session: order,
       unsupportedOpts: [], unfitOutputs: [], linearErr: 2e-6, auxMismatch: 0,
@@ -240,7 +240,7 @@ test('像样的观测写出的核对记录一条不违反', () => {
   const time = r[0];
   assert.deepEqual(time.shots.map((x) => [x.id, x.start]), [['s01', 0], ['s02', 10]]);
   assert.deepEqual(time.frames[2], {
-    frame: 13, shot: 's02', f: 3, samples: [{ frame: 13, sub: 0.125, shot: 's02' }, { frame: 13, sub: 0.375, shot: 's02' }],
+    frame: 13, shot: 's02', f: 3, shutterAngleDeg: 180, samples: [{ frame: 13, sub: 0.125, shot: 's02' }, { frame: 13, sub: 0.375, shot: 's02' }],
     accumulation: { linearErr: 2e-6 }, aux: { frame: 13, sub: 0 }, auxMismatch: 0,
   });
   // 只要元数据的那次不进逐帧采样；元数据核对记录里是工具重算的层文件哈希对元数据里的哈希
@@ -336,7 +336,8 @@ test('观测里的毛病原样进记录，被对应的条文判出来', () => {
     M20: (o) => { o[0].renders[1].meta = { ...o[0].renders[1].meta, fps: '25/1' }; },   // 元数据的帧率不是片子的
     M17: (o) => { o[0].renders[0].meta = { ...o[0].renders[0].meta, source: { id: 'core', renderer: 'three', tier: 'final' } }; },   // 元数据的 source.id 不是镜头条目顶层写的帧源
     F17: (o) => { o[0].renders[0].layerRefs[1].fileHash = `sha256:${'cd'.repeat(32)}`; },   // 深度层的层引用里的哈希不是文件的
-    'F17 ': (o) => { o[0].renders[0].layerRefs[1].shape = [180, 320, 1]; }, // 层的形状不是这次输出的尺寸
+    F27: (o) => { o[0].renders[0].layerRefs[1].fileBytes -= 4; },   // 层文件比 shape 算出来的少一个数
+    'F17 ': (o) => { Object.assign(o[0].renders[0].layerRefs[1], { shape: [180, 320, 1], fileBytes: 180 * 320 * 4 }); }, // 层的形状不是这次输出的尺寸（文件本身照这个形状写）
     F18: (o) => { o[0].renders[0].unsupportedOpts = ['samples']; },         // 要了交不出的每像素采样数，却出了帧
     F19: (o) => { o[0].renders[0].unfitOutputs = ['depth']; },              // 场景里有深度层放不进的对象，却出了帧
     M1: (o) => { o[0].renders[0].meta = { ...o[0].renders[0].meta, hash: { color: `sha256:${'cd'.repeat(32)}` } }; },   // 元数据里的哈希不是这次交回的颜色层的

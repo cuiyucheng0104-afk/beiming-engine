@@ -92,7 +92,7 @@
 
 这六个函数是帧源对上层的全部接口。宿主和渲染器之间怎么接由各帧源自己定，不立契约；一对里谁管哪件事见 5.10。
 
-镜头输入 `ShotInput`。接口值，不带 `format`，不得有别的字段。它由上层从片子描述算出来；片子的内容只从这里进帧源，`env` 只放这次运行的环境。后三个字段可选，不出现表示没有。
+镜头输入 `ShotInput`。接口值，不带 `format`，不得有别的字段。它由上层从片子描述算出来；片子的内容只从这里进帧源，`env` 只放这次运行的环境。后四个字段可选，不出现表示没有。
 
 | 字段 | 类型 | 单位 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|---|
@@ -102,6 +102,7 @@
 | `assets` | 对象 | 无 | 否 | `{ 别名: 资产引用 }`，同 D 契约 3.1 的 `assets` | 全片的 `assets` 表，原样。镜头能用的资产是镜头条目的 `assets` 加这一张表 |
 | `events` | 对象 | 无 | 否 | 一份事件表，见事件表契约（EV）3.1 | 已经展开成全片帧号的事件表，原样。时刻算式由上层展开一次，帧源不得再从片子描述展开 |
 | `overlays` | 数组 | 无 | 否 | 每项是片子描述 `overlays[]` 的一个条目，见 D 契约 3.4 | 落在这个镜头上的叠加层条目：片子描述的 `overlays` 里 `shot` 等于这个镜头 `id` 的那几项，原样，保持片子描述里的书写顺序 |
+| `tokens` | 对象 | 无 | 否 | 片子描述的 `style.tokens`，见 D 契约 3.5 | 片子描述的画风令牌，原样；片子描述没写就不出现。镜头代码的 `ctx.tokens` 就是它（S 契约 3.2）。色值是 `#RRGGBB`，显示空间（D 契约 5.9），宿主不换算；要场景线性值的镜头代码自己解码 |
 
 「出帧用的那一套」：镜头条目带 `renderer` 对象时，是 `renderer` 对象里的 `source`、`host`、`mode`、`entry`；不带时，是镜头条目顶层的这四样。本契约说到一个镜头出帧用的 `host`、`mode`、`entry`，都照这一句取。镜头条目顶层的 `source` 不因为带了 `renderer` 而改写。
 
@@ -264,7 +265,7 @@
 | `sceneQuery` | 五种全有 | `bbox3d`、`anchor`、`belowGround` | 五种全有 |
 | `motionBlur.mode` | `native` | `accumulate` | `native` |
 | `motionBlur.auxAt` | `sub0` | `sub0` | `sub0` |
-| `motionBlur.samples` | 不出现 | `待定：three 默认的子帧采样数` | 不出现 |
+| `motionBlur.samples` | 不出现 | `8`（已定，见第 6 节） | 不出现 |
 | `motionBlur.conflicts` | `motion` | 不出现 | 不出现 |
 | `determinism` | `tolerance` | `hash-same-machine`（探针数据表第 11 行和「5090 读数」一节，两台机器） | `待探针：核心帧源同机渲两遍是否逐位相同` |
 | `draft` | `cycles-low`，24 次，0.5，降噪 `gpu` | `scale`，1 次，0.5 | `path-low`，24 次，0.5，降噪 `oidn-native` |
@@ -404,7 +405,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 |---|---|---|---|---|---|---|
 | `shotFrame` | 整数 | 帧 | 是 | ≥ 0 | `请求` | 镜头局部帧号 |
 | `want` | 数组 | 无 | 是 | `OutputName`，不重复 | `请求` | 要了什么 |
-| `shutterAngleDeg` | 双精度 | 度 | 否 | `[0, 360]` | `请求` | 这次调用生效的快门角，测试工具照 5.9 的次序从自己传的参数算；不出现表示没开运动模糊，按 0 算 |
+| `shutterAngleDeg` | 双精度 | 度 | 是 | `[0, 360]` | `请求` | 这次调用生效的快门角，测试工具照 5.9 的次序从自己传的参数算；0 表示没开运动模糊。每次都写，不靠缺省；时间核对记录里同名的字段意思相同 |
 | `shutterSamples` | 整数 | 次 | 否 | ≥ 1 | `请求` | 这次调用生效的子帧采样数，测试工具照 5.9 的次序从自己传的参数算；没记就不出现 |
 | `size` | 数组 | 像素 | 否 | `[宽, 高]`，正整数 | `请求` | 这次输出的宽和高：镜头输入的 `output.size` 乘生效的缩放。缩放是 1 时就是 `output.size`；缩放不是 1 时乘出来怎么取整还没定（见第 6 节），没定之前这种调用不记这个字段 |
 | `unsupportedOpts` | 数组 | 无 | 否 | `samples`、`scale`，不重复 | `请求` | 这次传的 `RenderOpts` 里，被测帧源交不出的是哪几项；测试工具故意要一个交不出的值时填。都交得出写空数组，没核对过就不出现。靠什么知道交不出见第 6 节 |
@@ -427,6 +428,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | `shape` | 数组 | 是 | 3 个正整数 | `自报` | 这一层的层引用里写的 `shape` |
 | `hash` | 字符串 | 是 | `sha256:` 加 64 位小写十六进制 | `自报` | 这一层的层引用里写的 `hash` |
 | `fileHash` | 字符串 | 是 | `sha256:` 加 64 位小写十六进制 | `量的` | 测试工具读层文件、自己重算的内容哈希 |
+| `fileBytes` | 整数 | 是 | ≥ 0 | `量的` | 测试工具读到的层文件字节数 |
 
 `orderRuns[]`：把同一帧用不同方式各渲一次。
 
@@ -518,8 +520,8 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | F9 | `QueryResult.items` 不得超过 50 项，超过时必须只交回最严重的 50 项，并且在 `truncated` 里写被截掉的项数。 | `queries` 里 `status` 是 `ok` 的每一项：`returned` 必须等于 `total` 和 50 里小的那个；`total` 大于 50 时 `truncated` 必须等于 `total − 50`，否则 `truncated` 不得出现。留下的是不是最严重的 50 项现在不判，见 5.7 | `F9-query-not-truncated.json`、`F9-returned-too-few.json`、`F9-truncated-wrong-count.json`、`F9-truncated-without-cut.json` |
 | F10 | `blender`、`three`、`core` 的合规档必须是 `full`，`legacy-page` 和 `ext.<名字>` 的合规档必须是 `limited`。 | 能力声明（单独的，或记录里的 `caps`）：`id` 是前三个之一时 `conformance` 必须是 `full`，否则必须是 `limited` | `F10-blender-declares-limited.json` |
 | F11 | 实体清单里的编号和名字都不得重复，每帧元数据里列出的每个实体的编号、名字、类别必须和实体清单里的同一项逐项相同。 | `manifest.entities` 的 `id` 没有重复、`name` 没有重复；`metaEntities` 每一项的每个实体，在 `manifest.entities` 里必须有一项 `id`、`name`、`class` 三样都相同 | `F11-entity-id-changes.json` |
-| F12 | 元数据的 `camera.shutterAngleDeg` 必须等于这次 `render` 生效的快门角。 | `renders` 里 `metaShutterAngleDeg` 出现的每一项：它必须等于 `shutterAngleDeg`（不出现按 0 算），没有容差 | `F12-meta-shutter-differs.json` |
-| F13 | 生效的快门角是 0 而生效的子帧采样数大于 1 时，`render` 必须报错，错误码必须是 `contract.shutter-conflict`。 | `renders` 里 `shutterAngleDeg` 不出现或等于 0、`shutterSamples` 大于 1、并且 `want` 里的输出都声明过的每一项：`status` 必须是 `error`，`code` 必须是 `contract.shutter-conflict`。`want` 里有没声明过的输出的项归 F3 判 | `F13-zero-angle-multi-sample.json` |
+| F12 | 元数据的 `camera.shutterAngleDeg` 必须等于这次 `render` 生效的快门角。 | `renders` 里 `metaShutterAngleDeg` 出现的每一项：它必须等于 `shutterAngleDeg`，没有容差 | `F12-meta-shutter-differs.json` |
+| F13 | 生效的快门角是 0 而生效的子帧采样数大于 1 时，`render` 必须报错，错误码必须是 `contract.shutter-conflict`。 | `renders` 里 `shutterAngleDeg` 等于 0、`shutterSamples` 大于 1、并且 `want` 里的输出都声明过的每一项：`status` 必须是 `error`，`code` 必须是 `contract.shutter-conflict`。`want` 里有没声明过的输出的项归 F3 判 | `F13-zero-angle-multi-sample.json` |
 | F14 | `env.lock` 是 `null` 时，镜头条目没写 `seed`、或者镜头用了卡（叠加层展开出的卡也算）或资产，`open` 必须报错，错误码必须是 `env.lock-required`。 | `opens` 里 `hasLock` 是 `false`、`host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里，并且 `hasSeed` 是 `false`、或 `usesCards` 是 `true`、或 `usesAssets` 是 `true` 的每一项：`status` 必须是 `error`，`code` 必须是 `env.lock-required`。`host` 或 `mode` 不在能力声明里的项归 F16 判 | `F14-no-seed-opened.json`、`F14-cards-opened.json`、`F14-assets-opened.json`、`F14-borrowed-mode-code.json`、`F14-overlays-only-input-code.json` |
 | F15 | 帧源登记表里有的帧源，能力声明必须落在登记表之内。 | 能力声明（单独的，或记录里的 `caps`）的 `id` 是登记表 `source.json` 的 `sources` 里的键时，拿那一项照 3.4 的「之内」比：`hosts`、`modes`、`sceneQuery` 的每一项登记表里都有；`outputs` 里除 `meta` 之外取值不是 `false` 的每个键，登记表里必须有这个键、取值不是 `false`，并且 `type` 相等；`motionBlur.mode` 相等；登记表有 `determinism` 时 `determinism` 相等 | `F15-host-not-registered.json`、`F15-mode-not-registered.json`、`F15-query-not-registered.json`、`F15-output-type-differs.json`、`F15-output-registered-false.json`、`F15-output-not-registered.json`、`F15-blur-mode-differs.json`、`F15-determinism-differs.json` |
 | F16 | 镜头出帧用的 `host` 不在能力声明的 `hosts` 里、或者出帧用的 `mode` 不在 `modes` 里时，`open` 必须报错，错误码必须是 `contract.unsupported-mode`。 | `opens` 里 `host` 不在 `caps.hosts` 里、或 `mode` 不在 `caps.modes` 里的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-mode` | `F16-host-not-declared.json`、`F16-mode-not-declared.json`、`F16-borrowed-lock-code.json` |
@@ -533,6 +535,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | F24 | `query` 问了能力声明的 `sceneQuery` 里列了的种类时必须给结果，不得报错。 | `queries` 里 `kind` 在 `caps.sceneQuery` 里的每一项：`status` 必须是 `ok` | `F24-declared-query-refused.json`、`F24-declared-query-uncoded-error.json` |
 | F25 | 镜头出帧用的 `host` 在能力声明的 `hosts` 里、出帧用的 `mode` 在 `modes` 里时，`open` 必须成功；F14、F26 管的情形除外。 | `opens` 里 `host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里、不满足 F14 的条件（`hasLock` 是 `true`，或者 `hasSeed` 是 `true` 并且 `usesCards`、`usesAssets` 都是 `false`）、并且 `unfitInput` 不出现或是空数组的每一项：`status` 必须是 `ok` | `F25-declared-mode-open-fails.json` |
 | F26 | 镜头输入里有帧源装不了的卡、资产或叠加层时，`open` 必须报错，错误码必须是 `contract.unsupported-input`，不得少装一样照常装载。 | `opens` 里 `unfitInput` 不空、`host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里、并且不满足 F14 的条件的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-input`。`host` 或 `mode` 不在能力声明里的项归 F16 判，满足 F14 条件的项归 F14 判 | `F26-overlays-ignored.json`、`F26-borrowed-argument-code.json` |
+| F27 | 层文件的字节数必须等于层引用的 `shape` 各项之积乘以 4。 | `renders` 里 `layerRefs` 的每一项：`fileBytes` 必须等于 `shape` 三个数之积乘以 4（3.3 的层文件格式） | `F27-file-shorter-than-shape.json` |
 
 ## 5. 口径
 
@@ -554,7 +557,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 |---|---|---|---|
 | 颜色线性度 | 色卡、灰阶 | 灰阶各级的读数和已知反射率的相对误差 | `待探针：灰阶各级的相对误差` |
 | 深度口径 | 已知距离的平面、一米长的标尺 | 深度层读数和已知距离的相对误差，取中位 | `待探针：深度读数的相对误差中位` |
-| 编号与元数据 | 三个互相遮挡的方块 | 元数据里的屏幕包围盒，和从编号层反算出的包围盒的交并比 | `待探针：元数据包围盒和编号层反算包围盒的交并比` |
+| 编号与元数据 | 三个互相遮挡的方块 | 元数据里的屏幕包围盒，和从编号层反算出的包围盒的交并比。编号层要在只渲这一个实体（别的实体藏起来）时取：元数据的包围盒是整个实体的投影，不看遮挡，合在一起渲时被挡住大半的实体只有 0.72 | 不低于 0.95。三渲帧源单独渲时三个方块是 0.978 到 0.998（探针数据表「可见比例的成本」一行，Mac 和 5090 读数相同）；最小出帧链路在没被挡的主物体上是 0.9628 到 0.9926（链路入口自己打印的读数，这台 Mac 上量的） |
 | 法线空间 | 已知朝向的球 | 法线层读数和已知法线的夹角，取中位 | `待探针：法线夹角中位，单位度` |
 | 相机约定 | 带刻度的 L 形标尺 | 锚点的屏幕位置和已知位置的距离 | `待探针：锚点屏幕位置误差，单位像素` |
 | 文字框回读 | 带已知文字的画面 | 元数据的 `texts` 里每个文字框的文字，和从成片画面上那个矩形里读回的文字 | `待探针：文字框回读的过线` |
@@ -694,7 +697,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | 私有外部插件交的「来源信息」 | 结构照每帧元数据契约（M）3.5 的 `source` 一段，见 3.5；一段成片交几个、从哪个接口交：不定 | 集成负责人确认 |
 | 本机的锁生成器 | 写法已定（LK 契约 5.8），程序还没有：本机出帧先生成本机锁再 `open`。生成器做出来之前，最小出帧链路带锁的那一次用照本机锁写法手写的夹具锁 | 卡、显示变换查找表在本机能跑时做生成器；接口不动 |
 | 能力声明按帧源一份，还是按（帧源，宿主）一份 | 现在按帧源一份 | `待探针：核心帧源在两个宿主上各自的确定性和草稿档读数` |
-| `three` 的 `motionBlur.samples` | `待定：three 默认的子帧采样数`。实现的能力声明里现在写的 8 是暂定的数，不是结论 | `three` 帧源的实现定下来，集成负责人确认 |
+| `three` 的 `motionBlur.samples` | 已定：8。最小出帧链路量 T6 的读数（线性平均差 1.8e-6）就是 8 个子帧时量的；要更顺的拖影，镜头条目写 `shutter.samples`，不改默认值 | 已定 |
 | `blender`、`core` 的 `final` | `待定：blender 终稿档每像素采样数`、`待定：core 终稿档每像素采样数` | 各自的实现 |
 | `three` 的 `color`、`normal` 写 `f32` 的依据 | 已定：页面宿主的三种后端（Metal、Vulkan、软件渲染）在 32 位浮点渲染目标上都能出帧、带混合，读回的都是期望值取单精度，同一帧渲两遍逐位相同（探针数据表「5090 读数」一节后面的表）；链路已经改用这种目标 | 已定 |
 | 能力声明没有 `motionBlur.samples` 的帧源（原生运动模糊）默认的子帧采样数 | 【起草者补】`samples` 只在 `mode` 是 `accumulate` 时必填；原生运动模糊的帧源取什么：`待定：原生运动模糊的帧源默认的子帧采样数` | `blender`、`core` 的实现 |
@@ -704,18 +707,20 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | `unsupportedOpts`、`unfitOutputs`、`unfitInput` 靠什么填 | 能力声明里没有「交得出哪些采样数和缩放」「哪类对象进不了哪个输出」「卡、资产、叠加层接没接」的字段；现在由测试工具照被测帧源自己的说明填 | 要机器能读时，在能力声明里加字段 |
 | 一次 `open` 同时踩中 F14、F16、F26 里不止一条 | 【起草者补】`host` 或 `mode` 不在能力声明里时只判 F16，错误码是 `contract.unsupported-mode`；F14 只管 `host`、`mode` 都在能力声明里的调用；F26 排在最后，只管前两条都不踩的调用，见 5.14 | 集成负责人确认 |
 | 一次 `render` 同时踩中 F5、F13、F18、F19、F23 里不止一条，或者参数出值域的同时 `want` 里还有没声明过的输出 | 不定：F5、F13、F18、F19 都只管 `want` 全都声明过的调用，彼此之间报哪个码没定；参数出值域和别的几条谁先谁后也没定。一致性夹具一次只造一种 | 集成负责人确认 |
-| 只对了帧源自己的说法、不算对真值的验证的条文 | F11 拿帧源的两处输出（实体清单和元数据）互相对，F2 的后半和 F12 拿元数据里的字段对请求：查的都是「抄得对不对」。元数据里的编号和像素对不对得上，由 5.3 的「编号与元数据」一项验，门槛还是 `待探针`。F4 的「任意一帧必须能单独渲」只读了声明 `randomAccess`，行为由 `orderRuns` 里 `single` 那一项渲得出来间接覆盖。F20 只查实体清单自己的编号排法，清单是帧源交的。F17 的宽高一半拿层引用里自己写的 `shape` 对请求的 `size`，层文件真有多大记录里没有：帧源把文件写成别的尺寸、`shape` 照请求填时，记录不变。要真判，得在 `layerRefs[]` 里加一个量的字段（层文件的字节数），见「层引用现在没人判的几样」一行 | 5.3 的门槛定下来；F17 的这一半等集成负责人定加不加那个字段 |
+| 只对了帧源自己的说法、不算对真值的验证的条文 | F11 拿帧源的两处输出（实体清单和元数据）互相对，F2 的后半和 F12 拿元数据里的字段对请求：查的都是「抄得对不对」。元数据里的编号和像素对不对得上，由 5.3 的「编号与元数据」一项验，过线是 0.95。F4 的「任意一帧必须能单独渲」只读了声明 `randomAccess`，行为由 `orderRuns` 里 `single` 那一项渲得出来间接覆盖。F20 只查实体清单自己的编号排法，清单是帧源交的。F17 的宽高一半拿层引用里自己写的 `shape` 对请求的 `size`；层文件真有多大由 F27 拿量到的字节数判，所以帧源把文件写成别的尺寸、`shape` 照请求填时 F27 会红；高和宽一起写错、乘积不变的情形仍判不出 | 有了带文件头、能独立读出高和宽的层文件格式再说 |
 | 例子里 `three` 的 `motionBlur.samples`、`blender` 和 `core` 的 `final` | 为了让例子成形填的示意值（8；64 次、缩放 1），不是结论 | 上面几行定了以后改例子 |
 | 帧源登记表的格式标识 | 已定：`source/0.1`，和别的登记表一样用目录名；收 `ext` | 已经登记在契约写法约定的格式标识总表 |
 | 镜头输入的 `events` 是整份事件表，还是只有这个镜头的条目 | 【起草者补】整份事件表（`events/0.1` 的对象），原样，不裁：不用另定裁法 | 集成负责人确认 |
-| 镜头输入的 `overlays` 条目里的时刻算式由谁求值 | 【起草者补】照片子描述契约（D）5.3、5.11，本契约不另定：条目原样传，`in`、`out` 可以还是时刻算式；事件的帧号由上层展开一次，结果就是镜头输入的 `events`；条目里的算式由帧源里的宿主查这份事件表、再加减偏移。那两处改了，这一行跟着改 | 集成负责人确认；和 D 契约第 6 节「卡参数和叠加层里的时刻算式谁展开」一行是同一件事 |
-| 画风令牌怎么进镜头输入 | 镜头输入里没有这个字段：`待定：画风令牌怎么进镜头输入` | 集成负责人定 |
-| 镜头输入的后三个字段和片子描述对不对得上 | 现在没人判：镜头输入由上层算，帧源核对记录里没有片子描述 | 上层有了自己的核对记录 |
+| 镜头输入的 `overlays` 条目里的时刻算式由谁求值 | 已定：照片子描述契约（D）5.3、5.11：条目原样传，算式由帧源里的宿主查镜头输入的 `events`、再加减偏移；对不对由 T9 判 | 已定 |
+| 画风令牌怎么进镜头输入 | 已定：镜头输入加可选的 `tokens`，是片子描述的 `style.tokens` 原样（3.2）；和全片的 `assets`、事件表一样由上层放进去 | 已定 |
+| 镜头输入的后四个字段和片子描述对不对得上 | 现在没人判：镜头输入由上层算，帧源核对记录里没有片子描述 | 上层有了自己的核对记录 |
 | 没有锁文件时全片的资产 | 【起草者补】镜头输入的 `assets` 出现并且不空，和镜头条目的 `assets` 一样算「用了资产」（5.11、`opens[].usesAssets`）：全片资产的版本和哈希也只有锁文件里有。代价：带全片资产的片子没有锁时一个镜头都打不开 | 集成负责人确认 |
 | 镜头由场景包描述时实体清单的编号 | 以场景包实例表为准（3.6）。帧源核对记录里没有实例表，这一半 F20 不查。实例表只列叶子实体，装配体的编号从哪来：`待定：场景包镜头里装配体的编号` | 场景包契约（SP）的核对记录；集成负责人定装配体 |
 | 实体的类别 `class` 从哪来；镜头对象里没列出的名字前缀算不算实体；片子描述 `roles` 点名的名字不在实体清单里怎么办 | 三样都不定。`class` 现在只要求不空、和元数据里的相同（F11） | 集成负责人定 |
 | `scenePack` 靠什么填 | 夹具镜头是测试工具自己备的，有没有场景包它自己知道。片子描述里怎么写一个镜头用了场景包，本契约不管 | 场景包接进片子描述时 |
-| 层引用现在没人判的几样 | `renders[].layerRefs[].output` 在不在 `layers` 里；`layers` 有层而 `layerRefs` 是空数组；层文件的字节数等不等于 `shape` 各项之积乘 4；`components` 的名字和次序对不对得上输出通道契约（PS）3.1。都没有不变量管 | 一致性测试工具要判时，在 `layerRefs[]` 里加字段 |
+| 层引用现在没人判的几样 | `renders[].layerRefs[].output` 在不在 `layers` 里；`layers` 有层而 `layerRefs` 是空数组；`components` 的名字和次序对不对得上输出通道契约（PS）3.1。都没有不变量管。层文件的字节数归 F27 | 一致性测试工具要判时，在 `layerRefs[]` 里加字段 |
+| 「编号与元数据」的比法 | 交并比对大物体的尺寸误差不灵敏：大的实体四边各外扩 1 像素仍过 0.95。另外，最小出帧链路没有单独渲，用的是合渲的编号层，前提是主物体不被别的实体挡住，这个前提没人判 | 要抓大物体的尺寸误差时，另加「四条边各差不超过多少像素」的比法；链路接上单独渲时去掉这个前提 |
+| 层文件交回前的转写 | 3.3 的层文件没有文件头、只有数。渲染器内部出的文件（例如 Blender 的 EXR）要由宿主转成这种格式再交，不然 F27 每帧都红。这一步要花多少时间：`待探针：Blender 转写层文件的耗时` | `blender` 帧源实现时量 |
 | 3.4 的登记表和 `source.json` 怎么保持一致 | F22 的判定函数里抄了一份 3.4 的那几格，拿它比 `source.json`。改登记表时三处一起改：3.4 的表、`source.json`、本目录 `check.mjs` 里抄的那一份 | 已定 |
 | 装不了卡、资产、叠加层时报什么 | 已定：三样共用一个码 `contract.unsupported-input`，立 F26，记录里加 `opens[].unfitInput`；写成过渡的失败方式，不是减免，见 5.14。不得少装一样照常出帧：那样上层看到的是一张缺东西却「成功」的帧，换不了帧源，也查不出原因 | 已定 |
 | 实体清单的 `frames` 等不等于镜头条目的 `out` 减 `in` | 3.6 写成对帧源的要求，没有立不变量：核对记录里没有镜头条目的 `in`、`out`。F23 的帧号界不读 `manifest.frames`（5.13），帧源把它报错了不影响 F23 | 一致性测试工具要判时，在核对记录里加一个 `请求` 的镜头帧数字段 |
@@ -740,3 +745,4 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | 2026-11-19 | 5.11「用了卡」、3.8 `opens[].usesCards` 的说明、F14 的条文，F14 补一个只带叠加层的反例，正例 `check-no-lock.json` 和 F26 的反例跟着改；3.6 `frames` 的说明、5.13 `f` 一行；第 6 节「装不了卡、资产、叠加层时报什么」改成已定，加「实体清单的 `frames`」一行。判定函数没动 | 叠加层展开成的卡 `two-d.overlay` 不是内建卡，版本和哈希只在锁文件里，原来「用了卡」只数镜头条目的 `cards`，没有锁、只带叠加层的镜头照 F25 必须装载成功；实体清单的帧数原来没写算法，F23 的帧号界读的是帧源自报的数，报大了判不出；装不了镜头输入时报的码已经确认 |
 | 2026-11-19 | 第 6 节「`f32` 的依据」一行 | Vulkan 和软件渲染两种后端也量过了，读数记进了探针数据表，改成已定 |
 | 2026-11-19 | 5.11 开头一段 | 本机出帧改成先生成本机锁再带着它 `open`，`null` 只留给完全没有锁的情形；F14 的条文和判法没动 |
+| 2026-11-19 | 3.2 加 `tokens`；3.4 登记表 `three` 的 `motionBlur.samples` 定成 8；3.8 `renders[].shutterAngleDeg` 改必填、`layerRefs[]` 加 `fileBytes`；新立 F27；5.3「编号与元数据」一行定比法和过线；第 6 节改三行 | 几项待定定下来：画风令牌进镜头输入；three 默认 8 个子帧；快门角在两份核对记录里同义、不靠缺省；层文件字节数有人判；交并比单独渲时不低于 0.95 |

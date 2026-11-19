@@ -66,6 +66,7 @@
         "color",
         "objectId"
       ],
+      "shutterAngleDeg": 0,
       "unfitOutputs": [
         "objectId"
       ],

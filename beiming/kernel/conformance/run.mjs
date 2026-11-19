@@ -34,9 +34,9 @@ const LANGUAGES = { '.js': 'js', '.mjs': 'js', '.py': 'python' };
 const UNMOUNTED = ['cards', 'assets', 'overlays'];
 // 备了问法的场景查询：能力声明里列了、这里却没备的种类算没验。total 是照自己问的算的「一共该有几项」
 const QUERIES = { bbox3d: (of) => ({ q: { kind: 'bbox3d', of }, total: of.length }) };
-// 元数据里主物体的屏幕包围盒对编号层反算出的包围盒，交并比不得低于这个数。契约里这道线还没定；这是入口自己的门：
-// 这条链路在三个镜头的九个交付帧上量到的读数是 0.9628 到 0.9926（一台苹果芯片的开发机），线比最小的读数低一截留作余量。读数每次都打印、写进 summary.json
-const META_BOX_IOU_MIN = 0.9;
+// 元数据里主物体的屏幕包围盒对编号层反算出的包围盒，交并比不得低于这个数：帧源接口契约 5.3「编号与元数据」一行的过线。
+// 主物体没被别的实体挡住，合渲的编号层就等于单独渲的。读数每次都打印、写进 summary.json
+const META_BOX_IOU_MIN = 0.95;
 
 const rel = (p) => relative(REPO, p).split(sep).join('/');
 const pad = (n, width) => String(n).padStart(width, '0');
@@ -145,7 +145,7 @@ async function runShot(shot) {
       for (const [output, ref] of Object.entries(res.layers)) {
         const bytes = await readFile(join(s.workspace, ref.file));
         rec.fileBytes[output] = bytes.length;
-        rec.layerRefs.push({ output, shape: ref.shape, hash: ref.hash, fileHash: `sha256:${hex(bytes)}` });
+        rec.layerRefs.push({ output, shape: ref.shape, hash: ref.hash, fileHash: `sha256:${hex(bytes)}`, fileBytes: bytes.length });
       }
       rec.metas = Array.isArray(res.meta) ? res.meta.length : res.meta ? 1 : 0;
       if (rec.metas === 1) {

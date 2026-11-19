@@ -14,7 +14,7 @@ export type Assets = object;
 export type EventTable = object;
 export type OverlayEntry = object;
 
-/** 镜头输入：这个镜头出片要读的片子内容，见 3.2。shot 原样传，带 renderer 对象时也原样带着，帧源自己读。后三个字段不出现表示没有。 */
+/** 镜头输入：这个镜头出片要读的片子内容，见 3.2。shot 原样传，带 renderer 对象时也原样带着，帧源自己读。后四个字段不出现表示没有。 */
 export type ShotInput = {
   film: string;                                      // 片子的 id
   output: { size: [number, number]; fps: string };   // size：[宽, 高]，像素
@@ -22,6 +22,7 @@ export type ShotInput = {
   assets?: Assets;                                   // 全片的 assets 表，原样
   events?: EventTable;                               // 已经展开成全片帧号的事件表，原样
   overlays?: OverlayEntry[];                         // 落在这个镜头上的叠加层条目，原样
+  tokens?: Record<string, string>;                   // 片子描述的 style.tokens，原样；色值显示空间（D 契约 5.9）
 };
 
 /** 层引用：指向一个层文件。层文件的格式见 3.3。 */

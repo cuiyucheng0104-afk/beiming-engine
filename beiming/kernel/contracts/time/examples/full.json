@@ -52,6 +52,7 @@
       "frame": 47,
       "shot": "s01",
       "f": 47,
+      "shutterAngleDeg": 180,
       "samples": [
         {
           "frame": 47,
@@ -75,7 +76,7 @@
         }
       ],
       "accumulation": {
-        "linearErr": 0.0000018,
+        "linearErr": 1.8e-06,
         "postRuns": 1,
         "postInput": "average"
       },
@@ -93,6 +94,7 @@
       "frame": 48,
       "shot": "s02",
       "f": 0,
+      "shutterAngleDeg": 180,
       "samples": [
         {
           "frame": 48,
@@ -134,6 +136,7 @@
       "frame": 60,
       "shot": "s02",
       "f": 12,
+      "shutterAngleDeg": 180,
       "samples": [
         {
           "frame": 60,
@@ -147,7 +150,7 @@
         }
       ],
       "accumulation": {
-        "linearErr": 9.3e-7
+        "linearErr": 9.3e-07
       }
     },
     {

@@ -75,7 +75,7 @@ export function expectedLayers(scene, t, ids, offset = [0.5, 0.5], region = null
 }
 
 // 光栅化的子像素精度：OpenGL ES 3.0 只保证至少 4 位（SUBPIXEL_BITS ≥ 4），也就是十六分之一像素。
-// 实际读数：在一台苹果芯片的开发机上（WebGL 2，ANGLE 的 Metal 后端）读 SUBPIXEL_BITS 得 4，和规范的下限相同；别的后端没读
+// 实际读数：Metal 后端是 4，Vulkan 和软件渲染是 8（探针数据表）；十六分之一像素就是输出通道契约 5.1 给光栅化帧源定的 δ
 export const SUBPIXEL = 1 / 16;
 // 边缘带挪的 8 个位置：沿 x、沿 y 各挪负一格、零、正一格，除去不挪
 const SHIFTS = [-SUBPIXEL, 0, SUBPIXEL].flatMap((dx) => [-SUBPIXEL, 0, SUBPIXEL].map((dy) => [dx, dy])).filter(([dx, dy]) => dx || dy);

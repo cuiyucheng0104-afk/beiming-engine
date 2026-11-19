@@ -38,7 +38,7 @@ node beiming/kernel/conformance/run.mjs
 | 时间 | `fps`、`shots[]`、`evaluations[]` 的 `shot`、`f`、`sub`、`mode`、`frames[]` 的 `frame`、`shot`、`shutterAngleDeg`、`holds[]` 的 `f`、`n`、`rng[]` 的 `run`、`shot`、`arg`、`localized[]` 的 `shot`、`frame` | 从片子描述读的、入口自己传的参数、入口放进镜头输入事件表的帧号、那次 `render` 请求的帧号换成的全片帧号 | 请求 |
 | 时间 | `evaluations[].digest` | 只取一个子帧采样渲那个时刻（落在快门角 ÷ 720，观测点确认落在要的时刻才记），摘要是那张颜色层文件的哈希。只看得见会改变颜色的状态；相位大于 0.5 的时刻要不到 | 量的 |
 | 时间 | `frames[]` 的 `f`、`samples[]`、`aux`，`localized[].f` | 观测点记下的：`state` 收到的时刻，带着镜头自己的材质被画的是颜色采样、被换了材质画的是辅助层；`samples[].shot` 是观测点在 `build` 收到的 `ctx.shot.id` 上读到的原文，不拿别的值去倒查，没读到时这一帧整项不写（有一道门盯着，少一项就不过）；`localized[].f` 有两种：`ctx.events` 里看到的帧号，和每次 `meta(f)` 收到的帧号 | 旁观 |
-| 时间 | `accumulation.linearErr` | 照规格在每个子帧采样时刻求交出预言图（时刻照「(i + 0.5) ÷ 个数 × (快门角 ÷ 360)」自己算，不取观测点记的），在线性值上取算术平均，和帧源交回的累积颜色层逐像素、逐分量比，取最大绝对差。**边缘带里的像素不比**：采样位置在像素中心周围挪十六分之一像素、期望打到的物体会变的像素，光栅化判到哪边都合规，预言图定不下来；连边缘带一起比的读数另外打印、写进 `summary.json`，不进记录。各时刻预言全相同（没有运动、只有一个子帧采样）的帧不写。量法就是时间键契约 5.6 写的那一种；「十六分之一像素」是入口自己取的数，契约还没定它 | 量的 |
+| 时间 | `accumulation.linearErr` | 照规格在每个子帧采样时刻求交出预言图（时刻照「(i + 0.5) ÷ 个数 × (快门角 ÷ 360)」自己算，不取观测点记的），在线性值上取算术平均，和帧源交回的累积颜色层逐像素、逐分量比，取最大绝对差。**边缘带里的像素不比**：采样位置在像素中心周围挪十六分之一像素、期望打到的物体会变的像素，光栅化判到哪边都合规，预言图定不下来；连边缘带一起比的读数另外打印、写进 `summary.json`，不进记录。各时刻预言全相同（没有运动、只有一个子帧采样）的帧不写。量法就是时间键契约 5.6 写的那一种；「十六分之一像素」是输出通道契约 5.1 给光栅化帧源定的 δ | 量的 |
 | 时间 | `auxMismatch` | 照规格在这一帧 `sub = 0`、针孔、像素中心求交出预言图，和帧源交回的编号层逐像素比，编号经实体清单按名字查；写的是对不上、又不在边缘带里的像素数。终稿档、交了三个辅助层的调用才量；草稿档的尺寸不是规格的画幅，不量。量法就是时间键契约 5.7 写的那一种。取错了要场景里有对应的东西才看得出：前两个镜头只有运动的方块，量出来的 0 判得了取错时刻，判不了孔径和像素内位置；三样都有的只有第三个镜头 | 量的 |
 | 时间 | `holds[].result`、`rng[].digest`、`scan` | 入口调 `hold`；观测点取出的数由入口算摘要；入口自己扫文件 | 量的 |
 | 时间 | `rng[].name` | 帧源里的宿主展开的流名，经 `ctx.rng` 交到镜头代码手里；观测点把拿到的原文交出来，不替它判对错 | 自报（经观测点取到） |
@@ -51,7 +51,7 @@ node beiming/kernel/conformance/run.mjs
 | 镜头 | `ctx[].seen` | 观测点在 `build` 收到的 `ctx` 上读到的五个值（`shotIn` 读的是 `ctx.shot.in`），取那次装载里第一次带观测的 `render` 交出来的；那次装载没有这样的 `render` 就没有这一项 | 旁观 |
 | 镜头 | `patches` | 不写：没有来源 | — |
 | 帧源 | `shot`、`scenePack`、`opens[]` 前六个字段（`host`、`mode` 是出帧用的那一套）和 `unfitInput`、`badArgs[]` 的 `call`、`arg`、`renders[]` 的 `shotFrame`、`want`、`shutterAngleDeg`、`shutterSamples`、`size`、`unsupportedOpts`、`unfitOutputs`、`shotColorRef`、`orderRuns[]` 的 `shotFrame`、`mode`、`queries[].kind`、`metaEntities[].shotFrame` | 入口自己传的、自己备的夹具的事实、从片子描述算的。`unfitInput` 照 three 帧源的说明填：卡、资产、叠加层它都还没接，镜头输入带着哪一样就记哪一样 | 请求 |
-| 帧源 | `opens[]`、`renders[]`、`queries[]`、`badArgs[]` 的 `status`、`code`，`renders[]` 的 `meta`、`layers`，`layerRefs[]` 的 `output`、`fileHash`，`orderRuns[].digest`，`queries[]` 的 `total`、`returned` | 调用的结局（报的错不带错误码时 `code` 不写，原话记在出错清单里）、数交回的东西、读层文件重算；`total` 照自己问了几个实体算 | 量的 |
+| 帧源 | `opens[]`、`renders[]`、`queries[]`、`badArgs[]` 的 `status`、`code`，`renders[]` 的 `meta`、`layers`，`layerRefs[]` 的 `output`、`fileHash`、`fileBytes`，`orderRuns[].digest`，`queries[]` 的 `total`、`returned` | 调用的结局（报的错不带错误码时 `code` 不写，原话记在出错清单里）、数交回的东西、读层文件重算；`total` 照自己问了几个实体算 | 量的 |
 | 帧源 | `caps`、`manifest`、`layerRefs[]` 的 `shape`、`hash`、`metaShutterAngleDeg`、`colorRef`、`metaEntities[].entities`、`queries[].truncated` | 帧源交回的东西里原样抄 | 自报 |
 | 帧源 | `colorTransfer`、`failures`、`textReadbacks` | 不写：要用灰阶场景量、要造渲染失败、要有文字框，这条链路没接 | — |
 | 元数据 | `film`、`shot`、`fps`、`start`、`seed`、`source`、`call`、`shotFrame`、`tier` | 入口的：`film`、`fps` 取片子描述的 `id`、`output.fps`，`shot` 是请求的那个镜头条目的 `id`，都不从元数据抄；`seed` 取片子描述里镜头条目的（例子锁里记的是同一个数，测试盯着），`source` 是片子描述里镜头条目顶层写的帧源，`tier` 是那次 `open` 传的档位 | 请求 |
@@ -75,7 +75,7 @@ node beiming/kernel/conformance/run.mjs
 - `ctx.events` 里有镜头输入的每个命名事件；元数据的 `events` 正好是镜头输入里落在那一帧上的事件。
 - 每个交付帧都量出了累积颜色层对预言图的差，也量出了编号层对预言图在边缘带之外对不上的像素数；量和比的过程没有出错。
 - 编号层对照规格逐像素求交：主物体重心的差不超过规格的容差，并且编号不同的像素只许出现在边缘带里。编号经实体清单按名字查。
-- 用编号层核对元数据：元数据里主物体的屏幕包围盒，对从编号层反算出的包围盒（它自己的编号加名字以它的名字加点号开头的实体的编号占的像素，取像素外沿），交并比不低于 0.9。契约里这道线还没定，0.9 是入口自己的门：这条链路量到的读数是 0.9628 到 0.9926，读数每次都打印、写进 `summary.json` 的 `metaBoxIou`。包围盒中心对编号层重心的距离不超过规格的容差那一道还留着，只当辅助。
+- 用编号层核对元数据：元数据里主物体的屏幕包围盒，对从编号层反算出的包围盒（它自己的编号加名字以它的名字加点号开头的实体的编号占的像素，取像素外沿），交并比不低于 0.95，就是帧源接口契约 5.3 的过线；主物体没被挡，合渲的编号层等于单独渲的（这个前提契约第 6 节登记了没人判）。这条链路量到的读数是 0.9628 到 0.9926，读数每次都打印、写进 `summary.json` 的 `metaBoxIou`。包围盒中心对编号层重心的距离不超过规格的容差那一道还留着，只当辅助。
 - 深度层和求交的深度的相对差不超过规格给的容差；求交什么都没打到的像素编号 0、深度 1e10、法线 `(0, 0, 0)`。
 - 真正累积出来的颜色层：拖影按线性亮度加权的重心，对快门中点那一刻的画面按自发光值加权的重心，差不超过规格的容差。
 - 答案里点了名的 sub 不为 0 的时刻：只取一个子帧采样渲出的主物体重心对得上那一刻的求交。

@@ -51,7 +51,7 @@ export async function openSession({ input, env, filmBase }) {
         rng,
         assets: { load(ref) { throw new Error(`资产 ${ref} 不在这个镜头能用的资产里（镜头条目的 assets 加全片的 assets）`); } },
         anchor(entity, name) { throw new Error(`没有锚点 ${entity}#${name}`); },
-        tokens: {}, // 画风令牌还没进镜头输入
+        tokens: structuredClone(input.tokens ?? {}),
         size: [...output.size],
         fps: output.fps,
         frames: entry.out - entry.in,

@@ -11,7 +11,7 @@ three 帧源这一对里的宿主：拥有设备（无头、静音的浏览器�
 
 `open(input, env)`：`input` 是镜头输入（求值核的 `shotInput` 算出来的，镜头条目原样；条目带 `renderer` 对象时出帧用它里面的那一套），`env` 是 `{ lock, tier, workspace, filmDir }`，四个都要写出来，`lock` 没有就写 `null`。每个会话一个新页面，互不共用页面里的任何状态。装不了的输入报带错误码的错，不起页面。入口文件相对 `env.filmDir` 找。
 
-镜头输入的三个可选字段：`events`（已经展开成全片帧号的事件表）进 `ctx.events`（每个命名条目一项，值是全片帧号减这个镜头的起始帧，不截断）和元数据的 `events`（帧号等于这一帧全片帧号的条目）；不带时两处都是空的，宿主不从片子描述再展开。`assets`（全片的资产表）和镜头条目的 `assets` 一样算「用了资产」。`overlays` 要展开成卡的实例，算「用了卡」：没有锁文件时报 `env.lock-required`，带着锁文件来也装不了，报 `contract.unsupported-input`；带着锁文件来的卡和资产同样。
+镜头输入的四个可选字段：`events`（已经展开成全片帧号的事件表）进 `ctx.events`（每个命名条目一项，值是全片帧号减这个镜头的起始帧，不截断）和元数据的 `events`（帧号等于这一帧全片帧号的条目）；不带时两处都是空的，宿主不从片子描述再展开。`assets`（全片的资产表）和镜头条目的 `assets` 一样算「用了资产」。`overlays` 要展开成卡的实例，算「用了卡」：没有锁文件时报 `env.lock-required`，带着锁文件来也装不了，报 `contract.unsupported-input`；带着锁文件来的卡和资产同样。`tokens`（片子描述的画风令牌）原样进 `ctx.tokens`，不带时是空对象。
 
 `render(f, opts, want)` 交回 `{ meta, layers }`，`layers` 的值是层引用 `{ file, shape, components, hash }`。层文件写在 `env.workspace` 下面：
 
