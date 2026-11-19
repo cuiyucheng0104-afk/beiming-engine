@@ -386,7 +386,7 @@ class DirectorScoreAndHdrTests(unittest.TestCase):
         self.assertEqual(float(np.max(np.abs(master_st[-1]))), 0.0)
 
     def test_volume_curve_sculpt_stem_eq_and_balanced_hdr_defaults(self):
-        """验证推子音量曲线 volume_curve、互补 EQ sculpt_stem_eq，以及 HDRMixer 新黄金默认配比（杜绝把配乐压到 -25 LUFS）。"""
+        """验证推子音量曲线 volume_curve、互补 EQ sculpt_stem_eq，以及显式打开的 HDRMixer 新黄金配比（杜绝把配乐压到 -25 LUFS）。"""
         rng = np.random.default_rng(309)
         dur = 6.0
         n = D.N(dur)
@@ -425,7 +425,7 @@ class DirectorScoreAndHdrTests(unittest.TestCase):
         self.assertGreater(band_db_diff(sculpted['music'], white_st, 150.0, 1000.0), -0.3)
         self.assertLess(band_db_diff(sculpted['music'], white_st, 2800.0, 3700.0), -0.6)
 
-        # 3) HDRMixer 新默认配比（music_ceiling_offset_db=-2.6, continuous_duck_db=1.8, master_glue=True）
+        # 3) HDRMixer 新黄金配比需显式打开（不再是构造默认值）
         t = D.T(dur)
         mus_warm = D.stereo(
             0.35 * np.sin(2.0 * np.pi * 146.83 * t)
@@ -433,7 +433,10 @@ class DirectorScoreAndHdrTests(unittest.TestCase):
             + 0.25 * D.bp(rng.standard_normal(n), 280.0, 4200.0, 2),
             0.0,
         )
-        mx = DR.HDRMixer(dur, fps=24.0, target_lufs=-13.4, max_tp=-1.5)
+        mx = DR.HDRMixer(
+            dur, fps=24.0, target_lufs=-13.4, max_tp=-1.5,
+            glue_eq=True, master_glue=True, continuous_duck_db=1.8, music_ceiling_offset_db=-2.6,
+        )
         mx.add_bed(
             'music', mus_warm, target_lufs=-17.5, how='win',
             curve_points=[(0.0, -0.5), (2.0, 0.0), (4.5, +1.8)],
@@ -452,6 +455,50 @@ class DirectorScoreAndHdrTests(unittest.TestCase):
         self.assertLessEqual(mus_final_lufs, -14.8, f'配乐过热吞噬净空: {mus_final_lufs:.2f} LUFS')
         self.assertGreaterEqual(diag['glueMaxGrDb'], 1.5)
         self.assertLessEqual(diag['glueMaxGrDb'], 3.25)
+
+    def test_hdrmixer_old_constructor_matches_new_features_off_loudness_to_path(self):
+        """只传旧构造参数时仍走 tame_low + loudness_to，波形与显式关闭新链路一致（对齐既有成片默认）。"""
+        from unittest.mock import patch
+
+        rng = np.random.default_rng(404)
+        dur = 3.0
+        n = D.N(dur)
+        t = D.T(dur)
+        music = D.stereo(0.28 * np.sin(2.0 * np.pi * 220.0 * t) + 0.12 * rng.standard_normal(n), 0.0)
+        amb = D.decor_pair(D.pink, n, rng, corr=0.3) * 0.10
+        hit = 0.55 * np.exp(-D.T(0.18) / 0.04) * D.bp(rng.standard_normal(D.N(0.18)), 1400.0, 5200.0, 2)
+
+        def fill(mx):
+            mx.add_bed('music', music, target_lufs=-18.0, how='win')
+            mx.add_bed('amb', amb, target_lufs=-26.0, how='win')
+            mx.add_cue('hit', hit, 1.15, role='hero', bus='fx', target_lufs=-16.0)
+            mx.add_negative_space(frame=int(1.15 * 24), lead_frames=4, hold_frames=1, dip_db=-10.0, recover_sec=0.35)
+            return mx.render()
+
+        mx_old = DR.HDRMixer(dur, fps=24.0, target_lufs=-14.0, max_tp=-1.5)
+        mx_off = DR.HDRMixer(
+            dur, fps=24.0, target_lufs=-14.0, max_tp=-1.5,
+            glue_eq=False, master_glue=False, continuous_duck_db=0.0, music_ceiling_offset_db=None,
+        )
+        self.assertTrue(mx_old._legacy_mix_path())
+        self.assertTrue(mx_off._legacy_mix_path())
+
+        with patch.object(DR, 'loudness_to', wraps=DR.loudness_to) as spy_loud, \
+             patch.object(DR, 'tame_low', wraps=DR.tame_low) as spy_tame, \
+             patch.object(DR, '_master_chain_core') as spy_glue:
+            master_old, stems_old, diag_old = fill(mx_old)
+            self.assertGreaterEqual(spy_loud.call_count, 1)
+            self.assertGreaterEqual(spy_tame.call_count, 1)
+            spy_glue.assert_not_called()
+
+        master_off, stems_off, diag_off = fill(mx_off)
+        self.assertFalse(diag_old['masterGlue'])
+        self.assertFalse(diag_old['glueEq'])
+        self.assertEqual(diag_old['glueMaxGrDb'], 0.0)
+        self.assertIsNone(diag_old['musicCeilingOffsetDb'])
+        np.testing.assert_allclose(master_old, master_off, atol=1e-12, rtol=0)
+        np.testing.assert_allclose(stems_old['music'], stems_off['music'], atol=1e-12, rtol=0)
+        self.assertAlmostEqual(M.integrated(master_old), M.integrated(master_off), delta=0.01)
 
 
 if __name__ == '__main__':

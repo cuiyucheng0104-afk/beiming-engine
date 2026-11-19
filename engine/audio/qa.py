@@ -24,9 +24,9 @@
   audio.cuts        hard 比值 > 6 且跳变 > 0.02；soft 比值 > 3   镜头切点 ±1 ms 内的样本跳变，对比切点两侧 2–30 ms 的
                           99 分位样本差（点击声的判据；有交叉淡化的切点比值约 1）
   audio.bands       soft  20–120 Hz 相对最强频段 > −2 dB（低频糊）或 8 kHz 以上 > −10 dB（刺耳）
-  audio.masking     hard < −12 dB（hero < −8 dB）、soft < −5 dB（hero < −1 dB），另查双向乐效平衡守卫：
-                          music_dominance（配乐高于 fx+foley > +9 dB 告警）与 music_buried（有配乐但终混比总母带低 > 8.5 LU 告警）
-                          有分轨 stems/*.wav 时核对前景事件在主能量临界频带的听觉窥视信噪比与双向乐效能量配比
+  audio.masking     hard < −16 dB、soft < −8 dB   有分轨 stems/*.wav 且作品声明了前景声音事件时，核对事件窗内前景分轨在自身主能量临界频带
+                          的最佳 SNR。--strict-masking 或 film.json audio.strictMasking 才启用收紧门限（普通 −5/−12、hero −1/−8）
+                          以及 music_dominance / music_buried 双向乐效守卫
 另报（不判）：响度范围 LRA、最大瞬时 / 短时响度、频段能量、声场相关、样本峰值。
 整段按 10 秒一块读盘，十分钟级的混音内存也只占几十 MB（engine/audio/stream.py 的分块测量）。
 
@@ -189,12 +189,25 @@ _MASK_BANDS = (
     ('7.5k-14k', 7500.0, 14000.0),
 )
 _BED_STEMS = {'amb', 'ambience', 'music', 'bgm', 'bed', 'master', 'mix'}
-MASK_SOFT_DB = -5.0
-MASK_HARD_DB = -12.0
+MASK_SOFT_DB = -8.0
+MASK_HARD_DB = -16.0
+MASK_STRICT_SOFT_DB = -5.0
+MASK_STRICT_HARD_DB = -12.0
 MASK_HERO_SOFT_DB = -1.0
 MASK_HERO_HARD_DB = -8.0
 MUSIC_DOMINANCE_WARN_DB = 9.0
 MUSIC_BURIED_WARN_LU = 8.5
+
+
+def _resolve_strict_masking(film, strict_masking):
+    """CLI / analyze() 显式传入优先；否则读 film.json audio.strictMasking 或 audio.qa.strictMasking。默认关闭。"""
+    if strict_masking is not None:
+        return bool(strict_masking)
+    fa = (film or {}).get('audio') or {}
+    if fa.get('strictMasking') is True:
+        return True
+    qa_cfg = fa.get('qa')
+    return bool(isinstance(qa_cfg, dict) and qa_cfg.get('strictMasking') is True)
 
 
 def _measure_music_buried(stem_map, master_lufs):
@@ -319,12 +332,15 @@ def _measure_music_dominance(stem_map, sr):
     }
 
 
-def _check_masking(wav, film, sr, n_total, master_lufs=None):
-    """分轨临界频带听觉窥视掩蔽与双向乐效平衡守卫（Auditory Glimpse SNR & Music Dominance / Music Buried）：
-    仅在混音旁（或作品声明处）存在 stems/*.wav（≥ 2 条分轨）时执行。"""
+def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=False):
+    """分轨临界频带听觉窥视掩蔽检查（Auditory Glimpse SNR）。
+    默认与既有成片一致：soft < −8 dB / hard < −16 dB，且需要作品声明前景事件。
+    strict_masking=True 时启用收紧门限、hero 分档、极高频空桶守卫，以及 music_dominance / music_buried。"""
     import json
     import soundfile as sf
     if not film or not film.get('fps'):
+        return None
+    if not strict_masking and not film.get('events'):
         return None
     fa = film.get('audio') or {}
     cand_dirs = []
@@ -355,7 +371,7 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
     if not fg_stems:
         return None
 
-    if master_lufs is None:
+    if master_lufs is None and strict_masking:
         L_m = Loudness()
         try:
             for blk in sf.blocks(wav, blocksize=N(10.0), dtype='float64', always_2d=True):
@@ -364,9 +380,13 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
         except Exception:
             master_lufs = None
 
-    dom_info = _measure_music_dominance(stem_map, sr)
+    if strict_masking:
+        dom_info = _measure_music_dominance(stem_map, sr)
+        buried_info = _measure_music_buried(stem_map, master_lufs)
+    else:
+        dom_info = None
+        buried_info = None
     dom_warn = bool(dom_info and dom_info['warn'])
-    buried_info = _measure_music_buried(stem_map, master_lufs)
     buried_warn = bool(buried_info and buried_info['warn'])
     if not film.get('events') and not dom_warn and not buried_warn:
         return None
@@ -412,11 +432,14 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
         if bus and str(bus).lower() in _BED_STEMS:
             continue
         t = float(cue['t']) if cue.get('t') is not None else frame / float(fps)
-        end_f = e.get('end')
-        if isinstance(end_f, int) and not isinstance(end_f, bool) and end_f > frame:
-            ev_dur = min(1.50, max(0.220, (end_f - frame) / float(fps)))
-        elif cue.get('dur') is not None:
-            ev_dur = min(1.50, max(0.220, float(cue['dur'])))
+        if strict_masking:
+            end_f = e.get('end')
+            if isinstance(end_f, int) and not isinstance(end_f, bool) and end_f > frame:
+                ev_dur = min(1.50, max(0.220, (end_f - frame) / float(fps)))
+            elif cue.get('dur') is not None:
+                ev_dur = min(1.50, max(0.220, float(cue['dur'])))
+            else:
+                ev_dur = 0.220
         else:
             ev_dur = 0.220
         a = max(0, int(round((t - 0.015) * sr)))
@@ -446,37 +469,47 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
             fq = np.fft.rfftfreq(len(u), 1.0 / sr)
             band_u = [(bn, lo, hi, float(U[(fq >= lo) & (fq < hi)].sum())) for bn, lo, hi in _MASK_BANDS]
             tot_u = sum(v for _, _, _, v in band_u) + 1e-24
-            tot_o = float(O[(fq >= 80.0) & (fq < 14000.0)].sum())
-            # 7.5k–14k 极高频仅在其本身占音效主能量 ≥28%（如镭射走线/星芒）时才允许作为主窥视带，防中频音效借合成乐极高频空洞作弊
-            dom_bands = [
-                (bn, lo, hi, v)
-                for bn, lo, hi, v in band_u
-                if v / tot_u >= (0.28 if bn == '7.5k-14k' else 0.14)
-            ]
+            if strict_masking:
+                tot_o = float(O[(fq >= 80.0) & (fq < 14000.0)].sum())
+                dom_bands = [
+                    (bn, lo, hi, v)
+                    for bn, lo, hi, v in band_u
+                    if v / tot_u >= (0.28 if bn == '7.5k-14k' else 0.14)
+                ]
+            else:
+                tot_o = float(O.sum())
+                dom_bands = [(bn, lo, hi, v) for bn, lo, hi, v in band_u if v / tot_u >= 0.12]
             if not dom_bands:
                 dom_bands = [max(band_u, key=lambda it: it[3])]
             if tot_o < 1e-18:
                 best_snr, best_band = 60.0, dom_bands[0][0]
             else:
                 best_snr, best_band = -99.0, dom_bands[0][0]
-                # 引入 Zwicker 向上掩蔽扩散底限（-25 dB 总背景能量），防止强中低频配乐下的空高频桶虚报超高 SNR
-                upward_mask_floor = tot_o * 0.003
+                upward_mask_floor = tot_o * 0.003 if strict_masking else 0.0
                 for bn, lo, hi, vu in dom_bands:
-                    vo = max(float(O[(fq >= lo) & (fq < hi)].sum()), upward_mask_floor if bn == '7.5k-14k' else 0.0)
+                    vo = float(O[(fq >= lo) & (fq < hi)].sum())
+                    if strict_masking and bn == '7.5k-14k':
+                        vo = max(vo, upward_mask_floor)
                     snr = 10.0 * np.log10((vu + 1e-24) / (vo + 1e-24))
                     if snr > best_snr:
                         best_snr, best_band = snr, bn
             best_snr = round(float(best_snr), 2)
 
-        soft_thr = MASK_HERO_SOFT_DB if is_hero else MASK_SOFT_DB
-        hard_thr = MASK_HERO_HARD_DB if is_hero else MASK_HARD_DB
+        if strict_masking:
+            soft_thr = MASK_HERO_SOFT_DB if is_hero else MASK_STRICT_SOFT_DB
+            hard_thr = MASK_HERO_HARD_DB if is_hero else MASK_STRICT_HARD_DB
+        else:
+            soft_thr, hard_thr = MASK_SOFT_DB, MASK_HARD_DB
         st = _grade(best_snr, best_snr < soft_thr, (best_snr < hard_thr) and not soft_ev)
         if soft_ev and st == 'fail':
             st = 'warn'
-        items.append({
+        item = {
             'id': e.get('id') or str(ref), 'frame': frame, 'seconds': round(t, 4), 'stem': bus,
-            'role': ev_role or 'support', 'bestBand': best_band, 'bestBandSnrDb': best_snr, 'status': st,
-        })
+            'bestBand': best_band, 'bestBandSnrDb': best_snr, 'status': st,
+        }
+        if strict_masking:
+            item['role'] = ev_role or 'support'
+        items.append(item)
         worst_st = 'fail' if 'fail' in (worst_st, st) else ('warn' if 'warn' in (worst_st, st) else 'pass')
 
     if not items and not dom_warn and not buried_warn:
@@ -521,24 +554,40 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None):
             '用互补 EQ（sculpt_stem_eq）与局部推子音量曲线（volume_curve）替代全局死压'
         )
     elif bad or dom_warn:
-        hint_msg = (
-            '启用 ThreeStemWorkstation / HDRMixer 的互补 EQ（sculpt_stem_eq）与局部音量曲线，'
-            '或补强前景音效 1.5–7.5 kHz 切口'
+        if strict_masking:
+            hint_msg = (
+                '启用 ThreeStemWorkstation / HDRMixer 的互补 EQ（sculpt_stem_eq）与局部音量曲线，'
+                '或补强前景音效 1.5–7.5 kHz 切口'
+            )
+        else:
+            hint_msg = '对背景配乐/环境分轨在事件瞬态频带做动态闪避（mixing.duck / sidechain），或补强前景音效 1.5–7.5 kHz 切口'
+
+    if strict_masking:
+        title = '关键音效带内掩蔽余量与双向乐效平衡（分轨）'
+        expected = (
+            f'普通事件最佳频带 SNR ≥ {MASK_STRICT_SOFT_DB:g} dB（hero ≥ {MASK_HERO_SOFT_DB:g} dB，'
+            f'< {MASK_STRICT_HARD_DB:g} dB 不通过）；'
+            f'配乐相对 fx+foley ≤ +{MUSIC_DOMINANCE_WARN_DB:g} dB 且终混配乐不低于母带 {MUSIC_BURIED_WARN_LU:g} LU'
         )
+        msg = '；'.join(msgs)
+    else:
+        title = '关键音效带内掩蔽余量（分轨）'
+        expected = '主能量临界频带最佳 SNR ≥ −8 dB（< −16 dB 不通过）'
+        msg = '' if not bad else ('前景音效被背景分轨掩蔽：' + '、'.join(
+            f"{it['id']}（{it['stem']} @ {it['bestBand']} {it['bestBandSnrDb']:+.1f} dB）" for it in bad[:5]))
 
     return _chk(
-        'audio.masking', '关键音效带内掩蔽余量与双向乐效平衡（分轨）', worst_st,
+        'audio.masking', title, worst_st,
         val_str,
-        f'普通事件最佳频带 SNR ≥ {MASK_SOFT_DB:g} dB（hero ≥ {MASK_HERO_SOFT_DB:g} dB，< {MASK_HARD_DB:g} dB 不通过）；'
-        f'配乐相对 fx+foley ≤ +{MUSIC_DOMINANCE_WARN_DB:g} dB 且终混配乐不低于母带 {MUSIC_BURIED_WARN_LU:g} LU',
+        expected,
         evidence,
-        '；'.join(msgs),
+        msg,
         hint=hint_msg,
         severity='hard' if worst_st == 'fail' else 'soft',
     )
 
 
-def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.5, max_tp=-1.0, chunk_s=10.0, loudness_at='mix', film=None):
+def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.5, max_tp=-1.0, chunk_s=10.0, loudness_at='mix', film=None, strict_masking=None):
     """→ (checks, info)。cuts 是切点帧号；loudness_at 见文件头（mix / deliver）。"""
     import soundfile as sf
     try:
@@ -681,7 +730,10 @@ def analyze(wav, *, fps=None, frames=None, cuts=(), target_lufs=-14.0, tol_lu=0.
                            f'20–120 Hz {be["20-120"]} dB · 8 kHz+ {be["8k+"]} dB（相对最强频段）', '20–120 Hz ≤ −2 dB、8 kHz+ ≤ −10 dB', {'bandRelDb': be},
                            ('低频压过了中频，小音箱上会糊；' if lo_bad else '') + ('高频偏多，听感刺耳' if hi_bad else ''),
                            hint='用 engine.audio.mixing.tame_low 压低频，或给亮的总线加高搁架' if lo_bad or hi_bad else None, severity='soft'))
-    mc = _check_masking(wav, film, info.samplerate, A.n, master_lufs=I)
+    mc = _check_masking(
+        wav, film, info.samplerate, A.n, master_lufs=I,
+        strict_masking=_resolve_strict_masking(film, strict_masking),
+    )
     if mc is not None:
         checks.append(mc)
     for c in checks:
@@ -773,6 +825,9 @@ def make_parser():
     p.add_argument('--fail-on-warn', action='store_true', help='告警也算不通过')
     p.add_argument('--loudness-at', choices=['mix', 'deliver'], help='响度在哪一步定：mix 声音脚本自己母带到目标（查响度与真峰值）；'
                    'deliver 封装时线性增益到目标（查峰值余量）。默认自动，见文件头')
+    p.add_argument('--strict-masking', action='store_true',
+                   help='启用收紧版 audio.masking（普通 −5/−12 dB、hero −1/−8 dB）以及 music_dominance / music_buried 双向乐效守卫；'
+                        '也可在 film.json 写 audio.strictMasking')
     return p
 
 
@@ -805,7 +860,7 @@ def main(args, ctx):
     at = args.loudness_at or ('mix' if (args.target_lufs is not None or 'targetLUFS' in fa or not film) else 'deliver')
     ctx.log(f'声音 QA：{_rel(wav)}（档位 {prof["id"]}，目标 {target:g} ± {tol:g} LUFS、真峰值 ≤ {max_tp:g} dBTP；响度在 {at} 定）')
     checks, _ = analyze(wav, fps=fps, frames=frames, cuts=film['cuts'] if film else (), target_lufs=float(target), tol_lu=tol, max_tp=float(max_tp),
-                        loudness_at=at, film=film)
+                        loudness_at=at, film=film, strict_masking=True if args.strict_masking else None)
     rep = build_report(checks, film=film, wav=wav, profile_id=prof['id'], fail_on_warn=args.fail_on_warn)
     rep['loudnessAt'] = at
     outputs = []

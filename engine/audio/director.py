@@ -19,7 +19,7 @@
   volume_curve(n, points, ...)        推子音量包络曲线 [(t_s, gain_db), ...] → (n, 1) 余弦/线性平滑自动化（Fader Riding）
   sculpt_stem_eq(stems, ...)          分轨互补 EQ 分槽（AMB 让出 <110Hz 与 800Hz 暖中频槽位，Foley/FX 清低中频泥沼，配乐微让位）
   render_shot_poa(st, in_s, out_s, dur, poa='fog_wide', ...)  按镜头 POA 自动施加宽度、滤波、近讲搁架、脉冲混响与切出 L-cut
-  HDRMixer(dur, fps=24.0, ...)        离线前视感知 HDR 总线：互补 EQ + 推子包络 + Murch 聚簇 + 轻柔频带让位 + SSL 总线粘合母带
+  HDRMixer(dur, fps=24.0, ...)        离线前视感知 HDR 总线：默认 tame_low + loudness_to（与既有成片链路一致）；互补 EQ / 连续让路 / 配乐天花板 / SSL 粘合需显式传入
 """
 import math
 import numpy as np
@@ -716,12 +716,17 @@ def hitech_micro_beep(*, freq_hz: float = 2960.0, root: str = 'D', pattern: str 
 
 
 class HDRMixer:
-    """离线前视感知 HDR 混音器（互补 EQ 分槽 + 推子音量包络 + Murch 2.5 声部法则 + 轻柔频带让位 + SSL 总线粘合母带）。"""
+    """离线前视感知 HDR 混音器（EA DICE Frostbite HDR + Walter Murch 2.5 声部法则 + 6 临界频带零相位侧链闪避）。
+
+    只传旧构造参数时走与既有成片链路相同的收口：`tame_low` + `loudness_to`。
+    互补 EQ、连续中高频让路、配乐天花板与 SSL 总线粘合需显式传入
+    `glue_eq` / `continuous_duck_db` / `music_ceiling_offset_db` / `master_glue`。
+    """
 
     def __init__(self, dur: float, *, fps: float = 24.0, sr: int = SR, target_lufs: float = -14.0,
                  max_tp: float = -1.5, murch_limit: int = 2, telemetry=None, world: str = 'realistic',
-                 music_ceiling_offset_db: float = -2.6, music_focus_windows: list = None,
-                 continuous_duck_db: float = 1.8, glue_eq: bool = True, master_glue: bool = True,
+                 music_ceiling_offset_db=None, music_focus_windows: list = None,
+                 continuous_duck_db: float = 0.0, glue_eq: bool = False, master_glue: bool = False,
                  glue_max_gr_db: float = 3.2):
         self.dur = float(dur)
         self.fps = float(fps)
@@ -744,6 +749,16 @@ class HDRMixer:
         self._ir_cache = {}
         if music_focus_windows:
             self.set_music_focus_windows(music_focus_windows)
+
+    def _legacy_mix_path(self) -> bool:
+        """未显式打开任何新混音能力时，render() 必须与既有 tame_low + loudness_to 收口一致。"""
+        return (
+            not self.glue_eq
+            and not self.master_glue
+            and self.continuous_duck_db <= 0.05
+            and self.music_ceiling_offset_db is None
+            and not self.music_focus_windows
+        )
 
     def set_music_focus_windows(self, windows: list, *, is_climax: bool = True):
         """设置音乐主导窗口列表：
@@ -970,9 +985,11 @@ class HDRMixer:
         })
 
     def render(self) -> tuple:
-        """执行声部聚簇裁剪 → 逐事件摆位定电平 → 分轨互补 EQ 分槽 → 负空间抽空 → 温和频带让位
-        → 配乐黄金配比与焦点窗释放 → SSL 总线粘合透明母带与分轨真峰值保护。
+        """执行声部聚簇裁剪 → 逐事件摆位定电平 → 负空间抽空 → 6 临界频带侧链闪避 → 母带收口。
+        未打开新混音开关时收口为 tame_low + loudness_to；显式打开 glue_eq / continuous_duck_db /
+        music_ceiling_offset_db / master_glue 时才走互补 EQ、连续让路、配乐天花板与 SSL 粘合母带。
         返回 (mix, stems_dict, diagnostics_dict)。"""
+        legacy = self._legacy_mix_path()
         # 1. Walter Murch 2.5 法则：85 ms 并发窗内超出 murch_limit 的低优先级瞬态自动退居群像层
         cues = [dict(c) for c in self._cues]
         culled_ids = []
@@ -983,9 +1000,13 @@ class HDRMixer:
             Higher = [
                 o for j, o in enumerate(cues)
                 if j != idx and o['role'] != 'texture'
-                and (o['bus'] == c['bus'] or (o['role'] == 'hero' and c['role'] != 'ui'))
                 and abs(o['t_hit'] - c['t_hit']) <= 0.085
                 and (o['priority'] > c['priority'] or (o['priority'] == c['priority'] and j < idx))
+                and (
+                    legacy
+                    or o['bus'] == c['bus']
+                    or (o['role'] == 'hero' and c['role'] != 'ui')
+                )
             ]
             if len(Higher) >= self.murch_limit:
                 c['_demoted'] = True
@@ -1031,7 +1052,11 @@ class HDRMixer:
                 if c['poa'] is None and c.get('from_screen_ratio'):
                     wet = min(wet, 0.16)
                 ref_d = float(c.get('ref_dist_m', 2.0)) if c.get('from_screen_ratio') else 2.0
-                space_place(elem, w, at_s, gain=1.0, pan=c['pan'], dist=d_val, ref_dist=ref_d, ir=ir, wet=wet)
+                pan_arr = np.asarray(c['pan'], dtype=float)
+                space_place(
+                    elem, w, at_s, gain=1.0, pan=c['pan'], dist=d_val, ref_dist=ref_d, ir=ir, wet=wet,
+                    dynamic_pan=bool(not legacy and pan_arr.ndim > 0 and pan_arr.size > 1),
+                )
             else:
                 if w.ndim == 1:
                     place(elem, w, at_s, 1.0, c['pan'])
@@ -1066,7 +1091,8 @@ class HDRMixer:
 
             b_key = c['bus'] if c['bus'] in stems else 'fx'
             stems[b_key] += elem
-            if (c['duck_db'] > 0.5 or (c.get('continuous_duck_db') or 0.0) > 0.2) and not c['_demoted']:
+            extra_cont = (not legacy) and (c.get('continuous_duck_db') or 0.0) > 0.2
+            if (c['duck_db'] > 0.5 or extra_cont) and not c['_demoted']:
                 fg_events.append((c, elem))
 
         # 2b. 分轨互补 EQ 分槽（glue_eq=True）：AMB 让出 <110Hz 与 800Hz 暖中频槽位，Foley/FX 清低中频泥沼，配乐在咬合区微让位
@@ -1079,11 +1105,14 @@ class HDRMixer:
                 sr=self.sr,
             )
 
-        # 3. 峰值前负空间抽空（环境声大幅抽空造反差，配乐仅微呼吸避让约 -2.8 dB 绝不腰斩旋律）
+        # 3. 峰值前负空间抽空。旧路径与既有成片一致（配乐跟环境一起深抽）；新路径只让配乐微呼吸，避免腰斩旋律。
         if self._vacuums:
             vac_env = carve_negative_space(self.n, self._vacuums, fps=self.fps, sr=self.sr)
             stems['amb'] = stems['amb'] * vac_env
-            stems['music'] = stems['music'] * (0.68 + 0.32 * vac_env)
+            if legacy:
+                stems['music'] = stems['music'] * (0.35 + 0.65 * vac_env)
+            else:
+                stems['music'] = stems['music'] * (0.68 + 0.32 * vac_env)
 
         t_axis = np.arange(self.n, dtype=float) / float(self.sr)
         focus_mask = np.zeros(self.n, dtype=float)
@@ -1096,7 +1125,7 @@ class HDRMixer:
             focus_mask = np.maximum(focus_mask, win_f)
             focus_lift_db = np.maximum(focus_lift_db, float(fw['music_lift_db']) * win_f)
 
-        # 3b. 连续前景动作中高频凹槽轻柔让路（continuous_duck_db 默认 1.8 dB，聚焦 2.0–5.0 kHz 咬合带，杜绝全频死压配乐）
+        # 3b. 连续前景动作中高频凹槽轻柔让路（需显式 continuous_duck_db>0，聚焦 2.0–5.0 kHz 咬合带）
         fg_narr = stems['fx'] + stems['foley']
         has_fg_narr = bool(float(np.abs(fg_narr).max()) > 1e-5)
         cont_duck_applied_db = 0.0
@@ -1148,30 +1177,16 @@ class HDRMixer:
                 else:
                     stems['music'] = stems['music'] * undb(db_curve)[:, None]
 
-        # 4. 离线前视 6 临界频带动态让位（Spectral Ducking）：
-        #    AMB 大幅让位；配乐完整守护低中频基音厚度，仅在瞬态冲突频带做微动态让位并保证 QA 窥视信噪比通过
+        # 4. 离线前视 6 临界频带动态让位（Spectral Ducking）。
+        #    旧路径：背景 amb+music 同槽挖；新路径：AMB 大幅让位，配乐守护低中频基音。
         ducked_bands = {}
         bg_sum = stems['amb'] + stems['music']
         if fg_events and float(np.abs(bg_sum).max()) > 1e-7:
-            amb_carves = {bn: np.zeros(self.n, dtype=float) for bn, _, _ in CRITICAL_BANDS}
-            mus_carves = {bn: np.zeros(self.n, dtype=float) for bn, _, _ in CRITICAL_BANDS}
-            for c, elem in fg_events:
-                at_s = max(0.0, c['t_hit'] - c['anchor'])
-                end_s = min(self.dur, at_s + len(c['wave']) / float(self.sr))
-                span_len = end_s - at_s
-                if span_len > 0.40 and c['role'] not in ('ui', 'subtle_ui'):
-                    n_hops = max(1, int(math.ceil(span_len / 0.22)))
-                    probe_windows = [
-                        (at_s + k * 0.22, min(end_s, at_s + (k + 1) * 0.22 + 0.04), k > 0)
-                        for k in range(n_hops)
-                    ]
-                else:
-                    probe_windows = [(max(0.0, c['t_hit'] - 0.015), min(self.dur, c['t_hit'] + 0.220), False)]
-
-                want_snr = 2.5 if c['role'] == 'hero' else (-1.5 if c['role'] == 'ui' else -2.0)
-                for w_t0, w_t1, is_tail_win in probe_windows:
-                    ia = max(0, int(round(w_t0 * self.sr)))
-                    ib = min(self.n, int(round(w_t1 * self.sr)))
+            if legacy:
+                band_carves = {bn: np.zeros(self.n, dtype=float) for bn, _, _ in CRITICAL_BANDS}
+                for c, elem in fg_events:
+                    ia = max(0, int(round((c['t_hit'] - 0.015) * self.sr)))
+                    ib = min(self.n, int(round((c['t_hit'] + 0.220) * self.sr)))
                     if ib - ia < 256:
                         continue
                     u_seg = elem[ia:ib].mean(axis=1)
@@ -1187,46 +1202,101 @@ class HDRMixer:
                     dom = [(bn, lo, hi, v) for bn, lo, hi, v in bu if v / tot_u >= 0.14]
                     if not dom:
                         dom = [max(bu, key=lambda it: it[3])]
-                    has_hi_glimpse = any(bn in ('1.5k-3.5k', '3.5k-7.5k', '7.5k-14k') for bn, _, _, _ in dom)
                     for bn, lo, hi, vu in dom:
                         vo = float(O[(fq >= lo) & (fq < hi)].sum())
-                        snr_db = 10.0 * np.log10((vu + 1e-24) / (vo + 1e-24))
+                        snr_db = 10.0 * math.log10((vu + 1e-24) / (vo + 1e-24))
+                        want_snr = 1.5 if c['role'] == 'hero' else (-2.5 if c['role'] == 'ui' else -4.0)
                         if snr_db < want_snr:
-                            need_amb_db = min(15.0, max(float(c['duck_db']), (want_snr - snr_db) + 2.2))
-                            # 配乐守护基音和声（80–600Hz 严控在 1.2–2.2 dB 以内，长尾窗 ≤3.2 dB；中高频窥视带按需微让位）
-                            if has_hi_glimpse and bn == '80-250':
-                                need_mus_db = min(1.0, need_amb_db * 0.20)
-                            elif has_hi_glimpse and bn == '250-600':
-                                need_mus_db = min(2.0, need_amb_db * 0.35)
-                            elif has_hi_glimpse and bn == '600-1.5k':
-                                need_mus_db = min(3.2, need_amb_db * 0.55)
-                            elif is_tail_win:
-                                need_mus_db = min(3.2, max(1.8, (want_snr - snr_db) + 1.0))
-                            else:
-                                need_mus_db = min(13.5, max(min(float(c['duck_db']), 3.2), (want_snr - snr_db) + 2.0))
-
-                            atk = smoothstep(w_t0 - 0.035, w_t0 - 0.008, t_axis)
-                            rel = 1.0 - smoothstep(w_t1 - 0.020, w_t1 + 0.150, t_axis)
-                            shape_w = atk * rel
-                            amb_carves[bn] = np.maximum(amb_carves[bn], (1.0 - float(undb(-need_amb_db))) * shape_w)
-                            if need_mus_db > 0.05:
-                                mus_carves[bn] = np.maximum(mus_carves[bn], (1.0 - float(undb(-need_mus_db))) * shape_w)
-                            prev_list = ducked_bands.setdefault(c['id'], [])
-                            if not any(x[0] == bn for x in prev_list):
-                                prev_list.append((bn, round(snr_db, 1), round(need_mus_db, 1)))
-
-            if self.n >= 64:
+                            need_db = min(16.5, max(float(c['duck_db']), (want_snr - snr_db) + 2.5))
+                            depth = 1.0 - float(undb(-need_db))
+                            t0 = c['t_hit']
+                            atk = smoothstep(t0 - 0.035, t0 - 0.012, t_axis)
+                            rel = 1.0 - smoothstep(t0 + 0.180, t0 + 0.340, t_axis)
+                            band_carves[bn] = np.maximum(band_carves[bn], depth * atk * rel)
+                            ducked_bands.setdefault(c['id'], []).append((bn, round(snr_db, 1), round(need_db, 1)))
                 for bn, lo, hi in CRITICAL_BANDS:
-                    cv_a = amb_carves[bn]
-                    if float(cv_a.max()) > 0.03 and float(np.abs(stems['amb']).max()) > 1e-7:
-                        band_a = _zero_phase_bp(stems['amb'], lo, hi, sr=self.sr, order=2)
-                        stems['amb'] = stems['amb'] - band_a * cv_a[:, None]
-                    cv_m = mus_carves[bn]
-                    if float(cv_m.max()) > 0.03 and float(np.abs(stems['music']).max()) > 1e-7:
-                        band_m = _zero_phase_bp(stems['music'], lo, hi, sr=self.sr, order=2)
-                        stems['music'] = stems['music'] - band_m * cv_m[:, None]
+                    cv = band_carves[bn]
+                    if float(cv.max()) <= 0.03 or self.n < 64:
+                        continue
+                    for b_name in ('amb', 'music'):
+                        if float(np.abs(stems[b_name]).max()) <= 1e-7:
+                            continue
+                        band_sig = _zero_phase_bp(stems[b_name], lo, hi, sr=self.sr, order=2)
+                        stems[b_name] = stems[b_name] - band_sig * cv[:, None]
+            else:
+                amb_carves = {bn: np.zeros(self.n, dtype=float) for bn, _, _ in CRITICAL_BANDS}
+                mus_carves = {bn: np.zeros(self.n, dtype=float) for bn, _, _ in CRITICAL_BANDS}
+                for c, elem in fg_events:
+                    at_s = max(0.0, c['t_hit'] - c['anchor'])
+                    end_s = min(self.dur, at_s + len(c['wave']) / float(self.sr))
+                    span_len = end_s - at_s
+                    if span_len > 0.40 and c['role'] not in ('ui', 'subtle_ui'):
+                        n_hops = max(1, int(math.ceil(span_len / 0.22)))
+                        probe_windows = [
+                            (at_s + k * 0.22, min(end_s, at_s + (k + 1) * 0.22 + 0.04), k > 0)
+                            for k in range(n_hops)
+                        ]
+                    else:
+                        probe_windows = [(max(0.0, c['t_hit'] - 0.015), min(self.dur, c['t_hit'] + 0.220), False)]
 
-        # 5. 配乐黄金配比控制（默认 music_ceiling_offset_db=-2.6 dB，使终混配乐稳立在 -16.0 ~ -17.5 LUFS）与高潮窗释放
+                    want_snr = 2.5 if c['role'] == 'hero' else (-1.5 if c['role'] == 'ui' else -2.0)
+                    for w_t0, w_t1, is_tail_win in probe_windows:
+                        ia = max(0, int(round(w_t0 * self.sr)))
+                        ib = min(self.n, int(round(w_t1 * self.sr)))
+                        if ib - ia < 256:
+                            continue
+                        u_seg = elem[ia:ib].mean(axis=1)
+                        o_seg = bg_sum[ia:ib].mean(axis=1)
+                        if float(np.max(np.abs(u_seg))) < 1e-6:
+                            continue
+                        win = np.hanning(len(u_seg))
+                        U = np.abs(np.fft.rfft(u_seg * win)) ** 2
+                        O = np.abs(np.fft.rfft(o_seg * win)) ** 2
+                        fq = np.fft.rfftfreq(len(u_seg), 1.0 / self.sr)
+                        bu = [(bn, lo, hi, float(U[(fq >= lo) & (fq < hi)].sum())) for bn, lo, hi in CRITICAL_BANDS]
+                        tot_u = sum(v for _, _, _, v in bu) + 1e-24
+                        dom = [(bn, lo, hi, v) for bn, lo, hi, v in bu if v / tot_u >= 0.14]
+                        if not dom:
+                            dom = [max(bu, key=lambda it: it[3])]
+                        has_hi_glimpse = any(bn in ('1.5k-3.5k', '3.5k-7.5k', '7.5k-14k') for bn, _, _, _ in dom)
+                        for bn, lo, hi, vu in dom:
+                            vo = float(O[(fq >= lo) & (fq < hi)].sum())
+                            snr_db = 10.0 * np.log10((vu + 1e-24) / (vo + 1e-24))
+                            if snr_db < want_snr:
+                                need_amb_db = min(15.0, max(float(c['duck_db']), (want_snr - snr_db) + 2.2))
+                                if has_hi_glimpse and bn == '80-250':
+                                    need_mus_db = min(1.0, need_amb_db * 0.20)
+                                elif has_hi_glimpse and bn == '250-600':
+                                    need_mus_db = min(2.0, need_amb_db * 0.35)
+                                elif has_hi_glimpse and bn == '600-1.5k':
+                                    need_mus_db = min(3.2, need_amb_db * 0.55)
+                                elif is_tail_win:
+                                    need_mus_db = min(3.2, max(1.8, (want_snr - snr_db) + 1.0))
+                                else:
+                                    need_mus_db = min(13.5, max(min(float(c['duck_db']), 3.2), (want_snr - snr_db) + 2.0))
+
+                                atk = smoothstep(w_t0 - 0.035, w_t0 - 0.008, t_axis)
+                                rel = 1.0 - smoothstep(w_t1 - 0.020, w_t1 + 0.150, t_axis)
+                                shape_w = atk * rel
+                                amb_carves[bn] = np.maximum(amb_carves[bn], (1.0 - float(undb(-need_amb_db))) * shape_w)
+                                if need_mus_db > 0.05:
+                                    mus_carves[bn] = np.maximum(mus_carves[bn], (1.0 - float(undb(-need_mus_db))) * shape_w)
+                                prev_list = ducked_bands.setdefault(c['id'], [])
+                                if not any(x[0] == bn for x in prev_list):
+                                    prev_list.append((bn, round(snr_db, 1), round(need_mus_db, 1)))
+
+                if self.n >= 64:
+                    for bn, lo, hi in CRITICAL_BANDS:
+                        cv_a = amb_carves[bn]
+                        if float(cv_a.max()) > 0.03 and float(np.abs(stems['amb']).max()) > 1e-7:
+                            band_a = _zero_phase_bp(stems['amb'], lo, hi, sr=self.sr, order=2)
+                            stems['amb'] = stems['amb'] - band_a * cv_a[:, None]
+                        cv_m = mus_carves[bn]
+                        if float(cv_m.max()) > 0.03 and float(np.abs(stems['music']).max()) > 1e-7:
+                            band_m = _zero_phase_bp(stems['music'], lo, hi, sr=self.sr, order=2)
+                            stems['music'] = stems['music'] - band_m * cv_m[:, None]
+
+        # 5. 配乐黄金配比控制（需显式 music_ceiling_offset_db，使终混配乐稳立在 -16.0 ~ -17.5 LUFS）与高潮窗释放
         music_narr_trim_db = 0.0
         if (
             self.music_ceiling_offset_db is not None
@@ -1317,22 +1387,25 @@ class HDRMixer:
             final_lufs = round(float(fin_i), 2) if np.isfinite(fin_i) else None
             stem_scale = float(undb(master_gain_db))
 
-        # 7. 导出分轨逐轨前视真峰值保护（tp_limit）：杜绝单条分轨超限导致 PCM_24 落盘硬削波
-        tp_ceil_lin = float(undb(self.max_tp))
+        # 7. 导出分轨。旧路径只做响度标量缩放（与既有成片一致）；新路径再加逐轨前视真峰值保护。
         out_stems = {}
         stem_tp_limited = []
-        for k, v in stems.items():
-            st_k = v * stem_scale
-            if len(st_k) > 0 and float(np.max(np.abs(st_k))) > 1e-7:
-                if true_peak(st_k, os=4) > tp_ceil_lin or float(np.max(np.abs(st_k))) > tp_ceil_lin:
-                    st_k, _ = tp_limit(st_k, self.max_tp, look=0.005, rel=0.10)
-                    tp_post = true_peak(st_k, os=4)
-                    if tp_post > tp_ceil_lin and tp_post > 0.0:
-                        st_k = st_k * (tp_ceil_lin / tp_post)
-                    stem_tp_limited.append(k)
-                st_k[0] = 0.0
-                st_k[-1] = 0.0
-            out_stems[k] = st_k
+        if legacy:
+            out_stems = {k: v * stem_scale for k, v in stems.items()}
+        else:
+            tp_ceil_lin = float(undb(self.max_tp))
+            for k, v in stems.items():
+                st_k = v * stem_scale
+                if len(st_k) > 0 and float(np.max(np.abs(st_k))) > 1e-7:
+                    if true_peak(st_k, os=4) > tp_ceil_lin or float(np.max(np.abs(st_k))) > tp_ceil_lin:
+                        st_k, _ = tp_limit(st_k, self.max_tp, look=0.005, rel=0.10)
+                        tp_post = true_peak(st_k, os=4)
+                        if tp_post > tp_ceil_lin and tp_post > 0.0:
+                            st_k = st_k * (tp_ceil_lin / tp_post)
+                        stem_tp_limited.append(k)
+                    st_k[0] = 0.0
+                    st_k[-1] = 0.0
+                out_stems[k] = st_k
 
         diag = {
             'culledCount': len(culled_ids),

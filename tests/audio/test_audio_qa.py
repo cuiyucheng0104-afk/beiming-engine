@@ -268,7 +268,7 @@ class QaGate(unittest.TestCase):
         self.assertIn('audio.masking', self.failed(rep_bad))
 
     def test_tightened_masking_hero_threshold_and_music_dominance_warn(self):
-        """收紧掩蔽门限：普通事件 −6.5 dB（旧门限放行）现报 warn；hero < −1 dB 报 warn；music 比 fx+foley 高 >9 dB 触发 music_dominance 告警"""
+        """收紧掩蔽门限（需 --strict-masking）：普通事件 −6.5 dB（旧门限放行）现报 warn；hero < −1 dB 报 warn；music 比 fx+foley 高 >9 dB 触发 music_dominance 告警"""
         from engine.audio import dsp as D, mixing as MX
         rng = np.random.default_rng(131)
         dur = 6.0
@@ -290,13 +290,17 @@ class QaGate(unittest.TestCase):
         H.write_wav(os.path.join(d_warn, 'out', 'stems', 'music.wav'), mus * sc)
         H.write_wav(os.path.join(d_warn, 'out', 'stems', 'fx.wav'), fx_weak * sc)
         H.write_wav(os.path.join(d_warn, 'out', 'mix.wav'), mix_w)
-        r_w, _ = self.qa('--film', d_warn)
+        r_legacy, _ = self.qa('--film', d_warn)
+        self.assertEqual(r_legacy.returncode, 0)
+        mc_legacy = next(c for c in H.read_json(os.path.join(d_warn, 'out', 'mix.qa.json'))['checks'] if c['id'] == 'audio.masking')
+        self.assertEqual(mc_legacy['status'], 'pass', mc_legacy)
+        r_w, _ = self.qa('--film', d_warn, '--strict-masking')
         rep_w = H.read_json(os.path.join(d_warn, 'out', 'mix.qa.json'))
         validate_c8(self, rep_w)
         self.assertEqual(r_w.returncode, 0)
         mc_w = next(c for c in rep_w['checks'] if c['id'] == 'audio.masking')
         self.assertEqual(mc_w['status'], 'warn', mc_w)
-        r_fow, _ = self.qa('--film', d_warn, '--fail-on-warn', '--no-report')
+        r_fow, _ = self.qa('--film', d_warn, '--strict-masking', '--fail-on-warn', '--no-report')
         self.assertEqual(r_fow.returncode, 4)
 
         # 2) hero 事件最佳频带约 −3.0 dB（高于普通门限 −5 dB，但低于 hero 门限 −1 dB） + 持续低电平 foley 使配乐高出 >9 dB → 双重检出
@@ -313,7 +317,7 @@ class QaGate(unittest.TestCase):
         H.write_wav(os.path.join(d_dom, 'out', 'stems', 'fx.wav'), fx_hero_low * sc_d)
         H.write_wav(os.path.join(d_dom, 'out', 'stems', 'foley.wav'), foley_buried * sc_d)
         H.write_wav(os.path.join(d_dom, 'out', 'mix.wav'), mix_d)
-        r_d, _ = self.qa('--film', d_dom)
+        r_d, _ = self.qa('--film', d_dom, '--strict-masking')
         self.assertEqual(r_d.returncode, 0)
         rep_d = H.read_json(os.path.join(d_dom, 'out', 'mix.qa.json'))
         validate_c8(self, rep_d)
@@ -350,7 +354,9 @@ class QaGate(unittest.TestCase):
         H.write_wav(os.path.join(d_buried, 'out', 'stems', 'music.wav'), mus_crushed * sc_b)
         H.write_wav(os.path.join(d_buried, 'out', 'mix.wav'), mix_b)
 
-        r_b, _ = self.qa('--film', d_buried)
+        r_b_off, _ = self.qa('--film', d_buried, '--fail-on-warn', '--no-report')
+        self.assertEqual(r_b_off.returncode, 0, '未开 --strict-masking 时既有作品不得因 music_buried 失败')
+        r_b, _ = self.qa('--film', d_buried, '--strict-masking')
         self.assertEqual(r_b.returncode, 0)
         rep_b = H.read_json(os.path.join(d_buried, 'out', 'mix.qa.json'))
         validate_c8(self, rep_b)
@@ -360,7 +366,7 @@ class QaGate(unittest.TestCase):
         self.assertGreater(mc_b['evidence']['musicBuried']['belowMasterLu'], 8.5)
         self.assertIn('music_buried', mc_b['message'])
         self.assertIn('配乐被过度压制', mc_b['message'])
-        r_b_fow, _ = self.qa('--film', d_buried, '--fail-on-warn', '--no-report')
+        r_b_fow, _ = self.qa('--film', d_buried, '--strict-masking', '--fail-on-warn', '--no-report')
         self.assertEqual(r_b_fow.returncode, 4)
 
         # 2) 均衡乐效配比（配乐约 -16.5 LUFS，母带 -13.4 LUFS，差 ~3.1 LU ≤ 8.5 LU）+ 无配乐纯音效片（music.wav 全 0）均 0 告警通过
@@ -378,7 +384,7 @@ class QaGate(unittest.TestCase):
         H.write_wav(os.path.join(d_bal, 'out', 'stems', 'fx.wav'), fx_loud * sc_h)
         H.write_wav(os.path.join(d_bal, 'out', 'stems', 'music.wav'), mus_healthy * sc_h)
         H.write_wav(os.path.join(d_bal, 'out', 'mix.wav'), mix_h)
-        r_h, _ = self.qa('--film', d_bal, '--fail-on-warn')
+        r_h, _ = self.qa('--film', d_bal, '--strict-masking', '--fail-on-warn')
         self.assertEqual(r_h.returncode, 0, r_h.stdout + r_h.stderr)
         rep_h = H.read_json(os.path.join(d_bal, 'out', 'mix.qa.json'))
         mc_h = next(c for c in rep_h['checks'] if c['id'] == 'audio.masking')
@@ -395,7 +401,7 @@ class QaGate(unittest.TestCase):
         H.write_wav(os.path.join(d_nomus, 'out', 'stems', 'fx.wav'), fx_loud * sc_nm)
         H.write_wav(os.path.join(d_nomus, 'out', 'stems', 'music.wav'), np.zeros((n, 2)))
         H.write_wav(os.path.join(d_nomus, 'out', 'mix.wav'), mix_nm)
-        r_nm, _ = self.qa('--film', d_nomus, '--fail-on-warn')
+        r_nm, _ = self.qa('--film', d_nomus, '--strict-masking', '--fail-on-warn')
         self.assertEqual(r_nm.returncode, 0, r_nm.stdout + r_nm.stderr)
 
 

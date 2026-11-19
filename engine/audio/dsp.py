@@ -326,11 +326,12 @@ def doppler(x, vel_mps=None, *, dist_m=None, pan=None, c_sound=343.0):
 
 
 def space_place(buf, x, at, *, gain=1.0, pan=0.0, dist=2.0, ref_dist=2.0, ir=None, wet=0.22,
-                wet_buf=None, proximity=True, binaural=True):
+                wet_buf=None, proximity=True, binaural=True, dynamic_pan=False):
     """物理空间同化摆位（Worldizing，Walter Murch）：
     统一把距离衰减、空气高频吸收、近场 <1.2m 低频近讲效应、单声道安全的微双耳时差（≤0.28ms）+ 对侧头影搁架、
     以及随距离自动拉开的直达/混响比（D/R）合在一次放置里。
-    · wet_buf 给出时把混响发送写进 wet_buf（多事件共用一次总线卷积更省算力）；否则给 ir 时直接卷积混入 buf。"""
+    · wet_buf 给出时把混响发送写进 wet_buf（多事件共用一次总线卷积更省算力）；否则给 ir 时直接卷积混入 buf。
+    · dynamic_pan=True 且声像跨度 > 0.25 时跳过静态 ITD（避免运动声像被钉在均值时差上）；默认 False，与既有成片一致。"""
     if len(x) == 0:
         return
     n = len(x)
@@ -363,8 +364,11 @@ def space_place(buf, x, at, *, gain=1.0, pan=0.0, dist=2.0, ref_dist=2.0, ir=Non
 
     p_arr = np.asarray(pan, dtype=float)
     p_mean = float(np.clip(np.mean(p_arr), -1.0, 1.0))
-    p_span = float(np.max(p_arr) - np.min(p_arr)) if p_arr.ndim > 0 and p_arr.size > 1 else 0.0
-    if binaural and p_span <= 0.25 and abs(p_mean) > 0.08 and n > 24:
+    apply_static_itd = binaural and abs(p_mean) > 0.08 and n > 24
+    if apply_static_itd and dynamic_pan and p_arr.ndim > 0 and p_arr.size > 1:
+        if float(np.max(p_arr) - np.min(p_arr)) > 0.25:
+            apply_static_itd = False
+    if apply_static_itd:
         itd_samples = min(0.00024 * SR, abs(p_mean) * 0.00024 * SR)
         ds = np.full(n, itd_samples, dtype=float)
         far_ch = 1 if p_mean < 0 else 0

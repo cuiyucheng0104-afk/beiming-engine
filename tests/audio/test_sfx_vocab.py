@@ -15,6 +15,18 @@ import tools.fetch_sfx as FS  # noqa: E402
 
 
 class SfxVocabTests(unittest.TestCase):
+    def test_load_ucs_caches_parsed_table(self):
+        """load_ucs 文档写缓存：同一进程内第二次调用命中 lru_cache，不再解析词表。"""
+        SV.load_ucs.cache_clear()
+        a = SV.load_ucs()
+        self.assertEqual(SV.load_ucs.cache_info().misses, 1)
+        b = SV.load_ucs()
+        self.assertIs(a, b)
+        info = SV.load_ucs.cache_info()
+        self.assertEqual(info.hits, 1)
+        self.assertEqual(info.misses, 1)
+        self.assertEqual(len(a['entries']), 753)
+
     def test_ucs_table_completeness_and_upstream_fixes(self):
         ucs = SV.load_ucs()
         self.assertEqual(ucs['ucsVersion'], '8.2.1')

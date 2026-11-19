@@ -92,6 +92,27 @@ class FoleyAndSpatialTests(unittest.TestCase):
         corr = float(np.dot(seg[:, 0], seg[:, 1]) / (np.linalg.norm(seg[:, 0]) * np.linalg.norm(seg[:, 1]) + 1e-20))
         self.assertGreaterEqual(corr, 0.0)
 
+    def test_space_place_static_itd_default_and_dynamic_pan_opt_in(self):
+        """space_place 默认仍施加静态 ITD（与既有行为一致）；dynamic_pan=True 且声像跨度大时才跳过静态 ITD。"""
+        t = T(0.12)
+        src = np.sin(2 * np.pi * 400.0 * t) * np.exp(-t / 0.04)
+        pan_move = np.linspace(-0.15, 0.85, len(src))
+
+        b_default = np.zeros((N(0.4), 2))
+        b_optin = np.zeros((N(0.4), 2))
+        space_place(b_default, src, 0.05, pan=pan_move, dist=2.0, wet=0.0, binaural=True)
+        space_place(b_optin, src, 0.05, pan=pan_move, dist=2.0, wet=0.0, binaural=True, dynamic_pan=True)
+
+        # 默认路径对远耳做了低频延迟，与 opt-in 跳过静态 ITD 的波形应可区分
+        seg_d = b_default[N(0.05):N(0.17)]
+        seg_o = b_optin[N(0.05):N(0.17)]
+        self.assertGreater(float(np.max(np.abs(seg_d - seg_o))), 1e-6)
+        # 标量声像默认与显式 dynamic_pan=False 一致
+        b_a, b_b = np.zeros((N(0.4), 2)), np.zeros((N(0.4), 2))
+        space_place(b_a, src, 0.05, pan=-0.6, dist=2.0, wet=0.0, binaural=True)
+        space_place(b_b, src, 0.05, pan=-0.6, dist=2.0, wet=0.0, binaural=True, dynamic_pan=False)
+        np.testing.assert_allclose(b_a, b_b, atol=1e-15)
+
     def test_doppler_shifts_pitch_up_approaching_and_down_receding(self):
         """34.3 m/s（0.1 马赫）逼近升调约 +10%，远离降调约 -10%。"""
         f0 = 1000.0
