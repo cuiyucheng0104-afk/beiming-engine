@@ -273,6 +273,11 @@ const filmChecks = {
   D19: (film) => film.shots.flatMap((s) => (s.deliberate ?? [])
     .filter((d) => !(s.in <= d.in && d.in < d.out && d.out <= s.out))
     .map((d) => `镜头 ${s.id} 的 deliberate [${d.in}, ${d.out}) 不在镜头的 [${s.in}, ${s.out}) 内或不是 in < out`)),
+
+  // PR 契约 5.5，和 CF8、QF2 同一种写法：去掉成对的双引号，没闭合的双引号当普通字符
+  D20: (film) => (film.predicates?.extra ?? [])
+    .filter((a) => a.replace(/"[^"]*"/g, '').includes(';'))
+    .map((a) => `predicates.extra 里的 ${JSON.stringify(a)} 在双引号外带了 ";"，一项只能写一条断言`),
 };
 
 const recordChecks = {

@@ -336,5 +336,19 @@
       "D19"
     ],
     "why": "镜头 s01 声明的静止区间到第 190 帧，镜头只到第 180 帧"
+  },
+  {
+    "file": "D20-semicolon-joined.json",
+    "violates": [
+      "D20"
+    ],
+    "why": "predicates.extra 的一项用 ; 把两条断言连在一起"
+  },
+  {
+    "file": "D20-semicolon-after-unclosed-quote.json",
+    "violates": [
+      "D20"
+    ],
+    "why": "predicates.extra 的一项里双引号没闭合，后面的 ; 在双引号括起来的文字以外"
   }
 ]

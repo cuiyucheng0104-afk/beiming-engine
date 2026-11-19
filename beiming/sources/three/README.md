@@ -37,6 +37,6 @@
 - `motion` 交不出；场景查询一种都不答；作者模式只有 `native-code`；每像素只取 1 个样本，要更多报 `contract.unsupported-option`。
 - 镜头都是镜头代码自己搭的，没有场景包：实体的编号由帧源分配，实体名按字节序排、从 1 起；0 不是任何实体的编号，编号层里的 0 表示这个样本没打到任何实体。类别从母语对象的形态推：点云是 `particles`，名下还有别的实体的是 `assembly`，其余是 `part`。
 - 卡、资产、叠加层没接：带着锁文件来也装不了，报 `contract.unsupported-input`。
-- 32 位浮点目标（含半透明混合）只在苹果芯片加 Metal 后端上试过。
+- 32 位浮点目标（含半透明混合）在页面宿主的三种后端（Metal、Vulkan、软件渲染）上都量过，读数见帧源接口契约第 6 节的登记。
 
 测试：`node --test 'beiming/sources/three/*.test.mjs'`。`source.test.mjs` 不起浏览器；`render.test.mjs` 起无头、静音的浏览器实渲（起不了浏览器时跳过），查清屏值不跨 render 残留、没打到的像素各层的值、层引用对得上层文件。

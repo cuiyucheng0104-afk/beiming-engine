@@ -6,7 +6,7 @@
 |---|---|
 | `time.mjs` | 镜头局部帧号换成全片帧号 `globalFrame(f, shotIn)`、`hold(f, n)`、一帧的子帧采样相位 `shutterSubs(angleDeg, samples)` |
 | `rng.mjs` | 命名随机流：`streamName(seed, shotId, arg)` 展开流名，`stream(name)` 按流名开一条流（`next()` 出 `[0, 1)` 的数，`u32()` 出 32 位无符号整数，`name` 是流名，只读） |
-| `input.mjs` | 镜头输入 `shotInput(film, shotId, events)`：从片子描述算出帧源 `open` 的第一个参数 `{ film, output: { size, fps }, shot, assets?, events?, overlays? }`，镜头条目原样；`eventsTable(film)`：把片子描述的事件和切点展开成事件表（帧号只认整数，时刻算式不会展开）；`renderingOf(shot)`：一个镜头出帧用的那一套 `source`、`host`、`mode`、`entry` |
+| `input.mjs` | 镜头输入 `shotInput(film, shotId, events)`：从片子描述算出帧源 `open` 的第一个参数 `{ film, output: { size, fps }, shot, assets?, events?, overlays?, tokens? }`，镜头条目原样；`eventsTable(film)`：把片子描述的事件和切点展开成事件表（帧号只认整数，时刻算式不会展开）；`renderingOf(shot)`：一个镜头出帧用的那一套 `source`、`host`、`mode`、`entry` |
 
 口径：
 

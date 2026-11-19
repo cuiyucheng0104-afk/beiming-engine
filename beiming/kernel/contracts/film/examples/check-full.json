@@ -225,7 +225,7 @@
       ],
       "extra": [
         "visible(kit.fan_L) >= 0.6 @ [150,180)",
-        "text_matches(\"RTX 5090\") @ shot(s02)"
+        "text_matches(\"RTX 5090; Ti\") @ shot(s02)"
       ]
     },
     "delivery": {

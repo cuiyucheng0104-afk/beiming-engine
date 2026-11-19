@@ -26,7 +26,7 @@ r<…>-f<帧号>/normal.f32     三个分量
 
 node 和页面之间：`open` 时 node 把镜头输入、锁文件和档位交给页面；`render` 时页面把读回的各层编成 base64 交回，带错误码的错换成普通对象交回（错误码过不了那道序列化）。这一段和渲染器的四个服务（见 `beiming/sources/three/README.md`）都是这一对里面的事，契约不管。
 
-现在的边界：只配 three 的渲染器；不接卡、叠加层、资产、锚点和数据轨道（`ctx.tracks.apply` 是空操作，`ctx.cards.use`、`ctx.assets.load`、`ctx.anchor` 一调就报错）；画风令牌传空；`visible` 不算，写 `null`；片子描述所在的目录必须在静态服务放行的目录里。
+现在的边界：只配 three 的渲染器；不接卡、叠加层、资产、锚点和数据轨道（`ctx.tracks.apply` 是空操作，`ctx.cards.use`、`ctx.assets.load`、`ctx.anchor` 一调就报错）；`visible` 不算，写 `null`；片子描述所在的目录必须在静态服务放行的目录里。
 
 元数据量的是这一帧 `sub = 0` 的状态，和辅助层同一个样本；只要元数据的调用也先把这个状态写进场景再量。`seed` 填这次装载生效的镜头种子，`size` 填这次输出的宽和高（档位带缩放时是缩放之后的；只要元数据时照要是出像素会交回的颜色层填），`source.tier` 填这次装载的档位。`source.id` 填镜头条目顶层的 `source`，`source.renderer` 填出帧的帧源，`source.host` 填出帧用的宿主。溢出和压死的占比只给显示参考镜头算（按通道判）。
 
