@@ -107,6 +107,7 @@ README 署名节与 Release 说明末尾都用这一句（作品站页脚已有�
 |---|---|---|---|
 | 马善政毛笔楷书（Ma Shan Zheng）全部 7015 个字符，按码位切成 13 片 | SIL OFL 1.1，Copyright 2018 The Ma Shan Zheng Project Authors | `routes/c-style/fonts/mashanzheng-*.woff2`，许可全文 [routes/c-style/fonts/OFL.txt](routes/c-style/fonts/OFL.txt) | 来源 google/fonts@406197b，生成方法与各片 sha256 见 `routes/c-style/fonts/fonts.json`；C 模版的片名与印文用它 |
 | 配乐采样库 VS Chamber Orchestra: Community Edition 与 Versilian Community Sample Library | CC0-1.0，Versilian Studios | 不随仓库分发 | 固定提交、逐文件地址与 sha256 见 `engine/audio/samples.json`，下载用 `npm run audio:samples`；《北冥》声音署名见 [audio/CREDITS](audio/CREDITS) |
+| 音效分类与中英检索同义词表 Universal Category System (UCS) v8.2.1 | 公有领域（CC0-1.0），Tim Nielsen、Justin Drury、Kai Paquin 等（<https://universalcategorysystem.com>） | `engine/audio/ucs_vocab.json` | 抽自官方 `UCS v8.2.1 Full Translations.xlsx`（82 大类、753 子类、9973 个英文检索词、3020 个中文同义词），修正上游中文译表 8 处子类错位，供 `engine/audio/sfx_vocab.py` 与 `tools/fetch_sfx.py --vocab` 检索 |
 
 ## 12. 离屏出片的可选依赖（实验）
 

@@ -7,9 +7,12 @@
 2. 读取上传者 description 与 tags：一票否决嘴模(made with my mouth)、合成器(synth/VST/Serum)、手机内置麦；给专业录音设备(Zoom/Sound Devices/Sennheiser/Rode/Neumann/foley)加分；
 3. ThreadPoolExecutor(6) 六线程并发下载（带临时文件原子替换与 CC0 许可证强校验）。
 
-用法（需先设置环境变量 FREESOUND_TOKEN）：
-  node tools/env/py.mjs tools/fetch_sfx.py                        # 按清单并发下载
-  node tools/env/py.mjs tools/fetch_sfx.py --search "wood hit"    # 相关性池重排 + 描述信号检索
+用法（无 Token 时自动走公开 CC0 检索；推荐设置环境变量 FREESOUND_TOKEN）：
+  node tools/env/py.mjs tools/fetch_sfx.py                                        # 按清单并发下载
+  node tools/env/py.mjs tools/fetch_sfx.py --vocab "精密齿轮" --world hitech      # 按世界观调性反查 UCS 词表与复合检索词配方
+  node tools/env/py.mjs tools/fetch_sfx.py --plan films/beiming-10s/film.json     # 生成全片 AMB / SFX / Foley 三干线检索词方案
+  node tools/env/py.mjs tools/fetch_sfx.py --list-categories                      # 查看全部 82 个 UCS 音效大类
+  node tools/env/py.mjs tools/fetch_sfx.py --search "wood hit" --world realistic  # 相关性池 + 世界观调性过滤重排检索
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -67,6 +70,16 @@ GOOD_DESC_RE = re.compile(
 GOOD_HITECH_RE = re.compile(
     r'\b(hitech|hi[- ]?tech|hud|telemetry|ui|interface|precision|micro|readout|scanner|clean)\b', re.I
 )
+GOOD_SCIFI_RE = re.compile(
+    r'\b(sci[- ]?fi|futuristic|servo|laser|airlock|energy|telemetry|plasma|actuator|mech)\b', re.I
+)
+GOOD_CARTOON_RE = re.compile(
+    r'\b(cartoon|boing|pop|whistle|slide|toy|comic|bonk|twang|bounce)\b', re.I
+)
+WORLD_CHOICES = ('realistic', 'semi_realistic', 'hitech', 'scifi', 'cartoon', 'poetic')
+_CARTOON_TAGS = {'cartoon', 'comedy'}
+_POETIC_BAD_TAGS = {'gun', 'gunshot', 'rifle', 'explosion', 'motor', 'servo', 'chainsaw', 'crowd'}
+_HITECH_BIO_BAD_TAGS = {'crowd', 'animal', 'dog', 'cat', 'horse', 'monster', 'scream'}
 
 
 def is_hitech_query(query: str) -> bool:
@@ -74,32 +87,51 @@ def is_hitech_query(query: str) -> bool:
     return bool(_HITECH_QUERY_RE.search(str(query or '')))
 
 
-def desc_signal(desc: str, tags=(), *, allow_hitech: bool = False) -> float:
-    """上传者描述与标签信号：< 0 表示拒绝（嘴模/劣质麦/禁标；自然拟音额外禁合成器），> 0 表示专业实录或精密科技加分。"""
+def desc_signal(desc: str, tags=(), *, allow_hitech: bool = False, world: str = None) -> float:
+    """上传者描述与标签信号：< 0 表示拒绝（嘴模/劣质麦/禁标；自然拟音额外禁合成器），> 0 表示专业实录或世界观匹配加分。"""
     tset = {str(t).lower() for t in (tags or ())}
-    bad_set = ALWAYS_BAD_TAGS if allow_hitech else BAD_TAGS
+    w = str(world).strip().lower() if world else None
+    eff_hitech = bool(allow_hitech or w in ('hitech', 'scifi'))
+
+    if w == 'cartoon':
+        bad_set = (ALWAYS_BAD_TAGS - _CARTOON_TAGS) | {'gore', 'flesh', 'blood'}
+    elif eff_hitech:
+        bad_set = set(ALWAYS_BAD_TAGS)
+        if w == 'hitech':
+            bad_set |= _HITECH_BIO_BAD_TAGS
+    else:
+        bad_set = set(BAD_TAGS)
+        if w == 'poetic':
+            bad_set |= _POETIC_BAD_TAGS
+
     if tset & bad_set:
         return -50.0
     text = str(desc or '')
     if BAD_DESC_ALWAYS_RE.search(text):
         return -50.0
-    if not allow_hitech and BAD_DESC_ORGANIC_RE.search(text):
+    if not eff_hitech and w != 'cartoon' and BAD_DESC_ORGANIC_RE.search(text):
         return -50.0
+    blob = text + ' ' + ' '.join(tset)
     hits = len(GOOD_DESC_RE.findall(text))
-    if allow_hitech:
-        hits += len(GOOD_HITECH_RE.findall(text + ' ' + ' '.join(tset)))
-    return min(12.0, hits * 4.5)
+    if eff_hitech:
+        hits += len(GOOD_HITECH_RE.findall(blob))
+    if w == 'scifi':
+        hits += len(GOOD_SCIFI_RE.findall(blob))
+    elif w == 'cartoon':
+        hits += len(GOOD_CARTOON_RE.findall(blob))
+    return min(14.0, hits * 4.5)
 
 
-def human_score(item: dict, *, query: str = '') -> float:
-    """在相关性召回池内按人类反馈（下载量 + 贝叶斯加权评分人数 + 描述信号 + 原始采样率/位深质量）打分。
-    物理本体守卫：检索无源纯机械物件（圆珠笔、钟表、棘轮、弹簧等）且未点名电机时，一票否决混入电机/伺服嗡鸣的素材。"""
+def human_score(item: dict, *, query: str = '', world: str = None) -> float:
+    """在相关性召回池内按人类反馈（下载量 + 贝叶斯加权评分人数 + 描述信号 + 原始采样率/位深质量 + 世界观调性契合度）打分。
+    物理本体守卫：检索无源纯机械物件（圆珠笔、钟表、棘轮、弹簧等）或 poetic 水墨调性时，一票否决混入电机/伺服嗡鸣的素材。"""
     q_str = str(query or '')
-    if _PASSIVE_MECH_QUERY_RE.search(q_str) and not _MOTOR_QUERY_RE.search(q_str):
-        hay = f"{item.get('name', '')} {item.get('description', '')} {' '.join(str(t) for t in (item.get('tags') or ()))}"
+    w = str(world).strip().lower() if world else None
+    hay = f"{item.get('name', '')} {item.get('description', '')} {' '.join(str(t) for t in (item.get('tags') or ()))}"
+    if w == 'poetic' or (_PASSIVE_MECH_QUERY_RE.search(q_str) and not _MOTOR_QUERY_RE.search(q_str) and w != 'scifi'):
         if _MOTOR_POLLUTION_RE.search(hay):
             return -45.0
-    sig = desc_signal(item.get('description', ''), item.get('tags', ()), allow_hitech=is_hitech_query(q_str))
+    sig = desc_signal(item.get('description', ''), item.get('tags', ()), allow_hitech=is_hitech_query(q_str), world=w)
     if sig < 0:
         return sig
     sr = int(item.get('samplerate') or 48000)
@@ -204,7 +236,7 @@ def parse_public_search_html(page: str, d_lo=0.04, d_hi=30.0) -> list:
     return items
 
 
-def search_public_cc0(query: str, d_lo=0.04, d_hi=30.0, top_n=8, probe_audio=False) -> list:
+def search_public_cc0(query: str, d_lo=0.04, d_hi=30.0, top_n=8, probe_audio=False, world: str = None) -> list:
     """免 Token 公开 CC0 检索：合并相关性优先与下载量优先两路召回，经描述禁词过滤与可选 sfx_judge 物理实测重排。"""
     seen = {}
     for rank_bias, sort_mode in ((14.0, ''), (10.0, 'Downloads (most first)')):
@@ -213,7 +245,7 @@ def search_public_cc0(query: str, d_lo=0.04, d_hi=30.0, top_n=8, probe_audio=Fal
             params['s'] = sort_mode
         page = curl('https://freesound.org/search/?' + urllib.parse.urlencode(params))
         for idx, it in enumerate(parse_public_search_html(page, d_lo=d_lo, d_hi=d_hi)):
-            sc = human_score(it, query=query)
+            sc = human_score(it, query=query, world=world)
             if sc < 0:
                 continue
             pos_pts = max(0.0, rank_bias - idx * 0.75)
@@ -255,10 +287,11 @@ def fetch_public_sound_meta(sid: int) -> dict:
     }
 
 
-def search_pool(query: str, token: str = None, d_lo=0.04, d_hi=30.0, pool_size=45, top_n=8, probe_audio=False):
+def search_pool(query: str, token: str = None, d_lo=0.04, d_hi=30.0, pool_size=45, top_n=8,
+                probe_audio=False, world: str = None):
     """按相关性抓取 pool_size 条 CC0 候选，再用 human_score（及可选下载后 sfx_judge 声学形态复核）重排；无 Token 时自动走公开 CC0 检索。"""
     if not token:
-        return search_public_cc0(query, d_lo=d_lo, d_hi=d_hi, top_n=top_n, probe_audio=probe_audio)
+        return search_public_cc0(query, d_lo=d_lo, d_hi=d_hi, top_n=top_n, probe_audio=probe_audio, world=world)
     params = {
         'query': query,
         'filter': f'license:"Creative Commons 0" duration:[{d_lo} TO {d_hi}]',
@@ -269,7 +302,7 @@ def search_pool(query: str, token: str = None, d_lo=0.04, d_hi=30.0, pool_size=4
     data = json.loads(curl('https://freesound.org/apiv2/search/text/?' + urllib.parse.urlencode(params), token))
     ranked = []
     for r in data.get('results', []):
-        sc = human_score(r, query=query)
+        sc = human_score(r, query=query, world=world)
         if sc < 0:
             continue
         r['_human_score'] = sc
@@ -329,17 +362,78 @@ def download_many(items, out_dir: Path, token: str, workers=6, verify=True):
 
 
 def main():
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--search', help='按相关性池 + 人类反馈 + 描述过滤搜索关键词')
+    ap.add_argument('--search', help='按相关性池 + 人类反馈 + 描述过滤搜索关键词（支持中文意图，自动经 sfx_vocab 转译英文检索短语）')
+    ap.add_argument('--vocab', help='在本地 UCS v8.2.1 中英词表（753 子类）与音效师配方库中反查搜索词')
+    ap.add_argument('--world', choices=WORLD_CHOICES, default=None,
+                    help='按影片世界观调性（realistic / semi_realistic / hitech / scifi / cartoon / poetic）过滤和重排检索词')
+    ap.add_argument('--plan', metavar='FILM_JSON',
+                    help='读取任意作品的 film.json（或作品目录），打印或 --json 输出该片的 AMB / SFX / Foley 三干线检索词方案')
+    ap.add_argument('--json', action='store_true', help='以结构化 JSON 格式输出（配合 --plan / --vocab / --list-categories / --cat）')
+    ap.add_argument('--cat', help='按 UCS CatID 或大类前缀列出完整词条（如 MECH、UI、CLOCK、MECHGear）')
+    ap.add_argument('--list-categories', action='store_true', help='列出全部 82 个 UCS 音效顶层大类')
     ap.add_argument('--probe-audio', action='store_true', help='搜索时下载预览并用 sfx_judge 做物理形态实测过滤')
     ap.add_argument('--min-dur', type=float, default=0.04)
     ap.add_argument('--max-dur', type=float, default=30.0)
     ap.add_argument('-n', type=int, default=8)
     args = ap.parse_args()
 
+    if args.plan:
+        sys.path.insert(0, str(ROOT))
+        from engine.audio import sfx_vocab as SV
+        plan = SV.plan_film_sound_pool(args.plan, world=args.world or 'realistic')
+        if args.json:
+            print(json.dumps(plan, ensure_ascii=False, indent=2))
+        else:
+            print(SV.format_sound_pool_plan(plan))
+        return
+
+    if args.list_categories or args.vocab or args.cat:
+        sys.path.insert(0, str(ROOT))
+        from engine.audio import sfx_vocab as SV
+        if args.list_categories:
+            cats = SV.list_categories()
+            if args.json:
+                print(json.dumps(cats, ensure_ascii=False, indent=2))
+            else:
+                u = SV.load_ucs()['stats']
+                print(f"UCS v8.2.1 音效库分类总表：{u['categories']} 大类 · {u['subCategories']} 子类 · {u['uniqueSynonymsEn']} 英文词 · {u['uniqueSynonymsZh']} 中文词\n")
+                for idx, c in enumerate(cats, 1):
+                    print(f"{idx:2d}. {c['category']:18s} [{c['catShort']:5s}] {c['categoryZh']:10s} ({c['subCount']:2d} 子类) 例: {', '.join(c['sampleCatIds'])}")
+        elif args.cat:
+            rows = SV.get_cat(args.cat)
+            if args.json:
+                print(json.dumps(rows, ensure_ascii=False, indent=2))
+            else:
+                for e in rows:
+                    print(f"[{e['catId']}] {e['category']} > {e['subCategory']} （{e['categoryZh']} > {e['subCategoryZh']}）")
+                    print(f"  说明: {e['explanation']}")
+                    print(f"  EN ({len(e['synonymsEn'])}): {', '.join(e['synonymsEn'])}")
+                    print(f"  ZH ({len(e['synonymsZh'])}): {'、'.join(e['synonymsZh'])}\n")
+        else:
+            if args.json:
+                out = SV.search_by_world(args.vocab, world=args.world, top_n=args.n) if args.world else SV.expand_for_freesound(args.vocab, max_queries=args.n)
+                print(json.dumps(out, ensure_ascii=False, indent=2))
+            else:
+                print(SV.format_vocab_report(args.vocab, top_n=args.n, world=args.world))
+        return
+
     token = os.environ.get('FREESOUND_TOKEN')
     if args.search:
-        for r in search_pool(args.search, token, args.min_dur, args.max_dur, top_n=args.n, probe_audio=args.probe_audio):
+        q_raw = args.search.strip()
+        if args.world or re.search(r'[\u4e00-\u9fff]', q_raw):
+            sys.path.insert(0, str(ROOT))
+            from engine.audio import sfx_vocab as SV
+            exp = SV.expand_for_freesound(q_raw, max_queries=max(3, args.n), world=args.world)
+            q_en = exp['queries'][0] if exp['queries'] else q_raw
+            alt = ', '.join(f'"{x}"' for x in exp['queries'][1:4])
+            w_tag = f" [world={args.world}]" if args.world else ''
+            if q_en.lower() != q_raw.lower() or alt:
+                print(f"[sfx_vocab]{w_tag} 检索意图 {q_raw!r} → 优选英文短语 {q_en!r}" + (f"（备选：{alt}）" if alt else ''))
+            q_raw = q_en
+        for r in search_pool(q_raw, token, args.min_dur, args.max_dur, top_n=args.n, probe_audio=args.probe_audio, world=args.world):
             desc = re.sub(r'\s+', ' ', r.get('description', '')).strip()[:75]
             jg = r.get('_judge')
             j_str = f" judge={jg['score']:.0f}({jg['archetype']})" if jg else ''

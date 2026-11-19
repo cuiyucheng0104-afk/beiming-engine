@@ -92,6 +92,27 @@ class FoleyAndSpatialTests(unittest.TestCase):
         corr = float(np.dot(seg[:, 0], seg[:, 1]) / (np.linalg.norm(seg[:, 0]) * np.linalg.norm(seg[:, 1]) + 1e-20))
         self.assertGreaterEqual(corr, 0.0)
 
+    def test_space_place_static_itd_default_and_dynamic_pan_opt_in(self):
+        """space_place 默认仍施加静态 ITD（与既有行为一致）；dynamic_pan=True 且声像跨度大时才跳过静态 ITD。"""
+        t = T(0.12)
+        src = np.sin(2 * np.pi * 400.0 * t) * np.exp(-t / 0.04)
+        pan_move = np.linspace(-0.15, 0.85, len(src))
+
+        b_default = np.zeros((N(0.4), 2))
+        b_optin = np.zeros((N(0.4), 2))
+        space_place(b_default, src, 0.05, pan=pan_move, dist=2.0, wet=0.0, binaural=True)
+        space_place(b_optin, src, 0.05, pan=pan_move, dist=2.0, wet=0.0, binaural=True, dynamic_pan=True)
+
+        # 默认路径对远耳做了低频延迟，与 opt-in 跳过静态 ITD 的波形应可区分
+        seg_d = b_default[N(0.05):N(0.17)]
+        seg_o = b_optin[N(0.05):N(0.17)]
+        self.assertGreater(float(np.max(np.abs(seg_d - seg_o))), 1e-6)
+        # 标量声像默认与显式 dynamic_pan=False 一致
+        b_a, b_b = np.zeros((N(0.4), 2)), np.zeros((N(0.4), 2))
+        space_place(b_a, src, 0.05, pan=-0.6, dist=2.0, wet=0.0, binaural=True)
+        space_place(b_b, src, 0.05, pan=-0.6, dist=2.0, wet=0.0, binaural=True, dynamic_pan=False)
+        np.testing.assert_allclose(b_a, b_b, atol=1e-15)
+
     def test_doppler_shifts_pitch_up_approaching_and_down_receding(self):
         """34.3 m/s（0.1 马赫）逼近升调约 +10%，远离降调约 -10%。"""
         f0 = 1000.0
@@ -168,6 +189,31 @@ class FoleyAndSpatialTests(unittest.TestCase):
             gear_w, gear_anc = F.precision_gear_turn(0.14, teeth=5, tooth_sample=sl_micro[0], lock_sample=mech_sample, seed=21)
             self.assertAlmostEqual(gear_anc, 0.14, delta=0.002)
             self.assertGreater(rms(gear_w[N(0.135):N(0.165)]), rms(gear_w[:N(0.11)]) * 1.6)
+
+    def test_action_variation_deck_uniform_vs_combo_punches_anti_fatigue(self):
+        """验证同质符号复用（uniform）与连续出拳三级防听觉疲劳（多 take 轮询 / 力度副层叠加 / 单样本微移调防复读）。"""
+        r = rng(55)
+        t = T(0.12)
+        single_punch = np.exp(-t / 0.022) * np.sin(2 * np.pi * (140.0 + 280.0 * np.exp(-t / 0.008)) * t)
+        heavy_layer = np.exp(-t / 0.035) * r.standard_normal(len(t)) * 0.6
+
+        # 1. uniform 模式：同质视觉元素完全复用同一波形
+        u_deck = F.ActionVariationDeck([single_punch], policy='uniform')
+        w1, _, _ = u_deck.trigger(force=0.5)
+        w2, _, _ = u_deck.trigger(force=0.9)
+        self.assertTrue(np.allclose(w1, w2))
+
+        # 2. anti_fatigue 单样本保底模式：连续 5 拳即使只有 1 条主素材，相邻音高与波形也绝不完全相同，且重拳叠入副层
+        af_deck = F.ActionVariationDeck([single_punch], accent_takes=[heavy_layer], policy='anti_fatigue', seed=9, accent_thresh=0.75)
+        forces = [0.45, 0.55, 0.65, 0.85, 1.15]
+        outs = [af_deck.trigger(force=f) for f in forces]
+        for (wa, _, ma), (wb, _, mb) in zip(outs, outs[1:]):
+            self.assertGreaterEqual(abs(ma['semitones'] - mb['semitones']), 0.30)
+            m = min(len(wa), len(wb))
+            self.assertFalse(np.allclose(wa[:m], wb[:m]))
+        self.assertFalse(outs[0][2]['accentAdded'])
+        self.assertTrue(outs[-1][2]['accentAdded'])
+        self.assertGreater(rms(outs[-1][0]), rms(outs[0][0]) * 1.6)
 
 
 if __name__ == '__main__':
