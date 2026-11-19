@@ -1,12 +1,14 @@
 # 北冥仓库 · 持续集成：每个 PR、每次推 main 都跑；release.yml 打标签发布前整套复用（workflow_call）。
 #   unit           Node 24 与 22、Python 3.12，不装浏览器与 FFmpeg：node tools/run-tests.mjs（= npm test）。
-#                  需要浏览器 / FFmpeg 的测试在这里自己跳过，到 smoke-render 里跑。
+#                  需要浏览器 / FFmpeg 的测试在这里自己跳过，到 render (tests) 里跑。
 #   check          node tools/check-all.mjs --skip tests（= npm run check，测试在 unit 里跑）：仓库规范、工程计划、风格索引、案例库、
 #                  导演规范、语法、更新日志；eslint 与 ruff 只报告告警数、不阻塞。
-#   smoke-render   无显卡（SwiftShader 软件 WebGL）+ FFmpeg 8 + 锁定版本的 headless shell：
-#                  ① 全部测试再跑一遍（这次浏览器与 FFmpeg 都在，渲染失败夹具、GPU 回归、混音测试都会真跑）；
-#                  ② tests/ci/smoke-render.mjs：A / C 模版小尺寸出片并核对规格，B 模版资产桥导出并核对可复现，
-#                     《北冥》与 lab 静帧，与 linux-swiftshader 金标准比对（还没有清单时首次采集并上传工件）。
+#   render         无显卡（SwiftShader 软件 WebGL）+ FFmpeg 8 + 锁定版本的 headless shell，两路并行（matrix.part，环境准备各做一份）：
+#                  tests  全部测试再跑一遍（这次浏览器与 FFmpeg 都在，渲染失败夹具、GPU 回归、混音测试都会真跑）；
+#                  smoke  tests/ci/smoke-render.mjs：A / C 模版小尺寸出片并核对规格，B 模版资产桥导出并核对可复现，
+#                         《北冥》与 lab 静帧，与 linux-swiftshader 金标准比对（还没有清单时首次采集并上传工件）。
+#   smoke-render   汇总 render 两路：都通过才绿。检查名与产物名（smoke-render，release.yml 取接触印与静帧）沿用拆分前，
+#                  分支保护只需要选它，不会漏掉 tests 一路。
 #   env-smoke      Linux、macOS、Windows 三平台：按锁文件一键装环境（tools/env/setup.mjs）并跑环境自检（tools/env/doctor.mjs）。
 #   windows-paths  Windows Server 2025 + PowerShell、去掉 Git Bash：测试、检查、目录联接与中文路径、GBK 管道。
 # 每个 job 在本机怎么复现、金标准首次采集后怎么提交清单、已知问题与隔离项：见 tests/ci/README.md。
@@ -135,10 +137,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  smoke-render:
-    name: smoke-render
+  render:
+    name: render (${{ matrix.part }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    strategy:
+      fail-fast: false   # 一路红了另一路照样跑完，两边的结果都要看到（拆分前 smoke 一步也是 if: always()）
+      matrix:
+        part: [tests, smoke]
     env:
       # 没有显卡：Chrome 的 WebGL 走 ANGLE + SwiftShader；金标准的平台键因此是 linux-swiftshader
       BEIMING_ANGLE: swiftshader
@@ -202,20 +208,29 @@ jobs:
       # R35 在 SwiftShader 下要 60 秒以上（3840×2080 再 2 倍超采样），超过测试里 page.goto 的 30 秒默认时限；
       # 已向 engine/look 的属主提请求，测试自己按软件渲染缩小尺寸后删掉这里的 --skip-grep（tests/ci/README.md「已知问题」）
       - name: 全部测试（浏览器与 FFmpeg 在场，软件渲染）
+        if: matrix.part == 'tests'
         env:
           BEIMING_PY: ${{ steps.py.outputs.python-path }}
         run: >-
           node tools/run-tests.mjs --require browser,ffmpeg,python
           --skip-grep "R35 墨线：宽线"
           --report out/ci/render-tests.json
+      - name: 上传测试报告
+        if: always() && matrix.part == 'tests'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: render-tests
+          path: out/ci/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: 冒烟出片与金标准（tests/ci/smoke-render.mjs）
-        if: always()
+        if: matrix.part == 'smoke'
         env:
           BEIMING_PY: ${{ steps.py.outputs.python-path }}
           STILLS_SIZE: ${{ inputs.stills-size || '384x208' }}
         run: node tests/ci/smoke-render.mjs --out out/ci/smoke --size-beiming "$STILLS_SIZE" --timeout 1200 --report out/ci/smoke/report.json
       - name: 上传冒烟产物（成片、静帧、接触印、报告）
-        if: always()
+        if: always() && matrix.part == 'smoke'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: smoke-render
@@ -228,13 +243,28 @@ jobs:
       #   gh run download <run-id> -n golden-capture-linux-swiftshader -D .
       # 取回，按 tests/ci/README.md「金标准首次采集」只提交清单
       - name: 上传金标准首次采集结果
-        if: always()
+        if: always() && matrix.part == 'smoke'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: golden-capture-linux-swiftshader
           path: out/ci/smoke/golden-capture/
           if-no-files-found: ignore
           retention-days: 30
+
+  # 汇总：matrix 各路的检查名是 render (tests) / render (smoke)，这里把它们收成一个沿用旧名的 smoke-render
+  smoke-render:
+    name: smoke-render
+    needs: render
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: render 两路都要通过
+        env:
+          RENDER_RESULT: ${{ needs.render.result }}
+        run: |
+          echo "render: $RENDER_RESULT"
+          test "$RENDER_RESULT" = success
 
   # 三平台按锁文件装环境、跑环境自检（tools/env 是环境工作包的入口，还没合入时这两步跳过，job 照样绿）
   env-smoke:
