@@ -7,7 +7,7 @@ import { eventsTable, renderingOf } from '../eval/input.mjs';
 import { boundsOf, boxOfIds, centroid, diffLayers, dist, expectedLayers, iou, linearError, predictAccumulation } from './compare.mjs';
 import { observed, readObservation, RNG_RUNS } from './fixtures/observe.js';
 import { effectiveShutter, linearErrBlocked, metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
-import { scanFiles, scanText, sourceFiles, withImports } from './scan.mjs';
+import { scanFiles, scanText, sourceFiles, stripComments, withImports } from './scan.mjs';
 
 const REPO = new URL('../../../', import.meta.url);
 const readJson = (rel) => JSON.parse(readFileSync(new URL(rel, REPO), 'utf8'));
@@ -70,6 +70,8 @@ test('静态扫描认得出墙钟和不带种子的随机，白名单只放行�
   const deep = withImports(root, 'beiming/kernel/conformance/run.mjs');
   assert.ok(deep.includes('beiming/kernel/conformance/compare.mjs') && deep.includes('beiming/calib/check.mjs'));
   assert.equal(new Set(deep).size, deep.length);
+  // 注释里写的引用不算，字符串里的 // 不是注释
+  assert.equal(stripComments("// from './a.js'\n/* require('./b.js') */ const u = 'x://y'; import('./c.js');"), "\n const u = 'x://y'; import('./c.js');");
 });
 
 test('重心：按像素中心算，可以加权', () => {

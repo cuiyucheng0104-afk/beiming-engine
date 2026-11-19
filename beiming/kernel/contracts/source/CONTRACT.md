@@ -205,7 +205,7 @@
 | 键 | 类型 | 值域 | 说明 |
 |---|---|---|---|
 | `color` | 对象 | `{ type, transfer, primaries, note? }` | 颜色层。`transfer` 必须是 `linear`，`primaries` 必须是 `rec709`：数值是线性编码，原色是 Rec.709 |
-| `meta` | 布尔 | `true`；帧源名是 `ext.<名字>` 时必须是 `false`（F28） | 交不交每帧元数据 |
+| `meta` | 布尔 | 帧源名不是 `ext.<名字>` 时必须是 `true`（F29）；是 `ext.<名字>` 时必须是 `false`（F28） | 交不交每帧元数据 |
 | `depth`、`objectId`、`normal`、`motion` | `false` 或对象 | `false`，或 `{ type, note? }` | `false` 表示交不出 |
 | PS 3.1 里别的固定通道名 | `false` 或对象 | `false`，或 `{ type, note? }` | 可以不出现；不出现和 `false` 一样，表示交不出 |
 | `lightgroup:*` | `false` 或对象 | `false`，或 `{ type, note? }` | 可以不出现；不出现和 `false` 一样。取值不是 `false` 表示任何一个 `lightgroup:<名>` 都交得出。具体的 `lightgroup:<名>` 不得作键 |
@@ -537,6 +537,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | F26 | 镜头输入里有帧源装不了的卡、资产或叠加层时，`open` 必须报错，错误码必须是 `contract.unsupported-input`，不得少装一样照常装载。 | `opens` 里 `unfitInput` 不空、`host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里、并且不满足 F14 的条件的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-input`。`host` 或 `mode` 不在能力声明里的项归 F16 判，满足 F14 条件的项归 F14 判 | `F26-overlays-ignored.json`、`F26-borrowed-argument-code.json` |
 | F27 | 层文件的字节数必须等于层引用的 `shape` 各项之积乘以 4。 | `renders` 里 `layerRefs` 的每一项：`fileBytes` 必须等于 `shape` 三个数之积乘以 4（3.3 的层文件格式） | `F27-file-shorter-than-shape.json` |
 | F28 | 帧源名是 `ext.<名字>` 的能力声明，`outputs.meta` 必须是 `false`。 | 能力声明（单独的，或记录里的 `caps`）：`id` 以 `ext.` 开头时，`outputs.meta` 必须是 `false` | `F28-ext-declares-meta.json` |
+| F29 | 帧源名不是 `ext.<名字>` 的能力声明，`outputs.meta` 必须是 `true`。 | 能力声明（单独的，或记录里的 `caps`）：`id` 不以 `ext.` 开头时，`outputs.meta` 必须是 `true` | `F29-three-declares-no-meta.json` |
 
 ## 5. 口径
 
@@ -671,7 +672,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | `three` 的 `hosts`，以及 three 一侧用哪种着色语言 | three 帧源照旧配页面宿主，过渡期渲染器用 WebGL、着色语言用 GLSL。`hosts` 写 `page`：页面宿主的名字，片子描述和锁文件的例子里 three 镜头用的都是这个词；`headless-page` 是另一个宿主（核心帧源的后备宿主），不是它；本契约没有着色语言字段，`language` 说的是镜头代码的语言 | 按倾向定，合作者不同意时再改 |
 | `three` 的 `determinism` | 已定：`hash-same-machine` | 探针数据表第 11 行和「5090 读数」一节，两台机器 |
 | `core` 的 `determinism` | 留空 | `待探针：核心帧源同机渲两遍是否逐位相同` |
-| 容差档颜色层的相对差上限 1e-5 | 实测最大相对差 1.7e-6，留了约 6 倍余量；只在六个校准场景、64 采样、不降噪下量过 | 场景变大、采样数改变、打开降噪之后重新量 |
+| 容差档颜色层的相对差上限 1e-5 | 实测最大相对差 1.7e-6 和 1.52e-6（两遍，探针数据表「5090 读数」一节），留了约 6 倍余量；只在六个校准场景、64 采样、不降噪下量过 | 场景变大、采样数改变、打开降噪之后重新量 |
 | 辅助层逐位相同、`blender` 用 CPU 时颜色层逐位相同、容差档的相对差 | 5.4 写成对帧源的要求，F4 现在不判；能力声明里也没有「用 CPU 还是显卡」的字段，`blender` 的 `determinism` 仍写 `tolerance` | 一致性测试工具要记这几个量时，在核对记录里加字段 |
 | 显卡错误必须算渲染失败、之后不得把不完整的画面当成功交出 | 5.6 写成对帧源的要求，F6 现在不判 | 帧源实现时在 `renders[]` 加记显卡错误的字段 |
 | 一致性套件的五个门槛、容差档的两个门槛 | 留空 | 5.3、5.4 里的七个 `待探针` |
@@ -752,3 +753,5 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | 2026-11-19 | F2、F10、F11 各补反例；5.4 拿掉和 3.4 登记表重复的「`three` 是哈希档」一句；第 6 节加「`outputs.meta` 是 `false` 时交回了元数据」一行。条文和判定函数没动 | F2 的后半、F10 的 `limited` 一支、F11 的编号重复和名字重复原来没有单独的反例；同一件事存两处，改一处容易漏另一处；F1 没管 `outputs.meta` 是 `false` 的一半，登记 |
 | 2026-11-19 | 新立 F28；3.4 `outputs.meta` 一行的值域、`motionBlur.auxAt` 一行的说明；第 2 节「运动矢量层」；5.4「辅助层」一句；F5 的反例原来用的是 `outputs.meta` 为 `true` 的 `ext.demo`，改成 `false` | `ext.<名字>` 不交每帧元数据原来只写在 3.5 的减免表里，没有条文判，每帧元数据契约要靠它；辅助层原来写死了四个名字，输出通道契约 3.1 加减 `sub0` 通道时会对不上，改成引用；探针量的位置层不是输出通道，原来被算进了辅助层 |
 | 2026-11-19 | 5.9 第二条、5.11 末段；3.4 登记表 `three` 的 `outputs.color.type` 一格；第 6 节改「例子里的示意值」一行、加「资产引用怎么取成内容」一行。判定函数没动 | 有锁时子帧采样数听谁的两处说法相反，改成和 5.9 一致：`RenderOpts.shutter` 出现就用它的，锁里的值只顶替镜头条目和能力声明；32 位浮点目标三种后端都量过，登记表那一格还写着只量过一种；three 默认 8 个子帧已定，同一节另一行还说是示意值；资产内容进那一对没有通道，原来没登记 |
+| 2026-11-19 | 新立 F29；3.4 `outputs.meta` 一行的值域写明对应的条文 | 3.4 说除 `ext.<名字>` 外 `outputs.meta` 是 `true`，结构定义只写了布尔、F28 只判 `ext.<名字>` 一半：`blender`、`three`、`core`、`legacy-page` 写 `false` 也全部合法，这一对就躲开了 F1 的元数据一半和每帧元数据契约的整份核对记录；两个校验器会判得不一样 |
+| 2026-11-20 | 第 6 节「1e-5」一行的出处 | 显卡相对差重量了一遍（1.52e-6），读数记进探针数据表 |

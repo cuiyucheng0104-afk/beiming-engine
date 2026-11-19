@@ -42,16 +42,19 @@ export function sourceFiles(root, dirs) {
   return out.sort();
 }
 
-// 相对路径的引用：静态 from、只引不取的 import、写死字符串的 import() 和 require()
-// shortcut: 拼出来的路径追不到，注释里写的引用也会追（指向不存在的文件的跳过）；镜头代码里出现这两种写法时换成语法树上的扫描
+// 相对路径的引用：静态 from（含 export … from）、只引不取的 import、写死字符串的 import() 和 require()；拼出来的路径不追
 const IMPORT = /(?:\bfrom|\bimport\s*\(?|\brequire\s*\()\s*['"](\.{1,2}\/[^'"]+)['"]/g;
+// 注释里写的引用不算：先把注释删掉，字符串原样留着（字符串里的 // 不是注释）
+// shortcut: 不认正则字面量，正则里的引号、反引号、// 会被当成字符串或注释，可能漏追引用；镜头代码里出现这种写法时换成语法树上的扫描
+const COMMENT_OR_STRING = /\/\*[\s\S]*?\*\/|\/\/[^\n]*|'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\[\s\S]|[^`\\])*`/g;
+export const stripComments = (text) => text.replace(COMMENT_OR_STRING, (m) => (m[0] === '/' ? '' : m));
 
 /** 入口文件加从它出发顺着相对路径引用一直追到的全部文件，去重，入口在前，其余按追到的先后 */
 export function withImports(root, entry) {
   const seen = [entry];
   for (let i = 0; i < seen.length; i++) {
     if (!/\.[mc]?js$/.test(seen[i])) continue;
-    for (const m of readFileSync(join(root, seen[i]), 'utf8').matchAll(IMPORT)) {
+    for (const m of stripComments(readFileSync(join(root, seen[i]), 'utf8')).matchAll(IMPORT)) {
       const dep = relative(root, resolve(root, dirname(seen[i]), m[1])).split(sep).join('/');
       if (!seen.includes(dep) && existsSync(join(root, dep))) seen.push(dep);
     }

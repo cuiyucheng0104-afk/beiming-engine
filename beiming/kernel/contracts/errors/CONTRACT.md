@@ -91,6 +91,7 @@
 | `auth.base-readonly` | 服务器之外的一方写 `predicates.base` | D7 |
 | `busy.rev-conflict` | 写入带的修订号和服务器当前的修订号不同 | D6 |
 | `contract.bad-path` | 写入路径不合片子描述契约（D）5.4：按下标寻址、写进数组项、指到叶子下面；某一段不是契约定义的键时报 `contract.unknown-key`，不报这个码 | D5 |
+| `contract.bad-value` | 写进去之后对象过不了结构定义：值的类型不对、出了值域、缺了必填字段 | D 契约 5.4、PA 契约 5.3 |
 | `contract.immutable-key` | 改了创建之后不得改的键 | D15 |
 | `contract.output-conflict` | 开着原生运动模糊时要了和它冲突的输出 | F5 |
 | `contract.order-cycle` | 卡的先后要求排不出次序：成环，或提到了镜头里没有的卡 | CR 契约 5.2（CR9 不比码） |
@@ -147,3 +148,4 @@
 | 2026-11-19 | 5.3、`errors.json` | 加 `contract.bad-path`：片子描述契约 D5 拒收不合 5.4 的写入路径时要报的码，原来没有登记；路径里有没定义的键的那一种仍报 `contract.unknown-key` |
 | 2026-11-19 | 5.3、`errors.json` | 加 `contract.order-cycle`、`contract.patch-not-applicable`：卡的运行时接口、补丁两份契约要求报登记过的码，这两种失败原来没有码可报 |
 | 2026-11-19 | 5.3 `contract.patch-not-applicable` 的「哪条条文点名的」一格 | 点名这个码的是补丁契约讲全成或全不成的 5.3（有一个操作不可作用就整个拒掉），不是讲四种操作的 5.2 |
+| 2026-11-20 | 5.3、`errors.json` | 加 `contract.bad-value`：路径合法、写进去之后片子描述过不了结构定义的写入原来没有码可报 |

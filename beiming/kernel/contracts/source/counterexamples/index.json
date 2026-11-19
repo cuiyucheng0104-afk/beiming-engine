@@ -433,5 +433,12 @@
       "F28"
     ],
     "why": "私有外部插件的能力声明把 outputs.meta 写成 true，声明自己交每帧元数据"
+  },
+  {
+    "file": "F29-three-declares-no-meta.json",
+    "violates": [
+      "F29"
+    ],
+    "why": "three 的能力声明把 outputs.meta 写成 false，声明自己不交每帧元数据，躲开 F1 的元数据一半和元数据核对记录"
   }
 ]

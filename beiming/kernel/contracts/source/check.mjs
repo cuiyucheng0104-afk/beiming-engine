@@ -1,5 +1,5 @@
 // 帧源接口契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// F4、F10、F15、F28 收单独的能力声明（caps/0.1）和核对记录（source-check/0.1）里的 caps，F21 收单独的层引用，F22 收帧源登记表（source/0.1），其余各条只收核对记录。
+// F4、F10、F15、F28、F29 收单独的能力声明（caps/0.1）和核对记录（source-check/0.1）里的 caps，F21 收单独的层引用，F22 收帧源登记表（source/0.1），其余各条只收核对记录。
 // 记录里没出现的段不判；实体清单、场景查询、镜头输入这些不带 format 的内嵌值不归这些条文管，一律返回空数组。
 
 const FULL_IDS = ['blender', 'three', 'core'];
@@ -186,6 +186,11 @@ const F28 = (obj) => {
   return caps && isExt(caps) && caps.outputs.meta !== false ? [`帧源 ${caps.id} 的 outputs.meta 是 ${caps.outputs.meta}，ext.<名字> 必须是 false`] : [];
 };
 
+const F29 = (obj) => {
+  const caps = capsOf(obj);
+  return caps && !isExt(caps) && caps.outputs.meta !== true ? [`帧源 ${caps.id} 的 outputs.meta 是 ${caps.outputs.meta}，不是 ext.<名字> 的必须是 true`] : [];
+};
+
 // 登记表（registries.source，本目录的 source.json）是上限；逐字段的「之内」见 3.4。登记表里没有的帧源不查
 const F15 = (obj, { registries }) => {
   const caps = capsOf(obj);
@@ -235,4 +240,5 @@ export const checks = {
   F21,
   F22,
   F28,
+  F29,
 };

@@ -221,9 +221,11 @@ async function runShot(shot) {
       [rerouted({ mode: 'cards-data' }), 'contract.unsupported-mode'],
       [rerouted({ host: 'offscreen' }), 'contract.unsupported-mode'],
       [withOverlay, 'env.lock-required'], // 叠加层展开成卡的实例，没有锁也算用了卡
-      // 帧源还没接的东西：带着锁、带着叠加层；带着锁、用了卡。都得报装不了，不得少装一样照常装载
+      // 帧源还没接的东西：带着锁、带着叠加层；带着锁、用了卡；带着锁、用了资产（镜头条目的、全片的）。都得报装不了，不得少装一样照常装载
       [withOverlay, 'contract.unsupported-input', true],
       [withCard, 'contract.unsupported-input', true],
+      [patched({ assets: { probe: 'asset:probe@1' } }), 'contract.unsupported-input', true],
+      [{ ...structuredClone(input), assets: { probe: 'asset:probe@1' } }, 'contract.unsupported-input', true],
     ];
     for (const [inp, expect, withLock = false] of rejected) await (await open(a, 'a-rejected', { inp, expect, withLock }))?.session.close();
 
@@ -518,6 +520,7 @@ const gates = {
   'meta source.id is the source written at the top of the shot entry, source.renderer and source.host are the ones that rendered': metas.length > 0 && metas.every((r) => r.meta.source.id === r.shot.source && r.meta.source.renderer === caps.id && r.meta.source.host === renderingOf(r.shot).host),
   'ctx.events holds every named event of the shot input': named.length > 0 && shots.every((one) => one.localized.length === named.length),
   'meta events are the events of the shot input that land on that frame': metas.every((r) => JSON.stringify(r.meta.events) === JSON.stringify(eventsAt(r.f + r.shot.in))) && metas.some((r) => r.meta.events.length > 0),
+  // 至少一帧量得出：时间键契约 5.6 对夹具的要求（不带孔径、每像素 1 个采样、开着快门且子帧至少 2 个、有在动的物体），s01、s02 满足
   'accumulated color vs linear average of predicted images measured on every delivered frame that can be measured': accumulations.some((x) => !x.unmeasurable) && accumulations.every((x) => x.unmeasurable || x.linearErr !== null),
   'id layer vs predicted image (aux mismatch) measured on every delivered frame': auxMismatches.length > 0 && auxMismatches.every((x) => x.auxMismatch !== null),
   'no error while measuring or comparing': problems.length === 0 && calibration.length === shots.length,

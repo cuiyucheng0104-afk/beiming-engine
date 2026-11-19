@@ -51,6 +51,10 @@
       "meaning": "写入路径不合片子描述契约 5.4"
     },
     {
+      "code": "contract.bad-value",
+      "meaning": "写进去之后对象过不了结构定义：值的类型不对、出了值域、缺了必填字段"
+    },
+    {
       "code": "contract.immutable-key",
       "meaning": "改了创建之后不得改的键"
     },
