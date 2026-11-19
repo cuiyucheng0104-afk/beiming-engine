@@ -1,10 +1,10 @@
-// 《林间擂台》· B 版画面：北冥原生 · BNE。和 C 版是同一个场面（layout.js / diorama.js / px.js 是 films/fanpan-c 的原样拷贝），
-// 差别只在这里：场景经资产桥导成 GLB，由原生运行时用真实单位的灯、级联阴影、体积光、镜头景深来渲染。
-// 画法参考 cases/vendor/lemo-opuscar/styles/hd-2d/STYLE.md（MIT，LemoLab），只取方法、代码自己写：
-//   场景   像素贴图的微缩模型，贴图一律最近邻采样；会投影的件（arena.glb）和不投影的件（arena-soft.glb）分两个模型
-//   角色   平的像素卡片（自己给顶点：法线朝上偏前，背后的斜阳才照得到），贴图按帧切格，角色逐帧跳、镜头和灯连续走
-//   光     冷而暗的环境光 + 穿过树冠缝的暖色斜阳（有影子）+ 一盏盏暖色点光；空气里一层很薄的体积雾，光柱是三片顺着阳光的软片
-//   后期   镜头景深（光圈开得极大，俯拍时近处和远处一起糊，等于移轴）→ 泛光 → 暗角与调色 → 胶片曲线
+// 《沉水擂台》· B 版画面：北冥原生 · BNE。这一版从调度到每一张贴图都是自己的，不与 C 版共用任何素材或代码。
+//   实体   ruin.js 用 three.js 搭好，资产桥导成 GLB：ruin.glb（受光、投影）和 ruin-glow.glb（发光件，不投影）
+//   像素片 cards.js 逐像素画、bake.mjs 拼成一张图集；这里按 plan.js 的清单把几百张片拼成几张网格（按受光 / 发光分层）
+//   棋子   平的像素卡片，序列帧按格切，一拍二到一拍三地跳；镜头和灯连续走
+//   光     偏紫的冷暗环境 + 穿过树冠豁口的暖金斜阳（一块只投影的镂空板挡出光斑）+ 青 / 橙两色的点光
+//   后期   镜头自己的景深（焦点压在盘面偏后，近处糊得重、远处略虚）→ 泛光 → 暗角与调色 → 胶片曲线
+// 画法参考 cases/vendor/lemo-opuscar/styles/hd-2d/STYLE.md（MIT，LemoLab），只取方法、代码自己写。
 import { AbsoluteFill, Composition, registerRoot, staticFile, useCurrentFrame } from 'raea';
 import { Camera3d } from 'raea/camera';
 import { Canvas3D, Model } from 'raea/3d';
@@ -15,111 +15,166 @@ import { Bloom, ToneMapping, Grade, DepthOfField } from 'raea/post_process';
 import { Transform, Quat } from 'raea/transform';
 import { LinearRgba, Srgba } from 'raea/color';
 import { Affine2 } from 'raea/math';
-import { UNITS, LAMPS, SUN, BACKDROP, TOP, MOTES, LX, GATE_X, tileX, tileZ, spriteBox, spriteFrame, flicker, cameraAt, moteAt } from './layout.js';
+import { PPM, TOP, BZ, CX, GATE, UNITS, DUELS, LAMPS, SHAFTS, MOTES, SUN, sunDir, BACKDROP, PICK, FALL, colX, laneZ, unitBox, unitFrame, unitAt, flick, camAt, moteAt, staticCards, liveCards, goboCells } from './plan.js';
 import film from './film.json';
+import atlas from './baked/cards.json';
 
 const OUT = film.output, W = OUT.width, H = OUT.height, FPS = OUT.fps, FRAMES = OUT.frameCount;
-// 调画面只改这一组数（光用原生运行时的真实单位：勒克斯 / 流明）
+// 调画面只改这一组数（灯是真实单位：勒克斯 / 流明）
 const LOOK = {
-  sun: 11000, fill: 1500, ambient: 760, ambientColor: '#5f8fa8', lamp: 170000,
-  dof: { fStops: .16, maxBlur: 38 },
-  bloom: { intensity: 1.8, threshold: .8 },
-  fog: { density: .03 }, shaft: .6,
-  grade: { vignette: .5, temperature: .05, saturation: 1.08 },
-  exposure: 1.5,
+  sun: 11000, fill: 800, fillColor: '#8f7cf0', ambient: 360, ambientColor: '#7a5ac8', lamp: 52000,
+  glow: { hi: 3.4, mid: 2.4, lo: 1.2 }, unit: .5, halo: .6,
+  dof: { fStops: .11, maxBlur: 48, focusBack: 1.6 },
+  bloom: { intensity: 1.5, threshold: .82 },
+  fog: { density: .022, color: '#ffd9a8' }, shaft: .5,
+  grade: { vignette: .52, temperature: .06, tint: .04, saturation: 1.18 },
+  exposure: .95,
 };
 const glow = (hex: string, k: number) => LinearRgba.from(Srgba.hex(hex)).mul(k);
 const pixel = (file: string) => ({ path: staticFile(file), sampler: { filter: 'nearest', mipmap: 'none' } });
-// 一张朝 +z 的面片；(nx, ny, nz) 是统一给四个顶点的法线。uv 的 v = 0 在图的上沿
-const quad = (w: number, h: number, n = [0, 0, 1]) => ({
-  positions: [-w / 2, h / 2, 0, w / 2, h / 2, 0, -w / 2, -h / 2, 0, w / 2, -h / 2, 0],
-  indices: [0, 2, 1, 1, 2, 3], normals: [...n, ...n, ...n, ...n], uvs: [0, 0, 1, 0, 0, 1, 1, 1],
-});
-const UP = (() => { const l = Math.hypot(.82, .57); return [0, .82 / l, .57 / l]; })();
-const SUN_DIR = (() => { const d = SUN.from.map((v, i) => v - SUN.to[i]), l = Math.hypot(...d); return d.map(v => v / l); })();
-const SUN_POS = SUN.to.map((v, i) => v + SUN_DIR[i] * 30);
-// 光柱：顺着阳光方向的三片软片（位置和 C 版一致），每帧绕自己的轴转到正对镜头
-const SHAFTS = [[-.7, .1, 2.2, 1], [2.7, -1.2, 1.3, .7], [-3.6, 2.2, 1.1, .6]];
-const cross = (a: number[], b: number[]) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-function shaft([x, z, w]: number[], eye: number[]) {
-  const mid = [x + SUN_DIR[0] * 4.4, SUN_DIR[1] * 4.4, z + SUN_DIR[2] * 4.4];
-  let side = cross(SUN_DIR, eye.map((v, i) => v - mid[i])); const l = Math.hypot(...side); side = side.map(v => v / l * w / 2);
-  const at = (u: number, v: number) => mid.map((m, i) => m + side[i] * u + SUN_DIR[i] * 4.5 * v);
-  return { positions: [...at(-1, 1), ...at(1, 1), ...at(-1, -1), ...at(1, -1)], indices: [0, 2, 1, 1, 2, 3], uvs: [0, 0, 1, 0, 0, 1, 1, 1] };
+type V3 = number[];
+const add = (a: V3, b: V3, k = 1) => a.map((v, i) => v + b[i] * k);
+const cross = (a: V3, b: V3) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const unit = (a: V3) => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); };
+const TILT = -.16, UPN = unit([0, .9, .44]);                           // 立着的卡片：往后仰一点；法线朝上偏前，斜阳才照得到
+
+// —— 把一批卡片拼成一张网格 ——
+type Geo = { positions: number[], normals: number[], uvs: number[], indices: number[], colors: number[] };
+const geo = (): Geo => ({ positions: [], normals: [], uvs: [], indices: [], colors: [] });
+// 四个角按 左上、右上、左下、右下 给；uv 是图集里的 [u0, v0, u1, v1]
+function quad(g: Geo, c: V3[], uv: number[], n: V3 = UPN, a = 1) {
+  const i = g.positions.length / 3;
+  for (const p of c) { g.positions.push(...p); g.normals.push(...n); g.colors.push(1, 1, 1, a); }
+  g.uvs.push(uv[0], uv[1], uv[2], uv[1], uv[0], uv[3], uv[2], uv[3]);
+  g.indices.push(i, i + 2, i + 1, i + 1, i + 2, i + 3);
 }
-const TILT = -.16;                                                     // 卡片往后仰一点，和 C 版一致
+const rectUV = (set: { size: number[], rects: Record<string, number[]> }, name: string, flip = false) => {
+  const r = set.rects[name]; if (!r) throw new Error(`图集里没有 ${name}`);
+  const u0 = r[0] / set.size[0], u1 = (r[0] + r[2]) / set.size[0], v0 = r[1] / set.size[1], v1 = (r[1] + r[3]) / set.size[1];
+  return { uv: flip ? [u1, v0, u0, v1] : [u0, v0, u1, v1], w: r[2] / PPM, h: r[3] / PPM };
+};
+type Card = { layer: string, n: string, p: V3, s: number, k: string, tilt?: number, yaw?: number, roll?: number, flip?: boolean };
+function place(g: Geo, c: Card, right: V3, upv: V3) {
+  const { uv, w, h } = rectUV(atlas.cards, c.n, c.flip), hw = w * c.s / 2, hh = h * c.s;
+  if (c.k === 'flat') {                                                 // 躺着：中心在 p，绕竖轴转 yaw
+    const cy = Math.cos(c.yaw ?? 0), sy = Math.sin(c.yaw ?? 0), ax = [cy * hw, 0, -sy * hw], az = [sy * hh / 2, 0, cy * hh / 2];
+    return quad(g, [add(add(c.p, ax, -1), az, -1), add(add(c.p, ax), az, -1), add(add(c.p, ax, -1), az), add(add(c.p, ax), az)], uv, [0, 1, 0]);
+  }
+  if (c.k === 'face') {                                                 // 朝镜头：中心在 p，在画面里转 roll
+    const cr = Math.cos(c.roll ?? 0), sr = Math.sin(c.roll ?? 0), ax = add(right.map(v => v * cr), upv, sr).map(v => v * hw), ay = add(upv.map(v => v * cr), right, -sr).map(v => v * hh / 2);
+    return quad(g, [add(add(c.p, ax, -1), ay), add(add(c.p, ax), ay), add(add(c.p, ax, -1), ay, -1), add(add(c.p, ax), ay, -1)], uv);
+  }
+  const t = c.tilt ?? TILT, cy = Math.cos(c.yaw ?? 0), sy = Math.sin(c.yaw ?? 0);   // 立着：底边中点在 p
+  let ax = [cy * hw, 0, -sy * hw], ay = [Math.sin(t) * sy * hh, Math.cos(t) * hh, Math.sin(t) * cy * hh], base = c.p;
+  if (c.roll) { const cr = Math.cos(c.roll), sr = Math.sin(c.roll), mid = add(c.p, ay, .5), x2 = add(ax.map(v => v * cr), ay, sr * hw / hh), y2 = add(ay.map(v => v * cr), ax, -sr * hh / hw); ax = x2; ay = y2; base = add(mid, ay, -.5); }
+  quad(g, [add(add(base, ax, -1), ay), add(add(base, ax), ay), add(base, ax, -1), add(base, ax)], uv);
+}
+const LAYERS = ['cast', 'lit', 'fg', 'hi', 'mid', 'lo'];
+function batch(list: Card[], right: V3 = [1, 0, 0], upv: V3 = [0, 1, 0]) {
+  const out: Record<string, Geo> = {}; for (const l of LAYERS) out[l] = geo();
+  for (const c of list) place(out[c.layer], c, right, upv);
+  return out;
+}
+const STATIC = batch(staticCards() as Card[]);
+const GOBO = (() => { const g = geo(); for (const [x, y, z, s] of goboCells()) quad(g, [[x, y, z], [x + s, y, z], [x, y, z + s], [x + s, y, z + s]], [0, 0, 1, 1], [0, 1, 0]); return g; })();
+const mesh = (g: Geo) => ({ positions: g.positions, normals: g.normals, uvs: g.uvs, indices: g.indices });
+
+const CARDS = pixel('cards.png');
+function Layer({ name, g, kind }: { name: string, g: Geo, kind: string }) {
+  if (!g.indices.length) return null;
+  const lit = kind === 'cast' || kind === 'lit' || kind === 'fg';
+  return <Mesh3d name={name} castShadow={kind === 'cast'} shadow={kind === 'cast'}>
+    <BufferMesh {...mesh(g)} />
+    {lit
+      ? <StandardMaterial base_color={kind === 'fg' ? '#8a7aa0' : '#ffffff'} base_color_texture={CARDS} perceptual_roughness={1} reflectance={0} alpha_mode={{ Mask: .5 }} double_sided cull_mode={null} />
+      : <StandardMaterial base_color="#000000" base_color_texture={CARDS} emissive={glow('#ffffff', LOOK.glow[kind as 'hi'])} emissive_texture={CARDS} perceptual_roughness={1} reflectance={0} alpha_mode={{ Mask: .5 }} double_sided cull_mode={null} />}
+  </Mesh3d>;
+}
 
 function Unit({ u, f }: { u: typeof UNITS[number], f: number }) {
-  const { size, lift } = spriteBox(u), team = u.team === 'own' ? 'teal' : 'red', s = u.team === 'own' ? -1 : 1;
-  const x = tileX(u.row), z = tileZ(u.lane), map = pixel(`${u.atlas}_idle.png`);
-  return <>
-    <Mesh3d name={`unit-${u.id}`} transform={Transform.fromXyz(x, TOP + lift * Math.cos(TILT), z + .12 + lift * Math.sin(TILT)).withRotation(Quat.fromEuler('XYZ', TILT, 0, 0))}>
-      <BufferMesh {...quad(size, size, UP)} />
-      <StandardMaterial base_color="#d8d8d8" base_color_texture={map} emissive={glow('#ffffff', .3)} emissive_texture={map} perceptual_roughness={1} reflectance={0}
-        uv_transform={Affine2.fromScaleAngleTranslation([1 / u.frames, 1], 0, [spriteFrame(u, f) / u.frames, 0])} alpha_mode={{ Mask: .5 }} double_sided cull_mode={null} />
-    </Mesh3d>
-    <Mesh3d name={`ring-${u.id}`} shadow={false} transform={Transform.fromXyz(x, TOP + .006, z + .14).withRotation(Quat.fromEuler('XYZ', -Math.PI / 2, 0, 0))}>
-      <BufferMesh {...quad(.85, .45)} />
-      <StandardMaterial base_color="#000000" base_color_texture={pixel(`ring-${team}.png`)} emissive={glow('#ffffff', 5)} emissive_texture={pixel(`ring-${team}.png`)} alpha_mode="Blend" perceptual_roughness={1} reflectance={0} />
-    </Mesh3d>
-    <Mesh3d name={`badge-${u.id}`} shadow={false} transform={Transform.fromXyz(x + s * LX * .33, TOP + .2, z + .44).withRotation(Quat.fromEuler('XYZ', -.3, 0, 0))}>
-      <BufferMesh {...quad(.34, .34)} />
-      <StandardMaterial base_color="#000000" base_color_texture={pixel(`badge-${team}-${u.str}.png`)} emissive={glow('#ffffff', 4)} emissive_texture={pixel(`badge-${team}-${u.str}.png`)} alpha_mode={{ Mask: .5 }} perceptual_roughness={1} reflectance={0} />
-    </Mesh3d>
-  </>;
+  const { size, lift } = unitBox(u), x = colX(u.row), z = laneZ(u.lane), map = pixel(`u_${u.atlas}.png`), hs = size / 2;
+  return <Mesh3d name={`unit-${u.id}`} transform={Transform.fromXyz(x, TOP + lift * Math.cos(TILT), z + .12 + lift * Math.sin(TILT)).withRotation(Quat.fromEuler('XYZ', TILT, 0, 0))}>
+    <BufferMesh positions={[-hs, hs, 0, hs, hs, 0, -hs, -hs, 0, hs, -hs, 0]} indices={[0, 2, 1, 1, 2, 3]} normals={[...UPN, ...UPN, ...UPN, ...UPN]} uvs={[0, 0, 1, 0, 0, 1, 1, 1]} />
+    <StandardMaterial base_color="#e4e4e4" base_color_texture={map} emissive={glow('#ffffff', LOOK.unit)} emissive_texture={map} perceptual_roughness={1} reflectance={0}
+      uv_transform={Affine2.fromScaleAngleTranslation([1 / u.frames, 1], 0, [unitFrame(u, f) / u.frames, 0])} alpha_mode={{ Mask: .5 }} double_sided cull_mode={null} />
+  </Mesh3d>;
+}
+
+// 叠加的软光：灯晕、光柱、前线的光幕、瀑布的水汽、棋子脚下的队色光。全部拼进一张网格，亮度写在顶点的透明度里
+function softLight(f: number, eye: V3, right: V3, upv: V3) {
+  const g = geo(), sec = f / FPS, G = atlas.glow;
+  const halo = (name: string, p: V3, size: number, a: number) => { const { uv } = rectUV(G, name), ax = right.map(v => v * size / 2), ay = upv.map(v => v * size / 2); quad(g, [add(add(p, ax, -1), ay), add(add(p, ax), ay), add(add(p, ax, -1), ay, -1), add(add(p, ax), ay, -1)], uv, UPN, a * LOOK.halo); };
+  const pool = (name: string, x: number, y: number, z: number, w: number, d: number, a: number) => { const { uv } = rectUV(G, name); quad(g, [[x - w, y, z - d], [x + w, y, z - d], [x - w, y, z + d], [x + w, y, z + d]], uv, [0, 1, 0], a * LOOK.halo); };
+  LAMPS.forEach((l, i) => {
+    const k = l.flick ? flick(i, sec) : 1, name = l.color === '#ffd98a' ? 'haloGold' : /^#(4|5)/.test(l.color) ? (l.id === 'ice' ? 'haloIce' : 'haloTeal') : 'haloFire';
+    halo(name, [l.x, l.y - (l.id.startsWith('bowl') ? .12 : 0), l.z + .05], l.id.startsWith('post') ? 1.0 : l.id === 'ice' || l.id === 'ember' ? 3.2 : 1.7, (l.id.startsWith('post') ? .5 : .42) * k);
+  });
+  for (const u of UNITS) pool(u.team === 'own' ? 'haloTeal' : 'haloFire', colX(u.row), TOP + .008, laneZ(u.lane) + .14, .62, .46, .34);
+  pool('haloGold', colX(PICK.row), TOP + .009, laneZ(PICK.lane), .7, .6, .3 + .12 * Math.sin(sec * 3.2));
+  DUELS.forEach(([a, b], i) => { const A = unitAt(a), B = unitAt(b), k = .5 + .5 * Math.sin(sec * 9 + i * 2); halo(i % 2 ? 'haloFire' : 'haloIce', [(A.x + B.x) / 2, TOP + .42, A.z + .26], 1.15, .3 + .2 * k); });
+  { const { uv } = rectUV(G, 'haloGold'), um = (uv[0] + uv[2]) / 2, vm = (uv[1] + uv[3]) / 2, x = CX / 2, a = .5 + .08 * Math.sin(sec * 2.1);   // 前线的光幕：贴着盘面最亮，往上淡出
+    quad(g, [[x, TOP + .62, -BZ], [x, TOP + .62, BZ], [x, TOP, -BZ], [x, TOP, BZ]], [um, uv[1] + .01, um, vm], UPN, a); }
+  { const { uv } = rectUV(G, 'mist'); for (let i = 0; i < 3; i++) { const w = 1.9 + i * .5, y = .22 + i * .1, z = FALL.z + .3 + i * .25, a = .34 - i * .07 + .05 * Math.sin(sec * 1.4 + i);
+    quad(g, [[FALL.x - w / 2, y + .5, z], [FALL.x + w / 2, y + .5, z], [FALL.x - w / 2, y - .25, z], [FALL.x + w / 2, y - .25, z]], uv, UPN, a); } }
+  { const { uv } = rectUV(G, 'shaft');                                // 光柱：顺着阳光的长片，绕自己的轴转到正对镜头
+    SHAFTS.forEach(([x, z, w, k], i) => {
+      const mid = add([x, 0, z], sunDir, 4.6), side = unit(cross(sunDir, add(eye, mid, -1))).map(v => v * w / 2);
+      const at = (s: number, v: number) => add(add(mid, side, s), sunDir, 4.7 * v);
+      quad(g, [at(-1, 1), at(1, 1), at(-1, -1), at(1, -1)], uv, UPN, LOOK.shaft * k * (1 + .12 * Math.sin(sec * .9 + i * 2)));
+    }); }
+  return g;
 }
 
 function Piece() {
-  const f = useCurrentFrame(), sec = f / FPS, cam = cameraAt(f);
-  const focus = Math.hypot(...cam.look.map((v, i) => v - cam.pos[i]));
+  const f = useCurrentFrame(), sec = f / FPS, cam = camAt(f);
+  const fw = unit(add(cam.look, cam.pos, -1)), right = unit(cross(fw, [0, 1, 0])), upv = cross(right, fw);
+  const focus = Math.hypot(...add(cam.look, cam.pos, -1)) + LOOK.dof.focusBack;
+  const live = batch(liveCards(f, cam) as Card[], right, upv), soft = softLight(f, cam.pos, right, upv);
+  const sunPos = add(SUN.to, sunDir, 30), GLOW = staticFile('glow.png');
   return <AbsoluteFill style={{ background: BACKDROP }}>
     <Canvas3D layered>
-      <Camera3d transform={Transform.fromXyz(...cam.pos).lookingAt(cam.look)} projection={{ Perspective: { fov: cam.fov * Math.PI / 180, near: 2, far: 60 } }}>
+      <Camera3d transform={Transform.fromXyz(...(cam.pos as [number, number, number])).lookingAt(cam.look)} projection={{ Perspective: { fov: cam.fov * Math.PI / 180, near: 2, far: 60 } }}>
         <DepthOfField focal_distance={focus} aperture_f_stops={LOOK.dof.fStops} max_circle_of_confusion_diameter={LOOK.dof.maxBlur} mode="Bokeh" />
       </Camera3d>
-      <Shadows distance={45} firstCascade={14} mapSize={4096} />
+      <Shadows distance={48} firstCascade={16} mapSize={4096} />
       <AmbientLight brightness={LOOK.ambient} color={LOOK.ambientColor} />
-      <DirectionalLight transform={Transform.fromXyz(...SUN_POS).lookingAt(SUN.to)} color={SUN.color} illuminance={LOOK.sun} shadow_maps_enabled volumetric />
-      <DirectionalLight transform={Transform.fromXyz(0, 9, 16).lookingAt([0, 0, 0])} color="#9fb6d6" illuminance={LOOK.fill} />
-      {LAMPS.map((l, i) => {
-        const k = l.kind === 'team' || l.kind === 'window' ? 1 : flicker(i, sec);
-        const x = l.x + (l.kind === 'lantern' && !l.id.startsWith('stone') && l.id !== 'foreground' ? .3 : 0), y = l.y + (l.kind === 'brazier' ? .35 : 0), z = l.z + (l.kind === 'window' ? .5 : 0);
-        return <PointLight key={l.id} transform={Transform.fromXyz(x, y, z)} color={l.color} intensity={LOOK.lamp * l.power * k} range={l.kind === 'team' ? 5 : 9} radius={.08} shadow_maps_enabled={Boolean(l.shadow)} />;
-      })}
+      <DirectionalLight transform={Transform.fromXyz(...(sunPos as [number, number, number])).lookingAt(SUN.to)} color={SUN.color} illuminance={LOOK.sun} shadow_maps_enabled volumetric />
+      <DirectionalLight transform={Transform.fromXyz(2, 8, 16).lookingAt([0, 0, 0])} color={LOOK.fillColor} illuminance={LOOK.fill} />
+      {LAMPS.map((l, i) => <PointLight key={l.id} transform={Transform.fromXyz(l.x, l.y, l.z + .12)} color={l.color} intensity={LOOK.lamp * l.power * (l.flick ? flick(i, sec) : 1)} range={l.id === 'ice' || l.id === 'ember' ? 7 : 5.5} radius={.07} />)}
       <VolumetricFog ambient={0} />
-      <FogVolume name="air" position={[0, 7, 4]} scale={[30, 16, 34]} density={LOOK.fog.density} color="#ffe2b8" scattering={1} absorption={0} anisotropy={.15} />
+      <FogVolume name="air" position={[0, 6, 2]} scale={[30, 14, 30]} density={LOOK.fog.density} color={LOOK.fog.color} scattering={1} absorption={0} anisotropy={.2} />
 
-      {/* 两个模型本来就是同一个场景拆开的，互相穿插是有意的（allowOverlap）。
-          发光件在 three 里是不受光的纯色，过资产桥后成了「暗底 + 自发光」：强度按这边的曝光重新给，颜色才不会冲成白块 */}
-      <Model name="arena" src={staticFile('arena.glb')} sampler={{ filter: 'nearest' }} allowOverlap />
-      <Model name="arena-soft" src={staticFile('arena-soft.glb')} sampler={{ filter: 'nearest' }} shadow={false} allowOverlap>
-        <StandardMaterial material="arena-glow-fire" emissive={glow('#ff7a22', 10)} />
-        <StandardMaterial material="arena-glow-fire-core" emissive={glow('#ffc46a', 18)} />
-        <StandardMaterial material="arena-glow-lamp" emissive={glow('#ff9d45', 13)} />
-        <StandardMaterial material="arena-glow-line" emissive={glow('#ffdc96', 5)} />
+      {/* 同一个场景拆成的两个模型，互相穿插是有意的（allowOverlap）。发光件过资产桥后是「暗底 + 自发光」，强度在这里按曝光重新给 */}
+      <Model name="ruin" src={staticFile('ruin.glb')} sampler={{ filter: 'nearest' }} allowOverlap>
+        <StandardMaterial material="ruin-water" perceptual_roughness={.16} reflectance={.75} />
       </Model>
-      {/* 城门血量牌：过桥后贴图材质成了一片白，这里各盖一张不受光的像素牌（和 diorama.js 里牌子的位置、仰角一致，贴在牌面前 7 毫米）。
-          圈、战力牌、血量牌都是「黑底 + 贴图自发光」：不受光的材质在这里不吃曝光，会发灰 */}
-      {(['own', 'foe'] as const).map(side => { const s = side === 'own' ? -1 : 1, off = .032;
-        return <Mesh3d key={side} name={`plaque-${side}`} shadow={false} transform={Transform.fromXyz(s * GATE_X + s * .08, 3.2 + off * Math.sin(.3), .2 + off * Math.cos(.3)).withRotation(Quat.fromEuler('XYZ', -.3, 0, 0))}>
-          <BufferMesh {...quad(1, .5)} />
-          <StandardMaterial base_color="#000000" emissive={glow('#ffffff', 4.5)} emissive_texture={pixel(`plaque-${side}.png`)} perceptual_roughness={1} reflectance={0} />
-        </Mesh3d>; })}
+      <Model name="ruin-glow" src={staticFile('ruin-glow.glb')} shadow={false} allowOverlap>
+        <StandardMaterial material="ruin-glow-bulb" emissive={glow('#ffc45a', 3.6)} />
+        <StandardMaterial material="ruin-glow-eye" emissive={glow('#40ffe0', 9)} />
+        <StandardMaterial material="ruin-glow-coal" emissive={glow('#ff6a20', 3)} />
+        <StandardMaterial material="ruin-glow-ice" emissive={glow('#30c8e8', 1.1)} />
+        <StandardMaterial material="ruin-glow-float" emissive={glow('#ffb85a', 3.2)} />
+      </Model>
+      {/* 树冠漏光板：只投影、不显示 */}
+      <Mesh3d name="gobo" shadow="only"><BufferMesh {...mesh(GOBO)} /><StandardMaterial base_color="#000000" double_sided cull_mode={null} /></Mesh3d>
+
+      {LAYERS.map(l => <Layer key={l} name={`set-${l}`} g={STATIC[l]} kind={l} />)}
+      {LAYERS.map(l => <Layer key={l} name={`live-${l}`} g={live[l]} kind={l} />)}
       {UNITS.map(u => <Unit key={u.id} u={u} f={f} />)}
-      {SHAFTS.map((sh, i) => <Mesh3d key={i} name={`shaft-${i}`} shadow={false}>
-        <BufferMesh {...shaft(sh, cam.pos)} />
-        <StandardMaterial base_color={Srgba.hex(SUN.color).with_alpha(LOOK.shaft * sh[3] * (1 + .12 * Math.sin(sec * .9 + i * 2)))} base_color_texture={staticFile('shaft.png')} alpha_mode="Blend" unlit double_sided cull_mode={null} />
-      </Mesh3d>)}
+      <Mesh3d name="soft-light" castShadow={false} shadow={false}>
+        <BufferMesh {...mesh(soft)} colors={soft.colors} />
+        <StandardMaterial base_color="#000000" base_color_texture={GLOW} emissive={glow('#ffffff', 2.4)} emissive_texture={GLOW} alpha_mode="Add" perceptual_roughness={1} reflectance={0} double_sided cull_mode={null} />
+      </Mesh3d>
       {Array.from({ length: MOTES }, (_, i) => {
         const m = moteAt(i, sec);
-        return <Mesh3d key={i} name={`mote-${i}`} shadow={false} transform={Transform.fromXyz(m.x, m.y, m.z)}>
-          <Sphere radius={m.fire ? .022 : .014} />
-          <StandardMaterial base_color="#000000" emissive={m.fire ? glow('#fff08a', 5 * m.glow) : glow('#e8d0a0', 1.1 * m.glow)} />
+        return <Mesh3d key={i} name={`mote-${i}`} castShadow={false} shadow={false} transform={Transform.fromXyz(m.x, m.y, m.z)}>
+          <Sphere radius={m.r} />
+          <StandardMaterial base_color="#000000" emissive={glow('#ffe2a8', 1.4)} />
         </Mesh3d>;
       })}
 
       <Bloom intensity={LOOK.bloom.intensity} threshold={LOOK.bloom.threshold} />
-      <Grade vignette={LOOK.grade.vignette} temperature={LOOK.grade.temperature} saturation={LOOK.grade.saturation} />
+      <Grade vignette={LOOK.grade.vignette} temperature={LOOK.grade.temperature} tint={LOOK.grade.tint} saturation={LOOK.grade.saturation} />
       <ToneMapping mode="aces" exposure={LOOK.exposure} />
     </Canvas3D>
   </AbsoluteFill>;

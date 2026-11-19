@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "$comment": "dur / fps / size 是 v1 兼容镜像：现有出片脚本还在读，数值与 output 一致；改时长或画幅时两处一起改（npm run check:repo 与 film.js check 会核对）",
   "id": "fanpan-b",
-  "title": "林间擂台",
+  "title": "沉水擂台",
   "route": "b",
   "backend": "native",
   "output": {
@@ -33,12 +33,12 @@
       "source": "engine/native/runtime.lock.json"
     },
     {
-      "what": "画法（只取方法，代码自己写）：像素贴图的微缩场景 + 平面像素角色 + 移轴景深、泛光、暗角",
+      "what": "画法（只取方法，代码自己写）：像素贴图的微缩场景 + 平面像素角色 + 镜头景深、泛光、暗角",
       "license": "MIT",
       "source": "cases/vendor/lemo-opuscar/styles/hd-2d/STYLE.md@bebbbe1（LemoLab）"
     },
     {
-      "what": "棋子待机序列帧（units/）",
+      "what": "棋子待机序列帧（units/；baked/units/ 是加了描边的版本）",
       "license": "CC0-1.0",
       "source": "《一步翻盘》assets/units，原始出处 OpenDuelyst；不使用其名称与商标"
     },
@@ -55,7 +55,7 @@
   ],
   "aigc": {
     "contains": false,
-    "note": "场景、贴图、灯光与后期全部由代码生成；棋子是 CC0 像素序列帧"
+    "note": "场景、贴图、像素小件、灯光与后期全部由代码生成；棋子是 CC0 像素序列帧"
   },
   "gates": {
     "look": "required",
@@ -66,119 +66,71 @@
     "entry": "film.tsx",
     "images": [
       {
-        "to": "f1_azuritelion_idle.png",
-        "from": "units/f1_azuritelion_idle.png"
+        "to": "u_f6_icedryad.png",
+        "from": "baked/units/f6_icedryad.png"
       },
       {
-        "to": "f1_ironcliffeguardian_idle.png",
-        "from": "units/f1_ironcliffeguardian_idle.png"
+        "to": "u_f6_snowman.png",
+        "from": "baked/units/f6_snowman.png"
       },
       {
-        "to": "f1_ranged_idle.png",
-        "from": "units/f1_ranged_idle.png"
+        "to": "u_f6_arcticrhyno.png",
+        "from": "baked/units/f6_arcticrhyno.png"
       },
       {
-        "to": "f1_silverguardsquire_idle.png",
-        "from": "units/f1_silverguardsquire_idle.png"
+        "to": "u_f6_greatwhitenorth.png",
+        "from": "baked/units/f6_greatwhitenorth.png"
       },
       {
-        "to": "f1_tank_idle.png",
-        "from": "units/f1_tank_idle.png"
+        "to": "u_f6_frostdrake.png",
+        "from": "baked/units/f6_frostdrake.png"
       },
       {
-        "to": "f4_crawler_idle.png",
-        "from": "units/f4_crawler_idle.png"
+        "to": "u_f2_pandabear.png",
+        "from": "baked/units/f2_pandabear.png"
       },
       {
-        "to": "f4_darkspine_idle.png",
-        "from": "units/f4_darkspine_idle.png"
+        "to": "u_f2_demononi.png",
+        "from": "baked/units/f2_demononi.png"
       },
       {
-        "to": "f4_gloomchaser_idle.png",
-        "from": "units/f4_gloomchaser_idle.png"
+        "to": "u_f2_kindling.png",
+        "from": "baked/units/f2_kindling.png"
       },
       {
-        "to": "f4_juggernaut_idle.png",
-        "from": "units/f4_juggernaut_idle.png"
+        "to": "u_f2_onnabugeisha.png",
+        "from": "baked/units/f2_onnabugeisha.png"
       },
       {
-        "to": "f4_nightsorrow_idle.png",
-        "from": "units/f4_nightsorrow_idle.png"
+        "to": "u_f2_geomancer.png",
+        "from": "baked/units/f2_geomancer.png"
       },
       {
-        "to": "badge-red-2.png",
-        "from": "marks/badge-red-2.png"
+        "to": "cards.png",
+        "from": "baked/cards.png"
       },
       {
-        "to": "badge-red-3.png",
-        "from": "marks/badge-red-3.png"
-      },
-      {
-        "to": "badge-red-4.png",
-        "from": "marks/badge-red-4.png"
-      },
-      {
-        "to": "badge-red-6.png",
-        "from": "marks/badge-red-6.png"
-      },
-      {
-        "to": "badge-teal-1.png",
-        "from": "marks/badge-teal-1.png"
-      },
-      {
-        "to": "badge-teal-2.png",
-        "from": "marks/badge-teal-2.png"
-      },
-      {
-        "to": "badge-teal-3.png",
-        "from": "marks/badge-teal-3.png"
-      },
-      {
-        "to": "badge-teal-4.png",
-        "from": "marks/badge-teal-4.png"
-      },
-      {
-        "to": "badge-teal-5.png",
-        "from": "marks/badge-teal-5.png"
-      },
-      {
-        "to": "ring-red.png",
-        "from": "marks/ring-red.png"
-      },
-      {
-        "to": "ring-teal.png",
-        "from": "marks/ring-teal.png"
-      },
-      {
-        "to": "plaque-own.png",
-        "from": "marks/plaque-own.png"
-      },
-      {
-        "to": "plaque-foe.png",
-        "from": "marks/plaque-foe.png"
-      },
-      {
-        "to": "shaft.png",
-        "from": "marks/shaft.png"
+        "to": "glow.png",
+        "from": "baked/glow.png"
       }
     ],
     "models": [
       {
-        "to": "arena.glb",
-        "module": "diorama.js",
-        "export": "createDiorama",
+        "to": "ruin.glb",
+        "module": "ruin.js",
+        "export": "createRuin",
         "scale": 1,
-        "prefix": "arena",
+        "prefix": "ruin",
         "args": {
           "part": "cast"
         }
       },
       {
-        "to": "arena-soft.glb",
-        "module": "diorama.js",
-        "export": "createDiorama",
+        "to": "ruin-glow.glb",
+        "module": "ruin.js",
+        "export": "createRuin",
         "scale": 1,
-        "prefix": "arena",
+        "prefix": "ruin",
         "args": {
           "part": "soft"
         }

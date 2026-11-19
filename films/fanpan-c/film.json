@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "id": "fanpan-c",
-  "title": "林间擂台",
+  "title": "林间寨擂",
   "route": "c",
   "backend": "webgl",
   "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 144 },
