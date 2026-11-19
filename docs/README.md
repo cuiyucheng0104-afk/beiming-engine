@@ -1,6 +1,6 @@
 # 文档与工具索引
 
-> 读者：第一次来、不知道先看哪篇的人｜状态：导航｜依据：2026-11-12 仓库内容
+> 读者：第一次来、不知道先看哪篇的人｜状态：导航｜依据：2026-11-18 仓库内容
 
 仓库首页 [README.md](../README.md) 讲是什么、怎么跑；agent 从 [AGENTS.md](../AGENTS.md) 开始。这里按要做的事列出该读的文档与该用的工具。`docs/` 下每篇文档开头都有一行「读者｜状态｜依据」，先看它再决定要不要往下读，约定见文末。命名与术语见 [GLOSSARY.md](GLOSSARY.md)。
 
@@ -15,20 +15,22 @@
 | [PPT 怎样变成代码动画](cases/ppt-animation.md) | 7 部故事介绍片与 6 个发布会工程的做法 |
 | [成片与素材包](https://github.com/cuiyucheng0104-afk/beiming-engine/releases/tag/casebook-2026.11) | 原始画质成片、观看版与素材包，105 个文件 |
 
-## 想做一部片（三条路线）
+## 想做一部片（四条路线）
 
 | 文档 | 讲什么 |
 |---|---|
-| [三条路线总指引](../routes/README.md) | 选路线的唯一判据、一部作品怎么做、仓库地图；路线注册表 [routes.json](../routes/routes.json) |
+| [四条路线总指引](../routes/README.md) | 选路线的唯一判据、一部作品怎么做、仓库地图；路线注册表 [routes.json](../routes/routes.json) |
 | [A · 北冥风格路线 · WebGL 三渲二](../routes/a-webgl/README.md) | 手册：最快上手、能力清单、契约、验收、边界与常见坑 |
 | [B · 北冥原生 · BNE](../routes/b-native/README.md) | 手册：运行时获取、准备素材、草图帧、出片、画面工艺、FSL 使用边界 |
 | [C · 北冥代码动画风格 · 86 式](../routes/c-style/README.md) | 手册：C 模版出片、挑风格（[STYLES.md](../routes/c-style/STYLES.md)）、复刻历史作品（[REPLICATE.md](../routes/c-style/REPLICATE.md)）；片名字体见 [fonts/README.md](../routes/c-style/fonts/README.md) |
+| [D · 北冥光追 · 物理路径追踪](../routes/d-pathtrace/README.md) | 手册：光追运行时缓存、纯帧号场景、三维微晶 HUD、无损直通出片与常见坑 |
 | [导演与画面规范](../routes/directing/README.md) | 导演十步、画面设计、六章工艺（[craft/](../routes/directing/craft/README.md)，含音效设计与拟音 [sound.md](../routes/directing/craft/sound.md)）、阐述与画风锁定模板 |
-| [执行面技术分档](TRACKS.md) | 三条路线各自在哪里执行、做到哪一步、怎么验收 |
+| [执行面技术分档](TRACKS.md) | 四条路线及离屏执行面各自在哪里运行、做到哪一步、怎么验收 |
 | [出片编排 tools/film](../tools/film/README.md) | 子命令、运行目录、出片链、闸门记录、run.json 与退出码 |
 | [作品描述 engine/production](../engine/production/README.md) | film.json v2、整数帧时间轴、改切点、交付档位、创作闸门与状态机 |
 | [创作闸门与审片](creative-review/README.md) | 什么时候能终渲、什么时候能说「已交付」；生产链 SOP 与审片落分 |
 | [渲染器 engine/render](../engine/render/README.md) | 渲染器 v2 规格：页面约定（含 `__RENDER`）、编码链、错误码、镜头缓存与续跑 |
+| [离屏出片 docs/offscreen](offscreen/README.md) | A、C 新作品可选的 WebGPU + TSL 同源离屏渲染（Node + Dawn，D12） |
 | [配音、字幕与口型](../engine/audio/voice/README.md) | `dialogue.json` 写法、配音服务、字幕与口型提示 |
 | [渲染与 4K](渲染与4K.md) | 4K 实测与怎么出 4K（含底板分辨率预算） |
 
@@ -77,14 +79,14 @@ npm run test:cases       # 案例库工具与相关规则的测试
 
 | 文档 | 讲什么 |
 |---|---|
-| [A/B 引擎工程手册](routes/README.md) | 改引擎、加共享能力的阅读顺序与现状；`npm run plan:check`、`npm run plan:next` |
+| [引擎工程手册](routes/README.md) | 改引擎、加共享能力的阅读顺序与现状；`npm run plan:check`、`npm run plan:next` |
 | [工程待办与分工](routes/work-breakdown.md) | T / H 任务的负责人、依赖、写入范围与完成条件 |
 | [数据与模块契约](routes/contracts.md) | film.json、镜头、帧状态、资产与结果的字段约定（FrameState 仍是设计） |
 | [取帧方式对比实验](capture-experiment.md) | 截图与「读画布、显卡里转 YUV」的用时和画面一致性实测；没有接入出片链路，脚本 `tools/rtx/capture-bench.mjs` |
-| [北冥风格路线工程手册](routes/beiming-style.md)、[原生路线工程手册](routes/raea-native.md) | A、B 的引擎层细节与历史实验 |
+| [北冥风格路线工程手册](routes/beiming-style.md)、[原生路线工程手册](routes/raea-native.md)、[北冥光追路线工程手册](routes/pathtrace.md) | A、B、D 路线的引擎层细节、直通管线与历史实验 |
 | [原生运行时源码与集成](raea/README.md) | B 路线底层：运行时源码对照、10 秒原生实验、集成设计稿 |
 | [命令约定](CLI.md) | 退出码、`--json` 信封、参数规则、全部 npm 脚本的清单与状态 |
-| [决定书](decisions/2026-11-10-industrial-baseline.md) | D01–D11：三条路线、FSL 边界、命名、交付档位、创作闸门、运行时版本、存储、AI 标识 |
+| [决定书](decisions/2026-11-10-industrial-baseline.md) | D01–D13：四条路线、FSL 边界、命名、交付档位、创作闸门、运行时版本、存储、AI 标识、离屏出片与物理光追 |
 | [作品站产品说明](../site/PRODUCT.md)、[设计说明](../site/DESIGN.md)、[构建契约](../site/CONTRACT.md) | 作品站给谁看、怎么设计、定稿文案与数字出处、构建器做什么 |
 
 ## 对外名称与上游项目名
@@ -93,11 +95,12 @@ npm run test:cases       # 案例库工具与相关规则的测试
 
 | 对外名称 | 是什么 | 工程里的目录与命令 |
 |---|---|---|
-| 北冥风格路线 · WebGL 三渲二 | 浏览器里的 WebGL 与 Canvas 2D 逐帧出片 | `routes/a-webgl/`、`engine/`、`src/`、`lab/`；后端字段 `three` |
+| 北冥风格路线 · WebGL 三渲二 | 浏览器里的 WebGL 与 Canvas 2D（或 Node + Dawn 离屏 WebGPU）逐帧出片 | `routes/a-webgl/`、`engine/`、`src/`、`lab/`；后端字段 `three` 或 `webgpu` |
 | 北冥原生 · BNE | 通用原生渲染，基于上游 RAEA 原生运行时（FSL-1.1-ALv2） | `routes/b-native/`、`engine/native/`；沿用上游项目名的 `examples/raea/`、`docs/raea/`、`npm run raea:*`、`RAEA_BIN` |
 | 北冥代码动画风格 · 86 式 | 页面型代码动画的方法库与 C 模版 | `routes/c-style/`；风格库快照在 `cases/vendor/`，来源见 [THIRD-PARTY.md](../THIRD-PARTY.md) |
+| 北冥光追 · 物理路径追踪 | 确定性硬件光追与 Compute BVH 物理三维出片，调用上游开源运行时 ThreeRT（MIT） | `routes/d-pathtrace/`、`engine/pathtrace/`；环境变量 `BEIMING_PT_BIN`，后端字段 `pathtrace` |
 
-三条路线都能直接出片，按需求在 A、B、C 里选（[routes/README.md](../routes/README.md)）。
+四条路线都能直接出片，按需求在 A、B、C、D 里选（[routes/README.md](../routes/README.md)）。
 
 ## 文档约定
 

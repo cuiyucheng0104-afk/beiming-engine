@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥仓库 · 引擎工程待办（D06）：docs/routes/work-plan.json 的只读检查与领取视图。只读：不改计划、不执行任务、不渲染。
 //   npm run plan:check  = node tools/work-plan.mjs --check            结构、依赖、认领与过期、证据与指引路径、写入范围冲突
-//   npm run plan:next   = node tools/work-plan.mjs --ready [--route a|b|c|shared]   依赖已满足、可以领取的任务
+//   npm run plan:next   = node tools/work-plan.mjs --ready [--route a|b|c|d|shared] 依赖已满足、可以领取的任务
 //   node tools/work-plan.mjs --verify-diff <任务> [--base <提交>]       基线以来的改动是否都落在该任务的写入范围里
 //   node tools/work-plan.mjs --cards                                    按 JSON 生成 work-breakdown.md 的依赖总览与任务卡
 // 旧名 npm run routes:check / routes:next 保留一个版本，调用时提示改名（D06）。做作品不用它：作品由 film.json 与
@@ -65,7 +65,7 @@ function unknownRouteError(token, reg) {
 
 /** 写入范围是不是仓库里的规范路径（不越界、不用反斜杠、通配只许出现在末尾的 /**）。 */
 export function safePath(p) {
-  if (typeof p !== 'string' || !p.length || isAbsolute(p) || /[\\:\x00-\x1f]/.test(p)) return false;
+  if (typeof p !== 'string' || !p.length || isAbsolute(p) || /[\\:]/.test(p) || [...p].some(c => c.charCodeAt(0) < 0x20)) return false;
   if (p === '**') return true;
   const base = p.endsWith('/**') ? p.slice(0, -3) : p.replace(/\/$/, '');
   return !base.includes('*') && base.split('/').every(part => part && part !== '.' && part !== '..');
@@ -272,7 +272,7 @@ function globExists(root, pattern) {
     const seg = segs[i];
     if (!/[*?]/.test(seg)) return existsSync(resolve(dir, seg)) && walk(resolve(dir, seg), i + 1);
     const re = new RegExp(`^${seg.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`);
-    let ents = [];
+    let ents;
     try { ents = readdirSync(dir); } catch { return false; }
     return ents.some(e => re.test(e) && walk(resolve(dir, e), i + 1));
   };
@@ -516,7 +516,7 @@ export const command = defineCommand({
   summary: '引擎工程待办（D06）：检查 docs/routes/work-plan.json、列出可领取的任务、核对改动是否越出写入范围（只读）',
   usage: [
     'node tools/work-plan.mjs [--check] [--strict] [--json]          npm run plan:check',
-    'node tools/work-plan.mjs --ready [--route a|b|c|shared] [--json] npm run plan:next -- --route c',
+    'node tools/work-plan.mjs --ready [--route a|b|c|d|shared] [--json] npm run plan:next -- --route c',
     'node tools/work-plan.mjs --verify-diff <任务> [--base <提交>]',
     'node tools/work-plan.mjs --cards',
   ],
@@ -527,7 +527,7 @@ export const command = defineCommand({
   options: {
     check: { type: 'boolean', describe: '检查计划（默认动作）：结构、依赖、认领与过期、证据与指引路径、写入范围冲突' },
     ready: { type: 'boolean', describe: '列出依赖已满足、可以领取的任务，以及待前置、在办与冲突' },
-    route: { type: 'string', arg: '<路线>', describe: '只看这条路线和 shared 的任务：a / b / c / shared（旧名 beiming、raea 等也认）', example: 'c' },
+    route: { type: 'string', arg: '<路线>', describe: '只看这条路线和 shared 的任务：a / b / c / d / shared（旧名 beiming、raea 等也认）', example: 'c' },
     strict: { type: 'boolean', describe: '可领取任务之间（含与在办任务）的写入范围重叠、输入里写错的路径也算错误' },
     'verify-diff': { type: 'string', arg: '<任务>', describe: '核对基线以来（含未提交、未跟踪）的改动是否都在该任务的写入范围里', example: 'H02' },
     base: { type: 'string', arg: '<提交>', describe: '--verify-diff 的基线；不给时用任务认领记录里的 baseCommit', example: 'main' },

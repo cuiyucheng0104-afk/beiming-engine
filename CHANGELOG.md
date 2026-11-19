@@ -9,7 +9,7 @@
 
 ## [Unreleased]
 
-这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D11 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C 三条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
+这一段汇总从 v1.0 到工业级交付升级完成前的全部变更，按合入顺序归类。升级以 [docs/decisions/2026-11-10-industrial-baseline.md](docs/decisions/2026-11-10-industrial-baseline.md) 的 D01–D13 为准，拆成多个工作包推进，目标是让仓库成为按 A、B、C、D 四条路线组织的技术模版仓库：agent 读完入口文档就能选对路线，按模版建作品，用统一的命令出片；成片先过机器 QA 与人工创作闸门，才标为交付；每个 PR 都有测试、无显卡冒烟出片与 Windows 路径检查把关。各工作包合入时，在下面的分类里追加自己的条目。
 
 ### Added
 
@@ -54,9 +54,11 @@
 - CC0 真实录音音效库与可选切换链路（默认程序化合成逐样本不变）：`engine/audio/library.py` 提供 48 kHz 保音高重采样、起音静音裁剪、等功率底噪循环、翼音短事件包络切片与署名生成；`audio/sfx_manifest.json` 登记《北冥》样片 18 项 CC0 录音映射，`audio/mix.py --real-sfx`（及 `tools/audio/build.mjs --real-sfx`）支持一键切换真实音效并单独写出 `out/CREDITS.real-sfx`；`tools/fetch_sfx.py` 提供 Freesound CC0 六线程并发下载与基于投票数及专业录音描述信号的候选重排。
 - 导演声学谱、感知 HDR 混音、Sound Designer 实录复合拟音、零训练音效取证与工艺规范（默认成片与既有合成链路逐样本兼容）：新增 `routes/directing/craft/sound.md` 第六章音效设计与拟音工艺手册（八条音效法则、九步闭环、微机械与高科技 HUD 配方库、A/B/C 跨路线矩阵、听感词物理量翻译表与审片十问）并同步更新 `DIRECTING.md` 步骤 8；新增 `engine/audio/director.py`（听觉视角预设 `POA_PRESETS`、按景别声像上限 `SHOT_PAN_CAP`、跨切点 `render_shot_poa`、冲击前负空间抽空 `carve_negative_space`、配乐调性协和吸附 `harmonic_freq`、精密工程制图微声 `subtle_precision_cue`、防刺耳高频镭射脉冲走线 `hitech_laser_trace` 与支持双层强调泛音的玻璃态菜单微提示音 `hitech_micro_beep`，以及离线前视 `HDRMixer`：Murch 2.5 声部聚簇裁剪 + 6 临界频带 `sosfiltfilt` 零相位侧链动态让位）；新增 `engine/audio/foley.py`（前导/接触瞬态 MSI/腔体重量/余波四段子事件复合、三层实录认知锚点复合配方 `composite_mechanism`、无源精密齿轮转动与双阶落锁咬合 `precision_gear_turn`、薄壁圆管早反射、保材质移调 `shift_material`、防机关枪重复的 `RoundRobinDeck`、有机颗粒声床 `granular_bed`、剑风/剑鸣/衣袂/断水原型，以及粘滑摩擦 `stick_slip_friction`、精密螺纹 `helical_thread`、色散螺旋弹簧 `spring_coil` 与棘齿卡扣 `ratchet_detent`）；`engine/audio/library.py` 新增洁净增益取证切片加载 `load_slice`（拦截低 `raw_pk` 高噪归一化）、高频加权感知冲击中心检测 `sync_anchor`（P-Center）、亚 20 ms 微瞬态切片 `min_len`、轻柔去底噪/混响门 `de_room_gate` 与无损格式优先加载；`engine/audio/dsp.py` 新增四点三次 Hermite 分数延迟线、物理多普勒 `doppler` 与瑞利双工单声道兼容空间同化摆位 `space_place`；新增 `engine/audio/sfx_judge.py` 零训练物理形态与因果本体取证（含脉冲门控 Schroeder RT20、清单裁剪/滤波意图感知、`mechanical` / `motorized` / `low_drone` / `sustained_tonal` 原型、无源机构电机嗡鸣与循环检测 `judge_ontology` 及多事件独立切片包络测量），接入 `tools/fetch_sfx.py`（支持无源机械物件防电机污染守卫、`hitech`/UI 电子类标签放行、无 `FREESOUND_TOKEN` 时的公开 CC0 双路检索、许可核验与 `sfx_judge` 下载自动筛查）；`engine/audio/qa.py` 新增分轨临界频带听觉窥视掩蔽检查 `audio.masking` 与逐 100 ms 窗左右平衡检查 `audio.balance`；`engine/render/events.mjs` 新增 `--telemetry` 逐帧 GPU 画面运动能量、横向重心声像、切点跳变与 `AUDIO_TELEMETRY` 真遥测采集，对接 `engine/audio/cues.py` 48 kHz 重采样与 `engine/audio/cuecheck.py`、`tools/qa` 的 `syncMode: "pcenter"` 感知锚点对齐校验。
 - 取帧方式对比实验（不改出片链路）：`tools/rtx/capture-bench.mjs` 比较截图与「读画布、显卡里转 YUV、原始流喂 FFmpeg」的用时和画面一致性；RTX 5090 工作站上的实测与没有接入的原因见 [docs/capture-experiment.md](docs/capture-experiment.md)。
+- 第 4 条正式路线「D · 北冥光追 · 物理路径追踪」（`d-pathtrace`，决定 D13）：基于第三方开源运行时 `ThreeRT`（`meshy-dev/ThreeRT`，MIT，2026 Meshy LLC，登记于 `docs/rights/register.json` R15；外部本地缓存或 `BEIMING_PT_BIN` 指向，经 `engine/pathtrace/runtime.lock.json` 锁定 SHA256）建立全商业可用的硬件光追与 Compute BVH 回退管线；新增纯 ESM `.js + .d.ts` 兼容 Node 22+ 的光追引擎层 `engine/pathtrace/`（`definePathtraceFilm` 纯帧号场景封装、`placeInCameraFrustum` / `projectBoxToPixels` 近裁面视锥摆位与像素投影、`createWaferHudMaterial` 零菲涅尔冲灰三维微晶 HUD、`esbuild` 打包与 `work/texts.json` 探测）、`tools/film/lib/pathtrace-steps.mjs`（常驻 `threert-render serve` 热进程直出无损 PNG 序列进 `mux.mjs`，支持 `--encoder nvenc` 硬编、单帧级哈希缓存复用与去字对照帧实测世界内三维文字 WCAG 对比度）、`film.json` v2 顶层 `pathtrace` 段（含按镜头 ID 索引的 `shotSpp`）、D 路线手册 `routes/d-pathtrace/README.md` 与 3 秒两镜头起步模版 `routes/d-pathtrace/template/`、工程手册 `docs/routes/pathtrace.md`、工程待办 `T25` / `T26`、仓库规范检查 `route-d.runtime-and-template` 及 CI 冒烟可选 `d-render` 阶段；B 路线与 A/C 离屏出片（D12）保持不变。
 
 ### Changed
 
+- Dependabot 不再检查仓库根目录的 pip：它会把 `requirements.txt` 写成无哈希 pin 清单、不重生 `requirements.lock`，PR 永远过不了 `env.python-lock` 与 `tests/env/lockfile.test.mjs`（已关闭的 #26 scipy、#27 soxr、#28 pillow、#29 soundfile）。`/tests/ci` 的 lint 哈希清单、npm、GitHub Actions 仍每周检查。根目录 Python 升级走 `node tools/env/lock.mjs --upgrade`。`requirements.txt` 不是 `-r requirements.in` 指针时，`env.python-lock` 现为 error。
 - 引擎从 v1.0 的 7 个文件重构成九层：core（时间与数学）、form（程序化造型）、shade（卡通着色）、stage（镜头与舞台）、look（后期）、paint（Canvas 2D 绘画）、overlay（显示层）、audio（声音）、render（出片），外加 production（生产契约）。《北冥》样片改为调用这些层，`src/` 只留本片的镜头、造型与色板。
 - 三条路线的对外品牌名统一为：北冥风格路线 · WebGL 三渲二、北冥原生 · BNE、北冥代码动画风格 · 86 式（D04）。README 重写，新增 `docs/README.md` 导航；作品文案改为如实口径（由代码合成出片，素材来源见案例卡）。
 - 出片色彩全链路改为 BT.709 有限范围，并完整标注矩阵、原色、传递特性与范围（成片为 yuv420p / tv / bt709）；以前标的是全范围 BT.601，按 BT.709 解读时绿色通道偏差约 22 级。
@@ -65,7 +67,9 @@
 - `npm run showcase:build` 改名为 `npm run site:build`，另有 `site:serve`、`site:qa`。
 - B 路线（北冥原生 · BNE）锁定的上游原生运行时由 `0.1.0-canary.2` 升级到正式版 `0.1.4`（`v0.1.4`，提交 `d870159c4686bd1fcda094934602463549b26683`，2026-11-15 发布，2028-11-15 转为 Apache-2.0）：同步更新 `engine/native/runtime.lock.json` 与 `tools/env/spec.json` 的 macOS arm64、Windows x64、Linux x64 三平台归档与可执行文件 SHA256，并在 Linux RTX 4070（Vulkan / OpenH264）完成模版出片、四类画面配方与机器 QA 验收；`engine/render/native.mjs` 兼容 `raea check` 新版 `findings`（`error / warn / note`）与旧版 `issues`（`P0–P3`）输出，并接入 `BEIMING_GPU_BUSY_UTIL` / `--max-gpu-util` 守卫阈值。
 - 分块渲染（`engine/render/lib/chunks.mjs`，`video.mjs` 与 `shots.mjs` 共用）：一块的帧喂完后，FFmpeg 收尾（编完、核对帧数、改名）放到后台，同一路先渲下一块，每路最多一块在后台收尾。码流逐字节不变；RTX 4070 笔记本上 A、C 模版 192 帧 4 路交替实测中位快 6–10%（16 组配对 15 组更快）。
+- Python 顶层依赖范围抬到与锁文件已锁定的小版本一致（关闭的 Dependabot #26–#29 按协议重做）：`scipy>=1.18,<2`（锁 1.18.1）、`pillow>=13,<14`（锁 13.0.0）、`soundfile>=0.14,<1`（锁 0.14.0）、`soxr>=1.1,<2`（锁 1.1.0）。`requirements.lock` 按头里的 2026-11-10 时间点重生，针版本未变；`requirements.txt` 仍只引用 `requirements.in`。
 - 离屏出片的 TSL Kuwahara 展开成编译期常量：每个采样格的权重只取决于格子位置与 KR，改在 JS 里算好并展开，圆外格子不再采样，每个格子只累加权重非零的 3–4 个扇区，各扇区总权重也是常量。《化鹏闪羽》1080p 稳态每帧约 21.4 → 14.1 ms（整帧约 −34%，单机、GPU 被其他进程分走一部分，两轮交替测量），画面与改前最大差 1 级、PSNR ≥ 81 dB，对 GLSL 版的质量门不变；详见 `docs/offscreen/README.md` 7.17。
+
 ### Removed
 
 - 不兼容：`engine/core/noise.js` 的 `createNoise2D` / `createNoise3D` 不再接受无种子调用（以前默认用 `Math.random`，分段并行渲染时各段画面会对不上）。调用时传入种子随机源，例如 `createNoise3D(mulberry(7))`。

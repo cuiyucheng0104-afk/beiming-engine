@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { EXIT, FilmError } from '../lib/exit.mjs';
 import { ROOT, rel, findPython } from '../lib/repo.mjs';
 import { filmJsonProblems } from '../../lib/filmspec.mjs';
@@ -65,8 +66,8 @@ export async function checkCommand(opts, positionals) {
     } catch (e) { add('spec', 'env', `作品描述校验器运行失败：${e.message}`); }
   } else {
     // 作品描述包的校验器还没合入：先用治理骨架的轻量结构自检（tools/lib/filmspec.mjs，与 new-film、规范检查同一套规则）
-    let routeIds = ['a', 'b', 'c'];
-    try { const { raw } = readRegistry(ROOT); if (Array.isArray(raw?.routes)) routeIds = raw.routes.map(r => r.id); } catch { /* 用内置三条 */ }
+    let routeIds = ['a', 'b', 'c', 'd'];
+    try { const { raw } = readRegistry(ROOT); if (Array.isArray(raw?.routes)) routeIds = raw.routes.map(r => r.id); } catch { /* 用内置四条 */ }
     const problems = filmJsonProblems(film.raw, { mode: 'film', routeIds, dirName: film.raw?.mirror ? undefined : film.id });
     add('spec', problems.length ? 'fail' : 'pass', problems.length ? `作品描述结构不合格：${problems.join('；')}` : '作品描述结构自检通过（tools/lib/filmspec.mjs；字段级完整校验等作品描述包的 engine/production/film.js 合入）', { by: 'tools/lib/filmspec.mjs' });
     warnings.push({ code: 'spec-validator-missing', message: '作品描述校验器 engine/production/film.js 还不存在：只做了结构自检（路线、片名、帧数、画幅、兼容字段一致）' });
@@ -92,6 +93,49 @@ export async function checkCommand(opts, positionals) {
         const line = (res.stdout + res.stderr).trim().split('\n').filter(Boolean).slice(-1)[0] || '';
         add('native', res.code === 0 ? 'pass' : /media\/ 缺少/.test(res.stderr) ? 'fail' : 'env', res.code === 0 ? `原生预检通过（RAEA ${r.version}）` : `原生预检不通过：${line}`, res.code !== 0 && /media\/ 缺少/.test(res.stderr) ? { hint: `先准备素材：node engine/native/prepare.mjs ${film.relDir}（film build 会自动做）` } : {});
       } catch (e) { add('native', 'env', e.message); }
+    }
+  } else if (film.route === 'd') {
+    const entryFile = path.resolve(film.pathBase, film.entry || 'scene.ts');
+    if (!fs.existsSync(entryFile)) {
+      add('scene', 'fail', `${rel(film.dir)} 下没有光追场景入口 ${film.entry || 'scene.ts'}`);
+    } else {
+      const rtModFile = path.join(ROOT, 'engine/pathtrace/runtime.mjs');
+      const bundleModFile = path.join(ROOT, 'engine/pathtrace/bundle.mjs');
+      if (!fs.existsSync(rtModFile) || !fs.existsSync(bundleModFile)) {
+        add('pathtrace', 'env', '光追模块 engine/pathtrace/ 尚未就绪', { hint: '合入 engine/pathtrace/ 并安装光追运行时缓存或设 BEIMING_PT_BIN' });
+      } else {
+        let rt = null;
+        try {
+          const { resolvePathtrace } = await import(pathToFileURL(rtModFile).href);
+          rt = await resolvePathtrace({ env: process.env, cwd: ROOT });
+          const infoRes = await exec(rt.exe, ['info'], { cwd: ROOT, quiet: true, timeoutSec: 30, label: 'threert-render info', sweep: false });
+          let info = {};
+          try { info = JSON.parse(String(infoRes.stdout || '').trim()); } catch { /* 容错 */ }
+          const sw = info.device_type === 'Cpu' || /swiftshader|llvmpipe|lavapipe|software|\bwarp\b/i.test(String(info.adapter || ''));
+          add('pathtrace', 'pass', `光追运行时就绪（${rt.version}${rt.verified ? '，sha256 已校验' : ''}）`);
+          add('gpu', sw ? 'env' : 'pass', sw ? `光追落到了软件渲染（${info.adapter || 'CPU'}）` : `GPU：${info.adapter || '未知'}（${info.backend || 'wgpu'}${info.hwrt ? '，硬件光追' : ''}）`);
+        } catch (e) {
+          add('pathtrace', 'env', e?.message || '找不到光追运行时 threert-render', { hint: e?.hint || '安装光追运行时缓存，或设 BEIMING_PT_BIN 指向 threert-render 可执行文件' });
+        }
+        if (rt) {
+          const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'film-pt-check-'));
+          const undo = onInterrupt(() => fs.rmSync(tmp, { recursive: true, force: true }));
+          try {
+            const { bundlePathtraceFilm } = await import(pathToFileURL(bundleModFile).href);
+            const b = await bundlePathtraceFilm({
+              filmDir: film.dir, entry: film.entry || 'scene.ts', outBundle: path.join(tmp, 'scene.bundle.js'),
+              probeOut: tmp, film: film.raw, width: profile?.width || film.width, height: profile?.height || film.height,
+              fps: profile?.fps || film.fps, sdkDir: rt.sdkDir, presetsDir: rt.presetsDir, env: process.env,
+            });
+            add('scene', 'pass', `光追场景打包与 ${b.frameCount} 帧确定性探测通过`);
+          } catch (e) {
+            add('scene', e?.exitCode === EXIT.ENV ? 'env' : 'fail', `光追场景探测不通过：${e?.message || e}`, e?.hint ? { hint: e.hint } : {});
+          } finally {
+            fs.rmSync(tmp, { recursive: true, force: true });
+            undo();
+          }
+        }
+      }
     }
   } else if (!fs.existsSync(path.join(film.pageDir, 'index.html'))) {
     if (film.backend === 'webgpu') add('page', 'info', '纯离屏作品（backend = webgpu，无 index.html）：跳过浏览器页面探测');
@@ -120,7 +164,7 @@ export async function checkCommand(opts, positionals) {
   }
 
   // 离屏入口探测：backend = webgpu 或目录里带 offscreen.mjs 的双实现作品
-  if (film.route !== 'b' && (film.backend === 'webgpu' || fs.existsSync(path.join(film.dir, 'offscreen.mjs')))) {
+  if (film.route !== 'b' && film.route !== 'd' && (film.backend === 'webgpu' || fs.existsSync(path.join(film.dir, 'offscreen.mjs')))) {
     const offEntry = path.join(film.dir, 'offscreen.mjs');
     if (!fs.existsSync(offEntry)) {
       add('offscreen', 'fail', `backend = webgpu 需要作品目录里有 offscreen.mjs：${rel(offEntry)} 不存在`, { hint: '补写 offscreen.mjs，或把 backend 改回页面后端' });

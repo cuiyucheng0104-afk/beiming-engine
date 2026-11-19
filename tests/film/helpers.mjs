@@ -37,7 +37,8 @@ export function makeWork(route, { title = '自检短片', fonts = true } = {}) {
   const r = spawnSync(process.execPath, [path.join(ROOT, 'tools/new-film.mjs'), route, name, '--title', title], { cwd: ROOT, encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`new-film 失败：${r.stderr || r.stdout}`);
   let real = inRepo;
-  if (route !== 'b') {
+  const keepInRepo = route === 'b' || route === 'd';
+  if (!keepInRepo) {
     fs.mkdirSync(TEST_ROOT, { recursive: true });
     real = path.join(TEST_ROOT, name);
     // Windows runner 上仓库在 D:、临时目录在 C:：跨盘不能改名（EXDEV），改成复制后删除
@@ -47,7 +48,7 @@ export function makeWork(route, { title = '自检短片', fonts = true } = {}) {
   const w = {
     name, rel, dir: inRepo, real,
     cleanup() {
-      if (route !== 'b') {
+      if (!keepInRepo) {
         removeLink(inRepo);
         if (!process.env.FILM_TEST_KEEP) fs.rmSync(real, { recursive: true, force: true });
       } else if (process.env.FILM_TEST_KEEP) {

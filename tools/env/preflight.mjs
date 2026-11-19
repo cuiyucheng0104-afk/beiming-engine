@@ -16,7 +16,7 @@ import { run } from './lib/proc.mjs';
 import { ROOT, resolvePython, pythonEnv } from './lib/python.mjs';
 import * as C from './lib/checks.mjs';
 
-export const NEEDS = ['node', 'npm', 'browser', 'ffmpeg', 'python', 'python:audio', 'sh', 'raea', 'disk'];
+export const NEEDS = ['node', 'npm', 'browser', 'ffmpeg', 'python', 'python:audio', 'sh', 'raea', 'pathtrace', 'disk'];
 
 const HELP = `北冥仓库 · 开工前快速预检（约 1 秒，不启动浏览器、不导入 Python 模块）
 
@@ -62,6 +62,7 @@ export async function preflight(needs, { env = process.env } = {}) {
     if (n === 'python:audio') jobs.push(pythonAudio(spec, env));
     if (n === 'sh') jobs.push(C.checkSh(spec, ROOT));
     if (n === 'raea') jobs.push(C.checkRaea(ROOT, spec, { env, required: true }));
+    if (n === 'pathtrace') jobs.push(C.checkPathtrace(ROOT, spec, { env, required: true }));
     if (n === 'disk') jobs.push(C.checkDisk(ROOT, spec));
   }
   const checks = (await Promise.all(jobs)).flat();

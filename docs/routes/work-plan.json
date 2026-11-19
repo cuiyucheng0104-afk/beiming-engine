@@ -448,6 +448,79 @@
       "playbook": "routes/b-native/README.md"
     },
     {
+      "id": "T25",
+      "title": "物理路径追踪运行时锁、确定性场景底座与三维晶圆 HUD",
+      "route": "d",
+      "ownerRole": "光追路线集成负责人",
+      "status": "done",
+      "claim": {
+        "by": "集成负责人（多代理会话）",
+        "session": "feat/route-d-pathtrace",
+        "baseCommit": "0e3ac4ae1469086a140a9ef9f43d7ec74eaff2e7",
+        "startedAt": "2026-11-18",
+        "expiresAt": "2026-12-02"
+      },
+      "dependsOn": [],
+      "inputs": [
+        "决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D04、D09、D10、D13",
+        "上游路径追踪运行时 ThreeRT（meshy-dev/ThreeRT，MIT）外部缓存与预设"
+      ],
+      "writeScope": ["engine/pathtrace/", "tests/pathtrace/"],
+      "outputs": ["运行时版本锁 engine/pathtrace/runtime.lock.json 与解析命令 runtime.mjs；esbuild 场景打包与探测 bundle.mjs；纯 ESM 场景底座 index.js、camera.js、hud.js（配套 .d.ts，Node 22+ 兼容）"],
+      "acceptance": [
+        "node --test tests/pathtrace/runtime.test.mjs 全过（无需 --experimental-strip-types，兼容 Node 22+）",
+        "node engine/pathtrace/runtime.mjs status 在装有锁定运行时的机器上核对 binarySha256 通过并退出 0",
+        "createWaferHudMaterial 注入 o.base = 0 与 o.specular = 0，placeInCameraFrustum 锁定近裁面铭牌厚度 z <= 0.0015"
+      ],
+      "evidence": [
+        {"kind": "file", "ref": "engine/pathtrace/runtime.lock.json"},
+        {"kind": "file", "ref": "engine/pathtrace/index.js"},
+        {"kind": "command", "ref": "node --test tests/pathtrace/runtime.test.mjs", "note": "2026-11-18 Linux x64：运行时解析、锁校验、打包探测与纯 ESM 场景底座单测全过"},
+        {"kind": "command", "ref": "npm run env:doctor -- --route d", "note": "2026-11-18 Linux x64 + RTX 4070 Laptop GPU（HWRT）：光追运行时 0.1.1-beiming.1 sha256 核对通过，exit 0"}
+      ],
+      "playbook": "docs/routes/pathtrace.md"
+    },
+    {
+      "id": "T26",
+      "title": "D 路线注册、无浏览器直通出片链、起步模版与三维文字真值对比度 QA",
+      "route": "d",
+      "ownerRole": "光追路线集成负责人",
+      "status": "done",
+      "claim": {
+        "by": "集成负责人（多代理会话）",
+        "session": "feat/route-d-pathtrace",
+        "baseCommit": "0e3ac4ae1469086a140a9ef9f43d7ec74eaff2e7",
+        "startedAt": "2026-11-18",
+        "expiresAt": "2026-12-02"
+      },
+      "dependsOn": ["T25"],
+      "inputs": [
+        "决定书 docs/decisions/2026-11-10-industrial-baseline.md 的 D04、D07、D08、D10、D13",
+        "T25 的光追引擎底座与统一出片编排 tools/film/"
+      ],
+      "writeScope": [
+        "routes/d-pathtrace/",
+        "routes/routes.json",
+        "tools/film/lib/pathtrace-steps.mjs",
+        "tools/repo-check/rules/route-d/",
+        "docs/routes/pathtrace.md",
+        "tests/ci/smoke-render.mjs"
+      ],
+      "outputs": ["D 路线注册与 film.json v2 pathtrace 段；直通出片步骤 pathtrace-steps.mjs 与单帧哈希缓存；D 路线手册与 3 秒两镜头模版；state.hideTexts 三维文字对比度 QA；route-d 护栏与 CI d-render 阶段"],
+      "acceptance": [
+        "npm run check:repo -- --only route-d,core 与 npm run comp:rights 全过",
+        "node --test tests/film/pathtrace-pipeline.test.mjs 全过；RTX 4070 上新建模版跑 stills -> animatic -> build 两次 --no-cache 产物逐字节一致，QA 硬门全过",
+        "node tests/ci/smoke-render.mjs --only d-render --golden off 在有运行时与 GPU 时出片通过，无运行时时干净跳过并退出 0"
+      ],
+      "evidence": [
+        {"kind": "file", "ref": "routes/d-pathtrace/README.md"},
+        {"kind": "file", "ref": "tools/repo-check/rules/route-d/runtime-and-template.mjs"},
+        {"kind": "command", "ref": "node tools/run-tests.mjs --only pathtrace,offscreen,film,cli,production,env,governance,qa", "note": "2026-11-18 Linux x64：8 组测试全部通过"},
+        {"kind": "command", "ref": "npm run new -- d pt-e2e-smoke --title 光追端到端验证 && npm run film -- build films/pt-e2e-smoke", "note": "2026-11-18 Linux x64 + RTX 4070 Laptop GPU：72 帧 1920x1080@24 直通封装 master.mp4，两次 --no-cache 冷渲 SHA-256 逐字节一致，QA 实测 texts.contrast 16.73:1，exit 0"}
+      ],
+      "playbook": "routes/d-pathtrace/README.md"
+    },
+    {
       "id": "H00",
       "title": "P00 决策与冻结点",
       "route": "shared",

@@ -11,6 +11,7 @@ import { loadFilm } from '../lib/spec.mjs';
 import { resolveProfile, framesAt } from '../lib/profiles.mjs';
 import { exec } from '../lib/proc.mjs';
 import { onInterrupt } from '../lib/session.mjs';
+import { planPathtrace } from '../lib/pathtrace-steps.mjs';
 import { envelope } from '../lib/output.mjs';
 
 export const planSpec = {
@@ -23,15 +24,15 @@ export const planSpec = {
 };
 
 export const PLAN_DOC = {
-  summary: '开渲前估算整片耗时与磁盘（A / C：转调 video.mjs --plan；只读）',
+  summary: '开渲前估算整片耗时与磁盘（A / C：video.mjs --plan；D：threert-render 试渲；只读）',
   usage: ['npm run film -- plan <作品目录> [--profile <档位>] [--workers N] [--json]'],
   description: [
-    '按出片同一口径（档位的画幅与帧率、--workers 路数）起浏览器，各路试渲几帧并按正式参数试编码，推算总耗时、成片体积与渲染时要的磁盘。',
+    '按出片同一口径（档位的画幅与帧率、--workers 路数或光追采样数）试渲少量样本帧，推算总耗时、成片体积与渲染时要的磁盘。',
     '可用磁盘不够估算的 1.5 倍时退出码 3。不写作品目录、不建运行目录；试编码的临时文件放系统临时目录，结束即删。',
     'B 路线（原生运行时）没有估算接口：先出预演 npm run film -- animatic <作品目录> 看耗时。',
   ],
   examples: ['npm run film -- plan films/my-film', 'npm run film -- plan films/my-film --profile uhd-2160p24 --workers 8 --json'],
-  exitCodes: { 0: '估算完成', 2: '用法错误（含 B 路线）', 3: '缺环境或磁盘不够', 4: '页面契约不满足', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
+  exitCodes: { 0: '估算完成', 2: '用法错误（含 B 路线）', 3: '缺环境或磁盘不够', 4: '页面或光追场景契约不满足', 124: '超时', 130: '收到 SIGINT，已清理', 143: '收到 SIGTERM，已清理' },
 };
 
 export async function planCommand(opts, positionals) {
@@ -40,6 +41,20 @@ export async function planCommand(opts, positionals) {
   const warnings = [...film.warnings];
   const profile = resolveProfile(film, { override: opts.profile || null }, warnings);
   const frames = framesAt(film, profile.fps, warnings);
+  if (film.route === 'd') {
+    const r = await planPathtrace({ film, profile, frames, exec, onInterrupt });
+    warnings.push(...r.warnings);
+    const p = r.plan;
+    const MB = b => (b == null ? '?' : `${(b / 2 ** 20).toFixed(0)} MB`);
+    const human = [
+      `估算 ${film.relDir}（D 光追 · 档位 ${profile.id} ${profile.width}×${profile.height}@${profile.fps}，${p.frames} 帧，preset=${p.preset}，基准 ${p.baseSpp} SPP）`,
+      `  每帧约 ${p.perLaneFrameMs} ms → 整片约 ${p.estSeconds} 秒`,
+      `  成片约 ${MB(p.estOutputBytes)}，渲染时要 ${MB(p.needBytes)} 磁盘${p.freeBytes != null ? `（可用 ${(p.freeBytes / 2 ** 30).toFixed(1)} GB）` : ''}`,
+      `  GPU：${p.gpu || '未知'}${p.software ? '（软件渲染：正式出片 --gpu required 时退出码 3）' : ''}`,
+      `  出片：npm run film -- build ${film.relDir}${opts.profile ? ` --profile ${profile.id}` : ''}`,
+    ].join('\n');
+    return { env: envelope({ command: 'film plan', warnings, data: { film: film.relDir, route: film.route, profile: profile.id, frames, workers: 1, plan: p } }), human };
+  }
   const workers = opts.workers || 4;
   const args = [path.join(ROOT, 'engine/render/video.mjs'), film.pageDir, '--plan', '--json', '--size', `${profile.width}x${profile.height}`, '--fps', String(profile.fps), '--workers', String(workers)];
   // 档位换了帧率时 video.mjs 拿作品目录 film.json 的帧数核对必然不符（与 build 同一处理，见 engine/render/build.mjs 的 videoArgs）

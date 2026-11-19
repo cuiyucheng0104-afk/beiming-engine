@@ -1,8 +1,17 @@
-# 北冥仓库 · 依赖更新：每周一检查 npm、pip、GitHub Actions，同类小版本合成一个 PR；新版本至少发布 14 天后才提（cooldown），躲开刚发布就撤回的版本。
+# 北冥仓库 · 依赖更新：每周一检查 npm、pip（仅 tests/ci 的 lint 哈希清单）、GitHub Actions，同类小版本合成一个 PR；
+# 新版本至少发布 14 天后才提（cooldown），躲开刚发布就撤回的版本。
 # 每个更新 PR 都要过 ci.yml（含 SwiftShader 金标准），像素或混音有变化会在那里变红。
 # 不自动升级的：three 固定 r170（engine/shade/patch.js 的着色器锚点只对这一版成立）、playwright-core 固定 1.63.0（D09；浏览器构建一变，
 # 软件渲染的像素就变）。这些项要升级时手动改，同时重采金标准（docs/style-baselines/POLICY.md）。
 # 离屏出片的 three-webgpu r187 与 webgpu 0.6.2 也锁定：升级要重新对拍预览、检查确定性（docs/offscreen/README.md）。
+#
+# Python 三文件协议（根目录）：requirements.in（手写范围）→ node tools/env/lock.mjs 生成带哈希、三平台、inputSha256 头的
+# requirements.lock；requirements.txt 只保留一行 -r requirements.in。Dependabot 的 pip 生态把 .in+.txt 当成 pip-compile：
+# 会收紧 .in 下界、把 .txt 写成无哈希 pin 清单、从不重生 .lock，于是 tests/env/lockfile.test.mjs 与 repo-check 的
+# env.python-lock 必然失败（已关闭的 #26 scipy、#27 soxr、#28 pillow、#29 soundfile 都是这个模式）。因此根目录 pip
+# 不交给 Dependabot。升级走 node tools/env/lock.mjs --upgrade，过金标准 / 混音哈希后再提交（docs/ENVIRONMENT.md「维护：改依赖」）。
+# /tests/ci 的 requirements-lint.txt 是带多平台哈希的 pin 清单，Dependabot 能正确改，故保留。
+# 若仓库级「Dependabot security updates」仍对根目录 pip 开出 PR，关掉它，改用 lock.mjs --upgrade，不要合并。
 version: 2
 updates:
   - package-ecosystem: npm
@@ -26,10 +35,9 @@ updates:
       - dependency-name: three-webgpu
       - dependency-name: webgpu
 
+  # 只覆盖 tests/ci 的 lint 哈希清单（ruff）。不要加 directory: /：根目录是 .in → .lock 协议，见文件头注释。
   - package-ecosystem: pip
-    directories:
-      - /
-      - /tests/ci
+    directory: /tests/ci
     schedule:
       interval: weekly
       day: monday

@@ -27,7 +27,7 @@ const HELP = `北冥仓库 · 环境自检（只读）
   node tools/env/doctor.mjs [选项]
 
 选项：
-  --route a|b|c         只看某条路线需要的项（可重复或逗号分隔）；不写时检查通用项，B 路线的原生运行时只作提示
+  --route a|b|c|d       只看某条路线需要的项（可重复或逗号分隔）；不写时检查通用项，B / D 的原生运行时只作提示
   --gpu required        要求硬件 GPU：软件渲染或「有独显却落到核显」判失败（交付渲染前用）
   --gpu software-ok     默认：软件渲染只告警（CI、无显卡的机器）
   --quick               不启动浏览器、不导入 Python 模块、不跑案例库校验，只查文件与版本（约 1 秒）
@@ -60,6 +60,7 @@ export async function doctor({ routes = [], gpuMode = 'software-ok', quick = fal
     C.checkGitEol(root).then(c => [c]),
     want('c') && !quick ? C.checkCases(root, env, { required: routes.includes('c') }).then(c => [c]) : Promise.resolve([]),
     C.checkRaea(root, spec, { env, required: routes.includes('b') }).then(c => (want('b') ? [c] : [])),
+    C.checkPathtrace(root, spec, { env, required: routes.includes('d') }).then(c => (want('d') ? [c] : [])),
   ];
   const parallel = (await Promise.all(tasks)).flat();
   const checks = [...sync, ...parallel, C.checkSh(spec, root), C.checkDisk(root, spec), C.checkWritable(root), C.checkSamples(env), C.checkEnvVars(spec, env)];
@@ -116,7 +117,7 @@ if (isMain(import.meta.url)) {
     command: 'env:doctor', help: HELP,
     options: { route: { type: 'string', multiple: true }, gpu: { type: 'string' }, quick: { type: 'boolean' }, out: { type: 'string' } },
     run: async (o) => {
-      const routes = [...new Set((o.route || []).flatMap(r => r.split(',')).map(r => choice('--route', r.trim(), ['a', 'b', 'c'])))].sort();
+      const routes = [...new Set((o.route || []).flatMap(r => r.split(',')).map(r => choice('--route', r.trim(), ['a', 'b', 'c', 'd'])))].sort();
       const gpuMode = choice('--gpu', o.gpu, ['required', 'software-ok']) || 'software-ok';
       if (gpuMode === 'required' && o.quick) throw usageError('--gpu required 需要启动浏览器探测，不能和 --quick 一起用');
       log(`环境自检中（${o.quick ? '快速模式' : '会启动一次无头浏览器、导入一次 Python 模块'}）…`);
