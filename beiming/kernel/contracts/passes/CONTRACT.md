@@ -38,7 +38,7 @@
 | 出层方 | 交出这一套通道的一方：`core` 或 `oracle`。 |
 | 通道对拍 | 把两个出层方对同一个场景、同一帧交出的同名通道逐层相比。 |
 | 样本 | 为了算一个像素，从相机经这个像素射进场景的一条路径和它算出的结果。 |
-| 辅助样本 | 辅助层四个通道共用的那一个样本：每个像素一个，不参加样本累积，取法见 5.1。 |
+| 辅助样本 | 辅助层（3.1 登记表里取法是 `sub0` 的通道）共用的那一个样本：每个像素一个，不参加样本累积，取法见 5.1。 |
 | 样本累积 | 把一个像素的全部样本按像素滤波的权重合成一个值。 |
 | 像素滤波 | 样本落在像素内不同位置时各占多少权重的规则。 |
 | 抗锯齿 | 一个通道的值是样本累积出来的，物体边缘上的像素得到两边的混合值。 |
@@ -136,8 +136,8 @@
 | `depth` | 双精度 | 米 | 是 | ≥ 0 | `量的` | `depth` 通道里这个像素的值 |
 | `id` | 整数 | 无 | 是 | ≥ 0 | `量的` | `objectId` 通道的 `id` 分量 |
 | `coverage` | 双精度 | 无 | 是 | `[0, 1]` | `量的` | `objectId` 通道的 `coverage` 分量 |
-| `normal` | 数组 | 无 | 否；出现时 `aux` 必须有 `normal` | `[x, y, z]` | `量的` | `normal` 通道里这个像素的值 |
-| `motion` | 数组 | 像素每帧 | 否；出现时 `aux` 必须有 `motion` | `[x, y]` | `量的` | `motion` 通道里这个像素的值 |
+| `normal` | 数组 | 无 | 否；出现时 `aux` 必须有 `normal`（PS4） | `[x, y, z]` | `量的` | `normal` 通道里这个像素的值 |
+| `motion` | 数组 | 像素每帧 | 否；出现时 `aux` 必须有 `motion`（PS4） | `[x, y]` | `量的` | `motion` 通道里这个像素的值 |
 
 哪几条的查法靠的是 `自报` 的字段，见第 6 节「靠出层方自己的说法判的条文」一行。
 
@@ -145,10 +145,10 @@
 
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
-| PS1 | 通道声明里每一项的名字必须是 3.1 登记表里的通道名，名字不得重复；出层方（`core`、`oracle`）的通道声明还必须含七个固定通道各正好一项。 | 把 `channels[].name` 收成一列：每个名字要么是七个固定通道名之一，要么符合 3.1 的 `lightgroup:<名>` 写法；整列没有重复。`sides` 里的每份声明另外查：`color`、`depth`、`objectId`、`normal`、`motion`、`denoiseAlbedo`、`denoiseNormal` 各出现正好 1 次 | `PS1-missing-denoise-normal.json` |
-| PS2 | 出层方的通道声明里每个通道的 `components`、`colorSpace`、`sample`、`antialiased` 必须和通道登记表里同名的那一行逐项相同。 | `sides` 里每份声明的 `channels` 每一项：按 `name` 找 3.1 的行（`lightgroup:<名>` 都找最后一行），`components` 的项数、每项的 `name` 和 `type`、次序，以及另外三个字段，逐个比，必须全部相等。名字不在登记表里的项不归这一条，归 PS1 | `PS2-depth-antialiased.json` |
-| PS3 | 通道对拍的两个出层方的通道声明里，通道名的集合必须相同。 | `sides` 里 `core` 和 `oracle` 都出现时：两份 `table.channels` 的 `name` 各收成一个集合，一边有、另一边没有的名字必须是 0 个。次序不比。同名通道的字段相不相等不归这一条，归 PS2：两侧各自等于登记表，同名通道就相等 | `PS3-core-lacks-lightgroup.json` |
-| PS4 | 辅助层 `depth`、`objectId` 的 `id`、`normal`、`motion` 在每个像素上必须等于这个像素辅助样本的值，不得是多个样本的平均或别的合成。 | `pixels` 每一项：`out.depth` 必须等于 `aux.depth`，`out.id` 必须等于 `aux.id`；`out.normal`、`out.motion` 出现时必须和 `aux` 的同名数组逐个数相等。都没有容差 | `PS4-depth-id-averaged.json` |
+| PS1 | 通道声明里每一项的名字必须是 3.1 登记表里的通道名，名字不得重复；出层方（`core`、`oracle`）的通道声明还必须含七个固定通道各正好一项。 | 把 `channels[].name` 收成一列：每个名字要么是七个固定通道名之一，要么符合 3.1 的 `lightgroup:<名>` 写法；整列没有重复。`sides` 里的每份声明另外查：`color`、`depth`、`objectId`、`normal`、`motion`、`denoiseAlbedo`、`denoiseNormal` 各出现正好 1 次 | `PS1-missing-denoise-normal.json`、`PS1-unregistered-name.json`、`PS1-duplicate-name.json` |
+| PS2 | 出层方的通道声明里每个通道的 `components`、`colorSpace`、`sample`、`antialiased` 必须和通道登记表里同名的那一行逐项相同。 | `sides` 里每份声明的 `channels` 每一项：按 `name` 找 3.1 的行（`lightgroup:<名>` 都找最后一行），`components` 的项数、每项的 `name` 和 `type`、次序，以及另外三个字段，逐个比，必须全部相等。名字不在登记表里的项不归这一条，归 PS1 | `PS2-depth-antialiased.json`、`PS2-normal-components-reversed.json`、`PS2-albedo-colorspace-none.json` |
+| PS3 | 通道对拍的两个出层方的通道声明里，通道名的集合必须相同。 | `sides` 里 `core` 和 `oracle` 都出现时：两份 `table.channels` 的 `name` 各收成一个集合，一边有、另一边没有的名字必须是 0 个。次序不比。同名通道的字段相不相等不归这一条，归 PS2：两侧各自等于登记表，同名通道就相等 | `PS3-core-lacks-lightgroup.json`、`PS3-oracle-lacks-lightgroup.json` |
+| PS4 | 辅助层 `depth`、`objectId` 的 `id`、`normal`、`motion` 在每个像素上必须等于这个像素辅助样本的值，不得是多个样本的平均或别的合成。 | `pixels` 每一项：`out.depth` 必须等于 `aux.depth`，`out.id` 必须等于 `aux.id`；`out.normal`、`out.motion` 出现时，`aux` 必须有同名数组，并且两个数组逐个数相等；`aux` 没有同名数组算不相等。都没有容差 | `PS4-depth-id-averaged.json`、`PS4-normal-averaged.json`、`PS4-motion-aux-missing.json` |
 | PS5 | `objectId` 的 `coverage` 必须等于这个像素颜色层的样本里编号和辅助样本相同的样本数除以样本总数。 | `pixels` 每一项：数出 `samples` 里 `id` 等于 `aux.id` 的项数 k，`samples` 的项数 n；`out.coverage` 和 `k ÷ n` 的差的绝对值必须不大于 0.000001，按双精度的值比 | `PS5-coverage-is-one.json` |
 | PS6 | 通道核对记录里 `sides` 各项的 `producer` 不得重复，`pixels` 每一项的 `producer` 必须是 `sides` 里出现过的 `producer`。 | 把 `sides[].producer` 收成一列：整列没有重复；`pixels` 每一项的 `producer` 必须在这一列里 | `PS6-sides-producer-twice.json`、`PS6-pixel-producer-not-in-sides.json` |
 
@@ -292,3 +292,5 @@
 | 2026-11-19 | 第 1、2 节，3.2 的 `colorSpace`，5.2，第 6 节加一行。不变量、判定函数、结构定义、例子没动 | `color` 的数值含义和帧源接口契约对不上：本契约的场景线性定义写明只管场景参考镜头，显示参考镜头的 `color` 引用帧源接口契约，出层方不出显示参考镜头 |
 | 2026-11-19 | 第 6 节「位深的写法」一行的「等什么」。不变量、判定函数、结构定义、例子没动 | 帧源接口契约登记表里 three 的 `color`、`normal` 两格已经回填成已定，这一行还指着登记表里的待探针：改成指向帧源接口契约第 6 节里写依据和还没试的后端的那一行 |
 | 2026-11-19 | 5.1 的 δ，第 6 节一行 | 光栅化的帧源 δ 定成十六分之一像素：页面宿主三种后端的子像素位数都不少于 4 |
+| 2026-11-19 | PS4 的「怎么查」，3.3 `pixels[].out` 的 `normal`、`motion` 两行；反例加 `PS1-unregistered-name.json`、`PS1-duplicate-name.json`、`PS2-normal-components-reversed.json`、`PS2-albedo-colorspace-none.json`、`PS3-oracle-lacks-lightgroup.json`、`PS4-normal-averaged.json`、`PS4-motion-aux-missing.json`；结构定义 `passes-check.schema.json` 的 `description` 写明这一样归 PS4。判定函数、结构定义的字段没动 | PS4 一直在判「`out` 有 `normal`、`motion` 而 `aux` 没有」，「怎么查」没写、值域也没挂到哪一条上：写进 PS4。PS1 到 PS4 条文里的每一支各配一个反例，原先只有一支有 |
+| 2026-11-19 | 第 2 节「辅助样本」。不变量、判定函数、结构定义、例子没动 | 「辅助层四个通道」写死了个数，登记表加减 `sub0` 通道时会和 3.1 对不上：改成引用 3.1 里取法是 `sub0` 的通道 |

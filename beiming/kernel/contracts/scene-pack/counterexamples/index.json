@@ -84,6 +84,13 @@
     "why": "场景包清单说实例表有 3 行，解出来的 tables.instances 只有 2 行"
   },
   {
+    "file": "SP8-observed-rows-extra.json",
+    "violates": [
+      "SP8"
+    ],
+    "why": "场景包清单说实例表有 3 行，解出来的 tables.instances 有 4 行，多出来的一行编号沿用 3"
+  },
+  {
     "file": "SP9-material-index-out-of-range.json",
     "violates": [
       "SP9"

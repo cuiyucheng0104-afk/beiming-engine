@@ -14,6 +14,13 @@
     "why": "颜色层交的是编码后的数值，不是线性编码"
   },
   {
+    "file": "F2-color-ref-differs.json",
+    "violates": [
+      "F2"
+    ],
+    "why": "颜色层是线性编码，元数据里的 colorRef 写成 display，镜头声明的是 scene"
+  },
+  {
     "file": "F3-silent-downgrade.json",
     "violates": [
       "F3"
@@ -98,11 +105,32 @@
     "why": "Blender 帧源把合规档写成了 limited"
   },
   {
+    "file": "F10-legacy-declares-full.json",
+    "violates": [
+      "F10"
+    ],
+    "why": "legacy-page 帧源把合规档写成了 full"
+  },
+  {
     "file": "F11-entity-id-changes.json",
     "violates": [
       "F11"
     ],
     "why": "kit.fan_L 在实体清单里是 17 号，到第 151 帧的元数据里变成了 18 号"
+  },
+  {
+    "file": "F11-duplicate-id.json",
+    "violates": [
+      "F11"
+    ],
+    "why": "实体清单里 kit.fan_L 和 fx.sparks 都是 17 号；元数据和清单逐项对得上"
+  },
+  {
+    "file": "F11-duplicate-name.json",
+    "violates": [
+      "F11"
+    ],
+    "why": "实体清单里有两项都叫 kit.fan_L（17 号和 18 号）"
   },
   {
     "file": "F12-meta-shutter-differs.json",
@@ -398,5 +426,12 @@
       "F27"
     ],
     "why": "层文件比 shape 算出来的少 4 个字节，少了一个数；哈希照样对得上，F17 看不出来"
+  },
+  {
+    "file": "F28-ext-declares-meta.json",
+    "violates": [
+      "F28"
+    ],
+    "why": "私有外部插件的能力声明把 outputs.meta 写成 true，声明自己交每帧元数据"
   }
 ]

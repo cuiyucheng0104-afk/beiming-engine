@@ -24,7 +24,7 @@
       "shape": "create",
       "hosts": [
         {
-          "host": "blender-cli",
+          "host": "cycles",
           "version": "4.5.0"
         }
       ],
@@ -141,7 +141,7 @@
   "status": [
     {
       "level": "measured",
-      "host": "blender-cli",
+      "host": "cycles",
       "source": "4.5.0",
       "gpu": "rtx-5090",
       "parityReport": "sha256:3b1f0c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c",
@@ -149,7 +149,7 @@
     },
     {
       "level": "reproduced",
-      "host": "blender-cli",
+      "host": "cycles",
       "source": "4.5.0",
       "gpu": "rtx-5090",
       "date": "2026-11-18"
@@ -161,7 +161,7 @@
   ],
   "cost": [
     {
-      "host": "blender-cli",
+      "host": "cycles",
       "msPerFrame": 3.5
     }
   ]

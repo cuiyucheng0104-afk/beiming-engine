@@ -17,7 +17,8 @@ export const checks = {
     return q.basePredicates.flatMap((a, i) => {
       const name = predicateName(a);
       return [
-        ...(a.includes(' ; ') ? [`basePredicates 第 ${i + 1} 项用 " ; " 连了不止一条断言`] : []),
+        // PR 契约 5.5：模板条目以外不得出现 `;`，有没有空格都一样，双引号括起来的文字里的不算
+        ...(a.replace(/"[^"]*"/g, '').includes(';') ? [`basePredicates 第 ${i + 1} 项在双引号外带了 ";"，一项只能写一条断言`] : []),
         ...(known.has(name) ? [] : [`basePredicates 第 ${i + 1} 条的谓词名 ${JSON.stringify(name)} 没有在谓词登记表里登记`]),
       ];
     });

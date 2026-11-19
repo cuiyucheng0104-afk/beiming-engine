@@ -47,12 +47,24 @@
       "meaning": "写入带的修订号和服务器当前的修订号不同"
     },
     {
+      "code": "contract.bad-path",
+      "meaning": "写入路径不合片子描述契约 5.4"
+    },
+    {
       "code": "contract.immutable-key",
       "meaning": "改了创建之后不得改的键"
     },
     {
+      "code": "contract.order-cycle",
+      "meaning": "卡的先后要求排不出次序：成环，或提到了镜头里没有的卡"
+    },
+    {
       "code": "contract.output-conflict",
       "meaning": "开着原生运动模糊时要了和它冲突的输出"
+    },
+    {
+      "code": "contract.patch-not-applicable",
+      "meaning": "补丁里有一个操作不可作用"
     },
     {
       "code": "contract.runtime-shadows-param",

@@ -5,12 +5,35 @@
 const GLOBAL_CARDS = { 'style.view': 'comp.display', 'style.finish': 'comp.finish', delivery: 'deliver.encode', audio: 'audio.master' };
 const LAYER_ORDER = ['card-default', 'template', 'film', 'job'];
 const ID_ARRAYS = ['shots', 'transitions', 'events', 'overlays'];
-// 5.4：这些数组不能寻址到项，路径止于数组本身
-const TERMINAL_ARRAYS = [
-  /^shots\/[^/]+\/roles\/mustSee$/, /^shots\/[^/]+\/deliberate$/, /^overlays\/[^/]+\/pos$/, /^predicates\/(base|extra)$/,
-  /^style\/colorScript\/[^/]+\/key$/, /^delivery\/layers$/, /^output\/size$/,
-];
-const TOP_FIELDS = ['format', 'id', 'title', 'exam', 'output', 'timeline', 'assets', 'shots', 'transitions', 'events', 'overlays', 'style', 'audio', 'predicates', 'delivery'];
+// 5.4 每一段能写什么：键是契约定义的键，'*' 是按 id、实例名或自由键寻址的一段；null 是叶子（含不能寻址到项的数组），往下不能再有段；ANY 是自由键的值，往下不判
+const ANY = true;
+const free = (below) => ({ '*': below });
+const leaves = (...keys) => Object.fromEntries(keys.map((k) => [k, null]));
+const TIER = leaves('samples', 'scale');
+const PATH_TREE = {
+  ...leaves('format', 'id', 'seed', 'title', 'exam'),
+  output: leaves('size', 'fps', 'frames'),
+  timeline: leaves('bpm', 'beatFrames'),
+  assets: free(null),
+  shots: free({
+    ...leaves('id', 'in', 'out', 'source', 'host', 'mode', 'entry', 'colorRef', 'seed', 'deliberate'),
+    assets: free(null),
+    cards: free({ ...leaves('as', 'use'), params: free(ANY) }),
+    params: free(ANY),
+    roles: leaves('hero', 'mustSee'),
+    shutter: leaves('angleDeg', 'samples'),
+    tiers: { draft: TIER, final: TIER },
+    handles: leaves('head', 'tail'),
+    renderer: leaves('source', 'host', 'mode', 'entry'),
+  }),
+  transitions: free(leaves('id', 'at', 'type')),
+  events: free(leaves('id', 'frame', 'shot', 'audio', 'sync')),
+  overlays: free(leaves('id', 'shot', 'anchor', 'pos', 'text', 'in', 'out')),
+  style: { tokens: free(null), view: leaves('scene', 'display', 'card'), colorScript: free(leaves('key', 'tol')), finish: leaves('grain', 'vignette', 'card') },
+  audio: { ...leaves('mode', 'loudness', 'truePeak', 'card'), narration: free(leaves('id', 'at', 'asset')) },
+  predicates: leaves('base', 'extra'),
+  delivery: leaves('master', 'web', 'contact', 'layers', 'card'),
+};
 const EXPR = /^(?:cut\((0|[1-9]\d*)\)|event\(([a-z][a-z0-9-]*)\))(?: ([+-]) ([1-9]\d*))?$/;
 
 const filmOf = (obj) => (obj?.format === 'film/3.0' ? obj : obj?.format === 'film-check/0.1' ? obj.film : null);
@@ -69,7 +92,14 @@ function pathProblems(film, path) {
   const seg = path.split('/');
   if (path.includes('#')) return ['含 #'];
   if (seg.some((s) => s === '')) return ['以 / 开头或结尾，或有空段'];
-  if (!TOP_FIELDS.includes(seg[0])) return [`第一段 ${seg[0]} 不是片子描述的字段`];
+  let node = PATH_TREE;
+  for (let n = 0; n < seg.length && node !== ANY; n++) {
+    const at = seg.slice(0, n).join('/') || '根';
+    if (node === null) return [`${at} 不能再往下寻址`];
+    const next = Object.hasOwn(node, seg[n]) ? node[seg[n]] : Object.hasOwn(node, '*') ? node['*'] : undefined;
+    if (next === undefined) return [`${at} 下面没有 ${seg[n]} 这个键`];
+    node = next;
+  }
   const out = [];
   const arrays = [...ID_ARRAYS.map((a) => [a, 1, film[a]]), ['audio', 2, film.audio?.narration]];
   for (const [name, at, items] of arrays) {
@@ -80,9 +110,6 @@ function pathProblems(film, path) {
     const shot = shotOf(film, seg[1]);
     if (shot && !(shot.cards ?? []).some((c) => c.as === seg[3])) out.push(`镜头 ${seg[1]} 的 cards 里没有实例名 ${seg[3]}`);
   }
-  for (const re of TERMINAL_ARRAYS) {
-    for (let n = 1; n < seg.length; n++) if (re.test(seg.slice(0, n).join('/'))) out.push(`${seg.slice(0, n).join('/')} 不能寻址到项`);
-  }
   return out;
 }
 
@@ -91,7 +118,7 @@ function sameValue(a, b) {
   if (Array.isArray(a) || Array.isArray(b)) return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => sameValue(v, b[i]));
   if (a && b && typeof a === 'object' && typeof b === 'object') {
     const ka = Object.keys(a);
-    return ka.length === Object.keys(b).length && ka.every((k) => k in b && sameValue(a[k], b[k]));
+    return ka.length === Object.keys(b).length && ka.every((k) => Object.hasOwn(b, k) && sameValue(a[k], b[k]));
   }
   return a === b;
 }
@@ -241,7 +268,6 @@ const filmChecks = {
         ...overlayIds.filter((id) => as.includes(id)).map((id) => `贴在镜头 ${s.id} 上的叠加层 ${id} 和这个镜头 cards 里的实例名相同`),
       ];
     }),
-    ...(film.overlays ?? []).filter((o) => o.id.includes('-')).map((o) => `叠加层 ${o.id} 的 id 带连字符`),
   ],
 
   D19: (film) => film.shots.flatMap((s) => (s.deliberate ?? [])
@@ -275,9 +301,10 @@ const recordChecks = {
     ];
   },
 
+  // 写入的路径是测试工具发出去的，判的是服务器收不收：路径不合法而被拒绝的写入不算违反
   D5: (rec) => [
     ...(rec.paths ?? []).map((p) => [`${p.use} 的路径`, p.path]),
-    ...(rec.writes ?? []).map((w) => ['写入的路径', w.path]),
+    ...(rec.writes ?? []).filter((w) => w.outcome !== 'rejected').map((w) => ['生效了的写入的路径', w.path]),
     ...(rec.explains ?? []).map((e) => ['explain 的路径', e.path]),
   ].flatMap(([what, path]) => pathProblems(rec.film, path).map((p) => `${what} ${path}：${p}`)),
 
@@ -294,10 +321,8 @@ const recordChecks = {
   D15: (rec) => mustReject(rec.writes, (w) => w.path === 'id' || w.path === 'exam', 'contract.immutable-key'),
 };
 
-const isExplain = (obj) => obj?.format === undefined && Array.isArray(obj?.layers) && obj?.affects !== undefined;
-
 export const checks = {
   ...Object.fromEntries(Object.entries(filmChecks).map(([id, fn]) => [id, onFilm(fn)])),
   ...Object.fromEntries(Object.entries(recordChecks).map(([id, fn]) => [id, onRecord(fn)])),
-  D9: (obj) => (isExplain(obj) ? explainProblems(obj) : onRecord(recordChecks.D9)(obj)),
+  D9: (obj, { schema }) => (schema === 'explain.schema.json' ? explainProblems(obj) : onRecord(recordChecks.D9)(obj)),
 };

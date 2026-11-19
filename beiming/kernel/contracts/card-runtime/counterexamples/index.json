@@ -84,6 +84,13 @@
     "why": "还没接 tracks 就先 create 了卡"
   },
   {
+    "file": "CR8-failed-steps-not-prefix.json",
+    "violates": [
+      "CR8"
+    ],
+    "why": "构建失败时记下的搭建次序是载入资产、逐张 create，跳过了接 tracks，不是四步的开头一段"
+  },
+  {
     "file": "CR9-declared-order-ignored.json",
     "violates": [
       "CR9"
@@ -110,6 +117,13 @@
       "CR9"
     ],
     "why": "orderPairs 提到了 cards 里没有的 glow，排不出次序，构建却判成了通过"
+  },
+  {
+    "file": "CR9-failed-created-not-prefix.json",
+    "violates": [
+      "CR9"
+    ],
+    "why": "没声明先后，构建失败前只 create 了书写在后的 particles，不是书写顺序 hdr、particles 的开头一段"
   },
   {
     "file": "CR10-card-apply-before-tracks.json",
@@ -203,6 +217,20 @@
     "why": "叠加层 caption 没有出现在 createOrder 里"
   },
   {
+    "file": "CR15-failed-overlay-before-remaining-card.json",
+    "violates": [
+      "CR15"
+    ],
+    "why": "构建失败前装了叠加层 caption，镜头自己的卡 particles 却还没装"
+  },
+  {
+    "file": "CR15-failed-overlays-skip-first.json",
+    "violates": [
+      "CR15"
+    ],
+    "why": "构建失败前装了叠加层 logo，书写在它前面的 caption 却没装，已装的叠加层不是 overlays 的开头一段"
+  },
+  {
     "file": "CR16-overlay-name-same-as-card.json",
     "violates": [
       "CR16"
@@ -210,10 +238,24 @@
     "why": "叠加层的 id 是 caption，镜头自己的卡里也有一个实例叫 caption"
   },
   {
+    "file": "CR16-overlay-clash-and-out-of-order.json",
+    "violates": [
+      "CR16"
+    ],
+    "why": "叠加层 caption 和卡重名，另一个叠加层 logo 又装在了卡前面；重名时次序归 CR16，CR15 不判"
+  },
+  {
     "file": "CR17-root-not-in-entities.json",
     "violates": [
       "CR17"
     ],
     "why": "handle.roots 里的 rig 不是 handle.entities 里的名字"
+  },
+  {
+    "file": "CR18-error-not-registered.json",
+    "violates": [
+      "CR18"
+    ],
+    "why": "先后要求成环、正确判了构建失败，报的错误码 contract.made-up-code 却没有登记在错误码表里（这个码是专为反例编的，不会被登记）"
   }
 ]

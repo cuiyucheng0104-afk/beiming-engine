@@ -4,7 +4,7 @@
 
 const META_KEYS = new Set(['texts', 'anchors', 'readings']);
 
-const onFormat = (format, fn) => (obj) => (obj?.format === format ? fn(obj) : []);
+const onFormat = (format, fn) => (obj, ctx) => (obj?.format === format ? fn(obj, ctx) : []);
 const card = (fn) => onFormat('card-check/0.1', fn);
 const load = (fn) => onFormat('load-check/0.1', fn);
 
@@ -61,6 +61,11 @@ const pureGate = (shape, what) => card((rec) => (rec.shape === shape
   ? mixedDigests(rec.evaluations).map((k) => `卡 ${rec.card} 的 ${what} 同一个时刻求出了不同的摘要：${k}`)
   : []));
 
+/** a 是不是 b 的开头一段（5.6） */
+const isPrefix = (a, b) => a.length <= b.length && a.every((x, i) => x === b[i]);
+
+const STEPS = ['assets', 'tracks', 'create', 'collect'];
+
 const raw = {
   CR1: card((rec) => (rec.entries.length === 1 && rec.entries[0] === rec.shape
     ? [] : [`卡 ${rec.card} 的 entries 是 ${JSON.stringify(rec.entries)}，必须正好是 ["${rec.shape}"]`])),
@@ -97,8 +102,9 @@ const raw = {
 
   CR7: pureGate('evaluate', 'evaluate'),
 
-  CR8: ordered((rec) => (JSON.stringify(rec.steps) === '["assets","tracks","create","collect"]'
-    ? [] : [`镜头 ${rec.shot} 的搭建次序是 ${rec.steps.join('、')}`])),
+  // 构建失败时只做到失败的那一步：steps 是四步的开头一段（5.6）
+  CR8: ordered((rec) => ((rec.build === 'failed' ? isPrefix(rec.steps, STEPS) : JSON.stringify(rec.steps) === JSON.stringify(STEPS))
+    ? [] : [`镜头 ${rec.shot} 的搭建次序是 ${rec.steps.join('、')}，build 是 ${rec.build}`])),
 
   CR9: load((rec) => {
     const want = declaredOrder(rec.cards, rec.orderPairs ?? []);
@@ -106,7 +112,9 @@ const raw = {
     if (clashes(rec).length) return []; // 重名归 CR16
     const overlays = new Set(rec.overlays ?? []);
     const got = rec.createOrder.filter((n) => !overlays.has(n));
-    return JSON.stringify(got) === JSON.stringify(want) ? [] : [`镜头 ${rec.shot} 的 create 次序是 ${got.join('、')}，按 5.2 应是 ${want.join('、')}`];
+    // 构建失败时只比已经 create 过的那几个：是排法结果的开头一段（5.6）
+    const ok = rec.build === 'failed' ? isPrefix(got, want) : JSON.stringify(got) === JSON.stringify(want);
+    return ok ? [] : [`镜头 ${rec.shot} 的 create 次序是 ${got.join('、')}，按 5.2 应是 ${want.join('、')}${rec.build === 'failed' ? ' 的开头一段' : ''}`];
   }),
 
   CR10: ordered((rec) => increasing(rec, rec.applyOrder, 'tracks', 'applyOrder')),
@@ -137,16 +145,20 @@ const raw = {
   CR15: ordered((rec) => {
     const overlays = rec.overlays ?? [];
     if (!overlays.length || clashes(rec).length) return []; // 重名归 CR16
+    const failed = rec.build === 'failed';
     const cards = new Set(rec.cards);
     const lastCard = rec.createOrder.reduce((m, n, i) => (cards.has(n) ? i : m), -1);
     const out = [];
     for (const o of overlays) {
       const i = rec.createOrder.indexOf(o);
-      if (i < 0) out.push(`镜头 ${rec.shot} 的叠加层 ${o} 不在 createOrder 里`);
+      if (i < 0) { if (!failed) out.push(`镜头 ${rec.shot} 的叠加层 ${o} 不在 createOrder 里`); }
       else if (i < lastCard) out.push(`镜头 ${rec.shot} 的叠加层 ${o} 装在了镜头自己的卡前面`);
     }
     const got = rec.createOrder.filter((n) => overlays.includes(n));
-    const want = overlays.filter((o) => rec.createOrder.includes(o));
+    // 构建失败时：装了叠加层，镜头自己的卡必须已经全装；已装的叠加层是 overlays 的开头一段（5.6）
+    const notYet = rec.cards.filter((c) => !rec.createOrder.includes(c));
+    if (failed && got.length && notYet.length) out.push(`镜头 ${rec.shot} 装了叠加层 ${got[0]}，镜头自己的卡 ${notYet.join('、')} 还没装`);
+    const want = failed ? overlays.slice(0, got.length) : overlays.filter((o) => rec.createOrder.includes(o));
     if (JSON.stringify(got) !== JSON.stringify(want)) out.push(`镜头 ${rec.shot} 的叠加层 create 次序是 ${got.join('、')}，必须是 ${want.join('、')}`);
     return out;
   }),
@@ -157,6 +169,10 @@ const raw = {
     const ents = new Set(rec.handle?.entities ?? []);
     return (rec.handle?.roots ?? []).filter((r) => !ents.has(r)).map((r) => `卡 ${rec.card} 的 handle.roots 里的 ${r} 不在 handle.entities 里`);
   }),
+
+  // 登记表在第二个参数的 registries.errors 里
+  CR18: load((rec, { registries }) => (rec.error === undefined || registries.errors.codes.some((c) => c.code === rec.error)
+    ? [] : [`镜头 ${rec.shot} 报的错误码 ${rec.error} 没有登记在错误码表里`])),
 };
 
 export const checks = raw;

@@ -47,7 +47,7 @@
 | 颜色层 | 名叫 `color` 的输出。 |
 | 层文件 | 装一个像素输出的文件，一个通道一个文件，格式见 3.3。 |
 | 层引用 | `FrameResult.layers` 里的一个值：指向一个层文件，带它的形状、分量和哈希，见 3.3。 |
-| 运动矢量层 | 名叫 `motion` 的输出，四个辅助层之一。 |
+| 运动矢量层 | 名叫 `motion` 的输出，辅助层之一。 |
 | 声明过的输出 | 能力声明的 `outputs` 里出现并且取值不是 `false` 的输出；`lightgroup:<名>` 看 `lightgroup:*` 这个键，见 3.4。 |
 | 静默降级 | 要的东西交不出，却不报错，少交或换一种交。 |
 | 原生运动模糊 | 由渲染器自己在一次渲染里算出的运动模糊，不是逐子帧累积。 |
@@ -205,7 +205,7 @@
 | 键 | 类型 | 值域 | 说明 |
 |---|---|---|---|
 | `color` | 对象 | `{ type, transfer, primaries, note? }` | 颜色层。`transfer` 必须是 `linear`，`primaries` 必须是 `rec709`：数值是线性编码，原色是 Rec.709 |
-| `meta` | 布尔 | `true`；私有外部插件可以是 `false` | 交不交每帧元数据 |
+| `meta` | 布尔 | `true`；帧源名是 `ext.<名字>` 时必须是 `false`（F28） | 交不交每帧元数据 |
 | `depth`、`objectId`、`normal`、`motion` | `false` 或对象 | `false`，或 `{ type, note? }` | `false` 表示交不出 |
 | PS 3.1 里别的固定通道名 | `false` 或对象 | `false`，或 `{ type, note? }` | 可以不出现；不出现和 `false` 一样，表示交不出 |
 | `lightgroup:*` | `false` 或对象 | `false`，或 `{ type, note? }` | 可以不出现；不出现和 `false` 一样。取值不是 `false` 表示任何一个 `lightgroup:<名>` 都交得出。具体的 `lightgroup:<名>` 不得作键 |
@@ -217,7 +217,7 @@
 | 字段 | 类型 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|
 | `mode` | 字符串 | 是 | `native`、`accumulate` | 原生运动模糊，还是逐子帧累积 |
-| `auxAt` | 字符串 | 是 | `sub0` | 四个辅助层（`depth`、`objectId`、`normal`、`motion`）取哪个样本。只有一种：时刻是这一帧的 `sub = 0`，镜头孔径按 0（针孔），快门按 0，像素内的位置取像素中心，只取这一个样本；定义见时间键契约（T）的 T8 |
+| `auxAt` | 字符串 | 是 | `sub0` | 辅助层（输出通道契约（PS）3.1 登记表里取法是 `sub0` 的通道）取哪个样本。只有一种：时刻是这一帧的 `sub = 0`，镜头孔径按 0（针孔），快门按 0，像素内的位置取像素中心，只取这一个样本；定义见时间键契约（T）的 T8 |
 | `samples` | 整数 | `mode` 是 `accumulate` 时必填，否则可以不出现 | ≥ 1，单位是次 | 默认的子帧采样数：这次调用和镜头条目都没写、生效的快门角又不是 0 时用它，见 5.9 |
 | `conflicts` | 数组 | 否 | `OutputName`，不重复 | 开着原生运动模糊时不能同时要的输出 |
 
@@ -510,7 +510,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
 | F1 | 能力声明的 `outputs.meta` 是 `true` 时，成功的 `render` 必须交回元数据；`want` 里有 `color` 时，`layers` 的键必须正好是 `want` 里声明过的像素输出，不得多交；`want` 里没有 `color` 时 `layers` 必须是空的。 | `renders` 里 `status` 是 `ok` 的每一项：`caps.outputs.meta` 是 `true` 时 `meta` 必须是 `true`；`want` 含 `color` 时，`layers` 作为集合必须等于 `want` 去掉 `meta` 之后里面声明过的输出；不含 `color` 时 `layers` 必须是空数组 | `F1-color-not-delivered.json` |
-| F2 | 颜色层的数值必须是线性编码，元数据里的 `colorRef` 必须等于镜头声明的 `colorRef`。 | `renders` 每一项：`colorTransfer` 出现时必须是 `linear`；`colorRef` 出现时必须等于 `shotColorRef` | `F2-color-encoded.json` |
+| F2 | 颜色层的数值必须是线性编码，元数据里的 `colorRef` 必须等于镜头声明的 `colorRef`。 | `renders` 每一项：`colorTransfer` 出现时必须是 `linear`；`colorRef` 出现时必须等于 `shotColorRef` | `F2-color-encoded.json`、`F2-color-ref-differs.json` |
 | F3 | `want` 里有没声明过的输出时，`render` 必须报错，错误码必须是 `contract.unsupported-output`，不得静默降级。 | `renders` 里 `want` 含有没声明过的输出（定义见第 2 节：`caps.outputs` 里不出现，或取值是 `false`）的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-output` | `F3-silent-downgrade.json`、`F3-undeclared-key-absent.json` |
 | F4 | 任意一帧必须能单独渲，哈希档的帧源同一帧不论单独渲、乱序渲、顺序渲还是重复渲，结果必须逐位相同。 | 帧源名是 `ext.<名字>` 时整条不查。能力声明（单独的，或记录里的 `caps`）：`randomAccess` 必须是 `true`。记录里 `caps.determinism` 是 `hash-same-machine` 时，`orderRuns` 里 `shotFrame` 相同的各项 `digest` 必须逐位相同。容差档怎么比见 5.4 | `F4-order-dependent.json`、`F4-caps-not-random-access.json` |
 | F5 | 开着原生运动模糊时要了 `motionBlur.conflicts` 里列的声明过的输出，`render` 必须报错，错误码必须是 `contract.output-conflict`，不得出帧。 | `caps.motionBlur.mode` 是 `native` 时，`renders` 里 `shutterAngleDeg` 大于 0、`want` 里的输出都声明过、并且 `want` 和 `caps.motionBlur.conflicts` 有交集的每一项：`status` 必须是 `error`，`code` 必须是 `contract.output-conflict`。`want` 里有没声明过的输出的项归 F3 判 | `F5-motion-with-native-blur.json` |
@@ -518,8 +518,8 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | F7 | 已撤。原句是对用层一方的要求，帧源核对记录判不了，挪到 5.12 | | |
 | F8 | `query` 问了能力声明的 `sceneQuery` 里没列的种类时必须报错，错误码必须是 `contract.unsupported-query`，不得给结果。 | `queries` 里 `kind` 不在 `caps.sceneQuery` 里的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-query` | `F8-undeclared-query-answered.json` |
 | F9 | `QueryResult.items` 不得超过 50 项，超过时必须只交回最严重的 50 项，并且在 `truncated` 里写被截掉的项数。 | `queries` 里 `status` 是 `ok` 的每一项：`returned` 必须等于 `total` 和 50 里小的那个；`total` 大于 50 时 `truncated` 必须等于 `total − 50`，否则 `truncated` 不得出现。留下的是不是最严重的 50 项现在不判，见 5.7 | `F9-query-not-truncated.json`、`F9-returned-too-few.json`、`F9-truncated-wrong-count.json`、`F9-truncated-without-cut.json` |
-| F10 | `blender`、`three`、`core` 的合规档必须是 `full`，`legacy-page` 和 `ext.<名字>` 的合规档必须是 `limited`。 | 能力声明（单独的，或记录里的 `caps`）：`id` 是前三个之一时 `conformance` 必须是 `full`，否则必须是 `limited` | `F10-blender-declares-limited.json` |
-| F11 | 实体清单里的编号和名字都不得重复，每帧元数据里列出的每个实体的编号、名字、类别必须和实体清单里的同一项逐项相同。 | `manifest.entities` 的 `id` 没有重复、`name` 没有重复；`metaEntities` 每一项的每个实体，在 `manifest.entities` 里必须有一项 `id`、`name`、`class` 三样都相同 | `F11-entity-id-changes.json` |
+| F10 | `blender`、`three`、`core` 的合规档必须是 `full`，`legacy-page` 和 `ext.<名字>` 的合规档必须是 `limited`。 | 能力声明（单独的，或记录里的 `caps`）：`id` 是前三个之一时 `conformance` 必须是 `full`，否则必须是 `limited` | `F10-blender-declares-limited.json`、`F10-legacy-declares-full.json` |
+| F11 | 实体清单里的编号和名字都不得重复，每帧元数据里列出的每个实体的编号、名字、类别必须和实体清单里的同一项逐项相同。 | `manifest.entities` 的 `id` 没有重复、`name` 没有重复；`metaEntities` 每一项的每个实体，在 `manifest.entities` 里必须有一项 `id`、`name`、`class` 三样都相同 | `F11-entity-id-changes.json`、`F11-duplicate-id.json`、`F11-duplicate-name.json` |
 | F12 | 元数据的 `camera.shutterAngleDeg` 必须等于这次 `render` 生效的快门角。 | `renders` 里 `metaShutterAngleDeg` 出现的每一项：它必须等于 `shutterAngleDeg`，没有容差 | `F12-meta-shutter-differs.json` |
 | F13 | 生效的快门角是 0 而生效的子帧采样数大于 1 时，`render` 必须报错，错误码必须是 `contract.shutter-conflict`。 | `renders` 里 `shutterAngleDeg` 等于 0、`shutterSamples` 大于 1、并且 `want` 里的输出都声明过的每一项：`status` 必须是 `error`，`code` 必须是 `contract.shutter-conflict`。`want` 里有没声明过的输出的项归 F3 判 | `F13-zero-angle-multi-sample.json` |
 | F14 | `env.lock` 是 `null` 时，镜头条目没写 `seed`、或者镜头用了卡（叠加层展开出的卡也算）或资产，`open` 必须报错，错误码必须是 `env.lock-required`。 | `opens` 里 `hasLock` 是 `false`、`host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里，并且 `hasSeed` 是 `false`、或 `usesCards` 是 `true`、或 `usesAssets` 是 `true` 的每一项：`status` 必须是 `error`，`code` 必须是 `env.lock-required`。`host` 或 `mode` 不在能力声明里的项归 F16 判 | `F14-no-seed-opened.json`、`F14-cards-opened.json`、`F14-assets-opened.json`、`F14-borrowed-mode-code.json`、`F14-overlays-only-input-code.json` |
@@ -536,6 +536,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | F25 | 镜头出帧用的 `host` 在能力声明的 `hosts` 里、出帧用的 `mode` 在 `modes` 里时，`open` 必须成功；F14、F26 管的情形除外。 | `opens` 里 `host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里、不满足 F14 的条件（`hasLock` 是 `true`，或者 `hasSeed` 是 `true` 并且 `usesCards`、`usesAssets` 都是 `false`）、并且 `unfitInput` 不出现或是空数组的每一项：`status` 必须是 `ok` | `F25-declared-mode-open-fails.json` |
 | F26 | 镜头输入里有帧源装不了的卡、资产或叠加层时，`open` 必须报错，错误码必须是 `contract.unsupported-input`，不得少装一样照常装载。 | `opens` 里 `unfitInput` 不空、`host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里、并且不满足 F14 的条件的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-input`。`host` 或 `mode` 不在能力声明里的项归 F16 判，满足 F14 条件的项归 F14 判 | `F26-overlays-ignored.json`、`F26-borrowed-argument-code.json` |
 | F27 | 层文件的字节数必须等于层引用的 `shape` 各项之积乘以 4。 | `renders` 里 `layerRefs` 的每一项：`fileBytes` 必须等于 `shape` 三个数之积乘以 4（3.3 的层文件格式） | `F27-file-shorter-than-shape.json` |
+| F28 | 帧源名是 `ext.<名字>` 的能力声明，`outputs.meta` 必须是 `false`。 | 能力声明（单独的，或记录里的 `caps`）：`id` 以 `ext.` 开头时，`outputs.meta` 必须是 `false` | `F28-ext-declares-meta.json` |
 
 ## 5. 口径
 
@@ -574,8 +575,8 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 
 - `single`：新开一个会话，只渲这一帧。`shuffled`：把一批帧打乱次序渲。`sequential`：按帧号从小到大渲。`repeat`：同一个会话里把这一帧再渲一遍。
 - `digest` 是颜色层文件内容的 SHA-256，层文件的格式见 3.3；只要元数据时，是去掉 `timing` 之后的元数据的 SHA-256。写法照通用口径：`sha256:` 加 64 位小写十六进制。元数据怎么序列化由做一致性测试的工具定，同一份记录里必须用同一种。
-- 哈希档：同一帧的 `digest` 作为字符串完全相等，没有容差。`three` 帧源是哈希档：颜色层两遍逐位相同（探针数据表第 11 行和「5090 读数」一节，两台机器）。
-- 辅助层：不论哪一档，同一帧渲两遍的辅助层必须逐位相同（探针数据表「5090 读数」一节，5090；探针量过的是深度、编号、位置三层，`normal`、`motion` 没量）。
+- 哈希档：同一帧的 `digest` 作为字符串完全相等，没有容差。哪个帧源是哪一档、出处是什么，以 3.4 登记表的 `determinism` 一行为准，本节不另列。
+- 辅助层：不论哪一档，同一帧渲两遍的辅助层必须逐位相同（探针数据表「5090 读数」一节，5090；探针量过的辅助层是深度、编号两层，`normal`、`motion` 没量；同时量过的位置层不是输出通道契约（PS）的通道，也逐位相同）。
 - 容差档的颜色层：`blender` 帧源用 CPU 渲时，同一帧渲两遍的颜色层必须逐位相同；用显卡渲时，两遍的颜色层逐通道比相对差，相对差 = |a − b| ÷ max(|a|, 1e-12)，不得超过 1e-5（比值，没有单位）。出处：探针数据表第 11 行和「5090 读数」一节，Mac 的 CPU、5090 的 CPU 和显卡；这个数的适用范围见第 6 节。
 - 容差档另比两样，峰值信噪比，和 8 位下差 5 级以上的像素占比。门槛是 `待探针：容差档两次渲染的峰值信噪比下限` 和 `待探针：容差档 8 位下差 5 级以上的像素占比上限`。门槛定下来之前不比这两样，核对记录不收这两个量。
 - 核对记录里没有辅助层的哈希、没有两遍的相对差、也没有这次用的是 CPU 还是显卡，所以辅助层和容差档的这几句现在是对帧源的要求，不由 F4 判：F4 对容差档只查 `randomAccess`。
@@ -685,6 +686,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | `metaNull` | 【起草者补】每帧元数据契约的 M4 要求「交不出的字段在能力声明里说明」，加这个字段来放 | 集成负责人确认 |
 | `granularity` 的值域 | 只有 `frame`；整段出片的私有外部插件写什么不定 | 集成负责人确认 |
 | `draft.kind`、`draft.denoise`、`solvers` 的值域 | 只收现在三个帧源用到的词；`denoise` 不限词 | 新帧源或新求法登记时加 |
+| 能力声明的 `outputs.meta` 是 `false` 时，成功的 `render` 交回了元数据 | 不定：F1 只管 `outputs.meta` 是 `true` 的一半，交回了算不算违约没有条文；3.5 只说 `ext.<名字>` 不交 `meta/0.1` | 集成负责人定要不要在 F1 加「不得交回」一支 |
 | `want` 里没有 `color`、却有别的像素输出 | 照「只要元数据」写：只交元数据。这和 F3 的「不得静默降级」有张力 | 集成负责人定：照现在这样，还是判成非法请求 |
 | 一次 `render` 同时踩中 F3 和 F5（或 F13） | 【起草者补】`want` 里有没声明过的输出时只判 F3，错误码是 `contract.unsupported-output`；F5、F13 只管 `want` 全都声明过的调用。不这样写，同一次调用会被要求报两个不同的码 | 集成负责人确认 |
 | F6 的时限是多少、谁给 | 【起草者补】调用方给，记录里带 `limitMs`；数值不定 | 集成负责人确认 |
@@ -746,3 +748,5 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | 2026-11-19 | 第 6 节「`f32` 的依据」一行 | Vulkan 和软件渲染两种后端也量过了，读数记进了探针数据表，改成已定 |
 | 2026-11-19 | 5.11 开头一段 | 本机出帧改成先生成本机锁再带着它 `open`，`null` 只留给完全没有锁的情形；F14 的条文和判法没动 |
 | 2026-11-19 | 3.2 加 `tokens`；3.4 登记表 `three` 的 `motionBlur.samples` 定成 8；3.8 `renders[].shutterAngleDeg` 改必填、`layerRefs[]` 加 `fileBytes`；新立 F27；5.3「编号与元数据」一行定比法和过线；第 6 节改三行 | 几项待定定下来：画风令牌进镜头输入；three 默认 8 个子帧；快门角在两份核对记录里同义、不靠缺省；层文件字节数有人判；交并比单独渲时不低于 0.95 |
+| 2026-11-19 | F2、F10、F11 各补反例；5.4 拿掉和 3.4 登记表重复的「`three` 是哈希档」一句；第 6 节加「`outputs.meta` 是 `false` 时交回了元数据」一行。条文和判定函数没动 | F2 的后半、F10 的 `limited` 一支、F11 的编号重复和名字重复原来没有单独的反例；同一件事存两处，改一处容易漏另一处；F1 没管 `outputs.meta` 是 `false` 的一半，登记 |
+| 2026-11-19 | 新立 F28；3.4 `outputs.meta` 一行的值域、`motionBlur.auxAt` 一行的说明；第 2 节「运动矢量层」；5.4「辅助层」一句；F5 的反例原来用的是 `outputs.meta` 为 `true` 的 `ext.demo`，改成 `false` | `ext.<名字>` 不交每帧元数据原来只写在 3.5 的减免表里，没有条文判，每帧元数据契约要靠它；辅助层原来写死了四个名字，输出通道契约 3.1 加减 `sub0` 通道时会对不上，改成引用；探针量的位置层不是输出通道，原来被算进了辅助层 |

@@ -17,7 +17,7 @@
         "primaries": "rec709",
         "note": "EXR"
       },
-      "meta": true,
+      "meta": false,
       "depth": {
         "type": "f32",
         "note": "不抗锯齿"
@@ -78,7 +78,7 @@
       ],
       "shutterAngleDeg": 180,
       "status": "ok",
-      "meta": true,
+      "meta": false,
       "layers": [
         "color",
         "motion"

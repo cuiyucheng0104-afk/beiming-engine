@@ -137,10 +137,11 @@ export const checks = {
     ...(r[3] === 0 || r[3] === 1 ? [] : [`实例表第 ${i} 行的第四列是 ${r[3]}，必须是 0 或 1`]),
   ])),
 
+  // 只配两个数组都有的下标，行数对不上归 SP8
   SP10: onRecord((rec, pack) => {
     const rows = rec.tables?.instances;
     if (!rows) return [];
-    const pairs = rows.map((r, i) => [r[2], pack.instances.names[i]]);
+    const pairs = rows.slice(0, pack.instances.names.length).map((r, i) => [r[2], pack.instances.names[i]]);
     return [
       ...manyTo(pairs).map(([id, ns]) => `实体编号 ${id} 配了不止一个名字：${ns.join('、')}`),
       ...manyTo(pairs.map(([id, nm]) => [nm, id])).map(([nm, ids]) => `实体名 ${nm} 配了不止一个编号：${ids.join('、')}`),

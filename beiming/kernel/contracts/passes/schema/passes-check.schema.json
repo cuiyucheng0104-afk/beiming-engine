@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "passes/passes-check.schema.json",
   "title": "通道核对记录",
-  "description": "只管结构。各段的取值由 PS1 到 PS6 管，所以这里不收紧。sides 的 producer 不得重复、pixels 的 producer 必须在 sides 里出现过，由 PS6 管；out.normal、out.motion 出现时 aux 必须有同名字段。这三样 JSON Schema 写不出来，以 CONTRACT.md 为准。",
+  "description": "只管结构。各段的取值由 PS1 到 PS6 管，所以这里不收紧。sides 的 producer 不得重复、pixels 的 producer 必须在 sides 里出现过，由 PS6 管；out.normal、out.motion 出现时 aux 必须有同名字段，由 PS4 管。这几样都以 CONTRACT.md 为准，这里不重复。",
   "type": "object",
   "required": ["format", "sides"],
   "additionalProperties": false,

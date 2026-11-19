@@ -7,11 +7,39 @@
     "why": "出层方 core 的通道声明里，七个固定通道少了 denoiseNormal"
   },
   {
+    "file": "PS1-unregistered-name.json",
+    "violates": [
+      "PS1"
+    ],
+    "why": "单独一份通道声明里有一项叫 lightgroup:Rim：组名带大写字母，不合 3.1 的 lightgroup:<名> 写法，不在登记表里"
+  },
+  {
+    "file": "PS1-duplicate-name.json",
+    "violates": [
+      "PS1"
+    ],
+    "why": "单独一份通道声明里 depth 写了两项：通道名重复"
+  },
+  {
     "file": "PS2-depth-antialiased.json",
     "violates": [
       "PS2"
     ],
     "why": "depth 写成了样本累积、抗锯齿，登记表里是取辅助样本、不抗锯齿"
+  },
+  {
+    "file": "PS2-normal-components-reversed.json",
+    "violates": [
+      "PS2"
+    ],
+    "why": "core 的 normal 分量写成 Z、Y、X，登记表的次序是 X、Y、Z"
+  },
+  {
+    "file": "PS2-albedo-colorspace-none.json",
+    "violates": [
+      "PS2"
+    ],
+    "why": "core 的 denoiseAlbedo 色彩空间写成 none，登记表里是 scene-linear-rec709"
   },
   {
     "file": "PS3-core-lacks-lightgroup.json",
@@ -21,11 +49,32 @@
     "why": "oracle 有 lightgroup:rim2，core 没有：两侧的通道对不上"
   },
   {
+    "file": "PS3-oracle-lacks-lightgroup.json",
+    "violates": [
+      "PS3"
+    ],
+    "why": "core 有 lightgroup:rim2，oracle 没有：两侧的通道对不上，和 PS3-core-lacks-lightgroup.json 是相反的那一支"
+  },
+  {
     "file": "PS4-depth-id-averaged.json",
     "violates": [
       "PS4"
     ],
     "why": "边缘像素的辅助样本深度是 2、编号是 3，四个累积样本的深度是 2、5、5、2，编号是 3、7、7、3；交出来的是平均值 3.5 和 5，不是辅助样本的 2 和 3"
+  },
+  {
+    "file": "PS4-normal-averaged.json",
+    "violates": [
+      "PS4"
+    ],
+    "why": "边缘像素的辅助样本法线是 [0, 0, 1]，交出来的是四个累积样本的平均 [0, 0.3, 0.9]"
+  },
+  {
+    "file": "PS4-motion-aux-missing.json",
+    "violates": [
+      "PS4"
+    ],
+    "why": "out 读回了 motion，aux 却没有 motion：交出的值没有辅助样本可对，算不相等"
   },
   {
     "file": "PS5-coverage-is-one.json",

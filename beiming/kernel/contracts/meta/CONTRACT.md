@@ -22,7 +22,7 @@
 - 深度层、编号层的数值定义：输出通道契约（PS）。
 - 元数据拿去判什么：谓词登记表契约（PR）。
 - `source.renderer` 和锁文件、作业记录对不对得上：锁文件契约（LK）。
-- `ext.<名字>` 帧源不交每帧元数据，见帧源接口契约（F）3.5。
+- `ext.<名字>` 帧源不交每帧元数据，见帧源接口契约（F）3.5，由它的 F28 判（`ext.<名字>` 的能力声明 `outputs.meta` 必须是 `false`）。
 
 ## 2. 术语
 
@@ -200,8 +200,8 @@
 | `entities[].visible` | 这次没算 | 这次没算 | 这一帧没出像素；或这个实体没有角色；或这一帧没被点名要算可见比例 |
 | `stats` | 这次没算 | 这次没算 | 这一帧没出像素 |
 | `hash.color` | 这次没算 | 这次没算 | 这一帧没出像素 |
-| `camera` | 减免 | 这个帧源交不出 | 出帧者的合规档是 `limited` |
-| `entities` | 减免 | 这个帧源交不出 | 出帧者的合规档是 `limited` |
+| `camera` | 减免 | 这个帧源交不出 | 出帧者是 `legacy-page`（交每帧元数据的帧源里合规档是 `limited` 的只有它：F 契约的 F10 定了合规档是 `limited` 的只有它和 `ext.<名字>`，F28 定了 `ext.<名字>` 不交每帧元数据；见 M4） |
+| `entities` | 减免 | 这个帧源交不出 | 出帧者是 `legacy-page`（交每帧元数据的帧源里合规档是 `limited` 的只有它：F 契约的 F10 定了合规档是 `limited` 的只有它和 `ext.<名字>`，F28 定了 `ext.<名字>` 不交每帧元数据；见 M4） |
 | `stats.noise` | 可以声明 | 这个帧源交不出 | 出帧者在能力声明的 `metaNull` 里列了它 |
 | `stats.tris` | 可以声明 | 这个帧源交不出 | 同上 |
 | `texts` | 可以声明 | 这个帧源交不出 | 同上 |
@@ -258,8 +258,8 @@ M1 的后一半、M11、M12、M13、M14、M17、M18、M19、M20 拿 `自报` 的
 | M1 | 出帧者能力声明的 `outputs.meta` 是 `true` 时，每次成功的 `render` 必须正好交一份元数据，元数据的 `hash.color` 必须等于这次 `render` 交回的颜色层文件内容的哈希。 | 元数据核对记录（只对 `outputs.meta` 是 `true` 的出帧者记）的 `renders` 每一项：`metas` 必须等于 1；`colorFileHash` 出现时，`metaHashColor` 必须出现并且和它逐字符相同 | `M1-no-meta.json`、`M1-two-metas.json`、`M1-color-from-another-call.json`、`M1-meta-hash-missing.json` |
 | M2 | `camera`、`entities`、`lights`、`stats`、`timing` 必须由宿主量并列在 `origin.host` 里，镜头代码不得写；镜头代码能写的只有 `origin.shot` 列的路径，`origin.shot` 只能列 `entities.*.anchors`、`texts`、`readings`。 | `origin.host` 去掉 `source` 之后作为集合必须等于这五项；`origin.shot` 每项必须是这三条路径之一；`origin.kernel` 每项必须是 `events`。行为上怎么测见 5.8 | `M2-shot-writes-camera.json` |
 | M3 | 一份元数据序列化后不得超过 65536 字节。 | 元数据核对记录的 `renders` 每一项：`metaBytes` 必须不大于 65536 | `M3-over-64kb.json` |
-| M4 | `null` 只能出现在 3.6 列出的字段上：减免类的只有出帧者是 `legacy-page` 时才能是 `null`（交每帧元数据的帧源里合规档是 `limited` 的只有它），可以声明类的只有出帧者的能力声明 `metaNull` 列了它才能是 `null`（这一半现在不判，见第 6 节），不得用编出来的数代替。 | 找出元数据里每一个 `null`（`ext` 里的不算）：它的路径必须在 3.6 的表里；是 `camera` 或 `entities` 时 `source.renderer` 必须是 `legacy-page`（交每帧元数据的帧源里合规档是 `limited` 的只有它，见 F10；`ext.<名字>` 不交每帧元数据，见第 1 节）；可以声明类的不在这里判 | `M4-null-camera-from-blender.json`、`M4-null-camera-from-ext.json` |
-| M5 | `source.renderer` 每帧必填，必须是帧源名（见 F 契约 3.1），由出帧的那个帧源进程填，`origin.host` 里必须有 `source`。 | `source.renderer` 必须出现并且符合 F 契约 3.1 的帧源名：`blender`、`three`、`core`、`legacy-page`，或 `ext.<名字>`；这一半结构定义也判，和 `source.id` 用同一个模式，所以它没有结构合法的反例。`origin.host` 必须含 `source` | `M5-origin-host-without-source.json` |
+| M4 | `null` 只能出现在 3.6 列出的字段上：减免类的只有出帧者是 `legacy-page` 时才能是 `null`（交每帧元数据的帧源里合规档是 `limited` 的只有它，前提是 F 契约的 F10 和 F28），可以声明类的只有出帧者的能力声明 `metaNull` 列了它才能是 `null`（这一半现在不判，见第 6 节），不得用编出来的数代替。 | 找出元数据里每一个 `null`（`ext` 里的不算）：它的路径必须在 3.6 的表里；是 `camera` 或 `entities` 时 `source.renderer` 必须是 `legacy-page`（交每帧元数据的帧源里合规档是 `limited` 的只有它：F10 定了合规档是 `limited` 的只有它和 `ext.<名字>`，F28 定了 `ext.<名字>` 的 `outputs.meta` 必须是 `false`）；可以声明类的不在这里判 | `M4-null-camera-from-blender.json`、`M4-null-camera-from-ext.json` |
+| M5 | `source.renderer` 每帧必填，必须是帧源名（见 F 契约 3.1），由出帧的那个帧源进程填，`origin.host` 里必须有 `source`。 | `origin.host` 必须含 `source`。`source.renderer` 必填、是帧源名这一半只由结构定义判（`required` 加和 `source.id` 相同的 `pattern`），判定函数不重复判，所以这一半没有结构合法的反例 | `M5-origin-host-without-source.json` |
 | M6 | 没出像素的帧，`stats`、`hash.color` 和每个 `entities[].visible` 必须都是 `null`；出了像素的帧，`stats` 和 `hash.color` 都不得是 `null`。 | `hash.color` 是 `null` 当且仅当 `stats` 是 `null`；`hash.color` 是 `null` 时每个 `entities[].visible` 必须是 `null` | `M6-visible-without-pixels.json` |
 | M7 | 可见比例只对有角色的实体算：`visible` 不是 `null` 的实体必须有 `role`。 | `entities` 每一项：`visible` 不是 `null` 时 `role` 必须出现 | `M7-visible-without-role.json` |
 | M8 | 一份元数据里实体的编号不得重复，名字不得重复，编号不得是 0。 | `entities` 的 `id` 没有重复并且都 ≥ 1，`name` 没有重复 | `M8-duplicate-entity-id.json` |
@@ -299,7 +299,7 @@ M1 的后一半、M11、M12、M13、M14、M17、M18、M19、M20 拿 `自报` 的
 - 一个实体占的像素 = 编号是它自己、或者是名字以它的名字加 `.` 开头的实体的像素。所以装配体占的像素是它名下各个实体的像素合起来，角色可以给装配体。
 - 可见比例等于这个实体合渲时在编号层里占的像素数，除以它单独渲时占的像素数。两个数都在四分之一分辨率的编号层上数。
 - 只对有角色的实体算。也不是每帧都算：只在被抽查的帧和被点名查询的帧上算，别的帧写 `null`。
-- 多渲的那一遍低分辨率编号层花多少时间：每个有角色的实体多渲一遍，three 帧源 0.6 到 0.8 毫秒；Blender 帧源用 CPU 约 2 毫秒，用显卡 279 到 305 毫秒（显卡每渲一次有约 0.3 秒的固定开销，和画面多小无关）。Blender 帧源多渲的这一遍必须用 CPU。出处：探针数据表第 10 行（Mac）和「5090 读数」一节（5090）。
+- 多渲的那一遍低分辨率编号层花多少时间：每个有角色的实体多渲一遍，three 帧源在 Mac 上约 0.8 毫秒，在 5090 上约 0.9 毫秒；Blender 帧源用 CPU 约 2 毫秒，用显卡 279 到 305 毫秒（显卡每渲一次有约 0.3 秒的固定开销，和画面多小无关）。Blender 帧源多渲的这一遍必须用 CPU。出处：Mac 的读数是探针数据表第 10 行（three 的逐条读数在 `three.json` 的「可见比例的成本」一行，三个方块各 0.8 毫秒）；5090 上 three 的读数是 `three.linux-5090.json`「可见比例的成本」一行的逐条读数（三个方块各 0.9 毫秒，都是 11 次取中位），Blender 用显卡的读数是「5090 读数」一节。
 
 ### 5.4 `pxArea`
 
@@ -350,7 +350,7 @@ M1 的后一半、M11、M12、M13、M14、M17、M18、M19、M20 拿 `自报` 的
 | 可以声明类的字段（`stats.noise`、`stats.tris`、`texts`、`lights`）是 `null` 时，出帧者的能力声明有没有列它 | 条文留着这句要求，M4 的「怎么查」不判：每帧元数据和元数据核对记录里都没有出帧者的能力声明 | 帧源接口契约的核对记录带着能力声明，等它那边加上交回的元数据里哪些字段是 `null`，由那边判 |
 | 元数据量的是哪一时刻 | 已定：这一帧 `sub = 0` 的状态，和辅助层同一个样本；`sub` 字段拿掉。能独立核对元数据的只有编号层（F 契约 5.3 的「编号与元数据」），编号层取的就是这个样本 | 出现要拿元数据的包围盒去对颜色层的谓词时，加回一个可选字段 |
 | `source.host` 在 `three` 下的取值 | 留空：本契约不另列，照出帧者能力声明的 `hosts` | 按倾向定，合作者不同意时再改。倾向：three 帧源的渲染器主干过渡期用 WebGL 加 GLSL |
-| 多渲一遍编号层的耗时 | 见 5.3 | 已定：探针数据表第 10 行和「5090 读数」一节。只在六个校准场景上量过，真实场景的耗时没量 |
+| 多渲一遍编号层的耗时 | 见 5.3 | 已定：探针数据表第 10 行、`three.linux-5090.json`「可见比例的成本」一行和「5090 读数」一节。只在六个校准场景上量过，真实场景的耗时没量 |
 | `fovYDeg`、`shutterAngleDeg` 的名字 | 【起草者补】单位是度，照通用口径在名字里带 `Deg` | 集成负责人确认 |
 | `role` 的值域 | 只收 `hero`、`mustSee`。被题目点名的主体也要算可见比例，它在元数据里怎么标不定 | 题目文件格式契约（QF） |
 | `class` 的值域 | 不限词，只列了现在用到的三个 | 集成负责人确认 |
@@ -379,6 +379,7 @@ M1 的后一半、M11、M12、M13、M14、M17、M18、M19、M20 拿 `自报` 的
 | M2 的「镜头代码不得写」、M5 的「由出帧的帧源进程填」 | 这两半现在只有声明，没有判定：判定函数只读元数据里的 `origin` 和 `source.renderer`，都是被测方自己填的。行为上的测法在 5.8，核对记录还不收它的结果 | 一致性测试工具照 5.8 渲两遍时，在核对记录里加字段 |
 | `source` 里哪些必填 | 【起草者补】`id`、`renderer`、`host`、`version`、`tier` 必填，其余可选 | 集成负责人确认 |
 | 没出像素时 `timing.renderMs`、`timing.readbackMs` | 【起草者补】写 0，不写 `null` | 集成负责人确认 |
+| `source.renderer` 是 `ext.<名字>` 的 `meta/0.1` | 本契约两层都放行：`source` 一段同时是 `ext.<名字>` 交的来源信息的结构（F 契约 3.5），值域不能去掉 `ext.<名字>`。`ext.<名字>` 不交每帧元数据（第 1 节）由帧源接口契约的 F28 判：`ext.<名字>` 的能力声明 `outputs.meta` 必须是 `false`。核对记录只对 `outputs.meta` 是 `true` 的出帧者记（3.7），所以这种元数据进不了本契约的判定 | 已定 |
 | 可以声明成 `null` 的字段有哪几个 | 只收四个：`stats.noise`、`stats.tris`、`texts`、`lights` | 新帧源登记时按需要加 |
 | `hash.color` 的写法 | 【起草者补】`sha256:` 加 64 位小写十六进制；例子里的值是示意，不是真渲出来的 | 集成负责人确认 |
 | `omittedParts` | 【起草者补】大小上限要求「其余给计数」，加这个字段来放；省掉的零件的详情怎么取不定 | 集成负责人确认 |
@@ -405,3 +406,5 @@ M1 的后一半、M11、M12、M13、M14、M17、M18、M19、M20 拿 `自报` 的
 | 2026-11-19 | 3.2 的 `proj`、3.3 的 `pxArea`、3.5 的 `source.id`、3.7、M1 的「怎么查」、新立 M15 到 M17、5.1、5.4、5.6、5.9、第 6 节；核对记录的 `colorFileSha256` 改名 `colorFileHash`，加 `source` 和 `metaSourceId`；每帧元数据的正例和反例里 `proj` 四个数和 `pxArea` 照算式重算，核对记录的正例和反例全部跟着改，新加 M15、M16、M17 的反例 | 字段名带算法名的哈希在别的契约里都不带前缀，这个字段的值带前缀，照帧源接口契约的做法改用不带算法名的名字；`proj` 和视场角、裁剪面、画幅的关系，`pxArea` 的算法，原来只有口径没有判法，写成两倍、三倍也全绿，各立一条；`source.id` 填得对不对原来没有判法，加一对字段立一条；`metaBytes` 的量法没说 JSON 怎么排版，定成一种 |
 | 2026-11-19 | 3.1 的 `film`、`shot`、`fps`，第 2 节「元数据核对记录」，3.4 的 `events[]`，3.7，新立 M18 到 M20，第 6 节；核对记录的结构定义加 `film`、`fps`、`metaFilm`、`metaShot`、`metaFps`；核对记录的正例和反例全部补上新字段，新加 M18、M19、M20 的反例 | 元数据里照请求填的片子、镜头、帧率原来没有判法，三样分别写错也全绿，各立一条；`events` 列哪些事件事件表契约已经定了，待定一行改成引用它 |
 | 2026-11-19 | 第 6 节「`colorShape` 的高和宽」一行加一句 | 字节数等于 `shape` 之积乘 4 这一前提现在由帧源接口契约的 F27 判 |
+| 2026-11-19 | 3.6 的 `camera`、`entities` 两行，M5 的「怎么查」，第 6 节加「`source.renderer` 是 `ext.<名字>`」一行；M5 的判定函数删掉判帧源名的一行；M9 的反例改成四项、重复的两项不相邻 | 3.6 和 M4 条文对「减免类什么时候是 `null`」说法统一；M5 判帧源名的那一半结构定义先拒，判定函数那一行永远到不了；M9 的反例原来只有两项，判定函数改成只看第二项也抓不到 |
+| 2026-11-19 | 3.6 的 `camera`、`entities` 两行，M4 的条文和「怎么查」，第 1 节，5.3 的耗时一条，第 6 节「多渲一遍编号层的耗时」「`source.renderer` 是 `ext.<名字>`」两行。不变量的判法和判定函数没动 | 帧源接口契约新立 F28（`ext.<名字>` 的 `outputs.meta` 必须是 `false`），「交每帧元数据的帧源里合规档是 `limited` 的只有 `legacy-page`」的前提和 `ext.<名字>` 那一行都改成由它判；three 帧源耗时原来写的 0.6 毫秒下限在探针读数里找不到，照实改成 Mac 0.8 毫秒、5090 0.9 毫秒，写明各自出自哪一行 |

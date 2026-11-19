@@ -42,6 +42,20 @@
     "why": "事件 loop-a 和 loop-b 的算式互相引用，展开时回到自己"
   },
   {
+    "file": "D2-shot-undefined.json",
+    "violates": [
+      "D2"
+    ],
+    "why": "事件 lock 的 shot 是 s09，镜头表里没有这个镜头"
+  },
+  {
+    "file": "D2-cut-not-a-cut.json",
+    "violates": [
+      "D2"
+    ],
+    "why": "叠加层 badge 的 in 写 cut(170)，第 170 帧不是切点"
+  },
+  {
     "file": "D3-card-missing-in-lock.json",
     "violates": [
       "D3"
@@ -95,7 +109,21 @@
     "violates": [
       "D5"
     ],
-    "why": "写入的路径 predicates/base/floor@1 寻址到了 predicates.base 数组里的项，路径本身不合法；这种写入不归 D7"
+    "why": "写入的路径 predicates/base/floor@1 寻址到了 predicates.base 数组里的项，路径本身不合法，服务器却让它生效了；这种写入不归 D7"
+  },
+  {
+    "file": "D5-path-unknown-key.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "诊断的 at 是 predicates/basement，predicates 下面没有 basement 这个键"
+  },
+  {
+    "file": "D5-path-shot-unknown-key.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "诊断的 at 是 shots/s01/colour，镜头那一层下面没有 colour 这个键"
   },
   {
     "file": "D6-stale-write-accepted.json",
@@ -131,6 +159,22 @@
       "D9"
     ],
     "why": "最后一个带值的层给的是 0.82，顶层的 value 却是更弱那层的 0.9"
+  },
+  {
+    "file": "D9-explain-alone-weaker-layer-wins.json",
+    "violates": [
+      "D9"
+    ],
+    "schema": "explain.schema.json",
+    "why": "单独交回的 Explain：最后一个带值的层给的是 0.82，顶层的 value 却是更弱那层的 0.9"
+  },
+  {
+    "file": "D9-value-key-differs.json",
+    "violates": [
+      "D9"
+    ],
+    "schema": "explain.schema.json",
+    "why": "单独交回的 Explain：顶层 value 的键是 __proto__，最后一个带值的层给的值的键是 margin，逐键不相等；只比键的个数、不查对方有没有这个自有键时会当成相等"
   },
   {
     "file": "D10-duplicate-event-id.json",

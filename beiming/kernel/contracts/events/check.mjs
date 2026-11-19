@@ -71,8 +71,9 @@ export const checks = {
       const e = named.find((x) => x.id === ev.id);
       if (!e) continue;
       const f = expand(film, ev.frame);
-      // 展开不了的算式归 D 契约的 D2，这一对的 frame 这里不比
-      if (f !== undefined && e.frame !== f) out.push(`命名条目 ${e.id} 的 frame 是 ${e.frame}，事件的 frame ${JSON.stringify(ev.frame)} 展开是 ${f}`);
+      // 展开不了说明片子描述违反 D2，求值核本该拒收；交了事件表就算对不上
+      if (f === undefined) out.push(`事件 ${ev.id} 的 frame ${JSON.stringify(ev.frame)} 展开不了（片子描述违反 D 契约 D2），求值核必须拒收，却交出了事件表`);
+      else if (e.frame !== f) out.push(`命名条目 ${e.id} 的 frame 是 ${e.frame}，事件的 frame ${JSON.stringify(ev.frame)} 展开是 ${f}`);
       if (e.sub !== 0) out.push(`命名条目 ${e.id} 的 sub 是 ${e.sub}，应该是 0`);
       if (!sameOpt(e, ev, 'shot')) out.push(`命名条目 ${e.id} 的 shot 是 ${e.shot ?? '没有'}，事件的是 ${ev.shot ?? '没有'}`);
       if (!sameOpt(e, ev, 'audio')) out.push(`命名条目 ${e.id} 的 audio 是 ${e.audio ?? '没有'}，事件的是 ${ev.audio ?? '没有'}`);

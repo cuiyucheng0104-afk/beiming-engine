@@ -46,7 +46,7 @@
     "violates": [
       "M4"
     ],
-    "why": "出帧者是 blender，camera 却写成了 null：只有合规档是 limited 的出帧者能免相机"
+    "why": "出帧者是 blender，camera 却写成了 null：只有出帧者是 legacy-page 时才能免相机"
   },
   {
     "file": "M4-null-camera-from-ext.json",
@@ -88,7 +88,7 @@
     "violates": [
       "M9"
     ],
-    "why": "两次 render 的 call 都是 0：靠 call 认不出说的是哪一次调用"
+    "why": "四次 render 里第 2 项和第 4 项的 call 都是 1（不相邻、不在开头）：靠 call 认不出说的是哪一次调用"
   },
   {
     "file": "M10-display-without-clip-high.json",

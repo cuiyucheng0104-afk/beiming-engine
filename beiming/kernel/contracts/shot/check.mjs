@@ -5,7 +5,7 @@
 const ENTITY_NAME = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/;
 const META_KEYS = new Set(['texts', 'anchors', 'readings']);
 
-const onRecord = (fn) => (obj) => (obj?.format === 'shot-check/0.1' ? fn(obj) : []);
+const onRecord = (fn) => (obj, ctx) => (obj?.format === 'shot-check/0.1' ? fn(obj, ctx) : []);
 
 const raw = {
   S1: (rec) => {
@@ -77,6 +77,10 @@ const raw = {
   S10: (rec) => (rec.ctx ?? []).flatMap(({ want, seen }, i) => Object.keys(want)
     .filter((k) => JSON.stringify(seen[k]) !== JSON.stringify(want[k]))
     .map((k) => `镜头 ${rec.shot} 第 ${i + 1} 次装载交给镜头代码的 ctx.${k === 'shotIn' ? 'shot.in' : k} 是 ${JSON.stringify(seen[k]) ?? '没有'}，必须是 ${JSON.stringify(want[k])}`)),
+
+  // 登记表在第二个参数的 registries.errors 里
+  S11: (rec, { registries }) => (rec.error === undefined || registries.errors.codes.some((c) => c.code === rec.error)
+    ? [] : [`镜头 ${rec.shot} 报的错误码 ${rec.error} 没有登记在错误码表里`]),
 };
 
 export const checks = Object.fromEntries(Object.entries(raw).map(([id, fn]) => [id, onRecord(fn)]));

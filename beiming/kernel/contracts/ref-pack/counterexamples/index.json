@@ -91,6 +91,20 @@
     "why": "同一个 ref 之前存的那份 files 以 seed01.exr、seed00.exr 开头，现在这份以 seed00.exr、seed01.exr 开头：files 按次序比"
   },
   {
+    "file": "RP5-channel-removed.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 channels 里有 lightgroup:rim2，现在这份没有：通道少了一个却没换 ref（和 RP5-channel-added.json 是集合比的两个方向）"
+  },
+  {
+    "file": "RP5-aux-sample-changed.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 auxSample 里没有 motion，现在这份有：auxSample 的集合变了却没换 ref"
+  },
+  {
     "file": "RP6-address-not-content-hash.json",
     "violates": [
       "RP6"

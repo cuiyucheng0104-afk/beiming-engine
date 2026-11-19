@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ownership/ownership.schema.json",
   "title": "目录归属表",
-  "description": "只管结构。path 重不重复、必有的条目、三条放置规则、工作包的写入范围重不重叠由 OW1 到 OW4 管；工作包的 id 重不重复由 OW5 管。",
+  "description": "只管结构。path 重不重复、必有的条目、三条放置规则、工作包的写入范围重不重叠由 OW1 到 OW4 管；工作包的 id 重不重复由 OW5 管。what 是 builtin-impl 时 covers 必填，在这里表达。",
   "type": "object",
   "required": [
     "format",
@@ -52,6 +52,18 @@
           "what",
           "where"
         ],
+        "if": {
+          "properties": {
+            "what": {
+              "const": "builtin-impl"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "covers"
+          ]
+        },
         "additionalProperties": false,
         "properties": {
           "what": {

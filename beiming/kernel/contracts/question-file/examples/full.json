@@ -26,7 +26,8 @@
     "margin_lr(subject) >= 0.20 @ all",
     "margin_tb(subject) >= 0.15 @ all",
     "orbit_total(camera, subject) in [359, 361] deg",
-    "no_cut @ all"
+    "no_cut @ all",
+    "text_matches(\"BEIMING;01\") @ all"
   ],
   "scoring": [
     {

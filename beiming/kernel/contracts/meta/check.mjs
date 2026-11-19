@@ -9,8 +9,6 @@ const WAIVED = new Set(['camera', 'entities']);
 // 交每帧元数据的帧源里合规档是 limited 的只有它；ext.<名字> 不交每帧元数据（帧源接口契约 3.5）
 const LIMITED_SOURCE = 'legacy-page';
 const CLIP = ['clipHigh', 'clipLow'];
-// 帧源名，出处是帧源接口契约 3.1；和结构定义里 source.id、source.renderer 的模式相同
-const SOURCE_NAME = /^(blender|three|core|legacy-page|ext\.[a-z0-9][a-z0-9-]*)$/;
 // 容差的出处是契约 5.1（proj 四个数对算式的相对差）和 5.4（pxArea 对算式的绝对差）
 const PROJ_REL_TOL = 1e-12;
 const PX_AREA_TOL = 1e-12;
@@ -57,10 +55,8 @@ const checks = {
     return [];
   })),
 
-  M5: on('meta/0.1', (m) => [
-    ...(SOURCE_NAME.test(m.source?.renderer) ? [] : [`source.renderer 是 ${JSON.stringify(m.source?.renderer)}，不是帧源名`]),
-    ...((m.origin?.host ?? []).includes('source') ? [] : ['origin.host 里没有 source']),
-  ]),
+  // source.renderer 必填、是帧源名那一半只由结构定义判（契约 M5「怎么查」）
+  M5: on('meta/0.1', (m) => ((m.origin?.host ?? []).includes('source') ? [] : ['origin.host 里没有 source'])),
 
   M6: on('meta/0.1', (m) => {
     const noColor = m.hash?.color === null;

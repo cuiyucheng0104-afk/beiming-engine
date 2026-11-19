@@ -49,12 +49,12 @@
       "closure": "surface",
       "params": {
         "baseColor": [
-          0.8,
-          0.8,
-          0.8
+          0,
+          0,
+          0
         ],
         "metallic": 0,
-        "roughness": 0.42
+        "roughness": 0.65
       },
       "pattern": [
         {
@@ -84,11 +84,11 @@
           "by": "line",
           "set": {
             "baseColor": [
-              0,
-              0,
-              0
+              0.8,
+              0.8,
+              0.8
             ],
-            "roughness": 0.65
+            "roughness": 0.42
           }
         }
       ]

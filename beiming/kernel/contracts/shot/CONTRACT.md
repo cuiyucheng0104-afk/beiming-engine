@@ -165,7 +165,7 @@ def build(ctx):
 | `languages` | 数组 | 无 | 是 | 至少 1 项，`js`、`python` | `量的` | 这个镜头用到的语言，数法见 5.1；测试工具从入口文件和用到的卡的实现上认，不取帧源报的 |
 | `buildCalls` | 整数 | 次 | 否 | ≥ 0 | `旁观` | 一次装载里 `build` 跑了几次，夹具镜头代码外面的观测点数的：观测点包在入口文件的 `build` 外面，`build` 每被调一次它数一次。没有入口文件的镜头放不了观测点，这一项不得出现；有入口文件但没放观测点时也不出现。宿主自己数的是 `自报`，不得填进这个字段 |
 | `build` | 字符串 | 无 | 是 | `ok`、`failed` | `量的` | 构建的结论：装载这个镜头的那次调用成功还是报错 |
-| `error` | 字符串 | 无 | 否 | 错误码，写法见 ER 契约 5.2 | `量的` | 构建失败时报的错误码；没报错误码就不出现 |
+| `error` | 字符串 | 无 | 否 | 错误码，写法见 ER 契约 5.2，必须是错误码表登记过的码（S11）；`build` 是 `ok` 时不得出现 | `量的` | 构建失败时报的错误码；没报错误码就不出现 |
 | `entities` | 数组 | 无 | 是 | 字符串 | `自报` | 构建交出的全部实体名，含卡带进来的；取自帧源交回的实体清单（F 契约 3.6） |
 | `omittable` | 数组 | 无 | 否 | `entities` 里的名字，不重复 | `自报` | `entities` 里类别是 `part`、没有角色的实体名；类别取自帧源交回的实体清单。不出现表示一个也没有 |
 | `metaEntities` | 数组 | 无 | 否 | 每项 `{ f, names, omittedParts? }` | `f`：`请求`；`names`、`omittedParts`：`自报` | 抽帧时每帧元数据里列出的实体名；`f` 是镜头局部帧号，`names` 是实体名的数组，不重复，`omittedParts` 是这一帧元数据的 `omittedParts`（整数，≥ 1，单位个；不出现表示这一帧一个也没省）。同一帧渲了不止一次时，同一个 `f` 可以出现不止一项，各项独立判，不合并 |
@@ -173,7 +173,7 @@ def build(ctx):
 | `patches` | 数组 | 无 | 否 | 每项 `{ id, hits }` | `id`、`hits`：`自报` | 片段补丁，宿主记的；`id` 是补丁的名字，`hits` 是命中处数，整数，≥ 0 |
 | `metaKeys` | 数组 | 无 | 否 | 字符串 | `旁观` | 镜头代码的 `meta(f)` 的返回值里出现过的键，夹具镜头代码外面的观测点数的：观测点把 `build` 交回的 `meta(f)` 包一层，在返回值上读键。没有入口文件的镜头这一项不得出现。宿主在接返回值的地方记的是 `自报`，不得填进这个字段 |
 | `declaredCards` | 数组 | 无 | `cardUses` 出现时必填 | 字符串，不重复 | `请求` | 片子描述里这个镜头 `cards` 声明过的实例名 |
-| `cardUses` | 数组 | 无 | 否 | 每项 `{ as, runtimeKeys?, paramKeys? }` | `as`、`runtimeKeys`：`旁观`；`paramKeys`：`请求` | 镜头代码对 `ctx.cards.use` 的每一次调用，不记内建卡，夹具镜头代码外面的观测点数的：观测点把交给 `build` 的 `ctx.cards.use` 包一层，每次调用记下传进来的参数。`as` 是传进去的实例名，`runtimeKeys` 是 `runtime` 的键，`paramKeys` 是这张卡声明的参数名，取自卡的声明。没有入口文件的镜头这一项不得出现。宿主在 `ctx.cards.use` 里记的是 `自报`，不得填进这个字段 |
+| `cardUses` | 数组 | 无 | 否 | 每项 `{ as, runtimeKeys?, paramKeys? }` | `as`、`runtimeKeys`：`旁观`；`paramKeys`：`请求` | 镜头代码对 `ctx.cards.use` 的每一次调用，按调用的先后排，不记内建卡，夹具镜头代码外面的观测点数的：观测点把交给 `build` 的 `ctx.cards.use` 包一层，每次调用记下传进来的参数。`as` 是传进去的实例名，`runtimeKeys` 是 `runtime` 的键，`paramKeys` 是这张卡声明的参数名，取自卡的声明。没有入口文件的镜头这一项不得出现。宿主在 `ctx.cards.use` 里记的是 `自报`，不得填进这个字段 |
 | `scan` | 对象 | 无 | 否 | `{ wallClock, unseededRandom }` | `量的` | 对镜头代码的静态扫描命中，结构同 T 契约 3.6 的 `scan`；测试工具自己扫文件 |
 | `ctx` | 数组 | 无 | 否 | 每项 `{ want, seen }` | `want`：`请求`；`seen`：`旁观` | 交给镜头代码的 `ctx` 里五个值的观测，一次装载一项；同一个镜头装载了不止一次时各项独立判，不合并。`want` 是这五个值该是什么，测试工具照自己发出去的镜头输入和 `env` 算：`{ seed, fps, frames, shotIn, size? }`，算法见 5.10；`shotIn` 对的是 `ctx.shot.in`，单位帧；`fps` 的值域同镜头输入的 `output.fps`（T 契约 3.2）；`size` 在缩放不是 1 的装载里不出现。`seen` 是观测点在 `build` 收到的 `ctx` 上读到的 `{ seed?, fps?, frames?, shotIn?, size? }`，类型同 `want`，不限值域；`ctx` 里没有的那一项不出现。观测点是测试工具放在夹具镜头代码外面的代码，不是帧源或宿主的代码；宿主自己报的不得填进 `seen` |
 | `ext` | 对象 | 无 | 否 | 键带点分前缀 | — | 私有数据 |
@@ -190,8 +190,9 @@ def build(ctx):
 | S6 | 「卡加数据」模式（`cards-data`）的镜头不得有入口文件，必须由宿主用固定装载脚本搭出来。 | `mode` 是 `cards-data` 时不得出现 `entry`。搭建的顺序不在本条判，归卡的运行时接口契约（CR）里管装载顺序的各条，用装载核对记录判 | `S6-cards-mode-with-entry.json` |
 | S7 | 镜头代码不得读墙钟，不得用不带种子的随机。 | `scan.wallClock` 和 `scan.unseededRandom` 都必须是空数组 | `S7-math-random.json` |
 | S8 | `meta(f)` 返回的键只能是 `texts`、`anchors`、`readings`。 | `metaKeys` 每项必须是这三个之一 | `S8-meta-overrides-camera.json` |
-| S9 | `ctx.cards.use(as, runtime?)` 的 `as` 必须是这个镜头 `cards` 里声明过的实例名，`runtime` 的键不得和这张卡声明的参数同名；违反前一项必须判构建失败并报 `contract.undeclared-card`，违反后一项必须判构建失败并报 `contract.runtime-shadows-param`；两种违反同时出现时，必须报 `cardUses` 里先出现的那一次调用犯的那一种。 | 从前往后找 `cardUses` 里第一个违反的项：`as` 不在 `declaredCards` 里算前一种；`as` 在 `declaredCards` 里、`runtimeKeys` 和 `paramKeys` 含同一个名字算后一种。找到时 `build` 必须是 `failed`，`error` 必须是这一项对应的码（前一种是 `contract.undeclared-card`，后一种是 `contract.runtime-shadows-param`）；找不到时本条不判。见 5.8 | `S9-undeclared-card.json`、`S9-runtime-shadows-param.json`、`S9-failed-without-code.json`、`S9-reports-later-violation.json` |
+| S9 | `ctx.cards.use(as, runtime?)` 的 `as` 必须是这个镜头 `cards` 里声明过的实例名，`runtime` 的键不得和这张卡声明的参数同名；违反前一项必须判构建失败并报 `contract.undeclared-card`，违反后一项必须判构建失败并报 `contract.runtime-shadows-param`；两种违反同时出现时，必须报 `cardUses` 里先出现的那一次调用犯的那一种。 | 从前往后找 `cardUses` 里第一个违反的项：`as` 不在 `declaredCards` 里算前一种；`as` 在 `declaredCards` 里、`runtimeKeys` 和 `paramKeys` 含同一个名字算后一种。找到时 `build` 必须是 `failed`，`error` 必须是这一项对应的码（前一种是 `contract.undeclared-card`，后一种是 `contract.runtime-shadows-param`）；找不到时本条不判。见 5.8 | `S9-undeclared-card.json`、`S9-runtime-shadows-param.json`、`S9-failed-without-code.json`、`S9-reports-later-violation.json`、`S9-same-call-both-wrong-code.json` |
 | S10 | 交给镜头代码的 `ctx.seed`、`ctx.fps`、`ctx.frames`、`ctx.shot.in`、`ctx.size` 必须都出现，并且依次等于这次装载生效的镜头种子、镜头输入的帧率、这个镜头的帧数、镜头条目的起始帧、镜头输入的画幅。 | `ctx` 每一项：`want` 里出现的每个字段，`seen` 里必须有同名字段，并且值相等；`fps` 逐字符相同，`size` 项数相同、逐项相等。`want` 里没出现的字段不判。见 5.10 | `S10-seed-off-by-one.json`、`S10-wrong-fps.json`、`S10-fps-not-a-fraction.json`、`S10-wrong-frames.json`、`S10-wrong-shot-in.json`、`S10-wrong-size.json`、`S10-ctx-field-missing.json` |
+| S11 | 核对记录里的 `error` 必须是错误码表登记过的码。 | `error` 出现时，错误码表（`errors/errors.json`）的 `codes` 里必须有一项的 `code` 和它逐字符相同；`error` 不出现时本条不判 | `S11-error-not-registered.json` |
 
 ## 5. 口径
 
@@ -283,6 +284,7 @@ S10 只对 `ctx` 里这五项负责；`ctx` 其余各项现在有没有观测见
 | 核对记录里的 `error`、`omittable`、`declaredCards`、`cardUses` | 【起草者补】为了让 S4、S9 能用数据判定而加 | 集成负责人确认 |
 | S9 在构建失败时判不全 | 观测点数到的 `cardUses` 经镜头代码 `meta(f)` 的 `readings` 交回。宿主照规定拒掉一次 `ctx.cards.use`、判构建失败时，这一帧没有出帧，`readings` 交不回来，记录里没有那次调用；S9 在 `cardUses` 里找不到违反项，照「找不到时本条不判」，这次装载什么都不判，错误码也不判。这一半现在只有声明，没有判定。先这样定，不另开观测通道：另开就要规定宿主里面怎么把数交出来，可帧源内部怎么接不立契约 | 等一致性测试要独立判构建失败的那一半时，和 S2、S8 观测点怎么取数一起定 |
 | 补丁没命中时的错误码 | 不定；S5 只要求判构建失败，不要求报哪个码 | 集成负责人定 |
+| 核对记录里的 `error` 必须是登记过的码（S11）、`build` 是 `ok` 时不得出现 `error` | 【起草者补】原来只查写法，报一个没登记的码、或者构建通过却带着码，都没有一层拦。前一半立 S11，后一半写进结构定义 | 集成负责人确认 |
 | 同一次 `ctx.cards.use` 调用两种违反都犯时报哪个码 | 【起草者补】算没声明那一种，报 `contract.undeclared-card`：没声明的实例名对不上任何一张卡，谈不上「这张卡声明的参数」 | 集成负责人确认 |
 | `assets.load` 找不到资产时报哪个错误码 | `待定：assets.load 找不到资产时报的错误码`；3.2 只要求必须报错、不得交回空值 | 资产有了实现；码先登记进错误码表（ER 契约 5.4），再回来点名 |
 | `ctx.anchor` 找不到实体或锚点时报哪个错误码 | `待定：ctx.anchor 找不到锚点时报的错误码`；3.2 只要求必须报错、不得交回猜的坐标 | 锚点有了实现；码先登记进错误码表，再回来点名 |
@@ -310,3 +312,4 @@ S10 只对 `ctx` 里这五项负责；`ctx` 其余各项现在有没有观测见
 | 2026-11-19 | 3.6 `error` 的值域和结构定义 | 错误码的写法统一引用错误码表的结构定义，不再只要求不空 |
 | 2026-11-19 | 3.2 `anchor`、第 6 节（`ctx.anchor` 的返回值、核对记录里的 `ctx`、`buildCalls` 等三项的观测点） | `ctx.anchor` 的形状照每帧元数据契约已经写定的 `anchors.*.world`；`ctx[].want.shotIn` 必填和三项观测点标 `旁观` 已经确认，不再挂起草者补；`ctx` 这一段整体和 S10 算不算确认还挂着 |
 | 2026-11-19 | 3.2 `tokens`，第 6 节改两行、加一行 | 画风令牌经镜头输入的 `tokens` 进，`ctx.tokens` 就是它；S9 在构建失败时判不全的那一半登记成只有声明 |
+| 2026-11-19 | 3.6 的 `error`、`cardUses` 两行，结构定义（`build` 是 `ok` 时不得出现 `error`），新加 S11 和它的反例，S9 补一个反例，第 6 节加一行 | `cardUses` 的次序就是调用的次序原来没写，S9 却靠它定「先出现」；同一次调用两种都犯算没声明的那一种没有反例看着；`error` 报了没登记的码、构建通过却带着码，原来没人拦 |

@@ -53,7 +53,7 @@
 | `deliverable` | 对象 | 是 | 见 3.2 | 题目的交付规格 |
 | `assets` | 对象 | 是 | `{ 别名: 资产引用 }`；别名是 ASCII 字母、数字、下划线；可以是空对象 | 题目自带的资产 |
 | `refs` | 数组 | 否 | 路径，写法见通用口径 | 参考材料 |
-| `basePredicates` | 数组 | 是 | 至少 1 项，不重复；每项是一条断言，写法见 PR 契约 5.5，一项里不得用 ` ; ` 连几条（QF2） | 基础谓词 |
+| `basePredicates` | 数组 | 是 | 至少 1 项，不重复；每项是一条断言，写法见 PR 契约 5.5，一项里不得含 `;`，双引号里的不算（PR 5.5、QF2） | 基础谓词 |
 | `scoring` | 数组 | 是 | 至少 1 项，每项见 3.3 | 判分 |
 | `controls` | 对象 | 是 | 见 3.4 | 对照 |
 | `needs` | 数组 | 是 | 卡名，不带版本，不重复；可以是空数组 | 这道题要用到的卡 |
@@ -121,7 +121,7 @@
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
 | QF1 | `scoring` 各项的 `weight` 加起来必须等于 1。 | 按书写顺序求和，和 1 的差的绝对值不超过 1e-9 | `QF1-weights-sum-1.1.json` |
-| QF2 | `basePredicates` 每一项必须只写一条断言，这条断言的谓词名必须是谓词登记表里登记过的。 | 断言里出现 ` ; `（空格、分号、空格）算违反；照 PR 契约 5.5 取每条断言的谓词名，在 `predicates/predicates.json` 的 `name` 里逐字符找 | `QF2-unregistered-predicate.json`、`QF2-semicolon-joined.json` |
+| QF2 | `basePredicates` 每一项必须只写一条断言，这条断言的谓词名必须是谓词登记表里登记过的。 | 去掉双引号括起来的文字之后，断言里还有 `;` 算违反，有没有空格都一样（PR 契约 5.5）；照 PR 契约 5.5 取每条断言的谓词名，在 `predicates/predicates.json` 的 `name` 里逐字符找 | `QF2-unregistered-predicate.json`、`QF2-semicolon-joined.json`、`QF2-semicolon-no-space.json` |
 
 ## 5. 口径
 
@@ -174,3 +174,4 @@
 | 2026-11-18 | 全部 | 首稿 |
 | 2026-11-18 | 第 2 节、3.2、3.4、3.5、3.7、第 6 节、全部例子 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-19 | 3.1、QF2；反例加 `QF2-semicolon-joined.json` | 写判定函数时发现一项里用 ` ; ` 连几条断言没有任何东西拒，并进 QF2 |
+| 2026-11-19 | 3.1 `basePredicates` 的值域，QF2 的「怎么查」和判定函数，反例加 `QF2-semicolon-no-space.json`，正例 `full.json` 加一条双引号里带 `;` 的断言 | 照 PR 契约 5.5 改：只查 ` ; ` 时不留空格的写法能混过去，改成双引号外不得有 `;` |

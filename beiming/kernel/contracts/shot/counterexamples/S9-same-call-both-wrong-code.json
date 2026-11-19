@@ -1,0 +1,33 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s02",
+  "mode": "native-code",
+  "entry": "shots/s02/shot.js",
+  "sources": [
+    "three"
+  ],
+  "languages": [
+    "js"
+  ],
+  "buildCalls": 1,
+  "build": "failed",
+  "entities": [
+    "title"
+  ],
+  "error": "contract.runtime-shadows-param",
+  "declaredCards": [
+    "title"
+  ],
+  "cardUses": [
+    {
+      "as": "logo",
+      "runtimeKeys": [
+        "text"
+      ],
+      "paramKeys": [
+        "text",
+        "sizePx"
+      ]
+    }
+  ]
+}

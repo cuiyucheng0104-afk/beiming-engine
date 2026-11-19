@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "shot/shot-check.schema.json",
   "title": "镜头核对记录",
-  "description": "只管结构。实体名的写法由 S4 管、entry 和 mode 的搭配由 S6 管，所以这里不收紧。buildCalls、metaKeys、cardUses 由包在入口文件外面的观测点数，没有 entry 时不得出现。ctx[].want.fps 的值域同镜头输入的 output.fps；ctx[].seen 是观测点读到的原样，只定类型、不限值域，值对不对由 S10 管。",
+  "description": "只管结构。实体名的写法由 S4 管、entry 和 mode 的搭配由 S6 管，所以这里不收紧。buildCalls、metaKeys、cardUses 由包在入口文件外面的观测点数，没有 entry 时不得出现。ctx[].want.fps 的值域同镜头输入的 output.fps；ctx[].seen 是观测点读到的原样，只定类型、不限值域，值对不对由 S10 管。build 是 ok 时不得出现 error。",
   "type": "object",
   "required": ["format", "shot", "mode", "sources", "languages", "build", "entities"],
   "additionalProperties": false,
@@ -123,6 +123,7 @@
     }
   },
   "then": { "required": ["entry"] },
+  "allOf": [{ "if": { "required": ["build"], "properties": { "build": { "const": "ok" } } }, "then": { "not": { "required": ["error"] } } }],
   "dependentRequired": { "buildCalls": ["entry"], "metaKeys": ["entry"], "cardUses": ["declaredCards", "entry"] },
   "$defs": {
     "scanHit": {

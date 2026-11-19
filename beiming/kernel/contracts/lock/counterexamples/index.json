@@ -236,5 +236,12 @@
       "LK14"
     ],
     "why": "片子描述顶层写了 seed 42，锁里的全片种子却还是由片子 id 派生的值"
+  },
+  {
+    "file": "LK10-empty-overlays-card-left.json",
+    "violates": [
+      "LK10"
+    ],
+    "why": "片子描述的 overlays 是空数组，cards 里还留着 from 是 overlays 的 two-d.overlay"
   }
 ]

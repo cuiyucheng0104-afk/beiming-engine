@@ -69,5 +69,26 @@
       "PR6"
     ],
     "why": "floor 第 1 条 limited 是 true，它用的 delivery 却要帧源交物体编号层"
+  },
+  {
+    "file": "PR2-bbox-w-without-params.json",
+    "violates": [
+      "PR2"
+    ],
+    "why": "bbox_w 没写 params"
+  },
+  {
+    "file": "PR2-bbox-w-without-reads.json",
+    "violates": [
+      "PR2"
+    ],
+    "why": "bbox_w 没写 reads"
+  },
+  {
+    "file": "PR2-bbox-w-without-requires.json",
+    "violates": [
+      "PR2"
+    ],
+    "why": "bbox_w 没写 requires"
   }
 ]

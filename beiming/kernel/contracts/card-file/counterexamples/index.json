@@ -63,6 +63,13 @@
     "why": "verify.predicates 的一项用 ` ; ` 连了两条断言，两个谓词名都登记过"
   },
   {
+    "file": "CF8-semicolon-no-space.json",
+    "violates": [
+      "CF8"
+    ],
+    "why": "verify.predicates 的一项写成 `no_cut ;inside_frame(hero) @ all`：分号前后没全带空格，照样把两条断言塞进一项；谓词名 no_cut 登记过"
+  },
+  {
     "file": "CF9-data-without-schema.json",
     "violates": [
       "CF9"
@@ -82,5 +89,12 @@
       "CF11"
     ],
     "why": "参数 azimuth 的 unit 是 deg，名字却不以 Deg 结尾"
+  },
+  {
+    "file": "CF12-host-not-in-source.json",
+    "violates": [
+      "CF12"
+    ],
+    "why": "落点是 source:blender 的卡的入口挂在 page 上，page 是 three 帧源的宿主，不在 blender 帧源的 hosts 里"
   }
 ]

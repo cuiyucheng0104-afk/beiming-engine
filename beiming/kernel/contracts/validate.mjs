@@ -135,10 +135,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   for (const name of names) {
     const { rows, summary: s } = runContract(loaded, name);
     for (const k of Object.keys(total)) total[k] += s[k];
-    const failed = s.examplesBad + s.wrong;
+    const failed = s.examplesBad + s.wrong + s.unchecked + s.bySchema; // 反例必须正好被它声明的那一条拒掉，没人拒、只被结构拒都算不过
     console.log(`${failed ? '✗' : '✓'} ${name}：正例 ${s.examples - s.examplesBad}/${s.examples} 通过；反例 判定函数拒 ${s.byCheck}，只被结构拒 ${s.bySchema}，没人拒 ${s.unchecked}，判错 ${s.wrong}`);
     for (const r of rows.filter((x) => !x.ok)) console.log(`    ${r.file}：${r.detail.join('；')}`);
   }
   console.log(`共 ${names.length} 份契约：正例 ${total.examples - total.examplesBad}/${total.examples} 通过；反例 判定函数拒 ${total.byCheck}，只被结构拒 ${total.bySchema}，没人拒 ${total.unchecked}，判错 ${total.wrong}`);
-  process.exit(total.examplesBad + total.wrong ? 1 : 0);
+  process.exit(total.examplesBad + total.wrong + total.unchecked + total.bySchema ? 1 : 0);
 }

@@ -516,6 +516,10 @@
     {
       "use": "diagnostic.at",
       "path": "style/finish/grain"
+    },
+    {
+      "use": "diagnostic.at",
+      "path": "seed"
     }
   ],
   "writes": [
@@ -557,6 +561,14 @@
       "serverRev": 6,
       "outcome": "rejected",
       "code": "contract.immutable-key"
+    },
+    {
+      "by": "agent",
+      "path": "predicates/base/floor@1",
+      "rev": 6,
+      "serverRev": 6,
+      "outcome": "rejected",
+      "code": "contract.bad-path"
     }
   ],
   "explains": [

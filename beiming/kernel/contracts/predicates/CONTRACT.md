@@ -112,7 +112,7 @@
 | 编号 | 条文 | 怎么查 | 反例文件 |
 |---|---|---|---|
 | PR1 | 谓词的 `name` 不得重复。 | 没有两项的 `name` 逐字符相同 | `PR1-duplicate-name.json` |
-| PR2 | 每个谓词必须同时带 `params`、`reads`、`requires`、`since` 四项，`reads` 不得是空数组。 | 逐项看四个键在不在，`reads` 的长度 ≥ 1 | `PR2-bbox-w-without-since.json`、`PR2-reads-empty.json` |
+| PR2 | 每个谓词必须同时带 `params`、`reads`、`requires`、`since` 四项，`reads` 不得是空数组。 | 逐项看四个键在不在，`reads` 的长度 ≥ 1 | `PR2-bbox-w-without-since.json`、`PR2-bbox-w-without-params.json`、`PR2-bbox-w-without-reads.json`、`PR2-bbox-w-without-requires.json`、`PR2-reads-empty.json` |
 | PR3 | 模板条目的 `uses` 里的每个名字必须是登记过的谓词名。 | 逐个名字在 `predicates` 的 `name` 里逐字符找 | `PR3-template-uses-unregistered.json` |
 | PR4 | `name` 是 `floor`、`version` 第一段是 1 的模板，`items` 必须正好六条，`expr` 依次等于 5.6 表里的六条。 | 项数等于 6；第 i 项的 `expr` 和表里第 i 行逐字符相同 | `PR4-floor-five-items.json`、`PR4-floor-expr-differs.json` |
 | PR5 | `name` 是 `floor` 的模板，`uses` 里登记过的谓词的 `since` 必须是 `0.1`。 | 逐个 `uses` 里的名字，查到登记项就比 `since`；没登记的名字归 PR3 | `PR5-floor-uses-planned-predicate.json` |
@@ -175,7 +175,7 @@
 - 比较：调用后面可以接 `>= 数`、`<= 数`、`in [下限, 上限]`；`in` 的两端都算在内。
 - 单位后缀：`f` 是帧，`s` 是秒，`mm` 是毫米，`deg` 是度。不带后缀的数没有单位，是比例或计数。
 - 范围：`all` 是全片；`[a,b)` 是半开的帧区间，含 `a`、不含 `b`，和片子描述的区间一致，`a`、`b` 是全片帧号；`shot(镜头的 id)` 是那个镜头的区间；`event(事件的 id)` 和 `cut(帧号)` 用 D 契约 5.3 的时刻算式，后面可以接 ` + 整数` 或 ` - 整数`，整数是帧数，不带后缀；`cut(帧号)` 是那个切点。
-- 几条断言可以用 ` ; ` 连成一个模板条目。` ; ` 只用在本登记表的模板条目（`templates[].items[].expr`）里；别处的每一项只写一条断言，不得带 ` ; `，卡文件和题目文件里的查法见 CF8、QF2。下面最后一个例子是模板条目。
+- 几条断言可以用 ` ; ` 连成一个模板条目（`templates[].items[].expr`）。模板条目以外，断言里不得出现 `;` 字符，有没有空格都一样；双引号括起来的文字里的 `;` 不算。卡文件和题目文件里的查法见 CF8、QF2。下面最后一个例子是模板条目。
 - 一条断言的谓词名：从这条断言的开头起，到第一个 `(`、空格或结尾为止的那一段。
 
 例：
@@ -245,3 +245,5 @@ loudness(film) in [-15,-13] ; true_peak(film) <= -1
 | 2026-11-18 | 第 2 节、3.2、3.3、3.5、PR2、PR5、PR6、PR7、5.3、5.4、5.5、5.6、第 6 节、`predicates.json` | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 结构定义里 `ext.<名字>` 的正则 | 修订后的对齐收尾 |
 | 2026-11-19 | 5.5；PR2、PR4、PR6 补反例；PR7 的判定函数 | ` ; ` 用在哪里原来没写明；三条各有一种违反方式没有反例；判定条目改成按登记的结构定义认，不靠字段猜 |
+| 2026-11-19 | PR2 补反例 `PR2-bbox-w-without-params.json`、`PR2-bbox-w-without-reads.json`、`PR2-bbox-w-without-requires.json`。条文和判定函数没动 | 四个键缺哪个是四种违反方式，原来只有缺 `since` 的一个反例 |
+| 2026-11-19 | 5.5 里 `;` 的那一句 | 原来只禁 ` ; `（前后带空格），`no_cut ;inside_frame(hero)` 这类不留空格的写法照样能把两条断言塞进一项；改成模板条目以外一律不得出现 `;`，双引号括起来的文字里的不算 |

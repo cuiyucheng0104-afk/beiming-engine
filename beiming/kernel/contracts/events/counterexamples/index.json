@@ -28,6 +28,13 @@
     "why": "事件 title 的算式 cut(180) + 12 应该展开成 192，条目里是 180"
   },
   {
+    "file": "EV4-unresolved-frame-delivered.json",
+    "violates": [
+      "EV4"
+    ],
+    "why": "事件 late 的算式 event(nope) + 1 引用了没定义的事件，片子描述违反 D2，求值核却照常交出了事件表"
+  },
+  {
     "file": "EV5-cut-missing.json",
     "violates": [
       "EV5"
@@ -53,6 +60,6 @@
     "violates": [
       "EV7"
     ],
-    "why": "单独的事件表：条目 title 在第 500 帧，frames 只有 300；不带片子描述也判"
+    "why": "单独的事件表：条目 title 在第 300 帧，正好等于 frames，帧号只到 299；不带片子描述也判"
   }
 ]

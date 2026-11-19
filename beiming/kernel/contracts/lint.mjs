@@ -48,7 +48,7 @@ export function lintContract(dir) {
   }
 
   const exDir = join(dir, 'examples');
-  counts.examples = existsSync(exDir) ? jsonFiles(exDir).length : 0;
+  counts.examples = existsSync(exDir) ? jsonFiles(exDir).filter((f) => !f.endsWith('index.json')).length : 0; // examples/index.json 是映射表，不是正例
   if (existsSync(join(dir, 'schema')) && counts.examples === 0) problems.push('有 schema/ 却没有正例');
 
   const idxPath = join(dir, 'counterexamples', 'index.json');

@@ -174,7 +174,7 @@
 | RP2 | 参考包里的颜色必须是场景线性、未降噪的：`denoised` 必须是 `false`，量出来的 `color` 通道必须是线性编码。 | `denoised` 必须是 `false`；`colorTransfer` 出现时必须是 `linear` | `RP2-denoised-reference.json`、`RP2-encoded-color.json` |
 | RP3 | `floor` 的三个键里有任何一个是 `null` 的参考包，不得拿来当裁判。 | `pack.floor` 的三个键有一个是 `null` 时，`judgings` 必须是空数组 | `RP3-judge-without-floor.json`、`RP3-only-rerun-not-measured.json`、`RP3-only-psnr-not-measured.json`、`RP3-only-flip-not-measured.json` |
 | RP4 | 拿参考包当裁判时，每道门的门槛必须等于参考噪声地板里对应的那一项乘以系数 k，不得写死成别的数。 | `judgings` 每一项：`pack.floor[metric]` 不是 `null` 时，`threshold` 和 `pack.floor[metric] × k` 的差的绝对值必须不大于后者的十亿分之一。是 `null` 的归 RP3，这一条不判 | `RP4-fixed-threshold.json` |
-| RP5 | 参考包清单里除 `floor` 之外的任何一项变了，就必须是另一个参考包、用另一个 `ref`，不得覆盖旧的。 | `previous` 出现并且 `previous.ref` 等于 `pack.ref` 时：它和 `pack` 除 `floor` 之外的全部字段（`ext` 不算）必须逐项相同。`channels`、`auxSample` 按集合比，次序不算（和 RP1 一致）；`seeds`、`files` 按次序比，同样的项换了次序算不同。`previous.ref` 不等于 `pack.ref` 的归 RP9，这一条不判 | `RP5-overwritten-after-driver-change.json`、`RP5-channel-added.json`、`RP5-seeds-reordered.json`、`RP5-files-reordered.json` |
+| RP5 | 参考包清单里除 `floor` 之外的任何一项变了，就必须是另一个参考包、用另一个 `ref`，不得覆盖旧的。 | `previous` 出现并且 `previous.ref` 等于 `pack.ref` 时：它和 `pack` 除 `floor` 之外的全部字段（`ext` 不算）必须逐项相同。`channels`、`auxSample` 按集合比，次序不算（和 RP1 一致）；`seeds`、`files` 按次序比，同样的项换了次序算不同。`previous.ref` 不等于 `pack.ref` 的归 RP9，这一条不判 | `RP5-overwritten-after-driver-change.json`、`RP5-channel-added.json`、`RP5-seeds-reordered.json`、`RP5-files-reordered.json`、`RP5-channel-removed.json`、`RP5-aux-sample-changed.json` |
 | RP6 | 参考包必须按内容寻址：它的地址必须等于由它的全部文件算出的包哈希。 | `stored.address` 必须等于 `stored.hash`，按字符串比 | `RP6-address-not-content-hash.json` |
 | RP7 | 做题的一方不得读到参考包。 | `reads` 里 `reader` 是 `solver` 的每一项，`status` 必须是 `denied` | `RP7-solver-reads-reference.json` |
 | RP8 | 渲染口径是 `physical` 时，`clamp.direct`、`clamp.indirect`、`filterGlossy` 必须都是 0。 | `profile` 是 `physical` 时这三个数逐个和 0 比，没有容差 | `RP8-physical-with-clamp.json`、`RP8-physical-with-direct-clamp.json`、`RP8-physical-with-filter-glossy.json` |
@@ -204,14 +204,14 @@
 - 合并图的采样数是 `converged.samples`，分 `converged.subsets` 份渲。
 - 文件名的写法照例子：种子图叫 `seed<两位序号>.exr`，序号是这个种子在 `seeds` 里的位置，从 00 起；合并图叫 `converged.exr`。
 - 颜色层照 `shutterAngleDeg` 渲。
-- 辅助层（`depth`、`objectId`、`normal`、`motion`）不跟着颜色层出：标准答案机另渲一遍，孔径 0、快门 0、1 个样本、取像素中心，时刻是这一帧的 `sub = 0`（输出通道契约 PS 5.1）。这一遍和种子无关，每个 EXR 文件里放的都是这一遍的结果。`objectId` 的 `coverage` 例外：它从所在文件颜色层的样本数（输出通道契约 PS 5.4）。
+- 辅助层（名单见 RP1：输出通道契约 PS 3.1 里取法是 `sub0` 的通道）不跟着颜色层出：标准答案机另渲一遍，孔径 0、快门 0、1 个样本、取像素中心，时刻是这一帧的 `sub = 0`（输出通道契约 PS 5.1）。这一遍和种子无关，每个 EXR 文件里放的都是这一遍的结果。`objectId` 的 `coverage` 例外：它从所在文件颜色层的样本数（输出通道契约 PS 5.4）。
 
 ### 5.4 参考噪声地板
 
 - 由标准答案机第一次出这个包的时候自己量、自己填，别人不得填。
 - `rerunBitExact`：拿同一个种子把同一张种子图重渲一遍，两个文件的像素数据逐位相同记 `true`，否则记 `false`。
 - `seedVsSeedPsnr`、`seedVsSeedFlipMean`：两张种子图的 `color` 通道相比。
-- 同种子重渲量过了（探针数据表第 11 行和「5090 读数」一节；Mac 和 5090 两台机器，六个校准场景、64 采样、不降噪）：用 CPU 渲，两遍的全部层逐位相同；用显卡渲（OptiX、CUDA 都一样），量过的辅助层（深度、编号、位置）逐位相同，颜色层不逐位相同，最大相对差 1.7e-6；`normal`、`motion` 两层探针没量。
+- 同种子重渲量过了（探针数据表第 11 行和「5090 读数」一节；Mac 和 5090 两台机器，六个校准场景、64 采样、不降噪）：用 CPU 渲，两遍的全部层逐位相同；用显卡渲（OptiX、CUDA 都一样），量过的辅助层（深度、编号）逐位相同（探针另量了位置层，也逐位相同；位置层不是本契约的通道，不算辅助层），颜色层不逐位相同，最大相对差 1.7e-6；`normal`、`motion` 两层探针没量。
 - 照这个读数，同一个种子重渲两遍：辅助层必须逐位相同；颜色层（`color` 通道）在 `device` 是 `CPU` 时必须逐位相同；用显卡渲时颜色层逐分量的相对差必须不超过 1e-5，相对差 = |a − b| ÷ max(|a|, 1e-12)，a、b 是两遍里同一个像素同一个分量的读数，无单位。`rerunBitExact` 仍照上面那一条填。
 - 另两个数现在还没有：`待探针：参考噪声地板，两个种子之间的峰值信噪比，单位分贝`、`待探针：参考噪声地板，两个种子之间 FLIP 差异图的平均值`。
 - 三个键都不是 `null`，才叫「地板填了」。
@@ -246,7 +246,7 @@
 | 参考包是哪一帧 | 参考包清单里没有单独的帧号字段，帧只写在 `ref` 的名字里（例子里的 `f0000`）；这一帧对应哪个时间键也不定 | 离屏宿主的定位按倾向定（离屏宿主是核心帧源的出片宿主，three 帧源照旧用页面宿主），合作者不同意时再改 |
 | 参考噪声地板的三个数 | 同种子重渲是否逐位相同已定，见 5.4；两个种子之间的峰值信噪比、FLIP 平均值留空 | 5.4 里剩下的两个 `待探针` |
 | 显卡重渲的容差 1e-5 | 实测最大相对差 1.7e-6，留了约 6 倍余量；只在六个校准场景、64 采样、不降噪下量过 | 真实场景、别的采样数、打开降噪之后重新量 |
-| 同种子重渲的口径管哪些通道 | 【起草者补】辅助层和 `color` 通道。分灯组、`denoiseAlbedo`、`denoiseNormal` 探针没量，不定 | 标准答案机的工作条目 |
+| 同种子重渲的口径管哪些通道 | 【起草者补】辅助层和 `color` 通道。辅助层里探针只量了 `depth`、`objectId`，`normal`、`motion` 没量，「必须逐位相同」对这两层是照另两层推的；分灯组、`denoiseAlbedo`、`denoiseNormal` 探针没量，不定 | 标准答案机的工作条目 |
 | 线性度 | 留空 | `待探针：线性度，灰阶各级读数和已知反射率的相对误差` |
 | `pattern` 的取值 | 字段留着，只要求不空 | `待定：采样图案的取值` |
 | `pixelFilter` 的写法 | 字段留着，只要求不空 | `待定：像素滤波的写法` |
@@ -255,7 +255,9 @@
 | `ref` 的写法，各段各是什么意思 | 【起草者补】只定了字符集；例子是「场景／对象／帧／渲染口径」四段，没有立成规矩 | 集成负责人确认 |
 | 对照帧另立契约 | `producer` 只收 `oracle`，值域不改。实验室帧、核心帧源的帧要当对照答案时不放进参考包：参考包的必填字段只对 Cycles 有意义。对照帧由另一份契约管 | 对照帧的契约起草时 |
 | 全部字段必填 | 【起草者补】参考包清单要「记齐」，所以除 `ext` 之外都必填。没有显卡的机器 `gpu`、`driver` 写什么不定 | 集成负责人确认 |
-| `device` 的值域 | 不限词，只列了 `CPU` | 集成负责人确认 |
+| `device` 的值域 | 不限词，只列了 `CPU`。5.4 按 `device` 是不是 `CPU` 分两种口径，显卡写什么词不定 | 集成负责人确认 |
+| 5.4 的同种子重渲口径 | 现在只有口径，没有判定：`rerunBitExact` 是整个包一个布尔，分不出是哪一层不同、差多少，所以「辅助层必须逐位相同」「CPU 上颜色层必须逐位相同」「显卡上相对差不超过 1e-5」三句没有立成不变量；`device` 是 `CPU`、`rerunBitExact` 是 `false` 的包现在判不出 | 标准答案机能逐层记下重渲结果时再立不变量 |
+| `previous` 自己过不过 RP1、RP2、RP8 | 不另判：RP9 要求两边同一个 `ref`，RP5 要求同一个 `ref` 时除 `floor`、`ext` 之外逐项相同（`channels`、`auxSample` 按集合），两条都过时 `previous` 在这三条读的字段上和 `pack` 相同，`pack` 过了它就过了 | 已定 |
 | `oidn` 在 `denoised` 是 `false` 时记什么 | 【起草者补】记机器上装的版本 | 集成负责人确认 |
 | `converged` 和种子图的关系 | 不定：合并图是把各张种子图合起来，还是另外渲的；`converged.samples` 和 `samples`、`seeds` 的项数之间有没有算式 | 标准答案机的工作条目 |
 | 文件名和 `files` 的次序 | 【起草者补】照例子写了 `seed<两位序号>.exr` 和 `converged.exr`；没有立成不变量，种子超过 100 个时怎么写不定 | 标准答案机的工作条目 |
@@ -284,3 +286,5 @@
 | 2026-11-18 | 辅助层样本的字段改名为 `auxSample`：3 节的字段表、RP1、第 6 节、结构定义、全部例子和反例 | 修订后的对齐收尾 |
 | 2026-11-19 | RP1 和 RP5 的「怎么查」，新立 RP9，3.4，5.4，第 6 节；RP1、RP2、RP3、RP5、RP8 补反例，补一个 `previous` 只换通道次序的正例 | 写判定函数时暴露的毛病逐条改掉：名单只引用一处、数组比法写明、`previous.ref` 单立一条、每种违反方式各有反例；同种子重渲照探针读数回填；离屏宿主的定位按倾向定 |
 | 2026-11-19 | 3.4 加「来历」一栏；5.6、5.7 各加一句；第 6 节加两行。不变量、判定函数、结构定义、例子没动 | 核对记录的字段没写来历：包哈希、读的结果、颜色编码写明由测试工具自己算、自己读、自己量；裁判报的门槛是自报，RP4 登记成现在只有声明 |
+| 2026-11-19 | RP5 补两个反例；5.3 的辅助层名单改成引用 RP1；第 6 节改「同种子重渲的口径管哪些通道」「`device` 的值域」两行，加两行 | RP5 集合比的另一个方向（现在比之前少一项）和 `auxSample` 的集合变了原来没有反例；名单只存一处；5.4 的读数没量 `normal`、`motion`，三句「必须」现在不判，`previous` 不另判，照实登记 |
+| 2026-11-19 | 5.4 量过的辅助层名单去掉「位置」 | 位置层不是本契约的通道，和第 6 节「辅助层里探针只量了 `depth`、`objectId`」对齐 |

@@ -118,12 +118,12 @@
 | `format` | 字符串 | 无 | 是 | `load-check/0.1` | — | 格式标识 |
 | `shot` | 字符串 | 无 | 是 | 见 D 契约 5.1 | `请求` | 镜头的标识：测试工具装载的是哪个镜头 |
 | `build` | 字符串 | 无 | 是 | `ok`、`failed` | `量的` | 这一次装载的构建结论：装载这个镜头的那次调用成功还是报错 |
-| `error` | 字符串 | 无 | 否 | 错误码，写法见 ER 契约 5.2 | `量的` | 构建失败时报的错误码；没报错误码就不出现 |
-| `steps` | 数组 | 无 | 是 | `assets`、`tracks`、`create`、`collect` | `自报` | 搭建阶段实际执行的次序；固定装载脚本自己记的 |
+| `error` | 字符串 | 无 | 否 | 错误码，写法见 ER 契约 5.2，必须是错误码表登记过的码（CR18）；`build` 是 `ok` 时不得出现 | `量的` | 构建失败时报的错误码；没报错误码就不出现 |
+| `steps` | 数组 | 无 | 是 | `assets`、`tracks`、`create`、`collect` | `自报` | 搭建阶段实际执行的次序；`build` 是 `failed` 时只记失败之前做过的那几步（5.6）。固定装载脚本自己记的 |
 | `cards` | 数组 | 无 | 是 | 实例名（`as`，写法见 S 契约 5.2 的一段），不重复，不得是 `tracks`、`host` | `请求` | 这个镜头自己的卡实例，按片子描述里 `cards` 数组的顺序；测试工具从片子描述（它据此算出交给帧源的镜头输入）里读 |
 | `overlays` | 数组 | 无 | 否 | 叠加层的 `id`（写法见 D 契约 5.1），不重复，不得是 `tracks`、`host`；和 `cards` 里的名字也不得重复（CR16） | `请求` | 这个镜头的叠加层展开出的卡实例，按片子描述里 `overlays` 的书写顺序；不出现表示没有。测试工具从片子描述（它据此算出交给帧源的镜头输入）里读：`shot` 等于这个镜头的 `id` 的那几项，就是镜头输入的 `overlays` 里的那几项 |
-| `orderPairs` | 数组 | 无 | 否 | 每项 `[先, 后]`，都是 `cards` 里的名字 | `请求` | 从各张卡的 `ports.order` 解出来的先后要求；测试工具自己读卡文件解，不取宿主解的 |
-| `createOrder` | 数组 | 无 | 是 | `build` 是 `ok` 时是 `cards` 加 `overlays` 的一个排列；`build` 是 `failed` 时是失败之前已经 `create` 过的那几个，可以是空数组 | `自报` | 实际调 `create` 的次序；固定装载脚本自己记的 |
+| `orderPairs` | 数组 | 无 | 否 | 每项 `[先, 后]`，名字是字符串；提到了 `cards` 里没有的名字时排不出次序（5.2、CR9） | `请求` | 从各张卡的 `ports.order` 解出来的先后要求；测试工具自己读卡文件解，不取宿主解的 |
+| `createOrder` | 数组 | 无 | 是 | `build` 是 `ok` 时是 `cards` 加 `overlays` 的一个排列；`build` 是 `failed` 时是失败之前已经 `create` 过的那几个，可以是空数组；这时管次序的各条怎么判见 5.6 | `自报` | 实际调 `create` 的次序；固定装载脚本自己记的 |
 | `applyOrder` | 数组 | 无 | 否 | 至少 1 项；`tracks`，或 `cards`、`overlays` 里的名字 | `自报` | 一帧里实际的写状态次序；`tracks` 表示 `tracks.apply`。固定装载脚本自己记的 |
 | `metaOrder` | 数组 | 无 | 否 | 至少 1 项；`host`，或 `cards`、`overlays` 里的名字 | `自报` | 一帧里元数据的合并次序；`host` 表示宿主量的那部分。固定装载脚本自己记的 |
 | `camera` | 对象 | 无 | 否 | | — | 相机从哪里来 |
@@ -142,16 +142,17 @@
 | CR5 | `Handle.meta(f)` 返回的键只能是 `texts`、`anchors`、`readings`。 | `handle.metaKeys` 每项必须是这三个之一 | `CR5-meta-reports-bbox.json` |
 | CR6 | `Handle.entities` 里的相对名并进镜头的 `entities` 时必须写成 `<as>.<相对名>`，带 `root: true` 的那个必须写成 `<as>`；`<as>` 是这个卡实例的实例名。 | `handle.merged` 和 `handle.entities` 的项数必须相同（`handle.entities` 没出现算 0 项）；`handle.merged` 的第 i 项：`handle.entities` 的第 i 项在 `handle.roots` 里时必须等于 `handle.prefix`，不在时必须等于 `handle.prefix`、`.`、`handle.entities` 的第 i 项连起来 | `CR6-entities-without-prefix.json`、`CR6-root-with-suffix.json`、`CR6-merged-length-mismatch.json` |
 | CR7 | `evaluate(inputs, params, f, sub)` 必须是这四个参数的纯函数。 | `shape` 是 `evaluate` 时，`evaluations` 里 `f`、`sub` 相同的观测条目 `digest` 必须逐位相同 | `CR7-evaluate-order-dependent.json` |
-| CR8 | 固定装载脚本的搭建阶段必须按载入资产、接 `tracks`、逐张 `create`、收集实体和相机的次序各做一次。 | `steps` 必须正好是 `["assets", "tracks", "create", "collect"]`。排不出 `create` 次序时本条不判，见 5.2 | `CR8-create-before-tracks.json` |
-| CR9 | `create` 的次序必须满足 `ports.order` 声明的全部先后，没声明先后的卡之间必须保持书写顺序；声明的先后排不出次序时必须判构建失败。 | 照 5.2 排不出次序（`orderPairs` 成环，或提到了 `cards` 里没有的名字）时，`build` 必须是 `failed`，次序不再比。排得出时，`createOrder` 去掉 `overlays` 里的名字之后，必须等于 5.2 的排法算出的结果；`cards` 和 `overlays` 有重名时这一半不判，归 CR16 | `CR9-declared-order-ignored.json`、`CR9-writing-order-swapped.json`、`CR9-order-cycle-build-ok.json`、`CR9-order-unknown-name-build-ok.json` |
+| CR8 | 固定装载脚本的搭建阶段必须按载入资产、接 `tracks`、逐张 `create`、收集实体和相机的次序各做一次；构建失败时，失败之前做过的那几步必须是这个次序的开头一段。 | `build` 是 `ok` 时 `steps` 必须正好是 `["assets", "tracks", "create", "collect"]`；是 `failed` 时必须是这四项的开头一段（可以是空数组），见 5.6。排不出 `create` 次序时本条不判，见 5.2 | `CR8-create-before-tracks.json`、`CR8-failed-steps-not-prefix.json` |
+| CR9 | `create` 的次序必须满足 `ports.order` 声明的全部先后，没声明先后的卡之间必须保持书写顺序；声明的先后排不出次序时必须判构建失败。 | 照 5.2 排不出次序（`orderPairs` 成环，或提到了 `cards` 里没有的名字）时，`build` 必须是 `failed`，次序不再比。排得出时，`createOrder` 去掉 `overlays` 里的名字之后：`build` 是 `ok` 时必须等于 5.2 的排法算出的结果，是 `failed` 时必须是这个结果的开头一段（见 5.6）；`cards` 和 `overlays` 有重名时这一半不判，归 CR16 | `CR9-declared-order-ignored.json`、`CR9-writing-order-swapped.json`、`CR9-order-cycle-build-ok.json`、`CR9-order-unknown-name-build-ok.json`、`CR9-failed-created-not-prefix.json` |
 | CR10 | 每帧必须先调 `tracks.apply(f, sub)`，再按 `create` 的次序调各张卡的 `apply(f, sub)`。 | `applyOrder` 的第一项必须是 `tracks`，其余各项必须都在 `createOrder` 里，位置必须递增，见 5.3。排不出 `create` 次序时本条不判，见 5.2 | `CR10-card-apply-before-tracks.json`、`CR10-apply-not-in-create-order.json`、`CR10-apply-name-not-created.json` |
 | CR11 | 每帧必须由宿主先量元数据，再按 `create` 的次序并进各张卡的 `meta(f)`。 | `metaOrder` 的第一项必须是 `host`，其余各项必须都在 `createOrder` 里，位置必须递增，见 5.3。排不出 `create` 次序时本条不判，见 5.2 | `CR11-card-meta-before-host.json`、`CR11-meta-not-in-create-order.json`、`CR11-meta-name-not-created.json` |
 | CR12 | `tracks` 里有相机轨道时相机必须取 `tracks.camera`，没有时才取相机类卡交出的对象。 | `camera.tracksHasCamera` 是 `true` 时 `camera.from` 必须是 `tracks`，是 `false` 时必须是 `card` | `CR12-card-camera-over-tracks.json` |
 | CR13 | 一个 `Handle` 的 `entities` 里带 `root: true` 的实体不得多于 1 个。 | `handle.roots` 出现时至多 1 项 | `CR13-two-roots.json` |
 | CR14 | `Handle.meta(f)` 交出的文字框的 `id` 和读数的名字并进镜头时必须写成 `<as>.<名字>`。 | `handle.mergedMetaIds` 和 `handle.metaIds` 的项数必须相同（`handle.metaIds` 没出现算 0 项）；`handle.mergedMetaIds` 的第 i 项必须等于 `handle.prefix`、`.`、`handle.metaIds` 的第 i 项连起来 | `CR14-text-id-without-prefix.json`、`CR14-merged-ids-length-mismatch.json` |
-| CR15 | 叠加层展开出的卡实例必须装在镜头自己的全部卡之后，彼此之间必须保持 `overlays` 的书写顺序。 | `overlays` 的每个名字必须在 `createOrder` 里，必须全部排在 `cards` 的名字之后，相互的先后必须和 `overlays` 相同。排不出 `create` 次序（见 5.2）、或 `cards` 和 `overlays` 有重名（归 CR16）时本条不判 | `CR15-overlay-before-cards.json`、`CR15-overlays-out-of-order.json`、`CR15-overlay-not-created.json` |
-| CR16 | 叠加层展开出的卡实例的实例名不得和镜头自己的卡实例的实例名重复。 | `overlays` 的每一项都不得出现在 `cards` 里 | `CR16-overlay-name-same-as-card.json` |
+| CR15 | 叠加层展开出的卡实例必须装在镜头自己的全部卡之后，彼此之间必须保持 `overlays` 的书写顺序。 | `build` 是 `ok` 时：`overlays` 的每个名字必须在 `createOrder` 里，必须全部排在 `cards` 的名字之后，相互的先后必须和 `overlays` 相同。`build` 是 `failed` 时：`createOrder` 里出现的叠加层必须排在 `cards` 的名字之后，必须是 `overlays` 的开头一段；出现了叠加层时，`cards` 的每个名字都必须已经在 `createOrder` 里（见 5.6）。排不出 `create` 次序（见 5.2）、或 `cards` 和 `overlays` 有重名（归 CR16）时本条不判 | `CR15-overlay-before-cards.json`、`CR15-overlays-out-of-order.json`、`CR15-overlay-not-created.json`、`CR15-failed-overlay-before-remaining-card.json`、`CR15-failed-overlays-skip-first.json` |
+| CR16 | 叠加层展开出的卡实例的实例名不得和镜头自己的卡实例的实例名重复。 | `overlays` 的每一项都不得出现在 `cards` 里 | `CR16-overlay-name-same-as-card.json`、`CR16-overlay-clash-and-out-of-order.json` |
 | CR17 | 卡核对记录里 `handle.roots` 的每一项必须是 `handle.entities` 里的名字。 | `handle.roots` 出现时，每一项都必须在 `handle.entities` 里；`handle.entities` 没出现算空数组 | `CR17-root-not-in-entities.json` |
+| CR18 | 装载核对记录里的 `error` 必须是错误码表登记过的码。 | `error` 出现时，错误码表（`errors/errors.json`）的 `codes` 里必须有一项的 `code` 和它逐字符相同；`error` 不出现时本条不判 | `CR18-error-not-registered.json` |
 
 ## 5. 口径
 
@@ -161,7 +162,7 @@
 
 ### 5.2 `create` 的排法
 
-输入是镜头自己的卡实例的书写顺序 `cards`（就是片子描述里 `cards` 数组的顺序）和先后要求 `orderPairs`；叠加层展开出的卡实例不参加这个排法，见 5.5。每一步在「所有必须排在它前面的卡都已经排好」的卡里，取书写顺序最靠前的那一张。先后要求成环，或者提到了 `cards` 里没有的名字，就排不出次序，宿主必须判构建失败：装载核对记录的 `build` 必须是 `failed`（CR9）。排不出次序的记录，CR8、CR10、CR11、CR15 和 CR9 里比次序的那一半都不判；CR12、CR16 照判。
+输入是镜头自己的卡实例的书写顺序 `cards`（就是片子描述里 `cards` 数组的顺序）和先后要求 `orderPairs`；叠加层展开出的卡实例不参加这个排法，见 5.5。每一步在「所有必须排在它前面的卡都已经排好」的卡里，取书写顺序最靠前的那一张。先后要求成环，或者提到了 `cards` 里没有的名字，就排不出次序，宿主必须判构建失败，错误码是 `contract.order-cycle`：装载核对记录的 `build` 必须是 `failed`（CR9；CR9 不比码，码对不对现在不判）。排不出次序的记录，CR8、CR10、CR11、CR15 和 CR9 里比次序的那一半都不判；CR12、CR16、CR18 照判。次序排得出、因为别的原因构建失败的记录见 5.6。
 
 ### 5.3 位置递增
 
@@ -181,6 +182,17 @@
 - 这些卡实例装在镜头自己的卡之后，彼此之间按 `overlays` 的书写顺序。每帧的 `apply`、`meta` 跟着 `create` 的次序（CR10、CR11）。
 - 叠加层的文字框由这个卡实例的 `meta(f)` 交，归 `origin.shot` 名下。
 - 这个卡实例进锁，见锁文件契约（LK）。
+
+### 5.6 构建失败的记录
+
+`build` 是 `failed`、次序排得出时，失败之前做过的部分照样要守次序，只是没做完：
+
+- `steps` 是 `["assets", "tracks", "create", "collect"]` 的开头一段，可以是空数组（CR8）。
+- `createOrder` 去掉 `overlays` 里的名字之后，是 5.2 的排法算出的结果的开头一段（CR9）。
+- `createOrder` 里出现的叠加层排在镜头自己的卡之后，是 `overlays` 的开头一段；出现了叠加层，镜头自己的卡必须已经全部 `create` 过（CR15）。
+- `applyOrder`、`metaOrder` 照 5.3 判，不分 `build`（CR10、CR11）。
+
+「开头一段」指从第一项起连续的若干项，项数可以是 0 到全部。排不出次序的失败照 5.2，不在这一节。
 
 ## 6. 待定
 
@@ -203,7 +215,8 @@
 | 核对记录里的 `handle.roots`、`handle.metaIds`、`handle.mergedMetaIds`、`overlays` | 【起草者补】为了让 CR6、CR13、CR14、CR15 能用数据判定而加 | 集成负责人确认 |
 | 装载核对记录里的 `build`、`error` | 为了分清「宿主正确地判了构建失败」和「违反」而加。【起草者补】`build` 必填，和镜头核对记录一样；`error` 可选 | 集成负责人确认 |
 | 排不出 `create` 次序时报哪个错误码 | 不定；CR9 只要求 `build` 是 `failed` | 集成负责人定 |
-| 因为别的原因构建失败（`build` 是 `failed`、次序排得出）时，管装载顺序的各条判不判 | 【起草者补】照判；只有排不出次序这一种失败不判 | 集成负责人定 |
+| 因为别的原因构建失败（`build` 是 `failed`、次序排得出）时，管装载顺序的各条判不判 | 【起草者补】照判，但只判失败之前做过的部分：按 5.6 比开头一段。原来照完整次序判，3.6 允许的「失败之前已经 `create` 过的那几个」却过不了 CR8、CR9，诚实的失败记录没有合法的写法；改成全都不判又会放过失败之前就排错了的宿主。选错了要改 5.6 和 CR8、CR9、CR15 的「怎么查」 | 集成负责人确认 |
+| 核对记录里的 `error` 必须是登记过的码（CR18）、`build` 是 `ok` 时不得出现 `error` | 【起草者补】原来只查写法，报一个没登记的码、或者构建通过却带着码，都没有一层拦。前一半立 CR18，后一半写进结构定义 | 集成负责人确认 |
 | `handle.merged` 和 `handle.entities`、`handle.mergedMetaIds` 和 `handle.metaIds` 项数不同 | 【起草者补】「一一对应」读成项数必须相同，不同算违反 CR6、CR14 | 集成负责人确认 |
 | 只有声明、没有判定的条文 | CR2：`calledVia` 是调的一方自己记的。CR8：`steps` 是固定装载脚本自己记的。CR9 里比次序的那一半、CR15：`createOrder` 是固定装载脚本自己记的，拿它去对从片子描述和卡文件算出来的次序，查的是「记得对不对」。CR10、CR11：`applyOrder`、`metaOrder`、`createOrder` 都是固定装载脚本自己记的。CR12：`camera.from` 是固定装载脚本自己记的。宿主把次序做错、把相机取错而照旧记对时，记录不变。这几处现在只有声明，没有判定。CR9 里「排不出次序必须判构建失败」那一半读的是量出来的 `build`，不在此列 | 观测点挪到被测的那一对外面。测试工具自己写的夹具卡在 `create`、`apply`、`meta` 里各记一笔，数得到卡和卡之间这三样被调的先后；`steps` 里另外三步、`applyOrder` 第一项的 `tracks`、`metaOrder` 第一项的 `host`、`calledVia`、`camera.from` 在卡里看不到，要另找办法。挪不挪、挪了以后记录怎么写，由集成负责人定；定了以后来历改成 `旁观` 或 `量的` |
 | 只对了宿主自己的说法的条文 | CR6、CR14 拿 `自报` 的 `handle.merged`、`handle.mergedMetaIds` 去对 `旁观` 的相对名和 `请求` 的实例名：宿主并错了名字、记的却是对的时，这两条判不出来。它们还读了旁观到的字段，所以不算只有声明 | 有了从那一对交回的实体清单（F 契约 3.6）和每帧元数据里认出这些名字的办法；和上一行一起定 |
@@ -220,3 +233,6 @@
 | 2026-11-19 | 3.5、3.6 加「来历」一栏和口径；第 6 节加三行。不变量的条文、结构定义和判定函数没动 | 核对记录的每个字段要写明来历；固定装载脚本自己记的次序、相机来源和调用方是自报，只靠它们的条文登记成只有声明 |
 | 2026-11-19 | 第 1、2 节各一句；3.4 第 1、3 步；3.6 的 `cards`、`overlays` 两行的说明；5.5 第一条；第 6 节加一行。不变量的条文、结构定义、例子和判定函数没动 | 和帧源接口契约、片子描述契约对齐：片子的内容只从镜头输入进帧源，宿主展开的叠加层来自镜头输入的 `overlays`，第 1 步载入的是镜头输入里镜头条目的 `assets`；测试工具读的是它据以算出镜头输入的片子描述，不是把片子描述交给那一对 |
 | 2026-11-19 | 装载核对记录 `error` 的值域和结构定义 | 错误码的写法统一引用错误码表的结构定义，不再只要求不空 |
+| 2026-11-19 | 3.6 的 `error`、`steps`、`orderPairs`、`createOrder` 四行，结构定义（`build` 是 `ok` 时不得出现 `error`），5.2 末句，CR8 的条文，CR8、CR9、CR15 的「怎么查」，新加 5.6、CR18，CR8、CR9、CR15、CR16、CR18 的反例，正例一个，第 6 节改一行、加一行 | 次序排得出的构建失败原来没有合法的记录可写：3.6 允许只记失败前做过的，CR8、CR9 却照完整次序判，改成按开头一段判；`orderPairs` 的值域和 CR9 处理未知名字的写法相反；CR15 在重名时不判这一句没有反例看着；`error` 报了没登记的码、构建通过却带着码，原来没人拦 |
+| 2026-11-19 | CR18 的反例 | 原来用的码将来可能被登记，到时反例会变成合规；改用一个专为反例编的、不会被登记的码 |
+| 2026-11-19 | 5.2 写明排不出次序时报的码 | 错误码表登记了 `contract.order-cycle`；CR18 要求报的码登记过，原来这种失败没有码可报 |
