@@ -18,5 +18,9 @@
   {
     "file": "layer-color.json",
     "schema": "layer-ref.schema.json"
+  },
+  {
+    "file": "shot-input-full.json",
+    "schema": "shot-input.schema.json"
   }
 ]

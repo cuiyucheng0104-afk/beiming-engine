@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "meta/meta.schema.json",
   "title": "每帧元数据",
-  "description": "只管结构。哪个 null 在什么时候合法由 M4、M6、M7 管，origin 里列什么由 M2、M5 管，编号不重复由 M8 管，stats.clipHigh、stats.clipLow 什么时候必须出现、什么时候不得出现由 M10 管，所以这里不收紧。source.renderer 和 source.id 用同一个模式（帧源名，见 F 契约 3.1）。",
+  "description": "只管结构。哪个 null 在什么时候合法由 M4、M6、M7 管，origin 里列什么由 M2、M5 管，编号不重复由 M8 管，stats.clipHigh、stats.clipLow 什么时候必须出现、什么时候不得出现由 M10 管，camera.proj 和视场角、裁剪面、画幅对不对得上由 M15 管，pxArea 和 bbox2d 对不对得上由 M16 管，所以这里不收紧。source.renderer 和 source.id 用同一个模式（帧源名，见 F 契约 3.1）。",
   "type": "object",
   "required": ["format", "film", "shot", "frame", "shotFrame", "seed", "fps", "size", "colorRef", "units", "camera", "entities", "lights", "events", "texts", "stats", "source", "timing", "origin", "hash"],
   "additionalProperties": false,

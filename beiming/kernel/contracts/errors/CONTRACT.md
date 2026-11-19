@@ -95,15 +95,16 @@
 | `contract.runtime-shadows-param` | `ctx.cards.use` 的 `runtime` 里有键和这张卡声明的参数同名 | 镜头契约（S）管 `ctx.cards.use` 的那条不变量 |
 | `contract.shutter-conflict` | 快门角是 0 而子帧采样数大于 1 | 帧源接口契约（F）管快门的条文 |
 | `contract.undeclared-card` | `ctx.cards.use` 用了这个镜头的 `cards` 里没声明过的实例名 | 镜头契约（S）管 `ctx.cards.use` 的那条不变量 |
-| `contract.unknown-key` | 出现了契约没定义的键 | 通用口径「未知字段」 |
-| `contract.unknown-node` | 场景包里出现了节点登记表之外的图案节点 | SP5 |
+| `contract.unknown-key` | 出现了契约没定义的键 | 契约写法约定通用口径「未知字段」一行 |
+| `contract.unknown-node` | 场景包里出现了节点登记表之外的图案节点 | SP17 |
+| `contract.unsupported-input` | 镜头输入里有帧源装不了的卡、资产或叠加层 | F26 |
 | `contract.unsupported-mode` | 镜头条目的宿主或作者模式不在帧源的能力声明里 | F16 |
 | `contract.unsupported-object` | 场景里有对象放不进这次要的某个输出 | F19 |
 | `contract.unsupported-option` | `RenderOpts` 给了帧源交不出的每像素采样数或缩放 | F18 |
 | `contract.unsupported-output` | 要了帧源没声明过的输出 | F3 |
 | `contract.unsupported-query` | 问了帧源没声明过的场景查询种类 | F8 |
 | `env.lock-required` | 没有锁文件，镜头却要用只有锁文件里才有的东西 | F14 |
-| `usage.bad-argument` | 调用的参数出了值域 | 还没有条文点名，见第 6 节 |
+| `usage.bad-argument` | 调用的参数出了值域 | F23 |
 
 ### 5.4 新错误码怎么加
 
@@ -125,7 +126,8 @@
 | 「最接近的键」怎么算 | 不定；现有命令行用的是带换位的编辑距离，差太多就不提示 | 集成负责人确认 |
 | 每个码要不要记是哪份契约点名的 | 【起草者补】不记在数据里，只写在 5.3 | 集成负责人确认 |
 | `codes` 要不要按 `code` 排序 | 不要求 | 集成负责人确认 |
-| `usage.bad-argument` 由哪条条文点名 | 码已经登记，含义是「调用的参数出了值域」：帧号越界、`want` 里有重复、缩放或快门角越界这一类。哪份契约的哪条条文要求报它：`待定：点名 usage.bad-argument 的条文` | 集成负责人指派写这条条文的契约 |
+| `usage.bad-argument` 由哪条条文点名 | 已定：帧源接口契约的 F23。它只管 `render`、`query` 的参数，值域的表在那份契约的 5.13；别的调用的参数出值域报什么，那份契约的第 6 节挂着 | 已定 |
+| 帧源装不了卡、资产、叠加层时用哪个码 | 【起草者补】三样共用一个新码 `contract.unsupported-input`，由帧源接口契约的 F26 点名；没有借用 `contract.unsupported-mode` 或 `contract.unsupported-option`，借用之后两种失败在记录里分不开。选错了要改 `errors.json`、5.3 和帧源接口契约的 F26、5.14 | 集成负责人确认 |
 
 ## 7. 变更记录
 
@@ -135,3 +137,6 @@
 | 2026-11-18 | ER2、5.1、5.3、第 6 节、`errors.json` | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-19 | 第 6 节「`auth.` 对 4」一行 | 5.1 的前缀表在 `check.mjs` 里还抄了一份，改退出码时要一起改 |
 | 2026-11-19 | 5.3、`errors.json`、第 6 节 | 加 5 个码：帧源接口契约新立的四条条文各点名一个，另加一个参数越界的码；最小出帧链路上这几种失败原来报的错不带码，或者借用了别的码 |
+| 2026-11-19 | 5.3 `contract.unknown-node` 的「哪条条文点名的」一格 | 点名这个码的是场景包契约管读入方的那一条（SP17）；SP5 现在只判导出器写的清单，不提错误码 |
+| 2026-11-19 | 5.3、`errors.json`、第 6 节 | `usage.bad-argument` 有条文点名了（帧源接口契约的 F23）；加 `contract.unsupported-input`，帧源装不了镜头输入里的卡、资产、叠加层时原来报的错不带码；`contract.unknown-key` 那一格原来写的通用口径那一行其实没有点名它，改成照实登记 |
+| 2026-11-19 | 5.3 `contract.unknown-key` 一格，第 6 节 | 写法约定「未知字段」一行点名了这个码，第 6 节那一行删掉 |

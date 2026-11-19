@@ -103,7 +103,7 @@ export async function startSource() {
           const bytes = Buffer.from(l.base64, 'base64'), file = `${dir}/${name}.${l.type}`;
           await mkdir(join(env.workspace, dir), { recursive: true });
           await writeFile(join(env.workspace, file), bytes);
-          layers[name] = { file, shape: [l.size[1], l.size[0], l.components.length], components: l.components, sha256: `sha256:${sha256(bytes)}` };
+          layers[name] = { file, shape: [l.size[1], l.size[0], l.components.length], components: l.components, hash: `sha256:${sha256(bytes)}` };
         }
         return { meta: res.meta, layers };
       },

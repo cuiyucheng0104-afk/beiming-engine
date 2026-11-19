@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "source/source.schema.json",
   "title": "帧源登记表",
-  "description": "只管结构。登记的是上限；能力声明落没落在里面由 F15 管。",
+  "description": "只管结构。登记的是上限；能力声明落没落在里面由 F15 管；和条文里的登记表一不一致由 F22 管。",
   "type": "object",
   "required": ["format", "sources"],
   "additionalProperties": false,

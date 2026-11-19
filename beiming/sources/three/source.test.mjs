@@ -58,18 +58,37 @@ test('尺寸和每像素采样数：档位、镜头条目、这次调用依次�
   assert.throws(() => plan({}, 'color'), code('usage.bad-argument'));
 });
 
-test('装载之前：没有锁文件时种子必须写在镜头条目里，用了卡或资产必须报错；宿主或作者模式不在能力声明里先报这一条', () => {
-  const input = (patch = {}) => ({ film: 'f_x', output: { size: [640, 360], fps: '24/1' }, shot: { id: 's01', in: 0, out: 10, source: 'three', host: 'page', mode: 'native-code', entry: 'a.js', colorRef: 'scene', seed: 7, ...patch } });
+test('装载之前：没有锁文件时种子必须写在镜头条目里，用了卡或资产必须报错；宿主或作者模式不在能力声明里先报这一条；带 renderer 对象时看它里面的那一套', async () => {
+  const input = (patch = {}, more = {}) => ({ film: 'f_x', output: { size: [640, 360], fps: '24/1' }, shot: { id: 's01', in: 0, out: 10, source: 'three', host: 'page', mode: 'native-code', entry: 'a.js', colorRef: 'scene', seed: 7, ...patch }, ...more });
   const env = { lock: null, tier: 'final' }, lock = { seeds: { film: 1, s01: 9 }, shots: { s01: { shutterSamples: 5 } } };
+  // 卡实例照片子描述的写法：as、use、params 三个都写
+  const CARD = { as: 'probe', use: 'probe.card@1', params: {} }, OVERLAY = { id: 'tag', shot: 's01', anchor: 'screen', pos: [0.5, 0.5], text: 'x', in: 0, out: 5 };
+  const { validate } = await loadContracts();
+  for (const probe of [input({ cards: [CARD] }), input({}, { overlays: [OVERLAY] })]) assert.deepEqual(validate(probe, 'source', 'shot-input.schema.json').schemaErrors, []);
   assert.deepEqual(planOpen(CAPS, input(), env), { seed: 7 });
   assert.deepEqual(planOpen(CAPS, input({ cards: [], assets: {} }), env), { seed: 7 });
   assert.deepEqual(planOpen(CAPS, input(), { ...env, lock }), { seed: 9, shutterSamples: 5 });
   assert.throws(() => planOpen(CAPS, input({ seed: undefined }), env), code('env.lock-required'));
-  assert.throws(() => planOpen(CAPS, input({ cards: [{ card: 'x@1', as: 'x' }] }), env), code('env.lock-required'));
+  assert.throws(() => planOpen(CAPS, input({ cards: [CARD] }), env), code('env.lock-required'));
   assert.throws(() => planOpen(CAPS, input({ assets: { kit: 'asset:kit@1' } }), env), code('env.lock-required'));
   assert.throws(() => planOpen(CAPS, input({ mode: 'cards-data' }), env), code('contract.unsupported-mode'));
   assert.throws(() => planOpen(CAPS, input({ host: 'cycles', seed: undefined }), env), code('contract.unsupported-mode'));
   assert.throws(() => planOpen(CAPS, input({ source: 'blender' }), env), code('usage.bad-argument'));
+  // 全片的资产表和镜头条目的一样算「用了资产」；空的不算
+  assert.throws(() => planOpen(CAPS, input({}, { assets: { vo: 'asset:vo@1' } }), env), code('env.lock-required'));
+  assert.deepEqual(planOpen(CAPS, input({}, { assets: {}, overlays: [], events: { events: [] } }), env), { seed: 7 });
+  // 叠加层、带着锁文件来的卡和资产都装不了：报装不了的那个码，不装作没看见；没写种子时先报没有锁文件的那个码，宿主不在能力声明里时先报那一条
+  assert.throws(() => planOpen(CAPS, input({}, { overlays: [OVERLAY] }), env), code('contract.unsupported-input'));
+  assert.throws(() => planOpen(CAPS, input({}, { overlays: [OVERLAY] }), { ...env, lock }), code('contract.unsupported-input'));
+  assert.throws(() => planOpen(CAPS, input({ cards: [CARD] }), { ...env, lock }), code('contract.unsupported-input'));
+  assert.throws(() => planOpen(CAPS, input({}, { assets: { vo: 'asset:vo@1' } }), { ...env, lock }), code('contract.unsupported-input'));
+  assert.throws(() => planOpen(CAPS, input({ seed: undefined }, { overlays: [OVERLAY] }), env), code('env.lock-required'));
+  assert.throws(() => planOpen(CAPS, input({ host: 'cycles', cards: [CARD] }), { ...env, lock }), code('contract.unsupported-mode'));
+  // 顶层那一套留作对照：出帧的是 renderer 里写的 three，就装得了；renderer 里的宿主不在能力声明里就装不了
+  const core = { source: 'core', host: 'offscreen', mode: 'cards-data', entry: undefined };
+  assert.deepEqual(planOpen(CAPS, input({ ...core, renderer: { source: 'three', host: 'page', mode: 'native-code', entry: 'a.js' } }), env), { seed: 7 });
+  assert.throws(() => planOpen(CAPS, input({ renderer: { source: 'three', host: 'offscreen', mode: 'native-code', entry: 'a.js' } }), env), code('contract.unsupported-mode'));
+  assert.throws(() => planOpen(CAPS, input({ renderer: { source: 'core', host: 'offscreen', mode: 'cards-data' } }), env), code('usage.bad-argument'));
   assert.throws(() => planOpen(CAPS, input(), { lock: null, tier: 'preview' }), code('usage.bad-argument'));
 });
 

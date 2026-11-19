@@ -2,15 +2,30 @@
   "format": "meta-check/0.1",
   "shot": "s01",
   "start": 0,
+  "seed": 7802,
+  "source": "blender",
   "renders": [
     {
       "call": 0,
       "shotFrame": 150,
+      "tier": "final",
       "metas": 1,
       "metaBytes": 70211,
       "metaFrame": 150,
       "metaShotFrame": 150,
-      "colorFileSha256": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1",
+      "metaSeed": 7802,
+      "metaSize": [
+        1920,
+        1080
+      ],
+      "metaTier": "final",
+      "metaSourceId": "blender",
+      "colorFileHash": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1",
+      "colorShape": [
+        1080,
+        1920,
+        4
+      ],
       "metaHashColor": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1"
     }
   ]

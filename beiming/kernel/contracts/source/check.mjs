@@ -1,8 +1,21 @@
 // 帧源接口契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// F4、F10、F15 收单独的能力声明（caps/0.1）和核对记录（source-check/0.1）里的 caps，其余各条只收核对记录。
-// 记录里没出现的段不判；实体清单、场景查询、镜头输入、层引用这些不带 format 的内嵌值和帧源登记表不归这些条文管，一律返回空数组。
+// F4、F10、F15 收单独的能力声明（caps/0.1）和核对记录（source-check/0.1）里的 caps，F21 收单独的层引用，F22 收帧源登记表（source/0.1），其余各条只收核对记录。
+// 记录里没出现的段不判；实体清单、场景查询、镜头输入这些不带 format 的内嵌值不归这些条文管，一律返回空数组。
 
 const FULL_IDS = ['blender', 'three', 'core'];
+// 3.4 登记表里判「之内」用到的那几格，F22 拿它比 source.json；改登记表时和 3.4 的表、source.json 一起改。
+// outputs 只列交得出的；determinism 还是待探针的帧源不写
+const ALL_QUERIES = ['bbox3d', 'anchor', 'intersect', 'contact', 'belowGround'];
+const ALL_MODES = ['cards-data', 'build-script', 'native-code'];
+const BASE_OUTPUTS = { color: 'f32', depth: 'f32', objectId: 'u32', normal: 'f32' };
+const REGISTERED = {
+  blender: { hosts: ['cycles'], modes: ALL_MODES, sceneQuery: ALL_QUERIES, outputs: BASE_OUTPUTS, blur: 'native', determinism: 'tolerance' },
+  three: { hosts: ['page'], modes: ALL_MODES, sceneQuery: ['bbox3d', 'anchor', 'belowGround'], outputs: BASE_OUTPUTS, blur: 'accumulate', determinism: 'hash-same-machine' },
+  core: {
+    hosts: ['offscreen', 'headless-page'], modes: ['cards-data', 'build-script'], sceneQuery: ALL_QUERIES,
+    outputs: { ...BASE_OUTPUTS, motion: 'f32', denoiseAlbedo: 'f32', denoiseNormal: 'f32', 'lightgroup:*': 'f32' }, blur: 'native',
+  },
+};
 const QUERY_LIMIT = 50;
 
 /** 声明过的输出：outputs 里出现并且取值不是 false；lightgroup:<名> 看 lightgroup:* 这个键 */
@@ -18,6 +31,10 @@ const failedWith = (x, code) => x.status === 'error' && x.code === code;
 const outcome = (x) => `${x.status}${x.code ? `（${x.code}）` : ''}`;
 /** 镜头条目的 host 和 mode 都在能力声明里 */
 const modeDeclared = (caps, o) => caps.hosts.includes(o.host) && caps.modes.includes(o.mode);
+/** F14 的条件：没有锁，镜头条目又没写种子、或者镜头用了卡或资产 */
+const needsLock = (o) => !o.hasLock && (!o.hasSeed || o.usesCards || o.usesAssets);
+/** 镜头输入里带着帧源装不了的东西；unfitInput 不出现按空数组算 */
+const unfit = (o) => (o.unfitInput ?? []).length > 0;
 
 const raw = {
   F1: (rec) => (rec.renders ?? []).filter((r) => r.status === 'ok').flatMap((r) => {
@@ -89,7 +106,7 @@ const raw = {
 
   // host 或 mode 不在能力声明里的 open 归 F16
   F14: (rec) => (rec.opens ?? [])
-    .filter((o) => !o.hasLock && modeDeclared(rec.caps, o) && (!o.hasSeed || o.usesCards || o.usesAssets))
+    .filter((o) => modeDeclared(rec.caps, o) && needsLock(o))
     .filter((o) => !failedWith(o, 'env.lock-required'))
     .map((o) => `没有锁的 open（${o.hasSeed ? '' : '镜头没写种子'}${o.usesCards ? ' 用了卡' : ''}${o.usesAssets ? ' 用了资产' : ''}），结果是 ${outcome(o)}`),
 
@@ -98,7 +115,7 @@ const raw = {
     .map((o) => `open 的宿主 ${o.host}、作者模式 ${o.mode} 不全在能力声明里，结果是 ${outcome(o)}`),
 
   F17: (rec) => (rec.renders ?? []).flatMap((r) => (r.layerRefs ?? []).flatMap((l) => [
-    ...(l.sha256 !== l.fileSha256 ? [`${at(r)} 的 ${l.output} 层引用写的哈希不是层文件内容的哈希`] : []),
+    ...(l.hash !== l.fileHash ? [`${at(r)} 的 ${l.output} 层引用写的哈希不是层文件内容的哈希`] : []),
     ...(r.size && (l.shape[0] !== r.size[1] || l.shape[1] !== r.size[0])
       ? [`${at(r)} 的 ${l.output} 层引用的 shape 是 [${l.shape.join(', ')}]，这次输出是宽 ${r.size[0]}、高 ${r.size[1]}`] : []),
   ])),
@@ -107,9 +124,33 @@ const raw = {
     .filter((r) => (r.unsupportedOpts ?? []).length > 0 && allDeclared(rec.caps, r.want) && !failedWith(r, 'contract.unsupported-option'))
     .map((r) => `${at(r)} 要了帧源交不出的 ${r.unsupportedOpts.join('、')}，结果是 ${outcome(r)}`),
 
+  // 没有场景包的镜头：编号是名字按字节序排的名次。实体名只有 ASCII，字符串比较就是字节序
+  F20: (rec) => (rec.scenePack !== false || !rec.manifest ? [] : [...rec.manifest.entities]
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .flatMap((e, i) => (e.id === i + 1 ? [] : [`实体 ${e.name} 按名字排第 ${i + 1}，编号却是 ${e.id}`]))),
+
   F19: (rec) => (rec.renders ?? [])
     .filter((r) => (r.unfitOutputs ?? []).some((n) => r.want.includes(n)) && allDeclared(rec.caps, r.want) && !failedWith(r, 'contract.unsupported-object'))
     .map((r) => `${at(r)} 的场景里有对象放不进要的输出，结果是 ${outcome(r)}`),
+
+  // 值域见 5.13；badArgs 的每一项只有一个参数出值域
+  F23: (rec) => (rec.badArgs ?? [])
+    .filter((b) => !failedWith(b, 'usage.bad-argument'))
+    .map((b) => `${b.call} 的 ${b.arg} 出了值域，结果是 ${outcome(b)}`),
+
+  F24: (rec) => (rec.queries ?? [])
+    .filter((q) => rec.caps.sceneQuery.includes(q.kind) && q.status !== 'ok')
+    .map((q) => `问了声明过的 ${q.kind} 查询，结果是 ${outcome(q)}`),
+
+  // 声明过的宿主和作者模式必须装得起来；F14 管的（没有锁）和 F26 管的（带着装不了的东西）除外
+  F25: (rec) => (rec.opens ?? [])
+    .filter((o) => modeDeclared(rec.caps, o) && !needsLock(o) && !unfit(o) && o.status !== 'ok')
+    .map((o) => `宿主 ${o.host}、作者模式 ${o.mode} 都声明过，open 的结果却是 ${outcome(o)}`),
+
+  // host 或 mode 不在能力声明里的归 F16，满足 F14 条件的归 F14
+  F26: (rec) => (rec.opens ?? [])
+    .filter((o) => unfit(o) && modeDeclared(rec.caps, o) && !needsLock(o) && !failedWith(o, 'contract.unsupported-input'))
+    .map((o) => `镜头输入里有帧源装不了的 ${o.unfitInput.join('、')}，open 的结果是 ${outcome(o)}`),
 };
 
 const onRecord = (fn) => (obj) => (obj?.format === 'source-check/0.1' ? fn(obj) : []);
@@ -157,9 +198,31 @@ const F15 = (obj, { registries }) => {
   return out;
 };
 
+const F21 = (obj, { schema }) => (schema === 'layer-ref.schema.json' && obj.shape[2] !== obj.components.length
+  ? [`shape 的第三个数是 ${obj.shape[2]}，components 有 ${obj.components.length} 项`] : []);
+
+const F22 = (obj) => {
+  if (obj?.format !== 'source/0.1') return [];
+  const out = [];
+  const got = obj.sources;
+  for (const id of Object.keys(got)) if (!Object.hasOwn(REGISTERED, id)) out.push(`登记表里多了 ${id}`);
+  for (const [id, want] of Object.entries(REGISTERED)) {
+    const reg = got[id];
+    if (!reg) { out.push(`登记表里缺 ${id}`); continue; }
+    for (const key of ['hosts', 'modes', 'sceneQuery']) if (!sameSet(reg[key], want[key])) out.push(`${id} 的 ${key} 和 3.4 的表不同`);
+    const types = Object.fromEntries(Object.entries(reg.outputs).filter(([, v]) => v !== false));
+    if (!sameSet(Object.keys(types), Object.keys(want.outputs)) || Object.keys(types).some((n) => types[n] !== want.outputs[n])) out.push(`${id} 的 outputs 和 3.4 的表不同`);
+    if (reg.motionBlur.mode !== want.blur) out.push(`${id} 的 motionBlur.mode 是 ${reg.motionBlur.mode}，3.4 的表是 ${want.blur}`);
+    if (reg.determinism !== want.determinism) out.push(`${id} 的 determinism 是 ${reg.determinism ?? '不出现'}，3.4 的表是 ${want.determinism ?? '待探针，不得出现'}`);
+  }
+  return out;
+};
+
 export const checks = {
   ...Object.fromEntries(Object.entries(raw).map(([id, fn]) => [id, onRecord(fn)])),
   F4,
   F10,
   F15,
+  F21,
+  F22,
 };

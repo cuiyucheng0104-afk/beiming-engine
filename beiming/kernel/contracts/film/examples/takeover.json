@@ -45,7 +45,8 @@
         "hero": "kit"
       },
       "shutter": {
-        "angleDeg": 180
+        "angleDeg": 180,
+        "samples": 16
       },
       "renderer": {
         "source": "core",

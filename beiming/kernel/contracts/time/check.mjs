@@ -64,8 +64,8 @@ const raw = {
   }),
 
   T6: (rec) => (rec.frames ?? [])
-    .filter((fr) => fr.accumulation?.average !== undefined && fr.accumulation.average !== 'linear')
-    .map((fr) => `第 ${fr.frame} 帧不是在线性光里取平均`),
+    .filter((fr) => fr.accumulation?.linearErr > 1e-4) // 没量出来就不出现，不判
+    .map((fr) => `第 ${fr.frame} 帧的累积颜色层对线性平均的预言图差了 ${fr.accumulation.linearErr}，超过 1e-4`),
 
   T7: (rec) => (rec.frames ?? [])
     .filter((fr) => fr.accumulation?.postRuns !== undefined && (fr.accumulation.postRuns !== 1 || fr.accumulation.postInput !== 'average'))
@@ -75,11 +75,7 @@ const raw = {
     const out = [];
     if (fr.aux && !sameKey(fr.aux, fr.frame)) out.push(`第 ${fr.frame} 帧的辅助层取在 (${fr.aux.frame}, ${fr.aux.sub})`);
     if (fr.postDepth && !sameKey(fr.postDepth, fr.frame)) out.push(`第 ${fr.frame} 帧后期用的深度取在 (${fr.postDepth.frame}, ${fr.postDepth.sub})`);
-    const a = fr.auxSample ?? {}; // 四个字段各自可选，出现哪个判哪个
-    if (a.apertureM !== undefined && a.apertureM !== 0) out.push(`第 ${fr.frame} 帧的辅助层样本孔径是 ${a.apertureM} 米，不是针孔`);
-    if (a.shutterAngleDeg !== undefined && a.shutterAngleDeg !== 0) out.push(`第 ${fr.frame} 帧的辅助层样本开着 ${a.shutterAngleDeg} 度快门`);
-    if (a.samples !== undefined && a.samples !== 1) out.push(`第 ${fr.frame} 帧的辅助层样本由 ${a.samples} 个子帧采样平均而成`);
-    if (a.pixelOffset && !(a.pixelOffset[0] === 0.5 && a.pixelOffset[1] === 0.5)) out.push(`第 ${fr.frame} 帧的辅助层样本取在像素内的 (${a.pixelOffset[0]}, ${a.pixelOffset[1]})，不是像素中心`);
+    if (fr.auxMismatch > 0) out.push(`第 ${fr.frame} 帧的编号层对 sub = 0、针孔、像素中心的预言图，边缘带之外有 ${fr.auxMismatch} 个像素对不上`); // 没量出来就不出现，不判
     return out;
   }),
 
@@ -89,7 +85,7 @@ const raw = {
       .map((fr) => `第 ${fr.frame} 帧交给镜头代码的帧号是 ${fr.f}`),
     ...(rec.localized ?? [])
       .filter((l) => l.f !== l.frame - shotOf(rec, l.shot).start)
-      .map((l) => `全片第 ${l.frame} 帧交给镜头 ${l.shot} 的卡时成了 ${l.f}`),
+      .map((l) => `全片第 ${l.frame} 帧交给镜头 ${l.shot} 的镜头代码或卡时成了 ${l.f}`),
   ],
 
   T10: (rec) => (rec.holds ?? [])

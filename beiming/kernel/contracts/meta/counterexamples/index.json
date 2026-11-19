@@ -21,6 +21,13 @@
     "why": "这次成功的 render 一份元数据也没交回"
   },
   {
+    "file": "M1-two-metas.json",
+    "violates": [
+      "M1"
+    ],
+    "why": "这次成功的 render 交回了 2 份元数据，别的都对"
+  },
+  {
     "file": "M2-shot-writes-camera.json",
     "violates": [
       "M2"
@@ -124,5 +131,82 @@
       "M11"
     ],
     "why": "请求的是局部第 150 帧，元数据的 shotFrame 却是 151（frame 451 和它自洽）"
+  },
+  {
+    "file": "M12-seed-not-requested.json",
+    "violates": [
+      "M12"
+    ],
+    "why": "这个镜头生效的镜头种子是 7802，元数据的 seed 却写了 7803，别的都对"
+  },
+  {
+    "file": "M13-width-not-of-color-layer.json",
+    "violates": [
+      "M13"
+    ],
+    "why": "草稿档交回的颜色层是 960 乘 540，元数据 size 的宽却还写着满画幅的 1920（高 540 是对的）"
+  },
+  {
+    "file": "M13-height-not-of-color-layer.json",
+    "violates": [
+      "M13"
+    ],
+    "why": "草稿档交回的颜色层是 960 乘 540，元数据 size 的高却还写着满画幅的 1080（宽 960 是对的）"
+  },
+  {
+    "file": "M14-tier-always-final.json",
+    "violates": [
+      "M14"
+    ],
+    "why": "会话是草稿档，元数据的 source.tier 却写了 final；尺寸照草稿档的颜色层填对了"
+  },
+  {
+    "file": "M15-fov-doubled.json",
+    "violates": [
+      "M15"
+    ],
+    "why": "fovYDeg 写成了 48，proj 的第 6 个数还是照 24 度算的 4.7046（第 1 个数和第 6 个数之间是自洽的）"
+  },
+  {
+    "file": "M15-aspect-not-of-size.json",
+    "violates": [
+      "M15"
+    ],
+    "why": "画幅是 1920 乘 1080，proj 的第 1 个数却等于第 6 个数：是照正方形画幅算的"
+  },
+  {
+    "file": "M15-depth-scale-not-of-far.json",
+    "violates": [
+      "M15"
+    ],
+    "why": "far 是 100，proj 的第 11 个数却是照 far 等于 1000 算的（第 15 个数是对的）"
+  },
+  {
+    "file": "M15-depth-offset-not-of-near.json",
+    "violates": [
+      "M15"
+    ],
+    "why": "near 是 0.1，proj 的第 15 个数却是照 near 等于 1 算的（第 11 个数是对的）"
+  },
+  {
+    "file": "M16-px-area-tripled.json",
+    "violates": [
+      "M16"
+    ],
+    "why": "kit 的 pxArea 写成了照 bbox2d 算出来的三倍，bbox2d 没动"
+  },
+  {
+    "file": "M16-px-area-not-clipped.json",
+    "violates": [
+      "M16"
+    ],
+    "why": "fx.sparks 的包围盒向左伸出画面 472 像素，pxArea 却按没裁的整个矩形算：没和画面求交"
+  },
+  {
+    "file": "M17-source-id-is-renderer.json",
+    "violates": [
+      "M17"
+    ],
+    "why": "镜头条目顶层的 source 是 blender，元数据的 source.id 却填了 three：带 renderer 对象的镜头把出帧者填进了 source.id"
   }
 ]

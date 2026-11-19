@@ -14,11 +14,25 @@
     "why": "48 帧的镜头 build 跑了 48 次"
   },
   {
+    "file": "S2-build-never-called.json",
+    "violates": [
+      "S2"
+    ],
+    "why": "观测点包在入口文件的 build 外面，一次装载里一次也没数到，构建却判成了通过"
+  },
+  {
     "file": "S3-two-sources.json",
     "violates": [
       "S3"
     ],
     "why": "一个镜头同时用了 three 和 Blender 两个帧源、两种语言"
+  },
+  {
+    "file": "S3-two-languages.json",
+    "violates": [
+      "S3"
+    ],
+    "why": "只有 three 一个出帧者，镜头却用了 js 和 python 两种语言"
   },
   {
     "file": "S4-duplicate-entity.json",
@@ -110,5 +124,54 @@
       "S9"
     ],
     "why": "两种违反同时出现：先出现的是 runtime 键和参数同名，报的却是后出现的那一种 contract.undeclared-card"
+  },
+  {
+    "file": "S10-seed-off-by-one.json",
+    "violates": [
+      "S10"
+    ],
+    "why": "这次装载生效的镜头种子是 20261118，镜头代码在 ctx.seed 里拿到的是 20261119"
+  },
+  {
+    "file": "S10-wrong-fps.json",
+    "violates": [
+      "S10"
+    ],
+    "why": "镜头输入的帧率是 24/1，镜头代码在 ctx.fps 里拿到的是 30/1"
+  },
+  {
+    "file": "S10-fps-not-a-fraction.json",
+    "violates": [
+      "S10"
+    ],
+    "why": "镜头输入的帧率是 24/1，镜头代码在 ctx.fps 里拿到的是 24：数值相同，写法不是时间键契约的分数写法，逐字符不相同"
+  },
+  {
+    "file": "S10-wrong-frames.json",
+    "violates": [
+      "S10"
+    ],
+    "why": "镜头是 48 帧，镜头代码在 ctx.frames 里拿到的是全片的 96 帧"
+  },
+  {
+    "file": "S10-wrong-shot-in.json",
+    "violates": [
+      "S10"
+    ],
+    "why": "镜头条目的起始帧是 48，镜头代码在 ctx.shot.in 里拿到的是 0"
+  },
+  {
+    "file": "S10-wrong-size.json",
+    "violates": [
+      "S10"
+    ],
+    "why": "镜头输入的画幅是 1920×1080，镜头代码在 ctx.size 里拿到的是宽高对调的 1080×1920"
+  },
+  {
+    "file": "S10-ctx-field-missing.json",
+    "violates": [
+      "S10"
+    ],
+    "why": "ctx 里没有 seed：观测点读到了另外四项，值都对，seed 这一项缺了"
   }
 ]

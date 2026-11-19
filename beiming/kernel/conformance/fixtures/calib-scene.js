@@ -1,6 +1,7 @@
 // 照校准场景的规格搭镜头：相机、背景、物体都从规格来。物体是不受光的自发光体，颜色是场景线性值；
 // 位置 = 起点 + 速度 × (f + sub)。只认规格里用到的盒子、球、静态旋转和匀速直线运动。
-// 调参用的两个值走 ctx.params：background 是 false 时不设背景；stranger 是 line 时往场景里加一条线（辅助层画不了的对象）。
+// 调参用的三个值走 ctx.params：background 是 false 时不设背景；stranger 是 line 时往场景里加一条线（辅助层画不了的对象）；
+// offscreen 是一组实体名时，每个名字在视场外放一个小方块：实体清单里多出这几个名字，画面上一个像素都不改。
 
 export const calibShot = (spec) => function build(ctx) {
   const { THREE } = ctx;
@@ -28,6 +29,17 @@ export const calibShot = (spec) => function build(ctx) {
     entities[o.id] = mesh;
     disposable.push(geometry, material);
   }
+  // 视场外的实体：相机前方 10 米、往上 100 米起一个挨一个，离竖直视场的上沿很远；state 不动它们
+  camera.updateMatrixWorld();
+  (ctx.params.offscreen ?? []).forEach((name, i) => {
+    const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1), material = new THREE.MeshBasicMaterial({ toneMapped: false });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = name;
+    mesh.position.copy(camera.localToWorld(new THREE.Vector3(0, 100 + i, -10)));
+    scene.add(mesh);
+    entities[name] = mesh;
+    disposable.push(geometry, material);
+  });
   if (ctx.params.stranger === 'line') {
     const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.5, -0.5, -3), new THREE.Vector3(0.5, 0.5, -3)]);
     const material = new THREE.LineBasicMaterial({ toneMapped: false });

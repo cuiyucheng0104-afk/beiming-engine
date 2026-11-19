@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadContracts } from '../contracts/validate.mjs';
-import { shotInput } from './input.mjs';
+import { eventsTable, renderingOf, shotInput } from './input.mjs';
 import { stream, streamName } from './rng.mjs';
 import { globalFrame, hold, shutterSubs } from './time.mjs';
 
@@ -48,13 +48,15 @@ test('同名的流出同样的序列，和别的流、取数先后无关', () =>
   assert.deepEqual(mixed, alone);
   assert.notDeepEqual(take(stream('7/s01/a/c'), 16), alone);
   assert.equal(x.name, '7/s01/a/b');
+  // name 只读：镜头代码改不了
+  assert.throws(() => { x.name = 'other'; }, TypeError);
   // 钉住算法：改了出数方法，这个数会变
   assert.deepEqual(take(stream('20261118/s02/scatter/rock.03'), 2), PINNED);
   const s = stream('1/s01/a/b');
   for (let i = 0; i < 1000; i++) { const v = s.next(); assert.ok(v >= 0 && v < 1); }
 });
 
-test('镜头输入：片子标识、画幅、帧率加这个镜头的条目；带 renderer 时出帧者那一套换到顶层', async () => {
+test('镜头输入：片子标识、画幅、帧率加这个镜头的条目，原样；全片资产、事件表、贴在这个镜头上的叠加层有才带', async () => {
   const film = {
     id: 'f_x', output: { size: [640, 360], fps: '24/1', frames: 20 },
     shots: [
@@ -69,9 +71,37 @@ test('镜头输入：片子标识、画幅、帧率加这个镜头的条目；�
   // 交出去的是副本：改它不动片子描述
   input.output.size[0] = 1; input.shot.seed = 8;
   assert.deepEqual([film.output.size[0], film.shots[0].seed], [640, 7]);
-  const swapped = shotInput(film, 's02').shot;
-  assert.deepEqual([swapped.source, swapped.host, swapped.mode, 'entry' in swapped, 'renderer' in swapped], ['core', 'offscreen', 'cards-data', false, false]);
+  // 带 renderer 的条目不改写：顶层那一套和 renderer 对象都在；出帧用的那一套由读的人自己取
+  const kept = shotInput(film, 's02').shot;
+  assert.deepEqual(kept, film.shots[1]);
+  assert.deepEqual([renderingOf(kept).source, renderingOf(film.shots[0]).source], ['core', 'three']);
   assert.throws(() => shotInput(film, 's09'), RangeError);
+
+  const rich = { ...film, assets: { vo: 'asset:vo@1' }, overlays: [{ id: 'tag', shot: 's02', anchor: 'screen', pos: [0.5, 0.5], text: 'x', in: 12, out: 15 }] };
+  const table = eventsTable(rich);
+  const full = shotInput(rich, 's02', table);
+  assert.deepEqual([full.assets, full.events, full.overlays], [rich.assets, table, rich.overlays]);
+  assert.deepEqual(validate(full, 'source', 'shot-input.schema.json').schemaErrors, []);
+  assert.deepEqual(Object.keys(shotInput(rich, 's01', table)), ['film', 'output', 'shot', 'assets', 'events']);
+});
+
+test('事件表：命名条目和切点条目，按帧号再按标识排；时刻算式不会展开就报错', async () => {
+  const film = {
+    id: 'f_x', output: { fps: '24/1', frames: 30 },
+    shots: [{ id: 's01', in: 0, out: 10 }, { id: 's02', in: 10, out: 20 }, { id: 's03', in: 20, out: 30 }],
+    events: [{ id: 'late', frame: 20, shot: 's03', audio: 'hit.low' }, { id: 'early', frame: 4, shot: 's01' }],
+  };
+  const table = eventsTable(film);
+  assert.deepEqual(table.events, [
+    { id: 'early', frame: 4, sub: 0, shot: 's01', kind: 'named', from: 'film' },
+    { id: 'cut.10', frame: 10, sub: 0, kind: 'cut', from: 'film' },
+    { id: 'cut.20', frame: 20, sub: 0, kind: 'cut', from: 'film' },
+    { id: 'late', frame: 20, sub: 0, shot: 's03', kind: 'named', from: 'film', audio: 'hit.low', sync: 'onset' },
+  ]);
+  const { validate } = await loadContracts();
+  assert.deepEqual([validate(table).schemaErrors, validate(table).violations], [[], {}]);
+  assert.deepEqual(eventsTable({ ...film, events: undefined, shots: film.shots.slice(0, 1) }).events, []);
+  assert.throws(() => eventsTable({ ...film, events: [{ id: 'x', frame: 'cut(10) + 2' }] }), RangeError);
 });
 
 const PINNED = [3805304422, 282460036];

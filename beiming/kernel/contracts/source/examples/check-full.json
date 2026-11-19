@@ -114,8 +114,8 @@
             1920,
             4
           ],
-          "sha256": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178",
-          "fileSha256": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
+          "hash": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178",
+          "fileHash": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
         },
         {
           "output": "depth",
@@ -124,8 +124,8 @@
             1920,
             1
           ],
-          "sha256": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63",
-          "fileSha256": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63"
+          "hash": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63",
+          "fileHash": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63"
         },
         {
           "output": "objectId",
@@ -134,8 +134,8 @@
             1920,
             1
           ],
-          "sha256": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c",
-          "fileSha256": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c"
+          "hash": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c",
+          "fileHash": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c"
         }
       ]
     },
@@ -226,6 +226,32 @@
       "truncated": 23
     }
   ],
+  "badArgs": [
+    {
+      "call": "render",
+      "arg": "f",
+      "status": "error",
+      "code": "usage.bad-argument"
+    },
+    {
+      "call": "render",
+      "arg": "want",
+      "status": "error",
+      "code": "usage.bad-argument"
+    },
+    {
+      "call": "render",
+      "arg": "opts.shutter.angleDeg",
+      "status": "error",
+      "code": "usage.bad-argument"
+    },
+    {
+      "call": "query",
+      "arg": "f",
+      "status": "error",
+      "code": "usage.bad-argument"
+    }
+  ],
   "manifest": {
     "frames": 240,
     "entities": [
@@ -289,5 +315,6 @@
       "text": "LOCK",
       "read": "LOCK"
     }
-  ]
+  ],
+  "scenePack": true
 }

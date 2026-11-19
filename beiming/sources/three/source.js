@@ -4,6 +4,7 @@
 //   host.apply(loaded, f, sub)             把 (f, sub) 的状态写进场景
 //   host.measure(loaded, f, facts)         量这一帧的元数据（相机、实体、统计、哈希）
 //   host.now()                             单调时钟，毫秒；读数只进元数据的 timing
+import { renderingOf } from '../../kernel/eval/input.mjs';
 import { caps, VERSION } from './caps.mjs';
 import { planRender, SourceError } from './plan.mjs';
 
@@ -54,13 +55,14 @@ export function createThreeSource({ THREE, host }) {
     return shared;
   }
 
-  /** shot 是镜头条目，tier 是档位，locked 是装载计划（planOpen 的返回值）。装得了装不了由宿主先用 planOpen 判 */
+  /** shot 是镜头条目（原样，带 renderer 对象时出帧用的是它里面的那一套），tier 是档位，locked 是装载计划（planOpen 的返回值）。装得了装不了由宿主先用 planOpen 判 */
   async function open(shot, tier, locked) {
     const { r, gl, gpu } = renderer();
     const loaded = await host.load(shot, { THREE, renderer: r }, locked);
     const { scene, camera, entities } = loaded.object;
 
-    // 编号按实体名的字典序从 1 起；类别从母语对象的形态推
+    // 这个帧源的镜头都是镜头代码自己搭的，没有场景包：编号由这里分配，实体名按字节序排、从 1 起。实体名只有 ASCII，默认的排序就是字节序。
+    // 0 不是任何实体的编号。类别从母语对象的形态推
     const names = Object.keys(entities).sort();
     const manifest = {
       frames: shot.out - shot.in,
@@ -187,7 +189,8 @@ export function createThreeSource({ THREE, host }) {
           tris,
           timing,
           manifest,
-          source: { id: shot.source, renderer: CAPS.id, host: shot.host, version: VERSION, tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
+          // id 是镜头条目顶层写的帧源，renderer 是真的出了这一帧的帧源；条目带 renderer 对象时两个可以不同
+          source: { id: shot.source, renderer: CAPS.id, host: renderingOf(shot).host, version: VERSION, tier, gpu, backend: 'webgl2', samples: plan.pixelSamples },
         });
         return { meta, layers };
       },

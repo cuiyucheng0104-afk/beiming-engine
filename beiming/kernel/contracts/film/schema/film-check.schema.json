@@ -47,7 +47,7 @@
           "rev": { "type": "integer", "minimum": 0 },
           "serverRev": { "type": "integer", "minimum": 0 },
           "outcome": { "enum": ["accepted", "rejected"] },
-          "code": { "type": "string", "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)*$" },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
           "latestRev": { "type": "integer", "minimum": 0 }
         }
       }

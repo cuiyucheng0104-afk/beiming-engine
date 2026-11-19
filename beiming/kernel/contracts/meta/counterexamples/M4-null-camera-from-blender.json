@@ -38,7 +38,7 @@
         0.07
       ],
       "visible": 1,
-      "pxArea": 0.0285,
+      "pxArea": 0.02851851851851852,
       "depth": [
         2.81,
         3.16
@@ -67,7 +67,7 @@
         0.07
       ],
       "visible": 0.83,
-      "pxArea": 0.0047,
+      "pxArea": 0.004714506172839506,
       "depth": [
         2.93,
         3.05
@@ -101,7 +101,7 @@
         760
       ],
       "visible": null,
-      "pxArea": 0.107,
+      "pxArea": 0.10698302469135802,
       "count": 500,
       "cards": [
         "particle.ballistic@1"

@@ -70,28 +70,13 @@
             "additionalProperties": false,
             "dependentRequired": { "postRuns": ["postInput"], "postInput": ["postRuns"] },
             "properties": {
-              "average": { "enum": ["linear", "encoded"] },
+              "linearErr": { "type": "number", "minimum": 0 },
               "postRuns": { "type": "integer", "minimum": 0 },
               "postInput": { "enum": ["average", "sample"] }
             }
           },
           "aux": { "$ref": "time-key.schema.json" },
-          "auxSample": {
-            "type": "object",
-            "minProperties": 1,
-            "additionalProperties": false,
-            "properties": {
-              "apertureM": { "type": "number", "minimum": 0 },
-              "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
-              "samples": { "type": "integer", "minimum": 1 },
-              "pixelOffset": {
-                "type": "array",
-                "minItems": 2,
-                "maxItems": 2,
-                "items": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 }
-              }
-            }
-          },
+          "auxMismatch": { "type": "integer", "minimum": 0 },
           "postDepth": { "$ref": "time-key.schema.json" }
         }
       }

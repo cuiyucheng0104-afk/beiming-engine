@@ -25,22 +25,22 @@
       "samples": [
         {
           "frame": 60,
-          "sub": 0.125,
+          "sub": 0.08,
           "shot": "s02"
         },
         {
           "frame": 60,
-          "sub": 0.375,
+          "sub": 0.24000000000000002,
+          "shot": "s02"
+        },
+        {
+          "frame": 60,
+          "sub": 0.4000000000000001,
           "shot": "s02"
         }
       ],
-      "aux": {
-        "frame": 60,
-        "sub": 0
-      },
-      "auxSample": {
-        "shutterAngleDeg": 180
-      }
+      "shutterAngleDeg": 172.8,
+      "accumulation": {}
     }
   ]
 }

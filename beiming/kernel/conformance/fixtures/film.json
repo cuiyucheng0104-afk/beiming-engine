@@ -1,7 +1,7 @@
 {
   "format": "film/3.0",
   "id": "skeleton-calib",
-  "title": "最小出帧链路：三个镜头，前两个是校准场景「匀速方块」（第二个不设背景），第三个是校准场景「辅助样本」",
+  "title": "最小出帧链路：三个镜头，前两个是校准场景「匀速方块」（第二个不设背景，条目顶层写的帧源留作对照，出帧的是 renderer 里写的），第三个是校准场景「辅助样本」，视场外另放三个实体，名字带大写、下划线和点号；每个镜头里有一个事件",
   "output": {
     "size": [
       640,
@@ -36,10 +36,9 @@
       "id": "s02",
       "in": 49,
       "out": 98,
-      "source": "three",
-      "host": "page",
-      "mode": "native-code",
-      "entry": "moving-cube.shot.js",
+      "source": "core",
+      "host": "offscreen",
+      "mode": "cards-data",
       "colorRef": "scene",
       "seed": 20261120,
       "params": {
@@ -47,6 +46,12 @@
       },
       "shutter": {
         "angleDeg": 180
+      },
+      "renderer": {
+        "source": "three",
+        "host": "page",
+        "mode": "native-code",
+        "entry": "moving-cube.shot.js"
       }
     },
     {
@@ -59,9 +64,33 @@
       "entry": "aux-sample.shot.js",
       "colorRef": "scene",
       "seed": 20261121,
+      "params": {
+        "offscreen": [
+          "Zed",
+          "a_b",
+          "a.b"
+        ]
+      },
       "shutter": {
         "angleDeg": 180
       }
+    }
+  ],
+  "events": [
+    {
+      "id": "mark1",
+      "frame": 24,
+      "shot": "s01"
+    },
+    {
+      "id": "mark2",
+      "frame": 73,
+      "shot": "s02"
+    },
+    {
+      "id": "mark3",
+      "frame": 102,
+      "shot": "s03"
     }
   ],
   "style": {

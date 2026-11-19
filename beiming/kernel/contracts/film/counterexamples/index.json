@@ -77,6 +77,13 @@
     "why": "两次读到的锁都是修订号 7，摘要不一样"
   },
   {
+    "file": "D4-lock-written-by-agent.json",
+    "violates": [
+      "D4"
+    ],
+    "why": "读到的修订号 7 的锁是调用方写进去的那一份，不是服务器生成的"
+  },
+  {
     "file": "D5-path-by-index.json",
     "violates": [
       "D5"

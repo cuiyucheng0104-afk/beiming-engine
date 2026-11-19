@@ -75,7 +75,7 @@
         }
       ],
       "accumulation": {
-        "average": "linear",
+        "linearErr": 0.0000018,
         "postRuns": 1,
         "postInput": "average"
       },
@@ -87,15 +87,7 @@
         "frame": 47,
         "sub": 0
       },
-      "auxSample": {
-        "apertureM": 0,
-        "shutterAngleDeg": 0,
-        "samples": 1,
-        "pixelOffset": [
-          0.5,
-          0.5
-        ]
-      }
+      "auxMismatch": 0
     },
     {
       "frame": 48,
@@ -124,7 +116,7 @@
         }
       ],
       "accumulation": {
-        "average": "linear",
+        "linearErr": 0.0001,
         "postRuns": 1,
         "postInput": "average"
       },
@@ -136,15 +128,7 @@
         "frame": 48,
         "sub": 0
       },
-      "auxSample": {
-        "apertureM": 0,
-        "shutterAngleDeg": 0,
-        "samples": 1,
-        "pixelOffset": [
-          0.5,
-          0.5
-        ]
-      }
+      "auxMismatch": 0
     },
     {
       "frame": 60,
@@ -163,7 +147,7 @@
         }
       ],
       "accumulation": {
-        "average": "linear"
+        "linearErr": 9.3e-7
       }
     },
     {
@@ -188,12 +172,7 @@
         "frame": 60,
         "sub": 0
       },
-      "auxSample": {
-        "pixelOffset": [
-          0.5,
-          0.5
-        ]
-      }
+      "auxMismatch": 0
     },
     {
       "frame": 61,
@@ -204,6 +183,30 @@
         {
           "frame": 61,
           "sub": 0,
+          "shot": "s02"
+        }
+      ],
+      "accumulation": {}
+    },
+    {
+      "frame": 62,
+      "shot": "s02",
+      "f": 14,
+      "shutterAngleDeg": 172.8,
+      "samples": [
+        {
+          "frame": 62,
+          "sub": 0.4,
+          "shot": "s02"
+        },
+        {
+          "frame": 62,
+          "sub": 0.24000000000000002,
+          "shot": "s02"
+        },
+        {
+          "frame": 62,
+          "sub": 0.08,
           "shot": "s02"
         }
       ],

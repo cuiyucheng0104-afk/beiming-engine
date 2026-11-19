@@ -23,11 +23,10 @@
           "usesAssets": { "type": "boolean" },
           "host": { "type": "string", "minLength": 1 },
           "mode": { "enum": ["cards-data", "build-script", "native-code"] },
+          "unfitInput": { "type": "array", "uniqueItems": true, "items": { "enum": ["cards", "assets", "overlays"] } },
           "status": { "enum": ["ok", "error"] },
-          "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" }
-        },
-        "if": { "properties": { "status": { "const": "error" } } },
-        "then": { "required": ["code"] }
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" }
+        }
       }
     },
     "renders": {
@@ -42,7 +41,7 @@
           "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
           "shutterSamples": { "type": "integer", "minimum": 1 },
           "status": { "enum": ["ok", "error"] },
-          "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
           "meta": { "type": "boolean" },
           "layers": { "type": "array", "uniqueItems": true, "items": { "$ref": "caps.schema.json#/$defs/outputName" } },
           "metaShutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
@@ -56,19 +55,19 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["output", "shape", "sha256", "fileSha256"],
+              "required": ["output", "shape", "hash", "fileHash"],
               "additionalProperties": false,
               "properties": {
                 "output": { "$ref": "caps.schema.json#/$defs/outputName" },
                 "shape": { "$ref": "layer-ref.schema.json#/properties/shape" },
-                "sha256": { "$ref": "layer-ref.schema.json#/properties/sha256" },
-                "fileSha256": { "$ref": "layer-ref.schema.json#/properties/sha256" }
+                "hash": { "$ref": "layer-ref.schema.json#/properties/hash" },
+                "fileHash": { "$ref": "layer-ref.schema.json#/properties/hash" }
               }
             }
           }
         },
         "allOf": [
-          { "if": { "properties": { "status": { "const": "error" } } }, "then": { "required": ["code"] }, "else": { "required": ["meta", "layers"] } }
+          { "if": { "properties": { "status": { "const": "ok" } } }, "then": { "required": ["meta", "layers"] } }
         ],
         "dependentRequired": { "colorRef": ["shotColorRef"] }
       }
@@ -109,17 +108,33 @@
         "properties": {
           "kind": { "$ref": "caps.schema.json#/$defs/queryKind" },
           "status": { "enum": ["ok", "error"] },
-          "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
           "total": { "type": "integer", "minimum": 0 },
           "returned": { "type": "integer", "minimum": 0 },
           "truncated": { "type": "integer", "minimum": 1 }
         },
-        "if": { "properties": { "status": { "const": "error" } } },
-        "then": { "required": ["code"] },
-        "else": { "required": ["total", "returned"] }
+        "if": { "properties": { "status": { "const": "ok" } } },
+        "then": { "required": ["total", "returned"] }
+      }
+    },
+    "badArgs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["call", "arg", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "call": { "enum": ["render", "query"] },
+          "arg": { "enum": ["f", "want", "opts.samples", "opts.scale", "opts.shutter.angleDeg", "opts.shutter.samples"] },
+          "status": { "enum": ["ok", "error"] },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" }
+        },
+        "if": { "properties": { "call": { "const": "query" } } },
+        "then": { "properties": { "arg": { "const": "f" } } }
       }
     },
     "manifest": { "$ref": "manifest.schema.json" },
+    "scenePack": { "type": "boolean" },
     "metaEntities": {
       "type": "array",
       "items": {

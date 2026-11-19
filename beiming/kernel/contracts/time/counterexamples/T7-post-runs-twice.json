@@ -25,21 +25,28 @@
       "samples": [
         {
           "frame": 60,
-          "sub": 0.125,
+          "sub": 0.0625,
           "shot": "s02"
         },
         {
           "frame": 60,
-          "sub": 0.375,
+          "sub": 0.1875,
+          "shot": "s02"
+        },
+        {
+          "frame": 60,
+          "sub": 0.3125,
+          "shot": "s02"
+        },
+        {
+          "frame": 60,
+          "sub": 0.4375,
           "shot": "s02"
         }
       ],
-      "aux": {
-        "frame": 60,
-        "sub": 0
-      },
-      "auxSample": {
-        "samples": 4
+      "accumulation": {
+        "postRuns": 2,
+        "postInput": "average"
       }
     }
   ]

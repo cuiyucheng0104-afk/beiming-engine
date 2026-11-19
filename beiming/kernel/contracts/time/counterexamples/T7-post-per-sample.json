@@ -45,7 +45,7 @@
         }
       ],
       "accumulation": {
-        "average": "linear",
+        "linearErr": 0.0000018,
         "postRuns": 4,
         "postInput": "sample"
       }

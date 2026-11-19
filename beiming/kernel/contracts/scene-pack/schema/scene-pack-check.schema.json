@@ -77,7 +77,7 @@
         "additionalProperties": false,
         "properties": {
           "status": { "enum": ["ok", "error"] },
-          "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" }
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" }
         },
         "if": { "properties": { "status": { "const": "error" } } },
         "then": { "required": ["code"] }

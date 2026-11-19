@@ -38,9 +38,7 @@
         "frame": 60,
         "sub": 0
       },
-      "auxSample": {
-        "apertureM": 0.025
-      }
+      "auxMismatch": 37
     }
   ]
 }

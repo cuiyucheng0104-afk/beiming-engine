@@ -17,7 +17,8 @@ const raw = {
     return [...seen].filter(([, d]) => d.size > 1).map(([k]) => `镜头 ${rec.shot} 同一个时刻求出了不同的状态摘要：${k}`);
   },
 
-  S2: (rec) => (rec.buildCalls === 1 ? [] : [`镜头 ${rec.shot} 的 buildCalls 是 ${rec.buildCalls}，必须是 1`]),
+  // 没有入口文件、或者没放观测点的镜头没有 buildCalls，不判
+  S2: (rec) => (rec.buildCalls === undefined || rec.buildCalls === 1 ? [] : [`镜头 ${rec.shot} 的 buildCalls 是 ${rec.buildCalls}，必须是 1`]),
 
   S3: (rec) => [
     ...(rec.sources.length === 1 ? [] : [`镜头 ${rec.shot} 的 sources 有 ${rec.sources.length} 项：${rec.sources.join('、')}`]),
@@ -71,6 +72,11 @@ const raw = {
     }
     return [];
   },
+
+  // want 里出现的每个字段，seen 里必须有并且相等；数组（size）按项比。want 里没有的字段不判（5.10）
+  S10: (rec) => (rec.ctx ?? []).flatMap(({ want, seen }, i) => Object.keys(want)
+    .filter((k) => JSON.stringify(seen[k]) !== JSON.stringify(want[k]))
+    .map((k) => `镜头 ${rec.shot} 第 ${i + 1} 次装载交给镜头代码的 ctx.${k === 'shotIn' ? 'shot.in' : k} 是 ${JSON.stringify(seen[k]) ?? '没有'}，必须是 ${JSON.stringify(want[k])}`)),
 };
 
 export const checks = Object.fromEntries(Object.entries(raw).map(([id, fn]) => [id, onRecord(fn)]));

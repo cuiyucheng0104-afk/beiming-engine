@@ -8,7 +8,6 @@
   "languages": [
     "python"
   ],
-  "buildCalls": 1,
   "build": "ok",
   "entities": [
     "kit.body",

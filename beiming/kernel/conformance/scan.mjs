@@ -1,15 +1,26 @@
 // 静态扫描：在渲染路径的文件里找读墙钟和不带种子的随机。
+// shortcut: 只认直接写出来的调用，Python 的 random 模块不认；渲染路径里有 Python 文件、或者要追间接调用时换成语法树上的扫描
 // 这个目录自己也会被同样的规则搜，所以被找的调用名在这里一律拆开写，不出现字面量。
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
-const name = (...parts) => parts.join('.');
+/** 取成员的一条规则：点号取（含 ?.）和方括号里写字符串取都算 */
+const member = (kind, object, prop) => ({
+  kind, call: `${object}.${prop}`,
+  re: new RegExp(`\\b${object}\\s*(?:\\??\\.\\s*${prop}\\b|(?:\\?\\.)?\\s*\\[\\s*(['"\`])${prop}\\1\\s*\\])`, 'g'),
+});
 const RULES = [
-  { kind: 'wallClock', call: name('Date', 'now'), re: /\bDate\s*\.\s*now\b/g },
-  { kind: 'wallClock', call: name('performance', 'now'), re: /\bperformance\s*\.\s*now\b/g },
-  { kind: 'wallClock', call: `new ${'Date'}()`, re: /\bnew\s+Date\s*\(\s*\)/g },
-  { kind: 'wallClock', call: name('time', 'time'), re: /\btime\s*\.\s*time\s*\(/g },
-  { kind: 'unseededRandom', call: name('Math', 'random'), re: /\bMath\s*\.\s*random\b/g },
+  member('wallClock', 'Date', 'now'),
+  member('wallClock', 'performance', 'now'),
+  member('wallClock', 'performance', 'timeOrigin'),
+  // 不带参数的 new：括号省掉也算；带参数的是造一个给定的时刻，不算
+  { kind: 'wallClock', call: `new ${'Date'}`, re: /\bnew\s+Date\b(?!\s*\(\s*[^)\s])/g },
+  // 不带 new 当函数调：不管传什么，交回的都是当前时刻
+  { kind: 'wallClock', call: `${'Date'}()`, re: /(?<!\bnew\s+)(?<![.\w$])Date\s*\(/g },
+  { kind: 'wallClock', call: ['time', 'time'].join('.'), re: /\btime\s*\.\s*time\s*\(/g },
+  member('unseededRandom', 'Math', 'random'),
+  member('unseededRandom', 'crypto', 'getRandomValues'),
+  member('unseededRandom', 'crypto', 'randomUUID'),
 ];
 
 /** 一段源码里的全部命中，命中一处一项：[{ kind, call }]。注释里写到也算。 */

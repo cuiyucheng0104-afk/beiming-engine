@@ -1,5 +1,6 @@
 // 装载和出帧之前的计划：这个镜头装不装得了、要的输出交不交得出、生效的快门、子帧相位、输出尺寸。
 // 纯函数，不碰渲染器，页面和 node 两边都引用。交不出的请求一律报带错误码的错，不少交、不换一种交。
+import { renderingOf } from '../../kernel/eval/input.mjs';
 import { shutterSubs } from '../../kernel/eval/time.mjs';
 
 export class SourceError extends Error {
@@ -24,19 +25,21 @@ export const declared = (caps, name) => {
  * 镜头种子，和锁文件里记的子帧采样数（没有锁文件时不出现）。
  */
 export function planOpen(caps, input, env) {
-  const { shot } = input;
-  if (shot.source !== caps.id) throw bad(`这个镜头的帧源是 ${shot.source}，不是 ${caps.id}`);
+  const { shot } = input, { source, host, mode } = renderingOf(shot);
+  if (source !== caps.id) throw bad(`出这个镜头的帧源是 ${source}，不是 ${caps.id}`);
   if (!['draft', 'final'].includes(env.tier)) throw bad(`档位只能是 draft、final，给的是 ${env.tier}`);
-  if (!caps.hosts.includes(shot.host) || !caps.modes.includes(shot.mode)) throw new SourceError('contract.unsupported-mode', `${caps.id} 帧源不支持宿主 ${shot.host} 加作者模式 ${shot.mode}`);
-  const cards = used(shot.cards), assets = used(shot.assets);
+  if (!caps.hosts.includes(host) || !caps.modes.includes(mode)) throw new SourceError('contract.unsupported-mode', `${caps.id} 帧源不支持宿主 ${host} 加作者模式 ${mode}`);
+  // 用了资产：镜头条目的 assets、镜头输入里全片的 assets，有一个不空就算
+  const cards = used(shot.cards), assets = used(shot.assets) || used(input.assets);
   if (env.lock === null) {
     // 没有锁文件：种子只能来自镜头条目；卡和资产的版本、哈希只有锁文件里有
     if (!Number.isInteger(shot.seed)) throw new SourceError('env.lock-required', `没有锁文件，镜头 ${shot.id} 又没写 seed`);
     if (cards || assets) throw new SourceError('env.lock-required', `没有锁文件，镜头 ${shot.id} 却用了${cards ? '卡' : '资产'}`);
-    return { seed: shot.seed };
   }
-  // shortcut: 卡和资产这条链路还没接，带着锁文件来也装不了；接卡时在这里读锁里的版本和哈希
-  if (cards || assets) throw new Error(`${caps.id} 帧源还没接卡和资产`);
+  // shortcut: 卡、资产、叠加层这条链路都还没接（叠加层要展开成卡实例），带着锁文件来也装不了：报错，不少装一样照常装载；接卡时在这里读锁里的版本和哈希
+  const unfit = [cards && '卡', assets && '资产', used(input.overlays) && '叠加层'].filter(Boolean);
+  if (unfit.length) throw new SourceError('contract.unsupported-input', `${caps.id} 帧源还没接${unfit.join('、')}`);
+  if (env.lock === null) return { seed: shot.seed };
   const seed = env.lock.seeds?.[shot.id], shutterSamples = env.lock.shots?.[shot.id]?.shutterSamples;
   if (!Number.isInteger(seed) || !Number.isInteger(shutterSamples)) throw bad(`锁文件里没有镜头 ${shot.id} 的种子或子帧采样数`);
   return { seed, shutterSamples };

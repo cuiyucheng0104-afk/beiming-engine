@@ -2,34 +2,42 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "meta/meta-check.schema.json",
   "title": "元数据核对记录",
-  "description": "只管结构。metas、metaBytes 的取值由 M1、M3 管，两个颜色哈希相不相等由 M1 管，call 不重复由 M9 管，帧号对不对得上由 M11 管，所以这里不收紧。从交回的元数据里读的三个字段：metas 是 0 时不得出现，不是 0 时 metaFrame、metaShotFrame 必填。",
+  "description": "只管结构。metas、metaBytes 的取值由 M1、M3 管，两个颜色哈希相不相等由 M1 管，call 不重复由 M9 管，帧号、种子、尺寸、档位、帧源名对不对得上由 M11、M12、M13、M14、M17 管，所以这里不收紧。从交回的元数据里读的七个字段：metas 是 0 时不得出现，不是 0 时除 metaHashColor 之外的六个必填。",
   "type": "object",
-  "required": ["format", "shot", "start", "renders"],
+  "required": ["format", "shot", "start", "seed", "source", "renders"],
   "additionalProperties": false,
   "properties": {
     "format": { "const": "meta-check/0.1" },
     "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
     "start": { "type": "integer", "minimum": 0 },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "source": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
     "renders": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["call", "shotFrame", "metas", "metaBytes"],
+        "required": ["call", "shotFrame", "tier", "metas", "metaBytes"],
         "additionalProperties": false,
         "properties": {
           "call": { "type": "integer", "minimum": 0 },
           "shotFrame": { "type": "integer", "minimum": 0 },
+          "tier": { "enum": ["draft", "final"] },
           "metas": { "type": "integer", "minimum": 0 },
           "metaBytes": { "type": "integer", "minimum": 0 },
           "metaFrame": { "type": "integer", "minimum": 0 },
           "metaShotFrame": { "type": "integer", "minimum": 0 },
-          "colorFileSha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "metaSeed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+          "metaSize": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+          "metaTier": { "enum": ["draft", "final"] },
+          "metaSourceId": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
+          "colorFileHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "colorShape": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 1 } },
           "metaHashColor": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
         },
         "if": { "properties": { "metas": { "const": 0 } } },
-        "then": { "properties": { "metaFrame": false, "metaShotFrame": false, "metaHashColor": false } },
-        "else": { "required": ["metaFrame", "metaShotFrame"] }
+        "then": { "properties": { "metaFrame": false, "metaShotFrame": false, "metaSeed": false, "metaSize": false, "metaTier": false, "metaSourceId": false, "metaHashColor": false } },
+        "else": { "required": ["metaFrame", "metaShotFrame", "metaSeed", "metaSize", "metaTier", "metaSourceId"] }
       }
     },
     "ext": { "type": "object" }

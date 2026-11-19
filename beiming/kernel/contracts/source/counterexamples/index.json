@@ -140,6 +140,13 @@
     "why": "没有锁，镜头用了资产，open 却成功了"
   },
   {
+    "file": "F14-borrowed-mode-code.json",
+    "violates": [
+      "F14"
+    ],
+    "why": "没有锁，镜头条目也没写种子，open 报了错，码却借用了 contract.unsupported-mode"
+  },
+  {
     "file": "F15-host-not-registered.json",
     "violates": [
       "F15"
@@ -210,6 +217,13 @@
     "why": "镜头条目的作者模式 cards-data 不在能力声明的 modes 里，open 却成功了"
   },
   {
+    "file": "F16-borrowed-lock-code.json",
+    "violates": [
+      "F16"
+    ],
+    "why": "镜头条目的宿主 headless-page 不在能力声明的 hosts 里，同时没有锁也没写种子，open 报了错，码却是 env.lock-required"
+  },
+  {
     "file": "F17-shape-not-output-size.json",
     "violates": [
       "F17"
@@ -238,6 +252,13 @@
     "why": "要了帧源交不出的缩放，帧源没报错，换了一个值照样出帧"
   },
   {
+    "file": "F18-borrowed-argument-code.json",
+    "violates": [
+      "F18"
+    ],
+    "why": "要了帧源交不出的每像素采样数，帧源报了错，码却借用了 usage.bad-argument"
+  },
+  {
     "file": "F19-unfit-object-rendered.json",
     "violates": [
       "F19"
@@ -250,5 +271,118 @@
       "F19"
     ],
     "why": "场景里有放不进编号层的对象，帧源报了错，码却借用了 contract.unsupported-output"
+  },
+  {
+    "file": "F20-ids-not-in-name-order.json",
+    "violates": [
+      "F20"
+    ],
+    "why": "没有场景包的镜头，名字排第一的 floor 编号是 2，排第二的 kit 编号是 1"
+  },
+  {
+    "file": "F20-ids-skip-a-number.json",
+    "violates": [
+      "F20"
+    ],
+    "why": "没有场景包的镜头，三个实体的编号是 1、2、4，跳过了 3"
+  },
+  {
+    "file": "F21-shape-components-differ.json",
+    "violates": [
+      "F21"
+    ],
+    "schema": "layer-ref.schema.json",
+    "why": "层引用的 shape 说每个像素 3 个分量，components 却列了 4 个"
+  },
+  {
+    "file": "F22-extra-source.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里多登记了 legacy-page，条文的登记表只有三个帧源"
+  },
+  {
+    "file": "F22-host-differs.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里 three 的 hosts 多了 headless-page，条文的登记表只有 page"
+  },
+  {
+    "file": "F22-missing-source.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里少了 core，条文的登记表有三个帧源"
+  },
+  {
+    "file": "F22-output-type-differs.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里 three 的深度层写成 u32，条文的登记表是 f32"
+  },
+  {
+    "file": "F22-blur-mode-differs.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里 blender 的 motionBlur.mode 写成 accumulate，条文的登记表是 native"
+  },
+  {
+    "file": "F22-determinism-filled.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里给 core 填了 determinism，条文的登记表这一格还在等探针"
+  },
+  {
+    "file": "F23-bad-frame-rendered.json",
+    "violates": [
+      "F23"
+    ],
+    "why": "镜头只有 48 帧，要了第 48 帧，帧源没报错，照样出了一帧"
+  },
+  {
+    "file": "F23-borrowed-option-code.json",
+    "violates": [
+      "F23"
+    ],
+    "why": "缩放给了 2，出了 (0, 1] 的值域，帧源报了错，码却借用了 contract.unsupported-option"
+  },
+  {
+    "file": "F24-declared-query-refused.json",
+    "violates": [
+      "F24"
+    ],
+    "why": "能力声明里列了 anchor，问了却报 contract.unsupported-query"
+  },
+  {
+    "file": "F24-declared-query-uncoded-error.json",
+    "violates": [
+      "F24"
+    ],
+    "why": "能力声明里列了 bbox3d，问了却报了一个不带错误码的错"
+  },
+  {
+    "file": "F25-declared-mode-open-fails.json",
+    "violates": [
+      "F25"
+    ],
+    "why": "宿主 page 和作者模式 native-code 都声明过，镜头写了种子、没用卡和资产，open 却报了 contract.unsupported-mode"
+  },
+  {
+    "file": "F26-overlays-ignored.json",
+    "violates": [
+      "F26"
+    ],
+    "why": "镜头输入带着这个帧源装不了的叠加层，open 没报错，装作没看见"
+  },
+  {
+    "file": "F26-borrowed-argument-code.json",
+    "violates": [
+      "F26"
+    ],
+    "why": "带着锁文件、镜头用了这个帧源还没接的卡，open 报了错，码却借用了 usage.bad-argument"
   }
 ]

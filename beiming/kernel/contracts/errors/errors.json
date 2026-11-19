@@ -75,6 +75,10 @@
       "meaning": "场景包里出现了节点登记表之外的图案节点"
     },
     {
+      "code": "contract.unsupported-input",
+      "meaning": "镜头输入里有帧源装不了的卡、资产或叠加层"
+    },
+    {
       "code": "contract.unsupported-mode",
       "meaning": "镜头条目的宿主或作者模式不在帧源的能力声明里"
     },

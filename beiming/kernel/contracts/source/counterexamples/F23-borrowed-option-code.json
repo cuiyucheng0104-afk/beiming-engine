@@ -1,0 +1,70 @@
+{
+  "format": "source-check/0.1",
+  "shot": "s01",
+  "caps": {
+    "format": "caps/0.1",
+    "id": "three",
+    "version": "0.187.0",
+    "language": "js",
+    "hosts": [
+      "page"
+    ],
+    "conformance": "full",
+    "outputs": {
+      "color": {
+        "type": "f32",
+        "transfer": "linear",
+        "primaries": "rec709"
+      },
+      "meta": true,
+      "depth": {
+        "type": "f32",
+        "note": "不抗锯齿"
+      },
+      "objectId": {
+        "type": "u32",
+        "note": "不抗锯齿，不带覆盖率"
+      },
+      "normal": {
+        "type": "f32"
+      },
+      "motion": false
+    },
+    "sceneQuery": [],
+    "motionBlur": {
+      "mode": "accumulate",
+      "auxAt": "sub0",
+      "samples": 8
+    },
+    "determinism": "hash-same-machine",
+    "draft": {
+      "kind": "scale",
+      "samples": 1,
+      "scale": 0.5
+    },
+    "final": {
+      "samples": 1,
+      "scale": 1
+    },
+    "granularity": "frame",
+    "randomAccess": true,
+    "modes": [
+      "native-code"
+    ],
+    "cost": {
+      "unit": "gpu-second"
+    },
+    "metaNull": [
+      "stats.noise",
+      "lights"
+    ]
+  },
+  "badArgs": [
+    {
+      "call": "render",
+      "arg": "opts.scale",
+      "status": "error",
+      "code": "contract.unsupported-option"
+    }
+  ]
+}

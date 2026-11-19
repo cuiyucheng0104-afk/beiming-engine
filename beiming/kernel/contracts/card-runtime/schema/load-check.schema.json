@@ -10,7 +10,7 @@
     "format": { "const": "load-check/0.1" },
     "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
     "build": { "enum": ["ok", "failed"] },
-    "error": { "type": "string", "minLength": 1 },
+    "error": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
     "steps": { "type": "array", "items": { "enum": ["assets", "tracks", "create", "collect"] } },
     "cards": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9_]+$", "not": { "enum": ["tracks", "host"] } } },
     "overlays": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*$", "not": { "enum": ["tracks", "host"] } } },

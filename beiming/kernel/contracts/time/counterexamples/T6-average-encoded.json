@@ -35,7 +35,7 @@
         }
       ],
       "accumulation": {
-        "average": "encoded"
+        "linearErr": 0.02
       }
     }
   ]

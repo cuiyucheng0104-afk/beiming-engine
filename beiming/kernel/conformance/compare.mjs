@@ -1,4 +1,4 @@
-// 量和比：读层文件、求重心、照规格逐像素求交、判颜色层是哪种平均、量辅助层取的是像素里的哪个位置。
+// 量和比：读层文件、求重心、照规格逐像素求交、量累积颜色层对线性平均的预言图差多少、从编号层反算包围盒去对元数据里的。
 // 都是纯函数（除了读文件），不碰渲染器。
 import { readFileSync } from 'node:fs';
 import { raycast } from '../../calib/check.mjs';
@@ -36,6 +36,24 @@ export function boundsOf(width, height, inside, pad = 0) {
     x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
   }
   return x1 < 0 ? null : { x0: Math.max(0, x0 - pad), y0: Math.max(0, y0 - pad), x1: Math.min(width - 1, x1 + pad), y1: Math.min(height - 1, y1 + pad) };
+}
+
+/**
+ * 从编号层反算一个实体的屏幕包围盒 [x0, y0, x1, y1]（像素，原点在左上角，取像素的外沿：最右一列占到 x + 1）。
+ * ids 是这个实体占的编号：它自己的，加上名字以它的名字加点号开头的实体的。一个像素都不占时是 null。
+ */
+export function boxOfIds(width, height, layer, ids) {
+  const b = boundsOf(width, height, (i) => ids.includes(layer[i]));
+  return b && [b.x0, b.y0, b.x1 + 1, b.y1 + 1];
+}
+
+/** 两个矩形 [x0, y0, x1, y1] 的交并比；有一个是 null、或者并起来面积是 0 时是 null */
+export function iou(a, b) {
+  if (!a || !b) return null;
+  const area = (r) => Math.max(0, r[2] - r[0]) * Math.max(0, r[3] - r[1]);
+  const inter = area([Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.min(a[2], b[2]), Math.min(a[3], b[3])]);
+  const union = area(a) + area(b) - inter;
+  return union > 0 ? inter / union : null;
 }
 
 /**
@@ -92,55 +110,45 @@ export function diffLayers(got, scene, t, ids) {
 }
 
 /**
- * 量辅助层取的是像素里的哪个位置：在四分之一像素的格点上各求交一遍，看哪个位置解释得了这张编号层。
- * 「解释得了」是说编号不同的像素全在那个位置的边缘带里（那个位置周围挪一个子像素精度期望编号就会变，合规的光栅化判到哪边都行）。
- * 正好一个位置解释得了才算量出来，返回它 [x, y]；一个都解释不了、不止一个解释得了（这一帧的边区分不了这几个位置）、
- * 或者场景里没东西时返回 null。只比有东西的那一块。
+ * 一帧累积的预言：照规格在每个子帧采样时刻、每个像素中心求交。时刻照「(i + 0.5) ÷ 个数 × (快门角 ÷ 360)」自己算，不取帧源或观测点记的。
+ * 返回 { hits, edge }：hits 每个时刻一张图，值是打到的物体在规格里的次序加 1，没打到是 0；
+ * edge 是边缘带：只要有一个时刻，采样位置在像素中心周围挪一个子像素精度期望打到的物体会变，这个像素就算在里面。
  */
-export function measurePixelOffset(gotId, scene, t, ids) {
-  const { widthPx: w, heightPx: h } = scene.camera;
-  const region = boundsOf(w, h, (i) => gotId[i] !== 0, 3);
-  if (!region) return null;
-  const idAt = (px, py) => ids[raycast(scene, [px, py], t)[0]?.objectId] ?? 0;
-  const fits = [];
-  for (const ox of [0.25, 0.5, 0.75]) {
-    for (const oy of [0.25, 0.5, 0.75]) {
-      const want = expectedLayers(scene, t, ids, [ox, oy], region).id;
-      let miss = 0;
-      for (let y = region.y0; y <= region.y1 && !miss; y++) {
-        for (let x = region.x0; x <= region.x1 && !miss; x++) {
-          const i = y * w + x;
-          if (want[i] !== gotId[i] && SHIFTS.every(([dx, dy]) => idAt(x + ox + dx, y + oy + dy) === want[i])) miss++;
-        }
-      }
-      if (!miss) fits.push([ox, oy]);
+export function predictAccumulation(scene, f, angleDeg, samples) {
+  const { widthPx: w, heightPx: h } = scene.camera, order = Object.fromEntries(scene.objects.map((o, i) => [o.id, i + 1]));
+  const edge = new Uint8Array(w * h);
+  const hits = Array.from({ length: samples }, (_, i) => {
+    const t = f + ((i + 0.5) / samples) * (angleDeg / 360), want = expectedLayers(scene, t, order).id;
+    const region = boundsOf(w, h, (k) => want[k] !== 0, 2);
+    for (const [dx, dy] of region ? SHIFTS : []) {
+      const moved = expectedLayers(scene, t, order, [0.5 + dx, 0.5 + dy], region).id;
+      for (let k = 0; k < moved.length; k++) if (moved[k] !== want[k]) edge[k] = 1;
     }
-  }
-  return fits.length === 1 ? fits[0] : null;
+    return want;
+  });
+  return { hits, edge };
 }
 
-const encode = (x) => (x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055);
-const decode = (y) => (y <= 0.04045 ? y / 12.92 : ((y + 0.055) / 1.055) ** 2.4);
-
 /**
- * 判一张累积出来的颜色层是哪种平均。result 是帧源交回的累积结果，singles 是同一帧各个子帧单独渲出来的颜色层（都是 RGBA 浮点）。
- * 自己算两种：在线性光里取算术平均；先做 sRGB 编码、在编码值上平均、再解码。只在两种算法差得出来的数上比（拖影边缘）。
- * 返回 { average, distinguishing, maxErrLinear, maxErrEncoded }：average 是 linear、encoded，两个都对不上或者没有分得出的数时是 null。
+ * 帧源交回的累积颜色层（RGBA 浮点，场景线性），对「各时刻的预言图在线性值上取算术平均」逐像素、逐分量的最大绝对差。
+ * 预言图：打到物体的像素是它的自发光值、透明度 1；没打到的是 background（[R, G, B, A]：设了背景是背景色加 1，没设是四个 0）。
+ * 返回 { linearErr, wholeFrame, moving, edgePixels }：linearErr 只在边缘带之外比（边缘带里光栅化判到哪边都合规，预言图定不下来）；
+ * wholeFrame 是连边缘带一起比的读数，只供对照；moving 是边缘带之外、各时刻预言不全相同的像素数，是 0 时两种平均分不出来，linearErr 是 null。
  */
-export function classifyAverage(result, singles) {
-  const n = singles.length, close = (got, want) => Math.abs(got - want) <= 1e-6 + 1e-5 * Math.abs(want);
-  let distinguishing = 0, maxErrLinear = 0, maxErrEncoded = 0, linear = true, encoded = true;
-  for (let i = 0; i < result.length; i++) {
-    if (i % 4 === 3) continue; // 透明度不是颜色，不做编码
-    let sum = 0, sumEncoded = 0;
-    for (const s of singles) { sum += s[i]; sumEncoded += encode(s[i]); }
-    const lin = sum / n, enc = decode(sumEncoded / n);
-    if (Math.abs(lin - enc) <= 1e-3 * Math.abs(lin)) continue;
-    distinguishing++;
-    maxErrLinear = Math.max(maxErrLinear, Math.abs(result[i] - lin));
-    maxErrEncoded = Math.max(maxErrEncoded, Math.abs(result[i] - enc));
-    linear &&= close(result[i], lin);
-    encoded &&= close(result[i], enc);
+export function linearError(color, scene, prediction, background) {
+  const { hits, edge } = prediction, n = hits.length;
+  const value = (hit, c) => (hit === 0 ? background[c] : c === 3 ? 1 : scene.objects[hit - 1].emissionLinear[c]);
+  let err = 0, wholeFrame = 0, moving = 0, edgePixels = 0;
+  for (let k = 0; k < edge.length; k++) {
+    edgePixels += edge[k];
+    if (!edge[k] && hits.some((x) => x[k] !== hits[0][k])) moving++;
+    for (let c = 0; c < 4; c++) {
+      let sum = 0;
+      for (const x of hits) sum += value(x[k], c);
+      const d = Math.abs(color[k * 4 + c] - sum / n);
+      wholeFrame = Math.max(wholeFrame, d);
+      if (!edge[k]) err = Math.max(err, d);
+    }
   }
-  return { average: !distinguishing ? null : linear ? 'linear' : encoded ? 'encoded' : null, distinguishing, maxErrLinear, maxErrEncoded };
+  return { linearErr: moving ? err : null, wholeFrame, moving, edgePixels };
 }

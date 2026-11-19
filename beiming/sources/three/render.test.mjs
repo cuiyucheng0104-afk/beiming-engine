@@ -26,7 +26,7 @@ async function firstAndLater(t, shotId) {
     const layers = {};
     for (const [name, ref] of Object.entries({ first: first.layers.color, later: later.layers.color, ...withAux.layers })) {
       const bytes = await readFile(join(workspace, ref.file));
-      assert.equal(ref.sha256, `sha256:${createHash('sha256').update(bytes).digest('hex')}`, name);
+      assert.equal(ref.hash, `sha256:${createHash('sha256').update(bytes).digest('hex')}`, name);
       assert.equal(bytes.length, ref.shape[0] * ref.shape[1] * ref.shape[2] * 4, name);
       layers[name] = name === 'objectId' ? new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4) : new Float32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4);
     }
@@ -42,9 +42,11 @@ test('不设背景的镜头：同一帧先渲和后渲颜色层逐位相同，�
   const r = await firstAndLater(t, 's02');
   if (!r) return;
   const { first, withAux, later, layers } = r;
-  assert.equal(later.layers.color.sha256, first.layers.color.sha256);
-  assert.equal(withAux.layers.color.sha256, first.layers.color.sha256);
-  assert.equal(first.meta.hash.color, first.layers.color.sha256);
+  assert.equal(later.layers.color.hash, first.layers.color.hash);
+  assert.equal(withAux.layers.color.hash, first.layers.color.hash);
+  assert.equal(first.meta.hash.color, first.layers.color.hash);
+  // 这个镜头的条目顶层写的帧源留作对照，出帧的是 renderer 对象里写的
+  assert.deepEqual([first.meta.source.id, first.meta.source.renderer, first.meta.source.host], ['core', 'three', 'page']);
   assert.deepEqual(first.layers.color.shape, [360, 640, 4]);
   assert.deepEqual([...layers.first.subarray(0, 4)], [0, 0, 0, 0]);
   assert.deepEqual([layers.objectId[0], layers.depth[0], ...layers.normal.subarray(0, 3)], [0, 1e10, 0, 0, 0]);
@@ -57,6 +59,6 @@ test('不设背景的镜头：同一帧先渲和后渲颜色层逐位相同，�
 test('设了背景色的镜头：背景是背景色、透明度 1，先渲后渲也相同', async (t) => {
   const r = await firstAndLater(t, 's01');
   if (!r) return;
-  assert.equal(r.later.layers.color.sha256, r.first.layers.color.sha256);
+  assert.equal(r.later.layers.color.hash, r.first.layers.color.hash);
   assert.deepEqual([...r.layers.first.subarray(0, 4)], [0, 0, 0, 1]);
 });

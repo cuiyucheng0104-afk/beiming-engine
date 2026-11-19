@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "shot/shot-check.schema.json",
   "title": "镜头核对记录",
-  "description": "只管结构。实体名的写法由 S4 管、entry 和 mode 的搭配由 S6 管，所以这里不收紧。",
+  "description": "只管结构。实体名的写法由 S4 管、entry 和 mode 的搭配由 S6 管，所以这里不收紧。buildCalls、metaKeys、cardUses 由包在入口文件外面的观测点数，没有 entry 时不得出现。ctx[].want.fps 的值域同镜头输入的 output.fps；ctx[].seen 是观测点读到的原样，只定类型、不限值域，值对不对由 S10 管。",
   "type": "object",
-  "required": ["format", "shot", "mode", "sources", "languages", "buildCalls", "build", "entities"],
+  "required": ["format", "shot", "mode", "sources", "languages", "build", "entities"],
   "additionalProperties": false,
   "properties": {
     "format": { "const": "shot-check/0.1" },
@@ -15,7 +15,7 @@
     "languages": { "type": "array", "minItems": 1, "items": { "enum": ["js", "python"] } },
     "buildCalls": { "type": "integer", "minimum": 0 },
     "build": { "enum": ["ok", "failed"] },
-    "error": { "type": "string", "minLength": 1 },
+    "error": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
     "entities": { "type": "array", "items": { "type": "string" } },
     "omittable": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
     "metaEntities": {
@@ -81,6 +81,39 @@
         "unseededRandom": { "type": "array", "items": { "$ref": "#/$defs/scanHit" } }
       }
     },
+    "ctx": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["want", "seen"],
+        "additionalProperties": false,
+        "properties": {
+          "want": {
+            "type": "object",
+            "required": ["seed", "fps", "frames", "shotIn"],
+            "additionalProperties": false,
+            "properties": {
+              "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+              "fps": { "$ref": "../film/film.schema.json#/properties/output/properties/fps" },
+              "frames": { "type": "integer", "minimum": 1 },
+              "shotIn": { "type": "integer", "minimum": 0 },
+              "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } }
+            }
+          },
+          "seen": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "seed": { "type": "integer" },
+              "fps": { "type": "string" },
+              "frames": { "type": "integer" },
+              "shotIn": { "type": "integer" },
+              "size": { "type": "array", "items": { "type": "integer" } }
+            }
+          }
+        }
+      }
+    },
     "ext": { "type": "object" }
   },
   "if": {
@@ -90,7 +123,7 @@
     }
   },
   "then": { "required": ["entry"] },
-  "dependentRequired": { "cardUses": ["declaredCards"] },
+  "dependentRequired": { "buildCalls": ["entry"], "metaKeys": ["entry"], "cardUses": ["declaredCards", "entry"] },
   "$defs": {
     "scanHit": {
       "type": "object",
