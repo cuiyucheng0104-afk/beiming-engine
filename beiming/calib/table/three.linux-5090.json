@@ -2641,7 +2641,7 @@
           "scene": "probe-occlusion",
           "what": "cube-near 多渲一遍四分之一分辨率编号层并读回的耗时（11 次取中位）",
           "expected": "无标准答案",
-          "got": 0.8,
+          "got": 0.9,
           "diff": "无",
           "unit": "ms"
         },
@@ -2657,7 +2657,7 @@
           "scene": "probe-occlusion",
           "what": "cube-mid 多渲一遍四分之一分辨率编号层并读回的耗时（11 次取中位）",
           "expected": "无标准答案",
-          "got": 0.7,
+          "got": 0.9,
           "diff": "无",
           "unit": "ms"
         },
@@ -2673,7 +2673,7 @@
           "scene": "probe-occlusion",
           "what": "cube-far 多渲一遍四分之一分辨率编号层并读回的耗时（11 次取中位）",
           "expected": "无标准答案",
-          "got": 0.6,
+          "got": 0.9,
           "diff": "无",
           "unit": "ms"
         }
@@ -2791,60 +2791,12 @@
           "scene": "probe-axes-turntable",
           "what": "第 1 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 28.8,
+          "got": 39.5,
           "diff": "无",
           "unit": "ms"
         },
         {
           "scene": "probe-axes-turntable",
-          "what": "第 1 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 0.3,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-axes-turntable",
-          "what": "第 1 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 2.4,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-axes-turntable",
-          "what": "第 2 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 28.8,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-axes-turntable",
-          "what": "第 2 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 0.4,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-axes-turntable",
-          "what": "第 2 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 2.4,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-gray-chart",
-          "what": "第 1 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 11.4,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-gray-chart",
           "what": "第 1 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
           "expected": "无标准答案",
           "got": 0.7,
@@ -2852,10 +2804,58 @@
           "unit": "ms"
         },
         {
+          "scene": "probe-axes-turntable",
+          "what": "第 1 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 3.5,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
+          "scene": "probe-axes-turntable",
+          "what": "第 2 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 51.7,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
+          "scene": "probe-axes-turntable",
+          "what": "第 2 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 1.2,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
+          "scene": "probe-axes-turntable",
+          "what": "第 2 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 4.1,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
+          "scene": "probe-gray-chart",
+          "what": "第 1 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 13.5,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
+          "scene": "probe-gray-chart",
+          "what": "第 1 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 0.8,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
           "scene": "probe-gray-chart",
           "what": "第 1 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.7,
+          "got": 3.3,
           "diff": "无",
           "unit": "ms"
         },
@@ -2863,7 +2863,7 @@
           "scene": "probe-gray-chart",
           "what": "第 2 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 8.2,
+          "got": 11.5,
           "diff": "无",
           "unit": "ms"
         },
@@ -2871,7 +2871,7 @@
           "scene": "probe-gray-chart",
           "what": "第 2 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 0.3,
+          "got": 0.6,
           "diff": "无",
           "unit": "ms"
         },
@@ -2879,7 +2879,7 @@
           "scene": "probe-gray-chart",
           "what": "第 2 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.4,
+          "got": 3.3,
           "diff": "无",
           "unit": "ms"
         },
@@ -2887,7 +2887,7 @@
           "scene": "probe-moving-cube",
           "what": "第 1 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 7.6,
+          "got": 10.8,
           "diff": "无",
           "unit": "ms"
         },
@@ -2903,7 +2903,7 @@
           "scene": "probe-moving-cube",
           "what": "第 1 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.2,
+          "got": 3.6,
           "diff": "无",
           "unit": "ms"
         },
@@ -2911,7 +2911,7 @@
           "scene": "probe-moving-cube",
           "what": "第 2 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 6.1,
+          "got": 8.4,
           "diff": "无",
           "unit": "ms"
         },
@@ -2919,7 +2919,7 @@
           "scene": "probe-moving-cube",
           "what": "第 2 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 0.1,
+          "got": 0.3,
           "diff": "无",
           "unit": "ms"
         },
@@ -2927,7 +2927,7 @@
           "scene": "probe-moving-cube",
           "what": "第 2 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.1,
+          "got": 3.3,
           "diff": "无",
           "unit": "ms"
         },
@@ -2935,7 +2935,7 @@
           "scene": "probe-occlusion",
           "what": "第 1 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 4.5,
+          "got": 4.7,
           "diff": "无",
           "unit": "ms"
         },
@@ -2943,7 +2943,7 @@
           "scene": "probe-occlusion",
           "what": "第 1 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 0.3,
+          "got": 0.2,
           "diff": "无",
           "unit": "ms"
         },
@@ -2951,7 +2951,7 @@
           "scene": "probe-occlusion",
           "what": "第 1 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.5,
+          "got": 2.8,
           "diff": "无",
           "unit": "ms"
         },
@@ -2959,7 +2959,7 @@
           "scene": "probe-occlusion",
           "what": "第 2 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 4.1,
+          "got": 6.5,
           "diff": "无",
           "unit": "ms"
         },
@@ -2975,7 +2975,7 @@
           "scene": "probe-occlusion",
           "what": "第 2 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.3,
+          "got": 3,
           "diff": "无",
           "unit": "ms"
         },
@@ -2983,7 +2983,7 @@
           "scene": "probe-plane-steps",
           "what": "第 1 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 6.6,
+          "got": 7.9,
           "diff": "无",
           "unit": "ms"
         },
@@ -2991,7 +2991,7 @@
           "scene": "probe-plane-steps",
           "what": "第 1 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 0.1,
+          "got": 0.5,
           "diff": "无",
           "unit": "ms"
         },
@@ -2999,7 +2999,7 @@
           "scene": "probe-plane-steps",
           "what": "第 1 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.5,
+          "got": 3,
           "diff": "无",
           "unit": "ms"
         },
@@ -3007,7 +3007,7 @@
           "scene": "probe-plane-steps",
           "what": "第 2 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 6,
+          "got": 8.2,
           "diff": "无",
           "unit": "ms"
         },
@@ -3015,7 +3015,7 @@
           "scene": "probe-plane-steps",
           "what": "第 2 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 0.1,
+          "got": 0.5,
           "diff": "无",
           "unit": "ms"
         },
@@ -3023,7 +3023,7 @@
           "scene": "probe-plane-steps",
           "what": "第 2 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.6,
+          "got": 3.1,
           "diff": "无",
           "unit": "ms"
         },
@@ -3031,13 +3031,37 @@
           "scene": "probe-thin-geometry",
           "what": "第 1 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 8,
+          "got": 6.5,
           "diff": "无",
           "unit": "ms"
         },
         {
           "scene": "probe-thin-geometry",
           "what": "第 1 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 0.5,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
+          "scene": "probe-thin-geometry",
+          "what": "第 1 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 3.3,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
+          "scene": "probe-thin-geometry",
+          "what": "第 2 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
+          "expected": "无标准答案",
+          "got": 7.5,
+          "diff": "无",
+          "unit": "ms"
+        },
+        {
+          "scene": "probe-thin-geometry",
+          "what": "第 2 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
           "expected": "无标准答案",
           "got": 0.3,
           "diff": "无",
@@ -3045,33 +3069,9 @@
         },
         {
           "scene": "probe-thin-geometry",
-          "what": "第 1 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 2.3,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-thin-geometry",
-          "what": "第 2 遍 冷启动（建场景到第一帧读回完成），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 6.2,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-thin-geometry",
-          "what": "第 2 遍 单帧（渲一帧加 1 像素读回同步，5 次中位），linux-5090 读数",
-          "expected": "无标准答案",
-          "got": 0.2,
-          "diff": "无",
-          "unit": "ms"
-        },
-        {
-          "scene": "probe-thin-geometry",
           "what": "第 2 遍 整张浮点颜色层读回（5 次中位），linux-5090 读数",
           "expected": "无标准答案",
-          "got": 2.3,
+          "got": 2.9,
           "diff": "无",
           "unit": "ms"
         },
@@ -3079,7 +3079,7 @@
           "scene": "全部",
           "what": "第 1 遍 启动（起浏览器、开页面、建渲染器），渲染器串 ANGLE (NVIDIA, Vulkan 1.4.351 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)，WebGL 2.0 (OpenGL ES 3.0 Chromium)，linux-5090 读数",
           "expected": "无标准答案",
-          "got": 411.68,
+          "got": 534.395,
           "diff": "无",
           "unit": "ms"
         },
@@ -3087,7 +3087,7 @@
           "scene": "全部",
           "what": "第 2 遍 启动（起浏览器、开页面、建渲染器），渲染器串 ANGLE (NVIDIA, Vulkan 1.4.351 (NVIDIA NVIDIA GeForce RTX 5090 (0x00002B85)), NVIDIA)，WebGL 2.0 (OpenGL ES 3.0 Chromium)，linux-5090 读数",
           "expected": "无标准答案",
-          "got": 355.814,
+          "got": 481.801,
           "diff": "无",
           "unit": "ms"
         }

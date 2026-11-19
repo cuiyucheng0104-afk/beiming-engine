@@ -2694,7 +2694,7 @@
      "scene": "probe-occlusion",
      "what": "cube-near 四分之一分辨率单独多渲一遍编号层",
      "expected": "无标准答案",
-     "got": 291.5,
+     "got": 275.9,
      "diff": "无",
      "unit": "ms"
     },
@@ -2710,7 +2710,7 @@
      "scene": "probe-occlusion",
      "what": "cube-mid 四分之一分辨率单独多渲一遍编号层",
      "expected": "无标准答案",
-     "got": 305.3,
+     "got": 398.0,
      "diff": "无",
      "unit": "ms"
     },
@@ -2726,7 +2726,7 @@
      "scene": "probe-occlusion",
      "what": "cube-far 四分之一分辨率单独多渲一遍编号层",
      "expected": "无标准答案",
-     "got": 279.1,
+     "got": 374.2,
      "diff": "无",
      "unit": "ms"
     },
@@ -2748,8 +2748,8 @@
     {
      "scene": "probe-axes-turntable",
      "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "a755a4aa649c6386c10c76cea7ee4bc4d45cd6dd68deebd96a723cf0d363afec",
-     "got": "7ce55212a47656e298d717d07fcb5bb1c83c52cbb548e0caf827ab345292d35e",
+     "expected": "7006782e51743dc466c754b433c57f5470f89eed00bb5ed874d6e68f200fd65a",
+     "got": "7e09d0385162475403730189aaa70cdaa47816dfac0bf91a2c89cb719df40965",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2757,7 +2757,7 @@
      "scene": "probe-axes-turntable",
      "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 181.91,
+     "got": 181.67,
      "diff": 234,
      "unit": "dB（diff 为不同的数的个数）"
     },
@@ -2772,8 +2772,8 @@
     {
      "scene": "probe-axes-turntable",
      "what": "f0024s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "b811982222a26fffdb31ba8bd5f4e800e08224855ff6d7a81b27b1aa60f69393",
-     "got": "b719253c2859e22bab8f05b95bbdb08fae735e5c698422c296185ddc9f92c641",
+     "expected": "4457f2e794b801dae9e90aadfb05e91b703a3600267f6df4251883a7ece239fa",
+     "got": "3e2eaa5ac8033ae1992d0e0f9d83830c9fd76936b8597cc30f43dab4d4b3a04c",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2781,8 +2781,8 @@
      "scene": "probe-axes-turntable",
      "what": "f0024s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 182.43,
-     "diff": 238,
+     "got": 183.22,
+     "diff": 205,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -2796,8 +2796,8 @@
     {
      "scene": "probe-axes-turntable",
      "what": "f0048s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "c46b6c11f718f11243fd66c704103525b63b8b8275b1f0d6513b664b0ab51e17",
-     "got": "63920d1dab8770f433a610315a847c9caba7b748a8d840ce8822ac22b0f69fd2",
+     "expected": "23c5d4bf5dddda8793afb29ba78d3b29527fc27dd17f43ad06769ffcdafb4787",
+     "got": "f140d48245503ad5847bf83331f566c8ce1b07ecf1ec7369fc8410f4e690f072",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2805,8 +2805,8 @@
      "scene": "probe-axes-turntable",
      "what": "f0048s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 181.68,
-     "diff": 262,
+     "got": 181.54,
+     "diff": 256,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -2820,8 +2820,8 @@
     {
      "scene": "probe-axes-turntable",
      "what": "f0072s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "4b61c7035bf2221d91d44cff6a9cba498108272588a7e4d41b34c18e2e046671",
-     "got": "6b89ad86b397053608ddedd7fa46c791c94d27ad798a4b59a9ee246aadb8e07b",
+     "expected": "c8e61bfd134358e57ec547c418357130a4ec18e891025a46622f5a40d3ecc3e1",
+     "got": "1ebc1dd58712a066730f25b21b773c222286a3168761804fa311b459fcf3760f",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2829,8 +2829,8 @@
      "scene": "probe-axes-turntable",
      "what": "f0072s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 182.09,
-     "diff": 223,
+     "got": 182.17,
+     "diff": 206,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -2844,8 +2844,8 @@
     {
      "scene": "probe-axes-turntable",
      "what": "f0096s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "cbff252121165460333336a239cc898a3a6f2367ca0bb224ad4899ec703e91f0",
-     "got": "22a21e8f0f986e1e0c0e29744dad0354d157f9dc46eebcafba0db622e2e05f1d",
+     "expected": "704f9a6f705a2f73cd9db86b31a5de6d51cec140389bfc02f3c34918b73bcb32",
+     "got": "66e880d8741cbd86c38ba7e82af323ee795d47b0c43fcb10fed41a6416860ffe",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2853,8 +2853,8 @@
      "scene": "probe-axes-turntable",
      "what": "f0096s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 181.51,
-     "diff": 236,
+     "got": 180.82,
+     "diff": 231,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -2900,8 +2900,8 @@
     {
      "scene": "probe-moving-cube",
      "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "98c929fbee1fe855f67ee1b181c47ed95476e624b456a06565e29b679265b1c4",
-     "got": "9c4b31d344c85330b0614937de9fa7b2ffc9986768c0f5a8714ce0dbfed562f5",
+     "expected": "185505057fcc199dff582fe4909595d5083f637f7d84a2eb1f1736d56281c7c4",
+     "got": "02f6a1127fb38e90fc17baed05b2b5bf6fc9bb5d799c6570440a6c3ecae6a8cf",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2909,8 +2909,8 @@
      "scene": "probe-moving-cube",
      "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 198.12,
-     "diff": 60,
+     "got": Infinity,
+     "diff": 81,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -2924,8 +2924,8 @@
     {
      "scene": "probe-moving-cube",
      "what": "f0024s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "595271a6be62d45c7b34ce4bb3ff112d53c00b5fed450373fe24e85be6a49ffd",
-     "got": "a35dc50919a78323ab86296832a4aee9bbb00d14ee7cea4cbf700f5952a05134",
+     "expected": "a4c763e2d53b224c45228b15577a60c1bb190a368414f48b5853d79910b2685d",
+     "got": "3db5e280761468e518e0743f1a9e21a5fa6a3b028f141ae0e6a14cdd45d81022",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2933,8 +2933,8 @@
      "scene": "probe-moving-cube",
      "what": "f0024s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 184.5,
-     "diff": 83,
+     "got": 183.02,
+     "diff": 92,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -2948,8 +2948,8 @@
     {
      "scene": "probe-moving-cube",
      "what": "f0024s00-blur-center.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "8e966bbc3307e417ebb84baf7db997f0966a460fb17a34b9f280efae8d4af380",
-     "got": "b97ea93b1a15f2e6733b68c40cf622f5b1c015a73d3ce662eb6905c9a127820f",
+     "expected": "57a162a6fb262318281b57f6f9b41ff488862a2de99f92533493e9d5896b6714",
+     "got": "32ffe81d5d57fdd474712368b416ab19e4e761e67d5e53282887f501ef981538",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2957,8 +2957,8 @@
      "scene": "probe-moving-cube",
      "what": "f0024s00-blur-center.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 191.13,
-     "diff": 103,
+     "got": 185.18,
+     "diff": 123,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -2972,8 +2972,8 @@
     {
      "scene": "probe-moving-cube",
      "what": "f0024s00-blur-start.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "ca22b6f3dac328a54e8c0d877353be56b595d62be6fe2c06511d1269301d29ad",
-     "got": "fd3b19c402536f64e96054bcc7ed303b7a1cd3310ee3b9c91c99d0a95c1e4277",
+     "expected": "62a4c634f06074dc1d8b9bef35b1bf2490358eca3459df5b8047fa5fc5b783d2",
+     "got": "594a69f9c761eaffe526429ef988529b2c5667ff5d784a9be8db0bc4b1cde9f8",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -2981,8 +2981,8 @@
      "scene": "probe-moving-cube",
      "what": "f0024s00-blur-start.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 189.09,
-     "diff": 82,
+     "got": 193.86,
+     "diff": 100,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -2996,8 +2996,8 @@
     {
      "scene": "probe-moving-cube",
      "what": "f0024s25.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "2720dcb86d06b0291a42016151186381f19bde01b8c1d5c7082c886ab68ff9d3",
-     "got": "9723924a9085007299bbb286e537b858969fb0aae90c3e6940facd58920b1b98",
+     "expected": "847a29ed68a66fae318735bb88d0330b87aba9c3060d5e7b6146d149b40ae041",
+     "got": "0d071af54c47b4cf3d208db8a8278db9711841b07a3b982b62629a2996c68430",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -3005,8 +3005,8 @@
      "scene": "probe-moving-cube",
      "what": "f0024s25.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 187.71,
-     "diff": 79,
+     "got": 187.98,
+     "diff": 81,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -3020,8 +3020,8 @@
     {
      "scene": "probe-moving-cube",
      "what": "f0024s50.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "8c3cbcc85257b81a9222d580649cb7836544153751fabd00b0d1c078488af839",
-     "got": "77c0d1778e71b8624acd12147fc610f6b6de6e72963083e7766d48103813a3d3",
+     "expected": "159ce158f86b074a823ee71c841fa8dfd844ca97b1e75fe3d5d451970742c4df",
+     "got": "6728999d77d30c9d26343a5fe461dfc89fb70b6c8315dce38d48661b6ef4f058",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -3029,8 +3029,8 @@
      "scene": "probe-moving-cube",
      "what": "f0024s50.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 189.27,
-     "diff": 62,
+     "got": 185.04,
+     "diff": 76,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -3044,8 +3044,8 @@
     {
      "scene": "probe-moving-cube",
      "what": "f0048s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "8bb20d3d5170f47b918e21f55638544c67518041998337732a4bc4baeac355f3",
-     "got": "459054cd1d78c271f5c3016f7e0b6fd4647c702445d2888ae11c872029a9ee79",
+     "expected": "abb2f8839f451071b77e8192b93f4fc92bf3fb283b47f9a39ee6327d095284b7",
+     "got": "aba5b2dce40fa61982b7ab8d12ae3d33e5a171e616b7e2e2077058de89ff1a57",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -3053,8 +3053,8 @@
      "scene": "probe-moving-cube",
      "what": "f0048s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 186.36,
-     "diff": 69,
+     "got": 187.09,
+     "diff": 77,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -3068,8 +3068,8 @@
     {
      "scene": "probe-occlusion",
      "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "16aa768444d38addd175365ae7910d81ac1c78e2f3aa223367d8039920405f8d",
-     "got": "f390f50e7fdeeec9745948542625a164a93feb42bb84d5493b96e0f00d60c35e",
+     "expected": "8ee2633a23768ef2e1f3572348c4bfbf877d99aada083718f173de944f63bb43",
+     "got": "ed2addb0bd4a7e393025dc6216b7315c67a9d9a75d143beab32a9617a04469e1",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -3077,8 +3077,8 @@
      "scene": "probe-occlusion",
      "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 179.09,
-     "diff": 233,
+     "got": 179.56,
+     "diff": 232,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -3172,8 +3172,8 @@
     {
      "scene": "probe-thin-geometry",
      "what": "f0000s00.exr 两遍解码像素的 SHA-256（expected 是 run1，got 是 run2）",
-     "expected": "d2cb370d46e7fd80c00939ee9c3cae1e060da29e640f8bb6f5d2f0fbabf40e87",
-     "got": "9ab07d30abe1e9e77b1246f3a7781258ea6714e10e8ca38d58dcea7d92b83070",
+     "expected": "bbe874f2250e647dffd0888ae8aa4229e41cbe09943e5c2b3f92dec3ff5ae17c",
+     "got": "22e982194c21959e7c8b9352037769ae04d126db6eb3ff27c5eaa4f42e76ba42",
      "diff": "不同",
      "unit": "sha256"
     },
@@ -3181,8 +3181,8 @@
      "scene": "probe-thin-geometry",
      "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": 182.27,
-     "diff": 106,
+     "got": 180.71,
+     "diff": 144,
      "unit": "dB（diff 为不同的数的个数）"
     },
     {
@@ -3205,8 +3205,8 @@
      "what": "Blender 冷启动（空脚本进程，两次）",
      "expected": "无标准答案",
      "got": [
-      323.7,
-      320.2
+      761.7,
+      466.4
      ],
      "diff": "无",
      "unit": "ms"
@@ -3215,7 +3215,7 @@
      "scene": "probe-axes-turntable",
      "what": "读回一张多层 EXR（平均）",
      "expected": "无标准答案",
-     "got": 8.8,
+     "got": 17.2,
      "diff": "无",
      "unit": "ms"
     },
@@ -3223,7 +3223,7 @@
      "scene": "probe-axes-turntable",
      "what": "单帧渲染（进程内，平均）",
      "expected": "无标准答案",
-     "got": 342.5,
+     "got": 1827.2,
      "diff": "无",
      "unit": "ms"
     },
@@ -3232,8 +3232,8 @@
      "what": "整个进程（5 帧，两遍）",
      "expected": "无标准答案",
      "got": [
-      2371.0,
-      2330.9
+      10111.7,
+      3136.7
      ],
      "diff": "无",
      "unit": "ms"
@@ -3242,7 +3242,7 @@
      "scene": "probe-gray-chart",
      "what": "读回一张多层 EXR（平均）",
      "expected": "无标准答案",
-     "got": 3.6,
+     "got": 6.1,
      "diff": "无",
      "unit": "ms"
     },
@@ -3250,7 +3250,7 @@
      "scene": "probe-gray-chart",
      "what": "单帧渲染（进程内，平均）",
      "expected": "无标准答案",
-     "got": 311.7,
+     "got": 499.9,
      "diff": "无",
      "unit": "ms"
     },
@@ -3259,8 +3259,8 @@
      "what": "整个进程（1 帧，两遍）",
      "expected": "无标准答案",
      "got": [
-      737.8,
-      739.0
+      1136.0,
+      1119.6
      ],
      "diff": "无",
      "unit": "ms"
@@ -3269,7 +3269,7 @@
      "scene": "probe-moving-cube",
      "what": "读回一张多层 EXR（平均）",
      "expected": "无标准答案",
-     "got": 2.7,
+     "got": 9.6,
      "diff": "无",
      "unit": "ms"
     },
@@ -3277,7 +3277,7 @@
      "scene": "probe-moving-cube",
      "what": "单帧渲染（进程内，平均）",
      "expected": "无标准答案",
-     "got": 316.9,
+     "got": 397.0,
      "diff": "无",
      "unit": "ms"
     },
@@ -3286,8 +3286,8 @@
      "what": "整个进程（7 帧，两遍）",
      "expected": "无标准答案",
      "got": [
-      2979.4,
-      3068.2
+      3797.9,
+      3566.9
      ],
      "diff": "无",
      "unit": "ms"
@@ -3296,7 +3296,7 @@
      "scene": "probe-occlusion",
      "what": "读回一张多层 EXR（平均）",
      "expected": "无标准答案",
-     "got": 3.6,
+     "got": 7.9,
      "diff": "无",
      "unit": "ms"
     },
@@ -3304,7 +3304,7 @@
      "scene": "probe-occlusion",
      "what": "单帧渲染（进程内，平均）",
      "expected": "无标准答案",
-     "got": 277.6,
+     "got": 458.4,
      "diff": "无",
      "unit": "ms"
     },
@@ -3313,8 +3313,8 @@
      "what": "整个进程（1 帧，两遍）",
      "expected": "无标准答案",
      "got": [
-      1772.8,
-      1743.9
+      2398.4,
+      2339.9
      ],
      "diff": "无",
      "unit": "ms"
@@ -3323,7 +3323,7 @@
      "scene": "probe-plane-steps",
      "what": "读回一张多层 EXR（平均）",
      "expected": "无标准答案",
-     "got": 3.6,
+     "got": 10.6,
      "diff": "无",
      "unit": "ms"
     },
@@ -3331,7 +3331,7 @@
      "scene": "probe-plane-steps",
      "what": "单帧渲染（进程内，平均）",
      "expected": "无标准答案",
-     "got": 277.1,
+     "got": 360.7,
      "diff": "无",
      "unit": "ms"
     },
@@ -3340,8 +3340,8 @@
      "what": "整个进程（1 帧，两遍）",
      "expected": "无标准答案",
      "got": [
-      628.0,
-      630.8
+      890.7,
+      904.4
      ],
      "diff": "无",
      "unit": "ms"
@@ -3350,7 +3350,7 @@
      "scene": "probe-thin-geometry",
      "what": "读回一张多层 EXR（平均）",
      "expected": "无标准答案",
-     "got": 4.8,
+     "got": 9.3,
      "diff": "无",
      "unit": "ms"
     },
@@ -3358,7 +3358,7 @@
      "scene": "probe-thin-geometry",
      "what": "单帧渲染（进程内，平均）",
      "expected": "无标准答案",
-     "got": 288.8,
+     "got": 364.3,
      "diff": "无",
      "unit": "ms"
     },
@@ -3367,8 +3367,8 @@
      "what": "整个进程（1 帧，两遍）",
      "expected": "无标准答案",
      "got": [
-      633.7,
-      623.7
+      855.6,
+      1053.5
      ],
      "diff": "无",
      "unit": "ms"
