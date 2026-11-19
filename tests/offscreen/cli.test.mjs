@@ -83,6 +83,21 @@ test('出片：6 帧 320×180 → 成片 6 帧，信封里有逐帧哈希；同�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('出片默认走 GPU 侧 yuv420p 打包（x264 也一样）：成片 yuv420p、BT.709 tv 标记完整；--pix-fmt rgba 仍可退回 CPU 换算', { skip: noEncode, timeout: 180000 }, async () => {
+  const dir = tmp();
+  try {
+    const d = run(['render', WORK, '--out', join(dir, 'd.mp4'), '--frames', '0:4', '--size', '320x180', '--json']);
+    assert.equal(d.status, 0, d.stderr);
+    assert.equal(envelope(d).data.pixFmt, 'yuv420p', '不写 --pix-fmt 时应在 GPU 上打包');
+    const p = await probe(join(dir, 'd.mp4'));
+    assert.equal(p.video.pixFmt, 'yuv420p');
+    assert.deepEqual(p.video.color, { range: 'tv', space: 'bt709', primaries: 'bt709', transfer: 'bt709' });
+    const r = run(['render', WORK, '--out', join(dir, 'r.mp4'), '--frames', '0:4', '--size', '320x180', '--pix-fmt', 'rgba', '--json']);
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(envelope(r).data.pixFmt, 'rgba');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('出片中途 FFmpeg 退出：退出 1、failure.ffmpeg，不挂住，不留成片与半成品', { skip: noEncode || (process.platform === 'win32' && '需要 POSIX 可执行脚本'), timeout: 120000 }, () => {
   const dir = tmp();
   try {
@@ -102,7 +117,8 @@ test('读回中途拒绝：CLI 返回 JSON 失败并清理半成品，不因未�
     const work = join(fixtureDir, 'work.mjs');
     const inkUrl = new URL('../../lab/offscreen/ink.mjs', import.meta.url).href;
     writeFileSync(work, `import {build as ink} from ${JSON.stringify(inkUrl)}; export function build(ctx) { const {renderer}=ctx; let calls=0; const read=renderer.readRenderTargetPixelsAsync.bind(renderer); renderer.readRenderTargetPixelsAsync=(...a)=> ++calls===3?Promise.reject(new Error('injected readback rejection')):read(...a); return ink(ctx); }`);
-    const r = run(['render', work, '--out', join(dir, 'o.mp4'), '--frames', '0:48', '--size', '320x180', '--json']);
+    // 注入点是 RGBA 读回接口，所以固定 --pix-fmt rgba；流水线对两种格式的拒绝处理是同一段（frames.mjs renderFrameList）
+    const r = run(['render', work, '--out', join(dir, 'o.mp4'), '--frames', '0:48', '--size', '320x180', '--pix-fmt', 'rgba', '--json']);
     assert.equal(r.status, 1, r.stderr);
     assert.equal(envelope(r).ok, false);
     assert.deepEqual(readdirSync(dir), []);

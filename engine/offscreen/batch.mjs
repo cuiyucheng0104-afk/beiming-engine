@@ -83,7 +83,7 @@ export function parseBatchJobs(input, { cwd = process.cwd(), manifestDir = null,
     const fm = /^(\d+):(\d+)$/.exec(String(framesSpec).trim());
     if (!fm || +fm[2] <= +fm[1]) throw usageError('bad-value', `作业 ${id} 的 render frames 要写成 a:b 且止 > 起，收到「${framesSpec}」`, '例如 "0:96"');
     const encoder = String(item.encoder ?? defaults.encoder ?? 'x264');
-    const pixFmt = String(item.pixFmt ?? item['pix-fmt'] ?? defaults.pixFmt ?? 'rgba');
+    const pixFmt = String(item.pixFmt ?? item['pix-fmt'] ?? defaults.pixFmt ?? 'yuv420p');
     if (!ENCODERS.includes(encoder)) throw usageError('bad-value', `作业 ${id} 的 encoder 只能是 ${ENCODERS.join(' 或 ')}，收到「${encoder}」`, null);
     if (!PIX_FMTS.includes(pixFmt)) throw usageError('bad-value', `作业 ${id} 的 pixFmt 只能是 ${PIX_FMTS.join(' 或 ')}，收到「${pixFmt}」`, null);
     const crf = Number(item.crf ?? defaults.crf ?? 14);

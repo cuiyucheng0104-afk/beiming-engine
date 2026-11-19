@@ -16,6 +16,7 @@ import { createIdPass } from './idpass.js';
 import { fogUniforms, setFog, fogNodes } from './fog.js';
 import { noise } from './noise.js';
 import { createFullscreen, glCoord } from './pass.js';
+import { markGpu } from '../gputimer.mjs';
 
 // 墨线沸腾的种子：boilHold（整数 ≥ 1）按帧，否则按 boilFps。与 engine/look/ink.js 的 boilSeed 同一个公式（tests/offscreen/ink.test.mjs 对拍）。
 // 不直接 import 它：那个文件顶层 import 了仓库的 three r170，会和离屏用的 r187 同时装进一个进程。
@@ -119,6 +120,7 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
   function render({ scene, camera, p, fog = null, fogColor, t, k = 1, ss = 1, fps = 24 }) {
     const prev = renderer.getRenderTarget();
     try {
+      markGpu(renderer, 'ink:ids');
       const maxWidth = idPass.render(scene, camera, idTarget) || 1;
       U.near.value = camera.near; U.far.value = camera.far; U.ortho.value = camera.isOrthographicCamera ? 1 : 0;
       const hw = p.width * 0.5 * k * ss;
@@ -126,12 +128,12 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
       U.fogFade.value = fog ? (p.fogFade ?? 0.9) : 0;
       setFog(THREE, U, fog, camera, fogColor);
       U.wd.value.set(p.near, p.far, p.farScale);
-      fx.draw(edgeMaterial, edge);
+      markGpu(renderer, 'ink:edge'); fx.draw(edgeMaterial, edge);
       const widest = hw * maxWidth * Math.max(1, p.farScale ?? 1) * Math.max(1, p.inner ?? 1) * (1 + Math.max(0, p.pressure ?? 0));
       const R = Math.min(Math.max(8, Math.min(16, Math.ceil(8 * k))), Math.max(2, Math.ceil(widest + 1)));
       U.wobble.value = p.wobble * k * ss; U.warp.value = p.warp * k * ss; U.pressure.value = p.pressure; U.breakup.value = p.breakup;
       U.seed.value = boilSeed(t, p, fps);
-      fx.draw(strokeMaterial(R), line);
+      markGpu(renderer, 'ink:stroke'); fx.draw(strokeMaterial(R), line);
     } finally { renderer.setRenderTarget(prev); }
   }
 

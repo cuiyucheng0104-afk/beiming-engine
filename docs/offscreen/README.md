@@ -65,7 +65,7 @@ three 只在 `requestAnimationFrame` 回调里推进节点帧号，场景 pass �
 
 - 一个 Node 进程里可以开多部片：每部片一个 `WebGPURenderer` 与一个渲染目标，共用一个 `GPUDevice`（构造时传 `device`）。
 - 读回走流水线：渲第 n 帧、发起读回，不等它完成就渲第 n+1 帧；同时在途的帧数有上限（`inflight`，默认 3）。WebGPU 队列按提交顺序执行，第 n 帧的拷贝排在第 n+1 帧的渲染之前，所以复用同一个渲染目标是安全的；输出顺序按帧号。
-- 编码默认 libx264（与页面渲染器同参数，终渲母版用它）。并发时 x264 会先成为瓶颈，可用 `--encoder nvenc` 改走显卡的 h264_nvenc（恒定质量 cq，色彩换算与标记不变），并可配 `--pix-fmt yuv420p` 在 GPU 侧直接打包有限范围 BT.709 平面字节（读回与管道从 4 B/像素降到 1.5 B/像素，免除 FFmpeg 的 CPU `swscale`），实测见 7.4 与 7.14；Dawn→CUDA 跨 API 零拷贝尚未做。
+- 编码默认 libx264（与页面渲染器同参数，终渲母版用它）。读回默认 `--pix-fmt yuv420p`：在 GPU 侧直接打包有限范围 BT.709 平面字节（读回与管道从 4 B/像素降到 1.5 B/像素，免除 FFmpeg 的 CPU `swscale`），x264 与 nvenc 都走这条；`--pix-fmt rgba` 退回 FFmpeg 的 CPU 换算。GPU 打包的色度是 2×2 盒式均值，对 swscale 亮度最大差 1、整体 PSNR 54–55 dB（7.14），所以改默认之后成片字节与此前的 rgba 路径不同。并发时 x264 会先成为瓶颈，可用 `--encoder nvenc` 改走显卡的 h264_nvenc（恒定质量 cq，色彩换算与标记不变），实测见 7.4 与 7.14；Dawn→CUDA 跨 API 零拷贝尚未做。
 
 ## 4. 质量门
 
@@ -335,6 +335,23 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 - **画面不变**：对优化前原样副本（`tests/offscreen/fixtures/kuwahara-legacy.js`）逐像素对照，KR 2、4、8、10、强度 0.7、q 5、深度换半径，最大差 1 级、PSNR 81–90 dB（每 23 万个通道值只有 10–88 个差 1 级）；对 GLSL 版的质量门测试（`kuwahara.test.mjs`）原样通过。变异检查：轴系数偏 1%（PSNR 75 dB）被 PSNR ≥ 78 dB 的断言拦下，cos⁸ 改 cos⁶（最大差 10 级）也被拦下。
 - **没有做的**：多进程分片。在这台单卡上，复杂片 GPU 已满载、轻作品主线程有空闲，没有证据表明分片能提高单卡吞吐；多卡或多机才有意义。ss 与 MSAA 的取舍（`ss=1` 约 −27%）会改画面，需要走 look 闸，不属于这次优化。金标准比对（`npm run golden`）在这台机器上因缺 `brotli`（系统 Python 3.14，锁定要 3.12）以退出码 3 中止；金标准各集的页面都不加载 `engine/offscreen`，这次改动不会影响它们。
 
+### 7.18 GPU 分段计时与 4K 热点
+
+`offscreen profile <作品.mjs> --frames … --size …`（`engine/offscreen/gputimer.mjs`）：three 每次 `render()` 结束都立刻提交，在两次提交之间插一个只写时间戳的空计算通道，按队列顺序把一帧切成 `pre`、`paper`、`scene`、`ink:ids`、`ink:edge`、`ink:stroke`、`fog`、`bloom`、`grade`、`kuwahara`、`overlay`、`compose` 等段（标记在 `tsl/look.js`、`tsl/ink.js`、`film.mjs`；没挂计时器时标记什么都不做，开计时画面逐字节不变，有测试）。先把要测的帧整遍渲一次预热，再每帧一个计时器连续提交、最后一起读回；第一版逐帧等读回，GPU 在帧间空转降频，1080p 读数偏高约六成，已改掉。读数含 GPU 等 CPU 提交的空闲；部分实现会量化时间戳，很短的段读数不准。C 路线（`c2d.mjs`）的画布作品目前只有 `pre` 一段。
+
+交叉核对（《化鹏闪羽》，Kuwahara 展开后，5 帧 `0,36,72,108,140`，各两次）：4K 每帧中位数 92.7 / 94.6 ms，`offscreen:bench` 稳态 96.7 ms；1080p 12.9 / 15.3 ms，bench 11.0 ms（测前 GPU 已被其他进程占 24%，单帧在 10–25 ms 之间跳，1080p 的绝对值只能看量级）。
+
+| 段 | 1080p | 4K |
+|---|---|---|
+| `ink:stroke`（墨线笔画） | 4.65–5.83 ms（46–49%） | 53.3–53.5 ms（58%） |
+| `kuwahara` | 1.25–1.44 ms（12%） | 18.4–18.5 ms（20%） |
+| `scene`（主场景） | 2.6–2.8 ms（23–26%） | 10.7–11.0 ms（12%） |
+| `grade` | — | 4.5 ms（5%） |
+| `ink:edge` / `ink:ids` | 0.5–0.7 / 0.5 ms | 2.4 / 1.6 ms |
+
+- 墨线笔画是两个分辨率下的头号热点，而且随分辨率超线性增长（1080p → 4K 像素 4 倍，这一段约 10 倍）。它在 `ss` 倍的缓冲上算（4K、`ss=2` 时 7680×4320），笔刷采样半径 `R` 也随画幅放大（`ink.js`，上限 16）；这一条是读代码的推断，没有单独测。下一步优化它。
+- 交叉核对 Kuwahara：4K 关掉 Kuwahara 整帧 74.8 ms（bench），与 `kuwahara` 段 18 ms 量级一致。展开前后整帧（bench，两组分开各跑一次）：1080p 25.8 → 11.0、1440p 63.5 → 32.3、4K 159.0 → 96.7 ms。
+
 ### 7.16 快速复查
 
 ```sh
@@ -343,6 +360,7 @@ npm run film -- new c my-ink --title 云山 --backend webgpu
 npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080 --encoder nvenc --pix-fmt yuv420p
 npm run offscreen -- stills lab/offscreen/ink.mjs --out out/offscreen/stills --frames 0,48,96 --size 1920x1080
 npm run offscreen -- probe lab/offscreen/ink.mjs
+npm run offscreen -- profile films/chendu/offscreen.mjs --frames 0,48,90 --size 3840x2160
 npm run offscreen -- batch films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/offscreen/batch --frames 0:48 --encoder nvenc --pix-fmt yuv420p
 npm run offscreen:compare -- films/chendu/offscreen.mjs --frames 0,48,72,90 --size 960x540 --query "msaa=0&notext=1"
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080 --encode --encoder nvenc --pix-fmt yuv420p

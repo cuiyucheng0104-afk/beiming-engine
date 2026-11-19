@@ -4,6 +4,7 @@
 //                                       [--encoder x264|nvenc] [--crf 14] [--preset medium] [--cq 18] [--query k=v&…] [--json]
 //   node engine/offscreen/cli.mjs stills <作品.mjs> --out <目录> --frames 0,48,96|a:b[:step] [--size 1920x1080] [--fps 24] [--inflight 3] [--query k=v&…] [--json]
 //   node engine/offscreen/cli.mjs probe  <作品.mjs> [--size 1920x1080] [--fps 24] [--query k=v&…] [--json]
+//   node engine/offscreen/cli.mjs profile <作品.mjs> --frames 0,48,96|a:b[:step] [--size 1920x1080] [--fps 24] [--query k=v&…] [--json]
 // 退出码：0 · 1 渲染或编码失败 · 2 用法错误 · 3 缺可选依赖（webgpu、three-webgpu）· 4 契约或成片帧数不符。
 // 计时用 process.hrtime（这个文件在确定性扫描的范围里，渲染路径之外也不用 performance.now）。
 import fs from 'node:fs';
@@ -19,12 +20,15 @@ import { createHost } from './host.mjs';
 import { renderFrames, renderFrameList } from './frames.mjs';
 import { startEncoder } from './encode.mjs';
 import { parseBatchJobs, runBatch } from './batch.mjs';
+import { createGpuTimer, attachGpuTimer, detachGpuTimer } from './gputimer.mjs';
 
 const ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const sha16 = buf => createHash('sha256').update(buf).digest('hex').slice(0, 16);
 const shaHex = buf => createHash('sha256').update(buf).digest('hex');
 const seconds = since => Number(process.hrtime.bigint() - since) / 1e9;
 const repoRel = p => path.relative(ROOT, p).split(path.sep).join('/');
+const median = xs => { const a = [...xs].sort((x, y) => x - y), m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+const r3 = x => Math.round(x * 1000) / 1000;
 
 /** 解析静帧列表（支持 0,48,96 与 a:b[:step] 混写，按出现顺序去重） */
 export function parseFrameList(spec) {
@@ -53,7 +57,7 @@ export function parseFrameList(spec) {
 
 /** 校验参数（只读文件系统，不执行作品）；返回解析好的值，有问题抛用法错误 */
 export function resolveArgs({ sub, work, extra = [] }, opts, cwd = process.cwd()) {
-  if (!['render', 'stills', 'probe', 'batch'].includes(sub)) throw usageError('bad-subcommand', `未知子命令 ${sub}`, '可用：render、stills、probe、batch');
+  if (!['render', 'stills', 'probe', 'profile', 'batch'].includes(sub)) throw usageError('bad-subcommand', `未知子命令 ${sub}`, '可用：render、stills、probe、profile、batch');
   if (sub === 'batch') {
     const items = [work, ...extra].filter(Boolean);
     if (!items.length) throw usageError('missing-work', 'batch 需要 <清单.json> 或至少一个 <作品.mjs>', '例如 offscreen batch jobs.json，或 offscreen batch a.mjs b.mjs --out-dir out/batch --frames 0:48');
@@ -94,6 +98,10 @@ export function resolveArgs({ sub, work, extra = [] }, opts, cwd = process.cwd()
   if (!(opts.inflight >= 1)) throw usageError('bad-value', `--inflight 要 ≥ 1，收到 ${opts.inflight}`, null);
   const file = resolveWork(work, cwd);
   if (sub === 'probe') return { sub, file, width, height, fps: opts.fps, inflight: opts.inflight };
+  if (sub === 'profile') {
+    if (!opts.frames) throw usageError('missing-frames', 'profile 需要 --frames <帧列表或区间>', '例如 --frames 0,48,96（不同镜头各取几帧）');
+    return { sub, file, frameList: parseFrameList(opts.frames), width, height, fps: opts.fps };
+  }
   if (!opts.out) throw usageError('missing-out', `${sub} 需要 --out ${sub === 'render' ? '<文件.mp4>' : '<目录>'}`, null);
   const out = path.resolve(cwd, opts.out);
   if (sub === 'stills') {
@@ -124,22 +132,24 @@ export function parseSize(size) {
 
 export const command = defineCommand({
   name: 'offscreen',
-  summary: '离屏出片：在 Node + Dawn 里渲作品模块，不经过浏览器（视频 render、静帧 stills、探测 probe、单卡并发 batch）',
+  summary: '离屏出片：在 Node + Dawn 里渲作品模块，不经过浏览器（视频 render、静帧 stills、探测 probe、GPU 分段计时 profile、单卡并发 batch）',
   usage: [
     'node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--encoder x264|nvenc] [--pix-fmt rgba|yuv420p] [--crf 14] [--preset medium] [--cq 18] [--query k=v&…] [--json]',
     'node engine/offscreen/cli.mjs stills <作品.mjs> --out <目录> --frames 0,48,96|a:b[:step] [--size WxH] [--fps 24] [--inflight 3] [--query k=v&…] [--json]',
     'node engine/offscreen/cli.mjs probe  <作品.mjs> [--size WxH] [--fps 24] [--query k=v&…] [--json]',
+    'node engine/offscreen/cli.mjs profile <作品.mjs> --frames 0,48,96|a:b[:step] [--size WxH] [--fps 24] [--query k=v&…] [--json]',
     'node engine/offscreen/cli.mjs batch  <清单.json | 作品.mjs…> [--out-dir <目录>] [--concurrency 4] [--max-encoders 4] [--fail-fast] [--json]',
   ],
   description: [
     '  offscreen render <作品.mjs>：逐帧流水线渲染并经 FFmpeg 编成有限范围 BT.709 的 H.264',
     '  offscreen stills <作品.mjs>：按帧号列表输出无损 PNG（f000048.png），不依赖 FFmpeg',
     '  offscreen probe  <作品.mjs>：只读校验作品 build(ctx) 契约与 GPU 适配器，不渲帧、不写盘',
+    '  offscreen profile <作品.mjs>：GPU 时间戳把每帧切成主场景、墨线各遍、雾、辉光、调色、Kuwahara、纸纹、合成等段，报各段中位数与占比；先把这些帧整遍渲一次预热，计时不含读回，不写盘',
     '  offscreen batch  <清单.json | 作品.mjs…>：单进程共用一个 GPUDevice 并发调度多作业（含编码限流与故障隔离）',
     '  需要可选依赖 webgpu 与 three-webgpu（npm install --include=optional --ignore-scripts）',
   ],
   positionals: [
-    { name: 'sub', label: '<render|stills|probe|batch>', describe: '子命令', required: true },
+    { name: 'sub', label: '<render|stills|probe|profile|batch>', describe: '子命令', required: true },
     { name: 'work', label: '<作品.mjs | 清单.json>', describe: '作品模块（仓库内）或批量清单', required: false },
     { name: 'extra', label: '[更多作品…]', describe: 'batch 模式下直接列出多个作品模块', required: false, variadic: true },
   ],
@@ -147,7 +157,7 @@ export const command = defineCommand({
     out: { type: 'string', arg: '<路径>', describe: 'render 输出文件（.mp4）或 stills 输出目录' },
     'out-dir': { type: 'string', arg: '<目录>', describe: 'batch 多作品模式下的输出目录' },
     'events-out': { type: 'string', arg: '<目录>', describe: 'probe 时把模块导出的 EV / TIMELINE 写成 events.json 与 timeline.json' },
-    frames: { type: 'string', arg: '<帧>', describe: 'render/batch 用 a:b；stills 用 0,48,96 或 a:b[:step]' },
+    frames: { type: 'string', arg: '<帧>', describe: 'render/batch 用 a:b；stills、profile 用 0,48,96 或 a:b[:step]' },
     size: { type: 'string', arg: '<WxH>', default: '1920x1080', describe: '画幅（偶数，默认 1920x1080）' },
     fps: { type: 'integer', default: 24, arg: '<n>', describe: '帧率（默认 24）' },
     inflight: { type: 'integer', default: 3, arg: '<n>', describe: '同时在途的读回帧数（默认 3；不改变成片）' },
@@ -155,7 +165,7 @@ export const command = defineCommand({
     'max-encoders': { type: 'integer', default: 4, arg: '<n>', describe: 'batch 同时打开的 FFmpeg / NVENC 编码会话上限（默认 4）' },
     'fail-fast': { type: 'boolean', describe: 'batch 遇到首个失败作业后不再启动后续作业' },
     encoder: { type: 'string', default: 'x264', choices: ['x264', 'nvenc'], arg: '<名字>', describe: '编码器（默认 x264；nvenc 走显卡，快一倍多，画质略低，母版不建议）' },
-    'pix-fmt': { type: 'string', default: 'rgba', choices: ['rgba', 'yuv420p'], arg: '<格式>', describe: '读回与管道像素格式（默认 rgba；yuv420p 在 GPU 侧转有限范围 BT.709，省 62.5% 读回与 CPU swscale）' },
+    'pix-fmt': { type: 'string', default: 'yuv420p', choices: ['rgba', 'yuv420p'], arg: '<格式>', describe: '读回与管道像素格式（默认 yuv420p：在 GPU 侧转有限范围 BT.709，x264 与 nvenc 都免 CPU swscale、读回少 62.5%；rgba 退回 FFmpeg 的 CPU 换算）' },
     crf: { type: 'integer', default: 14, arg: '<n>', describe: 'x264 crf（默认 14，与页面渲染器相同）' },
     cq: { type: 'integer', default: 18, arg: '<n>', describe: 'nvenc 恒定质量 cq（默认 18，数字小画质高）' },
     query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（同页面的 location.search，不带 ?；出片链的 --query 与预演的 previs=1 原样转来）' },
@@ -166,6 +176,7 @@ export const command = defineCommand({
     'node engine/offscreen/cli.mjs render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:96',
     'node engine/offscreen/cli.mjs stills lab/offscreen/ink.mjs --out out/offscreen/stills --frames 0,48,95',
     'node engine/offscreen/cli.mjs probe  lab/offscreen/ink.mjs',
+    'node engine/offscreen/cli.mjs profile films/chendu/offscreen.mjs --frames 0,48,96 --size 3840x2160',
     'node engine/offscreen/cli.mjs batch  films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/batch --frames 0:48 --encoder nvenc --pix-fmt yuv420p',
   ],
   async run(ctx) {
@@ -237,6 +248,43 @@ export const command = defineCommand({
       }
     }
 
+    if (a.sub === 'profile') {
+      const undo = ctx.onCleanup(() => host.dispose());
+      const timers = [createGpuTimer(host.device)];
+      try {
+        if (!timers[0]) throw new CliError('env.timestamp-query', `适配器不支持 timestamp-query（${adapter.vendor ?? '未知'} ${adapter.description ?? ''}），没法分段计时`, { hint: '换支持时间戳查询的显卡或驱动；软件适配器通常不支持' });
+        while (timers.length < a.frameList.length) timers.push(createGpuTimer(host.device));
+        const work = await host.load(a.file);
+        for (const f of a.frameList) host.stepFrame(work, f);   // 预热：每帧先整遍渲一次，管线编译、贴图上传不进计时
+        await host.device.queue.onSubmittedWorkDone();
+        // 每帧一个计时器、连续提交、最后一起读：帧与帧之间不等 CPU 读回，GPU 不空转降频（逐帧等读回时 1080p 读数偏高约六成）
+        a.frameList.forEach((f, i) => {
+          attachGpuTimer(host.renderer, timers[i]);
+          timers[i].mark('pre');   // look 之前：镜头更新、作品自己的离屏渲染等
+          host.stepFrame(work, f);
+          timers[i].end();
+        });
+        detachGpuTimer(host.renderer);
+        const frames = (await Promise.all(timers.map(t => t.read()))).map((r, i) => (
+          { frame: a.frameList[i], totalMs: r3(r.totalMs), clamped: r.clamped, spans: r.spans.map(s => ({ label: s.label, ms: r3(s.ms) })) }));
+        const labels = [...new Set(frames.flatMap(fr => fr.spans.map(s => s.label)))];
+        const med = labels.map(label => ({ label, medianMs: median(frames.map(fr => fr.spans.find(s => s.label === label)?.ms ?? 0)) }));
+        const sum = med.reduce((x, p) => x + p.medianMs, 0) || 1;
+        const passes = med.map(p => ({ ...p, medianMs: r3(p.medianMs), share: r3(p.medianMs / sum) })).sort((x, y) => y.medianMs - x.medianMs);
+        const medianFrameMs = r3(median(frames.map(fr => fr.totalMs)));
+        ctx.out(`GPU 分段计时 ${repoRel(a.file)}  ${a.width}×${a.height}  ${frames.length} 帧（${a.frameList.join(',')}）  每帧中位数 ${medianFrameMs} ms`);
+        for (const p of passes) ctx.out(`  ${p.label.padEnd(12)} ${p.medianMs.toFixed(2).padStart(8)} ms  ${(p.share * 100).toFixed(1).padStart(5)}%`);
+        ctx.out('  pre = look 之前（镜头更新等）；overlay = GPU 等 CPU 画显示层；compose = 叠显示层并输出。各段含 GPU 等 CPU 提交的空闲');
+        if (frames.some(fr => fr.clamped)) ctx.warn('profile.non-monotonic', '有时间戳倒退，对应段记 0', '多跑几次看是否稳定');
+        return { data: { width: a.width, height: a.height, fps: a.fps, adapter, software, frames, passes, medianFrameMs, seconds: +seconds(t0).toFixed(2) }, outputs: [] };
+      } finally {
+        detachGpuTimer(host.renderer);
+        for (const t of timers) t?.dispose();
+        undo();
+        host.dispose();
+      }
+    }
+
     if (a.sub === 'stills') {
       fs.mkdirSync(a.out, { recursive: true });
       const partials = new Set();
@@ -285,7 +333,7 @@ export const command = defineCommand({
       fs.rmSync(partial, { force: true });
       host.dispose();
     });
-    const pixFmt = ctx.opts['pix-fmt'] || 'rgba';
+    const pixFmt = ctx.opts['pix-fmt'] || 'yuv420p';
     const work = await host.load(a.file);
     enc = startEncoder({ width: a.width, height: a.height, fps: a.fps, out: partial, crf: ctx.opts.crf, preset: ctx.opts.preset, encoder: ctx.opts.encoder, cq: ctx.opts.cq, pixFmt });
     const total = a.to - a.from, hashes = [];

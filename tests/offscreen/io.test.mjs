@@ -59,6 +59,7 @@ test('同源模块树顶层不含任何静态 node:* 或 @napi-rs/canvas 导入'
     'engine/offscreen/paper.mjs',
     'engine/offscreen/preview.js',
     'engine/offscreen/bridge.mjs',
+    'engine/offscreen/gputimer.mjs',
     'films/chendu/offscreen.mjs',
     ...fs.readdirSync(path.join(ROOT, 'engine/offscreen/tsl')).filter(f => f.endsWith('.js')).map(f => `engine/offscreen/tsl/${f}`),
   ];
