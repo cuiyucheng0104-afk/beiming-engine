@@ -29,7 +29,7 @@
 - 辅助材质只画网格。场景里有看得见的点、线、精灵时，要辅助层就报 `contract.unsupported-object`，不照画也不漏画；不要辅助层照常出。
 - 取值次序：这次调用的 `RenderOpts` → 锁文件 → 镜头条目 → 能力声明。没有锁文件时种子必须写在镜头条目里。
 - 镜头条目是原样收到的：带 `renderer` 对象时，出帧用的 `source`、`host`、`mode`、`entry` 取它里面的，顶层那一套只留作对照；元数据的 `source.id` 填顶层的 `source`，`source.renderer` 填 `three`。
-- 没有锁文件时，镜头条目的 `cards`、`assets` 和镜头输入里全片的 `assets` 有一个不空就报 `env.lock-required`。卡、资产、叠加层都还没接（叠加层要展开成卡实例）：带着锁文件来的卡或资产、镜头输入带着的叠加层都装不了，报 `contract.unsupported-input`，不少装一样照常装载。先后是：宿主或作者模式不在能力声明里先报 `contract.unsupported-mode`，没有锁文件的那几种其次，都不是才报这个码。
+- 没有锁文件时，镜头条目的 `cards`、`assets` 和镜头输入里全片的 `assets`、`overlays` 有一个不空就报 `env.lock-required`：叠加层要展开成卡的实例，算用了卡。卡、资产、叠加层都还没接：带着锁文件来的卡、资产、叠加层都装不了，报 `contract.unsupported-input`，不少装一样照常装载。先后是：宿主或作者模式不在能力声明里先报 `contract.unsupported-mode`，没有锁文件的那几种其次，都不是才报这个码。
 - 参数出了值域（帧号越界、`want` 重复、缩放或快门角越界）报 `usage.bad-argument`。
 
 现在的边界（能力声明里照实写了）：

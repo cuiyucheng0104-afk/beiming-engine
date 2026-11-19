@@ -303,7 +303,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 
 | 字段 | 类型 | 单位 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|---|
-| `frames` | 整数 | 帧 | 是 | ≥ 1 | 这个镜头的帧数 |
+| `frames` | 整数 | 帧 | 是 | ≥ 1 | 这个镜头的帧数：必须等于镜头输入里镜头条目的 `out` 减 `in`，算法同镜头契约（S）3.2 的 `ctx.frames` |
 | `entities` | 数组 | 无 | 是 | | 这个镜头的全部实体，每项见下表 |
 
 `entities[]`：
@@ -390,7 +390,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 |---|---|---|---|---|---|
 | `hasLock` | 布尔 | 是 | | `请求` | 这次传的 `env.lock` 是锁文件（`true`），还是 `null`（`false`） |
 | `hasSeed` | 布尔 | 是 | | `请求` | 镜头输入的镜头条目写没写 `seed` |
-| `usesCards` | 布尔 | 是 | | `请求` | 镜头条目的 `cards` 是不是出现并且不空 |
+| `usesCards` | 布尔 | 是 | | `请求` | 镜头用没用卡：镜头条目的 `cards` 出现并且不空，或者镜头输入的 `overlays` 出现并且不空，两样有一样就是 `true`。叠加层要展开成卡的实例，见 5.11 |
 | `usesAssets` | 布尔 | 是 | | `请求` | 镜头条目的 `assets`、镜头输入的 `assets` 里是不是有一个出现并且不空 |
 | `host` | 字符串 | 是 | 不空 | `请求` | 这个镜头出帧用的 `host`，取法见 3.2 |
 | `mode` | 字符串 | 是 | `cards-data`、`build-script`、`native-code` | `请求` | 这个镜头出帧用的 `mode`，取法见 3.2 |
@@ -520,7 +520,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | F11 | 实体清单里的编号和名字都不得重复，每帧元数据里列出的每个实体的编号、名字、类别必须和实体清单里的同一项逐项相同。 | `manifest.entities` 的 `id` 没有重复、`name` 没有重复；`metaEntities` 每一项的每个实体，在 `manifest.entities` 里必须有一项 `id`、`name`、`class` 三样都相同 | `F11-entity-id-changes.json` |
 | F12 | 元数据的 `camera.shutterAngleDeg` 必须等于这次 `render` 生效的快门角。 | `renders` 里 `metaShutterAngleDeg` 出现的每一项：它必须等于 `shutterAngleDeg`（不出现按 0 算），没有容差 | `F12-meta-shutter-differs.json` |
 | F13 | 生效的快门角是 0 而生效的子帧采样数大于 1 时，`render` 必须报错，错误码必须是 `contract.shutter-conflict`。 | `renders` 里 `shutterAngleDeg` 不出现或等于 0、`shutterSamples` 大于 1、并且 `want` 里的输出都声明过的每一项：`status` 必须是 `error`，`code` 必须是 `contract.shutter-conflict`。`want` 里有没声明过的输出的项归 F3 判 | `F13-zero-angle-multi-sample.json` |
-| F14 | `env.lock` 是 `null` 时，镜头条目没写 `seed`、或者镜头用了卡或资产，`open` 必须报错，错误码必须是 `env.lock-required`。 | `opens` 里 `hasLock` 是 `false`、`host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里，并且 `hasSeed` 是 `false`、或 `usesCards` 是 `true`、或 `usesAssets` 是 `true` 的每一项：`status` 必须是 `error`，`code` 必须是 `env.lock-required`。`host` 或 `mode` 不在能力声明里的项归 F16 判 | `F14-no-seed-opened.json`、`F14-cards-opened.json`、`F14-assets-opened.json`、`F14-borrowed-mode-code.json` |
+| F14 | `env.lock` 是 `null` 时，镜头条目没写 `seed`、或者镜头用了卡（叠加层展开出的卡也算）或资产，`open` 必须报错，错误码必须是 `env.lock-required`。 | `opens` 里 `hasLock` 是 `false`、`host` 在 `caps.hosts` 里、`mode` 在 `caps.modes` 里，并且 `hasSeed` 是 `false`、或 `usesCards` 是 `true`、或 `usesAssets` 是 `true` 的每一项：`status` 必须是 `error`，`code` 必须是 `env.lock-required`。`host` 或 `mode` 不在能力声明里的项归 F16 判 | `F14-no-seed-opened.json`、`F14-cards-opened.json`、`F14-assets-opened.json`、`F14-borrowed-mode-code.json`、`F14-overlays-only-input-code.json` |
 | F15 | 帧源登记表里有的帧源，能力声明必须落在登记表之内。 | 能力声明（单独的，或记录里的 `caps`）的 `id` 是登记表 `source.json` 的 `sources` 里的键时，拿那一项照 3.4 的「之内」比：`hosts`、`modes`、`sceneQuery` 的每一项登记表里都有；`outputs` 里除 `meta` 之外取值不是 `false` 的每个键，登记表里必须有这个键、取值不是 `false`，并且 `type` 相等；`motionBlur.mode` 相等；登记表有 `determinism` 时 `determinism` 相等 | `F15-host-not-registered.json`、`F15-mode-not-registered.json`、`F15-query-not-registered.json`、`F15-output-type-differs.json`、`F15-output-registered-false.json`、`F15-output-not-registered.json`、`F15-blur-mode-differs.json`、`F15-determinism-differs.json` |
 | F16 | 镜头出帧用的 `host` 不在能力声明的 `hosts` 里、或者出帧用的 `mode` 不在 `modes` 里时，`open` 必须报错，错误码必须是 `contract.unsupported-mode`。 | `opens` 里 `host` 不在 `caps.hosts` 里、或 `mode` 不在 `caps.modes` 里的每一项：`status` 必须是 `error`，`code` 必须是 `contract.unsupported-mode` | `F16-host-not-declared.json`、`F16-mode-not-declared.json`、`F16-borrowed-lock-code.json` |
 | F17 | 层引用的 `shape` 前两个数必须等于这次输出的高和宽，`hash` 必须等于层文件内容的哈希。 | `renders` 里 `layerRefs` 的每一项：`hash` 必须和 `fileHash` 逐字符相同；这次调用记了 `size` 时，`shape` 的第一个数必须等于 `size` 的第二个数（高），`shape` 的第二个数必须等于 `size` 的第一个数（宽） | `F17-shape-not-output-size.json`、`F17-hash-not-of-file.json` |
@@ -621,7 +621,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 
 - 镜头种子必须写在镜头条目的 `seed` 里。
 - 子帧采样数照 5.9 的次序取：这次调用的 `RenderOpts`，镜头条目，能力声明的默认值。
-- 镜头用了卡或资产时，它们的版本和哈希只有锁文件里有，`open` 必须报错（F14）。用了卡：镜头条目的 `cards` 出现并且不空。用了资产：镜头条目的 `assets`、镜头输入的 `assets` 里有一个出现并且不空。
+- 镜头用了卡或资产时，它们的版本和哈希只有锁文件里有，`open` 必须报错（F14）。用了卡：镜头条目的 `cards` 出现并且不空，或者镜头输入的 `overlays` 出现并且不空。叠加层由宿主展开成卡 `two-d.overlay` 的实例（片子描述契约（D）5.11），这张卡不是内建卡，版本和哈希也只在锁文件里（锁文件契约（LK）的 LK10）。用了资产：镜头条目的 `assets`、镜头输入的 `assets` 里有一个出现并且不空。
 
 有锁文件时，种子和子帧采样数取锁文件里记的值（锁文件契约（LK）3.2）；锁里的子帧采样数就是照 5.9 算出的那个值。
 
@@ -637,7 +637,7 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 
 | 调用 | 参数 | 出值域是指 |
 |---|---|---|
-| `render`、`query` | `f` | 不是整数，是负数，或者不小于实体清单的 `frames` |
+| `render`、`query` | `f` | 不是整数，是负数，或者不小于镜头条目的 `out` 减 `in`。这个界由测试工具从它自己备的镜头输入算，不读帧源报的 `manifest.frames` |
 | `render` | `want` | 里面有重复的名字 |
 | `render` | `opts.samples` | 出现了，却不是不小于 1 的整数 |
 | `render` | `opts.scale` | 出现了，却不在 `(0, 1]` 里 |
@@ -715,7 +715,8 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | `scenePack` 靠什么填 | 夹具镜头是测试工具自己备的，有没有场景包它自己知道。片子描述里怎么写一个镜头用了场景包，本契约不管 | 场景包接进片子描述时 |
 | 层引用现在没人判的几样 | `renders[].layerRefs[].output` 在不在 `layers` 里；`layers` 有层而 `layerRefs` 是空数组；层文件的字节数等不等于 `shape` 各项之积乘 4；`components` 的名字和次序对不对得上输出通道契约（PS）3.1。都没有不变量管 | 一致性测试工具要判时，在 `layerRefs[]` 里加字段 |
 | 3.4 的登记表和 `source.json` 怎么保持一致 | F22 的判定函数里抄了一份 3.4 的那几格，拿它比 `source.json`。改登记表时三处一起改：3.4 的表、`source.json`、本目录 `check.mjs` 里抄的那一份 | 已定 |
-| 装不了卡、资产、叠加层时报什么 | 【起草者补】三样共用一个码 `contract.unsupported-input`，立 F26，记录里加 `opens[].unfitInput`；写成过渡的失败方式，不是减免，见 5.14。选错了要改 F26、5.14、`unfitInput` 和错误码表 | 集成负责人确认 |
+| 装不了卡、资产、叠加层时报什么 | 已定：三样共用一个码 `contract.unsupported-input`，立 F26，记录里加 `opens[].unfitInput`；写成过渡的失败方式，不是减免，见 5.14。不得少装一样照常出帧：那样上层看到的是一张缺东西却「成功」的帧，换不了帧源，也查不出原因 | 已定 |
+| 实体清单的 `frames` 等不等于镜头条目的 `out` 减 `in` | 3.6 写成对帧源的要求，没有立不变量：核对记录里没有镜头条目的 `in`、`out`。F23 的帧号界不读 `manifest.frames`（5.13），帧源把它报错了不影响 F23 | 一致性测试工具要判时，在核对记录里加一个 `请求` 的镜头帧数字段 |
 | 报的错不带错误码 | 记录里 `status` 是 `error`、`code` 不出现。条文点了码的情形（F3、F5、F8、F13、F14、F16、F18、F19、F23、F26），不带码就是码不对；条文要求成功的情形（F24、F25），不带码也是报错。别的情形下不带码的错本身算不算违约，本契约没有立条文 | 集成负责人定要不要立「帧源报的错必须带登记过的错误码」 |
 | F23 没管到的参数 | 5.13 的表只列了 `render` 的参数和两个调用的帧号。`SceneQuery` 的字段出值域（`of` 是空数组、`tol` 是负数）、问的实体场景里没有、`open` 收到的镜头不是这个帧源的、`env` 不合 3.2、锁文件里缺这个镜头的值，这几种报什么：不定，一致性夹具现在不造 | 集成负责人确认 |
 | F25 的「必须成功」管到哪 | 只管测试工具自己备的、结构合乎 3.2 的镜头输入和 `env`。入口文件自己出错这类失败不在夹具里，本契约不管它报什么 | 集成负责人确认 |
@@ -734,3 +735,4 @@ T2、T11 的静态扫描只扫本仓库里的文件；`limited` 帧源里第三�
 | 2026-11-19 | 第 2 节的术语引用；3.3 层引用的 `sha256` 改名 `hash`，3.8 的 `layerRefs[].sha256`、`fileSha256` 跟着改名 `hash`、`fileHash`，F17 的措辞跟着改；3.8 三处 `code` 的值域；3.4 登记表 `three` 的 `color`、`normal` 两格；F14、F16、F18 各补一个反例；第 6 节改四行。不变量的判法没动 | 和别的契约对齐：字段名带算法名的哈希在锁文件、信封、场景包里都不带前缀，层引用的值带前缀，所以改用不带算法名的字段名；错误码的写法只在错误码表契约定，核对记录的结构定义改成引用它；「入口文件模式」镜头契约里没有这个词；32 位浮点渲染目标的探针过了，回填；叠加层条目里的时刻算式片子描述契约已经有规则，改成引用；F17 的宽高一半只对了自报，登记；三条「错误码必须是」的条文原来没有「报了错但码不对」的反例 |
 | 2026-11-19 | 3.8 加 `opens[].unfitInput` 和 `badArgs[]`，四处 `code` 从「报错时必填」改成可选（报的错不带错误码时不出现），`opens[]`、`renders[]`、`queries[]` 各补一句记什么；新加 F23 到 F26、5.13、5.14；5.3 加一句对套件的要求；第 6 节改三行、加五行；F14 的判法没动，判定函数里它的条件抽成了和 F25、F26 共用的一个函数 | 声明了答不出的场景查询、声明了装不了的作者模式，原来没有条文管，只有没声明的有（F8、F16）：补上「声明了就得做到」的两条。参数出值域报 `usage.bad-argument` 原来没有条文点名，立成 F23。帧源装不了镜头输入里的卡、资产、叠加层时原来报的错不带码，立 F26 配一个新码。报错不带码的调用原来记不进记录，测试工具只能中断 |
 | 2026-11-19 | 3.2 `overlays` | 写明保持片子描述里的书写顺序，CR15 靠它 |
+| 2026-11-19 | 5.11「用了卡」、3.8 `opens[].usesCards` 的说明、F14 的条文，F14 补一个只带叠加层的反例，正例 `check-no-lock.json` 和 F26 的反例跟着改；3.6 `frames` 的说明、5.13 `f` 一行；第 6 节「装不了卡、资产、叠加层时报什么」改成已定，加「实体清单的 `frames`」一行。判定函数没动 | 叠加层展开成的卡 `two-d.overlay` 不是内建卡，版本和哈希只在锁文件里，原来「用了卡」只数镜头条目的 `cards`，没有锁、只带叠加层的镜头照 F25 必须装载成功；实体清单的帧数原来没写算法，F23 的帧号界读的是帧源自报的数，报大了判不出；装不了镜头输入时报的码已经确认 |

@@ -180,5 +180,19 @@
       "SP18"
     ],
     "why": "实例表只有 3 行，normalProbes 里有一项的 row 是 3"
+  },
+  {
+    "file": "SP19-name-with-hyphen.json",
+    "violates": [
+      "SP19"
+    ],
+    "why": "instances.names 第 0 项写成 kit.part-L：实体名的段里不得有连字符"
+  },
+  {
+    "file": "SP19-link-bad-wildcard.json",
+    "violates": [
+      "SP19"
+    ],
+    "why": "灯 rim1 的链接写成 kit*：通配必须写成前缀加 .*"
   }
 ]

@@ -1,8 +1,10 @@
 {
   "format": "meta-check/0.1",
+  "film": "f_8k2",
   "shot": "s01",
   "start": 0,
   "seed": 7802,
+  "fps": "30/1",
   "source": "blender",
   "renders": [
     {

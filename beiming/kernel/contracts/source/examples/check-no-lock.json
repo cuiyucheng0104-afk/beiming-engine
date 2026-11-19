@@ -129,9 +129,9 @@
       "status": "ok"
     },
     {
-      "hasLock": false,
+      "hasLock": true,
       "hasSeed": true,
-      "usesCards": false,
+      "usesCards": true,
       "usesAssets": false,
       "host": "page",
       "mode": "native-code",
@@ -144,7 +144,7 @@
     {
       "hasLock": false,
       "hasSeed": false,
-      "usesCards": false,
+      "usesCards": true,
       "usesAssets": false,
       "host": "page",
       "mode": "native-code",
@@ -157,7 +157,7 @@
     {
       "hasLock": true,
       "hasSeed": false,
-      "usesCards": false,
+      "usesCards": true,
       "usesAssets": false,
       "host": "page",
       "mode": "cards-data",

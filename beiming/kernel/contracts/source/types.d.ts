@@ -59,7 +59,7 @@ export type FrameResult = {
 };
 
 export type Manifest = {
-  frames: number;                                               // 这个镜头的帧数，整数，>= 1
+  frames: number;                                               // 这个镜头的帧数，整数，>= 1；等于镜头条目的 out 减 in
   entities: { id: number; name: string; class: string }[];      // id：整数，>= 1，从哪来见 3.6；0 不是实体的编号，编号层里 0 表示没打到任何实体
 };
 

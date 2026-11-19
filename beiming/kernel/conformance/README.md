@@ -54,9 +54,9 @@ node beiming/kernel/conformance/run.mjs
 | 帧源 | `opens[]`、`renders[]`、`queries[]`、`badArgs[]` 的 `status`、`code`，`renders[]` 的 `meta`、`layers`，`layerRefs[]` 的 `output`、`fileHash`，`orderRuns[].digest`，`queries[]` 的 `total`、`returned` | 调用的结局（报的错不带错误码时 `code` 不写，原话记在出错清单里）、数交回的东西、读层文件重算；`total` 照自己问了几个实体算 | 量的 |
 | 帧源 | `caps`、`manifest`、`layerRefs[]` 的 `shape`、`hash`、`metaShutterAngleDeg`、`colorRef`、`metaEntities[].entities`、`queries[].truncated` | 帧源交回的东西里原样抄 | 自报 |
 | 帧源 | `colorTransfer`、`failures`、`textReadbacks` | 不写：要用灰阶场景量、要造渲染失败、要有文字框，这条链路没接 | — |
-| 元数据 | `shot`、`start`、`seed`、`source`、`call`、`shotFrame`、`tier` | 入口的：`seed` 取片子描述里镜头条目的（例子锁里记的是同一个数，测试盯着），`source` 是片子描述里镜头条目顶层写的帧源，`tier` 是那次 `open` 传的档位 | 请求 |
+| 元数据 | `film`、`shot`、`fps`、`start`、`seed`、`source`、`call`、`shotFrame`、`tier` | 入口的：`film`、`fps` 取片子描述的 `id`、`output.fps`，`shot` 是请求的那个镜头条目的 `id`，都不从元数据抄；`seed` 取片子描述里镜头条目的（例子锁里记的是同一个数，测试盯着），`source` 是片子描述里镜头条目顶层写的帧源，`tier` 是那次 `open` 传的档位 | 请求 |
 | 元数据 | `metas`、`metaBytes`、`colorFileHash`、`colorShape` | 数返回值；元数据不带缩进、末尾不带换行写成 JSON 的字节数（落盘的 `meta.json` 带缩进，不是量的这个数）；读层文件重算；颜色层文件的字节数等于层引用的 `shape` 三项之积乘 4 时记这个 `shape`，对不上不写 | 量的 |
-| 元数据 | `metaFrame`、`metaShotFrame`、`metaSeed`、`metaSize`、`metaTier`、`metaSourceId`、`metaHashColor` | 元数据里原样抄 | 自报 |
+| 元数据 | `metaFilm`、`metaShot`、`metaFps`、`metaFrame`、`metaShotFrame`、`metaSeed`、`metaSize`、`metaTier`、`metaSourceId`、`metaHashColor` | 元数据里原样抄 | 自报 |
 | 事件 | `events` | 求值核展开的事件表，整份收进来 | 自报 |
 | 事件 | `film` | 入口读的片子描述 | 请求 |
 

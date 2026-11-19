@@ -30,6 +30,9 @@ function manyTo(pairs) {
 }
 
 /** F 契约 5.5：要么是实体名，要么是「前缀加 .*」，后者不含前缀自己 */
+// 实体名的写法抄自镜头契约 5.2，带通配的写法抄自帧源接口契约 5.5
+const ENTITY_NAME = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/;
+const ENTITY_TARGET = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*(\.\*)?$/;
 const matches = (pattern, name) => (pattern.endsWith('.*') ? name.startsWith(pattern.slice(0, -1)) : name === pattern);
 
 export const checks = {
@@ -147,8 +150,9 @@ export const checks = {
   SP11: onPack((pack) => pack.geometry.meshes.flatMap((m) => ['position', 'cornerNormal']
     .filter((a) => !m.attrs.includes(a)).map((a) => `网格 ${m.name} 的 attrs 里没有 ${a}`))),
 
+  // 写法不对的项归 SP19
   SP12: onPack((pack) => pack.lights.flatMap((l) => (l.link ?? [])
-    .filter((p) => !pack.instances.names.some((nm) => matches(p, nm)))
+    .filter((p) => ENTITY_TARGET.test(p) && !pack.instances.names.some((nm) => matches(p, nm)))
     .map((p) => `灯 ${l.name} 的链接 ${p} 一个实体名都配不到`))),
 
   SP13: onPack((pack) => pack.materials.flatMap((m) => {
@@ -185,5 +189,10 @@ export const checks = {
     return [['tables.frameInstances', rec.tables?.frameInstances], ['normalProbes', rec.normalProbes]]
       .flatMap(([k, items]) => (items ?? []).flatMap((it, i) => (it.row < n ? [] : [`${k} 第 ${i} 项的 row 是 ${it.row}，必须小于实例数 ${n}`])));
   }),
+
+  SP19: onPack((pack) => [
+    ...pack.instances.names.flatMap((nm, i) => (ENTITY_NAME.test(nm) ? [] : [`instances.names 第 ${i} 项 ${nm} 不是合法的实体名`])),
+    ...pack.lights.flatMap((l) => (l.link ?? []).filter((p) => !ENTITY_TARGET.test(p)).map((p) => `灯 ${l.name} 的链接 ${p} 不是合法的实体名或带通配的实体名`)),
+  ]),
 };
 

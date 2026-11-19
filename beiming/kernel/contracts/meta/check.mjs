@@ -1,5 +1,5 @@
 // 每帧元数据契约的判定函数：每条不变量一个，照 CONTRACT.md 第 4 节「怎么查」一栏写。
-// M1、M3、M9、M11、M12、M13、M14、M17 判元数据核对记录（meta-check/0.1），其余判每帧元数据（meta/0.1）。
+// M1、M3、M9、M11、M12、M13、M14、M17、M18、M19、M20 判元数据核对记录（meta-check/0.1），其余判每帧元数据（meta/0.1）。
 // 不归这条管的对象、记录里没出现的段一律返回空数组。
 
 const HOST_FIVE = ['camera', 'entities', 'lights', 'stats', 'timing'];
@@ -141,6 +141,19 @@ const checks = {
   M17: on('meta-check/0.1', (rec) => (rec.renders ?? [])
     .filter((r) => r.metaSourceId !== undefined && r.metaSourceId !== rec.source)
     .map((r) => `第 ${r.call} 次 render 的元数据 source.id 是 ${r.metaSourceId}，镜头条目顶层的 source 是 ${rec.source}`)),
+
+  M18: on('meta-check/0.1', (rec) => (rec.renders ?? [])
+    .filter((r) => r.metaFilm !== undefined && r.metaFilm !== rec.film)
+    .map((r) => `第 ${r.call} 次 render 的元数据 film 是 ${r.metaFilm}，片子描述的 id 是 ${rec.film}`)),
+
+  M19: on('meta-check/0.1', (rec) => (rec.renders ?? [])
+    .filter((r) => r.metaShot !== undefined && r.metaShot !== rec.shot)
+    .map((r) => `第 ${r.call} 次 render 的元数据 shot 是 ${r.metaShot}，请求的镜头是 ${rec.shot}`)),
+
+  // 帧率的写法是最简分数（时间键契约 3.2），所以逐字符比就是比数值
+  M20: on('meta-check/0.1', (rec) => (rec.renders ?? [])
+    .filter((r) => r.metaFps !== undefined && r.metaFps !== rec.fps)
+    .map((r) => `第 ${r.call} 次 render 的元数据 fps 是 ${r.metaFps}，片子描述的 output.fps 是 ${rec.fps}`)),
 };
 
 export { checks };

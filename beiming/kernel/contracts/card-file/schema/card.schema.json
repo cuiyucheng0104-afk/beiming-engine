@@ -303,7 +303,7 @@
               },
               "type": {
                 "type": "string",
-                "pattern": "^(scene-linear-rgba16f|depth-view-f32|object-id|normal-view|events|frame-meta|bbox-world|tracks\\.[a-z][A-Za-z0-9.]*)$"
+                "pattern": "^(scene-linear-rgba|depth-view|object-id|normal-view|events|frame-meta|bbox-world|tracks\\.[a-z][A-Za-z0-9.]*)$"
               }
             }
           }
@@ -324,7 +324,7 @@
               },
               "type": {
                 "type": "string",
-                "pattern": "^(scene-linear-rgba16f|depth-view-f32|object-id|normal-view|events|frame-meta|bbox-world|tracks\\.[a-z][A-Za-z0-9.]*)$"
+                "pattern": "^(scene-linear-rgba|depth-view|object-id|normal-view|events|frame-meta|bbox-world|tracks\\.[a-z][A-Za-z0-9.]*)$"
               }
             }
           }

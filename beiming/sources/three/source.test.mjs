@@ -77,8 +77,9 @@ test('装载之前：没有锁文件时种子必须写在镜头条目里，用�
   // 全片的资产表和镜头条目的一样算「用了资产」；空的不算
   assert.throws(() => planOpen(CAPS, input({}, { assets: { vo: 'asset:vo@1' } }), env), code('env.lock-required'));
   assert.deepEqual(planOpen(CAPS, input({}, { assets: {}, overlays: [], events: { events: [] } }), env), { seed: 7 });
-  // 叠加层、带着锁文件来的卡和资产都装不了：报装不了的那个码，不装作没看见；没写种子时先报没有锁文件的那个码，宿主不在能力声明里时先报那一条
-  assert.throws(() => planOpen(CAPS, input({}, { overlays: [OVERLAY] }), env), code('contract.unsupported-input'));
+  // 没有锁文件时叠加层也算用了卡（展开出的卡只在锁文件里有版本和哈希）
+  assert.throws(() => planOpen(CAPS, input({}, { overlays: [OVERLAY] }), env), code('env.lock-required'));
+  // 带着锁文件来的叠加层、卡和资产都装不了：报装不了的那个码，不装作没看见；没写种子时先报没有锁文件的那个码，宿主不在能力声明里时先报那一条
   assert.throws(() => planOpen(CAPS, input({}, { overlays: [OVERLAY] }), { ...env, lock }), code('contract.unsupported-input'));
   assert.throws(() => planOpen(CAPS, input({ cards: [CARD] }), { ...env, lock }), code('contract.unsupported-input'));
   assert.throws(() => planOpen(CAPS, input({}, { assets: { vo: 'asset:vo@1' } }), { ...env, lock }), code('contract.unsupported-input'));

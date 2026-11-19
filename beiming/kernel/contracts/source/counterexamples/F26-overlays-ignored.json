@@ -61,9 +61,9 @@
   },
   "opens": [
     {
-      "hasLock": false,
+      "hasLock": true,
       "hasSeed": true,
-      "usesCards": false,
+      "usesCards": true,
       "usesAssets": false,
       "host": "page",
       "mode": "native-code",

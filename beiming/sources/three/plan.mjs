@@ -29,15 +29,15 @@ export function planOpen(caps, input, env) {
   if (source !== caps.id) throw bad(`出这个镜头的帧源是 ${source}，不是 ${caps.id}`);
   if (!['draft', 'final'].includes(env.tier)) throw bad(`档位只能是 draft、final，给的是 ${env.tier}`);
   if (!caps.hosts.includes(host) || !caps.modes.includes(mode)) throw new SourceError('contract.unsupported-mode', `${caps.id} 帧源不支持宿主 ${host} 加作者模式 ${mode}`);
-  // 用了资产：镜头条目的 assets、镜头输入里全片的 assets，有一个不空就算
-  const cards = used(shot.cards), assets = used(shot.assets) || used(input.assets);
+  // 用了卡：镜头条目的 cards、镜头输入的 overlays（叠加层展开成卡的实例）有一个不空就算；用了资产：镜头条目的 assets、镜头输入里全片的 assets，有一个不空就算
+  const cards = used(shot.cards), overlays = used(input.overlays), assets = used(shot.assets) || used(input.assets);
   if (env.lock === null) {
-    // 没有锁文件：种子只能来自镜头条目；卡和资产的版本、哈希只有锁文件里有
+    // 没有锁文件：种子只能来自镜头条目；卡（含叠加层展开出的卡）和资产的版本、哈希只有锁文件里有
     if (!Number.isInteger(shot.seed)) throw new SourceError('env.lock-required', `没有锁文件，镜头 ${shot.id} 又没写 seed`);
-    if (cards || assets) throw new SourceError('env.lock-required', `没有锁文件，镜头 ${shot.id} 却用了${cards ? '卡' : '资产'}`);
+    if (cards || overlays || assets) throw new SourceError('env.lock-required', `没有锁文件，镜头 ${shot.id} 却用了${cards ? '卡' : overlays ? '叠加层' : '资产'}`);
   }
   // shortcut: 卡、资产、叠加层这条链路都还没接（叠加层要展开成卡实例），带着锁文件来也装不了：报错，不少装一样照常装载；接卡时在这里读锁里的版本和哈希
-  const unfit = [cards && '卡', assets && '资产', used(input.overlays) && '叠加层'].filter(Boolean);
+  const unfit = [cards && '卡', assets && '资产', overlays && '叠加层'].filter(Boolean);
   if (unfit.length) throw new SourceError('contract.unsupported-input', `${caps.id} 帧源还没接${unfit.join('、')}`);
   if (env.lock === null) return { seed: shot.seed };
   const seed = env.lock.seeds?.[shot.id], shutterSamples = env.lock.shots?.[shot.id]?.shutterSamples;

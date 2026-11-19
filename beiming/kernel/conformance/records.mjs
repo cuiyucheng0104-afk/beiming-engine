@@ -165,10 +165,13 @@ function colorShape(r) {
 }
 
 /** 一份记录说一个镜头的全部成功的 render。seed 取片子描述里镜头条目的：例子锁里记的是同一个数（测试盯着），带锁的会话生效的也是它。source 是镜头条目顶层写的帧源，从片子描述读 */
-export function metaCheck(one) {
+export function metaCheck(obs, one) {
   return {
     format: 'meta-check/0.1',
+    // 片子、镜头、帧率都从测试工具自己备的片子描述读，不从元数据抄
+    film: obs.film.id,
     shot: one.shot.id,
+    fps: obs.film.output.fps,
     start: one.shot.in,
     seed: one.shot.seed,
     source: one.shot.source,
@@ -178,7 +181,7 @@ export function metaCheck(one) {
       tier: r.tier,
       metas: r.metas,
       metaBytes: r.metaBytes ?? 0,
-      ...(r.meta ? { metaFrame: r.meta.frame, metaShotFrame: r.meta.shotFrame, metaSeed: r.meta.seed, metaSize: r.meta.size, metaTier: r.meta.source.tier, metaSourceId: r.meta.source.id } : {}),
+      ...(r.meta ? { metaFrame: r.meta.frame, metaShotFrame: r.meta.shotFrame, metaSeed: r.meta.seed, metaSize: r.meta.size, metaTier: r.meta.source.tier, metaSourceId: r.meta.source.id, metaFilm: r.meta.film, metaShot: r.meta.shot, metaFps: r.meta.fps } : {}),
       ...(sha(r, 'color') ? { colorFileHash: sha(r, 'color') } : {}),
       ...colorShape(r),
       ...(r.meta?.hash.color ? { metaHashColor: r.meta.hash.color } : {}),

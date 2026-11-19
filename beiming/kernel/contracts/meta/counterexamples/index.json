@@ -208,5 +208,26 @@
       "M17"
     ],
     "why": "镜头条目顶层的 source 是 blender，元数据的 source.id 却填了 three：带 renderer 对象的镜头把出帧者填进了 source.id"
+  },
+  {
+    "file": "M18-film-of-another-film.json",
+    "violates": [
+      "M18"
+    ],
+    "why": "元数据的 film 是 other-film，片子描述的 id 是 f_8k2，别的都对"
+  },
+  {
+    "file": "M19-shot-of-another-shot.json",
+    "violates": [
+      "M19"
+    ],
+    "why": "请求的是镜头 s01，元数据的 shot 写成 s02，别的都对"
+  },
+  {
+    "file": "M20-fps-not-of-film.json",
+    "violates": [
+      "M20"
+    ],
+    "why": "片子描述的 output.fps 是 30/1，元数据的 fps 写成 25/1（写法本身合法），别的都对"
   }
 ]

@@ -1,0 +1,222 @@
+{
+  "format": "scene-pack/0.1",
+  "id": "pack:part-pair@1",
+  "units": {
+    "meter": 1,
+    "up": "Y",
+    "hand": "right"
+  },
+  "geometry": {
+    "file": "geometry.glb",
+    "meshes": [
+      {
+        "name": "part",
+        "tris": 38412,
+        "attrs": [
+          "position",
+          "cornerNormal"
+        ]
+      },
+      {
+        "name": "floor",
+        "tris": 2,
+        "attrs": [
+          "position",
+          "cornerNormal"
+        ]
+      }
+    ]
+  },
+  "instances": {
+    "file": "instances.u32",
+    "shape": [
+      3,
+      4
+    ],
+    "names": [
+      "kit.part-L",
+      "kit.part_R",
+      "floor"
+    ],
+    "class": [
+      "part",
+      "part",
+      "part"
+    ]
+  },
+  "materials": [
+    {
+      "name": "plastic",
+      "closure": "surface",
+      "params": {
+        "baseColor": [
+          0,
+          0,
+          0
+        ],
+        "metallic": 0,
+        "roughness": 0.65
+      },
+      "pattern": [
+        {
+          "node": "bevel",
+          "radius": 0.0035,
+          "samples": 4,
+          "out": "normal"
+        },
+        {
+          "node": "ao",
+          "distance": 0.006,
+          "samples": 8,
+          "onlyLocal": false,
+          "out": "ao"
+        },
+        {
+          "node": "smoothstep",
+          "in": "ao",
+          "edges": [
+            0.52,
+            0.88
+          ],
+          "out": "line"
+        },
+        {
+          "node": "mix",
+          "by": "line",
+          "set": {
+            "baseColor": [
+              0.8,
+              0.8,
+              0.8
+            ],
+            "roughness": 0.42
+          }
+        }
+      ]
+    },
+    {
+      "name": "floor",
+      "closure": "surface",
+      "params": {
+        "baseColor": [
+          0.02,
+          0.02,
+          0.02
+        ],
+        "metallic": 0,
+        "roughness": 0.42
+      }
+    }
+  ],
+  "lights": [
+    {
+      "name": "key",
+      "type": "area-rect",
+      "size": [
+        1.2,
+        0.8
+      ],
+      "watts": 400,
+      "color": [
+        1,
+        0.96,
+        0.9
+      ],
+      "visibleToCamera": false
+    },
+    {
+      "name": "rim1",
+      "type": "area-rect",
+      "size": [
+        0.3,
+        1.6
+      ],
+      "watts": 520,
+      "color": [
+        0.9,
+        0.95,
+        1
+      ],
+      "visibleToCamera": false,
+      "link": [
+        "kit.*"
+      ]
+    },
+    {
+      "name": "rim2",
+      "type": "area-rect",
+      "size": [
+        0.3,
+        1.6
+      ],
+      "watts": 520,
+      "color": [
+        0.9,
+        0.95,
+        1
+      ],
+      "visibleToCamera": false,
+      "link": [
+        "kit.*"
+      ]
+    }
+  ],
+  "world": {
+    "color": [
+      0.002,
+      0.002,
+      0.003
+    ],
+    "visibleToCamera": true
+  },
+  "camera": {
+    "type": "persp",
+    "near": 0.1,
+    "far": 100,
+    "sensorHeight": 0.024
+  },
+  "frames": {
+    "count": 1,
+    "instances": {
+      "file": "frames/instances.f32",
+      "shape": [
+        1,
+        3,
+        16
+      ],
+      "fields": [
+        "mat16"
+      ]
+    },
+    "camera": {
+      "file": "frames/camera.f32",
+      "shape": [
+        1,
+        19
+      ],
+      "fields": [
+        "mat16",
+        "fovY",
+        "focusDist",
+        "fstop"
+      ]
+    },
+    "lights": {
+      "file": "frames/lights.f32",
+      "shape": [
+        1,
+        3,
+        17
+      ],
+      "fields": [
+        "mat16",
+        "watts"
+      ]
+    }
+  },
+  "source": {
+    "exporter": "sources/blender@0.1",
+    "blender": "5.2.3",
+    "sha256": "75e0fc7875d0d0fb32b6801d1dc1099e63ec03f20225fad44faa9b793120f083"
+  }
+}

@@ -211,7 +211,7 @@
 
 ### 5.5 端口的数据类型
 
-`scene-linear-rgba16f`、`depth-view-f32`、`object-id`、`normal-view`、`events`、`frame-meta`、`bbox-world`，以及以 `tracks.` 开头的名字（例如 `tracks.camera`）。各类型的数值口径归输出通道契约（PS）、事件表契约（EV）、每帧元数据契约（M）。
+`scene-linear-rgba`、`depth-view`、`object-id`、`normal-view`、`events`、`frame-meta`、`bbox-world`，以及以 `tracks.` 开头的名字（例如 `tracks.camera`）。各类型的数值口径归输出通道契约（PS）、事件表契约（EV）、每帧元数据契约（M）。类型名里不写位深：`scene-linear-rgba`、`depth-view`、`object-id`、`normal-view` 的分量和位深照输出通道契约 3.1 的 `color`、`depth`、`objectId`、`normal` 四行，卡不得另按别的位深传。
 
 ### 5.6 验证状态四级
 
@@ -290,3 +290,4 @@
 | 2026-11-18 | 第 1、2 节，3.1、3.2、3.3、3.5、3.6，CF2、CF3 的措辞，新加 CF9、CF10、CF11，5.3、5.6、5.7，新加 5.10、5.11，第 6 节 | 照红队和跨契约一致性复核的处理结果改 |
 | 2026-11-18 | 5.11 | 修订后的对齐收尾 |
 | 2026-11-19 | 3.2、3.3、3.5，CF4 的「怎么查」，CF8 的条文和「怎么查」，第 6 节 | 写判定函数时暴露的问题：卡的断言一项只写一条；`default` 的类型进结构定义；两个等决定的取值按倾向定下来 |
+| 2026-11-19 | 5.5，结构定义里 `ports` 的 `type` | 端口类型 `scene-linear-rgba16f` 名字里写死了 16 位浮点，和输出通道契约登记的 `f32` 冲突；改名 `scene-linear-rgba`，`depth-view-f32` 同改为 `depth-view`，位深只在输出通道契约一处定 |

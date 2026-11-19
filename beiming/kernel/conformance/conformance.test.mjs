@@ -191,7 +191,7 @@ test('观测点：记下 build 跑了几次、state 收到的每个时刻和那�
 function observation() {
   const sha = `sha256:${'ab'.repeat(32)}`, CAPS = { ...caps(), motionBlur: { mode: 'accumulate', auxAt: 'sub0', samples: 2 } };
   const one = (id, start, shutter) => {
-    const meta = { frame: start + 3, shotFrame: 3, seed: 7, size: [640, 360], colorRef: 'scene', camera: { shutterAngleDeg: 180 }, entities: [{ id: 1, name: 'cube', class: 'part' }], source: { id: 'three', renderer: 'three', tier: 'final' }, hash: { color: sha } };
+    const meta = { film: 'f_x', shot: id, fps: '24/1', frame: start + 3, shotFrame: 3, seed: 7, size: [640, 360], colorRef: 'scene', camera: { shutterAngleDeg: 180 }, entities: [{ id: 1, name: 'cube', class: 'part' }], source: { id: 'three', renderer: 'three', tier: 'final' }, hash: { color: sha } };
     const seen = (states) => ({ builds: 1, shot: id, metaF: 3, cardUses: [], metaKeys: [], states, ctx: { seed: 7, fps: '24/1', frames: 10, shotIn: start, size: [640, 360] } });
     const ref = (output, n) => ({ output, shape: [360, 640, n], hash: sha, fileHash: sha });
     const full = (call, order) => ({
@@ -207,8 +207,8 @@ function observation() {
       // 两次装上了的 open：各有一次带观测的整帧 render
       loads: ['sequential', 'single'].map((session) => ({ session, locked: false, tier: 'final', input: { film: 'f_x', output: { size: [640, 360], fps: '24/1' }, shot } })),
       manifest: { frames: 10, entities: [{ id: 1, name: 'cube', class: 'part' }] },
-      // 三次 open：没有锁文件又没写种子；带着叠加层（帧源装不了）；原样的两次
-      opens: [opened({ plain: false, hasSeed: false, status: 'error', code: 'env.lock-required' }), opened({ plain: false, unfitInput: ['overlays'], status: 'error', code: 'contract.unsupported-input' }), opened(), opened()],
+      // 四次 open：没有锁文件又没写种子；带着锁、带着叠加层（帧源装不了）；原样的两次
+      opens: [opened({ plain: false, hasSeed: false, status: 'error', code: 'env.lock-required' }), opened({ plain: false, hasLock: true, usesCards: true, unfitInput: ['overlays'], status: 'error', code: 'contract.unsupported-input' }), opened(), opened()],
       badArgs: [{ call: 'render', arg: 'f', status: 'error', code: 'usage.bad-argument' }],
       renders: [
         full(0, 'sequential'),
@@ -225,12 +225,12 @@ function observation() {
   };
   const shots = [one('s01', 0, { angleDeg: 180, samples: 2 }), one('s02', 10, { angleDeg: 180 })];
   return {
-    film: { output: { fps: '24/1', size: [640, 360] }, shots: shots.map((x) => x.shot) }, caps: CAPS, lock: { seeds: { s01: 7, s02: 7 }, shots: { s01: { shutterSamples: 2 }, s02: { shutterSamples: 2 } } },
+    film: { id: 'f_x', output: { fps: '24/1', size: [640, 360] }, shots: shots.map((x) => x.shot) }, caps: CAPS, lock: { seeds: { s01: 7, s02: 7 }, shots: { s01: { shutterSamples: 2 }, s02: { shutterSamples: 2 } } },
     holds: [{ f: 5, n: 2, result: 4 }], scans: { path: { wallClock: [], unseededRandom: [] }, shot: { wallClock: [], unseededRandom: [] } }, shots,
   };
 }
-const build = (obs) => [timeCheck(obs), ...obs.shots.flatMap((one) => [shotCheck(obs, one), sourceCheck(obs, one), metaCheck(one)])];
-const FINAL = { metaSeed: 7, metaSize: [640, 360], metaTier: 'final', metaSourceId: 'three' };
+const build = (obs) => [timeCheck(obs), ...obs.shots.flatMap((one) => [shotCheck(obs, one), sourceCheck(obs, one), metaCheck(obs, one)])];
+const FINAL = { metaSeed: 7, metaSize: [640, 360], metaTier: 'final', metaSourceId: 'three', metaFilm: 'f_x', metaShot: 's01', metaFps: '24/1' };
 
 test('像样的观测写出的核对记录一条不违反', () => {
   const obs = observation(), r = build(obs);
@@ -245,7 +245,7 @@ test('像样的观测写出的核对记录一条不违反', () => {
   });
   // 只要元数据的那次不进逐帧采样；元数据核对记录里是工具重算的层文件哈希对元数据里的哈希
   assert.equal(time.frames.length, 4);
-  assert.deepEqual([r[6].start, r[6].seed, r[6].source], [10, 7, 'three']);
+  assert.deepEqual([r[6].film, r[6].shot, r[6].fps, r[6].start, r[6].seed, r[6].source], ['f_x', 's02', '24/1', 10, 7, 'three']);
   assert.deepEqual(r[3].renders.slice(0, 2), [
     { call: 0, shotFrame: 3, tier: 'final', metas: 1, metaBytes: 900, metaFrame: 3, metaShotFrame: 3, ...FINAL, colorFileHash: r[3].renders[0].metaHashColor, colorShape: [360, 640, 4], metaHashColor: r[3].renders[0].metaHashColor },
     { call: 1, shotFrame: 3, tier: 'final', metas: 1, metaBytes: 800, metaFrame: 3, metaShotFrame: 3, ...FINAL },
@@ -288,7 +288,7 @@ test('没量到的不写：没量出对预言图的差时 accumulation 是空的
   assert.deepEqual(['code' in src.renders[2], 'code' in src.badArgs[0], src.renders[2].status], [false, false, 'error']);
   // 层文件的字节数对不上层引用的 shape 时不记颜色层的形状
   obs.shots[0].renders[0].fileBytes.color -= 4;
-  assert.equal('colorShape' in metaCheck(obs.shots[0]).renders[0], false);
+  assert.equal('colorShape' in metaCheck(obs, obs.shots[0]).renders[0], false);
   // 第二次装载的那次 render 没有观测，ctx 只剩一项；草稿档的装载不记 want.size
   assert.deepEqual(shotCheck(obs, obs.shots[0]).ctx.map((x) => 'size' in x.want), [true]);
   obs.shots[0].loads[0].tier = 'draft';
@@ -331,6 +331,9 @@ test('观测里的毛病原样进记录，被对应的条文判出来', () => {
     F26: (o) => { Object.assign(o[0].opens[1], { status: 'ok' }); delete o[0].opens[1].code; },   // 带着装不了的叠加层，却照常装上了
     'F26 ': (o) => { delete o[0].opens[1].code; },                          // 装不了，报的错不带错误码
     'F24,F24': (o, obs) => { obs.caps.sceneQuery = ['bbox3d']; },           // 声明了的查询却报错；能力声明两个镜头的记录里是同一份
+    M18: (o) => { o[0].renders[0].meta = { ...o[0].renders[0].meta, film: 'f_y' }; },   // 元数据的片子不是这部片子
+    M19: (o) => { o[1].renders[0].meta = { ...o[1].renders[0].meta, shot: 's01' }; },   // 第二个镜头的元数据写成了第一个镜头
+    M20: (o) => { o[0].renders[1].meta = { ...o[0].renders[1].meta, fps: '25/1' }; },   // 元数据的帧率不是片子的
     M17: (o) => { o[0].renders[0].meta = { ...o[0].renders[0].meta, source: { id: 'core', renderer: 'three', tier: 'final' } }; },   // 元数据的 source.id 不是镜头条目顶层写的帧源
     F17: (o) => { o[0].renders[0].layerRefs[1].fileHash = `sha256:${'cd'.repeat(32)}`; },   // 深度层的层引用里的哈希不是文件的
     'F17 ': (o) => { o[0].renders[0].layerRefs[1].shape = [180, 320, 1]; }, // 层的形状不是这次输出的尺寸

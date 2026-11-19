@@ -147,6 +147,13 @@
     "why": "没有锁，镜头条目也没写种子，open 报了错，码却借用了 contract.unsupported-mode"
   },
   {
+    "file": "F14-overlays-only-input-code.json",
+    "violates": [
+      "F14"
+    ],
+    "why": "没有锁，镜头条目写了种子、没有 cards，只带叠加层（展开出的卡也算用了卡），open 报的却是 contract.unsupported-input，不是 env.lock-required"
+  },
+  {
     "file": "F15-host-not-registered.json",
     "violates": [
       "F15"
@@ -376,7 +383,7 @@
     "violates": [
       "F26"
     ],
-    "why": "镜头输入带着这个帧源装不了的叠加层，open 没报错，装作没看见"
+    "why": "带着锁文件、镜头输入带着这个帧源装不了的叠加层，open 没报错，装作没看见"
   },
   {
     "file": "F26-borrowed-argument-code.json",

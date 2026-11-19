@@ -1,8 +1,10 @@
 {
   "format": "meta-check/0.1",
+  "film": "f_8k2",
   "shot": "s01",
   "start": 0,
   "seed": 7802,
+  "fps": "30/1",
   "source": "blender",
   "renders": [
     {
@@ -11,6 +13,9 @@
       "tier": "final",
       "metas": 1,
       "metaBytes": 2048,
+      "metaFilm": "f_8k2",
+      "metaShot": "s01",
+      "metaFps": "30/1",
       "metaFrame": 150,
       "metaShotFrame": 150,
       "metaSeed": 7803,

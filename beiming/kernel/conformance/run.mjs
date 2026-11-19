@@ -103,7 +103,7 @@ async function runShot(shot) {
   async function open(source, label, { inp = input, withLock = false, tier = 'final', expect } = {}) {
     const { host, mode } = renderingOf(inp.shot);
     const uses = { cards: (inp.shot.cards ?? []).length > 0, assets: Object.keys(inp.shot.assets ?? {}).length > 0 || Object.keys(inp.assets ?? {}).length > 0, overlays: (inp.overlays ?? []).length > 0 };
-    const rec = { plain: inp === input, hasLock: withLock, hasSeed: Number.isInteger(inp.shot.seed), usesCards: uses.cards, usesAssets: uses.assets, host, mode, unfitInput: UNMOUNTED.filter((k) => uses[k]) };
+    const rec = { plain: inp === input, hasLock: withLock, hasSeed: Number.isInteger(inp.shot.seed), usesCards: uses.cards || uses.overlays, usesAssets: uses.assets, host, mode, unfitInput: UNMOUNTED.filter((k) => uses[k]) };
     one.opens.push(rec);
     // 改过的镜头输入也得是合乎结构的镜头输入：留着，后面逐个过结构定义
     if (inp !== input) one.probes.push({ label, input: inp });
@@ -218,8 +218,9 @@ async function runShot(shot) {
       [{ ...structuredClone(input), assets: { probe: 'asset:probe@1' } }, 'env.lock-required'], // 全片的资产表
       [rerouted({ mode: 'cards-data' }), 'contract.unsupported-mode'],
       [rerouted({ host: 'offscreen' }), 'contract.unsupported-mode'],
-      // 帧源还没接的东西：写了种子、没有锁、带着叠加层；带着锁、用了卡。都得报装不了，不得少装一样照常装载
-      [withOverlay, 'contract.unsupported-input'],
+      [withOverlay, 'env.lock-required'], // 叠加层展开成卡的实例，没有锁也算用了卡
+      // 帧源还没接的东西：带着锁、带着叠加层；带着锁、用了卡。都得报装不了，不得少装一样照常装载
+      [withOverlay, 'contract.unsupported-input', true],
       [withCard, 'contract.unsupported-input', true],
     ];
     for (const [inp, expect, withLock = false] of rejected) await (await open(a, 'a-rejected', { inp, expect, withLock }))?.session.close();
@@ -361,7 +362,7 @@ const records = { 'time-check': timeCheck(obs), 'events-check': { format: 'event
 for (const one of shots) {
   records[`${one.shot.id}.shot-check`] = shotCheck(obs, one);
   records[`${one.shot.id}.source-check`] = sourceCheck(obs, one);
-  records[`${one.shot.id}.meta-check`] = metaCheck(one);
+  records[`${one.shot.id}.meta-check`] = metaCheck(obs, one);
 }
 for (const [name, rec] of Object.entries(records)) await writeFile(join(OUT, 'checks', `${name}.json`), `${JSON.stringify(rec, null, 2)}\n`);
 
