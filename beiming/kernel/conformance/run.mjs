@@ -17,7 +17,7 @@ import { hold } from '../eval/time.mjs';
 import { boxOfIds, centroid, diffLayers, dist, expectedLayers, iou, linearError, predictAccumulation, readLayer } from './compare.mjs';
 import { readObservation } from './fixtures/observe.js';
 import { effectiveShutter, linearErrBlocked, metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
-import { scanFiles, sourceFiles, withImports } from './scan.mjs';
+import { scanFiles, shotFiles, sourceFiles } from './scan.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../../..');
@@ -91,10 +91,9 @@ await mkdir(join(OUT, 'checks'), { recursive: true });
 let caps;
 async function runShot(shot) {
   const plan = await planOf(shot), input = shotInput(film, shot.id, events);
-  const entry = rel(join(FIXTURES, renderingOf(shot).entry)), files = withImports(REPO, entry);
-  // 本镜头文件是和入口同目录的那些：只有它们进镜头核对记录的扫描，追到的别处文件归渲染路径的扫描
-  const own = files.filter((f) => dirname(f) === dirname(entry));
-  const one = { shot, plan, input, files, own, languages: [...new Set(files.map((f) => LANGUAGES[extname(f)]).filter(Boolean))], renders: [], opens: [], probes: [], loads: [], evaluations: [], queries: [], badArgs: [], rng: [], localized: [], metaFrames: [], manifest: null };
+  // 本镜头文件是和入口同目录的那些：只有它们进这个镜头的核对记录的扫描，追到的别处文件归渲染路径的扫描
+  const { files, scan } = shotFiles(REPO, rel(join(FIXTURES, renderingOf(shot).entry)));
+  const one = { shot, plan, input, files, scan, languages: [...new Set(files.map((f) => LANGUAGES[extname(f)]).filter(Boolean))], renders: [], opens: [], probes: [], loads: [], evaluations: [], queries: [], badArgs: [], rng: [], localized: [], metaFrames: [], manifest: null };
   const midF = plan.mid.atFrame, frames = shot.out - shot.in;
   const shuffle = stream(streamName(shot.seed, shot.id, 'conformance/shuffle'));
   const patched = (patch) => ({ ...structuredClone(input), shot: { ...structuredClone(input.shot), ...patch } });
@@ -297,18 +296,20 @@ const shaOf = (r, name) => r.layerRefs.find((x) => x.output === name)?.fileHash;
 const accumulations = [], auxMismatches = [], streams = [];
 const diffs = new Map(); // 编号层、深度层对逐像素求交的结果，同一张编号层只算一次，对答案时接着用；量的时候出了错记 null
 const predictions = new Map(); // 同一个校准场景、同一帧、同样的快门只预言一次：前两个镜头是同一个场景
+/** 这一层的尺寸是不是校准场景规格的画幅：不是的，规格预言不了 */
+const atSpec = (r, name) => r.refs[name]?.shape[0] === H && r.refs[name]?.shape[1] === W;
 const auxKey = (one, r) => `${one.shot.id}/${r.f}/${shaOf(r, 'objectId')}/${shaOf(r, 'depth')}`;
 for (const one of shots) {
   const { scene } = one.plan;
   const ids = Object.fromEntries(one.manifest.entities.map((e) => [e.name, e.id]));
   // 累积颜色层对「各子帧采样时刻的预言图在线性值上取算术平均」差多少：时刻照自己传的快门算，预言图照规格求交。
-  // 只有一个子帧采样的调用谈不上平均；场景里多放了东西的、输出尺寸不是规格画幅的，规格预言不了，都不量。同一张颜色层只量一次
+  // 只有一个子帧采样的调用谈不上平均；场景里多放了东西的不量；输出尺寸不是规格画幅的，规格预言不了，记成量不出。同一张颜色层只量一次
   const background = one.shot.params?.background === false ? [0, 0, 0, 0] : [...scene.backgroundLinear, 1];
   const errors = new Map();
-  for (const r of ok(one).filter((x) => x.refs.color && !x.offSpec && x.refs.color.shape[0] === H && x.refs.color.shape[1] === W)) {
+  for (const r of ok(one).filter((x) => x.refs.color && !x.offSpec)) {
     const { angleDeg, samples } = effectiveShutter(r, one.shot, caps, lock);
     if (samples === 1) continue;
-    const unmeasurable = linearErrBlocked(r, one.shot, caps, scene);
+    const unmeasurable = atSpec(r, 'color') ? linearErrBlocked(r, one.shot, caps, scene) : '输出尺寸不是规格的画幅';
     if (unmeasurable) {
       if (r.order === 'sequential') accumulations.push({ shot: one.shot.id, frame: r.f, subFrames: samples, linearErr: null, unmeasurable });
       continue;
@@ -326,8 +327,8 @@ for (const one of shots) {
     if (r.order === 'sequential') accumulations.push({ shot: one.shot.id, frame: r.f, subFrames: samples, ...(m ?? { linearErr: null }) });
   }
   // 编号层对「照规格在这一帧 sub = 0、针孔、像素中心求交」的预言图，边缘带之外对不上的像素数。编号经实体清单按名字查；同一张编号层只量一次。
-  // 草稿档的尺寸不是规格的画幅，规格预言不了，不量
-  for (const r of ok(one).filter((x) => AUX.every((n) => x.layers.includes(n)) && x.tier === 'final')) {
+  // 输出尺寸不是规格画幅的（草稿档、缩放不是 1 的终稿档），规格预言不了，不量
+  for (const r of ok(one).filter((x) => AUX.every((n) => x.layers.includes(n)) && atSpec(x, 'objectId'))) {
     const key = auxKey(one, r);
     if (!diffs.has(key)) diffs.set(key, attempt(`${one.shot.id} 第 ${r.f} 帧量编号层对预言图`, () => diffLayers({ id: layerOf(one, r, 'objectId'), depth: layerOf(one, r, 'depth') }, scene, r.f, ids)) ?? null);
     const d = diffs.get(key);
@@ -356,10 +357,9 @@ for (const one of shots) {
 }
 
 // ---------- 静态扫描 ----------
-const shotFiles = [...new Set(shots.flatMap((one) => one.files))];
+// 渲染路径：帧源、宿主、求值核的全部文件，加各镜头从入口追到的文件（并起来扫，归 T2、T11）；镜头核对记录的扫描每个镜头各扫各的，在出帧时已经扫了
 const scans = {
-  path: scanFiles(REPO, [...new Set([...sourceFiles(REPO, ['beiming/kernel/eval', 'beiming/sources/three', 'beiming/host/page']), ...shotFiles])], CLOCK),
-  shot: scanFiles(REPO, [...new Set(shots.flatMap((one) => one.own))]),
+  path: scanFiles(REPO, [...new Set([...sourceFiles(REPO, ['beiming/kernel/eval', 'beiming/sources/three', 'beiming/host/page']), ...shots.flatMap((one) => one.files)])], CLOCK),
 };
 
 // ---------- 核对记录：先写出来，再交给校验器 ----------

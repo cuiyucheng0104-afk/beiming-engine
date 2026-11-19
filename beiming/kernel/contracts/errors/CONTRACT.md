@@ -91,7 +91,7 @@
 | `auth.base-readonly` | 服务器之外的一方写 `predicates.base` | D7 |
 | `busy.rev-conflict` | 写入带的修订号和服务器当前的修订号不同 | D6 |
 | `contract.bad-path` | 写入路径不合片子描述契约（D）5.4：按下标寻址、写进数组项、指到叶子下面；某一段不是契约定义的键时报 `contract.unknown-key`，不报这个码 | D5 |
-| `contract.bad-value` | 写进去之后对象过不了结构定义：值的类型不对、出了值域、缺了必填字段 | D 契约 5.4、PA 契约 5.3 |
+| `contract.bad-value` | 写进去之后对象过不了结构定义：值的类型不对、出了值域、缺了必填字段。不含写进了契约没定义的键，那种报 `contract.unknown-key` | D 契约 5.4、PA 契约 5.3 |
 | `contract.immutable-key` | 改了创建之后不得改的键 | D15 |
 | `contract.output-conflict` | 开着原生运动模糊时要了和它冲突的输出 | F5 |
 | `contract.order-cycle` | 卡的先后要求排不出次序：成环，或提到了镜头里没有的卡 | CR 契约 5.2（CR9 不比码） |
@@ -99,7 +99,7 @@
 | `contract.runtime-shadows-param` | `ctx.cards.use` 的 `runtime` 里有键和这张卡声明的参数同名 | 镜头契约（S）管 `ctx.cards.use` 的那条不变量 |
 | `contract.shutter-conflict` | 快门角是 0 而子帧采样数大于 1 | 帧源接口契约（F）管快门的条文 |
 | `contract.undeclared-card` | `ctx.cards.use` 用了这个镜头的 `cards` 里没声明过的实例名 | 镜头契约（S）管 `ctx.cards.use` 的那条不变量 |
-| `contract.unknown-key` | 出现了契约没定义的键 | 契约写法约定通用口径「未知字段」一行 |
+| `contract.unknown-key` | 出现了契约没定义的键（路径里的一段，或写进去的值里的键） | 契约写法约定通用口径「未知字段」一行、D 契约 5.4 |
 | `contract.unknown-node` | 场景包里出现了节点登记表之外的图案节点 | SP17 |
 | `contract.unsupported-input` | 镜头输入里有帧源装不了的卡、资产或叠加层 | F26 |
 | `contract.unsupported-mode` | 镜头条目的宿主或作者模式不在帧源的能力声明里 | F16 |
@@ -149,3 +149,4 @@
 | 2026-11-19 | 5.3、`errors.json` | 加 `contract.order-cycle`、`contract.patch-not-applicable`：卡的运行时接口、补丁两份契约要求报登记过的码，这两种失败原来没有码可报 |
 | 2026-11-19 | 5.3 `contract.patch-not-applicable` 的「哪条条文点名的」一格 | 点名这个码的是补丁契约讲全成或全不成的 5.3（有一个操作不可作用就整个拒掉），不是讲四种操作的 5.2 |
 | 2026-11-20 | 5.3、`errors.json` | 加 `contract.bad-value`：路径合法、写进去之后片子描述过不了结构定义的写入原来没有码可报 |
+| 2026-11-20 | 5.3 `contract.bad-value`、`contract.unknown-key` 两行，`errors.json` | 写进了没定义的键报 unknown-key，bad-value 不含这一种，和片子描述契约 5.4 一致 |

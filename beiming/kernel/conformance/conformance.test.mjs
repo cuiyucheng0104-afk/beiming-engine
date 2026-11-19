@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { caps } from '../../sources/three/caps.mjs';
 import { loadContracts } from '../contracts/validate.mjs';
@@ -7,7 +9,7 @@ import { eventsTable, renderingOf } from '../eval/input.mjs';
 import { boundsOf, boxOfIds, centroid, diffLayers, dist, expectedLayers, iou, linearError, predictAccumulation } from './compare.mjs';
 import { observed, readObservation, RNG_RUNS } from './fixtures/observe.js';
 import { effectiveShutter, linearErrBlocked, metaCheck, shotCheck, sourceCheck, timeCheck } from './records.mjs';
-import { scanFiles, scanText, sourceFiles, stripComments, withImports } from './scan.mjs';
+import { importSpecifiers, scanFiles, scanText, shotFiles, sourceFiles, withImports } from './scan.mjs';
 
 const REPO = new URL('../../../', import.meta.url);
 const readJson = (rel) => JSON.parse(readFileSync(new URL(rel, REPO), 'utf8'));
@@ -70,8 +72,24 @@ test('静态扫描认得出墙钟和不带种子的随机，白名单只放行�
   const deep = withImports(root, 'beiming/kernel/conformance/run.mjs');
   assert.ok(deep.includes('beiming/kernel/conformance/compare.mjs') && deep.includes('beiming/calib/check.mjs'));
   assert.equal(new Set(deep).size, deep.length);
-  // 注释里写的引用不算，字符串里的 // 不是注释
-  assert.equal(stripComments("// from './a.js'\n/* require('./b.js') */ const u = 'x://y'; import('./c.js');"), "\n const u = 'x://y'; import('./c.js');");
+  // 注释里、字符串里写的引用语句不算，字符串里的 // 不是注释；五种写死字符串的写法都算
+  assert.deepEqual(importSpecifiers("// from './a.js'\n/* require('./b.js') */ const u = 'x://y'; import('./c.js');"), ['./c.js']);
+  assert.deepEqual(importSpecifiers(`const h = "old: import './n.js'"; const t = \`from './m.js'\`; const q = 'require("./p.js")';`), []);
+  assert.deepEqual(importSpecifiers(`import a from './a.js'; export { b } from "../b.js"; import './c.js'; import ( './d.js' ); require ('./e.js'); import(name); f('./g.js');`), ['./a.js', '../b.js', './c.js', './d.js', './e.js']);
+
+  // 每个镜头各扫各的：两个入口在同一个目录，只有一个引了带随机的文件，另一个镜头的扫描是空的
+  const dir = mkdtempSync(join(tmpdir(), 'conformance-scan-'));
+  try {
+    mkdirSync(join(dir, 'shots'));
+    writeFileSync(join(dir, 'shots/noisy.shot.js'), "import { n } from './noise.js';\nexport default n;\n");
+    writeFileSync(join(dir, 'shots/clean.shot.js'), "const hint = \"old version did: import './noise.js'\";\nexport default hint;\n");
+    writeFileSync(join(dir, 'shots/noise.js'), `export const n = () => ${random}();\n`);
+    const noisy = shotFiles(dir, 'shots/noisy.shot.js'), clean = shotFiles(dir, 'shots/clean.shot.js');
+    assert.deepEqual(noisy.scan.unseededRandom, [{ path: 'shots/noise.js', call: random }]);
+    assert.deepEqual([clean.files, clean.scan.unseededRandom, clean.scan.wallClock], [['shots/clean.shot.js'], [], []]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('重心：按像素中心算，可以加权', () => {
@@ -210,6 +228,7 @@ function observation() {
     return {
       shot,
       languages: ['js'],
+      scan: { wallClock: [], unseededRandom: [] },
       // 两次装上了的 open：各有一次带观测的整帧 render
       loads: ['sequential', 'single'].map((session) => ({ session, locked: false, tier: 'final', input: { film: 'f_x', output: { size: [640, 360], fps: '24/1' }, shot } })),
       manifest: { frames: 10, entities: [{ id: 1, name: 'cube', class: 'part' }] },
@@ -232,7 +251,7 @@ function observation() {
   const shots = [one('s01', 0, { angleDeg: 180, samples: 2 }), one('s02', 10, { angleDeg: 180 })];
   return {
     film: { id: 'f_x', output: { fps: '24/1', size: [640, 360] }, shots: shots.map((x) => x.shot) }, caps: CAPS, lock: { seeds: { s01: 7, s02: 7 }, shots: { s01: { shutterSamples: 2 }, s02: { shutterSamples: 2 } } },
-    holds: [{ f: 5, n: 2, result: 4 }], scans: { path: { wallClock: [], unseededRandom: [] }, shot: { wallClock: [], unseededRandom: [] } }, shots,
+    holds: [{ f: 5, n: 2, result: 4 }], scans: { path: { wallClock: [], unseededRandom: [] } }, shots,
   };
 }
 const build = (obs) => [timeCheck(obs), ...obs.shots.flatMap((one) => [shotCheck(obs, one), sourceCheck(obs, one), metaCheck(obs, one)])];
@@ -323,7 +342,7 @@ test('观测里的毛病原样进记录，被对应的条文判出来', () => {
     S2: (o) => { o[0].renders[3].seen.builds = 2; },
     S9: (o) => { o[0].renders[1].seen.cardUses = [{ as: 'ghost', runtimeKeys: [] }]; },   // 镜头代码用了没声明的卡，装载却算成功
     'S10  ': (o) => { o[1].renders[0].seen.ctx.shotIn = 11; },                       // 交给镜头代码的起始帧多了 1
-    'S7,S7': (o, obs) => { obs.scans.shot.unseededRandom.push({ path: 'shot.js', call: 'random' }); },   // 两个镜头同一份镜头代码
+    S7: (o) => { o[0].scan.unseededRandom.push({ path: 'aux.js', call: 'random' }); },   // 只有第一个镜头的本镜头文件里有，第二个镜头不跟着红
     S8: (o) => { o[0].renders[0].seen.metaKeys.push('unknown'); },
     F1: (o) => { o[0].renders[0].layers = ['color']; },                     // 要了深度没交
     F3: (o) => { Object.assign(o[0].renders[2], { status: 'ok', metas: 1, meta: o[0].renders[0].meta, metaBytes: 900, layers: ['color'], layerRefs: [] }); },   // 没声明的输出没报错

@@ -5,12 +5,13 @@
 //   自报：帧源交回的能力声明、实体清单、元数据里的字段，原样抄。各字段取的是哪一种，逐个列在本目录 README。
 //
 // obs 的形状：
-//   film、caps、lock（例子锁）、holds[] { f, n, result }、scans { path, shot }（各是 { wallClock, unseededRandom }）
+//   film、caps、lock（例子锁）、holds[] { f, n, result }、scans { path }（{ wallClock, unseededRandom }，渲染路径的扫描）
 //   shots[]        每个镜头一项 one：
 //     shot           片子描述里这个镜头的条目
 //     localized[]    { frame（工具放进镜头输入事件表的全片帧号）, f（观测点在 ctx.events 里看到的帧号） }
 //     metaFrames[]   { frame（那次 render 请求的帧号换成的全片帧号）, f（观测点看到 meta 收到的帧号） }
-//     languages[]    从入口文件和它直接引用的本镜头文件认出的语言
+//     languages[]    从入口文件和顺着引用一直追到的文件认出的语言
+//     scan           这个镜头自己的本镜头文件的扫描：{ wallClock, unseededRandom }
 //     manifest       帧源交回的实体清单
 //     loads[]        每次装上了的 open：{ session, locked, tier, input（这次传的镜头输入） }
 //     opens[]        每次 open：{ plain（用的是不是原样的镜头输入）, hasLock, hasSeed, usesCards, usesAssets, host, mode, unfitInput?, status, code? }
@@ -124,7 +125,7 @@ export function shotCheck(obs, one) {
     ...(watched ? { metaKeys: [...new Set(seen.flatMap((s) => s.metaKeys))] } : {}),
     declaredCards: (shot.cards ?? []).map((c) => c.as),
     ...(watched ? { cardUses: lastOfFirst.cardUses } : {}),
-    scan: scanOf(obs.scans.shot),
+    scan: scanOf(one.scan),
     ...(ctx.length ? { ctx } : {}),
   };
 }
