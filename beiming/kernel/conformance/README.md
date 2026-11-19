@@ -87,7 +87,7 @@ node beiming/kernel/conformance/run.mjs
 | `records.mjs` | 把观测整理成核对记录；只整理，不补数 |
 | `scan.mjs` | 静态扫描：渲染路径里的墙钟和不带种子的随机。认直接写出来的调用，点号取和方括号里写字符串取成员都算；Python 的 `random` 模块和间接调用不认 |
 | `compare.mjs` | 读层文件、求重心、照规格逐像素求交、量累积颜色层对线性平均预言图的差、从编号层反算包围盒和交并比 |
-| `fixtures/film.json`、`fixtures/lock.json` | 最小片子描述；例子锁（里面的镜像哈希和内建卡是照契约的例子填的示意值；种子和子帧采样数和片子描述算出来的一样） |
+| `fixtures/film.json`、`fixtures/lock.json` | 最小片子描述；例子锁：照本机锁的写法手写（`issuer` 是 `local`，不写修订号、机器和镜像哈希，本机交不出这三样）；内建卡是照契约的例子填的示意值；全片种子照锁文件契约 5.7 由片子 `id` 派生，镜头种子和子帧采样数和片子描述一样。本机的锁生成器做出来以后换成它的输出 |
 | `fixtures/calib-scene.js` | 照校准场景的规格搭镜头；镜头条目的 `params.offscreen` 列了名字时，每个名字在视场外另放一个小方块 |
 | `fixtures/observe.js` | 观测点，和从 `readings` 里把观测读出来的函数 |
 | `fixtures/<名字>.shot.js`、`fixtures/<名字>.scene.json` | 入口文件和它旁边的规格（从校准目录抄的相机、背景、物体，测试盯着两边一致） |

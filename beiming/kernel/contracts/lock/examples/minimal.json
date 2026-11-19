@@ -1,11 +1,12 @@
 {
   "format": "lock/1.0",
+  "issuer": "server",
   "film": "f_min",
   "rev": 1,
   "contracts": "0.1.0",
   "seeds": {
-    "film": 7800,
-    "s01": 2013376959
+    "film": 1506961694,
+    "s01": 3984743648
   },
   "shots": {
     "s01": {

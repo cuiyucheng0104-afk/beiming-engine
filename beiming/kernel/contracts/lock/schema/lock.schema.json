@@ -2,12 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "lock/lock.schema.json",
   "title": "锁文件",
-  "description": "只管结构。和片子描述、元数据对不对得上由 LK1 到 LK12 管。seeds 必须有 film 这个键，别的键是镜头的 id；shots 的键是镜头的 id。",
+  "description": "只管结构。和片子描述、元数据对不对得上由 LK1 到 LK12 管；issuer 和 rev、image、machine 出不出现由 LK13 管，全片种子由 LK14 管。seeds 必须有 film 这个键，别的键是镜头的 id；shots 的键是镜头的 id。",
   "type": "object",
-  "required": ["format", "film", "rev", "contracts", "seeds", "shots", "sources", "cards", "assets", "templates", "view", "machine"],
+  "required": ["format", "issuer", "film", "contracts", "seeds", "shots", "sources", "cards", "assets", "templates", "view"],
   "additionalProperties": false,
   "properties": {
     "format": { "const": "lock/1.0" },
+    "issuer": { "enum": ["server", "local"] },
     "film": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
     "rev": { "type": "integer", "minimum": 0 },
     "contracts": { "$ref": "#/$defs/version3" },
@@ -33,7 +34,7 @@
       "propertyNames": { "type": "string", "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
       "additionalProperties": {
         "type": "object",
-        "required": ["version", "host", "image"],
+        "required": ["version", "host"],
         "additionalProperties": false,
         "properties": {
           "version": { "type": "string", "minLength": 1 },

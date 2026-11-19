@@ -63,6 +63,7 @@
 |---|---|---|---|---|---|
 | `format` | 字符串 | 无 | 是 | `film/3.0` | 格式标识 |
 | `id` | 字符串 | 无 | 是 | 见 5.1 | 片子的标识。创建片子时定下，之后不得改（D15）；有服务器时由服务器给 |
+| `seed` | 整数 | 无 | 否 | 见 T 契约 3.3 | 全片种子。不写就由 `id` 派生（LK 契约 5.7）。想让随机跟着片子描述走、不随 `id` 变，就写它 |
 | `title` | 字符串 | 无 | 否 | 不空 | 片名 |
 | `exam` | 字符串 | 无 | 否 | 题号，见 QF 契约 5.1 | 这部片在做哪道题。只能在创建片子时给 |
 | `output` | 对象 | 无 | 是 | 见 3.2 | 输出规格 |
@@ -106,7 +107,7 @@
 | `mode` | 字符串 | 无 | 是 | `cards-data`、`build-script`、`native-code` | 作者模式。三个词各是什么，见 F 契约 3.4 |
 | `entry` | 字符串 | 无 | 见 D12、D17 | 相对路径，写法照通用口径 | 入口文件。`build-script` 和 `native-code` 必填，`cards-data` 不得出现；`source` 是 `ext.<名字>` 的镜头不得出现。片子描述里只有这一处可以写文件路径。路径相对片子描述所在的目录，这个目录由 `env.filmDir` 交给帧源（F 契约 3.2） |
 | `colorRef` | 字符串 | 无 | 是 | `scene`、`display` | 场景参考镜头，还是显示参考镜头 |
-| `seed` | 整数 | 无 | 否 | 见 T 契约 3.3 | 这个镜头的镜头种子。不给就由服务器从全片种子派生（算法见 LK 契约 5.7），结果记在锁文件里。没有锁文件时必须写（F 契约 5.11） |
+| `seed` | 整数 | 无 | 否 | 见 T 契约 3.3 | 这个镜头的镜头种子。不给就从全片种子派生（全片种子由片子 `id` 派生，算法都见 LK 契约 5.7），结果记在锁文件里：服务器的正式锁和本机锁算出来的一样。完全没有锁文件时必须写（F 契约 5.11） |
 | `assets` | 对象 | 无 | 否 | `{ 别名: 资产引用 }`，写法见 5.5 | 这个镜头用的资产 |
 | `cards` | 数组 | 无 | 否 | 每项见下表 | 这个镜头的卡实例。数组顺序就是装载的书写顺序，见 5.6 |
 | `params` | 对象 | 无 | 否 | 自由键 | 交给入口文件的参数，就是 `ctx.params`。`source` 是 `ext.<名字>` 的镜头必须带 `piece`，值是资产别名，说重放哪个作品 |
@@ -376,7 +377,7 @@
 | D1 | 镜头区间必须是半开的整数帧区间，按 `shots` 的书写顺序首尾相接，从第 0 帧起，到 `output.frames` 止；余量帧不计入 `in`、`out`。 | 第一个镜头的 `in` 等于 0；每个镜头 `in` < `out`；每个镜头的 `in` 等于前一个的 `out`；最后一个的 `out` 等于 `output.frames`。有没有 `handles` 都这样比 | `D1-shots-end-early.json`、`D1-first-shot-not-at-zero.json`、`D1-shot-empty.json`、`D1-shots-overlap.json` |
 | D2 | 时刻算式和指向镜头的字段只能引用已定义的镜头、切点和事件，事件之间的引用不得成环。 | `events[].shot`、`overlays[].shot`、`style.colorScript` 的键都必须是 `shots` 里的 `id`；`events[].frame`、`overlays[].in`、`overlays[].out`、`audio.narration[].at` 是算式时，`cut(N)` 的 N 必须是切点，`event(x)` 的 x 必须是 `events` 里的 `id`，并且照 5.3 展开时不回到自己 | `D2-event-refers-undefined.json`、`D2-event-cycle.json` |
 | D3 | 镜头引用的每张卡、片子描述里的每个资产都必须能在锁文件里找到版本和哈希。 | `shots[].cards` 每一项的 `use`：锁文件 `cards` 里有这个卡名，它的 `version` 的第一段等于引用里的主版本。`shots[].assets` 和全片 `assets` 的每个值：是锁文件 `assets` 的键 | `D3-card-missing-in-lock.json`、`D3-card-major-mismatch.json`、`D3-shot-asset-missing-in-lock.json`、`D3-film-asset-missing-in-lock.json` |
-| D4 | 锁文件必须由服务器生成，同一个修订号的锁文件必须逐位相同。 | `locks` 每项的 `writer` 必须是 `server`；`rev` 相同的项 `digest` 必须逐位相同 | `D4-lock-changed-same-rev.json`、`D4-lock-written-by-agent.json` |
+| D4 | 片子的正式锁必须由服务器生成，同一个修订号的正式锁必须逐位相同。 | `locks` 每项的 `writer` 必须是 `server`；`rev` 相同的项 `digest` 必须逐位相同 | `D4-lock-changed-same-rev.json`、`D4-lock-written-by-agent.json` |
 | D5 | 路径必须照 5.4 的唯一写法写，数组里的项必须按 `id` 或实例名寻址，不得按下标。 | `paths[].path`、`writes[].path`、`explains[].path` 每一条：符合 5.4 的文法；`shots`、`transitions`、`events`、`overlays`、`audio/narration` 后面那一段必须是 `film` 里对应数组某一项的 `id`；`shots/<镜头的 id>/cards` 后面那一段必须是那个镜头 `cards` 里某一项的 `as` | `D5-path-by-index.json`、`D5-path-into-base-array.json` |
 | D6 | 每次写入必须带上读到的修订号，它和服务器当前的修订号不同时必须拒绝，错误码是 `busy.rev-conflict`，并交回最新的修订号。 | `writes` 每一项：`rev` 不等于 `serverRev` 时，`outcome` 必须是 `rejected`，`code` 必须是 `busy.rev-conflict`，`latestRev` 必须出现并等于 `serverRev` | `D6-stale-write-accepted.json` |
 | D7 | `predicates.base` 只有服务器能写，别人的写入必须拒绝，错误码是 `auth.base-readonly`。 | `writes` 里 `by` 是 `agent`、`path` 正好是 `predicates/base`、`rev` 等于 `serverRev` 的项：`outcome` 必须是 `rejected`，`code` 必须是 `auth.base-readonly`。`rev` 不等于 `serverRev` 的归 D6。以 `predicates/base/` 开头的路径照 5.4 不合法，归 D5，这里不判 | `D7-agent-writes-base.json` |
@@ -546,3 +547,4 @@
 | 2026-11-19 | 第 6 节 `shots[].host` 在 `three` 下的取值一行；例子 `takeover.json`、`check-takeover.json` 里 `s01` 写上 `shutter.samples`。不变量和判定函数没动 | D11 照登记表判宿主以后，`page` 不再是示意值；`s01` 出帧的是原生运动模糊的帧源、开了快门又没写子帧采样数，例子里它的锁却有值，照锁文件契约第 6 节这个值算不出来 |
 | 2026-11-19 | 3.8 `writes[].code` 的值域、`writes[].latestRev` 的来历；片子核对记录的结构定义里 `code` 改成引用错误码表契约的结构定义；第 6 节加一行。不变量和判定函数没动 | 错误码的写法只在错误码表契约定一处，这里原来另写了一条更松的正则，单段的串和连字符开头结尾的串都放得过；从拒绝的响应里直接抄出来的修订号是服务器自己的说法 |
 | 2026-11-19 | 3.8 `writes[].code`，第 6 节一行 | 被拒绝却没交回错误码时 `code` 不出现，和别的核对记录一致；交回的东西里哪些算量的、哪些算自报写进了写法约定，这一行改成已定 |
+| 2026-11-19 | 3.1 加可选的 `seed`，3.3 `seed` 的说明，D4 的条文 | 本机也生成锁了（LK 契约 5.8）：D4 管的是服务器上的正式锁；全片种子写在片子描述顶层，没写由 `id` 派生，镜头种子的说明跟着改。判法没动 |

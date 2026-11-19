@@ -186,6 +186,55 @@
     "violates": [
       "LK12"
     ],
-    "why": "镜头 s01 没写 seed，seeds 里填的是 1，照全片种子 7800 派生出来是 2013376959"
+    "why": "镜头 s01 没写 seed，seeds 里填的是 1，照全片种子 1506961694 派生出来是 3984743648"
+  },
+  {
+    "file": "LK13-local-with-image.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "本机锁带了运行环境镜像的哈希，本机交不出这个值，写了就是编的"
+  },
+  {
+    "file": "LK13-server-without-rev.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "服务器生成的锁没写修订号，认不出它锁的是哪一版片子描述"
+  },
+  {
+    "file": "LK14-film-seed-chosen-by-hand.json",
+    "violates": [
+      "LK14"
+    ],
+    "why": "片子描述没写顶层 seed，全片种子却写成了随手挑的 7800（没写种子的镜头也照它派生），不是由片子 id 派生的值，本机和服务器出的随机就对不上"
+  },
+  {
+    "file": "LK13-server-without-image.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "服务器生成的锁，帧源锁条目没写运行环境镜像的哈希，运行环境就没锁住"
+  },
+  {
+    "file": "LK13-server-without-machine.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "服务器生成的锁没写出片的机器"
+  },
+  {
+    "file": "LK13-local-with-rev.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "本机锁写了修订号，本机锁不对应任何修订号，写了就是编的"
+  },
+  {
+    "file": "LK14-film-seed-not-written-one.json",
+    "violates": [
+      "LK14"
+    ],
+    "why": "片子描述顶层写了 seed 42，锁里的全片种子却还是由片子 id 派生的值"
   }
 ]

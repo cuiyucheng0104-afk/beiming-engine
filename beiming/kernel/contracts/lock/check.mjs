@@ -15,6 +15,9 @@ const BUILTIN = ['time.timeline', 'time.events', 'time.seeded'];
 // 5.7：十进制的全片种子、一个冒号、镜头 id 的 SHA-256，前 4 个字节按大端读成无符号 32 位整数
 const derivedSeed = (filmSeed, shotId) => createHash('sha256').update(`${filmSeed}:${shotId}`, 'utf8').digest().readUInt32BE(0);
 if (derivedSeed(7800, 's01') !== 2013376959) throw new Error('镜头种子的派生算法和 5.7 的算例对不上');
+// 5.7：全片种子 = 片子 id 的 SHA-256 前 4 个字节按大端读成的无符号 32 位整数
+const filmSeedOf = (id) => createHash('sha256').update(String(id), 'utf8').digest().readUInt32BE(0);
+if (filmSeedOf('toon-demo') !== 899845905) throw new Error('全片种子的派生算法和 5.7 的算例对不上');
 
 const major = (v) => Number(String(v).split('.')[0]);
 const refMajor = (ref) => Number(String(ref).slice(String(ref).lastIndexOf('@') + 1));
@@ -132,4 +135,17 @@ export const checks = {
     const want = derivedSeed(lock.seeds.film, s.id);
     return lock.seeds[s.id] === want ? [] : [`镜头 ${s.id} 没写 seed，seeds 里是 ${lock.seeds[s.id]}，照 5.7 派生出来是 ${want}`];
   })),
+
+  LK13: onLock((lock) => {
+    const server = lock.issuer === 'server', say = server ? '服务器生成的锁必须有' : '本机锁不得有';
+    const bad = [...(has(lock, 'rev') !== server ? ['rev'] : []), ...(server && !has(lock, 'machine') ? ['machine'] : []),
+      ...Object.entries(lock.sources ?? {}).filter(([, s]) => has(s, 'image') !== server).map(([n]) => `sources.${n}.image`)];
+    return bad.map((k) => `issuer 是 ${lock.issuer}，${say} ${k}`);
+  }),
+
+  LK14: onFilm((lock, film) => {
+    if (lock.film !== film.id) return []; // 锁的不是这部片子，归 LK7
+    const want = film.seed ?? filmSeedOf(film.id), how = film.seed !== undefined ? '片子描述顶层写的' : `照 5.7 用片子 id ${film.id} 派生出来的`;
+    return lock.seeds?.film === want ? [] : [`seeds.film 是 ${lock.seeds?.film}，${how}是 ${want}`];
+  }),
 };

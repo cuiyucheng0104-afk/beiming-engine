@@ -9,6 +9,7 @@
   "properties": {
     "format": { "const": "film/3.0" },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
     "title": { "type": "string", "minLength": 1 },
     "exam": { "type": "string", "pattern": "^[1-9][0-9]*-[1-9][0-9]*$" },
     "output": {

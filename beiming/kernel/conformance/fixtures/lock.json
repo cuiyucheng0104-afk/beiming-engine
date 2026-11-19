@@ -1,10 +1,10 @@
 {
   "format": "lock/1.0",
+  "issuer": "local",
   "film": "skeleton-calib",
-  "rev": 1,
   "contracts": "0.1.0",
   "seeds": {
-    "film": 7800,
+    "film": 2555695352,
     "s01": 20261119,
     "s02": 20261120,
     "s03": 20261121
@@ -23,8 +23,7 @@
   "sources": {
     "three": {
       "version": "0.187.0",
-      "host": "page",
-      "image": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      "host": "page"
     }
   },
   "cards": {
@@ -70,9 +69,5 @@
   },
   "assets": {},
   "templates": {},
-  "view": {},
-  "machine": {
-    "class": "rtx5090-linux",
-    "driver": "pending"
-  }
+  "view": {}
 }

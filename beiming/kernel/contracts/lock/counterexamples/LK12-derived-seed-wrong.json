@@ -2,11 +2,12 @@
   "format": "lock-check/0.1",
   "lock": {
     "format": "lock/1.0",
+    "issuer": "server",
     "film": "f_min",
     "rev": 1,
     "contracts": "0.1.0",
     "seeds": {
-      "film": 7800,
+      "film": 1506961694,
       "s01": 1
     },
     "shots": {
