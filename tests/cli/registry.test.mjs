@@ -13,15 +13,20 @@ import { filmJsonProblems, findPlaceholders, nameProblem, titleProblem } from '.
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'routes/routes.json'), 'utf8'));
 
-test('注册表合格，三条路线按 D01 / D04 登记', () => {
-  assert.deepEqual(validateRegistry(raw, { root: ROOT }), []);
+test('注册表合格，四条路线按 D01 / D04 / D12 / D13 登记', () => {
+  const dMerged = fs.existsSync(path.join(ROOT, 'routes/d-pathtrace/README.md')) && fs.existsSync(path.join(ROOT, 'engine/pathtrace/runtime.mjs'));
+  assert.deepEqual(
+    validateRegistry(raw, { root: ROOT }).filter(d => dMerged || !/d-pathtrace|pathtrace\/runtime\.mjs/.test(d.message)),
+    [],
+  );
   const reg = loadRegistry(ROOT);
-  assert.deepEqual(reg.ids, ['a', 'b', 'c']);
-  assert.deepEqual(reg.routes.map(r => r.slug), ['a-webgl', 'b-native', 'c-style']);
-  assert.deepEqual(reg.routes.map(r => r.brand), ['北冥风格路线 · WebGL 三渲二', '北冥原生 · BNE', '北冥代码动画风格 · 86 式']);
+  assert.deepEqual(reg.ids, ['a', 'b', 'c', 'd']);
+  assert.deepEqual(reg.routes.map(r => r.slug), ['a-webgl', 'b-native', 'c-style', 'd-pathtrace']);
+  assert.deepEqual(reg.routes.map(r => r.brand), ['北冥风格路线 · WebGL 三渲二', '北冥原生 · BNE', '北冥代码动画风格 · 86 式', '北冥光追 · 物理路径追踪']);
   assert.equal(reg.defaultProfile, 'web-1080p24');
   for (const r of reg.routes) {
-    assert.doesNotMatch(r.brand, /RTX|raea/i, '品牌名不带 RTX、不用上游名');
+    assert.doesNotMatch(r.brand, /RTX|raea|vork|threert/i, '品牌名不带 RTX、不用上游名');
+    if (r.id === 'd' && !dMerged) continue;
     assert.ok(fs.existsSync(path.join(ROOT, r.manual)), r.manual);
     assert.ok(fs.existsSync(path.join(ROOT, r.template, 'film.json')), r.template);
   }
@@ -30,16 +35,23 @@ test('注册表合格，三条路线按 D01 / D04 登记', () => {
   assert.equal(b.upstream[0].name, 'RAEA');
   assert.equal(b.upstream[0].license, 'FSL-1.1-ALv2');
   assert.equal(b.upstream[0].distributed, false);
+  const d = reg.get('d');
+  assert.equal(d.upstream[0].name, 'ThreeRT');
+  assert.equal(d.upstream[0].license, 'MIT');
+  assert.equal(d.upstream[0].distributed, false);
   assert.match(reg.get('c').summary, /不是第三个 GPU 后端/);
   assert.deepEqual(reg.get('a').renderer, ['page', 'offscreen'], 'A 支持页面与离屏两种渲染器（D12）');
   assert.deepEqual(reg.get('c').renderer, ['page', 'offscreen'], 'C 与 A 共用页面与离屏渲染器（D01、D12）');
+  assert.deepEqual(reg.get('d').renderer, ['pathtrace'], 'D 走路径追踪渲染器（D13）');
   assert.ok(reg.renderers.offscreen, 'renderers 表登记 offscreen（D12）');
+  assert.ok(reg.renderers.pathtrace, 'renderers 表登记 pathtrace（D13）');
   assert.doesNotMatch(JSON.stringify(reg.renderers.offscreen), /原生/, '离屏出片不叫「原生」（D04、D12）');
-  assert.deepEqual(reg.routes.map(r => r.legacyId), ['beiming', 'raea', null], '计划 M1 的 legacyId');
-  assert.deepEqual(reg.routes.map(r => r.backend), ['three', 'native', 'canvas'], 'backend 默认值与 engine/production/film.js 同口径');
+  assert.deepEqual(reg.routes.map(r => r.legacyId), ['beiming', 'raea', null, null], '计划 M1 的 legacyId');
+  assert.deepEqual(reg.routes.map(r => r.backend), ['three', 'native', 'canvas', 'pathtrace'], 'backend 默认值与 engine/production/film.js 同口径');
   for (const r of reg.routes) assert.ok(r.backends.includes(r.backend), r.id);
   assert.deepEqual(reg.get('a').backends, ['three', 'webgpu']);
   assert.deepEqual(reg.get('c').backends, ['canvas', 'svg', 'dom', 'three', 'webgl', 'webgpu']);
+  assert.deepEqual(reg.get('d').backends, ['pathtrace']);
 });
 
 test('id 与别名都能找到路线；旧名是别名；找不到返回 null', () => {
@@ -48,6 +60,8 @@ test('id 与别名都能找到路线；旧名是别名；找不到返回 null', 
   assert.equal(reg.resolve('beiming').route.id, 'a');
   assert.equal(reg.resolve('RAEA').route.id, 'b');
   assert.equal(reg.resolve('c-style').route.id, 'c');
+  assert.equal(reg.resolve('d-pathtrace').route.id, 'd');
+  assert.equal(reg.resolve('pathtrace').route.id, 'd');
   assert.equal(reg.resolve('nope'), null);
 });
 
@@ -130,14 +144,15 @@ test('占位符只认两层花括号里的大写标识符，JSX 不算', () => {
 
 test('作品名与片名的规则', () => {
   for (const ok of ['t8', 'dawn-test', 'kun-2', 'a']) assert.equal(nameProblem(ok), null, ok);
-  for (const bad of ['我的片子', 'My-Film', '-x', 'con', 'nul', 'raea-test', 'a'.repeat(65), 'a b']) assert.ok(nameProblem(bad), bad);
+  for (const bad of ['我的片子', 'My-Film', '-x', 'con', 'nul', 'raea-test', 'threert-test', 'a'.repeat(65), 'a b']) assert.ok(nameProblem(bad), bad);
   for (const ok of ['破晓', '《北冥》', 'Kun & Ferry', '晨渡 · 第一版']) assert.equal(titleProblem(ok), null, ok);
   for (const bad of ['', '  ', 'a"b', "it's", 'a`b', 'a\\b', '<x>', '换\n行', '{{TITLE}}', '长'.repeat(81)]) assert.ok(titleProblem(bad), JSON.stringify(bad));
 });
 
 test('film.json 结构自检：模版、v1 作品、v2 作品与兼容镜像一致性', () => {
-  const ids = ['a', 'b', 'c'];
-  for (const r of ['a-webgl', 'b-native', 'c-style']) {
+  const ids = ['a', 'b', 'c', 'd'];
+  const slugs = ['a-webgl', 'b-native', 'c-style', ...(fs.existsSync(path.join(ROOT, 'routes/d-pathtrace/template/film.json')) ? ['d-pathtrace'] : [])];
+  for (const r of slugs) {
     const j = JSON.parse(fs.readFileSync(path.join(ROOT, 'routes', r, 'template/film.json'), 'utf8'));
     assert.deepEqual(filmJsonProblems(j, { mode: 'template', route: r[0] }), [], r);
   }

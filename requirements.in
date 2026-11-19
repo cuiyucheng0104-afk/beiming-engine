@@ -4,11 +4,11 @@
 #   node tools/env/lock.mjs  改了本文件之后重新生成锁文件；--upgrade 取最新版本
 # 范围的上限是「升大版本要先过金标准与混音哈希比对」的提醒，不是兼容性结论。
 numpy>=2.2,<3
-scipy>=1.14,<2
+scipy>=1.18,<2
 numba>=0.61,<1
-soundfile>=0.13,<1
-soxr>=0.5,<2
-pillow>=11,<14
+soundfile>=0.14,<1
+soxr>=1.1,<2
+pillow>=13,<14
 # A 路线按作品生成字体子集（tools/fonts/subset.mjs 调 fontTools 的 subset；woff2 压缩要 brotli）
 fonttools>=4.60,<5
 brotli>=1.1,<2

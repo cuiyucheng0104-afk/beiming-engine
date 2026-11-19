@@ -59,7 +59,7 @@ test('越界路径、空验收、重复 id 都报错', () => {
 test('结构坏掉的计划与未知路线：未知路线是用法错误并列出合法取值', () => {
   assert.ok(validatePlan({ tasks: [] }).length);
   assert.ok(validatePlan(plan([null, task('A01', { dependsOn: 3 })])).length);
-  assert.throws(() => inspectPlan(plan([task('C01')]), 'unknown'), e => e.code === 'usage.unknown-route' && /a（北冥风格路线 · WebGL 三渲二）、b（北冥原生 · BNE）、c（北冥代码动画风格 · 86 式）、shared/.test(e.message));
+  assert.throws(() => inspectPlan(plan([task('C01')]), 'unknown'), e => e.code === 'usage.unknown-route' && /a（北冥风格路线 · WebGL 三渲二）、b（北冥原生 · BNE）、c（北冥代码动画风格 · 86 式）、(?:d（北冥光追 · 物理路径追踪）、)?shared/.test(e.message));
   assert.throws(() => inspectPlan(plan([task('C01', { route: 'style' })])), e => e.code === 'contract.plan' && /路线 "style" 不认识/.test(e.message));
 });
 test('别的路线的在办任务照样挡住重叠的可领取任务', () => {
@@ -225,7 +225,7 @@ test('本仓库计划：v2、--strict 合格；登记 19 个加固工作包；T0
   for (const id of ['T09', 'T13']) assert.deepEqual([byId.get(id).status, byId.get(id).superseded.by], ['superseded', ['H14']], id);
   assert.ok(!byId.get('T18').dependsOn.includes('T04'));
   assert.ok(!byId.get('T20').dependsOn.includes('T17'));
-  assert.ok(p.tasks.every(t => ['a', 'b', 'c', 'shared'].includes(t.route)), 'route 只用注册表 id 或 shared');
+  assert.ok(p.tasks.every(t => ['a', 'b', 'c', 'd', 'shared'].includes(t.route)), 'route 只用注册表 id 或 shared');
   assert.match(byId.get('T13').inputs.join(), /examples\/raea\/tools\/render\.mjs/, 'R87：路径写完整');
   assert.doesNotMatch(p.scope, /除\s*T00.*待实现/, 'R82：scope 不再写死状态');
 });

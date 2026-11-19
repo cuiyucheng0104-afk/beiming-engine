@@ -10,6 +10,7 @@
 | [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) | `bebbbe1aa92a3cb4bb6f83500e61b23a17d1aa00` | 代码 MIT（LemoLab）；例片与静帧 CC BY 4.0 | `cases/vendor/lemo-opuscar/`（2478 个跟踪文件，原样） | 66 风格、demo、core、导演与技术文档；历史 66 部风格实验的方法来源 | 保留版权声明与 MIT 许可（`cases/licenses/LemoLab-MIT.txt`）；例片与静帧按 CC BY 4.0 署名 LemoLab；本仓库主体的派生代码见第 8 节 |
 | [shinyobjectz/raea](https://github.com/shinyobjectz/raea) | 源码对照 `fb3f70844e03cc40185e3a06c394060d26c5cd38`；运行发行版 v0.1.4（对应提交 `d870159c4686bd1fcda094934602463549b26683`，2026-11-15 发布，2028-11-15 转为 Apache-2.0；早期基线 v0.1.0-canary.2 为 2026-10-31 → 2028-10-31） | FSL-1.1-ALv2（Functional Source License 1.1，到期转 Apache-2.0；版权人 Shane Murphy） | **运行时与 SDK 不随本仓库分发**；仓库仅含源码对照、集成方案与自有的调用代码（`engine/native/`、`examples/raea/`） | B 路线（北冥原生 · BNE）的原生运行时 | 单独取得并按 FSL 条款使用；只作内部制作层（D03），不对外提供基于它的产品、SDK 或渲染服务；不分发运行时、不复制其源码；边界见第 7 节与 [docs/rights/fsl-boundary.md](docs/rights/fsl-boundary.md)；升级版本时同步更新本行的版本、发布日与转换日期 |
 | [voyager-so/vork](https://github.com/voyager-so/vork) | 运行发行版 0.5.1（2026-11-11 发布；`--version` 报的短提交 `626653ebf900`） | vork Preview License（上游自定义的预览许可，不是开源许可；版权人 Nullframe, Inc.） | **渲染器不随本仓库分发**，仓库也不含它的源码、着色器与文档原文；仓库只有自有的调用代码与锁定记录（`engine/native/rt.mjs`、`engine/native/rt.lock.json`）和自有的分层风格化（`engine/look/layers.js`） | B 路线（北冥原生 · BNE）的光追外部后端 rt，实验阶段：出写实光照的分层图，北冥做风格化 | 单独取得官方发行包并核对 sha256；只作内部制作层与学术研究，不分发、不复制其代码、不做对外渲染服务；许可只覆盖这一版，升级前重读新版本的许可；边界见 [docs/rights/rt-boundary.md](docs/rights/rt-boundary.md) |
+| [meshy-dev/ThreeRT](https://github.com/meshy-dev/ThreeRT) | 短提交 `c946cc9`（完整 40 位提交与三平台二进制 `sha256` 锁在 `engine/pathtrace/runtime.lock.json`，运行包版本 `0.1.1-beiming.1`） | MIT（2026 Meshy LLC；若运行包开启 `--features oidn` 则动态链接 Intel Open Image Denoise，Apache-2.0） | **可执行文件与 Rust / WESL / WGSL 源码不进本仓库 git**（D10、D13），存放在仓库外本地缓存 `~/.cache/beiming/pathtrace/` 或由 `BEIMING_PT_BIN` 指向；仓库仅含自有的 MIT 调用与场景封装层 `engine/pathtrace/` | D 路线（北冥光追 · 物理路径追踪）的原生 wgpu 硬件光追与 Compute BVH 运行时 | 保留上游 MIT 版权与许可声明；分发含 OIDN 的预编译运行包时一并附 Apache-2.0 许可与 NOTICE；遵守 D04 命名规则，不用上游项目名作我方产品名、路线名或目录名（登记见 [docs/rights/register.md](docs/rights/register.md) R15） |
 
 ## 2. 仓库自有内容
 
@@ -94,7 +95,7 @@ B 路线调用的原生运行时 RAEA 以 FSL-1.1-ALv2 发布：每个版本发�
 
 README 署名节与 Release 说明末尾都用这一句（作品站页脚已有同义文字）：
 
-> 北冥原生 · BNE 基于第三方原生运行时 RAEA（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）。运行时不随本仓库分发，需单独取得并遵守其许可。北冥代码动画风格的画法库部分来自 MIT 开源项目 lemo-opuscar（LemoLab）与 sy-style-100（肖雄 XIAOXIONG），版权与许可原样保留。
+> 北冥原生 · BNE 基于第三方原生运行时 RAEA（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）。运行时不随本仓库分发，需单独取得并遵守其许可。北冥光追 · 物理路径追踪调用第三方开源路径追踪运行时 ThreeRT（meshy-dev/ThreeRT，MIT）。北冥代码动画风格的画法库部分来自 MIT 开源项目 lemo-opuscar（LemoLab）与 sy-style-100（肖雄 XIAOXIONG），版权与许可原样保留。
 
 ## 10. CC BY 署名
 

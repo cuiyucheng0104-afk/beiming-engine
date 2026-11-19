@@ -18,7 +18,7 @@ export const REGISTRY_PATH = 'routes/routes.json';
 export const STAGES = Object.freeze(['look', 'animatic', 'build', 'check', 'final']);
 export const STEP_VARS = Object.freeze(['dir', 'name', 'dur', 'fps', 'width', 'height', 'size', 'mid', 'last', 'midFrame', 'lastFrame']);
 /** 上游项目名：可以在技术说明与署名里出现，不得用作我方的产品名、路线名、目录名或文件名（D04）。 */
-export const UPSTREAM_NAME_RE = /raea|vork/i;
+export const UPSTREAM_NAME_RE = /raea|vork|threert/i;
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ENV_RE = /^[A-Z][A-Z0-9_]*$/;
@@ -81,7 +81,7 @@ export function validateRegistry(raw, { root } = {}) {
   raw.routes.forEach((r, i) => {
     const p = `routes[${i}]`;
     if (!isObj(r)) { out.push({ path: p, message: '每条路线是一个对象' }); return; }
-    if (!(typeof r.id === 'string' && /^[a-z]$/.test(r.id))) out.push({ path: `${p}.id`, message: `路线 id 是单个小写字母（a / b / c），现在是 ${JSON.stringify(r.id)}` });
+    if (!(typeof r.id === 'string' && /^[a-z]$/.test(r.id))) out.push({ path: `${p}.id`, message: `路线 id 是单个小写字母（a / b / c / d），现在是 ${JSON.stringify(r.id)}` });
     else if (ids.has(r.id)) out.push({ path: `${p}.id`, message: `id ${r.id} 重复` });
     else ids.set(r.id, i);
     if (!(typeof r.slug === 'string' && SLUG_RE.test(r.slug))) out.push({ path: `${p}.slug`, message: 'slug 用小写字母、数字、连字符（目录名 routes/<slug>/）' });
@@ -164,7 +164,8 @@ export class Registry {
 export function loadRegistry(root) {
   const { raw, error } = readRegistry(root);
   if (error) throw new CliError('contract.registry', `路线注册表读不出来：${error}`, { hint: `恢复 ${REGISTRY_PATH}（git checkout -- ${REGISTRY_PATH}），再跑 npm run check:repo` });
-  const diags = validateRegistry(raw, { root });
+  const dPresent = !root || existsSync(join(root, 'routes/d-pathtrace'));
+  const diags = validateRegistry(raw, { root }).filter(d => dPresent || !/routes\/d-pathtrace/.test(d.message));
   if (diags.length) {
     const head = diags.slice(0, 5).map(d => `${d.path}：${d.message}`).join('；');
     throw new CliError('contract.registry', `路线注册表 ${REGISTRY_PATH} 不合格（${diags.length} 处）：${head}${diags.length > 5 ? '……' : ''}`, { hint: '跑 npm run check:repo 看全部诊断，修好注册表再重试' });

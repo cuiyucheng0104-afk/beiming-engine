@@ -11,7 +11,7 @@ import { readFilm, plan, checkExisting } from '../../fonts/subset.mjs';
 import { EXIT } from './exit.mjs';
 
 export function fontsCheck(film) {
-  if (film.route === 'b' || !Array.isArray(film.raw?.fonts) || !film.raw.fonts.length) return null;
+  if (film.route === 'b' || (film.route === 'd' && film.pathtrace?.overlay !== 'page') || !Array.isArray(film.raw?.fonts) || !film.raw.fonts.length) return null;
   const fix = `node tools/fonts/subset.mjs ${film.relDir}`;
   try {
     const stale = checkExisting(path.join(film.dir, 'fonts'), plan(loadLock(), readFilm(film.dir).fam));

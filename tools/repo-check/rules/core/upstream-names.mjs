@@ -31,20 +31,31 @@ export default {
     const out = [];
     const names = upstreamNames(ctx);
     const nameRe = new RegExp(names.map(esc).join('|'), 'i');
-    const dirRe = /raea/i;
+    const dirRe = /raea|vork|threert/i;
     for (const d of ctx.walk('.', { dirs: true, files: false })) {
       if (isArchive(`${d}/`) || d === 'cases/vendor' || d === 'cases/source') continue;
       const base = d.split('/').pop();
       if (dirRe.test(base) && !INTERNAL_DIRS.has(d)) out.push({ level: 'error', file: d, message: `目录名 ${d}/ 含上游项目名`, hint: `新目录用我方名称（如 b-native）；可以带上游名的只有已有内部目录 ${[...INTERNAL_DIRS].join('、')}`, excerpt: base });
     }
+    const g = ctx.git(['ls-files', '-z', '--', 'films']);
+    const trackedFilms = g.ok ? new Set(g.stdout.split('\0').filter(Boolean)) : null;
     for (const top of NAME_ROOTS) for (const f of ctx.walk(top)) {
       if (!ctx.inScope(f)) continue;
       const base = f.split('/').pop();
-      if (nameRe.test(base)) out.push({ level: 'error', file: f, message: `文件名 ${base} 含上游项目名`, hint: '文件名用我方名称；上游名写进文件内的技术说明或署名', excerpt: base });
+      if (nameRe.test(base)) {
+        const untrackedFilm = top === 'films' && trackedFilms && !trackedFilms.has(f);
+        out.push({
+          level: untrackedFilm ? 'warn' : 'error',
+          file: f,
+          message: `文件名 ${base} 含上游项目名${untrackedFilm ? '（未入库的本地文件，提交前请改名）' : ''}`,
+          hint: '文件名用我方名称；上游名写进文件内的技术说明或署名',
+          excerpt: base,
+        });
+      }
     }
     const credit = runtimeCredit(ctx);
     const alt = names.map(esc).join('|');
-    const product = new RegExp(`(?:${alt})\\s*(?:原生)?\\s*(?:路线|产品|品牌)|(?:${alt})\\s*原生手册|(?:北冥|BNE|\\bB)\\s*[·・]?\\s*(?:${alt})|(?:${alt})\\s*[·・]\\s*BNE`, 'i');
+    const product = new RegExp(`(?:${alt})\\s*(?:原生|光追)?\\s*(?:路线|产品|品牌)|(?:${alt})\\s*(?:原生|光追)?手册|(?:北冥|BNE|\\bB|\\bD)\\s*[·・]?\\s*(?:${alt})|(?:${alt})\\s*[·・]\\s*BNE`, 'i');
     for (const f of ctx.mdFiles()) {
       if (isArchive(f) || isDecisionDoc(f) || !ctx.inScope(f)) continue;
       const lines = ctx.md.maskCode(ctx.read(f)).split('\n');

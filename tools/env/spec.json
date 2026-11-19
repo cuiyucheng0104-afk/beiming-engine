@@ -163,6 +163,11 @@
       }
     }
   },
+  "pathtrace": {
+    "lockFile": "engine/pathtrace/runtime.lock.json",
+    "fallbackVersion": "0.1.1-beiming.1",
+    "executable": "threert-render"
+  },
   "fonts": {
     "dir": "fonts",
     "files": [
@@ -622,6 +627,16 @@
       "default": "运行时默认",
       "readBy": [],
       "external": "原生运行时"
+    },
+    {
+      "name": "BEIMING_PT_BIN",
+      "group": "D 路线（北冥光追 · 物理路径追踪）",
+      "purpose": "光追原生运行时可执行文件 threert-render 的完整路径；未设时查找默认本机缓存目录，按 engine/pathtrace/runtime.lock.json 核对版本与哈希",
+      "default": "~/.cache/beiming/pathtrace/<版本>/bin/threert-render（macOS 为 ~/Library/Caches/…，Windows 为 %LOCALAPPDATA%\\…）",
+      "readBy": [
+        "engine/pathtrace/runtime.mjs",
+        "tools/env/lib/checks.mjs"
+      ]
     },
     {
       "name": "LEMO_ANGLE",

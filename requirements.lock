@@ -1,10 +1,10 @@
 # 北冥仓库 · Python 依赖锁文件（自动生成，不要手改）
 # 生成：node tools/env/lock.mjs        核对：node tools/env/lock.mjs --check        升级：node tools/env/lock.mjs --upgrade
-# input: requirements.in sha256=05ce23a9cdd996b4fad75a670579939b350effda8fbc975520d2d08fbc0e36c5
+# input: requirements.in sha256=f53181e730f8f273a712b18358baa99b63029e1faf125b818d0e176de54bb956
 # python: 3.12
 # targets: macos-arm64, windows-x64, linux-x64
 # exclude-newer: 2026-11-10T00:00:00Z
-# uv: 0.10.2 (Homebrew 2026-02-10)
+# uv: 0.13.9 (x86_64-unknown-linux-gnu)
 # 安装：npm run setup（有 uv：uv pip sync --require-hashes --only-binary :all:；没有 uv：pip install --require-hashes --only-binary :all: -r requirements.lock）
 brotli==1.2.1 \
     --hash=sha256:0023348c448140a6ea71615eba331835c971d38ae8acf8a89b4e963b1f38f131 \

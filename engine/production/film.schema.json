@@ -10,9 +10,9 @@
     "$comment": { "type": "string" },
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$", "description": "作品 id，与作品目录名相同" },
     "title": { "type": "string", "minLength": 1, "description": "片名（不含 \" \\ ` < > 与换行）" },
-    "route": { "enum": ["a", "b", "c"], "description": "路线注册表 id：a 北冥风格路线 · WebGL 三渲二，b 北冥原生 · BNE，c 北冥代码动画风格 · 86 式；别名 beiming / raea / a-webgl / b-native / c-style 能读但会提示" },
-    "backend": { "enum": ["three", "webgpu", "native", "canvas", "svg", "dom", "webgl"], "description": "a 用 three / webgpu；b 用 native；c 用 canvas / svg / dom / three / webgl / webgpu" },
-    "entry": { "type": "string", "description": "入口（相对作品目录）：a / c 默认 index.html，b 默认 native.entry 或 film.tsx" },
+    "route": { "enum": ["a", "b", "c", "d"], "description": "路线注册表 id：a 北冥风格路线 · WebGL 三渲二，b 北冥原生 · BNE，c 北冥代码动画风格 · 86 式，d 北冥光追 · 物理路径追踪；别名 beiming / raea / a-webgl / b-native / c-style / d-pathtrace / pathtrace 能读但会提示" },
+    "backend": { "enum": ["three", "webgpu", "native", "canvas", "svg", "dom", "webgl", "pathtrace"], "description": "a 用 three / webgpu；b 用 native；c 用 canvas / svg / dom / three / webgl / webgpu；d 用 pathtrace" },
+    "entry": { "type": "string", "description": "入口（相对作品目录）：a / c 默认 index.html（backend=webgpu 时默认 offscreen.mjs），b 默认 native.entry 或 film.tsx，d 默认 scene.ts" },
     "output": {
       "type": "object",
       "required": ["profile", "width", "height", "fps", "frameCount"],
@@ -127,7 +127,22 @@
       "additionalProperties": false
     },
     "native": { "type": "object", "description": "B 路线专属：entry、output、mux（mux.sh | copy）、images、models、sequences、audio" },
-    "cuecheck": { "type": "object", "description": "页面型路线（A / C）的拍点核对：grid、tolMs、silence、quietDb", "properties": { "grid": { "type": "integer", "minimum": 1 }, "tolMs": { "type": "number", "minimum": 0 }, "silence": { "type": "array", "items": { "type": "string" } }, "quietDb": { "type": "number" } }, "additionalProperties": false },
+    "pathtrace": {
+      "type": "object",
+      "description": "D 路线专属：路径追踪档位、采样数、降噪、随机种子、按镜头采样覆盖与页面叠层（不含任何时间字段）",
+      "properties": {
+        "preset": { "enum": ["cinematic", "preview"], "description": "ThreeRT 渲染预设档（缺省 cinematic；animatic 固定用 preview）" },
+        "spp": { "type": "integer", "minimum": 1, "description": "成片默认每像素采样数（缺省 32）" },
+        "animaticSpp": { "type": "integer", "minimum": 1, "description": "动态预演每像素采样数（缺省 4）" },
+        "denoise": { "enum": ["auto", "oidn", "wavelet", "none"], "description": "降噪策略（缺省 auto）" },
+        "seed": { "type": "integer", "description": "整片确定性基础随机种子（缺省 42）" },
+        "shotSpp": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 }, "description": "{ 镜头id: 正整数 } 按镜头覆盖采样数（键必须在 shots[] 中存在）" },
+        "overlay": { "enum": ["none", "page"], "description": "是否叠加透明 HTML 页面（缺省 none）" },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "cuecheck": { "type": "object", "description": "A / C / D 路线的拍点核对：grid、tolMs、silence、quietDb", "properties": { "grid": { "type": "integer", "minimum": 1 }, "tolMs": { "type": "number", "minimum": 0 }, "silence": { "type": "array", "items": { "type": "string" } }, "quietDb": { "type": "number" } }, "additionalProperties": false },
     "qa": {
       "type": "object",
       "description": "机器 QA 段（tools/qa 读它，docs/quality/QA-GATE.md）：刻意画面的声明、阈值覆盖、豁免。改切点时 intentional 与豁免的帧段跟着镜头走",

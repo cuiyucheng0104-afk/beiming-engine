@@ -11,7 +11,7 @@ export default {
       const src = ctx.read('build.sh');
       if (!/tools\/film\/beiming\.mjs/.test(src)) out.push({ level: 'error', file: 'build.sh', message: '根目录 build.sh 应只转调 node tools/film/beiming.mjs（统一出片命令的《北冥》兼容壳）' });
       const code = src.replace(/^\s*#.*$/gm, '');
-      if (/engine\/render\/(video|still)\.mjs|mux\.sh|ffmpeg|ffprobe/.test(code)) out.push({ level: 'error', file: 'build.sh', message: 'build.sh 又在自己调用渲染器、封装或 ffmpeg：出片步骤只能在 tools/film 与 engine/render/build.mjs 里', hint: '改 tools/film/beiming.mjs 或出片链的步骤' });
+      if (/engine\/render\/(video|still)\.mjs|engine\/pathtrace\/bundle\.mjs|threert-render|mux\.sh|ffmpeg|ffprobe/.test(code)) out.push({ level: 'error', file: 'build.sh', message: 'build.sh 又在自己调用渲染器、封装或 ffmpeg：出片步骤只能在 tools/film 与 engine/render/build.mjs 里', hint: '改 tools/film/beiming.mjs 或出片链的步骤' });
     }
     for (const d of filmDirs(ctx)) {
       const f = `${d}/build.sh`;

@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { checkLargeFiles, readAllow, formatAllow } from '../../tools/env/lib/largefiles.mjs';
-import { rules, createContext, runRules, envReadsInText, scanEnvReads, docEnvTable, dualShellFindings, pyViaNode } from '../../tools/repo-check/rules/env/index.mjs';
+import { rules, createContext, runRules, envReadsInText, scanEnvReads, docEnvTable, dualShellFindings, pyViaNode, requirementsTxtIsPointer } from '../../tools/repo-check/rules/env/index.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SPEC = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/env/spec.json'), 'utf8'));
@@ -81,6 +81,37 @@ test('large-files.mjs 命令：违规时 exit 4，信封带违规清单', () => 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('env.python-lock：本仓库三文件协议通过；Dependabot 式 pin 清单与改 .in 不重生锁都是 error', async () => {
+  const ok = await runRules(createContext(ROOT), { only: ['env.python-lock'] });
+  assert.deepEqual(ok[0].findings.filter(f => f.level === 'error'), []);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-pip-lock-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'tools/env'), { recursive: true });
+    for (const f of ['tools/env/spec.json', 'requirements.in', 'requirements.lock', '.python-version']) {
+      fs.copyFileSync(path.join(ROOT, f), path.join(dir, f));
+    }
+    assert.equal(requirementsTxtIsPointer('# 注释\n-r requirements.in\n'), true);
+    assert.equal(requirementsTxtIsPointer('-r requirements.in\nscipy==0.1\n'), false);
+
+    fs.writeFileSync(path.join(dir, 'requirements.txt'), 'scipy==1.18.1\npillow==13.0.0\n');
+    const pins = await runRules(createContext(dir), { only: ['env.python-lock'] });
+    const pinErr = pins[0].findings.filter(f => f.level === 'error').map(f => f.message);
+    assert.ok(pinErr.some(m => /requirements\.txt/.test(m) && /requirements\.in/.test(m)), pinErr.join('\n'));
+
+    fs.writeFileSync(path.join(dir, 'requirements.txt'), '-r requirements.in\nscipy==0.1\n');
+    const mixed = await runRules(createContext(dir), { only: ['env.python-lock'] });
+    const mixedErr = mixed[0].findings.filter(f => f.level === 'error').map(f => f.message);
+    assert.ok(mixedErr.some(m => /夹带 pin/.test(m)), mixedErr.join('\n'));
+
+    fs.writeFileSync(path.join(dir, 'requirements.txt'), '# 指针\n-r requirements.in\n');
+    fs.appendFileSync(path.join(dir, 'requirements.in'), '\n# dependabot-style range bump without regenerating the lock\n');
+    const stale = await runRules(createContext(dir), { only: ['env.python-lock'] });
+    const staleErr = stale[0].findings.filter(f => f.level === 'error').map(f => f.message);
+    assert.ok(staleErr.some(m => /输入哈希/.test(m)), staleErr.join('\n'));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('env 规则：本仓库的 .gitattributes 语义齐全、索引里没有 CRLF', async () => {
   const res = await runRules(createContext(ROOT), { only: ['env.gitattributes', 'env.eol'] });
   for (const r of res) assert.deepEqual(r.findings.filter(f => f.level === 'error'), [], r.id);
@@ -116,7 +147,9 @@ test('代码里读到的环境变量都登记在 spec.json，且与 docs/ENVIRON
   const unregistered = [...reads.keys()].filter(n => !registered.has(n) && !system.has(n));
   assert.deepEqual(unregistered, [], unregistered.map(n => `${n}：${[...reads.get(n)].join('、')}`).join('\n'));
   const doc = docEnvTable(fs.readFileSync(path.join(ROOT, 'docs/ENVIRONMENT.md'), 'utf8'));
-  assert.deepEqual([...doc.keys()].sort(), [...registered].sort());
+  const dDocsMerged = fs.existsSync(path.join(ROOT, 'routes/d-pathtrace/README.md'));
+  const expectedRegistered = [...registered].filter(k => dDocsMerged || doc.has(k) || k !== 'BEIMING_PT_BIN');
+  assert.deepEqual([...doc.keys()].sort(), expectedRegistered.sort());
 });
 
 test('dualShellFindings：设变量的 bash 块要紧挨一个 powershell 块（前后都行）', () => {

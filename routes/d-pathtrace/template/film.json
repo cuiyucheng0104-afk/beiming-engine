@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "$comment": "dur / fps / size 是 v1 兼容镜像：现有出片脚本还在读，数值与 output 一致；改时长或画幅时两处一起改（npm run check:repo 与 film.js check 会核对）",
+  "id": "{{NAME}}",
+  "title": "{{TITLE}}",
+  "route": "d",
+  "backend": "pathtrace",
+  "entry": "scene.ts",
+  "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 72 },
+  "shots": [
+    { "id": "S01", "in": 0, "out": 36, "evaluation": "absolute", "transition": "cut", "note": "近景微距掠射：线性高光灯刃贴面扫过斜切拉丝钨钢碑阵，冷银切面逐列显影（1.5 秒）" },
+    { "id": "S02", "in": 36, "out": 72, "evaluation": "absolute", "transition": "cut", "note": "中远景定格揭示：镜面黑曜石底座映出钨钢碑阵与暖金熔核环，左上安全区微晶铭牌点亮锁止（1.5 秒，48 SPP）" }
+  ],
+  "events": [
+    {
+      "id": "sweep-strike",
+      "frame": 12,
+      "shot": "S01",
+      "audio": "arc-sweep",
+      "visual": "grazing-flare",
+      "domain": "sfx",
+      "note": "第 12 帧掠射高光灯刃正对主钨钢棱面爆出镜面高光（结果帧）；高频金属谐波瞬态同帧起音"
+    },
+    {
+      "id": "reveal-lock",
+      "frame": 40,
+      "shot": "S02",
+      "audio": "anvil-lock",
+      "visual": "monolith-reveal",
+      "domain": "sfx",
+      "note": "切镜后第 40 帧黑曜石底座暖金能量环与左上微晶铭牌锁止（结果帧）；低频锻击与晶圆锁声同帧起音"
+    }
+  ],
+  "audio": { "mode": "script", "script": "mix.py", "targetLUFS": -14, "truePeakDbTP": -1 },
+  "deliveries": ["web-1080p24"],
+  "credits": [{ "what": "物理路径追踪运行时 ThreeRT（外部缓存调用，不随仓库分发）", "owner": "meshy-dev", "license": "MIT", "source": "engine/pathtrace/runtime.lock.json" }],
+  "aigc": { "contains": false, "note": "三维几何、WGSL 材质与立体声音轨全部由代码确定性生成，不含 AI 生成画面或声音" },
+  "gates": { "look": "required", "animatic": "required", "final": "required" },
+  "pathtrace": { "preset": "cinematic", "spp": 24, "animaticSpp": 4, "denoise": "auto", "seed": 2026, "shotSpp": { "S02": 48 }, "overlay": "none" },
+  "posterFrame": 54,
+  "dur": 3,
+  "fps": 24,
+  "size": [1920, 1080]
+}

@@ -58,13 +58,16 @@ export const INTENTIONAL_KINDS = Object.freeze(['freeze', 'black', 'flash']);
 /** qa 段里与 intentional 同义的旧列表（QA 都读，缺省的 kind 不同）；新作品只写 intentional。 */
 const INTENTIONAL_ALIASES = Object.freeze({ holds: 'freeze', blackouts: 'black', flashes: 'flash' });
 export const GATE_KEYS = Object.freeze(['look', 'animatic', 'final']);
+export const PATHTRACE_PRESETS = Object.freeze(['cinematic', 'preview']);
+export const PATHTRACE_DENOISES = Object.freeze(['auto', 'oidn', 'wavelet', 'none']);
+export const PATHTRACE_OVERLAYS = Object.freeze(['none', 'page']);
 /** 显式标识的固定文字（决策 D11；与 tools/compliance/lib/aigc.mjs 的 EXPLICIT 一致，由 tests/production 守住）。 */
 export const AIGC_KINDS = Object.freeze({ visual: '含 AI 生成画面', voice: '配音为 AI 合成', music: '配乐含 AI 生成' });
 export const AIGC_MARK = AIGC_KINDS.visual;
 
 const FIELDS = {
   top: ['schemaVersion', '$comment', 'id', 'title', 'route', 'backend', 'entry', 'output', 'shots', 'events', 'drive', 'timeline', 'tempo', 'cues',
-    'audio', 'deliveries', 'style', 'assets', 'credits', 'aigc', 'gates', 'native', 'cuecheck', 'qa', 'posterFrame', 'docs', 'methodRefs', 'mirror', 'next', 'notes'],
+    'audio', 'deliveries', 'style', 'assets', 'credits', 'aigc', 'gates', 'native', 'pathtrace', 'cuecheck', 'qa', 'posterFrame', 'docs', 'methodRefs', 'mirror', 'next', 'notes'],
   compat: ['dur', 'fps', 'size'],
   output: ['profile', 'width', 'height', 'fps', 'frameCount'],
   shot: ['id', 'in', 'out', 'name', 'purpose', 'module', 'backend', 'evaluation', 'lookPreset', 'transition', 'tracks', 'actorClockOrigin',
@@ -79,6 +82,7 @@ const FIELDS = {
   docs: ['brief', 'treatment', 'bible', 'styleLock', 'review'],
   mirror: ['of', 'paths', 'outDir', 'check', 'frozen', 'note'],
   native: ['entry', 'output', 'mux', 'images', 'models', 'sequences', 'audio', 'note'],
+  pathtrace: ['preset', 'spp', 'animaticSpp', 'denoise', 'seed', 'shotSpp', 'overlay', 'note'],
   cuecheck: ['grid', 'tolMs', 'silence', 'quietDb'],
   methodRef: ['caseId', 'path', 'catalogStatus', 'borrowed', 'upstreamStyle', 'vendorPath', 'license'],
   qa: ['intentional', 'holds', 'blackouts', 'flashes', 'safeArea', 'texts', 'visual', 'sync', 'plates', 'clearColor', 'waivers', 'note'],
@@ -271,7 +275,7 @@ export { BUILTIN_ROUTES, loadRouteRegistry, resolveRoute };
 
 // ───────────────────────── v1 → v2 ─────────────────────────
 
-const DEFAULT_BACKEND = { a: 'three', b: 'native', c: 'canvas' };
+const DEFAULT_BACKEND = { a: 'three', b: 'native', c: 'canvas', d: 'pathtrace' };
 
 /**
  * v1 记录 { route, title, dur, fps, size, native?, poster?, cuecheck? } 升级成 v2。纯函数：has(相对路径) 告诉它作品目录里有哪些文件。
@@ -297,7 +301,7 @@ export function upgradeFilm(v1, { dirName, template = false, has = () => false, 
   };
   notes.push('整片视为一个镜头 S1 [0, frameCount)；分镜后改写 shots');
   if (route === 'a' && has('sound.py')) film.audio = { mode: 'script', script: 'sound.py' };
-  else if (route === 'c' && has('mix.py')) film.audio = { mode: 'script', script: 'mix.py' };
+  else if ((route === 'c' || route === 'd') && has('mix.py')) film.audio = { mode: 'script', script: 'mix.py' };
   else if (route === 'b') film.audio = { mode: v1.native?.audio ? 'native' : 'none' };
   if (v1.poster !== undefined) {
     if (finite(v1.poster)) {
@@ -528,7 +532,7 @@ export function validateFilm(input, opts = {}) {
   }
 
   // 8. 入口
-  const defaultEntry = route?.id === 'b' ? (f.native?.entry ?? 'film.tsx') : (f.backend === 'webgpu' ? 'offscreen.mjs' : 'index.html');
+  const defaultEntry = route?.id === 'b' ? (f.native?.entry ?? 'film.tsx') : (route?.id === 'd' ? 'scene.ts' : (f.backend === 'webgpu' ? 'offscreen.mjs' : 'index.html'));
   checkPath(f.entry ?? defaultEntry, f.entry === undefined ? 'entry（默认）' : 'entry');
 
   // 9. 镜头表。模版可以不写：new-film 生成作品时补整片一个镜头 S1 [0, frameCount)（tools/new-film.mjs），这里按同一口径读；作品必须写
@@ -790,8 +794,12 @@ export function validateFilm(input, opts = {}) {
     if (route && route.id !== 'b') err('native-wrong-route', 'native', 'native 段只属于 B 路线（北冥原生 · BNE）');
     else validateNative(f.native, { err, warn, known, checkPath });
   } else if (route?.id === 'b' && !template && !upgraded) warn('native-missing', 'native', 'B 路线没有 native 段：入口、素材与封装都按默认值');
+  if (f.pathtrace !== undefined) {
+    if (route && route.id !== 'd') err('pathtrace-wrong-route', 'pathtrace', 'pathtrace 段只属于 D 路线（北冥光追 · 物理路径追踪）');
+    else validatePathtrace(f.pathtrace, { err, known, shotById });
+  }
   if (f.cuecheck !== undefined) {
-    if (route && route.id === 'b') err('cuecheck-wrong-route', 'cuecheck', 'cuecheck 段用于页面型路线（A / C）；B 路线用原生运行时的检查');
+    if (route && route.id === 'b') err('cuecheck-wrong-route', 'cuecheck', 'cuecheck 段用于 A / C / D 路线；B 路线用原生运行时的检查');
     else if (!isObj(f.cuecheck)) err('cuecheck-invalid', 'cuecheck', 'cuecheck 是 { grid, tolMs, silence, quietDb }');
     else {
       const c = f.cuecheck;
@@ -939,6 +947,37 @@ function validateNative(n, { err, warn, known, checkPath }) {
   }
 }
 
+function validatePathtrace(pt, { err, known, shotById }) {
+  if (!isObj(pt)) { err('pathtrace-invalid', 'pathtrace', 'pathtrace 段必须是对象'); return; }
+  known(pt, FIELDS.pathtrace, 'pathtrace');
+  if (pt.preset !== undefined && !PATHTRACE_PRESETS.includes(pt.preset)) {
+    err('pathtrace-invalid', 'pathtrace.preset', `preset 只能是 ${PATHTRACE_PRESETS.join(' / ')}，收到 ${JSON.stringify(pt.preset)}`);
+  }
+  if (pt.spp !== undefined && !posInt(pt.spp)) {
+    err('pathtrace-invalid', 'pathtrace.spp', `spp（每像素采样数）必须是正整数，收到 ${JSON.stringify(pt.spp)}`);
+  }
+  if (pt.animaticSpp !== undefined && !posInt(pt.animaticSpp)) {
+    err('pathtrace-invalid', 'pathtrace.animaticSpp', `animaticSpp（动态预演每像素采样数）必须是正整数，收到 ${JSON.stringify(pt.animaticSpp)}`);
+  }
+  if (pt.denoise !== undefined && !PATHTRACE_DENOISES.includes(pt.denoise)) {
+    err('pathtrace-invalid', 'pathtrace.denoise', `denoise 只能是 ${PATHTRACE_DENOISES.join(' / ')}，收到 ${JSON.stringify(pt.denoise)}`);
+  }
+  if (pt.seed !== undefined && !Number.isInteger(pt.seed)) {
+    err('pathtrace-invalid', 'pathtrace.seed', `seed 必须是整数，收到 ${JSON.stringify(pt.seed)}`);
+  }
+  if (pt.shotSpp !== undefined) {
+    if (!isObj(pt.shotSpp)) err('pathtrace-invalid', 'pathtrace.shotSpp', 'shotSpp 必须是 { 镜头id: 正整数 } 对象');
+    else for (const [sid, v] of Object.entries(pt.shotSpp)) {
+      if (!shotById.has(sid)) err('pathtrace-shot-unknown', `pathtrace.shotSpp.${sid}`, `shotSpp 引用了不存在的镜头 ${JSON.stringify(sid)}`, shotById.size ? `可用镜头：${[...shotById.keys()].join('、')}` : '');
+      if (!posInt(v)) err('pathtrace-invalid', `pathtrace.shotSpp.${sid}`, `镜头 ${sid} 的采样数必须是正整数，收到 ${JSON.stringify(v)}`);
+    }
+  }
+  if (pt.overlay !== undefined && !PATHTRACE_OVERLAYS.includes(pt.overlay)) {
+    err('pathtrace-invalid', 'pathtrace.overlay', `overlay 只能是 ${PATHTRACE_OVERLAYS.join(' / ')}，收到 ${JSON.stringify(pt.overlay)}`);
+  }
+  if (pt.note !== undefined && !isStr(pt.note)) err('pathtrace-invalid', 'pathtrace.note', 'note 必须是非空字符串');
+}
+
 /**
  * 机器 QA 段 qa：{ intentional, safeArea, texts, visual, sync, plates, clearColor, waivers }（tools/qa/lib/film.mjs 的 normalizeQa 读它）。
  * intentional（以及同义的旧列表 holds / blackouts / flashes）是刻意的静帧、黑场、闪白：半开区间 [from, to) 整数帧，要写理由；
@@ -1031,7 +1070,7 @@ function normalize(source, { route, profile, shots }) {
   f.drive = f.drive ?? 'picture';
   f.gates = { look: 'required', animatic: 'required', final: 'required' };
   f.deliveries = Array.isArray(f.deliveries) ? f.deliveries : [f.output.profile];
-  f.entry = f.entry ?? (f.route === 'b' ? (f.native?.entry ?? 'film.tsx') : (f.backend === 'webgpu' ? 'offscreen.mjs' : 'index.html'));
+  f.entry = f.entry ?? (f.route === 'b' ? (f.native?.entry ?? 'film.tsx') : (f.route === 'd' ? 'scene.ts' : (f.backend === 'webgpu' ? 'offscreen.mjs' : 'index.html')));
   const a = f.audio ?? { mode: f.route === 'b' ? (f.native?.audio ? 'native' : 'none') : 'none' };
   f.audio = { ...a, targetLUFS: a.targetLUFS ?? profile?.audio.loudness.integrated, truePeakDbTP: a.truePeakDbTP ?? profile?.audio.loudness.truePeak };
   if (isObj(f.aigc) && f.aigc.contains === true && f.aigc.kinds === undefined) f.aigc = { ...f.aigc, kinds: ['visual'] };
@@ -1175,7 +1214,7 @@ export function toProjectSpec(film, { runtime = null, execution = null, outputDi
     execution: execution ?? { target: 'local', graphicsBackend: 'auto', evidence: null },
   };
   const hints = {
-    'runtime-incomplete': '传入 runtime：A / C 路线 { three: "<three 版本>", sourceCommit: "<提交>" }，B 路线 { package: "<原生运行时版本>", sourceSnapshot: "<快照>" }',
+    'runtime-incomplete': '传入 runtime：A / C 路线 { three: "<three 版本>", sourceCommit: "<提交>" }，B 路线 { package: "<原生运行时版本>", sourceSnapshot: "<快照>" }，D 路线 { pathtrace: "<光追运行时版本>", sourceCommit: "<提交>" }',
     'style-baseline-missing': 'A 路线在 film.json 的 style.baseline 写视觉基准',
     'style-migration-required': 'A 风格搬到原生执行要在 ProjectSpec 里补 style.migration',
   };
@@ -1183,11 +1222,11 @@ export function toProjectSpec(film, { runtime = null, execution = null, outputDi
   return { spec, diagnostics };
 }
 
-/** ProjectSpec v1 → film v2 的骨架（单镜头、无事件；credits / aigc 需要补）。路线接受 a / b / c 与旧值 beiming / raea。 */
+/** ProjectSpec v1 → film v2 的骨架（单镜头、无事件；credits / aigc 需要补）。路线接受 a / b / c / d 与旧值 beiming / raea。 */
 export function fromProjectSpec(spec, { profiles = loadProfiles() } = {}) {
   const diagnostics = [];
   const { routeId: route, backend } = canonicalRoute(spec ?? {});
-  if (!route) diagnostics.push({ level: 'error', code: 'projectspec-route-unknown', path: 'route', message: `不认识的 ProjectSpec 路线 ${JSON.stringify(spec?.route)}`, hint: '路线写 a / b / c（旧值 beiming、raea）' });
+  if (!route) diagnostics.push({ level: 'error', code: 'projectspec-route-unknown', path: 'route', message: `不认识的 ProjectSpec 路线 ${JSON.stringify(spec?.route)}`, hint: '路线写 a / b / c / d（旧值 beiming、raea）' });
   if (route === 'a' && backend === 'native') {
     diagnostics.push({ level: 'error', code: 'projectspec-migration', path: 'backend', message: 'A 风格的原生迁移（route a + backend native）在 film.json 里是 B 路线作品：route 改 b，style 写北冥风格并在 notes 里说明迁移状态', hint: '' });
   }

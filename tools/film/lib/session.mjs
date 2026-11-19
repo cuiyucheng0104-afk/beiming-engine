@@ -36,7 +36,7 @@ import { resolveProfile, framesAt } from './profiles.mjs';
 import { differs, retimeShots, writeEffectiveFilm } from './effective.mjs';
 import { parseSize } from './args.mjs';
 import { createRunDir, acquireLock, setLatest, writeAtomic } from './rundir.mjs';
-import { exec as rawExec, killAll, isolatedEnv, which } from './proc.mjs';
+import { exec as rawExec, killAll, isolatedEnv } from './proc.mjs';
 import { Legacy } from './legacy.mjs';
 import { supports } from './caps.mjs';
 import * as media from './media.mjs';
@@ -107,13 +107,20 @@ export function planSession({ kind, filmArg, opts }) {
   const warnings = [], notes = [];
   const film = loadFilm(filmArg, { page: opts.page ? path.resolve(opts.page) : null });
   warnings.push(...film.warnings);
-  const useOffscreen = opts.renderer === 'offscreen' || (opts.renderer === undefined && film.backend === 'webgpu');
-  if (film.route !== 'b' && !useOffscreen && !fs.existsSync(path.join(film.pageDir, 'index.html'))) {
+  const useOffscreen = film.route !== 'b' && film.route !== 'd' && (opts.renderer === 'offscreen' || (opts.renderer === undefined && film.backend === 'webgpu'));
+  const usesPage = film.route !== 'b' && !useOffscreen && (film.route !== 'd' || film.pathtrace?.overlay === 'page');
+  if (usesPage && !fs.existsSync(path.join(film.pageDir, 'index.html'))) {
     throw new FilmError(EXIT.USAGE, 'page-missing', `页面目录 ${rel(film.pageDir)} 下没有 index.html`, film.pageDir === film.dir ? '页面型作品（A / C）要有 index.html；用 film new 生成的作品自带' : '检查 --page 或 film.json 的 page');
   }
   const rp = path.relative(ROOT, film.pageDir);
-  if (film.route !== 'b' && (rp.startsWith('..') || path.isAbsolute(rp))) {
+  if ((usesPage || useOffscreen) && (rp.startsWith('..') || path.isAbsolute(rp))) {
     throw new FilmError(EXIT.USAGE, 'page-outside', `页面目录 ${film.pageDir} 不在仓库里：页面由仓库根的本地服务器提供`, '把作品放在仓库的 films/ 下（npm run new 生成的就是）');
+  }
+  if (film.route === 'd') {
+    const entryFile = path.resolve(film.pathBase, film.entry || 'scene.ts');
+    if (!fs.existsSync(entryFile)) {
+      throw new FilmError(EXIT.USAGE, 'entry-missing', `${rel(film.dir)} 下找不到光追场景入口 ${film.entry || 'scene.ts'}`, 'D 路线作品默认以 scene.ts 为入口；用 npm run new -- d <名字> 生成');
+    }
   }
   // B：原生运行时按真实路径打包 film.tsx，作品目录若是指向仓库外的链接，../../engine/native 就找不到
   if (film.route === 'b') {
@@ -132,7 +139,7 @@ export function planSession({ kind, filmArg, opts }) {
   if (kind === 'animatic' && film.route !== 'b' && !size) {
     const even = v => Math.max(16, Math.round(v / 4) * 2);
     width = even(width); height = even(height);
-    notes.push({ code: 'animatic-half', message: `预演按半分辨率 ${width}×${height} 渲染，后期开关由页面读 previs=1 决定` });
+    notes.push({ code: 'animatic-half', message: film.route === 'd' ? `预演按半分辨率 ${width}×${height} 渲染（preview 档，${film.pathtrace?.animaticSpp || 4} SPP）` : `预演按半分辨率 ${width}×${height} 渲染，后期开关由页面读 previs=1 决定` });
   }
   if (opts.final && profile.custom) throw new FilmError(EXIT.CONTRACT, 'profile-required', '终渲要按明确的交付档位出片，但 film.json 没有 output.profile', `在 film.json 写 output.profile，或加 --profile <档位>（新作品默认 web-1080p24，决定 D07）`);
   // 终渲只按作品交付清单（film.json 的 deliveries）里的档位出片：作品描述包的状态机只认这些档位的 QA 报告
@@ -184,7 +191,7 @@ export async function openSession({ command, kind, filmArg, opts, plan = null })
   const ctx = {
     command, kind, final: !!opts.final, opts, film, profile, width, height, fps, frames, shots, cuts, markFrames, query, audio,
     outRoot, run, lock, pyInfo: py, python: py.cmd, pythonArgs: py.args, pythonExe: py.executable, sh: sh.path, tools, git, env, warnings, notes, startedAt: new Date().toISOString(), repoBefore,
-    art: {}, meta: {}, steps: [], timing: {}, qa: null, technical: null, gpu: null, nativeDevice: null, raea: null, outputs: [],
+    art: {}, meta: {}, steps: [], timing: {}, qa: null, technical: null, gpu: null, nativeDevice: null, raea: null, ptRuntime: null, outputs: [],
     sizeWork: !!p.sizeWork, filmEffective: null,
     legacy: new Legacy(path.join(run.work, 'legacy-backup')), media, rel, hashTree, hashJson, fileHash, supports,
     log: m => process.stderr.write(`${m}\n`),
@@ -236,19 +243,22 @@ function audioOverride(film, raw) {
 //   出片 / 预演要跑声音脚本、拍点核对或 B 的原生素材准备时  python:audio（Python 3.12 + numpy / scipy / numba / soundfile / soxr / Pillow）
 //   B      browser（素材准备导出 GLB）、raea（RAEA_BIN 指向的原生运行时）
 export function preflightNeeds(ctx) {
-  const page = ctx.film.route !== 'b';
+  const r = ctx.film.route;
+  const page = r !== 'b' && r !== 'd';
   const isOffscreen = page && (ctx.opts?.renderer === 'offscreen' || (ctx.opts?.renderer === undefined && ctx.film.backend === 'webgpu'));
+  const dOverlay = r === 'd' && ctx.film.pathtrace?.overlay === 'page';
   const a = ctx.audio;
   const script = a.mode === 'script' ? path.extname(a.path).toLowerCase() : null;
   const delivers = ['build', 'animatic'].includes(ctx.kind);
-  const needs = new Set(['ffmpeg', 'python', ...(isOffscreen ? [] : ['browser'])]);
+  const needs = new Set(['ffmpeg', 'python']);
+  if ((page && !isOffscreen) || r === 'b' || dOverlay) needs.add('browser');
   // 封装要 sh 只在渲染器 v2 的 Node 封装（engine/render/lib/mux.mjs）还没有时
   const muxNeedsSh = !fs.existsSync(path.join(ROOT, 'engine/render/lib/mux.mjs'));
-  if (page && ctx.kind === 'build' && a.mode !== 'none' && muxNeedsSh) needs.add('sh');
+  if ((page || r === 'd') && ctx.kind === 'build' && a.mode !== 'none' && muxNeedsSh) needs.add('sh');
   if (script === '.sh') needs.add('sh');
-  const audioPython = page ? delivers && (script === '.py' || script === '.sh' || (ctx.film.cuecheck && a.mode !== 'none')) : true;
+  const audioPython = (page || r === 'd') ? delivers && (script === '.py' || script === '.sh' || (ctx.film.cuecheck && a.mode !== 'none')) : true;
   if (audioPython) needs.add('python:audio');
-  if (!page) needs.add('raea');
+  if (r === 'b') needs.add('raea');
   return [...needs];
 }
 
@@ -313,7 +323,15 @@ function encoderOf(ctx) {
     // canary.2 的日志不报编码器名：按码流如实记录（档次、级别），不猜是哪家编码器
     return o ? `${String(o.codec || 'h264').toUpperCase()} ${o.profileName || ''}${o.level ? ` @ L${o.level / 10}` : ''}（原生运行时内置编码器；运行时日志没有报编码器名，按码流记录）`.replace(/\s+（/, '（') : null;
   }
-  if (ctx.kind === 'stills' || ctx.kind === 'render') return ctx.art.frames ? 'JPEG q92（engine/render/still.mjs 截图）' : null;
+  if (ctx.film.route === 'd') {
+    if (ctx.kind === 'stills' || ctx.kind === 'render') return ctx.art.frames ? 'PNG（threert-render 无损路径追踪静帧）' : null;
+    const v = ctx.meta.pathtrace?.encoder;
+    if (!v) return null;
+    const mux = ctx.meta.mux;
+    if (!mux || ctx.kind === 'animatic') return `${v}（tools/film/lib/pathtrace-steps.mjs）`;
+    return mux.videoCopied ? `${v}（pathtrace-steps.mjs；封装时画面逐位复制）` : `${v}（pathtrace-steps.mjs）→ ${mux.encoder || 'libx264'}（封装时重编码）`;
+  }
+  if (ctx.kind === 'stills' || ctx.kind === 'render') return ctx.art.frames ? (ctx.opts?.renderer === 'offscreen' ? 'PNG（engine/offscreen/cli.mjs stills）' : 'JPEG q92（engine/render/still.mjs 截图）') : null;
   const v = ctx.meta.video?.encoder;
   if (!v) return null;
   const src = ctx.meta.video?.renderer === 'offscreen' ? 'engine/offscreen/cli.mjs' : 'engine/render/video.mjs';
@@ -337,11 +355,11 @@ export function runJsonBody(ctx, extra = {}) {
     title: ctx.film.title, film: ctx.film.relDir, runId: ctx.run.id, runDir: rel(ctx.run.dir), command: `film ${ctx.command}`,
     startedAt: ctx.startedAt, finishedAt: null,
     sourceCommit: ctx.git.commit, dirty: ctx.git.dirty, argv: process.argv.slice(2), rerun: rerunCommand(),
-    tools: { ...ctx.tools, ...(ctx.raea ? { raea: ctx.raea.version } : {}) },
+    tools: { ...ctx.tools, ...(ctx.raea ? { raea: ctx.raea.version } : {}), ...(ctx.ptRuntime ? { pathtrace: ctx.ptRuntime.version } : {}) },
     preflight: ctx.preflight || null,
     actualDevice: device || null, actualGraphicsBackend: backend || null,
     actualEncoder: encoderOf(ctx),
-    softwareFallback: SOFTWARE.test(String(ctx.gpu || '')),
+    softwareFallback: Boolean(nd?.software) || SOFTWARE.test(String(ctx.gpu || '')),
     profile: { id: ctx.profile.id, source: ctx.profile.source, width: ctx.width, height: ctx.height, fps: ctx.fps, lufs: ctx.profile.lufs, lufsTol: ctx.profile.lufsTol, truePeak: ctx.profile.truePeak, ...(ctx.profile.sizeOverride ? { sizeOverride: true } : {}), ...(ctx.profile.custom ? { custom: true, base: ctx.profile.base } : {}) },
     expected: { frames: ctx.frames, width: ctx.width, height: ctx.height, fps: ctx.fps, shots: ctx.shots.filter(s => !s.implicit).map(s => ({ id: s.id, in: s.in, out: s.out })), cuts: ctx.cuts },
     // 本次规格与 film.json 不同时交给机器 QA 的作品描述（运行目录里的 film.effective.json）；与 film.json 一致时为 null，QA 直接读 film.json

@@ -14,10 +14,14 @@ export default {
     for (const d of dirs) {
       const file = `${d}/film.json`;
       if (!ctx.inScope(file)) continue;
-      if (!ctx.exists(file)) { out.push({ level: 'error', file: d, message: '作品目录没有 film.json', hint: '作品用 npm run new -- <a|b|c> <名字> 生成' }); continue; }
+      if (!ctx.exists(file)) { out.push({ level: 'error', file: d, message: '作品目录没有 film.json', hint: '作品用 npm run new -- <a|b|c|d> <名字> 生成' }); continue; }
       try {
         const f = loadFilm(ctx.abs(d));
-        if (f.route !== 'b' && !fs.existsSync(path.join(f.pageDir, 'index.html'))) out.push({ level: 'error', file, message: `页面型作品（A / C）的页面目录 ${path.relative(ctx.root, f.pageDir).split(path.sep).join('/') || '.'} 下没有 index.html` });
+        const usesOffscreen = (f.route === 'a' || f.route === 'c') && f.backend === 'webgpu';
+        const usesPage = f.route !== 'b' && !usesOffscreen && (f.route !== 'd' || f.pathtrace?.overlay === 'page');
+        if (usesPage && !fs.existsSync(path.join(f.pageDir, 'index.html'))) out.push({ level: 'error', file, message: `页面型作品（A / C）的页面目录 ${path.relative(ctx.root, f.pageDir).split(path.sep).join('/') || '.'} 下没有 index.html` });
+        if (usesOffscreen && !fs.existsSync(path.join(f.dir, 'offscreen.mjs'))) out.push({ level: 'error', file, message: '离屏作品（backend = webgpu）缺少入口 offscreen.mjs' });
+        if (f.route === 'd' && !fs.existsSync(path.resolve(f.pathBase, f.entry || 'scene.ts'))) out.push({ level: 'error', file, message: `D 路线光追作品缺少入口 ${f.entry || 'scene.ts'}` });
         for (const w of f.warnings) out.push({ level: 'warn', file, message: w.message });
       } catch (e) { out.push({ level: 'error', file, message: String(e.message).split('\n')[0], hint: e.hint || 'npm run film -- check <作品目录> 看完整诊断' }); }
     }

@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { run, which } from './proc.mjs';
 import { resolvePython, pythonEnv, venvPython } from './python.mjs';
 import { parseLock, pinsFor } from './lockfile.mjs';
@@ -486,6 +487,77 @@ export async function checkCases(root, env = process.env, { required = true } = 
   const msg = (r.stdout + r.stderr).trim().split('\n').pop() || '';
   return mk('cases.snapshot', 'C 路线案例库与风格库快照', { status: r.code === 0 ? 'pass' : 'fail', required, found: msg.slice(0, 300),
     fix: r.code === 0 ? null : /Checksum|blob/i.test(msg) ? '归档文件的字节被改了（多半是换行被转换）：git config core.autocrlf false 后重新检出 cases/' : '按报错修复；不要就地改 cases/source、cases/vendor' });
+}
+
+// ── D 路线 ──
+function defaultPtCacheExe(version, env = process.env) {
+  const exe = process.platform === 'win32' ? 'threert-render.exe' : 'threert-render';
+  const base = process.platform === 'darwin'
+    ? path.join(os.homedir(), 'Library', 'Caches')
+    : process.platform === 'win32'
+      ? (env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'))
+      : (env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'));
+  return path.join(base, 'beiming', 'pathtrace', version, 'bin', exe);
+}
+
+export async function checkPathtrace(root, spec, { env = process.env, required = true } = {}) {
+  const ptSpec = spec.pathtrace || { lockFile: 'engine/pathtrace/runtime.lock.json', fallbackVersion: '0.1.1-beiming.1' };
+  let want = ptSpec.fallbackVersion;
+  const lockAbs = path.join(root, ptSpec.lockFile);
+  if (fs.existsSync(lockAbs)) {
+    try { want = readJson(lockAbs).version || want; } catch { /* 用备用版本 */ }
+  }
+  const explicitBin = env.BEIMING_PT_BIN;
+  const fixCmd = process.platform === 'win32'
+    ? `$env:BEIMING_PT_BIN = '<安装目录>\\bin\\threert-render.exe'（或解压到 %LOCALAPPDATA%\\beiming\\pathtrace\\${want}\\；见 THIRD-PARTY.md）`
+    : `export BEIMING_PT_BIN='<安装目录>/bin/threert-render'（或安装到 ~/.cache/beiming/pathtrace/${want}/；见 THIRD-PARTY.md）`;
+  const base = { required, expected: `光追运行时 ${want}（engine/pathtrace/runtime.lock.json）` };
+
+  const rtModFile = path.join(root, 'engine/pathtrace/runtime.mjs');
+  if (fs.existsSync(rtModFile)) {
+    try {
+      const { resolvePathtrace } = await import(pathToFileURL(rtModFile).href);
+      const rt = await resolvePathtrace({ env, cwd: root });
+      const infoRes = await run(rt.exe, ['info'], { env, timeout: 15_000 });
+      let gpu = null;
+      if (infoRes.code === 0) {
+        try { gpu = JSON.parse(infoRes.stdout.trim()); } catch { /* 容错 */ }
+      }
+      const gpuLabel = gpu?.adapter ? `；GPU ${gpu.adapter}${gpu.hwrt ? '（HWRT）' : ''}` : '';
+      return mk('pathtrace.runtime', 'D 路线光追运行时', {
+        ...base,
+        status: rt.verified === false ? 'warn' : 'pass',
+        found: `${rt.version}（${rt.exe}，sha256 ${String(rt.binarySha256 || '').slice(0, 16)}…${gpuLabel}）`,
+        fix: rt.verified === false ? '当前平台尚未在 runtime.lock.json 登记哈希：验收通过后补齐 sha256' : null,
+        data: { version: rt.version, path: rt.exe, sha256: rt.binarySha256, verified: rt.verified, oidn: rt.oidn, gpu },
+      });
+    } catch (e) {
+      const notConfigured = !explicitBin && e?.code === 'env.pathtrace-missing';
+      return mk('pathtrace.runtime', 'D 路线光追运行时', {
+        ...base,
+        status: notConfigured && !required ? 'info' : 'fail',
+        found: e?.message || '未安装光追运行时',
+        fix: notConfigured && !required ? null : (e?.hint || fixCmd),
+      });
+    }
+  }
+
+  const candidate = explicitBin || defaultPtCacheExe(want, env);
+  if (!fs.existsSync(candidate)) {
+    return mk('pathtrace.runtime', 'D 路线光追运行时', {
+      ...base,
+      status: !explicitBin && !required ? 'info' : 'fail',
+      found: explicitBin ? `BEIMING_PT_BIN=${explicitBin} 不存在` : '未设 BEIMING_PT_BIN 且默认缓存未安装',
+      fix: !explicitBin && !required ? null : fixCmd,
+    });
+  }
+  const digest = await fileSha256(candidate);
+  return mk('pathtrace.runtime', 'D 路线光追运行时', {
+    ...base,
+    status: 'pass',
+    found: `${want}（${candidate}，sha256 ${digest.slice(0, 16)}…）`,
+    data: { version: want, path: candidate, sha256: digest },
+  });
 }
 
 export { venvPython, os };
