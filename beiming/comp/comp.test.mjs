@@ -55,6 +55,16 @@ function lumaMean(raw, [w, h], k) {
   return y.reduce((a, v) => a + v, 0) / y.length;
 }
 
+let HAS_FFMPEG = false;
+try { tools(); HAS_FFMPEG = true; } catch (e) { if (e?.code !== 'env.ffmpeg-missing') throw e; }
+const NEED_FFMPEG = { skip: !HAS_FFMPEG && '环境缺少 ffmpeg / ffprobe' };
+
+function stubSeq(dir, ext, count) {
+  mkdirSync(dir, { recursive: true });
+  for (let i = 0; i < count; i++) writeFileSync(join(dir, `f.${String(i).padStart(4, '0')}.${ext}`), '');
+  return join(dir, `f.%04d.${ext}`);
+}
+
 let root, fx;
 before(() => {
   root = mkdtempSync(join(tmpdir(), 'beiming-comp-test-'));
@@ -66,6 +76,16 @@ before(() => {
   const warm = join(root, odd, 'warm.cube');
   cube(warm, 17, (r, g, b) => [Math.min(1, r ** 0.9 * 1.02), g ** 0.95, b * 0.92]);
   const size = [320, 180];
+  if (!HAS_FFMPEG) {
+    fx = {
+      identity, warm, size,
+      s01: stubSeq(join(root, 's01'), 'exr', 180),
+      s02: stubSeq(join(root, 's02'), 'png', 120),
+      gray: stubSeq(join(root, 'gray'), 'exr', 4),
+      grayPng: stubSeq(join(root, 'graypng'), 'png', 4),
+    };
+    return;
+  }
   // 片子 film-min 的两镜头：s01 场景参考（线性 EXR，高动态），s02 显示参考（显示编码的 PNG）
   mkdirSync(join(root, 's01'));
   mkdirSync(join(root, 's02'));
@@ -265,7 +285,7 @@ describe('纯函数口径', () => {
   });
 });
 
-describe('真实 ffmpeg：分流、收尾、硬切', () => {
+describe('真实 ffmpeg：分流、收尾、硬切', NEED_FFMPEG, () => {
   const one = (pattern, colorRef, extra = {}) => ({ shots: [{ id: 's01', in: 0, out: 4, colorRef, pattern }], size: [64, 36], fps: '30/1', ...extra });
 
   test('scene 分流：线性 0.18 → 对数整形 → 合成 .cube（四面体，路径带特殊字符）→ Y 码值对得上', () => {
@@ -335,7 +355,7 @@ describe('真实 ffmpeg：分流、收尾、硬切', () => {
   });
 });
 
-describe('真实 ffmpeg：母带与交付六件套', () => {
+describe('真实 ffmpeg：母带与交付六件套', NEED_FFMPEG, () => {
   test('film-min 事件音轨母带：ebur128 集成响度在 [−15, −13] LUFS、真峰值 ≤ −1 dBTP，起音点不漂（互相关滞后 0 个采样点）', () => {
     const work = mkdtempSync(join(root, 'audio-'));
     const mix = mixEvents(eventsTable(FILM_MIN));
@@ -474,7 +494,7 @@ function audioDelivery(fps, frames, event, mode = 'script') {
 }
 
 describe('独立复核回归', () => {
-  test('M01 32×16 的 EXR 超白在原尺寸、放大和缩小后仍为 2，整形后 Y≈181', () => {
+  test('M01 32×16 的 EXR 超白在原尺寸、放大和缩小后仍为 2，整形后 Y≈181', NEED_FFMPEG, () => {
     const pattern = constantExr(join(root, 'white'), 2, 1, [32, 16]);
     const shots = [{ id: 'hdr', in: 0, out: 1, colorRef: 'scene', pattern }];
     const view = { lutPath: fx.identity, shaper: { mid: 1, minEv: -2, maxEv: 2 } };
@@ -494,7 +514,7 @@ describe('独立复核回归', () => {
     assert.equal(existsSync(outDir), false);
   });
 
-  test('M03 空事件表交付精确长度的双声道全零母带和静音 AAC', () => {
+  test('M03 空事件表交付精确长度的双声道全零母带和静音 AAC', NEED_FFMPEG, () => {
     const base = audioDelivery('30/1', 60);
     const mix = mixEvents({ ...base.events, frames: 300 });
     const m = masterAudio(mix, mkdtempSync(join(root, 'silence-')));
@@ -526,7 +546,7 @@ describe('独立复核回归', () => {
   });
 
   for (const [fps, frames] of [['27/1', 54], ['30/1', 66], ['30/1', 300]]) {
-    test(`M05 ${fps} 共 ${frames} 帧，仅末帧 hit.low 的 WAV、母版与网页片 AAC 均达标`, () => {
+    test(`M05 ${fps} 共 ${frames} 帧，仅末帧 hit.low 的 WAV、母版与网页片 AAC 均达标`, NEED_FFMPEG, () => {
       const film = smallFilm();
       film.output.size = [40, 24];
       film.delivery = { master: 'h264-crf14-bt709', web: true };
@@ -546,7 +566,7 @@ describe('独立复核回归', () => {
     });
   }
 
-  test('M06 track 模式已有 WAV 与带声事件并存，只交付给定音轨', () => {
+  test('M06 track 模式已有 WAV 与带声事件并存，只交付给定音轨', NEED_FFMPEG, () => {
     const base = audioDelivery('24/1', 48, { id: 'hit', frame: 12, audio: 'hit.low' }, 'track');
     const track = join(root, 'tone.wav');
     ff(['-f', 'lavfi', '-i', 'sine=frequency=1000:sample_rate=48000:duration=2', track]);
@@ -571,7 +591,7 @@ describe('独立复核回归', () => {
     assert.equal(existsSync(base.outDir), false);
   });
 
-  test('M09 未写镜头种子时采用冻结算例派生的颗粒种子', () => {
+  test('M09 未写镜头种子时采用冻结算例派生的颗粒种子', NEED_FFMPEG, () => {
     const base = audioDelivery('24/1', 48);
     base.film.seed = base.lock.seeds.film = 7800;
     base.lock.seeds.s01 = 2013376959;
@@ -617,7 +637,7 @@ describe('独立复核回归', () => {
     assert.throws(() => mixEvents(base.events), code('usage.bad-argument'));
   });
 
-  test('场景参考在 25/1、24000/1001、30000/1001 下缩放 120 帧奇偶明暗逐帧零错位', () => {
+  test('场景参考在 25/1、24000/1001、30000/1001 下缩放 120 帧奇偶明暗逐帧零错位', NEED_FFMPEG, () => {
     const seqDir = mkdtempSync(join(root, 'alt-exr-'));
     const pattern = join(seqDir, 'f.%04d.exr');
     ff(['-f', 'lavfi', '-i', 'color=c=black:s=32x16:r=30', '-frames:v', '120',
