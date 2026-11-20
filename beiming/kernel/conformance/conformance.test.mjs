@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { caps } from '../../sources/three/caps.mjs';
 import { loadContracts } from '../contracts/validate.mjs';
 import { eventsTable, renderingOf } from '../eval/input.mjs';
@@ -61,7 +62,7 @@ test('静态扫描认得出墙钟和不带种子的随机，白名单只放行�
   assert.deepEqual(calls(`${C}.getRandomValues(buf); ${C}.randomUUID(); ${C}?.[\`randomUUID\`]()`), [`unseededRandom:${C}.getRandomValues`, `unseededRandom:${C}.randomUUID`, `unseededRandom:${C}.randomUUID`]);
   assert.deepEqual(calls(`new ${D}(0); new ${D}(t).getTime(); clock.${D}(); my${D}(); ${C}.subtle.digest('SHA-256', b); ${M}['random"]`), []);
 
-  const root = new URL('.', REPO).pathname;
+  const root = fileURLToPath(REPO);
   const files = sourceFiles(root, ['beiming/host/page']);
   assert.ok(files.includes('beiming/host/page/clock.js') && !files.some((f) => f.includes('.test.')));
   const strict = scanFiles(root, files), lenient = scanFiles(root, files, [{ path: 'beiming/host/page/clock.js', call: perf }]);

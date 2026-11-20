@@ -44,7 +44,7 @@ test('画面统计：Rec.709 亮度的百分位；溢出和压死按通道判', 
 });
 
 test('静态服务只放行本系统的代码和 three，跳不出去', () => {
-  assert.match(resolveServed('/beiming/host/page/runtime.js'), /beiming\/host\/page\/runtime\.js$/);
+  assert.match(resolveServed('/beiming/host/page/runtime.js'), /beiming[\\/]host[\\/]page[\\/]runtime\.js$/);
   assert.match(resolveServed('/node_modules/three-webgpu/build/three.module.js?x=1'), /three\.module\.js$/);
   for (const bad of ['/package.json', '/beiming/../package.json', '/beiming/%2e%2e/%2e%2e/etc/passwd', '/engine/render/lib/gpu.mjs', '/beiming/README.md', '/%zz']) {
     assert.equal(resolveServed(bad), null, bad);
