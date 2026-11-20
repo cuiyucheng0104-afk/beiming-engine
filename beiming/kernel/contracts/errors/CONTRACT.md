@@ -109,6 +109,10 @@
 | `contract.unsupported-output` | 要了帧源没声明过的输出 | F3 |
 | `contract.unsupported-query` | 问了帧源没声明过的场景查询种类 | F8 |
 | `env.lock-required` | 没有锁文件，镜头却要用只有锁文件里才有的东西 | F14 |
+| `contract.delivery-mismatch` | 交付核对或文件摘要不符 | 合成交付 |
+| `env.ffmpeg-missing` | 无法启动 FFmpeg 或 ffprobe | 合成交付 |
+| `failure.ffmpeg` | 媒体工具执行失败或缺少测量汇总 | 合成交付 |
+| `timeout.ffmpeg` | 媒体工具执行超时 | 合成交付 |
 | `usage.bad-argument` | 调用的参数出了值域 | F23、5.6 第 1 步和第 3 步 |
 
 ### 5.4 新错误码怎么加

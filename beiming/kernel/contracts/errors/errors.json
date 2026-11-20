@@ -55,6 +55,10 @@
       "meaning": "写进去之后片子描述不合片子描述契约：过不了结构定义，或违反了没有专用码的条文；写进了没定义的键报 contract.unknown-key"
     },
     {
+      "code": "contract.delivery-mismatch",
+      "meaning": "交付核对或文件摘要不符"
+    },
+    {
       "code": "contract.immutable-key",
       "meaning": "改了创建之后不得改的键"
     },
@@ -115,8 +119,20 @@
       "meaning": "问了帧源没声明过的场景查询种类"
     },
     {
+      "code": "env.ffmpeg-missing",
+      "meaning": "无法启动 FFmpeg 或 ffprobe"
+    },
+    {
       "code": "env.lock-required",
       "meaning": "没有锁文件，镜头却要用只有锁文件里才有的东西"
+    },
+    {
+      "code": "failure.ffmpeg",
+      "meaning": "媒体工具执行失败或缺少测量汇总"
+    },
+    {
+      "code": "timeout.ffmpeg",
+      "meaning": "媒体工具执行超时"
     },
     {
       "code": "usage.bad-argument",
