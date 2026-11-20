@@ -22,6 +22,8 @@ const FILM_MIN = JSON.parse(readFileSync(join(here, '../kernel/contracts/example
 const LOCK_MIN = JSON.parse(readFileSync(join(here, '../kernel/contracts/lock/examples/minimal.json'), 'utf8'));
 const LOCK_FULL = JSON.parse(readFileSync(join(here, '../kernel/contracts/lock/examples/check-full.json'), 'utf8')).lock;
 const SHAPER = Object.freeze({ minEv: -10, maxEv: 6.5, mid: 0.18 });
+const frozen = await loadContracts();
+const minimal = JSON.parse(readFileSync(join(here, '../kernel/contracts/film/examples/minimal.json'), 'utf8'));
 
 const ff = (args) => {
   const out = args.pop();
@@ -56,7 +58,11 @@ function lumaMean(raw, [w, h], k) {
 }
 
 let HAS_FFMPEG = false;
-try { tools(); HAS_FFMPEG = true; } catch (e) { if (e?.code !== 'env.ffmpeg-missing') throw e; }
+try {
+  const bin = tools();
+  HAS_FFMPEG = spawnSync(bin.ffmpeg, ['-version'], { stdio: 'ignore', windowsHide: true, timeout: 15000 }).status === 0
+    && spawnSync(bin.ffprobe, ['-version'], { stdio: 'ignore', windowsHide: true, timeout: 15000 }).status === 0;
+} catch (e) { if (e?.code !== 'env.ffmpeg-missing') throw e; }
 const NEED_FFMPEG = { skip: !HAS_FFMPEG && '环境缺少 ffmpeg / ffprobe' };
 
 function stubSeq(dir, ext, count) {
@@ -479,8 +485,6 @@ describe('真实 ffmpeg：母带与交付六件套', NEED_FFMPEG, () => {
   });
 });
 
-const frozen = await loadContracts();
-const minimal = JSON.parse(readFileSync(join(here, '../kernel/contracts/film/examples/minimal.json')));
 function audioDelivery(fps, frames, event, mode = 'script') {
   const film = structuredClone(minimal);
   film.output = { fps, frames, size: [32, 16] };
@@ -647,7 +651,6 @@ describe('独立复核回归', () => {
     for (const fps of ['25/1', '24000/1001', '30000/1001']) {
       const base = audioDelivery(fps, 120);
       base.film.output.size = [46, 22];
-      base.film.style.finish = { grain: 0, vignette: 0 };
       base.film.delivery = { master: 'h264-crf14-bt709', web: true, contact: false };
       base.lock.view['agx-mhc'] = `sha256:${sha(readFileSync(fx.identity))}`;
       const shots = [{ id: 's01', in: 0, out: 120, colorRef: 'scene', pattern }];
