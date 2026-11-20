@@ -1,0 +1,93 @@
+{
+  "format": "card/0.1",
+  "id": "comp.finish",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "成片修饰",
+  "intent": "在显示空间的成片上加胶片颗粒和暗角",
+  "visibleToAgent": true,
+  "livesIn": [
+    "comp"
+  ],
+  "impl": [
+    {
+      "livesIn": "comp",
+      "entry": "cards/post/comp-finish/comp.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/post/comp-finish/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "grain": {
+      "type": "number",
+      "unit": "none",
+      "range": [
+        0,
+        1
+      ],
+      "default": 0,
+      "coupling": "resolution"
+    },
+    "vignette": {
+      "type": "number",
+      "unit": "none",
+      "range": [
+        0,
+        1
+      ],
+      "default": 0,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [],
+    "order": {
+      "before": [
+        "deliver.encode"
+      ],
+      "after": [
+        "comp.display"
+      ]
+    },
+    "requires": [
+      "合成工具先调 Handle.apply(f, 0) 定下是哪一帧，再调 Handle.object.process(rgba, size)：rgba 是 comp.display 交出的 8 位显示空间画面"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "片子的画风写了颗粒或暗角"
+    ],
+    "notWhen": [
+      "要逐镜头不同的修饰：这张卡整部片子一个设置"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "grain 和 vignette 都是 0 时画面逐字节不变；vignette 是 0.2 时画面正中不变、四角乘 0.8；同一帧的颗粒算几次都一样，不同帧不一样",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "颗粒在缩小的预览上看不出来",
+      "fix": "颗粒是逐像素的，幅度按 8 位满幅的比例给；看原尺寸"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "颗粒是逐像素的单色均匀噪声，每帧一条命名随机流；暗角按到画面中心的距离平方变暗"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "node",
+      "source": "24.13.1",
+      "gpu": "none",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:comp.finish"
+  ]
+}
