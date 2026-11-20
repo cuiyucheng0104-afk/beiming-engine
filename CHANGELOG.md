@@ -13,6 +13,7 @@
 
 ### Added
 
+- 新系统 `beiming/verify/` L1 写入即检、L2 纯函数与包围盒核对门及谓词引擎（#46）：新增 `l1.mjs`（结构/值域/单位/色彩空间即检、自动改名与数组修法生成、JS/Python 源码墙钟与无种子随机静态扫描及终渲成本粗估，全部诊断码对齐 `envelope/0.1` 与 `EN4`）、`l2.mjs`（跨会话乱序/重渲纯函数门 `runPureFunctionGate`、编号层与二维墨迹双通道抽样包围盒核对门 `verifySampledBboxes`，支持画外与完全遮挡实体状态区分）与 `predicates.mjs`（谓词 DSL 解析校验、`floor@1` 六条基线断言求值与防削弱守卫 `guardPredicates`），配套 49 项单测。
 - `beiming/` 组件骨架与单向依赖边界守卫（#40）：补齐 `api`、`jobs`、`comp`、`observe`、`verify`、`cards`、`bench`、`harvest`、`sources/blender`、`sources/legacy-page` 十个登记组件的目录与职责说明（`README.md`，直达各业务契约），与 `ownership.json` 一一对应；新增 `beiming/kernel/guard.mjs` 静态守卫（双向核对组件目录归属、阻断旧目录反向引用 `beiming/`、校验 `beiming/` 对旧目录的白名单引用、守住 `kernel/eval/` 无图形库与材质灯光字段的纯函数边界，覆盖 JS 与 Python AST/词法双模解析）及 26 项回归单测。
 - 新系统 `beiming/kernel/eval/` 求值核扩展：补全五种轨道类型的小端 `float32` 二进制编解码器、严格对齐片子描述与事件表契约的切点及前向引用事件算式展开器（含循环引用与越界检测），以及半开区间 `[0, shotFrames)` 闭式子帧采样、三维向量线性插值与单位四元数半球连续球面插值，Node 与浏览器双端同构零依赖。
 - 新系统 `beiming/cards/` 技术卡注册表与合规门禁：实现卡文件结构与判定校验、外部私有地址与裸摘要泄露拦截器、可选覆盖层读取、按主版本解析与四维排序（验证等级、关联考题均分、使用频次、单帧成本，隐藏非面向代理及弃用版本，单次最多返回 5 张且每张摘要不超过 300 token）的注册表，以及按环境键管理四级验证状态、复核身份权限守卫与三段版本及内容锁摘要校验。
