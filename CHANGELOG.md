@@ -78,6 +78,7 @@
 - 离屏出片读回默认改为 `--pix-fmt yuv420p`：x264 出片也在 GPU 侧打包有限范围 BT.709，免 FFmpeg 的 CPU 换算（此前只有显式传参或 nvenc 配合时才走）；`offscreen render`、`offscreen batch` 与 `film build --renderer offscreen` 都跟着变，`--pix-fmt rgba` 可退回。GPU 打包的色度是 2×2 盒式均值，对 swscale 亮度最大差 1、整体 PSNR 54–55 dB，所以离屏出的成片字节与此前不同。
 - 离屏出片编码器默认改为 `--encoder auto`（母版档 `MASTER_CQ = 7`）：`engine/offscreen/encode.mjs` 新增 `resolveEncoder`，本机可用 `h264_nvenc` 且画幅 ≥ 145×49 时自动走 NVENC `cq 7`（三部实片上 PSNR-Y、最差帧、SSIM、VMAF 均不低于 x264 crf14，同输入码流逐字节确定，无解码报错），无 NVENC 或小画幅时自动退回 `libx264`；`offscreen render`、`offscreen batch` 与 `film build --renderer offscreen` 同步生效，`engine/render/build.mjs` 从信封记录实际编码器与 `cq` 并计入缓存键，显式 `--encoder x264` 照用；详见 `docs/offscreen/README.md` 7.19。
 - 离屏墨线优化（`engine/offscreen/tsl/ink.js`）：边缘遍对空白天底早退、复用四邻域深度并仅对真实边缘算雾；笔画遍新增 8×8 块归约（存局部最大半宽与紧包围盒）与可分离块膨胀，空白块在 `vnoise` 前整块早退，活跃块按局部半宽与紧包围盒距离剪枝，并改为单套笔画着色器。《化鹏闪羽》4K `ink:stroke` 53.15 → 4.26 ms（快 12.5×），整帧中位 94.7 → 37.95 ms（稳态 27.0 fps）；1080p `ink:stroke` 5.83 → 0.98 ms（稳态 124.5 fps），144 帧端到端出片（配 NVENC `cq 7`）6.15 → 3.90 s；对优化前原样副本 7 组用例最大差 0，两部实片 13 帧逐字节一致；详见 `docs/offscreen/README.md` 7.19。
+- 离屏 Kuwahara 的方差按标量累加（`engine/offscreen/tsl/kuwahara.js`）：选扇区只用三通道方差之和，`S` 改成累加 `Σ w·|c|²`，每个扇区项少 2 次 FMA、累加寄存器 48 → 32 个。《化鹏闪羽》4K（KR 10、317 个格子）这一遍 18.55 → 11.80 ms（−36%），稳态整帧 38.0 → 33.8 ms；1440p −28%；1080p（KR 7）已卡在取样速率上、不变。画面对改前最大差 1 级、大差像素 0，对 GLSL 版的质量门不变；输入改 RGBA8、去掉小权重扇区项两种做法测过不采用（详见 `docs/offscreen/README.md` 7.20）。
 
 ### Removed
 

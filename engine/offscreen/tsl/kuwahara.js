@@ -19,6 +19,8 @@
 // 性能：每个采样格的权重（高斯径向 × 8 扇区 cos⁸ 角向 × 圆内判定）只取决于 (i, j, KR)，与像素无关，所以在编译期用 kuwaharaTaps(KR) 算成常量并在着色器里展开：
 //   · 圆外的格子整格省掉（不采样、不累加）；每个格子只累加权重非零的 3–4 个扇区（cos⁸ 在背向半圆为 0）；
 //   · 各扇区的总权重（分母）是常量，不再逐像素累加；exp / cos⁸ / inversesqrt 都不在着色器里算。
+//   · 方差只用三个通道之和（s² = Σ_c Var_c），所以 S 按标量累加 Σ w·|c|²，方差 = S / W − |m|²：每个扇区项少 2 次 FMA、累加寄存器 48 → 32 个；
+//     与逐通道算再相加只差浮点舍入（逐通道 max(…, 0) 改成对和取 max，各通道方差在数学上本就 ≥ 0）。KR = 10 时（4K）这一遍约快三分之一，KR ≤ 7 时已卡在取样速率上、看不出差别。
 // 画面与展开前（tests/offscreen/fixtures/kuwahara-legacy.js 的原样副本）逐像素一致（最大差 ≤ 1 级，见 tests/offscreen/kuwahara-fast.test.mjs）。
 // shortcut: 完全展开，KR=10 时约 350 个采样、着色器源码很长，首次编译比循环版慢；以后若在 WARP 等软件适配器上编译过慢，再改成按行分块的循环。
 
@@ -46,12 +48,12 @@ export function kuwaharaTaps(KR) {
 
 export function kuwahara(TSL, { input, KR, radius, q, strength, texel, far }) {
   const { taps, W } = kuwaharaTaps(KR);
-  const { Fn, float, vec2, vec3, vec4, uv, max, mix, pow, select, smoothstep, perspectiveDepthToViewZ } = TSL;
+  const { Fn, float, vec2, vec3, vec4, uv, dot, max, mix, pow, select, smoothstep, perspectiveDepthToViewZ } = TSL;
   return Fn(() => {
     const coord = uv();
     const c0 = input.sample(coord).level(0).toVar();
     const M = Array.from({ length: 8 }, () => vec3(0).toVar());
-    const S = Array.from({ length: 8 }, () => vec3(0).toVar());
+    const S = Array.from({ length: 8 }, () => float(0).toVar());
     const prot = float(0).toVar();
     let rad = radius;
     if (far) {   // 底板（远处、清屏处）用更大的笔触，3D 主体保持小笔触
@@ -62,15 +64,14 @@ export function kuwahara(TSL, { input, KR, radius, q, strength, texel, far }) {
     const step = rad.div(KR).mul(texel).toVar();   // 一格的 uv 步长
     for (const t of taps) {
       const cs = input.sample(coord.add(step.mul(vec2(t.i, t.j)))).level(0).toVar();
-      const c = cs.rgb, c2 = c.mul(c).toVar();
+      const c = cs.rgb, c2 = dot(c, c).toVar();   // |c|²：方差只要三通道之和
       prot.assign(max(prot, cs.a.mul(t.prot)));
       for (let k = 0; k < 8; k++) if (t.w[k] > 0) { M[k].addAssign(c.mul(t.w[k])); S[k].addAssign(c2.mul(t.w[k])); }
     }
     const acc = vec3(0).toVar(), as = float(0).toVar();
     for (let k = 0; k < 8; k++) {
       const m = M[k].div(W[k]);
-      const v = max(S[k].div(W[k]).sub(m.mul(m)), 0);
-      const s2 = v.x.add(v.y).add(v.z).mul(65025);   // 方差按 0..255 计，和论文的尺度一致
+      const s2 = max(S[k].div(W[k]).sub(dot(m, m)), 0).mul(65025);   // 三通道方差之和，按 0..255 计，和论文的尺度一致
       const a = float(1).div(float(1).add(pow(s2, q.mul(0.5))));
       acc.addAssign(a.mul(m)); as.addAssign(a);
     }
