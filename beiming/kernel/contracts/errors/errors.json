@@ -120,7 +120,7 @@
     },
     {
       "code": "env.ffmpeg-missing",
-      "meaning": "无法启动 FFmpeg 或 ffprobe"
+      "meaning": "找不到 FFmpeg 可执行文件"
     },
     {
       "code": "env.lock-required",
@@ -128,11 +128,11 @@
     },
     {
       "code": "failure.ffmpeg",
-      "meaning": "媒体工具执行失败或缺少测量汇总"
+      "meaning": "FFmpeg 进程执行失败"
     },
     {
       "code": "timeout.ffmpeg",
-      "meaning": "媒体工具执行超时"
+      "meaning": "FFmpeg 进程超过调用时限"
     },
     {
       "code": "usage.bad-argument",

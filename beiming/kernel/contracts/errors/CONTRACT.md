@@ -93,6 +93,7 @@
 | `busy.rev-conflict` | 写入带的修订号和服务器当前的修订号不同 | D6、5.6 |
 | `contract.bad-path` | 写入路径不合片子描述契约（D）5.4；哪一段报这个码、哪一段报 `contract.unknown-key`，见 5.6 第 4 步 | D5、5.6 |
 | `contract.bad-value` | 写进去之后片子描述不合片子描述契约：过不了结构定义，或违反了没有专用码的条文；写进了没定义的键报 `contract.unknown-key`，不报这个码 | 5.6 |
+| `contract.delivery-mismatch` | 交付核对或文件摘要不符 | 合成交付 |
 | `contract.immutable-key` | 改了创建之后不得改的键 | D15、5.6 |
 | `contract.output-conflict` | 开着原生运动模糊时要了和它冲突的输出 | F5 |
 | `contract.order-cycle` | 卡的先后要求排不出次序：成环，或提到了镜头里没有的卡 | CR 契约 5.2（CR9 不比码） |
@@ -108,11 +109,10 @@
 | `contract.unsupported-option` | `RenderOpts` 给了帧源交不出的每像素采样数或缩放 | F18 |
 | `contract.unsupported-output` | 要了帧源没声明过的输出 | F3 |
 | `contract.unsupported-query` | 问了帧源没声明过的场景查询种类 | F8 |
+| `env.ffmpeg-missing` | 找不到 FFmpeg 可执行文件 | 感知组件联系表与切点条带，B14 变更单 |
 | `env.lock-required` | 没有锁文件，镜头却要用只有锁文件里才有的东西 | F14 |
-| `contract.delivery-mismatch` | 交付核对或文件摘要不符 | 合成交付 |
-| `env.ffmpeg-missing` | 无法启动 FFmpeg 或 ffprobe | 合成交付 |
-| `failure.ffmpeg` | 媒体工具执行失败或缺少测量汇总 | 合成交付 |
-| `timeout.ffmpeg` | 媒体工具执行超时 | 合成交付 |
+| `failure.ffmpeg` | FFmpeg 进程执行失败 | 感知组件联系表与切点条带，B14 变更单 |
+| `timeout.ffmpeg` | FFmpeg 进程超过调用时限 | 感知组件联系表与切点条带，B14 变更单 |
 | `usage.bad-argument` | 调用的参数出了值域 | F23、5.6 第 1 步和第 3 步 |
 
 ### 5.4 新错误码怎么加
@@ -195,3 +195,4 @@
 | 2026-11-20 | 5.6 开头和第 6 步 | 写入逐个处理、不可分；例外的键整个值不判（嵌套、数都不算）；例外那句括注不再错引 PA 5.1；登记表外的帧源写入时不按登记表判 |
 | 2026-11-20 | 5.6 开头和第 6 步 | 开头写明存着的片子本身合「JSON 文本」「重复的键」且不含读出来是无穷的数；两处 `params` 子树里的嵌套照算进 128 层上限、不受「不判值」豁免 |
 | 2026-11-20 | 5.6 第 4 步 | 按标识或实例名寻址的那一段本身（除那五个数组后面的 ASCII 十进制数字串算按下标之外）和映射键一样这一步都不判，有没有这一项、写法合不合 D 5.1 归第 5、6 步，和 D5「怎么查」及判定函数一致 |
+| 2026-11-21 | 5.3、`errors.json` | 按 B14 授权登记 `env.ffmpeg-missing`、`timeout.ffmpeg`、`failure.ffmpeg`，供感知组件返回符合 EN4 的失败信封 |
