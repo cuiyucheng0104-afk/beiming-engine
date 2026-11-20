@@ -2909,7 +2909,7 @@
      "scene": "probe-moving-cube",
      "what": "f0000s00.exr 两遍不同：颜色层 PSNR（截到 0 到 1）",
      "expected": "逐位相同",
-     "got": Infinity,
+     "got": "无穷大（截到 0 到 1 后差为 0）",
      "diff": 81,
      "unit": "dB（diff 为不同的数的个数）"
     },

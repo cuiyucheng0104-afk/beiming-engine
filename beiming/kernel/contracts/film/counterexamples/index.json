@@ -116,14 +116,14 @@
     "violates": [
       "D5"
     ],
-    "why": "诊断的 at 是 predicates/basement，predicates 下面没有 basement 这个键"
+    "why": "explain 的路径的 at 是 predicates/basement，predicates 下面没有 basement 这个键（explain 问的是一个参数，路径必须指到契约定义过的键；诊断、修法、补丁的路径指到没定义的键本身是允许的）"
   },
   {
     "file": "D5-path-shot-unknown-key.json",
     "violates": [
       "D5"
     ],
-    "why": "诊断的 at 是 shots/s01/colour，镜头那一层下面没有 colour 这个键"
+    "why": "explain 的路径的 at 是 shots/s01/colour，镜头那一层下面没有 colour 这个键（explain 问的是一个参数，路径必须指到契约定义过的键；诊断、修法、补丁的路径指到没定义的键本身是允许的）"
   },
   {
     "file": "D6-stale-write-accepted.json",
@@ -240,6 +240,13 @@
     "why": "镜头 s01 的 renderer 的 mode 是 build-script，renderer 里没有 entry"
   },
   {
+    "file": "D12-renderer-under-ext-shot-without-entry.json",
+    "violates": [
+      "D12"
+    ],
+    "why": "镜头 s01 顶层的 source 是 ext.shader-park，renderer.source 不是 ext，renderer 的 mode 是 build-script 却没有 entry：D12 对 renderer 只看 renderer.source"
+  },
+  {
     "file": "D12-renderer-cards-data-with-entry.json",
     "violates": [
       "D12"
@@ -350,5 +357,12 @@
       "D20"
     ],
     "why": "predicates.extra 的一项里双引号没闭合，后面的 ; 在双引号括起来的文字以外"
+  },
+  {
+    "file": "D5-index-write-accepted.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "按下标 shots/0 写的一次写入被接受了；生效写入里标识在不在不判，按下标寻址照样要判"
   }
 ]

@@ -256,7 +256,7 @@
         },
         {
           "layer": "film",
-          "from": "rev 6，自动应用 pred.inside_frame 的修法",
+          "from": "rev 6，调用方把 pred.inside_frame 的修法写进补丁",
           "value": 0.82
         }
       ],

@@ -52,7 +52,7 @@
     },
     {
       "code": "contract.bad-value",
-      "meaning": "写进去之后对象过不了结构定义：值的类型不对、出了值域、缺了必填字段；写进了没定义的键报 contract.unknown-key"
+      "meaning": "写进去之后片子描述不合片子描述契约：过不了结构定义，或违反了没有专用码的条文；写进了没定义的键报 contract.unknown-key"
     },
     {
       "code": "contract.immutable-key",

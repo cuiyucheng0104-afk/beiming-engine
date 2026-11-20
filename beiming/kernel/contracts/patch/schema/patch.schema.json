@@ -16,7 +16,8 @@
     },
     "rev": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 9007199254740991
     },
     "ops": {
       "type": "array",
@@ -39,7 +40,7 @@
           },
           "path": {
             "type": "string",
-            "pattern": "^[^/#\\s]+(/[^/#\\s]+)*$"
+            "description": "写法见片子描述契约 5.4；是字符串就过结构定义，写得对不对（含空串）由错误码表契约 5.6 第 4 步判"
           },
           "value": {},
           "to": {

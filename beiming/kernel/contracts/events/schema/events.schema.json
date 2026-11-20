@@ -28,7 +28,7 @@
           "kind": { "enum": ["named", "cut", "arrive", "burst", "shake"] },
           "from": { "enum": ["film", "tracks"] },
           "entity": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$" },
-          "audio": { "type": "string", "pattern": "^[a-z0-9-]+(\\.[a-z0-9-]+)*$" },
+          "audio": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(\\.[a-z0-9][a-z0-9-]*)*$" },
           "sync": { "enum": ["onset", "pcenter"] }
         }
       }

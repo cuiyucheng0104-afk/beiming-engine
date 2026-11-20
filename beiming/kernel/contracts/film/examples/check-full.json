@@ -520,6 +520,10 @@
     {
       "use": "diagnostic.at",
       "path": "seed"
+    },
+    {
+      "use": "diagnostic.at",
+      "path": "style/finish/grian"
     }
   ],
   "writes": [
@@ -569,6 +573,14 @@
       "serverRev": 6,
       "outcome": "rejected",
       "code": "contract.bad-path"
+    },
+    {
+      "by": "agent",
+      "path": "style/finish/grian",
+      "op": "rename",
+      "rev": 5,
+      "serverRev": 5,
+      "outcome": "accepted"
     }
   ],
   "explains": [
@@ -593,7 +605,7 @@
         },
         {
           "layer": "film",
-          "from": "rev 6，自动应用 pred.inside_frame 的修法",
+          "from": "rev 6，调用方把 pred.inside_frame 的修法写进补丁",
           "value": 0.82
         }
       ],

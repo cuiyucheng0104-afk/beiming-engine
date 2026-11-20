@@ -19,11 +19,13 @@ function shapeProblems(op, where) {
 
 const opsShape = (patch, prefix) => (patch?.ops ?? []).flatMap((op, i) => shapeProblems(op, `${prefix}第 ${i + 1} 个操作`));
 
-/** 5.1：这个数组按什么标识寻址；不是按标识寻址的返回 null。keys 是走到它的段，数组条目那段记成 * */
+/** 5.1：这个数组按什么标识寻址；不是按标识寻址的返回 null。keys 是走到它的段：对象的键记原文，按标识寻址到的条目记 ID */
+const ID = Symbol('条目'); // 不是字符串，和名叫 * 的键分得开
 function idFieldOf(keys) {
-  const k = keys.join('/');
-  if (['shots', 'events', 'overlays', 'transitions', 'audio/narration'].includes(k)) return 'id';
-  if (k === 'shots/*/cards') return 'as';
+  const [a, b, c] = keys;
+  if (keys.length === 1 && ['shots', 'events', 'overlays', 'transitions'].includes(a)) return 'id';
+  if (keys.length === 2 && a === 'audio' && b === 'narration') return 'id';
+  if (keys.length === 3 && a === 'shots' && b === ID && c === 'cards') return 'as';
   return null;
 }
 
@@ -38,13 +40,19 @@ function walk(doc, segs) {
       keys.push(s);
     } else if (Array.isArray(cur) && idFieldOf(keys)) {
       const f = idFieldOf(keys);
-      const hit = cur.find((e) => isObj(e) && e[f] === s);
-      if (!hit) return null;
-      cur = hit;
-      keys.push('*');
+      const hits = cur.filter((e) => isObj(e) && e[f] === s);
+      if (hits.length !== 1) return null; // 5.1：对上不止一项也落不到唯一的值上
+      cur = hits[0];
+      keys.push(ID);
     } else return null;
   }
   return { value: cur, keys };
+}
+
+/** 按标识找条目的下标：正好一项才算找到（5.1），否则 -1 */
+function soleIndex(arr, f, id) {
+  const idx = arr.flatMap((e, i) => (isObj(e) && e[f] === id ? [i] : []));
+  return idx.length === 1 ? idx[0] : -1;
 }
 
 /** 5.2：把一个操作作用到 doc 上（就地改）；不可作用返回 false */
@@ -61,7 +69,7 @@ function applyOp(doc, op) {
         return true;
       }
       if (parentIdField) {
-        const i = parent.value.findIndex((e) => isObj(e) && e[parentIdField] === last);
+        const i = soleIndex(parent.value, parentIdField, last);
         if (i < 0 || !isObj(op.value) || op.value[parentIdField] !== last) return false;
         parent.value[i] = structuredClone(op.value);
         return true;
@@ -75,7 +83,7 @@ function applyOp(doc, op) {
         return true;
       }
       if (parentIdField) {
-        const i = parent.value.findIndex((e) => isObj(e) && e[parentIdField] === last);
+        const i = soleIndex(parent.value, parentIdField, last);
         if (i < 0) return false;
         parent.value.splice(i, 1);
         return true;
@@ -91,7 +99,7 @@ function applyOp(doc, op) {
     case 'add': {
       const target = walk(doc, segs);
       const f = target && Array.isArray(target.value) ? idFieldOf(target.keys) : null;
-      if (!f || !isObj(op.value) || !has(op.value, f) || target.value.some((e) => isObj(e) && e[f] === op.value[f])) return false;
+      if (!f || !isObj(op.value) || !has(op.value, f) || (typeof op.value[f] === 'string' && target.value.some((e) => isObj(e) && e[f] === op.value[f]))) return false;
       target.value.push(structuredClone(op.value));
       return true;
     }

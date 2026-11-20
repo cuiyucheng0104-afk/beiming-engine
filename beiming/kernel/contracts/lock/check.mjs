@@ -19,8 +19,9 @@ if (derivedSeed(7800, 's01') !== 2013376959) throw new Error('镜头种子的派
 const filmSeedOf = (id) => createHash('sha256').update(String(id), 'utf8').digest().readUInt32BE(0);
 if (filmSeedOf('toon-demo') !== 899845905) throw new Error('全片种子的派生算法和 5.7 的算例对不上');
 
-const major = (v) => Number(String(v).split('.')[0]);
-const refMajor = (ref) => Number(String(ref).slice(String(ref).lastIndexOf('@') + 1));
+const big = (s) => (/^[0-9]+$/.test(s) ? BigInt(s) : NaN); // 版本号按精确整数比（写法约定「数值」）
+const major = (v) => big(String(v).split('.')[0]);
+const refMajor = (ref) => big(String(ref).slice(String(ref).lastIndexOf('@') + 1));
 const at = (obj, path) => path.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), obj);
 const has = (obj, k) => obj != null && Object.hasOwn(obj, k);
 const sameSet = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
@@ -90,7 +91,7 @@ export const checks = {
   LK8: onFilm((lock, film) => (film.predicates?.base ?? []).flatMap((ref) => {
     const [name, m] = ref.replace(/^template:/, '').split('@');
     if (!has(lock.templates, name)) return [`predicates.base 引用了 ${ref}，templates 里没有 ${name}`];
-    return major(lock.templates[name]) === Number(m) ? [] : [`predicates.base 引用了 ${ref}，templates.${name} 锁的是 ${lock.templates[name]}`];
+    return major(lock.templates[name]) === big(m) ? [] : [`predicates.base 引用了 ${ref}，templates.${name} 锁的是 ${lock.templates[name]}`];
   })),
 
   LK9: onFilm((lock, film) => {
@@ -106,7 +107,7 @@ export const checks = {
       if (!c) out.push('片子描述有叠加层，cards 里没有 two-d.overlay');
       else {
         if (c.from !== 'overlays') out.push(`cards.two-d.overlay 的 from 是 ${c.from}，应该是 overlays`);
-        if (major(c.version) !== 1) out.push(`cards.two-d.overlay 锁的是 ${c.version}，第一段必须是 1`);
+        if (major(c.version) !== 1n) out.push(`cards.two-d.overlay 锁的是 ${c.version}，第一段必须是 1`);
       }
     }
     for (const [name, c] of cardsOf(lock)) {

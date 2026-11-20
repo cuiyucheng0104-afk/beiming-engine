@@ -4,8 +4,8 @@
   "exitCode": 4,
   "error": {
     "code": "contract.unknown-key",
-    "message": "片子描述里有 1 个没定义的键",
-    "hint": "带 applyFixes=machine 重交一次"
+    "message": "补丁写到了片子描述里没定义的键",
+    "hint": "把补丁里的键名改成最接近的那个再写一次"
   },
   "outputs": [],
   "data": {},
@@ -14,17 +14,11 @@
       "code": "contract.unknown-key",
       "layer": "L1",
       "severity": "error",
-      "at": "shots/s01/cards/fit/params/margn",
-      "message": "实例 fit（camera.fit@1）没有参数 margn",
-      "expected": "margin: 0.7 到 0.98",
+      "at": "style/finish/grian",
+      "message": "style.finish 没有 grian 这个键",
+      "expected": "style.finish 的键：card、grain、vignette",
       "atFrames": [],
-      "hint": "最接近的键是 margin",
-      "fix": {
-        "op": "rename",
-        "path": "shots/s01/cards/fit/params/margn",
-        "to": "margin",
-        "applicability": "machine"
-      }
+      "hint": "最接近的键是 grain"
     }
   ],
   "cost": {
@@ -34,8 +28,8 @@
   },
   "next": [
     {
-      "verb": "PUT /v1/films/f_8k2/film?applyFixes=machine",
-      "why": "有 1 条可以机器应用的修法"
+      "verb": "POST /v1/films/f_8k2/patch",
+      "why": "照 hint 改好补丁再写一次"
     }
   ]
 }

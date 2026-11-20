@@ -5,7 +5,7 @@
   "error": {
     "code": "busy.rev-conflict",
     "message": "修订号对不上",
-    "hint": "带 applyFixes=machine 重交一次"
+    "hint": "把修法放进补丁的 ops 重交一次"
   },
   "outputs": [],
   "data": {},
@@ -17,8 +17,8 @@
   },
   "next": [
     {
-      "verb": "PUT /v1/films/f_8k2/film?applyFixes=machine",
-      "why": "有 1 条可以机器应用的修法"
+      "verb": "POST /v1/films/f_8k2/patch",
+      "why": "把 1 条机器可应用的修法写进补丁再写一次"
     }
   ]
 }

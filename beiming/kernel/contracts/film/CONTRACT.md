@@ -103,14 +103,14 @@
 | `in` | 整数 | 帧 | 是 | ≥ 0 | 镜头区间的起点，全片帧号 |
 | `out` | 整数 | 帧 | 是 | ≥ 1 | 镜头区间的终点，全片帧号，不含 |
 | `source` | 字符串 | 无 | 是 | 帧源名，见 F 契约 3.1 | 哪个帧源渲。写了 `renderer` 时，`source`、`host`、`mode`、`entry` 这一套留作对照，不参与这次出片 |
-| `host` | 字符串 | 无 | 是 | 这个帧源的能力声明 `hosts` 里的一项，登记表见 F 契约 3.4；`three`、`core` 两个帧源下的取值按倾向定，合作者不同意时再改（见第 6 节） | 哪个宿主 |
+| `host` | 字符串 | 无 | 是 | `source` 在帧源登记表（F 契约 3.9）里时，是那一条 `hosts` 里的一项，写入时照登记表判；登记表里没有的帧源（`legacy-page`、`ext.<名字>`）只要求是不空的字符串（D11 也不判它们）；帧源真的能力声明（F 契约 3.4）由 `open` 判（F16）；`three`、`core` 两个帧源下的取值按倾向定，合作者不同意时再改（见第 6 节） | 哪个宿主 |
 | `mode` | 字符串 | 无 | 是 | `cards-data`、`build-script`、`native-code` | 作者模式。三个词各是什么，见 F 契约 3.4 |
 | `entry` | 字符串 | 无 | 见 D12、D17 | 相对路径，写法照通用口径 | 入口文件。`build-script` 和 `native-code` 必填，`cards-data` 不得出现；`source` 是 `ext.<名字>` 的镜头不得出现。片子描述里只有这一处可以写文件路径。路径相对片子描述所在的目录，这个目录由 `env.filmDir` 交给帧源（F 契约 3.2） |
 | `colorRef` | 字符串 | 无 | 是 | `scene`、`display` | 场景参考镜头，还是显示参考镜头 |
 | `seed` | 整数 | 无 | 否 | 见 T 契约 3.3 | 这个镜头的镜头种子。不给就从全片种子派生（全片种子是片子描述顶层的 `seed`，没写才由片子 `id` 派生，算法都见 LK 契约 5.7），结果记在锁文件里：服务器的正式锁和本机锁算出来的一样。完全没有锁文件时必须写（F 契约 5.11） |
 | `assets` | 对象 | 无 | 否 | `{ 别名: 资产引用 }`，写法见 5.5 | 这个镜头用的资产 |
 | `cards` | 数组 | 无 | 否 | 每项见下表 | 这个镜头的卡实例。数组顺序就是装载的书写顺序，见 5.6 |
-| `params` | 对象 | 无 | 否 | 自由键 | 交给入口文件的参数，就是 `ctx.params`。`source` 是 `ext.<名字>` 的镜头必须带 `piece`，值是资产别名，说重放哪个作品 |
+| `params` | 对象 | 无 | 否 | 自由键；键照自由键的写法（5.1），值是任意 JSON 值，可以是 `null`；错误码表契约 5.6 第 6 步判这一层键的写法、D16 和 D17 管的 `piece`、整份片子嵌套层数上限以及没有读出来是无穷的数，不按入口文件判各参数的值 | 交给入口文件的参数，就是 `ctx.params`。`source` 是 `ext.<名字>` 的镜头必须带 `piece`，值是资产别名，说重放哪个作品 |
 | `roles` | 对象 | 无 | 否 | 见下表 | 角色。模板要不要它，由模板说 |
 | `shutter` | 对象 | 无 | 否 | 见下表 | 快门 |
 | `tiers` | 对象 | 无 | 否 | 见下表 | 两个档位各自的采样数和缩放 |
@@ -124,7 +124,7 @@
 |---|---|---|---|---|
 | `as` | 字符串 | 是 | 实体名里一段的写法（S 契约 5.2）：ASCII 字母、数字、下划线，不空；不得是 `tracks`、`host` | 实例名。在一个镜头里不得重复（D18）。卡带进来的实体怎么用它起名，见 CR 契约 |
 | `use` | 字符串 | 是 | 卡的引用 `<卡名>@<主版本>`，写法见 5.5 | 用哪张卡 |
-| `params` | 对象 | 是 | 自由键；可以是空对象 | 这个实例的参数。参数表以卡文件为准 |
+| `params` | 对象 | 是 | 自由键；可以是空对象；键照自由键的写法（5.1），值是任意 JSON 值，可以是 `null`；错误码表契约 5.6 第 6 步判这一层键的写法、整份片子嵌套层数上限以及没有读出来是无穷的数，不按卡文件判各参数的值 | 这个实例的参数。参数表以卡文件为准 |
 
 `roles`：
 
@@ -170,9 +170,9 @@
 | 字段 | 类型 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|
 | `source` | 字符串 | 是 | 帧源名，见 F 契约 3.1 | 实际出帧的帧源 |
-| `host` | 字符串 | 是 | 同 `shots[].host` | 它的宿主 |
+| `host` | 字符串 | 是 | 同 `shots[].host`，按 `renderer.source` 判 | 它的宿主 |
 | `mode` | 字符串 | 是 | 同 `shots[].mode` | 它的作者模式 |
-| `entry` | 字符串 | 同 `shots[].entry`，按 `renderer.mode` 判 | 相对路径 | 它的入口文件 |
+| `entry` | 字符串 | 同 `shots[].entry`，按 `renderer.source`、`renderer.mode` 判（D12） | 相对路径 | 它的入口文件。`renderer.source` 是 `ext.<名字>` 时，`renderer` 那一套 D12、D17 都不判：D17 只管镜头顶层 |
 
 `renderer` 出现时，这次出片用的是它这一套，镜头顶层的 `source`、`host`、`mode`、`entry` 留作对照。`open(input, env)` 收到的镜头输入里，`shot` 就是片子描述里这个镜头的条目，原样，不改写：顶层那一套和 `renderer` 对象都照旧在里面，出帧的那一对自己读 `renderer` 对象，照它那一套做。镜头输入由上层从片子描述算出来，见 F 契约 3.2。
 
@@ -197,7 +197,7 @@
 | `id` | 字符串 | 无 | 是 | 见 5.1 | 事件的标识 |
 | `frame` | 整数或字符串 | 帧 | 是 | 整数时 ≥ 0；字符串时是时刻算式，见 5.3 | 事件所在的全片帧号 |
 | `shot` | 字符串 | 无 | 否 | `shots` 里的 `id` | 这个事件属于哪个镜头 |
-| `audio` | 字符串 | 无 | 否 | 点分小写 | 这个时刻响什么，音效库里的名字 |
+| `audio` | 字符串 | 无 | 否 | 一段或多段，用 `.` 连接；每段是小写字母、数字、连字符，以小写字母或数字开头（正则 `^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)*$`） | 这个时刻响什么，音效库里的名字 |
 | `sync` | 字符串 | 无 | 否 | `onset`、`pcenter` | 声音怎么对帧。`onset` 是起音对上事件帧；`pcenter` 是听感重心对上事件帧，起音会提前。不出现等于 `onset` |
 
 `events` 的书写顺序不要求；展开出来的事件表必须按 EV1 排序，见 EV 契约。
@@ -208,7 +208,7 @@
 |---|---|---|---|---|---|
 | `id` | 字符串 | 无 | 是 | 小写字母、数字，以小写字母开头；不得是 `tracks`、`host` | 叠加层的标识。不得带连字符、不得是 `tracks`、`host`：它要当卡的实例名（CR 契约第 2 节「实例名」） |
 | `shot` | 字符串 | 无 | 是 | `shots` 里的 `id` | 贴在哪个镜头上 |
-| `anchor` | 字符串 | 无 | 是 | `实体名#锚点名`，或 `screen` | 跟着哪个锚点走。`screen` 是贴在屏幕固定位置 |
+| `anchor` | 字符串 | 无 | 是 | `screen`，或 `实体名#锚点名`：实体名是一段或多段用 `.` 连接的字母、数字、下划线，锚点名是一段字母、数字、下划线（正则 `^(screen\|[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*#[A-Za-z0-9_]+)$`） | 跟着哪个锚点走。`screen` 是贴在屏幕固定位置 |
 | `pos` | 数组 | 无 | `anchor` 是 `screen` 时必填，否则不得出现 | `[u, v]`，两个数都在 `[0, 1]` | 屏幕上的位置。归一化坐标，原点在左上 |
 | `text` | 字符串 | 无 | 是 | 不空 | 文字 |
 | `in` | 整数或字符串 | 帧 | 是 | 同 `events[].frame` | 出现的全片帧号 |
@@ -231,7 +231,7 @@
 
 | 字段 | 类型 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|
-| `scene` | 字符串 | 是 | 查找表名：小写字母、数字、连字符 | 场景参考镜头用的显示变换 |
+| `scene` | 字符串 | 是 | 查找表名：小写字母、数字、连字符，以小写字母或数字开头 | 场景参考镜头用的显示变换 |
 | `display` | 字符串 | 是 | `srgb` | 显示参考镜头用的显示变换 |
 | `card` | 字符串 | 否 | 卡的引用，见 3.6 | 指定绑的卡的主版本 |
 
@@ -272,14 +272,14 @@
 
 | 字段 | 类型 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|
-| `base` | 数组 | 是 | 字符串，不重复；每项是 `floor@<主版本>` 或 `template:<模板名>@<主版本>`，模板名的写法见 PR 契约 3.4 | 对最低谓词和模板的引用。只读：内容由服务器展开，见 D7 |
+| `base` | 数组 | 是 | 字符串，不重复；每项是 `floor@<主版本>` 或 `template:<模板名>@<主版本>`，模板名的写法见 PR 契约 3.4，主版本是不带前导零的十进制正整数 | 对最低谓词和模板的引用。只读：内容由服务器展开，见 D7 |
 | `extra` | 数组 | 否 | 字符串，不空，不得含 `;`，双引号括起来的文字里的不算（D20，PR 契约 5.5） | 追加的断言，用谓词小语言写，每一项只写一条断言 |
 
 `delivery`：
 
 | 字段 | 类型 | 必填 | 值域 | 说明 |
 |---|---|---|---|---|
-| `master` | 字符串 | 是 | 编码预设的名字：小写字母、数字、连字符 | 母版用哪个编码预设 |
+| `master` | 字符串 | 是 | 编码预设的名字：小写字母、数字、连字符，以小写字母或数字开头 | 母版用哪个编码预设 |
 | `web` | 布尔 | 否 | | 出不出网页用的版本。不出现等于不出 |
 | `contact` | 布尔 | 否 | | 出不出缩略总览图。不出现等于不出 |
 | `layers` | 数组 | 否 | 通道名，见 PS 契约 3.1（含 `lightgroup:<名>`），不重复 | 终渲要落盘的通道 |
@@ -358,12 +358,13 @@
 | `use` | 字符串 | 是 | `diagnostic.at`、`fix.path`、`explain.path`、`patch.path` | `量的` | 这条路径出现在哪里：诊断的 `at`、修法的 `path`、`explain` 的 `path`、补丁的路径 |
 | `path` | 字符串 | 是 | 不空 | `量的` | 路径的原文，从那一处读回来，不改写 |
 
-`writes[]`：一次写入请求和服务器的处理。只记片子创建之后的写入，创建片子的那一次不记进来。测试工具站在服务器外面：它自己发的写入记一项；它没发、前后两次读回的片子描述却不一样的改动，是服务器自己发起的，每个变了的值也记一项。
+`writes[]`：一次写入请求和服务器的处理。只记片子创建之后的写入，创建片子的那一次不记进来。只有一个操作的写入记一项；多个操作的补丁，修订号对得上的记进补丁核对记录（PA 契约），对不上的在这里记一项，`path` 记第一个操作的路径（只有 D6 判它，D7、D15 跳过修订号对不上的项）。测试工具站在服务器外面：它自己发的写入记一项，这些写入都是合法的 JSON 文本、不超过上限、没有重复的键（错误码表契约 5.6 第 1 步排在修订号之前的几种毛病，D6、D7、D15 不对它们判）；它没发、前后两次读回的片子描述却不一样的改动，是服务器自己发起的，每个变了的值也记一项。
 
 | 字段 | 类型 | 必填 | 值域 | 来历 | 说明 |
 |---|---|---|---|---|---|
 | `by` | 字符串 | 是 | `agent`、`server` | `量的` | 谁发起的。测试工具自己发的写入记 `agent`；测试工具没发、它前后两次读回的片子描述比出来的改动记 `server` |
 | `path` | 字符串 | 是 | 不空 | `请求` | 写的是哪里，路径的原文。`by` 是 `agent` 的项是测试工具发出去的路径；`by` 是 `server` 的项是读回来比出不一样的那个值的路径，这种项的这一格是量出来的 |
+| `op` | 字符串 | 否 | `set`、`add`、`remove`、`rename` | `请求` | 这次写入的操作（PA 契约 3.2）。`by` 是 `agent` 的项是测试工具发出去的；服务器自己发起的改动不记。`rename`、`remove` 的路径最后一段可以是存着的、没定义过的键（错误码表契约 5.6 第 4 步），D5 对它不判这一段；没记 `op` 的项，D5 也不判这一段（只放宽，不判红） |
 | `rev` | 整数 | 是 | ≥ 0 | `请求` | 写入带上的修订号。`by` 是 `agent` 的项是测试工具发出去的那个；`by` 是 `server` 的项写改动之前读到的修订号，这种项的这一格是量出来的 |
 | `serverRev` | 整数 | 是 | ≥ 0 | `量的` | 服务器收到写入时片子描述的修订号，测试工具在这次写入之前读一次得到 |
 | `outcome` | 字符串 | 是 | `accepted`、`rejected` | `量的` | 生效了，还是被拒绝：写入之后把片子描述读回来比 |
@@ -378,19 +379,19 @@
 | D2 | 时刻算式和指向镜头的字段只能引用已定义的镜头、切点和事件，事件之间的引用不得成环。 | `events[].shot`、`overlays[].shot`、`style.colorScript` 的键都必须是 `shots` 里的 `id`；`events[].frame`、`overlays[].in`、`overlays[].out`、`audio.narration[].at` 是算式时，`cut(N)` 的 N 必须是切点，`event(x)` 的 x 必须是 `events` 里的 `id`，并且照 5.3 展开时不回到自己 | `D2-event-refers-undefined.json`、`D2-event-cycle.json`、`D2-shot-undefined.json`、`D2-cut-not-a-cut.json` |
 | D3 | 镜头引用的每张卡、片子描述里的每个资产都必须能在锁文件里找到版本和哈希。 | `shots[].cards` 每一项的 `use`：锁文件 `cards` 里有这个卡名，它的 `version` 的第一段等于引用里的主版本。`shots[].assets` 和全片 `assets` 的每个值：是锁文件 `assets` 的键 | `D3-card-missing-in-lock.json`、`D3-card-major-mismatch.json`、`D3-shot-asset-missing-in-lock.json`、`D3-film-asset-missing-in-lock.json` |
 | D4 | 片子的正式锁必须由服务器生成，同一个修订号的正式锁必须逐位相同。 | `locks` 每项的 `writer` 必须是 `server`；`rev` 相同的项 `digest` 必须逐位相同 | `D4-lock-changed-same-rev.json`、`D4-lock-written-by-agent.json` |
-| D5 | 路径必须照 5.4 的唯一写法写，数组里的项必须按 `id` 或实例名寻址，不得按下标；路径不合这条的写入必须拒绝，错误码见 5.4。 | `paths[].path`、`explains[].path` 每一条，和 `writes` 里 `outcome` 不是 `rejected` 的每一项的 `path`：符合 5.4 的文法；每一段都是上一段那个对象里契约定义过的键（3.1 到 3.5 各表的字段名），按 `id`、实例名寻址的一段和自由键的一段除外，自由键往下不再判；不往叶子（标量和 5.4 列的不能寻址到项的数组）下面再走；`shots`、`transitions`、`events`、`overlays`、`audio/narration` 后面那一段必须是 `film` 里对应数组某一项的 `id`；`shots/<镜头的 id>/cards` 后面那一段必须是那个镜头 `cards` 里某一项的 `as`。`writes` 的路径是测试工具发出去的，被拒绝了就不算违反；错误码现在不判，见第 6 节 | `D5-path-by-index.json`、`D5-path-into-base-array.json`、`D5-path-unknown-key.json`、`D5-path-shot-unknown-key.json` |
+| D5 | 路径必须照 5.4 的唯一写法写，数组里的项必须按 `id` 或实例名寻址，不得按下标；路径不合这条的写入必须拒绝，错误码见 5.4。改名、删除存着的没定义的键的写入不因最后一段没定义而拒（ER 契约 5.6 第 4 步）。 | `paths[].path`、`explains[].path` 每一条，和 `writes` 里 `outcome` 不是 `rejected` 的每一项的 `path`：符合 5.4 的文法；`use` 是 `diagnostic.at`、`fix.path`、`patch.path` 的，最后一段不判是不是定义过的键（报 `contract.unknown-key` 的诊断 `at` 和改名修法的 `path` 就是那个键，ER 契约 5.5）；`writes` 里 `op` 是 `rename`、`remove` 或者没记 `op` 的项，路径最后一段也不判是不是定义过的键；`writes` 的路径和 `use` 是 `diagnostic.at`、`fix.path`、`patch.path` 的路径，不判按标识寻址的那一段在不在（记录里只有一个时刻的片子描述，它们又可以指到这次写入新加的条目；在不在归 ER 契约 5.6 第 5 步），按下标寻址照样判；每一段都是上一段那个对象里契约定义过的键（3.1 到 3.5 各表的字段名），按 `id`、实例名寻址的一段和映射键那一段（`style.tokens` 的名字，全片 `assets`、`shots[].assets` 的别名，`style.colorScript` 的键）本身除外，映射键的值照结构往下判；两处 `params` 往下不再判；不往叶子（标量和 5.4 列的不能寻址到项的数组）下面再走；`shots`、`transitions`、`events`、`overlays`、`audio/narration` 后面那一段必须是 `film` 里对应数组某一项的 `id`；`shots/<镜头的 id>/cards` 后面那一段必须是那个镜头 `cards` 里某一项的 `as`。`writes` 的路径是测试工具发出去的，被拒绝了就不算违反；错误码现在不判，见第 6 节 | `D5-path-by-index.json`、`D5-path-into-base-array.json`、`D5-path-unknown-key.json`、`D5-path-shot-unknown-key.json`、`D5-index-write-accepted.json` |
 | D6 | 每次写入必须带上读到的修订号，它和服务器当前的修订号不同时必须拒绝，错误码是 `busy.rev-conflict`，并交回最新的修订号。 | `writes` 每一项：`rev` 不等于 `serverRev` 时，`outcome` 必须是 `rejected`，`code` 必须是 `busy.rev-conflict`，`latestRev` 必须出现并等于 `serverRev` | `D6-stale-write-accepted.json` |
 | D7 | `predicates.base` 只有服务器能写，别人的写入必须拒绝，错误码是 `auth.base-readonly`。 | `writes` 里 `by` 是 `agent`、`path` 正好是 `predicates/base`、`rev` 等于 `serverRev` 的项：`outcome` 必须是 `rejected`，`code` 必须是 `auth.base-readonly`。`rev` 不等于 `serverRev` 的归 D6。以 `predicates/base/` 开头的路径照 5.4 不合法，归 D5，这里不判 | `D7-agent-writes-base.json` |
 | D8 | 全片级的键绑的四张卡不得出现在 `shots[].cards` 里，键里写了 `card` 时卡名必须是这个键绑的那张。 | `shots[].cards` 每一项的 `use` 的卡名不得是 `comp.display`、`comp.finish`、`deliver.encode`、`audio.master`；`style.view`、`style.finish`、`delivery`、`audio` 里的 `card` 的卡名必须等于 3.6 那张表里同一行的卡 | `D8-global-card-in-shot.json`、`D8-key-card-mismatch.json` |
 | D9 | `Explain` 的 `layers` 必须按 `card-default`、`template`、`film`、`job` 从弱到强排，`value` 必须等于最后一个带 `value` 的层的 `value`。 | `explains` 每一项，和单独交回的 `Explain`（登记的结构定义是 `explain.schema.json`）：`layers` 各项的层在 5.8 的次序里不降；至少有一项带 `value`；顶层的 `value` 和最后一个带 `value` 的项逐值相等 | `D9-explain-weaker-layer-wins.json`、`D9-explain-alone-weaker-layer-wins.json`、`D9-value-key-differs.json` |
 | D10 | `shots`、`transitions`、`events`、`overlays`、`audio.narration` 各自数组里的 `id` 不得重复。 | 五个数组各自比：没有两项的 `id` 逐字符相同 | `D10-duplicate-event-id.json`、`D10-duplicate-overlay-id.json` |
 | D11 | 镜头的 `host` 和 `mode` 必须在它的帧源的能力声明里，`renderer` 里的那一套同样。 | 查帧源登记表（F 契约 3.9，数据在 `source/source.json`）：`host` 是 `sources` 里 `source` 这个帧源那一条 `hosts` 的一项，`mode` 是它 `modes` 的一项；`renderer` 出现时，`renderer.host`、`renderer.mode` 对 `renderer.source` 再比一遍。登记表里没有的帧源（`legacy-page`、`ext.<名字>`）不判。登记表登记的是上限：在登记表里、帧源真的能力声明里却还没有的宿主和作者模式，这里判不出，由 `open` 报错，归 F16 | `D11-host-not-of-source.json`、`D11-core-host-not-listed.json`、`D11-mode-not-of-source.json` |
-| D12 | `source` 不是 `ext.<名字>` 的镜头，`mode` 是 `build-script` 或 `native-code` 的必须有 `entry`，`mode` 是 `cards-data` 的不得有 `entry`；`renderer` 里的那一套同样。 | 逐个镜头比 `mode` 和 `entry` 出没出现；`renderer` 出现并且 `renderer.source` 不是 `ext.<名字>` 时，对 `renderer.mode` 和 `renderer.entry` 再比一遍 | `D12-native-code-without-entry.json`、`D12-build-script-without-entry.json`、`D12-cards-data-with-entry.json`、`D12-renderer-without-entry.json`、`D12-renderer-cards-data-with-entry.json` |
+| D12 | `source` 不是 `ext.<名字>` 的镜头，`mode` 是 `build-script` 或 `native-code` 的必须有 `entry`，`mode` 是 `cards-data` 的不得有 `entry`；`renderer` 出现并且 `renderer.source` 不是 `ext.<名字>` 时，`renderer` 里的那一套同样（开关只看 `renderer.source`，不看镜头顶层的 `source`）。 | 逐个镜头比 `mode` 和 `entry` 出没出现；`renderer` 出现并且 `renderer.source` 不是 `ext.<名字>` 时，对 `renderer.mode` 和 `renderer.entry` 再比一遍 | `D12-native-code-without-entry.json`、`D12-build-script-without-entry.json`、`D12-cards-data-with-entry.json`、`D12-renderer-without-entry.json`、`D12-renderer-under-ext-shot-without-entry.json`、`D12-renderer-cards-data-with-entry.json` |
 | D13 | 事件和旁白展开后的帧号必须落在 `[0, output.frames)` 内，写了 `shot` 的事件还必须落在那个镜头的区间内；叠加层展开后必须 `in` < `out`，并且 `[in, out)` 落在它的镜头的区间内。 | 照 5.3 把 `events[].frame`、`overlays[].in`、`overlays[].out`、`audio.narration[].at` 展开成整数再比。事件和旁白：0 ≤ 帧号 < `output.frames`；事件有 `shot` 时镜头的 `in` ≤ 帧号 < 镜头的 `out`。叠加层：镜头的 `in` ≤ `in` < `out` ≤ 镜头的 `out`。算式引用了没定义的东西、展开不了的，归 D2，这里不判 | `D13-event-outside-shot.json`、`D13-event-past-end.json`、`D13-narration-past-end.json`、`D13-overlay-empty.json`、`D13-overlay-outside-shot.json` |
 | D14 | `transitions[].at` 必须是切点，一个切点最多写一项。 | `transitions` 每项的 `at` 等于某个非首镜头的 `in`；没有两项的 `at` 相等 | `D14-transition-off-cut.json` |
 | D15 | `id` 和 `exam` 在片子创建之后任何一方（含服务器）都不得改，对它们的写入必须拒绝，错误码是 `contract.immutable-key`。 | `writes` 里 `path` 是 `id` 或 `exam`、`rev` 等于 `serverRev` 的项，不看 `by` 是谁：`outcome` 必须是 `rejected`，`code` 必须是 `contract.immutable-key`。`rev` 不等于 `serverRev` 的归 D6。`writes` 记的是片子创建之后的写入，创建那一次不算（见 3.8） | `D15-exam-changed.json`、`D15-server-changes-id.json` |
-| D16 | 片子描述里指向文件的值必须是这个镜头或全片 `assets` 里的别名，不得是路径；`entry` 是唯一的例外。 | `audio.narration[].asset` 必须是全片 `assets` 的键；`source` 是 `ext.<名字>` 的镜头的 `params.piece`、卡参数里类型是 `asset` 的值（类型见 CF 契约 3.3）必须照 5.5 找得到别名。卡参数的类型要有卡文件才判得了，手里没有卡文件时只判前两样 | `D16-narration-asset-undefined.json` |
-| D17 | `source` 是 `ext.<名字>` 的镜头，`mode` 必须是 `native-code`，不得有 `entry`，必须有 `params.piece`。 | 逐个镜头比。`params.piece` 是不是资产别名归 D16 | `D17-ext-shot-with-entry.json` |
+| D16 | 片子描述里指向文件的值必须是这个镜头或全片 `assets` 里的别名，不得是路径；`entry` 是唯一的例外。哪些值算指向文件，只认「怎么查」列的那几样，别的字符串（例如 `params` 里像路径的串）不算。 | `audio.narration[].asset` 必须是全片 `assets` 的键；`source` 是 `ext.<名字>` 的镜头的 `params.piece`、卡参数里类型是 `asset` 的值（类型见 CF 契约 3.3）必须照 5.5 找得到别名。卡参数的类型要有卡文件才判得了，手里没有卡文件时只判前两样 | `D16-narration-asset-undefined.json` |
+| D17 | `source` 是 `ext.<名字>` 的镜头，`mode` 必须是 `native-code`，不得有 `entry`，必须有 `params.piece`。 | 逐个镜头比，只看镜头顶层的 `source`、`mode`、`entry`，不看 `renderer`。`params.piece` 是不是资产别名归 D16 | `D17-ext-shot-with-entry.json` |
 | D18 | 一个镜头里，`cards` 各项的 `as` 互相不得重复，也不得和贴在这个镜头上的叠加层的 `id` 重复。 | 逐个镜头：`cards[].as` 里没有两个逐字符相同；`shot` 等于这个镜头的每个 `overlays[].id` 不和这个镜头任何一个 `cards[].as` 逐字符相同。叠加层和叠加层之间的重复归 D10，这里不比。叠加层的 `id` 不带连字符、`as` 和叠加层的 `id` 不是 `tracks`、`host`，都由结构定义管（3.3、3.4），这里不判 | `D18-duplicate-instance-name.json`、`D18-overlay-id-equals-card-as.json` |
 | D19 | `deliberate` 的每一项必须 `in` < `out`，并且 `[in, out)` 落在它的镜头的区间内。 | 镜头的 `in` ≤ 这一项的 `in` < 这一项的 `out` ≤ 镜头的 `out` | `D19-deliberate-outside-shot.json` |
 | D20 | `predicates.extra` 的每一项，双引号括起来的文字以外不得出现 `;`（PR 契约 5.5）。 | 每一项从左往右把一对双引号连同中间的文字去掉，没闭合的双引号留着当普通字符（写法和 CF8、QF2 相同：去掉 `"[^"]*"` 的全部匹配）；剩下的串里有 `;` 算违反 | `D20-semicolon-joined.json`、`D20-semicolon-after-unclosed-quote.json` |
@@ -433,17 +434,17 @@
 
 全系统只有这一种写法。诊断的 `at`、修法的 `path`、`explain` 的 `path`、补丁的路径都用它。
 
-- 从片子描述的根起，一段一段用 `/` 连接，第一段是 3.1 那张表里的字段名，往下每一段是上一段那个对象在 3.2 到 3.5 各表里的字段名。不以 `/` 开头或结尾，没有空段，不带文件名前缀，不含 `#`。
+- 从片子描述的根起，一段一段用 `/` 连接，第一段是 3.1 那张表里的字段名，往下每一段是上一段那个对象在 3.2 到 3.5 各表里的字段名。不以 `/` 开头或结尾，没有空段，不带文件名前缀，不含 `#`，不含空白（写法约定「空白和数字」一行）。
 - 对象里的一段是键的原文，例如 `style/colorScript/s01`。
 - `shots`、`transitions`、`events`、`overlays`、`audio.narration` 这五个数组里的一段是那一项的 `id`；`shots[].cards` 里的一段是卡实例的 `as`。不得写下标。卡的参数写成 `shots/<镜头的 id>/cards/<as>/params/<键>`。
 - 别的数组（`shots[].roles.mustSee`、`shots[].deliberate`、`overlays[].pos`、`predicates.base`、`predicates.extra`、`style.colorScript.*.key`、`delivery.layers`、`output.size`）不能单独寻址到数组里的项，路径止于数组本身。
 - 例：`shots/s01/cards/cam/params/margin`、`shots/s01`、`style/finish/grain`、`audio/narration/vo-open/at`。不合法：`shots/0`、`/shots/s01`、`film.json#/shots/s01`。
-- 路径不合这一节的写入被拒绝时：路径的某一段不是契约定义的键，错误码是 `contract.unknown-key`；按下标寻址、写进数组里的项、指到叶子下面，错误码是 `contract.bad-path`（含义：写入路径不合片子描述契约 5.4）。路径合这一节、写进去之后片子描述里出现了契约没定义的键的（`value` 里带进来的键，或补丁 `rename` 的 `to`；自由键那一层的键不算，同 D5），错误码是 `contract.unknown-key`，诊断照 ER 契约 5.5，`at` 写那个键的路径（例如 `set style/finish {"grian": 0.1}` 和 `rename style/finish/grain` 成 `grian` 都写 `style/finish/grian`），有几个这样的键写几条诊断；这次写入同时还有别的结构毛病，也报这个码。路径合这一节、写进去之后片子描述因为别的原因过不了结构定义的（类型不对、出了值域、缺了必填字段、取了值域排除的值），错误码是 `contract.bad-value`。所以带进一个没定义的键，不管是 `set` 到那个键上、`set` 到上一层，还是 `rename`，报的码和 `at` 都一样。三个码都登记在错误码表（ER）。
+- 按路径的写入（补丁）被拒时报哪个码（修订号、路径的哪一段、只读的键、不可作用、写进去之后的结构，谁先谁后），一律照错误码表契约（ER）5.6 的总表，本节不另写次序。整份提交片子描述被拒时报哪个码还没定，见错误码表契约第 6 节。
 
 ### 5.5 卡的引用和资产引用
 
 - 片子描述里卡的引用只写主版本：`<卡名>@<主版本>`，卡名的写法见 CF 契约 5.1，主版本是不带前导零的十进制正整数。例：`camera.fit@1`。
-- 资产引用：`asset:<名>@<版本>`，名是小写字母、数字、连字符，版本是不带前导零的十进制正整数。例：`asset:rtx-card@3`。
+- 资产引用：`asset:<名>@<版本>`，名是小写字母、数字、连字符，以小写字母或数字开头，版本是不带前导零的十进制正整数。例：`asset:rtx-card@3`。
 - 主版本怎么和锁文件比：锁文件里的 `version` 是三段，取第一段，按整数比。
 - 资产别名怎么找：镜头里的值先在这个镜头的 `assets` 里找，找不到再到全片 `assets` 里找；`audio` 里的值只在全片 `assets` 里找。在帧源里，这个镜头的 `assets` 在镜头输入的 `shot` 里，全片的 `assets` 在镜头输入的 `assets` 字段里（F 契约 3.2）。
 - 片子描述里凡是指向文件的值（编排数据、音轨、旁白录音、贴图、第三方作品）都写资产别名，不写路径，这样它们都进锁；入口文件 `entry` 是唯一的例外（D16）。卡的参数里哪个值指向文件，看卡文件里它的类型是不是 `asset`。
@@ -454,7 +455,7 @@
 
 ### 5.7 修订号
 
-片子描述每被接受一次写入，服务器给它一个新的修订号。修订号不写在片子描述里，随读写的响应交回。「服务器当前的修订号」指服务器收到写入那一刻片子描述的修订号。
+片子描述每被接受一次写入，服务器给它一个新的修订号。修订号不写在片子描述里，随读写的响应交回。「服务器当前的修订号」指服务器开始处理这次写入那一刻片子描述的修订号。对同一部片子的写入逐个处理：从比修订号、在这一版的副本上作用、判错误码表契约 5.6 第 6 步，到存下并换新修订号，是一个不可分的步骤，中间不插进别的写入；被拒时交回的最新修订号也取这一刻的值。
 
 ### 5.8 四个覆盖层
 
@@ -467,7 +468,7 @@
 | 3 | `film` | 片子描述里写的值。同一层里修订号大的更强 |
 | 4 | `job` | 一次作业里的临时覆盖，扫参用，不落盘 |
 
-强的层盖住弱的层。「逐值相等」指两个 JSON 值的类型相同、数相等、字符串逐字符相同、数组逐项相等、对象逐键相等。
+强的层盖住弱的层。「逐值相等」就是写法约定「JSON 值相等」一行：数按数值比（`2` 和 `2.0` 相等），字符串按码位逐个比，数组逐项、对象逐键（不看键的次序）。
 
 入口文件不提供参数层：入口文件里 `ctx.cards.use(as, runtime?)` 用到的卡，参数只从这四层来；`runtime` 只放写不进 JSON 的东西，不是参数层，见 S 契约。
 
@@ -477,7 +478,7 @@
 
 ### 5.10 没列出的键
 
-片子描述里出现本契约没列的键就是非法，不得静默合并，也不得静默丢掉。
+片子描述里出现本契约没列的键就是非法，不得静默合并，也不得静默丢掉。按路径的写入遇到存着的没定义的键怎么办，照错误码表契约 5.6 第 6 步：原位、原值留着的不算违反，挡不住这次写入；其余违反照拒。
 
 ### 5.11 叠加层怎么展开
 
@@ -513,7 +514,7 @@
 | `style.finish` 的 `grain`、`vignette` 的数值口径 | 只定值域 `[0, 1]`，0 是关掉 | 那两张卡的卡文件 |
 | 同一张卡在一部片子里引用两个主版本 | 锁文件按卡名记一个版本，所以 D3 下必有一处对不上，本版等于不许 | 集成负责人确认 |
 | `mode` 是 `cards-data` 时能不能有 `params` | 不禁止 | 集成负责人确认 |
-| 路径指向还不存在的键（补丁要新加的） | D5 判文法、每一段是不是契约定义过的键、按标识寻址的数组里的 `id`；契约定义过、这份片子描述里还没写的键（例如没有 `style.finish` 时的 `style/finish/grain`）不算违反；自由键（`params`、`style.tokens`、两处 `assets` 的键）往下什么都不判 | 补丁格式契约（PA） |
+| 路径指向还不存在的键（补丁要新加的） | 已定：照 ER 契约 5.6 第 4、5 步和 PA 契约 5.2。契约定义过、这份片子描述里还没写的键（例如没有 `style.finish` 时的 `style/finish/grain`）第 4 步不判，作用时落不下去归第 5 步；两处 `params` 往下第 4 步不判，第 3、5、6 步照 ER 契约 5.6（例如往 `params` 里一个数下面写算不可作用，不自动补出中间层） | 已定 |
 | `Explain` 带 `path` | 【起草者补】需求来源的结果里没有 `path`；加进来，记录里才知道问的是谁 | 集成负责人确认 |
 | `Explain` 第四层的名字 | 【起草者补】`job` | 集成负责人确认 |
 | `Explain` 里没给值的层 | 需求来源的例子写 `"value": null`；通用口径规定 `null` 只表示「这次没算」。照通用口径写成不出现 `value` | 集成负责人确认 |
@@ -524,15 +525,15 @@
 | `tracks.camera` 的类型 | 不定：`tracks` 的数据格式整体还没有契约 | `tracks` 的契约 |
 | `cards[].params` 必不必填 | 【起草者补】必填，没有参数写空对象 | 集成负责人确认 |
 | 资产别名先查哪里 | 【起草者补】先查镜头的 `assets`，再查全片的；两处同名时镜头的生效 | 集成负责人确认 |
-| 修订号过期的写入又写了只读的键 | 【起草者补】先判 D6；D7、D15 只判修订号对得上的写入 | 集成负责人确认 |
+| 修订号过期的写入又写了只读的键 | 已定：照 ER 契约 5.6，第 1 步先查修订号，第 2 步才查只读的键；D7、D15 只判修订号对得上的写入 | 已定 |
 | `transitions`、`audio.narration` 的寻址和查重 | 【起草者补】有了 `id` 就照 `events` 的办法：路径按 `id` 寻址（5.4），`id` 不得重复（D10） | 集成负责人确认 |
 | `renderer` 里的 `host`、`mode`、`entry` | 【起草者补】和镜头顶层那一套一样受 D11、D12 管 | 集成负责人确认 |
 | `two-d.overlay` 能不能直接写进 `shots[].cards` | 不禁止 | 集成负责人定 |
 | `delivery.layers` 里的通道，出帧的帧源交不交得出 | 本契约不判 | 帧源接口契约（F）的能力声明 |
-| 路径不合法的写入被拒绝时的错误码 | 已定：某一段不是契约定义的键报 `contract.unknown-key`，按下标寻址、写进数组项、指到叶子下面报 `contract.bad-path`（5.4）。D5 现在只判这种写入没有生效，错误码不判：一是修订号过期、路径又不合法的写入该先报哪个码没定，D6 要 `busy.rev-conflict`；二是文法和键都对、按 `id` 指到片子里还没有的项（例如没有 `s09` 时的 `shots/s09`）不属于这两种里的哪一种；三是一条路径同时有两种毛病（`shots/0/colour`）时报哪个没定。选错了要改：D5 的「怎么查」和判定函数加上比 `code`，补每种码一个反例 | 集成负责人定上面三处 |
-| 值域或结构不合法的写入被拒绝时的错误码 | 码已定（5.4）：写进去之后出现了契约没定义的键的报 `contract.unknown-key`，不论还有没有别的结构毛病；其余过不了结构定义的报 `contract.bad-value`。路径合 5.4、写进去之后片子描述过不了结构定义的写入（例如把 `cards[].as` 或 `overlays[].id` 写成 `tracks`、`host`，值的类型不对、出了值域、缺了必填字段），服务器必须拒绝，已存的内容不动、修订号不变。D 系条文不比这种拒绝的码；拒没拒现在只有声明：`writes[]` 不记写入的值，判定函数看不出一次写入会不会让片子描述过不了结构定义 | `writes[]` 加上能判这一支的字段，补一个反例 |
+| 路径不合法的写入被拒绝时的错误码 | 已定：照 ER 契约 5.6 的总表。原来挂着的三处：修订号过期又路径不合法，先报 `busy.rev-conflict`（第 1 步）；按 `id` 指到还没有的项（例如 `shots/s09`）不算路径毛病，归不可作用（第 5 步）；一条路径同时有两种毛病，从左往右报第一个有毛病的那一段。D5 只判这种写入没有生效，不比码 | 已定 |
+| 值域或结构不合法的写入被拒绝时的错误码 | 码已定：照 ER 契约 5.6 第 6 步，写进去之后出现了没定义的键报 `contract.unknown-key`，其余（过不了结构定义，或违反了没有专用码的条文，例如 D18）报 `contract.bad-value`。D 系条文不比这种拒绝的码；拒没拒现在只有声明：`writes[]` 不记写入的值，判定函数看不出一次写入会不会让片子描述不合法 | `writes[]` 加上能判这一支的字段，补一个反例 |
 | D16 后一半：卡参数里类型是 `asset` 的值 | 现在只有声明，没有判定：参数的类型要读卡文件，判定函数只收传进来的对象，核对记录里也没有卡文件，这一半一直判不了 | 核对记录能收进它引用的卡文件时，D16 照卡文件的参数表把这一半补上 |
-| 只读被判对象自己的条文 | D1、D2、D8、D10 到 D14、D16 到 D19 判的是片子描述自己写得对不对，D3 拿片子描述和锁文件互相对，判的都是交上来的东西本身，不靠谁的说法。D9 只读 `explain` 自己交回的结果：判得出结果前后自洽，判不出它说的 `value` 是不是真的生效值。这一半现在只有声明，没有判定 | 有了能独立量「一个参数最终生效的值」的办法（例如改这个参数再比出帧），在记录里加 `量的` 字段 |
+| 只读被判对象自己的条文 | D1、D2、D8、D10 到 D14、D16 到 D20 判的是片子描述自己写得对不对，D3 拿片子描述和锁文件互相对，判的都是交上来的东西本身，不靠谁的说法。D9 只读 `explain` 自己交回的结果：判得出结果前后自洽，判不出它说的 `value` 是不是真的生效值。这一半现在只有声明，没有判定 | 有了能独立量「一个参数最终生效的值」的办法（例如改这个参数再比出帧），在记录里加 `量的` 字段 |
 | `writes[]` 的 `by`、`path`、`rev` 从哪来，`locks[].writer` 从哪来 | 【起草者补】都从服务器外面得到，不在服务器里面设观测点（服务器里面的代码记下来的只能算 `自报`）：测试工具自己发的写入记 `请求`；服务器自己发起的改动，从前后两次读回的片子描述里比出来；锁是谁写的，看读到的字节是不是测试工具自己以调用方的身份写进去的那一份。两次读回之间服务器改了又改回去的，这个办法看不到。选错了要改 3.8 这四格的来历和说明 | 协议组件定下读回片子描述和锁文件的入口 |
 | `locks[].rev` 是锁文件自己写的 | D4 的后一半按 `rev` 分组比 `digest`：`digest` 是测试工具量的，`rev` 是从锁文件里抄的。锁把修订号写错时，该放在一起比的两份会被分到两组，D4 不红 | 有了从服务器外面拿到「这份锁对着哪个修订号」的办法（读写响应交回的修订号），`rev` 改成 `量的` |
 | 从服务器交回的东西里抄出来的三格：`writes[].latestRev`、`writes[].code`、`paths[].path` | `latestRev` 标 `自报`：它是服务器对「现在的修订号是几」的说法，这件事测试工具另量了一个 `serverRev`，D6 拿两个比，所以 D6 不算只读自报。`code` 和 `paths[].path` 标 `量的`，和帧源接口契约核对记录里的 `code` 同一个标法：交回哪个错误码、吐出哪条路径，本身就是被判的行为，背后没有另一件要它来说的事实，测试工具在服务器外面读到的原文就是观测。写法约定 3.1 照这条界线写成了通用口径 | 已定 |
@@ -562,3 +563,19 @@
 | 2026-11-19 | 第 6 节加一行：值域或结构不合法的写入被拒绝时的错误码。不变量和判定函数没动 | `as`、叠加层 `id` 不得是 `tracks`、`host` 进了结构定义以后，带这两个词的写入要按结构不合法拒掉，这种拒绝报哪个码哪份契约都没定，原来没有登记 |
 | 2026-11-20 | 5.4 末条加 `contract.bad-value`，第 6 节一行 | 路径合法、值不合值域的写入原来没有码可报 |
 | 2026-11-20 | 5.4 末条分开 `contract.unknown-key` 和 `contract.bad-value`，第 6 节一行。不变量和判定函数没动 | 写进去的值或 `rename` 的新键名带进了没定义的键时，原来照 5.4 报 `contract.bad-value`，照写法约定「未知字段」一行又该报 `contract.unknown-key`；同一个结果换条路径写（`set style/finish/grian`）报的又是 `contract.unknown-key` |
+| 2026-11-20 | 5.4 末条，第 6 节两行 | 写入被拒时的报码收进错误码表契约 5.6 的总表，这里只引用；原来挂着的三处先后照总表定了 |
+| 2026-11-20 | D5 的「怎么查」 | 映射键那一层（资产别名、`colorScript` 的键）和自由键一样不按定义过的键判，和判定函数、错误码表契约 5.6 一致 |
+| 2026-11-20 | D5 的「怎么查」，第 6 节两行 | 映射键只豁免键本身、值照结构判，只有两处 `params` 整棵子树不判，和判定函数、错误码表契约 5.6 一致；只读片子描述自己的条文补上 D20 |
+| 2026-11-20 | D5 的「怎么查」和判定函数，3.8 `writes[]` 的说明，第 6 节三行；D5 的两个反例改成 `explain` 的路径，正例补一条诊断路径 | 报 unknown-key 的诊断 `at` 就写那个没定义的键，D5 原来会判它违反；生效写入里标识在不在判不了；多操作的补丁只记一个路径会让 D7、D15 判错；第 6 节步号跟总表重排 |
+| 2026-11-20 | D5 的「怎么查」和判定函数，第 6 节一行；D5 补一个反例 | 诊断和修法的路径可以指到这次新加的条目；生效写入不核标识在不在以后，按下标寻址和含空白另外照样判 |
+| 2026-11-20 | D5 的「怎么查」和判定函数、两个反例，3.3 两处 `params`，3.8 `writes[]`，5.4 末条 | 改名修法和补丁的路径可以就是没定义的键；`params` 的值可以是 `null`；修订号对不上的多操作补丁照旧记进 `writes[]`；整份提交照各条文点名的码 |
+| 2026-11-20 | 5.4 末条后半句 | 整份提交的报码还没定，改成引用错误码表契约第 6 节 |
+| 2026-11-20 | 3.8 `writes[]` 加 `op`，D5 的「怎么查」和判定函数，正例补一条改名写入 | 改名、删除存着的未知键的写入要能生效，D5 原来会把它判红 |
+| 2026-11-20 | 5.4 第一条，3.8 `writes[].op`，D5 的「怎么查」和判定函数 | 路径文法补上不含空白，和错误码表契约 5.6 第 4 步、判定函数一致；没记 `op` 的写入，D5 不判最后一段 |
+| 2026-11-20 | 5.10 加一句，3.3 `cards[].params` 的值域 | 存着的没定义的键不挡按路径的写入；卡参数的键判写法、值不判 |
+| 2026-11-20 | 5.10，3.8 `writes[]` 的说明，5.8「逐值相等」 | 跟着错误码表契约 5.6 第 6 步改：存着的违反不再分新旧；测试工具发的写入不带不合法的文本和重复的键；相等一律照写法约定 |
+| 2026-11-20 | 3.5 `style.view.scene`、`delivery.master`，5.5 资产引用 | 值域补上开头不得是连字符，和结构定义一致 |
+| 2026-11-20 | 3.4 `events[].audio`、`overlays[].anchor` 的值域，3.8 `writes[]` 的说明，结构定义的整数上限、`audio`、`entry` 的正则，D16 的判定函数 | 值域写出文法、和结构定义一致；整数字段加上 2 的 53 次方减 1 的上限；`entry` 带换行时也查得出 `..` 段；`params.piece` 不是字符串时找不到别名 |
+| 2026-11-20 | 3.3 `host` 的值域，第 6 节一行，`entry` 的结构定义，主版本比较的判定函数 | `host` 写入时照登记表判；`params` 往下只有第 4 步不判；`entry` 不含 `:`；主版本按精确整数比 |
+| 2026-11-20 | 5.7，3.3 `host`、`renderer.entry`，D5、D12、D16、D17 的条文或「怎么查」 | 同一部片子的写入逐个处理，比修订号到存下不可分；登记表外的帧源 `host` 只要求不空；D12 对 `renderer` 只看 `renderer.source`，D17 只管顶层；D5 条文写上改名、删除存着的键照放；D16 只认「怎么查」列的那几样 |
+| 2026-11-20 | 3.3 两处 `params`、3.5 `predicates.base` 的值域 | 两处 `params` 写明第 6 步只判这一层键的写法、D16/D17 管的 `piece`、嵌套层数上限和有限双精度数；`predicates.base` 的主版本写明是不带前导零的十进制正整数，和结构定义一致 |

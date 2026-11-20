@@ -3,7 +3,7 @@
 // 记录里没出现的段不判。本契约的内嵌值（时间键、帧率）单独出现时不归这些条文管，一律返回空数组。
 
 const shotOf = (rec, id) => rec.shots.find((s) => s.id === id);
-const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+const gcd = (a, b) => (b ? gcd(b, a % b) : a); // 用 BigInt 调：字符串里的整数不设上限（写法约定「数值」）
 const sameKey = (k, frame) => k.frame === frame && k.sub === 0;
 /** 这一帧生效的快门角，记录里每帧都写 */
 const angleOf = (rec, fr) => fr.shutterAngleDeg;
@@ -41,7 +41,7 @@ const raw = {
   T3: (rec) => {
     const m = /^([1-9]\d*)\/([1-9]\d*)$/.exec(rec.fps);
     if (!m) return [`帧率写法不对：${rec.fps}`];
-    if (gcd(Number(m[1]), Number(m[2])) !== 1) return [`帧率没有约到最简：${rec.fps}`];
+    if (gcd(BigInt(m[1]), BigInt(m[2])) !== 1n) return [`帧率没有约到最简：${rec.fps}`];
     return extraFps(rec, '', []).map((p) => `别处又出现了帧率：${p}`);
   },
 

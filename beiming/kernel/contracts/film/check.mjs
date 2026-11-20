@@ -88,19 +88,25 @@ function returnsToSelf(film, id) {
 }
 
 /** 5.4 的文法加按标识寻址；返回问题，空数组表示合法 */
-function pathProblems(film, path) {
+// atDiag：最后一段不判是不是定义过的键（诊断的 at、改名修法的源路径就是那个没定义的键）；ids：要不要核按标识寻址的那一段在 film 里存在
+function pathProblems(film, path, { atDiag = false, ids = true } = {}) {
   const seg = path.split('/');
   if (path.includes('#')) return ['含 #'];
+  if (/\s/.test(path)) return ['含空白'];
   if (seg.some((s) => s === '')) return ['以 / 开头或结尾，或有空段'];
   let node = PATH_TREE;
   for (let n = 0; n < seg.length && node !== ANY; n++) {
     const at = seg.slice(0, n).join('/') || '根';
     if (node === null) return [`${at} 不能再往下寻址`];
     const next = Object.hasOwn(node, seg[n]) ? node[seg[n]] : Object.hasOwn(node, '*') ? node['*'] : undefined;
-    if (next === undefined) return [`${at} 下面没有 ${seg[n]} 这个键`];
+    if (next === undefined) { if (atDiag && n === seg.length - 1) break; return [`${at} 下面没有 ${seg[n]} 这个键`]; }
     node = next;
   }
   const out = [];
+  if (!ids) { // 标识在不在不判，按下标寻址照样判：那几个数组后面一段是十进制数字串
+    const idx = [...ID_ARRAYS.map((a) => [a, 1]), ['audio', 2]].find(([a, at]) => seg[0] === a && (a !== 'audio' || seg[1] === 'narration') && /^\d+$/.test(seg[at] ?? ''));
+    return idx ? [`${seg.slice(0, idx[1]).join('/')} 后面的 ${seg[idx[1]]} 是下标`] : out;
+  }
   const arrays = [...ID_ARRAYS.map((a) => [a, 1, film[a]]), ['audio', 2, film.audio?.narration]];
   for (const [name, at, items] of arrays) {
     if (seg[0] !== name || (name === 'audio' && seg[1] !== 'narration') || seg.length <= at) continue;
@@ -246,7 +252,7 @@ const filmChecks = {
     return [
       ...(film.audio?.narration ?? []).filter((n) => !Object.hasOwn(filmAssets, n.asset)).map((n) => `旁白 ${n.id} 的 asset ${n.asset} 不是全片 assets 的别名`),
       ...film.shots
-        .filter((s) => isExt(s.source) && s.params?.piece !== undefined && !Object.hasOwn(s.assets ?? {}, s.params.piece) && !Object.hasOwn(filmAssets, s.params.piece))
+        .filter((s) => isExt(s.source) && s.params?.piece !== undefined && (typeof s.params.piece !== 'string' || (!Object.hasOwn(s.assets ?? {}, s.params.piece) && !Object.hasOwn(filmAssets, s.params.piece))))
         .map((s) => `镜头 ${s.id} 的 params.piece ${s.params.piece} 在镜头和全片 assets 里都找不到`),
     ];
   },
@@ -288,9 +294,9 @@ const recordChecks = {
     return [
       ...rec.film.shots.flatMap((s) => (s.cards ?? []).flatMap((c) => {
         const name = cardName(c.use);
-        const major = Number(c.use.slice(c.use.lastIndexOf('@') + 1));
+        const major = c.use.slice(c.use.lastIndexOf('@') + 1); // 按精确整数比：两边都是不带前导零的数字串，比串就行
         if (!Object.hasOwn(cards, name)) return [`镜头 ${s.id} 的 ${c.use} 在锁文件 cards 里没有`];
-        return Number(cards[name].version.split('.')[0]) === major ? [] : [`镜头 ${s.id} 的 ${c.use} 和锁文件的版本 ${cards[name].version} 主版本不同`];
+        return cards[name].version.split('.')[0] === major ? [] : [`镜头 ${s.id} 的 ${c.use} 和锁文件的版本 ${cards[name].version} 主版本不同`];
       })),
       ...[...rec.film.shots.flatMap((s) => Object.values(s.assets ?? {})), ...Object.values(rec.film.assets ?? {})]
         .filter((ref) => !Object.hasOwn(assets, ref)).map((ref) => `资产 ${ref} 在锁文件 assets 里没有`),
@@ -308,10 +314,14 @@ const recordChecks = {
 
   // 写入的路径是测试工具发出去的，判的是服务器收不收：路径不合法而被拒绝的写入不算违反
   D5: (rec) => [
-    ...(rec.paths ?? []).map((p) => [`${p.use} 的路径`, p.path]),
-    ...(rec.writes ?? []).filter((w) => w.outcome !== 'rejected').map((w) => ['生效了的写入的路径', w.path]),
-    ...(rec.explains ?? []).map((e) => ['explain 的路径', e.path]),
-  ].flatMap(([what, path]) => pathProblems(rec.film, path).map((p) => `${what} ${path}：${p}`)),
+    // 诊断和修法的路径可以指到这次写入新加的条目，标识在不在也不判
+    // 诊断的 at、改名修法和补丁的 path 可以就是那个没定义的键，最后一段不判；它们也可以指到这次写入新加的条目，标识在不在不判
+    ...(rec.paths ?? []).map((p) => { const w = ['diagnostic.at', 'fix.path', 'patch.path'].includes(p.use); return [`${p.use} 的路径`, p.path, { atDiag: w, ids: !w }]; }),
+    // 生效了的写入只判文法和键：标识在不在，记录里只有一个时刻的片子描述，判不了（ER 5.6 第 5 步）
+    // rename、remove 的源路径最后一段可以是存着的、没定义过的键（ER 5.6 第 4 步）
+    ...(rec.writes ?? []).filter((w) => w.outcome !== 'rejected').map((w) => ['生效了的写入的路径', w.path, { ids: false, atDiag: w.op === undefined || w.op === 'rename' || w.op === 'remove' }]),
+    ...(rec.explains ?? []).map((e) => ['explain 的路径', e.path, {}]),
+  ].flatMap(([what, path, opt]) => pathProblems(rec.film, path, opt).map((p) => `${what} ${path}：${p}`)),
 
   D6: (rec) => (rec.writes ?? []).filter((w) => w.rev !== w.serverRev)
     .filter((w) => w.outcome !== 'rejected' || w.code !== 'busy.rev-conflict' || w.latestRev !== w.serverRev)

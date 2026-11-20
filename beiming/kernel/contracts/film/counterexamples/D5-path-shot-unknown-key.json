@@ -236,7 +236,7 @@
   },
   "paths": [
     {
-      "use": "diagnostic.at",
+      "use": "explain.path",
       "path": "shots/s01/colour"
     }
   ]

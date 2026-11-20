@@ -42,6 +42,20 @@
     "why": "核对记录：remove 指向不存在的 style/finish/vignette，结果却写成 applied"
   },
   {
+    "file": "PA4-duplicate-id-applied.json",
+    "violates": [
+      "PA4"
+    ],
+    "why": "核对记录：before 里有两个 id 都是 s01 的镜头，remove shots/s01 对上不止一项、不可作用（5.1），结果却写成 applied"
+  },
+  {
+    "file": "PA4-cards-under-object-shots.json",
+    "violates": [
+      "PA4"
+    ],
+    "why": "核对记录：第 1 个操作把根下面的 shots 写成对象，第 2 个操作再往 shots/s01/cards/fit 下写；这时的 cards 不按实例名寻址（5.1），第 2 个操作不可作用，结果却写成 applied"
+  },
+  {
     "file": "PA5-fix-rename-without-to.json",
     "violates": [
       "PA5"
