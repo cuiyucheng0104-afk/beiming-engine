@@ -1,0 +1,89 @@
+{
+  "format": "card/0.1",
+  "id": "audio.master",
+  "version": "1.0.0",
+  "kind": "audio",
+  "title": "响度母带",
+  "intent": "把混好的声音调到目标响度，并保证真峰值不超过上限",
+  "visibleToAgent": true,
+  "livesIn": [
+    "comp"
+  ],
+  "impl": [
+    {
+      "livesIn": "comp",
+      "entry": "cards/audio/master/comp.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/audio/master/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "loudness": {
+      "type": "number",
+      "unit": "LUFS",
+      "range": [
+        -40,
+        -5
+      ],
+      "default": -14,
+      "coupling": "none"
+    },
+    "truePeak": {
+      "type": "number",
+      "unit": "dBTP",
+      "range": [
+        -9,
+        0
+      ],
+      "default": -1,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "合成工具调 Handle.object.master(channels, sampleRate)：channels 是一个或两个声道的 32 位浮点样本，采样率 48000 赫兹"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "片子带声音"
+    ],
+    "notWhen": [
+      "采样率不是 48000 赫兹，或者多于两个声道"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "1000 赫兹、−23 dBFS、双声道同相的正弦量出 −23.0 LUFS（差不超过 0.1）；12000 赫兹、相位 45 度的满幅正弦真峰值量出 0 dBTP（差不超过 0.2）；调完之后响度到目标或者被真峰值上限压住",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "调完的响度比目标低",
+      "fix": "这张卡只调整体增益，不做限幅；真峰值先到上限时增益就停在那里，交回的 limitedBy 会写 truePeak"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "响度照 ITU-R BS.1770 的 K 加权和两道门限算，真峰值用 4 倍过采样估"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "node",
+      "source": "24.13.1",
+      "gpu": "none",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:audio.master"
+  ]
+}

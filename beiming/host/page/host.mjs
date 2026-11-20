@@ -1,12 +1,13 @@
 // 页面宿主（node 一侧）：three 帧源对上层的接口就在这里。起本机静态服务和无头、静音的浏览器；
 // open 开一个新页面装载镜头，render 让页面出一帧、把读回的各层写成层文件、交回元数据和层引用。页面一侧在 runtime.js。
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import { chromeArgs, chromeExecutable } from '../../../engine/render/lib/gpu.mjs';
+import { hashCardContents, validateCard } from '../../cards/index.mjs';
 import { caps } from '../../sources/three/caps.mjs';
 import { planOpen, SourceError } from '../../sources/three/plan.mjs';
 
@@ -25,7 +26,7 @@ window.__open = async (cfg) => {
     return { ok: true, manifest: window.__session.manifest() };
   } catch (e) {
     if (!e.code) throw e;
-    return { ok: false, code: e.code, message: e.message };
+    return { ok: false, code: e.code, message: e.message, load: e.load };
   }
 };
 </script>`;
@@ -56,11 +57,33 @@ async function startServer() {
 }
 
 /**
+ * 读进提供给帧源的卡。dirs 是卡目录，相对 beiming/（例如 cards/two-d/overlay-title）。每张卡的卡文件先过校验（泄露门禁、结构、CF 各条），
+ * 再照锁文件的算法算内容哈希：卡目录全部文件按路径排序，各自的 SHA-256 连同路径再算一次。返回 { 卡名: { card, sha256 } }。
+ */
+export async function loadCards(dirs) {
+  const library = {};
+  for (const dir of dirs) {
+    const abs = resolve(REPO, 'beiming', dir);
+    if (!rel(abs).startsWith('beiming/')) throw new SourceError('usage.bad-argument', `卡目录 ${dir} 不在 beiming/ 里`);
+    const names = (await readdir(abs, { recursive: true, withFileTypes: true })).filter((e) => e.isFile()).map((e) => relative(abs, join(e.parentPath, e.name)).split(sep).join('/'));
+    const hashes = {};
+    for (const name of names) hashes[name] = sha256(await readFile(join(abs, name)));
+    const card = JSON.parse(await readFile(join(abs, 'card.json'), 'utf8')), verdict = validateCard(card);
+    if (!verdict.ok) throw new Error(`卡目录 ${dir} 的卡文件没过校验：${JSON.stringify({ schemaErrors: verdict.schemaErrors, violations: verdict.violations, leaks: verdict.leaks })}`);
+    if (library[card.id]) throw new Error(`卡 ${card.id} 提供了两份`);
+    library[card.id] = { card, sha256: hashCardContents(hashes) };
+  }
+  return library;
+}
+
+/**
  * 起一个 three 帧源：一个浏览器进程。交回 { caps, open, stop }：caps 和 open 是帧源接口，stop 关掉这个进程（起、停进程不属于帧源接口）。
+ * cards 是提供给这个帧源的卡目录（见 loadCards）；提供了卡，能力声明里才有「卡加数据」模式，镜头用的卡才装得了。
  * 浏览器起不来就抛错。open 得到的会话有 manifest、render、query、close；每个会话一个新页面，互不共用任何页面里的状态。
  */
-export async function startSource() {
-  const CAPS = caps();
+export async function startSource({ cards = [] } = {}) {
+  const library = await loadCards(cards);
+  const CAPS = caps(library);
   const server = await startServer();
   // 浏览器起不来时要把刚起的本地服务关掉，不然进程退不出去
   const browser = await chromium.launch({ headless: true, executablePath: chromeExecutable(), args: [...chromeArgs(), '--mute-audio'] })
@@ -70,7 +93,7 @@ export async function startSource() {
     // lock 必须写出来，哪怕是 null：忘了传当场报错
     const missing = ENV_KEYS.filter((k) => env?.[k] === undefined);
     if (missing.length) throw new SourceError('usage.bad-argument', `env 缺 ${missing.join('、')}`);
-    planOpen(CAPS, input, env);
+    planOpen(CAPS, input, env, library);
     // shortcut: 入口文件经本机静态服务进页面，片子描述所在的目录必须在放行的目录里；要装别处的片子时给静态服务加一个挂载点
     const filmDir = rel(resolve(env.filmDir));
     if (!SERVED.some((dir) => `${filmDir}/`.startsWith(dir))) throw new SourceError('usage.bad-argument', 'env.filmDir 不在页面宿主放行的目录里');
@@ -82,8 +105,9 @@ export async function startSource() {
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(`${server.origin}/`);
       await page.waitForFunction(() => window.__open, null, { timeout: 30000 }).catch(() => { throw new Error(`页面运行时没装起来：${errors.join('；') || '超时'}`); });
-      const opened = await page.evaluate((cfg) => window.__open(cfg), { input, env: { lock: env.lock, tier: env.tier }, filmBase: `${server.origin}/${filmDir}/` });
-      if (!opened.ok) throw new SourceError(opened.code, opened.message);
+      const opened = await page.evaluate((cfg) => window.__open(cfg), { input, env: { lock: env.lock, tier: env.tier }, filmBase: `${server.origin}/${filmDir}/`, cards: library });
+      // 固定装载脚本半路失败时，它到那时为止记的账跟着错一起交回（load）
+      if (!opened.ok) throw Object.assign(new SourceError(opened.code, opened.message), opened.load ? { load: opened.load } : {});
       manifest = opened.manifest;
     } catch (e) {
       await page.close();
@@ -121,5 +145,5 @@ export async function startSource() {
     };
   }
 
-  return { caps, open, stop: async () => { await browser.close(); await server.close(); } };
+  return { caps: () => caps(library), open, stop: async () => { await browser.close(); await server.close(); } };
 }

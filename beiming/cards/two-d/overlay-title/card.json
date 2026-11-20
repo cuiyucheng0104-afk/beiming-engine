@@ -1,0 +1,54 @@
+{
+  "format": "card/0.1",
+  "id": "overlay.title",
+  "version": "1.0.0",
+  "kind": "two-d",
+  "title": "片名",
+  "intent": "在画面正中放一行正对相机的片名，入场之后一动不动，并把这行字的像素框交进每帧元数据",
+  "visibleToAgent": true,
+  "livesIn": ["source:three"],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/two-d/overlay-title/three.js",
+      "shape": "create",
+      "hosts": [{ "host": "page", "version": "0.187.0" }],
+      "selftest": "cards/two-d/overlay-title/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "text": { "type": "text", "unit": "none", "default": "TITLE", "coupling": "none" },
+    "enter": { "type": "time", "unit": "frame", "default": 0, "coupling": "fps" },
+    "settleFrames": { "type": "integer", "unit": "frame", "range": [0, 240], "default": 24, "coupling": "fps" },
+    "ink": { "type": "color", "unit": "none", "space": "display", "default": "#F4F0E9", "coupling": "view-transform" },
+    "heightFrac": { "type": "number", "unit": "none", "range": [0.02, 0.5], "default": 0.12, "coupling": "none" },
+    "distance": { "type": "number", "unit": "m", "range": [0.2, 50], "default": 1, "coupling": "scene-scale" }
+  },
+  "ports": {
+    "in": [],
+    "out": [{ "name": "texts", "type": "frame-meta" }],
+    "order": { "before": [], "after": [] },
+    "requires": [
+      "Handle.object 由宿主挂在透视相机下面，它的局部坐标就是相机空间（米，右手系，Y 向上，−Z 朝前）",
+      "text 里只有大写拉丁字母、数字、空格和 - . : 这几个符号"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": ["片名镜头，一行字，要它入场之后逐帧不动"],
+    "notWhen": ["要用指定字体的字", "要多行字或小写字母", "字要跟着场景里的物体走"]
+  },
+  "calibration": "probe-thin-geometry",
+  "verify": {
+    "selftest": "RTX 5090 这一行在 1920 × 1080、竖直视场角 40 度下：网格的亮点数等于字形表里数出来的，文字框的高是 129.6 像素、左右居中；入场前不画，落定后相邻两帧的摆法相同",
+    "predicates": []
+  },
+  "pitfalls": [
+    { "symptom": "create 报字形表里没有某个字", "fix": "text 改成大写字母和数字，别的字这张卡画不了" },
+    { "symptom": "字压到画面外", "fix": "把 heightFrac 调小：一行的宽大约是字数 × 6 ÷ 7 × 字高" }
+  ],
+  "provenance": { "cases": [], "note": "照任务书的裁决新写：真实透视相机前一张正对相机的平面网格；字形是这张卡自带的点阵" },
+  "status": [
+    { "level": "reproduced", "host": "page", "source": "0.187.0", "gpu": "apple-m5-pro", "date": "2026-11-21" }
+  ],
+  "exams": ["cal:overlay.title"]
+}

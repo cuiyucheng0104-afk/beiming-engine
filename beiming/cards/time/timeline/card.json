@@ -1,0 +1,93 @@
+{
+  "format": "card/0.1",
+  "id": "time.timeline",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "时间线",
+  "intent": "把镜头局部帧号换成全片帧号、秒和拍，要一拍二这类停格时给出压住的帧号",
+  "visibleToAgent": true,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/timeline/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/timeline/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "holdFrames": {
+      "type": "integer",
+      "unit": "frame",
+      "range": [
+        1,
+        240
+      ],
+      "default": 1,
+      "coupling": "fps"
+    },
+    "beatFrames": {
+      "type": "integer",
+      "unit": "frame",
+      "range": [
+        1,
+        600
+      ],
+      "default": 12,
+      "coupling": "fps"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "time",
+        "type": "tracks.time"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "别的卡或镜头代码要按全片时间、秒或拍算东西",
+      "要一拍二、一拍三的停格"
+    ],
+    "notWhen": [
+      "要变速或倒放：这张卡只做换算，不改时间的走向"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "30 帧每秒、镜头起始帧 180：局部第 12 帧是全片第 192 帧、6.4 秒、第 16 拍；holdFrames 是 2 时第 13 帧压到第 12 帧",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "压住的帧号在一帧里面不随子帧相位变",
+      "fix": "这是停格的本意；要帧内连续的时间用 local"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "照时间键契约的换算写：整数帧，子帧相位在 [0, 1)"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:time.timeline"
+  ]
+}

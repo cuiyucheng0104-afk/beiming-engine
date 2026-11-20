@@ -1,0 +1,78 @@
+{
+  "format": "card/0.1",
+  "id": "deliver.encode",
+  "version": "1.0.0",
+  "kind": "delivery",
+  "title": "编码交付",
+  "intent": "把母版的预设名换成一组写明的编码设置",
+  "visibleToAgent": true,
+  "livesIn": [
+    "comp"
+  ],
+  "impl": [
+    {
+      "livesIn": "comp",
+      "entry": "cards/delivery/encode/comp.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/delivery/encode/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "master": {
+      "type": "string",
+      "unit": "none",
+      "default": "h264-crf14-bt709",
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [],
+    "order": {
+      "before": [],
+      "after": [
+        "comp.display",
+        "comp.finish"
+      ]
+    },
+    "requires": [
+      "合成工具读 Handle.object 这张设置表去调编码器；这张卡自己不编码"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "每部片子都要：定下母版怎么编码"
+    ],
+    "notWhen": [
+      "要预设表以外的编码：这一版只认 h264-crf14-bt709"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "h264-crf14-bt709 换成 H.264、质量系数 14、4:2:0 八位、BT.709 有限范围、MP4；宽或高是奇数时报错；别的预设名报错",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "画幅的宽或高是奇数时报错",
+      "fix": "4:2:0 的色度是每两个像素一个样本，宽高都要是偶数"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "只出设置表，编码器由合成工具去调；网页版和联系表两个交付物这一版不管"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "node",
+      "source": "24.13.1",
+      "gpu": "none",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:deliver.encode"
+  ]
+}

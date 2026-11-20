@@ -1,10 +1,11 @@
 // three 帧源的能力声明。纯数据，页面和 node 两边都引用。
 // 只声明这个实现真的交得出的东西：没实现的输出写 false，没实现的查询和作者模式不列。
 // 凡是由帧源定的默认值都写在这里（默认的子帧采样数、两个档位的每像素采样数和缩放），出帧时不另定。
+// library 是起帧源时提供的卡 { 卡名: { card, sha256 } }：提供了卡才声明「卡加数据」模式，没有卡可装时这个模式一个镜头也搭不出来。
 
 export const VERSION = '0.187.0';
 
-export const caps = () => ({
+export const caps = (library = {}) => ({
   format: 'caps/0.1',
   id: 'three',
   version: VERSION,
@@ -27,7 +28,7 @@ export const caps = () => ({
   final: { samples: 1, scale: 1 },
   granularity: 'frame',
   randomAccess: true,
-  modes: ['native-code'],
+  modes: Object.keys(library).length ? ['cards-data', 'native-code'] : ['native-code'],
   cost: { unit: 'gpu-second' },
   metaNull: ['stats.noise', 'lights'],
 });

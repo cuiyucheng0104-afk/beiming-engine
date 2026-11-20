@@ -1,0 +1,108 @@
+{
+  "format": "card/0.1",
+  "id": "time.envelope",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "包络",
+  "intent": "在一个时刻上起一段起、保持、落的标量曲线，给别的量当强度用",
+  "visibleToAgent": true,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/envelope/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/envelope/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "at": {
+      "type": "time",
+      "unit": "frame",
+      "default": 0,
+      "coupling": "fps"
+    },
+    "attackFrames": {
+      "type": "integer",
+      "unit": "frame",
+      "range": [
+        0,
+        600
+      ],
+      "default": 0,
+      "coupling": "fps"
+    },
+    "holdFrames": {
+      "type": "integer",
+      "unit": "frame",
+      "range": [
+        0,
+        6000
+      ],
+      "default": 0,
+      "coupling": "fps"
+    },
+    "releaseFrames": {
+      "type": "integer",
+      "unit": "frame",
+      "range": [
+        0,
+        600
+      ],
+      "default": 12,
+      "coupling": "fps"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "envelope",
+        "type": "tracks.envelope"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "一个事件上要一次性的冲击、闪亮或震动强度"
+    ],
+    "notWhen": [
+      "要循环的或要缓动曲线的：这张卡三段都是直线"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "at 是第 12 帧、起 4 帧、保持 2 帧、落 8 帧：第 11 帧是 0，第 14 帧是 0.5，第 16 到 18 帧是 1，第 22 帧是 0.5，第 26 帧起是 0",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "起的帧数是 0 时曲线在 at 这一帧从 0 直接跳到 1",
+      "fix": "这是冲击的本意；要软一点把 attackFrames 调大"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "分段直线，按 f + sub 现算，不留跨帧的状态"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:time.envelope"
+  ]
+}

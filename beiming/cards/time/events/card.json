@@ -1,0 +1,85 @@
+{
+  "format": "card/0.1",
+  "id": "time.events",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "事件",
+  "intent": "告诉别的卡这一帧落了哪些事件、离上一个和下一个事件各有几帧",
+  "visibleToAgent": true,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/events/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/events/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "kind": {
+      "type": "string",
+      "unit": "none",
+      "default": "named",
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "events",
+        "type": "events"
+      }
+    ],
+    "out": [
+      {
+        "name": "events",
+        "type": "tracks.events"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "求值核把镜头输入的事件表换成镜头局部帧号交进 inputs.events"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "动作要卡在命名事件或切点上"
+    ],
+    "notWhen": [
+      "要到位、爆发、震动这类从数据轨道里取的事件：事件表里现在没有"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "事件在局部第 12 帧：第 12 帧的 hits 是这个事件，第 20 帧离上一个事件 8 帧，第 5 帧离下一个事件 7 帧；kind 是 cut 时只看切点",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "事件在镜头外面也算进来了",
+      "fix": "事件表是全片的，局部帧号可以是负数或不小于镜头帧数；只要镜头里的自己按帧数筛"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "事件只从镜头输入的事件表拿，不从片子描述再展开"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:time.events"
+  ]
+}

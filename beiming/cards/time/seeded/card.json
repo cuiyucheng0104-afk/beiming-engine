@@ -1,0 +1,94 @@
+{
+  "format": "card/0.1",
+  "id": "time.seeded",
+  "version": "1.0.0",
+  "kind": "time",
+  "title": "带种子的随机",
+  "intent": "按镜头种子给每一帧一组可重现的随机数，哪一帧先算、算几次都是同一组",
+  "visibleToAgent": true,
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "cards/time/seeded/evaluate.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "cards/time/seeded/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "purpose": {
+      "type": "string",
+      "unit": "none",
+      "default": "jitter",
+      "coupling": "none"
+    },
+    "object": {
+      "type": "string",
+      "unit": "none",
+      "default": "all",
+      "coupling": "none"
+    },
+    "count": {
+      "type": "integer",
+      "unit": "none",
+      "range": [
+        1,
+        4096
+      ],
+      "default": 1,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "seeded",
+        "type": "tracks.seeded"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "抖动、撒点、选择这类要随机又要逐帧可重现的量"
+    ],
+    "notWhen": [
+      "要帧间连续变化的噪声：相邻两帧的数互不相干"
+    ]
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "种子 7803、镜头 s02、流 jitter/all、每帧 4 个数：第 3 帧的 4 个数就是这条流的第 12 到 15 个数；倒着算、跳着算、重复算都一样",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "镜头靠后的帧算得慢",
+      "fix": "每次求值要把流从头数到这一帧；count 别开得比用到的多"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "流名照时间键契约展开成 <镜头种子>/<镜头>/<用途>/<对象>，出数用求值核的命名随机流"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:time.seeded"
+  ]
+}

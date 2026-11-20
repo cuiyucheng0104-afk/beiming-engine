@@ -1,0 +1,89 @@
+{
+  "format": "card/0.1",
+  "id": "comp.display",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "显示变换",
+  "intent": "把合成好的线性光画面变成显示器上看的 8 位画面",
+  "visibleToAgent": true,
+  "livesIn": [
+    "comp"
+  ],
+  "impl": [
+    {
+      "livesIn": "comp",
+      "entry": "cards/post/comp-display/comp.mjs",
+      "shape": "create",
+      "hosts": [],
+      "selftest": "cards/post/comp-display/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "scene": {
+      "type": "string",
+      "unit": "none",
+      "default": "agx-mhc",
+      "coupling": "view-transform"
+    },
+    "display": {
+      "type": "string",
+      "unit": "none",
+      "default": "srgb",
+      "coupling": "view-transform"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      }
+    ],
+    "out": [],
+    "order": {
+      "before": [
+        "comp.finish",
+        "deliver.encode"
+      ],
+      "after": []
+    },
+    "requires": [
+      "合成工具调 Handle.object.encode(rgba, size, colorRef)：rgba 是预乘透明度的线性光 Rec.709，32 位浮点"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "每部片子都要：出片前的最后一道颜色换算"
+    ],
+    "notWhen": [
+      "场景参考的镜头：这一版还没接场景到显示的查找表，encode 会报错"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "显示参考的线性光 0.18 编成 118，0 编成 0，1 编成 255；半透明的像素按预乘值叠在黑底上；场景参考的画面报错",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "场景参考的镜头过不了这张卡",
+      "fix": "这一版只做显示参考的镜头；场景到显示的查找表接上之前先别用"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "显示参考的线性光只过 sRGB 的分段传递函数再量化成 8 位，不做色调映射"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "node",
+      "source": "24.13.1",
+      "gpu": "none",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:comp.display"
+  ]
+}
