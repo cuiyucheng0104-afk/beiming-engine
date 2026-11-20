@@ -1,5 +1,7 @@
 // 镜头输入：这个镜头出片要读的片子内容，帧源接口 open 的第一个参数。纯函数，从片子描述算出来。
 
+import { expandEventFrames } from './events.mjs';
+
 /** 出帧用的那一套：镜头条目带 renderer 对象时是它里面的 source、host、mode、entry，不带时是条目顶层的这四样。 */
 export const renderingOf = (shot) => shot.renderer ?? shot;
 
@@ -8,10 +10,9 @@ export const renderingOf = (shot) => shot.renderer ?? shot;
  * 轨道条目（到位、爆发、震动）要从数据轨道里取，这里没有。
  */
 export function eventsTable(film) {
+  const frames = expandEventFrames(film);
   const named = (film.events ?? []).map((e) => {
-    // shortcut: 事件的帧号只认整数，时刻算式不会展开；片子里要写算式时在这里照片子描述的文法展开
-    if (!Number.isInteger(e.frame)) throw new RangeError(`事件 ${e.id} 的帧号是时刻算式，这里还不会展开`);
-    return { id: e.id, frame: e.frame, sub: 0, ...(e.shot ? { shot: e.shot } : {}), kind: 'named', from: 'film', ...(e.audio ? { audio: e.audio, sync: e.sync ?? 'onset' } : {}) };
+    return { id: e.id, frame: frames[e.id], sub: 0, ...(e.shot ? { shot: e.shot } : {}), kind: 'named', from: 'film', ...(e.audio ? { audio: e.audio, sync: e.sync ?? 'onset' } : {}) };
   });
   // 除第一个之外，每个镜头的起始帧是一个切点
   const cuts = film.shots.slice(1).map((s) => ({ id: `cut.${s.in}`, frame: s.in, sub: 0, kind: 'cut', from: 'film' }));
