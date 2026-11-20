@@ -13,6 +13,7 @@
 
 ### Added
 
+- 新系统 `beiming/comp/` 合成拼接、编码、事件混音与交付封装模块（#52）：新增 `stitch.mjs`（按 `scene` 对数整形加四面体 `lut3d` 与 `display` 线性转 sRGB 双路分流、保留 >1.0 HDR 高光的任意帧率精确浮点缩放，以及颗粒/暗角收尾与零收尾恒等直通）、`encode.mjs`（终渲强制 `libx264 crf14`、有限范围 BT.709 四项标注及末尾 `setparams`）、`audio.mjs`（读取 `events/0.1` 精确采样点对齐、`ebur128` 迭代响度归一、4× 过采样真峰值限幅与 AAC 有损编码峰值回弹闭环保护）与 `deliver.mjs`（六件套原子发布、冻结契约前置核验与 `verifyDeliveryBundle` 全件防篡改复验），并在 `errors.json` 登记 `contract.delivery-mismatch` 等错误码，配套 45 项单测。
 - 新系统 `beiming/observe/` 空间真值查询与联系表抽帧（#51）：新增 `query.mjs`（回答 `entities`、`framing`、`texts`、`stats` 四类 `meta/0.1` 空间与光比查询，异常实体优先保真并严格压缩在 400 token / 1400 字符预算内）与 `sheet.mjs`（全规范无损 PNG 编解码器、网格联系表 `buildContactSheet` 与切点前后条带 `buildCutStrips`，支持 FFmpeg 视频直抽帧及弱切/重影检出，摘要压在 300 token 内）；在 `errors.json` 登记 `env.ffmpeg-missing`、`timeout.ffmpeg`、`failure.ffmpeg` 三个错误码，配套 37 项单测。
 - 新系统 `beiming/jobs/` 工作区快照、显存预算调度器与持久化作业队列（#53）：新增 `workspace.mjs`（乐观并发修订提交、内容寻址快照冻结与读取、中间产物按 `none | failed-only | all` 回收及全链路路径穿越/符号链接拦截）、`scheduler.mjs`（终渲/高优预览协作抢占草稿、终渲与预览保底槽双池显存隔离及同级高优预览防插队）与 `queue.mjs`（JSON 纯数据 `job.json` 原子持久化、跨进程轮次代号锁恢复与虚拟时钟分步计时），配套 48 项单测。
 - 新系统 `beiming/kernel/` 补丁写入、参数溯源与锁签发模块（#41）：新增 `patch-apply.mjs`（严格执行 `errors/0.1` 六步顺序校验、16 MiB 与 128 层硬上限、重复键与孤立代理码元拦截、存量未知键原位原值豁免及按书写顺序定位诊断）、`explain.mjs`（四层优先级解析、画风令牌解引用、含跨镜头时间卡引用在内的精确影响帧范围计算与自定义出处修订号溯源）与 `lock-gen.mjs`（正式锁 `server` 与本机锁 `local` 确定性签发、全片种子派生及验证记录防借用核验），配套 153 项单测。

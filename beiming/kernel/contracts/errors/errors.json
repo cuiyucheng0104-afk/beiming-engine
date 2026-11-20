@@ -55,6 +55,10 @@
       "meaning": "写进去之后片子描述不合片子描述契约：过不了结构定义，或违反了没有专用码的条文；写进了没定义的键报 contract.unknown-key"
     },
     {
+      "code": "contract.delivery-mismatch",
+      "meaning": "交付核对或文件摘要不符"
+    },
+    {
       "code": "contract.immutable-key",
       "meaning": "改了创建之后不得改的键"
     },

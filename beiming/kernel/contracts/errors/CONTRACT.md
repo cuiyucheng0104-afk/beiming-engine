@@ -93,6 +93,7 @@
 | `busy.rev-conflict` | 写入带的修订号和服务器当前的修订号不同 | D6、5.6 |
 | `contract.bad-path` | 写入路径不合片子描述契约（D）5.4；哪一段报这个码、哪一段报 `contract.unknown-key`，见 5.6 第 4 步 | D5、5.6 |
 | `contract.bad-value` | 写进去之后片子描述不合片子描述契约：过不了结构定义，或违反了没有专用码的条文；写进了没定义的键报 `contract.unknown-key`，不报这个码 | 5.6 |
+| `contract.delivery-mismatch` | 交付核对或文件摘要不符 | 合成交付 |
 | `contract.immutable-key` | 改了创建之后不得改的键 | D15、5.6 |
 | `contract.output-conflict` | 开着原生运动模糊时要了和它冲突的输出 | F5 |
 | `contract.order-cycle` | 卡的先后要求排不出次序：成环，或提到了镜头里没有的卡 | CR 契约 5.2（CR9 不比码） |
