@@ -1,0 +1,17 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s03",
+  "mode": "cards-data",
+  "entry": "shots/s03/shot.js",
+  "sources": [
+    "three"
+  ],
+  "languages": [
+    "js"
+  ],
+  "buildCalls": 1,
+  "build": "ok",
+  "entities": [
+    "title"
+  ]
+}

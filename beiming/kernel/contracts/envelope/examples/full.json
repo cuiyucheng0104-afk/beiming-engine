@@ -1,0 +1,32 @@
+{
+  "format": "envelope/0.1",
+  "ok": true,
+  "exitCode": 0,
+  "error": null,
+  "outputs": [
+    {
+      "kind": "master",
+      "url": "files/f_8k2/out/master.mp4",
+      "sha256": "9f2c4e1a7b3d5f60819a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70"
+    },
+    {
+      "kind": "contact",
+      "url": "files/f_8k2/out/contact.jpg"
+    }
+  ],
+  "data": {
+    "job": "j_07"
+  },
+  "diagnostics": [],
+  "cost": {
+    "tokens": 412,
+    "gpuSeconds": 3.5,
+    "wallMs": 5200
+  },
+  "next": [
+    {
+      "verb": "POST /v1/films/f_8k2/verify",
+      "why": "草稿帧已出，还没验"
+    }
+  ]
+}

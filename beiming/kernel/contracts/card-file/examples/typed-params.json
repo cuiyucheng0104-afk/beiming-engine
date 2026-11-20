@@ -1,0 +1,107 @@
+{
+  "format": "card/0.1",
+  "id": "overlay.title",
+  "version": "1.0.0",
+  "kind": "two-d",
+  "title": "片名落版",
+  "intent": "在给定的时刻把一行片名摆到画面上",
+  "livesIn": [
+    "source:three"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "sources/three/cards/overlay-title.mjs",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "sources/three/cards/overlay-title.test.mjs"
+    }
+  ],
+  "params": {
+    "text": {
+      "type": "text",
+      "unit": "none",
+      "default": "TITLE",
+      "coupling": "none"
+    },
+    "font": {
+      "type": "asset",
+      "unit": "none",
+      "default": "font",
+      "coupling": "asset-batch"
+    },
+    "enter": {
+      "type": "time",
+      "unit": "frame",
+      "default": 0,
+      "coupling": "fps"
+    },
+    "tiltDeg": {
+      "type": "number",
+      "unit": "deg",
+      "range": [
+        -45,
+        45
+      ],
+      "default": 0,
+      "coupling": "none"
+    },
+    "ink": {
+      "type": "color",
+      "unit": "none",
+      "space": "display",
+      "default": "#F4F0E9",
+      "coupling": "view-transform"
+    },
+    "track": {
+      "type": "data",
+      "unit": "none",
+      "schema": "track.schema.json",
+      "default": [],
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "镜头要落一行片名"
+    ],
+    "notWhen": []
+  },
+  "calibration": "probe-title-card",
+  "verify": {
+    "selftest": "给定文字和字体，文字框的宽高和手算值相差不到 1 像素",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [
+      "01"
+    ],
+    "note": "示意"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "none",
+      "date": "2026-11-18"
+    }
+  ],
+  "exams": [
+    "cal:overlay.title"
+  ]
+}

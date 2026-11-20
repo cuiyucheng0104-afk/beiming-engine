@@ -1,0 +1,37 @@
+{
+  "format": "meta-check/0.1",
+  "film": "f_8k2",
+  "shot": "s01",
+  "start": 0,
+  "seed": 7802,
+  "fps": "30/1",
+  "source": "blender",
+  "renders": [
+    {
+      "call": 0,
+      "shotFrame": 150,
+      "tier": "final",
+      "metas": 1,
+      "metaBytes": 2048,
+      "metaFilm": "f_8k2",
+      "metaShot": "s01",
+      "metaFps": "30/1",
+      "metaFrame": 150,
+      "metaShotFrame": 150,
+      "metaSeed": 7802,
+      "metaSize": [
+        1920,
+        1080
+      ],
+      "metaTier": "final",
+      "metaSourceId": "three",
+      "colorFileHash": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1",
+      "colorShape": [
+        1080,
+        1920,
+        4
+      ],
+      "metaHashColor": "sha256:5c1bc758cd9570e54f778646da888c12a06f2b082274e95940ce283105fb22c1"
+    }
+  ]
+}

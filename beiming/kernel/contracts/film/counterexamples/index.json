@@ -1,0 +1,368 @@
+[
+  {
+    "file": "D1-shots-end-early.json",
+    "violates": [
+      "D1"
+    ],
+    "why": "最后一个镜头在第 290 帧就结束了，output.frames 是 300"
+  },
+  {
+    "file": "D1-first-shot-not-at-zero.json",
+    "violates": [
+      "D1"
+    ],
+    "why": "第一个镜头 s01 从第 10 帧起，不是从第 0 帧"
+  },
+  {
+    "file": "D1-shot-empty.json",
+    "violates": [
+      "D1"
+    ],
+    "why": "镜头 s03 的 in 和 out 都是 300，区间是空的"
+  },
+  {
+    "file": "D1-shots-overlap.json",
+    "violates": [
+      "D1"
+    ],
+    "why": "镜头 s01 到第 190 帧才结束，镜头 s02 从第 180 帧就开始，首尾没接上"
+  },
+  {
+    "file": "D2-event-refers-undefined.json",
+    "violates": [
+      "D2"
+    ],
+    "why": "事件 title 的算式引用了没定义的事件 nope"
+  },
+  {
+    "file": "D2-event-cycle.json",
+    "violates": [
+      "D2"
+    ],
+    "why": "事件 loop-a 和 loop-b 的算式互相引用，展开时回到自己"
+  },
+  {
+    "file": "D2-shot-undefined.json",
+    "violates": [
+      "D2"
+    ],
+    "why": "事件 lock 的 shot 是 s09，镜头表里没有这个镜头"
+  },
+  {
+    "file": "D2-cut-not-a-cut.json",
+    "violates": [
+      "D2"
+    ],
+    "why": "叠加层 badge 的 in 写 cut(170)，第 170 帧不是切点"
+  },
+  {
+    "file": "D3-card-missing-in-lock.json",
+    "violates": [
+      "D3"
+    ],
+    "why": "镜头 s01 引用了 light.studio@1，锁文件的 cards 里没有这张卡"
+  },
+  {
+    "file": "D3-card-major-mismatch.json",
+    "violates": [
+      "D3"
+    ],
+    "why": "镜头 s01 引用 camera.fit@2，锁文件里这张卡的版本是 1.0.0，主版本对不上"
+  },
+  {
+    "file": "D3-shot-asset-missing-in-lock.json",
+    "violates": [
+      "D3"
+    ],
+    "why": "镜头 s01 的资产 asset:rtx-card@4 不在锁文件的 assets 里"
+  },
+  {
+    "file": "D3-film-asset-missing-in-lock.json",
+    "violates": [
+      "D3"
+    ],
+    "why": "全片 assets 里的 asset:vo-open@2 不在锁文件的 assets 里"
+  },
+  {
+    "file": "D4-lock-changed-same-rev.json",
+    "violates": [
+      "D4"
+    ],
+    "why": "两次读到的锁都是修订号 7，摘要不一样"
+  },
+  {
+    "file": "D4-lock-written-by-agent.json",
+    "violates": [
+      "D4"
+    ],
+    "why": "读到的修订号 7 的锁是调用方写进去的那一份，不是服务器生成的"
+  },
+  {
+    "file": "D5-path-by-index.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "补丁的路径用下标 0 指镜头，没有用 id"
+  },
+  {
+    "file": "D5-path-into-base-array.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "写入的路径 predicates/base/floor@1 寻址到了 predicates.base 数组里的项，路径本身不合法，服务器却让它生效了；这种写入不归 D7"
+  },
+  {
+    "file": "D5-path-unknown-key.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "explain 的路径的 at 是 predicates/basement，predicates 下面没有 basement 这个键（explain 问的是一个参数，路径必须指到契约定义过的键；诊断、修法、补丁的路径指到没定义的键本身是允许的）"
+  },
+  {
+    "file": "D5-path-shot-unknown-key.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "explain 的路径的 at 是 shots/s01/colour，镜头那一层下面没有 colour 这个键（explain 问的是一个参数，路径必须指到契约定义过的键；诊断、修法、补丁的路径指到没定义的键本身是允许的）"
+  },
+  {
+    "file": "D6-stale-write-accepted.json",
+    "violates": [
+      "D6"
+    ],
+    "why": "写入带的修订号是 5，服务器已经是 6，写入却生效了"
+  },
+  {
+    "file": "D7-agent-writes-base.json",
+    "violates": [
+      "D7"
+    ],
+    "why": "agent 对 predicates/base 的写入生效了，没有被拒绝"
+  },
+  {
+    "file": "D8-global-card-in-shot.json",
+    "violates": [
+      "D8"
+    ],
+    "why": "全片级的卡 comp.finish 写进了镜头 s01 的 cards"
+  },
+  {
+    "file": "D8-key-card-mismatch.json",
+    "violates": [
+      "D8"
+    ],
+    "why": "style.view 里的 card 写了 comp.finish@1，这个键绑的卡是 comp.display"
+  },
+  {
+    "file": "D9-explain-weaker-layer-wins.json",
+    "violates": [
+      "D9"
+    ],
+    "why": "最后一个带值的层给的是 0.82，顶层的 value 却是更弱那层的 0.9"
+  },
+  {
+    "file": "D9-explain-alone-weaker-layer-wins.json",
+    "violates": [
+      "D9"
+    ],
+    "schema": "explain.schema.json",
+    "why": "单独交回的 Explain：最后一个带值的层给的是 0.82，顶层的 value 却是更弱那层的 0.9"
+  },
+  {
+    "file": "D9-value-key-differs.json",
+    "violates": [
+      "D9"
+    ],
+    "schema": "explain.schema.json",
+    "why": "单独交回的 Explain：顶层 value 的键是 __proto__，最后一个带值的层给的值的键是 margin，逐键不相等；只比键的个数、不查对方有没有这个自有键时会当成相等"
+  },
+  {
+    "file": "D10-duplicate-event-id.json",
+    "violates": [
+      "D10"
+    ],
+    "why": "events 里有两个事件的 id 都是 lock"
+  },
+  {
+    "file": "D10-duplicate-overlay-id.json",
+    "violates": [
+      "D10"
+    ],
+    "why": "镜头 s01 上有两个叠加层的 id 都是 callout；叠加层之间重复只归 D10"
+  },
+  {
+    "file": "D11-host-not-of-source.json",
+    "violates": [
+      "D11"
+    ],
+    "why": "镜头 s01 的帧源是 blender，宿主却写了 page"
+  },
+  {
+    "file": "D11-core-host-not-listed.json",
+    "violates": [
+      "D11"
+    ],
+    "why": "镜头 s01 的帧源是 core，宿主写了 page；登记表里 core 的 hosts 列出的是 offscreen、headless-page"
+  },
+  {
+    "file": "D11-mode-not-of-source.json",
+    "violates": [
+      "D11"
+    ],
+    "why": "镜头 s01 的帧源是 core，宿主 offscreen 在登记表里，作者模式却写了 native-code；登记表里 core 的 modes 只有 cards-data、build-script"
+  },
+  {
+    "file": "D12-native-code-without-entry.json",
+    "violates": [
+      "D12"
+    ],
+    "why": "镜头 s02 的 mode 是 native-code，没有 entry"
+  },
+  {
+    "file": "D12-build-script-without-entry.json",
+    "violates": [
+      "D12"
+    ],
+    "why": "镜头 s02 的 mode 是 build-script，没有 entry"
+  },
+  {
+    "file": "D12-cards-data-with-entry.json",
+    "violates": [
+      "D12"
+    ],
+    "why": "镜头 s01 的 mode 是 cards-data，却带了 entry"
+  },
+  {
+    "file": "D12-renderer-without-entry.json",
+    "violates": [
+      "D12"
+    ],
+    "why": "镜头 s01 的 renderer 的 mode 是 build-script，renderer 里没有 entry"
+  },
+  {
+    "file": "D12-renderer-under-ext-shot-without-entry.json",
+    "violates": [
+      "D12"
+    ],
+    "why": "镜头 s01 顶层的 source 是 ext.shader-park，renderer.source 不是 ext，renderer 的 mode 是 build-script 却没有 entry：D12 对 renderer 只看 renderer.source"
+  },
+  {
+    "file": "D12-renderer-cards-data-with-entry.json",
+    "violates": [
+      "D12"
+    ],
+    "why": "镜头 s01 的 renderer 的 mode 是 cards-data，renderer 里却带了 entry"
+  },
+  {
+    "file": "D13-event-outside-shot.json",
+    "violates": [
+      "D13"
+    ],
+    "why": "事件 late 在第 185 帧，它写的镜头 s01 只到第 180 帧"
+  },
+  {
+    "file": "D13-event-past-end.json",
+    "violates": [
+      "D13"
+    ],
+    "why": "事件 tail 在第 300 帧，全片只有第 0 到第 299 帧"
+  },
+  {
+    "file": "D13-narration-past-end.json",
+    "violates": [
+      "D13"
+    ],
+    "why": "旁白 vo-open 从第 300 帧开始放，全片只有第 0 到第 299 帧"
+  },
+  {
+    "file": "D13-overlay-empty.json",
+    "violates": [
+      "D13"
+    ],
+    "why": "叠加层 callout 的 in 和 out 都是 178，不是 in < out"
+  },
+  {
+    "file": "D13-overlay-outside-shot.json",
+    "violates": [
+      "D13"
+    ],
+    "why": "叠加层 callout 到第 185 帧才消失，它的镜头 s01 只到第 180 帧"
+  },
+  {
+    "file": "D14-transition-off-cut.json",
+    "violates": [
+      "D14"
+    ],
+    "why": "transitions 写在第 170 帧，切点在第 180 帧"
+  },
+  {
+    "file": "D15-exam-changed.json",
+    "violates": [
+      "D15"
+    ],
+    "why": "片子创建之后对 exam 的写入生效了，没有被拒绝"
+  },
+  {
+    "file": "D15-server-changes-id.json",
+    "violates": [
+      "D15"
+    ],
+    "why": "片子创建之后服务器对 id 的写入生效了；服务器也不得改"
+  },
+  {
+    "file": "D16-narration-asset-undefined.json",
+    "violates": [
+      "D16"
+    ],
+    "why": "旁白 vo-open 的 asset 写了 vo_missing，全片 assets 里没有这个别名"
+  },
+  {
+    "file": "D17-ext-shot-with-entry.json",
+    "violates": [
+      "D17"
+    ],
+    "why": "镜头 s02 的帧源是 ext.shader-park，却带了 entry"
+  },
+  {
+    "file": "D18-duplicate-instance-name.json",
+    "violates": [
+      "D18"
+    ],
+    "why": "镜头 s01 的 cards 里有两项的 as 都是 cam"
+  },
+  {
+    "file": "D18-overlay-id-equals-card-as.json",
+    "violates": [
+      "D18"
+    ],
+    "why": "贴在镜头 s01 上的叠加层的 id 是 cam，和这个镜头 cards 里的实例名 cam 相同"
+  },
+  {
+    "file": "D19-deliberate-outside-shot.json",
+    "violates": [
+      "D19"
+    ],
+    "why": "镜头 s01 声明的静止区间到第 190 帧，镜头只到第 180 帧"
+  },
+  {
+    "file": "D20-semicolon-joined.json",
+    "violates": [
+      "D20"
+    ],
+    "why": "predicates.extra 的一项用 ; 把两条断言连在一起"
+  },
+  {
+    "file": "D20-semicolon-after-unclosed-quote.json",
+    "violates": [
+      "D20"
+    ],
+    "why": "predicates.extra 的一项里双引号没闭合，后面的 ; 在双引号括起来的文字以外"
+  },
+  {
+    "file": "D5-index-write-accepted.json",
+    "violates": [
+      "D5"
+    ],
+    "why": "按下标 shots/0 写的一次写入被接受了；生效写入里标识在不在不判，按下标寻址照样要判"
+  }
+]

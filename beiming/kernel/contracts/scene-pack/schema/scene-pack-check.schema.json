@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scene-pack/scene-pack-check.schema.json",
+  "title": "场景包核对记录",
+  "description": "只管结构。各段的取值由 SP1 到 SP18 管，所以这里不收紧。normalProbes 出现时 tables.instances 必须出现；tables.frameInstances 出现时 tables.instances 必须出现。",
+  "type": "object",
+  "required": ["format", "pack"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "scene-pack-check/0.1" },
+    "pack": { "$ref": "scene-pack.schema.json" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "bytes"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$)).+$" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "geometry": {
+      "type": "object",
+      "required": ["skins", "animations", "morphTargets"],
+      "additionalProperties": false,
+      "properties": {
+        "skins": { "type": "integer", "minimum": 0 },
+        "animations": { "type": "integer", "minimum": 0 },
+        "morphTargets": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tables": {
+      "type": "object",
+      "additionalProperties": false,
+      "dependentRequired": { "frameInstances": ["instances"] },
+      "properties": {
+        "instances": {
+          "type": "array",
+          "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "integer", "minimum": 0 } }
+        },
+        "frameInstances": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["frame", "row", "mat16"],
+            "additionalProperties": false,
+            "properties": {
+              "frame": { "type": "integer", "minimum": 0 },
+              "row": { "type": "integer", "minimum": 0 },
+              "mat16": { "type": "array", "minItems": 16, "maxItems": 16, "items": { "type": "number" } }
+            }
+          }
+        }
+      }
+    },
+    "reads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["table", "frame", "mode", "digest"],
+        "additionalProperties": false,
+        "properties": {
+          "table": { "enum": ["instances", "camera", "lights", "materials"] },
+          "frame": { "type": "integer", "minimum": 0 },
+          "mode": { "enum": ["single", "shuffled", "sequential", "repeat"] },
+          "digest": { "$ref": "#/$defs/packHash" }
+        }
+      }
+    },
+    "loads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["status"],
+        "additionalProperties": false,
+        "properties": {
+          "status": { "enum": ["ok", "error"] },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" }
+        }
+      }
+    },
+    "normalProbes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["row", "frame", "raw", "used"],
+        "additionalProperties": false,
+        "properties": {
+          "row": { "type": "integer", "minimum": 0 },
+          "frame": { "type": "integer", "minimum": 0 },
+          "raw": { "$ref": "#/$defs/vec3" },
+          "used": { "$ref": "#/$defs/vec3" }
+        }
+      }
+    },
+    "exportLights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "sourceWatts", "packWatts"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "sourceWatts": { "type": "number", "minimum": 0 },
+          "packWatts": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "roundTrip": {
+      "type": "object",
+      "required": ["before", "after"],
+      "additionalProperties": false,
+      "properties": {
+        "before": { "$ref": "#/$defs/packHash" },
+        "after": { "$ref": "#/$defs/packHash" },
+        "locked": { "$ref": "#/$defs/packHash" }
+      }
+    },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  },
+  "dependentRequired": { "normalProbes": ["tables"] },
+  "if": { "required": ["normalProbes"] },
+  "then": { "properties": { "tables": { "required": ["instances"] } } },
+  "$defs": {
+    "vec3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+    "packHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

@@ -1,0 +1,261 @@
+[
+  {
+    "file": "CR1-two-entries.json",
+    "violates": [
+      "CR1"
+    ],
+    "why": "实现文件对外同时提供了 create 和 evaluate 两个卡入口"
+  },
+  {
+    "file": "CR2-evaluate-via-cards-use.json",
+    "violates": [
+      "CR2"
+    ],
+    "why": "evaluate 形状的卡被 ctx.cards.use 调了"
+  },
+  {
+    "file": "CR3-handle-without-dispose.json",
+    "violates": [
+      "CR3"
+    ],
+    "why": "create 交回的 Handle 没有 dispose"
+  },
+  {
+    "file": "CR3-create-without-handle.json",
+    "violates": [
+      "CR3"
+    ],
+    "why": "create 形状的卡没有交回 Handle 的观测"
+  },
+  {
+    "file": "CR3-evaluate-with-handle.json",
+    "violates": [
+      "CR3"
+    ],
+    "why": "evaluate 形状的卡带了 handle"
+  },
+  {
+    "file": "CR4-apply-keeps-state.json",
+    "violates": [
+      "CR4"
+    ],
+    "why": "同一个 f 和 sub，单独调 apply 和顺序调 apply 之后的状态摘要不同"
+  },
+  {
+    "file": "CR5-meta-reports-bbox.json",
+    "violates": [
+      "CR5"
+    ],
+    "why": "Handle.meta 交了 bbox，那是宿主量的东西"
+  },
+  {
+    "file": "CR6-entities-without-prefix.json",
+    "violates": [
+      "CR6"
+    ],
+    "why": "卡带进来的实体并进镜头时没加实例前缀"
+  },
+  {
+    "file": "CR6-root-with-suffix.json",
+    "violates": [
+      "CR6"
+    ],
+    "why": "带 root: true 的实体 rig 并进镜头时写成了 light.rig，必须是 light"
+  },
+  {
+    "file": "CR6-merged-length-mismatch.json",
+    "violates": [
+      "CR6"
+    ],
+    "why": "handle.entities 有 2 项，handle.merged 只有 1 项"
+  },
+  {
+    "file": "CR7-evaluate-order-dependent.json",
+    "violates": [
+      "CR7"
+    ],
+    "why": "同样的输入，单独求和乱序求的返回值摘要不同"
+  },
+  {
+    "file": "CR8-create-before-tracks.json",
+    "violates": [
+      "CR8"
+    ],
+    "why": "还没接 tracks 就先 create 了卡"
+  },
+  {
+    "file": "CR8-failed-steps-not-prefix.json",
+    "violates": [
+      "CR8"
+    ],
+    "why": "构建失败时记下的搭建次序是载入资产、逐张 create，跳过了接 tracks，不是四步的开头一段"
+  },
+  {
+    "file": "CR9-declared-order-ignored.json",
+    "violates": [
+      "CR9"
+    ],
+    "why": "hdr 声明了要排在 particles 之后，实际却按书写顺序先 create 了 hdr"
+  },
+  {
+    "file": "CR9-writing-order-swapped.json",
+    "violates": [
+      "CR9"
+    ],
+    "why": "两张卡之间没声明先后，create 却没按书写顺序"
+  },
+  {
+    "file": "CR9-order-cycle-build-ok.json",
+    "violates": [
+      "CR9"
+    ],
+    "why": "orderPairs 成环，排不出次序，构建却判成了通过"
+  },
+  {
+    "file": "CR9-order-unknown-name-build-ok.json",
+    "violates": [
+      "CR9"
+    ],
+    "why": "orderPairs 提到了 cards 里没有的 glow，排不出次序，构建却判成了通过"
+  },
+  {
+    "file": "CR9-failed-created-not-prefix.json",
+    "violates": [
+      "CR9"
+    ],
+    "why": "没声明先后，构建失败前只 create 了书写在后的 particles，不是书写顺序 hdr、particles 的开头一段"
+  },
+  {
+    "file": "CR10-card-apply-before-tracks.json",
+    "violates": [
+      "CR10"
+    ],
+    "why": "一帧里先调了卡的 apply，后调 tracks.apply"
+  },
+  {
+    "file": "CR10-apply-not-in-create-order.json",
+    "violates": [
+      "CR10"
+    ],
+    "why": "一帧里 title 的 apply 排在 light 前面，和 create 的次序相反"
+  },
+  {
+    "file": "CR10-apply-name-not-created.json",
+    "violates": [
+      "CR10"
+    ],
+    "why": "applyOrder 里的 glow 不在 createOrder 里"
+  },
+  {
+    "file": "CR11-card-meta-before-host.json",
+    "violates": [
+      "CR11"
+    ],
+    "why": "一帧里先并了卡的 meta，后放宿主量的元数据"
+  },
+  {
+    "file": "CR11-meta-not-in-create-order.json",
+    "violates": [
+      "CR11"
+    ],
+    "why": "一帧里 title 的 meta 并在 light 前面，和 create 的次序相反"
+  },
+  {
+    "file": "CR11-meta-name-not-created.json",
+    "violates": [
+      "CR11"
+    ],
+    "why": "metaOrder 里的 glow 不在 createOrder 里"
+  },
+  {
+    "file": "CR12-card-camera-over-tracks.json",
+    "violates": [
+      "CR12"
+    ],
+    "why": "tracks 里有相机轨道，却取了相机类卡交出的相机"
+  },
+  {
+    "file": "CR13-two-roots.json",
+    "violates": [
+      "CR13"
+    ],
+    "why": "一个 Handle 里有两个实体带 root: true"
+  },
+  {
+    "file": "CR14-text-id-without-prefix.json",
+    "violates": [
+      "CR14"
+    ],
+    "why": "卡交出的文字框 id 并进镜头时没加实例前缀"
+  },
+  {
+    "file": "CR14-merged-ids-length-mismatch.json",
+    "violates": [
+      "CR14"
+    ],
+    "why": "handle.metaIds 有 2 项，handle.mergedMetaIds 只有 1 项"
+  },
+  {
+    "file": "CR15-overlay-before-cards.json",
+    "violates": [
+      "CR15"
+    ],
+    "why": "叠加层展开出的卡实例 caption 装在了镜头自己的卡前面"
+  },
+  {
+    "file": "CR15-overlays-out-of-order.json",
+    "violates": [
+      "CR15"
+    ],
+    "why": "两个叠加层都装在卡之后，但彼此的先后和 overlays 的书写顺序相反"
+  },
+  {
+    "file": "CR15-overlay-not-created.json",
+    "violates": [
+      "CR15"
+    ],
+    "why": "叠加层 caption 没有出现在 createOrder 里"
+  },
+  {
+    "file": "CR15-failed-overlay-before-remaining-card.json",
+    "violates": [
+      "CR15"
+    ],
+    "why": "构建失败前装了叠加层 caption，镜头自己的卡 particles 却还没装"
+  },
+  {
+    "file": "CR15-failed-overlays-skip-first.json",
+    "violates": [
+      "CR15"
+    ],
+    "why": "构建失败前装了叠加层 logo，书写在它前面的 caption 却没装，已装的叠加层不是 overlays 的开头一段"
+  },
+  {
+    "file": "CR16-overlay-name-same-as-card.json",
+    "violates": [
+      "CR16"
+    ],
+    "why": "叠加层的 id 是 caption，镜头自己的卡里也有一个实例叫 caption"
+  },
+  {
+    "file": "CR16-overlay-clash-and-out-of-order.json",
+    "violates": [
+      "CR16"
+    ],
+    "why": "叠加层 caption 和卡重名，另一个叠加层 logo 又装在了卡前面；重名时次序归 CR16，CR15 不判"
+  },
+  {
+    "file": "CR17-root-not-in-entities.json",
+    "violates": [
+      "CR17"
+    ],
+    "why": "handle.roots 里的 rig 不是 handle.entities 里的名字"
+  },
+  {
+    "file": "CR18-error-not-registered.json",
+    "violates": [
+      "CR18"
+    ],
+    "why": "先后要求成环、正确判了构建失败，报的错误码 contract.made-up-code 却没有登记在错误码表里（这个码是专为反例编的，不会被登记）"
+  }
+]

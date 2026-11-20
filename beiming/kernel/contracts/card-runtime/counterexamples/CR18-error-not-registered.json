@@ -1,0 +1,25 @@
+{
+  "format": "load-check/0.1",
+  "shot": "s05",
+  "build": "failed",
+  "error": "contract.made-up-code",
+  "steps": [
+    "assets",
+    "tracks"
+  ],
+  "cards": [
+    "hdr",
+    "particles"
+  ],
+  "orderPairs": [
+    [
+      "hdr",
+      "particles"
+    ],
+    [
+      "particles",
+      "hdr"
+    ]
+  ],
+  "createOrder": []
+}

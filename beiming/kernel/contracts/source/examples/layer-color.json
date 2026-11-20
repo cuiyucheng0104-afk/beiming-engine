@@ -1,0 +1,15 @@
+{
+  "file": "s01/000000/color.f32",
+  "shape": [
+    720,
+    1280,
+    4
+  ],
+  "components": [
+    "R",
+    "G",
+    "B",
+    "A"
+  ],
+  "hash": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
+}

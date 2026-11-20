@@ -1,0 +1,66 @@
+[
+  {
+    "file": "PA1-rename-without-to.json",
+    "violates": [
+      "PA1"
+    ],
+    "why": "补丁：第 2 个操作是 rename，没带 to"
+  },
+  {
+    "file": "PA1-record-set-without-value.json",
+    "violates": [
+      "PA1"
+    ],
+    "why": "核对记录：补丁里的 set 没带 value。这个操作只归 PA1，PA3、PA4 不对它判"
+  },
+  {
+    "file": "PA1-record-rename-without-to.json",
+    "violates": [
+      "PA1"
+    ],
+    "why": "核对记录：补丁里的 rename 没带 to，结果写的是 applied。这个操作只归 PA1，不算不可作用，PA4 不对它判"
+  },
+  {
+    "file": "PA2-rejected-half-applied.json",
+    "violates": [
+      "PA2"
+    ],
+    "why": "核对记录：整个补丁被拒，after 里 margin 却已经改成 0.82"
+  },
+  {
+    "file": "PA3-applied-op-missing.json",
+    "violates": [
+      "PA3"
+    ],
+    "why": "核对记录：两个操作都能作用、结果写的是 applied，after 里却没有加进去的事件 title"
+  },
+  {
+    "file": "PA4-inapplicable-not-rejected.json",
+    "violates": [
+      "PA4"
+    ],
+    "why": "核对记录：remove 指向不存在的 style/finish/vignette，结果却写成 applied"
+  },
+  {
+    "file": "PA4-duplicate-id-applied.json",
+    "violates": [
+      "PA4"
+    ],
+    "why": "核对记录：before 里有两个 id 都是 s01 的镜头，remove shots/s01 对上不止一项、不可作用（5.1），结果却写成 applied"
+  },
+  {
+    "file": "PA4-cards-under-object-shots.json",
+    "violates": [
+      "PA4"
+    ],
+    "why": "核对记录：第 1 个操作把根下面的 shots 写成对象，第 2 个操作再往 shots/s01/cards/fit 下写；这时的 cards 不按实例名寻址（5.1），第 2 个操作不可作用，结果却写成 applied"
+  },
+  {
+    "file": "PA5-fix-rename-without-to.json",
+    "violates": [
+      "PA5"
+    ],
+    "why": "修法：op 是 rename，没带 to，去掉 applicability 之后不是合法的补丁操作",
+    "schema": "fix.schema.json"
+  }
+]

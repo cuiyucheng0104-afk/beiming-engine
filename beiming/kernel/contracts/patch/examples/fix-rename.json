@@ -1,0 +1,6 @@
+{
+  "op": "rename",
+  "path": "shots/s01/cards/fit/params/margn",
+  "to": "margin",
+  "applicability": "machine"
+}

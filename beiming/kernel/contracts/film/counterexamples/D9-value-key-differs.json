@@ -1,0 +1,29 @@
+{
+  "path": "shots/s01/cards/cam/params/margin",
+  "value": {
+    "__proto__": {}
+  },
+  "unit": "示意",
+  "layers": [
+    {
+      "layer": "card-default",
+      "from": "camera.fit@1.0.0",
+      "value": {
+        "margin": {}
+      }
+    }
+  ],
+  "coupling": [
+    "output.size",
+    "kit 的包围盒"
+  ],
+  "affects": {
+    "shots": [
+      "s01"
+    ],
+    "frameRange": [
+      0,
+      180
+    ]
+  }
+}

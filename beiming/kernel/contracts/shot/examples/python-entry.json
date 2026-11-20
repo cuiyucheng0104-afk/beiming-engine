@@ -1,0 +1,52 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s01",
+  "mode": "build-script",
+  "entry": "shots/s01/shot.py",
+  "sources": [
+    "blender"
+  ],
+  "languages": [
+    "python"
+  ],
+  "buildCalls": 1,
+  "build": "ok",
+  "entities": [
+    "kit.body",
+    "kit.fan_L",
+    "kit.fan_R"
+  ],
+  "metaKeys": [
+    "anchors"
+  ],
+  "omittable": [
+    "kit.fan_L",
+    "kit.fan_R"
+  ],
+  "metaEntities": [
+    {
+      "f": 0,
+      "names": [
+        "kit.body",
+        "kit.fan_L",
+        "kit.fan_R"
+      ]
+    },
+    {
+      "f": 10,
+      "names": [
+        "kit.body",
+        "kit.fan_L"
+      ],
+      "omittedParts": 1
+    }
+  ],
+  "declaredCards": [
+    "light"
+  ],
+  "cardUses": [
+    {
+      "as": "light"
+    }
+  ]
+}

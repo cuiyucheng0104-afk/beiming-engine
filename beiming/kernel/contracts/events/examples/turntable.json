@@ -1,0 +1,25 @@
+{
+  "format": "events/0.1",
+  "film": "f_tt1",
+  "fps": "30/1",
+  "frames": 300,
+  "events": [
+    {
+      "id": "cut.180",
+      "frame": 180,
+      "sub": 0,
+      "kind": "cut",
+      "from": "film"
+    },
+    {
+      "id": "title",
+      "frame": 192,
+      "sub": 0,
+      "shot": "s02",
+      "kind": "named",
+      "from": "film",
+      "audio": "hit.low",
+      "sync": "onset"
+    }
+  ]
+}

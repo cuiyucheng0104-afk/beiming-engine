@@ -1,0 +1,65 @@
+[
+  {
+    "file": "EV1-out-of-order.json",
+    "violates": [
+      "EV1"
+    ],
+    "why": "第 150 帧的条目排在了第 141 帧的前面"
+  },
+  {
+    "file": "EV2-duplicate-id.json",
+    "violates": [
+      "EV2"
+    ],
+    "why": "两个条目的 id 都是 arrive.kit.fan_L"
+  },
+  {
+    "file": "EV3-cut-from-tracks.json",
+    "violates": [
+      "EV3"
+    ],
+    "why": "切点条目的 from 写成了 tracks"
+  },
+  {
+    "file": "EV4-named-frame-not-expanded.json",
+    "violates": [
+      "EV4"
+    ],
+    "why": "事件 title 的算式 cut(180) + 12 应该展开成 192，条目里是 180"
+  },
+  {
+    "file": "EV4-unresolved-frame-delivered.json",
+    "violates": [
+      "EV4"
+    ],
+    "why": "事件 late 的算式 event(nope) + 1 引用了没定义的事件，片子描述违反 D2，求值核却照常交出了事件表"
+  },
+  {
+    "file": "EV5-cut-missing.json",
+    "violates": [
+      "EV5"
+    ],
+    "why": "片子在第 180 帧有切点，事件表里没有切点条目"
+  },
+  {
+    "file": "EV6-fps-differs.json",
+    "violates": [
+      "EV6"
+    ],
+    "why": "事件表的 fps 是 24/1，片子描述的是 30/1"
+  },
+  {
+    "file": "EV7-arrive-outside-shot.json",
+    "violates": [
+      "EV7"
+    ],
+    "why": "到位条目在第 185 帧，它写的镜头 s01 只到第 180 帧"
+  },
+  {
+    "file": "EV7-frame-past-end.json",
+    "violates": [
+      "EV7"
+    ],
+    "why": "单独的事件表：条目 title 在第 300 帧，正好等于 frames，帧号只到 299；不带片子描述也判"
+  }
+]

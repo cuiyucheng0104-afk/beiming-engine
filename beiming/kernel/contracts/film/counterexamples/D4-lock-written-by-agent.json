@@ -1,0 +1,244 @@
+{
+  "format": "film-check/0.1",
+  "film": {
+    "format": "film/3.0",
+    "id": "f_8k2",
+    "title": "RTX 装回整机",
+    "output": {
+      "size": [
+        1920,
+        1080
+      ],
+      "fps": "30/1",
+      "frames": 300
+    },
+    "timeline": {
+      "bpm": 150,
+      "beatFrames": 12
+    },
+    "assets": {
+      "vo_open": "asset:vo-open@1"
+    },
+    "shots": [
+      {
+        "id": "s01",
+        "in": 0,
+        "out": 180,
+        "source": "blender",
+        "host": "cycles",
+        "mode": "cards-data",
+        "colorRef": "scene",
+        "seed": 7802,
+        "assets": {
+          "kit_model": "asset:rtx-card@3",
+          "asm_plan": "asset:asm-plan@1"
+        },
+        "cards": [
+          {
+            "as": "kit",
+            "use": "assembly.schedule@1",
+            "params": {
+              "of": "kit_model",
+              "plan": "asm_plan",
+              "window": 0.35
+            }
+          },
+          {
+            "as": "cam",
+            "use": "camera.fit@1",
+            "params": {
+              "of": "kit",
+              "azimuthDeg": 35,
+              "elevationDeg": 18,
+              "margin": 0.9
+            }
+          },
+          {
+            "as": "rig",
+            "use": "light.studio@1",
+            "params": {
+              "rig": "product-3pt"
+            }
+          },
+          {
+            "as": "sparks",
+            "use": "particle.ballistic@1",
+            "params": {
+              "at": "event(lock)",
+              "count": 500
+            }
+          }
+        ],
+        "roles": {
+          "hero": "kit",
+          "mustSee": [
+            "kit.fan_L",
+            "kit.fan_R"
+          ]
+        },
+        "shutter": {
+          "angleDeg": 180,
+          "samples": 8
+        },
+        "tiers": {
+          "draft": {
+            "samples": 24,
+            "scale": 0.5
+          },
+          "final": {
+            "samples": 160
+          }
+        },
+        "deliberate": [
+          {
+            "kind": "freeze",
+            "in": 160,
+            "out": 178,
+            "why": "装好之后定格，给标注留时间"
+          }
+        ]
+      },
+      {
+        "id": "s02",
+        "in": 180,
+        "out": 300,
+        "source": "three",
+        "host": "page",
+        "mode": "native-code",
+        "entry": "shots/s02/shot.js",
+        "colorRef": "display",
+        "seed": 7803,
+        "cards": [
+          {
+            "as": "title",
+            "use": "overlay.title@1",
+            "params": {
+              "text": "RTX 5090"
+            }
+          }
+        ],
+        "params": {
+          "underline": true
+        },
+        "roles": {
+          "hero": "title"
+        }
+      }
+    ],
+    "transitions": [
+      {
+        "id": "to-s02",
+        "at": 180,
+        "type": "cut"
+      }
+    ],
+    "events": [
+      {
+        "id": "lock",
+        "frame": 150,
+        "shot": "s01",
+        "audio": "foley.clack",
+        "sync": "pcenter"
+      },
+      {
+        "id": "title",
+        "frame": "cut(180) + 12",
+        "shot": "s02",
+        "audio": "hit.low"
+      }
+    ],
+    "overlays": [
+      {
+        "id": "callout",
+        "shot": "s01",
+        "anchor": "kit.fan_L#hub",
+        "text": "双风扇",
+        "in": "event(lock) + 6",
+        "out": 178
+      },
+      {
+        "id": "badge",
+        "shot": "s02",
+        "anchor": "screen",
+        "pos": [
+          0.06,
+          0.9
+        ],
+        "text": "示意画面",
+        "in": "cut(180)",
+        "out": "event(title) - 2"
+      }
+    ],
+    "style": {
+      "tokens": {
+        "accent": "#76B900",
+        "ink": "#1B1A22",
+        "paper": "#F4F0E9"
+      },
+      "view": {
+        "scene": "agx-mhc",
+        "display": "srgb"
+      },
+      "colorScript": {
+        "s01": {
+          "key": [
+            "#101216",
+            "#C8D0D8"
+          ],
+          "tol": 10
+        },
+        "s02": {
+          "key": [
+            "#F4F0E9",
+            "#1B1A22"
+          ],
+          "tol": 10
+        }
+      },
+      "finish": {
+        "grain": 0.04,
+        "vignette": 0.2
+      }
+    },
+    "audio": {
+      "mode": "script",
+      "loudness": -14,
+      "truePeak": -1,
+      "narration": [
+        {
+          "id": "vo-open",
+          "at": "event(lock) - 120",
+          "asset": "vo_open"
+        }
+      ]
+    },
+    "predicates": {
+      "base": [
+        "floor@1",
+        "template:assembly@1",
+        "template:delivery-web@1"
+      ],
+      "extra": [
+        "visible(kit.fan_L) >= 0.6 @ [150,180)",
+        "text_matches(\"RTX 5090\") @ shot(s02)"
+      ]
+    },
+    "delivery": {
+      "master": "h264-crf14-bt709",
+      "web": true,
+      "contact": true,
+      "layers": [
+        "color",
+        "depth",
+        "lightgroup:key"
+      ]
+    }
+  },
+  "locks": [
+    {
+      "rev": 7,
+      "writer": "agent",
+      "digest": "sha256:83211d168b2bb56a7421950340c0e666d876aa9ec04136e4454bee40a44111e2"
+    }
+  ]
+}

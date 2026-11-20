@@ -1,0 +1,149 @@
+[
+  {
+    "file": "RP1-object-id-not-aux.json",
+    "violates": [
+      "RP1"
+    ],
+    "why": "channels 里有 objectId，auxSample 里却没有它"
+  },
+  {
+    "file": "RP1-color-in-aux.json",
+    "violates": [
+      "RP1"
+    ],
+    "why": "auxSample 里多了 color，它在通道登记表里的取法是 accumulate，不是辅助层"
+  },
+  {
+    "file": "RP2-denoised-reference.json",
+    "violates": [
+      "RP2"
+    ],
+    "why": "denoised 是 true：参考包里放了降噪过的颜色"
+  },
+  {
+    "file": "RP2-encoded-color.json",
+    "violates": [
+      "RP2"
+    ],
+    "why": "denoised 是 false，但量出来的 color 通道是 encoded：过了传递函数"
+  },
+  {
+    "file": "RP3-judge-without-floor.json",
+    "violates": [
+      "RP3"
+    ],
+    "why": "floor 三个键都是 null，却被拿去当了一次裁判"
+  },
+  {
+    "file": "RP3-only-rerun-not-measured.json",
+    "violates": [
+      "RP3"
+    ],
+    "why": "floor 里只有 rerunBitExact（同种子重渲是否逐位相同）一个键是 null，另两个填了，却被拿去当了裁判"
+  },
+  {
+    "file": "RP3-only-psnr-not-measured.json",
+    "violates": [
+      "RP3"
+    ],
+    "why": "floor 里只有 seedVsSeedPsnr（两个种子之间的峰值信噪比）一个键是 null，另两个填了，却被拿去当了裁判"
+  },
+  {
+    "file": "RP3-only-flip-not-measured.json",
+    "violates": [
+      "RP3"
+    ],
+    "why": "floor 里只有 seedVsSeedFlipMean（两个种子之间的 FLIP 平均值）一个键是 null，另两个填了，却被拿去当了裁判"
+  },
+  {
+    "file": "RP4-fixed-threshold.json",
+    "violates": [
+      "RP4"
+    ],
+    "why": "参考噪声地板是 48 分贝、k 是 0.875，门槛应是 42，却写死成 40"
+  },
+  {
+    "file": "RP5-overwritten-after-driver-change.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 driver 是 580.88，现在这份是 580.95：换了驱动却没换 ref"
+  },
+  {
+    "file": "RP5-channel-added.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 channels 里没有 lightgroup:rim2，现在这份有：通道的集合变了却没换 ref"
+  },
+  {
+    "file": "RP5-seeds-reordered.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 seeds 以 1、0 开头，现在这份以 0、1 开头：seeds 按次序比，次序变了种子图的文件就对不上"
+  },
+  {
+    "file": "RP5-files-reordered.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 files 以 seed01.exr、seed00.exr 开头，现在这份以 seed00.exr、seed01.exr 开头：files 按次序比"
+  },
+  {
+    "file": "RP5-channel-removed.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 channels 里有 lightgroup:rim2，现在这份没有：通道少了一个却没换 ref（和 RP5-channel-added.json 是集合比的两个方向）"
+  },
+  {
+    "file": "RP5-aux-sample-changed.json",
+    "violates": [
+      "RP5"
+    ],
+    "why": "同一个 ref 之前存的那份 auxSample 里没有 motion，现在这份有：auxSample 的集合变了却没换 ref"
+  },
+  {
+    "file": "RP6-address-not-content-hash.json",
+    "violates": [
+      "RP6"
+    ],
+    "why": "存放地址和照文件内容算出的包哈希不相等"
+  },
+  {
+    "file": "RP7-solver-reads-reference.json",
+    "violates": [
+      "RP7"
+    ],
+    "why": "做题的一方读参考包读成功了"
+  },
+  {
+    "file": "RP8-physical-with-clamp.json",
+    "violates": [
+      "RP8"
+    ],
+    "why": "profile 是 physical，clamp.indirect 却是 10"
+  },
+  {
+    "file": "RP8-physical-with-direct-clamp.json",
+    "violates": [
+      "RP8"
+    ],
+    "why": "profile 是 physical，clamp.direct 却是 10"
+  },
+  {
+    "file": "RP8-physical-with-filter-glossy.json",
+    "violates": [
+      "RP8"
+    ],
+    "why": "profile 是 physical，filterGlossy 却是 0.5"
+  },
+  {
+    "file": "RP9-previous-other-ref.json",
+    "violates": [
+      "RP9"
+    ],
+    "why": "previous 的 ref 和 pack 的 ref 不是同一个：记录把另一个参考包的清单填进了 previous"
+  }
+]

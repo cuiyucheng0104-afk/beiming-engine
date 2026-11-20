@@ -1,0 +1,41 @@
+{
+  "format": "errors/0.1",
+  "prefixes": [
+    {
+      "prefix": "usage.",
+      "exitCode": 2,
+      "meaning": "用法错误"
+    },
+    {
+      "prefix": "env.",
+      "exitCode": 3,
+      "meaning": "环境或依赖缺失、不合格"
+    },
+    {
+      "prefix": "contract.",
+      "exitCode": 4,
+      "meaning": "契约、验收或闸门不通过"
+    },
+    {
+      "prefix": "busy.",
+      "exitCode": 5,
+      "meaning": "资源忙"
+    },
+    {
+      "prefix": "timeout.",
+      "exitCode": 124,
+      "meaning": "超时"
+    },
+    {
+      "prefix": "failure.",
+      "exitCode": 1,
+      "meaning": "运行失败"
+    },
+    {
+      "prefix": "auth.",
+      "exitCode": 4,
+      "meaning": "没有权限做这次写入"
+    }
+  ],
+  "codes": []
+}

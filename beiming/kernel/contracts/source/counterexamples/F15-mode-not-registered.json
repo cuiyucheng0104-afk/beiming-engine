@@ -1,0 +1,78 @@
+{
+  "format": "caps/0.1",
+  "id": "core",
+  "version": "0.1.0",
+  "language": "wgsl",
+  "hosts": [
+    "offscreen",
+    "headless-page"
+  ],
+  "conformance": "full",
+  "input": "scene-pack/0.1",
+  "solvers": [
+    "path"
+  ],
+  "outputs": {
+    "color": {
+      "type": "f32",
+      "transfer": "linear",
+      "primaries": "rec709"
+    },
+    "meta": true,
+    "depth": {
+      "type": "f32"
+    },
+    "objectId": {
+      "type": "u32",
+      "note": "带覆盖率"
+    },
+    "normal": {
+      "type": "f32"
+    },
+    "motion": {
+      "type": "f32"
+    },
+    "denoiseAlbedo": {
+      "type": "f32"
+    },
+    "denoiseNormal": {
+      "type": "f32"
+    },
+    "lightgroup:*": {
+      "type": "f32"
+    }
+  },
+  "channels": "passes/0.1",
+  "sceneQuery": [
+    "bbox3d",
+    "anchor",
+    "intersect",
+    "contact",
+    "belowGround"
+  ],
+  "motionBlur": {
+    "mode": "native",
+    "auxAt": "sub0"
+  },
+  "determinism": "tolerance",
+  "draft": {
+    "kind": "path-low",
+    "samples": 24,
+    "scale": 0.5,
+    "denoise": "oidn-native"
+  },
+  "final": {
+    "samples": 64,
+    "scale": 1
+  },
+  "granularity": "frame",
+  "randomAccess": true,
+  "modes": [
+    "cards-data",
+    "build-script",
+    "native-code"
+  ],
+  "cost": {
+    "unit": "gpu-second"
+  }
+}

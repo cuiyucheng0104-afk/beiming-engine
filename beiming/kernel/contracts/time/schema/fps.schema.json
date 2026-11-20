@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "time/fps.schema.json",
+  "title": "Fps",
+  "description": "分子和分母还必须互质，这一点结构定义表达不了，由 T3 管。",
+  "type": "string",
+  "pattern": "^[1-9][0-9]*/[1-9][0-9]*$"
+}

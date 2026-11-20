@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/manifest.schema.json",
+  "title": "实体清单 Manifest",
+  "description": "只管结构。编号和名字不重复由 F11 管；没有场景包时编号等于名次由 F20 管。",
+  "type": "object",
+  "required": ["frames", "entities"],
+  "additionalProperties": false,
+  "properties": {
+    "frames": { "type": "integer", "minimum": 1 },
+    "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } }
+  },
+  "$defs": {
+    "entity": {
+      "type": "object",
+      "required": ["id", "name", "class"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$" },
+        "class": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

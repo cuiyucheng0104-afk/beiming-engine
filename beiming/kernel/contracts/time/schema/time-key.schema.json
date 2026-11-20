@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "time/time-key.schema.json",
+  "title": "TimeKey",
+  "type": "object",
+  "required": ["frame", "sub"],
+  "additionalProperties": false,
+  "properties": {
+    "frame": { "type": "integer", "minimum": 0 },
+    "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 }
+  }
+}

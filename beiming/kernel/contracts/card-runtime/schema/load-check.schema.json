@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "card-runtime/load-check.schema.json",
+  "title": "装载核对记录",
+  "description": "只管结构。各个次序对不对由 CR8 到 CR12 和 CR15 管，cards 和 overlays 重不重名由 CR16 管，所以这里不收紧。build 是 ok 时不得出现 error。",
+  "type": "object",
+  "required": ["format", "shot", "build", "steps", "cards", "createOrder"],
+  "allOf": [{ "if": { "required": ["build"], "properties": { "build": { "const": "ok" } } }, "then": { "not": { "required": ["error"] } } }],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "load-check/0.1" },
+    "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
+    "build": { "enum": ["ok", "failed"] },
+    "error": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
+    "steps": { "type": "array", "items": { "enum": ["assets", "tracks", "create", "collect"] } },
+    "cards": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9_]+$", "not": { "enum": ["tracks", "host"] } } },
+    "overlays": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*$", "not": { "enum": ["tracks", "host"] } } },
+    "orderPairs": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "createOrder": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "applyOrder": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "metaOrder": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "camera": {
+      "type": "object",
+      "required": ["tracksHasCamera", "from"],
+      "additionalProperties": false,
+      "properties": {
+        "tracksHasCamera": { "type": "boolean" },
+        "from": { "enum": ["tracks", "card"] }
+      }
+    },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  }
+}

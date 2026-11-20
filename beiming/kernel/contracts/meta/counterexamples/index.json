@@ -1,0 +1,233 @@
+[
+  {
+    "file": "M1-color-from-another-call.json",
+    "violates": [
+      "M1"
+    ],
+    "why": "第 151 帧的元数据里 hash.color 是第 150 帧那次的颜色哈希，和这次交回的颜色层文件重算出的哈希不等"
+  },
+  {
+    "file": "M1-meta-hash-missing.json",
+    "violates": [
+      "M1"
+    ],
+    "why": "这次交回了颜色层，元数据的 hash.color 却是 null（记录里 metaHashColor 不出现）"
+  },
+  {
+    "file": "M1-no-meta.json",
+    "violates": [
+      "M1"
+    ],
+    "why": "这次成功的 render 一份元数据也没交回"
+  },
+  {
+    "file": "M1-two-metas.json",
+    "violates": [
+      "M1"
+    ],
+    "why": "这次成功的 render 交回了 2 份元数据，别的都对"
+  },
+  {
+    "file": "M2-shot-writes-camera.json",
+    "violates": [
+      "M2"
+    ],
+    "why": "camera 从 origin.host 挪到了 origin.shot：相机成了镜头代码能写的字段"
+  },
+  {
+    "file": "M3-over-64kb.json",
+    "violates": [
+      "M3"
+    ],
+    "why": "一份元数据序列化后 70211 字节，超过 65536"
+  },
+  {
+    "file": "M4-null-camera-from-blender.json",
+    "violates": [
+      "M4"
+    ],
+    "why": "出帧者是 blender，camera 却写成了 null：只有出帧者是 legacy-page 时才能免相机"
+  },
+  {
+    "file": "M4-null-camera-from-ext.json",
+    "violates": [
+      "M4"
+    ],
+    "why": "出帧者是 ext.demo，camera 写成了 null：ext 帧源不交每帧元数据，不在减免类的放行名单里"
+  },
+  {
+    "file": "M5-origin-host-without-source.json",
+    "violates": [
+      "M5"
+    ],
+    "why": "origin.host 里没有 source：来源信息没登记成宿主填的字段"
+  },
+  {
+    "file": "M6-visible-without-pixels.json",
+    "violates": [
+      "M6"
+    ],
+    "why": "这一帧没出像素（hash.color 和 stats 都是 null），kit 和 kit.fan_L 的 visible 却有数"
+  },
+  {
+    "file": "M7-visible-without-role.json",
+    "violates": [
+      "M7"
+    ],
+    "why": "fx.sparks 没有 role，visible 却算了 1"
+  },
+  {
+    "file": "M8-duplicate-entity-id.json",
+    "violates": [
+      "M8"
+    ],
+    "why": "fx.sparks 和 kit.fan_L 的编号都是 17"
+  },
+  {
+    "file": "M9-duplicate-call.json",
+    "violates": [
+      "M9"
+    ],
+    "why": "四次 render 里第 2 项和第 4 项的 call 都是 1（不相邻、不在开头）：靠 call 认不出说的是哪一次调用"
+  },
+  {
+    "file": "M10-display-without-clip-high.json",
+    "violates": [
+      "M10"
+    ],
+    "why": "显示参考镜头出了像素，stats 里却没有 clipHigh"
+  },
+  {
+    "file": "M10-display-without-clip-low.json",
+    "violates": [
+      "M10"
+    ],
+    "why": "显示参考镜头出了像素，stats 里却没有 clipLow"
+  },
+  {
+    "file": "M10-scene-with-clip-high.json",
+    "violates": [
+      "M10"
+    ],
+    "why": "场景参考镜头的 stats 里带了 clipHigh"
+  },
+  {
+    "file": "M10-scene-with-clip-low.json",
+    "violates": [
+      "M10"
+    ],
+    "why": "场景参考镜头的 stats 里带了 clipLow"
+  },
+  {
+    "file": "M11-frame-off-by-one.json",
+    "violates": [
+      "M11"
+    ],
+    "why": "镜头从全片第 300 帧起，请求的是局部第 150 帧，元数据的 frame 却写了 451，多 1"
+  },
+  {
+    "file": "M11-shot-frame-not-requested.json",
+    "violates": [
+      "M11"
+    ],
+    "why": "请求的是局部第 150 帧，元数据的 shotFrame 却是 151（frame 451 和它自洽）"
+  },
+  {
+    "file": "M12-seed-not-requested.json",
+    "violates": [
+      "M12"
+    ],
+    "why": "这个镜头生效的镜头种子是 7802，元数据的 seed 却写了 7803，别的都对"
+  },
+  {
+    "file": "M13-width-not-of-color-layer.json",
+    "violates": [
+      "M13"
+    ],
+    "why": "草稿档交回的颜色层是 960 乘 540，元数据 size 的宽却还写着满画幅的 1920（高 540 是对的）"
+  },
+  {
+    "file": "M13-height-not-of-color-layer.json",
+    "violates": [
+      "M13"
+    ],
+    "why": "草稿档交回的颜色层是 960 乘 540，元数据 size 的高却还写着满画幅的 1080（宽 960 是对的）"
+  },
+  {
+    "file": "M14-tier-always-final.json",
+    "violates": [
+      "M14"
+    ],
+    "why": "会话是草稿档，元数据的 source.tier 却写了 final；尺寸照草稿档的颜色层填对了"
+  },
+  {
+    "file": "M15-fov-doubled.json",
+    "violates": [
+      "M15"
+    ],
+    "why": "fovYDeg 写成了 48，proj 的第 6 个数还是照 24 度算的 4.7046（第 1 个数和第 6 个数之间是自洽的）"
+  },
+  {
+    "file": "M15-aspect-not-of-size.json",
+    "violates": [
+      "M15"
+    ],
+    "why": "画幅是 1920 乘 1080，proj 的第 1 个数却等于第 6 个数：是照正方形画幅算的"
+  },
+  {
+    "file": "M15-depth-scale-not-of-far.json",
+    "violates": [
+      "M15"
+    ],
+    "why": "far 是 100，proj 的第 11 个数却是照 far 等于 1000 算的（第 15 个数是对的）"
+  },
+  {
+    "file": "M15-depth-offset-not-of-near.json",
+    "violates": [
+      "M15"
+    ],
+    "why": "near 是 0.1，proj 的第 15 个数却是照 near 等于 1 算的（第 11 个数是对的）"
+  },
+  {
+    "file": "M16-px-area-tripled.json",
+    "violates": [
+      "M16"
+    ],
+    "why": "kit 的 pxArea 写成了照 bbox2d 算出来的三倍，bbox2d 没动"
+  },
+  {
+    "file": "M16-px-area-not-clipped.json",
+    "violates": [
+      "M16"
+    ],
+    "why": "fx.sparks 的包围盒向左伸出画面 472 像素，pxArea 却按没裁的整个矩形算：没和画面求交"
+  },
+  {
+    "file": "M17-source-id-is-renderer.json",
+    "violates": [
+      "M17"
+    ],
+    "why": "镜头条目顶层的 source 是 blender，元数据的 source.id 却填了 three：带 renderer 对象的镜头把出帧者填进了 source.id"
+  },
+  {
+    "file": "M18-film-of-another-film.json",
+    "violates": [
+      "M18"
+    ],
+    "why": "元数据的 film 是 other-film，片子描述的 id 是 f_8k2，别的都对"
+  },
+  {
+    "file": "M19-shot-of-another-shot.json",
+    "violates": [
+      "M19"
+    ],
+    "why": "请求的是镜头 s01，元数据的 shot 写成 s02，别的都对"
+  },
+  {
+    "file": "M20-fps-not-of-film.json",
+    "violates": [
+      "M20"
+    ],
+    "why": "片子描述的 output.fps 是 30/1，元数据的 fps 写成 25/1（写法本身合法），别的都对"
+  }
+]

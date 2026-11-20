@@ -1,0 +1,90 @@
+{
+  "format": "errors/0.1",
+  "prefixes": [
+    {
+      "prefix": "usage.",
+      "exitCode": 2,
+      "meaning": "用法错误"
+    },
+    {
+      "prefix": "env.",
+      "exitCode": 3,
+      "meaning": "环境或依赖缺失、不合格"
+    },
+    {
+      "prefix": "contract.",
+      "exitCode": 4,
+      "meaning": "契约、验收或闸门不通过"
+    },
+    {
+      "prefix": "busy.",
+      "exitCode": 5,
+      "meaning": "资源忙"
+    },
+    {
+      "prefix": "timeout.",
+      "exitCode": 124,
+      "meaning": "超时"
+    },
+    {
+      "prefix": "failure.",
+      "exitCode": 1,
+      "meaning": "运行失败"
+    },
+    {
+      "prefix": "auth.",
+      "exitCode": 4,
+      "meaning": "没有权限做这次写入"
+    }
+  ],
+  "codes": [
+    {
+      "code": "auth.base-readonly",
+      "meaning": "服务器之外的一方写 predicates.base"
+    },
+    {
+      "code": "busy.rev-conflict",
+      "meaning": "写入带的修订号和服务器当前的修订号不同"
+    },
+    {
+      "code": "contract.immutable-key",
+      "meaning": "改了创建之后不得改的键"
+    },
+    {
+      "code": "contract.output-conflict",
+      "meaning": "开着原生运动模糊时要了和它冲突的输出"
+    },
+    {
+      "code": "contract.runtime-shadows-param",
+      "meaning": "ctx.cards.use 的 runtime 里有键和这张卡声明的参数同名"
+    },
+    {
+      "code": "contract.shutter-conflict",
+      "meaning": "快门角是 0 而子帧采样数大于 1"
+    },
+    {
+      "code": "contract.undeclared-card",
+      "meaning": "ctx.cards.use 用了这个镜头的 cards 里没声明过的实例名"
+    },
+    {
+      "code": "contract.unknown-key",
+      "meaning": "出现了契约没定义的键"
+    },
+    {
+      "code": "contract.unknown-node",
+      "meaning": "场景包里出现了节点登记表之外的图案节点"
+    },
+    {
+      "code": "contract.unsupported-output",
+      "meaning": "要了帧源没声明过的输出"
+    },
+    {
+      "code": "contract.unsupported-query",
+      "meaning": "问了帧源没声明过的场景查询种类"
+    },
+    {
+      "code": "busy.rev-conflict",
+      "meaning": "写入带的修订号和服务器当前的修订号不同"
+    }
+  ]
+}

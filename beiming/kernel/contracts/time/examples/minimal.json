@@ -1,0 +1,13 @@
+{
+  "format": "time-check/0.1",
+  "fps": "30/1",
+  "shots": [
+    {
+      "id": "s01",
+      "start": 0,
+      "frames": 1,
+      "seed": 0,
+      "shutterAngleDeg": 0
+    }
+  ]
+}

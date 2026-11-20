@@ -1,0 +1,94 @@
+{
+  "format": "source-check/0.1",
+  "shot": "s01",
+  "caps": {
+    "format": "caps/0.1",
+    "id": "three",
+    "version": "0.187.0",
+    "language": "js",
+    "hosts": [
+      "page"
+    ],
+    "conformance": "full",
+    "outputs": {
+      "color": {
+        "type": "f32",
+        "transfer": "linear",
+        "primaries": "rec709"
+      },
+      "meta": true,
+      "depth": {
+        "type": "f32",
+        "note": "不抗锯齿"
+      },
+      "objectId": {
+        "type": "u32",
+        "note": "不抗锯齿，不带覆盖率"
+      },
+      "normal": {
+        "type": "f32"
+      },
+      "motion": false
+    },
+    "sceneQuery": [],
+    "motionBlur": {
+      "mode": "accumulate",
+      "auxAt": "sub0",
+      "samples": 8
+    },
+    "determinism": "hash-same-machine",
+    "draft": {
+      "kind": "scale",
+      "samples": 1,
+      "scale": 0.5
+    },
+    "final": {
+      "samples": 1,
+      "scale": 1
+    },
+    "granularity": "frame",
+    "randomAccess": true,
+    "modes": [
+      "native-code"
+    ],
+    "cost": {
+      "unit": "gpu-second"
+    },
+    "metaNull": [
+      "stats.noise",
+      "lights"
+    ]
+  },
+  "renders": [
+    {
+      "shotFrame": 0,
+      "want": [
+        "color",
+        "meta"
+      ],
+      "shutterAngleDeg": 0,
+      "status": "ok",
+      "meta": true,
+      "layers": [
+        "color"
+      ],
+      "size": [
+        1280,
+        720
+      ],
+      "layerRefs": [
+        {
+          "output": "color",
+          "shape": [
+            720,
+            1280,
+            4
+          ],
+          "hash": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178",
+          "fileHash": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63",
+          "fileBytes": 14745600
+        }
+      ]
+    }
+  ]
+}

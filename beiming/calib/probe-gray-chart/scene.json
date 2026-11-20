@@ -1,0 +1,1115 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "probe-gray-chart",
+  "title": "灰阶加色卡：0 到 1 的十一级灰阶、0 加 2 的 −6 到 4 次方（到 16）的十二级 HDR 灰阶、八块色卡。全部自发光，无灯光",
+  "probeRows": [
+    "颜色层的线性度",
+    "显示变换",
+    "显示变换的整形曲线",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 0
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0,
+      0
+    ],
+    "lookAtM": [
+      0,
+      0,
+      -1
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100
+  },
+  "backgroundLinear": [
+    0.05,
+    0,
+    0.05
+  ],
+  "objects": [
+    {
+      "id": "ldr-00",
+      "idIndex": 1,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -1,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "ldr-01",
+      "idIndex": 2,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.8,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "id": "ldr-02",
+      "idIndex": 3,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.6,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "id": "ldr-03",
+      "idIndex": 4,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.4,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.3,
+        0.3,
+        0.3
+      ]
+    },
+    {
+      "id": "ldr-04",
+      "idIndex": 5,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.2,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "id": "ldr-05",
+      "idIndex": 6,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "ldr-06",
+      "idIndex": 7,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.2,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    {
+      "id": "ldr-07",
+      "idIndex": 8,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.4,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.7,
+        0.7,
+        0.7
+      ]
+    },
+    {
+      "id": "ldr-08",
+      "idIndex": 9,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.6,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    {
+      "id": "ldr-09",
+      "idIndex": 10,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.8,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.9,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "ldr-10",
+      "idIndex": 11,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        1,
+        0.4,
+        -2
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "hdr-00",
+      "idIndex": 12,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -1.1,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "hdr-01",
+      "idIndex": 13,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.9,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.015625,
+        0.015625,
+        0.015625
+      ]
+    },
+    {
+      "id": "hdr-02",
+      "idIndex": 14,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.7,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.03125,
+        0.03125,
+        0.03125
+      ]
+    },
+    {
+      "id": "hdr-03",
+      "idIndex": 15,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.5,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.0625,
+        0.0625,
+        0.0625
+      ]
+    },
+    {
+      "id": "hdr-04",
+      "idIndex": 16,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.3,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.125,
+        0.125,
+        0.125
+      ]
+    },
+    {
+      "id": "hdr-05",
+      "idIndex": 17,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.1,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.25,
+        0.25,
+        0.25
+      ]
+    },
+    {
+      "id": "hdr-06",
+      "idIndex": 18,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.1,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "hdr-07",
+      "idIndex": 19,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.3,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "hdr-08",
+      "idIndex": 20,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.5,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "id": "hdr-09",
+      "idIndex": 21,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.7,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        4,
+        4,
+        4
+      ]
+    },
+    {
+      "id": "hdr-10",
+      "idIndex": 22,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.9,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "id": "hdr-11",
+      "idIndex": 23,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        1.1,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "card-red",
+      "idIndex": 24,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.7,
+        -0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.8,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "card-green",
+      "idIndex": 25,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.5,
+        -0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0,
+        0.8,
+        0
+      ]
+    },
+    {
+      "id": "card-blue",
+      "idIndex": 26,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.3,
+        -0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0,
+        0,
+        0.8
+      ]
+    },
+    {
+      "id": "card-cyan",
+      "idIndex": 27,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        -0.1,
+        -0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0,
+        0.8,
+        0.8
+      ]
+    },
+    {
+      "id": "card-magenta",
+      "idIndex": 28,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.1,
+        -0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.8,
+        0,
+        0.8
+      ]
+    },
+    {
+      "id": "card-yellow",
+      "idIndex": 29,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.3,
+        -0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.8,
+        0.8,
+        0
+      ]
+    },
+    {
+      "id": "card-gray18",
+      "idIndex": 30,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.5,
+        -0.4,
+        -2
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    },
+    {
+      "id": "card-white",
+      "idIndex": 31,
+      "shape": "plane",
+      "sizeM": [
+        0.18,
+        0.3
+      ],
+      "positionM": [
+        0.7,
+        -0.4,
+        -2
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-00",
+      "pixelPx": [
+        72.727032,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-01",
+      "pixelPx": [
+        122.181626,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-02",
+      "pixelPx": [
+        171.636219,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.2,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-03",
+      "pixelPx": [
+        221.090813,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.3,
+        0.3,
+        0.3
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-04",
+      "pixelPx": [
+        270.545406,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-05",
+      "pixelPx": [
+        320,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-06",
+      "pixelPx": [
+        369.454594,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-07",
+      "pixelPx": [
+        418.909187,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.7,
+        0.7,
+        0.7
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-08",
+      "pixelPx": [
+        468.363781,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.8,
+        0.8,
+        0.8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-09",
+      "pixelPx": [
+        517.818374,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.9,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "ldr-10",
+      "pixelPx": [
+        567.272968,
+        81.090813
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-00",
+      "pixelPx": [
+        47.999735,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-01",
+      "pixelPx": [
+        97.454329,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.015625,
+        0.015625,
+        0.015625
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-02",
+      "pixelPx": [
+        146.908923,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.03125,
+        0.03125,
+        0.03125
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-03",
+      "pixelPx": [
+        196.363516,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.0625,
+        0.0625,
+        0.0625
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-04",
+      "pixelPx": [
+        245.81811,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.125,
+        0.125,
+        0.125
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-05",
+      "pixelPx": [
+        295.272703,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.25,
+        0.25,
+        0.25
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-06",
+      "pixelPx": [
+        344.727297,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-07",
+      "pixelPx": [
+        394.18189,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-08",
+      "pixelPx": [
+        443.636484,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-09",
+      "pixelPx": [
+        493.091077,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        4,
+        4,
+        4
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-10",
+      "pixelPx": [
+        542.545671,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "hdr-11",
+      "pixelPx": [
+        592.000265,
+        180
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "card-red",
+      "pixelPx": [
+        146.908923,
+        278.909187
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.8,
+        0,
+        0
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "card-green",
+      "pixelPx": [
+        196.363516,
+        278.909187
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0,
+        0.8,
+        0
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "card-blue",
+      "pixelPx": [
+        245.81811,
+        278.909187
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0,
+        0,
+        0.8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "card-cyan",
+      "pixelPx": [
+        295.272703,
+        278.909187
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0,
+        0.8,
+        0.8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "card-magenta",
+      "pixelPx": [
+        344.727297,
+        278.909187
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.8,
+        0,
+        0.8
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "card-yellow",
+      "pixelPx": [
+        394.18189,
+        278.909187
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.8,
+        0.8,
+        0
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "card-gray18",
+      "pixelPx": [
+        443.636484,
+        278.909187
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        0.18,
+        0.18,
+        0.18
+      ]
+    },
+    {
+      "kind": "patchColor",
+      "objectId": "card-white",
+      "pixelPx": [
+        493.091077,
+        278.909187
+      ],
+      "toleranceRatio": 0.02,
+      "source": "色块中心像素由面片中心投影：u = W/2 + f·x/d，v = H/2 − f·y/d，f = (H/2)/tan(yFov/2)；值即该面片的 emissionLinear（自发光、无灯光、无色调映射时读回应等于它）",
+      "valueLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        320.5,
+        130.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第一排（v 约 44 到 118）和第二排（v 约 143 到 217）色块之间的空隙，射线不打到任何面片，应为背景",
+      "intendedHitIds": [],
+      "hits": []
+    }
+  ]
+}

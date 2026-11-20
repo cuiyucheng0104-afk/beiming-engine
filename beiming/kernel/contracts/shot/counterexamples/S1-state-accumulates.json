@@ -1,0 +1,31 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s02",
+  "mode": "native-code",
+  "entry": "shots/s02/shot.js",
+  "sources": [
+    "three"
+  ],
+  "languages": [
+    "js"
+  ],
+  "buildCalls": 1,
+  "build": "ok",
+  "entities": [
+    "title"
+  ],
+  "evaluations": [
+    {
+      "f": 10,
+      "sub": 0,
+      "mode": "single",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 10,
+      "sub": 0,
+      "mode": "sequential",
+      "digest": "b61e44d2"
+    }
+  ]
+}

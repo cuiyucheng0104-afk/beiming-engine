@@ -1,0 +1,41 @@
+{
+  "format": "film/3.0",
+  "id": "f_toon",
+  "title": "卡通镜头样例",
+  "output": { "size": [1920, 1080], "fps": "24/1", "frames": 96 },
+  "timeline": { "bpm": 120, "beatFrames": 12 },
+  "shots": [
+    {
+      "id": "s01", "in": 0, "out": 96,
+      "source": "three", "host": "page", "mode": "native-code", "entry": "shots/s01/shot.js",
+      "colorRef": "scene", "seed": 4101,
+      "cards": [
+        {
+          "as": "cam", "use": "camera.spline@1",
+          "params": {
+            "keys": [
+              { "f": 0, "pos": [0.0, 1.2, 4.0], "look": "hero" },
+              { "f": 95, "pos": [1.5, 1.4, 3.2], "look": "hero" }
+            ]
+          }
+        },
+        { "as": "post", "use": "post.hdr-chain@1", "params": {} }
+      ],
+      "params": { "bands": 3 },
+      "roles": { "hero": "hero" }
+    }
+  ],
+  "events": [
+    { "id": "pose", "frame": 48, "shot": "s01" }
+  ],
+  "overlays": [
+    { "id": "name", "shot": "s01", "anchor": "hero#top", "text": "主角", "in": "event(pose) + 6", "out": 96 }
+  ],
+  "style": {
+    "tokens": { "accent": "#E2572B", "ink": "#1B1A22", "paper": "#F4F0E9" },
+    "view": { "scene": "agx-mhc", "display": "srgb" },
+    "colorScript": { "s01": { "key": ["#F4F0E9", "#E2572B"], "tol": 10 } }
+  },
+  "predicates": { "base": ["floor@1"] },
+  "delivery": { "master": "h264-crf14-bt709" }
+}

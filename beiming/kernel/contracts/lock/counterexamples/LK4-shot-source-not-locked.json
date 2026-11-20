@@ -1,0 +1,143 @@
+{
+  "format": "lock-check/0.1",
+  "lock": {
+    "format": "lock/1.0",
+    "issuer": "server",
+    "film": "f_min",
+    "rev": 1,
+    "contracts": "0.1.0",
+    "seeds": {
+      "film": 1506961694,
+      "s01": 3984743648
+    },
+    "shots": {
+      "s01": {
+        "shutterSamples": 1
+      }
+    },
+    "sources": {
+      "blender": {
+        "version": "5.2.3",
+        "host": "cycles",
+        "image": "sha256:2be57e65f5a0a6cde494b8c6e65d3b233583f46b3f8af350b9a78b11b1601d48"
+      }
+    },
+    "cards": {
+      "time.timeline": {
+        "version": "1.0.0",
+        "impl": [
+          "data"
+        ],
+        "sha256": "9d07ab63de1cd8fab1fcbf2ece97e654c062f4faeb4b52341b22749093fe56bf",
+        "verified": {
+          "level": "reproduced",
+          "host": "kernel-eval",
+          "source": "0.1.0",
+          "gpu": "none"
+        }
+      },
+      "time.events": {
+        "version": "1.0.0",
+        "impl": [
+          "data"
+        ],
+        "sha256": "23c88f729f62a316f1473d247f5496f99d26d6bb0f6c2d85e062f90f55a5a272",
+        "verified": {
+          "level": "reproduced",
+          "host": "kernel-eval",
+          "source": "0.1.0",
+          "gpu": "none"
+        }
+      },
+      "time.seeded": {
+        "version": "1.0.0",
+        "impl": [
+          "data"
+        ],
+        "sha256": "f8512824e5c8e7ae9749dab12b29f89b614c2854c341f56fb830f0ee8fd82361",
+        "verified": {
+          "level": "reproduced",
+          "host": "kernel-eval",
+          "source": "0.1.0",
+          "gpu": "none"
+        }
+      },
+      "comp.display": {
+        "version": "1.0.0",
+        "impl": [
+          "comp"
+        ],
+        "sha256": "e48f67971f11278eac109be7ae96517e6913ca6b43d6f5aa2ad3c313808dc98a",
+        "from": "style.view",
+        "verified": {
+          "level": "measured",
+          "host": "ffmpeg",
+          "source": "locked-build",
+          "gpu": "none"
+        }
+      },
+      "deliver.encode": {
+        "version": "1.0.0",
+        "impl": [
+          "comp"
+        ],
+        "sha256": "8dc876326555aaaa5478488221dc07e263c805038593265ce8b2fe6a41e12eba",
+        "from": "delivery",
+        "verified": {
+          "level": "measured",
+          "host": "ffmpeg",
+          "source": "locked-build",
+          "gpu": "none"
+        }
+      }
+    },
+    "assets": {},
+    "templates": {
+      "floor": "1.0.0"
+    },
+    "view": {
+      "agx-mhc": "sha256:a74a605b3486933ec836ad49256566001edd1d36986680affe84f8b9368b501e"
+    },
+    "machine": {
+      "class": "rtx5090-linux",
+      "driver": "pending"
+    }
+  },
+  "film": {
+    "format": "film/3.0",
+    "id": "f_min",
+    "output": {
+      "size": [
+        1280,
+        720
+      ],
+      "fps": "24/1",
+      "frames": 48
+    },
+    "shots": [
+      {
+        "id": "s01",
+        "in": 0,
+        "out": 48,
+        "source": "three",
+        "host": "page",
+        "mode": "cards-data",
+        "colorRef": "scene"
+      }
+    ],
+    "style": {
+      "view": {
+        "scene": "agx-mhc",
+        "display": "srgb"
+      }
+    },
+    "predicates": {
+      "base": [
+        "floor@1"
+      ]
+    },
+    "delivery": {
+      "master": "h264-crf14-bt709"
+    }
+  }
+}

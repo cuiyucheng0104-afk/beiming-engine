@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/source-check.schema.json",
+  "title": "帧源核对记录",
+  "description": "只管结构。各条不变量管的搭配这里不收紧，反例才能通过结构检查。",
+  "type": "object",
+  "required": ["format", "shot", "caps"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "source-check/0.1" },
+    "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "not": { "const": "film" } },
+    "caps": { "$ref": "caps.schema.json" },
+    "opens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hasLock", "hasSeed", "usesCards", "usesAssets", "host", "mode", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "hasLock": { "type": "boolean" },
+          "hasSeed": { "type": "boolean" },
+          "usesCards": { "type": "boolean" },
+          "usesAssets": { "type": "boolean" },
+          "host": { "type": "string", "minLength": 1 },
+          "mode": { "enum": ["cards-data", "build-script", "native-code"] },
+          "unfitInput": { "type": "array", "uniqueItems": true, "items": { "enum": ["cards", "assets", "overlays"] } },
+          "status": { "enum": ["ok", "error"] },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" }
+        }
+      }
+    },
+    "renders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shotFrame", "want", "shutterAngleDeg", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "shotFrame": { "type": "integer", "minimum": 0 },
+          "want": { "type": "array", "uniqueItems": true, "items": { "$ref": "caps.schema.json#/$defs/outputName" } },
+          "shutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
+          "shutterSamples": { "type": "integer", "minimum": 1 },
+          "status": { "enum": ["ok", "error"] },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
+          "meta": { "type": "boolean" },
+          "layers": { "type": "array", "uniqueItems": true, "items": { "$ref": "caps.schema.json#/$defs/outputName" } },
+          "metaShutterAngleDeg": { "type": "number", "minimum": 0, "maximum": 360 },
+          "colorTransfer": { "enum": ["linear", "encoded"] },
+          "colorRef": { "enum": ["scene", "display"] },
+          "shotColorRef": { "enum": ["scene", "display"] },
+          "size": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 1 } },
+          "unsupportedOpts": { "type": "array", "uniqueItems": true, "items": { "enum": ["samples", "scale"] } },
+          "unfitOutputs": { "type": "array", "uniqueItems": true, "items": { "$ref": "caps.schema.json#/$defs/outputName" } },
+          "layerRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["output", "shape", "hash", "fileHash", "fileBytes"],
+              "additionalProperties": false,
+              "properties": {
+                "output": { "$ref": "caps.schema.json#/$defs/outputName" },
+                "shape": { "$ref": "layer-ref.schema.json#/properties/shape" },
+                "hash": { "$ref": "layer-ref.schema.json#/properties/hash" },
+                "fileHash": { "$ref": "layer-ref.schema.json#/properties/hash" },
+                "fileBytes": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        },
+        "allOf": [
+          { "if": { "properties": { "status": { "const": "ok" } } }, "then": { "required": ["meta", "layers"] } }
+        ],
+        "dependentRequired": { "colorRef": ["shotColorRef"] }
+      }
+    },
+    "orderRuns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shotFrame", "mode", "digest"],
+        "additionalProperties": false,
+        "properties": {
+          "shotFrame": { "type": "integer", "minimum": 0 },
+          "mode": { "enum": ["single", "shuffled", "sequential", "repeat"] },
+          "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cause", "elapsedMs", "limitMs"],
+        "additionalProperties": false,
+        "properties": {
+          "cause": { "enum": ["gpu-error", "other"] },
+          "exitCode": { "type": "integer" },
+          "elapsedMs": { "type": "number", "minimum": 0 },
+          "limitMs": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "$ref": "caps.schema.json#/$defs/queryKind" },
+          "status": { "enum": ["ok", "error"] },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
+          "total": { "type": "integer", "minimum": 0 },
+          "returned": { "type": "integer", "minimum": 0 },
+          "truncated": { "type": "integer", "minimum": 1 }
+        },
+        "if": { "properties": { "status": { "const": "ok" } } },
+        "then": { "required": ["total", "returned"] }
+      }
+    },
+    "badArgs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["call", "arg", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "call": { "enum": ["render", "query"] },
+          "arg": { "enum": ["f", "want", "opts.samples", "opts.scale", "opts.shutter.angleDeg", "opts.shutter.samples"] },
+          "status": { "enum": ["ok", "error"] },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" }
+        },
+        "if": { "properties": { "call": { "const": "query" } } },
+        "then": { "properties": { "arg": { "const": "f" } } }
+      }
+    },
+    "manifest": { "$ref": "manifest.schema.json" },
+    "scenePack": { "type": "boolean" },
+    "metaEntities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shotFrame", "entities"],
+        "additionalProperties": false,
+        "properties": {
+          "shotFrame": { "type": "integer", "minimum": 0 },
+          "entities": { "type": "array", "items": { "$ref": "manifest.schema.json#/$defs/entity" } }
+        }
+      }
+    },
+    "textReadbacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["shotFrame", "text", "read"],
+        "additionalProperties": false,
+        "properties": {
+          "shotFrame": { "type": "integer", "minimum": 0 },
+          "text": { "type": "string", "minLength": 1 },
+          "read": { "type": "string" }
+        }
+      }
+    },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  },
+  "dependentRequired": { "manifest": ["metaEntities"], "metaEntities": ["manifest"] }
+}

@@ -1,0 +1,16 @@
+{
+  "kind": "intersect",
+  "items": [
+    {
+      "a": "kit.fan_L",
+      "b": "fx.sparks",
+      "value": 0.004,
+      "unit": "m",
+      "at": [
+        -0.09,
+        0.07,
+        0.07
+      ]
+    }
+  ]
+}

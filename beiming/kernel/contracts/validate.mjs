@@ -1,0 +1,144 @@
+#!/usr/bin/env node
+// 契约的可执行校验：把正例和反例真的跑一遍。
+// 两层：结构（schema/ 里的 JSON Schema 2020-12，用 ajv 判）加行为（各契约目录里的 check.mjs，
+// 每条不变量一个函数，照 CONTRACT.md 第 4 节「怎么查」一栏写）。
+// 契约目录里和目录同名的 JSON（errors/errors.json、predicates/predicates.json、ownership/ownership.json）是正式的登记表：
+// 它自己当正例跑一遍，同时放进判定函数的第二个参数 { registries, schema }，给「必须是登记过的」这类条文查；
+// schema 是不带 format 的内嵌值登记的结构定义文件名，带 format 的对象是 null。
+// 用法：node beiming/kernel/contracts/validate.mjs [契约目录 …]；不带参数跑本目录下全部契约。
+// 退出码 1：正例被拒，或者写了判定函数的不变量没拒掉它的反例、多拒了别的条。还没写判定函数的在这里只计数；全部写齐由 validate.test.mjs 把关。
+import Ajv2020 from 'ajv/dist/2020.js';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+// schema 的 $id 写成相对路径（time/fps.schema.json），装进 ajv 前统一挂到这个基址上
+const BASE = 'https://contracts.invalid/';
+
+const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
+const contractDirs = (root) => readdirSync(root, { withFileTypes: true })
+  .filter((e) => e.isDirectory() && existsSync(join(root, e.name, 'CONTRACT.md')))
+  .map((e) => join(root, e.name));
+
+/** 装入全部契约的结构定义和判定函数。返回 { validate(obj), contracts: Map<目录名, {checks, formats}> } */
+export async function loadContracts(root = HERE) {
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  const byFormat = new Map(); // 格式标识 → { contract, id }
+  const contracts = new Map();
+  const registries = {}; // 契约目录名 → 那份契约的登记表
+  for (const dir of contractDirs(root)) {
+    const name = basename(dir);
+    if (existsSync(join(dir, `${name}.json`))) registries[name] = readJson(join(dir, `${name}.json`));
+    const formats = [];
+    const schemaDir = join(dir, 'schema');
+    for (const f of existsSync(schemaDir) ? readdirSync(schemaDir).filter((n) => n.endsWith('.json')) : []) {
+      const schema = readJson(join(schemaDir, f));
+      const id = BASE + schema.$id;
+      ajv.addSchema({ ...schema, $id: id });
+      const format = schema.properties?.format?.const;
+      if (typeof format === 'string') {
+        byFormat.set(format, { contract: name, id });
+        formats.push(format);
+      }
+    }
+    const checkPath = join(dir, 'check.mjs');
+    const checks = existsSync(checkPath) ? (await import(pathToFileURL(checkPath))).checks : {};
+    contracts.set(name, { dir, checks, formats });
+  }
+
+  /**
+   * 判一个对象。schemaErrors：结构上哪里不对；violations：违反了哪几条不变量。
+   * 带 format 的顶层对象按格式标识找结构定义；不带 format 的内嵌值必须说明是哪份结构定义（schemaFile，本契约 schema/ 里的文件名）。
+   * 结构不合法时不再跑判定函数：判定函数只对结构合法的对象负责。
+   */
+  function validate(obj, contract, schemaFile) {
+    const hit = obj?.format === undefined && schemaFile ? { contract, id: `${BASE}${contract}/${schemaFile}` } : byFormat.get(obj?.format);
+    const fn = hit && ajv.getSchema(hit.id);
+    if (!fn) {
+      const why = obj?.format === undefined ? '不带 format 的对象没有登记是哪份结构定义（examples/index.json 或 counterexamples/index.json 的 schema）' : `不认识的格式标识：${JSON.stringify(obj.format)}`;
+      return { contract: null, schemaErrors: [why], violations: {} };
+    }
+    const schemaErrors = fn(obj) ? [] : fn.errors.map((e) => `${e.instancePath || '/'} ${e.message}`);
+    return { contract: hit.contract, schemaErrors, violations: schemaErrors.length ? {} : runChecks(hit.contract, obj, schemaFile ?? null) };
+  }
+
+  /** 本契约的每个判定函数都跑一遍；一份契约有几种对象时，判定函数自己认对象，不归它管的返回空数组 */
+  function runChecks(contract, obj, schema) {
+    const violations = {};
+    for (const [id, check] of Object.entries(contracts.get(contract).checks)) {
+      let problems;
+      try {
+        problems = check(obj, { registries, schema });
+      } catch (e) {
+        problems = [`判定函数出错：${e.message}`]; // 结构已经坏了时判定函数可能读不到字段
+      }
+      if (problems.length) violations[id] = problems;
+    }
+    return violations;
+  }
+
+  return { validate, contracts };
+}
+
+/** 跑一份契约的全部正例和反例。返回逐个文件的结果和汇总。 */
+export function runContract(loaded, name) {
+  const { dir, checks } = loaded.contracts.get(name);
+  const rows = [];
+  const exDir = join(dir, 'examples');
+  const exIndex = existsSync(join(exDir, 'index.json')) ? Object.fromEntries(readJson(join(exDir, 'index.json')).map((e) => [e.file, e.schema])) : {};
+  for (const f of existsSync(exDir) ? readdirSync(exDir).filter((n) => n.endsWith('.json') && n !== 'index.json').sort() : []) {
+    const r = loaded.validate(readJson(join(exDir, f)), name, exIndex[f]);
+    const bad = [...r.schemaErrors, ...Object.entries(r.violations).map(([id, p]) => `${id}：${p[0]}`)];
+    rows.push({ kind: 'example', file: f, ok: bad.length === 0, detail: bad });
+  }
+  if (existsSync(join(dir, `${name}.json`))) {
+    const r = loaded.validate(readJson(join(dir, `${name}.json`)), name);
+    const bad = [...r.schemaErrors, ...Object.entries(r.violations).map(([id, p]) => `${id}：${p[0]}`)];
+    rows.push({ kind: 'example', file: `${name}.json（登记表）`, ok: bad.length === 0, detail: bad });
+  }
+  const idxPath = join(dir, 'counterexamples', 'index.json');
+  for (const entry of existsSync(idxPath) ? readJson(idxPath) : []) {
+    const want = entry.violates[0];
+    const r = loaded.validate(readJson(join(dir, 'counterexamples', entry.file)), name, entry.schema);
+    const got = Object.keys(r.violations);
+    const extra = got.filter((id) => id !== want);
+    let verdict;
+    if (extra.length) verdict = 'wrong'; // 一个反例只该违反一条
+    else if (got.includes(want)) verdict = 'by-check';
+    else if (want in checks) verdict = 'wrong'; // 写了判定函数却没拒掉
+    else if (r.schemaErrors.length) verdict = 'by-schema';
+    else verdict = 'unchecked'; // 结构合法，这条还没有判定函数：现在没有任何东西会拒它
+    rows.push({
+      kind: 'counterexample', file: entry.file, want, verdict, ok: verdict !== 'wrong',
+      detail: verdict === 'wrong' ? [`应该只违反 ${want}，实际判出 ${got.join('、') || '没有'}`, ...extra.map((id) => `${id}：${r.violations[id][0]}`)] : r.schemaErrors.slice(0, 1),
+    });
+  }
+  const count = (pred) => rows.filter(pred).length;
+  return {
+    rows,
+    summary: {
+      examples: count((r) => r.kind === 'example'),
+      examplesBad: count((r) => r.kind === 'example' && !r.ok),
+      byCheck: count((r) => r.verdict === 'by-check'),
+      bySchema: count((r) => r.verdict === 'by-schema'),
+      unchecked: count((r) => r.verdict === 'unchecked'),
+      wrong: count((r) => r.verdict === 'wrong'),
+    },
+  };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const loaded = await loadContracts();
+  const names = process.argv.length > 2 ? process.argv.slice(2).map((d) => basename(d)) : [...loaded.contracts.keys()];
+  const total = { examples: 0, examplesBad: 0, byCheck: 0, bySchema: 0, unchecked: 0, wrong: 0 };
+  for (const name of names) {
+    const { rows, summary: s } = runContract(loaded, name);
+    for (const k of Object.keys(total)) total[k] += s[k];
+    const failed = s.examplesBad + s.wrong + s.unchecked + s.bySchema; // 反例必须正好被它声明的那一条拒掉，没人拒、只被结构拒都算不过
+    console.log(`${failed ? '✗' : '✓'} ${name}：正例 ${s.examples - s.examplesBad}/${s.examples} 通过；反例 判定函数拒 ${s.byCheck}，只被结构拒 ${s.bySchema}，没人拒 ${s.unchecked}，判错 ${s.wrong}`);
+    for (const r of rows.filter((x) => !x.ok)) console.log(`    ${r.file}：${r.detail.join('；')}`);
+  }
+  console.log(`共 ${names.length} 份契约：正例 ${total.examples - total.examplesBad}/${total.examples} 通过；反例 判定函数拒 ${total.byCheck}，只被结构拒 ${total.bySchema}，没人拒 ${total.unchecked}，判错 ${total.wrong}`);
+  process.exit(total.examplesBad + total.wrong + total.unchecked + total.bySchema ? 1 : 0);
+}

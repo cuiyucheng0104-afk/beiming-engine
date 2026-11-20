@@ -1,0 +1,44 @@
+[
+  {
+    "file": "OW1-two-owners-for-cards.json",
+    "violates": [
+      "OW1"
+    ],
+    "why": "cards 有两个条目，属主一个是 cards、一个是 harvest"
+  },
+  {
+    "file": "OW2-calib-missing.json",
+    "violates": [
+      "OW2"
+    ],
+    "why": "必有的条目里少了 calib"
+  },
+  {
+    "file": "OW3-data-card-impl-in-eval.json",
+    "violates": [
+      "OW3"
+    ],
+    "why": "data-card-impl 的 where 写成了 kernel/eval，应该是 cards/<kind>/<name>"
+  },
+  {
+    "file": "OW4-packages-overlap.json",
+    "violates": [
+      "OW4"
+    ],
+    "why": "cards-assembly 写 cards/camera，cards-camera 的 cards/camera/fit 和 cards/camera/shake 落在它之下"
+  },
+  {
+    "file": "OW4-same-path.json",
+    "violates": [
+      "OW4"
+    ],
+    "why": "cards-assembly 和 cards-camera 都写 cards/camera/fit，两条路径逐字符相同"
+  },
+  {
+    "file": "OW5-duplicate-package-id.json",
+    "violates": [
+      "OW5"
+    ],
+    "why": "两个工作包的 id 都是 cards-time；它们的写入范围并不重叠"
+  }
+]

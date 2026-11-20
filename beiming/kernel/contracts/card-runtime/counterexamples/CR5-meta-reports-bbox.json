@@ -1,0 +1,22 @@
+{
+  "format": "card-check/0.1",
+  "card": "overlay.title@1",
+  "impl": "cards/overlay/title/three.js",
+  "shape": "create",
+  "entries": [
+    "create"
+  ],
+  "calledVia": "cards.use",
+  "handle": {
+    "members": [
+      "object",
+      "apply",
+      "meta",
+      "dispose"
+    ],
+    "metaKeys": [
+      "texts",
+      "bbox"
+    ]
+  }
+}

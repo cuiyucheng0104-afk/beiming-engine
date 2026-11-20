@@ -1,0 +1,140 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s02",
+  "mode": "native-code",
+  "entry": "shots/s02/shot.js",
+  "sources": [
+    "three"
+  ],
+  "languages": [
+    "js"
+  ],
+  "buildCalls": 1,
+  "build": "ok",
+  "entities": [
+    "title"
+  ],
+  "metaEntities": [
+    {
+      "f": 0,
+      "names": [
+        "title"
+      ]
+    },
+    {
+      "f": 47,
+      "names": [
+        "title"
+      ]
+    },
+    {
+      "f": 47,
+      "names": [
+        "title"
+      ]
+    }
+  ],
+  "evaluations": [
+    {
+      "f": 10,
+      "sub": 0,
+      "mode": "single",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 10,
+      "sub": 0,
+      "mode": "shuffled",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 10,
+      "sub": 0,
+      "mode": "sequential",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 10,
+      "sub": 0,
+      "mode": "after-other-shot",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 10,
+      "sub": 0.25,
+      "mode": "single",
+      "digest": "b61e44d2"
+    }
+  ],
+  "patches": [
+    {
+      "id": "toon.ramp",
+      "hits": 1
+    }
+  ],
+  "metaKeys": [
+    "texts",
+    "anchors"
+  ],
+  "scan": {
+    "wallClock": [],
+    "unseededRandom": []
+  },
+  "declaredCards": [
+    "title"
+  ],
+  "cardUses": [
+    {
+      "as": "title",
+      "runtimeKeys": [
+        "onReady"
+      ],
+      "paramKeys": [
+        "text",
+        "sizePx"
+      ]
+    }
+  ],
+  "ctx": [
+    {
+      "want": {
+        "seed": 20261118,
+        "fps": "24/1",
+        "frames": 48,
+        "shotIn": 48,
+        "size": [
+          1920,
+          1080
+        ]
+      },
+      "seen": {
+        "seed": 20261118,
+        "fps": "24/1",
+        "frames": 48,
+        "shotIn": 48,
+        "size": [
+          1920,
+          1080
+        ]
+      }
+    },
+    {
+      "want": {
+        "seed": 20261118,
+        "fps": "24/1",
+        "frames": 48,
+        "shotIn": 48
+      },
+      "seen": {
+        "seed": 20261118,
+        "fps": "24/1",
+        "frames": 48,
+        "shotIn": 48,
+        "size": [
+          1920,
+          1080
+        ]
+      }
+    }
+  ]
+}

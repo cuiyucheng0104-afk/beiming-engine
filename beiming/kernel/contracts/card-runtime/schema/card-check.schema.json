@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "card-runtime/card-check.schema.json",
+  "title": "卡核对记录",
+  "description": "只管结构。entries、calledVia、handle 和 shape 的搭配由 CR1 到 CR3 管，handle.roots 是不是 handle.entities 里的名字由 CR17 管，所以这里不收紧。",
+  "type": "object",
+  "required": ["format", "card", "shape", "entries", "calledVia"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "card-check/0.1" },
+    "card": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+@[0-9]+$" },
+    "impl": { "type": "string", "minLength": 1 },
+    "shape": { "enum": ["create", "evaluate"] },
+    "entries": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "calledVia": { "enum": ["cards.use", "tracks"] },
+    "handle": {
+      "type": "object",
+      "required": ["members"],
+      "additionalProperties": false,
+      "dependentRequired": { "merged": ["prefix"], "mergedMetaIds": ["prefix"] },
+      "properties": {
+        "members": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "prefix": { "type": "string", "minLength": 1 },
+        "entities": { "type": "array", "items": { "type": "string" } },
+        "roots": { "type": "array", "items": { "type": "string" } },
+        "merged": { "type": "array", "items": { "type": "string" } },
+        "metaKeys": { "type": "array", "items": { "type": "string" } },
+        "metaIds": { "type": "array", "items": { "type": "string" } },
+        "mergedMetaIds": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "evaluations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["f", "sub", "mode", "digest"],
+        "additionalProperties": false,
+        "properties": {
+          "f": { "type": "integer", "minimum": 0 },
+          "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+          "mode": { "enum": ["single", "shuffled", "sequential"] },
+          "digest": { "type": "string", "pattern": "^[0-9a-f]{8,64}$" }
+        }
+      }
+    },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  }
+}

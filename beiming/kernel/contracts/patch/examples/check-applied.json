@@ -1,0 +1,89 @@
+{
+  "format": "patch-check/0.1",
+  "before": {
+    "shots": [
+      {
+        "id": "s01",
+        "cards": [
+          {
+            "as": "fit",
+            "use": "camera.fit@1",
+            "params": {
+              "margin": 0.9
+            }
+          }
+        ]
+      },
+      {
+        "id": "s02",
+        "cards": []
+      }
+    ],
+    "events": [
+      {
+        "id": "lock",
+        "frame": 150
+      }
+    ],
+    "style": {
+      "finish": {
+        "grain": 0.2
+      }
+    }
+  },
+  "patch": {
+    "format": "patch/0.1",
+    "rev": 6,
+    "ops": [
+      {
+        "op": "set",
+        "path": "shots/s01/cards/fit/params/margin",
+        "value": 0.82
+      },
+      {
+        "op": "add",
+        "path": "events",
+        "value": {
+          "id": "title",
+          "frame": 192
+        }
+      }
+    ]
+  },
+  "outcome": "applied",
+  "after": {
+    "shots": [
+      {
+        "id": "s01",
+        "cards": [
+          {
+            "as": "fit",
+            "use": "camera.fit@1",
+            "params": {
+              "margin": 0.82
+            }
+          }
+        ]
+      },
+      {
+        "id": "s02",
+        "cards": []
+      }
+    ],
+    "events": [
+      {
+        "id": "lock",
+        "frame": 150
+      },
+      {
+        "id": "title",
+        "frame": 192
+      }
+    ],
+    "style": {
+      "finish": {
+        "grain": 0.2
+      }
+    }
+  }
+}

@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "question-file/question.schema.json",
+  "title": "题目文件",
+  "description": "只管结构。权重加起来是不是 1 由 QF1 管；基础谓词一项是不是只写一条断言、名字登记没登记由 QF2 管。",
+  "type": "object",
+  "required": [
+    "format",
+    "id",
+    "level",
+    "title",
+    "brief",
+    "deliverable",
+    "assets",
+    "basePredicates",
+    "scoring",
+    "controls",
+    "needs",
+    "budget",
+    "flags",
+    "calibration"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "question/0.1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*-[1-9][0-9]*$"
+    },
+    "level": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "brief": {
+      "type": "string",
+      "minLength": 1
+    },
+    "deliverable": {
+      "type": "object",
+      "required": [
+        "size",
+        "fps",
+        "frames",
+        "audio"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "size": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "fps": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*/[1-9][0-9]*$"
+        },
+        "frames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "audio": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$"
+      }
+    },
+    "basePredicates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "scoring": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "metric",
+          "pass",
+          "weight"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "metric": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "args": {
+            "type": "object"
+          },
+          "pass": {
+            "type": "string",
+            "minLength": 1
+          },
+          "weight": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "required": [
+        "referencePass",
+        "negative"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "referencePass": {
+          "type": "string",
+          "minLength": 1
+        },
+        "negative": {
+          "type": "string",
+          "minLength": 1
+        },
+        "random": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "needs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+      },
+      "uniqueItems": true
+    },
+    "budget": {
+      "type": "object",
+      "required": [
+        "tokens",
+        "wallMs",
+        "gpuSeconds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "wallMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "gpuSeconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "flags": {
+      "type": "object",
+      "required": [
+        "hidden",
+        "expectedFail",
+        "blockedBy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "hidden": {
+          "type": "boolean"
+        },
+        "expectedFail": {
+          "type": "boolean"
+        },
+        "blockedBy": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "required": [
+        "status",
+        "source",
+        "noiseFloor",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "noiseFloor": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "format": "load-check/0.1",
+  "shot": "s04",
+  "build": "ok",
+  "steps": [
+    "assets",
+    "tracks",
+    "create",
+    "collect"
+  ],
+  "cards": [
+    "sky",
+    "hdr",
+    "particles",
+    "title"
+  ],
+  "overlays": [
+    "caption"
+  ],
+  "orderPairs": [
+    [
+      "particles",
+      "hdr"
+    ]
+  ],
+  "createOrder": [
+    "sky",
+    "particles",
+    "hdr",
+    "title",
+    "caption"
+  ],
+  "applyOrder": [
+    "tracks",
+    "particles",
+    "hdr",
+    "title",
+    "caption"
+  ],
+  "metaOrder": [
+    "host",
+    "title",
+    "caption"
+  ],
+  "camera": {
+    "tracksHasCamera": true,
+    "from": "tracks"
+  }
+}

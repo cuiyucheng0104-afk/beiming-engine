@@ -1,0 +1,40 @@
+{
+  "format": "film/3.0",
+  "id": "f_min",
+  "output": {
+    "size": [
+      1280,
+      720
+    ],
+    "fps": "24/1",
+    "frames": 48
+  },
+  "shots": [
+    {
+      "id": "s01",
+      "in": 0,
+      "out": 48,
+      "source": "blender",
+      "host": "cycles",
+      "mode": "cards-data",
+      "colorRef": "scene"
+    }
+  ],
+  "style": {
+    "view": {
+      "scene": "agx-mhc",
+      "display": "srgb"
+    }
+  },
+  "predicates": {
+    "base": [
+      "floor@1"
+    ],
+    "extra": [
+      "text_matches(\"a ;b) @ all"
+    ]
+  },
+  "delivery": {
+    "master": "h264-crf14-bt709"
+  }
+}

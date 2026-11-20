@@ -1,0 +1,233 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "probe-thin-geometry",
+  "title": "细杆与交叠薄片：直径 4 毫米和 2 厘米的两根竖杆（3 米外，投影宽不到 1 像素和约 3 像素），两张前后相隔 1 厘米、错开交叠的 1 毫米薄片",
+  "probeRows": [
+    "编号层的边缘",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 0
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0,
+      0
+    ],
+    "lookAtM": [
+      0,
+      0,
+      -1
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100
+  },
+  "backgroundLinear": [
+    0,
+    0,
+    0
+  ],
+  "objects": [
+    {
+      "id": "rod-thin",
+      "idIndex": 1,
+      "shape": "cylinder",
+      "radiusM": 0.002,
+      "heightM": 1,
+      "positionM": [
+        -0.6,
+        0,
+        -3
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "rod-thick",
+      "idIndex": 2,
+      "shape": "cylinder",
+      "radiusM": 0.01,
+      "heightM": 1,
+      "positionM": [
+        -0.3,
+        0,
+        -3
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "sheet-front",
+      "idIndex": 3,
+      "shape": "box",
+      "sizeM": [
+        0.6,
+        0.4,
+        0.001
+      ],
+      "positionM": [
+        0.25,
+        0,
+        -2
+      ],
+      "emissionLinear": [
+        0.8,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "id": "sheet-back",
+      "idIndex": 4,
+      "shape": "box",
+      "sizeM": [
+        0.6,
+        0.4,
+        0.001
+      ],
+      "positionM": [
+        0.55,
+        0.1,
+        -2.01
+      ],
+      "emissionLinear": [
+        0.2,
+        0.2,
+        0.8
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "kind": "projectedWidth",
+      "objectId": "rod-thin",
+      "atFrame": 0,
+      "tolerancePx": 0.05,
+      "source": "杆中心沿相机右方向 ±半径两点的投影横坐标之差",
+      "widthPx": 0.659395
+    },
+    {
+      "kind": "projectedWidth",
+      "objectId": "rod-thick",
+      "atFrame": 0,
+      "tolerancePx": 0.05,
+      "source": "杆中心沿相机右方向 ±半径两点的投影横坐标之差",
+      "widthPx": 3.296973
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "sheet-front",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "薄片 8 个角点投影的最小、最大像素坐标（不计遮挡）",
+      "boxMinPx": [
+        307.63326,
+        130.53304
+      ],
+      "boxMaxPx": [
+        456.034141,
+        229.46696
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "sheet-back",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "薄片 8 个角点投影的最小、最大像素坐标（不计遮挡）",
+      "boxMinPx": [
+        381.495391,
+        106.168808
+      ],
+      "boxMaxPx": [
+        529.188378,
+        204.610397
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        431.5,
+        155.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "交叠区的像素：先打到前片，再打到后片",
+      "intendedHitIds": [
+        "sheet-front",
+        "sheet-back"
+      ],
+      "hits": [
+        {
+          "objectId": "sheet-front",
+          "planeDepthM": 1.9995,
+          "rayDistanceM": 2.052081
+        },
+        {
+          "objectId": "sheet-back",
+          "planeDepthM": 2.0095,
+          "rayDistanceM": 2.062344
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        504.5,
+        118.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "只有后片的像素",
+      "intendedHitIds": [
+        "sheet-back"
+      ],
+      "hits": [
+        {
+          "objectId": "sheet-back",
+          "planeDepthM": 2.0095,
+          "rayDistanceM": 2.159297
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        270.5,
+        180.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "粗杆中心像素：射线与圆柱侧面的第一个交点",
+      "intendedHitIds": [
+        "rod-thick"
+      ],
+      "hits": [
+        {
+          "objectId": "rod-thick",
+          "planeDepthM": 2.990026,
+          "rayDistanceM": 3.004968
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ref-pack/ref-pack-check.schema.json",
+  "title": "参考包核对记录",
+  "description": "只管结构。各段的取值由 RP1 到 RP9 管，所以这里不收紧。previous.ref 必须等于 pack.ref，JSON Schema 写不出来，由 RP9 管。",
+  "type": "object",
+  "required": ["format", "pack"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "ref-pack-check/0.1" },
+    "pack": { "$ref": "ref-pack.schema.json" },
+    "colorTransfer": { "enum": ["linear", "encoded"] },
+    "judgings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["metric", "k", "threshold"],
+        "additionalProperties": false,
+        "properties": {
+          "metric": { "enum": ["seedVsSeedPsnr", "seedVsSeedFlipMean"] },
+          "k": { "type": "number", "exclusiveMinimum": 0 },
+          "threshold": { "type": "number" }
+        }
+      }
+    },
+    "previous": { "$ref": "ref-pack.schema.json" },
+    "stored": {
+      "type": "object",
+      "required": ["address", "hash"],
+      "additionalProperties": false,
+      "properties": {
+        "address": { "$ref": "ref-pack.schema.json#/$defs/packHash" },
+        "hash": { "$ref": "ref-pack.schema.json#/$defs/packHash" }
+      }
+    },
+    "reads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["reader", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "reader": { "enum": ["judge", "solver"] },
+          "status": { "enum": ["ok", "denied"] }
+        }
+      }
+    },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  }
+}
