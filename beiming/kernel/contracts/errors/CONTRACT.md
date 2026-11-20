@@ -111,6 +111,7 @@
 | `contract.unsupported-query` | 问了帧源没声明过的场景查询种类 | F8 |
 | `env.ffmpeg-missing` | 找不到 FFmpeg 可执行文件 | 感知组件联系表与切点条带，B14 变更单 |
 | `env.lock-required` | 没有锁文件，镜头却要用只有锁文件里才有的东西 | F14 |
+| `env.missing-tool` | 找不到执行当前操作所需的外部工具（例如出帧或烘表需要 Blender） | 5.4、EN4 |
 | `failure.ffmpeg` | FFmpeg 进程执行失败 | 感知组件联系表与切点条带，B14 变更单 |
 | `timeout.ffmpeg` | FFmpeg 进程超过调用时限 | 感知组件联系表与切点条带，B14 变更单 |
 | `usage.bad-argument` | 调用的参数出了值域 | F23、5.6 第 1 步和第 3 步 |
