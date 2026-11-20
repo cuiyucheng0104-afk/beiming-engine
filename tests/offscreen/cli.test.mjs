@@ -98,6 +98,23 @@ test('出片默认走 GPU 侧 yuv420p 打包（x264 也一样）：成片 yuv420
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('出片默认编码器是 auto：有 NVENC 就走 h264_nvenc（cq 7），没有就走 libx264；信封与码流自报的编码器一致，--encoder x264 照用', { skip: noEncode, timeout: 180000 }, async () => {
+  const { resolveEncoder } = await import('../../engine/offscreen/encode.mjs');
+  const want = resolveEncoder('auto', { width: 320, height: 180 }).encoder;
+  const dir = tmp();
+  try {
+    const tagOf = f => spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'stream_tags=encoder', '-of', 'default=nw=1:nk=1', f], { encoding: 'utf8' }).stdout;
+    const d = run(['render', WORK, '--out', join(dir, 'd.mp4'), '--frames', '0:4', '--size', '320x180', '--json']);
+    assert.equal(d.status, 0, d.stderr);
+    assert.equal(envelope(d).data.encoder, want);
+    if (want === 'nvenc') { assert.match(tagOf(join(dir, 'd.mp4')), /h264_nvenc/); assert.equal(envelope(d).data.cq, 7); }
+    const x = run(['render', WORK, '--out', join(dir, 'x.mp4'), '--frames', '0:4', '--size', '320x180', '--encoder', 'x264', '--json']);
+    assert.equal(x.status, 0, x.stderr);
+    assert.equal(envelope(x).data.encoder, 'x264');
+    assert.equal(envelope(x).data.cq, null);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('出片中途 FFmpeg 退出：退出 1、failure.ffmpeg，不挂住，不留成片与半成品', { skip: noEncode || (process.platform === 'win32' && '需要 POSIX 可执行脚本'), timeout: 120000 }, () => {
   const dir = tmp();
   try {

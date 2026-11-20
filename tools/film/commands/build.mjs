@@ -24,7 +24,7 @@ const COMMON = {
   '--profile': { type: 'string', arg: '<档位>', help: '交付档位（默认 film.json 的 output.profile）' },
   '--workers': { type: 'int', min: 1, max: 32, arg: '<n>', help: '页面渲染并行路数（默认 4）' },
   '--renderer': { type: 'enum', values: ['page', 'offscreen'], arg: '<page|offscreen>', help: 'A、C 路线画面用谁渲：page 无头 Chrome（默认）；offscreen Node + Dawn，渲作品目录的 offscreen.mjs（作品要是双实现，见 docs/offscreen/README.md 7.11）' },
-  '--encoder': { type: 'enum', values: ['x264', 'nvenc'], arg: '<x264|nvenc>', help: '视频编码器：x264（默认）或 nvenc（NVIDIA 硬件编码；A、C 逐帧渲染选 nvenc 需配 --renderer offscreen，D 光追与网页版均可）' },
+  '--encoder': { type: 'enum', values: ['x264', 'nvenc'], arg: '<x264|nvenc>', help: '视频编码器：离屏出片（--renderer offscreen）默认自动选 nvenc 母版档（cq 7，无 NVENC 或小画幅时退回 x264）；页面渲染器、D 光追与网页版默认 x264（A、C 逐帧渲染选 nvenc 需配 --renderer offscreen）' },
   '--size': { type: 'string', arg: '<宽x高>', help: '改画幅出工作版：不是交付件，不跑交付 QA（只核对规格）；不能与 --final 同用' },
   '--query': { type: 'string', arg: '<k=v>', help: '原样传给页面的查询串' },
   '--audio': { type: 'string', arg: '<none|x.wav|x.py>', help: '覆盖 film.json 的声音：none、现成混音或声音脚本' },

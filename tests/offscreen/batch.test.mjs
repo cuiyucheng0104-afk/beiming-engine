@@ -44,6 +44,21 @@ test('parseBatchJobs：作业与默认值都没写 pixFmt 时走 GPU 侧 yuv420p
   assert.equal(b.pixFmt, 'rgba');
 });
 
+test('parseBatchJobs：不写 encoder 时按 auto 解析（小于 NVENC 最小画幅一律 x264），nvenc 不写 cq 时用母版档 7', async () => {
+  const { resolveEncoder } = await import('../../engine/offscreen/encode.mjs');
+  const [small, big, x, n] = parseBatchJobs([
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-a.mp4', frames: '0:4', size: '64x36' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-b.mp4', frames: '0:4', size: '320x180' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-c.mp4', frames: '0:4', size: '320x180', encoder: 'x264' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-d.mp4', frames: '0:4', size: '320x180', encoder: 'nvenc' },
+  ], { cwd: ROOT });
+  assert.equal(small.encoder, 'x264');
+  assert.equal(big.encoder, resolveEncoder('auto', { width: 320, height: 180 }).encoder);
+  assert.equal(x.encoder, 'x264');
+  assert.equal(n.encoder, 'nvenc');
+  assert.equal(n.cq, 7);
+});
+
 test('runBatch：异构多作业（不同画幅、rgba/yuv420p、render/stills 混排）同卡并发，逐帧哈希与单跑逐位一致', { skip: !hasFfmpeg ? '没有 FFmpeg' : (skipGpu || false) }, async t => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-batch-det-'));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));

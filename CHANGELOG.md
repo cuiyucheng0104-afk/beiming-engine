@@ -76,6 +76,8 @@
 - Python 顶层依赖范围抬到与锁文件已锁定的小版本一致（关闭的 Dependabot #26–#29 按协议重做）：`scipy>=1.18,<2`（锁 1.18.1）、`pillow>=13,<14`（锁 13.0.0）、`soundfile>=0.14,<1`（锁 0.14.0）、`soxr>=1.1,<2`（锁 1.1.0）。`requirements.lock` 按头里的 2026-11-10 时间点重生，针版本未变；`requirements.txt` 仍只引用 `requirements.in`。
 - 离屏出片的 TSL Kuwahara 展开成编译期常量：每个采样格的权重只取决于格子位置与 KR，改在 JS 里算好并展开，圆外格子不再采样，每个格子只累加权重非零的 3–4 个扇区，各扇区总权重也是常量。《化鹏闪羽》1080p 稳态每帧约 21.4 → 14.1 ms（整帧约 −34%，单机、GPU 被其他进程分走一部分，两轮交替测量），画面与改前最大差 1 级、PSNR ≥ 81 dB，对 GLSL 版的质量门不变；详见 `docs/offscreen/README.md` 7.17。
 - 离屏出片读回默认改为 `--pix-fmt yuv420p`：x264 出片也在 GPU 侧打包有限范围 BT.709，免 FFmpeg 的 CPU 换算（此前只有显式传参或 nvenc 配合时才走）；`offscreen render`、`offscreen batch` 与 `film build --renderer offscreen` 都跟着变，`--pix-fmt rgba` 可退回。GPU 打包的色度是 2×2 盒式均值，对 swscale 亮度最大差 1、整体 PSNR 54–55 dB，所以离屏出的成片字节与此前不同。
+- 离屏出片编码器默认改为 `--encoder auto`（母版档 `MASTER_CQ = 7`）：`engine/offscreen/encode.mjs` 新增 `resolveEncoder`，本机可用 `h264_nvenc` 且画幅 ≥ 145×49 时自动走 NVENC `cq 7`（三部实片上 PSNR-Y、最差帧、SSIM、VMAF 均不低于 x264 crf14，同输入码流逐字节确定，无解码报错），无 NVENC 或小画幅时自动退回 `libx264`；`offscreen render`、`offscreen batch` 与 `film build --renderer offscreen` 同步生效，`engine/render/build.mjs` 从信封记录实际编码器与 `cq` 并计入缓存键，显式 `--encoder x264` 照用；详见 `docs/offscreen/README.md` 7.19。
+- 离屏墨线优化（`engine/offscreen/tsl/ink.js`）：边缘遍对空白天底早退、复用四邻域深度并仅对真实边缘算雾；笔画遍新增 8×8 块归约（存局部最大半宽与紧包围盒）与可分离块膨胀，空白块在 `vnoise` 前整块早退，活跃块按局部半宽与紧包围盒距离剪枝，并改为单套笔画着色器。《化鹏闪羽》4K `ink:stroke` 53.15 → 4.26 ms（快 12.5×），整帧中位 94.7 → 37.95 ms（稳态 27.0 fps）；1080p `ink:stroke` 5.83 → 0.98 ms（稳态 124.5 fps），144 帧端到端出片（配 NVENC `cq 7`）6.15 → 3.90 s；对优化前原样副本 7 组用例最大差 0，两部实片 13 帧逐字节一致；详见 `docs/offscreen/README.md` 7.19。
 
 ### Removed
 

@@ -34,6 +34,26 @@ test('encoderArgs：--encoder nvenc 换成 h264_nvenc + 恒定质量 cq，色彩
   assert.match(encoderArgs({ width: 64, height: 32, fps: 24, out: 'o.mp4' }).join(' '), /-c:v libx264/);
 });
 
+test('resolveEncoder：auto 在 NVENC 可用且画幅 ≥ 145×49 时选 nvenc，否则退回 x264 并说明原因；显式指定的照用、不探测', async () => {
+  const { resolveEncoder, MASTER_CQ } = await import('../../engine/offscreen/encode.mjs');
+  const yes = () => true, no = () => false, boom = () => { throw new Error('不该探测'); };
+  assert.deepEqual(resolveEncoder('auto', { width: 1920, height: 1080, probe: yes }), { encoder: 'nvenc', reason: null });
+  assert.equal(resolveEncoder('auto', { width: 145, height: 49, probe: yes }).encoder, 'nvenc');
+  const noGpu = resolveEncoder('auto', { width: 1920, height: 1080, probe: no });
+  assert.equal(noGpu.encoder, 'x264');
+  assert.match(noGpu.reason, /NVENC/);
+  const small = resolveEncoder('auto', { width: 144, height: 1080, probe: yes });
+  assert.equal(small.encoder, 'x264');
+  assert.match(small.reason, /145×49/);
+  assert.equal(resolveEncoder(undefined, { width: 1920, height: 1080, probe: no }).encoder, 'x264', '不写就是 auto');
+  assert.deepEqual(resolveEncoder('x264', { width: 1920, height: 1080, probe: boom }), { encoder: 'x264', reason: null });
+  assert.deepEqual(resolveEncoder('nvenc', { width: 1920, height: 1080, probe: boom }), { encoder: 'nvenc', reason: null });
+  assert.throws(() => resolveEncoder('av1', { width: 1920, height: 1080, probe: boom }), e => e.code === 'usage.bad-value');
+  // 母版档：三部作品上 PSNR-Y、最差帧、SSIM、VMAF 都不低于 x264 crf14 的最高 cq（docs/offscreen/README.md 7.19）
+  assert.equal(MASTER_CQ, 7);
+  assert.match(encoderArgs({ width: 64, height: 32, fps: 24, out: 'o.mp4', encoder: 'nvenc' }).join(' '), /-cq 7 /, 'nvenc 不写 cq 时用母版档');
+});
+
 test('encoderArgs：不认识的编码器直接报用法错误，不悄悄退回 x264', () => {
   assert.throws(() => encoderArgs({ width: 64, height: 32, fps: 24, out: 'o.mp4', encoder: 'av1' }), e => e.code === 'usage.bad-value' && /x264.*nvenc/.test(e.message));
 });
