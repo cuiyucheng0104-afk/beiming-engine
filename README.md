@@ -196,6 +196,5 @@ tests/      契约、治理与渲染测试
 </a>
 
 
-北冥原生 · BNE 基于第三方原生运行时 RAEA（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）。运行时不随本仓库分发，需单独取得并遵守其许可。北冥代码动画风格的画法库部分来自 MIT 开源项目 lemo-opuscar（LemoLab）与 sy-style-100（肖雄 XIAOXIONG），版权与许可原样保留。
 
 <sub>引擎工程待办与分工见 [docs/routes/](docs/routes/README.md)，用 `npm run plan:check`、`npm run plan:next` 查依赖与下一项；做作品不用它。</sub>
