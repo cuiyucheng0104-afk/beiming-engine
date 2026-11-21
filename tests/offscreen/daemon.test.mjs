@@ -2,20 +2,18 @@
 // 协议、IPC 权限与崩溃恢复、LRU 与热重载、device.lost 自愈、以及与冷启动逐字节一致的真 GPU 回归。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import net from 'node:net';
-import { mkdtempSync, rmSync, writeFileSync, statSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, statSync, lstatSync, existsSync, readFileSync, symlinkSync, chmodSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { FFMPEG } from '../../engine/render/lib/ffmpeg.mjs';
-import {
-  defaultSocketPath,
-  resolveDaemonTarget,
-  computeWorkSignature,
-  createDaemonServer,
-  sendDaemonRequest,
-} from '../../engine/offscreen/daemon.mjs';
+import * as D from '../../engine/offscreen/daemon.mjs';
+import { filmFps, setFilmFps } from '../../engine/core/clock.js';
+import { loadFilmFonts } from '../../engine/offscreen/canvas.mjs';
+import { attachGpuTimer } from '../../engine/offscreen/gputimer.mjs';
+
+const { defaultSocketPath, resolveDaemonTarget, computeWorkSignature, createDaemonServer, sendDaemonRequest } = D;
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const CLI = join(ROOT, 'engine/offscreen/cli.mjs');
@@ -25,6 +23,25 @@ const tmp = () => mkdtempSync(join(tmpdir(), 'beiming-daemon-test-'));
 const IS_WIN = process.platform === 'win32';
 // Windows 只能用命名管道（文件路径 listen 会 EACCES）；类 Unix 用临时目录里的 socket 文件
 const ipcPath = (dir, name) => (IS_WIN ? `\\\\.\\pipe\\beiming-test-${process.pid}-${dir.slice(-6)}-${name}` : join(dir, `${name}.sock`));
+
+const mockRuntime = () => ({
+  adapter: { vendor: 'mock', architecture: null, description: 'mock-gpu' },
+  software: false,
+  async execute(method) {
+    if (method === 'probe') return { data: { ok: true }, outputs: [], warnings: [] };
+    throw new Error(`unexpected ${method}`);
+  },
+  stats() { return { cachedWorks: 0, maxCachedWorks: 4, cacheHits: 0, cacheMisses: 0, deviceResets: 0 }; },
+  dispose() {},
+});
+
+// 子进程 listen 后被 SIGKILL：留下一个真正的、没人监听的 socket 文件（模拟守护进程崩溃）
+async function staleSocket(p) {
+  const child = spawn(process.execPath, ['-e', `require('net').createServer().listen(${JSON.stringify(p)}, () => console.log('up'))`], { stdio: ['ignore', 'pipe', 'ignore'] });
+  await new Promise((resolve, reject) => { child.stdout.once('data', resolve); child.once('exit', c => reject(new Error(`stale 子进程提前退出 ${c}`))); });
+  child.kill('SIGKILL');
+  await new Promise(r => child.once('exit', r));
+}
 
 // ───────────────────────── 纯逻辑与协议单测（无需 GPU） ─────────────────────────
 
@@ -65,19 +82,11 @@ test('IPC 权限 0600、陈旧 socket 崩溃恢复、重复启动报 busy.daemon
   const dir = tmp();
   const sock = ipcPath(dir, 'd');
   try {
-    // 1. 制造一个上次崩溃残留的死 socket 文件（命名管道没有文件残留，Windows 跳过这一步）
-    if (!IS_WIN) await new Promise((resolve, reject) => {
-      const dead = net.createServer();
-      dead.once('error', reject);
-      dead.listen(sock, () => {
-        // 强关 socket 但保留路径，模拟进程被 SIGKILL 后的残留文件
-        dead.close(() => {
-          writeFileSync(sock, '');
-          resolve();
-        });
-      });
-    });
-    if (!IS_WIN) assert.equal(existsSync(sock), true);
+    // 1. 制造一个上次崩溃残留的死 socket（命名管道没有文件残留，Windows 跳过这一步）
+    if (!IS_WIN) {
+      await staleSocket(sock);
+      assert.equal(lstatSync(sock).isSocket(), true);
+    }
 
     // 2. 启动 daemon：应自动清理陈旧残留并监听，权限 0600
     const mockRuntime = {
@@ -235,6 +244,149 @@ test('LRU 作品池上限：超过 maxCachedWorks 淘汰最久未用宿主并调
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+// ───────────────────────── 复核问题回归（#1–#4） ─────────────────────────
+
+test('[#1] --socket 指向普通文件或符号链接：拒绝启动（用法错误），文件原样保留', { skip: IS_WIN && '命名管道没有文件路径' }, async () => {
+  const dir = tmp();
+  try {
+    const victim = join(dir, 'victim.txt');
+    writeFileSync(victim, 'important data');
+    const link = join(dir, 'link.sock');
+    symlinkSync(victim, link);
+    for (const p of [victim, link]) {
+      const r = runCliSync(['daemon', '--socket', p, '--idle-timeout', '1', '--json']);
+      assert.equal(r.status, 2, `${p}\n${r.stderr}`);
+      assert.equal(JSON.parse(r.stdout).error.code, 'usage.bad-socket-path');
+    }
+    await assert.rejects(() => createDaemonServer({ socketPath: victim, idleTimeoutSec: 0, runtime: mockRuntime() }), e => e.code === 'usage.bad-socket-path');
+    assert.equal(readFileSync(victim, 'utf8'), 'important data', '普通文件必须原样保留');
+    assert.equal(lstatSync(link).isSymbolicLink(), true, '符号链接必须原样保留');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('[#3] 默认路径：无 XDG_RUNTIME_DIR 时落在当前用户专属子目录；Windows 管道名带用户成分', () => {
+  assert.equal(defaultSocketPath({ env: {}, platform: 'linux', tmpdir: '/tmp', uid: 1000 }), '/tmp/beiming-offscreen-1000/daemon.sock');
+  const a = defaultSocketPath({ env: {}, platform: 'win32', root: 'r', user: 'alice' });
+  const b = defaultSocketPath({ env: {}, platform: 'win32', root: 'r', user: 'bob' });
+  assert.match(a, /^\\\\\.\\pipe\\beiming-offscreen-[0-9a-f]{8}$/);
+  assert.notEqual(a, b, '不同用户的默认管道名必须不同');
+});
+
+test('[#3] 服务端：父目录必须是本人所有、非符号链接、0700，否则拒绝；不存在时按 0700 新建', { skip: IS_WIN && 'Windows 没有 POSIX 属主与权限位' }, async () => {
+  const dir = tmp();
+  try {
+    const open = join(dir, 'open');
+    mkdirSync(open);
+    chmodSync(open, 0o755);
+    await assert.rejects(() => createDaemonServer({ socketPath: join(open, 'd.sock'), idleTimeoutSec: 0, runtime: mockRuntime() }), e => e.code === 'usage.unsafe-socket-dir');
+    assert.equal(existsSync(join(open, 'd.sock')), false, '0755 目录里不能先 bind');
+    const real = join(dir, 'real');
+    mkdirSync(real, { mode: 0o700 });
+    const ln = join(dir, 'ln');
+    symlinkSync(real, ln);
+    await assert.rejects(() => createDaemonServer({ socketPath: join(ln, 'd.sock'), idleTimeoutSec: 0, runtime: mockRuntime() }), e => e.code === 'usage.unsafe-socket-dir');
+    assert.throws(() => D.assertPrivateSocketDir(real, { uid: process.getuid() + 1 }), e => e.code === 'usage.unsafe-socket-dir', '属主不是当前用户必须拒绝');
+    D.assertPrivateSocketDir(real);
+    const fresh = join(dir, 'fresh', 'sub');
+    const srv = await createDaemonServer({ socketPath: join(fresh, 'd.sock'), idleTimeoutSec: 0, runtime: mockRuntime() });
+    try {
+      assert.equal(statSync(fresh).mode & 0o777, 0o700);
+      assert.equal(statSync(join(fresh, 'd.sock')).mode & 0o777, 0o600);
+    } finally { await srv.close(); }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('[#3] 客户端：连接前校验 socket 与父目录属主为当前用户，不信任冒充的 socket', { skip: IS_WIN && 'Windows 没有 POSIX 属主', timeout: 30000 }, async () => {
+  const dir = tmp();
+  const sock = ipcPath(dir, 'trust');
+  const srv = await createDaemonServer({ socketPath: sock, idleTimeoutSec: 0, runtime: mockRuntime() });
+  try {
+    assert.equal((await sendDaemonRequest(sock, 'stats', {})).ok, true);
+    await assert.rejects(() => sendDaemonRequest(sock, 'stats', {}, { uid: process.getuid() + 1 }), e => e.code === 'env.daemon-untrusted');
+    const fake = join(dir, 'fake.sock');
+    writeFileSync(fake, '');
+    await assert.rejects(() => sendDaemonRequest(fake, 'stats', {}), e => e.code === 'env.daemon-untrusted');
+  } finally { await srv.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('[#4] --daemon on --socket <路径> 连 --socket 指定的路径；只给 --socket 不开 daemon 报用法错误', () => {
+  assert.deepEqual(resolveDaemonTarget('on', { env: {}, platform: 'linux', socket: '/x/y.sock' }), { mode: 'required', socket: '/x/y.sock' });
+  assert.deepEqual(resolveDaemonTarget('auto', { env: {}, platform: 'linux', socket: '/x/y.sock' }), { mode: 'auto', socket: '/x/y.sock' });
+  const dir = tmp();
+  const sock = ipcPath(dir, 'cli');
+  const env = { ...process.env };
+  delete env.BEIMING_OFFSCREEN_DAEMON;
+  delete env.BEIMING_OFFSCREEN_SOCKET;
+  try {
+    const r = runCliSync(['probe', WORK, '--daemon', 'on', '--socket', sock, '--json'], { env });
+    assert.equal(r.status, 3, r.stderr);
+    const e = JSON.parse(r.stdout).error;
+    assert.equal(e.code, 'env.daemon-unavailable');
+    assert.ok(e.message.includes(sock), `应连 --socket 指定的路径：${e.message}`);
+    const r2 = runCliSync(['probe', WORK, '--socket', sock, '--json'], { env });
+    assert.equal(r2.status, 2, r2.stderr);
+    assert.equal(JSON.parse(r2.stdout).error.code, 'usage.socket-without-daemon');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('[#2] 热重载只给作品侧模块带 ?v：engine/* 单实例（filmFps 与守护进程一致、canvas / gputimer 同一份），作品本地依赖照样热更新', { timeout: 30000 }, async () => {
+  const dir = tmp();
+  const sock = ipcPath(dir, 'refs');
+  const tag = `${process.pid}`;
+  const helperAbs = join(ROOT, `lab/offscreen/.daemon-ref-helper-${tag}.mjs`);
+  const workAbs = [1, 2].map(i => join(ROOT, `lab/offscreen/.daemon-ref-work${i}-${tag}.mjs`));
+  const workSrc = `import { filmFps } from '../../engine/core/clock.js';
+import { loadFilmFonts } from '../../engine/offscreen/canvas.mjs';
+import { attachGpuTimer } from '../../engine/offscreen/gputimer.mjs';
+import { V } from './.daemon-ref-helper-${tag}.mjs';
+export function build() {
+  return { render() {}, get dur() { globalThis.__DAEMON_REFS = { loadFilmFonts, attachGpuTimer, V }; return filmFps(); } };
+}
+`;
+  writeFileSync(helperAbs, "export const V = 'a';\n");
+  for (const f of workAbs) writeFileSync(f, workSrc);
+  // 与 host.load 同样的导入方式（带 ?v=<sig>），不需要 GPU
+  const createHostFn = async ({ device, width, height, fps }) => ({
+    device, width, height, fps, isFaulted: () => false,
+    async load(file, { cacheBust } = {}) {
+      const u = pathToFileURL(file);
+      if (cacheBust) u.searchParams.set('v', String(cacheBust));
+      const mod = await import(u.href);
+      const work = await mod.build({});
+      Object.defineProperty(work, '__module', { value: mod });
+      return work;
+    },
+    dispose() {},
+  });
+  const srv = await createDaemonServer({
+    socketPath: sock, idleTimeoutSec: 0, maxCachedWorks: 4,
+    loadGpuFn: async () => ({ THREE: {}, TSL: {} }),
+    requestDeviceFn: async () => ({ lost: new Promise(() => {}), adapterInfo: {}, addEventListener() {}, removeEventListener() {}, destroy() {} }),
+    createHostFn,
+  });
+  try {
+    for (const f of workAbs) {
+      const r = await sendDaemonRequest(sock, 'probe', { file: f, width: 64, height: 36, fps: 30, query: '' });
+      assert.equal(r.ok, true, JSON.stringify(r.error));
+      assert.equal(r.data.dur, 30, '作品读到的 filmFps() 必须是守护进程刚设的 30（engine/core/clock.js 单实例）');
+      assert.equal(globalThis.__DAEMON_REFS.loadFilmFonts, loadFilmFonts, 'canvas.mjs 必须单实例（字体注册去重跨作品生效）');
+      assert.equal(globalThis.__DAEMON_REFS.attachGpuTimer, attachGpuTimer, 'gputimer.mjs 必须单实例（profile --daemon 才有分段）');
+      assert.equal(globalThis.__DAEMON_REFS.V, 'a');
+    }
+    writeFileSync(helperAbs, "export const V = 'bb';\n");
+    const r = await sendDaemonRequest(sock, 'probe', { file: workAbs[0], width: 64, height: 36, fps: 30, query: '' });
+    assert.equal(r.ok, true, JSON.stringify(r.error));
+    assert.equal(globalThis.__DAEMON_REFS.V, 'bb', '作品本地依赖改动后必须热更新');
+  } finally {
+    await srv.close();
+    setFilmFps(24);
+    assert.equal(filmFps(), 24);
+    for (const f of [helperAbs, ...workAbs]) rmSync(f, { force: true });
+    rmSync(dir, { recursive: true, force: true });
+    delete globalThis.__DAEMON_REFS;
+  }
+});
+
 test('未开守护进程时：--daemon <不存在socket> 报 env.daemon-unavailable（退出 3）', () => {
   const dir = tmp();
   const missingSock = ipcPath(dir, 'nope');
@@ -265,6 +417,28 @@ async function waitForSocket(sock, timeoutMs = 15000) {
   }
   throw new Error(`等待守护进程就绪超时：${sock}`);
 }
+
+test('[#2] 真实 GPU：offscreen profile --daemon 的分段与 --daemon off 相同', { skip: noGpu, timeout: 180000 }, async () => {
+  const dir = tmp();
+  const sock = ipcPath(dir, 'prof');
+  const proc = spawn(process.execPath, [CLI, 'daemon', '--socket', sock, '--idle-timeout', '120'], { cwd: ROOT, stdio: ['ignore', 'ignore', 'ignore'] });
+  try {
+    await waitForSocket(sock);
+    const args = ['profile', 'films/chendu/offscreen.mjs', '--frames', '0,48', '--size', '320x180', '--json'];
+    const labels = r => JSON.parse(r.stdout).data.passes.map(p => p.label).sort();
+    const cold = runCliSync([...args, '--daemon', 'off']);
+    assert.equal(cold.status, 0, cold.stderr);
+    const hot = runCliSync([...args, '--daemon', sock]);
+    assert.equal(hot.status, 0, hot.stderr);
+    assert.ok(labels(cold).length > 1);
+    assert.deepEqual(labels(hot), labels(cold));
+    assert.equal(runCliSync(['daemon', '--socket', sock, '--action', 'stop', '--json']).status, 0);
+    await new Promise(r => (proc.exitCode !== null ? r() : proc.once('exit', r)));
+  } finally {
+    if (proc.exitCode === null) proc.kill('SIGKILL');
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test('真实 GPU：常驻渲染与冷启动逐字节相同（MP4 + PNG）、缓存命中、文件改动热失效、默认路径不受影响', { skip: noEncode, timeout: 240000 }, async () => {
   const dir = tmp();

@@ -360,8 +360,8 @@
     {
       "name": "BEIMING_OFFSCREEN_SOCKET",
       "group": "离屏出片（engine/offscreen）",
-      "purpose": "覆写离屏守护进程默认的本机 Unix Domain Socket / Windows Named Pipe 路径",
-      "default": "$XDG_RUNTIME_DIR/beiming-offscreen.sock（无则 <临时目录>/beiming-offscreen-<uid>.sock；Windows 为 \\\\.\\pipe\\beiming-offscreen-<hash>）",
+      "purpose": "覆写离屏守护进程默认的本机 Unix Domain Socket / Windows Named Pipe 路径；类 Unix 上父目录须为本人所有、非符号链接、权限 0700，否则守护进程拒绝监听",
+      "default": "$XDG_RUNTIME_DIR/beiming-offscreen.sock（无则 <临时目录>/beiming-offscreen-<uid>/daemon.sock；Windows 为带仓库与用户名哈希的命名管道，只有系统默认访问控制）",
       "readBy": [
         "engine/offscreen/daemon.mjs"
       ]

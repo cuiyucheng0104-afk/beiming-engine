@@ -110,7 +110,7 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 - **目标**：把单次短片 / 迭代出片的 2.6 s 冷启动压到 < 0.3 s，同时为 `lookdev:sweep`、CI 与批量短片提供共享预热池。
 - **架构与协议**：
   - CLI 入口：`node engine/offscreen/cli.mjs daemon [--socket <路径>] [--idle-timeout 600] [--max-cached-works 4]`。
-  - 传输：Linux/macOS 用本机 Unix Domain Socket（权限 `0600`，位于 `$XDG_RUNTIME_DIR/beiming-offscreen.sock` 或临时目录），Windows 用 Named Pipe（`\\.\pipe\beiming-offscreen-<hash>`）。仅限本机同用户进程访问，不监听 TCP 端口。
+  - 传输：只走本机 IPC，不监听 TCP 端口。Linux/macOS 用 Unix Domain Socket，放在当前用户专属、非符号链接、权限 `0700` 的目录里（`$XDG_RUNTIME_DIR/beiming-offscreen.sock`，否则 `<临时目录>/beiming-offscreen-<uid>/daemon.sock`），先校验目录再 listen，socket 再 `chmod 0600`；客户端连接前校验 socket 与父目录属主为当前用户。Windows 用 Named Pipe（`\\.\pipe\beiming-offscreen-<仓库与用户名哈希>`）：Node 不能给命名管道设 ACL，只有系统默认访问控制，**不保证仅限同用户**，多用户共用的 Windows 机器上不要开守护进程。
   - 协议：行分隔 JSON-RPC（`render` / `stills` / `probe` / `profile` / `stats` / `shutdown`），返回与 CLI `--json` 完全一致的信封格式。
   - **资源复用与隔离**：
     - 进程级常驻：单个 `GPUDevice`、已探测编码器能力缓存、公共后期管线（`YuvPacker`、`Kuwahara` 编译变体、`Ink`、`Grade`、`Bloom`）与按路径+mtime 缓存的静态贴图/字体字节。
@@ -277,7 +277,7 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 
 #### 2) WP1.2（常驻渲染守护进程 `offscreen daemon`）— 达标（除重后期片受 GPU 稳态下限约束外）
 
-默认路径完全不变（不传 `--daemon` 且不设 `BEIMING_OFFSCREEN_DAEMON` 时走原有一次性进程）；显式开启 `offscreen daemon` 后，客户端通过 `--daemon auto|on|<socket>`（或 `BEIMING_OFFSCREEN_DAEMON`）经本机 Unix Domain Socket（权限 `0600`）或 Windows Named Pipe 接入，复用单个 `GPUDevice`、编码器探测缓存与 LRU 作品池（默认 4 槽，文件或本地依赖变更即通过 `?v=<sig>` 与同步 `resolve` hook 热失效；`device.lost` 自动清理并重建设备；启动时探测清理崩溃残留 socket，已有存活实例时返退出码 5 `busy.daemon`）。
+默认路径完全不变（不传 `--daemon` 且不设 `BEIMING_OFFSCREEN_DAEMON` 时走原有一次性进程）；显式开启 `offscreen daemon` 后，客户端通过 `--daemon auto|on|<socket>`（或 `BEIMING_OFFSCREEN_DAEMON`）经本机 Unix Domain Socket（当前用户 `0700` 私有目录内、权限 `0600`）或 Windows Named Pipe（仅系统默认访问控制）接入，复用单个 `GPUDevice`、编码器探测缓存与 LRU 作品池（默认 4 槽，文件或本地依赖变更即通过 `?v=<sig>` 与同步 `resolve` hook 热失效；`device.lost` 自动清理并重建设备；启动时探测清理崩溃残留 socket——只删 socket，路径上是普通文件或符号链接时以用法错误拒绝启动、原样保留——已有存活实例时返退出码 5 `busy.daemon`）。共享模块（`engine/`、`tools/` 等）不参与热重载、保持单实例，改了它们要重启守护进程。
 
 **冷启动 vs 常驻热出片（3 轮交替中位数，端到端墙钟含 CLI 启动与 IPC，括号内为 3 轮原始值）**：
 

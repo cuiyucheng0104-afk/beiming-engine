@@ -1,10 +1,16 @@
 // 北冥引擎 · 离屏出片 · 常驻渲染守护进程与客户端（WP1.2）：
 //   进程级常驻单个 GPUDevice、编码器探测缓存与 LRU 作品缓存，把单次短片 / 迭代出片的冷启动压到亚秒级；
-//   仅监听本机 Unix Domain Socket（权限 0600）或 Windows Named Pipe，不开放 TCP 端口，仅限本机同用户访问。
+//   只走本机 IPC，不开放 TCP 端口：
+//     类 Unix：Unix Domain Socket 放在当前用户专属、非符号链接、权限 0700 的目录里（$XDG_RUNTIME_DIR，或 <临时目录>/beiming-offscreen-<uid>/），
+//              先校验目录再 listen，socket 再 chmod 0600；客户端连接前校验 socket 与父目录属主是当前用户。
+//     Windows：Named Pipe，名字带仓库与用户名的哈希；Node 不能给命名管道设 ACL，访问控制只靠 Windows 默认安全描述符，
+//              不保证「仅限同用户」，多用户共用的 Windows 机器上不要开守护进程。
 //   协议：行分隔 JSON-RPC（render / stills / probe / profile / stats / shutdown），返回与 CLI --json 一致的信封结构。
 //
 //   defaultSocketPath(opts?)                          默认本机 IPC 路径（尊重 BEIMING_OFFSCREEN_SOCKET）
-//   resolveDaemonTarget(flagValue, opts?)             解析 --daemon 与 BEIMING_OFFSCREEN_DAEMON → { mode, socket }
+//   resolveDaemonTarget(flagValue, opts?)             解析 --daemon、--socket（opts.socket）与 BEIMING_OFFSCREEN_DAEMON → { mode, socket }
+//   assertPrivateSocketDir(dir, opts?)                服务端：父目录必须本人所有、非符号链接、0700（opts.create 时按 0700 新建）
+//   assertTrustedSocket(socketPath, opts?)            客户端：socket 与父目录属主必须是当前用户（不存在时放行，由连接报 ENOENT）
 //   computeWorkSignature(workFile)                    计算作品及本地依赖的 mtime+size 签名（文件改动即热失效）
 //   executeOffscreenJob({ method, params, ... })      冷启动与常驻进程共用的单套渲染/写盘/编码/校验实现（保障 T0 逐字节一致）
 //   createDaemonServer(opts)                          启动守护进程 IPC 服务（含陈旧 socket 清理、防重入、device.lost 自愈、空闲超时）
@@ -43,8 +49,11 @@ const SIG_SKIP_DIRS = new Set(['out', 'stills', 'frames', 'node_modules', '.git'
 
 let hotReloadHookInstalled = false;
 let reqSeq = 0;
+// 共享模块不透传 ?v：gputimer 的计时器表、clock 的影片帧率、canvas 的字体去重都是模块级状态，必须与守护进程用的是同一份。
+// 代价：改了 engine/ 等共享代码要重启守护进程（作品签名也不扫这些目录）。
+const SHARED_DIRS = ['engine', 'tools', 'src', 'cases', 'node_modules'].map(d => path.join(ROOT, d) + path.sep);
 
-/** 为仓库内带 ?v=<sig> 的热重载入口自动向本地相对子模块透传同一版本参数，避免陈旧子模块缓存 */
+/** 为仓库内带 ?v=<sig> 的热重载入口，向作品侧的本地相对子模块透传同一版本参数（共享模块除外），避免陈旧子模块缓存 */
 function installHotReloadHook() {
   if (hotReloadHookInstalled) return;
   hotReloadHookInstalled = true;
@@ -61,7 +70,7 @@ function installHotReloadHook() {
         const child = new URL(res.url);
         if (child.searchParams.has('v')) return res;
         const childPath = fileURLToPath(child);
-        if (childPath.startsWith(ROOT + path.sep)) {
+        if (childPath.startsWith(ROOT + path.sep) && !SHARED_DIRS.some(d => childPath.startsWith(d))) {
           child.searchParams.set('v', v);
           return { ...res, url: child.href };
         }
@@ -71,35 +80,70 @@ function installHotReloadHook() {
   });
 }
 
-/** 默认本机 IPC 路径：仅限本机同用户 Unix Domain Socket 或 Windows Named Pipe，不走 TCP */
-export function defaultSocketPath({ env = process.env, platform = process.platform, root = ROOT } = {}) {
+const currentUid = () => (typeof process.getuid === 'function' ? process.getuid() : null);
+const currentUser = () => { try { return os.userInfo().username; } catch { return 'user'; } };
+const isPipePath = p => process.platform === 'win32' && String(p).startsWith('\\\\.\\pipe\\');
+function lstatOrNull(p) {
+  try { return fs.lstatSync(p); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+}
+
+/** 默认本机 IPC 路径（不走 TCP）：类 Unix 落在当前用户专属目录里；Windows 命名管道名带仓库与用户名的哈希 */
+export function defaultSocketPath({ env = process.env, platform = process.platform, root = ROOT, tmpdir = os.tmpdir(), uid = currentUid(), user = currentUser() } = {}) {
   const explicit = String(env.BEIMING_OFFSCREEN_SOCKET ?? '').trim();
   if (explicit) return explicit;
   if (platform === 'win32') {
-    const h = createHash('sha256').update(String(root)).digest('hex').slice(0, 8);
+    const h = createHash('sha256').update(`${root}\0${user}`).digest('hex').slice(0, 8);
     return `\\\\.\\pipe\\beiming-offscreen-${h}`;
   }
   const runtimeDir = String(env.XDG_RUNTIME_DIR ?? '').trim();
   if (runtimeDir) return path.posix.join(runtimeDir, 'beiming-offscreen.sock');   // XDG 只在类 Unix 上有，按 POSIX 拼
-  const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
-  return path.join(os.tmpdir(), `beiming-offscreen-${uid}.sock`);
+  return path.join(tmpdir, `beiming-offscreen-${uid ?? 'user'}`, 'daemon.sock');   // 不直接放在公共临时目录根下
+}
+
+/** 服务端：socket 的父目录必须是当前用户所有、非符号链接、权限 0700；create 时按 0700 新建（已存在的不改权限） */
+export function assertPrivateSocketDir(dir, { uid = currentUid(), create = false } = {}) {
+  if (uid === null) return;   // Windows：没有 POSIX 属主与权限位
+  const bad = why => usageError('unsafe-socket-dir', `守护进程 socket 的目录 ${dir} ${why}，拒绝监听`,
+    '换到当前用户专属、权限 0700 的目录（默认 $XDG_RUNTIME_DIR 或 <临时目录>/beiming-offscreen-<uid>/），或 chmod 700 该目录');
+  if (create) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const st = lstatOrNull(dir);
+  if (!st) throw bad('不存在');
+  if (st.isSymbolicLink()) throw bad('是符号链接');
+  if (!st.isDirectory()) throw bad('不是目录');
+  if (st.uid !== uid) throw bad(`的属主 uid ${st.uid} 不是当前用户 ${uid}`);
+  if (st.mode & 0o077) throw bad(`的权限是 ${(st.mode & 0o777).toString(8)}，要求 700`);
+}
+
+/** 客户端：连接前确认 socket 与父目录都属于当前用户（不存在时放行，交给连接报 ENOENT，--daemon auto 据此退回冷启动） */
+export function assertTrustedSocket(socketPath, { uid = currentUid() } = {}) {
+  if (uid === null || isPipePath(socketPath)) return;
+  const st = lstatOrNull(socketPath);
+  if (!st) return;
+  const bad = why => new CliError('env.daemon-untrusted', `不信任守护进程 socket ${socketPath}：${why}`, {
+    hint: '可能是别的用户伪造或抢占的路径；确认后删掉它，用默认路径重启守护进程',
+  });
+  if (!st.isSocket()) throw bad('不是 socket');
+  if (st.uid !== uid) throw bad(`属主 uid ${st.uid} 不是当前用户 ${uid}`);
+  const dir = path.dirname(socketPath), ds = lstatOrNull(dir);
+  if (!ds || ds.isSymbolicLink() || ds.uid !== uid) throw bad(`父目录 ${dir} 不是当前用户所有的真实目录`);
 }
 
 /** 解析客户端 --daemon 与环境变量 BEIMING_OFFSCREEN_DAEMON → { mode: 'off'|'auto'|'required', socket } */
-export function resolveDaemonTarget(flagValue, { env = process.env, platform = process.platform, root = ROOT } = {}) {
+export function resolveDaemonTarget(flagValue, { env = process.env, platform = process.platform, root = ROOT, socket = null } = {}) {
   const fromFlag = flagValue !== undefined && flagValue !== null && String(flagValue).trim() !== '';
   const raw = fromFlag ? String(flagValue).trim() : String(env.BEIMING_OFFSCREEN_DAEMON ?? '').trim();
   const low = raw.toLowerCase();
   if (!raw || low === 'off' || low === '0' || low === 'false' || low === 'none') {
     return { mode: 'off', socket: null };
   }
-  const defSock = defaultSocketPath({ env, platform, root });
+  const defSock = socket || defaultSocketPath({ env, platform, root });   // --socket 优先于默认路径
   if (low === 'auto' || low === '1' || low === 'true') {
     return { mode: 'auto', socket: defSock };
   }
   if (low === 'on' || low === 'required') {
     return { mode: 'required', socket: defSock };
   }
+  if (socket && socket !== raw) throw usageError('conflicting-socket', `--daemon ${raw} 与 --socket ${socket} 指向不同路径`, '只写一个：--daemon on --socket <路径>，或 --daemon <路径>');
   return { mode: 'required', socket: raw };
 }
 
@@ -626,15 +670,23 @@ export async function createDaemonServer({
   execJobFn,
   onLog = () => {},
 } = {}) {
-  const isPipe = process.platform === 'win32' && socketPath.startsWith('\\\\.\\pipe\\');
-  if (!isPipe) fs.mkdirSync(path.dirname(socketPath), { recursive: true });
-  if (isPipe || fs.existsSync(socketPath)) {
+  const isPipe = isPipePath(socketPath);
+  let existing = null;
+  if (!isPipe) {
+    assertPrivateSocketDir(path.dirname(socketPath), { create: true });   // 先校验私有目录再 bind：没有 bind→chmod 的暴露窗口
+    existing = lstatOrNull(socketPath);
+    if (existing && !existing.isSocket()) {
+      throw usageError('bad-socket-path', `${socketPath} 已存在且不是 socket（${existing.isSymbolicLink() ? '符号链接' : existing.isDirectory() ? '目录' : '普通文件'}），拒绝启动，也不会删除它`,
+        '换一个不存在的路径，或确认后自己处理这个文件');
+    }
+  }
+  if (isPipe || existing) {
     if (await probeSocketAlive(socketPath)) {
       throw new CliError('busy.daemon', `已有离屏守护进程正在监听 ${socketPath}`, {
         hint: `复用现有守护进程，或先运行 node engine/offscreen/cli.mjs daemon --socket ${socketPath} --action stop`,
       });
     }
-    if (!isPipe) fs.rmSync(socketPath, { force: true });   // 上次崩溃残留的 socket 文件
+    if (!isPipe && lstatOrNull(socketPath)?.isSocket()) fs.rmSync(socketPath, { force: true });   // 上次崩溃残留的 socket（只删 socket）
   }
 
   const rt = runtime ?? createGpuRuntime({ maxCachedWorks, loadGpuFn, requestDeviceFn, createHostFn, execJobFn });
@@ -753,12 +805,14 @@ export async function createDaemonServer({
     conn.on('error', () => sockets.delete(conn));
   });
 
+  let listenedIno = null;
   await new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(socketPath, () => {
       server.off('error', reject);
       if (!isPipe && process.platform !== 'win32') {
         try { fs.chmodSync(socketPath, 0o600); } catch { /* 某些虚拟文件系统可能不支持 chmod */ }
+        listenedIno = lstatOrNull(socketPath)?.ino ?? null;
       }
       resolve();
     });
@@ -776,7 +830,10 @@ export async function createDaemonServer({
       for (const s of sockets) { try { s.end(); } catch { /* ignore */ } }
       await new Promise(resolve => server.close(() => resolve()));
       try { rt.dispose(); } catch { /* ignore */ }
-      if (!isPipe) {
+      // libuv 关闭监听时自己会 unlink 这个路径；这里只补删仍是我们那个 socket（同 inode）的残留，绝不删别的文件。
+      // 别的用户换不了这个路径，靠的是父目录 0700（assertPrivateSocketDir）。
+      const st = isPipe ? null : lstatOrNull(socketPath);
+      if (st?.isSocket() && st.ino === listenedIno) {
         try { fs.rmSync(socketPath, { force: true }); } catch { /* ignore */ }
       }
       resolveClosed();
@@ -794,7 +851,8 @@ export async function createDaemonServer({
 
 // ───────────────────────── 客户端 RPC ─────────────────────────
 
-export function sendDaemonRequest(socketPath, method, params = {}, { timeoutMs = 0 } = {}) {
+export function sendDaemonRequest(socketPath, method, params = {}, { timeoutMs = 0, uid } = {}) {
+  try { assertTrustedSocket(socketPath, { uid }); } catch (e) { return Promise.reject(e); }
   return new Promise((resolve, reject) => {
     const id = ++reqSeq;
     let settled = false;

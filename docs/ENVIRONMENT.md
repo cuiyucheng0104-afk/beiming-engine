@@ -154,7 +154,7 @@ doctor 的 `env.vars` 一项会列出当前生效的变量，并提示 `BEIMING_
 | `WORKERS` | 渲染（engine/render） | `build.sh` 1080p 出片时并行的浏览器数 | 4 |
 | `WORKERS_4K` | 渲染（engine/render） | `build.sh --4k` 时并行的浏览器数 | 8 |
 | `BEIMING_OFFSCREEN_DAEMON` | 离屏出片（engine/offscreen） | 控制 `offscreen render/stills/probe/profile` 是否连本机常驻守护进程（`1`/`auto` 连不上退回冷启动，`on`/`required` 必须连上，或写 socket 路径）；CLI `--daemon` 优先 | 不设（默认 `off`，一次性进程） |
-| `BEIMING_OFFSCREEN_SOCKET` | 离屏出片（engine/offscreen） | 覆写离屏守护进程默认的本机 Unix Domain Socket / Windows Named Pipe 路径 | `$XDG_RUNTIME_DIR/beiming-offscreen.sock`（无则临时目录；Windows 为命名管道） |
+| `BEIMING_OFFSCREEN_SOCKET` | 离屏出片（engine/offscreen） | 覆写离屏守护进程默认的本机 Unix Domain Socket / Windows Named Pipe 路径；类 Unix 上父目录须为本人所有、非符号链接、权限 0700，否则守护进程拒绝监听 | `$XDG_RUNTIME_DIR/beiming-offscreen.sock`（无则 `<临时目录>/beiming-offscreen-<uid>/daemon.sock`；Windows 为带仓库与用户名哈希的命名管道，只有系统默认访问控制） |
 | `BEIMING_SHADER_CACHE` | 离屏出片（engine/offscreen） | 驱动级着色器磁盘缓存开关；设为 `0`/`off`/`false` 时不自动配置到仓库 `.cache/` | 启用（不设则自动配置） |
 | `BEIMING_SHADER_CACHE_DIR` | 离屏出片（engine/offscreen） | 覆写离屏出片驱动级着色器磁盘缓存根目录（下分 `nvidia/` 与 `mesa/`） | 仓库根 `.cache/offscreen-shader-cache`（已 git 忽略） |
 | `__GL_SHADER_DISK_CACHE` | 离屏出片（NVIDIA 驱动） | NVIDIA Vulkan/GL 磁盘着色器缓存开关；未设时 `load.mjs` 自动置 `1`，显式 `0` 尊重用户设置 | `1`（由 `load.mjs` 补全） |

@@ -19,6 +19,8 @@ import { ENCODER_CHOICES, MASTER_CQ, MODES, resolveEncodeAsync } from './encode.
 import { parseBatchJobs, runBatch } from './batch.mjs';
 import { createDaemonServer, defaultSocketPath, executeOffscreenJob, resolveDaemonTarget, sendDaemonRequest } from './daemon.mjs';
 
+// --socket：命名管道原样用，文件路径按当前目录解析
+const socketArg = (s, cwd = process.cwd()) => (s.startsWith('\\\\.\\pipe\\') ? s : path.resolve(cwd, s));
 const ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 
 /** 解析静帧列表（支持 0,48,96 与 a:b[:step] 混写，按出现顺序去重） */
@@ -58,7 +60,7 @@ export function resolveArgs({ sub, work, extra = [] }, opts, cwd = process.cwd()
     if (!(idleTimeout >= 0)) throw usageError('bad-value', `--idle-timeout 要 ≥ 0，收到 ${idleTimeout}`, '0 表示永不超时');
     const maxCachedWorks = opts['max-cached-works'] ?? 4;
     if (!(maxCachedWorks >= 0)) throw usageError('bad-value', `--max-cached-works 要 ≥ 0，收到 ${maxCachedWorks}`, null);
-    const socket = !opts.socket ? defaultSocketPath() : opts.socket.startsWith('\\\\.\\pipe\\') ? opts.socket : path.resolve(cwd, opts.socket);   // 命名管道不按文件路径解析
+    const socket = opts.socket ? socketArg(opts.socket, cwd) : defaultSocketPath();
     return { sub: 'daemon', action, socket, idleTimeout, maxCachedWorks };
   }
   if (sub === 'batch') {
@@ -150,7 +152,7 @@ export const command = defineCommand({
     '  offscreen probe  <作品.mjs>：只读校验作品 build(ctx) 契约与 GPU 适配器，不渲帧、不写盘',
     '  offscreen profile <作品.mjs>：GPU 时间戳把每帧切成主场景、墨线各遍、雾、辉光、调色、Kuwahara、纸纹、合成等段，报各段中位数与占比；先把这些帧整遍渲一次预热，计时不含读回，不写盘',
     '  offscreen batch  <清单.json | 作品.mjs…>：单进程共用一个 GPUDevice 并发调度多作业（含编码限流与故障隔离）',
-    '  offscreen daemon：启动或管理常驻渲染守护进程（本机 Unix Socket 0600 / Named Pipe，复用 GPUDevice 与作品缓存，客户端用 --daemon 显式接入）',
+    '  offscreen daemon：启动或管理常驻渲染守护进程（本机 IPC：类 Unix 为私有 0700 目录里的 0600 socket，Windows 为命名管道且只有系统默认访问控制；复用 GPUDevice 与作品缓存，客户端用 --daemon 显式接入；改了 engine/ 要重启守护进程）',
     '  需要可选依赖 webgpu 与 three-webgpu（npm install --include=optional --ignore-scripts）',
   ],
   positionals: [
@@ -178,7 +180,7 @@ export const command = defineCommand({
     query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（同页面的 location.search，不带 ?；出片链的 --query 与预演的 previs=1 原样转来）' },
     preset: { type: 'string', default: 'medium', choices: ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'], arg: '<名字>', describe: 'x264 preset（默认 medium）' },
     daemon: { type: 'string', arg: '<目标>', describe: '常驻守护进程接入（默认 off；可选 off、auto、on 或 socket 路径；未传时读取 BEIMING_OFFSCREEN_DAEMON）' },
-    socket: { type: 'string', arg: '<路径>', describe: 'daemon 监听或连接的本机 IPC 路径（默认 $XDG_RUNTIME_DIR/beiming-offscreen.sock 或临时目录）' },
+    socket: { type: 'string', arg: '<路径>', describe: 'daemon 监听或连接的本机 IPC 路径（默认 $XDG_RUNTIME_DIR/beiming-offscreen.sock，否则 <临时目录>/beiming-offscreen-<uid>/daemon.sock；父目录须本人所有且 0700）；render/stills/probe/profile 上要与 --daemon on|auto 一起用' },
     'idle-timeout': { type: 'number', default: 600, arg: '<秒>', describe: 'daemon 空闲自动退出时长（秒，默认 600；0 表示不超时）' },
     'max-cached-works': { type: 'integer', default: 4, arg: '<n>', describe: 'daemon LRU 缓存的作品实例上限（默认 4）' },
     action: { type: 'string', default: 'start', choices: ['start', 'status', 'stop'], arg: '<动作>', describe: 'daemon 子命令动作：start（启动前台守护进程）、status（查统计）、stop（优雅停止）' },
@@ -275,7 +277,11 @@ export const command = defineCommand({
       ...(ctx.opts['events-out'] ? { eventsOut: path.resolve(ctx.opts['events-out']) } : {}),
     };
 
-    const daemonTarget = resolveDaemonTarget(ctx.opts.daemon);
+    const sockOpt = ctx.opts.socket ? socketArg(ctx.opts.socket) : null;
+    const daemonTarget = resolveDaemonTarget(ctx.opts.daemon, { socket: sockOpt });
+    if (sockOpt && daemonTarget.mode === 'off') {
+      throw usageError('socket-without-daemon', `--socket ${sockOpt} 只在接入守护进程时有用，当前 --daemon 为 off`, '加 --daemon on（连不上就失败）或 --daemon auto（连不上退回冷启动）');
+    }
     if (daemonTarget.mode !== 'off') {
       try {
         const res = await sendDaemonRequest(daemonTarget.socket, a.sub, jobParams);
