@@ -157,7 +157,6 @@ window.TEXTS = t => [ … ];       // 可选：该时刻画面上的文字，供
 | 观看预览 | 86 个 | 归档成片转码的 960 宽观看版（casebook-2026.11 Release），不是重新渲染；WONDER 的 24 部预览在 wonder-films-2026.11 Release |
 | 风格库 | 86 式 | 两套第三方 MIT 风格库的固定快照：Lemo 66 种 + SY 20 种 |
 
-作品站只放上面三类有预览的成片；其他动画与预演、画风实验、交互页面、共用资源和被否定的版本只留在归档里。**已输出、技术检查通过、用户认可是三种状态**，归档里分开标注；上作品站不等于用户认可。全部记录见 [cases/INDEX.md](cases/INDEX.md)，还原方法见 [cases/README.md](cases/README.md)。
 
 ## 仓库地图
 
@@ -186,11 +185,16 @@ tests/      契约、治理与渲染测试
 - 推 `v*` 标签会触发 `.github/workflows/release.yml`，用 CHANGELOG.md 的对应段落建草稿 Release，维护者核对后发布。
 - 本机复现与发布步骤见 [tests/ci/README.md](tests/ci/README.md)。
 
-## 许可
+## Star History
 
-仓库自有代码以 **MIT** 开放，见 [LICENSE](LICENSE)。文件头标注了第三方版权的文件，按其上游许可（见 [THIRD-PARTY.md](THIRD-PARTY.md)「派生代码」）。《北冥》影片、底板与展示图保留所有权利；其中绘画底板由 AI（Midjourney V8、GPT Image 2.5）生成后人工整理，含 AI 生成画面。字体遵循 SIL OFL 1.1，见 [fonts/LICENSE.md](fonts/LICENSE.md)。逐路径许可见 [REUSE.toml](REUSE.toml) 与 [docs/rights/licensing.md](docs/rights/licensing.md)，素材授权见 [docs/rights/](docs/rights/README.md)，安全问题见 [SECURITY.md](SECURITY.md)。
+<a href="https://www.star-history.com/?repos=cuiyucheng0104-afk%2Fbeiming-engine&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=cuiyucheng0104-afk/beiming-engine&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=cuiyucheng0104-afk/beiming-engine&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=cuiyucheng0104-afk/beiming-engine&type=date&legend=top-left" />
+ </picture>
+</a>
 
-仓库还收录了第三方开源风格库、原生运行时的源码分析，作品站构建时会用到 three.js、GSAP 与两款 Google Fonts 字体。它们的来源、固定版本与许可义务见 [THIRD-PARTY.md](THIRD-PARTY.md)，案例侧声明见 [cases/NOTICES.md](cases/NOTICES.md) 与 [cases/licenses/](cases/licenses)。这些许可证与署名按原样保留，不因整合而移除或改写。
 
 北冥原生 · BNE 基于第三方原生运行时 RAEA（shinyobjectz/raea，FSL-1.1-ALv2，版权人 Shane Murphy）。运行时不随本仓库分发，需单独取得并遵守其许可。北冥代码动画风格的画法库部分来自 MIT 开源项目 lemo-opuscar（LemoLab）与 sy-style-100（肖雄 XIAOXIONG），版权与许可原样保留。
 
