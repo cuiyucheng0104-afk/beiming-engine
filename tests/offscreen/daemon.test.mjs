@@ -2,7 +2,8 @@
 // 协议、IPC 权限与崩溃恢复、LRU 与热重载、device.lost 自愈、以及与冷启动逐字节一致的真 GPU 回归。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, statSync, lstatSync, existsSync, readFileSync, symlinkSync, chmodSync } from 'node:fs';
+import net from 'node:net';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, statSync, lstatSync, realpathSync, existsSync, readFileSync, symlinkSync, chmodSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -286,6 +287,15 @@ test('[#3] 服务端：父目录必须是本人所有、非符号链接、0700�
     symlinkSync(real, ln);
     await assert.rejects(() => createDaemonServer({ socketPath: join(ln, 'd.sock'), idleTimeoutSec: 0, runtime: mockRuntime() }), e => e.code === 'usage.unsafe-socket-dir');
     assert.throws(() => D.assertPrivateSocketDir(real, { uid: process.getuid() + 1 }), e => e.code === 'usage.unsafe-socket-dir', '属主不是当前用户必须拒绝');
+    // 二轮复核 #3：父目录是悬空符号链接或普通文件时，create: true 也必须报 usage.unsafe-socket-dir（exit 2），不能先 mkdirSync 报 EEXIST
+    const dangling = join(dir, 'dangling-dir');
+    symlinkSync(join(dir, 'nonexistent-target'), dangling);
+    assert.throws(() => D.assertPrivateSocketDir(dangling, { create: true }), e => e.code === 'usage.unsafe-socket-dir' && e.exitCode === 2);
+    await assert.rejects(() => createDaemonServer({ socketPath: join(dangling, 'd.sock'), idleTimeoutSec: 0, runtime: mockRuntime() }), e => e.code === 'usage.unsafe-socket-dir' && e.exitCode === 2);
+    const regularFile = join(dir, 'not-a-dir');
+    writeFileSync(regularFile, 'plain');
+    assert.throws(() => D.assertPrivateSocketDir(regularFile, { create: true }), e => e.code === 'usage.unsafe-socket-dir' && e.exitCode === 2);
+    await assert.rejects(() => createDaemonServer({ socketPath: join(regularFile, 'd.sock'), idleTimeoutSec: 0, runtime: mockRuntime() }), e => e.code === 'usage.unsafe-socket-dir' && e.exitCode === 2);
     D.assertPrivateSocketDir(real);
     const fresh = join(dir, 'fresh', 'sub');
     const srv = await createDaemonServer({ socketPath: join(fresh, 'd.sock'), idleTimeoutSec: 0, runtime: mockRuntime() });
@@ -306,7 +316,115 @@ test('[#3] 客户端：连接前校验 socket 与父目录属主为当前用户�
     const fake = join(dir, 'fake.sock');
     writeFileSync(fake, '');
     await assert.rejects(() => sendDaemonRequest(fake, 'stats', {}), e => e.code === 'env.daemon-untrusted');
+    // 二轮复核 #4：独立覆盖父目录属主校验 ds.uid !== uid（socket 属主是本人，父目录真实非软链但属主非本人，如 /tmp）
+    const myUid = process.getuid();
+    const pubDir = [realpathSync(tmpdir()), '/tmp'].find(d => {
+      try {
+        const s = lstatSync(d);
+        return s.isDirectory() && !s.isSymbolicLink() && s.uid !== myUid;
+      } catch { return false; }
+    });
+    if (pubDir) {
+      const pubSock = join(pubDir, `beiming-trust-parent-${process.pid}-${Date.now()}.sock`);
+      const pubSrv = net.createServer();
+      try {
+        await new Promise((resolve, reject) => { pubSrv.once('error', reject); pubSrv.listen(pubSock, resolve); });
+        assert.equal(lstatSync(pubSock).uid, myUid, '前置条件：临时 socket 属主应是当前用户');
+        assert.notEqual(lstatSync(pubDir).uid, myUid, '前置条件：父目录属主应非当前用户');
+        assert.throws(() => D.assertTrustedSocket(pubSock), e => e.code === 'env.daemon-untrusted');
+        await assert.rejects(() => sendDaemonRequest(pubSock, 'stats', {}), e => e.code === 'env.daemon-untrusted');
+      } finally {
+        await new Promise(r => pubSrv.close(() => r()));
+        rmSync(pubSock, { force: true });
+      }
+    }
   } finally { await srv.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('[二轮 #1] 陈旧 socket 与全新路径并发抢启动：只允许一个成功、不误删胜方活 socket、败方 EADDRINUSE 返 busy.daemon（exit 5）', { timeout: 30000 }, async () => {
+  const dir = tmp();
+  const makeTaggedRuntime = tag => ({
+    ...mockRuntime(),
+    stats() { return { tag, cachedWorks: 0, maxCachedWorks: 4, cacheHits: 0, cacheMisses: 0, deviceResets: 0 }; },
+  });
+  try {
+    // 1. 全新路径并发抢启动：败方返 busy.daemon（exitCode 5），胜方正常提供服务
+    const freshSock = ipcPath(dir, 'race-fresh');
+    const freshTags = ['A', 'B'];
+    const freshRes = await Promise.allSettled(
+      freshTags.map(tag => createDaemonServer({ socketPath: freshSock, idleTimeoutSec: 0, runtime: makeTaggedRuntime(tag) })),
+    );
+    const freshWins = freshRes.map((r, i) => ({ r, tag: freshTags[i] })).filter(x => x.r.status === 'fulfilled');
+    const freshFails = freshRes.filter(r => r.status === 'rejected').map(r => r.reason);
+    try {
+      assert.equal(freshWins.length, 1, `全新路径并发应恰好 1 个成功，实际 ${freshWins.length}`);
+      assert.equal(freshFails.length, 1);
+      assert.equal(freshFails[0].code, 'busy.daemon', `EADDRINUSE 应转为 busy.daemon，实际：${freshFails[0]?.code} / ${freshFails[0]?.message}`);
+      assert.equal(freshFails[0].exitCode, 5);
+      const st = await sendDaemonRequest(freshSock, 'stats', {});
+      assert.equal(st.ok, true);
+      assert.equal(st.data.tag, freshWins[0].tag);
+    } finally {
+      for (const w of freshWins) await w.r.value.close();
+    }
+
+    // 2. 类 Unix 陈旧 socket 并发抢启动：后删者必须校验 inode，不能误删胜方刚建好的活 socket（无孤儿实例），败方 listen EADDRINUSE 返 busy.daemon
+    if (!IS_WIN) {
+      const staleSock = ipcPath(dir, 'race-stale');
+      await staleSocket(staleSock);
+      assert.equal(lstatSync(staleSock).isSocket(), true);
+      const staleTags = ['W1', 'W2', 'W3'];
+      const staleRes = await Promise.allSettled(
+        staleTags.map(tag => createDaemonServer({ socketPath: staleSock, idleTimeoutSec: 0, runtime: makeTaggedRuntime(tag) })),
+      );
+      const staleWins = staleRes.map((r, i) => ({ r, tag: staleTags[i] })).filter(x => x.r.status === 'fulfilled');
+      const staleFails = staleRes.filter(r => r.status === 'rejected').map(r => r.reason);
+      try {
+        assert.equal(staleWins.length, 1, `陈旧 socket 并发抢启动应恰好 1 个成功（不出现孤儿实例），实际 ${staleWins.length}`);
+        assert.equal(staleFails.length, 2);
+        for (const err of staleFails) {
+          assert.equal(err.code, 'busy.daemon', `败方应返 busy.daemon，实际：${err?.code} / ${err?.message}`);
+          assert.equal(err.exitCode, 5);
+        }
+        const st = await sendDaemonRequest(staleSock, 'stats', {});
+        assert.equal(st.ok, true);
+        assert.equal(st.data.tag, staleWins[0].tag, '当前监听者必须是唯一胜方（无孤儿实例）');
+      } finally {
+        for (const w of staleWins) await w.r.value.close();
+      }
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('[二轮 #2] --daemon <相对路径> --socket <同一相对路径> 归一化后一致，不误报 conflicting-socket', () => {
+  assert.deepEqual(
+    resolveDaemonTarget('./d.sock', { env: {}, platform: 'linux', cwd: '/work/sub', socket: '/work/sub/d.sock' }),
+    { mode: 'required', socket: '/work/sub/d.sock' },
+  );
+  assert.deepEqual(
+    resolveDaemonTarget('./d.sock', { env: {}, platform: 'linux', cwd: '/work/sub', socket: './d.sock' }),
+    { mode: 'required', socket: '/work/sub/d.sock' },
+  );
+  assert.throws(
+    () => resolveDaemonTarget('./a.sock', { env: {}, platform: 'linux', cwd: '/work/sub', socket: './b.sock' }),
+    e => e.code === 'usage.conflicting-socket' && e.exitCode === 2,
+  );
+  assert.deepEqual(
+    resolveDaemonTarget('\\\\.\\pipe\\beiming-same', { env: {}, platform: 'win32', socket: '\\\\.\\pipe\\beiming-same' }),
+    { mode: 'required', socket: '\\\\.\\pipe\\beiming-same' },
+  );
+  // 经 CLI 传同一相对路径（--daemon ./same.sock --socket ./same.sock）：应尝试连接解析后的绝对路径，而非报 usage.conflicting-socket
+  const dir = tmp();
+  const env = { ...process.env };
+  delete env.BEIMING_OFFSCREEN_DAEMON;
+  delete env.BEIMING_OFFSCREEN_SOCKET;
+  try {
+    const r = runCliSync(['probe', join(ROOT, WORK), '--daemon', './same.sock', '--socket', './same.sock', '--json'], { cwd: dir, env });
+    assert.equal(r.status, 3, `应因 socket 不存在退出 3，而非 conflicting-socket：\nstdout=${r.stdout}\nstderr=${r.stderr}`);
+    const e = JSON.parse(r.stdout).error;
+    assert.equal(e.code, 'env.daemon-unavailable');
+    assert.ok(e.message.includes(join(dir, 'same.sock')), `应包含归一化后的绝对路径：${e.message}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('[#4] --daemon on --socket <路径> 连 --socket 指定的路径；只给 --socket 不开 daemon 报用法错误', () => {

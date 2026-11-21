@@ -277,8 +277,9 @@ export const command = defineCommand({
       ...(ctx.opts['events-out'] ? { eventsOut: path.resolve(ctx.opts['events-out']) } : {}),
     };
 
-    const sockOpt = ctx.opts.socket ? socketArg(ctx.opts.socket) : null;
-    const daemonTarget = resolveDaemonTarget(ctx.opts.daemon, { socket: sockOpt });
+    const cwd = process.cwd();
+    const sockOpt = ctx.opts.socket ? socketArg(ctx.opts.socket, cwd) : null;
+    const daemonTarget = resolveDaemonTarget(ctx.opts.daemon, { socket: sockOpt, cwd });
     if (sockOpt && daemonTarget.mode === 'off') {
       throw usageError('socket-without-daemon', `--socket ${sockOpt} 只在接入守护进程时有用，当前 --daemon 为 off`, '加 --daemon on（连不上就失败）或 --daemon auto（连不上退回冷启动）');
     }

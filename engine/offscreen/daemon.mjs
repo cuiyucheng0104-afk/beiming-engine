@@ -105,8 +105,11 @@ export function assertPrivateSocketDir(dir, { uid = currentUid(), create = false
   if (uid === null) return;   // Windows：没有 POSIX 属主与权限位
   const bad = why => usageError('unsafe-socket-dir', `守护进程 socket 的目录 ${dir} ${why}，拒绝监听`,
     '换到当前用户专属、权限 0700 的目录（默认 $XDG_RUNTIME_DIR 或 <临时目录>/beiming-offscreen-<uid>/），或 chmod 700 该目录');
-  if (create) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const st = lstatOrNull(dir);
+  let st = lstatOrNull(dir);
+  if (!st && create) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    st = lstatOrNull(dir);
+  }
   if (!st) throw bad('不存在');
   if (st.isSymbolicLink()) throw bad('是符号链接');
   if (!st.isDirectory()) throw bad('不是目录');
@@ -129,22 +132,26 @@ export function assertTrustedSocket(socketPath, { uid = currentUid() } = {}) {
 }
 
 /** 解析客户端 --daemon 与环境变量 BEIMING_OFFSCREEN_DAEMON → { mode: 'off'|'auto'|'required', socket } */
-export function resolveDaemonTarget(flagValue, { env = process.env, platform = process.platform, root = ROOT, socket = null } = {}) {
+export function resolveDaemonTarget(flagValue, { env = process.env, platform = process.platform, root = ROOT, socket = null, cwd = process.cwd() } = {}) {
   const fromFlag = flagValue !== undefined && flagValue !== null && String(flagValue).trim() !== '';
   const raw = fromFlag ? String(flagValue).trim() : String(env.BEIMING_OFFSCREEN_DAEMON ?? '').trim();
   const low = raw.toLowerCase();
   if (!raw || low === 'off' || low === '0' || low === 'false' || low === 'none') {
     return { mode: 'off', socket: null };
   }
-  const defSock = socket || defaultSocketPath({ env, platform, root });   // --socket 优先于默认路径
+  const resolvePath = platform === process.platform ? path.resolve : (platform === 'win32' ? path.win32.resolve : path.posix.resolve);
+  const normSock = s => (!s || String(s).startsWith('\\\\.\\pipe\\') ? s : resolvePath(cwd, s));
+  const sockNorm = socket ? normSock(socket) : null;
+  const defSock = sockNorm || defaultSocketPath({ env, platform, root });   // --socket 优先于默认路径
   if (low === 'auto' || low === '1' || low === 'true') {
     return { mode: 'auto', socket: defSock };
   }
   if (low === 'on' || low === 'required') {
     return { mode: 'required', socket: defSock };
   }
-  if (socket && socket !== raw) throw usageError('conflicting-socket', `--daemon ${raw} 与 --socket ${socket} 指向不同路径`, '只写一个：--daemon on --socket <路径>，或 --daemon <路径>');
-  return { mode: 'required', socket: raw };
+  const rawNorm = normSock(raw);
+  if (sockNorm && sockNorm !== rawNorm) throw usageError('conflicting-socket', `--daemon ${raw} 与 --socket ${socket} 指向不同路径`, '只写一个：--daemon on --socket <路径>，或 --daemon <路径>');
+  return { mode: 'required', socket: rawNorm };
 }
 
 /** 校验作品模块路径位于仓库内（防止外部路径经 RPC 执行） */
@@ -680,13 +687,17 @@ export async function createDaemonServer({
         '换一个不存在的路径，或确认后自己处理这个文件');
     }
   }
+  const busyError = () => new CliError('busy.daemon', `已有离屏守护进程正在监听 ${socketPath}`, {
+    hint: `复用现有守护进程，或先运行 node engine/offscreen/cli.mjs daemon --socket ${socketPath} --action stop`,
+  });
   if (isPipe || existing) {
     if (await probeSocketAlive(socketPath)) {
-      throw new CliError('busy.daemon', `已有离屏守护进程正在监听 ${socketPath}`, {
-        hint: `复用现有守护进程，或先运行 node engine/offscreen/cli.mjs daemon --socket ${socketPath} --action stop`,
-      });
+      throw busyError();
     }
-    if (!isPipe && lstatOrNull(socketPath)?.isSocket()) fs.rmSync(socketPath, { force: true });   // 上次崩溃残留的 socket（只删 socket）
+    if (!isPipe && existing) {
+      const cur = lstatOrNull(socketPath);
+      if (cur?.isSocket() && cur.ino === existing.ino) fs.rmSync(socketPath, { force: true });   // 上次崩溃残留的 socket（核对同 inode，避免并发抢启动误删胜方新 socket）
+    }
   }
 
   const rt = runtime ?? createGpuRuntime({ maxCachedWorks, loadGpuFn, requestDeviceFn, createHostFn, execJobFn });
@@ -807,9 +818,13 @@ export async function createDaemonServer({
 
   let listenedIno = null;
   await new Promise((resolve, reject) => {
-    server.once('error', reject);
+    const onError = err => {
+      try { rt.dispose(); } catch { /* ignore */ }
+      reject(err?.code === 'EADDRINUSE' ? busyError() : err);
+    };
+    server.once('error', onError);
     server.listen(socketPath, () => {
-      server.off('error', reject);
+      server.off('error', onError);
       if (!isPipe && process.platform !== 'win32') {
         try { fs.chmodSync(socketPath, 0o600); } catch { /* 某些虚拟文件系统可能不支持 chmod */ }
         listenedIno = lstatOrNull(socketPath)?.ino ?? null;
