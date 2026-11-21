@@ -1,0 +1,247 @@
+[
+  {
+    "file": "LK1-global-key-not-expanded.json",
+    "violates": [
+      "LK1"
+    ],
+    "why": "片子描述里有 style.finish，comp.finish 这一项却没带 from"
+  },
+  {
+    "file": "LK2-verified-on-other-version.json",
+    "violates": [
+      "LK2"
+    ],
+    "why": "light.studio 是在 5.1.0 上验的，锁的 blender 是 5.2.3"
+  },
+  {
+    "file": "LK3-shot-seed-missing.json",
+    "violates": [
+      "LK3"
+    ],
+    "why": "seeds 里没有镜头 s02"
+  },
+  {
+    "file": "LK4-shot-host-not-locked.json",
+    "violates": [
+      "LK4"
+    ],
+    "why": "镜头 s02 的宿主是 headless，锁文件里 three 锁的宿主是 page"
+  },
+  {
+    "file": "LK5-builtin-card-missing.json",
+    "violates": [
+      "LK5"
+    ],
+    "why": "cards 里没有内建卡 time.seeded"
+  },
+  {
+    "file": "LK6-rendered-by-other-version.json",
+    "violates": [
+      "LK6"
+    ],
+    "why": "元数据说这一帧是 blender 5.2.4 渲的，锁的是 5.2.3"
+  },
+  {
+    "file": "LK7-lock-of-another-film.json",
+    "violates": [
+      "LK7"
+    ],
+    "why": "锁文件的 film 是 f_other，片子描述的 id 是 f_8k2"
+  },
+  {
+    "file": "LK8-template-not-locked.json",
+    "violates": [
+      "LK8"
+    ],
+    "why": "predicates.base 引用了 template:assembly@1，templates 里没有 assembly"
+  },
+  {
+    "file": "LK9-view-lut-not-locked.json",
+    "violates": [
+      "LK9"
+    ],
+    "why": "style.view.scene 是 agx-mhc，view 里锁的是 agx-base"
+  },
+  {
+    "file": "LK10-overlay-card-missing.json",
+    "violates": [
+      "LK10"
+    ],
+    "why": "片子描述里有叠加层，cards 里没有 two-d.overlay"
+  },
+  {
+    "file": "LK11-shutter-samples-differ.json",
+    "violates": [
+      "LK11"
+    ],
+    "why": "镜头 s01 在片子描述里写的子帧采样数是 8，锁文件里记的是 4"
+  },
+  {
+    "file": "LK1-global-key-card-missing.json",
+    "violates": [
+      "LK1"
+    ],
+    "why": "片子描述里有 style.finish，cards 里没有它绑的 comp.finish"
+  },
+  {
+    "file": "LK1-card-major-differs.json",
+    "violates": [
+      "LK1"
+    ],
+    "why": "style.view.card 指定的是 comp.display@1，cards 里锁的是 2.0.0"
+  },
+  {
+    "file": "LK1-from-on-wrong-card.json",
+    "violates": [
+      "LK1"
+    ],
+    "why": "comp.grade 的 from 是 style.finish，这个键绑的卡是 comp.finish"
+  },
+  {
+    "file": "LK1-absent-key-card-left.json",
+    "violates": [
+      "LK1"
+    ],
+    "why": "片子描述里没有 style.finish，cards 里还留着 from 是 style.finish 的 comp.finish"
+  },
+  {
+    "file": "LK3-extra-seed-key.json",
+    "violates": [
+      "LK3"
+    ],
+    "why": "seeds 里多了 s03，片子描述里没有这个镜头"
+  },
+  {
+    "file": "LK3-shot-seed-differs.json",
+    "violates": [
+      "LK3"
+    ],
+    "why": "镜头 s01 在片子描述里写的 seed 是 7802，seeds 里是 7899"
+  },
+  {
+    "file": "LK4-shot-source-not-locked.json",
+    "violates": [
+      "LK4"
+    ],
+    "why": "镜头 s01 的帧源是 three，sources 里只有 blender"
+  },
+  {
+    "file": "LK4-renderer-source-not-locked.json",
+    "violates": [
+      "LK4"
+    ],
+    "why": "镜头 s01 的 renderer.source 是 three，sources 里没有 three"
+  },
+  {
+    "file": "LK4-renderer-host-not-locked.json",
+    "violates": [
+      "LK4"
+    ],
+    "why": "镜头 s01 的 renderer.host 是 page，锁文件里 core 锁的宿主是 offscreen"
+  },
+  {
+    "file": "LK10-overlay-card-without-from.json",
+    "violates": [
+      "LK10"
+    ],
+    "why": "片子描述里有叠加层，two-d.overlay 这一项却没带 from"
+  },
+  {
+    "file": "LK10-overlay-card-major-not-1.json",
+    "violates": [
+      "LK10"
+    ],
+    "why": "two-d.overlay 锁的是 2.0.0，第一段必须是 1"
+  },
+  {
+    "file": "LK10-from-on-wrong-card.json",
+    "violates": [
+      "LK10"
+    ],
+    "why": "two-d.label 的 from 是 overlays，卡名必须是 two-d.overlay"
+  },
+  {
+    "file": "LK10-no-overlays-card-left.json",
+    "violates": [
+      "LK10"
+    ],
+    "why": "片子描述里没有叠加层，cards 里还留着 from 是 overlays 的 two-d.overlay"
+  },
+  {
+    "file": "LK11-shot-entry-missing.json",
+    "violates": [
+      "LK11"
+    ],
+    "why": "锁文件的 shots 里没有镜头 s02"
+  },
+  {
+    "file": "LK11-extra-shot-entry.json",
+    "violates": [
+      "LK11"
+    ],
+    "why": "锁文件的 shots 里多了 s03，片子描述里没有这个镜头"
+  },
+  {
+    "file": "LK12-derived-seed-wrong.json",
+    "violates": [
+      "LK12"
+    ],
+    "why": "镜头 s01 没写 seed，seeds 里填的是 1，照全片种子 1506961694 派生出来是 3984743648"
+  },
+  {
+    "file": "LK13-local-with-image.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "本机锁带了运行环境镜像的哈希，本机交不出这个值，写了就是编的"
+  },
+  {
+    "file": "LK13-server-without-rev.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "服务器生成的锁没写修订号，认不出它锁的是哪一版片子描述"
+  },
+  {
+    "file": "LK14-film-seed-chosen-by-hand.json",
+    "violates": [
+      "LK14"
+    ],
+    "why": "片子描述没写顶层 seed，全片种子却写成了随手挑的 7800（没写种子的镜头也照它派生），不是由片子 id 派生的值，本机和服务器出的随机就对不上"
+  },
+  {
+    "file": "LK13-server-without-image.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "服务器生成的锁，帧源锁条目没写运行环境镜像的哈希，运行环境就没锁住"
+  },
+  {
+    "file": "LK13-server-without-machine.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "服务器生成的锁没写出片的机器"
+  },
+  {
+    "file": "LK13-local-with-rev.json",
+    "violates": [
+      "LK13"
+    ],
+    "why": "本机锁写了修订号，本机锁不对应任何修订号，写了就是编的"
+  },
+  {
+    "file": "LK14-film-seed-not-written-one.json",
+    "violates": [
+      "LK14"
+    ],
+    "why": "片子描述顶层写了 seed 42，锁里的全片种子却还是由片子 id 派生的值"
+  },
+  {
+    "file": "LK10-empty-overlays-card-left.json",
+    "violates": [
+      "LK10"
+    ],
+    "why": "片子描述的 overlays 是空数组，cards 里还留着 from 是 overlays 的 two-d.overlay"
+  }
+]

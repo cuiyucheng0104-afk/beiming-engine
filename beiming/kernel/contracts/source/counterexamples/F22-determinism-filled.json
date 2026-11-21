@@ -1,0 +1,90 @@
+{
+  "format": "source/0.1",
+  "sources": {
+    "blender": {
+      "hosts": [
+        "cycles"
+      ],
+      "modes": [
+        "cards-data",
+        "build-script",
+        "native-code"
+      ],
+      "sceneQuery": [
+        "bbox3d",
+        "anchor",
+        "intersect",
+        "contact",
+        "belowGround"
+      ],
+      "outputs": {
+        "color": "f32",
+        "depth": "f32",
+        "objectId": "u32",
+        "normal": "f32",
+        "motion": false
+      },
+      "motionBlur": {
+        "mode": "native"
+      },
+      "determinism": "tolerance"
+    },
+    "three": {
+      "hosts": [
+        "page"
+      ],
+      "modes": [
+        "cards-data",
+        "build-script",
+        "native-code"
+      ],
+      "sceneQuery": [
+        "bbox3d",
+        "anchor",
+        "belowGround"
+      ],
+      "outputs": {
+        "color": "f32",
+        "depth": "f32",
+        "objectId": "u32",
+        "normal": "f32",
+        "motion": false
+      },
+      "motionBlur": {
+        "mode": "accumulate"
+      },
+      "determinism": "hash-same-machine"
+    },
+    "core": {
+      "hosts": [
+        "offscreen",
+        "headless-page"
+      ],
+      "modes": [
+        "cards-data",
+        "build-script"
+      ],
+      "sceneQuery": [
+        "bbox3d",
+        "anchor",
+        "intersect",
+        "contact",
+        "belowGround"
+      ],
+      "outputs": {
+        "color": "f32",
+        "depth": "f32",
+        "objectId": "u32",
+        "normal": "f32",
+        "motion": "f32",
+        "denoiseAlbedo": "f32",
+        "denoiseNormal": "f32",
+        "lightgroup:*": "f32"
+      },
+      "motionBlur": {
+        "mode": "native"
+      },
+      "determinism": "tolerance"
+    }
+  }
+}

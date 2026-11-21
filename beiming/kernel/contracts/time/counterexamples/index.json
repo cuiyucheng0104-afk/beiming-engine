@@ -1,0 +1,233 @@
+[
+  {
+    "file": "T1-order-dependent.json",
+    "violates": [
+      "T1"
+    ],
+    "why": "同一个镜头、同一个 f 和 sub，顺序求和乱序求的状态摘要不同"
+  },
+  {
+    "file": "T2-wall-clock.json",
+    "violates": [
+      "T2"
+    ],
+    "why": "镜头代码里调了 performance.now"
+  },
+  {
+    "file": "T3-decimal-fps.json",
+    "violates": [
+      "T3"
+    ],
+    "why": "帧率写成了小数 29.97，不是有理数字符串"
+  },
+  {
+    "file": "T4-sample-from-previous-shot.json",
+    "violates": [
+      "T4"
+    ],
+    "why": "切点后第一帧（第 48 帧，属于 s02）有一个采样是对上一个镜头 s01 的状态求值的"
+  },
+  {
+    "file": "T5-centered-shutter.json",
+    "violates": [
+      "T5"
+    ],
+    "why": "快门以帧为中心打开，第 60 帧有一个采样落在第 59 帧里"
+  },
+  {
+    "file": "T6-average-encoded.json",
+    "violates": [
+      "T6"
+    ],
+    "why": "子帧在编码后的值上取了平均：累积出来的颜色层对线性平均预言图的最大绝对差是 0.02，超过 1e-4"
+  },
+  {
+    "file": "T7-post-per-sample.json",
+    "violates": [
+      "T7"
+    ],
+    "why": "后期链对 4 个子帧各跑了一次，再平均"
+  },
+  {
+    "file": "T8-aux-mid-shutter.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "辅助层取的是 sub = 0.25 的采样，不是 sub = 0"
+  },
+  {
+    "file": "T9-global-frame-leaked.json",
+    "violates": [
+      "T9"
+    ],
+    "why": "交给镜头代码的帧号是全片帧号 60，应该是 60 − 48 = 12"
+  },
+  {
+    "file": "T10-hold-rounds-up.json",
+    "violates": [
+      "T10"
+    ],
+    "why": "hold(5, 2) 返回了 6，应该是 4"
+  },
+  {
+    "file": "T11-unseeded-random.json",
+    "violates": [
+      "T11"
+    ],
+    "why": "卡的实现里调了 Math.random"
+  },
+  {
+    "file": "T12-stream-name-without-seed.json",
+    "violates": [
+      "T12"
+    ],
+    "why": "流名少了镜头种子那一段"
+  },
+  {
+    "file": "T13-stream-disturbed.json",
+    "violates": [
+      "T13"
+    ],
+    "why": "加了一个对象之后，原有那条流的序列变了"
+  },
+  {
+    "file": "T5-override-narrows-window.json",
+    "violates": [
+      "T5"
+    ],
+    "why": "这次调用把快门角覆盖成 90 度，窗口是 [60, 60.25)；有一个采样在 60.3125，照镜头的 180 度才在窗口里"
+  },
+  {
+    "file": "T5-zero-angle-two-samples.json",
+    "violates": [
+      "T5"
+    ],
+    "why": "这次调用把快门角覆盖成 0，却取了两个采样"
+  },
+  {
+    "file": "T8-post-depth-mid-shutter.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "后期链用的深度取在 sub = 0.25，不是辅助层的那个 sub = 0 的样本"
+  },
+  {
+    "file": "T8-aux-mismatch.json",
+    "violates": [
+      "T8"
+    ],
+    "why": "辅助层取的时刻记的是 sub = 0，编号层对 sub = 0、针孔、像素中心的预言图却有 37 个边缘带之外的像素对不上：辅助样本不是照规定取的"
+  },
+  {
+    "file": "T14-samples-front-loaded.json",
+    "violates": [
+      "T14"
+    ],
+    "why": "4 个采样挤在快门窗口的前半（0、0.0625、0.125、0.1875），都在窗口里，却不是居中分层的 0.0625、0.1875、0.3125、0.4375"
+  },
+  {
+    "file": "T14-override-angle-ignored.json",
+    "violates": [
+      "T14"
+    ],
+    "why": "这次调用把快门角覆盖成 360 度，采样却还照镜头的 180 度排在 0.125、0.375，应该在 0.25、0.75"
+  },
+  {
+    "file": "T5-sample-at-window-end.json",
+    "violates": [
+      "T5"
+    ],
+    "why": "快门角 180 度，窗口是 [60, 60.5)；采样正好取在 60.5，窗口的上界不算在窗口里"
+  },
+  {
+    "file": "T5-sample-in-next-frame.json",
+    "violates": [
+      "T5"
+    ],
+    "why": "第 60 帧的采样写在第 61 帧里（61, 0.125）：相位在窗口宽度以内，帧号却不是这一帧"
+  },
+  {
+    "file": "T14-wrong-operation-order.json",
+    "violates": [
+      "T14"
+    ],
+    "why": "快门角覆盖成 172.8 度、3 个采样，相位照 (i + 0.5) × 窗口 ÷ N 的次序算：第 2 个是 0.4000000000000001，照规定的次序是 0.4，差最后一位"
+  },
+  {
+    "file": "T2-new-date-no-parens.json",
+    "violates": [
+      "T2"
+    ],
+    "why": "镜头代码里写了省掉括号的 new Date，照样是读墙钟"
+  },
+  {
+    "file": "T2-performance-time-origin.json",
+    "violates": [
+      "T2"
+    ],
+    "why": "宿主里读了 performance.timeOrigin，它是真实时间，不在单调时钟的白名单里"
+  },
+  {
+    "file": "T3-not-reduced.json",
+    "violates": [
+      "T3"
+    ],
+    "why": "帧率写成 60/2，写法对，分子分母没有约到互质"
+  },
+  {
+    "file": "T3-fps-elsewhere.json",
+    "violates": [
+      "T3"
+    ],
+    "why": "顶层的帧率合法，ext 里又出现了一个帧率"
+  },
+  {
+    "file": "T7-post-runs-twice.json",
+    "violates": [
+      "T7"
+    ],
+    "why": "后期链吃的是平均后的结果，却在这一帧上跑了 2 次"
+  },
+  {
+    "file": "T7-post-input-sample.json",
+    "violates": [
+      "T7"
+    ],
+    "why": "后期链只跑了 1 次，吃的却是单个子帧，不是平均后的结果"
+  },
+  {
+    "file": "T9-localized-not-subtracted.json",
+    "violates": [
+      "T9"
+    ],
+    "why": "全片第 60 帧的事件交给镜头 s02（起始帧 48）时还是 60，没减起始帧，应该是 12"
+  },
+  {
+    "file": "T9-localized-clamped-to-zero.json",
+    "violates": [
+      "T9"
+    ],
+    "why": "全片第 40 帧在镜头 s02（起始帧 48）之前，减出来应该是 −8，却被截成了 0"
+  },
+  {
+    "file": "T9-meta-global-frame.json",
+    "violates": [
+      "T9"
+    ],
+    "why": "出全片第 50 帧时，镜头 s02（起始帧 48）的 meta(f) 收到的是 50，应该是 2"
+  },
+  {
+    "file": "T11-crypto-get-random-values.json",
+    "violates": [
+      "T11"
+    ],
+    "why": "卡的实现里调了 crypto.getRandomValues，没有种子"
+  },
+  {
+    "file": "T12-arg-one-segment.json",
+    "violates": [
+      "T12"
+    ],
+    "why": "调用方给的参数只有一段 scatter，没有对象那一段；流名是照种子、镜头、参数连起来的，只有参数的写法不对"
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "path": "shots/s01/cards/cam/params/margin",
+  "value": 0.9,
+  "unit": "主体占画高的比例",
+  "layers": [
+    {
+      "layer": "card-default",
+      "from": "camera.fit@1.0.0",
+      "value": 0.9
+    },
+    {
+      "layer": "template",
+      "from": "template:assembly@1"
+    },
+    {
+      "layer": "film",
+      "from": "rev 5，agent 写入",
+      "value": 0.9
+    },
+    {
+      "layer": "film",
+      "from": "rev 6，调用方把 pred.inside_frame 的修法写进补丁",
+      "value": 0.82
+    }
+  ],
+  "coupling": [
+    "output.size",
+    "kit 的包围盒"
+  ],
+  "affects": {
+    "shots": [
+      "s01"
+    ],
+    "frameRange": [
+      0,
+      180
+    ]
+  }
+}

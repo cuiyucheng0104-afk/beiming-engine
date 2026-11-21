@@ -54,6 +54,7 @@ export function resolveEncoder(requested = 'auto', { width, height, probe = prob
 // nvenc：恒定质量（-rc vbr -cq N -b:v 0），preset p5；母版默认 cq 7（三部作品画质均不低于 x264 crf14，同输入码流逐字节确定，见 docs/offscreen/README.md 7.18–7.19）。
 //   必须显式给 -maxrate：不给时 NVENC 按分辨率自动选 Level（1080p24 是 4.0），再按这个 Level 的最大码率封顶（约 25 Mbps），
 //   cq 低于约 18 时全被截住，--cq 18 与 --cq 10 输出相同。240M 让 Level 升到 5.1，在 master-1080p24（Level ≤ 5.1）与 uhd-2160p24（≤ 5.2）允许的范围内。
+//   母版档 cq 7 + maxrate 240M 因而产出 H.264 Level 5.1；web-1080p24（maxLevel 4.1）等档位的 qa delivery.codec 只给软告警（warn，不阻断），web.mp4 另经 encodeWeb 重编为 High@4.1。
 // pixFmt：rgba（走 COLOR.png 的 swscale）或 yuv420p（GPU 已转好有限范围 BT.709，只过零拷贝 setparams 打标记，免 CPU swscale）
 export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = 'rgba' }) {
   if (!ENCODERS.includes(encoder)) throw new CliError('usage.bad-value', `--encoder 只能是 ${ENCODERS.join(' 或 ')}，收到「${encoder}」`, { hint: `可选 x264 或 nvenc（默认命令行走 auto，母版档 cq ${MASTER_CQ}）` });

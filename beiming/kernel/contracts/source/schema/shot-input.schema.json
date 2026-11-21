@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/shot-input.schema.json",
+  "title": "镜头输入 ShotInput",
+  "description": "只管结构。film、output、shot、assets、overlays 的写法引用片子描述契约（D）的结构定义，events 引用事件表契约（EV）的，这里不另抄。",
+  "type": "object",
+  "required": ["film", "output", "shot"],
+  "additionalProperties": false,
+  "properties": {
+    "film": { "$ref": "../film/film.schema.json#/properties/id" },
+    "output": {
+      "type": "object",
+      "required": ["size", "fps"],
+      "additionalProperties": false,
+      "properties": {
+        "size": { "$ref": "../film/film.schema.json#/properties/output/properties/size" },
+        "fps": { "$ref": "../film/film.schema.json#/properties/output/properties/fps" }
+      }
+    },
+    "shot": { "$ref": "../film/film.schema.json#/$defs/shot" },
+    "assets": { "$ref": "../film/film.schema.json#/$defs/assets" },
+    "events": { "$ref": "../events/events.schema.json" },
+    "overlays": { "type": "array", "items": { "$ref": "../film/film.schema.json#/properties/overlays/items" } },
+    "tokens": { "$ref": "../film/film.schema.json#/properties/style/properties/tokens" }
+  }
+}

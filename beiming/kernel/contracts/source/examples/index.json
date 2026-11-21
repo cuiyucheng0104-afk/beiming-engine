@@ -1,0 +1,26 @@
+[
+  {
+    "file": "manifest.json",
+    "schema": "manifest.schema.json"
+  },
+  {
+    "file": "query-intersect.json",
+    "schema": "scene-query.schema.json"
+  },
+  {
+    "file": "result-intersect.json",
+    "schema": "query-result.schema.json"
+  },
+  {
+    "file": "shot-input.json",
+    "schema": "shot-input.schema.json"
+  },
+  {
+    "file": "layer-color.json",
+    "schema": "layer-ref.schema.json"
+  },
+  {
+    "file": "shot-input-full.json",
+    "schema": "shot-input.schema.json"
+  }
+]

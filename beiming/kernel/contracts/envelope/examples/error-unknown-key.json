@@ -1,0 +1,35 @@
+{
+  "format": "envelope/0.1",
+  "ok": false,
+  "exitCode": 4,
+  "error": {
+    "code": "contract.unknown-key",
+    "message": "补丁写到了片子描述里没定义的键",
+    "hint": "把补丁里的键名改成最接近的那个再写一次"
+  },
+  "outputs": [],
+  "data": {},
+  "diagnostics": [
+    {
+      "code": "contract.unknown-key",
+      "layer": "L1",
+      "severity": "error",
+      "at": "style/finish/grian",
+      "message": "style.finish 没有 grian 这个键",
+      "expected": "style.finish 的键：card、grain、vignette",
+      "atFrames": [],
+      "hint": "最接近的键是 grain"
+    }
+  ],
+  "cost": {
+    "tokens": 180,
+    "gpuSeconds": 0,
+    "wallMs": 40
+  },
+  "next": [
+    {
+      "verb": "POST /v1/films/f_8k2/patch",
+      "why": "照 hint 改好补丁再写一次"
+    }
+  ]
+}

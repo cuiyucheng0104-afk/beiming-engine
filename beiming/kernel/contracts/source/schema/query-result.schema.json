@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/query-result.schema.json",
+  "title": "QueryResult",
+  "description": "只管结构。截断的项数对不对由 F9 管。",
+  "type": "object",
+  "required": ["kind", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "enum": ["bbox3d", "anchor", "intersect", "contact", "belowGround"] },
+    "items": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": ["a", "value", "unit"],
+        "additionalProperties": false,
+        "properties": {
+          "a": { "type": "string", "minLength": 1 },
+          "b": { "type": "string", "minLength": 1 },
+          "value": { "type": "number" },
+          "unit": { "type": "string", "minLength": 1 },
+          "at": { "type": "array", "minItems": 1, "items": { "type": "number" } }
+        }
+      }
+    },
+    "truncated": { "type": "integer", "minimum": 1 }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "format": "patch-check/0.1",
+  "before": {
+    "shots": [
+      {
+        "id": "s01",
+        "cards": []
+      },
+      {
+        "id": "s01",
+        "cards": [
+          {
+            "as": "fit",
+            "use": "camera.fit@1",
+            "params": {}
+          }
+        ]
+      }
+    ]
+  },
+  "patch": {
+    "format": "patch/0.1",
+    "rev": 6,
+    "ops": [
+      {
+        "op": "remove",
+        "path": "shots/s01"
+      }
+    ]
+  },
+  "outcome": "applied",
+  "after": {
+    "shots": [
+      {
+        "id": "s01",
+        "cards": [
+          {
+            "as": "fit",
+            "use": "camera.fit@1",
+            "params": {}
+          }
+        ]
+      }
+    ]
+  }
+}

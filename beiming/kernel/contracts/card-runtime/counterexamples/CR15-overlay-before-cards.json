@@ -1,0 +1,23 @@
+{
+  "format": "load-check/0.1",
+  "shot": "s03",
+  "build": "ok",
+  "steps": [
+    "assets",
+    "tracks",
+    "create",
+    "collect"
+  ],
+  "cards": [
+    "light",
+    "title"
+  ],
+  "overlays": [
+    "caption"
+  ],
+  "createOrder": [
+    "caption",
+    "light",
+    "title"
+  ]
+}

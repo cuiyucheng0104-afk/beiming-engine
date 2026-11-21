@@ -22,9 +22,9 @@
 
 ---
 
-## 1. 音效设计十二条法则
+## 1. 音效设计十六条法则
 
-前四条决定一个声音**该不该存在、听不听得见、干不干净、摆在哪里**；中五条决定它**像不像、是不是一家人、对得准不准、主次清不清楚、切点顺不顺**；后三条决定整部片**画面元素全不全、远近纵深真不真、音乐与音效能不能双向平衡并融为一体**。
+前四条决定一个声音**该不该存在、听不听得见、干不干净、摆在哪里**；中五条决定它**像不像、是不是一家人、对得准不准、主次清不清楚、切点顺不顺**；后七条决定整部片**画面元素全不全、远近纵深真不真、乐效双向平衡融不融、视觉遥测准不准、人声对白透不透、配乐弧线顺不顺、长片母带稳不稳**。
 
 ### 1.1 因果本体律：每一声都必须有可指认的“因”
 
@@ -80,7 +80,7 @@
   3. **`body`（重量与腔体层）**：实录重型卡扣或金属弹簧底盘（低通 `4.2–5.4 kHz`，冲击锚点刻意延后 `1.8 ms` 以免掩蔽主瞬态），替代廉价合成器低频正弦扫频，加上管腔半波长微反射（`_barrel_reflections`）；
   4. **`space`（微距近干空间）**：微距机械只挂极短近场早期反射（`close_dry`，`wet ≤ 0.12`），长混响会直接抹糊微咔瞬态。
 - **实证与反例**：v1 用积木声加模态合成缺 `identity` 显得假；v4 橙色齿轮缺独立拨齿与锁止 `detail` 层显得闷；v5–v6 用 `composite_mechanism` 与 `precision_gear_turn`（加速拨齿 → `35–40 ms` 蓄力悬停 → 双阶落锁 `KA-TA`）实现高频清脆咬合【仓库实证·代码】`engine/audio/foley.py:704-833`。
-- **引擎入口**：`engine/audio/foley.py`（`composite_mechanism`、`precision_gear_turn`、`shift_material`）、`engine/audio/procedural.py`（`modal_impact`、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`）。
+- **引擎入口**：`engine/audio/foley.py`（`composite_mechanism`、`precision_gear_turn`、`shift_material`）、`engine/audio/procedural.py`（`modal_impact` 含 `radiation='accel'`、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`、`thunder_strike`、`pouring_vessel`、`bouncing_disc`、`shock_blast`）。
 
 ### 1.6 家族同构律：同类视觉图元锁死同一词元，重点靠叠层强调
 
@@ -135,7 +135,36 @@
 - **数学判定与阈值**：
   - `audio.masking` 双向门禁：普通前景事件主频带听觉窥视信噪比 `soft >= -5.0 dB`（`hard >= -12.0 dB`），`role='hero'` 核心事件 `soft >= -1.0 dB`（`hard >= -8.0 dB`）；当存在活跃 `fx/foley` 但配乐能量高于 `fx + foley` 总和 `> +9.0 dB` 时报 `music_dominance` 告警（防配乐淹死音效）；反之当存在非静音 `music.wav` 分轨但终混积分响度低于总母带 **`> 8.5 LU`**（`MUSIC_BURIED_WARN_LU = 8.5`）时报 **`music_buried` 告警**（防配乐被过度压制）【仓库实证·代码】`engine/audio/qa.py:196-538`。
 - **实证与反例**：① 淹死音效反例——《追电车的夏天》v1 未设配乐收束，`stems/music.wav` 高达 `-14.03 LUFS`（占 `-14.01 LUFS` 母带 `99.56%` 预算），淹死海浪与链条声；② 压死配乐反例——《港口集市》v1 矫枉过正，叠加 `music_ceiling_offset_db = -5.5`、`continuous_duck_db = 4.5` 与 6 频带挖槽，把 `music.wav` 死压到 **`-25.08 LUFS`**（低于 `-14.02 LUFS` 母带整整 `11.06 LU`！），而 `ui` 冲至 `-13.09 LUFS`、`amb` 达 `-18.53 LUFS`，盲听一针见血指出“单独音效还不错，但混音不行，音乐完全被压掉了”；v2 改用互补 EQ 分槽 + 推子呼吸曲线 + SSL 总线粘合母带后，配乐重回 `-15.8 ~ -17.5 LUFS` 温暖主轴，12 项关键音效特征频带依然正信噪比颗颗分明，成片响度与平均密度显著跃升且宏观动态 `LRA` 完整保留【仓库实证·实测】（未入库试制区）。
-- **引擎入口**：`engine/audio/mixing.py:146-329`（`bus_glue_compress`、`master_chain`）、`engine/audio/director.py:59-154,718-1353`（`volume_curve`、`sculpt_stem_eq`、`HDRMixer`）、`engine/audio/editorial.py:692-1231`（`ThreeStemWorkstation`）、`engine/audio/qa.py:196-538`（`audio.masking`、`music_dominance`、`music_buried`）。
+- **引擎入口**：`engine/audio/mixing.py:146-329`（`bus_glue_compress`、`master_chain`）、`engine/audio/director.py:59-154,718-1353`（`volume_curve`、`sculpt_stem_eq`、`HDRMixer`）、`engine/audio/editorial.py:692-1231`（`ThreeStemWorkstation` / `FourStemWorkstation`）、`engine/audio/qa.py:196-538`（`audio.masking`、`music_dominance`、`music_buried`）。
+
+### 1.13 自动画面遥测与角色轨迹绑定律（Automatic Visual Telemetry & Actor Binding）
+
+- **法则**：运动声源的横向声像 `pan(t)`、画高占比远近 `scale(t) = h/H` 与碰撞脉冲严禁手抄估算数字；一律由舞台遥测传感器或视频流分析器从真实渲染画面自动提取并直绑声轨。
+- **双路采集与自动绑定**【仓库实证·代码】：
+  1. **页面型作品实时遥测（`engine/stage/telemetry.js`）**：三维场景用 `projectThreeActor(object3d, camera, opts)`（纯 4×4 矩阵投影，输出 `x, y ∈ [-1, 1]`、`scale ∈ [0, 1.5]`、`depth >= 0.1 m` 与视锥裁剪 `visible ∈ {0, 1}`），二维画布用 `trackCanvasActor(rect, viewport)`，经 `createAudioTelemetry(actors).install(window)` 挂载 `window.AUDIO_TELEMETRY(t, f)`。在 `film.json` 设 `"audio": { "telemetry": true }` 后，`film build` 的 `probe` 步骤自动传 `--telemetry` 写出 `kinematics.json`（注入 `BEIMING_KINEMATICS`）。
+  2. **Python 打点与成品视频流式分析（`engine/audio/spotting.py`）**：`spot_from_kinematics(kin)` 自动剥离切点 `±1` 帧伪峰，提取 `cuts`、`holds`、`motion_peaks` 与每个角色的可见区间、`pan_points`、`screen_ratio` 及径向速度；外部或 B 路线无源码成片用 `spot_from_video(video_path)` 经 FFmpeg 管道 O(1) 帧内存流式提取四分区 `Kinematics`。
+  3. **一键角色绑定**：`FourStemWorkstation.bind_actor(kin, actor_id, wave, ...)` 直接将角色轨迹转为受 `SHOT_PAN_CAP` 约束的连续声像、`screen_scale_to_distance` 远近衰减、空气吸收与多普勒频移。
+
+### 1.14 四干线对白共振峰让位律（Four-Stem Dialogue Formant Pocket）
+
+- **法则**：含旁白或角色台词的叙事片升级为 `vo + music + amb + fx/foley` 四干线架构。**严禁用全频段宽带乘法 `music * duck` 硬压配乐**（会抽走低音根基并造成呼吸抽吸感），必须采用零相位共振峰频带精准挖槽。
+- **数学判定与阈值**【仓库实证·代码】：
+  - **人声通道雕塑（`sculpt_stem_eq` `'vo'`）**：`85 Hz` 二阶高通清口水低频 + `-1.8 dB @ 240 Hz (Q=1.1)` 去胸腔浑浊 + `+1.2 dB @ 3.0 kHz (Q=0.9)` 提咬字清晰度 + `-1.0 dB @ 7.2 kHz (Q=2.0)` 柔化齿音，有声窗（`> -42 dBFS`）定标 `-16.0 LUFS` 并挂 `rt=0.32 s, room_wet=0.04` 微早反防干贴。
+  - **共振峰动态挖槽（`carve_dialogue_pocket` / `FourStemWorkstation.set_dialogue`）**：15 ms 前视、20 ms 起音、180 ms 释放包络，仅动态衰减配乐 `800–4200 Hz` 人声共振峰核心带（默认 `4.2 dB`；`amb` 衰减 `600–4500 Hz` `2.5 dB`；`fx/foley` 衰减 `1.2–4.2 kHz` `1.8 dB`），**配乐 `< 350 Hz` 大提琴与低音底盘保持 `0.00 dB` 零衰减**。
+  - **机器门禁与出片闭环**：作品含 `dialogue.json` 时 `film build` 自动构建配音并注入 `BEIMING_DIALOGUE_DIR`；`engine.audio.qa` 的 `audio.dialogue` 硬门核查有声句段 `1–4 kHz` 信噪比（`>= +2.0 dB` 通过，`[-2.0, 2.0) dB` 报 `dialogue_masked` 软告警，`< -2.0 dB` 或削波退出码 4 并在 `video` 渲染前快速拦截）。
+
+### 1.15 情绪导引乐谱与 Cover 配乐闭环律（Emotional Guide-Track & Cover Score CLI）
+
+- **法则**：AI 配乐不能靠纯文本盲抽导致切点脱节、中段断片或片尾塌陷；必须先由影片镜头表与事件表生成确定性**程序化情绪导引乐谱（Guide Track）**锁死调性、节拍、呼吸留白与终章抬升弧线，再以 Cover 模式重绘管弦/民乐实录质感。
+- **引擎入口与契约**【仓库实证·代码】：`npm run audio:music -- <guide|build|probe> [film]`（`tools/audio/music.mjs` ↔ `engine/audio/music_gen.py`）：
+  - `plan_sections_from_film(film)` 从镜头与事件自动推导能量弧线（开场铺垫 `0.35` → 展开推进 `0.55..0.70` → 高潮前悬停呼吸 `0.42` → 终章高潮抬升 `0.92`）；
+  - `build_guide_score(...)` 确定性合成 48 kHz 立体声导引轨（跨段和声铺底 + 锁拍琶音脉冲 + 切镜前上行引子 + 终章高八度/高五度声部抬升，中段零静音断档，峰值 `-3.0 dBFS`）；
+  - `generate_cover(...)` 支持 `--provider guide`（离线确定性）与 `--provider acestep`（按 `--endpoint` → `BEIMING_ACESTEP_URL` → `--ssh` 临时本地端口转发连接 ACE-Step 1.5 Cover API，退出零残留清理子进程；`soxr` 重采样至 48 kHz 立体声 `PCM_24` 精确样本数，带 SHA-256 缓存与 D11 `aigc` 描述符）。
+
+### 1.16 长片流式粘合母带律（Long-Form Streaming Bus Glue）
+
+- **法则**：分钟级（如 10 分钟）长片严禁为每个音效分配全片长度 `float64` 数组或在母带阶段一次性展开数 GB 缓冲；必须走稀疏总线加跨分块保状态流式粘合母带，兼顾短片级音质与亚 GB 内存预算。
+- **数学判定与实测**【仓库实证·代码】：`engine/audio/stream.py` 的 `Bus`（`float32` 局部切片写入）配合 `stream.bus_glue_compress` 与 `stream.master_chain(..., chunk_s=10.0)`，在分块原地处理时跨块传递 IIR 滤波器 `zi` 状态与 Numba `@njit` 慢起音压缩包络状态：与全量 `mixing.master_chain` 响度偏差 `< 0.05 LU`、分块边界零咔嗒，10 分钟（`600 s`）立体声实测峰值内存 `854 MB < 1.0 GB`（满足 `H11`）。
 
 ---
 
@@ -146,10 +175,10 @@
 ### 2.0 五段工程管线总览【仓库实证·代码】
 
 ```text
-[1. 逐镜盘点与锁池] 真画面源码/静帧 -> sfx_vocab (decompose_scene_ambience / plan_film_sound_pool) + sfx_judge + library.load_slice
+[1. 逐镜盘点与锁池] 真画面源码/静帧 -> sfx_vocab (decompose_scene_ambience / plan_film_sound_pool) + sfx_judge (含 hf_envelope_buzz / hf_whistle_db) + library.load_slice
        │
        ▼
-[2. 合成与演化] foley (composite_mechanism / precision_gear_turn / shift_material) + procedural (modal / phisem / whoosh / bubbles / cartoon)
+[2. 合成与演化] foley (composite_mechanism / precision_gear_turn / shift_material) + procedural (modal / phisem / whoosh / bubbles / cartoon / thunder / pour / disc / blast)
        │
        ▼
 [3. 时值与连击剪辑] editorial.smart_edit_clip (长裁阻尼·短非周期延展·切点收尾) + editorial.schedule_action_series (三级防疲劳 + IOI 紧尾)
@@ -158,13 +187,13 @@
 [4. 同步与远近贴合] sync_anchor + screen_scale_to_distance + editorial (couple_motion_trajectory / build_layered_ambience)
        │
        ▼
-[5. 乐效融合与母带粘合] ThreeStemWorkstation / HDRMixer (sculpt_stem_eq·volume_curve·music_ceiling_offset_db=-2.6) + mixing.master_chain + qa
+[5. 乐效融合与调片闭环] FourStemWorkstation / HDRMixer + mixing/stream.master_chain + qa + serve.mjs (?preview=1 分轨实时调片)
 ```
 
 | 管线阶段 | 核心工程模块与入口函数 | 解决的创作与工程问题 |
 |---|---|---|
-| **阶段 1 · 逐镜盘点与三层锁池** | `sfx_vocab.WORLD_PALETTES`、`SCENE_AMBIENCE_LAYERS`、`decompose_scene_ambience`、`classify_stem`、`search_by_world`、`plan_film_sound_pool`；`tools/fetch_sfx.py --world / --plan`；`sfx_judge.judge_ontology`；`library.load_slice` | 按画面源码与静帧把复合外景拆成「远景底床 + 主纹理 + 生机点缀」三层，锁定 `amb / fx / foley` 候选池，拦截电机污染与低 `raw_pk` 高噪切片 |
-| **阶段 2 · 实录复合与物理合成** | `foley.composite_mechanism`、`precision_gear_turn`、`layer_event`、`shift_material`；`procedural.modal_impact`、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`；`director.hitech_laser_trace`、`hitech_micro_beep` | 有实录走四层超真实复合；缺精确匹配或需运动连续耦合/非写实夸张时走「激励 × 共振 × 耦合」确定性物理与卡通合成 |
+| **阶段 1 · 逐镜盘点与三层锁池** | `sfx_vocab.WORLD_PALETTES`、`SCENE_AMBIENCE_LAYERS`、`decompose_scene_ambience`、`classify_stem`、`search_by_world`、`plan_film_sound_pool`；`tools/fetch_sfx.py --world / --plan`；`sfx_judge.extract_metrics`、`judge_wave`、`judge_ontology`；`library.load_slice` | 按画面源码与静帧把复合外景拆成「远景底床 + 主纹理 + 生机点缀」三层，锁定 `amb / fx / foley` 候选池，拦截电机污染、低 `raw_pk` 高噪切片及高频周期颗粒电嗡声（`hf_envelope_buzz`）与窄带哨音尖刺（`hf_whistle_db`） |
+| **阶段 2 · 实录复合与物理合成** | `foley.composite_mechanism`、`precision_gear_turn`、`layer_event`、`shift_material`；`procedural.modal_impact`（含 `radiation='accel'`）、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`、`thunder_strike`、`pouring_vessel`、`bouncing_disc`、`shock_blast`；`director.hitech_laser_trace`、`hitech_micro_beep` | 有实录走四层超真实复合；缺精确匹配或需运动连续耦合/非写实夸张时走「激励 × 共振 × 耦合」确定性全带宽（`0–20 kHz`）物理因果与卡通合成 |
 | **阶段 3 · 时值精裁与防疲劳编排** | `editorial.smart_edit_clip`、`editorial.schedule_action_series`、`foley.ActionVariationDeck`、`director.fit_to_span` | 过程音贴合画面时长且零死循环；冲击余韵不在硬切后穿帮；连拳/蹬踏按三级防疲劳演化并随 IOI 自动紧尾、末击放尾 |
 | **阶段 4 · 锚点同步与远近声像贴合** | `library.sync_anchor`、`foley.place_anchored`、`director.screen_scale_to_distance`、`depth_gain_db`、`editorial.couple_motion_trajectory`、`editorial.build_layered_ambience`、`director.SHOT_PAN_CAP` | P-Center 精确咬合结果帧；由画高占比 `screen_ratio` 自动拉开远近 `8–16 dB` 纵深、空气高频吸收、混响干湿比、多普勒与三层立体声环境轨 |
 | **阶段 5 · 双向乐效融合与母带粘合** | `director.sculpt_stem_eq`、`director.volume_curve`、`editorial.ThreeStemWorkstation`、`director.HDRMixer`、`mixing.bus_glue_compress`、`mixing.master_chain`、`qa.analyze`、`cuecheck` | 双向黄金分轨配比（`Music ≈ -15.8 ~ -17.8`、`FX ≈ -15.5 ~ -17.5`、`Foley ≈ -19 ~ -22`、`AMB ≈ -22 ~ -25 LUFS`）、互补 EQ 频谱分槽、推子呼吸曲线、SSL 总线慢起音粘合压缩提响度保 `LRA`，以及 `music_dominance` / `music_buried` 双向门禁 |
@@ -185,15 +214,16 @@
 - **搜高科技界面层（HUD / UI）**：关键词显式带上 `hitech`、`telemetry`、`hud`、`micro beep`、`laser scan`（触发 `is_hitech_query` 上下文放行【仓库实证·代码】`tools/fetch_sfx.py:52-55`，不会误伤有机拟音的电子合成器禁令）。
 
 ### 2.4 第四步：零训练物理初筛（Stage 1 Judge）
-下载候选素材后先跑 `python -m engine.audio.sfx_judge <目录> --manifest sfx_manifest.json`：
+下载候选素材或校验程序化合成波形后先跑 `python -m engine.audio.sfx_judge <目录> --manifest sfx_manifest.json`（或调 `sfx_judge.extract_metrics` / `judge_wave`）：
 - 自动剔除 MP3 11 kHz 低通砖墙伪高采、削波破音、50/60 Hz 交流哼声、口技拟音谐波污染与大教堂长混响（`rt20_s` 超标）；
+- 对宽带非乐音原型（`friction_cloth / whoosh / water / ambience / foley_snap / impact / wood`）额外拦截高频程序化合成伪影：`> 6 kHz` 颗粒窗或帧跳周期调制电嗡声（`hf_envelope_buzz` 上限 `0.50–0.58`）与 `4–16 kHz` 相对局部中值基线的窄带金属哨音尖刺（`hf_whistle_db` 上限 `17.0–19.5 dB`），而 `metal_blade / sustained_tonal / tonal_ui / low_drone / mechanical` 乐音与金属原型自动豁免；
 - 对无源机械额外调用 `sfx_judge.judge_ontology(..., power='passive')`，筛除残留持续窄带嗡鸣（`> 120 ms`）的伪机械录音。
 
 ### 2.5 第五步：洁净增益切片（Forensic Slicing）
 一律通过 `library.load_slice(path, t0, t1, max_gain_db=20.0)` 切取所需片段，严禁先切一段安静缝隙再裸调 `dsp.norm()`。若返回超限报错，说明该时间段只有擦碰底噪，立即改切录音中的主瞬态峰或更换文件。
 
 ### 2.6 第六步：四层实录复合、物理合成与时值/防疲劳剪辑
-- 机械撞击/卡扣走 `foley.composite_mechanism`；多齿旋转咬合走 `foley.precision_gear_turn`；实录缺失或需参数连续耦合时走 `procedural`（`modal_impact`、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`）；
+- 机械撞击/卡扣走 `foley.composite_mechanism`；多齿旋转咬合走 `foley.precision_gear_turn`；实录缺失或需参数连续耦合时走 `procedural`（`modal_impact` 含 `radiation='accel'` 远场加速度辐射、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`、`thunder_strike`、`pouring_vessel`、`bouncing_disc`、`shock_blast`）；
 - 过程音长短精裁与停止制动微咔走 `editorial.smart_edit_clip`；连续摩擦（衣袂、旋拧）走 `foley.granular_bed` 或 `RoundRobinDeck`，连续打击/脚步走 `editorial.schedule_action_series`，**严禁使用 `np.tile` 硬循环拼接**。
 
 ### 2.7 第七步：P-Center 锚定、画高占比远近纵深与动态轨迹贴合
@@ -205,8 +235,8 @@
 - 启用**融合三板斧**：① `glue_eq=True`（`sculpt_stem_eq`）让 `AMB` 退让 `< 115 Hz` 与 `500–1800 Hz` 旋律区、`SFX/Foley` 去低中频泥沼聚焦 `2.0–5.5 kHz` 瞬态、配乐保 100% 低中频基音；② `curve_points`（`volume_curve`）随乐句起势与高潮平滑推拉各干线，使终混分轨稳居 `Music ≈ -15.8 ~ -17.8`、`FX ≈ -15.5 ~ -17.5`、`Foley ≈ -19 ~ -22`、`AMB ≈ -22 ~ -25 LUFS`；③ 核心叙事点注册负空间（`carve_negative_space`），前景瞬态对配乐仅做 `2.0–5.0 kHz` 毫秒级微频带避让；
 - 母带由 `master_glue=True`（`mixing.master_chain`）一次收口：`28 Hz` 次声清理 + `< 100 Hz` M/S 低频收紧 → SSL 总线慢起音粘合压缩（`25 ms` 起音、`110 Hz` 侧链高通、`1.5–3.2 dB` 软膝压缩）→ 奇次软膝微瞬态驯服 + `10 kHz` 丝绒光泽 → `loudness_to` 收口至饱满响度 `-13.2 ~ -13.5 LUFS`（或 `-14.0 LUFS`，真峰值 `≤ -1.5 dBTP`，保持全片 `LRA 5.5–9.5 LU`，首尾样本归零），五条分轨逐一施加 4× 过采样 `tp_limit` 防削波；视频封装直接编码 AAC，禁止二次套 `loudnorm`（[video.md §5.8](video.md)）。
 
-### 2.9 第九步：机器取证 QA 与盲听反馈四步闭环
-跑完 `npm run audio:qa` 与 `npm run audio:cuecheck` 后交人类导演全速盲听。收到听感修改意见时，严格执行**四步元方法**：
+### 2.9 第九步：实时带声分轨调片、机器取证 QA 与盲听反馈四步闭环
+跑完 `npm run audio:qa` 与 `npm run audio:cuecheck` 后，可在本地运行 `npm run serve` 并在影片地址后加 `?preview=1` 开启 WebAudio 声卡时钟相位锁定调片栏（`Space` 播放/暂停、`←/→` 逐帧步进、`[/]` 跳镜头切点、`L` 循环、`amb/fx/foley/music/vo/ui` 分轨实时无咔嗒 Mute/Solo 拆轨定位，以及 `↻ 重混声音` 免刷新热重载），再交人类导演全速盲听。收到听感修改意见时，严格执行**四步元方法**：
 1. **听感词 → 物理量翻译**：查 §6 翻译表，把主观描述变成可测的声学指标假设；
 2. **按时间码拆轨取证**：定位到具体秒数，打印该窗口内每一条分轨、每一个切片的 `raw_pk`、增益 $G$、左右声道 RMS 与频谱峰，找到铁证再动手，绝不盲目整体压音量；
 3. **痛点时间码永久入回归表**：凡被指出过一次异常的时间段（如 `1.20–1.45 s`、`5.5–6.3 s`），写成脚本末尾的自动断言，后续每出一版自动复查；
@@ -226,7 +256,8 @@
 | **高科技 HUD 镭射走线**（工程引出线、矢量标尺扫描） | `director.hitech_laser_trace`（`engine/audio/director.py:583`） | `dur` 严格取页面矢量绘制真实时长（如 `0.36 s`、`0.45 s`）；`f_lo=6800~7400 Hz`、`f_hi=12000~13200 Hz` 余弦平方窗微晶脉冲串，脉冲率随 ease-out 从 `118 Hz` 减速至 `46 Hz`；内置 `3.5 kHz` 耳道共振防扎耳凹槽（`-6.5 dB, Q=1.35`）与 `14.8 kHz` 丝绒滚降；折线拐点传 `elbow_at` |
 | **高科技菜单微提示与重点强调** | `director.hitech_micro_beep`（`engine/audio/director.py:650`） | `1.2 ms` 余弦软起音消除数码硬毛刺，`harmonic_freq` 吸附全片调性根音；常规标注用 `pattern='double'`、`emphasis_layer=False`；全片核心结论标注保持同根音与同 `pattern`，开启 `emphasis_layer=True` 在 `+12 ms / +36 ms` 叠入高五度与高八度泛音副层 |
 | **实体制图 / 卡尺微划线**（非电子纸面工程风） | `director.subtle_precision_cue`（`engine/audio/director.py:523`） | 零电子合成音；以 `12–35 ms` 怀表擒纵/千分尺微咔起笔，衔接等长纸面笔尖非周期纹理（`_extend_nonperiodic`）与收笔微触点 |
-| **刚体模态撞击 / 粒子群碰撞 / 流体破空 / 气泡 / 卡通原语** | `procedural.modal_impact`、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`（`engine/audio/procedural.py`） | 缺匹配实录或需参数连续耦合时使用：`modal_impact` 支持传入实录瞬态 `exciter_sample` 混合卷积激励与 `key` 调性吸附；`aerodynamic_whoosh` 遵循 Strouhal 频率与 $v^3$ 功率律；卡通世界观用干净 `stylized_cartoon` |
+| **刚体模态撞击 / 粒子群碰撞 / 流体破空 / 气泡 / 卡通原语** | `procedural.modal_impact`、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`（`engine/audio/procedural.py`） | `modal_impact` 支持实录瞬态 `exciter_sample` 卷积激励、`key` 调性吸附，以及 `radiation='accel'` 二阶接触力差分辐射（`-12 dB/oct` 滤除软敲 `< 100 Hz` 位移拖尾浑浊，`radiation='disp'` 逐样本兼容）；`aerodynamic_whoosh` 遵循 Strouhal 频率与 $v^3$ 功率律；卡通世界观用干净 `stylized_cartoon` |
+| **三维闪电雷鸣 / 杯壶时变注水 / 圆片弹跳欧拉盘 / 激波爆破** | `procedural.thunder_strike`、`pouring_vessel`、`bouncing_disc`、`shock_blast`（`engine/audio/procedural.py`） | 全带宽（`0–20 kHz`）因果合成：`thunder_strike` 建三维梯级先导与 `branches` 分叉，按双耳推迟到达叠偶极 N 波冲击子、4 层大气吸收壳与 `strokes` 二次回击（`overhead / diagonal / distant_roll`）；`pouring_vessel` 以幂律 Minnaert 微泡流激励时变四分之一波长闭底圆筒杯腔前三阶奇次模态，共振峰随 `fill_start -> fill_end` 单调上扬；`bouncing_disc` 合成 `coin_brass / coin_silver / jade_token / stone_go` 简并分裂双音闪烁（至 `16–19 kHz`）、几何递减弹跳与 Moffatt 欧拉盘加速滚振（`22 -> 95 Hz`）及平拍止音；`shock_blast` 合成 `firework / cannon / cork_pop / whip_crack` 前导弹道 N 波脆裂、Friedlander 超压波与地面反射干涉尾迹 |
 | **过程音精裁 / 连击力度保留 / 视觉占比远近与三层环境** | `editorial.smart_edit_clip`、`schedule_action_series`、`couple_motion_trajectory`、`build_layered_ambience`、`ThreeStemWorkstation`；`director.screen_scale_to_distance`（`engine/audio/editorial.py`、`director.py:435`） | 过程音长裁阻尼、短走非周期延展，冲击余韵在硬切前收尾；`screen_ratio` 自动拉开远景 `1/12` 与近景 `0.45` 之间 `8–16 dB` 纵深；`build_layered_ambience` 合成三层外景 |
 | **互补 EQ 分槽 / 推子音量曲线 / SSL 母带粘合压缩** | `director.sculpt_stem_eq`、`director.volume_curve`（`engine/audio/director.py:59,108`）；`mixing.bus_glue_compress`、`mixing.master_chain`（`engine/audio/mixing.py:146,300`） | `AMB` `110 Hz` 高通 + `800 Hz` `-3.0 dB` 让旋律区，`Foley` `130 Hz` 高通 + `320 Hz` `-2.0 dB`、`FX` `280 Hz` `-2.2 dB` 去泥沼；分贝域余弦平滑推子曲线；SSL 总线 `25 ms` 慢起音、`110 Hz` 侧链高通、`1.5–3.2 dB` 软膝压缩 + 微峰值驯服提响度至 `-13.2 ~ -13.5 LUFS` 保 `LRA` |
 
@@ -275,6 +306,7 @@
 | **“车/人远近大小没变化 / 站起猛蹬没发力感”** | 跨镜头未传画面占比 $h/H$，或子事件被固定 `target_lufs` 重新峰值归一化抹平动态 | 测远景与近景分轨 RMS 差（应 `≥ 8 dB`）、连击脉冲峰值阶梯；传入 `screen_ratio` 与 `add_foley_series(..., forces=...)` |
 | **“音乐中间断点很怪 / 最后情绪没上扬”** | 强拍后硬乘零截断混响尾造成断片感；片尾视觉升华段停掉节奏与主奏导致能量塌陷 | 测留白前后 `25 ms` 包络斜率与片尾段 RMS 曲线；悬停段改挂留和弦呼吸 + 反向引子，片尾开上扬编曲与 `music_focus_windows` |
 | **“像电机 / 有嗡嗡声 / 假电子味”** | 无源机构混入了持续窄带谐波（电机/合成器）或死循环拼接周期 | `sfx_judge.judge_ontology` 的 `sustained_tone_ms`（`>120 ms`）与 `loop_periodicity`（`>0.85`）、素材原始标签 |
+| **“风声/水流/衣料里有电嗡嗡颗粒感或尖锐金属哨音”** | `> 6 kHz` 颗粒窗/帧跳周期包络调制，或 `4–16 kHz` 高 Q 窄带滤波器谐振尖刺 | `sfx_judge.extract_metrics` / `judge_wave` 的 `hf_envelope_buzz`（宽带原型上限 `0.50–0.58`）与 `hf_whistle_db`（宽带原型上限 `17.0–19.5 dB`） |
 | **“不够清脆 / 咬合不明显 / 发闷”** | 缺 `2.5–12 kHz` 高频精密 `detail` 层，或起音过慢、混响过湿抹平了瞬态峰 | `2–10 kHz` 瞬态能量占比、`log_attack_time`（LAT）、波峰因数（Crest Factor）、落锁跃迁差（dB）、混响 `wet` 值 |
 | **“扎耳朵 / 毛刺 / 听着累”** | 人耳耳道共振区（`2.5–4.5 kHz`）能量堆积，或 `>10 kHz` 缺少滚降、数码硬截断 | `2.8–4.6 kHz` 与 `8 kHz+` 频段相对能量（`qa.py` 的 `audio.bands`）、起音是否有 `<0.5 ms` 未淡入硬跳变 |
 | **“前后不统一 / 像两部片子拼的”** | 同类视觉元素中途换了声音词元、根音或频谱重心 | 对照《声音词典》核查各实例调用的函数、根音频率与频谱质心（Spectral Centroid）离散度 |
@@ -306,11 +338,11 @@
 
 ### 8.1 已固化的公共能力【仓库实证·代码】
 - **取证加载与 P-Center 同步**：`engine/audio/library.py` — `load_slice`（洁净增益 $G \le 20\text{ dB}$ 与输出底噪门禁）、`sync_anchor`（能量斜率重心）、`de_room_gate`、`slices(..., min_len=...)`。
-- **零训练素材物理与本体审定**：`engine/audio/sfx_judge.py` — 14 类拟音原型（含 `mechanical`、`motorized`、`tonal_ui`、`metal_blade`、`low_drone`、`sustained_tonal`）、`judge_wave`、`judge_ontology`（无源机构电机嗡鸣与循环自相关拦截）。
+- **零训练素材物理与本体审定**：`engine/audio/sfx_judge.py` — 14 类拟音原型（含 `mechanical`、`motorized`、`tonal_ui`、`metal_blade`、`low_drone`、`sustained_tonal`）、`extract_metrics`（含 `> 6 kHz` 周期包络电嗡声 `hf_envelope_buzz` 与 `4–16 kHz` 窄带哨音尖刺 `hf_whistle_db`）、`judge_wave`、`judge_ontology`（无源机构电机嗡鸣与循环自相关拦截）。
 - **UCS 词表、复合场景三层拆解与世界观锁池**：`engine/audio/sfx_vocab.py` 与 `tools/fetch_sfx.py` — UCS v8.2.1 全量词表、24 类复合检索配方、六类世界观调色板 `WORLD_PALETTES`、九类复合场景三层原型 `SCENE_AMBIENCE_LAYERS`、`decompose_scene_ambience`、`search_by_world`、`classify_stem`、`plan_film_sound_pool`（CLI 支持 `--vocab`、`--cat`、`--world`、`--plan`），以及 `is_hitech_query` 上下文放行与无源机械电机污染过滤。
-- **分层拟音与物理/风格化合成**：`engine/audio/foley.py`（`composite_mechanism`、`precision_gear_turn`、`helical_thread`、`spring_coil`、`stick_slip_friction`、`shift_material`、`RoundRobinDeck`、`ActionVariationDeck`、`granular_bed`）与 `engine/audio/procedural.py`（`modal_impact`、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`）。
-- **智能时值剪辑、视觉占比远近纵深、乐效融合曲线、互补 EQ 与 SSL 母带工作台**：`engine/audio/editorial.py`（`smart_edit_clip`、`schedule_action_series`、`couple_motion_trajectory`、`build_layered_ambience`、`ThreeStemWorkstation`）、`engine/audio/director.py`（`volume_curve`、`sculpt_stem_eq`、`POA_PRESETS`、`SHOT_PAN_CAP`、`WORLD_PROFILES`、`screen_scale_to_distance`、`depth_gain_db`、`resolve_screen_ratio_curve`、`hitech_laser_trace`、`hitech_micro_beep`、`subtle_precision_cue`、`carve_negative_space`、`HDRMixer` 含 `music_ceiling_offset_db=-2.6`、`continuous_duck_db=1.8`、`glue_eq`、`master_glue` 与分轨真峰值限幅）以及 `engine/audio/mixing.py`（`bus_glue_compress` SSL 风格慢起音侧链高通软膝粘合压缩、`master_chain` 四步透明响度母带）。
-- **质量门与拍点核对**：`engine/audio/qa.py`（含 `audio.loudness`、`audio.truepeak`、`audio.mono`、`audio.balance` 逐窗左右平衡、`audio.bands`、`audio.masking` 收紧版分轨窥视信噪比及 `music_dominance` / `music_buried` 双向乐效平衡守卫）、`engine/audio/cuecheck.py`、`engine/render/events.mjs`（页面逐帧运动遥测采样）。
+- **分层拟音与全带宽物理/风格化合成**：`engine/audio/foley.py`（`composite_mechanism`、`precision_gear_turn`、`helical_thread`、`spring_coil`、`stick_slip_friction`、`shift_material`、`RoundRobinDeck`、`ActionVariationDeck`、`granular_bed`）与 `engine/audio/procedural.py`（`modal_impact` 含 `radiation='accel'`、`phisem_particles`、`aerodynamic_whoosh`、`minnaert_bubbles`、`stylized_cartoon`、`thunder_strike`、`pouring_vessel`、`bouncing_disc`、`shock_blast`）。
+- **智能时值剪辑、视觉遥测绑定、四干线人声融合、互补 EQ 与流式 SSL 母带工作台**：`engine/stage/telemetry.js`（`createAudioTelemetry`、`projectThreeActor`、`trackCanvasActor`）、`engine/audio/spotting.py`（`spot_from_kinematics`、`spot_from_video`）、`engine/audio/music_gen.py`（`plan_sections_from_film`、`build_guide_score`、`generate_cover`、`probe_endpoint`；CLI `npm run audio:music`）、`engine/audio/editorial.py`（`smart_edit_clip`、`schedule_action_series`、`couple_motion_trajectory`、`build_layered_ambience`、`FourStemWorkstation` / `ThreeStemWorkstation` 含 `set_dialogue` 与 `bind_actor`）、`engine/audio/director.py`（`volume_curve`、`sculpt_stem_eq`、`carve_dialogue_pocket`、`POA_PRESETS`、`SHOT_PAN_CAP`、`WORLD_PROFILES`、`screen_scale_to_distance`、`depth_gain_db`、`resolve_screen_ratio_curve`、`hitech_laser_trace`、`hitech_micro_beep`、`subtle_precision_cue`、`carve_negative_space`、`HDRMixer`）以及 `engine/audio/mixing.py` 与 `engine/audio/stream.py`（`bus_glue_compress`、`master_chain`，含 10 分钟 `< 1.0 GB` 跨块保状态流式母带）。
+- **质量门、前置快败、拍点核对与实时带声预览**：`engine/audio/qa.py`（含 `audio.loudness`、`audio.truepeak`、`audio.mono`、`audio.balance`、`audio.bands`、`audio.masking` 双向乐效平衡守卫 `music_dominance` / `music_buried`、对白清晰度硬门 `audio.dialogue`，并由 `engine/render/build.mjs` 在 `mix` 阶段自动跑前置快败拦截写出 `audio/qa.json`）、`engine/audio/cuecheck.py`、`engine/render/events.mjs`（`--telemetry` 逐帧运动与角色遥测采集）、`engine/render/serve.mjs`（`?preview=1` WebAudio 声卡相位锁定分轨 Mute/Solo 与一键重混调片栏）。
 
 ### 8.2 尚未实现的工程增强【未实现】
 - **混音事件溯源台账（Cue Ledger）**【未实现】：目前定位“第 1.25 秒左声道是谁响”仍需在作品脚本里按分轨排查；后续可在 `foley.place_anchored` 与 `HDRMixer.add_cue` 中输出 `<run>/sound/ledger.json`（记录每个事件的起止毫秒、源文件名、切片区间、`raw_pk`、增益 $G$ 与 `pan`），实现按时间码一键反查。
@@ -329,6 +361,6 @@
 
 ## 10. 出处与许可
 
-- **声学与电影声音理论（只引用概念与通行规律，未复制原文）**：Walter Murch 声部密度法则（*Dense Clarity — Clear Density*，“2.5 声部”聚簇上限）；Randy Thom 声音设计视角与峰值前留白（*Designing a Movie for Sound*）；Michel Chion 视听契约与无声动作意象转译（*Audio-Vision: Sound on Screen*）；Fletcher-Munson 等响曲线耳道共振敏感区（`2.5–4.5 kHz`）与心理声学约 `200 ms` 响度时间积分规律；Peeters 等 *Timbre Toolbox*（2011）信号描述符。
+- **声学与电影声音理论（只引用概念与通行规律，未复制原文）**：Walter Murch 声部密度法则（*Dense Clarity — Clear Density*，“2.5 声部”聚簇上限）；Randy Thom 声音设计视角与峰值前留白（*Designing a Movie for Sound*）；Michel Chion 视听契约与无声动作意象转译（*Audio-Vision: Sound on Screen*）；Fletcher-Munson 等响曲线耳道共振敏感区（`2.5–4.5 kHz`）与心理声学约 `200 ms` 响度时间积分规律；Peeters 等 *Timbre Toolbox*（2011）信号描述符；Few（1969）三维曲折闪电通道 N 波传播模型、Moffatt（2000）欧拉盘有限时间奇点滚振与 Friedlander（1946）/ Whitham（1956）冲击波超压方程。
 - **第三方风格库参照**：`$甲` = `cases/vendor/lemo-opuscar`（MIT，LemoLab，固定提交 `bebbbe1a`），本章与 [../DIRECTING.md 步骤 8](../DIRECTING.md) 衔接的三栏声音表及静默反衬思路源自其 `DIRECTOR.md §4, §6` 的改编（随仓库分发保留 `cases/licenses/LemoLab-MIT.txt`）。《按一下》原始画面工程归档于 `cases/source/style-60-teardown/`，《追电车的夏天》原始画面工程归档于 `cases/source/style-27-cel-anime-80s/`，《港口集市》原始画面工程归档于 `cases/source/style-31-hd-2d/`（参见 [../SOURCES.md §3](../SOURCES.md)）。
 - **CC0 实录音效来源**：试制验证所使用的圆珠笔、机械快门拨盘、怀表棘轮、高科技界面及海岸电车/自行车/海鸥采样均取自 Freesound.org 的 **CC0 1.0 Public Domain** 授权录音（通过 `tools/fetch_sfx.py` 校验许可并由 `engine/audio/library.py` 的 `credits()` 生成逐条来源记录）。

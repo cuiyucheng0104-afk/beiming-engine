@@ -6,7 +6,7 @@
 // 不列目录；目录请求返回其中的 index.html（没有就 404）；/favicon.ico 不存在时回 204（免得每页一条 404 噪声）。
 // 支持单段 Range（预览 mp4 时浏览器拖动要用）；一律 Cache-Control: no-store。
 //
-//   createServer({ root, allow })            → { listen(port?) → Promise<{ port, url }>, close(), allowRoot(dir), onRequest(fn) }
+//   createServer({ root, allow, middleware }) → { listen(port?) → Promise<{ port, url }>, close(), allowRoot(dir), onRequest(fn) }
 //   resolveRequest(root, url, allowed)       → { status } | { file, rel }（导出给测试）
 import http from 'node:http';
 import fs from 'node:fs';
@@ -49,7 +49,7 @@ export function resolveRequest(root, url, allowed = [root]) {
   return { file: r, rel: segs.join('/') };
 }
 
-export function createServer({ root, allow = [] } = {}) {
+export function createServer({ root, allow = [], middleware = null } = {}) {
   const ROOT = real(root);
   if (!ROOT) throw new Error(`服务根不存在：${root}`);
   const allowed = new Set([ROOT, ...[path.join(ROOT, 'node_modules'), ...allow].map(real).filter(Boolean)]);
@@ -63,33 +63,43 @@ export function createServer({ root, allow = [] } = {}) {
     };
     const host = String(req.headers.host || '');
     if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return done(403, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Host 不对：只服务 127.0.0.1');
-    if (req.method !== 'GET' && req.method !== 'HEAD') return done(405, { Allow: 'GET, HEAD' });
-    let x = resolveRequest(ROOT, req.url, [...allowed]);
-    if (x.status === 404 && x.rel === 'favicon.ico') return done(204);
-    if (x.status) return done(x.status);
-    let st;
-    try { st = fs.statSync(x.file); } catch { return done(404); }
-    if (st.isDirectory()) {
-      const idx = path.join(x.file, 'index.html');
-      try { st = fs.statSync(idx); x = { file: idx, rel: x.rel + '/index.html' }; } catch { return done(404); }
+    const serveStatic = () => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return done(405, { Allow: 'GET, HEAD' });
+      let x = resolveRequest(ROOT, req.url, [...allowed]);
+      if (x.status === 404 && x.rel === 'favicon.ico') return done(204);
+      if (x.status) return done(x.status);
+      let st;
+      try { st = fs.statSync(x.file); } catch { return done(404); }
+      if (st.isDirectory()) {
+        const idx = path.join(x.file, 'index.html');
+        try { st = fs.statSync(idx); x = { file: idx, rel: x.rel + '/index.html' }; } catch { return done(404); }
+      }
+      if (!st.isFile()) return done(404);
+      const type = MIME[path.extname(x.file).toLowerCase()] || 'application/octet-stream';
+      const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''));
+      let start = 0, end = st.size - 1, status = 200;
+      if (range && (range[1] !== '' || range[2] !== '')) {
+        if (range[1] === '') { start = Math.max(0, st.size - Number(range[2])); } else { start = Number(range[1]); if (range[2] !== '') end = Math.min(end, Number(range[2])); }
+        if (start > end || start >= st.size) return done(416, { 'Content-Range': `bytes */${st.size}` });
+        status = 206;
+      }
+      const headers = { 'Content-Type': type, 'Content-Length': end - start + 1, 'Accept-Ranges': 'bytes' };
+      if (status === 206) headers['Content-Range'] = `bytes ${start}-${end}/${st.size}`;
+      res.writeHead(status, { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers });
+      for (const fn of listeners) { try { fn({ method: req.method, url: req.url, status, file: x.file }); } catch {} }
+      if (req.method === 'HEAD' || st.size === 0) return res.end();
+      const s = fs.createReadStream(x.file, { start, end });
+      s.on('error', () => res.destroy());
+      s.pipe(res);
+    };
+    if (typeof middleware === 'function') {
+      Promise.resolve()
+        .then(() => middleware(req, res, { root: ROOT, port, allowed: [...allowed], done }))
+        .then(handled => { if (!handled && !res.headersSent && !res.writableEnded) serveStatic(); })
+        .catch(() => { if (!res.headersSent) done(500, { 'Content-Type': 'text/plain; charset=utf-8' }, '预览中间件内部错误'); else if (!res.writableEnded) res.end(); });
+      return;
     }
-    if (!st.isFile()) return done(404);
-    const type = MIME[path.extname(x.file).toLowerCase()] || 'application/octet-stream';
-    const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''));
-    let start = 0, end = st.size - 1, status = 200;
-    if (range && (range[1] !== '' || range[2] !== '')) {
-      if (range[1] === '') { start = Math.max(0, st.size - Number(range[2])); } else { start = Number(range[1]); if (range[2] !== '') end = Math.min(end, Number(range[2])); }
-      if (start > end || start >= st.size) return done(416, { 'Content-Range': `bytes */${st.size}` });
-      status = 206;
-    }
-    const headers = { 'Content-Type': type, 'Content-Length': end - start + 1, 'Accept-Ranges': 'bytes' };
-    if (status === 206) headers['Content-Range'] = `bytes ${start}-${end}/${st.size}`;
-    res.writeHead(status, { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers });
-    for (const fn of listeners) { try { fn({ method: req.method, url: req.url, status, file: x.file }); } catch {} }
-    if (req.method === 'HEAD' || st.size === 0) return res.end();
-    const s = fs.createReadStream(x.file, { start, end });
-    s.on('error', () => res.destroy());
-    s.pipe(res);
+    serveStatic();
   });
   return {
     root: ROOT,

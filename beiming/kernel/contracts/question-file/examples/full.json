@@ -1,0 +1,86 @@
+{
+  "format": "question/0.1",
+  "id": "28-1",
+  "level": 1,
+  "title": "环绕取景",
+  "brief": "给一个机械头做 12 秒、24 帧每秒、1920×824 的一整圈环绕。头宽不超过画面的 60%，高不超过 70%，左右留白不少于 20%，上下不少于 15%，首尾无缝。",
+  "deliverable": {
+    "size": [
+      1920,
+      824
+    ],
+    "fps": "24/1",
+    "frames": 288,
+    "audio": "none"
+  },
+  "assets": {
+    "subject": "calib/mech-head-proxy@1"
+  },
+  "refs": [
+    "bench/refs/28-1/negative-measure.txt"
+  ],
+  "basePredicates": [
+    "delivery(width=1920, height=824, fps=24, frames=288)",
+    "bbox_w(subject) <= 0.60 @ all",
+    "bbox_h(subject) <= 0.70 @ all",
+    "margin_lr(subject) >= 0.20 @ all",
+    "margin_tb(subject) >= 0.15 @ all",
+    "orbit_total(camera, subject) in [359, 361] deg",
+    "no_cut @ all",
+    "text_matches(\"BEIMING;01\") @ all"
+  ],
+  "scoring": [
+    {
+      "metric": "meta.bbox-limits",
+      "source": "frame-meta",
+      "pass": "四条限制 100% 的帧满足",
+      "weight": 0.5
+    },
+    {
+      "metric": "loop.closure-psnr",
+      "args": {
+        "a": 0,
+        "b": 287,
+        "ref": [
+          0,
+          1
+        ]
+      },
+      "pass": "psnr(0,287) >= psnr(0,1) - 1 dB",
+      "weight": 0.3
+    },
+    {
+      "metric": "pixel.bbox",
+      "args": {
+        "tolPx": 8
+      },
+      "pass": "像素估出的包围盒和元数据相差不超过 8 像素",
+      "weight": 0.2
+    }
+  ],
+  "controls": {
+    "referencePass": "标准答案工程必须得满分",
+    "negative": "负对照成片必须判不合格：高度全部超限，首尾不闭合"
+  },
+  "needs": [
+    "camera.orbit",
+    "camera.fit",
+    "deliver.encode"
+  ],
+  "budget": {
+    "tokens": 300000,
+    "wallMs": 600000,
+    "gpuSeconds": 120
+  },
+  "flags": {
+    "hidden": false,
+    "expectedFail": false,
+    "blockedBy": []
+  },
+  "calibration": {
+    "status": "uncalibrated",
+    "source": "示意",
+    "noiseFloor": null,
+    "version": 0
+  }
+}

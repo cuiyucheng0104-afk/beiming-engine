@@ -1,0 +1,7 @@
+{
+  "id": "pred.inside_frame",
+  "layer": "L3",
+  "status": "skipped",
+  "base": true,
+  "reason": "镜头 s03 的帧源合规档是 limited，交不出 entities"
+}

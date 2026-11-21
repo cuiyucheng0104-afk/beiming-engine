@@ -1,0 +1,24 @@
+{
+  "format": "card-check/0.1",
+  "card": "camera.fit@1",
+  "impl": "cards/camera/fit/blender.py",
+  "shape": "evaluate",
+  "entries": [
+    "evaluate"
+  ],
+  "calledVia": "tracks",
+  "evaluations": [
+    {
+      "f": 14,
+      "sub": 0,
+      "mode": "single",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 14,
+      "sub": 0,
+      "mode": "shuffled",
+      "digest": "b61e44d2"
+    }
+  ]
+}

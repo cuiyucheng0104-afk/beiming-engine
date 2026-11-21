@@ -1,0 +1,26 @@
+{
+  "format": "card-check/0.1",
+  "card": "light.studio@1",
+  "impl": "cards/light/studio/blender.py",
+  "shape": "create",
+  "entries": [
+    "create"
+  ],
+  "calledVia": "cards.use",
+  "handle": {
+    "members": [
+      "object",
+      "entities",
+      "dispose"
+    ],
+    "prefix": "light",
+    "entities": [
+      "key",
+      "fill"
+    ],
+    "merged": [
+      "key",
+      "fill"
+    ]
+  }
+}

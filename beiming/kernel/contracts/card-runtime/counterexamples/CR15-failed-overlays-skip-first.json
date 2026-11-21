@@ -1,0 +1,21 @@
+{
+  "format": "load-check/0.1",
+  "shot": "s04",
+  "build": "failed",
+  "steps": [
+    "assets",
+    "tracks",
+    "create"
+  ],
+  "cards": [
+    "hdr"
+  ],
+  "createOrder": [
+    "hdr",
+    "logo"
+  ],
+  "overlays": [
+    "caption",
+    "logo"
+  ]
+}

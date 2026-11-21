@@ -17,8 +17,9 @@
   couple_motion_trajectory(wave, ...)          画面轨迹三维贴合：连续等功率 Pan + screen_ratio 远近纵深/高频空气吸收/D/R 混响 + 径向多普勒
   build_layered_ambience(dur, ...)             三层复合环境声合成：远景底床（Base Hum）+ 主纹理（Primary Texture）+ 间歇生机点缀（Spot Life）
   volume_curve(n, points, ...)                 推子音量包络曲线 [(t_s, gain_db), ...] → (n, 1) 余弦/线性平滑自动化（Fader Riding）
-  sculpt_stem_eq(stems, ...)                   分轨互补 EQ 分槽（AMB <110Hz 高通与 800Hz 暖中频凹槽，Foley/FX 清低中频泥沼）
-  ThreeStemWorkstation(dur, ...)               三干线乐效协同工作台：set_scenes / set_music / add_sfx / add_foley / add_foley_series / mixdown
+  sculpt_stem_eq(stems, ...)                   分轨互补 EQ 分槽（AMB <110Hz 高通与 800Hz 暖中频凹槽，Foley/FX 清低中频泥沼，VO 提咬字）
+  carve_dialogue_pocket(stems, vo, ...)        对白共振峰动态频带挖槽（保护配乐 <350Hz 大提琴/低音底盘，仅在 800–4200Hz 让位）
+  ThreeStemWorkstation / FourStemWorkstation   三/四干线乐效协同工作台：set_scenes / set_music / set_dialogue / bind_actor / add_sfx / add_foley / mixdown
 """
 import math
 import numpy as np
@@ -29,6 +30,7 @@ from .director import (
     POA_PRESETS,
     SHOT_PAN_CAP,
     WORLD_PROFILES,
+    carve_dialogue_pocket,
     depth_gain_db,
     harmonic_freq,
     pan_trajectory,
@@ -46,7 +48,9 @@ __all__ = [
     'build_layered_ambience',
     'volume_curve',
     'sculpt_stem_eq',
+    'carve_dialogue_pocket',
     'ThreeStemWorkstation',
+    'FourStemWorkstation',
 ]
 from .dsp import (
     SR,
@@ -396,16 +400,19 @@ def couple_motion_trajectory(
     speed_curve=None,
     screen_ratio=None,
     ref_ratio: float = 0.45,
+    ref_scale: float = None,
     ref_dist_m: float = 1.8,
     pan_keyframes: list = None,
+    pan_points: list = None,
     track: Track = None,
     shot_scale: str = 'full',
     poa: str = 'open_sky',
     max_speed_mps: float = 12.0,
+    radial_velocity_mps=None,
     sr: int = SR,
 ) -> np.ndarray:
     """画面运动轨迹三维声像贴合器（Trajectory & 3D Acoustic Motion Coupling）：
-    将单声道或立体声素材按物体屏幕运动轨迹（pan_keyframes、screen_ratio 画面占比、x_curve/depth_curve/speed_curve 或 cues.Track）
+    将单声道或立体声素材按物体屏幕运动轨迹（pan_keyframes/pan_points、screen_ratio 画面占比、x_curve/depth_curve/speed_curve 或 cues.Track）
     一次性合成为具备以下五维物理特征的立体声波形 (n, 2)：
       1) 受景别上限 director.SHOT_PAN_CAP[shot_scale] 约束的连续等功率声像包络；
       2) 由 screen_ratio（标量、[(t, ratio), ...] 关键帧或曲线）或 depth_curve 驱动的远近距离与空气高频吸收；
@@ -416,6 +423,9 @@ def couple_motion_trajectory(
     if len(arr) == 0:
         return np.zeros((0, 2), dtype=float)
 
+    if ref_scale is not None:
+        ref_ratio = float(ref_scale)
+
     sr_f = float(sr)
     if dur is not None:
         target_dur = max(0.02, float(dur))
@@ -423,6 +433,18 @@ def couple_motion_trajectory(
     else:
         src_ed = arr.copy()
         target_dur = len(src_ed) / sr_f
+
+    if pan_keyframes is None and pan_points is not None:
+        pts_in = [(float(p[0]), float(p[1])) for p in pan_points]
+        if (
+            len(pts_in) >= 2
+            and abs(pts_in[0][0]) < 1e-6
+            and abs(pts_in[-1][0] - 1.0) < 1e-6
+            and abs(target_dur - 1.0) > 1e-3
+        ):
+            pan_keyframes = [(u * target_dur, v) for u, v in pts_in]
+        else:
+            pan_keyframes = pts_in
 
     n = len(src_ed)
     mono = src_ed.mean(axis=1) if src_ed.ndim == 2 else src_ed.copy()
@@ -475,7 +497,18 @@ def couple_motion_trajectory(
     dist_m = np.sqrt(z_m * z_m + x_m * x_m)
 
     # 3. 径向速度 v_rad = -dr/dt 驱动物理多普勒频移（左→中心逼近升调，中心→右远离降调）
-    max_spd = max(0.0, float(max_speed_mps))
+    if radial_velocity_mps is not None and not np.isscalar(radial_velocity_mps):
+        v_rad_in = _resample_curve(radial_velocity_mps, n, default=0.0)
+        if n > 32 and float(np.max(np.abs(v_rad_in))) > 0.05:
+            mono = doppler(mono, vel_mps=v_rad_in)
+        max_spd = 0.0
+    elif radial_velocity_mps is not None:
+        rv_val = float(radial_velocity_mps)
+        max_spd = abs(rv_val) if abs(rv_val) > 0.05 else 0.0
+    else:
+        rv_val = None
+        max_spd = max(0.0, float(max_speed_mps))
+
     if max_spd > 0.05 and n > 32:
         dx_dt = np.gradient(x_m) * sr_f
         dz_dt = np.gradient(z_m) * sr_f
@@ -499,6 +532,8 @@ def couple_motion_trajectory(
         if peak_kin > 1e-4:
             cos_theta = np.clip(-dr_dt / np.maximum(kin_spd, 1e-6), -1.0, 1.0)
             v_rad = v_mag * cos_theta
+        elif rv_val is not None:
+            v_rad = np.full(n, rv_val, dtype=float)
         else:
             v_rad = np.zeros(n, dtype=float)
 
@@ -858,6 +893,39 @@ class ThreeStemWorkstation:
         )
         return self
 
+    def set_dialogue(
+        self,
+        wave_or_path,
+        *,
+        spans=None,
+        voice_json=None,
+        target_lufs: float = -16.0,
+        formant_duck_db: float = 4.2,
+        amb_duck_db: float = 2.5,
+        fx_duck_db: float = 1.8,
+        gain_db: float = 0.0,
+        pan: float = 0.0,
+        room_wet: float = 0.04,
+        curve_points=None,
+    ):
+        """设置四干线对白轨（VO / Dialogue）：
+        自动执行 50 ms 有声窗门限响度定标（默认 -16.0 LUFS）、早期反射空间融合（room_wet=0.04）、
+        互补 EQ 分槽与配乐共振峰动态挖槽（保护 <350 Hz 低音温暖底盘），并在 mixdown() 中导出 stems['vo']。"""
+        self.mixer.set_dialogue(
+            wave_or_path,
+            spans=spans,
+            voice_json=voice_json,
+            target_lufs=target_lufs,
+            formant_duck_db=formant_duck_db,
+            amb_duck_db=amb_duck_db,
+            fx_duck_db=fx_duck_db,
+            gain_db=gain_db,
+            pan=pan,
+            room_wet=room_wet,
+            curve_points=curve_points,
+        )
+        return self
+
     def _next_hard_cut_after(self, t_hit: float):
         later = [c - t_hit for c in self._hard_cuts if c > t_hit + 0.020]
         return min(later) if later else None
@@ -903,6 +971,7 @@ class ThreeStemWorkstation:
         vacuum_lead_frames: float = 6.0,
         vacuum_dip_db: float = -12.0,
         seed: int = 1,
+        _depth_peak_db: float = None,
     ) -> dict:
         """添加硬效、设计音效或 UI 事件：支持 tonal_hz 自动吸附配乐主调、smart_edit_clip 时值/切点收尾、
         screen_ratio 视觉占比远近纵深映射、couple_motion_trajectory 轨迹贴合，以及 hero 焦点自动挖峰值前负空间。"""
@@ -949,7 +1018,7 @@ class ThreeStemWorkstation:
         cue_poa = poa
         cue_scale = shot_scale
         cue_sr = screen_ratio
-        traj_depth_peak_db = None
+        traj_depth_peak_db = _depth_peak_db
         if trajectory is not None:
             tr_kw = dict(trajectory)
             tr_scale = tr_kw.pop('shot_scale', shot_scale or 'full')
@@ -1056,6 +1125,7 @@ class ThreeStemWorkstation:
         curve_points: list = None,
         force_enable: bool = False,
         seed: int = 1,
+        _depth_peak_db: float = None,
     ) -> dict:
         """添加生命体/肢体动作拟音事件（自动路由至 foley 分轨；支持 screen_ratio 远近纵深与持续让路；hitech 模式下默认静默抑制）。"""
         if self.suppress_foley and not force_enable:
@@ -1084,6 +1154,7 @@ class ThreeStemWorkstation:
             curve_points=curve_points,
             negative_space=False,
             seed=seed,
+            _depth_peak_db=_depth_peak_db,
         )
 
     def add_foley_series(
@@ -1179,10 +1250,175 @@ class ThreeStemWorkstation:
             )
         return scheduled
 
+    def bind_actor(
+        self,
+        kin,
+        actor_id: str,
+        wave: np.ndarray,
+        *,
+        bus: str = 'fx',
+        role: str = 'accent',
+        shot_scale: str = 'medium',
+        velocity_mps: float = 0.0,
+        ref_scale: float = 0.35,
+        gain_db: float = 0.0,
+        loop_sustained: bool = True,
+        seed: int = 0,
+    ) -> list:
+        """将音效/拟音素材直接绑定至视觉遥测角色轨迹（Visual Telemetry Actor Binding）：
+        · 接收 cues.Kinematics（或 dict / kinematics.json 路径），查找 actor_id 轨迹并切分连续可见片段（visible > 0.5）；
+        · 从 x 通道提取时间归一化声像点 pan_points，从 scale（或 depth）通道提取视觉占比曲线 screen_ratio；
+        · 逐可见片段执行 smart_edit_clip + couple_motion_trajectory 三维空间运动贴合，并经 add_sfx / add_foley 排入工作台。"""
+        if kin is None:
+            kin_obj = self.mixer.telemetry
+        elif isinstance(kin, Kinematics):
+            kin_obj = kin
+        else:
+            kin_obj = load_kinematics(kin, dur=self.dur, sr=self.sr)
+
+        if kin_obj is None or actor_id not in kin_obj.tracks:
+            return []
+
+        tr = kin_obj.tracks[actor_id]
+        fps_k = float(tr.fps or self.fps)
+        n_frames = max((len(v) for v in tr.channels.values()), default=0)
+        if n_frames == 0:
+            return []
+
+        if 'visible' in tr.channels and len(tr.channels['visible']) > 0:
+            vis = np.asarray(tr.channels['visible'], dtype=float) > 0.5
+            edges = np.flatnonzero(np.diff(vis.astype(np.int8), prepend=0, append=0) != 0)
+            seg_ranges = list(zip(edges[0::2], edges[1::2]))
+        else:
+            seg_ranges = [(0, n_frames)]
+
+        x_full = tr.channels.get('x')
+        scale_full = tr.channels.get('scale')
+        depth_full = tr.channels.get('depth')
+        edit_mode = 'sustained' if loop_sustained else 'impulsive'
+        placed_list = []
+
+        for seg_idx, (f0, f1) in enumerate(seg_ranges):
+            f0_i, f1_i = int(f0), int(f1)
+            if f1_i <= f0_i:
+                continue
+            t0 = max(0.0, f0_i / fps_k)
+            t1 = min(self.dur, max(t0 + 1.0 / fps_k, f1_i / fps_k))
+            if t0 >= self.dur - 1e-4 or (t1 - t0) < 0.015:
+                continue
+            seg_dur = t1 - t0
+            m_f = f1_i - f0_i
+
+            if x_full is not None and len(x_full) > f0_i:
+                x_seg = np.asarray(x_full[f0_i:min(f1_i, len(x_full))], dtype=float)
+                if float(np.max(np.abs(x_seg))) > 2.0:
+                    pan_seg = np.clip((x_seg / 1920.0) * 2.0 - 1.0, -1.0, 1.0)
+                else:
+                    pan_seg = np.clip(x_seg, -1.0, 1.0)
+            else:
+                pan_seg = np.zeros(m_f, dtype=float)
+
+            if scale_full is not None and len(scale_full) > f0_i:
+                sr_seg = np.clip(np.asarray(scale_full[f0_i:min(f1_i, len(scale_full))], dtype=float), 1e-3, 1.5)
+            elif depth_full is not None and len(depth_full) > f0_i:
+                d_raw = np.asarray(depth_full[f0_i:min(f1_i, len(depth_full))], dtype=float)
+                if float(np.max(d_raw)) <= 1.05 and float(np.min(d_raw)) >= -0.05:
+                    d_m = 1.0 + np.clip(d_raw, 0.0, 1.0) * 11.0
+                else:
+                    d_m = np.maximum(0.25, d_raw)
+                sr_seg = np.clip(float(ref_scale) * (1.8 / d_m), 1e-3, 1.5)
+            else:
+                sr_seg = np.full(m_f, float(ref_scale), dtype=float)
+
+            eff_cut = self._next_hard_cut_after(t0) if not loop_sustained else None
+            w_ed, anc = smart_edit_clip(
+                wave,
+                seg_dur,
+                mode=edit_mode,
+                next_cut_in_s=eff_cut,
+                seed=int(seed) + seg_idx,
+                sr=self.sr,
+            )
+            if len(w_ed) == 0:
+                continue
+
+            if not loop_sustained:
+                clip_dur = len(w_ed) / float(self.sr)
+                if clip_dur < seg_dur and len(pan_seg) >= 2:
+                    frac = max(0.05, min(1.0, clip_dur / max(seg_dur, 1e-6)))
+                    end_k = max(2, int(math.ceil(len(pan_seg) * frac)))
+                    pan_seg = pan_seg[:end_k]
+                    sr_seg = sr_seg[:end_k]
+
+            u_grid = np.linspace(0.0, 1.0, len(pan_seg), dtype=float) if len(pan_seg) > 1 else np.array([0.0])
+            pan_points_norm = [(round(float(u), 5), round(float(p), 5)) for u, p in zip(u_grid, pan_seg)]
+
+            d_seg_m = screen_scale_to_distance(sr_seg, ref_ratio=float(ref_scale), ref_dist_m=1.8)
+            seg_depth_peak_db = float(np.max(depth_gain_db(d_seg_m, ref_dist_m=1.8)))
+
+            w_coupled = couple_motion_trajectory(
+                w_ed,
+                pan_points=pan_points_norm,
+                screen_ratio=sr_seg,
+                ref_scale=float(ref_scale),
+                radial_velocity_mps=float(velocity_mps),
+                shot_scale=shot_scale,
+                sr=self.sr,
+            )
+
+            cue_id = f'{actor_id}_{seg_idx}'
+            t_hit = t0 + float(anc)
+            if str(bus).lower() == 'foley':
+                entry = self.add_foley(
+                    cue_id,
+                    w_coupled,
+                    t_hit,
+                    anchor=anc,
+                    pan=0.0,
+                    shot_scale=None,
+                    poa=None,
+                    gain_db=gain_db,
+                    seed=int(seed) + seg_idx,
+                    _depth_peak_db=seg_depth_peak_db,
+                )
+            else:
+                entry = self.add_sfx(
+                    cue_id,
+                    w_coupled,
+                    t_hit,
+                    anchor=anc,
+                    role=role,
+                    bus=bus,
+                    pan=0.0,
+                    shot_scale=None,
+                    poa=None,
+                    gain_db=gain_db,
+                    negative_space=False,
+                    seed=int(seed) + seg_idx,
+                    _depth_peak_db=seg_depth_peak_db,
+                )
+
+            placed_list.append({
+                'id': cue_id,
+                'actor_id': str(actor_id),
+                'segment': seg_idx,
+                't0': round(t0, 4),
+                't1': round(t1, 4),
+                'dur': round(seg_dur, 4),
+                'bus': entry.get('bus', bus),
+                'role': entry.get('role', role),
+                'shot_scale': shot_scale,
+                'pan_points': pan_points_norm,
+                'peak_scale': round(float(np.max(sr_seg)), 4),
+                'mean_pan': round(float(np.mean(pan_seg)), 4),
+                'suppressed': bool(entry.get('suppressed', False)),
+            })
+        return placed_list
+
     def mixdown(self) -> tuple:
-        """执行三干线协同混音与母带收口：
-        返回 (master_st, stems_dict, report_dict)，保证母带 -14.0 LUFS、真峰值 ≤ -1.5 dBTP、
-        直流偏移归零、首尾样本严格为 0.0，且 stems_dict 完整包含 'amb', 'fx', 'foley', 'ui', 'music'。"""
+        """执行三/四干线协同混音与母带收口：
+        返回 (master_st, stems_dict, report_dict)，保证母带目标响度、真峰值 ≤ max_tp、
+        直流偏移归零、首尾样本严格为 0.0，包含 'amb', 'fx', 'foley', 'ui', 'music'（设置对白时同步导出 'vo'）。"""
         master_st, raw_stems, diag = self.mixer.render()
 
         # 若整条混音存在极微弱残余直流偏移，平滑居中校正并守住真峰值与首尾归零
@@ -1201,7 +1437,7 @@ class ThreeStemWorkstation:
         master_st[0] = 0.0
         master_st[-1] = 0.0
 
-        stem_keys = ('amb', 'fx', 'foley', 'ui', 'music')
+        stem_keys = ('amb', 'fx', 'foley', 'ui', 'music', 'vo') if 'vo' in raw_stems else ('amb', 'fx', 'foley', 'ui', 'music')
         stems_dict = {}
         stems_lufs = {}
         for k in stem_keys:
@@ -1229,3 +1465,6 @@ class ThreeStemWorkstation:
             'cueCount': len(self._ledger),
         })
         return master_st, stems_dict, report
+
+
+FourStemWorkstation = ThreeStemWorkstation

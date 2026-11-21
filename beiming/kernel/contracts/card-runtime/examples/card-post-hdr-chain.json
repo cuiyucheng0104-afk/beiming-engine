@@ -1,0 +1,36 @@
+{
+  "format": "card-check/0.1",
+  "card": "post.hdr-chain@1",
+  "impl": "cards/post/hdr-chain/three.glsl.js",
+  "shape": "create",
+  "entries": [
+    "create"
+  ],
+  "calledVia": "cards.use",
+  "handle": {
+    "members": [
+      "apply",
+      "dispose"
+    ]
+  },
+  "evaluations": [
+    {
+      "f": 8,
+      "sub": 0,
+      "mode": "single",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 8,
+      "sub": 0,
+      "mode": "shuffled",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 8,
+      "sub": 0,
+      "mode": "sequential",
+      "digest": "3f9a1c07"
+    }
+  ]
+}

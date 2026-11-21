@@ -1,0 +1,10 @@
+{
+  "kind": "intersect",
+  "of": [
+    "kit.*"
+  ],
+  "against": [
+    "fx.sparks"
+  ],
+  "tol": 0.001
+}

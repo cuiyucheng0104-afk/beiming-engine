@@ -1,0 +1,324 @@
+{
+  "format": "source-check/0.1",
+  "shot": "s01",
+  "caps": {
+    "format": "caps/0.1",
+    "id": "blender",
+    "version": "5.2.3",
+    "language": "python",
+    "hosts": [
+      "cycles"
+    ],
+    "conformance": "full",
+    "outputs": {
+      "color": {
+        "type": "f32",
+        "transfer": "linear",
+        "primaries": "rec709",
+        "note": "EXR"
+      },
+      "meta": true,
+      "depth": {
+        "type": "f32",
+        "note": "不抗锯齿"
+      },
+      "objectId": {
+        "type": "u32",
+        "note": "不抗锯齿"
+      },
+      "normal": {
+        "type": "f32"
+      },
+      "motion": false
+    },
+    "sceneQuery": [
+      "bbox3d",
+      "anchor",
+      "intersect",
+      "contact",
+      "belowGround"
+    ],
+    "motionBlur": {
+      "mode": "native",
+      "auxAt": "sub0",
+      "conflicts": [
+        "motion"
+      ]
+    },
+    "determinism": "tolerance",
+    "draft": {
+      "kind": "cycles-low",
+      "samples": 24,
+      "scale": 0.5,
+      "denoise": "gpu"
+    },
+    "final": {
+      "samples": 64,
+      "scale": 1
+    },
+    "granularity": "frame",
+    "randomAccess": true,
+    "modes": [
+      "cards-data",
+      "build-script",
+      "native-code"
+    ],
+    "cost": {
+      "unit": "gpu-second"
+    }
+  },
+  "opens": [
+    {
+      "hasLock": true,
+      "hasSeed": false,
+      "usesCards": true,
+      "usesAssets": true,
+      "host": "cycles",
+      "mode": "cards-data",
+      "status": "ok"
+    }
+  ],
+  "renders": [
+    {
+      "shotFrame": 150,
+      "want": [
+        "color",
+        "meta",
+        "depth",
+        "objectId"
+      ],
+      "shutterAngleDeg": 180,
+      "shutterSamples": 8,
+      "status": "ok",
+      "meta": true,
+      "layers": [
+        "color",
+        "depth",
+        "objectId"
+      ],
+      "metaShutterAngleDeg": 180,
+      "colorTransfer": "linear",
+      "colorRef": "scene",
+      "shotColorRef": "scene",
+      "size": [
+        1920,
+        1080
+      ],
+      "unsupportedOpts": [],
+      "unfitOutputs": [],
+      "layerRefs": [
+        {
+          "output": "color",
+          "shape": [
+            1080,
+            1920,
+            4
+          ],
+          "hash": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178",
+          "fileHash": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178",
+          "fileBytes": 33177600
+        },
+        {
+          "output": "depth",
+          "shape": [
+            1080,
+            1920,
+            1
+          ],
+          "hash": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63",
+          "fileHash": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63",
+          "fileBytes": 8294400
+        },
+        {
+          "output": "objectId",
+          "shape": [
+            1080,
+            1920,
+            1
+          ],
+          "hash": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c",
+          "fileHash": "sha256:5f2b1c0d9e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c",
+          "fileBytes": 8294400
+        }
+      ]
+    },
+    {
+      "shotFrame": 151,
+      "want": [
+        "meta"
+      ],
+      "shutterAngleDeg": 0,
+      "status": "ok",
+      "meta": true,
+      "layers": [],
+      "metaShutterAngleDeg": 0
+    },
+    {
+      "shotFrame": 150,
+      "want": [
+        "color",
+        "motion"
+      ],
+      "shutterAngleDeg": 0,
+      "status": "error",
+      "code": "contract.unsupported-output"
+    },
+    {
+      "shotFrame": 152,
+      "want": [
+        "color",
+        "meta"
+      ],
+      "shutterAngleDeg": 0,
+      "shutterSamples": 4,
+      "status": "error",
+      "code": "contract.shutter-conflict"
+    }
+  ],
+  "orderRuns": [
+    {
+      "shotFrame": 150,
+      "mode": "single",
+      "digest": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
+    },
+    {
+      "shotFrame": 150,
+      "mode": "shuffled",
+      "digest": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
+    },
+    {
+      "shotFrame": 150,
+      "mode": "sequential",
+      "digest": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
+    },
+    {
+      "shotFrame": 150,
+      "mode": "repeat",
+      "digest": "sha256:ea3149f0bee8698d19b68e5c0190683c7790120f6522949baa8baf0a5aac2178"
+    },
+    {
+      "shotFrame": 12,
+      "mode": "single",
+      "digest": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63"
+    },
+    {
+      "shotFrame": 12,
+      "mode": "shuffled",
+      "digest": "sha256:787f4a5a6127c724f6d3ed80c296101526facd8fd183b071e1ce065709f04f63"
+    }
+  ],
+  "failures": [
+    {
+      "cause": "gpu-error",
+      "exitCode": 1,
+      "elapsedMs": 8200,
+      "limitMs": 600000
+    }
+  ],
+  "queries": [
+    {
+      "kind": "bbox3d",
+      "status": "ok",
+      "total": 3,
+      "returned": 3
+    },
+    {
+      "kind": "intersect",
+      "status": "ok",
+      "total": 73,
+      "returned": 50,
+      "truncated": 23
+    }
+  ],
+  "badArgs": [
+    {
+      "call": "render",
+      "arg": "f",
+      "status": "error",
+      "code": "usage.bad-argument"
+    },
+    {
+      "call": "render",
+      "arg": "want",
+      "status": "error",
+      "code": "usage.bad-argument"
+    },
+    {
+      "call": "render",
+      "arg": "opts.shutter.angleDeg",
+      "status": "error",
+      "code": "usage.bad-argument"
+    },
+    {
+      "call": "query",
+      "arg": "f",
+      "status": "error",
+      "code": "usage.bad-argument"
+    }
+  ],
+  "manifest": {
+    "frames": 240,
+    "entities": [
+      {
+        "id": 1,
+        "name": "kit",
+        "class": "assembly"
+      },
+      {
+        "id": 17,
+        "name": "kit.fan_L",
+        "class": "part"
+      },
+      {
+        "id": 40,
+        "name": "fx.sparks",
+        "class": "particles"
+      }
+    ]
+  },
+  "metaEntities": [
+    {
+      "shotFrame": 150,
+      "entities": [
+        {
+          "id": 1,
+          "name": "kit",
+          "class": "assembly"
+        },
+        {
+          "id": 17,
+          "name": "kit.fan_L",
+          "class": "part"
+        },
+        {
+          "id": 40,
+          "name": "fx.sparks",
+          "class": "particles"
+        }
+      ]
+    },
+    {
+      "shotFrame": 151,
+      "entities": [
+        {
+          "id": 1,
+          "name": "kit",
+          "class": "assembly"
+        },
+        {
+          "id": 17,
+          "name": "kit.fan_L",
+          "class": "part"
+        }
+      ]
+    }
+  ],
+  "textReadbacks": [
+    {
+      "shotFrame": 12,
+      "text": "LOCK",
+      "read": "LOCK"
+    }
+  ],
+  "scenePack": true
+}

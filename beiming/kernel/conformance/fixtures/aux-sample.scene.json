@@ -1,0 +1,135 @@
+{
+  "camera": {
+    "positionM": [
+      0,
+      0,
+      0
+    ],
+    "lookAtM": [
+      0,
+      0,
+      -1
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100,
+    "shutterAngleDeg": 180,
+    "shutterOpens": "frameStart",
+    "apertureDiameterM": 0.05,
+    "focusDistanceM": 5
+  },
+  "backgroundLinear": [
+    0,
+    0,
+    0
+  ],
+  "objects": [
+    {
+      "id": "blade1",
+      "idIndex": 1,
+      "shape": "box",
+      "sizeM": [
+        1.6,
+        0.5,
+        0.02
+      ],
+      "positionM": [
+        -1,
+        0.55,
+        -5
+      ],
+      "emissionLinear": [
+        0.18,
+        0.18,
+        0.18
+      ],
+      "rotation": {
+        "axisDir": [
+          0,
+          0,
+          1
+        ],
+        "angleRad": 0.31
+      },
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          0.04,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "id": "blade2",
+      "idIndex": 2,
+      "shape": "box",
+      "sizeM": [
+        0.5,
+        1.4,
+        0.02
+      ],
+      "positionM": [
+        0.9,
+        -0.2,
+        -5
+      ],
+      "emissionLinear": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "rotation": {
+        "axisDir": [
+          0,
+          0,
+          1
+        ],
+        "angleRad": -0.83
+      },
+      "motion": {
+        "kind": "linear",
+        "velocityMPerFrame": [
+          0,
+          0.03,
+          0
+        ]
+      }
+    },
+    {
+      "id": "chip",
+      "idIndex": 3,
+      "shape": "box",
+      "sizeM": [
+        0.12,
+        0.12,
+        0.02
+      ],
+      "positionM": [
+        -0.25,
+        -0.22,
+        -1.2
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ],
+      "rotation": {
+        "axisDir": [
+          0,
+          0,
+          1
+        ],
+        "angleRad": 0.47
+      }
+    }
+  ]
+}

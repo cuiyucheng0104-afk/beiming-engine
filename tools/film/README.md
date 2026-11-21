@@ -36,7 +36,7 @@ npm run film -- status films/my-film                  # 任何时候：闸门、
 | `stills <作品> [--frames … \| --times …] [--renderer]` | 风格关键帧：缺省每个镜头取中间一帧，单镜头取片长 1/6、1/2、5/6；`--renderer offscreen`（`backend=webgpu` 时默认）经 `offscreen stills` 输出无损 PNG；D 经 `threert-render serve` 输出无损 PNG 并写入单帧缓存 | `stills/` `frames.json` `contact.jpg` |
 | `animatic <作品> [--renderer] [--encoder]` | 半分辨率预演：页面加 `previs=1`（`--renderer offscreen` 时同一个查询串交给离屏入口）；临时声用作品混音，没有声音就按事件与切点生成提示音；B 用原生 `--quality draft`；D 用半分辨率 `preview` 预设（默认 `animaticSpp = 4`） | `animatic.mp4` `contact.jpg` `player.html` |
 | `build <作品> [--final] [--profile] [--size] [--renderer] [--encoder]` | 整条出片链（§4）；`--renderer offscreen`（A、C 路线，`backend=webgpu` 时默认）把逐帧渲染换成离屏出片（`engine/offscreen/cli.mjs` 渲作品目录的 `offscreen.mjs`，默认优先 `h264_nvenc` 母版档 `cq 7`，无 NVENC 或小画幅时退回 `x264`，见 `docs/offscreen/README.md` 7.11、7.19）；D 路线经 `pathtrace-steps.mjs` 直出无损 PNG 序列封装成片（D13）；`--encoder x264\|nvenc` 可显式覆盖编码器（`nvenc` 同时让光追封装与网页版编码走 NVIDIA 硬件编码）；`--from` / `--to` 只跑一段；输入没变的步骤复用缓存；`--profile` 换档位（画幅或帧率与 film.json 不同时 QA 读生效描述，§4）；`--size` 出改画幅的工作版（不是交付件，不跑交付 QA） | `master.mp4` `web.mp4` `player.html` `contact.jpg` `poster.jpg` `qa/`（换了档位另有 `film.effective.json`） |
-| `mix <作品>` | 只做声音：A、C、D 跑到声画拍点核对（`build --to cuecheck`），B 跑原生素材准备（`--to prepare`） | `audio/mix.wav` `audio/stems/` `audio/cuecheck.txt` |
+| `mix <作品>` | 只做声音：A、C、D 跑到声画拍点核对（`build --to cuecheck`，A/C 含可选遥测探测、`dialogue.json` 自动配音与前置声音 QA），B 跑原生素材准备（`--to prepare`） | `audio/mix.wav` `audio/stems/` `audio/qa.json` `audio/cuecheck.txt`（有对白另有 `audio/dialogue/`，开遥测另有 `kinematics.json`） |
 | `assemble <作品>` | 画面与声音复用缓存，只重做封装及之后（A、C、D `build --from mux`，B `--from web`） | 同 build |
 | `render <作品> --frames a:b \| --shot S [--clip] [--renderer] [--final]` | 只渲指定帧段或镜头，逐帧缓存（同一命令第二次 0 帧重渲）；支持 `--renderer offscreen` 与 D 路线光追单帧缓存；`--final` 先查闸门，不给帧段时等于 `build --final` | `frames/` `frames.json` `contact.jpg`（`--clip` 另有 `range.mp4`） |
 | `qa <作品> [--run <id>]` | 对已出的片子补跑机器 QA 门，回写那次的 run.json；作品描述与出片时同一口径（用那次的 `film.effective.json`）；`--size` 的工作版不审（用法错误） | `qa/` |
@@ -54,7 +54,8 @@ films/<名>/out/
     film.effective.json     本次生效的作品描述：--profile 换了画幅或帧率时才有（§4「档位与作品描述」），QA 读它
     qa/report.json report.md contact.jpg   机器 QA 门的报告（附录 C8）
     checks/output.json      编排器对主产物的核对（完整解码计帧、画幅、帧率、音轨）
-    events.json timeline.json audio/mix.wav audio/stems/   页面导出的事件表、混音（A / C）
+    events.json timeline.json kinematics.json   页面导出的事件表与可选逐帧画面遥测（A / C）
+    audio/mix.wav audio/stems/ audio/dialogue/ audio/qa.json   混音、分轨、自动合成对白与前置声音 QA 报告（A / C）
     native/ technical.json  B 的原生清单与原生入口的核对
     logs/<步骤>.log         每一步的完整输出
     work/                   中间件（work/video.mp4 是逐帧中间件）；work/tmp 是子进程的 TMPDIR，运行结束删除
@@ -72,7 +73,7 @@ films/<名>/out/
 
 | 路线 | 步骤（`--from` / `--to` 用这些名字） | 调用的现有工具（编排器不重写它们） |
 |---|---|---|
-| A、C（页面型 / 离屏） | `probe → mix → cuecheck → video → mux → web → label → poster → contact → player → qa` | `engine/render/events.mjs`（或离屏 `offscreen probe`）、film.json 的声音脚本或 wav、`python -m engine.audio.cuecheck`、`engine/render/video.mjs`（或 `engine/offscreen/cli.mjs`）、`engine/render/mux.sh` / `lib/mux.mjs` |
+| A、C（页面型 / 离屏） | `probe → mix → cuecheck → video → mux → web → label → poster → contact → player → qa` | `engine/render/events.mjs`（页面契约 + 事件表 + 可选 `--telemetry`，或离屏 `offscreen probe`）、可选 `engine.audio.voice`（`dialogue.json`）、film.json 的声音脚本或 wav、`python -m engine.audio.qa`（前置硬门）、`python -m engine.audio.cuecheck`、`engine/render/video.mjs`（或 `engine/offscreen/cli.mjs`）、`engine/render/mux.sh` / `lib/mux.mjs` |
 | B（原生） | `prepare → preflight → native → web → label → poster → contact → player → qa` | `engine/native/prepare.mjs`、`engine/render/native.mjs --check-only`、`native.mjs --mux copy --out …` |
 | D（物理光追） | `preflight → bundle → mix → cuecheck → pathtrace → mux → web → label → poster → contact → player → qa` | `engine/pathtrace/runtime.mjs`、`engine/pathtrace/bundle.mjs`（打包 + `work/texts.json` 探测）、声音脚本与 `cuecheck`、`threert-render serve` 热驻留光追、`engine/render/lib/mux.mjs` |
 | 预演 | A、C：`probe → mix → video → preview → label → contact → player`；B：`prepare → preflight → native(draft) → label → contact → player`；D：`preflight → bundle → mix → pathtrace(preview) → preview → label → contact → player` | 同上 |
@@ -82,6 +83,10 @@ films/<名>/out/
 - **缓存**：带输入哈希的步骤（mix、cuecheck、video、mux、web、prepare、native）输入没变就复用。video 的键包括作品目录、页面会 import 的 engine 层（core、form、shade、stage、look、paint、overlay、assets）、fonts、assets、src、渲染器文件、传给 video.mjs 的参数、Playwright 与浏览器版本、`BEIMING_ANGLE`、平台。`--no-cache` 全部重跑；`--from X` 从 X 起强制重跑，X 之前带哈希的步骤必须能复用（否则用法错误并说明是哪一步）。
 - **页面帧率**：video.mjs 按 `window.FPS`（没声明按 24）量化一拍二 / 一拍三。与档位帧率不同时，终渲退出码 4；工作版告警并加 `--any-fps`。
 - **软件渲染**：WebGL 落到 SwiftShader / llvmpipe / WARP 时，`--gpu required`（默认）退出码 3；`--gpu any` 或 `software-ok`（CI 冒烟）放行并在 run.json 记 `softwareFallback`。
+- **画面遥测、自动对白与前置声音 QA（A、C）**：
+  - **按需逐帧遥测（`audio.telemetry = true`）**：`probe` 向 `events.mjs` 传 `--telemetry`（及可选 `audio.telemetryScale`），把全屏运动能量与 `window.AUDIO_TELEMETRY` 角色快照写出为 `<运行目录>/kinematics.json`，并通过 `BEIMING_KINEMATICS`（同时临时放一份到作品目录兼容 `cues.load(HERE).kinematics`，运行结束还原）交给声音脚本；未开启时保持常规快探速度。
+  - **自动对白构建（`dialogue.json`）**：`audio.mode = "script"` 且作品目录存在 `dialogue.json`（未设 `audio.dialogue = false`）时，`mix` 将其纳入缓存键，在跑声音脚本前自动执行 `python -m engine.audio.voice build` 输出到 `<运行目录>/audio/dialogue/`（缓存于 `<outRoot>/cache/voice`，`animatic` 自动切 `--provider synthetic`），并通过 `BEIMING_DIALOGUE_DIR` 传给声音脚本。配乐可在开工阶段用 `npm run audio:music -- build <作品>` 生成导引轨或 ACE-Step 1.5 Cover 配乐（含 AIGC 标识描述符）。
+  - **分轨收集与前置声音 QA 快败门（`audio/qa.json`）**：声音脚本直写 `BEIMING_AUDIO_OUT` 与 `BEIMING_AUDIO_STEMS`（或旧约定 `<作品>/out/{mix.wav,stems/}` 回拷）；`build`（未设 `--no-qa`、`--size` 或 `audio.qa = false`）在 `mix` 末尾自动运行 `python -m engine.audio.qa --report <运行目录>/audio/qa.json --json`，遇到响度、真峰值、首尾爆音、严重掩蔽或对白清晰度（`audio.dialogue`）硬门失败时立即以退出码 4（`contract.audio-qa-failed`）拦截，避免白跑耗时的 `video` 逐帧渲染；软告警记入 `run.json` 的 `warnings`。
 - **响度**：mux.sh 固定归一到 −14 LUFS、真峰值 ≤ −1.2 dBTP。档位要别的目标（broadcast −23）时终渲退出码 4，工作版告警（渲染器 v2 的 Node 封装合入后按档位归一）。
 - **网页版**：从逐帧中间件（A、C）或原生母版（B）编一次 H.264 High@4.1、crf 19 + maxrate 14 Mbps、GOP 2 秒、faststart，色彩一次性转成 BT.709 有限范围并写全四个标签；长边超过 1920 时缩到 1920；声音直接复制母版的 AAC（不二次编码，响度与母版一致）。
 - **AIGC 标识（D11）**：film.json 的 `aigc.contains = true` 时，`label` 步骤用 `tools/compliance/lib/aigc.mjs` 的 `ffmpegMetadataArgs`（制作方「北冥引擎 Beiming Engine」，ProduceID = `<作品 id>@<run-id>`，类别取 `aigc.kinds`，缺省 visual；生成工具取 `aigc.tools`）给 master.mp4、web.mp4（预演是 animatic.mp4）写 mp4 comment；只改容器元数据、码流逐位不变；写完读回核对，run.json 的 `aigc.comment` 记下写入的字符串。播放页另写显式标识。
@@ -105,7 +110,7 @@ films/<名>/out/
 | 交付档位 | 按画幅帧率对号，对不上记 custom | `output.profile` | `--profile` 覆盖；终渲必须是明确档位（D07）；定义取 `engine/production/profiles.json`，缺时用与 D07 一致的内置表并告警 |
 | 镜头表 | `shots[{id,in,out}]` | 同 | 半开区间、首尾相接覆盖整片才拿来标切点，否则告警 |
 | 事件表 | `events[{id,frame,shot}]` | 同 | 预演提示音的位置；QA 声画同步按 `events[].audio` 核对 |
-| 声音 | 按约定推断（`sound.py` / `mix.py`） | `audio.{mode: script\|wav\|none\|native, script, wav}` | `--audio` 覆盖（none、x.wav、x.py / x.sh / x.mjs）；B 由 `native.audio` 在准备阶段生成 |
+| 声音 | 按约定推断（`sound.py` / `mix.py`） | `audio.{mode: script\|wav\|none\|native, script, wav, telemetry?, telemetryScale?, dialogue?, qa?}` | `--audio` 覆盖（none、x.wav、x.py / x.sh / x.mjs）；`telemetry: true` 开画面遥测；B 由 `native.audio` 在准备阶段生成 |
 | 闸门 | — | `gates.{look,animatic}` | final 永远必审 |
 | 页面目录 | — | `page`（相对作品目录）或 `entry`（html，相对路径基准） | 缺省是作品目录；镜像作品是 entry 所在目录 |
 | 镜像 | — | `mirror.{paths: "repo", outDir}` | 路径相对仓库根；运行目录在 outDir |
@@ -115,7 +120,7 @@ films/<名>/out/
 | 物理光追 | — | `pathtrace.{preset,spp,animaticSpp,denoise,seed,shotSpp,overlay}` | D 路线专用：采样、降噪与按镜头 ID 升采样配置（D13） |
 | AIGC | — | `aigc.{contains,note,kinds?,tools?}` | 成片隐式标识 + 播放页显式标识（D11） |
 
-声音脚本除了旧约定（写 `<作品>/out/mix.wav`），还能读环境变量 `BEIMING_AUDIO_OUT`（直接写到运行目录，最好）、`BEIMING_FILM`、`BEIMING_RUN`、`BEIMING_EVENTS`、`BEIMING_TIMELINE`、`BEIMING_DUR`、`BEIMING_FPS`、`BEIMING_FRAMES`、`BEIMING_WIDTH`、`BEIMING_HEIGHT`、`BEIMING_PROFILE`；`PYTHON` 指向选中的解释器。
+声音脚本除了旧约定（写 `<作品>/out/mix.wav`），还能读环境变量 `BEIMING_AUDIO_OUT`（直接写到运行目录 `audio/mix.wav`，最好）、`BEIMING_AUDIO_STEMS`（分轨目录 `audio/stems/`）、`BEIMING_DIALOGUE_DIR`（自动构建的 `dialogue.json` 产物目录）、`BEIMING_KINEMATICS`（开启 `audio.telemetry` 时的 `kinematics.json` 路径）、`BEIMING_FILM`、`BEIMING_RUN`、`BEIMING_EVENTS`、`BEIMING_TIMELINE`、`BEIMING_DUR`、`BEIMING_FPS`、`BEIMING_FRAMES`、`BEIMING_WIDTH`、`BEIMING_HEIGHT`、`BEIMING_PROFILE`；`PYTHON` 指向选中的解释器。
 
 ## 6. 运行记录与闸门记录
 

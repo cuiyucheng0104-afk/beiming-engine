@@ -1,0 +1,88 @@
+{
+  "format": "source-check/0.1",
+  "shot": "s01",
+  "caps": {
+    "format": "caps/0.1",
+    "id": "ext.demo",
+    "version": "5.2.3",
+    "language": "python",
+    "hosts": [
+      "cycles"
+    ],
+    "conformance": "limited",
+    "outputs": {
+      "color": {
+        "type": "f32",
+        "transfer": "linear",
+        "primaries": "rec709",
+        "note": "EXR"
+      },
+      "meta": false,
+      "depth": {
+        "type": "f32",
+        "note": "不抗锯齿"
+      },
+      "objectId": {
+        "type": "u32",
+        "note": "不抗锯齿"
+      },
+      "normal": {
+        "type": "f32"
+      },
+      "motion": {
+        "type": "f32"
+      }
+    },
+    "sceneQuery": [
+      "bbox3d",
+      "anchor",
+      "intersect",
+      "contact",
+      "belowGround"
+    ],
+    "motionBlur": {
+      "mode": "native",
+      "auxAt": "sub0",
+      "conflicts": [
+        "motion"
+      ]
+    },
+    "determinism": "tolerance",
+    "draft": {
+      "kind": "cycles-low",
+      "samples": 24,
+      "scale": 0.5,
+      "denoise": "gpu"
+    },
+    "final": {
+      "samples": 64,
+      "scale": 1
+    },
+    "granularity": "frame",
+    "randomAccess": true,
+    "modes": [
+      "cards-data",
+      "build-script",
+      "native-code"
+    ],
+    "cost": {
+      "unit": "gpu-second"
+    }
+  },
+  "renders": [
+    {
+      "shotFrame": 150,
+      "want": [
+        "color",
+        "motion"
+      ],
+      "shutterAngleDeg": 180,
+      "status": "ok",
+      "meta": false,
+      "layers": [
+        "color",
+        "motion"
+      ]
+    }
+  ]
+}

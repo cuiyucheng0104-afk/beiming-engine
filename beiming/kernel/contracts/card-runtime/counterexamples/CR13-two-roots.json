@@ -1,0 +1,30 @@
+{
+  "format": "card-check/0.1",
+  "shape": "create",
+  "entries": [
+    "create"
+  ],
+  "calledVia": "cards.use",
+  "card": "asset.kit@1",
+  "impl": "cards/asset/kit/blender.py",
+  "handle": {
+    "members": [
+      "object",
+      "entities",
+      "dispose"
+    ],
+    "prefix": "kit",
+    "entities": [
+      "body",
+      "lid"
+    ],
+    "roots": [
+      "body",
+      "lid"
+    ],
+    "merged": [
+      "kit",
+      "kit"
+    ]
+  }
+}

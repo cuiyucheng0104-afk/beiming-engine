@@ -1,0 +1,59 @@
+{
+  "format": "card/0.1",
+  "id": "time.seeded",
+  "version": "1.0.0",
+  "kind": "mechanism",
+  "title": "带种子的随机流",
+  "intent": "给别的卡提供按流名取数的随机序列",
+  "livesIn": [
+    "data"
+  ],
+  "impl": [
+    {
+      "livesIn": "data",
+      "entry": "kernel/eval/seeded.mjs",
+      "shape": "evaluate",
+      "hosts": [],
+      "selftest": "kernel/eval/seeded.test.mjs"
+    }
+  ],
+  "params": {},
+  "ports": {
+    "in": [],
+    "out": [],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": []
+  },
+  "conditions": {
+    "appliesWhen": [
+      "任何要随机数的卡"
+    ],
+    "notWhen": []
+  },
+  "calibration": "probe-moving-cube",
+  "verify": {
+    "selftest": "同一个流名取两遍，序列逐位相同",
+    "predicates": []
+  },
+  "provenance": {
+    "cases": [
+      "01"
+    ],
+    "note": "示意"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "kernel-eval",
+      "source": "0.1.0",
+      "gpu": "none",
+      "date": "2026-11-18"
+    }
+  ],
+  "exams": [
+    "cal:time.seeded"
+  ]
+}

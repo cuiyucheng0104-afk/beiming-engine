@@ -1,0 +1,444 @@
+[
+  {
+    "file": "F1-color-not-delivered.json",
+    "violates": [
+      "F1"
+    ],
+    "why": "要了颜色层，返回成功，交回的东西里却没有颜色层"
+  },
+  {
+    "file": "F2-color-encoded.json",
+    "violates": [
+      "F2"
+    ],
+    "why": "颜色层交的是编码后的数值，不是线性编码"
+  },
+  {
+    "file": "F2-color-ref-differs.json",
+    "violates": [
+      "F2"
+    ],
+    "why": "颜色层是线性编码，元数据里的 colorRef 写成 display，镜头声明的是 scene"
+  },
+  {
+    "file": "F3-silent-downgrade.json",
+    "violates": [
+      "F3"
+    ],
+    "why": "要了没声明的 motion 层，帧源没报错，少交一层就返回了成功"
+  },
+  {
+    "file": "F3-undeclared-key-absent.json",
+    "violates": [
+      "F3"
+    ],
+    "why": "要了能力声明的 outputs 里根本没有的 albedo，帧源没报错，少交一层就返回了成功"
+  },
+  {
+    "file": "F4-order-dependent.json",
+    "violates": [
+      "F4"
+    ],
+    "why": "哈希档的帧源，同一帧单独渲和乱序渲的摘要不同"
+  },
+  {
+    "file": "F4-caps-not-random-access.json",
+    "violates": [
+      "F4"
+    ],
+    "why": "单独的一份 Blender 能力声明，randomAccess 写成了 false"
+  },
+  {
+    "file": "F5-motion-with-native-blur.json",
+    "violates": [
+      "F5"
+    ],
+    "why": "原生运动模糊开着（快门角 180 度）时要了冲突表里的 motion 层，帧源照样出了帧"
+  },
+  {
+    "file": "F6-gpu-error-exit-zero.json",
+    "violates": [
+      "F6"
+    ],
+    "why": "显卡出错之后进程用退出码 0 结束"
+  },
+  {
+    "file": "F8-undeclared-query-answered.json",
+    "violates": [
+      "F8"
+    ],
+    "why": "能力声明里没列 intersect，问了却照样给了结果"
+  },
+  {
+    "file": "F9-query-not-truncated.json",
+    "violates": [
+      "F9"
+    ],
+    "why": "命中 73 项全部交了回来，没有截到 50 项"
+  },
+  {
+    "file": "F9-returned-too-few.json",
+    "violates": [
+      "F9"
+    ],
+    "why": "命中 73 项，truncated 写对了 23，交回的却只有 40 项，不是 50 项"
+  },
+  {
+    "file": "F9-truncated-wrong-count.json",
+    "violates": [
+      "F9"
+    ],
+    "why": "命中 73 项、交回 50 项，truncated 却写了 20，应该是 23"
+  },
+  {
+    "file": "F9-truncated-without-cut.json",
+    "violates": [
+      "F9"
+    ],
+    "why": "一共只有 3 项、全部交回了，结果里却带着 truncated"
+  },
+  {
+    "file": "F10-blender-declares-limited.json",
+    "violates": [
+      "F10"
+    ],
+    "why": "Blender 帧源把合规档写成了 limited"
+  },
+  {
+    "file": "F10-legacy-declares-full.json",
+    "violates": [
+      "F10"
+    ],
+    "why": "legacy-page 帧源把合规档写成了 full"
+  },
+  {
+    "file": "F11-entity-id-changes.json",
+    "violates": [
+      "F11"
+    ],
+    "why": "kit.fan_L 在实体清单里是 17 号，到第 151 帧的元数据里变成了 18 号"
+  },
+  {
+    "file": "F11-duplicate-id.json",
+    "violates": [
+      "F11"
+    ],
+    "why": "实体清单里 kit.fan_L 和 fx.sparks 都是 17 号；元数据和清单逐项对得上"
+  },
+  {
+    "file": "F11-duplicate-name.json",
+    "violates": [
+      "F11"
+    ],
+    "why": "实体清单里有两项都叫 kit.fan_L（17 号和 18 号）"
+  },
+  {
+    "file": "F12-meta-shutter-differs.json",
+    "violates": [
+      "F12"
+    ],
+    "why": "这次 render 生效的快门角是 180 度，交回的元数据里 camera.shutterAngleDeg 却写了 0"
+  },
+  {
+    "file": "F13-zero-angle-multi-sample.json",
+    "violates": [
+      "F13"
+    ],
+    "why": "生效的快门角是 0、子帧采样数是 4，帧源没报错，照样出了帧"
+  },
+  {
+    "file": "F14-no-seed-opened.json",
+    "violates": [
+      "F14"
+    ],
+    "why": "没有锁，镜头条目也没写种子，open 却成功了"
+  },
+  {
+    "file": "F14-cards-opened.json",
+    "violates": [
+      "F14"
+    ],
+    "why": "没有锁，镜头用了卡，open 却成功了"
+  },
+  {
+    "file": "F14-assets-opened.json",
+    "violates": [
+      "F14"
+    ],
+    "why": "没有锁，镜头用了资产，open 却成功了"
+  },
+  {
+    "file": "F14-borrowed-mode-code.json",
+    "violates": [
+      "F14"
+    ],
+    "why": "没有锁，镜头条目也没写种子，open 报了错，码却借用了 contract.unsupported-mode"
+  },
+  {
+    "file": "F14-overlays-only-input-code.json",
+    "violates": [
+      "F14"
+    ],
+    "why": "没有锁，镜头条目写了种子、没有 cards，只带叠加层（展开出的卡也算用了卡），open 报的却是 contract.unsupported-input，不是 env.lock-required"
+  },
+  {
+    "file": "F15-host-not-registered.json",
+    "violates": [
+      "F15"
+    ],
+    "why": "Blender 帧源的能力声明多列了登记表里没有的宿主 eevee"
+  },
+  {
+    "file": "F15-mode-not-registered.json",
+    "violates": [
+      "F15"
+    ],
+    "why": "核心帧源的能力声明列了登记表里没有的作者模式 native-code"
+  },
+  {
+    "file": "F15-query-not-registered.json",
+    "violates": [
+      "F15"
+    ],
+    "why": "three 帧源的能力声明列了登记表里没有的场景查询 intersect"
+  },
+  {
+    "file": "F15-output-type-differs.json",
+    "violates": [
+      "F15"
+    ],
+    "why": "Blender 帧源把深度层的 type 写成 u32，登记表是 f32"
+  },
+  {
+    "file": "F15-output-registered-false.json",
+    "violates": [
+      "F15"
+    ],
+    "why": "three 帧源声明了运动矢量层，登记表里它写的是 false"
+  },
+  {
+    "file": "F15-output-not-registered.json",
+    "violates": [
+      "F15"
+    ],
+    "why": "three 帧源声明了登记表里没出现的 denoiseAlbedo"
+  },
+  {
+    "file": "F15-blur-mode-differs.json",
+    "violates": [
+      "F15"
+    ],
+    "why": "three 帧源把 motionBlur.mode 写成 native，登记表是 accumulate"
+  },
+  {
+    "file": "F15-determinism-differs.json",
+    "violates": [
+      "F15"
+    ],
+    "why": "three 帧源把 determinism 写成 tolerance，登记表是 hash-same-machine"
+  },
+  {
+    "file": "F16-host-not-declared.json",
+    "violates": [
+      "F16"
+    ],
+    "why": "镜头条目的宿主 headless-page 不在能力声明的 hosts 里，open 却成功了"
+  },
+  {
+    "file": "F16-mode-not-declared.json",
+    "violates": [
+      "F16"
+    ],
+    "why": "镜头条目的作者模式 cards-data 不在能力声明的 modes 里，open 却成功了"
+  },
+  {
+    "file": "F16-borrowed-lock-code.json",
+    "violates": [
+      "F16"
+    ],
+    "why": "镜头条目的宿主 headless-page 不在能力声明的 hosts 里，同时没有锁也没写种子，open 报了错，码却是 env.lock-required"
+  },
+  {
+    "file": "F17-shape-not-output-size.json",
+    "violates": [
+      "F17"
+    ],
+    "why": "这次输出是 1280 × 720，颜色层引用的 shape 却写成 360 行、640 列"
+  },
+  {
+    "file": "F17-hash-not-of-file.json",
+    "violates": [
+      "F17"
+    ],
+    "why": "颜色层引用里写的哈希和测试工具从层文件重算的不一样"
+  },
+  {
+    "file": "F18-samples-substituted.json",
+    "violates": [
+      "F18"
+    ],
+    "why": "要了帧源交不出的每像素采样数，帧源没报错，换了一个值照样出帧"
+  },
+  {
+    "file": "F18-scale-substituted.json",
+    "violates": [
+      "F18"
+    ],
+    "why": "要了帧源交不出的缩放，帧源没报错，换了一个值照样出帧"
+  },
+  {
+    "file": "F18-borrowed-argument-code.json",
+    "violates": [
+      "F18"
+    ],
+    "why": "要了帧源交不出的每像素采样数，帧源报了错，码却借用了 usage.bad-argument"
+  },
+  {
+    "file": "F19-unfit-object-rendered.json",
+    "violates": [
+      "F19"
+    ],
+    "why": "场景里有放不进编号层的对象，要了编号层，帧源没报错就出了帧"
+  },
+  {
+    "file": "F19-borrowed-output-code.json",
+    "violates": [
+      "F19"
+    ],
+    "why": "场景里有放不进编号层的对象，帧源报了错，码却借用了 contract.unsupported-output"
+  },
+  {
+    "file": "F20-ids-not-in-name-order.json",
+    "violates": [
+      "F20"
+    ],
+    "why": "没有场景包的镜头，名字排第一的 floor 编号是 2，排第二的 kit 编号是 1"
+  },
+  {
+    "file": "F20-ids-skip-a-number.json",
+    "violates": [
+      "F20"
+    ],
+    "why": "没有场景包的镜头，三个实体的编号是 1、2、4，跳过了 3"
+  },
+  {
+    "file": "F21-shape-components-differ.json",
+    "violates": [
+      "F21"
+    ],
+    "schema": "layer-ref.schema.json",
+    "why": "层引用的 shape 说每个像素 3 个分量，components 却列了 4 个"
+  },
+  {
+    "file": "F22-extra-source.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里多登记了 legacy-page，条文的登记表只有三个帧源"
+  },
+  {
+    "file": "F22-host-differs.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里 three 的 hosts 多了 headless-page，条文的登记表只有 page"
+  },
+  {
+    "file": "F22-missing-source.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里少了 core，条文的登记表有三个帧源"
+  },
+  {
+    "file": "F22-output-type-differs.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里 three 的深度层写成 u32，条文的登记表是 f32"
+  },
+  {
+    "file": "F22-blur-mode-differs.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里 blender 的 motionBlur.mode 写成 accumulate，条文的登记表是 native"
+  },
+  {
+    "file": "F22-determinism-filled.json",
+    "violates": [
+      "F22"
+    ],
+    "why": "登记表里给 core 填了 determinism，条文的登记表这一格还在等探针"
+  },
+  {
+    "file": "F23-bad-frame-rendered.json",
+    "violates": [
+      "F23"
+    ],
+    "why": "镜头只有 48 帧，要了第 48 帧，帧源没报错，照样出了一帧"
+  },
+  {
+    "file": "F23-borrowed-option-code.json",
+    "violates": [
+      "F23"
+    ],
+    "why": "缩放给了 2，出了 (0, 1] 的值域，帧源报了错，码却借用了 contract.unsupported-option"
+  },
+  {
+    "file": "F24-declared-query-refused.json",
+    "violates": [
+      "F24"
+    ],
+    "why": "能力声明里列了 anchor，问了却报 contract.unsupported-query"
+  },
+  {
+    "file": "F24-declared-query-uncoded-error.json",
+    "violates": [
+      "F24"
+    ],
+    "why": "能力声明里列了 bbox3d，问了却报了一个不带错误码的错"
+  },
+  {
+    "file": "F25-declared-mode-open-fails.json",
+    "violates": [
+      "F25"
+    ],
+    "why": "宿主 page 和作者模式 native-code 都声明过，镜头写了种子、没用卡和资产，open 却报了 contract.unsupported-mode"
+  },
+  {
+    "file": "F26-overlays-ignored.json",
+    "violates": [
+      "F26"
+    ],
+    "why": "带着锁文件、镜头输入带着这个帧源装不了的叠加层，open 没报错，装作没看见"
+  },
+  {
+    "file": "F26-borrowed-argument-code.json",
+    "violates": [
+      "F26"
+    ],
+    "why": "带着锁文件、镜头用了这个帧源还没接的卡，open 报了错，码却借用了 usage.bad-argument"
+  },
+  {
+    "file": "F27-file-shorter-than-shape.json",
+    "violates": [
+      "F27"
+    ],
+    "why": "层文件比 shape 算出来的少 4 个字节，少了一个数；哈希照样对得上，F17 看不出来"
+  },
+  {
+    "file": "F28-ext-declares-meta.json",
+    "violates": [
+      "F28"
+    ],
+    "why": "私有外部插件的能力声明把 outputs.meta 写成 true，声明自己交每帧元数据"
+  },
+  {
+    "file": "F29-three-declares-no-meta.json",
+    "violates": [
+      "F29"
+    ],
+    "why": "three 的能力声明把 outputs.meta 写成 false，声明自己不交每帧元数据，躲开 F1 的元数据一半和元数据核对记录"
+  }
+]

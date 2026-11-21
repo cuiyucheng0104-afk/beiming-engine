@@ -1,0 +1,32 @@
+{
+  "format": "card-check/0.1",
+  "card": "overlay.title@1",
+  "impl": "cards/overlay/title/three.js",
+  "shape": "create",
+  "entries": [
+    "create"
+  ],
+  "calledVia": "cards.use",
+  "handle": {
+    "members": [
+      "object",
+      "apply",
+      "meta",
+      "dispose"
+    ]
+  },
+  "evaluations": [
+    {
+      "f": 8,
+      "sub": 0,
+      "mode": "single",
+      "digest": "3f9a1c07"
+    },
+    {
+      "f": 8,
+      "sub": 0,
+      "mode": "sequential",
+      "digest": "b61e44d2"
+    }
+  ]
+}

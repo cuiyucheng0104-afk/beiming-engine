@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "predicates/verdict.schema.json",
+  "title": "判定条目",
+  "description": "一条谓词的判定结果。嵌在验收的返回里，不带 format。skipped 的条目带不带 reason 由 PR7 管。",
+  "type": "object",
+  "required": [
+    "id",
+    "layer",
+    "status",
+    "base"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^pred\\.[a-z][A-Za-z0-9_]*(\\.[a-z][A-Za-z0-9_]*)*$"
+    },
+    "layer": {
+      "const": "L3"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "skipped"
+      ]
+    },
+    "base": {
+      "type": "boolean"
+    },
+    "atFrames": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "value": {
+      "not": {
+        "type": "null"
+      }
+    },
+    "expected": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fix": {
+      "$ref": "../patch/fix.schema.json"
+    }
+  }
+}

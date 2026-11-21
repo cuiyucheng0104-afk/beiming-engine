@@ -1,0 +1,25 @@
+{
+  "format": "load-check/0.1",
+  "shot": "s03",
+  "build": "ok",
+  "steps": [
+    "assets",
+    "tracks",
+    "create",
+    "collect"
+  ],
+  "cards": [
+    "hdr",
+    "particles"
+  ],
+  "createOrder": [
+    "hdr",
+    "particles"
+  ],
+  "orderPairs": [
+    [
+      "glow",
+      "hdr"
+    ]
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s01",
+  "mode": "build-script",
+  "entry": "shots/s01/shot.py",
+  "sources": [
+    "blender"
+  ],
+  "languages": [
+    "python"
+  ],
+  "buildCalls": 1,
+  "build": "ok",
+  "entities": [
+    "kit.body",
+    "kit.fan_L",
+    "kit.fan_R"
+  ],
+  "omittable": [
+    "kit.fan_L",
+    "kit.fan_R"
+  ],
+  "metaEntities": [
+    {
+      "f": 10,
+      "names": [
+        "kit.fan_L",
+        "kit.fan_R"
+      ],
+      "omittedParts": 1
+    }
+  ]
+}

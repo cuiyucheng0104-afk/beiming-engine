@@ -1,0 +1,30 @@
+[
+  {
+    "file": "QF1-weights-sum-1.1.json",
+    "violates": [
+      "QF1"
+    ],
+    "why": "三条判分的 weight 是 0.5、0.3、0.3，加起来是 1.1"
+  },
+  {
+    "file": "QF2-unregistered-predicate.json",
+    "violates": [
+      "QF2"
+    ],
+    "why": "第 2 条基础谓词的名字 head_width 不在谓词登记表里"
+  },
+  {
+    "file": "QF2-semicolon-joined.json",
+    "violates": [
+      "QF2"
+    ],
+    "why": "第 7 项用 ` ; ` 连了两条断言：no_cut @ all 和 no_cut @ [0,10)；两条的谓词名都登记过"
+  },
+  {
+    "file": "QF2-semicolon-no-space.json",
+    "violates": [
+      "QF2"
+    ],
+    "why": "第 7 项写成 `no_cut ;inside_frame(hero) @ all`：分号前后没全带空格，照样把两条断言塞进一项；谓词名 no_cut 登记过"
+  }
+]

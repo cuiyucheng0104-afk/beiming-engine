@@ -1,0 +1,24 @@
+{
+  "format": "envelope/0.1",
+  "ok": false,
+  "exitCode": 4,
+  "error": {
+    "code": "busy.rev-conflict",
+    "message": "修订号对不上",
+    "hint": "把修法放进补丁的 ops 重交一次"
+  },
+  "outputs": [],
+  "data": {},
+  "diagnostics": [],
+  "cost": {
+    "tokens": 180,
+    "gpuSeconds": 0,
+    "wallMs": 40
+  },
+  "next": [
+    {
+      "verb": "POST /v1/films/f_8k2/patch",
+      "why": "把 1 条机器可应用的修法写进补丁再写一次"
+    }
+  ]
+}

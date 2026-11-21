@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "film/film-check.schema.json",
+  "title": "片子核对记录",
+  "description": "只管结构。各段对不对由 D1 到 D19 管，所以这里不收紧。",
+  "type": "object",
+  "required": ["format", "film"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "film-check/0.1" },
+    "film": { "$ref": "film.schema.json" },
+    "lock": { "$ref": "../lock/lock.schema.json" },
+    "locks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["rev", "writer", "digest"],
+        "additionalProperties": false,
+        "properties": {
+          "rev": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "writer": { "enum": ["server", "agent"] },
+          "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["use", "path"],
+        "additionalProperties": false,
+        "properties": {
+          "use": { "enum": ["diagnostic.at", "fix.path", "explain.path", "patch.path"] },
+          "path": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "writes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["by", "path", "rev", "serverRev", "outcome"],
+        "additionalProperties": false,
+        "properties": {
+          "by": { "enum": ["agent", "server"] },
+          "path": { "type": "string", "minLength": 1 },
+          "op": { "enum": ["set", "add", "remove", "rename"] },
+          "rev": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "serverRev": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "outcome": { "enum": ["accepted", "rejected"] },
+          "code": { "$ref": "../errors/errors.schema.json#/properties/codes/items/properties/code" },
+          "latestRev": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        }
+      }
+    },
+    "explains": { "type": "array", "items": { "$ref": "explain.schema.json" } },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  }
+}

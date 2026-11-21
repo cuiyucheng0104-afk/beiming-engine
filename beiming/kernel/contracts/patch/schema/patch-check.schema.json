@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "patch/patch-check.schema.json",
+  "title": "补丁核对记录",
+  "description": "只管结构。before 和 after 是片子描述或它的一部分，本契约不判它们合不合片子描述契约。",
+  "type": "object",
+  "required": [
+    "format",
+    "before",
+    "patch",
+    "outcome",
+    "after"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "patch-check/0.1"
+    },
+    "before": {
+      "type": "object"
+    },
+    "patch": {
+      "$ref": "patch.schema.json"
+    },
+    "outcome": {
+      "enum": [
+        "applied",
+        "rejected"
+      ]
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+    },
+    "after": {
+      "type": "object"
+    },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  }
+}

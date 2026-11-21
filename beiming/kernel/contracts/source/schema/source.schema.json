@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source/source.schema.json",
+  "title": "帧源登记表",
+  "description": "只管结构。登记的是上限；能力声明落没落在里面由 F15 管；和条文里的登记表一不一致由 F22 管。",
+  "type": "object",
+  "required": ["format", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "source/0.1" },
+    "sources": {
+      "type": "object",
+      "propertyNames": { "pattern": "^(blender|three|core|legacy-page|ext\\.[a-z0-9][a-z0-9-]*)$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["hosts", "modes", "sceneQuery", "outputs", "motionBlur"],
+        "additionalProperties": false,
+        "properties": {
+          "hosts": { "$ref": "caps.schema.json#/properties/hosts" },
+          "modes": { "$ref": "caps.schema.json#/properties/modes" },
+          "sceneQuery": { "$ref": "caps.schema.json#/properties/sceneQuery" },
+          "outputs": {
+            "type": "object",
+            "description": "键是 meta 之外的输出名（lightgroup:* 照能力声明的写法），值是层文件里的数值类型，或 false。",
+            "required": ["color", "depth", "objectId", "normal", "motion"],
+            "additionalProperties": false,
+            "patternProperties": {
+              "^(?!meta$)[a-z][A-Za-z0-9]*$": { "oneOf": [{ "const": false }, { "$ref": "caps.schema.json#/$defs/sampleType" }] },
+              "^lightgroup:\\*$": { "oneOf": [{ "const": false }, { "$ref": "caps.schema.json#/$defs/sampleType" }] }
+            }
+          },
+          "motionBlur": {
+            "type": "object",
+            "required": ["mode"],
+            "additionalProperties": false,
+            "properties": { "mode": { "$ref": "caps.schema.json#/properties/motionBlur/properties/mode" } }
+          },
+          "determinism": { "$ref": "caps.schema.json#/properties/determinism" }
+        }
+      }
+    },
+    "ext": { "type": "object", "propertyNames": { "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$" } }
+  }
+}

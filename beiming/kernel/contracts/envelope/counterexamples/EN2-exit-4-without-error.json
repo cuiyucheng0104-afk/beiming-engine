@@ -1,0 +1,37 @@
+{
+  "format": "envelope/0.1",
+  "ok": false,
+  "exitCode": 4,
+  "error": null,
+  "outputs": [],
+  "data": {},
+  "diagnostics": [
+    {
+      "code": "contract.unknown-key",
+      "layer": "L1",
+      "severity": "error",
+      "at": "shots/s01/cards/fit/params/margn",
+      "message": "实例 fit（camera.fit@1）没有参数 margn",
+      "expected": "margin: 0.7 到 0.98",
+      "atFrames": [],
+      "hint": "最接近的键是 margin",
+      "fix": {
+        "op": "rename",
+        "path": "shots/s01/cards/fit/params/margn",
+        "to": "margin",
+        "applicability": "machine"
+      }
+    }
+  ],
+  "cost": {
+    "tokens": 180,
+    "gpuSeconds": 0,
+    "wallMs": 40
+  },
+  "next": [
+    {
+      "verb": "POST /v1/films/f_8k2/patch",
+      "why": "把 1 条机器可应用的修法写进补丁再写一次"
+    }
+  ]
+}

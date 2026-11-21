@@ -1,0 +1,33 @@
+{
+  "format": "patch/0.1",
+  "rev": 6,
+  "ops": [
+    {
+      "op": "set",
+      "path": "shots/s01/cards/fit/params/margin",
+      "value": 0.82
+    },
+    {
+      "op": "rename",
+      "path": "shots/s01/cards/fit/params/margn",
+      "to": "margin"
+    },
+    {
+      "op": "remove",
+      "path": "style/finish/grain"
+    },
+    {
+      "op": "set",
+      "path": "transitions/cut-180/type",
+      "value": "cut"
+    },
+    {
+      "op": "add",
+      "path": "events",
+      "value": {
+        "id": "title",
+        "frame": 192
+      }
+    }
+  ]
+}

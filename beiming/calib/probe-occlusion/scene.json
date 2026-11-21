@@ -1,0 +1,262 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "probe-occlusion",
+  "title": "三个互相遮挡的方块：0.5 米方块放在 3、4、5 米外，前一个挡住后一个的一角；有一条视线同时穿过三个",
+  "probeRows": [
+    "可见比例的成本",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 0
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0,
+      0
+    ],
+    "lookAtM": [
+      0,
+      0,
+      -1
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.1,
+    "farM": 100
+  },
+  "backgroundLinear": [
+    0,
+    0,
+    0
+  ],
+  "objects": [
+    {
+      "id": "cube-near",
+      "idIndex": 1,
+      "shape": "box",
+      "sizeM": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "positionM": [
+        -0.3,
+        -0.2,
+        -3
+      ],
+      "emissionLinear": [
+        0.8,
+        0.2,
+        0.2
+      ]
+    },
+    {
+      "id": "cube-mid",
+      "idIndex": 2,
+      "shape": "box",
+      "sizeM": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "positionM": [
+        0,
+        0,
+        -4
+      ],
+      "emissionLinear": [
+        0.2,
+        0.8,
+        0.2
+      ]
+    },
+    {
+      "id": "cube-far",
+      "idIndex": 3,
+      "shape": "box",
+      "sizeM": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "positionM": [
+        -0.1,
+        0.2,
+        -5
+      ],
+      "emissionLinear": [
+        0.2,
+        0.2,
+        0.8
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "kind": "projectedBox",
+      "objectId": "cube-near",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "方块 8 个角点投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        221.090813,
+        171.008256
+      ],
+      "boxMaxPx": [
+        312.391601,
+        260.925699
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "cube-mid",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "方块 8 个角点投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        287.030271,
+        147.030271
+      ],
+      "boxMaxPx": [
+        352.969729,
+        212.969729
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "cube-far",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "方块 8 个角点投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        283.559773,
+        133.14828
+      ],
+      "boxMaxPx": [
+        335.61724,
+        185.205747
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        300.5,
+        180.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "射线逐个与方块求交、按平面深度由近到远排：三个方块都在这条视线上：近、中、远",
+      "intendedHitIds": [
+        "cube-near",
+        "cube-mid",
+        "cube-far"
+      ],
+      "hits": [
+        {
+          "objectId": "cube-near",
+          "planeDepthM": 2.75,
+          "rayDistanceM": 2.752138
+        },
+        {
+          "objectId": "cube-mid",
+          "planeDepthM": 3.75,
+          "rayDistanceM": 3.752916
+        },
+        {
+          "objectId": "cube-far",
+          "planeDepthM": 4.75,
+          "rayDistanceM": 4.753693
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        325.5,
+        180.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "射线逐个与方块求交、按平面深度由近到远排：只有中、远",
+      "intendedHitIds": [
+        "cube-mid",
+        "cube-far"
+      ],
+      "hits": [
+        {
+          "objectId": "cube-mid",
+          "planeDepthM": 3.75,
+          "rayDistanceM": 3.750234
+        },
+        {
+          "objectId": "cube-far",
+          "planeDepthM": 4.75,
+          "rayDistanceM": 4.750296
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        295.5,
+        142.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "射线逐个与方块求交、按平面深度由近到远排：只有远方块露出的一角",
+      "intendedHitIds": [
+        "cube-far"
+      ],
+      "hits": [
+        {
+          "objectId": "cube-far",
+          "planeDepthM": 4.75,
+          "rayDistanceM": 4.769445
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        245.5,
+        229.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "射线逐个与方块求交、按平面深度由近到远排：只有近方块",
+      "intendedHitIds": [
+        "cube-near"
+      ],
+      "hits": [
+        {
+          "objectId": "cube-near",
+          "planeDepthM": 2.75,
+          "rayDistanceM": 2.794617
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        468.5,
+        31.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "射线逐个与方块求交、按平面深度由近到远排：背景",
+      "intendedHitIds": [],
+      "hits": []
+    }
+  ]
+}

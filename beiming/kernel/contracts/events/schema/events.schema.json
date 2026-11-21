@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "events/events.schema.json",
+  "title": "事件表",
+  "description": "只管结构。次序、唯一、和片子描述对不对得上由 EV1 到 EV7 管。kind 是 arrive 时 entity 必填、sync 和 audio 同时出现，这两点在这里表达；命名条目的 sync 是不是对得上片子描述由 EV4 管。",
+  "type": "object",
+  "required": ["format", "film", "fps", "frames", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "events/0.1" },
+    "film": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "fps": { "type": "string", "pattern": "^[1-9][0-9]*/[1-9][0-9]*$" },
+    "frames": { "type": "integer", "minimum": 1 },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "frame", "sub", "kind", "from"],
+        "additionalProperties": false,
+        "dependentRequired": { "sync": ["audio"], "audio": ["sync"] },
+        "if": { "properties": { "kind": { "const": "arrive" } } },
+        "then": { "required": ["entity"] },
+        "properties": {
+          "id": { "type": "string", "pattern": "^\\S+$" },
+          "frame": { "type": "integer", "minimum": 0 },
+          "sub": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+          "shot": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "kind": { "enum": ["named", "cut", "arrive", "burst", "shake"] },
+          "from": { "enum": ["film", "tracks"] },
+          "entity": { "type": "string", "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$" },
+          "audio": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(\\.[a-z0-9][a-z0-9-]*)*$" },
+          "sync": { "enum": ["onset", "pcenter"] }
+        }
+      }
+    }
+  }
+}

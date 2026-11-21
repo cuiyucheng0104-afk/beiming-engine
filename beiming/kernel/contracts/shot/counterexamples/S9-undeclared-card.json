@@ -1,0 +1,28 @@
+{
+  "format": "shot-check/0.1",
+  "shot": "s02",
+  "mode": "native-code",
+  "entry": "shots/s02/shot.js",
+  "sources": [
+    "three"
+  ],
+  "languages": [
+    "js"
+  ],
+  "buildCalls": 1,
+  "build": "ok",
+  "entities": [
+    "title"
+  ],
+  "declaredCards": [
+    "title"
+  ],
+  "cardUses": [
+    {
+      "as": "title"
+    },
+    {
+      "as": "logo"
+    }
+  ]
+}

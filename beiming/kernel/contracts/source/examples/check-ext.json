@@ -1,0 +1,75 @@
+{
+  "format": "source-check/0.1",
+  "shot": "s01",
+  "caps": {
+    "format": "caps/0.1",
+    "id": "ext.demo",
+    "version": "1.0.0",
+    "language": "js",
+    "hosts": [
+      "headless-page"
+    ],
+    "conformance": "limited",
+    "outputs": {
+      "color": {
+        "type": "f32",
+        "transfer": "linear",
+        "primaries": "rec709"
+      },
+      "meta": false,
+      "depth": false,
+      "objectId": false,
+      "normal": false,
+      "motion": false
+    },
+    "sceneQuery": [],
+    "motionBlur": {
+      "mode": "accumulate",
+      "auxAt": "sub0",
+      "samples": 8
+    },
+    "determinism": "tolerance",
+    "draft": {
+      "kind": "scale",
+      "samples": 1,
+      "scale": 0.5
+    },
+    "final": {
+      "samples": 1,
+      "scale": 1
+    },
+    "granularity": "frame",
+    "randomAccess": false,
+    "modes": [
+      "native-code"
+    ],
+    "cost": {
+      "unit": "gpu-second"
+    }
+  },
+  "renders": [
+    {
+      "shotFrame": 0,
+      "want": [
+        "color"
+      ],
+      "shutterAngleDeg": 0,
+      "status": "ok",
+      "meta": false,
+      "layers": [
+        "color"
+      ],
+      "colorTransfer": "linear"
+    },
+    {
+      "shotFrame": 1,
+      "want": [
+        "color",
+        "depth"
+      ],
+      "shutterAngleDeg": 0,
+      "status": "error",
+      "code": "contract.unsupported-output"
+    }
+  ]
+}

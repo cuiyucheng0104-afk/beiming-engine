@@ -384,6 +384,7 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 
 - `MASTER_CQ = 7` 是三部作品上 PSNR-Y 平均、最差帧、SSIM、VMAF 四项均不低于 x264 crf14 的最高 `cq`（`cq 8` 在《化鹏闪羽》最差帧与 SSIM 略低于 x264）。
 - `resolveEncoder('auto', { width, height })` 在本机可用 `h264_nvenc` 且画幅 ≥ 145×49（实测低于 145×49 NVENC 报错）时走 `nvenc`（默认 `cq 7`），否则自动退回 `libx264` 并记录原因；同参数重复编码码流逐字节确定（`tests/offscreen/cli.test.mjs` 验证）。`offscreen render`、`offscreen batch` 与 `film build --renderer offscreen` 同步生效，`engine/render/build.mjs` 从信封读回实际编码器与 `cq` 写进 `run.json` 并计入步骤缓存键；页面渲染器、D 路线光追与网页版（14 Mbps 限速档）不变。
+- **母版 Level 与交付软告警**：NVENC 母版档 `cq 7 + maxrate 240M` 产出 H.264 Level 5.1；在 `web-1080p24`（`maxLevel 4.1`）等档位下，`qa delivery.codec` 会给软告警（`warn`，不阻断）。`web.mp4` 交付件另经 `encodeWeb` 重编为 High@4.1。
 
 **墨线边缘与笔画优化**（`engine/offscreen/tsl/ink.js`）：
 
@@ -422,6 +423,7 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 - **为什么只有 KR = 10 受益**：1440p（KR 10）7.41 → 5.31 ms（−28%），1080p（KR 7）1.38 → 1.38 ms。改完后 4K 与 1080p 都在约 225 G 次/秒，说明 4K 现在也卡在这个格子数的取样速率上。再快只能少取样，那会改画面，要走 look 闸。
 - **画面**：真实作品三帧 4K、三帧 1080p 对改前最大差 1 级、大差像素 0；`kuwahara-fast.test.mjs` 对优化前原样副本（最大差 ≤ 1、PSNR ≥ 78 dB）、对 GLSL 版的质量门、分层风格化 `layers.test.mjs` 与整链 `look.test.mjs` 都原样通过，对拍数值没有可见变化（整链 PSNR 60.378 dB、分层 `final` 61.31 dB）。变异检查：`|c|²` 只用红通道、均值平方项偏 0.1%，各让 3 条测试变红。
 - **整帧**：稳态渲染+读回（两轮交替）4K 38.0 → 33.8 ms（26.3 → 29.7 fps，−11%），1440p 17.6 → 15.9 ms（−10%），1080p 不变；4K 144 帧端到端（auto → NVENC `cq 7`，含约 2 秒启动）8.5–8.6 → 8.0 秒。改完后 4K 的分段计时排序是 Kuwahara、主场景（约 10.6 ms）、墨线笔画（约 4.2 ms）。
+- **独立复核补充**：《晨渡》Kuwahara 标量方差改动的 PSNR 为 73.3–75.6 dB（1080p / 4K），最大差 1 级、≥5 级大差像素 0、对称零偏；《度》为 75.2–76.0 dB。上述《化鹏闪羽》数字保留为原始实测记录，该作品未入库。
 
 ### 7.16 快速复查
 

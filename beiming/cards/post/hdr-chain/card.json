@@ -1,0 +1,97 @@
+{
+  "format": "card/0.1",
+  "id": "post.hdr-chain",
+  "version": "1.0.0",
+  "kind": "post",
+  "title": "高动态后期链",
+  "intent": "在场景线性的颜色层上接后期通道；这一版只有直通，关掉环境光遮蔽和泛光时画面一个像素都不变",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:three"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:three",
+      "entry": "cards/post/hdr-chain/three.js",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "page",
+          "version": "0.187.0"
+        }
+      ],
+      "selftest": "cards/post/hdr-chain/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "ao": {
+      "type": "boolean",
+      "unit": "none",
+      "default": false,
+      "coupling": "none"
+    },
+    "bloom": {
+      "type": "boolean",
+      "unit": "none",
+      "default": false,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      }
+    ],
+    "out": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "Handle.object 是一张全屏通道网格，宿主把它送进帧源的后期链，不放进场景；材质的 uniforms.tInput 由帧源在每一遍写上一遍的颜色",
+      "颜色层的渲染目标是 32 位浮点"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "镜头要在帧源里对颜色层做后期，先占住后期链的位置"
+    ],
+    "notWhen": [
+      "要环境光遮蔽或泛光：这一版还没有，把 ao 或 bloom 打开会在装载时报错"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "ao、bloom 都是 false 时通道的片元着色器只按像素坐标取一次输入；实渲时加了这条链和没加的颜色层哈希相同",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "把 ao 或 bloom 设成 true 之后镜头装不起来",
+      "fix": "这一版只有直通；先设回 false"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "直通用 texelFetch 按整数像素坐标取，不经过采样器的过滤，所以逐位不变"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "page",
+      "source": "0.187.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:post.hdr-chain"
+  ]
+}
