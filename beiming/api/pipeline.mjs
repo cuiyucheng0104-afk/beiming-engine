@@ -95,9 +95,13 @@ function convertShot(records, shot, { dir, fps, lutPath, paperLinear }) {
   mkdirSync(seq, { recursive: true });
   mkdirSync(join(dir, 'exr'), { recursive: true });
   mkdirSync(join(dir, 'png'), { recursive: true });
-  const raw = Buffer.concat(records.map((r) => planar(readFileSync(r.color), w, h, paperLinear)));
-  runTool(ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'gbrapf32le', '-s', `${w}x${h}`, '-i', '-',
-    '-c:v', 'exr', '-compression', 'zip1', '-start_number', '0', join(seq, '%04d.exr')], { input: raw, what: '颜色层转 EXR' });
+  // 按不超过 256 MiB 一批分块喂给 ffmpeg 管道，避开长镜头 1080p/4K 下 libuv spawnSync 管道上限（INT32_MAX ≈ 2 GiB）并压低内存峰值。
+  const chunk = Math.max(1, Math.floor((256 * 1024 * 1024) / (w * h * 16)));
+  for (let offset = 0; offset < records.length; offset += chunk) {
+    const raw = Buffer.concat(records.slice(offset, offset + chunk).map((r) => planar(readFileSync(r.color), w, h, paperLinear)));
+    runTool(ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'gbrapf32le', '-s', `${w}x${h}`, '-i', '-',
+      '-c:v', 'exr', '-compression', 'zip1', '-start_number', String(offset), join(seq, '%04d.exr')], { input: raw, what: '颜色层转 EXR' });
+  }
   const filter = branchFilter({ id: shot.id, colorRef: shot.colorRef, count: records.length, transfer: 'linear' }, { size: [w, h], fps: parseFps(fps), view: { lutPath, shaper: VIEW_SHAPER } });
   runTool(ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-f', 'image2', '-framerate', fps, '-start_number', '0', '-i', join(seq, '%04d.exr'),
     '-filter_complex', `[0:v]${filter},format=rgb24[o]`, '-map', '[o]', '-start_number', '0', join(seq, '%04d.png')], { what: '预览 PNG' });
