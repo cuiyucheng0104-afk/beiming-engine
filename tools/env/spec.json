@@ -222,6 +222,7 @@
     "TMP",
     "TMPDIR",
     "XDG_CACHE_HOME",
+    "XDG_RUNTIME_DIR",
     "CI",
     "GITHUB_ACTIONS",
     "SHELL",

@@ -80,7 +80,7 @@ export function defaultSocketPath({ env = process.env, platform = process.platfo
     return `\\\\.\\pipe\\beiming-offscreen-${h}`;
   }
   const runtimeDir = String(env.XDG_RUNTIME_DIR ?? '').trim();
-  if (runtimeDir) return path.join(runtimeDir, 'beiming-offscreen.sock');
+  if (runtimeDir) return path.posix.join(runtimeDir, 'beiming-offscreen.sock');   // XDG 只在类 Unix 上有，按 POSIX 拼
   const uid = typeof process.getuid === 'function' ? process.getuid() : 'user';
   return path.join(os.tmpdir(), `beiming-offscreen-${uid}.sock`);
 }
@@ -627,17 +627,14 @@ export async function createDaemonServer({
   onLog = () => {},
 } = {}) {
   const isPipe = process.platform === 'win32' && socketPath.startsWith('\\\\.\\pipe\\');
-  if (!isPipe) {
-    fs.mkdirSync(path.dirname(socketPath), { recursive: true });
-    if (fs.existsSync(socketPath)) {
-      const alive = await probeSocketAlive(socketPath);
-      if (alive) {
-        throw new CliError('busy.daemon', `已有离屏守护进程正在监听 ${socketPath}`, {
-          hint: `复用现有守护进程，或先运行 node engine/offscreen/cli.mjs daemon --socket ${socketPath} --action stop`,
-        });
-      }
-      fs.rmSync(socketPath, { force: true });
+  if (!isPipe) fs.mkdirSync(path.dirname(socketPath), { recursive: true });
+  if (isPipe || fs.existsSync(socketPath)) {
+    if (await probeSocketAlive(socketPath)) {
+      throw new CliError('busy.daemon', `已有离屏守护进程正在监听 ${socketPath}`, {
+        hint: `复用现有守护进程，或先运行 node engine/offscreen/cli.mjs daemon --socket ${socketPath} --action stop`,
+      });
     }
+    if (!isPipe) fs.rmSync(socketPath, { force: true });   // 上次崩溃残留的 socket 文件
   }
 
   const rt = runtime ?? createGpuRuntime({ maxCachedWorks, loadGpuFn, requestDeviceFn, createHostFn, execJobFn });

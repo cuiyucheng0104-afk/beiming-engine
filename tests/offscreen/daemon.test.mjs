@@ -22,6 +22,9 @@ const CLI = join(ROOT, 'engine/offscreen/cli.mjs');
 const WORK = 'lab/offscreen/ink.mjs';
 const runCliSync = (args, opts = {}) => spawnSync(process.execPath, [CLI, ...args], { cwd: ROOT, encoding: 'utf8', timeout: 180000, ...opts });
 const tmp = () => mkdtempSync(join(tmpdir(), 'beiming-daemon-test-'));
+const IS_WIN = process.platform === 'win32';
+// Windows 只能用命名管道（文件路径 listen 会 EACCES）；类 Unix 用临时目录里的 socket 文件
+const ipcPath = (dir, name) => (IS_WIN ? `\\\\.\\pipe\\beiming-test-${process.pid}-${dir.slice(-6)}-${name}` : join(dir, `${name}.sock`));
 
 // ───────────────────────── 纯逻辑与协议单测（无需 GPU） ─────────────────────────
 
@@ -60,10 +63,10 @@ test('computeWorkSignature：文件不变时签名稳定，改动内容或 mtime
 
 test('IPC 权限 0600、陈旧 socket 崩溃恢复、重复启动报 busy.daemon、空闲超时优雅退出', { timeout: 30000 }, async () => {
   const dir = tmp();
-  const sock = join(dir, 'd.sock');
+  const sock = ipcPath(dir, 'd');
   try {
-    // 1. 制造一个上次崩溃残留的死 socket 文件
-    await new Promise((resolve, reject) => {
+    // 1. 制造一个上次崩溃残留的死 socket 文件（命名管道没有文件残留，Windows 跳过这一步）
+    if (!IS_WIN) await new Promise((resolve, reject) => {
       const dead = net.createServer();
       dead.once('error', reject);
       dead.listen(sock, () => {
@@ -74,7 +77,7 @@ test('IPC 权限 0600、陈旧 socket 崩溃恢复、重复启动报 busy.daemon
         });
       });
     });
-    assert.equal(existsSync(sock), true);
+    if (!IS_WIN) assert.equal(existsSync(sock), true);
 
     // 2. 启动 daemon：应自动清理陈旧残留并监听，权限 0600
     const mockRuntime = {
@@ -90,7 +93,7 @@ test('IPC 权限 0600、陈旧 socket 崩溃恢复、重复启动报 busy.daemon
     };
     const srv = await createDaemonServer({ socketPath: sock, idleTimeoutSec: 0, runtime: mockRuntime });
     try {
-      if (process.platform !== 'win32') {
+      if (!IS_WIN) {
         assert.equal(statSync(sock).mode & 0o777, 0o600, 'Unix socket 权限必须严格为 0600');
       }
       // 3. 存活期间重复启动同一 socket 必须拒绝（busy.daemon）
@@ -106,22 +109,22 @@ test('IPC 权限 0600、陈旧 socket 崩溃恢复、重复启动报 busy.daemon
       const sd = await sendDaemonRequest(sock, 'shutdown', {});
       assert.equal(sd.ok, true);
       await srv.closed;
-      assert.equal(existsSync(sock), false, '退出后应清理 socket 文件');
+      if (!IS_WIN) assert.equal(existsSync(sock), false, '退出后应清理 socket 文件');
     } finally {
       await srv.close();
     }
 
     // 6. 空闲超时自动退出
-    const sock2 = join(dir, 'idle.sock');
+    const sock2 = ipcPath(dir, 'idle');
     const srv2 = await createDaemonServer({ socketPath: sock2, idleTimeoutSec: 0.15, runtime: mockRuntime });
     await srv2.closed;
-    assert.equal(existsSync(sock2), false, '空闲超时后应自动清理 socket');
+    if (!IS_WIN) assert.equal(existsSync(sock2), false, '空闲超时后应自动清理 socket');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('device.lost 故障隔离与自动重建：当前作业返 failure.gpu，下次请求自动恢复成功', { timeout: 30000 }, async () => {
   const dir = tmp();
-  const sock = join(dir, 'lost.sock');
+  const sock = ipcPath(dir, 'lost');
   try {
     let deviceSeq = 0;
     let triggerLost = null;
@@ -185,7 +188,7 @@ test('device.lost 故障隔离与自动重建：当前作业返 failure.gpu，�
 
 test('LRU 作品池上限：超过 maxCachedWorks 淘汰最久未用宿主并调用 dispose()', { timeout: 30000 }, async () => {
   const dir = tmp();
-  const sock = join(dir, 'lru.sock');
+  const sock = ipcPath(dir, 'lru');
   try {
     const disposed = [];
     const mockGpu = { THREE: {}, TSL: {} };
@@ -234,7 +237,7 @@ test('LRU 作品池上限：超过 maxCachedWorks 淘汰最久未用宿主并调
 
 test('未开守护进程时：--daemon <不存在socket> 报 env.daemon-unavailable（退出 3）', () => {
   const dir = tmp();
-  const missingSock = join(dir, 'nope.sock');
+  const missingSock = ipcPath(dir, 'nope');
   try {
     const r = runCliSync(['probe', WORK, '--daemon', missingSock, '--json']);
     assert.equal(r.status, 3, r.stderr);
@@ -265,7 +268,7 @@ async function waitForSocket(sock, timeoutMs = 15000) {
 
 test('真实 GPU：常驻渲染与冷启动逐字节相同（MP4 + PNG）、缓存命中、文件改动热失效、默认路径不受影响', { skip: noEncode, timeout: 240000 }, async () => {
   const dir = tmp();
-  const sock = join(dir, 'live.sock');
+  const sock = ipcPath(dir, 'live');
   // 临时作品文件放在仓库内 lab/offscreen/ 下（符合 resolveWork 仓库内约束），finally 清理
   const hotWorkRel = `lab/offscreen/.daemon-hot-test-${process.pid}.mjs`;
   const hotWorkAbs = join(ROOT, hotWorkRel);
@@ -338,7 +341,7 @@ test('真实 GPU：常驻渲染与冷启动逐字节相同（MP4 + PNG）、缓�
 
     // 6. --daemon auto 连不上时自动退回冷启动
     const rAuto = runCliSync(['probe', WORK, '--size', '320x180', '--daemon', 'auto', '--json'], {
-      env: { ...process.env, BEIMING_OFFSCREEN_SOCKET: join(dir, 'absent.sock') },
+      env: { ...process.env, BEIMING_OFFSCREEN_SOCKET: ipcPath(dir, 'absent') },
     });
     assert.equal(rAuto.status, 0, rAuto.stderr);
     assert.equal(JSON.parse(rAuto.stdout).ok, true);
@@ -351,7 +354,7 @@ test('真实 GPU：常驻渲染与冷启动逐字节相同（MP4 + PNG）、缓�
       else daemonProc.once('exit', code => resolve(code));
     });
     assert.equal(exitCode, 0);
-    assert.equal(existsSync(sock), false);
+    if (!IS_WIN) assert.equal(existsSync(sock), false);
   } finally {
     if (daemonProc && daemonProc.exitCode === null) daemonProc.kill('SIGKILL');
     rmSync(hotWorkAbs, { force: true });

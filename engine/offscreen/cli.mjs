@@ -58,7 +58,7 @@ export function resolveArgs({ sub, work, extra = [] }, opts, cwd = process.cwd()
     if (!(idleTimeout >= 0)) throw usageError('bad-value', `--idle-timeout 要 ≥ 0，收到 ${idleTimeout}`, '0 表示永不超时');
     const maxCachedWorks = opts['max-cached-works'] ?? 4;
     if (!(maxCachedWorks >= 0)) throw usageError('bad-value', `--max-cached-works 要 ≥ 0，收到 ${maxCachedWorks}`, null);
-    const socket = opts.socket ? path.resolve(cwd, opts.socket) : defaultSocketPath();
+    const socket = !opts.socket ? defaultSocketPath() : opts.socket.startsWith('\\\\.\\pipe\\') ? opts.socket : path.resolve(cwd, opts.socket);   // 命名管道不按文件路径解析
     return { sub: 'daemon', action, socket, idleTimeout, maxCachedWorks };
   }
   if (sub === 'batch') {
