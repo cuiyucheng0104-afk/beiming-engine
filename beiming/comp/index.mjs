@@ -3,3 +3,4 @@ export * from './stitch.mjs';
 export * from './encode.mjs';
 export * from './audio.mjs';
 export * from './deliver.mjs';
+export { bakeAgxLut, SHAPER } from './lut/bake-agx.mjs';
