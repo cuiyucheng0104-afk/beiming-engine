@@ -368,30 +368,56 @@ test('[二轮 #1] 陈旧 socket 与全新路径并发抢启动：只允许一个
       for (const w of freshWins) await w.r.value.close();
     }
 
-    // 2. 类 Unix 陈旧 socket 并发抢启动：后删者必须校验 inode，不能误删胜方刚建好的活 socket（无孤儿实例），败方 listen EADDRINUSE 返 busy.daemon
+    // 2. 类 Unix 陈旧 socket 并发抢启动（多轮）：启动短锁串行化 probe→unlink→listen，避免 ext4 inode 复用导致误删胜方活 socket
     if (!IS_WIN) {
-      const staleSock = ipcPath(dir, 'race-stale');
-      await staleSocket(staleSock);
-      assert.equal(lstatSync(staleSock).isSocket(), true);
-      const staleTags = ['W1', 'W2', 'W3'];
-      const staleRes = await Promise.allSettled(
-        staleTags.map(tag => createDaemonServer({ socketPath: staleSock, idleTimeoutSec: 0, runtime: makeTaggedRuntime(tag) })),
-      );
-      const staleWins = staleRes.map((r, i) => ({ r, tag: staleTags[i] })).filter(x => x.r.status === 'fulfilled');
-      const staleFails = staleRes.filter(r => r.status === 'rejected').map(r => r.reason);
-      try {
-        assert.equal(staleWins.length, 1, `陈旧 socket 并发抢启动应恰好 1 个成功（不出现孤儿实例），实际 ${staleWins.length}`);
-        assert.equal(staleFails.length, 2);
-        for (const err of staleFails) {
-          assert.equal(err.code, 'busy.daemon', `败方应返 busy.daemon，实际：${err?.code} / ${err?.message}`);
-          assert.equal(err.exitCode, 5);
+      assert.equal(existsSync(`${freshSock}.lock`), false, '启动完成后不应残留 .lock 文件');
+      for (let round = 0; round < 5; round++) {
+        const staleSock = ipcPath(dir, `race-stale-${round}`);
+        await staleSocket(staleSock);
+        assert.equal(lstatSync(staleSock).isSocket(), true);
+        const staleTags = ['W1', 'W2', 'W3'];
+        const staleRes = await Promise.allSettled(
+          staleTags.map(tag => createDaemonServer({ socketPath: staleSock, idleTimeoutSec: 0, runtime: makeTaggedRuntime(tag) })),
+        );
+        const staleWins = staleRes.map((r, i) => ({ r, tag: staleTags[i] })).filter(x => x.r.status === 'fulfilled');
+        const staleFails = staleRes.filter(r => r.status === 'rejected').map(r => r.reason);
+        try {
+          assert.equal(staleWins.length, 1, `第 ${round + 1} 轮陈旧 socket 并发抢启动应恰好 1 个成功（不出现孤儿实例），实际 ${staleWins.length}`);
+          assert.equal(staleFails.length, 2);
+          for (const err of staleFails) {
+            assert.equal(err.code, 'busy.daemon', `败方应返 busy.daemon，实际：${err?.code} / ${err?.message}`);
+            assert.equal(err.exitCode, 5);
+          }
+          assert.equal(existsSync(`${staleSock}.lock`), false, '并发抢启动结束后不应残留 .lock 文件');
+          const st = await sendDaemonRequest(staleSock, 'stats', {});
+          assert.equal(st.ok, true);
+          assert.equal(st.data.tag, staleWins[0].tag, '当前监听者必须是唯一胜方（无孤儿实例）');
+        } finally {
+          for (const w of staleWins) await w.r.value.close();
         }
-        const st = await sendDaemonRequest(staleSock, 'stats', {});
-        assert.equal(st.ok, true);
-        assert.equal(st.data.tag, staleWins[0].tag, '当前监听者必须是唯一胜方（无孤儿实例）');
-      } finally {
-        for (const w of staleWins) await w.r.value.close();
       }
+
+      // 3. 死进程残留的 .lock 文件自动恢复；.lock 为符号链接时拒绝启动且不删除
+      const deadChild = spawnSync(process.execPath, ['-e', '']);
+      assert.ok(deadChild.pid > 0);
+      const recoverSock = ipcPath(dir, 'recover-lock');
+      writeFileSync(`${recoverSock}.lock`, `${deadChild.pid}:1\n`);
+      const recovered = await createDaemonServer({ socketPath: recoverSock, idleTimeoutSec: 0, runtime: makeTaggedRuntime('R') });
+      try {
+        assert.equal(existsSync(`${recoverSock}.lock`), false);
+        assert.equal((await sendDaemonRequest(recoverSock, 'stats', {})).data.tag, 'R');
+      } finally { await recovered.close(); }
+
+      const badLockSock = ipcPath(dir, 'symlink-lock');
+      const target = join(dir, 'keep.txt');
+      writeFileSync(target, 'keep');
+      symlinkSync(target, `${badLockSock}.lock`);
+      await assert.rejects(
+        () => createDaemonServer({ socketPath: badLockSock, idleTimeoutSec: 0, runtime: makeTaggedRuntime('X') }),
+        e => e.code === 'usage.bad-socket-path' && e.exitCode === 2,
+      );
+      assert.equal(lstatSync(`${badLockSock}.lock`).isSymbolicLink(), true, '符号链接 .lock 必须原样保留');
+      assert.equal(readFileSync(target, 'utf8'), 'keep');
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

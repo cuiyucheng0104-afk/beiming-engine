@@ -666,6 +666,68 @@ function serializeError(err) {
   };
 }
 
+let startupLockSeq = 0;
+
+/** 类 Unix 守护进程启动短锁：串行化 probe → 删陈旧 socket → listen，避免 ext4 等文件系统 inode 复用导致并发抢启动误删胜方活 socket */
+async function acquireStartupLock(lockPath, busyError, { timeoutMs = 5000 } = {}) {
+  const started = process.hrtime.bigint();
+  const payload = `${process.pid}:${++startupLockSeq}\n`;
+  let brokenIno = null;
+  let brokenSince = null;
+  for (;;) {
+    try {
+      const fd = fs.openSync(lockPath, 'wx', 0o600);
+      try { fs.writeFileSync(fd, payload); } finally { fs.closeSync(fd); }
+      const myIno = lstatOrNull(lockPath)?.ino ?? null;
+      return () => {
+        const cur = lstatOrNull(lockPath);
+        if (!cur || cur.isSymbolicLink() || !cur.isFile()) return;
+        if (myIno !== null && cur.ino !== myIno) return;
+        try {
+          if (fs.readFileSync(lockPath, 'utf8') === payload) fs.rmSync(lockPath, { force: true });
+        } catch { /* 已被清理 */ }
+      };
+    } catch (e) {
+      if (e?.code !== 'EEXIST') throw e;
+      const st = lstatOrNull(lockPath);
+      if (st) {
+        if (st.isSymbolicLink() || !st.isFile()) {
+          throw usageError('bad-socket-path', `守护进程启动锁路径 ${lockPath} 已存在且不是普通文件，拒绝启动，也不会删除它`,
+            '换一个不存在的 socket 路径，或确认后自己处理这个文件');
+        }
+        let raw = null;
+        try { raw = fs.readFileSync(lockPath, 'utf8'); } catch { /* 锁刚被释放，下一轮重试即可 */ }
+        if (raw !== null) {
+          const m = /^(\d+):\d+\n$/.exec(raw);
+          let stale = false;
+          if (m) {
+            brokenIno = null;
+            brokenSince = null;
+            const pid = Number(m[1]);
+            if (pid > 0 && pid !== process.pid) {
+              try { process.kill(pid, 0); } catch (ke) { if (ke?.code === 'ESRCH') stale = true; }
+            }
+          } else {
+            if (brokenIno !== st.ino) { brokenIno = st.ino; brokenSince = process.hrtime.bigint(); }
+            if (seconds(brokenSince) * 1000 >= 1000) stale = true;   // 进程在 open 与 write 之间被强杀留下的残锁
+          }
+          if (stale) {
+            const cur = lstatOrNull(lockPath);
+            try {
+              if (cur && !cur.isSymbolicLink() && cur.isFile() && cur.ino === st.ino && fs.readFileSync(lockPath, 'utf8') === raw) {
+                fs.rmSync(lockPath, { force: true });
+              }
+            } catch { /* ignore */ }
+            continue;
+          }
+        }
+      }
+      if (seconds(started) * 1000 >= timeoutMs) throw busyError();
+      await new Promise(r => setTimeout(r, 15));
+    }
+  }
+}
+
 export async function createDaemonServer({
   socketPath = defaultSocketPath(),
   idleTimeoutSec = 600,
@@ -678,29 +740,25 @@ export async function createDaemonServer({
   onLog = () => {},
 } = {}) {
   const isPipe = isPipePath(socketPath);
-  let existing = null;
-  if (!isPipe) {
-    assertPrivateSocketDir(path.dirname(socketPath), { create: true });   // 先校验私有目录再 bind：没有 bind→chmod 的暴露窗口
-    existing = lstatOrNull(socketPath);
-    if (existing && !existing.isSocket()) {
-      throw usageError('bad-socket-path', `${socketPath} 已存在且不是 socket（${existing.isSymbolicLink() ? '符号链接' : existing.isDirectory() ? '目录' : '普通文件'}），拒绝启动，也不会删除它`,
-        '换一个不存在的路径，或确认后自己处理这个文件');
-    }
-  }
   const busyError = () => new CliError('busy.daemon', `已有离屏守护进程正在监听 ${socketPath}`, {
     hint: `复用现有守护进程，或先运行 node engine/offscreen/cli.mjs daemon --socket ${socketPath} --action stop`,
   });
-  if (isPipe || existing) {
-    if (await probeSocketAlive(socketPath)) {
-      throw busyError();
+  const checkSocketPathType = () => {
+    const st = isPipe ? null : lstatOrNull(socketPath);
+    if (st && !st.isSocket()) {
+      throw usageError('bad-socket-path', `${socketPath} 已存在且不是 socket（${st.isSymbolicLink() ? '符号链接' : st.isDirectory() ? '目录' : '普通文件'}），拒绝启动，也不会删除它`,
+        '换一个不存在的路径，或确认后自己处理这个文件');
     }
-    if (!isPipe && existing) {
-      const cur = lstatOrNull(socketPath);
-      if (cur?.isSocket() && cur.ino === existing.ino) fs.rmSync(socketPath, { force: true });   // 上次崩溃残留的 socket（核对同 inode，避免并发抢启动误删胜方新 socket）
-    }
+    return st;
+  };
+  if (!isPipe) {
+    assertPrivateSocketDir(path.dirname(socketPath), { create: true });   // 先校验私有目录再建锁与 bind：没有暴露窗口
+    checkSocketPathType();
   }
 
-  const rt = runtime ?? createGpuRuntime({ maxCachedWorks, loadGpuFn, requestDeviceFn, createHostFn, execJobFn });
+  let rt;
+  let server;
+  let listenedIno = null;
   const startedAt = process.hrtime.bigint();
   let closing = false;
   let activeJobs = 0;
@@ -749,89 +807,105 @@ export async function createDaemonServer({
     ...rt.stats(),
   });
 
-  const server = net.createServer(conn => {
-    sockets.add(conn);
-    conn.setEncoding('utf8');
-    let buf = '';
-    const writeMsg = obj => {
-      if (!conn.destroyed && conn.writable) {
-        try { conn.write(JSON.stringify(obj) + '\n'); } catch { /* 对端已断 */ }
+  const releaseLock = isPipe ? null : await acquireStartupLock(`${socketPath}.lock`, busyError);
+  try {
+    const existing = checkSocketPathType();
+    if (isPipe || existing) {
+      if (await probeSocketAlive(socketPath)) {
+        throw busyError();
       }
-    };
-    const handleLine = async line => {
-      let req;
-      try { req = JSON.parse(line); } catch {
-        writeMsg({ id: null, ok: false, exitCode: 2, error: { code: 'usage.bad-rpc', message: '请求不是合法 JSON', hint: null } });
-        return;
+      if (!isPipe && existing) {
+        const cur = lstatOrNull(socketPath);
+        if (cur?.isSocket() && cur.ino === existing.ino) fs.rmSync(socketPath, { force: true });   // 上次崩溃残留的 socket（持启动锁且核对同 inode）
       }
-      const { id = null, method, params = {} } = req ?? {};
-      if (method === 'stats') {
-        writeMsg({ id, ok: true, exitCode: 0, data: buildStats(), outputs: [], warnings: [], humanLines: [] });
-        return;
-      }
-      if (method === 'shutdown') {
-        writeMsg({ id, ok: true, exitCode: 0, data: { stopping: true, ...buildStats() }, outputs: [], warnings: [], humanLines: [`已停止守护进程 ${socketPath}`] });
-        setImmediate(() => { close(); });
-        return;
-      }
-      if (closing) {
-        writeMsg({ id, ok: false, exitCode: 5, error: { code: 'busy.daemon-closing', message: '守护进程正在关闭，不再接收新作业', hint: '稍后重试或改用冷启动' } });
-        return;
-      }
-      if (!['render', 'stills', 'probe', 'profile'].includes(method)) {
-        writeMsg({ id, ok: false, exitCode: 2, error: { code: 'usage.bad-method', message: `未知 RPC 方法：${method}`, hint: null } });
-        return;
-      }
-      try {
-        const res = await enqueue(() => rt.execute(method, params));
-        writeMsg({
-          id, ok: true, exitCode: 0,
-          data: res.data,
-          outputs: res.outputs ?? [],
-          warnings: res.warnings ?? [],
-          humanLines: res.humanLines ?? [],
-          cacheHit: Boolean(res.cacheHit),
-        });
-      } catch (e) {
-        const { exitCode, error } = serializeError(e);
-        writeMsg({ id, ok: false, exitCode, error, outputs: [], warnings: [], humanLines: [] });
-      }
-    };
+    }
 
-    conn.on('data', chunk => {
-      buf += chunk;
-      if (Buffer.byteLength(buf, 'utf8') > MAX_LINE_BYTES) {
-        writeMsg({ id: null, ok: false, exitCode: 2, error: { code: 'usage.payload-too-large', message: '单条 RPC 消息超过 4 MiB 上限', hint: null } });
-        conn.destroy();
-        return;
-      }
-      let idx;
-      while ((idx = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, idx).trim();
-        buf = buf.slice(idx + 1);
-        if (line) handleLine(line);
-      }
-    });
-    conn.on('close', () => sockets.delete(conn));
-    conn.on('error', () => sockets.delete(conn));
-  });
+    rt = runtime ?? createGpuRuntime({ maxCachedWorks, loadGpuFn, requestDeviceFn, createHostFn, execJobFn });
+    server = net.createServer(conn => {
+      sockets.add(conn);
+      conn.setEncoding('utf8');
+      let buf = '';
+      const writeMsg = obj => {
+        if (!conn.destroyed && conn.writable) {
+          try { conn.write(JSON.stringify(obj) + '\n'); } catch { /* 对端已断 */ }
+        }
+      };
+      const handleLine = async line => {
+        let req;
+        try { req = JSON.parse(line); } catch {
+          writeMsg({ id: null, ok: false, exitCode: 2, error: { code: 'usage.bad-rpc', message: '请求不是合法 JSON', hint: null } });
+          return;
+        }
+        const { id = null, method, params = {} } = req ?? {};
+        if (method === 'stats') {
+          writeMsg({ id, ok: true, exitCode: 0, data: buildStats(), outputs: [], warnings: [], humanLines: [] });
+          return;
+        }
+        if (method === 'shutdown') {
+          writeMsg({ id, ok: true, exitCode: 0, data: { stopping: true, ...buildStats() }, outputs: [], warnings: [], humanLines: [`已停止守护进程 ${socketPath}`] });
+          setImmediate(() => { close(); });
+          return;
+        }
+        if (closing) {
+          writeMsg({ id, ok: false, exitCode: 5, error: { code: 'busy.daemon-closing', message: '守护进程正在关闭，不再接收新作业', hint: '稍后重试或改用冷启动' } });
+          return;
+        }
+        if (!['render', 'stills', 'probe', 'profile'].includes(method)) {
+          writeMsg({ id, ok: false, exitCode: 2, error: { code: 'usage.bad-method', message: `未知 RPC 方法：${method}`, hint: null } });
+          return;
+        }
+        try {
+          const res = await enqueue(() => rt.execute(method, params));
+          writeMsg({
+            id, ok: true, exitCode: 0,
+            data: res.data,
+            outputs: res.outputs ?? [],
+            warnings: res.warnings ?? [],
+            humanLines: res.humanLines ?? [],
+            cacheHit: Boolean(res.cacheHit),
+          });
+        } catch (e) {
+          const { exitCode, error } = serializeError(e);
+          writeMsg({ id, ok: false, exitCode, error, outputs: [], warnings: [], humanLines: [] });
+        }
+      };
 
-  let listenedIno = null;
-  await new Promise((resolve, reject) => {
-    const onError = err => {
-      try { rt.dispose(); } catch { /* ignore */ }
-      reject(err?.code === 'EADDRINUSE' ? busyError() : err);
-    };
-    server.once('error', onError);
-    server.listen(socketPath, () => {
-      server.off('error', onError);
-      if (!isPipe && process.platform !== 'win32') {
-        try { fs.chmodSync(socketPath, 0o600); } catch { /* 某些虚拟文件系统可能不支持 chmod */ }
-        listenedIno = lstatOrNull(socketPath)?.ino ?? null;
-      }
-      resolve();
+      conn.on('data', chunk => {
+        buf += chunk;
+        if (Buffer.byteLength(buf, 'utf8') > MAX_LINE_BYTES) {
+          writeMsg({ id: null, ok: false, exitCode: 2, error: { code: 'usage.payload-too-large', message: '单条 RPC 消息超过 4 MiB 上限', hint: null } });
+          conn.destroy();
+          return;
+        }
+        let idx;
+        while ((idx = buf.indexOf('\n')) !== -1) {
+          const line = buf.slice(0, idx).trim();
+          buf = buf.slice(idx + 1);
+          if (line) handleLine(line);
+        }
+      });
+      conn.on('close', () => sockets.delete(conn));
+      conn.on('error', () => sockets.delete(conn));
     });
-  });
+
+    await new Promise((resolve, reject) => {
+      const onError = err => {
+        try { rt.dispose(); } catch { /* ignore */ }
+        reject(err?.code === 'EADDRINUSE' ? busyError() : err);
+      };
+      server.once('error', onError);
+      server.listen(socketPath, () => {
+        server.off('error', onError);
+        if (!isPipe && process.platform !== 'win32') {
+          try { fs.chmodSync(socketPath, 0o600); } catch { /* 某些虚拟文件系统可能不支持 chmod */ }
+          listenedIno = lstatOrNull(socketPath)?.ino ?? null;
+        }
+        resolve();
+      });
+    });
+  } finally {
+    releaseLock?.();
+  }
 
   armIdleTimer();
 
