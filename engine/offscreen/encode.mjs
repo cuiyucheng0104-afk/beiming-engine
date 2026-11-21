@@ -68,6 +68,7 @@ export function probeNvencAsync(bin = FFMPEG()) {
     try { child = spawn(bin, NVENC_PROBE_ARGS, { stdio: 'ignore' }); }
     catch { resolve(false); return; }
     const timer = setTimeout(() => { child.kill('SIGKILL'); resolve(false); }, 10000);
+    timer.unref?.();   // 渲染先失败时不让探测的超时 timer 拖住进程退出
     const done = ok => { clearTimeout(timer); resolve(ok); };
     child.once('error', () => done(false));
     child.once('close', code => done(code === 0));
@@ -145,11 +146,6 @@ export function resolveEncodeAsync(opts = {}) {
 /** 兼容旧调用：默认 mode=pro，所以 auto 选 x264。Fast 请走 resolveEncode({ mode: 'fast' })。 */
 export function resolveEncoder(requested = 'auto', { width, height, probe = probeNvenc, mode = DEFAULT_MODE } = {}) {
   const r = resolveEncode({ mode, encoder: requested, width, height, probe });
-  return { encoder: r.encoder, reason: r.reason };
-}
-
-export async function resolveEncoderAsync(requested = 'auto', { width, height, probe = probeNvencAsync, mode = DEFAULT_MODE } = {}) {
-  const r = await resolveEncodeAsync({ mode, encoder: requested, width, height, probe });
   return { encoder: r.encoder, reason: r.reason };
 }
 

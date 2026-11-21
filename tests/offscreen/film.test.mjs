@@ -54,3 +54,23 @@ test('空显示层跳过全幅读取与上传，唯一 1 像素绘制帧不漏�
     host.dispose();
   }
 });
+
+test('draw 画了内容又返回 false：本帧不叠图，下一帧先清画布，不残留', { timeout: 120000 }, async t => {
+  let gpu, createHost;
+  try {
+    ({ createHost } = await import('../../engine/offscreen/host.mjs'));
+    gpu = await (await import('../../engine/offscreen/load.mjs')).loadGpu();
+    await (await import('../../engine/offscreen/canvas.mjs')).loadCanvas();
+    (await createHost({ gpu, width: 64, height: 64 })).dispose();
+  } catch (e) { if (String(e.code).startsWith('env.')) return t.skip(`离屏出片不可用：${e.message}`); throw e; }
+  const W = 64, H = 36, host = await createHost({ gpu, width: W, height: H, fps: 24 });
+  try {
+    const work = await host.load(fileURLToPath(new URL('./fixtures/film-overlay-false.mjs', import.meta.url)));
+    const px = async f => { const p = await host.renderFrame(work, f); return x => Array.from(p.slice(x * 4, x * 4 + 3)); };
+    assert.deepEqual((await px(0))(0), [255, 0, 0]);
+    assert.deepEqual((await px(1))(0), [255, 0, 0], '返回 false 的帧不叠图');
+    const f2 = await px(2);
+    assert.deepEqual(f2(0), [255, 0, 0], '上一帧画了又返回 false，画布必须先清掉，不能残留白点');
+    assert.deepEqual(f2(5), [0, 255, 0]);
+  } finally { host.dispose(); }
+});

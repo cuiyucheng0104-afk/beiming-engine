@@ -449,7 +449,7 @@ npm run film -- build films/chendu --renderer offscreen --mode fast
 
 ### 7.21 性能优化规格书与阶段 1
 
-后续性能工作的分层规格（WP0–WP5）、测量纪律与每阶段闸门见 [spec-perf-first-principles.md](spec-perf-first-principles.md)。阶段 1（WP0.1–WP0.3：异步 NVENC 探测、`--frame-hashes`、空显示层跳过）已合入，输出逐字节不变；阶段闸门（1080p 144 帧 ≤ 3.3 s）本阶段未达，实测与原因写在该文 5.1。
+后续性能工作的分层规格（WP0–WP5）、测量纪律与每阶段闸门见 [spec-perf-first-principles.md](spec-perf-first-principles.md)。阶段 1（WP0.1–WP0.3：异步 NVENC 探测、`--frame-hashes`、空显示层跳过；WP0.4 零拷贝试作后撤回）已合入，输出逐字节不变；阶段闸门（1080p 144 帧 ≤ 3.3 s）本阶段未达，实测与原因写在该文 5.1。
 
 ## 8. 风险
 

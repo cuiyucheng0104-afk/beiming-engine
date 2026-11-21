@@ -1,6 +1,6 @@
 # 离屏出片性能优化架构规格书（第一性原理版）
 
-> 读者｜引擎工程师、离线渲染维护者与执行 agent　状态｜草案（2026-11-21）　依据｜[决定书 D03 / D08 / D12](../decisions/2026-11-10-industrial-baseline.md)、[离屏出片设计与实测记录](README.md) §7.17–7.20
+> 读者｜引擎工程师、离线渲染维护者与执行 agent　状态｜阶段 1（WP0.1–WP0.3）已合入，WP0.4 试作后撤回，阶段闸门未达，其余阶段仍为草案（2026-11-22）　依据｜[决定书 D03 / D08 / D12](../decisions/2026-11-10-industrial-baseline.md)、[离屏出片设计与实测记录](README.md) §7.17–7.20
 
 **一句话**：在严守「画质不降」与「预览 / 出片同源（D12）」两条红线的前提下，按物理瓶颈从大到小逐层消除固定启动、无效数据搬运、显存带宽浪费与采样复杂度上限，并通过无状态帧级切片把规模吞吐解耦到多卡 / 多机。
 
@@ -55,7 +55,7 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 - **现状问题**：`engine/offscreen/encode.mjs` 的 `probeNvenc()` 用 `spawnSync` 同步试编一帧，阻塞主线程 233–286 ms，且排在 `host.load()` 与着色器编译之前。
 - **规格**：
   - 新增 `probeNvencAsync(bin)`（基于 `child_process.spawn`，复用 `nvencProbeCache`，并发调用复用同一个 in-flight Promise，避免同一进程重复探测）。
-  - `resolveEncoderAsync(requested, { width, height, probe })` 在 `cli.mjs` 与 `batch.mjs` 中与 `createHost()` / `host.load()` **并发启动**（`Promise.all`），在 `startEncoder()` 前 `await` 结果。
+  - `resolveEncodeAsync({ mode, encoder, pixFmt, width, height, probe })` 在 `cli.mjs` 与 `batch.mjs` 中与 `createHost()` / `host.load()` **并发启动**（`Promise.all`），在 `startEncoder()` 前 `await` 结果。
   - 保留同步 `probeNvenc` / `resolveEncoder` 供现有单元测试与同步调用方兼容。
 - **验收**：
   - `offscreen render` 12 帧冷启动墙钟时间相对基线下降 ≥ 200 ms（探测时间完全隐藏在着色器编译中）。
@@ -229,7 +229,7 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 
 | 阶段 | 包含工作包 | 预计改动面 | 阶段目标与闸门 |
 |---|---|---|---|
-| **阶段 1（M8）** | WP0.1 – WP0.4 | `encode.mjs`、`cli.mjs`、`batch.mjs`、`film.mjs`、`yuv.mjs` | 零架构变动；1080p 144 帧冷启动 ≤ 3.3 s，稳态 CPU 余量降到 < 1 ms/帧，全项 T0 逐字节等价 |
+| **阶段 1（M8）** | WP0.1 – WP0.3（WP0.4 试作后已撤回，见 §5.1） | `encode.mjs`、`cli.mjs`、`batch.mjs`、`film.mjs` | 零架构变动；1080p 144 帧冷启动 ≤ 3.3 s，稳态 CPU 余量降到 < 1 ms/帧，全项 T0 逐字节等价 |
 | **阶段 2（M9）** | WP1.1 – WP1.3 | `tsl/grade.js`、`tsl/look.js`、新增 `daemon.mjs` | 4K `grade` 降 ≥ 35%；常驻热出片 1080p 144 帧 ≤ 1.5 s；20 轮无显存泄漏 |
 | **阶段 3（M10）** | WP2.1 – WP2.3 + WP5 | `host.mjs`、`tsl/kuwahara.js`、`tsl/idpass.js`、`frames.mjs` | WP2.1 必须先过 Micro-benchmark 闸门（4K Kuwahara ≥ 20% 提速），不达标即停并转评估 T1 方案；`ss=1` MRT 零像素差 |
 | **阶段 4（M11）** | WP3 | `tools/offscreen/farm.mjs`、`tools/remote/` | 多卡/多机切片 + `ffmpeg -c copy` 合并跑通，长片吞吐随卡数近线性增长 |
@@ -245,15 +245,15 @@ $$T_{\text{total}} = T_{\text{固定启动}} + \frac{N_{\text{帧}} \times \max\
 |---|---:|---:|---:|
 | 《晨渡》Fast 12 帧 | 2.458 s | 2.132 s | −0.326 s |
 | 《晨渡》Fast 144 帧 | 5.872 s | 5.106 s | −0.766 s |
-| 《晨渡》Pro 144 帧 | 8.760 s | 6.924 s | −1.836 s |
+| 《晨渡》Pro 144 帧 | 8.760 s | 6.924 s | −1.836 s（独立复核 4 轮交替每轮都更快，中位 8.705 → 7.048 s，−1.658 s） |
 | 《度》Fast 96 帧 | 1.993 s | 1.736 s | −0.257 s |
 | 《度》Pro 96 帧 | 3.522 s | 3.481 s | −0.041 s |
 
 各项结论：
 
 - **WP0.1 达标**：Fast 12 帧冷启动下降 0.326 s（目标 ≥ 0.2 s）；并发探测只起 1 个子进程由 `encode.test.mjs` 的真实子进程计数用例保证。
-- **WP0.2 部分达标**：`--frame-hashes off` 单帧哈希主线程耗时 1.27–1.34 ms → 0.0007 ms（未达草稿的 ≥ 1.4 ms，草稿估值偏高）；MP4 与 `on` 逐字节相同。Pro 档墙钟的下降（−1.8 s）含噪声（x264 占满所有核，哈希与编码争抢 CPU，本机后台负载也在变），不应当作稳定收益；稳定的部分是 Fast 的约 1.3 ms/帧。
-- **WP0.3 达标（功能）**：《晨渡》空字幕帧不再 `clearRect`/`getImageData`/上传；测试覆盖“只画 1 像素的 `fillRect` 不漏画”。`profile`（帧 0、24、48 为空显示层，3 轮）的 `compose` 段由 2.6–9.4 ms 降到 0.13 ms；帧 96、120（有片名）仍为 16–43 ms，与改前一致（此段含 GPU 等待与跑间波动，只看量级）。
+- **WP0.2 部分达标**：`--frame-hashes off` 单帧哈希主线程耗时 1.27–1.34 ms → 0.0007 ms（未达草稿的 ≥ 1.4 ms，草稿估值偏高）；MP4 与 `on` 逐字节相同。Pro 档的收益是真实的：独立复核 4 轮交替每一轮改后都更快（中位 8.705 → 7.048 s）。原因有两个：Pro 读回 rgba，1080p 一帧约 8.3 MB，`sha256` 比 Fast 的 yuv420p（约 3.1 MB）贵约 2.7 倍；《晨渡》前 96 帧显示层为空，省掉了每帧 `getImageData` 与全幅上传。《度》没有显示层，Pro 几乎没变（−0.04 s），印证了后者。Fast 单帧哈希本身约 1.3 ms/帧。
+- **WP0.3 达标（功能）**：`draw` 返回 `false` 表示本帧不叠图，但画布是否脏（需要下帧先清）单独按「是否发生过绘制调用」跟踪，所以“画了又返回 false”的下一帧没有残留（`film.test.mjs` 有用例）；《晨渡》空字幕帧不再 `clearRect`/`getImageData`/上传；测试覆盖“只画 1 像素的 `fillRect` 不漏画”。`profile`（帧 0、24、48 为空显示层，3 轮）的 `compose` 段由 2.6–9.4 ms 降到 0.13 ms；帧 96、120（有片名）仍为 16–43 ms，与改前一致（此段含 GPU 等待与跑间波动，只看量级）。
 - **WP0.4 No-Go（已撤回）**：试作了 `retain` 视图零拷贝（等 `enc.write` 的真实写回调后再 `unmap`）。4K 144 帧、同代码仅开关零拷贝的隔离对照：V8 堆峰值 75.7 → 100.5 MB，GC 总耗时 225 → 288 ms（GC 次数 246 → 245，几乎不变），未达“堆峰值与 GC 耗时下降 ≥ 30%”，反而变差，故不采用，`yuv.mjs`、`host.mjs`、`frames.mjs` 保持 `main` 原样。`srcBuf` 评估与 `rgba8unorm-srgb` 限制本阶段未动。
 - **阶段闸门未达**：① 1080p 144 帧冷启动 ≤ 3.3 s——库内 Fast 《晨渡》144 帧为 5.106 s（改前 5.872 s），启动之外还有渲染本身（稳态 GPU 约 25–30 ms/帧量级），WP0 范围的纯浪费清理到不了 3.3 s，需要 WP1 的常驻进程与管线缓存；② 稳态 CPU 余量 < 1 ms/帧——主线程 `work.render` 同步段实测 18–25 ms/帧（见下），未验证到。
 - **稳态主线程口径**：`work.render` 同步段 18–25 ms/帧（跑间波动大，on/off 差在噪声内），哈希段 1.3 ms/帧 → ≈ 0；`process.cpuUsage()` 会把 Dawn 原生线程计入，不能当主线程成本。

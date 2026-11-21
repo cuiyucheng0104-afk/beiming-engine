@@ -52,7 +52,7 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
     const overlayOn = uniform(0);
     const pipe = draw ? vec4(sRGBTransferEOTF(mix(look.node.rgb, ov.rgb, ov.a.mul(overlayOn))), 1) : look.output;
     const post = pipeline(pipe);
-    let overlayEmpty = true;
+    let dirty = false;   // 画布上可能有上一帧画的内容（与「这帧叠不叠图」分开跟踪）
     return {
       dur,
       ...(events ? { events } : {}),
@@ -66,13 +66,13 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
         look.render(S.scene, S.camera, globalThis.__LOOKDEV ? mergeParams(rawLook, globalThis.__LOOKDEV) : rawLook);
         if (draw) {
           markGpu(renderer, 'overlay');   // 显示层在 CPU 上画，这一段是 GPU 等它的时间
-          if (!overlayEmpty) ctx.clearRect(0, 0, W, H);
+          if (dirty) ctx.clearRect(0, 0, W, H);
           drawCalls = 0;
           const result = globalThis.__BMQA_OFFSCREEN?.hide === 'layer' ? false : draw(ctx, t, S, sctx);
-          const empty = result === false || drawCalls === 0;
-          if (!empty) ovTex.needsUpdate = true;
-          overlayEmpty = empty;
-          overlayOn.value = empty ? 0 : 1;
+          dirty = drawCalls > 0;
+          const on = result !== false && drawCalls > 0;
+          if (on) ovTex.needsUpdate = true;
+          overlayOn.value = on ? 1 : 0;
         }
         markGpu(renderer, 'compose');
         post.render();
