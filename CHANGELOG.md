@@ -88,6 +88,7 @@
 - 分块渲染（`engine/render/lib/chunks.mjs`，`video.mjs` 与 `shots.mjs` 共用）：一块的帧喂完后，FFmpeg 收尾（编完、核对帧数、改名）放到后台，同一路先渲下一块，每路最多一块在后台收尾。码流逐字节不变；RTX 4070 笔记本上 A、C 模版 192 帧 4 路交替实测中位快 6–10%（16 组配对 15 组更快）。
 - Python 顶层依赖范围抬到与锁文件已锁定的小版本一致（关闭的 Dependabot #26–#29 按协议重做）：`scipy>=1.18,<2`（锁 1.18.1）、`pillow>=13,<14`（锁 13.0.0）、`soundfile>=0.14,<1`（锁 0.14.0）、`soxr>=1.1,<2`（锁 1.1.0）。`requirements.lock` 按头里的 2026-11-10 时间点重生，针版本未变；`requirements.txt` 仍只引用 `requirements.in`。
 - 离屏出片的 TSL Kuwahara 展开成编译期常量：每个采样格的权重只取决于格子位置与 KR，改在 JS 里算好并展开，圆外格子不再采样，每个格子只累加权重非零的 3–4 个扇区，各扇区总权重也是常量。《化鹏闪羽》1080p 稳态每帧约 21.4 → 14.1 ms（整帧约 −34%，单机、GPU 被其他进程分走一部分，两轮交替测量），画面与改前最大差 1 级、PSNR ≥ 81 dB，对 GLSL 版的质量门不变；详见 `docs/offscreen/README.md` 7.17。
+- CI 的 smoke-render 拆成并行两路：`render (tests)`（全部测试）与 `render (smoke)`（`tests/ci/smoke-render.mjs`，含金标准），用 matrix 共用一份环境准备；原先两步串行，PR #36 那轮分别是 546 秒与 424 秒，加上约 480 秒的环境准备（headless shell 安装占 441 秒）共 24 分 18 秒。新增汇总任务 `smoke-render`，检查名沿用，两路都通过才绿；`smoke-render` 产物（`release.yml` 取接触印与静帧）仍由 smoke 一路上传，测试报告改传 `render-tests`。`tests/ci/workflows.test.mjs` 同步断言两路条件、汇总任务与产物名。注意：`tests/golden/linux-swiftshader/manifest.json` 还不存在，CI 的金标准一步目前只首次采集、不比对（PR #36 那轮约 236 秒），拆分不改变这一点。
 
 ### Removed
 

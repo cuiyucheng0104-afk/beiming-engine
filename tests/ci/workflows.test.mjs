@@ -63,9 +63,9 @@ test('同一个 action 在各处用同一个哈希（dependabot 升级时不会�
   assert.ok(seen.size >= 5);
 });
 
-test('ci.yml：五个 job 都在，各有时限；权限只读；windows-paths 用 PowerShell 且去掉 Git Bash；环境自检三平台', () => {
+test('ci.yml：六个 job 都在，各有时限；权限只读；windows-paths 用 PowerShell 且去掉 Git Bash；环境自检三平台', () => {
   const text = read('.github/workflows/ci.yml'), jobs = jobsOf(text);
-  assert.deepEqual(Object.keys(jobs), ['unit', 'check', 'smoke-render', 'env-smoke', 'windows-paths']);
+  assert.deepEqual(Object.keys(jobs), ['unit', 'check', 'render', 'smoke-render', 'env-smoke', 'windows-paths']);
   assert.match(jobs['env-smoke'], /os: \[ubuntu-24\.04, macos-26, windows-2025\]/);
   assert.match(jobs['env-smoke'], /hashFiles\('tools\/env\/doctor\.mjs'\) != ''/);
   for (const k of ['windows-paths', 'env-smoke']) assert.match(jobs[k], /continue-on-error: \$\{\{ vars\.BEIMING_\w+_REQUIRED != 'true' \}\}/);
@@ -73,11 +73,31 @@ test('ci.yml：五个 job 都在，各有时限；权限只读；windows-paths �
   assert.match(text, /^permissions:\n {2}contents: read$/m);
   assert.match(jobs.unit, /node: \['24', '22'\]/);
   assert.match(jobs.unit, /python-version: '3\.12'/);
-  assert.match(jobs['smoke-render'], /BEIMING_ANGLE: swiftshader/);
-  assert.match(jobs['smoke-render'], /sha256sum -c/);
+  assert.match(jobs.render, /BEIMING_ANGLE: swiftshader/);
+  assert.match(jobs.render, /sha256sum -c/);
   assert.match(jobs['windows-paths'], /shell: pwsh/);
   assert.match(jobs['windows-paths'], /notmatch '\\\\Git\\\\\(usr\\\\\)\?bin/);
   assert.match(text, /workflow_call:/);
+});
+
+test('ci.yml：render 的 tests 与 smoke 两路并行且互不拖累；smoke-render 汇总两路，release.yml 要的产物名只由 smoke 一路上传', () => {
+  const jobs = jobsOf(read('.github/workflows/ci.yml'));
+  assert.match(jobs.render, /matrix:\n\s+part: \[tests, smoke\]/);
+  assert.match(jobs.render, /fail-fast: false/, '一路红了另一路也要跑完');
+  // 每个只属于某一路的步骤都要带 matrix.part 条件，否则两路会各跑一遍对方的活
+  const stepsOf = text => text.split(/\n {6}- /).slice(1).map(s => `- ${s}`);
+  const steps = stepsOf(jobs.render);
+  const find = re => steps.find(s => re.test(s));
+  assert.match(find(/node tools\/run-tests\.mjs/), /if: matrix\.part == 'tests'/);
+  assert.match(find(/node tests\/ci\/smoke-render\.mjs/), /if: matrix\.part == 'smoke'/);
+  assert.match(find(/name: smoke-render\n/), /matrix\.part == 'smoke'/, 'smoke-render 产物（release.yml 下载）只能由 smoke 一路上传，名字不能撞');
+  assert.match(find(/name: golden-capture-linux-swiftshader/), /matrix\.part == 'smoke'/);
+  assert.match(find(/name: render-tests\n/), /matrix\.part == 'tests'/);
+  // 汇总任务：沿用 smoke-render 这个检查名，上游失败时也要跑（否则会被跳过而不是变红）
+  assert.match(jobs['smoke-render'], /needs: render\b/);
+  assert.match(jobs['smoke-render'], /if: always\(\)/);
+  assert.match(jobs['smoke-render'], /test "\$RENDER_RESULT" = success/);
+  assert.match(read('.github/workflows/release.yml'), /name: smoke-render\n\s+path: smoke/);
 });
 
 test('release.yml：标签触发、复用 ci.yml、只有建草稿的 job 有写权限，发布由人工点', () => {
