@@ -222,6 +222,7 @@
     "TMP",
     "TMPDIR",
     "XDG_CACHE_HOME",
+    "XDG_RUNTIME_DIR",
     "CI",
     "GITHUB_ACTIONS",
     "SHELL",
@@ -346,6 +347,92 @@
       "readBy": [
         "build.sh"
       ]
+    },
+    {
+      "name": "BEIMING_OFFSCREEN_DAEMON",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "控制 offscreen render/stills/probe/profile 默认是否连本机常驻守护进程：1/auto 连不上退回冷启动，on/required 必须连上，或直接写 socket 路径；CLI --daemon 优先",
+      "default": "不设（默认 off，走一次性进程）",
+      "readBy": [
+        "engine/offscreen/daemon.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_OFFSCREEN_SOCKET",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "覆写离屏守护进程默认的本机 Unix Domain Socket / Windows Named Pipe 路径；类 Unix 上父目录须为本人所有、非符号链接、权限 0700，否则守护进程拒绝监听",
+      "default": "$XDG_RUNTIME_DIR/beiming-offscreen.sock（无则 <临时目录>/beiming-offscreen-<uid>/daemon.sock；Windows 为带仓库与用户名哈希的命名管道，只有系统默认访问控制）",
+      "readBy": [
+        "engine/offscreen/daemon.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_SHADER_CACHE",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "离屏出片驱动级着色器磁盘缓存开关：设为 0 / off / false 时不自动把 NVIDIA/Mesa 缓存目录指向仓库 .cache/",
+      "default": "启用（不设则自动配置）",
+      "readBy": [
+        "engine/offscreen/load.mjs"
+      ]
+    },
+    {
+      "name": "BEIMING_SHADER_CACHE_DIR",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "覆写离屏出片驱动级着色器磁盘缓存根目录（其下分 nvidia/ 与 mesa/ 子目录）",
+      "default": "仓库根的 .cache/offscreen-shader-cache（已被 git 忽略）",
+      "readBy": [
+        "engine/offscreen/load.mjs"
+      ]
+    },
+    {
+      "name": "__GL_SHADER_DISK_CACHE",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "NVIDIA Vulkan/GL 驱动磁盘着色器缓存开关；未设时 load.mjs 自动置 1，显式设 0 时尊重用户设置",
+      "default": "1（由 load.mjs 自动补全）",
+      "readBy": [
+        "engine/offscreen/load.mjs"
+      ],
+      "external": "NVIDIA driver"
+    },
+    {
+      "name": "__GL_SHADER_DISK_CACHE_PATH",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "NVIDIA 驱动磁盘着色器缓存目录；未设时 load.mjs 自动指向 <BEIMING_SHADER_CACHE_DIR>/nvidia",
+      "default": ".cache/offscreen-shader-cache/nvidia（由 load.mjs 自动补全）",
+      "readBy": [
+        "engine/offscreen/load.mjs"
+      ],
+      "external": "NVIDIA driver"
+    },
+    {
+      "name": "__GL_SHADER_DISK_CACHE_SKIP_CLEANUP",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "避免 NVIDIA 驱动因默认容量上限清空磁盘着色器缓存；未设时 load.mjs 自动置 1",
+      "default": "1（由 load.mjs 自动补全）",
+      "readBy": [
+        "engine/offscreen/load.mjs"
+      ],
+      "external": "NVIDIA driver"
+    },
+    {
+      "name": "MESA_SHADER_CACHE_DIR",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "Mesa Vulkan/GL 驱动磁盘着色器缓存目录；未设且未禁用时 load.mjs 自动指向 <BEIMING_SHADER_CACHE_DIR>/mesa",
+      "default": ".cache/offscreen-shader-cache/mesa（由 load.mjs 自动补全）",
+      "readBy": [
+        "engine/offscreen/load.mjs"
+      ],
+      "external": "Mesa"
+    },
+    {
+      "name": "MESA_SHADER_CACHE_DISABLE",
+      "group": "离屏出片（engine/offscreen）",
+      "purpose": "设为 true / 1 时禁用 Mesa 磁盘着色器缓存，load.mjs 尊重该设置不再配置 MESA_SHADER_CACHE_DIR",
+      "default": "不设",
+      "readBy": [
+        "engine/offscreen/load.mjs"
+      ],
+      "external": "Mesa"
     },
     {
       "name": "FFMPEG",
