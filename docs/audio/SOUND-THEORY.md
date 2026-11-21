@@ -63,10 +63,10 @@
 #### （1）Andy Farnell《Designing Sound》：物理因果拆解
 一切自然与机械发声均可分解为 **激励器（Exciter，能量注入时间函数）× 共振体（Resonator，几何与材质模态滤波器）× 耦合反馈（Coupling，受力/速度/位移实时调制）**。
 
-1. **非线性赫兹接触碰撞（Hertzian Contact Law）**：
+1. **非线性赫兹接触碰撞与远场加速度辐射（Hertzian Contact & Acoustic Acceleration Radiation）**：
    弹性锤体以初速度 $v_0$ 撞击刚体时，局部压痕 $\delta$ 产生非线性恢复力 $F = K \delta^{3/2}$，接触持续时间 $\tau_c$ 满足：
    $$\tau_c \approx 2.94 \left(\frac{m_{\text{eff}}}{K}\right)^{2/5} v_0^{-1/5}$$
-   半正弦接触脉冲的主瓣截止频率 $f_{\text{cut}} \approx 1.5 / \tau_c \propto K^{2/5} v_0^{1/5}$。硬度 $K$ 越高（金属 > 硬塑 > 木材 > 橡胶）或撞击速度 $v_0$ 越大，$\tau_c$ 越短（硬金属 `0.15–0.8 ms`，硬木 `0.8–2.5 ms`，软胶 `4–15 ms`），激发的高阶模态越明亮。
+   半正弦接触脉冲的主瓣截止频率 $f_{\text{cut}} \approx 1.5 / \tau_c \propto K^{2/5} v_0^{1/5}$。硬度 $K$ 越高（金属 > 硬塑 > 木材 > 橡胶）或撞击速度 $v_0$ 越大，$\tau_c$ 越短（硬金属 `0.15–0.8 ms`，硬木 `0.8–2.5 ms`，软胶 `4–15 ms`），激发的高阶模态越明亮。同时，小尺寸固体在远场的辐射声压正比于表面法向加速度 $p_{\text{rad}}(t) \propto \partial^2 w / \partial t^2$（二阶接触力差分，`procedural.modal_impact(..., radiation='accel')`）：在主模态基频以下呈 `-12 dB/oct` 滚降，彻底消除软锤位移响应在 `< 100 Hz` 遗留的非物理低频隆隆尾音（`radiation='disp'` 保留既有位移响应逐样本兼容）。
 
 2. **刚体弯曲模态与频散（Euler-Bernoulli Dispersion）**：
    弦的泛音成整数比 $1:2:3:4$（乐音感），而刚体杆、梁、金属板与螺旋弹簧受四阶弯曲刚度方程 $EI\,\partial^4 w/\partial x^4 + \rho A\,\partial^2 w/\partial t^2 = 0$ 支配，弯曲波相速度随频率升高（频散）：
@@ -89,6 +89,12 @@
 
 5. **粘滑弛豫摩擦（Stick-Slip）与步进棘轮状态机**：
    干摩擦界面因静摩擦系数 $\mu_s > \mu_k$，在切向滑移速度 $v(t)$ 下交替经历“弹性黏附储能 → 瞬时微崩塌滑脱”，脱扣脉冲率 $f_{\text{slip}}(v) \in [30, 300]\text{ Hz}$ 随速度非线性上升并激励材质三共振峰。步进棘轮则由转角积分跨越齿距角 $\Delta\theta = 2\pi/Z$ 逐齿触发，经 `30–42 ms` 势能死点悬停后释放“主齿面撞击 + 止逆爪 `+9.5 ms` 副咔嗒”双阶落锁。
+
+6. **三维闪电通道推迟传播、时变管腔注水共振、欧拉盘奇点滚振与非线性激波**：
+   - **三维曲折闪电通道 N 波传播（Few, 1969; Ribner & Roy, 1982）**：高度 $z \in [0, 3.2]\text{ km}$ 的梯级先导主干与云间分叉各微元向双耳（$x = \pm 0.12\text{ m}$）辐射零净冲量双极性 N 波冲击子，到达时刻满足推迟势 $t_i = (r_i - r_{\min})/c_0$，幅值按偶极方向图 $\sin^2\theta_i / r_i$ 加权并经分层 ISO 9613-1 大气高频吸收，近场保留 `4–18 kHz` 撕裂电弧，远端演化为 `35–180 Hz` 焦散滚雷与二次箭式回击（`procedural.thunder_strike`）。
+   - **杯壶注水时变四分之一波长腔体共振（Minnaert × Levine-Schwinger）**：幂律分布水下微气泡流（$r_0 \in [0.6, 4.5]\text{ mm}$）与飞溅湍流激励上方闭底圆筒空气柱；随液面填充率 $\mathrm{fill}(t)$ 升高，含管口修正的有效气柱长 $L_{\text{eff}}(t) = H(1 - \mathrm{fill}(t)) + 0.61 R$ 连续缩短，奇次轴向共振峰 $f_k(t) = (2k+1)c_0 / [4 L_{\text{eff}}(t)]\ (k=0,1,2)$ 单调上扬（`procedural.pouring_vessel`）。
+   - **圆薄板简并分裂闪烁与欧拉盘有限时间奇点滚振（Chladni Doublet & Moffatt, 2000）**：微非对称圆盘正交简并模态 $(f_m, f_m(1+\delta))$ 在左右耳投射正交辐射相位，产生直达 `16–19 kHz` 的金属/玉石拍频闪烁；几何递减弹跳收拢后进入无滑边缘进动滚振，触点颤振率服从 $f_{\text{chatter}}(t) \propto (t_{\text{sing}} - t)^{-1/3}$（`22 → 95 Hz`），并以气膜挤出平拍止音（`procedural.bouncing_disc`）。
+   - **超音速弹道 N 波与 Friedlander 冲击波超压（Friedlander, 1946; Whitham, 1956）**：烟花、火炮、瓶塞与鞭梢音爆由前导双极性弹道 N 波脆裂（`0.35–1.2 ms`）叠合零净冲量 Friedlander 冲击波 $p(t) = p_0(1 - t/t_+)e^{-t/t_+}$、`2.5–6.5 ms` 地面反射干涉凹口及 `0–20 kHz` 全带宽尾迹构成（`procedural.shock_blast`）。
 
 #### （2）Perry Cook《Real Sound Synthesis》：模态滤波器组与 PhISEM 粒子群
 - **并联二阶模态合成（Modal Synthesis）**：将固体共振体建模为 $M$ 个并联二阶双极点谐振器 $H_k(z) = a_k / (1 - 2 r_k \cos\omega_k z^{-1} + r_k^2 z^{-2})$，极点半径 $r_k = \exp(-1 / (\tau_k f_s))$，且高频阻尼快于低频：$\tau_k = \tau_1 (f_1 / f_k)^\eta$（木材/石板 $\eta \approx 0.7\text{–}0.9$，青铜/水晶玻璃 $\eta \approx 0.25\text{–}0.45$）。
@@ -174,7 +180,7 @@ flowchart LR
 3. **取证信号指标与洁净增益方程**：
    - 归一化增益与底噪放大传递：
      $$G = 20 \log_{10}\!\left(\frac{P_{\text{target}}}{\text{raw\_pk}}\right)\text{ dB}, \qquad L_{\text{out\_floor}} = L_{\text{slice\_floor}} + G$$
-   - 硬门禁：前景实录切片 $G \le 20.0\text{ dB}$（$P_{\text{target}}=0.95$ 时要求 `raw_pk >= 0.095`），总线前输出底噪 $L_{\text{out\_floor}} \le -56.0\text{ dBFS}$；`sfx_judge` 要求满幅削波样本 `< 24`、直流偏移 `≤ 0.03`、95% 能量有效带宽达标（如 `metal_blade ≥ 5200 Hz`、`mechanical ≥ 3000 Hz`，拦截 8/11 kHz 老旧素材伪升频）、无源机构 `80–3000 Hz` 窄带固定谱峰驻留 `sustained_tone_ms ≤ 120 ms`。
+   - 硬门禁：前景实录切片 $G \le 20.0\text{ dB}$（$P_{\text{target}}=0.95$ 时要求 `raw_pk >= 0.095`），总线前输出底噪 $L_{\text{out\_floor}} \le -56.0\text{ dBFS}$；`sfx_judge` 要求满幅削波样本 `< 24`、直流偏移 `≤ 0.03`、95% 能量有效带宽达标（如 `metal_blade ≥ 5200 Hz`、`mechanical ≥ 3000 Hz`，拦截 8/11 kHz 老旧素材伪升频）、宽带非乐音原型无 `> 6 kHz` 周期颗粒调制电嗡声（`hf_envelope_buzz ≤ 0.50–0.58`）且无 `4–16 kHz` 窄带滤波器金属哨音尖刺（`hf_whistle_db ≤ 17.0–19.5 dB`；`metal_blade / sustained_tonal / tonal_ui / low_drone / mechanical` 豁免）、无源机构 `80–3000 Hz` 窄带固定谱峰驻留 `sustained_tone_ms ≤ 120 ms`。
 
 #### 正反例对照
 - **正例**：拆解手按圆珠笔时，认知锚点搜 `ballpoint pen click close-mic -motor`，高频细节层跨界搜 `camera shutter dial` 与 `micrometer ratchet`，入库跑 `sfx_judge` 与 `library.load_slice(..., max_gain_db=20.0)`，只取主瞬态饱满段（`raw_pk > 0.25`）。
@@ -190,10 +196,11 @@ flowchart LR
 #### 定量模型与工程区间
 | 物理/设计机制 | 核心控制方程 | 工程推荐参数区间 |
 |---|---|---|
-| **赫兹接触模态撞击** | $\tau_c \propto (m/K)^{2/5} v_0^{-1/5}$；$H(z)=\sum a_k/(1-2r_k\cos\omega_k z^{-1}+r_k^2 z^{-2})$ | 接触脉冲宽 `0.2–8.0 ms`；模态数 $M = 4\text{–}8$；自由梁比 `1 : 2.758 : 5.404` |
+| **赫兹接触模态撞击** | $\tau_c \propto (m/K)^{2/5} v_0^{-1/5}$；$H(z)=\sum a_k/(1-2r_k\cos\omega_k z^{-1}+r_k^2 z^{-2})$；$p_{\text{rad}} \propto \mathrm{d}^2 w/\mathrm{d}t^2$ | 接触脉冲宽 `0.2–8.0 ms`；模态数 $M = 4\text{–}8$；`radiation='accel'` 施加基频下 `-12 dB/oct` 加速度辐射（`disp` 保兼容） |
 | **PhISEM 粒子散落** | $E[n]=\alpha_{\text{sys}} E[n-1]$；$P_{\text{hit}}(t) \propto N_p E(t)$ | 单粒衰减 `0.6–4.5 ms`；系统衰减系数 $\alpha_{\text{sys}} \in [0.996, 0.9997]$ |
 | **Strouhal 气动破空** | $f_s(t) = \mathrm{St}\cdot U(t)/d$（$\mathrm{St}\approx 0.20$）；$A(t) \propto U(t)^{2.5\sim 3.0}$ | 细鞭直径 `8–25 mm`（主频 `400–2800 Hz`）；巨翼/重锤叠 `90–220 Hz` 低通棕噪 |
-| **Minnaert 液体气泡** | $f_0 \approx 3260 / R_0[\text{mm}]\text{ Hz}$；$f(t)=f_0(1+\chi t/\tau)$ | 气泡半径 `1.2–12 mm`（`270–2700 Hz`）；破裂上扬扫频 $\chi \in [0.08, 0.25]$ |
+| **Minnaert 气泡与杯腔注水** | $f_0 \approx 3260 / R_0[\text{mm}]\text{ Hz}$；$L_{\text{eff}}(t)=H(1-\mathrm{fill}(t))+0.61R$，$f_k=(2k+1)c_0/(4L_{\text{eff}})$ | 气泡半径 `0.6–12 mm`，上扬扫频 $\chi \in [0.08, 0.25]$；`pouring_vessel` 前三阶奇次腔模随液位上升单调上移 |
+| **闪电 N 波 / 欧拉盘 / 激波爆破** | $t_i=(r_i-r_{\min})/c_0$；$f_{\text{chat}}(t)\propto(t_{\text{sing}}-t)^{-1/3}$；$p(t)=p_0(1-t/t_+)e^{-t/t_+}$ | `thunder_strike` 双耳推迟 + 4 层大气吸收壳；`bouncing_disc` 双音闪烁至 `19 kHz` + `22→95 Hz` 滚振；`shock_blast` N 波 + Friedlander 超压 |
 | **四层超真实实录复合** | $y(t) = y_{\text{id}}(t) + y_{\text{det}}(t-\delta_1) + y_{\text{body}}(t-\delta_2) + y_{\text{sp}}(t)$ | `identity` 移调 `±1.5 st` 内；`detail` 高通 `1.9–2.6 kHz`（$\delta_1 \approx 0.8\text{ ms}$）；`body` 低通 `4.2–5.4 kHz` 且哈斯延后 $\delta_2 = 1.8\text{–}2.5\text{ ms}$；微距混响 `wet ≤ 0.12` |
 | **耳道敏感区防刺耳** | RBJ 参量均衡 $f_0 = 3500\text{ Hz}, Q \approx 1.3$ | 高科技镭射走线（`6.8–12.6 kHz`）在 `3.5 kHz` 挖 `-6.5 dB` 凹槽，`14.8 kHz` 低通滚降 |
 
@@ -280,6 +287,22 @@ flowchart LR
 
 ---
 
+### 3.6 终局闭环拓展：自动视觉遥测、四干线对白共振峰、情绪导引配乐与长片流式母带
+
+1. **自动视觉遥测与无硬编码角色绑定（Automatic Visual Telemetry）**：
+   - **舞台投影传感器（`engine/stage/telemetry.js`）**：`projectThreeActor(object3d, camera, opts)` 对三维角色做纯 4×4 列主序透视/正交矩阵投影，输出归一化声像 `x, y ∈ [-1, 1]`、画高占比 `scale = clamp(projectedHeight / 2, 0, 1.5)`、欧氏物距 `depth ≥ 0.1 m` 与视锥可见性 `visible ∈ {0, 1}`；`trackCanvasActor(rect, viewport)` 归一化二维画布元素；`createAudioTelemetry(actors).install(win)` 挂载 `window.AUDIO_TELEMETRY(t, f)`，由 `events.mjs --telemetry`（`film.json` 设 `audio.telemetry: true`）采为 `kinematics.json`（注入 `BEIMING_KINEMATICS`）。
+   - **打点与角色耦合（`engine/audio/spotting.py` & `editorial.py`）**：`spot_from_kinematics(kin)` 剔除切点 `±1` 帧伪峰后提取 `cuts / holds / motion_peaks` 与各角色可见区间及轨迹；无页面源码的成品视频由 `spot_from_video(video_path)` 经 FFmpeg 管道 O(1) 帧内存流式提取四分区 `Kinematics`；`FourStemWorkstation.bind_actor(kin, actor_id, wave, ...)` 直接驱动连续声像、`screen_scale_to_distance` 远近衰减、大气高频吸收与多普勒频移。
+2. **四干线对白共振峰零相位让位（Four-Stem Dialogue Formant Pocket）**：
+   - **理论判据**：人类语音辨识度核心由第一、二、三共振峰及辅音擦音区（`800–4200 Hz`）决定，而管弦大提琴与低音贝斯的温暖底盘集中在 `< 350 Hz`。宽带乘法闪避（`music * duck`）同时砍掉低频基音会产生严重抽吸感。
+   - **工程算子（`director.carve_dialogue_pocket`、`sculpt_stem_eq`、`FourStemWorkstation.set_dialogue`）**：对白轨经 `85 Hz` 二阶高通、`-1.8 dB @ 240 Hz` 去胸腔浑浊、`+1.2 dB @ 3.0 kHz` 提清晰度、`-1.0 dB @ 7.2 kHz` 柔化齿音，有声窗（`> -42 dBFS`）定标 `-16.0 LUFS` 并挂 `rt=0.32 s, room_wet=0.04` 微早反；零相位临界频带挖槽（15 ms 前视、20 ms 起音、180 ms 释放）仅衰减配乐 `800–4200 Hz`（默认 `4.2 dB`，`< 350 Hz` 实测衰减 `< 0.01 dB`）、`amb` `600–4500 Hz`（`2.5 dB`）与 `fx/foley` `1.2–4.2 kHz`（`1.8 dB`）。
+   - **清晰度门禁（`qa.py` `audio.dialogue`）**：有声句段 `1–4 kHz` 对同期背景信噪比 `≥ +2.0 dB` 判 `pass`，`[-2.0, +2.0) dB` 判 `warn`（`dialogue_masked`），`< -2.0 dB` 或满幅削波判 `fail`（退出码 4）；`film build` 自动合成 `dialogue.json`（`BEIMING_DIALOGUE_DIR`）并在 `mix` 阶段执行前置 `audio/qa.json` 快败拦截。
+3. **情绪导引乐谱与 ACE-Step 1.5 Cover 管线（`engine/audio/music_gen.py` · `npm run audio:music`）**：
+   - `plan_sections_from_film` 由镜头与事件表推导叙事能量弧线（开场 `0.35` → 推进 `0.55..0.70` → 高潮前悬停呼吸 `0.42` → 终章抬升 `0.92`）；`build_guide_score` 确定性合成 48 kHz 立体声导引轨（跨段和声铺底、锁拍琶音、切镜前上行引子与终章高八度/高五度抬升，中段零静音断档，峰值 `-3.0 dBFS`）；`generate_cover` 支持离线 `guide` 与远端 ACE-Step 1.5 `cover` 模式（`--endpoint` → `BEIMING_ACESTEP_URL` → `--ssh` 临时端口转发自动清理，`soxr` 48 kHz `PCM_24` 精确样本裁剪与 D11 `aigc` 标识）。
+4. **长片流式总线粘合母带（Long-Form Streaming Bus Glue，`engine/audio/stream.py`）**：
+   - 针对分钟级（10 分钟）长片，`stream.Bus` 采用 `float32` 局部稀疏写入，`stream.bus_glue_compress` 与 `stream.master_chain(..., chunk_s=10.0)` 在分块原地处理中跨块延续 IIR `lfilter(..., zi=...)` 状态与 Numba `@njit` 慢起音压缩包络：与全内存 `mixing.master_chain` 积分响度差 `< 0.05 LU`、分块边界零阶跃咔嗒，`600 s` 立体声实测峰值内存 `854 MB < 1.0 GB`。
+
+---
+
 ## 4. 全管线核心工程参数速查总表
 
 | 管线阶段 | 物理/感知量 | 工程安全区间 / 硬门禁 | 失控后果 | 对应检查或护栏 |
@@ -287,6 +310,7 @@ flowchart LR
 | **1. 搜索** | 切片归一化增益 $G$ | 前景实录 `≤ 20.0 dB`（`raw_pk ≥ 0.095`），输出底噪 `≤ -56 dBFS` | 话筒白噪被等量放大 `+30 ~ +52 dB` | `library.load_slice` |
 | **1. 搜索** | 无源机构窄带谐波驻留 | `sustained_tone_ms ≤ 120 ms`；包络自相关 `≤ 0.85` | 手按/冷兵器听出伺服电机声或死循环味 | `sfx_judge.judge_ontology` |
 | **1. 搜索** | 素材 95% 能量有效带宽 | 金属刃 `≥ 5.2 kHz`、水 `≥ 3.8 kHz`、机械 `≥ 3.0 kHz` | 8/11 kHz 劣质老素材伪升频导致闷糊 | `sfx_judge.judge_wave` |
+| **1. 搜索** | 高频颗粒电嗡与窄带哨音尖刺 | 宽带原型 `hf_envelope_buzz ≤ 0.50–0.58`、`hf_whistle_db ≤ 17.0–19.5 dB`（乐音/金属豁免） | `> 6 kHz` 周期颗粒调制蜂鸣或 `4–16 kHz` 高 Q 金属哨音 | `sfx_judge.extract_metrics`、`judge_wave` |
 | **2. 合成** | 哈斯层间微延迟 $\Delta t$ | `body` 延后 `1.8–3.0 ms`；棘轮副咔嗒 `+8–12 ms` | `< 1 ms` 相位抵消糊瞬态；`> 35 ms` 分裂成双响 | `foley.composite_mechanism` |
 | **2. 合成** | 耳道共振区保护凹槽 | `3.5 kHz`（`2.8–4.5 kHz`）衰减 `-4.5 ~ -6.5 dB, Q=1.35` | 高频电子音/金属声刺耳扎耳朵 | `director.hitech_laser_trace` |
 | **3. 编辑** | 微动作最小有效时长 | 起笔脉冲 `≥ 12 ms`；独立叙事微声包络体 `≥ 30 ms` | `< 5 ms` 针尖脉冲因 `200 ms` 积分惩罚约 `-18 dB` 而听不见 | `director.subtle_precision_cue` |
@@ -294,8 +318,10 @@ flowchart LR
 | **3. 编辑** | 连击防疲劳与 IOI 收尾 | 移调差 `≥ 0.35 st`（摆幅 `±0.5 ~ ±1.2 st`）；`IOI < 280 ms` 时尾长 `≤ 0.82·IOI` | 同波形复读触发机关枪效应；前尾前向掩蔽糊死后一击 | `ActionVariationDeck`、`editorial` |
 | **4. 贴合** | P-Center 声画同步偏差 | 相对画面结果帧 `[-10 ms, +1 帧]` | 按文件第 `0` 样本硬贴导致前导摩擦拖慢主冲击 | `library.sync_anchor`、`audio:cuecheck` |
 | **4. 贴合** | 按景别声像上限 `SHOT_PAN_CAP` | 微距 `±0.12`、特写 `±0.25`、中景 `±0.35`、全景 `±0.60` | 特写镜头按几何底座大偏置造成单耳轰头偏斜 | `HDRMixer.add_cue`、`audio.balance` |
+| **4. 贴合** | 舞台视觉遥测与角色绑定 | `x, y ∈ [-1, 1]`、`scale = h/H ∈ [0, 1.5]`；剔除切点 `±1` 帧伪峰 | 手写固定声像/电平导致运动声源脱体、远近失真 | `telemetry.js`、`spotting.py`、`bind_actor` |
 | **5. 混音** | 并发焦点与峰值前负空间 | `85 ms` 窗最多 `2` 个焦点；高潮前抽空 `4–12 帧`（`167–500 ms`） | 多声部拥堵成噪音墙；高潮缺乏呼吸对比 | `HDRMixer`、`carve_negative_space` |
-| **5. 混音** | 分轨窥视信噪比与母带交付 | 主频带窥视 `SNR ≥ -8 dB`（硬门 `-16 dB`）；`-14.0±0.5 LUFS`、TP `≤ -1.5 dBTP` | 关键拟音被配乐淹没；编码过载削波或二次压限失真 | `audio.masking`、`audio.loudness`、`audio.truepeak` |
+| **5. 混音** | 四干线对白共振峰挖槽与清晰度 | 配乐仅挖 `800–4200 Hz`（`< 350 Hz` 零衰减）；`1–4 kHz` 对白 `SNR ≥ +2.0 dB`（硬门 `-2.0 dB`） | 宽带乘法抽吸低频底盘，或台词被配乐中频糊住 | `carve_dialogue_pocket`、`audio.dialogue` |
+| **5. 混音** | 分轨窥视信噪比、双向乐效与流式母带 | 窥视 `SNR ≥ -5 dB`（`hero ≥ -1 dB`）；`-14±1 LUFS`（含 `-13.3` 粘合母带）、TP `≤ -1.5 dBTP`；10 分钟峰值内存 `< 1.0 GB` | 乐效互淹或被死压；长片母带撑爆内存 | `audio.masking`、`mixing/stream.master_chain` |
 
 ---
 
@@ -314,7 +340,8 @@ flowchart LR
 - **程序化音频与物理声学建模**：
   - Andy Farnell, *Designing Sound* (MIT Press, 2010)：激励器 × 共振体 × 耦合因果拆解、Euler-Bernoulli 弯曲色散模态、Strouhal 气动涡街、粘滑弛豫摩擦与机械步进状态机。
   - Perry R. Cook, *Real Sound Synthesis for Interactive Applications* (A K Peters / CRC Press, 2002) & *Physically Informed Sonic Modeling (PhISM)* (*Computer Music Journal*, 1997)：并联二阶模态合成与 PhISEM 随机粒子碰撞能量模型。
-  - Marcel Minnaert, *On musical air-bubbles and the sounds of running water* (*Philosophical Magazine*, 1933) & N. Curle, *The influence of solid boundaries upon aerodynamic sound* (*Proc. R. Soc. Lond. A*, 1955)：水下气泡单极子共振与刚体气动偶极子六次方声功率律。
+  - Marcel Minnaert, *On musical air-bubbles and the sounds of running water* (*Philosophical Magazine*, 1933)；H. Levine & J. Schwinger, *On the radiation of sound from an unflanged circular pipe* (*Physical Review*, 1948)；N. Curle, *The influence of solid boundaries upon aerodynamic sound* (*Proc. R. Soc. Lond. A*, 1955)：水下气泡单极子共振、无障板圆管末端修正与刚体气动偶极子六次方声功率律。
+  - A. A. Few, *Power spectrum of thunder* (*J. Geophys. Res.*, 1969) & H. S. Ribner & D. Roy (*JASA*, 1982)；H. K. Moffatt, *Euler's disk and its finite-time singularity* (*Nature*, 2000)；F. G. Friedlander (*Proc. R. Soc. Lond. A*, 1946) & G. B. Whitham (*J. Fluid Mech.*, 1956)：三维闪电通道 N 波推迟传播、欧拉盘有限时间奇点滚振与非线性激波超压波形。
 - **心理声学、视听同步与动态混音标准**：
   - Albert S. Bregman, *Auditory Scene Analysis: The Perceptual Organization of Sound* (MIT Press, 1990) & Martin Cooke (2006)：同时掩蔽、前后向时域掩蔽、听觉流分离与局部频谱窥视（Glimpsing）。
   - Hugo Fastl & Eberhard Zwicker, *Psychoacoustics: Facts and Models* (3rd ed., Springer, 2007)；Brian C. J. Moore & Brian R. Glasberg (1983)；Jozef Zwislocki (1960)：Bark / ERB 临界频带、外耳道共振与 `200 ms` 响度时间积分。

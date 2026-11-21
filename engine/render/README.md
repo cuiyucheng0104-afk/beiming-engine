@@ -12,7 +12,7 @@
 | `node engine/render/video.mjs` | 整片或区间：逐帧无损截图 → 一次色彩换算 → H.264；不写 `--out` 时出到运行目录 | `node engine/render/video.mjs films/x --profile web-1080p24` |
 | `node engine/render/shots.mjs` | 按 film.json 的镜头表逐镜头渲染并缓存，只重渲变了的镜头；`--out` 拼成一部 | `node engine/render/shots.mjs films/x --out films/x/out/cut.mp4` |
 | `node engine/render/lib/mux.mjs` | 音画封装：响度线性归一、画面能拷贝就拷贝、写 AIGC 隐式标识（`mux.sh` 是调用它的兼容壳） | `node engine/render/lib/mux.mjs v.mp4 mix.wav out.mp4 --film films/x` |
-| `node engine/render/serve.mjs` | 本地预览服务，只听 127.0.0.1（`npm run serve`） | `node engine/render/serve.mjs --port 8080` |
+| `node engine/render/serve.mjs` | 本地预览服务，只听 127.0.0.1（`npm run serve`；页面加 `?preview=1` 开带声分轨调片预览条，`--no-preview` 关闭） | `node engine/render/serve.mjs [--port 8080] [--root <目录>] [--no-preview] [--json]` |
 | `node tools/rtx/gpucheck.mjs` | GPU 自检：逐个 ANGLE 后端看 WebGL 落在哪块 GPU（`npm run env:gpu`） | `node tools/rtx/gpucheck.mjs --json` |
 
 所有命令都遵守 docs/CLI.md：`--help` 只打印用法（不开浏览器、不写文件）；不认识的选项退出 2 并给「是不是想写」；`--json` 时 stdout 只有一个信封对象（`{schemaVersion, ok, exitCode, command, error, outputs, runJson, warnings, data}`），日志全在 stderr；`--quiet` 关进度。完整选项看各命令的 `--help`。
@@ -173,7 +173,15 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 
 ## 11. 预览服务
 
-`node engine/render/serve.mjs`（`npm run serve`）取代 `python3 -m http.server` 与 `npx http-server`（它们监听所有网卡，并且会把 `.git` 发出去）。渲染器内部用的是同一个服务器（`lib/server.mjs`）：只听 127.0.0.1；只回答 GET / HEAD；`Host` 必须是 `127.0.0.1` 或 `localhost` 加本端口（挡 DNS 重绑定）；路径里任何一段以 `.` 开头一律 404；越出仓库根（含符号链接逃逸）403，`node_modules` 与登记过的影片目录真实路径例外；不列目录；支持 Range；一律 `Cache-Control: no-store`。
+```sh
+node engine/render/serve.mjs [--port 8080] [--root <目录>] [--no-preview] [--json]   # 即 npm run serve
+```
+
+- **加固静态服务**（`lib/server.mjs`，渲染器无头截帧用的是同一个服务器）：取代 `python3 -m http.server` 与 `npx http-server`（它们监听所有网卡，并且会把 `.git` 发出去）。只听 `127.0.0.1`；纯静态请求只回答 `GET / HEAD`；`Host` 必须是 `127.0.0.1` 或 `localhost` 加本端口（挡 DNS 重绑定）；路径里任何一段以 `.` 开头一律 `404`；越出服务根（含符号链接逃逸）`403`，`node_modules` 与登记过的影片目录真实路径例外；不列目录；支持 `Range`；一律 `Cache-Control: no-store`。不带 `?preview=1`（或加了 `--no-preview`）时原样流出文件原始字节，不碰渲染链路。
+- **`?preview=1` WebAudio 相位锁定分轨调片工作台**（`lib/preview.mjs` + `lib/preview-client.mjs`）：在浏览器打开 `http://127.0.0.1:8080/films/<名字>/?preview=1`（根样片为 `http://127.0.0.1:8080/?preview=1`）时，仅对该 HTML 响应注入零外部依赖的原生 ES 模块与 Shadow DOM 调片栏（非北冥渲染约定页面自动静默退出）：
+  - **声卡相位锁定时钟**：经 `GET /_preview/state?dir=<目录>` 发现 `film.json` 切点/事件与最新运行目录分轨（无独立分轨时回退 `mix.wav`，尚无混音时退回静默时钟），以硬件音频时钟 `AudioContext.currentTime` 逐帧驱动 `window.render(t)`，声画零漂移；
+  - **帧级播控与快捷键**：时间轴标出橙色镜头切点与青色声画事件刻度，支持拖拽定位、`Space` 播放/暂停、`←` / `→` 逐帧步进（`±1` 帧）、`[` / `]` 跳上/下一镜头切点、`L` 循环开关与底栏折叠；
+  - **实时分轨独奏/静音与热重混**：每条分轨（`amb / fx / foley / music / vo / ui`）挂独立 `GainNode`，支持实时无咔嗒 `M`（Mute 静音）/ `S`（Solo 独奏）切换；点击 `↻ 重混声音`（`POST /_preview/rebuild?dir=<目录>`，校验回环 `Origin` 并带单目录并发锁 `409`）在后台调用 `film mix <作品> --no-cache --json`（根样片调 `tools/audio/build.mjs --json`），完成后免刷新热替换音频缓冲并同步更新 `QA PASS` / `QA FAIL` 声音门禁徽章。
 
 ## 12. 环境变量
 
@@ -202,6 +210,7 @@ node engine/render/video.mjs films/x                          # 出到 films/x/o
 | `lib/errors.mjs` | `RenderError`（继承命令约定库的 `CliError`）、错误归类、退出码表 |
 | `lib/gpu.mjs` | ANGLE 后端与 GPU 策略、浏览器启动、读实际 GPU、软件渲染判定 |
 | `lib/server.mjs`、`lib/inject.mjs`、`lib/contract.mjs` | 静态服务；注入页面的 `__RENDER` 与上下文丢失监测；文字报告核对 |
+| `lib/preview.mjs`、`lib/preview-client.mjs` | `serve.mjs` 专用的 `?preview=1` 中间件（`/_preview/state` 状态扫描、`/_preview/rebuild` 重混热加载）与浏览器端 WebAudio 相位锁定分轨 Mute/Solo 调片栏 |
 | `lib/chunks.mjs`、`lib/ffmpeg.mjs`、`lib/yuv.mjs` | 分块逐帧渲染与拼接；FFmpeg 预检、色彩换算参数、探测；GPU 帧合成、线性光时间超采样运动模糊与 BT.709 YUV420p 直出 |
 | `lib/record.mjs`、`lib/profiles.mjs`、`lib/film.mjs` | 运行记录；交付档位；读 film.json 的渲染相关字段 |
 | `lib/lock.mjs`、`lib/slots.mjs`、`lib/deps.mjs` | 输出锁；渲染槽位与共享 GPU 守卫；镜头的静态 import 图 |

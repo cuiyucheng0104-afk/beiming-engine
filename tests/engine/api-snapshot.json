@@ -270,6 +270,14 @@
     "tileRepeat"
    ]
   },
+  "engine/stage/telemetry.js": {
+   "stability": "experimental",
+   "exports": [
+    "createAudioTelemetry",
+    "projectThreeActor",
+    "trackCanvasActor"
+   ]
+  },
   "engine/look/bloom.js": {
    "stability": "stable",
    "exports": [
