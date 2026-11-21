@@ -33,6 +33,7 @@ export function guideText() {
     '## 闭环',
     '1 guide 2 POST films 3 assets/search 4 cards/search 5 GET cards/{id} 6 PUT film（补丁 patch/0.1 带 rev）看诊断 7 PUT film?applyFixes=machine 8 PUT files（cards-data 不用）9 render{tier:draft} 10 observe/query 11 verify 12 改了再验 13 observe/sheet{cuts:true} 14 deliver 15 GET jobs/{id}?wait=30 16 收获自动触发。',
     '补丁：{"format":"patch/0.1","rev":<当前>,"ops":[{"op":"set","path":"shots/s01/cards/title/params/text","value":"HELLO"}]}；路径不带前导 /，数组按 id（卡按 as）。',
+    '入参：cards/search与assets/search用{"q":"...","limit":5}；POST films用{"template":"turntable","text":"RTX 5090","output":{"size":[1920,1080],"fps":"30/1","frames":300}}；observe/query用{"type":"framing","target":"hero"}或{"type":"entities","frame":0}；render/verify/deliver用{"wait":30}。',
     '## 预算与红线',
     '每个动词有 token 上限（openapi.json 的 x-token-limit），超了 data 被截短，全文挂在 outputs。render/verify/deliver 是作业：带 wait（≤30 秒）或轮询 GET /v1/jobs/{id}。',
     'rev 过期 → busy.rev-conflict（带 latestRev，重读再改）。predicates.base 和 exam 只读（auth.base-readonly）；不许删 floor@1、改主角、改阈值。',

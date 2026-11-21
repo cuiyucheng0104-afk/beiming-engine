@@ -310,8 +310,10 @@ export async function startServer({ dataDir = '.beiming-api', host = '127.0.0.1'
         if (route.id === 'verify') planOf(film, { shots: body.shots, tier: 'draft' });
         if (route.id === 'deliver' && (!film.delivery.web || !film.delivery.contact)) throw new ApiError('contract.delivery-mismatch', '六件套要求启用 delivery.web 和 delivery.contact');
         const plan = route.id === 'render' ? planOf(film, { ...body, tier }) : undefined;
+        const waitSec = body.wait ?? (query.has('wait') ? Number(query.get('wait')) : 0);
+        if (!Number.isInteger(waitSec) || waitSec < 0 || waitSec > 30) throw bad('wait 应为 0 到 30 秒');
         const jobId = work.submit(id, route.id, { ...body, tier, rev: store.rev(id), ...(plan && { plan }) });
-        await work.wait(id, jobId, body.wait ?? 0);
+        await work.wait(id, jobId, waitSec);
         return jobResult(work, id, jobId);
       }
       case 'job-get': {

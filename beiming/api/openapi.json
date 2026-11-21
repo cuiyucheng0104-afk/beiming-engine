@@ -1754,6 +1754,17 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30,
+              "description": "同步等待作业结束的秒数，超时就先交回作业号"
+            }
           }
         ],
         "requestBody": {
@@ -2245,6 +2256,17 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30,
+              "description": "同步等待作业结束的秒数，超时就先交回作业号"
+            }
           }
         ],
         "requestBody": {
@@ -2521,6 +2543,17 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30,
+              "description": "同步等待作业结束的秒数，超时就先交回作业号"
             }
           }
         ],
