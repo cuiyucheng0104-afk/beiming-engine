@@ -97,7 +97,7 @@ export function defaultSocketPath({ env = process.env, platform = process.platfo
   }
   const runtimeDir = String(env.XDG_RUNTIME_DIR ?? '').trim();
   if (runtimeDir) return path.posix.join(runtimeDir, 'beiming-offscreen.sock');   // XDG 只在类 Unix 上有，按 POSIX 拼
-  return path.join(tmpdir, `beiming-offscreen-${uid ?? 'user'}`, 'daemon.sock');   // 不直接放在公共临时目录根下
+  return path.posix.join(tmpdir, `beiming-offscreen-${uid ?? 'user'}`, 'daemon.sock');   // 只在类 Unix 上走到；不直接放在公共临时目录根下
 }
 
 /** 服务端：socket 的父目录必须是当前用户所有、非符号链接、权限 0700；create 时按 0700 新建（已存在的不改权限） */
