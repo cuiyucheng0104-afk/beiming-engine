@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "id": "fanpan-arenas",
+  "title": "对战盘七景",
+  "route": "c",
+  "backend": "webgl",
+  "output": { "profile": "web-1080p24", "width": 1920, "height": 1080, "fps": 24, "frameCount": 672 },
+  "shots": [
+    { "id": "S1", "in": 0, "out": 96 },
+    { "id": "S2", "in": 96, "out": 192 },
+    { "id": "S3", "in": 192, "out": 288 },
+    { "id": "S4", "in": 288, "out": 384 },
+    { "id": "S5", "in": 384, "out": 480 },
+    { "id": "S6", "in": 480, "out": 576 },
+    { "id": "S7", "in": 576, "out": 672 }
+  ],
+  "events": [],
+  "audio": { "mode": "none" },
+  "deliveries": ["web-1080p24"],
+  "credits": [
+    { "what": "画法参考：三维微缩景 + 像素角色卡片 + 移轴景深（只取方法，代码自写）", "source": "cases/vendor/lemo-opuscar/styles/hd-2d/STYLE.md@bebbbe1", "license": "MIT", "note": "作者 LemoLab" },
+    { "what": "角色像素图：十条待机序列帧（units/，敌方已左右翻转）", "source": "《一步翻盘》仓库 assets/units，原始出处 OpenDuelyst", "license": "CC0-1.0", "note": "CC0 不含商标：片名、说明里不出现原游戏的名字和标志" },
+    { "what": "棋盘规格、镜头、后期链（stage.js 照着重搭的那一套数）", "source": "《一步翻盘》board3d.js（用户自己的项目，提交 b71ea4d）", "license": "版权所有（同一作者）" },
+    { "what": "three.js r170", "source": "node_modules/three", "license": "MIT" }
+  ],
+  "aigc": { "contains": false, "note": "七套场景的贴图、小件、光与动画全部由代码生成；角色是 CC0 的人工像素画。" },
+  "gates": { "look": "required", "animatic": "required", "final": "required" },
+  "posterFrame": 48,
+  "dur": 28,
+  "fps": 24,
+  "size": [1920, 1080]
+}

@@ -1,0 +1,73 @@
+diff --git a/board3d.js b/board3d.js
+index 8eda69b..9146e6f 100644
+--- a/board3d.js
++++ b/board3d.js
+@@ -24,6 +24,9 @@ const tileX = r => (r - (ROWS - 1) / 2) * LX;    // 第 0 行贴着你的城堡
+ const tileZ = c => (c - (COLS - 1) / 2) * LZ;    // 第 0 路最远，最后一路最靠近镜头
+ const HALF = ROWS * LX / 2, DEPTH = COLS * LZ;
+ const Q = new URLSearchParams(location.search);
++// 试玩用的自定义擂台（arenas/ 目录，一套一个文件夹，各用各的画法和素材）：地址带 ?arena=<名字> 时整局都用它，不再跟着对手阵营换场地
++const ARENAS = { c: 'c-zhai', b: 'b-shui', sea: 'shan-gong', forge: 'lu-fang', chapel: 'sheng-tang', sky: 'yun-dao', harvest: 'mai-chang' };
++const ARENA = ARENAS[Q.get('arena')] ? `./arenas/${ARENAS[Q.get('arena')]}/arena.js` : null;
+ const calm = matchMedia('(prefers-reduced-motion: reduce)').matches || Q.has('calm'); // 减少动态效果：跟系统设置走；地址带 ?calm 也算（测试用）
+ document.documentElement.classList.toggle('calm', calm);                               // motion.css 按这个类降级
+ let seed = 31; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+@@ -467,8 +470,12 @@ const THEMES = {
+ };
+ 
+ // ---------- 换场地：拆掉上一套（几何体、材质、贴图全部释放），按键搭新的一套。幂等：同一个场地重复调用什么都不做 ----------
+-let set = null, themeKey = null, driftT = null, driftV = 0, moteN = 0;
++let set = null, themeKey = null, driftT = null, driftV = 0, moteN = 0, arena = null;
+ function theme(key = 'n') {
++  if (arenaMod) { // 自定义擂台：只搭一次。常驻的东西照旧（格子还是那 20 块、两座城堡的组还在原位，挨打下沉照动），它自己换格子的贴图、往城堡的组里搭自己的门、管自己的灯和飘的东西
++    if (arena) return; themeKey = 'arena-' + Q.get('arena'); castles[0].body.visible = false; moteN = 0; moteGeo.setDrawRange(0, 0);
++    arena = arenaMod.build({ THREE, scene, camera, renderer, amb, sun, tiles, lines, castles: castles.map(c => c.g), post: { bloom, tiltH, tiltV, grade }, low, calm, team: TEAM.map(t => t.hex),
++      grid: { ROWS, COLS, LX, LZ, HALF, DEPTH, HPY, SHORT, tileX, tileZ } }); return; }
+   if (!THEMES[key]) key = 'n'; if (key === themeKey) return; themeKey = key;
+   if (set) scrap(set); if (castles[1].body) scrap(castles[1].body); driftT = null; seed = 131 + key.charCodeAt(key.length - 1) * 977;
+   const A = Atlas(), K = { win: A.add(windowC[1]), ban: A.add(bannerC[1]), mat: A.add(matC[1]) }, th = THEMES[key](A), cache = new Map(), B = Batch(); set = new THREE.Group(); scene.add(set);
+@@ -833,17 +840,23 @@ renderer.domElement.addEventListener('click', e => { aim(e); if (hot && handlers
+ // ---------- 后期（只在高画质档走）：只给最亮的地方加一小圈光 → 移轴虚化（棋盘清楚，远景和最前景虚）→ 暗角。不调色 ----------
+ const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 }));
+ composer.addPass(new RenderPass(scene, camera));
+-composer.addPass(new UnrealBloomPass(new THREE.Vector2(4, 4), .22, .5, .9));
++const bloom = new UnrealBloomPass(new THREE.Vector2(4, 4), .22, .5, .9); composer.addPass(bloom);
+ const VERT = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }';
+-const tiltShader = { uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() }, focus: { value: .47 }, band: { value: .28 } }, vertexShader: VERT,
+-  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 dir; uniform float focus, band; varying vec2 vUv;
+-    void main(){ float d = smoothstep(band, band + .25, abs(vUv.y - focus)); vec4 c = vec4(0.); float w = 0.;
++const tiltShader = { uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() }, focus: { value: .47 }, band: { value: .28 }, amt: { value: 1 } }, vertexShader: VERT,
++  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 dir; uniform float focus, band, amt; varying vec2 vUv;
++    void main(){ float d = smoothstep(band, band + .25, abs(vUv.y - focus)) * amt; vec4 c = vec4(0.); float w = 0.;
+       for (int i = -5; i <= 5; i++) { float k = exp(-float(i * i) / 10.); c += texture2D(tDiffuse, vUv + dir * d * float(i)) * k; w += k; }
+       gl_FragColor = c / w; }` };
+ const tiltH = new ShaderPass(tiltShader), tiltV = new ShaderPass(tiltShader); composer.addPass(tiltH); composer.addPass(tiltV);
+ composer.addPass(new ShaderPass({ uniforms: { tDiffuse: { value: null } }, vertexShader: VERT,
+   fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+     void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb; vec2 q = vUv - .5; c *= 1. - pow(dot(q, q), 1.2) * 1.5; gl_FragColor = vec4(c, 1.); }` }));
++// 调色：平时关着（七个场地不调色）；自定义擂台打开它，定自己的饱和度、反差、暗部和四角往哪个颜色偏，亮过 knee 的部分压成一条软的肩
++const grade = new ShaderPass({ uniforms: { tDiffuse: { value: null }, sat: { value: 1 }, con: { value: 1 }, knee: { value: .8 }, gain: { value: new THREE.Color(1, 1, 1) }, lift: { value: new THREE.Color(0, 0, 0) }, edge: { value: new THREE.Color(0, 0, 0) } }, vertexShader: VERT,
++  fragmentShader: `uniform sampler2D tDiffuse; uniform float sat, con, knee; uniform vec3 gain, lift, edge; varying vec2 vUv;
++    void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb * gain; c += lift * (1. - min(c, 1.)); float l = dot(c, vec3(.2126, .7152, .0722)); c = max(mix(vec3(l), c, sat), 0.);
++      c = max((c - .18) * con + .18, 0.); vec2 q = vUv - .5; c += edge * pow(dot(q, q), 1.2); vec3 o = max(c - knee, 0.); c = min(c, knee) + o / (1. + o / (1. - knee)); gl_FragColor = vec4(c, 1.); }` });
++grade.enabled = false; composer.addPass(grade);
+ composer.addPass(new OutputPass());
+ 
+ // ---------- 尺寸与循环 ----------
+@@ -872,6 +885,7 @@ function quality(q) { // 画质档位：不带参数是查询；'low' / 'high' 
+   sun.shadow.mapSize.setScalar(low ? 1024 : 2048); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+   moteGeo.setDrawRange(0, Math.round(moteN * (low ? .4 : 1))); resize(); return q;
+ }
++const arenaMod = ARENA ? await import(ARENA).catch(e => (console.error('自定义擂台没载入，改用原来的场地', e), null)) : null;
+ new ResizeObserver(resize).observe(stage); theme(Q.get('theme') || 'n'); ambient(); resize();   // 没人调用 board.theme 时就是无主之地；地址带 ?theme=f3 可以直接看某一套（测试用）
+ 
+ let last = -1, pan = 0, air = 0, tick = 0; const frame = { calls: 0, tris: 0 };
+@@ -890,7 +904,7 @@ function loop(stamp) {
+     air += Math.min(raw, .1); scenery.tick(Math.min(raw, .1));                                                                // 场景自己的钟，不跟着加速和定格走：雪不会因为打中一下就停住
+     pan += (mx * .3 - pan) * .05; place(pan + (Math.random() - .5) * quake); quake *= .86;   // 镜头只做很小的左右平移；被打中时抖一下
+     glowM.opacity = .88 + Math.sin(air * 2.2) * .12; for (const g of gems) { g.rotation.y = air * .9; g.position.y = g.userData.y + Math.sin(air * 1.5 + g.position.x) * .04; }
+-    moteM.uniforms.t.value = air; if (driftT) driftT.offset.x = air * driftV;
++    moteM.uniforms.t.value = air; if (driftT) driftT.offset.x = air * driftV; if (arena) arena.tick(air, Math.min(raw, .1));
+   }
+   lines.forEach((m, i) => { m.material.opacity = calm ? .8 : .6 + Math.sin(t * 2.4 + i * 2) * .3; });
+   for (const m of marks) if (m.visible) m.material.opacity = Math.min(1, Math.max(0, (t - m.userData.t0) / .16)) * (calm ? .85 : .72 + .24 * Math.sin(t * 5.2)); // 可放的格子逐列亮起，然后 1.2 秒一个来回慢慢呼吸

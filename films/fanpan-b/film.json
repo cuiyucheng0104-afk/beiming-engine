@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 2,
+  "$comment": "dur / fps / size 是 v1 兼容镜像：现有出片脚本还在读，数值与 output 一致；改时长或画幅时两处一起改（npm run check:repo 与 film.js check 会核对）",
+  "id": "fanpan-b",
+  "title": "沉水擂台",
+  "route": "b",
+  "backend": "native",
+  "output": {
+    "profile": "web-1080p24",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24,
+    "frameCount": 144
+  },
+  "shots": [
+    {
+      "id": "S1",
+      "in": 0,
+      "out": 144
+    }
+  ],
+  "events": [],
+  "audio": {
+    "mode": "none"
+  },
+  "deliveries": [
+    "web-1080p24"
+  ],
+  "credits": [
+    {
+      "what": "原生运行时（上游项目名 RAEA）",
+      "license": "FSL-1.1-ALv2",
+      "source": "engine/native/runtime.lock.json"
+    },
+    {
+      "what": "画法（只取方法，代码自己写）：像素贴图的微缩场景 + 平面像素角色 + 镜头景深、泛光、暗角",
+      "license": "MIT",
+      "source": "cases/vendor/lemo-opuscar/styles/hd-2d/STYLE.md@bebbbe1（LemoLab）"
+    },
+    {
+      "what": "棋子待机序列帧（units/；baked/units/ 是加了描边的版本）",
+      "license": "CC0-1.0",
+      "source": "《一步翻盘》assets/units，原始出处 OpenDuelyst；不使用其名称与商标"
+    },
+    {
+      "what": "对战盘规格（4 路 × 5 格、双方城门与血量、本方 / 敌方配色）",
+      "license": "用户自己的项目",
+      "source": "https://github.com/cuiyucheng0104-afk/yibu-fanpan"
+    },
+    {
+      "what": "three.js r170（只在资产桥里用来搭场景并导出 GLB）",
+      "license": "MIT",
+      "source": "node_modules/three"
+    }
+  ],
+  "aigc": {
+    "contains": false,
+    "note": "场景、贴图、像素小件、灯光与后期全部由代码生成；棋子是 CC0 像素序列帧"
+  },
+  "gates": {
+    "look": "required",
+    "animatic": "required",
+    "final": "required"
+  },
+  "native": {
+    "entry": "film.tsx",
+    "images": [
+      {
+        "to": "u_f6_icedryad.png",
+        "from": "baked/units/f6_icedryad.png"
+      },
+      {
+        "to": "u_f6_snowman.png",
+        "from": "baked/units/f6_snowman.png"
+      },
+      {
+        "to": "u_f6_arcticrhyno.png",
+        "from": "baked/units/f6_arcticrhyno.png"
+      },
+      {
+        "to": "u_f6_greatwhitenorth.png",
+        "from": "baked/units/f6_greatwhitenorth.png"
+      },
+      {
+        "to": "u_f6_frostdrake.png",
+        "from": "baked/units/f6_frostdrake.png"
+      },
+      {
+        "to": "u_f2_pandabear.png",
+        "from": "baked/units/f2_pandabear.png"
+      },
+      {
+        "to": "u_f2_demononi.png",
+        "from": "baked/units/f2_demononi.png"
+      },
+      {
+        "to": "u_f2_kindling.png",
+        "from": "baked/units/f2_kindling.png"
+      },
+      {
+        "to": "u_f2_onnabugeisha.png",
+        "from": "baked/units/f2_onnabugeisha.png"
+      },
+      {
+        "to": "u_f2_geomancer.png",
+        "from": "baked/units/f2_geomancer.png"
+      },
+      {
+        "to": "cards.png",
+        "from": "baked/cards.png"
+      },
+      {
+        "to": "glow.png",
+        "from": "baked/glow.png"
+      }
+    ],
+    "models": [
+      {
+        "to": "ruin.glb",
+        "module": "ruin.js",
+        "export": "createRuin",
+        "scale": 1,
+        "prefix": "ruin",
+        "args": {
+          "part": "cast"
+        }
+      },
+      {
+        "to": "ruin-glow.glb",
+        "module": "ruin.js",
+        "export": "createRuin",
+        "scale": 1,
+        "prefix": "ruin",
+        "args": {
+          "part": "soft"
+        }
+      }
+    ],
+    "sequences": []
+  },
+  "dur": 6,
+  "fps": 24,
+  "size": [
+    1920,
+    1080
+  ]
+}
