@@ -18,7 +18,7 @@ import { probe } from '../render/lib/ffmpeg.mjs';
 import { loadGpu } from './load.mjs';
 import { createHost } from './host.mjs';
 import { renderFrames, renderFrameList } from './frames.mjs';
-import { ENCODER_CHOICES, MASTER_CQ, MODES, resolveEncode, startEncoder } from './encode.mjs';
+import { ENCODER_CHOICES, MASTER_CQ, MODES, resolveEncodeAsync, startEncoder } from './encode.mjs';
 import { parseBatchJobs, runBatch } from './batch.mjs';
 import { createGpuTimer, attachGpuTimer, detachGpuTimer } from './gputimer.mjs';
 
@@ -167,6 +167,7 @@ export const command = defineCommand({
     mode: { type: 'string', default: 'pro', choices: MODES, arg: '<档>', describe: '离屏母版编码档（默认 pro）：pro 为 x264 High + rgba 读回，终渲交付、跨机器确定；fast 为 NVENC 预览档（High、cq 7、合规 bufsize），无 NVENC 或小画幅时退回 pro' },
     encoder: { type: 'string', default: 'auto', choices: ENCODER_CHOICES, arg: '<名字>', describe: '编码器（默认 auto：跟随 --mode；可显式指定 x264 或 nvenc。显式 nvenc 缺卡时不回退，由 FFmpeg 报错）' },
     'pix-fmt': { type: 'string', choices: ['rgba', 'yuv420p'], arg: '<格式>', describe: '读回与管道像素格式（不写则跟随 --mode：pro 为 rgba，与合入前相同；fast 为 yuv420p，GPU 侧打包免 CPU swscale）' },
+    'frame-hashes': { type: 'string', default: 'auto', choices: ['auto', 'on', 'off'], arg: '<模式>', describe: '逐帧 sha256（默认 auto：--json 时 on，人读模式 off；on 总是计算，off 返回 frameHashes=null）' },
     crf: { type: 'integer', default: 14, arg: '<n>', describe: 'x264 crf（默认 14，与页面渲染器相同）' },
     cq: { type: 'integer', default: MASTER_CQ, arg: '<n>', describe: `nvenc 恒定质量 cq（默认 ${MASTER_CQ}，Fast 档；数字小画质高；勿用 6，真实画面外的纯噪声在 cq 6 出过坏流）` },
     query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（同页面的 location.search，不带 ?；出片链的 --query 与预演的 previs=1 原样转来）' },
@@ -184,12 +185,15 @@ export const command = defineCommand({
     const a = resolveArgs(ctx.args, ctx.opts);
     const t0 = process.hrtime.bigint();
     const gpu = await loadGpu();
+    const hashMode = ctx.opts['frame-hashes'];
+    const hashFrames = hashMode === 'on' || (hashMode === 'auto' && ctx.json);
     if (a.sub === 'batch') {
       const res = await runBatch(a.jobs, {
         gpu,
         concurrency: ctx.opts.concurrency,
         maxEncoders: ctx.opts['max-encoders'],
         failFast: !!ctx.opts['fail-fast'],
+        frameHashes: hashFrames,
         onCleanup: fn => ctx.onCleanup(fn),
         onJobDone: r => ctx.log.info(`作业 ${r.id}：${r.ok ? `完成（${r.frames} 帧，${r.seconds}s）` : `失败（${r.error.message}）`}`),
       });
@@ -208,6 +212,10 @@ export const command = defineCommand({
       }
       return { data: res, outputs: res.outputs };
     }
+    const encodePending = a.sub === 'render' ? resolveEncodeAsync({
+      mode: ctx.opts.mode, encoder: ctx.opts.encoder, pixFmt: ctx.opts['pix-fmt'],
+      width: a.width, height: a.height,
+    }) : null;
     const host = await createHost({ gpu, width: a.width, height: a.height, fps: a.fps, query: ctx.opts.query });
     const info = host.device.adapterInfo ?? {};
     const adapter = { vendor: info.vendor ?? null, architecture: info.architecture ?? null, description: info.description ?? null };
@@ -295,12 +303,12 @@ export const command = defineCommand({
       });
       try {
         const work = await host.load(a.file);
-        const hashes = [], outputs = [];
+        const hashes = hashFrames ? [] : null, outputs = [];
         const t1 = process.hrtime.bigint();
         await renderFrameList({
           host, work, frames: a.frameList, inflight: a.inflight,
           onFrame: async (f, px) => {
-            hashes.push(sha16(px));
+            if (hashFrames) hashes.push(sha16(px));
             const base = `f${String(f).padStart(6, '0')}.png`;
             const partial = path.join(a.out, `.${base}.partial-${process.pid}`);
             const dst = path.join(a.out, base);
@@ -334,23 +342,21 @@ export const command = defineCommand({
       fs.rmSync(partial, { force: true });
       host.dispose();
     });
-    const encPick = resolveEncode({
-      mode: ctx.opts.mode, encoder: ctx.opts.encoder, pixFmt: ctx.opts['pix-fmt'],
-      width: a.width, height: a.height,
-    });
+    const [encPick, work] = await Promise.all([encodePending, host.load(a.file)]);
     if (encPick.reason) ctx.log.info(encPick.reason);
     const { encoder, pixFmt, mode: encodeMode } = encPick;
     const cq = encoder === 'nvenc' ? ctx.opts.cq : null;
-    const work = await host.load(a.file);
     enc = startEncoder({ width: a.width, height: a.height, fps: a.fps, out: partial, crf: ctx.opts.crf, preset: ctx.opts.preset, encoder, cq: ctx.opts.cq, pixFmt });
-    const total = a.to - a.from, hashes = [];
+    const total = a.to - a.from, hashes = hashFrames ? [] : null;
+    let done = 0;
     const t1 = process.hrtime.bigint();
     await renderFrames({
       host, work, from: a.from, to: a.to, inflight: a.inflight, format: pixFmt,
       onFrame: async (f, px) => {
-        hashes.push(sha16(px));
+        if (hashFrames) hashes.push(sha16(px));
         await enc.write(px);
-        if (hashes.length % 48 === 0 || hashes.length === total) ctx.log.info(`渲染 ${hashes.length}/${total} 帧`);
+        done++;
+        if (done % 48 === 0 || done === total) ctx.log.info(`渲染 ${done}/${total} 帧`);
       },
     });
     await enc.finish();

@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   DEFAULT_MODE, H264_PROFILE, MASTER_CQ, NVENC_BUFSIZE, NVENC_MAXRATE, PRO_PIX_FMT,
-  encoderArgs, nvencArgs, resolveEncode, resolveEncoder, startEncoder,
+  encoderArgs, nvencArgs, probeNvencAsync, resolveEncode, resolveEncodeAsync, resolveEncoder, startEncoder,
 } from '../../engine/offscreen/encode.mjs';
 import { COLOR, TAGS, probe } from '../../engine/render/lib/ffmpeg.mjs';
 
@@ -55,6 +55,27 @@ test('nvencArgs：Fast 档带 -profile:v high 与合规 bufsize；cq 默认 7（
   const bits = Number.parseFloat(NVENC_BUFSIZE) * 1e6;
   assert.ok(bits <= 300e6, `bufsize ${NVENC_BUFSIZE} 超过 High@5.1 MaxCPB（300000 kbit）`);
   assert.ok(bits <= 240e6, `bufsize ${NVENC_BUFSIZE} 超过表值 MaxCPB 240000 kbit`);
+});
+
+test('probeNvencAsync：并发与后续调用复用同一次真实子进程探测，resolveEncodeAsync 保留 Fast 语义', { skip: !posix && '需要 POSIX 可执行脚本' }, async () => {
+  const dir = tmp();
+  try {
+    const count = join(dir, 'count');
+    const fake = join(dir, 'ffmpeg-probe');
+    writeFileSync(fake, '#!/bin/sh\nprintf x >> "$PROBE_COUNT"\nsleep 0.1\nexit 0\n', { mode: 0o755 });
+    process.env.PROBE_COUNT = count;
+    const a = probeNvencAsync(fake), b = probeNvencAsync(fake);
+    assert.strictEqual(a, b, '并发调用必须复用同一个 in-flight Promise');
+    assert.deepEqual(await Promise.all([a, b]), [true, true]);
+    assert.equal(readFileSync(count, 'utf8'), 'x', '并发调用起了一个以上子进程');
+    assert.equal(await probeNvencAsync(fake), true);
+    assert.equal(readFileSync(count, 'utf8'), 'x', '已完成的探测没有命中缓存');
+    const picked = await resolveEncodeAsync({ mode: 'fast', width: 1920, height: 1080, probe: () => a });
+    assert.deepEqual(picked, { mode: 'fast', encoder: 'nvenc', pixFmt: 'yuv420p', profile: 'high', reason: null });
+  } finally {
+    delete process.env.PROBE_COUNT;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('resolveEncode：默认 Pro → x264 High + rgba；Fast 无 NVENC 退回 Pro；Fast 参数含 High 与合规 bufsize', () => {

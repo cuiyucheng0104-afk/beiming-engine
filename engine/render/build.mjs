@@ -340,7 +340,7 @@ export const cuecheck = {
 
 const OFFSCREEN_CLI = path.resolve(R('.'), '../offscreen/cli.mjs');
 const offscreenEntry = ctx => path.join(ctx.film.dir, 'offscreen.mjs');
-const offscreenArgs = ctx => ['render', offscreenEntry(ctx), '--frames', `0:${ctx.frames}`, '--size', sizeArg(ctx), '--fps', String(ctx.fps), '--mode', ctx.opts.mode || 'pro', ...(ctx.opts.encoder ? ['--encoder', ctx.opts.encoder] : []), ...queryArgs(ctx)];
+const offscreenArgs = ctx => ['render', offscreenEntry(ctx), '--frames', `0:${ctx.frames}`, '--size', sizeArg(ctx), '--fps', String(ctx.fps), '--mode', ctx.opts.mode || 'pro', '--frame-hashes', 'off', ...(ctx.opts.encoder ? ['--encoder', ctx.opts.encoder] : []), ...queryArgs(ctx)];
 const offscreenEncode = ctx => resolveEncode({ mode: ctx.opts.mode, encoder: ctx.opts.encoder, width: ctx.width, height: ctx.height });
 // 离屏出片（--renderer offscreen）：同画幅、同帧率、同查询串，产物同样是 work/video.mp4，后面的封装、网页版、QA 不变。
 // 帧数、画幅、帧率照样核对；GPU 记 Dawn 报告的适配器。

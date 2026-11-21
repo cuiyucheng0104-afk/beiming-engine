@@ -14,6 +14,7 @@
 //     → { mode: 'pro'|'fast', encoder: 'x264'|'nvenc', pixFmt, profile: 'high', reason }
 //     encoder 缺省或 auto：跟随 mode；显式 x264 / nvenc 照用、不探测（显式 nvenc 缺卡时由 FFmpeg 失败，不回退）
 //     Fast 在 NVENC 不可用或画幅 < 145×49 时退回 Pro（reason 说明原因）；退回时未显式指定的 pixFmt 也回到 rgba
+//   probeNvencAsync(bin) / resolveEncodeAsync(options)   Fast 的异步探测与解析；并发探测共用 Promise，可与宿主初始化、作品加载重叠
 //   resolveEncoder(requested = 'auto', { width, height, probe, mode }) → { encoder, reason }
 //     兼容旧调用：默认 mode=pro，所以 auto 不再选 NVENC
 //   encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = 'rgba' }) → string[]
@@ -43,16 +44,36 @@ export const NVENC_MAXRATE = '240M';
 export const NVENC_BUFSIZE = '240M';
 const YUV_SETPARAMS = 'setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709';
 
+const NVENC_PROBE_ARGS = [
+  '-nostdin', '-v', 'error', '-f', 'lavfi', '-i', 'color=s=256x256',
+  '-frames:v', '1', '-pix_fmt', 'yuv420p', '-c:v', 'h264_nvenc', '-f', 'null', '-',
+];
 const nvencProbeCache = new Map();
 /** 试编一帧探测当前机器与 FFmpeg 是否可用 h264_nvenc（按 FFMPEG 路径缓存） */
 export function probeNvenc(bin = FFMPEG()) {
-  if (nvencProbeCache.has(bin)) return nvencProbeCache.get(bin);
-  const ok = spawnSync(bin, [
-    '-nostdin', '-v', 'error', '-f', 'lavfi', '-i', 'color=s=256x256',
-    '-frames:v', '1', '-pix_fmt', 'yuv420p', '-c:v', 'h264_nvenc', '-f', 'null', '-',
-  ], { stdio: 'ignore', timeout: 10000 }).status === 0;
+  const cached = nvencProbeCache.get(bin);
+  if (typeof cached === 'boolean') return cached;
+  const ok = spawnSync(bin, NVENC_PROBE_ARGS, { stdio: 'ignore', timeout: 10000 }).status === 0;
   nvencProbeCache.set(bin, ok);
   return ok;
+}
+
+/** 异步版探测：并发调用复用同一个 Promise；失败/超时只表示 NVENC 不可用，由 Fast 按原语义退回 Pro。 */
+export function probeNvencAsync(bin = FFMPEG()) {
+  const cached = nvencProbeCache.get(bin);
+  if (typeof cached === 'boolean') return Promise.resolve(cached);
+  if (cached) return cached;
+  const pending = new Promise(resolve => {
+    let child;
+    try { child = spawn(bin, NVENC_PROBE_ARGS, { stdio: 'ignore' }); }
+    catch { resolve(false); return; }
+    const timer = setTimeout(() => { child.kill('SIGKILL'); resolve(false); }, 10000);
+    const done = ok => { clearTimeout(timer); resolve(ok); };
+    child.once('error', () => done(false));
+    child.once('close', code => done(code === 0));
+  }).then(ok => { nvencProbeCache.set(bin, ok); return ok; });
+  nvencProbeCache.set(bin, pending);
+  return pending;
 }
 
 function asMode(mode) {
@@ -112,9 +133,23 @@ export function resolveEncode({ mode = DEFAULT_MODE, encoder = null, pixFmt = nu
   return nvenc('fast');
 }
 
+/** 异步解析：只有 Fast + auto 的大画幅需要探测，其余分支与同步版一样立即给出结果。 */
+export function resolveEncodeAsync(opts = {}) {
+  let needsProbe = false;
+  const early = resolveEncode({ ...opts, probe: () => { needsProbe = true; return false; } });
+  if (!needsProbe) return Promise.resolve(early);
+  const probe = opts.probe ?? probeNvencAsync;
+  return Promise.resolve().then(() => probe()).then(ok => resolveEncode({ ...opts, probe: () => ok }));
+}
+
 /** 兼容旧调用：默认 mode=pro，所以 auto 选 x264。Fast 请走 resolveEncode({ mode: 'fast' })。 */
 export function resolveEncoder(requested = 'auto', { width, height, probe = probeNvenc, mode = DEFAULT_MODE } = {}) {
   const r = resolveEncode({ mode, encoder: requested, width, height, probe });
+  return { encoder: r.encoder, reason: r.reason };
+}
+
+export async function resolveEncoderAsync(requested = 'auto', { width, height, probe = probeNvencAsync, mode = DEFAULT_MODE } = {}) {
+  const r = await resolveEncodeAsync({ mode, encoder: requested, width, height, probe });
   return { encoder: r.encoder, reason: r.reason };
 }
 

@@ -30,3 +30,27 @@ test('切镜、局部帧号、显示层合成、TEXTS 规范化', { timeout: 120
     assert.deepEqual(at(f11, 48, 30), [0, 0, 255]);
   } finally { host.dispose(); }
 });
+
+test('空显示层跳过全幅读取与上传，唯一 1 像素绘制帧不漏画，连续空帧不再清画布', { timeout: 120000 }, async t => {
+  let gpu, createHost;
+  try {
+    ({ createHost } = await import('../../engine/offscreen/host.mjs'));
+    gpu = await (await import('../../engine/offscreen/load.mjs')).loadGpu();
+    await (await import('../../engine/offscreen/canvas.mjs')).loadCanvas();
+    (await createHost({ gpu, width: 64, height: 64 })).dispose();
+  } catch (e) { if (String(e.code).startsWith('env.')) return t.skip(`离屏出片不可用：${e.message}`); throw e; }
+  const W = 64, H = 36, host = await createHost({ gpu, width: W, height: H, fps: 24 });
+  try {
+    const fixture = fileURLToPath(new URL('./fixtures/film-overlay-empty.mjs', import.meta.url));
+    const work = await host.load(fixture);
+    const at0 = async f => Array.from((await host.renderFrame(work, f)).slice(0, 4));
+    assert.deepEqual(await at0(0), [255, 0, 0, 255]);
+    assert.deepEqual(await at0(1), [255, 255, 255, 255], '1 像素 fillRect 必须被探针计为绘制并上传');
+    assert.deepEqual(await at0(2), [255, 0, 0, 255], '非空帧之后要清空并上传一次空白');
+    assert.deepEqual(await at0(3), [255, 0, 0, 255]);
+    assert.deepEqual(globalThis.__OVERLAY_STATS, { reads: 2, clears: 1, pipelines: 1 }, '只允许初始空白与唯一绘制帧读全幅；空帧复用同一条合成管线，不重复建后期资源');
+  } finally {
+    delete globalThis.__OVERLAY_STATS;
+    host.dispose();
+  }
+});

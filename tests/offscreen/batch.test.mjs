@@ -44,8 +44,7 @@ test('parseBatchJobs：作业与默认值都没写 pixFmt 时走 Pro 的 rgba；
   assert.equal(b.pixFmt, 'yuv420p');
 });
 
-test('parseBatchJobs：不写 encoder 时走 Pro/x264；Fast 无 NVENC 退回 Pro；显式 nvenc 不写 cq 时用 Fast 档 7', async () => {
-  const { resolveEncode } = await import('../../engine/offscreen/encode.mjs');
+test('parseBatchJobs：不写 encoder 时走 Pro/x264；Fast auto 延迟探测；显式 nvenc 不写 cq 时用 Fast 档 7', () => {
   const [small, big, x, n, f] = parseBatchJobs([
     { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-a.mp4', frames: '0:4', size: '64x36' },
     { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-b.mp4', frames: '0:4', size: '320x180' },
@@ -60,9 +59,9 @@ test('parseBatchJobs：不写 encoder 时走 Pro/x264；Fast 无 NVENC 退回 Pr
   assert.equal(x.encoder, 'x264');
   assert.equal(n.encoder, 'nvenc');
   assert.equal(n.cq, 7);
-  const wantFast = resolveEncode({ mode: 'fast', width: 320, height: 180 });
-  assert.equal(f.encoder, wantFast.encoder);
-  assert.equal(f.encodeMode, wantFast.mode);
+  assert.equal(f.encoder, null, 'Fast 大画幅只登记请求，不在同步 parse 阶段阻塞探测');
+  assert.equal(f.encodeMode, 'fast');
+  assert.equal(f.pixFmt, 'yuv420p');
 });
 
 test('runBatch：异构多作业（不同画幅、rgba/yuv420p、render/stills 混排）同卡并发，逐帧哈希与单跑逐位一致', { skip: !hasFfmpeg ? '没有 FFmpeg' : (skipGpu || false) }, async t => {
@@ -86,6 +85,10 @@ test('runBatch：异构多作业（不同画幅、rgba/yuv420p、render/stills �
     assert.deepEqual(conc.results[i].frameHashes, serial.results[i].frameHashes, `作业 ${conc.results[i].id} 并发与串行逐帧哈希必须一致`);
   }
   assert.equal(fs.existsSync(path.join(tmp, 'con-stills/f000003.png')), true);
+
+  const noHashes = await runBatch(makeJobs('no'), { gpu, concurrency: 2, maxEncoders: 2, frameHashes: false });
+  assert.equal(noHashes.ok, true);
+  assert.ok(noHashes.results.every(r => r.frameHashes === null), 'frameHashes:false 必须在视频与静帧作业都跳过 sha256，并明确返回 null');
 });
 
 test('runBatch：单个坏作业故障隔离，不污染共用 GPUDevice、不留半成品，其余作业正常产出', { skip: !hasFfmpeg ? '没有 FFmpeg' : (skipGpu || false) }, async t => {
@@ -140,10 +143,11 @@ test('CLI offscreen batch：支持 JSON 清单与多作品位置参数两种入�
   assert.equal(j1.outputs.length, 3);
 
   const outDir = path.join(tmp, 'quick');
-  const r2 = spawnSync(process.execPath, [CLI, 'batch', 'lab/offscreen/ink.mjs', 'lab/offscreen/ink.mjs', '--out-dir', outDir, '--frames', '0:3', '--size', '64x36', '--pix-fmt', 'yuv420p', '--json'], { cwd: ROOT, encoding: 'utf8' });
+  const r2 = spawnSync(process.execPath, [CLI, 'batch', 'lab/offscreen/ink.mjs', 'lab/offscreen/ink.mjs', '--out-dir', outDir, '--frames', '0:3', '--size', '320x180', '--mode', 'fast', '--pix-fmt', 'yuv420p', '--json'], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(r2.status, 0, r2.stderr);
   const j2 = JSON.parse(r2.stdout);
   assert.equal(j2.data.succeeded, 2);
+  assert.ok(j2.data.results.every(r => r.mode === 'render' && ['x264', 'nvenc'].includes(r.encoder)), '执行期必须把延迟的 Fast 请求解析成实际编码器，且不能覆盖作业 render 类型');
   assert.equal(fs.existsSync(path.join(outDir, 'ink-1.mp4')), true);
   assert.equal(fs.existsSync(path.join(outDir, 'ink-2.mp4')), true);
 });

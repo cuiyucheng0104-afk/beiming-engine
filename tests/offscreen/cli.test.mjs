@@ -2,7 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, copyFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readdirSync, copyFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,6 +81,26 @@ test('出片：6 帧 320×180 → 成片 6 帧，信封里有逐帧哈希；同�
     const md5 = f => spawnSync('ffmpeg', ['-v', 'error', '-i', join(dir, f), '-map', '0:v', '-c', 'copy', '-f', 'md5', '-'], { encoding: 'utf8' }).stdout.trim();
     assert.equal(md5('b.mp4'), md5('a.mp4'));
     assert.deepEqual(readdirSync(dir).filter(f => /partial/.test(f)), [], '留下了半成品');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('逐帧哈希 off：JSON 明确返回 null，MP4 与 on 逐字节相同；auto 在 JSON 下保持兼容', { skip: noEncode, timeout: 180000 }, () => {
+  const dir = tmp();
+  try {
+    const go = (name, extra = []) => run(['render', WORK, '--out', join(dir, name), '--frames', '0:6', '--size', '320x180', '--json', ...extra]);
+    const on = go('on.mp4', ['--frame-hashes', 'on']);
+    const off = go('off.mp4', ['--frame-hashes', 'off']);
+    const auto = go('auto.mp4');
+    assert.equal(on.status, 0, on.stderr);
+    assert.equal(off.status, 0, off.stderr);
+    assert.equal(auto.status, 0, auto.stderr);
+    assert.equal(envelope(on).data.frameHashes.length, 6);
+    assert.equal(envelope(off).data.frameHashes, null);
+    assert.equal(envelope(auto).data.frameHashes.length, 6, 'auto + --json 保留现有机器调用方');
+    assert.deepEqual(readdirSync(dir).filter(f => /partial/.test(f)), []);
+    const sha = name => createHash('sha256').update(readFileSync(join(dir, name))).digest('hex');
+    assert.equal(sha('off.mp4'), sha('on.mp4'));
+    assert.equal(sha('auto.mp4'), sha('on.mp4'));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
