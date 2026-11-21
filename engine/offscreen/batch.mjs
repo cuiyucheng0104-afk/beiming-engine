@@ -16,7 +16,7 @@ import { probe } from '../render/lib/ffmpeg.mjs';
 import { loadGpu } from './load.mjs';
 import { createHost } from './host.mjs';
 import { renderFrames, renderFrameList } from './frames.mjs';
-import { ENCODER_CHOICES, MASTER_CQ, MODES, PIX_FMTS, resolveEncode, startEncoder } from './encode.mjs';
+import { ENCODER_CHOICES, MASTER_CQ, MODES, PIX_FMTS, resolveEncode, resolveEncodeAsync, startEncoder } from './encode.mjs';
 import { parseFrameList, parseSize, resolveWork } from './cli.mjs';
 
 const ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'));
@@ -88,16 +88,18 @@ export function parseBatchJobs(input, { cwd = process.cwd(), manifestDir = null,
     if (!MODES.includes(encodeMode)) throw usageError('bad-value', `作业 ${id} 的 encodeMode 只能是 ${MODES.join('、')}，收到「${encodeMode}」`, 'pro 为 x264 High 终渲档；fast 为 NVENC 预览档（缺卡退回 pro）。不要与作业 mode（render/stills）混淆');
     if (!ENCODER_CHOICES.includes(rawEncoder)) throw usageError('bad-value', `作业 ${id} 的 encoder 只能是 ${ENCODER_CHOICES.join('、')}，收到「${rawEncoder}」`, null);
     if (rawPix != null && rawPix !== '' && !PIX_FMTS.includes(String(rawPix))) throw usageError('bad-value', `作业 ${id} 的 pixFmt 只能是 ${PIX_FMTS.join(' 或 ')}，收到「${rawPix}」`, null);
-    const picked = resolveEncode({ mode: encodeMode, encoder: rawEncoder, pixFmt: rawPix, width, height });
+    const deferProbe = encodeMode === 'fast' && rawEncoder === 'auto';
+    const picked = resolveEncode({ mode: encodeMode, encoder: deferProbe ? 'nvenc' : rawEncoder, pixFmt: rawPix, width, height });
+    if (deferProbe) picked.encoder = null; // 真正探测延迟到 executeOne，与建宿主/加载作品重叠
     const crf = Number(item.crf ?? defaults.crf ?? 14);
     const cq = Number(item.cq ?? defaults.cq ?? MASTER_CQ);
     const preset = String(item.preset ?? defaults.preset ?? 'medium');
-    return { id, mode, file, out, from: +fm[1], to: +fm[2], width, height, fps, inflight, query, encodeMode: picked.mode, encoder: picked.encoder, pixFmt: picked.pixFmt, crf, cq, preset };
+    return { id, mode, file, out, from: +fm[1], to: +fm[2], width, height, fps, inflight, query, encodeMode: picked.mode, encoder: picked.encoder, pixFmt: picked.pixFmt, requestedPixFmt: rawPix, crf, cq, preset };
   });
 }
 
 export async function runBatch(jobs, {
-  gpu = null, device = null, concurrency = 4, maxEncoders = 4, failFast = false, onJobDone = null, onCleanup = null,
+  gpu = null, device = null, concurrency = 4, maxEncoders = 4, failFast = false, frameHashes: hashFrames = true, onJobDone = null, onCleanup = null,
 } = {}) {
   if (!(concurrency >= 1)) throw usageError('bad-value', `--concurrency 要 ≥ 1，收到 ${concurrency}`, null);
   if (!(maxEncoders >= 1)) throw usageError('bad-value', `--max-encoders 要 ≥ 1，收到 ${maxEncoders}`, null);
@@ -140,19 +142,26 @@ export async function runBatch(jobs, {
     const addPartial = p => { jobPartials.add(p); activePartials.add(p); };
     const delPartial = p => { jobPartials.delete(p); activePartials.delete(p); };
 
+    const encodePending = j.mode === 'render' && !j.encoder ? resolveEncodeAsync({
+      mode: j.encodeMode, encoder: 'auto', pixFmt: j.requestedPixFmt, width: j.width, height: j.height,
+    }) : null;
     try {
       host = await createHost({ gpu: loadedGpu, width: j.width, height: j.height, fps: j.fps, device, query: j.query });
       activeHosts.add(host);
       const work = await host.load(j.file);
+      if (encodePending) {
+        const picked = await encodePending;
+        j = { ...j, encodeMode: picked.mode, encoder: picked.encoder, pixFmt: picked.pixFmt };
+      }
 
       if (j.mode === 'stills') {
         fs.mkdirSync(j.out, { recursive: true });
-        const hashes = [], outs = [];
+        const hashes = hashFrames ? [] : null, outs = [];
         const t1 = process.hrtime.bigint();
         await renderFrameList({
           host, work, frames: j.frameList, inflight: j.inflight,
           onFrame: async (f, px) => {
-            hashes.push(sha16(px));
+            if (hashFrames) hashes.push(sha16(px));
             const base = `f${String(f).padStart(6, '0')}.png`;
             const partial = path.join(j.out, `.${base}.partial-${process.pid}-${idx}`);
             const dst = path.join(j.out, base);
@@ -182,12 +191,12 @@ export async function runBatch(jobs, {
       enc = startEncoder({ width: j.width, height: j.height, fps: j.fps, out: partial, crf: j.crf, preset: j.preset, encoder: j.encoder, cq: j.cq, pixFmt: j.pixFmt });
       activeEncoders.add(enc);
 
-      const total = j.to - j.from, hashes = [];
+      const total = j.to - j.from, hashes = hashFrames ? [] : null;
       const t1 = process.hrtime.bigint();
       await renderFrames({
         host, work, from: j.from, to: j.to, inflight: j.inflight, format: j.pixFmt,
         onFrame: async (_f, px) => {
-          hashes.push(sha16(px));
+          if (hashFrames) hashes.push(sha16(px));
           await enc.write(px);
         },
       });

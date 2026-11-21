@@ -9,7 +9,7 @@
 //   film.work({ dur, fps, shots, look, draw, texts }) → 作品模块的返回值 { render(f), texts(f), dispose() }
 //     shots   同 film.run：[{ in, out?, shot, id? }]（film.json v2 原样）或 [{ at, shot }]；镜头 = { scene, camera, update(t, f, ctx), look(t, ctx) }
 //     look    tsl/look.js 的 createLook 实例；每帧 look.render(scene, camera, 镜头的后期参数)
-//     draw(ctx, t, shot, sctx)   每帧在清空的显示层上画；显示层按 sRGB 数值「盖」在后期结果上（同浏览器合成两块画布），不过后期
+//     draw(ctx, t, shot, sctx)   每帧在清空的显示层上画；显示层按 sRGB 数值「盖」在后期结果上（同浏览器合成两块画布），不过后期；无绘制调用或返回 false 时走无叠图输出，连续空帧不清画布、不读回/上传全幅纹理
 //     texts(t)  该时刻的文字（页面约定的 TEXTS），work.texts(f) 交出规范化之后的条目
 // 页面约定里给渲染器的 window.DUR / READY / 预热，这里没有：帧数由宿主的 --frames 决定，着色器在第一帧编译。
 import { shotTable, designFit, normalizeTexts } from '../stage/film.js';
@@ -20,7 +20,7 @@ import { markGpu } from './gputimer.mjs';
 
 export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, height: H, designWidth, designHeight, fit, shadows = THREE.PCFShadowMap } = {}) {
   const { createCanvas } = await loadCanvasIso();
-  const { texture, ivec2, vec4, mix, screenCoordinate, sRGBTransferEOTF } = TSL;
+  const { texture, ivec2, vec4, mix, screenCoordinate, sRGBTransferEOTF, uniform } = TSL;
   renderer.toneMapping = THREE.NoToneMapping;   // 保色板（同 A 路线外壳）；宿主的目标已是 sRGB
   renderer.shadowMap.enabled = shadows !== false;
   if (shadows !== false) renderer.shadowMap.type = shadows;
@@ -28,6 +28,12 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
 
   const overlay = createCanvas(W, H), ctx = overlay.getContext('2d');
   overlay.__bmOverlay = true;
+  let drawCalls = 0;
+  for (const name of ['fillText', 'strokeText', 'fillRect', 'strokeRect', 'drawImage', 'fill', 'stroke', 'putImageData']) {
+    const orig = ctx[name];
+    if (typeof orig !== 'function') continue;
+    ctx[name] = function (...args) { drawCalls++; return orig.apply(this, args); };
+  }
   // 显示层贴图：上传时才读画布；行序自上而下，按屏幕坐标逐像素取（不翻 y、不插值）；数值就是 sRGB，不做色彩空间换算
   const ovTex = new THREE.DataTexture(null, W, H, THREE.RGBAFormat);
   Object.defineProperty(ovTex.image, 'data', {
@@ -43,8 +49,10 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
     const rate = setFilmFps(fps ?? REF_FPS);
     const table = shotTable(shots, { fps: rate, dur });
     const ov = texture(ovTex).load(ivec2(screenCoordinate.xy));
-    const pipe = draw ? vec4(sRGBTransferEOTF(mix(look.node.rgb, ov.rgb, ov.a)), 1) : look.output;
+    const overlayOn = uniform(0);
+    const pipe = draw ? vec4(sRGBTransferEOTF(mix(look.node.rgb, ov.rgb, ov.a.mul(overlayOn))), 1) : look.output;
     const post = pipeline(pipe);
+    let dirty = false;   // 画布上可能有上一帧画的内容（与「这帧叠不叠图」分开跟踪）
     return {
       dur,
       ...(events ? { events } : {}),
@@ -58,9 +66,13 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
         look.render(S.scene, S.camera, globalThis.__LOOKDEV ? mergeParams(rawLook, globalThis.__LOOKDEV) : rawLook);
         if (draw) {
           markGpu(renderer, 'overlay');   // 显示层在 CPU 上画，这一段是 GPU 等它的时间
-          ctx.clearRect(0, 0, W, H);
-          if (globalThis.__BMQA_OFFSCREEN?.hide !== 'layer') draw(ctx, t, S, sctx);
-          ovTex.needsUpdate = true;
+          if (dirty) ctx.clearRect(0, 0, W, H);
+          drawCalls = 0;
+          const result = globalThis.__BMQA_OFFSCREEN?.hide === 'layer' ? false : draw(ctx, t, S, sctx);
+          dirty = drawCalls > 0;
+          const on = result !== false && drawCalls > 0;
+          if (on) ovTex.needsUpdate = true;
+          overlayOn.value = on ? 1 : 0;
         }
         markGpu(renderer, 'compose');
         post.render();
