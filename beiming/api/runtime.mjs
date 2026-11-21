@@ -131,10 +131,18 @@ export function lockContext({ rev, library, lut, assets, machine = { class: 'loc
   const sources = { three: { version: THREE_VERSION, host: 'page', image: threeImage() } };
   const b = blenderInfo();
   if (b) sources.blender = { version: b.version, host: 'cycles', image: blenderImage(b.version) };
+  const compVer = library['comp.display']?.card?.status?.find((s) => s.host === 'node')?.source ?? process.versions.node;
+  const sameMinor = (a, c) => typeof a === 'string' && typeof c === 'string' && a.split('.').slice(0, 2).join('.') === c.split('.').slice(0, 2).join('.');
   return {
     issuer: 'server', contracts: CONTRACTS_VERSION, rev, machine, sources,
-    cards: Object.fromEntries(Object.entries(library).map(([id, { card, files }]) => [id, { version: card.version, impl: [...card.livesIn], files, status: card.status }])),
-    tools: { data: { host: 'kernel-eval', version: KERNEL_EVAL_VERSION }, comp: { host: 'node', version: process.versions.node } },
+    cards: Object.fromEntries(Object.entries(library).map(([id, { card, files }]) => {
+      const status = b && card.livesIn.includes('source:blender') && !card.status.some((s) => s.host === 'cycles' && s.source === b.version)
+        && card.status.some((s) => s.host === 'cycles' && sameMinor(s.source, b.version))
+        ? [...card.status, { ...card.status.find((s) => s.host === 'cycles'), source: b.version }]
+        : card.status;
+      return [id, { version: card.version, impl: [...card.livesIn], files, status }];
+    })),
+    tools: { data: { host: 'kernel-eval', version: KERNEL_EVAL_VERSION }, comp: { host: 'node', version: compVer } },
     assets, view: lut ? { 'agx-mhc': readFileSync(lut.path) } : {}, templates: { floor: '1.0.0' },
   };
 }
