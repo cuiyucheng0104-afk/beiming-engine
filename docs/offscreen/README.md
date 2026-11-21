@@ -65,7 +65,7 @@ three 只在 `requestAnimationFrame` 回调里推进节点帧号，场景 pass �
 
 - 一个 Node 进程里可以开多部片：每部片一个 `WebGPURenderer` 与一个渲染目标，共用一个 `GPUDevice`（构造时传 `device`）。
 - 读回走流水线：渲第 n 帧、发起读回，不等它完成就渲第 n+1 帧；同时在途的帧数有上限（`inflight`，默认 3）。WebGPU 队列按提交顺序执行，第 n 帧的拷贝排在第 n+1 帧的渲染之前，所以复用同一个渲染目标是安全的；输出顺序按帧号。
-- 编码默认 libx264（与页面渲染器同参数，终渲母版用它）。并发时 x264 会先成为瓶颈，可用 `--encoder nvenc` 改走显卡的 h264_nvenc（恒定质量 cq，色彩换算与标记不变），并可配 `--pix-fmt yuv420p` 在 GPU 侧直接打包有限范围 BT.709 平面字节（读回与管道从 4 B/像素降到 1.5 B/像素，免除 FFmpeg 的 CPU `swscale`），实测见 7.4 与 7.14；Dawn→CUDA 跨 API 零拷贝尚未做。
+- 编码默认 `--mode pro`：`libx264` High + rgba 读回（FFmpeg swscale，与合入前 / 页面渲染器相同），跨机器（含 CI）确定，用于终渲交付。`--mode fast` 走显卡 `h264_nvenc`（`--cq 7`、`-profile:v high`、合规 `-bufsize 240M`，三部实片上画质均不低于 x264 crf14，见 7.19），无 NVENC 或画幅 < 145×49 时自动退回 Pro；显式 `--encoder x264` / `--encoder nvenc` 照用（显式 nvenc 不回退）。`--pix-fmt yuv420p` 在 GPU 侧直接打包有限范围 BT.709 平面字节（读回与管道从 4 B/像素降到 1.5 B/像素，免除 FFmpeg 的 CPU `swscale`），Fast 默认走这条；Pro 默认 rgba。GPU 打包的色度是 2×2 盒式均值，对 swscale 亮度最大差 1、整体 PSNR 54–55 dB（7.14）。Dawn→CUDA 跨 API 零拷贝尚未做。
 
 ## 4. 质量门
 
@@ -132,7 +132,7 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 
 ### 7.4 编码器：x264 与 NVENC
 
-`--encoder x264|nvenc`（`offscreen render` 与 `offscreen:bench` 都有）。默认 x264，码流与此前相同。
+`--encoder x264|nvenc`（`offscreen render` 与 `offscreen:bench` 都有）。`offscreen:bench` 默认 x264；`offscreen render` 当时默认 x264，中间短暂默认 `auto` 优先 NVENC，现在默认 `--mode pro`（见 7.19）。
 
 **画质与单路速度**（ffmpeg 单独跑，不含离屏渲染）：取 `media/beiming.mp4` 前 10 秒（1920×1040、240 帧，含 CPU 解码源片），分别用 libx264 medium crf18 与 h264_nvenc p5 cq18 重编码，再对原片算 PSNR。
 
@@ -141,7 +141,7 @@ Skia 适配只换宿主画布、视口与字体登记，字形用同一份 OFL T
 | libx264 medium crf18 | 85 fps | 15.0 Mbps | 45.6 / 44.0 dB |
 | h264_nvenc p5 cq18 | 206 fps | 15.2 Mbps | 43.7 / 37.2 dB |
 
-同码率下 NVENC 平均低约 2 dB，最差帧低约 7 dB，所以**终渲母版仍走 x264**；NVENC 用于预览与高并发。8 路 NVENC 同时编码全部成功（每路 30–32 fps，合计约 246 fps），没有碰到会话数上限；这只是这台机器与当前驱动的结果，不能外推到别的消费卡或数据中心卡。原片本身是 x264 编码的，所以这里的 PSNR 衡量的是「再编码损失」，不是对无损源的绝对画质。
+同码率下 NVENC 平均低约 2 dB，最差帧低约 7 dB，所以当时在约 15 Mbps 档下**终渲母版仍走 x264**（修复 `-maxrate` 截顶并在三部作品上实测高码率档 `cq 7` 后，NVENC 作为 `--mode fast` 预览档保留，默认 `--mode pro` 仍是 x264 High，见 7.18–7.19）；8 路 NVENC 同时编码全部成功（每路 30–32 fps，合计约 246 fps），没有碰到会话数上限；这只是这台机器与当前驱动的结果，不能外推到别的消费卡或数据中心卡。原片本身是 x264 编码的，所以这里的 PSNR 衡量的是「再编码损失」，不是对无损源的绝对画质。
 
 **离屏链路吞吐**（`offscreen:bench --encode`，演示作品 `ink.mjs`，1080p，每部 480 帧，同进程多部并发）。注意口径：离屏默认 x264 是 crf14，NVENC 用 cq18，两者**质量并不等价**，这里比的是「各自默认设置下的整链路吞吐」。
 
@@ -335,21 +335,114 @@ M3 的目标是让离屏出真片（计划见 [plan-m3.md](plan-m3.md)）。头�
 - **画面不变**：对优化前原样副本（`tests/offscreen/fixtures/kuwahara-legacy.js`）逐像素对照，KR 2、4、8、10、强度 0.7、q 5、深度换半径，最大差 1 级、PSNR 81–90 dB（每 23 万个通道值只有 10–88 个差 1 级）；对 GLSL 版的质量门测试（`kuwahara.test.mjs`）原样通过。变异检查：轴系数偏 1%（PSNR 75 dB）被 PSNR ≥ 78 dB 的断言拦下，cos⁸ 改 cos⁶（最大差 10 级）也被拦下。
 - **没有做的**：多进程分片。在这台单卡上，复杂片 GPU 已满载、轻作品主线程有空闲，没有证据表明分片能提高单卡吞吐；多卡或多机才有意义。ss 与 MSAA 的取舍（`ss=1` 约 −27%）会改画面，需要走 look 闸，不属于这次优化。金标准比对（`npm run golden`）在这台机器上因缺 `brotli`（系统 Python 3.14，锁定要 3.12）以退出码 3 中止；金标准各集的页面都不加载 `engine/offscreen`，这次改动不会影响它们。
 
+### 7.18 GPU 分段计时与 4K 热点
+
+`offscreen profile <作品.mjs> --frames … --size …`（`engine/offscreen/gputimer.mjs`）：three 每次 `render()` 结束都立刻提交，在两次提交之间插一个只写时间戳的空计算通道，按队列顺序把一帧切成 `pre`、`paper`、`scene`、`ink:ids`、`ink:edge`、`ink:stroke`、`fog`、`bloom`、`grade`、`kuwahara`、`overlay`、`compose` 等段（标记在 `tsl/look.js`、`tsl/ink.js`、`film.mjs`；没挂计时器时标记什么都不做，开计时画面逐字节不变，有测试）。先把要测的帧整遍渲一次预热，再每帧一个计时器连续提交、最后一起读回；第一版逐帧等读回，GPU 在帧间空转降频，1080p 读数偏高约六成，已改掉。读数含 GPU 等 CPU 提交的空闲；部分实现会量化时间戳，很短的段读数不准。C 路线（`c2d.mjs`）的画布作品目前只有 `pre` 一段。
+
+交叉核对（《化鹏闪羽》，Kuwahara 展开后，5 帧 `0,36,72,108,140`，各两次）：4K 每帧中位数 92.7 / 94.6 ms，`offscreen:bench` 稳态 96.7 ms；1080p 12.9 / 15.3 ms，bench 11.0 ms（测前 GPU 已被其他进程占 24%，单帧在 10–25 ms 之间跳，1080p 的绝对值只能看量级）。
+
+| 段 | 1080p | 4K |
+|---|---|---|
+| `ink:stroke`（墨线笔画） | 4.65–5.83 ms（46–49%） | 53.3–53.5 ms（58%） |
+| `kuwahara` | 1.25–1.44 ms（12%） | 18.4–18.5 ms（20%） |
+| `scene`（主场景） | 2.6–2.8 ms（23–26%） | 10.7–11.0 ms（12%） |
+| `grade` | — | 4.5 ms（5%） |
+| `ink:edge` / `ink:ids` | 0.5–0.7 / 0.5 ms | 2.4 / 1.6 ms |
+
+- 墨线笔画是两个分辨率下的头号热点，而且随分辨率超线性增长（1080p → 4K 像素 4 倍，这一段约 10 倍）。它在 `ss` 倍的缓冲上算（4K、`ss=2` 时 7680×4320），笔刷采样半径 `R` 也随画幅放大（`ink.js`，上限 16）；这一条是读代码的推断，没有单独测。下一步优化它。
+- 交叉核对 Kuwahara：4K 关掉 Kuwahara 整帧 74.8 ms（bench），与 `kuwahara` 段 18 ms 量级一致。展开前后整帧（bench，两组分开各跑一次）：1080p 25.8 → 11.0、1440p 63.5 → 32.3、4K 159.0 → 96.7 ms。
+
+**x264 出片走 GPU 能快多少**（《化鹏闪羽》1080p、144 帧、x264 crf14 medium，负载均值 5–10 的桌面机，交替三轮）：读回默认改成 GPU 侧 `yuv420p` 之后，平均 6.26 秒对 `--pix-fmt rgba` 的 6.47 秒，只快约 3%，在噪声范围内。原因是 x264 本身就是瓶颈：只读回不编码约 91 fps；x264 用出片链的原参数单独编码这 144 帧要 2.7–2.9 秒（50–54 fps）；出片时阶段时间戳显示启动约 2.1 秒（加载 0.8 秒，第一帧编译约 1.3 秒），之后按约 65 fps 喂帧，最后一帧写完还要等 x264 约 1.7 秒，和渲染同时跑时 x264 只有约 38 fps。加大在途帧数（8、16）没有变化，限制 x264 线程数（16、8）反而更慢（7.1–7.3、9.3–9.5 秒）。x264 是 CPU 编码器，色彩换算之外的部分搬不到 GPU 上；要整条出片都走 GPU，只能换 NVENC。
+
+**NVENC 的 `--cq` 以前被截顶**：`-rc vbr -b:v 0` 不给 `-maxrate` 时，NVENC 按分辨率自动选 Level（1080p24 选 4.0），再按这个 Level 的最大码率封顶；本机 FFmpeg n9.0.2 上 1080p 约 22–25 Mbps，`--cq 18` 与 `--cq 10` 输出完全相同。当时 `encode.mjs` 显式给 `-maxrate 240M -bufsize 480M`（480M 超过 H.264 High@5.1 MaxCPB，后来 Fast 档改成合规的 `-bufsize 240M`，见 7.19），Level 升到 5.1（`master-1080p24` 允许 ≤ 5.1，`uhd-2160p24` 允许 ≤ 5.2）。以同一条 GPU `yuv420p` 管道的 x264 无损编码为参考（逐帧哈希与各候选一致），各跑一次：
+
+| 变体 | 墙钟 | 码率 | Level | PSNR-Y 平均 / 最差帧 | SSIM | VMAF |
+|---|---|---|---|---|---|---|
+| x264 crf14 medium（现母版） | 5.91 s | 88.3 Mbps | 4.0 | 43.85 / 42.22 dB | 0.9817 | 96.58 |
+| NVENC p5 cq18（修复后的默认） | 4.59 s | 24.9 Mbps | 5.1 | 39.00 / 37.71 dB | 0.9365 | 94.35 |
+| NVENC p5 cq14 | 4.69 s | 44.3 Mbps | 5.1 | 40.51 / 38.35 dB | 0.9531 | 95.76 |
+| NVENC p5 cq10 | 4.68 s | 70.6 Mbps | 5.1 | 42.66 / 40.90 dB | 0.9709 | 96.73 |
+| NVENC p5 cq6 | 4.61 s | 106.9 Mbps | 5.1 | 45.87 / 44.02 dB | 0.9857 | 97.60 |
+
+修复前的 NVENC cq18 / cq10 都是 17.1 Mbps、PSNR-Y 38.25 dB、VMAF 约 92.5。另测了恒定 QP（`-rc constqp -qp 14`，preset p7）：89.3 Mbps、PSNR-Y 44.29 dB、SSIM 0.9792、VMAF 97.21、4.81 s，同码率下与 x264 crf14 相当。五档都能无错解码。纯随机噪声在 cq 6 时 NVENC 会出解码报错的码流（真实画面没有出现），因此随后在三部作品上核对 `cq 6 / 7 / 8`，把 Fast 档定在 `cq 7`（见 7.19）；默认离屏母版仍是 Pro / x264。
+
+### 7.19 离屏母版两档编码（Pro / Fast）与墨线块归约剪枝优化
+
+**离屏母版编码改为 `--mode pro|fast`（默认 Pro）**（`engine/offscreen/encode.mjs`、`cli.mjs`、`batch.mjs`、`engine/render/build.mjs`、`tools/film/commands/build.mjs`）：
+
+- **Pro（默认）**：`libx264`、`-profile:v high`、读回 `--pix-fmt rgba`（合入前口径，FFmpeg `COLOR.png` swscale）。跨机器（含无 GPU 的 CI）确定，用于终渲交付。
+- **Fast（可选）**：`h264_nvenc`、`-profile:v high`、`cq 7`、`-maxrate 240M -bufsize 240M`（原先 480M 超过 H.264 High@5.1 MaxCPB），读回默认 yuv420p。无 NVENC 或画幅 < 145×49 时自动退回 Pro。`--encoder x264|nvenc` 仍可显式覆盖（显式 nvenc 不回退）。
+- Fast 的 `cq 7` 标定（三部作品 1080p 同一条 GPU `yuv420p` 管道，以同输入 x264 无损编码为参考，逐帧哈希一致，全部 0 解码报错）：
+
+| 作品（帧数） | 变体 | 墙钟 | 码率 | PSNR-Y 平均 / 最差帧 | SSIM | VMAF |
+|---|---|---:|---:|---:|---:|---:|
+| 《化鹏闪羽》（144 帧） | x264 crf14 | 6.15 s | 88.3 Mbps | 43.85 / 42.22 dB | 0.9817 | 96.58 |
+| 《化鹏闪羽》（144 帧） | **NVENC cq7** | **4.61 s** | 99.7 Mbps | **45.17 / 43.44 dB** | **0.9833** | **97.39** |
+| 《化鹏闪羽》（144 帧） | NVENC cq8 | 4.53 s | 92.8 Mbps | 44.51 / 42.18 dB | 0.9806 | 97.23 |
+| 《晨渡》（192 帧） | x264 crf14 | 11.10 s | 76.4 Mbps | 44.45 / 42.90 dB | 0.9815 | 96.58 |
+| 《晨渡》（192 帧） | **NVENC cq7** | **8.67 s** | 87.1 Mbps | **45.77 / 43.87 dB** | **0.9847** | **97.27** |
+| `ink.mjs`（144 帧） | x264 crf14 | 3.87 s | 59.2 Mbps | 46.66 / 44.85 dB | 0.9902 | 97.77 |
+| `ink.mjs`（144 帧） | **NVENC cq7** | **1.39 s** | 88.0 Mbps | **51.03 / 49.66 dB** | **0.9950** | **98.59** |
+
+- `MASTER_CQ = 7` 是三部作品上 PSNR-Y 平均、最差帧、SSIM、VMAF 四项均不低于 x264 crf14 的最高 `cq`（`cq 8` 在《化鹏闪羽》最差帧与 SSIM 略低于 x264）。纯随机噪声在 `cq 6` 时 NVENC 出过解码报错的码流，Fast 不用那一档。
+- `resolveEncode({ mode, encoder, pixFmt, width, height })`：`mode=pro`（默认）选 x264 + rgba；`mode=fast` 在本机可用 `h264_nvenc` 且画幅 ≥ 145×49（实测低于 145×49 NVENC 报错）时走 nvenc，否则退回 Pro 并记录原因；同参数重复编码码流逐字节确定（`tests/offscreen/cli.test.mjs` 验证）。`offscreen render`、`offscreen batch` 与 `film build --renderer offscreen` 同步生效，`engine/render/build.mjs` 从信封读回实际编码器、档与 `cq` 写进 `run.json` 并计入步骤缓存键；页面渲染器、D 路线光追与网页版（14 Mbps 限速档）不变。
+- **Fast 的 Level 与交付软告警**（只描述 Fast，默认 Pro 不走这条）：NVENC `cq 7 + maxrate 240M + bufsize 240M` 产出 H.264 High@Level 5.1。对照 `tools/qa/checks/delivery.mjs` × `engine/production/profiles.json`：`web-1080p24`（`maxLevel 4.1`）的 `delivery.codec` 给 **level 软告警**（`warn`，不阻断；High 档次匹配，不告警 profile）；`master-1080p24`（`maxLevel 5.1`）不告警。`web.mp4` 交付件另经 `encodeWeb` 重编为 High@4.1。终渲请用 `--mode pro`。
+
+**墨线边缘与笔画优化**（`engine/offscreen/tsl/ink.js`）：
+
+- 实片测量显示《化鹏闪羽》仅 0.70%–0.96% 的像素是真实边缘，99% 像素在旧实现里仍做完整邻域与 `(2R+1)²` 搜索。
+- **边缘遍（`ink:edge`）**：空白天底或透明处（`id < 0.5 || alpha < 0.002`）跳过全部邻域读取与雾计算；4 个轴向邻域深度在 ID 跳变与折痕检测之间复用（14 → 9 次深度读取）；仅真实边缘像素算视空间坐标与空气透视雾。
+- **笔画遍（`ink:stroke`）**：新增 1/64 分辨率的 8×8 块归约（`tile0`，每块存精确局部最大半宽 `E.y` 与块内紧包围盒 `minX/maxX/minY/maxY`）与可分离块膨胀（`tileH → tileReach`，膨胀半径 `inkTilePad(R, wobble, 8)` 严格覆盖 ±1.3|wobble| 域扭曲与 ±R 窗口）。笔画着色器先查膨胀块图——空白块（约 80%–90%）在 `vnoise` 之前整块早退，活跃块按局部最大半宽与每块紧包围盒距离剪枝，只扫描真实可能覆盖当前像素的边缘像素；同时 `sr` 改为 uniform，整条链路只需编译一套笔画着色器。
+- **画面逐像素零差异**：`tests/offscreen/ink-fast.test.mjs` 7 组用例（含非 8 倍数画幅、`R=16` 大抖动与断线、零抖动/零笔压、雾、正交相机、空场景）对优化前原样副本（`fixtures/ink-legacy.js`）**最大差均为 0**；《化鹏闪羽》1080p（5 帧）、4K（3 帧）与《晨渡》1080p（5 帧）全部 13 帧实片输出哈希**逐字节相同**；TSL 对 GLSL（`ink.test.mjs`）与 Chrome WebGPU 同源对拍（`isomorphic-preview.test.mjs`）原样通过。
+- **实测提速**（RTX 4070 Laptop，分段计时含全部块归约/膨胀/笔画四遍，稳态读回含 GPU `yuv420p` 打包与 3 帧流水线）：
+
+| 指标 | 优化前（Kuwahara 展开后） | 优化后 | 变化 |
+|---|---:|---:|---|
+| 《化鹏闪羽》4K `ink:stroke`（5 帧中位） | 53.15 ms（58%） | **4.26 ms**（11%） | **−92%（快 12.5×）** |
+| 《化鹏闪羽》4K `ink:edge`（5 帧中位） | 2.29 ms | **1.25 ms** | −45% |
+| 《化鹏闪羽》4K 整帧中位（`profile`） | 94.7 ms | **37.95 ms** | **快 2.5×** |
+| 《化鹏闪羽》4K 稳态渲染+读回（48 帧） | 96.7 ms（10.3 fps） | **37.02 ms（27.0 fps）** | 相对原始 159.0 ms 共快 **4.3×** |
+| 《化鹏闪羽》1440p 稳态渲染+读回（72 帧） | 32.3 ms（31.0 fps） | **17.81 ms（56.2 fps）** | 相对原始 63.5 ms 共快 **3.6×** |
+| 《化鹏闪羽》1080p `ink:stroke` / `ink:edge` | 5.83 / 0.66 ms | **0.98 / 0.33 ms** | 快 **5.9×** / 2.0× |
+| 《化鹏闪羽》1080p 稳态渲染+读回（96 帧） | 11.0 ms（90.9 fps） | **8.03 ms（124.5 fps）** | 相对原始 25.8 ms 共快 **3.2×** |
+| 《化鹏闪羽》1080p 144 帧端到端出片（含启动与编码） | 6.15 s（x264 crf14） | **3.90 s（Fast → NVENC cq7）** | −37%（同墨线下 x264 为 5.95 s） |
+| 《晨渡》1080p `ink:stroke` / `ink:edge` | 4.78 / 0.59 ms | **0.98 / 0.26 ms** | 快 **4.9×** / 2.3× |
+
+### 7.20 Kuwahara 方差按标量累加（4K 这一遍 −36%）
+
+`hero` 预设是 `radius 4 / farRadius 7`；4K 时 `k = 2`，KR 封顶 10，每个像素 317 个格子（1080p 是 KR 7、149 个）。1080p 每秒能做约 225–248 G 次双线性取样，4K 只有约 150 G，说明 KR = 10 的展开着色器不是卡在取样上。逐项排查（《化鹏闪羽》，5 帧 `0,36,72,108,140`，GPU 一直被语音识别进程占 11–35%）：
+
+| 尝试 | 4K `kuwahara` 段 | 画面对改前 | 结论 |
+|---|---:|---|---|
+| 改前（基线，三轮） | 18.55 ms（15.3–19.7） | — | — |
+| 输入从 RGBA16F 改 RGBA8（纹理足迹减半） | 16.1–17.4 ms | 最大差 5 级 | 不采用：没快多少，又改了画面；取样带宽不是瓶颈 |
+| 只取样、几乎不累加（诊断，画面是错的） | 13.0–13.2 ms | — | 只作对照：317 次加法排成一条依赖链，不是干净的取样下限 |
+| **方差按标量累加（采用）** | **11.80 ms（11.5–11.9，三轮）** | 最大差 1 级、PSNR 75.7–77.8 dB、大差像素 0 | **−36%** |
+| 再去掉相对权重 < 1e-3 的扇区项（20% 的项、0.004% 的权重） | 11.6–14.1 ms | 最大差 2 级 | 不采用：没有更快 |
+| 再去掉相对权重 < 1e-2 的扇区项 | 14.0–14.3 ms | 最大差 20 级 | 不采用：`s²⁴` 的扇区选择对权重极敏感 |
+
+- **做法**（`engine/offscreen/tsl/kuwahara.js`）：选扇区只用三个通道方差之和，所以 `S` 改成按标量累加 `Σ w·|c|²`，方差 = `S / W − |m|²`。每个扇区项从 6 次 FMA 减到 4 次，累加寄存器从 48 个降到 32 个。和逐通道算完再相加只差浮点舍入：原来逐通道 `max(…, 0)`，现在对和取 `max`，各通道方差在数学上本来就 ≥ 0。
+- **为什么只有 KR = 10 受益**：1440p（KR 10）7.41 → 5.31 ms（−28%），1080p（KR 7）1.38 → 1.38 ms。改完后 4K 与 1080p 都在约 225 G 次/秒，说明 4K 现在也卡在这个格子数的取样速率上。再快只能少取样，那会改画面，要走 look 闸。
+- **画面**：真实作品三帧 4K、三帧 1080p 对改前最大差 1 级、大差像素 0；`kuwahara-fast.test.mjs` 对优化前原样副本（最大差 ≤ 1、PSNR ≥ 78 dB）、对 GLSL 版的质量门、分层风格化 `layers.test.mjs` 与整链 `look.test.mjs` 都原样通过，对拍数值没有可见变化（整链 PSNR 60.378 dB、分层 `final` 61.31 dB）。变异检查：`|c|²` 只用红通道、均值平方项偏 0.1%，各让 3 条测试变红。
+- **整帧**：稳态渲染+读回（两轮交替）4K 38.0 → 33.8 ms（26.3 → 29.7 fps，−11%），1440p 17.6 → 15.9 ms（−10%），1080p 不变；4K 144 帧端到端（Fast → NVENC `cq 7`，含约 2 秒启动）8.5–8.6 → 8.0 秒。改完后 4K 的分段计时排序是 Kuwahara、主场景（约 10.6 ms）、墨线笔画（约 4.2 ms）。
+- **独立复核补充**：《晨渡》Kuwahara 标量方差改动的 PSNR 为 73.3–75.6 dB（1080p / 4K），最大差 1 级、≥5 级大差像素 0、对称零偏；《度》为 75.2–76.0 dB。上述《化鹏闪羽》数字保留为原始实测记录，该作品未入库。
+
 ### 7.16 快速复查
 
 ```sh
 npm run film -- new a my-dawn --title 破晓 --backend webgpu
 npm run film -- new c my-ink --title 云山 --backend webgpu
-npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080 --encoder nvenc --pix-fmt yuv420p
+npm run offscreen -- render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:192 --size 1920x1080 --mode fast
 npm run offscreen -- stills lab/offscreen/ink.mjs --out out/offscreen/stills --frames 0,48,96 --size 1920x1080
 npm run offscreen -- probe lab/offscreen/ink.mjs
-npm run offscreen -- batch films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/offscreen/batch --frames 0:48 --encoder nvenc --pix-fmt yuv420p
+npm run offscreen -- profile films/chendu/offscreen.mjs --frames 0,48,90 --size 3840x2160
+npm run offscreen -- batch films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/offscreen/batch --frames 0:48 --mode fast
 npm run offscreen:compare -- films/chendu/offscreen.mjs --frames 0,48,72,90 --size 960x540 --query "msaa=0&notext=1"
 npm run offscreen:bench -- lab/offscreen/ink.mjs --films 1,2,4,8 --frames 192 --size 1920x1080 --encode --encoder nvenc --pix-fmt yuv420p
 npm run determinism -- films/chendu --renderer offscreen --size 320x180 --seams
 npm run lookdev:sweep -- films/chendu --renderer offscreen --t 1.5 --look vignette=0,0.35 --query msaa=0
 npm run qa -- texts --film films/chendu --offscreen
-npm run film -- build films/chendu --renderer offscreen --encoder nvenc
+npm run film -- build films/chendu --renderer offscreen --mode fast
 ```
 
 只执行仓库内受信作品模块，不是任意代码沙箱；以后对外服务必须加独立的任务参数校验与执行隔离。上述命令输出技术实验结果，不表示已通过 `film --final` 或用户交付认可。

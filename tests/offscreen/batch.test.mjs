@@ -35,6 +35,36 @@ test('parseBatchJobs：空任务、重复输出路径、仓库外作品均报 us
   ], { cwd: ROOT }), e => e.code === 'usage.work-outside-repo' || e.code === 'usage.work-not-found');
 });
 
+test('parseBatchJobs：作业与默认值都没写 pixFmt 时走 Pro 的 rgba；写了 yuv420p 照用', () => {
+  const [a, b] = parseBatchJobs([
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-pixfmt-a.mp4', frames: '0:4' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-pixfmt-b.mp4', frames: '0:4', pixFmt: 'yuv420p' },
+  ], { cwd: ROOT });
+  assert.equal(a.pixFmt, 'rgba');
+  assert.equal(b.pixFmt, 'yuv420p');
+});
+
+test('parseBatchJobs：不写 encoder 时走 Pro/x264；Fast 无 NVENC 退回 Pro；显式 nvenc 不写 cq 时用 Fast 档 7', async () => {
+  const { resolveEncode } = await import('../../engine/offscreen/encode.mjs');
+  const [small, big, x, n, f] = parseBatchJobs([
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-a.mp4', frames: '0:4', size: '64x36' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-b.mp4', frames: '0:4', size: '320x180' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-c.mp4', frames: '0:4', size: '320x180', encoder: 'x264' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-d.mp4', frames: '0:4', size: '320x180', encoder: 'nvenc' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-e.mp4', frames: '0:4', size: '320x180', encodeMode: 'fast' },
+  ], { cwd: ROOT });
+  assert.equal(small.encoder, 'x264');
+  assert.equal(small.encodeMode, 'pro');
+  assert.equal(big.encoder, 'x264');
+  assert.equal(big.encodeMode, 'pro');
+  assert.equal(x.encoder, 'x264');
+  assert.equal(n.encoder, 'nvenc');
+  assert.equal(n.cq, 7);
+  const wantFast = resolveEncode({ mode: 'fast', width: 320, height: 180 });
+  assert.equal(f.encoder, wantFast.encoder);
+  assert.equal(f.encodeMode, wantFast.mode);
+});
+
 test('runBatch：异构多作业（不同画幅、rgba/yuv420p、render/stills 混排）同卡并发，逐帧哈希与单跑逐位一致', { skip: !hasFfmpeg ? '没有 FFmpeg' : (skipGpu || false) }, async t => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-batch-det-'));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
@@ -67,7 +97,8 @@ test('runBatch：单个坏作业故障隔离，不污染共用 GPUDevice、不�
     fs.rmSync(tmp, { recursive: true, force: true });
   });
   const badWork = path.join(badDir, 'broken.mjs');
-  fs.writeFileSync(badWork, 'export function build() { return { render(f) { if (f >= 2) throw new Error("boom-at-2"); } }; }\n');
+  // 前两帧真的往目标上画（clear），第 2 帧才抛：默认的 yuv420p 路径要求目标已分配，不画的话第 0 帧就报「渲染目标未分配」，测不到「写了几帧之后中途失败」
+  fs.writeFileSync(badWork, 'export function build({ renderer }) { return { render(f) { renderer.clear(); if (f >= 2) throw new Error("boom-at-2"); } }; }\n');
 
   const jobs = parseBatchJobs([
     { id: 'good-1', work: INK, out: path.join(tmp, 'good1.mp4'), frames: '0:4', size: '64x36', pixFmt: 'yuv420p' },

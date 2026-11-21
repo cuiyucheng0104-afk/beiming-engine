@@ -16,7 +16,7 @@ import { probe } from '../render/lib/ffmpeg.mjs';
 import { loadGpu } from './load.mjs';
 import { createHost } from './host.mjs';
 import { renderFrames, renderFrameList } from './frames.mjs';
-import { ENCODERS, PIX_FMTS, startEncoder } from './encode.mjs';
+import { ENCODER_CHOICES, MASTER_CQ, MODES, PIX_FMTS, resolveEncode, startEncoder } from './encode.mjs';
 import { parseFrameList, parseSize, resolveWork } from './cli.mjs';
 
 const ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'));
@@ -82,14 +82,17 @@ export function parseBatchJobs(input, { cwd = process.cwd(), manifestDir = null,
     }
     const fm = /^(\d+):(\d+)$/.exec(String(framesSpec).trim());
     if (!fm || +fm[2] <= +fm[1]) throw usageError('bad-value', `作业 ${id} 的 render frames 要写成 a:b 且止 > 起，收到「${framesSpec}」`, '例如 "0:96"');
-    const encoder = String(item.encoder ?? defaults.encoder ?? 'x264');
-    const pixFmt = String(item.pixFmt ?? item['pix-fmt'] ?? defaults.pixFmt ?? 'rgba');
-    if (!ENCODERS.includes(encoder)) throw usageError('bad-value', `作业 ${id} 的 encoder 只能是 ${ENCODERS.join(' 或 ')}，收到「${encoder}」`, null);
-    if (!PIX_FMTS.includes(pixFmt)) throw usageError('bad-value', `作业 ${id} 的 pixFmt 只能是 ${PIX_FMTS.join(' 或 ')}，收到「${pixFmt}」`, null);
+    const encodeMode = String(item.encodeMode ?? item['encode-mode'] ?? defaults.encodeMode ?? 'pro');
+    const rawEncoder = String(item.encoder ?? defaults.encoder ?? 'auto');
+    const rawPix = item.pixFmt ?? item['pix-fmt'] ?? defaults.pixFmt ?? null;
+    if (!MODES.includes(encodeMode)) throw usageError('bad-value', `作业 ${id} 的 encodeMode 只能是 ${MODES.join('、')}，收到「${encodeMode}」`, 'pro 为 x264 High 终渲档；fast 为 NVENC 预览档（缺卡退回 pro）。不要与作业 mode（render/stills）混淆');
+    if (!ENCODER_CHOICES.includes(rawEncoder)) throw usageError('bad-value', `作业 ${id} 的 encoder 只能是 ${ENCODER_CHOICES.join('、')}，收到「${rawEncoder}」`, null);
+    if (rawPix != null && rawPix !== '' && !PIX_FMTS.includes(String(rawPix))) throw usageError('bad-value', `作业 ${id} 的 pixFmt 只能是 ${PIX_FMTS.join(' 或 ')}，收到「${rawPix}」`, null);
+    const picked = resolveEncode({ mode: encodeMode, encoder: rawEncoder, pixFmt: rawPix, width, height });
     const crf = Number(item.crf ?? defaults.crf ?? 14);
-    const cq = Number(item.cq ?? defaults.cq ?? 18);
+    const cq = Number(item.cq ?? defaults.cq ?? MASTER_CQ);
     const preset = String(item.preset ?? defaults.preset ?? 'medium');
-    return { id, mode, file, out, from: +fm[1], to: +fm[2], width, height, fps, inflight, query, encoder, pixFmt, crf, cq, preset };
+    return { id, mode, file, out, from: +fm[1], to: +fm[2], width, height, fps, inflight, query, encodeMode: picked.mode, encoder: picked.encoder, pixFmt: picked.pixFmt, crf, cq, preset };
   });
 }
 
@@ -202,7 +205,7 @@ export async function runBatch(jobs, {
       const outEntry = { path: j.out, sha256: shaHex(fs.readFileSync(j.out)), kind: 'video', job: j.id };
       return {
         id: j.id, ok: true, mode: 'render', work: repoRel(j.file), out: j.out,
-        frames: total, from: j.from, to: j.to, width: j.width, height: j.height, fps: j.fps, pixFmt: j.pixFmt, encoder: j.encoder,
+        frames: total, from: j.from, to: j.to, width: j.width, height: j.height, fps: j.fps, pixFmt: j.pixFmt, encoder: j.encoder, cq: j.encoder === 'nvenc' ? j.cq : null,
         seconds: +elapsed(t0).toFixed(2), renderFps: +(total / Math.max(renderS, 1e-6)).toFixed(1),
         frameHashes: hashes, outputs: [outEntry],
       };

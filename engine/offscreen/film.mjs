@@ -16,6 +16,7 @@ import { shotTable, designFit, normalizeTexts } from '../stage/film.js';
 import { setFilmFps, frameOf, REF_FPS } from '../core/clock.js';
 import { mergeParams } from '../style/index.js';
 import { loadCanvasIso } from './io.mjs';
+import { markGpu } from './gputimer.mjs';
 
 export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, height: H, designWidth, designHeight, fit, shadows = THREE.PCFShadowMap } = {}) {
   const { createCanvas } = await loadCanvasIso();
@@ -56,10 +57,12 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
         const rawLook = S.look(t, sctx);
         look.render(S.scene, S.camera, globalThis.__LOOKDEV ? mergeParams(rawLook, globalThis.__LOOKDEV) : rawLook);
         if (draw) {
+          markGpu(renderer, 'overlay');   // 显示层在 CPU 上画，这一段是 GPU 等它的时间
           ctx.clearRect(0, 0, W, H);
           if (globalThis.__BMQA_OFFSCREEN?.hide !== 'layer') draw(ctx, t, S, sctx);
           ovTex.needsUpdate = true;
         }
+        markGpu(renderer, 'compose');
         post.render();
       },
       texts: f => (texts ? normalizeTexts(texts(Math.min(f / rate, dur - 1e-6))) : []),

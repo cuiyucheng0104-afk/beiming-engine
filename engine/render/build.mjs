@@ -22,6 +22,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { defineCommand, isMain, runCli } from '../../tools/lib/cli.mjs';
+import { MASTER_CQ, resolveEncode } from '../offscreen/encode.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
@@ -339,7 +340,8 @@ export const cuecheck = {
 
 const OFFSCREEN_CLI = path.resolve(R('.'), '../offscreen/cli.mjs');
 const offscreenEntry = ctx => path.join(ctx.film.dir, 'offscreen.mjs');
-const offscreenArgs = ctx => ['render', offscreenEntry(ctx), '--frames', `0:${ctx.frames}`, '--size', sizeArg(ctx), '--fps', String(ctx.fps), ...(ctx.opts.encoder ? ['--encoder', ctx.opts.encoder] : []), ...queryArgs(ctx)];
+const offscreenArgs = ctx => ['render', offscreenEntry(ctx), '--frames', `0:${ctx.frames}`, '--size', sizeArg(ctx), '--fps', String(ctx.fps), '--mode', ctx.opts.mode || 'pro', ...(ctx.opts.encoder ? ['--encoder', ctx.opts.encoder] : []), ...queryArgs(ctx)];
+const offscreenEncode = ctx => resolveEncode({ mode: ctx.opts.mode, encoder: ctx.opts.encoder, width: ctx.width, height: ctx.height });
 // 离屏出片（--renderer offscreen）：同画幅、同帧率、同查询串，产物同样是 work/video.mp4，后面的封装、网页版、QA 不变。
 // 帧数、画幅、帧率照样核对；GPU 记 Dawn 报告的适配器。
 async function offscreenVideo(ctx) {
@@ -347,8 +349,9 @@ async function offscreenVideo(ctx) {
   const out = path.join(ctx.run.work, 'video.mp4');
   const r = await ctx.exec(process.execPath, [OFFSCREEN_CLI, ...offscreenArgs(ctx), '--out', out, '--json'],
     { label: '离屏出片（engine/offscreen/cli.mjs）', timeoutSec: ctx.opts.timeout || Math.round(240 + ctx.frames * 2), stallSec: ctx.opts.stall || 300 });
-  let adapter = null;
-  try { adapter = JSON.parse(String(r?.stdout ?? '').trim()).data?.adapter ?? null; } catch { /* --json 的 stdout 只有信封；读不到就只记离屏 */ }
+  let offData = null;
+  try { offData = JSON.parse(String(r?.stdout ?? '').trim()).data ?? null; } catch { /* --json 的 stdout 只有信封；读不到就只记离屏 */ }
+  const adapter = offData?.adapter ?? null;
   const name = [adapter?.vendor, adapter?.architecture].filter(Boolean).join(' ') || adapter?.description;   // description 在 Linux 上是驱动版本，厂商与架构更好认
   const gpu = `Dawn WebGPU（离屏）${name ? `：${name}` : ''}`;
   const info = await ctx.media.probe(ctx.exec, out);
@@ -358,22 +361,30 @@ async function offscreenVideo(ctx) {
   if (Math.abs(info.fps - ctx.fps) > 1e-6) bad.push(`帧率 ${info.fpsRaw}（应为 ${ctx.fps}）`);
   if (bad.length) ctx.fail(4, 'video-contract', `离屏视频与作品描述不符：${bad.join('、')}`, '看 logs/video.log');
   ctx.gpu = gpu;
-  const encoder = ctx.media.encoderInfo(out) || (ctx.opts.encoder === 'nvenc' ? 'h264_nvenc · preset p5 · cq 18' : null);
-  return { gpu, renderer: 'offscreen', frames: info.frames, color: info.color, pixFmt: info.pixFmt, encoder, args: offscreenArgs(ctx) };
+  const actualEnc = offData?.encoder || offscreenEncode(ctx).encoder;
+  const encoder = ctx.media.encoderInfo(out) || (actualEnc === 'nvenc' ? `h264_nvenc · preset p5 · cq ${offData?.cq ?? MASTER_CQ} High` : null);
+  return { gpu, renderer: 'offscreen', frames: info.frames, color: info.color, pixFmt: info.pixFmt, encoder, mode: offData?.mode || offscreenEncode(ctx).mode, args: offscreenArgs(ctx) };
 }
 
 const video = {
   id: 'video', title: '逐帧渲染（engine/render/video.mjs，或 --renderer offscreen 时 engine/offscreen/cli.mjs）',
-  key: ctx => ctx.opts.renderer === 'offscreen' ? ctx.hashJson({
-    step: 'video-offscreen@1', trees: pageTrees(ctx), offscreen: ctx.hashTree(path.resolve(R('.'), '../offscreen')), args: offscreenArgs(ctx).slice(2),
-    deps: ['webgpu', 'three-webgpu', '@napi-rs/canvas'].map(d => { try { return JSON.parse(fs.readFileSync(path.resolve(R('.'), `../../node_modules/${d}/package.json`), 'utf8')).version; } catch { return null; } }),
-    platform: `${process.platform}-${process.arch}`,
-  }) : ctx.hashJson({
-    step: 'video@2', trees: pageTrees(ctx), args: videoArgs(ctx),
-    renderer: ['page.mjs', 'video.mjs', 'args.mjs'].map(f => (fs.existsSync(R(f)) ? ctx.fileHash(R(f)) : null)), playwright: ctx.tools.playwright, browser: ctx.tools.browser,
-    angle: process.env.BEIMING_ANGLE || null, chrome: process.env.BEIMING_CHROME || null, platform: `${process.platform}-${process.arch}`,
-    frameTimeout: process.env.BEIMING_FRAME_TIMEOUT || null,
-  }),
+  key: ctx => {
+    if (ctx.opts.renderer !== 'offscreen') {
+      return ctx.hashJson({
+        step: 'video@2', trees: pageTrees(ctx), args: videoArgs(ctx),
+        renderer: ['page.mjs', 'video.mjs', 'args.mjs'].map(f => (fs.existsSync(R(f)) ? ctx.fileHash(R(f)) : null)), playwright: ctx.tools.playwright, browser: ctx.tools.browser,
+        angle: process.env.BEIMING_ANGLE || null, chrome: process.env.BEIMING_CHROME || null, platform: `${process.platform}-${process.arch}`,
+        frameTimeout: process.env.BEIMING_FRAME_TIMEOUT || null,
+      });
+    }
+    const picked = offscreenEncode(ctx);
+    return ctx.hashJson({
+      step: 'video-offscreen@2', trees: pageTrees(ctx), offscreen: ctx.hashTree(path.resolve(R('.'), '../offscreen')), args: offscreenArgs(ctx).slice(2),
+      encode: { mode: picked.mode, encoder: picked.encoder, pixFmt: picked.pixFmt, profile: picked.profile },
+      deps: ['webgpu', 'three-webgpu', '@napi-rs/canvas'].map(d => { try { return JSON.parse(fs.readFileSync(path.resolve(R('.'), `../../node_modules/${d}/package.json`), 'utf8')).version; } catch { return null; } }),
+      platform: `${process.platform}-${process.arch}`,
+    });
+  },
   outputs: () => ({ video: 'work/video.mp4' }),
   restored: (ctx, meta) => { ctx.gpu = meta.gpu || ctx.meta.probe?.gpu || ctx.gpu; },
   async run(ctx) {

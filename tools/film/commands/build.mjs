@@ -24,7 +24,8 @@ const COMMON = {
   '--profile': { type: 'string', arg: '<档位>', help: '交付档位（默认 film.json 的 output.profile）' },
   '--workers': { type: 'int', min: 1, max: 32, arg: '<n>', help: '页面渲染并行路数（默认 4）' },
   '--renderer': { type: 'enum', values: ['page', 'offscreen'], arg: '<page|offscreen>', help: 'A、C 路线画面用谁渲：page 无头 Chrome（默认）；offscreen Node + Dawn，渲作品目录的 offscreen.mjs（作品要是双实现，见 docs/offscreen/README.md 7.11）' },
-  '--encoder': { type: 'enum', values: ['x264', 'nvenc'], arg: '<x264|nvenc>', help: '视频编码器：x264（默认）或 nvenc（NVIDIA 硬件编码；A、C 逐帧渲染选 nvenc 需配 --renderer offscreen，D 光追与网页版均可）' },
+  '--mode': { type: 'enum', values: ['pro', 'fast'], arg: '<pro|fast>', help: '离屏母版编码档（默认 pro）：pro 为 x264 High + rgba 读回，终渲交付、跨机器确定；fast 为 NVENC 预览档（High、合规 bufsize、cq 7），无 NVENC 时退回 pro。A、C 选 fast 需配 --renderer offscreen（backend=webgpu 时默认已是离屏）' },
+  '--encoder': { type: 'enum', values: ['x264', 'nvenc'], arg: '<x264|nvenc>', help: '显式覆盖视频编码器（不写则离屏跟随 --mode）。nvenc 同时让光追封装与网页版编码走 NVIDIA 硬件编码；A、C 逐帧渲染选 nvenc 需配 --renderer offscreen。显式 nvenc 缺卡时不回退' },
   '--size': { type: 'string', arg: '<宽x高>', help: '改画幅出工作版：不是交付件，不跑交付 QA（只核对规格）；不能与 --final 同用' },
   '--query': { type: 'string', arg: '<k=v>', help: '原样传给页面的查询串' },
   '--audio': { type: 'string', arg: '<none|x.wav|x.py>', help: '覆盖 film.json 的声音：none、现成混音或声音脚本' },
@@ -161,8 +162,9 @@ export async function runBuild(kind, opts, positionals, command = kind) {
   checkStepName(steps, opts.to, '--to');
   const ids = steps.map(s => s.id);
   if (opts.from && opts.to && ids.indexOf(opts.to) < ids.indexOf(opts.from)) throw new FilmError(EXIT.USAGE, 'step-order', `--to ${opts.to} 在 --from ${opts.from} 之前`, `步骤顺序：${ids.join(' → ')}`);
-  if (o.encoder === 'nvenc' && plan.film.route !== 'b' && o.renderer !== 'offscreen' && ids.includes('video') && (!opts.from || ids.indexOf(opts.from) <= ids.indexOf('video'))) {
-    throw usage('--encoder nvenc 在渲染画面时要配 --renderer offscreen（页面渲染器 video.mjs 只用 x264）', '加 --renderer offscreen，或只重编网页版用 assemble --encoder nvenc');
+  if (o.mode === 'fast' && !o.encoder && plan.film.route === 'd') o.encoder = 'nvenc';
+  if ((o.encoder === 'nvenc' || o.mode === 'fast') && plan.film.route !== 'b' && plan.film.route !== 'd' && o.renderer !== 'offscreen' && ids.includes('video') && (!opts.from || ids.indexOf(opts.from) <= ids.indexOf('video'))) {
+    throw usage(`${o.mode === 'fast' && o.encoder !== 'nvenc' ? '--mode fast' : '--encoder nvenc'} 在渲染画面时要配 --renderer offscreen（页面渲染器 video.mjs 只用 x264）`, '加 --renderer offscreen，或只重编网页版用 assemble --encoder nvenc');
   }
   if (o.renderer === 'offscreen' && plan.film.route !== 'b' && ids.includes('video') && (!opts.to || ids.indexOf(opts.to) >= ids.indexOf('video'))) {
     const entry = path.join(plan.film.dir, 'offscreen.mjs');
@@ -186,6 +188,9 @@ export async function runBuild(kind, opts, positionals, command = kind) {
   if (waived) {
     ctx.waived = { gates: opts.waive, kind: waived.kind, records: waived.files };
     if (waived.kind === 'internal') ctx.warn('waiver-internal', `--waive ${opts.waive.join(',')} 没有 --quote / --source：只记了内部豁免说明，不放行终渲（--final）`);
+  }
+  if (opts.final && o.mode === 'fast') {
+    ctx.warn('encode-mode-fast-final', '--mode fast 是 NVENC 预览档，终渲交付请用默认 --mode pro（Fast 母版 High@5.1，web-1080p24 的 delivery.codec 会软告警；web.mp4 仍重编为 High@4.1）');
   }
   let error = null, complete = false, output = null, frameHashes = null;
   try {

@@ -14,6 +14,7 @@ import { createCompose } from './compose.js';
 import { createDebugView } from './debug.js';
 import { kuwahara } from './kuwahara.js';
 import { createFullscreen } from './pass.js';
+import { markGpu } from '../gputimer.mjs';
 
 const unsupported = (code, msg) => Object.assign(new Error(msg), { code });
 
@@ -59,10 +60,11 @@ export function createLook({ THREE, TSL, renderer }, { width: W, height: H, ss =
     const { outline: OL, kuwahara: KW, bloom: BL, grade: GR, fog: FG, paper: PA, vignette: VG, grain: GN, grainSize, grainHold } = lookParams(p, D);
     const prev = renderer.getRenderTarget(), prevClear = renderer.getClearColor(new THREE.Color()), prevAlpha = renderer.getClearAlpha();
     try {
-      paper.prepare();
+      markGpu(renderer, 'paper'); paper.prepare();
       camera.updateMatrixWorld();
 
-      // ① 主场景
+      // ① 主场景（markGpu：offscreen profile 的分段计时标记，没开计时时什么也不做）
+      markGpu(renderer, 'scene');
       renderer.setRenderTarget(T.scene); renderer.clear(true, true, true);
       renderer.render(scene, camera);
       renderer.setClearColor(prevClear, prevAlpha);
@@ -73,8 +75,10 @@ export function createLook({ THREE, TSL, renderer }, { width: W, height: H, ss =
 
       // ③ 雾 → bloom → 调色 → 输出变换
       let src = T.scene.texture;
-      if (FG) { fog.render(src, T.scene.depthTexture, FG, camera, T.fog, fogColor); src = T.fog.texture; }
-      const glow = BL && BL.strength > 0 ? bloom.render(src, BL) : null;
+      if (FG) { markGpu(renderer, 'fog'); fog.render(src, T.scene.depthTexture, FG, camera, T.fog, fogColor); src = T.fog.texture; }
+      let glow = null;
+      if (BL && BL.strength > 0) { markGpu(renderer, 'bloom'); glow = bloom.render(src, BL); }
+      markGpu(renderer, 'grade');
       grade.render({ src, bloom: glow, bloomAmount: BL ? BL.strength : 0, bloomTint: BL?.tint, grade: GR, protect: KW && KW.protect }, T.grade);
       grade.output(T.grade.texture, T.out);
 
@@ -85,8 +89,9 @@ export function createLook({ THREE, TSL, renderer }, { width: W, height: H, ss =
         const far = rf !== r && !camera.isOrthographicCamera;
         KU.radius.value = r; KU.farRadius.value = rf; KU.farStart.value = KW.farStart ?? 40; KU.farEnd.value = KW.farEnd ?? 120;
         KU.q.value = KW.q ?? 8; KU.strength.value = Math.min(1, KW.strength); KU.near.value = camera.near; KU.farClip.value = camera.far;
-        fx.draw(kMat(KR, far), T.kuwa); col = T.kuwa.texture;
+        markGpu(renderer, 'kuwahara'); fx.draw(kMat(KR, far), T.kuwa); col = T.kuwa.texture;
       }
+      markGpu(renderer, 'paper');
       const layer = paper.layer(PA, kp, k);
       if (p.debug) {
         uDebugOn.value = 1;
