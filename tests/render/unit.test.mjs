@@ -19,6 +19,8 @@ import { resolveRequest, createServer } from '../../engine/render/lib/server.mjs
 import { runId, repoPath } from '../../engine/render/lib/record.mjs';
 import { acquireLock, lockPath } from '../../engine/render/lib/lock.mjs';
 import { tryTake, slotCount } from '../../engine/render/lib/slots.mjs';
+import { mix } from '../../engine/render/build.mjs';
+import { hashJson } from '../../tools/film/lib/repo.mjs';
 import { spawnSync } from 'node:child_process';
 import { parseImplicitLabel } from '../../tools/compliance/lib/aigc.mjs';
 import { exitCodeFor } from '../../tools/lib/cli.mjs';
@@ -316,4 +318,16 @@ test('serve.mjs：一启动就输出信封（地址、端口），只听 127.0.0
     p.kill('SIGTERM');
     assert.equal((await exited).code, 143);
   } else { p.kill(); await exited; }
+});
+
+test('mix.key：响度目标档位（ctx.profile.id）进缓存键，自定义画幅不进；同帧率换档位不复用旧 audio/qa.json', () => {
+  const mk = profile => ({
+    audio: { mode: 'wav', path: '/film/a.wav' }, film: { dir: '/film', raw: {} }, art: {}, tools: {}, kind: 'build',
+    frames: 240, fps: 24, profile, rel: p => p, fileHash: () => 'f', hashTree: () => 't', hashJson,
+  });
+  const web = mix.key(mk({ id: 'web-1080p24' }));
+  const master = mix.key(mk({ id: 'master-1080p24' }));
+  assert.notEqual(web, master, '同帧率、不同档位（响度目标不同）键必须不同');
+  assert.equal(web, mix.key(mk({ id: 'web-1080p24' })), '同档位键稳定');
+  assert.equal(mix.key(mk({ id: 'custom', custom: true })), mix.key(mk({ id: 'other', custom: true })), '自定义画幅不带档位');
 });
