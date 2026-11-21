@@ -236,6 +236,51 @@ class VoFourStemAndStreamTests(unittest.TestCase):
         cli_r = H.run(['python', '-m', 'engine.audio.qa', '--film', fdir, '--fail-on-warn', '--json'])
         self.assertEqual(cli_r.returncode, 0, cli_r.stdout + '\n' + cli_r.stderr)
 
+    def test_set_dialogue_direct_leaves_legacy_path_and_vo_stem_true_peak_limited(self):
+        """P2：不经 FourStemWorkstation、直调 set_dialogue() 时不得走 legacy 分轨导出（会跳过 vo 的 tp_limit 真峰值限幅）；无对白时 legacy 路径不变。"""
+        plain = DR.HDRMixer(4.0, fps=24.0, target_lufs=-14.0, max_tp=-1.5)
+        self.assertTrue(plain._legacy_mix_path())
+        plain.set_dialogue(None)
+        self.assertTrue(plain._legacy_mix_path())
+
+        mx = DR.HDRMixer(4.0, fps=24.0, target_lufs=-14.0, max_tp=-1.5)
+        mx.add_bed('music', H.music_like(4.0, seed=5), target_lufs=-18.5, how='win')
+        mx.set_dialogue(_synth_articulate_vo(4.0, [(0.6, 2.8)], seed=9), target_lufs=-6.0)  # 刻意过热的对白
+        self.assertFalse(mx._legacy_mix_path())
+        _, stems, diag = mx.render()
+        ceil = float(D.undb(-1.5))
+        self.assertLessEqual(M.true_peak(stems['vo'], os=4), ceil + 1e-3)
+        self.assertIn('vo', diag['stemTpLimited'])
+
+    def test_check_dialogue_closes_accompaniment_stem_with_mismatched_samplerate(self):
+        """P3：采样率与对白不一致的伴奏分轨被跳过时，其 SoundFile 句柄也要关闭（否则泄漏 fd，Windows 上还会卡住临时目录清理）。"""
+        import soundfile as sf
+        d = os.path.join(self.td, 'dlg-fd-leak')
+        dur = 3.0
+        vo = _synth_articulate_vo(dur, [(0.4, 2.4)], seed=7)
+        mus = H.mastered(dur, lufs=-20.0, tp=-3.0, seed=3)
+        H.write_wav(os.path.join(d, 'out', 'stems', 'vo.wav'), vo)
+        H.write_wav(os.path.join(d, 'out', 'stems', 'music.wav'), mus)
+        sf.write(os.path.join(d, 'out', 'stems', 'amb.wav'), mus[::2], D.SR // 2, subtype='PCM_24')  # 采样率不匹配
+        H.write_wav(os.path.join(d, 'out', 'mix.wav'), vo + mus)
+
+        opened = []
+        real = sf.SoundFile
+
+        class Tracked(real):
+            def __init__(self, *a, **k):
+                super().__init__(*a, **k)
+                opened.append(self)
+
+        sf.SoundFile = Tracked
+        try:
+            res = QA._check_dialogue(os.path.join(d, 'out', 'mix.wav'), None, D.SR)
+        finally:
+            sf.SoundFile = real
+        self.assertIsNotNone(res)
+        self.assertEqual(len(opened), 3)
+        self.assertEqual([f.closed for f in opened], [True] * 3)
+
     def test_qa_dialogue_gate_fail_warn_and_silent_omission(self):
         """验证 qa.py audio.dialogue：伴奏淹没对白 (< -2 dB) 报硬失败退出 4，[-2, +2) dB 报 dialogue_masked 告警，无对白不产出。"""
         dur = 6.0

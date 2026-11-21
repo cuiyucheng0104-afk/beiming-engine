@@ -421,6 +421,15 @@ class CoverApiAndCacheTests(unittest.TestCase):
             if old_env is not None:
                 os.environ['BEIMING_ACESTEP_URL'] = old_env
 
+    def test_ssh_host_rejects_option_like_or_whitespace_and_inserts_double_dash(self):
+        """P2：--ssh 以 - 开头或含空白会被 OpenSSH 当选项解析（-oProxyCommand=…），必须在起进程前以 usage 错误（退出码 2）拒绝。"""
+        for bad in ('-oProxyCommand=true', '-J evil', 'a b', 'host\tx'):
+            with self.subTest(host=bad):
+                with self.assertRaises(CliError) as cm:
+                    with MG._resolve_acestep_base_url(None, bad, 8001):
+                        self.fail('不应走到隧道已建立')
+                self.assertEqual(cm.exception.exit_code, 2)
+
     @unittest.skipIf(os.name == 'nt', 'POSIX 可执行桩脚本测试')
     def test_ssh_port_forward_and_zero_orphan_cleanup(self):
         # 构造一个纯 Python 本地 TCP 转发桩替代 ssh 二进制：记录自身 PID 与命令行参数，验证 Cover 生成与退出后 0 残留进程
@@ -492,7 +501,7 @@ class CoverApiAndCacheTests(unittest.TestCase):
                 self.assertIn('BatchMode=yes', stub_meta['args'])
                 self.assertIn('ExitOnForwardFailure=yes', stub_meta['args'])
                 self.assertIn('-N', stub_meta['args'])
-                self.assertEqual(stub_meta['args'][-1], 'mock-gpu-alias')
+                self.assertEqual(stub_meta['args'][-2:], ['--', 'mock-gpu-alias'])
                 with self.assertRaises(ProcessLookupError):
                     os.kill(int(stub_meta['pid']), 0)
         finally:

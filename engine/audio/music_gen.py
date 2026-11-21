@@ -1009,6 +1009,13 @@ def _resolve_acestep_base_url(endpoint: str | None, ssh_host: str | None, remote
             exit_code=3,
         )
 
+    if host.startswith('-') or any(c.isspace() for c in host):
+        raise CliError(
+            'usage.bad-value',
+            f'--ssh 主机名不合法：{host!r}',
+            hint='应为 ssh 别名或 user@host，不能以 - 开头、不能含空白（否则会被 ssh 当成选项）',
+        )
+
     if not shutil.which('ssh'):
         raise CliError(
             'env.music-ssh',
@@ -1025,6 +1032,7 @@ def _resolve_acestep_base_url(endpoint: str | None, ssh_host: str | None, remote
         '-o', 'ConnectTimeout=10',
         '-N',
         '-L', f'127.0.0.1:{local_port}:127.0.0.1:{int(remote_port)}',
+        '--',
         host,
     ]
     proc = subprocess.Popen(

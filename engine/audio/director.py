@@ -956,6 +956,7 @@ class HDRMixer:
             and self.continuous_duck_db <= 0.05
             and self.music_ceiling_offset_db is None
             and not self.music_focus_windows
+            and self._dialogue is None  # 对白轨分轨要走逐轨真峰值限幅
         )
 
     def set_dialogue(
