@@ -73,8 +73,11 @@ export async function createHost({ gpu, width, height, fps = 24, device, query =
   };
   return {
     THREE, TSL, renderer, device: renderer.backend.device, width, height, fps, pipeline,
-    async load(file) {
-      const mod = await import(pathToFileURL(file).href);
+    isFaulted: () => Boolean(fault),
+    async load(file, { cacheBust } = {}) {
+      const url = pathToFileURL(file);
+      if (cacheBust) url.searchParams.set('v', String(cacheBust));
+      const mod = await import(url.href);
       if (typeof mod.build !== 'function') throw new TypeError(`${file} 没有导出 build(ctx)：作品模块契约见 docs/offscreen/README.md 2.1`);
       const work = await mod.build({ THREE, TSL, renderer, width, height, fps, pipeline, query: new URLSearchParams(query) });   // build 可以是 async（真片要先载字体、画布）
       if (typeof work?.render !== 'function') throw new TypeError(`${file} 的 build() 要返回 { render(f) }`);

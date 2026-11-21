@@ -6,7 +6,7 @@
 //                                         返回值与浏览器版 engine/style/fonts.js 的 loadFilmFonts 相同（entry / assert / list），缺字同样抛 GlyphError
 //   recordRegisteredFont(meta) / listRegisteredFonts()   登记与枚举离屏已注册的字体文件（供机器 QA 的 texts.glyphs 核对 cmap）
 // 字形光栅化（Skia 对 Chrome）两边不保证逐像素相同，文字框（measureText）与读字、安全区检查不受影响；实测差距见 docs/offscreen/README.md。
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CliError } from '../../tools/lib/cli.mjs';
 import { parseFontsManifest, fontsOf, GlyphError } from '../style/fonts.js';
@@ -14,6 +14,7 @@ import { parseFontsManifest, fontsOf, GlyphError } from '../style/fonts.js';
 let mod = null;
 let ctxHooked = false;
 const registeredFonts = new Map();
+const skiaRegistered = new Map();   // `${abs}|${family}` → mtimeMs：避免常驻进程反复把同一份字体子集重新注册进 Skia 原生堆
 
 function alphaOfStyle(s) {
   if (typeof s !== 'string') return 1;
@@ -126,8 +127,14 @@ export async function loadFilmFonts(dir) {
   try { M = parseFontsManifest(JSON.parse(readFileSync(join(dir, 'fonts.json'), 'utf8'))); }
   catch (e) { throw e instanceof GlyphError ? e : new GlyphError(`找不到或读不了字体清单 ${join(dir, 'fonts.json')}（${e.message}）：先跑 node tools/fonts/subset.mjs <作品目录>`); }
   for (const f of M.fonts) {
-    const abs = join(dir, f.file);
-    if (!GlobalFonts.registerFromPath(abs, f.family)) throw new GlyphError(`字体子集 ${f.file} 注册失败：文件坏了或被删了，重跑 tools/fonts/subset.mjs`);
+    const abs = resolve(join(dir, f.file));
+    let mtimeMs = -1;
+    try { mtimeMs = statSync(abs).mtimeMs; } catch { /* 交由 registerFromPath 报缺失 */ }
+    const skey = `${abs}|${f.family}`;
+    if (skiaRegistered.get(skey) !== mtimeMs) {
+      if (!GlobalFonts.registerFromPath(abs, f.family)) throw new GlyphError(`字体子集 ${f.file} 注册失败：文件坏了或被删了，重跑 tools/fonts/subset.mjs`);
+      skiaRegistered.set(skey, mtimeMs);
+    }
     recordRegisteredFont({ file: abs, family: f.family, weight: f.weight ?? '400', style: f.style ?? 'normal', unicodeRange: f.unicodeRange ?? '' });
   }
   return fontsOf(M);
