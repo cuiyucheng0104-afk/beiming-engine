@@ -5,30 +5,21 @@
 //   node engine/offscreen/cli.mjs stills <作品.mjs> --out <目录> --frames 0,48,96|a:b[:step] [--size 1920x1080] [--fps 24] [--inflight 3] [--query k=v&…] [--json]
 //   node engine/offscreen/cli.mjs probe  <作品.mjs> [--size 1920x1080] [--fps 24] [--query k=v&…] [--json]
 //   node engine/offscreen/cli.mjs profile <作品.mjs> --frames 0,48,96|a:b[:step] [--size 1920x1080] [--fps 24] [--query k=v&…] [--json]
-// 退出码：0 · 1 渲染或编码失败 · 2 用法错误 · 3 缺可选依赖（webgpu、three-webgpu）· 4 契约或成片帧数不符。
+//   node engine/offscreen/cli.mjs daemon  [--socket <路径>] [--idle-timeout 600] [--max-cached-works 4] [--action start|status|stop] [--json]
+// 退出码：0 · 1 渲染或编码失败 · 2 用法错误 · 3 缺可选依赖（webgpu、three-webgpu）· 4 契约或成片帧数不符 · 5 资源忙。
 // 计时用 process.hrtime（这个文件在确定性扫描的范围里，渲染路径之外也不用 performance.now）。
 import fs from 'node:fs';
 import process from 'node:process';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { CliError, defineCommand, isMain, runCli, usageError } from '../../tools/lib/cli.mjs';
-import { encodePng } from '../../tools/plates/png.mjs';
-import { probe } from '../render/lib/ffmpeg.mjs';
+import { defineCommand, isMain, runCli, usageError } from '../../tools/lib/cli.mjs';
 import { loadGpu } from './load.mjs';
 import { createHost } from './host.mjs';
-import { renderFrames, renderFrameList } from './frames.mjs';
-import { ENCODER_CHOICES, MASTER_CQ, MODES, resolveEncodeAsync, startEncoder } from './encode.mjs';
+import { ENCODER_CHOICES, MASTER_CQ, MODES, resolveEncodeAsync } from './encode.mjs';
 import { parseBatchJobs, runBatch } from './batch.mjs';
-import { createGpuTimer, attachGpuTimer, detachGpuTimer } from './gputimer.mjs';
+import { createDaemonServer, defaultSocketPath, executeOffscreenJob, resolveDaemonTarget, sendDaemonRequest } from './daemon.mjs';
 
 const ROOT = fs.realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'));
-const sha16 = buf => createHash('sha256').update(buf).digest('hex').slice(0, 16);
-const shaHex = buf => createHash('sha256').update(buf).digest('hex');
-const seconds = since => Number(process.hrtime.bigint() - since) / 1e9;
-const repoRel = p => path.relative(ROOT, p).split(path.sep).join('/');
-const median = xs => { const a = [...xs].sort((x, y) => x - y), m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
-const r3 = x => Math.round(x * 1000) / 1000;
 
 /** 解析静帧列表（支持 0,48,96 与 a:b[:step] 混写，按出现顺序去重） */
 export function parseFrameList(spec) {
@@ -57,7 +48,19 @@ export function parseFrameList(spec) {
 
 /** 校验参数（只读文件系统，不执行作品）；返回解析好的值，有问题抛用法错误 */
 export function resolveArgs({ sub, work, extra = [] }, opts, cwd = process.cwd()) {
-  if (!['render', 'stills', 'probe', 'profile', 'batch'].includes(sub)) throw usageError('bad-subcommand', `未知子命令 ${sub}`, '可用：render、stills、probe、profile、batch');
+  if (!['render', 'stills', 'probe', 'profile', 'batch', 'daemon'].includes(sub)) throw usageError('bad-subcommand', `未知子命令 ${sub}`, '可用：render、stills、probe、profile、batch、daemon');
+  if (sub === 'daemon') {
+    const items = [work, ...extra].filter(Boolean);
+    if (items.length) throw usageError('extra-argument', `daemon 不接受多余位置参数：${items.map(x => `「${x}」`).join(' ')}`, '用法：node engine/offscreen/cli.mjs daemon [--socket <路径>] [--idle-timeout 600] [--max-cached-works 4] [--action start|status|stop]');
+    const action = opts.action || 'start';
+    if (!['start', 'status', 'stop'].includes(action)) throw usageError('bad-value', `--action 只能是 start、status 或 stop，收到「${action}」`, null);
+    const idleTimeout = opts['idle-timeout'] ?? 600;
+    if (!(idleTimeout >= 0)) throw usageError('bad-value', `--idle-timeout 要 ≥ 0，收到 ${idleTimeout}`, '0 表示永不超时');
+    const maxCachedWorks = opts['max-cached-works'] ?? 4;
+    if (!(maxCachedWorks >= 0)) throw usageError('bad-value', `--max-cached-works 要 ≥ 0，收到 ${maxCachedWorks}`, null);
+    const socket = !opts.socket ? defaultSocketPath() : opts.socket.startsWith('\\\\.\\pipe\\') ? opts.socket : path.resolve(cwd, opts.socket);   // 命名管道不按文件路径解析
+    return { sub: 'daemon', action, socket, idleTimeout, maxCachedWorks };
+  }
   if (sub === 'batch') {
     const items = [work, ...extra].filter(Boolean);
     if (!items.length) throw usageError('missing-work', 'batch 需要 <清单.json> 或至少一个 <作品.mjs>', '例如 offscreen batch jobs.json，或 offscreen batch a.mjs b.mjs --out-dir out/batch --frames 0:48');
@@ -132,13 +135,14 @@ export function parseSize(size) {
 
 export const command = defineCommand({
   name: 'offscreen',
-  summary: '离屏出片：在 Node + Dawn 里渲作品模块，不经过浏览器（视频 render、静帧 stills、探测 probe、GPU 分段计时 profile、单卡并发 batch）',
+  summary: '离屏出片：在 Node + Dawn 里渲作品模块，不经过浏览器（视频 render、静帧 stills、探测 probe、GPU 分段计时 profile、单卡并发 batch、常驻守护进程 daemon）',
   usage: [
-    'node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--mode pro|fast] [--encoder auto|x264|nvenc] [--pix-fmt rgba|yuv420p] [--crf 14] [--preset medium] [--cq 7] [--query k=v&…] [--json]',
-    'node engine/offscreen/cli.mjs stills <作品.mjs> --out <目录> --frames 0,48,96|a:b[:step] [--size WxH] [--fps 24] [--inflight 3] [--query k=v&…] [--json]',
-    'node engine/offscreen/cli.mjs probe  <作品.mjs> [--size WxH] [--fps 24] [--query k=v&…] [--json]',
-    'node engine/offscreen/cli.mjs profile <作品.mjs> --frames 0,48,96|a:b[:step] [--size WxH] [--fps 24] [--query k=v&…] [--json]',
+    'node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--mode pro|fast] [--encoder auto|x264|nvenc] [--pix-fmt rgba|yuv420p] [--crf 14] [--preset medium] [--cq 7] [--query k=v&…] [--daemon off|auto|on|<socket>] [--json]',
+    'node engine/offscreen/cli.mjs stills <作品.mjs> --out <目录> --frames 0,48,96|a:b[:step] [--size WxH] [--fps 24] [--inflight 3] [--query k=v&…] [--daemon off|auto|on|<socket>] [--json]',
+    'node engine/offscreen/cli.mjs probe  <作品.mjs> [--size WxH] [--fps 24] [--query k=v&…] [--daemon off|auto|on|<socket>] [--json]',
+    'node engine/offscreen/cli.mjs profile <作品.mjs> --frames 0,48,96|a:b[:step] [--size WxH] [--fps 24] [--query k=v&…] [--daemon off|auto|on|<socket>] [--json]',
     'node engine/offscreen/cli.mjs batch  <清单.json | 作品.mjs…> [--out-dir <目录>] [--concurrency 4] [--max-encoders 4] [--fail-fast] [--json]',
+    'node engine/offscreen/cli.mjs daemon [--socket <路径>] [--idle-timeout 600] [--max-cached-works 4] [--action start|status|stop] [--json]',
   ],
   description: [
     '  offscreen render <作品.mjs>：逐帧流水线渲染并经 FFmpeg 编成有限范围 BT.709 的 H.264',
@@ -146,10 +150,11 @@ export const command = defineCommand({
     '  offscreen probe  <作品.mjs>：只读校验作品 build(ctx) 契约与 GPU 适配器，不渲帧、不写盘',
     '  offscreen profile <作品.mjs>：GPU 时间戳把每帧切成主场景、墨线各遍、雾、辉光、调色、Kuwahara、纸纹、合成等段，报各段中位数与占比；先把这些帧整遍渲一次预热，计时不含读回，不写盘',
     '  offscreen batch  <清单.json | 作品.mjs…>：单进程共用一个 GPUDevice 并发调度多作业（含编码限流与故障隔离）',
+    '  offscreen daemon：启动或管理常驻渲染守护进程（本机 Unix Socket 0600 / Named Pipe，复用 GPUDevice 与作品缓存，客户端用 --daemon 显式接入）',
     '  需要可选依赖 webgpu 与 three-webgpu（npm install --include=optional --ignore-scripts）',
   ],
   positionals: [
-    { name: 'sub', label: '<render|stills|probe|profile|batch>', describe: '子命令', required: true },
+    { name: 'sub', label: '<render|stills|probe|profile|batch|daemon>', describe: '子命令', required: true },
     { name: 'work', label: '<作品.mjs | 清单.json>', describe: '作品模块（仓库内）或批量清单', required: false },
     { name: 'extra', label: '[更多作品…]', describe: 'batch 模式下直接列出多个作品模块', required: false, variadic: true },
   ],
@@ -172,22 +177,62 @@ export const command = defineCommand({
     cq: { type: 'integer', default: MASTER_CQ, arg: '<n>', describe: `nvenc 恒定质量 cq（默认 ${MASTER_CQ}，Fast 档；数字小画质高；勿用 6，真实画面外的纯噪声在 cq 6 出过坏流）` },
     query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（同页面的 location.search，不带 ?；出片链的 --query 与预演的 previs=1 原样转来）' },
     preset: { type: 'string', default: 'medium', choices: ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'], arg: '<名字>', describe: 'x264 preset（默认 medium）' },
+    daemon: { type: 'string', arg: '<目标>', describe: '常驻守护进程接入（默认 off；可选 off、auto、on 或 socket 路径；未传时读取 BEIMING_OFFSCREEN_DAEMON）' },
+    socket: { type: 'string', arg: '<路径>', describe: 'daemon 监听或连接的本机 IPC 路径（默认 $XDG_RUNTIME_DIR/beiming-offscreen.sock 或临时目录）' },
+    'idle-timeout': { type: 'number', default: 600, arg: '<秒>', describe: 'daemon 空闲自动退出时长（秒，默认 600；0 表示不超时）' },
+    'max-cached-works': { type: 'integer', default: 4, arg: '<n>', describe: 'daemon LRU 缓存的作品实例上限（默认 4）' },
+    action: { type: 'string', default: 'start', choices: ['start', 'status', 'stop'], arg: '<动作>', describe: 'daemon 子命令动作：start（启动前台守护进程）、status（查统计）、stop（优雅停止）' },
   },
-  exitCodes: { 0: '成功', 1: '渲染或编码失败', 2: '用法错误', 3: '缺可选依赖', 4: '契约或成片帧数不符' },
+  exitCodes: { 0: '成功', 1: '渲染或编码失败', 2: '用法错误', 3: '缺可选依赖或守护进程不可用', 4: '契约或成片帧数不符', 5: '资源忙' },
   examples: [
     'node engine/offscreen/cli.mjs render lab/offscreen/ink.mjs --out out/offscreen/ink.mp4 --frames 0:96',
     'node engine/offscreen/cli.mjs stills lab/offscreen/ink.mjs --out out/offscreen/stills --frames 0,48,95',
     'node engine/offscreen/cli.mjs probe  lab/offscreen/ink.mjs',
     'node engine/offscreen/cli.mjs profile films/chendu/offscreen.mjs --frames 0,48,96 --size 3840x2160',
     'node engine/offscreen/cli.mjs batch  films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/batch --frames 0:48 --mode fast',
+    'node engine/offscreen/cli.mjs daemon --idle-timeout 600 --max-cached-works 4',
   ],
   async run(ctx) {
     const a = resolveArgs(ctx.args, ctx.opts);
     const t0 = process.hrtime.bigint();
-    const gpu = await loadGpu();
+
+    if (a.sub === 'daemon') {
+      if (a.action === 'status') {
+        const res = await sendDaemonRequest(a.socket, 'stats', {}, { timeoutMs: 5000 });
+        if (!res.ok) return { exitCode: res.exitCode ?? 1, error: res.error, data: res.data ?? null, outputs: [] };
+        const d = res.data;
+        ctx.out(`离屏守护进程运行中 ${d.socket}  pid=${d.pid}  已运行 ${d.uptimeSeconds}s  缓存 ${d.cachedWorks}/${d.maxCachedWorks}（命中 ${d.cacheHits} / 未中 ${d.cacheMisses}）  已完成 ${d.jobsCompleted} 作业`);
+        return { data: d, outputs: [] };
+      }
+      if (a.action === 'stop') {
+        const res = await sendDaemonRequest(a.socket, 'shutdown', {}, { timeoutMs: 5000 });
+        if (!res.ok) return { exitCode: res.exitCode ?? 1, error: res.error, data: res.data ?? null, outputs: [] };
+        ctx.out(`已请求停止离屏守护进程 ${a.socket}`);
+        return { data: res.data, outputs: [] };
+      }
+      const srv = await createDaemonServer({
+        socketPath: a.socket,
+        idleTimeoutSec: a.idleTimeout,
+        maxCachedWorks: a.maxCachedWorks,
+        onLog: msg => ctx.log.info(msg),
+      });
+      const undo = ctx.onCleanup(() => srv.close());
+      ctx.log.info(`离屏守护进程已就绪 ${srv.socketPath}（pid=${process.pid}，idle=${a.idleTimeout}s，cache=${a.maxCachedWorks}）`);
+      try {
+        await srv.closed;
+      } finally {
+        undo();
+      }
+      const d = srv.stats();
+      ctx.out(`离屏守护进程已退出 ${d.socket}  共完成 ${d.jobsCompleted} 作业`);
+      return { data: d, outputs: [] };
+    }
+
     const hashMode = ctx.opts['frame-hashes'];
     const hashFrames = hashMode === 'on' || (hashMode === 'auto' && ctx.json);
+
     if (a.sub === 'batch') {
+      const gpu = await loadGpu();
       const res = await runBatch(a.jobs, {
         gpu,
         concurrency: ctx.opts.concurrency,
@@ -212,6 +257,44 @@ export const command = defineCommand({
       }
       return { data: res, outputs: res.outputs };
     }
+
+    const jobParams = {
+      file: a.file,
+      width: a.width,
+      height: a.height,
+      fps: a.fps,
+      inflight: a.inflight,
+      query: ctx.opts.query,
+      hashFrames,
+      ...(a.out ? { out: a.out } : {}),
+      ...(a.frameList ? { frameList: a.frameList } : {}),
+      ...(a.sub === 'render' ? {
+        from: a.from, to: a.to, mode: ctx.opts.mode, encoder: ctx.opts.encoder,
+        pixFmt: ctx.opts['pix-fmt'], crf: ctx.opts.crf, cq: ctx.opts.cq, preset: ctx.opts.preset,
+      } : {}),
+      ...(ctx.opts['events-out'] ? { eventsOut: path.resolve(ctx.opts['events-out']) } : {}),
+    };
+
+    const daemonTarget = resolveDaemonTarget(ctx.opts.daemon);
+    if (daemonTarget.mode !== 'off') {
+      try {
+        const res = await sendDaemonRequest(daemonTarget.socket, a.sub, jobParams);
+        for (const w of res.warnings || []) ctx.warn(w.code, w.message, w.hint ?? null);
+        if (!res.ok) {
+          return { exitCode: res.exitCode ?? 1, error: res.error, data: res.data ?? null, outputs: res.outputs ?? [] };
+        }
+        for (const line of res.humanLines || []) ctx.out(line);
+        return { data: res.data, outputs: res.outputs ?? [] };
+      } catch (e) {
+        if (daemonTarget.mode === 'auto' && e?.daemonConnectError) {
+          ctx.log.info(`未连上常驻守护进程（${daemonTarget.socket}），自动回退冷启动`);
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    const gpu = await loadGpu();
     const encodePending = a.sub === 'render' ? resolveEncodeAsync({
       mode: ctx.opts.mode, encoder: ctx.opts.encoder, pixFmt: ctx.opts['pix-fmt'],
       width: a.width, height: a.height,
@@ -220,159 +303,30 @@ export const command = defineCommand({
     const info = host.device.adapterInfo ?? {};
     const adapter = { vendor: info.vendor ?? null, architecture: info.architecture ?? null, description: info.description ?? null };
     const software = /swiftshader|llvmpipe|lavapipe|microsoft basic render|\bwarp\b/i.test(`${adapter.vendor} ${adapter.description}`);
-    if (software) ctx.warn('env.software-gpu', `Dawn 落在软件适配器上（${adapter.vendor} ${adapter.description}），会很慢`, '检查 NVIDIA 驱动与 Vulkan ICD');
-
-    if (a.sub === 'probe') {
-      const undo = ctx.onCleanup(() => host.dispose());
-      try {
-        const work = await host.load(a.file);
-        const mod = work.__module || {};
-        const hasTexts = typeof work.texts === 'function';
-        const dur = work.dur ?? mod.DUR ?? null;
-        const rawEv = work.events ?? mod.EV ?? mod.events ?? null;
-        const rawTl = work.timeline ?? mod.TIMELINE ?? mod.timeline ?? null;
-        const evList = Array.isArray(rawEv) ? rawEv : [];
-        const hasTimeline = Boolean(rawTl && typeof rawTl === 'object');
-        const outputs = [];
-        if (ctx.opts['events-out']) {
-          const evDir = path.resolve(ctx.opts['events-out']);
-          fs.mkdirSync(evDir, { recursive: true });
-          const evFile = path.join(evDir, 'events.json');
-          const evJson = JSON.stringify({ dur: dur ?? +(a.frameCount / a.fps).toFixed(6), ev: evList }, null, 2) + '\n';
-          fs.writeFileSync(evFile, evJson);
-          outputs.push({ path: evFile, sha256: shaHex(Buffer.from(evJson)), kind: 'events' });
-          if (hasTimeline) {
-            const tlFile = path.join(evDir, 'timeline.json');
-            const tlJson = JSON.stringify(rawTl, null, 2) + '\n';
-            fs.writeFileSync(tlFile, tlJson);
-            outputs.push({ path: tlFile, sha256: shaHex(Buffer.from(tlJson)), kind: 'timeline' });
-          }
-        }
-        const data = { width: a.width, height: a.height, fps: a.fps, adapter, software, hasTexts, dur, evCount: evList.length, hasTimeline, seconds: +seconds(t0).toFixed(2) };
-        ctx.out(`离屏契约通过 ${repoRel(a.file)}  ${a.width}×${a.height} ${a.fps} fps  TEXTS:${hasTexts ? '有' : '无'}`);
-        return { data, outputs };
-      } finally {
-        undo();
-        host.dispose();
-      }
-    }
-
-    if (a.sub === 'profile') {
-      const undo = ctx.onCleanup(() => host.dispose());
-      const timers = [createGpuTimer(host.device)];
-      try {
-        if (!timers[0]) throw new CliError('env.timestamp-query', `适配器不支持 timestamp-query（${adapter.vendor ?? '未知'} ${adapter.description ?? ''}），没法分段计时`, { hint: '换支持时间戳查询的显卡或驱动；软件适配器通常不支持' });
-        while (timers.length < a.frameList.length) timers.push(createGpuTimer(host.device));
-        const work = await host.load(a.file);
-        for (const f of a.frameList) host.stepFrame(work, f);   // 预热：每帧先整遍渲一次，管线编译、贴图上传不进计时
-        await host.device.queue.onSubmittedWorkDone();
-        // 每帧一个计时器、连续提交、最后一起读：帧与帧之间不等 CPU 读回，GPU 不空转降频（逐帧等读回时 1080p 读数偏高约六成）
-        a.frameList.forEach((f, i) => {
-          attachGpuTimer(host.renderer, timers[i]);
-          timers[i].mark('pre');   // look 之前：镜头更新、作品自己的离屏渲染等
-          host.stepFrame(work, f);
-          timers[i].end();
-        });
-        detachGpuTimer(host.renderer);
-        const frames = (await Promise.all(timers.map(t => t.read()))).map((r, i) => (
-          { frame: a.frameList[i], totalMs: r3(r.totalMs), clamped: r.clamped, spans: r.spans.map(s => ({ label: s.label, ms: r3(s.ms) })) }));
-        const labels = [...new Set(frames.flatMap(fr => fr.spans.map(s => s.label)))];
-        const med = labels.map(label => ({ label, medianMs: median(frames.map(fr => fr.spans.find(s => s.label === label)?.ms ?? 0)) }));
-        const sum = med.reduce((x, p) => x + p.medianMs, 0) || 1;
-        const passes = med.map(p => ({ ...p, medianMs: r3(p.medianMs), share: r3(p.medianMs / sum) })).sort((x, y) => y.medianMs - x.medianMs);
-        const medianFrameMs = r3(median(frames.map(fr => fr.totalMs)));
-        ctx.out(`GPU 分段计时 ${repoRel(a.file)}  ${a.width}×${a.height}  ${frames.length} 帧（${a.frameList.join(',')}）  每帧中位数 ${medianFrameMs} ms`);
-        for (const p of passes) ctx.out(`  ${p.label.padEnd(12)} ${p.medianMs.toFixed(2).padStart(8)} ms  ${(p.share * 100).toFixed(1).padStart(5)}%`);
-        ctx.out('  pre = look 之前（镜头更新等）；overlay = GPU 等 CPU 画显示层；compose = 叠显示层并输出。各段含 GPU 等 CPU 提交的空闲');
-        if (frames.some(fr => fr.clamped)) ctx.warn('profile.non-monotonic', '有时间戳倒退，对应段记 0', '多跑几次看是否稳定');
-        return { data: { width: a.width, height: a.height, fps: a.fps, adapter, software, frames, passes, medianFrameMs, seconds: +seconds(t0).toFixed(2) }, outputs: [] };
-      } finally {
-        detachGpuTimer(host.renderer);
-        for (const t of timers) t?.dispose();
-        undo();
-        host.dispose();
-      }
-    }
-
-    if (a.sub === 'stills') {
-      fs.mkdirSync(a.out, { recursive: true });
-      const partials = new Set();
-      const undo = ctx.onCleanup(() => {
-        for (const p of partials) fs.rmSync(p, { force: true });
-        host.dispose();
+    const undoHost = ctx.onCleanup(() => host.dispose());
+    try {
+      const [work] = a.sub === 'render'
+        ? [await (await Promise.all([host.load(a.file), encodePending]))[0]]
+        : [await host.load(a.file)];
+      const res = await executeOffscreenJob({
+        method: a.sub,
+        params: jobParams,
+        host,
+        work,
+        adapter,
+        software,
+        t0,
+        encodePending,
+        onCleanup: fn => ctx.onCleanup(fn),
+        onLog: msg => ctx.log.info(msg),
       });
-      try {
-        const work = await host.load(a.file);
-        const hashes = hashFrames ? [] : null, outputs = [];
-        const t1 = process.hrtime.bigint();
-        await renderFrameList({
-          host, work, frames: a.frameList, inflight: a.inflight,
-          onFrame: async (f, px) => {
-            if (hashFrames) hashes.push(sha16(px));
-            const base = `f${String(f).padStart(6, '0')}.png`;
-            const partial = path.join(a.out, `.${base}.partial-${process.pid}`);
-            const dst = path.join(a.out, base);
-            partials.add(partial);
-            const png = encodePng({ width: a.width, height: a.height, data: px, channels: 4 });
-            fs.writeFileSync(partial, png);
-            fs.renameSync(partial, dst);
-            partials.delete(partial);
-            outputs.push({ path: dst, sha256: shaHex(png), kind: 'image' });
-          },
-        });
-        const renderS = seconds(t1);
-        const total = a.frameList.length;
-        const data = {
-          frames: total, frameNumbers: a.frameList, width: a.width, height: a.height, fps: a.fps,
-          seconds: +seconds(t0).toFixed(2), renderFps: +(total / Math.max(renderS, 1e-6)).toFixed(1), adapter, frameHashes: hashes,
-        };
-        ctx.out(`完成静帧 ${repoRel(a.out).startsWith('..') ? a.out : repoRel(a.out)}  ${total} 帧  ${a.width}×${a.height}  ${data.seconds}s`);
-        return { data, outputs };
-      } finally {
-        undo();
-        host.dispose();
-      }
-    }
-
-    fs.mkdirSync(path.dirname(a.out), { recursive: true });
-    const partial = path.join(path.dirname(a.out), `.${path.basename(a.out, path.extname(a.out))}.partial-${process.pid}.mp4`);
-    let enc = null, settled = false;
-    const undo = ctx.onCleanup(async () => {
-      if (enc && !settled) await enc.abort();
-      fs.rmSync(partial, { force: true });
+      for (const w of res.warnings) ctx.warn(w.code, w.message, w.hint ?? null);
+      for (const line of res.humanLines) ctx.out(line);
+      return { data: res.data, outputs: res.outputs };
+    } finally {
+      undoHost();
       host.dispose();
-    });
-    const [encPick, work] = await Promise.all([encodePending, host.load(a.file)]);
-    if (encPick.reason) ctx.log.info(encPick.reason);
-    const { encoder, pixFmt, mode: encodeMode } = encPick;
-    const cq = encoder === 'nvenc' ? ctx.opts.cq : null;
-    enc = startEncoder({ width: a.width, height: a.height, fps: a.fps, out: partial, crf: ctx.opts.crf, preset: ctx.opts.preset, encoder, cq: ctx.opts.cq, pixFmt });
-    const total = a.to - a.from, hashes = hashFrames ? [] : null;
-    let done = 0;
-    const t1 = process.hrtime.bigint();
-    await renderFrames({
-      host, work, from: a.from, to: a.to, inflight: a.inflight, format: pixFmt,
-      onFrame: async (f, px) => {
-        if (hashFrames) hashes.push(sha16(px));
-        await enc.write(px);
-        done++;
-        if (done % 48 === 0 || done === total) ctx.log.info(`渲染 ${done}/${total} 帧`);
-      },
-    });
-    await enc.finish();
-    settled = true;
-    const renderS = seconds(t1);
-    const frames = (await probe(partial)).video?.frames;
-    if (frames !== total) throw new CliError('contract.frame-count', `编出来是 ${frames} 帧，应为 ${total} 帧`, { hint: '编码器丢帧或重复帧：带上日志报告' });
-    fs.renameSync(partial, a.out);
-    undo();
-    host.dispose();
-    const data = {
-      frames: total, from: a.from, to: a.to, width: a.width, height: a.height, fps: a.fps, pixFmt, encoder, mode: encodeMode, cq, profile: encPick.profile, reason: encPick.reason,
-      seconds: +seconds(t0).toFixed(2), renderFps: +(total / renderS).toFixed(1), adapter, frameHashes: hashes,
-    };
-    ctx.out(`完成 ${repoRel(a.out).startsWith('..') ? a.out : repoRel(a.out)}  ${total} 帧（${a.from}–${a.to - 1}）  ${a.width}×${a.height} ${a.fps} fps  ${data.seconds}s（渲染+编码 ${data.renderFps} 帧/秒）`);
-    return { data, outputs: [{ path: a.out, sha256: shaHex(fs.readFileSync(a.out)), kind: 'video' }] };
+    }
   },
 });
 

@@ -78,7 +78,34 @@ export async function createFilm({ THREE, TSL, renderer, pipeline, width: W, hei
         post.render();
       },
       texts: f => (texts ? normalizeTexts(texts(Math.min(f / rate, dur - 1e-6))) : []),
-      dispose() { look.dispose(); ovTex.dispose(); },
+      dispose() {
+        look.dispose();
+        ovTex.dispose();
+        const geos = new Set(), mats = new Set(), texs = new Set();
+        const collectTex = v => {
+          if (v && v.isTexture) texs.add(v);
+        };
+        for (const s of shots || []) {
+          const sc = s?.shot?.scene;
+          if (!sc || typeof sc.traverse !== 'function') continue;
+          if (sc.background?.isTexture) texs.add(sc.background);
+          if (sc.environment?.isTexture) texs.add(sc.environment);
+          sc.traverse(obj => {
+            if (obj.shadow?.dispose) obj.shadow.dispose();
+            if (obj.geometry) geos.add(obj.geometry);
+            const ms = Array.isArray(obj.material) ? obj.material : obj.material ? [obj.material] : [];
+            for (const m of ms) {
+              if (!m) continue;
+              mats.add(m);
+              for (const val of Object.values(m)) collectTex(val);
+              if (m.userData?.crop?.map) collectTex(m.userData.crop.map);
+            }
+          });
+        }
+        for (const t of texs) t.dispose?.();
+        for (const m of mats) m.dispose?.();
+        for (const g of geos) g.dispose?.();
+      },
     };
   }
 

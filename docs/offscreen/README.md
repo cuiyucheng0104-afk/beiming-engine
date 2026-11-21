@@ -447,9 +447,9 @@ npm run film -- build films/chendu --renderer offscreen --mode fast
 
 只执行仓库内受信作品模块，不是任意代码沙箱；以后对外服务必须加独立的任务参数校验与执行隔离。上述命令输出技术实验结果，不表示已通过 `film --final` 或用户交付认可。
 
-### 7.21 性能优化规格书与阶段 1
+### 7.21 性能优化规格书与阶段 1 / 阶段 2
 
-后续性能工作的分层规格（WP0–WP5）、测量纪律与每阶段闸门见 [spec-perf-first-principles.md](spec-perf-first-principles.md)。阶段 1（WP0.1–WP0.3：异步 NVENC 探测、`--frame-hashes`、空显示层跳过；WP0.4 零拷贝试作后撤回）已合入，输出逐字节不变；阶段闸门（1080p 144 帧 ≤ 3.3 s）本阶段未达，实测与原因写在该文 5.1。
+后续性能工作的分层规格（WP0–WP5）、测量纪律与每阶段闸门见 [spec-perf-first-principles.md](spec-perf-first-principles.md)。阶段 1（WP0.1–WP0.3：异步 NVENC 探测、`--frame-hashes`、空显示层跳过；WP0.4 零拷贝试作后撤回）已合入，实测见该文 5.1。阶段 2（WP1.2 常驻守护进程 `offscreen daemon` 与 `--daemon` 客户端接入、WP1.3 驱动级着色器磁盘缓存落盘 `.cache/offscreen-shader-cache`；WP1.1 合并 Pass 试作后因 PSNR ≈ 64 dB 未过 T0f 75 dB 线，按 2026-11-22 裁定撤回）输出与 `main` 逐字节相同，实测见该文 5.2。
 
 ## 8. 风险
 
