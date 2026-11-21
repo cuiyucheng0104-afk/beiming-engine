@@ -1,0 +1,3222 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "beiming M1a HTTP API",
+    "version": "0.1.0",
+    "description": "北冥 M1a 动词。所有 JSON 响应是 envelope/0.1 信封；错误码只取 errors.json 里登记过的。由 beiming/api/contract.mjs 生成，不要手改。"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:0"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "Envelope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "信封",
+        "description": "只管结构。ok、exitCode、error 三者的关系和错误码登记没登记由 EN1 到 EN4 管。",
+        "type": "object",
+        "required": [
+          "format",
+          "ok",
+          "exitCode",
+          "error",
+          "outputs",
+          "data",
+          "diagnostics",
+          "cost",
+          "next"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "const": "envelope/0.1"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "exitCode": {
+            "enum": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              124
+            ]
+          },
+          "error": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "hint": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            ]
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "kind",
+                "url"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "url": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          },
+          "data": {
+            "type": "object"
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "code",
+                "layer",
+                "severity",
+                "message"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(\\.[a-z0-9]+(-[a-z0-9]+)*)+$"
+                },
+                "layer": {
+                  "enum": [
+                    "L1",
+                    "L2",
+                    "L3",
+                    "L4",
+                    "L5"
+                  ]
+                },
+                "severity": {
+                  "enum": [
+                    "error",
+                    "warning"
+                  ]
+                },
+                "at": {
+                  "type": "string",
+                  "pattern": "^[^/#\\s]+(/[^/#\\s]+)*$"
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "not": {
+                    "type": "null"
+                  }
+                },
+                "expected": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "atFrames": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "hint": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "fix": {
+                  "$ref": "#/components/schemas/Fix"
+                }
+              }
+            }
+          },
+          "cost": {
+            "type": "object",
+            "required": [
+              "tokens",
+              "gpuSeconds",
+              "wallMs"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "tokens": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "gpuSeconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "wallMs": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "next": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "verb"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "verb": {
+                  "type": "string",
+                  "pattern": "^(GET|POST|PUT|DELETE) /v1/\\S+$"
+                },
+                "why": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "ext": {
+            "type": "object",
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9-]*\\.[A-Za-z0-9_.-]+$"
+            }
+          }
+        }
+      },
+      "Fix": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "修法",
+        "description": "嵌在诊断和判定里的值，不带 format。去掉 applicability 之后是不是合法的补丁操作由 PA5 管。",
+        "type": "object",
+        "required": [
+          "op",
+          "path",
+          "applicability"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": [
+              "set",
+              "remove",
+              "rename",
+              "add"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^[^/#\\s]+(/[^/#\\s]+)*$"
+          },
+          "value": {},
+          "to": {
+            "type": "string",
+            "pattern": "^[^/#\\s]+$"
+          },
+          "applicability": {
+            "enum": [
+              "machine",
+              "maybe",
+              "placeholder",
+              "none"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/guide": {
+      "get": {
+        "operationId": "guide",
+        "summary": "入口卡：动词总表、作者模式、两个最小样例、预算与红线",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "account",
+        "x-token-limit": 1500,
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "guide": {
+                                  "type": "string"
+                                },
+                                "verbs": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "expectedCount": {
+                                  "type": "integer"
+                                },
+                                "actualCount": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "guide",
+                                "verbs"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "guide": {
+              "type": "string"
+            },
+            "verbs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "expectedCount": {
+              "type": "integer"
+            },
+            "actualCount": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "guide",
+            "verbs"
+          ]
+        }
+      }
+    },
+    "/v1/cards/search": {
+      "post": {
+        "operationId": "cards-search",
+        "summary": "查技术卡：最多 5 张摘要，每张不超过 300 token",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "account",
+        "x-token-limit": 1500,
+        "x-item-token-limit": 300,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string"
+                  },
+                  "need": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "livesIn": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "minLevel": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "expectedCount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "actualCount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "type": "string"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "intent": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "required": [
+                                "expectedCount",
+                                "actualCount"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "expectedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "actualCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "intent": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "expectedCount",
+            "actualCount"
+          ]
+        }
+      }
+    },
+    "/v1/cards/{id}": {
+      "get": {
+        "operationId": "card-get",
+        "summary": "卡全文：参数、单位、耦合、适用条件、入口、验证",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "account",
+        "x-token-limit": 1500,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "卡名，或 卡名@主版本"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "card": {
+                                  "type": "object",
+                                  "properties": {}
+                                }
+                              },
+                              "required": [
+                                "card"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "card": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "required": [
+            "card"
+          ]
+        }
+      }
+    },
+    "/v1/schema/{name}": {
+      "get": {
+        "operationId": "schema-get",
+        "summary": "冻结契约或谓词登记表的字段定义与正例摘要",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "account",
+        "x-token-limit": 1500,
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "契约目录名（film、patch、envelope…）或 predicates"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "fields": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {}
+                                  }
+                                },
+                                "example": {}
+                              },
+                              "required": [
+                                "name",
+                                "fields"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "example": {}
+          },
+          "required": [
+            "name",
+            "fields"
+          ]
+        }
+      }
+    },
+    "/v1/assets/search": {
+      "post": {
+        "operationId": "assets-search",
+        "summary": "查内置资产：资产编号、零件数、包围盒",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "account",
+        "x-token-limit": 600,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "q": {
+                    "type": "string"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "expectedCount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "actualCount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "parts": {
+                                        "type": "integer"
+                                      },
+                                      "bbox": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "number"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "required": [
+                                "expectedCount",
+                                "actualCount"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "expectedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "actualCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "parts": {
+                    "type": "integer"
+                  },
+                  "bbox": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "expectedCount",
+            "actualCount"
+          ]
+        }
+      }
+    },
+    "/v1/films": {
+      "post": {
+        "operationId": "films-create",
+        "summary": "建工作区：脚手架 film.json（rev 1）、注入 floor@1、交回工作区令牌",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "account",
+        "x-token-limit": 600,
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "hands-on"
+                    ]
+                  },
+                  "template": {
+                    "type": "string",
+                    "enum": [
+                      "title",
+                      "turntable"
+                    ]
+                  },
+                  "exam": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*-[1-9][0-9]*$"
+                  },
+                  "question": {
+                    "type": "object",
+                    "properties": {}
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "brief": {
+                    "type": "string"
+                  },
+                  "asset": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "output": {
+                    "type": "object",
+                    "properties": {
+                      "size": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 2
+                        },
+                        "minItems": 2,
+                        "maxItems": 2
+                      },
+                      "fps": {
+                        "type": "string"
+                      },
+                      "frames": {
+                        "type": "integer",
+                        "minimum": 2
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "film": {
+                                  "type": "string"
+                                },
+                                "token": {
+                                  "type": "string"
+                                },
+                                "rev": {
+                                  "type": "integer"
+                                },
+                                "scaffold": {
+                                  "type": "string"
+                                },
+                                "base": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "film",
+                                "token",
+                                "rev",
+                                "base"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "film": {
+              "type": "string"
+            },
+            "token": {
+              "type": "string"
+            },
+            "rev": {
+              "type": "integer"
+            },
+            "scaffold": {
+              "type": "string"
+            },
+            "base": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "film",
+            "token",
+            "rev",
+            "base"
+          ]
+        }
+      }
+    },
+    "/v1/films/{id}/assets": {
+      "post": {
+        "operationId": "film-assets",
+        "summary": "上传 .glb / .stl 网格资产到工作区 assets/",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 300,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]+\\.(glb|stl)$"
+                  },
+                  "data": {
+                    "type": "string",
+                    "contentEncoding": "base64"
+                  }
+                },
+                "required": [
+                  "name",
+                  "data"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "asset": {
+                                  "type": "string"
+                                },
+                                "ref": {
+                                  "type": "string"
+                                },
+                                "bytes": {
+                                  "type": "integer"
+                                },
+                                "sha256": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "asset",
+                                "bytes",
+                                "sha256"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "asset": {
+              "type": "string"
+            },
+            "ref": {
+              "type": "string"
+            },
+            "bytes": {
+              "type": "integer"
+            },
+            "sha256": {
+              "type": "string"
+            },
+            "kind": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "asset",
+            "bytes",
+            "sha256"
+          ]
+        }
+      }
+    },
+    "/v1/films/{id}/film": {
+      "get": {
+        "operationId": "film-get",
+        "summary": "读当前的片子描述和修订号",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 1500,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "rev": {
+                                  "type": "integer"
+                                },
+                                "film": {
+                                  "type": "object",
+                                  "properties": {}
+                                }
+                              },
+                              "required": [
+                                "rev"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "rev": {
+              "type": "integer"
+            },
+            "film": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "required": [
+            "rev"
+          ]
+        }
+      },
+      "put": {
+        "operationId": "film-put",
+        "summary": "交整份 film/3.0 或 patch/0.1（都带 rev）；L1 即检；签发这个修订号的 film.lock",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 800,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "applyFixes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "machine"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "title": "补丁",
+                    "description": "只管结构。哪种操作带 value、带 to 由 PA1 管，这里不收紧。",
+                    "type": "object",
+                    "required": [
+                      "format",
+                      "rev",
+                      "ops"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "format": {
+                        "const": "patch/0.1"
+                      },
+                      "rev": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "ops": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "required": [
+                            "op",
+                            "path"
+                          ],
+                          "additionalProperties": false,
+                          "properties": {
+                            "op": {
+                              "enum": [
+                                "set",
+                                "remove",
+                                "rename",
+                                "add"
+                              ]
+                            },
+                            "path": {
+                              "type": "string",
+                              "description": "写法见片子描述契约 5.4；是字符串就过结构定义，写得对不对（含空串）由错误码表契约 5.6 第 4 步判"
+                            },
+                            "value": {},
+                            "to": {
+                              "type": "string",
+                              "pattern": "^[^/#\\s]+$"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "format": {
+                        "type": "string",
+                        "const": "film/3.0"
+                      },
+                      "rev": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "format",
+                      "rev"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "rev": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "rev"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "rev": {
+                                  "type": "integer"
+                                },
+                                "latestRev": {
+                                  "type": "integer"
+                                },
+                                "lock": {
+                                  "type": "string"
+                                },
+                                "applied": {
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "rev": {
+              "type": "integer"
+            },
+            "latestRev": {
+              "type": "integer"
+            },
+            "lock": {
+              "type": "string"
+            },
+            "applied": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "/v1/films/{id}/files/{path}": {
+      "put": {
+        "operationId": "film-files",
+        "summary": "交镜头脚本（按作者模式开放；默认只开 cards-data）",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 800,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "工作区里的相对路径，可以带 /"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "text/plain": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "path": {
+                                  "type": "string"
+                                },
+                                "bytes": {
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "bytes": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "/v1/films/{id}/explain": {
+      "get": {
+        "operationId": "explain",
+        "summary": "一个参数的值从哪来：四层值、耦合、影响范围",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 300,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {}
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    "/v1/films/{id}/render": {
+      "post": {
+        "operationId": "render",
+        "summary": "渲指定镜头和帧：进作业队列，完成后交每帧摘要",
+        "description": "status 表示队列执行状态。succeeded 表示执行结束，核验或交付的业务结果见信封 ok、error 和 data.layers。",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 600,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "shots": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_-]*$"
+                    },
+                    "maxItems": 16
+                  },
+                  "frames": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "maxItems": 64
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "final"
+                    ]
+                  },
+                  "wait": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 30,
+                    "description": "同步等待作业结束的秒数，超时就先交回作业号"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "job": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "queued",
+                                    "running",
+                                    "succeeded",
+                                    "failed",
+                                    "canceled",
+                                    "stopped"
+                                  ]
+                                },
+                                "stage": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "job",
+                                "status"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "canceled",
+                "stopped"
+              ]
+            },
+            "stage": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "job",
+            "status"
+          ]
+        }
+      }
+    },
+    "/v1/films/{id}/observe/query": {
+      "post": {
+        "operationId": "observe-query",
+        "summary": "空间查询：entities、framing、texts、stats",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 400,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "entities",
+                      "framing",
+                      "texts",
+                      "stats"
+                    ]
+                  },
+                  "target": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "frame": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "final"
+                    ]
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {}
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    "/v1/films/{id}/observe/sheet": {
+      "post": {
+        "operationId": "observe-sheet",
+        "summary": "联系表与切点条带",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 300,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cuts": {
+                    "type": "boolean"
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 24
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "final"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {}
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    "/v1/films/{id}/observe/metrics": {
+      "post": {
+        "operationId": "observe-metrics",
+        "summary": "成片量测：交付规格、响度、黑帧冻结、切点",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 600,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "metrics": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "deliverSpec",
+                        "audioLoudness",
+                        "blackFreezeDup",
+                        "cutYdif",
+                        "cutScene"
+                      ]
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {}
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    "/v1/films/{id}/verify": {
+      "post": {
+        "operationId": "verify",
+        "summary": "L1 → L2（纯函数门、编号层包围盒 IoU ≥ 0.95）→ L3（floor@1 与模板谓词、防削弱），先列判不过的和修法",
+        "description": "status 表示队列执行状态。succeeded 表示执行结束，核验或交付的业务结果见信封 ok、error 和 data.layers。",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 1000,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "shots": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_-]*$"
+                    },
+                    "maxItems": 16
+                  },
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "final"
+                    ]
+                  },
+                  "wait": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 30,
+                    "description": "同步等待作业结束的秒数，超时就先交回作业号"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "job": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "queued",
+                                    "running",
+                                    "succeeded",
+                                    "failed",
+                                    "canceled",
+                                    "stopped"
+                                  ]
+                                },
+                                "stage": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "job",
+                                "status"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "canceled",
+                "stopped"
+              ]
+            },
+            "stage": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "job",
+            "status"
+          ]
+        }
+      }
+    },
+    "/v1/films/{id}/review": {
+      "post": {
+        "operationId": "review",
+        "summary": "L5 审片：异族视觉模型的意见与建议谓词；没配置时 status 是 not-run，不覆盖硬门",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 1000,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "brief": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ok",
+                                    "not-run",
+                                    "failed"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "status"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "ok",
+                "not-run",
+                "failed"
+              ]
+            }
+          },
+          "required": [
+            "status"
+          ]
+        }
+      }
+    },
+    "/v1/films/{id}/deliver": {
+      "post": {
+        "operationId": "deliver",
+        "summary": "终渲全部镜头、出六件套，自动再过 L2–L5 写进 report.json",
+        "description": "status 表示队列执行状态。succeeded 表示执行结束，核验或交付的业务结果见信封 ok、error 和 data.layers。",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 600,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tier": {
+                    "type": "string",
+                    "enum": [
+                      "final"
+                    ]
+                  },
+                  "wait": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 30,
+                    "description": "同步等待作业结束的秒数，超时就先交回作业号"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "job": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "queued",
+                                    "running",
+                                    "succeeded",
+                                    "failed",
+                                    "canceled",
+                                    "stopped"
+                                  ]
+                                },
+                                "stage": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "job",
+                                "status"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "canceled",
+                "stopped"
+              ]
+            },
+            "stage": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "job",
+            "status"
+          ]
+        }
+      }
+    },
+    "/v1/films/{id}/harvest": {
+      "post": {
+        "operationId": "harvest",
+        "summary": "收获：M1a 返回空候选列表",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 600,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "expectedCount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "actualCount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {}
+                                  }
+                                }
+                              },
+                              "required": [
+                                "expectedCount",
+                                "actualCount"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "expectedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "actualCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          },
+          "required": [
+            "expectedCount",
+            "actualCount"
+          ]
+        }
+      }
+    },
+    "/v1/films/{id}/ledger": {
+      "get": {
+        "operationId": "ledger",
+        "summary": "账本：分步墙钟、显卡秒、token、帧数",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": 600,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "expectedCount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "actualCount": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {}
+                                  }
+                                }
+                              },
+                              "required": [
+                                "expectedCount",
+                                "actualCount"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "expectedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "actualCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          },
+          "required": [
+            "expectedCount",
+            "actualCount"
+          ]
+        }
+      }
+    },
+    "/v1/films/{id}/artifacts/{name}": {
+      "get": {
+        "operationId": "artifacts",
+        "summary": "只读产物文件（成片、联系表、报告、帧）",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "workspace",
+        "x-token-limit": null,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "产物相对路径，可以带 /"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "文件字节",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{id}": {
+      "get": {
+        "operationId": "job-get",
+        "summary": "作业状态、阶段、最近 5 条事件、累计成本；?wait=30 长轮询",
+        "description": "status 表示队列执行状态。succeeded 表示执行结束，核验或交付的业务结果见信封 ok、error 和 data.layers。",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "job",
+        "x-token-limit": 500,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "job": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "queued",
+                                    "running",
+                                    "succeeded",
+                                    "failed",
+                                    "canceled",
+                                    "stopped"
+                                  ]
+                                },
+                                "stage": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "job",
+                                "status"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "canceled",
+                "stopped"
+              ]
+            },
+            "stage": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "job",
+            "status"
+          ]
+        }
+      },
+      "delete": {
+        "operationId": "job-delete",
+        "summary": "取消作业",
+        "description": "status 表示队列执行状态。succeeded 表示执行结束，核验或交付的业务结果见信封 ok、error 和 data.layers。",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-auth": "job",
+        "x-token-limit": 100,
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Envelope"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "job": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "queued",
+                                    "running",
+                                    "succeeded",
+                                    "failed",
+                                    "canceled",
+                                    "stopped"
+                                  ]
+                                },
+                                "stage": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "job",
+                                "status"
+                              ]
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "truncated": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "truncated"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败信封",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "x-data-schema": {
+          "type": "object",
+          "properties": {
+            "job": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "canceled",
+                "stopped"
+              ]
+            },
+            "stage": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "job",
+            "status"
+          ]
+        }
+      }
+    }
+  }
+}

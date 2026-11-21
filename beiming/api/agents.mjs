@@ -1,0 +1,208 @@
+// 异族模型的两个客户端，都走 OpenAI-compatible 的 Chat Completions：
+//   runHandsOnAgent            亲手模式的最小代理循环。模型手里只有一个工具 http_request，只能调本服务的 /v1/* 动词；
+//   createOpenAiVisionReviewer L5 审片：把需求原文、联系表、切点条带、声音量测表交给视觉模型，收回带帧区间、严重度、证据的意见和建议谓词。
+// 接口地址、密钥、模型名从环境变量读（或由调用方传入），代码里不写任何密钥和地址：
+//   代理 BEIMING_AGENT_ENDPOINT、BEIMING_AGENT_API_KEY、BEIMING_AGENT_MODEL；审片 BEIMING_REVIEW_ENDPOINT、BEIMING_REVIEW_API_KEY、BEIMING_REVIEW_MODEL。
+// 每次模型响应往外部模型用量账本 external-ledger.jsonl 追加一行：序号、角色、模型家族、模型名、输入与输出 token。
+// 这份账本和工作区的账本（GET ledger）分开记：那边是服务器花的，这边是外部模型花的。
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+
+const METHODS = ['GET', 'POST', 'PUT', 'DELETE'];
+// 一次模型调用最多等多久（毫秒）
+const MODEL_TIMEOUT_MS = 120000;
+const SEVERITIES = ['low', 'medium', 'high'];
+
+const AGENT_SYSTEM = [
+  '你是一个只通过 HTTP 接口做片子的代理。你手里只有一个工具 http_request，只能调本服务 /v1/ 开头的动词；令牌由工具替你带。',
+  '先 GET /v1/guide，照里面的闭环做：建片、改片（补丁带 rev）、看诊断（能机器修的用 ?applyFixes=machine）、渲、观测、核验、交付。',
+  '每一步先看响应信封的 ok、error.code、diagnostics、next。做完用一段话汇报做了什么、卡在哪。',
+].join('\n');
+
+const REVIEW_SYSTEM = [
+  '你是审片人。看需求原文、联系表、切点条带和声音量测表，指出成片不合需求的地方。',
+  '只回一个 JSON 对象：{"opinions":[{"frames":[起帧,止帧],"severity":"low|medium|high","evidence":"在哪张图的哪一格看到了什么","comment":"意见"}],"suggestedPredicates":["谓词断言"]}。',
+  '没有意见时 opinions 是空数组。不要回 JSON 以外的字。',
+].join('\n');
+
+const HTTP_TOOL = {
+  type: 'function',
+  function: {
+    name: 'http_request',
+    description: '调本服务的一个 HTTP 动词。path 以 /v1/ 开头；body 是 JSON 对象（PUT files 交脚本时是字符串）。返回 HTTP 状态码和响应信封。',
+    parameters: {
+      type: 'object',
+      properties: { method: { type: 'string', enum: METHODS }, path: { type: 'string', pattern: '^/v1/' }, body: {} },
+      required: ['method', 'path'],
+      additionalProperties: false,
+    },
+  },
+};
+
+const count = (v) => (Number.isFinite(v) && v > 0 ? Math.round(v) : 0);
+
+/** 模型家族：模型名（去掉供应商前缀）开头的那串字母，例如 gpt-4o → gpt、gemini-2.5-pro → gemini */
+export const familyOf = (model) => /^[a-z]+/.exec(String(model).toLowerCase().split('/').pop())?.[0] ?? 'unknown';
+
+/** 往外部模型用量账本追加一行（序号接着已有的行数） */
+export function appendExternalLedger(ledgerPath, entry) {
+  mkdirSync(dirname(ledgerPath), { recursive: true });
+  const seq = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8').split('\n').filter(Boolean).length + 1 : 1;
+  appendFileSync(ledgerPath, `${JSON.stringify({ seq, ...entry })}\n`);
+}
+
+function requireConfig(what, names, { endpoint, apiKey, model, ledgerPath }) {
+  const missing = [!endpoint && `endpoint（${names.endpoint}）`, !apiKey && `apiKey（${names.apiKey}）`, !model && `model（${names.model}）`, !ledgerPath && 'ledgerPath'].filter(Boolean);
+  if (missing.length) throw new TypeError(`${what}缺配置：${missing.join('、')}`);
+}
+
+/** 调一次 chat/completions：交回 { message, model, usage: { inputTokens, outputTokens } } */
+async function chat({ endpoint, apiKey, body }) {
+  const target = /\/chat\/completions\/?$/.test(endpoint) ? endpoint : `${endpoint.replace(/\/+$/, '')}/chat/completions`;
+  const res = await fetch(target, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+  }).catch(() => { throw new ModelResponseError('模型接口连接失败或超时'); });
+  if (!res.ok) throw new ModelResponseError(`模型接口返回 HTTP ${res.status}`);
+  let data;
+  try { data = await res.json(); } catch { throw new ModelResponseError('模型接口返回的不是 JSON'); }
+  const message = data?.choices?.[0]?.message;
+  if (!message || typeof message !== 'object') throw new ModelResponseError('模型接口的返回里没有 choices[0].message');
+  return { message, model: typeof data.model === 'string' ? data.model : body.model, usage: { inputTokens: count(data.usage?.prompt_tokens), outputTokens: count(data.usage?.completion_tokens) } };
+}
+
+/**
+ * 执行一次 http_request。只放行本服务 /v1/ 开头的路径；令牌由这里挑：建片交回的工作区令牌记下来（不交给模型），
+ * 之后调那部片和它的作业时带工作区令牌，别的动词带账户令牌。交回 { text（给模型的工具结果）, call（留给调用方的记录） }。
+ */
+async function callApi({ baseUrl, account, workspaces, jobs }, args) {
+  const refuse = (why) => ({ text: JSON.stringify({ refused: why }), call: { method: String(args?.method), path: String(args?.path), status: 0, ok: false, refused: why } });
+  const method = String(args?.method ?? '').toUpperCase();
+  const path = args?.path;
+  if (!METHODS.includes(method)) return refuse(`method 只收 ${METHODS.join('、')}`);
+  if (typeof path !== 'string' || !/^\/v1\/[^\s#\\]*$/.test(path)) return refuse('path 只收本服务 /v1/ 开头的路径');
+  const target = new URL(path, baseUrl);
+  if (target.origin !== new URL(baseUrl).origin || !target.pathname.startsWith('/v1/')) return refuse('path 只收本服务 /v1/ 开头的路径');
+  const film = /^\/v1\/films\/([^/]+)\//.exec(target.pathname)?.[1];
+  const job = /^\/v1\/jobs\/([^/]+)$/.exec(target.pathname)?.[1];
+  const token = (film && workspaces[film]) || (job && workspaces[jobs[job]]) || account;
+  const hasBody = args.body !== undefined && args.body !== null && method !== 'GET';
+  const text = typeof args.body === 'string';
+  const res = await fetch(target, {
+    method, headers: { authorization: `Bearer ${token}`, ...(hasBody ? { 'content-type': text ? 'text/plain; charset=utf-8' : 'application/json' } : {}) },
+    ...(hasBody ? { body: text ? args.body : JSON.stringify(args.body) } : {}),
+  });
+  const call = { method, path, status: res.status, ok: res.ok };
+  if (!/json/.test(res.headers.get('content-type') ?? '')) {
+    const bytes = (await res.arrayBuffer()).byteLength;
+    return { text: JSON.stringify({ status: res.status, contentType: res.headers.get('content-type'), bytes }), call: { ...call, bytes } };
+  }
+  const envelope = await res.json();
+  if (envelope?.format === 'envelope/0.1') call.ok = envelope.ok;
+  if (envelope?.error?.code) call.code = envelope.error.code;
+  const data = envelope?.data;
+  if (envelope?.ok && typeof data?.token === 'string' && typeof data.film === 'string') {
+    workspaces[data.film] = data.token;
+    data.token = '（工具已代存，后续调用自动带上）';
+  }
+  if (typeof data?.job === 'string' && film) jobs[data.job] = film;
+  return { text: JSON.stringify({ status: res.status, body: envelope }), call };
+}
+
+/**
+ * 亲手模式的代理循环。baseUrl 是本服务的地址，token 是账户令牌；endpoint、apiKey、model 不给就读环境变量；
+ * brief 是需求原文；ledgerPath 是外部模型用量账本；maxSteps 是最多几轮模型调用；tokenBudget 是输入加输出的 token 上限。
+ * 交回 { status: 'done' | 'max-steps' | 'budget', steps, calls, usage, final, workspaces: { 片子: 工作区令牌 }, ledgerPath }。
+ */
+export async function runHandsOnAgent({
+  baseUrl, token, brief, ledgerPath, maxSteps = 40, tokenBudget = 200000,
+  endpoint = process.env.BEIMING_AGENT_ENDPOINT, apiKey = process.env.BEIMING_AGENT_API_KEY, model = process.env.BEIMING_AGENT_MODEL,
+} = {}) {
+  requireConfig('代理循环', { endpoint: 'BEIMING_AGENT_ENDPOINT', apiKey: 'BEIMING_AGENT_API_KEY', model: 'BEIMING_AGENT_MODEL' }, { endpoint, apiKey, model, ledgerPath });
+  if (typeof baseUrl !== 'string' || !baseUrl || typeof token !== 'string' || !token) throw new TypeError('代理循环要 baseUrl（本服务地址）和 token（账户令牌）');
+  if (typeof brief !== 'string' || !brief.trim()) throw new TypeError('代理循环要 brief（需求原文）');
+  if (!Number.isInteger(maxSteps) || maxSteps < 1 || !(tokenBudget > 0)) throw new RangeError('maxSteps 要正整数，tokenBudget 要正数');
+  const api = { baseUrl, account: token, workspaces: {}, jobs: {} };
+  const messages = [{ role: 'system', content: AGENT_SYSTEM }, { role: 'user', content: brief }];
+  const usage = { inputTokens: 0, outputTokens: 0 };
+  const calls = [];
+  const done = (status, steps, final = null) => ({ status, steps, calls, usage, final, workspaces: api.workspaces, ledgerPath });
+  for (let step = 1; step <= maxSteps; step++) {
+    if (usage.inputTokens + usage.outputTokens >= tokenBudget) return done('budget', step - 1);
+    const res = await chat({ endpoint, apiKey, body: { model, messages, tools: [HTTP_TOOL], tool_choice: 'auto' } });
+    usage.inputTokens += res.usage.inputTokens;
+    usage.outputTokens += res.usage.outputTokens;
+    appendExternalLedger(ledgerPath, { role: 'agent', step, family: familyOf(res.model), model: res.model, inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens });
+    if (usage.inputTokens + usage.outputTokens >= tokenBudget) return done('budget', step);
+    const toolCalls = Array.isArray(res.message.tool_calls) ? res.message.tool_calls : [];
+    messages.push({ role: 'assistant', content: res.message.content ?? null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
+    if (!toolCalls.length) return done('done', step, typeof res.message.content === 'string' ? res.message.content : null);
+    for (const tc of toolCalls) {
+      let result;
+      if (tc?.function?.name !== 'http_request') result = { text: JSON.stringify({ refused: '只有 http_request 这一个工具' }), call: { method: '', path: '', status: 0, ok: false, refused: `没有工具 ${tc?.function?.name}` } };
+      else {
+        let args = null;
+        try { args = JSON.parse(tc.function.arguments ?? ''); } catch { /* 参数不是 JSON：下面按拒绝处理 */ }
+        result = args && typeof args === 'object' ? await callApi(api, args) : { text: JSON.stringify({ refused: 'arguments 不是 JSON 对象' }), call: { method: '', path: '', status: 0, ok: false, refused: 'arguments 不是 JSON 对象' } };
+      }
+      calls.push({ step, ...result.call });
+      messages.push({ role: 'tool', tool_call_id: tc.id, content: result.text });
+    }
+  }
+  return done('max-steps', maxSteps);
+}
+
+class ModelResponseError extends Error {}
+
+export const reviewFailure = error => error instanceof ModelResponseError ? error.message : '视觉审片适配器调用失败';
+
+export function validateReview(parsed, frames = Infinity) {
+  const text = value => typeof value === 'string' && value.trim().length > 0;
+  if (!Array.isArray(parsed?.opinions)) throw new ModelResponseError('审片 JSON 缺少 opinions 数组');
+  const opinions = parsed.opinions.map((o, i) => {
+    if (!Array.isArray(o?.frames) || o.frames.length !== 2 || !o.frames.every(f => Number.isSafeInteger(f) && f >= 0 && f < frames)
+      || o.frames[0] > o.frames[1] || !SEVERITIES.includes(o.severity) || !text(o.evidence) || !text(o.comment)) {
+      throw new ModelResponseError(`审片意见 opinions[${i}] 的帧段、严重度、证据或意见不合法`);
+    }
+    return { frames: o.frames, severity: o.severity, evidence: o.evidence, comment: o.comment };
+  });
+  const suggestedPredicates = parsed.suggestedPredicates === undefined ? [] : parsed.suggestedPredicates;
+  if (!Array.isArray(suggestedPredicates) || !suggestedPredicates.every(text)) throw new ModelResponseError('suggestedPredicates 必须是断言字符串数组');
+  return { opinions, suggestedPredicates };
+}
+
+function parseReview(text, frames) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { throw new ModelResponseError('审片模型必须返回完整的 JSON 对象'); }
+  return validateReview(parsed, frames);
+}
+
+/**
+ * 异族视觉审片客户端。交回 { model, review({ brief, images: [{ name, path }], loudness, film }) }；
+ * review 交回 { model, opinions, suggestedPredicates, dropped（形状不对被丢掉的意见条数）, usage }。调不通或回答不成形就抛异常，由调用方记成 failed。
+ */
+export function createOpenAiVisionReviewer({ endpoint, apiKey, model, ledgerPath } = {}) {
+  requireConfig('审片客户端', { endpoint: 'BEIMING_REVIEW_ENDPOINT', apiKey: 'BEIMING_REVIEW_API_KEY', model: 'BEIMING_REVIEW_MODEL' }, { endpoint, apiKey, model, ledgerPath });
+  return {
+    model,
+    async review({ brief, images = [], loudness = null, film = null }) {
+      const text = [
+        `需求原文：${brief || '（没有给）'}`,
+        `片子：${JSON.stringify(film)}`,
+        `声音量测表：${loudness ? JSON.stringify(loudness) : '（没有声音量测）'}`,
+        `图：${images.map((img, i) => `第 ${i + 1} 张 ${img.name}`).join('；') || '（没有图）'}。联系表每格左上角是全片帧号；切点条带是切点前 3 帧到后 2 帧，红线是切口。`,
+      ].join('\n');
+      const content = [{ type: 'text', text }, ...images.map((img) => ({ type: 'image_url', image_url: { url: `data:image/png;base64,${readFileSync(img.path).toString('base64')}` } }))];
+      const res = await chat({ endpoint, apiKey, body: { model, messages: [{ role: 'system', content: REVIEW_SYSTEM }, { role: 'user', content }] } });
+      appendExternalLedger(ledgerPath, { role: 'reviewer', family: familyOf(res.model), model: res.model, inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens });
+      const answer = typeof res.message.content === 'string' ? res.message.content : (Array.isArray(res.message.content) ? res.message.content.map((p) => p?.text ?? '').join('') : '');
+      return { model: res.model, ...parseReview(answer, film?.output?.frames), usage: { ...res.usage, totalTokens: res.usage.inputTokens + res.usage.outputTokens } };
+    },
+  };
+}
+
+/** 照环境变量建审片客户端：三项都配了才建，否则交回 null（审片如实写 not-run） */
+export function reviewerFromEnv({ env = process.env, ledgerPath } = {}) {
+  const { BEIMING_REVIEW_ENDPOINT: endpoint, BEIMING_REVIEW_API_KEY: apiKey, BEIMING_REVIEW_MODEL: model } = env;
+  return endpoint && apiKey && model ? createOpenAiVisionReviewer({ endpoint, apiKey, model, ledgerPath }) : null;
+}
