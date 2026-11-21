@@ -214,6 +214,7 @@ export const mix = {
       dialogue: fs.existsSync(dlgFile) && ctx.film.raw?.audio?.dialogue !== false ? ctx.fileHash(dlgFile) : null,
       dialogueProvider: useDlg && ctx.kind === 'animatic' ? 'synthetic' : null,
       python: ctx.tools.python || null, samples: process.env.BEIMING_SAMPLES || null, frames: ctx.frames, fps: ctx.fps,
+      profile: ctx.profile.custom ? null : ctx.profile.id, // 响度/真峰值门限随档位变，audio/qa.json 不能跨档位复用
     });
   },
   outputs: ctx => ({

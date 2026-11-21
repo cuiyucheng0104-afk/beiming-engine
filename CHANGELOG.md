@@ -102,6 +102,7 @@
 
 ### Fixed
 
+- 音频终局闭环合入后的审计修复（Refs #64）：`HDRMixer` 直调 `set_dialogue()` 时不再走 legacy 分轨导出，`vo` 分轨照常做真峰值限幅（无对白脚本逐样本不变）；`music_gen --ssh` 主机名以 `-` 开头或含空白时按 usage 错误（退出码 2）拒绝，并在 ssh 命令里 host 前加 `--`；`audio.dialogue` 检查跳过采样率不符的伴奏分轨时关闭其文件句柄；出片链 `mix` 步骤的缓存键加入档位，换响度目标档位不再复用旧 `audio/qa.json`；`_check_masking` 去掉等价的冗余条件。
 - 离屏出片的 NVENC `--cq` 被截顶：不给 `-maxrate` 时 NVENC 按分辨率自动选 Level（1080p24 是 4.0）并按它的最大码率封顶（本机约 22–25 Mbps），cq 低于约 18 全部输出相同。`engine/offscreen/encode.mjs` 显式给 `-maxrate 240M -bufsize 480M`，Level 升到 5.1（在 `master-1080p24` 与 `uhd-2160p24` 允许的范围内）。默认 cq18 的《化鹏闪羽》1080p 从 17.1 Mbps、VMAF 约 92.5 变为 24.9 Mbps、VMAF 94.35；cq6 为 106.9 Mbps、VMAF 97.60（x264 crf14 是 88.3 Mbps、96.58）。D 路线 `tools/film/lib/pathtrace-steps.mjs` 的 NVENC 参数是同一写法（限定 Level 4.1），没有改。
 - 渲染失败不再挂起：`render(t)` 抛错、页面异常、等 READY 或单帧超时、FFmpeg 中途退出、收到 SIGTERM 时，`engine/render/video.mjs` 在有限时间内以非零码退出，并清掉分段临时目录与子进程；`DUR`、`FPS` 写错直接报出收到的值。
 - 音频比画面短几毫秒时，封装不再丢掉最后一帧。

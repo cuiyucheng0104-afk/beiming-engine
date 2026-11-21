@@ -371,7 +371,7 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=Fals
         return None
     fg_stems = [k for k in stem_map if k.lower() not in _BED_STEMS]
     sfx_fg_stems = [k for k in fg_stems if k.lower() not in ('vo', 'dialogue', 'voice')]
-    if not sfx_fg_stems and not fg_stems:
+    if not fg_stems:
         return None
 
     if master_lufs is None and strict_masking:
@@ -673,6 +673,8 @@ def _check_dialogue(wav, film, sr):
                 fa_h = sf.SoundFile(p)
                 if fa_h.samplerate == sr:
                     f_accs.append(fa_h)
+                else:
+                    fa_h.close()
             if not f_accs:
                 use_acc_stems = False
                 acc_source = 'mix_minus_vo'
