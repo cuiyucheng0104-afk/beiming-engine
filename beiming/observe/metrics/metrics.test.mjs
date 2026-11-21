@@ -89,6 +89,22 @@ test('两秒合成 MP4 的规格、响度、冻结和切点', async t => {
     const ydif = await cutYdif(file, 40), scene = await cutScene(file, 0.15);
     assert.deepEqual(ydif.value, [5, 15]); assert.deepEqual(scene.value, [5, 15]);
     assert.deepEqual((await cutYdif(file, 40, { x: 0, y: 0, width: 64, height: 24 })).value, []);
+    const slowFile = join(dir, 'slow-push.mp4');
+    const w = 160, h = 100, raw = Buffer.alloc(20 * w * h * 3);
+    for (let f = 0; f < 20; f++) {
+      const bx = 20 + Math.min(f, 10) * 2;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const hit = x >= bx && x < bx + 40 && y >= 25 && y < 75;
+        const i = (f * w * h + y * w + x) * 3;
+        raw[i] = hit ? 44 : 20; raw[i + 1] = hit ? 48 : 22; raw[i + 2] = hit ? 54 : 24;
+      }
+    }
+    const slowBuild = spawnSync('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error',
+      '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${w}x${h}`, '-r', '10', '-i', 'pipe:0',
+      '-c:v', 'libx264', '-crf', '14', '-pix_fmt', 'yuv420p', slowFile], { input: raw });
+    assert.equal(slowBuild.status, 0, slowBuild.stderr.toString());
+    const slowStats = await blackFreezeDup(slowFile);
+    assert.deepEqual(slowStats.details.freezes, [[10, 19]]);
     t.diagnostic(JSON.stringify({ spec: spec.value, lufs: audio.value, dbtp: audio.details.truePeakDbtp,
       ...stats.value, freezes: stats.details.freezes, ydif: ydif.value, scene: scene.value }));
   } finally { rmSync(dir, { recursive: true, force: true }); }

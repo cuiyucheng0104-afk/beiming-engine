@@ -90,9 +90,9 @@ function reading(tags, key) {
   return value;
 }
 
-// 色差以 8 位 YUV 码值表示。连续近似帧组成冻结段，起止均含端点。
+// 色差以 8 位 YUV 码值表示（默认 0.15 约合 -64.6 dB，区分 H.264 静止底噪与暗调慢推镜）。连续近似帧组成冻结段，起止均含端点。
 export function blackFreezeDup(filePath, { blackLevel = 32, blackPercent = 98,
-  freezeDiff = 0.5, freezeFrames = 3, duplicateDiff = 0 } = {}) {
+  freezeDiff = 0.15, freezeFrames = 3, duplicateDiff = 0 } = {}) {
   range(blackLevel, 0, 255, 'blackLevel', true);
   range(blackPercent, 0, 100, 'blackPercent', true);
   range(freezeDiff, 0, 255, 'freezeDiff');
