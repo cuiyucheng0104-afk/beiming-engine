@@ -153,7 +153,7 @@ npm run serve                                                  # 本地预览：
 npm run film -- check    films/{{NAME}}                        # 只读契约与作品描述检查
 npm run film -- stills   films/{{NAME}}                        # 风格关键帧（look 闸）
 npm run film -- animatic films/{{NAME}}                        # 半分辨率动态预演（animatic 闸）
-npm run film -- build    films/{{NAME}} --encoder nvenc        # 工作版整片构建（终渲加 --final）
+npm run film -- build    films/{{NAME}} --mode fast            # 工作版整片构建（NVENC 预览档；终渲加 --final，默认 --mode pro）
 \`\`\`
 
 路线规范见 [routes/a-webgl/README.md](../../routes/a-webgl/README.md) 与 [docs/offscreen/README.md](../../docs/offscreen/README.md)。
@@ -170,7 +170,7 @@ npm run serve                                                  # 本地预览：
 npm run film -- check    films/{{NAME}}                        # 只读契约与作品描述检查
 npm run film -- stills   films/{{NAME}}                        # 风格关键帧（look 闸）
 npm run film -- animatic films/{{NAME}}                        # 半分辨率动态预演（animatic 闸）
-npm run film -- build    films/{{NAME}} --encoder nvenc        # 工作版整片构建（终渲加 --final）
+npm run film -- build    films/{{NAME}} --mode fast            # 工作版整片构建（NVENC 预览档；终渲加 --final，默认 --mode pro）
 \`\`\`
 
 路线规范见 [routes/c-style/README.md](../../routes/c-style/README.md) 与 [docs/offscreen/README.md](../../docs/offscreen/README.md)。

@@ -1,10 +1,23 @@
 // 北冥引擎 · 离屏出片 · FFmpeg 编码器：读回的裸帧（RGBA8 或 GPU 打包的 YUV420p）经管道交给 FFmpeg，编成有限范围 BT.709 yuv420p 的 H.264。
 // 色彩换算与 x264 参数沿用页面渲染器（engine/render/lib/ffmpeg.mjs 的 COLOR.png、TAGS、x264Args），两条链路出的片标记一致。
-//   MASTER_CQ = 7    NVENC 母版档 cq：三部作品上 PSNR-Y、最差帧、SSIM、VMAF 都不低于 x264 crf14 的最高 cq（见 docs/offscreen/README.md 7.19）
-//   resolveEncoder(requested = 'auto', { width, height, probe }) → { encoder: 'x264' | 'nvenc', reason: string | null }
-//     auto：NVENC 可用且画幅 ≥ 145×49 时选 nvenc，否则退回 x264 并给出原因；显式指定 x264 / nvenc 时照用、不探测
-//   encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = 'rgba' }) → string[]   FFmpeg 参数（不含 -y、-loglevel）
-//     encoder：x264（crf + preset）或 nvenc（h264_nvenc，cq；crf、preset 不用）；别的值抛 usage.bad-value
+//
+// 两档编码（离屏母版；页面渲染器、D 路线、网页版不走这里）：
+//   Pro（默认）  libx264 High + 合入前默认像素格式 rgba（FFmpeg swscale）→ 跨机器（含 CI）确定，终渲交付
+//   Fast（可选） h264_nvenc High、cq 7、合规 VBV；没有 NVENC 或画幅过小时自动退回 Pro
+//
+//   MODES = ['pro', 'fast']     DEFAULT_MODE = 'pro'
+//   MASTER_CQ = 7               Fast / 显式 nvenc 的 cq：三部作品上 PSNR-Y、最差帧、SSIM、VMAF 都不低于 x264 crf14 的最高 cq
+//                               （见 docs/offscreen/README.md 7.19）；避开会出坏流的 cq 6
+//   NVENC_MAXRATE / NVENC_BUFSIZE = 240M / 240M
+//     High@5.1 的 MaxCPB 至多 300000 kbit（表值 240000×High 1.25）；原先 480M 超了规格。240M 与 maxrate 同量级、≤ 两种口径的上限。
+//   resolveEncode({ mode, encoder, pixFmt, width, height, probe })
+//     → { mode: 'pro'|'fast', encoder: 'x264'|'nvenc', pixFmt, profile: 'high', reason }
+//     encoder 缺省或 auto：跟随 mode；显式 x264 / nvenc 照用、不探测（显式 nvenc 缺卡时由 FFmpeg 失败，不回退）
+//     Fast 在 NVENC 不可用或画幅 < 145×49 时退回 Pro（reason 说明原因）；退回时未显式指定的 pixFmt 也回到 rgba
+//   resolveEncoder(requested = 'auto', { width, height, probe, mode }) → { encoder, reason }
+//     兼容旧调用：默认 mode=pro，所以 auto 不再选 NVENC
+//   encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = 'rgba' }) → string[]
+//     FFmpeg 参数（不含 -y、-loglevel）；x264 与 nvenc 都带 -profile:v high
 //   startEncoder(同上) → { write(pixels) → Promise<void>, finish() → Promise<void>, abort() → Promise<void> }
 //     write：写一帧（Uint8Array 或 Buffer）；管道满时等它腾出来（背压）
 //     finish：关上输入、等 FFmpeg 编完；abort：杀掉 FFmpeg、删掉输出
@@ -15,12 +28,19 @@ import { spawn, spawnSync } from 'node:child_process';
 import { COLOR, TAGS, x264Args, FFMPEG } from '../render/lib/ffmpeg.mjs';
 import { CliError } from '../../tools/lib/cli.mjs';
 
+export const MODES = ['pro', 'fast'];
+export const DEFAULT_MODE = 'pro';
 export const ENCODERS = ['x264', 'nvenc'];
 export const ENCODER_CHOICES = ['auto', ...ENCODERS];
 export const PIX_FMTS = ['rgba', 'yuv420p'];
+export const PRO_PIX_FMT = 'rgba';
+export const FAST_PIX_FMT = 'yuv420p';
+export const H264_PROFILE = 'high';
 export const MASTER_CQ = 7;
 export const NVENC_MIN_WIDTH = 145;
 export const NVENC_MIN_HEIGHT = 49;
+export const NVENC_MAXRATE = '240M';
+export const NVENC_BUFSIZE = '240M';
 const YUV_SETPARAMS = 'setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709';
 
 const nvencProbeCache = new Map();
@@ -35,31 +55,86 @@ export function probeNvenc(bin = FFMPEG()) {
   return ok;
 }
 
-/** 解析用户请求的编码器：auto 在 NVENC 可用且画幅 ≥ 145×49 时选 nvenc，否则退回 x264；显式指定时不探测 */
-export function resolveEncoder(requested = 'auto', { width, height, probe = probeNvenc } = {}) {
-  const choice = requested == null || requested === '' ? 'auto' : String(requested);
-  if (!ENCODER_CHOICES.includes(choice)) {
-    throw new CliError('usage.bad-value', `--encoder 只能是 ${ENCODER_CHOICES.join('、')}，收到「${choice}」`, {
-      hint: `auto 自动优先 nvenc（母版档 cq ${MASTER_CQ}），无 NVENC 或小画幅时退回 x264`,
+function asMode(mode) {
+  const m = mode == null || mode === '' ? DEFAULT_MODE : String(mode);
+  if (!MODES.includes(m)) {
+    throw new CliError('usage.bad-value', `--mode 只能是 ${MODES.join('、')}，收到「${mode}」`, {
+      hint: 'pro（默认）是 x264 High 终渲档，跨机器确定；fast 是 NVENC 预览档，没有 NVENC 时退回 pro',
     });
   }
-  if (choice !== 'auto') return { encoder: choice, reason: null };
-  if ((width != null && width < NVENC_MIN_WIDTH) || (height != null && height < NVENC_MIN_HEIGHT)) {
-    return { encoder: 'x264', reason: `画幅 ${width}×${height} 小于 NVENC 最小尺寸 ${NVENC_MIN_WIDTH}×${NVENC_MIN_HEIGHT}，退回 x264` };
-  }
-  if (!probe()) return { encoder: 'x264', reason: '未检测到可用的 NVENC，退回 x264' };
-  return { encoder: 'nvenc', reason: null };
+  return m;
 }
 
-// nvenc：恒定质量（-rc vbr -cq N -b:v 0），preset p5；母版默认 cq 7（三部作品画质均不低于 x264 crf14，同输入码流逐字节确定，见 docs/offscreen/README.md 7.18–7.19）。
+function asEncoderChoice(encoder) {
+  const choice = encoder == null || encoder === '' ? 'auto' : String(encoder);
+  if (!ENCODER_CHOICES.includes(choice)) {
+    throw new CliError('usage.bad-value', `--encoder 只能是 ${ENCODER_CHOICES.join('、')}，收到「${encoder}」`, {
+      hint: '不写或 auto 跟随 --mode（pro→x264，fast→nvenc 并在缺卡时退回 pro）；显式 x264 / nvenc 照用、不探测',
+    });
+  }
+  return choice;
+}
+
+function asPixFmt(pixFmt) {
+  if (pixFmt == null || pixFmt === '') return null;
+  const fmt = String(pixFmt);
+  if (!PIX_FMTS.includes(fmt)) {
+    throw new CliError('usage.bad-value', `--pix-fmt 只能是 ${PIX_FMTS.join(' 或 ')}，收到「${pixFmt}」`, {
+      hint: 'rgba 走 FFmpeg swscale（Pro 默认，与合入前相同）；yuv420p 由 GPU 直接输出 BT.709 限范围平面字节（Fast 默认）',
+    });
+  }
+  return fmt;
+}
+
+/** 解析离屏母版编码档：Pro 默认 x264 High + rgba；Fast 选 NVENC，缺卡或小画幅时退回 Pro。 */
+export function resolveEncode({ mode = DEFAULT_MODE, encoder = null, pixFmt = null, width, height, probe = probeNvenc } = {}) {
+  const m = asMode(mode);
+  const choice = asEncoderChoice(encoder);
+  const given = asPixFmt(pixFmt);
+  const pickPix = fallback => given ?? fallback;
+  const pro = (reason = null) => ({
+    mode: 'pro', encoder: 'x264', pixFmt: pickPix(PRO_PIX_FMT), profile: H264_PROFILE, reason,
+  });
+  const nvenc = (resolvedMode, reason = null) => ({
+    mode: resolvedMode, encoder: 'nvenc', pixFmt: pickPix(FAST_PIX_FMT), profile: H264_PROFILE, reason,
+  });
+
+  if (choice === 'x264') {
+    return { mode: m, encoder: 'x264', pixFmt: pickPix(m === 'fast' ? FAST_PIX_FMT : PRO_PIX_FMT), profile: H264_PROFILE, reason: null };
+  }
+  if (choice === 'nvenc') return nvenc(m);
+
+  if (m === 'pro') return pro();
+  if ((width != null && width < NVENC_MIN_WIDTH) || (height != null && height < NVENC_MIN_HEIGHT)) {
+    return pro(`画幅 ${width}×${height} 小于 NVENC 最小尺寸 ${NVENC_MIN_WIDTH}×${NVENC_MIN_HEIGHT}，Fast 退回 Pro`);
+  }
+  if (!probe()) return pro('未检测到可用的 NVENC，Fast 退回 Pro');
+  return nvenc('fast');
+}
+
+/** 兼容旧调用：默认 mode=pro，所以 auto 选 x264。Fast 请走 resolveEncode({ mode: 'fast' })。 */
+export function resolveEncoder(requested = 'auto', { width, height, probe = probeNvenc, mode = DEFAULT_MODE } = {}) {
+  const r = resolveEncode({ mode, encoder: requested, width, height, probe });
+  return { encoder: r.encoder, reason: r.reason };
+}
+
+export function nvencArgs({ cq = MASTER_CQ } = {}) {
+  return ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', String(cq), '-b:v', '0',
+    '-profile:v', H264_PROFILE, '-maxrate', NVENC_MAXRATE, '-bufsize', NVENC_BUFSIZE];
+}
+
+// nvenc（Fast / 显式 --encoder nvenc）：恒定质量（-rc vbr -cq N -b:v 0），preset p5。
+//   cq 默认 MASTER_CQ=7（三部作品画质均不低于 x264 crf14；纯随机噪声在 cq 6 时 NVENC 出过解码报错的码流，真实画面没出现，见 7.18–7.19）。
 //   必须显式给 -maxrate：不给时 NVENC 按分辨率自动选 Level（1080p24 是 4.0），再按这个 Level 的最大码率封顶（约 25 Mbps），
 //   cq 低于约 18 时全被截住，--cq 18 与 --cq 10 输出相同。240M 让 Level 升到 5.1，在 master-1080p24（Level ≤ 5.1）与 uhd-2160p24（≤ 5.2）允许的范围内。
-//   母版档 cq 7 + maxrate 240M 因而产出 H.264 Level 5.1；web-1080p24（maxLevel 4.1）等档位的 qa delivery.codec 只给软告警（warn，不阻断），web.mp4 另经 encodeWeb 重编为 High@4.1。
-// pixFmt：rgba（走 COLOR.png 的 swscale）或 yuv420p（GPU 已转好有限范围 BT.709，只过零拷贝 setparams 打标记，免 CPU swscale）
-export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = 'rgba' }) {
-  if (!ENCODERS.includes(encoder)) throw new CliError('usage.bad-value', `--encoder 只能是 ${ENCODERS.join(' 或 ')}，收到「${encoder}」`, { hint: `可选 x264 或 nvenc（默认命令行走 auto，母版档 cq ${MASTER_CQ}）` });
+//   -bufsize 必须 ≤ High@5.1 的 MaxCPB（表值 240000 kbit，High 1.25× 为 300000 kbit）。原先 480M 超标；现与 maxrate 同为 240M。
+//   Fast 母版因此是 H.264 High@5.1：web-1080p24（maxLevel 4.1）的 qa delivery.codec 给软告警（warn，不阻断）；
+//   master-1080p24（maxLevel 5.1）不告警。web.mp4 另经 encodeWeb 重编为 High@4.1。Pro（默认 x264 High）不走这条。
+// pixFmt：rgba（走 COLOR.png 的 swscale；Pro 默认）或 yuv420p（GPU 已转好有限范围 BT.709，只过零拷贝 setparams 打标记；Fast 默认）
+export function encoderArgs({ width, height, fps, out, crf = 14, preset = 'medium', encoder = 'x264', cq = MASTER_CQ, pixFmt = PRO_PIX_FMT } = {}) {
+  if (!ENCODERS.includes(encoder)) throw new CliError('usage.bad-value', `--encoder 只能是 ${ENCODERS.join(' 或 ')}，收到「${encoder}」`, { hint: `可选 x264 或 nvenc（命令行默认 --mode pro → x264 High）` });
   if (!PIX_FMTS.includes(pixFmt)) throw new CliError('usage.bad-value', `--pix-fmt 只能是 ${PIX_FMTS.join(' 或 ')}，收到「${pixFmt}」`, { hint: 'rgba 走 FFmpeg swscale；yuv420p 由 GPU 直接输出 BT.709 限范围平面字节' });
-  const video = encoder === 'nvenc' ? ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', String(cq), '-b:v', '0', '-maxrate', '240M', '-bufsize', '480M'] : x264Args({ crf, preset });
+  const video = encoder === 'nvenc' ? nvencArgs({ cq }) : [...x264Args({ crf, preset }), '-profile:v', H264_PROFILE];
   if (pixFmt === 'yuv420p') {
     return ['-f', 'rawvideo', '-pix_fmt', 'yuv420p', ...TAGS, '-s', `${width}x${height}`, '-framerate', String(fps), '-i', '-',
       '-vf', YUV_SETPARAMS, ...video, ...TAGS, out];

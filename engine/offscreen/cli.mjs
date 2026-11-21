@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 北冥引擎 · 离屏出片 · 命令行：在 Node + Dawn 里渲作品模块（视频 render、无损静帧 stills、契约只读探测 probe）。
 //   node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size 1920x1080] [--fps 24] [--inflight 3]
-//                                       [--encoder auto|x264|nvenc] [--crf 14] [--preset medium] [--cq 7] [--query k=v&…] [--json]
+//                                       [--mode pro|fast] [--encoder auto|x264|nvenc] [--crf 14] [--preset medium] [--cq 7] [--query k=v&…] [--json]
 //   node engine/offscreen/cli.mjs stills <作品.mjs> --out <目录> --frames 0,48,96|a:b[:step] [--size 1920x1080] [--fps 24] [--inflight 3] [--query k=v&…] [--json]
 //   node engine/offscreen/cli.mjs probe  <作品.mjs> [--size 1920x1080] [--fps 24] [--query k=v&…] [--json]
 //   node engine/offscreen/cli.mjs profile <作品.mjs> --frames 0,48,96|a:b[:step] [--size 1920x1080] [--fps 24] [--query k=v&…] [--json]
@@ -18,7 +18,7 @@ import { probe } from '../render/lib/ffmpeg.mjs';
 import { loadGpu } from './load.mjs';
 import { createHost } from './host.mjs';
 import { renderFrames, renderFrameList } from './frames.mjs';
-import { ENCODER_CHOICES, MASTER_CQ, resolveEncoder, startEncoder } from './encode.mjs';
+import { ENCODER_CHOICES, MASTER_CQ, MODES, resolveEncode, startEncoder } from './encode.mjs';
 import { parseBatchJobs, runBatch } from './batch.mjs';
 import { createGpuTimer, attachGpuTimer, detachGpuTimer } from './gputimer.mjs';
 
@@ -63,7 +63,7 @@ export function resolveArgs({ sub, work, extra = [] }, opts, cwd = process.cwd()
     if (!items.length) throw usageError('missing-work', 'batch 需要 <清单.json> 或至少一个 <作品.mjs>', '例如 offscreen batch jobs.json，或 offscreen batch a.mjs b.mjs --out-dir out/batch --frames 0:48');
     const defaults = {
       size: opts.size, fps: opts.fps, inflight: opts.inflight, query: opts.query,
-      frames: opts.frames, encoder: opts.encoder, pixFmt: opts['pix-fmt'], crf: opts.crf, cq: opts.cq, preset: opts.preset,
+      frames: opts.frames, encoder: opts.encoder, encodeMode: opts.mode, pixFmt: opts['pix-fmt'], crf: opts.crf, cq: opts.cq, preset: opts.preset,
     };
     if (items.length === 1 && items[0].toLowerCase().endsWith('.json')) {
       const mf = path.resolve(cwd, items[0]);
@@ -134,7 +134,7 @@ export const command = defineCommand({
   name: 'offscreen',
   summary: '离屏出片：在 Node + Dawn 里渲作品模块，不经过浏览器（视频 render、静帧 stills、探测 probe、GPU 分段计时 profile、单卡并发 batch）',
   usage: [
-    'node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--encoder auto|x264|nvenc] [--pix-fmt rgba|yuv420p] [--crf 14] [--preset medium] [--cq 7] [--query k=v&…] [--json]',
+    'node engine/offscreen/cli.mjs render <作品.mjs> --out <文件.mp4> --frames a:b [--size WxH] [--fps 24] [--inflight 3] [--mode pro|fast] [--encoder auto|x264|nvenc] [--pix-fmt rgba|yuv420p] [--crf 14] [--preset medium] [--cq 7] [--query k=v&…] [--json]',
     'node engine/offscreen/cli.mjs stills <作品.mjs> --out <目录> --frames 0,48,96|a:b[:step] [--size WxH] [--fps 24] [--inflight 3] [--query k=v&…] [--json]',
     'node engine/offscreen/cli.mjs probe  <作品.mjs> [--size WxH] [--fps 24] [--query k=v&…] [--json]',
     'node engine/offscreen/cli.mjs profile <作品.mjs> --frames 0,48,96|a:b[:step] [--size WxH] [--fps 24] [--query k=v&…] [--json]',
@@ -164,10 +164,11 @@ export const command = defineCommand({
     concurrency: { type: 'integer', default: 4, arg: '<n>', describe: 'batch 同时并发的渲染作业数（默认 4，共用一个 GPUDevice）' },
     'max-encoders': { type: 'integer', default: 4, arg: '<n>', describe: 'batch 同时打开的 FFmpeg / NVENC 编码会话上限（默认 4）' },
     'fail-fast': { type: 'boolean', describe: 'batch 遇到首个失败作业后不再启动后续作业' },
-    encoder: { type: 'string', default: 'auto', choices: ENCODER_CHOICES, arg: '<名字>', describe: `编码器（默认 auto：有 NVENC 且画幅 ≥ 145×49 时用 h264_nvenc 母版档 cq ${MASTER_CQ}，否则退回 libx264；可显式指定 x264 或 nvenc）` },
-    'pix-fmt': { type: 'string', default: 'yuv420p', choices: ['rgba', 'yuv420p'], arg: '<格式>', describe: '读回与管道像素格式（默认 yuv420p：在 GPU 侧转有限范围 BT.709，x264 与 nvenc 都免 CPU swscale、读回少 62.5%；rgba 退回 FFmpeg 的 CPU 换算）' },
+    mode: { type: 'string', default: 'pro', choices: MODES, arg: '<档>', describe: '离屏母版编码档（默认 pro）：pro 为 x264 High + rgba 读回，终渲交付、跨机器确定；fast 为 NVENC 预览档（High、cq 7、合规 bufsize），无 NVENC 或小画幅时退回 pro' },
+    encoder: { type: 'string', default: 'auto', choices: ENCODER_CHOICES, arg: '<名字>', describe: '编码器（默认 auto：跟随 --mode；可显式指定 x264 或 nvenc。显式 nvenc 缺卡时不回退，由 FFmpeg 报错）' },
+    'pix-fmt': { type: 'string', choices: ['rgba', 'yuv420p'], arg: '<格式>', describe: '读回与管道像素格式（不写则跟随 --mode：pro 为 rgba，与合入前相同；fast 为 yuv420p，GPU 侧打包免 CPU swscale）' },
     crf: { type: 'integer', default: 14, arg: '<n>', describe: 'x264 crf（默认 14，与页面渲染器相同）' },
-    cq: { type: 'integer', default: MASTER_CQ, arg: '<n>', describe: `nvenc 恒定质量 cq（默认 ${MASTER_CQ}，母版档；数字小画质高）` },
+    cq: { type: 'integer', default: MASTER_CQ, arg: '<n>', describe: `nvenc 恒定质量 cq（默认 ${MASTER_CQ}，Fast 档；数字小画质高；勿用 6，真实画面外的纯噪声在 cq 6 出过坏流）` },
     query: { type: 'string', default: '', arg: '<k=v&…>', describe: '交给作品 build 的查询串（同页面的 location.search，不带 ?；出片链的 --query 与预演的 previs=1 原样转来）' },
     preset: { type: 'string', default: 'medium', choices: ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow'], arg: '<名字>', describe: 'x264 preset（默认 medium）' },
   },
@@ -177,7 +178,7 @@ export const command = defineCommand({
     'node engine/offscreen/cli.mjs stills lab/offscreen/ink.mjs --out out/offscreen/stills --frames 0,48,95',
     'node engine/offscreen/cli.mjs probe  lab/offscreen/ink.mjs',
     'node engine/offscreen/cli.mjs profile films/chendu/offscreen.mjs --frames 0,48,96 --size 3840x2160',
-    'node engine/offscreen/cli.mjs batch  films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/batch --frames 0:48 --encoder nvenc --pix-fmt yuv420p',
+    'node engine/offscreen/cli.mjs batch  films/chendu/offscreen.mjs lab/offscreen/ink.mjs --out-dir out/batch --frames 0:48 --mode fast',
   ],
   async run(ctx) {
     const a = resolveArgs(ctx.args, ctx.opts);
@@ -333,10 +334,12 @@ export const command = defineCommand({
       fs.rmSync(partial, { force: true });
       host.dispose();
     });
-    const pixFmt = ctx.opts['pix-fmt'] || 'yuv420p';
-    const encPick = resolveEncoder(ctx.opts.encoder, { width: a.width, height: a.height });
+    const encPick = resolveEncode({
+      mode: ctx.opts.mode, encoder: ctx.opts.encoder, pixFmt: ctx.opts['pix-fmt'],
+      width: a.width, height: a.height,
+    });
     if (encPick.reason) ctx.log.info(encPick.reason);
-    const encoder = encPick.encoder;
+    const { encoder, pixFmt, mode: encodeMode } = encPick;
     const cq = encoder === 'nvenc' ? ctx.opts.cq : null;
     const work = await host.load(a.file);
     enc = startEncoder({ width: a.width, height: a.height, fps: a.fps, out: partial, crf: ctx.opts.crf, preset: ctx.opts.preset, encoder, cq: ctx.opts.cq, pixFmt });
@@ -359,7 +362,7 @@ export const command = defineCommand({
     undo();
     host.dispose();
     const data = {
-      frames: total, from: a.from, to: a.to, width: a.width, height: a.height, fps: a.fps, pixFmt, encoder, cq,
+      frames: total, from: a.from, to: a.to, width: a.width, height: a.height, fps: a.fps, pixFmt, encoder, mode: encodeMode, cq, profile: encPick.profile, reason: encPick.reason,
       seconds: +seconds(t0).toFixed(2), renderFps: +(total / renderS).toFixed(1), adapter, frameHashes: hashes,
     };
     ctx.out(`完成 ${repoRel(a.out).startsWith('..') ? a.out : repoRel(a.out)}  ${total} 帧（${a.from}–${a.to - 1}）  ${a.width}×${a.height} ${a.fps} fps  ${data.seconds}s（渲染+编码 ${data.renderFps} 帧/秒）`);

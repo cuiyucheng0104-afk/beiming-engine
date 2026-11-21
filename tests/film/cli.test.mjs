@@ -148,6 +148,8 @@ test('build --waive：用法或契约有错时（档位拼错、坏画幅、--si
     [['--final'], 2, 'usage.bad-usage'],
     [['--encoder', 'av1'], 2, null],
     [['--encoder', 'nvenc'], 2, null],
+    [['--mode', 'fast'], 2, null],
+    [['--mode', 'turbo'], 2, null],
     [['--final', '--profile', 'vertical-1080x1920-30', '--quote', '直接出', '--source', '测试'], 4, 'contract.profile-not-delivery'],
   ];
   for (const [extra, code, err] of cases) {
@@ -170,7 +172,7 @@ test('film plan：B 路线没有估算接口，用法错误（退出码 2）并�
   assert.deepEqual(fs.readdirSync(w.dir).sort(), before);
 });
 
-test('D12 backend=webgpu：check 通过；build 默认走 offscreen（无需显式 --renderer 即可接 --encoder nvenc，--renderer page 仍拒绝 nvenc）', () => {
+test('D12 backend=webgpu：check 通过；build 默认走 offscreen（无需显式 --renderer 即可接 --encoder nvenc / --mode fast，--renderer page 仍拒绝 nvenc）', () => {
   const w = makeWork('c');
   works.push(w);
   const fj = path.join(w.dir, 'film.json');
@@ -178,14 +180,18 @@ test('D12 backend=webgpu：check 通过；build 默认走 offscreen（无需显�
   raw.backend = 'webgpu';
   fs.writeFileSync(fj, `${JSON.stringify(raw, null, 2)}\n`);
 
-  // 1) --renderer page --encoder nvenc 仍按页面渲染器拒绝
+  // 1) --renderer page --encoder nvenc / --mode fast 仍按页面渲染器拒绝
   const pageNvenc = runCli(['build', w.rel, '--renderer', 'page', '--encoder', 'nvenc', '--json']);
   assert.equal(pageNvenc.code, 2);
   assert.equal(pageNvenc.json?.error?.code, 'usage.bad-usage');
+  const pageFast = runCli(['build', w.rel, '--renderer', 'page', '--mode', 'fast', '--json']);
+  assert.equal(pageFast.code, 2);
+  assert.equal(pageFast.json?.error?.code, 'usage.bad-usage');
 
   // 2) 不写 --renderer 时默认走 offscreen：build / stills / render 都在开运行目录前直接检查 offscreen.mjs
   for (const args of [
     ['build', w.rel, '--encoder', 'nvenc'],
+    ['build', w.rel, '--mode', 'fast'],
     ['stills', w.rel],
     ['render', w.rel, '--frames', '0:2'],
   ]) {

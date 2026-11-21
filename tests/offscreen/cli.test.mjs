@@ -83,31 +83,40 @@ test('出片：6 帧 320×180 → 成片 6 帧，信封里有逐帧哈希；同�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('出片默认走 GPU 侧 yuv420p 打包（x264 也一样）：成片 yuv420p、BT.709 tv 标记完整；--pix-fmt rgba 仍可退回 CPU 换算', { skip: noEncode, timeout: 180000 }, async () => {
+test('出片默认 Pro：rgba 读回、x264 High；--pix-fmt yuv420p 仍可走 GPU 打包', { skip: noEncode, timeout: 180000 }, async () => {
   const dir = tmp();
   try {
     const d = run(['render', WORK, '--out', join(dir, 'd.mp4'), '--frames', '0:4', '--size', '320x180', '--json']);
     assert.equal(d.status, 0, d.stderr);
-    assert.equal(envelope(d).data.pixFmt, 'yuv420p', '不写 --pix-fmt 时应在 GPU 上打包');
+    assert.equal(envelope(d).data.pixFmt, 'rgba', 'Pro 默认读回 rgba（合入前口径）');
+    assert.equal(envelope(d).data.mode, 'pro');
+    assert.equal(envelope(d).data.encoder, 'x264');
     const p = await probe(join(dir, 'd.mp4'));
     assert.equal(p.video.pixFmt, 'yuv420p');
+    assert.match(String(p.video.profile), /High/i);
     assert.deepEqual(p.video.color, { range: 'tv', space: 'bt709', primaries: 'bt709', transfer: 'bt709' });
-    const r = run(['render', WORK, '--out', join(dir, 'r.mp4'), '--frames', '0:4', '--size', '320x180', '--pix-fmt', 'rgba', '--json']);
+    const r = run(['render', WORK, '--out', join(dir, 'r.mp4'), '--frames', '0:4', '--size', '320x180', '--pix-fmt', 'yuv420p', '--json']);
     assert.equal(r.status, 0, r.stderr);
-    assert.equal(envelope(r).data.pixFmt, 'rgba');
+    assert.equal(envelope(r).data.pixFmt, 'yuv420p');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('出片默认编码器是 auto：有 NVENC 就走 h264_nvenc（cq 7），没有就走 libx264；信封与码流自报的编码器一致，--encoder x264 照用', { skip: noEncode, timeout: 180000 }, async () => {
-  const { resolveEncoder } = await import('../../engine/offscreen/encode.mjs');
-  const want = resolveEncoder('auto', { width: 320, height: 180 }).encoder;
+test('出片默认编码器是 Pro/x264；--mode fast 无 NVENC 时退回 Pro；--encoder x264 照用', { skip: noEncode, timeout: 180000 }, async () => {
+  const { resolveEncode } = await import('../../engine/offscreen/encode.mjs');
+  const fast = resolveEncode({ mode: 'fast', width: 320, height: 180 });
   const dir = tmp();
   try {
     const tagOf = f => spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'stream_tags=encoder', '-of', 'default=nw=1:nk=1', f], { encoding: 'utf8' }).stdout;
     const d = run(['render', WORK, '--out', join(dir, 'd.mp4'), '--frames', '0:4', '--size', '320x180', '--json']);
     assert.equal(d.status, 0, d.stderr);
-    assert.equal(envelope(d).data.encoder, want);
-    if (want === 'nvenc') { assert.match(tagOf(join(dir, 'd.mp4')), /h264_nvenc/); assert.equal(envelope(d).data.cq, 7); }
+    assert.equal(envelope(d).data.encoder, 'x264');
+    assert.equal(envelope(d).data.mode, 'pro');
+    const f = run(['render', WORK, '--out', join(dir, 'f.mp4'), '--frames', '0:4', '--size', '320x180', '--mode', 'fast', '--json']);
+    assert.equal(f.status, 0, f.stderr);
+    assert.equal(envelope(f).data.encoder, fast.encoder);
+    assert.equal(envelope(f).data.mode, fast.mode);
+    if (fast.encoder === 'nvenc') { assert.match(tagOf(join(dir, 'f.mp4')), /h264_nvenc/); assert.equal(envelope(f).data.cq, 7); }
+    else { assert.match(envelope(f).data.reason || '', /NVENC|退回/); }
     const x = run(['render', WORK, '--out', join(dir, 'x.mp4'), '--frames', '0:4', '--size', '320x180', '--encoder', 'x264', '--json']);
     assert.equal(x.status, 0, x.stderr);
     assert.equal(envelope(x).data.encoder, 'x264');

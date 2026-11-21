@@ -35,28 +35,34 @@ test('parseBatchJobs：空任务、重复输出路径、仓库外作品均报 us
   ], { cwd: ROOT }), e => e.code === 'usage.work-outside-repo' || e.code === 'usage.work-not-found');
 });
 
-test('parseBatchJobs：作业与默认值都没写 pixFmt 时走 GPU 侧 yuv420p 打包；写了 rgba 照用', () => {
+test('parseBatchJobs：作业与默认值都没写 pixFmt 时走 Pro 的 rgba；写了 yuv420p 照用', () => {
   const [a, b] = parseBatchJobs([
     { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-pixfmt-a.mp4', frames: '0:4' },
-    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-pixfmt-b.mp4', frames: '0:4', pixFmt: 'rgba' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-pixfmt-b.mp4', frames: '0:4', pixFmt: 'yuv420p' },
   ], { cwd: ROOT });
-  assert.equal(a.pixFmt, 'yuv420p');
-  assert.equal(b.pixFmt, 'rgba');
+  assert.equal(a.pixFmt, 'rgba');
+  assert.equal(b.pixFmt, 'yuv420p');
 });
 
-test('parseBatchJobs：不写 encoder 时按 auto 解析（小于 NVENC 最小画幅一律 x264），nvenc 不写 cq 时用母版档 7', async () => {
-  const { resolveEncoder } = await import('../../engine/offscreen/encode.mjs');
-  const [small, big, x, n] = parseBatchJobs([
+test('parseBatchJobs：不写 encoder 时走 Pro/x264；Fast 无 NVENC 退回 Pro；显式 nvenc 不写 cq 时用 Fast 档 7', async () => {
+  const { resolveEncode } = await import('../../engine/offscreen/encode.mjs');
+  const [small, big, x, n, f] = parseBatchJobs([
     { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-a.mp4', frames: '0:4', size: '64x36' },
     { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-b.mp4', frames: '0:4', size: '320x180' },
     { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-c.mp4', frames: '0:4', size: '320x180', encoder: 'x264' },
     { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-d.mp4', frames: '0:4', size: '320x180', encoder: 'nvenc' },
+    { work: 'lab/offscreen/ink.mjs', out: '/tmp/bm-enc-e.mp4', frames: '0:4', size: '320x180', encodeMode: 'fast' },
   ], { cwd: ROOT });
   assert.equal(small.encoder, 'x264');
-  assert.equal(big.encoder, resolveEncoder('auto', { width: 320, height: 180 }).encoder);
+  assert.equal(small.encodeMode, 'pro');
+  assert.equal(big.encoder, 'x264');
+  assert.equal(big.encodeMode, 'pro');
   assert.equal(x.encoder, 'x264');
   assert.equal(n.encoder, 'nvenc');
   assert.equal(n.cq, 7);
+  const wantFast = resolveEncode({ mode: 'fast', width: 320, height: 180 });
+  assert.equal(f.encoder, wantFast.encoder);
+  assert.equal(f.encodeMode, wantFast.mode);
 });
 
 test('runBatch：异构多作业（不同画幅、rgba/yuv420p、render/stills 混排）同卡并发，逐帧哈希与单跑逐位一致', { skip: !hasFfmpeg ? '没有 FFmpeg' : (skipGpu || false) }, async t => {
