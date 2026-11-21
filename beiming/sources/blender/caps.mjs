@@ -6,7 +6,8 @@
 export const DRAFT_MAX_SIZE = Object.freeze([960, 540]);
 export const DRAFT_MAX_PIXELS = DRAFT_MAX_SIZE[0] * DRAFT_MAX_SIZE[1];
 
-export const caps = (version) => ({
+/** version 是 Blender 的版本号；library 是提供给帧源的卡（见 host.mjs 的 loadCards）：提供了卡，作者模式里才有「卡加数据」 */
+export const caps = (version, library = {}) => ({
   format: 'caps/0.1',
   id: 'blender',
   version,
@@ -28,7 +29,7 @@ export const caps = (version) => ({
   final: { samples: 64, scale: 1 },
   granularity: 'frame',
   randomAccess: true,
-  modes: ['build-script'],
+  modes: Object.keys(library).length ? ['cards-data', 'build-script'] : ['build-script'],
   cost: { unit: 'gpu-second' },
   metaNull: ['stats.noise', 'texts', 'lights'],
 });

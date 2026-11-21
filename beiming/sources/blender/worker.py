@@ -13,6 +13,8 @@
 #   颜色那一个在显卡上、辅助那一个在 CPU 上，逐帧来回渲不用换设备、不丢常驻的渲染数据。
 # 入口文件（build-script 模式）是一个 Python 文件，定义 build(ctx)，只在装载时跑一次，把场景搭进当前的 Blender 场景和时间线，
 # 设好 scene.camera，返回 {"entities": [{"name", "class", "role"?, "objects": [bpy 物体]}]}；名下没有物体的是装配体，靠名字前缀归拢。
+# 「卡加数据」模式（cards-data）没有入口文件：固定装载脚本照卡的运行时接口契约 3.4 的六步搭，见同目录 loader.py；资产见 assets.py。
+# 卡和入口文件都不写字节码缓存：卡目录里多一个文件，卡的内容哈希就对不上锁文件了。
 import hashlib
 import importlib.util
 import json
@@ -21,22 +23,33 @@ import os
 import sys
 import time
 
-import bpy
-import numpy as np
+sys.dont_write_bytecode = True
+
+import bpy  # noqa: E402
+import numpy as np  # noqa: E402
 
 SCRATCH = sys.argv[sys.argv.index('--') + 1]
+# 宿主起进程时点名只用 CPU（--cpu）：颜色这一遍也在 CPU 上渲。同一台机器上 CPU 渲的颜色层逐位可复现（帧源接口契约 5.4）
+CPU_ONLY = '--cpu' in sys.argv[sys.argv.index('--') + 2:]
 IPC = os.fdopen(os.dup(1), 'w', encoding='utf-8')
 os.dup2(2, 1)
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _sibling(name):
+    spec = importlib.util.spec_from_file_location('beiming_blender_' + name, os.path.join(HERE, name + '.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+LOADER = _sibling('loader')
+ASSETS = _sibling('assets')
+Fail = LOADER.Fail
 
 # Blender 的 (x, y, z) → 北冥的 (x, z, -y)
-AXIS = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]])
+AXIS = LOADER.AXIS
 STATE = {}
-
-
-class Fail(Exception):
-    def __init__(self, code, message):
-        super().__init__(message)
-        self.code = code
 
 
 class Ctx:
@@ -59,7 +72,7 @@ class Ctx:
 def pick_device():
     """按平台找显卡后端：Linux 试 OPTIX、CUDA，macOS 试 METAL；都没有就用 CPU。返回实际用的后端和显卡名。"""
     prefs = bpy.context.preferences.addons['cycles'].preferences
-    for backend in (('METAL',) if sys.platform == 'darwin' else ('OPTIX', 'CUDA')):
+    for backend in () if CPU_ONLY else (('METAL',) if sys.platform == 'darwin' else ('OPTIX', 'CUDA')):
         try:
             prefs.compute_device_type = backend
         except TypeError:
@@ -139,24 +152,40 @@ def op_open(job):
     c.use_adaptive_sampling = False
     c.denoiser = 'OPENIMAGEDENOISE'
 
-    spec = importlib.util.spec_from_file_location('beiming_shot_entry', job['entry'])
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    built = module.build(Ctx(job))
+    STATE.clear()
+    if job.get('mode') == 'cards-data':
+        # 固定装载脚本：第 1 到 4 步在这里跑完；半路报带错误码的错时，把到那时为止记的账带上
+        loaded = LOADER.Loaded(job, scene, ASSETS.load)
+        STATE['loaded'] = loaded
+        try:
+            built = loaded.build()
+        except Exception as e:
+            if getattr(e, 'code', None):
+                e.load = loaded.account
+            raise
+        who = '固定装载脚本'
+    else:
+        spec = importlib.util.spec_from_file_location('beiming_shot_entry', job['entry'])
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        built = module.build(Ctx(job))
+        who = '入口文件'
 
     if bpy.context.scene != scene:
-        raise Fail(None, '入口文件切换了当前场景')
+        raise Fail(None, '%s切换了当前场景' % who)
+    if r.engine != 'CYCLES' and job.get('mode') == 'cards-data':
+        raise Fail(None, '卡把渲染器换成了 %s；这个帧源只用 Cycles' % r.engine)
     r.engine = 'CYCLES'
     r.motion_blur_position = 'START'
     uncrop(r)
     if scene.camera is None or scene.camera.data.type != 'PERSP' or scene.camera.data.shift_x or scene.camera.data.shift_y:
-        raise Fail(None, '入口文件必须把 scene.camera 设成不偏轴的透视相机')
+        raise Fail(None, '%s必须把 scene.camera 设成不偏轴的透视相机' % who)
     # 背景算不算进 A：对相机可见的背景算，没设背景或者背景对相机不可见时只算几何
     scene.render.film_transparent = scene.world is None or not scene.world.cycles_visibility.camera
     declared = built['entities']
     names = sorted((e['name'] for e in declared), key=lambda s: s.encode('utf-8'))
     if len(set(names)) != len(names):
-        raise Fail(None, '入口文件交的实体名有重复')
+        raise Fail(None, '%s交的实体名有重复' % who)
     # 没有场景包：实体名按字节序排，从 1 起编号
     ids = {name: k + 1 for k, name in enumerate(names)}
     owner = {}
@@ -182,9 +211,51 @@ def op_open(job):
     # 盒形滤镜收到 0.01 像素：这 1 个样本落在像素中心，不靠采样序列的第一个点恰好在哪。
     # 本机量到 Cycles 只取 1 个样本时数据层本来就在像素中心，换别的滤镜读数不变；编号层是不是取像素中心由自检逐像素核对
     aux.cycles.pixel_filter_type, aux.cycles.filter_width = 'BOX', 0.01
-    STATE.clear()
     STATE.update(entities=entities, frames=job['frames'], display=job['colorRef'] == 'display', aux=aux)
-    return {'entities': [{k: e[k] for k in ('id', 'name', 'class')} for e in entities]}
+    out = {'entities': [{k: e[k] for k in ('id', 'name', 'class')} for e in entities]}
+    if job.get('mode') == 'cards-data':
+        out['load'] = STATE['loaded'].account
+        if job.get('needBbox'):
+            out['bbox'] = world_boxes(scene, entities, job['frames'])
+    return out
+
+
+def world_boxes(scene, entities, frames):
+    """每个实体在第 −1 到第 frames 帧（含两头：tracks 要算 f − 1 和 f + 1）的世界包围盒 [x0, y0, z0, x1, y1, z1]，米，北冥坐标。
+    交给求值核当 inputs.bbox。物体的局部顶点在装载完时取一次，逐帧只换世界矩阵。
+    shortcut: 顶点随帧变的物体（形变动画、随帧变的修改器）这里量不准；出现时改成逐帧取求值后的网格"""
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    local = {}
+    for e in entities:
+        for name in e['_objects']:
+            if name in local:
+                continue
+            ev = scene.objects[name].evaluated_get(depsgraph)
+            mesh = ev.to_mesh() if ev.type == 'MESH' else None
+            if mesh is not None and len(mesh.vertices):
+                co = np.empty(len(mesh.vertices) * 3, dtype=np.float64)
+                mesh.vertices.foreach_get('co', co)
+                local[name] = co.reshape(-1, 3)
+            else:
+                local[name] = np.array([list(v) for v in ev.bound_box], dtype=np.float64)
+            if mesh is not None:
+                ev.to_mesh_clear()
+    out = {e['name']: [] for e in entities}
+    for t in range(-1, frames + 1):
+        scene.frame_set(t, subframe=0.0)
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        world = {}
+        for name, pts in local.items():
+            m = np.array(scene.objects[name].evaluated_get(depsgraph).matrix_world, dtype=np.float64)
+            world[name] = (pts @ m[:3, :3].T + m[:3, 3]) @ AXIS.T
+        for e in entities:
+            if e['_objects']:
+                pts = np.concatenate([world[n] for n in e['_objects']])
+                out[e['name']].append(pts.min(axis=0).tolist() + pts.max(axis=0).tolist())
+            else:
+                out[e['name']].append(None)
+    scene.frame_set(0, subframe=0.0)
+    return out
 
 
 def measure(scene, size):
@@ -333,12 +404,25 @@ def op_render(job):
     clock = time.perf_counter
     t0 = clock()
     aux_scene = STATE['aux']
+    loaded = STATE.get('loaded')
     scene.frame_set(job['f'], subframe=0.0)
+    if loaded is not None:
+        # 第 5 步：先 tracks.apply，再按 create 的次序调各张卡的 apply；写完再求一遍值，让写进去的关键帧生效
+        samples = {(int(s['t']), 0.0): {k: v for k, v in s.items() if k != 't'} for s in job['tracks']}
+        loaded.state(job['f'], 0.0, samples)
+        if scene.render.engine != 'CYCLES' or scene.render.motion_blur_position != 'START':
+            raise Fail(None, '卡在第 %d 帧把渲染器或快门位置改成了 %s / %s；这个帧源只用 Cycles 且快门从帧起点打开' % (
+                job['f'], scene.render.engine, scene.render.motion_blur_position))
+        scene.frame_set(job['f'], subframe=0.0)
     aux_scene.frame_set(job['f'], subframe=0.0)
     camera, entities, tris, cam_rot = measure(scene, plan['size'])
     t1 = clock()
     result = {'camera': camera, 'entities': entities, 'layers': {}, 'stats': None, 'device': dict(DEVICE),
               'timing': {'stateMs': (t1 - t0) * 1000.0, 'renderMs': 0.0, 'readbackMs': 0.0}}
+    if loaded is not None:
+        # 第 6 步：宿主量完以后并进各张卡的 meta(f)；账跟着交回去，读数的来历也在账里
+        result['readings'] = loaded.meta(job['f'])
+        result['load'] = loaded.account
     if not plan['layers']:
         return result
 
@@ -422,7 +506,10 @@ def op_render(job):
 
 
 def op_close(_job):
+    loaded = STATE.get('loaded')
     STATE.clear()
+    if loaded is not None:
+        loaded.dispose()
     reset()
     return {}
 
@@ -442,7 +529,10 @@ for line in sys.stdin:
     try:
         reply({'id': job['id'], 'ok': True, 'result': OPS[job['op']](job)})
     except Fail as e:
-        reply({'id': job['id'], 'ok': False, 'code': e.code, 'message': str(e)})
+        out = {'id': job['id'], 'ok': False, 'code': e.code, 'message': str(e)}
+        if getattr(e, 'load', None) is not None:
+            out['load'] = e.load
+        reply(out)
     except Exception as e:  # noqa: BLE001
         reply({'id': job['id'], 'ok': False, 'code': None, 'message': '%s: %s' % (type(e).__name__, e)})
         if job['op'] == 'render':

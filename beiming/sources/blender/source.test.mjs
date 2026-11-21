@@ -5,6 +5,7 @@
 // 渲染产物都在系统临时目录里，跑完删掉。
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +13,7 @@ import { after, describe, test } from 'node:test';
 import source from '../../kernel/contracts/source/source.json' with { type: 'json' };
 import { loadContracts } from '../../kernel/contracts/validate.mjs';
 import { caps, DRAFT_MAX_PIXELS, DRAFT_MAX_SIZE } from './caps.mjs';
-import { findBlender, planOpen, planRender, startSource } from './host.mjs';
+import { BUILTIN_ASSETS, findBlender, loadAssets, loadCards, planOpen, planRender, startSource } from './host.mjs';
 
 const CAPS = caps('5.2.0');
 const { validate } = await loadContracts();
@@ -49,6 +50,11 @@ test('能力声明：结构合法，落在登记表 blender 一项之内', () =>
   assert.deepEqual(CAPS.modes, ['build-script']);
   assert.deepEqual(CAPS.sceneQuery, []);
   for (const mode of CAPS.modes) assert.ok(reg.modes.includes(mode), mode);
+  // 提供了卡，作者模式里才有「卡加数据」
+  const withCards = caps('5.2.0', { 'blender.cycles': {} });
+  assert.deepEqual(withCards.modes, ['cards-data', 'build-script']);
+  clean(withCards);
+  for (const mode of withCards.modes) assert.ok(reg.modes.includes(mode), mode);
   for (const kind of CAPS.sceneQuery) assert.ok(reg.sceneQuery.includes(kind), kind);
   assert.deepEqual(CAPS.motionBlur.conflicts, ['motion']);
   assert.deepEqual(caps('5.2.0'), CAPS);
@@ -127,6 +133,83 @@ test('装载计划：模式、锁文件、装不了的输入各报各的错误�
   // 带 renderer 对象的镜头：出帧用的那一套取 renderer 里的
   const viaRenderer = { ...SHOT, source: 'three', host: 'page', mode: 'native-code', renderer: { source: 'blender', host: 'cycles', mode: 'build-script', entry: 'alt.py' } };
   assert.equal(planOpen(CAPS, { ...INPUT, shot: viaRenderer }, env).entry, 'alt.py');
+});
+
+// ---------- 「卡加数据」模式的装载计划 ----------
+const CARD_DIRS = ['cards/camera/spline', 'cards/mechanism/blender-cycles', 'cards/mechanism/blender-state-keys'];
+const LIBRARY = await loadCards(CARD_DIRS);
+const ASSETS = await loadAssets();
+const CARDS_SHOT = {
+  id: 's01', in: 0, out: 180, source: 'blender', host: 'cycles', mode: 'cards-data', colorRef: 'scene', seed: 7802,
+  assets: { kit: 'asset:rtx-card@1' },
+  cards: [
+    { as: 'cam', use: 'camera.spline@1', params: { keys: [{ f: 0, pos: [0.31, 0.24, 0.85], look: 'kit' }] } },
+    { as: 'cycles', use: 'blender.cycles@1', params: {} },
+    { as: 'keys', use: 'blender.state-keys@1', params: {} },
+  ],
+};
+const CARDS_INPUT = { film: 'f_min', output: { size: [1920, 1080], fps: '30/1' }, shot: CARDS_SHOT };
+/** 测试现算的锁：卡的版本、落点、内容哈希从读进来的卡取，资产的哈希从读进来的资产取 */
+const cardsLock = (lib = LIBRARY, assets = ASSETS) => ({
+  film: 'f_min', seeds: { s01: 99 }, shots: { s01: { shutterSamples: 1 } }, sources: { blender: { version: '5.2.0', host: 'cycles' } },
+  cards: Object.fromEntries(Object.entries(lib).map(([name, { card, sha256 }]) => [name, { version: card.version, impl: [...card.livesIn], sha256 }])),
+  assets: Object.fromEntries(Object.entries(assets).map(([ref, a]) => [ref, a.sha256])),
+});
+
+test('读卡和资产：卡过校验、内容哈希和锁文件同一个算法；自带 asset:rtx-card@1；资产引用和文件种类不对报 usage.bad-argument', async () => {
+  assert.deepEqual(Object.keys(LIBRARY), ['camera.spline', 'blender.cycles', 'blender.state-keys']);
+  for (const { sha256 } of Object.values(LIBRARY)) assert.match(sha256, /^[0-9a-f]{64}$/);
+  assert.deepEqual(Object.keys(BUILTIN_ASSETS), ['asset:rtx-card@1']);
+  assert.equal(ASSETS['asset:rtx-card@1'].kind, 'kit');
+  assert.equal(ASSETS['asset:rtx-card@1'].sha256, `sha256:${createHash('sha256').update(await readFile(BUILTIN_ASSETS['asset:rtx-card@1'])).digest('hex')}`);
+  await assert.rejects(() => loadCards(['../outside']), code('usage.bad-argument'));
+  await assert.rejects(() => loadAssets({ 'rtx-card@1': 'a.glb' }), code('usage.bad-argument'));
+  await assert.rejects(() => loadAssets({ 'asset:hdri@1': 'a.exr' }), code('usage.bad-argument'));
+  await assert.rejects(() => loadAssets([]), code('usage.bad-argument'));
+});
+
+test('卡加数据的装载计划：没有锁、错片名的锁、错版本或错卡的锁、装不了的资产各报各的错误码', () => {
+  const CC = caps('5.2.0', LIBRARY), lock = cardsLock();
+  const env = { lock, tier: 'draft', workspace: 'w', filmDir: 'd' };
+  const open = (input = CARDS_INPUT, e = env, lib = LIBRARY, assets = ASSETS, c = CC) => planOpen(c, input, e, lib, assets);
+  assert.deepEqual(open(), { seed: 99, shutterSamples: 1 });
+  // 没提供卡：能力声明里没有这个作者模式
+  assert.throws(() => open(CARDS_INPUT, env, {}, ASSETS, CAPS), code('contract.unsupported-mode'));
+  // 没有锁文件：用了卡、资产，版本和哈希只有锁里有
+  assert.throws(() => open(CARDS_INPUT, { ...env, lock: null }), code('env.lock-required'));
+  assert.throws(() => open({ ...CARDS_INPUT, shot: { ...CARDS_SHOT, cards: [] } }, { ...env, lock: null }), code('env.lock-required'));
+  assert.deepEqual(open({ ...CARDS_INPUT, shot: { ...CARDS_SHOT, cards: [], assets: {} } }, { ...env, lock: null }), { seed: 7802 });
+  // 错片名的锁
+  assert.throws(() => open(CARDS_INPUT, { ...env, lock: { ...lock, film: 'f_other' } }), code('usage.bad-argument'));
+  // 错版本的锁：锁的 Blender 版本不是当前这个
+  assert.throws(() => open(CARDS_INPUT, { ...env, lock: { ...lock, sources: { blender: { version: '5.1.0', host: 'cycles' } } } }), code('contract.unsupported-input'));
+  // 错卡的锁：内容哈希、版本对不上，锁里没有这张卡，落点不对，引用的主版本不对，没提供这张卡
+  const cardLock = (patch) => ({ ...lock, cards: { ...lock.cards, 'blender.cycles': { ...lock.cards['blender.cycles'], ...patch } } });
+  for (const patch of [{ sha256: '0'.repeat(64) }, { version: '1.0.1' }, { impl: ['data'] }]) {
+    assert.throws(() => open(CARDS_INPUT, { ...env, lock: cardLock(patch) }), code('contract.unsupported-input'), JSON.stringify(patch));
+  }
+  const { 'blender.cycles': _drop, ...fewer } = lock.cards;
+  assert.throws(() => open(CARDS_INPUT, { ...env, lock: { ...lock, cards: fewer } }), code('contract.unsupported-input'));
+  const majorTwo = { ...CARDS_SHOT, cards: CARDS_SHOT.cards.map((c) => (c.as === 'cycles' ? { ...c, use: 'blender.cycles@2' } : c)) };
+  assert.throws(() => open({ ...CARDS_INPUT, shot: majorTwo }), code('contract.unsupported-input'));
+  const { 'blender.cycles': _gone, ...lessLib } = LIBRARY;
+  assert.throws(() => open(CARDS_INPUT, env, lessLib), code('contract.unsupported-input'));
+  // 资产：锁里没有、哈希对不上、没提供；全片的资产同样判
+  assert.throws(() => open(CARDS_INPUT, { ...env, lock: { ...lock, assets: {} } }), code('contract.unsupported-input'));
+  assert.throws(() => open(CARDS_INPUT, { ...env, lock: { ...lock, assets: { 'asset:rtx-card@1': `sha256:${'0'.repeat(64)}` } } }), code('contract.unsupported-input'));
+  assert.throws(() => open({ ...CARDS_INPUT, assets: { vo: 'asset:voice@1' } }), code('contract.unsupported-input'));
+  assert.throws(() => open(CARDS_INPUT, env, LIBRARY, {}), code('contract.unsupported-input'));
+  // 数据层的卡产出的轨道这个帧源没地方写；叠加层展开出的卡没提供
+  assert.throws(() => open({ ...CARDS_INPUT, overlays: [{ id: 'title', shot: 's01', text: 'x' }] }), code('contract.unsupported-input'));
+  // 实例名：保留字、重复
+  const named = (as) => ({ ...CARDS_INPUT, shot: { ...CARDS_SHOT, cards: [...CARDS_SHOT.cards, { as, use: 'blender.cycles@1', params: {} }] } });
+  assert.throws(() => open(named('host')), code('usage.bad-argument'));
+  assert.throws(() => open(named('cam')), code('usage.bad-argument'));
+  // cards-data 不写 entry；锁里缺种子
+  assert.throws(() => open({ ...CARDS_INPUT, shot: { ...CARDS_SHOT, entry: 'x.py' } }), code('usage.bad-argument'));
+  assert.throws(() => open(CARDS_INPUT, { ...env, lock: { ...lock, seeds: {} } }), code('usage.bad-argument'));
+  // build-script 模式照旧不接卡和资产
+  assert.throws(() => open({ ...CARDS_INPUT, shot: { ...CARDS_SHOT, mode: 'build-script', entry: 'x.py' } }), code('contract.unsupported-input'));
 });
 
 test('没有 Blender：报 env.missing-tool', async () => {
@@ -261,7 +344,8 @@ function lumaCentroidX(layer) {
   return sumX / sum;
 }
 
-const scratchDirs = async () => (await readdir(tmpdir())).filter((n) => n.startsWith('beiming-blender-')).length;
+// 只数这个进程起的帧源留下的临时目录（目录名带进程号）：别的测试文件在别的进程里同时起帧源，整个临时目录一起数会数到它们的
+const scratchDirs = async () => (await readdir(tmpdir())).filter((n) => n.startsWith(`beiming-blender-${process.pid}-`)).length;
 
 describe('Blender 实跑', { concurrency: false }, () => {
 test('实跑：常驻 Blender 渲校准镜头，层文件、元数据、交并比、快门相位', { skip: BLENDER ? false : '本机没有 Blender', timeout: 600000 }, async (t) => {
@@ -493,5 +577,75 @@ test('实跑：进程协议的失败路径', { skip: BLENDER ? false : '本机�
     await src.stop();
   }
   assert.equal(await scratchDirs(), before, '进程死掉之后临时目录也要清掉');
+});
+
+// 现做三份资产文件：在 Blender 坐标 (0, 3, 0) 放一个边长 1 米的方块 Box-1，旁边 (0.8, 3, 0) 一个半径 0.3 米的球 Ball，再放一台相机。
+// 北冥坐标里方块的中心是 (0, 0, −3)，正好在宿主备的那台相机（原点，朝 −Z）的正前方。.glb 和 .blend 带两样东西加相机，.stl 只有方块；
+// 另做一份只有相机的 .blend，载入时找不到可渲的物体
+const MAKE_ASSETS = `
+import os, sys
+import bpy
+out = sys.argv[sys.argv.index('--') + 1]
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.object.camera_add(location=(0.0, 0.0, 0.0))
+bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out, 'camera-only.blend'))
+bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 3.0, 0.0))
+cube = bpy.context.active_object
+cube.name = 'Box-1'
+bpy.ops.mesh.primitive_uv_sphere_add(radius=0.3, location=(0.8, 3.0, 0.0))
+bpy.context.active_object.name = 'Ball'
+bpy.ops.export_scene.gltf(filepath=os.path.join(out, 'box.glb'), export_format='GLB')
+bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out, 'box.blend'))
+bpy.ops.object.select_all(action='DESELECT')
+cube.select_set(True)
+bpy.ops.wm.stl_export(filepath=os.path.join(out, 'box.stl'), export_selected_objects=True)
+`;
+
+test('实跑：卡加数据模式载入 .glb、.stl、.blend 资产，零件进实体清单，包围盒和编号层对得上', { skip: !BLENDER && '本机没有 Blender', timeout: 600000 }, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'beiming-blender-test-'));
+  after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'make.py'), MAKE_ASSETS);
+  const made = spawnSync(BLENDER, ['-b', '-noaudio', '--factory-startup', '--python', join(root, 'make.py'), '--', root], { encoding: 'utf8', timeout: 120000 });
+  assert.equal(made.status, 0, made.stderr.slice(-2000));
+  const files = { 'asset:box-glb@1': join(root, 'box.glb'), 'asset:box-stl@1': join(root, 'box.stl'), 'asset:box-blend@1': join(root, 'box.blend'), 'asset:camera-only@1': join(root, 'camera-only.blend') };
+  const dirs = ['cards/mechanism/blender-cycles'];
+  const lib = await loadCards(dirs), assets = await loadAssets(files);
+  assert.deepEqual(Object.fromEntries(Object.entries(assets).map(([ref, a]) => [ref, a.kind])), { 'asset:rtx-card@1': 'kit', 'asset:box-glb@1': 'glb', 'asset:box-stl@1': 'stl', 'asset:box-blend@1': 'blend', 'asset:camera-only@1': 'blend' });
+  const src = await startSource({ blenderBin: BLENDER, cards: dirs, assets: files, limitMs: 300000 });
+  try {
+    const lock = { ...cardsLock(lib, assets), sources: { blender: { version: src.caps().version, host: 'cycles' } }, film: 'f_assets', seeds: { s01: 5 } };
+    const shotOf = (ref) => ({
+      id: 's01', in: 0, out: 3, source: 'blender', host: 'cycles', mode: 'cards-data', colorRef: 'scene', seed: 5,
+      assets: { box: ref }, cards: [{ as: 'cycles', use: 'blender.cycles@1', params: {} }], roles: { hero: 'box' },
+    });
+    const env = { lock, tier: 'draft', workspace: join(root, 'out'), filmDir: root };
+    const parts = { 'asset:box-glb@1': ['Ball', 'Box_1'], 'asset:box-stl@1': ['box'], 'asset:box-blend@1': ['Ball', 'Box_1'] };
+    for (const [ref, names] of Object.entries(parts)) {
+      const session = await src.open({ film: 'f_assets', output: { size: [320, 180], fps: '24/1' }, shot: shotOf(ref) }, env);
+      try {
+        const manifest = session.manifest();
+        clean(manifest, 'source', 'manifest.schema.json');
+        // 别名是装配体，零件各是一个实体 <别名>.<零件名>；名字里的连字符换成下划线
+        assert.deepEqual(manifest.entities.map((e) => [e.name, e.class]), [['box', 'assembly'], ...names.map((n) => [`box.${n}`, 'part'])], ref);
+        const { meta, layers } = await session.render(1, {}, ['color', 'objectId', 'meta']);
+        clean(meta);
+        const ids = await readLayer(env.workspace, layers.objectId, 'u32');
+        const cube = meta.entities.find((e) => e.name === `box.${names.at(-1)}`);
+        [-0.5, -0.5, -3.5, 0.5, 0.5, -2.5].forEach((v, i) => near(cube.bbox3d[i], v, 1e-4, `${ref} 方块的 bbox3d[${i}]`));
+        const iou = iouOf(idBox(ids, cube.id), cube.bbox2d);
+        t.diagnostic(`${ref}：方块编号层包围盒的交并比 ${iou.toFixed(4)}`);
+        assert.ok(iou >= 0.95, `${ref} 交并比 ${iou}`);
+        assert.equal(meta.entities.find((e) => e.name === 'box').visible, 1);
+        // 固定装载的账：四步做完，cycles 经 create 装上，相机是宿主备的那台
+        const account = meta.ext['blender.load'];
+        assert.deepEqual([account.steps, account.createOrder, account.applyOrder, account.metaOrder, account.camera], [['assets', 'tracks', 'create', 'collect'], ['cycles'], ['tracks', 'cycles'], ['host'], undefined]);
+      } finally { await session.close(); }
+    }
+    // 资产里没有可渲的物体：open 失败，不带错误码；进程还在，接着能装别的镜头
+    await assert.rejects(() => src.open({ film: 'f_assets', output: { size: [320, 180], fps: '24/1' }, shot: shotOf('asset:camera-only@1') }, env), (e) => e.code === undefined && /没有可渲的物体/.test(e.message));
+    const again = await src.open({ film: 'f_assets', output: { size: [320, 180], fps: '24/1' }, shot: shotOf('asset:box-stl@1') }, env);
+    assert.equal((await again.render(2, {}, ['meta'])).meta.shotFrame, 2);
+    await again.close();
+  } finally { await src.stop(); }
 });
 });

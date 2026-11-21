@@ -89,8 +89,8 @@ function localLock(film, seeds, lib = library) {
 
 // ---------- 一、卡文件 ----------
 
-test('cards/ 下面正好是任务书列的 11 张卡，各在 cards/<kind>/<目录名>/，带卡文件、入口和自测', () => {
-  const found = readdirSync(HERE, { recursive: true }).filter((p) => p.endsWith('card.json')).map((p) => dirname(p).split(sep).join('/')).sort();
+test('cards/ 下面除 mechanism/ 外正好是首批 11 张基础卡，各在 cards/<kind>/<目录名>/，带卡文件、入口和自测', () => {
+  const found = readdirSync(HERE, { recursive: true }).filter((p) => p.endsWith('card.json')).map((p) => dirname(p).split(sep).join('/')).filter((d) => !d.startsWith('mechanism/')).sort();
   assert.deepEqual(found, CARDS.map((c) => c.dir).sort());
   assert.equal(found.length, 11);
   for (const c of CARDS) {

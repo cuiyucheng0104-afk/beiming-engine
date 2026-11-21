@@ -1,0 +1,105 @@
+{
+  "format": "card/0.1",
+  "id": "blender.cycles",
+  "version": "1.0.0",
+  "kind": "mechanism",
+  "title": "Cycles 渲染与显卡降噪",
+  "intent": "把 Blender 镜头的渲染器定成 Cycles：显卡出图，降噪用 OIDN 并放在显卡上，快门从帧起点打开；草稿档低采样加降噪，终稿档按镜头写的采样数出",
+  "visibleToAgent": true,
+  "livesIn": [
+    "source:blender"
+  ],
+  "impl": [
+    {
+      "livesIn": "source:blender",
+      "entry": "cards/mechanism/blender-cycles/cycles.py",
+      "shape": "create",
+      "hosts": [
+        {
+          "host": "cycles",
+          "version": "5.2.0"
+        }
+      ],
+      "selftest": "cards/mechanism/blender-cycles/selftest.test.mjs"
+    }
+  ],
+  "params": {
+    "bounces": {
+      "type": "integer",
+      "unit": "none",
+      "range": [
+        1,
+        64
+      ],
+      "default": 8,
+      "coupling": "host-api"
+    },
+    "clampIndirect": {
+      "type": "number",
+      "unit": "none",
+      "range": [
+        0,
+        1000
+      ],
+      "default": 10,
+      "coupling": "none"
+    }
+  },
+  "ports": {
+    "in": [],
+    "out": [
+      {
+        "name": "color",
+        "type": "scene-linear-rgba"
+      }
+    ],
+    "order": {
+      "before": [],
+      "after": []
+    },
+    "requires": [
+      "ctx.hostScene 是这个镜头的 Blender 场景；每像素采样数、开不开降噪由帧源按档位逐次定（草稿档开，终稿档取镜头 tiers.final.samples），这张卡定降噪器和它放在哪",
+      "颜色层是场景线性的 32 位浮点，降噪器的辅助输入取反照率和法线"
+    ]
+  },
+  "conditions": {
+    "appliesWhen": [
+      "镜头的帧源是 blender，要 Cycles 路径追踪出图"
+    ],
+    "notWhen": [
+      "要实时光栅化的观感：这张卡只用 Cycles，不切 EEVEE",
+      "没有能跑 OIDN 的显卡时降噪落回 CPU，元数据的 source.denoise 写 oidn-cpu"
+    ]
+  },
+  "calibration": "probe-gray-chart",
+  "verify": {
+    "selftest": "装上之后渲染器是 Cycles、快门位置是帧起点、降噪器是 OIDN 并放在显卡上、反弹次数和间接光截断照参数；草稿档出帧的元数据 source.denoise 是 oidn-gpu、采样数是档位的数，终稿档的采样数是镜头 tiers.final.samples；有卡把渲染器改成别的时下一帧报错",
+    "predicates": []
+  },
+  "pitfalls": [
+    {
+      "symptom": "草稿档噪点很重",
+      "fix": "草稿档本来就是低采样加降噪；看降噪有没有开（元数据 source.denoise），没开时检查显卡后端"
+    },
+    {
+      "symptom": "金属表面有亮斑闪烁",
+      "fix": "把 clampIndirect 调小；设成 0 是不截断"
+    }
+  ],
+  "provenance": {
+    "cases": [],
+    "note": "降噪器取 OIDN、辅助输入取反照率和法线、预过滤取精确档；放不放在显卡上由帧源在每次出帧时看 Blender 认不认这块显卡跑 OIDN"
+  },
+  "status": [
+    {
+      "level": "reproduced",
+      "host": "cycles",
+      "source": "5.2.0",
+      "gpu": "apple-m5-pro",
+      "date": "2026-11-21"
+    }
+  ],
+  "exams": [
+    "cal:blender.cycles"
+  ]
+}
