@@ -120,7 +120,8 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
   // 把 process.kill 换成只记账的假货：哪条防线万一失效，测试也不会真的把信号发给本进程的父辈。
   const signals = [];
   t.mock.method(process, 'kill', (pid, signal) => {
-    if (signal !== 0 && signal !== undefined) signals.push([pid, signal]);
+    if (signal === 0) return true; // 存活检查一律报「在」：防线万一失效，下一步的信号会被记进 signals
+    signals.push([pid, signal]);
     throw Object.assign(new Error('测试里不真发信号'), { code: 'ESRCH' });
   });
   const task = () => assert.fail('入参不合格时不得跑任务');
@@ -159,6 +160,7 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
     ['登记的对象原型链上有 Proxy', () => watchdog.registerProcess(Object.create(trap.proxy))],
     ['登记仿造的 ChildProcess，pid 是取值器', () => watchdog.registerProcess(Object.defineProperty(Object.create(ChildProcess.prototype), 'pid', { get() { getterHits += 1; return 999999; } }))],
     ['起进程的参数是已撤销的 Proxy', () => watchdog.spawnManaged(node, revoked.proxy)],
+    ['起进程的参数里有取值器', () => watchdog.spawnManaged(node, Object.defineProperty(['-e'], 1, { enumerable: true, get() { getterHits += 1; return IDLE; } }))],
     ['起进程的 env 是 Proxy', () => watchdog.spawnManaged(node, ['-e', IDLE], { env: trap.proxy })],
     ['起进程的 env 有非字符串值', () => watchdog.spawnManaged(node, ['-e', IDLE], { env: { A: 1 } })],
     ['起进程的 stdio 不在白名单', () => watchdog.spawnManaged(node, ['-e', IDLE], { stdio: ['ignore', 'ipc'] })],
@@ -204,6 +206,7 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
     // 父进程的父进程：既不是本进程也不是父进程，但杀它等于杀掉自己这一支。
     const grandparent = Number(execFileSync('ps', ['-o', 'ppid=', '-p', String(process.ppid)], { encoding: 'utf8' }));
     if (grandparent > 1) {
+      mutants.push(['登记仿造的 ChildProcess，pid 是本进程的祖先', () => watchdog.registerProcess(Object.assign(Object.create(ChildProcess.prototype), { pid: grandparent, exitCode: null, signalCode: null }))]);
       mutants.push(['强杀本进程的祖先', () => killProcessTree(grandparent)]);
       mutants.push(['登记本进程的祖先', () => watchdog.registerProcess(grandparent)]);
     }
@@ -300,7 +303,7 @@ setInterval(() => {}, 1000);`;
 });
 
 test('A14-2d 受管名单不留死人：已经退出的进程除名，之后越线不再向它的进程号发信号', async (t) => {
-  const watchdog = watch(t, { quotas: {} });
+  const watchdog = watch(t, { quotas: { pollIntervalMs: 20 } });
   const gone = watchdog.spawnManaged(node, ['-e', ''], { stdio: 'ignore' });
   await new Promise((resolve) => { gone.once('exit', resolve); });
   const already = spawn(node, ['-e', ''], { stdio: 'ignore' });
@@ -312,6 +315,13 @@ test('A14-2d 受管名单不留死人：已经退出的进程除名，之后越�
   assert.ok(error.killed.includes(live.pid));
   assert.ok(!error.killed.includes(gone.pid) && !error.killed.includes(already.pid), `不得再向已退出的进程号发信号：${error.killed}`);
   assert.ok(killedHard(live));
+  // 越线之后登记一个已经退出的进程：照样抛越线的错，但不向它的旧进程号发信号。
+  const sent = [];
+  const realKill = process.kill;
+  t.mock.method(process, 'kill', (pid, signal) => { if (signal !== 0) sent.push(pid); return realKill.call(process, pid, signal); });
+  assert.throws(() => watchdog.registerProcess(already), (thrown) => thrown === error);
+  t.mock.restoreAll();
+  assert.deepEqual(sent, []);
 });
 
 test('A14-3c 探针不回话：过了 probeTimeoutMs 按失败处理；探针挂着的时候磁盘照查', async (t) => {
@@ -334,6 +344,25 @@ test('A14-3c 探针不回话：过了 probeTimeoutMs 按失败处理；探针挂
   fs.writeFileSync(path.join(dir, 'intermediate', 'flood.bin'), Buffer.alloc(300_000, 1));
   const full = await Promise.race([rejected(disk.guard(never)), delay(2000).then(() => assert.fail('探针挂住之后磁盘检查失效了'))]);
   refuses('failure.disk-quota', 1)(full);
+
+  // check() 正等着不回话的探针时别处越线或关闭：check() 当场结算，不会跟着探针永远挂住。
+  const settles = (promise, what) => Promise.race([promise.then(() => 'resolved', (error) => error), delay(2000).then(() => assert.fail(`${what}：check() 没有结算`))]);
+  const tripped = watch(t, { quotas: { probeTimeoutMs: 60_000 }, probeGpuHealth: never });
+  const waiting = settles(tripped.check(), '探针挂着时越线');
+  await delay(30);
+  tripped.reportGpuLost('webglcontextlost');
+  assert.equal((await waiting).reason, 'webglcontextlost');
+  const shut = watch(t, { quotas: { vramQuotaMB: 64, probeTimeoutMs: 60_000 }, probeVramMB: never });
+  const closing = settles(shut.check(), '探针挂着时关闭');
+  await delay(30);
+  shut.close();
+  assert.equal(await closing, 'resolved');
+  // runWithWatchdog 开工自检卡在探针上时工作区被写满：以磁盘超限拒绝，不挂死。
+  const second = workspace(t).dir;
+  const run = settles(runWithWatchdog({ workspaceDir: second, quotas: { diskQuotaBytes: 100_000, pollIntervalMs: 20, probeTimeoutMs: 60_000 }, probeGpuHealth: never }, () => assert.fail('不该起任务')), 'runWithWatchdog 自检');
+  await delay(60);
+  fs.writeFileSync(path.join(second, 'deliver', 'flood.bin'), Buffer.alloc(300_000, 1));
+  refuses('failure.disk-quota', 1)(await run);
 });
 
 test('A14-3 着色器挂起：有心跳不算挂，心跳一停到点零宽限 SIGKILL，报 timeout.shader-hang（124）', async (t) => {

@@ -277,7 +277,8 @@ export function createJobWatchdog(input) {
   let hang = null;
   let polling = false;
   let frameActive = false;
-  const probeTimers = new Set(); // 还在等回话的探针时限
+  const probeWaits = new Map(); // 还在等回话的探针：时限计时器 → 让这次等待当场失败的函数
+  let frameTimer;
   let rejectViolated;
   const violated = new Promise((_, reject) => { rejectViolated = reject; });
   violated.catch(() => {}); // 没人在等的时候也不算未处理的拒绝
@@ -316,12 +317,17 @@ export function createJobWatchdog(input) {
     return { killed, survivors: alive() };
   }
 
-  // 越线或关闭之后不再有任何计时器拦着事件循环（没回话的探针时限也清掉）。
+  // 越线或关闭之后不再有任何计时器拦着事件循环。还在等回话的探针当场按失败结束：
+  // 只清时限不结束等待的话，等着它的 check() 永远不结算。
   function stopTimers() {
     clearInterval(pollTimer);
     clearTimeout(hang?.timer);
-    for (const timer of probeTimers) clearTimeout(timer);
-    probeTimers.clear();
+    clearTimeout(frameTimer);
+    for (const [timer, reject] of probeWaits) {
+      clearTimeout(timer);
+      reject(new Error('看门狗已经越线或关闭，不再等探针。'));
+    }
+    probeWaits.clear();
   }
 
   function trip(error, graceMs = 0) {
@@ -373,11 +379,11 @@ export function createJobWatchdog(input) {
     let timer;
     const expired = new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error(`探针超过 ${probeTimeoutMs} ms 没有回话。`)), probeTimeoutMs);
+      probeWaits.set(timer, reject);
     });
-    probeTimers.add(timer);
     return Promise.race([Promise.resolve().then(() => probe({ pids })), expired]).finally(() => {
       clearTimeout(timer);
-      probeTimers.delete(timer);
+      probeWaits.delete(timer);
     });
   }
 
@@ -409,6 +415,7 @@ export function createJobWatchdog(input) {
 
   const pollTimer = setInterval(() => {
     checkDisk(); // 磁盘每个间隔都查，不排在还没回话的探针后面
+    liveRoots(); // 名单每个间隔都清：已经退出的进程不留到越线那一刻
     if (polling) return;
     polling = true;
     runProbes().finally(() => { polling = false; });
@@ -450,13 +457,13 @@ export function createJobWatchdog(input) {
     const child = typeof target === 'number' ? null : target;
     if (child && !isExactly(child, ChildProcess)) throw bad('受管进程要给 ChildProcess 或进程号。');
     // 进程号只读自有数据属性，仿造对象上的取值器不调。
-    const pid = checkKillTarget(child ? Object.getOwnPropertyDescriptor(child, 'pid')?.value : target, processGroup, raw && !child);
-    const entry = { pid, processGroup, child };
+    const pid = checkKillTarget(child ? Object.getOwnPropertyDescriptor(child, 'pid')?.value : target, processGroup, raw);
+    managed.set(pid, { pid, processGroup, child });
     if (violation) {
-      signalTrees([entry], 'SIGKILL');
+      signalTrees(liveRoots().filter((root) => root.pid === pid), 'SIGKILL'); // 已经退出的不发信号
+      managed.delete(pid);
       throw violation;
     }
-    managed.set(pid, entry);
     return pid;
   }
 
@@ -475,7 +482,9 @@ export function createJobWatchdog(input) {
     /** 起一个受管子进程：POSIX 上独立进程组，强杀时连孙进程一起。spawnOptions 只收 cwd、env、stdio。 */
     spawnManaged(file, args = [], spawnOptions = {}) {
       const safe = snapshot(spawnOptions, 'spawnManaged 的选项', ['cwd', 'env', 'stdio']);
-      if (typeof file !== 'string' || !file || types.isProxy(args) || !Array.isArray(args) || !args.every((arg) => typeof arg === 'string')) {
+      if (typeof file !== 'string' || !file || types.isProxy(args) || !Array.isArray(args)
+        || !Object.values(Object.getOwnPropertyDescriptors(args)).every((item) => Object.hasOwn(item, 'value'))
+        || !args.every((arg) => typeof arg === 'string')) {
         throw bad('spawnManaged 要给可执行文件路径和字符串参数数组。');
       }
       const { cwd, stdio } = safe;
@@ -505,7 +514,7 @@ export function createJobWatchdog(input) {
       if (frameActive) throw bad('上一帧还没结束：一个看门狗同时只跑一帧。');
       frameActive = true;
       checkDisk();
-      const timer = frameTimeoutMs === undefined ? undefined : setTimeout(() => {
+      frameTimer = frameTimeoutMs === undefined ? undefined : setTimeout(() => {
         trip(coded('timeout.frame', `第 ${frameIndex} 帧超过 ${frameTimeoutMs} ms。`, { frameIndex, frameTimeoutMs }), killGraceMs);
       }, frameTimeoutMs);
       try {
@@ -515,7 +524,7 @@ export function createJobWatchdog(input) {
         return result;
       } finally {
         frameActive = false;
-        clearTimeout(timer);
+        clearTimeout(frameTimer);
         endShaderPass();
       }
     },
