@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { inspect } from 'node:util';
 import { resolveServed, startSource } from '../../host/page/host.mjs';
 import { measureEntity } from '../../host/page/measure.js';
 import { metaCheck, sourceCheck } from '../../kernel/conformance/records.mjs';
@@ -23,6 +24,8 @@ const coded = (code) => (err) => { assert.equal(err.code, code, err.message); re
 const typed = (T, bytes) => new T(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
 const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 const worst = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+/** 报错时怎么写出一个值：带空槽、访问器的数组也写得出（JSON 会把空槽写成 null，访问器会被它调一遍） */
+const show = (v) => inspect(v, { depth: 3, getters: false, breakLength: Infinity });
 
 /** 起帧源跑 fn({ open, read })。open(片子, 镜头, 档位) 开会话；read(层引用) 读层文件。起不了浏览器时跳过 */
 async function withSource(t, fn) {
@@ -118,10 +121,20 @@ test('元素声明不对当场报 usage.bad-argument：种类不认识、矩形�
     [{ kind: 'canvas2d', name: 'a', rect: [0, 0, 1, 1] }], [{ kind: 'svg', name: 'a', rect: [0, 0, 1, 1], svg: '<div></div>' }], [{ kind: 'dom', html: '  ' }],
     [{ ...ok[0], opacity: 0.5 }], [null],
   ];
-  for (const elements of bad) assert.throws(() => checkElements(size, elements), coded('usage.bad-argument'), JSON.stringify(elements));
-  // 搭舞台的调用自己也当场抛，不是交回一个失败的 Promise：调用处不带 await 的 try/catch 接得住。样式里的外部地址一样
-  for (const opts of [...bad.map((elements) => ({ elements })), { elements: ok, css: 'p{background:url(https://example.invalid/a.png)}' }]) {
-    assert.throws(() => createTwoDStage({ size }, opts), coded('usage.bad-argument'), JSON.stringify(opts));
+  // 数组空槽、访问器（过不了 JSON，单列）：按下标逐槽查，不靠会跳过空槽的遍历
+  const hole = [ok[0]];
+  hole.length = 2;
+  bad.push(Array(1), hole, Object.defineProperty([], 0, { get: () => ok[0], enumerable: true }));
+  for (const elements of bad) assert.throws(() => checkElements(size, elements), coded('usage.bad-argument'), show(elements));
+  // 搭舞台的调用自己也当场抛，不是交回一个失败的 Promise：调用处不带 await 的 try/catch 接得住。样式里的外部地址、写法不对的字体声明一样
+  const font = { family: 'Probe', url: '/fonts/a.woff2' };
+  const badFonts = [5, [null], Array(1), [{ ...font, family: 'A"B' }], [{ ...font, weight: '400;x' }], [{ family: 'Probe' }]].map((fonts) => ({ elements: ok, fonts }));
+  for (const opts of [...bad.map((elements) => ({ elements })), { elements: ok, css: 'p{background:url(https://example.invalid/a.png)}' }, ...badFonts]) {
+    assert.throws(() => createTwoDStage({ size }, opts), coded('usage.bad-argument'), show(opts));
+  }
+  // ctx、opts 不对也一样当场抛
+  for (const [ctx, opts] of [[undefined, { elements: ok }], [{}, { elements: ok }], [{ size: [640, NaN] }, { elements: ok }], [{ size }, null]]) {
+    assert.throws(() => createTwoDStage(ctx, opts), coded('usage.bad-argument'), show([ctx, opts]));
   }
 });
 
@@ -460,6 +473,59 @@ test('探针：排版里查出来的错带错误码，装载当场失败', async
   await withSource(t, async ({ open }) => {
     const film = probeFilm(Object.entries(cases).map(([id, [, elements, more]]) => probeShot(id, elements, more)));
     for (const [id, [code]] of Object.entries(cases)) await assert.rejects(open(film, id), (err) => { assert.equal(err.code, code, `${id}：${err.message}`); return true; }, id);
+  });
+});
+
+// 文字自己的盒不作数：同一段字幕写成 display: inline 和 display: contents（自己不生成盒）各一份，别的都一样；
+// 另有自己藏着而子节点显式看得见的、盒宽是 0 的、字伸出盒一百多像素的三段，和里面是两个隔开的子元素的一段（也分两种写法）。盖板第 0 帧盖住字幕，第 1 帧撤掉
+const CAPTION = { inline: '', contents: 'display:contents' };
+const line = (name, y, width, inner) => `<div data-entity="${name}" style="${spot(20, y, width)};${WORD}">${inner}</div>`;
+const boxless = (display) => [
+  { kind: 'dom', html: line('base', 20, 200, `<span data-text-id="caption" style="${display}">TEXT</span>`)
+    + line('back', 100, 200, '<span data-text-id="back.word" style="visibility:hidden"><b style="visibility:visible">TEXT</b></span>')
+    + line('thin', 180, 200, '<span data-text-id="thin.word" style="display:inline-block;width:0;white-space:nowrap">TEXT</span>')
+    + line('wide', 260, 400, '<span data-text-id="wide.word" style="display:inline-block;width:4px;white-space:nowrap">AIM AIM AIM</span>')
+    + line('mix', 310, 400, `<span data-text-id="mix.word" style="${display}"><b>AIM</b><b style="margin-left:150px">AIM</b></span>`) },
+  { kind: 'canvas2d', name: 'lid', rect: [10, 10, 230, 80], fill: ['#FFFFFF', '#FFFFFF'], opacity: [1, 0] },
+];
+
+test('探针：文字自己的盒不作数（display: contents 没有盒、盒宽是 0、字伸出盒、自己藏着而子节点显式看得见），进不进 texts、框在哪都照墨迹', async (t) => {
+  await withSource(t, async ({ open, read }) => {
+    const film = probeFilm(Object.entries(CAPTION).map(([k, display]) => probeShot(k, boxless(display))));
+    const uncovered = {};
+    for (const k of Object.keys(CAPTION)) {
+      const session = await open(film, k);
+      for (const f of [0, 1]) {
+        const r = await session.render(f, {}, ['color']);
+        assertMeta(r.meta, `${k} 第 ${f} 帧`);
+        const mask = inkMask(toSrgb8(typed(Float32Array, await read(r.layers.color))), PROBE_SIZE);
+        let ink = 0;
+        for (let y = 20; y < 70; y++) for (let x = 20; x < 220; x++) ink += mask.data[y * PROBE_SIZE[0] + x];
+        // 盖住时字幕没有墨迹、不进 texts；撤盖后墨迹回来、照进。别的三段两帧都在
+        assert.equal(ink > 0, f === 1, `${k} 第 ${f} 帧字幕那一块的墨迹 ${ink}`);
+        assert.deepEqual(r.meta.texts.map((x) => [x.id, x.text]).sort(), [['back.word', 'TEXT'], ...(f ? [['caption', 'TEXT']] : []), ['mix.word', 'AIMAIM'], ['thin.word', 'TEXT'], ['wide.word', 'AIM AIM AIM']], `${k} 第 ${f} 帧`);
+        // 框对颜色层上的墨迹：伸出盒的那段也一样，不能在盒边上截断
+        const l2 = verifySampledBboxes([{ frame: f, meta: r.meta, ocr: ocrFromInk(r.meta, mask), inkMask: mask }]);
+        assert.ok(l2.ok && l2.frames[0].texts.every((x) => x.edgeErr <= 1), `${k} 第 ${f} 帧：${JSON.stringify(l2.frames[0].texts)}`);
+        if (f) uncovered[k] = r.meta.texts;
+      }
+      await session.close();
+    }
+    // 两种写法交的一模一样；隔开的两个子元素都在框里（框比隔开的那 150 像素宽）
+    assert.deepEqual(uncovered.contents, uncovered.inline);
+    const mix = uncovered.contents.find((x) => x.id === 'mix.word').bbox2d;
+    assert.ok(mix[2] - mix[0] > 150 + 100, `mix.word 的框 ${mix}`);
+  });
+});
+
+test('探针：过不了 JSON 的坏声明（数组空槽、访问器、不对的 ctx）调用当场抛，装到一半才失败的（字体取不到、实体重名）经 Promise 报；哪一种事后页面都不多一个节点、一款字体', async (t) => {
+  await withSource(t, async ({ open }) => {
+    const session = await open(probeFilm([probeShot('trials', [PROBE[1]], { trials: true })]), 'trials');
+    const { readings } = (await session.render(0, {}, ['color'])).meta;
+    // 每种：[调用当场抛了该抛的错误码, 交回的 Promise 带着该报的错误码失败, 事后页面多出来的节点数, 多登记的字体数]
+    const want = { slot: [1, 0, 0, 0], hole: [1, 0, 0, 0], getter: [1, 0, 0, 0], noCtx: [1, 0, 0, 0], noOpts: [1, 0, 0, 0], font: [0, 1, 0, 0], dup: [0, 1, 0, 0] };
+    assert.deepEqual(Object.fromEntries(Object.keys(want).map((k) => [k, ['sync', 'late', 'nodes', 'fonts'].map((x) => readings?.[`${k}.${x}`])])), want);
+    await session.close();
   });
 });
 

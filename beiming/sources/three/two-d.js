@@ -13,7 +13,7 @@ export const KINDS = Object.freeze(['canvas2d', 'svg', 'dom']);
 const NAME = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$/, TEXT_ID = /^[\w.:-]+$/, FONT_WORD = /^[\w -]+$/;
 // 文字墨迹：透明度不低于这个数（0 到 255）的像素才算，抗锯齿边上的淡影不算
 const INK_ALPHA = 32;
-// 量文字墨迹时在排版盒外面多看这么多像素：字形可以伸出行盒
+// 量文字墨迹时在排版范围（见 textRectOf）外面多看这么多像素：字形可以伸出行盒
 const INK_PAD = 32;
 // 自己从不画出来、只给别处引用的 SVG 节点：隔离一个节点时不藏它们和它们里面的（裁剪路径、蒙版里藏起来的图形不算数，引用它的就被裁空了）
 const UNPAINTED = ['defs', 'symbol', 'clippath', 'mask', 'pattern', 'marker', 'lineargradient', 'radialgradient', 'filter'];
@@ -115,12 +115,16 @@ function checkName(name, taken, code) {
  *   { kind: 'svg', name, rect, svg: '<svg …>…</svg>', opacity? }  整张图是一个实体，拉满 rect
  *   { kind: 'dom', html, opacity? }                              一层排版，里面每个带 data-entity 的节点是一个实体，矩形从排版结果量
  * opacity(f, sub) 交 [0, 1] 里的数，不写就是 1。声明不对报 usage.bad-argument；svg、html 还要过 checkMarkup（查过的惰性文档抄在 doc 里，node 里是 null）。
+ * 按下标逐槽查，不用会跳过空槽的遍历：数组空槽和访问器（读一次一个样）都不收，交回的数组没有空槽。
  */
 export function checkElements(size, elements) {
   const bad = (message) => coded('usage.bad-argument', message);
   if (!Array.isArray(elements) || !elements.length) throw bad('elements 必须是不空的数组');
   const taken = new Set();
-  return elements.map((e, i) => {
+  return Array.from({ length: elements.length }, (_, i) => {
+    const slot = Object.getOwnPropertyDescriptor(elements, i);
+    if (!slot || !Object.hasOwn(slot, 'value')) throw bad(`第 ${i} 个元素是数组的空槽或访问器，要直接写成对象`);
+    const e = slot.value;
     if (!e || !KINDS.includes(e.kind)) throw bad(`第 ${i} 个元素的种类 ${show(e?.kind)} 不认识，只有 ${KINDS.join('、')}`);
     if (e.opacity !== undefined && typeof e.opacity !== 'function') throw bad(`第 ${i} 个元素的 opacity 必须是函数 (f, sub) => [0, 1] 里的数`);
     if (e.kind === 'dom') {
@@ -141,12 +145,21 @@ function base64(bytes) {
   return btoa(s);
 }
 
-/** 照声明取字体：登记给页面（排版、Canvas 2D 用），再内联成 @font-face 的样式（光栅化用的 SVG 文档用）。只从本机静态服务取 */
-async function loadFonts(fonts) {
-  const faces = [];
+/** 核对字体声明 [{ family, url, weight?, style? }]，交回抄好的一份；写法不对报 usage.bad-argument。地址指到哪儿要到页面里才查得了（见 loadFonts） */
+function checkFonts(fonts) {
+  if (!Array.isArray(fonts)) throw coded('usage.bad-argument', `fonts 必须是数组，给的是 ${show(fonts)}`);
+  // Array.from 不跳过空槽：空槽当 undefined 查，过不了
+  return Array.from(fonts, (font) => {
+    const { family, url, weight = 'normal', style = 'normal' } = font ?? {};
+    if (![family, weight, style].every((v) => typeof v === 'string' && FONT_WORD.test(v)) || typeof url !== 'string') throw coded('usage.bad-argument', `字体声明 ${show(font)} 写法不对：family、weight、style 只含字母、数字、下划线、空格、连字符，url 是字符串`);
+    return { family, url, weight, style };
+  });
+}
+
+/** 照 checkFonts 核对过的声明取字体：登记给页面（排版、Canvas 2D 用，登记一款往 faces 里记一款），再内联成 @font-face 的样式交回（光栅化用的 SVG 文档用）。只从本机静态服务取 */
+async function loadFonts(fonts, faces) {
   let css = '';
-  for (const { family, url, weight = 'normal', style = 'normal' } of fonts) {
-    if (![family, weight, style].every((v) => typeof v === 'string' && FONT_WORD.test(v)) || typeof url !== 'string') throw coded('usage.bad-argument', `字体声明 ${show({ family, url, weight, style })} 写法不对`);
+  for (const { family, url, weight, style } of fonts) {
     const at = new URL(url, location.href);
     if (at.origin !== location.origin) throw coded('usage.bad-argument', `字体 ${family} 只能从本机静态服务取，不能是 ${at.origin}`);
     const res = await fetch(at);
@@ -157,7 +170,7 @@ async function loadFonts(fonts) {
     faces.push(face);
     css += `@font-face{font-family:"${family}";src:url(data:font/woff2;base64,${base64(bytes)});font-weight:${weight};font-style:${style}}`;
   }
-  return { faces, css };
+  return css;
 }
 
 /** 二维上下文里一块像素（默认整张画布）的透明度通道，逐像素一个 0 到 255 的数 */
@@ -184,27 +197,38 @@ function inkOf(width, height, isInk) {
 
 /**
  * 搭一个二维讲解舞台，交回 Promise，兑现出来是镜头对象 { scene, camera, entities, state, meta, dispose }，build 可以直接把它交给宿主。
- * 声明不对（usage.bad-argument：elements、标记、css）在调用时同步抛出，不进 Promise；字体和排版里查出来的错让 Promise 失败。
+ * 声明不对（usage.bad-argument：ctx、opts、elements、标记、css、fonts 的写法）在调用时同步抛出，不进 Promise；字体取不到、不在本机静态服务上，和排版里查出来的错让 Promise 失败，
+ * 失败之前已经挂进页面的节点、登记的字体、建好的贴图都撤掉：哪一种失败，页面都和调用之前一样。
  * opts：elements（见 checkElements）；background 纸色（默认 STAGE.paper）；css 排版用的样式；
  * fonts [{ family, url, weight?, style? }] 要锁定的字体（woff2，本机静态服务上的地址）。
  * 排版里查出来的错（实体名重复、矩形伸出画面、文字不在任何实体里、文字 id 重复）报 contract.bad-value。
- * 画面上看不见的东西不交：画出来一个像素都没有的、排版出来没有面积的（display: none、display: contents）实体是空实体（不画、停到画面外、不占编号层）；藏起来的、没有墨迹的、
- * 墨迹被登记在后的不透明实体整个盖住的文字不进 texts。
+ * 画面上看不见的东西不交：画出来一个像素都没有的、排版出来没有面积的（display: none、display: contents）实体是空实体（不画、停到画面外、不占编号层）；没有墨迹的（藏起来的、透明的）、
+ * 墨迹被登记在后的不透明实体整个盖住的文字不进 texts。文字进不进只看墨迹，不看它自己有没有盒、盒有多大（见 textRectOf）。
  */
 export function createTwoDStage(ctx, opts = {}) {
   // 声明不对当场抛，不放进交回的 Promise 里：调用处不带 await 的 try/catch 也接得住，页面一个节点都还没动
-  const items = checkElements(ctx.size, opts.elements);
+  const size = ctx?.size;
+  if (!Array.isArray(size) || size.length !== 2 || !size.every((v) => Number.isFinite(v) && v > 0)) throw coded('usage.bad-argument', `ctx 必须是 build(ctx) 收到的那个，ctx.size 是 [宽, 高] 两个正数，给的是 ${show(size)}`);
+  if (!opts || typeof opts !== 'object') throw coded('usage.bad-argument', `opts 必须是对象，给的是 ${show(opts)}`);
+  const items = checkElements(size, opts.elements);
   checkCss('css', String(opts.css ?? ''));
-  return mount(ctx, opts, items);
+  const fonts = checkFonts(opts.fonts ?? []), held = { root: null, faces: [], disposable: [] };
+  return mount(ctx, opts, items, fonts, held).catch((err) => { release(held); throw err; });
 }
 
-/** createTwoDStage 的异步部分：取字体、排版、光栅化。items 是 checkElements 核对过的元素 */
-async function mount(ctx, opts, items) {
+/** 撤掉一个舞台占着的东西：页面里的排版容器、登记给页面的字体、网格和贴图。dispose 和装到一半失败都走这里 */
+function release({ root, faces, disposable }) {
+  root?.remove();
+  for (const face of faces) document.fonts.delete(face);
+  for (const x of disposable) x.dispose();
+}
+
+/** createTwoDStage 的异步部分：取字体、排版、光栅化。items、fonts 是核对过的元素和字体声明；占着的东西随手记进 held（见 release） */
+async function mount(ctx, opts, items, fonts, held) {
   const { THREE, size } = ctx, [W, H] = size;
   const bad = (message) => coded('contract.bad-value', message);
-  const fonts = await loadFonts(opts.fonts ?? []);
   // 样式进 XML 文档之前把 & 和 < 转掉
-  const css = fonts.css + String(opts.css ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+  const css = await loadFonts(fonts, held.faces) + String(opts.css ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;');
 
   const root = document.createElement('div');
   root.style.cssText = `position:fixed;left:0;top:0;width:${W}px;height:${H}px;overflow:hidden;opacity:0;pointer-events:none`;
@@ -212,8 +236,9 @@ async function mount(ctx, opts, items) {
   sheet.textContent = opts.css ?? '';
   root.append(sheet);
   document.body.append(root);
+  held.root = root;
 
-  const scene = new THREE.Scene(), entities = {}, disposable = [], groups = [], taken = new Set(), textIds = new Set();
+  const scene = new THREE.Scene(), entities = {}, { disposable } = held, groups = [], taken = new Set(), textIds = new Set();
   scene.background = new THREE.Color(opts.background ?? STAGE.paper);
   const camera = new THREE.PerspectiveCamera(STAGE.fovYDeg, W / H, STAGE.nearM, STAGE.farM);
   scene.add(camera);
@@ -255,6 +280,16 @@ async function mount(ctx, opts, items) {
   // ---- SVG 和 DOM：排版、量矩形、逐实体光栅化 ----
   const origin = root.getBoundingClientRect(), serializer = new XMLSerializer();
   const rectOf = (el) => { const r = el.getBoundingClientRect(); return [r.left - origin.left, r.top - origin.top, r.right - origin.left, r.bottom - origin.top]; };
+  const range = document.createRange();
+  /**
+   * 一段文字排在哪：它自己的盒并上它里面内容的盒，没有面积的不算；两样都没有（自己或祖先 display: none）交 null。
+   * 自己的盒不作数：display: contents 的节点没有盒、盒宽是 0 的，字照样画得出来；字还可以伸出盒去（不换行的窄盒）。这里只定去哪一块找墨迹，进不进 texts 看找不找得到。
+   */
+  function textRectOf(el) {
+    range.selectNodeContents(el);
+    const boxes = [rectOf(el), rectOf(range)].filter((b) => b[2] > b[0] && b[3] > b[1]);
+    return boxes.length ? [0, 1, 2, 3].map((k) => Math[k < 2 ? 'min' : 'max'](...boxes.map((b) => b[k]))) : null;
+  }
   // 抄一份出来改样式的地方：惰性文档，不取资源、不执行脚本
   const inert = document.implementation.createHTMLDocument('');
   const force = (node, prop, value) => node.style.setProperty(prop, value, 'important');
@@ -283,9 +318,10 @@ async function mount(ctx, opts, items) {
       // 只给别处引用的：里面不动，自己写回页面里算出来的 visibility，不跟着藏起来的祖先走。<symbol> 不写：它身上的样式会跟着 <use> 进到用它的地方
       if (UNPAINTED.includes(tag)) { skip = n; if (tag !== 'symbol') force(twin, 'visibility', look); return; }
       if (n === el) { if (look === 'visible') force(twin, 'visibility', 'visible'); return; }
-      // el 里面归 el 自己的节点原样画：离它最近的实体就是 el，或者在 el 外面（el 是一段文字）
+      // el 里面归 el 自己的节点原样画：离它最近的实体就是 el，或者在 el 外面（el 是一段文字）。
+      // 原样是指写回页面里算出来的 visibility，不靠继承：el 是 display: contents 时它首行上的子元素按排版上的父节点（被藏的祖先）的首行样式继承，不写回就跟着藏了
       const owner = n.closest('[data-entity]');
-      if (el.contains(n) && (owner === el || !el.contains(owner))) return;
+      if (el.contains(n) && (owner === el || !el.contains(owner))) { force(twin, 'visibility', look); return; }
       twin.setAttribute('data-bm2d-off', '');
       if (look !== 'collapse') force(twin, 'visibility', 'hidden');
       if (!n.contains(el)) force(twin, 'opacity', '0');
@@ -345,15 +381,16 @@ async function mount(ctx, opts, items) {
       group.meshes.push(inked(addEntity(name, rect, await raster(layer, el, cover, `实体 ${name}`), cover)));
     }
     for (const el of layer.querySelectorAll('[data-text-id]')) {
+      // shortcut: text 取节点的全部文字，其中有几个字被样式藏着也照交整段；要只交看得见的字，得逐个文字节点判可见性
       const id = el.dataset.textId, text = el.textContent.replace(/\s+/g, ' ').trim();
       if (!TEXT_ID.test(id) || textIds.has(id)) throw bad(`文字 id ${show(id)} 重复，或者写法不对（只能是字母、数字、下划线、点、冒号、连字符）`);
       textIds.add(id);
       const owner = el.closest('[data-entity]');
       if (!owner) throw bad(`文字 ${id} 不在任何带 data-entity 的节点里，画不出来`);
       // 这段字画在离它最近的那个实体的贴图上：只看落在那张画布里的墨迹，伸出去的画不出来
-      const mesh = entities[owner.dataset.entity], within = mesh.userData.cover, box = rectOf(el);
-      // 空的、display:none 的（排版盒是空的）、被样式藏起来的、所属实体什么都没画出来的不进文字框
-      if (!text || mesh.userData.empty || !(box[2] > box[0] && box[3] > box[1]) || getComputedStyle(el).visibility !== 'visible') continue;
+      const mesh = entities[owner.dataset.entity], within = mesh.userData.cover, box = textRectOf(el);
+      // 空的、display: none 的（哪儿都没排）、所属实体什么都没画出来的不进文字框。被样式藏起来的不在这里判：它里面显式写回看得见的子节点照画，有没有墨迹画出来再数
+      if (!text || mesh.userData.empty || !box) continue;
       const cover = [Math.max(within[0], Math.floor(box[0]) - INK_PAD), Math.max(within[1], Math.floor(box[1]) - INK_PAD), Math.min(within[2], Math.ceil(box[2]) + INK_PAD), Math.min(within[3], Math.ceil(box[3]) + INK_PAD)];
       if (!(cover[2] > cover[0] && cover[3] > cover[1])) continue;
       // 文字框取墨迹的外接矩形，不取排版盒：只画这段文字、光栅化、数不透明的像素；一个都没有（透明的字）不进文字框
@@ -442,10 +479,6 @@ async function mount(ctx, opts, items) {
       if (twice) throw bad(`文字 id ${twice.id} 在这一帧交了两次`);
       return { texts };
     },
-    dispose() {
-      root.remove();
-      for (const face of fonts.faces) document.fonts.delete(face);
-      for (const x of disposable) x.dispose();
-    },
+    dispose: () => release(held),
   };
 }
