@@ -9,9 +9,11 @@
 //   各音色听感重心离起音点多远是本模块暂定的数（待探针：听感重心相对起音的提前量），写在 VOICES 里。
 //   ebur128 复量四倍过采样限幅后的 48 kHz 母带。短瞬态受限时逐步调整输入增益和峰值余量。
 //   最终集成响度落在目标 ±1 LU，真峰值 ≤ truePeak。全零静音保留原始样本。
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadContracts } from '../kernel/contracts/validate.mjs';
+import { audioMuxArgs, PRESETS } from './encode.mjs';
+import { FOLEY_VOICES, noise, SAMPLE_RATE } from './foley.mjs';
 import { CompError, bad, parseFps, runTool, tools } from './stitch.mjs';
 
 const contracts = await loadContracts();
@@ -34,23 +36,11 @@ export function readEvents(input, film) {
   return events;
 }
 
-export const SAMPLE_RATE = 48000;
+export { noise, SAMPLE_RATE };
 export const CHANNELS = 2;
 export const LIMITER_MARGIN_DB = 1.6;
 /** 限制器在 4 倍采样率上做：alimiter 只看样本峰值，升采样后的样本峰值逼近真峰值 */
 export const OVERSAMPLE = 4;
-
-/** 带种子的 32 位随机流（mulberry32），出 [-1, 1) 的数 */
-export function noise(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return (((t ^ (t >>> 14)) >>> 0) / 4294967296) * 2 - 1;
-  };
-}
 
 const db = (x) => 10 ** (x / 20);
 
@@ -133,6 +123,7 @@ export const VOICES = Object.freeze({
     }),
     onset: 0, pcenter: 2 * SAMPLE_RATE,
   },
+  ...FOLEY_VOICES,
 });
 
 /** 垫底：silence 是全零；room 是 −60 dBFS 左右的低通噪声，整片铺满 */
@@ -178,30 +169,36 @@ function addInto(mix, src, at, gain = 1) {
  * 按事件表混音。只读 events/0.1 里带 audio 的条目。
  * input 接受文件路径或展开表对象。mode=track 只放给定 tracks。
  * 混音选项 sync='peak' 以实际峰值对齐；事件文件仍使用冻结的 onset/pcenter 枚举。
+ * 片种子 seed 决定各拟音材质的轮换次序与噪声。
  * 返回 { left, right, placements: [{ id, audio, sync, frame, sample, start }], length }
  */
-export function mixEvents(input, { bed: bedKind = 'silence', tracks = [], mode = 'script', sync: alignment } = {}) {
+export function mixEvents(input, { bed: bedKind = 'silence', tracks = [], mode = 'script', sync: alignment, seed = 0 } = {}) {
   const events = readEvents(input);
   if (!['script', 'track'].includes(mode)) throw bad(`未知混音模式 ${mode}`);
   if (alignment !== undefined && alignment !== 'peak') throw bad('显式峰值对齐只收 peak');
   const length = filmSamples(events.frames, events.fps);
   const mix = bed(mode === 'track' ? 'silence' : bedKind, length);
   const placements = [];
-  const cache = new Map();
+  const fixedTakes = new Map();
+  const calls = new Map();
   for (const e of mode === 'track' ? [] : events.events) {
     if (!e.audio) continue;
     if (!Object.hasOwn(VOICES, e.audio)) throw bad(`事件 ${e.id} 要的音色 ${e.audio} 不在音色库里：只有 ${Object.keys(VOICES).join('、')}`);
     const voice = VOICES[e.audio];
-    if (!cache.has(e.audio)) {
-      const samples = voice.make();
+    let take = fixedTakes.get(e.audio);
+    if (!take) {
+      const callIdx = calls.get(e.audio) ?? 0;
+      const samples = voice.make(seed, callIdx);
       let peak = 0;
       if (alignment === 'peak') {
         const level = (i) => Math.max(Math.abs(samples.left[i]), Math.abs(samples.right[i]));
         for (let i = 1; i < samples.left.length; i++) if (level(i) > level(peak)) peak = i;
       }
-      cache.set(e.audio, { samples, peak });
+      take = { samples, peak };
+      if (voice.variants) calls.set(e.audio, callIdx + 1);
+      else fixedTakes.set(e.audio, take);
     }
-    const { samples, peak } = cache.get(e.audio);
+    const { samples, peak } = take;
     const sync = alignment ?? e.sync;
     const sample = eventSample(e.frame, e.sub, events.fps);
     const start = sample - (sync === 'peak' ? peak : voice[sync]);
@@ -292,6 +289,19 @@ export function measureLoudness(file, { timeoutMs } = {}) {
   return { integrated: val(i[1]), truePeak: val(p[1]) };
 }
 
+// AAC 边界要读到 0.01 dB，保留原有 ebur128 一位小数的 WAV 与报告读数。
+export function measureAac(file, { timeoutMs } = {}) {
+  const { stderr } = runTool(tools().ffmpeg, ['-hide_banner', '-nostdin', '-nostats', '-i', file,
+    '-map', '0:a:0', '-af', 'loudnorm=print_format=json', '-f', 'null', '-'], { timeoutMs, what: `复量 AAC ${file}` });
+  const summary = stderr.slice(stderr.lastIndexOf('{'), stderr.lastIndexOf('}') + 1);
+  const value = (key) => {
+    const match = new RegExp(`"${key}"\\s*:\\s*"(-?\\d+(?:\\.\\d+)?|-inf)"`).exec(summary);
+    if (!match) throw new CompError('failure.ffmpeg', `loudnorm 缺 ${key} 读数：${file}`);
+    return match[1] === '-inf' ? -Infinity : Number(match[1]);
+  };
+  return { integrated: value('input_i'), truePeak: value('input_tp') };
+}
+
 function scaled({ left, right }, gain) {
   const l = new Float32Array(left.length), r = new Float32Array(right.length);
   for (let i = 0; i < left.length; i++) {
@@ -321,15 +331,19 @@ export function masterAudio(mix, workDir, { loudness = -14, truePeak = -1, timeo
   let limit = db(ceilingDb);
   if (limit < 0.0625 || limit > 1) throw bad(`限制器天花板 ${ceilingDb.toFixed(2)} dBTP 超出 alimiter 的范围`);
   let gainDb = loudness - first.integrated;
-  let last = first;
-  for (let pass = 1; pass <= 10; pass++) {
+  let last = first, candidatePath = out;
+  const result = () => ({ path: out, passes: passes.slice(), ...last, silent: false, ceilingDb });
+  function limitOnce(step, prefilter = '', timing = 'attack=5:release=50') {
     const pre = join(workDir, 'gain.wav');
     writeFileSync(pre, writeWav(scaled(mix, db(gainDb))));
     runTool(tools().ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-i', pre,
-      '-af', `aresample=${SAMPLE_RATE * OVERSAMPLE},alimiter=limit=${limit.toFixed(6)}:attack=5:release=50:level=false:latency=true,aresample=${SAMPLE_RATE}`,
-      '-c:a', 'pcm_f32le', '-ar', String(SAMPLE_RATE), '-ac', String(CHANNELS), '-bitexact', '-map_metadata', '-1', out], { timeoutMs, what: '限制器' });
-    last = measureLoudness(out, { timeoutMs });
-    passes.push({ step: `limit-${pass}`, gainDb, ...last });
+      '-af', `${prefilter}aresample=${SAMPLE_RATE * OVERSAMPLE},alimiter=limit=${limit.toFixed(6)}:${timing}:level=false:latency=true,aresample=${SAMPLE_RATE}`,
+      '-c:a', 'pcm_f32le', '-ar', String(SAMPLE_RATE), '-ac', String(CHANNELS), '-bitexact', '-map_metadata', '-1', candidatePath], { timeoutMs, what: '限制器' });
+    last = measureLoudness(candidatePath, { timeoutMs });
+    passes.push({ step, gainDb, ...last });
+  }
+  for (let pass = 1; pass <= 10; pass++) {
+    limitOnce(`limit-${pass}`);
     const error = loudness - last.integrated;
     // ebur128 精确到 0.1 LU，给 AAC 复量在 ±1 LU 验收窗内留出 0.2 LU。
     if (last.integrated >= loudness - 0.8 && last.integrated <= loudness + 0.8 && last.truePeak <= truePeak) break;
@@ -340,24 +354,48 @@ export function masterAudio(mix, workDir, { loudness = -14, truePeak = -1, timeo
     }
     gainDb += error;
   }
-  for (let trim = 1; trim <= 4 && Math.abs(last.integrated - loudness) <= 1 && last.truePeak <= truePeak; trim++) {
-    const aacPeak = Math.max(
-      ...['320k', '192k'].map((bitrate) => {
-        const aac = join(workDir, `aac-${bitrate}.m4a`);
-        runTool(tools().ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-i', out,
-          '-c:a', 'aac', '-b:a', bitrate, '-ar', String(SAMPLE_RATE), '-ac', String(CHANNELS), aac], { timeoutMs, what: 'AAC 真峰值预检' });
-        return measureLoudness(aac, { timeoutMs }).truePeak;
-      }),
-    );
-    if (aacPeak <= truePeak) break;
-    const stepDb = Math.max(-0.5, Math.min(-0.1, truePeak - aacPeak - 0.1));
-    writeFileSync(out, writeWav(scaled(readWav(readFileSync(out)), db(stepDb))));
-    last = measureLoudness(out, { timeoutMs });
-    passes.push({ step: `aac-trim-${trim}`, gainDb: stepDb, ...last });
-  }
   if (Math.abs(last.integrated - loudness) > 1 || last.truePeak > truePeak) {
     throw new CompError('contract.delivery-mismatch',
       `母带不达标：集成响度 ${last.integrated} LUFS（目标 ${loudness} ± 1），真峰值 ${last.truePeak} dBTP（上限 ${truePeak}）`);
   }
-  return { path: out, passes, integrated: last.integrated, truePeak: last.truePeak, silent: false, ceilingDb };
+  const firstCeiling = ceilingDb;
+  let timing, fallback;
+  for (let attempt = 0; ; attempt++) {
+    const levels = [PRESETS['h264-crf14-bt709'], PRESETS.web].map((preset) => {
+      const file = join(workDir, `aac-${preset.audioBitrate}.mp4`);
+      runTool(tools().ffmpeg, ['-hide_banner', '-nostdin', '-v', 'error', '-y', '-i', candidatePath,
+        ...audioMuxArgs(preset), file], { timeoutMs, what: 'AAC 预检' });
+      return measureAac(file, { timeoutMs });
+    });
+    const peak = Math.max(...levels.map((m) => m.truePeak));
+    const deviation = Math.max(...levels.map((m) => Math.abs(m.integrated - loudness)));
+    const wavOk = Math.abs(last.integrated - loudness) <= 1 && last.truePeak <= truePeak;
+    if (wavOk && peak <= truePeak - (attempt ? 0.05 : 0) && deviation <= (attempt ? 0.95 : 0.9)) {
+      if (fallback) renameSync(candidatePath, out);
+      return result();
+    }
+    if (fallback) { rmSync(candidatePath); return fallback; }
+    if (wavOk && peak <= truePeak && deviation <= 1) {
+      // 两档都已达标：额外余量只在副本上试，不因优化失败丢弃可交付的母带和记录。
+      fallback = result();
+      if (attempt === 6) return fallback;
+      candidatePath = join(workDir, 'aac-retry.wav');
+    }
+    if (attempt === 6) throw new CompError('contract.delivery-mismatch',
+      `母带预检不达标：320k / 192k AAC 实测 ${levels.map((m) => `${m.integrated} LUFS，${m.truePeak} dBTP`).join(' / ')}（目标 ${loudness} LUFS，上限 ${truePeak} dBTP）`);
+    if (!attempt || peak > truePeak - 0.05) {
+      ceilingDb = Math.min(ceilingDb, Math.max(-18, ceilingDb - Math.max(0.35, peak - truePeak + 0.25)));
+      limit = db(ceilingDb);
+    } else if (last.integrated < loudness - 0.4) {
+      // 真峰值已合格却仍太轻：慢包络会压住整个末帧短音，只缩短起控与释放。
+      timing = 'attack=0.5:release=2';
+    }
+    const prefilter = firstCeiling - ceilingDb >= 2.5 ? 'lowpass=f=13500:poles=2,' : '';
+    // 每次从原混音重限幅，只调整限幅前增益，避免压低整段母带的响度。
+    for (let pass = 1; pass <= 6; pass++) {
+      gainDb += loudness - last.integrated;
+      limitOnce(`aac-limit-${attempt + 1}.${pass}`, prefilter, timing);
+      if (Math.abs(last.integrated - loudness) <= 0.4 && last.truePeak <= truePeak) break;
+    }
+  }
 }

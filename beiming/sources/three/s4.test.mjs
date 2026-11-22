@@ -17,7 +17,7 @@ import { resolveServed, startSource } from '../../host/page/host.mjs';
 import { shotInput } from '../../kernel/eval/input.mjs';
 import { caps } from './caps.mjs';
 import { parseShutterArgs, planRender, shutterAngle, SourceError } from './plan.mjs';
-import { averageDisplaySrgbFrames } from './source.js';
+import { averageDisplaySrgbFrames, float16ToFloat32 } from './source.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(HERE, '../../kernel/conformance/fixtures');
@@ -73,8 +73,8 @@ test('显示参考的子帧：8 位 sRGB 先线性化再平均，不是直接平
 const PAGE = `<!doctype html><meta charset="utf-8">
 <script type="importmap">{ "imports": { "three": "/node_modules/three-webgpu/build/three.module.js" } }</script>`;
 
-/** 在页面里跑：装校准场景（规格 spec），挂后期链 chain，依次渲 jobs，交回各层的 base64 */
-async function pageRun({ spec, chain, jobs }) {
+/** 在页面里跑：装校准场景（规格 spec），挂后期链 chain，依次渲 jobs，交回各层的 base64；colorRef 写 scene 时另交送去落 EXR 的半浮点成片 rgba16f */
+async function pageRun({ spec, chain, jobs, colorRef }) {
   const THREE = await import('three');
   const { createThreeSource } = await import('/beiming/sources/three/source.js');
   const { calibShot } = await import('/beiming/kernel/conformance/fixtures/calib-scene.js');
@@ -110,13 +110,13 @@ async function pageRun({ spec, chain, jobs }) {
     apply: (loaded, f, sub) => { loaded.object.state(f, sub); for (const p of loaded.post) if (p.material.uniforms.uTime) p.material.uniforms.uTime.value = f + sub; },
     async measure() { return {}; },
   };
-  const shot = { id: 's4', in: 0, out: 49, source: 'three', host: 'page', mode: 'native-code', shutter: { angleDeg: 180, samples: 8 }, tiers: { final: { samples: 1, scale: 1 } } };
+  const shot = { id: 's4', in: 0, out: 49, source: 'three', host: 'page', mode: 'native-code', shutter: { angleDeg: 180, samples: 8 }, tiers: { final: { samples: 1, scale: 1 } }, ...(colorRef && { colorRef }) };
   const session = await createThreeSource({ THREE, host }).open(shot, 'final', { seed: 1 });
   const b64 = (a) => { const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength); let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };
   const out = [];
   for (const j of jobs) {
-    const { layers } = await session.render(j.f, j.opts, j.want ?? ['color']);
-    out.push(Object.fromEntries(Object.entries(layers).map(([k, l]) => [k, b64(l.data)])));
+    const { layers, extra } = await session.render(j.f, j.opts, j.want ?? ['color']);
+    out.push({ ...Object.fromEntries(Object.entries(layers).map(([k, l]) => [k, b64(l.data)])), ...(extra && { rgba16f: b64(extra.rgba16f) }) });
   }
   const dataDuring = disposed.data;
   // setSize 换尺寸时渲染库自己也调 dispose，只数关会话那一下
@@ -145,7 +145,7 @@ async function withPage(t, fn) {
     const run = async (arg) => {
       const { out, ...counts } = await page.evaluate(pageRun, arg).catch((e) => { throw new Error(`${e.message} ${errors.join('；')}`); });
       run.counts = counts;
-      return out.map((layers) => Object.fromEntries(Object.entries(layers).map(([k, s]) => { const b = Buffer.from(s, 'base64'); return [k, new Float32Array(b.buffer, b.byteOffset, b.length / 4)]; })));
+      return out.map((layers) => Object.fromEntries(Object.entries(layers).map(([k, s]) => { const b = Buffer.from(s, 'base64'); return [k, k === 'rgba16f' ? new Uint16Array(b.buffer, b.byteOffset, b.length / 2) : new Float32Array(b.buffer, b.byteOffset, b.length / 4)]; })));
     };
     await fn(run);
   } finally {
@@ -195,6 +195,27 @@ test('实渲：运动高光（亮度 50）过非线性后期链，先线性平�
       if (hit) { hits++; assert.equal(d, withDepth.depth[i]); } else assert.equal(withDepth.depth[i], 1e10);
     }
     assert.ok(hits > 100);
+  });
+});
+
+test('S18 实渲：场景参考镜头的运动高光过非线性后期链，送去落 EXR 的半浮点成片 = P(各子帧在 RGBA16F 目标里的数的线性平均)，不是头一个子帧、也不是逐子帧后期再平均', async (t) => {
+  await withPage(t, async (run) => {
+    const jobs = [{ f: 24, opts: {} }, ...Array.from({ length: 8 }, (_, k) => ({ f: 24, opts: SUB_K(k) }))];
+    const [plain, ...subs] = await run({ spec: SPEC, chain: [], colorRef: 'scene', jobs });
+    const [posted] = await run({ spec: SPEC, chain: ['overflow'], colorRef: 'scene', jobs: [{ f: 24, opts: {} }] });
+    let fromFirst = 0, fromPerSub = 0;
+    for (let i = 0; i < plain.color.length; i++) {
+      // 单个子帧送出的半浮点就是 RGBA16F 目标里的数；8 个半浮点数在双精度里求和、除以 8 都不丢位
+      const half = subs.map((x) => float16ToFloat32(x.rgba16f[i])), mean = Math.fround(half.reduce((a, b) => a + b, 0) / 8);
+      if (plain.color[i] !== mean) assert.fail(`分量 ${i}：没有后期链的颜色层 ${plain.color[i]}，各子帧平均 ${mean}`);
+      const want = P(mean), got = float16ToFloat32(posted.rgba16f[i]);
+      if (Math.abs(posted.color[i] - want) > 1e-6 * Math.max(1, want)) assert.fail(`分量 ${i}：过了后期链的颜色层 ${posted.color[i]}，解析期望 ${want}`);
+      // 成片落到 RGBA16F 目标：和颜色层差不到半浮点的一级
+      if (Math.abs(got - posted.color[i]) > Math.abs(posted.color[i]) * 2 ** -10) assert.fail(`分量 ${i}：半浮点成片 ${got}，颜色层 ${posted.color[i]}`);
+      fromFirst = Math.max(fromFirst, Math.abs(got - P(half[0])));
+      fromPerSub = Math.max(fromPerSub, Math.abs(got - half.reduce((a, b) => a + P(b), 0) / 8));
+    }
+    assert.ok(fromFirst > 10 && fromPerSub > 0.1, `和头一个子帧最大差 ${fromFirst}，和逐子帧后期再平均最大差 ${fromPerSub}`);
   });
 });
 
