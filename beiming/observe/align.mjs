@@ -297,7 +297,7 @@ function lookAtR(pos, target, upHint = [0, 1, 0]) {
   return [x[0], y[0], z[0], x[1], y[1], z[1], x[2], y[2], z[2]];
 }
 
-function rodrigues(rx, ry, rz) {
+export function rodrigues(rx, ry, rz) {
   const theta = Math.hypot(rx, ry, rz);
   if (theta < 1e-12) return [1, -rz, ry, rz, 1, -rx, -ry, rx, 1];
   const kx = rx / theta;
@@ -323,18 +323,29 @@ function mul3(A, B) {
   return C;
 }
 
-function matToAxisAngle(R) {
-  const trace = clamp((R[0] + R[4] + R[8] - 1) * 0.5, -1, 1);
-  const theta = Math.acos(trace);
-  if (theta < 1e-8) return [0, 0, 0];
-  const s = 2 * Math.sin(theta);
-  if (Math.abs(s) > 1e-6) {
-    return [((R[7] - R[5]) / s) * theta, ((R[2] - R[6]) / s) * theta, ((R[3] - R[1]) / s) * theta];
+// Shepperd 四元数法：与 rodrigues 互逆，θ≈π（含轴分量为 0）也无符号歧义
+export function matToAxisAngle(R) {
+  const tr = R[0] + R[4] + R[8];
+  let w, x, y, z;
+  if (tr > 0) {
+    const S = 2 * Math.sqrt(1 + tr);
+    w = 0.25 * S; x = (R[7] - R[5]) / S; y = (R[2] - R[6]) / S; z = (R[3] - R[1]) / S;
+  } else if (R[0] >= R[4] && R[0] >= R[8]) {
+    const S = 2 * Math.sqrt(Math.max(1e-32, 1 + R[0] - R[4] - R[8]));
+    w = (R[7] - R[5]) / S; x = 0.25 * S; y = (R[1] + R[3]) / S; z = (R[2] + R[6]) / S;
+  } else if (R[4] >= R[8]) {
+    const S = 2 * Math.sqrt(Math.max(1e-32, 1 + R[4] - R[0] - R[8]));
+    w = (R[2] - R[6]) / S; x = (R[1] + R[3]) / S; y = 0.25 * S; z = (R[5] + R[7]) / S;
+  } else {
+    const S = 2 * Math.sqrt(Math.max(1e-32, 1 + R[8] - R[0] - R[4]));
+    w = (R[3] - R[1]) / S; x = (R[2] + R[6]) / S; y = (R[5] + R[7]) / S; z = 0.25 * S;
   }
-  const ax = Math.sqrt(Math.max(0, (R[0] + 1) * 0.5));
-  const ay = Math.sqrt(Math.max(0, (R[4] + 1) * 0.5)) * (R[1] >= 0 ? 1 : -1);
-  const az = Math.sqrt(Math.max(0, (R[8] + 1) * 0.5)) * (R[2] >= 0 ? 1 : -1);
-  return norm3([ax, ay, az]).map((v) => v * theta);
+  const n = Math.hypot(w, x, y, z) * (w < 0 ? -1 : 1);
+  w /= n; x /= n; y /= n; z /= n;
+  const v = Math.hypot(x, y, z);
+  if (v < 1e-15) return [0, 0, 0];
+  const theta = 2 * Math.atan2(v, w);
+  return [(x * theta) / v, (y * theta) / v, (z * theta) / v];
 }
 
 // 解 7x7 线性方程组 A * x = b（部分主元高斯消元）

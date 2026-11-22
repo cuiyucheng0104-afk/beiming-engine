@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { encodeTracks } from '../kernel/eval/tracks.mjs';
 import full from '../kernel/contracts/meta/examples/full.json' with { type: 'json' };
 import * as observe from './index.mjs';
-import { isDegenerate } from './align.mjs';
+import { isDegenerate, matToAxisAngle, rodrigues } from './align.mjs';
 import { estimateTokens, withinBudget } from './query.mjs';
 
 test('O6-1 compare: 两张已知差图的 PSNR/SSIM/色差/颗粒/亮度分位差值表与容差判定准确，且 <= 500 token', () => {
@@ -927,4 +927,54 @@ test('O6-17 G_REV-R5 align：世界坐标刚性大平移不误判退化，公开
   assert.equal(amb.degenerate, true, JSON.stringify(amb));
   assert.equal(amb.converged, false);
   assert.ok(Math.abs(amb.pos[2] - tz - 8) < 1e-6 && Math.abs(amb.fovY - fov8) < 1e-6, JSON.stringify(amb));
+});
+
+test('O6-18 G_REV-R6 align：半周旋转（θ ≈ π，含轴分量 x=0/y=0/z=0）公开 rotation 轴角重建必须与 world/proj 一致 (<0.5 px)', () => {
+  const size = [640, 360];
+  const cube = [
+    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+    [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1],
+  ];
+  const rmseFromSeven = (pts, cam) => {
+    const th = Math.hypot(...cam.rotation);
+    const k = th > 0 ? cam.rotation.map((v) => v / th) : [0, 0, 1];
+    const f = size[1] / 2 / Math.tan((cam.fovY * Math.PI) / 360);
+    let sse = 0;
+    for (const { world, screen } of pts) {
+      const d = world.map((v, i) => v - cam.pos[i]);
+      const kd = k[0] * d[0] + k[1] * d[1] + k[2] * d[2];
+      const cr = [k[1] * d[2] - k[2] * d[1], k[2] * d[0] - k[0] * d[2], k[0] * d[1] - k[1] * d[0]];
+      const c = d.map((v, i) => v * Math.cos(th) - cr[i] * Math.sin(th) + k[i] * kd * (1 - Math.cos(th)));
+      sse += (size[0] / 2 + (c[0] / -c[2]) * f - screen[0]) ** 2 + (size[1] / 2 - (c[1] / -c[2]) * f - screen[1]) ** 2;
+    }
+    return Math.sqrt(sse / pts.length);
+  };
+  for (const pos of [[0, -3, -5], [0, 3, -5], [-3, 0, -5], [3, 0, -5], [0, 0, -5]]) {
+    const pts = synthCamera(cube, pos, [0, 0, 0], 45, size);
+    for (const init of [undefined, { pos, target: [0, 0, 0], fovY: 45 }]) {
+      const res = observe.align({ camera: { points: pts, size, initial: init } });
+      assert.equal(res.ok, true);
+      const cam = res.camera;
+      assert.equal(cam.degenerate, false, `pos=${pos}`);
+      assert.equal(cam.converged, true, `pos=${pos}`);
+      assert.ok(reprojectRmse(pts, cam.world, cam.proj, size) < 0.5, `matrix pos=${pos}`);
+      const seven = rmseFromSeven(pts, cam);
+      assert.ok(seven < 0.5, `seven-param pos=${pos}: ${seven} px`);
+    }
+  }
+});
+
+test('O6-19 G_REV-R6 align：matToAxisAngle 与 rodrigues 在 θ=π 与 π-1e-9 对任意轴（含零分量、任意符号）互逆 (<1e-12)', () => {
+  const axes = [];
+  for (const x of [-1, 0, 1]) for (const y of [-1, 0, 1]) for (const z of [-1, 0, 1]) if (x || y || z) axes.push([x, y, z]);
+  axes.push([0.3, -0.7, 0.2], [1e-9, 1, 0], [0, -1e-9, 1]);
+  for (const axis of axes) {
+    const len = Math.hypot(...axis);
+    for (const theta of [Math.PI, Math.PI - 1e-9, 3, 1, 1e-9, 0]) {
+      const R = rodrigues(...axis.map((v) => (v / len) * theta));
+      const back = rodrigues(...matToAxisAngle(R));
+      const err = Math.max(...R.map((v, i) => Math.abs(v - back[i])));
+      assert.ok(err < 1e-12, `axis=${axis} theta=${theta} err=${err}`);
+    }
+  }
 });
