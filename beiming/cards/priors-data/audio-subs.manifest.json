@@ -1,0 +1,6389 @@
+{
+  "format": "priors-migration/0.1",
+  "source": "声音、配乐、配音与字幕（案例库参数汇编，只读；不入库）",
+  "totalSourceEntries": 540,
+  "detailEntries": 417,
+  "summaryRows": 123,
+  "mergedDuplicatesNotCounted": 54,
+  "counting": "源总数 = 明细条目（带 ^e 锚点）+ 跨案例对照表行；汇总行的去向随它指回的明细，不另算一条明细；并入的重复条目原文已在明细里，不计数",
+  "portableCount": 166,
+  "cardCoupledCount": 309,
+  "practiceCount": 56,
+  "excludedOrConflictCount": 9,
+  "detailRouteCounts": {
+    "practice": 48,
+    "card-coupled": 254,
+    "portable": 109,
+    "skipped-or-conflict": 6
+  },
+  "summaryRouteCounts": {
+    "portable": 57,
+    "practice": 8,
+    "skipped-or-conflict": 3,
+    "card-coupled": 55
+  },
+  "files": {
+    "priors": "audio-subs.json",
+    "cardPriors": "audio-subs.card-priors.json",
+    "practices": "audio-subs.practices.json"
+  },
+  "rules": {
+    "portable": "有可移植单位（LUFS、LU、dBTP、dB、Hz、ms、s、fps、frame、ratio）的量，且不是代码常量堆（带代码标识且数字 ≥ 6 个算耦合）；每个单位取首个量一条",
+    "cardCoupled": "代码标识 + 数字 ≥ 6 个，或没有单位却有 ≥ 6 个数字（单片数据表），或只有 BPM、音分、半音这类不在先验单位表里的量；挂卡不当默认值",
+    "practice": "没有带单位的量，只有流程、算法、技巧；含教训类字眼的标 fix",
+    "skippedOrConflict": "没有量，且是未公开、无声音、无音轨一类陈述；冲突行本身不单列，写进 conflicts",
+    "evidence": "证据标签取最弱一级映射：实测/画面读数→实测，源码/脚本取值→源码，原文陈述→文档，推断/未公开→推断；原标签照抄在 note 或 evidenceLabel",
+    "units": "dBFS 记作 dB（标题注明 dBFS），kHz 换算成 Hz，百分数换算成 ratio，帧记 frame"
+  },
+  "cases": [
+    {
+      "caseId": "case-13",
+      "description": "案例 13：纯代码奇幻动作游戏"
+    },
+    {
+      "caseId": "case-ext01",
+      "description": "外部案例 01：代码动画短片（民乐配乐）"
+    },
+    {
+      "caseId": "case-02",
+      "description": "案例 02：浏览器龙骑空战游戏"
+    },
+    {
+      "caseId": "case-20",
+      "description": "案例 20：代码合成歌声短片"
+    },
+    {
+      "caseId": "case-18",
+      "description": "案例 18：新闻讲解片"
+    },
+    {
+      "caseId": "case-01r",
+      "description": "案例 01R：建模片代码重制"
+    },
+    {
+      "caseId": "case-01",
+      "description": "案例 01：GPU 建模片"
+    },
+    {
+      "caseId": "case-01-legacy",
+      "description": "案例 01 旧版"
+    },
+    {
+      "caseId": "case-01-original",
+      "description": "案例 01 的原作：产品发布片"
+    },
+    {
+      "caseId": "case-03",
+      "description": "案例 03：透明机械头 360° 建模"
+    },
+    {
+      "caseId": "case-05",
+      "description": "案例 05：产品定妆片"
+    },
+    {
+      "caseId": "case-07",
+      "description": "案例 07：代码卡通片（三只小猪）"
+    },
+    {
+      "caseId": "case-08",
+      "description": "案例 08：建模延时片"
+    },
+    {
+      "caseId": "case-12",
+      "description": "案例 12：巨城雷击"
+    },
+    {
+      "caseId": "case-14",
+      "description": "案例 14：东京雨夜小巷"
+    },
+    {
+      "caseId": "case-15",
+      "description": "案例 15：云朵牧人"
+    },
+    {
+      "caseId": "case-16",
+      "description": "案例 16：浏览器冒险游戏"
+    },
+    {
+      "caseId": "case-19",
+      "description": "案例 19：孟买集市（全代码路径追踪）"
+    },
+    {
+      "caseId": "case-22",
+      "description": "案例 22：纽约城市"
+    },
+    {
+      "caseId": "case-23",
+      "description": "案例 23：打斗女主"
+    },
+    {
+      "caseId": "case-25",
+      "description": "案例 25：悬挑住宅"
+    },
+    {
+      "caseId": "case-26",
+      "description": "案例 26：写实餐馆"
+    },
+    {
+      "caseId": "case-27",
+      "description": "案例 27：机器人流行乐短片"
+    },
+    {
+      "caseId": "case-29",
+      "description": "案例 29：住宅漫游"
+    },
+    {
+      "caseId": "case-072",
+      "description": "案例 072：五套动效技能"
+    },
+    {
+      "caseId": "case-b01",
+      "description": "博客案例 b01：3.5 小时科幻射击游戏"
+    },
+    {
+      "caseId": "case-b02",
+      "description": "博客案例 b02：AI 数字人"
+    },
+    {
+      "caseId": "case-b03",
+      "description": "博客案例 b03：代码动效七案例"
+    },
+    {
+      "caseId": "case-b04",
+      "description": "博客案例 b04：创意工作室指南"
+    },
+    {
+      "caseId": "case-b05",
+      "description": "博客案例 b05：六类营销动效"
+    },
+    {
+      "caseId": "case-b06",
+      "description": "博客案例 b06：像素动作游戏"
+    },
+    {
+      "caseId": "case-b07",
+      "description": "博客案例 b07：一图成游戏"
+    },
+    {
+      "caseId": "case-b08",
+      "description": "博客案例 b08：系列广告"
+    },
+    {
+      "caseId": "case-b09",
+      "description": "博客案例 b09：官方博客主持人系列"
+    },
+    {
+      "caseId": "case-b10",
+      "description": "博客案例 b10：选举新闻解说片（未并入案例 18）"
+    }
+  ],
+  "cards": [
+    {
+      "cardId": "audio.align",
+      "exists": false,
+      "count": 8
+    },
+    {
+      "cardId": "audio.drums",
+      "exists": false,
+      "count": 42
+    },
+    {
+      "cardId": "audio.dsp",
+      "exists": false,
+      "count": 8
+    },
+    {
+      "cardId": "audio.event-mix",
+      "exists": false,
+      "count": 45
+    },
+    {
+      "cardId": "audio.master",
+      "exists": true,
+      "count": 5
+    },
+    {
+      "cardId": "audio.music-gen",
+      "exists": false,
+      "count": 87
+    },
+    {
+      "cardId": "audio.scene-events",
+      "exists": false,
+      "count": 1
+    },
+    {
+      "cardId": "audio.sfx-bank",
+      "exists": false,
+      "count": 34
+    },
+    {
+      "cardId": "audio.voice-synth",
+      "exists": false,
+      "count": 20
+    },
+    {
+      "cardId": "overlay.subs",
+      "exists": false,
+      "count": 3
+    },
+    {
+      "cardId": "time.narration",
+      "exists": false,
+      "count": 1
+    }
+  ],
+  "fixes": [
+    {
+      "issue": "case13-chapter-label",
+      "description": "核查把章号误标成案例号的条目（案例 13 被写成案例 14，14 其实是章号）：本份源里 0 处；案例 13 的明细 213 条统一记 caseId=case-13，出处里的「09§5.1」一类保留为第 09 章章节号",
+      "occurrencesInSource": 0
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "外01 外部案例 01",
+      "to": "case-ext01",
+      "occurrences": 53
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "外01 外部案例 01",
+      "to": "case-ext01",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "02 案例 02",
+      "to": "case-02",
+      "occurrences": 42
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "案例 02 龙骑游戏",
+      "to": "case-02",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "01 RTX5090建模片",
+      "to": "case-01",
+      "occurrences": 8
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "01 RTX5090建模片(Fable5.2重制)",
+      "to": "case-01",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "案例 01 原作 发布片",
+      "to": "case-01-original",
+      "occurrences": 5
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "01 案例 01 原作",
+      "to": "case-01-original",
+      "occurrences": 3
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "001 案例 01 原作",
+      "to": "case-01-original",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "03T",
+      "to": "case-03",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "003 透明机械头",
+      "to": "case-03",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "玻璃机器人头 360° 建模",
+      "to": "case-03",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "05 案例 05",
+      "to": "case-05",
+      "occurrences": 13
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "案例 05",
+      "to": "case-05",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "07 三只小猪",
+      "to": "case-07",
+      "occurrences": 9
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "三只小猪(代码卡通片)",
+      "to": "case-07",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "12 巨城雷击",
+      "to": "case-12",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "012 巨城雷击",
+      "to": "case-12",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "14 东京雨夜小巷",
+      "to": "case-14",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "东京雨夜小巷",
+      "to": "case-14",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "案例 16 浏览器冒险",
+      "to": "case-16",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "孟买集市(全代码路径追踪)",
+      "to": "case-19",
+      "occurrences": 3
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "案例 25 悬挑住宅",
+      "to": "case-25",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "26 写实餐馆",
+      "to": "case-26",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "代码写实餐厅(路径追踪+网格证明)",
+      "to": "case-26",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "27 案例 27",
+      "to": "case-27",
+      "occurrences": 9
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "27",
+      "to": "case-27",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "AI Avatar",
+      "to": "case-b02",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "Claude Motion 七案例",
+      "to": "case-b03",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "Claude 创意工作室指南",
+      "to": "case-b04",
+      "occurrences": 3
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "Fable5.1+Marketing Studio 六类动效",
+      "to": "case-b05",
+      "occurrences": 8
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "博客案例 b06",
+      "to": "case-b06",
+      "occurrences": 1
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "博客案例 b07 一图成游戏",
+      "to": "case-b07",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "全广告系列(博客案例 b08)",
+      "to": "case-b08",
+      "occurrences": 3
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "(官方博客)",
+      "to": "case-b09",
+      "occurrences": 2
+    },
+    {
+      "issue": "case-label-normalize",
+      "from": "新闻解说片(美国中期选举)",
+      "to": "case-b10",
+      "occurrences": 4
+    },
+    {
+      "issue": "desensitize",
+      "description": "去掉原包路径、知识库链接与原文文件哈希；原作名、角色名、地名与人名换成案例编号或〔专名NN〕占位",
+      "replacements": [
+        {
+          "to": "案例 01 原作",
+          "n": 11
+        },
+        {
+          "to": "案例 13",
+          "n": 90
+        },
+        {
+          "to": "〔专名18〕",
+          "n": 5
+        },
+        {
+          "to": "〔专名24〕",
+          "n": 18
+        },
+        {
+          "to": "〔专名20〕",
+          "n": 15
+        },
+        {
+          "to": "〔专名49〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名01〕",
+          "n": 1
+        },
+        {
+          "to": "〔专名02〕",
+          "n": 1
+        },
+        {
+          "to": "〔专名03〕",
+          "n": 4
+        },
+        {
+          "to": "〔专名04〕",
+          "n": 4
+        },
+        {
+          "to": "〔专名05〕",
+          "n": 1
+        },
+        {
+          "to": "〔专名06〕",
+          "n": 1
+        },
+        {
+          "to": "〔专名07〕",
+          "n": 5
+        },
+        {
+          "to": "〔专名08〕",
+          "n": 5
+        },
+        {
+          "to": "〔专名09〕",
+          "n": 5
+        },
+        {
+          "to": "〔专名10〕",
+          "n": 1
+        },
+        {
+          "to": "〔专名14〕",
+          "n": 5
+        },
+        {
+          "to": "〔专名15〕",
+          "n": 5
+        },
+        {
+          "to": "〔专名16〕",
+          "n": 4
+        },
+        {
+          "to": "〔专名17〕",
+          "n": 10
+        },
+        {
+          "to": "〔专名37〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名31〕",
+          "n": 1
+        },
+        {
+          "to": "〔专名23〕",
+          "n": 7
+        },
+        {
+          "to": "〔专名26〕",
+          "n": 2
+        },
+        {
+          "to": "〔专名34〕",
+          "n": 2
+        },
+        {
+          "to": "〔专名33〕",
+          "n": 4
+        },
+        {
+          "to": "〔专名25〕",
+          "n": 4
+        },
+        {
+          "to": "〔专名27〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名28〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名29〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名30〕",
+          "n": 3
+        },
+        {
+          "to": "案例 20",
+          "n": 2
+        },
+        {
+          "to": "〔专名21〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名22〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名19〕",
+          "n": 8
+        },
+        {
+          "to": "〔专名12〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名11〕",
+          "n": 2
+        },
+        {
+          "to": "〔专名39〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名40〕",
+          "n": 2
+        },
+        {
+          "to": "〔专名41〕",
+          "n": 2
+        },
+        {
+          "to": "〔专名42〕",
+          "n": 5
+        },
+        {
+          "to": "〔专名43〕",
+          "n": 4
+        },
+        {
+          "to": "〔专名44〕",
+          "n": 4
+        },
+        {
+          "to": "〔专名45〕",
+          "n": 2
+        },
+        {
+          "to": "〔专名46〕",
+          "n": 4
+        },
+        {
+          "to": "〔专名47〕",
+          "n": 7
+        },
+        {
+          "to": "〔专名48〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名50〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名51〕",
+          "n": 2
+        },
+        {
+          "to": "〔专名32〕",
+          "n": 1
+        },
+        {
+          "to": "〔专名36〕",
+          "n": 2
+        },
+        {
+          "to": "〔专名38〕",
+          "n": 3
+        },
+        {
+          "to": "〔专名35〕",
+          "n": 1
+        },
+        {
+          "to": "外部案例 01",
+          "n": 82
+        },
+        {
+          "to": "案例 02",
+          "n": 82
+        },
+        {
+          "to": "巨型头目",
+          "n": 17
+        },
+        {
+          "to": "案例 05",
+          "n": 4
+        },
+        {
+          "to": "某人名",
+          "n": 2
+        },
+        {
+          "to": "案例 25",
+          "n": 2
+        },
+        {
+          "to": "某预置音色",
+          "n": 7
+        },
+        {
+          "to": "〔专名13〕",
+          "n": 1
+        },
+        {
+          "to": "博客案例 b06",
+          "n": 2
+        },
+        {
+          "to": "案例 072",
+          "n": 2
+        },
+        {
+          "to": "博客案例 b07",
+          "n": 3
+        },
+        {
+          "to": "某品牌",
+          "n": 1
+        },
+        {
+          "to": "案例 16",
+          "n": 1
+        },
+        {
+          "to": "案例 27",
+          "n": 1
+        },
+        {
+          "to": "博客案例 b08",
+          "n": 1
+        }
+      ]
+    }
+  ],
+  "conflicts": [
+    {
+      "sourceId": "e362",
+      "caseId": "case-02",
+      "route": "portable",
+      "text": "调度提前量：代码是 0.6 s，源码注释写 0.4 s，以代码为准",
+      "attachedTo": [],
+      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+    },
+    {
+      "sourceId": "e38",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "text": "扫频中心：源码 f:900 被 sweep:[950,330] 覆盖，实际是 950→330",
+      "attachedTo": [],
+      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+    },
+    {
+      "sourceId": "e83",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "text": "bow_loose 在 bank.js 里定义两次（2696-2743 旧版与 5753-5795 新版），后者覆盖前者",
+      "attachedTo": [],
+      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+    },
+    {
+      "sourceId": "e87",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "text": "dragon_* 键装配后强制单声道，但 〔专名18〕 例外保留立体声；原因为推断",
+      "attachedTo": [],
+      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+    },
+    {
+      "sourceId": "e120",
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "text": "DRAGON_SFX 增益有两段覆盖：第一段与第二段对同一键给不同值，后者覆盖前者（见条目内两段覆盖清单）",
+      "attachedTo": [],
+      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+    },
+    {
+      "sourceId": "e314",
+      "caseId": "case-20",
+      "route": "portable",
+      "text": "官方小模型混音 32/40，我们复测 whisper small 31/40，两个数不一致（模型不同，不能直接比）",
+      "attachedTo": [],
+      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+    },
+    {
+      "sourceId": "e317",
+      "caseId": "case-20",
+      "route": "portable",
+      "text": "官方说主唱音域 196–349 Hz，官方静帧标签 F3 170 Hz 与我们粗估 162–267 Hz 都低于 196 Hz",
+      "attachedTo": [
+        "audio-subs.e317.frequency"
+      ],
+      "note": "已写进先验条目的 conflicts，两边都保留"
+    },
+    {
+      "sourceId": "e337",
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "text": "120 BPM 与 60 BPM（每小节）都可能，自相关无法区分",
+      "attachedTo": [],
+      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+    },
+    {
+      "sourceId": "e346",
+      "caseId": "case-07",
+      "route": "portable",
+      "text": "与 343、393 对不上：作者称追逐 184 BPM、主题 118 BPM，我们的自相关估计乱跳 60–236 BPM，只有 130–140 s 一段吻合 184.4",
+      "attachedTo": [],
+      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+    },
+    {
+      "sourceId": "e348",
+      "caseId": "case-05",
+      "route": "portable",
+      "text": "成品要求母带真峰值 ≤ −1 dBTP，而素材文件实测 +0.1 dBFS，成片 −1.7 dBFS（素材未母带，见 351/353）",
+      "attachedTo": [
+        "audio-subs.e348.level"
+      ],
+      "note": "已写进先验条目的 conflicts，两边都保留"
+    },
+    {
+      "sourceId": "e295",
+      "caseId": "case-18",
+      "route": "portable",
+      "text": "与 294 对不上：配音修整统一 −19 LUFS，成片 −16.1 LUFS，差 2.9 LU，原因未量出",
+      "attachedTo": [
+        "audio-subs.e295.loudness"
+      ],
+      "note": "已写进先验条目的 conflicts，两边都保留"
+    },
+    {
+      "sourceId": "e394",
+      "caseId": "case-19",
+      "route": "portable",
+      "text": "孟买终混响度两个数：作者称 −16.1 LUFS，我们读回 −16.2 LUFS（366），另有真峰值 +5.5 dBFS 与东京 −2.5 dBFS 对照",
+      "attachedTo": [
+        "audio-subs.e394.loudness"
+      ],
+      "note": "已写进先验条目的 conflicts，两边都保留"
+    },
+    {
+      "sourceId": "e329",
+      "caseId": "case-27",
+      "route": "portable",
+      "text": "三个文件真峰值 +2.1/+1.1/+0.6 dBFS 均超 0 dBFS（削波），与其它案例 −1 dBTP 惯例冲突",
+      "attachedTo": [
+        "audio-subs.e329.level"
+      ],
+      "note": "已写进先验条目的 conflicts，两边都保留"
+    },
+    {
+      "sourceId": "e400",
+      "caseId": "case-01-original",
+      "route": "portable",
+      "text": "提示词写约 140 BPM，我们量出 139.96 BPM；带时间码的 25 s 提示词返回 42 s（与「时长按提示词」的预期冲突）",
+      "attachedTo": [
+        "audio-subs.e400.duration"
+      ],
+      "note": "已写进先验条目的 conflicts，两边都保留"
+    }
+  ],
+  "excluded": [
+    {
+      "sourceId": "e364",
+      "section": 1,
+      "caseId": "case-08",
+      "title": "叠加与声音",
+      "text": "右上角 Higgsfield/Fable 5.2 角标全程有；字幕/转场特效无；无音轨",
+      "reason": "无可迁的量或做法（未公开或无声音的陈述）",
+      "evidenceLabel": "实测",
+      "docRef": "声音配乐配音字幕汇编 §1 ^e364；原出处：09 复盘 §4"
+    },
+    {
+      "sourceId": "e368",
+      "section": 1,
+      "caseId": "case-ext01",
+      "title": "声音读画面的事件表",
+      "text": "改了画面声音自己跟着走；配乐全由代码算无声音文件；没有听配乐，声音一章全部读代码",
+      "reason": "无可迁的量或做法（未公开或无声音的陈述）",
+      "evidenceLabel": "源码",
+      "docRef": "声音配乐配音字幕汇编 §1 ^e368；原出处：09 复盘 §6.1 #12/§5.2"
+    },
+    {
+      "sourceId": "e307",
+      "section": 7,
+      "caseId": "case-20",
+      "title": "主唱七步-6 辅音",
+      "text": "八个噪声带做 s、sh、f、th；爆破音 p/t/k 分闭合、爆发、送气三段（带宽中心频率未公开）",
+      "reason": "无可迁的量或做法（未公开或无声音的陈述）",
+      "evidenceLabel": "原文陈述",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e307；原出处：20/09 §3.1"
+    },
+    {
+      "sourceId": "e321",
+      "section": 7,
+      "caseId": "case-20",
+      "title": "未公开的声音参数",
+      "text": "合成采样率、FM 电钢琴算子比、鼓的合成法、混响脉冲生成、压缩/限幅参数、每声部音量与声像",
+      "reason": "无可迁的量或做法（未公开或无声音的陈述）",
+      "evidenceLabel": "未公开",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e321；原出处：20/09 §4.2、§6.3"
+    },
+    {
+      "sourceId": "e356",
+      "section": 12,
+      "caseId": "case-22",
+      "title": "无声音",
+      "text": "官方文章没有提声音；下载到的三段视频均无音轨（音轨数 0）；声音是否存在、怎么做的未公开",
+      "reason": "无可迁的量或做法（未公开或无声音的陈述）",
+      "evidenceLabel": "实测+未公开",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e356；原出处：22/09 §4.2；量测结果 §1"
+    },
+    {
+      "sourceId": "e331",
+      "section": 12,
+      "caseId": "case-27",
+      "title": "音乐与音效制作",
+      "text": "音乐为合成，每个音效按画面帧号放置（原文）；音色合成法、效果器、混音链未公开",
+      "reason": "无可迁的量或做法（未公开或无声音的陈述）",
+      "evidenceLabel": "原文陈述+未公开",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e331；原出处：27/09 §4.2"
+    }
+  ],
+  "ledger": [
+    {
+      "sourceId": "e191",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e191.practice"
+      ]
+    },
+    {
+      "sourceId": "e291",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e291.card"
+      ]
+    },
+    {
+      "sourceId": "e357",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-02",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e357.practice"
+      ]
+    },
+    {
+      "sourceId": "e358",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-02",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e358.duration"
+      ]
+    },
+    {
+      "sourceId": "e359",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-02",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e359.frequency",
+        "audio-subs.e359.duration"
+      ]
+    },
+    {
+      "sourceId": "e360",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e360.card"
+      ]
+    },
+    {
+      "sourceId": "e361",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-02",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e361.practice"
+      ]
+    },
+    {
+      "sourceId": "e362",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-02",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e362.duration"
+      ]
+    },
+    {
+      "sourceId": "e363",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-02",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e363.practice"
+      ]
+    },
+    {
+      "sourceId": "e364",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-08",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "e365",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-14",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e365.practice"
+      ]
+    },
+    {
+      "sourceId": "e367",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-26",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e367.card"
+      ]
+    },
+    {
+      "sourceId": "e368",
+      "kind": "detail",
+      "section": 1,
+      "caseId": "case-ext01",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "e5",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e5.practice"
+      ]
+    },
+    {
+      "sourceId": "e6",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e6.card"
+      ]
+    },
+    {
+      "sourceId": "e7",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e7.practice"
+      ]
+    },
+    {
+      "sourceId": "e8",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e8.level",
+        "audio-subs.e8.duration"
+      ]
+    },
+    {
+      "sourceId": "e9",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e9.card"
+      ]
+    },
+    {
+      "sourceId": "e10",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e10.card"
+      ]
+    },
+    {
+      "sourceId": "e11",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e11.practice"
+      ]
+    },
+    {
+      "sourceId": "e12",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e12.card"
+      ]
+    },
+    {
+      "sourceId": "e13",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e13.card"
+      ]
+    },
+    {
+      "sourceId": "e14",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e14.card"
+      ]
+    },
+    {
+      "sourceId": "e15",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e15.card"
+      ]
+    },
+    {
+      "sourceId": "e16",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e16.card"
+      ]
+    },
+    {
+      "sourceId": "e17",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e17.card"
+      ]
+    },
+    {
+      "sourceId": "e18",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e18.card"
+      ]
+    },
+    {
+      "sourceId": "e19",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e19.card"
+      ]
+    },
+    {
+      "sourceId": "e20",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e20.duration"
+      ]
+    },
+    {
+      "sourceId": "e21",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e21.card"
+      ]
+    },
+    {
+      "sourceId": "e22",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e22.duration"
+      ]
+    },
+    {
+      "sourceId": "e25",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e25.duration"
+      ]
+    },
+    {
+      "sourceId": "e26",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e26.card"
+      ]
+    },
+    {
+      "sourceId": "e205",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e205.card"
+      ]
+    },
+    {
+      "sourceId": "e206",
+      "kind": "detail",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e206.card"
+      ]
+    },
+    {
+      "sourceId": "e23",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e23.card"
+      ]
+    },
+    {
+      "sourceId": "e24",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e24.card"
+      ]
+    },
+    {
+      "sourceId": "e27",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e27.card"
+      ]
+    },
+    {
+      "sourceId": "e28",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e28.duration"
+      ]
+    },
+    {
+      "sourceId": "e30",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e30.duration"
+      ]
+    },
+    {
+      "sourceId": "e31",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e31.practice"
+      ]
+    },
+    {
+      "sourceId": "e32",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e32.practice"
+      ]
+    },
+    {
+      "sourceId": "e33",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e33.ratio"
+      ]
+    },
+    {
+      "sourceId": "e34",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e34.card"
+      ]
+    },
+    {
+      "sourceId": "e57",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e57.card"
+      ]
+    },
+    {
+      "sourceId": "e72",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e72.card"
+      ]
+    },
+    {
+      "sourceId": "e73",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e73.duration",
+        "audio-subs.e73.frequency"
+      ]
+    },
+    {
+      "sourceId": "e74",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e74.card"
+      ]
+    },
+    {
+      "sourceId": "e75",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e75.card"
+      ]
+    },
+    {
+      "sourceId": "e76",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e76.duration"
+      ]
+    },
+    {
+      "sourceId": "e77",
+      "kind": "detail",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e77.practice"
+      ]
+    },
+    {
+      "sourceId": "e35",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e35.card"
+      ]
+    },
+    {
+      "sourceId": "e36",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e36.card"
+      ]
+    },
+    {
+      "sourceId": "e37",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e37.card"
+      ]
+    },
+    {
+      "sourceId": "e38",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e38.card"
+      ]
+    },
+    {
+      "sourceId": "e39",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e39.card"
+      ]
+    },
+    {
+      "sourceId": "e40",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e40.card"
+      ]
+    },
+    {
+      "sourceId": "e41",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e41.card"
+      ]
+    },
+    {
+      "sourceId": "e43",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e43.card"
+      ]
+    },
+    {
+      "sourceId": "e44",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e44.card"
+      ]
+    },
+    {
+      "sourceId": "e90",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e90.card"
+      ]
+    },
+    {
+      "sourceId": "e91",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e91.card"
+      ]
+    },
+    {
+      "sourceId": "e92",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e92.card"
+      ]
+    },
+    {
+      "sourceId": "e105",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e105.card"
+      ]
+    },
+    {
+      "sourceId": "e106",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e106.card"
+      ]
+    },
+    {
+      "sourceId": "e107",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e107.card"
+      ]
+    },
+    {
+      "sourceId": "e108",
+      "kind": "detail",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e108.card"
+      ]
+    },
+    {
+      "sourceId": "e42",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e42.card"
+      ]
+    },
+    {
+      "sourceId": "e45",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e45.card"
+      ]
+    },
+    {
+      "sourceId": "e53",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e53.card"
+      ]
+    },
+    {
+      "sourceId": "e58",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e58.card"
+      ]
+    },
+    {
+      "sourceId": "e93",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e93.duration",
+        "audio-subs.e93.frequency"
+      ]
+    },
+    {
+      "sourceId": "e94",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e94.card"
+      ]
+    },
+    {
+      "sourceId": "e95",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e95.card"
+      ]
+    },
+    {
+      "sourceId": "e96",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e96.card"
+      ]
+    },
+    {
+      "sourceId": "e97",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e97.card"
+      ]
+    },
+    {
+      "sourceId": "e98",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e98.card"
+      ]
+    },
+    {
+      "sourceId": "e109",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e109.card"
+      ]
+    },
+    {
+      "sourceId": "e110",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e110.card"
+      ]
+    },
+    {
+      "sourceId": "e111",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e111.duration",
+        "audio-subs.e111.frequency"
+      ]
+    },
+    {
+      "sourceId": "e112",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e112.card"
+      ]
+    },
+    {
+      "sourceId": "e113",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e113.card"
+      ]
+    },
+    {
+      "sourceId": "e114",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e114.card"
+      ]
+    },
+    {
+      "sourceId": "e115",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e115.card"
+      ]
+    },
+    {
+      "sourceId": "e116",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e116.card"
+      ]
+    },
+    {
+      "sourceId": "e117",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e117.card"
+      ]
+    },
+    {
+      "sourceId": "e118",
+      "kind": "detail",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e118.card"
+      ]
+    },
+    {
+      "sourceId": "e4",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e4.duration"
+      ]
+    },
+    {
+      "sourceId": "e47",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e47.card"
+      ]
+    },
+    {
+      "sourceId": "e48",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e48.card"
+      ]
+    },
+    {
+      "sourceId": "e49",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e49.card"
+      ]
+    },
+    {
+      "sourceId": "e50",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e50.card"
+      ]
+    },
+    {
+      "sourceId": "e51",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e51.card"
+      ]
+    },
+    {
+      "sourceId": "e52",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e52.card"
+      ]
+    },
+    {
+      "sourceId": "e59",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e59.card"
+      ]
+    },
+    {
+      "sourceId": "e60",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e60.card"
+      ]
+    },
+    {
+      "sourceId": "e61",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e61.card"
+      ]
+    },
+    {
+      "sourceId": "e63",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e63.card"
+      ]
+    },
+    {
+      "sourceId": "e64",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e64.card"
+      ]
+    },
+    {
+      "sourceId": "e65",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e65.card"
+      ]
+    },
+    {
+      "sourceId": "e66",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e66.card"
+      ]
+    },
+    {
+      "sourceId": "e68",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e68.duration"
+      ]
+    },
+    {
+      "sourceId": "e69",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e69.practice"
+      ]
+    },
+    {
+      "sourceId": "e70",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e70.card"
+      ]
+    },
+    {
+      "sourceId": "e78",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e78.card"
+      ]
+    },
+    {
+      "sourceId": "e79",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e79.card"
+      ]
+    },
+    {
+      "sourceId": "e80",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e80.card"
+      ]
+    },
+    {
+      "sourceId": "e81",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e81.card"
+      ]
+    },
+    {
+      "sourceId": "e82",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e82.card"
+      ]
+    },
+    {
+      "sourceId": "e83",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e83.card"
+      ]
+    },
+    {
+      "sourceId": "e84",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e84.card"
+      ]
+    },
+    {
+      "sourceId": "e85",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e85.card"
+      ]
+    },
+    {
+      "sourceId": "e86",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e86.card"
+      ]
+    },
+    {
+      "sourceId": "e87",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e87.card"
+      ]
+    },
+    {
+      "sourceId": "e88",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e88.card"
+      ]
+    },
+    {
+      "sourceId": "e89",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e89.card"
+      ]
+    },
+    {
+      "sourceId": "e119",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e119.card"
+      ]
+    },
+    {
+      "sourceId": "e120",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e120.card"
+      ]
+    },
+    {
+      "sourceId": "e121",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e121.duration"
+      ]
+    },
+    {
+      "sourceId": "e122",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e122.card"
+      ]
+    },
+    {
+      "sourceId": "e123",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e123.card"
+      ]
+    },
+    {
+      "sourceId": "e124",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e124.practice"
+      ]
+    },
+    {
+      "sourceId": "e198",
+      "kind": "detail",
+      "section": 6,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e198.duration"
+      ]
+    },
+    {
+      "sourceId": "e29",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e29.practice"
+      ]
+    },
+    {
+      "sourceId": "e46",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e46.duration"
+      ]
+    },
+    {
+      "sourceId": "e54",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e54.duration"
+      ]
+    },
+    {
+      "sourceId": "e55",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e55.card"
+      ]
+    },
+    {
+      "sourceId": "e67",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e67.card"
+      ]
+    },
+    {
+      "sourceId": "e71",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e71.practice"
+      ]
+    },
+    {
+      "sourceId": "e100",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e100.card"
+      ]
+    },
+    {
+      "sourceId": "e101",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e101.card"
+      ]
+    },
+    {
+      "sourceId": "e102",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e102.card"
+      ]
+    },
+    {
+      "sourceId": "e103",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e103.card"
+      ]
+    },
+    {
+      "sourceId": "e104",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e104.card"
+      ]
+    },
+    {
+      "sourceId": "e301",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e301.practice"
+      ]
+    },
+    {
+      "sourceId": "e302",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e302.practice"
+      ]
+    },
+    {
+      "sourceId": "e303",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e303.ratio"
+      ]
+    },
+    {
+      "sourceId": "e304",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e304.ratio"
+      ]
+    },
+    {
+      "sourceId": "e305",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e305.duration"
+      ]
+    },
+    {
+      "sourceId": "e306",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e306.frequency"
+      ]
+    },
+    {
+      "sourceId": "e307",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "e308",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e308.duration"
+      ]
+    },
+    {
+      "sourceId": "e309",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e309.practice"
+      ]
+    },
+    {
+      "sourceId": "e310",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e310.card"
+      ]
+    },
+    {
+      "sourceId": "e311",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e311.frequency",
+        "audio-subs.e311.duration",
+        "audio-subs.e311.loudness",
+        "audio-subs.e311.true-peak"
+      ]
+    },
+    {
+      "sourceId": "e312",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e312.loudness",
+        "audio-subs.e312.loudness-range",
+        "audio-subs.e312.level",
+        "audio-subs.e312.duration"
+      ]
+    },
+    {
+      "sourceId": "e313",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e313.level",
+        "audio-subs.e313.duration"
+      ]
+    },
+    {
+      "sourceId": "e314",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e314.duration"
+      ]
+    },
+    {
+      "sourceId": "e316",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e316.duration",
+        "audio-subs.e316.frequency",
+        "audio-subs.e316.ratio"
+      ]
+    },
+    {
+      "sourceId": "e317",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e317.frequency"
+      ]
+    },
+    {
+      "sourceId": "e318",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e318.practice"
+      ]
+    },
+    {
+      "sourceId": "e319",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e319.practice"
+      ]
+    },
+    {
+      "sourceId": "e320",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e320.frequency"
+      ]
+    },
+    {
+      "sourceId": "e321",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "e406",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e406.card"
+      ]
+    },
+    {
+      "sourceId": "e423",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e423.duration"
+      ]
+    },
+    {
+      "sourceId": "e424",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e424.card"
+      ]
+    },
+    {
+      "sourceId": "e425",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e425.practice"
+      ]
+    },
+    {
+      "sourceId": "e426",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e426.card"
+      ]
+    },
+    {
+      "sourceId": "e427",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e427.card"
+      ]
+    },
+    {
+      "sourceId": "e428",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e428.card"
+      ]
+    },
+    {
+      "sourceId": "e429",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e429.card"
+      ]
+    },
+    {
+      "sourceId": "e430",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e430.card"
+      ]
+    },
+    {
+      "sourceId": "e431",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e431.card"
+      ]
+    },
+    {
+      "sourceId": "e432",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e432.card"
+      ]
+    },
+    {
+      "sourceId": "e433",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e433.practice"
+      ]
+    },
+    {
+      "sourceId": "e434",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e434.card"
+      ]
+    },
+    {
+      "sourceId": "e435",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e435.card"
+      ]
+    },
+    {
+      "sourceId": "e436",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e436.ratio"
+      ]
+    },
+    {
+      "sourceId": "e437",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e437.practice"
+      ]
+    },
+    {
+      "sourceId": "e438",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e438.card"
+      ]
+    },
+    {
+      "sourceId": "e444",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e444.card"
+      ]
+    },
+    {
+      "sourceId": "e461",
+      "kind": "detail",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e461.practice"
+      ]
+    },
+    {
+      "sourceId": "e56",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e56.card"
+      ]
+    },
+    {
+      "sourceId": "e62",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e62.card"
+      ]
+    },
+    {
+      "sourceId": "e99",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e99.card"
+      ]
+    },
+    {
+      "sourceId": "e125",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e125.card"
+      ]
+    },
+    {
+      "sourceId": "e126",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e126.practice"
+      ]
+    },
+    {
+      "sourceId": "e127",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e127.duration"
+      ]
+    },
+    {
+      "sourceId": "e128",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e128.duration"
+      ]
+    },
+    {
+      "sourceId": "e129",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e129.duration",
+        "audio-subs.e129.ratio"
+      ]
+    },
+    {
+      "sourceId": "e130",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e130.card"
+      ]
+    },
+    {
+      "sourceId": "e131",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e131.card"
+      ]
+    },
+    {
+      "sourceId": "e132",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e132.card"
+      ]
+    },
+    {
+      "sourceId": "e133",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e133.duration"
+      ]
+    },
+    {
+      "sourceId": "e134",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e134.card"
+      ]
+    },
+    {
+      "sourceId": "e135",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e135.card"
+      ]
+    },
+    {
+      "sourceId": "e136",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e136.card"
+      ]
+    },
+    {
+      "sourceId": "e137",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e137.card"
+      ]
+    },
+    {
+      "sourceId": "e138",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e138.card"
+      ]
+    },
+    {
+      "sourceId": "e139",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e139.card"
+      ]
+    },
+    {
+      "sourceId": "e140",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e140.card"
+      ]
+    },
+    {
+      "sourceId": "e141",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e141.card"
+      ]
+    },
+    {
+      "sourceId": "e142",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e142.card"
+      ]
+    },
+    {
+      "sourceId": "e143",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e143.card"
+      ]
+    },
+    {
+      "sourceId": "e144",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e144.practice"
+      ]
+    },
+    {
+      "sourceId": "e145",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e145.card"
+      ]
+    },
+    {
+      "sourceId": "e146",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e146.card"
+      ]
+    },
+    {
+      "sourceId": "e147",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e147.card"
+      ]
+    },
+    {
+      "sourceId": "e148",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e148.card"
+      ]
+    },
+    {
+      "sourceId": "e149",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e149.card"
+      ]
+    },
+    {
+      "sourceId": "e150",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e150.card"
+      ]
+    },
+    {
+      "sourceId": "e151",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e151.card"
+      ]
+    },
+    {
+      "sourceId": "e152",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e152.card"
+      ]
+    },
+    {
+      "sourceId": "e153",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e153.card"
+      ]
+    },
+    {
+      "sourceId": "e154",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e154.card"
+      ]
+    },
+    {
+      "sourceId": "e155",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e155.card"
+      ]
+    },
+    {
+      "sourceId": "e156",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e156.card"
+      ]
+    },
+    {
+      "sourceId": "e157",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e157.card"
+      ]
+    },
+    {
+      "sourceId": "e158",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e158.card"
+      ]
+    },
+    {
+      "sourceId": "e159",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e159.card"
+      ]
+    },
+    {
+      "sourceId": "e160",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e160.card"
+      ]
+    },
+    {
+      "sourceId": "e161",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e161.card"
+      ]
+    },
+    {
+      "sourceId": "e162",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e162.card"
+      ]
+    },
+    {
+      "sourceId": "e163",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e163.card"
+      ]
+    },
+    {
+      "sourceId": "e164",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e164.card"
+      ]
+    },
+    {
+      "sourceId": "e165",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e165.card"
+      ]
+    },
+    {
+      "sourceId": "e166",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e166.card"
+      ]
+    },
+    {
+      "sourceId": "e167",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e167.card"
+      ]
+    },
+    {
+      "sourceId": "e168",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e168.card"
+      ]
+    },
+    {
+      "sourceId": "e169",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e169.card"
+      ]
+    },
+    {
+      "sourceId": "e170",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e170.card"
+      ]
+    },
+    {
+      "sourceId": "e171",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e171.card"
+      ]
+    },
+    {
+      "sourceId": "e172",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e172.card"
+      ]
+    },
+    {
+      "sourceId": "e173",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e173.card"
+      ]
+    },
+    {
+      "sourceId": "e174",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e174.card"
+      ]
+    },
+    {
+      "sourceId": "e175",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e175.card"
+      ]
+    },
+    {
+      "sourceId": "e176",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e176.card"
+      ]
+    },
+    {
+      "sourceId": "e177",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e177.card"
+      ]
+    },
+    {
+      "sourceId": "e178",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e178.card"
+      ]
+    },
+    {
+      "sourceId": "e179",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e179.card"
+      ]
+    },
+    {
+      "sourceId": "e180",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e180.card"
+      ]
+    },
+    {
+      "sourceId": "e181",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e181.card"
+      ]
+    },
+    {
+      "sourceId": "e182",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e182.card"
+      ]
+    },
+    {
+      "sourceId": "e183",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e183.card"
+      ]
+    },
+    {
+      "sourceId": "e184",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e184.card"
+      ]
+    },
+    {
+      "sourceId": "e185",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e185.card"
+      ]
+    },
+    {
+      "sourceId": "e186",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e186.card"
+      ]
+    },
+    {
+      "sourceId": "e187",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e187.card"
+      ]
+    },
+    {
+      "sourceId": "e188",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e188.card"
+      ]
+    },
+    {
+      "sourceId": "e189",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e189.duration"
+      ]
+    },
+    {
+      "sourceId": "e190",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e190.practice"
+      ]
+    },
+    {
+      "sourceId": "e207",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e207.card"
+      ]
+    },
+    {
+      "sourceId": "e214",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e214.practice"
+      ]
+    },
+    {
+      "sourceId": "e215",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e215.card"
+      ]
+    },
+    {
+      "sourceId": "e216",
+      "kind": "detail",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e216.duration"
+      ]
+    },
+    {
+      "sourceId": "e217",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e217.card"
+      ]
+    },
+    {
+      "sourceId": "e218",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e218.card"
+      ]
+    },
+    {
+      "sourceId": "e219",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e219.card"
+      ]
+    },
+    {
+      "sourceId": "e220",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e220.card"
+      ]
+    },
+    {
+      "sourceId": "e221",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e221.card"
+      ]
+    },
+    {
+      "sourceId": "e222",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e222.card"
+      ]
+    },
+    {
+      "sourceId": "e223",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e223.card"
+      ]
+    },
+    {
+      "sourceId": "e224",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e224.card"
+      ]
+    },
+    {
+      "sourceId": "e225",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e225.card"
+      ]
+    },
+    {
+      "sourceId": "e226",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e226.card"
+      ]
+    },
+    {
+      "sourceId": "e227",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e227.card"
+      ]
+    },
+    {
+      "sourceId": "e228",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e228.card"
+      ]
+    },
+    {
+      "sourceId": "e229",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e229.card"
+      ]
+    },
+    {
+      "sourceId": "e230",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e230.card"
+      ]
+    },
+    {
+      "sourceId": "e231",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e231.card"
+      ]
+    },
+    {
+      "sourceId": "e232",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e232.card"
+      ]
+    },
+    {
+      "sourceId": "e233",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e233.card"
+      ]
+    },
+    {
+      "sourceId": "e234",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e234.card"
+      ]
+    },
+    {
+      "sourceId": "e235",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e235.card"
+      ]
+    },
+    {
+      "sourceId": "e236",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e236.duration"
+      ]
+    },
+    {
+      "sourceId": "e237",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e237.duration"
+      ]
+    },
+    {
+      "sourceId": "e238",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e238.card"
+      ]
+    },
+    {
+      "sourceId": "e239",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e239.card"
+      ]
+    },
+    {
+      "sourceId": "e240",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e240.card"
+      ]
+    },
+    {
+      "sourceId": "e241",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e241.card"
+      ]
+    },
+    {
+      "sourceId": "e242",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e242.card"
+      ]
+    },
+    {
+      "sourceId": "e243",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e243.card"
+      ]
+    },
+    {
+      "sourceId": "e244",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e244.card"
+      ]
+    },
+    {
+      "sourceId": "e245",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e245.card"
+      ]
+    },
+    {
+      "sourceId": "e246",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e246.card"
+      ]
+    },
+    {
+      "sourceId": "e247",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e247.card"
+      ]
+    },
+    {
+      "sourceId": "e248",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e248.card"
+      ]
+    },
+    {
+      "sourceId": "e249",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e249.card"
+      ]
+    },
+    {
+      "sourceId": "e250",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e250.card"
+      ]
+    },
+    {
+      "sourceId": "e251",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e251.card"
+      ]
+    },
+    {
+      "sourceId": "e252",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e252.card"
+      ]
+    },
+    {
+      "sourceId": "e253",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e253.card"
+      ]
+    },
+    {
+      "sourceId": "e254",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e254.card"
+      ]
+    },
+    {
+      "sourceId": "e255",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e255.frequency",
+        "audio-subs.e255.duration"
+      ]
+    },
+    {
+      "sourceId": "e256",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e256.card"
+      ]
+    },
+    {
+      "sourceId": "e257",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e257.practice"
+      ]
+    },
+    {
+      "sourceId": "e258",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e258.card"
+      ]
+    },
+    {
+      "sourceId": "e259",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e259.card"
+      ]
+    },
+    {
+      "sourceId": "e260",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e260.card"
+      ]
+    },
+    {
+      "sourceId": "e261",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e261.card"
+      ]
+    },
+    {
+      "sourceId": "e262",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e262.card"
+      ]
+    },
+    {
+      "sourceId": "e263",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e263.card"
+      ]
+    },
+    {
+      "sourceId": "e264",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e264.card"
+      ]
+    },
+    {
+      "sourceId": "e265",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e265.duration",
+        "audio-subs.e265.frequency"
+      ]
+    },
+    {
+      "sourceId": "e266",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e266.card"
+      ]
+    },
+    {
+      "sourceId": "e267",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e267.card"
+      ]
+    },
+    {
+      "sourceId": "e268",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e268.card"
+      ]
+    },
+    {
+      "sourceId": "e269",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e269.card"
+      ]
+    },
+    {
+      "sourceId": "e270",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e270.duration",
+        "audio-subs.e270.ratio",
+        "audio-subs.e270.frequency"
+      ]
+    },
+    {
+      "sourceId": "e271",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e271.card"
+      ]
+    },
+    {
+      "sourceId": "e272",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e272.card"
+      ]
+    },
+    {
+      "sourceId": "e273",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e273.card"
+      ]
+    },
+    {
+      "sourceId": "e274",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e274.card"
+      ]
+    },
+    {
+      "sourceId": "e275",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e275.card"
+      ]
+    },
+    {
+      "sourceId": "e276",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e276.card"
+      ]
+    },
+    {
+      "sourceId": "e277",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e277.card"
+      ]
+    },
+    {
+      "sourceId": "e278",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e278.card"
+      ]
+    },
+    {
+      "sourceId": "e279",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e279.card"
+      ]
+    },
+    {
+      "sourceId": "e280",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e280.card"
+      ]
+    },
+    {
+      "sourceId": "e281",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e281.card"
+      ]
+    },
+    {
+      "sourceId": "e282",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e282.card"
+      ]
+    },
+    {
+      "sourceId": "e283",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e283.card"
+      ]
+    },
+    {
+      "sourceId": "e284",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e284.card"
+      ]
+    },
+    {
+      "sourceId": "e285",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e285.card"
+      ]
+    },
+    {
+      "sourceId": "e292",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01-legacy",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e292.card"
+      ]
+    },
+    {
+      "sourceId": "e293",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01-legacy",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e293.loudness",
+        "audio-subs.e293.loudness-range",
+        "audio-subs.e293.level",
+        "audio-subs.e293.duration"
+      ]
+    },
+    {
+      "sourceId": "e419",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e419.frequency"
+      ]
+    },
+    {
+      "sourceId": "e420",
+      "kind": "detail",
+      "section": 9,
+      "caseId": "case-01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e420.card"
+      ]
+    },
+    {
+      "sourceId": "e286",
+      "kind": "detail",
+      "section": 10,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e286.card"
+      ]
+    },
+    {
+      "sourceId": "e287",
+      "kind": "detail",
+      "section": 10,
+      "caseId": "case-01r",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e287.duration",
+        "audio-subs.e287.level",
+        "audio-subs.e287.true-peak",
+        "audio-subs.e287.loudness-range",
+        "audio-subs.e287.ratio"
+      ]
+    },
+    {
+      "sourceId": "e288",
+      "kind": "detail",
+      "section": 10,
+      "caseId": "case-01r",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e288.loudness",
+        "audio-subs.e288.loudness-range",
+        "audio-subs.e288.true-peak",
+        "audio-subs.e288.duration",
+        "audio-subs.e288.frequency"
+      ]
+    },
+    {
+      "sourceId": "e289",
+      "kind": "detail",
+      "section": 10,
+      "caseId": "case-01r",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e289.true-peak",
+        "audio-subs.e289.level"
+      ]
+    },
+    {
+      "sourceId": "e290",
+      "kind": "detail",
+      "section": 10,
+      "caseId": "case-01r",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e290.loudness",
+        "audio-subs.e290.true-peak",
+        "audio-subs.e290.duration",
+        "audio-subs.e290.level",
+        "audio-subs.e290.loudness-range"
+      ]
+    },
+    {
+      "sourceId": "e421",
+      "kind": "detail",
+      "section": 10,
+      "caseId": "case-01",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e421.duration"
+      ]
+    },
+    {
+      "sourceId": "e422",
+      "kind": "detail",
+      "section": 10,
+      "caseId": "case-01",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e422.card"
+      ]
+    },
+    {
+      "sourceId": "e0",
+      "kind": "detail",
+      "section": 11,
+      "caseId": "case-27",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e0.frame-rate",
+        "audio-subs.e0.frames",
+        "audio-subs.e0.duration"
+      ]
+    },
+    {
+      "sourceId": "e3",
+      "kind": "detail",
+      "section": 11,
+      "caseId": "case-03",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e3.card"
+      ]
+    },
+    {
+      "sourceId": "e315",
+      "kind": "detail",
+      "section": 11,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e315.duration"
+      ]
+    },
+    {
+      "sourceId": "e325",
+      "kind": "detail",
+      "section": 11,
+      "caseId": "case-15",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e325.frequency",
+        "audio-subs.e325.duration"
+      ]
+    },
+    {
+      "sourceId": "e337",
+      "kind": "detail",
+      "section": 11,
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e337.card"
+      ]
+    },
+    {
+      "sourceId": "e346",
+      "kind": "detail",
+      "section": 11,
+      "caseId": "case-07",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e346.duration"
+      ]
+    },
+    {
+      "sourceId": "e352",
+      "kind": "detail",
+      "section": 11,
+      "caseId": "case-05",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e352.card"
+      ]
+    },
+    {
+      "sourceId": "e383",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-02",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e383.practice"
+      ]
+    },
+    {
+      "sourceId": "e375",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-03",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e375.practice"
+      ]
+    },
+    {
+      "sourceId": "e411",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-03",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e411.practice"
+      ]
+    },
+    {
+      "sourceId": "e348",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-05",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e348.duration",
+        "audio-subs.e348.loudness",
+        "audio-subs.e348.loudness-range",
+        "audio-subs.e348.level"
+      ]
+    },
+    {
+      "sourceId": "e349",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-05",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e349.duration",
+        "audio-subs.e349.loudness",
+        "audio-subs.e349.loudness-range",
+        "audio-subs.e349.level"
+      ]
+    },
+    {
+      "sourceId": "e350",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-05",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e350.duration",
+        "audio-subs.e350.loudness",
+        "audio-subs.e350.loudness-range",
+        "audio-subs.e350.level"
+      ]
+    },
+    {
+      "sourceId": "e351",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-05",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e351.loudness",
+        "audio-subs.e351.true-peak"
+      ]
+    },
+    {
+      "sourceId": "e353",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-05",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e353.card"
+      ]
+    },
+    {
+      "sourceId": "e354",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-05",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e354.card"
+      ]
+    },
+    {
+      "sourceId": "e355",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-05",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e355.card"
+      ]
+    },
+    {
+      "sourceId": "e370",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-05",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e370.duration",
+        "audio-subs.e370.loudness",
+        "audio-subs.e370.true-peak"
+      ]
+    },
+    {
+      "sourceId": "e343",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-07",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e343.duration",
+        "audio-subs.e343.frames"
+      ]
+    },
+    {
+      "sourceId": "e344",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-07",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e344.frames",
+        "audio-subs.e344.frame-rate",
+        "audio-subs.e344.duration"
+      ]
+    },
+    {
+      "sourceId": "e345",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-07",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e345.loudness",
+        "audio-subs.e345.loudness-range",
+        "audio-subs.e345.level",
+        "audio-subs.e345.duration"
+      ]
+    },
+    {
+      "sourceId": "e393",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-07",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e393.duration",
+        "audio-subs.e393.frames"
+      ]
+    },
+    {
+      "sourceId": "e404",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-12",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e404.loudness",
+        "audio-subs.e404.frequency"
+      ]
+    },
+    {
+      "sourceId": "e413",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-12",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e413.loudness"
+      ]
+    },
+    {
+      "sourceId": "e378",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-14",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e378.loudness"
+      ]
+    },
+    {
+      "sourceId": "e322",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-15",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e322.duration"
+      ]
+    },
+    {
+      "sourceId": "e323",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-15",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e323.frequency",
+        "audio-subs.e323.duration",
+        "audio-subs.e323.loudness",
+        "audio-subs.e323.loudness-range",
+        "audio-subs.e323.level"
+      ]
+    },
+    {
+      "sourceId": "e324",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-15",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e324.duration"
+      ]
+    },
+    {
+      "sourceId": "e376",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-16",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e376.practice"
+      ]
+    },
+    {
+      "sourceId": "e294",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e294.loudness",
+        "audio-subs.e294.loudness-range",
+        "audio-subs.e294.level",
+        "audio-subs.e294.frequency"
+      ]
+    },
+    {
+      "sourceId": "e295",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e295.loudness",
+        "audio-subs.e295.loudness-range"
+      ]
+    },
+    {
+      "sourceId": "e296",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e296.level"
+      ]
+    },
+    {
+      "sourceId": "e297",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e297.duration",
+        "audio-subs.e297.level"
+      ]
+    },
+    {
+      "sourceId": "e298",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e298.duration"
+      ]
+    },
+    {
+      "sourceId": "e299",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e299.duration"
+      ]
+    },
+    {
+      "sourceId": "e300",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-18",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e300.practice"
+      ]
+    },
+    {
+      "sourceId": "e394",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-19",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e394.loudness"
+      ]
+    },
+    {
+      "sourceId": "e356",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-22",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "e338",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-23",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e338.loudness",
+        "audio-subs.e338.loudness-range",
+        "audio-subs.e338.level",
+        "audio-subs.e338.frequency"
+      ]
+    },
+    {
+      "sourceId": "e339",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-23",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e339.duration",
+        "audio-subs.e339.level"
+      ]
+    },
+    {
+      "sourceId": "e340",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-23",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e340.practice"
+      ]
+    },
+    {
+      "sourceId": "e395",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-25",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e395.card"
+      ]
+    },
+    {
+      "sourceId": "e399",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-26",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e399.loudness"
+      ]
+    },
+    {
+      "sourceId": "e326",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-27",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e326.duration",
+        "audio-subs.e326.frames",
+        "audio-subs.e326.level"
+      ]
+    },
+    {
+      "sourceId": "e327",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-27",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e327.level"
+      ]
+    },
+    {
+      "sourceId": "e328",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-27",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e328.practice"
+      ]
+    },
+    {
+      "sourceId": "e329",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-27",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e329.loudness",
+        "audio-subs.e329.loudness-range",
+        "audio-subs.e329.level"
+      ]
+    },
+    {
+      "sourceId": "e330",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-27",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e330.card"
+      ]
+    },
+    {
+      "sourceId": "e331",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-27",
+      "route": "skipped-or-conflict",
+      "targets": []
+    },
+    {
+      "sourceId": "e332",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-27",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e332.frequency"
+      ]
+    },
+    {
+      "sourceId": "e333",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-29",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e333.loudness",
+        "audio-subs.e333.loudness-range",
+        "audio-subs.e333.level",
+        "audio-subs.e333.frequency",
+        "audio-subs.e333.duration"
+      ]
+    },
+    {
+      "sourceId": "e334",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-29",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e334.frames"
+      ]
+    },
+    {
+      "sourceId": "e335",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-29",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e335.practice"
+      ]
+    },
+    {
+      "sourceId": "e336",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-29",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e336.practice"
+      ]
+    },
+    {
+      "sourceId": "e373",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b01",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e373.practice"
+      ]
+    },
+    {
+      "sourceId": "e372",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b02",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e372.duration"
+      ]
+    },
+    {
+      "sourceId": "e374",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b03",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e374.practice"
+      ]
+    },
+    {
+      "sourceId": "e392",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b04",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e392.duration"
+      ]
+    },
+    {
+      "sourceId": "e384",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b05",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e384.duration"
+      ]
+    },
+    {
+      "sourceId": "e385",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b05",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e385.practice"
+      ]
+    },
+    {
+      "sourceId": "e386",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b05",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e386.practice"
+      ]
+    },
+    {
+      "sourceId": "e377",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b06",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e377.practice"
+      ]
+    },
+    {
+      "sourceId": "e418",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-072",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e418.practice"
+      ]
+    },
+    {
+      "sourceId": "e387",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-01-original",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e387.duration"
+      ]
+    },
+    {
+      "sourceId": "e388",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-01-original",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e388.card"
+      ]
+    },
+    {
+      "sourceId": "e390",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-01-original",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e390.duration"
+      ]
+    },
+    {
+      "sourceId": "e400",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-01-original",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e400.duration",
+        "audio-subs.e400.loudness"
+      ]
+    },
+    {
+      "sourceId": "e416",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-01-original",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e416.duration"
+      ]
+    },
+    {
+      "sourceId": "e382",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b07",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e382.duration"
+      ]
+    },
+    {
+      "sourceId": "e391",
+      "kind": "detail",
+      "section": 12,
+      "caseId": "case-b08",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e391.duration"
+      ]
+    },
+    {
+      "sourceId": "e447",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-18",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e447.practice"
+      ]
+    },
+    {
+      "sourceId": "e448",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e448.duration",
+        "audio-subs.e448.loudness"
+      ]
+    },
+    {
+      "sourceId": "e449",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e449.duration"
+      ]
+    },
+    {
+      "sourceId": "e462",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-b05",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e462.practice"
+      ]
+    },
+    {
+      "sourceId": "e463",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-b05",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e463.card"
+      ]
+    },
+    {
+      "sourceId": "e464",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-b05",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e464.practice"
+      ]
+    },
+    {
+      "sourceId": "e465",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-b10",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e465.frequency"
+      ]
+    },
+    {
+      "sourceId": "e467",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-b10",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e467.duration"
+      ]
+    },
+    {
+      "sourceId": "e470",
+      "kind": "detail",
+      "section": 13,
+      "caseId": "case-b09",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e470.duration"
+      ]
+    },
+    {
+      "sourceId": "e443",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-13",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e443.duration"
+      ]
+    },
+    {
+      "sourceId": "e450",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e450.duration"
+      ]
+    },
+    {
+      "sourceId": "e451",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "practice",
+      "targets": [
+        "audio-subs.e451.practice"
+      ]
+    },
+    {
+      "sourceId": "e452",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e452.duration"
+      ]
+    },
+    {
+      "sourceId": "e453",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e453.card"
+      ]
+    },
+    {
+      "sourceId": "e454",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e454.duration",
+        "audio-subs.e454.frames"
+      ]
+    },
+    {
+      "sourceId": "e455",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e455.ratio"
+      ]
+    },
+    {
+      "sourceId": "e456",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e456.duration"
+      ]
+    },
+    {
+      "sourceId": "e457",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e457.duration"
+      ]
+    },
+    {
+      "sourceId": "e458",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e458.card"
+      ]
+    },
+    {
+      "sourceId": "e459",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-20",
+      "route": "card-coupled",
+      "targets": [
+        "audio-subs.e459.card"
+      ]
+    },
+    {
+      "sourceId": "e460",
+      "kind": "detail",
+      "section": 14,
+      "caseId": "case-20",
+      "route": "portable",
+      "targets": [
+        "audio-subs.e460.duration"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r01",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-18",
+      "route": "portable",
+      "summaryOf": "e296",
+      "targets": [
+        "audio-subs.sum.s01-t1-r01"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r02",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-20",
+      "route": "practice",
+      "summaryOf": "e301",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s01-t1-r03",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-15",
+      "route": "portable",
+      "summaryOf": "e322",
+      "targets": [
+        "audio-subs.sum.s01-t1-r03"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r04",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-27",
+      "route": "skipped-or-conflict",
+      "summaryOf": "e331",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s01-t1-r05",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-07",
+      "route": "portable",
+      "summaryOf": "e393",
+      "targets": [
+        "audio-subs.sum.s01-t1-r05"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r06",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-05",
+      "route": "portable",
+      "summaryOf": "e370",
+      "targets": [
+        "audio-subs.sum.s01-t1-r06"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r07",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-22",
+      "route": "skipped-or-conflict",
+      "summaryOf": "e356",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s01-t1-r08",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-19",
+      "route": "portable",
+      "summaryOf": "e394",
+      "targets": [
+        "audio-subs.sum.s01-t1-r08"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r09",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-14",
+      "route": "portable",
+      "summaryOf": "e378",
+      "targets": [
+        "audio-subs.sum.s01-t1-r09"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r10",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-16",
+      "route": "practice",
+      "summaryOf": "e376",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s01-t1-r11",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-02",
+      "route": "practice",
+      "summaryOf": "e383",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s01-t1-r12",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-12",
+      "route": "portable",
+      "summaryOf": "e404",
+      "targets": [
+        "audio-subs.sum.s01-t1-r12"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r13",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-05",
+      "route": "portable",
+      "summaryOf": "e351",
+      "targets": [
+        "audio-subs.sum.s01-t1-r13"
+      ]
+    },
+    {
+      "sourceId": "sum.s01-t1-r14",
+      "kind": "summary",
+      "section": 1,
+      "caseId": "case-13",
+      "route": "practice",
+      "summaryOf": "e191",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t1-r01",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "portable",
+      "summaryOf": "e20",
+      "targets": [
+        "audio-subs.sum.s02-t1-r01"
+      ]
+    },
+    {
+      "sourceId": "sum.s02-t1-r02",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e252",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t1-r03",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "summaryOf": "e260",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t1-r04",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "summaryOf": "e286",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t1-r05",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-02",
+      "route": "portable",
+      "summaryOf": "e358",
+      "targets": [
+        "audio-subs.sum.s02-t1-r05"
+      ]
+    },
+    {
+      "sourceId": "sum.s02-t2-r01",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e14",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t2-r02",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e15",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t2-r03",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e242",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t2-r04",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e253",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t2-r05",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-02",
+      "route": "practice",
+      "summaryOf": "e257",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s02-t2-r06",
+      "kind": "summary",
+      "section": 2,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "summaryOf": "e258",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s03-t1-r01",
+      "kind": "summary",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e24",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s03-t1-r02",
+      "kind": "summary",
+      "section": 3,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e23",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s03-t1-r03",
+      "kind": "summary",
+      "section": 3,
+      "caseId": "case-02",
+      "route": "practice",
+      "summaryOf": "e357",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s03-t1-r04",
+      "kind": "summary",
+      "section": 3,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "summaryOf": "e360",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s03-t1-r05",
+      "kind": "summary",
+      "section": 3,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e220",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s04-t1-r01",
+      "kind": "summary",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e35",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s04-t1-r02",
+      "kind": "summary",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e90",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s04-t1-r03",
+      "kind": "summary",
+      "section": 4,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e91",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s04-t1-r04",
+      "kind": "summary",
+      "section": 4,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "summaryOf": "e279",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s04-t1-r05",
+      "kind": "summary",
+      "section": 4,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "summaryOf": "e280",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s04-t1-r06",
+      "kind": "summary",
+      "section": 4,
+      "caseId": "case-02",
+      "route": "portable",
+      "summaryOf": "e359",
+      "targets": [
+        "audio-subs.sum.s04-t1-r06"
+      ]
+    },
+    {
+      "sourceId": "sum.s04-t1-r07",
+      "kind": "summary",
+      "section": 4,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e227",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s04-t1-r08",
+      "kind": "summary",
+      "section": 4,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e228",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r01",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e95",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r02",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e96",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r03",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e97",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r04",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e98",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r05",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e244",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r06",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e245",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r07",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e248",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r08",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-02",
+      "route": "portable",
+      "summaryOf": "e270",
+      "targets": [
+        "audio-subs.sum.s05-t1-r08"
+      ]
+    },
+    {
+      "sourceId": "sum.s05-t1-r09",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "summaryOf": "e271",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s05-t1-r10",
+      "kind": "summary",
+      "section": 5,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "summaryOf": "e274",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s07-t1-r01",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e431",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s07-t1-r02",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e434",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s07-t1-r03",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e435",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s07-t2-r01",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "card-coupled",
+      "summaryOf": "e406",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s07-t2-r02",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "summaryOf": "e304",
+      "targets": [
+        "audio-subs.sum.s07-t2-r02"
+      ]
+    },
+    {
+      "sourceId": "sum.s07-t2-r03",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "summaryOf": "e305",
+      "targets": [
+        "audio-subs.sum.s07-t2-r03"
+      ]
+    },
+    {
+      "sourceId": "sum.s07-t2-r04",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "summaryOf": "e306",
+      "targets": [
+        "audio-subs.sum.s07-t2-r04"
+      ]
+    },
+    {
+      "sourceId": "sum.s07-t2-r05",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "skipped-or-conflict",
+      "summaryOf": "e307",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s07-t2-r06",
+      "kind": "summary",
+      "section": 7,
+      "caseId": "case-20",
+      "route": "portable",
+      "summaryOf": "e308",
+      "targets": [
+        "audio-subs.sum.s07-t2-r06"
+      ]
+    },
+    {
+      "sourceId": "sum.s08-t1-r01",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "portable",
+      "summaryOf": "e128",
+      "targets": [
+        "audio-subs.sum.s08-t1-r01"
+      ]
+    },
+    {
+      "sourceId": "sum.s08-t1-r02",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "portable",
+      "summaryOf": "e129",
+      "targets": [
+        "audio-subs.sum.s08-t1-r02"
+      ]
+    },
+    {
+      "sourceId": "sum.s08-t1-r03",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e130",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s08-t1-r04",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e234",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s08-t1-r05",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "summaryOf": "e263",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s08-t1-r06",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-01",
+      "route": "portable",
+      "summaryOf": "e419",
+      "targets": [
+        "audio-subs.sum.s08-t1-r06"
+      ]
+    },
+    {
+      "sourceId": "sum.s08-t1-r07",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-01",
+      "route": "card-coupled",
+      "summaryOf": "e420",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s08-t1-r08",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-07",
+      "route": "portable",
+      "summaryOf": "e343",
+      "targets": [
+        "audio-subs.sum.s08-t1-r08"
+      ]
+    },
+    {
+      "sourceId": "sum.s08-t1-r09",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-05",
+      "route": "portable",
+      "summaryOf": "e348",
+      "targets": [
+        "audio-subs.sum.s08-t1-r09"
+      ]
+    },
+    {
+      "sourceId": "sum.s08-t1-r10",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-01-original",
+      "route": "card-coupled",
+      "summaryOf": "e388",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s08-t1-r11",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-b08",
+      "route": "portable",
+      "summaryOf": "e391",
+      "targets": [
+        "audio-subs.sum.s08-t1-r11"
+      ]
+    },
+    {
+      "sourceId": "sum.s08-t1-r12",
+      "kind": "summary",
+      "section": 8,
+      "caseId": "case-b04",
+      "route": "portable",
+      "summaryOf": "e392",
+      "targets": [
+        "audio-subs.sum.s08-t1-r12"
+      ]
+    },
+    {
+      "sourceId": "sum.s09-t1-r01",
+      "kind": "summary",
+      "section": 9,
+      "caseId": "case-13",
+      "route": "card-coupled",
+      "summaryOf": "e99",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s09-t1-r02",
+      "kind": "summary",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e224",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s09-t1-r03",
+      "kind": "summary",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e226",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s09-t1-r04",
+      "kind": "summary",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e227",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s09-t1-r05",
+      "kind": "summary",
+      "section": 9,
+      "caseId": "case-ext01",
+      "route": "card-coupled",
+      "summaryOf": "e229",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s09-t1-r06",
+      "kind": "summary",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "portable",
+      "summaryOf": "e265",
+      "targets": [
+        "audio-subs.sum.s09-t1-r06"
+      ]
+    },
+    {
+      "sourceId": "sum.s09-t1-r07",
+      "kind": "summary",
+      "section": 9,
+      "caseId": "case-02",
+      "route": "card-coupled",
+      "summaryOf": "e266",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s09-t1-r08",
+      "kind": "summary",
+      "section": 9,
+      "caseId": "case-01r",
+      "route": "card-coupled",
+      "summaryOf": "e281",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s10-t1-r01",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-18",
+      "route": "portable",
+      "summaryOf": "e294",
+      "targets": [
+        "audio-subs.sum.s10-t1-r01"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r02",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-20",
+      "route": "portable",
+      "summaryOf": "e312",
+      "targets": [
+        "audio-subs.sum.s10-t1-r02"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r03",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-15",
+      "route": "portable",
+      "summaryOf": "e323",
+      "targets": [
+        "audio-subs.sum.s10-t1-r03"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r04",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-27",
+      "route": "portable",
+      "summaryOf": "e329",
+      "targets": [
+        "audio-subs.sum.s10-t1-r04"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r05",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-29",
+      "route": "portable",
+      "summaryOf": "e333",
+      "targets": [
+        "audio-subs.sum.s10-t1-r05"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r06",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-23",
+      "route": "portable",
+      "summaryOf": "e338",
+      "targets": [
+        "audio-subs.sum.s10-t1-r06"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r07",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-07",
+      "route": "portable",
+      "summaryOf": "e345",
+      "targets": [
+        "audio-subs.sum.s10-t1-r07"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r08",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-05",
+      "route": "portable",
+      "summaryOf": "e348",
+      "targets": [
+        "audio-subs.sum.s10-t1-r08"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r09",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-05",
+      "route": "card-coupled",
+      "summaryOf": "e353",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s10-t1-r10",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-19",
+      "route": "portable",
+      "summaryOf": "e394",
+      "targets": [
+        "audio-subs.sum.s10-t1-r10"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r11",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-01-original",
+      "route": "portable",
+      "summaryOf": "e400",
+      "targets": [
+        "audio-subs.sum.s10-t1-r11"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r12",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-26",
+      "route": "portable",
+      "summaryOf": "e399",
+      "targets": [
+        "audio-subs.sum.s10-t1-r12"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r13",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-01r",
+      "route": "portable",
+      "summaryOf": "e288",
+      "targets": [
+        "audio-subs.sum.s10-t1-r13"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r14",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-01r",
+      "route": "portable",
+      "summaryOf": "e289",
+      "targets": [
+        "audio-subs.sum.s10-t1-r14"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r15",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-01",
+      "route": "portable",
+      "summaryOf": "e421",
+      "targets": [
+        "audio-subs.sum.s10-t1-r15"
+      ]
+    },
+    {
+      "sourceId": "sum.s10-t1-r16",
+      "kind": "summary",
+      "section": 10,
+      "caseId": "case-01",
+      "route": "card-coupled",
+      "summaryOf": "e422",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s11-t1-r01",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-27",
+      "route": "portable",
+      "summaryOf": "e0",
+      "targets": [
+        "audio-subs.sum.s11-t1-r01"
+      ]
+    },
+    {
+      "sourceId": "sum.s11-t1-r02",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-23",
+      "route": "card-coupled",
+      "summaryOf": "e337",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s11-t1-r03",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-05",
+      "route": "card-coupled",
+      "summaryOf": "e352",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s11-t1-r04",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-07",
+      "route": "portable",
+      "summaryOf": "e343",
+      "targets": [
+        "audio-subs.sum.s11-t1-r04"
+      ]
+    },
+    {
+      "sourceId": "sum.s11-t1-r05",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-07",
+      "route": "portable",
+      "summaryOf": "e346",
+      "targets": [
+        "audio-subs.sum.s11-t1-r05"
+      ]
+    },
+    {
+      "sourceId": "sum.s11-t1-r06",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-20",
+      "route": "portable",
+      "summaryOf": "e315",
+      "targets": [
+        "audio-subs.sum.s11-t1-r06"
+      ]
+    },
+    {
+      "sourceId": "sum.s11-t1-r07",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-15",
+      "route": "portable",
+      "summaryOf": "e325",
+      "targets": [
+        "audio-subs.sum.s11-t1-r07"
+      ]
+    },
+    {
+      "sourceId": "sum.s11-t1-r08",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-01-original",
+      "route": "portable",
+      "summaryOf": "e400",
+      "targets": [
+        "audio-subs.sum.s11-t1-r08"
+      ]
+    },
+    {
+      "sourceId": "sum.s11-t1-r09",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-01",
+      "route": "card-coupled",
+      "summaryOf": "e420",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s11-t1-r10",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-01",
+      "route": "card-coupled",
+      "summaryOf": "e422",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s11-t1-r11",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-b08",
+      "route": "portable",
+      "summaryOf": "e391",
+      "targets": [
+        "audio-subs.sum.s11-t1-r11"
+      ]
+    },
+    {
+      "sourceId": "sum.s11-t1-r12",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-01-original",
+      "route": "card-coupled",
+      "summaryOf": "e388",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s11-t1-r13",
+      "kind": "summary",
+      "section": 11,
+      "caseId": "case-b04",
+      "route": "portable",
+      "summaryOf": "e392",
+      "targets": [
+        "audio-subs.sum.s11-t1-r13"
+      ]
+    },
+    {
+      "sourceId": "sum.s13-t1-r01",
+      "kind": "summary",
+      "section": 13,
+      "caseId": "case-b10",
+      "route": "portable",
+      "summaryOf": "e465",
+      "targets": [
+        "audio-subs.sum.s13-t1-r01"
+      ]
+    },
+    {
+      "sourceId": "sum.s13-t1-r02",
+      "kind": "summary",
+      "section": 13,
+      "caseId": "case-b10",
+      "route": "portable",
+      "summaryOf": "e467",
+      "targets": [
+        "audio-subs.sum.s13-t1-r02"
+      ]
+    },
+    {
+      "sourceId": "sum.s13-t1-r03",
+      "kind": "summary",
+      "section": 13,
+      "caseId": "case-b02",
+      "route": "portable",
+      "summaryOf": "e372",
+      "targets": [
+        "audio-subs.sum.s13-t1-r03"
+      ]
+    },
+    {
+      "sourceId": "sum.s13-t1-r04",
+      "kind": "summary",
+      "section": 13,
+      "caseId": "case-b07",
+      "route": "portable",
+      "summaryOf": "e382",
+      "targets": [
+        "audio-subs.sum.s13-t1-r04"
+      ]
+    },
+    {
+      "sourceId": "sum.s13-t1-r05",
+      "kind": "summary",
+      "section": 13,
+      "caseId": "case-b05",
+      "route": "card-coupled",
+      "summaryOf": "e463",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s13-t1-r06",
+      "kind": "summary",
+      "section": 13,
+      "caseId": "case-b05",
+      "route": "practice",
+      "summaryOf": "e464",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s13-t1-r07",
+      "kind": "summary",
+      "section": 13,
+      "caseId": "case-07",
+      "route": "portable",
+      "summaryOf": "e344",
+      "targets": [
+        "audio-subs.sum.s13-t1-r07"
+      ]
+    },
+    {
+      "sourceId": "sum.s13-t1-r08",
+      "kind": "summary",
+      "section": 13,
+      "caseId": "case-b09",
+      "route": "portable",
+      "summaryOf": "e470",
+      "targets": [
+        "audio-subs.sum.s13-t1-r08"
+      ]
+    },
+    {
+      "sourceId": "sum.s14-t1-r01",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-13",
+      "route": "portable",
+      "summaryOf": "e443",
+      "targets": [
+        "audio-subs.sum.s14-t1-r01"
+      ]
+    },
+    {
+      "sourceId": "sum.s14-t1-r02",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "practice",
+      "summaryOf": "e451",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s14-t1-r03",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "summaryOf": "e452",
+      "targets": [
+        "audio-subs.sum.s14-t1-r03"
+      ]
+    },
+    {
+      "sourceId": "sum.s14-t1-r04",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "card-coupled",
+      "summaryOf": "e453",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s14-t1-r05",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "summaryOf": "e454",
+      "targets": [
+        "audio-subs.sum.s14-t1-r05"
+      ]
+    },
+    {
+      "sourceId": "sum.s14-t1-r06",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "summaryOf": "e455",
+      "targets": [
+        "audio-subs.sum.s14-t1-r06"
+      ]
+    },
+    {
+      "sourceId": "sum.s14-t1-r07",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "portable",
+      "summaryOf": "e456",
+      "targets": [
+        "audio-subs.sum.s14-t1-r07"
+      ]
+    },
+    {
+      "sourceId": "sum.s14-t1-r08",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-18",
+      "route": "card-coupled",
+      "summaryOf": "e458",
+      "targets": []
+    },
+    {
+      "sourceId": "sum.s14-t1-r09",
+      "kind": "summary",
+      "section": 14,
+      "caseId": "case-20",
+      "route": "card-coupled",
+      "summaryOf": "e459",
+      "targets": []
+    }
+  ]
+}
