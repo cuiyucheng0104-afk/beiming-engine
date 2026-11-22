@@ -137,6 +137,8 @@ const report = evaluateSourceConformance({ source: 'legacy-page', conformance: '
 
 也可传原始 `observations`，对应行优先重算而不信汇总：`normals` 为 `{expected, got}` 三维向量对；`sequential`、`shuffled`、`repeat` 是独立采集的帧记录数组，键为整数 `frame`。哈希档每帧带解码层数据的 SHA-256 `digest`。采集法线层时，每帧同时提供 `normalDigest`，任一层发生变化都会记为该帧不一致。容差档每帧带展平的 `rgb8` 三通道数组。按帧号配对，取各帧最低 PSNR 与最高大差像素比例（一个像素的任一通道差 **>5** 才计一次）。完全相同的像素在 JSON 报告中写 `'+Infinity'`。乱序至少两帧、帧集合相同且访问顺序确实改变；重复两遍不得代替乱序证据。
 
+两次采集的进程与会话由调用方建立。Three 的历史表保留六个场景的两遍 SHA-256 比较结论，Blender 的历史表还保留用于比对的摘要对。文件加载器另核对补测的帧源版本、校准像素集合、相机空间方向和转台的实际帧序。
+
 ## 历史不变量：逐项做正负对照
 
 `invariants.mjs` 的 `INVARIANTS` 按 `INV-01` 至 `INV-17` 登记。用 `makeValidInvariantFixture(id)` 看该项的输入形状；传入实际观测即可判定。`makeViolatingInvariantFixture(id)` 提供相同口径下的单故障反例。示例（不是对当前成片、CI 或机器的认证）：

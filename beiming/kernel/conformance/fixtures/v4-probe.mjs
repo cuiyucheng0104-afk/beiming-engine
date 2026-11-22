@@ -190,38 +190,64 @@ function summarize(rec) {
   };
 }
 
+// 规格固定，离线加载多张表只需求交一次。每次核对都使用独立的像素清单。
+let expectedNormals;
+function validNormalSamples(samples) {
+  expectedNormals ??= new Map(FRAMES.flatMap((f) => spherePixels(f).map((p) =>
+    [`${f}/${p.object}@${p.x},${p.y}`, toCamera(p.world)])));
+  if (!Array.isArray(samples) || samples.length !== expectedNormals.size) return false;
+  const unseen = new Map(expectedNormals);
+  const unitVector = (v) => Array.isArray(v) && v.length === 3 && v.every(Number.isFinite) && Math.abs(Math.hypot(...v) - 1) < 1e-3;
+  for (const n of samples) {
+    if (!n || !Number.isSafeInteger(n.frame) || !Array.isArray(n.pixel) || n.pixel.length !== 2 || !n.pixel.every(Number.isSafeInteger)) return false;
+    const key = `${n.frame}/${n.object}@${n.pixel}`, expected = unseen.get(key);
+    if (!expected || !unitVector(n.expected) || !unitVector(n.got) || deg(expected, n.expected) >= 1e-3) return false;
+    unseen.delete(key);
+  }
+  return unseen.size === 0;
+}
+
+function validTurntableOrder(rec) {
+  const matches = (run, frames) => Array.isArray(run) && run.length === frames.length && frames.every((f, i) => run[i]?.frame === f);
+  if (!matches(rec.sequential, FRAMES) || !matches(rec.shuffled, shuffledFrames())) return false;
+  // 这组转台帧的颜色必须随时间变化，才能检出总是返回第一帧的帧源。
+  if (rec.source === 'blender' && rec.machine === 'linux-5090') {
+    const first = rec.sequential[0].rgb8;
+    return Array.isArray(first) && rec.sequential.some(({ rgb8 }) => Array.isArray(rgb8) && rgb8.length === first.length && rgb8.some((v, i) => v !== first[i]));
+  }
+  const hex = (s) => typeof s === 'string' && /^[a-f0-9]{64}$/.test(s);
+  return [...rec.sequential, ...rec.shuffled].every((r) => hex(r.digest) && hex(r.normalDigest)) && new Set(rec.sequential.map((r) => r.digest)).size > 1;
+}
+
+/** 文件补测与通用读数的区别是已知场景、帧序和设备。失败的那一项留空，由套件判为缺测。 */
+export function probeObservations(rec, column) {
+  const p = rec.provenance;
+  if (!p || typeof p.sourceVersion !== 'string' || !p.sourceVersion || (column && p.sourceVersion !== column.version?.split(' ')[0])) return {};
+  const backend = rec.machine === 'mac' ? 'CPU' : 'OPTIX';
+  if (rec.source === 'blender' && p.device?.backend?.toUpperCase?.() !== backend) return {};
+  return { normals: validNormalSamples(rec.normals) ? rec.normals : null, sequential: rec.sequential,
+    shuffled: validTurntableOrder(rec) ? rec.shuffled : null };
+}
+
 /** 核已记的文件：结构、期望法线照规格重算对上、摘要和逐帧记录对上。不重渲 */
 function check(file) {
   const rec = JSON.parse(readFileSync(file, 'utf8'));
   assert.equal(rec.format, 'v4-probe/0.1');
   assert.ok(['three', 'blender'].includes(rec.source));
   assert.equal(rec.machine, 'mac', '这个脚本只记 Mac 一列');
-  assert.ok(rec.normals.length >= 50, '法线样本太少');
-  // 逐帧所选像素必须恰好是规格算出的那一批：不重复、不缺漏、不多出
-  for (const f of FRAMES) {
-    const got = rec.normals.filter((n) => n.frame === f).map((n) => `${n.object}@${n.pixel}`);
-    assert.equal(new Set(got).size, got.length, `第 ${f} 帧有重复的法线像素`);
-    assert.deepEqual(got.toSorted(), spherePixels(f).map((p) => `${p.object}@${p.x},${p.y}`).toSorted(), `第 ${f} 帧的法线像素和规格选出的不一致`);
-  }
-  assert.equal(rec.normals.length, new Set(rec.normals.map((n) => `${n.frame}/${n.object}@${n.pixel}`)).size);
-  for (const n of rec.normals) {
-    const want = sphereNormalAt(n.pixel[0], n.pixel[1], n.frame);
-    assert.ok(want && want.object === n.object, `第 ${n.frame} 帧像素 ${n.pixel} 不是 ${n.object} 的内部像素`);
-    assert.ok(deg(toCamera(want.world), n.expected) < 1e-3, `第 ${n.frame} 帧像素 ${n.pixel} 的期望法线和规格求交不符`);
-    assert.ok(Math.abs(Math.hypot(...n.got) - 1) < 1e-3, `第 ${n.frame} 帧像素 ${n.pixel} 的实测法线不是单位向量`);
-  }
+  const verified = probeObservations(rec);
+  assert.ok(verified.normals, '法线像素集合或方向与校准规格不符');
+  assert.ok(verified.shuffled, '转台帧序、颜色变化或层摘要不完整');
   assert.deepEqual(rec.sequential.map((x) => x.frame), rec.frameOrder.sequential);
   assert.deepEqual(rec.shuffled.map((x) => x.frame), rec.frameOrder.shuffled);
-  assert.deepEqual(rec.frameOrder.sequential, FRAMES);
-  assert.deepEqual(rec.frameOrder.shuffled, shuffledFrames(), '乱序不是命名随机流给的次序');
-  assert.ok(rec.frameOrder.shuffled.filter((f, i) => f !== FRAMES[i]).length >= 2, '乱序没有真的重排');
-  for (const x of [...rec.sequential, ...rec.shuffled]) assert.match(x.digest, /^[0-9a-f]{64}$/);
   const again = summarize(rec);
   for (const [k, v] of Object.entries(again)) assert.deepEqual(v, rec.observed[k], `摘要 ${k} 和记录对不上`);
   console.log(`ok ${file}: ${rec.source}/${rec.machine} 法线 ${again.normalSamples} 个样本 中位 ${again.normalMedianDeg}° 最大 ${again.normalMaxDeg}°；乱序挪动 ${again.reorderedPositions} 帧，颜色哈希不同 ${again.shuffledColorDigestMismatch} 帧`);
 }
 
-const [cmd, ...rest] = process.argv.slice(2);
-if (cmd === 'record') await record(rest[0]);
-else if (cmd === 'check') for (const f of rest.length ? rest : ['three', 'blender'].map((s) => join(HERE, `v4-${s}.mac.json`))) check(f);
-else { console.error('用法：v4-probe.mjs record <three|blender> | check [文件...]'); process.exit(2); }
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const [cmd, ...rest] = process.argv.slice(2);
+  if (cmd === 'record') await record(rest[0]);
+  else if (cmd === 'check') for (const f of rest.length ? rest : ['three', 'blender'].map((s) => join(HERE, `v4-${s}.mac.json`))) check(f);
+  else { console.error('用法：v4-probe.mjs record <three|blender> | check [文件...]'); process.exitCode = 2; }
+}

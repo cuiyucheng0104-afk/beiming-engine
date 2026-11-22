@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { iou } from './compare.mjs';
+import { probeObservations } from './fixtures/v4-probe.mjs';
 
 const TABLES = fileURLToPath(new URL('../../calib/table/', import.meta.url));
 const FIXTURES = fileURLToPath(new URL('fixtures/', import.meta.url));
@@ -76,7 +77,8 @@ export function evaluateSourceConformance({ source, machine = null, conformance 
   if (!['full', 'limited'].includes(conformance)) throw new RangeError('未知合规档');
   if (!['hash-same-machine', 'tolerance'].includes(determinism)) throw new RangeError('未知确定性档');
   const values = { ...readings };
-  if ('normals' in observations) values.normalMedianDeg = Array.isArray(observations.normals)
+  observations ??= {};
+  if (Object.hasOwn(observations, 'normals')) values.normalMedianDeg = Array.isArray(observations.normals)
     ? median(Array.from(observations.normals, (v) => v ? normalAngle(v) : NaN)) : NaN;
   for (const name of ['shuffled', 'repeat']) {
     if (Object.hasOwn(observations, name)) {
@@ -183,7 +185,7 @@ export function loadProbeSuiteReport(source, { machine = 'mac', conformance = 'f
     throw new Error('补测记录的机器、来源或格式不匹配');
   }
   const determinism = source === 'blender' && machine === 'linux-5090' ? 'tolerance' : 'hash-same-machine';
-  const observations = supplement ? { normals: supplement.normals, sequential: supplement.sequential, shuffled: supplement.shuffled } : {};
+  const observations = supplement ? probeObservations(supplement, column) : {};
   return evaluateSourceConformance({ source, machine, conformance, determinism,
     readings: column ? tableReadings(column, source, determinism) : {}, observations });
 }

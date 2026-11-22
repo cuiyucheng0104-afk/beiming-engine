@@ -156,12 +156,29 @@ test('Three 表的重复样本不能补缺，坏掉的编号框不能被历史 I
 test('补测只提供法线和乱序，不能为缺失的两遍探针表签发通过', (t) => {
   const tableDir = mkdtempSync(join(tmpdir(), 'probe-v4-'));
   t.after(() => rmSync(tableDir, { recursive: true, force: true }));
-  const sequential = ['a', 'b'].map((v, frame) => ({ frame, digest: v.repeat(64) }));
-  const supplement = { format: 'v4-probe/0.1', source: 'three', machine: 'mac', sequential,
-    shuffled: sequential.toReversed(), repeat: sequential };
+  const supplement = JSON.parse(readFileSync(new URL('./fixtures/v4-three.mac.json', import.meta.url)));
+  supplement.repeat = supplement.sequential;
   writeFileSync(join(tableDir, 'v4-three.mac.json'), JSON.stringify(supplement));
   const report = loadProbeSuiteReport('three', { tableDir, conformance: 'limited' });
   assert.deepEqual(failures(report), ['color-linearity', 'repeat-twice']);
+});
+
+test('加载器逐项拒绝伪造的采样位置、没有运动的转台或另一版本的证据', (t) => {
+  const tableDir = mkdtempSync(join(tmpdir(), 'probe-v4-'));
+  t.after(() => rmSync(tableDir, { recursive: true, force: true }));
+  writeFileSync(join(tableDir, 'three.json'), readFileSync(new URL('../../calib/table/three.json', import.meta.url)));
+  const original = readFileSync(new URL('./fixtures/v4-three.mac.json', import.meta.url), 'utf8');
+  for (const [mutate, failed] of [
+    [(s) => { s.normals = [{ got: [0, 0, 1], expected: [0, 0, 1] }]; }, ['normal-space']],
+    [(s) => { s.normals[0].expected = s.normals[1].expected; }, ['normal-space']],
+    [(s) => { for (const r of [...s.sequential, ...s.shuffled]) r.digest = 'a'.repeat(64); }, ['shuffled-order']],
+    [(s) => { s.provenance.sourceVersion = '0.0.1'; }, ['normal-space', 'shuffled-order']],
+  ]) {
+    const supplement = JSON.parse(original);
+    mutate(supplement);
+    writeFileSync(join(tableDir, 'v4-three.mac.json'), JSON.stringify(supplement));
+    assert.deepEqual(failures(loadProbeSuiteReport('three', { tableDir })), failed);
+  }
 });
 
 test('乱序渲染保留所采集的颜色与法线层逐帧摘要', () => {
