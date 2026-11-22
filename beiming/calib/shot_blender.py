@@ -1,4 +1,5 @@
-# 校准场景在 Blender 上的搭法（各场景目录里的 shot.blender.py 共用）：照 scene.json 的规格搭几何、自发光材质、相机和匀速运动。
+# 校准场景在 Blender 上的搭法（各场景目录里的 shot.blender.py 共用）：照 scene.json 的规格搭几何、材质、灯、相机和匀速运动。
+# 物体默认是自发光材质；写了 material 的用原理化 BSDF（底色、粗糙度、金属度），受规格的 lights 照。灯是半径 0 的点光源，瓦数原样。
 # 渲染设置、采样、编号都由帧源做（beiming/sources/blender/），这里只搭场景。搭法沿用一致性夹具 v4-blender.py，补了平面和匀速直线运动。
 # 规格的 (x, y, z)（Y 向上）写成 Blender 的 (x, -z, y)；传感器竖直适配；世界 = R运动 · R静态，同 check.mjs 的 objectTransform。
 import json
@@ -88,16 +89,34 @@ def build_scene(ctx, scene_path):
     scene.camera = cam
     cam.matrix_world = mat4(C3 @ np.column_stack([right, up, -fwd]), C3 @ pos)
 
+    for light in spec.get('lights', []):
+        if light['kind'] != 'point':
+            raise ValueError(f"不认识灯 {light['id']} 的种类")
+        lamp = bpy.data.lights.new(light['id'], 'POINT')
+        lamp.energy, lamp.color, lamp.shadow_soft_size = light['powerW'], light['colorLinear'], 0
+        ob = bpy.data.objects.new(light['id'], lamp)
+        scene.collection.objects.link(ob)
+        ob.location = Vector(C3 @ np.array(light['positionM'], float))
+
     entities = []
     for o in spec['objects']:
         material = bpy.data.materials.new(o['id'])
         material.use_nodes = True
         tree = material.node_tree
         tree.nodes.clear()
-        emission, output = tree.nodes.new('ShaderNodeEmission'), tree.nodes.new('ShaderNodeOutputMaterial')
-        emission.inputs[0].default_value = (*o['emissionLinear'], 1)
-        emission.inputs[1].default_value = 1
-        tree.links.new(emission.outputs[0], output.inputs[0])
+        output = tree.nodes.new('ShaderNodeOutputMaterial')
+        if 'material' in o:
+            shader = tree.nodes.new('ShaderNodeBsdfPrincipled')
+            shader.inputs['Base Color'].default_value = (*o['material']['baseColorLinear'], 1)
+            shader.inputs['Roughness'].default_value = o['material']['roughnessRatio']
+            shader.inputs['Metallic'].default_value = o['material']['metallicRatio']
+            shader.inputs['Emission Color'].default_value = (*o['emissionLinear'], 1)
+            shader.inputs['Emission Strength'].default_value = 1
+        else:
+            shader = tree.nodes.new('ShaderNodeEmission')
+            shader.inputs[0].default_value = (*o['emissionLinear'], 1)
+            shader.inputs[1].default_value = 1
+        tree.links.new(shader.outputs[0], output.inputs[0])
         data = mesh(o)
         data.materials.append(material)
         ob = bpy.data.objects.new(o['id'], data)

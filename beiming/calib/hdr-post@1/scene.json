@@ -44,7 +44,7 @@
   ],
   "objects": [
     {
-      "id": "ev-m4",
+      "id": "ev.m4",
       "idIndex": 1,
       "shape": "plane",
       "sizeM": [
@@ -63,7 +63,7 @@
       ]
     },
     {
-      "id": "ev-m2",
+      "id": "ev.m2",
       "idIndex": 2,
       "shape": "plane",
       "sizeM": [
@@ -82,7 +82,7 @@
       ]
     },
     {
-      "id": "ev-0",
+      "id": "ev.0",
       "idIndex": 3,
       "shape": "plane",
       "sizeM": [
@@ -101,7 +101,7 @@
       ]
     },
     {
-      "id": "ev-p2",
+      "id": "ev.p2",
       "idIndex": 4,
       "shape": "plane",
       "sizeM": [
@@ -120,7 +120,7 @@
       ]
     },
     {
-      "id": "ev-p4",
+      "id": "ev.p4",
       "idIndex": 5,
       "shape": "plane",
       "sizeM": [
@@ -139,7 +139,7 @@
       ]
     },
     {
-      "id": "ev-p6",
+      "id": "ev.p6",
       "idIndex": 6,
       "shape": "plane",
       "sizeM": [
@@ -158,7 +158,7 @@
       ]
     },
     {
-      "id": "sat-red",
+      "id": "sat.red",
       "idIndex": 7,
       "shape": "plane",
       "sizeM": [
@@ -177,7 +177,7 @@
       ]
     },
     {
-      "id": "sat-green",
+      "id": "sat.green",
       "idIndex": 8,
       "shape": "plane",
       "sizeM": [
@@ -196,7 +196,7 @@
       ]
     },
     {
-      "id": "sat-blue",
+      "id": "sat.blue",
       "idIndex": 9,
       "shape": "plane",
       "sizeM": [
@@ -215,7 +215,7 @@
       ]
     },
     {
-      "id": "gray-18",
+      "id": "gray.18",
       "idIndex": 10,
       "shape": "plane",
       "sizeM": [
@@ -234,7 +234,7 @@
       ]
     },
     {
-      "id": "white-1",
+      "id": "white.1",
       "idIndex": 11,
       "shape": "plane",
       "sizeM": [
@@ -253,7 +253,7 @@
       ]
     },
     {
-      "id": "black-0",
+      "id": "black.0",
       "idIndex": 12,
       "shape": "plane",
       "sizeM": [
@@ -272,7 +272,7 @@
       ]
     },
     {
-      "id": "spark-1000",
+      "id": "spark.1000",
       "idIndex": 13,
       "shape": "sphere",
       "radiusM": 0.02,
@@ -288,7 +288,7 @@
       ]
     },
     {
-      "id": "spark-100",
+      "id": "spark.100",
       "idIndex": 14,
       "shape": "sphere",
       "radiusM": 0.06,
@@ -304,7 +304,7 @@
       ]
     },
     {
-      "id": "bar-50",
+      "id": "bar.50",
       "idIndex": 15,
       "shape": "box",
       "sizeM": [
@@ -327,7 +327,7 @@
   "expected": [
     {
       "kind": "patchColor",
-      "objectId": "ev-m4",
+      "objectId": "ev.m4",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -342,7 +342,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "ev-m2",
+      "objectId": "ev.m2",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -357,7 +357,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "ev-0",
+      "objectId": "ev.0",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -372,7 +372,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "ev-p2",
+      "objectId": "ev.p2",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -387,7 +387,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "ev-p4",
+      "objectId": "ev.p4",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -402,7 +402,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "ev-p6",
+      "objectId": "ev.p6",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -417,7 +417,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "sat-red",
+      "objectId": "sat.red",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -432,7 +432,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "sat-green",
+      "objectId": "sat.green",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -447,7 +447,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "sat-blue",
+      "objectId": "sat.blue",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -462,7 +462,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "gray-18",
+      "objectId": "gray.18",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -477,7 +477,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "white-1",
+      "objectId": "white.1",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -492,7 +492,7 @@
     },
     {
       "kind": "patchColor",
-      "objectId": "black-0",
+      "objectId": "black.0",
       "toleranceRatio": 0.02,
       "source": "面片中心在第 0 帧的针孔投影；这个像素最先打到这块面片，读回值等于它的 emissionLinear",
       "pixelPx": [
@@ -507,7 +507,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "spark-1000",
+      "objectId": "spark.1000",
       "atFrame": 0,
       "subFrameRatio": 0,
       "localPointM": [
@@ -524,7 +524,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "spark-100",
+      "objectId": "spark.100",
       "atFrame": 0,
       "subFrameRatio": 0,
       "localPointM": [
@@ -541,7 +541,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "bar-50",
+      "objectId": "bar.50",
       "atFrame": 0,
       "subFrameRatio": 0,
       "localPointM": [
@@ -558,7 +558,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "bar-50",
+      "objectId": "bar.50",
       "atFrame": 0,
       "subFrameRatio": 0,
       "localPointM": [
@@ -583,11 +583,11 @@
       "toleranceRatio": 0.02,
       "source": "亮度 1000 的小球中心所在像素：只打到它，后期之前这个像素的线性值是 1000",
       "intendedHitIds": [
-        "spark-1000"
+        "spark.1000"
       ],
       "hits": [
         {
-          "objectId": "spark-1000",
+          "objectId": "spark.1000",
           "planeDepthM": 1.982517,
           "rayDistanceM": 2.174708
         }
@@ -603,11 +603,11 @@
       "toleranceRatio": 0.02,
       "source": "细条中段的像素：只打到细条的正面",
       "intendedHitIds": [
-        "bar-50"
+        "bar.50"
       ],
       "hits": [
         {
-          "objectId": "bar-50",
+          "objectId": "bar.50",
           "planeDepthM": 1.994,
           "rayDistanceM": 2.110234
         }
@@ -623,11 +623,11 @@
       "toleranceRatio": 0.02,
       "source": "最亮一级曝光阶（64）的中心像素：平面深度 2 米",
       "intendedHitIds": [
-        "ev-p6"
+        "ev.p6"
       ],
       "hits": [
         {
-          "objectId": "ev-p6",
+          "objectId": "ev.p6",
           "planeDepthM": 2,
           "rayDistanceM": 2.27531
         }

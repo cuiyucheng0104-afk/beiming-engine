@@ -24,6 +24,7 @@
 | `Dir` | 无量纲方向 | 方向向量，不必归一，使用时归一 |
 | `Ratio` | 无量纲比例 | 子帧、相对容差、交并比 |
 | `Index` | 无量纲编号 | 必须是整数 |
+| `W` | 瓦 | 只在灯的 `powerW`，口径见下面「灯」一节 |
 
 ### 顶层
 
@@ -39,6 +40,7 @@
 | `camera` | 见下 |
 | `backgroundLinear` | 背景色，场景线性 |
 | `objects` | 物体数组，见下 |
+| `lights` | 可选，灯的数组，见下。不写就是没有灯 |
 | `expected` | 标准答案数组，见第 2 节 |
 
 ### 相机 `camera`
@@ -53,7 +55,7 @@
 
 ### 物体 `objects[]`
 
-只用解析形体，没有贴图、模型文件，没有灯光。材质只有自发光：`emissionLinear` 是表面的场景线性出射值，不受光照、不过色调映射时读回应等于它。
+只用解析形体，没有贴图、模型文件。物体默认是不受光的自发光体：`emissionLinear` 是表面的场景线性出射值，不受光照、不过色调映射时读回应等于它。写了 `material` 的物体受 `lights` 照，读回多少要看灯和渲染器，规格不给答案（对它写 `patchColor` 检查器拒收）；它的 `emissionLinear` 照常必填，一般写 0。
 
 | 字段 | 说明 |
 |---|---|
@@ -64,9 +66,14 @@
 | `positionM` | 第 0 帧时局部原点在世界里的位置（形体中心） |
 | `rotation` | 可选，`axisDir` + `angleRad`，轴角，右手定则（正角度从轴尖往回看是逆时针，绕 +Y 转正角度把 +X 转向 −Z） |
 | `emissionLinear` | 自发光，场景线性 |
+| `material` | 可选，受光材质。`kind` 只能是 `standard`；`baseColorLinear` 底色；`roughnessRatio` 粗糙度、`metallicRatio` 金属度，都在 0 到 1 之间。三个字段都必填 |
 | `motion` | 可选。`linear`：`velocityMPerFrame`，位置 = `positionM` + 速度 × t；`spin`：`pivotM`、`axisDir`、`angularVelocityRadPerFrame`，物体整体（位置连同朝向）绕过 `pivotM` 的轴转 ω × t |
 
 t 是时刻：帧号加子帧，t = `atFrame` + `subFrameRatio`。世界变换 p世界 = R · p局部 + T，其中 R = R运动 · R静态，`spin` 时 T = R运动 · (`positionM` − `pivotM`) + `pivotM`。
+
+### 灯 `lights[]`
+
+可选。每盏灯：`id`（名字，不和物体、别的灯重复）、`kind`（只能是 `point`，半径为 0 的点光源）、`positionM`、`colorLinear`（不为负）、`powerW`（大于 0）。瓦数照 Blender 点光源的口径：正对着灯、距离 d 米的漫反射面读回 = 底色 × `powerW` / (4π² × d²)；three 那边换成坎德拉是 `powerW` / 4π。灯不是物体：不进编号层、实体表和裁剪面检查。
 
 ## 2. 标准答案 `expected[]`
 
@@ -80,7 +87,7 @@ t 是时刻：帧号加子帧，t = `atFrame` + `subFrameRatio`。世界变换 p
 |---|---|---|---|---|
 | `pixelHits` | `atFrame`、`pixelPx`、`intendedHitIds`（这个像素按设计应当依次打到的物体名，由近到远；空数组表示背景） | `hits`：[{`objectId`、`planeDepthM`、`rayDistanceM`}]，由近到远；空数组表示背景 | `toleranceRatio` | 过像素中心的射线逐个与物体求交，每个物体取第一个交点。`planeDepthM` 是沿相机前方向的深度，`rayDistanceM` 是从相机到交点的距离。第一项就是这个像素该看到的物体、该有的深度和编号；整列是遮挡顺序。重算出的物体名序列和 `intendedHitIds` 不一致就报，防止像素选错了地方 |
 | `projectPoint` | `objectId`、`atFrame`、`subFrameRatio`、`localPointM`；可选 `sampleAt` | `pixelPx`；写了 `sampleAt` 时 `subFrameRatio` 也是答案 | `tolerancePx` | 物体局部点在时刻 t 的世界位置做针孔投影。`sampleAt` 只能是 `shutterMid`：子帧由快门算，= `shutterAngleDeg` / 360 / 2 |
-| `patchColor` | `objectId` | `pixelPx`、`valueLinear` | `toleranceRatio` | `pixelPx` 是面片中心在 `startFrame` 的投影；再确认这个像素最先打到的是这块面片，值就是它的 `emissionLinear` |
+| `patchColor` | `objectId` | `pixelPx`、`valueLinear` | `toleranceRatio` | `pixelPx` 是面片中心在 `startFrame` 的投影；再确认这个像素最先打到的是这块面片，值就是它的 `emissionLinear`。只能指自发光物体（不带 `material` 的） |
 | `projectedBox` | `objectId`、`atFrame` | `boxMinPx`、`boxMaxPx` | `minIouRatio` | `box` 的 8 个角或 `plane` 的 4 个角投影后取最小、最大，不计遮挡，即元数据包围盒 |
 | `projectedWidth` | `objectId`、`atFrame` | `widthPx` | `tolerancePx` | 只用于 `cylinder`：中心沿相机右方向 ±半径两点投影的横坐标差 |
 
@@ -104,30 +111,44 @@ t 是时刻：帧号加子帧，t = `atFrame` + `subFrameRatio`。世界变换 p
 
 ## 4. 检查器
 
-`check.mjs` 只用 Node 标准库，导出 `checkScene`、`checkFormat`、`checkUnits`、`checkClip`、`computeExpected`、`raycast`、`project` 等函数；直接运行时加载本目录下全部 `probe-*/scene.json`，每个场景一行，最后一行「N 个场景，M 个有问题」。有问题或场景不是 7 个时退出码 1。
+`check.mjs` 只用 Node 标准库，导出 `checkScene`、`checkFormat`、`checkUnits`、`checkClip`、`computeExpected`、`raycast`、`project` 等函数；直接运行时加载本目录下带 `scene.json` 的全部场景（七个 `probe-*` 加四个公开场景），每个场景一行，最后一行「11 个场景，M 个有问题」。有问题或场景不是 11 个时退出码 1。`loadScenes()` 默认只列七个 `probe-*`，传 `{ all: true }` 列全部。
 
 ## 5. 四个公开校准场景
 
-同一种格式、同一个检查器（`checkScene`），目录名带版本（`<名字>@1`），引用写 `calib/<名字>@1`。内容定了就不改：要改规格另起 `@2`。直接运行 `check.mjs` 只查 `probe-*`；这四个由 `c8.test.mjs` 逐个过 `checkScene`。
+同一种格式、同一个检查器（`checkScene`），目录名带版本（`<名字>@1`），引用写 `calib/<名字>@1`。内容定了就不改：要改规格另起 `@2`。直接运行 `check.mjs` 时和探针场景一起查。
+
+物体名都是 `meta/0.1` 认的实体名（点分的字母、数字、下划线，不带连字符），两个帧源交回的每帧元数据直接过得了正式契约。七个 `probe-*` 的物体名还带连字符：它们没有镜头入口，不经帧源出元数据，一致性夹具（`beiming/kernel/conformance/`）也按这些名字引用，所以没动。
 
 | 场景 | 里面有什么 | 标准答案 |
 |---|---|---|
-| `hdr-post@1` | 2 米外三排自发光体，背景 0.02。上排六级曝光阶 2⁻⁴ 到 2⁶（`ev-m4` 到 `ev-p6`，每级 4 倍）；中排亮度 8 的红绿蓝、18% 灰、白 1、黑 0；下排亮度 1000、100 的两个小球（`spark-1000` 半径 2 厘米、`spark-100` 半径 6 厘米）和一根亮度 50、1.2 厘米粗的细条 `bar-50` | 12 块面片的中心像素和线性值；两个小球球心、细条两端的屏幕位置；四个像素的求交：最亮小球、细条、最亮色块、两排之间的背景（辉光开着时会被洇到，后期之前应是背景值） |
-| `studio-balls@1` | 相机在 (0, 0.8, 3) 斜向下看。3 × 2 米地台 `floor`（平放的平面）；半径 0.25 米的三个球 `ball-gray`（0.18）、`ball-white`（0.9）、`ball-black`（0.03）；后上方六块色卡 `chart-*`；右侧 1 米高、半径 1 厘米的标尺杆 `ruler` | 六块色卡的中心像素和线性值；三个球心、标尺杆两端的屏幕位置（两端的像素距离是这个位置上 1 米的屏幕长度）；标尺杆的投影宽度；五个像素的求交：白球加地台、只有白球、只有地台、只有标尺杆、背景 |
-| `boxes-explode@1` | 八个 0.3 米方块在 5 米外拼成 0.6 米的大方块，第 0 到 24 帧各自沿对角方向匀速散开。前排 `near-*` 每帧横竖各 2 厘米、朝相机 2 厘米；后排 `far-*` 每帧横竖各 5 厘米、远离相机 2 厘米。名字里 `l`、`r` 是 −X、+X，`d`、`u` 是 −Y、+Y | 八个方块中心在第 24 帧的位置；`near-ru`、`far-ru` 在第 0、12 帧和第 12 帧 sub = 0.5 的位置；`near-ru` 在第 0、12、24 帧、`far-ru` 在第 24 帧的元数据包围盒；五个像素的求交：拼合时前后两块、散开一半时外角挡内角、散开后的正中背景、前排和后排各一块 |
-| `mech-head-proxy@1` | 照 `beiming/api/mech-head-proxy.json` 零件清单的比例拼的头：头壳 `housing`、面罩 `visor`、下颌 `jaw` 三个盒子，耳轴 `trunnion-l`（−X）、`trunnion-r`（+X）两个横放的短圆柱（带静态旋转），天线 `antenna`，面罩上亮度 4 的小球 `sensor`。整体绕过原点的 +Y 轴每 48 帧一圈；相机在 0.6 米外，近裁剪面 0.05 米 | 头壳、面罩、下颌在第 0 帧，头壳、面罩在第 12 帧的元数据包围盒；传感器球心在第 0、12、24、36 帧的位置（分辨旋转方向）；天线顶端在第 0、24 帧的位置和天线的投影宽度；四个像素的求交：传感器加面罩加头壳、下颌、第 24 帧背面的头壳加面罩、背景 |
+| `hdr-post@1` | 2 米外三排自发光体，背景 0.02。上排六级曝光阶 2⁻⁴ 到 2⁶（`ev.m4` 到 `ev.p6`，每级 4 倍）；中排亮度 8 的红绿蓝（`sat.*`）、18% 灰 `gray.18`、白 `white.1`、黑 `black.0`；下排亮度 1000、100 的两个小球（`spark.1000` 半径 2 厘米、`spark.100` 半径 6 厘米）和一根亮度 50、1.2 厘米粗的细条 `bar.50` | 12 块面片的中心像素和线性值；两个小球球心、细条两端的屏幕位置；四个像素的求交：最亮小球、细条、最亮色块、两排之间的背景（辉光开着时会被洇到，后期之前应是背景值） |
+| `studio-balls@1` | 相机在 (0, 0.8, 3) 斜向下看。3 × 2 米的受光地台 `floor`（底色 0.4）；半径 0.25 米的四个受光球：18% 灰漫反射 `ball.gray`、铬球 `ball.chrome`（金属度 1、粗糙度 0.25、底色 0.9）、90% 白 `ball.white`、3% 黑 `ball.black`；三点棚灯是三个点光源：主灯 `key`（左前上方，500 瓦）、辅灯 `fill`（右前方，150 瓦）、轮廓灯 `rim`（后上方，300 瓦）。后上方六块自发光色卡 `chart.*`；右侧 1 米高、半径 1 厘米的自发光标尺杆 `ruler` | 六块色卡的中心像素和线性值；四个球心、标尺杆两端的屏幕位置（两端的像素距离是这个位置上 1 米的屏幕长度）；标尺杆的投影宽度；六个像素的求交：白球加地台、只有白球、只有铬球、只有地台、只有标尺杆、背景 |
+| `boxes-explode@1` | 八个 0.3 米方块在 5 米外拼成 0.6 米的大方块，第 0 到 24 帧各自沿对角方向匀速散开。前排 `box.near_*` 每帧横竖各 2 厘米、朝相机 2 厘米；后排 `box.far_*` 每帧横竖各 5 厘米、远离相机 2 厘米。名字里 `l`、`r` 是 −X、+X，`d`、`u` 是 −Y、+Y | 八个方块中心在第 24 帧的位置；`box.near_ru`、`box.far_ru` 在第 0、12 帧和第 12 帧 sub = 0.5 的位置；`box.near_ru` 在第 0、12、24 帧、`box.far_ru` 在第 24 帧的元数据包围盒；五个像素的求交：拼合时前后两块、散开一半时外角挡内角、散开后的正中背景、前排和后排各一块 |
+| `mech-head-proxy@1` | 照 `beiming/api/mech-head-proxy.json` 零件清单的比例拼的头，物体名都带 `head.` 前缀：头壳 `head.housing`、面罩 `head.visor`、下颌 `head.jaw` 三个盒子，耳轴 `head.trunnion_l`（−X）、`head.trunnion_r`（+X）两个横放的短圆柱（带静态旋转），天线 `head.antenna`，面罩上亮度 4 的小球 `head.sensor`。整体绕过原点的 +Y 轴每 48 帧一圈；相机在 (0, 0.05, 0.7) 看向 (0, 0.02, 0)，近裁剪面 0.05 米 | 头壳、面罩、下颌在第 0 帧，头壳、面罩在第 12 帧的元数据包围盒；传感器球心在第 0、12、24、36 帧的位置（分辨旋转方向）；天线顶端在第 0、24 帧的位置和天线的投影宽度；四个像素的求交：传感器加面罩加头壳、下颌、第 24 帧背面的头壳加面罩、背景 |
 
-`studio-balls@1` 的球和色卡只有自发光：`emissionLinear` 是不受光、不过色调映射时该读回的基准值，灯光和材质由用它的标定流程另加，规格不给受光后的答案。
+`studio-balls@1` 的受光读数没有标准答案，两个帧源也不相等：three 只有直接光（没有投影、环境反射和间接光），Blender 是路径追踪（地台的反弹光把球的暗部垫高，铬球映出地台和色卡）。本机实测灰球最亮处 three 0.221、Cycles 0.229，铬球高光峰值 39.6、49.1。色卡和标尺杆是自发光，读回等于 `emissionLinear`。两个宿主现在都把每帧元数据的 `lights` 写成 `null`（能力声明的 `metaNull`）；要灯位的下游用 `calibMetaLights(scene)`（`index.mjs`），它把规格的灯表换成 `meta/0.1` 的 `lights` 写法（`name`、`type`、`pos`、`watts`、`color`）。
+
+`mech-head-proxy@1` 的机位按考题 28-1（`beiming/kernel/contracts/question-file/examples/full.json`）的取景限制定：1920 × 824 和默认 640 × 360 两种画幅下，转一整圈每一帧整头（全部零件并在一起）的上留白 20.5% 到 23.7%、下留白不少于 21.2%、左右留白不少于 38%，头宽不超过 60%、高不超过 70%。
 
 ### 镜头入口
 
-每个公开场景的目录里有两个入口文件，规格都读旁边的 `scene.json`：`shot.three.js`（页面宿主，`native-code` 模式，搭法在 `shot-three.js`）和 `shot.blender.py`（Blender 帧源，`build-script` 模式，搭法在 `shot_blender.py`）。两边的世界变换都照第 1 节的 R = R运动 · R静态；球在 three 上是 64 × 32 段、在 Blender 上是 128 × 64 段，圆柱都是 128 段，平面两面都画。
+每个公开场景的目录里有两个入口文件，规格都读旁边的 `scene.json`：`shot.three.js`（页面宿主，`native-code` 模式，搭法在 `shot-three.js`）和 `shot.blender.py`（Blender 帧源，`build-script` 模式，搭法在 `shot_blender.py`）。两边的世界变换都照第 1 节的 R = R运动 · R静态；球在 three 上是 64 × 32 段、在 Blender 上是 128 × 64 段，圆柱都是 128 段，平面两面都画。自发光物体在 three 上是 `MeshBasicMaterial`、在 Blender 上是自发光着色器；带 `material` 的在 three 上是 `MeshStandardMaterial`、在 Blender 上是原理化 BSDF；灯在两边都是点光源。
+
+`resolveCalibScene(ref, { allowProbes })` 默认只认 `PUBLIC_CALIB_SCENES` 里的四个；`probe-*` 要显式传 `{ allowProbes: true }`，不传报 `RangeError`。
 
 `materializeCalibWorkspace(ref, outDir, { source, size })`（`index.mjs`）：
 
 - `source` 是 `both`（默认）、`three`、`blender`；`size` 是输出画幅 [宽, 高]，不写用规格相机的 `widthPx`、`heightPx`。输出画幅和规格不同时竖直视场角不变，标准答案里的像素坐标要按高度的比例换算；宽高比也不同时横向视场跟着变。
-- 片子描述（`film/3.0`）写到 `outDir/film.json`：一个镜头 `s01`，帧号 0 到 `endFrame`，种子固定，不写快门（标准答案都是针孔、sub = 0；Blender 开着原生运动模糊交不出辅助层）。`film` 里的镜头条目写的是 three 那一套，只要 Blender 时写 Blender 的。
+- 片子描述（`film/3.0`）写到 `outDir/film.json`，排他创建：这个文件已经存在（哪怕是另一个调用刚写的）就报 `code` 为 `EEXIST` 的错，原文件不动；两个调用抢同一个目录只有一个成。内容：一个镜头 `s01`，帧号 0 到 `endFrame`，种子固定，不写快门（标准答案都是针孔、sub = 0；Blender 开着原生运动模糊交不出辅助层）。`film` 里的镜头条目写的是 three 那一套，只要 Blender 时写 Blender 的。
 - 返回的 `filmDir` 是场景目录，不是 `outDir`：页面宿主只放行 `beiming/` 下的入口文件，镜头入口随场景入库，不往 `outDir` 抄。`open` 时 `lock` 写 `null`（镜头带种子，不用卡和资产）。
-- 探针场景没有入口文件，传进来报 `RangeError`。
+- 探针场景没有入口文件，也不在公开清单里，传进来报 `RangeError`。
 
-`c8.test.mjs` 在两个帧源上各把四个场景实渲一遍：层文件的哈希和字节数对得上层引用，实体表等于规格的物体表，编号层在每个 `pixelHits` 像素上读到的就是标准答案的第一个物体（背景读 0），深度层读到它的平面深度，元数据包围盒和 `projectedBox` 的交并比过线，颜色层在 `patchColor` 像素上读到面片的线性值。`projectPoint`、`projectedWidth` 只由检查器重算，不对渲染结果。机器上没有浏览器或 Blender 时这几项跳过。
+`c8.test.mjs` 在两个帧源上各把四个场景实渲一遍：
+
+- 每一帧的原始元数据直接过 `meta/0.1` 的正式校验（`beiming/kernel/contracts/validate.mjs`），结构和不变量都是 0 问题。
+- 层文件的哈希和字节数对得上层引用，实体表等于规格的物体表，编号层在每个 `pixelHits` 像素上读到的就是标准答案的第一个物体（背景读 0），深度层读到它的平面深度，元数据包围盒和 `projectedBox` 的交并比过线，颜色层在 `patchColor` 像素上读到面片的线性值。`projectPoint`、`projectedWidth` 只由检查器重算，不对渲染结果。
+- `hdr-post@1`：`spark.1000`、`spark.100`、`bar.50` 中心 5 × 5 像素的线性峰值在标称值的 0.5 到 1.5 倍之间。标称值写死在测试里，不从规格读（规格里把亮球改成 0，规格自己还是自洽的）。
+- `studio-balls@1`：灰球圆盘里第 90 百分位亮度至少是第 10 百分位的 1.5 倍、相差至少 0.05，朝主灯的半个圆盘至少比背光的一半亮 1.25 倍；铬球峰值至少是 1、且至少是球面中位亮度的 5 倍。
+- `mech-head-proxy@1`：1920 × 824（Blender 走终稿档，草稿档最大 960 × 540）和 640 × 360 下，第 0、12、24、36、48 帧编号层全部非背景像素的包围盒四边留白都不少于 15%，并满足 28-1 的宽高和左右留白；不起帧源的那一项从规格把 49 帧全算一遍。
+
+只有二进制确实不在（没装浏览器或 Blender）时这两项跳过；帧源起来之后的任何错都算失败。验收环境要核对跳过数是 0。

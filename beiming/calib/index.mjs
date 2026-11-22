@@ -21,23 +21,31 @@ function deepFreeze(v) {
   return v;
 }
 
-/** ref 写 'calib/<场景名>' 或 '<场景名>'。返回深冻结的 { ref, id, dir, scenePath, scene }；不是字符串抛 TypeError，没有这个场景抛 RangeError */
-export function resolveCalibScene(ref) {
+/**
+ * ref 写 'calib/<场景名>' 或 '<场景名>'。默认只认 PUBLIC_CALIB_SCENES 里的四个；probe-* 探针场景要显式传 { allowProbes: true }。
+ * 返回深冻结的 { ref, id, dir, scenePath, scene }；不是字符串抛 TypeError，没有这个场景（或没放行）抛 RangeError
+ */
+export function resolveCalibScene(ref, { allowProbes = false } = {}) {
   if (typeof ref !== 'string') throw new TypeError(`校准场景引用必须是字符串，给的是 ${ref === null ? 'null' : typeof ref}`);
   const id = ref.startsWith('calib/') ? ref.slice('calib/'.length) : ref;
   const dir = join(CALIB_DIR, id), scenePath = join(dir, 'scene.json');
-  if (!ID.test(id) || !existsSync(scenePath)) throw new RangeError(`没有校准场景 ${JSON.stringify(ref)}`);
+  const listed = PUBLIC_CALIB_SCENES.includes(`calib/${id}`) || (allowProbes && id.startsWith('probe-'));
+  if (!ID.test(id) || !listed || !existsSync(scenePath)) throw new RangeError(`没有校准场景 ${JSON.stringify(ref)}${id.startsWith('probe-') && !allowProbes ? '（探针场景要传 { allowProbes: true }）' : ''}`);
   return deepFreeze({ ref: `calib/${id}`, id, dir, scenePath, scene: JSON.parse(readFileSync(scenePath, 'utf8')) });
 }
 
 /** 默认列四个公开场景；includeProbes 时后面接七个 probe-* 探针场景 */
 export function listCalibScenes({ includeProbes = false } = {}) {
   const refs = [...PUBLIC_CALIB_SCENES, ...(includeProbes ? loadScenes().map((s) => s.name) : [])];
-  return Object.freeze(refs.map(resolveCalibScene));
+  return Object.freeze(refs.map((ref) => resolveCalibScene(ref, { allowProbes: includeProbes })));
 }
+
+/** 规格的灯表（scene.lights，没有就是空）换成 meta/0.1 的 lights 写法。两个宿主现在都把 meta.lights 写成 null（能力声明的 metaNull），要灯位的下游拿这个 */
+export const calibMetaLights = (scene) => (scene.lights ?? []).map((l) => ({ name: l.id, type: l.kind, pos: [...l.positionM], watts: l.powerW, color: [...l.colorLinear] }));
 
 /**
  * 备好一个场景在两个帧源上的镜头输入，片子描述写到 outDir/film.json。source 是 both、three、blender；size 是输出画幅 [宽, 高]，不写用规格相机的。
+ * outDir/film.json 已经存在时报 code 为 EEXIST 的错，不覆盖（排他创建，两个调用抢同一个目录也只有一个成）。
  * 返回 { film, filmDir, threeShotInput?, blenderShotInput? }：镜头输入直接交给帧源的 open(input, { lock: null, tier, workspace, filmDir })。
  * filmDir 是场景目录不是 outDir：页面宿主只放行 beiming/ 下的入口文件，镜头入口随场景入库，不往 outDir 抄。
  * 片子只有一个镜头 s01（两个帧源各渲同一段，帧号都从 0 起）：film 里写的是 three 那一套，只要 Blender 时写 Blender 的。
@@ -64,6 +72,9 @@ export async function materializeCalibWorkspace(ref, outDir, { source = 'both', 
   });
   const film = filmFor(wanted[0]);
   await mkdir(outDir, { recursive: true });
-  await writeFile(join(outDir, 'film.json'), `${JSON.stringify(film, null, 2)}\n`);
+  const filmPath = join(outDir, 'film.json');
+  await writeFile(filmPath, `${JSON.stringify(film, null, 2)}\n`, { flag: 'wx' }).catch((err) => {
+    throw err.code === 'EEXIST' ? Object.assign(new Error(`${filmPath} 已经存在，不覆盖：换一个目录，或者先把它挪走`), { code: 'EEXIST' }) : err;
+  });
   return { film, filmDir: dir, ...Object.fromEntries(wanted.map((name) => [`${name}ShotInput`, shotInput(filmFor(name), 's01')])) };
 }

@@ -1,7 +1,7 @@
 {
   "format": "calib-scene/0.1",
   "id": "boxes-explode@1",
-  "title": "爆炸拆解：八个 0.3 米方块在 5 米外拼成一个 0.6 米的大方块，第 0 帧拼合，之后各自沿对角方向匀速散开到第 24 帧。靠相机的四个（near-*）每帧横竖各走 2 厘米、同时朝相机走 2 厘米；远的四个（far-*）每帧横竖各走 5 厘米、同时远离相机 2 厘米，第 0 帧被前排挡住、散开后从前排外侧露出来。名字里 l、r 是 −X、+X，d、u 是 −Y、+Y",
+  "title": "爆炸拆解：八个 0.3 米方块在 5 米外拼成一个 0.6 米的大方块，第 0 帧拼合，之后各自沿对角方向匀速散开到第 24 帧。靠相机的四个（box.near_*）每帧横竖各走 2 厘米、同时朝相机走 2 厘米；远的四个（box.far_*）每帧横竖各走 5 厘米、同时远离相机 2 厘米，第 0 帧被前排挡住、散开后从前排外侧露出来。名字里 l、r 是 −X、+X，d、u 是 −Y、+Y",
   "probeRows": [
     "时间键",
     "坐标与相机",
@@ -44,7 +44,7 @@
   ],
   "objects": [
     {
-      "id": "near-ld",
+      "id": "box.near_ld",
       "idIndex": 1,
       "shape": "box",
       "sizeM": [
@@ -72,7 +72,7 @@
       }
     },
     {
-      "id": "near-rd",
+      "id": "box.near_rd",
       "idIndex": 2,
       "shape": "box",
       "sizeM": [
@@ -100,7 +100,7 @@
       }
     },
     {
-      "id": "near-lu",
+      "id": "box.near_lu",
       "idIndex": 3,
       "shape": "box",
       "sizeM": [
@@ -128,7 +128,7 @@
       }
     },
     {
-      "id": "near-ru",
+      "id": "box.near_ru",
       "idIndex": 4,
       "shape": "box",
       "sizeM": [
@@ -156,7 +156,7 @@
       }
     },
     {
-      "id": "far-ld",
+      "id": "box.far_ld",
       "idIndex": 5,
       "shape": "box",
       "sizeM": [
@@ -184,7 +184,7 @@
       }
     },
     {
-      "id": "far-rd",
+      "id": "box.far_rd",
       "idIndex": 6,
       "shape": "box",
       "sizeM": [
@@ -212,7 +212,7 @@
       }
     },
     {
-      "id": "far-lu",
+      "id": "box.far_lu",
       "idIndex": 7,
       "shape": "box",
       "sizeM": [
@@ -240,7 +240,7 @@
       }
     },
     {
-      "id": "far-ru",
+      "id": "box.far_ru",
       "idIndex": 8,
       "shape": "box",
       "sizeM": [
@@ -271,7 +271,7 @@
   "expected": [
     {
       "kind": "projectPoint",
-      "objectId": "near-ld",
+      "objectId": "box.near_ld",
       "atFrame": 24,
       "subFrameRatio": 0,
       "localPointM": [
@@ -288,7 +288,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "near-rd",
+      "objectId": "box.near_rd",
       "atFrame": 24,
       "subFrameRatio": 0,
       "localPointM": [
@@ -305,7 +305,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "near-lu",
+      "objectId": "box.near_lu",
       "atFrame": 24,
       "subFrameRatio": 0,
       "localPointM": [
@@ -322,7 +322,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "near-ru",
+      "objectId": "box.near_ru",
       "atFrame": 24,
       "subFrameRatio": 0,
       "localPointM": [
@@ -339,7 +339,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "far-ld",
+      "objectId": "box.far_ld",
       "atFrame": 24,
       "subFrameRatio": 0,
       "localPointM": [
@@ -356,7 +356,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "far-rd",
+      "objectId": "box.far_rd",
       "atFrame": 24,
       "subFrameRatio": 0,
       "localPointM": [
@@ -373,7 +373,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "far-lu",
+      "objectId": "box.far_lu",
       "atFrame": 24,
       "subFrameRatio": 0,
       "localPointM": [
@@ -390,7 +390,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "far-ru",
+      "objectId": "box.far_ru",
       "atFrame": 24,
       "subFrameRatio": 0,
       "localPointM": [
@@ -407,7 +407,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "near-ru",
+      "objectId": "box.near_ru",
       "atFrame": 0,
       "subFrameRatio": 0,
       "localPointM": [
@@ -424,7 +424,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "near-ru",
+      "objectId": "box.near_ru",
       "atFrame": 12,
       "subFrameRatio": 0,
       "localPointM": [
@@ -441,7 +441,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "far-ru",
+      "objectId": "box.far_ru",
       "atFrame": 0,
       "subFrameRatio": 0,
       "localPointM": [
@@ -458,7 +458,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "far-ru",
+      "objectId": "box.far_ru",
       "atFrame": 12,
       "subFrameRatio": 0,
       "localPointM": [
@@ -475,7 +475,7 @@
     },
     {
       "kind": "projectPoint",
-      "objectId": "near-ru",
+      "objectId": "box.near_ru",
       "atFrame": 12,
       "subFrameRatio": 0.5,
       "localPointM": [
@@ -492,7 +492,7 @@
     },
     {
       "kind": "projectedBox",
-      "objectId": "near-ru",
+      "objectId": "box.near_ru",
       "atFrame": 0,
       "minIouRatio": 0.95,
       "source": "方块 8 个角点在第 0 帧投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
@@ -507,7 +507,7 @@
     },
     {
       "kind": "projectedBox",
-      "objectId": "near-ru",
+      "objectId": "box.near_ru",
       "atFrame": 12,
       "minIouRatio": 0.95,
       "source": "方块 8 个角点在第 12 帧投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
@@ -522,7 +522,7 @@
     },
     {
       "kind": "projectedBox",
-      "objectId": "near-ru",
+      "objectId": "box.near_ru",
       "atFrame": 24,
       "minIouRatio": 0.95,
       "source": "方块 8 个角点在第 24 帧投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
@@ -537,7 +537,7 @@
     },
     {
       "kind": "projectedBox",
-      "objectId": "far-ru",
+      "objectId": "box.far_ru",
       "atFrame": 24,
       "minIouRatio": 0.95,
       "source": "方块 8 个角点在第 24 帧投影的最小、最大像素坐标；这一帧它已经整个从前排外侧露出来",
@@ -560,17 +560,17 @@
       "toleranceRatio": 0.02,
       "source": "第 0 帧拼合：视线先打到前排右上的方块，再打到它正后方的那一个",
       "intendedHitIds": [
-        "near-ru",
-        "far-ru"
+        "box.near_ru",
+        "box.far_ru"
       ],
       "hits": [
         {
-          "objectId": "near-ru",
+          "objectId": "box.near_ru",
           "planeDepthM": 4.7,
           "rayDistanceM": 4.704327
         },
         {
-          "objectId": "far-ru",
+          "objectId": "box.far_ru",
           "planeDepthM": 5,
           "rayDistanceM": 5.004603
         }
@@ -586,17 +586,17 @@
       "toleranceRatio": 0.02,
       "source": "第 12 帧散开一半：这个像素上前排右上方块的外角还挡着后排右上方块的内角",
       "intendedHitIds": [
-        "near-ru",
-        "far-ru"
+        "box.near_ru",
+        "box.far_ru"
       ],
       "hits": [
         {
-          "objectId": "near-ru",
+          "objectId": "box.near_ru",
           "planeDepthM": 4.46,
           "rayDistanceM": 4.520933
         },
         {
-          "objectId": "far-ru",
+          "objectId": "box.far_ru",
           "planeDepthM": 5.24,
           "rayDistanceM": 5.31159
         }
@@ -624,11 +624,11 @@
       "toleranceRatio": 0.02,
       "source": "第 24 帧前排左上方块的中心像素：只打到它",
       "intendedHitIds": [
-        "near-lu"
+        "box.near_lu"
       ],
       "hits": [
         {
-          "objectId": "near-lu",
+          "objectId": "box.near_lu",
           "planeDepthM": 4.22,
           "rayDistanceM": 4.307306
         }
@@ -644,11 +644,11 @@
       "toleranceRatio": 0.02,
       "source": "第 24 帧后排右下方块的中心像素：只打到它",
       "intendedHitIds": [
-        "far-rd"
+        "box.far_rd"
       ],
       "hits": [
         {
-          "objectId": "far-rd",
+          "objectId": "box.far_rd",
           "planeDepthM": 5.48,
           "rayDistanceM": 5.786085
         }
