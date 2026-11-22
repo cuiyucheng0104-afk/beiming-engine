@@ -242,7 +242,7 @@ test('实渲：匀速方块 180 度快门从帧起点开，拖影亮度质心在
     // 宿主两端：坏参数没进页面就报 usage.bad-argument，一个层文件都不写
     const badTag = { toString: 0, get [Symbol.toStringTag]() { throw new TypeError('tag-boom'); } };
     const BAD = [{ shutter: 0n }, { shutter: { angle: { toString: 0 } } }, null, new Date(), new Map(), /re/, new Uint8Array(2), { shutter: new Date() }, { shutter: new Map() }, { shutter: { angle: badTag } }];
-    for (const o of [...BAD, ...r7Bad()]) await assert.rejects(session.render(24, o, ['color']), code('usage.bad-argument'));
+    for (const o of [...BAD, ...r7Bad(), ...r8Bad()]) await assert.rejects(session.render(24, o, ['color']), code('usage.bad-argument'));
     assert.deepEqual(await readdir(workspace), []);
     const blur = await session.render(24, {}, ['color', ...AUX]);
     const still0 = await session.render(24, SINGLE, ['color', ...AUX]);
@@ -381,4 +381,40 @@ test('renderOpts：判过的 opts 的纯数据快照，只有调用方写了的�
   assert.deepStrictEqual(plan(runInNewContext('({ shutter: { angleDeg: 90, samples: 1 } })')).renderOpts, { shutter: { angleDeg: 90, samples: 1 } });
   const hidden = plan(Object.defineProperty({}, 'shutter', { value: { angleDeg: 90, samples: 1 } }));
   assert.deepStrictEqual([hidden.angleDeg, hidden.shutterSamples, hidden.renderOpts], [90, 1, { shutter: { angleDeg: 90, samples: 1 } }]);
+});
+
+// 第七轮评审的反例，纯函数和正式宿主共用：原型照根原型的形状伪造（没有上一层原型、自带 hasOwnProperty、constructor.prototype 指回自己），
+// 快门放在实例自有数据属性上或原型取值器上；以及原型的 constructor 冒充内建 Object 的几种写法
+const r8Bad = () => {
+  const SHUTTER = { angleDeg: 90, samples: 1 };
+  class ForgedPreset extends null {
+    constructor(fields) { return Object.assign(Object.create(new.target.prototype), fields); }
+    hasOwnProperty(k) { return Object.hasOwn(this, k); }
+  }
+  class ForgedGetter extends null {
+    constructor() { return Object.create(new.target.prototype); }
+    hasOwnProperty() { return true; }
+    get shutter() { return SHUTTER; }
+    get angleDeg() { return 90; }
+    get samples() { return 1; }
+  }
+  // 同名的自写函数（prototype 也钉成不可写不可配置）、真的 Object（它的 prototype 指不到伪造的原型）、bind 出来的、Proxy 包的
+  const named = function Object() {};
+  const fakes = [named, Object, Object.bind(null), new Proxy(Object, {})].map((C) => Object.assign(Object.create(null), { constructor: C, hasOwnProperty() {} }));
+  Object.defineProperty(named, 'prototype', { value: fakes[0], writable: false, configurable: false });
+  const on = (proto, fields) => Object.assign(Object.create(proto), fields);
+  return [
+    new ForgedPreset({ shutter: SHUTTER }), { shutter: new ForgedPreset(SHUTTER) }, new ForgedGetter(), { shutter: new ForgedGetter() },
+    ...fakes.flatMap((proto) => [on(proto, { shutter: SHUTTER }), { shutter: on(proto, SHUTTER) }]),
+  ];
+};
+
+test('S4-R8-Red: 照根原型形状伪造的原型（extends null 类自带 hasOwnProperty、constructor 冒充内建 Object），当 opts 或 opts.shutter 都报 usage.bad-argument', () => {
+  const shot = { shutter: { angleDeg: 180, samples: 8 } };
+  for (const [i, o] of r8Bad().entries()) assert.throws(() => planRender(CAPS, shot, [W, H], 'final', o, ['color']), code('usage.bad-argument'), `第 ${i} 个`);
+  // 镜头条目的快门同样判；真的普通对象（本上下文、vm、无原型）照常收
+  assert.throws(() => planRender(CAPS, { shutter: r8Bad()[1].shutter }, [W, H], 'final', {}, ['color']), code('usage.bad-argument'));
+  for (const ok of [{ angleDeg: 90, samples: 1 }, runInNewContext('({ angleDeg: 90, samples: 1 })'), Object.assign(Object.create(null), { angleDeg: 90, samples: 1 })]) {
+    assert.equal(planRender(CAPS, shot, [W, H], 'final', { shutter: ok }, ['color']).angleDeg, 90);
+  }
 });

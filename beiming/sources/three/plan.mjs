@@ -27,13 +27,21 @@ const given = (obj, key) => {
   return obj?.[key];
 };
 // opts、shutter 这类参数容器是纯数据：没写可以，写了就必须是普通对象（0n、字符串、数组、Date、Map 这类实例都不行，不然会悄悄退回默认值）。
-// 普通对象只有两种：没有原型的，和原型是某个上下文的根 Object.prototype 的（根原型自己没有原型、自带 hasOwnProperty、constructor.prototype 指回自己）。
+// 普通对象只有两种：没有原型的，和原型是某个上下文内建的 Object.prototype 的。
 // 不拿本上下文的 Object.prototype 比，别的上下文（vm、iframe）造的 {} 也要认；Object.create(无原型字典)、class extends null 的实例多了一层原型，不认。
+// 内建的认法照形状仿不出来：它的 constructor 是内建函数 Object（源码文本是 [native code]，自己写的类和函数、bind 出来的、Proxy 包的都不是），
+// 而内建 Object 的 prototype 改不了，只指回真的那个根原型（根原型的上一层原型也改不了，这两样不用另判）。
+const fnToStr = Function.prototype.toString;
 const own = (o, k) => Object.getOwnPropertyDescriptor(o, k)?.value;
+const rootProto = (proto) => {
+  const C = own(proto, 'constructor');
+  // shortcut: 源码文本按 V8 的写法比（node 和页面宿主的 Chromium 都是），换成别的引擎空白不一样、所有 {} 都会被拒，到时改成压掉空白再比
+  return typeof C === 'function' && fnToStr.call(C) === 'function Object() { [native code] }' && own(C, 'prototype') === proto;
+};
 const plain = (v) => {
   if (v === null || typeof v !== 'object') return false;
   const proto = Object.getPrototypeOf(v);
-  return proto === null || (Object.getPrototypeOf(proto) === null && typeof own(proto, 'hasOwnProperty') === 'function' && own(proto, 'constructor')?.prototype === proto);
+  return proto === null || rootProto(proto);
 };
 // 交回一份只有自有数据属性的快照，后面只读快照，页面宿主也拿它进页面：全程不执行调用方的取值器，node 和页面两边读到的是同一份。
 // 原型上的值过页面序列化就丢了、Symbol 键和不认识的键两边都读不到，所以一律报错，不猜
