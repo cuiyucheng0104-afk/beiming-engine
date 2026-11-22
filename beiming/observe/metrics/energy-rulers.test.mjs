@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as observe from '../index.mjs';
 import { clipHighlightRatio, noiseResidual, aliasEdge, colorPaletteDe00, shapeIou,
   ENERGY_METRICS, runEnergyMetric } from './index.mjs';
+import { deltaE00 } from '../../../tools/eval/lib/metrics.mjs';
 
 // 合成帧都照 beiming/calib 的校准场景搭：灰阶卡（probe-gray-chart）、静止背景上匀速平移的方块（probe-moving-cube）、
 // 斜细杆（probe-thin-geometry）。噪声用固定种子，同一份夹具每次生成逐位相同。
@@ -320,6 +321,116 @@ test('clip.highlight-ratio 与 color.palette-de00：外部掩码、稀疏数组�
   assert.ok(unit.maxDe00 > 18 && Number.isFinite(unit.weightedDe00) && unit.weightedDe00 > 18);
   for (const share of [1e307, 1e308]) assert.deepStrictEqual(colorPaletteDe00(pair(share), red), unit);
   assert.deepStrictEqual(colorPaletteDe00(red, pair(1e308)), colorPaletteDe00(red, pair(1)));
+});
+
+// 以下四条是二审（G_REV-R2）给的反例。
+test('noise.residual：平移的稀疏点阵不读成噪声，静止的稀疏散粒噪声仍整幅算静止', () => {
+  // 底色 0.2 的点阵：每个 8×8 单元左上角一块 2×2、亮度 0.8 的亮斑。一块里只有 8 / 64 个像素在变，帧间差不成片。
+  const dots = (u, v) => (u & 7) < 2 && (v & 7) < 2 ? 0.8 : 0.2;
+  const lattice = (sx, sy, ox = 18, oy = 22) => [0, 1, 2, 3, 4].map(t => luma(144, 112, (x, y) => {
+    const u = x - ox - sx * t, v = y - oy - sy * t;
+    return u >= 0 && u < 64 && v >= 0 && v < 64 ? dots(u, v) : 0;
+  }));
+  assert.deepEqual([noiseResidual(lattice(0, 0)).value, noiseResidual(lattice(0, 0)).staticRatio], [0, 1]);
+  // 二审原例每帧右移 2 像素；换位移、换点阵对块网格的相位（亮斑跨在块边上）读数都得是 0。
+  for (const [sx, sy, ox, oy] of [[2, 0], [1, 0], [3, 1], [-2, 2], [0, 5], [2, 0, 23, 23], [1, 0, 23, 19], [1, 1, 15, 31]]) {
+    const moved = repeat5(() => noiseResidual(lattice(sx, sy, ox, oy)));
+    assert.deepEqual([moved.value, moved.status], [0, 'ok'], `点阵位移 (${sx}, ${sy})、原点 (${ox ?? 18}, ${oy ?? 22})`);
+    assert.ok(moved.staticRatio > 0.2 && moved.staticRatio < 1, `staticRatio ${moved.staticRatio}`);
+  }
+  // 整幅点阵一起平移：贴着画面边的块也认得出来，没有静止区。
+  const pan = noiseResidual([0, 1, 2, 3].map(t => luma(96, 72, (x, y) => dots(x - 2 * t, y - t))));
+  assert.deepEqual([pan.value, pan.status, pan.staticRatio], [null, 'no-static-region', 0]);
+  // 关掉位移搜索就读成噪声。
+  assert.ok(noiseResidual(lattice(2, 0), { maxShift: 0 }).value > 0.03);
+
+  // 静止平场上的泊松散粒噪声：稀疏脉冲偶尔能凑上位移，但不能因此把静止区判成运动；读数随 λ 严格上升并贴着真实标准差。
+  const lambdas = [0.001, 0.0025, 0.005, 0.02, 0.08, 0.32];
+  const readings = lambdas.map((lambda, n) => {
+    const next = uniform(20261122 + n);
+    const poisson = () => { let k = 0, p = next(); while (p > Math.exp(-lambda)) { k++; p *= next(); } return k; };
+    const shot = [0, 1, 2, 3, 4].map(() => luma(192, 144, () => 0.25 + poisson() / 8));
+    const grain = repeat5(() => noiseResidual(shot));
+    assert.ok(grain.staticRatio >= 0.99, `λ=${lambda} staticRatio ${grain.staticRatio}`);
+    assert.ok(Math.abs(grain.value / (Math.sqrt(lambda) / 8) - 1) < 0.12, `λ=${lambda} 读数 ${grain.value}`);
+    return grain.value;
+  });
+  readings.forEach((value, i) => assert.ok(i === 0 || value > readings[i - 1], `读数应随 λ 上升：${readings}`));
+});
+
+test('color.palette-de00：任何有限 Lab 都读出有限非负数，常规范围与参考实现一致', () => {
+  const big = [{ lab: [50, 1e50, 0] }];
+  const self = repeat5(() => colorPaletteDe00(big, big));
+  assert.deepEqual([self.value, self.weightedDe00, self.maxDe00, self.pairs[0].de00, self.reverse.meanDe00], [0, 0, 0, 0, 0]);
+  // share 为 0 的极端色不把加权色差带成 NaN。
+  const mixed = colorPaletteDe00([{ lab: [50, 1e50, 0], share: 0 }, { rgb: [0, 0, 0], share: 1e307 }], [[0, 0, 0]]);
+  assert.equal(mixed.weightedDe00, 0);
+  assert.ok(Number.isFinite(mixed.value) && mixed.value > 0);
+  // 双精度能到的任何角落：结果有限、非负，同色为 0，对称。
+  const M = Number.MAX_VALUE, extremes = [[50, 1e50, 0], [50, -1e50, 0], [50, 1e200, 0], [50, 1e300, 0], [50, 0, 1e160], [1e300, 0, 0], [-1e300, 5, 5],
+    [M, M, M], [-M, -M, -M], [M, -M, M], [0, M, -M], [50, 5e-324, -5e-324], [50, -0, 0], [1e-200, 1e-200, 1e-200], [50, 20, -30]];
+  for (const p of extremes) for (const q of extremes) {
+    const r = colorPaletteDe00([{ lab: p }], [{ lab: q }]);
+    for (const v of [r.value, r.meanDe00, r.maxDe00, r.weightedDe00, r.pairs[0].de00, r.reverse.meanDe00, r.reverse.weightedDe00]) {
+      assert.ok(Number.isFinite(v) && v >= 0, `Lab(${p}) 对 Lab(${q}) 读出 ${v}`);
+    }
+    assert.equal(r.meanDe00, r.reverse.meanDe00, `Lab(${p}) 对 Lab(${q}) 应对称`);
+    if (p === q) assert.equal(r.value, 0);
+  }
+  // 色度差的折算值有界：彩度相差 100 个数量级的两个色不是同色，也不是无穷远。
+  const apart = colorPaletteDe00([{ lab: [50, 1e200, 0] }], [{ lab: [50, 1e300, 0] }]).value;
+  assert.ok(Math.abs(apart - 2 / 0.045) < 1e-6, `Lab(50, 1e200, 0) 对 Lab(50, 1e300, 0) 读出 ${apart}`);
+  const all = extremes.map(lab => ({ lab }));
+  const whole = colorPaletteDe00(all, all.slice(0, 8));
+  for (const v of [whole.value, whole.meanDe00, whole.weightedDe00, whole.reverse.weightedDe00]) assert.ok(Number.isFinite(v) && v >= 0, `整板读出 ${v}`);
+
+  // 常规范围：与 tools/eval/lib/metrics.mjs 的 deltaE00 对到 1e-9（含无彩色、色相跨 0° 与 180° 对角）。
+  const next = uniform(2000), grid = [[50, 0, 0], [60, 0, 0], [50, -0, 0], [50, 30, 0], [50, -30, 0], [50, 0, 30], [50, 0, -30], [50, 30, -1e-9], [50, 30, 1e-9],
+    [50, 2.5, 0], [50, -2.5, 0], [0, 0, 0], [100, 0, 0], ...Array.from({ length: 40 }, () => [100 * next(), 256 * next() - 128, 256 * next() - 128])];
+  let worst = 0;
+  for (const p of grid) for (const q of grid) {
+    const got = colorPaletteDe00([{ lab: p }], [{ lab: q }]).pairs[0].de00;
+    worst = Math.max(worst, Math.abs(got - deltaE00(p, q)));
+  }
+  assert.ok(worst < 1e-9, `与参考实现最大相差 ${worst}`);
+});
+
+test('帧序列与色板的外层数组：只挂在原型上的索引不算数', () => {
+  const frame = luma(W, H, x => 0.2 + x / 256);
+  // 长度够、自己却没有那个索引的数组：值是从私有原型上继承来的。
+  const inherited = (length, proto, own = {}) => { const list = Object.assign(new Array(length), own); Object.setPrototypeOf(list, Object.assign(Object.create(Array.prototype), proto)); return list; };
+  assert.equal(inherited(2, { 0: frame }, { 1: frame })[0], frame);
+  assert.ok(Array.isArray(inherited(2, { 0: frame })));
+  const black = { rgb: [0, 0, 0] };
+  for (const run of [
+    () => noiseResidual(inherited(2, { 0: frame }, { 1: frame })), () => noiseResidual(inherited(2, { 0: frame, 1: frame })),
+    () => noiseResidual(inherited(3, { 1: frame }, { 0: frame, 2: frame })),
+    () => aliasEdge(inherited(1, { 0: frame })), () => aliasEdge(inherited(3, { 2: frame }, { 0: frame, 1: frame })),
+    () => colorPaletteDe00(inherited(2, { 0: black }, { 1: black }), [black]), () => colorPaletteDe00([black], inherited(1, { 0: black })),
+    () => colorPaletteDe00(inherited(2, { 1: [1, 2, 3] }, { 0: [1, 2, 3] }), [black]),
+    () => colorPaletteDe00([black], new Array(3)), () => noiseResidual(new Array(2)), () => aliasEdge(new Array(4294967295)),
+    () => clipHighlightRatio(rgba(2, 1, () => 255), { alphaMask: inherited(2, { 0: 1 }, { 1: 1 }) }),
+    () => shapeIou(rgba(2, 2, () => 0), rgba(2, 2, () => 0), { background: inherited(3, { 1: 0 }, { 0: 0, 2: 0 }) }),
+  ]) assert.throws(run, badArgument);
+  // 自有索引齐全的照常量，换了原型也一样。
+  assert.equal(noiseResidual(inherited(2, {}, { 0: frame, 1: frame })).value, 0);
+  assert.equal(colorPaletteDe00(inherited(1, {}, { 0: black }), [black]).value, 0);
+});
+
+test('noise.residual：maxShift 须为安全整数，搜索半径不超过量测区', () => {
+  const frames = [0, 1, 2].map(t => luma(72, 56, (x, y) => x >= 8 + 2 * t && x < 24 + 2 * t && y >= 8 && y < 24 ? ((x - 2 * t) * 7 + y * 13) % 5 / 5 : 0.1));
+  for (const maxShift of [1e20, Number.MAX_SAFE_INTEGER + 1, 2 ** 53, Infinity, NaN, '6', null, 6n, -0.5]) {
+    assert.throws(() => noiseResidual(frames, { maxShift }), badArgument, `maxShift ${String(maxShift)}`);
+  }
+  // 再大的安全整数也只搜到量测区容得下的位移：结果与刚好够大的半径相同，不空转。
+  const wide = repeat5(() => noiseResidual(frames, { maxShift: 80 }));
+  assert.deepEqual([wide.value, wide.status], [0, 'ok']);
+  const started = performance.now();
+  for (const maxShift of [1e6, 2 ** 31, Number.MAX_SAFE_INTEGER]) {
+    assert.deepStrictEqual(noiseResidual(frames, { maxShift }), { ...wide, maxShift });
+  }
+  assert.ok(performance.now() - started < 5000, '超大 maxShift 不应拖慢');
+  assert.equal(noiseResidual(frames, { maxShift: 0 }).maxShift, 0);
 });
 
 test('非法入参一律抛带冻结错误码 usage.bad-argument 的 RangeError', () => {

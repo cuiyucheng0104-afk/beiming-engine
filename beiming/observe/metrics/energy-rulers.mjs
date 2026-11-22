@@ -6,7 +6,7 @@
 // Float32Array / Float64Array 是场景线性值（可以大于 1）。阈值一律用输入自己的量纲。
 // 坐标原点在左上；roi 是 { x, y, width, height } 整数像素框。
 // 入参不对抛 RangeError，code 是冻结错误码 usage.bad-argument。
-import { srgbToLab, deltaE00 } from '../../../tools/eval/lib/metrics.mjs';
+import { srgbToLab } from '../../../tools/eval/lib/metrics.mjs';
 import { colorPalette } from './image-layout.mjs';
 
 function bad(message) { throw Object.assign(new RangeError(message), { code: 'usage.bad-argument' }); }
@@ -41,13 +41,18 @@ function read(frame, label, wide = false) {
   return { width, height, data, channels, float, scale: float ? 1 : 255 };
 }
 
-// 普通数组一律逐索引查：map、every、some 会跳过稀疏数组的空洞。
+// 普通数组一律逐索引查自有属性：map、every、some 会跳过稀疏数组的空洞，Array.from 和下标读取会顺着原型链读到别处挂的值。
+function items(list, label) {
+  const out = [];
+  for (let i = 0; i < list.length; i++) { need(Object.hasOwn(list, i), `${label}第 ${i} 项是空洞`); out.push(list[i]); }
+  return out;
+}
 const triple = (value, ok = Number.isFinite) => Array.isArray(value) && value.length === 3 &&
   [0, 1, 2].every(i => Object.hasOwn(value, i) && typeof value[i] === 'number' && ok(value[i]));
 
 function sequence(frames, min, name) {
   need(Array.isArray(frames) && frames.length >= min, `${name} 至少要 ${min} 帧`);
-  const list = Array.from(frames, (frame, i) => read(frame, `第 ${i} 帧`));
+  const list = items(frames, name).map((frame, i) => read(frame, `第 ${i} 帧`));
   for (const f of list) {
     need(f.width === list[0].width && f.height === list[0].height && f.channels === list[0].channels &&
       f.float === list[0].float, '各帧的尺寸、通道数或数值类型不一致');
@@ -125,12 +130,12 @@ export function clipHighlightRatio(frame, opts = {}) {
     threshold: limit, plateauPixels: plateau, plateauRatio: share(plateau) };
 }
 
-const COHERENT = 0.6, COLLAPSE = 0.35 ** 2, DENSE = 1 / 4;
+const COHERENT = 0.6, COLLAPSE = 0.35 ** 2, DENSE = 1 / 4, PAIRS = 4;
 
 // 有没有非零整数位移（各向不超过 reach）能把上一帧的块配准到本帧：残差平方和不超过 limit。只试源块整个落在量测区内的位移。
 function registers(cur, prev, w, h, [x0, x1, y0, y1], reach, limit) {
-  for (let dy = -reach; dy <= reach; dy++) for (let dx = -reach; dx <= reach; dx++) {
-    if ((!dx && !dy) || x0 - dx < 0 || x1 - dx > w || y0 - dy < 0 || y1 - dy > h) continue;
+  for (let dy = Math.max(-reach, y1 - h); dy <= Math.min(reach, y0); dy++) for (let dx = Math.max(-reach, x1 - w); dx <= Math.min(reach, x0); dx++) {
+    if (!dx && !dy) continue;
     let rest = 0;
     for (let y = y0; y < y1 && rest <= limit; y++) {
       for (let x = x0; x < x1; x++) rest += (cur[y * w + x] - prev[(y - dy) * w + x - dx]) ** 2;
@@ -140,20 +145,50 @@ function registers(cur, prev, w, h, [x0, x1, y0, y1], reach, limit) {
   return false;
 }
 
+// 稀疏纹理的整体平移。块里只有几个像素在变时，单看这一块、单向配准不作数：消失的孤立脉冲随便挪一下就对上了平场。
+// 改验守恒：找非零整数位移 s，让 cur(p) = prev(p − s)（本帧的每个亮点都有来处）且 prev(p) = cur(p + s)（上一帧的每个亮点都有去处），
+// 两个方向的残差平方和先在本块 box、再在外扩一圈的 3×3 块窗口 wide 上都塌到零位移的 COLLAPSE 以下，
+// 且窗口里比过的变化像素不少于 PAIRS 个。来处或去处出了量测区的像素不比。at 是块内 |d| 最大的像素，先拿它筛位移。
+function drifts(cur, prev, d, w, h, box, wide, reach, floor, energy, at) {
+  const rx = Math.min(reach, (w - 1) >> 1), ry = Math.min(reach, (h - 1) >> 1), px = at % w, py = (at - px) / w;
+  // 框内比过的变化像素数；残差没塌（或中途超过 cap）回 -1。
+  const fits = ([x0, x1, y0, y1], dx, dy, cap) => {
+    const off = dy * w + dx;
+    let rest = 0, zero = 0, changed = 0;
+    for (let y = Math.max(y0, dy, -dy); y < Math.min(y1, h - dy, h + dy); y++) {
+      for (let x = Math.max(x0, dx, -dx); x < Math.min(x1, w - dx, w + dx); x++) {
+        const i = y * w + x;
+        rest += (cur[i] - prev[i - off]) ** 2 + (prev[i] - cur[i + off]) ** 2;
+        zero += d[i] * d[i];
+        if (Math.abs(d[i]) > floor) changed++;
+      }
+      if (rest > cap) return -1;
+    }
+    return rest <= 2 * COLLAPSE * zero ? changed : -1;
+  };
+  const cap = 2 * COLLAPSE * energy;
+  for (let dy = -ry; dy <= ry; dy++) for (let dx = -rx; dx <= rx; dx++) {
+    if ((!dx && !dy) || fits([px, px + 1, py, py + 1], dx, dy, cap) < 0) continue;
+    if (fits(box, dx, dy, cap) >= 0 && fits(wide, dx, dy, Infinity) >= PAIRS) return true;
+  }
+  return false;
+}
+
 // 相邻帧亮度差 d 的四邻域拉普拉斯在静止块上的均方根，除以 √40 折算成等效的单帧白噪声标准差。
 // 块内 max|d| 不超过 motionThreshold 的直接算静止；超过的，满足下面任一条才是运动块，否则是静止区的随机噪声
 // （高斯噪声、稀疏的散粒脉冲都留在静止区里计数）：
 //   成片：块内横向或纵向相邻像素的 d 乘积和，绝对值超过 Σd² 的 0.6 倍（移动的边与条纹、整块亮度跳变、全画幅切换）；
-//   配准：至少四分之一像素的 |d| 超过 motionThreshold，且有非零整数位移（各向不超过 maxShift）让残差均方根
-//         塌到零位移的 0.35 倍以下（整体平移的细纹理；稀疏脉冲凑巧对上的不算）。
+//   配准：有非零整数位移（各向不超过 maxShift）让残差均方根塌到零位移的 0.35 倍以下。块内至少四分之一像素的 |d| 超过
+//         motionThreshold 时单向配准本块就算（整体平移的细纹理）；不到四分之一时按 drifts 双向验守恒（平移的稀疏点阵；
+//         稀疏脉冲凑巧对上一两个的不算）。
 // 运动块连同外圈八块都不计。
-// shortcut: 单个像素的移动、亚像素慢移或旋转形变的细纹理既不成片也配不准，会读成噪声；要分开得另给运动真值掩码。
+// shortcut: 单个像素的移动、亚像素慢移或旋转形变的细纹理、叠在有纹理的静止背景上的稀疏点阵既不成片也配不准，会读成噪声；要分开得另给运动真值掩码。
 export function noiseResidual(frames, opts = {}) {
   const { roi, block = 8, motionThreshold, maxShift = 6 } = options(opts, ['roi', 'block', 'motionThreshold', 'maxShift']);
   const list = sequence(frames, 2, 'noiseResidual');
   const r = region(list[0], roi), w = r.width, h = r.height;
   need(Number.isInteger(block) && block >= 4 && block <= Math.min(w, h), 'block 须为 4 到量测区域短边之间的整数');
-  need(Number.isInteger(maxShift) && maxShift >= 0, 'maxShift 须为非负整数');
+  need(Number.isSafeInteger(maxShift) && maxShift >= 0, 'maxShift 须为非负安全整数');
   const floor = motionThreshold === undefined ? 2 / 255 * list[0].scale : number(motionThreshold, 'motionThreshold');
   const planes = list.map(f => lumaPlane(f, r));
   const cols = Math.floor(w / block), rows = Math.floor(h / block);
@@ -170,17 +205,20 @@ export function noiseResidual(frames, opts = {}) {
     }
     for (let by = 0; by < rows; by++) for (let bx = 0; bx < cols; bx++) {
       const box = extent(bx, by), [x0, x1, y0, y1] = box;
-      let peak = 0, energy = 0, across = 0, down = 0, changed = 0;
+      let peak = 0, at = 0, energy = 0, across = 0, down = 0, changed = 0;
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
         const v = d[y * w + x], size = Math.abs(v);
-        if (size > peak) peak = size;
+        if (size > peak) { peak = size; at = y * w + x; }
         if (size > floor) changed++;
         energy += v * v;
         if (x + 1 < x1) across += v * d[y * w + x + 1];
         if (y + 1 < y1) down += v * d[(y + 1) * w + x];
       }
+      const wide = [extent(Math.max(0, bx - 1), by)[0], extent(Math.min(cols - 1, bx + 1), by)[1],
+        extent(bx, Math.max(0, by - 1))[2], extent(bx, Math.min(rows - 1, by + 1))[3]];
       moving[by * cols + bx] = peak > floor && (Math.max(Math.abs(across), Math.abs(down)) > COHERENT * energy ||
-        (changed >= DENSE * (x1 - x0) * (y1 - y0) && registers(cur, prev, w, h, box, maxShift, COLLAPSE * energy))) ? 1 : 0;
+        (changed >= DENSE * (x1 - x0) * (y1 - y0) ? registers(cur, prev, w, h, box, maxShift, COLLAPSE * energy)
+          : drifts(cur, prev, d, w, h, box, wide, maxShift, floor, energy, at))) ? 1 : 0;
     }
     for (let by = 0; by < rows; by++) for (let bx = 0; bx < cols; bx++) {
       let still = true;
@@ -293,7 +331,7 @@ function palette(input, k, label) {
     return colorPalette({ width, height, rgba }, k).details.palette.map(({ rgb, share }) => ({ color: rgb, share, lab: srgbToLab(...rgb) }));
   }
   need(input.length > 0, `${label}色板不能为空`);
-  const colors = Array.from(input, entry => {
+  const colors = items(input, `${label}色板`).map(entry => {
     const item = Array.isArray(entry) ? { rgb: entry } : entry;
     need(item !== null && typeof item === 'object' && (item.rgb === undefined) !== (item.lab === undefined), `${label}色板的颜色须给 rgb 或 lab 之一`);
     const { rgb, lab, share = 1 } = item;
@@ -307,17 +345,45 @@ function palette(input, k, label) {
   return colors;
 }
 
+const top = v => Math.min(v, Number.MAX_VALUE), rad = d => d * Math.PI / 180;
+// c⁷ / (c⁷ + 25⁷) 的有界写法：c 为 0 得 0，c 极大得 1，中间不溢出。
+const ratio7 = c => 1 / (1 + (25 / c) ** 7);
+
+// CIEDE2000（Sharma 等 2005），与 tools/eval/lib/metrics.mjs 的 deltaE00 同式，常规范围读数对到 1e-9。
+// 那一版彩度上到 1e44 时 C⁷ 溢出，同色自比也出 Infinity；这里各项都写成有界的比值或先减半再算：
+// 任何有限 Lab 都得有限非负数，三个分量逐一相等恰为 0，超出双精度的色差封顶在 Number.MAX_VALUE。
+function de00([L1, a1, b1], [L2, a2, b2]) {
+  if (L1 === L2 && a1 === a2 && b1 === b2) return 0;
+  // 彩度大到 1 + G 会让 a 溢出时，G 早已是 0。
+  const G = 0.5 * (1 - Math.sqrt(ratio7(top(Math.hypot(a1, b1)) / 2 + top(Math.hypot(a2, b2)) / 2)));
+  const A1 = (1 + G) * a1, A2 = (1 + G) * a2, C1 = top(Math.hypot(A1, b1)), C2 = top(Math.hypot(A2, b2));
+  const hue = (b, a) => { if (a === 0 && b === 0) return 0; const v = Math.atan2(b, a) * 180 / Math.PI; return v >= 0 ? v : v + 360; };
+  const h1 = hue(b1, A1), h2 = hue(b2, A2), gray = C1 === 0 || C2 === 0;
+  let dh = gray ? 0 : h2 - h1, hb = h1 + h2;
+  if (dh > 180) dh -= 360; else if (dh < -180) dh += 360;
+  if (!gray) hb = Math.abs(h1 - h2) <= 180 ? hb / 2 : hb < 360 ? (hb + 360) / 2 : (hb - 360) / 2;
+  const Cb = C1 / 2 + C2 / 2, q = L1 / 2 + L2 / 2 - 50;
+  const T = 1 - 0.17 * Math.cos(rad(hb - 30)) + 0.24 * Math.cos(rad(2 * hb)) + 0.32 * Math.cos(rad(3 * hb + 6)) - 0.20 * Math.cos(rad(4 * hb - 63));
+  // S_L 原式 1 + 0.015·q² / √(20 + q²)，分子分母同除以 |q|。
+  const Sl = 1 + 0.015 * Math.abs(q) / Math.sqrt(1 + 20 / (q * q)), Sc = 1 + 0.045 * Cb, Sh = 1 + 0.015 * Cb * T;
+  const Rt = -Math.sin(rad(60 * Math.exp(-(((hb - 275) / 25) ** 2)))) * 2 * Math.sqrt(ratio7(Cb));
+  // halfL 是 ΔL′ / S_L 的一半：L 一正一负都极大时差值本身会溢出。色度项、色相项有界（不超过 45 与 1905）。
+  const halfL = (L2 / 2 - L1 / 2) / Sl, tC = (C2 - C1) / Sc, tH = Math.sqrt(C1) * Math.sqrt(C2) / Sh * 2 * Math.sin(rad(dh / 2));
+  return top(2 * Math.hypot(halfL, Math.sqrt(Math.max(0, tC * tC + tH * tH + Rt * tC * tH)) / 2));
+}
+
 // 每个颜色到对面色板最近色的 CIEDE2000 色差，按 share 归一加权。
 function nearest(from, to) {
   const weightSum = from.reduce((sum, c) => sum + c.share, 0);
   let mean = 0, max = 0, weighted = 0;
   const pairs = from.map(({ color, share, lab }) => {
-    let de00 = Infinity, index = 0;
-    to.forEach((other, j) => { const e = deltaE00(lab, other.lab); if (e < de00) { de00 = e; index = j; } });
-    mean += de00 / from.length; max = Math.max(max, de00); weighted += de00 * share / weightSum;
-    return { color, share: share / weightSum, nearest: to[index].color, index, de00 };
+    let best = Infinity, index = 0;
+    to.forEach((other, j) => { const e = de00(lab, other.lab); if (e < best) { best = e; index = j; } });
+    mean += best / from.length; max = Math.max(max, best); weighted += best * share / weightSum;
+    return { color, share: share / weightSum, nearest: to[index].color, index, de00: best };
   });
-  return { meanDe00: mean, maxDe00: max, weightedDe00: weighted, pairs };
+  // 几个封顶的色差相加，舍入可能刚好越过 Number.MAX_VALUE。
+  return { meanDe00: top(mean), maxDe00: max, weightedDe00: top(weighted), pairs };
 }
 
 // 顶层的 meanDe00、maxDe00、weightedDe00、pairs 是候选的每个主色到参考色板最近色；reverse 是参考的每个色到候选。
