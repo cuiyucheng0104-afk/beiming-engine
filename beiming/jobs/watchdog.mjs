@@ -389,13 +389,19 @@ export function createJobWatchdog(input) {
 
   // 调一次探针。探针不回话（GPU 挂死时很常见）不能把后面的检查一起拖住：过了 probeTimeoutMs 按失败算。
   function callProbe(probe, pids) {
-    if (closed || violation) return Promise.reject(new Error('看门狗已经越线或关闭，不再起探针。'));
+    const stopped = () => closed || violation;
+    if (stopped()) return Promise.reject(new Error('看门狗已经越线或关闭，不再起探针。'));
     let timer;
     const expired = new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error(`探针超过 ${probeTimeoutMs} ms 没有回话。`)), probeTimeoutMs);
       probeWaits.set(timer, reject);
     });
-    return Promise.race([Promise.resolve().then(() => probe({ pids })), expired]).finally(() => {
+    // 探针在微任务里才真正被调：排队之后、执行之前越线或关闭的，到这里再拦一次。
+    const called = Promise.resolve().then(() => {
+      if (stopped()) throw new Error('看门狗已经越线或关闭，不再起探针。');
+      return probe({ pids });
+    });
+    return Promise.race([called, expired]).finally(() => {
       clearTimeout(timer);
       probeWaits.delete(timer);
     });

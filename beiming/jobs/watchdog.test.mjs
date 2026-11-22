@@ -384,6 +384,43 @@ test('A14-3c 探针不回话：过了 probeTimeoutMs 按失败处理；探针挂
   refuses('failure.disk-quota', 1)(await run);
 });
 
+test('A14-3d 关闭与探针的微任务竞态：close() 返回或越线之后，已经排进微任务队列的探针也不再首次调用', async (t) => {
+  const settles = (promise, what) => Promise.race([promise.then(() => 'resolved', (error) => error), delay(2000).then(() => assert.fail(`${what}：check() 没有结算`))]);
+  const pair = () => {
+    const calls = { health: 0, vram: 0 };
+    const watchdog = watch(t, {
+      quotas: { vramQuotaMB: 64, probeTimeoutMs: 60_000 },
+      probeGpuHealth: () => { calls.health += 1; return true; },
+      probeVramMB: () => { calls.vram += 1; return 1; },
+    });
+    return { calls, watchdog };
+  };
+  // 同一个调用栈里 check() 之后立刻 close()：两个探针一次都不起，check() 安静结算，不算越线。
+  const sync = pair();
+  const closing = settles(sync.watchdog.check(), '同步关闭');
+  sync.watchdog.close();
+  assert.equal(await closing, 'resolved');
+  await delay(20);
+  assert.deepEqual([sync.calls, sync.watchdog.violation], [{ health: 0, vram: 0 }, null]);
+  // 让出若干次微任务再关闭（第二个探针刚排进队列还没执行的那一拍也在里面）：关闭之后的首次调用增量恒为 0。
+  for (let yields = 0; yields <= 12; yields += 1) {
+    const { calls, watchdog } = pair();
+    const checking = settles(watchdog.check(), `让出 ${yields} 次后关闭`);
+    for (let i = 0; i < yields; i += 1) await Promise.resolve();
+    const before = { ...calls };
+    watchdog.close();
+    assert.equal(await checking, 'resolved', `让出 ${yields} 次微任务后关闭`);
+    await delay(20);
+    assert.deepEqual([calls, watchdog.violation], [before, null], `让出 ${yields} 次微任务后关闭，关闭之后又起了探针`);
+  }
+  // 越线也一样：check() 排好探针的同一个调用栈里报 GPU 丢失，探针不再起，check() 以那次越线拒绝。
+  const lost = pair();
+  const tripping = settles(lost.watchdog.check(), '同步越线');
+  lost.watchdog.reportGpuLost('webglcontextlost');
+  assert.equal((await tripping).reason, 'webglcontextlost');
+  assert.deepEqual(lost.calls, { health: 0, vram: 0 });
+});
+
 test('A14-3 着色器挂起：有心跳不算挂，心跳一停到点零宽限 SIGKILL，报 timeout.shader-hang（124）', async (t) => {
   const watchdog = watch(t, { quotas: { shaderHangMs: 400, frameTimeoutMs: 20_000, killGraceMs: 5000 } });
   const child = watchdog.spawnManaged(node, ['-e', IDLE], { stdio: 'ignore' });
