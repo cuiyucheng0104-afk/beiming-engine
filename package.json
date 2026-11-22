@@ -106,6 +106,8 @@
     "cases:index": "node tools/env/py.mjs tools/casebook.py index",
     "cases:rights": "node tools/env/py.mjs tools/casebook.py rights --check",
     "offscreen": "node engine/offscreen/cli.mjs",
+    "tsl:index": "node tools/tsl-skill-index.mjs",
+    "tsl:index:check": "node tools/tsl-skill-index.mjs --check",
     "offscreen:compare": "node tools/offscreen/compare.mjs",
     "offscreen:bench": "node tools/offscreen/bench.mjs",
     "offscreen:farm": "node tools/offscreen/farm.mjs"
