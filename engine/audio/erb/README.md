@@ -75,4 +75,24 @@ ys = erb.render_many(jobs)
 - 起音检测要求「先静后响」；纹理类（风、水）没有起音约束。
 - 立体声模型按 ILD / ICC 重构，单声道模型可输出双声道（`stereo_out=True`）。
 - 命令行输入不超过 60 秒（模型约为原 WAV 的 24 倍，这是做音效的，不是做长片的）。
-- 还没有接进任何作品的声音脚本或 `foley`；入口是 `erb.render_many` 与 `audio:erb`。
+- 拟音链路的接入见下一节；作品默认不走 ERB，要在作品里显式打开。
+
+## 接进拟音链路（`engine/audio/erb_foley.py`，默认关闭）
+
+同一个动作重复出现时（连剪、连敲、脚步），不再「同一段样本反复播 / 变调」，而是每个事件各渲一条新的 take，不含来源的任何一段原始波形。
+
+```python
+from engine.audio import editorial, erb_foley
+
+if erb_foley.enabled(film_json):                      # film.json 的 audio.erb.enabled === true；缺省 False，现有作品逐比特不变
+    et = erb_foley.ErbTakes(device='auto', cache_dir='out/erb-cache')
+    et.want('snip_q', takes_q, events=4)              # cue 标识、一到几段来源、事件数（事件 k 取第 k % len 段来源）
+    et.want('snip_e', takes_e, events=4)
+    takes = et.render()                               # 整片的全部候选合成一次 erb.render_many；et.report 是耗时与命中数
+    series = editorial.schedule_action_series(times, takes=[w for w, _ in takes['snip_q']], policy='erb')
+```
+
+- 种子 = `take_seed(cue, 事件序号, 候选序号)`（sha256，不依赖 `hash()`），同一设备上重渲逐比特相同；GPU 与 CPU 的随机数不是同一组，缓存键里带设备。
+- 缓存（`cache_dir`，每条一对 `<键>.npz` / `<键>.json`，键含来源波形、参数、cue、事件、erb 与本模块的代码哈希、设备）：命中就不再渲；读到坏文件按未命中重渲。
+- 保真闸：每个事件默认渲 4 个候选（都在同一次批量里），取第一个「95% 带宽、>12 kHz 占比、>12 kHz 能量相对来源的偏差都 < 1.5 dB 且过 `sfx_judge`」的；都不达标取偏差最小的并标 `gate: 'fallback'`（`report['fallback']` 计数）。这是挑选，不是拼接。
+- `ActionVariationDeck(policy='erb')`：takes 就是上面渲好的、每个事件一条，按事件顺序取，只按力度定增益，不变调、不均衡、不叠副层。
