@@ -6,6 +6,13 @@ function check(condition, reason) {
   if (!condition) throw new Error(`welch: ${reason}`);
 }
 
+// 稀疏数组的空洞会被 forEach 跳过，等于悄悄少算种子，所以先逐下标拒掉。
+function checkDense(list, name) {
+  for (let i = 0; i < list.length; i++) {
+    if (!Object.hasOwn(list, i)) throw new TypeError(`welch: ${name} 第 ${i} 项是空洞（稀疏数组）`);
+  }
+}
+
 // Lanczos（g=7，9 项），只用于 x >= 0.5。
 const LANCZOS = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
   -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
@@ -72,6 +79,7 @@ export function studentTwoSidedP(t, df) {
 export function benjaminiHochberg(pValues, alpha = 0.05) {
   check(typeof alpha === 'number' && alpha > 0 && alpha < 1, 'alpha 须在 (0, 1) 内');
   check(Array.isArray(pValues) || ArrayBuffer.isView(pValues), 'p 值须为数组');
+  if (Array.isArray(pValues)) checkDense(pValues, 'p 值');
   const m = pValues.length;
   const order = Uint32Array.from(pValues, (_, i) => i).sort((i, j) => pValues[i] - pValues[j]);
   const qValues = new Float64Array(m);
@@ -120,6 +128,7 @@ function loadPlane(sample, channel, blockSize) {
   } else {
     const count = sample.channels ?? 1;
     check(Number.isInteger(count) && count >= 1 && sample.data?.length === pixels * count, '数据长度与尺寸、通道数不符');
+    if (Array.isArray(sample.data)) checkDense(sample.data, 'data');
     sources = Array.from({ length: count }, (_, c) => [sample.data, c, count]);
   }
   let weights = LUMA;
@@ -163,6 +172,8 @@ export function welchTest(groupA, groupB, options = {}) {
   check(Number.isInteger(blockSize) && blockSize >= 1, 'blockSize 须为正整数');
   check(Number.isInteger(bins) && bins >= 1 && bins <= 10000, 'bins 须为 1 到 10000 的整数');
   check([groupA, groupB].every(g => Array.isArray(g) && g.length >= 2), '每边至少要 2 个种子样本');
+  checkDense(groupA, 'A 组');
+  checkDense(groupB, 'B 组');
   if (groupA.length !== groupB.length) throw new RangeError(`welch: 两边种子数须相等（A ${groupA.length} 个，B ${groupB.length} 个）`);
   let grid;
   const [a, b] = [groupA, groupB].map(group => {

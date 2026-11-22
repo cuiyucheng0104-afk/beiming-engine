@@ -328,3 +328,32 @@ test('V18-11 通道选择不猜、两边形态一致、参数类型校验', () =
   assert.throws(() => verify.benjaminiHochberg([0.5], '0.5'), /alpha/);
   assert.equal(verify.benjaminiHochberg(Float64Array.of(0.001, 0.9)).significantCount, 1);
 });
+
+test('V18-12 拒绝含空洞的稀疏数组（种子组、p 值、帧 data）', () => {
+  const f = (v) => ({ width: 1, height: 1, channels: 1, data: new Float32Array([v]) });
+  const sparse = new Array(2);
+  sparse[1] = f(1);
+  assert.throws(() => verify.welchTest(sparse, [f(1), f(2)]), TypeError);
+  assert.throws(() => verify.welchTest([f(1), f(2)], sparse), TypeError);
+  // eslint-disable-next-line no-sparse-arrays
+  assert.throws(() => verify.benjaminiHochberg([0.01, , 0.5]), TypeError);
+  const holed = { width: 2, height: 1, channels: 1, data: new Array(2) };
+  holed.data[0] = 1;
+  assert.throws(() => verify.welchTest([holed, f(1)], [f(1), f(2)]), TypeError);
+});
+
+test('V18-13 raw 计数在 p === alpha 处是闭区间（杀 M39）', () => {
+  const f = (v) => ({ width: 1, height: 1, channels: 1, data: new Float32Array([v]) });
+  // 均值 0 对 2、方差各 2：t = -sqrt(2)，自由度 2，p = 1 - 1/sqrt(2)。
+  const a = [f(-1), f(1)];
+  const b = [f(1), f(3)];
+  const probe = verify.welchTest(a, b);
+  const p0 = probe.pMap[0];
+  assert.ok(Math.abs(p0 - (1 - Math.SQRT1_2)) < 1e-12);
+  assert.ok(Math.abs(verify.studentTwoSidedP(Math.SQRT2, 2) - p0) < 1e-12);
+  assert.equal(probe.rawSignificantRatio, 0);
+  assert.equal(probe.pass, true);
+  const boundary = verify.welchTest(a, b, { alpha: p0 });
+  assert.equal(boundary.rawSignificantRatio, 1);
+  assert.equal(boundary.pass, false);
+});
