@@ -47,6 +47,43 @@ function trySymlink(target, link, type) {
 
 const refuses = (code) => (error) => error.code === code;
 
+// 红队每一项该有的子尝试，测试自己留一份：探针和判定一起少了一个，这里对不上。
+const EXPECTED_ATTEMPTS = {
+  cross_workspace_read: ['absolute-path', 'relative-path', 'planted-symlink-file', 'planted-symlink-dir', 'list-workspaces-root'],
+  host_home_and_secrets: ['ssh-private-key', 'aws-credentials', 'real-home', 'real-home-ssh', 'real-home-aws', 'real-home-gnupg', 'real-home-config', 'env-secrets'],
+  external_network: ['loopback-tcp', 'loopback-http', 'external-tcp', 'dns-lookup'],
+  cross_workspace_processes: ['ps-by-pid', 'ps-scan', 'proc-cmdline', 'proc-environ', 'signal-0', 'warm-process-residue'],
+  readonly_image_write: ['app-overwrite', 'app-create', 'root-create', 'sibling-create', 'host-home-create'],
+};
+
+// 假沙箱：不起进程，照探针的输出格式交回「全部尝试都失败」，drop 里的子尝试不交。只用来测报告的判定。
+function fakeBlockedRun(drop = []) {
+  return async ({ command }) => {
+    const item = command[3];
+    const attempts = EXPECTED_ATTEMPTS[item]
+      .filter((id) => id !== 'warm-process-residue' && !drop.includes(id))
+      .map((id) => ({ id, payload: id, ok: false, code: 'EPERM' }));
+    const stdout = `${JSON.stringify({ sentinel: 'bm-sandbox-redteam/0.1', item, control: true, attempts })}\n`;
+    return { backend: 'darwin-seatbelt', isolation: 'seatbelt-process-policy', code: 1, stdout, stderr: '' };
+  };
+}
+
+// 把家目录换成夹具里的假家目录（os.homedir() 在 POSIX 上读 HOME，在 Windows 上读 USERPROFILE）。
+function fakeHome(t, base) {
+  const home = path.join(base, 'home');
+  fs.mkdirSync(home);
+  const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  t.after(() => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  return home;
+}
+
 test('A13-Red 工作区容器隔离规格、空进程预热池与五项红队逃逸套件存在且五项全拦', async () => {
   assert.equal(typeof buildContainerSpec, 'function');
   assert.equal(typeof validateContainerSpec, 'function');
@@ -144,7 +181,7 @@ test('A13-3 Windows 8.3 短路径与反斜杠：同一目录的另一种写法�
 
   // 宿主机后端把容器内路径换成本机路径，分隔符跟着平台走。
   const plan = planSandboxExec(buildContainerSpec({ ...options, command: ['node', '/app/lib/job.mjs', '/workspace/film.json', '/tmp/out'] }), {
-    backend: 'portable', tmpDir: path.join(base, 'tmp'),
+    backend: 'portable', allowDegraded: true, tmpDir: path.join(base, 'tmp'),
   });
   assert.deepEqual(plan.args, [path.join(real.app, 'lib', 'job.mjs'), path.join(real.own, 'film.json'), path.join(base, 'tmp', 'out')]);
   assert.equal(plan.cwd, real.own);
@@ -179,7 +216,7 @@ test('A13-4 隔离规格：一次性容器、无网络、只读根、丢全部 c
   assert.deepEqual(args.filter((arg, index) => args[index - 1] === '--env').map((pair) => pair.split('=')[0]),
     ['HOME', 'TMPDIR', 'LC_ALL', 'PATH', 'BEIMING_WORKSPACE', 'BEIMING_APP']);
   for (const backend of ['oci', 'darwin-seatbelt', 'portable']) {
-    const plan = planSandboxExec(spec, { backend, tmpDir: os.tmpdir() });
+    const plan = planSandboxExec(spec, { backend, allowDegraded: true, tmpDir: os.tmpdir() });
     assert.ok(!JSON.stringify([plan.args, plan.env ?? {}]).includes('host-secret-value'), backend);
     assert.ok(!Object.keys(plan.env ?? {}).some((key) => /TOKEN|KEY|SECRET|^AWS_|^SSH_/.test(key)), backend);
   }
@@ -310,7 +347,7 @@ test('A13-9 降级后端的红队报告如实判红：环境变量拦得住，�
   assert.equal(report.isolation, 'needs-oci-runtime');
   assert.equal(report.ok, false);
   assert.deepEqual(report.items.map((item) => item.id), ITEM_IDS);
-  assert.ok(report.items.every((item) => item.conclusive), JSON.stringify(report.items.map((item) => item.exitCode)));
+  assert.ok(report.items.every((item) => item.conclusive || item.fixtureErrors.length), JSON.stringify(report.items.map((item) => item.exitCode)));
   const byId = Object.fromEntries(report.items.map((item) => [item.id, item]));
   assert.equal(byId.cross_workspace_read.escaped, true);
   assert.equal(byId.readonly_image_write.escaped, true);
@@ -329,7 +366,9 @@ test('A13-10 macOS seatbelt 真跑：五项逃逸尝试全部被拦，报告逐�
     assert.equal(item.conclusive, true, `${item.id} 结论无效，退出码 ${item.exitCode}`);
     assert.equal(item.escaped, false, `${item.id} 逃逸：${JSON.stringify(item.attempts)}`);
     assert.equal(item.exitCode, 1);
-    assert.ok(item.attempts.length >= 4 && item.blockedBy && item.command);
+    assert.ok(item.blockedBy && item.command);
+    assert.deepEqual(item.attempts.map((entry) => entry.id), EXPECTED_ATTEMPTS[item.id]);
+    assert.deepEqual([item.blocked, item.missingAttempts, item.fixtureErrors], [true, [], []]);
   }
   assert.deepEqual([report.ok, report.blocked, report.total], [true, 5, 5]);
   assert.match(report.boundary, /不是 Linux 命名空间容器/);
@@ -411,4 +450,209 @@ test('A13-13 OCI 容器真跑（要给 BEIMING_SANDBOX_OCI_IMAGE）：五项逃�
   assert.equal(report.isolation, 'oci-container');
   assert.deepEqual(report.items.filter((item) => !item.conclusive || item.escaped), []);
   assert.equal(report.ok, true);
+});
+
+test('A13-14 U8 守卫查到镜头里：shot、shot.renderer、film.shots[] 的 mode 与 entry 都查，只认普通对象的自有属性', () => {
+  const shot = { id: 's01', source: 'three', mode: 'cards-data' };
+  const ok = { mode: 'cards-data', shot: { ...shot, renderer: { source: 'three', host: 'page', mode: 'cards-data' } }, film: { shots: [shot, { ...shot, id: 's02' }] } };
+  assert.equal(enforceAuthorMode(ok), ok);
+  assert.equal(enforceAuthorMode(JSON.parse(JSON.stringify(ok))).mode, 'cards-data');
+
+  const inherit = (proto, own = {}) => Object.assign(Object.create(proto), own);
+  class Request { mode = 'cards-data'; }
+  const rejected = {
+    'shot.mode 是 native-code': { mode: 'cards-data', shot: { ...shot, mode: 'native-code' } },
+    'shot.mode 没写': { mode: 'cards-data', shot: { id: 's01' } },
+    'shot.entry 出现': { mode: 'cards-data', shot: { ...shot, entry: 'shots/s01.js' } },
+    'shot.entry 是 undefined 也算出现': { mode: 'cards-data', shot: { ...shot, entry: undefined } },
+    'shot.renderer.mode 是 native-code': { mode: 'cards-data', shot: { ...shot, renderer: { mode: 'native-code' } } },
+    'shot.renderer.mode 没写': { mode: 'cards-data', shot: { ...shot, renderer: { source: 'three' } } },
+    'shot.renderer.entry 出现': { mode: 'cards-data', shot: { ...shot, renderer: { mode: 'cards-data', entry: 'build.mjs' } } },
+    'shot.renderer 不是对象': { mode: 'cards-data', shot: { ...shot, renderer: 'native-code' } },
+    'shot 不是对象': { mode: 'cards-data', shot: 'cards-data' },
+    'shot 是数组': { mode: 'cards-data', shot: [shot] },
+    '请求顶层的 renderer': { mode: 'cards-data', renderer: { mode: 'build-script', entry: 'make.js' } },
+    'film.shots[] 里有 build-script': { mode: 'cards-data', film: { shots: [shot, { ...shot, mode: 'build-script', entry: 'make.js' }] } },
+    'film.shots[] 里镜头的 renderer 是 native-code': { mode: 'cards-data', film: { shots: [{ ...shot, renderer: { mode: 'native-code', entry: 'a.js' } }] } },
+    'film.shots[] 有空位': { mode: 'cards-data', film: { shots: [shot, null] } },
+    'film.shots 不是数组': { mode: 'cards-data', film: { shots: { 0: shot } } },
+    'film.shots 是空的': { mode: 'cards-data', film: { shots: [] } },
+    'film 没有 shots': { mode: 'cards-data', film: {} },
+    'film 不是对象': { mode: 'cards-data', film: 'film.json' },
+    '请求的 mode 从原型链继承': Object.create({ mode: 'cards-data' }),
+    '请求是类实例': new Request(),
+    '请求是数组': Object.assign([], { mode: 'cards-data' }),
+    '镜头的 mode 从原型链继承': { mode: 'cards-data', shot: inherit({ mode: 'cards-data' }, { id: 's01' }) },
+    'renderer 的 mode 从原型链继承': { mode: 'cards-data', shot: { ...shot, renderer: inherit({ mode: 'cards-data' }) } },
+    'film 的 shots 从原型链继承': { mode: 'cards-data', film: inherit({ shots: [shot] }) },
+    'film.shots[] 里镜头的 mode 从原型链继承': { mode: 'cards-data', film: { shots: [inherit({ mode: 'cards-data' })] } },
+  };
+  for (const [name, request] of Object.entries(rejected)) {
+    assert.throws(() => enforceAuthorMode(request), refuses('contract.unsupported-mode'), name);
+  }
+  // Object.prototype 被污染时，普通对象也会「继承」到 mode：照样只认自有属性。
+  try {
+    Object.defineProperty(Object.prototype, 'mode', { value: 'cards-data', configurable: true });
+    for (const request of [{}, { mode: 'cards-data', shot: {} }, { mode: 'cards-data', shot: { ...shot, renderer: {} } }, { mode: 'cards-data', film: { shots: [{}] } }]) {
+      assert.throws(() => enforceAuthorMode(request), refuses('contract.unsupported-mode'), JSON.stringify(request));
+    }
+  } finally {
+    delete Object.prototype.mode;
+  }
+});
+
+test('A13-15 U8 文件清单按工作区相对路径校验：.. 段、. 段、前导 /、反斜杠、控制字符与经过符号链接的路径都拒收', async (t) => {
+  const { options, own, sibling } = fixture(t);
+  for (const file of ['../a.json', 'data/../../a.json', './a.json', 'data/./a.json', '/etc/a.json', 'data//a.json', 'data/a.json/',
+    'data\\a.json', 'data:a.json', 'a\r.json', 'a\n.json', 'a\u0000.json', 'nul.json']) {
+    assert.throws(() => enforceAuthorMode({ mode: 'cards-data', files: [file] }), refuses('contract.bad-path'), JSON.stringify(file));
+  }
+  assert.throws(() => enforceAuthorMode(Object.assign(Object.create({ files: [] }), { mode: 'cards-data' })), refuses('contract.unsupported-mode'));
+
+  // 清单里的路径在词法上没毛病，却经过工作区里一个指向兄弟工作区的目录链接：执行入口对着真实工作区再查一遍。
+  fs.writeFileSync(path.join(sibling, 'secret.json'), '{}');
+  if (trySymlink(sibling, path.join(own, 'escape-dir'), 'junction')) {
+    const request = { mode: 'cards-data', files: ['escape-dir/secret.json'] };
+    assert.equal(enforceAuthorMode(request), request);
+    assert.throws(() => enforceAuthorMode(request, own), refuses('contract.bad-path'));
+    await assert.rejects(runInWorkspaceSandbox({ ...options, request, backend: 'portable', allowDegraded: true }), refuses('contract.bad-path'));
+  }
+});
+
+test('A13-16 后端名默认拒绝：只认三个自有名字，原型链上的键与未知字符串在规划和执行两处都报错；portable 要亲手写 allowDegraded: true', async (t) => {
+  const { base, options } = fixture(t);
+  const spec = buildContainerSpec({ ...options, image: 'node:24-slim' });
+  const tmpDir = path.join(base, 'tmp');
+  const request = { mode: 'cards-data' };
+  fs.writeFileSync(path.join(options.appDir, 'job.mjs'), "import fs from 'node:fs';\nfs.writeFileSync('ran.txt', 'x');\n");
+  const ran = () => fs.existsSync(path.join(options.workspaceDir, 'ran.txt'));
+
+  for (const backend of ['toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf', 'chroot', 'OCI', 'portable ', '', null, 0, ['portable'], { toString: () => 'oci' }]) {
+    const name = JSON.stringify(backend) ?? String(backend);
+    assert.throws(() => planSandboxExec(spec, { backend, tmpDir, allowDegraded: true }), refuses('usage.bad-argument'), name);
+    await assert.rejects(runInWorkspaceSandbox({ ...options, request, backend, allowDegraded: true }), refuses('usage.bad-argument'), name);
+  }
+  assert.throws(() => planSandboxExec(spec, { tmpDir, allowDegraded: true }), refuses('usage.bad-argument'));
+
+  // allowDegraded 必须是调用方自己写上的布尔值 true：真值、字符串、从原型链继承来的都不算。
+  for (const allowDegraded of [undefined, false, 1, 'true', {}, []]) {
+    assert.throws(() => planSandboxExec(spec, { backend: 'portable', tmpDir, allowDegraded }), refuses('env.missing-tool'), String(allowDegraded));
+    await assert.rejects(runInWorkspaceSandbox({ ...options, request, backend: 'portable', allowDegraded }), refuses('env.missing-tool'), String(allowDegraded));
+  }
+  const inherited = Object.assign(Object.create({ allowDegraded: true }), { backend: 'portable', tmpDir });
+  assert.throws(() => planSandboxExec(spec, inherited), refuses('env.missing-tool'));
+  await assert.rejects(
+    runInWorkspaceSandbox(Object.assign(Object.create({ allowDegraded: true }), { ...options, request, backend: 'portable' })),
+    refuses('env.missing-tool'),
+  );
+  assert.equal(ran(), false, '被拒的后端不得起过作业进程');
+
+  // oci 的运行时只认 docker 与 podman，别的可执行文件不当容器运行时起。
+  for (const runtime of ['sh', '/bin/sh', 'toString', '']) {
+    assert.throws(() => planSandboxExec(spec, { backend: 'oci', runtime }), refuses('usage.bad-argument'), runtime);
+  }
+  assert.equal(planSandboxExec(spec, { backend: 'portable', tmpDir, allowDegraded: true }).isolation, 'needs-oci-runtime');
+});
+
+test('A13-17 挂载源不得含控制字符；工作区根之间、工作区根与引擎目录之间跨调用也不得互相包含', (t) => {
+  const { base, options } = fixture(t);
+  const spec = buildContainerSpec(options);
+  for (const char of ['\r', '\n', '\t', '\u0000', '\u001b', '\u007f', ',', '"']) {
+    const bad = structuredClone(spec);
+    bad.mounts[1].source += `${char}x`;
+    assert.ok(validateContainerSpec(bad).some((message) => /控制字符/.test(message)), JSON.stringify(char));
+  }
+  // 真有这样一个目录时（Windows 的文件名里放不进回车，建不出来就跳过）。
+  const crRoot = path.join(base, 'work\rspaces');
+  const made = (() => {
+    try {
+      fs.mkdirSync(path.join(crRoot, 'ws-a'), { recursive: true });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  if (made) {
+    assert.throws(() => buildContainerSpec({ ...options, workspacesRoot: crRoot, workspaceDir: path.join(crRoot, 'ws-a') }),
+      (error) => error.code === 'usage.bad-argument' && /控制字符/.test(error.message));
+  }
+
+  // 父根先登记：再把它的一个工作区当成工作区根，两个可写挂载就一个套一个。
+  const nestedRoot = options.workspaceDir;
+  fs.mkdirSync(path.join(nestedRoot, 'nested'));
+  assert.throws(() => buildContainerSpec({ ...options, workspacesRoot: nestedRoot, workspaceDir: path.join(nestedRoot, 'nested') }), refuses('contract.bad-path'));
+  assert.throws(() => resolveWorkspace({ workspacesRoot: nestedRoot, workspaceDir: path.join(nestedRoot, 'nested') }), refuses('contract.bad-path'));
+  // 子根先登记：再用包住它的目录当工作区根，同样拒收。
+  const outer = path.join(base, 'outer');
+  const inner = path.join(outer, 'tenant', 'spaces');
+  fs.mkdirSync(path.join(inner, 'ws-a'), { recursive: true });
+  buildContainerSpec({ ...options, workspacesRoot: inner, workspaceDir: path.join(inner, 'ws-a') });
+  assert.throws(() => buildContainerSpec({ ...options, workspacesRoot: outer, workspaceDir: path.join(outer, 'tenant') }), refuses('contract.bad-path'));
+  assert.throws(() => buildContainerSpec({ ...options, workspacesRoot: path.join(outer, 'tenant'), workspaceDir: inner }), refuses('contract.bad-path'));
+  // 用过的引擎目录不能再当工作区根（它的子目录会被挂成可写）；登记过的工作区根也不能再当引擎目录。
+  fs.mkdirSync(path.join(options.appDir, 'ws-x'));
+  assert.throws(() => buildContainerSpec({ ...options, workspacesRoot: options.appDir, workspaceDir: path.join(options.appDir, 'ws-x'), appDir: path.join(base, 'outer') }), refuses('contract.bad-path'));
+  assert.throws(() => buildContainerSpec({ ...options, appDir: path.join(inner, 'ws-a') }), refuses('usage.bad-argument'));
+  // 没被拒的照旧能用：同一个根重复登记、互不包含的另一个根。
+  assert.equal(buildContainerSpec(options).workspaceId, 'ws-a');
+  assert.equal(buildContainerSpec({ ...options, workspaceDir: path.join(options.workspacesRoot, 'ws-b') }).workspaceId, 'ws-b');
+});
+
+test('A13-18 引擎目录与工作区都不得是根目录、家目录或家目录下点开头的配置与凭据目录', (t) => {
+  const { base, options } = fixture(t);
+  const home = fakeHome(t, base);
+  const dirs = ['.ssh', '.aws', '.config', '.gnupg', '.claude', '.kube', path.join('.config', 'gcloud'), path.join('projects', '.secrets', 'engine'), path.join('projects', 'engine')];
+  for (const dir of dirs) fs.mkdirSync(path.join(home, dir), { recursive: true });
+
+  for (const dir of ['', ...dirs.slice(0, -1)]) {
+    assert.throws(() => buildContainerSpec({ ...options, appDir: path.join(home, dir) }), refuses('usage.bad-argument'), `appDir=~/${dir}`);
+    const spec = buildContainerSpec(options);
+    spec.mounts[1].source = fs.realpathSync.native(path.join(home, dir));
+    assert.notDeepEqual(validateContainerSpec(spec), [], `mounts[1].source=~/${dir}`);
+  }
+  for (const appDir of [path.parse(base).root, path.dirname(home)]) {
+    assert.throws(() => buildContainerSpec({ ...options, appDir }), refuses('usage.bad-argument'), appDir);
+  }
+  // 家目录下不带点开头段的普通目录照旧能当引擎目录。
+  assert.deepEqual(validateContainerSpec(buildContainerSpec({ ...options, appDir: path.join(home, 'projects', 'engine') })), []);
+
+  // 工作区同理：~/.config 当工作区根时，~/.config/gcloud 会被挂成可写。
+  assert.throws(() => resolveWorkspace({ workspacesRoot: path.join(home, '.config'), workspaceDir: path.join(home, '.config', 'gcloud') }), refuses('contract.bad-path'));
+  assert.throws(() => resolveWorkspace({ workspacesRoot: path.dirname(home), workspaceDir: home }), refuses('contract.bad-path'));
+});
+
+test('A13-19 红队报告的完整性：子尝试少跑一个、攻击夹具没建起来，这一项都判结论无效并判红', async (t) => {
+  // 假沙箱不读软链：先让建软链一律成功，没有建符号链接权限的 Windows 上结果也一样。
+  const symlink = t.mock.method(fs, 'symlinkSync', () => {});
+  const full = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun() });
+  assert.deepEqual([full.ok, full.blocked, full.total], [true, 5, 5]);
+  for (const item of full.items) {
+    assert.deepEqual(item.attempts.map((entry) => entry.id), EXPECTED_ATTEMPTS[item.id], item.id);
+    assert.deepEqual([item.conclusive, item.escaped, item.blocked, item.missingAttempts, item.fixtureErrors], [true, false, true, [], []], item.id);
+  }
+
+  // 每一项各抽掉最后一个子尝试：只有这一项失效，其余四项照旧。
+  for (const [id, expected] of Object.entries(EXPECTED_ATTEMPTS)) {
+    const dropped = expected.filter((attempt) => attempt !== 'warm-process-residue').at(-1);
+    const report = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun([dropped]) });
+    const hit = report.items.find((item) => item.id === id);
+    assert.deepEqual([hit.conclusive, hit.blocked, hit.missingAttempts], [false, false, [dropped]], id);
+    assert.deepEqual([report.ok, report.blocked], [false, 4], id);
+    assert.match(formatRedTeamReport(report), new RegExp(`结论无效[^]*${dropped}`), id);
+  }
+  // 预热进程残留这一条是宿主机一侧补的：池子不肯借进程时不能悄悄少一条。
+  const noPool = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun(), makePool: () => ({ acquire() { throw new Error('池坏了'); }, close() {} }) })
+    .then((report) => report.items.find((item) => item.id === 'cross_workspace_processes'), (error) => error);
+  assert.ok(noPool instanceof Error || noPool.blocked === false, '预热池这一条没跑成时不得算拦住');
+
+  // 软链夹具建不起来：两条软链尝试没有真打到靶子上，读别的工作区这一项证据不足。
+  symlink.mock.mockImplementation(() => {
+    throw Object.assign(new Error('没有建符号链接的权限'), { code: 'EPERM' });
+  });
+  const report = await runSandboxRedTeam({ ...OFFLINE, run: fakeBlockedRun() });
+  const read = report.items.find((item) => item.id === 'cross_workspace_read');
+  assert.deepEqual(read.fixtureErrors, ['planted-symlink-file: EPERM', 'planted-symlink-dir: EPERM']);
+  assert.deepEqual([read.conclusive, read.blocked, read.escaped], [false, false, false]);
+  assert.deepEqual([report.ok, report.blocked], [false, 4]);
+  assert.match(formatRedTeamReport(report), /夹具没建起来[^]*planted-symlink-file: EPERM/);
 });

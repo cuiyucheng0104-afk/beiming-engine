@@ -6,6 +6,7 @@ import process from 'node:process';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { clearTimeout, setTimeout } from 'node:timers';
+import { safePath } from './workspace.mjs';
 
 export const AUTHOR_MODE = 'cards-data';
 
@@ -26,11 +27,17 @@ const fixedEnv = Object.freeze({
   BEIMING_WORKSPACE: '/workspace',
   BEIMING_APP: '/app',
 });
-const isolationOf = {
-  oci: 'oci-container',
-  'darwin-seatbelt': 'seatbelt-process-policy',
-  portable: 'needs-oci-runtime',
-};
+// 用 Map 不用对象：toString、constructor 这些原型链上的键查不出东西来。
+const isolationOf = new Map([
+  ['oci', 'oci-container'],
+  ['darwin-seatbelt', 'seatbelt-process-policy'],
+  ['portable', 'needs-oci-runtime'],
+]);
+const ociRuntimes = new Set(['docker', 'podman']);
+// 本进程里已经出过合格规格的工作区根与引擎目录（规范化后），跨调用查互相包含用。
+const trusted = { roots: new Set(), apps: new Set() };
+// 不存在的根：拿它调 safePath 只做词法校验，查符号链接的那一步不会命中。
+const noWorkspace = path.join(os.tmpdir(), `bm-u8-${randomUUID()}`);
 const seatbeltBinary = '/usr/bin/sandbox-exec';
 const outputCap = 8 * 1024 * 1024;
 
@@ -52,25 +59,67 @@ function inside(parent, child) {
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
 }
 
-/** U8：对外服务只收「卡加数据」。构建脚本、原生代码、入口文件、调用方自带命令、非数据文件一律拒收。 */
-export function enforceAuthorMode(request) {
+const overlaps = (a, b) => inside(a, b) || inside(b, a);
+const isPlain = (value) => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value));
+const ownTrue = (object, key) => Object.hasOwn(object, key) && object[key] === true;
+
+// 不该挂进沙箱的宿主机目录：包住家目录的（含根目录与家目录本身），和家目录下带点开头段的（.ssh、.aws、.config 这类配置与凭据目录）。
+function hostSensitive(dir) {
+  const home = tryReal(os.homedir());
+  if (inside(dir, home)) return '不得是根目录、家目录或包住家目录的目录';
+  if (inside(home, dir) && path.relative(home, dir).split(path.sep).some((segment) => segment.startsWith('.'))) {
+    return '不得在家目录下点开头的配置与凭据目录里';
+  }
+  return null;
+}
+
+/**
+ * U8：对外服务只收「卡加数据」。构建脚本、原生代码、入口文件、调用方自带命令、非数据文件一律拒收。
+ * 请求自己、request.shot、request.film.shots[] 里的每个镜头和它们的 renderer 都查：出帧用的是 renderer 那一套（film 契约 3.3）。
+ * 只认普通对象的自有属性，从原型链继承来的 mode 不算数。给了 workspaceDir，文件清单连工作区里的符号链接一起查。
+ */
+export function enforceAuthorMode(request, workspaceDir = noWorkspace) {
   const refuse = (message, details) => {
     throw codedError('contract.unsupported-mode', message, details);
   };
-  if (request?.mode !== AUTHOR_MODE) refuse('对外服务只收「卡加数据」（cards-data）模式的作业。', { mode: request?.mode });
-  if (request.entry !== undefined) refuse('「卡加数据」模式的作业不得带入口文件。', { entry: request.entry });
-  if (request.command !== undefined) refuse('不接受调用方指定的执行命令。');
-  const files = request.files ?? [];
+  const checkModes = (target, where) => {
+    if (!isPlain(target)) refuse(`${where} 必须是普通对象。`, { where });
+    if (!Object.hasOwn(target, 'mode') || target.mode !== AUTHOR_MODE) {
+      refuse(`对外服务只收「卡加数据」（cards-data）模式的作业，${where}.mode 不是。`, { where });
+    }
+    if (Object.hasOwn(target, 'entry')) refuse(`「卡加数据」模式的作业不得带入口文件（${where}.entry）。`, { where });
+  };
+  const checkShot = (shot, where) => {
+    checkModes(shot, where);
+    if (Object.hasOwn(shot, 'renderer')) checkModes(shot.renderer, `${where}.renderer`);
+  };
+  checkShot(request, 'request');
+  if (Object.hasOwn(request, 'command')) refuse('不接受调用方指定的执行命令。');
+  if (Object.hasOwn(request, 'shot')) checkShot(request.shot, 'request.shot');
+  if (Object.hasOwn(request, 'film')) {
+    const { film } = request;
+    if (!isPlain(film) || !Object.hasOwn(film, 'shots') || !Array.isArray(film.shots) || !film.shots.length) {
+      refuse('request.film 必须是带 shots 数组的片子描述。');
+    }
+    // entries() 连数组里的空位也走到。
+    for (const [index, shot] of film.shots.entries()) checkShot(shot, `request.film.shots[${index}]`);
+  }
+  const files = Object.hasOwn(request, 'files') ? request.files : [];
   if (!Array.isArray(files)) refuse('files 必须是相对路径数组。');
   for (const file of files) {
     if (typeof file !== 'string' || !dataExtensions.has(path.posix.extname(file).toLowerCase())) {
       refuse(`只收数据文件，不收脚本或可执行文件：${String(file)}`, { path: file });
     }
+    // 路径写法不对（.. 段、. 段、前导 /、反斜杠、控制字符、经过符号链接）报 contract.bad-path。
+    safePath(workspaceDir, file);
   }
   return request;
 }
 
-/** 认出一个工作区：规范化后必须是工作区根的直接子目录，自己不是符号链接，也不包住宿主机家目录。 */
+/**
+ * 认出一个工作区：规范化后必须是工作区根的直接子目录，自己不是符号链接，不是宿主机的敏感目录，
+ * 工作区根也不和本进程已登记的工作区根、引擎目录互相包含。
+ */
 export function resolveWorkspace({ workspacesRoot, workspaceDir } = {}) {
   if (typeof workspacesRoot !== 'string' || typeof workspaceDir !== 'string' || !workspacesRoot || !workspaceDir) {
     throw codedError('usage.bad-argument', 'workspacesRoot 与 workspaceDir 必须是非空路径。');
@@ -86,8 +135,15 @@ export function resolveWorkspace({ workspacesRoot, workspaceDir } = {}) {
   const root = fs.realpathSync.native(workspacesRoot);
   const dir = fs.realpathSync.native(given);
   const workspaceId = path.relative(root, dir);
-  if (!workspaceIdPattern.test(workspaceId)) refuse('工作区必须是工作区根的直接子目录，目录名只用小写字母、数字和连字符。');
-  if (inside(dir, tryReal(os.homedir()))) refuse('工作区不得包住宿主机家目录。');
+  if (path.dirname(dir) !== root || !workspaceIdPattern.test(workspaceId)) {
+    refuse('工作区必须是工作区根的直接子目录，目录名只用小写字母、数字和连字符。');
+  }
+  const sensitive = hostSensitive(dir);
+  if (sensitive) refuse(`工作区${sensitive}。`);
+  // 工作区只能是根的直接子目录，所以根两两不互相包含，工作区也就两两不互相包含。
+  if ([...trusted.roots].some((other) => other !== root && overlaps(other, root)) || [...trusted.apps].some((app) => overlaps(app, root))) {
+    refuse('工作区根不得与本进程已登记的工作区根或引擎目录互相包含。');
+  }
   return { root, dir, workspaceId };
 }
 
@@ -119,7 +175,8 @@ export function validateContainerSpec(spec) {
     return bad;
   }
   const [workspace, app] = mounts;
-  need(mounts.every((mount) => typeof mount.source === 'string' && !/[,"\n]/.test(mount.source)), '挂载源路径不得含逗号、引号或换行。');
+  // eslint-disable-next-line no-control-regex
+  need(mounts.every((mount) => typeof mount.source === 'string' && !/[\x00-\x1f\x7f,"]/.test(mount.source)), '挂载源路径不得含逗号、引号或控制字符。');
   try {
     const resolved = resolveWorkspace({ workspacesRoot: spec.workspacesRoot, workspaceDir: workspace.source });
     need(
@@ -129,10 +186,9 @@ export function validateContainerSpec(spec) {
     need(new RegExp(`^bm-ws-${resolved.workspaceId}-[a-f0-9]{8}$`).test(spec.containerName), '容器名必须绑定工作区标识。');
     const appDir = fs.realpathSync.native(app.source);
     need(appDir === app.source && fs.statSync(appDir).isDirectory(), '/app 的挂载源必须是规范化后的已有目录。');
-    need(
-      !inside(resolved.root, appDir) && !inside(appDir, resolved.root) && !inside(appDir, tryReal(os.homedir())),
-      '引擎目录不得在工作区根里，也不得包住工作区根或宿主机家目录。',
-    );
+    const sensitive = hostSensitive(appDir);
+    need(!sensitive, `引擎目录${sensitive}。`);
+    need(![resolved.root, ...trusted.roots].some((root) => overlaps(root, appDir)), '引擎目录不得与工作区根互相包含（含本进程已登记的工作区根）。');
   } catch (error) {
     bad.push(error.message);
   }
@@ -168,6 +224,8 @@ export function buildContainerSpec({ workspacesRoot, workspaceDir, appDir, comma
   };
   const violations = validateContainerSpec(spec);
   if (violations.length) throw codedError('usage.bad-argument', `隔离规格不合格：${violations.join('')}`, { violations });
+  trusted.roots.add(root);
+  trusted.apps.add(spec.mounts[1].source);
   return spec;
 }
 
@@ -234,11 +292,25 @@ function seatbeltProfile(spec, tmpDir, node) {
   ].join('\n');
 }
 
-/** 把规格渲染成要起的进程（纯函数，不执行、不校验）。宿主机后端要给专属临时目录 tmpDir。 */
-export function planSandboxExec(spec, { backend, runtime = 'docker', tmpDir } = {}) {
-  const isolation = isolationOf[backend];
-  if (!isolation) throw codedError('usage.bad-argument', `不认识的沙箱后端：${String(backend)}`);
-  if (backend === 'oci') return { backend, isolation, file: runtime, args: ociArgs(spec) };
+// 默认拒绝：后端名只认 isolationOf 里的三个；portable 没有内核级隔离，要调用方亲手写上 allowDegraded: true。
+function admitBackend(backend, allowDegraded) {
+  if (typeof backend !== 'string' || !isolationOf.has(backend)) {
+    throw codedError('usage.bad-argument', `不认识的沙箱后端：${typeof backend === 'string' ? backend : typeof backend}`);
+  }
+  if (backend === 'portable' && allowDegraded !== true) {
+    throw codedError('env.missing-tool', '本机没有可用的内核级隔离（docker、podman 或 sandbox-exec），拒绝执行工作区作业。');
+  }
+  return isolationOf.get(backend);
+}
+
+/** 把规格渲染成要起的进程（不执行、不校验规格）。宿主机后端要给专属临时目录 tmpDir；portable 要自有的 allowDegraded: true。 */
+export function planSandboxExec(spec, options = {}) {
+  const { backend, runtime = 'docker', tmpDir } = options;
+  const isolation = admitBackend(backend, ownTrue(options, 'allowDegraded'));
+  if (backend === 'oci') {
+    if (!ociRuntimes.has(runtime)) throw codedError('usage.bad-argument', 'oci 后端的运行时只认 docker 与 podman。');
+    return { backend, isolation, file: runtime, args: ociArgs(spec) };
+  }
   if (typeof tmpDir !== 'string' || !tmpDir) throw codedError('usage.bad-argument', '宿主机后端必须给专属临时目录 tmpDir。');
   const view = hostView(spec, tmpDir);
   if (backend === 'darwin-seatbelt') {
@@ -248,6 +320,8 @@ export function planSandboxExec(spec, { backend, runtime = 'docker', tmpDir } = 
       env: view.env, cwd: view.cwd,
     };
   }
+  // 普通宿主 node 子进程只给 portable，不当别的后端的兜底。
+  if (backend !== 'portable') throw codedError('usage.bad-argument', `后端 ${backend} 没有渲染方式。`);
   // Windows 上没有 SystemRoot 时 node 的网络与随机数初始化会失败；它不是凭据。
   const env = process.env.SystemRoot ? { ...view.env, SystemRoot: process.env.SystemRoot } : view.env;
   return { backend, isolation, file: view.node, args: view.args, env, cwd: view.cwd };
@@ -296,21 +370,24 @@ function collect(plan, timeoutMs, onTimeout) {
 }
 
 /**
- * 在一次性沙箱里跑一个工作区的作业：先过 U8 守卫，再生成并校验隔离规格，然后按后端执行。
- * 没有内核级隔离的 portable 后端默认拒跑；allowDegraded 只给本机调试用，结果的 isolation 是 needs-oci-runtime。
+ * 在一次性沙箱里跑一个工作区的作业：先过 U8 守卫，再认后端，生成并校验隔离规格，然后按后端执行。
+ * 后端名不在三个之列立即报错。没有内核级隔离的 portable 后端默认拒跑；自有的 allowDegraded: true 只给本机调试用，
+ * 结果的 isolation 是 needs-oci-runtime。
  */
-export async function runInWorkspaceSandbox({ request, backend, runtime, allowDegraded = false, timeoutMs = 600_000, ...specOptions } = {}) {
+export async function runInWorkspaceSandbox(options = {}) {
+  const { request, backend, runtime, timeoutMs = 600_000, ...specOptions } = options;
   enforceAuthorMode(request);
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw codedError('usage.bad-argument', 'timeoutMs 必须是正整数毫秒。');
+  const allowDegraded = ownTrue(options, 'allowDegraded');
+  const chosen = backend === undefined ? detectSandboxBackend() : { backend, runtime };
+  admitBackend(chosen.backend, allowDegraded);
   const spec = buildContainerSpec(specOptions);
-  const chosen = backend ? { backend, runtime: runtime ?? 'docker' } : detectSandboxBackend();
-  if (chosen.backend === 'portable' && !allowDegraded) {
-    throw codedError('env.missing-tool', '本机没有可用的内核级隔离（docker、podman 或 sandbox-exec），拒绝执行工作区作业。');
-  }
+  // 文件清单对着真实工作区再查一遍：不得经过工作区里的符号链接。
+  enforceAuthorMode(request, spec.mounts[0].source);
   const tmpDir = chosen.backend === 'oci' ? undefined : fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'bm-sandbox-')));
   try {
     if (tmpDir) fs.mkdirSync(path.join(tmpDir, 'home'));
-    const plan = planSandboxExec(spec, { ...chosen, tmpDir });
+    const plan = planSandboxExec(spec, { ...chosen, tmpDir, allowDegraded });
     const result = await collect(plan, timeoutMs, () => {
       // 杀掉 docker 客户端不等于停掉容器。
       if (plan.backend === 'oci') spawnSync(plan.file, ['kill', spec.containerName], { stdio: 'ignore' });

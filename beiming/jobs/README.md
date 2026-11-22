@@ -52,7 +52,7 @@
 
 ## 工作区沙箱（A13）
 
-`runInWorkspaceSandbox` 先过 U8 守卫（只收 `cards-data`，否则报 `contract.unsupported-mode`），再生成一次性隔离规格：无网络、根只读、丢全部 capability、非 root，只挂本工作区（`/workspace`）与只读引擎目录（`/app`），环境变量按固定白名单重建。后端有三种：`oci`（docker、podman）、`darwin-seatbelt`（macOS 进程策略，非容器）、`portable`（没有内核级隔离，默认拒跑，标 `needs-oci-runtime`）。`WarmProcessPool` 的进程用一次就销毁。红队：`node beiming/jobs/sandbox-redteam.mjs`，五项全拦才 exit 0。边界与实测见 [DETAILS.md](DETAILS.md)。
+`runInWorkspaceSandbox` 先过 U8 守卫：请求、`shot`、`film.shots[]` 及其 `renderer` 的自有 `mode` 须是 `cards-data` 且不带 `entry`（否则 `contract.unsupported-mode`），`files` 查相对路径。调用方要把出帧的镜头放进请求，并固定工作区根与引擎目录：互相包含或在家目录点目录里的拒收。沙箱无网络、根只读、非 root，只挂本工作区与只读引擎目录，环境变量走白名单。后端只认 `oci`、`darwin-seatbelt`、`portable`（无内核隔离，要 `allowDegraded: true`）。红队：`node beiming/jobs/sandbox-redteam.mjs`，子尝试全拦才 exit 0。见 [DETAILS.md](DETAILS.md)。
 
 ## 自检
 

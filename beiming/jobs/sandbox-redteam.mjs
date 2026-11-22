@@ -17,12 +17,28 @@ const SENTINEL = 'bm-sandbox-redteam/0.1';
 const DECOY_TAG = 'bm-redteam-decoy';
 const SENSITIVE_ENV = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|^(?:AWS|SSH|GH|GITHUB|ANTHROPIC|OPENAI|GOOGLE|AZURE|DOCKER|NPM)_/i;
 
+// expectedAttempts 是这一项该有的全部子尝试：判定时逐个核对，少一个这一项就不算数。
 const ITEMS = [
-  { id: 'cross_workspace_read', title: '读别的工作区目录' },
-  { id: 'host_home_and_secrets', title: '读宿主机家目录与密钥' },
-  { id: 'external_network', title: '连外网与非授权回环端口' },
-  { id: 'cross_workspace_processes', title: '看到别的工作区的进程' },
-  { id: 'readonly_image_write', title: '往只读根镜像与只读引擎目录里写文件' },
+  {
+    id: 'cross_workspace_read', title: '读别的工作区目录',
+    expectedAttempts: ['absolute-path', 'relative-path', 'planted-symlink-file', 'planted-symlink-dir', 'list-workspaces-root'],
+  },
+  {
+    id: 'host_home_and_secrets', title: '读宿主机家目录与密钥',
+    expectedAttempts: ['ssh-private-key', 'aws-credentials', 'real-home', 'real-home-ssh', 'real-home-aws', 'real-home-gnupg', 'real-home-config', 'env-secrets'],
+  },
+  {
+    id: 'external_network', title: '连外网与非授权回环端口',
+    expectedAttempts: ['loopback-tcp', 'loopback-http', 'external-tcp', 'dns-lookup'],
+  },
+  {
+    id: 'cross_workspace_processes', title: '看到别的工作区的进程',
+    expectedAttempts: ['ps-by-pid', 'ps-scan', 'proc-cmdline', 'proc-environ', 'signal-0', 'warm-process-residue'],
+  },
+  {
+    id: 'readonly_image_write', title: '往只读根镜像与只读引擎目录里写文件',
+    expectedAttempts: ['app-overwrite', 'app-create', 'root-create', 'sibling-create', 'host-home-create'],
+  },
 ];
 
 const BACKENDS = {
@@ -57,6 +73,9 @@ const BACKENDS = {
     },
   },
 };
+
+// 不认识的后端名（含 toString 这类原型链上的键）按没有内核级隔离的 portable 说明。
+const backendInfo = (name) => (Object.hasOwn(BACKENDS, name) ? BACKENDS[name] : BACKENDS.portable);
 
 // Windows 上 node 没有 SystemRoot 起不稳；它不是凭据。
 const bareEnv = () => (process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {});
@@ -267,6 +286,7 @@ export async function runSandboxRedTeam({
   const rootFile = `/var/tmp/bm-redteam-${nonce}`;
   const hostEnv = { BEIMING_REDTEAM_API_KEY: canary.envKey, BEIMING_REDTEAM_AWS_SECRET_ACCESS_KEY: canary.envAws };
   const server = http.createServer((request, response) => response.end('ok'));
+  const fixtureErrors = [];
   let connections = 0;
   let decoy;
 
@@ -278,12 +298,17 @@ export async function runSandboxRedTeam({
     fs.writeFileSync(path.join(fakeHome, '.aws', 'credentials'), canary.awsKey);
     fs.writeFileSync(path.join(app, 'engine.txt'), 'engine');
     fs.copyFileSync(self, path.join(app, 'probe.mjs'));
-    try {
-      fs.symlinkSync(path.join('..', siblingName, 'secret.txt'), path.join(own, 'escape-link'));
+    // 植不进去（Windows 上没有建符号链接的权限）要记下来：对应的尝试没有真打到靶子上，这一项不能算拦住。
+    for (const [attempt, name, target, type] of [
+      ['planted-symlink-file', 'escape-link', path.join('..', siblingName, 'secret.txt')],
       // Windows 的目录联接只认绝对目标。
-      fs.symlinkSync(process.platform === 'win32' ? sibling : path.join('..', siblingName), path.join(own, 'escape-dir'), 'junction');
-    } catch {
-      // Windows 上没有建符号链接的权限时植不进去，这两项尝试照常跑、读不到。
+      ['planted-symlink-dir', 'escape-dir', process.platform === 'win32' ? sibling : path.join('..', siblingName), 'junction'],
+    ]) {
+      try {
+        fs.symlinkSync(target, path.join(own, name), type);
+      } catch (error) {
+        fixtureErrors.push({ item: 'cross_workspace_read', text: `${attempt}: ${String(error.code ?? error.name)}` });
+      }
     }
     server.on('connection', () => {
       connections += 1;
@@ -314,7 +339,7 @@ export async function runSandboxRedTeam({
 
     const items = [];
     let used;
-    for (const { id, title } of ITEMS) {
+    for (const { id, title, expectedAttempts } of ITEMS) {
       const result = await execute({
         request: { mode: 'cards-data' }, workspacesRoot: root, workspaceDir: own, appDir: app,
         command: ['node', '/app/probe.mjs', '--probe', id, JSON.stringify(cfg)],
@@ -338,19 +363,28 @@ export async function runSandboxRedTeam({
         });
       }
       const hostEvidence = evidence[id]?.() ?? null;
+      const missingAttempts = expectedAttempts.filter((expected) => !attempts.some((entry) => entry.id === expected));
+      const failedFixtures = fixtureErrors.filter((entry) => entry.item === id).map((entry) => entry.text);
+      // 结论有效要四样齐：探针在自己的工作区里读写正常、退出码是 0 或 1、预期的子尝试一个不少、攻击夹具都建起来了。
+      const conclusive = parsed?.control === true && parsed.item === id && (result.code === 0 || result.code === 1)
+        && !missingAttempts.length && !failedFixtures.length;
+      const escaped = attempts.some((entry) => entry.escaped) || hostEvidence !== null;
       items.push({
         id, title,
         command: `node /app/probe.mjs --probe ${id} <夹具参数>`,
         exitCode: result.code,
-        conclusive: parsed?.control === true && parsed.item === id && (result.code === 0 || result.code === 1),
-        escaped: attempts.some((entry) => entry.escaped) || hostEvidence !== null,
-        blockedBy: (BACKENDS[result.backend] ?? BACKENDS.portable).layers[id],
+        conclusive,
+        escaped,
+        blocked: conclusive && !escaped,
+        blockedBy: backendInfo(result.backend).layers[id],
         hostEvidence,
+        missingAttempts,
+        fixtureErrors: failedFixtures,
         attempts,
       });
     }
 
-    const blocked = items.filter((item) => item.conclusive && !item.escaped).length;
+    const blocked = items.filter((item) => item.blocked).length;
     const report = {
       format: 'sandbox-redteam/0.1',
       generatedAt: new Date().toISOString(),
@@ -358,7 +392,7 @@ export async function runSandboxRedTeam({
       node: process.version,
       backend: used.backend,
       isolation: used.isolation,
-      boundary: (BACKENDS[used.backend] ?? BACKENDS.portable).boundary,
+      boundary: backendInfo(used.backend).boundary,
       ok: blocked === ITEMS.length,
       blocked,
       total: ITEMS.length,
@@ -390,6 +424,7 @@ export function formatRedTeamReport(report) {
     `- 时间：${report.generatedAt}`,
     `- 后端边界：${report.boundary}`,
     '- 探针退出码：1 是全部尝试失败，0 是至少一次得手，3 是沙箱里连自己的工作区都读写不了（结论无效）。',
+    '- 一项算拦住，要它预期的子尝试全部跑到并且全部失败；少跑一个，或者攻击夹具没建起来，都是结论无效。',
     '',
     '| # | 逃逸尝试 | 命令 | 退出码 | 拦截层 | 逃逸 |',
     '|---|---|---|---|---|---|',
@@ -399,6 +434,8 @@ export function formatRedTeamReport(report) {
     lines.push('', `## ${index + 1} ${item.title}`, '', '| 载荷 | 实测错误码 | 逃逸 |', '|---|---|---|');
     for (const entry of item.attempts) lines.push(`| ${entry.payload}（\`${entry.id}\`） | \`${entry.code}\` | ${entry.escaped ? '是' : '否'} |`);
     lines.push('', `宿主机一侧的核对：${item.hostEvidence ?? '没有发现逃逸痕迹'}。`);
+    if (item.missingAttempts?.length) lines.push('', `结论无效，少跑了子尝试：${item.missingAttempts.map((id) => `\`${id}\``).join('、')}。`);
+    if (item.fixtureErrors?.length) lines.push('', `结论无效，攻击夹具没建起来：${item.fixtureErrors.map((text) => `\`${text}\``).join('、')}。`);
   }
   return `${lines.join('\n')}\n`;
 }
