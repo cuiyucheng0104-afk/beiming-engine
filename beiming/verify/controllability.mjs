@@ -242,8 +242,27 @@ function assetClashes(film, lock) {
 }
 
 /**
+ * 交付件表只收普通对象：自有键都是不空的文件名，值都是不空的哈希字符串，不带 Symbol 键、访问器和继承来的项。
+ * Map、Set、Date、类实例的内容不在自有属性里，照普通对象读会读成空表，两遍摘要不同也判一致，所以直接拒。
+ * 每个键只读一次，交回的是副本。
+ */
+function fileTable(table, who) {
+  const bad = (why) => new TypeError(`${who}的 deliverables 必须是「文件名 → 哈希字符串」的普通对象：${why}`);
+  if (!isObj(table)) throw bad('交回的不是对象');
+  const proto = Object.getPrototypeOf(table);
+  // 原型只认空和 Object.prototype（别的 realm 的也算：它的原型是空、上面没有可枚举的项）
+  if (proto !== null && (Object.getPrototypeOf(proto) !== null || Object.keys(proto).length)) throw bad('Map、Set、Date、类实例和带继承项的对象不收');
+  return Object.fromEntries(Reflect.ownKeys(table).map((key) => {
+    if (typeof key !== 'string' || key === '') throw bad('键必须是不空的字符串，不收 Symbol 键');
+    const { value } = Object.getOwnPropertyDescriptor(table, key);
+    if (typeof value !== 'string' || value === '') throw bad(`${key} 的值必须是不空的字符串，不收访问器`);
+    return [key, value];
+  }));
+}
+
+/**
  * 加锁重建回归：同一份 film 加同一份 lock，调两次 renderLocked(片子描述的副本, 锁的副本, { run: 1 | 2 })，两遍必须是独立重渲。
- * 每遍交回全片的帧数组，或 { frames, deliverables }（deliverables 是「文件名 → 哈希字符串」）。
+ * 每遍交回全片的帧数组，或 { frames, deliverables }（deliverables 是「文件名 → 哈希字符串」的普通对象，Map、类实例这些直接抛 TypeError）。
  * 哈希档：每帧颜色层逐位相同，deliverables 逐键相同；容差档：每帧 PSNR ≥ psnrMinDb 且超差像素比例 ≤ maxDiffFrac，不比 deliverables。
  * 开渲之前就拒：缺锁、锁不合 lock/1.0、修订号和片子描述对不上、锁和片子描述过不了出锁时（kernel/lock-gen.mjs）那套跨文件核对
  * （lock-check/0.1 的全部不变量加片子描述一侧的 D3：片号、种子、镜头表、卡、帧源、模版、查找表、资产）。
@@ -278,13 +297,11 @@ export async function runRebuildTest({
   for (const run of [1, 2]) {
     const out = await renderLocked(structuredClone(film), structuredClone(lock), { run });
     const packed = isObj(out);
-    const deliverables = packed ? out.deliverables : undefined;
-    if (deliverables !== undefined && (!isObj(deliverables) || Object.values(deliverables).some((v) => typeof v !== 'string'))) {
-      throw new TypeError(`第 ${run} 遍的 deliverables 必须是「文件名 → 哈希字符串」的对象`);
-    }
+    const given = packed ? out.deliverables : undefined;
+    const deliverables = given === undefined ? {} : fileTable(given, `第 ${run} 遍`);
     const frames = frameList(packed ? out.frames : out, total, `第 ${run} 遍`);
     // 第一遍的像素和交付件表当场另存；原来那块缓冲区只留着认「两遍是不是同一块」
-    runs.push({ frames: run === 1 ? keep(frames, '第 1 遍') : frames, buffers: frames.map((frame) => frame.color), deliverables: { ...deliverables } });
+    runs.push({ frames: run === 1 ? keep(frames, '第 1 遍') : frames, buffers: frames.map((frame) => frame.color), deliverables });
   }
   const failedFrames = [];
   let identicalFrames = 0, worstPsnrDb = Infinity, worstFracGt5 = 0;

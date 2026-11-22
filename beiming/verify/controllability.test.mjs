@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { runInNewContext } from 'node:vm';
 import { startSource } from '../host/page/host.mjs';
 import { shotInput } from '../kernel/eval/input.mjs';
 import { applyFilmWrite } from '../kernel/patch-apply.mjs';
@@ -835,6 +836,48 @@ async function renderOnPage(source, film, lock) {
     await rm(workspace, { recursive: true, force: true });
   }
 }
+
+test('V14-18 交付件表只收普通对象：Map、Set、Date、类实例、带继承项、访问器、Symbol 键、空键空值的一律 TypeError，不读成空表判绿', async () => {
+  let calls = 0;
+  const rebuild = (table) => runRebuildTest({
+    film: assembly, lock: assemblyLock,
+    renderLocked: async (f, l, info) => { calls++; return { frames: await twice()(f, l, info), deliverables: table(info.run) }; },
+  });
+  const digest = (run) => (run === 1 ? 'sha256:aa' : 'sha256:ab');
+  // 五审的反例：帧逐位相同，两遍 master.mp4 的摘要不同，装在 Map 里；以前读成空表判 ok
+  class Files { constructor(run) { this['master.mp4'] = digest(run); } }
+  const bad = {
+    Map: (run) => new Map([['master.mp4', digest(run)]]),
+    Set: (run) => new Set([digest(run)]),
+    Date: () => new Date(0),
+    类实例: (run) => new Files(run),
+    继承项: (run) => Object.create({ 'master.mp4': digest(run) }),
+    空原型上的继承项: (run) => Object.create(Object.assign(Object.create(null), { 'master.mp4': digest(run) })),
+    访问器: () => ({ get 'master.mp4'() { return 'sha256:aa'; } }),
+    'Symbol 键': () => ({ 'master.mp4': 'sha256:aa', [Symbol('web.mp4')]: 'sha256:cc' }),
+    空键: () => ({ '': 'sha256:aa' }),
+    空值: () => ({ 'master.mp4': '' }),
+    不是字符串的值: () => ({ 'master.mp4': 7 }),
+    数组: () => ['sha256:aa'],
+  };
+  for (const [name, table] of Object.entries(bad)) {
+    calls = 0;
+    await assert.rejects(() => rebuild(table), (e) => e instanceof TypeError && /deliverables/.test(e.message), name);
+    assert.equal(calls, 1, `${name}：第一遍交回就拒，不等第二遍`);
+  }
+  // 正对照：空原型的表、别的 realm 来的普通对象、不可枚举的键都照常逐键比，摘要不同就红
+  const good = {
+    空原型: (run) => Object.assign(Object.create(null), { 'master.mp4': digest(run) }),
+    '别的 realm': (run) => runInNewContext(`({ 'master.mp4': '${digest(run)}' })`),
+    不可枚举的键: (run) => Object.defineProperty({}, 'master.mp4', { value: digest(run) }),
+    __proto__: (run) => JSON.parse(`{ "__proto__": "${digest(run)}" }`),
+  };
+  for (const [name, table] of Object.entries(good)) {
+    const report = await rebuild(table);
+    assert.deepEqual([report.pass, report.reason, report.mismatchedDeliverables], [false, 'deliverable-mismatch', [name === '__proto__' ? '__proto__' : 'master.mp4']], name);
+  }
+  assert.equal((await rebuild(() => Object.assign(Object.create(null), { 'master.mp4': 'sha256:aa' }))).pass, true);
+});
 
 test('V14-9 页面宿主实渲：双镜头局部性（改谁只变谁）与加锁重渲（两个帧源进程逐位相同）', async (t) => {
   const source = await startOrSkip(t);

@@ -69,7 +69,7 @@
 
 - **开渲之前就拒**（渲染器一次都不调）：缺锁、锁不是 `lock/1.0` 或不合锁文件契约、片子描述带着修订号（补丁入口交回的）而和 `lock.rev` 不同；再照出锁时那套跨文件核对查一遍锁和片子描述：`lock-check/0.1` 的全部不变量（`kernel/contracts/lock/check.mjs`）加片子描述一侧的 D3，片号、种子（LK3，锁里镜头种子 7802 改成 7803 就拒）、镜头表、卡、帧源、模版、查找表、资产对不上都拒，消息带不变量编号。
 - **`allowPartialLock: true`**：只放过「锁里没有这一项」的违反（LK1、LK4、LK8、LK9、LK10、D3 里报缺项的那几句）；锁里写了却对不上的（模版或卡的主版本、帧源的宿主、卡的 `from`，同样是这几个规则码）照样在开渲前拒收，片号、种子、镜头表照查。资产的版本写在键名 `asset:<名>@<版本>` 里，上游 D3 只查整个键：片子要 `asset:rtx-card@3`、锁里钉的是 `asset:rtx-card@4` 时它报的和没钉是同一句，这里另查，锁里有同名的别的版本就按对不上拒收（消息写明两个键），整个名字都没钉才放过；报告的 `lockCheck` 记 `partial`（全过记 `full`）。一致性夹具的锁只钉了帧源，要给这个开关。
-- **渲染**：`renderLocked(片子描述, 锁, { run: 1 | 2 })` 调两次，每次交回帧数组，或 `{ frames, deliverables }`（`deliverables` 是「文件名 → 哈希字符串」）。两遍必须各自重渲：同一帧两遍交回同一块缓冲区直接抛错。第一遍的帧和 `deliverables` 表在第二遍开渲前当场另存，第二遍原地覆写工作缓冲区或改同一张表也瞒不过。
+- **渲染**：`renderLocked(片子描述, 锁, { run: 1 | 2 })` 调两次，每次交回帧数组，或 `{ frames, deliverables }`（`deliverables` 是「文件名 → 哈希字符串」的普通对象：自有键和值都是不空的字符串；`Map`、`Set`、`Date`、类实例、带继承项、访问器或 Symbol 键的抛 `TypeError`，它们的内容不在自有属性里，照普通对象读会读成空表，两遍摘要不同也比不出来）。两遍必须各自重渲：同一帧两遍交回同一块缓冲区直接抛错。第一遍的帧和 `deliverables` 表在第二遍开渲前当场另存，第二遍原地覆写工作缓冲区或改同一张表也瞒不过。
 - **判定**：哈希档有帧不逐位相同是 `frames-differ`，帧都相同而 `deliverables` 有键不同（多一键、少一键、值不同）是 `deliverable-mismatch`；容差档有帧超出 P8 口径是 `outside-tolerance`，不比 `deliverables`（编码件在容差档本来就不要求逐位相同）。
 - **报告**（深冻结）：`{ format: 'rebuild-regression/0.1', pass, reason, filmId, rev, tier, gate: { psnrMinDb, maxDiffFrac, diffLevel }, lockCheck, totalFrames, identicalFrames, failedFrames, mismatchedDeliverables, worstPsnrDb, worstFracGt5 }`。`rev` 是锁的修订号，锁没写时为 `null`；`worstPsnrDb` 是各帧里最低的，全片零差时为 `Infinity`。
 
