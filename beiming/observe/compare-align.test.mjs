@@ -1,0 +1,980 @@
+// O6 单测（Red -> Green）：observe/compare（<=500 token 差值表）与 observe/align（切点对齐、1.009 拉伸比求解、7 参数相机拟合 <=500 token）及 O5 二阶收敛
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { spawnSync } from 'node:child_process';
+import { existsSync, linkSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { encodeTracks } from '../kernel/eval/tracks.mjs';
+import full from '../kernel/contracts/meta/examples/full.json' with { type: 'json' };
+import * as observe from './index.mjs';
+import { isDegenerate, matToAxisAngle, rodrigues } from './align.mjs';
+import { estimateTokens, withinBudget } from './query.mjs';
+
+test('O6-1 compare: 两张已知差图的 PSNR/SSIM/色差/颗粒/亮度分位差值表与容差判定准确，且 <= 500 token', () => {
+  assert.equal(typeof observe.compare, 'function', 'observe 应导出 compare');
+  assert.equal('runFfmpeg' in observe, false, 'observe 顶层不应暴露内部辅助函数 runFfmpeg');
+
+  const w = 32;
+  const h = 32;
+  const rgbA = new Uint8Array(w * h * 3);
+  const rgbB = new Uint8Array(w * h * 3);
+  for (let i = 0; i < w * h; i++) {
+    const x = i % w;
+    const y = Math.floor(i / w);
+    const base = x < 16 ? 60 : 180;
+    rgbA[i * 3] = base;
+    rgbA[i * 3 + 1] = y < 16 ? 80 : 160;
+    rgbA[i * 3 + 2] = 100;
+    // B 图每个通道恒差 +4 级 -> MSE = 16 -> PSNR = 10*log10(65025/16) = 36.0896 dB，maxDiff = 4，fracAbove2 = 1
+    rgbB[i * 3] = base + 4;
+    rgbB[i * 3 + 1] = rgbA[i * 3 + 1] + 4;
+    rgbB[i * 3 + 2] = 104;
+  }
+
+  const sameRes = observe.compare({ width: w, height: h, rgb: rgbA }, { width: w, height: h, rgb: rgbA });
+  assert.equal(sameRes.ok, true);
+  assert.equal(sameRes.identical, true);
+  assert.equal(sameRes.pass, true);
+
+  const diffRes = observe.compare(
+    { width: w, height: h, rgb: rgbA },
+    { width: w, height: h, rgb: rgbB },
+    { tolerance: { psnrMin: 35, maxDiff: 5, ssimMin: 0.95 } },
+  );
+  assert.equal(diffRes.ok, true, JSON.stringify(diffRes));
+  assert.equal(diffRes.identical, false);
+  assert.equal(diffRes.pass, true);
+  const psnrRow = diffRes.rows.find((r) => r.metric === 'psnr');
+  const maxDiffRow = diffRes.rows.find((r) => r.metric === 'maxDiff');
+  assert.ok(psnrRow && Math.abs(psnrRow.value - 36.09) < 0.05, `PSNR 期望约 36.09，实得 ${JSON.stringify(psnrRow)}`);
+  assert.equal(maxDiffRow?.value, 4);
+
+  const failRes = observe.compare(
+    { width: w, height: h, rgb: rgbA },
+    { width: w, height: h, rgb: rgbB },
+    { tolerance: { psnrMin: 42 } },
+  );
+  assert.equal(failRes.ok, true);
+  assert.equal(failRes.pass, false);
+
+  const json = JSON.stringify(diffRes);
+  assert.ok(withinBudget(json, 500), `compare 预算超限：tokens=${estimateTokens(json)}`);
+});
+
+test('O6-2 align: 05-1 参考包络精确读出拉伸比 1.009 与偏移 5.48s，切点对齐准确，且 <= 500 token', () => {
+  assert.equal(typeof observe.align, 'function', 'observe 应导出 align');
+
+  // 构造 20ms 步长（50 Hz）的非周期脉冲包络：track 长 12 秒（600 点），成片将它放慢 1.009 倍并从 5.48 秒（第 274 点）切入
+  const stepSec = 0.02;
+  const trackLen = 600;
+  const trackEnvelope = new Array(trackLen).fill(0.05);
+  const beatIndices = [15, 58, 113, 179, 241, 312, 389, 455, 523, 577];
+  for (const idx of beatIndices) {
+    for (let d = -4; d <= 4; d++) {
+      if (idx + d >= 0 && idx + d < trackLen) {
+        trackEnvelope[idx + d] += Math.exp(-(d * d) / 4) * (1 + (idx % 3) * 0.3);
+      }
+    }
+  }
+
+  const trueStretch = 1.009;
+  const trueOffsetIdx = 274; // 5.48 s
+  const filmLen = 1100; // 22 s
+  const filmEnvelope = new Array(filmLen).fill(0.05);
+  for (let j = trueOffsetIdx; j < filmLen; j++) {
+    const k = (j - trueOffsetIdx) / trueStretch;
+    const k0 = Math.floor(k);
+    if (k0 + 1 < trackLen) {
+      const frac = k - k0;
+      filmEnvelope[j] = trackEnvelope[k0] * (1 - frac) + trackEnvelope[k0 + 1] * frac;
+    }
+  }
+
+  const res = observe.align({
+    cuts: { reference: [24, 72, 120, 180], actual: [24, 74, 180, 210], maxDeltaFrames: 3 },
+    stretch: { filmEnvelope, trackEnvelope, stepSec, fps: 24, stretchRange: [0.99, 1.03], stretchStep: 0.001, maxOffsetSec: 8.0 },
+  });
+
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.equal(res.stretch.stretch, 1.009, `拉伸比应精确读出 1.009，实得 ${JSON.stringify(res.stretch)}`);
+  assert.ok(Math.abs(res.stretch.offsetSec - 5.48) <= 0.021, `偏移应约 5.48s，实得 ${res.stretch.offsetSec}`);
+  assert.equal(res.stretch.reliable, true);
+  assert.deepEqual(res.cuts.missed, [120]);
+  assert.deepEqual(res.cuts.extra, [210]);
+
+  const json = JSON.stringify(res);
+  assert.ok(withinBudget(json, 500), `align 预算超限：tokens=${estimateTokens(json)}`);
+});
+
+test('O6-3 align: 7 参数最小二乘相机拟合（pos[3] + rot[3] + fovY）对非共面三维点重投影误差 < 0.5 px', () => {
+  const width = 1920;
+  const height = 1080;
+  const aspect = width / height;
+  const truePos = [1.8, 1.2, 3.4];
+  const trueTarget = [0.0, 0.3, 0.0];
+  const trueFovY = 32.0;
+
+  // 右手系 lookAt 构造真值相机投影
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = (a) => { const l = Math.hypot(...a); return a.map((v) => v / l); };
+
+  const zAxis = norm(sub(truePos, trueTarget)); // 相机 +Z 朝后（视线为 -Z）
+  const xAxis = norm(cross([0, 1, 0], zAxis));
+  const yAxis = cross(zAxis, xAxis);
+  const f = 1 / Math.tan((trueFovY * Math.PI) / 360);
+
+  const worldPts = [
+    [-0.4, 0.0, -0.3],
+    [0.45, 0.0, -0.25],
+    [-0.35, 0.65, 0.2],
+    [0.4, 0.6, 0.3],
+    [0.0, 0.3, 0.0],
+    [-0.2, 0.15, 0.45],
+    [0.25, 0.45, -0.4],
+  ];
+  const points = worldPts.map((w) => {
+    const d = sub(w, truePos);
+    const cx = dot(d, xAxis);
+    const cy = dot(d, yAxis);
+    const cz = dot(d, zAxis); // 视线前方 cz < 0
+    const ndcX = (cx * (f / aspect)) / -cz;
+    const ndcY = (cy * f) / -cz;
+    return {
+      world: w,
+      screen: [(ndcX * 0.5 + 0.5) * width, (0.5 - ndcY * 0.5) * height],
+    };
+  });
+
+  const res = observe.align({
+    camera: { points, size: [width, height] },
+  });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.ok(res.camera.rmsePx < 0.5, `7 参数相机拟合重投影 RMSE 应 < 0.5 px，实得 ${JSON.stringify(res.camera)}`);
+  assert.ok(Math.hypot(res.camera.pos[0] - truePos[0], res.camera.pos[1] - truePos[1], res.camera.pos[2] - truePos[2]) < 0.05);
+  assert.ok(Math.abs(res.camera.fovY - trueFovY) < 1.0);
+  assert.ok(withinBudget(JSON.stringify(res), 500));
+});
+
+test('O6-4 compare: PNG 路径、差异热图、亮度分位差、尺寸不匹配与非法输入', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'o6-cmp-'));
+  try {
+    const w = 32, h = 18;
+    const rgbA = new Uint8Array(w * h * 3).fill(51); // luma = 51/255 = 0.2
+    const rgbB = new Uint8Array(w * h * 3).fill(153); // luma = 153/255 = 0.6
+    const pA = join(dir, 'a.png');
+    const pB = join(dir, 'b.png');
+    const hm = join(dir, 'sub', 'heat.png');
+    writeFileSync(pA, observe.encodePng({ width: w, height: h, rgb: rgbA }));
+    writeFileSync(pB, observe.encodePng({ width: w, height: h, rgb: rgbB }));
+
+    const r = observe.compare(pA, pB, { heatmapPath: hm, tolerance: { maxLumaP50Diff: 0.5 } });
+    assert.equal(r.ok, true, JSON.stringify(r));
+    assert.equal(r.pass, true);
+    assert.equal(existsSync(hm), true);
+    const decodedHm = observe.decodePng(readFileSync(hm));
+    assert.deepEqual([decodedHm.width, decodedHm.height], [w, h]);
+    const p50 = r.rows.find((row) => row.metric === 'lumaP50');
+    assert.ok(p50 && Math.abs(p50.a - 0.2) < 1e-3 && Math.abs(p50.b - 0.6) < 1e-3 && Math.abs(p50.diff - 0.4) < 1e-3);
+    assert.ok(withinBudget(JSON.stringify(r), 500));
+
+    // 尺寸不匹配
+    const mismatch = observe.compare(
+      { width: 8, height: 8, rgb: new Uint8Array(8 * 8 * 3) },
+      { width: 10, height: 8, rgb: new Uint8Array(10 * 8 * 3) },
+    );
+    assert.equal(mismatch.ok, true);
+    assert.equal(mismatch.sizeMismatch, true);
+    assert.equal(mismatch.pass, false);
+    assert.ok(withinBudget(JSON.stringify(mismatch), 500));
+
+    // 非法入参返回 usage.bad-argument，不抛异常
+    for (const [a, b, opts] of [
+      [null, pB, {}],
+      [pA, { width: 4, height: 4, rgb: new Uint16Array(4 * 4 * 3) }, {}],
+      [pA, pB, { tolerance: { psnrMin: -1 } }],
+      [pA, pB, { heatmapGain: 0 }],
+    ]) {
+      const bad = observe.compare(a, b, opts);
+      assert.equal(bad.ok, false, JSON.stringify(bad));
+      assert.equal(bad.error.code, 'usage.bad-argument');
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('O6-5 align: 构图对位、不可靠包络、200 切点预算守卫、相机矩阵 M15 口径与非法入参', () => {
+  // 构图包围盒对位
+  const comp = observe.align({
+    composition: { reference: [100, 100, 300, 300], actual: [200, 100, 400, 300], size: [1000, 500] },
+  });
+  assert.equal(comp.ok, true, JSON.stringify(comp));
+  assert.deepEqual(comp.composition.centerShiftPx, [100, 0]);
+  assert.deepEqual(comp.composition.centerShiftNorm, [0.1, 0]);
+  assert.equal(comp.composition.areaRatio, 1);
+  // 交集 100x200 = 20000，并集 40000+40000-20000 = 60000 -> IoU = 1/3
+  assert.ok(Math.abs(comp.composition.iou - 1 / 3) < 1e-3);
+
+  // 不相关（常量）包络 -> reliable: false
+  const flat = observe.align({
+    stretch: { filmEnvelope: new Array(200).fill(0.2), trackEnvelope: new Array(100).fill(0.2) },
+  });
+  assert.equal(flat.ok, true);
+  assert.equal(flat.stretch.reliable, false);
+
+  // 200 个切点仍严格压在 <= 500 token 内
+  const manyRef = Array.from({ length: 200 }, (_, i) => i * 10);
+  const manyAct = manyRef.map((f) => f + 1);
+  const many = observe.align({ cuts: { reference: manyRef, actual: manyAct, maxDeltaFrames: 2 } });
+  assert.equal(many.ok, true);
+  assert.equal(many.truncated, true);
+  assert.equal(many.cuts.meanAbsDelta, 1);
+  assert.ok(withinBudget(JSON.stringify(many), 500), `tokens=${estimateTokens(JSON.stringify(many))}`);
+
+  // 相机 < 4 点报 usage.bad-argument；合法 6 点校验 proj 满足 meta/0.1 M15 算式
+  const few = observe.align({
+    camera: {
+      points: [
+        { world: [0, 0, 0], screen: [960, 540] },
+        { world: [1, 0, 0], screen: [1100, 540] },
+        { world: [0, 1, 0], screen: [960, 400] },
+      ],
+      size: [1920, 1080],
+    },
+  });
+  assert.equal(few.ok, false);
+  assert.equal(few.error.code, 'usage.bad-argument');
+
+  // 校验 proj 矩阵 M15：proj[5] === 1/tan(fovY/2), proj[0] === proj[5]*h/w
+  const w = 1280, h = 720, fovY = 45, near = 0.2, far = 500;
+  const f = 1 / Math.tan((fovY * Math.PI) / 360);
+  const truePos = [-1.5, 0.9, 2.8];
+  const pts = [[-0.5, 0, -0.3], [0.5, 0, -0.2], [-0.4, 0.7, 0.3], [0.4, 0.6, 0.2], [0, 0.2, 0.5], [0.2, 0.4, -0.4]];
+  const z = (() => { const d = [truePos[0], truePos[1] - 0.3, truePos[2]]; const l = Math.hypot(...d); return d.map((v) => v / l); })();
+  const x = (() => { const c = [z[2], 0, -z[0]]; const l = Math.hypot(...c); return c.map((v) => v / l); })();
+  const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+  const camPts = pts.map((pw) => {
+    const d = [pw[0] - truePos[0], pw[1] - truePos[1], pw[2] - truePos[2]];
+    const cx = d[0] * x[0] + d[1] * x[1] + d[2] * x[2];
+    const cy = d[0] * y[0] + d[1] * y[1] + d[2] * y[2];
+    const cz = d[0] * z[0] + d[1] * z[1] + d[2] * z[2];
+    return { world: pw, screen: [((cx * (f * h / w)) / -cz * 0.5 + 0.5) * w, (0.5 - (cy * f) / -cz * 0.5) * h] };
+  });
+  const camRes = observe.align({ camera: { points: camPts, size: [w, h], initial: { near, far } } });
+  assert.equal(camRes.ok, true, JSON.stringify(camRes));
+  assert.ok(camRes.camera.rmsePx < 0.5);
+  const fExp = 1 / Math.tan((camRes.camera.fovY * Math.PI) / 360);
+  assert.ok(Math.abs(camRes.camera.proj[5] - fExp) / Math.abs(fExp) < 1e-12);
+  assert.ok(Math.abs(camRes.camera.proj[0] - camRes.camera.proj[5] * (h / w)) / Math.abs(camRes.camera.proj[0]) < 1e-12);
+  assert.ok(Math.abs(camRes.camera.proj[10] - (-(far + near) / (far - near))) < 1e-12);
+  assert.ok(Math.abs(camRes.camera.proj[14] - ((-2 * far * near) / (far - near))) < 1e-12);
+  assert.ok(withinBudget(JSON.stringify(camRes), 500));
+
+  for (const bad of [null, {}, { cuts: { reference: [-1], actual: [] } }, { stretch: { filmEnvelope: [1], trackEnvelope: [1] } }]) {
+    const r = observe.align(bad);
+    assert.equal(r.ok, false);
+    assert.equal(r.error.code, 'usage.bad-argument');
+  }
+});
+
+test('O6-6 compare & align: 经 ffmpeg 对比视频帧与提取音频 20ms 包络（无 ffmpeg 跳过）', (t) => {
+  if (spawnSync('ffmpeg', ['-version']).status !== 0) return t.skip('本机没有 ffmpeg');
+  const dir = mkdtempSync(join(tmpdir(), 'o6-media-'));
+  try {
+    const v1 = join(dir, 'v1.mkv');
+    const v2 = join(dir, 'v2.mkv');
+    assert.equal(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=s=64x36:r=24:d=0.5,format=gbrp,geq=r=64:g=64:b=64', '-pix_fmt', 'gbrp', '-c:v', 'ffv1', v1]).status, 0);
+    assert.equal(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=s=64x36:r=24:d=0.5,format=gbrp,geq=r=68:g=68:b=68', '-pix_fmt', 'gbrp', '-c:v', 'ffv1', v2]).status, 0);
+    const vr = observe.compare({ video: v1, frame: 3, fps: 24 }, { video: v2, frame: 3, fps: 24 });
+    assert.equal(vr.ok, true, JSON.stringify(vr));
+    assert.equal(vr.rows.find((row) => row.metric === 'maxDiff')?.value, 4);
+    assert.ok(withinBudget(JSON.stringify(vr), 500));
+
+    // 合成带脉冲包络的 WAV：track 长 8s，film 前置 1.0s 静音并将 track 精确按 1.01 倍放慢
+    const trackWav = join(dir, 'track.wav');
+    const filmWav = join(dir, 'film.wav');
+    const expr = 'sin(2*PI*440*t)*(between(t,0.3,0.42)+0.8*between(t,1.5,1.62)+1.2*between(t,2.9,3.02)+0.9*between(t,4.4,4.52)+1.1*between(t,6.1,6.22)+1.0*between(t,7.4,7.52))';
+    assert.equal(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', `aevalsrc='${expr}':s=24000:d=8`, trackWav]).status, 0);
+    assert.equal(spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', trackWav, '-af', 'asetrate=24000/1.01,aresample=24000,adelay=1000:all=1,apad=pad_dur=1', filmWav]).status, 0);
+    const ar = observe.align({
+      stretch: { filmPath: filmWav, trackPath: trackWav, stepSec: 0.02, stretchRange: [0.99, 1.03], stretchStep: 0.001, maxOffsetSec: 2.5 },
+    });
+    assert.equal(ar.ok, true, JSON.stringify(ar));
+    assert.equal(ar.stretch.reliable, true);
+    assert.ok(Math.abs(ar.stretch.offsetSec - 1.0) <= 0.04, `偏移应约 1.0s，实得 ${JSON.stringify(ar.stretch)}`);
+    assert.ok(Math.abs(ar.stretch.stretch - 1.01) <= 0.002, `拉伸比应约 1.01，实得 ${JSON.stringify(ar.stretch)}`);
+    assert.ok(withinBudget(JSON.stringify(ar), 500));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('O6-7 O5 二阶加固: telemetry 15 万帧不爆栈 + 隔帧频闪检出 + curves meta 按 shot/shotFrame 对齐', () => {
+  // 150,000 帧 kinematics 不触发 RangeError: Maximum call stack size exceeded
+  const N = 150_000;
+  const luma = new Array(N).fill(0.3);
+  const contrast = new Array(N).fill(0.2);
+  const motion = new Array(N).fill(0.1);
+  const x = new Array(N).fill(0);
+  const cut = new Array(N).fill(0);
+  const hold = new Array(N).fill(0);
+  luma[10] = 0.8;
+  const big = observe.telemetry({
+    kinematics: { fps: 24, sampleSize: [160, 90], tracks: { screen: { luma, contrast, motion, x, cut, hold } } },
+  });
+  assert.equal(big.ok, true, JSON.stringify(big));
+  assert.equal(big.frames, N);
+  assert.equal(big.luma.max, 0.8);
+  assert.ok(withinBudget(JSON.stringify(big), 600));
+
+  // 隔帧频闪（两帧亮两帧暗）被检出
+  const stride2 = Array.from({ length: 24 }, (_, f) => (f >= 6 && f <= 19 ? (Math.floor((f - 6) / 2) % 2 === 0 ? 0.1 : 0.9) : 0.3));
+  const flk = observe.telemetry({
+    kinematics: {
+      fps: 24,
+      tracks: { screen: { luma: stride2, contrast: new Array(24).fill(0.2), motion: new Array(24).fill(0.2), x: new Array(24).fill(0), cut: new Array(24).fill(0), hold: new Array(24).fill(0) } },
+    },
+  });
+  assert.equal(flk.ok, true);
+  assert.equal(flk.flicker.detected, true, `隔帧频闪应被检出：${JSON.stringify(flk.flicker)}`);
+
+  // curves meta/0.1 回退按 shot 过滤并用 shotFrame 对齐局部帧号
+  const mkMeta = (shot, frame, shotFrame, cx) => ({
+    ...structuredClone(full),
+    shot,
+    frame,
+    shotFrame,
+    entities: [{ id: 1, name: 'hero_card', class: 'card2d', role: 'hero', bbox2d: [cx - 50, 400, cx + 50, 600], visible: 1, pxArea: (100 * 200) / (1920 * 1080) }],
+    texts: [],
+    events: [],
+    lights: [],
+  });
+  const metas = [
+    ...Array.from({ length: 5 }, (_, i) => mkMeta('s01', i, i, 200)),
+    ...Array.from({ length: 11 }, (_, i) => mkMeta('s02', 100 + i, i, 300 + i * 50)),
+  ];
+  const curRes = observe.curves({ tracks: encodeTracks({}), metas }, { entity: 'hero_card', shot: 's02', quantity: 'screenX', range: [0, 10] });
+  assert.equal(curRes.ok, true, JSON.stringify(curRes));
+  assert.equal(curRes.source, 'meta');
+  assert.deepEqual(curRes.range, [0, 10]);
+  assert.equal(curRes.easing, 'linear');
+  assert.ok(withinBudget(JSON.stringify(curRes), 600));
+});
+
+test('O6-8 G_REV-R1 compare 加固：热图不覆盖输入、小图 SSIM、亮度容差未舍入判定、未知键报错、存活变异', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'o6-rev-'));
+  try {
+    const w = 32, h = 18;
+    const pA = join(dir, 'a.png');
+    const pB = join(dir, 'b.png');
+    writeFileSync(pA, observe.encodePng({ width: w, height: h, rgb: new Uint8Array(w * h * 3).fill(51) }));
+    writeFileSync(pB, observe.encodePng({ width: w, height: h, rgb: new Uint8Array(w * h * 3).fill(153) }));
+    const bytesA = readFileSync(pA);
+    const bytesB = readFileSync(pB);
+    const link = join(dir, 'link.png');
+    symlinkSync(pA, link);
+    // [P1-1] 热图目标与任一输入同文件（含软链与 heatmapOut 别名）时报错，原 PNG 一个字节都不改
+    for (const opts of [{ heatmapPath: pA }, { heatmapPath: pB }, { heatmapOut: pB }, { heatmapPath: link }]) {
+      const bad = observe.compare(pA, pB, opts);
+      assert.equal(bad.ok, false, JSON.stringify(bad));
+      assert.equal(bad.error.code, 'usage.bad-argument');
+    }
+    assert.deepEqual(readFileSync(pA), bytesA);
+    assert.deepEqual(readFileSync(pB), bytesB);
+    // 已知差图热图像素为红色高亮而非暗灰（杀灭 diffHeatmap(a, a) 变异）
+    const hm = join(dir, 'heat.png');
+    assert.equal(observe.compare(pA, pB, { heatmapPath: hm }).ok, true);
+    const heat = observe.decodePng(readFileSync(hm));
+    assert.equal(heat.rgb[0], 255);
+
+    // [P1-2] 4x4 全黑对全白：SSIM 接近 0，ssimMin 0.99 下判不过
+    const black = { width: 4, height: 4, rgb: new Uint8Array(48) };
+    const white = { width: 4, height: 4, rgb: new Uint8Array(48).fill(255) };
+    const small = observe.compare(black, white, { tolerance: { ssimMin: 0.99 } });
+    assert.equal(small.ok, true, JSON.stringify(small));
+    assert.equal(small.pass, false);
+    assert.ok(small.rows.find((row) => row.metric === 'ssim').value < 0.01);
+
+    // [P2-1] 灰度 1->2 与 2->3 同为 1/255，判定必须一致
+    const gray = (v) => ({ width: 8, height: 8, rgb: new Uint8Array(192).fill(v) });
+    for (const tol of [1 / 255, 0.0039]) {
+      const p12 = observe.compare(gray(1), gray(2), { tolerance: { maxLumaP50Diff: tol }, metrics: ['lumaP50'] });
+      const p23 = observe.compare(gray(2), gray(3), { tolerance: { maxLumaP50Diff: tol }, metrics: ['lumaP50'] });
+      assert.equal(p12.rows[0].pass, p23.rows[0].pass, `tol=${tol}: ${JSON.stringify([p12.rows, p23.rows])}`);
+      assert.equal(p12.rows[0].pass, tol === 1 / 255);
+    }
+
+    // [P2-2] 拼错的容差键与未知指标名报错，不静默放行
+    for (const opts of [{ tolerance: { maxDif: 1 } }, { metrics: ['psr'] }]) {
+      const bad = observe.compare(gray(1), gray(2), opts);
+      assert.equal(bad.ok, false, JSON.stringify(bad));
+      assert.equal(bad.error.code, 'usage.bad-argument');
+    }
+
+    // 存活变异 4：一半像素差 2 级、四分之一差 3 级 -> fracAbove1 = 0.75，fracAbove2 = 0.25
+    const n = 32 * 32;
+    const base = new Uint8Array(n * 3).fill(100);
+    const mixed = new Uint8Array(n * 3).fill(100);
+    for (let i = 0; i < n; i++) {
+      const d = i < n / 2 ? 2 : i < (3 * n) / 4 ? 3 : 0;
+      mixed.fill(100 + d, i * 3, i * 3 + 3);
+    }
+    const frac = observe.compare({ width: 32, height: 32, rgb: base }, { width: 32, height: 32, rgb: mixed }, { tolerance: { maxFracAbove1: 0.5, maxFracAbove2: 0.5 } });
+    const f1 = frac.rows.find((row) => row.metric === 'fracAbove1');
+    const f2 = frac.rows.find((row) => row.metric === 'fracAbove2');
+    assert.equal(f1.value, 0.75);
+    assert.equal(f2.value, 0.25);
+    assert.equal(f1.pass, false);
+    assert.equal(f2.pass, true);
+    assert.equal(frac.pass, false);
+
+    // 存活变异 5：seamDeltaE 超限判不过；非均匀图 p95 与 p05 不等
+    const seam = observe.compare(pA, pB, { tolerance: { maxSeamDeltaE: 1 } });
+    assert.equal(seam.pass, false);
+    assert.equal(seam.rows.find((row) => row.metric === 'seamDeltaE').pass, false);
+    const ramp = new Uint8Array(n * 3);
+    for (let i = 0; i < n; i++) ramp.fill(Math.round((i / (n - 1)) * 255), i * 3, i * 3 + 3);
+    const rr = observe.compare({ width: 32, height: 32, rgb: ramp }, { width: 32, height: 32, rgb: base });
+    const p05 = rr.rows.find((row) => row.metric === 'lumaP05');
+    const p95 = rr.rows.find((row) => row.metric === 'lumaP95');
+    assert.notEqual(p05.a, p95.a);
+    assert.ok(p95.a > 0.9 && p05.a < 0.1, JSON.stringify([p05, p95]));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// 用调用方拿到的 world（相机到世界）与 proj 独立复算重投影 RMSE
+function reprojectRmse(points, world, proj, [W, H]) {
+  let sse = 0;
+  for (const { world: p, screen } of points) {
+    const d = [p[0] - world[12], p[1] - world[13], p[2] - world[14]];
+    const c = [0, 1, 2].map((k) => world[k * 4] * d[0] + world[k * 4 + 1] * d[1] + world[k * 4 + 2] * d[2]);
+    const clip = [0, 1, 3].map((row) => proj[row] * c[0] + proj[4 + row] * c[1] + proj[8 + row] * c[2] + proj[12 + row]);
+    const u = (clip[0] / clip[2] * 0.5 + 0.5) * W;
+    const v = (0.5 - clip[1] / clip[2] * 0.5) * H;
+    sse += (u - screen[0]) ** 2 + (v - screen[1]) ** 2;
+  }
+  return Math.sqrt(sse / points.length);
+}
+
+function synthCamera(worldPts, pos, target, fovY, [W, H]) {
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = (a) => { const l = Math.hypot(...a); return a.map((v) => v / l); };
+  const z = norm(sub(pos, target));
+  const x = norm(cross([0, 1, 0], z));
+  const y = cross(z, x);
+  const f = 1 / Math.tan((fovY * Math.PI) / 360);
+  return worldPts.map((p) => {
+    const d = sub(p, pos);
+    const cz = dot(d, z);
+    return { world: p, screen: [((dot(d, x) * f * H / W) / -cz * 0.5 + 0.5) * W, (0.5 - (dot(d, y) * f) / -cz * 0.5) * H] };
+  });
+}
+
+test('O6-9 G_REV-R1 align 加固：相机矩阵全精度复算、远裁剪面防溢出、退化与收敛判定、切点边界与计数、弱相关', () => {
+  // [P1-3] 1e-4 尺度 8 点：用返回的 world/proj 独立复算 RMSE < 0.5 px，far = 1e308 时 proj 全有限
+  const size = [1920, 1080];
+  const s = 1e-4;
+  const cube = [[-1, 0, -1], [1, 0.2, -1], [-1, 1.4, 1], [1, 1.2, 1], [0, 0.6, 0], [-0.5, 0.3, 1], [0.6, 1, -0.7], [0.2, 0.1, 0.8]].map((p) => p.map((v) => v * s));
+  const tinyPts = synthCamera(cube, [1.8 * s * 2, 1.2 * s * 2, 3.4 * s * 2], [0, 0.6 * s, 0], 38, size);
+  const tiny = observe.align({ camera: { points: tinyPts, size, initial: { near: 1e-6, far: 1e308 } } });
+  assert.equal(tiny.ok, true, JSON.stringify(tiny));
+  assert.ok(tiny.camera.proj.every(Number.isFinite), JSON.stringify(tiny.camera.proj));
+  const rm = reprojectRmse(tinyPts, tiny.camera.world, tiny.camera.proj, size);
+  assert.ok(rm < 0.5, `复算 RMSE ${rm}，返回 ${JSON.stringify(tiny.camera)}`);
+  assert.ok(Math.abs(rm - tiny.camera.rmsePx) < 1e-3, `rmsePx 须由返回矩阵复算：${rm} vs ${tiny.camera.rmsePx}`);
+  assert.equal(tiny.camera.converged, true);
+  assert.equal(tiny.camera.degenerate, false);
+  assert.ok(withinBudget(JSON.stringify(tiny), 500));
+
+  // 四点共线 -> degenerate；正对平面 -> degenerate
+  const line = [[0, 0, 0], [0.2, 0, 0], [0.5, 0, 0], [1, 0, 0]];
+  const lineRes = observe.align({ camera: { points: synthCamera(line, [0.5, 0.5, 3], [0.5, 0, 0], 40, size), size } });
+  assert.equal(lineRes.ok, true, JSON.stringify(lineRes));
+  assert.equal(lineRes.camera.degenerate, true);
+  const plane = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0], [0.3, 0.2, 0], [-0.4, 0.5, 0]];
+  const planeRes = observe.align({ camera: { points: synthCamera(plane, [0, 0, 4], [0, 0, 0], 40, size), size } });
+  assert.equal(planeRes.ok, true, JSON.stringify(planeRes));
+  assert.equal(planeRes.camera.degenerate, true);
+
+  // 高残差（屏幕点被打乱）-> converged: false
+  const good = synthCamera(cube.map((p) => p.map((v) => v / s)), [3.6, 2.4, 6.8], [0, 0.6, 0], 38, size);
+  const shuffled = good.map((p, i) => ({ world: p.world, screen: good[(i + 3) % good.length].screen }));
+  const hi = observe.align({ camera: { points: shuffled, size } });
+  assert.equal(hi.ok, true, JSON.stringify(hi));
+  assert.ok(hi.camera.rmsePx > 1, JSON.stringify(hi.camera));
+  assert.equal(hi.camera.converged, false);
+
+  // 存活变异 6：帧差恰等于 maxDeltaFrames 时配对，delta = actual - ref 带符号
+  const edge = observe.align({ cuts: { reference: [10, 50], actual: [7, 53], maxDeltaFrames: 3 } });
+  assert.deepEqual(edge.cuts.pairs, [{ ref: 10, actual: 7, delta: -3 }, { ref: 50, actual: 53, delta: 3 }]);
+  assert.equal(edge.cuts.missedCount, 0);
+  assert.equal(edge.cuts.extraCount, 0);
+
+  // [P2-4] 截断时 truncated: true 且保留截断前总数
+  const lost = observe.align({ cuts: { reference: Array.from({ length: 300 }, (_, i) => i * 10), actual: Array.from({ length: 250 }, (_, i) => i * 10 + 5) } });
+  assert.equal(lost.ok, true);
+  assert.equal(lost.truncated, true);
+  assert.equal(lost.cuts.missedCount, 300);
+  assert.equal(lost.cuts.extraCount, 250);
+  assert.ok(withinBudget(JSON.stringify(lost), 500));
+
+  // 存活变异 7：相关系数落在 0.2..0.4 的弱相关包络 -> reliable: false
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const trackEnvelope = Array.from({ length: 300 }, () => rnd());
+  const filmEnvelope = Array.from({ length: 340 }, (_, j) => (j >= 20 && j < 320 ? 0.3 * trackEnvelope[j - 20] : 0) + rnd());
+  const weak = observe.align({ stretch: { filmEnvelope, trackEnvelope, stretchRange: [1, 1], maxOffsetSec: 1 } });
+  assert.equal(weak.ok, true, JSON.stringify(weak));
+  assert.ok(weak.stretch.corr >= 0.2 && weak.stretch.corr <= 0.4, JSON.stringify(weak.stretch));
+  assert.equal(weak.stretch.reliable, false);
+});
+
+test('O6-10 G_REV-R1 curves：省略 shot 时按全片帧号 frame 查询', () => {
+  const mk = (frame, shotFrame, cx) => ({
+    ...structuredClone(full), shot: 's02', frame, shotFrame,
+    entities: [{ id: 1, name: 'hero_card', class: 'card2d', role: 'hero', bbox2d: [cx - 50, 400, cx + 50, 600], visible: 1, pxArea: (100 * 200) / (1920 * 1080) }],
+    texts: [], events: [], lights: [],
+  });
+  const metas = Array.from({ length: 11 }, (_, i) => mk(100 + i, i, 300 + i * 50));
+  const res = observe.curves({ tracks: encodeTracks({}), metas }, { entity: 'hero_card', quantity: 'screenX', range: [100, 101] });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.deepEqual(res.range, [100, 101]);
+});
+
+test('O6-11 G_REV-R2 compare：输入来源唯一且解码与热图防覆盖同源、亮度分位差按整数灰阶判定', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'o6-r2-'));
+  try {
+    const w = 32, h = 18;
+    const rgb = new Uint8Array(w * h * 3).fill(51);
+    const pA = join(dir, 'a.png');
+    const pB = join(dir, 'b.png');
+    writeFileSync(pA, observe.encodePng({ width: w, height: h, rgb }));
+    writeFileSync(pB, observe.encodePng({ width: w, height: h, rgb: new Uint8Array(w * h * 3).fill(153) }));
+    const bytesA = readFileSync(pA);
+    const bytesB = readFileSync(pB);
+    const hm = join(dir, 'heat.png');
+
+    // [P1] 同一输入给了两种来源：读任何文件之前就报错，两个位置（a、b）都查
+    const conflicts = [
+      { path: pA, video: pB },
+      { path: pA, videoPath: pB },
+      { video: pA, videoPath: pB },
+      { path: pA, width: w, height: h, rgb },
+      { video: pB, width: w, height: h, rgb },
+      { width: w, height: h, rgb, data: rgb },
+    ];
+    for (const c of conflicts) {
+      for (const args of [[c, pB], [pA, c]]) {
+        const bad = observe.compare(...args, { heatmapPath: hm });
+        assert.equal(bad.ok, false, JSON.stringify(bad));
+        assert.equal(bad.error.code, 'usage.bad-argument');
+        assert.match(bad.error.message, /来源/, JSON.stringify(c));
+        assert.equal(existsSync(hm), false);
+      }
+    }
+    // 二审复现：a 同时带 path 与 video，热图指向 video 那个文件，原文件一个字节都不改
+    assert.equal(observe.compare({ path: pA, video: pB }, pA, { heatmapPath: pB }).ok, false);
+    assert.deepEqual(readFileSync(pB), bytesB);
+
+    // 对象写法的 path、视频写法与硬链接，和字符串路径受同一套保护（守卫先于解码，不需要 ffmpeg）
+    const hard = join(dir, 'hard.png');
+    linkSync(pA, hard);
+    const guarded = [
+      [{ path: pA }, pB, pA],
+      [pA, { path: pB }, pB],
+      [pB, { video: pA }, pA],
+      [{ videoPath: pA, frame: 1 }, pB, pA],
+      [pA, pB, hard],
+      [pB, { video: hard }, pA],
+    ];
+    for (const [a, b, heatmapPath] of guarded) {
+      const bad = observe.compare(a, b, { heatmapPath });
+      assert.equal(bad.ok, false, JSON.stringify(bad));
+      assert.equal(bad.error.code, 'usage.bad-argument');
+      assert.match(bad.error.message, /拒绝覆盖/, JSON.stringify([a, b, heatmapPath]));
+    }
+    assert.deepEqual(readFileSync(pA), bytesA);
+    assert.deepEqual(readFileSync(pB), bytesB);
+    // 单一来源的对象写法照常可用
+    const fine = observe.compare({ path: pA }, { width: w, height: h, data: rgb }, { heatmapPath: hm });
+    assert.equal(fine.ok, true, JSON.stringify(fine));
+    assert.equal(fine.identical, true);
+    assert.equal(existsSync(hm), true);
+
+    // [P2-A] 255 组相邻灰阶：容差恰为 1/255 全过、0.00391 全拒，方向无关；差两级在 1/255 下必拒
+    const gray = (v) => ({ width: 8, height: 8, rgb: new Uint8Array(192).fill(v) });
+    const p50 = (a, b, tol) => observe.compare(gray(a), gray(b), { tolerance: { maxLumaP50Diff: tol }, metrics: ['lumaP50'] }).rows[0];
+    for (let k = 0; k < 255; k++) {
+      assert.equal(p50(k, k + 1, 1 / 255).pass, true, `k=${k}`);
+      assert.equal(p50(k + 1, k, 1 / 255).pass, true, `k=${k} 反向`);
+      assert.equal(p50(k, k + 1, 0.00391).pass, false, `k=${k}`);
+      if (k < 254) assert.equal(p50(k, k + 2, 1 / 255).pass, false, `k=${k} 差两级`);
+    }
+    assert.deepEqual(p50(32, 33, 1 / 255), { metric: 'lumaP50', a: 0.1255, b: 0.1294, diff: 0.0039, tolerance: 1 / 255, pass: true });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('O6-12 G_REV-R2 align：退化判定与尺度、朝向无关且退化不算收敛，裁剪面不可表示时返回结构化错误', () => {
+  const size = [1920, 1080];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const unit = (a) => { const l = Math.hypot(...a); return a.map((v) => v / l); };
+  const flat = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0.3, 0.2], [-0.4, 0.5]];
+  const cube = [[-1, 0, -1], [1, 0.2, -1], [-1, 1.4, 1], [1, 1.2, 1], [0, 0.6, 0], [-0.5, 0.3, 1], [0.6, 1, -0.7], [0.2, 0.1, 0.8]];
+  const fit = (pts) => {
+    const res = observe.align({ camera: { points: pts, size } });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    return res.camera;
+  };
+  for (const s of [1e-6, 1e-4, 1e-2, 1, 1e2, 1e4, 1e6]) {
+    // [P2-B] 正对相机的平面：任意法向、任意等比缩放都判退化，且不算收敛
+    for (const n of [[0, 0, 1], [0.6, 0, 0.8], [0.8, 0.6, 0], [1 / 3, 2 / 3, 2 / 3]]) {
+      const u = unit(cross(n, [0, 1, 0]));
+      const v = cross(n, u);
+      const plane = flat.map(([a, b]) => [0, 1, 2].map((k) => (u[k] * a + v[k] * b) * s));
+      const cam = fit(synthCamera(plane, n.map((c) => c * 4 * s), [0, 0, 0], 40, size));
+      assert.equal(cam.degenerate, true, `正对平面 n=${n} s=${s}: ${JSON.stringify(cam)}`);
+      assert.equal(cam.converged, false, `退化不算收敛 n=${n} s=${s}`);
+    }
+    // 共线同样与尺度无关
+    const line = fit(synthCamera([[0, 0, 0], [0.2, 0, 0], [0.5, 0, 0], [1, 0, 0]].map((p) => p.map((c) => c * s)), [0.5 * s, 0.5 * s, 3 * s], [0.5 * s, 0, 0], 40, size));
+    assert.equal(line.degenerate, true, `共线 s=${s}`);
+    assert.equal(line.converged, false, `共线 s=${s}`);
+    // 共面但斜着看可以辨识：不误报，照常收敛
+    const oblique = fit(synthCamera(flat.map(([a, b]) => [a * s, b * s, 0]), [3 * s, s, 3 * s], [0, 0, 0], 40, size));
+    assert.equal(oblique.degenerate, false, `斜视平面 s=${s}: ${JSON.stringify(oblique)}`);
+    assert.equal(oblique.converged, true, `斜视平面 s=${s}: ${JSON.stringify(oblique)}`);
+    // 非共面点集不误报，照常收敛
+    const solid = fit(synthCamera(cube.map((p) => p.map((c) => c * s)), [3.6 * s, 2.4 * s, 6.8 * s], [0, 0.6 * s, 0], 38, size));
+    assert.equal(solid.degenerate, false, `非共面 s=${s}: ${JSON.stringify(solid)}`);
+    assert.equal(solid.converged, true, `非共面 s=${s}: ${JSON.stringify(solid)}`);
+    assert.ok(solid.rmsePx < 0.5, `非共面 s=${s}: ${solid.rmsePx}`);
+  }
+  // 协方差会下溢的极小尺度（1e-170 的平方是 0）仍判共线：判定用的是归一化坐标
+  const speck = fit(synthCamera([[0, 0, 0], [2e-171, 0, 0], [5e-171, 0, 0], [1e-170, 0, 0]], [5e-171, 5e-171, 3e-170], [5e-171, 0, 0], 40, size));
+  assert.equal(speck.degenerate, true, JSON.stringify(speck));
+  // 全部重合（尺度为 0）也是退化
+  const same = fit([[10, 20], [10, 20], [10, 20], [10, 20]].map((screen) => ({ world: [1, 2, 3], screen })));
+  assert.equal(same.degenerate, true);
+  assert.equal(same.converged, false);
+
+  // [P2-C] near = 6e307、far = 1e308 时 proj[14] 溢出：报错，不带着 Infinity（JSON 里是 null）回 ok: true
+  const pts = synthCamera(cube, [3.6, 2.4, 6.8], [0, 0.6, 0], 38, size);
+  const huge = observe.align({ camera: { points: pts, size, initial: { near: 6e307, far: 1e308 } } });
+  assert.equal(huge.ok, false, JSON.stringify(huge));
+  assert.equal(huge.error.code, 'usage.bad-argument');
+  assert.match(huge.error.message, /浮点范围/);
+  // 点坐标大到质心溢出，同样报错而不是回一个含 null 的 world
+  const far = observe.align({ camera: { points: pts.map((p) => ({ ...p, world: p.world.map((c) => c * 1e308) })), size } });
+  assert.equal(far.ok, false, JSON.stringify(far));
+  assert.equal(far.error.code, 'usage.bad-argument');
+  assert.match(far.error.message, /浮点范围/);
+  // 可表示的极端值照常返回，矩阵里没有非有限数
+  const wide = observe.align({ camera: { points: pts, size, initial: { near: 1e-300, far: 1e308 } } });
+  assert.equal(wide.ok, true, JSON.stringify(wide));
+  assert.ok([...wide.camera.world, ...wide.camera.proj].every(Number.isFinite));
+  assert.equal(JSON.stringify(wide).includes('null'), false);
+});
+
+test('O6-13 G_REV-R3 compare：pixelDiffThreshold 按整数级差算超差像素比例并纳入判定，顶层未知选项报错', () => {
+  const gray = (v) => ({ width: 8, height: 8, rgb: new Uint8Array(192).fill(v) });
+  const run = (a, b, opts) => observe.compare(gray(a), gray(b), opts);
+  const row = (res) => res.rows.find((x) => x.metric === 'fracAboveThreshold');
+
+  // 顶层与 tolerance 里两种写法等价：差一级过，差两级与全黑对全白不过
+  for (const opts of [{ pixelDiffThreshold: 1 / 255 }, { tolerance: { pixelDiffThreshold: 1 / 255 } }]) {
+    const one = run(32, 33, opts);
+    assert.equal(one.ok, true, JSON.stringify(one));
+    assert.equal(one.pass, true, JSON.stringify(one));
+    assert.deepEqual(row(one), { metric: 'fracAboveThreshold', value: 0, threshold: 1 / 255, tolerance: 0, pass: true });
+    const two = run(32, 34, opts);
+    assert.equal(two.pass, false, JSON.stringify(two));
+    assert.deepEqual(row(two), { metric: 'fracAboveThreshold', value: 1, threshold: 1 / 255, tolerance: 0, pass: false });
+    assert.equal(run(0, 255, opts).pass, false);
+    assert.equal(run(255, 0, opts).pass, false);
+    assert.equal(one.truncated, false);
+    assert.ok(withinBudget(JSON.stringify(two), 500), `${estimateTokens(JSON.stringify(two))} token`);
+  }
+  // 255 组相邻灰阶在 1/255 下全过（方向无关）、在 0.00391 下全拒
+  for (let k = 0; k < 255; k++) {
+    assert.equal(run(k, k + 1, { pixelDiffThreshold: 1 / 255 }).pass, true, `k=${k}`);
+    assert.equal(run(k + 1, k, { pixelDiffThreshold: 1 / 255 }).pass, true, `k=${k} 反向`);
+    assert.equal(run(k, k + 1, { pixelDiffThreshold: 0.00391 }).pass, false, `k=${k}`);
+  }
+  // 阈值写成 k / 255：差恰为 k 级不算超，差 k + 1 级算超（判定是 m > threshold * 255，没有松弛）
+  for (let k = 1; k < 255; k++) {
+    assert.equal(run(0, k, { pixelDiffThreshold: k / 255 }).pass, true, `k=${k}`);
+    assert.equal(run(0, k + 1, { pixelDiffThreshold: k / 255 }).pass, false, `k=${k} 多一级`);
+  }
+  // 写成 k * (1 / 255) 时有 24 个 k（33、37 …… 244）的浮点值比 k / 255 小一个尾数位，按精确标尺差 k 级就算超
+  assert.equal(33 * (1 / 255) < 33 / 255, true);
+  assert.equal(run(0, 33, { pixelDiffThreshold: 33 * (1 / 255) }).pass, false);
+  // 一个像素只有一个通道超差也算；允许的超差比例由 pixelDiffMaxRatio 给，按未舍入的比例判定
+  const base = gray(32);
+  const half = gray(32);
+  for (let i = 0; i < 32; i++) half.rgb[i * 3 + 1] = 34;
+  const at = (ratio) => observe.compare(base, half, { pixelDiffThreshold: 1 / 255, tolerance: { pixelDiffMaxRatio: ratio }, metrics: ['fracAboveThreshold'] });
+  assert.deepEqual(at(0.5).rows, [{ metric: 'fracAboveThreshold', value: 0.5, threshold: 1 / 255, tolerance: 0.5, pass: true }]);
+  assert.equal(at(0.5).pass, true);
+  assert.equal(at(0.49).pass, false);
+  assert.equal(at(0.49).rows[0].pass, false);
+  // 阈值为 0：有任何差就算超差；完全一致照过
+  assert.equal(run(32, 33, { pixelDiffThreshold: 0 }).pass, false);
+  assert.equal(run(32, 32, { pixelDiffThreshold: 0 }).pass, true);
+  // 不给阈值时没有这一行，原有判定不变
+  assert.equal(row(run(0, 255)), undefined);
+  assert.equal(run(0, 255).pass, true);
+
+  // 拼错的顶层选项、非法阈值、两处阈值打架、只给比例不给阈值：都报错
+  const bads = [
+    { pixelDiffThresold: 1 / 255 },
+    { tolerence: { maxDiff: 1 } },
+    { pixelDiffThreshold: -1 },
+    { pixelDiffThreshold: Number.NaN },
+    { pixelDiffThreshold: '0.01' },
+    { pixelDiffThreshold: 1 / 255, tolerance: { pixelDiffThreshold: 2 / 255 } },
+    { tolerance: { pixelDiffMaxRatio: 0.1 } },
+  ];
+  for (const opts of bads) {
+    const bad = run(0, 255, opts);
+    assert.equal(bad.ok, false, JSON.stringify(opts));
+    assert.equal(bad.error.code, 'usage.bad-argument');
+  }
+});
+
+test('O6-14 G_REV-R3 align：重复对应点不冒充四点、近共面判退化、深度与视轴阈值跟场景尺度走', () => {
+  const size = [1920, 1080];
+  const cube = [[-1, 0, -1], [1, 0.2, -1], [-1, 1.4, 1], [1, 1.2, 1], [0, 0.6, 0], [-0.5, 0.3, 1], [0.6, 1, -0.7], [0.2, 0.1, 0.8]];
+  const flat = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0.3, 0.2], [-0.4, 0.5]];
+  const mul = (pts, s) => pts.map((p) => p.map((c) => c * s));
+  const fit = (pts) => {
+    const res = observe.align({ camera: { points: pts, size } });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    return res.camera;
+  };
+
+  for (const s of [1e-5, 1, 1e5]) {
+    const solid = synthCamera(mul(cube, s), [3.6 * s, 2.4 * s, 6.8 * s], [0, 0.6 * s, 0], 38, size);
+    // [p1, p1, p2, p3]：只有 3 个独立世界点，6 个方程解不出 7 个参数
+    const dup = fit([solid[0], solid[0], solid[1], solid[2]]);
+    assert.equal(dup.degenerate, true, `重复点 s=${s}: ${JSON.stringify(dup)}`);
+    assert.equal(dup.converged, false, `重复点 s=${s}`);
+    // 同一世界点配两个略有出入的屏幕点、或世界坐标只差 1e-10 倍半径，同样只算一个
+    const jitter = fit([solid[0], { world: solid[0].world, screen: [solid[0].screen[0] + 1e-3, solid[0].screen[1]] }, solid[1], solid[2]]);
+    assert.equal(jitter.degenerate, true, `屏幕抖动 s=${s}: ${JSON.stringify(jitter)}`);
+    assert.equal(jitter.converged, false);
+    const close = fit([solid[0], { world: solid[0].world.map((c) => c + 1e-10 * s), screen: solid[0].screen }, solid[1], solid[2]]);
+    assert.equal(close.degenerate, true, `近重合 s=${s}: ${JSON.stringify(close)}`);
+    assert.equal(close.converged, false);
+    // 独立点够数时带一个重复点不误报
+    const extra = fit([...solid, solid[0]]);
+    assert.equal(extra.degenerate, false, `8 点加 1 重复 s=${s}: ${JSON.stringify(extra)}`);
+    assert.equal(extra.converged, true, `8 点加 1 重复 s=${s}: ${JSON.stringify(extra)}`);
+  }
+
+  // 变异 M23：法向起伏 3e-4 倍尺度的近共面点集正对相机，仍判退化（共面阈值 1e-6 放宽到 1e-9 就漏判）
+  for (const s of [1, 1e-5]) {
+    const nearFlat = flat.map(([a, b], i) => [a * s, b * s, (i % 2 ? 3e-4 : -3e-4) * s]);
+    const cam = fit(synthCamera(nearFlat, [0, 0, 4 * s], [0, 0, 0], 40, size));
+    assert.equal(cam.degenerate, true, `近共面 s=${s}: ${JSON.stringify(cam)}`);
+    assert.equal(cam.converged, false, `近共面 s=${s}`);
+  }
+
+  // 深度正值与视轴归一化的阈值按点集半径取，不是固定的 1e-12：整个场景小于 1e-12 也能拟合
+  // （README 写明有回归测试的范围是半径 1e-9 到 1e9，由 O6-16 覆盖；这里的 1e-13 是范围外的额外抽查）
+  for (const s of [1e-13]) {
+    const pts = synthCamera(mul(cube, s), [3.6 * s, 2.4 * s, 6.8 * s], [0, 0.6 * s, 0], 38, size);
+    const res = observe.align({ camera: { points: pts, size, initial: { near: 0.01 * s, far: 1000 * s } } });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    assert.equal(res.camera.degenerate, false, `s=${s}: ${JSON.stringify(res.camera)}`);
+    assert.equal(res.camera.converged, true, `s=${s}: ${JSON.stringify(res.camera)}`);
+    assert.ok(reprojectRmse(pts, res.camera.world, res.camera.proj, size) < 0.5, `s=${s}: ${JSON.stringify(res.camera)}`);
+  }
+});
+
+test('O6-15 G_REV-R4 compare：pixelDiffThreshold 两处同一条严格校验（null、越界都拒收），判定不留松弛', () => {
+  const gray = (v) => ({ width: 8, height: 8, rgb: new Uint8Array(192).fill(v) });
+  const run = (a, b, opts) => observe.compare(gray(a), gray(b), opts);
+  // 顶层与 tolerance 里一样严：null 不当成「没给」，大于 1 不是合法的归一化阈值
+  for (const v of [null, 2, 1.0000001, -0.1, true, false, '0.01', Number.NaN, Number.POSITIVE_INFINITY]) {
+    for (const opts of [{ pixelDiffThreshold: v }, { tolerance: { pixelDiffThreshold: v } }]) {
+      const bad = run(0, 255, opts);
+      assert.equal(bad.ok, false, JSON.stringify(opts));
+      assert.equal(bad.error.code, 'usage.bad-argument', JSON.stringify(opts));
+    }
+  }
+  // 顶层给 null 时不许悄悄退回 tolerance 里的值
+  assert.equal(run(0, 255, { pixelDiffThreshold: null, tolerance: { pixelDiffThreshold: 1 / 255 } }).ok, false);
+  // 值域两端合法：0 有差即超，1 时全黑对全白也不超
+  assert.equal(run(0, 255, { pixelDiffThreshold: 1 }).pass, true);
+  assert.equal(run(0, 255, { pixelDiffThreshold: 0 }).pass, false);
+  // 0.003921568627 比 1/255 小 4.5e-13：乘 255 得 0.999999999885 < 1，差一级必须算超（旧的 +1e-12 松弛会放过）
+  for (const opts of [{ pixelDiffThreshold: 0.003921568627 }, { tolerance: { pixelDiffThreshold: 0.003921568627 } }]) {
+    const res = run(32, 33, opts);
+    assert.equal(res.ok, true, JSON.stringify(res));
+    assert.equal(res.pass, false, JSON.stringify(res));
+    assert.equal(res.rows.find((x) => x.metric === 'fracAboveThreshold').value, 1);
+  }
+  assert.equal(run(32, 33, { pixelDiffThreshold: 1 / 255 }).pass, true);
+});
+
+test('O6-16 G_REV-R4 align：解处雅可比条件数判 7 参数不可辨识（四角加光轴点），协方差那道门直接单测', () => {
+  const size = [640, 360];
+  const fit = (pts, initial) => {
+    const res = observe.align({ camera: { points: pts, size, ...(initial ? { initial } : {}) } });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    return res.camera;
+  };
+  const corners = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]];
+
+  // 反例本身：(z=5, fovY=45) 与 (z=8, fovY=29.03) 对「四角 + 光轴点 [0,0,1]」给出同一组屏幕点，三维点并不共面
+  const axis = [...corners, [0, 0, 1]];
+  const near5 = synthCamera(axis, [0, 0, 5], [0, 0, 0], 45, size);
+  const fov8 = (Math.atan((5 / 8) * Math.tan(Math.PI / 8)) * 360) / Math.PI;
+  assert.ok(Math.abs(fov8 - 29.03) < 0.01, String(fov8));
+  const far8 = synthCamera(axis, [0, 0, 8], [0, 0, 0], fov8, size);
+  near5.forEach((p, i) => assert.ok(Math.hypot(p.screen[0] - far8[i].screen[0], p.screen[1] - far8[i].screen[1]) < 1e-9));
+
+  for (const s of [1e-9, 1e-5, 1, 1e5, 1e9]) {
+    const scaled = (pts) => pts.map((p) => p.map((c) => c * s));
+    const clip = { near: 0.01 * s, far: 1000 * s };
+    // 沿光轴的一维零空间：重投影误差是 0，但不能报收敛
+    const amb = fit(synthCamera(scaled(axis), [0, 0, 5 * s], [0, 0, 0], 45, size), clip);
+    assert.equal(amb.degenerate, true, `光轴点 s=${s}: ${JSON.stringify(amb)}`);
+    assert.equal(amb.converged, false, `光轴点 s=${s}`);
+    assert.ok(amb.rmsePx < 0.5, `光轴点 s=${s}: ${amb.rmsePx}`);
+    // 第五点离开光轴就可辨识：不误报，解回真值
+    const pts = synthCamera(scaled([...corners, [0.6, 0.1, 1]]), [0, 0, 5 * s], [0, 0, 0], 45, size);
+    const ok = fit(pts, clip);
+    assert.equal(ok.degenerate, false, `离轴点 s=${s}: ${JSON.stringify(ok)}`);
+    assert.equal(ok.converged, true, `离轴点 s=${s}: ${JSON.stringify(ok)}`);
+    assert.ok(reprojectRmse(pts, ok.world, ok.proj, size) < 0.5, `离轴点 s=${s}`);
+    assert.ok(Math.abs(ok.fovY - 45) < 0.5 && Math.abs(ok.pos[2] / s - 5) < 0.05, `离轴点 s=${s}: ${JSON.stringify(ok)}`);
+  }
+
+  // 协方差这道门单测直接覆盖（公开入口上它的多数情形也会被雅可比那道门判到，两道门各自要有测试守着）
+  const flat = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0.3, 0.2], [-0.4, 0.5]];
+  const cube = [[-1, 0, -1], [1, 0.2, -1], [-1, 1.4, 1], [1, 1.2, 1], [0, 0.6, 0], [-0.5, 0.3, 1], [0.6, 1, -0.7], [0.2, 0.1, 0.8]];
+  const eye = [1, 0, 0, 0, 1, 0, 0, 0, 1]; // 视线沿 z
+  const gate = (world) => {
+    const c = [0, 1, 2].map((k) => world.reduce((acc, p) => acc + p[k] / world.length, 0));
+    const radius = Math.max(...world.map((p) => Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2])));
+    return isDegenerate(world.map((p) => ({ world: p })), c, radius, eye);
+  };
+  for (const s of [1e-160, 1e-9, 1, 1e9, 1e160]) {
+    // 变异 M23：法向起伏 3e-4 倍尺度的近共面点集正对视线判退化（共面阈值放宽到 1e-9 就漏判）；
+    // 变异 M19：不除以点集半径时，1e-160 下协方差下溢成 0、1e160 下溢出，都会把它当各向同性放行
+    assert.equal(gate(flat.map(([a, b], i) => [a * s, b * s, (i % 2 ? 3e-4 : -3e-4) * s])), true, `近共面 s=${s}`);
+    // 非共面点集在任何尺度都不误报（判重阈值跟半径走，没有绝对下限）
+    assert.equal(gate(cube.map((p) => p.map((v) => v * s))), false, `非共面 s=${s}`);
+  }
+});
+
+
+test('O6-17 G_REV-R5 align：世界坐标刚性大平移不误判退化，公开 pos/rotation/fovY 不截断、可直接重建', () => {
+  const size = [640, 360];
+  const tz = 262144;
+  const raw = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0], [0.6, 0.1, 1]];
+  // 只用公开的七个参数重建相机（不看 world/proj）：rotation 是相机到世界的轴角向量
+  const rmseFromSeven = (pts, cam) => {
+    const th = Math.hypot(...cam.rotation);
+    const k = th > 0 ? cam.rotation.map((v) => v / th) : [0, 0, 1];
+    const f = size[1] / 2 / Math.tan((cam.fovY * Math.PI) / 360);
+    let sse = 0;
+    for (const { world, screen } of pts) {
+      const d = world.map((v, i) => v - cam.pos[i]);
+      // 逆旋转（角度取负的 Rodrigues）把世界向量转进相机系
+      const kd = k[0] * d[0] + k[1] * d[1] + k[2] * d[2];
+      const cr = [k[1] * d[2] - k[2] * d[1], k[2] * d[0] - k[0] * d[2], k[0] * d[1] - k[1] * d[0]];
+      const c = d.map((v, i) => v * Math.cos(th) - cr[i] * Math.sin(th) + k[i] * kd * (1 - Math.cos(th)));
+      sse += (size[0] / 2 + (c[0] / -c[2]) * f - screen[0]) ** 2 + (size[1] / 2 - (c[1] / -c[2]) * f - screen[1]) ** 2;
+    }
+    return Math.sqrt(sse / pts.length);
+  };
+  for (const s of [2 ** -20, 2 ** -10, 1]) {
+    // 屏幕点按未平移的精确几何生成，再把世界点与相机一起沿 z 平移 262144
+    const pts = synthCamera(raw.map((p) => p.map((v) => v * s)), [0, 0, 5 * s], [0, 0, 0], 45, size)
+      .map((p) => ({ world: [p.world[0], p.world[1], p.world[2] + tz], screen: p.screen }));
+    const initial = { near: 0.01 * s, far: 1000 * s };
+    for (const init of [initial, { ...initial, pos: [0, 0, 5 * s + tz], target: [0, 0, tz], fovY: 45 }]) {
+      const res = observe.align({ camera: { points: pts, size, initial: init } });
+      assert.equal(res.ok, true, JSON.stringify(res));
+      const cam = res.camera;
+      assert.equal(cam.degenerate, false, `s=${s}: ${JSON.stringify(cam)}`);
+      assert.equal(cam.converged, true, `s=${s}: ${JSON.stringify(cam)}`);
+      assert.ok(reprojectRmse(pts, cam.world, cam.proj, size) < 0.5, `world/proj s=${s}`);
+      const seven = rmseFromSeven(pts, cam);
+      assert.ok(seven < 0.5, `公开 pos/rotation/fovY 重建 s=${s}: ${seven} px`);
+      assert.deepEqual(cam.pos, cam.world.slice(12, 15));
+      assert.ok(withinBudget(JSON.stringify(res), observe.ALIGN_TOKEN_LIMIT), `预算 s=${s}`);
+    }
+  }
+
+  // initial.pos / initial.target 也按世界坐标读（内部一并转到质心局部坐标）：光轴点反例有一族等价解，
+  // 初值本身就是零误差解时应原样返回它，而不是落到别的种子找到的另一个解
+  const fov8 = (Math.atan((5 / 8) * Math.tan(Math.PI / 8)) * 360) / Math.PI;
+  const axis = synthCamera([...raw.slice(0, 4), [0, 0, 1]], [0, 0, 5], [0, 0, 0], 45, size)
+    .map((p) => ({ world: [p.world[0], p.world[1], p.world[2] + tz], screen: p.screen }));
+  const amb = observe.align({ camera: { points: axis, size, initial: { pos: [0, 0, 8 + tz], target: [0, 0, tz], fovY: fov8 } } }).camera;
+  assert.equal(amb.degenerate, true, JSON.stringify(amb));
+  assert.equal(amb.converged, false);
+  assert.ok(Math.abs(amb.pos[2] - tz - 8) < 1e-6 && Math.abs(amb.fovY - fov8) < 1e-6, JSON.stringify(amb));
+});
+
+test('O6-18 G_REV-R6 align：半周旋转（θ ≈ π，含轴分量 x=0/y=0/z=0）公开 rotation 轴角重建必须与 world/proj 一致 (<0.5 px)', () => {
+  const size = [640, 360];
+  const cube = [
+    [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+    [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1],
+  ];
+  const rmseFromSeven = (pts, cam) => {
+    const th = Math.hypot(...cam.rotation);
+    const k = th > 0 ? cam.rotation.map((v) => v / th) : [0, 0, 1];
+    const f = size[1] / 2 / Math.tan((cam.fovY * Math.PI) / 360);
+    let sse = 0;
+    for (const { world, screen } of pts) {
+      const d = world.map((v, i) => v - cam.pos[i]);
+      const kd = k[0] * d[0] + k[1] * d[1] + k[2] * d[2];
+      const cr = [k[1] * d[2] - k[2] * d[1], k[2] * d[0] - k[0] * d[2], k[0] * d[1] - k[1] * d[0]];
+      const c = d.map((v, i) => v * Math.cos(th) - cr[i] * Math.sin(th) + k[i] * kd * (1 - Math.cos(th)));
+      sse += (size[0] / 2 + (c[0] / -c[2]) * f - screen[0]) ** 2 + (size[1] / 2 - (c[1] / -c[2]) * f - screen[1]) ** 2;
+    }
+    return Math.sqrt(sse / pts.length);
+  };
+  for (const pos of [[0, -3, -5], [0, 3, -5], [-3, 0, -5], [3, 0, -5], [0, 0, -5]]) {
+    const pts = synthCamera(cube, pos, [0, 0, 0], 45, size);
+    for (const init of [undefined, { pos, target: [0, 0, 0], fovY: 45 }]) {
+      const res = observe.align({ camera: { points: pts, size, initial: init } });
+      assert.equal(res.ok, true);
+      const cam = res.camera;
+      assert.equal(cam.degenerate, false, `pos=${pos}`);
+      assert.equal(cam.converged, true, `pos=${pos}`);
+      assert.ok(reprojectRmse(pts, cam.world, cam.proj, size) < 0.5, `matrix pos=${pos}`);
+      const seven = rmseFromSeven(pts, cam);
+      assert.ok(seven < 0.5, `seven-param pos=${pos}: ${seven} px`);
+    }
+  }
+});
+
+test('O6-19 G_REV-R6 align：matToAxisAngle 与 rodrigues 在 θ=π 与 π-1e-9 对任意轴（含零分量、任意符号）互逆 (<1e-12)', () => {
+  const axes = [];
+  for (const x of [-1, 0, 1]) for (const y of [-1, 0, 1]) for (const z of [-1, 0, 1]) if (x || y || z) axes.push([x, y, z]);
+  axes.push([0.3, -0.7, 0.2], [1e-9, 1, 0], [0, -1e-9, 1]);
+  for (const axis of axes) {
+    const len = Math.hypot(...axis);
+    for (const theta of [Math.PI, Math.PI - 1e-9, 3, 1, 1e-9, 0]) {
+      const R = rodrigues(...axis.map((v) => (v / len) * theta));
+      const back = rodrigues(...matToAxisAngle(R));
+      const err = Math.max(...R.map((v, i) => Math.abs(v - back[i])));
+      assert.ok(err < 1e-12, `axis=${axis} theta=${theta} err=${err}`);
+    }
+  }
+});

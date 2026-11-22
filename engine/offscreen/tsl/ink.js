@@ -2,9 +2,11 @@
 // ID 图 + 深度 → 边缘（近的一侧拥有这条线）→ 8×8 块归约与可分离膨胀 → 笔画（圆头笔 + 域扭曲抖动 + 笔压 + 断线）。抖动的种子 = boilSeed(t, p, fps)，同一拍内线不动。
 //
 //   createInk({ THREE, TSL, renderer }, { width, height }) → {
-//     render({ scene, camera, p, t, k = 1, ss = 1, fps = 24 })   画一遍 ID 图 → 边缘 → 笔画，结果在 line 里；渲完还原渲染目标
+//     render({ scene, camera, p, t, k = 1, ss = 1, fps = 24, ids?, idPlan? })   画一遍 ID 图（或复用预填 ids / 预收集 idPlan）→ 边缘 → 笔画，结果在 line 里；渲完还原渲染目标
+//     renderMrt(scene, camera, target) → { ids, plan }   尝试同遍 MRT 写主场景与 ID；不满足条件时 ids 为 null，返回 plan 供随后的 render() 复用、避免重复遍历场景
 //     line        笔画覆盖率的 RenderTarget（UnsignedByte，R 通道 = 覆盖率）；合成时 texture(ink.line.texture) 取样
 //     idTarget    ID 图（HalfFloat、Nearest、带 FloatType 深度）
+//     idTexture / depthTexture   当前生效的 ID 与深度纹理（双遍时指向 idTarget，MRT 时指向双附件目标）
 //     dispose()
 //   }
 //   width × height 是墨线缓冲的尺寸（= 输出尺寸 × ss）。p 的字段、像素量按标定高度给（内部乘 k·ss），与 GLSL 版相同：
@@ -22,7 +24,7 @@ import { createIdPass } from './idpass.js';
 import { fogUniforms, setFog, fogNodes } from './fog.js';
 import { noise } from './noise.js';
 import { createFullscreen, glCoord } from './pass.js';
-import { markGpu } from '../gputimer.mjs';
+import { markGpu, markGpuZero } from '../gputimer.mjs';
 
 const TILE = 8;
 
@@ -261,11 +263,25 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     return vec4(cov, 0, 0, 1);
   })();
 
-  function render({ scene, camera, p, fog = null, fogColor, t, k = 1, ss = 1, fps = 24 }) {
+  function renderMrt(scene, camera, target) {
+    const plan = idPass.collect(scene);
+    const ids = idPass.renderMrt(scene, camera, target, plan);
+    return { ids, plan };
+  }
+
+  function render({ scene, camera, p, fog = null, fogColor, t, k = 1, ss = 1, fps = 24, ids = null, idPlan = null }) {
     const prev = renderer.getRenderTarget();
     try {
-      markGpu(renderer, 'ink:ids');
-      const maxWidth = idPass.render(scene, camera, idTarget) || 1;
+      if (ids) markGpuZero(renderer, 'ink:ids');
+      else markGpu(renderer, 'ink:ids');
+      let maxWidth;
+      if (ids) {
+        idTex.value = ids.texture; depthTex.value = ids.depthTexture;
+        maxWidth = ids.maxWidth || 1;
+      } else {
+        idTex.value = idTarget.texture; depthTex.value = idTarget.depthTexture;
+        maxWidth = idPass.render(scene, camera, idTarget, idPlan) || 1;
+      }
       U.near.value = camera.near; U.far.value = camera.far; U.ortho.value = camera.isOrthographicCamera ? 1 : 0;
       const hw = p.width * 0.5 * k * ss;
       U.halfW.value = hw; U.depthThr.value = p.depthThreshold; U.inner.value = p.inner; U.sil.value = p.silhouette; U.opacity.value = p.opacity;
@@ -285,6 +301,7 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
       fx.draw(tileHMat, tileH);
       fx.draw(tileVMat, tileReach);
       fx.draw(strokeMat, line);
+      return maxWidth;
     } finally { renderer.setRenderTarget(prev); }
   }
 
@@ -293,5 +310,6 @@ export function createInk({ THREE, TSL, renderer }, { width: LW, height: LH }) {
     idTarget.dispose(); idTarget.depthTexture.dispose(); edge.dispose(); tile0.dispose(); tileH.dispose(); tileReach.dispose(); line.dispose();
   }
 
-  return { render, line, edge, idTarget, dispose };
+  return { render, renderMrt, line, edge, idTarget,
+    get idTexture() { return idTex.value; }, get depthTexture() { return depthTex.value; }, dispose };
 }

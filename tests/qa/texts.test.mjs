@@ -21,6 +21,8 @@ test('文字夹具：每项检查只抓到它该抓的那条字，exit 4', { ski
   assert.deepEqual(bad('texts.safe-area'), ['out']);
   assert.deepEqual(bad('texts.duration'), ['short']);
   assert.deepEqual(bad('texts.contrast'), ['lowc']);
+  const lowContrast = check(r.env, 'texts.contrast').evidence.rows.find(row => row.id === 'lowc');
+  assert.equal(lowContrast.frame, 24, '没有渲染记录的旧片仍取 48 个并列峰值的中间帧');
   const ok = r.env.result.checks.flatMap(c => (c.findings || []).filter(f => f.target === 'ok' && f.status === 'fail'));
   assert.deepEqual(ok, [], '合格的那条字不该有硬失败');
 });
