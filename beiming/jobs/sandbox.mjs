@@ -341,7 +341,23 @@ export function planSandboxExec(spec, options = {}) {
   // 普通宿主 node 子进程只给 portable，不当别的后端的兜底。
   if (backend !== 'portable') throw codedError('usage.bad-argument', `后端 ${backend} 没有渲染方式。`);
   // Windows 上没有 SystemRoot 时 node 的网络与随机数初始化会失败；它不是凭据。
-  const env = process.env.SystemRoot ? { ...view.env, SystemRoot: process.env.SystemRoot } : view.env;
+  const systemRoot = process.env.SystemRoot;
+  if (process.platform !== 'win32') {
+    return { backend, isolation, file: view.node, args: view.args, env: systemRoot ? { ...view.env, SystemRoot: systemRoot } : view.env, cwd: view.cwd };
+  }
+  // Windows 上 libuv 起子进程时，下面这些变量没给就从父进程补（deps/uv/src/win/process.c 的 required_vars），
+  // 宿主机的家目录、临时目录和用户名会漏进去：逐个给成沙箱自己的值或中性值。系统目录与系统盘不是凭据，照宿主机的。
+  const { HOME, TMPDIR } = view.env;
+  const drive = path.win32.parse(HOME).root.replace(/[\\/]+$/, '');
+  const env = {
+    ...view.env,
+    USERPROFILE: HOME, HOMEDRIVE: drive, HOMEPATH: HOME.slice(drive.length),
+    TEMP: TMPDIR, TMP: TMPDIR,
+    USERNAME: 'sandbox', USERDOMAIN: 'SANDBOX', LOGONSERVER: '\\\\SANDBOX',
+    SystemRoot: systemRoot || 'C:\\Windows',
+    WINDIR: process.env.WINDIR || systemRoot || 'C:\\Windows',
+    SYSTEMDRIVE: process.env.SYSTEMDRIVE || 'C:',
+  };
   return { backend, isolation, file: view.node, args: view.args, env, cwd: view.cwd };
 }
 

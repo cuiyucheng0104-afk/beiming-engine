@@ -10,7 +10,7 @@ import dns from 'node:dns';
 import process from 'node:process';
 import { fork, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { setImmediate } from 'node:timers';
+import { setTimeout } from 'node:timers';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -327,8 +327,11 @@ export async function runSandboxRedTeam({
     decoy = spawn(process.execPath, ['-e', "process.stdout.write('ready');setInterval(() => {}, 1000)", DECOY_TAG, canary.decoyArg], {
       cwd: sibling, env: { ...bareEnv(), BM_DECOY_SECRET: canary.decoyEnv }, stdio: ['ignore', 'pipe', 'ignore'],
     });
+    // 进程号可能被别的进程顶替，0 号信号说了不算：先认宿主机手里的子进程状态与退出事件。
+    let decoyExited = false;
+    for (const event of ['exit', 'close']) decoy.once(event, () => { decoyExited = true; });
     const decoyAlive = () => {
-      if (decoy.exitCode !== null || decoy.signalCode !== null) return false;
+      if (decoyExited || decoy.exitCode !== null || decoy.signalCode !== null) return false;
       try {
         process.kill(decoy.pid, 0);
         return true;
@@ -390,8 +393,9 @@ export async function runSandboxRedTeam({
       const expectedExit = receipts.some((entry) => entry?.ok === true) ? 0 : 1;
       if (parsed?.control === true && result.code !== expectedExit) receiptErrors.push(`探针退出码 ${result.code} 与明细矛盾（按明细应是 ${expectedExit}）`);
       if (id === 'cross_workspace_processes') {
-        // 探针跑完、清理之前再确认一次：诱饵中途退出的话，「看不到它」什么也说明不了。先让出一轮事件循环，收掉已经到了的退出事件。
-        await new Promise((resolve) => setImmediate(resolve));
+        // 探针跑完、清理之前再确认一次：诱饵中途退出的话，「看不到它」什么也说明不了。先让出完整的几轮事件循环，收掉退出事件：
+        // Windows 上退出通知由线程池异步投回轮询阶段，晚于一次 setImmediate。
+        await new Promise((resolve) => { setTimeout(resolve, 60); });
         if (!decoyAlive() && !fixtureErrors.some((entry) => entry.item === id)) decoyGone('在探针跑完之前就退出了');
         const memory = await warmResidue(pool, canary.residue);
         attempts.push({

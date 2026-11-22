@@ -23,6 +23,8 @@ const OFFLINE = { externalTarget: '192.0.2.1:443', dnsName: 'example.invalid' };
 const seatbelt = detectSandboxBackend().backend === 'darwin-seatbelt';
 const seatbeltOnly = { skip: seatbelt ? false : '本机没有可用的 sandbox-exec（不是 macOS，或已经在沙箱里）' };
 const ociImage = process.env.BEIMING_SANDBOX_OCI_IMAGE;
+// libuv 在 Windows 上起子进程时，这些变量没给就从父进程补（deps/uv/src/win/process.c 的 required_vars）。
+const WIN_REQUIRED_VARS = ['HOMEDRIVE', 'HOMEPATH', 'LOGONSERVER', 'PATH', 'SYSTEMDRIVE', 'SYSTEMROOT', 'TEMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'WINDIR'];
 
 // 夹具路径故意不规范化：Windows 上 os.tmpdir() 是 8.3 短路径（RUNNER~1），被测代码要自己认出来。
 function fixture(t) {
@@ -343,7 +345,37 @@ test('A13-8 降级后端真跑：环境变量剥干净、容器内路径换成�
   assert.notEqual(seen.env.HOME, os.homedir());
   assert.ok(!fs.existsSync(seen.env.TMPDIR), '专属临时目录跑完要删掉');
   const allowed = new Set(['HOME', 'TMPDIR', 'LC_ALL', 'PATH', 'BEIMING_WORKSPACE', 'BEIMING_APP', 'SYSTEMROOT', '__CF_USER_TEXT_ENCODING']);
+  // Windows 上 libuv 起子进程时，required_vars 里没给的变量会从父进程补进去：这些键要在，值要是沙箱自己的。
+  if (process.platform === 'win32') {
+    for (const key of WIN_REQUIRED_VARS) allowed.add(key);
+    allowed.add('TMP');
+    assert.deepEqual([seen.env.USERPROFILE, seen.env.TEMP, seen.env.USERNAME], [seen.env.HOME, seen.env.TMPDIR, 'sandbox']);
+  }
   assert.deepEqual(Object.keys(seen.env).filter((key) => !allowed.has(key.toUpperCase()) && !allowed.has(key)), []);
+});
+
+test('A13-8b win32 的降级后端把 libuv 会自动继承的变量逐个盖成沙箱自己的值或中性值，宿主机的家目录与用户名不透传', (t) => {
+  const { options } = fixture(t);
+  const spec = buildContainerSpec(options);
+  const tmpDir = path.join(os.tmpdir(), 'bm-a13-plan');
+  const plan = (platform) => {
+    const original = Object.getOwnPropertyDescriptor(process, 'platform');
+    Object.defineProperty(process, 'platform', { ...original, value: platform });
+    try {
+      return planSandboxExec(spec, { backend: 'portable', tmpDir, allowDegraded: true }).env;
+    } finally {
+      Object.defineProperty(process, 'platform', original);
+    }
+  };
+  const env = plan('win32');
+  const upper = Object.keys(env).map((key) => key.toUpperCase());
+  assert.deepEqual(WIN_REQUIRED_VARS.filter((key) => !upper.includes(key)), [], 'libuv 的 required_vars 少盖一个就会从宿主机继承');
+  assert.equal(new Set(upper).size, upper.length, 'Windows 的变量名不分大小写，不能重复');
+  assert.deepEqual([env.USERPROFILE, env.HOMEDRIVE + env.HOMEPATH, env.TEMP, env.TMP], [env.HOME, env.HOME, env.TMPDIR, env.TMPDIR]);
+  assert.deepEqual([env.USERNAME, env.USERDOMAIN, env.LOGONSERVER], ['sandbox', 'SANDBOX', '\\\\SANDBOX']);
+  assert.deepEqual([env.HOME, env.TMPDIR], [path.join(tmpDir, 'home'), tmpDir]);
+  // 别的平台照旧，一个 Windows 变量也不多。
+  assert.deepEqual(Object.keys(plan('linux')).filter((key) => key !== 'SystemRoot').sort(), Object.keys(spec.env).sort());
 });
 
 test('A13-9 降级后端的红队报告如实判红：环境变量拦得住，文件这一类拦不住，不把它说成容器', async () => {
@@ -726,6 +758,8 @@ test('A13-21 进程隔离的诱饵要全程活着：起来时宿主机确认它�
     process.kill(pid, 'SIGKILL');
     for (let tries = 0; alive(pid) && tries < 500; tries += 1) await new Promise((resolve) => { setTimeout(resolve, 10); });
     assert.equal(alive(pid), false, '诱饵没杀掉');
+    // Windows 上退出通知由线程池异步投回事件循环，晚于进程真正结束：多等一拍，让宿主机手里的子进程状态收敛。
+    await new Promise((resolve) => { setTimeout(resolve, 60); });
   };
 
   // 对照：不动诱饵时，每一项开跑的时候它都活着，五项全拦。
