@@ -117,14 +117,14 @@ export const scanQuestionLeaks = (input) => (typeof input === 'string' ? scanTex
 
 /* ---------------- 校验 ---------------- */
 
-const OWN_DIAGNOSTIC = Symbol('b1.own.diagnostic');
+const defaultThrowBad = (message) => new TypeError(message);
 
 /** 把输入抄成一份纯 JSON 数据：类实例、取值器、非有限数、环在这里拒掉，后面只读这份副本（不受原对象后续变化影响）。 */
-function toJsonData(value, path = '', active = new Set()) {
-  // 键名会进报错：命中泄露规则的位置不回显；只给内部产生的诊断打私有标记，与外部反射异常严格区分
+function toJsonData(value, path = '', active = new Set(), makeError = defaultThrowBad) {
+  // 键名会进报错：命中泄露规则的位置不回显；诊断文本由当次校验调用自己在闭包里持有，catch 不读异常对象任何属性
   const bad = (why) => {
     const message = `${path || '/'} ${why}`;
-    throw Object.assign(new TypeError(leakCodes(message).length ? '[redacted] 不是 JSON 数据' : message), { [OWN_DIAGNOSTIC]: true });
+    throw makeError(leakCodes(message).length ? '[redacted] 不是 JSON 数据' : message);
   };
   // 约定第 5 节的 JSON 文本口径：字符串和键都得是合法的 Unicode
   if (typeof value === 'string') return value.isWellFormed() ? value : bad('含有不成对的代理码元');
@@ -143,7 +143,7 @@ function toJsonData(value, path = '', active = new Set()) {
     const slot = slots[key];
     if (!key.isWellFormed()) return bad('的键含有不成对的代理码元');
     if (!slot || !('value' in slot) || !slot.enumerable) return bad(`的 ${key} 不是数据属性`);
-    return toJsonData(slot.value, `${path}/${key}`, active);
+    return toJsonData(slot.value, `${path}/${key}`, active, makeError);
   };
   if (Object.getOwnPropertySymbols(value).length) return bad('带了 Symbol 键');
   const copy = array
@@ -211,27 +211,21 @@ const integerFields = (q) => [
   ['/calibration/version', q.calibration.version],
 ];
 
-function safeErrorKind(error) {
-  if (error instanceof TypeError) return 'TypeError';
-  if (error instanceof RangeError) return 'RangeError';
-  if (error instanceof SyntaxError) return 'SyntaxError';
-  if (error instanceof Error) return 'Error';
-  return 'UnknownError';
-}
-
 function inspect(input) {
+  let ownDiagnostic = null;
+  const recordOwn = (message) => {
+    ownDiagnostic = message;
+    return new TypeError(message);
+  };
   try {
-    return check(input);
-  } catch (error) {
-    // 只有校验器自己打标的受控诊断才采用 message；外部反射异常（含外部 TypeError、非对象）一律回固定白名单类名，不读外部属性
-    const diag = error !== null && typeof error === 'object' && error[OWN_DIAGNOSTIC] === true
-      ? error.message
-      : `/ 校验不了：${safeErrorKind(error)}`;
-    return { result: { ok: false, schemaErrors: [diag], violations: {}, leaks: [] } };
+    return check(input, recordOwn);
+  } catch {
+    // 不读取外部抛出对象的任何属性或原型（已撤销 Proxy、带计数 getter 的 Error、null 均零触碰），只用调用自身记录的受控诊断或固定兜底
+    return { result: { ok: false, schemaErrors: [ownDiagnostic ?? '/ 校验不了：异常'], violations: {}, leaks: [] } };
   }
 }
 
-function check(input) {
+function check(input, makeError = defaultThrowBad) {
   const result = { ok: false, schemaErrors: [], violations: {}, leaks: [] };
   const stop = (fields) => ({ result: Object.assign(result, fields) });
   let data = input;
@@ -247,7 +241,7 @@ function check(input) {
     }
     if (duplicates.length) return stop({ schemaErrors: duplicates });
   }
-  const question = toJsonData(data);
+  const question = toJsonData(data, '', new Set(), makeError);
   if (typeof input !== 'string') result.leaks = scanObject(question);
   if (result.leaks.length) return { result };
   if (!validateStructure(question)) {

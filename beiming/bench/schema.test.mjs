@@ -508,7 +508,7 @@ test('B1-R3-Red 二审收口：JSON 语法错误不回显原文伪造 position �
   });
   const proxyRes = validateQuestion(hostileProxy);
   assert.equal(proxyRes.ok, false);
-  assert.deepEqual(proxyRes.schemaErrors, ['/ 校验不了：Error']);
+  assert.deepEqual(proxyRes.schemaErrors, ['/ 校验不了：异常']);
   assert.equal(JSON.stringify(proxyRes).includes('review fixture'), false);
 
   // 5) 契约通用口径：整数型字段最大为 MAX_SAFE_INTEGER (9007199254740991)，+1 在对象与原文双入口均拒收；合法浮点字段不受影响
@@ -548,20 +548,35 @@ test('B1-R4-Red 三审收口：CR/CRLF/LF 行号一致、外部 TypeError 与非
     }
   });
 
-  await t.test('2) 外部反射抛出的 TypeError、自定义 getter name 异常与 null 均被安全兜底且零回显敏感消息', () => {
+  await t.test('2) 外部反射抛出的 TypeError、自定义 getter name/message、已撤销 Proxy 与 null 均返回固定诊断且外部属性访问次数为 0', () => {
+    let externalReads = 0;
+    const boobyError = new TypeError('external typeerror secret');
+    Object.defineProperty(boobyError, 'name', { get() { externalReads += 1; return 'Error'; } });
+    Object.defineProperty(boobyError, 'message', { get() { externalReads += 1; return 'boom-msg'; } });
     const extTypeErrProxy = new Proxy({}, {
-      ownKeys() { throw new TypeError('external typeerror secret'); },
+      ownKeys() { throw boobyError; },
     });
     const res1 = validateQuestion(extTypeErrProxy);
     assert.equal(res1.ok, false);
+    assert.deepEqual(res1.schemaErrors, ['/ 校验不了：异常']);
+    assert.equal(externalReads, 0, '严禁读取外部抛出对象的 .name 或 .message');
     assert.equal(JSON.stringify(res1).includes('external typeerror secret'), false);
+
+    const { proxy: revokedThrown, revoke } = Proxy.revocable({}, {});
+    revoke();
+    const revokedThrower = new Proxy({}, {
+      ownKeys() { throw revokedThrown; },
+    });
+    const resRevoked = validateQuestion(revokedThrower);
+    assert.equal(resRevoked.ok, false);
+    assert.deepEqual(resRevoked.schemaErrors, ['/ 校验不了：异常']);
 
     const nullThrowProxy = new Proxy({}, {
       ownKeys() { throw null; },
     });
     const res2 = validateQuestion(nullThrowProxy);
     assert.equal(res2.ok, false);
-    assert.ok(res2.schemaErrors.length > 0);
+    assert.deepEqual(res2.schemaErrors, ['/ 校验不了：异常']);
   });
 
   await t.test('3) A-dense / A-path / N-flag / N-visit：键数相抵的稀疏附加数组与不可枚举属性的结构+内容双命中', () => {
