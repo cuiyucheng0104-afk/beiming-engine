@@ -35,7 +35,26 @@ const noFfprobe = () => envError('env.ffmpeg-missing', '宿主上没有可用的
 // 做题进程的环境变量：只留白名单（名字不分大小写），宿主别的变量一律不传；模型的凭据和代理只在 --model 时传
 const ENV_KEEP = new Set(['PATH', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'LANG', 'LC_ALL', 'TERM', 'NODE_PATH', 'TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CONFIG_DIR', 'PLAYWRIGHT_BROWSERS_PATH']);
 const ENV_MODEL = /^(ANTHROPIC_|CLAUDE_CODE_)|^(HTTPS?|NO)_PROXY$/;
-const solverEnv = (run, viaModel) => Object.fromEntries(Object.entries(sessionEnv(run)).filter(([k]) => ENV_KEEP.has(k.toUpperCase()) || (viaModel && ENV_MODEL.test(k.toUpperCase()))));
+// Windows 的 libuv 有一张必选变量表（HOMEDRIVE、HOMEPATH、LOGONSERVER、PATH、SYSTEMDRIVE、SYSTEMROOT、TEMP、USERDOMAIN、USERNAME、USERPROFILE、WINDIR）：
+// 传给 spawn 的 env 里缺哪个，它就从父进程补哪个。所以 win32 一个不缺地自己填：系统目录照宿主的，身份和家目录填隔离值
+export function solverEnv(run, viaModel, platform = process.platform, host = sessionEnv(run)) {
+  const win = platform === 'win32';
+  const env = {};
+  for (const [k, v] of Object.entries(host)) {
+    const K = k.toUpperCase();
+    // Windows 的变量名不分大小写：一律收成大写，同一个变量不会留下 Path / PATH 两份
+    if (ENV_KEEP.has(K) || (win && (K === 'WINDIR' || K === 'SYSTEMDRIVE')) || (viaModel && ENV_MODEL.test(K))) env[win ? K : k] = v;
+  }
+  if (!win) return env;
+  const sysRoot = env.SYSTEMROOT || 'C:\\Windows';
+  return {
+    ...env, SYSTEMROOT: sysRoot, WINDIR: env.WINDIR || sysRoot, SYSTEMDRIVE: env.SYSTEMDRIVE || 'C:',
+    COMSPEC: env.COMSPEC || path.win32.join(sysRoot, 'System32', 'cmd.exe'), PATHEXT: env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
+    HOME: run.worktree, USERPROFILE: run.worktree, TEMP: run.tmpDir, TMP: run.tmpDir, TMPDIR: run.tmpDir,
+    HOMEDRIVE: path.win32.parse(run.worktree).root.replace(/[\\/]+$/, '') || 'C:', HOMEPATH: '\\',
+    USERNAME: 'bench', USERDOMAIN: 'BENCH', LOGONSERVER: '\\\\LOCALHOST',
+  };
+}
 
 const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
 let seatbelt;   // 实际试一次：有这个文件不等于能用（已经在别的沙箱里时可能套不上）

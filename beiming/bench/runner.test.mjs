@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { EvalError, envError } from '../../tools/eval/lib/cli.mjs';
 import { hasFfmpeg } from '../../tools/eval/lib/synth.mjs';
 import { projectPublicQuestion, runExamQuestion } from './index.mjs';
+import { solverEnv } from './runner.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
@@ -46,6 +47,10 @@ function video(file, { frames = 24, cut = false, audio = false } = {}) {
   assert.equal(r.status, 0, r.stderr);
   return file;
 }
+// 做题进程看得到的环境变量名。win32 多出来的是 libuv 必选的那几个：不传它就从父进程补，所以由跑题器填成隔离值
+const ENV_POSIX = ['PATH', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'LANG', 'LC_ALL', 'TERM', 'NODE_PATH', 'TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CONFIG_DIR', 'PLAYWRIGHT_BROWSERS_PATH'];
+const ENV_WIN = [...ENV_POSIX, 'WINDIR', 'SYSTEMDRIVE', 'HOMEDRIVE', 'HOMEPATH', 'USERNAME', 'USERDOMAIN', 'LOGONSERVER'];
+const LIBUV_REQUIRED = ['HOMEDRIVE', 'HOMEPATH', 'LOGONSERVER', 'PATH', 'SYSTEMDRIVE', 'SYSTEMROOT', 'TEMP', 'USERDOMAIN', 'USERNAME', 'USERPROFILE', 'WINDIR'];
 // 运行目录下全部文件的文本，用来查私有段有没有漏进去
 const dump = (dir) => readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => readFileSync(join(e.parentPath, e.name), 'utf8')).join('\n');
 
@@ -288,15 +293,16 @@ test('B8-9 做题进程：环境变量只有白名单；有系统沙箱时读不
 const read = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (e) { return 'DENIED:' + e.code; } };
 const [q, sibling, prev] = process.argv.slice(2);
 const write = (f) => { try { fs.writeFileSync(f, '{"status":"pass","score":1}'); return 'WROTE'; } catch (e) { return 'DENIED:' + e.code; } };
-fs.writeFileSync('probe.json', JSON.stringify({ env: Object.keys(process.env), own: read('question.json'), nearby: read(process.argv[1]),
+fs.writeFileSync('probe.json', JSON.stringify({ env: process.env, own: read('question.json'), nearby: read(process.argv[1]),
   secrets: [read(q), read(sibling), read('../meta.json'), read(prev), write('../result.json'), write('../observation.json')] }));
 `);
   const res = await runExamQuestion({ questionFile: qFile, evalRoot: root, solverCmd: `"${process.execPath}" "${probe}" "${qFile}" "${answers}" "${join(prev.runDir, 'worktree/prev.txt')}"`, judge: allPass });
   const seen = await readJson(join(res.runDir, 'worktree/probe.json'));
-  const allowed = ['PATH', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'COMSPEC', 'PATHEXT', 'LANG', 'LC_ALL', 'TERM', 'NODE_PATH', 'TMPDIR', 'TMP', 'TEMP', 'CLAUDE_CONFIG_DIR', 'PLAYWRIGHT_BROWSERS_PATH'];
   // __CF_USER_TEXT_ENCODING 是 macOS 自己给每个进程补的，不是宿主传的
-  assert.deepEqual(seen.env.filter((k) => !allowed.includes(k.toUpperCase()) && k !== '__CF_USER_TEXT_ENCODING'), [], '命令做题：只有白名单里的环境变量');
-  assert.ok(seen.env.includes('TMPDIR') && seen.env.includes('CLAUDE_CONFIG_DIR'));
+  assert.deepEqual(Object.keys(seen.env).filter((k) => !(POSIX ? ENV_POSIX : ENV_WIN).includes(k.toUpperCase()) && k !== '__CF_USER_TEXT_ENCODING'), [], '命令做题：只有白名单里的环境变量');
+  assert.ok(seen.env.TMPDIR && seen.env.CLAUDE_CONFIG_DIR && !JSON.stringify(seen.env).includes(process.env.B8_HOST_SECRET));
+  // Windows：libuv 必选的变量是跑题器自己填的隔离值，不是从宿主补进来的真实身份
+  if (!POSIX) assert.deepEqual([seen.env.USERNAME, seen.env.USERPROFILE], ['bench', join(res.runDir, 'worktree')]);
   assert.deepEqual(Object.keys(JSON.parse(seen.own)), ['id', 'level', 'title', 'brief', 'deliverable', 'assets']);
   const { isolation } = await readJson(join(res.runDir, 'observation.json'));
   assert.equal(isolation, SEATBELT ? 'seatbelt' : 'process-cwd', '实际的隔离级别照实记');
@@ -311,6 +317,35 @@ fs.writeFileSync('probe.json', JSON.stringify({ env: Object.keys(process.env), o
   const viaModel = await runExamQuestion({ questionFile: qFile, evalRoot: root, model: 'm1', claude: stub, judge: allPass });
   const keys = (await readJson(join(viaModel.runDir, 'transcript/turn-01.jsonl'))).model.split(' ');
   assert.deepEqual([keys.includes('ANTHROPIC_API_KEY'), keys.includes('B8_HOST_SECRET')], [true, false]);
+});
+
+test('B8-9b 做题进程的环境变量按平台构造：POSIX 只过滤；win32 把 libuv 必选的变量全部显式填上，宿主身份一个不漏', () => {
+  const run = { worktree: 'D:\\ProgramData\\runs\\r1\\worktree', tmpDir: 'D:\\ProgramData\\runs\\r1\\tmp' };
+  // Windows 的变量名大小写不定（Path、SystemRoot、windir…）；alice 那几个值代表宿主的真实身份和家目录（放在 ProgramData 下只是为了不像本机路径）
+  const host = { Path: 'C:\\Windows\\System32', SystemRoot: 'D:\\Windows', windir: 'D:\\Windows', SystemDrive: 'D:', ComSpec: 'D:\\Windows\\System32\\cmd.exe', PATHEXT: '.EXE',
+    USERNAME: 'alice', UserDomain: 'CORP', LOGONSERVER: '\\\\DC01', USERPROFILE: 'C:\\ProgramData\\alice', HOME: 'C:\\ProgramData\\alice', HOMEDRIVE: 'C:', HOMEPATH: '\\ProgramData\\alice',
+    Temp: 'C:\\ProgramData\\alice\\Temp', TEMP: 'C:\\ProgramData\\alice\\Temp', APPDATA: 'C:\\ProgramData\\alice\\AppData', B8_HOST_SECRET: 's3', ANTHROPIC_API_KEY: 'k', https_proxy: 'http://p' };
+  const win = solverEnv(run, false, 'win32', host);
+  assert.deepEqual(win, {
+    PATH: 'C:\\Windows\\System32', SYSTEMROOT: 'D:\\Windows', WINDIR: 'D:\\Windows', SYSTEMDRIVE: 'D:', COMSPEC: 'D:\\Windows\\System32\\cmd.exe', PATHEXT: '.EXE',
+    HOME: run.worktree, USERPROFILE: run.worktree, HOMEDRIVE: 'D:', HOMEPATH: '\\', TEMP: run.tmpDir, TMP: run.tmpDir, TMPDIR: run.tmpDir,
+    USERNAME: 'bench', USERDOMAIN: 'BENCH', LOGONSERVER: '\\\\LOCALHOST',
+  });
+  // 少一个，libuv 就从父进程补一个
+  for (const k of LIBUV_REQUIRED) assert.ok(win[k], `win32 缺 ${k}`);
+  assert.deepEqual(Object.keys(win).filter((k) => !ENV_WIN.includes(k)), []);
+  assert.ok(!/alice|CORP|DC01|s3/.test(JSON.stringify(win)));
+  // 宿主没有的系统目录给默认值；--model 时凭据和代理照传，名字同样收成大写
+  const bare = solverEnv(run, true, 'win32', { Path: 'C:\\Windows\\System32', ANTHROPIC_API_KEY: 'k', https_proxy: 'http://p', B8_HOST_SECRET: 's3' });
+  assert.deepEqual([bare.SYSTEMROOT, bare.WINDIR, bare.SYSTEMDRIVE, bare.COMSPEC, bare.PATHEXT], ['C:\\Windows', 'C:\\Windows', 'C:', 'C:\\Windows\\System32\\cmd.exe', '.COM;.EXE;.BAT;.CMD']);
+  assert.deepEqual([bare.ANTHROPIC_API_KEY, bare.HTTPS_PROXY, 'B8_HOST_SECRET' in bare, 'https_proxy' in bare], ['k', 'http://p', false, false]);
+
+  // POSIX：名字分大小写，原样过滤，不补 Windows 的那些
+  const posixHost = { PATH: '/bin', HOME: '/Users/alice', TMPDIR: '/runs/tmp', USER: 'alice', USERNAME: 'alice', LOGNAME: 'alice', SHELL: '/bin/zsh', B8_HOST_SECRET: 's3', ANTHROPIC_API_KEY: 'k', https_proxy: 'http://p' };
+  for (const platform of ['linux', 'darwin']) {
+    assert.deepEqual(solverEnv(run, false, platform, posixHost), { PATH: '/bin', HOME: '/Users/alice', TMPDIR: '/runs/tmp' });
+    assert.deepEqual(solverEnv(run, true, platform, posixHost), { PATH: '/bin', HOME: '/Users/alice', TMPDIR: '/runs/tmp', ANTHROPIC_API_KEY: 'k', https_proxy: 'http://p' });
+  }
 });
 
 test('B8-10 命令行退出码：用法错 2、环境缺 3、题目不合格 4', async (t) => {
