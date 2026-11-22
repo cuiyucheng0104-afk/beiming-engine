@@ -122,9 +122,10 @@ export async function startSource({ cards = [] } = {}) {
 
       /** 渲一帧：各层写到 env.workspace 下面的 r<这个会话第几次成功的 render>-f<帧号>/<通道名>.<类型>，交回元数据和层引用 */
       async render(f, opts, want) {
-        // 进页面之前先在这边判一遍：Date、Map 这类实例过序列化会变成 {}，显式 null 也不能被吞成没写
-        planRender(CAPS, input.shot, input.output.size, env.tier, opts, want, locked);
-        const res = await page.evaluate(([frame, o, w]) => window.__session.render(frame, o, w), [f, opts === undefined ? {} : opts, want]);
+        // 进页面之前先在这边判一遍：Date、Map 这类实例过序列化会变成 {}，显式 null 也不能被吞成没写。
+        // 进页面的是判过的那份纯数据快照，不是调用方的原对象：原型上的值、不可枚举的键过序列化会丢，两边要读到同一份
+        const { renderOpts } = planRender(CAPS, input.shot, input.output.size, env.tier, opts, want, locked);
+        const res = await page.evaluate(([frame, o, w]) => window.__session.render(frame, o, w), [f, renderOpts, want]);
         if (!res.ok) throw new SourceError(res.code, res.message);
         const dir = `r${pad(renders++, 3)}-f${pad(f, 4)}`, layers = {};
         for (const [name, l] of Object.entries(res.layers)) {

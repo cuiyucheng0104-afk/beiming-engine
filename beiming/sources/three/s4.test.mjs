@@ -242,7 +242,7 @@ test('实渲：匀速方块 180 度快门从帧起点开，拖影亮度质心在
     // 宿主两端：坏参数没进页面就报 usage.bad-argument，一个层文件都不写
     const badTag = { toString: 0, get [Symbol.toStringTag]() { throw new TypeError('tag-boom'); } };
     const BAD = [{ shutter: 0n }, { shutter: { angle: { toString: 0 } } }, null, new Date(), new Map(), /re/, new Uint8Array(2), { shutter: new Date() }, { shutter: new Map() }, { shutter: { angle: badTag } }];
-    for (const o of BAD) await assert.rejects(session.render(24, o, ['color']), code('usage.bad-argument'));
+    for (const o of [...BAD, ...r7Bad()]) await assert.rejects(session.render(24, o, ['color']), code('usage.bad-argument'));
     assert.deepEqual(await readdir(workspace), []);
     const blur = await session.render(24, {}, ['color', ...AUX]);
     const still0 = await session.render(24, SINGLE, ['color', ...AUX]);
@@ -261,6 +261,9 @@ test('实渲：匀速方块 180 度快门从帧起点开，拖影亮度质心在
       assert.equal(r.meta.camera.shutterAngleDeg, 90);
       assert.equal(r.layers.color.hash, local.layers.color.hash);
     }
+    // 进页面的是预检判过的快照：不可枚举的 shutter 过序列化会丢，页面照样按 90 度 / 1 个子帧出同一帧
+    const hidden = await session.render(24, Object.defineProperty({}, 'shutter', { value: { angleDeg: 90, samples: 1 } }), ['color']);
+    assert.deepEqual([hidden.meta.camera.shutterAngleDeg, hidden.layers.color.hash], [90, local.layers.color.hash]);
     // 会话按打开时的镜头输入和环境算：调用方事后改原对象（改成会报 shutter-conflict 的快门、换档位、换画幅、换工作目录），照旧出同一帧、写在原工作目录
     input.shot.shutter = { angleDeg: 0, samples: 8 };
     input.output.size = [8, 8];
@@ -311,7 +314,7 @@ test('参数容器：Date、Map、RegExp、TypedArray 这类实例，和 Symbol.
     assert.throws(() => planRender(CAPS, shot, [W, H], 'final', inst, ['color']), code('usage.bad-argument'));
     assert.throws(() => planRender(CAPS, shot, [W, H], 'final', { shutter: inst }, ['color']), code('usage.bad-argument'));
   }
-  // badTag 自己是普通对象，当容器合法；当快门角的值时报错消息要拼得出来
+  // badTag 带 Symbol 键，直接当容器也报 usage.bad-argument（见 r7Bad）；这里是当快门角的值，报错消息要拼得出来
   assert.throws(() => planRender(CAPS, shot, [W, H], 'final', { shutter: { angle: badTag } }, ['color']), code('usage.bad-argument'));
   assert.equal(planRender(CAPS, shot, [W, H], 'final', Object.create(null), ['color']).shutterSamples, 4);
 });
@@ -328,4 +331,54 @@ test('参数容器：另一个上下文（vm）里造的普通对象照常收，
     assert.throws(() => planRender(CAPS, shot, [W, H], 'final', runInNewContext(src), ['color']), code('usage.bad-argument'), src);
     assert.throws(() => planRender(CAPS, shot, [W, H], 'final', { shutter: runInNewContext(src) }, ['color']), code('usage.bad-argument'), src);
   }
+});
+
+// 第六轮评审的两组反例，纯函数和正式宿主共用：多一层原型的容器；带 Symbol 键、不认识的键、自有取值器的容器
+const r7Bad = () => {
+  const nullDict = (o) => Object.assign(Object.create(null), o);
+  class ShutterPreset extends null {
+    constructor() { return Object.create(new.target.prototype); }
+    get angleDeg() { return 90; }
+    get samples() { return 1; }
+  }
+  // 伪造成根原型的样子（自带 hasOwnProperty、constructor.prototype 指回自己）：快门值还是从原型来的，照拒
+  class Forged extends null {
+    constructor() { return Object.create(new.target.prototype); }
+    hasOwnProperty() { return true; }
+    get angleDeg() { return 90; }
+  }
+  const badTag = { toString: 0, get [Symbol.toStringTag]() { throw new TypeError('tag-boom'); } };
+  const symOnly = { get [Symbol.toStringTag]() { throw new TypeError('tag-boom'); } };
+  return [
+    Object.create(nullDict({ shutter: { angleDeg: 90, samples: 1 } })), Object.create(Object.create(null)),
+    { shutter: Object.create(nullDict({ angleDeg: 90, samples: 1 })) }, { shutter: Object.create(nullDict({ hasOwnProperty() {}, angleDeg: 90 })) },
+    { shutter: new ShutterPreset() }, { shutter: new Forged() },
+    // 原型上没有快门值，光看形状也不是普通对象：空的 extends null 类实例、原型只带 hasOwnProperty 的
+    new (class Empty extends null { constructor() { return Object.create(new.target.prototype); } })(), { shutter: Object.create(nullDict({ hasOwnProperty() {} })) },
+    badTag, { shutter: badTag }, symOnly, { shutter: symOnly }, { [Symbol('x')]: 1 },
+    { foo: 1 }, { shutter: { angleDeg: 90, samples: 1, phase: 0 } },
+    { get shutter() { throw new TypeError('getter-boom'); } }, { shutter: { get angleDeg() { return 90; }, samples: 1 } },
+    new Proxy({}, { ownKeys() { throw new TypeError('trap-boom'); } }),
+  ];
+};
+
+test('S4-R7-Red: 自定义无原型继承容器、extends null 类实例与带未知/Symbol 属性的抛错容器在双端一律报 usage.bad-argument', () => {
+  const shot = { shutter: { angleDeg: 180, samples: 8 } };
+  for (const [i, o] of r7Bad().entries()) assert.throws(() => planRender(CAPS, shot, [W, H], 'final', o, ['color']), code('usage.bad-argument'), `第 ${i} 个`);
+  assert.throws(() => shutterAngle(Object.create(Object.assign(Object.create(null), { angleDeg: 90 }))), code('usage.bad-argument'));
+  // 镜头条目的快门同样判
+  assert.throws(() => planRender(CAPS, { shutter: { angleDeg: 180, phase: 0 } }, [W, H], 'final', {}, ['color']), code('usage.bad-argument'));
+});
+
+test('renderOpts：判过的 opts 的纯数据快照，只有调用方写了的键，不带调用方的原对象', () => {
+  const shot = { shutter: { angleDeg: 180, samples: 8 } }, plan = (o) => planRender(CAPS, shot, [W, H], 'final', o, ['color']);
+  assert.deepStrictEqual(plan(undefined).renderOpts, {});
+  assert.deepStrictEqual(plan({ scale: undefined, shutter: undefined }).renderOpts, {});
+  const shutter = { angle: 90, samples: 1 }, got = plan({ scale: 0.5, samples: 1, shutter }).renderOpts;
+  assert.deepStrictEqual(got, { scale: 0.5, samples: 1, shutter: { angle: 90, samples: 1 } });
+  assert.notEqual(got.shutter, shutter);
+  // 别的上下文造的、不可枚举的自有数据属性：读得到，快照是本上下文的普通对象
+  assert.deepStrictEqual(plan(runInNewContext('({ shutter: { angleDeg: 90, samples: 1 } })')).renderOpts, { shutter: { angleDeg: 90, samples: 1 } });
+  const hidden = plan(Object.defineProperty({}, 'shutter', { value: { angleDeg: 90, samples: 1 } }));
+  assert.deepStrictEqual([hidden.angleDeg, hidden.shutterSamples, hidden.renderOpts], [90, 1, { shutter: { angleDeg: 90, samples: 1 } }]);
 });
