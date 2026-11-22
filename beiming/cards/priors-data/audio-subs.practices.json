@@ -215,26 +215,6 @@
       "docRef": "声音配乐配音字幕汇编 §7 ^e302；原出处：20/09 §3.1、§3.4"
     },
     {
-      "id": "audio-subs.e303.practice",
-      "sourceId": "e303",
-      "section": 7,
-      "caseId": "case-20",
-      "title": "主唱七步-2 落拍",
-      "text": "辅音在拍前起、元音落在拍上；音符太挤时辅音缩短；元音至少占音符的 42%",
-      "quantities": [
-        {
-          "value": 0.42,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "只是原文说法",
-      "docRef": "声音配乐配音字幕汇编 §7 ^e303；原出处：20/09 §3.1"
-    },
-    {
       "id": "audio-subs.e305.practice",
       "sourceId": "e305",
       "section": 7,
@@ -253,26 +233,6 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "只是原文说法",
       "docRef": "声音配乐配音字幕汇编 §7 ^e305；原出处：20/09 §3.1"
-    },
-    {
-      "id": "audio-subs.e306.practice",
-      "sourceId": "e306",
-      "section": 7,
-      "caseId": "case-20",
-      "title": "主唱七步-5 声道",
-      "text": "级联：一对鼻音零极点 + 五个移动共振峰 + 到 11.5 kHz 的固定极点；共振峰目标在相邻音之间混合（共振峰表未公开）",
-      "quantities": [
-        {
-          "value": 11500,
-          "unit": "Hz",
-          "rawUnit": "kHz"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "只是原文说法",
-      "docRef": "声音配乐配音字幕汇编 §7 ^e306；原出处：20/09 §3.1"
     },
     {
       "id": "audio-subs.e307.practice",
@@ -449,29 +409,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §7 ^e406；原出处：阅读组1 § 案例 20 Step 2"
-    },
-    {
-      "id": "audio-subs.e436.practice",
-      "sourceId": "e436",
-      "section": 7,
-      "caseId": "case-13",
-      "title": "变体=整体音高随机",
-      "text": "同一音效的变体用整体音高随机而非重新设计：voice_* 整条音高线×(1±6%)；wraith音高范围×0.86–×1.2",
-      "quantities": [
-        {
-          "value": [
-            -0.06,
-            0.06
-          ],
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §7 ^e436；原出处：27 §7.4 (原实现源码)"
     },
     {
       "id": "audio-subs.e461.practice",
@@ -923,6 +860,26 @@
       "docRef": "声音配乐配音字幕汇编 §12 ^e393；原出处：原文 § Step 6"
     },
     {
+      "id": "audio-subs.e413.practice",
+      "sourceId": "e413",
+      "section": 12,
+      "caseId": "case-12",
+      "title": "巨城雷击 声音",
+      "text": "Mirelo SFX 生成46份音效；代码合成变压器爆响；混音−14 LUFS；短音效精确卡帧的留给代码合成",
+      "quantities": [
+        {
+          "value": -14,
+          "unit": "LUFS",
+          "rawUnit": "LUFS"
+        }
+      ],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e413；原出处：012 § 分工/规格"
+    },
+    {
       "id": "audio-subs.e322.practice",
       "sourceId": "e322",
       "section": 12,
@@ -941,26 +898,6 @@
       "evidenceLabel": "原文陈述+未公开",
       "verificationLabel": "没验证来源",
       "docRef": "声音配乐配音字幕汇编 §12 ^e322；原出处：15/09 §4.6、§5.1"
-    },
-    {
-      "id": "audio-subs.e395.practice",
-      "sourceId": "e395",
-      "section": 12,
-      "caseId": "case-25",
-      "title": "案例 25 音频",
-      "text": "免版税库乐 120 BPM + 代码计算的音效:每次点击的鼠标点击声、墙墩落地冲击、钢、环合拢、玻璃沿环铺开、太阳与相机俯冲",
-      "quantities": [
-        {
-          "value": 120,
-          "unit": "bpm",
-          "rawUnit": "BPM"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e395；原出处：原文 § Zooms/Sound"
     },
     {
       "id": "audio-subs.e328.practice",
@@ -989,6 +926,20 @@
       "evidenceLabel": "原文陈述+未公开",
       "verificationLabel": "没验证",
       "docRef": "声音配乐配音字幕汇编 §12 ^e331；原出处：27/09 §4.2"
+    },
+    {
+      "id": "audio-subs.e335.practice",
+      "sourceId": "e335",
+      "section": 12,
+      "caseId": "case-29",
+      "title": "配乐停顿配动作",
+      "text": "Doors 阶段“配乐停顿时地板铺开”（原文）",
+      "quantities": [],
+      "kind": "method",
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "没验证",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e335；原出处：29/09 §4.1"
     },
     {
       "id": "audio-subs.e373.practice",
@@ -1104,26 +1055,6 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §13 ^e462；原出处：原文 § 2."
-    },
-    {
-      "id": "audio-subs.e467.practice",
-      "sourceId": "e467",
-      "section": 13,
-      "caseId": "case-b10",
-      "title": "配音文件交接协议",
-      "text": "pi 把脚本拆成逐场景段落写 配音请求清单 JSON({language, voice, segments:[{id,text}]}),先写 .tmp 再 mv 就位;Claude Code 监视该文件,批量出 原包素材文件…,最后才写 配音就绪回执 JSON(文件与时长),避免 pi 读到半成品;pi 先用估算时长建场景,每 30 s 才轮询一次,拿到真实时长后(ffprobe)重排",
-      "quantities": [
-        {
-          "value": 30,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §13 ^e467；原出处：原文 § Brief §5/Step 4"
     },
     {
       "id": "audio-subs.e450.practice",

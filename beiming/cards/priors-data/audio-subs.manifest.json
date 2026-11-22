@@ -7,21 +7,21 @@
   "mergedDuplicatesNotCounted": 54,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目（带 ^e 锚点）+ 跨案例对照表行；汇总行的去向随它指回的明细，不另算一条明细；并入的重复条目原文已在明细里，不计数",
-  "portableCount": 87,
-  "cardCoupledCount": 369,
-  "practiceCount": 66,
-  "excludedOrConflictCount": 18,
+  "portableCount": 83,
+  "cardCoupledCount": 383,
+  "practiceCount": 61,
+  "excludedOrConflictCount": 13,
   "detailRouteCounts": {
-    "card-coupled": 301,
-    "practice": 49,
-    "skipped-or-conflict": 15,
-    "portable": 52
+    "card-coupled": 309,
+    "practice": 46,
+    "skipped-or-conflict": 12,
+    "portable": 50
   },
   "summaryRouteCounts": {
-    "portable": 35,
-    "practice": 17,
-    "card-coupled": 68,
-    "skipped-or-conflict": 3
+    "portable": 33,
+    "practice": 15,
+    "card-coupled": 74,
+    "skipped-or-conflict": 1
   },
   "files": {
     "priors": "audio-subs.json",
@@ -311,19 +311,13 @@
         ]
       },
       {
-        "sourceId": "e304",
+        "sourceId": "e303",
         "entries": [
           {
-            "kind": "jitter",
+            "kind": "min-vowel-share",
             "unit": "ratio",
-            "value": 0.004,
-            "label": "声带脉冲抖动"
-          },
-          {
-            "kind": "shimmer",
-            "unit": "ratio",
-            "value": 0.03,
-            "label": "声带脉冲闪烁"
+            "value": 0.42,
+            "label": "元音时长至少占音符的比例"
           }
         ]
       },
@@ -397,17 +391,6 @@
             "unit": "s",
             "value": 35.38,
             "label": "最后一帧高于 −60 dBFS 的时刻"
-          }
-        ]
-      },
-      {
-        "sourceId": "e308",
-        "entries": [
-          {
-            "kind": "breath-pause-threshold",
-            "unit": "s",
-            "value": 0.36,
-            "label": "乐句前停顿超过此值才吸气"
           }
         ]
       },
@@ -798,7 +781,7 @@
     {
       "cardId": "audio.event-mix",
       "exists": false,
-      "count": 55
+      "count": 56
     },
     {
       "cardId": "audio.master",
@@ -818,17 +801,17 @@
     {
       "cardId": "audio.scene-events",
       "exists": false,
-      "count": 4
+      "count": 6
     },
     {
       "cardId": "audio.sfx-bank",
       "exists": false,
-      "count": 40
+      "count": 41
     },
     {
       "cardId": "audio.voice-synth",
       "exists": false,
-      "count": 25
+      "count": 28
     },
     {
       "cardId": "overlay.subs",
@@ -838,7 +821,7 @@
     {
       "cardId": "time.narration",
       "exists": false,
-      "count": 5
+      "count": 6
     }
   ],
   "fixes": [
@@ -1440,6 +1423,30 @@
       "cardId": "audio.sfx-bank",
       "sectionCard": "audio.music-gen",
       "reason": "噪声与碎响缓冲是共享音效素材"
+    },
+    {
+      "sourceId": "e436",
+      "cardId": "audio.sfx-bank",
+      "sectionCard": "audio.voice-synth",
+      "reason": "音效变体的整体音高随机倍率是音效库的参数，不是歌声合成"
+    },
+    {
+      "sourceId": "e395",
+      "cardId": "audio.event-mix",
+      "sectionCard": "audio.master",
+      "reason": "库乐加逐事件音效清单（点击、落地、相机动作）是事件混音层的事，不是母带"
+    },
+    {
+      "sourceId": "e376",
+      "cardId": "audio.scene-events",
+      "sectionCard": "audio.master",
+      "reason": "全片声音由场景与按键事件实时触发（铃声回声指向目标），是场景事件层的事"
+    },
+    {
+      "sourceId": "e383",
+      "cardId": "audio.scene-events",
+      "sectionCard": "audio.master",
+      "reason": "音效与配乐随战斗状态实时生成、切换，是场景事件层的事"
     }
   ],
   "routeOverrides": [
@@ -1559,11 +1566,6 @@
       "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
     },
     {
-      "sourceId": "e304",
-      "route": "portable",
-      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
-    },
-    {
       "sourceId": "e325",
       "route": "portable",
       "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
@@ -1600,11 +1602,6 @@
     },
     {
       "sourceId": "e404",
-      "route": "portable",
-      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
-    },
-    {
-      "sourceId": "e413",
       "route": "portable",
       "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
     },
@@ -1805,13 +1802,13 @@
     },
     {
       "sourceId": "e383",
-      "route": "skipped-or-conflict",
-      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+      "route": "card-coupled",
+      "reason": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：指定接口合成的声源清单、随战斗切换的配乐与头目战加合唱，是该作品的声音架构"
     },
     {
       "sourceId": "e376",
-      "route": "skipped-or-conflict",
-      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+      "route": "card-coupled",
+      "reason": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：全片声音实时计算、按键触发铃声且回声指向当前目标，是该作品的交互声音设计"
     },
     {
       "sourceId": "e331",
@@ -1820,32 +1817,71 @@
     },
     {
       "sourceId": "e335",
-      "route": "skipped-or-conflict",
-      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁"
+      "route": "practice",
+      "reason": "十审独立抽检判定：「配乐停顿时地板铺开」是可照做的声画对位条件"
     },
     {
       "sourceId": "e215",
       "route": "card-coupled",
       "reason": "五审裁定：离线分析器的阈值、窗口与频带配置跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e304",
+      "route": "card-coupled",
+      "reason": "十审独立抽检判定：抖动 0.4%、闪烁 3% 写在指定声带脉冲模型的合成配置里，是该歌声合成器的内部参数"
+    },
+    {
+      "sourceId": "e308",
+      "route": "card-coupled",
+      "reason": "十审独立抽检判定：0.36 s 是该主唱合成器触发吸气的停顿阈值"
+    },
+    {
+      "sourceId": "e306",
+      "route": "card-coupled",
+      "reason": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：鼻音零极点、五个移动共振峰与到 11.5 kHz 的固定极点是该合成器声道级联的结构配置"
+    },
+    {
+      "sourceId": "e303",
+      "route": "portable",
+      "reason": "十审独立抽检判定：元音时长下限占音符的 42%，不依赖具体合成器，可跨实现使用"
+    },
+    {
+      "sourceId": "e436",
+      "route": "card-coupled",
+      "reason": "十审独立抽检判定：两类声源各有具体的音高随机倍率（1±6% 与 0.86–1.2），是该音效库的取值"
+    },
+    {
+      "sourceId": "e395",
+      "route": "card-coupled",
+      "reason": "十审独立抽检判定：120 BPM 库乐与逐事件音效清单绑定该片的点击、落地和相机动作"
+    },
+    {
+      "sourceId": "e467",
+      "route": "card-coupled",
+      "reason": "十审独立抽检判定：请求字段、就绪回执、发布顺序与 30 s 轮询周期构成具体的配音交接协议"
+    },
+    {
+      "sourceId": "e413",
+      "route": "practice",
+      "reason": "十审独立抽检判定：主体是制作分工：必须精确卡帧的短音效交给代码合成；混音响度只是同句顺带一提（量仍在 quantities）"
     }
   ],
   "routeAdjustments": [],
   "audit": {
-    "method": "独立代理按同一份判据（05 §8.1 加跨家族终审的判例）只读源文、全量盲判 417 条明细，不看迁移结果；首轮没把握或与清单不一致的条目由另一名独立代理在补充判例后重判，以重判为准。汇总行的独立去向随它指回的明细",
+    "method": "独立代理按同一份判据（05 §8.1 加跨家族终审的判例）只读源文、全量盲判 417 条明细，不看迁移结果；首轮没把握或与清单不一致的条目由另一名独立代理在补充判例后重判，以重判为准。跨家族终审在九审、十审两次独立抽检里判过的 11 条（rubric 为 g-rev-r9、g-rev-r10），独立去向取终审判定，原盲判留在 blindRoute；其余条目的盲判不动。汇总行的独立去向随它指回的明细",
     "sampleSize": 417,
+    "finalReviewRulings": 11,
     "rejudgedCount": 119,
-    "firstRoundDisagreements": 37,
+    "firstRoundDisagreements": 45,
     "disagreements": [
       "e359",
       "e362",
-      "e308",
       "e314",
       "e424",
       "e432",
       "e215",
       "e375",
       "e404",
-      "e395",
       "e330",
       "e331",
       "e374",
@@ -2670,15 +2706,17 @@
       },
       {
         "sourceId": "e303",
-        "independentRoute": "practice",
-        "why": "辅音拍前元音落拍的排布规则，带一个示意比例",
-        "rubric": "v2"
+        "independentRoute": "portable",
+        "why": "十审独立抽检判定：元音时长下限占音符的 42%，不依赖具体合成器，可跨实现使用",
+        "rubric": "g-rev-r10",
+        "blindRoute": "practice"
       },
       {
         "sourceId": "e304",
-        "independentRoute": "portable",
-        "why": "声带脉冲 0.4% 抖动、3% 闪烁，与判例同文",
-        "rubric": "v1"
+        "independentRoute": "card-coupled",
+        "why": "十审独立抽检判定：抖动 0.4%、闪烁 3% 写在指定声带脉冲模型的合成配置里，是该歌声合成器的内部参数",
+        "rubric": "g-rev-r10",
+        "blindRoute": "portable"
       },
       {
         "sourceId": "e305",
@@ -2688,9 +2726,10 @@
       },
       {
         "sourceId": "e306",
-        "independentRoute": "practice",
-        "why": "声道滤波级联结构的算法思路",
-        "rubric": "v2"
+        "independentRoute": "card-coupled",
+        "why": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：鼻音零极点、五个移动共振峰与到 11.5 kHz 的固定极点是该合成器声道级联的结构配置",
+        "rubric": "g-rev-r9",
+        "blindRoute": "practice"
       },
       {
         "sourceId": "e307",
@@ -2700,9 +2739,10 @@
       },
       {
         "sourceId": "e308",
-        "independentRoute": "practice",
-        "why": "停顿超阈值加吸气的规则，仅一个示意数字",
-        "rubric": "v2"
+        "independentRoute": "card-coupled",
+        "why": "十审独立抽检判定：0.36 s 是该主唱合成器触发吸气的停顿阈值",
+        "rubric": "g-rev-r10",
+        "blindRoute": "practice"
       },
       {
         "sourceId": "e309",
@@ -2862,9 +2902,10 @@
       },
       {
         "sourceId": "e436",
-        "independentRoute": "practice",
-        "why": "变体用整体音高随机的做法，带两个示意数",
-        "rubric": "v2"
+        "independentRoute": "card-coupled",
+        "why": "十审独立抽检判定：两类声源各有具体的音高随机倍率（1±6% 与 0.86–1.2），是该音效库的取值",
+        "rubric": "g-rev-r10",
+        "blindRoute": "practice"
       },
       {
         "sourceId": "e437",
@@ -3852,9 +3893,10 @@
       },
       {
         "sourceId": "e383",
-        "independentRoute": "skipped-or-conflict",
-        "why": "只概述全代码生成与声源清单，无步骤参数",
-        "rubric": "v2"
+        "independentRoute": "card-coupled",
+        "why": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：指定接口合成的声源清单、随战斗切换的配乐与头目战加合唱，是该作品的声音架构",
+        "rubric": "g-rev-r9",
+        "blindRoute": "skipped-or-conflict"
       },
       {
         "sourceId": "e375",
@@ -3948,9 +3990,10 @@
       },
       {
         "sourceId": "e413",
-        "independentRoute": "portable",
-        "why": "声源清单加终混响度读数",
-        "rubric": "v2"
+        "independentRoute": "practice",
+        "why": "十审独立抽检判定：主体是制作分工：必须精确卡帧的短音效交给代码合成；混音响度只是同句顺带一提（量仍在 quantities）",
+        "rubric": "g-rev-r10",
+        "blindRoute": "portable"
       },
       {
         "sourceId": "e378",
@@ -3978,9 +4021,10 @@
       },
       {
         "sourceId": "e376",
-        "independentRoute": "skipped-or-conflict",
-        "why": "只概述全程序化与声源清单",
-        "rubric": "v2"
+        "independentRoute": "card-coupled",
+        "why": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：全片声音实时计算、按键触发铃声且回声指向当前目标，是该作品的交互声音设计",
+        "rubric": "g-rev-r9",
+        "blindRoute": "skipped-or-conflict"
       },
       {
         "sourceId": "e294",
@@ -4056,9 +4100,10 @@
       },
       {
         "sourceId": "e395",
-        "independentRoute": "portable",
-        "why": "声源清单加配乐速度自报读数",
-        "rubric": "v2"
+        "independentRoute": "card-coupled",
+        "why": "十审独立抽检判定：120 BPM 库乐与逐事件音效清单绑定该片的点击、落地和相机动作",
+        "rubric": "g-rev-r10",
+        "blindRoute": "portable"
       },
       {
         "sourceId": "e399",
@@ -4122,9 +4167,10 @@
       },
       {
         "sourceId": "e335",
-        "independentRoute": "skipped-or-conflict",
-        "why": "一句原文描述，无步骤无参数",
-        "rubric": "v2"
+        "independentRoute": "practice",
+        "why": "十审独立抽检判定：「配乐停顿时地板铺开」是可照做的声画对位条件",
+        "rubric": "g-rev-r10",
+        "blindRoute": "skipped-or-conflict"
       },
       {
         "sourceId": "e336",
@@ -4272,9 +4318,10 @@
       },
       {
         "sourceId": "e467",
-        "independentRoute": "practice",
-        "why": "先写临时文件再就位、就绪标记最后写的交接工序",
-        "rubric": "v2"
+        "independentRoute": "card-coupled",
+        "why": "十审独立抽检判定：请求字段、就绪回执、发布顺序与 30 s 轮询周期构成具体的配音交接协议",
+        "rubric": "g-rev-r10",
+        "blindRoute": "practice"
       },
       {
         "sourceId": "e470",
@@ -4369,6 +4416,7 @@
         "e144",
         "e370",
         "e384",
+        "e436",
         "e464",
         "e19",
         "e171",
@@ -4541,16 +4589,6 @@
       "docRef": "声音配乐配音字幕汇编 §7 ^e433；原出处：27 §3.2"
     },
     {
-      "sourceId": "e383",
-      "section": 12,
-      "caseId": "case-02",
-      "title": "案例 02 程序音频",
-      "text": "Web Audio API 合成翅膀声/火/命中/风;音乐用代码作曲并随战斗切换;弦乐、竖琴、圆号、太鼓,巨型头目 战加合唱;全部由代码生成",
-      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
-      "evidenceLabel": "原文陈述",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e383；原出处：原文 § What's Inside/Step 2"
-    },
-    {
       "sourceId": "e411",
       "section": 12,
       "caseId": "case-03",
@@ -4569,16 +4607,6 @@
       "reason": "无可迁的量或做法（未公开或无声音的陈述）",
       "evidenceLabel": "实测",
       "docRef": "声音配乐配音字幕汇编 §12 ^e354；原出处：05/09 §4.3、§6.3"
-    },
-    {
-      "sourceId": "e376",
-      "section": 12,
-      "caseId": "case-16",
-      "title": "全程序化声音",
-      "text": "音乐与全部音效在游戏中实时计算,无音频文件:脚步、剑击、铃、环境、配乐;腰间小铃按 R 响,回声指向当前目标",
-      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
-      "evidenceLabel": "原文陈述",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e376；原出处：原文 § Step 4"
     },
     {
       "sourceId": "e295",
@@ -4619,16 +4647,6 @@
       "reason": "无可迁的量或做法（未公开或无声音的陈述）",
       "evidenceLabel": "原文陈述+未公开",
       "docRef": "声音配乐配音字幕汇编 §12 ^e340；原出处：23/09 §4.3、§5.1"
-    },
-    {
-      "sourceId": "e335",
-      "section": 12,
-      "caseId": "case-29",
-      "title": "配乐停顿配动作",
-      "text": "Doors 阶段“配乐停顿时地板铺开”（原文）",
-      "reason": "四审规则：没有步骤、判据、参数的一句话概述，或两个读数对不上且原因未查的对账行，不迁",
-      "evidenceLabel": "原文陈述",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e335；原出处：29/09 §4.1"
     },
     {
       "sourceId": "e336",
@@ -4755,7 +4773,8 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-16",
-      "route": "skipped-or-conflict",
+      "route": "card-coupled",
+      "target": "audio.scene-events",
       "summaryOf": "e376",
       "targets": []
     },
@@ -4765,7 +4784,8 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-02",
-      "route": "skipped-or-conflict",
+      "route": "card-coupled",
+      "target": "audio.scene-events",
       "summaryOf": "e383",
       "targets": []
     },
@@ -6687,11 +6707,10 @@
       "kind": "summary",
       "section": 7,
       "caseId": "case-20",
-      "route": "portable",
+      "route": "card-coupled",
+      "target": "audio.voice-synth",
       "summaryOf": "e304",
-      "targets": [
-        "audio-subs.sum.s07-t2-r02"
-      ]
+      "targets": []
     },
     {
       "sourceLine": 550,
@@ -6709,7 +6728,8 @@
       "kind": "summary",
       "section": 7,
       "caseId": "case-20",
-      "route": "practice",
+      "route": "card-coupled",
+      "target": "audio.voice-synth",
       "summaryOf": "e306",
       "targets": []
     },
@@ -6729,11 +6749,10 @@
       "kind": "summary",
       "section": 7,
       "caseId": "case-20",
-      "route": "portable",
+      "route": "card-coupled",
+      "target": "audio.voice-synth",
       "summaryOf": "e308",
-      "targets": [
-        "audio-subs.sum.s07-t2-r06"
-      ]
+      "targets": []
     },
     {
       "sourceLine": 555,
@@ -6895,9 +6914,9 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-20",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e303.practice"
+        "audio-subs.e303.min-vowel-share"
       ]
     },
     {
@@ -6906,10 +6925,10 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-20",
-      "route": "portable",
+      "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
-        "audio-subs.e304.jitter",
-        "audio-subs.e304.shimmer"
+        "audio-subs.e304.card"
       ]
     },
     {
@@ -6929,9 +6948,10 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-20",
-      "route": "practice",
+      "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
-        "audio-subs.e306.practice"
+        "audio-subs.e306.card"
       ]
     },
     {
@@ -6951,9 +6971,10 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-20",
-      "route": "portable",
+      "route": "card-coupled",
+      "target": "audio.voice-synth",
       "targets": [
-        "audio-subs.e308.breath-pause-threshold"
+        "audio-subs.e308.card"
       ]
     },
     {
@@ -7264,9 +7285,10 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
+      "target": "audio.sfx-bank",
       "targets": [
-        "audio-subs.e436.practice"
+        "audio-subs.e436.card"
       ]
     },
     {
@@ -9813,8 +9835,11 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-02",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "card-coupled",
+      "target": "audio.scene-events",
+      "targets": [
+        "audio-subs.e383.card"
+      ]
     },
     {
       "sourceLine": 1327,
@@ -10002,9 +10027,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-12",
-      "route": "portable",
+      "route": "practice",
       "targets": [
-        "audio-subs.e413.loudness"
+        "audio-subs.e413.practice"
       ]
     },
     {
@@ -10063,8 +10088,11 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-16",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "card-coupled",
+      "target": "audio.scene-events",
+      "targets": [
+        "audio-subs.e376.card"
+      ]
     },
     {
       "sourceLine": 1430,
@@ -10210,9 +10238,10 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-25",
-      "route": "practice",
+      "route": "card-coupled",
+      "target": "audio.event-mix",
       "targets": [
-        "audio-subs.e395.practice"
+        "audio-subs.e395.card"
       ]
     },
     {
@@ -10343,8 +10372,10 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-29",
-      "route": "skipped-or-conflict",
-      "targets": []
+      "route": "practice",
+      "targets": [
+        "audio-subs.e335.practice"
+      ]
     },
     {
       "sourceLine": 1534,
@@ -10558,7 +10589,8 @@
       "kind": "summary",
       "section": 13,
       "caseId": "case-b10",
-      "route": "practice",
+      "route": "card-coupled",
+      "target": "time.narration",
       "summaryOf": "e467",
       "targets": []
     },
@@ -10715,9 +10747,10 @@
       "kind": "detail",
       "section": 13,
       "caseId": "case-b10",
-      "route": "practice",
+      "route": "card-coupled",
+      "target": "time.narration",
       "targets": [
-        "audio-subs.e467.practice"
+        "audio-subs.e467.card"
       ]
     },
     {

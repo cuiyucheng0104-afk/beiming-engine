@@ -4698,6 +4698,86 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e304.card",
+      "sourceId": "e304",
+      "cardId": "audio.voice-synth",
+      "section": 7,
+      "caseId": "case-20",
+      "title": "主唱七步-3 声带",
+      "text": "Liljencrants–Fant 脉冲模型；一个参数让声音从压紧到气声，随响度/音高/乐句末变化；气息噪声随声带脉动；抖动 0.4%，闪烁 3%",
+      "quantities": [
+        {
+          "value": 0.004,
+          "unit": "ratio",
+          "rawUnit": "%"
+        },
+        {
+          "value": 0.03,
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "routeNote": "十审独立抽检判定：抖动 0.4%、闪烁 3% 写在指定声带脉冲模型的合成配置里，是该歌声合成器的内部参数",
+      "coupling": "与§7 人声、嗓音、歌声与虚构语言里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e304；原出处：20/09 §3.1",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e306.card",
+      "sourceId": "e306",
+      "cardId": "audio.voice-synth",
+      "section": 7,
+      "caseId": "case-20",
+      "title": "主唱七步-5 声道",
+      "text": "级联：一对鼻音零极点 + 五个移动共振峰 + 到 11.5 kHz 的固定极点；共振峰目标在相邻音之间混合（共振峰表未公开）",
+      "quantities": [
+        {
+          "value": 11500,
+          "unit": "Hz",
+          "rawUnit": "kHz"
+        }
+      ],
+      "routeNote": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：鼻音零极点、五个移动共振峰与到 11.5 kHz 的固定极点是该合成器声道级联的结构配置",
+      "coupling": "与§7 人声、嗓音、歌声与虚构语言里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e306；原出处：20/09 §3.1",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e308.card",
+      "sourceId": "e308",
+      "cardId": "audio.voice-synth",
+      "section": 7,
+      "caseId": "case-20",
+      "title": "主唱七步-7 气息",
+      "text": "乐句前停顿超过 0.36 s 就吸一口气",
+      "quantities": [
+        {
+          "value": 0.36,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "十审独立抽检判定：0.36 s 是该主唱合成器触发吸气的停顿阈值",
+      "coupling": "与§7 人声、嗓音、歌声与虚构语言里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "只是原文说法",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e308；原出处：20/09 §3.1",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e310.card",
       "sourceId": "e310",
       "cardId": "audio.align",
@@ -5111,6 +5191,34 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "声音配乐配音字幕汇编 §7 ^e435；原出处：27 §3.4、§2.5 (原实现源码)",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e436.card",
+      "sourceId": "e436",
+      "cardId": "audio.sfx-bank",
+      "section": 7,
+      "caseId": "case-13",
+      "title": "变体=整体音高随机",
+      "text": "同一音效的变体用整体音高随机而非重新设计：voice_* 整条音高线×(1±6%)；wraith音高范围×0.86–×1.2",
+      "quantities": [
+        {
+          "value": [
+            -0.06,
+            0.06
+          ],
+          "unit": "ratio",
+          "rawUnit": "%"
+        }
+      ],
+      "routeNote": "十审独立抽检判定：两类声源各有具体的音高随机倍率（1±6% 与 0.86–1.2），是该音效库的取值",
+      "coupling": "与§7 人声、嗓音、歌声与虚构语言里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "源码",
+      "evidenceLabel": "源码",
+      "verificationLabel": "作者成品用过",
+      "docRef": "声音配乐配音字幕汇编 §7 ^e436；原出处：27 §7.4 (原实现源码)",
       "verifiedInOurStack": false
     },
     {
@@ -12366,6 +12474,25 @@
       "verifiedInOurStack": false
     },
     {
+      "id": "audio-subs.e383.card",
+      "sourceId": "e383",
+      "cardId": "audio.scene-events",
+      "section": 12,
+      "caseId": "case-02",
+      "title": "案例 02 程序音频",
+      "text": "Web Audio API 合成翅膀声/火/命中/风;音乐用代码作曲并随战斗切换;弦乐、竖琴、圆号、太鼓,巨型头目 战加合唱;全部由代码生成",
+      "quantities": [],
+      "routeNote": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：指定接口合成的声源清单、随战斗切换的配乐与头目战加合唱，是该作品的声音架构",
+      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e383；原出处：原文 § What's Inside/Step 2",
+      "verifiedInOurStack": false
+    },
+    {
       "id": "audio-subs.e370.card",
       "sourceId": "e370",
       "cardId": "audio.drums",
@@ -12451,6 +12578,50 @@
       "evidenceLabel": "原文陈述+推断算术",
       "verificationLabel": "184/118 BPM 没核实",
       "docRef": "声音配乐配音字幕汇编 §12 ^e343；原出处：07/09 §4.1、§4.3",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e376.card",
+      "sourceId": "e376",
+      "cardId": "audio.scene-events",
+      "section": 12,
+      "caseId": "case-16",
+      "title": "全程序化声音",
+      "text": "音乐与全部音效在游戏中实时计算,无音频文件:脚步、剑击、铃、环境、配乐;腰间小铃按 R 响,回声指向当前目标",
+      "quantities": [],
+      "routeNote": "九审独立抽检判为挂卡（报告未写依据）；按 05 §8.1 复核源文：全片声音实时计算、按键触发铃声且回声指向当前目标，是该作品的交互声音设计",
+      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e376；原出处：原文 § Step 4",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e395.card",
+      "sourceId": "e395",
+      "cardId": "audio.event-mix",
+      "section": 12,
+      "caseId": "case-25",
+      "title": "案例 25 音频",
+      "text": "免版税库乐 120 BPM + 代码计算的音效:每次点击的鼠标点击声、墙墩落地冲击、钢、环合拢、玻璃沿环铺开、太阳与相机俯冲",
+      "quantities": [
+        {
+          "value": 120,
+          "unit": "bpm",
+          "rawUnit": "BPM"
+        }
+      ],
+      "routeNote": "十审独立抽检判定：120 BPM 库乐与逐事件音效清单绑定该片的点击、落地和相机动作",
+      "coupling": "与§12 各案例声音档案里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e395；原出处：原文 § Zooms/Sound",
       "verifiedInOurStack": false
     },
     {
@@ -12917,6 +13088,31 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §13 ^e465；原出处：原文 § Step 4",
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e467.card",
+      "sourceId": "e467",
+      "cardId": "time.narration",
+      "section": 13,
+      "caseId": "case-b10",
+      "title": "配音文件交接协议",
+      "text": "pi 把脚本拆成逐场景段落写 配音请求清单 JSON({language, voice, segments:[{id,text}]}),先写 .tmp 再 mv 就位;Claude Code 监视该文件,批量出 原包素材文件…,最后才写 配音就绪回执 JSON(文件与时长),避免 pi 读到半成品;pi 先用估算时长建场景,每 30 s 才轮询一次,拿到真实时长后(ffprobe)重排",
+      "quantities": [
+        {
+          "value": 30,
+          "unit": "s",
+          "rawUnit": "s"
+        }
+      ],
+      "routeNote": "十审独立抽检判定：请求字段、就绪回执、发布顺序与 30 s 轮询周期构成具体的配音交接协议",
+      "coupling": "与§13 配音 TTS 与口型里该案例的实现（键名、常量表或代码结构）耦合，数值是原实现里的取值",
+      "recalibrate": "在北冥对应卡的目标帧源里重新标定并读回后，才可写进卡的 default；在此之前只作参考",
+      "useAsDefault": false,
+      "evidenceLevel": "文档",
+      "evidenceLabel": "原文陈述",
+      "verificationLabel": "作者成片用过",
+      "docRef": "声音配乐配音字幕汇编 §13 ^e467；原出处：原文 § Brief §5/Step 4",
       "verifiedInOurStack": false
     },
     {

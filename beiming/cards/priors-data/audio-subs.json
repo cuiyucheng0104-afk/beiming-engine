@@ -82,62 +82,22 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e304.jitter",
+      "id": "audio-subs.e303.min-vowel-share",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.jitter",
-      "title": "主唱七步-3 声带（声带脉冲抖动，jitter）",
-      "value": 0.004,
+      "topic": "audio-subs.voice.min-vowel-share",
+      "title": "主唱七步-2 落拍（元音时长至少占音符的比例，min-vowel-share）",
+      "value": 0.42,
       "unit": "ratio",
       "conditions": {
         "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：主唱七步-3 声带"
+          "§7 人声、嗓音、歌声与虚构语言：主唱七步-2 落拍"
         ]
       },
       "provenance": {
         "caseId": "case-20",
         "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e304；原出处：20/09 §3.1",
-        "note": "原证据：原文陈述；原验证：只是原文说法。Liljencrants–Fant 脉冲模型；一个参数让声音从压紧到气声，随响度/音高/乐句末变化；气息噪声随声带脉动；抖动 0.4%，闪烁 3%"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e304.shimmer",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.shimmer",
-      "title": "主唱七步-3 声带（声带脉冲闪烁，shimmer）",
-      "value": 0.03,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：主唱七步-3 声带"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e304；原出处：20/09 §3.1",
-        "note": "原证据：原文陈述；原验证：只是原文说法。Liljencrants–Fant 脉冲模型；一个参数让声音从压紧到气声，随响度/音高/乐句末变化；气息噪声随声带脉动；抖动 0.4%，闪烁 3%"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e308.breath-pause-threshold",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.breath-pause-threshold",
-      "title": "主唱七步-7 气息（乐句前停顿超过此值才吸气，breath-pause-threshold）",
-      "value": 0.36,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：主唱七步-7 气息"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e308；原出处：20/09 §3.1",
-        "note": "原证据：原文陈述；原验证：只是原文说法。乐句前停顿超过 0.36 s 就吸一口气"
+        "docRef": "声音配乐配音字幕汇编 §7 ^e303；原出处：20/09 §3.1",
+        "note": "原证据：原文陈述；原验证：只是原文说法。辅音在拍前起、元音落在拍上；音符太挤时辅音缩短；元音至少占音符的 42%"
       },
       "verifiedInOurStack": false
     },
@@ -1613,26 +1573,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e413.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "巨城雷击 声音（loudness）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：巨城雷击 声音"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-12",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e413；原出处：012 § 分工/规格",
-        "note": "原证据：原文陈述；原验证：作者成片用过。Mirelo SFX 生成46份音效；代码合成变压器爆响；混音−14 LUFS；短音效精确卡帧的留给代码合成"
-      },
-      "verifiedInOurStack": false
-    },
-    {
       "id": "audio-subs.e378.loudness",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness",
@@ -3055,53 +2995,6 @@
       "summaryOf": [
         "audio-subs.e404.loudness",
         "audio-subs.e404.frequency"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s07-t2-r02",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.jitter",
-      "title": "跨案例对照：歌声合成七步（case-20）",
-      "value": 0.004,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§7 跨案例对照：歌声合成七步"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 对照表 2 第 2 行 → ^e304",
-        "note": "原证据：原文陈述；原验证：只是原文说法。主唱七步-3 声带：Liljencrants–Fant 脉冲模型；一个参数让声音从压紧到气声，随响度/音高/乐句末变化；气息噪声随声带脉动；抖动 0.4%，闪烁 3%"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e304.jitter",
-        "audio-subs.e304.shimmer"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s07-t2-r06",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.breath-pause-threshold",
-      "title": "跨案例对照：歌声合成七步（case-20）",
-      "value": 0.36,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§7 跨案例对照：歌声合成七步"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 对照表 2 第 6 行 → ^e308",
-        "note": "原证据：原文陈述；原验证：只是原文说法。主唱七步-7 气息：乐句前停顿超过 0.36 s 就吸一口气"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e308.breath-pause-threshold"
       ]
     },
     {

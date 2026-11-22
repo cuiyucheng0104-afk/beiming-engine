@@ -443,7 +443,7 @@ test('三审：§8.1 两条边界——带实现参数表的源码条目挂卡�
   for (const id of ['e25', 'e24', 'e118', 'e133', 'e69', 'e310', 'e184', 'e207', 'e254', 'e3', 'e343', 'e257']) {
     assert.equal(route.get(id), 'card-coupled', id);
   }
-  for (const id of ['e304', 'e325', 'e327', 'e337', 'e378']) assert.equal(route.get(id), 'portable', id);
+  for (const id of ['e325', 'e327', 'e337', 'e378']) assert.equal(route.get(id), 'portable', id); // e304 十审改判挂卡，见文末
   assert.equal(route.get('sum.s01-t1-r09'), 'portable');
   for (const r of manifest.ledger.filter((x) => x.kind === 'summary')) assert.equal(r.route, route.get(r.summaryOf), r.sourceId);
   const sum = priors.find((p) => p.id === 'audio-subs.sum.s01-t1-r09');
@@ -669,6 +669,13 @@ test('六审：全表每个随机记号都有结构化区间，或登记在清�
   t.diagnostic(`随机记号 ${tokens} 个：结构化区间 ${structured} 条，例外 ${skipped.length} 个`);
 });
 
+// 十审（G_REV-R10）校准后新挂卡的 8 条与各自的卡；其中 4 条不随所在节的默认卡，登记在清单的 cardOverrides。
+const R11_CARDS = {
+  e304: 'audio.voice-synth', e306: 'audio.voice-synth', e308: 'audio.voice-synth', e467: 'time.narration',
+  e436: 'audio.sfx-bank', e395: 'audio.event-mix', e376: 'audio.scene-events', e383: 'audio.scene-events',
+};
+const R11_CARD_OVERRIDES = { e436: 'audio.sfx-bank', e395: 'audio.event-mix', e376: 'audio.scene-events', e383: 'audio.scene-events' };
+
 // 七审（G_REV-R7）：点名 11 条从公开入口按指定的卡读；卡挂错了，按卡检索就是空。
 const NAMED_CARD = {
   e32: 'audio.dsp', e42: 'audio.sfx-bank', e54: 'audio.voice-synth', e98: 'audio.sfx-bank', e112: 'audio.sfx-bank', e134: 'audio.music-seq',
@@ -737,8 +744,10 @@ test('七审：离散个数记 count，点名五条挂到功能对应的卡并�
     assert.equal(cardPriors.find((e) => e.sourceId === sid).cardId, cardId, sid);
     assert.equal(getAudioSubsCardPriors('audio.music-gen').filter((e) => e.sourceId === sid).length, 0, `${sid} 不再挂配乐生成卡`);
   }
-  assert.deepEqual(Object.fromEntries(manifest.cardOverrides.map((o) => [o.sourceId, o.cardId])), moved);
-  for (const o of manifest.cardOverrides) assert.ok(o.sectionCard === 'audio.music-gen' && o.reason.length >= 6, o.sourceId);
+  // 十审又按功能挂了四条（R11_CARD_OVERRIDES，见文末），清单里两批都登记。
+  assert.deepEqual(Object.fromEntries(manifest.cardOverrides.map((o) => [o.sourceId, o.cardId])), { ...moved, ...R11_CARD_OVERRIDES });
+  for (const o of manifest.cardOverrides) assert.ok(o.sectionCard !== o.cardId && o.reason.length >= 6, o.sourceId);
+  for (const o of manifest.cardOverrides.filter((x) => x.sourceId in moved)) assert.equal(o.sectionCard, 'audio.music-gen', o.sourceId);
   for (const sid of Object.keys(NAMED_CARD)) assert.ok(namedQuantities(sid).some((q) => 'jitter' in q), sid);
 });
 
@@ -749,14 +758,14 @@ test('八审：总账挂卡行带直读目标卡 target，龙战配乐压低不�
   const cardOf = new Map(cardPriors.map((e) => [e.sourceId, e.cardId]));
   const coupled = manifest.ledger.filter((r) => r.route === 'card-coupled');
   const detail = coupled.filter((r) => r.kind === 'detail');
-  assert.equal(detail.length, 301);
+  assert.equal(detail.length, 309); // 十审校准后 301 + 8
   for (const r of detail) {
     assert.ok(typeof r.target === 'string' && r.target.length > 0, `${r.sourceId} 缺 target`);
     assert.equal(r.target, byId.get(r.targets[0]).cardId, r.sourceId);
     assert.ok(getAudioSubsCardPriors(r.target).some((e) => e.sourceId === r.sourceId), `${r.sourceId} 按 target 从公开入口查不到`);
   }
   const summary = coupled.filter((r) => r.kind === 'summary');
-  assert.equal(summary.length, 68);
+  assert.equal(summary.length, 74); // 十审校准后 68 + 6
   for (const r of summary) assert.equal(r.target, cardOf.get(r.summaryOf), r.sourceId); // 汇总行只指回一条明细，目标卡跟它
   for (const [sid, cardId] of Object.entries(NAMED_CARD)) assert.equal(manifest.ledger.find((r) => r.sourceId === sid).target, cardId, sid);
 
@@ -785,6 +794,68 @@ test('九审：e64 的 0.3s01、0.25s01 是算式里的变量，不记成秒', (
     [[2.6, 's'], [0.03, 's'], [3.2, 's'], [0.97, 's'], [0.12, 'ratio'], [[40, 70], 's'], [0.035, 's']],
   );
   // 全表没有别的量是从「单位紧跟数字或下划线」的标识符里抽出来的：除 e64.quantities 外，挂卡表与上一版（4e68d78）逐字相同。
-  const rest = cardPriors.map((e) => (e.sourceId === 'e64' ? { ...e, quantities: null } : e));
+  // 十审校准新挂卡的 8 条（R11_CARDS）不算在内：原有 301 条一字未动。
+  const rest = cardPriors.filter((e) => !(e.sourceId in R11_CARDS)).map((e) => (e.sourceId === 'e64' ? { ...e, quantities: null } : e));
+  assert.equal(rest.length, 301);
   assert.equal(createHash('sha256').update(JSON.stringify(rest)).digest('hex').slice(0, 16), '04e295e02cd6b342');
+});
+
+// 十审（G_REV-R10）：九审、十审两次独立抽检点名的边界条目按判定校准去向，汇总行跟着所指明细。
+test('十审：合成器内部参数、声源倍率、事件清单与交接协议挂卡，元音占比可移植，分工与声画对位归做法', () => {
+  const row = new Map(manifest.ledger.map((r) => [r.sourceId, r]));
+  for (const [sid, cardId] of Object.entries(R11_CARDS)) {
+    assert.deepEqual([row.get(sid).route, row.get(sid).target], ['card-coupled', cardId], sid);
+    assert.equal(getAudioSubsCardPriors(cardId).filter((e) => e.sourceId === sid).length, 1, `${sid} 要能从 ${cardId} 读到`);
+  }
+  const sums = { 'sum.s07-t2-r02': 'e304', 'sum.s07-t2-r04': 'e306', 'sum.s07-t2-r06': 'e308', 'sum.s13-t1-r02': 'e467', 'sum.s01-t1-r10': 'e376', 'sum.s01-t1-r11': 'e383' };
+  for (const [sid, ref] of Object.entries(sums)) {
+    const r = row.get(sid);
+    assert.deepEqual([r.summaryOf, r.route, r.target, r.targets], [ref, 'card-coupled', R11_CARDS[ref], []], sid);
+  }
+  const q = (sid) => getAudioSubsCardPriors(R11_CARDS[sid]).find((e) => e.sourceId === sid).quantities.map((x) => [x.value, x.unit]);
+  assert.deepEqual(q('e304'), [[0.004, 'ratio'], [0.03, 'ratio']]); // 指定声带脉冲模型的抖动 0.4%、闪烁 3%
+  assert.deepEqual(q('e308'), [[0.36, 's']]); // 该合成器触发吸气的停顿阈值
+  assert.deepEqual(q('e306'), [[11500, 'Hz']]); // 固定极点到 11.5 kHz
+  assert.deepEqual(q('e436'), [[[-0.06, 0.06], 'ratio']]); // 整条音高线 ×(1±6%)
+  assert.deepEqual(q('e395'), [[120, 'bpm']]);
+  assert.ok(q('e467').some(([v, u]) => v === 30 && u === 's'), 'e467 轮询周期 30 s');
+  // 改判挂卡或做法的三条不再留在可移植库（连同两条汇总）。
+  assert.deepEqual(priors.filter((p) => /^audio-subs\.(?:e304|e308|e413|sum\.s07-t2-r0[26])(?:\.|$)/.test(p.id)).map((p) => p.id), []);
+  // e303：元音至少占音符的 42%，跨实现可用。
+  const store = loadAudioSubsPriorsStore();
+  const share = store.get('audio-subs.e303.min-vowel-share');
+  assert.ok(share, 'e303 进可移植库');
+  assert.deepEqual([share.value, share.unit, share.verifiedInOurStack, row.get('e303').route], [0.42, 'ratio', false, 'portable']);
+  assert.deepEqual(row.get('e303').targets, ['audio-subs.e303.min-vowel-share']);
+  // e413 的主体是制作分工、e335 是声画对位条件：归做法；e413 顺带提的混音响度仍在 quantities。
+  for (const sid of ['e413', 'e335']) {
+    assert.equal(row.get(sid).route, 'practice', sid);
+    assert.equal(practices.filter((e) => e.sourceId === sid).length, 1, sid);
+  }
+  assert.deepEqual(quantitiesOf('e413').map((x) => [x.value, x.unit]), [[-14, 'LUFS']]);
+  assert.match(quantitiesOf('e335').length === 0 && practices.find((e) => e.sourceId === 'e335').text, /配乐停顿时地板铺开/);
+  for (const sid of ['e335', 'e376', 'e383']) assert.ok(!manifest.excluded.some((x) => x.sourceId === sid), `${sid} 不在不迁表里`);
+  for (const sid of ['e303', 'e306', 'e436', 'e395', 'e467']) assert.ok(!practices.some((e) => e.sourceId === sid), `${sid} 不在做法表里`);
+  // 不迁的只剩没有做法也没有参数的陈述与对账行。
+  assert.deepEqual(manifest.excluded.map((x) => x.sourceId).sort(), ['e295', 'e300', 'e317', 'e321', 'e336', 'e340', 'e354', 'e356', 'e364', 'e377', 'e411', 'e433']);
+  // 四路计数：明细 417、汇总 123，合计 540。
+  assert.deepEqual(manifest.detailRouteCounts, { 'skipped-or-conflict': 12, 'card-coupled': 309, practice: 46, portable: 50 });
+  assert.deepEqual(manifest.summaryRouteCounts, { 'card-coupled': 74, portable: 33, practice: 15, 'skipped-or-conflict': 1 });
+  assert.deepEqual([manifest.portableCount, manifest.cardCoupledCount, manifest.practiceCount, manifest.excludedOrConflictCount], [83, 383, 61, 13]);
+});
+
+test('十审：终审独立抽检判过的 11 条以终审判定为独立去向，原盲判留底，其余盲判不动', () => {
+  const { audit, ledger } = manifest;
+  const route = new Map(ledger.map((r) => [r.sourceId, r.route]));
+  const ruled = audit.sample.filter((s) => 'blindRoute' in s);
+  assert.deepEqual(ruled.map((s) => s.sourceId).sort(), ['e303', 'e304', 'e306', 'e308', 'e335', 'e376', 'e383', 'e395', 'e413', 'e436', 'e467']);
+  for (const s of ruled) {
+    assert.match(s.rubric, /^g-rev-r(?:9|10)$/, s.sourceId);
+    assert.equal(s.independentRoute, route.get(s.sourceId), s.sourceId);
+    assert.ok(['portable', 'card-coupled', 'practice', 'skipped-or-conflict'].includes(s.blindRoute) && s.why.length >= 6, s.sourceId);
+  }
+  assert.equal(audit.finalReviewRulings, ruled.length);
+  for (const s of audit.sample.filter((x) => !('blindRoute' in x))) assert.match(s.rubric, /^v[12]$/, s.sourceId);
+  // 与盲判仍不一致的 12 条照实列着（五审点名的 e359、e215、e331 等），不因终审改判而抹掉。
+  assert.deepEqual(audit.disagreements, ['e359', 'e362', 'e314', 'e424', 'e432', 'e215', 'e375', 'e404', 'e330', 'e331', 'e374', 'e449']);
 });
