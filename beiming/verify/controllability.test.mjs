@@ -1,11 +1,13 @@
 // 可控与可复现两项回归作业的测试：帧对比较、局部性回归、加锁重建回归、看板行，外加页面宿主实渲的端到端核验。
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { execFile, spawnSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import { startSource } from '../host/page/host.mjs';
 import { shotInput } from '../kernel/eval/input.mjs';
 import { applyFilmWrite } from '../kernel/patch-apply.mjs';
@@ -30,6 +32,7 @@ const assembly = await readJson(join(CONTRACTS, 'film/examples/assembly.json'));
 const assemblyLock = await readJson(join(CONTRACTS, 'lock/examples/assembly.json'));
 const MARGIN = 'shots/s01/cards/cam/params/margin';
 const patchOf = (path, value, rev = 0) => ({ format: 'patch/0.1', rev, ops: [{ op: 'set', path, value }] });
+const P8_GATE = { psnrMinDb: P8_PSNR_MIN_DB, maxDiffFrac: P8_MAX_DIFF_FRAC, diffLevel: P8_DIFF_LEVEL };
 
 function synthFrame(width, height, fillFn, Type = Float32Array) {
   const color = new Type(width * height * 3);
@@ -236,7 +239,7 @@ test('V14-6 加锁重建：哈希档逐帧逐位相同，容差档守住 P8（PS
   assert.deepEqual(runs, [[1, 'f_8k2', 'f_8k2'], [2, 'f_8k2', 'f_8k2']]);
   assert.deepEqual([film, lock], [assembly, assemblyLock], '不改调用方的片子描述和锁');
   assert.deepEqual(ok, {
-    format: 'rebuild-regression/0.1', pass: true, reason: 'ok', filmId: 'f_8k2', rev: 7, tier: 'hash-same-machine',
+    format: 'rebuild-regression/0.1', pass: true, reason: 'ok', filmId: 'f_8k2', rev: 7, tier: 'hash-same-machine', gate: P8_GATE, lockCheck: 'full',
     totalFrames: 300, identicalFrames: 300, failedFrames: [], mismatchedDeliverables: [], worstPsnrDb: Infinity, worstFracGt5: 0,
   });
   assert.ok(Object.isFrozen(ok) && Object.isFrozen(ok.failedFrames));
@@ -316,9 +319,9 @@ test('V14-8 看板的「可控与可复现」行：结构、总判定、追加�
   const at = '2026-11-22T12:00:00.000Z';
   const row = buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, l2PassRate: 1, locality, rebuild, legacyNightlyPass: true });
   assert.deepEqual(row, {
-    format: 'controllability-row/0.1', filmId: 'f_8k2', recordedAt: at, l2PassRate: 1,
-    locality: { pass: true, reason: 'ok', tier: 'hash', paths: [MARGIN], totalFrames: 300, predictedFrames: 180, changedFrames: 180, leakedFrames: 0 },
-    rebuild: { pass: true, reason: 'ok', tier: 'hash-same-machine', rev: 7, totalFrames: 300, identicalFrames: 300, failedFrames: 0, worstPsnrDb: null, worstFracGt5: 0 },
+    format: 'controllability-row/0.1', filmId: 'f_8k2', recordedAt: at, jobId: null, l2PassRate: 1,
+    locality: { pass: true, reason: 'ok', tier: 'hash', gate: P8_GATE, pathCount: 1, paths: [MARGIN], totalFrames: 300, predictedFrames: 180, changedFrames: 180, leakedFrames: 0, leakedSample: [] },
+    rebuild: { pass: true, reason: 'ok', tier: 'hash-same-machine', gate: P8_GATE, lockCheck: 'full', rev: 7, totalFrames: 300, identicalFrames: 300, failedFrames: 0, failedSample: [], worstPsnrDb: null, worstFracGt5: 0 },
     legacyNightlyPass: true, overallPass: true,
   });
   assert.ok(Object.isFrozen(row) && Object.isFrozen(row.locality) && Object.isFrozen(row.locality.paths));
@@ -331,6 +334,7 @@ test('V14-8 看板的「可控与可复现」行：结构、总判定、追加�
   const redRebuild = await runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: twice(shift(49.5)), tier: 'tolerance' });
   const worst = buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, locality: redLocality, rebuild: redRebuild });
   assert.deepEqual([worst.overallPass, worst.locality.leakedFrames, worst.rebuild.failedFrames], [false, 1, 300]);
+  assert.deepEqual([worst.locality.leakedSample, worst.rebuild.failedSample], [[180], [0, 1, 2, 297, 298, 299]], '长帧表只留首尾样例');
   assert.ok(Math.abs(worst.rebuild.worstPsnrDb - 49.5) < 1e-6);
   for (const over of [{ rebuild: redRebuild }, { locality: redLocality }, { l2PassRate: 0.99 }, { legacyNightlyPass: false }]) {
     assert.equal(buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, locality, rebuild, ...over }).overallPass, false, JSON.stringify(Object.keys(over)));
@@ -368,6 +372,241 @@ test('V14-8 看板的「可控与可复现」行：结构、总判定、追加�
   }
 });
 
+test('V14-11 首遍结果当场留底：帧源复用缓冲区、帧对象或交付件表，第二遍原地覆写也瞒不过', async () => {
+  const patch = patchOf(MARGIN, 0.82);
+  // 局部性：第 180 帧（s02）两遍交回同一块工作缓冲区，前一遍写 0，后一遍原地写成 1
+  const work8 = new Uint8Array(4 * 4 * 3);
+  const sharedBuffer = await runLocalityTest({
+    film: assembly,
+    patch,
+    renderFilm: async (film, { phase }) => {
+      const out = await renderAssembly(film);
+      work8.fill(phase === 'before' ? 0 : 1);
+      Object.assign(out[180], { width: 4, height: 4, color: work8 });
+      return out;
+    },
+  });
+  assert.deepEqual([sharedBuffer.pass, sharedBuffer.reason, sharedBuffer.leakedFrames], [false, 'leaked-outside-affects', [180]]);
+  // 局部性：两遍交回同一批帧对象，后一遍只把对象上的 color 换掉，第 200 帧（s02）顺手改了
+  let kept;
+  const sharedObjects = await runLocalityTest({
+    film: assembly,
+    patch,
+    renderFilm: async (film) => {
+      const fresh = await renderAssembly(film);
+      if (!kept) return (kept = fresh);
+      kept.forEach((frame, f) => { frame.color = fresh[f].color; });
+      kept[200].color[0] += 0.05;
+      return kept;
+    },
+  });
+  assert.deepEqual([sharedObjects.reason, sharedObjects.leakedFrames, sharedObjects.changedFrames.length], ['leaked-outside-affects', [200], 181]);
+
+  // 重建：第 17 帧第一遍交回工作缓冲区，第二遍把它改写之后交回一份独立的副本
+  const rebuild = (renderLocked) => runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked });
+  const work = new Float64Array(4 * 4 * 3).fill(0.5);
+  const sneaky = await rebuild(async (film, lock, info) => {
+    const frames = await twice()(film, lock, info);
+    if (info.run === 2) work[0] = 0.75;
+    frames[17].color = info.run === 1 ? work : Float64Array.from(work);
+    return frames;
+  });
+  assert.deepEqual([sneaky.pass, sneaky.reason, sneaky.failedFrames, sneaky.identicalFrames], [false, 'frames-differ', [17], 299]);
+  // 重建：两遍交回同一张交付件哈希表，第二遍原地换了 master.mp4 的摘要
+  const files = { 'master.mp4': 'sha256:aa' };
+  const sameTable = await rebuild(async (film, lock, info) => {
+    if (info.run === 2) files['master.mp4'] = 'sha256:ab';
+    return { frames: await twice()(film, lock, info), deliverables: files };
+  });
+  assert.deepEqual([sameTable.pass, sameTable.reason, sameTable.mismatchedDeliverables], [false, 'deliverable-mismatch', ['master.mp4']]);
+  // 重建：两遍都交回那块工作缓冲区，照旧按「不是独立重渲」拒收，不出绿
+  await assert.rejects(() => rebuild(async (film, lock, info) => {
+    const frames = await twice()(film, lock, info);
+    frames[17].color = work;
+    return frames;
+  }), /同一块缓冲区/);
+  // 留底不改数组类型：Node 的 Buffer（共用内存池的小块）两遍各自交回，照常逐位相同
+  const pooled = await rebuild(async (film) => Array.from({ length: film.output.frames }, (_, f) => ({ frame: f, width: 2, height: 2, color: Buffer.from([f % 256, 1, 2, 3]) })));
+  assert.deepEqual([pooled.pass, pooled.identicalFrames], [true, 300]);
+});
+
+test('V14-12 8 位帧的 PSNR 照 P8 的整数平方和算：恰好 50 dB 判过，49.996 dB 判红，差 5 级放行、差 6 级算超差', async () => {
+  // 100 × 120 的 RGB8，36000 个分量里 n 个差 1 级；n = 23409 时归一化 MSE 恰好是 1e-5，也就是 50 dB
+  const rgb8 = (n) => {
+    const color = new Uint8Array(100 * 120 * 3);
+    color.fill(1, 0, n);
+    return { width: 100, height: 120, channels: 3, color };
+  };
+  const edge = compareFramePair(rgb8(0), rgb8(23409));
+  assert.deepEqual([edge.mse, edge.psnrDb, edge.gt5Pixels], [1e-5, 50, 0]);
+  // 上游 P8（kernel/conformance/suite.mjs 的 repeatability）对同一份数据的算式
+  assert.equal(edge.psnrDb, 10 * Math.log10(255 ** 2 / (23409 / 36000)));
+  // 49.996 dB 显示出来是 50.00，照原值判，不舍入
+  const under = compareFramePair(rgb8(0), rgb8(23431));
+  assert.equal(under.psnrDb.toFixed(2), '50.00');
+  assert.ok(under.psnrDb < 50);
+
+  const at17 = (make) => runRebuildTest({
+    film: assembly,
+    lock: assemblyLock,
+    tier: 'tolerance',
+    renderLocked: async (film, lock, { run }) => Array.from({ length: film.output.frames }, (_, f) => ({ frame: f, ...(f === 17 ? make(run) : flat(7, Uint8Array)) })),
+  });
+  const r50 = await at17((run) => rgb8(run === 1 ? 0 : 23409));
+  assert.deepEqual([r50.pass, r50.reason, r50.failedFrames, r50.worstPsnrDb], [true, 'ok', [], 50]);
+  const r49 = await at17((run) => rgb8(run === 1 ? 0 : 23431));
+  assert.deepEqual([r49.pass, r49.reason, r49.failedFrames, r49.worstFracGt5], [false, 'outside-tolerance', [17], 0]);
+
+  // 1000 个像素的灰阶边界：差 5 级不算超差；差 6 级算，1 个（0.1%）在线上判过，2 个（0.2%）判红
+  const gray = (diffs) => {
+    const color = new Uint8Array(40 * 25 * 3).fill(100);
+    diffs.forEach((d, i) => { color[i * 3] += d; });
+    return { width: 40, height: 25, channels: 3, color };
+  };
+  for (const [diffs, frac, pass] of [[[5, 5], 0, true], [[6], 0.001, true], [[6, 6], 0.002, false]]) {
+    const r = await at17((run) => gray(run === 1 ? [] : diffs));
+    assert.deepEqual([r.pass, r.worstFracGt5], [pass, frac], JSON.stringify(diffs));
+  }
+});
+
+test('V14-13 看板行有体积上界，并发追加逐行完整：进程内排队、跨调用方靠锁文件', async () => {
+  const at = '2026-11-22T12:00:00.000Z';
+  const locality = await runLocalityTest({ film: assembly, patch: patchOf(MARGIN, 0.82), renderFilm: renderAssembly });
+  // 两万条路径的长报告：行里只留总数和首尾样例
+  const long = { ...locality, paths: Array.from({ length: 20000 }, (_, i) => `shots/s01/cards/cam/params/p${i}`) };
+  const rows = Array.from({ length: 8 }, (_, i) => buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, jobId: `nightly-${i}`, locality: long }));
+  assert.equal(rows[0].locality.pathCount, 20000);
+  assert.deepEqual([rows[0].locality.paths.length, rows[0].locality.paths[0], rows[0].locality.paths.at(-1)], [8, long.paths[0], long.paths.at(-1)]);
+  const huge = buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, jobId: 'j'.repeat(128), locality: { ...locality, paths: Array.from({ length: 9 }, () => '\u0001'.repeat(5000)) } });
+  assert.ok(Buffer.byteLength(JSON.stringify(huge)) < 8192, '最坏情况的一行也在 8 KiB 以内');
+  const refuse = (over, Type) => assert.throws(() => buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, locality, ...over }), Type);
+  refuse({ filmId: 'f'.repeat(129) }, RangeError);
+  refuse({ jobId: 'j'.repeat(129) }, RangeError);
+  refuse({ jobId: '' }, RangeError);
+  refuse({ jobId: 7 }, TypeError);
+  refuse({ recordedAt: `2026-11-22T12:00:00.${'0'.repeat(40)}Z` }, RangeError);
+
+  const dir = await mkdtemp(join(tmpdir(), 'beiming-v14-append-'));
+  const jobsIn = async (file) => (await readFile(file, 'utf8')).split('\n').filter(Boolean).map((line) => JSON.parse(line).jobId).sort();
+  try {
+    // 八个长报告并发追加，一半经符号链接的另一种写法进同一个文件：八行都读得回来，每个作业正好一次
+    await mkdir(join(dir, 'board'));
+    await symlink(join(dir, 'board'), join(dir, 'link'), 'junction');
+    const file = join(dir, 'board', 'controllability.jsonl');
+    assert.deepEqual(await Promise.all(rows.map((row, i) => appendControllabilityRow(i % 2 ? file : join(dir, 'link', 'controllability.jsonl'), row))), rows);
+    assert.deepEqual(await jobsIn(file), rows.map((row) => row.jobId));
+    assert.deepEqual(await readdir(join(dir, 'board')), ['controllability.jsonl'], '锁文件用完就删');
+
+    // 别的调用方握着锁文件：等它放了才写
+    await writeFile(`${file}.lock`, '');
+    let done = false;
+    const waiting = appendControllabilityRow(file, huge).then(() => { done = true; });
+    await sleep(150);
+    assert.equal(done, false, '锁还在别人手里，不该写进去');
+    await rm(`${file}.lock`);
+    await waiting;
+    // 握锁的进程死了留下的旧锁文件：过期的清掉再写
+    await writeFile(`${file}.lock`, '');
+    const longAgo = new Date(Date.now() - 60000);
+    await utimes(`${file}.lock`, longAgo, longAgo);
+    await appendControllabilityRow(file, huge);
+    assert.equal((await jobsIn(file)).length, 10);
+
+    // 四个进程各并发追加六行：二十四行都读得回来，每个作业正好一次
+    const shared = join(dir, 'multi.jsonl');
+    await writeFile(join(dir, 'report.json'), JSON.stringify(long));
+    const script = `
+      import { readFile } from 'node:fs/promises';
+      import { appendControllabilityRow, buildControllabilityRow } from ${JSON.stringify(pathToFileURL(join(HERE, 'controllability.mjs')).href)};
+      const [reportPath, file, who] = process.argv.slice(1);
+      const locality = JSON.parse(await readFile(reportPath, 'utf8'));
+      await Promise.all(Array.from({ length: 6 }, (_, i) => appendControllabilityRow(file, buildControllabilityRow({ filmId: 'f_8k2', recordedAt: ${JSON.stringify(at)}, jobId: who + '-' + i, locality }))));
+    `;
+    await Promise.all([0, 1, 2, 3].map((p) => promisify(execFile)(process.execPath, ['--input-type=module', '-e', script, join(dir, 'report.json'), shared, `p${p}`], { timeout: 60000 })));
+    assert.deepEqual(await jobsIn(shared), [0, 1, 2, 3].flatMap((p) => [0, 1, 2, 3, 4, 5].map((i) => `p${p}-${i}`)));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('V14-14 看板行不轻信报告：计数、范围对不上的一律拒收，放宽过门限的不给绿；锁和片子描述跨文件对不上在开渲前拒收', async () => {
+  const at = '2026-11-22T12:00:00.000Z';
+  const locality = await runLocalityTest({ film: assembly, patch: patchOf(MARGIN, 0.82), renderFilm: renderAssembly });
+  const rebuild = await runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: twice() });
+  const soft = await runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: twice(shift(55)), tier: 'tolerance' });
+  assert.deepEqual([soft.pass, soft.identicalFrames], [true, 0]);
+  const build = (over) => buildControllabilityRow({ filmId: 'f_8k2', recordedAt: at, locality, rebuild, ...over });
+  const refuse = (over, why) => assert.throws(() => build(over), (err) => err.code === 'usage.bad-argument', why);
+
+  refuse({ locality: { ...locality, changedFrames: [...locality.changedFrames, 180] } }, '预测 [0, 180) 却有第 180 帧变了，还说没有泄漏');
+  refuse({ locality: { ...locality, changedFrames: [...locality.changedFrames, 180], leakedFrames: [180] } }, '带着泄漏帧却写通过');
+  refuse({ locality: { ...locality, leakedFrames: [7], pass: false, reason: 'leaked-outside-affects', changedFrames: [8] } }, '泄漏帧不在变化帧里');
+  refuse({ locality: { ...locality, changedFrames: [3, 2] } }, '帧号没按升序');
+  refuse({ locality: { ...locality, changedFrames: [2, 2] } }, '帧号重复');
+  refuse({ locality: { ...locality, totalFrames: 100 } }, '帧号超出总帧数');
+  refuse({ locality: { ...locality, totalFrames: 0, changedFrames: [], allowNoOp: true, unchangedOutsideCount: 0, predicted: { ...locality.predicted, frameRanges: [], frameCount: 0 } } }, '总帧数是 0');
+  refuse({ locality: { ...locality, predicted: { ...locality.predicted, frameCount: 301 } } }, '预测帧数超过总帧数');
+  refuse({ locality: { ...locality, predicted: { ...locality.predicted, frameCount: 100 } } }, '范围里变了的帧比预测帧数还多');
+  refuse({ locality: { ...locality, predicted: { ...locality.predicted, frameRanges: [[180, 0]] } } }, '预测区间倒着写');
+  refuse({ locality: { ...locality, unchangedOutsideCount: 121 } }, '范围外没变的帧数对不上');
+  // 手拼的报告把总帧数写到上限：核对不逐帧数，立刻拒收
+  refuse({ locality: { ...locality, totalFrames: Number.MAX_SAFE_INTEGER } }, '范围外没变的帧数和总帧数对不上');
+  // 预测区间互相重叠：盖住的帧不重复数
+  refuse({ locality: { ...locality, predicted: { ...locality.predicted, frameRanges: [[0, 100], [50, 150], [0, 100]] } } }, '有变化帧落在重叠区间之外');
+  assert.equal(build({ locality: { ...locality, predicted: { ...locality.predicted, frameRanges: [[90, 180], [0, 100], [50, 120]] } } }).overallPass, true);
+  refuse({ locality: { ...locality, reason: 'fine' } }, 'reason 不认识');
+  refuse({ locality: { ...locality, changedFrames: [], pass: false, reason: 'leaked-outside-affects' } }, 'reason 和帧表对不上');
+
+  refuse({ rebuild: { ...rebuild, identicalFrames: 299 } }, '哈希档 300 帧只有 299 帧相同，却没有不过的帧');
+  refuse({ rebuild: { ...rebuild, worstFracGt5: 1.1 } }, '超差比例大于 1');
+  refuse({ rebuild: { ...rebuild, worstFracGt5: NaN } }, '超差比例不是数');
+  refuse({ rebuild: { ...rebuild, worstFracGt5: 0.5 } }, '逐位相同却有超差像素');
+  refuse({ rebuild: { ...rebuild, worstPsnrDb: 40 } }, '逐位相同却有有限的 PSNR');
+  refuse({ rebuild: { ...rebuild, totalFrames: 0, identicalFrames: 0 } }, '总帧数是 0');
+  refuse({ rebuild: { ...rebuild, totalFrames: -1, identicalFrames: -1 } }, '总帧数是负的');
+  refuse({ rebuild: { ...rebuild, identicalFrames: 301 } }, '相同的帧比总帧数还多');
+  refuse({ rebuild: { ...rebuild, identicalFrames: 299, failedFrames: [300], pass: false, reason: 'frames-differ' } }, '不过的帧号超出总帧数');
+  refuse({ rebuild: { ...rebuild, lockCheck: 'none' } }, '锁核对档不认识');
+  refuse({ rebuild: { ...rebuild, mismatchedDeliverables: ['a.mp4'] } }, '带着对不上的交付件却写通过');
+  refuse({ rebuild: { ...soft, worstPsnrDb: 10 } }, '容差档最差 PSNR 低于它自己的门限却写通过');
+  refuse({ rebuild: { ...soft, failedFrames: [1], pass: false, reason: 'outside-tolerance' } }, '容差档有不过的帧，最差读数却都在线内');
+  refuse({ rebuild: { ...soft, gate: { ...soft.gate, maxDiffFrac: 2 } } }, '门限本身不合法');
+
+  // 门限调得比 P8 松：作业自己判过，看板的总判定不给绿，行里留着实际用的门限
+  const loose = await runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: twice(shift(45)), tier: 'tolerance', psnrMinDb: 40 });
+  assert.deepEqual([loose.pass, loose.gate], [true, { psnrMinDb: 40, maxDiffFrac: P8_MAX_DIFF_FRAC, diffLevel: P8_DIFF_LEVEL }]);
+  const looseRow = build({ rebuild: loose });
+  assert.deepEqual([looseRow.rebuild.pass, looseRow.rebuild.gate.psnrMinDb, looseRow.overallPass], [true, 40, false]);
+  assert.equal(build({ rebuild: soft }).overallPass, true, '守着 P8 的容差档照常给绿');
+  await assert.rejects(() => runRebuildTest({ film: assembly, lock: assemblyLock, renderLocked: twice(), psnrMinDb: Infinity }), RangeError);
+
+  // 锁里 s01 的种子从 7802 改成 7803：单看锁文件挑不出错，和片子描述一对（LK3）就对不上，一帧不渲
+  let calls = 0;
+  const counting = async (...args) => { calls++; return twice()(...args); };
+  const reseeded = structuredClone(assemblyLock);
+  assert.equal(reseeded.seeds.s01, 7802);
+  reseeded.seeds.s01 = 7803;
+  await assert.rejects(() => runRebuildTest({ film: assembly, lock: reseeded, renderLocked: counting }), /LK3/);
+  await assert.rejects(() => runRebuildTest({ film: assembly, lock: reseeded, renderLocked: counting, allowPartialLock: true }), /LK3/);
+  assert.equal(calls, 0, '拒收发生在渲染之前');
+  assert.equal(rebuild.lockCheck, 'full');
+
+  // 一致性夹具的锁只钉了帧源，没钉全：缺省拒收；allowPartialLock 只放过「没钉全」，种子、镜头表照查，报告里记 partial
+  const film = await readJson(join(FIXTURES, 'film.json')), lock = await readJson(join(FIXTURES, 'lock.json'));
+  await assert.rejects(() => runRebuildTest({ film, lock, renderLocked: counting }), /LK1/);
+  assert.equal(calls, 0);
+  const partial = await runRebuildTest({ film, lock, renderLocked: counting, allowPartialLock: true });
+  assert.deepEqual([partial.pass, partial.lockCheck, calls], [true, 'partial', 2]);
+  assert.equal(build({ filmId: film.id, locality: null, rebuild: partial }).rebuild.lockCheck, 'partial');
+  for (const tamper of [(l) => { l.seeds.s01 += 1; }, (l) => { delete l.shots.s03; }, (l) => { l.seeds.film += 1; }]) {
+    const bad = structuredClone(lock);
+    tamper(bad);
+    await assert.rejects(() => runRebuildTest({ film, lock: bad, renderLocked: counting, allowPartialLock: true }), /LK(3|11|12|14)/);
+  }
+  assert.equal(calls, 2);
+  await assert.rejects(() => runRebuildTest({ film, lock, renderLocked: counting, allowPartialLock: 'yes' }), TypeError);
+});
+
 // ---------- 页面宿主实渲 ----------
 
 /** 只有二进制确实不在（没装、路径不存在）才跳过；别的错（起来之后的运行时错在内）照常抛，算失败 */
@@ -381,7 +620,7 @@ async function startOrSkip(t, start = startSource) {
   }
 }
 
-/** 一致性测试的校准片裁成两个镜头、每个 3 帧、160 × 90：两个镜头都是「匀速方块」，s02 不设背景。锁里跟着去掉 s03 */
+/** 一致性测试的校准片裁成两个镜头、每个 3 帧、160 × 90：两个镜头都是「匀速方块」，s02 不设背景。锁里跟着去掉 s03；这把锁只钉了帧源，重建时要给 allowPartialLock */
 async function calibPair() {
   const film = await readJson(join(FIXTURES, 'film.json')), lock = await readJson(join(FIXTURES, 'lock.json'));
   film.output = { ...film.output, size: [160, 90], frames: 6 };
@@ -452,17 +691,17 @@ test('V14-9 页面宿主实渲：双镜头局部性（改谁只变谁）与加�
       await src.stop();
     }
   };
-  const rebuilt = await runRebuildTest({ film, lock, renderLocked: fresh() });
+  const rebuilt = await runRebuildTest({ film, lock, renderLocked: fresh(), allowPartialLock: true });
   assert.deepEqual(
-    [rebuilt.pass, rebuilt.reason, rebuilt.tier, rebuilt.totalFrames, rebuilt.identicalFrames, rebuilt.failedFrames, rebuilt.worstPsnrDb],
-    [true, 'ok', 'hash-same-machine', 6, 6, [], Infinity],
+    [rebuilt.pass, rebuilt.reason, rebuilt.tier, rebuilt.lockCheck, rebuilt.totalFrames, rebuilt.identicalFrames, rebuilt.failedFrames, rebuilt.worstPsnrDb],
+    [true, 'ok', 'hash-same-machine', 'partial', 6, 6, [], Infinity],
   );
   // 负对照：第二遍的 s01 快门角被动过，实渲出来的 [0, 3) 对不上
-  const drifted = await runRebuildTest({ film, lock, renderLocked: fresh((f, { run }) => { if (run === 2) f.shots[0].shutter.angleDeg = 90; }) });
+  const drifted = await runRebuildTest({ film, lock, allowPartialLock: true, renderLocked: fresh((f, { run }) => { if (run === 2) f.shots[0].shutter.angleDeg = 90; }) });
   assert.deepEqual([drifted.pass, drifted.reason, drifted.failedFrames, drifted.identicalFrames], [false, 'frames-differ', [0, 1, 2], 3]);
 
   const row = buildControllabilityRow({ filmId: film.id, recordedAt: new Date().toISOString(), rebuild: rebuilt });
-  assert.deepEqual([row.overallPass, row.rebuild.rev, row.rebuild.worstPsnrDb], [true, null, null]);
+  assert.deepEqual([row.overallPass, row.rebuild.lockCheck, row.rebuild.rev, row.rebuild.worstPsnrDb], [true, 'partial', null, null]);
 });
 
 test('V14-10 帧源起不来：二进制不存在才跳过，别的错照常失败；BEIMING_CHROME 指到不存在的路径时实渲用例优雅跳过', async () => {

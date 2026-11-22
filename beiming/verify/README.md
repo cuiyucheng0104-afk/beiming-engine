@@ -32,9 +32,9 @@ const result = welchTest(seedsA, seedsB, { blockSize: 8 }); // 门只看 result.
 `controllability.mjs` 的两项回归作业，都从 `index.mjs` 导出；判定细则、帧对象与报告字段见 [DETAILS.md](DETAILS.md)。
 
 - **`runLocalityTest({ film, patch, renderFilm })`**：把补丁作用到片子描述上，前后各渲一遍；实际变了的帧必须全落在 `explainParam` 预测的 `affects` 里，范围外变一帧就不过，一帧都没变也不过。
-- **`runRebuildTest({ film, lock, renderLocked })`**：同一份片子描述加同一份锁独立重渲两遍。哈希档逐帧逐位相同；`tier: 'tolerance'` 守 P8 口径：PSNR ≥ 50 dB 且超 5/255 的像素 ≤ 0.1%。
+- **`runRebuildTest({ film, lock, renderLocked })`**：同一份片子描述加同一份锁独立重渲两遍。开渲前先照 `lock-check/0.1` 核对锁和片子描述（种子、镜头表对不上就拒）。哈希档逐帧逐位相同；`tier: 'tolerance'` 守 P8 口径：PSNR ≥ 50 dB 且超 5/255 的像素 ≤ 0.1%。
 - **`compareFramePair(a, b)`**：一对帧的字节摘要、MSE、PSNR 与超差像素比例。
-- **`buildControllabilityRow`、`appendControllabilityRow`**：把两份报告并成看板「可控与可复现」栏的一行，追加进 JSONL。
+- **`buildControllabilityRow`、`appendControllabilityRow`**：把两份报告并成看板「可控与可复现」栏的一行（先复核报告自洽，对不上拒收），追加进 JSONL，并发追加逐行完整。
 
 ```sh
 node --test "beiming/verify/**/*.test.mjs"
