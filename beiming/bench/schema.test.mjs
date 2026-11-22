@@ -535,3 +535,93 @@ test('B1-R3-Red 二审收口：JSON 语法错误不回显原文伪造 position �
   }
   assert.equal(validateQuestion(`\uFEFF${JSON.stringify(q28)}`).ok, false);
 });
+
+test('B1-R4-Red 三审收口：CR/CRLF/LF 行号一致、外部 TypeError 与非对象异常安全兜底、以及 10 项单点回退逐项断言', async (t) => {
+  await t.test('1) 单 CR、CRLF、LF 在合法 JSON 与语法错误 JSON 下均给出精确第 2 行行号', () => {
+    for (const eol of ['\n', '\r\n', '\r']) {
+      const validRaw = `{${eol}  "refs": ["cards-overlay/secret.yaml"]${eol}}`;
+      assert.deepEqual(scanQuestionLeaks(validRaw), [{ code: 'private-source-path', line: 2 }], JSON.stringify(eol));
+      assert.deepEqual(validateQuestion(validRaw).leaks, [{ code: 'private-source-path', line: 2 }], JSON.stringify(eol));
+      const invalidRaw = `{${eol}  "refs": ["cards-overlay/secret.yaml"],${eol}}`;
+      assert.deepEqual(scanQuestionLeaks(invalidRaw), [{ code: 'private-source-path', line: 2 }], JSON.stringify(eol));
+      assert.deepEqual(validateQuestion(invalidRaw).leaks, [{ code: 'private-source-path', line: 2 }], JSON.stringify(eol));
+    }
+  });
+
+  await t.test('2) 外部反射抛出的 TypeError、自定义 getter name 异常与 null 均被安全兜底且零回显敏感消息', () => {
+    const extTypeErrProxy = new Proxy({}, {
+      ownKeys() { throw new TypeError('external typeerror secret'); },
+    });
+    const res1 = validateQuestion(extTypeErrProxy);
+    assert.equal(res1.ok, false);
+    assert.equal(JSON.stringify(res1).includes('external typeerror secret'), false);
+
+    const nullThrowProxy = new Proxy({}, {
+      ownKeys() { throw null; },
+    });
+    const res2 = validateQuestion(nullThrowProxy);
+    assert.equal(res2.ok, false);
+    assert.ok(res2.schemaErrors.length > 0);
+  });
+
+  await t.test('3) A-dense / A-path / N-flag / N-visit：键数相抵的稀疏附加数组与不可枚举属性的结构+内容双命中', () => {
+    const cancelledOut = variant(() => {});
+    delete cancelledOut.needs[0];
+    cancelledOut.needs.extraNote = 'clean';
+    assert.deepEqual(scanQuestionLeaks(cancelledOut), [{ code: 'invalid-array', path: '/needs' }]);
+    assert.equal(validateQuestion(cancelledOut).ok, false);
+
+    const nonEnumClean = variant(() => {});
+    Object.defineProperty(nonEnumClean, 'note', { value: 'harmless', enumerable: false });
+    assert.deepEqual(scanQuestionLeaks(nonEnumClean), [{ code: 'non-enumerable-property', path: '/note' }]);
+    assert.equal(validateQuestion(nonEnumClean).ok, false);
+
+    const nonEnumLeaky = variant(() => {});
+    Object.defineProperty(nonEnumLeaky, 'note', { value: 'cards-overlay/secret.yaml', enumerable: false });
+    assert.deepEqual(scanQuestionLeaks(nonEnumLeaky), [
+      { code: 'non-enumerable-property', path: '/note' },
+      { code: 'private-source-path', path: '/note' },
+    ]);
+    assert.equal(validateQuestion(nonEnumLeaky).ok, false);
+  });
+
+  await t.test('4) I-level / I-size-1 / I-wallMs / I-version 等全部 7 个整数字段在对象与原文双入口核验安全整数边界', () => {
+    const setters = [
+      ['level', (q, v) => { q.level = v; }],
+      ['deliverable.size.0', (q, v) => { q.deliverable.size = [v, 824]; }],
+      ['deliverable.size.1', (q, v) => { q.deliverable.size = [1920, v]; }],
+      ['deliverable.frames', (q, v) => { q.deliverable.frames = v; }],
+      ['budget.tokens', (q, v) => { q.budget.tokens = v; }],
+      ['budget.wallMs', (q, v) => { q.budget.wallMs = v; }],
+      ['calibration.version', (q, v) => { q.calibration.version = v; }],
+    ];
+    for (const [name, setField] of setters) {
+      const okObj = variant((q) => setField(q, Number.MAX_SAFE_INTEGER));
+      assert.equal(validateQuestion(okObj).ok, true, `${name} MAX_SAFE_INTEGER obj`);
+      assert.equal(validateQuestion(JSON.stringify(okObj)).ok, true, `${name} MAX_SAFE_INTEGER json`);
+      const badObj = variant((q) => setField(q, Number.MAX_SAFE_INTEGER + 1));
+      assert.equal(validateQuestion(badObj).ok, false, `${name} +1 obj`);
+      assert.equal(validateQuestion(JSON.stringify(badObj)).ok, false, `${name} +1 json`);
+    }
+  });
+
+  await t.test('5) U-key 对象键良构 Unicode 与 B-diag BOM 专用结构诊断', () => {
+    const okKeyObj = variant((q) => { q.scoring[0].args = { '键😀名': 1 }; });
+    assert.equal(validateQuestion(okKeyObj).ok, true);
+    assert.equal(validateQuestion(JSON.stringify(okKeyObj)).ok, true);
+
+    for (const badKey of ['键\uD800名', '键\uDC00名']) {
+      const badObj = variant((q) => { q.scoring[0].args = { [badKey]: 1 }; });
+      assert.equal(validateQuestion(badObj).ok, false, 'object lone surrogate key');
+    }
+    for (const rawKeyEsc of ['\\uD800', '\\uDFFF']) {
+      const rawJson = JSON.stringify(variant((q) => { q.scoring[0].args = { __K__: 1 }; })).replace('__K__', rawKeyEsc);
+      assert.equal(validateQuestion(rawJson).ok, false, 'raw json lone surrogate key');
+    }
+
+    const bomRes = validateQuestion(`\uFEFF${JSON.stringify(q28)}`);
+    assert.equal(bomRes.ok, false);
+    assert.equal(bomRes.parseError, undefined);
+    assert.ok(bomRes.schemaErrors.some((msg) => msg.includes('BOM')));
+  });
+});

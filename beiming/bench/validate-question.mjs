@@ -79,15 +79,18 @@ function scanText(text) {
   try {
     JSON.parse(text);
   } catch {
-    // 不是 JSON：逐行当字符串扫
-    return { leaks: text.split('\n').flatMap((line, i) => leakCodes(line).map((code) => ({ code, line: i + 1 }))), duplicates: [] };
+    // 不是 JSON：逐行当字符串扫（CR、LF、CRLF 各算一次换行）
+    return { leaks: text.split(/\r\n|\r|\n/).flatMap((line, i) => leakCodes(line).map((code) => ({ code, line: i + 1 }))), duplicates: [] };
   }
   // 逐个词元扫原文：被后面的重复键盖掉的值、写成转义的字符都在这里现形
   const tokens = [...text.matchAll(/"(?:\\.|[^"\\])*"|[{}[\]:]|[^\s{}[\],:"]+/gu)];
   const leaks = [], duplicates = [], open = [];
   let line = 1, at = 0;
   const lineOf = (index) => {
-    while (at < index) if (text.charCodeAt(at++) === 10) line++;
+    while (at < index) {
+      const ch = text.charCodeAt(at++);
+      if (ch === 10 || (ch === 13 && text.charCodeAt(at) !== 10)) line++;
+    }
     return line;
   };
   tokens.forEach(({ 0: raw, index }, i) => {
@@ -114,12 +117,14 @@ export const scanQuestionLeaks = (input) => (typeof input === 'string' ? scanTex
 
 /* ---------------- 校验 ---------------- */
 
+const OWN_DIAGNOSTIC = Symbol('b1.own.diagnostic');
+
 /** 把输入抄成一份纯 JSON 数据：类实例、取值器、非有限数、环在这里拒掉，后面只读这份副本（不受原对象后续变化影响）。 */
 function toJsonData(value, path = '', active = new Set()) {
-  // 键名会进报错：命中泄露规则的位置不回显
+  // 键名会进报错：命中泄露规则的位置不回显；只给内部产生的诊断打私有标记，与外部反射异常严格区分
   const bad = (why) => {
     const message = `${path || '/'} ${why}`;
-    throw new TypeError(leakCodes(message).length ? '[redacted] 不是 JSON 数据' : message);
+    throw Object.assign(new TypeError(leakCodes(message).length ? '[redacted] 不是 JSON 数据' : message), { [OWN_DIAGNOSTIC]: true });
   };
   // 约定第 5 节的 JSON 文本口径：字符串和键都得是合法的 Unicode
   if (typeof value === 'string') return value.isWellFormed() ? value : bad('含有不成对的代理码元');
@@ -206,12 +211,23 @@ const integerFields = (q) => [
   ['/calibration/version', q.calibration.version],
 ];
 
+function safeErrorKind(error) {
+  if (error instanceof TypeError) return 'TypeError';
+  if (error instanceof RangeError) return 'RangeError';
+  if (error instanceof SyntaxError) return 'SyntaxError';
+  if (error instanceof Error) return 'Error';
+  return 'UnknownError';
+}
+
 function inspect(input) {
   try {
     return check(input);
   } catch (error) {
-    // toJsonData 的拒收是 TypeError；别的（超长词元让正则爆栈之类）也按拒收回，不抛给调用方
-    return { result: { ok: false, schemaErrors: [error instanceof TypeError ? error.message : `/ 校验不了：${error.name}`], violations: {}, leaks: [] } };
+    // 只有校验器自己打标的受控诊断才采用 message；外部反射异常（含外部 TypeError、非对象）一律回固定白名单类名，不读外部属性
+    const diag = error !== null && typeof error === 'object' && error[OWN_DIAGNOSTIC] === true
+      ? error.message
+      : `/ 校验不了：${safeErrorKind(error)}`;
+    return { result: { ok: false, schemaErrors: [diag], violations: {}, leaks: [] } };
   }
 }
 
