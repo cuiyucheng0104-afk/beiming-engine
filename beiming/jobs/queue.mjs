@@ -187,14 +187,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
         return path.join(lastDir, 'job.json');
       };
       try {
-        const currentFile = resolveFile();
-        if (currentFile !== locked()) {
-          const mine = locateOwned(path.join(lastDir, ownerName), candidate => readText(candidate) === token);
-          if (mine) fs.rmSync(mine, { force: true });
-          continue;
-        }
-        const disk = readLockedJob(job.id, locked);
-        if (resolveFile() !== locked() || disk.events.length !== job.events.length) {
+        if (readLockedJob(job.id, locked).events.length !== job.events.length) {
           throw new Error('作业状态已在磁盘上更新。');
         }
       } catch (error) {

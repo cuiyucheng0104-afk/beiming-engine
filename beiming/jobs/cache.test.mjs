@@ -2226,7 +2226,9 @@ test('A16-38 十三审收口（Red -> Green）：领取前轮换（runJob / repl
     const newOriginalBytes = fs.readFileSync(path.join(incomingDir, 'job.json'), 'utf8');
 
     const realMkdir = fs.mkdirSync;
+    const realLink = fs.linkSync;
     const realRename = fs.renameSync;
+    const publishedAttemptDirs = [];
     let rotated = false;
     st.mock.method(fs, 'mkdirSync', (target, opts) => {
       // 跳过建锁自身的 .lock-* 暂存目录，精确拦截 claim 阶段首次建 .write-* 暂存目录前
@@ -2237,11 +2239,19 @@ test('A16-38 十三审收口（Red -> Green）：领取前轮换（runJob / repl
       }
       return realMkdir(target, opts);
     });
+    st.mock.method(fs, 'linkSync', (src, dst) => {
+      const out = realLink(src, dst);
+      if (path.basename(String(dst)).startsWith('attempt-')) {
+        publishedAttemptDirs.push(path.dirname(String(dst)));
+      }
+      return out;
+    });
 
     const canceled = await qSetup.cancelJob('job-1');
     st.mock.restoreAll();
     assert.equal(rotated, true);
     assert.equal(canceled.status, 'canceled');
+    assert.deepEqual(publishedAttemptDirs, [retiredDir], '新代目录在任何瞬间都不得出现跨代领取发布（零瞬态写入再删）');
 
     const oldDisk = JSON.parse(fs.readFileSync(path.join(retiredDir, 'job.json'), 'utf8'));
     assert.equal(oldDisk.status, 'canceled');
