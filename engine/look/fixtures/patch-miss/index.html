@@ -82,7 +82,10 @@ const PARS = { block: `/* ${INC} */\n`, line: `// ${INC}\n`, dead: `#if 0\n${INC
 if (q.get('pars') === 'dead-only') {
   const expr = q.get('expr'), chunk = THREE.ShaderChunk.shadowmap_pars_fragment;
   const condition = { '1': '(0x0 || 0)', comment: '1 /*\n*/ && 0', endif: '0\nfloat bmX; /*\n*/ #endif' }[expr] ?? '0';
-  const replacement = expr === 'unroll' ? `#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n${INC}\n}\n#pragma unroll_loop_end\n${chunk}` : `#if ${condition}\n${INC}\n#else\n${chunk}\n#endif`;
+  const loop = body => `#pragma unroll_loop_start\nfor ( int i = 0; i < 0; i ++ ) {\n${body}\n}\n#pragma unroll_loop_end`;
+  let replacement = `#if ${condition}\n${INC}\n#else\n${chunk}\n#endif`;
+  if (expr === 'unroll') replacement = `${loop(INC)}\n${chunk}`;
+  if (expr === 'unroll-comment') replacement = `/*\n${loop(`*/\n${INC}\n/*`)}\n*/\n${chunk}`;
   THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, () => replacement);
 }
 if (q.get('pars') === 'off') THREE.ShaderLib.toon.fragmentShader = THREE.ShaderLib.toon.fragmentShader.replace(INC, '// ' + INC);

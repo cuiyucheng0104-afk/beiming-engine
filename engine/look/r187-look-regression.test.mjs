@@ -442,8 +442,8 @@ test('FX22-6 原始投影锚点与 CSP 正文核验，两版在单采样和四�
   try {
     for (const rev of [170, 187]) for (const samples of [1, 4]) {
       const render = (name, query) => still(`${rev}-${samples}-${name}`, `three=${rev}&${query}`, '--samples', String(samples));
-      for (const expr of ['0', '1', 'comment', 'endif', 'unroll']) await t.test(`r${rev} ×${samples} 唯一锚点在死分支 ${expr}`, () => {
-        const miss = render(`dead-${expr}`, `pars=dead-only&when=swallow&mute=1&expr=${expr}`);
+      for (const expr of ['0', '1', 'comment', 'endif', 'unroll', 'unroll-comment']) await t.test(`r${rev} ×${samples} 唯一锚点在死分支 ${expr}`, () => {
+        const miss = render(`dead-${expr}`, `pars=dead-only&expr=${expr}` + (expr === 'unroll-comment' ? '' : '&when=swallow&mute=1'));
         assert.deepEqual([miss.status, miss.png], [1, false], miss.stderr);
         assert.match(miss.stderr, /错误\[failure\.shader-error\]：.*着色器锚点缺失「#include <shadowmap_pars_fragment>」/);
       });

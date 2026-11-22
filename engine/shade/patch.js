@@ -108,7 +108,12 @@ function activeAnchors(src, anchor) {
     dead.push([start, start + comment.length]);
     return ' '.repeat(comment.length);   // 注释整体是空白，内部换行不结束预处理指令；等宽遮盖保留原文偏移。
   });
-  // three 展开循环时可能删除或复制整个循环体，补丁只认区间外的锚点。
+  // three 先在原文里展开循环，再交给 GLSL 处理注释；循环头尾即使在两段注释里也会匹配。
+  // 循环界限在展开前还可能是 NUM_* 等计数。只有完整循环才按原文认，注释里单提 pragma 不影响后文。
+  for (const block of src.matchAll(/#pragma unroll_loop_start\s+for\s*\(\s*int\s+i\s*=\s*\w+\s*;\s*i\s*<\s*\w+\s*;\s*i\s*\+\+\s*\)\s*\{[\s\S]+?\}\s+#pragma unroll_loop_end/g)) {
+    dead.push([block.index, block.index + block[0].length]);
+  }
+  // 可见的 pragma（含不完整的循环）仍按保守规则排除，不把补丁放进展开区。
   for (const block of masked.matchAll(/#pragma\s+unroll_loop_start\b[\s\S]*?(?:#pragma\s+unroll_loop_end\b|$)/g)) {
     dead.push([block.index, block.index + block[0].length]);
   }
