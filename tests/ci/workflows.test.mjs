@@ -166,6 +166,14 @@ test('conformance-5090.yml：PR 先过轻量 filter，改到帧源且开了 5090
   assert.ok(jobs.exam.includes(`!${PR}`), 'exam 只在夜间链跑');
   const nightly = jobs['nightly-rebuild'];
   assert.match(nightly, /needs: conformance-5090\b/);
+  // 不写状态函数会被套上隐式 success()：夜间链里祖先 filter 是 skipped，会连带跳过。只认 if 里的条件，注释里写了不算
+  const nightlyCond = (/if: >-\n([\s\S]*?)\n {4}\S/.exec(nightly)?.[1] ?? '').replace(/\s+/g, ' ').trim();
+  assert.ok(nightlyCond.startsWith("!cancelled() && needs['conformance-5090'].result == 'success' && "), nightlyCond);
+  // render.test.mjs 起不了帧源就 t.skip，node --test 仍退出 0：three 那一条用 TAP 落盘，出现 # SKIP 就 exit 3
+  assert.match(gpu, /set -o pipefail\n/);
+  const tap = /node --test --test-reporter=tap 'beiming\/sources\/three\/\*\.test\.mjs' \| tee "([^"\n]+)"\n/.exec(gpu);
+  assert.ok(tap, 'three 实渲测试要用 TAP 报告并落盘');
+  assert.ok(gpu.includes(`if grep -q '# SKIP' "${tap[1]}"; then`) && /grep -q '# SKIP'[^\n]*exit 3; fi/.test(gpu), '5090 上必跑的 three 实渲测试不得静默跳过当绿灯');
   assert.ok(nightly.replace(/\s+/g, ' ').includes(`!${PR} &&`), 'PR 里一致性通过也不能触发夜间重建');
   assert.ok(nightly.replace(/\s+/g, ' ').includes(sameRepo), 'nightly-rebuild 缺同仓来源守卫');
   assert.match(nightly, /uses: actions\/setup-node@/);

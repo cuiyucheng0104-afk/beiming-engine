@@ -101,14 +101,18 @@ jobs:
         run: node --input-type=module -e "const { browserOk } = await import('./tests/ci/browser.mjs'); if (!browserOk) { console.error('::error::5090 运行器上没有无头浏览器'); process.exit(3); }"
       - name: 真起停一次 three 帧源（只有空的浏览器目录时上一步也会过，render.test.mjs 起不来就跳过）
         run: node --input-type=module -e "const { startSource } = await import('./beiming/host/page/host.mjs'); try { const s = await startSource(); await s.stop(); } catch (e) { console.error('::error::5090 运行器上起不了 three 帧源：' + e.message); process.exit(3); }"
-      - name: 帧源一致性套件、校准检查与帧源实渲测试
-        run: >-
-          node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs'
-          'beiming/sources/three/*.test.mjs' 'beiming/sources/blender/*.test.mjs' 'beiming/host/page/*.test.mjs'
+      - name: 帧源一致性套件、校准检查与帧源实渲测试（three 实渲测试起不了帧源会 t.skip、退出码照样 0：TAP 里有 # SKIP 就 exit 3）
+        run: |
+          set -o pipefail
+          node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs' 'beiming/sources/blender/*.test.mjs' 'beiming/host/page/*.test.mjs'
+          node --test --test-reporter=tap 'beiming/sources/three/*.test.mjs' | tee "${RUNNER_TEMP:-/tmp}/conformance-5090-three.tap"
+          if grep -q '# SKIP' "${RUNNER_TEMP:-/tmp}/conformance-5090-three.tap"; then echo "::error::5090 上 three 实渲测试有被跳过的，不能当绿灯"; exit 3; fi
 
   nightly-rebuild:
     needs: conformance-5090
+    # 不写状态函数会被套上隐式 success()，夜间链里祖先 filter 是 skipped，会连带跳过：显式 !cancelled() 并直接看一致性的结果
     if: >-
+      !cancelled() && needs['conformance-5090'].result == 'success' &&
       !((github.event_name == 'pull_request' && !inputs.from_call) || (inputs.from_call && inputs.mode == 'pr')) &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: [self-hosted, linux, x64, rtx5090]

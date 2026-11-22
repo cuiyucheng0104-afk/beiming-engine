@@ -140,15 +140,17 @@ PowerShell 调 `npm.ps1` 时会吞掉单独的 `--`，参数传不到脚本里�
 
 - **PR**：先跑轻量 `filter`（托管 runner，限 5 分钟），`tests/ci/conformance-filter.mjs` 判定变更路径是否触及帧源与一致性边界：`beiming/sources/`、`beiming/host/`、`beiming/kernel/conformance/`、`beiming/kernel/contracts/source/`、`beiming/kernel/contracts/meta/`、`beiming/calib/`（按整段目录匹配，`beiming/sources-notes/` 不算；路径原样比较，前导空格的顶层目录 ` beiming/sources/` 不算；`--null` 时 `\` 是文件名里的普通字符，根目录的 `beiming\sources\notes.txt` 不算，不带 `--null` 手工传 Windows 路径时才把 `\` 当分隔符）。差异用 `git diff -z --name-only --no-renames "$BASE_SHA...$HEAD_SHA"`：`-z` 配 `--null`，中文与制表符路径不会被 git 转义成引号串；三点差异看整个 PR，不只最后一个提交。只改 `beiming/api` 等其他目录、`docs/`、`site/` 的 PR 输出 `frame_sources_changed=false`，不排显卡队。
 - **信任边界**：显卡任务与夜间重建跑在自托管机器上，只接同仓分支的 PR（`github.event.pull_request.head.repo.full_name == github.repository`）；fork 来的 PR 只跑 `filter`，显卡任务跳过，要跑由维护者把分支推到本仓库。
-- **夜间**（schedule，北京时间 02:00；也可 workflow_dispatch / workflow_call）：`exam`（考试）→ `conformance-5090` → `nightly-rebuild`（夜间重建），一致性排在考试之后、夜间重建之前。考试与夜间重建的入口（`beiming/bench/exam.mjs`、`tools/nightly/rebuild.mjs`）还没合入，缺入口时这一步只打一条 `::notice::` 占位提示、job 照常绿，链上的下一步照跑。`workflow_call` 有输入 `mode`（默认 `nightly`）：调用方即使是 PR 也走夜间链；传 `mode: pr` 才走 `filter` 分支。从 PR 调用 `workflow_call` 时 `github.event_name` 也是 `pull_request`，所以另有内部布尔输入 `from_call`（默认 `true`，调用方不要传；直接由 `pull_request` 触发时没有 inputs，为假）区分两者，传 `mode: ''` 也走夜间链。
-- **显卡任务跑什么**：先确认无头浏览器可用，再真起停一次 three 帧源（只有空的浏览器版本目录时第一步也会过，而 `render.test.mjs` 起不了帧源就 `t.skip`、整步照绿；两步任一不过都 exit 3），再跑一致性套件、校准检查和帧源实渲测试（`beiming/sources/three`、`beiming/sources/blender`、`beiming/host/page`）；只读表的测试把 Three 的 `render()` 改坏也全绿，实渲测试会红。
+- **夜间**（schedule，北京时间 02:00；也可 workflow_dispatch / workflow_call）：`exam`（考试）→ `conformance-5090` → `nightly-rebuild`（夜间重建），一致性排在考试之后、夜间重建之前。`nightly-rebuild` 的条件显式写 `!cancelled() && needs['conformance-5090'].result == 'success'`：不写状态函数会被套上隐式 `success()`，夜间链里祖先 `filter` 是 skipped，会把夜间重建连带跳过。考试与夜间重建的入口（`beiming/bench/exam.mjs`、`tools/nightly/rebuild.mjs`）还没合入，缺入口时这一步只打一条 `::notice::` 占位提示、job 照常绿，链上的下一步照跑。`workflow_call` 有输入 `mode`（默认 `nightly`）：调用方即使是 PR 也走夜间链；传 `mode: pr` 才走 `filter` 分支。从 PR 调用 `workflow_call` 时 `github.event_name` 也是 `pull_request`，所以另有内部布尔输入 `from_call`（默认 `true`，调用方不要传；直接由 `pull_request` 触发时没有 inputs，为假）区分两者，传 `mode: ''` 也走夜间链。
+- **显卡任务跑什么**：先确认无头浏览器可用，再真起停一次 three 帧源（只有空的浏览器版本目录时第一步也会过，而 `render.test.mjs` 起不了帧源就 `t.skip`、整步照绿；两步任一不过都 exit 3），再跑一致性套件、校准检查和帧源实渲测试（`beiming/sources/three`、`beiming/sources/blender`、`beiming/host/page`）；three 实渲测试用 TAP 报告单独跑，输出里有 `# SKIP` 就 exit 3（预检之后测试自己再起帧源仍可能起不来而 `t.skip`，`node --test` 照样退出 0；Blender 测试在没有 Blender 的机器上可以跳过，不查）；只读表的测试把 Three 的 `render()` 改坏也全绿，实渲测试会红。
 - **显卡队**：运行器标签 `[self-hosted, linux, x64, rtx5090]`，`concurrency: gpu-5090` 串行、不取消进行中的任务。仓库变量 `BEIMING_5090_RUNNER` 设为 `true`（运行器注册好之后由维护者设置）之前，显卡任务一律跳过，不会卡在排队里。同组最多一个在跑、一个在排（pending），再来的会顶掉排着的那个，所以只有 `conformance-5090` 进这个组。
 
 ```sh
 git diff -z --name-only --no-renames origin/main...HEAD | node tests/ci/conformance-filter.mjs --null   # 本 PR 会不会排显卡队
 node --input-type=module -e "const { startSource } = await import('./beiming/host/page/host.mjs'); const s = await startSource(); await s.stop();"   # 帧源起得来，实渲测试不会跳过
 node --test 'beiming/kernel/conformance/*.test.mjs' 'beiming/calib/*.test.mjs' \
-  'beiming/sources/three/*.test.mjs' 'beiming/sources/blender/*.test.mjs' 'beiming/host/page/*.test.mjs'   # 显卡任务跑的套件
+  'beiming/sources/blender/*.test.mjs' 'beiming/host/page/*.test.mjs'   # 显卡任务跑的套件（three 实渲测试单独跑，见下一行）
+set -o pipefail; node --test --test-reporter=tap 'beiming/sources/three/*.test.mjs' | tee /tmp/conformance-5090-three.tap \
+  && ! grep '# SKIP' /tmp/conformance-5090-three.tap   # three 实渲测试：有一条被跳过就算不过（工作流里 exit 3）
 ```
 
 ## 金标准首次采集
