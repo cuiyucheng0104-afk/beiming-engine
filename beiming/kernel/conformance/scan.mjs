@@ -1,6 +1,5 @@
 // 静态扫描：在渲染路径的文件里找读墙钟和不带种子的随机。
-// shortcut: 只认直接写出来的调用，Python 的 random 模块不认；渲染路径里有 Python 文件、或者要追间接调用时换成语法树上的扫描
-// 这个目录自己也会被同样的规则搜，所以被找的调用名在这里一律拆开写，不出现字面量。
+// shortcut: 追文件内静态成员与简单绑定；跨函数传参、动态属性和作用域遮蔽需要语法树及数据流分析。
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -22,10 +21,192 @@ const RULES = [
   member('unseededRandom', 'crypto', 'getRandomValues'),
   member('unseededRandom', 'crypto', 'randomUUID'),
 ];
+const renderRules = [...RULES, ...['randomBytes', 'randomInt', 'randomFill', 'randomFillSync'].map((name) => member('unseededRandom', 'crypto', name))];
+const matches = (source, rules) => rules.flatMap(({ kind, call, re }) => Array.from(source.matchAll(re), () => ({ kind, call })));
 
-/** 一段源码里的全部命中，命中一处一项：[{ kind, call }]。注释里写到也算。 */
-export function scanText(text) {
-  return RULES.flatMap(({ kind, call, re }) => Array.from(text.matchAll(re), () => ({ kind, call })));
+// 只保留静态成员名、模块名和模板插值。字符串内部的源码示例不能产生绑定或命中。
+function codeForScan(source, python, strict) {
+  const templates = [];
+  const literal = /^(?:[\w$]+|node:crypto)$/;
+  const regexLiteral = /\/(?:\\[^\r\n]|\[(?:\\[^\r\n]|[^\]\\\r\n])*\]|[^/\\[\r\n])+\/[a-z]*/y;
+  let out = '', i = 0;
+  function quoted(q) {
+    const start = i;
+    while (i < source.length) {
+      if (source.startsWith(q, i)) {
+        const value = source.slice(start, i);
+        i += q.length;
+        return literal.test(value) ? `"${value}"` : '""';
+      }
+      if (q === '`' && source.startsWith('${', i)) {
+        i += 2;
+        templates.push(0);
+        return '(';
+      }
+      i += source[i] === '\\' ? 2 : 1;
+    }
+    if (strict) throw new Error('源码字符串未闭合');
+    return '""';
+  }
+  while (i < source.length) {
+    const c = source[i];
+    if ((python && c === '#') || (!python && (source.startsWith('//', i) || (i === 0 && source.startsWith('#!'))))) {
+      while (i < source.length && !/[\r\n\u2028\u2029]/.test(source[i])) i++;
+      out += ' ';
+    } else if (!python && source.startsWith('/*', i)) {
+      const end = source.indexOf('*/', i + 2);
+      if (end < 0 && strict) throw new Error('源码注释未闭合');
+      i = end < 0 ? source.length : end + 2;
+      out += ' ';
+    } else if (c === '"' || c === "'" || (!python && c === '`')) {
+      const q = python && source.startsWith(c.repeat(3), i) ? c.repeat(3) : c;
+      i += q.length;
+      out += quoted(q);
+    } else if (templates.length && c === '}' && templates.at(-1) === 0) {
+      templates.pop();
+      i++;
+      out += ')' + quoted('`');
+    } else if (!python && c === '/' && /(?:^|[=(:,;!&|?{[]|=>|\b(?:return|throw|case))\s*$/.test(out) &&
+      (regexLiteral.lastIndex = i, regexLiteral.test(source))) {
+      i = regexLiteral.lastIndex;
+      out += '""';
+    } else {
+      if (templates.length && c === '{') templates[templates.length - 1]++;
+      if (templates.length && c === '}') templates[templates.length - 1]--;
+      out += source[i++];
+    }
+  }
+  if (strict && (templates.length || !out.trim())) throw new Error('模板插值未闭合或没有可扫描的渲染代码');
+  return out;
+}
+
+const pyRandom = /^(?:random|randint|randrange|uniform|choice|choices|shuffle|sample|gauss|normalvariate|getrandbits|randbytes|triangular|\w+variate|SystemRandom)$/;
+const numpyRandom = /^(?:rand\w*|choice|shuffle|permutation|bytes|sample|ranf|standard_\w+|normal|uniform|beta|binomial|chisquare|dirichlet|exponential|f|gamma|geometric|gumbel|hypergeometric|laplace|logistic|lognormal|logseries|multinomial|multivariate_normal|negative_binomial|noncentral_\w+|pareto|poisson|power|rayleigh|triangular|vonmises|wald|weibull|zipf)$/;
+const noSeed = /^\s*\(\s*(?:(?:(?:seed|x|a|entropy)\s*=\s*)?None\s*,?\s*)?\)/;
+const id = '[$A-Z_a-z][$\\w]*';
+const ref = `${id}(?:\\.${id})*`;
+
+function bindings(code, python, implicitPython) {
+  const names = new Map(python || implicitPython ? [['np', 'numpy']] : []);
+  const resolveName = (path) => {
+    const [root, ...props] = path.split('.');
+    return [names.get(root) ?? root, ...props].join('.');
+  };
+  const bindList = (items, module) => {
+    for (const item of items.replace(/[()]/g, '').split(',')) {
+      const [name, local = name] = item.trim().split(/\s+as\s+|\s*:\s*/);
+      if (name) names.set(local, module ? `${module}.${name}` : name);
+    }
+  };
+  if (python) {
+    code = code.replace(/(^|[;\n])[ \t]*from[ \t]+(numpy(?:\.random)?|random|time)[ \t]+import[ \t]*(\([^)]*\)|[^;\r\n]+)/g,
+      (_, start, mod, list) => { bindList(list, mod); return start; });
+    code = code.replace(/(^|[;\n])[ \t]*import[ \t]+([^;\r\n]+)/g,
+      (_, start, list) => { bindList(list); return start; });
+  } else {
+    code = code.replace(/\bimport\s+\{([^{}]*)\}\s*from\s*"(?:node:)?crypto"/g,
+      (_, list) => { bindList(list, 'crypto'); return ';'; });
+    code = code.replace(/\bimport\s+(?:\*\s+as\s+)?([\w$]+)\s+from\s*"(?:node:)?crypto"/g,
+      (_, local) => { names.set(local, 'crypto'); return ';'; });
+    code = code.replace(/\b(?:require|await\s+import)\s*\(\s*"(?:node:)?crypto"\s*\)/g, 'crypto');
+    code = code.replace(/(?:\?\.)?\s*\[\s*"([\w$]+)"\s*\]/g, '.$1').replace(/\s*\?\.\s*(?=[\w$])/g, '.');
+    code = code.replace(/\b(?:globalThis|window|self|global)\s*\.\s*(?=Math\b|crypto\b|Date\b|performance\b)/g, '');
+  }
+  // 此后用不到字符串内容；保留实参占位，不把带参构造误认作无参。
+  code = code.replace(/"[^"\n]*"/g, '""').replace(/\s*\.\s*(?=[A-Za-z_$])/g, '.');
+  // 右值仍可使用旧绑定。读完同一层的赋值表达式后才更新别名。
+  const pending = [];
+  const simpleRef = new RegExp(`^${ref}$`);
+  const field = `${id}(?:\\s*:\\s*${id})?`;
+  const target = `${id}|\\{\\s*${field}(?:\\s*,\\s*${field})*\\s*,?\\s*\\}`;
+  const tokens = new RegExp(`(?<![.#\\w$])(?:(${target})\\s*=(?![=>])|${ref})|[(){}\\[\\];,\\r\\n]`, 'g');
+  let depth = 0;
+  function finish(end) {
+    const reads = [];
+    while (pending.length && pending.at(-1).depth === depth) {
+      const { start, target } = pending.at(-1);
+      let value = code.slice(start, end).trim();
+      if (!value) break;
+      pending.pop();
+      while (value.startsWith('(') && value.endsWith(')')) value = value.slice(1, -1).trim();
+      const object = simpleRef.test(value) ? resolveName(value) : '';
+      const known = /^(?:Math|crypto|Date|performance|random|numpy|time)(?:\.|$)/.test(object);
+      if (target[0] === '{') {
+        for (const item of target.slice(1, -1).split(',').filter((s) => s.trim())) {
+          const [key, local = key] = item.trim().split(/\s*:\s*/);
+          if (known) { names.set(local, `${object}.${key}`); reads.push(`${object}.${key}`); }
+          else names.delete(local);
+        }
+      } else if (known) names.set(target, object);
+      else names.delete(target);
+    }
+    return reads.length ? `;${reads.join(';')};` : '';
+  }
+  return (code + ';').replace(tokens, (match, target, index) => {
+    if (target) { pending.push({ target, start: index + match.length, depth }); return match; }
+    if ('([{'.includes(match)) { depth++; return match; }
+    if (/^[)\]};,\r\n]$/.test(match)) {
+      const reads = finish(index);
+      if (')]}'.includes(match)) depth--;
+      return reads + match;
+    }
+    return resolveName(match);
+  });
+}
+
+// 只折叠值为静态引用的分组；函数的实参括号不能折叠成返回值。
+function groupedReceivers(code) {
+  if (!/\)\s*\./.test(code)) return code;
+  const value = new RegExp(`^\\s*(?:${id}\\s*=\\s*)?(${ref})\\s*$`);
+  const opens = [];
+  let out = '', start = 0;
+  for (const { 0: paren, index } of code.matchAll(/[()]/g)) {
+    out += code.slice(start, index);
+    start = index + 1;
+    if (paren === '(') {
+      const call = /[\w$.)\]"']\s*$/.test(out) && !/(?:^|[^\w$.])(?:return|throw|yield|await|void|typeof|delete|case)\s*$/.test(out);
+      opens.push(call ? -1 : out.length);
+    } else {
+      const at = opens.pop();
+      if (at >= 0) {
+        const group = value.exec(out.slice(at + 1));
+        if (group) { out = `${out.slice(0, at)} ${group[1]} `; continue; }
+      }
+    }
+    out += paren;
+  }
+  return out + code.slice(start);
+}
+
+function scanPython(code) {
+  const hits = [];
+  for (const m of code.matchAll(/(?<![.\w$])(numpy\.random|random|time)\.(\w+)\b/g)) {
+    const [, mod, name] = m;
+    const call = m[0];
+    if (mod === 'time') {
+      if (/^(?:time|time_ns)$/.test(name)) hits.push({ kind: 'wallClock', call });
+      continue;
+    }
+    const factory = mod === 'random' ? /^(?:Random|seed)$/ : /^(?:default_rng|RandomState|SeedSequence|seed)$/;
+    if (factory.test(name) ? noSeed.test(code.slice(m.index + call.length)) : (mod === 'random' ? pyRandom : numpyRandom).test(name)) {
+      hits.push({ kind: 'unseededRandom', call });
+    }
+  }
+  return hits;
+}
+
+/** K8 不传选项，按原始文本扫描（含注释）；INV-02 显式传选项，按源码语言扫描。 */
+export function scanText(source, options) {
+  if (options === undefined) return matches(source, RULES);
+  const { language, filename, requireCode } = typeof options === 'string' ? { filename: options } : options;
+  const implicit = !filename && !language;
+  const pyImport = /^\s*(?:from[ \t]+(?:random|numpy(?:\.random)?|time)[ \t]+import\b|import[ \t]+(?:random|numpy(?:\.random)?|time)(?:[ \t]+as[ \t]+\w+)?[ \t]*(?:[;#\r\n]|$))/;
+  const python = language ? /^(?:py|python)$/i.test(language) : /\.py$/i.test(filename ?? '') || (implicit && pyImport.test(source));
+  const code = bindings(codeForScan(source, python, requireCode), python, implicit);
+  const hits = python ? [] : matches(groupedReceivers(code), renderRules);
+  if (python || implicit) hits.push(...scanPython(code));
+  return hits.concat(Array.from(code.matchAll(/(?<![.#\w$])random\s*\(\s*\)/g),
+    () => ({ kind: 'unseededRandom', call: 'random()' })));
 }
 
 /** 目录下（含子目录）的 .js、.mjs，不含测试；返回相对 root 的路径，正斜杠，排好序 */

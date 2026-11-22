@@ -102,7 +102,7 @@ node beiming/kernel/conformance/run.mjs
 node --input-type=module -e "import {loadProbeSuiteReport as load} from './beiming/kernel/conformance/suite.mjs'; const r = load('blender', {machine:'mac'}); console.table(r.rows); process.exitCode = r.ok ? 0 : 1"
 ```
 
-`loadProbeSuiteReport(source, {machine, conformance, tableDir})` 支持 `three`、`blender`；机器默认 `mac`，合规档默认 `full`。先读[探针表](../../calib/table/README.md)，再读同帧源、同机器的 `fixtures/v4-<source>.<machine>.json` 补测法线与乱序。指定自备 `tableDir` 时，把探针列和补测 JSON 放在该目录，不借用内置补测。**缺测不是通过**：Linux 5090 两遍重渲的历史读数不能证明乱序或法线合规；没有该机补测时，这两行应为 `fail`。
+`loadProbeSuiteReport(source, {machine, tableDir})` 支持 `three` 和 `blender`，机器默认 `mac`。两种帧源固定使用 `full`，传入 `conformance: 'limited'` 会抛出 `RangeError`。加载器先读 P7/P8 探针表，再核对同机、同帧源的 `fixtures/v4-<source>.<machine>.json`。使用自备 `tableDir` 时，两份 JSON 放在同一目录。Linux 5090 的两列都缺法线与乱序补测，Blender 还缺三个方块的单独渲编号层。这些行逐项返回 `fail`，已有的两遍重渲仍独立判定。参见[探针表说明](../../calib/table/README.md)。
 
 Mac 补测走两个实际帧源的 `open` 和 `render`。Three 用页面宿主，Blender 用 Cycles CPU。预期法线由校准场景求交得到，固定在相机空间。每个帧源在三个静止端头球内部采 256 个像素，连续比较五个采样帧，共 1280 对向量；另起进程以 `[24,48,0,36,12]` 重排五帧，按帧号比较颜色和法线层的 SHA-256。两份实测的法线夹角中位数分别为 0.05224° 和 0.02611°，两层各自的乱序差异帧数均为 0。重新采集会更新对应的 Mac JSON：
 
@@ -112,7 +112,7 @@ node beiming/kernel/conformance/fixtures/v4-probe.mjs record blender
 node beiming/kernel/conformance/fixtures/v4-probe.mjs check
 ```
 
-最后一条命令只复核已有记录，可在没有渲染器的环境下运行。
+最后一条命令只复核已有记录，可在没有渲染器的环境下运行。Blender 的 `objectIdEvidence` 保留每次单独渲染的实体编号、元数据框、编号层 SHA-256 与非零像素段。复核时用像素段恢复原始编号层，重新计算摘要、像素框和三个 IoU；本次 Mac 实测按近、中、远分别为 0.993813、0.998166、0.977684。P8 旧表里的 0.7151 是远方块被挡住时的可见框，不参与判定。
 
 新帧源直接调用 `evaluateSourceConformance({source, machine, conformance, determinism, readings, observations})`。结果总是按下表顺序列七行，有 `status`、`measured`（按指标名取值）、`threshold`（含端点的 `[下限, 上限]`，`null` 上限表示不限）；失败时另有 `reason`。`limited` 只免第 2–5 行，任一必测行缺数、错类型或越线均令 `ok: false`。
 
@@ -120,7 +120,7 @@ node beiming/kernel/conformance/fixtures/v4-probe.mjs check
 |---|---|
 | `color-linearity` | `colorLinearityMaxRelErr` ≤ 0.02；零分量另量 `colorZeroMaxAbsErr` ≤ 0.005。取线性 RGB，不用显示码值。 |
 | `depth` | `depthMedianRelErr` ≤ 0.02；取已知平面的相机前向深度（米），不是射线距离。 |
-| `object-id-meta` | `objectIdMetaMinIou` ≥ 0.95；三个方块取单独渲的编号层。Blender 旧表没有单独渲 IoU，只取完全可见的前景主方块，不把被遮挡的可见部分与完整框硬比。 |
+| `object-id-meta` | Three 与 Blender 各自单独渲 `cube-near`、`cube-mid`、`cube-far`。每个编号层反算的像素框与对应元数据框取 IoU，三者的最小值写入 `objectIdMetaMinIou`，须 ≥ 0.95。缺任一方块的证据，该行即报缺测。 |
 | `normal-space` | `normalMedianDeg` ≤ 2°；实测法线与同空间预期向量夹角的中位数。 |
 | `camera-convention` | `cameraAnchorMaxPx` ≤ 1 px；取三轴及转台光栅化位置的最大误差，不用纯矩阵投影冒充读回。 |
 | `shuffled-order` | 哈希档 `shuffledMaxDiff` = 0；容差档 `shuffledPsnrDb` ≥ 50 且 `shuffledFracAbove5` ≤ 0.001。 |
@@ -137,7 +137,7 @@ const report = evaluateSourceConformance({ source: 'legacy-page', conformance: '
 
 也可传原始 `observations`，对应行优先重算而不信汇总：`normals` 为 `{expected, got}` 三维向量对；`sequential`、`shuffled`、`repeat` 是独立采集的帧记录数组，键为整数 `frame`。哈希档每帧带解码层数据的 SHA-256 `digest`。采集法线层时，每帧同时提供 `normalDigest`，任一层发生变化都会记为该帧不一致。容差档每帧带展平的 `rgb8` 三通道数组。按帧号配对，取各帧最低 PSNR 与最高大差像素比例（一个像素的任一通道差 **>5** 才计一次）。完全相同的像素在 JSON 报告中写 `'+Infinity'`。乱序至少两帧、帧集合相同且访问顺序确实改变；重复两遍不得代替乱序证据。
 
-两次采集的进程与会话由调用方建立。Three 的历史表保留六个场景的两遍 SHA-256 比较结论，Blender 的历史表还保留用于比对的摘要对。文件加载器另核对补测的帧源版本、校准像素集合、相机空间方向和转台的实际帧序。
+两次采集的进程与会话由调用方建立。Three 的历史表保留六个场景的两遍比较结论及三个物体的单独渲包围盒。Blender 的历史表保留两遍的摘要对，单独渲编号层由同机补测提供。`probe-observations.mjs` 离线核对版本、平台、Blender 后端、法线像素、转台帧序与编号层证据。直接调用判定器时，Three 和 Blender 需要在 `readings.objectIdMetaIous` 传入以三个方块名为键的 IoU 对象，也可通过 `observations.objectIdMetaIous` 覆盖它。单一最小值无法证明三个物体均已采集。
 
 ## 历史不变量：逐项做正负对照
 
@@ -150,5 +150,9 @@ console.log(checkInvariant(id, makeViolatingInvariantFixture(id))); // ok: false
 const cases = INVARIANTS.map(({ id }) => ({ id, fixture: makeValidInvariantFixture(id) }));
 console.log(runInvariantSuite(cases)); // passed: 17, failed: 0
 ```
+
+`checkInvariant` 可单独核对一条。`runInvariantSuite` 只有在 17 个编号各出现一次且全部通过时才返回 `ok: true`。`INV-14` 按错误登记表核对信封的错误码和进程退出码。
+
+`INV-02` 的新夹具建议显式传 `language: 'js'` 或 `'python'`，也可以用 `filename` 的 `.py` 扩展名指定 Python。省略两者时，扫描器识别片段开头的常见 Python 随机模块导入，其余片段按 JS 词法处理，同时检查历史夹具里的 `random.*` 和 `np.random.*` 写法。扫描范围包括静态成员、简单别名和 JS 模板插值。Python f-string 插值、动态属性和跨函数数据流超出当前扫描范围。
 
 运行全部对照与原三镜头单测：`node --test 'beiming/kernel/conformance/*.test.mjs'`（不起浏览器）。
