@@ -69,36 +69,6 @@
       "docRef": "声音配乐配音字幕汇编 §1 ^e361；原出处：09 复盘 §6.1 #27"
     },
     {
-      "id": "audio-subs.e362.practice",
-      "sourceId": "e362",
-      "section": 1,
-      "caseId": "case-02",
-      "title": "配乐调度",
-      "text": "按整小节前瞻，90 ms 定时器、提前 0.6 s(注释写 0.4 s，以代码为准)；同一套代码能在离线音频上下文里渲染",
-      "quantities": [
-        {
-          "value": 90,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 0.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.4,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "脚本取值",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §1 ^e362；原出处：09 复盘 §6.1 #28/§6.3"
-    },
-    {
       "id": "audio-subs.e363.practice",
       "sourceId": "e363",
       "section": 1,
@@ -197,70 +167,6 @@
       "docRef": "声音配乐配音字幕汇编 §2 ^e19；原出处：26 §2.5、§7.6 (原实现源码)"
     },
     {
-      "id": "audio-subs.e25.practice",
-      "sourceId": "e25",
-      "section": 2,
-      "caseId": "case-13",
-      "title": "IR 延迟装入",
-      "text": "deferIR：field 延迟 60 ms、hall 260 ms、room 420 ms，各 requestIdleCallback({timeout:400}) 装入；装好前为干声",
-      "quantities": [
-        {
-          "value": 60,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 260,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 420,
-          "unit": "ms",
-          "rawUnit": "ms"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §2 ^e25；原出处：26 §2.2 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e24.practice",
-      "sourceId": "e24",
-      "section": 3,
-      "caseId": "case-13",
-      "title": "三种噪声算法",
-      "text": "白噪 r()*2−1；粉噪三个一极点叠加(系数 0.99765/0.963/0.57，增益 0.099046/0.2965164/1.0526913，直通项 0.1848，总乘 0.22)；棕噪泄漏积分 br=(br+0.02*w)/1.02，输出×3.5",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §3 ^e24；原出处：26 §2.2 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e27.practice",
-      "sourceId": "e27",
-      "section": 3,
-      "caseId": "case-13",
-      "title": "DSP 工具集",
-      "text": "mulberry 32 位确定性随机；Biquad RBJ(f夹8Hz–0.47sr,q≥0.05)；OnePole 系数 exp(−2πf/sr)；Reson r=exp(−6.9078/(t60·sr))(6.9078=ln1000)；Saw=polyBLEP(dt 夹 0.45)；Sine 4096 点查表；ftanh=x(27+x²)/(27+9x²)，`／x／`>3 取±1；sat(x,k)=ftanh(kx)/ftanh(k)；ad=线性起音+指数衰减；hump=半正弦 p 次方",
-      "quantities": [
-        {
-          "value": 8,
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §3 ^e27；原出处：26 §2.8 (原实现源码)"
-    },
-    {
       "id": "audio-subs.e28.practice",
       "sourceId": "e28",
       "section": 3,
@@ -338,125 +244,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "声音配乐配音字幕汇编 §3 ^e76；原出处：27 §2.2、§7.5 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e118.practice",
-      "sourceId": "e118",
-      "section": 5,
-      "caseId": "case-13",
-      "title": "床休眠",
-      "text": "轻量档：某条床电平<1e-5持续6 s(每0.05 s计+0.05,>6)就断开该增益节点，回升再接回；setDuck所有床乘1−压低量，τ=fade/3；区域检测周期0.5 s；落叶缓冲4 s",
-      "quantities": [
-        {
-          "value": 6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.05,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 4,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §5 ^e118；原出处：27 §2.9、§3.9 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e48.practice",
-      "sourceId": "e48",
-      "section": 6,
-      "caseId": "case-13",
-      "title": "箭矢呼啸预测式调度",
-      "text": "每帧算箭未来最近点：参考点取箭头前0.8 m，对听者与玩家头部(+1.5)求 tc=−(r·v)/`／v／`² 与最近距离 d；tc≤0.34 s(ARROW_LOOK)触发；d>9(ARROW_MISS)不响；d<3.2 用 arrow_whizz(0.52)否则 arrow_whizz_far(0.46·clamp(1.5−d/9,0.4,1))；音效峰值在0.2 s(ARROW_PEAK)，起播提前 tc−0.2 s；起播位置沿飞行方向前移 lead+0.045 s 并给 vel 做多普勒；箭峰值前落地则12 ms内淡掉",
-      "quantities": [
-        {
-          "value": 0.34,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.045,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 12,
-          "unit": "ms",
-          "rawUnit": "ms"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §6 ^e48；原出处：26 §2.9、§7.12 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e69.practice",
-      "sourceId": "e69",
-      "section": 6,
-      "caseId": "case-13",
-      "title": "立体声/单声道取舍",
-      "text": "DEFS 里 st:true 标记立体声；所有 dragon_* 键装配后强制改单声道(L+R)/2（原因为推断：走PannerNode下混，省一半内存）",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "推断",
-      "evidenceLabel": "源码+推断",
-      "verificationLabel": "没验证",
-      "docRef": "声音配乐配音字幕汇编 §6 ^e69；原出处：26 §2.7 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e121.practice",
-      "sourceId": "e121",
-      "section": 6,
-      "caseId": "case-13",
-      "title": "与动画对齐：mark 撞击点",
-      "text": "给每个音效记 mark(音频里\"动作发生点\"秒)，播放时起播提前这么多；龙落地0.012 s、龙吼0.6 s、call 1.95 s、fireWindup mark=1.48(=FIRE_ALIGN)；蓄力音 offset=1.48−剩余蓄力时长",
-      "quantities": [
-        {
-          "value": 0.012,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.95,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §6 ^e121；原出处：27 §7.11、§3.10 (原实现源码；原实现源码)"
     },
     {
       "id": "audio-subs.e124.practice",
@@ -595,31 +382,6 @@
       "docRef": "声音配乐配音字幕汇编 §7 ^e303；原出处：20/09 §3.1"
     },
     {
-      "id": "audio-subs.e304.practice",
-      "sourceId": "e304",
-      "section": 7,
-      "caseId": "case-20",
-      "title": "主唱七步-3 声带",
-      "text": "Liljencrants–Fant 脉冲模型；一个参数让声音从压紧到气声，随响度/音高/乐句末变化；气息噪声随声带脉动；抖动 0.4%，闪烁 3%",
-      "quantities": [
-        {
-          "value": 0.004,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.03,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "只是原文说法",
-      "docRef": "声音配乐配音字幕汇编 §7 ^e304；原出处：20/09 §3.1"
-    },
-    {
       "id": "audio-subs.e305.practice",
       "sourceId": "e305",
       "section": 7,
@@ -686,26 +448,6 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "算术我们核过（6×2+2+1=15）",
       "docRef": "声音配乐配音字幕汇编 §7 ^e309；原出处：20/09 §3.2"
-    },
-    {
-      "id": "audio-subs.e310.practice",
-      "sourceId": "e310",
-      "section": 7,
-      "caseId": "case-20",
-      "title": "伴奏与混音链",
-      "text": "FM 电钢琴、贝斯、鼓、上升音、铃；混音链=均衡、压缩、合成脉冲响应卷积混响、限幅器；无录音样本；C 大调，96 BPM，14 小节",
-      "quantities": [
-        {
-          "value": 96,
-          "unit": "bpm",
-          "rawUnit": "BPM"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "只是原文说法",
-      "docRef": "声音配乐配音字幕汇编 §7 ^e310；原出处：20/09 §3.2"
     },
     {
       "id": "audio-subs.e314.practice",
@@ -856,47 +598,6 @@
       "docRef": "声音配乐配音字幕汇编 §7 ^e406；原出处：阅读组1 § 案例 20 Step 2"
     },
     {
-      "id": "audio-subs.e424.practice",
-      "sourceId": "e424",
-      "section": 7,
-      "caseId": "case-13",
-      "title": "假说话：节奏而非词",
-      "text": "对话文字只拆成\"元音组=一个音节\"，基础0.15–0.20 s(词尾×1.25,双元音×1.12,再除以语速)；音高沿句子下降(fall 0.16–0.24)，词首重读抬高(stress)，问句末音节抬16%，感叹抬10%；8个说话人各一份 SPEAKERS(基频61–185 Hz)；597行代码得8个有性格说话者，文字改声音自动跟着变",
-      "quantities": [
-        {
-          "value": [
-            0.15,
-            0.2
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.16,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 0.1,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": [
-            61,
-            185
-          ],
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §7 ^e424；原出处：27 §0.3、§7.7 (原实现源码)"
-    },
-    {
       "id": "audio-subs.e436.practice",
       "sourceId": "e436",
       "section": 7,
@@ -953,7 +654,7 @@
       "section": 8,
       "caseId": "case-13",
       "title": "同曲随状态变形而非换曲",
-      "text": "区域曲带 variants：夜晚速度×0.92(withNight)；击败头目后换大调(STAIR_MAJOR/〔专名12〕_DEF)；暴雨/战斗时 bar 开头 return 只留铺底；战斗层用\"区域行\"一次生成19个区域的战斗版",
+      "text": "区域曲带 variants：夜晚速度×0.92(withNight)；击败头目后换大调(zone_06_MAJOR/〔专名12〕_DEF)；暴雨/战斗时 bar 开头 return 只留铺底；战斗层用\"区域行\"一次生成19个区域的战斗版",
       "quantities": [],
       "kind": "method",
       "evidenceLevel": "源码",
@@ -983,26 +684,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成品用过",
       "docRef": "声音配乐配音字幕汇编 §8 ^e127；原出处：28 §0.3、§2.7 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e133.practice",
-      "sourceId": "e133",
-      "section": 8,
-      "caseId": "case-13",
-      "title": "小节排程 pump",
-      "text": "update 对每个 Piece pump(now+0.6)：tNext<until 就 T=tNext，调onBar，调 cur.bar(p,bar)，bar++，tNext+=小节秒；bar() 抛异常只记 fails，同一区域曲连续两次失败→换 EXPLORE_DEF；淡出后超 killAt=stopAt+10 s 销毁",
-      "quantities": [
-        {
-          "value": 10,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "fix",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §8 ^e133；原出处：28 §2.1 (原实现源码)"
     },
     {
       "id": "audio-subs.e134.practice",
@@ -1047,45 +728,6 @@
       "docRef": "声音配乐配音字幕汇编 §8 ^e182；原出处：28 §2.15、§7.10 (原实现源码)"
     },
     {
-      "id": "audio-subs.e184.practice",
-      "sourceId": "e184",
-      "section": 8,
-      "caseId": "case-13",
-      "title": "空壳检测与静默回退",
-      "text": "isStub(def)：不写keys、没有tick且\"干跑\"4小节(用Proxy把36个方法替换成计数器)总调用数≤4的曲子被判空壳换回EXPLORE_DEF；MUSIC_READY并行动态导入A/B/战斗/灯/名字表，失败只记MODS.err该区域落回EXPLORE_DEF；缺失灯曲/龙曲有LAMP_QUIET/DRAGON_QUIET每小节仅organ(0,33,…,\"vox\")+organ(0,40,…)(33=A1,40=E2)vel.012–.014；各*Fallback函数保证提示音模块缺失时也有粗声",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §8 ^e184；原出处：28 §2.16 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e189.practice",
-      "sourceId": "e189",
-      "section": 8,
-      "caseId": "case-13",
-      "title": "玩家输入驱动音乐形态",
-      "text": "静止≥1.5 s才触发悬停长音，再动或超11.2 s解决到C5(渡口场景配乐)；风速>0.62触发敲灯钟(火堆场景配乐)；高度alt01分层(阶梯/攀登道路场景配乐)；赫斯珀靠近〔专名20〕>.35动机停vein接管；风gust01推给风铃琴；昼夜night01/暴雨tempest01/dawn01",
-      "quantities": [
-        {
-          "value": 1.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 11.2,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成品用过",
-      "docRef": "声音配乐配音字幕汇编 §8 ^e189；原出处：28 §7.8"
-    },
-    {
       "id": "audio-subs.e190.practice",
       "sourceId": "e190",
       "section": 8,
@@ -1098,26 +740,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "没验证(使用端未核对)",
       "docRef": "声音配乐配音字幕汇编 §8 ^e190；原出处：28 §5 (原实现源码)"
-    },
-    {
-      "id": "audio-subs.e207.practice",
-      "sourceId": "e207",
-      "section": 8,
-      "caseId": "case-13",
-      "title": "配乐结构",
-      "text": "游戏逻辑只说状态名 setMusic(\"combat\")→MusicDirector.set 新开 Piece→每帧 pump(now+0.6) 提前 0.6 s 排进时间线→每小节调一次 bar(p,i)→p 上 36 个乐器方法→现场合成或取采样；状态 19 个；区域曲靠 variants 变形（夜晚速度×0.92；击败头目后换大调）；战斗层 原实现源码 用 19 个「区域行」一份代码生成全部战斗版；一首曲=和弦表+动机+bar(p,i)，用 i%8、i%16、floor(i/16)%3 变出 48 小节不重样",
-      "quantities": [
-        {
-          "value": 0.6,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过(未运行)",
-      "docRef": "声音配乐配音字幕汇编 §8 ^e207；原出处：09§5.5、§7.2；原实现源码、原实现源码"
     },
     {
       "id": "audio-subs.e214.practice",
@@ -1204,20 +826,6 @@
       "docRef": "声音配乐配音字幕汇编 §8 ^e216；原出处：09§5.7、§1A；原实现源码、原实现源码、原实现源码"
     },
     {
-      "id": "audio-subs.e217.practice",
-      "sourceId": "e217",
-      "section": 9,
-      "caseId": "case-ext01",
-      "title": "总体流程",
-      "text": "无任何录音与外部资源；SR=44100，DUR=90，N=floor(44100×90)=3,969,000；synth(P) 在 Web Worker 内逐采样算完（fn.toString() 塞进 Blob，URL.createObjectURL），结果两个 Float32Array 用转移回传，Worker 失败回退主线程；运行时四条 Float32Array(N)（L、R、S 混响中信号、S2 混响侧信号）共 63,504,000 字节；播放就是循环一个 AudioBuffer；顺序：乐曲→音乐母线增益→音效→“山谷回应”valley()→混响→母带",
-      "quantities": [],
-      "kind": "fix",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §9 ^e217；原出处：09 章 §2.1（原实现源码, 172-696, 871-873）"
-    },
-    {
       "id": "audio-subs.e218.practice",
       "sourceId": "e218",
       "section": 9,
@@ -1243,101 +851,6 @@
       "docRef": "声音配乐配音字幕汇编 §9 ^e218；原出处：09 章 §0、§2.2（原实现源码, 41-42）"
     },
     {
-      "id": "audio-subs.e219.practice",
-      "sourceId": "e219",
-      "section": 9,
-      "caseId": "case-ext01",
-      "title": "灌入与 WAV 导出",
-      "text": "fill() 每片 CH=1<<17=131,072 采样，每次最多占 2.5 ms，超了 setTimeout(step,0)；capture 模式不建 AudioBuffer 但 Score.start() 仍调用，__exportWav 返回 base64 的 PCM 16 位 2 声道 44100 Hz，头 44 字节，总 44+3,969,000×4=15,876,044 字节；采样先截 [−1,1] 再×32767 取整",
-      "quantities": [
-        {
-          "value": 2.5,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 44100,
-          "unit": "Hz",
-          "rawUnit": "Hz"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §9 ^e219；原出处：09 章 §2.1（原实现源码, 875, 939-943）"
-    },
-    {
-      "id": "audio-subs.e254.practice",
-      "sourceId": "e254",
-      "section": 9,
-      "caseId": "case-ext01",
-      "title": "音画对时",
-      "text": "fnow() 优先 document.timeline.currentTime（差距<0.25 s 才采用），否则 performance.now()/1000；launch：lead=0.05 s，aOff 补偿“现在到喇叭真出声”，淡入 0.35 s；time() 对时：abs(err)≤0.08 s 时 base−=clamp(err×0.6,±0.0005)×dt（每秒最多拧 0.5 ms）；abs(err)>0.08 s 累计超 0.25 s 且距上次重启>2 s 才重启声音，画面从不后退；toggle 0.2 s 增益斜坡静音，开声后 0.6 s 内第二次点击忽略；getOutputTimestamp 最多 6 次×15 ms 等新鲜时间戳；画面时钟 clock(p) 每≥0.12 s 量一次 Score.time() 速率，在 0.5–1.5 之间才锁定",
-      "quantities": [
-        {
-          "value": 0.25,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.35,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.08,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.5,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 0.08,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.25,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 15,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 0.12,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §9 ^e254；原出处：09 章 §2.9（原实现源码; 原实现源码）"
-    },
-    {
       "id": "audio-subs.e256.practice",
       "sourceId": "e256",
       "section": 9,
@@ -1350,65 +863,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §9 ^e256；原出处：A8 §1、§2.4（原实现源码, 原实现源码）"
-    },
-    {
-      "id": "audio-subs.e257.practice",
-      "sourceId": "e257",
-      "section": 9,
-      "caseId": "case-02",
-      "title": "AudioContext 与总线",
-      "text": "new AudioContext({latencyHint:'interactive'}) 不指定采样率；首次用户手势（pointerdown/keydown/touchend）才创建，页面隐藏 suspend 回来 resume；总线：每发声一个 gain →（空气低通→PannerNode）→ sfxBus；UI 类 → uiBus；音乐层 trim→层 gain→music.bus（含 send→Convolver→revG→music.bus）→ musicBus；三条总线汇入 master→DynamicsCompressor→destination（+AnalyserNode 电平表）；无限幅器、无全局混响",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §9 ^e257；原出处：A8 §2.1-2.2（原实现源码）"
-    },
-    {
-      "id": "audio-subs.e262.practice",
-      "sourceId": "e262",
-      "section": 9,
-      "caseId": "case-02",
-      "title": "配乐调度",
-      "text": "4/4，按整小节调度：setInterval 每 90 ms 调 music.tick(ctx.currentTime+0.6)（头注释写 +0.4，与实际不符），凡起点早于“现在+0.6 s”的小节整小节一次排进 WebAudio 时间线；用定时器不用 rAF（“so render hitches never starve it”）；每次 tick 最多排 16 小节；模式切换落在下一条小节线，层增益时间常数 0.35 s；强度变化立即生效，层增益 setTargetAtTime 时间常数 0.6 s（注释 ~1.5 s）；第一小节起点 创建+0.08 s；掉队恢复 next<now 则 next=now+0.05；初始 mode silent、nextMode title、intensity 0.2；强度差>0.05 才调 setIntensity；强度→模式 <0.45 explore 否则 combat；boss 强度 巨型头目-enraged 1 否则 0.5；基础强度无敌人 0.2（riders 阶段 0.35），有敌人 0.5+0.5·near，near=clamp(1−(距离−300)/1500,0,1)；生存模式 clamp(max(0.55+0.06·波次,基础),0,1)",
-      "quantities": [
-        {
-          "value": 90,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 0.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.35,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.6,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 1.5,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.08,
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "源码",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §9 ^e262；原出处：A8 §2.5、表 3.6（原实现源码; 原实现源码, 1311-1317）"
     },
     {
       "id": "audio-subs.e276.practice",
@@ -1626,129 +1080,6 @@
       "docRef": "声音配乐配音字幕汇编 §9 ^e293；原出处：旧01 06 §v3验收"
     },
     {
-      "id": "audio-subs.e287.practice",
-      "sourceId": "e287",
-      "section": 10,
-      "caseId": "case-01r",
-      "title": "母带链与迭代",
-      "text": "分轨去直流→过程片/成片分组→11.10–11.20s切静音(11.085–11.10线性降,11.10–11.20全0)→增益→软削波(lim=限幅顶+2.0dB,knee0.6,tanh)→前视限幅(24采样块,前视6ms后顾1.5ms,释放τ90ms)→gate/首击抽吸(11.20s后8.5ms起4ms降到0.89约-1dB保持到11.75s)/片尾淡出0.1s余弦→写16bit;迭代≤24轮收敛:\\|I+14\\|≤0.05且真峰值≤-2.3dBTP且成片段-过程片段≥8.5LU;实际3轮,总增益-7.34dB,过程片附加-4.61dB,限幅顶-3.8dBFS,限幅最大压缩2.0dB(超1dB占全片11.9%),软削波最大输入超顶6.87dB(成片3.7%采样超拐点)",
-      "quantities": [
-        {
-          "value": [
-            11.1,
-            11.2
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 2,
-          "unit": "dB",
-          "rawUnit": "dB"
-        },
-        {
-          "value": 6,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 1.5,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 90,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 11.2,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 8.5,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": 4,
-          "unit": "ms",
-          "rawUnit": "ms"
-        },
-        {
-          "value": -1,
-          "unit": "dB",
-          "rawUnit": "dB"
-        },
-        {
-          "value": 11.75,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": 0.1,
-          "unit": "s",
-          "rawUnit": "s"
-        },
-        {
-          "value": -2.3,
-          "unit": "dBTP",
-          "rawUnit": "dBTP"
-        },
-        {
-          "value": 8.5,
-          "unit": "LU",
-          "rawUnit": "LU"
-        },
-        {
-          "value": -7.34,
-          "unit": "dB",
-          "rawUnit": "dB"
-        },
-        {
-          "value": -4.61,
-          "unit": "dB",
-          "rawUnit": "dB"
-        },
-        {
-          "value": -3.8,
-          "unit": "dB",
-          "rawUnit": "dBFS"
-        },
-        {
-          "value": 2,
-          "unit": "dB",
-          "rawUnit": "dB"
-        },
-        {
-          "value": 1,
-          "unit": "dB",
-          "rawUnit": "dB"
-        },
-        {
-          "value": 0.119,
-          "unit": "ratio",
-          "rawUnit": "%"
-        },
-        {
-          "value": 6.87,
-          "unit": "dB",
-          "rawUnit": "dB"
-        },
-        {
-          "value": 0.037,
-          "unit": "ratio",
-          "rawUnit": "%"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "实测",
-      "evidenceLabel": "实测",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §10 ^e287；原出处：A4 §3"
-    },
-    {
       "id": "audio-subs.e290.practice",
       "sourceId": "e290",
       "section": 10,
@@ -1758,8 +1089,8 @@
       "quantities": [
         {
           "value": [
-            -0.3,
-            0.3
+            -14.3,
+            -13.7
           ],
           "unit": "LUFS",
           "rawUnit": "LUFS"
@@ -1831,20 +1162,6 @@
       "evidenceLabel": "源码",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §10 ^e421；原出处：01…重制/工程/原实现源码 文档串"
-    },
-    {
-      "id": "audio-subs.e3.practice",
-      "sourceId": "e3",
-      "section": 11,
-      "caseId": "case-03",
-      "title": "03T 声音提示点",
-      "text": "`cue(455,\"boot\",1.0,0.0)`；`cue(f,\"af\",0.6,0.0)` 在帧 480/496/512，结尾帧 818/836；动画脚本直接发出提示点；- 可借性：做法（音画共用时间线）",
-      "quantities": [],
-      "kind": "method",
-      "evidenceLevel": "源码",
-      "evidenceLabel": "【画面代码】",
-      "verificationLabel": "频谱实测对应",
-      "docRef": "声音配乐配音字幕汇编 §11 ^e3；原出处：03T 4.5"
     },
     {
       "id": "audio-subs.e346.practice",
@@ -2066,31 +1383,6 @@
       "docRef": "声音配乐配音字幕汇编 §12 ^e411；原出处：003 § 分工"
     },
     {
-      "id": "audio-subs.e351.practice",
-      "sourceId": "e351",
-      "section": 12,
-      "caseId": "case-05",
-      "title": "声音用法",
-      "text": "配乐放慢零点几个百分点让最后一记 808 落在切到定妆的那一帧；两条音效切成单发放在零件卡入的那一帧；母带 −14 LUFS，真峰值不高于 −1 dBTP",
-      "quantities": [
-        {
-          "value": -14,
-          "unit": "LUFS",
-          "rawUnit": "LUFS"
-        },
-        {
-          "value": -1,
-          "unit": "dBTP",
-          "rawUnit": "dBTP"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "作者成片用过（配乐放慢我们量过）",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e351；原出处：05/09 §4.3"
-    },
-    {
       "id": "audio-subs.e370.practice",
       "sourceId": "e370",
       "section": 12,
@@ -2129,44 +1421,6 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §12 ^e370；原出处：原文 § Step 6"
-    },
-    {
-      "id": "audio-subs.e343.practice",
-      "sourceId": "e343",
-      "section": 12,
-      "caseId": "case-07",
-      "title": "段落设计",
-      "text": "紧张脉冲=心跳，影片开始前 2 秒就起拍使第 0 帧已在跑；唱片刮擦=在时间停住的瞬间改变音乐本身播放速度；追逐 184 BPM，正好从爆炸那刻开始；主题曲活泼民谣流行 118 BPM，第 24 拍对上一个笑点（第 24 拍在主题起点后 11.69–12.20 s：23×60/118=11.69，24×60/118=12.20，推算）",
-      "quantities": [
-        {
-          "value": 2,
-          "unit": "s",
-          "rawUnit": "秒"
-        },
-        {
-          "value": 184,
-          "unit": "bpm",
-          "rawUnit": "BPM"
-        },
-        {
-          "value": 118,
-          "unit": "bpm",
-          "rawUnit": "BPM"
-        },
-        {
-          "value": [
-            11.69,
-            12.2
-          ],
-          "unit": "s",
-          "rawUnit": "s"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "推断",
-      "evidenceLabel": "原文陈述+推断算术",
-      "verificationLabel": "184/118 BPM 没核实",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e343；原出处：07/09 §4.1、§4.3"
     },
     {
       "id": "audio-subs.e344.practice",
@@ -2229,71 +1483,6 @@
       "docRef": "声音配乐配音字幕汇编 §12 ^e393；原出处：原文 § Step 6"
     },
     {
-      "id": "audio-subs.e404.practice",
-      "sourceId": "e404",
-      "section": 12,
-      "caseId": "case-12",
-      "title": "巨城雷击音效流程",
-      "text": "Higgsfield Mirelo SFX 生成46个文件(街面雨/塔尖风/先导噼啪/击中/雷/停电/复电),代码混音并合成无法按帧定时的部分(15次变压器爆音、击后耳鸣);终混 −14 LUFS;首轮弱(酝酿三秒才爆/几乎无声呼啸/雷无5 kHz以上)→提示词改为要求瞬时起音、明亮高频、近距离,写明不要什么,并以“No music, no voices.”结尾",
-      "quantities": [
-        {
-          "value": -14,
-          "unit": "LUFS",
-          "rawUnit": "LUFS"
-        },
-        {
-          "value": 5000,
-          "unit": "Hz",
-          "rawUnit": "kHz"
-        }
-      ],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "只是原文说法",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e404；原出处：阅读组3 § 闪电 Step 5"
-    },
-    {
-      "id": "audio-subs.e413.practice",
-      "sourceId": "e413",
-      "section": 12,
-      "caseId": "case-12",
-      "title": "巨城雷击 声音",
-      "text": "Mirelo SFX 生成46份音效；代码合成变压器爆响；混音−14 LUFS；短音效精确卡帧的留给代码合成",
-      "quantities": [
-        {
-          "value": -14,
-          "unit": "LUFS",
-          "rawUnit": "LUFS"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e413；原出处：012 § 分工/规格"
-    },
-    {
-      "id": "audio-subs.e378.practice",
-      "sourceId": "e378",
-      "section": 12,
-      "caseId": "case-14",
-      "title": "东京合成声音",
-      "text": "无采样:雨落在沥青/雨篷/雨伞、水滴入水坑、列车与道口铃、烤架、门后人声、自动贩卖机嗡鸣;新增“门后音乐”:传统日本调式自编旋律,类三味线拨弦音色,经小喇叭模型;成片 −16.2 LUFS",
-      "quantities": [
-        {
-          "value": -16.2,
-          "unit": "LUFS",
-          "rawUnit": "LUFS"
-        }
-      ],
-      "kind": "fix",
-      "evidenceLevel": "文档",
-      "evidenceLabel": "原文陈述",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e378；原出处：原文 § Step 5"
-    },
-    {
       "id": "audio-subs.e322.practice",
       "sourceId": "e322",
       "section": 12,
@@ -2328,26 +1517,6 @@
       "docRef": "声音配乐配音字幕汇编 §12 ^e376；原出处：原文 § Step 4"
     },
     {
-      "id": "audio-subs.e394.practice",
-      "sourceId": "e394",
-      "section": 12,
-      "caseId": "case-19",
-      "title": "孟买全代码声音",
-      "text": "无录音/无生成:42 个无词人声群、喇叭/自行车铃/二冲程引擎、乌鸦与鸽、炭火与手扇、灯与寺钟、收音机里用笛/风琴/持续音/塔布拉演奏的拉格曲并过「廉价喇叭」模型;终混 −16.1 LUFS",
-      "quantities": [
-        {
-          "value": -16.1,
-          "unit": "LUFS",
-          "rawUnit": "LUFS"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "实测",
-      "evidenceLabel": "实测(作者读回)",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e394；原出处：原文 § Step 5"
-    },
-    {
       "id": "audio-subs.e395.practice",
       "sourceId": "e395",
       "section": 12,
@@ -2366,46 +1535,6 @@
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
       "docRef": "声音配乐配音字幕汇编 §12 ^e395；原出处：原文 § Zooms/Sound"
-    },
-    {
-      "id": "audio-subs.e399.practice",
-      "sourceId": "e399",
-      "section": 12,
-      "caseId": "case-26",
-      "title": "餐厅声音",
-      "text": "代码由具体声源合成:冰箱压缩机、随画面闪烁的霓虹镇流器、带多普勒的公路卡车、杯子颤响、招牌熄灭时的继电器咔嗒;终混 −14.0 LUFS",
-      "quantities": [
-        {
-          "value": -14,
-          "unit": "LUFS",
-          "rawUnit": "LUFS"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "实测",
-      "evidenceLabel": "实测(作者读回)",
-      "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e399；原出处：原文 § The Scene"
-    },
-    {
-      "id": "audio-subs.e327.practice",
-      "sourceId": "e327",
-      "section": 12,
-      "caseId": "case-27",
-      "title": "低音加重",
-      "text": "第 15、23、31 拍低音加重（约 −9.8 全频、−12.4 低频，比相邻高约 2.5 dB），正是换到 4 拍长镜头（第 16、24、32 拍）的前一拍；每 8 拍一次",
-      "quantities": [
-        {
-          "value": 2.5,
-          "unit": "dB",
-          "rawUnit": "dB"
-        }
-      ],
-      "kind": "method",
-      "evidenceLevel": "实测",
-      "evidenceLabel": "实测",
-      "verificationLabel": "我们自己量过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e327；原出处：27/09 §4.2、§6.1(5)"
     },
     {
       "id": "audio-subs.e328.practice",
@@ -2556,7 +1685,7 @@
       "evidenceLevel": "文档",
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e418；原出处：下载/原文/案例 072-v1-SKILL.md § MOUTH LOCK/AUDIO/NO ON-SCREEN TEXT"
+      "docRef": "声音配乐配音字幕汇编 §12 ^e418；原出处：原文档:skill-spec § MOUTH LOCK/AUDIO/NO ON-SCREEN TEXT"
     },
     {
       "id": "audio-subs.e387.practice",
@@ -2665,8 +1794,8 @@
       "kind": "method",
       "evidenceLevel": "实测",
       "evidenceLabel": "实测",
-      "verificationLabel": "我们自己核对过(梳理.md 实测列)",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e400；原出处：梳理.md § 时间线/核对表;阅读组2 § Step 2"
+      "verificationLabel": "我们自己核对过(原文档:timeline-notes 实测列)",
+      "docRef": "声音配乐配音字幕汇编 §12 ^e400；原出处：原文档:timeline-notes § 时间线/核对表;阅读组2 § Step 2"
     },
     {
       "id": "audio-subs.e416.practice",
@@ -2691,7 +1820,7 @@
       "evidenceLevel": "文档",
       "evidenceLabel": "原文陈述",
       "verificationLabel": "作者成片用过",
-      "docRef": "声音配乐配音字幕汇编 §12 ^e416；原出处：下载/原文/SKILL.md § Steps 3-4"
+      "docRef": "声音配乐配音字幕汇编 §12 ^e416；原出处：原文档:skill-spec § Steps 3-4"
     },
     {
       "id": "audio-subs.e447.practice",

@@ -159,7 +159,7 @@ test('顺手修复生效：案例 13 章号误标、案例标签统一成脱敏�
 });
 
 // 原作名、角色名、地名、曲名、人名的 sha256 前 16 位（名字本身不入库，免得测试文件自己泄露专名）。
-const IP_HASHES = new Set(["86663a1dd8f6b661", "924493ee15e2a68c", "dd9ab072bf740423", "2bf84b0ad08b23b8", "f4a6923996dbeb19", "3f8f01ea269b6cfe", "ecc9bddb65dc4451", "1351704cdc4d32f8", "b6f6732db83b899a", "a590c43e71d44866", "8534cd0426607ce6", "c6661966bce79f30", "419a4461434283fd", "bb1d46105bd704dc", "f27354a69b790eda", "d0b3b3d6c6c14f17", "aa416dab2cc47c86", "1ae0552a12823c54", "98162a1e33275f16", "ff627719813c923a", "40a7e9acb06295d6", "6d588db5b668cf12", "c512ca0c5c1e71be", "f44b7e30470bbf28", "c34305e7b35f6f0b", "965b8a7ec4177224", "1e445d2d4b31efe2", "f1ed891245759d1c", "26dd587fdb6a290c", "ad21b547ce7162c5", "1dd31cd072fdd30f", "b3158331cecc3845", "b9b13e1cd77acbd7", "ee839bf111a7e47a", "aaa1073bd98fd4e7", "07f0bf736c13b81f", "9e70b33fe4edaf5b", "5032f1bea2401f8f", "d4fff627da31250b", "36997f035118cae8", "9fa9e239e047e205", "b1f49128310e2481", "eb7855e04a2006fd", "f5105c9ea0cd361b", "e5a6d6899f2e6e04", "14fc1fd907298aaa", "dc7a4a2cc7e36000", "0b2058635ba3d17f", "1f25b77eea9b8db1", "59ee9ed12f7822d8", "ed818ec233248ae6", "930eaf1684b953a9", "400e436ed3eb0252", "f09bfa2c3c7042e4", "0e377aac3a660698", "d544b0316e19a87b", "dd415e6f13d54a9b", "1fe8ba945043480d", "e5993ec06c2e0d77", "c26804e0eaf84a96", "3d8c28f257964498", "d7834604301b3e8a", "06f8e2ae03f7ec87", "84a6921827058d16", "196cecb58d133eb0", "fba3a504b35a8d53", "a276bb8a748ddb9c", "90dd5db3f1b09545", "42c0b79536f2e4ff", "a7fb0e02239ad9aa", "3e9fd6d71c87b1db", "d2e2586d773f54ee", "9e863d7b36ae5de1", "729090481f813e9e", "b02ea6fe7b71ccf7", "7e8672748ae4410e", "3f33cff3bab2bd6e", "3eef1f7226e1215e", "619df91bac841eda", "0b1df33ea7eef2b2"]);
+const IP_HASHES = new Set(["86663a1dd8f6b661", "924493ee15e2a68c", "dd9ab072bf740423", "2bf84b0ad08b23b8", "f4a6923996dbeb19", "3f8f01ea269b6cfe", "ecc9bddb65dc4451", "1351704cdc4d32f8", "b6f6732db83b899a", "a590c43e71d44866", "8534cd0426607ce6", "c6661966bce79f30", "419a4461434283fd", "bb1d46105bd704dc", "f27354a69b790eda", "d0b3b3d6c6c14f17", "aa416dab2cc47c86", "1ae0552a12823c54", "98162a1e33275f16", "ff627719813c923a", "40a7e9acb06295d6", "6d588db5b668cf12", "c512ca0c5c1e71be", "f44b7e30470bbf28", "c34305e7b35f6f0b", "965b8a7ec4177224", "1e445d2d4b31efe2", "f1ed891245759d1c", "26dd587fdb6a290c", "ad21b547ce7162c5", "1dd31cd072fdd30f", "b3158331cecc3845", "b9b13e1cd77acbd7", "ee839bf111a7e47a", "aaa1073bd98fd4e7", "07f0bf736c13b81f", "9e70b33fe4edaf5b", "5032f1bea2401f8f", "d4fff627da31250b", "36997f035118cae8", "9fa9e239e047e205", "b1f49128310e2481", "eb7855e04a2006fd", "f5105c9ea0cd361b", "e5a6d6899f2e6e04", "14fc1fd907298aaa", "dc7a4a2cc7e36000", "0b2058635ba3d17f", "1f25b77eea9b8db1", "59ee9ed12f7822d8", "ed818ec233248ae6", "930eaf1684b953a9", "400e436ed3eb0252", "f09bfa2c3c7042e4", "0e377aac3a660698", "d544b0316e19a87b", "dd415e6f13d54a9b", "1fe8ba945043480d", "e5993ec06c2e0d77", "c26804e0eaf84a96", "3d8c28f257964498", "d7834604301b3e8a", "06f8e2ae03f7ec87", "84a6921827058d16", "196cecb58d133eb0", "fba3a504b35a8d53", "a276bb8a748ddb9c", "90dd5db3f1b09545", "42c0b79536f2e4ff", "a7fb0e02239ad9aa", "3e9fd6d71c87b1db", "d2e2586d773f54ee", "9e863d7b36ae5de1", "729090481f813e9e", "b02ea6fe7b71ccf7", "7e8672748ae4410e", "3f33cff3bab2bd6e", "3eef1f7226e1215e", "619df91bac841eda", "0b1df33ea7eef2b2", "ed4561f685f13353", "a819d7cd38e9101b", "c8b40f3f8920b8aa", "ca71d3ec52ddc852", "36ad0f15e388a8ce"]);
 
 test('零原作 IP 名：拉丁 1–3 词组（拆驼峰）与汉字 2–5 字串都不命中专名黑名单', () => {
   const grams = new Set();
@@ -185,8 +185,10 @@ test('零原包源码路径：四份 JSON 与加载器里没有 src/…、tools/
   const globRe = /[\w-]*\*[\w*-]*\.(?:m?js|cjs|ts|py|sh|glsl)\b/;
   const dataPathRe = /\b[\w.-]+\/[\w*.-]+\.(?:json|ya?ml|tsv|csv|wav|mp3|ogg|flac)\b/;
   const dataFileRe = /(?<![\w.-])(?!audio-subs\.)[\w*-]+\.(?:json|ya?ml|tsv|csv)\b/; // 裸 events.json 一类；本库自己的 audio-subs.*.json 除外
+  // 案例库内部的 .md 文档名与「下载/<指纹>/」「原文/」路径形态（三审）：出处只留中性类别（原文档:skill-spec 一类）。
+  const docRe = /\.md\b|下载\/|原文\//;
   for (const f of files) {
-    for (const re of [pathRe, fileRe, mediaRe, globRe, dataPathRe, dataFileRe]) assert.doesNotMatch(raw(f), re, f);
+    for (const re of [pathRe, fileRe, mediaRe, globRe, dataPathRe, dataFileRe, docRe]) assert.doesNotMatch(raw(f), re, f);
   }
   const loader = readFileSync(new URL('./priors-audio-subs.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(loader, /lab:\/\/|\/Users\/|案例复刻库/);
@@ -359,4 +361,92 @@ test('物理量语义：分数按值算、MIDI→Hz 只取频率、px= 变量不
   assert.ok(fade.includes('audio-subs.e455.fade-in-frames'));
   const sum = priors.find((p) => isSummary(p) && p.summaryOf.includes('audio-subs.e455.fade-in-frames'));
   assert.ok(sum && sum.unit === 'frame', 'e455 汇总行给帧数');
+});
+
+// 三审（G_REV-R3）：区域键、出处文件名、分析步长、随机区间算式、指定与实测时长口径、拍点汇总主值、两条归类边界。
+const REGION_KEY_HASHES = new Set(['ed4561f685f13353', 'a819d7cd38e9101b', 'c8b40f3f8920b8aa', 'ca71d3ec52ddc852', '36ad0f15e388a8ce', 'dc8331bcb2283e89']);
+const caseOf = (e) => e.caseId ?? e.provenance?.caseId;
+const qsOf = (e) => e.quantities ?? [{ value: e.value, unit: e.unit }];
+
+test('三审：案例 13 区域键全部换成中性区域编号，三张区域表编号一致', () => {
+  const all = [...priors, ...cardPriors, ...practices];
+  for (const e of all.filter((x) => caseOf(x) === 'case-13')) {
+    const words = JSON.stringify(e).replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().match(/[a-z]+/g) ?? [];
+    const hit = words.filter((w) => REGION_KEY_HASHES.has(createHash('sha256').update(w).digest('hex').slice(0, 16)));
+    assert.deepEqual(hit, [], e.id);
+  }
+  const zones = (sid) => new Set(cardPriors.find((e) => e.sourceId === sid).text.match(/zone_\d\d/g));
+  const [a, b, c] = ['e170', 'e187', 'e188'].map(zones);
+  const shared = [...a].filter((z) => b.has(z) && c.has(z));
+  assert.ok(shared.length >= 16, `三张表共有区域编号 ${shared.length}`);
+  assert.doesNotMatch(cardPriors.find((e) => e.sourceId === 'e187').text, /zone_\d{3}/, '键名接数要隔开，zone_01 0 不能读成 zone_010');
+  for (const e of all.filter((x) => caseOf(x) !== 'case-13')) assert.doesNotMatch(JSON.stringify(e), /zone_\d\d/, e.id);
+});
+
+test('三审：出处里的 .md 文件名归成中性类别', () => {
+  const refs = [...cardPriors, ...practices].filter((e) => ['e416', 'e418', 'e255', 'e470'].includes(e.sourceId)).map((e) => e.docRef);
+  assert.equal(refs.length, 4);
+  for (const r of refs) assert.match(r, /原文档:(?:skill-spec|runtime-reading|integration-audit)/, r);
+});
+
+test('三审：分析步长、随机区间、指定与实测时长、A ± B 都按物理量取值', () => {
+  const store = loadAudioSubsPriorsStore();
+  for (const [id, value, unit] of [
+    ['audio-subs.e297.duration', { median: 0.44, min: 0.25, max: 0.89 }, 's'],
+    ['audio-subs.e297.analysis-step', 10, 'ms'],
+    ['audio-subs.e349.duration', 25.051, 's'],
+    ['audio-subs.e350.duration', 20.036, 's'],
+    ['audio-subs.e352.analysis-lowpass', 150, 'Hz'],
+    ['audio-subs.e353.intro-duration', 5.5, 's'],
+    ['audio-subs.e0.autocorr-period', 0.8, 's'],
+  ]) {
+    const e = store.get(id);
+    assert.ok(e, id);
+    assert.equal(e.unit, unit, id);
+    assert.deepEqual(e.value, value, id);
+  }
+  for (const gone of ['e352.frequency', 'e0.duration', 'e313.duration', 'e324.duration', 'e339.duration', 'e353.duration', 'e308.duration']) {
+    assert.equal(store.get(`audio-subs.${gone}`), undefined, gone);
+  }
+  // 指定与实测并存时，.duration 一律取实测。
+  for (const e of priors.filter((p) => !isSummary(p) && p.id.endsWith('.duration'))) {
+    const m = e.provenance.note.match(/指定\s*([\d.]+)\s*s，\s*实测\s*([\d.]+)\s*s/);
+    if (m) assert.equal(e.value, Number(m[2]), e.id);
+  }
+  // 12 + rnd × 8 s 是 [12, 20] s，基础 12、跨度 8；全表的随机区间都满足 max = base + jitter。
+  const e163 = cardPriors.find((e) => e.sourceId === 'e163').quantities.find((q) => q.unit === 's');
+  assert.deepEqual(e163, { value: [12, 20], unit: 's', rawUnit: 's', base: 12, jitter: 8 });
+  const rnd = [...cardPriors, ...practices].flatMap((e) => e.quantities.filter((q) => 'jitter' in q));
+  assert.ok(rnd.length >= 20, `随机区间 ${rnd.length} 个`);
+  for (const q of rnd) assert.deepEqual(q.value, [q.base, Math.round((q.base + q.jitter) * 1e6) / 1e6]);
+  assert.ok(!cardPriors.find((e) => e.sourceId === 'e163').quantities.some((q) => q.value === 8), 'e163 不再只给系数 8 s');
+  // −14±0.3 LUFS 是 [−14.3, −13.7]，不是 [−0.3, 0.3]。
+  const e290 = [...cardPriors, ...practices].find((e) => e.sourceId === 'e290');
+  assert.ok(e290.quantities.some((q) => q.unit === 'LUFS' && q.value[0] === -14.3 && q.value[1] === -13.7));
+});
+
+test('三审：BPM 与拍点汇总主值取拍点类的量，主题随对照表所在节', () => {
+  const beat = priors.filter((p) => isSummary(p) && p.title.includes('BPM 与拍点'));
+  assert.ok(beat.length >= 5);
+  for (const e of beat) {
+    assert.ok(!['Hz', 'LUFS', 'LU', 'dBTP', 'dB'].includes(e.unit), `${e.id} ${e.unit}`);
+    assert.match(e.topic, /^audio-subs\.beat-sync\./, e.id);
+  }
+  const s = (id) => priors.find((p) => p.id === id);
+  assert.deepEqual([s('audio-subs.sum.s11-t1-r03').value, s('audio-subs.sum.s11-t1-r03').unit], [5.48, 's']);
+  assert.deepEqual([s('audio-subs.sum.s11-t1-r10').value, s('audio-subs.sum.s11-t1-r10').unit], [12, 's']);
+  assert.match(s('audio-subs.sum.s11-t1-r10').topic, /event-time$/);
+});
+
+test('三审：§8.1 两条边界——带实现参数表的源码条目挂卡、成片直接量出的读数可移植，汇总随明细', () => {
+  const route = new Map(manifest.ledger.map((r) => [r.sourceId, r.route]));
+  for (const id of ['e25', 'e24', 'e118', 'e133', 'e69', 'e310', 'e184', 'e207', 'e254', 'e3', 'e343', 'e257']) {
+    assert.equal(route.get(id), 'card-coupled', id);
+  }
+  for (const id of ['e304', 'e325', 'e327', 'e337', 'e378']) assert.equal(route.get(id), 'portable', id);
+  assert.equal(route.get('sum.s01-t1-r09'), 'portable');
+  for (const r of manifest.ledger.filter((x) => x.kind === 'summary')) assert.equal(r.route, route.get(r.summaryOf), r.sourceId);
+  const sum = priors.find((p) => p.id === 'audio-subs.sum.s01-t1-r09');
+  assert.deepEqual(sum.summaryOf, priors.filter((p) => p.id.startsWith('audio-subs.e378.')).map((p) => p.id));
+  for (const id of ['e325', 'e337']) assert.ok(loadAudioSubsPriorsStore().get(`audio-subs.${id}.beat-interval`)?.unit === 'ms', id);
 });

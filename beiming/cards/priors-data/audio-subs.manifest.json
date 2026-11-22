@@ -7,21 +7,21 @@
   "mergedDuplicatesNotCounted": 54,
   "order": "ledger 按源 Markdown 的自然行序排列，sourceLine 是源文行号",
   "counting": "源总数 = 明细条目（带 ^e 锚点）+ 跨案例对照表行；汇总行的去向随它指回的明细，不另算一条明细；并入的重复条目原文已在明细里，不计数",
-  "portableCount": 63,
-  "cardCoupledCount": 320,
-  "practiceCount": 145,
+  "portableCount": 82,
+  "cardCoupledCount": 342,
+  "practiceCount": 104,
   "excludedOrConflictCount": 12,
   "detailRouteCounts": {
-    "practice": 112,
-    "card-coupled": 256,
-    "portable": 38,
+    "practice": 82,
+    "card-coupled": 276,
+    "portable": 48,
     "skipped-or-conflict": 11
   },
   "summaryRouteCounts": {
-    "portable": 25,
-    "practice": 33,
+    "portable": 34,
+    "practice": 22,
     "skipped-or-conflict": 1,
-    "card-coupled": 64
+    "card-coupled": 66
   },
   "files": {
     "priors": "audio-subs.json",
@@ -41,6 +41,12 @@
       {
         "sourceId": "e352",
         "entries": [
+          {
+            "kind": "analysis-lowpass",
+            "unit": "Hz",
+            "value": 150,
+            "label": "包络相关只取的频带上限"
+          },
           {
             "kind": "start-offset",
             "unit": "s",
@@ -185,6 +191,222 @@
               "max": 19
             },
             "label": "字幕淡入耗时"
+          }
+        ]
+      },
+      {
+        "sourceId": "e297",
+        "entries": [
+          {
+            "kind": "analysis-step",
+            "unit": "ms",
+            "value": 10,
+            "label": "音量表分析步长"
+          },
+          {
+            "kind": "silence-threshold",
+            "unit": "dB",
+            "value": -45,
+            "label": "停顿判定电平（dBFS）"
+          },
+          {
+            "kind": "duration",
+            "unit": "s",
+            "value": {
+              "median": 0.44,
+              "min": 0.25,
+              "max": 0.89
+            },
+            "label": "场景内停顿时长（判据 ≥0.25 s）"
+          },
+          {
+            "kind": "boundary-silence",
+            "unit": "s",
+            "value": [
+              0.68,
+              1.01
+            ],
+            "label": "场景边界静音时长"
+          }
+        ]
+      },
+      {
+        "sourceId": "e349",
+        "entries": [
+          {
+            "kind": "duration",
+            "unit": "s",
+            "value": 25.051,
+            "label": "实测时长（指定 25 s）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e350",
+        "entries": [
+          {
+            "kind": "duration",
+            "unit": "s",
+            "value": 20.036,
+            "label": "实测时长（指定 20 s）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e325",
+        "entries": [
+          {
+            "kind": "analysis-highpass",
+            "unit": "Hz",
+            "value": 2000,
+            "label": "起音检测只看的频带下限"
+          },
+          {
+            "kind": "beat-interval",
+            "unit": "ms",
+            "value": 700,
+            "label": "起音自相关最强间隔（约 85.7 BPM，只有 10 s，不可靠）"
+          },
+          {
+            "kind": "analysis-window",
+            "unit": "s",
+            "value": 10,
+            "label": "可分析的音乐长度"
+          }
+        ]
+      },
+      {
+        "sourceId": "e337",
+        "entries": [
+          {
+            "kind": "beat-interval",
+            "unit": "ms",
+            "value": 500,
+            "label": "取定的拍间隔（120 BPM）"
+          },
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 0.48,
+            "label": "首个拍点时刻"
+          },
+          {
+            "kind": "beat-period",
+            "unit": "s",
+            "value": 0.5,
+            "label": "拍点间隔（拍点 0.48 s + 0.5 s × k）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e327",
+        "entries": [
+          {
+            "kind": "bass-boost",
+            "unit": "dB",
+            "value": 2.5,
+            "label": "换长镜前一拍的低音比相邻拍高"
+          }
+        ]
+      },
+      {
+        "sourceId": "e304",
+        "entries": [
+          {
+            "kind": "jitter",
+            "unit": "ratio",
+            "value": 0.004,
+            "label": "声带脉冲抖动"
+          },
+          {
+            "kind": "shimmer",
+            "unit": "ratio",
+            "value": 0.03,
+            "label": "声带脉冲闪烁"
+          }
+        ]
+      },
+      {
+        "sourceId": "e0",
+        "entries": [
+          {
+            "kind": "autocorr-period",
+            "unit": "s",
+            "value": 0.8,
+            "label": "包络自相关最强周期（其次 1.20、0.40 s）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e313",
+        "entries": [
+          {
+            "kind": "last-window",
+            "unit": "s",
+            "value": 0.78,
+            "label": "最后一个整秒量测窗的实际长度"
+          }
+        ]
+      },
+      {
+        "sourceId": "e324",
+        "entries": [
+          {
+            "kind": "fade-in-span",
+            "unit": "ms",
+            "value": 300,
+            "label": "淡入段长度（每 50 ms 一点）"
+          },
+          {
+            "kind": "fade-out-span",
+            "unit": "s",
+            "value": 1,
+            "label": "淡出量测段（最后 1 s）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e339",
+        "entries": [
+          {
+            "kind": "analysis-window",
+            "unit": "ms",
+            "value": 50,
+            "label": "量测窗长（开头第一个窗已是 −26 dBFS）"
+          },
+          {
+            "kind": "head-span",
+            "unit": "s",
+            "value": 0.5,
+            "label": "开头量测段（前 0.5 s 每 50 ms 一点）"
+          }
+        ]
+      },
+      {
+        "sourceId": "e353",
+        "entries": [
+          {
+            "kind": "intro-duration",
+            "unit": "s",
+            "value": 5.5,
+            "label": "成片多出的较安静片头"
+          },
+          {
+            "kind": "event-time",
+            "unit": "s",
+            "value": 35.38,
+            "label": "最后一帧高于 −60 dBFS 的时刻"
+          }
+        ]
+      },
+      {
+        "sourceId": "e308",
+        "entries": [
+          {
+            "kind": "breath-pause-threshold",
+            "unit": "s",
+            "value": 0.36,
+            "label": "乐句前停顿超过此值才吸气"
           }
         ]
       }
@@ -352,37 +574,37 @@
     {
       "cardId": "audio.dsp",
       "exists": false,
-      "count": 10
+      "count": 12
     },
     {
       "cardId": "audio.event-mix",
       "exists": false,
-      "count": 48
+      "count": 52
     },
     {
       "cardId": "audio.master",
       "exists": true,
-      "count": 8
+      "count": 10
     },
     {
       "cardId": "audio.music-gen",
       "exists": false,
-      "count": 81
+      "count": 90
     },
     {
       "cardId": "audio.scene-events",
       "exists": false,
-      "count": 1
+      "count": 2
     },
     {
       "cardId": "audio.sfx-bank",
       "exists": false,
-      "count": 35
+      "count": 36
     },
     {
       "cardId": "audio.voice-synth",
       "exists": false,
-      "count": 21
+      "count": 22
     },
     {
       "cardId": "overlay.subs",
@@ -627,7 +849,7 @@
         },
         {
           "to": "案例 13",
-          "n": 77
+          "n": 82
         },
         {
           "to": "〔专名18〕",
@@ -646,39 +868,43 @@
           "n": 3
         },
         {
-          "to": "〔专名01〕",
-          "n": 1
+          "to": "zone_01",
+          "n": 9
         },
         {
-          "to": "〔专名02〕",
-          "n": 1
-        },
-        {
-          "to": "〔专名03〕",
+          "to": "zone_02",
           "n": 4
         },
         {
-          "to": "〔专名04〕",
+          "to": "zone_03",
           "n": 4
         },
         {
-          "to": "〔专名05〕",
-          "n": 1
+          "to": "zone_04",
+          "n": 4
         },
         {
-          "to": "〔专名06〕",
-          "n": 1
+          "to": "zone_05",
+          "n": 11
         },
         {
-          "to": "〔专名07〕",
+          "to": "zone_06",
+          "n": 10
+        },
+        {
+          "to": "zone_07",
+          "n": 6
+        },
+        {
+          "to": "zone_08",
           "n": 5
         },
         {
-          "to": "〔专名08〕",
+          "to": "zone_09",
           "n": 5
         },
         {
-          "to": "〔专名09〕",
+          "to": "zone_16",
           "n": 5
         },
         {
@@ -686,24 +912,36 @@
           "n": 1
         },
         {
-          "to": "〔专名14〕",
-          "n": 5
-        },
-        {
-          "to": "〔专名15〕",
-          "n": 5
-        },
-        {
-          "to": "〔专名16〕",
+          "to": "zone_10",
           "n": 4
         },
         {
-          "to": "〔专名17〕",
+          "to": "zone_11",
+          "n": 5
+        },
+        {
+          "to": "zone_12",
+          "n": 4
+        },
+        {
+          "to": "zone_13",
+          "n": 5
+        },
+        {
+          "to": "zone_14",
+          "n": 4
+        },
+        {
+          "to": "zone_15",
+          "n": 6
+        },
+        {
+          "to": "zone_17",
+          "n": 6
+        },
+        {
+          "to": "zone_18",
           "n": 10
-        },
-        {
-          "to": "〔专名52〕",
-          "n": 4
         },
         {
           "to": "〔专名37〕",
@@ -882,20 +1120,16 @@
           "n": 2
         },
         {
-          "to": "〔专名38〕",
-          "n": 3
-        },
-        {
           "to": "〔专名35〕",
           "n": 1
         },
         {
           "to": "外部案例 01",
-          "n": 66
+          "n": 71
         },
         {
           "to": "案例 02",
-          "n": 66
+          "n": 71
         },
         {
           "to": "巨型头目",
@@ -927,7 +1161,7 @@
         },
         {
           "to": "案例 072",
-          "n": 2
+          "n": 1
         },
         {
           "to": "博客案例 b07",
@@ -957,6 +1191,166 @@
       "sourceId": "e352",
       "route": "portable",
       "reason": "一审指定：实测配乐偏移（s）、帧位与放慢比例可跨实现复用"
+    },
+    {
+      "sourceId": "e25",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e24",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e118",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e133",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e69",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e310",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e184",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e207",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e254",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e3",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e343",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e257",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e362",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e262",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e27",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e48",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e121",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e424",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e189",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e217",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e219",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e287",
+      "route": "card-coupled",
+      "reason": "三审规则 A：带原实现的数值表或配置（延迟、阈值、系数、调度状态、合成器与总线参数），跟实现绑定，挂卡"
+    },
+    {
+      "sourceId": "e304",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e325",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e327",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e337",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e378",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e394",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e399",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e351",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e404",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
+    },
+    {
+      "sourceId": "e413",
+      "route": "portable",
+      "reason": "三审规则 B：从成片或音频直接量出的通用物理量读数，不依赖具体合成器，可移植"
     }
   ],
   "routeAdjustments": [
@@ -1860,7 +2254,7 @@
     {
       "sourceId": "e362",
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "text": "调度提前量：代码是 0.6 s，源码注释写 0.4 s，以代码为准",
       "attachedTo": [],
       "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
@@ -1916,7 +2310,7 @@
     {
       "sourceId": "e337",
       "caseId": "case-23",
-      "route": "card-coupled",
+      "route": "portable",
       "text": "120 BPM 与 60 BPM（每小节）都可能，自相关无法区分",
       "attachedTo": [],
       "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
@@ -1950,10 +2344,12 @@
     {
       "sourceId": "e394",
       "caseId": "case-19",
-      "route": "practice",
+      "route": "portable",
       "text": "孟买终混响度两个数：作者称 −16.1 LUFS，我们读回 −16.2 LUFS（366），另有真峰值 +5.5 dBFS 与东京 −2.5 dBFS 对照",
-      "attachedTo": [],
-      "note": "数值单位与该条先验对不上或该条不是可移植量，冲突原文留在总账"
+      "attachedTo": [
+        "audio-subs.e394.loudness"
+      ],
+      "note": "已写进先验条目的 conflicts，两边都保留"
     },
     {
       "sourceId": "e329",
@@ -2163,9 +2559,11 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-19",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e394",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s01-t1-r08"
+      ]
     },
     {
       "sourceLine": 40,
@@ -2173,9 +2571,11 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-14",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e378",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s01-t1-r09"
+      ]
     },
     {
       "sourceLine": 41,
@@ -2203,9 +2603,11 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-12",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e404",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s01-t1-r12"
+      ]
     },
     {
       "sourceLine": 44,
@@ -2213,9 +2615,11 @@
       "kind": "summary",
       "section": 1,
       "caseId": "case-05",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e351",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s01-t1-r13"
+      ]
     },
     {
       "sourceLine": 45,
@@ -2311,9 +2715,9 @@
       "kind": "detail",
       "section": 1,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e362.practice"
+        "audio-subs.e362.card"
       ]
     },
     {
@@ -2468,7 +2872,7 @@
       "kind": "summary",
       "section": 2,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "summaryOf": "e257",
       "targets": []
     },
@@ -2687,9 +3091,9 @@
       "kind": "detail",
       "section": 2,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e25.practice"
+        "audio-subs.e25.card"
       ]
     },
     {
@@ -2731,7 +3135,7 @@
       "kind": "summary",
       "section": 3,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "summaryOf": "e24",
       "targets": []
     },
@@ -2792,9 +3196,9 @@
       "kind": "detail",
       "section": 3,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e24.practice"
+        "audio-subs.e24.card"
       ]
     },
     {
@@ -2803,9 +3207,9 @@
       "kind": "detail",
       "section": 3,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e27.practice"
+        "audio-subs.e27.card"
       ]
     },
     {
@@ -3524,9 +3928,9 @@
       "kind": "detail",
       "section": 5,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e118.practice"
+        "audio-subs.e118.card"
       ]
     },
     {
@@ -3557,9 +3961,9 @@
       "kind": "detail",
       "section": 6,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e48.practice"
+        "audio-subs.e48.card"
       ]
     },
     {
@@ -3700,9 +4104,9 @@
       "kind": "detail",
       "section": 6,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e69.practice"
+        "audio-subs.e69.card"
       ]
     },
     {
@@ -3876,9 +4280,9 @@
       "kind": "detail",
       "section": 6,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e121.practice"
+        "audio-subs.e121.card"
       ]
     },
     {
@@ -3971,9 +4375,11 @@
       "kind": "summary",
       "section": 7,
       "caseId": "case-20",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e304",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s07-t2-r02"
+      ]
     },
     {
       "sourceLine": 550,
@@ -4177,9 +4583,10 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-20",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e304.practice"
+        "audio-subs.e304.jitter",
+        "audio-subs.e304.shimmer"
       ]
     },
     {
@@ -4223,7 +4630,7 @@
       "caseId": "case-20",
       "route": "portable",
       "targets": [
-        "audio-subs.e308.duration"
+        "audio-subs.e308.breath-pause-threshold"
       ]
     },
     {
@@ -4243,9 +4650,9 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-20",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e310.practice"
+        "audio-subs.e310.card"
       ]
     },
     {
@@ -4285,7 +4692,7 @@
       "route": "portable",
       "targets": [
         "audio-subs.e313.level",
-        "audio-subs.e313.duration"
+        "audio-subs.e313.last-window"
       ]
     },
     {
@@ -4392,9 +4799,9 @@
       "kind": "detail",
       "section": 7,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e424.practice"
+        "audio-subs.e424.card"
       ]
     },
     {
@@ -4647,7 +5054,7 @@
       "kind": "summary",
       "section": 8,
       "caseId": "case-07",
-      "route": "practice",
+      "route": "card-coupled",
       "summaryOf": "e343",
       "targets": []
     },
@@ -4820,9 +5227,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e133.practice"
+        "audio-subs.e133.card"
       ]
     },
     {
@@ -5381,9 +5788,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e184.practice"
+        "audio-subs.e184.card"
       ]
     },
     {
@@ -5436,9 +5843,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e189.practice"
+        "audio-subs.e189.card"
       ]
     },
     {
@@ -5458,9 +5865,9 @@
       "kind": "detail",
       "section": 8,
       "caseId": "case-13",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e207.practice"
+        "audio-subs.e207.card"
       ]
     },
     {
@@ -5582,9 +5989,9 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-ext01",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e217.practice"
+        "audio-subs.e217.card"
       ]
     },
     {
@@ -5604,9 +6011,9 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-ext01",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e219.practice"
+        "audio-subs.e219.card"
       ]
     },
     {
@@ -5989,9 +6396,9 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-ext01",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e254.practice"
+        "audio-subs.e254.card"
       ]
     },
     {
@@ -6022,9 +6429,9 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e257.practice"
+        "audio-subs.e257.card"
       ]
     },
     {
@@ -6077,9 +6484,9 @@
       "kind": "detail",
       "section": 9,
       "caseId": "case-02",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e262.practice"
+        "audio-subs.e262.card"
       ]
     },
     {
@@ -6493,9 +6900,11 @@
       "kind": "summary",
       "section": 10,
       "caseId": "case-19",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e394",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s10-t1-r10"
+      ]
     },
     {
       "sourceLine": 1232,
@@ -6513,9 +6922,11 @@
       "kind": "summary",
       "section": 10,
       "caseId": "case-26",
-      "route": "practice",
+      "route": "portable",
       "summaryOf": "e399",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s10-t1-r12"
+      ]
     },
     {
       "sourceLine": 1234,
@@ -6580,9 +6991,9 @@
       "kind": "detail",
       "section": 10,
       "caseId": "case-01r",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e287.practice"
+        "audio-subs.e287.card"
       ]
     },
     {
@@ -6667,9 +7078,11 @@
       "kind": "summary",
       "section": 11,
       "caseId": "case-23",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "e337",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s11-t1-r02"
+      ]
     },
     {
       "sourceLine": 1271,
@@ -6689,7 +7102,7 @@
       "kind": "summary",
       "section": 11,
       "caseId": "case-07",
-      "route": "practice",
+      "route": "card-coupled",
       "summaryOf": "e343",
       "targets": []
     },
@@ -6719,9 +7132,11 @@
       "kind": "summary",
       "section": 11,
       "caseId": "case-15",
-      "route": "card-coupled",
+      "route": "portable",
       "summaryOf": "e325",
-      "targets": []
+      "targets": [
+        "audio-subs.sum.s11-t1-r07"
+      ]
     },
     {
       "sourceLine": 1276,
@@ -6795,7 +7210,7 @@
       "targets": [
         "audio-subs.e0.frame-rate",
         "audio-subs.e0.frames",
-        "audio-subs.e0.duration"
+        "audio-subs.e0.autocorr-period"
       ]
     },
     {
@@ -6804,9 +7219,9 @@
       "kind": "detail",
       "section": 11,
       "caseId": "case-03",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e3.practice"
+        "audio-subs.e3.card"
       ]
     },
     {
@@ -6826,9 +7241,11 @@
       "kind": "detail",
       "section": 11,
       "caseId": "case-15",
-      "route": "card-coupled",
+      "route": "portable",
       "targets": [
-        "audio-subs.e325.card"
+        "audio-subs.e325.analysis-highpass",
+        "audio-subs.e325.beat-interval",
+        "audio-subs.e325.analysis-window"
       ]
     },
     {
@@ -6837,9 +7254,11 @@
       "kind": "detail",
       "section": 11,
       "caseId": "case-23",
-      "route": "card-coupled",
+      "route": "portable",
       "targets": [
-        "audio-subs.e337.card"
+        "audio-subs.e337.beat-interval",
+        "audio-subs.e337.event-time",
+        "audio-subs.e337.beat-period"
       ]
     },
     {
@@ -6861,7 +7280,7 @@
       "caseId": "case-05",
       "route": "portable",
       "targets": [
-        "audio-subs.e352.frequency",
+        "audio-subs.e352.analysis-lowpass",
         "audio-subs.e352.start-offset",
         "audio-subs.e352.slowdown",
         "audio-subs.e352.stretch-factor"
@@ -6949,9 +7368,10 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-05",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e351.practice"
+        "audio-subs.e351.loudness",
+        "audio-subs.e351.true-peak"
       ]
     },
     {
@@ -6965,7 +7385,8 @@
         "audio-subs.e353.loudness",
         "audio-subs.e353.loudness-range",
         "audio-subs.e353.level",
-        "audio-subs.e353.duration"
+        "audio-subs.e353.intro-duration",
+        "audio-subs.e353.event-time"
       ]
     },
     {
@@ -7005,9 +7426,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-07",
-      "route": "practice",
+      "route": "card-coupled",
       "targets": [
-        "audio-subs.e343.practice"
+        "audio-subs.e343.card"
       ]
     },
     {
@@ -7051,9 +7472,10 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-12",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e404.practice"
+        "audio-subs.e404.loudness",
+        "audio-subs.e404.frequency"
       ]
     },
     {
@@ -7062,9 +7484,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-12",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e413.practice"
+        "audio-subs.e413.loudness"
       ]
     },
     {
@@ -7073,9 +7495,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-14",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e378.practice"
+        "audio-subs.e378.loudness"
       ]
     },
     {
@@ -7112,7 +7534,8 @@
       "caseId": "case-15",
       "route": "portable",
       "targets": [
-        "audio-subs.e324.duration"
+        "audio-subs.e324.fade-in-span",
+        "audio-subs.e324.fade-out-span"
       ]
     },
     {
@@ -7168,8 +7591,10 @@
       "caseId": "case-18",
       "route": "portable",
       "targets": [
+        "audio-subs.e297.analysis-step",
+        "audio-subs.e297.silence-threshold",
         "audio-subs.e297.duration",
-        "audio-subs.e297.level"
+        "audio-subs.e297.boundary-silence"
       ]
     },
     {
@@ -7209,9 +7634,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-19",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e394.practice"
+        "audio-subs.e394.loudness"
       ]
     },
     {
@@ -7245,8 +7670,9 @@
       "caseId": "case-23",
       "route": "portable",
       "targets": [
-        "audio-subs.e339.duration",
-        "audio-subs.e339.level"
+        "audio-subs.e339.analysis-window",
+        "audio-subs.e339.level",
+        "audio-subs.e339.head-span"
       ]
     },
     {
@@ -7275,9 +7701,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-26",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e399.practice"
+        "audio-subs.e399.loudness"
       ]
     },
     {
@@ -7297,9 +7723,9 @@
       "kind": "detail",
       "section": 12,
       "caseId": "case-27",
-      "route": "practice",
+      "route": "portable",
       "targets": [
-        "audio-subs.e327.practice"
+        "audio-subs.e327.bass-boost"
       ]
     },
     {
