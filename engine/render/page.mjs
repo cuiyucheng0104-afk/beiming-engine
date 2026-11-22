@@ -15,9 +15,10 @@
 // 请求失败）、访问外网，都记成 film 上的致命错误，check() 抛出（RenderError，错误码见 README「错误码」，带下一步提示）；
 // 等 READY 期间出错立刻失败，并先关掉这个浏览器再抛。退出码与清理交给调用方（still / video / shots）。
 // 片段补丁没命中算构建失败（lib/patch-check.mjs）：engine/shade 的着色器补丁找不到锚点时，抛错的地方同时在 patch.js 模块闭包里记一条
-// 结构化记录。patchCheck(page) 读它（只在页面加载过 patch.js 时），有记录就抛 failure.shader-error：置 READY 之后、renderFrame 每帧之后、
-// lib/yuv.mjs 的 captureGpuFrame 交出帧之前、收尾时各调一次——未捕获异常、render(t) 抛错、被页面接住后打到控制台、接住后静音照常画，
-// 单采样与超采样，都一样；--allow-gl-errors 不放行。页面自己往全局键上塞记录、往 console.error 打带机器前缀的字，记录里没有就不判。
+// 结构化记录。patchCheck(page) 读它（只在页面加载过 patch.js 时），有记录就抛 failure.shader-error：置 READY 之后读一次，此后这一页每次
+// page.evaluate 把结果交回之前都读（watchPatchModules 加的守卫：renderFrame、lib/yuv.mjs 的 captureGpuFrame、收尾都经它，不用各自调）——
+// 未捕获异常、render(t) 抛错、被页面接住后打到控制台、接住后静音照常画，单采样与超采样，都一样；--allow-gl-errors 不放行。
+// 页面自己往全局键上塞记录、往 console.error 打带机器前缀的字，记录里没有就不判。
 //
 // GPU：ANGLE 后端按 --angle / BEIMING_ANGLE / 平台默认选（macOS metal、Windows vulkan、Linux default），平台不对直接报错；
 //   --gpu required（默认，读 BEIMING_GPU）时落到软件渲染判失败（退出码 3）。浏览器与启动参数见 lib/gpu.mjs，
@@ -355,12 +356,11 @@ export async function renderFrame(film, t, { timeoutMs = frameTimeoutMs(), settl
     if (e instanceof RenderError || signal?.aborted) throw signal?.aborted ? signal.reason : e;
     film.check();
     const msg = String(e?.message ?? e).replace(/^page\.evaluate:\s*/, '').split('\n')[0];
-    throw patchMiss(msg, `${where}：`) ?? new RenderError('failure.render-throw', `${where}render 出错：${msg}`, { hint: '页面的 render(t) 抛了异常：用 node engine/render/still.mjs <目录> --frame <帧号> 单独复现' });
+    throw new RenderError('failure.render-throw', `${where}render 出错：${msg}`, { hint: '页面的 render(t) 抛了异常：用 node engine/render/still.mjs <目录> --frame <帧号> 单独复现' });
   } finally { clearTimeout(timer); }
   if (faults > 0) {
     throw new RenderError('failure.context-lost', `${where}：WebGL 上下文丢失`, { hint: '显存不够、驱动重置（Windows TDR）或页面调用了 loseContext：减少 --workers 或尺寸，查共享 GPU 上的其他任务' });
   }
-  await patchCheck(film.page, `${where}：`);
   film.check();
 }
 
@@ -368,7 +368,6 @@ export async function renderFrame(film, t, { timeoutMs = frameTimeoutMs(), settl
 export async function finalFaultCheck(film) {
   const n = await film.page.evaluate(() => new Promise(r => setTimeout(() => r(window.__BEIMING_FAULTS ? window.__BEIMING_FAULTS.length : 0), 0)));
   if (n > 0) throw new RenderError('failure.context-lost', 'WebGL 上下文丢失（最后一帧之后才报出来）', { hint: '减少 --workers 或尺寸，查共享 GPU 上的其他任务' });
-  await patchCheck(film.page);
   film.check();
 }
 
