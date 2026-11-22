@@ -157,28 +157,30 @@ export function openShotCache(cacheDir) {
   const stamp = file => fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
   // 状态按操作这一刻的物理根取，不在打开时固定：根目录被改名轮换、原路径重建后，新旧句柄争的是同一个 .cache.lock，必须认到同一份状态。
   // 取样遇到共享冲突就退避重来；节点号为 0 时设备号分不出同卷的两个目录，只能用路径。
-  function currentState() {
-    const lockKey = retrySharing(root, () => {
-      const now = stamp(root);
+  function stateOf(dir) {
+    const lockKey = retrySharing(dir, () => {
+      const now = stamp(dir);
       if (now && now.ino > 0n) return `${now.dev}:${now.ino}`;
       try {
-        return fs.realpathSync.native(root);
+        return fs.realpathSync.native(dir);
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;
-        return path.resolve(root); // 根已不在：随后的建锁会报 ENOENT，由 put 补建后重来
+        return path.resolve(dir); // 根已不在：随后的建锁会报 ENOENT，由 put 补建后重来
       }
     }, 12, fs.constants.R_OK);
     return processLocks.get(lockKey) ?? processLocks.set(lockKey, { held: false, putSeq: 0 }).get(lockKey);
   }
   function withCacheLock(run, timeoutMs) {
-    const entered = currentState();
-    if (entered.held) return run(entered);
+    const entered = stateOf(root);
+    if (entered.held) return run(entered, root);
     // held 只在真正拿到文件锁之后置位：还在等别的进程放锁时重入的调用同样要去等锁，不能当成已持锁。
-    return withFileLock(path.join(root, '.cache'), () => {
-      const state = currentState(); // 等锁期间根也可能被轮换，拿到锁后再认一次
+    return withFileLock(path.join(root, '.cache'), locked => {
+      // 等锁期间、拿到锁之后根都可能被轮换：状态认锁所在的那一代目录，不在原路径上别人的目录里标记持锁
+      const lockedRoot = path.dirname(locked());
+      const state = stateOf(lockedRoot);
       state.held = true;
       try {
-        return run(state);
+        return run(state, lockedRoot);
       } finally {
         state.held = false;
       }
@@ -200,7 +202,12 @@ export function openShotCache(cacheDir) {
     for (let attempt = 0; ; attempt++) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       try {
-        atomicWrite(file, bytes, { stagingParent: root, aroundPublish: publish => withCacheLock(state => { state.putSeq += 1; publish(); }) });
+        atomicWrite(file, bytes, { stagingParent: root, aroundPublish: publish => withCacheLock((state, lockedRoot) => {
+          // 锁落在被轮换走的目录里：原路径上的目录不归这把锁管，按目录不在了处理，下面补建后重来
+          if (lockedRoot !== root) throw Object.assign(new Error('缓存根目录在发布前被轮换。'), { code: 'ENOENT' });
+          state.putSeq += 1;
+          publish();
+        }) });
         break;
       } catch (error) {
         // 并发失效/清理可能刚移走父目录；只补一次，持续的 I/O 故障交给调用方。
@@ -215,12 +222,13 @@ export function openShotCache(cacheDir) {
   // 锁套在单次尝试里面，退避等待时不占锁。
   function removeSame(file, snap, timeoutMs) {
     let removed = false;
-    retrySharing(file, () => withCacheLock(state => {
+    retrySharing(file, () => withCacheLock((state, lockedRoot) => {
+      const target = path.join(lockedRoot, path.relative(root, file)); // 根被轮换时，核对与删除都落在锁所在的那一代目录里
       const seqBefore = state.putSeq;
-      const now = stamp(file);
+      const now = stamp(target);
       if (state.putSeq !== seqBefore || !now || !snap || now.ino !== snap.ino || now.size !== snap.size || now.mtimeNs !== snap.mtimeNs || now.ctimeNs !== snap.ctimeNs) return;
       try {
-        fs.unlinkSync(file);
+        fs.unlinkSync(target);
         removed = true;
       } catch (error) {
         if (error.code !== 'ENOENT') throw error;

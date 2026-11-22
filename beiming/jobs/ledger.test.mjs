@@ -640,6 +640,43 @@ test('R9 锁文件内容是「进程号 UUID」：已退出进程留下的新格
   assert.equal(readFileSync(lock, 'utf8'), `${process.pid} ${uuid}\n`, '别人的锁超时后原样留着');
 });
 
+test('R11 读账途中账本目录被轮换：认回持锁的那一代重读，序号接着那一代的账往下排，不写进原路径上的新目录', t => {
+  const dir = join(tempDir(t, 'reread'), 'jobs');
+  const retired = `${dir}-old`;
+  const file = join(dir, 'ledger.jsonl');
+  jobs.appendJobLedger(file, baseRow);
+  const realRead = fs.readFileSync;
+  let rotated = false;
+  t.mock.method(fs, 'readFileSync', (target, ...rest) => {
+    if (!rotated && target === file) {
+      rotated = true;
+      fs.renameSync(dir, retired);
+      mkdirSync(dir);
+    }
+    return realRead(target, ...rest);
+  });
+  assert.equal(jobs.appendJobLedger(file, { ...baseRow, jobId: 'j-2' }).seq, 2);
+  assert.equal(rotated, true);
+  assert.deepEqual(jobs.readJobLedger(join(retired, 'ledger.jsonl')).map(row => row.seq), [1, 2]);
+  assert.deepEqual(fs.readdirSync(dir), []);
+  assert.deepEqual(fs.readdirSync(retired), ['ledger.jsonl']);
+});
+
+test('R11 回调抛错、放锁又失败：报回调的错；留下的锁按登记的凭据在下一次取锁时回收', t => {
+  const file = join(tempDir(t, 'orphan'), 'job.json');
+  const lock = `${file}.lock`;
+  const boom = new Error('回调失败');
+  const stuck = t.mock.method(fs, 'rmSync', (target, options) => {
+    if (target === lock) throw Object.assign(new Error('删不掉'), { code: 'ENOTEMPTY' });
+    return rmSync(target, options);
+  });
+  assert.throws(() => withFileLock(file, () => { throw boom; }), error => error === boom);
+  stuck.mock.restore();
+  assert.equal(existsSync(lock), true);
+  assert.equal(withFileLock(file, () => 'ok', 200), 'ok');
+  assert.equal(existsSync(lock), false);
+});
+
 test('R1 等锁时父目录消失，立即报 ENOENT，不把缺目录变成竞争超时', t => {
   const parent = join(tempDir(t, 'parent'), 'jobs');
   const file = join(parent, 'ledger.jsonl');

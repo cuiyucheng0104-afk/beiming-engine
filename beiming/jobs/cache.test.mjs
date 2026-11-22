@@ -1407,13 +1407,14 @@ test('A16-35 九审收口：建锁早期轮换回收（linkSync 即刻轮换）�
   t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
   const entryA = computeFrameCacheKey(baseSpec());
 
-  await t.test('1) 主锁 linkSync 刚返回即轮换目录并在新根预置锁：旧根零残留 .lock/.write-*，新根锁完整保留', (st) => {
+  await t.test('1) 主锁 linkSync 刚返回即轮换目录并在新根预置存活锁：拒绝进入新代临界区（ETIMEDOUT）、旧根零残留、新根锁完整保留；无预置锁时重取新根锁后再进回调', (st) => {
     const root = path.join(parent, 'early-lock');
     const retired = path.join(parent, 'early-lock-old');
     const cache = openShotCache(root);
     cache.put(entryA, { colorBytes: Buffer.from([31]), meta: sampleMeta, runId: 'r-early' });
     const realLink = fs.linkSync;
     const realRename = fs.renameSync;
+    const liveNewLock = `${process.pid} newgen-uuid\n`;
     let rotated = false;
     st.mock.method(fs, 'linkSync', (src, dst) => {
       const r = realLink(src, dst);
@@ -1421,17 +1422,40 @@ test('A16-35 九审收口：建锁早期轮换回收（linkSync 即刻轮换）�
         rotated = true;
         realRename(cache.root, retired);
         fs.mkdirSync(cache.root, { recursive: true });
-        fs.writeFileSync(path.join(cache.root, '.cache.lock'), '999999 newgen\n');
+        fs.writeFileSync(path.join(cache.root, '.cache.lock'), liveNewLock);
       }
       return r;
     });
-    // 有过期帧要删，prune 才去建锁；轮换后新根里没有这一帧，所以一帧没删
-    assert.deepEqual(cache.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 50 }), { removed: 0 });
+    assert.throws(
+      () => cache.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 50 }),
+      err => err?.code === 'ETIMEDOUT',
+      '新根已被另一把存活锁保护时，建在旧根的锁不得放行进入新根临界区',
+    );
     assert.equal(rotated, true);
-    assert.equal(fs.readFileSync(path.join(cache.root, '.cache.lock'), 'utf8'), '999999 newgen\n');
+    assert.equal(fs.readFileSync(path.join(cache.root, '.cache.lock'), 'utf8'), liveNewLock);
     fs.rmSync(path.join(cache.root, '.cache.lock'), { force: true });
     assert.deepEqual(fs.readdirSync(retired).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
-    assert.deepEqual(openShotCache(retired).prune({ maxAgeMs: 86_400_000, lockTimeoutMs: 50 }), { removed: 0 });
+
+    // 若轮换后的新根没有别的锁，应当回收旧根锁并在新根重新持锁后正常完成
+    const root2 = path.join(parent, 'early-lock-reacquire');
+    const retired2 = path.join(parent, 'early-lock-reacquire-old');
+    const cache2 = openShotCache(root2);
+    cache2.put(entryA, { colorBytes: Buffer.from([32]), meta: sampleMeta, runId: 'r-early2' });
+    let rotated2 = false;
+    st.mock.restoreAll();
+    st.mock.method(fs, 'linkSync', (src, dst) => {
+      const r = realLink(src, dst);
+      if (!rotated2 && String(dst) === path.join(cache2.root, '.cache.lock')) {
+        rotated2 = true;
+        realRename(cache2.root, retired2);
+        fs.mkdirSync(cache2.root, { recursive: true });
+      }
+      return r;
+    });
+    assert.deepEqual(cache2.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 200 }), { removed: 0 });
+    assert.equal(rotated2, true);
+    assert.deepEqual(fs.readdirSync(retired2).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
+    assert.deepEqual(fs.readdirSync(cache2.root).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
   });
 
   await t.test('2) 锁文件 ino=0n 且兄弟目录枚举单次报 EBUSY 时：按锁内唯一凭据精准回收旧代锁，绝不误删新根同名锁', (st) => {
@@ -1572,5 +1596,302 @@ test('A16-35 九审收口：建锁早期轮换回收（linkSync 即刻轮换）�
     });
     cache.put(entryA, { colorBytes: Buffer.from([52]), meta: sampleMeta, runId: 'r-emfile' });
     assert.equal(fs.existsSync(path.join(cache.root, '.cache.lock')), false);
+  });
+});
+
+test('A16-36 十审收口（Red -> Green）：双真锁代际交换互斥、回调中途轮换绑定持锁代、释放持续 EBUSY 显式报错且可恢复、以及 4 项单点变异全杀', async (t) => {
+  const { openShotCache, computeFrameCacheKey, appendJobLedger, readJobLedger } = jobs;
+  const { withFileLock } = await import('./ledger.mjs');
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'bm-a16-r10-'));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const entryA = computeFrameCacheKey(makeBaseSpec());
+
+  await t.test('1) 两把真实 withFileLock 锁在内层 linkSync 后交换目录代际：内层回调 0 次执行并超时，外层锁无损，释放后两代均空', (st) => {
+    const cur = path.join(parent, 'swap-cur');
+    const aside = path.join(parent, 'swap-aside');
+    const tmp = path.join(parent, 'swap-tmp');
+    fs.mkdirSync(cur, { recursive: true });
+    const record = path.join(cur, 'record');
+    const realLink = fs.linkSync;
+    const realRename = fs.renameSync;
+    let innerCalls = 0;
+
+    withFileLock(record, () => {
+      const outerLockPayload = fs.readFileSync(`${record}.lock`, 'utf8');
+      realRename(cur, aside);
+      fs.mkdirSync(cur, { recursive: true });
+      let swapped = false;
+      const hook = st.mock.method(fs, 'linkSync', (src, dst) => {
+        const res = realLink(src, dst);
+        if (!swapped && String(dst) === `${record}.lock`) {
+          swapped = true;
+          realRename(cur, tmp);
+          realRename(aside, cur);
+          realRename(tmp, aside);
+        }
+        return res;
+      });
+      assert.throws(
+        () => withFileLock(record, () => { innerCalls += 1; }, 50, '测试'),
+        err => err?.code === 'ETIMEDOUT',
+        '当前路径已被换回外层仍持锁的代际时，内层绝不能进入回调',
+      );
+      hook.mock.restore();
+      assert.equal(swapped, true);
+      assert.equal(innerCalls, 0);
+      assert.equal(fs.readFileSync(`${record}.lock`, 'utf8'), outerLockPayload, '外层持有的锁不能被内层误删');
+      assert.deepEqual(fs.readdirSync(aside), [], '内层建在另一代的锁与暂存必须已清干净');
+    }, 500, '测试');
+
+    assert.deepEqual(fs.readdirSync(cur), []);
+    assert.deepEqual(fs.readdirSync(aside), []);
+  });
+
+  await t.test('2) 回调执行中途目录被轮换且新代预置另一把锁：appendJobLedger 只写自己持锁的那一代账本，绝不污染新代', (st) => {
+    const jobsDir = path.join(parent, 'ledger-cur');
+    const jobsRetired = path.join(parent, 'ledger-retired');
+    fs.mkdirSync(jobsDir, { recursive: true });
+    const ledgerPath = path.join(jobsDir, 'ledger.jsonl');
+    const realRead = fs.readFileSync;
+    const realRename = fs.renameSync;
+    const newLock = `${process.pid} other-ledger-lock\n`;
+    let rotatedOnLoad = false;
+    st.mock.method(fs, 'readFileSync', (target, ...rest) => {
+      if (!rotatedOnLoad && String(target) === ledgerPath) {
+        rotatedOnLoad = true;
+        realRename(jobsDir, jobsRetired);
+        fs.mkdirSync(jobsDir, { recursive: true });
+        fs.writeFileSync(path.join(jobsDir, 'ledger.jsonl.lock'), newLock);
+      }
+      return realRead(target, ...rest);
+    });
+
+    const row = appendJobLedger(ledgerPath, {
+      jobId: 'job-rot-1',
+      attempt: 1,
+      kind: 'render',
+      status: 'succeeded',
+      wallMs: 12,
+      renderedFrames: 1,
+      deliveredFrames: 1,
+      diskBytes: 0,
+    });
+    st.mock.restoreAll();
+    assert.equal(rotatedOnLoad, true);
+    assert.equal(row.seq, 1);
+    assert.equal(fs.existsSync(path.join(jobsDir, 'ledger.jsonl')), false, '不得无锁写入新代目录');
+    assert.equal(fs.readFileSync(path.join(jobsDir, 'ledger.jsonl.lock'), 'utf8'), newLock, '新代锁完整保留');
+    fs.rmSync(path.join(jobsDir, 'ledger.jsonl.lock'), { force: true });
+    const retiredRows = readJobLedger(path.join(jobsRetired, 'ledger.jsonl'));
+    assert.equal(retiredRows.length, 1);
+    assert.equal(retiredRows[0].jobId, 'job-rot-1');
+    assert.equal(fs.existsSync(path.join(jobsRetired, 'ledger.jsonl.lock')), false, '旧代锁已精准释放');
+  });
+
+  await t.test('3) 释放阶段兄弟枚举持续 EBUSY 直至退避耗尽：必须显式抛出 EBUSY，且故障解除后同进程可立即重取旧代锁恢复', (st) => {
+    // macOS 的默认临时目录是符号链接（/var → /private/var）：先取真实路径，注入的故障才对得上 withFileLock 列的那个上一级
+    const sub = fs.realpathSync.native(fs.mkdtempSync(path.join(parent, 'ebusy-rel-')));
+    const cur = path.join(sub, 'old');
+    const retired = path.join(sub, 'old-retired');
+    fs.mkdirSync(cur, { recursive: true });
+    const realRename = fs.renameSync;
+    const realReaddir = fs.readdirSync;
+    const subReal = fs.realpathSync.native(sub);
+    let failReaddir = false;
+    let readdirAttempts = 0;
+
+    st.mock.method(fs, 'readdirSync', (dir, opts) => {
+      if (failReaddir && path.resolve(String(dir)) === subReal) {
+        readdirAttempts += 1;
+        throw Object.assign(new Error('EBUSY: persistent sibling enum failure'), { code: 'EBUSY' });
+      }
+      return realReaddir(dir, opts);
+    });
+
+    assert.throws(
+      () => withFileLock(path.join(cur, 'record'), () => {
+        realRename(cur, retired);
+        fs.mkdirSync(cur, { recursive: true });
+        failReaddir = true;
+        return 'done';
+      }, 200, '测试'),
+      err => err?.code === 'EBUSY',
+      '释放锁遇持续 EBUSY 不能静默吞错返回成功',
+    );
+    assert.ok(readdirAttempts >= 13, `应当跑满退避重试，实测 ${readdirAttempts}`);
+    assert.equal(fs.existsSync(path.join(retired, 'record.lock')), true, 'EBUSY 期间锁仍在旧代目录');
+
+    // 撤销故障后，同一存活进程再次对旧代目录加锁必须自动识别并清理孤儿锁，正常取得锁恢复！
+    failReaddir = false;
+    const recovered = withFileLock(path.join(retired, 'record'), () => 'recovered', 200, '测试');
+    assert.equal(recovered, 'recovered');
+    assert.equal(fs.existsSync(path.join(retired, 'record.lock')), false);
+  });
+
+  await t.test('4) 四项 R10 单点变异差分断言：建锁失败暂存回收、帧暂存早期轮换、pending+lock 双零节点号且同 PID 异 UUID 锁凭据', (st) => {
+    const realMkdir = fs.mkdirSync;
+    const realRename = fs.renameSync;
+    const realLstat = fs.lstatSync;
+
+    // 4a: 建锁 mkdir 刚成功即轮换且新根已有锁导致 linkSync 报 EEXIST -> catch 分支必须按 locateOwned 清掉旧根 .write-*
+    const lockFailRoot = path.join(parent, 'mut-lock-fail');
+    const lockFailRetired = path.join(parent, 'mut-lock-fail-old');
+    const c1 = openShotCache(lockFailRoot);
+    c1.put(entryA, { colorBytes: Buffer.from([11]), meta: {}, runId: 'r-m1' });
+    let rotatedLockStaging = false;
+    let m1 = st.mock.method(fs, 'mkdirSync', (target, opts) => {
+      const res = realMkdir(target, opts);
+      const s = String(target);
+      if (!rotatedLockStaging && s.startsWith(c1.root + path.sep) && path.basename(s).startsWith('.write-')) {
+        rotatedLockStaging = true;
+        realRename(c1.root, lockFailRetired);
+        realMkdir(c1.root, { recursive: true });
+        fs.writeFileSync(path.join(c1.root, '.cache.lock'), `${process.pid} blocker\n`);
+      }
+      return res;
+    });
+    assert.throws(() => c1.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 40 }), err => err?.code === 'ETIMEDOUT');
+    m1.mock.restore();
+    fs.rmSync(path.join(c1.root, '.cache.lock'), { force: true });
+    assert.equal(rotatedLockStaging, true);
+    assert.deepEqual(fs.readdirSync(lockFailRetired).filter(n => n.startsWith('.write-') || n === '.cache.lock'), []);
+
+    // 4b: 帧暂存 mkdir 刚成功即轮换 -> put 重试发到新根读回 77，新旧两代零 .write-* 残留
+    const frameStageRoot = path.join(parent, 'mut-frame-stage');
+    const frameStageRetired = path.join(parent, 'mut-frame-stage-old');
+    const c2 = openShotCache(frameStageRoot);
+    let rotatedFrameStaging = false;
+    let m2 = st.mock.method(fs, 'mkdirSync', (target, opts) => {
+      const res = realMkdir(target, opts);
+      const s = String(target);
+      if (!rotatedFrameStaging && s.startsWith(c2.root + path.sep) && path.basename(s).startsWith('.write-')) {
+        rotatedFrameStaging = true;
+        realRename(c2.root, frameStageRetired);
+        realMkdir(c2.root, { recursive: true });
+      }
+      return res;
+    });
+    c2.put(entryA, { colorBytes: Buffer.from([77]), meta: {}, runId: 'r-m2' });
+    m2.mock.restore();
+    assert.equal(rotatedFrameStaging, true);
+    assert.deepEqual(c2.get(entryA)?.colorBytes, Buffer.from([77]));
+    assert.deepEqual(fs.readdirSync(frameStageRetired).filter(n => n.startsWith('.write-') || n === '.cache.lock'), []);
+    assert.deepEqual(fs.readdirSync(c2.root).filter(n => n.startsWith('.write-') || n === '.cache.lock'), []);
+
+    // 4c + 4d: 发布前 pending 与两代最终 .cache.lock 均返回 ino=0n，且新代预置锁同为当前 process.pid 但不同 UUID
+    const dualZeroRoot = path.join(parent, 'mut-dual-zero');
+    const dualZeroRetired = path.join(parent, 'mut-dual-zero-old');
+    const c3 = openShotCache(dualZeroRoot);
+    const samePidOtherUuid = `${process.pid} other-distinct-uuid\n`;
+    let pendingZeroHits = 0;
+    let lockZeroHits = 0;
+    let flippedDual = false;
+    st.mock.method(fs, 'lstatSync', (target, opts) => {
+      const s = realLstat(target, opts);
+      if (s && opts?.bigint) {
+        const p = String(target);
+        if (p.endsWith(`${path.sep}pending`)) {
+          pendingZeroHits += 1;
+          return Object.assign(Object.create(Object.getPrototypeOf(s)), s, { ino: 0n });
+        }
+        if (p.endsWith('.cache.lock')) {
+          lockZeroHits += 1;
+          return Object.assign(Object.create(Object.getPrototypeOf(s)), s, { ino: 0n });
+        }
+      }
+      return s;
+    });
+    st.mock.method(fs, 'renameSync', (from, to) => {
+      const r = realRename(from, to);
+      if (!flippedDual && String(to).endsWith('.frame')) {
+        flippedDual = true;
+        realRename(c3.root, dualZeroRetired);
+        realMkdir(c3.root, { recursive: true });
+        fs.writeFileSync(path.join(c3.root, '.cache.lock'), samePidOtherUuid);
+      }
+      return r;
+    });
+    c3.put(entryA, { colorBytes: Buffer.from([88]), meta: {}, runId: 'r-m3' });
+    st.mock.restoreAll();
+    assert.ok(pendingZeroHits >= 1, '必须覆盖发布前 pending 的零节点号');
+    assert.ok(lockZeroHits >= 2, '必须覆盖最终锁的零节点号');
+    assert.equal(fs.readFileSync(path.join(c3.root, '.cache.lock'), 'utf8'), samePidOtherUuid, '不得误删同 PID 异 UUID 的新代锁');
+    fs.rmSync(path.join(c3.root, '.cache.lock'), { force: true });
+    assert.deepEqual(fs.readdirSync(dualZeroRetired).filter(n => n === '.cache.lock' || n.startsWith('.write-')), []);
+  });
+
+  await t.test('5) 进回调前的一瞬间根被轮换：清理只在锁所在的那一代里核对删除；帧暂存与锁不在同一代时不在原路径上无锁发布', (st) => {
+    const realLstat = fs.lstatSync;
+    const realRename = fs.renameSync;
+    const leftovers = dir => fs.readdirSync(dir).filter(n => n === '.cache.lock' || n.startsWith('.write-'));
+    // 锁路径上第 2 次带节点号的取样，就是回调里认「锁在哪一代」的那一次（第 1 次是建锁后的归属复核）
+    const beforeCallback = (lock, act) => {
+      let samples = 0;
+      return st.mock.method(fs, 'lstatSync', (target, opts) => {
+        if (opts?.bigint && String(target) === lock && ++samples === 2) act();
+        return realLstat(target, opts);
+      });
+    };
+
+    const cache = openShotCache(path.join(parent, 'pre-callback'));
+    const retired = `${cache.root}-old`;
+    cache.put(entryA, { colorBytes: Buffer.from([41]), meta: {}, runId: 'r-pre' });
+    beforeCallback(path.join(cache.root, '.cache.lock'), () => {
+      realRename(cache.root, retired);
+      fs.mkdirSync(cache.root);
+    });
+    // 临界区里（锁在旧目录）再往原路径上的新目录发布：新目录不归这把锁管，要另取新目录自己的锁，不能当成重入
+    const realUnlink = fs.unlinkSync;
+    const lockedAtNestedPublish = [];
+    st.mock.method(fs, 'unlinkSync', (target) => {
+      if (String(target).endsWith('.frame')) {
+        const watch = st.mock.method(fs, 'renameSync', (from, to) => {
+          if (String(to).endsWith('.frame')) lockedAtNestedPublish.push(fs.existsSync(path.join(cache.root, '.cache.lock')));
+          return realRename(from, to);
+        });
+        cache.put(entryA, { colorBytes: Buffer.from([43]), meta: {}, runId: 'r-nested' });
+        watch.mock.restore();
+      }
+      return realUnlink(target);
+    });
+    assert.deepEqual(cache.prune({ maxAgeMs: 0, now: Date.now() + 5000, lockTimeoutMs: 200 }), { removed: 1 }, '过期帧在锁所在的旧目录里删掉');
+    st.mock.restoreAll();
+    assert.deepEqual(lockedAtNestedPublish, [true]);
+    assert.deepEqual([...cache.get(entryA).colorBytes], [43]);
+    assert.equal(openShotCache(retired).get(entryA), undefined);
+    assert.deepEqual(leftovers(retired), []);
+    assert.deepEqual(leftovers(cache.root), []);
+
+    // 帧暂存写好之后、取锁之前轮换（暂存留在 X，锁建在 Y），进回调前又换回 X：原路径上有暂存、没有自己的锁
+    const split = openShotCache(path.join(parent, 'split-gen'));
+    const aside = `${split.root}-aside`;
+    const lock = path.join(split.root, '.cache.lock');
+    const realWrite = fs.writeFileSync;
+    let staged = false;
+    st.mock.method(fs, 'writeFileSync', (target, ...rest) => {
+      const result = realWrite(target, ...rest);
+      if (!staged && String(target).startsWith(split.root + path.sep) && String(target).endsWith(`${path.sep}pending`)) {
+        staged = true;
+        realRename(split.root, aside);
+        fs.mkdirSync(split.root);
+      }
+      return result;
+    });
+    beforeCallback(lock, () => {
+      realRename(split.root, `${aside}-tmp`);
+      realRename(aside, split.root);
+      realRename(`${aside}-tmp`, aside);
+    });
+    const lockedAtPublish = [];
+    st.mock.method(fs, 'renameSync', (from, to) => {
+      if (String(to).endsWith('.frame')) lockedAtPublish.push(fs.existsSync(lock));
+      return realRename(from, to);
+    });
+    split.put(entryA, { colorBytes: Buffer.from([42]), meta: {}, runId: 'r-split' });
+    st.mock.restoreAll();
+    assert.deepEqual(lockedAtPublish, [true], '只发布一次，发布时原路径上是自己的锁');
+    assert.deepEqual([...split.get(entryA).colorBytes], [42]);
+    assert.deepEqual(leftovers(aside), []);
+    assert.deepEqual(leftovers(split.root), []);
   });
 });

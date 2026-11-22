@@ -67,8 +67,8 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     return job;
   }
 
-  function save(job, create = false) {
-    atomicWrite(jobFile(job.id), `${JSON.stringify(job, null, 2)}\n`, { create });
+  function save(job, create = false, file = jobFile(job.id)) {
+    atomicWrite(file, `${JSON.stringify(job, null, 2)}\n`, { create });
   }
 
   // 领取文件按轮次和代号追加。崩溃后只能通过下一代恢复，避免两个进程移除对方的领取文件。
@@ -168,14 +168,16 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     workspace.cleanupIntermediate(job.id, { keep: job.keep, status, attempt: job.attempt });
     transition(job, status, { ...details, ...ledger });
     // 终态首次可见后仍可能回写追加失败的诊断。重放领取前须等这一轮写完。
-    withFileLock(jobFile(job.id), () => {
-      save(job);
+    // 持锁期间作业目录被轮换的话，两次回写都落在锁所在的那一代目录里。
+    withFileLock(jobFile(job.id), locked => {
+      const write = () => save(job, false, locked());
+      write();
       if (!ledger.settlement) return;
       try {
         appendSettlement(ledgerFile(), ledger.settlement);
       } catch (error) {
         job.events.at(-1).ledgerError = message(error);
-        save(job);
+        write();
       }
     });
   }

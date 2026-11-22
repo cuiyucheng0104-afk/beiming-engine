@@ -190,6 +190,8 @@ export function readJobLedger(ledgerPath, options) {
 
 const lockRaceCodes = new Set(['ENOENT', 'EEXIST', 'EPERM', 'EACCES', 'EBUSY']);
 const lockGraceMs = 15;
+// 本进程已经退出临界区、却没能删掉的锁的 UUID 凭据。进程还活着，按进程号的陈旧锁清理不会碰它，靠这份登记认出来回收。
+const abandonedLocks = new Set();
 
 function isLockRace(error, lock, removingStaging = false) {
   if (!lockRaceCodes.has(error.code) && !(removingStaging && error.code === 'ENOTEMPTY')) return false;
@@ -229,7 +231,11 @@ function clearStaleLock(lock) {
     throw error;
   }
   try {
-    if (!processIsAlive(Number(fs.readFileSync(lock, 'utf8').trim().split(/\s+/)[0]))) fs.rmSync(lock);
+    const [pid, token] = fs.readFileSync(lock, 'utf8').trim().split(/\s+/);
+    if (abandonedLocks.has(token) || !processIsAlive(Number(pid))) {
+      fs.rmSync(lock);
+      abandonedLocks.delete(token);
+    }
   } catch (error) {
     if (!isLockRace(error, lock)) throw error;
   } finally {
@@ -257,15 +263,45 @@ export function withFileLock(file, run, timeoutMs = 10_000, label = '账本') {
   const lock = `${file}.lock`;
   const deadline = performance.now() + amount(timeoutMs, 'lockTimeoutMs');
   // 凭据在建锁之前就定好：进程号给陈旧锁清理看，UUID 认这一次持锁。
-  const payload = `${process.pid} ${randomUUID()}\n`;
+  const token = randomUUID();
+  const payload = `${process.pid} ${token}\n`;
   let held;
+  // 节点号对得上就是自己的，不用开文件，句柄耗尽时照样能放锁；拿不到节点号（为 0）或对不上再读内容按凭据认。
+  const mine = candidate => {
+    const now = fs.lstatSync(candidate, { bigint: true, throwIfNoEntry: false });
+    if (!now) return false;
+    return (held.snap.ino > 0n && now.ino === held.snap.ino && now.dev === held.snap.dev) || fs.readFileSync(candidate, 'utf8') === payload;
+  };
+  // 锁所在目录从建锁那一刻起随时可能被轮换、原路径重建，原路径上的 .lock 就是新目录的锁：只认自己建的那个，兄弟目录列不出来就报错。
+  const locate = () => locateOwned(lock, mine, true);
+  // 删不掉不能报成功：登记凭据再把错误抛出去，故障过后本进程下一次取这把锁时回收它。
+  const release = () => {
+    try {
+      removeWithRetry(locate);
+    } catch (error) {
+      abandonedLocks.add(token);
+      throw error;
+    }
+  };
   for (let waitMs = lockGraceMs; ; waitMs = Math.min(waitMs * 2, 50)) {
     if (!fs.existsSync(lock)) {
       try {
         held = publishLock(lock, payload);
-        break;
       } catch (error) {
         if (!isLockRace(error, lock)) throw error;
+      }
+      if (held) {
+        // 硬链接刚成功目录就可能被轮换：自己的锁落进旧目录，原路径上是空的新目录或别人的锁。
+        // 原路径上确实是自己的锁才进临界区；不是就回收掉，按剩余时间在原路径上重新取。
+        let entered = false;
+        try {
+          removeWithRetry(() => locateOwned(held.staging), { recursive: true });
+          entered = mine(lock);
+        } finally {
+          if (!entered) release();
+        }
+        if (entered) break;
+        held = undefined;
       }
     }
     const remaining = deadline - performance.now();
@@ -274,19 +310,25 @@ export function withFileLock(file, run, timeoutMs = 10_000, label = '账本') {
     // 短临界区先留给持锁者释放，不急着读 PID 或抢 .break。
     if (remaining >= lockGraceMs && fs.existsSync(lock)) clearStaleLock(lock);
   }
-  // 节点号对得上就是自己的，不用开文件，句柄耗尽时照样能放锁；拿不到节点号（为 0）或对不上再读内容按凭据认。
-  const mine = candidate => {
-    const now = fs.lstatSync(candidate, { bigint: true, throwIfNoEntry: false });
-    if (!now) return false;
-    return (held.snap.ino > 0n && now.ino === held.snap.ino && now.dev === held.snap.dev) || fs.readFileSync(candidate, 'utf8') === payload;
+  // 临界区里目录还可能再被轮换：回调用它取「锁所在那一代」的目标路径，读写才落在自己锁住的目录里。
+  const locked = () => {
+    const at = locate();
+    if (!at) throw Object.assign(new Error(`${label}锁在临界区内丢失。`), { code: 'ENOENT' });
+    return at.slice(0, -'.lock'.length);
   };
+  let result;
   try {
-    removeWithRetry(() => locateOwned(held.staging), { recursive: true });
-    return run();
-  } finally {
-    // 锁所在目录从建锁那一刻起随时可能被轮换、原路径重建，原路径上的 .lock 就是新目录的锁：只删自己建的那个
-    removeWithRetry(() => locateOwned(lock, mine));
+    result = run(locked);
+  } catch (error) {
+    try {
+      release();
+    } catch {
+      // 回调的错误优先；删不掉的锁已登记凭据
+    }
+    throw error;
   }
+  release();
+  return result;
 }
 
 /**
@@ -322,15 +364,21 @@ export function prepareSettlement(entry) {
 export function appendSettlement(ledgerPath, settlement, { lockTimeoutMs } = {}) {
   fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
   // shortcut: 每次追加都在锁里重读整本账来查重、取序号，单次 O(行数)；账本到十万行级再换成尾部索引。
-  return withFileLock(ledgerPath, () => {
-    const { content, rows } = load(ledgerPath);
+  return withFileLock(ledgerPath, locked => {
+    let target;
+    let loaded;
+    do {
+      target = locked();
+      loaded = load(target);
+    } while (locked() !== target); // 读账途中目录被轮换，读到的可能是原路径上新目录的账：认回持锁的那一代重读
+    const { content, rows } = loaded;
     const settled = rows.find(existing => existing.jobId === settlement.jobId && existing.attempt === settlement.attempt);
     if (settled) return settled;
     const seq = rows.reduce((max, existing) => Math.max(max, existing.seq), 0) + 1;
     if (!Number.isSafeInteger(seq) || seq < 1) throw new RangeError('作业账本序号已达安全整数上限。');
     const row = normalizeLedgerEntry({ ...settlement, seq });
     // 上一次写入断在半行或被人手改掉了结尾换行时，先补换行，新行不会接在旧行后面。
-    fs.appendFileSync(ledgerPath, `${content && !content.endsWith('\n') ? '\n' : ''}${JSON.stringify(row)}\n`, { flush: true });
+    fs.appendFileSync(target, `${content && !content.endsWith('\n') ? '\n' : ''}${JSON.stringify(row)}\n`, { flush: true });
     return row;
   }, lockTimeoutMs);
 }

@@ -111,7 +111,8 @@ export function retrySharing(file, run, retries = 16, mode = fs.constants.W_OK) 
 // 找回自己建的节点。isMine 按创建时就定下的唯一凭据认（带 UUID 的目录名、锁文件里的 UUID），不靠节点号，也没有「建完再取样」的空档。
 // 持有期间父目录可能被改名轮换、原路径重建：原路径上不是自己的就不碰，到上一级的兄弟目录里找回自己的那个；找不到返回 undefined。
 // shortcut: 兄弟目录逐个探一遍，只在轮换后才走到；上一级有上万个目录时会慢，那时改成由调用方传入轮换后的去向。
-export function locateOwned(file, isMine = candidate => Boolean(fs.lstatSync(candidate, { throwIfNoEntry: false }))) {
+// mustList：找的是锁。上一级还在却一直列不出来时报错，不能当成「没有」悄悄留下一把活锁；暂存目录找不回就留给 prune。
+export function locateOwned(file, isMine = candidate => Boolean(fs.lstatSync(candidate, { throwIfNoEntry: false })), mustList = false) {
   const owned = (candidate, sibling) => {
     try {
       return retrySharing(candidate, () => isMine(candidate), 12, fs.constants.R_OK);
@@ -127,8 +128,9 @@ export function locateOwned(file, isMine = candidate => Boolean(fs.lstatSync(can
   let siblings;
   try {
     siblings = retrySharing(outer, () => fs.readdirSync(outer), 12, fs.constants.R_OK);
-  } catch {
-    return undefined; // 上一级列不出来就找不回，留给 prune 或陈旧锁清理
+  } catch (error) {
+    if (mustList && !['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
+    return undefined; // 上一级不在了，或暂存目录列不出来：找不回，留给 prune
   }
   return siblings.map(name => path.join(outer, name, path.basename(file))).find(candidate => owned(candidate, true));
 }
