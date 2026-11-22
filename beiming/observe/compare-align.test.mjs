@@ -286,8 +286,8 @@ test('O6-6 compare & align: 经 ffmpeg 对比视频帧与提取音频 20ms 包�
   try {
     const v1 = join(dir, 'v1.mkv');
     const v2 = join(dir, 'v2.mkv');
-    assert.equal(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=0x404040:s=64x36:r=24:d=0.5', '-pix_fmt', 'gbrp', '-c:v', 'ffv1', v1]).status, 0);
-    assert.equal(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=0x444444:s=64x36:r=24:d=0.5', '-pix_fmt', 'gbrp', '-c:v', 'ffv1', v2]).status, 0);
+    assert.equal(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=s=64x36:r=24:d=0.5,format=gbrp,geq=r=64:g=64:b=64', '-pix_fmt', 'gbrp', '-c:v', 'ffv1', v1]).status, 0);
+    assert.equal(spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=s=64x36:r=24:d=0.5,format=gbrp,geq=r=68:g=68:b=68', '-pix_fmt', 'gbrp', '-c:v', 'ffv1', v2]).status, 0);
     const vr = observe.compare({ video: v1, frame: 3, fps: 24 }, { video: v2, frame: 3, fps: 24 });
     assert.equal(vr.ok, true, JSON.stringify(vr));
     assert.equal(vr.rows.find((row) => row.metric === 'maxDiff')?.value, 4);
