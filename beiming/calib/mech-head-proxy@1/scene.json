@@ -1,0 +1,566 @@
+{
+  "format": "calib-scene/0.1",
+  "id": "mech-head-proxy@1",
+  "title": "机械头代理体：照 asset:mech-head-proxy@1 零件清单的比例，用解析形体拼的头，物体名都带 head. 前缀。头壳 head.housing、面罩 head.visor、下颌 head.jaw 三个盒子，两侧耳轴 head.trunnion_l（−X）、head.trunnion_r（+X）两个横放的短圆柱，头顶一根天线 head.antenna，面罩上一个亮度 4 的传感器小球 head.sensor。整体绕过原点的 +Y 轴匀速转，每 48 帧一圈：第 0 帧面罩朝相机（+Z），第 12 帧转到 +X，第 24 帧背对相机。相机在 0.7 米外略高处，转一整圈整头四边留白都不少于 15%（考题 28-1 的 1920×824 画幅下上留白 20.5% 到 23.7%）",
+  "probeRows": [
+    "坐标与相机",
+    "时间键",
+    "编号层的边缘",
+    "可见比例的成本",
+    "确定性",
+    "耗时"
+  ],
+  "colorSpace": "scene-linear-rec709",
+  "frameRange": {
+    "startFrame": 0,
+    "endFrame": 48
+  },
+  "frameRateFps": 24,
+  "camera": {
+    "positionM": [
+      0,
+      0.05,
+      0.7
+    ],
+    "lookAtM": [
+      0,
+      0.02,
+      0
+    ],
+    "upDir": [
+      0,
+      1,
+      0
+    ],
+    "yFovDeg": 40,
+    "widthPx": 640,
+    "heightPx": 360,
+    "nearM": 0.05,
+    "farM": 10
+  },
+  "backgroundLinear": [
+    0.02,
+    0.02,
+    0.02
+  ],
+  "objects": [
+    {
+      "id": "head.housing",
+      "idIndex": 1,
+      "shape": "box",
+      "sizeM": [
+        0.15,
+        0.13,
+        0.1
+      ],
+      "positionM": [
+        0,
+        0.035,
+        0
+      ],
+      "emissionLinear": [
+        0.3,
+        0.34,
+        0.38
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.1308996938995747
+      }
+    },
+    {
+      "id": "head.visor",
+      "idIndex": 2,
+      "shape": "box",
+      "sizeM": [
+        0.13,
+        0.05,
+        0.026
+      ],
+      "positionM": [
+        0,
+        0.045,
+        0.068
+      ],
+      "emissionLinear": [
+        0.05,
+        0.6,
+        0.9
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.1308996938995747
+      }
+    },
+    {
+      "id": "head.jaw",
+      "idIndex": 3,
+      "shape": "box",
+      "sizeM": [
+        0.1,
+        0.05,
+        0.08
+      ],
+      "positionM": [
+        0,
+        -0.085,
+        0.01
+      ],
+      "emissionLinear": [
+        0.5,
+        0.5,
+        0.55
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.1308996938995747
+      }
+    },
+    {
+      "id": "head.trunnion_l",
+      "idIndex": 4,
+      "shape": "cylinder",
+      "radiusM": 0.02,
+      "heightM": 0.02,
+      "positionM": [
+        -0.085,
+        0.035,
+        0
+      ],
+      "rotation": {
+        "axisDir": [
+          0,
+          0,
+          1
+        ],
+        "angleRad": 1.5707963267948966
+      },
+      "emissionLinear": [
+        0.9,
+        0.5,
+        0.1
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.1308996938995747
+      }
+    },
+    {
+      "id": "head.trunnion_r",
+      "idIndex": 5,
+      "shape": "cylinder",
+      "radiusM": 0.02,
+      "heightM": 0.02,
+      "positionM": [
+        0.085,
+        0.035,
+        0
+      ],
+      "rotation": {
+        "axisDir": [
+          0,
+          0,
+          1
+        ],
+        "angleRad": 1.5707963267948966
+      },
+      "emissionLinear": [
+        0.9,
+        0.5,
+        0.1
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.1308996938995747
+      }
+    },
+    {
+      "id": "head.antenna",
+      "idIndex": 6,
+      "shape": "cylinder",
+      "radiusM": 0.004,
+      "heightM": 0.06,
+      "positionM": [
+        0.05,
+        0.13,
+        0
+      ],
+      "emissionLinear": [
+        1,
+        1,
+        1
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.1308996938995747
+      }
+    },
+    {
+      "id": "head.sensor",
+      "idIndex": 7,
+      "shape": "sphere",
+      "radiusM": 0.012,
+      "positionM": [
+        0.03,
+        0.045,
+        0.09
+      ],
+      "emissionLinear": [
+        4,
+        0.5,
+        0.5
+      ],
+      "motion": {
+        "kind": "spin",
+        "pivotM": [
+          0,
+          0,
+          0
+        ],
+        "axisDir": [
+          0,
+          1,
+          0
+        ],
+        "angularVelocityRadPerFrame": 0.1308996938995747
+      }
+    }
+  ],
+  "expected": [
+    {
+      "kind": "projectedBox",
+      "objectId": "head.housing",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "盒子 8 个角点在第 0 帧（面罩朝相机）投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        262.695711,
+        120.567247
+      ],
+      "boxMaxPx": [
+        377.304289,
+        219.464203
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "head.visor",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "盒子 8 个角点在第 0 帧（面罩朝相机）投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        267.948936,
+        142.774761
+      ],
+      "boxMaxPx": [
+        372.051064,
+        182.767726
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "head.jaw",
+      "atFrame": 0,
+      "minIouRatio": 0.95,
+      "source": "盒子 8 个角点在第 0 帧（面罩朝相机）投影的最小、最大像素坐标（不计遮挡，即元数据包围盒）",
+      "boxMinPx": [
+        282.197258,
+        232.98363
+      ],
+      "boxMaxPx": [
+        357.802742,
+        279.489994
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "head.housing",
+      "atFrame": 12,
+      "minIouRatio": 0.95,
+      "source": "盒子 8 个角点在第 12 帧（转过四分之一圈，面罩在 +X 一侧）投影的最小、最大像素坐标",
+      "boxMinPx": [
+        280.263769,
+        119.032468
+      ],
+      "boxMaxPx": [
+        359.736231,
+        221.877327
+      ]
+    },
+    {
+      "kind": "projectedBox",
+      "objectId": "head.visor",
+      "atFrame": 12,
+      "minIouRatio": 0.95,
+      "source": "盒子 8 个角点在第 12 帧（转过四分之一圈，面罩在 +X 一侧）投影的最小、最大像素坐标",
+      "boxMinPx": [
+        355.528516,
+        143.179222
+      ],
+      "boxMaxPx": [
+        383.227066,
+        182.165165
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "head.sensor",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "传感器球心随整体绕 +Y 转 π/24 × 0 弧度后的针孔投影：第 12 帧在画面右侧，说明绕 +Y 的正角度把 +Z 转向 +X",
+      "pixelPx": [
+        344.335709,
+        162.864849
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "head.sensor",
+      "atFrame": 12,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "传感器球心随整体绕 +Y 转 π/24 × 12 弧度后的针孔投影：第 12 帧在画面右侧，说明绕 +Y 的正角度把 +Z 转向 +X",
+      "pixelPx": [
+        381.009476,
+        162.197701
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "head.sensor",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "传感器球心随整体绕 +Y 转 π/24 × 24 弧度后的针孔投影：第 12 帧在画面右侧，说明绕 +Y 的正角度把 +Z 转向 +X",
+      "pixelPx": [
+        301.207633,
+        161.94011
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "head.sensor",
+      "atFrame": 36,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "传感器球心随整体绕 +Y 转 π/24 × 36 弧度后的针孔投影：第 12 帧在画面右侧，说明绕 +Y 的正角度把 +Z 转向 +X",
+      "pixelPx": [
+        253.528735,
+        162.501412
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "head.antenna",
+      "atFrame": 0,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0.03,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "天线顶端在第 0 帧的针孔投影：转半圈后从画面右边换到左边",
+      "pixelPx": [
+        355.59687,
+        80.420173
+      ]
+    },
+    {
+      "kind": "projectPoint",
+      "objectId": "head.antenna",
+      "atFrame": 24,
+      "subFrameRatio": 0,
+      "localPointM": [
+        0,
+        0.03,
+        0
+      ],
+      "tolerancePx": 0.5,
+      "source": "天线顶端在第 24 帧的针孔投影：转半圈后从画面右边换到左边",
+      "pixelPx": [
+        284.40313,
+        80.420173
+      ]
+    },
+    {
+      "kind": "projectedWidth",
+      "objectId": "head.antenna",
+      "atFrame": 0,
+      "tolerancePx": 0.5,
+      "source": "天线中心沿相机右方向 ± 半径两点投影的横坐标差",
+      "widthPx": 5.684987
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        344.5,
+        162.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 0 帧传感器球心所在像素：依次打到传感器、面罩、头壳",
+      "intendedHitIds": [
+        "head.sensor",
+        "head.visor",
+        "head.housing"
+      ],
+      "hits": [
+        {
+          "objectId": "head.sensor",
+          "planeDepthM": 0.597661,
+          "rayDistanceM": 0.598768
+        },
+        {
+          "objectId": "head.visor",
+          "planeDepthM": 0.61863,
+          "rayDistanceM": 0.619775
+        },
+        {
+          "objectId": "head.housing",
+          "planeDepthM": 0.649612,
+          "rayDistanceM": 0.650814
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        320.5,
+        254.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 0 帧下颌正面的像素：只打到下颌",
+      "intendedHitIds": [
+        "head.jaw"
+      ],
+      "hits": [
+        {
+          "objectId": "head.jaw",
+          "planeDepthM": 0.654824,
+          "rayDistanceM": 0.662213
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 24,
+      "pixelPx": [
+        320.5,
+        162.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "第 24 帧背对相机：同一条视线先打到头壳的背面，面罩转到了后面",
+      "intendedHitIds": [
+        "head.housing",
+        "head.visor"
+      ],
+      "hits": [
+        {
+          "objectId": "head.housing",
+          "planeDepthM": 0.649612,
+          "rayDistanceM": 0.650018
+        },
+        {
+          "objectId": "head.visor",
+          "planeDepthM": 0.754549,
+          "rayDistanceM": 0.755021
+        }
+      ]
+    },
+    {
+      "kind": "pixelHits",
+      "atFrame": 0,
+      "pixelPx": [
+        20.5,
+        20.5
+      ],
+      "toleranceRatio": 0.02,
+      "source": "左上角：背景",
+      "intendedHitIds": [],
+      "hits": []
+    }
+  ]
+}
