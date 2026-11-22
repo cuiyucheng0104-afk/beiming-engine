@@ -209,7 +209,8 @@ export async function runExamQuestion({ questionFile, evalRoot, solver, solverCm
     const v = table !== null && typeof table === 'object' && Object.hasOwn(table, key) ? table[key] : null;
     return { pass: v === true || v?.pass === true, basis: v?.basis ?? (judge ? 'judge' : 'unmeasured') };
   };
-  const assertions = skip ? [] : [
+  // 没做完（出错、被杀、超时）的运行不采信半截产物：逐项不落，记 0 分
+  const assertions = skip || error ? [] : [
     ...(question.basePredicates ?? []).map((text) => ({ kind: 'base', name: text, ...judged(measured.predicates, text) })),
     ...question.scoring.map((s) => ({ kind: 'scoring', name: s.metric, weight: s.weight, ...judged(measured.metrics, s.metric) })),
   ];
@@ -262,5 +263,6 @@ const RUN = {
   },
 };
 
-// 是不是被直接执行：两边都解析掉软链再比（从软链启动也认）
-if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) await runCli({ command: 'beiming/bench/runner.mjs', subcommands: { run: RUN }, summary: '北冥考题跑题器' });
+// 是不是被直接执行：两边都解析掉软链再比（从软链启动也认）；argv[1] 不是文件（node - 从标准输入读脚本）就不是
+const isMain = () => { try { return Boolean(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
+if (isMain()) await runCli({ command: 'beiming/bench/runner.mjs', subcommands: { run: RUN }, summary: '北冥考题跑题器' });

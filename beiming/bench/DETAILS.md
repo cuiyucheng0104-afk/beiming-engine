@@ -48,9 +48,11 @@
 
 **环境变量**只传白名单，名字不分大小写：`PATH`、`HOME`、`USERPROFILE`、`SYSTEMROOT`、`COMSPEC`、`PATHEXT`、`LANG`、`LC_ALL`、`TERM`、`NODE_PATH`，加上指到运行目录里的 `TMPDIR`、`TMP`、`TEMP`、`CLAUDE_CONFIG_DIR`，以及 `PLAYWRIGHT_BROWSERS_PATH`。`--model` 时另传 `ANTHROPIC_*`、`CLAUDE_CODE_*`、`HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY`。
 
-**怎么算没做完**（`status` 是 `error`，产物写完了也一样）：做题命令退出码不是 0；被信号杀掉（没有退出码）；超过墙钟预算被结束；做题函数抛错。
+**怎么算没做完**（`status` 是 `error`，产物写完了也一样）：做题命令退出码不是 0；被信号杀掉（没有退出码）；超过墙钟预算被结束；做题函数抛错。没做完的运行不采信半截产物：`score` 记 0，`assertions` 是空数组，`artifacts` 照记。
 
 ## 落盘
+
+运行目录 `<root>/<题号>/<runId>/` 下有做题目录 `worktree/`、隔离会话配置 `session/`、做题进程的临时目录 `tmp/`、会话记录 `transcript/`。
 
 `result.json`（`bench-result/0.1`）给看板读：
 
@@ -58,11 +60,11 @@
 |---|---|
 | `questionId`、`level`、`source`、`model`、`runId` | 哪道题、谁做的 |
 | `status` | `pass`（逐项全过且没超预算）、`fail`、`error`、`expected-fail` |
-| `score` | 过了的评分项权重之和 |
+| `score` | 过了的评分项权重之和；`error`、`expected-fail` 是 0 |
 | `visibility` | `public` 或 `hidden` |
 | `blockedBy` | 题目的阻塞原因；隐藏题只写 `["[hidden]"]` |
-| `unmeasured` | 没有量测器的项数 |
-| `assertions` | 逐项 `{ kind, name, weight?, pass, basis }`；隐藏题是空数组 |
+| `unmeasured` | 没有量测器的项数（`error`、`expected-fail` 没有逐项，是 0） |
+| `assertions` | 逐项 `{ kind, name, weight?, pass, basis }`；隐藏题、`error`、`expected-fail` 是空数组 |
 | `cost`、`overBudget` | `tokens`、`turns`、`toolCalls`、`wallMs`、`gpuSeconds`；超了预算的字段名 |
 | `artifacts`、`createdAt` | 做题目录里的产物（路径、字节数、哈希）；落盘时刻 |
 

@@ -198,14 +198,21 @@ test('B8-6 默认判分：成片怎么找、切点实测、没有量测器的指
   if (POSIX) assert.deepEqual((await judged((w) => symlinkSync(clips.good, join(w, 'deliverable.mp4'))))[0], [false, false, false, false], '软链指到做题目录外面');
 });
 
-test('B8-7 做题进程被信号杀掉：产物写完了也判 error', async (t) => {
+test('B8-7 做题进程被信号杀掉：产物写完了也判 error，记 0 分', async (t) => {
   const { qFile, root, dir } = await setup(t, example('minimal.json'));
   const killer = join(dir, 'killed.mjs');
-  await writeFile(killer, `import fs from 'node:fs';\nfs.writeFileSync('done.txt', 'ok');\nprocess.kill(process.pid, 'SIGTERM');\nsetTimeout(() => {}, 30000);\n`);
+  await writeFile(killer, `import fs from 'node:fs';\nif (process.argv[2]) fs.copyFileSync(process.argv[2], 'deliverable.mp4');\nfs.writeFileSync('done.txt', 'ok');\nprocess.kill(process.pid, 'SIGTERM');\nsetTimeout(() => {}, 30000);\n`);
   const res = await runExamQuestion({ questionFile: qFile, evalRoot: root, solverCmd: `"${process.execPath}" "${killer}"`, judge: allPass });
   const obs = await readJson(join(res.runDir, 'observation.json'));
-  assert.deepEqual([res.status, res.artifacts.map((a) => a.path)], ['error', ['done.txt']]);
+  assert.deepEqual([res.status, res.score, res.assertions, res.artifacts.map((a) => a.path)], ['error', 0, [], ['done.txt']], '判分全过也不采信');
+  assert.deepEqual((({ status, score }) => [status, score])(await readJson(res.resultFile)), ['error', 0]);
   if (POSIX) assert.deepEqual([obs.exitCode, obs.timedOut, obs.error], [null, false, '做题进程异常终止（无退出码，可能被信号中断）']);
+  if (!hasFfmpeg()) return;
+  // 交完合规的真片再被杀：命令行信封和落盘都是 error、0 分
+  const killed = cli(['run', '--question', qFile, '--root', root, '--solver-cmd', `"${process.execPath}" "${killer}" "${video(join(dir, 'good.mp4'))}"`]);
+  const disk = await readJson(killed.json.data.resultFile);
+  assert.deepEqual([killed.code, killed.json.data.status, killed.json.data.score, disk.status, disk.score], [0, 'error', 0, 'error', 0], killed.stderr);
+  assert.ok(disk.artifacts.some((a) => a.path === 'deliverable.mp4'));
 });
 
 test('B8-8 隐藏题：blockedBy 原文和精确的墙钟预算不回显', async (t) => {
@@ -285,4 +292,9 @@ test('B8-10 命令行退出码：用法错 2、环境缺 3、题目不合格 4',
   assert.deepEqual([bad.code, bad.json.error.code], [4, 'contract.question-invalid']);
   assert.match(bad.json.error.message, /QF1/);
   assert.ok(!existsSync(join(REPO, 'out/b8-runs')));
+});
+
+test('B8-11 从标准输入跑的脚本（node -）也能导入公共入口', () => {
+  const r = spawnSync(process.execPath, ['--input-type=module', '-'], { cwd: REPO, encoding: 'utf8', input: "import { validateQuestion } from './beiming/bench/index.mjs';\nconsole.log(typeof validateQuestion);\n" });
+  assert.deepEqual([r.status, r.stdout.trim()], [0, 'function'], r.stderr);
 });
