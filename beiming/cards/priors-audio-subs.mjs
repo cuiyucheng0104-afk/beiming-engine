@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { URL } from 'node:url';
 import { createPriorsStore } from './priors.mjs';
 
-const read = (name) => JSON.parse(readFileSync(new URL(`./priors-data/${name}`, import.meta.url), 'utf8'));
+const text = (name) => readFileSync(new URL(`./priors-data/${name}`, import.meta.url), 'utf8');
+const read = (name) => JSON.parse(text(name));
 
 function deepFreeze(value) {
   if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -17,7 +18,6 @@ function deepFreeze(value) {
 let cache;
 function data() {
   cache ??= deepFreeze({
-    priors: read('audio-subs.json'),
     cardPriors: read('audio-subs.card-priors.json').entries,
     practices: read('audio-subs.practices.json').entries,
     manifest: read('audio-subs.manifest.json'),
@@ -28,7 +28,8 @@ function data() {
 let store;
 /** 可移植先验检索库（过 C9 整表校验；条目全部「未在我方读回」）。 */
 export function loadAudioSubsPriorsStore() {
-  store ??= createPriorsStore(data().priors);
+  // 传原文而不是 JSON.parse 后的对象：重复键（prior.duplicate-key）只有 C9 看原文时才拦得住。
+  store ??= createPriorsStore(text('audio-subs.json'));
   return store;
 }
 

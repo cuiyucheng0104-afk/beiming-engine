@@ -2,26 +2,6 @@
   "format": "priors/0.1",
   "entries": [
     {
-      "id": "audio-subs.e358.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.general.duration",
-      "title": "代码生成混响脉冲（duration）",
-      "value": 2.8,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§1 总路线与通用原则：代码生成混响脉冲"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §1 ^e358；原出处：09 复盘 §6.1 #24",
-        "note": "原证据：脚本取值；原验证：作者成片用过。2.8 s、exp(−2.1·t)、5 个早期反射(A8/§4.2)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
       "id": "audio-subs.e359.frequency",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.general.frequency",
@@ -40,7 +20,7 @@
         "caseId": "case-02",
         "evidenceLevel": "源码",
         "docRef": "声音配乐配音字幕汇编 §1 ^e359；原出处：09 复盘 §6.1 #25",
-        "note": "原证据：脚本取值；原验证：作者成片用过。下滑正弦+带通噪声：太鼓 120→52 Hz/0.16 s(src/audio/music.js:267)"
+        "note": "原证据：脚本取值；原验证：作者成片用过。下滑正弦+带通噪声：太鼓 120→52 Hz/0.16 s(原实现源码)"
       },
       "verifiedInOurStack": false
     },
@@ -60,27 +40,87 @@
         "caseId": "case-02",
         "evidenceLevel": "源码",
         "docRef": "声音配乐配音字幕汇编 §1 ^e359；原出处：09 复盘 §6.1 #25",
-        "note": "原证据：脚本取值；原验证：作者成片用过。下滑正弦+带通噪声：太鼓 120→52 Hz/0.16 s(src/audio/music.js:267)"
+        "note": "原证据：脚本取值；原验证：作者成片用过。下滑正弦+带通噪声：太鼓 120→52 Hz/0.16 s(原实现源码)"
       },
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e362.duration",
+      "id": "audio-subs.e367.level",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.general.duration",
-      "title": "配乐调度（duration）",
-      "value": 90,
-      "unit": "ms",
+      "topic": "audio-subs.general.level",
+      "title": "画面和声音读同一张逐帧表（电平 dBFS）",
+      "value": -18.5,
+      "unit": "dB",
       "conditions": {
         "appliesWhen": [
-          "§1 总路线与通用原则：配乐调度"
+          "§1 总路线与通用原则：画面和声音读同一张逐帧表"
         ]
       },
       "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §1 ^e362；原出处：09 复盘 §6.1 #28/§6.3",
-        "note": "原证据：脚本取值；原验证：作者成片用过。按整小节前瞻，90 ms 定时器、提前 0.6 s(注释写 0.4 s，以代码为准)；同一套代码能在离线音频上下文里渲染"
+        "caseId": "case-26",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §1 ^e367；原出处：09 复盘 §0 #3-4/§6.1 #2/§7",
+        "note": "原证据：实测；原验证：作者成片上我们量过。EAT 霓虹第 2–4、7–8、11 帧全暗，同帧整体音量从约 −18.5 dBFS 降到 −21.4 至 −22.0 dBFS；第 54–56 帧还暗一次(原文没提)音量 −22.9 至 −24.5 dBFS；OPEN 招牌第 118–120、142–144、148–150 帧闪暗，第 153 帧(6.375 s)起彻底熄灭，该帧音量冲到 −6.6 dBFS(全片最响，继电器声)后 3 帧衰减；镜头 2 从约 −16.2 降到 −22.8 至 −27.2；每次重新点亮同帧高频冒尖；霓虹每暗一次同帧音量降约 3–7 dB；实测响度 −14.0 LUFS"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e367.duration",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.general.duration",
+      "title": "画面和声音读同一张逐帧表（duration）",
+      "value": 6.375,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "§1 总路线与通用原则：画面和声音读同一张逐帧表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §1 ^e367；原出处：09 复盘 §0 #3-4/§6.1 #2/§7",
+        "note": "原证据：实测；原验证：作者成片上我们量过。EAT 霓虹第 2–4、7–8、11 帧全暗，同帧整体音量从约 −18.5 dBFS 降到 −21.4 至 −22.0 dBFS；第 54–56 帧还暗一次(原文没提)音量 −22.9 至 −24.5 dBFS；OPEN 招牌第 118–120、142–144、148–150 帧闪暗，第 153 帧(6.375 s)起彻底熄灭，该帧音量冲到 −6.6 dBFS(全片最响，继电器声)后 3 帧衰减；镜头 2 从约 −16.2 降到 −22.8 至 −27.2；每次重新点亮同帧高频冒尖；霓虹每暗一次同帧音量降约 3–7 dB；实测响度 −14.0 LUFS"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e367.frames",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.general.frames",
+      "title": "画面和声音读同一张逐帧表（frames）",
+      "value": 3,
+      "unit": "frame",
+      "conditions": {
+        "appliesWhen": [
+          "§1 总路线与通用原则：画面和声音读同一张逐帧表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §1 ^e367；原出处：09 复盘 §0 #3-4/§6.1 #2/§7",
+        "note": "原证据：实测；原验证：作者成片上我们量过。EAT 霓虹第 2–4、7–8、11 帧全暗，同帧整体音量从约 −18.5 dBFS 降到 −21.4 至 −22.0 dBFS；第 54–56 帧还暗一次(原文没提)音量 −22.9 至 −24.5 dBFS；OPEN 招牌第 118–120、142–144、148–150 帧闪暗，第 153 帧(6.375 s)起彻底熄灭，该帧音量冲到 −6.6 dBFS(全片最响，继电器声)后 3 帧衰减；镜头 2 从约 −16.2 降到 −22.8 至 −27.2；每次重新点亮同帧高频冒尖；霓虹每暗一次同帧音量降约 3–7 dB；实测响度 −14.0 LUFS"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e367.loudness",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.general.loudness",
+      "title": "画面和声音读同一张逐帧表（loudness）",
+      "value": -14,
+      "unit": "LUFS",
+      "conditions": {
+        "appliesWhen": [
+          "§1 总路线与通用原则：画面和声音读同一张逐帧表"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-26",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §1 ^e367；原出处：09 复盘 §0 #3-4/§6.1 #2/§7",
+        "note": "原证据：实测；原验证：作者成片上我们量过。EAT 霓虹第 2–4、7–8、11 帧全暗，同帧整体音量从约 −18.5 dBFS 降到 −21.4 至 −22.0 dBFS；第 54–56 帧还暗一次(原文没提)音量 −22.9 至 −24.5 dBFS；OPEN 招牌第 118–120、142–144、148–150 帧闪暗，第 153 帧(6.375 s)起彻底熄灭，该帧音量冲到 −6.6 dBFS(全片最响，继电器声)后 3 帧衰减；镜头 2 从约 −16.2 降到 −22.8 至 −27.2；每次重新点亮同帧高频冒尖；霓虹每暗一次同帧音量降约 3–7 dB；实测响度 −14.0 LUFS"
       },
       "verifiedInOurStack": false
     },
@@ -99,7 +139,7 @@
       "provenance": {
         "caseId": "case-13",
         "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §2 ^e8；原出处：26 §2.7、§3.7 (dsp.js:679-699)",
+        "docRef": "声音配乐配音字幕汇编 §2 ^e8；原出处：26 §2.7、§3.7 (原实现源码)",
         "note": "原证据：源码；原验证：作者成品用过。去直流；峰值归一 0.89（≈−1.01 dBFS）；开头 24 采样线性淡入；结尾 12 ms 线性淡出"
       },
       "verifiedInOurStack": false
@@ -119,474 +159,8 @@
       "provenance": {
         "caseId": "case-13",
         "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §2 ^e8；原出处：26 §2.7、§3.7 (dsp.js:679-699)",
+        "docRef": "声音配乐配音字幕汇编 §2 ^e8；原出处：26 §2.7、§3.7 (原实现源码)",
         "note": "原证据：源码；原验证：作者成品用过。去直流；峰值归一 0.89（≈−1.01 dBFS）；开头 24 采样线性淡入；结尾 12 ms 线性淡出"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e20.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.engine-bus.duration",
-      "title": "三个混响规格（duration）",
-      "value": 5.6,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§2 案例 13 音频引擎：总线、空间化、混响：三个混响规格"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §2 ^e20；原出处：26 §3.3 (prep.js:4-40)",
-        "note": "原证据：源码；原验证：作者成品用过。hall：5.6 s/rt60 4.6/预延迟 0.028/早反 14/跨度 0.13/低通 8500→1500/种子 11/268800 采样；field：2.2/1.2/0.01/6/0.05/6500→1300/回声拍(0.23 s,0.2)(0.47,0.1)(0.81,0.05)/种子 23/105600；room：1.1/0.75/0.004/22/0.04/9500→2600/种子 31/52800"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e22.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.engine-bus.duration",
-      "title": "混响内存与轻量截断（duration）",
-      "value": 4,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§2 案例 13 音频引擎：总线、空间化、混响：混响内存与轻量截断"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §2 ^e22；原出处：26 §2.5、§3.5 (engine.js:464-478)",
-        "note": "原证据：源码；原验证：作者成品用过。桌面 IR (268800+105600+52800)×2声道×4B=3,417,600 B≈3.26 MiB；轻量 2,457,600 B≈2.34 MiB；噪声缓冲 5,088,000 B≈4.85 MiB；轻量截断 hall 4 s/field 1.5 s/room 0.9 s，尾部淡出 hall 0.35 s 其余 0.2 s"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e25.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.engine-bus.duration",
-      "title": "IR 延迟装入（duration）",
-      "value": 60,
-      "unit": "ms",
-      "conditions": {
-        "appliesWhen": [
-          "§2 案例 13 音频引擎：总线、空间化、混响：IR 延迟装入"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §2 ^e25；原出处：26 §2.2 (engine.js:428-452)",
-        "note": "原证据：源码；原验证：作者成品用过。deferIR：field 延迟 60 ms、hall 260 ms、room 420 ms，各 requestIdleCallback({timeout:400}) 装入；装好前为干声"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e28.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.dsp.duration",
-      "title": "模态敲击 modal/damped（duration）",
-      "value": 1.2,
-      "unit": "ms",
-      "conditions": {
-        "appliesWhen": [
-          "§3 DSP 积木与噪声：模态敲击 modal/damped"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §3 ^e28；原出处：26 §2.8 (dsp.js:700-736)",
-        "note": "原证据：源码；原验证：作者成品用过。modal(out,sr,o,partials,exciterMs,rng,amp)：exciterMs 毫秒线性衰减随机噪声脉冲喂各分音 Reson 后自由衰减；damped：单阻尼正弦，起音默认 1.2 ms"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e30.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.dsp.duration",
-      "title": "积木：thud（duration）",
-      "value": 0.33,
-      "unit": "ms",
-      "conditions": {
-        "appliesWhen": [
-          "§3 DSP 积木与噪声：积木：thud"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §3 ^e30；原出处：26 §2.10 (bank.js:51-63)",
-        "note": "原证据：源码；原验证：作者成品用过。thud(ch,sr,t0,f0,f1,tau,amp)：正弦闷响，频率 f0 指数落到 f1(频差衰减时间常数 tau×0.35)，振幅衰减常数 tau，开头 sr/3000 采样(≈0.33 ms)线性起音，长度 7·tau"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e33.ratio",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.dsp.ratio",
-      "title": "积木：plate 金属板（ratio）",
-      "value": 0.015,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§3 DSP 积木与噪声：积木：plate 金属板"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §3 ^e33；原出处：26 §2.10 (bank.js:3-14,120-123)",
-        "note": "原证据：源码；原验证：作者成品用过。PLATE=[1,1.59,2.14,2.3,2.65,2.92,3.16,3.5,4.2,5.1]；第 i 分音衰减 t60/(1+0.45i)，幅度 1/(1+0.25i)，每比例随机 ±1.5%"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e73.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.dsp.duration",
-      "title": "积木：helmBreath 头盔呼吸（duration）",
-      "value": [
-        2.2,
-        3
-      ],
-      "unit": "ms",
-      "conditions": {
-        "appliesWhen": [
-          "§3 DSP 积木与噪声：积木：helmBreath 头盔呼吸"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §3 ^e73；原出处：27 §2.1 (bank.js:216-231)",
-        "note": "原证据：源码；原验证：作者成品用过。粉噪过 bass 共振峰(e→a或a)，再过2.2–3 ms梳状；吸气高通460 Hz/低通5000 Hz，呼气240/3600 Hz；呼气叠0.05–0.17锯齿声带"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e73.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.dsp.frequency",
-      "title": "积木：helmBreath 头盔呼吸（frequency）",
-      "value": 460,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§3 DSP 积木与噪声：积木：helmBreath 头盔呼吸"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §3 ^e73；原出处：27 §2.1 (bank.js:216-231)",
-        "note": "原证据：源码；原验证：作者成品用过。粉噪过 bass 共振峰(e→a或a)，再过2.2–3 ms梳状；吸气高通460 Hz/低通5000 Hz，呼气240/3600 Hz；呼气叠0.05–0.17锯齿声带"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e76.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.dsp.duration",
-      "title": "无缝循环 seamless（duration）",
-      "value": 3.5,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§3 DSP 积木与噪声：无缝循环 seamless"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §3 ^e76；原出处：27 §2.2、§7.5 (bank.js:6250-6265,10443-10467,4395-4423)",
-        "note": "原证据：源码；原验证：作者成品用过。多算 T+X 秒取前T秒；头部X秒与多出的尾部X秒按等功率曲线交叉(sin·头+cos·尾)，再整体去直流；dragon_fireRoar T=3,X=0.5(渲染3.5 s输出3 s)；lamp_fire 内联同法 T=4,X=0.5"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e93.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.ambience.duration",
-      "title": "样例 kindle 点火（duration）",
-      "value": 3.8,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§5 钟、火、雷、龙与环境床配方：样例 kindle 点火"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §5 ^e93；原出处：27 §2.4 S4 (bank.js:1685-1717)",
-        "note": "原证据：源码；原验证：作者成品用过。1变体立体声3.8 s：①粉噪过两低通(右声道截止×1.1,Q0.9)长1.6 包络0.12/0.45 ×1.2；截止前0.25 s 120→2600指数升，之后1 s 2600→500指数降，每16采样更新 ②thud 58→38 τ0.45 0.8 起0.02 ③clicks 起0.2 跨3.2 120个 0.25 1500–7000 t60 0.002–0.006 τ1.5 散布0.7 ④clicks 30个 0.3 150–400 t60 0.02–0.05 τ1.6 散布0.5 ⑤粉噪低通500 起0.2 长3.4 0.15 鼓包3.4 3.3 Hz调幅深0.5 ⑥chime 1174.7 起0.25 t60 2.8 0.18 声像−0.2；chime 1760 起0.29 t60 2.4 0.12 声像+0.3"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e93.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.ambience.frequency",
-      "title": "样例 kindle 点火（frequency）",
-      "value": 3.3,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§5 钟、火、雷、龙与环境床配方：样例 kindle 点火"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §5 ^e93；原出处：27 §2.4 S4 (bank.js:1685-1717)",
-        "note": "原证据：源码；原验证：作者成品用过。1变体立体声3.8 s：①粉噪过两低通(右声道截止×1.1,Q0.9)长1.6 包络0.12/0.45 ×1.2；截止前0.25 s 120→2600指数升，之后1 s 2600→500指数降，每16采样更新 ②thud 58→38 τ0.45 0.8 起0.02 ③clicks 起0.2 跨3.2 120个 0.25 1500–7000 t60 0.002–0.006 τ1.5 散布0.7 ④clicks 30个 0.3 150–400 t60 0.02–0.05 τ1.6 散布0.5 ⑤粉噪低通500 起0.2 长3.4 0.15 鼓包3.4 3.3 Hz调幅深0.5 ⑥chime 1174.7 起0.25 t60 2.8 0.18 声像−0.2；chime 1760 起0.29 t60 2.4 0.12 声像+0.3"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e111.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.ambience.duration",
-      "title": "环境声实时节点网络（duration）",
-      "value": 1,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§5 钟、火、雷、龙与环境床配方：环境声实时节点网络"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §5 ^e111；原出处：27 §2.9、§3.9 (ambience.js:240-374)",
-        "note": "原证据：源码；原验证：作者成品用过。风：粉噪(1 s循环)→带通400 Q0.5→低通900 Q0.5→windG；口哨：白噪(1.3 s)→带通1200 Q9；风吼：棕噪(1.1 s)→带通380 Q4；草沙沙：白噪(2.1 s)→高通2500 Q0.7→低通9000；雨底：粉噪(1.7 s)→高通1100 Q0.6→低通7500，雨点循环 rainloop；河：棕噪(1.4 s)→带通520 Q0.6→低通1600，河面高频白噪(0.9 s)→带通2600 Q1.4；和声底：正弦/三角/锯齿三振荡器增益0.5/0.32/0.1，音符取区域notes，低通cut，0.07 Hz慢颤音深0.3，送hall0.25(地下0.04,room0.5)；低语：粉噪(0.8 s)→带通3100 Q3 0.31 Hz调幅；夜虫：4400 Hz振荡器×28 Hz调幅×2.3 Hz方波斩波"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e111.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.ambience.frequency",
-      "title": "环境声实时节点网络（frequency）",
-      "value": 0.07,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§5 钟、火、雷、龙与环境床配方：环境声实时节点网络"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §5 ^e111；原出处：27 §2.9、§3.9 (ambience.js:240-374)",
-        "note": "原证据：源码；原验证：作者成品用过。风：粉噪(1 s循环)→带通400 Q0.5→低通900 Q0.5→windG；口哨：白噪(1.3 s)→带通1200 Q9；风吼：棕噪(1.1 s)→带通380 Q4；草沙沙：白噪(2.1 s)→高通2500 Q0.7→低通9000；雨底：粉噪(1.7 s)→高通1100 Q0.6→低通7500，雨点循环 rainloop；河：棕噪(1.4 s)→带通520 Q0.6→低通1600，河面高频白噪(0.9 s)→带通2600 Q1.4；和声底：正弦/三角/锯齿三振荡器增益0.5/0.32/0.1，音符取区域notes，低通cut，0.07 Hz慢颤音深0.3，送hall0.25(地下0.04,room0.5)；低语：粉噪(0.8 s)→带通3100 Q3 0.31 Hz调幅；夜虫：4400 Hz振荡器×28 Hz调幅×2.3 Hz方波斩波"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e4.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.trigger-mix.duration",
-      "title": "演出音效触发点（duration）",
-      "value": 0,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§6 触发、混音映射与键表：演出音效触发点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §6 ^e4；原出处：boss.js",
-        "note": "原证据：源码；原验证：作者成片用过。苏醒音 0 秒；挥舞音 sweep2 0.76/1.58、thrust 0.64；溶解音在 7.3 秒；阶段语音 transform 0.2 秒"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e68.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.trigger-mix.duration",
-      "title": "循环敌声 foeLoop（duration）",
-      "value": 0.25,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§6 触发、混音映射与键表：循环敌声 foeLoop"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §6 ^e68；原出处：26 §2.14 (audio.js:6183-6272)",
-        "note": "原证据：源码；原验证：作者成品用过。同类型14单位内合并为一个循环源；上限3个(轻量2)；增益τ0.25 s渐入；声像器ref默认4 rolloff1 最远200，位置取附近同类平均并抬高3；无敌人0.6 s后(有则60 s)τ0.2 s淡出"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e121.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.trigger-mix.duration",
-      "title": "与动画对齐：mark 撞击点（duration）",
-      "value": 0.012,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§6 触发、混音映射与键表：与动画对齐：mark 撞击点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §6 ^e121；原出处：27 §7.11、§3.10 (fire.js:135；bank.js:11038-11665)",
-        "note": "原证据：源码；原验证：作者成品用过。给每个音效记 mark(音频里\"动作发生点\"秒)，播放时起播提前这么多；龙落地0.012 s、龙吼0.6 s、call 1.95 s、fireWindup mark=1.48(=FIRE_ALIGN)；蓄力音 offset=1.48−剩余蓄力时长"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e198.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.trigger-mix.duration",
-      "title": "音效类别与时长（duration）",
-      "value": [
-        0.25,
-        1.1
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§6 触发、混音映射与键表：音效类别与时长"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §6 ^e198；原出处：09§5.3",
-        "note": "原证据：推断；原验证：没验证。A 脚步与身体拟音 21（0.25–1.1 s）；B 近战/受击/武器 28（0.2–3.2）；C 玩家状态/拾取/界面 23（0.15–7.6）；D 魔法/天气/环境 15（0.5–5.2，雷 6.5/8）；E 乐器音与打击乐 19（0.4–5.6）；F 弓箭与命中 24（0.18–1.5）；H 头目一 lamp_* 31（0.35–4.5）；G 闸门 5+I 尸体掉落 6（1.0–5.2/0.6–1.4）；J 树层敌人与机关 28（0.4–2.7）；K 树层世界与巨龙叫声 13（1.2–5.4）；L 龙 dragon_* 48（0.3–4.5）；M voice_〔专名24〕_* 5"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e46.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.duration",
-      "title": "敌人嗓音配置 VOICE_CFG（duration）",
-      "value": 1.2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：敌人嗓音配置 VOICE_CFG"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e46；原出处：26 §2.9 (audio.js:61-97,3073-3088；bank.js:420-764)",
-        "note": "原证据：源码；原验证：作者成品用过。增益/参考距离/混响发送：warden 0.24/5/0；archer 0.22/5/0；captain 0.3/7/0.05；brute 0.3/7/0；wraith 0.3/6/0.3；sentinel 0.5/14/0.2；〔专名24〕 0.35/12/0.1。键名 voice_<类型>_<事件>，事件 alert/attack/hurt/death/roar/cry；wraith 音高×0.86–×1.2，其他×(1±0.06)；叫声(alert/roar)冷却1.2 s，其他0.2–0.35 s；最远听到120(哨兵300)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e54.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.duration",
-      "title": "对话文字转\"语音\"脉冲 planSpeech（duration）",
-      "value": 0.035,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：对话文字转\"语音\"脉冲 planSpeech"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e54；原出处：26 §2.9、§7.13 (audio.js:684-825)",
-        "note": "原证据：源码；原验证：作者成品用过。元音组(aeiouy连续串)一个音节：时长(0.15+0.05·rand)，词尾×1.25，双元音×1.12，除以语速pace；辅音起首含szxfhc加0.035 s \"s\"爆擦、含tkpdbgq加\"t\"爆音；词间0.05 s、逗号0.22 s、句末0.42 s；超上限等比压缩。元音映射 a e i y→i o u；空文字用8个咕哝音节之一；西里尔字母先转写成拉丁"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e303.ratio",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.ratio",
-      "title": "主唱七步-2 落拍（ratio）",
-      "value": 0.42,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：主唱七步-2 落拍"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e303；原出处：20/09 §3.1",
-        "note": "原证据：原文陈述；原验证：只是原文说法。辅音在拍前起、元音落在拍上；音符太挤时辅音缩短；元音至少占音符的 42%"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e304.ratio",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.ratio",
-      "title": "主唱七步-3 声带（ratio）",
-      "value": 0.004,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：主唱七步-3 声带"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e304；原出处：20/09 §3.1",
-        "note": "原证据：原文陈述；原验证：只是原文说法。Liljencrants–Fant 脉冲模型；一个参数让声音从压紧到气声，随响度/音高/乐句末变化；气息噪声随声带脉动；抖动 0.4%，闪烁 3%"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e305.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.duration",
-      "title": "主唱七步-4 音高（duration）",
-      "value": 0.2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：主唱七步-4 音高"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e305；原出处：20/09 §3.1",
-        "note": "原证据：原文陈述；原验证：只是原文说法。音符台阶经二阶平滑，得到滑音、轻微过冲、乐句首音“从下滑上”；颤音在长元音 0.2 s 后起（平滑参数、颤音频率范围未公开）"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e306.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.frequency",
-      "title": "主唱七步-5 声道（frequency）",
-      "value": 11500,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：主唱七步-5 声道"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e306；原出处：20/09 §3.1",
-        "note": "原证据：原文陈述；原验证：只是原文说法。级联：一对鼻音零极点 + 五个移动共振峰 + 到 11.5 kHz 的固定极点；共振峰目标在相邻音之间混合（共振峰表未公开）"
       },
       "verifiedInOurStack": false
     },
@@ -718,7 +292,7 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.voice.loudness-range",
       "title": "复测响度（loudness-range）",
-      "value": 2,
+      "value": 2.3,
       "unit": "LU",
       "conditions": {
         "appliesWhen": [
@@ -817,26 +391,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e314.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.duration",
-      "title": "复测识别（duration）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：复测识别"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e314；原出处：20/09 §3.4；量测结果 §6",
-        "note": "原证据：实测；原验证：我们自己量过（近似，difflib 按词序）。whisper small（CPU，约 10 s 转 38 s 音频）混音命中 31/40（官方小模型 32/40）；转写 38 词；“a wave…a line” 被听成 “awake…alive”，“but it is mine” 被听成 “not in his mind”（该句 2/6），“a little tone” 被听成 “a little call”；与官方 “math”→“laugh” 同类（元音相近、辅音弱的词最易听错）"
-      },
-      "verifiedInOurStack": false
-    },
-    {
       "id": "audio-subs.e316.duration",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.voice.duration",
@@ -903,626 +457,25 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e317.frequency",
+      "id": "audio-subs.e432.frequency",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.voice.frequency",
-      "title": "音域出入（frequency）",
+      "title": "元音共振峰表 VOWELS(4表×5元音)（frequency）",
       "value": [
-        196,
-        349
+        250,
+        3900
       ],
       "unit": "Hz",
       "conditions": {
         "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：音域出入"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e317；原出处：20/09 §3.4",
-        "note": "原证据：画面读数+实测；原验证：没验证。官方说主唱设计为男高音 196–349 Hz；官方静帧标签 “F3 170 Hz”（F3 标称 174.6 Hz）低于 196 Hz，我们粗估也见 162–267 Hz；原因未查（可能乐句首滑音下探，也可能音域写宽松）"
-      },
-      "verifiedInOurStack": false,
-      "conflicts": [
-        {
-          "caseId": "case-20",
-          "value": 170,
-          "unit": "Hz",
-          "evidenceLevel": "实测",
-          "reason": "官方说主唱音域 196–349 Hz，官方静帧标签 F3 170 Hz 与我们粗估 162–267 Hz 都低于 196 Hz"
-        }
-      ]
-    },
-    {
-      "id": "audio-subs.e320.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.frequency",
-      "title": "官方自报缺点（frequency）",
-      "value": 1500,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：官方自报缺点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e320；原出处：20/09 §5.3",
-        "note": "原证据：原文陈述；原验证：只是原文说法。声门脉冲太规则（长元音尤其）；音频分类器把设计成男高音的主唱判成女声；th/f/v 弱且相似；合唱词在伴奏下更难懂；合唱元音 1.5 kHz 以上偏闷；所有声部共用一套发音规则；主唱严丝合缝贴网格；混响和气息是合成的；画面不加标签看不出彩线=6 合唱+2 和声"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e423.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.duration",
-      "title": "台词触发（duration）",
-      "value": 2.4,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：台词触发"
+          "§7 人声、嗓音、歌声与虚构语言：元音共振峰表 VOWELS(4表×5元音)"
         ]
       },
       "provenance": {
         "caseId": "case-13",
         "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e423；原出处：boss.js:1835",
-        "note": "原证据：源码；原验证：作者成片用过。开场台词 2.4 秒（字幕键 r11.boss.intro）；二阶段 transform 0.45 秒 phase2；败北台词死亡 1.4 秒；键格式 r11.boss.${kind}(intro/phase2/defeat)，字幕与配音接口见第 27 块"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e436.ratio",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.ratio",
-      "title": "变体=整体音高随机（ratio）",
-      "value": 0.06,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§7 人声、嗓音、歌声与虚构语言：变体=整体音高随机"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §7 ^e436；原出处：27 §7.4 (bank.js:4916)",
-        "note": "原证据：源码；原验证：作者成品用过。同一音效的变体用整体音高随机而非重新设计：voice_* 整条音高线×(1±6%)；wraith音高范围×0.86–×1.2"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e127.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.duration",
-      "title": "小节线切曲+枢轴音（duration）",
-      "value": [
-        2.5,
-        5
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 配乐系统：案例 13：小节线切曲+枢轴音"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 ^e127；原出处：28 §0.3、§2.7 (music.js:4050-4089,75)",
-        "note": "原证据：源码；原验证：作者成品用过。导演 switchTo：旧曲淡出点对齐旧曲下一小节线；新旧调共有音级<5(ROUTER.pivotShared)则先在小节线放一个2.5–5 s长笛音(新旧共有音级)当桥，桥后新曲才入；实际只一个 inst.organ 调用"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e128.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.duration",
-      "title": "曲目总表：基础曲速度/调式（duration）",
-      "value": 4,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 配乐系统：案例 13：曲目总表：基础曲速度/调式"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 ^e128；原出处：28 §1.1",
-        "note": "原证据：源码(小节秒为笔记自算)；原验证：作者成品用过。title 60bpm 4拍(4.0 s/小节)32小节一圈=128 s D小调/大调混用；explore回退 60/4 16小节=64 s D小调；combat回退 116/4(2.069 s)8小节=16.55 s；boss 100/4(2.4 s)前奏4小节+A/B各8小节；boss2 同但热版；vigil 66/4(3.636 s)8小节=29.09 s；death 60/4 无调性团块(D A E♭)；victory 60/4 B♭→C→D大调；ending 56/4(4.286 s)16小节=68.57 s D大调"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e129.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.duration",
-      "title": "曲目总表：区域曲（duration）",
-      "value": 4.545,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 配乐系统：案例 13：曲目总表：区域曲"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 ^e129；原出处：28 §1.1",
-        "note": "原证据：源码；原验证：作者成品用过。高地 〔专名39〕 66bpm/5拍(4.545 s)夜61 D多利亚；〔专名42〕 72/4(3.333 s)夜66.24 F利底亚；〔专名43〕 58/4(4.138 s)夜53.36 G弗里几亚；〔专名44〕 80/6(4.5 s)夜73.6 ±6%rubato D弗里几亚；地穴 48/4(5.0 s) D弗里几亚；〔专名41〕 63/4(3.81 s)夜58 D自然小调(击败头目后D大调)；大教堂 〔专名11〕 50/4(4.8 s)夜46 D弗里几亚；〔专名45〕 52/4(4.615 s) D大调；〔专名40〕 48/4(5.0 s)无节拍 B自然小调；〔专名46〕 76/4(3.158 s)夜70 E弗里几亚；〔专名47〕 48/4(5.0 s)无节拍 A序列音阶[5,9,2,10,4]；〔专名48〕 60/4最长20 s"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e129.ratio",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.ratio",
-      "title": "曲目总表：区域曲（ratio）",
-      "value": 0.06,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§8 配乐系统：案例 13：曲目总表：区域曲"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 ^e129；原出处：28 §1.1",
-        "note": "原证据：源码；原验证：作者成品用过。高地 〔专名39〕 66bpm/5拍(4.545 s)夜61 D多利亚；〔专名42〕 72/4(3.333 s)夜66.24 F利底亚；〔专名43〕 58/4(4.138 s)夜53.36 G弗里几亚；〔专名44〕 80/6(4.5 s)夜73.6 ±6%rubato D弗里几亚；地穴 48/4(5.0 s) D弗里几亚；〔专名41〕 63/4(3.81 s)夜58 D自然小调(击败头目后D大调)；大教堂 〔专名11〕 50/4(4.8 s)夜46 D弗里几亚；〔专名45〕 52/4(4.615 s) D大调；〔专名40〕 48/4(5.0 s)无节拍 B自然小调；〔专名46〕 76/4(3.158 s)夜70 E弗里几亚；〔专名47〕 48/4(5.0 s)无节拍 A序列音阶[5,9,2,10,4]；〔专名48〕 60/4最长20 s"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e133.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.duration",
-      "title": "小节排程 pump（duration）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 配乐系统：案例 13：小节排程 pump"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 ^e133；原出处：28 §2.1 (music.js:498-564,3424,4216-4222)",
-        "note": "原证据：源码；原验证：作者成品用过。update 对每个 Piece pump(now+0.6)：tNext<until 就 T=tNext，调onBar，调 cur.bar(p,bar)，bar++，tNext+=小节秒；bar() 抛异常只记 fails，同一区域曲连续两次失败→换 EXPLORE_DEF；淡出后超 killAt=stopAt+10 s 销毁"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e189.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.duration",
-      "title": "玩家输入驱动音乐形态（duration）",
-      "value": 1.5,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 配乐系统：案例 13：玩家输入驱动音乐形态"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 ^e189；原出处：28 §7.8",
-        "note": "原证据：源码；原验证：作者成品用过。静止≥1.5 s才触发悬停长音，再动或超11.2 s解决到C5(〔专名42〕)；风速>0.62触发敲灯钟(〔专名47〕)；高度alt01分层(阶梯/〔专名50〕)；赫斯珀靠近〔专名20〕>.35动机停vein接管；风gust01推给风铃琴；昼夜night01/暴雨tempest01/dawn01"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e216.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.duration",
-      "title": "离线渲染预览（duration）",
-      "value": 30,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 配乐系统：案例 13：离线渲染预览"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 ^e216；原出处：09§5.7、§1A；`audio.js:4614-4848`、`music_combat.js:1604`、`music.js:3059`",
-        "note": "原证据：源码；原验证：作者成片用过(未运行)。GameAudio.renderPreview：OfflineAudioContext(2 声道, 48000×秒) 建 GameAudio({prep:false})，以 1/30 s 步长手动调 update，按时间表 events:[{t, call:\"hit(flesh)\"}] 触发，渲完 analyze(buf)，再附复音丢失数、乐曲块列表、龙/头目线索统计；试听语法 parseMusicSpec「名@区域:段落+旗标=值」（旗标 night after tempest …）；命令行 audio_preview combat@<区域>:L1；dryCalls() 查空壳；speakTest(type)；sfx(key,gain,rate)；stats()"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e236.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.duration",
-      "title": "黎明 0–9 s 配乐（duration）",
-      "value": 3,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：黎明 0–9 s 配乐"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-ext01",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e236；原出处：汇总稿 §5.2(09)（85_audio.js:173-179）",
-        "note": "原证据：源码；原验证：作者成片用过。drone G1(31) vel0.07 与 G2(43) vel0.065 淡入 3 s 淡出 0.6 s，0–27.2 s；drone D2(38) vel0.04 10–24 s；pad G2 D3 D4(43,50,62) 0.5–9 s vel0.62 bright0.6；二胡 gain0.54 send0.45 pan0.5：3.0(1.5)G4、4.5(0.375)F4、4.875(0.375)D4、5.25(0.75)F4、6.0(1.5)D4、7.5(0.375)C4、7.875(0.375)Bb3、8.25(0.7)C4，力度 0.62/0.5/0.5/0.55/0.6/0.5/0.5/0.5；古筝下行 9 音每 0.085 s：Bb5 G5 F5 D5 C5 Bb4 G4 F4 D4（82,79,77,74,72,70,67,65,62），vel 0.42−0.02i，声像 0.25+0.06i，从 1.2 s 起；古筝 G3 D4 G4 于 4.5/5.25/6.0 vel0.34；古筝上行 8 音 G3 Bb3 D4 F4 G4 Bb4 D5 F5 每 0.085 s，8.28 s 起，vel 0.34+0.025i；铃 D6 G6 C6 F6 于 0.9/2.6/5.3/7.4 vel0.5"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e237.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.duration",
-      "title": "EMERGE 9–15 s 配乐（duration）",
-      "value": [
-        9,
-        12
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：EMERGE 9–15 s 配乐"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-ext01",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e237；原出处：汇总稿 §5.2(09)（85_audio.js:181-185）",
-        "note": "原证据：源码；原验证：作者成片用过。9.0 太鼓 vel1.1 size0.7；9.1875 扫弦 Gm vel0.36；12.0 扫弦 Eb(升八度) vel0.4；pad G1 G2 D3 G3 Bb3 9–12 s vel0.8 bright0.7；pad Eb2 Bb2 Eb3 G3 Bb3 Eb4 12–15 s vel0.95 from0.6；二胡 12.0 Bb3、12.75 C4、13.5 D4、14.25 F4（力度 0.62/0.7/0.8/0.9）；太鼓渐快渐强 14 下，第 i 下时刻 12+3×(1−(1−i/14)^1.7)（12.0、12.355、12.692、13.009、13.307、13.584、13.841、14.077、14.29、14.479、14.643、14.781、14.89、14.966 s），力度 0.18+0.62(i/14)²，声像 0.4+0.2(i%2)，size 1.0+0.2(i%2)；铃 G5 C6 D6 于 10.6/11.1/13.4 vel0.42"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e255.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.frequency",
-      "title": "采样率/读表频率汇总（frequency）",
-      "value": 20,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：采样率/读表频率汇总"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-ext01",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e255；原出处：09 章 §3.5；运行时读数.md §6",
-        "note": "原证据：源码/实测；原验证：我们自己渲染读回过。hx/CF 20 Hz 1801 点；P.gust 20 Hz 1801；EV 身体类 50 Hz 4501；树冠类 25 Hz 2251；fall/storm 20 Hz 1801；br 20 Hz 321（=16×20+1）；scrT 1 Hz 91；wings 上限 4200 条；knocks 上限 420 条；起跳 tLeap 17.16 s，立起 19.84 s（运行时读回）；翅膀 4,030 次、拍岸 260、灯笼撞柱 420、布 113（运行时读回）"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e255.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.duration",
-      "title": "采样率/读表频率汇总（duration）",
-      "value": 17.16,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：采样率/读表频率汇总"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-ext01",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e255；原出处：09 章 §3.5；运行时读数.md §6",
-        "note": "原证据：源码/实测；原验证：我们自己渲染读回过。hx/CF 20 Hz 1801 点；P.gust 20 Hz 1801；EV 身体类 50 Hz 4501；树冠类 25 Hz 2251；fall/storm 20 Hz 1801；br 20 Hz 321（=16×20+1）；scrT 1 Hz 91；wings 上限 4200 条；knocks 上限 420 条；起跳 tLeap 17.16 s，立起 19.84 s（运行时读回）；翅膀 4,030 次、拍岸 260、灯笼撞柱 420、布 113（运行时读回）"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e265.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.duration",
-      "title": "乐器配方（music.js）·pad/choir/bass/harp/bell（duration）",
-      "value": 0.7,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：乐器配方（music.js）·pad/choir/bass/harp/bell"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e265；原出处：A8 表 3.5（music.js:199-263）",
-        "note": "原证据：源码；原验证：作者成片用过。pad：每和弦音 2 锯齿失谐 −9/+8 音分，低通 Q0.5 截止 boss 1500/combat 2100/其余 1250，线性起音 0.7 s 到 1、保持到小节末、线性释音 1.1 s，振荡器停于小节时长+1.2 s；choir：每音 3 锯齿 −12/0/+11 音分，两并联带通 720 Hz Q4（增益 1）+1180 Hz Q5（0.6），线性起音 0.5 s 到 2.2、释音 0.9 s；bass：主音（combat/boss 方波，其余正弦）+低八度正弦，低通方波 520/正弦 400 Hz，起音 0.008（方波）/0.25（正弦）s，保持到 0.7×时值，combat/boss 每小节 8 个八分音符时值 0.42 拍；harp：三角波基频+正弦 2 倍频，基频起音 0.004 s 衰减到 1.6 s，倍频起音 0.003 s 增益 0.35 衰减到 0.56 s，琶音型 [c0,c1,c2,c3 或 c0+12,c0+12,c3 或 c1+12,c2,c1] 整体再升 12 半音，每小节 8 个八分音符；bell：3 正弦分音比 1/2.76/5.4，幅度 1/0.4/0.2，衰减 1.8/0.6/0.3 s，起音 0.003 s，奇数小节第 2.5 拍(c2+24)和第 3 拍(c1+24)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e265.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.frequency",
-      "title": "乐器配方（music.js）·pad/choir/bass/harp/bell（frequency）",
-      "value": 720,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：乐器配方（music.js）·pad/choir/bass/harp/bell"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e265；原出处：A8 表 3.5（music.js:199-263）",
-        "note": "原证据：源码；原验证：作者成片用过。pad：每和弦音 2 锯齿失谐 −9/+8 音分，低通 Q0.5 截止 boss 1500/combat 2100/其余 1250，线性起音 0.7 s 到 1、保持到小节末、线性释音 1.1 s，振荡器停于小节时长+1.2 s；choir：每音 3 锯齿 −12/0/+11 音分，两并联带通 720 Hz Q4（增益 1）+1180 Hz Q5（0.6），线性起音 0.5 s 到 2.2、释音 0.9 s；bass：主音（combat/boss 方波，其余正弦）+低八度正弦，低通方波 520/正弦 400 Hz，起音 0.008（方波）/0.25（正弦）s，保持到 0.7×时值，combat/boss 每小节 8 个八分音符时值 0.42 拍；harp：三角波基频+正弦 2 倍频，基频起音 0.004 s 衰减到 1.6 s，倍频起音 0.003 s 增益 0.35 衰减到 0.56 s，琶音型 [c0,c1,c2,c3 或 c0+12,c0+12,c3 或 c1+12,c2,c1] 整体再升 12 半音，每小节 8 个八分音符；bell：3 正弦分音比 1/2.76/5.4，幅度 1/0.4/0.2，衰减 1.8/0.6/0.3 s，起音 0.003 s，奇数小节第 2.5 拍(c2+24)和第 3 拍(c1+24)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e270.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.duration",
-      "title": "龙吼叫 roar（源—共振峰）（duration）",
-      "value": 3.2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：龙吼叫 roar（源—共振峰）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e270；原出处：A8 §3.11（synth.js:177-212）",
-        "note": "原证据：源码；原验证：作者成片用过。基频 泰坦 58r Hz/3.2 s，龙 170r Hz/1.25 s；5 个锯齿失谐 −14/−6/0/+7/+15 音分（泰坦×1.6）；音高走势 0.8·f0→1.12·f0（18%）→1.0·f0（55%）→0.66·f0（结束）；喉音调幅 正弦 23 Hz（泰坦）/41 Hz（龙）深度 0.45 基础 0.6；3 个带通共振峰 泰坦 330/760/1900 Hz，龙 650/1350/2900 Hz，Q 5/6/7，增益 1.0/0.7/0.35 再×3.2，频率线性降到 0.78 倍（“aah”到“ooh”）；气声 粉噪声→BP 900r（泰坦）/2300r（龙）Q0.9 增益 0.6；泰坦次低频 正弦 0.42·f0→0.56·f0→0.34·f0 增益 0.9；输出 hard 整形 ×0.5（泰坦）/0.42（龙），总包络 A 0.12·时长/D 0.88·时长"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e270.ratio",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.ratio",
-      "title": "龙吼叫 roar（源—共振峰）（ratio）",
-      "value": 0.18,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：龙吼叫 roar（源—共振峰）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e270；原出处：A8 §3.11（synth.js:177-212）",
-        "note": "原证据：源码；原验证：作者成片用过。基频 泰坦 58r Hz/3.2 s，龙 170r Hz/1.25 s；5 个锯齿失谐 −14/−6/0/+7/+15 音分（泰坦×1.6）；音高走势 0.8·f0→1.12·f0（18%）→1.0·f0（55%）→0.66·f0（结束）；喉音调幅 正弦 23 Hz（泰坦）/41 Hz（龙）深度 0.45 基础 0.6；3 个带通共振峰 泰坦 330/760/1900 Hz，龙 650/1350/2900 Hz，Q 5/6/7，增益 1.0/0.7/0.35 再×3.2，频率线性降到 0.78 倍（“aah”到“ooh”）；气声 粉噪声→BP 900r（泰坦）/2300r（龙）Q0.9 增益 0.6；泰坦次低频 正弦 0.42·f0→0.56·f0→0.34·f0 增益 0.9；输出 hard 整形 ×0.5（泰坦）/0.42（龙），总包络 A 0.12·时长/D 0.88·时长"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e270.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.frequency",
-      "title": "龙吼叫 roar（源—共振峰）（frequency）",
-      "value": 23,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：龙吼叫 roar（源—共振峰）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e270；原出处：A8 §3.11（synth.js:177-212）",
-        "note": "原证据：源码；原验证：作者成片用过。基频 泰坦 58r Hz/3.2 s，龙 170r Hz/1.25 s；5 个锯齿失谐 −14/−6/0/+7/+15 音分（泰坦×1.6）；音高走势 0.8·f0→1.12·f0（18%）→1.0·f0（55%）→0.66·f0（结束）；喉音调幅 正弦 23 Hz（泰坦）/41 Hz（龙）深度 0.45 基础 0.6；3 个带通共振峰 泰坦 330/760/1900 Hz，龙 650/1350/2900 Hz，Q 5/6/7，增益 1.0/0.7/0.35 再×3.2，频率线性降到 0.78 倍（“aah”到“ooh”）；气声 粉噪声→BP 900r（泰坦）/2300r（龙）Q0.9 增益 0.6；泰坦次低频 正弦 0.42·f0→0.56·f0→0.34·f0 增益 0.9；输出 hard 整形 ×0.5（泰坦）/0.42（龙），总包络 A 0.12·时长/D 0.88·时长"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e293.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.loudness",
-      "title": "旧版v3音频缺陷(已知未修)（loudness）",
-      "value": -14.7,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：旧版v3音频缺陷(已知未修)"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-legacy",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e293；原出处：旧01 06 §v3验收",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。v3 -14.7LUFS(偏轻0.7LU) LRA7.8;真峰值-0.7dBFS(超目标0.3dB);11.88–11.98秒最大-14.1dB非静音(riser/滴答拖尾经限幅器release残余+量测窗口部分落在清零前);原因:一次性算增益不够需量测后迭代;限幅到-1.9dBFS但AAC反弹"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e293.loudness-range",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.loudness-range",
-      "title": "旧版v3音频缺陷(已知未修)（loudness-range）",
-      "value": 0.7,
-      "unit": "LU",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：旧版v3音频缺陷(已知未修)"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-legacy",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e293；原出处：旧01 06 §v3验收",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。v3 -14.7LUFS(偏轻0.7LU) LRA7.8;真峰值-0.7dBFS(超目标0.3dB);11.88–11.98秒最大-14.1dB非静音(riser/滴答拖尾经限幅器release残余+量测窗口部分落在清零前);原因:一次性算增益不够需量测后迭代;限幅到-1.9dBFS但AAC反弹"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e293.level",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.level",
-      "title": "旧版v3音频缺陷(已知未修)（电平 dBFS）",
-      "value": -0.7,
-      "unit": "dB",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：旧版v3音频缺陷(已知未修)"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-legacy",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e293；原出处：旧01 06 §v3验收",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。v3 -14.7LUFS(偏轻0.7LU) LRA7.8;真峰值-0.7dBFS(超目标0.3dB);11.88–11.98秒最大-14.1dB非静音(riser/滴答拖尾经限幅器release残余+量测窗口部分落在清零前);原因:一次性算增益不够需量测后迭代;限幅到-1.9dBFS但AAC反弹"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e293.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.duration",
-      "title": "旧版v3音频缺陷(已知未修)（duration）",
-      "value": [
-        11.88,
-        11.98
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：旧版v3音频缺陷(已知未修)"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-legacy",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e293；原出处：旧01 06 §v3验收",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。v3 -14.7LUFS(偏轻0.7LU) LRA7.8;真峰值-0.7dBFS(超目标0.3dB);11.88–11.98秒最大-14.1dB非静音(riser/滴答拖尾经限幅器release残余+量测窗口部分落在清零前);原因:一次性算增益不够需量测后迭代;限幅到-1.9dBFS但AAC反弹"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e419.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.frequency",
-      "title": "01 v1 代码音乐结构（frequency）",
-      "value": 48000,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§9 外部案例 01、案例 02 与自制片的配乐和音效：01 v1 代码音乐结构"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 ^e419；原出处：01…/build/music.py 文档串",
-        "note": "原证据：源码；原验证：作者成片用过。纯标准库合成(无采样、无生成模型)，按 timeline 拍点写 48 kHz 立体声 WAV；120 BPM 16 小节：1–2 前奏(低频脉冲+时钟滴答+上扬噪声)；3–10 建模(底鼓四拍+闭镲+贝斯八分音+琶音，每个部件落位一个金属\"咔\")；11 材质(鼓收、长 pad+上扬)；12 采样阶梯(每档一次短促\"滴\"，越来越密)；13–16 成片(全鼓+重贝斯+主旋律，末尾大击+余响)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e287.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.duration",
-      "title": "母带链与迭代（duration）",
-      "value": [
-        11.1,
-        11.2
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：母带链与迭代"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e287；原出处：A4 §3",
-        "note": "原证据：实测；原验证：作者成片用过。分轨去直流→过程片/成片分组→11.10–11.20s切静音(11.085–11.10线性降,11.10–11.20全0)→增益→软削波(lim=限幅顶+2.0dB,knee0.6,tanh)→前视限幅(24采样块,前视6ms后顾1.5ms,释放τ90ms)→gate/首击抽吸(11.20s后8.5ms起4ms降到0.89约-1dB保持到11.75s)/片尾淡出0.1s余弦→写16bit;迭代≤24轮收敛:\\|I+14\\|≤0.05且真峰值≤-2.3dBTP且成片段-过程片段≥8.5LU;实际3轮,总增益-7.34dB,过程片附加-4.61dB,限幅顶-3.8dBFS,限幅最大压缩2.0dB(超1dB占全片11.9%),软削波最大输入超顶6.87dB(成片3.7%采样超拐点)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e287.level",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.level",
-      "title": "母带链与迭代（level）",
-      "value": 2,
-      "unit": "dB",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：母带链与迭代"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e287；原出处：A4 §3",
-        "note": "原证据：实测；原验证：作者成片用过。分轨去直流→过程片/成片分组→11.10–11.20s切静音(11.085–11.10线性降,11.10–11.20全0)→增益→软削波(lim=限幅顶+2.0dB,knee0.6,tanh)→前视限幅(24采样块,前视6ms后顾1.5ms,释放τ90ms)→gate/首击抽吸(11.20s后8.5ms起4ms降到0.89约-1dB保持到11.75s)/片尾淡出0.1s余弦→写16bit;迭代≤24轮收敛:\\|I+14\\|≤0.05且真峰值≤-2.3dBTP且成片段-过程片段≥8.5LU;实际3轮,总增益-7.34dB,过程片附加-4.61dB,限幅顶-3.8dBFS,限幅最大压缩2.0dB(超1dB占全片11.9%),软削波最大输入超顶6.87dB(成片3.7%采样超拐点)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e287.true-peak",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.true-peak",
-      "title": "母带链与迭代（true-peak）",
-      "value": -2.3,
-      "unit": "dBTP",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：母带链与迭代"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e287；原出处：A4 §3",
-        "note": "原证据：实测；原验证：作者成片用过。分轨去直流→过程片/成片分组→11.10–11.20s切静音(11.085–11.10线性降,11.10–11.20全0)→增益→软削波(lim=限幅顶+2.0dB,knee0.6,tanh)→前视限幅(24采样块,前视6ms后顾1.5ms,释放τ90ms)→gate/首击抽吸(11.20s后8.5ms起4ms降到0.89约-1dB保持到11.75s)/片尾淡出0.1s余弦→写16bit;迭代≤24轮收敛:\\|I+14\\|≤0.05且真峰值≤-2.3dBTP且成片段-过程片段≥8.5LU;实际3轮,总增益-7.34dB,过程片附加-4.61dB,限幅顶-3.8dBFS,限幅最大压缩2.0dB(超1dB占全片11.9%),软削波最大输入超顶6.87dB(成片3.7%采样超拐点)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e287.loudness-range",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.loudness-range",
-      "title": "母带链与迭代（loudness-range）",
-      "value": 8.5,
-      "unit": "LU",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：母带链与迭代"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e287；原出处：A4 §3",
-        "note": "原证据：实测；原验证：作者成片用过。分轨去直流→过程片/成片分组→11.10–11.20s切静音(11.085–11.10线性降,11.10–11.20全0)→增益→软削波(lim=限幅顶+2.0dB,knee0.6,tanh)→前视限幅(24采样块,前视6ms后顾1.5ms,释放τ90ms)→gate/首击抽吸(11.20s后8.5ms起4ms降到0.89约-1dB保持到11.75s)/片尾淡出0.1s余弦→写16bit;迭代≤24轮收敛:\\|I+14\\|≤0.05且真峰值≤-2.3dBTP且成片段-过程片段≥8.5LU;实际3轮,总增益-7.34dB,过程片附加-4.61dB,限幅顶-3.8dBFS,限幅最大压缩2.0dB(超1dB占全片11.9%),软削波最大输入超顶6.87dB(成片3.7%采样超拐点)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e287.ratio",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.ratio",
-      "title": "母带链与迭代（ratio）",
-      "value": 0.119,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：母带链与迭代"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e287；原出处：A4 §3",
-        "note": "原证据：实测；原验证：作者成片用过。分轨去直流→过程片/成片分组→11.10–11.20s切静音(11.085–11.10线性降,11.10–11.20全0)→增益→软削波(lim=限幅顶+2.0dB,knee0.6,tanh)→前视限幅(24采样块,前视6ms后顾1.5ms,释放τ90ms)→gate/首击抽吸(11.20s后8.5ms起4ms降到0.89约-1dB保持到11.75s)/片尾淡出0.1s余弦→写16bit;迭代≤24轮收敛:\\|I+14\\|≤0.05且真峰值≤-2.3dBTP且成片段-过程片段≥8.5LU;实际3轮,总增益-7.34dB,过程片附加-4.61dB,限幅顶-3.8dBFS,限幅最大压缩2.0dB(超1dB占全片11.9%),软削波最大输入超顶6.87dB(成片3.7%采样超拐点)"
+        "docRef": "声音配乐配音字幕汇编 §7 ^e432；原出处：27 §3.2 (原实现源码)",
+        "note": "原证据：源码；原验证：作者成品用过。格式 F1-F4 Hz / 电平dB / 带宽Hz：bass a 600,1040,2250,2450/0,−7,−9,−9/60,70,110,120；o 400,750,2400,2600/0,−11,−21,−20/40,80,100,120；u 250,595,2350,2500/0,−20,−32,−28/60,80,100,120；e 400,1620,2400,2800/0,−12,−9,−12/40,80,100,120；i 250,1750,2600,3050/0,−30,−16,−22/60,90,100,120。tenor a 650,1080,2650,2900/0,−6,−7,−8/80,90,120,130；o 400,800,2600,2800/0,−10,−12,−12/70,80,100,130；u 290,750,2300,3000/0,−20,−17,−14/40,60,100,120；e 400,1700,2600,3200/0,−14,−12,−14/70,80,100,120；i 290,1870,2800,3250/0,−15,−18,−20/40,90,100,120。alto a 800,1150,2800,3500/0,−4,−20,−36/80,90,120,130；o 450,800,2830,3500/0,−9,−16,−28/70,80,100,130；u 325,700,2530,3500/0,−12,−30,−40/50,60,170,180；e 400,1600,2700,3300/0,−24,−30,−35/60,80,120,150；i 350,1700,2700,3700/0,−20,−30,−36/50,100,120,150。soprano a 800,1150,2900,3900/0,−6,−32,−20/80,90,120,130；e 350,2000,2800,3600/0,−20,−15,−40/60,100,120,150；i 270,2140,2950,3900/0,−12,−26,−26/60,90,100,120；o 450,800,2830,3800/0,−11,−22,−22/70,80,100,130；u 325,700,2700,3800/0,−16,−35,−40/50,60,170,180"
       },
       "verifiedInOurStack": false
     },
@@ -1542,7 +495,7 @@
         "caseId": "case-01r",
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §10 ^e288；原出处：A4 §4",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。mix.wav -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
+        "note": "原证据：实测；原验证：我们自己渲染读回过。原包素材文件 -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
       },
       "verifiedInOurStack": false
     },
@@ -1562,7 +515,7 @@
         "caseId": "case-01r",
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §10 ^e288；原出处：A4 §4",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。mix.wav -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
+        "note": "原证据：实测；原验证：我们自己渲染读回过。原包素材文件 -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
       },
       "verifiedInOurStack": false
     },
@@ -1582,7 +535,7 @@
         "caseId": "case-01r",
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §10 ^e288；原出处：A4 §4",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。mix.wav -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
+        "note": "原证据：实测；原验证：我们自己渲染读回过。原包素材文件 -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
       },
       "verifiedInOurStack": false
     },
@@ -1602,7 +555,7 @@
         "caseId": "case-01r",
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §10 ^e288；原出处：A4 §4",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。mix.wav -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
+        "note": "原证据：实测；原验证：我们自己渲染读回过。原包素材文件 -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
       },
       "verifiedInOurStack": false
     },
@@ -1622,7 +575,7 @@
         "caseId": "case-01r",
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §10 ^e288；原出处：A4 §4",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。mix.wav -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
+        "note": "原证据：实测；原验证：我们自己渲染读回过。原包素材文件 -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低8.9LU(目标≥6,DIFF设9);首击峰11.20169s;静音段数字全零;每小节RMS:过程片-27.0…-20.6,DROP1均值-16.1,BREAK-20.4,DROP2-14.8,第15小节-12.7,第16小节-23.7;成片120Hz以下能量0.4234,4kHz以上0.1049;左右相关0.848(成片0.845,成片300Hz以上0.672)"
       },
       "verifiedInOurStack": false
     },
@@ -1670,125 +623,102 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e290.loudness",
+      "id": "audio-subs.e422.loudness",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.master-loudness.loudness",
-      "title": "music.py自带验收（loudness）",
-      "value": 0.3,
+      "title": "01 响度目标与限幅教训（loudness）",
+      "value": -14,
       "unit": "LUFS",
       "conditions": {
         "appliesWhen": [
-          "§10 母带、响度与量测：music.py自带验收"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e290；原出处：A4 §4.5",
-        "note": "原证据：源码；原验证：作者成片用过。7项:积分-14±0.3LUFS;真峰值≤-1.5dBTP;时长36.800s±1采样/48k/16bit/立体声;首击峰值11.20s±10ms;静音段峰值<-40dBFS;过程片比成片低≥6LU;无削波无直流(峰<1.0且\\|均值\\|<0.001);自检8项含断奏比DROP1低≥4dB、成片低频占比<0.65、高频占比0.015–0.2、相关度>0.2;任何不达标非零退出"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e290.true-peak",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.true-peak",
-      "title": "music.py自带验收（true-peak）",
-      "value": -1.5,
-      "unit": "dBTP",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：music.py自带验收"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e290；原出处：A4 §4.5",
-        "note": "原证据：源码；原验证：作者成片用过。7项:积分-14±0.3LUFS;真峰值≤-1.5dBTP;时长36.800s±1采样/48k/16bit/立体声;首击峰值11.20s±10ms;静音段峰值<-40dBFS;过程片比成片低≥6LU;无削波无直流(峰<1.0且\\|均值\\|<0.001);自检8项含断奏比DROP1低≥4dB、成片低频占比<0.65、高频占比0.015–0.2、相关度>0.2;任何不达标非零退出"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e290.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.duration",
-      "title": "music.py自带验收（duration）",
-      "value": 36.8,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：music.py自带验收"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e290；原出处：A4 §4.5",
-        "note": "原证据：源码；原验证：作者成片用过。7项:积分-14±0.3LUFS;真峰值≤-1.5dBTP;时长36.800s±1采样/48k/16bit/立体声;首击峰值11.20s±10ms;静音段峰值<-40dBFS;过程片比成片低≥6LU;无削波无直流(峰<1.0且\\|均值\\|<0.001);自检8项含断奏比DROP1低≥4dB、成片低频占比<0.65、高频占比0.015–0.2、相关度>0.2;任何不达标非零退出"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e290.level",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.level",
-      "title": "music.py自带验收（电平 dBFS）",
-      "value": -40,
-      "unit": "dB",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：music.py自带验收"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e290；原出处：A4 §4.5",
-        "note": "原证据：源码；原验证：作者成片用过。7项:积分-14±0.3LUFS;真峰值≤-1.5dBTP;时长36.800s±1采样/48k/16bit/立体声;首击峰值11.20s±10ms;静音段峰值<-40dBFS;过程片比成片低≥6LU;无削波无直流(峰<1.0且\\|均值\\|<0.001);自检8项含断奏比DROP1低≥4dB、成片低频占比<0.65、高频占比0.015–0.2、相关度>0.2;任何不达标非零退出"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e290.loudness-range",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.loudness-range",
-      "title": "music.py自带验收（loudness-range）",
-      "value": 6,
-      "unit": "LU",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：music.py自带验收"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01r",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e290；原出处：A4 §4.5",
-        "note": "原证据：源码；原验证：作者成片用过。7项:积分-14±0.3LUFS;真峰值≤-1.5dBTP;时长36.800s±1采样/48k/16bit/立体声;首击峰值11.20s±10ms;静音段峰值<-40dBFS;过程片比成片低≥6LU;无削波无直流(峰<1.0且\\|均值\\|<0.001);自检8项含断奏比DROP1低≥4dB、成片低频占比<0.65、高频占比0.015–0.2、相关度>0.2;任何不达标非零退出"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e421.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.duration",
-      "title": "01 重制音乐母带流程与自动验收（duration）",
-      "value": [
-        11.1,
-        11.2
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§10 母带、响度与量测：01 重制音乐母带流程与自动验收"
+          "§10 母带、响度与量测：01 响度目标与限幅教训"
         ]
       },
       "provenance": {
         "caseId": "case-01",
         "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §10 ^e421；原出处：01…重制/工程/build/music.py 文档串",
-        "note": "原证据：源码；原验证：作者成片用过。仅 numpy+标准库(用 Blender 自带 python，系统 python3 无 numpy)；输出 music_proc/music_film/sfx/mix.wav + events.json + report.json；母带：分轨去直流→求和→11.10–11.20 s 切静音→增益→软削波→前视限幅→再清一次静音段→ffmpeg 量测→调增益重来直到达标；脚本末尾自动验收 7 项并写 report.json，任一不达标非零退出；所有帧号来自 timeline.py"
+        "docRef": "声音配乐配音字幕汇编 §10 ^e422；原出处：01…/原实现源码、原实现源码、原实现源码",
+        "note": "原证据：源码；原验证：作者成片用过。目标 -14 LUFS(±0.15)；AAC 编码后真峰值<-1 dBTP；限幅 limit=0.708(-3 dBFS) 给 AAC 过冲留余量(v3 限到 -1.9 dBFS 编码后反弹到 -0.7)；单遍 loudnorm 实测偏差 0.9 LU→改量测后线性增益；成片第一击要在 12.00 s(v2/v3，120BPM)或 11.2 s 处(重制，150 BPM)，击前 11.10–11.19 s 静音"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e422.true-peak",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.master-loudness.true-peak",
+      "title": "01 响度目标与限幅教训（true-peak）",
+      "value": -1,
+      "unit": "dBTP",
+      "conditions": {
+        "appliesWhen": [
+          "§10 母带、响度与量测：01 响度目标与限幅教训"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "声音配乐配音字幕汇编 §10 ^e422；原出处：01…/原实现源码、原实现源码、原实现源码",
+        "note": "原证据：源码；原验证：作者成片用过。目标 -14 LUFS(±0.15)；AAC 编码后真峰值<-1 dBTP；限幅 limit=0.708(-3 dBFS) 给 AAC 过冲留余量(v3 限到 -1.9 dBFS 编码后反弹到 -0.7)；单遍 loudnorm 实测偏差 0.9 LU→改量测后线性增益；成片第一击要在 12.00 s(v2/v3，120BPM)或 11.2 s 处(重制，150 BPM)，击前 11.10–11.19 s 静音"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e422.level",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.master-loudness.level",
+      "title": "01 响度目标与限幅教训（电平 dBFS）",
+      "value": -3,
+      "unit": "dB",
+      "conditions": {
+        "appliesWhen": [
+          "§10 母带、响度与量测：01 响度目标与限幅教训"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "声音配乐配音字幕汇编 §10 ^e422；原出处：01…/原实现源码、原实现源码、原实现源码",
+        "note": "原证据：源码；原验证：作者成片用过。目标 -14 LUFS(±0.15)；AAC 编码后真峰值<-1 dBTP；限幅 limit=0.708(-3 dBFS) 给 AAC 过冲留余量(v3 限到 -1.9 dBFS 编码后反弹到 -0.7)；单遍 loudnorm 实测偏差 0.9 LU→改量测后线性增益；成片第一击要在 12.00 s(v2/v3，120BPM)或 11.2 s 处(重制，150 BPM)，击前 11.10–11.19 s 静音"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e422.loudness-range",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.master-loudness.loudness-range",
+      "title": "01 响度目标与限幅教训（loudness-range）",
+      "value": 0.9,
+      "unit": "LU",
+      "conditions": {
+        "appliesWhen": [
+          "§10 母带、响度与量测：01 响度目标与限幅教训"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "声音配乐配音字幕汇编 §10 ^e422；原出处：01…/原实现源码、原实现源码、原实现源码",
+        "note": "原证据：源码；原验证：作者成片用过。目标 -14 LUFS(±0.15)；AAC 编码后真峰值<-1 dBTP；限幅 limit=0.708(-3 dBFS) 给 AAC 过冲留余量(v3 限到 -1.9 dBFS 编码后反弹到 -0.7)；单遍 loudnorm 实测偏差 0.9 LU→改量测后线性增益；成片第一击要在 12.00 s(v2/v3，120BPM)或 11.2 s 处(重制，150 BPM)，击前 11.10–11.19 s 静音"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e422.duration",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.master-loudness.duration",
+      "title": "01 响度目标与限幅教训（duration）",
+      "value": 12,
+      "unit": "s",
+      "conditions": {
+        "appliesWhen": [
+          "§10 母带、响度与量测：01 响度目标与限幅教训"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "声音配乐配音字幕汇编 §10 ^e422；原出处：01…/原实现源码、原实现源码、原实现源码",
+        "note": "原证据：源码；原验证：作者成片用过。目标 -14 LUFS(±0.15)；AAC 编码后真峰值<-1 dBTP；限幅 limit=0.708(-3 dBFS) 给 AAC 过冲留余量(v3 限到 -1.9 dBFS 编码后反弹到 -0.7)；单遍 loudnorm 实测偏差 0.9 LU→改量测后线性增益；成片第一击要在 12.00 s(v2/v3，120BPM)或 11.2 s 处(重制，150 BPM)，击前 11.10–11.19 s 静音"
       },
       "verifiedInOurStack": false
     },
@@ -1854,82 +784,62 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e315.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.beat-sync.duration",
-      "title": "复测节拍（duration）",
-      "value": 32.08,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§11 节拍与音画对位：复测节拍"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §11 ^e315；原出处：20/09 §1.3、§3.4",
-        "note": "原证据：实测+推断；原验证：我们自己量过（量级核对，词时间戳 ±0.3 s）。歌词行起点（whisper 段起点）0.0、5.0、10.02、14.64、19.98、25.04、32.08 s；前 6 段平均间隔 5.008 s ≈ 96 BPM 4/4 两小节 5.000 s；包络自相关只在 10–20 s 段得 96.0 BPM（0–10 s 218.2，20–30 s 63.9，混有人声不可靠）"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e325.frequency",
+      "id": "audio-subs.e352.frequency",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.beat-sync.frequency",
-      "title": "节拍估计（frequency）",
-      "value": 2000,
+      "title": "配乐对位实测（frequency）",
+      "value": 150,
       "unit": "Hz",
       "conditions": {
         "appliesWhen": [
-          "§11 节拍与音画对位：节拍估计"
+          "§11 节拍与音画对位：配乐对位实测"
         ]
       },
       "provenance": {
-        "caseId": "case-15",
+        "caseId": "case-05",
         "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §11 ^e325；原出处：15/09 §4.6",
-        "note": "原证据：实测；原验证：我们自己量过（不可靠）。2 kHz 以上起音自相关最强 700 ms（85.7 BPM）、次 350 ms（171.4）、900 ms（66.7）；只有 10 s，不可靠"
+        "docRef": "声音配乐配音字幕汇编 §11 ^e352；原出处：05/09 §4.3；量测结果 §5",
+        "note": "原证据：实测；原验证：我们自己量过。把 原包素材文件 与成片音轨 150 Hz 以下包络做相关：相关系数 0.836（>0.5 即公开文件=成片所用）；配乐起点成片 5.48 s（第 131.5 帧，正片开头）；拉伸 1.009=放慢 0.9%；折合 140÷1.009=138.75 BPM；放慢后长度 30.041×1.009=30.31 s，尾巴超出成片约 0.29 s 被截"
       },
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e325.duration",
+      "id": "audio-subs.e352.duration",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.beat-sync.duration",
-      "title": "节拍估计（duration）",
-      "value": 700,
-      "unit": "ms",
+      "title": "配乐对位实测（duration）",
+      "value": 5.48,
+      "unit": "s",
       "conditions": {
         "appliesWhen": [
-          "§11 节拍与音画对位：节拍估计"
+          "§11 节拍与音画对位：配乐对位实测"
         ]
       },
       "provenance": {
-        "caseId": "case-15",
+        "caseId": "case-05",
         "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §11 ^e325；原出处：15/09 §4.6",
-        "note": "原证据：实测；原验证：我们自己量过（不可靠）。2 kHz 以上起音自相关最强 700 ms（85.7 BPM）、次 350 ms（171.4）、900 ms（66.7）；只有 10 s，不可靠"
+        "docRef": "声音配乐配音字幕汇编 §11 ^e352；原出处：05/09 §4.3；量测结果 §5",
+        "note": "原证据：实测；原验证：我们自己量过。把 原包素材文件 与成片音轨 150 Hz 以下包络做相关：相关系数 0.836（>0.5 即公开文件=成片所用）；配乐起点成片 5.48 s（第 131.5 帧，正片开头）；拉伸 1.009=放慢 0.9%；折合 140÷1.009=138.75 BPM；放慢后长度 30.041×1.009=30.31 s，尾巴超出成片约 0.29 s 被截"
       },
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e346.duration",
+      "id": "audio-subs.e352.ratio",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.beat-sync.duration",
-      "title": "节拍检测失败（duration）",
-      "value": 5,
-      "unit": "ms",
+      "topic": "audio-subs.beat-sync.ratio",
+      "title": "配乐对位实测（ratio）",
+      "value": 0.009,
+      "unit": "ratio",
       "conditions": {
         "appliesWhen": [
-          "§11 节拍与音画对位：节拍检测失败"
+          "§11 节拍与音画对位：配乐对位实测"
         ]
       },
       "provenance": {
-        "caseId": "case-07",
+        "caseId": "case-05",
         "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §11 ^e346；原出处：07/09 §4.3；量测结果 §5",
-        "note": "原证据：实测；原验证：我们自己量过（失败，184 与 118 BPM 未核实）。5 ms 包络加自相关每 10 秒一段，估计 60–236 BPM 乱跳（0–10 s 214.5、10–20 s 130.6、20–30 s 179.1、30–40 s 234.8、40–50 s 207.2、50–60 s 116.6、60–70 s 203.1、70–80 s 60.0、80–90 s 231.6、90–100 s 207.1、100–110 s 90.1、110–120 s 100.0、120–130 s 164.2、130–140 s 184.4、140–150 s 218.3、150–160 s 235.3、160–170 s 235.6），因台词音效音乐混在一起；仅 130–140 s 单段吻合 184.4"
+        "docRef": "声音配乐配音字幕汇编 §11 ^e352；原出处：05/09 §4.3；量测结果 §5",
+        "note": "原证据：实测；原验证：我们自己量过。把 原包素材文件 与成片音轨 150 Hz 以下包络做相关：相关系数 0.836（>0.5 即公开文件=成片所用）；配乐起点成片 5.48 s（第 131.5 帧，正片开头）；拉伸 1.009=放慢 0.9%；折合 140÷1.009=138.75 BPM；放慢后长度 30.041×1.009=30.31 s，尾巴超出成片约 0.29 s 被截"
       },
       "verifiedInOurStack": false
     },
@@ -2183,203 +1093,102 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e351.loudness",
+      "id": "audio-subs.e353.loudness",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness",
-      "title": "声音用法（loudness）",
-      "value": -14,
+      "title": "成片响度（loudness）",
+      "value": -14.6,
       "unit": "LUFS",
       "conditions": {
         "appliesWhen": [
-          "§12 各案例声音档案：声音用法"
+          "§12 各案例声音档案：成片响度"
         ]
       },
       "provenance": {
         "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e351；原出处：05/09 §4.3",
-        "note": "原证据：原文陈述；原验证：作者成片用过（配乐放慢我们量过）。配乐放慢零点几个百分点让最后一记 808 落在切到定妆的那一帧；两条音效切成单发放在零件卡入的那一帧；母带 −14 LUFS，真峰值不高于 −1 dBTP"
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §12 ^e353；原出处：05/09 §4.3",
+        "note": "原证据：实测；原验证：我们自己量过。原包素材文件 −14.6 LUFS / LRA 3.0 / −1.7 dBFS；`_trim` −14.9/3.1/−1.4；小样 −14.0/2.4/−0.6；成片比目标低 0.6 因多 5.5 s 较安静片头；小样 −0.6 dBFS 超官方 −1 上限（多半转码所致，推断）；最后一个高于 −60 dBFS 的帧是第 849 帧(35.38 s)"
       },
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e351.true-peak",
+      "id": "audio-subs.e353.loudness-range",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.true-peak",
-      "title": "声音用法（true-peak）",
-      "value": -1,
-      "unit": "dBTP",
+      "topic": "audio-subs.case-profile.loudness-range",
+      "title": "成片响度（loudness-range）",
+      "value": 3,
+      "unit": "LU",
       "conditions": {
         "appliesWhen": [
-          "§12 各案例声音档案：声音用法"
+          "§12 各案例声音档案：成片响度"
         ]
       },
       "provenance": {
         "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e351；原出处：05/09 §4.3",
-        "note": "原证据：原文陈述；原验证：作者成片用过（配乐放慢我们量过）。配乐放慢零点几个百分点让最后一记 808 落在切到定妆的那一帧；两条音效切成单发放在零件卡入的那一帧；母带 −14 LUFS，真峰值不高于 −1 dBTP"
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §12 ^e353；原出处：05/09 §4.3",
+        "note": "原证据：实测；原验证：我们自己量过。原包素材文件 −14.6 LUFS / LRA 3.0 / −1.7 dBFS；`_trim` −14.9/3.1/−1.4；小样 −14.0/2.4/−0.6；成片比目标低 0.6 因多 5.5 s 较安静片头；小样 −0.6 dBFS 超官方 −1 上限（多半转码所致，推断）；最后一个高于 −60 dBFS 的帧是第 849 帧(35.38 s)"
       },
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e370.duration",
+      "id": "audio-subs.e353.level",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.case-profile.level",
+      "title": "成片响度（电平 dBFS）",
+      "value": -1.7,
+      "unit": "dB",
+      "conditions": {
+        "appliesWhen": [
+          "§12 各案例声音档案：成片响度"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-05",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §12 ^e353；原出处：05/09 §4.3",
+        "note": "原证据：实测；原验证：我们自己量过。原包素材文件 −14.6 LUFS / LRA 3.0 / −1.7 dBFS；`_trim` −14.9/3.1/−1.4；小样 −14.0/2.4/−0.6；成片比目标低 0.6 因多 5.5 s 较安静片头；小样 −0.6 dBFS 超官方 −1 上限（多半转码所致，推断）；最后一个高于 −60 dBFS 的帧是第 849 帧(35.38 s)"
+      },
+      "verifiedInOurStack": false
+    },
+    {
+      "id": "audio-subs.e353.duration",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.duration",
-      "title": "案例 05 三条音频提示词（duration）",
-      "value": 10,
+      "title": "成片响度（duration）",
+      "value": 5.5,
       "unit": "s",
       "conditions": {
         "appliesWhen": [
-          "§12 各案例声音档案：案例 05 三条音频提示词"
+          "§12 各案例声音档案：成片响度"
         ]
       },
       "provenance": {
         "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e370；原出处：原文 § Step 6",
-        "note": "原证据：原文陈述；原验证：作者成片用过。均为 ElevenLabs Music v2.5 经 Higgsfield MCP,每条两个 take:①trap 曲 140 BPM 半拍,约 10 s 处 beat switch+808 drop,结尾一记巨大 808 slam 后只剩暗色余响;②喷气发动机 spool-up/镜头掠过 whoosh/次低频 drop/机库混响大 boom 的纯音效;③140 BPM 纯打击工厂实录风(金属卡扣/棘轮/气动铆枪/液压/伺服)切成 one-shot 放在零件锁定帧;母带 −14 LUFS,真峰值 ≤ −1 dBTP"
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §12 ^e353；原出处：05/09 §4.3",
+        "note": "原证据：实测；原验证：我们自己量过。原包素材文件 −14.6 LUFS / LRA 3.0 / −1.7 dBFS；`_trim` −14.9/3.1/−1.4；小样 −14.0/2.4/−0.6；成片比目标低 0.6 因多 5.5 s 较安静片头；小样 −0.6 dBFS 超官方 −1 上限（多半转码所致，推断）；最后一个高于 −60 dBFS 的帧是第 849 帧(35.38 s)"
       },
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e370.loudness",
+      "id": "audio-subs.e355.frequency",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "案例 05 三条音频提示词（loudness）",
-      "value": -14,
-      "unit": "LUFS",
+      "topic": "audio-subs.case-profile.frequency",
+      "title": "规格（frequency）",
+      "value": 48000,
+      "unit": "Hz",
       "conditions": {
         "appliesWhen": [
-          "§12 各案例声音档案：案例 05 三条音频提示词"
+          "§12 各案例声音档案：规格"
         ]
       },
       "provenance": {
         "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e370；原出处：原文 § Step 6",
-        "note": "原证据：原文陈述；原验证：作者成片用过。均为 ElevenLabs Music v2.5 经 Higgsfield MCP,每条两个 take:①trap 曲 140 BPM 半拍,约 10 s 处 beat switch+808 drop,结尾一记巨大 808 slam 后只剩暗色余响;②喷气发动机 spool-up/镜头掠过 whoosh/次低频 drop/机库混响大 boom 的纯音效;③140 BPM 纯打击工厂实录风(金属卡扣/棘轮/气动铆枪/液压/伺服)切成 one-shot 放在零件锁定帧;母带 −14 LUFS,真峰值 ≤ −1 dBTP"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e370.true-peak",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.true-peak",
-      "title": "案例 05 三条音频提示词（true-peak）",
-      "value": -1,
-      "unit": "dBTP",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：案例 05 三条音频提示词"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e370；原出处：原文 § Step 6",
-        "note": "原证据：原文陈述；原验证：作者成片用过。均为 ElevenLabs Music v2.5 经 Higgsfield MCP,每条两个 take:①trap 曲 140 BPM 半拍,约 10 s 处 beat switch+808 drop,结尾一记巨大 808 slam 后只剩暗色余响;②喷气发动机 spool-up/镜头掠过 whoosh/次低频 drop/机库混响大 boom 的纯音效;③140 BPM 纯打击工厂实录风(金属卡扣/棘轮/气动铆枪/液压/伺服)切成 one-shot 放在零件锁定帧;母带 −14 LUFS,真峰值 ≤ −1 dBTP"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e343.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "段落设计（duration）",
-      "value": 2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：段落设计"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e343；原出处：07/09 §4.1、§4.3",
-        "note": "原证据：原文陈述+推断算术；原验证：184/118 BPM 没核实。紧张脉冲=心跳，影片开始前 2 秒就起拍使第 0 帧已在跑；唱片刮擦=在时间停住的瞬间改变音乐本身播放速度；追逐 184 BPM，正好从爆炸那刻开始；主题曲活泼民谣流行 118 BPM，第 24 拍对上一个笑点（第 24 拍在主题起点后 11.69–12.20 s：23×60/118=11.69，24×60/118=12.20，推算）"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e343.frames",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.frames",
-      "title": "段落设计（frames）",
-      "value": 0,
-      "unit": "frame",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：段落设计"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e343；原出处：07/09 §4.1、§4.3",
-        "note": "原证据：原文陈述+推断算术；原验证：184/118 BPM 没核实。紧张脉冲=心跳，影片开始前 2 秒就起拍使第 0 帧已在跑；唱片刮擦=在时间停住的瞬间改变音乐本身播放速度；追逐 184 BPM，正好从爆炸那刻开始；主题曲活泼民谣流行 118 BPM，第 24 拍对上一个笑点（第 24 拍在主题起点后 11.69–12.20 s：23×60/118=11.69，24×60/118=12.20，推算）"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e344.frames",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.frames",
-      "title": "台词与口型（frames）",
-      "value": 1,
-      "unit": "frame",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：台词与口型"
-        ],
-        "fps": "24"
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e344；原出处：07/09 §4.2、§6.1(6)",
-        "note": "原证据：原文陈述；原验证：只是原文说法。台词=ElevenLabs 预设声音经 Higgsfield MCP 生成，每句 2–3 遍，按实测语速和清晰度挑最好一遍（全片唯一生成式 AI 环节）；口型从语音文件算：响度决定张口大小，高频占比决定嘴形偏宽还是偏圆；嘴比声音提前 1 帧（24 fps 下 41.7 ms）；每句结束嘴闭上"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e344.frame-rate",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.frame-rate",
-      "title": "台词与口型（frame-rate）",
-      "value": 24,
-      "unit": "fps",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：台词与口型"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e344；原出处：07/09 §4.2、§6.1(6)",
-        "note": "原证据：原文陈述；原验证：只是原文说法。台词=ElevenLabs 预设声音经 Higgsfield MCP 生成，每句 2–3 遍，按实测语速和清晰度挑最好一遍（全片唯一生成式 AI 环节）；口型从语音文件算：响度决定张口大小，高频占比决定嘴形偏宽还是偏圆；嘴比声音提前 1 帧（24 fps 下 41.7 ms）；每句结束嘴闭上"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e344.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "台词与口型（duration）",
-      "value": 41.7,
-      "unit": "ms",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：台词与口型"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e344；原出处：07/09 §4.2、§6.1(6)",
-        "note": "原证据：原文陈述；原验证：只是原文说法。台词=ElevenLabs 预设声音经 Higgsfield MCP 生成，每句 2–3 遍，按实测语速和清晰度挑最好一遍（全片唯一生成式 AI 环节）；口型从语音文件算：响度决定张口大小，高频占比决定嘴形偏宽还是偏圆；嘴比声音提前 1 帧（24 fps 下 41.7 ms）；每句结束嘴闭上"
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §12 ^e355；原出处：05/09 §2.2、§4.4；量测结果 §1",
+        "note": "原证据：实测；原验证：我们自己量过。成片 HEVC Main yuv420p bt709 tv 范围 7,762,839 bps，35,575,302 B，AAC 48 kHz 双声道 249,223 bps；`_trim` H.264 High 9,961,845 bps；小样 H.264 High 824,614 bps；编码器预设是否两遍未公开"
       },
       "verifiedInOurStack": false
     },
@@ -2408,7 +1217,7 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness-range",
       "title": "混音实测（loudness-range）",
-      "value": 6,
+      "value": 6.8,
       "unit": "LU",
       "conditions": {
         "appliesWhen": [
@@ -2440,166 +1249,6 @@
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §12 ^e345；原出处：07/09 §4.3；量测结果 §3–4",
         "note": "原证据：实测；原验证：我们自己量过。−14.8 LUFS（官方目标约 −14 LUFS）、LRA 6.8 LU、真峰值 −1.2 dBFS；每整秒 RMS 平均 −18.44 dB（177 窗口）；最响整秒(≥−13 dB)第 7、8、71、72、73、74、115、116 秒，最响第 74 秒 −11.46 dB；最安静(≤−22 dB)第 40、83、91、92、93、94、148、155、158、174、175、176 秒；第 7、8 秒对应开场爆炸与唱片刮擦，其余未逐一对到画面"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e345.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "混音实测（duration）",
-      "value": 116,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：混音实测"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e345；原出处：07/09 §4.3；量测结果 §3–4",
-        "note": "原证据：实测；原验证：我们自己量过。−14.8 LUFS（官方目标约 −14 LUFS）、LRA 6.8 LU、真峰值 −1.2 dBFS；每整秒 RMS 平均 −18.44 dB（177 窗口）；最响整秒(≥−13 dB)第 7、8、71、72、73、74、115、116 秒，最响第 74 秒 −11.46 dB；最安静(≤−22 dB)第 40、83、91、92、93、94、148、155、158、174、175、176 秒；第 7、8 秒对应开场爆炸与唱片刮擦，其余未逐一对到画面"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e393.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "Python/numpy 作曲与音效（duration）",
-      "value": 2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：Python/numpy 作曲与音效"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e393；原出处：原文 § Step 6",
-        "note": "原证据：实测(作者读回)；原验证：作者成片用过。无采样无库乐:建模乐器+混响+压缩+磁带饱和,固定种子(重跑得同一文件);张力脉冲=心跳在片前 2 s 开始使第 0 帧已在跑;唱片刮擦=时间停止时把音乐本身变速;追逐曲 184 BPM 恰从爆炸起;主题曲轻快民谣流行 118 BPM,使第 24 拍落在一个笑点;每个命中点放入带帧号的 cue sheet,事后测真实起音,误差在几毫秒内"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e393.frames",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.frames",
-      "title": "Python/numpy 作曲与音效（frames）",
-      "value": 0,
-      "unit": "frame",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：Python/numpy 作曲与音效"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e393；原出处：原文 § Step 6",
-        "note": "原证据：实测(作者读回)；原验证：作者成片用过。无采样无库乐:建模乐器+混响+压缩+磁带饱和,固定种子(重跑得同一文件);张力脉冲=心跳在片前 2 s 开始使第 0 帧已在跑;唱片刮擦=时间停止时把音乐本身变速;追逐曲 184 BPM 恰从爆炸起;主题曲轻快民谣流行 118 BPM,使第 24 拍落在一个笑点;每个命中点放入带帧号的 cue sheet,事后测真实起音,误差在几毫秒内"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e404.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "巨城雷击音效流程（loudness）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：巨城雷击音效流程"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-12",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e404；原出处：阅读组3 § 闪电 Step 5",
-        "note": "原证据：原文陈述；原验证：只是原文说法。Higgsfield Mirelo SFX 生成46个文件(街面雨/塔尖风/先导噼啪/击中/雷/停电/复电),代码混音并合成无法按帧定时的部分(15次变压器爆音、击后耳鸣);终混 −14 LUFS;首轮弱(酝酿三秒才爆/几乎无声呼啸/雷无5 kHz以上)→提示词改为要求瞬时起音、明亮高频、近距离,写明不要什么,并以“No music, no voices.”结尾"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e404.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.frequency",
-      "title": "巨城雷击音效流程（frequency）",
-      "value": 5000,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：巨城雷击音效流程"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-12",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e404；原出处：阅读组3 § 闪电 Step 5",
-        "note": "原证据：原文陈述；原验证：只是原文说法。Higgsfield Mirelo SFX 生成46个文件(街面雨/塔尖风/先导噼啪/击中/雷/停电/复电),代码混音并合成无法按帧定时的部分(15次变压器爆音、击后耳鸣);终混 −14 LUFS;首轮弱(酝酿三秒才爆/几乎无声呼啸/雷无5 kHz以上)→提示词改为要求瞬时起音、明亮高频、近距离,写明不要什么,并以“No music, no voices.”结尾"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e413.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "巨城雷击 声音（loudness）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：巨城雷击 声音"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-12",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e413；原出处：012 § 分工/规格",
-        "note": "原证据：原文陈述；原验证：作者成片用过。Mirelo SFX 生成46份音效；代码合成变压器爆响；混音−14 LUFS；短音效精确卡帧的留给代码合成"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e378.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "东京合成声音（loudness）",
-      "value": -16.2,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：东京合成声音"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-14",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e378；原出处：原文 § Step 5",
-        "note": "原证据：原文陈述；原验证：作者成片用过。无采样:雨落在沥青/雨篷/雨伞、水滴入水坑、列车与道口铃、烤架、门后人声、自动贩卖机嗡鸣;新增“门后音乐”:传统日本调式自编旋律,类三味线拨弦音色,经小喇叭模型;成片 −16.2 LUFS"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e322.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "配乐（duration）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：配乐"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-15",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e322；原出处：15/09 §4.6、§5.1",
-        "note": "原证据：原文陈述+未公开；原验证：没验证来源。三行共用同一段 10 秒音乐，开头结尾短淡入淡出（原文）；音乐来源与制作方式未公开，也未分出音效"
       },
       "verifiedInOurStack": false
     },
@@ -2668,7 +1317,7 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness-range",
       "title": "声音实测（loudness-range）",
-      "value": 6,
+      "value": 6.4,
       "unit": "LU",
       "conditions": {
         "appliesWhen": [
@@ -2748,7 +1397,7 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness-range",
       "title": "成片响度（loudness-range）",
-      "value": 2,
+      "value": 2.6,
       "unit": "LU",
       "conditions": {
         "appliesWhen": [
@@ -2800,55 +1449,6 @@
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §12 ^e294；原出处：量测结果 §3",
         "note": "原证据：实测；原验证：我们自己量过。−16.1 LUFS，LRA 2.6 LU，真峰值 −1.7 dBFS，单声道 48 kHz；720p 片段 −16.1 LUFS / LRA 2.4 / 峰值 −2.8 dBFS"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e295.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "响度差异未解（loudness）",
-      "value": -19,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：响度差异未解"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-18",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e295；原出处：18/09 §4.3",
-        "note": "原证据：实测+未公开；原验证：没验证。配音修整统一 −19 LUFS，成片 −16.1 LUFS，高 2.9 LU；是 audio.py 加增益还是平台处理，量不出"
-      },
-      "verifiedInOurStack": false,
-      "conflicts": [
-        {
-          "caseId": "case-18",
-          "value": -16.1,
-          "unit": "LUFS",
-          "evidenceLevel": "推断",
-          "reason": "与 294 对不上：配音修整统一 −19 LUFS，成片 −16.1 LUFS，差 2.9 LU，原因未量出"
-        }
-      ]
-    },
-    {
-      "id": "audio-subs.e295.loudness-range",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness-range",
-      "title": "响度差异未解（loudness-range）",
-      "value": 2.9,
-      "unit": "LU",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：响度差异未解"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-18",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e295；原出处：18/09 §4.3",
-        "note": "原证据：实测+未公开；原验证：没验证。配音修整统一 −19 LUFS，成片 −16.1 LUFS，高 2.9 LU；是 audio.py 加增益还是平台处理，量不出"
       },
       "verifiedInOurStack": false
     },
@@ -2913,75 +1513,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e298.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "10 段旁白起止（duration）",
-      "value": 8.2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：10 段旁白起止"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-18",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e298；原出处：18/09 §2.3",
-        "note": "原证据：实测；原验证：我们自己量过。s01 0.65→8.85（8.20 s）、s02 9.86→26.35（16.49）、s03 27.12→42.19（15.07）、s04 43.19→56.43（13.24）、s05 57.44→76.47（19.03）、s06 77.33→93.79（16.46）、s07 94.47→112.67（18.20）、s08 113.68→133.42（19.74）、s09 134.18→150.71（16.53）、s10 151.48→172.58（21.10）；合计 164.06 s"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e299.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "来源卡（duration）",
-      "value": 173.2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：来源卡"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-18",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e299；原出处：18/09 §2.3",
-        "note": "原证据：实测+源码；原验证：我们自己量过。173.20 s 起到 179.17 s，约 5.97 s，无旁白；对上 SOURCES_DUR=6.0"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e394.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "孟买全代码声音（loudness）",
-      "value": -16.1,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：孟买全代码声音"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-19",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e394；原出处：原文 § Step 5",
-        "note": "原证据：实测(作者读回)；原验证：作者成片用过。无录音/无生成:42 个无词人声群、喇叭/自行车铃/二冲程引擎、乌鸦与鸽、炭火与手扇、灯与寺钟、收音机里用笛/风琴/持续音/塔布拉演奏的拉格曲并过「廉价喇叭」模型;终混 −16.1 LUFS"
-      },
-      "verifiedInOurStack": false,
-      "conflicts": [
-        {
-          "caseId": "case-19",
-          "value": -16.2,
-          "unit": "LUFS",
-          "evidenceLevel": "实测",
-          "reason": "孟买终混响度两个数：作者称 −16.1 LUFS，我们读回 −16.2 LUFS（366），另有真峰值 +5.5 dBFS 与东京 −2.5 dBFS 对照"
-        }
-      ]
-    },
-    {
       "id": "audio-subs.e338.loudness",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness",
@@ -3006,7 +1537,7 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness-range",
       "title": "响度（loudness-range）",
-      "value": 1,
+      "value": 1.1,
       "unit": "LU",
       "conditions": {
         "appliesWhen": [
@@ -3102,109 +1633,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e399.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "餐厅声音（loudness）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：餐厅声音"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-26",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e399；原出处：原文 § The Scene",
-        "note": "原证据：实测(作者读回)；原验证：作者成片用过。代码由具体声源合成:冰箱压缩机、随画面闪烁的霓虹镇流器、带多普勒的公路卡车、杯子颤响、招牌熄灭时的继电器咔嗒;终混 −14.0 LUFS"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e326.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "音乐结构（按拍均值 dBFS，全频/低频<150 Hz/高频>6 kHz）（duration）",
-      "value": [
-        0,
-        2.8
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：音乐结构（按拍均值 dBFS，全频/低频<150 Hz/高频>6 kHz）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-27",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e326；原出处：27/09 §4.2；量测结果 §3",
-        "note": "原证据：实测；原验证：我们自己量过。拍0–6(0–2.8 s) −20 至 −23 / −25 至 −27 / −49 至 −58 安静前奏；拍7(2.8 s) −21.8/**−41.6**/**−30.2** 低音抽掉高频升起；拍8(3.2 s) **−10.4**/−14.4/−20.0 切换全部进来；拍9–34(3.6–13.6 s) −9.6 至 −11.5 / −12.3 至 −15.2 / −22 至 −26 主段很平；拍35(14.0 s) −28.2/−46.7/−30.2 几乎静音；拍36(14.4 s) −9.8/−12.1/−21.5 最后重击；拍37–41(14.8–16.4 s) −16 至 −27 尾音衰减；拍42(16.8 s) −52.8 静音，最后 5 帧<−45 dBFS"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e326.frames",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.frames",
-      "title": "音乐结构（按拍均值 dBFS，全频/低频<150 Hz/高频>6 kHz）（frames）",
-      "value": 5,
-      "unit": "frame",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：音乐结构（按拍均值 dBFS，全频/低频<150 Hz/高频>6 kHz）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-27",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e326；原出处：27/09 §4.2；量测结果 §3",
-        "note": "原证据：实测；原验证：我们自己量过。拍0–6(0–2.8 s) −20 至 −23 / −25 至 −27 / −49 至 −58 安静前奏；拍7(2.8 s) −21.8/**−41.6**/**−30.2** 低音抽掉高频升起；拍8(3.2 s) **−10.4**/−14.4/−20.0 切换全部进来；拍9–34(3.6–13.6 s) −9.6 至 −11.5 / −12.3 至 −15.2 / −22 至 −26 主段很平；拍35(14.0 s) −28.2/−46.7/−30.2 几乎静音；拍36(14.4 s) −9.8/−12.1/−21.5 最后重击；拍37–41(14.8–16.4 s) −16 至 −27 尾音衰减；拍42(16.8 s) −52.8 静音，最后 5 帧<−45 dBFS"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e326.level",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.level",
-      "title": "音乐结构（按拍均值 dBFS，全频/低频<150 Hz/高频>6 kHz）（电平 dBFS）",
-      "value": -45,
-      "unit": "dB",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：音乐结构（按拍均值 dBFS，全频/低频<150 Hz/高频>6 kHz）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-27",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e326；原出处：27/09 §4.2；量测结果 §3",
-        "note": "原证据：实测；原验证：我们自己量过。拍0–6(0–2.8 s) −20 至 −23 / −25 至 −27 / −49 至 −58 安静前奏；拍7(2.8 s) −21.8/**−41.6**/**−30.2** 低音抽掉高频升起；拍8(3.2 s) **−10.4**/−14.4/−20.0 切换全部进来；拍9–34(3.6–13.6 s) −9.6 至 −11.5 / −12.3 至 −15.2 / −22 至 −26 主段很平；拍35(14.0 s) −28.2/−46.7/−30.2 几乎静音；拍36(14.4 s) −9.8/−12.1/−21.5 最后重击；拍37–41(14.8–16.4 s) −16 至 −27 尾音衰减；拍42(16.8 s) −52.8 静音，最后 5 帧<−45 dBFS"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e327.level",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.level",
-      "title": "低音加重（level）",
-      "value": 2.5,
-      "unit": "dB",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：低音加重"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-27",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e327；原出处：27/09 §4.2、§6.1(5)",
-        "note": "原证据：实测；原验证：我们自己量过。第 15、23、31 拍低音加重（约 −9.8 全频、−12.4 低频，比相邻高约 2.5 dB），正是换到 4 拍长镜头（第 16、24、32 拍）的前一拍；每 8 拍一次"
-      },
-      "verifiedInOurStack": false
-    },
-    {
       "id": "audio-subs.e329.loudness",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness",
@@ -3229,7 +1657,7 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness-range",
       "title": "响度（坑）（loudness-range）",
-      "value": 3,
+      "value": 3.9,
       "unit": "LU",
       "conditions": {
         "appliesWhen": [
@@ -3262,16 +1690,7 @@
         "docRef": "声音配乐配音字幕汇编 §12 ^e329；原出处：27/09 §4.2、§6.2；量测结果 §1、§3",
         "note": "原证据：实测；原验证：我们自己量过。−8.7 LUFS，LRA 3.9 LU，真峰值 **+2.1 dBFS**（削波）；网页版 −8.9 LUFS/+1.1 dBFS；短版 −8.0 LUFS/LRA 0.5/+0.6 dBFS；三个文件都超；全频音量范围 −78.1 至 −6.8 dBFS，低频最大 −7.9，高频最大 −16.7"
       },
-      "verifiedInOurStack": false,
-      "conflicts": [
-        {
-          "caseId": "case-27",
-          "value": 0.6,
-          "unit": "dB",
-          "evidenceLevel": "实测",
-          "reason": "三个文件真峰值 +2.1/+1.1/+0.6 dBFS 均超 0 dBFS（削波），与其它案例 −1 dBTP 惯例冲突"
-        }
-      ]
+      "verifiedInOurStack": false
     },
     {
       "id": "audio-subs.e332.frequency",
@@ -3318,7 +1737,7 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness-range",
       "title": "响度（loudness-range）",
-      "value": 1,
+      "value": 1.6,
       "unit": "LU",
       "conditions": {
         "appliesWhen": [
@@ -3414,221 +1833,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e372.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "声音选择与价格（duration）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：声音选择与价格"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b02",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e372；原出处：原文 § 第4-5步",
-        "note": "原证据：原文陈述；原验证：作者成片用过。预设库 20 种声音(本例 某预置音色);克隆需 10 秒到 3 分钟录音,只克隆自己或获授权的声音;Seed Audio 约 10 秒≈1 积分,约 20 秒≈2.3,约 26 秒≈3.8;首片脚本按约 14 秒语音写"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e392.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "带台词与音乐的音频提示词（duration）",
-      "value": [
-        0,
-        2.6
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：带台词与音乐的音频提示词"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b04",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e392；原出处：原文 § 第3步",
-        "note": "原证据：原文陈述；原验证：作者成片用过。VOICE(0.0–2.6s 后静默)+方括号音色描述[man, early 30s, deep resonant chest voice…muffled and boxy from inside a steel bascinet…English accent]+台词;MUSIC 0.0–10.0s:D 小调、88 BPM、鼓逐渐加速、按秒分段(0–1.2 远处号角+低频持续音;1.2–2.4 太鼓击;2.4–4.4 加速 ostinato;4.4–5.4 全奏 ff 单次巨鼓;5.4–7.2 鼓休一拍后两记重击;7.2–10 铜管渐强+单一心跳脉冲、不解决、长混响尾);SFX 连续;MIX:2.6 s 前人声在前音乐压低"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e384.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "发布片声音设计（duration）",
-      "value": 13.8,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：发布片声音设计"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e384；原出处：原文 § 1.",
-        "note": "原证据：原文陈述；原验证：作者成片用过。剪点用短干 tick+玻璃边缘扫音+克制低频冲击;对话回合用两声不同的非语言 tap;扫描声;品牌帧一个两音玻璃音;配乐「120 BPM」圆润低音脉冲+切分十六分打击+稀疏合成音;微观插入镜加 fill,品牌亮相减打击,13.8 s 以短音衰减停拍"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e387.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "先出音乐再建时间线（duration）",
-      "value": 25,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：先出音乐再建时间线"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-original",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e387；原出处：原文 § Step 2",
-        "note": "原证据：原文陈述；原验证：作者成片用过。影片按音轨节拍网格剪辑,先让 operator 用 ElevenLabs Music v2.5 经 Higgsfield MCP 出 3 个 25 s 器乐选项(每项不同提示词)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e390.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "making-of 前奏音乐（duration）",
-      "value": 12,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：making-of 前奏音乐"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-original",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e390；原出处：原文 § Step 6",
-        "note": "原证据：原文陈述；原验证：作者成片用过。12 s 器乐 build-up,140 BPM,「Immediate start, no intro」键盘点击声+伺服+金属拨弦+每拍次低脉冲、半程进底鼓、上升琶音与加速点击→紧张 riser 骤停到静音;提示词里去掉小节数与时间码;最终混入的是 operator 自拟的第二变体,裁到 11.56 s;前奏混得比正片轻,使正片第一击保持开场最响"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e400.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "案例 01 原作 配乐测量与编辑（duration）",
-      "value": 0.44,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：案例 01 原作 配乐测量与编辑"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-original",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e400；原出处：梳理.md § 时间线/核对表;阅读组2 § Step 2",
-        "note": "原证据：实测；原验证：我们自己核对过(梳理.md 实测列)。先出3版备选再测:选C=首个重音0.44秒、约139.96 BPM,三版均未按提示词时间点;带分段时间码的提示词要25秒返回42秒,去时间码才正常→规则:提示词简短、用文字描述结构、核对每条时长再建时间线;剪辑中重复配乐一小节使最后重击落22.74秒;SFX 代码合成234个并混到 −14.1 LUFS;过程片首重音在12.00秒(11.56+0.44),7小节×4拍÷139.96BPM≈12.003秒"
-      },
-      "verifiedInOurStack": false,
-      "conflicts": [
-        {
-          "caseId": "case-01-original",
-          "value": 25,
-          "unit": "s",
-          "evidenceLevel": "实测",
-          "reason": "提示词写约 140 BPM，我们量出 139.96 BPM；带时间码的 25 s 提示词返回 42 s（与「时长按提示词」的预期冲突）"
-        }
-      ]
-    },
-    {
-      "id": "audio-subs.e400.loudness",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "案例 01 原作 配乐测量与编辑（loudness）",
-      "value": -14.1,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：案例 01 原作 配乐测量与编辑"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-original",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e400；原出处：梳理.md § 时间线/核对表;阅读组2 § Step 2",
-        "note": "原证据：实测；原验证：我们自己核对过(梳理.md 实测列)。先出3版备选再测:选C=首个重音0.44秒、约139.96 BPM,三版均未按提示词时间点;带分段时间码的提示词要25秒返回42秒,去时间码才正常→规则:提示词简短、用文字描述结构、核对每条时长再建时间线;剪辑中重复配乐一小节使最后重击落22.74秒;SFX 代码合成234个并混到 −14.1 LUFS;过程片首重音在12.00秒(11.56+0.44),7小节×4拍÷139.96BPM≈12.003秒"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e416.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "音乐生成与测量规则（duration）",
-      "value": 0.2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：音乐生成与测量规则"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-original",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e416；原出处：下载/原文/SKILL.md § Steps 3-4",
-        "note": "原证据：原文陈述；原验证：作者成片用过。generate_audio 参数：model elevenlabs_music_v2_5、duration=片长秒、force_instrumental true；先 get_cost 报价三条再生成；三个提示词不同流派(暗黑trap 808、催眠phonk工业、电影工业bass)；音乐提示词只用文字描述结构，不写时间码/小节数(否则模型忽略时长)；测：ffprobe 时长+ ffmpeg ebur128=peak=true；时长与片长相差>约0.2s拒收(结果通常比请求长约0.05s)；提示词承诺的结构不算证据，量过的文件才算"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e382.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "博客案例 b07 音效与配音参数（duration）",
-      "value": 3,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：博客案例 b07 音效与配音参数"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b07",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e382；原出处：原文 § Step 7",
-        "note": "原证据：原文陈述；原验证：作者成片用过。Giant 尖叫:Mirelo,3 秒,“starts instantly at full power … No music, no words”;店主五张唱片旁白:ElevenLabs v4,preset voice 某预置音色,stability 0.45,约 14 秒,每张教一条规则(兼教程)"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e391.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "蜂巢配乐（duration）",
-      "value": [
-        0,
-        2
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§12 各案例声音档案：蜂巢配乐"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b08",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §12 ^e391；原出处：原文 § 讲解视频",
-        "note": "原证据：原文陈述；原验证：作者成片用过。原创无 IP、不模仿任何作曲家;暖弦乐垫+长笛/单簧管旋律+钟琴点缀,约 78 BPM;0–2 s 弦乐垫、2–5 s 长笛与上升钟琴、5–7 s 旋律解决到长和弦、7–8 s 渐收;环境层:三只蜜蜂集体低嗡+蜜面微弱闪光声;旁白暖友好女声"
-      },
-      "verifiedInOurStack": false
-    },
-    {
       "id": "audio-subs.e448.duration",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.tts.duration",
@@ -3669,86 +1873,6 @@
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e449.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.tts.duration",
-      "title": "返工 3 段（duration）",
-      "value": 1.8,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§13 配音 TTS 与口型：返工 3 段"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-18",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 ^e449；原出处：18/09 §1.1 步 5、§2.3",
-        "note": "原证据：原文陈述；原验证：成片量到场景内停顿最长 0.89 s（无 >0.9 s）与之吻合。第 10 段开头 1.8 s 静音剪掉；第 6 段开头噪声剪掉；第 9 段中间 2.1 s 停顿缩到 0.8 s；修整后合计 166.3 s"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e465.frequency",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.tts.frequency",
-      "title": "配音生成设置（frequency）",
-      "value": 48000,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§13 配音 TTS 与口型：配音生成设置"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b10",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 ^e465；原出处：原文 § Step 4",
-        "note": "原证据：原文陈述；原验证：作者成片用过。Higgsfield seed_audio(Seed Audio 1.0),内置音色 某预置音色(从「calm, neutral news narrator」描述中经预览转写选定),MP3 48 kHz,语速/响度/音高 0,表现强度 5;十段一批用 generate_audio_batch;每段提示词=段落原文「Speak this text word for word」"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e467.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.tts.duration",
-      "title": "配音文件交接协议（duration）",
-      "value": 30,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§13 配音 TTS 与口型：配音文件交接协议"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b10",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 ^e467；原出处：原文 § Brief §5/Step 4",
-        "note": "原证据：原文陈述；原验证：作者成片用过。pi 把脚本拆成逐场景段落写 audio/tts_request.json({language, voice, segments:[{id,text}]}),先写 .tmp 再 mv 就位;Claude Code 监视该文件,批量出 audio/s01.mp3…,最后才写 audio/tts_ready.json(文件与时长),避免 pi 读到半成品;pi 先用估算时长建场景,每 30 s 才轮询一次,拿到真实时长后(ffprobe)重排"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e470.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.tts.duration",
-      "title": "主持人系列配音规格（duration）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§13 配音 TTS 与口型：主持人系列配音规格"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b09",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 ^e470；原出处：集成文档核对.md §三",
-        "note": "原证据：原文陈述；原验证：只是原文说法。复用 Soul ID 与预设声线 某预置音色;克隆语音建议10秒–3分钟样本;每段语音约1.3–2.3 credits"
-      },
-      "verifiedInOurStack": false
-    },
-    {
       "id": "audio-subs.e443.duration",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.subs.duration",
@@ -3763,31 +1887,31 @@
       "provenance": {
         "caseId": "case-13",
         "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §14 ^e443；原出处：09§5.8、§5.9、§6A；`index.html:699,702`",
+        "docRef": "声音配乐配音字幕汇编 §14 ^e443；原出处：09§5.8、§5.9、§6A；原实现源码",
         "note": "原证据：源码；原验证：作者成片用过(未运行)。字幕默认开，大小 s/m/l（m），可加底板；字幕 4 s；对话打字机 46 字符/秒，逗号停 0.13 s，句号停 0.3 s；字幕抬到头目血条上方；头目开场黑边字幕只留字幕行（letterbox 黑边 0.8 s）"
       },
       "verifiedInOurStack": false
     },
     {
-      "id": "audio-subs.e450.duration",
+      "id": "audio-subs.e451.pixels",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.subs.duration",
-      "title": "词时间戳弃用 Whisper（duration）",
+      "topic": "audio-subs.subs.pixels",
+      "title": "字幕样式（pixels）",
       "value": [
-        0.3,
-        0.8
+        -10,
+        10
       ],
-      "unit": "s",
+      "unit": "px",
       "conditions": {
         "appliesWhen": [
-          "§14 字幕：词时间戳弃用 Whisper"
+          "§14 字幕：字幕样式"
         ]
       },
       "provenance": {
         "caseId": "case-18",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §14 ^e450；原出处：18/09 §1.3",
-        "note": "原证据：原文陈述；原验证：作者成片用过（成片上字幕对位中位 +0.013 s）。Whisper 词时间偏差 0.3–0.8 s 且每次不同；改为量每段真实停顿，把短语起点吸附到停顿上，短语内部按音节数分配词时间，精度约 0.1 s"
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §14 ^e451；原出处：18/09 §3.2",
+        "note": "原证据：画面读数；原验证：我们自己量过（抽帧）。底部居中，约 y 1000（1920×1080，±10 px），单行黑字，无底板；正文/图注/字幕无衬线体（原文 Inter）"
       },
       "verifiedInOurStack": false
     },
@@ -3879,7 +2003,10 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.subs.duration",
       "title": "字幕与旁白对位（duration）",
-      "value": 0.4,
+      "value": [
+        -0.4,
+        0.4
+      ],
       "unit": "s",
       "conditions": {
         "appliesWhen": [
@@ -3891,46 +2018,6 @@
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §14 ^e456；原出处：18/09 §0(1)、§4.2；量测结果 §4",
         "note": "原证据：实测；原验证：我们自己量过（外部验证）。新字幕出现 − 最近一次旁白起声：47 处里 44 处在 ±0.4 s 内；中位 +0.013 s，范围 −0.007 到 +0.063 s"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e457.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.subs.duration",
-      "title": "场景间字幕空白起点（duration）",
-      "value": 9.3,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§14 字幕：场景间字幕空白起点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-18",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §14 ^e457；原出处：18/09 §4.2",
-        "note": "原证据：实测；原验证：我们自己量过。字幕空白从旧场景开始淡出那刻开始（如第 1 边界字幕空白起 9.30 s=整帧淡出起 9.30 s）"
-      },
-      "verifiedInOurStack": false
-    },
-    {
-      "id": "audio-subs.e460.duration",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.subs.duration",
-      "title": "收尾句（duration）",
-      "value": 34.5,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§14 字幕：收尾句"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §14 ^e460；原出处：20/09 §1.3、§2.3",
-        "note": "原证据：画面读数；原验证：我们自己量过（抽帧）。末屏句 “No recordings. No TTS. No neural nets.”（约 34.5 s 起）；约 31.5 s 出现最后一句"
       },
       "verifiedInOurStack": false
     },
@@ -3958,218 +2045,6 @@
       ]
     },
     {
-      "id": "audio-subs.sum.s01-t1-r03",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）（case-15）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§1 跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-15",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §1 对照表 1 第 3 行 → ^e322",
-        "note": "原证据：原文陈述+未公开；原验证：没验证来源。配乐：三行共用同一段 10 秒音乐，开头结尾短淡入淡出（原文）；音乐来源与制作方式未公开，也未分出音效"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e322.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s01-t1-r05",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）（case-07）",
-      "value": 2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§1 跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §1 对照表 1 第 5 行 → ^e393",
-        "note": "原证据：实测(作者读回)；原验证：作者成片用过。Python/numpy 作曲与音效：无采样无库乐:建模乐器+混响+压缩+磁带饱和,固定种子(重跑得同一文件);张力脉冲=心跳在片前 2 s 开始使第 0 帧已在跑;唱片刮擦=时间停止时把音乐本身变速;追逐曲 184 …"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e393.duration",
-        "audio-subs.e393.frames"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s01-t1-r06",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）（case-05）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§1 跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §1 对照表 1 第 6 行 → ^e370",
-        "note": "原证据：原文陈述；原验证：作者成片用过。案例 05 三条音频提示词：均为 ElevenLabs Music v2.5 经 Higgsfield MCP,每条两个 take:①trap 曲 140 BPM 半拍,约 10 s 处 beat switc…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e370.duration",
-        "audio-subs.e370.loudness",
-        "audio-subs.e370.true-peak"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s01-t1-r08",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）（case-19）",
-      "value": -16.1,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§1 跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-19",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §1 对照表 1 第 8 行 → ^e394",
-        "note": "原证据：实测(作者读回)；原验证：作者成片用过。孟买全代码声音：无录音/无生成:42 个无词人声群、喇叭/自行车铃/二冲程引擎、乌鸦与鸽、炭火与手扇、灯与寺钟、收音机里用笛/风琴/持续音/塔布拉演奏的拉格曲并过「廉价喇叭」模型;终混 −16.1…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e394.loudness"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s01-t1-r09",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）（case-14）",
-      "value": -16.2,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§1 跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-14",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §1 对照表 1 第 9 行 → ^e378",
-        "note": "原证据：原文陈述；原验证：作者成片用过。东京合成声音：无采样:雨落在沥青/雨篷/雨伞、水滴入水坑、列车与道口铃、烤架、门后人声、自动贩卖机嗡鸣;新增“门后音乐”:传统日本调式自编旋律,类三味线拨弦音色,经小喇叭模型;成片 −16.2 …"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e378.loudness"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s01-t1-r12",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）（case-12）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§1 跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-12",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §1 对照表 1 第 12 行 → ^e404",
-        "note": "原证据：原文陈述；原验证：只是原文说法。巨城雷击音效流程：Higgsfield Mirelo SFX 生成46个文件(街面雨/塔尖风/先导噼啪/击中/雷/停电/复电),代码混音并合成无法按帧定时的部分(15次变压器爆音、击后耳鸣);终混 …"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e404.loudness",
-        "audio-subs.e404.frequency"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s01-t1-r13",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）（case-05）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§1 跨案例对照：声音来源与分工（代码合成 / 生成式 / 库乐）"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-05",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §1 对照表 1 第 13 行 → ^e351",
-        "note": "原证据：原文陈述；原验证：作者成片用过（配乐放慢我们量过）。声音用法：配乐放慢零点几个百分点让最后一记 808 落在切到定妆的那一帧；两条音效切成单发放在零件卡入的那一帧；母带 −14 LUFS，真峰值不高于 −1 dBTP"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e351.loudness",
-        "audio-subs.e351.true-peak"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s02-t1-r01",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.engine-bus.duration",
-      "title": "跨案例对照：混响脉冲规格（case-13）",
-      "value": 5.6,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§2 跨案例对照：混响脉冲规格"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §2 对照表 1 第 1 行 → ^e20",
-        "note": "原证据：源码；原验证：作者成品用过。三个混响规格：hall：5.6 s/rt60 4.6/预延迟 0.028/早反 14/跨度 0.13/低通 8500→1500/种子 11/268800 采样；field：2.2/1.2/0.0…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e20.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s02-t1-r05",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.general.duration",
-      "title": "跨案例对照：混响脉冲规格（case-02）",
-      "value": 2.8,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§2 跨案例对照：混响脉冲规格"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §2 对照表 1 第 5 行 → ^e358",
-        "note": "原证据：脚本取值；原验证：作者成片用过。代码生成混响脉冲：2.8 s、exp(−2.1·t)、5 个早期反射(A8/§4.2)"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e358.duration"
-      ]
-    },
-    {
       "id": "audio-subs.sum.s04-t1-r06",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.general.frequency",
@@ -4188,106 +2063,12 @@
         "caseId": "case-02",
         "evidenceLevel": "源码",
         "docRef": "声音配乐配音字幕汇编 §4 对照表 1 第 6 行 → ^e359",
-        "note": "原证据：脚本取值；原验证：作者成片用过。打击感：下滑正弦+带通噪声：太鼓 120→52 Hz/0.16 s(src/audio/music.js:267)"
+        "note": "原证据：脚本取值；原验证：作者成片用过。打击感：下滑正弦+带通噪声：太鼓 120→52 Hz/0.16 s(原实现源码)"
       },
       "verifiedInOurStack": false,
       "summaryOf": [
         "audio-subs.e359.frequency",
         "audio-subs.e359.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s05-t1-r08",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.duration",
-      "title": "跨案例对照：火、雷、龙吼的取值（case-02）",
-      "value": 3.2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§5 跨案例对照：火、雷、龙吼的取值"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §5 对照表 1 第 8 行 → ^e270",
-        "note": "原证据：源码；原验证：作者成片用过。龙吼叫 roar（源—共振峰）：基频 泰坦 58r Hz/3.2 s，龙 170r Hz/1.25 s；5 个锯齿失谐 −14/−6/0/+7/+15 音分（泰坦×1.6）；音高走势 0.8·f0→1.12·f0…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e270.duration",
-        "audio-subs.e270.ratio",
-        "audio-subs.e270.frequency"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s07-t2-r02",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.ratio",
-      "title": "跨案例对照：歌声合成七步（case-20）",
-      "value": 0.004,
-      "unit": "ratio",
-      "conditions": {
-        "appliesWhen": [
-          "§7 跨案例对照：歌声合成七步"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 对照表 2 第 2 行 → ^e304",
-        "note": "原证据：原文陈述；原验证：只是原文说法。主唱七步-3 声带：Liljencrants–Fant 脉冲模型；一个参数让声音从压紧到气声，随响度/音高/乐句末变化；气息噪声随声带脉动；抖动 0.4%，闪烁 3%"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e304.ratio"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s07-t2-r03",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.duration",
-      "title": "跨案例对照：歌声合成七步（case-20）",
-      "value": 0.2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§7 跨案例对照：歌声合成七步"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 对照表 2 第 3 行 → ^e305",
-        "note": "原证据：原文陈述；原验证：只是原文说法。主唱七步-4 音高：音符台阶经二阶平滑，得到滑音、轻微过冲、乐句首音“从下滑上”；颤音在长元音 0.2 s 后起（平滑参数、颤音频率范围未公开）"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e305.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s07-t2-r04",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.voice.frequency",
-      "title": "跨案例对照：歌声合成七步（case-20）",
-      "value": 11500,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§7 跨案例对照：歌声合成七步"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §7 对照表 2 第 4 行 → ^e306",
-        "note": "原证据：原文陈述；原验证：只是原文说法。主唱七步-5 声道：级联：一对鼻音零极点 + 五个移动共振峰 + 到 11.5 kHz 的固定极点；共振峰目标在相邻音之间混合（共振峰表未公开）"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e306.frequency"
       ]
     },
     {
@@ -4314,100 +2095,6 @@
       ]
     },
     {
-      "id": "audio-subs.sum.s08-t1-r01",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.duration",
-      "title": "跨案例对照：曲速、调式与乐曲结构（case-13）",
-      "value": 4,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 跨案例对照：曲速、调式与乐曲结构"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 对照表 1 第 1 行 → ^e128",
-        "note": "原证据：源码(小节秒为笔记自算)；原验证：作者成品用过。曲目总表：基础曲速度/调式：title 60bpm 4拍(4.0 s/小节)32小节一圈=128 s D小调/大调混用；explore回退 60/4 16小节=64 s D小调；combat回退 116/4(…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e128.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s08-t1-r02",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-system.duration",
-      "title": "跨案例对照：曲速、调式与乐曲结构（case-13）",
-      "value": 4.545,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 跨案例对照：曲速、调式与乐曲结构"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-13",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 对照表 1 第 2 行 → ^e129",
-        "note": "原证据：源码；原验证：作者成品用过。曲目总表：区域曲：高地 〔专名39〕 66bpm/5拍(4.545 s)夜61 D多利亚；〔专名42〕 72/4(3.333 s)夜66.24 F利底亚；〔专名43〕 58/4(4.138 s)夜…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e129.duration",
-        "audio-subs.e129.ratio"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s08-t1-r06",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.frequency",
-      "title": "跨案例对照：曲速、调式与乐曲结构（case-01）",
-      "value": 48000,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§8 跨案例对照：曲速、调式与乐曲结构"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §8 对照表 1 第 6 行 → ^e419",
-        "note": "原证据：源码；原验证：作者成片用过。01 v1 代码音乐结构：纯标准库合成(无采样、无生成模型)，按 timeline 拍点写 48 kHz 立体声 WAV；120 BPM 16 小节：1–2 前奏(低频脉冲+时钟滴答+上扬噪声)；3–10 …"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e419.frequency"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s08-t1-r08",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：曲速、调式与乐曲结构（case-07）",
-      "value": 2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 跨案例对照：曲速、调式与乐曲结构"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §8 对照表 1 第 8 行 → ^e343",
-        "note": "原证据：原文陈述+推断算术；原验证：184/118 BPM 没核实。段落设计：紧张脉冲=心跳，影片开始前 2 秒就起拍使第 0 帧已在跑；唱片刮擦=在时间停住的瞬间改变音乐本身播放速度；追逐 184 BPM，正好从爆炸那刻开始；主题曲活泼民谣流行 118 B…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e343.duration",
-        "audio-subs.e343.frames"
-      ]
-    },
-    {
       "id": "audio-subs.sum.s08-t1-r09",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.duration",
@@ -4431,82 +2118,6 @@
         "audio-subs.e348.loudness",
         "audio-subs.e348.loudness-range",
         "audio-subs.e348.level"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s08-t1-r11",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：曲速、调式与乐曲结构（case-b08）",
-      "value": [
-        0,
-        2
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 跨案例对照：曲速、调式与乐曲结构"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b08",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §8 对照表 1 第 11 行 → ^e391",
-        "note": "原证据：原文陈述；原验证：作者成片用过。蜂巢配乐：原创无 IP、不模仿任何作曲家;暖弦乐垫+长笛/单簧管旋律+钟琴点缀,约 78 BPM;0–2 s 弦乐垫、2–5 s 长笛与上升钟琴、5–7 s 旋律解决到长和弦、7–8 s 渐…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e391.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s08-t1-r12",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：曲速、调式与乐曲结构（case-b04）",
-      "value": [
-        0,
-        2.6
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§8 跨案例对照：曲速、调式与乐曲结构"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b04",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §8 对照表 1 第 12 行 → ^e392",
-        "note": "原证据：原文陈述；原验证：作者成片用过。带台词与音乐的音频提示词：VOICE(0.0–2.6s 后静默)+方括号音色描述[man, early 30s, deep resonant chest voice…muffled and boxy fro…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e392.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s09-t1-r06",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.score-sfx.duration",
-      "title": "跨案例对照：乐器与打击乐配方（case-02）",
-      "value": 0.7,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§9 跨案例对照：乐器与打击乐配方"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-02",
-        "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §9 对照表 1 第 6 行 → ^e265",
-        "note": "原证据：源码；原验证：作者成片用过。乐器配方（music.js）·pad/choir/bass/harp/bell：pad：每和弦音 2 锯齿失谐 −9/+8 音分，低通 Q0.5 截止 boss 1500/combat 2100/其余 1250，线性起音 0.7 s 到 1、保持到小节末、线性…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e265.duration",
-        "audio-subs.e265.frequency"
       ]
     },
     {
@@ -4564,10 +2175,10 @@
     {
       "id": "audio-subs.sum.s10-t1-r03",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.frequency",
+      "topic": "audio-subs.case-profile.loudness",
       "title": "跨案例对照：响度与峰值对照（case-15）",
-      "value": 44100,
-      "unit": "Hz",
+      "value": -15.2,
+      "unit": "LUFS",
       "conditions": {
         "appliesWhen": [
           "§10 跨案例对照：响度与峰值对照"
@@ -4688,17 +2299,16 @@
       "summaryOf": [
         "audio-subs.e345.loudness",
         "audio-subs.e345.loudness-range",
-        "audio-subs.e345.level",
-        "audio-subs.e345.duration"
+        "audio-subs.e345.level"
       ]
     },
     {
       "id": "audio-subs.sum.s10-t1-r08",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
+      "topic": "audio-subs.case-profile.loudness",
       "title": "跨案例对照：响度与峰值对照（case-05）",
-      "value": 10,
-      "unit": "s",
+      "value": -13.6,
+      "unit": "LUFS",
       "conditions": {
         "appliesWhen": [
           "§10 跨案例对照：响度与峰值对照"
@@ -4719,11 +2329,11 @@
       ]
     },
     {
-      "id": "audio-subs.sum.s10-t1-r10",
+      "id": "audio-subs.sum.s10-t1-r09",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.case-profile.loudness",
-      "title": "跨案例对照：响度与峰值对照（case-19）",
-      "value": -16.1,
+      "title": "跨案例对照：响度与峰值对照（case-05）",
+      "value": -14.6,
       "unit": "LUFS",
       "conditions": {
         "appliesWhen": [
@@ -4731,61 +2341,17 @@
         ]
       },
       "provenance": {
-        "caseId": "case-19",
+        "caseId": "case-05",
         "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §10 对照表 1 第 10 行 → ^e394",
-        "note": "原证据：实测(作者读回)；原验证：作者成片用过。孟买全代码声音：无录音/无生成:42 个无词人声群、喇叭/自行车铃/二冲程引擎、乌鸦与鸽、炭火与手扇、灯与寺钟、收音机里用笛/风琴/持续音/塔布拉演奏的拉格曲并过「廉价喇叭」模型;终混 −16.1…"
+        "docRef": "声音配乐配音字幕汇编 §10 对照表 1 第 9 行 → ^e353",
+        "note": "原证据：实测；原验证：我们自己量过。成片响度：原包素材文件 −14.6 LUFS / LRA 3.0 / −1.7 dBFS；`_trim` −14.9/3.1/−1.4；小样 −14.0/2.4/−0.6；成片比目…"
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "audio-subs.e394.loudness"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s10-t1-r11",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：响度与峰值对照（case-01-original）",
-      "value": 0.44,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§10 跨案例对照：响度与峰值对照"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-01-original",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §10 对照表 1 第 11 行 → ^e400",
-        "note": "原证据：实测；原验证：我们自己核对过(梳理.md 实测列)。案例 01 原作 配乐测量与编辑：先出3版备选再测:选C=首个重音0.44秒、约139.96 BPM,三版均未按提示词时间点;带分段时间码的提示词要25秒返回42秒,去时间码才正常→规则:提示词简短、用文字描述结构…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e400.duration",
-        "audio-subs.e400.loudness"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s10-t1-r12",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.loudness",
-      "title": "跨案例对照：响度与峰值对照（case-26）",
-      "value": -14,
-      "unit": "LUFS",
-      "conditions": {
-        "appliesWhen": [
-          "§10 跨案例对照：响度与峰值对照"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-26",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §10 对照表 1 第 12 行 → ^e399",
-        "note": "原证据：实测(作者读回)；原验证：作者成片用过。餐厅声音：代码由具体声源合成:冰箱压缩机、随画面闪烁的霓虹镇流器、带多普勒的公路卡车、杯子颤响、招牌熄灭时的继电器咔嗒;终混 −14.0 LUFS"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e399.loudness"
+        "audio-subs.e353.loudness",
+        "audio-subs.e353.loudness-range",
+        "audio-subs.e353.level",
+        "audio-subs.e353.duration"
       ]
     },
     {
@@ -4804,7 +2370,7 @@
         "caseId": "case-01r",
         "evidenceLevel": "实测",
         "docRef": "声音配乐配音字幕汇编 §10 对照表 1 第 13 行 → ^e288",
-        "note": "原证据：实测；原验证：我们自己渲染读回过。母带实测：mix.wav -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低…"
+        "note": "原证据：实测；原验证：我们自己渲染读回过。母带实测：原包素材文件 -14.0LUFS LRA12.0 真峰值-2.3dBTP;过程片段-22.0LUFS/-6.2dBTP;成片段-13.1LUFS/-2.3dBTP;过程片比成片低…"
       },
       "verifiedInOurStack": false,
       "summaryOf": [
@@ -4840,15 +2406,12 @@
       ]
     },
     {
-      "id": "audio-subs.sum.s10-t1-r15",
+      "id": "audio-subs.sum.s10-t1-r16",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.master-loudness.duration",
+      "topic": "audio-subs.master-loudness.loudness",
       "title": "跨案例对照：响度与峰值对照（case-01）",
-      "value": [
-        11.1,
-        11.2
-      ],
-      "unit": "s",
+      "value": -14,
+      "unit": "LUFS",
       "conditions": {
         "appliesWhen": [
           "§10 跨案例对照：响度与峰值对照"
@@ -4857,21 +2420,25 @@
       "provenance": {
         "caseId": "case-01",
         "evidenceLevel": "源码",
-        "docRef": "声音配乐配音字幕汇编 §10 对照表 1 第 15 行 → ^e421",
-        "note": "原证据：源码；原验证：作者成片用过。01 重制音乐母带流程与自动验收：仅 numpy+标准库(用 Blender 自带 python，系统 python3 无 numpy)；输出 music_proc/music_film/sfx/mix.wav +…"
+        "docRef": "声音配乐配音字幕汇编 §10 对照表 1 第 16 行 → ^e422",
+        "note": "原证据：源码；原验证：作者成片用过。01 响度目标与限幅教训：目标 -14 LUFS(±0.15)；AAC 编码后真峰值<-1 dBTP；限幅 limit=0.708(-3 dBFS) 给 AAC 过冲留余量(v3 限到 -1.9 dBFS …"
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "audio-subs.e421.duration"
+        "audio-subs.e422.loudness",
+        "audio-subs.e422.true-peak",
+        "audio-subs.e422.level",
+        "audio-subs.e422.loudness-range",
+        "audio-subs.e422.duration"
       ]
     },
     {
       "id": "audio-subs.sum.s11-t1-r01",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.beat-sync.frame-rate",
+      "topic": "audio-subs.beat-sync.frames",
       "title": "跨案例对照：BPM 与拍点（case-27）",
-      "value": 30,
-      "unit": "fps",
+      "value": 12,
+      "unit": "frame",
       "conditions": {
         "appliesWhen": [
           "§11 跨案例对照：BPM 与拍点"
@@ -4891,81 +2458,11 @@
       ]
     },
     {
-      "id": "audio-subs.sum.s11-t1-r04",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：BPM 与拍点（case-07）",
-      "value": 2,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§11 跨案例对照：BPM 与拍点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 4 行 → ^e343",
-        "note": "原证据：原文陈述+推断算术；原验证：184/118 BPM 没核实。段落设计：紧张脉冲=心跳，影片开始前 2 秒就起拍使第 0 帧已在跑；唱片刮擦=在时间停住的瞬间改变音乐本身播放速度；追逐 184 BPM，正好从爆炸那刻开始；主题曲活泼民谣流行 118 B…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e343.duration",
-        "audio-subs.e343.frames"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s11-t1-r05",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.beat-sync.duration",
-      "title": "跨案例对照：BPM 与拍点（case-07）",
-      "value": 5,
-      "unit": "ms",
-      "conditions": {
-        "appliesWhen": [
-          "§11 跨案例对照：BPM 与拍点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 5 行 → ^e346",
-        "note": "原证据：实测；原验证：我们自己量过（失败，184 与 118 BPM 未核实）。节拍检测失败：5 ms 包络加自相关每 10 秒一段，估计 60–236 BPM 乱跳（0–10 s 214.5、10–20 s 130.6、20–30 s 179.1、30–40 s 234.…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e346.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s11-t1-r06",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.beat-sync.duration",
-      "title": "跨案例对照：BPM 与拍点（case-20）",
-      "value": 32.08,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§11 跨案例对照：BPM 与拍点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-20",
-        "evidenceLevel": "推断",
-        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 6 行 → ^e315",
-        "note": "原证据：实测+推断；原验证：我们自己量过（量级核对，词时间戳 ±0.3 s）。复测节拍：歌词行起点（whisper 段起点）0.0、5.0、10.02、14.64、19.98、25.04、32.08 s；前 6 段平均间隔 5.008 s ≈ 96 BPM 4/4 两…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e315.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s11-t1-r07",
+      "id": "audio-subs.sum.s11-t1-r03",
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.beat-sync.frequency",
-      "title": "跨案例对照：BPM 与拍点（case-15）",
-      "value": 2000,
+      "title": "跨案例对照：BPM 与拍点（case-05）",
+      "value": 150,
       "unit": "Hz",
       "conditions": {
         "appliesWhen": [
@@ -4973,231 +2470,43 @@
         ]
       },
       "provenance": {
-        "caseId": "case-15",
+        "caseId": "case-05",
         "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 7 行 → ^e325",
-        "note": "原证据：实测；原验证：我们自己量过（不可靠）。节拍估计：2 kHz 以上起音自相关最强 700 ms（85.7 BPM）、次 350 ms（171.4）、900 ms（66.7）；只有 10 s，不可靠"
+        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 3 行 → ^e352",
+        "note": "原证据：实测；原验证：我们自己量过。配乐对位实测：把 原包素材文件 与成片音轨 150 Hz 以下包络做相关：相关系数 0.836（>0.5 即公开文件=成片所用）；配乐起点成片 5.48 s（第 131.5 …"
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "audio-subs.e325.frequency",
-        "audio-subs.e325.duration"
+        "audio-subs.e352.frequency",
+        "audio-subs.e352.duration",
+        "audio-subs.e352.ratio"
       ]
     },
     {
-      "id": "audio-subs.sum.s11-t1-r08",
+      "id": "audio-subs.sum.s11-t1-r10",
       "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：BPM 与拍点（case-01-original）",
-      "value": 0.44,
-      "unit": "s",
+      "topic": "audio-subs.master-loudness.loudness",
+      "title": "跨案例对照：BPM 与拍点（case-01）",
+      "value": -14,
+      "unit": "LUFS",
       "conditions": {
         "appliesWhen": [
           "§11 跨案例对照：BPM 与拍点"
         ]
       },
       "provenance": {
-        "caseId": "case-01-original",
-        "evidenceLevel": "实测",
-        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 8 行 → ^e400",
-        "note": "原证据：实测；原验证：我们自己核对过(梳理.md 实测列)。案例 01 原作 配乐测量与编辑：先出3版备选再测:选C=首个重音0.44秒、约139.96 BPM,三版均未按提示词时间点;带分段时间码的提示词要25秒返回42秒,去时间码才正常→规则:提示词简短、用文字描述结构…"
+        "caseId": "case-01",
+        "evidenceLevel": "源码",
+        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 10 行 → ^e422",
+        "note": "原证据：源码；原验证：作者成片用过。01 响度目标与限幅教训：目标 -14 LUFS(±0.15)；AAC 编码后真峰值<-1 dBTP；限幅 limit=0.708(-3 dBFS) 给 AAC 过冲留余量(v3 限到 -1.9 dBFS …"
       },
       "verifiedInOurStack": false,
       "summaryOf": [
-        "audio-subs.e400.duration",
-        "audio-subs.e400.loudness"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s11-t1-r11",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：BPM 与拍点（case-b08）",
-      "value": [
-        0,
-        2
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§11 跨案例对照：BPM 与拍点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b08",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 11 行 → ^e391",
-        "note": "原证据：原文陈述；原验证：作者成片用过。蜂巢配乐：原创无 IP、不模仿任何作曲家;暖弦乐垫+长笛/单簧管旋律+钟琴点缀,约 78 BPM;0–2 s 弦乐垫、2–5 s 长笛与上升钟琴、5–7 s 旋律解决到长和弦、7–8 s 渐…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e391.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s11-t1-r13",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：BPM 与拍点（case-b04）",
-      "value": [
-        0,
-        2.6
-      ],
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§11 跨案例对照：BPM 与拍点"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b04",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §11 对照表 1 第 13 行 → ^e392",
-        "note": "原证据：原文陈述；原验证：作者成片用过。带台词与音乐的音频提示词：VOICE(0.0–2.6s 后静默)+方括号音色描述[man, early 30s, deep resonant chest voice…muffled and boxy fro…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e392.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s13-t1-r01",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.tts.frequency",
-      "title": "跨案例对照：配音生成设置（case-b10）",
-      "value": 48000,
-      "unit": "Hz",
-      "conditions": {
-        "appliesWhen": [
-          "§13 跨案例对照：配音生成设置"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b10",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 对照表 1 第 1 行 → ^e465",
-        "note": "原证据：原文陈述；原验证：作者成片用过。配音生成设置：Higgsfield seed_audio(Seed Audio 1.0),内置音色 某预置音色(从「calm, neutral news narrator」描述中经预览转写选定)…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e465.frequency"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s13-t1-r02",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.tts.duration",
-      "title": "跨案例对照：配音生成设置（case-b10）",
-      "value": 30,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§13 跨案例对照：配音生成设置"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b10",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 对照表 1 第 2 行 → ^e467",
-        "note": "原证据：原文陈述；原验证：作者成片用过。配音文件交接协议：pi 把脚本拆成逐场景段落写 audio/tts_request.json({language, voice, segments:[{id,text}]}),先写 .tmp 再 m…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e467.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s13-t1-r03",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：配音生成设置（case-b02）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§13 跨案例对照：配音生成设置"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b02",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 对照表 1 第 3 行 → ^e372",
-        "note": "原证据：原文陈述；原验证：作者成片用过。声音选择与价格：预设库 20 种声音(本例 某预置音色);克隆需 10 秒到 3 分钟录音,只克隆自己或获授权的声音;Seed Audio 约 10 秒≈1 积分,约 20 秒≈2.3,约 26 …"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e372.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s13-t1-r04",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.duration",
-      "title": "跨案例对照：配音生成设置（case-b07）",
-      "value": 3,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§13 跨案例对照：配音生成设置"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b07",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 对照表 1 第 4 行 → ^e382",
-        "note": "原证据：原文陈述；原验证：作者成片用过。博客案例 b07 音效与配音参数：Giant 尖叫:Mirelo,3 秒,“starts instantly at full power … No music, no words”;店主五张唱片旁白:ElevenL…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e382.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s13-t1-r07",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.case-profile.frames",
-      "title": "跨案例对照：配音生成设置（case-07）",
-      "value": 1,
-      "unit": "frame",
-      "conditions": {
-        "appliesWhen": [
-          "§13 跨案例对照：配音生成设置"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-07",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 对照表 1 第 7 行 → ^e344",
-        "note": "原证据：原文陈述；原验证：只是原文说法。台词与口型：台词=ElevenLabs 预设声音经 Higgsfield MCP 生成，每句 2–3 遍，按实测语速和清晰度挑最好一遍（全片唯一生成式 AI 环节）；口型从语音文件算：响度决定…"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e344.frames",
-        "audio-subs.e344.frame-rate",
-        "audio-subs.e344.duration"
-      ]
-    },
-    {
-      "id": "audio-subs.sum.s13-t1-r08",
-      "domain": "audio-music-voice-subs",
-      "topic": "audio-subs.tts.duration",
-      "title": "跨案例对照：配音生成设置（case-b09）",
-      "value": 10,
-      "unit": "s",
-      "conditions": {
-        "appliesWhen": [
-          "§13 跨案例对照：配音生成设置"
-        ]
-      },
-      "provenance": {
-        "caseId": "case-b09",
-        "evidenceLevel": "文档",
-        "docRef": "声音配乐配音字幕汇编 §13 对照表 1 第 8 行 → ^e470",
-        "note": "原证据：原文陈述；原验证：只是原文说法。主持人系列配音规格：复用 Soul ID 与预设声线 某预置音色;克隆语音建议10秒–3分钟样本;每段语音约1.3–2.3 credits"
-      },
-      "verifiedInOurStack": false,
-      "summaryOf": [
-        "audio-subs.e470.duration"
+        "audio-subs.e422.loudness",
+        "audio-subs.e422.true-peak",
+        "audio-subs.e422.level",
+        "audio-subs.e422.loudness-range",
+        "audio-subs.e422.duration"
       ]
     },
     {
@@ -5221,6 +2530,32 @@
       "verifiedInOurStack": false,
       "summaryOf": [
         "audio-subs.e443.duration"
+      ]
+    },
+    {
+      "id": "audio-subs.sum.s14-t1-r02",
+      "domain": "audio-music-voice-subs",
+      "topic": "audio-subs.subs.pixels",
+      "title": "跨案例对照：字幕样式与时序（case-18）",
+      "value": [
+        -10,
+        10
+      ],
+      "unit": "px",
+      "conditions": {
+        "appliesWhen": [
+          "§14 跨案例对照：字幕样式与时序"
+        ]
+      },
+      "provenance": {
+        "caseId": "case-18",
+        "evidenceLevel": "实测",
+        "docRef": "声音配乐配音字幕汇编 §14 对照表 1 第 2 行 → ^e451",
+        "note": "原证据：画面读数；原验证：我们自己量过（抽帧）。字幕样式：底部居中，约 y 1000（1920×1080，±10 px），单行黑字，无底板；正文/图注/字幕无衬线体（原文 Inter）"
+      },
+      "verifiedInOurStack": false,
+      "summaryOf": [
+        "audio-subs.e451.pixels"
       ]
     },
     {
@@ -5298,7 +2633,10 @@
       "domain": "audio-music-voice-subs",
       "topic": "audio-subs.subs.duration",
       "title": "跨案例对照：字幕样式与时序（case-18）",
-      "value": 0.4,
+      "value": [
+        -0.4,
+        0.4
+      ],
       "unit": "s",
       "conditions": {
         "appliesWhen": [
