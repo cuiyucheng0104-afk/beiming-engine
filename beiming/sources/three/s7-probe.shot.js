@@ -2,7 +2,8 @@
 // ctx.params：scene 选校准规格，或者 spec 直接交一份同样写法的规格（搭落到地面以下的、超过 50 个实体的场景用）。
 // 实体名把规格里的连字符换成下划线（实体名不许带连字符）；每个实体经 meta(f) 交一个锚点 center：它这一刻的世界位置。
 // 测边界另有两样：instanced 是 { 实体名: [[x, y, z], …] }，每个名字加一个实例网格实体，实例是边长 1 米的方块、各自平移到给的位置（不交 center 锚点）；
-// anchors 是 { '实体名#锚点名': 坐标 }，照原样并进 meta(f) 交的锚点（可以故意写坏）。
+// anchors 是 { '实体名#锚点名': 坐标 }，照原样并进 meta(f) 交的锚点（可以故意写坏）；
+// holes 是 { '实体名#锚点名': 下标 }，交 [0, 0, −3] 挖掉那个下标的带空位数组（空位过不了 JSON，只能在页面里造）。
 import { calibShot } from '../../calib/shot-three.js';
 import turntable from '../../calib/probe-axes-turntable/scene.json' with { type: 'json' };
 import steps from '../../calib/probe-plane-steps/scene.json' with { type: 'json' };
@@ -22,9 +23,10 @@ export function build(ctx) {
     shot.entities[name] = mesh;
     return mesh;
   });
+  const holed = ([key, i]) => { const world = [0, 0, -3]; delete world[i]; return [key, world]; };
   return {
     ...shot,
-    meta: () => ({ anchors: { ...Object.fromEntries(objects.map((o) => [`${o.id}#center`, shot.entities[o.id].position.toArray()])), ...ctx.params.anchors } }),
+    meta: () => ({ anchors: { ...Object.fromEntries(objects.map((o) => [`${o.id}#center`, shot.entities[o.id].position.toArray()])), ...ctx.params.anchors, ...Object.fromEntries(Object.entries(ctx.params.holes ?? {}).map(holed)) } }),
     dispose() {
       shot.dispose();
       for (const mesh of swarms) { mesh.geometry.dispose(); mesh.material.dispose(); mesh.dispose(); }

@@ -41,12 +41,14 @@ const CROWD = {
 // kit#eye 正好在相机平面上（投不到屏幕，但世界坐标是好的）；lone#bad 的坐标写坏了
 const EDGE = { camera: CAMERA, backgroundLinear: [0, 0, 0], objects: [box('kit', [0, 1, -5]), box('lone', [1, 2, -5])] };
 const EDGE_PARAMS = { spec: EDGE, instanced: { swarm: [[2, 3, -6], [-2, -3, -6]] }, anchors: { 'kit#eye': [0, 0, 0], 'lone#bad': [0, null, 0] } };
+// 坐标缺项的夹具：kit#hole 是 [0, , −3]（下标 1 是空位），lone#short 是 [0, 0]（缺 Z）
+const SPARSE_PARAMS = { spec: EDGE, holes: { 'kit#hole': 1 }, anchors: { 'lone#short': [0, 0] } };
 const shotOf = (id, frames, params) => ({ id, in: 0, out: frames, source: 'three', host: 'page', mode: 'native-code', entry: 's7-probe.shot.js', colorRef: 'scene', seed: 7, params });
 const FILM = {
   format: 'film/3.0',
   id: 's7-probe',
   output: { size: [640, 360], fps: '24/1', frames: 97 },
-  shots: [shotOf('steps', 12, { scene: 'probe-plane-steps' }), shotOf('turntable', 97, { scene: 'probe-axes-turntable' }), shotOf('crowd', 2, { spec: CROWD }), shotOf('edge', 1, EDGE_PARAMS)],
+  shots: [shotOf('steps', 12, { scene: 'probe-plane-steps' }), shotOf('turntable', 97, { scene: 'probe-axes-turntable' }), shotOf('crowd', 2, { spec: CROWD }), shotOf('edge', 1, EDGE_PARAMS), shotOf('sparse', 1, SPARSE_PARAMS)],
 };
 
 test('S7-1 caps() 声明 bbox3d、anchor、belowGround 三种场景查询，落在登记表之内（F15）', async () => {
@@ -180,6 +182,13 @@ test('S7-2 校准场景实测 bbox3d / anchor / belowGround、通配符与 F9 �
     assert.deepEqual((await ask(edge, 0, { kind: 'anchor', of: ['swarm'] })).items, []);
     // 问到的实体上有写坏的锚点：带错误码报错
     await assert.rejects(() => edge.query(0, { kind: 'anchor', of: ['lone'] }), coded('contract.bad-value'));
+
+    // ---------- 坐标缺项的锚点：带空位的 [0, , −3]、缺 Z 的 [0, 0]，从公开的会话问都带错误码 ----------
+    const sparse = await open('sparse');
+    await assert.rejects(() => sparse.query(0, { kind: 'anchor', of: ['kit'] }), coded('contract.bad-value', (e) => assert.match(e.message, /kit#hole/)));
+    await assert.rejects(() => sparse.query(0, { kind: 'anchor', of: ['lone'] }), coded('contract.bad-value', (e) => assert.match(e.message, /lone#short/)));
+    // 报过错的会话照常答；别的种类的查询不看锚点
+    assert.equal((await ask(sparse, 0, { kind: 'bbox3d', of: ['kit', 'lone'] })).items.length, 2);
   } finally {
     for (const s of opened) await s.close();
     await source.stop();
@@ -243,4 +252,22 @@ test('S7-5 pickAnchors：只收挂在问到的实体上的锚点，世界坐标�
   for (const world of [[0, 0], [0, 0, Infinity], [0, '0', 0], null]) assert.throws(() => measure.pickAnchors([['hero#eye', world]], ['hero']), badValue);
   assert.throws(() => measure.pickAnchors([['hero#a#b', [0, 0, 0]]], ['hero']), badValue);
   assert.throws(() => measure.pickAnchors([['hero#eye', [0, 0, 0]], ['hero#eye', [1, 0, 0]]], ['hero']), badValue);
+  // 坐标只认正好三个自有的、可枚举的数据属性：带空位的（every 会跳过空位）、索引上是取值器的、继承来的、藏起来的、多出键的都报，取值器一次都不执行
+  let calls = 0;
+  const getter = Object.defineProperty([0, 0, 0], 1, { get() { calls++; return 0; }, enumerable: true });
+  const inherited = Object.setPrototypeOf([0, , -3], Object.assign(Object.create(Array.prototype), { 1: 0 })); // eslint-disable-line no-sparse-arrays
+  const hidden = Object.defineProperty([0, 0, 0], 1, { value: 0, enumerable: false });
+  const odd = { hole: [0, , -3], lastHole: [0, 0, ,], getter, inherited, hidden, extraKey: Object.assign([0, 0, 0], { more: 1 }), symbolKey: Object.assign([0, 0, 0], { [Symbol('s')]: 1 }) }; // eslint-disable-line no-sparse-arrays
+  for (const [what, world] of Object.entries(odd)) {
+    assert.throws(() => measure.pickAnchors([['hero#eye', world]], ['hero']), badValue, what);
+    assert.equal(measure.isXyz(world), false, what);
+    // 没问到的实体上的照旧不管
+    assert.deepEqual(measure.pickAnchors([['other#eye', world]], ['hero']), [], what);
+  }
+  assert.equal(calls, 0, '索引上的取值器不该被执行');
+  assert.deepEqual([measure.isXyz([0, -0, 1e300]), measure.isXyz([0, 0]), measure.isXyz([0, 0, 0, 0]), measure.isXyz(new Float32Array(3)), measure.isXyz('abc')], [true, false, false, false, false]);
+  // 交回的坐标和镜头交的数组脱钩
+  const mine = [1, 2, 3], [[, kept]] = measure.pickAnchors([['hero#eye', mine]], ['hero']);
+  mine[0] = 9;
+  assert.deepEqual(kept, [1, 2, 3]);
 });

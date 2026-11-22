@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { isXyz } from '../../host/page/measure.js';
 import { caps } from '../../sources/three/caps.mjs';
 import { loadContracts } from '../contracts/validate.mjs';
 import { eventsTable, renderingOf } from '../eval/input.mjs';
@@ -307,6 +308,16 @@ test('three 真实声明的三种场景查询答了、没声明的 intersect 拒
   // 声明了的那三种里有一种报错，F24 判出来（两个镜头各一条）
   for (const one of obs.shots) one.queries[1] = { kind: 'anchor', status: 'error', code: 'contract.unsupported-query' };
   assert.deepEqual(build(obs).flatMap(violations), ['F24', 'F24']);
+});
+
+test('锚点探针认坐标的判法：缺 Z 的、带空位的不算三个有限的数，逐轴比之前先过这一关', () => {
+  // run.mjs 的锚点探针先用 isXyz 判交回的 at，再照规格的三个轴逐个比：只按交回的数组 every 的话，少一个分量的也「都对上」
+  const want = [-0.3, 0, -2], agrees = (at) => isXyz(at) && want.every((v, k) => Math.abs(at[k] - v) <= 1e-6);
+  assert.equal(agrees([-0.3, 0, -2]), true);
+  assert.equal([-0.3, 0].every((v, k) => Math.abs(v - want[k]) <= 1e-6), true, '旧判法：缺 Z 的漏过去');
+  for (const at of [[-0.3, 0], [-0.3, , -2], [-0.3, 0, -2, 0], [-0.3, 0, Number.NaN], [-0.3, 0, null], [-0.3, 0, -2.00001], undefined, null]) assert.equal(agrees(at), false, JSON.stringify(at)); // eslint-disable-line no-sparse-arrays
+  // 入口用的就是这个判法
+  assert.match(readFileSync(new URL('./run.mjs', import.meta.url), 'utf8'), /isXyz\(at\) && w\.at\.every\(/);
 });
 
 test('没量到的不写：没量出对预言图的差时 accumulation 是空的，没量编号层对预言图就不写那个字段，观测点没交东西、没读到镜头标识的那一帧整项不写', () => {

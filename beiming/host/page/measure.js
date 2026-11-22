@@ -38,6 +38,15 @@ export function measureEntity(view, proj, size, points) {
 }
 
 /**
+ * 是不是三个有限的数：数组，正好下标 0、1、2 三个自有的、可枚举的数据属性。只看属性描述符：带空位的（every 会跳过空位）、
+ * 索引上是取值器的（一次都不执行）、继承来的、多出键的都不算。
+ */
+export function isXyz(v) {
+  if (!Array.isArray(v) || v.length !== 3 || Reflect.ownKeys(v).length !== 4) return false;
+  return [0, 1, 2].every((i) => { const d = Object.getOwnPropertyDescriptor(v, i); return d !== undefined && 'value' in d && d.enumerable && Number.isFinite(d.value); });
+}
+
+/**
  * 锚点投到屏幕（每帧元数据契约 3.3、5.2）。pairs 是 [["实体名#锚点名", [x, y, z]], …]，世界坐标，米；names 是这个镜头的实体名。
  * 交回 { 实体名: { 锚点名: { world, screen } } }。写法不对、实体不认识、同一个锚点交了两次、坐标不是三个有限的数都报错，不猜。
  * 锚点落在相机平面上（w 是 0）、或者屏幕坐标算出来不是有限的数也报错：非数和无穷进了 JSON 会变成 null。相机后面的（w 小于 0）照 toScreen 的除法交。
@@ -47,7 +56,7 @@ export function placeAnchors(view, proj, size, pairs, names) {
   for (const [key, world] of pairs) {
     const [entity, name, ...rest] = String(key).split('#');
     if (!name || rest.length || !names.includes(entity)) throw new Error(`锚点 ${key} 要写成「实体名#锚点名」，实体要是这个镜头的实体`);
-    if (!Array.isArray(world) || world.length !== 3 || !world.every(Number.isFinite)) throw new Error(`锚点 ${key} 的世界坐标必须是三个有限的数`);
+    if (!isXyz(world)) throw new Error(`锚点 ${key} 的世界坐标必须是三个有限的数`);
     if (seen.has(key)) throw new Error(`锚点 ${key} 交了两次`);
     seen.add(key);
     const { screen, w } = toScreen(view, proj, size, world);
@@ -90,7 +99,7 @@ const byCodePoint = (x, y) => {
 /**
  * 锚点查询要答的那几个锚点。pairs 同 placeAnchors；of 是问到的实体名。只收挂在 of 里的实体上的，交回 [['实体名#锚点名', [x, y, z]]]。
  * 世界坐标原样交，不过屏幕投影：落在相机平面上的锚点照交；没问到的实体上的锚点写得对不对不管，不牵连这一次查询。
- * 问到的实体上的锚点写法不对、交了两次、坐标不是三个有限的数，报 contract.bad-value：是镜头或卡交错了，不是查询写错了。
+ * 问到的实体上的锚点写法不对、交了两次、坐标不是三个有限的数（isXyz：缺一项、带空位的也算），报 contract.bad-value：是镜头或卡交错了，不是查询写错了。
  */
 export function pickAnchors(pairs, of) {
   const bad = (message) => Object.assign(new Error(message), { code: 'contract.bad-value' });
@@ -99,7 +108,7 @@ export function pickAnchors(pairs, of) {
     const [entity, name, ...rest] = String(key).split('#');
     if (!of.includes(entity)) continue;
     if (!name || rest.length) throw bad(`锚点 ${key} 要写成「实体名#锚点名」`);
-    if (!Array.isArray(world) || world.length !== 3 || !world.every(Number.isFinite)) throw bad(`锚点 ${key} 的世界坐标必须是三个有限的数`);
+    if (!isXyz(world)) throw bad(`锚点 ${key} 的世界坐标必须是三个有限的数`);
     if (seen.has(key)) throw bad(`锚点 ${key} 交了两次`);
     seen.add(key);
     picked.push([key, [...world]]);

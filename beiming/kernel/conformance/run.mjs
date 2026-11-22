@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { cameraBasis, objectTransform } from '../../calib/check.mjs';
 import { startSource } from '../../host/page/host.mjs';
+import { isXyz } from '../../host/page/measure.js';
 import { loadContracts } from '../contracts/validate.mjs';
 import { eventsTable, renderingOf, shotInput } from '../eval/input.mjs';
 import { stream, streamName } from '../eval/rng.mjs';
@@ -340,7 +341,9 @@ async function anchorProbe() {
     const res = await session.query(0, { kind: 'anchor', of: want.map((w) => w.entity) });
     await session.close();
     const got = new Map(res.items.map((i) => [i.a, i.at]));
-    const off = want.filter((w) => !got.get(`${w.entity}#center`)?.every((v, k) => Math.abs(v - w.at[k]) <= 1e-6)).map((w) => w.entity);
+    // 先判交回的是三个有限的数，再照规格的三个轴逐个比：按交回的数组 every 的话，少一个分量的也「都对上」
+    const agrees = (at, w) => isXyz(at) && w.at.every((v, k) => Math.abs(at[k] - v) <= 1e-6);
+    const off = want.filter((w) => !agrees(got.get(`${w.entity}#center`), w)).map((w) => w.entity);
     if (res.items.length !== want.length || off.length) throw new Error(`该交回 ${want.length} 个锚点，交回了 ${res.items.length} 个；位置对不上或没交的：${off.join('、') || '没有'}`);
     return { asked: want.length, returned: res.items.length };
   } finally {
