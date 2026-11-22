@@ -531,3 +531,149 @@ test('A15-13 报价只收正安全整数的帧数、画幅与采样，溢出报�
   assert.throws(() => jobs.quoteFromDraft({ ...good, targetSize: [1e200, 1e200] }), RangeError);
   assert.throws(() => jobs.quoteFromDraft({ ...good, draftWallMs: Number.MAX_VALUE }), RangeError);
 });
+
+test('A15-14 非普通成本容器被拒，成功和失败都在终态记录原因', async t => {
+  const file = join(tempDir(t, 'container'), 'ledger.jsonl');
+  const tiers = new Map([['opus', 1200]]);
+  assert.throws(() => jobs.appendJobLedger(file, { ...baseRow, tokensByTier: tiers }), /tokensByTier/);
+  assert.equal(existsSync(file), false);
+  assert.equal(jobs.appendJobLedger(file, { ...baseRow, tokensByTier: Object.assign(Object.create(null), { opus: 1200 }) }).totalTokens, 1200);
+});
+
+test('A15-15 执行器的非法 cost 不落账，显式 undefined 与省略 cost 等价', async t => {
+  const costs = [null, 123, new Map(), { tokensByTier: new Map([['opus', 1200]]) }, undefined];
+  const { queue } = queueFixture(t, { draft: ({ job }) => {
+    const cost = costs[job.payload.index];
+    if (job.payload.fail) throw Object.assign(new Error('作业失败'), { cost });
+    return { value: 7, cost };
+  } });
+  for (const [index, cost] of costs.entries()) {
+    for (const fail of [false, true]) {
+      const { id } = queue.enqueue({ kind: 'draft', rev: 0, payload: { index, fail } });
+      const done = await queue.runJob(id);
+      assert.equal(done.status, fail ? 'failed' : 'succeeded');
+      if (!fail) assert.equal(done.result.value, 7);
+      const event = queue.getJob(id).events.at(-1);
+      if (cost === undefined) assert.equal(event.ledgerError, undefined);
+      else assert.match(event.ledgerError ?? '', /cost|tokensByTier/);
+      assert.equal(queue.readLedger().filter(row => row.jobId === id).length, cost === undefined ? 1 : 0);
+    }
+  }
+});
+
+test('A15-16 序号已满时重试可读回原行，新键被拒且原文件逐字节不变', t => {
+  const file = join(tempDir(t, 'seq'), 'ledger.jsonl');
+  const last = { ...jobs.appendJobLedger(file, baseRow), seq: Number.MAX_SAFE_INTEGER };
+  const bytes = Buffer.from(JSON.stringify(last));
+  writeFileSync(file, bytes);
+  assert.deepEqual(jobs.appendJobLedger(file, baseRow), last);
+  assert.throws(() => jobs.appendJobLedger(file, { ...baseRow, attempt: 2 }), RangeError);
+  assert.deepEqual(readFileSync(file), bytes);
+  assert.deepEqual(jobs.readJobLedger(file), [last]);
+});
+
+// 在子进程里截住终态 job.json 的原子替换，保留进程退出时真实的作业文件和账本。
+function crashAtTerminalSave(workspace, queue, position) {
+  const { id } = queue.enqueue({ kind: 'draft', rev: 0 });
+  const script = `
+    import fs from 'node:fs';
+    import { loadQueue } from ${JSON.stringify(api)};
+    const [dir, id, position] = process.argv.slice(1);
+    const queue = loadQueue(dir, { handlers: { draft: () => ({ cost: { wallMs: 17, tokensByTier: { opus: 1200 } } }) } });
+    const rename = fs.renameSync;
+    fs.renameSync = (src, dst) => {
+      if (dst !== queue.jobFile(id) || JSON.parse(fs.readFileSync(src)).status !== 'succeeded') return rename(src, dst);
+      if (position === 'after') rename(src, dst);
+      process.exit(42);
+    };
+    await queue.runJob(id);
+  `;
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', script, workspace.root, id, position], { encoding: 'utf8', timeout: 10000 });
+  assert.equal(child.status, 42, child.error?.message ?? child.stderr);
+  return id;
+}
+
+for (const entry of ['before', 'readLedger', 'summarizeLedger', 'reconcileLedger', 'replay']) {
+  test(`A15-17 终态存盘边界崩溃后恢复（${entry}）`, async t => {
+    const { workspace, queue } = queueFixture(t, { draft: () => ({ cost: { wallMs: 23 } }) });
+    const beforeSave = entry === 'before';
+    const id = crashAtTerminalSave(workspace, queue, beforeSave ? 'before' : 'after');
+    assert.equal(queue.getJob(id).status, beforeSave ? 'running' : 'succeeded');
+    assert.deepEqual(jobs.readJobLedger(queue.ledgerFile()), []);
+    const retry = beforeSave || entry === 'replay';
+    if (retry) await queue.replay(id);
+    else if (entry === 'summarizeLedger') assert.equal(queue.summarizeLedger().wallMs, 17);
+    else queue[entry]();
+    const rows = jobs.readJobLedger(queue.ledgerFile());
+    const history = queue.getJob(id).events.filter(event => ['succeeded', 'stopped'].includes(event.type));
+    const expected = [[1, beforeSave ? 'stopped' : 'succeeded']];
+    if (retry) expected.push([2, 'succeeded']);
+    assert.deepEqual(history.map(event => [event.attempt, event.type]), expected);
+    assert.deepEqual(rows.map(row => [row.attempt, row.status]), expected);
+    assert.deepEqual([rows[0].wallMs, rows[0].tokensByTier.opus, rows[0].gpuKnown], beforeSave ? [0, 0, false] : [17, 1200, false]);
+    assert.deepEqual(queue.readLedger(), rows);
+  });
+}
+
+test('A15-19 补回更早轮次后，报价仍采用最新成功轮次的实测', async t => {
+  const { queue } = queueFixture(t, { draft: ({ job }) => ({ cost: { renderedFrames: 1, wallMs: job.attempt * 10, gpuSeconds: job.attempt } }) });
+  const { id } = queue.enqueue({ kind: 'draft', rev: 0 });
+  await queue.runJob(id);
+  await queue.replay(id);
+  const [, second] = queue.readLedger();
+  writeFileSync(queue.ledgerFile(), `${JSON.stringify(second)}\n`);
+  const quote = queue.quoteJobFromDraft({ draftJobId: id, draftSize: [1, 1], targetSize: [1, 1], draftSamples: 1, targetSamples: 1, targetFrames: 1 });
+  assert.deepEqual([quote.estimatedGpuSeconds, quote.estimatedWallMs], [2, 20]);
+});
+
+test('A15-20 首轮追加失败写诊断时，另一进程的重放保留两轮历史', { timeout: 15000 }, async t => {
+  const { workspace, queue } = queueFixture(t, { draft: () => '重放完成' });
+  const { id } = queue.enqueue({ kind: 'draft', rev: 0 });
+  const script = `
+    import fs from 'node:fs';
+    import { loadQueue } from ${JSON.stringify(api)};
+    const [dir, id] = process.argv.slice(1);
+    const queue = loadQueue(dir, { handlers: { draft: () => '首轮完成' } });
+    fs.appendFileSync = () => { throw new Error('追加失败'); };
+    const rename = fs.renameSync;
+    fs.renameSync = (src, dst) => {
+      if (dst === queue.jobFile(id) && JSON.parse(fs.readFileSync(src)).events.at(-1).ledgerError) {
+        fs.writeSync(1, '保存诊断');
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 600);
+      }
+      return rename(src, dst);
+    };
+    await queue.runJob(id);
+  `;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', script, workspace.root, id], { stdio: ['ignore', 'pipe', 'inherit'] });
+  t.after(() => child.kill());
+  const exit = once(child, 'exit');
+  await once(child.stdout, 'data');
+  await queue.replay(id);
+  assert.deepEqual(await exit, [0, null]);
+  const job = queue.getJob(id);
+  assert.deepEqual([job.attempt, job.result], [2, '重放完成']);
+  assert.match(job.events.find(event => event.type === 'succeeded').ledgerError, /追加失败/);
+  assert.deepEqual(queue.readLedger().map(row => row.attempt), [1, 2]);
+});
+
+test('A15-18 M21 四个子进程同时结算同一轮，只记 10 ms', { timeout: 20000 }, async t => {
+  const file = join(tempDir(t, 'same-key'), 'ledger.jsonl');
+  const script = `
+    import { appendJobLedger } from ${JSON.stringify(api)};
+    process.send('ready');
+    process.once('message', () => {
+      appendJobLedger(process.argv[1], ${JSON.stringify(baseRow)});
+      process.disconnect();
+    });
+  `;
+  const children = Array.from({ length: 4 }, () => spawn(process.execPath, ['--input-type=module', '-e', script, file], { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] }));
+  t.after(() => children.forEach(child => child.kill()));
+  const exits = children.map(child => once(child, 'exit'));
+  await Promise.all(children.map(child => once(child, 'message')));
+  children.forEach(child => child.send('start'));
+  assert.deepEqual(await Promise.all(exits), children.map(() => [0, null]));
+  const rows = jobs.readJobLedger(file);
+  assert.equal(rows.length, 1);
+  assert.equal(jobs.summarizeJobLedger(rows).wallMs, 10);
+});

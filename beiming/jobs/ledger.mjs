@@ -37,8 +37,14 @@ function finite(value, name) {
   return value;
 }
 
+export function isPlainObject(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 function plain(value, name) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${name} 必须是对象。`);
+  if (!isPlainObject(value)) throw new TypeError(`${name} 必须是普通对象。`);
   return value;
 }
 
@@ -71,9 +77,8 @@ function checkCosts(row) {
   return row;
 }
 
-function checkRow(row) {
+function checkSettlement(row) {
   checkCosts(row);
-  positiveCount(row.seq, 'seq');
   checkJobId(row.jobId);
   positiveCount(row.attempt, 'attempt');
   text(row.kind, 'kind');
@@ -109,7 +114,10 @@ export function measureDiskBytes(dir) {
  */
 export function normalizeLedgerEntry(raw, { allowLegacyApiRows = false } = {}) {
   plain(raw, '账本记录');
-  if (raw.format === FORMAT) return checkRow(raw);
+  if (raw.format === FORMAT) {
+    positiveCount(raw.seq, 'seq');
+    return checkSettlement(raw);
+  }
   if (!allowLegacyApiRows) throw new TypeError(`不是 ${FORMAT} 行（旧 API 账本用 allowLegacyApiRows 读）。`);
   const step = typeof raw.step === 'string' && raw.step.startsWith('job.') ? raw.step.slice('job.'.length) : undefined;
   if (step === undefined && raw.kind !== 'job') {
@@ -181,9 +189,8 @@ function clearStaleLock(lock) {
   }
 }
 
-function withLock(ledgerPath, timeoutMs, run) {
-  const lock = `${ledgerPath}.lock`;
-  fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
+export function withFileLock(file, run, timeoutMs = 10_000) {
+  const lock = `${file}.lock`;
   const deadline = performance.now() + amount(timeoutMs, 'lockTimeoutMs');
   for (let waitMs = 1; ; waitMs = Math.min(waitMs * 2, 50)) {
     if (!fs.existsSync(lock)) {
@@ -206,17 +213,16 @@ function withLock(ledgerPath, timeoutMs, run) {
 }
 
 /**
- * 追加一行作业成本并交回这一行。同一个 (jobId, attempt) 只记一次：重复结算交回已有的那一行，不再追加。
+ * 清理前采样并校验结算载荷。只有实际追加账本时才分配 seq。
  * 显卡秒：给了 gpuSeconds 就用它（调用方的实测优先，不与帧元数据相加，免得重复计）；没给就把 frameMetas 每帧的 timing.renderMs 加起来；
  * 两样都没给记 0 并标 gpuKnown: false。磁盘字节：给了 diskBytes 就用它；没给就实测 workspaceDir。
  */
-export function appendJobLedger(ledgerPath, entry, { lockTimeoutMs = 10_000 } = {}) {
+export function prepareSettlement(entry) {
   const { frameMetas, tokensByTier = {}, workspaceDir } = plain(entry, '账本记录');
   if (frameMetas !== undefined && !Array.isArray(frameMetas)) throw new TypeError('frameMetas 必须是数组。');
   const tokens = { ...zeroTiers(), ...plain(tokensByTier, 'tokensByTier') };
-  const row = checkRow({
+  return checkSettlement({
     format: FORMAT,
-    seq: 1,
     jobId: entry.jobId,
     attempt: entry.attempt === undefined ? 1 : entry.attempt,
     kind: entry.kind,
@@ -234,16 +240,27 @@ export function appendJobLedger(ledgerPath, entry, { lockTimeoutMs = 10_000 } = 
     deliveredFrames: entry.deliveredFrames,
     diskBytes: entry.diskBytes !== undefined || workspaceDir === undefined ? entry.diskBytes : measureDiskBytes(workspaceDir),
   });
+}
+
+export function appendSettlement(ledgerPath, settlement, { lockTimeoutMs } = {}) {
+  fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
   // shortcut: 每次追加都在锁里重读整本账来查重、取序号，单次 O(行数)；账本到十万行级再换成尾部索引。
-  return withLock(ledgerPath, lockTimeoutMs, () => {
+  return withFileLock(ledgerPath, () => {
     const { content, rows } = load(ledgerPath);
-    const settled = rows.find(existing => existing.jobId === row.jobId && existing.attempt === row.attempt);
+    const settled = rows.find(existing => existing.jobId === settlement.jobId && existing.attempt === settlement.attempt);
     if (settled) return settled;
-    row.seq = rows.reduce((max, existing) => Math.max(max, existing.seq), 0) + 1;
+    const seq = rows.reduce((max, existing) => Math.max(max, existing.seq), 0) + 1;
+    if (!Number.isSafeInteger(seq) || seq < 1) throw new RangeError('作业账本序号已达安全整数上限。');
+    const row = normalizeLedgerEntry({ ...settlement, seq });
     // 上一次写入断在半行或被人手改掉了结尾换行时，先补换行，新行不会接在旧行后面。
     fs.appendFileSync(ledgerPath, `${content && !content.endsWith('\n') ? '\n' : ''}${JSON.stringify(row)}\n`, { flush: true });
     return row;
-  });
+  }, lockTimeoutMs);
+}
+
+/** 同一 (jobId, attempt) 的重复结算交回首次写入的账本行。 */
+export function appendJobLedger(ledgerPath, entry, options) {
+  return appendSettlement(ledgerPath, prepareSettlement(entry), options);
 }
 
 /**
