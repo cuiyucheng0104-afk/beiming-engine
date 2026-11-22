@@ -271,7 +271,7 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
     [['narration.timing', 'maxSubtitleLagSec'], ['narration.timing', 'fadeFrames'], ['narration.timing', 'minLeadSec'], ['color.palette', 'color']]);
   const lagArgs = q.scoring[LAG].args, pauseArgs = q.scoring[PAUSE].args, paletteArgs = q.scoring[PALETTE].args;
   for (const index of [FADE, PAUSE, PALETTE]) assert.equal(q.scoring[index].args.minScenes, 3, '题面要至少三个场景');
-  // 两个时长：题目的成片 900 帧（30 秒），参考片 5375 帧（题目 args.refFrames 照夹具写明，判分只多认这一个）
+  // 两个时长：题目的成片 900 帧（30 秒），正式判分 score(q, r) 只认它；参考片 5375 帧（题目 args.refFrames 照夹具写明）只在核验夹具时由第三个参数 REF 打开
   const span = ref.frames / ref.fps, own = q.deliverable.frames / ref.fps;
   assert.equal(q.deliverable.fps, `${ref.fps}/1`);
   assert.equal(own, 30);
@@ -283,7 +283,8 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
   const refTiming = { appearSec: ref.subtitleAppearSec, onsetsSec: ref.narrationOnsetsSec, spanSec: span,
     fadeFrames: ref.sceneFadeFrames, leadSec: ref.scenePauses.leadSec, tailSec: ref.scenePauses.tailSec };
   const refShares = shares(ref.palette.sceneFrames);
-  const judge = (timing = {}, palette = refShares) => score(q, { 'narration.timing': { ...refTiming, ...timing }, 'color.palette': palette });
+  const REF = { allowReferenceSpan: true };
+  const judge = (timing = {}, palette = refShares) => score(q, { 'narration.timing': { ...refTiming, ...timing }, 'color.palette': palette }, REF);
 
   const refLag = stats();
   assert.ok(Math.abs(refLag.subtitleLagSec - ref.subtitleLag.medianSec) <= 0.01, `中位数 ${refLag.subtitleLagSec} 和原量测的 0.013 秒差在取整的一格内`);
@@ -298,6 +299,13 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
   assert.match(q.controls.referencePass, /0\.46 秒.*0\.47 秒/);
   assert.deepEqual(refShares, { shares: [0.846, 0.792, 0.752] });
   assert.ok(full(judge()), '案例 18 的读数满分');
+  assert.ok(full(judge({ spanSec: undefined })), '打开了参考片时长，读数可以不报时长');
+  // 不打开就是正式判分：参考片的时刻装不进题目的 30 秒，字幕这条不过；开关只认调用方传的 true，读数里自带的不算
+  const refReadings = { 'narration.timing': refTiming, 'color.palette': refShares };
+  for (const opts of [undefined, null, {}, { allowReferenceSpan: false }, { allowReferenceSpan: 'true' }, { allowReferenceSpan: 1 }]) {
+    assert.deepEqual(failedAt(score(q, refReadings, opts)), [LAG], `第三个参数 ${JSON.stringify(opts)}`);
+  }
+  assert.deepEqual(failedAt(score(q, { ...refReadings, 'narration.timing': { ...refTiming, allowReferenceSpan: true } })), [LAG], '读数自己带开关不算');
 
   // 字幕整体滞后 0.2 秒（6 帧）
   const late = ref.subtitleAppearSec.map((at) => at + 0.2);
@@ -317,7 +325,6 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
     '字幕时刻是 null': { appearSec: ref.subtitleAppearSec.with(0, null) },
     '字幕表全是空洞': { appearSec: Array(47) },
     '起声表有 NaN': { onsetsSec: ref.narrationOnsetsSec.with(5, NaN) },
-    '没报成片时长：照题目的 30 秒算，参考片后面的字幕都在片外': { spanSec: undefined },
     '成片时长是 0': { spanSec: 0 },
     '成片时长是字符串': { spanSec: String(span) },
     '参考片的读数自报题目的 30 秒': { spanSec: own },
@@ -333,7 +340,7 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
   // 30 次起声从 0.4 秒起每秒一次，字幕一块同帧、一块晚 0.1 秒：命中 50%，基线 30×0.126/30 = 12.6%，高出 37.4 个百分点，不够 40
   const onsets30 = Array.from({ length: 30 }, (_, i) => (4 + 10 * i) / 10);
   const half = onsets30.map((at, i) => (i % 2 ? (5 + 10 * i) / 10 : at));
-  const local = (appearSec, spanSec) => judge({ appearSec, onsetsSec: onsets30, spanSec });
+  const local = (appearSec, spanSec, onsetsSec = onsets30) => score(q, { 'narration.timing': { ...refTiming, appearSec, onsetsSec, spanSec }, 'color.palette': refShares });
   const halfStats = readSubtitleLag(half, onsets30, own, lagArgs.maxSubtitleLagSec);
   assert.ok(Math.abs(halfStats.subtitleLagSec - 0.05) < 1e-9 && halfStats.hitRate === 0.5 && Math.abs(halfStats.randomRate - 0.126) < 1e-9, JSON.stringify(halfStats));
   for (const spanSec of [undefined, own, own + 1 / 30, own - 1 / 30, 60, 45, own + 0.1, span, 1e9, Infinity, null, '30']) {
@@ -345,13 +352,23 @@ test('B4-5 18-1：案例 18 的读数满分；字幕滞后、不淡出、不留�
   for (const spanSec of [undefined, own, own + 1 / 30, own - 1 / 30]) assert.ok(full(local(onsets30, spanSec)), `全部同帧、自报时长 ${spanSec}`);
   for (const spanSec of [60, own + 0.1, span, 0, -30, NaN]) assert.deepEqual(failedAt(local(onsets30, spanSec)), [LAG], `全部同帧、自报时长 ${spanSec}`);
   assert.deepEqual(failedAt(local([...onsets30, 30.01])), [LAG], '字幕在第 30 秒之后');
+  // 四审的反例：同样命中一半，把最后一次起声和它的字幕挪到 30.4、30.5 秒，再自报参考片的时长。
+  // 正式判分不看读数自报什么，时长一律是题目的 30 秒：时刻出了 30 秒就不过，换不到参考片的 179 秒去摊薄基线（那样基线只剩 2.11%）
+  const [spillOnsets, spillAppear] = [onsets30.with(-1, 30.4), half.with(-1, 30.5)];
+  const spilled = readSubtitleLag(spillAppear, spillOnsets, span, lagArgs.maxSubtitleLagSec);
+  assert.ok(spilled.hitRate === 0.5 && Math.abs(spilled.randomRate - 30 * 0.126 / span) < 1e-9 && spilled.hitRate - spilled.randomRate >= lagArgs.minLiftOverRandom, JSON.stringify(spilled));
+  for (const spanSec of [span, span + 1 / 30, undefined, own, 60]) {
+    const verdict = local(spillAppear, spanSec, spillOnsets);
+    assert.deepEqual(failedAt(verdict), [LAG], `时刻出了 30 秒、自报时长 ${spanSec}：不过`);
+    assert.ok(Math.abs(verdict.score - 0.7) < 1e-9 && verdict.pass === false);
+  }
   // 时长只从题目的 deliverable 来：帧数、帧率写坏了这条线不判过
   for (const deliverable of [{ frames: 900 }, { fps: '30/1' }, { frames: 900, fps: 30 }, { frames: 900.5, fps: '30/1' }, { frames: 0, fps: '30/1' }]) {
     assert.deepEqual(failedAt(score({ ...q, deliverable }, { 'narration.timing': { ...refTiming, appearSec: onsets30, onsetsSec: onsets30, spanSec: undefined }, 'color.palette': refShares })), [LAG], JSON.stringify(deliverable));
   }
   // 题目没写参考片的帧范围：参考片的时长也不认
   const noRef = { ...q, scoring: q.scoring.map((item, i) => (i === LAG ? { ...item, args: { ...item.args, refFrames: undefined } } : item)) };
-  assert.deepEqual(failedAt(score(noRef, { 'narration.timing': refTiming, 'color.palette': refShares })), [LAG]);
+  assert.deepEqual(failedAt(score(noRef, refReadings, REF)), [LAG]);
   // 只交汇总数（中位数、命中率、随机基线）不认：三条线都要原始读数
   assert.deepEqual(failedAt(score(q, { 'narration.timing': { subtitleLagSec: 0, hitRate: 1, randomRate: 0, fadeFramesMedian: 3 }, 'color.palette': refShares })), [LAG, FADE, PAUSE]);
 

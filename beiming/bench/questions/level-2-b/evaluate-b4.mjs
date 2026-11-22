@@ -144,17 +144,16 @@ function hits(r, a, { frames }) {
   return offsets.every((d) => d <= a.tolFrames) && 1 - randomRate >= a.minLiftOverRandom;
 }
 // 18-1 字幕：成片时长由题目定（frames ÷ fps），随机基线的分母用它，不用读数自报的 spanSec（报长了会摊薄基线）。
-// 字幕与起声的时刻都装得进题目的时长就照题目的算，spanSec 可以不报，报了要和它差不超过 1 帧；
-// 装不进、读数又明说是 args.refFrames 那段参考片的时长（差不超过 1 帧）且都装得进它，才照参考片的算。别的时长一律不认。
-function subtitles(r, a, { frames, fps }) {
+// 字幕与起声的时刻都得装进这个时长；spanSec 可以不报，报了要和它差不超过 1 帧。读数里写什么都换不了时长：
+// 只有调用方给 score 传 { allowReferenceSpan: true }（核验参考夹具用，正式判分不传）时，时长才换成 args.refFrames 那段参考片的，规矩照旧。
+function subtitles(r, a, { frames, fps }, opts) {
   const rate = parseFps(fps);
   if (!rate || !(Number.isInteger(frames) && frames > 0) || !denseFinite(r.appearSec) || !denseFinite(r.onsetsSec)) return false;
   const perSec = Number(rate.num) / Number(rate.den);
   const inside = (span) => [...r.appearSec, ...r.onsetsSec].every((at) => at >= 0 && at <= span);
   const declared = (span) => num(r.spanSec) && Math.abs(r.spanSec - span) <= 1 / perSec + 1e-9;
-  const own = frames / perSec, ref = a.refFrames === undefined ? null : (a.refFrames[1] - a.refFrames[0]) / perSec;
-  const span = inside(own) ? (r.spanSec === undefined || declared(own) ? own : null) : (ref !== null && declared(ref) && inside(ref) ? ref : null);
-  if (span === null) return false;
+  const span = opts?.allowReferenceSpan !== true ? frames / perSec : a.refFrames === undefined ? null : (a.refFrames[1] - a.refFrames[0]) / perSec;
+  if (span === null || !inside(span) || !(r.spanSec === undefined || declared(span))) return false;
   const { subtitleLagSec, hitRate, randomRate } = readSubtitleLag(r.appearSec, r.onsetsSec, span, a.maxSubtitleLagSec);
   return subtitleLagSec <= a.maxSubtitleLagSec && hitRate - randomRate >= a.minLiftOverRandom;
 }
@@ -169,8 +168,8 @@ const lines = (checks) => checks.some(([given]) => given) && checks.every(([give
 const JUDGES = {
   'music.align': (r, a) => within(r.corr, [a.minCorr, 1]) && within(r.stretch, a.stretch),
   'beat.onset-hit': hits,
-  'narration.timing': (r, a, deliverable) => lines([
-    [a.maxSubtitleLagSec !== undefined, () => subtitles(r, a, deliverable)],
+  'narration.timing': (r, a, deliverable, opts) => lines([
+    [a.maxSubtitleLagSec !== undefined, () => subtitles(r, a, deliverable, opts)],
     [a.fadeFrames !== undefined, () => fades(r, a)],
     [a.minLeadSec !== undefined, () => pauses(r, a)],
     [a.events !== undefined, () => hits(r, a, deliverable)],
@@ -185,13 +184,16 @@ const JUDGES = {
     && Math.hypot(pair.dx, pair.dy) <= a.maxPanPx && num(pair.error) && pair.error >= 0 && num(pair.stillError) && Math.abs(pair.error - pair.stillError) <= a.maxErrorGap),
 };
 
-/** 照题目的 scoring 逐条判：回每条过没过、过了的权重之和、是不是满分。没给读数、读数不是对象、不认识的指标都算不过。帧窗口和时长取题目的 deliverable（frames、fps） */
-export function score(question, readings) {
+/**
+ * 照题目的 scoring 逐条判：回每条过没过、过了的权重之和、是不是满分。没给读数、读数不是对象、不认识的指标都算不过。帧窗口和时长取题目的 deliverable（frames、fps）。
+ * opts.allowReferenceSpan 只有正好是 true 才算：18-1 字幕线的时长换成题目 args.refFrames 的参考片全长，只给核验参考夹具用，正式判分不传。
+ */
+export function score(question, readings, opts) {
   const given = plain(readings) ? readings : {};
   const passes = (metric, args) => {
     // 读数不可信：判分线里抛了错（带取值器的对象、大到摊不开的数组）也只算这条不过
     try {
-      return Object.hasOwn(JUDGES, metric) && Object.hasOwn(given, metric) && plain(given[metric]) && JUDGES[metric](given[metric], args, question.deliverable ?? {}) === true;
+      return Object.hasOwn(JUDGES, metric) && Object.hasOwn(given, metric) && plain(given[metric]) && JUDGES[metric](given[metric], args, question.deliverable ?? {}, opts) === true;
     } catch { return false; }
   };
   const items = question.scoring.map(({ metric, args = {}, weight }) => ({ metric, weight, pass: passes(metric, args) }));
