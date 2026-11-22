@@ -5,9 +5,11 @@ import { renderingOf } from '../../kernel/eval/input.mjs';
 import { shutterSubs } from '../../kernel/eval/time.mjs';
 
 export class SourceError extends Error {
-  constructor(code, message) {
+  /** next 是可选的「接下来可以怎么办」：一组可执行的替代办法 */
+  constructor(code, message, next) {
     super(message);
     this.code = code;
+    if (next) this.next = next;
   }
 }
 
@@ -175,4 +177,53 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
     aux: want.includes('color') && want.some((n) => AUX.includes(n)),
     renderOpts: { ...o, ...(optShutter && { shutter: optShutter }) },
   };
+}
+
+/** 镜头局部帧号的值域 [0, frames)（帧源接口契约 5.13）：render、query 共用，出了值域报 usage.bad-argument（F23） */
+export function planFrame(frames, f) {
+  if (!Number.isInteger(f) || f < 0 || f >= frames) throw bad(`镜头局部帧号必须在 [0, ${frames})，给的是 ${show(f)}`);
+  return f;
+}
+
+const QUERY_KEYS = ['kind', 'of', 'against', 'tol'];
+// 实体名，或者「前缀.*」（帧源接口契约 5.5）；和 scene-query.schema.json 的 target 是同一个式子
+const TARGET = /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*(\.\*)?$/;
+// 没声明的查询报错时带的替代办法：intersect、contact 在登记表里是别的帧源的事，这里只交得出包围盒
+const QUERY_NEXT = (caps, kind) => (['intersect', 'contact'].includes(kind)
+  ? [
+    `换一个声明了 ${kind} 查询的帧源出这个镜头：帧源登记表里 blender、core 的上限含这一种，现在答不答以那个帧源的 caps().sceneQuery 为准`,
+    `用 bbox3d 查询取两边实体的世界包围盒 [minX, minY, minZ, maxX, maxY, maxZ]（米），自己判包围盒有没有相交、相隔多远；只是近似，贴着包围盒的空隙看不出来`,
+  ]
+  : [`只问这个帧源的 caps().sceneQuery 里列了的种类：${caps.sceneQuery.join('、')}`]);
+
+/**
+ * 一次场景查询的计划。q 是 SceneQuery，names 是这个镜头的实体名。先判种类：不是字符串报 usage.bad-argument，
+ * 能力声明里没列的报 contract.unsupported-query（带 next：替代办法）；再照 scene-query.schema.json 判写法，不对的报 usage.bad-argument。
+ * 返回 { kind, of, tol, q }：of 是配上的实体名（去重，按字节序），tol 是容差（米，没写是 0），q 是判过的纯数据快照（页面宿主拿它进页面）。
+ * 写了的实体名场景里必须有；「前缀.*」配名字以「前缀.」开头的全部实体，不含前缀自己，一个都没配上不算错。
+ * against 这个帧源声明的三种查询都不用：写了照样判写法，不参与求值。
+ */
+export function planQuery(caps, q, names) {
+  let kind;
+  try { if (plain(q)) kind = own(q, 'kind'); } catch { /* Proxy 的陷阱抛了：当成不是普通对象 */ }
+  if (typeof kind !== 'string') throw bad(`场景查询必须是普通对象，kind 是字符串，给的是 ${show(q)}`);
+  if (!caps.sceneQuery.includes(kind)) throw new SourceError('contract.unsupported-query', `这个帧源不答 ${kind} 查询`, QUERY_NEXT(caps, kind));
+  const s = box(q, '场景查询', QUERY_KEYS), tol = given(s, 'tol') ?? 0;
+  if (typeof tol !== 'number' || !(tol >= 0 && tol < Infinity)) throw bad(`tol 必须是不小于 0 的有限的数（米），给的是 ${show(tol)}`);
+  const match = (key) => {
+    let list = null;
+    // 抄一份再判：之后只读这一份
+    try { if (Array.isArray(given(s, key))) list = Array.from(s[key]); } catch (e) { if (e instanceof SourceError) throw e; }
+    if (!list?.length || list.some((t) => typeof t !== 'string' || !TARGET.test(t))) throw bad(`${key} 必须是至少一项的数组，每项是实体名或「前缀.*」，给的是 ${show(s[key])}`);
+    const hit = new Set();
+    for (const t of list) {
+      if (t.endsWith('.*')) names.filter((n) => n.startsWith(t.slice(0, -1))).forEach((n) => hit.add(n));
+      else if (names.includes(t)) hit.add(t);
+      else throw bad(`${key} 里的实体 ${t} 这个镜头里没有`);
+    }
+    s[key] = list;
+    return [...hit].sort();
+  };
+  if (s.against !== undefined) match('against');
+  return { kind, of: match('of'), tol, q: s };
 }

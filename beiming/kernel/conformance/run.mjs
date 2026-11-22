@@ -9,6 +9,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+import { cameraBasis, objectTransform } from '../../calib/check.mjs';
 import { startSource } from '../../host/page/host.mjs';
 import { loadContracts } from '../contracts/validate.mjs';
 import { eventsTable, renderingOf, shotInput } from '../eval/input.mjs';
@@ -32,8 +33,28 @@ const CLOCK = [{ path: 'beiming/host/page/clock.js', call: ['performance', 'now'
 const LANGUAGES = { '.js': 'js', '.mjs': 'js', '.py': 'python' };
 // 被测帧源的说明里写着还没接的三样：镜头输入带着哪一样，那次 open 的 unfitInput 就记哪一样。能力声明里没有这个字段，只能照说明填
 const UNMOUNTED = ['cards', 'assets', 'overlays'];
-// 备了问法的场景查询：能力声明里列了、这里却没备的种类算没验。total 是照自己问的算的「一共该有几项」
-const QUERIES = { bbox3d: (of) => ({ q: { kind: 'bbox3d', of }, total: of.length }) };
+// 规格里一个物体在第 t 帧的最低点，世界坐标 y（米）：盒子取八个角里最低的，球取球心减半径
+const lowestY = (o, t) => {
+  const { R, T } = objectTransform(o, t);
+  return T[1] - (o.shape === 'box' ? o.sizeM.reduce((sum, size, i) => sum + Math.abs(R[1][i]) * size / 2, 0) : o.radiusM);
+};
+/** 夹具场景里叫这个名字的物体：规格里有的照规格；镜头条目 params.offscreen 里的第 i 个是边长 0.1 米的方块，在相机前方 10 米、往上 100 + i 米（fixtures/calib-scene.js） */
+function fixtureObject(scene, shot, name) {
+  const listed = scene.objects.find((o) => o.id === name), i = (shot.params?.offscreen ?? []).indexOf(name);
+  if (listed) return listed;
+  if (i < 0) throw new Error(`夹具场景里没有实体 ${name}`);
+  const { fwd, up } = cameraBasis(scene.camera);
+  return { shape: 'box', sizeM: [0.1, 0.1, 0.1], positionM: scene.camera.positionM.map((p, k) => p + up[k] * (100 + i) + fwd[k] * 10) };
+}
+// 备了问法的场景查询：能力声明里列了、这里却没备的种类算没验。每一种交回「一共该有几项」：照夹具场景的规格自己算，不取帧源交回的数。
+// objects 是规格里被问到的物体，t 是问的那一帧。夹具镜头的 meta(f) 不交锚点，anchor 该有 0 项；belowGround 数最低点低于地面（y = 0）的
+const QUERIES = {
+  bbox3d: (objects) => objects.length,
+  anchor: () => 0,
+  belowGround: (objects, t) => objects.filter((o) => lowestY(o, t) < 0).length,
+  // 登记表里 three 没有这一种：留着当「没声明的」问
+  intersect: () => 0,
+};
 // 元数据里主物体的屏幕包围盒对编号层反算出的包围盒，交并比不得低于这个数：帧源接口契约 5.3「编号与元数据」一行的过线。
 // 主物体没被别的实体挡住，合渲的编号层就等于单独渲的。读数每次都打印、写进 summary.json
 const META_BOX_IOU_MIN = 0.95;
@@ -180,7 +201,7 @@ async function runShot(shot) {
 
   /** 问一次场景查询。expect 是打算的结局，不进记录 */
   async function ask(s, kind, of, expect) {
-    const { q, total } = QUERIES[kind](of), rec = { kind };
+    const q = { kind, of }, total = QUERIES[kind](of.map((name) => fixtureObject(plan.scene, shot, name)), midF), rec = { kind };
     one.queries.push(rec);
     Object.defineProperty(rec, 'expect', { value: expect });
     try {
@@ -190,6 +211,21 @@ async function runShot(shot) {
     } catch (e) {
       Object.assign(rec, { status: 'error', ...uncoded(`query ${kind}`, e) });
     }
+    // 查询把 (f, 0) 写进了场景，观测点记了一笔；只要元数据渲一次把它清掉，不然会算到下一次 render 头上
+    await s.session.render(midF, {}, ['meta']);
+  }
+
+  /** 故意把帧号传出值域的一次 query（5.13）：问的种类是声明过的。只记结局，不进 queries */
+  async function badQueryFrame(s, kind, of) {
+    const rec = { call: 'query', arg: 'f' };
+    one.badArgs.push(rec);
+    try {
+      await s.session.query(frames, { kind, of });
+      rec.status = 'ok';
+    } catch (e) {
+      Object.assign(rec, { status: 'error', ...uncoded('query（f 出值域）', e) });
+    }
+    await s.session.render(midF, {}, ['meta']);
   }
 
   /** 纯函数门：对一批时刻各求一次状态。从帧源接口要一个时刻的办法是只取一个子帧采样，它落在「快门角 ÷ 720」；状态摘要取那张颜色层的哈希，所以只看得见会改变颜色的状态 */
@@ -249,6 +285,7 @@ async function runShot(shot) {
     for (const kind of caps.sceneQuery.filter((k) => QUERIES[k])) await ask(seq, kind, of, 'ok');
     const undeclared = Object.keys(QUERIES).find((k) => !caps.sceneQuery.includes(k));
     if (undeclared) await ask(seq, undeclared, of, 'contract.unsupported-query');
+    if (caps.sceneQuery.length) await badQueryFrame(seq, caps.sceneQuery[0], of);
     await evaluate(seq, plan.moments, 'sequential');
     await seq.session.close();
     for (const [i, m] of plan.moments.entries()) {

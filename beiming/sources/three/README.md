@@ -5,7 +5,7 @@
 | 文件 | 在哪跑 | 管什么 |
 |---|---|---|
 | `caps.mjs` | 页面、node | 能力声明 `caps(library)`，默认值都在这里（子帧采样数 8、两档的采样数和缩放） |
-| `plan.mjs` | 页面、node | `planOpen`：装不装得了；`planRender`：输出、快门、子帧相位、尺寸；`parseShutterArgs`：`--shutter <度> --samples <子帧数>` 换成 `RenderOpts.shutter`。快门角也认兼容写法 `angle` |
+| `plan.mjs` | 页面、node | `planOpen`：装不装得了；`planRender`：输出、快门、子帧相位、尺寸；`planQuery`：场景查询的种类、写法、实体名；`parseShutterArgs`：`--shutter <度> --samples <子帧数>` 换成 `RenderOpts.shutter`。快门角也认兼容写法 `angle` |
 | `source.js` | 页面 | 渲染器 `createThreeSource({ THREE, host })`，只有它碰 WebGL；`averageDisplaySrgbFrames` 纯函数 |
 
 ## 宿主交进来的服务
@@ -15,11 +15,12 @@
 | `host.load(shot, { THREE, renderer })` | 装载镜头（入口文件调一次 `build`，或跑「卡加数据」固定装载脚本），交回 `{ object, size, post? }` |
 | `host.apply(loaded, f, sub)` | 把 `(f, sub)` 的状态写进场景 |
 | `host.measure(loaded, f, facts)` | 量元数据；`facts.visible` 是渲染器数出的可见比例 |
+| `host.query(loaded, f, plan, names)` | 答场景查询；`(f, 0)` 的状态由渲染器先写好 |
 | `host.now()` | 单调时钟，毫秒，只进 `timing` |
 
 ## 怎么出一帧
 
-- 快门窗口从帧起点打开 `[f, f + 快门角 ÷ 360)`，子帧在窗口里居中分层。相位（`s4.test.mjs`）：实渲 `probe-moving-cube` 第 24 帧，180 度 8 个子帧，像素质心和解析位置差 < 0.5 px；用整帧位移（f=24 → 25）标定速度，拖影中点在 f + 0.25 附近，和 Blender START 读数一致。Metal `SUBPIXEL_BITS=4` 下用 0.25 帧短基线标定有约 0.02308 帧量化差。
+- 快门窗口从帧起点打开 `[f, f + 快门角 ÷ 360)`，子帧在窗口里居中分层。相位的实测（`s4.test.mjs`）见 `DETAILS.md`。
 - 颜色层（04 §3.1）：每个子帧只渲后期链之前的场景，进 32 位浮点目标，在线性光里逐像素平均；不过显示变换，不截到 `[0, 1]`。显示参考、没有 HDR 目标的帧用 `averageDisplaySrgbFrames`：8 位 sRGB 先线性化再平均（透明度只除以 255）。
 - 场景参考通路（04 §4.1）：`colorRef: scene` 镜头画进挂深度纹理的 RGBA16F 目标，子帧和成片都从它读回半浮点；要了 `objectId` 渲 2 倍编号层，交宿主落 EXR。`color` 层是半精度。
 - 后期链：`post` 是全屏通道网格（材质带 `uniforms.tInput`），对平均后的结果按次序只跑一次（两个浮点目标来回倒），状态和通道参数取 `sub = 0`。声明了 `uniforms.tDepth` 的通道拿到 `sub = 0` 的深度（R 平面深度米，A 为 0 表示没打到）。后期类卡的 `Handle.object` 就是这张网格，宿主放进 `post`、不放进场景。`stats.tris` 只数场景那一遍。
@@ -33,9 +34,9 @@
 
 ## 边界
 
-- `motion` 交不出；场景查询不答；每像素只取 1 个样本，多了报 `contract.unsupported-option`。
+- `motion` 交不出；场景查询只答 `bbox3d`、`anchor`、`belowGround`，别的报 `contract.unsupported-query`（带 `next`），见 `DETAILS.md`；每像素只取 1 个样本，多了报 `contract.unsupported-option`。
 - 作者模式默认只有 `native-code`；`startSource({ cards })` 提供了卡才有 `cards-data`。
 - 没有场景包：实体编号按名字字节序从 1 起；类别：点云 `particles`，名下有实体的 `assembly`，其余 `part`。
 - 资产没接；叠加层要的卡还没有，都报 `contract.unsupported-input`。
 
-测试：`node --test 'beiming/sources/three/*.test.mjs'`。`render`、`s4`、`s18` 起无头浏览器实渲（起不了跳过）。「卡加数据」、后期链和可见比例另见 `beiming/cards/m1a-cards.test.mjs`。
+测试：`node --test 'beiming/sources/three/*.test.mjs'`。`render`、`s4`、`s7`、`s18` 起无头浏览器实渲（起不了跳过）。「卡加数据」、后期链和可见比例另见 `beiming/cards/m1a-cards.test.mjs`。

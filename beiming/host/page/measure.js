@@ -77,3 +77,35 @@ export function clipStats(rgba) {
   }
   return { clipHigh: high / n, clipLow: low / n };
 }
+
+// 一次场景查询最多交回几项（帧源接口契约 F9）
+const QUERY_MAX = 50;
+
+/**
+ * 场景查询的结果（帧源接口契约 3.7 的 QueryResult），坐标都是世界坐标、米，Y 向上、地面是 y = 0。subjects 按种类：
+ *   bbox3d       [[实体名, 顶点]]：at 是包围盒 [minX, minY, minZ, maxX, maxY, maxZ]，value 是它的对角线长度
+ *   belowGround  [[实体名, 顶点]]：只交最低顶点低于 −tol 的实体，at 是那个顶点，value 是它陷在地面以下多深
+ *   anchor       [['实体名#锚点名', [x, y, z]]]：at 是锚点的位置，value 是它到世界原点的距离
+ * 「最严重」（契约 5.7 还没定排法，定在这里）：value 大的在前，一样大的按 a 的字节序；超过 50 项只留前 50 项，truncated 写截掉几项。
+ */
+export function answerQuery(kind, subjects, tol = 0) {
+  const items = [];
+  for (const [a, data] of subjects) {
+    if (kind === 'anchor') { items.push({ a, value: Math.hypot(...data), at: data }); continue; }
+    const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    let low = data[0];
+    for (const p of data) {
+      for (let i = 0; i < 3; i++) { b[i] = Math.min(b[i], p[i]); b[i + 3] = Math.max(b[i + 3], p[i]); }
+      if (p[1] < low[1]) low = p;
+    }
+    if (kind === 'bbox3d') items.push({ a, value: Math.hypot(b[3] - b[0], b[4] - b[1], b[5] - b[2]), at: b });
+    else if (low[1] < -tol) items.push({ a, value: -low[1], at: low });
+  }
+  // 非数和无穷进了 JSON 会变成 null
+  const broken = items.find((i) => ![i.value, ...i.at].every(Number.isFinite));
+  if (broken) throw new Error(`${kind} 查询里 ${broken.a} 的坐标不是有限的数`);
+  items.sort((x, y) => y.value - x.value || (x.a < y.a ? -1 : x.a > y.a ? 1 : 0));
+  const cut = items.length - QUERY_MAX;
+  // + 0 把 −0 归成 0
+  return { kind, items: items.slice(0, QUERY_MAX).map((i) => ({ a: i.a, value: i.value + 0, unit: 'm', at: i.at.map((v) => v + 0) })), ...(cut > 0 ? { truncated: cut } : {}) };
+}
