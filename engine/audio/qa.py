@@ -334,21 +334,63 @@ def _measure_music_dominance(stem_map, sr):
     }
 
 
-def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=False):
+def _load_sidecar_fg_events(film, fa, wav_abs, stem_dir):
+    """收集 film['events']、film['foregroundEvents'] 以及混音/分轨目录旁的 foreground_events.json 序列事件。"""
+    import json
+    merged = [dict(e) for e in (film.get('events') or []) if isinstance(e, dict)]
+    seen = {str(e.get('id') or e.get('audio') or '') for e in merged if (e.get('id') or e.get('audio'))}
+
+    def _append_many(seq):
+        for raw_e in (seq or []):
+            if not isinstance(raw_e, dict):
+                continue
+            eid = str(raw_e.get('id') or raw_e.get('audio') or '')
+            if eid and eid in seen:
+                continue
+            merged.append(dict(raw_e))
+            if eid:
+                seen.add(eid)
+
+    _append_many(film.get('foregroundEvents'))
+
+    sidecar_paths = []
+    if fa.get('foregroundEvents'):
+        sidecar_paths.append(F.resolve(film, fa['foregroundEvents']))
+    if stem_dir:
+        sidecar_paths.append(os.path.join(stem_dir, 'foreground_events.json'))
+    sidecar_paths.append(os.path.join(os.path.dirname(wav_abs), 'foreground_events.json'))
+    for sp in sidecar_paths:
+        if sp and os.path.isfile(sp):
+            try:
+                with open(sp, encoding='utf-8') as f:
+                    doc = json.load(f)
+                _append_many(doc.get('events') if isinstance(doc, dict) else doc)
+            except Exception:
+                pass
+    return merged
+
+
+def check_masking(wav, film, sr=None, n_total=None, master_lufs=None, strict_masking=False):
     """分轨临界频带听觉窥视掩蔽检查（Auditory Glimpse SNR）。
-    默认与既有成片一致：soft < −8 dB / hard < −16 dB，且需要作品声明前景事件。
+    默认与既有成片一致：soft < −8 dB / hard < −16 dB，且需要作品声明前景事件
+    （film.json events/foregroundEvents，或混音/分轨目录旁的 foreground_events.json）。
     strict_masking=True 时启用收紧门限、hero 分档、极高频空桶守卫，以及 music_dominance / music_buried。"""
     import json
     import soundfile as sf
+    if isinstance(film, (str, bytes)) or hasattr(film, '__fspath__'):
+        film = F.load(os.fspath(film))
     if not film or not film.get('fps'):
         return None
-    if not strict_masking and not film.get('events'):
-        return None
+    if sr is None or n_total is None:
+        info = sf.info(wav)
+        sr = info.samplerate if sr is None else sr
+        n_total = info.frames if n_total is None else n_total
+    wav_abs = os.path.abspath(wav)
     fa = film.get('audio') or {}
     cand_dirs = []
     if fa.get('stems'):
         cand_dirs.append(F.resolve(film, fa['stems']))
-    cand_dirs.append(os.path.join(os.path.dirname(os.path.abspath(wav)), 'stems'))
+    cand_dirs.append(os.path.join(os.path.dirname(wav_abs), 'stems'))
     if fa.get('cues'):
         cand_dirs.append(os.path.join(os.path.dirname(F.resolve(film, fa['cues'])), 'stems'))
     stem_map = None
@@ -391,18 +433,30 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=Fals
         buried_info = None
     dom_warn = bool(dom_info and dom_info['warn'])
     buried_warn = bool(buried_info and buried_info['warn'])
-    if not film.get('events') and not dom_warn and not buried_warn:
-        return None
 
     cue_tab = {}
+    extra_cues = []
     if fa.get('cues'):
         cp = F.resolve(film, fa['cues'])
         if os.path.isfile(cp):
             try:
                 with open(cp, encoding='utf-8') as f:
-                    cue_tab = {c['id']: c for c in (json.load(f).get('cues') or []) if isinstance(c, dict) and 'id' in c}
+                    raw_cues = json.load(f).get('cues') or []
+                cue_tab = {c['id']: c for c in raw_cues if isinstance(c, dict) and 'id' in c}
+                extra_cues = [c for c in raw_cues if isinstance(c, dict) and (c.get('series') or c.get('auditMasking'))]
             except Exception:
                 cue_tab = {}
+
+    all_events = _load_sidecar_fg_events(film, fa, wav_abs, stem_dir)
+    if extra_cues:
+        known_ids = {str(e.get('id') or e.get('audio') or '') for e in all_events}
+        for ec in extra_cues:
+            if ec.get('id') and str(ec['id']) not in known_ids:
+                all_events.append(ec)
+                known_ids.add(str(ec['id']))
+
+    if not all_events and not dom_warn and not buried_warn:
+        return None
 
     def read_mono(path, a, b):
         try:
@@ -420,32 +474,46 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=Fals
 
     fps = film['fps']
     items, worst_st = [], ('warn' if (dom_warn or buried_warn) else 'pass')
-    for e in film.get('events') or []:
+    for e in all_events:
         frame = e.get('frame')
+        if (not isinstance(frame, int) or isinstance(frame, bool)) and e.get('t') is not None:
+            frame = int(round(float(e['t']) * float(fps)))
         if not isinstance(frame, int) or isinstance(frame, bool):
             continue
-        ref = e.get('audio')
+        ref = e.get('audio') or (e.get('id') if e.get('series') else None)
         sync = e.get('sync')
         if not ref or sync == 'none' or e.get('domain') in ('amb', 'music', 'mix', 'vo', 'dialogue', 'voice'):
             continue
         cue = cue_tab.get(str(ref), {})
         dom = str(e.get('domain') or '')
-        dom_bus = 'fx' if dom == 'sfx' and 'fx' in stem_map else (dom if dom in stem_map else None)
+        if dom in ('sfx', 'fx'):
+            dom_bus = 'fx' if 'fx' in stem_map else ('sfx' if 'sfx' in stem_map else None)
+        else:
+            dom_bus = dom if dom in stem_map else None
         bus = e.get('bus') or cue.get('bus') or cue.get('layer') or (str(ref) if str(ref) in stem_map else dom_bus)
+        if bus == 'fx' and 'fx' not in stem_map and 'sfx' in stem_map:
+            bus = 'sfx'
+        elif bus == 'sfx' and 'sfx' not in stem_map and 'fx' in stem_map:
+            bus = 'fx'
         if bus and str(bus).lower() in _BED_STEMS:
             continue
-        t = float(cue['t']) if cue.get('t') is not None else frame / float(fps)
-        if strict_masking:
-            end_f = e.get('end')
-            if isinstance(end_f, int) and not isinstance(end_f, bool) and end_f > frame:
-                ev_dur = min(1.50, max(0.220, (end_f - frame) / float(fps)))
-            elif cue.get('dur') is not None:
-                ev_dur = min(1.50, max(0.220, float(cue['dur'])))
-            else:
-                ev_dur = 0.220
+        if cue.get('t') is not None:
+            t = float(cue['t'])
+        elif e.get('t') is not None:
+            t = float(e['t'])
+        else:
+            t = frame / float(fps)
+        end_f = e.get('end')
+        raw_dur = cue.get('dur') if cue.get('dur') is not None else e.get('dur')
+        if isinstance(end_f, int) and not isinstance(end_f, bool) and end_f > frame:
+            ev_dur = min(1.50, max(0.220, (end_f - frame) / float(fps)))
+        elif raw_dur is not None:
+            ev_dur = min(1.50, max(0.085, float(raw_dur) + 0.020))
         else:
             ev_dur = 0.220
-        a = max(0, int(round((t - 0.015) * sr)))
+        raw_pre = cue.get('pre_s') if cue.get('pre_s') is not None else (e.get('pre_s') if e.get('pre_s') is not None else e.get('anchor'))
+        pre_s = max(0.015, min(0.080, float(raw_pre) + 0.008)) if raw_pre is not None else 0.015
+        a = max(0, int(round((t - pre_s) * sr)))
         b = min(n_total, int(round((t + ev_dur) * sr)))
         if b - a < 256:
             continue
@@ -465,7 +533,7 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=Fals
         ev_role = str(e.get('role') or cue.get('role') or '').strip().lower()
         is_hero = (ev_role == 'hero')
         if u_rms < 3.16e-4:
-            best_snr, best_band = -99.0, 'silent'
+            best_snr, best_band, snr_2k_8k = -99.0, 'silent', -99.0
         else:
             win = np.hanning(len(u))
             U = np.abs(np.fft.rfft(u * win)) ** 2
@@ -486,7 +554,7 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=Fals
             if not dom_bands:
                 dom_bands = [max(band_u, key=lambda it: it[3])]
             if tot_o < 1e-18:
-                best_snr, best_band = 60.0, dom_bands[0][0]
+                best_snr, best_band, snr_2k_8k = 60.0, dom_bands[0][0], 60.0
             else:
                 best_snr, best_band = -99.0, dom_bands[0][0]
                 upward_mask_floor = tot_o * 0.003 if strict_masking else 0.0
@@ -497,6 +565,10 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=Fals
                     snr = 10.0 * np.log10((vu + 1e-24) / (vo + 1e-24))
                     if snr > best_snr:
                         best_snr, best_band = snr, bn
+                m28 = (fq >= 2000.0) & (fq < 8000.0)
+                vu_28 = float(U[m28].sum())
+                vo_28 = max(float(O[m28].sum()), upward_mask_floor * 0.5)
+                snr_2k_8k = round(float(10.0 * np.log10((vu_28 + 1e-24) / (vo_28 + 1e-24))), 2)
             best_snr = round(float(best_snr), 2)
 
         if strict_masking:
@@ -509,7 +581,7 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=Fals
             st = 'warn'
         item = {
             'id': e.get('id') or str(ref), 'frame': frame, 'seconds': round(t, 4), 'stem': bus,
-            'bestBand': best_band, 'bestBandSnrDb': best_snr, 'status': st,
+            'bestBand': best_band, 'bestBandSnrDb': best_snr, 'snr2k8kDb': snr_2k_8k, 'status': st,
         }
         if strict_masking:
             item['role'] = ev_role or 'support'
@@ -589,6 +661,10 @@ def _check_masking(wav, film, sr, n_total, master_lufs=None, strict_masking=Fals
         hint=hint_msg,
         severity='hard' if worst_st == 'fail' else 'soft',
     )
+
+
+# analyze() 与既有调用方沿用的内部名
+_check_masking = check_masking
 
 
 DIALOGUE_GATE_DBFS = -42.0
