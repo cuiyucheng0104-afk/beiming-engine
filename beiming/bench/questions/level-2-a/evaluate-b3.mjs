@@ -379,62 +379,61 @@ function scanTree({ ast, manager }) {
   // 绑定上的函数（function 声明，或初值是函数的量）、函数归哪个绑定、文件里对这个绑定的调用
   const functionsOf = (variable) => (variable?.defs ?? []).map((def) => (def.type === 'FunctionName' ? def.node : def.node.init)).filter((node) => FUNCTIONS.has(node?.type));
   const owner = new Map(variables.flatMap((variable) => functionsOf(variable).map((fn) => [fn, variable]))), calls = new Map();
+  // handed 是当实参交出去的回调（直接写在调用里的函数，或点名的绑定）：收到什么由对方定，some、map 给的是数组元素
+  // stepped 把 n -= 432 这样的赋值记成 n - 432，和 n = n - 432 一样算
+  const handed = new Set(), stepped = new Map();
   each(ast, (node) => {
     const callee = node.type === 'CallExpression' && bound.get(node.callee);
     if (callee) calls.set(callee, [...(calls.get(callee) ?? []), node]);
+    if (/^(?:Call|New)Expression$/.test(node.type)) for (const arg of node.arguments) handed.add(FUNCTIONS.has(arg.type) ? arg : bound.get(arg));
+    if (node.type === 'AssignmentExpression' && node.operator !== '=') stepped.set(node.left, { type: 'BinaryExpression', operator: node.operator.slice(0, -1), left: node.left, right: node.right });
   });
+  // 导出的绑定（export 声明、export { 名字 }、export default 名字）：调用它的在别的文件
+  // shortcut: 只认 ESM 的 export，module.exports = { 名字 } 不算；镜头改用 CommonJS 写时再补
+  const exported = new Set(ast.body.filter((node) => /^Export(?:Named|Default)Declaration$/.test(node.type))
+    .flatMap(({ declaration: made, specifiers = [] }) => [made, made?.id, ...(made?.declarations ?? []).map(({ id }) => id), ...specifiers.map(({ local }) => local)])
+    .map((id) => bound.get(id)).filter(Boolean));
   // 「名字、值」的几种写法：声明、赋值、形参默认值、对象和类里的属性与方法
   const pair = (node) => (node.type === 'VariableDeclarator' ? [node.id, node.init]
     : (node.type === 'AssignmentExpression' && node.operator === '=') || node.type === 'AssignmentPattern' ? [node.left, node.right]
       : SLOT.test(node.type) && !node.computed ? [node.key, node.value] : []);
   const nameOf = (node) => (/^(?:Private)?Identifier$/.test(node?.type) ? node.name : node?.type === 'MemberExpression' && !node.computed ? node.property.name
     : node?.type === 'Literal' && typeof node.value === 'string' ? node.value : '');
-  // 帧的线性式记成 帧 × k + c，named 是式子里有名字以 frame 结尾的。frames 是认成帧的绑定，各自记着收到过的几种线性式：
-  // 同一个形参在几个调用点收到的式子（on(f)、on(f - 432)）都留着，哪一处写在前面不改结论
-  // shortcut: 一个量最多留 16 种式子，第 17 种起不看；真有工程撞到这个数再放宽
-  const frames = new Map(), NONE = [];
-  const uniq = (forms) => [...new Map(forms.map((a) => [`${a.k}:${a.c}:${Boolean(a.named)}`, a])).values()].slice(0, 16);
+  // 帧的线性式记成 帧 × k + c，named 是式子里有名字以 frame 结尾的；k 是 0 的是常数。一个量可能取到的几种式子都留着：
+  // 同一个形参在几个调用点收到的式子（on(f)、on(f - 432)）哪一处写在前面不改结论，局部常量（const delay = 432）和直接写数一样算
+  // shortcut: 一个量最多留 LIMIT 种式子、一串派生量最多追 DEEP 层，再多的不看；正常的工程到不了，真撞到再放宽
+  const LIMIT = 10000, DEEP = 400, NONE = [];
+  const gather = (forms, into = new Map()) => {
+    for (const a of forms) if (into.size < LIMIT) into.set(`${a.k}:${a.c}:${Boolean(a.named)}`, a);
+    return into;
+  };
   const byName = (name) => (/[Ff]rame$/.test(name) ? [{ k: 1, c: 0, named: true }] : /^[ft]$/.test(name) ? [{ k: 1, c: 0 }] : NONE);
   const scaled = (a, by) => ({ ...a, k: a.k * by, c: a.c * by });
-  // 一个式子可能取到的几种线性式；不是帧的线性式回空表
-  const lin = (node) => {
-    if (node?.type === 'Literal') return typeof node.value === 'number' ? [{ k: 0, c: node.value }] : NONE;
-    if (node?.type === 'ChainExpression') return lin(node.expression);
-    if (node?.type === 'Identifier') {
-      // 落在文件里某个绑定上的名字，是不是帧看这个绑定；f、t 这样的短名只在没有绑定时照拼写认，名字以 frame 结尾的照旧
-      const variable = bound.get(node);
-      return frames.get(variable) ?? (variable && !/[Ff]rame$/.test(node.name) ? NONE : byName(node.name));
-    }
-    if (node?.type === 'MemberExpression') return node.computed ? NONE : byName(node.property.name);
-    if (node?.type === 'UnaryExpression') {
-      const sign = { '+': 1, '-': -1 }[node.operator];
-      return sign ? lin(node.argument).map((a) => scaled(a, sign)) : NONE;
-    }
-    if (node?.type !== 'BinaryExpression') return NONE;
-    const sign = { '+': 1, '-': -1 }[node.operator], right = lin(node.right);
-    return uniq(lin(node.left).flatMap((a) => right.map((b) => {
-      if (sign) return { k: a.k + sign * b.k, c: a.c + sign * b.c, named: a.named || b.named };
-      if (node.operator === '*' && !(a.k && b.k)) return a.k ? scaled(a, b.c) : scaled(b, a.c);
-      return node.operator === '/' && !b.k ? scaled(a, 1 / b.c) : null;
-    })).filter(Boolean));
-  };
-  // 给一个绑定记上新收到的线性式（常数不记）
-  const learn = (variable, forms) => {
-    const moving = forms.filter((a) => a.k);
-    if (moving.length) frames.set(variable, uniq([...(frames.get(variable) ?? NONE), ...moving]));
-  };
+  // seeds 是不看别处就认成帧的绑定，passed 是形参在各调用点收到的实参
+  const seeds = new Map(), passed = new Map();
   // 帧回调的第一个形参按位置认，叫 ctx 也是帧（hook）；别处叫 ctx 的形参是上下文，不认
   const seed = (param, forms = [{ k: 1, c: 0 }], hook = false) => {
     const variable = bound.get(param?.type === 'AssignmentPattern' ? param.left : param);
-    if (variable && (hook || variable.name !== 'ctx')) learn(variable, forms);
+    if (variable && (hook || variable.name !== 'ctx')) seeds.set(variable, gather(forms, seeds.get(variable)));
   };
   each(ast, (node) => {
-    // 没人在文件里调用的函数照名字认：形参叫 f、t 的是帧，自己叫帧回调名字的取第一个形参，形参表是 (ctx, 名字) 的取第二个
-    if (FUNCTIONS.has(node.type) && !calls.has(owner.get(node))) {
+    const named = owner.get(node);
+    if (FUNCTIONS.has(node.type) && calls.has(named)) {
+      // 有调用点的函数，形参是什么看传进来的实参
+      node.params.forEach((param, i) => {
+        const variable = bound.get(param.left ?? param);
+        if (variable && variable.name !== 'ctx') passed.set(variable, [...(passed.get(variable) ?? NONE), ...calls.get(named).map((site) => site.arguments[i])]);
+      });
+    } else if (FUNCTIONS.has(node.type)) {
       const [first, second] = node.params;
-      for (const param of node.params) seed(param, byName(nameOf(param.left ?? param)));
-      if (HOOK.test(owner.get(node)?.name ?? '')) seed(first, undefined, true);
-      if (first?.type === 'Identifier' && first.name === 'ctx' && second?.type === 'Identifier' && !NOT_FRAME.test(second.name)) seed(second);
+      // 调用点在别的文件的函数（导出的、对象和类里的方法、返回出去的）只能照名字认：形参叫 f、t 的是帧，形参表是 (ctx, 名字) 的取第二个。
+      // 文件里没导出的局部函数、交给别的调用的回调不照名字认，形参收到帧才是帧
+      if (!handed.has(node) && !handed.has(named) && (!named || exported.has(named))) {
+        for (const param of node.params) seed(param, byName(nameOf(param.left ?? param)));
+        if (first?.type === 'Identifier' && first.name === 'ctx' && second?.type === 'Identifier' && !NOT_FRAME.test(second.name)) seed(second);
+      }
+      // 自己叫帧回调名字的函数取第一个形参
+      if (HOOK.test(named?.name ?? '')) seed(first, undefined, true);
     }
     // 对象、类里的帧回调（方法、属性、obj.state = …），值是函数或点名的函数：第一个形参就是帧
     const [key, value] = pair(node);
@@ -446,14 +445,48 @@ function scanTree({ ast, manager }) {
       for (const prop of node.properties) if (prop.type === 'Property' && !prop.computed) seed(prop.value, byName(nameOf(prop.key)));
     }
   });
-  // 一遍遍传到线性式不再多出来：赋进来的值是帧的线性式的量（解构、for-of 这样只拿到一部分的不算）、调用处实参是帧的线性式的形参
-  const count = () => [...frames.values()].reduce((sum, forms) => sum + forms.length, 0);
-  for (let known = -1; known !== count();) {
-    known = count();
-    for (const variable of variables) for (const ref of variable.references) if (ref.isWrite() && !ref.partial) learn(variable, lin(ref.writeExpr));
-    for (const [variable, sites] of calls) {
-      for (const fn of functionsOf(variable)) for (const site of sites) fn.params.forEach((param, i) => seed(param, lin(site.arguments[i])));
+  // 一个绑定可能取到的线性式：种子，加赋进来的值（解构、for-of 这样只拿到一部分的不算），加各调用点传给这个形参的实参。用到才算，算完记下，
+  // 定义写在用处后面也一样。绕回自己（n = n - 432、递归）时只拿已经算出的那几种，展开一层就停；这时算到一半的别的量不记，等绕完了重算
+  const settled = new Map(), busy = new Map(), loops = new Set();
+  const formsOf = (variable) => {
+    if (!settled.has(variable) && busy.has(variable)) loops.add(variable);
+    const known = settled.get(variable) ?? busy.get(variable);
+    if (known) return [...known.values()];
+    if (busy.size >= DEEP) return NONE;
+    const forms = gather(seeds.get(variable)?.values() ?? NONE);
+    busy.set(variable, forms);
+    for (const ref of variable.references) if (ref.isWrite() && !ref.partial) gather(lin(stepped.get(ref.identifier) ?? ref.writeExpr), forms);
+    for (const arg of passed.get(variable) ?? NONE) gather(lin(arg), forms);
+    busy.delete(variable);
+    loops.delete(variable);
+    if (!loops.size) settled.set(variable, forms);
+    return [...forms.values()];
+  };
+  // 一个式子可能取到的几种线性式；算不成线性式的回空表
+  function lin(node) {
+    if (node?.type === 'Literal') return typeof node.value === 'number' ? [{ k: 0, c: node.value }] : NONE;
+    if (node?.type === 'ChainExpression') return lin(node.expression);
+    if (node?.type === 'Identifier') {
+      // 落在文件里某个绑定上的名字，是不是帧看这个绑定；f、t 这样的短名只在没有绑定时照拼写认，名字以 frame 结尾的没收到帧也照旧是帧
+      const variable = bound.get(node), forms = variable ? formsOf(variable) : NONE;
+      return forms.some((a) => a.k) || (variable && !/[Ff]rame$/.test(node.name)) ? forms : [...byName(node.name), ...forms];
     }
+    if (node?.type === 'MemberExpression') return node.computed ? NONE : byName(node.property.name);
+    if (node?.type === 'UnaryExpression') {
+      const sign = { '+': 1, '-': -1 }[node.operator];
+      return sign ? lin(node.argument).map((a) => scaled(a, sign)) : NONE;
+    }
+    if (node?.type !== 'BinaryExpression') return NONE;
+    const sign = { '+': 1, '-': -1 }[node.operator], right = lin(node.right), mixed = new Map();
+    for (const a of lin(node.left)) {
+      if (mixed.size >= LIMIT) break;
+      gather(right.map((b) => {
+        if (sign) return { k: a.k + sign * b.k, c: a.c + sign * b.c, named: a.named || b.named };
+        if (node.operator === '*' && !(a.k && b.k)) return a.k ? scaled(a, b.c) : scaled(b, a.c);
+        return node.operator === '/' && !b.k ? scaled(a, 1 / b.c) : null;
+      }).filter(Boolean), mixed);
+    }
+    return [...mixed.values()];
   }
   const lines = [];
   let beatDefs = 0;
@@ -467,11 +500,14 @@ function scanTree({ ast, manager }) {
       const on = lin(node.discriminant);
       for (const branch of node.cases) if (past(on, lin(branch.test), 1)) lines.push(branch.loc.start.line);
     } else {
-      const [key, value] = pair(node), name = nameOf(key), [fixed, more] = lin(value);
-      if (!fixed || more || fixed.k) return;
-      if (BEAT_NAME.test(name)) beatDefs++;
+      const [key, value] = pair(node), name = nameOf(key), fixed = lin(value);
+      if (!fixed.length || fixed.some((a) => a.k)) return;
+      // 节拍常量只数直接写数的定义：从别的常量算出来的量（beatSeconds = 60 / BPM）不是另一处定义
+      let literal = true;
+      each(value, (part) => { literal &&= part.type !== 'Identifier'; });
+      if (literal && BEAT_NAME.test(name)) beatDefs++;
       const least = /[Ff]rame$/.test(name) ? 1 : node.type === 'Property' && TIME_KEYS.includes(name) ? 10 : Infinity;
-      if (Number.isInteger(fixed.c) && fixed.c >= least) lines.push(node.loc.start.line);
+      if (fixed.some((a) => Number.isInteger(a.c) && a.c >= least)) lines.push(node.loc.start.line);
     }
   });
   return { lines: lines.sort((a, b) => a - b), beatDefs };

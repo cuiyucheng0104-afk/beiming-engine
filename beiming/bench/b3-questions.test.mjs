@@ -602,7 +602,36 @@ test('B3-12 30-1 从工程读数：read30_1 静态扫工程目录，一张 80 BP
       // 3 帧回调的第一个形参叫 ctx 也是帧，写成方法还是单独的 function 都一样
       ['hook-ctx', lifecycle('state(ctx, sub) { return ctx >= 432; }'), HARD],
       ['hook-ctx-function', 'export function state(ctx, sub) { return ctx >= 432; }\n', HARD],
+      // 七审反例：三对画面逐帧相同的镜头
+      // 1 交给 some 这类调用的回调，形参叫 f 也不是帧：点名交、直接写在调用里、写在文件顶层都一样。调用点在别的文件的导出函数照旧按名字认
+      ['callback-pixels', lifecycle('state(n, view) { const wide = pixels => pixels >= 640; return view.size.some(wide); }'), SOFT],
+      ['callback-f', lifecycle('state(n, view) { const wide = f => f >= 640; return view.size.some(wide); }'), SOFT],
+      ['callback-inline-f', lifecycle('state(n, view) { return view.size.some(f => f >= 640); }'), SOFT],
+      ['callback-top-f', lifecycle('state(n, view) { return view.size.some(wide); }', 'const wide = f => f >= 640;\n'), SOFT],
+      ['callback-exported-f', lifecycle('state(n, view) { return view.size.some(wide); }', 'export const wide = f => f >= 640;\n'), SOFT],
+      ['unused-local-f', lifecycle('state(n, view) { const wide = f => f >= 640; return view.size[0] >= 640; }'), SOFT],
+      ['exported-f', lifecycle('state(n, view) { return true; }', 'export const late = f => f >= 432;\n'), HARD],
+      // 2 固定偏移取了局部常量名，和直接写数一样认：声明时给值、后来才赋值、-= 减掉、常数当实参传进去都算；两边都是像素常数的比较不算
+      ['offset-literal', lifecycle('state(frame, ctx) { return on(frame) && on(frame - 432); }', 'const on = x => x >= 0;\n'), HARD],
+      ['offset-const', lifecycle('state(frame, ctx) { const delay = 432; return on(frame) && on(frame - delay); }', 'const on = x => x >= 0;\n'), HARD],
+      ['offset-const-top', lifecycle('state(frame, ctx) { return on(frame) && on(frame - DELAY); }', 'const DELAY = 18 * 24;\nconst on = x => x >= 0;\n'), HARD],
+      ['offset-assigned', lifecycle('state(frame, ctx) { let delay; delay = 432; return on(frame - delay); }', 'const on = x => x >= 0;\n'), HARD],
+      ['offset-compound', lifecycle('state(f, ctx) { let local = f; local -= 432; return local >= 0; }'), HARD],
+      ['offset-reassigned', lifecycle('state(f, ctx) { let local = f; local = local - 432; return local >= 0; }'), HARD],
+      ['const-threshold', lifecycle('state(f, ctx) { const start = 432; return f >= start; }'), HARD],
+      ['const-arg', lifecycle('state(f, ctx) { return on(f, 432); }', 'const on = (x, from) => x >= from;\n'), HARD],
+      ['const-pixels', lifecycle('state(f, view) { const min = 640, pixels = view.size[0]; return pixels >= min && wide(min); }', 'const wide = w => w >= 640;\n'), SOFT],
+      ['const-relative', lifecycle('state(f, ctx) { const hold = 12, since = f - ctx.at(\'m02\'); return since >= hold; }'), SOFT],
+      // 3 同一个辅助函数收到 17 种偏移，第 432 帧那个排第一还是排最后都认
+      ['offsets-late-first', lifecycle(`state(frame, ctx) { return on(frame - 432) && ${Array.from({ length: 16 }, (_, k) => `on(frame + ${k})`).join(' && ')}; }`, 'const on = x => x >= 0;\n'), HARD],
+      ['offsets-late-last', lifecycle(`state(frame, ctx) { return ${Array.from({ length: 16 }, (_, k) => `on(frame + ${k})`).join(' && ')} && on(frame - 432); }`, 'const on = x => x >= 0;\n'), HARD],
     ]) assert.deepEqual(whole(project(name, { code: { 'shots/shot.js': code } })), want, name);
+    // 从节拍常量算出来的量（beatSeconds = 60 / BPM）不是另一处定义；绕回自己的量、递归的辅助函数、一长串派生量都扫得完
+    const derivedBeat = project('derived-beat', { code: { 'shots/music.js': 'const BPM = 80;\nexport const beatSeconds = 60 / BPM;\nexport const table = { tempo: BPM };\n' } });
+    assert.equal(derivedBeat.timeline.beatConstantDefs, 2);
+    const chained = Array.from({ length: 3000 }, (_, k) => `const v${k + 1} = v${k} + 1;`).join('\n');
+    assert.deepEqual(whole(project('cycles', { code: { 'shots/shot.js': lifecycle('state(f, ctx) { let angle = 0; angle = angle + 0.01; return step(f) > angle; }',
+      `const step = n => (ready(n) ? n : step(n + 1));\nlet a = 1, b = 2;\na = b + 1;\nb = a + 1;\nconst v0 = 0;\n${chained}\n`) } })), SOFT);
     // 带类型标注的源码先抹掉类型再解析，结论和不带标注的一样（这台 Node 没有 stripTypeScriptTypes 时退回正则扫描，不在这里核）
     if (typeof nodeModule.stripTypeScriptTypes === 'function') {
       for (const [name, hooks, want] of [['typed-hook-i', 'state(i: number, ctx: { size: number[] }): boolean { return i >= 432; }', HARD],
