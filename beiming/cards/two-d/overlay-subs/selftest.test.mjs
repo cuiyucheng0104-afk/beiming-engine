@@ -46,11 +46,22 @@ test('overlay.subs：非首镜头（shot.in 是 69）：meta(f) 的 f 是镜头�
 });
 
 test('overlay.subs：自己切的时候一个词比 maxChars 还长就硬切，每一块都不超过 maxChars，各截的起点按字符数摊', () => {
-  // 43 个字符的词，2.7 到 3.13 秒（430 毫秒）：前 42 个字符一块，从 2.7 - 0.06 起；第 43 个字符从 2700 + round(430 × 42 / 43) = 3120 毫秒起，和后面的 on 拼一块
+  // 43 个字符的词，2.7 到 3.13 秒（430 毫秒）：前 42 个字符一块，从 2.7 - 0.06 起；第 43 个字符从 2700 + round(430 × 42 / 43) = 3120 毫秒起、不再提前，和后面的 on 拼一块
   const long = 'a'.repeat(42) + 'b', words = timing.words.map((w) => (w.word === 'falls' ? { ...w, word: long, endSec: 3.13 } : w));
   const table = subs({ blocks: [], timing: { ...timing, words } }).object.table;
-  assert.deepEqual(table.map((r) => [r.text, r.startSec, r.endSec]), [['Rain', 2.3, 2.64], ['a'.repeat(42), 2.64, 3.06], ['b on the hills.', 3.06, 4.75]]);
+  assert.deepEqual(table.map((r) => [r.text, r.startSec, r.endSec]), [['Rain', 2.3, 2.64], ['a'.repeat(42), 2.64, 3.12], ['b on the hills.', 3.12, 4.75]]);
   for (const maxChars of [1, 5, 11, 42]) assert.ok(subs({ blocks: [], maxChars, timing: { ...timing, words } }).object.table.every((r) => [...r.text].length <= maxChars), `maxChars = ${maxChars}`);
+});
+
+test('overlay.subs：硬切出来的各截顺着接，只有第一截提前 earlySec；后面一块的提前量不压到最后一截摊到的时间里', () => {
+  // 420 个字符的词，2.7 到 3.12 秒（420 毫秒）：每 42 个字符一截、各摊 42 毫秒；后面的 on 从 3.2 秒起，提前到 3.14
+  const words = timing.words.map((w) => (w.word === 'falls' ? { ...w, word: 'a'.repeat(420), endSec: 3.12 } : w));
+  const table = subs({ blocks: [], timing: { ...timing, words } }).object.table;
+  assert.deepEqual(table.map((r) => r.startSec), [2.3, 2.64, 2.742, 2.784, 2.826, 2.868, 2.91, 2.952, 2.994, 3.036, 3.078, 3.14]);
+  table.slice(1).forEach((r, i) => assert.ok(table[i].startSec < r.startSec && table[i].endSec === r.startSec, r.text));
+  // on 紧跟在长词后面（3.12 秒起）：提前 0.06 秒会早过最后一截的起点 3.078，改从长词念完的 3.12 起
+  const tight = subs({ blocks: [], timing: { ...timing, words: words.map((w) => (w.word === 'on' ? { ...w, startSec: 3.12 } : w)) } }).object.table;
+  assert.deepEqual([tight[10].startSec, tight[10].endSec, tight[11].text], [3.078, 3.12, 'on the hills.']);
 });
 
 test('overlay.subs：ASS 的起止对着帧边界往下取到百分之一秒，花括号转义', () => {

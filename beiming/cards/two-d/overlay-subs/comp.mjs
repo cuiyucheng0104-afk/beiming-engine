@@ -24,8 +24,9 @@ const two = (n) => String(n).padStart(2, '0');
  * params.timing：{ scenes, words }，全片时间，秒，和 time.narration 收的是同一份；有旁白的场景要带 durSec、audioStartSec、audioDurSec。
  * params.blocks：每项 { scene, text, phrase }，一块字幕显示 text，从旁白念到 phrase（不写就用 text）第一次出现的那个词起。
  *   blocks 是空的就自己切：每个场景的词顺着排，一块最多 maxWords 个词、maxChars 个字符；一个词自己就超过 maxChars 的，
- *   每 maxChars 个字符硬切成一截，各截的起点按字符数在这个词的起止之间摊。
- * 一块从它起始词的起点提前 earlySec 起（不早于配音起点），到同场景下一块的起点止；场景里最后一块停到配音结束之后 holdSec（不晚于场景结束）。
+ *   每 maxChars 个字符硬切成一截，各截的起点按字符数在这个词的起止之间摊；只有第一截提前 earlySec，后面各截顺着接，
+ *   紧跟在后面的那一块不早于最后一截摊到的终点。
+ * 一块从它起始词的起点提前 earlySec 起（不早于配音起点，也不早于前一块的起点），到同场景下一块的起点止；场景里最后一块停到配音结束之后 holdSec（不晚于场景结束）。
  * Handle.object.table 每项 { index, scene, text, startSec, endSec, startFrame, endFrame, bbox }：帧号是全片帧号，这一块在 [startFrame, endFrame) 这些帧上；
  *   bbox 是 [x0, y0, x1, y1]（像素，原点在左上角，y 向下）。Handle.object.ass() 是同一张表写成的 ASS 字幕文本，起止对着帧边界写。
  * meta(f) 的 f 是镜头局部帧号，交全片第 shot.in + f 帧上那一块字幕的文字框，没有就交空的。
@@ -58,19 +59,25 @@ export function create(ctx, params) {
       blocks = [];
       const max = params.maxChars;
       for (const w of mine) {
-        const chars = [...w.word], from = ms(w.startSec), span = ms(w.endSec) - from;
+        const chars = [...w.word], from = ms(w.startSec), span = ms(w.endSec) - from, hard = chars.length > max;
+        const at = (k) => from + Math.round((span * Math.min(k, chars.length)) / chars.length);
         for (let k = 0; k < chars.length; k += max) {
           const piece = chars.slice(k, k + max), cur = blocks.at(-1);
-          if (cur && cur.n < params.maxWords && cur.len + 1 + piece.length <= max) { cur.text += ` ${piece.join('')}`; cur.len += 1 + piece.length; cur.n++; } else blocks.push({ text: piece.join(''), len: piece.length, n: 1, start: from + Math.round((span * k) / chars.length) });
+          if (cur && cur.n < params.maxWords && cur.len + 1 + piece.length <= max) { cur.text += ` ${piece.join('')}`; cur.len += 1 + piece.length; cur.n++; }
+          // 硬切的词：第一截照常提前，后面各截不提前（lead 是 0）、顺着接；floor 是这一截摊到的终点，下一块不早于它
+          else blocks.push({ text: piece.join(''), len: piece.length, n: 1, start: at(k), ...(hard ? { lead: k ? 0 : early, floor: at(k + max) } : {}) });
         }
       }
     }
     if (!blocks.length) continue;
     if (![scene.durSec, scene.audioStartSec, scene.audioDurSec].every(Number.isFinite)) fail(`场景 ${scene.scene} 有字幕，timing.scenes 里它要带 durSec、audioStartSec、audioDurSec`);
     const audioStart = ms(scene.audioStartSec), last = Math.min(ms(scene.startSec) + ms(scene.durSec), audioStart + ms(scene.audioDurSec) + ms(params.holdSec));
+    // 一块的起点不早于前一块的起点，也不早于前一块硬切时摊到的终点
+    const starts = [];
+    blocks.forEach((b, i) => starts.push(Math.max(audioStart, b.start - (b.lead ?? early), starts[i - 1] ?? 0, blocks[i - 1]?.floor ?? 0)));
     blocks.forEach((b, i) => {
-      const start = Math.max(audioStart, b.start - early), end = i + 1 < blocks.length ? blocks[i + 1].start - early : last;
-      if (end <= start) fail(`场景 ${scene.scene} 的字幕块 ${JSON.stringify(b.text)} 排不出时长：它的起始词不在下一块的起始词之前，或者离得不到 earlySec`);
+      const start = starts[i], end = starts[i + 1] ?? last;
+      if (end <= start) fail(`场景 ${scene.scene} 的字幕块 ${JSON.stringify(b.text)} 排不出时长：它的起始词不在下一块的起始词之前，或者离得不到 earlySec，或者硬切的词自己没有时长`);
       table.push({ index: table.length, scene: scene.scene, text: b.text, startSec: start / 1000, endSec: end / 1000, startFrame: frameAt(start), endFrame: frameAt(end), bbox: bbox(b.text) });
     });
   }

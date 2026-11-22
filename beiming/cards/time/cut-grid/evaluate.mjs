@@ -1,6 +1,8 @@
 // time.cut-grid：把拍点或镜头时长对到网格上，交出切点。纯函数，不留跨帧的状态。
 
 const KINDS = ['cuts', 'durations'], ORIGINS = ['shot', 'film'];
+// 和卡文件 params 里的 range 一样：经宿主调时宿主照卡文件拦，直接调时这里拦
+const RANGES = { gridFrames: [1, 600], minShotFrames: [1, 6000], offsetFrames: [0, 599], startFrame: [0, 10000000], endFrame: [0, 10000000] };
 const bad = (message) => { throw Object.assign(new RangeError(`time.cut-grid：${message}`), { code: 'usage.bad-argument' }); };
 
 /**
@@ -11,15 +13,14 @@ const bad = (message) => { throw Object.assign(new RangeError(`time.cut-grid：$
  *   切点取时长的累加，最后一个累加是片尾、不是切点。
  * 每个位置对到最近的网格点 offsetFrames + k × gridFrames（正好在两格中间时取后一格）；离上一个切点（第一个离 startFrame）不到 minShotFrames 的，
  *   往后挪到够长的第一个网格点，所以切点一个不少、严格递增。endFrame 大于 0 时最后一个镜头也要够长，放不下就报错；是 0 时不管片尾。
- * f 是镜头局部帧号，sub 是子帧相位 [0, 1)。gridFrames、minShotFrames 不是大于 0 的整数，offsetFrames、startFrame、endFrame 不是不小于 0 的整数，
- *   origin 写了别的值，都报 usage.bad-argument。
+ * f 是镜头局部帧号，sub 是子帧相位 [0, 1)。gridFrames、minShotFrames、offsetFrames、startFrame、endFrame 不是卡文件里写的范围内的整数
+ *   （gridFrames 是 1 到 600），origin 写了别的值，都报 usage.bad-argument。
  * 返回 { cuts: { frames, end, events, shot, sinceFrames, untilFrames } }：frames 是切点的全片帧号；end 是片尾帧号（endFrame，
  *   没给时 durations 取对到网格的总长，cuts 是 null）；events 是事件表里的切点条目；shot 是这一刻（f + sub）在第几个镜头（从 0 起）；
  *   sinceFrames 是离上一个切点（没有就是 startFrame）几帧，untilFrames 是离下一个切点几帧，没有就是 null；这一刻是全片第 shot.in + f + sub 帧。
  */
 export function evaluate(inputs, params, f, sub) {
-  for (const k of ['gridFrames', 'minShotFrames']) if (!Number.isInteger(params[k]) || params[k] < 1) bad(`${k} 要是大于 0 的整数，给的是 ${params[k]}`);
-  for (const k of ['offsetFrames', 'startFrame', 'endFrame']) if (!Number.isInteger(params[k]) || params[k] < 0) bad(`${k} 要是不小于 0 的整数，给的是 ${params[k]}`);
+  for (const [k, [lo, hi]] of Object.entries(RANGES)) if (!Number.isInteger(params[k]) || params[k] < lo || params[k] > hi) bad(`${k} 要是 ${lo} 到 ${hi} 的整数，给的是 ${params[k]}`);
   const origin = params.origin ?? 'shot';
   if (!ORIGINS.includes(origin)) bad(`origin 只能是 ${ORIGINS.join('、')}，给的是 ${origin}`);
   const { gridFrames: grid, minShotFrames: minShot, startFrame, endFrame } = params, phase = params.offsetFrames % grid;

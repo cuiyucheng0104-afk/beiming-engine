@@ -1,5 +1,6 @@
 // time.cut-grid 的自测：手算得出答案的几组拍点和时长。
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { test } from 'node:test';
 import { evaluate } from './evaluate.mjs';
 
@@ -62,6 +63,16 @@ test('time.cut-grid：不经宿主直接调，步长等帧数参数不合规矩�
   bad({ startFrame: 0.5 });
   bad({ endFrame: NaN });
   bad({ origin: 'scene' });
+});
+
+test('time.cut-grid：不经宿主直接调，整数参数的上下限和卡文件里写的一样：正好在限上能算，超出一格报 usage.bad-argument', () => {
+  const { params } = JSON.parse(fs.readFileSync(new URL('./card.json', import.meta.url), 'utf8'));
+  const ranged = Object.entries(params).filter(([, p]) => p.type === 'integer');
+  assert.deepEqual(ranged.map(([name]) => name), ['gridFrames', 'minShotFrames', 'offsetFrames', 'startFrame', 'endFrame']);
+  for (const [name, { range: [lo, hi] }] of ranged) {
+    for (const v of [lo, hi]) assert.ok(cuts([10, 29], { [name]: v }).frames.length === 2, `${name} = ${v}`);
+    for (const v of [lo - 1, hi + 1]) assert.throws(() => cuts([10, 29], { [name]: v }), (e) => e instanceof RangeError && e.code === 'usage.bad-argument', `${name} = ${v}`);
+  }
 });
 
 test('time.cut-grid：位置不是从小到大、时长不大于 0、marksAre 写了别的值都报错', () => {

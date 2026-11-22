@@ -50,7 +50,7 @@
     { "symptom": "数字和符号估得偏短", "fix": "数字照字符个数算，不照念出来的长度；稿子里把数字写成单词" },
     { "symptom": "估的总时长和真实配音差好几秒", "fix": "估时只用来排片；配音到了换成真实的逐词时间，再重排触发点和字幕" }
   ],
-  "provenance": { "cases": [], "note": "整数毫秒累加的估时：每词一个底数加按字母数封顶的增量，句末和子句标点各加一个停顿；第一段多留的留白按出场次序认，不按段的标识认" },
+  "provenance": { "cases": [], "note": "整数毫秒累加的估时：每词一个底数加按字母数封顶的增量，句末和子句标点各加一个停顿；多留的那段留白按段的标识认：id 等于 firstLeadId（默认 s01）的那一段多留，不看它在稿子里排第几" },
   "status": [{ "level": "reproduced", "host": "kernel-eval", "source": "0.1.0", "gpu": "none", "date": "2026-11-22" }],
   "exams": ["cal:time.narration-est"],
   "ext": { "exams.pending": ["NE-Y2"] }
