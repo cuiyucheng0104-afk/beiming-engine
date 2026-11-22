@@ -1,4 +1,4 @@
-// 北冥引擎 · 内置材质补丁：往 three r170 的内置材质（MeshToonMaterial、MeshDepthMaterial…）里注入自定义着色器片段。
+// 北冥引擎 · 内置材质补丁：往 three（r170 / r187）的内置材质（MeshToonMaterial、MeshDepthMaterial…）里注入自定义着色器片段。
 // 锚点逐条校验，缺失直接报错（three 升级后不会悄悄失效）；同一组钩子共用一个程序缓存键。
 //
 //   inject(src, anchor, code, mode, who)   在锚点后（'after'）/ 前（'before'）插入，或整段替换（'replace'）；who 用于报错
@@ -8,7 +8,8 @@
 //                                           空值 = 白；别的类型直接报错（three 的 Color.set 遇到不认识的值会静默保持白色）
 //   patchVertex(src, hooks, own, who)       顶点钩子 vertexPars / vertexMainStart / vertexNormal（改 objectNormal）/ vertexBegin（改 transformed）；
 //                                           own = { head, begin, project } 是材质自己的声明与赋值，排在同位置的钩子前面
-//   quantizeShadow(frag, lo, hi, who)       投影量化：getShadow 的返回值过 smoothstep( lo, hi )（lo / hi 是 GLSL 表达式）
+//   quantizeShadow(frag, lo, hi, who)       投影量化：getShadow 的返回值过 smoothstep( lo, hi )（lo / hi 是 GLSL 表达式）；
+//                                           r187 下顺带把 PCF 采样核换回 r170 PCFSoftShadowMap 的核（投影边缘两版一致）
 //   hasVertexHooks(hooks)                   有没有会改形体的顶点钩子（vertexPars / vertexMainStart / vertexBegin）
 //   makeDepthMaterial({ hooks, uniforms, defines, key, side, who })   带同样顶点形变的阴影深度材质，投影才跟形体对得上
 //   bindPatched(mesh, mat, { castShadow, receiveShadow, outline, depth, id, weight, perInstance })
@@ -17,10 +18,12 @@
 //   counter(start)                          自增编号：const next = counter(1); next() → 1, 2, 3…
 import * as THREE from 'three';
 
-if (THREE.REVISION !== '170') console.warn(`engine/shade 按 three r170 写，当前 r${THREE.REVISION}：锚点不匹配时会直接报错`);
+// 对拍过的 three 版本（engine/shade/r187-toon-regression.mjs：r187 对 r170 金标准）；别的版本只告警，锚点不匹配时照样直接报错
+const SUPPORTED_THREE_REVISIONS = new Set(['170', '187']), SUPPORTED = 'r' + [...SUPPORTED_THREE_REVISIONS].join(' / r');
+if (!SUPPORTED_THREE_REVISIONS.has(THREE.REVISION)) console.warn(`engine/shade 只在 three ${SUPPORTED} 上对拍过，当前 r${THREE.REVISION}：锚点不匹配时会直接报错`);
 
 export function inject(src, anchor, code, mode = 'after', who = 'patch.js') {
-  if (!src.includes(anchor)) throw new Error(`${who}：着色器锚点缺失「${anchor.slice(0, 60)}」（three r${THREE.REVISION}，本模块按 r170 写）`);
+  if (!src.includes(anchor)) throw new Error(`${who}：着色器锚点缺失「${anchor.slice(0, 60)}」（three r${THREE.REVISION}，本模块支持 ${SUPPORTED}）`);
   const rep = mode === 'after' ? anchor + '\n' + code : mode === 'before' ? code + '\n' + anchor : code;
   return src.replace(anchor, () => rep);
 }
@@ -47,9 +50,26 @@ export function patchVertex(src, h, own = {}, who) {
 }
 
 const SHADOW_ANCHOR = 'return mix( 1.0, shadow, shadowIntensity );';
+// r187 的 PCF 换成了硬件比较采样 + 按屏幕像素旋转的 Vogel 圆盘（投影边缘带屏幕空间抖动，量化后是毛边）；
+// 这里换回 r170 PCFSoftShadowMap 的确定性 3 × 3 双线性核：取样点都落在纹素中心，线性过滤的硬件比较在那里等于单个纹素的 step
+const PCF_VOGEL = /shadow = \(\s*texture\( shadowMap, vec3\( shadowCoord\.xy \+ vogelDiskSample\( 0, 5, phi \)[\s\S]*?\) \* 0\.2;/;
+const PCF_SOFT_R170 = /* glsl */`{
+					vec2 toonTx = vec2( 1.0 ) / shadowMapSize;
+					vec2 toonF = fract( shadowCoord.xy * shadowMapSize + 0.5 );
+					vec2 toonUv = shadowCoord.xy - toonF * toonTx;
+					#define TOON_CMP( ox, oy ) texture( shadowMap, vec3( toonUv + vec2( ox, oy ) * toonTx, shadowCoord.z ) )
+					shadow = ( TOON_CMP( 0.0, 0.0 ) + TOON_CMP( 1.0, 0.0 ) + TOON_CMP( 0.0, 1.0 ) + TOON_CMP( 1.0, 1.0 )
+						+ mix( TOON_CMP( -1.0, 0.0 ), TOON_CMP( 2.0, 0.0 ), toonF.x ) + mix( TOON_CMP( -1.0, 1.0 ), TOON_CMP( 2.0, 1.0 ), toonF.x )
+						+ mix( TOON_CMP( 0.0, -1.0 ), TOON_CMP( 0.0, 2.0 ), toonF.y ) + mix( TOON_CMP( 1.0, -1.0 ), TOON_CMP( 1.0, 2.0 ), toonF.y )
+						+ mix( mix( TOON_CMP( -1.0, -1.0 ), TOON_CMP( 2.0, -1.0 ), toonF.x ), mix( TOON_CMP( -1.0, 2.0 ), TOON_CMP( 2.0, 2.0 ), toonF.x ), toonF.y ) ) * ( 1.0 / 9.0 );
+				}`;
 export function quantizeShadow(frag, lo, hi, who = 'patch.js') {
-  const sm = THREE.ShaderChunk.shadowmap_pars_fragment;
+  let sm = THREE.ShaderChunk.shadowmap_pars_fragment;
   if (!sm.includes(SHADOW_ANCHOR)) throw new Error(`${who}：投影量化锚点缺失（three r${THREE.REVISION}）：${SHADOW_ANCHOR}`);
+  if (sm.includes('sampler2DShadow shadowMap')) {   // r187 这一路；r170 的块里没有它，下面的替换与以前逐字相同
+    if (!PCF_VOGEL.test(sm)) throw new Error(`${who}：软阴影采样锚点缺失（three r${THREE.REVISION}）：vogelDiskSample( 0, 5, phi )`);
+    sm = sm.replace(PCF_VOGEL, () => PCF_SOFT_R170);
+  }
   return inject(frag, '#include <shadowmap_pars_fragment>', sm.replaceAll(SHADOW_ANCHOR, `return mix( 1.0, smoothstep( ${lo}, ${hi}, shadow ), shadowIntensity );`), 'replace', who);
 }
 
