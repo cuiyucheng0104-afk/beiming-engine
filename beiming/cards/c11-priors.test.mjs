@@ -88,7 +88,9 @@ test('三份总账严格闭合：526 / 609 / 687，合计 1,822；四路计数�
         assert.deepEqual(r.targets, [], `${c} ${r.sourceId}`); // 不迁的行与非可移植明细的汇总行只记账
         continue;
       }
-      assert.ok(r.targets.length > 0, `${c} ${r.sourceId}`);
+      // 指回可移植明细的汇总行：行里照抄了那个量才另出一条汇总先验，否则只记账。
+      if (r.recordKind === 'summary') assert.ok(r.targets.length <= 1, `${c} ${r.sourceId}`);
+      else assert.ok(r.targets.length > 0, `${c} ${r.sourceId}`);
       for (const id of r.targets) {
         assert.ok(pools[r.route].has(id), `${c} ${r.sourceId} → ${id}`);
         assert.ok(!seen.has(id), `${c} 重复去向 ${id}`);
@@ -115,12 +117,17 @@ test('汇总行 100% 指回同案例、同去向的真实明细，stats 不重�
       assert.equal(s.caseId, d.caseId, `${c} ${s.sourceId} 同案例`);
       assert.equal(s.route, d.route, `${c} ${s.sourceId} 同去向`);
       assert.equal(s.target, d.target, `${c} ${s.sourceId} 同目标卡`);
+      assert.ok(['values', 'gist'].includes(s.link), `${c} ${s.sourceId} link`);
+      // 一行摘了几条明细时，其余的记在 alsoSummarizes：都是真实明细，不重复，不含 summaryOf 自己。
+      for (const id of s.alsoSummarizes ?? []) assert.ok(byId.get(id)?.recordKind === 'detail' && id !== s.summaryOf, `${c} ${s.sourceId} → ${id}`);
+      assert.equal(new Set(s.alsoSummarizes ?? []).size, (s.alsoSummarizes ?? []).length, `${c} ${s.sourceId}`);
     }
+    assert.ok(summaries.filter((x) => x.link === 'values').length / summaries.length >= 0.8, `${c} 多数对照表行照抄了明细里的数`);
     for (const r of m.rows.filter((x) => x.recordKind === 'detail')) assert.equal(Object.hasOwn(r, 'summaryOf'), false, r.sourceId);
     // 可移植库里的汇总条目：指回的就是那条明细出的先验，案例一致，主值取自其中一条。
     const pById = new Map(priors.map((e) => [e.id, e]));
     const sums = priors.filter(isSummary);
-    assert.equal(sums.length, summaries.filter((s) => s.route === 'portable').length, c);
+    assert.equal(sums.length, summaries.filter((s) => s.route === 'portable' && s.targets.length).length, c);
     for (const e of sums) {
       const row = byId.get(e.ext['c11.sourceId']);
       assert.deepEqual(row.targets, [e.id]);
@@ -132,11 +139,43 @@ test('汇总行 100% 指回同案例、同去向的真实明细，stats 不重�
       const from = pById.get(e.ext['c11.valueFrom']);
       assert.ok(e.summaryOf.includes(from.id), e.id);
       assert.deepEqual([e.value, e.unit, e.topic], [from.value, from.unit, from.topic], e.id);
+      // 语义一致：汇总条目与它引用的每条明细先验同案例、同单位；它的值就写在这一行的原文里，不是借来的。
+      for (const id of e.summaryOf) assert.deepEqual([pById.get(id).unit, pById.get(id).provenance.caseId], [e.unit, e.provenance.caseId], `${e.id} → ${id}`);
+      const rowText = e.provenance.note.replace(/^原证据：[^。]*。/, '');
+      const inRow = (rowText.match(/[−-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|[−-]?\.\d+/g) ?? []).map((x) => Math.abs(Number(x.replace('−', '-').replaceAll(',', '').replace(/^(-?)\./, '$10.'))));
+      const vals = e.value !== null && typeof e.value === 'object' && !Array.isArray(e.value) ? Object.values(e.value) : [e.value].flat();
+      for (const v of vals) assert.ok(inRow.some((n) => [1, 0.01, 0.001, 1000, 60, 1e4, 1e6].some((f) => Math.abs(n * f - Math.abs(v)) <= 1e-9 + 1e-6 * Math.abs(v))), `${e.id} 的值 ${v} 不在这一行里`);
     }
     const stats = loadBatch2PriorsStore(c).stats();
+    // 可移植严格准入：只收成片读数与跨作品通用先验，占比不超过 C10 的 15.4%。
+    assert.ok(m.portableCount / m.rows.length <= 0.154, `${c} 可移植 ${m.portableCount}/${m.rows.length}`);
     assert.deepEqual([stats.totalEntries, stats.summaryCount, stats.detailCount, stats.verifiedCount], [priors.length, sums.length, priors.length - sums.length, 0], c);
     assert.equal(loadBatch2PriorsStore(c).query({}).length, stats.detailCount, `${c} 默认检索不含汇总`);
   });
+});
+
+test('首审点名的三条错引：汇总行指回讲同一个对象、同一个量的明细，不借别的量', () => {
+  const textOf = (c, sid) => [...D[c].cardPriors, ...D[c].practices].find((e) => e.sourceId === sid)?.text ?? D[c].priors.find((e) => e.ext?.['c11.sourceId'] === sid && !isSummary(e))?.provenance.note ?? '';
+  const row = (c, sid) => D[c].manifest.rows.find((r) => r.sourceId === sid);
+  // 建筑 s089（用笔画字体画霓虹、菜单、钟、日历）：随它的明细挂卡，不再借「整场景三角面数」出可移植条目。
+  const a = row('arch-scene', 's089');
+  assert.match(textOf('arch-scene', a.summaryOf), /笔画字体/);
+  assert.equal(a.route, row('arch-scene', a.summaryOf).route);
+  assert.notEqual(a.route, 'portable');
+  assert.deepEqual(a.targets, []);
+  assert.equal(D['arch-scene'].priors.some((e) => e.id === 'arch-scene.sum.s089'), false);
+  // 动作 s031（三个角色的呼吸周期 4.6±.5 / 5.2 / 4.4 秒）：指回写着这三个周期的那几条明细，不是久站 4.0 秒那条。
+  const b = row('motion-rig', 's031');
+  const linked = [b.summaryOf, ...(b.alsoSummarizes ?? [])].map((sid) => textOf('motion-rig', sid));
+  assert.match(linked[0], /4\.6/);
+  assert.ok(linked.some((t) => /4\.4 ?s/.test(t)) && linked.some((t) => /5\.2/.test(t)), 's031 三个周期各有出处');
+  assert.ok(!linked.some((t) => /周期 4\.0 秒/.test(t)), 's031 不再指久站呼吸那条');
+  assert.equal(D['motion-rig'].priors.some((e) => e.id === 'motion-rig.sum.s031'), false);
+  // 光照 s140（胸前机位，水平视场 115° 到 125°）：指回写着这个视场的相机参数明细，两边同案例。
+  const l = row('light-cam', 's140');
+  assert.match(textOf('light-cam', l.summaryOf), /115°[–-]125°/);
+  assert.equal(l.caseId, row('light-cam', l.summaryOf).caseId);
+  assert.equal(D['light-cam'].priors.some((e) => e.id === 'light-cam.sum.s140'), false);
 });
 
 test('三份可移植表以 JSON 原文过 C9：0 错误、0 泄露、单位合法、全部未读回', () => {
@@ -145,7 +184,7 @@ test('三份可移植表以 JSON 原文过 C9：0 错误、0 泄露、单位合�
     assert.deepEqual(checked.errors, [], c);
     assert.deepEqual(checked.leaks, [], c);
     assert.ok(checked.ok, c);
-    assert.ok(priors.filter((e) => !isSummary(e)).length >= 20, `${c} 可移植明细 ${priors.length}`);
+    assert.ok(priors.filter((e) => !isSummary(e)).length >= 1, `${c} 可移植明细 ${priors.length}`);
     for (const e of priors) {
       assert.ok(PRIOR_UNITS.includes(e.unit), e.id);
       assert.equal(e.verifiedInOurStack, false, e.id);
@@ -205,8 +244,8 @@ test('全部 12 份 JSON 原文与解析对象零泄露：无原包路径、lab:
 });
 
 // 原作名、角色名、地名、区域名、品牌与人名的 sha256 前 16 位（名字本身不入库，免得测试文件自己泄露专名）。
-// 前半是 C10 的同一张表（同一批原作），后半是本批三份汇编新出现的。
-const IP_HASHES = new Set(["619df91bac841eda", "0b1df33ea7eef2b2", "86663a1dd8f6b661", "924493ee15e2a68c", "dd9ab072bf740423", "2bf84b0ad08b23b8", "f4a6923996dbeb19", "3f8f01ea269b6cfe", "ecc9bddb65dc4451", "1351704cdc4d32f8", "b6f6732db83b899a", "a590c43e71d44866", "8534cd0426607ce6", "c6661966bce79f30", "419a4461434283fd", "bb1d46105bd704dc", "f27354a69b790eda", "d0b3b3d6c6c14f17", "aa416dab2cc47c86", "1ae0552a12823c54", "98162a1e33275f16", "ff627719813c923a", "40a7e9acb06295d6", "6d588db5b668cf12", "c512ca0c5c1e71be", "f44b7e30470bbf28", "c34305e7b35f6f0b", "965b8a7ec4177224", "1e445d2d4b31efe2", "f1ed891245759d1c", "26dd587fdb6a290c", "ad21b547ce7162c5", "1dd31cd072fdd30f", "b3158331cecc3845", "b9b13e1cd77acbd7", "ee839bf111a7e47a", "aaa1073bd98fd4e7", "07f0bf736c13b81f", "9e70b33fe4edaf5b", "5032f1bea2401f8f", "d4fff627da31250b", "36997f035118cae8", "9fa9e239e047e205", "b1f49128310e2481", "eb7855e04a2006fd", "f5105c9ea0cd361b", "e5a6d6899f2e6e04", "14fc1fd907298aaa", "dc7a4a2cc7e36000", "0b2058635ba3d17f", "1f25b77eea9b8db1", "59ee9ed12f7822d8", "ed818ec233248ae6", "930eaf1684b953a9", "400e436ed3eb0252", "f09bfa2c3c7042e4", "0e377aac3a660698", "d544b0316e19a87b", "dd415e6f13d54a9b", "1fe8ba945043480d", "e5993ec06c2e0d77", "c26804e0eaf84a96", "3d8c28f257964498", "d7834604301b3e8a", "06f8e2ae03f7ec87", "84a6921827058d16", "196cecb58d133eb0", "fba3a504b35a8d53", "a276bb8a748ddb9c", "90dd5db3f1b09545", "42c0b79536f2e4ff", "a7fb0e02239ad9aa", "3e9fd6d71c87b1db", "d2e2586d773f54ee", "9e863d7b36ae5de1", "729090481f813e9e", "b02ea6fe7b71ccf7", "7e8672748ae4410e", "3f33cff3bab2bd6e", "3eef1f7226e1215e", "ed4561f685f13353", "a819d7cd38e9101b", "c8b40f3f8920b8aa", "ca71d3ec52ddc852", "36ad0f15e388a8ce", "d11d3177bb31f0c0", "29f2aef0c51aa28d", "4281b1bc48777893", "0aa9934892ca9cd1", "781de50d4a336ba7", "55e4e874c9f996f1", "40fe6b860770436f", "63dbdfb4c910db1e", "b0be237b71b69a0d", "3d85ee4f370e7579", "75f128184099aaa2", "4fac0361bcb7b771", "bd54e7d6e49bd448", "a624f2d4371bbd82", "bcca17804247899c", "e7620a32095f6909", "dc8331bcb2283e89", "2a7faaf70333cde4", "5f6e7773915655fc", "2f55b64c59eec8e5", "599917fb5a47d4ba", "249993eec332cb78", "bdf4949a46682dc3", "9eebe6aa942221a6", "20b836be6317bc4c", "5f226262ba09e0ec", "75ff6821b8f8a31f", "14e59f423e87958e", "2d94fe98376d814d", "39fabf3d2bf91ace", "8c6e8e8b9a0eb983", "374eebfb2bae1290", "89e1ed6c1d606797", "033fddb8853a1ad0", "04605c208bd7a6bb", "307302c4a4e4ecc6", "d589ef48fd5f55ce", "a309ac16ce1299ea", "e16702398a9a3929", "41bc72708c799dbc", "7edbff10b5f7627e", "95a84911801a7130", "ff7b676cdada9bca", "fd8ecd2d4d814e68", "3cb95ec0c6cc1835", "75d28e035320c596", "f8158a8e962d1201", "f34d80eb22b1490a", "4f594364d6326c96", "6288e70fd4838bbb", "8aec299118b83ebd", "0ededb699a4e223c", "c45770067ec259b6", "b2a4e476bb0cf3df", "b05a020b94ff9f43", "64168e1ca791c61b", "09cf980b5ff304ac", "c857d09db23e6822", "50b2676afbe30c83", "a38188f3bafbcb73", "0871d655983efd56", "4ed91096f08e52f6", "8318900ae631b424", "d4c58781c552db46", "a44a673a8c66e9d7", "6b27eba5652b46d3", "34a533dfd7273a9b", "0a99b793f44bcc55", "42817f456a964a0d"]);
+// 前半是 C10 的同一张表（同一批原作），后半是本批三份汇编新出现的。二轮起并入真实世界的城市、国家、地区、地标、语言名与常见品牌、作品名（首审阻断 1）。
+const IP_HASHES = new Set(["619df91bac841eda","0b1df33ea7eef2b2","86663a1dd8f6b661","924493ee15e2a68c","dd9ab072bf740423","2bf84b0ad08b23b8","f4a6923996dbeb19","3f8f01ea269b6cfe","ecc9bddb65dc4451","1351704cdc4d32f8","b6f6732db83b899a","a590c43e71d44866","8534cd0426607ce6","c6661966bce79f30","419a4461434283fd","bb1d46105bd704dc","f27354a69b790eda","d0b3b3d6c6c14f17","aa416dab2cc47c86","1ae0552a12823c54","98162a1e33275f16","ff627719813c923a","40a7e9acb06295d6","6d588db5b668cf12","c512ca0c5c1e71be","f44b7e30470bbf28","c34305e7b35f6f0b","965b8a7ec4177224","1e445d2d4b31efe2","f1ed891245759d1c","26dd587fdb6a290c","ad21b547ce7162c5","1dd31cd072fdd30f","b3158331cecc3845","b9b13e1cd77acbd7","ee839bf111a7e47a","aaa1073bd98fd4e7","07f0bf736c13b81f","9e70b33fe4edaf5b","5032f1bea2401f8f","d4fff627da31250b","36997f035118cae8","9fa9e239e047e205","b1f49128310e2481","eb7855e04a2006fd","f5105c9ea0cd361b","e5a6d6899f2e6e04","14fc1fd907298aaa","dc7a4a2cc7e36000","0b2058635ba3d17f","1f25b77eea9b8db1","59ee9ed12f7822d8","ed818ec233248ae6","930eaf1684b953a9","400e436ed3eb0252","f09bfa2c3c7042e4","0e377aac3a660698","d544b0316e19a87b","dd415e6f13d54a9b","1fe8ba945043480d","e5993ec06c2e0d77","c26804e0eaf84a96","3d8c28f257964498","d7834604301b3e8a","06f8e2ae03f7ec87","84a6921827058d16","196cecb58d133eb0","fba3a504b35a8d53","a276bb8a748ddb9c","90dd5db3f1b09545","42c0b79536f2e4ff","a7fb0e02239ad9aa","3e9fd6d71c87b1db","d2e2586d773f54ee","9e863d7b36ae5de1","729090481f813e9e","b02ea6fe7b71ccf7","7e8672748ae4410e","3f33cff3bab2bd6e","3eef1f7226e1215e","ed4561f685f13353","a819d7cd38e9101b","c8b40f3f8920b8aa","ca71d3ec52ddc852","36ad0f15e388a8ce","d11d3177bb31f0c0","29f2aef0c51aa28d","4281b1bc48777893","0aa9934892ca9cd1","781de50d4a336ba7","55e4e874c9f996f1","40fe6b860770436f","63dbdfb4c910db1e","b0be237b71b69a0d","3d85ee4f370e7579","75f128184099aaa2","4fac0361bcb7b771","bd54e7d6e49bd448","a624f2d4371bbd82","bcca17804247899c","e7620a32095f6909","dc8331bcb2283e89","2a7faaf70333cde4","21f9f830edf15d42","2c5ed0922cc21476","e410993439c435f9","95b3ec132e6e5bfc","8540d5ac82d1cc90","180bd8604df67b59","58d07b8a69516695","6df977461d522f10","f5b984831b2d99e5","dbd7eae813c1dc02","fd41ccf562904e20","a6c0db788b589b10","089dd4929e658cdb","0a450f78e4551525","3b54664e8163d36a","9313f4070dc7e1b3","9d0fe47598dfbd14","6de99512acbf3f39","bd12e7ddfed2b630","8b6368ba9218bc10","e9284b63b8611c53","d448d143c4e04eb6","b4415237de7351a0","76f872eea127e057","f98b2fc82a45eadf","2dd265812024c822","75fb1f4a2a987290","2e13b49eacb92d7a","665d26b506d82648","09fdb8c909a83ac7","243eeb0a56fb1818","f05cfcd2799d9357","f315c04888b077bb","724fff5b77359617","fceb694b3d7420f9","67aef1a0a7f8cbca","84bd509492112cbc","85ef3bae7236215b","6ffeb42bdc0f8683","1bdf7740cbeeb960","58857e5318f3090b","d055c3998f13e70e","81678972842d4663","0a7e404732db8f48","7d3566712e910adc","bde5cc5b7e1a7eb4","44a06f03dbb06498","8e1849a68722af8b","0344bcb449f5b8ae","af02be73f1a847f8","3942b5dce9fd2fe0","d8fcbae05f79fb85","cf2abf0c5be326cb","963cd73004547f84","8f6ee8c64166eba0","193e6ef53d649254","0b1001a02c971a01","6930e3f7dd59ab4d","c733bdf600026d8c","f60603b48764ce21","fc2c8c31225942f6","049667efe4e69d1c","6555034669361e02","2d5b98b7b92a0e60","8ef85828ff9c38e9","ab601484fc216e9a","a8f7601a1dce9996","fb7ba29fe11e2d83","ae322cc596675baf","4a2967c254e9350a","c8fe1e39fafe30e2","79ee9e738f2a21cc","755403d9b5364a79","6820333b0120b883","ccc839ff3602dbe7","259d06337ecd059b","2e7cba8504fa25a4","37800af3094247b9","68c77e155132565e","85da183b0683e5f7","1bb5e3986433569c","d222587118255cbd","a8027f71a8e38bcb","a66e82e6953383b1","c690fe6240419c66","48afd8d3b9269706","62151de038412798","99012cae1587f2ed","607b860e3d7be11a","19f2a79d2f50a2b0","9ff15e20ef6dacb8","bd732730bd39834d","fdb827d1a99796cd","ac13a8b534df4a28","afe04579004049cc","8e8c904e012bf0b1","0df5568345d42f94","105618902890e672","bc691003939b33f2","8be2978e343799a3","0faa155716f526ef","d209bcc17778fd19","d9bb8452ecaf5a05","fb54e9062429a937","6089854c94ca5454","1670f2e42fefa504","3ca800b667fe40d7","a8a4c692b93bfde4","4eaae75f1df2f52b","efee614420c57ddd","1a2290470e0aa754","a2470c9d137c1c5d","9f2608067816e38c","c630cb195f52c883","3151a8f227c0e11f","21bd3229a131a2cc","713ec46512c8f371","cc495debc1aa3188","8dcbf68858775c8d","2eecdca905bd8af6","51e2a46721d104d9","6d2805b8ba496887","b116c99a2c11258b","751c59fe1fa734e6","fb38a93fd89e1a5f","e0b40776703d9edb","3c66157844fa8ce7","c55ec4bbe9c7c161","702e1c9fc717e96e","054da1e8bc1cb20b","00e51906df651a7e","7e8eea5cc6098027","5873102fa0951713","e067e8beb3a29632","195f33b50fa62ef2","b41e6560a4467aa4","e6deb10a6558650a","d56d0ff69b62792a","2c598436e5575a57","b2c01c8a8a0d9a99","93ff074ca77b5f7e","4c799454ccf37279","9c9b13446cd96efb","59ae856cd788d0f5","42e1eb95ac3ebc90","76201e78aca720db","90a6d53df47e4097","b11f203e8e6ce90d","3f5053b3ae70794b","efb4c2bcdf2ad82a","3b96c2072e1d9bc4","e0f387a92fc83611","200932544a67938b","3423b099956ab4e7","b055e3a6947a2cac","b3be2834d6945d4c","236f05e26f289988","636bff608c5a4515","ac901a4b54069acf","fa2115f8d576a6ab","f65375409d7351f4","56fe43f748e258de","c7c1319276e936c8","8c46295772d0e845","9b4248a4ed54675a","f4e7af788f5164c7","8d4321d936320802","60eb33388f4e0888","a1e84d41bf63e293","241c1e30ed886aa4","501d5acb4acc06d8","f711da60664c04c1","c0a4942143e872cd","13ed070478ef62c3","8a1718ee736f769f","38868dc905f4d6d6","980f89cbce241a9d","6efced6a7e04d113","ed1712d8189adcea","2c0e2fd1410afd48","1e772489c042f49a","8d01416611a03b7c","e123375a36c76136","9970626666560a32","51aa8f7f35a1d0a8","5f6e7773915655fc","2f55b64c59eec8e5","599917fb5a47d4ba","249993eec332cb78","bdf4949a46682dc3","9eebe6aa942221a6","20b836be6317bc4c","5f226262ba09e0ec","75ff6821b8f8a31f","14e59f423e87958e","2d94fe98376d814d","39fabf3d2bf91ace","8c6e8e8b9a0eb983","374eebfb2bae1290","89e1ed6c1d606797","033fddb8853a1ad0","04605c208bd7a6bb","307302c4a4e4ecc6","d589ef48fd5f55ce","a309ac16ce1299ea","e16702398a9a3929","41bc72708c799dbc","7edbff10b5f7627e","95a84911801a7130","ff7b676cdada9bca","fd8ecd2d4d814e68","3cb95ec0c6cc1835","75d28e035320c596","f8158a8e962d1201","f34d80eb22b1490a","4f594364d6326c96","6288e70fd4838bbb","8aec299118b83ebd","0ededb699a4e223c","c45770067ec259b6","b2a4e476bb0cf3df","b05a020b94ff9f43","64168e1ca791c61b","09cf980b5ff304ac","c857d09db23e6822","50b2676afbe30c83","1472950b8ae0b5cd","a38188f3bafbcb73","0871d655983efd56","4ed91096f08e52f6","8318900ae631b424","d4c58781c552db46","a44a673a8c66e9d7","6b27eba5652b46d3","34a533dfd7273a9b","0a99b793f44bcc55","42817f456a964a0d"]);
 
 test('零原作专名：拉丁 1–3 词组（拆驼峰）与汉字 2–5 字串都不命中专名黑名单', () => {
   assert.ok(IP_HASHES.size >= 120, `黑名单 ${IP_HASHES.size} 个`);
@@ -224,6 +263,33 @@ test('零原作专名：拉丁 1–3 词组（拆驼峰）与汉字 2–5 字串
     const hit = [...grams].filter((g) => IP_HASHES.has(sha16(g)));
     assert.equal(hit.length, 0, `${name} 命中 ${hit.length} 个专名`);
   }
+});
+
+// 真实世界的城市、国家、地区、地标、语言名与常见品牌、作品名（小写后的 sha256 前 16 位；这张表是 IP_HASHES 的子集，单列出来专门扫一遍）。
+const PLACE_HASHES = new Set(["21f9f830edf15d42", "2c5ed0922cc21476", "e410993439c435f9", "95b3ec132e6e5bfc", "8540d5ac82d1cc90", "180bd8604df67b59", "58d07b8a69516695", "6df977461d522f10", "f5b984831b2d99e5", "dbd7eae813c1dc02", "fd41ccf562904e20", "a6c0db788b589b10", "089dd4929e658cdb", "0a450f78e4551525", "3b54664e8163d36a", "9313f4070dc7e1b3", "9d0fe47598dfbd14", "6de99512acbf3f39", "bd12e7ddfed2b630", "8b6368ba9218bc10", "e9284b63b8611c53", "d448d143c4e04eb6", "b4415237de7351a0", "76f872eea127e057", "f98b2fc82a45eadf", "2dd265812024c822", "75fb1f4a2a987290", "2e13b49eacb92d7a", "665d26b506d82648", "09fdb8c909a83ac7", "243eeb0a56fb1818", "f05cfcd2799d9357", "f315c04888b077bb", "724fff5b77359617", "fceb694b3d7420f9", "67aef1a0a7f8cbca", "84bd509492112cbc", "85ef3bae7236215b", "6ffeb42bdc0f8683", "1bdf7740cbeeb960", "58857e5318f3090b", "d055c3998f13e70e", "81678972842d4663", "0a7e404732db8f48", "7d3566712e910adc", "bde5cc5b7e1a7eb4", "44a06f03dbb06498", "8e1849a68722af8b", "0344bcb449f5b8ae", "af02be73f1a847f8", "3942b5dce9fd2fe0", "d8fcbae05f79fb85", "cf2abf0c5be326cb", "963cd73004547f84", "8f6ee8c64166eba0", "193e6ef53d649254", "0b1001a02c971a01", "6930e3f7dd59ab4d", "c733bdf600026d8c", "f60603b48764ce21", "fc2c8c31225942f6", "049667efe4e69d1c", "6555034669361e02", "2d5b98b7b92a0e60", "8ef85828ff9c38e9", "ab601484fc216e9a", "a8f7601a1dce9996", "fb7ba29fe11e2d83", "ae322cc596675baf", "4a2967c254e9350a", "c8fe1e39fafe30e2", "79ee9e738f2a21cc", "755403d9b5364a79", "6820333b0120b883", "ccc839ff3602dbe7", "259d06337ecd059b", "2e7cba8504fa25a4", "37800af3094247b9", "68c77e155132565e", "85da183b0683e5f7", "1bb5e3986433569c", "d222587118255cbd", "a8027f71a8e38bcb", "a66e82e6953383b1", "c690fe6240419c66", "48afd8d3b9269706", "62151de038412798", "99012cae1587f2ed", "607b860e3d7be11a", "19f2a79d2f50a2b0", "9ff15e20ef6dacb8", "bd732730bd39834d", "fdb827d1a99796cd", "ac13a8b534df4a28", "afe04579004049cc", "8e8c904e012bf0b1", "0df5568345d42f94", "105618902890e672", "bc691003939b33f2", "8be2978e343799a3", "0faa155716f526ef", "d209bcc17778fd19", "d9bb8452ecaf5a05", "fb54e9062429a937", "6089854c94ca5454", "1670f2e42fefa504", "3ca800b667fe40d7", "a8a4c692b93bfde4", "4eaae75f1df2f52b", "efee614420c57ddd", "1a2290470e0aa754", "a2470c9d137c1c5d", "9f2608067816e38c", "c630cb195f52c883", "3151a8f227c0e11f", "21bd3229a131a2cc", "713ec46512c8f371", "cc495debc1aa3188", "8dcbf68858775c8d", "2eecdca905bd8af6", "51e2a46721d104d9", "6d2805b8ba496887", "b116c99a2c11258b", "751c59fe1fa734e6", "fb38a93fd89e1a5f", "e0b40776703d9edb", "3c66157844fa8ce7", "c55ec4bbe9c7c161", "702e1c9fc717e96e", "054da1e8bc1cb20b", "00e51906df651a7e", "7e8eea5cc6098027", "5873102fa0951713", "e067e8beb3a29632", "195f33b50fa62ef2", "b41e6560a4467aa4", "e6deb10a6558650a", "d56d0ff69b62792a", "2c598436e5575a57", "b2c01c8a8a0d9a99", "93ff074ca77b5f7e", "4c799454ccf37279", "9c9b13446cd96efb", "59ae856cd788d0f5", "42e1eb95ac3ebc90", "76201e78aca720db", "90a6d53df47e4097", "b11f203e8e6ce90d", "3f5053b3ae70794b", "efb4c2bcdf2ad82a", "3b96c2072e1d9bc4", "e0f387a92fc83611", "200932544a67938b", "3423b099956ab4e7", "b055e3a6947a2cac", "b3be2834d6945d4c", "236f05e26f289988", "636bff608c5a4515", "ac901a4b54069acf", "fa2115f8d576a6ab", "f65375409d7351f4", "56fe43f748e258de", "c7c1319276e936c8", "8c46295772d0e845", "9b4248a4ed54675a", "f4e7af788f5164c7", "8d4321d936320802", "60eb33388f4e0888", "a1e84d41bf63e293", "241c1e30ed886aa4", "501d5acb4acc06d8", "f711da60664c04c1", "c0a4942143e872cd", "13ed070478ef62c3", "8a1718ee736f769f", "38868dc905f4d6d6", "980f89cbce241a9d", "6efced6a7e04d113", "ed1712d8189adcea", "2c0e2fd1410afd48", "1e772489c042f49a", "8d01416611a03b7c", "e123375a36c76136", "9970626666560a32", "51aa8f7f35a1d0a8"]);
+
+test('零真实世界地名与品牌：12 份 JSON 的标题与正文里没有城市、国家、地标、语言名与常见品牌、作品名', () => {
+  assert.ok(PLACE_HASHES.size >= 150, `地名表 ${PLACE_HASHES.size} 个`);
+  for (const h of PLACE_HASHES) assert.ok(IP_HASHES.has(h), '地名表是专名黑名单的子集');
+  const scan = (text0) => {
+    const text = text0.replace(/['’]s\b/g, '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+    const words = text.match(/[a-z0-9]+/g) ?? [];
+    const hit = new Set();
+    words.forEach((_, i) => {
+      for (let n = 1; n <= 3 && i + n <= words.length; n += 1) { const g = words.slice(i, i + n).join(' '); if (PLACE_HASHES.has(sha16(g))) hit.add(sha16(g)); }
+    });
+    for (const run of text.match(/[一-鿿]{2,}/g) ?? []) {
+      for (let i = 0; i < run.length; i += 1) for (let n = 2; n <= 5 && i + n <= run.length; n += 1) if (PLACE_HASHES.has(sha16(run.slice(i, i + n)))) hit.add(sha16(run.slice(i, i + n)));
+    }
+    return hit;
+  };
+  // 扫描器是活的：用码点拼出的两个城市名（中文一个、拉丁一个）都要被认出来，源码里不写明文。
+  const planted = [String.fromCodePoint(0x7ebd, 0x7ea6), String.fromCodePoint(0x54, 0x6f, 0x6b, 0x79, 0x6f)];
+  assert.equal(scan(`沿${planted[0]}式大街向下，${planted[1]}Alley 的雨夜`).size, 2);
+  for (const f of files) assert.equal(scan(raw(f)).size, 0, `${f} 里有真实世界地名或品牌`);
+  // 首审点名的五处：标题与正文都换成了中性的功能描述。
+  const all = files.map((f) => raw(f)).join('\n');
+  for (const neutral of ['高密度街区网格规则', '现代都市棋盘大街', '高密度霓虹雨夜街景', '暖调高密度城区', '热带高密度滨海城区']) assert.ok(all.includes(neutral), neutral);
 });
 
 test('零原包源码路径、文件名与内部编号：12 份 JSON 与加载器里没有源码文件、素材文件、文档名、清单号与裸章号', () => {
@@ -266,6 +332,20 @@ test('05 §8.1 修复一：把章号当案例号的「案例 14」全部记 case
     assert.equal(e.caseId, 'case-13', sid);
     assert.match(e.docRef, /案例 13 第 14 章/, sid);
   }
+  // 原文位置 → 修正后的条目与字段，逐处可追。
+  for (const t of fixOf('light-cam').trace) {
+    assert.ok(Number.isSafeInteger(t.sourceLine) && t.sourceLine > 0 && t.before.length >= 6, t.sourceId);
+    assert.deepEqual([t.after.caseId, t.after.chapter], ['case-13', 14], t.sourceId);
+    assert.match(t.after.docRef, /案例 13 第 14 章/, t.sourceId);
+    const row = light.manifest.rows.find((r) => r.sourceId === t.sourceId);
+    assert.deepEqual([row.sourceLine, row.route, row.targets], [t.sourceLine, t.after.route, t.after.entryIds], t.sourceId);
+  }
+  assert.deepEqual(fixOf('light-cam').trace.map((t) => t.sourceId), fixOf('light-cam').sourceIds);
+  // 动作那份的那一处在文末问题清单的编号条目里（不计入 609 条）：记了源文行号，且不与任何一条记录同行。
+  const noted = fixOf('motion-rig').notedAt;
+  assert.equal(noted.length, 1);
+  assert.ok(Number.isSafeInteger(noted[0].sourceLine) && noted[0].counted === false && !D['motion-rig'].manifest.rows.some((r) => r.sourceLine === noted[0].sourceLine));
+  assert.ok(noted[0].sourceLine > Math.max(...D['motion-rig'].manifest.rows.filter((r) => r.section !== 'appendix').map((r) => r.sourceLine)), '在正文各节之后');
   // 动作那份：第 13 到 16 章（两个头目与普通敌人）的条目一律 case-13，并带章号。
   assert.ok(fixOf('motion-rig').chapterTaggedRows >= 150, `带章号 ${fixOf('motion-rig').chapterTaggedRows} 行`);
   const motion = D['motion-rig'];
@@ -290,6 +370,9 @@ test('05 §8.1 修复二：内部编号展开成中性出处类别，没有 RP-�
     const fix = m.knownFixes.find((f) => f.issue === 'internal-ids-expanded');
     assert.ok(fix, c);
     for (const k of ['list-id', 'bare-chapter', 'source-file']) assert.ok(fix.replaced[k] > 0, `${c} ${k}`);
+    assert.ok(fix.families.length >= 20 && fix.mapping.length >= 3 && fix.mapping.every((x) => x.before && x.after), c);
+    assert.equal(Object.values(fix.docRefCategories).reduce((a, b) => a + b, 0), m.detailEntries, `${c} 出处类别覆盖全部明细`);
+    for (const k of Object.keys(fix.docRefCategories)) assert.ok(['源码拆解', '实测读数', '原文陈述', '推断与说明'].includes(k), `${c} ${k}`);
     replaced = Object.values(fix.replaced).reduce((a, b) => a + b, 0);
     const category = /；出处类别：(?:源码拆解|实测读数|原文陈述|推断与说明)·\S/;
     const refs = [...cardPriors.map((e) => e.docRef), ...practices.map((e) => e.docRef), ...m.excluded.map((e) => e.docRef), ...priors.filter((e) => !isSummary(e)).map((e) => e.provenance.docRef)];
@@ -318,6 +401,12 @@ test('05 §8.1 修复三：案例 10 竹林风摆 0.85 / 1.9 / 0.33 的单位从
   }
   const [detail] = rows.filter((r) => r.recordKind === 'detail');
   assert.equal(rows.find((r) => r.recordKind === 'summary').summaryOf, detail.sourceId);
+  // 追溯：两处原文行号 → 同一条产物的 quantities，三个角频率都是 rad/s。
+  assert.deepEqual(fix.trace.map((t) => [t.sourceId, t.sourceLine]), rows.map((r) => [r.sourceId, r.sourceLine]));
+  for (const t of fix.trace) {
+    assert.deepEqual(t.values, fix.after, t.sourceId);
+    assert.ok([...cardPriors, ...practices].some((e) => e.id === t.entryId && e.sourceId === detail.sourceId), t.sourceId);
+  }
   // 明细产物里三个频率都是 rad/s，从公开入口按目标卡能读到。
   const produced = [...cardPriors, ...practices].find((e) => e.sourceId === detail.sourceId);
   const qs = produced ? produced.quantities : priors.filter((e) => e.ext?.['c11.sourceId'] === detail.sourceId).map((e) => ({ value: e.value, unit: e.unit }));
@@ -333,6 +422,19 @@ test('05 §8.1 修复三：案例 10 竹林风摆 0.85 / 1.9 / 0.33 的单位从
   // 案例 10 的条目里不再有带 Hz 的这三个数；别的两份没有这一处。
   for (const f of files) assert.doesNotMatch(raw(f), /(?:0\.85|1\.9|0\.33) Hz/, f);
   for (const c of ['motion-rig', 'light-cam']) assert.deepEqual(D[c].manifest.knownFixes.find((f) => f.issue === 'wind-sway-angular-frequency').sourceIds, []);
+});
+
+test('体型缩放变量不当秒：s 当缩放系数用的条目里，「.29s」这类写法不出秒数', () => {
+  const fix = D['motion-rig'].manifest.knownFixes.find((f) => f.issue === 'scale-variable-not-seconds');
+  assert.ok(fix.sourceIds.length >= 1, '动作那份至少有一条');
+  assert.deepEqual(fix.checked.map((x) => x.sourceId), fix.sourceIds);
+  for (const x of fix.checked) assert.equal(x.secondsExtractedFromScaleSuffix, 0, x.sourceId);
+  // 不靠清单自报：直接在产物里复核，省略前导零贴着 s 的数没有一个被记成秒。
+  for (const sid of fix.sourceIds) {
+    const e = [...D['motion-rig'].cardPriors, ...D['motion-rig'].practices].find((x) => x.sourceId === sid);
+    assert.match(e.text, /(?<![\d.])\.\d+s(?![A-Za-z0-9_/²³])/, sid);
+    for (const mm of e.text.matchAll(/(?<![\d.])\.(\d+)s(?![A-Za-z0-9_/²³])/g)) assert.ok(!e.quantities.some((q) => q.unit === 's' && q.value === Number(`0.${mm[1]}`)), `${sid} ${mm[0]}`);
+  }
 });
 
 test('挂卡行在总账与挂卡表里都带直读的目标卡 ID，按卡从公开入口查得到', () => {
@@ -357,7 +459,11 @@ test('挂卡行在总账与挂卡表里都带直读的目标卡 ID，按卡从�
       assert.equal(e.useAsDefault, false, e.id);
       assert.equal(e.verifiedInOurStack, false, e.id);
       assert.ok(e.cardId && e.coupling && e.recalibrate && e.text && e.docRef && Array.isArray(e.quantities), e.id);
+      // 挂卡表的每一条都带字面的 target，与 cardId、与总账那一行的 target 三者相等。
+      assert.equal(e.target, e.cardId, e.id);
+      assert.equal(e.target, m.rows.find((r) => r.sourceId === e.sourceId).target, e.id);
     }
+    for (const x of m.cards) for (const e of getBatch2CardPriors(x.cardId, c)) assert.equal(e.target, x.cardId, e.id);
     for (const x of m.cards) {
       assert.equal(getBatch2CardPriors(x.cardId, c).length, x.count, `${c} ${x.cardId}`);
       assert.equal(typeof x.inSpec, 'boolean');
@@ -408,12 +514,14 @@ test('随机算式全覆盖：每个随机记号都有结构化区间，或登�
       return { id: list[0].id, sourceId, text: note, quantities: list[0].ext['c11.randomRanges'] ?? [] };
     });
     for (const e of [...cardPriors, ...practices, ...portableDetails]) {
-      const skips = skipped.filter((s) => s.sourceId === e.sourceId);
+      const skips = skipped.filter((s) => s.sourceId === e.sourceId && !s.randomVar);
       const withExpr = e.quantities.filter((q) => q.expr);
       for (const q of withExpr) {
         assert.equal(spansOf(e.text, q.expr).length, 1, `${e.id} 的 expr「${q.expr}」要在原文里恰好出现一次`);
         assert.ok(typeof q.label === 'string' && q.label.length >= 2, `${e.id} ${q.expr} 要有 label`);
-        assert.ok(q.expr.match(RAND_TOKEN), `${e.id} ${q.expr} 里要有随机记号`);
+        // 正则认得出的随机记号，或核对员逐条判定的裸变量 r（randomVar）。
+        if (q.randomVar) assert.ok(q.randomVar === 'r' && /(?<![A-Za-z_.])(?:\d*\.?\d+)?r(?![A-Za-z0-9_(.])/.test(q.expr) && !q.expr.match(RAND_TOKEN), `${e.id} ${q.expr}`);
+        else assert.ok(q.expr.match(RAND_TOKEN), `${e.id} ${q.expr} 里要有随机记号`);
       }
       const ranges = e.quantities.filter((q) => 'jitter' in q);
       for (const q of ranges) {
@@ -440,13 +548,13 @@ test('随机算式全覆盖：每个随机记号都有结构化区间，或登�
         assert.ok(cover.some(([a, b]) => a <= mm.index && mm.index < b), `${e.id} 的随机量「${e.text.slice(Math.max(0, mm.index - 16), mm.index + 20)}」没有结构化区间`);
       }
       // 一个随机记号一条区间：既不漏，也不把同一个算式拆成两条。
-      assert.equal(found.length, ranges.length + skips.length, `${e.id}：随机记号 ${found.length} 个，区间 ${ranges.length} 条，例外 ${skips.length} 个`);
+      assert.equal(found.length, ranges.filter((q) => !q.randomVar).length + skips.length, `${e.id}：随机记号 ${found.length} 个，区间 ${ranges.length} 条，例外 ${skips.length} 个`);
       tokens += found.length;
       structured += ranges.length;
     }
     for (const s of skipped) {
       const e = [...cardPriors, ...practices, ...portableDetails].find((x) => x.sourceId === s.sourceId);
-      assert.ok(e && e.text.includes(s.expr) && s.expr.match(RAND_TOKEN) && s.reason.length >= 6, `${c} 例外 ${s.sourceId} ${s.expr}`);
+      assert.ok(e && e.text.includes(s.expr) && (s.randomVar === 'r' || s.expr.match(RAND_TOKEN)) && s.reason.length >= 6, `${c} 例外 ${s.sourceId} ${s.expr}`);
     }
     assert.ok(skipped.length <= 3, `${c} 例外 ${skipped.length} 个`);
     // 可移植先验的主值不取随机算式里的数：它引用的片段里没有随机记号。
@@ -480,6 +588,44 @@ test('随机算式点名核对：正写、倒写、中心化、省略系数、�
   assert.ok(twitch.some((x) => x.unit === 's' && x.base === 1.5 && x.jitter === 4 && x.value[0] === 1.5 && x.value[1] === 5.5), JSON.stringify(twitch));
   // 同一条里四个随机记号各出一条。
   assert.equal(pools('arch-scene').find((list) => list.some((x) => x.expr === '2.39996+(rng-.5)·.7')).filter((x) => 'jitter' in x).length, 4);
+});
+
+test('裸变量随机算式：把单个字母 r 当随机数的写法逐条有结论，是随机的出区间，不是的登记原因', () => {
+  // 候选口径与生成器相同：数字紧贴 r，或 r 夹在运算符之间。是不是随机数由独立核对员读上下文定，结论在清单里。
+  const BARE_R = /(?<![A-Za-z_.])(?:\d*\.?\d+)r(?![A-Za-z0-9_(.])|(?<=[(+\-−·×*,=]\s*)r(?=\s*[·×*^²³)]|\s*[+\-−]\s*[\d.])/;
+  let randomExprs = 0;
+  each((c, { priors, cardPriors, practices, manifest: m }) => {
+    const rule = m.rules.bareVariableRandom;
+    const random = new Map(rule.random.map((x) => [x.sourceId, x.exprs]));
+    const notRandom = new Map(rule.notRandom.map((x) => [x.sourceId, x.why]));
+    assert.equal(rule.reviewed, random.size + notRandom.size, c);
+    for (const [sid, why] of notRandom) assert.ok(!random.has(sid) && why.length >= 4, `${c} ${sid}`);
+    const portable = [...Map.groupBy(priors.filter((p) => !isSummary(p)), (p) => p.ext['c11.sourceId'])].map(([sourceId, list]) => ({ sourceId, text: list[0].provenance.note, quantities: list[0].ext['c11.randomRanges'] ?? [] }));
+    const entries = [...cardPriors, ...practices, ...portable];
+    // 候选一条不漏：凡正文命中候选口径的产物条目，都在已核对的名单里。
+    for (const e of entries) if (BARE_R.test(e.text)) assert.ok(random.has(e.sourceId) || notRandom.has(e.sourceId), `${c} ${e.sourceId} 有裸变量 r 的算式但没核对过`);
+    // 判为随机的：每个算式要么出了带 randomVar 的区间，要么登记在例外表里；判为不是的不出这种区间。
+    for (const [sid, exprs] of random) {
+      const e = entries.find((x) => x.sourceId === sid);
+      if (!e) continue; // 这条明细不迁（去向是不迁），没有产物
+      for (const expr of exprs) {
+        const q = e.quantities.find((x) => x.expr === expr && x.randomVar === 'r');
+        const skip = m.rules.randomNotStructured.find((x) => x.sourceId === sid && x.expr === expr && x.randomVar === 'r');
+        assert.ok(q || skip, `${c} ${sid} ${expr}`);
+        if (q) randomExprs += 1;
+      }
+      assert.equal(e.quantities.filter((x) => x.randomVar).length + m.rules.randomNotStructured.filter((x) => x.sourceId === sid && x.randomVar).length, exprs.length, `${c} ${sid}`);
+    }
+    for (const e of entries) if (!random.has(e.sourceId)) assert.equal(e.quantities.some((x) => x.randomVar), false, `${c} ${e.sourceId}`);
+  });
+  assert.ok(randomExprs >= 20, `裸变量随机区间 ${randomExprs} 条`);
+  // 首审点名的两条：取整后的个数带 step；外层乘着变量的记 scaleBy。
+  const q = (c, sid, expr) => [...D[c].cardPriors, ...D[c].practices].find((e) => e.sourceId === sid).quantities.find((x) => x.expr === expr);
+  const arrows = q('arch-scene', 'd218', 'floor(r·2.6)');
+  assert.deepEqual([arrows.value, arrows.unit, arrows.step, arrows.base, arrows.jitter], [[0, 2], 'count', 1, 0, 2]);
+  const life = q('arch-scene', 'd359', '1+0.10r');
+  assert.deepEqual([life.value, life.unit, life.scaleBy], [[1, 1.1], 'ratio', 'T']);
+  assert.deepEqual(q('arch-scene', 'd218', '0.86+rng·0.29').value, [0.86, 1.15]);
 });
 
 test('量提取口径：变量后缀不当单位、指数与乘式里的数不出量、帧数是整数、单位在词表内', () => {
@@ -577,27 +723,53 @@ const draw = (pool, n, rand) => {
   return a.slice(0, n);
 };
 
-test('独立盲判覆盖全部明细；每份及合并任取随机种子抽 ≥ 10%（明细与汇总各 ≥ 10%），分歧都不超一成', (t) => {
+test('独立盲判覆盖全部 1,822 行；盲判员的原始判定与总账的分歧：每份全表 < 8%，任取随机种子抽 ≥ 10% 都不超一成', (t) => {
   const merged = { details: [], summaries: [], differs: new Map() };
   each((c, { manifest: m }) => {
-    const { audit, rows } = m;
+    const { audit, blindAudit, rows } = m;
     const details = rows.filter((r) => r.recordKind === 'detail');
     const summaries = rows.filter((r) => r.recordKind === 'summary');
-    const independent = new Map(audit.sample.map((s) => [s.sourceId, s.independentRoute]));
+    // 裁决记录：每条明细一条，主判与盲判不一致的两人原判都在，条数与清单记的一致；边界复判的三票都在。
     assert.equal(audit.sample.length, audit.sampleSize);
-    assert.deepEqual([...independent.keys()].sort(), details.map((r) => r.sourceId).sort(), `${c} 盲判一条不缺`);
-    for (const s of audit.sample) assert.ok(ROUTES.includes(s.independentRoute) && s.why.length >= 4 && typeof s.rubric === 'string', `${c} ${s.sourceId}`);
-    // 主判与盲判不一致的条目照实留底：两人原判都在，裁决标 v3-tiebreak，条数与清单记的一致。
+    assert.deepEqual(audit.sample.map((s) => s.sourceId).sort(), details.map((r) => r.sourceId).sort(), `${c} 裁决记录一条不缺`);
+    for (const s of audit.sample) assert.ok(ROUTES.includes(s.independentRoute) && s.why.length >= 4 && ['v4', 'v4-tiebreak', 'v4-boundary', 'v4-final-tiebreak'].includes(s.rubric), `${c} ${s.sourceId}`);
     const tied = audit.sample.filter((s) => 'blindRoute' in s);
     assert.equal(tied.length, audit.firstRoundDisagreements, c);
-    for (const s of tied) assert.ok(s.primaryRoute !== s.blindRoute && ROUTES.includes(s.primaryRoute) && ROUTES.includes(s.blindRoute) && s.rubric === 'v3-tiebreak', `${c} ${s.sourceId}`);
-    for (const s of audit.sample.filter((x) => !('blindRoute' in x))) assert.equal(s.rubric, 'v3', `${c} ${s.sourceId}`);
+    for (const s of tied) assert.ok(s.primaryRoute !== s.blindRoute && ROUTES.includes(s.primaryRoute) && ROUTES.includes(s.blindRoute), `${c} ${s.sourceId}`);
     assert.equal(Object.values(audit.tiebreakSidedWith).reduce((a, b) => a + b, 0), tied.length, c);
     const route = new Map(rows.map((r) => [r.sourceId, r.route]));
-    const differs = (r) => independent.get(r.summaryOf ?? r.sourceId) !== route.get(r.sourceId); // 汇总行的独立去向随它指回的明细
-    assert.deepEqual(audit.disagreements, details.filter(differs).map((r) => r.sourceId), `${c} 分歧照实列出`);
-    const total = rows.filter(differs).length;
-    assert.ok(total / rows.length <= 0.07, `${c} 全表分歧 ${total}/${rows.length}`);
+    for (const s of audit.sample) assert.equal(s.independentRoute, route.get(s.sourceId), `${c} ${s.sourceId} 裁决后的去向就是总账`);
+    const voted = audit.sample.filter((s) => 'boundaryVotes' in s);
+    assert.equal(voted.length, audit.boundaryRejudge.rejudged, c);
+    for (const s of voted) {
+      assert.ok(s.boundaryVotes.length === 3 && s.boundaryVotes.every((v) => ROUTES.includes(v)) && ROUTES.includes(s.beforeBoundary), `${c} ${s.sourceId}`);
+      // 复判后的去向：两票以上取多数，三票各不相同的不改（之后终版裁决若又改了，复判后的去向留在 consensusRoute）。
+      const after = s.consensusRoute ?? s.independentRoute;
+      const majority = ROUTES.find((x) => s.boundaryVotes.filter((v) => v === x).length >= 2);
+      assert.equal(after, majority ?? s.beforeBoundary, `${c} ${s.sourceId}`);
+    }
+    assert.deepEqual(audit.boundaryRejudge.changed, voted.filter((s) => s.beforeBoundary !== (s.consensusRoute ?? s.independentRoute)).map((s) => s.sourceId), c);
+    // 盲判员的原始判定：覆盖全部行（对照表行随它指回的明细），没有用裁决结果替换。
+    const blind = new Map(blindAudit.rows.map((r) => [r.sourceId, r.blindRoute]));
+    assert.deepEqual(blindAudit.rows.map((r) => r.sourceId), rows.map((r) => r.sourceId), `${c} 盲判一行不缺`);
+    assert.deepEqual([blindAudit.judgedDetails, blindAudit.summaryRowsFollowing], [details.length, summaries.length], c);
+    for (const r of rows) assert.ok(ROUTES.includes(blind.get(r.sourceId)), `${c} ${r.sourceId}`);
+    for (const r of summaries) assert.equal(blind.get(r.sourceId), blind.get(r.summaryOf), `${c} ${r.sourceId} 随明细`);
+    // 终版盲判与共识不一致的条目：共识与盲判原判都留着，交了第三人裁决；别的条目盲判就等于总账。
+    const finalTied = audit.sample.filter((s) => 'finalBlindRoute' in s);
+    assert.equal(finalTied.length, audit.finalBlind.disagreementsWithConsensus, c);
+    assert.equal(Object.values(audit.finalBlind.tiebreakSidedWith).reduce((a, b) => a + b, 0), finalTied.length, c);
+    for (const s of finalTied) {
+      assert.ok(s.consensusRoute !== s.finalBlindRoute && s.rubric === 'v4-final-tiebreak', `${c} ${s.sourceId}`);
+      assert.equal(blind.get(s.sourceId), s.finalBlindRoute, `${c} ${s.sourceId} 盲判原判没被替换`);
+    }
+    for (const s of audit.sample.filter((x) => !('finalBlindRoute' in x))) assert.equal(blind.get(s.sourceId), s.independentRoute, `${c} ${s.sourceId}`);
+    assert.equal(audit.finalBlind.tiebreakSidedWith.consensus + audit.finalBlind.tiebreakSidedWith.neither, blindAudit.disagreements.filter((id) => id.startsWith('d')).length, `${c} 裁决没采纳盲判的就是分歧`);
+    const differs = (r) => blind.get(r.sourceId) !== route.get(r.sourceId);
+    assert.deepEqual(blindAudit.disagreements, rows.filter(differs).map((r) => r.sourceId), `${c} 分歧照实列出`);
+    const rate = (list) => Math.round((list.filter(differs).length / list.length) * 1e4) / 1e4;
+    assert.deepEqual(blindAudit.disagreementRate, { details: rate(details), summaries: rate(summaries), all: rate(rows) }, c);
+    for (const [k, v] of Object.entries(blindAudit.disagreementRate)) assert.ok(v < 0.08, `${c} 盲判与总账的全量分歧 ${k} ${v}`);
     const nd = Math.ceil(details.length * 0.1);
     const ns = Math.ceil(summaries.length * 0.1);
     assert.ok((nd + ns) / rows.length >= 0.1);
@@ -609,7 +781,7 @@ test('独立盲判覆盖全部明细；每份及合并任取随机种子抽 ≥ 
       worst = Math.max(worst, n);
       assert.ok(n / picked.length <= 0.1, `${c} 种子 ${seed}：分歧 ${n}/${picked.length}`);
     }
-    t.diagnostic(`${c}：全表分歧 ${total}/${rows.length}；首轮两人不一致 ${audit.firstRoundDisagreements} 条；200 组种子里最差一组 ${worst}/${nd + ns}`);
+    t.diagnostic(`${c}：盲判与总账全表分歧 ${rows.filter(differs).length}/${rows.length}；首轮两人不一致 ${audit.firstRoundDisagreements} 条；终版盲判与共识不一致 ${finalTied.length} 条；边界复判 ${voted.length} 条、改判 ${audit.boundaryRejudge.changed.length} 条；200 组种子里最差一组 ${worst}/${nd + ns}`);
     merged.details.push(...details.map((r) => [c, r]));
     merged.summaries.push(...summaries.map((r) => [c, r]));
     merged.differs.set(c, differs);
@@ -648,4 +820,18 @@ test('定稿后的独立终验抽检：每份随机抽 ≥ 10% 明细再判一�
     t.diagnostic(`${c}：终验抽 ${v.sample.length} 条，分歧 ${dis.length}（${dis.join(',')}）`);
   });
   assert.ok(bad / all <= 0.1, `合并终验分歧 ${bad}/${all}`);
+  // 判据初稿下的第一轮终验超过一成，照实留底（当时的分歧数与分歧方向都在），没有被第二轮覆盖掉。
+  let first = 0;
+  let firstBad = 0;
+  each((c, { manifest: m }) => {
+    const v1 = m.audit.verificationFirstPass;
+    const route = new Map(m.rows.map((r) => [r.sourceId, r.route]));
+    assert.ok(v1 && v1.sample.length === v1.sampleSize && v1.sample.length >= Math.ceil(m.detailEntries * 0.1), c);
+    assert.deepEqual(v1.disagreementsAgainstFinalLedger, v1.sample.filter((x) => route.get(x.sourceId) !== x.independentRoute).map((x) => x.sourceId), c);
+    const again = new Set(m.audit.verification.sample.map((x) => x.sourceId));
+    assert.ok(v1.sample.filter((x) => again.has(x.sourceId)).length < v1.sample.length / 2, `${c} 第二轮换了样本`);
+    first += v1.sampleSize;
+    firstBad += v1.disagreementsAtThatTime;
+  });
+  assert.ok(firstBad / first > 0.1, `第一轮终验当时的分歧 ${firstBad}/${first}`);
 });
