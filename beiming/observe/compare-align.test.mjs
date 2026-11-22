@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { encodeTracks } from '../kernel/eval/tracks.mjs';
 import full from '../kernel/contracts/meta/examples/full.json' with { type: 'json' };
 import * as observe from './index.mjs';
+import { isDegenerate } from './align.mjs';
 import { estimateTokens, withinBudget } from './query.mjs';
 
 test('O6-1 compare: 两张已知差图的 PSNR/SSIM/色差/颗粒/亮度分位差值表与容差判定准确，且 <= 500 token', () => {
@@ -708,11 +709,14 @@ test('O6-13 G_REV-R3 compare：pixelDiffThreshold 按整数级差算超差像素
     assert.equal(run(k + 1, k, { pixelDiffThreshold: 1 / 255 }).pass, true, `k=${k} 反向`);
     assert.equal(run(k, k + 1, { pixelDiffThreshold: 0.00391 }).pass, false, `k=${k}`);
   }
-  // 阈值写成 k * (1 / 255) 时有 24 个 k 的浮点值比 k / 255 小一个尾数位：差恰为 k 级仍算没超，差 k + 1 级算超
+  // 阈值写成 k / 255：差恰为 k 级不算超，差 k + 1 级算超（判定是 m > threshold * 255，没有松弛）
   for (let k = 1; k < 255; k++) {
-    assert.equal(run(0, k, { pixelDiffThreshold: k * (1 / 255) }).pass, true, `k=${k}`);
-    assert.equal(run(0, k + 1, { pixelDiffThreshold: k * (1 / 255) }).pass, false, `k=${k} 多一级`);
+    assert.equal(run(0, k, { pixelDiffThreshold: k / 255 }).pass, true, `k=${k}`);
+    assert.equal(run(0, k + 1, { pixelDiffThreshold: k / 255 }).pass, false, `k=${k} 多一级`);
   }
+  // 写成 k * (1 / 255) 时有 24 个 k（33、37 …… 244）的浮点值比 k / 255 小一个尾数位，按精确标尺差 k 级就算超
+  assert.equal(33 * (1 / 255) < 33 / 255, true);
+  assert.equal(run(0, 33, { pixelDiffThreshold: 33 * (1 / 255) }).pass, false);
   // 一个像素只有一个通道超差也算；允许的超差比例由 pixelDiffMaxRatio 给，按未舍入的比例判定
   const base = gray(32);
   const half = gray(32);
@@ -793,5 +797,83 @@ test('O6-14 G_REV-R3 align：重复对应点不冒充四点、近共面判退化
     assert.equal(res.camera.degenerate, false, `s=${s}: ${JSON.stringify(res.camera)}`);
     assert.equal(res.camera.converged, true, `s=${s}: ${JSON.stringify(res.camera)}`);
     assert.ok(reprojectRmse(pts, res.camera.world, res.camera.proj, size) < 0.5, `s=${s}: ${JSON.stringify(res.camera)}`);
+  }
+});
+
+test('O6-15 G_REV-R4 compare：pixelDiffThreshold 两处同一条严格校验（null、越界都拒收），判定不留松弛', () => {
+  const gray = (v) => ({ width: 8, height: 8, rgb: new Uint8Array(192).fill(v) });
+  const run = (a, b, opts) => observe.compare(gray(a), gray(b), opts);
+  // 顶层与 tolerance 里一样严：null 不当成「没给」，大于 1 不是合法的归一化阈值
+  for (const v of [null, 2, 1.0000001, -0.1, true, false, '0.01', Number.NaN, Number.POSITIVE_INFINITY]) {
+    for (const opts of [{ pixelDiffThreshold: v }, { tolerance: { pixelDiffThreshold: v } }]) {
+      const bad = run(0, 255, opts);
+      assert.equal(bad.ok, false, JSON.stringify(opts));
+      assert.equal(bad.error.code, 'usage.bad-argument', JSON.stringify(opts));
+    }
+  }
+  // 顶层给 null 时不许悄悄退回 tolerance 里的值
+  assert.equal(run(0, 255, { pixelDiffThreshold: null, tolerance: { pixelDiffThreshold: 1 / 255 } }).ok, false);
+  // 值域两端合法：0 有差即超，1 时全黑对全白也不超
+  assert.equal(run(0, 255, { pixelDiffThreshold: 1 }).pass, true);
+  assert.equal(run(0, 255, { pixelDiffThreshold: 0 }).pass, false);
+  // 0.003921568627 比 1/255 小 4.5e-13：乘 255 得 0.999999999885 < 1，差一级必须算超（旧的 +1e-12 松弛会放过）
+  for (const opts of [{ pixelDiffThreshold: 0.003921568627 }, { tolerance: { pixelDiffThreshold: 0.003921568627 } }]) {
+    const res = run(32, 33, opts);
+    assert.equal(res.ok, true, JSON.stringify(res));
+    assert.equal(res.pass, false, JSON.stringify(res));
+    assert.equal(res.rows.find((x) => x.metric === 'fracAboveThreshold').value, 1);
+  }
+  assert.equal(run(32, 33, { pixelDiffThreshold: 1 / 255 }).pass, true);
+});
+
+test('O6-16 G_REV-R4 align：解处雅可比条件数判 7 参数不可辨识（四角加光轴点），协方差那道门直接单测', () => {
+  const size = [640, 360];
+  const fit = (pts, initial) => {
+    const res = observe.align({ camera: { points: pts, size, ...(initial ? { initial } : {}) } });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    return res.camera;
+  };
+  const corners = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]];
+
+  // 反例本身：(z=5, fovY=45) 与 (z=8, fovY=29.03) 对「四角 + 光轴点 [0,0,1]」给出同一组屏幕点，三维点并不共面
+  const axis = [...corners, [0, 0, 1]];
+  const near5 = synthCamera(axis, [0, 0, 5], [0, 0, 0], 45, size);
+  const fov8 = (Math.atan((5 / 8) * Math.tan(Math.PI / 8)) * 360) / Math.PI;
+  assert.ok(Math.abs(fov8 - 29.03) < 0.01, String(fov8));
+  const far8 = synthCamera(axis, [0, 0, 8], [0, 0, 0], fov8, size);
+  near5.forEach((p, i) => assert.ok(Math.hypot(p.screen[0] - far8[i].screen[0], p.screen[1] - far8[i].screen[1]) < 1e-9));
+
+  for (const s of [1e-9, 1e-5, 1, 1e5, 1e9]) {
+    const scaled = (pts) => pts.map((p) => p.map((c) => c * s));
+    const clip = { near: 0.01 * s, far: 1000 * s };
+    // 沿光轴的一维零空间：重投影误差是 0，但不能报收敛
+    const amb = fit(synthCamera(scaled(axis), [0, 0, 5 * s], [0, 0, 0], 45, size), clip);
+    assert.equal(amb.degenerate, true, `光轴点 s=${s}: ${JSON.stringify(amb)}`);
+    assert.equal(amb.converged, false, `光轴点 s=${s}`);
+    assert.ok(amb.rmsePx < 0.5, `光轴点 s=${s}: ${amb.rmsePx}`);
+    // 第五点离开光轴就可辨识：不误报，解回真值
+    const pts = synthCamera(scaled([...corners, [0.6, 0.1, 1]]), [0, 0, 5 * s], [0, 0, 0], 45, size);
+    const ok = fit(pts, clip);
+    assert.equal(ok.degenerate, false, `离轴点 s=${s}: ${JSON.stringify(ok)}`);
+    assert.equal(ok.converged, true, `离轴点 s=${s}: ${JSON.stringify(ok)}`);
+    assert.ok(reprojectRmse(pts, ok.world, ok.proj, size) < 0.5, `离轴点 s=${s}`);
+    assert.ok(Math.abs(ok.fovY - 45) < 0.5 && Math.abs(ok.pos[2] / s - 5) < 0.05, `离轴点 s=${s}: ${JSON.stringify(ok)}`);
+  }
+
+  // 协方差这道门单测直接覆盖（公开入口上它的多数情形也会被雅可比那道门判到，两道门各自要有测试守着）
+  const flat = [[-1, -1], [1, -1], [1, 1], [-1, 1], [0.3, 0.2], [-0.4, 0.5]];
+  const cube = [[-1, 0, -1], [1, 0.2, -1], [-1, 1.4, 1], [1, 1.2, 1], [0, 0.6, 0], [-0.5, 0.3, 1], [0.6, 1, -0.7], [0.2, 0.1, 0.8]];
+  const eye = [1, 0, 0, 0, 1, 0, 0, 0, 1]; // 视线沿 z
+  const gate = (world) => {
+    const c = [0, 1, 2].map((k) => world.reduce((acc, p) => acc + p[k] / world.length, 0));
+    const radius = Math.max(...world.map((p) => Math.hypot(p[0] - c[0], p[1] - c[1], p[2] - c[2])));
+    return isDegenerate(world.map((p) => ({ world: p })), c, radius, eye);
+  };
+  for (const s of [1e-160, 1e-9, 1, 1e9, 1e160]) {
+    // 变异 M23：法向起伏 3e-4 倍尺度的近共面点集正对视线判退化（共面阈值放宽到 1e-9 就漏判）；
+    // 变异 M19：不除以点集半径时，1e-160 下协方差下溢成 0、1e160 下溢出，都会把它当各向同性放行
+    assert.equal(gate(flat.map(([a, b], i) => [a * s, b * s, (i % 2 ? 3e-4 : -3e-4) * s])), true, `近共面 s=${s}`);
+    // 非共面点集在任何尺度都不误报（判重阈值跟半径走，没有绝对下限）
+    assert.equal(gate(cube.map((p) => p.map((v) => v * s))), false, `非共面 s=${s}`);
   }
 });

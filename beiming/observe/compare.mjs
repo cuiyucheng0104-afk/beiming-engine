@@ -3,7 +3,7 @@
 //     a、b      { width, height, rgb | data }、PNG 路径字符串或 { path }、PNG Buffer/Uint8Array，或 { video | videoPath, frame?, fps? }；
 //               一个输入对象只能给一种来源（path、video、videoPath、rgb、data 之一），多给报错
 //     options   { tolerance?, pixelDiffThreshold?, heatmapPath?（别名 heatmapOut，不得指向输入文件）, heatmapGain?, metrics? }；未知选项、容差键或指标名报错
-//               pixelDiffThreshold（0..1，也可写在 tolerance 里）：逐像素取三通道最大差的整数级数除以 255，超过阈值的像素占比记为
+//               pixelDiffThreshold（0..1 的有限数，越界、null 等一律报错；也可写在 tolerance 里，校验相同）：逐像素取三通道最大差的整数级数除以 255，超过阈值的像素占比记为
 //               fracAboveThreshold 一行，占比超过 tolerance.pixelDiffMaxRatio（默认 0）即不通过
 //   复用白名单：tools/baseline/lib/metrics.mjs（PSNR、SSIM、maxDiff、fracAbove1/2、容差 judge、热图 diffHeatmap）
 //     与 tools/eval/lib/metrics.mjs（seamDeltaE、paletteDeltaE、lineCoverage、grainEnergy），并补 Rec.709 亮度分位差（p05/p50/p95）。
@@ -100,13 +100,14 @@ function lumaQuantiles({ width, height, rgb }) {
 }
 
 // 超差像素占比：一个像素的差取三通道最大的整数级数（口径同白名单 compareImages），再除以 255 与阈值比；
-// 1e-12 只吸收 k/255 的浮点表示误差，相邻整数级之间隔着 1/255，不会被它抹平
+// 直接比 m > threshold * 255，不留松弛：(k / 255) * 255 在双精度下对 0..255 的每个 k 都恰好等于 k，阈值写成 k / 255 时差 k 级不算超
 function fracAboveThreshold(a, b, threshold) {
   const n = a.width * a.height;
+  const limit = threshold * 255;
   let above = 0;
   for (let p = 0; p < n * 3; p += 3) {
     const m = Math.max(Math.abs(a.rgb[p] - b.rgb[p]), Math.abs(a.rgb[p + 1] - b.rgb[p + 1]), Math.abs(a.rgb[p + 2] - b.rgb[p + 2]));
-    if (m / 255 > threshold + 1e-12) above++;
+    if (m > limit) above++;
   }
   return above / n;
 }
@@ -200,10 +201,13 @@ export function compare(a, b, options = {}) {
     const stray = Object.keys(options).find((k) => !OPT_KEYS.has(k));
     if (stray !== undefined) throw new Error(`options.${stray} 不是已知选项；可用 ${[...OPT_KEYS].join('、')}`);
     const tol = checkTolerance(options.tolerance);
-    const pxThreshold = options.pixelDiffThreshold ?? tol.pixelDiffThreshold;
-    if (pxThreshold !== undefined && !(typeof pxThreshold === 'number' && Number.isFinite(pxThreshold) && pxThreshold >= 0)) {
-      throw new Error('pixelDiffThreshold 必须是非负有限数');
+    // 顶层与 tolerance 里的阈值走同一条校验：只按 undefined 判「没给」，null、布尔、字符串、NaN、越界都报错
+    for (const v of [options.pixelDiffThreshold, tol.pixelDiffThreshold]) {
+      if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1)) {
+        throw new Error('pixelDiffThreshold 必须是 0 到 1 之间的有限数');
+      }
     }
+    const pxThreshold = options.pixelDiffThreshold ?? tol.pixelDiffThreshold;
     if (options.pixelDiffThreshold !== undefined && tol.pixelDiffThreshold !== undefined && options.pixelDiffThreshold !== tol.pixelDiffThreshold) {
       throw new Error('pixelDiffThreshold 在顶层与 tolerance 里给了不同的值');
     }

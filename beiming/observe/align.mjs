@@ -6,8 +6,9 @@
 //     composition  { reference: bbox2d, actual: bbox2d, size: [w, h] } → centerShiftPx、centerShiftNorm、areaRatio、iou
 //     camera       { points: [{ world: [x,y,z], screen: [u,v] }], size: [w, h], initial?: { pos?, target?, fovY?, near?, far? } }
 //                  7 参数（pos[3] + 轴角 rotation[3] + fovY[5..140]）阻尼高斯-牛顿（LM）拟合；world/proj 4x4 列主序对齐 meta/0.1（双精度），rmsePx 由返回矩阵复算，另给 converged 与 degenerate
-//                  （点集重合、独立世界点不足 4 个、共线或共面且正对相机时不可辨识，此时 converged 恒为 false）；near/far 使 proj 溢出时报错。
-//                  长度阈值都按点集半径（各点到质心的最大距离）取；半径 1e-12 到 1e6 有回归测试，超出不保证收敛（如实给 converged: false）。
+//                  （点集重合、独立世界点不足 4 个、共线或共面且正对相机，或解处归一化雅可比 J^T J 的最小与最大特征值之比 < 1e-7，
+//                  即 7 个自由度局部不可唯一辨识，此时 converged 恒为 false）；near/far 使 proj 溢出时报错。
+//                  长度量都按点集半径（各点到质心的最大距离）归一；半径 1e-9 到 1e9 有回归测试，超出不保证收敛（如实给 converged: false）。
 //   预算：返回值 JSON 严格满足 withinBudget(json, 500)；非法参数返回 { ok: false, error: { code, message } }，不抛异常。
 
 import { resolve } from 'node:path';
@@ -399,6 +400,85 @@ function projectResiduals(points, width, height, pos, R, fovY, scale) {
   return { res, sse, valid };
 }
 
+// 重投影残差对 7 个自由度的数值雅可比（中心差分，按列存）：位置三列以点集半径为单位（步长与导数都按它归一，
+// 所以求解时的阻尼下限、主元阈值与场景尺度无关），旋转用局部切空间 R * exp([dw]_x) 避开万向节奇异
+function numericJacobian(points, width, height, pos, R, fovY, scale) {
+  const m = points.length * 2;
+  const steps = [1e-5 * scale, 1e-5 * scale, 1e-5 * scale, 1e-5, 1e-5, 1e-5, 1e-3];
+  const at = (p, rot, fv) => projectResiduals(points, width, height, p, rot, fv, scale).res;
+  const J = Array.from({ length: 7 }, () => new Float64Array(m));
+  for (let k = 0; k < 7; k++) {
+    const h = steps[k];
+    let plus;
+    let minus;
+    let span = 2 * h;
+    if (k < 3) {
+      const p1 = [...pos]; p1[k] += h;
+      const p2 = [...pos]; p2[k] -= h;
+      plus = at(p1, R, fovY);
+      minus = at(p2, R, fovY);
+    } else if (k < 6) {
+      const d1 = [0, 0, 0]; d1[k - 3] = h;
+      const d2 = [0, 0, 0]; d2[k - 3] = -h;
+      plus = at(pos, mul3(R, rodrigues(...d1)), fovY);
+      minus = at(pos, mul3(R, rodrigues(...d2)), fovY);
+    } else {
+      const f1 = clamp(fovY + h, 5, 140);
+      const f2 = clamp(fovY - h, 5, 140);
+      span = Math.max(1e-6, f1 - f2);
+      plus = at(pos, R, f1);
+      minus = at(pos, R, f2);
+    }
+    const unit = k < 3 ? scale : 1;
+    for (let row = 0; row < m; row++) J[k][row] = ((plus[row] - minus[row]) / span) * unit;
+  }
+  return J;
+}
+
+// 7 参数在解处是否局部可唯一辨识：位置按点集半径、角度与视场角按弧度归一后取 H = J^T J（7x7 对称半正定），
+// 用循环 Jacobi 旋转求全部特征值；最小与最大之比低于 1e-7（或秩亏）说明存在重投影误差不变的方向。
+// 例：正对平面的四角加光轴上一点，三维点不共面，但相机沿光轴前后移动可由 fovY 完全补偿。
+const IDENT_EIG_RATIO = 1e-7;
+function unidentifiable(points, width, height, pos, R, fovY, scale) {
+  const J = numericJacobian(points, width, height, pos, R, fovY, scale);
+  const unit = [1, 1, 1, 1, 1, 1, 180 / Math.PI]; // 位置列已按半径归一，fovY 从度换成弧度
+  const A = Array.from({ length: 7 }, (_, a) => Array.from({ length: 7 }, (_, b) => {
+    let s = 0;
+    for (let row = 0; row < J[a].length; row++) s += J[a][row] * J[b][row];
+    return s * unit[a] * unit[b];
+  }));
+  if (!A.every((row) => row.every(Number.isFinite))) return true;
+  for (let sweep = 0; sweep < 30; sweep++) {
+    let off = 0;
+    for (let p = 0; p < 6; p++) {
+      for (let q = p + 1; q < 7; q++) {
+        if (A[p][q] === 0) continue;
+        off += A[p][q] ** 2;
+        const theta = (A[q][q] - A[p][p]) / (2 * A[p][q]);
+        const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.hypot(theta, 1));
+        const c = 1 / Math.hypot(t, 1);
+        const s = t * c;
+        for (let k = 0; k < 7; k++) { // A <- A * G
+          const akp = A[k][p];
+          const akq = A[k][q];
+          A[k][p] = c * akp - s * akq;
+          A[k][q] = s * akp + c * akq;
+        }
+        for (let k = 0; k < 7; k++) { // A <- G^T * A
+          const apk = A[p][k];
+          const aqk = A[q][k];
+          A[p][k] = c * apk - s * aqk;
+          A[q][k] = s * apk + c * aqk;
+        }
+      }
+    }
+    if (off === 0) break;
+  }
+  const eig = A.map((row, i) => row[i]);
+  const max = Math.max(...eig);
+  return !(max > 0) || !(Math.min(...eig) >= IDENT_EIG_RATIO * max);
+}
+
 // scale 为点集半径：位置差分步长与收敛步长按场景尺度归一，微小尺度场景也能收敛
 function lmOptimize(points, width, height, initPos, initR, initFovY, scale) {
   let pos = [...initPos];
@@ -407,7 +487,6 @@ function lmOptimize(points, width, height, initPos, initR, initFovY, scale) {
   let cur = projectResiduals(points, width, height, pos, R, fovY, scale);
   let lambda = 1e-3;
   const m = points.length * 2;
-  const steps = [1e-5 * scale, 1e-5 * scale, 1e-5 * scale, 1e-5, 1e-5, 1e-5, 1e-3];
   let converged = false;
 
   for (let iter = 0; iter < 80; iter++) {
@@ -416,34 +495,7 @@ function lmOptimize(points, width, height, initPos, initR, initFovY, scale) {
       converged = true;
       break;
     }
-    // 数值雅可比（中心差分），旋转用局部切空间 R * exp([dw]_x) 避开万向节奇异
-    const J = Array.from({ length: 7 }, () => new Float64Array(m));
-    for (let k = 0; k < 7; k++) {
-      const h = steps[k];
-      let plus;
-      let minus;
-      if (k < 3) {
-        const p1 = [...pos]; p1[k] += h;
-        const p2 = [...pos]; p2[k] -= h;
-        plus = projectResiduals(points, width, height, p1, R, fovY, scale).res;
-        minus = projectResiduals(points, width, height, p2, R, fovY, scale).res;
-      } else if (k < 6) {
-        const d1 = [0, 0, 0]; d1[k - 3] = h;
-        const d2 = [0, 0, 0]; d2[k - 3] = -h;
-        plus = projectResiduals(points, width, height, pos, mul3(R, rodrigues(...d1)), fovY, scale).res;
-        minus = projectResiduals(points, width, height, pos, mul3(R, rodrigues(...d2)), fovY, scale).res;
-      } else {
-        const f1 = clamp(fovY + h, 5, 140);
-        const f2 = clamp(fovY - h, 5, 140);
-        const span = Math.max(1e-6, f1 - f2);
-        plus = projectResiduals(points, width, height, pos, R, f1, scale).res;
-        minus = projectResiduals(points, width, height, pos, R, f2, scale).res;
-        for (let row = 0; row < m; row++) J[k][row] = (plus[row] - minus[row]) / span;
-        continue;
-      }
-      const inv = 0.5 / h;
-      for (let row = 0; row < m; row++) J[k][row] = (plus[row] - minus[row]) * inv;
-    }
+    const J = numericJacobian(points, width, height, pos, R, fovY, scale);
 
     const H = Array.from({ length: 7 }, () => new Float64Array(7));
     const g = new Float64Array(7);
@@ -470,13 +522,13 @@ function lmOptimize(points, width, height, initPos, initR, initFovY, scale) {
         lambda = Math.min(1e8, lambda * 10);
         continue;
       }
-      const nPos = [pos[0] + delta[0], pos[1] + delta[1], pos[2] + delta[2]];
+      const nPos = [pos[0] + delta[0] * scale, pos[1] + delta[1] * scale, pos[2] + delta[2] * scale];
       const nR = mul3(R, rodrigues(delta[3], delta[4], delta[5]));
       const nFov = clamp(fovY + delta[6], 5, 140);
       const next = projectResiduals(points, width, height, nPos, nR, nFov, scale);
       if (next.sse < cur.sse) {
         const rel = (cur.sse - next.sse) / Math.max(cur.sse, 1e-12);
-        const stepNorm = Math.hypot(delta[0] / scale, delta[1] / scale, delta[2] / scale, delta[3], delta[4], delta[5], delta[6]);
+        const stepNorm = Math.hypot(...delta);
         pos = nPos;
         R = nR;
         fovY = nFov;
@@ -546,11 +598,12 @@ function reproject(points, world, proj, width, height) {
 }
 
 // 点集协方差特征值：共线（λ2≈0），或共面且平面正对相机（法向∥视线，fovY 与距离不可分）时 7 参数不可辨识。
-// 先减质心、除以点集半径再算：阈值全落在无量纲坐标上，判定与场景尺度无关
-function isDegenerate(points, centroid, radius, R) {
+// 先减质心、除以点集半径再算：阈值全落在无量纲坐标上，判定与场景尺度无关。
+// 导出只为单测直接覆盖这道门（解处雅可比那道门会盖住它的大部分情形），不进 index.mjs
+export function isDegenerate(points, centroid, radius, R) {
   if (!(radius > 0)) return true; // 全部重合
   // 独立世界点不足 4 个时方程少于 7 个：同一世界点重复给不增加约束，屏幕点相同或略有出入都一样，所以只按世界坐标判重
-  const eps = 1e-9 * Math.max(radius, 1e-30);
+  const eps = 1e-9 * radius;
   const uniq = [];
   for (const p of points) {
     if (uniq.length < 4 && !uniq.some((q) => Math.hypot(...sub3(p.world, q)) <= eps)) uniq.push(p.world);
@@ -661,7 +714,9 @@ function alignCamera(spec) {
   // 不把 Infinity/NaN（JSON 里是 null）放进 ok: true 的回答
   if (!proj.every(Number.isFinite)) throw new Error('相机裁剪参数超出可表示浮点范围');
   if (!world.every(Number.isFinite)) throw new Error('相机点坐标超出可表示浮点范围');
-  const degenerate = isDegenerate(points, centroid, radius, best.R);
+  // 两道门：点集协方差（重合、重复、共线、近共面正对）与解处的雅可比条件数（7 个自由度是否局部可唯一辨识）
+  const degenerate = isDegenerate(points, centroid, radius, best.R)
+    || (best.valid && unidentifiable(points, width, height, best.pos, best.R, best.fovY, scale));
   return {
     pos: best.pos.map(p9),
     rotation: matToAxisAngle(best.R).map(p9),
