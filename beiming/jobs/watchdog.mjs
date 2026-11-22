@@ -48,6 +48,19 @@ function snapshot(value, where, allowed) {
   return out;
 }
 
+// 纯数据数组：非 Proxy、原型正好是 Array.prototype，自有键只有 0..length-1 和 length（没有空洞、多余的键、Symbol 键）。
+// 元素只从描述符里读，取值器一次也不调。
+function isCleanArray(value, itemOk) {
+  if (types.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) return false;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (Reflect.ownKeys(descriptors).length !== value.length + 1) return false; // 先比键数：长度虚高的空洞数组不进下面的循环
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = descriptors[index];
+    if (!descriptor || !Object.hasOwn(descriptor, 'value') || !itemOk(descriptor.value)) return false;
+  }
+  return true;
+}
+
 // 原型正好是这个类的非 Proxy 对象。不用 instanceof：它会顺着原型链走，链上有 Proxy 就触发陷阱。
 const isExactly = (value, Class) => value !== null && typeof value === 'object' && !types.isProxy(value) && Object.getPrototypeOf(value) === Class.prototype;
 
@@ -376,6 +389,7 @@ export function createJobWatchdog(input) {
 
   // 调一次探针。探针不回话（GPU 挂死时很常见）不能把后面的检查一起拖住：过了 probeTimeoutMs 按失败算。
   function callProbe(probe, pids) {
+    if (closed || violation) return Promise.reject(new Error('看门狗已经越线或关闭，不再起探针。'));
     let timer;
     const expired = new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error(`探针超过 ${probeTimeoutMs} ms 没有回话。`)), probeTimeoutMs);
@@ -387,9 +401,12 @@ export function createJobWatchdog(input) {
     });
   }
 
+  // 每起一个探针之前都看一眼：等上一个探针回话的工夫里越线或关闭了，后面的探针不再起。
+  // 关闭打断在途的探针不算越线：trip 自己不理关闭之后的调用。
   async function runProbes() {
+    const stopped = () => closed || violation;
     let pids;
-    if (probeGpuHealth && !violation) {
+    if (probeGpuHealth && !stopped()) {
       let healthy;
       try {
         pids = probePids();
@@ -400,7 +417,7 @@ export function createJobWatchdog(input) {
       // 探针只有明确交回 true 才算健康；别的回执、抛错、超时都按 GPU 丢失处理。
       if (healthy !== true) trip(coded('failure.gpu-lost', 'GPU 健康探针没有报健康。', { reason: 'probe', ...(healthy instanceof Error && { cause: healthy }) }));
     }
-    if (probeVramMB && !violation) {
+    if (probeVramMB && !stopped()) {
       try {
         const reading = await callProbe(probeVramMB, pids ?? probePids());
         if (typeof reading !== 'number' || !Number.isFinite(reading) || reading < 0) throw new TypeError('显存探针要交回非负有限数（MB）。');
@@ -482,15 +499,13 @@ export function createJobWatchdog(input) {
     /** 起一个受管子进程：POSIX 上独立进程组，强杀时连孙进程一起。spawnOptions 只收 cwd、env、stdio。 */
     spawnManaged(file, args = [], spawnOptions = {}) {
       const safe = snapshot(spawnOptions, 'spawnManaged 的选项', ['cwd', 'env', 'stdio']);
-      if (typeof file !== 'string' || !file || types.isProxy(args) || !Array.isArray(args)
-        || !Object.values(Object.getOwnPropertyDescriptors(args)).every((item) => Object.hasOwn(item, 'value'))
-        || !args.every((arg) => typeof arg === 'string')) {
+      if (typeof file !== 'string' || !file || !isCleanArray(args, (arg) => typeof arg === 'string')) {
         throw bad('spawnManaged 要给可执行文件路径和字符串参数数组。');
       }
       const { cwd, stdio } = safe;
       const stdioWord = (word) => ['ignore', 'pipe', 'inherit'].includes(word);
       if ((cwd !== undefined && typeof cwd !== 'string')
-        || (stdio !== undefined && !stdioWord(stdio) && !(!types.isProxy(stdio) && Array.isArray(stdio) && stdio.every(stdioWord)))) {
+        || (stdio !== undefined && !stdioWord(stdio) && !isCleanArray(stdio, stdioWord))) {
         throw bad('cwd 要是字符串，stdio 只认 ignore、pipe、inherit 或它们的数组。');
       }
       const env = safe.env === undefined ? undefined : snapshot(safe.env, 'spawnManaged 的 env', null);
@@ -582,7 +597,7 @@ export function createJobWatchdog(input) {
 
 /**
  * 带着看门狗跑一个任务：task 收到 { watchdog, lease, signal }。
- * 给了 scheduler 就先按 scheduleSpec 拿租约，显存配额默认取租约的 vramMB、不得比它大；不论成败，强杀结束之后归还租约
+ * 给了 scheduler 就先按 scheduleSpec 拿租约，显存配额默认取租约的 vramMB、不得比它大；任务正常返回之前再 check() 一遍，越线照样拒绝；不论成败，强杀结束之后归还租约
  * （等满 2 秒还杀不死的进程列在错误的 survivors 里，租约照还）。
  * signal 在越线、租约被抢占或调用方的 signal 中止时中止。
  */
@@ -621,7 +636,9 @@ export async function runWithWatchdog(input, task) {
     // 排队期间越线（工作区被写满）也不再占着队列等额度。
     if (scheduler) lease = await scheduler.acquire(spec, { signal: AbortSignal.any([watchdog.signal, signal].filter(Boolean)) });
     const signals = [watchdog.signal, lease?.signal, signal].filter(Boolean);
-    return await watchdog.guard(() => task({ watchdog, lease, signal: AbortSignal.any(signals) }));
+    const result = await watchdog.guard(() => task({ watchdog, lease, signal: AbortSignal.any(signals) }));
+    await watchdog.check(); // 返回前再查一遍：帧外写超的磁盘、轮询还没赶上的显存与 GPU 丢失，不当成功交回
+    return result;
   } finally {
     watchdog.close();
     lease?.release();

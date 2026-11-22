@@ -200,7 +200,7 @@ await runWithWatchdog({
 });
 ```
 
-同一个调度器上并发跑几个任务就各调一次 `runWithWatchdog`：每个任务一个看门狗、一份受管进程名单，只杀自己名下的进程；一个任务越线被杀，别的任务的租约、进程与帧都不受影响（`watchdog.test.mjs` 的 A14-7、A14-8 在真实 WebGL2 上跑的就是这个）。不经调度器时直接用 `createJobWatchdog({ quotas, workspaceDir, probeVramMB, probeGpuHealth })`，用完 `close()`。
+同一个调度器上并发跑几个任务就各调一次 `runWithWatchdog`：每个任务一个看门狗、一份受管进程名单，只杀自己名下的进程；一个任务越线被杀，别的任务的租约、进程与帧都不受影响（`watchdog.test.mjs` 的 A14-7、A14-8 在真实 WebGL2 上跑的就是这个）。不经调度器时直接用 `createJobWatchdog({ quotas, workspaceDir, probeVramMB, probeGpuHealth })`，交回结果之前自己 `await check()` 一遍，用完 `close()`。
 
 两个入口都要显式给 `quotas`（一维都不设就写 `{}`），`workspaceDir` 与磁盘配额要一起给：漏写、写成 `undefined` 都报 `usage.bad-argument`，不会悄悄变成不设防。一个看门狗同时只跑一帧，上一帧没结束就调 `runFrame` 同样报 `usage.bad-argument`。
 
@@ -239,13 +239,13 @@ await runWithWatchdog({
 1. **第一次越线定案**：记下这次的错，停掉轮询与着色器计时器，中止 `watchdog.signal`（`reason` 就是这个错），开始强杀。之后再发生的越线、`reportGpuLost` 都不改结论。
 2. **杀完再报**：全部受管进程连同后代死透之后，`runFrame`、`guard`、`check` 才以这个错拒绝。等满 2 秒还有没死的就不再等，错上的 `survivors` 列出它们。任务函数自己永不结束也照样拒绝；任务因为进程被杀先抛了「连接断开」之类的错，一律换成越线的那个错。
 3. **`runWithWatchdog` 在 `finally` 里关看门狗、还租约**：正常情况下进程已经死透，显存已经放掉，下一个任务这时才拿得到额度。`survivors` 不是空数组时租约照还（不然队列会被一个杀不死的进程永久堵住），这时卡上的显存不一定已经放掉，调用方要自己看这个字段。越线之后才登记上来的进程（任务当时正在起浏览器，哪怕看门狗已经关闭）当场补杀，`registerProcess` 抛越线的那个错；越线之后 `spawnManaged` 不再起新进程，抛同一个错。
-4. **没越线不杀进程**：任务正常结束或自己抛错，受管进程归调用方自己收。调度器抢占（租约的 `signal` 中止，原因 `'preempted'`）和调用方取消只经 `signal` 转达，不强杀：收不收手仍由单帧超时兜底。
+4. **没越线不杀进程**：任务正常结束或自己抛错，受管进程归调用方自己收。`runWithWatchdog` 在任务函数正常返回之后、交回结果之前再 `check()` 一遍（磁盘、GPU 健康、显存）：帧外写超了、轮询还没赶上的越线，照样强杀名下进程并以越线的错拒绝，不当成功交回。任务自己抛错的不再查；任务函数不要自己 `close()`（先关了，这最后一查做不了，报 `usage.bad-argument`）。调度器抢占（租约的 `signal` 中止，原因 `'preempted'`）和调用方取消只经 `signal` 转达，不强杀：收不收手仍由单帧超时兜底。
 
 帧计时器与着色器计时器只在各自进行中才存在，会拦住事件循环直到到点或清掉；轮询计时器 `unref`，不拖住进程退出。
 
 ### 受管进程与强杀
 
-- `spawnManaged(file, args, { cwd, env, stdio })`：POSIX 上以独立进程组起（`detached`），强杀时向整个进程组发信号，浏览器的 GPU 进程、渲染进程和孙进程一起死；Windows 上用 `taskkill /PID <pid> /T /F`。选项只收这三个键，不收 `shell`、`detached`。
+- `spawnManaged(file, args, { cwd, env, stdio })`：POSIX 上以独立进程组起（`detached`），强杀时向整个进程组发信号，浏览器的 GPU 进程、渲染进程和孙进程一起死；Windows 上用 `taskkill /PID <pid> /T /F`。选项只收这三个键，不收 `shell`、`detached`。`args` 与数组写法的 `stdio` 必须是纯数据数组：原型正好是 `Array.prototype`，没有空洞、多余的键与取值器（元素只从属性描述符里读，取值器一次也不调）。
 - `registerProcess(childOrPid, { processGroup })`：登记别处起的进程（例如 Playwright `launchServer()` 的浏览器进程，它本来就是进程组长，传 `processGroup: true`）。只认原型正好是 `ChildProcess` 的对象或进程号（`scheduler` 同理：只认 `Scheduler` 本身的实例，子类不收），并对着进程表查它不是本进程的祖先。
 - **名单不留死人**：每个轮询间隔、每次强杀之前先清名单。已经退出、组里也没人的条目除名，之后不再向它的进程号发信号；组长退了组里还有人的，只按进程组发信号。`ChildProcess` 看它自己的退出状态；只给进程号的看那个进程号还在不在。
 - 强杀时先拍下进程表，按父进程号与进程组把后代找全（POSIX 用 `ps`），再发信号：没有独立进程组的受管进程，孙进程也杀得到。带宽限的两轮里，SIGKILL 一轮连 SIGTERM 一轮点到的进程号一起发：根进程先死之后，不理 SIGTERM 的孙进程改认 1 号进程，按父进程号已经找不回来。`ps` 不可用时退回「根进程加进程组」。
@@ -257,7 +257,7 @@ await runWithWatchdog({
 两路取大的那个和 `vramQuotaMB` 比：
 
 1. **任务内账本**：`recordVramBytes(bytes)` 累加（非负安全整数），`setVramMB(mb)` 改成绝对值（释放之后往下改）。越线时在调用处同步抛错，同时强杀。账本靠渲染端如实申报，适合宿主运行时自己包住分配入口的场合。
-2. **外部探针** `probeVramMB({ pids })`：每个轮询间隔调一次，`pids` 是受管进程树的全部进程号，交回非负有限数（MB）。抛错、交回别的东西、超过 `probeTimeoutMs` 不回话都按超限处理（看不见用量的任务不留在卡上）。探针没回话期间磁盘照常每个间隔查一次。
+2. **外部探针** `probeVramMB({ pids })`：每个轮询间隔调一次，`pids` 是受管进程树的全部进程号，交回非负有限数（MB）。抛错、交回别的东西、超过 `probeTimeoutMs` 不回话都按超限处理（看不见用量的任务不留在卡上）。探针没回话期间磁盘照常每个间隔查一次。越线或 `close()` 之后不再起探针：正等着的探针当场放弃，`check()` 立刻结算，关闭打断探针不算越线。
    - `createVramProbe()` 在 macOS 上用系统自带的 `footprint` 读进程树的图形内存（`IOAccelerator (graphics)` 的 Dirty 列）。任务不申报也抓得到（`watchdog.test.mjs` 的 A14-7b）。开发时在本机量过一次：每分配一张写满的 2048×2048 RGBA32F 纹理，读数增加约 64 MB；这个数没有写成测试断言。
    - 别的平台用 `nvidia-smi --query-compute-apps=pid,used_gpu_memory --format=csv,noheader,nounits`。**这一路只测过输出解析，没有在 NVIDIA 机器上实测**；这张表只列计算上下文，浏览器 GPU 进程的图形上下文可能不在表里，Windows 的 WDDM 模式下用量常是 `[N/A]`（读不出按探针失败处理）。Windows 上不列进程表，探针只拿得到登记的那个进程号。上 5090 之前要先在那台机器上验证，或注入自己的探针。
 
@@ -276,7 +276,7 @@ await runWithWatchdog({
 - **`files` 是全部条目数**，目录也算：空文件、空目录炸弹靠 `maxFiles` 拦。
 - 给了 `maxBytes` 或 `maxFiles`，一越线就提前交回（`complete: false`，这时两个数是「至少」）。看门狗就是这样调的，所以越线错上的 `usedBytes`、`files` 是下限。
 
-检查时机：`runWithWatchdog` 排队之前（已经超限就不去排队）、排队期间与任务期间的每个轮询间隔（排队时越线就撤掉排队项）、每帧之前、每帧之后。统计途中消失的文件跳过；目录读不了（被改成不可读）按超限处理。
+检查时机：`runWithWatchdog` 排队之前（已经超限就不去排队）、排队期间与任务期间的每个轮询间隔（排队时越线就撤掉排队项）、每帧之前、每帧之后、任务函数返回之后交回结果之前。统计途中消失的文件跳过；目录读不了（被改成不可读）按超限处理。
 
 ### 限制
 

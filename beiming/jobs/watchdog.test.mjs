@@ -165,6 +165,14 @@ test('A14-1 入参防御：Proxy、取值器、未知键、Symbol 键、类实�
     ['起进程的 env 有非字符串值', () => watchdog.spawnManaged(node, ['-e', IDLE], { env: { A: 1 } })],
     ['起进程的 stdio 不在白名单', () => watchdog.spawnManaged(node, ['-e', IDLE], { stdio: ['ignore', 'ipc'] })],
     ['起进程的 stdio 是 Proxy', () => watchdog.spawnManaged(node, ['-e', IDLE], { stdio: new Proxy([], {}) })],
+    // 下面几条脚本是空的：防线万一失效，起出来的进程自己马上退出，不留空转的孤儿。
+    ['起进程的 stdio 数组里有取值器', () => watchdog.spawnManaged(node, ['-e', ''], { stdio: Object.defineProperty(['ignore', 'ignore', 'ignore'], 1, { enumerable: true, get() { getterHits += 1; return 'ignore'; } }) })],
+    ['起进程的 stdio 数组有空洞', () => watchdog.spawnManaged(node, ['-e', ''], { stdio: Object.assign(new Array(3), { 0: 'ignore', 2: 'ignore' }) })],
+    ['起进程的 stdio 数组多带了键', () => watchdog.spawnManaged(node, ['-e', ''], { stdio: Object.assign(['ignore'], { shell: true }) })],
+    ['起进程的 stdio 数组带 Symbol 键', () => watchdog.spawnManaged(node, ['-e', ''], { stdio: Object.assign(['ignore'], { [Symbol.iterator]: Array.prototype.values }) })],
+    ['起进程的 stdio 是数组的子类', () => watchdog.spawnManaged(node, ['-e', ''], { stdio: new (class extends Array {})('ignore', 'ignore') })],
+    ['起进程的参数数组有空洞', () => watchdog.spawnManaged(node, Object.assign(new Array(3), { 0: '-e', 2: '' }))],
+    ['起进程的参数数组多带了键', () => watchdog.spawnManaged(node, Object.assign(['-e', ''], { shell: true }))],
     ['登记选项带取值器', () => watchdog.registerProcess(999999, withGetter('processGroup'))],
     ['起进程的参数不是字符串数组', () => watchdog.spawnManaged(node, ['-e', 1])],
     ['起进程的选项想自己定 detached', () => watchdog.spawnManaged(node, ['-e', IDLE], { detached: false })],
@@ -357,6 +365,17 @@ test('A14-3c 探针不回话：过了 probeTimeoutMs 按失败处理；探针挂
   await delay(30);
   shut.close();
   assert.equal(await closing, 'resolved');
+  // 两种探针都配了：健康探针挂着时关闭，check() 当场结算，显存探针一次也不再起，也不算越线。
+  let vramProbes = 0;
+  const both = watch(t, { quotas: { vramQuotaMB: 64, probeTimeoutMs: 60_000 }, probeGpuHealth: never, probeVramMB: () => { vramProbes += 1; return never(); } });
+  const closingBoth = settles(both.check(), '两种探针都挂着时关闭');
+  await delay(30);
+  const closedAt = Date.now();
+  both.close();
+  assert.equal(await closingBoth, 'resolved');
+  assert.ok(Date.now() - closedAt < 200, `关闭之后 ${Date.now() - closedAt} ms 才结算`);
+  await delay(30);
+  assert.deepEqual([vramProbes, both.violation], [0, null]);
   // runWithWatchdog 开工自检卡在探针上时工作区被写满：以磁盘超限拒绝，不挂死。
   const second = workspace(t).dir;
   const run = settles(runWithWatchdog({ workspaceDir: second, quotas: { diskQuotaBytes: 100_000, pollIntervalMs: 20, probeTimeoutMs: 60_000 }, probeGpuHealth: never }, () => assert.fail('不该起任务')), 'runWithWatchdog 自检');
@@ -615,6 +634,37 @@ test('A14-5d 排队期间工作区被写满：不再占着队列等额度，直�
   holder.release();
   // 排队项已经撤掉：额度归还之后立刻拿得到，不会先发给那个已经失败的任务。
   (await Promise.race([scheduler.acquire({ kind: 'draft', vramMB: 448 }), delay(1000).then(() => assert.fail('队列里还留着排队项'))])).release();
+});
+
+test('A14-5e 任务返回前的最后一查：帧外写超配额、显存涨过配额或 GPU 掉了之后正常返回，照样强杀受管进程、归还租约并报错，不当成功交回', async (t) => {
+  const scheduler = new Scheduler({ totalMB: 512, previewReserveMB: 64 });
+  const { dir } = workspace(t);
+  let state = { usedMB: 0, healthy: true };
+  const cases = [
+    ['failure.disk-quota', { workspaceDir: dir, quotas: { diskQuotaBytes: 32_768 } }, () => fs.writeFileSync(path.join(dir, 'deliver', 'late.bin'), Buffer.alloc(65_536, 1))],
+    ['failure.vram-exceeded', { quotas: {}, probeVramMB: () => state.usedMB }, () => { state.usedMB = 129; }],
+    ['failure.gpu-lost', { quotas: {}, probeGpuHealth: () => state.healthy }, () => { state.healthy = false; }],
+  ];
+  for (const [code, options, overstep] of cases) {
+    state = { usedMB: 0, healthy: true };
+    let kept;
+    // 轮询间隔拉到一分钟：任务期间的轮询赶不上，只有返回前的那一查抓得到。
+    const error = await rejected(runWithWatchdog({
+      ...options, scheduler, scheduleSpec: { kind: 'draft', vramMB: 128 }, quotas: { ...options.quotas, pollIntervalMs: 60_000 },
+    }, async ({ watchdog }) => {
+      kept = watchdog.spawnManaged(node, ['-e', IDLE], { stdio: 'ignore' });
+      t.after(() => kept.kill('SIGKILL'));
+      assert.equal(await watchdog.runFrame(0, () => 'frame-0'), 'frame-0');
+      overstep(); // 帧外越线，然后若无其事地返回
+      return 'complete';
+    }));
+    refuses(code, 1)(error);
+    assert.ok(killedHard(kept), `${code}：残留的受管进程要强杀`);
+    assert.deepEqual(error.survivors, [], code);
+    (await Promise.race([scheduler.acquire({ kind: 'draft', vramMB: 448 }), delay(1000).then(() => assert.fail(`${code}：租约没有归还`))])).release();
+  }
+  // 任务自己把看门狗关了：最后一查做不了，按用法错误拒绝，不放行。
+  await assert.rejects(runWithWatchdog({ quotas: {} }, ({ watchdog }) => { watchdog.close(); return 'complete'; }), badArgument);
 });
 
 test('A14-5c 文件数配额与量不出来的目录：空文件炸弹按条目数拦；目录改成不可读按超限处理', async (t) => {
