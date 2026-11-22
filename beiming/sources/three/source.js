@@ -5,7 +5,7 @@
 //   host.measure(loaded, f, facts)         量这一帧的元数据（相机、实体、统计、哈希）
 // 后期链：loaded.post 是 post 类的卡交出的全屏通道（一张网格，材质带 uniforms.tInput），按次序排好。各子帧只渲后期之前的场景、
 // 在线性光里平均之后，依次把每个通道画一遍（只跑一次）：tInput 填上一遍的输出，画到另一个同样的浮点目标，最后一遍的输出才读回；
-// 通道声明了 uniforms.tDepth 时填 sub = 0 的深度。辅助层不过这条链。
+// 跑之前状态先回到 sub = 0（后期通道的参数也取这一刻），通道声明了 uniforms.tDepth 时填 sub = 0 的深度。辅助层不过这条链。
 //   host.now()                             单调时钟，毫秒；读数只进元数据的 timing
 import { renderingOf } from '../../kernel/eval/input.mjs';
 import { caps, VERSION } from './caps.mjs';
@@ -41,7 +41,7 @@ const SRGB_TO_LINEAR = Float64Array.from({ length: 256 }, (_, i) => { const c = 
  * 显示参考的镜头（没有 HDR 目标）逐子帧累积：各子帧是 8 位 sRGB 编码的 RGBA，先线性化再取算术平均。
  * 交回线性光的 RGBA 浮点；透明度本来就是线性的，只除以 255。
  */
-export function averageDisplayFrames(frames) {
+export function averageDisplaySrgbFrames(frames) {
   if (!frames.length || frames.some((x) => x.length !== frames[0].length || x.length % 4)) throw new SourceError('usage.bad-argument', '子帧必须是一样长的 RGBA 8 位数组，至少一张');
   const sum = new Float64Array(frames[0].length);
   for (const px of frames) for (let i = 0; i < px.length; i++) sum[i] += i % 4 === 3 ? px[i] / 255 : SRGB_TO_LINEAR[px[i]];
@@ -238,9 +238,10 @@ export function createThreeSource({ THREE, host }) {
           let raw = Float32Array.from(sum, (v) => v / plan.subs.length);
           // 后期链对平均后的结果只跑一次；它要的深度取 sub = 0（R 是平面深度，米；A 是 0 表示没打到）
           if (post.length) {
+            // 后期通道自己的参数也取 (f, sub = 0)，不管要不要深度：不然加一个读深度的通道会改掉别的通道取值的时刻
+            applyAt(plan.auxSub);
             let depth = null;
             if (post.some((p) => p.material.uniforms.tDepth)) {
-              applyAt(plan.auxSub);
               const strangers = unrenderableInAux(scene);
               if (strangers.length) throw new SourceError('contract.unsupported-object', `场景里有辅助层画不了的对象（${strangers.map((o) => o.name || o.type).join('、')}），后期链要的深度交不出`);
               rtDepth ??= target();

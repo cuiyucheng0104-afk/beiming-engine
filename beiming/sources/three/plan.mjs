@@ -98,7 +98,8 @@ export function planRender(caps, shot, size, tier, opts = {}, want, locked = {})
   if (missing.length) throw new SourceError('contract.unsupported-output', `这个帧源交不出：${missing.join('、')}`);
 
   const angleDeg = shutterAngle(opts.shutter) ?? shutterAngle(shot.shutter) ?? 0;
-  if (!(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须在 [0, 360] 度，给的是 ${angleDeg}`);
+  // 只认有限的 number：'0'、false 这类会被 >= 隐式转换放过去
+  if (typeof angleDeg !== 'number' || !(angleDeg >= 0 && angleDeg <= 360)) throw bad(`快门角必须是 [0, 360] 里的数（度），给的是 ${JSON.stringify(angleDeg)}`);
   const shutterSamples = opts.shutter?.samples ?? locked.shutterSamples ?? shot.shutter?.samples ?? (angleDeg === 0 ? 1 : caps.motionBlur.samples);
   if (!Number.isInteger(shutterSamples) || shutterSamples < 1) throw bad(`子帧采样数必须是不小于 1 的整数，给的是 ${shutterSamples}`);
   if (angleDeg === 0 && shutterSamples > 1) throw new SourceError('contract.shutter-conflict', `快门角是 0，子帧采样数却是 ${shutterSamples}`);

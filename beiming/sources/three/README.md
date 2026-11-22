@@ -6,7 +6,7 @@
 |---|---|---|
 | `caps.mjs` | 页面、node | 能力声明 `caps(library)`，帧源定的默认值都在这里（子帧采样数 8、两个档位的采样数和缩放）；提供了卡才声明 `cards-data` 模式 |
 | `plan.mjs` | 页面、node | `planOpen`：装不装得了（宿主和作者模式、种子、卡实例对锁文件、资产、叠加层）；`planRender`：输出交不交得出、快门、子帧相位、尺寸；`parseShutterArgs`：`--shutter <度> --samples <子帧数>` 换成 `RenderOpts.shutter`。快门角也认兼容写法 `angle` |
-| `source.js` | 页面 | 渲染器 `createThreeSource({ THREE, host })`，只有它碰 WebGL；`averageDisplayFrames` 纯函数 |
+| `source.js` | 页面 | 渲染器 `createThreeSource({ THREE, host })`，只有它碰 WebGL；`averageDisplaySrgbFrames` 纯函数 |
 
 ## 宿主交进来的服务
 
@@ -22,8 +22,8 @@
 ## 怎么出一帧
 
 - 快门窗口从帧起点打开 `[f, f + 快门角 ÷ 360)`，子帧在窗口里居中分层；180 度 8 个子帧的拖影中点在 f + 0.25（`s4.test.mjs` 对拍 Blender START 读数）。
-- 颜色层（04 §3.1）：每个子帧只渲后期链之前的场景，进 32 位浮点目标，在线性光里逐像素平均；不过显示变换，不截到 `[0, 1]`。显示参考、没有 HDR 目标的帧用 `averageDisplayFrames` 把 8 位 sRGB 先线性化再平均。
-- 后期链：`post` 是全屏通道网格（材质带 `uniforms.tInput`），对平均后的结果按次序只跑一次，两个浮点目标来回倒。声明了 `uniforms.tDepth` 的通道拿到 `sub = 0` 的深度（R 平面深度米，A 为 0 表示没打到）。后期类卡的 `Handle.object` 就是这张网格，宿主放进 `post`、不放进场景（这一对里的约定）。`stats.tris` 只数场景那一遍。
+- 颜色层（04 §3.1）：每个子帧只渲后期链之前的场景，进 32 位浮点目标，在线性光里逐像素平均；不过显示变换，不截到 `[0, 1]`。显示参考、没有 HDR 目标的帧用 `averageDisplaySrgbFrames` 把 8 位 sRGB 的 RGB 先线性化再平均（透明度本来线性，只除以 255）。
+- 后期链：`post` 是全屏通道网格（材质带 `uniforms.tInput`），对平均后的结果按次序只跑一次，两个浮点目标来回倒；跑之前状态回到 `sub = 0`，通道参数也取这一刻。声明了 `uniforms.tDepth` 的通道拿到 `sub = 0` 的深度（R 平面深度米，A 为 0 表示没打到）。后期类卡的 `Handle.object` 就是这张网格，宿主放进 `post`、不放进场景（这一对里的约定）。`stats.tris` 只数场景那一遍。
 - 辅助层：`sub = 0`（计划里的 `auxSub`）、针孔、像素中心，不抗锯齿，不过后期链。`depth` 平面深度米，`objectId` 叶子实体编号，`normal` 相机空间着色法线、背面翻向相机。没打到：编号 0、深度 1e10、法线 `(0, 0, 0)`。不在 `entities` 里的网格编号 0。
 - 辅助材质只画网格：有看得见的点、线、精灵时要辅助层（或后期要深度）报 `contract.unsupported-object`。
 - 可见比例（元数据契约 5.3）：四分之一分辨率编号层上，带角色（`hero`、`mustSee`）的实体合渲像素数除以单独渲的像素数（不超过 1，单独渲为 0 记 0）；没出像素、没有带角色的实体、有点线精灵时写 `null`。
