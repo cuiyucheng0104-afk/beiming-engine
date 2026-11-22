@@ -896,7 +896,8 @@ const HANG_FRAGMENT = `#version 300 es
   precision highp float; uniform float seed; uniform int n; out vec4 o;
   void main() { float a = seed + gl_FragCoord.x * 0.001; for (int i = 0; i < n; i++) { a = fract(sin(a * 12.9898 + float(i)) * 43758.5453) + 0.1; } o = vec4(fract(a), 0.5, 0.0, 1.0); }`;
 
-// 第一步（看门狗开始数心跳之前）：编译、链接，n = 1 画一次读回一次，交回回执；链接好的程序留在 window.__bmHang 给第二步用。
+// 第一步（看门狗开始数心跳之前）：编译、链接，n = 1 画一次读回一次，再把 n 调到十五万并读回，一起写进回执；
+// 链接好的程序留在 window.__bmHang 给第二步用。
 const primeHangShader = (fragment) => {
   const canvas = Object.assign(document.createElement('canvas'), { width: 128, height: 128 });
   const gl = canvas.getContext('webgl2');
@@ -918,31 +919,33 @@ const primeHangShader = (fragment) => {
     return { linked: false, infoLog: [...shaders.map((shader) => gl.getShaderInfoLog(shader)), gl.getProgramInfoLog(program)].join('') };
   }
   gl.useProgram(program);
-  gl.uniform1i(gl.getUniformLocation(program, 'n'), 1);
+  const loops = gl.getUniformLocation(program, 'n');
+  gl.uniform1i(loops, 1);
   gl.uniform1f(gl.getUniformLocation(program, 'seed'), 0);
   gl.viewport(0, 0, 128, 128);
   const pixel = new Uint8Array(4);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  gl.uniform1i(loops, 150_000);
   window.__bmHang = { gl, program };
-  return { linked: true, glError: gl.getError(), pixel: [...pixel] };
+  return { linked: true, pixel: [...pixel], loops: gl.getUniform(program, loops), glError: gl.getError() };
 };
 
-// 回执要过的关：链接成功、没有 GL 错误、读回是这段着色器的固定输出（红非零、绿 0.5、蓝 0、不透明）。
+// 回执要过的关：链接成功、没有 GL 错误、读回是这段着色器的固定输出（红非零、绿 0.5、蓝 0、不透明）、循环次数已经调到十五万。
 // 编译失败时读回的是全零，过不了这一关，也就进不了无心跳阶段。
 const assertHangShaderPrimed = (receipt) => {
   assert.equal(receipt.linked, true, `着色器没有编译链接成功：${receipt.infoLog}`);
   assert.equal(receipt.glError, 0);
   const [red, green, blue, alpha] = receipt.pixel;
   assert.ok(red > 0 && green >= 127 && green <= 128 && blue === 0 && alpha === 255, `首次绘制读回 [${receipt.pixel}]`);
+  assert.equal(receipt.loops, 150_000, '第二步要用的循环次数没有设上');
 };
 
-// 第二步：同一个上下文、同一个程序，每像素循环十五万次，128×128 一次只画一小幅、画完立刻读回，连画 3 秒。
+// 第二步：同一个上下文、同一个程序（循环次数第一步已经设好并核对过），每像素循环十五万次，128×128 一次只画一小幅、画完立刻读回，连画 3 秒。
 // 渲染线程这 3 秒一直卡在着色器求值与读回上；显卡队列里任何时刻最多一次小绘制（本机约 28 ms），进程被杀后不拖住同卡的别人。
 // 按墙钟收尾而不按次数：显卡再快也挂满 3 秒，远大于 A14-8 的 shaderHangMs。
 const loopHangShader = () => {
   const { gl, program } = window.__bmHang;
-  gl.uniform1i(gl.getUniformLocation(program, 'n'), 150_000);
   const pixel = new Uint8Array(4);
   const until = performance.now() + 3000;
   for (let draw = 0; performance.now() < until; draw += 1) {
@@ -1084,9 +1087,12 @@ test('A14-8b 负对照：片元着色器编译不过（或读回全零）时拿�
   assert.ok(receipt.infoLog.length > 0, '编译日志是空的');
   assert.equal(await evil.page.evaluate(() => window.__bmHang), undefined, '没链接成功就不留程序给第二步');
   assert.throws(() => assertHangShaderPrimed(receipt), assert.AssertionError);
-  // 没查链接状态、硬画了一次的样子（四审量到的负对照读数）同样过不了。
-  assert.throws(() => assertHangShaderPrimed({ linked: true, glError: 1282, pixel: [0, 0, 0, 0] }), assert.AssertionError);
-  assert.throws(() => assertHangShaderPrimed({ linked: true, glError: 0, pixel: [0, 0, 0, 0] }), assert.AssertionError);
+  // 回执的每一项单独坏掉都过不了：GL 错误（四审量到的 1282）、全零读回、循环次数没设上。
+  const sound = { linked: true, glError: 0, pixel: [78, 128, 0, 255], loops: 150_000 };
+  assertHangShaderPrimed(sound);
+  for (const flaw of [{ glError: 1282 }, { pixel: [0, 0, 0, 0] }, { loops: 1 }]) {
+    assert.throws(() => assertHangShaderPrimed({ ...sound, ...flaw }), assert.AssertionError, JSON.stringify(flaw));
+  }
   // 同一个页面上，原样的着色器拿得到回执。
   assertHangShaderPrimed(await evil.page.evaluate(primeHangShader, HANG_FRAGMENT));
 });
