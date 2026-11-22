@@ -812,4 +812,5 @@ test('V18-23: 奇数商半距向偶进位、非 2 的幂 K=3 偏差图单次舍�
   assert.ok(readmeTokens <= 1500, `beiming/verify/README.md 估算 ${readmeTokens} token 超过 1500 上限`);
   const details = fs.readFileSync(new URL('./DETAILS.md', import.meta.url), 'utf8');
   assert.match(details, /2\^-1021/, 'DETAILS.md 应写明快路径判据 divisor × 2^-1021');
+  assert.match(details, /任意除数.*直接返回|对任意除数.*0/, 'DETAILS.md 应按实现顺序写明 maxAbs×n<2^1023 时零和对任意除数直接返回 0，非零和才要求 2 的幂除数与 divisor×2^-1021');
 });
