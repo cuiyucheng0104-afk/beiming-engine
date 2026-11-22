@@ -503,3 +503,47 @@ test('V18-17 G_REV-R6 入口等 K (3 对 3) 下读取 A[0] 把 B 缩至 2 再在
   Object.defineProperty(bCut, 0, { enumerable: true, get() { delete aCut[1]; return f(1); } });
   assert.throws(() => verify.welchTest(aCut, bCut), TypeError);
 });
+
+test('V18-18 G_REV-R7 调用入口首行即锁死原始整数 K（防 options.alpha getter 提前缩组与 Proxy 非数值 length）', () => {
+  const f = (v) => ({ width: 2, height: 1, channels: 1, data: new Float32Array([v, v + 0.5]) });
+  // 1) 调用时 3 对 4，options.alpha getter 把 B 缩至 3：仍必须按调用入口 3 对 4 抛 RangeError
+  const b4 = [f(1), f(2), f(3), f(NaN)];
+  const opts = Object.defineProperty({}, 'alpha', {
+    enumerable: true,
+    get() { b4.length = 3; return 0.05; },
+  });
+  assert.throws(() => verify.welchTest([f(1), f(2), f(3)], b4, opts), RangeError);
+
+  // 2) Array Proxy 让 .length 返回包装对象欺骗 === 比较：首行检查原始安全整数 length，直接抛 TypeError
+  let cur = 3;
+  const fakeLen = { valueOf() { return cur; } };
+  const makeProxy = (arr, n) => new Proxy(arr, {
+    get(target, prop, receiver) {
+      if (prop === 'length') { cur = n; return fakeLen; }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+  assert.throws(() => verify.welchTest(makeProxy([f(0), f(1), f(2)], 3), makeProxy([f(1), f(3)], 2)), TypeError);
+
+  // 3) length 须是原始非负安全整数：负数、小数、超安全整数、字符串、包装对象都按同一条理由拒（种子组、p 值、帧 data 同理）
+  const lengthIs = (arr, length) => new Proxy(arr, { get: (t, p, r) => (p === 'length' ? length : Reflect.get(t, p, r)) });
+  const badLength = { name: 'TypeError', message: /length 须为非负安全整数/ };
+  for (const length of [-1, 2.5, 2 ** 53, '3', new Number(3)]) {
+    assert.throws(() => verify.welchTest(lengthIs([f(0), f(1), f(2)], length), [f(1), f(2), f(3)]), badLength);
+    assert.throws(() => verify.welchTest([f(1), f(2), f(3)], lengthIs([f(0), f(1), f(2)], length)), badLength);
+  }
+  assert.throws(() => verify.benjaminiHochberg(lengthIs([0.1, 0.2], { valueOf: () => 2 })), badLength);
+  assert.throws(() => verify.welchTest([{ width: 2, height: 1, data: lengthIs([1, 2], { valueOf: () => 2 }) }, f(1)], [f(1), f(2)]), badLength);
+
+  // 4) 读完 options 立即复查：等 K 的 3 对 3 里 options getter 把 B 缩成 2 帧、A[0] 的 getter 再补回 3 帧，拍快照前就得拒
+  const bSwap = [f(1), f(2), f(3)];
+  const aRestore = [null, f(2), f(3)];
+  Object.defineProperty(aRestore, 0, { enumerable: true, get() { bSwap.push(f(9)); return f(1); } });
+  const shrink = Object.defineProperty({}, 'blockSize', { enumerable: true, get() { bSwap.length = 2; return 1; } });
+  assert.throws(() => verify.welchTest(aRestore, bSwap, shrink), RangeError);
+  assert.equal(bSwap.length, 2, 'A[0] 的 getter 不该被读到');
+
+  // 5) 正常输入不受影响：kA、kB 都等于入口种子数
+  const ok = verify.welchTest([f(1), f(2), f(3)], [f(1), f(2), f(3)]);
+  assert.deepEqual([ok.kA, ok.kB], [3, 3]);
+});

@@ -6,10 +6,18 @@ function check(condition, reason) {
   if (!condition) throw new Error(`welch: ${reason}`);
 }
 
+// length 只读一次，且须是原始非负安全整数：Array 的 Proxy 能让 length 返回带 valueOf 的同一个对象，
+// 骗过 === 比较，又在循环里对两边读出不同的数。
+function lengthOf(list, name) {
+  const length = list.length;
+  if (!Number.isSafeInteger(length) || length < 0) throw new TypeError(`welch: ${name} 的 length 须为非负安全整数`);
+  return length;
+}
+
 // 把普通数组逐下标只读一次拷成快照，之后只用快照：空洞会让种子被悄悄少算，
 // 带 getter 的元素能在读取中途删项、改长度或第二次读出别的值：空洞抛 TypeError，长度变了抛 RangeError。
 // length 由调用方给时是入口长度：别处的 getter 可能在这次读取开始前就把 list 改短，等读完再补回去。
-function snapshot(list, name, length = list.length) {
+function snapshot(list, name, length = lengthOf(list, name)) {
   const sameLength = () => {
     if (list.length !== length) throw new RangeError(`welch: ${name} 的长度在读取中途被改了`);
   };
@@ -190,36 +198,40 @@ function loadPlane(sample, channel, blockSize) {
 // channel 为 'luma'（三通道取线性亮度）、通道序号，或 EXR 的通道名。
 // shortcut: 亮度检验看不到亮度相抵的纯色偏，要查色偏时按 channel 0、1、2 各跑一次。
 export function welchTest(groupA, groupB, options = {}) {
+  // 碰 options 之前先记下入口长度：options 的 getter（比如 alpha）也能把 4 帧的 B 缩成 3 帧，让 3 对 4 蒙混成 3 对 3。
+  check(Array.isArray(groupA) && Array.isArray(groupB), '每边至少要 2 个种子样本（须为数组）');
+  const lengthA = lengthOf(groupA, 'A 组');
+  const lengthB = lengthOf(groupB, 'B 组');
   check(options !== null && typeof options === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(options)), 'options 须为普通对象');
   const { alpha = 0.05, blockSize = 1, bins = 20, histogramAlpha = 0.001, channel = 'luma' } = options;
   check([alpha, histogramAlpha].every(v => typeof v === 'number' && v > 0 && v < 1), 'alpha 与 histogramAlpha 须在 (0, 1) 内');
   check(Number.isInteger(blockSize) && blockSize >= 1, 'blockSize 须为正整数');
   check(Number.isInteger(bins) && bins >= 1 && bins <= 10000, 'bins 须为 1 到 10000 的整数');
-  check(Array.isArray(groupA) && Array.isArray(groupB), '每边至少要 2 个种子样本（须为数组）');
-  // 读任何槽位之前记下入口长度：A 里的 getter 能把 4 帧的 B 缩成 3 帧，让 3 对 4 蒙混成 3 对 3。
-  const raw = [groupA, groupB];
-  const [lengthA, lengthB] = raw.map(group => group.length);
-  // 只看长度和槽位在不在，不再读元素，合法 getter 不会被触发第二次。
-  const intact = () => raw.forEach((group, g) => {
-    const name = 'AB'[g];
-    if (group.length !== [lengthA, lengthB][g]) throw new RangeError(`welch: ${name} 组的长度在读取中途被改了`);
-    for (let k = 0; k < group.length; k++) {
-      if (!Object.hasOwn(group, k)) throw new TypeError(`welch: ${name} 组第 ${k} 项在读取中途被删了`);
+  // 只看长度和槽位在不在，不再读元素，合法 getter 不会被触发第二次。循环按入口长度走，不再信 group.length。
+  const intact = () => [[groupA, lengthA, 'A'], [groupB, lengthB, 'B']].forEach(([group, length, name]) => {
+    if (group.length !== length) throw new RangeError(`welch: ${name} 组的长度在读取中途被改了`);
+    for (let i = 0; i < length; i++) {
+      if (!Object.hasOwn(group, i)) throw new TypeError(`welch: ${name} 组第 ${i} 项是空洞（稀疏数组，或在读取中途被删了）`);
     }
   });
+  intact(); // 读 options 时的 getter 可能已经改了种子组
   // 先拍快照再查长度：new Array(1) 这种单槽稀疏数组也统一抛 TypeError，之后调用方再改种子组也影响不到统计。
   // 快照按入口长度拷：等 K 的 3 对 3 里 A[0] 把 B 缩成 2 帧、之后再补回 3 帧，也不会拷出 3 对 2。
   const snapshots = [snapshot(groupA, 'A 组', lengthA), snapshot(groupB, 'B 组', lengthB)];
   intact(); // 读 B 时的 getter 可能回头改了已拍完快照的 A
   check(lengthA >= 2 && lengthB >= 2, '每边至少要 2 个种子样本');
   if (lengthA !== lengthB) throw new RangeError(`welch: 两边种子数须相等（A ${lengthA} 个，B ${lengthB} 个）`);
+  const k = lengthA; // 两边共用这一个入口种子数：之后的平面数、Welford 轮数和自由度都只认它
   // 两边全部帧先解析、校验完，再做统计：最后一帧坏了也在任何累加之前抛。
   // shortcut: 2K 个平面同时在内存里（每单元 8 字节），4K 逐像素 K=16 约 2 GB；吃紧时用 blockSize 8 或改成两遍读。
-  const groups = snapshots.map(group => group.map(sample => {
-    const plane = loadPlane(sample, channel, blockSize);
-    intact(); // 帧的 data、像素 getter 也能改种子组：每帧查一次，改短后又补回也逃不掉；末帧这次就是统计前的复查
-    return plane;
-  }));
+  const groups = snapshots.map(group => {
+    const planes = new Array(k);
+    for (let i = 0; i < k; i++) {
+      planes[i] = loadPlane(group[i], channel, blockSize);
+      intact(); // 帧的 data、像素 getter 也能改种子组：每帧查一次，改短后又补回也逃不掉；末帧这次就是统计前的复查
+    }
+    return planes;
+  });
   const grid = groups[0][0];
   for (const plane of groups.flat()) {
     check(plane.width === grid.width && plane.height === grid.height, '样本尺寸不一致');
@@ -228,15 +240,16 @@ export function welchTest(groupA, groupB, options = {}) {
   const [a, b] = groups.map(group => {
     const mean = new Float64Array(grid.values.length);
     const m2 = new Float64Array(grid.values.length);
-    group.forEach((plane, i) => {
+    for (let i = 0; i < k; i++) {
       // Welford 在线均值与平方和，避免大数相减。
+      const { values } = group[i];
       for (let j = 0; j < mean.length; j++) {
-        const delta = plane.values[j] - mean[j];
+        const delta = values[j] - mean[j];
         mean[j] += delta / (i + 1);
-        m2[j] += delta * (plane.values[j] - mean[j]);
+        m2[j] += delta * (values[j] - mean[j]);
       }
-    });
-    return { mean, m2, k: group.length };
+    }
+    return { mean, m2 };
   });
 
   const totalUnits = grid.gw * grid.gh;
@@ -245,8 +258,8 @@ export function welchTest(groupA, groupB, options = {}) {
   const tested = [];
   for (let j = 0; j < totalUnits; j++) {
     const delta = a.mean[j] - b.mean[j];
-    const va = a.m2[j] / (a.k - 1) / a.k;
-    const vb = b.m2[j] / (b.k - 1) / b.k;
+    const va = a.m2[j] / (k - 1) / k;
+    const vb = b.m2[j] / (k - 1) / k;
     biasMap[j] = delta;
     if (va === 0 && vb === 0) {
       // 两边都无噪声：相等的单元不是随机检验，不进校正和直方图；不等的单元必然有偏。
@@ -254,7 +267,7 @@ export function welchTest(groupA, groupB, options = {}) {
       pMap[j] = 0;
     } else {
       const se2 = va + vb;
-      const df = se2 * se2 / (va * va / (a.k - 1) + vb * vb / (b.k - 1));
+      const df = se2 * se2 / (va * va / (k - 1) + vb * vb / (k - 1));
       pMap[j] = studentTwoSidedP(delta / Math.sqrt(se2), df);
     }
     tested.push(j);
@@ -276,13 +289,13 @@ export function welchTest(groupA, groupB, options = {}) {
   // P(X >= count) = I_rate(count, n - count + 1)。有偏必然让小 p 变多。p 偏向 1（Welch 近似偏保守）不判不过。
   // 噪声非高斯时小 p 的实际比例会略高于 alpha（K=16 均匀噪声实测约 0.0504），全高清的单元数下这点膨胀也显著，
   // 所以名义率按 K 留余量：K=16 时为 alpha 的 1 + 0.5/15 倍。
-  const effectiveAlpha = Math.max(alpha, Math.min(0.25, alpha * (1 + 0.5 / Math.max(2, a.k - 1))));
+  const effectiveAlpha = Math.max(alpha, Math.min(0.25, alpha * (1 + 0.5 / Math.max(2, k - 1))));
   const lowTailP = rawSignificant
     ? incompleteBeta(effectiveAlpha, 1 - effectiveAlpha, rawSignificant, tested.length - rawSignificant + 1) : 1;
   const flat = lowTailP >= histogramAlpha;
   const significantRatio = tested.length ? bh.significantCount / tested.length : 0;
   return {
-    alpha, blockSize, kA: a.k, kB: b.k, gridSize: [grid.gw, grid.gh],
+    alpha, blockSize, kA: k, kB: k, gridSize: [grid.gw, grid.gh],
     totalUnits, testedUnits: tested.length, deterministicUnits: totalUnits - tested.length,
     significantCount: bh.significantCount, significantRatio,
     rawSignificantRatio: tested.length ? rawSignificant / tested.length : 0,
