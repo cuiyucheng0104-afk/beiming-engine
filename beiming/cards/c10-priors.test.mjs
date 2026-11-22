@@ -772,3 +772,19 @@ test('八审：总账挂卡行带直读目标卡 target，龙战配乐压低不�
   const zones = ['e170', 'e187', 'e188'].flatMap((sid) => text(sid).match(/zone_\d\d/g));
   assert.deepEqual([new Set(zones).size, zones.length], [18, 56]);
 });
+
+// 九审（G_REV-R9）：变量名 s01 的首字母不是秒。单位后面紧跟数字或下划线的是标识符（0.3s01、0.25s01），不出量。
+test('九审：e64 的 0.3s01、0.25s01 是算式里的变量，不记成秒', () => {
+  const e64 = getAudioSubsCardPriors('audio.event-mix').find((x) => x.sourceId === 'e64');
+  assert.match(e64.text, /0\.8\+0\.3s01.*0\.75\+0\.25s01.*s01=\(speed−0\.4\)\/1\.4/); // 正文算式原样
+  const has = (value, unit) => e64.quantities.some((q) => q.value === value && q.unit === unit);
+  assert.ok(!has(0.3, 's') && !has(0.25, 's'), JSON.stringify(e64.quantities.slice(0, 3)));
+  assert.ok(has(2.6, 's'), '真实时长 2.6 s 要留着');
+  assert.deepEqual(
+    e64.quantities.map((q) => [q.value, q.unit]),
+    [[2.6, 's'], [0.03, 's'], [3.2, 's'], [0.97, 's'], [0.12, 'ratio'], [[40, 70], 's'], [0.035, 's']],
+  );
+  // 全表没有别的量是从「单位紧跟数字或下划线」的标识符里抽出来的：除 e64.quantities 外，挂卡表与上一版（4e68d78）逐字相同。
+  const rest = cardPriors.map((e) => (e.sourceId === 'e64' ? { ...e, quantities: null } : e));
+  assert.equal(createHash('sha256').update(JSON.stringify(rest)).digest('hex').slice(0, 16), '04e295e02cd6b342');
+});
