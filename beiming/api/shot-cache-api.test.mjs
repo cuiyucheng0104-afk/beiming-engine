@@ -1,16 +1,17 @@
 // A16 Part 2：内容寻址镜头缓存与容差接缝检查接入 beiming/api 出片链路端到端测试。
-// 前半用记数的假帧源直接跑 renderPlan（要 FFmpeg，不要 Blender 和浏览器）：帧源被调了几次是精确的数。
-// 后半起真 HTTP 服务，用真 Blender 和无头浏览器把双镜头片交付两次（缺工具时跳过）。
+// 前半用记数的假帧源直接跑 renderPlan、layerL2（要 FFmpeg，不要 Blender 和浏览器）：帧源被调了几次是精确的数。
+// 后半起真 HTTP 服务，用真 Blender 和无头浏览器把双镜头片反复交付（缺工具时跳过），帧源调用次数读账本行的 sourceRenders。
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test, { after, before } from 'node:test';
 import { verifyDeliveryBundle } from '../comp/index.mjs';
 import { openShotCache } from '../jobs/index.mjs';
 import { findBlender } from '../sources/blender/host.mjs';
+import { readExr } from '../verify/exr/exr.mjs';
 import { issueAccountToken, startServer } from './index.mjs';
 import * as pipeline from './pipeline.mjs';
 import { analyticAgxCube, hasFfmpeg } from './runtime.mjs';
@@ -66,10 +67,11 @@ const lockOf = () => ({
 
 /**
  * 记数的假帧源池。calls[镜头] = { open, render }；bias 加在每个像素上（模拟容差档两轮之间的亮度漂移），gpu 是它报的显卡。
- * 颜色只由镜头条目、风格 tokens 和局部帧号决定。
+ * 颜色只由镜头条目、风格 tokens 和局部帧号决定。照 want 交层（color、objectId、depth、normal，别的报 contract.unsupported-output），
+ * wants 记每次 render 要的输出；extras 是 true 时另交场景参考通路的 frame.exr 和 objectId2x（内容是占位字节）。
  */
 function fakePool(knobs = {}) {
-  const pool = { calls: {}, bias: 0, gpu: 'fake-gpu', ...knobs };
+  const pool = { calls: {}, wants: [], bias: 0, gpu: 'fake-gpu', extras: false, ...knobs };
   pool.get = async (source) => ({
     async open(input, env) {
       const { shot } = input, [w, h] = input.output.size;
@@ -78,14 +80,32 @@ function fakePool(knobs = {}) {
       const base = (parseInt(sha256(JSON.stringify([shot.cards, input.tokens])).slice(0, 4), 16) / 65535) * 0.4;
       let n = 0;
       return {
-        async render(f) {
+        async render(f, _opts, want = ['color', 'objectId', 'meta']) {
           count.render++;
+          pool.wants.push(want);
           const color = new Float32Array(w * h * 4).map((_, i) => (i % 4 === 3 ? 1 : base + 0.002 * f + pool.bias));
-          const colorBytes = Buffer.from(color.buffer), idBytes = Buffer.from(new Uint32Array(w * h).fill(1).buffer);
+          const colorBytes = Buffer.from(color.buffer);
+          const made = {
+            color: () => ['f32', 4, colorBytes],
+            objectId: () => ['u32', 1, Buffer.from(new Uint32Array(w * h).fill(1).buffer)],
+            depth: () => ['f32', 1, Buffer.from(new Float32Array(w * h).map((_, i) => 2 + f + i / 1000).buffer)],
+            normal: () => ['f32', 3, Buffer.from(new Float32Array(w * h * 3).map((_, i) => (i % 3 === 2 ? 1 : 0)).buffer)],
+          };
           const sub = `r${String(n++).padStart(3, '0')}-f${String(f).padStart(4, '0')}`;
           mkdirSync(join(env.workspace, sub), { recursive: true });
-          writeFileSync(join(env.workspace, sub, 'color.f32'), colorBytes);
-          writeFileSync(join(env.workspace, sub, 'objectId.u32'), idBytes);
+          const layers = {};
+          for (const name of want.filter((x) => x !== 'meta')) {
+            if (!made[name]) throw Object.assign(new Error(`这个帧源交不出：${name}`), { code: 'contract.unsupported-output' });
+            const [type, comps, bytes] = made[name]();
+            writeFileSync(join(env.workspace, sub, `${name}.${type}`), bytes);
+            layers[name] = { file: `${sub}/${name}.${type}`, shape: [h, w, comps] };
+          }
+          const extra = {};
+          if (pool.extras) {
+            writeFileSync(join(env.workspace, sub, 'frame.exr'), Buffer.from(`exr ${shot.id} ${f}`));
+            writeFileSync(join(env.workspace, sub, 'objectId2x.u32'), Buffer.from(new Uint32Array(4 * w * h).fill(f + 1).buffer));
+            Object.assign(extra, { exr: { file: `${sub}/frame.exr` }, objectId2x: { file: `${sub}/objectId2x.u32` } });
+          }
           const frame = shot.in + f;
           const meta = {
             format: 'meta/0.1', film: input.film, shot: shot.id, frame, shotFrame: f, size: [w, h], entities: [],
@@ -93,7 +113,7 @@ function fakePool(knobs = {}) {
             source: { id: source, renderer: source, tier: env.tier, backend: 'fake', gpu: pool.gpu },
             timing: { stateMs: 1, renderMs: 2, readbackMs: 1 }, hash: { color: `sha256:${sha256(colorBytes)}` },
           };
-          return { meta, layers: { color: { file: `${sub}/color.f32`, shape: [h, w, 4] }, objectId: { file: `${sub}/objectId.u32` } } };
+          return { meta, layers, ...extra };
         },
         async close() {},
       };
@@ -272,18 +292,23 @@ test('缓存文件头、颜色层、编号层损坏：只丢坏帧重渲，交�
   assert.deepEqual((await run(film)).pool.calls, {}, '重渲的帧写回了缓存');
 });
 
-test('没带编号层的旧条目不当命中', { skip: noFfmpeg }, async () => {
-  const { run, cache } = arena();
-  const film = filmOf(), shot = film.shots[1];
-  await run(film, { plan: [{ shot, frames: [12] }] });
-  const [file] = frameFiles(cache, 's02');
-  const raw = readFileSync(file), header = JSON.parse(raw.subarray(0, raw.indexOf(0x0a)).toString('utf8'));
-  const { determinism, tier, samples, size, subs, ...five } = pipeline.buildShotCacheInputs({ film, lock: lockOf(), shot, filmDir: root, tier: 'final', device: { backend: 'fake', gpu: 'fake-gpu' } });
+test('缺了请求层的条目不当命中：没带编号层的、要了 depth 却只存了编号层的都重渲', { skip: noFfmpeg }, async () => {
   const { computeFrameCacheKey } = await import('../jobs/cache.mjs');
-  const entry = computeFrameCacheKey({ ...five, renderSpec: { tier, samples, size, frame: 0, subs } });
-  assert.equal(entry.key, header.key, '测试算的键就是出片链路写下的键');
-  cache.put(entry, { colorBytes: cache.get(entry).colorBytes, meta: header.meta, runId: header.runId });
-  assert.deepEqual((await run(film, { plan: [{ shot, frames: [12] }] })).pool.calls, { s02: { open: 1, render: 1 } });
+  for (const [layers, kept] of [[undefined, []], [['color', 'depth'], ['objectId.u32']]]) {
+    const { run, cache } = arena();
+    const film = patched(filmOf(), (f) => { if (layers) f.delivery = { master: 'h264-web', layers }; }), shot = film.shots[1];
+    await run(film, { plan: [{ shot, frames: [12] }] });
+    const [file] = frameFiles(cache, 's02');
+    const raw = readFileSync(file), header = JSON.parse(raw.subarray(0, raw.indexOf(0x0a)).toString('utf8'));
+    const { determinism, tier, samples, size, subs, layers: wanted, ...five } = pipeline.buildShotCacheInputs({ film, lock: lockOf(), shot, filmDir: root, tier: 'final', device: { backend: 'fake', gpu: 'fake-gpu' } });
+    assert.deepEqual(wanted, layers ? ['color', 'depth', 'objectId'] : ['color', 'objectId'], '终渲档的层集合：颜色、编号，加上 delivery.layers 点名的');
+    const entry = computeFrameCacheKey({ ...five, renderSpec: { tier, samples, size, frame: 0, subs, layers: wanted } });
+    assert.equal(entry.key, header.key, '测试算的键就是出片链路写下的键');
+    const hit = cache.get(entry);
+    assert.deepEqual(Object.keys(hit.layers).sort(), wanted.filter((n) => n !== 'color').map((n) => `${n}.${n === 'objectId' ? 'u32' : 'f32'}`));
+    cache.put(entry, { colorBytes: hit.colorBytes, layers: kept.length ? Object.fromEntries(kept.map((k) => [k, hit.layers[k]])) : undefined, meta: header.meta, runId: header.runId });
+    assert.deepEqual((await run(film, { plan: [{ shot, frames: [12] }] })).pool.calls, { s02: { open: 1, render: 1 } });
+  }
 });
 
 test('容差档混用旧帧与新帧出现亮度尖峰：整镜失效，旧帧在同一轮重渲', { skip: noFfmpeg }, async () => {
@@ -349,7 +374,110 @@ test('镜头条目算不出键时不走缓存，帧源照常出帧', { skip: noF
   }
 });
 
-/* ---------------- 真 HTTP 服务：双镜头片交付两次 ---------------- */
+/* ---------------- 请求的通道（delivery.layers）与 L2 结论的复用 ---------------- */
+
+const withLayers = (film, layers) => patched(film, (f) => { f.delivery = { master: 'h264-web', layers }; });
+/** EXR 文件头里的通道名（FFmpeg 写的和 verify/exr 写的都读得了）：chlist 是一串「名字\0 + 16 字节」，以空名字结束 */
+function channelsOf(file) {
+  const raw = readFileSync(file), tag = Buffer.from('channels\0chlist\0');
+  let at = raw.indexOf(tag) + tag.length + 4;
+  const names = [];
+  for (let end; (end = raw.indexOf(0, at)) > at; at = end + 17) names.push(raw.subarray(at, end).toString());
+  return names.sort();
+}
+
+test('delivery.layers 进键也进缓存体：换通道集合必重渲，层文件与 EXR 里真有请求的通道，热缓存逐字节相同', { skip: noFfmpeg }, async () => {
+  const { run } = arena();
+  const film = filmOf();
+  const plain = await run(film);
+  assert.deepEqual(channelsOf(plain.records[0].exr), ['A', 'B', 'G', 'R'], '没点名通道时 EXR 只有颜色');
+
+  const named = await run(withLayers(film, ['color', 'objectId']));
+  assert.deepEqual(named.pool.calls, {}, '点名的两层本来就存着：命中');
+  assert.deepEqual(channelsOf(named.records[0].exr), ['A', 'B', 'G', 'R', 'objectId.id']);
+
+  for (const [name, components] of [['depth', ['Z']], ['normal', ['X', 'Y', 'Z']]]) {
+    const asked = withLayers(film, ['color', name]);
+    const cold = await run(asked);
+    assert.deepEqual(cold.pool.calls, { s01: { open: 1, render: 12 }, s02: { open: 1, render: 12 } }, `改要 ${name}：两个镜头都没有带这一层的条目`);
+    assert.ok(cold.pool.wants.every((w) => w.includes(name) && w.includes('objectId') && w.includes('color')));
+    const hot = await run(asked);
+    assert.deepEqual(hot.pool.calls, {}, '同一组通道再渲：全部命中');
+    for (const [i, rec] of hot.records.entries()) {
+      const was = cold.records[i], layer = (r) => readFileSync(join(dirname(r.color), `${name}.f32`));
+      assert.equal(rec.cached, true);
+      assert.equal(layer(was).length, SIZE[0] * SIZE[1] * 4 * components.length);
+      assert.deepEqual(layer(rec), layer(was), `帧 ${rec.frame} 的 ${name} 层从缓存还原，逐字节相同`);
+      assert.deepEqual(readFileSync(rec.objectId), readFileSync(was.objectId));
+      assert.deepEqual(readFileSync(rec.exr), readFileSync(was.exr), '冷热两次的 EXR 逐字节相同');
+      const exr = readExr(readFileSync(rec.exr));
+      assert.deepEqual(channelsOf(rec.exr), ['A', 'B', 'G', 'R', ...components.map((c) => `${name}.${c}`)]);
+      const bytes = layer(rec), plane = Array.from({ length: SIZE[0] * SIZE[1] }, (_, at) => bytes.readFloatLE(at * components.length * 4));
+      assert.deepEqual(Array.from(exr.channels[`${name}.${components[0]}`]), plane, 'EXR 里的通道就是层文件里的数');
+    }
+  }
+
+  const draft = await run(withLayers(film, ['color', 'depth']), { tier: 'draft', plan: [{ shot: film.shots[1], frames: [12] }] });
+  assert.deepEqual(draft.pool.wants, [['color', 'objectId', 'meta']], 'delivery.layers 是终渲要落盘的通道，草稿档不要');
+  await assert.rejects(run(withLayers(film, ['color', 'motion'])), { code: 'contract.unsupported-output' }, '帧源交不出的通道报错，不出缺层的帧');
+});
+
+test('场景参考通路的 frame.exr 与 objectId2x 随帧进缓存，命中时原样还原', { skip: noFfmpeg }, async () => {
+  const { run } = arena();
+  const film = filmOf();
+  const cold = await run(film, { pool: fakePool({ extras: true }) });
+  const hot = await run(film, { pool: fakePool({ extras: true }) });
+  assert.deepEqual(hot.pool.calls, {});
+  for (const [i, rec] of hot.records.entries()) {
+    for (const name of ['frame.exr', 'objectId2x.u32', 'objectId.u32']) {
+      assert.deepEqual(readFileSync(join(dirname(rec.color), name)), readFileSync(join(dirname(cold.records[i].color), name)), `帧 ${rec.frame} 的 ${name}`);
+    }
+  }
+});
+
+test('交付的 L2 纯函数门：这一版镜头过了门、这一轮又全部命中时照记录用，不起帧源；单独核验、有真渲帧、记录坏了都照常真跑', { skip: noFfmpeg }, async () => {
+  const { run, cache, dir, filmDir } = arena();
+  const film = filmOf(), edited = patched(film, (f) => { f.shots[1].cards[0].params.text = 'NEW'; });
+  let n = 0;
+  async function gate(of, res, extra = {}) {
+    const pool = fakePool();
+    const l2 = await pipeline.layerL2({ film: of, lock: lockOf(), filmDir, shots: of.shots, records: res.records, pool, scratch: join(dir, `l2-${++n}`), ...extra });
+    return { gates: l2.gates, calls: Object.fromEntries(Object.entries(pool.calls).map(([id, c]) => [id, c.render])) };
+  }
+  const first = await run(film);
+  assert.deepEqual(Object.fromEntries(Object.entries(first.versions).map(([id, v]) => [id, v.hit])), { s01: false, s02: false });
+  const a = await gate(film, first, { cache, versions: first.versions });
+  assert.deepEqual(a.calls, { s01: 6, s02: 6 }, '头一次交付：每个镜头两帧、三种次序');
+  assert.ok(a.gates.every((g) => g.ok && !g.cached));
+
+  const second = await run(edited);
+  const b = await gate(edited, second, { cache, versions: second.versions });
+  assert.deepEqual(b.calls, { s02: 6 }, '只改 s02：s01 这一版过了门、这一轮全部命中，帧源一次都没调');
+  assert.deepEqual(b.gates[0], { ...a.gates[0], cached: true });
+  assert.equal(b.gates[1].cached, undefined);
+
+  const third = await run(edited);
+  const c = await gate(edited, third, { cache, versions: third.versions });
+  assert.deepEqual(c.calls, {}, '原样再交付：全片不调帧源');
+  assert.deepEqual(c.gates.map((g) => [g.shot, g.ok, g.cached]), [['s01', true, true], ['s02', true, true]]);
+
+  assert.deepEqual((await gate(edited, third)).calls, { s01: 6, s02: 6 }, '单独核验不给 versions：照常真跑');
+
+  rmSync(frameFiles(cache, 's01').find((file) => readFileSync(file).length > 1000));
+  const patchedUp = await run(edited);
+  assert.deepEqual([patchedUp.of('s01').renderedFrames, patchedUp.versions.s01.hit], [1, false]);
+  assert.deepEqual((await gate(edited, patchedUp, { cache, versions: patchedUp.versions })).calls, { s01: 6 }, '这一轮补渲过帧的镜头重新过门');
+
+  const record = frameFiles(cache, 's02').find((file) => readFileSync(file).length < 1000);
+  const raw = readFileSync(record);
+  raw[raw.length - 2] ^= 0xff;
+  writeFileSync(record, raw);
+  const again = await run(edited);
+  assert.deepEqual((await gate(edited, again, { cache, versions: again.versions })).calls, { s02: 6 }, '记录坏了当没有，真跑后重新记下');
+  assert.deepEqual((await gate(edited, again, { cache, versions: again.versions })).calls, {});
+});
+
+/* ---------------- 真 HTTP 服务：双镜头片反复交付 ---------------- */
 
 function mediaSkip() {
   if (noFfmpeg) return noFfmpeg;
@@ -360,7 +488,7 @@ function mediaSkip() {
   return false;
 }
 
-test('HTTP：双镜头片第二次交付只改 s02，s01 渲帧数为 0，账本只计真渲帧，六件套完整', { skip: mediaSkip(), timeout: 600000 }, async (t) => {
+test('HTTP：只改 s02 再交付时 s01 的帧源调用是 0（含 L2），原样再交付全片是 0；换 delivery.layers 必重渲、请求的通道真在帧目录和 EXR 里', { skip: mediaSkip(), timeout: 900000 }, async (t) => {
   const dataDir = join(root, 'server');
   const account = issueAccountToken(dataDir);
   const api = await startServer({ dataDir, port: 0, reviewer: null });
@@ -383,6 +511,8 @@ test('HTTP：双镜头片第二次交付只改 s02，s01 渲帧数为 0，账本
   assert.deepEqual([first.data.deliveredFrames, first.data.renderedFrames, first.data.cachedFrames], [24, 24, 0]);
   const row1 = ledgerOf(first.data.job);
   assert.deepEqual([row1.frames, row1.renderedFrames, row1.cachedFrames], [24, 24, 0]);
+  // sourceRenders 在帧源池里数：这个作业里每个镜头的 session.render 被调了几次，终渲的帧和 L2 的探针（两帧 × 三种次序）都算
+  assert.deepEqual(row1.sourceRenders, { s01: 18, s02: 18 });
 
   const rev = (await call('GET', `${base}/film`, made.token)).data.rev;
   const put = await call('PUT', `${base}/film`, made.token, { format: 'patch/0.1', rev, ops: [{ op: 'set', path: 'shots/s02/cards/title/params/text', value: 'NEW' }] });
@@ -392,6 +522,8 @@ test('HTTP：双镜头片第二次交付只改 s02，s01 渲帧数为 0，账本
   assert.deepEqual(second.data.shots, [{ shot: 's01', renderedFrames: 0, cachedFrames: 12 }, { shot: 's02', renderedFrames: 12, cachedFrames: 0 }]);
   const row2 = ledgerOf(second.data.job);
   assert.deepEqual([row2.frames, row2.renderedFrames, row2.cachedFrames], [12, 12, 12], '账本的渲帧数减半');
+  assert.deepEqual(row2.sourceRenders, { s02: 18 }, 's01 的 session.render 总次数是 0：终渲全部命中，L2 照这一版镜头过门的记录用');
+  assert.deepEqual(second.data.layers.L2.gates.map((g) => [g.shot, g.ok, g.cached ?? false]), [['s01', true, true], ['s02', true, false]]);
   // 终渲那一步没有为 s01 调帧源：它的层目录里只有缓存还原出来的，逐字节等于第一次交付时帧源写的
   const restored = layersOf(second.data.job, 's01');
   assert.deepEqual(restored, Array.from({ length: 12 }, (_, i) => `cache-f${String(i).padStart(4, '0')}`));
@@ -413,11 +545,65 @@ test('HTTP：双镜头片第二次交付只改 s02，s01 渲帧数为 0，账本
   const row3 = ledgerOf(third.data.job);
   assert.deepEqual([row3.frames, row3.renderedFrames, row3.cachedFrames, row3.gpuSeconds], [0, 0, 24, 0]);
 
+  // 原样再交付：终渲和 L2 都不调帧源，六件套照出
+  const fourth = await job('deliver');
+  assert.deepEqual([fourth.data.deliveredFrames, fourth.data.renderedFrames, fourth.data.cachedFrames], [24, 0, 24]);
+  const row4 = ledgerOf(fourth.data.job);
+  assert.deepEqual([row4.frames, row4.renderedFrames, row4.cachedFrames, row4.gpuSeconds, row4.sourceRenders], [0, 0, 24, 0, {}]);
+  assert.deepEqual([fourth.data.layers.L2.ok, fourth.data.layers.L3.ok, fourth.data.layers.L2.gates.every((g) => g.cached)], [true, true, true]);
+  assert.equal(Object.keys(verifyDeliveryBundle(join(filmDir, 'deliver', fourth.data.job, 'bundle')).files).length, 6);
+
+  // delivery.layers：请求的通道进键、进缓存体、进 EXR。s01 是场景参考的 Blender 镜头，s02 是显示参考的页面镜头
+  const shotDir = (jobId, shot) => join(filmDir, 'deliver', jobId, 'frames', shot);
+  const layerFiles = (jobId, shot, name) => layersOf(jobId, shot).sort().map((sub) => join(shotDir(jobId, shot), 'layers', sub, name)).filter((p) => existsSync(p));
+  const exrFiles = (jobId, shot) => Array.from({ length: 12 }, (_, i) => join(shotDir(jobId, shot), 'exr', `l${String(i).padStart(4, '0')}.exr`));
+  async function change(path, value) {
+    const at = (await call('GET', `${base}/film`, made.token)).data.rev;
+    const res = await call('PUT', `${base}/film`, made.token, { format: 'patch/0.1', rev: at, ops: [{ op: 'set', path, value }] });
+    assert.equal(res.ok, true, JSON.stringify(res));
+    return job('deliver');
+  }
+  const ask = (layers) => change('delivery/layers', layers);
+  const named = await ask(['color', 'objectId']);
+  assert.deepEqual([named.data.renderedFrames, named.data.cachedFrames], [0, 24], '点名的两层本来就存着');
+  for (const shot of ['s01', 's02']) assert.deepEqual(channelsOf(exrFiles(named.data.job, shot)[0]), ['A', 'B', 'G', 'R', 'objectId.id']);
+  for (const [name, components] of [['depth', ['Z']], ['normal', ['X', 'Y', 'Z']]]) {
+    const cold = await ask(['color', name]);
+    assert.deepEqual([cold.data.renderedFrames, cold.data.cachedFrames], [24, 0], `改要 ${name}：全片真渲`);
+    assert.deepEqual(ledgerOf(cold.data.job).sourceRenders, { s01: 18, s02: 18 });
+    const hot = await job('deliver');
+    assert.deepEqual([hot.data.deliveredFrames, hot.data.renderedFrames, hot.data.cachedFrames], [24, 0, 24]);
+    assert.deepEqual(ledgerOf(hot.data.job).sourceRenders, {});
+    for (const shot of ['s01', 's02']) {
+      const was = layerFiles(cold.data.job, shot, `${name}.f32`), now = layerFiles(hot.data.job, shot, `${name}.f32`);
+      assert.deepEqual([was.length, now.length], [12, 12], `${shot} 的 12 帧都有 ${name} 层`);
+      for (const [i, file] of now.entries()) assert.deepEqual(readFileSync(file), readFileSync(was[i]), `${shot} 第 ${i} 帧的 ${name} 层从缓存还原，逐字节相同`);
+      for (const [i, file] of exrFiles(hot.data.job, shot).entries()) {
+        assert.deepEqual(channelsOf(file), ['A', 'B', 'G', 'R', ...components.map((c) => `${name}.${c}`)]);
+        assert.deepEqual(readFileSync(file), readFileSync(exrFiles(cold.data.job, shot)[i]), `${shot} 第 ${i} 帧的 EXR 冷热两次逐字节相同`);
+      }
+    }
+    assert.equal(Object.keys(verifyDeliveryBundle(join(filmDir, 'deliver', hot.data.job, 'bundle')).files).length, 6);
+    assert.deepEqual([hot.data.layers.L2.ok, hot.data.layers.L3.ok], [true, true]);
+  }
+
+  // 页面帧源的场景参考通路：帧源另交的 frame.exr（和有的话 objectId2x.u32）随帧进缓存，热缓存原样还原
+  const sceneCold = await change('shots/s02/colorRef', 'scene');
+  assert.deepEqual(sceneCold.data.shots, [{ shot: 's01', renderedFrames: 0, cachedFrames: 12 }, { shot: 's02', renderedFrames: 12, cachedFrames: 0 }], 'colorRef 在镜头条目里：只有 s02 换键');
+  const sceneHot = await job('deliver');
+  assert.deepEqual([sceneHot.data.renderedFrames, ledgerOf(sceneHot.data.job).sourceRenders], [0, {}]);
+  for (const name of ['frame.exr', 'objectId2x.u32', 'normal.f32']) {
+    const was = layerFiles(sceneCold.data.job, 's02', name), now = layerFiles(sceneHot.data.job, 's02', name);
+    assert.equal(now.length, was.length);
+    if (name !== 'objectId2x.u32') assert.equal(was.length, 12, `场景参考的 s02 每帧都有 ${name}`);
+    for (const [i, file] of now.entries()) assert.deepEqual(readFileSync(file), readFileSync(was[i]), `s02 第 ${i} 帧的 ${name} 冷热两次逐字节相同`);
+  }
+
   // 缓存在 deliver/ 下，不进修订快照；终稿每个镜头只留最近用过的一版
   for (const snap of readdirSync(join(filmDir, 'snapshots'))) {
     assert.ok(!readdirSync(join(filmDir, 'snapshots', snap), { recursive: true }).some((p) => String(p).includes('.shot-cache')));
   }
   const cacheRoot = join(filmDir, 'deliver', '.shot-cache');
   assert.equal(readdirSync(join(cacheRoot, 'final', 'shot-s02')).length, 1, '改之前那一版 s02 在第二次交付后清掉了');
-  t.diagnostic(`交付 1 渲 ${row1.frames} 帧 ${row1.gpuSeconds} 显卡秒；交付 2 渲 ${row2.frames} 帧 ${row2.gpuSeconds} 显卡秒（含 L2 纯函数门的探针）；重渲 ${row3.frames} 帧`);
+  t.diagnostic(`交付 1 渲 ${row1.frames} 帧 ${row1.gpuSeconds} 显卡秒；交付 2 渲 ${row2.frames} 帧 ${row2.gpuSeconds} 显卡秒（含 s02 的 L2 探针）；原样再交付 ${row4.frames} 帧 ${row4.gpuSeconds} 显卡秒`);
 });

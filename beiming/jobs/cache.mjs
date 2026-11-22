@@ -73,13 +73,16 @@ export function computeFrameCacheKey(spec) {
     isUnique(cards.map(card => card.id)), '第 4 项 cards 必须是不重复的 { id, version: 三段版本, sha256 } 列表。');
   need(hasExactly(runtimeEnv, ENV_KEYS) && ENV_KEYS.every(key => typeof runtimeEnv[key] === 'string' && runtimeEnv[key] !== ''),
     `第 5 项 runtimeEnv 必须正好有 ${ENV_KEYS.join('、')} 五个非空字符串。`);
-  need(hasExactly(renderSpec, RENDER_KEYS), `第 6 项 renderSpec 必须正好有 ${RENDER_KEYS.join('、')}。`);
-  const { tier, samples, size, frame, subs } = renderSpec;
+  // layers 可以不写：调用方一帧要存哪些层（出片链路是请求的通道集合），写了就进键，换一组层不会命中缺层的旧条目
+  need(isPlainObject(renderSpec) && hasExactly({ ...renderSpec, layers: 0 }, [...RENDER_KEYS, 'layers']), `第 6 项 renderSpec 必须正好有 ${RENDER_KEYS.join('、')}，可以另带 layers。`);
+  const { tier, samples, size, frame, subs, layers } = renderSpec;
+  need(layers === undefined || (Array.isArray(layers) && layers.length > 0 && layers.every(name => typeof name === 'string' && name !== '') && isUnique(layers)),
+    '第 6 项 renderSpec.layers 必须是不重复的非空层名列表。');
   need(TIERS.includes(tier) && isCount(samples) && Array.isArray(size) && size.length === 2 && size.every(isCount) &&
     Array.isArray(subs) && subs.length > 0 && subs.every(Number.isFinite), '第 6 项 renderSpec 的档位、采样数、尺寸或 sub 采样集无效。');
   need(Number.isSafeInteger(frame) && frame >= 0 && frame < frames, '第 6 项 renderSpec.frame 必须是落在镜头内的局部帧号。');
 
-  const picture = { tier, samples, size, subs: sortedSubs(subs) };
+  const picture = { tier, samples, size, subs: sortedSubs(subs), ...(layers && { layers: [...layers].sort(byText) }) };
   const components = {
     shot: digest({ entry, frames, events, film }),
     loadedFiles: digest(loadedFiles.map(file => ({ path: file.path, sha256: file.sha256 })).sort((a, b) => byText(a.path, b.path))),
@@ -198,18 +201,21 @@ export function openShotCache(cacheDir) {
   // 一个条目一个文件：一行 JSON 文件头加颜色层字节，改名一步到位，不会出现头和颜色层对不上的中间态。
   const validSeam = seam => seam === undefined || (Array.isArray(seam) && seam.length > 0 && seam.length <= SEAM_BINS && seam.every(Number.isFinite));
   const validRun = id => typeof id === 'string' && id.length > 0;
-  // auxBytes 是随颜色层一起存的辅助层（出片链路放编号层）：接在颜色层后面，长度与摘要记进同一份文件头。
-  function put(entry, { colorBytes, auxBytes, meta = {}, seam, runId = randomUUID() } = {}) {
+  // layers 是随颜色层一起存的具名辅助层 { 名字: 字节 }（出片链路放编号层、深度、法线这些层文件）：
+  // 按名字的次序接在颜色层后面，每一层的长度与摘要记进同一份文件头。
+  function put(entry, { colorBytes, layers, meta = {}, seam, runId = randomUUID() } = {}) {
     const file = fileOf(entry);
     need(colorBytes instanceof Uint8Array && colorBytes.length > 0, '颜色层必须是非空的 Buffer 或 Uint8Array。');
-    need(auxBytes === undefined || (auxBytes instanceof Uint8Array && auxBytes.length > 0), '辅助层必须是非空的 Buffer 或 Uint8Array。');
+    need(layers === undefined || (isPlainObject(layers) && Object.entries(layers).every(([name, data]) => name !== '' && data instanceof Uint8Array && data.length > 0)),
+      '辅助层必须是 { 名字: 非空的 Buffer 或 Uint8Array }。');
     need(isPlainObject(meta) && validSeam(seam) && validRun(runId), '元数据、接缝特征或写入轮次无效。');
     const { timing, ...stable } = meta;
     const colorSha256 = sha256(colorBytes);
+    const names = Object.keys(layers ?? {}).sort(byText);
     const fields = { format: FORMAT, key: entry.key, colorSha256, meta: stable, runId, ...(seam && { seam }),
-      ...(auxBytes && { aux: { bytes: auxBytes.length, sha256: sha256(auxBytes) } }) };
+      ...(names.length && { layers: names.map(name => ({ name, bytes: layers[name].length, sha256: sha256(layers[name]) })) }) };
     const header = canonicalJson({ ...fields, headerSha256: sha256(canonicalJson(fields)) });
-    const bytes = Buffer.concat([Buffer.from(`${header}\n`), colorBytes, ...(auxBytes ? [auxBytes] : [])]);
+    const bytes = Buffer.concat([Buffer.from(`${header}\n`), colorBytes, ...names.map(name => layers[name])]);
     for (let attempt = 0; ; attempt++) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       try {
@@ -281,19 +287,23 @@ export function openShotCache(cacheDir) {
     const [snap, raw] = found;
     const split = raw.indexOf(0x0a);
     let colorBytes = raw.subarray(split + 1);
-    let auxBytes;
+    let layers;
     let fields;
     try {
       const { headerSha256, ...body } = JSON.parse(raw.subarray(0, Math.max(split, 0)).toString('utf8'));
-      if (body.aux !== undefined) {
-        // 带辅助层的条目：文件尾部那一段是辅助层，长度不对或摘要对不上整条按坏帧处理
-        need(isPlainObject(body.aux) && isCount(body.aux.bytes) && body.aux.bytes < colorBytes.length, '辅助层长度无效。');
-        auxBytes = colorBytes.subarray(colorBytes.length - body.aux.bytes);
-        colorBytes = colorBytes.subarray(0, colorBytes.length - body.aux.bytes);
+      if (body.layers !== undefined) {
+        // 带辅助层的条目：从文件尾部往前一层层切下来，长度不对或摘要对不上整条按坏帧处理
+        need(Array.isArray(body.layers), '辅助层清单无效。');
+        layers = {};
+        for (const layer of body.layers.toReversed()) {
+          need(isPlainObject(layer) && typeof layer.name === 'string' && isCount(layer.bytes) && layer.bytes < colorBytes.length, '辅助层长度无效。');
+          layers[layer.name] = colorBytes.subarray(colorBytes.length - layer.bytes);
+          colorBytes = colorBytes.subarray(0, colorBytes.length - layer.bytes);
+          need(layer.sha256 === sha256(layers[layer.name]), '辅助层摘要对不上。');
+        }
       }
       if (body.format === FORMAT && body.key === entry.key && isPlainObject(body.meta) && validRun(body.runId) && validSeam(body.seam) &&
-          headerSha256 === sha256(canonicalJson(body)) && colorBytes.length && body.colorSha256 === sha256(colorBytes) &&
-          (!auxBytes || body.aux.sha256 === sha256(auxBytes))) fields = body;
+          headerSha256 === sha256(canonicalJson(body)) && colorBytes.length && body.colorSha256 === sha256(colorBytes)) fields = body;
     } catch (error) {
       if (!(error instanceof SyntaxError || error instanceof TypeError || error instanceof RangeError)) throw error;
     }
@@ -314,7 +324,7 @@ export function openShotCache(cacheDir) {
       // 只读的共享缓存改不了时间，不影响命中
     }
     const { colorSha256, meta, seam, runId } = fields;
-    return { colorBytes, colorSha256, meta, seam, runId, ...(auxBytes && { auxBytes }) };
+    return { colorBytes, colorSha256, meta, seam, runId, ...(layers && { layers }) };
   }
 
   function list(dir) {
@@ -377,7 +387,15 @@ export function openShotCache(cacheDir) {
     // 重试只能看到全空或新版本；删除中断留下的暂存由 prune 回收。
     fs.rmSync(retired, { recursive: true, force: true, maxRetries: 5, retryDelay: 10 });
   }
-  return Object.freeze({ root, get, put, prune, invalidateShot });
+  // 镜头这一版的核验记录（出片链路放 L2 纯函数门的结论）：和这一版的帧同在一个目录，用帧条目的文件头校验、同一把锁发布，
+  // 随 invalidateShot、prune 和这一版的帧一起清。entry 给这一版镜头的任一帧条目。
+  const verificationOf = entry => ({ ...entry, key: digest({ format: FORMAT, shotKey: entry.shotKey, record: 'verification' }) });
+  const putShotVerification = (entry, record) => put(verificationOf(entry), { colorBytes: Buffer.from(canonicalJson(record)) });
+  function getShotVerification(entry) {
+    const hit = get(verificationOf(entry));
+    return hit && JSON.parse(hit.colorBytes.toString('utf8'));
+  }
+  return Object.freeze({ root, get, put, prune, invalidateShot, getShotVerification, putShotVerification });
 }
 
 function meanAbsDiff(a, b) {

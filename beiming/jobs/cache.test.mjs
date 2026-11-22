@@ -2359,7 +2359,7 @@ test('A16-39 Windows 8.3 短路径回归：fs.realpathSync 与 fs.realpathSync.n
   assert.equal(observedLockB, true, 'Windows 8.3 短长路径不一致且 ino=0n 时，第二缓存根仍必须独立持锁');
 });
 
-test('A16-40 辅助层 auxBytes：随颜色层同一份文件头原子落盘，读回逐字节校验；辅助层损坏按坏帧未命中；不带辅助层的条目照旧命中', () => {
+test('A16-40 具名辅助层 layers：随颜色层同一份文件头原子落盘，读回逐字节校验；任一层损坏按坏帧未命中；不带辅助层的条目照旧命中', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-a16-aux-'));
   try {
     const cache = jobs.openShotCache(path.join(dir, 'cache'));
@@ -2367,32 +2367,82 @@ test('A16-40 辅助层 auxBytes：随颜色层同一份文件头原子落盘，�
     const plain = jobs.computeFrameCacheKey(makeBaseSpec({ renderSpec: { tier: 'final', samples: 1, size: [8, 8], frame: 1, subs: [0] } }));
     const colorBytes = Buffer.from(new Float32Array([0.25, 0.5, 0.75, 1]).buffer);
     // 辅助层里放换行符和与颜色层相同的字节：切分只认文件头记的长度，不认内容
-    const auxBytes = Buffer.concat([Buffer.from([0x0a, 0x0a, 7, 0]), colorBytes]);
-    const { colorSha256 } = cache.put(entry, { colorBytes, auxBytes, meta: { shot: 's01', timing: { renderMs: 9 } }, seam: [0.5], runId: 'run-a' });
+    const idBytes = Buffer.concat([Buffer.from([0x0a, 0x0a, 7, 0]), colorBytes]);
+    const layers = { 'objectId.u32': idBytes, 'depth.f32': Buffer.from([1, 2, 3, 4]) };
+    const { colorSha256 } = cache.put(entry, { colorBytes, layers, meta: { shot: 's01', timing: { renderMs: 9 } }, seam: [0.5], runId: 'run-a' });
     cache.put(plain, { colorBytes, meta: {}, runId: 'run-a' });
 
     const hit = cache.get(entry);
-    assert.deepEqual([Buffer.from(hit.colorBytes), Buffer.from(hit.auxBytes)], [colorBytes, auxBytes]);
+    assert.deepEqual(Object.keys(hit.layers).sort(), ['depth.f32', 'objectId.u32']);
+    assert.deepEqual([Buffer.from(hit.colorBytes), Buffer.from(hit.layers['objectId.u32']), Buffer.from(hit.layers['depth.f32'])], [colorBytes, idBytes, layers['depth.f32']]);
     assert.deepEqual([hit.colorSha256, hit.meta, hit.seam, hit.runId], [colorSha256, { shot: 's01' }, [0.5], 'run-a']);
     const old = cache.get(plain);
-    assert.deepEqual([Buffer.from(old.colorBytes), Object.hasOwn(old, 'auxBytes')], [colorBytes, false], '不带辅助层的条目照旧命中，没有 auxBytes 键');
+    assert.deepEqual([Buffer.from(old.colorBytes), Object.hasOwn(old, 'layers')], [colorBytes, false], '不带辅助层的条目照旧命中，没有 layers 键');
 
-    assert.throws(() => cache.put(entry, { colorBytes, auxBytes: new Uint8Array(0) }), TypeError);
-    assert.throws(() => cache.put(entry, { colorBytes, auxBytes: 'id' }), TypeError);
+    for (const bad of [{ a: new Uint8Array(0) }, { a: 'id' }, { '': idBytes }, 'id', [idBytes]]) {
+      assert.throws(() => cache.put(entry, { colorBytes, layers: bad }), TypeError);
+    }
 
     const file = path.join(cache.root, 'final', 'shot-s01', entry.shotKey.slice(7), `${entry.key.slice(7)}.frame`);
     const good = fs.readFileSync(file);
     for (const damage of [
-      (raw) => { raw[raw.length - 1] ^= 0xff; return raw; }, // 辅助层末字节
+      (raw) => { raw[raw.length - 1] ^= 0xff; return raw; }, // 最后一层（objectId.u32）的末字节
+      (raw) => { raw[raw.length - idBytes.length - 1] ^= 0xff; return raw; }, // 前一层（depth.f32）的末字节
       (raw) => raw.subarray(0, raw.length - 2), // 尾部截断：长度对不上
-      (raw) => Buffer.from(raw.toString('latin1').replace(`"bytes":${auxBytes.length}`, `"bytes":${auxBytes.length + colorBytes.length}`), 'latin1'), // 文件头把辅助层长度改大
+      (raw) => Buffer.from(raw.toString('latin1').replace(`"bytes":${idBytes.length}`, `"bytes":${idBytes.length + colorBytes.length + 4}`), 'latin1'), // 文件头把层的长度改大
     ]) {
       fs.writeFileSync(file, damage(Buffer.from(good)));
       assert.equal(cache.get(entry), undefined, '辅助层坏了整条按未命中');
       assert.equal(fs.existsSync(file), false, '坏帧被清掉');
-      cache.put(entry, { colorBytes, auxBytes, runId: 'run-b' });
+      cache.put(entry, { colorBytes, layers, runId: 'run-b' });
     }
-    assert.deepEqual(Buffer.from(cache.get(entry).auxBytes), auxBytes);
+    assert.deepEqual(Buffer.from(cache.get(entry).layers['objectId.u32']), idBytes);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('A16-41 renderSpec.layers：请求的层集合进第 6 项，次序无关；不写时键与以前相同', () => {
+  const base = makeBaseSpec();
+  const keyOf = (layers) => jobs.computeFrameCacheKey({ ...base, renderSpec: { ...base.renderSpec, layers } });
+  const plain = jobs.computeFrameCacheKey(base);
+  const a = keyOf(['color', 'objectId']), b = keyOf(['objectId', 'color']), c = keyOf(['color', 'depth', 'objectId']);
+  assert.equal(a.key, b.key, '层的次序不进键');
+  assert.notEqual(a.key, c.key, '多要一层换键');
+  assert.notEqual(a.shotKey, c.shotKey, '镜头这一版也跟着换');
+  assert.notEqual(a.key, plain.key);
+  assert.equal(plain.key, jobs.computeFrameCacheKey(makeBaseSpec()).key);
+  for (const bad of [[], ['color', 'color'], [''], 'color', [1]]) assert.throws(() => keyOf(bad), TypeError);
+  assert.throws(() => jobs.computeFrameCacheKey({ ...base, renderSpec: { ...base.renderSpec, extra: 1 } }), TypeError);
+});
+
+test('A16-42 镜头这一版的核验记录：同版任一帧条目取得到，换版取不到；坏了按没有；随 invalidateShot 一起清；不占帧的键', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'beiming-a16-verification-'));
+  try {
+    const cache = jobs.openShotCache(path.join(dir, 'cache'));
+    const frame = (n, samples = 1) => jobs.computeFrameCacheKey(makeBaseSpec({ renderSpec: { tier: 'final', samples, size: [8, 8], frame: n, subs: [0] } }));
+    const record = { l2: { shot: 's01', ok: true, frames: [0, 3] } };
+    assert.equal(cache.getShotVerification(frame(0)), undefined);
+    cache.putShotVerification(frame(0), record);
+    assert.deepEqual(cache.getShotVerification(frame(1)), record, '同一版镜头的任一帧条目都取得到');
+    assert.equal(cache.getShotVerification(frame(0, 2)), undefined, '采样数变了是另一版');
+
+    const colorBytes = Buffer.from([1, 2, 3, 4]);
+    cache.put(frame(0), { colorBytes, runId: 'run-a' });
+    assert.deepEqual(Buffer.from(cache.get(frame(0)).colorBytes), colorBytes, '记录和帧各存各的');
+    assert.deepEqual(cache.getShotVerification(frame(0)), record);
+
+    const version = path.join(cache.root, 'final', 'shot-s01', frame(0).shotKey.slice(7));
+    const file = fs.readdirSync(version).map((name) => path.join(version, name)).find((p) => !p.endsWith(`${frame(0).key.slice(7)}.frame`));
+    const raw = fs.readFileSync(file);
+    raw[raw.length - 2] ^= 0xff;
+    fs.writeFileSync(file, raw);
+    assert.equal(cache.getShotVerification(frame(0)), undefined, '校验和对不上按没有记录');
+
+    cache.putShotVerification(frame(0), record);
+    cache.invalidateShot(frame(0));
+    assert.equal(cache.getShotVerification(frame(0)), undefined, '整镜失效时记录一起清');
+    assert.throws(() => cache.putShotVerification(frame(0), { at: new Date() }), TypeError);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

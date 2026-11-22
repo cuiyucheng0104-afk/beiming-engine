@@ -54,7 +54,7 @@ node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
 
 ## 镜头帧缓存（A16）
 
-`render`、`verify` 的补渲和 `deliver` 的终渲都经 `pipeline.mjs` 的 `renderPlan`。每部片的缓存在工作区 `deliver/.shot-cache/`（`jobs/cache.mjs` 的 `openShotCache`）：不进修订快照，跨修订、跨作业复用。每帧先按 04 §10 的六项键查缓存，命中的帧把 `color.f32`、`objectId.u32` 还原到 `<作业>/frames/<镜头>/layers/cache-f<局部帧号>/`，不调帧源；一个镜头全部命中就不为它起 Blender 或浏览器会话。只改 `s02` 再交付，`s01` 的渲帧数是 0。
+`render`、`verify` 的补渲和 `deliver` 的终渲都经 `pipeline.mjs` 的 `renderPlan`。每部片的缓存在工作区 `deliver/.shot-cache/`（`jobs/cache.mjs` 的 `openShotCache`）：不进修订快照，跨修订、跨作业复用。每帧先按 04 §10 的六项键查缓存，命中的帧把 `color.f32`、`objectId.u32` 和别的请求层还原到 `<作业>/frames/<镜头>/layers/cache-f<局部帧号>/`，不调帧源；一个镜头全部命中就不为它起 Blender 或浏览器会话。只改 `s02` 再交付，`s01` 的帧源调用是 0 次（终渲和 L2 都算）；原样再交付，全片是 0 次。
 
 `buildShotCacheInputs({ film, lock, shot, filmDir, tier, events, device })` 交出一个镜头的键输入：
 
@@ -65,17 +65,18 @@ node beiming/api/cli.mjs render --id f_001 --wait 30 --json '{"tier":"draft"}'
 | ③ 轨道 | 镜头 `tracks` 声明的摘要，没有写 `'none'` |
 | ④ 卡 | 镜头的卡、叠加层卡和数据层（`impl` 含 `data`）的卡在锁里的 `version` 与 `sha256`。合成的卡不进键：缓存存的是合成之前的层 |
 | ⑤ 环境 | 帧源与宿主、锁里的运行时版本与镜像、浏览器可执行文件的指纹、浏览器的显卡参数、系统版本，加上帧源上次出帧时报的 `backend` 与 `gpu` |
-| ⑥ 规格 | 档位、采样数、`output.size`、局部帧号、快门子帧相位 |
+| ⑥ 规格 | 档位、采样数、`output.size`、局部帧号、快门子帧相位、这一档要帧源交的层 `layersOf(film, tier)`。`colorRef` 在镜头条目里，属于 ① |
 
 - **别的镜头改参数、改事件不影响本镜头；镜头整体后移要重渲**：起始帧在键里。镜头代码和卡拿得到 `ctx.shot.in`（[镜头契约](../kernel/contracts/shot/CONTRACT.md) S10，`time.timeline` 用它算全片时间），`time` 类型的卡参数写整数是全片帧号（转台模板片名卡的 `enter: 0`），后移之后同一个局部帧号的画面可以不一样。前一个镜头改长，后面的镜头都重渲；只改长最后一个镜头，前面的照常命中。`jobs/cache.mjs` 的键本身不含起始帧，由这里放进 `film.at`。
 - 命中的元数据 `timing` 记 0，其余原样，`hash.color` 与还原出的颜色层一致。
-- **读回校验**：文件头、颜色层、编号层各验 SHA-256，层的字节数要对上 `meta.size`，`meta.hash.color` 要对上颜色层。任一项不对就丢掉这一帧重渲。没带编号层的条目不当命中。
+- **请求的通道**：`film.delivery.layers` 是终渲要落盘的通道。终渲档向帧源要 `color`、`objectId` 加上它点名的通道（`depth`、`normal`），草稿档只要前两个。这组层名进键，所以换一组通道必重渲，不会拿缺层的旧帧当命中。层文件 `depth.f32`、`normal.f32` 和颜色层放在同一个目录；点名了通道时 `<镜头>/exr/l<局部帧号>.exr` 由管线直接写（ZIPS，32 位），通道是 `R`、`G`、`B`、`A` 加 `depth.Z`、`normal.X`、`normal.Y`、`normal.Z`、`objectId.id`（点名了哪个带哪个），数就是层文件里的；没点名时 EXR 和以前一样只有颜色。帧源交不出的通道（`motion`、降噪层、分灯组）由帧源报 `contract.unsupported-output`，作业失败，不出缺层的帧。场景参考通路里页面帧源另交的 `frame.exr`、`objectId2x.u32` 也随帧进缓存、原样还原。成片（`master.mp4`、`web.mp4`）只用颜色。
+- **读回校验**：文件头、颜色层和每个辅助层各验 SHA-256，层的字节数要对上 `meta.size`，`meta.hash.color` 要对上颜色层，这一档要的层一层不能缺。任一项不对就丢掉这一帧重渲。
 - **环境记录**：显卡后端和型号要帧源出过帧才知道，记在 `deliver/.shot-cache/devices.json`。全部命中的镜头照记录算键。真渲的帧报的不一样时改记录，这个镜头照旧环境查到的命中作废，照新环境整镜重渲。局限：换了显卡或驱动而系统版本没变时，全部命中的镜头发现不了，等到任一个同帧源的镜头真渲一帧才纠正；要立刻生效就删掉 `deliver/.shot-cache/`。
 - **接缝检查**：容差档帧源（`blender`）出的一段连续帧里混了几轮的帧时跑 `checkCacheSeams`。有尖峰就 `invalidateShot`，旧帧在同一个会话里重渲，结果里这个镜头带 `seam: 'rerendered'`。抽样帧不连续，不查。
-- **记账**：作业结论的 `data.renderedFrames`、`data.cachedFrames`、`data.shots[]`，账本行的 `frames`（等于 `renderedFrames`）与 `cachedFrames`。`frames` 和 `gpuSeconds` 只数真调了帧源的帧；交付另带 `deliveredFrames`。
-- **L2 纯函数门不走缓存**：交付时每个镜头仍用 CPU 草稿档探两帧，它的耗时进 `gpuSeconds`、不进 `frames`。缓存的前提是「帧只由六项决定」，这道门守的就是这个前提，所以不缓存它的结论。
+- **记账**：作业结论的 `data.renderedFrames`、`data.cachedFrames`、`data.shots[]`，账本行的 `frames`（等于 `renderedFrames`）与 `cachedFrames`。`frames` 只数终渲、补渲里真调了帧源的帧；`gpuSeconds` 是帧源 `render` 调用的耗时之和，真跑了的 L2 探针也在里面；交付另带 `deliveredFrames`。账本行和 `outcome.json` 的 `sourceRenders` 是 `{ 镜头: 次数 }`：帧源池里数的这个作业对每个镜头调了几次 `session.render`（终渲、补渲、L2 探针都算），一次没调的镜头不出现。全部命中的交付是 `{}`，`gpuSeconds` 是 0。
+- **L2 纯函数门的结论按镜头的版本记**：交付时每个镜头用 CPU 草稿档探两帧、三种次序（6 次 `render`）。过了门就在缓存里这一版镜头（除帧号外的全部键，`shotKey`）的目录下记一条带校验的记录（`putShotVerification`）。下次交付，一个镜头这一轮全部命中、这一版又有过门的记录时照记录用，`layers.L2.gates[]` 里这一项带 `cached: true`，不起帧源。这一轮有真渲的帧（改过、坏帧补渲、接缝重渲）、没有记录或记录坏了就真跑；没过的门不记。六项里任一项变了是新的一版，没有记录。单独的 `POST verify` 每次真跑、不读也不写记录：怀疑记录时用它。局限：帧源在同样的六项下偶尔才不确定时，过过一次门的镜头要等它下次有帧真渲才会再探。
 - **保留**：交付成功后 `prune()`：终稿每个镜头只留最近用过的一版，放了七天的条目清掉。草稿档的帧也进缓存，七天后清。
 - **键算不出来**（镜头条目里有帧源才判得出的错）时这个镜头不走缓存，帧源照常出帧或报它自己的错。
 - 测「重新渲染」（重复性、重建）时每次用新片子，或先删 `deliver/.shot-cache/`，否则测到的是命中。`renderPlan` 不传 `cache` 就每帧都渲。
 
-改动后运行 `node --test beiming/api/shot-cache-api.test.mjs`：前半用记数的假帧源（只要 FFmpeg），最后一条用真 Blender 和无头浏览器交付两次，缺工具时跳过。
+改动后运行 `node --test beiming/api/shot-cache-api.test.mjs`：前半用记数的假帧源（只要 FFmpeg），最后一条用真 Blender 和无头浏览器经 HTTP 交付十次（改一个镜头、原样再交付、换三组 `delivery.layers`、把页面镜头改成场景参考，各冷热对照），帧源调用次数读账本行的 `sourceRenders`，缺工具时跳过。

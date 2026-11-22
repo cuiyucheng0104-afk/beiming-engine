@@ -2,7 +2,8 @@
 // 作业经 jobs 的队列和调度器跑：执行器从这个修订的快照读 film.json、film.lock 和镜头文件，产物写进工作区 deliver/<作业号>/。
 // 作业的结论写成 deliver/<作业号>/outcome.json（队列自己只留一句失败原因，错误码留不住），服务端照它拼信封。
 // 渲出来的帧按档位并进一份索引 deliver/frames-<档位>.json（只留当前修订的），观测和核验都读它。
-// 镜头帧缓存在 deliver/.shot-cache（不进修订快照，跨修订、跨作业复用）：没改的镜头再渲、再交付时不调帧源。
+// 镜头帧缓存在 deliver/.shot-cache（不进修订快照，跨修订、跨作业复用）：没改的镜头再渲、再交付时不调帧源（交付的 L2 纯函数门也照缓存里的记录用）。
+// 帧源池数着每个镜头的 render 被调了几次，记在结论和账本行的 sourceRenders。
 // 计时只用单调时钟量耗时（记成本用），不进任何产物的内容。
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -213,8 +214,9 @@ export function createWork({ store, library, reviewer, scheduler }) {
     outcome.cost = { tokens: acc.tokens, gpuSeconds: r3(acc.gpuSeconds), wallMs };
     outcome.frames = acc.frames;
     outcome.cachedFrames = acc.cachedFrames;
+    outcome.sourceRenders = pool.renders;
     writeFileSync(join(dir, 'outcome.json'), jsonText(outcome));
-    store.ledger(id, { step: `job.${name}`, job: job.id, rev, status: signal.aborted ? (signal.reason === 'preempted' ? 'stopped' : 'canceled') : crash ? 'failed' : 'succeeded', ok: !signal.aborted && outcome.ok, wallMs, gpuSeconds: r3(acc.gpuSeconds), tokens: 0, modelTokens: acc.tokens, frames: acc.frames, renderedFrames: acc.frames, cachedFrames: acc.cachedFrames });
+    store.ledger(id, { step: `job.${name}`, job: job.id, rev, status: signal.aborted ? (signal.reason === 'preempted' ? 'stopped' : 'canceled') : crash ? 'failed' : 'succeeded', ok: !signal.aborted && outcome.ok, wallMs, gpuSeconds: r3(acc.gpuSeconds), tokens: 0, modelTokens: acc.tokens, frames: acc.frames, renderedFrames: acc.frames, cachedFrames: acc.cachedFrames, sourceRenders: pool.renders });
     progress.delete(job.id);
     if (crash && !signal.aborted) throw new Error(outcome.message);
     return { ok: outcome.ok };
@@ -222,16 +224,16 @@ export function createWork({ store, library, reviewer, scheduler }) {
 
   const shotsOf = (film, plan) => plan.map((p) => ({ shot: film.shots.find((s) => s.id === p.shot), frames: p.frames }));
 
-  /** 渲一批帧并进索引，记显卡秒和帧数。交回 { records, cache }：cache 是这一批的缓存账 { renderedFrames, cachedFrames, shots } */
+  /** 渲一批帧并进索引，记显卡秒和帧数。交回 { records, cache, versions }：cache 是这一批的缓存账 { renderedFrames, cachedFrames, shots }，versions 给 layerL2 */
   async function renderInto(cx, tier, plan, sub) {
     const { film, lock, snapshot, dir, pool, signal, lutPath, acc, id, rev } = cx;
-    const { records, gpuSeconds, ...cache } = await renderPlan({ film, lock, filmDir: snapshot.dir, tier, plan: shotsOf(film, plan), outDir: join(dir, sub), pool, signal, lutPath,
+    const { records, gpuSeconds, versions, ...cache } = await renderPlan({ film, lock, filmDir: snapshot.dir, tier, plan: shotsOf(film, plan), outDir: join(dir, sub), pool, signal, lutPath,
       cache: shotCache(id),
       onFrame(seconds) { acc.gpuSeconds += seconds; acc.frames++; },
     });
     acc.cachedFrames += cache.cachedFrames;
     mergeFrames(id, tier, rev, records);
-    return { records, cache };
+    return { records, cache, versions };
   }
 
   const gatesOf = (l1, l2, l3) => ({
@@ -302,12 +304,14 @@ export function createWork({ store, library, reviewer, scheduler }) {
     deliver: handler('deliver', async (cx) => {
       const { job, step, film, lock, lockFile, snapshot, pool, signal, id, rev, dir, lutPath, meta, intermediateDir, acc } = cx;
       const plan = film.shots.map((s) => ({ shot: s.id, frames: span(s.in, s.out) }));
-      const { records, cache } = await step('render', () => renderInto(cx, 'final', plan, 'frames'));
+      const { records, cache, versions } = await step('render', () => renderInto(cx, 'final', plan, 'frames'));
       const bundle = await step('comp', () => deliverBundle({ film, lock: lockFile, records, lutPath, outDir: join(dir, 'bundle') }));
       const master = join(bundle.dir, 'master.mp4');
       const l1 = layerL1(film, snapshot.dir, rev, meta.question);
+      // 这一轮全部命中、这一版又过过门的镜头照缓存里的记录用，不起帧源；单独的核验作业（上面的 verify）每次真跑
       const l2 = await step('l2', async () => {
-        const res = await layerL2({ film, lock, filmDir: snapshot.dir, shots: film.shots, records, pool, scratch: join(intermediateDir, 'l2'), signal, onGpu(seconds) { acc.gpuSeconds += seconds; } });
+        const res = await layerL2({ film, lock, filmDir: snapshot.dir, shots: film.shots, records, pool, scratch: join(intermediateDir, 'l2'), signal, onGpu(seconds) { acc.gpuSeconds += seconds; },
+          cache: shotCache(id), versions });
         return res;
       });
       const l3 = await step('l3', async () => layerL3({
