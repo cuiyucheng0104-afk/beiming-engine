@@ -34,6 +34,19 @@ function hasControlChar(text) {
   return false;
 }
 
+// 领取文件与账本锁都靠它判断留下记录的进程还在不在。
+export function processIsAlive(pid) {
+  if (!Number.isSafeInteger(pid) || pid < 1) throw new Error('作业执行进程记录损坏。');
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error.code === 'ESRCH') return false;
+    if (error.code === 'EPERM') return true;
+    throw error;
+  }
+}
+
 export function safePath(root, relative) {
   if (typeof relative !== 'string' || hasControlChar(relative) || /[\\:<>"|?*]/.test(relative)) {
     throw codedError('contract.bad-path', '工作区路径必须是相对路径。');

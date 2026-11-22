@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { atomicWrite, checkJobId, checkKeep, openWorkspace, readText, safePath } from './workspace.mjs';
+import { atomicWrite, checkJobId, checkKeep, openWorkspace, processIsAlive, readText, safePath } from './workspace.mjs';
+import { appendJobLedger, quoteFromDraft, readJobLedger, summarizeJobLedger } from './ledger.mjs';
 import { defaultScheduler } from './scheduler.mjs';
 
 const terminal = new Set(['succeeded', 'failed', 'canceled', 'stopped']);
@@ -49,23 +50,12 @@ function message(error) {
   return error instanceof Error ? error.message || error.name : String(error);
 }
 
-function processIsAlive(pid) {
-  if (!Number.isSafeInteger(pid) || pid < 1) throw new Error('作业执行进程记录损坏。');
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if (error.code === 'ESRCH') return false;
-    if (error.code === 'EPERM') return true;
-    throw error;
-  }
-}
-
 // dir 是工作区根目录，队列描述存放在 jobs/<id>/job.json。
 // 一个执行进程管理设备租约，交接时由新进程读盘或显式重放。
 export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, clock = () => performance.now() } = {}) {
   const workspace = openWorkspace(dir);
   const jobFile = id => workspace.resolve(`jobs/${checkJobId(id)}/job.json`);
+  const ledgerFile = () => workspace.resolve('jobs/ledger.jsonl');
   const ownerFile = (id, attempt, generation) => workspace.resolve(`jobs/${checkJobId(id)}/attempt-${attempt}.owner-${generation}`);
 
   function readJob(id) {
@@ -154,9 +144,32 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     return ids.map(readJob);
   }
 
-  function finish(job, status, details) {
+  // 终态结算：给这一轮记一行成本。执行器在返回值（失败时在抛出的错误上）的 cost 里回报显卡秒、token 与帧数，没回报的记 0。
+  // 记账失败不扣住作业：原因写进终态事件的 ledgerError，作业照常收尾。
+  function settle(job, status, { cost = {}, startedAt } = {}) {
+    try {
+      if (cost === null || typeof cost !== 'object' || Array.isArray(cost)) throw new TypeError('执行器回报的 cost 必须是对象。');
+      const steps = job.steps.filter(step => step.attempt === job.attempt);
+      appendJobLedger(ledgerFile(), {
+        // 没真正跑起来的轮次（排队中取消、重放时补记的中断）只有已落盘的步骤耗时可用。
+        wallMs: startedAt === undefined ? steps.reduce((ms, step) => ms + (step.durationMs ?? 0), 0) : performance.now() - startedAt,
+        renderedFrames: 0,
+        deliveredFrames: 0,
+        workspaceDir: workspace.root,
+        ...cost,
+        jobId: job.id, attempt: job.attempt, kind: job.request.kind, handler: job.handler, rev: job.snapshot.rev, status,
+      });
+      return undefined;
+    } catch (error) {
+      return { ledgerError: message(error) };
+    }
+  }
+
+  function finish(job, status, details, usage) {
+    // 先结算再清理，磁盘字节才算得进这一轮的中间产物；先落账再存状态，崩在中间时重放只会读回已有的那一行。
+    const ledger = settle(job, status, usage);
     workspace.cleanupIntermediate(job.id, { keep: job.keep, status, attempt: job.attempt });
-    transition(job, status, details);
+    transition(job, status, { ...details, ...ledger });
     save(job);
   }
 
@@ -175,18 +188,20 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
         }
         transition(job, 'running');
         save(job);
+        const startedAt = performance.now();
         const outcome = await executeAttempt(job, handler, lease.signal);
+        const usage = { cost: outcome.result?.cost ?? outcome.cost, startedAt };
         if (signal.aborted) {
-          finish(job, 'canceled', { reason: 'canceled' });
+          finish(job, 'canceled', { reason: 'canceled' }, usage);
           return job;
         }
         if (lease.signal.reason !== 'preempted') {
           if (outcome.error !== undefined) job.error = outcome.error;
           if (outcome.result !== undefined) job.result = outcome.result;
-          finish(job, outcome.status);
+          finish(job, outcome.status, undefined, usage);
           return job;
         }
-        finish(job, 'stopped', { reason: 'preempted' });
+        finish(job, 'stopped', { reason: 'preempted' }, usage);
         claim(job, job.attempt + 1);
         nextAttempt(job);
         save(job);
@@ -258,7 +273,7 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
         intermediateDir });
       return { status: 'succeeded', ...(result !== undefined && { result: jsonValue(result) }) };
     } catch (error) {
-      return { status: 'failed', error: message(error) };
+      return { status: 'failed', error: message(error), cost: error?.cost };
     } finally {
       acceptingSteps = false;
       await Promise.allSettled(pending);
@@ -352,7 +367,18 @@ export function loadQueue(dir, { handlers = {}, scheduler = defaultScheduler, cl
     });
   }
 
-  return Object.freeze({ enqueue, runJob, getJob: readJob, listJobs, jobFile, waitForJob, cancelJob, replay });
+  const readLedger = options => readJobLedger(ledgerFile(), options);
+
+  // 终渲前报价：给 draftJobId 就从账本取那个草稿作业最近一次成功轮次的实测（渲帧数、显卡秒、墙钟），其余参数同 quoteFromDraft。
+  function quoteJobFromDraft({ draftJobId, ...draft } = {}) {
+    if (draftJobId === undefined) return quoteFromDraft(draft);
+    const row = readLedger().findLast(row => row.jobId === draftJobId && row.status === 'succeeded' && row.gpuKnown);
+    if (!row) throw new Error(`账本里没有草稿作业 ${draftJobId} 的实测成本：它要成功跑完并回报显卡秒。`);
+    return quoteFromDraft({ ...draft, draftFrames: row.renderedFrames, draftGpuSeconds: row.gpuSeconds, draftWallMs: row.wallMs });
+  }
+
+  return Object.freeze({ enqueue, runJob, getJob: readJob, listJobs, jobFile, waitForJob, cancelJob, replay,
+    ledgerFile, readLedger, summarizeLedger: options => summarizeJobLedger(ledgerFile(), options), quoteJobFromDraft });
 }
 
 export function replayJob(jobFile, handlers, options) {
